@@ -1,0 +1,928 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/components/panel.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+PUBLIC INTEGER windowcounter;
+
+
+/** @short The screen's frame (represents the <screen> node itself)
+*/
+PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  //STRING pvt_module;
+  //STRING pvt_pagefile;
+  OBJECT pvt_menubar;
+  BOOLEAN pvt_forcemenubar;
+  OBJECT realbody;
+  PUBLIC OBJECT bodynode;
+  PUBLIC OBJECT footernode;
+  PUBLIC BOOLEAN allowresize;
+  PUBLIC STRING ARRAY savestate;
+  STRING pvt_gid;
+  RECORD savedframestate;
+
+  OBJECT badge;
+
+  BOOLEAN pvt_allowclose;
+  STRING integration_guid;
+
+ //FIXME: Conflicts with list flags (which is the list of allowed flags)
+  RECORD pvt_flags;
+
+  BOOLEAN __is_tollium_frame; //workaround to check for extendsfrom TolliumFrame
+
+  // ---------------------------------------------------------------------------
+  //
+  // Semi-private variables
+  //
+
+  /*FIXME: PRIVATE*/PUBLIC OBJECT pvt_focused_component;
+
+  PUBLIC RECORD pvt_tolliumweb_upload; // If not empty, this window can be replaced with a Flash file upload in JavaScript
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables and properties
+  //
+
+  /// Screen id of the top screen
+  PUBLIC PROPERTY instancename(GetInstanceName, -);
+
+  /// Base key name for saved state
+  PUBLIC STRING savestatebasekey;
+
+  UPDATE PUBLIC PROPERTY focused(-, SetFocusedComponent);
+  PUBLIC PROPERTY module(GetModule, -);
+  PUBLIC PROPERTY screenname(GetScreenName, -);
+
+  PUBLIC PROPERTY allowclose(pvt_allowclose, SetAllowClose);
+  PUBLIC INTEGER pvt_interval;
+  PUBLIC OBJECT ARRAY toolbars;
+  PUBLIC PROPERTY menubar(pvt_menubar, SetMenuBar);
+
+  PUBLIC FUNCTION PTR oninterval;
+  PUBLIC FUNCTION PTR onshow;
+  PUBLIC FUNCTION PTR onunload;
+  PUBLIC FUNCTION PTR onmessage;
+  PUBLIC PROPERTY forcemenubar(pvt_forcemenubar, SetForceMenuBar);
+
+  /** @short Files currently being dragged in
+      @cell(string) draggedfiles.filename File name supplied by client
+      @cell(blob) draggedfiles.data File data */
+  PUBLIC RECORD ARRAY draggedfiles;
+
+  ///The gid given to the screen
+  PUBLIC PROPERTY gid(pvt_gid, -);
+  PUBLIC STRING icon;
+
+  // If this frame is mounted in a panel, this is the panel. (ADDME protect this property, only Panel should be able to set it)
+  PUBLIC OBJECT containingpanel;
+
+  PUBLIC PROPERTY interval(pvt_interval, pvt_interval);
+
+  PUBLIC PROPERTY flags(pvt_flags, SetFlags);
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    RETURN this->owner->tolliumscreenmanager->GetFrameChildren();
+  }
+
+  OBJECT currentmenubutton;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium basic stuff
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_flags := CELL[];
+    this->pvt_enabled := TRUE;
+    windowcounter := windowcounter + 1;
+    this->componenttype := "frame";
+    this->savestatebasekey := this->owner->tolliumscreenmanager->resourcename || "#" || this->owner->tolliumscreenmanager->screenname;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    definition := CELL[ ...definition
+                      //mock some properties that can't be passed to <screen>
+                      , enabled := TRUE
+                      , readonly := FALSE
+                      , visible := TRUE
+                      , hint := ""
+                      ];
+    TolliumComponentBase::StaticInit(definition);
+
+    this->icon := definition.icon;
+
+    //ADDME perhaps the parser should set the hidden panel for us..
+    this->realbody := this->owner->CreateTolliumComponent("panel");
+    this->realbody->pvt_parent := this; //manual visibility code, as we don't have InsertComponent to help us here
+    this->realbody->RecursiveUpdateIsNowVisible();
+
+    this->bodynode   := definition.bodynode[0].component;
+    this->footernode := RecordExists(definition.footernode) ? definition.footernode[0].component : DEFAULT OBJECT;
+
+    this->toolbars := SELECT AS OBJECT ARRAY component FROM definition.toolbars;
+    this->pvt_menubar := definition.menubar;
+
+    FOREVERY(STRING flag FROM definition.flags)
+      this->pvt_flags := CellInsert(this->pvt_flags, flag, TRUE);
+
+    this->pvt_gid := definition.gid;
+    this->allowresize := definition.allowresize;
+    this->allowclose := definition.allowclose;
+    this->oninterval := definition.oninterval;
+    this->pvt_interval := definition.interval;
+    this->onshow := definition.onshow;
+    this->onunload := definition.onunload;
+    this->onmessage:= definition.onmessage;
+    this->forcemenubar := definition.forcemenubar;
+
+    IF ("position" IN definition.savestate)
+      INSERT "position" INTO this->savestate AT END;
+    IF ("size" IN definition.savestate)
+      INSERT "size" INTO this->savestate AT END;
+    //ADDME: Deprecated, left here for backwards compatibility
+    IF ("true" IN definition.savestate)
+      this->savestate := [ "position", "size" ];
+  }
+
+  UPDATE PUBLIC MACRO PreShowComponent()
+  {
+    this->UpdateMenuBarAndButton();
+  }
+
+  UPDATE BOOLEAN FUNCTION CalculateIsNowVisible()
+  {
+    IF (ObjectExists(this->containingpanel) AND NOT this->containingpanel->isnowvisible)
+      RETURN FALSE;
+    RETURN this->pvt_visible AND ObjectExists(this->pvt_owner);
+  }
+
+  MACRO UpdateMenuBarAndButton()
+  {
+    BOOLEAN placeontoolbar := Length(this->toolbars) > 0 AND ObjectExists(this->menubar) AND NOT this->forcemenubar;
+
+    IF(NOT placeontoolbar)
+    {
+      this->ExtUpdatedComponent(); //update the 'menubar' memner
+      IF(NOT ObjectExists(this->currentmenubutton))
+        RETURN;
+
+      this->currentmenubutton->DeleteComponent();
+      this->currentmenubutton := DEFAULT OBJECT;
+      RETURN;
+    }
+
+    IF(ObjectExists(this->currentmenubutton))
+    {
+      //just update the menu, it'll extupdatecomp itself
+      this->currentmenubutton->menu := this->menubar;
+      RETURN;
+    }
+
+    //create it
+    this->currentmenubutton := this->owner->CreateTolliumComponent("button");
+    this->currentmenubutton->icon := "tollium:actions/menu";
+    this->currentmenubutton->menu := this->menubar;
+    this->currentmenubutton->title := GetTid("tollium:common.actions.menu");
+    this->currentmenubutton->ismenubutton := TRUE;
+    this->toolbars[0]->menubutton := this->currentmenubutton;
+
+    this->ExtUpdatedComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  STRING FUNCTION GetScreenName()
+  {
+    RETURN this->owner->tolliumscreenmanager->resourcename || "#" || this->owner->tolliumscreenmanager->screenname;
+  }
+
+  STRING FUNCTION GetModule()
+  {
+    RETURN GetModuleNameFromResourcePath(this->owner->tolliumscreenmanager->resourcename);
+  }
+
+  MACRO SetFocusedComponent(OBJECT comp, BOOLEAN handleupdates DEFAULTSTO TRUE)
+  {
+    this->pvt_focused_component := handleupdates ? comp->GetEnableOnComponent() : comp;
+    IF (handleupdates)
+      this->ExtUpdatedFocus();
+  //    this->TolliumHandleFocusUpdate();
+  }
+
+  PUBLIC MACRO SetAllowClose(BOOLEAN newallowclose)
+  {
+    IF(this->pvt_allowclose = newallowclose)
+      RETURN;
+
+    this->pvt_allowclose := newallowclose;
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE MACRO SetVisible(BOOLEAN newstate)
+  {
+    //ADDME if real modules hit this warning, see if we could safely ignore. but we at least need to know the use-cases..
+    THROW NEW Exception("Visible property manually modified, but Tollium no longer supports explicit visiblity management");
+
+    IF(this->visible = newstate)
+      RETURN;
+
+    //this->owner->tolliumcontroller->Tollium_InformVisibleScreen(this->owner, newstate);
+    TolliumComponentBase::SetVisible(newstate);
+    this->ExtUpdatedComponent();
+  }
+
+  STRING FUNCTION GetInstanceName()
+  {
+    IF (NOT ObjectExists(this->containingpanel))
+      RETURN this->pvt_owner->tolliumscreenid;
+
+    RETURN this->containingpanel->owner->tolliumscreenmanager->frame->instancename;
+  }
+
+  MACRO SetInstanceName(STRING newwebname)
+  {
+    IF (ObjectExists(this->containingpanel))
+      THROW NEW TolliumException(this, "Can't set the webname of a contained screen");
+
+    this->pvt_instancename := newwebname;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overridden stuff
+  //
+
+  UPDATE PUBLIC MACRO EnsurePreInit() //FIXME get rid of this, but we need to fully override ensure instead of preinit to keep proper ordering after moving around the body
+  {
+    BOOLEAN mustpreinit := NOT this->pvt_havepreinited;
+    this->pvt_havepreinited := TRUE;
+
+    FOREVERY(OBJECT comp FROM this->GetChildComponents())
+      comp->EnsurePreInit();
+
+    IF(mustpreinit)
+      this->PreInitComponent();
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    IF(ObjectExists(this->bodynode))
+    {
+      this->bodynode->RemoveFromParent();
+      IF(this->bodynode->minheight="")
+        this->bodynode->minheight := "3x";
+
+      IF(this->bodynode->height = "")
+        this->bodynode->height := "1pr";
+
+      this->bodynode->vscroll := TRUE;
+
+      //ADDME transplant width/height from body ?
+      this->realbody->InsertComponentAfter(this->bodynode, DEFAULT OBJECT, TRUE);
+
+      IF(this->bodynode->spacers.usedefault)
+        this->bodynode->spacers := [ top := TRUE, bottom := TRUE, left := TRUE, right := TRUE ];
+    }
+    IF(ObjectExists(this->footernode))
+    {
+      this->footernode->RemoveFromParent();
+      this->footernode->isfooter := TRUE;
+      this->realbody->InsertComponentAfter(this->footernode, DEFAULT OBJECT, TRUE);
+
+      IF(this->footernode->spacers.usedefault)
+        this->footernode->spacers := [ top := TRUE, bottom := TRUE, left := TRUE, right := TRUE ];
+    }
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+     //ADDME if we don't have an onclose handler, we should allow the client to asynchronously close the window
+    SWITCH(type)
+    {
+      CASE "message"
+      {
+        IF(this->onmessage != DEFAULT MACRO PTR)
+          this->onmessage(msgdata);
+      }
+      CASE "close"
+      {
+        this->owner->TolliumExecuteCancel();
+        RETURN;
+      }
+      DEFAULT
+      {
+        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+  UPDATE MACRO DoSendFile(BLOB data, STRING type, STRING filename, DATETIME last_modified, BOOLEAN as_download)
+  {
+    this->owner->RunScreen("mod::tollium/screens/commondialogs.xml#senduserfile", CELL[ data, mimetype := type, filename ] );
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BOOLEAN FUNCTION IsApplicationRoot()
+  {
+    RETURN Length(this->owner->tolliumcontroller->windowstack)>0 AND this->owner->tolliumcontroller->windowstack[0] = this->owner;
+  }
+
+  MACRO AddFlagsToContainer()
+  {
+    RECORD flags := this->containingpanel->owner->frame->flags;
+    FOREVERY(RECORD flag FROM UnpackRecord(this->flags))
+    {
+      STRING flagname := this->RemapFlagName(flag.name);
+      flags := CellInsert(flags, flagname, flag.value);
+    }
+    this->containingpanel->owner->frame->flags := flags;
+  }
+
+  MACRO RemoveFlagsFromContainer()
+  {
+    RECORD flags := this->containingpanel->owner->frame->flags;
+    FOREVERY(RECORD flag FROM UnpackRecord(this->flags))
+      flags := CellDelete(flags, this->RemapFlagName(flag.name));
+    this->containingpanel->owner->frame->flags := flags;
+  }
+
+  OBJECT ARRAY FUNCTION GetAllVisibleSpecialComponents() //gather all special components, even in subframes (FIXME properly AddComponent specials so we don't need to resort to manual dsicovery)
+  {
+    OBJECT ARRAY specials := this->owner->tolliumscreenmanager->GetSpecialComponents();
+
+    //now walk the entire component structure to find panels with contents
+    FOREVERY(OBJECT comp FROM this->GetTopDownAllComponents())
+      IF(comp EXTENDSFROM TolliumPanel AND ObjectExists(comp->contents))
+        specials := specials CONCAT comp->contents->tolliumscreenmanager->GetSpecialComponents();
+
+    RETURN specials;
+  }
+
+  RECORD FUNCTION GetFileTypesForMimeTypes(STRING ARRAY mimetypes)
+  {
+    IF (Length(mimetypes) > 0)
+    {
+      RECORD ARRAY types; /* STRING mimetype, STRING ARRAY extensions */
+      FOREVERY (STRING mimetype FROM mimetypes)
+      {
+        STRING ARRAY typeparts := Tokenize(mimetype, '|');
+        STRING ARRAY mimeparts := Tokenize(typeparts[0], '/');
+        STRING ARRAY exts;
+        STRING typename;
+        IF (Length(typeparts) > 1)
+        {
+          mimetypes[#mimetype] := typeparts[0];
+          exts := Tokenize(typeparts[1], ';');
+          IF (Length(typeparts) > 2)
+          {
+            INSERT [ extensions := exts
+                   , mimetype := typeparts[0]
+                   , typename := typeparts[2]
+                   ] INTO types AT END;
+            CONTINUE;
+          }
+        }
+        ELSE
+        {
+          //Look up possible extensions
+          exts := ["*.*"];
+        }
+
+        RECORD t := SELECT #types AS i FROM types WHERE COLUMN mimetype = mimeparts[0];
+        IF (RecordExists(t))
+        {
+          types[t.i].extensions := types[t.i].extensions CONCAT exts;
+        }
+        ELSE
+        {
+          INSERT [ extensions := exts
+                 , mimetype := mimeparts[0]
+                 , typename := ToUppercase(Left(mimeparts[0],1))||Right(mimeparts[0],Length(mimeparts[0])-1) || " Files" //FIXME: Temporary type name, replace with better, localized name
+                 ] INTO types AT END;
+        }
+      }
+      STRING ARRAY filetypes;
+      FOREVERY (RECORD type FROM types)
+      {
+        STRING extensions := Detokenize(type.extensions, ';');
+        STRING typename := type.typename;
+        STRING typenameextensions := Detokenize(type.extensions, ',');
+        INSERT extensions || '\t' || GetTid("tollium:components.file.filetype", typename, typenameextensions) INTO filetypes AT END;
+      }
+      RETURN [ mimetypes := mimetypes
+             , filetypes := Detokenize(filetypes, '\t')
+             ];
+    }
+    ELSE
+    {
+      STRING alltypes := GetTid("tollium:components.file.alltypes");
+      RETURN [ mimetypes := mimetypes
+             , filetypes := "*.*\t" || GetTid("tollium:components.file.filetype", alltypes, "*.*")
+             ];
+    }
+  }
+
+  /** Mix in the name of this frame into a flagname, so flags with the same names from multiple frames can
+      be put into the main frame flags array.
+  */
+  STRING FUNCTION RemapFlagName(STRING name)
+  {
+    // Separate prefixes from the name
+    STRING prefix;
+    IF(name LIKE "!*")
+    {
+      prefix:=Left(name,1);
+      name := Substring(name,1);
+    }
+
+    IF(this->integration_guid = "")
+      this->integration_guid := GenerateUFS128BitId();
+
+    RETURN ToLowercase(Left(prefix || name, 64 - (128 / 4) - 1) || "$" || this->integration_guid);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ bodynode :=           FALSE
+        , flags :=              FALSE
+        , focus :=              FALSE
+        , components :=         FALSE
+        , badge :=              FALSE
+        , title :=              FALSE
+        , newwindows :=         DEFAULT OBJECT ARRAY
+        , deletedcomponents :=  DEFAULT STRING ARRAY
+        ];
+  }
+
+  MACRO ExtRemoveWindow(OBJECT win)
+  {
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO ExtUpdatedVisible()
+  {
+  }
+
+  UPDATE PUBLIC MACRO ExtUpdatedComponent()
+  {
+    IF(this->containingpanel != DEFAULT OBJECT)
+      this->containingpanel->ExtUpdatedComponent();
+
+    TolliumComponentBase::ExtUpdatedComponent();
+
+    /* FIXME: Allow direct bodynode reconstruction?
+    IF (NOT RecordExists(this->dirtyflags))
+      this->dirtyflags := extendframe_dirty;
+    this->dirtyflags.bodynode := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedFlags()
+  {
+    this->SetDirtyFlags([ flags := TRUE ]);
+  }
+
+  MACRO ExtUpdatedFocus()
+  {
+    this->SetDirtyFlags([ focus := TRUE ]);
+  }
+
+  UPDATE PUBLIC MACRO ExtUpdatedComponentList()
+  {
+    IF(this->containingpanel != DEFAULT OBJECT)
+      this->containingpanel->ExtUpdatedComponent();
+
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.components := TRUE;
+  }
+
+  MACRO ExtUpdatedBadge()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.badge := TRUE;
+    */
+  }
+
+  MACRO ExtAddWindow(OBJECT win)
+  {
+    this->EnsureFilledDirtyFlags();
+    INSERT win INTO this->dirtyflags.newwindows AT END;
+  }
+
+  UPDATE MACRO ExtUpdatedTitle()
+  {
+    // The frame is responsible for drawing its own title
+    this->SetDirtyFlags([ title := TRUE ]);
+  }
+
+  PUBLIC VARIANT FUNCTION ExtGetUserFiles(INTEGER maxsize, STRING ARRAY mimetypes, STRING filetypes, BOOLEAN multiple)
+  {
+    OBJECT uploaddialog := this->owner->LoadScreen('tollium:commondialogs.getuserfile', [ offer_ok_button := FALSE, multiple:=multiple ] );
+    uploaddialog->mimetypes := mimetypes;
+    uploaddialog->tolliumscreenmanager->frame->pvt_tolliumweb_upload
+        := [ sessionid := uploaddialog->GetFileUploadSesssionId()
+           , maxsize := maxsize
+           , filetypes := filetypes
+           , multiple := multiple
+           ];
+
+    SWITCH(uploaddialog->RunModal())
+    {
+      CASE "ok"
+      {
+        RETURN uploaddialog->GetResult();
+      }
+      CASE "typeerror"
+      {
+        //ADDME: Maybe a more user-friendly way to handle this situation than just giving an error message?
+        this->owner->RunMessageBox("tollium:commondialogs.wrong_file_type", uploaddialog->error_file.filename, "1");
+      }
+    }
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Semi-private internal tollium API
+  //
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
+  {
+  }
+
+  PUBLIC MACRO Tollium_DeletedComponent(OBJECT component)
+  {
+    this->EnsureFilledDirtyFlags();
+    INSERT GetComponentName(component) INTO this->dirtyflags.deletedcomponents AT END;
+  }
+
+  PUBLIC MACRO OnShowFrame()
+  {
+    this->RestoreComponentState();
+    IF (this->onshow != DEFAULT FUNCTION PTR)
+      this->onshow();
+  }
+
+  PUBLIC MACRO OnUnloadFrame()
+  {
+    //Close us, but we can't use a normal Close message, as we won't be transferring any messages at all soon.
+    this->owner->tolliumcontroller->SendAppLevelMessage("closescreen", [screen := this->instancename ]);
+
+    IF (this->onunload != DEFAULT FUNCTION PTR)
+      this->onunload();
+
+    this->SaveComponentState();
+    FOREVERY(OBJECT comp FROM this->GetChildComponents())
+      comp->OnUnloadComponent();
+
+    IF(ObjectExists(this->contexts->user))
+      this->contexts->user->ApplyDelayedRegistrySets(); //make sure any pending registry actions are commited when the window ends
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    RETURN CheckEnabledFlags([ this->pvt_flags ], (SELECT AS STRING ARRAY name FROM UnpackRecord(this->pvt_flags)), flags, 1, 1, "all");
+  }
+
+  PUBLIC MACRO TolliumWeb_UpdateField(STRING name, STRING value)
+  {
+    this->ToddUpdate([value := value, type := "value"]);
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF(ObjectExists(this->containingpanel)) //we shouldn't be forwarded to toddng, we're transparent and life is easier with just one frame per window
+      THROW NEW Exception("Contained panels should not have their TolliumWebRender function invoked");
+
+    IF (this->dirtyflags.fully)
+    {
+      RECORD frameinfo := [ menubar := ObjectExists(this->menubar) AND NOT ObjectExists(this->currentmenubutton) ? GetComponentName(this->menubar) : ""
+                          //, parentwindow := ObjectExists(this->owner->tolliumparent) ? this->owner->tolliumparent->tolliumscreenmanager->frame->tolliumweb_name : ""
+                          , unmasked_events := MemberExists(this,"CANCEL") ? [ "cancel" ] : DEFAULT STRING ARRAY
+                          //, screenname := this->tolliumweb_name
+                          , allowresize := this->allowresize
+                          , allowclose := this->allowclose
+                          , badge := GetComponentName(this->badge)
+                          , visible := this->visible
+                          , title := this->title
+                          , screenname := this->screenname
+                          ];
+
+/*
+      IF (CellExists(this->savedframestate, 'top') AND this->savedframestate.top >= 0)
+        INSERT CELL top := this->savedframestate.top INTO frameinfo;
+      IF (CellExists(this->savedframestate, 'left') AND this->savedframestate.left >= 0)
+        INSERT CELL left := this->savedframestate.left INTO frameinfo;
+*/
+      IF(RecordExists(this->pvt_tolliumweb_upload))
+      {
+        INSERT CELL uploadsessionid := this->pvt_tolliumweb_upload.sessionid INTO frameinfo;
+        INSERT CELL uploadmaxsize   := this->pvt_tolliumweb_upload.maxsize INTO frameinfo;
+        INSERT CELL uploadfiletypes := this->pvt_tolliumweb_upload.filetypes INTO frameinfo;
+        INSERT CELL uploadmultiple  := this->pvt_tolliumweb_upload.multiple INTO frameinfo;
+      }
+
+      INSERT CELL toolbars := GetVisibleComponentNames(this->toolbars) INTO frameinfo;
+      INSERT CELL bodynode := GetComponentName(this->realbody) INTO frameinfo;
+      INSERT CELL specials := GetComponentNames(this->GetAllVisibleSpecialComponents()) INTO frameinfo;
+      INSERT CELL flags := this->flags INTO frameinfo;
+      this->owner->tolliumcontroller->SendComponent(this, frameinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.title)
+        this->ToddUpdate([ type:="title", title := this->title ]);
+
+      IF (this->dirtyflags.flags)
+        this->ToddUpdate([type:="flags", flags := this->flags]);
+
+      IF (this->dirtyflags.components)
+        this->ToddUpdate([type:="specials", specials := GetVisibleComponentNames(this->GetAllVisibleSpecialComponents()) ]);
+
+      IF (this->dirtyflags.badge)
+        this->ToddUpdate([type:="badge", badge := GetComponentName(this->badge) ]);
+    }
+
+    IF (LENGTH(this->dirtyflags.deletedcomponents) != 0)
+      this->ToddUpdate([type:="deletedcomponents", deletedcomponents := this->dirtyflags.deletedcomponents ]);
+    IF (this->dirtyflags.focus)
+      this->ToddUpdate([type:="focus", focused := GetComponentName(this->pvt_focused_component) ]);
+
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_ParseForm(RECORD submittedvariables)
+  {
+    IF (CellExists(submittedvariables, 'frame'))
+    {
+      RECORD frame := submittedvariables.frame;
+
+      IF(CellExists(frame, 'focused'))
+      {
+        IF(frame.focused!='')
+        {
+          OBJECT comp := this->owner->tolliumscreenmanager->GetToddComponentNoFail(frame.focused);
+          IF(ObjectExists(comp))
+            this->SetFocusedComponent(comp, /*handleupdates=*/FALSE);
+        }
+      }
+      IF (/*CellExists(frame, 'top')
+          AND CellExists(frame, 'left')
+          AND*/ CellExists(frame, 'width')
+          AND CellExists(frame, 'height'))
+      {
+        this->savedframestate := [/* top := frame.top
+                                 , left := frame.left
+                                 , */width := this->allowresize ? frame.width : 0
+                                 , height := this->allowresize ? frame.height : 0
+                                 ];
+      }
+      DELETE CELL frame FROM submittedvariables;
+    }
+
+    FOREVERY(OBJECT comp FROM this->GetTopDownUpdatableComponents())
+    {
+      STRING toddname := GetComponentName(comp);
+      IF(comp->formfieldtype != "" AND CellExists(submittedvariables, toddname)) //FIXME deze aanpak riskeert te lange namen bij embedded panels
+      {
+        comp->TolliumWeb_FormUpdate(GetCell(submittedvariables, toddname));
+        submittedvariables := CellDelete(submittedvariables, toddname);
+      }
+    }
+  }
+
+  UPDATE PUBLIC MACRO SaveComponentState()
+  {
+    RECORD state;
+
+    IF ("position" IN this->savestate AND CellExists(this->savedframestate, "top") AND CellExists(this->savedframestate, "left"))
+    {
+      INSERT CELL top := this->savedframestate.top INTO state;
+      INSERT CELL left := this->savedframestate.left INTO state;
+    }
+    IF ("size" IN this->savestate AND CellExists(this->savedframestate, "width") AND CellExists(this->savedframestate, "height"))
+    {
+      INSERT CELL width := this->savedframestate.width INTO state;
+      INSERT CELL height := this->savedframestate.height INTO state;
+    }
+    IF (RecordExists(state))
+      this->owner->tolliumuser->SetComponentState(this->GetSaveStateKey(), state);
+
+    FOREVERY(OBJECT comp FROM this->GetChildComponents())
+      comp->SaveComponentState();
+  }
+
+  UPDATE PUBLIC MACRO RestoreComponentState()
+  {
+    this->savedframestate := DEFAULT RECORD;
+
+    RECORD state := this->owner->tolliumuser->GetComponentState(this->GetSaveStateKey());
+    IF ("position" IN this->savestate AND CellExists(state, "top") AND CellExists(state, "left"))
+    {
+      INSERT CELL top := state.top INTO this->savedframestate;
+      INSERT CELL left := state.left INTO this->savedframestate;
+    }
+    IF ("size" IN this->savestate AND CellExists(state, "width") AND CellExists(state, "height"))
+    {
+      this->width := state.width || 'px';
+      this->height := state.height || 'px';
+    }
+
+    FOREVERY(OBJECT comp FROM this->GetChildComponents())
+      comp->RestoreComponentState();
+  }
+
+  //panel callback
+  PUBLIC MACRO __PVT_RemoveFromPanel()
+  {
+    // Remove us from the list of dirty subscreens
+    this->owner->TolliumIsSubScreenChange(FALSE);
+
+    // Get the screen manager of the containing panel, the components of this screen need to be unregistered there.
+    OBJECT parentscreenmgr := this->containingpanel->owner->tolliumscreenmanager;
+
+    this->RemoveFlagsFromContainer();
+    this->containingpanel := DEFAULT OBJECT;
+
+    this->__tollium_setrendersuppression(FALSE);
+    this->bodynode->__tollium_setrendersuppression(FALSE);
+    this->realbody->__tollium_setrendersuppression(FALSE);
+  }
+
+  PUBLIC MACRO __PVT_IntegrateIntoPanel(OBJECT newpanel)
+  {
+    IF (this->containingpanel != DEFAULT OBJECT)
+      THROW NEW TolliumException(this, "Cannot place a frame inside two panels at a time");
+    this->containingpanel := newpanel;
+
+    this->__tollium_setrendersuppression(TRUE);
+    this->bodynode->__tollium_setrendersuppression(TRUE);
+    this->realbody->__tollium_setrendersuppression(TRUE);
+
+    // Add us from the list of dirty subscreens when needed
+    this->owner->TolliumIsSubScreenChange(TRUE);
+
+    this->OnShowFrame();
+
+    // Components have been renamed
+    this->ExtUpdatedComponentList();
+
+    //FIXME all this code still seemds dangerous with two levels of embedded panels..
+    this->containingpanel->owner->frame->ExtUpdatedComponent(); //we need it to send a new actionlist
+    this->AddFlagsToContainer();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SetFlags(RECORD newflags)
+  {
+    IF(ObjectExists(this->containingpanel)) //remove and readd flags as an easy way to keep 'm in sync
+      this->RemoveFlagsFromContainer();
+
+    //FIXME: Validate the flags
+    this->pvt_flags := newflags;
+
+    this->ExtUpdatedFlags();
+
+    IF(ObjectExists(this->containingpanel))
+      this->AddFlagsToContainer();
+  }
+
+  PUBLIC INTEGER FUNCTION RegisterAppEventListener(STRING eventtag, MACRO PTR handler)
+  {
+    RETURN this->owner->tolliumcontroller->pvt_RegisterAppEventListener(this->owner, eventtag, handler);
+  }
+
+  PUBLIC MACRO UnregisterAppEventListener(INTEGER listenerid)
+  {
+    this->owner->tolliumcontroller->pvt_UnregisterAppEventListener(listenerid);
+  }
+
+  PUBLIC MACRO SetNotificationBadge(OBJECT badge)
+  {
+    this->badge := badge;
+    this->ExtUpdatedBadge();
+  }
+
+  PUBLIC MACRO SetMenuBar(OBJECT newbar)
+  {
+    IF(this->pvt_menubar=newbar)
+      RETURN;
+
+    this->pvt_menubar := newbar;
+    this->UpdateMenuBarAndButton();
+  }
+
+  PUBLIC MACRO SetForceMenuBar(BOOLEAN newforcebar)
+  {
+    IF(this->pvt_forcemenubar = newforcebar)
+      RETURN;
+
+    this->pvt_forcemenubar := newforcebar;
+    this->UpdateMenuBarAndButton();
+  }
+
+  PUBLIC MACRO OpenFileForUser(BLOB data, STRING type, STRING filename, DATETIME last_modified)
+  {
+    this->DoSendFile(data, type, filename, last_modified, FALSE);
+  }
+
+  PUBLIC MACRO SendFileToUser(BLOB data, STRING type, STRING filename, DATETIME last_modified)
+  {
+    this->DoSendFile(data, type, filename, last_modified, TRUE);
+  }
+
+  // @param mimetypes List of mimetype LIKE masks. For these mimetypes, a list
+//                  of appropriate file types is generated. Specific file
+//                  types can be set using the following syntax:
+//                    mimetype"|"type extension(s)"|"type name
+//                  for example:
+//                    "image/png|*.png|Portable Network Graphics"
+  PUBLIC RECORD FUNCTION GetUserFile(INTEGER maxsize, STRING ARRAY mimetypes)
+  {
+    RECORD typeinfo := this->GetFileTypesForMimeTypes(mimetypes);
+    RETURN this->ExtGetUserFiles(maxsize, typeinfo.mimetypes, typeinfo.filetypes, FALSE);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetUserFiles(INTEGER maxsize, STRING ARRAY mimetypes)
+  {
+    RECORD typeinfo := this->GetFileTypesForMimeTypes(mimetypes);
+    RETURN this->ExtGetUserFiles(maxsize, typeinfo.mimetypes, typeinfo.filetypes, TRUE);
+  }
+
+  PUBLIC MACRO OpenBrowserWindow(STRING url, STRING windowname)
+  {
+    //ADDME: Throw exception on invalid window name, eg containing a '-' (what's the correct set of chars IE7 allows?)
+    this->owner->tolliumcontroller->SendAppLevelMessage("callurl", [ url := url, target := windowname ]);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsWindowEnabled()
+  {
+    IF(this->containingpanel != DEFAULT OBJECT)
+      RETURN this->containingpanel->owner->tolliumscreenmanager->frame->IsWindowEnabled();
+
+    RETURN Length(this->owner->tolliumcontroller->windowstack) > 0 AND this->owner->tolliumcontroller->windowstack[END-1] = this->owner;
+  }
+
+  UPDATE PUBLIC MACRO QueueOutboundMessage(STRING type, RECORD msgdata)
+  {
+    IF(this->containingpanel != DEFAULT OBJECT)
+    {
+      this->containingpanel->owner->frame->QueueOutboundMessage(type, msgdata);
+      RETURN;
+    }
+    INSERT [ type := type, data := msgdata ] INTO this->pvt_queuedmessages AT END;
+    this->ExtUpdatedQueuedMessages();
+  }
+
+  PUBLIC STRING FUNCTION ParseIconPointer(STRING icon)
+  {
+    RETURN ParseIconPointer(this->module, icon);
+  }
+
+  /** @short Get updated flag names, possibly remapped if these are embedded names */
+  PUBLIC STRING ARRAY FUNCTION GetFlagNames(STRING ARRAY localnames)
+  {
+    IF(this->containingpanel = DEFAULT OBJECT)
+      RETURN localnames;
+
+    STRING ARRAY globalnames;
+    FOREVERY(STRING name FROM localnames)
+    {
+      INSERT this->RemapFlagName(name) INTO globalnames AT END;
+    }
+    RETURN globalnames;
+  }
+>;

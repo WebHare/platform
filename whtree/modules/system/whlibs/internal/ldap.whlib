@@ -1,0 +1,85 @@
+<?wh
+
+PUBLIC CONSTANT INTEGER LDAP_protocolOp_searchRequest := 3
+                      , LDAP_protocolOp_searchResponseEntry := 4 // single result entry
+                      , LDAP_protocolOp_searchResponse := 5 // result response code
+                      , LDAP_protocolOp_modifyRequest := 6
+                      , LDAP_protocolOp_modifyResponse := 7
+                      , LDAP_protocolOp_addRequest := 8
+                      , LDAP_protocolOp_addResponse := 9
+                      , LDAP_protocolOp_delRequest := 10
+                      , LDAP_protocolOp_delResponse := 11
+                      , LDAP_protocolOp_modifyDNRequest := 12
+                      , LDAP_protocolOp_modifyDNResponse := 13
+                      , LDAP_protocolOp_compareDNRequest := 14
+                      , LDAP_protocolOp_compareDNRespones := 15
+                      , LDAP_protocolOp_bindRequest := 0
+                      , LDAP_protocolOp_bindResponse := 1
+                      , LDAP_protocolOp_abandonRequest := 16
+                      , LDAP_protocolOp_unbindRequest := 2
+                      , LDAP_protocolOp_searchResultReference := 19
+                      ;
+PUBLIC CONSTANT INTEGER LDAP_authentication_simple := 0
+                      , LDAP_authentication_krbv42LDAP := 1
+                      , LDAP_authentication_krbv42DSA := 2
+                      ;
+PUBLIC CONSTANT INTEGER LDAP_scope_baseObject := 0
+                      , LDAP_scope_singleLevel := 1
+                      , LDAP_scope_wholeSubtree := 2
+                      ;
+PUBLIC CONSTANT INTEGER LDAP_derefAliases_neverDerefAliases := 0
+                      , LDAP_derefAliases_derefInSearching := 1
+                      , LDAP_derefAliases_derefFindingBaseObj := 2
+                      , LDAP_derefAliases_alwaysDerefAliases := 3
+                      ;
+PUBLIC CONSTANT INTEGER LDAP_Filter_and := 0
+                      , LDAP_Filter_or := 1
+                      , LDAP_Filter_not := 2
+                      , LDAP_Filter_equalityMatch := 3
+                      , LDAP_Filter_substrings := 4
+                      , LDAP_Filter_greaterOrEqual := 5
+                      , LDAP_Filter_lessOrEqual := 6
+                      , LDAP_Filter_present := 7
+                      , LDAP_Filter_approxMatch := 8
+                      ;
+PUBLIC CONSTANT INTEGER LDAP_SubstringFilter_initial := 0
+                      , LDAP_SubstringFilter_any := 1
+                      , LDAP_SubstringFilter_final := 2
+                      ;
+
+PUBLIC CONSTANT INTEGER LDAP_resultCode_success := 0
+                      , LDAP_resultCode_operationsError := 1
+                      , LDAP_resultCode_protocolError := 2
+                      , LDAP_resultCode_timeLimitExceeded := 3
+                      , LDAP_resultCode_sizeLimitExceeded := 4
+                      , LDAP_resultCode_compareFalse := 5
+                      , LDAP_resultCode_compareTrue := 6
+                      , LDAP_resultCode_authMethodNotSupported := 7
+                      , LDAP_resultCode_strongAuthRequired := 8
+                      , LDAP_resultCode_partialResults := 9
+                      , LDAP_resultCode_noSuchAttribute := 16
+                      , LDAP_resultCode_undefinedAttributeType := 17
+                      , LDAP_resultCode_inappropriateMatching := 18
+                      , LDAP_resultCode_constraintViolation := 19
+                      , LDAP_resultCode_attributeOrValueExists := 20
+                      , LDAP_resultCode_invalidAttributeSyntax := 21
+                      , LDAP_resultCode_noSuchObject := 32
+                      , LDAP_resultCode_aliasProblem := 33
+                      , LDAP_resultCode_invalidDNSyntax := 34
+                      , LDAP_resultCode_isLeaf := 35
+                      , LDAP_resultCode_aliasDerefencingProblem := 36
+                      , LDAP_resultCode_inappropriateAuthentication := 48
+                      , LDAP_resultCode_invalidCredentials := 49
+                      , LDAP_resultCode_insufficientAccessRights := 50
+                      , LDAP_resultCode_busy := 51
+                      , LDAP_resultCode_unavailable := 52
+                      , LDAP_resultCode_unwillingToPerform := 53
+                      , LDAP_resultCode_loopDetect := 54
+                      , LDAP_resultCode_namingViolation := 64
+                      , LDAP_resultCode_objectClassViolation := 65
+                      , LDAP_resultCode_notAllowedOnLeaf := 66
+                      , LDAP_resultCode_notAllowedOnRDN := 67
+                      , LDAP_resultCode_entryAlreadyExists := 68
+                      , LDAP_resultCode_objectClassModsProhibited := 69
+                      , LDAP_resultCode_other := 80
+                      ;

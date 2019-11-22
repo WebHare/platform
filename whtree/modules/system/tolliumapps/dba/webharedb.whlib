@@ -1,0 +1,12 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+PUBLIC RECORD ARRAY FUNCTION EnumerateDatabaseTypes()
+{
+  RETURN [[ title := GetTid("system:tolliumapps.dba.webharedb.database")
+          , gettrans := PTR GetPrimary()
+          , rowkey := "webharedb"
+         ]];
+
+}

@@ -1,0 +1,175 @@
+[component listview]
+<h1>The listview</h1>>
+  Selectmode:
+    <select id="selectmode">
+      <option value="none">None</option>
+      <option value="single">Single</option>
+      <option value="multiple">Multiple</option>
+    </select>
+  Datasource: <select id="datasource">
+    <option value="immediatesource">30 rows, immediate callbacks</option>
+    <option value="longsource">100 rows, immediate callbacks</option>
+    <option value="fastsource">30 rows, 50ms callbacks</option>
+    <option value="slowsource">30 rows, 750ms callbacks</option>
+    <option value="smallsource">10 rows, immediate callbacks</option>
+    <option value="emptysource">Empty data source</option>
+    <option value="none">None (null, no data source)</option>
+    <option value="treesource">Simple tree, immediate callbacks</option>
+    <option value="slowtreesource">simple tree, 750ms callbacks</option>
+    <option value="multirowsource">multirow source</option>
+    <option value="resizerowsource">resize source</option>
+  </select>
+  <div id="listview">
+  </div>
+  Open issues:
+  <ul>
+    <li><s>column types with flexible rendering support</s> the various column types</li>
+    <li>plugin: sort (client-side)</li>
+    <li>scroll partially visible rows into view when selecting</li>
+    <li>keyboard navigation and selection</li>
+    <li>multiple selection (ctrl, shift click)</li>
+    <li>plugin: tree.<br/>
+        is rownum in deze context wel handig? een datasource moet continu tellen welke rownum wat is, is er een slimme aanpak nodig die listview niet compliceert maar het leven van treesources vereenvoudigt?<br/>
+        aparte datasource classes voor plain lists en trees? (klinkt leuk in theorie, maar probably niet praktisch voor iets als tollium?)
+    </li>
+    <li>abstract a datasource base class?</li>
+    <li>dragdrop of list items</li>
+    <li>dragdrop between list rows (change ordering)</li>
+    <li>rowlayout (multiple rows)</li>
+    <li>column widths (zijn sizeberekeningsalgorithms van todd te gebruiken?)</li>
+    <li>footer rows</li>
+    <li>plugin: incremental search</li>
+    <li>plugin: inline edit</li>
+    <li>tooltips on hover for truncated columns (probably needs a global handler..)</li>
+  </ul>
+  Mijn originele list ontwerpaantekeningen:<br/>
+
+<pre>
+  Herontwerp Tollium List (vervolgd door Tollium Table?)
+
+* Splitsen in delen:
+- een scrollable area
+  - die weet hoe groot het gebied is waarover je mag scrollen
+  - kan onscroll events sturen
+    - higher level: aanvraag doen voor delen om 'in beeld' te komen. is alles
+                    dan absoluut gepositioneerd ?
+  ? zijn scrollable areas gerelateerd (als vlak X h=scrollt, scrollt vlak Y ook horizontaal)
+    of genest ?
+  ? willen we optioneel of altijd snapping van listrijen ? (het huidige
+    excel model, waarbij je nooit een halve rij bovenin in beeld ziet)
+
+- een listview:  CONTAINS scrollable area(s)
+  - implementeert header, footer en rijen.
+  - zorgt dat rijen v-scrollable zijn
+  - zorgt dat het geheel h-scrollable is
+  - hoe multirow implenteren?
+    optie 1: globale multirow instelling voor de hele list (en footer??)
+    optie 2: listview snapt dat opvolgende rijen gegroepeerd kunnen zijn maar
+             vereist niet dat elke groep van rijen even groot is
+    optie 3: listview maakt zich niet druk over multirow/gegroeperende rijen
+                (dan kan snapping, selectie en dragarea niet op dit niveau!)
+  ? scroll to selection/scroll selection in view apis ?
+
+- een selectable listview     EXTENDS listview
+  - is dit handig als los niveau? wel noodzakelijk als je hierboven optie 3 kiest
+  - weten wat selectable is
+  - implementeren shift-selectie, ctrl-selectie, etc gedrag. selectieevents
+    naar datasource ?
+  - goed kijken naar stabiliteit bij serverside (actieve datasource updates)
+    updates qua interactie, wat als je op dat moment scrollt/selecteert.
+    helemaal spannend zijn momenten waarop de server en client tegelijk de
+    selectie wijzigen (en mogelijk was de serverwijziging eigenlijk een no-op,
+    hij veranderde de selectie in zichzelf - heeft de client dan niet gelijk?)
+
+
+- een list datasource:
+  - (selectable) listview moet een bron van data hebben
+  - datasource geeft aan welke kolommen er zijn
+  - datasource geeft aantal rijen per rijgroep (body, footer) aan
+    (alternatief: footer is aparte datasource / maar dan kunnen kolommen niet
+                  op dit niveau)
+  - voorstel: wie rijen wil hebben, registreert zich als listener bij de
+              datasource. je kan extra rijen opvragen bij datasource,
+              datasource roept dan een event aan met informatie waar de rijen
+              moeten staan. datasource kan dan ook actief events sturen!
+    ? goed idee
+    ? is er ook een synchrone interface nodig, bv voor drag? (compliceert
+      aantal codepaden wel, en je kunt nooit gegarandeerd direct antwoord
+      krijgen)
+
+- sortering
+  * dit zou een plugin op de listview/datasource kunnen zijn, die actief
+    events stuurt als de listsortering wijzigt
+
+- tree
+  * dit zou een plugin op de listview/datasource kunnen zijn, die actief
+  events stuurt als je een niveau openklapt/dichtgooit
+  ? hoe ga je precies om met selecties
+
+- inline editor
+  * dit is een 'plugin' op de list. mag niet in de core code integreren.
+    mogelijk zijn er wel issues tussen deze editor en de list qua focus/drag
+
+  {} toddObjList.GetCellEditor(row, colidx)
+
+- incremental find:
+  * dit lijkt me een prima plugin, maar ik ben benieuwd hoe we dit goed
+    werkend krijgen met datasources die hun data vanaf de server moeten halen
+
+? misschien een idee om kolomtypes en hun rendering ook als soort plugin
+  te integreren?
+
+? tooltips: waar integreren we die? is tooltip systeem misschien generiek en
+  moet de list een 'ontooltip' ofzo event integreren, en had de datasource al
+  de tip moeten leveren?
+
+------------------ oude page.txt
+We use the way Mac OS X does keyboard nav and
+
+Alt+Up -> go to the first row
+Alt+Down -> go to the last row
+
+Up/Down arrow
+
+    - when a range is active:
+      - up -> new selection will be the row above the range
+              (unless we are at the top already, in which case whe'll select the first row)
+      - down -> new selection will be the row below the range
+                (unless we are at the bottom already, in which case whe'll select the last row)
+
+    - otherwise whe'll use the cursorpos (the single selection range)
+
+
+Click+shift selection:
+
+    - no selection -> anything from the top to the clicked item will be selected
+
+     - the last normal select(click) or toggle(apple+click) is used as starting point
+       to select.
+
+     - A previous selection using shift+click will be undone by deselecting everything in that range
+       (no state from before those rows were selected using shift will be kept or restored)
+       and the new selection range selection will be applied
+
+
+Shift+Arrow selection
+     - the cursorposition will move from the where you started the range
+       and the selection range will be updated to be from the range start to your cursor position
+
+     - when selecting an item that is out of view whe'll scroll the list half of the height of the listview
+       (on Mac OS X the list will scroll just a single item)
+
+
+ADDME: Shift + PageUp/PageDown
+ADDME: Shift + Alt+Up/Down     - select all rows from the cursor to the first/last row
+
+
+console.log(
+{ shift: event.shift
+, rangestart: this.range_start_idx
+, rownum:     row.rownum
+, selectmode: this.options.selectmode
+})
+
+</pre>
+[/component]

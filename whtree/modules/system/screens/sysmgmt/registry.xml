@@ -1,0 +1,85 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/sysmgmt/registry.whlib"
+         gid="sysmgmt">
+
+  <messageboxes gid=".messages">
+    <messagebox name="deletekey" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="editreg" gid=".editreg" tid=".title" width="130x" height="40x" allowresize="true" savestate="position size">
+    <actions gid=".actions">
+      <action name="editkey" onexecute="doeditkey">
+        <enableon source="registry" min="1" max="1" />
+      </action>
+      <action name="delete" onexecute="dodelete" shortcut="del" tid="tollium:common.actions.delete">
+        <enableon source="registry" min="1" max="1" />
+      </action>
+      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="tollium:common.actions.close" />
+    </actions>
+
+    <menus>
+      <menu name="selection_registry">
+        <item action="editkey" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener masks="system:registry.*" onevents="onevents" />
+    </compositions>
+
+    <body height="1pr">
+
+      <panel spacers="bottom">
+        <textedit name="filter" onchange="refreshregistrylist" trimwhitespace="false" tid="common.filter" width="1pr" />
+      </panel>
+
+      <grid width="1pr" height="1pr">
+        <col width="1pr"/>
+        <col/>
+        <row height="1pr">
+          <cell>
+            <list name="registry"
+                  selectmode="single"
+                  openaction="editkey"
+                  selectcontextmenu="selection_registry"
+                  ongetrows="OnRegistryLoadItems">
+              <column name="name" type="text" width="2pr" />
+              <column name="value" type="text" />
+              <column name="modificationdate" type="datetime" storeutc="true" tid="common.modificationdate" width="20x" />
+            </list>
+          </cell>
+          <cell>
+            <button action="editkey" width="1pr"/>
+            <button action="delete" width="1pr"/>
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+
+  <screen name="editregkey" gid=".editregkey" minwidth="40x" allowresize="true" savestate="size">
+    <body name="keydata" layout="form">
+      <text name="name" />
+      <text name="description" visible="0" />
+      <text name="initialvalue" visible="0" />
+      <text name="type" />
+      <textedit name="stringvalue" tid=".value" visible="0" width="1pr" />
+      <select name="booleanvalue" tid=".value" visible="0" type="radio">
+        <option tid=".true" rowkey="1" />
+        <option tid=".false" rowkey="0" />
+      </select>
+      <textedit name="integervalue" tid=".value" visible="0" valuetype="integer" value="0" />
+      <fileedit name="blobvalue" tid=".value" visible="false" />
+      <datetime name="datetimevalue" tid=".value" visible="false" type="datetime" precision="milliseconds" storeutc="true" />
+      <panel height="1pr" />
+     </body>
+     <footer>
+       <defaultformbuttons buttons="ok cancel"/>
+     </footer>
+   </screen>
+
+</screens>

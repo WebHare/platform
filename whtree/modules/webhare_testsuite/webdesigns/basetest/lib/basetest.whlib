@@ -1,0 +1,323 @@
+<?wh
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/widgets.whlib";
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+LOADLIB "mod::publisher/lib/webtools/forum.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+
+
+//stuff shared between site:: and mod:: based designs
+PUBLIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
+<
+  MACRO NEW()
+  {
+    IF(IsRequest())
+      ProcessWHDebugVariablesUnchecked();
+
+    IF(this->IsStaticPublication())
+    {
+      STRING deeperlink := this->GetStaticFileLink("test.txt");
+      STRING compareroot := Substring(this->targetsite->webroot, this->targetsite->webroot LIKE "https:*" ? 6 : 5);
+      IF(this->targetobject->name="headings.doc" AND compareroot || "headings/test.txt" != deeperlink) //expect the link without 'http:'
+        ABORT("Incorrect deeperlink, got '" || deeperlink ||"' want '" || compareroot || "headings/test.txt'");
+      IF(this->targetobject->name="static.html" AND compareroot || "%5Estatic.html/test.txt" != deeperlink) //expect the link without 'http:'
+        ABORT("Incorrect deeperlink, got '" || deeperlink ||"' want '" || compareroot || "%5Estatic.html/test.txt'");
+      this->CreateStaticFile("test.txt", PTR Print(RepeatText("dit was een test\n", 10)));
+    }
+  }
+
+  UPDATE PUBLIC MACRO PrepareErrorPage(INTEGER errorcode, RECORD harescriptinfo, STRING url)
+  {
+    IF(url LIKE "*throw=exception*")
+      THROW NEW Exception("throw is exception");
+    WebDesignBase::PrepareErrorPage(errorcode, harescriptinfo, url);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetPageConfig()
+  {
+    // get the widgets as specified on the file that is being published
+    OBJECT sharedblockstype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest");
+    RECORD ARRAY usewidgets := sharedblockstype->GetSharedBlocks((this->targetobject ?? this->targetfolder)->id, "BLOCKS");
+
+    RECORD wittydata := [ deeperlink := this->IsStaticPublication() ? this->GetStaticFileLink("test.txt") : ""
+                        , whfspath := this->targetobject->whfspath
+                        , dynamiclink := this->GetRelURL(this->targetsite->webroot || "dynamic.shtml")
+                        , widget := DEFAULT MACRO PTR
+                        , wrdauthplugin := DEFAULT RECORD
+                        , webdesign_prepareforrendering := 0
+                        , have_widgetimg := ObjectExists(this->targetsite->OpenByPath("design/img/img.jpg"))
+                        , dynamicpageparameters := GetDynamicPageParameters()
+                        , dynamicpageparameters_hson := EncodeHSON(GetDynamicPageParameters())
+                          //we'll enable comments if we see the plugin
+                        , comments := ObjectExists(GetForumPluginForWebdesign(this)) ? PTR GetForumPluginForWebdesign(this)->EmbedComments() : DEFAULT MACRO PTR
+                        , sharedblocks := (SELECT AS MACRO PTR ARRAY PTR this->RenderSharedBlock(usewidgets) FROM usewidgets)
+                        ];
+
+    IF(this->targetobject->name IN ["widget.html"])
+    {
+      //open widget.rtd like it's a simple instance (eg use MakeRTD) and see if it breaks
+      OBJECT widgetrtd := this->targetfolder->OpenByName("widget.rtd");
+      wittydata.widget := PTR this->MakeRTD(widgetrtd->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data, "mod::webhare_testsuite/data//test/rte-structure.xml")->RenderAllObjects();
+    }
+
+    RETURN wittydata;
+  }
+  UPDATE PUBLIC RECORD FUNCTION UpdatePageConfig(RECORD pageconfig)
+  {
+    OBJECT authplugin := this->GetWRDAuthPlugin();
+    IF(ObjectExists(authplugin))
+      pageconfig.wrdauthplugin := authplugin->GetWittyData();
+    RETURN pageconfig;
+  }
+  UPDATE PUBLIC MACRO PrepareForRendering()
+  {
+    IF(this->pageconfig.webdesign_prepareforrendering = 1)
+      THROW NEW Exception("Duplicate PrepareForRendering invoked");
+    this->pageconfig.webdesign_prepareforrendering := 1;
+  }
+>;
+
+OBJECTTYPE BetaWebDesign EXTEND BetaSharedDesign
+<
+  MACRO NEW()
+  {
+    IF(this->targetobject->name IN ["loadlib.html","loadlib.shtml"])
+      this->AddLoadlibToOutput(this->designfolder || "lib/basetest-loadlib.whlib");
+
+    TestEq("mod::webhare_testsuite/webdesigns/basetest/", this->designfolder);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetPageConfig()
+  {
+    RECORD pageconfig := BetaSharedDesign::GetPageConfig();
+    this->contentbody := PTR EmbedWittyComponent("basetest.witty:wrapbody", [ origbody := this->contentbody ]);
+
+    OBJECT bobimage := this->targetsite->OpenByPath("bob.jpg");
+    pageconfig := CELL[...pageconfig
+                      , bobimagelink := ObjectExists(bobimage) ? WrapCachedImage(bobimage->GetWrapped(), [ method := "none" ]) : DEFAULT RECORD
+                      ];
+
+    RETURN pageconfig;
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION UpdatePageConfig(RECORD pageconfig)
+  {
+    pageconfig := BetaSharedDesign::UpdatePageConfig(pageconfig);
+    INSERT CELL anchors := EncodeJSON(SELECT title, link, tagname FROM this->GetContentNav()) INTO pageconfig;
+    RETURN pageconfig;
+  }
+
+/*
+FIXME
+      wordpublisher->SetToclevelAsRawHTML(99);
+      wordpublisher->maxoutputwidth := 580; //constrain both tables and images to this width
+      wordpublisher->deletetextstyles := ["font-size:*"];
+*/
+>;
+
+PUBLIC OBJECTTYPE BaseTestDesign EXTEND BetaWebDesign
+<
+  UPDATE PUBLIC STRING FUNCTION RewriteHyperlink(STRING href)
+  {
+    IF (href LIKE "x-rewritelink:*")
+    {
+      SWITCH (Substring(href, 14))
+      {
+        CASE "1"
+        {
+          RETURN "https://example.org/first.html";
+        }
+        CASE "2"
+        {
+          RETURN "https://example.org/second.html";
+        }
+        CASE "3"
+        {
+          RETURN ""; // remove link
+        }
+      }
+    }
+    RETURN href;
+  }
+>;
+
+PUBLIC OBJECTTYPE WebPage EXTEND DynamicPageBase
+<
+  BOOLEAN didprepare;
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    this->didprepare := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+   //FIXME are we sure this code still runs and not testsitedesign.whlib
+
+    //Loop back to self, and request the meaning of life
+    OBJECT browser := NEW WebBrowser;
+    INTEGER meaningoflife;
+    VARIANT ARRAY args;
+    STRING boemmessage;
+    STRING throwmessage;
+    RECORD wcsresult, wdsresult;
+
+    meaningoflife := browser->CallJSONRPC(GetRequestURL(), "GetMeaningOfLife", "Dent");
+
+    TRY
+    {
+      browser->CallJSONRPC(GetRequestURL(), "AbortBOEM");
+      boemmessage := "none";
+    }
+    CATCH (OBJECT e)
+    {
+      boemmessage := e->what;
+    }
+
+    TRY
+    {
+      browser->CallJSONRPC(GetRequestURL(), "AbortTHROW");
+      throwmessage := "none";
+    }
+    CATCH (OBJECT e)
+    {
+      throwmessage := e->what;
+    }
+
+    wcsresult := browser->CallJSONRPC(GetRequestURL(), "VerifyWebDesignContext");
+    wdsresult := browser->CallJSONRPC(GetRequestURL(), "VerifyWebDesign");
+
+    EmbedWittyComponent("currentsite::/dynamicpage.witty:testdyn",
+                       [ p1 := "Arg1"
+                       , baseurl := this->absolutebaseurl
+                       , meaningoflife := meaningoflife
+                       , boemmessage := boemmessage
+                       , throwmessage := throwmessage
+                       , wcsresult := wcsresult
+                       , wdsresult := wdsresult
+                       , assets := DEFAULT RECORD ARRAY
+                       , subpath := webdesign->pageobject->subpath
+                       ]);
+  }
+
+  PUBLIC INTEGER FUNCTION WCS_GetMeaningOfLife(OBJECT webdesigncontext, STRING lastname)
+  {
+    IF(this->didprepare)
+      THROW NEW Exception("WebPage was prepared, but this is a WCS_ handler which should skip preparation");
+    IF(webdesigncontext EXTENDSFROM WebDesignBase)
+      THROW NEW Exception("webdesigncontext is a complete WebDesignBase, but this is a WCS_ handler which should only get a context");
+
+    RETURN lastname = "Dent" ? 42 : -1;
+  }
+
+  PUBLIC INTEGER FUNCTION WCS_AbortBOEM(OBJECT webdesigncontext)
+  {
+    ABORT("boem");
+  }
+
+  PUBLIC INTEGER FUNCTION WCS_AbortTHROW(OBJECT webdesigncontext)
+  {
+    THROW NEW Exception("thrown");
+  }
+
+  PUBLIC RECORD FUNCTION WDS_VerifyWebDesign(OBJECT webdesign)
+  {
+    IF (webdesign NOT EXTENDSFROM WebDesignBase)
+      THROW NEW Exception("Did not get a webdesign object");
+    IF(NOT this->didprepare)
+      THROW NEW Exception("WebPage was not prepared");
+
+    RETURN
+        [ siteroot :=     GetWittyVariable("siteroot") // test if we have the final pageconfig in the witty context
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION WCS_VerifyWebDesignContext(OBJECT webdesigncontext)
+  {
+    IF (webdesigncontext EXTENDSFROM WebDesignBase)
+      THROW NEW Exception("Did get a webdesign object instead of a context object");
+
+    RETURN
+        [ targetobjectid :=  webdesigncontext->targetobject->id
+        ];
+  }
+>;
+
+PUBLIC OBJECTTYPE Level1Widget EXTEND WidgetBase
+<
+  OBJECT rtd;
+  MACRO NEW()
+  {
+    this->rtd := this->OpenRTD(this->data.richdoc);
+    this->__pvt_renderwide := TRUE; //FIXME we should invoke a proper Preview function, but this is just here for the tests...
+  }
+  UPDATE PUBLIC MACRO Render()
+  {
+    Print('<div class="level1widget" data-lang="' || this->context->languagecode || '" data-mytype="' || this->widgettype || '" data-rtdtype="' || this->rtdtype
+           || '" data-targetsite="'   || (ObjectExists(this->context->targetsite) ? this->context->targetsite->id : -1)
+           || '" data-targetfolder="' || (ObjectExists(this->context->targetfolder) ? this->context->targetfolder->id : -1)
+           || '" data-whfssettingid="' || this->whfssettingid
+           || '" data-whfsfileid="' || this->whfsfileid
+           // not exposed yet|| '" data-targetobject="' || (ObjectExists(this->context->targetobject) ? this->context->targetobject->id : -1)
+           || '">');
+    Print("</div>");
+  }
+>;
+
+PUBLIC OBJECTTYPE Level2Widget EXTEND WidgetBase
+<
+  OBJECT rtd;
+  MACRO NEW()
+  {
+    this->rtd := this->OpenRTD(this->data.richdoc);
+  }
+
+  UPDATE PUBLIC MACRO Render()
+  {
+    IF(Length(this->data.testrenderinstance_array) > 0 AND NOT CellExists(this->data.testrenderinstance_array[0],"memberb"))
+      ABORT("RenderWidgetInstance did not restructure the 'deeper' members");
+
+    this->EmbedComponent( [ targetsite := (ObjectExists(this->context->targetsite) ? this->context->targetsite->id : -1)
+                          , targetfolder := (ObjectExists(this->context->targetfolder) ? this->context->targetfolder->id : -1)
+                          , whfssettingid := this->whfssettingid
+                          , whfsfileid := this->whfsfileid
+                          , rtdtype := this->rtdtype
+                          , mytype := this->widgettype
+                          , rtd := PTR this->rtd->RenderAllObjects()
+                          ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE CustomPlugin EXTEND WebDesignPluginBase
+<
+>;
+
+PUBLIC BOOLEAN FUNCTION SkipCaptcha(OBJECT webcontext)
+{
+  RETURN GetFormWebVariable("skipcaptcha") = "1";
+}
+
+PUBLIC STRING FUNCTION GetBasetestLanguage(OBJECT webcontext)
+{
+  RETURN IsRequest() ? GetFormWebVariable("setlang") : "";
+}
+
+PUBLIC STATIC OBJECTTYPE BaseTestProps EXTEND TolliumTabsExtensionBase
+<
+  MACRO OnObjectLibraryChange()
+  {
+    ^librarysource->fslibrary := ^objectlibrary->value;
+  }
+>;

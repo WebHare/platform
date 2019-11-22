@@ -1,0 +1,164 @@
+﻿<?wh
+/** @topic sitedev/webdesign */
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+
+//FIXME these should be in libvm, but are in libwebhare at this moment...
+RECORD FUNCTION GetAdhocCacheData(RECORD cachetag) __ATTRIBUTES__(EXTERNAL);
+MACRO SetAdhocCacheData(RECORD cachetag, VARIANT data, DATETIME expires, STRING ARRAY eventmasks) __ATTRIBUTES__(EXTERNAL);
+
+/** Get a value from cachegetter, first looking at a cache (every calling whlib has its own cache)
+    @param cachetag Tag that uniquely identifies the result (local per calling whlib)
+    @param cachegetter Function that generates the return value if no cache entry is present.
+               Signature RECORD FUNCTION()
+    @cell cachegetter.return
+    @cell(integer) cachegetter.return.ttl Time to live in milliseconds
+    @cell(variant) cachegetter.return.value
+    @return Returns the value in cache (or the value cell from the cachegetter call if not in cache)
+*/
+PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  BOOLEAN exclusive := NOT CellExists(options, "EXCLUSIVE") OR options.exclusive;
+
+  RECORD result := GetAdhocCacheData(cachetag);
+  VARIANT retval;
+
+  IF (result.found)
+    RETURN result.value;
+
+  OBJECT lockmgr := OpenLocalLockManager();
+
+  STRING semaphoretag := "system:adhoccache.sema." || result.hash;
+  STRING mutextag := "system:adhoccache.mutex." || result.hash;
+
+  OBJECT lock;
+  OBJECT innerlock;
+  TRY
+  {
+    IF (exclusive)
+    {
+      // Semaphore used to immediately unlock lots of waiters
+      lock := lockmgr->TryLockLocalSemaphore(semaphoretag, 1, DEFAULT DATETIME);
+
+      // Did not get exclusive lock? Go waiting until value is calculated
+      IF (NOT ObjectExists(lock))
+      {
+        lock := lockmgr->LockLocalSemaphore(semaphoretag, 10000);
+        result := GetAdhocCacheData(cachetag);
+        IF (result.found)
+          RETURN result.value;
+
+        // Value not available... take mutex lock for recalculation (not needed in other branch, already
+        // got exclusive lock there).
+        innerlock := lockmgr->LockLocalMutex(mutextag);
+      }
+
+      result := GetAdhocCacheData(cachetag);
+      IF (result.found)
+        RETURN result.value;
+    }
+
+    VARIANT gotresult := cachegetter();
+    DATETIME expires;
+    STRING ARRAY eventmasks;
+
+    // Mainly check for the case the value is returned directly without the cache wrapper data
+    IF (TypeID(gotresult) != TypeID(RECORD))
+      THROW NEW Exception("Invalid cacheresult returned by " || ExplainFunctionPtrSignature(cachegetter) || ": did not return a RECORD, but a " || GetTypeName(TypeID(gotresult)));
+    IF (NOT CellExists(gotresult, "VALUE"))
+      THROW NEW Exception("Invalid cacheresult returned by " || ExplainFunctionPtrSignature(cachegetter) || ": missing cell VALUE");
+
+    IF (CellExists(gotresult, "TTL"))
+    {
+      IF(TypeID(gotresult.ttl) = TypeID(DATETIME))
+      {
+        expires := gotresult.ttl;
+      }
+      ELSE
+      {
+        INTEGER ttl := gotresult.ttl;
+        IF (ttl <= 0)
+          THROW NEW Exception("Invalid cacheresult returned by " || ExplainFunctionPtrSignature(cachegetter) || ": invalid TTL (" || ttl || "), it must be positive");
+        expires := AddTimeToDate(ttl, GetCurrentDatetime());
+      }
+      eventmasks := CellExists(gotresult, "EVENTMASKS") ? gotresult.eventmasks : DEFAULT STRING ARRAY;
+    }
+    ELSE IF (NOT CellExists(gotresult, "EVENTMASKS"))
+      THROW NEW Exception("Invalid cacheresult returned by " || ExplainFunctionPtrSignature(cachegetter) || ": missing both TTL and EVENTMASKS, at least one is required");
+    ELSE
+    {
+      expires := MAX_DATETIME;
+      eventmasks := gotresult.eventmasks;
+    }
+
+    SetAdhocCacheData(cachetag, gotresult.value, expires, eventmasks);
+
+    RETURN gotresult.value;
+  }
+  FINALLY
+  {
+    IF (ObjectExists(innerlock))
+      innerlock->Close();
+    IF (ObjectExists(lock))
+      lock->Close();
+  }
+}
+
+/** Lower level api: lookup a value in the cache
+    @param cachetag Tag that uniquely identifies the result (local per calling whlib)
+    @return Existing record if the value has been found, DEFAULT RECORD if not
+    @cell value Stored value
+*/
+PUBLIC RECORD FUNCTION LookupAdhocCached(RECORD cachetag)
+{
+  RECORD value := GetAdhocCacheData(cachetag);
+  IF(NOT value.found) //we don't have it yet
+    RETURN DEFAULT RECORD;
+  RETURN value;
+}
+
+/** Lower level api: store a value directly in the cache
+    @param cachetag Tag that uniquely identifies the result (local per calling whlib)
+    @param storevalue Description of value to store
+    @cell storevalue.ttl Time to live in milliseconds, or DATETIME with expiration date
+    @cell(variant) storevalue.value Value to store
+    @cell(string array) storevalue.eventmasks Masks of events that invalidate the stored value
+*/
+PUBLIC MACRO StoreAdhocCached(RECORD cachetag, RECORD storevalue)
+{
+  DATETIME expires;
+  STRING ARRAY eventmasks;
+
+  IF (NOT CellExists(storevalue, "VALUE"))
+    THROW NEW Exception("Invalid storevalue passed to StoreAdhocCached: missing cell VALUE");
+
+  IF (CellExists(storevalue, "TTL"))
+  {
+    IF(TypeID(storevalue.ttl) = TypeID(DATETIME))
+    {
+      expires := storevalue.ttl;
+    }
+    ELSE
+    {
+      INTEGER ttl := storevalue.ttl;
+      IF (ttl <= 0)
+        THROW NEW Exception("Invalid storevalue passed to StoreAdhocCached: invalid TTL (" || ttl || "), it must be positive");
+      expires := AddTimeToDate(ttl, GetCurrentDatetime());
+    }
+    eventmasks := CellExists(storevalue, "EVENTMASKS") ? storevalue.eventmasks : DEFAULT STRING ARRAY;
+  }
+  ELSE IF (NOT CellExists(storevalue, "EVENTMASKS"))
+    THROW NEW Exception("Invalid storevalue passed to StoreAdhocCached: missing both TTL and EVENTMASKS, at least one is required");
+  ELSE
+  {
+    expires := MAX_DATETIME;
+    eventmasks := storevalue.eventmasks;
+
+    IF (LENGTH(eventmasks) = 0)
+      THROW NEW Exception("Invalid storevalue passed to StoreAdhocCached: when no TTL is given, at least one eventmask is required");
+  }
+
+  SetAdhocCacheData(cachetag, storevalue.value, expires, eventmasks);
+}
+

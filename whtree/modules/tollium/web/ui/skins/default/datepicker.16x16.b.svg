@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 22.1.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 32 32" style="enable-background:new 0 0 32 32;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#4A4A4A;}
+</style>
+<g id="Layer_1_1_">
+	<g>
+		<g>
+			<g id="calendar-outline">
+				<path class="st0" d="M24,4L24,4v2c0,0,0.1,1-2,1c-1,0-1.7,0-2,0c-2.1,0-2-1-2-1V4h-4v2c0,0,0,1-2,1c-0.3,0-1.7,0-2,0
+					C7.8,7,8,6,8,6V4l0,0c0,0-2,0-2,2v18c0,0,0,2,2,2h16c2,0,2-2,2-2V6C26,4,24,4,24,4z M24,23c0,0,0,1-1,1H9c-1,0-1-1-1-1V10h16V23
+					z"/>
+			</g>
+		</g>
+	</g>
+	<rect x="10" y="2" class="st0" width="2" height="4"/>
+	<rect x="20" y="2" class="st0" width="2" height="4"/>
+</g>
+<g id="Layer_5">
+	<rect x="16" y="16" class="st0" width="4" height="4"/>
+</g>
+</svg>

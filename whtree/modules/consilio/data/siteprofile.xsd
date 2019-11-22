@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- This schema defines the maildesigntype element for the newsletter module -->
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
+  xmlns:n="http://www.webhare.net/xmlns/newsletter/siteprofile"
+  targetNamespace="http://www.webhare.net/xmlns/consilio"
+  xmlns="http://www.webhare.net/xmlns/consilio"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:annotation>
+    <xs:documentation>
+      Consilio extensions for siteprofiles
+    </xs:documentation>
+  </xs:annotation>
+
+  <!-- Import without schemalocation, so we won't trigger a recursive import. libxml can't handle it (though spec
+       doesn't actually disallow it)
+  -->
+  <xs:import namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
+
+  <xs:element name="index">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="contentsource" minOccurs="0" maxOccurs="unbounded" />
+      </xs:sequence>
+      <xs:attribute name="name" />
+      <xs:attribute name="priority" type="xs:integer" />
+      <xs:attribute name="type" type="xs:integer" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="addtoindex" />
+
+</xs:schema>

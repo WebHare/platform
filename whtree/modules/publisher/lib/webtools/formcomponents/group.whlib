@@ -1,0 +1,83 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE FormGroup EXTEND FormComponentExtensionBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    // Rename 'question' to 'title'
+    this->owner->GetDefaultField("title")->title := GetTid("~title");
+    // Rename the 'hide title' options
+    this->owner->GetDefaultField("hidetitle")->options :=
+        [ [ rowkey := FALSE, title := GetTid("publisher:tolliumapps.formedit.editcomponent.showgrouptitle") ]
+        , [ rowkey := TRUE, title := GetTid("publisher:tolliumapps.formedit.editcomponent.hidegrouptitle") ]
+        ];
+
+    // Initialize the block style options based on the default RTD style
+    RECORD settings := GetRTDSettingsForApplyTester(this->contexts->applytester);
+    IF (RecordExists(settings) AND RecordExists(settings.structure))
+    {
+      UPDATE settings.structure.blockstyles
+         SET title := GetTid("tollium:common.richstyles." || ToLowercase(tag))
+       WHERE title="" AND isbuiltin = TRUE;
+      ^blockstyle->options :=
+          SELECT rowkey := containertag || "." || tag
+               , title
+            FROM settings.structure.blockstyles
+           WHERE toclevel > 0;
+    }
+    // Block style pulldown is only visible if there are any options
+    ^blockstyle->visible := RecordExists(^blockstyle->options);
+    IF (^blockstyle->visible)
+      ^blockstyle->value := this->node->GetAttribute("blockstyle");
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+    {
+      IF (^blockstyle->visible AND ^blockstyle->value != "")
+        this->node->SetAttribute("blockstyle", ^blockstyle->value);
+      ELSE
+        this->node->RemoveAttribute("blockstyle");
+    }
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormGroup(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := CELL[ ...fielddef
+                  , blockstyle := node->GetAttribute("blockstyle")
+                  , novalue := TRUE
+                  ];
+  RETURN fielddef;
+}
+
+PUBLIC OBJECTTYPE FormGroupField EXTEND FormFieldBase
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RETURN CELL[ ...this->GetBaseRenderData()
+               , type := "group"
+               ];
+  }
+
+  UPDATE PUBLIC MACRO RenderField()
+  {
+    // Groups only have to be rendered if there is a title to render
+    IF (NOT this->hidetitle AND this->htmltitle != "")
+      FormFieldBase::RenderField();
+  }
+>;

@@ -1,0 +1,297 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE Edit EXTEND WRDEntityEditScreenBase
+<
+  UPDATE MACRO Init(RECORD data)
+  {
+    // Ordering of attributes: non-array attributes first (ordered by title), then array attributes (ordered by title)
+    RECORD ARRAY attrs := SELECT *
+                            FROM data.wrdtype->ListAttributes(0)
+                        ORDER BY attributetype = 13, NormalizeText(title, GetTidLanguage()), ToUpperCase(tag), ToUpperCase(localtag);
+    BOOLEAN linkcheckattr;
+    FOREVERY(RECORD attr FROM attrs)
+    {
+      linkcheckattr := linkcheckattr OR attr.checklinks;
+
+      OBJECT destpanel;
+      IF(attr.isalternative OR attr.attributetype IN [17,19]) //richdoc and instance are currently unsupported by wrd:field
+        CONTINUE;
+
+      IF(attr.tag IN ["WRD_ID","WRD_GUID", "WRD_CREATIONDATE", "WRD_MODIFICATIONDATE", "WRD_LIMITDATE", "WRD_TAG", "WRD_FULLNAME" ])
+      {
+        CONTINUE;
+      }
+      ELSE IF(attr.base)
+      {
+        destpanel := ^basedatapanel;
+      }
+      ELSE
+      {
+        destpanel := ^fields;
+      }
+
+      OBJECT wrdfield := this->CreateCustomComponent("http://www.webhare.net/xmlns/wrd/components", "field");
+      destpanel->InsertComponentAfter(wrdfield, DEFAULT OBJECT, TRUE);
+      wrdfield->title := attr.tag;
+      wrdfield->DynamicInit(attr.localtag, ^entity);
+
+      IF (CellExists(data, "UPDATEFIELDS") AND CellExists(data.updatefields, attr.tag)) //FIXME deprecate this hack
+        wrdfield->value := GetCell(data.updatefields, attr.tag);
+    }
+
+    WRDEntityEditScreenBase::Init(data);
+
+    IF(ObjectExists(^entity->wrdentity))
+    {
+      ^wrd_modificationdate->value := ^entity->wrdentity->GetField("WRD_MODIFICATIONDATE");
+      ^creationdate->value := ^entity->wrdentity->GetField("WRD_CREATIONDATE");
+      IF(this->contexts->user->HasRight("system:sysop"))
+        ^entity->^wrd_guid->enabled := TRUE;
+
+      DATETIME limitdate := ^entity->wrdentity->GetField("WRD_LIMITDATE");
+      IF (limitdate = MAX_DATETIME)
+      {
+        ^limitdatesetting->value := "nolimitdate";
+      }
+      ELSE
+      {
+        ^limitdatesetting->value := "limitdate_date";
+        ^limitdate->value := limitdate;
+      }
+      ^linkcheck->visible := linkcheckattr;
+      IF (linkcheckattr)
+        ^objectreport->wrd_entity := ^entity->wrdentity->id;
+    }
+    ELSE
+    {
+      ^limitdatesetting->value := "nolimitdate";
+      ^creationdate->value := GetCurrentDateTime();
+      ^linkcheck->visible := FALSE;
+    }
+  }
+
+  MACRO OnLimitDateSet()
+  {
+    STRING setting := ^limitdatesetting->value; // nolimitdate, limitdate_date
+
+    ^limitdate->enabled  := setting = "limitdate_date";
+    ^limitdate->required := setting = "limitdate_date";
+
+    IF (setting = "limitdate_date" AND ^limitdate->value = DEFAULT DATETIME)
+      ^limitdate->value := GetCurrentDateTime();
+  }
+
+  UPDATE RECORD FUNCTION Submitter(OBJECT work, RECORD updatevalue)
+  {
+    // Insert creation date settings into the record
+    IF (NOT CellExists(updatevalue, "WRD_LIMITDATE"))
+      INSERT CELL wrd_creationdate := ^creationdate->value INTO updatevalue;
+
+    // Insert limit date settings into the record
+    IF (NOT CellExists(updatevalue, "WRD_LIMITDATE"))
+    {
+      IF (^limitdatesetting->value = "nolimitdate")
+        INSERT CELL wrd_limitdate := MAX_DATETIME INTO updatevalue;
+      ELSE
+        INSERT CELL wrd_limitdate := ^limitdate->value INTO updatevalue;
+    }
+
+    RETURN updatevalue;
+  }
+>;
+
+//ADDME: UpdateConnection seems to be the better way to cover it (connection would imply link & classification)
+PUBLIC OBJECTTYPE UpdateLink EXTEND TolliumScreenBase
+< OBJECT entity; // entity for which we're editing a link, for example a person or organization
+  OBJECT type; // the type of the entity object (entity for which we're editing a link, for example a person or organization)
+  INTEGER linkid; // id of the link entity to edit
+  OBJECT linktypeobj; // type of the link entity
+  RECORD ARRAY schemalinks;
+  RECORD ARRAY link_attr_components;
+  OBJECT ARRAY customcomponents;
+  OBJECT wrdschema;
+
+  MACRO Init(RECORD data)
+  {
+    this->type := data.type;
+    this->entity := this->type->GetEntity(data.id);
+    IF (NOT ObjectExists(this->entity))
+      ABORT("No such entity '" || data.id || "' for type '" || data.type->tag || "'");
+
+    this->linkid := data.linkid;
+    this->linktypeobj := data.linktypeobj;
+
+    // Collect links for this schema
+    this->wrdschema := this->type->wrdschema;
+    this->schemalinks := SELECT id, title, linkfrom, linkto, tag
+                           FROM this->wrdschema->ListTypes()
+                          WHERE (metatype = 2
+                                 AND (linkfrom = this->type->id
+                                      OR lin = this->type->id))
+                                OR
+                                (metatype = 3
+                                 AND linkfrom = this->type->id)
+
+                                 ;
+
+    this->linktypes->options := SELECT rowkey := id, title
+                                  FROM this->schemalinks
+                              ORDER BY NormalizeText(title, GetTidLanguage()), id;
+
+    IF (this->linkid = 0) // Add a link
+    {
+      // If there's only one link, it's kinda pointless to show the link type selection, so skip the first step
+      IF (LENGTH(this->schemalinks) = 1)
+      {
+        this->linktypes->selection := this->linktypes->options[0];
+        this->SetupLinkProperties();
+        this->wizard->GotoPage(this->linkpropertiespage);
+        this->wizard->ClearPageHistory();
+      }
+      ELSE
+      {
+        INSERT [ rowkey := 0, title := "", invalidselection := TRUE ] INTO this->linktypes->options AT 0;
+        this->linktypes->value := 0;
+      }
+
+      this->frame->title := GetTid("wrd:links.update.pagetitle_add", ^entity->GetField("WRD_TITLE"));
+    }
+    ELSE // Edit a link: skip the first page
+    {
+      this->linkselection->visible := FALSE;
+      this->linktypes->required := FALSE;
+      INTEGER thislinktypeid := SELECT AS INTEGER type FROM wrd.entities WHERE id = this->linkid;
+      this->linktypes->selection := SELECT * FROM this->linktypes->options WHERE rowkey = this->linktypeobj->id;
+
+      this->SetupLinkProperties();
+
+      this->wizard->GotoPage(this->linkpropertiespage);
+      this->wizard->ClearPageHistory();
+
+    }
+  }
+
+  MACRO SetupLinkProperties()
+  {
+    // Remove old components
+    FOREVERY (RECORD linkattr FROM this->link_attr_components)
+      linkattr.comp->DeleteComponent();
+    FOREVERY (OBJECT comp FROM this->customcomponents)
+      comp->DeleteComponent();
+
+    RECORD selected_link_type := SELECT * FROM this->schemalinks WHERE id = this->linktypes->value;
+    IF (NOT RecordExists(selected_link_type))
+      ABORT("FIXME: Could not find link " || this->linktypes->value);
+
+    IF (NOT ObjectExists(this->linktypeobj))
+      this->linktypeobj := this->wrdschema->GetTypeById(selected_link_type.id);
+
+    this->entitytype->wrdtype := this->linktypeobj;
+    IF (this->linkid != 0)
+      this->entitytype->wrdentity := this->linktypeobj->GetEntity(this->linkid);
+
+    RECORD ARRAY link_attributes := SELECT tag FROM this->linktypeobj->ListAttributes(0) WHERE NOT base;
+
+    // If this link has no properties, we can skip the last step (and this page will be the last page)
+    //FIXME: Unfortunately we cannot change this dynamically yet...
+    IF (LENGTH(link_attributes) = 0)
+    {
+    }
+    ELSE
+    {
+      this->linkobj->wrdtype := this->linktypeobj;
+      OBJECT lastcomp;
+      FOREVERY (RECORD linkattr FROM link_attributes)
+      {
+        OBJECT newcomp := this->CreateCustomComponent("http://www.webhare.net/xmlns/wrd/components", "field");
+        this->extraproperties->InsertComponentAfter(newcomp, lastcomp, TRUE);
+        newcomp->DynamicInit(linkattr.tag, this->linkobj);
+
+        //FIXME: Set value if editing
+        IF (this->linkid != 0)
+        {
+          newcomp->value := this->entitytype->wrdentity->GetField(linkattr.tag);
+        }
+
+        INSERT [ tag := linkattr.tag
+               , comp := newcomp
+               ] INTO this->link_attr_components AT END;
+
+        lastcomp := newcomp;
+      }
+    }
+
+    this->linkname->value := selected_link_type.title;
+
+    // If the left type is the same type as the entity for which we add the link, set that entity and make
+    // the left entity field readonly
+    IF (this->type->id = selected_link_type.linkfrom)
+    {
+//      FIXME: Would be great if this would work
+//      this->entitytype->GetFieldByTag("wrd_leftentity")->value := ^entity->id;
+//      this->entitytype->GetFieldByTag("wrd_leftentity")->readonly := TRUE;
+
+      this->entitytype->GetFieldByTag("wrd_leftentity")->visible := FALSE;
+      this->entitytype->GetFieldByTag("wrd_leftentity")->value := ^entity->id;
+      this->entitytype->GetFieldByTag("wrd_leftentity")->required := FALSE;
+
+      OBJECT readonly := this->CreateTolliumComponent("text");
+      readonly->title := GetTid("wrd:links.update.leftentity");
+      readonly->value := ^entity->GetField("WRD_TITLE");
+      this->linkproperties->InsertComponentAfter(readonly, this->dummy, TRUE);
+      INSERT readonly INTO this->customcomponents AT END;
+
+      IF (this->linkid != 0)
+      {
+        OBJECT linkobj := this->linktypeobj->GetEntity(this->linkid);
+        this->entitytype->GetFieldByTag("wrd_rightentity")->value := linkobj->rightentity;
+      }
+    }
+  }
+
+  // First page submitted: chosen the link
+  BOOLEAN FUNCTION OnLinkTypeNext()
+  {
+     OBJECT work := this->BeginUnvalidatedWork();
+     this->linktypepage->ValidateValue(work);
+
+     IF (NOT work->HasFailed())
+     {
+       // Setup the next screen
+       this->SetupLinkProperties();
+     }
+
+     RETURN work->Finish();
+  }
+
+  // Second page submitted: chosen the left and right side of the link
+  BOOLEAN FUNCTION OnLinkPropertiesNext()
+  {
+     OBJECT work := this->BeginUnvalidatedWork();
+     this->linkpropertiespage->ValidateValue(work);
+     RETURN work->Finish();
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    RECORD addvalues;
+    FOREVERY (RECORD linkattr FROM this->link_attr_components)
+      addvalues := CellInsert(addvalues, linkattr.tag, linkattr.comp->value);
+
+    IF (this->linkid = 0) // Add a link
+      this->entitytype->CreateEntity(work, addvalues);
+    ELSE // Edit a link
+      this->entitytype->UpdateEntity(work, addvalues);
+
+    RETURN work->Finish();
+  }
+>;

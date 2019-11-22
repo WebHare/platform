@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:todd="http://www.webhare.net/xmlns/tollium/portal/components"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/tollium/portal/components"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
+
+  <xs:element name="addtostartmenu">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="menu" lib="internal/portalcomponents.whlib" objecttype="AddToStartMenu" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="s:MenuItem">
+          <xs:attribute name="application" type="xs:string" />
+          <xs:attribute name="onbeforeadd" type="s:Handler">
+            <xs:annotation>
+              <xs:appinfo>
+                <s:callbacksignature />
+              </xs:appinfo>
+              <xs:documentation>
+                <html:p>The name of the macro to execute before adding the actual menu item.</html:p>
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

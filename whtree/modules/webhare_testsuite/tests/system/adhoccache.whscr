@@ -1,0 +1,392 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/adhoccache_basic.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/adhoccache_alternate.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+INTEGER clone_ctr;
+
+VARIANT FUNCTION ReturnCachableValue(VARIANT data)
+{
+  RETURN [ ttl := 60000, value := data ];
+}
+
+VARIANT FUNCTION ThrowNotCached()
+{
+  THROW NEW Exception("Value was not cached!");
+}
+
+// Send a value through the adhoc cache. Return the 2nd copy, to test state after first copy too
+VARIANT FUNCTION GetCachedClone(VARIANT value)
+{
+  clone_ctr := clone_ctr + 1;
+
+  GetAdhocCached([ mykey := clone_ctr ], PTR ReturnCachableValue(value));
+  GetAdhocCached([ mykey := clone_ctr ], PTR ThrowNotCached()); // 1st copy
+  RETURN GetAdhocCached([ mykey := clone_ctr ], PTR ThrowNotCached()); // 2nd copy
+}
+
+MACRO AdHocCacheTest()
+{
+  INTEGER x;
+  STRING y;
+
+  verify_vm := "OK";
+
+  //basic test
+  x:= GetData(5);
+  TestEq(10, x);
+
+  x:= GetData(4);
+  TestEq(8, x);
+
+  x := GetData(5); //ensure cache invocations as GetData crashes on dupe requests
+  TestEq(10, x);
+
+  //now try the adhoccahe with the same ids but a different route
+  //NOTE any occurence of "Error: Cannot convert type 'INTEGER' to type 'STRING'." may point to getdata and getalternatedata caches conflicting!
+  y := GetAlternateData(5);
+  TestEq("ALT 5", y);
+
+  y := GetAlternateData(5); //ensure cache invocations as GetAlternateData also crashes on dupe requests
+  TestEq("ALT 5", y);
+
+  // test invalidations
+  TestEq(TRUE, 5 IN seenvalues);
+  InvalidateData(5);
+  TestEq(FALSE, 5 IN seenvalues);
+  x := GetData(5);
+  TestEq(10, x);
+  TestEq(TRUE, 5 IN seenvalues);
+
+  InvalidateAllData();
+  TestEq(FALSE, 5 IN seenvalues);
+  x := GetData(5);
+  TestEq(10, x);
+  TestEq(TRUE, 5 IN seenvalues);
+
+  // Enter 2000 items in the cache, see if alternate cache still has entries afterwards
+  alternate_seenvalues:=STRING[];
+  InvalidateAllData();
+  y := GetAlternateData(5);
+  FillUpCache(2000);
+
+  y := GetAlternateData(5); //ensure cache invocations as GetAlternateData also crashes on dupe requests
+  TestEq("ALT 5", y);
+
+  /* Test contended locks
+     - tested: first lock
+     - next lock going into semafore wait
+     - locks after that going in semafore wait
+     - value immediately available after semafore unlock
+     - value gone after semafore unlock, need inner lock
+  */
+  OBJECT ARRAY requests;
+  FOR (INTEGER i := 0; i < 50; i := i + 1)
+    INSERT AsyncCallFunctionFromJob("module::webhare_testsuite/system/adhoccache_basic.whlib", "LockedSlowCache") INTO requests AT END;
+
+  RECORD ARRAY slowdata := RECORD ARRAY(WaitForPromise(CreatePromiseAll(requests)));
+  TestEQ(RepeatElement([ v := 1 ], LENGTH(requests)), slowdata);
+}
+
+MACRO AdHocTestMarshalledObjects()
+{
+  OBJECT doc := MakeXMLDocument(StringToBlob("<test>value</test"), "", TRUE);
+  OBJECT cdoc := GetCachedClone(doc);
+
+  // Test original document and new document
+  TestEQ("test", doc->documentelement->nodename);
+  TestEQ("test", cdoc->documentelement->nodename);
+}
+
+MACRO RecompileInvalidationTest()
+{
+  STRING whlib_data :=
+      "<?wh\n" ||
+      "LOADLIB 'module::system/cache.whlib';\n" ||
+      "LOADLIB 'module::system/webserver.whlib';\n" ||
+      "LOADLIB 'module::system/webserver/errors.whlib';\n" ||
+      "PUBLIC INTEGER FUNCTION GetCachedData() { RETURN GetAdhocCached([ type := 1 ], PTR GetData); }\n" ||
+      "RECORD FUNCTION GetData() { RETURN [ ttl := 60 * 1000, value := ToInteger(GetWebVariable('value'), -1) ]; }\n" ||
+      "PRINT(ToString(GetCachedData()));\n";
+
+  STRING whlib_data2 := whlib_data ||
+      "PRINT('-whlib_data2');\n";
+
+  testfw->BeginWork();
+  testfw->SetupTestWebsite(DEFAULT BLOB);
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT testfile := testsite->rootobject->CreateFile(
+      [ name :=       "test.shtml"
+      , data :=       StringToBlob(whlib_data)
+      , publish :=    TRUE
+      ]);
+
+  testfw->CommitWork();
+
+  testfw->RefreshWebserverConfig(); //fixme combine this all into setuptestwebsite?
+  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+
+  testfw->browser->GotoWebPage(testfile->url || "?value=1");
+  TestEQ("1", BlobToString(testfw->browser->content), testfw->browser->href);
+
+  testfw->browser->GotoWebPage(testfile->url || "?value=2");
+  TestEQ("1", BlobToString(testfw->browser->content));
+
+  DATETIME now := GetCurrentDatetime();
+  testfw->BeginWork();
+  testfile->UpdateMetadata([ data := StringToBlob(whlib_data2) ]);
+  testfw->CommitWork();
+
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
+  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+
+  // Wait a little time for the up-to-date caches in the hs engine to expire
+  DATETIME max_wait := AddTimeToDate(20000, GetCurrentDatetime());
+  WHILE (TRUE)
+  {
+    IF (max_wait < GetCurrentDatetime())
+      THROW NEW Exception("Webserver did not pick up file update");
+
+    testfw->browser->GotoWebPage(testfile->url || "?value=3");
+    IF (BlobToString(testfw->browser->content, -1) = "1")
+    {
+      Sleep(1000);
+      CONTINUE;
+    }
+
+    // 1-: did not pick up file update in adhoccache
+    TestEQ("3-whlib_data2", BlobToString(testfw->browser->content, -1));
+    BREAK;
+  }
+
+
+}
+
+MACRO TtlTest()
+{
+  INTEGER x;
+
+  x := GetData(10);
+  DATETIME sleep_until := AddTimeToDate(11, GetCurrentDatetime());
+
+  TestEq(20, x);
+  TestEq(TRUE, 10 IN seenvalues);
+
+  WHILE(GetCurrentDatetime() < sleep_until) //hope this is enough to let TTL expire...
+    Sleep(10);
+
+  seenvalues := DEFAULT INTEGER ARRAY;
+  x := GetData(10);
+  TestEq(20, x);
+  TestEq(TRUE, 10 IN seenvalues);
+}
+
+MACRO AbsTtlTest()
+{
+  INTEGER x;
+
+  x := GetData_AbsTTL(10);
+  DATETIME sleep_until := AddTimeToDate(11, GetCurrentDatetime());
+
+  TestEq(20, x);
+  TestEq(TRUE, 10 IN seenvalues);
+
+  WHILE(GetCurrentDatetime() < sleep_until) //hope this is enough to let TTL expire...
+    Sleep(10);
+
+  seenvalues := DEFAULT INTEGER ARRAY;
+  x := GetData_AbsTTL(10);
+  TestEq(20, x);
+  TestEq(TRUE, 10 IN seenvalues);
+
+  seenvalues := INTEGER[];
+  x := GetData_AbsTTL(-1);
+  x := GetData_AbsTTL(-1);
+  TestEq(2, Length(seenvalues), "Should not have cached past TTls");
+}
+
+MACRO EventInvalidationTest()
+{
+  INTEGER x;
+  seenvalues := DEFAULT INTEGER ARRAY;
+
+  x := GetDataWithEventInvalidation(12);
+
+  TestEq(24, x);
+  TestEq(TRUE, 12 IN seenvalues);
+
+  seenvalues := DEFAULT INTEGER ARRAY;
+  BroadcastEvent("beta:adhoccache_event", DEFAULT RECORD);
+
+  Sleep(100); // Let the event be handled and such, hopefully this is enough time
+
+  x := GetDataWithEventInvalidation(12);
+
+  TestEq(24, x);
+  TestEq(TRUE, 12 IN seenvalues);
+
+  //this will trigger an empty eventmasks list, should not crash
+  x := GetDataWithEventInvalidation(-1);
+  TestEq(-2,x);
+}
+
+
+RECORD FUNCTION GetCachableStuff(INTEGER id)
+{
+ RETURN [ eventmasks := [ "webhare_testsuite:localeventtest" ]
+         , value := id
+         , ttl := 60000
+         ];
+}
+INTEGER FUNCTION GAC(INTEGER id)
+{
+  RETURN GetAdHocCached([ type := "3" ], PTR GetCachableStuff(id));
+}
+
+MACRO LocalEventtest()
+{
+  TestEq(1, GAC(1), "Expecting 1 on first init");
+  TestEq(1, GAC(2), "Still 1, no update yet");
+  BroadcastLocalEvent("webhare_testsuite:localeventtest", DEFAULT RECORD);
+  TestEq(3, GAC(3), "We flushed GAC()");
+  TestEq(3, GAC(4), "We still flushed GAC()");
+  BroadcastEvent("webhare_testsuite:localeventtest", DEFAULT RECORD);
+  TestEq(5, GAC(5), "We flushed GAC() locally using the external event ");
+  TestEq(5, GAC(6), "We still flushed GAC() locally using the external event ");
+
+  DATETIME timeout := AddTimeToDate(30000, GetCurrentDatetime());
+  OBJECT eventmgr := NEW EventManager;
+  eventmgr->RegisterInterest('webhare_testsuite:*');
+
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING baseurl := port .baseurl || "tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml";
+  TestEq(TRUE, testfw->browser->GotoWebPage(baseurl || "?broadcast=1"));
+
+  RECORD evt1 := eventmgr->ReceiveEvent(timeout);
+  RECORD evt2 := eventmgr->ReceiveEvent(timeout);
+  TestEq(TRUE, "webhare_testsuite:localeventtest" IN [ STRING(evt1.event), evt2.event ]);
+  TestEq(TRUE, "webhare_testsuite:didbroadcast" IN [ STRING(evt1.event), evt2.event ]);
+
+  TestEq(7, GAC(7), "We flushed GAC() externally");
+  TestEq(7, GAC(8), "We still flushed GAC() externally");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(baseurl || "?broadcast=2"));
+  RECORD evt := eventmgr->ReceiveEvent(timeout);
+  TestEq("webhare_testsuite:didbroadcast", evt.event);
+
+  TestEq(7, GAC(9), "Local event should NOT have flushed");
+}
+
+MACRO WebserverCacheTest()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING baseurl := port .baseurl || "tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml";
+
+  // Clearup state from this test
+  IF(NOT testfw->browser->GotoWebPage(baseurl || "?invalidate=2"))
+  {
+    SendBlobTo(0,testfw->browser->content);
+    ABORT("Request failure");
+  }
+
+  IF(NOT testfw->browser->GotoWebPage(baseurl || "?cacheval=1"))
+  {
+    SendBlobTo(0,testfw->browser->content);
+    ABORT("Request failure");
+  }
+  TestEq("1", BlobToString(testfw->browser->content,16));
+
+  IF(NOT testfw->browser->GotoWebPage(baseurl || "?cacheval=2"))
+  {
+    SendBlobTo(0,testfw->browser->content);
+    ABORT("Request failure");
+  }
+  // This will only work if the adhoccache maxentries parameter is somewhat bigger than 0!!!
+  TestEq("1", BlobToString(testfw->browser->content,16)); //if we get 2, it wasn't actually cached!
+
+  IF(NOT testfw->browser->GotoWebPage(baseurl || "?invalidate=2"))
+  {
+    SendBlobTo(0,testfw->browser->content);
+    ABORT("Request failure");
+  }
+  IF(NOT testfw->browser->GotoWebPage(baseurl || "?cacheval=2"))
+  {
+    SendBlobTo(0,testfw->browser->content);
+    ABORT("Request failure");
+  }
+  TestEq("2", BlobToString(testfw->browser->content,16)); //if we don't get 2, it wasn't actually invalidated
+}
+
+MACRO ReplaceTest()
+{
+  /* Note: on a running system, this test may fail */
+
+  // Try 10 times to avoid spurious fails. Might cause spurious passes though, but that's somewhat less annoying.
+  INTEGER oldsize;
+  FOR (INTEGER test := 0; test < 10; test := test + 1)
+  {
+    // Entry replace did not remove old expiry registrations (from which the cache size is derived)
+    InvalidateAllData();
+
+    oldsize := GetAdhocCacheStats().cachesize;
+
+    FOR (INTEGER i := 0; i < 10000; i := i + 1)
+    {
+      SetData(1, 10 + i * 10);
+      SetData(2, 10 + i * 10);
+      SetData(3, 10 + i * 10);
+    }
+
+    // Test ok!
+    IF (oldsize + 3 = GetAdhocCacheStats().cachesize)
+      BREAK;
+
+    // Failed due to spurious mods
+    PRINT("Spurious failure #" || test + 1 || "/10 in replacetest, trying again\n");
+  }
+
+  TestEQ(oldsize + 3, GetAdhocCacheStats().cachesize);
+}
+
+
+VARIANT FUNCTION ErrorTest(VARIANT inval) { RETURN inval; }
+
+MACRO ErrorDetectTest()
+{
+  TestThrowsLike("*ERRORTEST*RECORD*INTEGER*", PTR GetAdHocCached([ e := 1 ], PTR ErrorTest(1)));
+  TestThrowsLike("*ERRORTEST*missing*TTL*", PTR GetAdHocCached([ e := 1 ], PTR ErrorTest([ value := 1 ])));
+  TestThrowsLike("*ERRORTEST*missing*VALUE*", PTR GetAdHocCached([ e := 1 ], PTR ErrorTest([ ttl := 1 ])));
+  TestThrowsLike("*ERRORTEST*invalid*TTL*", PTR GetAdHocCached([ e := 1 ], PTR ErrorTest([ ttl := -1, value := 2 ])));
+  //empty eventmask list is now okay - we need that in cases where users may blindly forward eventmasks received from eg RunConsilioSearch to their returnvalue without setting a TTL
+  TestEq(1, GetAdHocCached([ e := 1 ], PTR ErrorTest([ value := 1, eventmasks := DEFAULT STRING ARRAY ])));
+}
+
+MACRO NonExclusiveTest()
+{
+  TestEQ(1, GetAdhocCached([ type := "nonexclusive-1" ], PTR GetCachableStuff(1)));
+}
+
+
+RunTestframework([ PTR AdHocCacheTest
+                 , PTR AdHocTestMarshalledObjects
+                 , PTR RecompileInvalidationTest
+                 , PTR TtlTest
+                 , PTR AbsTtlTest
+                 , PTR EventInvalidationTest
+                 , PTR WebserverCacheTest
+                 , PTR LocalEventTest
+                 , PTR ReplaceTest
+                 , PTR ErrorDetectTest
+                 , PTR NonExclusiveTest
+                 ]);

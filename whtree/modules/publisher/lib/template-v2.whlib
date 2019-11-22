@@ -1,0 +1,1710 @@
+﻿<?wh
+/** @short Templates
+    @long This file must be included by all publication templates and offers
+          various functions to control the publication proces.
+    @private template-v2 is deprecated, need an alternative for static files without content
+*/
+
+LOADLIB "mod::publisher/lib/internal/link-fixer.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
+LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "mod::publisher/lib/common-v2.whlib" EXPORT file, folder, site, NotAPublishingContextException;
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "wh::dbase/local.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::xml/dom.whlib";
+//ADDME try to dynamically select the proper parser library
+LOADLIB "wh::parser/objects.whlib";
+LOADLIB "wh::parser/msword.whlib";
+LOADLIB "wh::formatter/output.whlib";
+LOADLIB "wh::formatter/html.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+////////////////////////////////////////////////////////////////////////////
+//
+// External functions
+//
+MACRO __PUBLISHER_OUTPUT_INSERTIMAGE(INTEGER formatterid, RECORD imageinfo)  __ATTRIBUTES__(EXTERNAL "parser");
+
+OBJECT htmloutput;
+OBJECT htmlrewritecontext;
+
+STRING ARRAY __pageloadlibs;
+INTEGER worddocid;
+
+PUBLIC STRING __webpack_integrationpath := "mod::webpack/lib/integration";
+PUBLIC STRING __webpack_librarypath := "mod::webpack/lib/integration";
+PUBLIC STRING __webpack_spamchecklib := "";
+PUBLIC STRING __webpack_spamcheckopts := "";
+PUBLIC STRING __webpack_buttonpath;
+PUBLIC INTEGER ARRAY __webpackloadlibs;
+MACRO PTR ARRAY postprochtmlfuncs;
+
+MACRO PUBLISHER_EXCEPTION(INTEGER exceptioncode, STRING exceptiondata)
+{
+  // Won't return anymore
+  RECORD rec := publishingbackendlink->DoRequest(
+     [ type := "EXCEPTION"
+     , errorcode := exceptioncode
+     , errordata := exceptiondata
+     ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+}
+
+OBJECTTYPE IndexSource
+  < PUBLIC RECORD ARRAY parts;
+
+    PUBLIC INTEGER FUNCTION GetDocObjectByName(STRING docname)
+    {
+      RETURN SELECT AS INTEGER id FROM this->parts WHERE name = docname;
+    }
+  >;
+
+OBJECTTYPE IndexObject EXTEND CustomParserObject
+  < PUBLIC MACRO NEW(OBJECT source, STRING anchor, BOOLEAN newpage, RECORD ARRAY subs)
+    {
+      this->source := source;
+      this->anchor := anchor;
+      this->newpage := newpage;
+      this->subs := subs;
+    }
+
+    PUBLIC RECORD ARRAY subs;
+    PUBLIC STRING anchor;
+    PUBLIC BOOLEAN newpage;
+
+    PUBLIC OBJECT source;
+
+    PUBLIC UPDATE STRING FUNCTION GetAnchor()
+    {
+      RETURN this->anchor;
+    }
+
+    PUBLIC UPDATE MACRO Send(INTEGER formatid)
+    {
+      OBJECT outpage := GetFormattingPage(formatid);
+      FOREVERY (RECORD sub FROM this->subs)
+      {
+        SWITCH (sub.type)
+        {
+        CASE "TEXT"
+          {
+            outpage->Print(sub.data);
+          }
+        CASE "IMAGE"
+          {
+            RECORD imageinfo :=
+              [ is_known_photo := sub.is_photo
+              , lenx           := sub.canvas.width
+              , leny           := sub.canvas.height
+              , alttag         := sub.alttag
+              , title          := ""
+              , animated_gif   := DEFAULT BLOB
+              , align          := 0
+              , uniqueid       := "hi_hirescriptfiles-" || this->id || "-" || #sub
+              , wrapping       := [ left   := 0
+                                  , right  := 0
+                                  , top    := 0
+                                  , bottom := 0
+                                  ]
+              , painter        := PTR this->RenderImage(sub, #1, #2, #3, #4, #5)
+              ];
+            __PUBLISHER_OUTPUT_INSERTIMAGE(formatid, imageinfo);
+          }
+        CASE "LINK"
+          {
+            STRING linkto := sub.partname;
+
+            INTEGER docobj := this->source->GetDocObjectByName(linkto);
+            IF (docobj = 0)
+              ABORT("Found a link to non-existing part '" || linkto || "'");
+
+            STRING link := GetDocObjectLink(docobj);
+            outpage->Print(link);
+          }
+        DEFAULT
+          {
+            ABORT("Unknown sub type '"||sub.type||"'");
+          }
+        }
+      }
+    }
+
+    PUBLIC MACRO RenderImage(RECORD sub, INTEGER canvasid, INTEGER startx, INTEGER starty, INTEGER lenx, INTEGER leny)
+    {
+      INTEGER myimage := GfxCreateCanvasFromRAWBlob(sub.canvas.data, sub.canvas.width, sub.canvas.height);
+      IF (sub.canvas.width != lenx OR sub.canvas.height != leny)
+        GfxResizeCanvas(myimage, lenx, leny);
+      GfxDrawCanvas(canvasid, myimage, startx, starty);
+    }
+  >;
+
+// hareindex
+RECORD ARRAY FUNCTION __PUBLISHER_OPENHARESCRIPTFILE()
+{
+  RECORD rec := publishingbackendlink->DoRequest(
+      [ type := "OPENHARESCRIPTFILE"
+      ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+
+  OBJECT source := NEW IndexSource;
+
+  RECORD ARRAY parts;
+  FOREVERY (RECORD part FROM rec.msg.parts)
+  {
+    OBJECT docobj := NEW IndexObject(source, part.anchor, part.newpage, part.subs);
+
+    INSERT [ id         := docobj->id
+           , name       := part.anchor
+           , newpage    := part.newpage
+           ] INTO parts AT END;
+  }
+  source->parts := parts;
+  RETURN parts;
+}
+
+/** @short Generate a publication warning
+    @param text Warning text */
+PUBLIC MACRO AddPublicationWarning(STRING text)
+{
+  IF(NOT ObjectExists(publishingbackendlink) OR NOT cached_publish_info.istemplaterun)
+    THROW NEW NotAPublishingContextException;
+
+  RECORD rec := publishingbackendlink->DoRequest(
+      [ type := "ADDWARNING"
+      , text := text
+      ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+}
+
+PUBLIC MACRO __SetCaptureSubPaths(BOOLEAN capturesubpaths)
+{
+  IF (NOT ObjectExists(publishingbackendlink) OR NOT cached_publish_info.istemplaterun)
+    THROW NEW NotAPublishingContextException;
+
+  RECORD rec := publishingbackendlink->DoRequest(CELL
+      [ type := "SETCAPTURESUBPATHS"
+      , capturesubpaths
+      ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+
+  IF (NOT rec.msg.success)
+    THROW NEW Exception(rec.msg.errordata);
+}
+
+////////////////////////////////////////////////////////////////////////////
+//
+// Conversion tables
+//
+PUBLIC TABLE <
+        INTEGER "ID",
+        INTEGER "TOCLEVEL",
+        INTEGER "TOCPARENT",
+        INTEGER "PAGE",
+        BOOLEAN "HIDDEN",
+        INTEGER "DEPTHLEVEL", //retained only for compatbility with pre-2.2 templates. Always 1
+        INTEGER "PARENT"      //retained only for compatbility with pre-2.2 templates. Always 0
+        > docobjects;
+
+PUBLIC TABLE <
+        INTEGER "ID",
+        STRING "NAME",
+        INTEGER "FIRSTDOCOBJECT"> pages;
+
+
+////////////////////////////////////////////////////////////////////////////
+//
+// Global variables
+//
+
+//Output settings
+RECORD outputsettings;
+
+PUBLIC STRING __publisher_initial_html_level := "HTML4.01";
+PUBLIC BOOLEAN __publisher_initial_html_compliance;
+PUBLIC BOOLEAN __publisher_initial_html_stylesheets := TRUE;
+PRIVATE BOOLEAN webharecss_link_created := FALSE;
+PRIVATE BOOLEAN webharecss_created := FALSE;
+
+//short Stack of currently open pages
+//cell openpages.number Number used to open the page (0=CreateFile page)
+//cell openpages.name Name given for the open page */
+PRIVATE RECORD ARRAY openpages;
+
+//Should all links be absolute links?
+PRIVATE BOOLEAN alllinksabsolute;
+
+//An attempt to slightly speed up docobject scanning. Although in reality, the docobjects LocalTable provider should just be indexed
+RECORD ARRAY docobjects_fastsearch_sorted;
+
+//Raw mode callback
+MACRO PTR rawfilecallback;
+
+//Array of all hyperlinks
+RECORD ARRAY Hyperlinks;
+
+//HTML conversion options
+PUBLIC BOOLEAN __PUBLISHER_FORBID_IMG_ALIGN __ATTRIBUTES__(DEPRECATED "Use SetHTMLDocSuppressImgAlign") := FALSE;
+
+INTEGER htmldoc_id;
+
+PUBLIC BOOLEAN __publisher_created_htmldoc;
+PUBLIC MACRO PTR __publisher_newfileopen_hook;
+PUBLIC FUNCTION PTR __publisher_newfile_intercept;
+
+////////////////////////////////////////////////////////////////////////////
+//
+// Functions
+//
+PRIVATE STRING FUNCTION CleanupName(STRING sourcename)
+{
+  /* Prevent ending the tag with an underscore, or having duplicate underscores.
+     Ensure all characters in name are lowercase alpha or underscores. */
+  STRING retval;
+  BOOLEAN cached_underscore;
+  FOR (INTEGER pos := 0; pos < LENGTH(sourcename) AND LENGTH(retval) < 31; pos := pos + 1)
+  {
+    STRING ch:=ToLowercase(Substring(sourcename,pos,1));
+    IF (ch=" " OR ch="_")
+    {
+      IF (retval!="")
+        cached_underscore := TRUE;
+    }
+    ELSE IF ((ch>="a" AND ch<="z") OR (ch>='0' AND ch<='9'))
+    {
+      IF (cached_underscore)
+      {
+        retval := retval || "_";
+        cached_underscore := FALSE;
+      }
+      retval := retval || CH;
+    }
+  }
+  return RETVAL;
+}
+
+PRIVATE STRING FUNCTION MakePagenameUnique(STRING pagename, STRING extension)
+{
+  INTEGER collisioncounter := 0;
+  WHILE(TRUE)
+  {
+    STRING tryname := pagename;
+    IF (collisioncounter>0) //append a number if the normal name didn't work
+      tryname := tryname || "-" || collisioncounter;
+    tryname := tryname || extension;
+
+    IF (NOT RecordExists(SELECT FROM pages WHERE ToUppercase(name)=ToUppercase(tryname)))
+      RETURN tryname;
+
+    collisioncounter := collisioncounter + 1;
+  }
+}
+
+PRIVATE STRING FUNCTION GeneratePageName(INTEGER pageid, INTEGER firstdocobject)
+{
+  IF (pageid=1)
+    RETURN firstpagename;
+
+  STRING naminghint;
+  IF (firstdocobject!=0)
+  {
+    naminghint := GetParserobjectAnchor(firstdocobject);
+    IF (naminghint = "")
+      naminghint := GetDocobjectRawtext(firstdocobject,64);
+  }
+  IF (naminghint = "")
+    naminghint:= "whembed"; //No pagename? then make us webhare
+  RETURN MakePagenameUnique(CleanupName(naminghint), outputsettings.outputextension);
+}
+
+PRIVATE MACRO RefreshDocObjects()
+{
+  docobjects_fastsearch_sorted := SELECT * FROM docobjects ORDER BY id;
+}
+
+
+
+/** @short   Create a new file from the specified blob.
+    @long    CreateFileFromBlob creates a new output file with name filename, and fills it with the contents of the specified
+             blob. CreateFileFromBlob does not have any effect on the file that is currently opened using CreateFile or OpenFile.
+             The file created with CreateFileFromBlob does not need to be closed using CloseFile.
+    @param   filename Name of the file to write
+    @param   filedata Blob with data to write
+    @see     CreateFile GetFileLinkByName
+    @example
+// Publish the original document to the output pages
+CreateFileFromBlob("original.doc", file.data);
+
+// Print a link to the original document
+Print (GetFileLinkByName("original.doc"));
+*/
+PUBLIC MACRO CreateFileFromBlob(STRING filename, BLOB filedata)
+{
+  IF(NOT ObjectExists(publishingbackendlink) OR NOT cached_publish_info.istemplaterun)
+    THROW NEW NotAPublishingContextException;
+
+  INTEGER newfileid := OpenOutputFile(filename, FALSE);
+  SendBlobTo(newfileid, filedata);
+  PUBLISHER_CloseOutput(newfileid);
+}
+
+
+
+
+/** @short   Returns the encoded relative link to a DocObject.
+    @long    MakeDocObjectLink returns a relative link from the page with ID startpageid to the DocObject with ID targetobj.
+    @param   startpageid ID of page from which the link should be made, -1 for an absolute link, and 0 for links from CreateFile
+                         pages
+    @param   targetobj ID of docobject to which the link should be made
+    @return  A properly encoded absolute or relative URL
+    @see     MakePageLink, MakeFileLinkByName
+    @example
+// print the relative URL from the first page to the first DocObject
+RECORD firstpage := FindPage(1);
+INTEGER firstobjectid := firstpage.firstdocobject;
+Print ( MakeDocObjectLink(1, firstobjectid) );
+*/
+PUBLIC STRING FUNCTION MakeDocObjectLink(INTEGER startpageid, INTEGER targetobj)
+{
+  RECORD docobject := FindDocobject(targetobj);
+  IF(NOT RecordExists(docobject))
+    RETURN "";
+
+  RECORD page := FindPage(docobject.page);
+  IF(NOT RecordExists(page))
+    RETURN "";
+
+  IF(startpageid = docobject.page)
+    RETURN "#" || GetParserobjectAnchor(docobject.id);
+
+  STRING link := MakePageLink(startpageid, docobject.page);
+  IF (docobject.id != page.firstdocobject) //We move links to the first docobject to the real page top
+    link := link || "#" || GetParserobjectAnchor(docobject.id);
+
+  RETURN link;
+}
+
+
+/** @short   Returns a link to a file, based on the file name of the target
+    @param   startpageid ID of page from which the link should be made, -1 for an absolute link, and 0 for links from CreateFile pages
+    @param   filename File name to which the link should be made
+    @return  A properly encoded absolute or relative URL
+    @see     MakePageLink, MakeDocObjectLink
+    @example
+// Create a 'to toc' link by printing the relative link from the
+// first page to a manually created file called 'toc.html'
+CreateFile ("toc.html");
+CloseFile();
+Print('<a href="'||MakeFileLinkByName(1,"toc.html")||'">to toc</a>');
+*/
+PUBLIC STRING FUNCTION MakeFileLinkByName(INTEGER startpageid, STRING filename)
+{
+  IF(filename="webhare.css")
+    webharecss_link_created := TRUE;
+  RETURN DoMakeFileLinkByName(startpageid, filename);
+}
+
+/** @short   Returns a link to a file, by referencing the target page name. (deprecated!)
+    @deprecated This function is deprecated, use MakeFileLinkByName instead
+    @param   startpageid ID of page from which the link should be made, -1 for an absolute link, and 0 for links from CreateFile pages
+    @param   pagename Page name to which the link should be made
+    @return  A properly encoded absolute or relative URL, as requested
+*/
+PUBLIC STRING FUNCTION MakePageLinkByName(INTEGER startpageid, STRING pagename) __ATTRIBUTES__(DEPRECATED "Use the MakeFileLinkByName function")
+{
+  RETURN MakeFileLinkByName(startpageid, pagename);
+}
+
+/** @short   Returns the link between two pages based on their IDs.
+    @long    MakePageLink returns a hyperlink from page with ID = startpageid to a page with ID = targetpageid.
+    @param   startpageid ID of page from which the link should be made, -1 for an absolute link, and 0 for links from CreateFile pages
+    @param   targetpageid ID of page to which the link should be made
+    @return  A properly encoded absolute or relative URL
+    @see     MakeDocObjectLink MakeFileLinkByName
+    @example
+// Create a 'next page' link by printing the relative link from
+// the first page to the second page of a document
+Print ('<a href="' || MakePageLink(1,2) || '">next page</a>');
+
+// create a 'to toc' link by printing the relative link from the
+// second page of a worddoc to a manually created page with ID 234
+OpenFile (234);
+  Print ('<a href="' || MakePageLink(2,234) || '">to toc</a>');
+CloseFile();
+*/
+PUBLIC STRING FUNCTION MakePageLink(INTEGER startpageid, INTEGER targetpageid)
+{
+  RECORD DestPage := FindPage(targetpageid);
+  IF (RECORDEXISTS (DESTPAGE))
+    RETURN MakeFileLinkByName(startpageid, destpage.name);
+  ELSE
+    RETURN ""; //FIXME: Create a Publisher HareScript error to tell the user that the page did not exist!
+}
+
+
+
+
+/** @short   Prints the formatted contents of a DocObject.
+    @long    PrintDocObject prints the contents of object with ID = DocObjectID to the last opened file. All formatting, as
+             present in the object, will be retained.
+    @param   objectid ID of the docobject to print
+    @param   filterid ID of filter to use. No longer supported, should always be 0
+    @see     PrintAnyPage, PrintPageBody, FindDocObject, GetDocObjectRawText
+    @example
+// Print the contents of the first page of a document
+// select all objects on the first page
+RECORD ARRAY AllObjects := SELECT *
+                           FROM DocObjects
+                           WHERE DocObjects.Page = 1;
+// loop through the objects and print their contents
+FOREVERY (RECORD ThisObject FROM AllObjects)
+{
+  PrintDocObject (ThisObject.id,0);
+}
+*/
+PUBLIC MACRO PrintDocObject(INTEGER objectid, INTEGER filterid DEFAULTSTO 0)
+{
+  IF(NOT ObjectExists(publishingbackendlink) OR NOT cached_publish_info.istemplaterun)
+    THROW NEW NotAPublishingContextException;
+  IF (Length(openpages) = 0)
+    ABORT("No open page to print document object to");
+  IF (filterid != 0)
+    ABORT("Custom filtering is no longer supported");
+
+  IF(objectid=1 AND rawfilecallback != DEFAULT MACRO PTR)
+  {
+    rawfilecallback();
+  }
+  ELSE
+  {
+    PrintParserObject(GetHTMLFileId(), objectid);
+  }
+}
+
+
+
+
+/** @short   Print all docobjects on a specific page
+    @long    PrintAnyPage prints all docobjects to the page with ID pageid. This macro is useful if you want to send docobjects
+             to a specific output page, other then an output page created by WebHare during the conversion process.
+    @param   pageid ID of the page to print
+    @see     PrintPageBody, PrintDocObject
+    @example
+// prints all docobjects of all pages of a document to a single
+// printable page.
+RECORD ARRAY allpages := SELECT id, name FROM pages;
+
+FOREVERY (RECORD thispage FROM allpages)
+{
+  // open a file for the printable version
+  CreateFile("printable_" || thispage.name);
+
+  // print page to the 'printable version' file
+  PrintAnyPage(thispage.id);
+
+  CloseFile();
+}
+*/
+PUBLIC MACRO PrintAnyPage(INTEGER pageid)
+{
+  RECORD ARRAY doc_objects :=
+    SELECT id
+      FROM docobjects
+     WHERE docobjects.page = VAR pageid
+       AND hidden=FALSE;
+
+  FOREVERY (RECORD doc_object FROM doc_objects)
+  {
+    PrintDocObject(doc_object.id,0);
+  }
+}
+
+
+
+/** @short   Find a docobject by its ID.
+    @long    Retrieve a docobject record from the DOCOBJECTS table based on its ID.
+    @param   objectid ID of the docobject to look up
+    @return  The requested docobject record, or a non-existing record if the docobject doesn't exist
+    @see     FindPage, PrintDocObject, GetDocObjectLink
+    @example
+// Get the record of the object with ID=1 from the DocObjects table,
+// validate it exists and print its TOC level
+RECORD example1 := FindDocObject(1);
+IF (RecordExists(example1))
+  Print(ToString(example1.toclevel));
+
+// returns an empty record, because the ObjectID does not exists
+RECORD example2 := FindDocObject (-6);
+*/
+PUBLIC RECORD FUNCTION FindDocObject(INTEGER objectid)
+{
+  /* FIXME: Our implementation of FindDocObject is now suboptimal. RecordDb indexing options
+            would fix this */
+
+  //Binary search...
+  INTEGER curstart := 0, curlimit := Length(docobjects_fastsearch_sorted);
+  INTEGER segmentsize := curlimit - curstart;
+  WHILE (segmentsize > 0)
+  {
+    INTEGER half := segmentsize / 2;
+    INTEGER middle := curstart + half;
+    IF (docobjects_fastsearch_sorted[middle].id < objectid)
+    {
+      curstart := middle + 1;
+      segmentsize := segmentsize - half - 1;
+    }
+    ELSE
+    {
+      segmentsize := half;
+    }
+  }
+  IF (curstart<Length(docobjects_fastsearch_sorted) AND docobjects_fastsearch_sorted[curstart].id = objectid)
+    RETURN docobjects_fastsearch_sorted[curstart];
+  IF (LENGTH(SELECT FROM docobjects WHERE id=objectid)>0)
+  {
+    RedirectOutputTo(0);
+    PrintRecordArrayTo(0,(SELECT * FROM docobjects_fastsearch_sorted),"boxed");
+    ABORT("Argh! Object exists but not found by binary search " ||objectid);
+  }
+  RETURN DEFAULT RECORD;
+}
+
+
+
+
+/** @short   Find a page by ID.
+    @long    Retrieve a page record from the PAGES table, referencing it by its ID.
+    @return  The requested page record, or a non-existing record if the page doesn't exist
+    @param   pageid ID of the page to look up
+    @see     FindDocObject, GetPageLink
+    @example
+// Get the record of the page with ID=3 from the pages table,
+// validate it exists and print its name
+RECORD example1 := FindPage(3);
+IF (RecordExists(example1))
+  Print(example1.name);
+
+// returns an empty record, because the pageid doesn't exist
+RECORD example2 := FindPage(-6);
+*/
+PUBLIC RECORD FUNCTION FindPage(INTEGER pageid)
+{
+  RETURN SELECT * FROM PAGES WHERE PAGES.ID=PAGEID;
+}
+
+
+
+
+/** @short   Returns the unformatted text of a DocObject.
+    @long    GetDocObjectRawText returns maxlength characters of the text of DocObject with ID = objectid.
+             The function is usually used to print navigation based on the document's structure, in conjunction with the
+             GetDocObjectLink function.
+    @param   objectid ID of the docobject from which we want the text
+    @param   maxlen The maximum number of characters to retrieve
+    @return  The text inside the docobject, completely stripped of all formatting.
+    @see     PrintDocObject FindDocObject GetDocObjectLink
+    @example
+// Creates an array of all DocObjects with TOCLevel = 1 on the first
+// published page, and prints their texts, up to 25 characters.
+TABLE AllLevel1Objects := SELECT ID
+                          FROM DocObjects
+                          WHERE TOClevel=1
+                          AND PAGEID = 1;
+FOREVERY (record ThisObject FROM AllLevel1Objects )
+{
+  Print ('<p>');
+  Print (   GetDocObjectRawText(ThisObject.ID,25) );
+  Print ('</p>');
+}
+*/
+PUBLIC STRING FUNCTION GetDocObjectRawText(INTEGER objectid, INTEGER maxlen)
+{
+  RETURN GetParserobjectrawtext(objectid,maxlen,true /* skip bullets&numbering for wh2.1 compatibility */);
+}
+
+PUBLIC MACRO AddHTMLPostProcessor(MACRO PTR postprocfunc)
+{
+  INSERT postprocfunc INTO postprochtmlfuncs AT END;
+}
+
+MACRO __Internal_CreateFile(STRING pagename, INTEGER pageid, BOOLEAN dbfile, BOOLEAN systemredirect)
+{
+  IF(NOT dbfile AND NOT IsValidWHFSName(pagename,FALSE))
+    THROW NEW Exception("'" || pagename || "' is not a valid filename for a published filed");
+  IF(NOT ObjectExists(publishingbackendlink) OR NOT cached_publish_info.istemplaterun)
+    THROW NEW NotAPublishingContextException;
+
+  INTEGER newfileid := dbfile ? OpenDBOutputFile(pagename) : OpenOutputFile(pagename, systemredirect);
+  IF (newfileid=0)
+    ABORT("Illegal/duplicate filename '" || pagename || "'");
+
+  IF (__publisher_newfile_intercept != DEFAULT FUNCTION PTR AND dbfile = FALSE)
+  {
+    newfileid := __publisher_newfile_intercept(TRUE, pagename, pageid, newfileid);
+  }
+
+  INTEGER postprocstream, htmldest := newfileid;
+  IF(Length(postprochtmlfuncs)>0 AND (pagename LIKE "*.html" OR pagename LIKE "*.shtml"))
+  {
+    postprocstream := CreateStream();
+    htmldest := postprocstream;
+  }
+
+  //Create a HTML object to send the new output to
+  OBJECT newformatter := GetCurrentPublicationOutput()->CreatePage(htmldest);
+
+  //Set up a basename for embedded objects to match the page's name. just take the object's basename
+  SetHTMLDocEmbeddingBasename(GetHTMLDocId(), GetBasenameFromPath(file.name));
+
+
+  //Redirect all output (Print et-al) to this new object (FIXME: This may be dangerous?? We are redirecting output to the 'newfileid', not to the HTML output device - we might thus Write without the proper flushes ?!)
+  RedirectOutputTo(htmldest);
+  INSERT INTO openpages(number, name, fileid, formatter, formatterid, dbfile, postprocstream, htmldest)
+         VALUES(pageid, pagename, newfileid, newformatter, newformatter->id, dbfile, postprocstream, htmldest) AT 0;
+
+  IF(NOT systemredirect AND ToUppercase(pagename) LIKE "*.SHTML" AND Length(__pageloadlibs) > 0)
+  {
+    STRING code := '<?wh ';
+    FOREVERY(STRING loadlibpath FROM __pageloadlibs)
+      code := code || 'LOADLIB "' || EncodeJava(loadlibpath) || '";';
+
+    IF(Length(__webpackloadlibs) > 0)
+    {
+      IF(1 IN __webpackloadlibs) //poll
+        code := code || 'loadlib "' || EncodeJava(__webpack_librarypath) || '/poll.whlib";';
+      IF(2 IN __webpackloadlibs) //survey
+        code := code || 'loadlib "' || EncodeJava(__webpack_librarypath) || '/survey.whlib";';
+      IF(3 IN __webpackloadlibs) //guestbook
+        code := code || 'loadlib "' || EncodeJava(__webpack_librarypath) || '/guestbook.whlib";';
+      IF(4 IN __webpackloadlibs) //forum
+        code := code || 'loadlib "' || EncodeJava(__webpack_librarypath) || '/forum.whlib";';
+      IF(__webpack_spamchecklib != '')
+        code := code || '__prep_webpack_spamchecklib := "' || EncodeJava(__webpack_spamchecklib) || '";__prep_webpack_spamcheckopts := "' || EncodeJava(__webpack_spamcheckopts) || '";';
+    }
+    code := code || '?>';
+    PrintTrustedCodeTo(htmldest, code);
+  }
+
+  IF (__publisher_newfileopen_hook != DEFAULT MACRO PTR AND dbfile = FALSE)
+    __publisher_newfileopen_hook(pagename, pageid);
+}
+
+
+PUBLIC MACRO PrintTrustedCode(STRING code)
+{
+  IF (LENGTH(openpages) = 0)
+    THROW NEW Exception("No page is open, cannot write code");
+
+  PrintTrustedCodeTo(openpages[0].htmldest, code);
+}
+
+
+/** @short   Closes the currently opened file.
+    @long    CloseFile closes the file opened by the OpenFile or CreateFile macros.
+             The macro will cause an error if it is called when there are no open files.
+             The CloseFile and OpenFile/CreateFile macros are antagonists.
+    @see     OpenFile, CreateFile
+    @example
+// Loop through all objects, open an output file for every object,
+// print the contents of the file, close the file.
+RECORD ARRAY allpages := SELECT id,name FROM pages;
+FOREVERY (RECORD thispage FROM allpages)
+{
+  OpenFile(thispage.id);
+    PrintPageBody();
+  CloseFile();
+}
+*/
+PUBLIC MACRO CloseFile()
+{
+  IF (Length(openpages)=0)
+    ABORT("CloseFile: Cannot close more files than there have been opened");
+
+  CloseHTMLPage(GetHTMLFileId());
+  RedirectOutputTo(Length(openpages)>1 ? (openpages[1].postprocstream ?? openpages[1].fileid) : 0); //restore output soon to ease debugging in intercept function
+
+  IF(openpages[0].postprocstream != 0)
+  {
+    //convert to HTML and reprocess
+    BLOB tempresult := MakeBlobFromStream(openpages[0].postprocstream);
+    OBJECT indoc := MakeXMLDocumentFromHTML(tempresult);
+
+    OBJECT writer := NEW HtmlRewriterContext;
+    FOREVERY(MACRO PTR postproc FROM postprochtmlfuncs)
+      postproc(writer, indoc);
+
+    SendBlobTo(openpages[0].fileid, writer->GenerateHTML(indoc));
+  }
+
+  INTEGER outputfileid := openpages[0].fileid;
+  IF (__publisher_newfile_intercept != DEFAULT FUNCTION PTR AND openpages[0].dbfile = FALSE)
+  {
+    outputfileid := __publisher_newfile_intercept(FALSE, openpages[0].name, openpages[0].number, outputfileid);
+  }
+  PUBLISHER_CloseOutput(outputfileid);
+
+  //Pop the page number
+  DELETE FROM openpages AT 0;
+}
+
+
+
+
+/** @short   Creates a new output file with a specific filename
+    @long    CreateFile creates a new output file with the name filename. New output will be redirected to this newly created file
+             until the file is closed using the CloseFile macro. You can nest up to 32 CreateFile macros, but make sure each file
+             is closed using the CloseFile macro. The CreateFile and CloseFile macros are antagonists, and must be used in that
+             way. CreateFile can be very useful for creating additional pages, next to the pages created by the conversion engine.
+             You can use the GetPageLinkByName function to create links to the newly created files.
+    @param   pagename File name for the new page
+    @see     OpenFile, CloseFile
+    @example
+// Create a printable version of every page
+RECORD ARRAY allpages := SELECT id,name FROM pages;
+FOREVERY (RECORD thispage FROM allpages)
+{
+  OpenFile(thispage.id);
+    PrintPageBody();
+  CloseFile();
+  CreateFile("printable_" || thispage.name);
+    PrintPageBody();
+  CloseFile();
+}
+*/
+PUBLIC MACRO CreateFile(STRING pagename)
+{
+  __Internal_CreateFile(pagename, 0, FALSE, FALSE);
+}
+
+
+PUBLIC MACRO CreateDBFile(STRING pagename)
+{
+  __Internal_CreateFile(pagename, 0, TRUE, FALSE);
+}
+
+
+/** @short   Returns the ID of the last opened page
+    @long    Returns the ID of the last output file opened using the OpenFile or CreateFile functions.
+    @return  The ID of the last opened output page, 0 if the last output file was opened using CreateFile, -1 if no page has
+             been opened
+    @see     GetCurrentPageName, GetPageLink, FindPage
+*/
+PUBLIC INTEGER FUNCTION GetCurrentPageId()
+{
+  IF (LENGTH(openpages)=0)
+    RETURN -1; //no page open!
+  RETURN openpages[0].number;
+}
+
+
+
+
+/** @short   Returns the filename of the last opened page
+    @long    Returns the name of the last output file opened using the OpenFile or CreateFile functions.
+    @return  The filename passed to CreateFile, or the filename belonging to the page id passed to OpenFile
+    @see     GetCurrentPageId, GetPageLink, FindPage
+*/
+PUBLIC STRING FUNCTION GetCurrentPageName()
+{
+  IF (LENGTH(openpages)=0)
+    RETURN ""; //no page open!
+  RETURN openpages[0].name;
+}
+
+
+/** @short   Returns the URL of the last opened page
+    @long    Returns the URL of the last output file opened using the OpenFile or CreateFile functions.
+    @return  The filename passed to CreateFile, or the filename belonging to the page id passed to OpenFile
+    @see     GetCurrentPageId, GetPageLink, FindPage
+*/
+PUBLIC STRING FUNCTION GetCurrentPageUrl()
+{
+  STRING curpage := GetCurrentPagename();
+  IF(curpage="")
+    RETURN "";
+  ELSE
+    RETURN MakeFileLinkByName(-1/*absolute*/, curpage);
+}
+
+
+/** @short   Open an output file.
+    @long    OpenFile opens a new output file for the page with ID pagenum. All new output will be redirected to this file until
+             the CloseFile macro is called. You can nest up to 32 OpenFile macros, but make sure each file is closed using the
+             CloseFile macro. The OpenFile and CloseFile macros are antagonists, and must be used in that way. Nested OpenFile
+             macros can for example be used to create TOC pages easily, without having to create and update local record arrays
+             in which relevant DocObject are stored during template execution.
+    @param   pagenum ID of the page for which an output page should be opened
+    @see     CloseFile, CreateFile
+    @example
+// Loop through all pages, open an output file for every page,
+// print the docobjects, close the file.
+RECORD ARRAY allpages := SELECT id,name FROM pages;
+FOREVERY (RECORD thispage FROM allpages)
+{
+  OpenFile(thispage.id);
+    PrintPageBody();
+  CloseFile();
+}
+*/
+PUBLIC MACRO OpenFile(INTEGER pagenum)
+{
+  RECORD PageToOpen := FindPage(pagenum);
+
+  IF (NOT RECORDEXISTS (PageToOpen))
+    ABORT("No such page " || pagenum);
+  __Internal_CreateFile(pagetoopen.name, pagenum, FALSE, FALSE);
+}
+
+/*
+PUBLIC MACRO __InitSystemRedirectFile(INTEGER pagenum)
+{
+  RECORD PageToOpen := FindPage(pagenum);
+
+  IF (NOT RECORDEXISTS (PageToOpen))
+    ABORT("No such page " || pagenum);
+
+  IF(NOT IsValidWHFSName(pagetoopen.name,FALSE))
+    THROW NEW Exception("'" || pagetoopen.name || "' is not a valid filename for a published file");
+
+  __Internal_CreateFile(pagetoopen.name, 1, FALSE, TRUE);
+  CloseFile();
+}
+*/
+
+/** @short   Print all docobjects on the current page
+    @long    PrintPageBody prints all docobjects to the last file opened with the OpenFile function.
+             You cannot use this function to redirect output to a file created with the CreateFile macro.
+             Use the PrintAnyPage macro from the advanced publication template functions library instead.
+    @see     PrintAnyPage, PrintDocObject, GetPageLink, FindPage
+    @example
+// Loop through all pages, open an output file for every page,
+// print all docobjects, close the file.
+RECORD ARRAY allpages := SELECT id,name FROM pages;
+FOREVERY (RECORD thispage FROM allpages)
+{
+  OpenFile(thispage.id);
+    PrintPageBody();
+  CloseFile();
+}
+*/
+PUBLIC MACRO PrintPageBody()
+{
+  INTEGER curpage := GetCurrentPageid();
+  SWITCH(curpage)
+  {
+    CASE -1 { ABORT("PrintPageBody: no page opened yet"); }
+    CASE 0  { ABORT("PrintPageBody: cannot use this function on a page created by CreateFile, as the current page number is unknown"); }
+    DEFAULT { PrintAnyPage(curpage); }
+  }
+}
+
+
+
+
+/** @short   Returns the encoded hyperlink to a DocObject.
+    @long    GetDocObjectLink returns the hyperlink to the DocObject with ID = targetobjid.
+             By default the function returns a relative link. If you want the function to return an absolute link, use the
+             SetAbsoluteLinks function, or use the MakeDocObjectLink function.
+    @param   targetobjid ID of the docobject to link to
+    @return  A properly encoded hyperlink to the requested docobject
+    @see     FindDocObject, GetDocObjectRawText, SetAbsoluteLinks
+    @example
+// print the relative link to the DocObject with ID=3
+Print ( GetDocObjectLink(3) );
+
+// print the relative URL to the first DocObject on the first page
+RECORD FirstPage := FindPage(1);
+INTEGER firstobjectid := FirstPage.FirstDocObject;
+Print ( GetDocObjectLink(firstobjectid) );
+
+// print the absolute URL to the first DocObject on the first page
+SetAbsoluteLinks(TRUE);
+RECORD FirstPage := FindPage(1);
+INTEGER firstobjectid := FirstPage.FirstDocObject;
+Print ( GetDocObjectLink(firstobjectid) );
+*/
+PUBLIC STRING FUNCTION GetDocObjectLink(INTEGER targetobjid)
+{
+  RETURN MakeDocObjectLink(alllinksabsolute ? -1 : GetcurrentPageid(), targetobjid);
+}
+
+
+
+
+/** @short   Create a link to a page in this document
+    @long    GetPageLink returns the link to the page with ID = targetpageid.
+
+             By default the function returns a relative link. If you want the function to return an absolute link, use the
+             SetAbsoluteLinks function, or use the MakePageLink function.
+    @param   targetpageid ID of the page to link to
+    @return  A properly encoded hyperlink to the requested page
+    @see     MakePageLink, FindPage, GetFileLinkByName, SetAbsoluteLinks
+*/
+PUBLIC STRING FUNCTION GetPageLink(INTEGER targetpageid)
+{
+  RETURN MakePageLink(alllinksabsolute ? -1 : GetcurrentPageid(),targetpageid);
+}
+
+
+
+
+
+/** @short   Returns the encoded hyperlink to a file, looking it up by name.
+    @long    GetFileLinkByName returns the link to the file with name filename.
+             By default the function returns a relative link. If you want the function to return an absolute link, use the
+             SetAbsoluteLinks function, or use the MakeFileLinkByName function.
+    @param   filename File to link to
+    @return  A properly encoded hyperlink to the requested file
+    @see     FindPage GetPageLink SetAbsoluteLinks
+    @example
+// Create an absolute link to the printable version of a page
+RECORD ARRAY allpages := SELECT id,name FROM pages;
+FOREVERY (RECORD thispage FROM allpages)
+{
+// create a printable page
+  CreateFile("printable_" || thispage.name);
+    PrintPageBody();
+  CloseFile();
+// create the normal page
+  OpenFile(thispage.id);
+    PrintPageBody();
+    Print (GetFileLinkByName("printable_" || thispage.name));
+  CloseFile();
+}
+*/
+PUBLIC STRING FUNCTION GetFileLinkByName(STRING filename)
+{
+  INTEGER frompage := AllLinksAbsolute ? -1 : GetcurrentPageid();
+  RETURN MakeFileLinkByName(frompage, filename);
+}
+
+/** @short   Returns the encoded hyperlink to a file, looking it up by name. (deprecated!)
+    @deprecated Use the GetFileLinkByName function instead
+    @param   pagename Page to link to
+    @return  A properly encoded hyperlink to the requested file
+    @see     GetFileLinkByName
+*/
+PUBLIC STRING FUNCTION GetPageLinkByName(STRING pagename) __ATTRIBUTES__(DEPRECATED "Use the GetFileLinkByName function")
+{
+  RETURN GetFileLinkByName(pagename);
+}
+
+/** @short   Get all child docobjects according to the table of contents.
+    @long    GetTOCChildren returns an array of DocObjects records, representing every DocObject that is a child in the table of
+             contents of the DocObject with ID = DocObjectID.
+             Eg, when passed a Heading 2, this function will return all Heading 3s below that Heading 2, and all paragraphs
+             directly following that Heading 2.
+    @return  An array of docobject records
+    @param   docobjectid Docobject for which we should retrieve a list of children
+    @see     GetTocChildrenIDs
+    @example
+// Create links to every child of the first docobject on the page
+INTEGER firstobject := FindPage(1).firstdocobject;
+RECORD ARRAY allchildobjects := GetTOCChildren (firstobject);
+FOREVERY (RECORD thischildobject FROM allchildobjects)
+{
+  Print ('<a href="');
+  Print (GetDocObjectLink (thischildobject.id) );
+  Print ('">');
+  Print (GetDocObjectRawText (thischildobject.id,20) );
+  Print ('</a>');
+}
+*/
+PUBLIC RECORD ARRAY FUNCTION GetTocChildren(INTEGER docobjectid)
+{
+  //FIXME: Would work better with local table optimizations as well..
+  RETURN SELECT * FROM docobjects WHERE tocparent=docobjectid;
+}
+
+
+
+
+/** @short   Get the IDs of all child docobjects according to the table of contents.
+    @long    GetTOCChildrenIDs returns an array of DocObjects IDs, representing every DocObject that is a child in the table of contents of the DocObject with ID = DocObjectID.
+             Eg, when passed a Heading 2, this function will return all Heading 3s below that Heading 2, and all paragraphs
+             directly following that Heading 2.
+    @param   docobjectid ID of docobject for which the list of children should be retrieved
+    @return  An array of docobject IDs
+    @see     GetTocChildren
+    @example
+// Create  links to every child of the first docobject on the page
+INTEGER firstobject := FindPage(1).firstdocobject;
+INTEGER ARRAY allchildobjects := GetTOCChildrenID's (firstobject);
+FOREVERY (INTEGER thischildobject FROM allchildobjects)
+{
+  Print ('<a href="');
+  Print (GetDocObjectLink (thischildobject) );
+  Print ('">');
+  Print (GetDocObjectRawText (thischildobject,20) );
+  Print ('</a>');
+}
+*/
+PUBLIC INTEGER ARRAY FUNCTION GetTocChildrenIDS(INTEGER docobjectid)
+{
+  RETURN SELECT AS INTEGER ARRAY id FROM docobjects WHERE tocparent=docobjectid;
+}
+
+
+/** @short   Get the path through the table of contents to a docobject.
+    @long    GetTOCTree returns an array of DocObjects records, representing every DocObject that is an ancestor in the table of
+             contents of the DocObject with ID = DocObjectID.
+             The function can be used in publication templates to create navigation trees.
+    @return  An record array of docobject records
+    @param   docobjectid ID of the DocObject to which a tree is requested
+    @see     GetTocTreeIDs
+    @example
+// Create a table of contents using an array of DocObjects
+RECORD ARRAY AllTocObjects := GetTOCTree (15);
+FOREVERY (RECORD ThisTocObject FROM AllTocObjects)
+{
+  Print( GetDocObjectRawText(ThisTocObject.ID,20) );
+}
+*/
+PUBLIC RECORD ARRAY FUNCTION GetTocTree(INTEGER docobjectid)
+{
+  RECORD ARRAY retval;
+  RECORD curobject := FindDocObject(docobjectid);
+
+  WHILE(RecordExists(curobject))
+  {
+    INSERT curobject INTO retval AT 0;
+    curobject := FindDocobject(curobject.tocparent);
+    IF (Length(retval)>128)
+      ABORT("GetTocTree: tree too long, cyclic heading link?");
+  }
+  RETURN retval;
+}
+
+
+
+
+/** @short   Returns an array of all DocObjects IDs from the ancestor with the highest TOC level to the current DocObject in
+             the table of contents .
+    @long    GetTOCTree returns an array of DocObject IDs, representing every DocObject that is an ancestor in the table of
+             contents of the DocObject with ID = DocObjectID.
+             The function can be used in publication templates to create navigation trees.
+    @return  An array of DocObject IDs
+    @param   docobjectid ID of the DocObject to which a tree is requested
+    @see     GetTocTree
+    @example
+// Create a table of contents using an array of DocObjects
+INTEGER ARRAY AllTocObjects := GetTOCTreeIDs (15);
+FOREVERY (INTEGER ThisTocObject FROM AllTocObjects)
+{
+  Print( GetDocObjectRawText(ThisTocObject,20) );
+}
+*/
+PUBLIC INTEGER ARRAY FUNCTION GetTocTreeIDS(INTEGER docobjectid)
+{
+  RETURN SELECT AS INTEGER ARRAY id FROM GetTocTree(docobjectid);
+}
+
+
+
+
+/** @short   Switch the default type of hyperlinks from relative to absolute.
+    @long    SetAbsoluteLinks switches the default behaviour of the GetDocObjectLink, GetPageLink, and GetPageLinkByName functions
+             to use relative or absolute hyperlinks.
+    @param   absoluteurl If true, use absolute hyperlinks from now on. If false, use relative hyperlinks.
+    @return  Old absoluteurl setting
+    @see     GetDocObjectLink GetPageLink GetPageLinkByName
+    @example
+// print the absolute URL to the first DocObject on the first page
+SetAbsoluteLinks(TRUE);
+RECORD FirstPage := FindPage(1);
+INTEGER firstobjectid := FirstPage.FirstDocObject;
+Print ( GetDocobjectLink (firstobjectid) );
+*/
+PUBLIC BOOLEAN FUNCTION SetAbsoluteLinks(BOOLEAN absoluteurl)
+{
+  BOOLEAN oldsetting := AllLinksAbsolute;
+  AllLinksAbsolute := absoluteurl;
+  RETURN oldsetting;
+}
+
+
+
+
+/** @short Rename a page
+    @long Rename an existing page. This function should be called before the page is opened, and before any docobjects are printed which might refer to this page!
+    @param pageid ID of the page to rename
+    @param newpagename The new name of the page
+    @see   InsertPage, DeletePage
+*/
+PUBLIC MACRO RenamePage(INTEGER pageid, STRING newpagename)
+{
+  BOOLEAN is_index := IsDefaultPagename(newpagename);
+  IF (is_index = TRUE AND firstmustbeindex = FALSE)
+    Abort("Only documents which require the first page to be an index file may use the name of an index file");
+
+  IF (is_index = TRUE AND pageid != 1)
+    Abort("Only the first page of a published document may have the name of an index file");
+
+  IF (is_index = FALSE AND firstmustbeindex = TRUE AND pageid = 1)
+    Abort("The first page of a published document must have the name of an index file");
+
+  UPDATE pages SET name := newpagename WHERE id = pageid;
+}
+
+
+
+
+/** @short Insert a page
+    @long  Inserts an empty page at the specified position, and moves all following pages one step forward.
+    @param pageid ID of the page before which the page should be inserted.
+    @see   DeletePage, RenamePage
+*/
+PUBLIC MACRO InsertPage(INTEGER pageid)
+{
+  UPDATE pages SET id := id+1 WHERE id >= VAR pageid;
+  UPDATE docobjects SET page := page+1 WHERE page >= VAR pageid;
+
+  INSERT INTO pages(id, name, firstdocobject)
+         VALUES(pageid, GeneratePagename(pageid, 0), 0);
+
+  IF (pageid = 1) //updated the first page
+  {
+    //Update the name of the now second page from firstpagename to a unique name
+    UPDATE pages SET name := GeneratePagename(2, firstdocobject) WHERE id=2;
+  }
+  RefreshDocObjects();
+}
+
+
+
+
+/** @short Delete a page
+    @long  Deletes a page and its DocObjects from a publication, and moves all pages following the removed page one step back.
+           This function should only be used before the first OpenFile call
+    @param pageid ID of the page to remove
+    @see   InsertPage, RenamePage
+*/
+PUBLIC MACRO DeletePage(INTEGER pageid)
+{
+  DELETE FROM pages WHERE id = VAR pageid;
+  DELETE FROM docobjects WHERE page = VAR pageid;
+
+  UPDATE pages SET id := id-1 WHERE id > VAR pageid;
+  UPDATE docobjects SET page := page-1 WHERE page > VAR pageid;
+
+  IF (pageid = 1) //updated the first page
+    UPDATE pages SET name := firstpagename WHERE id=1;
+
+  RefreshDocObjects();
+}
+
+/** @short Correct a hyperlink
+    @long  This function tries to fix hyperlinks coming from published documents, by trying to discover
+           missing path components (most importantly forgetting "../") and fixing links that point to index
+           documents
+    @param href Hyperlink href
+    @return A cell describing any corrections
+    @cell return.href Corrected hyperlink, or original hyperlink if there was nothing to correct
+    @cell return.corrected True if the hyperlink was modified by this function
+    @cell return.status An error code, or 0 if no problem was found with the hyperlink.
+                        -1: hyperlink referes to local file (not fixed)
+                        -2: hyperlink had an incorrect protocol (fixed)
+                        -3: hyperlink leaves site (not fixed)
+                        -4: hyperlink messed up ../s (fixed)
+                        -5: hyperlink does not seem to refer to any file
+                        -6: hyperlink misses http:// or ftp:// but did start with www. or ftp. (fixed)
+                        -7: hyperlink points to missing file in site:: or currentsite:: namespace
+                        -8: hyperlink appears to be an e-mail address, adding mailto: (fixed)
+*/
+PUBLIC RECORD FUNCTION CorrectHyperlink(STRING href)
+{
+  RECORD datarecord := [ href := href
+                       , corrected := false
+                       , status := 0
+                       ];
+  IF ((href LIKE "site:*"))
+  {
+    IF (href LIKE "site::*")
+      href := Substring(href,6,length(href));
+    ELSE
+      href := Substring(href,5,length(href));
+
+    href := DecodeURL(href);
+    href := Substitute(href,"\\","/");
+
+    INTEGER firstslash := SearchSubstring(href,"/");
+    STRING sitename := Substring(href,0,firstslash);
+    STRING path := Substring(Href,firstslash+1,length(href));
+
+    INTEGER linktargetsiteid := SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(sites.name) = ToUppercase(sitename);
+    IF (linktargetsiteid != 0)
+    {
+      RECORD trylink := TryWHHyperlink(linktargetsiteid, path);
+      IF (RecordExists(trylink))
+        RETURN trylink;
+    }
+    datarecord.status:=-7;
+    RETURN datarecord;
+  }
+
+  IF (href LIKE "currentsite:*")
+  {
+    STRING path;
+    IF (href LIKE "currentsite::*")
+      path := Substring(href,13,length(href));
+    ELSE
+      path := Substring(href,12,length(href));
+
+    path := DecodeURL(path);
+    path := Substitute(path ,"\\","/");
+
+    RECORD trylink := TryWHHyperlink(site.id,path);
+    IF (RecordExists(trylink))
+      RETURN trylink;
+
+    datarecord.status:=-7;
+    RETURN datarecord;
+  }
+  IF ((href LIKE "file://*") OR (href LIKE "?:/*") OR (href LIKE "?:\\*"))
+  {
+    datarecord.status := -1;
+    RETURN datarecord;
+  }
+  IF (href="" OR href LIKE "#*") //okay, i guess..
+    RETURN datarecord;
+
+  IF ( (href LIKE "mailto:*") OR (href LIKE "javascript:*") ) //okay!
+    RETURN datarecord;
+
+  IF (NOT (href LIKE "*://*"))
+  {
+    IF ( (href LIKE "ftp:/*") ) //note, this doesn't match ftp://*, because that one was picked up by the "*://*"
+    {
+      datarecord.href := Substitute(href,"ftp:/", "ftp://");
+      datarecord.corrected := TRUE;
+      datarecord.status := -2;
+      RETURN datarecord;
+    }
+    IF (href LIKE "ftp.*")
+    {
+      datarecord.href := "ftp://" || href;
+      datarecord.status := -6;
+      datarecord.corrected := TRUE;
+      RETURN datarecord;
+    }
+    IF (href LIKE "*@*.*")
+    {
+      datarecord.href := "mailto:" || datarecord.href;
+      datarecord.status := -8;
+      datarecord.corrected := TRUE;
+      RETURN datarecord;
+    }
+
+    //Don't return these so they get passed through the link-fixer
+
+    //Correct missing slashes (http:/www.example.net/ etc)
+    IF ( (href LIKE "http:/*") ) //note, this doesn't match http://*, because that one was picked up by the "*://*"
+    {
+      datarecord.href := Substitute(href,"http:/", "http://");
+      datarecord.corrected := TRUE;
+      datarecord.status := -2;
+    }
+    IF ( (href LIKE "https:/*") ) //note, this doesn't match https://*, because that one was picked up by the "*://*"
+    {
+      datarecord.href := Substitute(href,"https:/", "https://");
+      datarecord.corrected := TRUE;
+      datarecord.status := -2;
+    }
+    //Try www. and ftp. matching
+    IF (href LIKE "www.*")
+    {
+      datarecord.href := "http://" || href;
+      datarecord.status := -6;
+      datarecord.corrected := TRUE;
+    }
+  }
+
+  //Relative links are usually wrong. Try to fix them.
+  IF(RecordExists(contentsite))
+  {
+  //  abort(anytostring(contentsite,'tree'));
+
+    RECORD tryrelative := TryLookupRelativeFile(datarecord, contentfile, contentsite, (contentfolder.indexdoc = contentfile.id AND GetCurrentPageID() = 1));
+    IF(recordexists(tryrelative))
+    {
+      IF (NOT AllLinksAbsolute)
+        tryrelative.href := MakeRelativeLinkFromURL(GetCurrentPageUrl(), tryrelative.href);
+
+      RETURN tryrelative;
+    }
+  }
+
+  datarecord.status := -5;
+  RETURN datarecord;
+}
+
+
+/** @short Get the current HTML document id
+    @return The current html document id, as used by format/html.whlib */
+PUBLIC INTEGER FUNCTION GetHTMLDocId()
+{
+  RETURN GetCurrentPublicationOutput()->id;
+}
+
+PUBLIC OBJECT FUNCTION GetCurrentPublicationOutput()
+{
+  IF(NOT ObjectExists(htmloutput))
+    SetupHTMLOutput(__publisher_initial_html_level, __publisher_initial_html_compliance, __publisher_initial_html_stylesheets);
+
+  RETURN htmloutput;
+}
+
+PUBLIC OBJECT FUNCTION GetCurrentPublicationPage()
+{
+  RETURN Length(openpages) > 0 ? openpages[0].formatter : DEFAULT OBJECT;
+}
+
+/** @short Get the current HTML file id
+    @return The current html file id, as used by format/html.whlib */
+PUBLIC INTEGER FUNCTION GetHTMLFileId()
+{
+  IF(NOT ObjectExists(publishingbackendlink) OR NOT cached_publish_info.istemplaterun)
+    THROW NEW NotAPublishingContextException;
+  RETURN GetCurrentPublicationPage()->id;
+}
+
+
+
+/** @short Get all hyperlinks found in the document conversion so far
+    @return Hyperlink status information, an array of all hyperlinks as returned by CorrectHyperlink
+    @see CorrectHyperlink */
+PUBLIC RECORD ARRAY FUNCTION GetConvertedHyperlinks()
+{
+  RETURN hyperlinks;
+}
+
+////////////////////////////////////////////////////////////////////////////
+//
+// HTML.whlib improvements and support
+//
+PUBLIC RECORD FUNCTION ResolveHyperlink(RECORD hyperlinkinfo)
+{
+  STRING href;
+  IF (hyperlinkinfo.docobject!=0)
+  {
+    RECORD objinfo := FindDocobject(hyperlinkinfo.docobject);
+    IF (NOT RecordExists(objinfo))
+    {
+      /* Assume it's another conversion people are embedding into the page, let's hope the anchor suffices */
+    }
+    ELSE
+    {
+      RECORD page := FindPage(objinfo.page);
+      href := GetPagelink(objinfo.page);
+      IF (hyperlinkinfo.href!="" AND objinfo.id!=page.firstdocobject)
+        href := href || hyperlinkinfo.href;
+      hyperlinkinfo.href := href;
+    }
+    hyperlinkinfo.docobject := 0; //to avoid confusing the html output..
+  }
+  ELSE
+  {
+    RECORD correction := CorrectHyperlink(hyperlinkinfo.href);
+    INSERT CELL abshref := ResolveToAbsoluteURL(GetCurrentPageUrl(), correction.href) INTO correction;
+    IF (NOT RecordExists(SELECT FROM hyperlinks WHERE correction.abshref=hyperlinks.abshref LIMIT 1))
+      INSERT correction INTO hyperlinks AT END;
+
+    hyperlinkinfo.href := correction.href;
+  }
+
+  RETURN hyperlinkinfo;
+}
+
+MACRO __templatev2_correcting_hyperlinkcallback(RECORD hyperlinkinfo, MACRO PTR currentcallback)
+{
+  hyperlinkinfo := ResolveHyperlink(hyperlinkinfo);
+  currentcallback(hyperlinkinfo);
+}
+
+/////////////////////////////////////////////////////////////////////
+//
+// Image handling
+//
+
+PUBLIC MACRO AddImageCompletionCallback(MACRO PTR newcallback) __ATTRIBUTES__(DEPRECATED "This v2.32rc-only function has been moved to wh::formatter/html.whlib as AddHTMLDocImageCompletionCallback")
+{
+  AddHtmlDocImageCompletionCallback(GetHTMLDocId(), newcallback);
+}
+
+STRING FUNCTION MyEmbeddingCallback(STRING filename, STRING mimetype, BOOLEAN storedata, BLOB data)
+{
+  IF(storedata)
+    CreateFileFromBlob(filename, data);
+  RETURN GetFileLinkByName(filename);
+}
+
+////////////////////////////////////////////////////////////////////////////
+//
+// Initialization code
+//
+
+
+RECORD ARRAY FUNCTION EnrichParserObjectsToDocobjects(RECORD ARRAY outputobjects)
+{
+  RECORD ARRAY outobjects;
+  FOREVERY(RECORD obj FROM outputobjects)
+  {
+    INSERT INTO outobjects(id, toclevel, hidden, filtersplit, splitbefore)
+           VALUES(obj.id, obj.toclevel, obj.hidden, obj.filtersplit, FALSE)
+           AT END;
+  }
+  RETURN outobjects;
+}
+
+/** @short Request the output code to load a HareScript library
+    @long This code renames all *.HTML output pages to *.SHTML, and adds '<?wh LOADLIB .... ?>' statements to the top of every opened page. It should be opened before opening or referring to any output page
+    @param libpath Library path */
+PUBLIC MACRO AddLoadlibToOutput(STRING libname)
+{
+  IF(NOT ObjectExists(publishingbackendlink) OR NOT cached_publish_info.istemplaterun)
+    THROW NEW NotAPublishingContextException;
+
+  //Verify some corner cases making this impossible
+  IF(NOT (separate_first_page OR firstmustbeindex) AND ToUppercase(file.name) NOT LIKE "*.SHTML")
+    THROW NEW Exception("This file needs to have an extension ending in 'shtml' to support dynamic code in webpages");
+
+  IF(libname IN __pageloadlibs)
+    RETURN;
+  INSERT libname INTO __pageloadlibs AT END;
+
+  FOREVERY(RECORD page FROM SELECT id,name FROM pages WHERE ToUppercase(name) LIKE "*.HTML")
+    RenamePage(page.id, Left(page.name,Length(page.name)-5) || ".shtml");
+}
+
+/** @short Setup HTML output
+    @param level HTML compliance level "HTML3.02", "HTML4.01", "XHTML1.0"
+    @param strict Strict conformance to the requested HTML level?
+    @param stylesheets Set to true to create stylesheets _if necessary_ (if GetSourceDocumentInfo().webharecss would return false, this parameter is ignored)
+*/
+PUBLIC MACRO SetupHTMLOutput(STRING level, BOOLEAN strict, BOOLEAN stylesheets)
+{
+  IF(stylesheets AND NOT GetSourceDocumentInfo().webharecss)
+    stylesheets := FALSE;
+
+  __publisher_initial_html_stylesheets := stylesheets;
+  __publisher_initial_html_compliance := strict;
+  __publisher_initial_html_level := level;
+
+  IF(__publisher_created_htmldoc)
+    ABORT("SetupHTMLOutput must be called before any function that would generate HTML content");
+
+  htmloutput := MakeHTMLPublicationOutput(level, strict, stylesheets);
+  htmldoc_id := htmloutput->id;
+  SetHTMLDocHyperlinkCallback(htmldoc_id, PTR __templatev2_correcting_hyperlinkcallback(#1, GetHTMLDocHyperlinkCallback(htmldoc_id)));
+  SetHTMLDocEmbeddingCallback(htmldoc_id, PTR MyEmbeddingCallback);
+
+  webharecss_created := __publisher_initial_html_stylesheets;
+  __publisher_created_htmldoc := TRUE;
+}
+
+
+/** @short Get information about the source document template-v2 opened
+    @return A record describing the source document
+    @cell return.type 'word', if a Word document is opened
+    @cell return.docid Word source document id, as returned by publisher/source/msword.whlib. This cell is only valid if type='word'
+    @cell return.webharecss If true, the source document requires links to the webhare.css file
+    */
+PUBLIC RECORD FUNCTION GetSourceDocumentInfo()
+{
+  IF(NOT ObjectExists(publishingbackendlink) OR NOT cached_publish_info.istemplaterun)
+    THROW NEW NotAPublishingContextException;
+
+  IF (worddocid != 0)
+    RETURN [ type := "word", docid := worddocid, webharecss := TRUE ];
+  ELSE
+    RETURN [ type := "other", docid := 0, webharecss := FALSE ];
+}
+
+PUBLIC RECORD FUNCTION GetOutputSettings()
+{
+  IF(NOT RecordExists(outputsettings))
+    THROW NEW NotAPublishingContextException;
+
+  RETURN outputsettings;
+}
+
+/** @short Get the HTML output rewriter context, creating one if necessary */
+PUBLIC OBJECT FUNCTION GetHTMLOutputRewriter()
+{
+  IF(NOT ObjectExists(htmlrewritecontext))
+    htmlrewritecontext := NEW HtmlRewriterContext;
+  RETURN htmlrewritecontext;
+}
+
+IF(ObjectExists(publishingbackendlink) AND cached_publish_info.istemplaterun)
+{
+  outputsettings := cached_publish_info.outputsettings;
+
+  INTEGER trans := OpenLocalTransaction();
+  CreateLocalTable(trans,"docobjects");
+  CreateLocalTable(trans,"pages");
+
+  /* Convert docobjects and pages to real tables to improve their behaviour in SELECTs */
+  docobjects := BindTransactionToTable(trans,"docobjects");
+  pages := BindTransactionToTable(trans,"pages");
+
+
+  //Decode the actual file!
+  RECORD ARRAY __publisher_docobjects;
+  RECORD profile;
+  IF (contentfiletypeprops.needsprofile)
+  {
+    profile := ReadConversionProfile(file.profile);
+
+    IF(NOT RecordExists(profile))
+      PUBLISHER_Exception(file.profile = 0 ? 109 : 113,""); //No associated profile
+  }
+
+  IF (contentfile.type = 4) //word doc!
+  {
+    worddocid := OpenMSWordDocument(contentfile.data);
+    IF(worddocid=0)
+      PUBLISHER_EXCEPTION(3003,"Unable to open source document"); //FIXME: Proper I/O error code?!
+
+    RECORD result := ScanMSWordDocument(worddocid, profile.emptydocobjects, profile.styles);
+    IF (result.errorcode != 0)
+      PUBLISHER_EXCEPTION(result.errorcode, result.errormsg);
+
+    __publisher_docobjects := EnrichParserObjectsToDocobjects(result.parserobjects);
+  }
+  ELSE IF (contentfile.type IN [7,24]) //harescript, placeholder
+  {
+    __publisher_docobjects := __PUBLISHER_OpenHarescriptFile();
+    __publisher_initial_html_stylesheets := FALSE;
+    IF (Length(__publisher_docobjects)=0)
+      PUBLISHER_EXCEPTION(108,""); //No harescript part
+
+    //translate indexobjects to compatible docobjects
+    __publisher_docobjects := SELECT id, toclevel := 0, hidden := false, filtersplit := false, splitbefore := newpage FROM __publisher_docobjects;
+  }
+  ELSE IF (contentfile.type = 22) //a standalone template
+  {
+    __publisher_initial_html_stylesheets := FALSE;
+  }
+  ELSE IF(contentfiletypeprops.namespace = "http://www.webhare.net/xmlns/publisher/richdocumentfile")
+  {
+    OBJECT doc := __OpenWHFSRichDocument(OpenWHFSObject(file.id), DEFAULT OBJECT);
+    __publisher_docobjects := [ [ id := 1, toclevel := 0, hidden := FALSE, filtersplit := FALSE, splitbefore := FALSE ] ];
+    rawfilecallback := PTR doc->RenderAllObjects();
+  }
+  ELSE
+  {
+    //ADDME: We can clean up raw implementation as soon as we support docobject function pointers
+    rawfilecallback := PTR SendBlobTo(0, contentfile.data);
+    __publisher_initial_html_stylesheets := FALSE;
+    __publisher_docobjects := [ [ id := 1, toclevel := 0, hidden := FALSE, filtersplit := FALSE, splitbefore := FALSE ] ];
+  }
+
+  IF(rawfilecallback != DEFAULT MACRO PTR)
+    NEW CustomParserObject; //Create a dummy object #1, so that #1 is 'properly' reserved for the raw files. otherwise printdocobject CANNOT print #1, and printparserobject CAN. (we could just always number from #2, but that might break existing templates)
+
+  /* ADDME: Verify how we should work with deep-level objects. Perhaps remove the depthlevel check?  */
+  BOOLEAN last_was_split := FALSE;
+  INTEGER curpage := 0;
+  RECORD ARRAY headingstack;
+
+  FOREVERY (RECORD docobject FROM __PUBLISHER_DOCOBJECTS)
+  {
+    //Does this filter require a split?
+    BOOLEAN split_this_filter := docobject.filtersplit;
+
+    //If "no lonely title" is enabled, don't start a page if the last object was also a splitting object
+    IF (split_this_filter)
+    {
+      IF (last_was_split AND profile.NOLONELYTITLE)
+        split_this_filter := FALSE;
+      last_was_split := TRUE;
+    }
+    ELSE
+    {
+      last_was_split := FALSE;
+    }
+
+    //Do we need to create a new page for this docobject ?
+    BOOLEAN on_new_page :=  docobject.splitbefore OR split_this_filter OR curpage=0;
+    IF (on_new_page)
+    {
+      //(ab)use the document object's anchor as naming hint. Any filter that caused a split will force anchor generation
+      //(ADDME: If we start looking for anchors ourselves, perhaps we can partially eliminate the need for document Prescan?)
+
+      curpage := curpage + 1;
+      INSERT INTO pages(id, name, firstdocobject)
+             VALUES(curpage, GeneratePagename(curpage, docobject.id), docobject.id);
+    }
+
+    //Update the headingstack
+    IF (docobject.toclevel >= 1)
+    {
+      //Close any open levels with a lower or an equal toc depth
+      WHILE (Length(headingstack) > 0 AND docobject.toclevel <= headingstack[0].toclevel)
+        DELETE FROM headingstack AT 0;
+    }
+
+    //Get this object's tocparent
+    INTEGER tocparent := Length(headingstack) > 0 ? headingstack[0].objectid : 0;
+
+    IF (docobject.toclevel>=1)
+    {
+      //Put this toclevel as the stack top
+      INSERT INTO headingstack(toclevel, objectid) VALUES(docobject.toclevel, docobject.id) AT 0;
+    }
+
+    INSERT INTO docobjects(ID, TOCLEVEL, DEPTHLEVEL, PARENT,
+                           PAGE, TOCPARENT, HIDDEN)
+           VALUES(docobject.id, docobject.toclevel, 1, 0,
+                  curpage, tocparent, docobject.hidden);
+  }
+  IF (curpage = 0)
+  {
+    //Argh! There are no pages! Create an empty page and add it..
+    INSERT INTO pages(id,name,firstdocobject)
+           VALUES(1,firstpagename,0);
+  }
+
+  RefreshDocObjects();
+} //end initialization code
+
+MACRO OnTemplateV2Destroy() __ATTRIBUTES__(DEINITMACRO)
+{
+  IF(htmldoc_id=0)
+    RETURN;
+
+  publishingbackendlink->DoRequest(
+    [ type := "SETONPUBLISH"
+    , preppedonpublish := DEFAULT RECORD ARRAY
+    , checkablelinks := (SELECT link := abshref, text := "" FROM GetConvertedHyperlinks() WHERE IsValidURL(abshref))
+    ]);
+
+  //ADDME: Allow registry to override this warning!
+  IF(webharecss_link_created AND NOT webharecss_created)
+  {
+    AddPublicationWarning("The template for this document creates links to webhare.css, but the publication process was not set up to generate one.\nThe template should check the result of 'GetSourceDocumentInfo().webharecss' to see if it should link to webhare.css");
+    CreateFileFromBlob("webhare.css", StringToBlob("/* Dummy webhare.css file */\n"));
+  }
+  IF(webharecss_created AND NOT webharecss_link_created)
+  {
+    AddPublicationWarning("The template for this document did not create links to webhare.css, so the formatting of the resulting website may be incorrect.\nThe template should check the result of 'GetSourceDocumentInfo().webharecss' to see if it should link to webhare.css or use 'SetHTMLStyleSheet(FALSE)' to indicate that no stylesheet should be created");
+  }
+
+  WHILE(Length(openpages) > 0)
+    CloseFile();
+  CloseHTMLDoc(GetHTMLDocId());
+}

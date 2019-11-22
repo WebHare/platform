@@ -1,0 +1,257 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/internal/browsers/chrome/framemanager.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/input.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/networkmanager.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
+
+CONSTANT RECORD sharedpageprepoptions := [ media := ""
+                                         , debug := FALSE
+                                         , printbackground := TRUE
+                                         , screenwidth := 0
+                                         , screenheight := 0
+                                         ];
+
+RECORD paperformats :=
+    [ letter :=  [ width := 8.5m,  height := 11m ]
+    , legal :=   [ width := 8.5m,  height := 14m ]
+    , tabloid := [ width := 11m,   height := 17m ]
+    , ledger :=  [ width := 17m,   height := 11m ]
+    , a0 :=      [ width := 33.1m, height := 46.8m ]
+    , a1 :=      [ width := 23.4m, height := 33.1m ]
+    , a2 :=      [ width := 16.5m, height := 23.4m ]
+    , a3 :=      [ width := 11.7m, height := 16.5m ]
+    , a4 :=      [ width := 8.27m, height := 11.7m ]
+    , a5 :=      [ width := 5.83m, height := 8.27m ]
+    , a6 :=      [ width := 4.13m, height := 5.83m ]
+    ];
+
+RECORD unittopixels :=
+    [ px := 1m,
+      "in" := 96m,
+      cm := 37.8m,
+      mm := 3.78m
+    ];
+
+MONEY FUNCTION ConvertPrintParameterToInches(VARIANT parameter)
+{
+  IF (IsDefaultValue(parameter))
+    RETURN 0m;
+
+  MONEY pixels;
+  IF (CanCastTypeTo(TypeID(parameter), TypeID(MONEY)))
+  {
+    // Treat numbers as pixel values to be aligned with phantom's paperSize.
+    pixels := parameter;
+  }
+  ELSE IF (TypeID(parameter) = TypeID(STRING))
+  {
+    STRING text := parameter;
+    STRING unit := ToLowercase(Right(text, 2));
+    STRING valuetext;
+    IF (CellExists(unittopixels, unit))
+      valuetext := Left(text, Length(text) - 2);
+    ELSE
+    {
+      // In case of unknown unit try to parse the whole parameter as number of pixels.
+      // This is consistent with phantom's paperSize behavior.
+      unit := "px";
+      valuetext := text;
+    }
+    MONEY value := ToMoney(valuetext, -1);
+    IF (value = -1m AND ToMoney(valuetext, 0) = 0m)
+      THROW NEW Exception(`Failed to parse parameter value: '${text}'`);
+    pixels := value * GetCell(unittopixels, unit);
+  }
+  ELSE
+    THROW NEW Exception(`Page->PDF() Cannot handle parameter type: '${GetTypeName(TypeID(parameter))}'`);
+  RETURN pixels / 96;
+}
+
+// Inspired by puppeteer Page (https://github.com/GoogleChrome/puppeteer/blob/master/lib/Page.js)
+PUBLIC STATIC OBJECTTYPE Page EXTEND EventEmitter
+<
+  OBJECT pvt_client;
+  OBJECT pvt_keyboard;
+  OBJECT pvt_mouse;
+  OBJECT pvt_framemanager;
+  OBJECT pvt_networkmanager;
+
+  PUBLIC PROPERTY mainframe(pvt_framemanager->mainframe, -);
+  PUBLIC PROPERTY keyboard(pvt_keyboard,-);
+  PUBLIC PROPERTY mouse(pvt_mouse,-);
+
+  MACRO NEW(OBJECT client)
+  {
+    this->pvt_client := client;
+    this->pvt_keyboard := NEW Keyboard(this->pvt_client);
+    this->pvt_mouse := NEW Mouse(this->pvt_client, this->pvt_keyboard);
+    this->pvt_framemanager := NEW FrameManager(this->pvt_client, this->pvt_mouse);
+    this->pvt_networkmanager := NEW NetworkManager(this->pvt_client);
+
+    this->pvt_networkmanager->SetFrameManager(this->pvt_framemanager);
+
+    this->pvt_client->AddListener('Runtime.consoleAPICalled', PTR this->GotConsoleAPI);
+    this->pvt_client->AddListener('Runtime.exceptionThrown', PTR this->GotExceptionThrown);
+
+    this->pvt_frameManager->AddListener("FrameManager.Events.FrameAttached", PTR this->ReEmitEvent("Page.Events.FrameAttached", #1));
+    this->pvt_frameManager->AddListener("FrameManager.Events.FrameDetached", PTR this->ReEmitEvent("Page.Events.FrameDetached", #1));
+    this->pvt_frameManager->AddListener("FrameManager.Events.FrameNavigated", PTR this->ReEmitEvent("Page.Events.FrameNavigated", #1));
+
+    this->pvt_networkManager->AddListener("NetworkManager.Events.Request", PTR this->ReEmitEvent("Page.Events.Request", #1));
+    this->pvt_networkManager->AddListener("NetworkManager.Events.Response", PTR this->ReEmitEvent("Page.Events.Response", #1));
+    this->pvt_networkManager->AddListener("NetworkManager.Events.RequestFailed", PTR this->ReEmitEvent("Page.Events.RequestFailed", #1));
+    this->pvt_networkManager->AddListener("NetworkManager.Events.RequestFinished", PTR this->ReEmitEvent("Page.Events.RequestFinished", #1));
+  }
+
+  MACRO GotConsoleAPI(RECORD event) //note: not really part of spec
+  {
+    this->EmitEvent("Page.Events.ConsoleRaw", event);
+  }
+  MACRO GotExceptionThrown(RECORD event) //note: not really part of spec
+  {
+    this->EmitEvent("Page.Events.ExceptionThrown", event);
+  }
+
+  MACRO ReEmitEvent(STRING eventname, RECORD event)
+  {
+    this->EmitEvent(eventname, event);
+  }
+
+  PUBLIC ASYNC MACRO Init()
+  {
+    // Enable event listeners
+    AWAIT CreatePromiseAll(
+        OBJECT[ this->pvt_client->^Page->^Enable()
+              , this->pvt_client->^Network->^Enable()
+              , this->pvt_client->^Runtime->^Enable()
+              , this->pvt_client->^Security->^Enable()
+              ]);
+  }
+
+  PUBLIC ASYNC MACRO Navigate(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD) // Goto in puppeteer
+  {
+    OBJECT watcher;
+    TRY
+    {
+      watcher := NEW NavigationWatcher(this->pvt_client, options);
+
+      AWAIT this->pvt_client->^Page->^Navigate(CELL[ url ]);
+      AWAIT watcher->WaitForNavigation();
+    }
+    FINALLY
+    {
+      watcher->Cancel();
+    }
+  }
+
+  ASYNC MACRO RunSharedPagePreparation(RECORD options)
+  {
+    IF(NOT options.printbackground)
+    {
+      //make the browser transparent
+      AWAIT this->pvt_client->^emulation->^setDefaultBackgroundColorOverride([ color := [ r := 0, g := 0, b := 0, a := 0 ]]);
+
+      //and kill html/body backgrounds
+      AWAIT this->Evaluate(`{
+        document.documentElement.style.cssText += "; background: transparent !important";
+        document.body.style.cssText += "; background: transparent !important";
+      }`);
+    }
+    IF(options.media != "")
+    {
+      AWAIT this->pvt_client->^emulation->^setEmulatedMedia([media:=options.media]);
+    }
+    AWAIT this->pvt_client->^emulation->^setDeviceMetricsOverride([devicescalefactor := 1, width := options.screenwidth, height := options.screenheight, mobile := FALSE ]);
+  }
+
+  PUBLIC OBJECT ASYNC FUNCTION Screenshot(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    //see _screenshotTask for what we more or less need to do: https://github.com/GoogleChrome/puppeteer/blob/master/lib/Page.js#L847
+    //we can probably share some things with the PDF
+    options := ValidateOptions(
+        CELL[ ...sharedpageprepoptions ], options);
+
+    AWAIT this->RunSharedPagePreparation(options);
+
+    RECORD result := AWAIT this->pvt_client->^Page->^captureScreenshot([ format := "png" ]);
+    RETURN [ screenshot := WrapBlob(StringToBlob(DecodeBase64(result.data)),"screenshot.png")
+           ];
+  }
+
+  PUBLIC OBJECT ASYNC FUNCTION PDF(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        CELL[ ...sharedpageprepoptions
+            , scale := 1m
+            , displayheaderfooter := FALSE
+            , landscape := FALSE
+            , pageranges := ""
+            , format := ""
+            , width := ""
+            , height := ""
+            , margin := DEFAULT RECORD // [ top, left, bottom, right ]
+            ], options, [ notypecheck := [ "width", "height" ] ]);
+
+    MONEY paperwidth := 8.5m;
+    MONEY paperheight := 11m;
+    IF (options.format != "")
+    {
+      IF (NOT CellExists(paperformats, options.format))
+        THROW NEW Exception(`Unknown paper format: '${options.format}'`);
+
+      RECORD format := GetCell(paperformats, options.format);
+      paperwidth := format.width;
+      paperheight := format.height;
+    }
+    ELSE
+    {
+      paperwidth := ConvertPrintParameterToInches(options.width) ?? paperwidth;
+      paperheight := ConvertPrintParameterToInches(options.height) ?? paperheight;
+    }
+
+    AWAIT this->RunSharedPagePreparation(options);
+
+    MONEY margintop := CellExists(options.margin, "top") ? ConvertPrintParameterToInches(options.margin.top) : 0m;
+    MONEY marginleft := CellExists(options.margin, "left") ? ConvertPrintParameterToInches(options.margin.left) : 0m;
+    MONEY marginbottom := CellExists(options.margin, "bottom") ? ConvertPrintParameterToInches(options.margin.bottom) : 0m;
+    MONEY marginright := CellExists(options.margin, "right") ? ConvertPrintParameterToInches(options.margin.right) : 0m;
+
+    RECORD parameters :=
+        CELL[ options.landscape
+            , options.displayheaderfooter
+            , options.printbackground
+            , options.scale
+            , paperwidth
+            , paperheight
+            , margintop
+            , marginbottom
+            , marginleft
+            , marginright
+            , options.pageranges
+            ];
+
+    RECORD result := AWAIT this->pvt_client->^Page->^PrintToPDF(parameters);
+    RETURN StringToBlob(DecodeBase64(result.data));
+  }
+
+  PUBLIC OBJECT FUNCTION "$"(STRING selector)
+  {
+    RETURN this->mainframe->"$"(selector);
+  }
+
+  PUBLIC OBJECT FUNCTION Evaluate(STRING pagefunction, VARIANT ARRAY ...args)
+  {
+    RETURN CallFunctionPTRVA(PTR this->mainframe->Evaluate, VARIANT[ pagefunction, ...args ]);
+  }
+
+  PUBLIC OBJECT FUNCTION "$eval"(STRING selector, STRING pagefunction, VARIANT ARRAY ...args)
+  {
+    RETURN CallFunctionPTRVA(PTR this->mainframe->"$eval", VARIANT[ selector, pagefunction, ...args ]);
+  }
+>;

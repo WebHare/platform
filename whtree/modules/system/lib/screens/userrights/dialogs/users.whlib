@@ -1,0 +1,448 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
+< // -----------------------------------------------------------------------------
+  //
+  // Global variables and such
+  //
+
+  OBJECT pvt_user;
+
+  OBJECT pvt_parent;
+
+  OBJECT pvt_orgparent;
+
+  /// Whether the edited user is the current user
+  BOOLEAN isself;
+
+  FUNCTION PTR notificationsubmit;
+
+  /// Loaded extension fragment
+  OBJECT loadedfragment;
+
+  RECORD policy;
+
+  // -----------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY user(pvt_user, -);
+
+  // -----------------------------------------------------------------------------
+  //
+  // Tollium init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    RECORD prefs := CollectUserPreferenceOptions(this->tolliumcontroller);
+    ^language->options := prefs.languages;
+
+    this->pvt_user := data.user;
+
+    IF (ObjectExists(this->pvt_user))
+      this->pvt_parent := this->contexts->userapi->GetUnitOf(this->pvt_user);
+    ELSE
+      this->pvt_parent := data.parent;
+
+    this->pvt_orgparent := this->pvt_parent;
+
+    ^username->cellname := this->contexts->userapi->wrdschema->accountlogintag;
+    ^password->cellname := this->contexts->userapi->wrdschema->accountpasswordtag;
+
+    ^lastlogin->cellname := this->tolliumcontroller->wrdauthplugin->GetWRDAuthDomain()->lastloginfieldtag;
+    ^lastlogin->visible := ^lastlogin->cellname != "";
+    IF(NOT ^lastlogin->visible)
+      ^lastlogin->composition := DEFAULT OBJECT;
+
+    IF(this->contexts->wrdschema->accountemailtag = ""
+       OR this->contexts->wrdschema->accountlogintag = this->contexts->wrdschema->accountemailtag)
+    {
+      ^email->composition := DEFAULT OBJECT;
+      ^email->visible := FALSE;
+      ^email->enabled := FALSE;
+      IF(this->contexts->wrdschema->accountlogintag = this->contexts->wrdschema->accountemailtag)
+        ^username->title := GetTid("~email");
+    }
+    ELSE
+    {
+      ^email->cellname := this->contexts->wrdschema->accountemailtag;
+      ^email->required := this->contexts->wrdschema->accounttype->GetAttribute(this->contexts->wrdschema->accountemailtag).isrequired;
+    }
+
+    this->policy := GetPolicyForUser(this->contexts, ObjectExists(data.user) ? data.user->entityid : 0);
+    ConfigurePasswordFieldForPolicy(^password, this->policy);
+    this->LoadScreenExtensions();
+
+    ^userobj->LoadEntity(this->contexts->userapi->wrdschema->accounttype, ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0);
+    IF(NOT ObjectExists(this->pvt_user))
+    {
+      ^wrd_guid->value := this->contexts->userapi->wrdschema->accounttype->GetNewEntityGUID();
+      ^language->SetValueIfValid(ReadRegistryKey("system.userrights.newuserdefaults_language"));
+    }
+    ELSE
+    {
+      ^language->SetValueIfValid(this->pvt_user->GetLocale().language);
+      IF (ObjectExists(this->pvt_user->entity))
+      {
+        ^wrd_guid->value := this->pvt_user->entity->GetField("WRD_GUID");
+        IF("WHUSER_LASTIP" IN SELECT AS STRING ARRAY localtag FROM this->contexts->userapi->wrdschema->accounttype->ListAttributes(0) WHERE attributetype = 2)
+        {
+          ^lastip->value := this->pvt_user->entity->GetField("WHUSER_LASTIP");
+          ^lastip->visible := TRUE;
+        }
+      }
+      ^wrd_guid->enabled := FALSE;
+
+      ^enableguidedit->visible := this->tolliumuser->HasRight("system:sysop");
+    }
+
+    RECORD unitinfo;
+    BOOLEAN isnew := NOT ObjectExists(this->pvt_user);
+    this->isself := isnew = FALSE AND ObjectExists(this->tolliumuser->entity) AND this->tolliumuser->entity->id = this->pvt_user->entityid;
+
+    IF (isnew) // new user
+    {
+      ^unitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+
+      // change appearance of screen to 'New user'
+      ^creationdate->visible  := FALSE;
+
+      this->frame->title           := GetTid("system:userrights.screentitles.adduser");
+      ^lastlogin->visible     := FALSE;
+    }
+    ELSE        // edit/properties user
+    {
+      ^lastlogin->visible     := TRUE;
+
+      ^unitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+    }
+
+    ^advanced->visible := this->tolliumuser->HasRight("system:sysop");
+
+    IF(NOT isnew)
+      ^userobj->Invalidate();
+
+    // Run the postinit for all extensions
+    ^screentabs->RunExtensionsPostInit();
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  // -----------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoSelectUnit()
+  {
+    OBJECT dialog := MakeSelectUnitDialog(this, this->pvt_parent, "system:manageunit", TRUE);
+    IF (dialog->RunModal() = "ok")
+    {
+      this->pvt_parent := dialog->value;
+      ^unitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    ^userinfopage->ValidateValue(work);
+
+    IF(^username->value = "")
+      work->AddError(GetTid("system:userrights.edituser.invalid"));
+
+    IF (LENGTH(^password->value) > 256)
+      work->AddError(GetTid("system:userrights.dialogues.passwordtoolong"));
+
+    this->contexts->userapi->CheckName(this->pvt_parent, ^username->value, ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0, TRUE, work);
+
+    IF (NOT ValidateWRDGUID(^wrd_guid->value))
+      work->AddErrorFor(^wrd_guid, GetTid("system:userrights.dialogues.invalidguid"));
+    ELSE IF (^wrd_guid->enabled)
+    {
+      IF (^userobj->wrdtype->Search("WRD_GUID", ^wrd_guid->value) NOT IN [ 0, ^userobj->entityid ])
+        work->AddErrorFor(^wrd_guid, GetTid("system:userrights.dialogues.guidalreadyused"));
+    }
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    BOOLEAN isnew;
+    RECORD currentsettings;
+
+    IF (NOT ObjectExists(this->pvt_user))
+    {
+      // New user
+      isnew := TRUE;
+      IF (NOT this->tolliumuser->HasRightOn("system:manageunit", this->pvt_parent->authobjectid))
+        work->AddError(GetTid("system:userrights.dialogues.notunitmanager"));
+    }
+    ELSE
+    {
+      // Existing user
+      IF (NOT this->tolliumuser->HasRightOn("system:manageunit", this->pvt_user->authobjectid))
+        work->AddError(GetTid("system:userrights.dialogues.notunitmanagerforuser", this->pvt_user->GetUserRightsName()));
+      ELSE IF (this->pvt_orgparent->entityid != this->pvt_parent->entityid)
+      {
+        IF (NOT this->tolliumuser->HasRightOn("system:manageunit", this->pvt_orgparent->authobjectid))
+          work->AddError(GetTid("system:userrights.errors.notunitmanageronparentforusermove"));
+      }
+
+      currentsettings := ^userobj->wrdentity->GetFields(["WHUSER_DISABLED", "WHUSER_DISABLEREASON"]);
+    }
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    OBJECT user;
+
+    RECORD extrafields :=
+        [ whuser_unit := this->pvt_parent->entityid
+        ];
+
+    INTEGER id := ^userobj->StoreEntity(work, extrafields);
+    IF (id != 0)
+    {
+      ^screentabs->SubmitExtensions(work);
+
+      this->contexts->userapi->SyncUserAfterUpdate(id);
+
+      // Updating the GUID must run via the v2 api, can't use StoreEntity for that.
+      ^userobj->wrdentity->UpdateEntity([ wrd_guid := ^wrd_guid->value ]);
+
+      user := this->contexts->userapi->GetUser(id); //reload user, guid might have changed
+    }
+    ELSE
+      user := this->pvt_user;
+
+    IF(NOT work->HasFailed() AND RecordExists(currentsettings))
+    {
+      IF(^whuser_disabled->value != currentsettings.whuser_disabled
+         OR (^whuser_disabled->value AND ^whuser_disablereason->value != currentsettings.whuser_disablereason))
+      {
+        this->tolliumcontroller->wrdauthplugin->LogCustomAuditEvent("system:userdisable",
+          [ account := ^userobj->entityid
+          , login := ^username->value
+          , message := [ disabled := ^whuser_disabled->value
+                       , reason := ^whuser_disablereason->value
+                       ]
+          ]);
+      }
+    }
+
+    IF(ObjectExists(user)) //we didn't crash yet ?
+      user->SetLocale(CELL[...user->GetLocale(), language := ^language->value]);
+    IF (NOT work->Finish())
+      RETURN FALSE;
+
+    this->pvt_user := user;
+
+    // Broadcast changes to units
+    BroadcastEvent("system:unit.change." || this->pvt_parent->entityid, DEFAULT RECORD);
+    IF (ObjectExists(this->pvt_orgparent) AND this->pvt_orgparent->entityid != this->pvt_parent->entityid)
+      BroadcastEvent("system:unit.change." || this->pvt_orgparent->entityid, DEFAULT RECORD);
+
+    // Broadcast userprefs changes, refresh the tollium frontend application menu
+    IF(NOT isnew)
+    {
+      BroadcastEvent("tollium:userprefs." || user->entityid, DEFAULT RECORD);
+      this->user->BroadcastToClient([ type := "tollium:shell.refreshmenu" ]);
+    }
+
+    this->tolliumcontroller->webbrowsertitleprefix := user->GetRegistryKey("system.prefs.browsertitleprefix","");
+    RETURN TRUE;
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Load a user screen extension fragment from the policy record
+  */
+  MACRO LoadScreenExtensions()
+  {
+    IF (NOT RecordExists(this->policy.screenextension))
+      RETURN;
+
+    ^screentabs->extendposition := 1;
+    ^screentabs->insertpoints := [ [ name := "email", component := ^email ]
+                                      , [ name := "username", component := ^username ]
+                                      , [ name := "password", component := ^password ]
+                                      ];
+    ^screentabs->extendcomponents := [ [ name := "user_email", component := ^email ]
+                                          , [ name := "user_username", component := ^username ]
+                                          , [ name := "user_firstname", component := ^userobj->GetComponent("WRD_FIRSTNAME") ]
+                                          , [ name := "user_infix", component := ^userobj->GetComponent("WRD_INFIX") ]
+                                          , [ name := "user_lastname", component := ^userobj->GetComponent("WRD_LASTNAME") ]
+                                          , [ name := "user_password", component := ^password ]
+                                          , [ name := "userobj", component := ^userobj ]
+                                          ];
+
+    RECORD screendata := this->policy.screenextension;
+
+    TRY
+    {
+      IF (RecordExists(screendata))
+      {
+        RECORD basepage := RetrieveCachedXMLResource(screendata.file);
+        STRING selector := '//*[local-name()="tabsextension"][@name="' || screendata.name || '"]';
+
+        OBJECT fragmentnode := basepage.doc->GetEvaluatedElement(DEFAULT OBJECT, selector);
+        IF (NOT ObjectExists(fragmentnode))
+          THROW NEW Exception("Could not find the user edit screen extention '" || screendata.name || "' in file '" || screendata.file || "'");
+
+        __usereditcomposition := ^userobj;
+
+        // Load the fragment, save it for future reference
+        RECORD loadresult := ^screentabs->LoadTabsExtension(screendata.file, '__selector:' || selector);
+        this->loadedfragment := loadresult.fragment;
+
+        RECORD fields;
+        FOREVERY (RECORD rec FROM ^screentabs->extendcomponents)
+          fields := CellInsert(fields, rec.name, rec.component);
+
+        // Modify some components. Allow only components from the extendcomponents list.
+        FOREVERY (OBJECT node FROM fragmentnode->GetEvaluatedElements(DEFAULT OBJECT, '*[local-name()="modifycomponent"]'))
+        {
+          RECORD res := SELECT * FROM ^screentabs->extendcomponents WHERE name = node->GetAttribute("name");
+          IF (NOT RecordExists(res))
+            CONTINUE;
+
+          IF (node->HasAttribute("required"))
+            res.component->required := ParseXSBoolean(node->GetAttribute("required"));
+
+          IF (node->HasAttribute("visible"))
+          {
+            res.component->visible := ParseXSBoolean(node->GetAttribute("visible"));
+            IF (NOT res.component->visible)
+              res.component->required := FALSE;
+          }
+        }
+      }
+    }
+    CATCH (OBJECT e)
+    {
+      __usereditcomposition := DEFAULT OBJECT;
+      RunExceptionReportDialog(this, e);
+    }
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+>;
+
+PUBLIC OBJECTTYPE SetSearchableFields EXTEND TolliumScreenBase
+<
+  STRING regkeybase;
+
+  MACRO Init(RECORD data)
+  {
+    this->regkeybase := "system.userrights.searchablefields";
+
+    RECORD persondata := this->GetFieldDataFor("person");
+    this->fieldsperson->options := persondata.options;
+    this->fieldsperson->value := persondata.current;
+
+    RECORD unitdata := this->GetFieldDataFor("unit");
+    this->fieldsunit->options := unitdata.options;
+    this->fieldsunit->value := unitdata.current;
+
+    RECORD roledata := this->GetFieldDataFor("role");
+    this->fieldsrole->options := roledata.options;
+    this->fieldsrole->value := roledata.current;
+  }
+
+  RECORD FUNCTION GetFieldDataFor(STRING type)
+  {
+    RECORD out := [ current := DEFAULT STRING ARRAY
+                  , options := DEFAULT RECORD ARRAY
+                  ];
+    out.current := Tokenize(ReadregistryKey(this->regkeybase || type), ";");
+    STRING tag;
+    IF(type = "person")
+      tag := "WRD_PERSON";
+    ELSE
+      tag := "WHUSER_" || ToUpperCase(type);
+    RECORD ARRAY fields := this->contexts->userapi->wrdschema->GetType(tag)->ListAttributes(0);
+    RECORD ARRAY availablefields := SELECT localtag, title FROM fields WHERE attributetype = 2;
+    FOREVERY(RECORD field FROM availablefields)
+    {
+      INSERT [ rowkey := field.localtag, title := field.title ?? field.localtag ] INTO out.options AT END;
+    }
+    RETURN out;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    WriteRegistryKey(this->regkeybase || "person", Detokenize(this->fieldsperson->value, ";"));
+    WriteRegistryKey(this->regkeybase || "unit", Detokenize(this->fieldsunit->value, ";"));
+    WriteRegistryKey(this->regkeybase || "role", Detokenize(this->fieldsrole->value, ";"));
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE SetUserDefaults EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD prefs := CollectUserPreferenceOptions(this->tolliumcontroller);
+
+    this->language->options := prefs.languages;
+    this->decimalsep->options := prefs.decimalseps;
+    this->thousandsep->options := prefs.thousandseps;
+
+    this->language->value :=    ReadRegistryKey("system.userrights.newuserdefaults_language");
+    this->timezone->value :=    ReadRegistryKey("system.userrights.newuserdefaults_timezone");
+    this->decimalsep->value :=  ReadRegistryKey("system.userrights.newuserdefaults_decimalsep");
+    this->thousandsep->value := ReadRegistryKey("system.userrights.newuserdefaults_thousandsep");
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    IF (this->decimalsep->value = this->thousandsep->value)
+      work->AddError(GetTid("system:sysmgmt.decimalsepandthousandsepmustdiffer"));
+
+    IF (NOT work->HasFailed())
+    {
+      WriteRegistryKey("system.userrights.newuserdefaults_language", this->language->value);
+      WriteRegistryKey("system.userrights.newuserdefaults_timezone", this->timezone->value);
+      WriteRegistryKey("system.userrights.newuserdefaults_decimalsep", this->decimalsep->value);
+      WriteRegistryKey("system.userrights.newuserdefaults_thousandsep", this->thousandsep->value);
+    }
+    RETURN work->Finish();
+  }
+>;

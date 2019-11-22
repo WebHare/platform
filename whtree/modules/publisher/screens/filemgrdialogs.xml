@@ -1,0 +1,238 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/filemgrdialogs.whlib"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         gid="filemgrdialogs"
+         >
+
+  <messageboxes gid=".messageboxes">
+    <messagebox name="deleteindexconfirm" icon="question" buttons="yes no cancel" />
+    <messagebox name="historygoto" icon="information" buttons="ok" />
+    <messagebox name="idnotfound" icon="information" buttons="ok" tid="filemanager.main.idnotfound" />
+    <messagebox name="restoredtoliveversion" icon="information" buttons="ok" />
+  </messageboxes>
+
+  <screen name="selecttype"
+          width="60x"
+          height="20x"
+          gid=".selecttype"
+          title=""
+          allowresize="true"
+          savestate="size"
+          defaultbutton="submitscreenbutton"
+          >
+    <actions>
+      <action name="submitscreen" onexecute="submit" title="">
+        <enableon source="types" min="1" max="1" />
+      </action>
+      <action name="cancelscreen" onexecute="cancel" title="" />
+    </actions>
+    <body>
+      <panel>
+        <grid>
+          <col width="1pr" />
+          <col />
+          <row>
+            <cell>
+              <text name="explain" title="" value="" wordwrap="true" />
+            </cell>
+            <cell>
+              <textedit name="filter" onchange="gotfilterchange" visible="false" tid="common.filter" />
+            </cell>
+          </row>
+        </grid>
+      </panel>
+      <panel width="1pr" height="1pr">
+        <list name="types"
+              selectmode="single"
+              openaction="submitscreen"
+              emptytid=".notypes"
+              columnheaders="false"
+              width="1pr"
+              height="1pr"
+              rowkeytype="string">
+          <column name="title" iconname="icon" type="text" />
+          <column name="template" type="integer" width="13x" align="right" emptyvalue="0" />
+          <column name="contenttype" type="text" />
+          <column name="type" type="integer" width="13x" align="right" />
+        </list>
+      </panel>
+    </body>
+    <footer>
+      <grid>
+        <col width="1pr" />
+        <col />
+        <row>
+          <cell layout="left">
+            <checkbox name="showalltypes" title="" labeltid=".showalltypes" onchange="onalltypeschange" />
+          </cell>
+          <cell layout="right">
+            <line>
+              <button action="submitscreen" name="submitscreenbutton" tid="tollium:common.actions.ok" />
+              <button action="cancelscreen" tid="tollium:common.actions.cancel" />
+            </line>
+          </cell>
+        </row>
+      </grid>
+    </footer>
+  </screen>
+
+  <screen name="gotoobject" gid=".gotoobject">
+    <body>
+      <combobox name="obj" width="50x" autocomplete="true" placeholdertid=".objplaceholder" required="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="createarchivefile" gid=".createarchive" title="">
+    <body>
+      <box layout="left" tid=".fileformat" hr="false">
+        <select type="radio" name="fileformat" onchange="onfileformatchange" title="">
+          <option rowkey="zip" />
+          <option rowkey="webhare" />
+        </select>
+      </box>
+      <box layout="left" tid=".subfolders" hr="false">
+        <select type="radio" rowkeytype="boolean" name="recursive" visible="false"  title="" >
+          <option rowkey="true" tid=".recursive"/>
+          <option rowkey="false" tid=".notrecursive"/>
+        </select>
+      </box>
+      <box layout="left" hr="false" tid=".fileaction">
+        <select type="radio" name="fileaction" onchange="onfileactionchange" title="">
+          <option rowkey="savefile" tid=".savefile">
+            <publisher:browseforobject name="savelocation" title="" acceptfiles="false" showclear="false" />
+          </option>
+          <option rowkey="downloadfile" tid=".downloadfile" />
+        </select>
+      </box>
+      <textedit name="filename" required="true" width="1pr" />
+
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="failedpublish" gid=".failedpublish"
+          allowresize="true" savestate="size">
+    <compositions>
+      <eventlistener name="waitforpublished" onevents="onpublished" groupinterval="500" />
+    </compositions>
+    <body>
+      <text name="message" wordwrap="true" title="" minwidth="60x" width="1pr" selectable="true" />
+      <textarea name="details" enabled="false" title="" width="1pr" height="1pr" minheight="15x" minwidth="75x" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="webdavfailure" gid=".webdavfailure" allpublic="true" implementation="none">
+    <body layout="left">
+      <text valuetid=".failtext" wordwrap="true" />
+      <text tid=".manualurl" />
+      <textedit name="manualurl" title="" enabled="false" width="1pr" />
+      <text tid=".browsererror" />
+      <textarea name="browsererror" title="" enabled="false" />
+      <text valuetid=".disablequestion" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="yes no"/>
+    </footer>
+  </screen>
+
+  <screen name="repubmask" gid=".repubmask">
+    <body>
+      <line>
+        <textedit name="republishmask" required="true" />
+        <text valuetid=".maskexample" />
+      </line>
+      <select name="limittodesign" type="pulldown">
+        <option rowkey="" tid=".limittodesign-allsites" />
+      </select>
+      <line layout="left">
+        <checkbox name="recursive" title="" labeltid=".recursive" value="true" />
+      </line>
+      <line layout="left">
+        <checkbox name="nontemplatetoo" title="" labeltid=".nontemplatetoo" />
+      </line>
+      <line layout="left">
+        <checkbox name="iffailed" title="" labeltid=".iffailed"  />
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="showmodifications"
+          gid="filemanager.main.showmodifications"
+          minwidth="320px"
+          width="620px"
+          minheight="150px"
+          height="800px"
+          allowresize="true"
+          savestate="size"
+          >
+    <actions>
+      <action name="openinpublisher" onexecute="doopeninpublisher">
+        <enableon source="modifications" min="1" max="1" />
+      </action>
+      <action name="refresh" onexecute="dorefresh" />
+      <action name="export" onexecute="doexport" />
+      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="tollium:common.actions.close"/>
+    </actions>
+    <menus>
+      <menu name="selection">
+        <item action="openinpublisher" />
+      </menu>
+    </menus>
+    <body>
+      <panel spacers="bottom">
+        <line layout="left">
+          <datetime name="dtfrom" type="datetime" precision="minutes" />
+          <button action="refresh" name="refreshbutton" />
+        </line>
+      </panel>
+      <panel height="1pr">
+        <list name="modifications"
+              selectmode="single"
+              height="1pr"
+              width="1pr"
+              openaction="openinpublisher"
+              selectcontextmenu="selection"
+              emptytid=".empty"
+              sortascending="false"
+              />
+        <!-- Columns set in whlib -->
+      </panel>
+    </body>
+    <footer>
+      <!--<button action="close" />-->
+      <line layout="right">
+        <button action="export" />
+        <button action="close" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="submitchangesforapproval"
+          gid="filemanager.versioning.submitchangesforapproval"
+          allowresize="true"
+          width="60x"
+          > <!--           savestate="size" -->
+    <body>
+      <line layout="left">
+        <text valuetid=".submitchanges" width="1pr" wordwrap="true" />
+      </line>
+      <heading tid=".description" />
+      <textarea name="descriptiontext" title="" width="1pr" height="5gr" required="true" errorlabeltid=".descriptiontext"/>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

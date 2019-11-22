@@ -1,0 +1,693 @@
+﻿<?wh
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
+
+BOOLEAN debugfoldertree;
+
+INTEGER FUNCTION GetIconOverlay(OBJECT list, RECORD file, BOOLEAN showreadonly)
+{
+  IF(file.id <= 0)
+    RETURN 0; //never show an overlay over the publisher root or trash
+
+  IF(file.islockedsite)
+    RETURN list->GetIcon("tollium:overlays/lock");
+
+  IF(showreadonly AND file.isfolder AND NOT file.canadd AND file.type != 1)
+    RETURN list->GetIcon("tollium:overlays/na");
+
+  RETURN 0;
+}
+
+//ADDME: PublisherFolderTreeComponent moet rows/selection hiden, of documenterne van welke cellen je uit mag gaan
+PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER ARRAY roots;
+  BOOLEAN useroots;
+  BOOLEAN pvt_showprotected; // Show an overlay for 'protected' objects
+  BOOLEAN pvt_showreadonly; // Show an overlay for 'read-only' objects
+  STRING  pvt_selectmode;
+  PUBLIC FUNCTION PTR filteritems; // A callback function to filter out items or add extra fields (like user-defined flags)
+  OBJECT applytester;
+  RECORD foldersettings;
+
+  OBJECT ARRAY listeners;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY showprotected(pvt_showprotected, SetShowProtected);
+  PUBLIC PROPERTY showreadonly(pvt_showreadonly, SetShowReadOnly);
+
+  /** Space-separated list of file/folder type namespaces of accepted files/folders, leave empty to accept all types
+  */
+  STRING ARRAY pvt_accepttypes;
+  PUBLIC PROPERTY accepttypes(pvt_accepttypes, SetAcceptTypes);
+
+  PUBLIC PROPERTY flags(this->thelist->flags, SetFlags);
+  PUBLIC PROPERTY acceptdrops(this->thelist->acceptdrops, this->thelist->acceptdrops);
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY selection(GetSelection, SetSelection);
+  PUBLIC PROPERTY rows(GetRows, -);
+  PUBLIC PROPERTY expanded(GetExpanded, SetExpanded);
+
+  /** Indicates whether only single or multiple selections are allowed
+  */
+  PUBLIC PROPERTY selectmode(pvt_selectmode, SetSelectMode);
+
+  PUBLIC MACRO PTR onselect;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    FSObjectOverviewBase::StaticInit(def);
+
+    this->thelist->width := def.width;
+    this->thelist->minwidth := def.minwidth;
+    this->thelist->height := def.height;
+    this->thelist->minheight := def.minheight;
+
+    this->pvt_showprotected := def.showprotected;
+    this->pvt_showreadonly := def.showreadonly;
+
+    IF(def.forcewhfsroot != "" AND GetPrimaryWebhareTransaction() != 0) //forced root
+    {
+      OBJECT rootfolder := OpenWHFSObjectByPath(def.forcewhfsroot);
+      IF(NOT ObjectExists(rootfolder) OR NOT rootfolder->isfolder)
+        THROW NEW Exception("No such WHFS folder " || def.forcewhfsroot);
+
+      this->roots := [ INTEGER(rootfolder->id) ];
+      this->useroots := TRUE;
+    }
+
+    this->onselect := def.onselect;
+
+    //this->thelist->ongetpath := PTR this->OnGetPath;
+    //this->thelist->ongetchildren := PTR this->OnGetChildren;
+    this->thelist->selectmode := def.selectmode;
+    this->thelist->acceptdrops := def.acceptdrops;
+    this->thelist->newcontextmenu := def.newcontextmenu;
+    this->thelist->selectcontextmenu := def.selectcontextmenu;
+    this->thelist->columnheaders := def.columnheaders;
+    this->thelist->savestate := def.savestate;
+    this->thelist->borders := def.borders;
+    this->thelist->openaction := def.openaction;
+    //this->thelist->styles := [ name := "protected" ];
+    this->thelist->empty := def.empty;
+    this->thelist->onrestoreexpand := PTR this->OnListRestoreExpanded;
+
+    // if accepttypes is set we make folders which aren't of an acceptable type unselectable
+    this->thelist->styles :=
+      [ [ name := "unselectable"
+        , textcolor := "#999999"
+        ]
+      ];
+    this->thelist->selectableflags := ["selectable"];
+
+    this->flags := def.flags;
+    this->filteritems := def.filteritems;
+
+    STRING columntitle := def.columntitle;
+    this->thelist->rowkeytype := TypeID(INTEGER);
+    this->foldersettings := GetDefaultFolderSettings();
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    // Only insert expanded root node if it exists
+    IF (RecordExists(SELECT FROM this->thelist->rows WHERE rowkey = 0))
+      INSERT 0 INTO this->thelist->expanded AT END;
+  }
+
+  PUBLIC RECORD FUNCTION GetFolderSettings()
+  {
+    RETURN this->foldersettings;
+  }
+  PUBLIC OBJECT FUNCTION GetApplyTester()
+  {
+    RETURN this->applytester;
+  }
+
+  PUBLIC UPDATE STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+  PUBLIC UPDATE STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "1pr";
+  }
+
+  PUBLIC UPDATE OBJECT FUNCTION GetEnableOnComponent()
+  {
+    RETURN this->thelist->GetEnableOnComponent();
+  }
+
+  PUBLIC UPDATE MACRO SaveComponentState()
+  {
+    this->thelist->SaveComponentState();
+  }
+  PUBLIC UPDATE MACRO RestoreComponentState()
+  {
+    this->thelist->RestoreComponentState();
+  }
+
+  PUBLIC STRING FUNCTION GotoPath(STRING dest)
+  {
+    INTEGER tryparent := -1;
+    this->SetValue(0); //we need to set ourselves to ensure an initialized tree...
+
+    STRING ARRAY pathparts := Tokenize(dest,'/');
+    FOREVERY(STRING pathpart FROM pathparts)
+    {
+      //Print("tryparent = " || tryparent || "\n");
+      INSERT tryparent INTO this->thelist->expanded AT END;
+
+      IF(tryparent = -1 AND pathpart="") //A path starting with '/' will be interpreted as 'goto root'
+      {
+        tryparent := 0;
+      }
+      ELSE IF(pathpart=".")
+      {
+        CONTINUE;
+      }
+      ELSE IF(pathpart="..")
+      {
+        RECORD parent := this->thelist->GetParentRow(tryparent);
+        IF(NOT RecordExists(parent))
+        {
+          this->Setvalue(tryparent);
+          RETURN Detokenize(ArraySlice(pathparts, #pathpart),'/');
+        }
+        tryparent := parent.id;
+      }
+      ELSE
+      {
+        //DumpValue(this->thelist->rows,'boxed');
+        RECORD ARRAY rows := (tryparent = -1 ? this->thelist->rows : this->thelist->GetChildRows(tryparent));
+        RECORD match := SELECT *
+                   FROM rows
+                  WHERE ToUppercase(rows.name) = ToUppercase(pathpart)
+                        AND isfolder;
+        //DumpValue(match,'tree');
+        IF(NOT RecordExists(match))
+        {
+          this->SetValue(tryparent);
+          RETURN Detokenize(ArraySlice(pathparts, #pathpart),'/');
+        }
+        tryparent := match.id;
+      }
+    }
+    this->SetValue(tryparent);
+    RETURN "";
+  }
+
+  //As there is no way to register multiple Select listeners in tollium, we''ll have to manage filelists ourselves
+  PUBLIC MACRO __AddFilelistListener(OBJECT filelist)
+  {
+    IF(filelist NOT IN this->listeners)
+      INSERT filelist INTO this->listeners AT END;
+  }
+  PUBLIC MACRO __RemoveFilelistListener(OBJECT filelist)
+  {
+    IF(filelist IN this->listeners)
+      DELETE FROM this->listeners AT SearchElement(this->listeners, filelist);
+  }
+
+  INTEGER ARRAY FUNCTION OnListRestoreExpanded(INTEGER ARRAY expandlist)
+  {
+    //never auto-openinactive files, whfs_private expansions are expensive
+    RETURN [0] CONCAT SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE (id IN expandlist) AND isactive;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  PUBLIC MACRO SetupLimitedRoots(INTEGER ARRAY roots)
+  {
+    IF(this->useroots AND Length(ArrayUnion(roots, this->roots))=Length(roots)) //same list
+      RETURN;
+
+    this->roots := roots;
+    this->useroots := TRUE;
+    this->ReloadOverview();
+  }
+  PUBLIC MACRO ClearLimitedRoots()
+  {
+    IF(NOT this->useroots)
+      RETURN;
+    this->useroots := FALSE;
+    this->ReloadOverview();
+  }
+  MACRO SetUseRoots(BOOLEAN newval)
+  {
+    IF (this->useroots != newval)
+    {
+      this->useroots := newval;
+      this->ReloadOverview();
+    }
+  }
+
+  MACRO SetShowProtected(BOOLEAN showprotected)
+  {
+    IF (showprotected != this->pvt_showprotected)
+    {
+      this->pvt_showprotected := showprotected;
+      this->ReloadOverview();
+    }
+  }
+
+  MACRO SetShowReadOnly(BOOLEAN showreadonly)
+  {
+    IF (showreadonly != this->pvt_showreadonly)
+    {
+      this->pvt_showreadonly := showreadonly;
+      this->ReloadOverview();
+    }
+  }
+
+  MACRO SetFlags(STRING ARRAY flags)
+  {
+    FOREVERY (STRING flag FROM this->defaultflags)
+      IF (flag NOT IN flags)
+        INSERT flag INTO flags AT END;
+    this->thelist->flags := flags;
+  }
+
+  MACRO SetAcceptTypes(STRING ARRAY accepttypes)
+  {
+    this->pvt_accepttypes := accepttypes;
+    //this->RefreshList(); // FIXME
+  }
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN this->thelist->value;
+  }
+
+  MACRO SetValue(VARIANT newvalue)
+  {
+    //bit odd... but we get a setvalue(0) at bootup from filemgr but the list doens't really distinguish between Root and no selection.
+    //so just accept setvalue(0) as a modifying operation if we odn't have a selection
+    IF(RecordExists(this->thelist->selection) AND this->thelist->value = newvalue)
+      RETURN;
+
+    this->thelist->value := newvalue;
+    this->AfterSelectionUpdate();
+  }
+
+  MACRO AfterSelectionUpdate()
+  {
+    RECORD selection := this->thelist->selection;
+    IF(RecordExists(selection) AND selection.id > 0) //this is a 'real' object
+    {
+      this->applytester := GetApplyTesterForObject(selection.id);
+      this->foldersettings := this->applytester->GetFolderSettings();
+    }
+    ELSE
+    {
+      this->applytester := DEFAULT OBJECT;
+      this->foldersettings := GetDefaultFolderSettings();
+      IF(RecordExists(selection))
+      {
+        this->foldersettings.filterscreen := selection.filterscreen;
+        IF (selection.contentmode = "searchresults")
+        {
+          this->foldersettings.ordering := "searchresults";
+          this->foldersettings.contentslisthandler :=
+              [ library := "mod::publisher/tolliumapps/filemanager/search.whlib"
+              , objectname := "SearchResultsListHandler"
+              ];
+        }
+        ELSE IF(selection.contentmode = "recyclebin")
+        {
+          this->foldersettings.ordering := "none";
+        }
+      }
+    }
+  }
+
+  RECORD FUNCTION GetSelection()
+  {
+    RETURN this->thelist->selection;
+  }
+
+  MACRO SetSelection(RECORD newselection)
+  {
+    this->thelist->selection := newselection;
+  }
+
+  RECORD ARRAY FUNCTION GetRows()
+  {
+    RETURN this->thelist->rows;
+  }
+
+  PUBLIC MACRO __SetChildGetter(FUNCTION PTR rowgetter)
+  {
+    this->thelist->ongetchildren := rowgetter;
+    this->thelist->Invalidate();
+  }
+
+  VARIANT ARRAY FUNCTION GetExpanded()
+  {
+    RETURN this->thelist->expanded;
+  }
+
+  MACRO SetExpanded(VARIANT ARRAY newexpanded)
+  {
+    this->thelist->expanded := newexpanded;
+  }
+
+  MACRO SetSelectMode(STRING selectmode)
+  {
+    this->pvt_selectmode := selectmode;
+    this->thelist->selectmode := selectmode;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  INTEGER ARRAY FUNCTION OnGetPath(INTEGER rowkey)
+  {
+    IF(debugfoldertree) { DumpValue(CELL[ongetpath:=rowkey, useroots := this->useroots]); DumpValue(geTStackTrace(),'boxed'); }
+
+    INTEGER ARRAY rpath;
+    IF(this->useroots)
+    {
+      OBJECT target := OpenWHFSObject(rowkey);
+      IF(debugfoldertree) DumpValue(CELL[target]);
+      IF(NOT ObjectExists(target))
+      {
+        RETURN DEFAULT INTEGER ARRAY;
+      }
+
+      INTEGER ARRAY tree := target->GetWHFSTree();
+
+      FOREVERY(INTEGER root FROM this->roots)
+        IF(root IN tree)
+        {
+          rpath := ArraySlice(tree, SearchElement(tree,root));
+          BREAK;
+        }
+    }
+    ELSE
+    {
+      RECORD pathinfo := this->owner->tolliumuser->GetObjectPath("system:fs_objects", rowkey);
+      IF(debugfoldertree) DumpValue(CELL[pathinfo],'tree');
+      IF(NOT RecordExists(pathinfo))
+        RETURN DEFAULT INTEGER ARRAY;
+      rpath := SELECT AS INTEGER ARRAY id FROM pathinfo.path;
+    }
+
+    IF(debugfoldertree) DumpValue(CELL[rpath]);
+    IF (LENGTH(rpath) = 0)
+      RETURN DEFAULT INTEGER ARRAY;
+
+    IF (RecordExists(SELECT FROM system.fs_objects WHERE id IN rpath AND type = 1))
+      RETURN DEFAULT INTEGER ARRAY; // Don't show foreign folders in the folder tree
+
+    INTEGER ARRAY path;
+    IF(NOT this->useroots)
+      INSERT 0 INTO path AT END; //when no limited roots, we show the publisher at the top
+    INTEGER ARRAY tohide := GetWHFSObjectsToHide(this->owner->tolliumuser);
+    FOREVERY (INTEGER id FROM rpath)
+    {
+      IF (id = 0)
+        CONTINUE;
+      IF(id IN tohide)
+        RETURN DEFAULT INTEGER ARRAY;
+/*
+      IF (this->useroots AND id IN this->roots)
+      {
+        // This is one of the roots, reset the path to start with this folder
+        path := DEFAULT INTEGER ARRAY;
+      }
+*/
+      INSERT id INTO path AT END;
+    }
+
+/*    // If we're using custom roots, the first element of the path must be one of the roots
+    IF (this->useroots AND path[0] NOT IN this->roots)
+      RETURN DEFAULT INTEGER ARRAY;
+*/
+    // Walk the actual path
+    INTEGER ARRAY truepath;
+    RECORD curparent;
+    IF(debugfoldertree) DumpValue(CELL[path],'tree');
+    WHILE(Length(path) > 0)
+    {
+      RECORD ARRAY objs := this->OnGetChildren(curparent);
+      IF(debugfoldertree) DumpValue(objs,'boxed');
+      RECORD item := SELECT * FROM objs WHERE objs.rowkey = path[0];
+      IF(NOT RecordExists(item))
+        BREAK;
+
+      INSERT item.id INTO truepath AT END;
+      DELETE FROM path AT 0;
+      curparent := item;
+    }
+
+    IF(debugfoldertree) DumpValue(CELL[truepath],'tree');
+    RETURN truepath;
+  }
+
+  INTEGER ARRAY FUNCTION GetExpandableFolders(RECORD ARRAY displayfolders, BOOLEAN showhidden)
+  {
+    RECORD ARRAY diskfolders := SELECT * FROM displayfolders WHERE id >= 0;
+
+    INTEGER ARRAY expandablefolders;
+
+    IF(Length(diskfolders) > 0)
+    {
+      INTEGER ARRAY siteids := SELECT AS INTEGER ARRAY id FROM diskfolders WHERE issite;
+
+      INTEGER ARRAY lockedsiteroots;
+      IF(Length(siteids) > 0) //only query sites if we actually care
+        lockedsiteroots := SELECT AS INTEGER ARRAY root FROM system.sites WHERE id IN siteids AND locked = TRUE;
+
+      // Get the list of expandable folders
+      INTEGER ARRAY folderids := SELECT AS INTEGER ARRAY id FROM diskfolders
+                                        WHERE type != 1  // Ignore external folders for expandability, never shown in folder tree
+                                              AND id NOT IN lockedsiteroots;
+
+      INTEGER ARRAY hiddenfoldertypes;
+      IF(showhidden)
+        hiddenfoldertypes := GetCachedSiteProfiles().hiddenfoldertypes;
+
+      // TODO deal with (unlikely?) situation that a user has deep read access to a site that's locked
+      // An expandable folder is a folder that has a child folder.
+      expandablefolders :=
+          SELECT AS INTEGER ARRAY parent
+            FROM system.fs_objects
+           WHERE parent IN folderids
+             AND isfolder = TRUE
+             AND (showhidden OR (type NOT IN hiddenfoldertypes))
+        GROUP BY parent;
+    }
+    RETURN expandablefolders;
+  }
+
+  RECORD ARRAY FUNCTION OnGetChildren(RECORD parentfolder)
+  {
+    //PRINT("OnGetChildren: parent\n" || AnyTOString(parentfolder, "boxed") || AnyTOString(GetStackTrace(), "boxed"));
+
+    BOOLEAN showparents := NOT RecordExists(parentfolder);
+    BOOLEAN showhidden := this->owner->tolliumuser->HasRight("system:supervisor");
+    RECORD ARRAY displayfolders;
+
+    IF(debugfoldertree) DumpValue(CELL[parentfolder := parentfolder, showparents, useroots := this->useroots]);
+
+    /* There are basically three sources of children:
+       - the roots, which are
+         - predefined (useroots)
+         - the official roots (all generated)
+       - childobjects of a folder, depending on folder id + extension
+    */
+
+    IF (showparents)
+    {
+      //ADDME: het idee was (maar kan dus cleaner) dat als entrypoint NULL is, je de root moet openen. Beter is om entrypoint een NOT NULL in de database te geven en altijd te updaten bij het deleten van een map
+
+      // If not using the given list of roots, only show the publisher root (id = 0)
+      IF (this->useroots)
+      {
+        displayfolders := this->GetObjectListing(0, TRUE, FALSE, FALSE, showhidden, "", TRUE, this->roots);
+        displayfolders := SELECT *, isroot := FALSE FROM displayfolders;
+      }
+    }
+    ELSE IF(parentfolder.id >= 0)
+    {
+      displayfolders := this->GetObjectListing(parentfolder.id, TRUE, FALSE, FALSE, showhidden, "", FALSE, DEFAULT INTEGER ARRAY);
+    }
+
+    IF(debugfoldertree) DumpValue(displayfolders,'boxed');
+    displayfolders := SELECT * FROM displayfolders ORDER BY NormalizeText(name, this->owner->tolliumuser->language);
+
+    IF(showparents AND NOT this->useroots) //Custom root items are always placed AFTER the properly sorted items
+      displayfolders := displayfolders CONCAT this->GenerateRootItems();
+    IF(debugfoldertree) DumpValue(displayfolders,'boxed');
+
+    INTEGER ARRAY expandablefolders := this->GetExpandableFolders(displayfolders, showhidden);
+
+    // Add Tollium-specific data
+    RECORD ARRAY rows := SELECT *
+                              , rowkey := id
+                              , icon := this->thelist->GetIcon(pvt_iconname)
+                              , iconoverlay := GetIconOverlay(this->thelist, displayfolders, this->pvt_showreadonly)
+                              , pvt_namehint := ""
+                              , expandable := id IN expandablefolders
+                              , expanded := FALSE
+                              , style := this->pvt_showprotected AND ispinned ? "protected" : ""
+                           FROM displayfolders
+                          WHERE type != 1; // Don't show foreign folders in the folder tree
+
+    // make types we don't want to accept unselectable and greyed out
+    IF (Length(this->pvt_accepttypes) > 0)
+    {
+      INTEGER ARRAY acceptable_type_ids :=
+            SELECT AS INTEGER ARRAY id
+              FROM system.fs_types
+             WHERE namespace IN this->pvt_accepttypes;
+
+      rows := SELECT *
+                   , selectable := type IN acceptable_type_ids
+                FROM rows;
+
+      UPDATE rows
+         SET style := "unselectable"
+       WHERE NOT selectable;
+    }
+    ELSE
+      rows := SELECT *, selectable := TRUE FROM rows;
+
+    IF(debugfoldertree) DumpValue(rows,'boxed');
+
+    IF (this->filteritems != DEFAULT FUNCTION PTR AND Length(rows) > 0)
+    {
+      // Check for extended filteritems signature
+      IF (ValidateFunctionPtr(this->filteritems, TypeID(RECORD ARRAY), [ TypeID(RECORD ARRAY), TypeID(OBJECT) ]))
+        rows := this->filteritems(rows, this->thelist);
+      ELSE
+        rows := this->filteritems(rows);
+    }
+
+    rows :=
+        SELECT *
+             , parent :=    RecordExists(parentfolder) ? parentfolder.rowkey : 0
+             , isroot :=    id >= 0 AND NOT RecordExists(parentfolder)
+          FROM rows;
+
+    IF(debugfoldertree) DumpValue(rows,'boxed');
+    RETURN rows;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnFolderSignals(RECORD ARRAY events)
+  {
+    // reload when any of the folders in the tree have been deleted
+    BOOLEAN tested_folder;
+    FOREVERY (RECORD event FROM events)
+    {
+      FOREVERY (RECORD file FROM event.data.files)
+      {
+        IF ("move" IN file.events OR "del" IN file.events OR "rename" IN file.events)
+        {
+          IF (this->thelist->GetRowFlatPosition(file.file) != -1)
+          {
+            this->thelist->ReloadList();
+            RETURN;
+          }
+        }
+        ELSE IF ("create" IN file.events AND NOT tested_folder)
+        {
+          IF (this->thelist->GetRowFlatPosition(event.data.folder) != -1)
+          {
+            this->thelist->ReloadList();
+            RETURN;
+          }
+          tested_folder := TRUE;
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  UPDATE PUBLIC MACRO ReloadOverview()
+  {
+    this->thelist->ReloadList();
+  }
+
+  PUBLIC RECORD FUNCTION GetParentRow(INTEGER rowkey)
+  {
+    RETURN this->thelist->GetParentRow(rowkey);
+  }
+  PUBLIC RECORD ARRAY FUNCTION GetChildRows(INTEGER parentrowkey)
+  {
+    RETURN this->thelist->GetChildRows(parentrowkey);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION SetValueIfValid(VARIANT rowkey)
+  {
+    INTEGER ARRAY path := this->OnGetPath(INTEGER(rowkey));
+    IF (INTEGER(rowkey) IN path)
+    {
+      IF(debugfoldertree) PRINT("foldertree: Accepting value " || rowkey || "\n");
+      this->value := INTEGER(rowkey);
+      RETURN TRUE;
+    }
+    IF(debugfoldertree) PRINT("foldertree: REJECTING value " || rowkey || ", not in path " || AnyToString(path,'tree') || "\n");
+    RETURN FALSE;
+  }
+
+  PUBLIC STRING FUNCTION GetSelectionPath()
+  {
+    RECORD sel := this->thelist->selection;
+    IF(NOT RecordExists(sel))
+      RETURN "";
+
+    STRING path;
+    FOREVERY(RECORD row FROM this->thelist->GetPathRows(sel.rowkey))
+      path := (#row=0 ? "" : path || '/') || row.name;
+    RETURN path;
+  }
+
+  MACRO OnSelectHandler()
+  {
+    this->AfterSelectionUpdate();
+    FOREVERY(OBJECT listener FROM this->listeners)
+      listener->__FolderTreeChanged();
+    IF(this->onselect != DEFAULT MACRO PTR)
+      this->onselect();
+  }
+>;

@@ -1,0 +1,594 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/backend/apps.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/towl.whlib";
+LOADLIB "mod::tollium/lib/internal/towl.whlib";
+
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+
+PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
+< // -----------------------------------------------------------------------------
+  //
+  // Global variables and such
+  //
+
+  OBJECT pvt_user;
+
+  OBJECT pvt_parent;
+
+  OBJECT pvt_orgparent;
+
+  /// Whether the edited user is the current user
+  BOOLEAN isself;
+
+  RECORD policy;
+
+  FUNCTION PTR notificationsubmit;
+
+  // -----------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY user(pvt_user, -);
+
+  // -----------------------------------------------------------------------------
+  //
+  // Tollium init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->pvt_user := this->tolliumuser;
+    IF (ObjectExists(this->pvt_user))
+      this->pvt_parent := this->contexts->userapi->GetUnitOf(this->pvt_user);
+    ELSE
+      this->pvt_parent := data.parent;
+
+    this->pvt_orgparent := this->pvt_parent;
+    this->policy := GetPolicyForUser(this->contexts, this->pvt_user->entityid);
+
+    this->ConfigurePrefsTab();
+    this->LoadFavorites();
+
+    this->unitname->readonly := TRUE;
+
+    IF(this->username->value = "")
+      this->username->value := this->pvt_user->login;
+
+    this->username->readonly := TRUE;
+    this->unitname->visible := FALSE;
+    this->frame->title := GetTid("system:userrights.edituser.changeownsettings");
+
+    ConfigurePasswordFieldForPolicy(^password, this->policy);
+
+    IF(this->contexts->userapi->wrdschema->accountemailtag = ""
+       OR this->contexts->userapi->wrdschema->accountlogintag = this->contexts->userapi->wrdschema->accountemailtag)
+    {
+      this->username->composition := DEFAULT OBJECT;
+      this->username->visible := FALSE;
+    }
+    ELSE
+    {
+      this->username->cellname := this->contexts->userapi->wrdschema->accountemailtag;
+    }
+
+    this->userobj->LoadEntity(this->contexts->userapi->wrdschema->accounttype, ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0);
+    IF(NOT ObjectExists(this->pvt_user))
+    {
+      THROW NEW Exception("Cannot load preferences of nonexisting user");
+    }
+
+    RECORD unitinfo;
+    IF(NOT ObjectExists(this->userobj->wrdentity))
+    {
+      // This means we're logged in as an override user in recovery mode; let's tell the user and exit:
+      this->RunMessageBox(".noprefsforoverride");
+      this->TolliumCloseScreen();
+      this->TolliumExecuteCancel();
+      RETURN;
+    }
+
+    RECORD locale := this->pvt_user->GetLocale();
+    this->unitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+
+    this->language->SetValueIfValid(locale.language);
+    this->timezone->SetValueIfValid(locale.timezone);
+    this->decimalsep->SetValueIfValid(locale.decimalseparator);
+    this->thousandsep->SetValueIfValid(locale.thousandseparator);
+    this->browsertitleprefix->value := this->pvt_user->GetRegistryKey("system.prefs.browsertitleprefix", "");
+
+    this->showpdfpreview->value := this->pvt_user->GetRegistryKey("system.prefs.showpdfpreview", FALSE);
+    IF(NOT this->showpdfpreview->value)
+      this->showpdfpreview->onchange := PTR this->onshowpdfpreviewchange;
+
+    this->showdeveloperapps->visible := ObjectExists(this->tolliumuser) AND this->tolliumuser->HasRight("system:sysop");
+    this->showdeveloperapps->value := this->pvt_user->GetRegistryKey("system.prefs.showdeveloperapps", FALSE);
+
+    // These settings (decimal sep, thousand sep and background) can only be changed by the sysop and the user himself
+    BOOLEAN changepersonalsettings := this->tolliumuser->HasRight("system:sysop") OR (ObjectExists(this->user) AND this->tolliumuser->entityid = this->user->entityid);
+    this->decimalsep->visible := changepersonalsettings;
+    this->thousandsep->visible := changepersonalsettings;
+    this->notificationstab->visible := changepersonalsettings;
+    OBJECT dlg := this->LoadScreen(".notificationsettings", [ user := this->pvt_user, parentframe := this->frame ]);
+    this->notificationstab->contents := dlg;
+    this->notificationsubmit := PTR dlg->Submit;
+    this->frame->onmessage := PTR this->OnMessage;
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnShowPDFPreviewChange()
+  {
+    this->showpdfpreview->onchange := DEFAULT MACRO PTR;
+    this->RunMessageBox(".confirmpdfpreview");
+  }
+
+  MACRO GotInterval()
+  {
+    IF (ObjectExists(this->notificationstab->contents))
+      this->notificationstab->contents->GotInterval();
+  }
+
+  MACRO OnMessage(RECORD message)
+  {
+    IF (CellExists(message, "opentab"))
+    {
+      OBJECT tab := GetMember(this, message.opentab);
+      IF (ObjectExists(tab))
+        this->usertabs->selectedtab := tab;
+    }
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoOpenAppPassWords()
+  {
+    this->LoadScreen(".appaccounts", [ user := this->pvt_user ])->RunModal();
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->userinfopage->ValidateValue(work);
+
+    IF (this->decimalsep->value = this->thousandsep->value)
+      work->AddError(GetTid("system:sysmgmt.decimalsepandthousandsepmustdiffer"));
+
+    OBJECT user;
+    TRY
+    {
+      INTEGER oldentityid := this->userobj->entityid;
+
+      INTEGER id := this->userobj->StoreEntity(work, [ whuser_unit := this->pvt_parent->entityid ]);
+      IF (id != 0)
+      {
+        //FIXME why would we need to sync ? this->contexts->userapi->SyncUserAfterUpdate(id);
+        user := this->contexts->userapi->GetUser(id);
+      }
+      ELSE
+        user := this->pvt_user;
+    }
+    CATCH (OBJECT e)
+    {
+      // FIXME: localization!
+      work->AddError(e->what);
+    }
+
+    IF (NOT work->Finish())
+      RETURN FALSE;
+
+    work := this->BeginUnvalidatedWork(); //FIXME sucks to close/reopen, but needed until rightsmgmt is sane without weblets
+
+    IF (NOT user->ExistsInDatabase())
+      work->AddError(GetTid("system:userrights.errors.selecteduserhasbeendeleted"));
+
+    OBJECT userobj := user->entity;
+
+    BOOLEAN changepersonalsettings := this->tolliumuser->HasRight("system:sysop") OR (ObjectExists(this->user) AND this->tolliumuser->entityid = this->user->entityid);
+    IF(changepersonalsettings)
+    {
+      user->SetRegistryKey("system.prefs.browsertitleprefix", this->browsertitleprefix->value);
+
+      IF (MemberExists(this->tolliumcontroller, "webunloadtext"))
+        this->tolliumcontroller->webunloadtext := this->showunloadtext->value ? GetTid("system:portal.messages.confirmexittollium") : "";
+
+      STRING oldlanguage := user->GetLocale().language;
+      user->SetLocale([ language := this->language->value
+                      , timezone := this->timezone->value
+                      , decimalseparator := this->decimalsep->value
+                      , thousandseparator := this->thousandsep->value
+                      ]);
+      user->SetRegistryKey("system.prefs.browsertitleprefix", this->browsertitleprefix->value);
+
+      IF (this->notificationstab->visible)
+        this->notificationsubmit();
+
+      IF(user->entityid = this->tolliumuser->entityid)
+      {
+        IF(this->language->value != oldlanguage)
+          work->AddWarning(GetTidForLanguage(this->language->value, "system:userrights.dialogues.languagechanged"));
+      }
+    }
+    user->SetRegistryKey("system.prefs.showdeveloperapps", this->showdeveloperapps->value);
+    user->SetRegistryKey("system.prefs.showpdfpreview", this->showpdfpreview->value);
+
+    //get the original rows, but overwrite the title inside them
+    RECORD ARRAY shortcuts := SELECT AS RECORD ARRAY CELL[...row, title] FROM this->shortcuts->value;
+    this->tolliumuser->SetRegistryKey("tollium.dashboard.shortcuts", shortcuts);
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    this->pvt_user := user;
+
+    BroadcastEvent("system:unit.change." || this->pvt_parent->entityid, DEFAULT RECORD);
+    IF (ObjectExists(this->pvt_orgparent) AND this->pvt_orgparent->entityid != this->pvt_parent->entityid)
+      BroadcastEvent("system:unit.change." || this->pvt_orgparent->entityid, DEFAULT RECORD);
+
+    BroadcastEvent("tollium:userprefs." || userobj->id, DEFAULT RECORD);
+    this->user->BroadcastToClient([ type := "tollium:shell.refreshmenu" ]);
+
+    this->tolliumcontroller->webbrowsertitleprefix := user->GetRegistryKey("system.prefs.browsertitleprefix","");
+    RETURN TRUE;
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO LoadFavorites()
+  {
+    RECORD ARRAY favorites := this->tolliumuser->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    RECORD ARRAY allapps := GetAllApplications(this->user);
+
+    this->shortcuts->value := SELECT app := (SELECT AS STRING title FROM allapps WHERE name = favorites.app) ?? favorites.app
+                                   , title
+                                   , row := favorites //just save the original nrow
+                                FROM favorites
+                               WHERE app != "";
+  }
+
+
+  // -----------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO ConfigurePrefsTab()
+  {
+    RECORD prefs := CollectUserPreferenceOptions(this->tolliumcontroller);
+
+    this->language->options := prefs.languages;
+    //FIXME this->timeformat->options := prefs.timeformats;
+    //FIXME this->dateformat->options := prefs.dateformats;
+    this->decimalsep->options := prefs.decimalseps;
+    this->thousandsep->options := prefs.thousandseps;
+  }
+
+  MACRO DoResetWarnings()
+  {
+    // Registry keys for saved message box results are structured as follows:
+    // __dialogresult_regkey.<module>.<pagefile>.<dialogname>
+    // so we can delete all message box result by deleting __dialogresult_regkey, or we can add a module, a pagefile and a
+    // messagebox to delete only within that module or pagefile or for a specific messagebox.
+    IF (this->RunMessageBox(".confirmresetwarnings") = "yes")
+      this->user->DeleteRegistryNode("tollium.dialogresult");
+  }
+>;
+
+PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
+< OBJECT userobj;
+  BOOLEAN embedded;
+  OBJECT towlservice;
+
+  /** Permission state
+      - unknown: initial state
+      - '': browser does not support notifications
+      - default: not yet permitted/denied
+      - granted: permission granted
+      - denied: permission denied
+  */
+  STRING lastpermissionstate;
+  BOOLEAN querypending;
+
+  MACRO Init(RECORD data)
+  {
+    this->userobj := data.user;
+    this->embedded := CellExists(data, "parentframe") AND ObjectExists(data.parentframe);
+    this->towlservice := __OpenLocalService("tollium:towlservice");
+    this->lastpermissionstate := "unknown";
+
+    this->listener->masks := [ "tollium:towl.notificationsettings." || this->tolliumuser->entityid ];
+
+    IF (ObjectExists(this->userobj))
+    {
+      this->timeout->value := this->towlservice->GetUserTimeout(this->userobj) / 1000;
+      INTEGER userpriority := this->towlservice->GetNotificationPriority(this->userobj, "");
+      this->onlypriority->value := userpriority != -4;
+      this->showpriority->value := userpriority != -4 ? userpriority : 0;
+      this->showon->SetValueIfValid(this->userobj->GetRegistryKey("system.prefs.shownotifications", "desktop"));
+    }
+
+    this->buttons->visible := NOT this->embedded;
+
+    this->RefreshNotificationsList();
+    //ADDME: Can we still somehow register for receiving towl broadcasts?
+
+    this->OnShowOnChange();
+    this->QueryPermissionState();
+
+    this->listener->EnsurePostInit();
+  }
+
+  MACRO GotNewNotificationEvents(RECORD ARRAY events)
+  {
+    this->RefreshNotificationsList();
+  }
+
+  /// ADDME: Embedded screens should have interval too
+  PUBLIC MACRO GotInterval()
+  {
+    this->QueryPermissionState();
+  }
+
+  MACRO QueryPermissionState()
+  {
+    IF (this->lastpermissionstate = "" OR this->querypending) // not supported?
+      RETURN;
+
+    this->querypending := TRUE;
+    this->tolliumcontroller->ExecuteClientCall("GetNotificationPermissionState")->Then(
+          PTR this->ProcessPermissionState,
+          PTR this->ShowException);
+  }
+
+  MACRO ProcessPermissionState(STRING state)
+  {
+    this->querypending := FALSE;
+    this->lastpermissionstate := state;
+    this->OnShowOnChange();
+  }
+
+  MACRO ShowException(OBJECT e)
+  {
+    this->querypending := FALSE;
+    this->lastpermissionstate := ""; // Treat as not supported
+    RunExceptionReportDialog(this, e);
+  }
+
+  MACRO OnShowOnChange()
+  {
+    this->permissiontabs->visible := this->showon->value = "desktop";
+    SWITCH (this->lastpermissionstate)
+    {
+      CASE "unknown", "default"     { this->permissiontabs->selectedtab := this->requestpermissiontab; }
+      CASE ""                       { this->permissiontabs->selectedtab := this->notsupportedtab; }
+      CASE "granted"                { this->permissiontabs->selectedtab := this->permissiongrantedtab; }
+      CASE "denied"                 { this->permissiontabs->selectedtab := this->permissiondeniedtab; }
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work;
+    IF (NOT this->embedded)
+      work := this->BeginWork();
+
+    this->userobj->SetRegistryKey("system.prefs.shownotifications", this->showon->value);
+    this->towlservice->SetUserTimeout(this->userobj, this->timeout->value * 1000);
+    this->towlservice->SetNotificationPriority(this->userobj, "", this->onlypriority->value ? this->showpriority->value : -4);
+
+    IF (ObjectExists(work))
+      RETURN work->Finish();
+    RETURN TRUE;
+  }
+
+  STRING FUNCTION GetNotificationStatusIcon(INTEGER priority)
+  {
+    SWITCH (priority)
+    {
+      CASE -3              { RETURN "tollium:status/checked"; }
+      CASE -2, -1, 0, 1, 2 { RETURN "tollium:status/unknown"; }
+      CASE 3               { RETURN "tollium:status/negative"; }
+    }
+    RETURN "";
+  }
+
+  STRING FUNCTION GetNotificationStatusText(INTEGER priority)
+  {
+    SWITCH (priority)
+    {
+      CASE -3 { RETURN GetTid("system:userrights.editnotification.shownotification-always"); }
+      CASE -2 { RETURN GetTid("system:userrights.editnotification.verylow"); }
+      CASE -1 { RETURN GetTid("system:userrights.editnotification.low"); }
+      CASE 0  { RETURN GetTid("system:userrights.editnotification.normal"); }
+      CASE 1  { RETURN GetTid("system:userrights.editnotification.high"); }
+      CASE 2  { RETURN GetTid("system:userrights.editnotification.veryhigh"); }
+      CASE 3  { RETURN GetTid("system:userrights.editnotification.shownotification-never"); }
+    }
+    RETURN "";
+  }
+
+  MACRO RefreshNotificationsList()
+  {
+    IF (NOT ObjectExists(this->userobj))
+      RETURN;
+
+    RECORD ARRAY notifications := SELECT towl_notifications.*
+                                       , modulename := modules.name
+                                    FROM system.towl_notifications
+                                       , system.modules
+                                   WHERE towl_notifications.module = modules.id;
+    notifications := SELECT *
+                          , userpriority := this->towlservice->GetNotificationPriority(this->userobj, modulename || ":" || name)
+                       FROM notifications;
+    notifications := SELECT *
+                          , statustext := this->GetNotificationStatusText(userpriority)
+                          , statusicon := this->GetNotificationStatusIcon(userpriority)
+                       FROM notifications
+                      WHERE userpriority > -4;
+
+    this->notifications->rows := SELECT rowkey := id
+                                      , name := modulename || ":" || name
+                                      , title := GetTid(modulename || ":" || name)
+                                      , module := modulename
+                                      , status := statustext
+                                      , statusicon := this->notifications->GetIcon(statusicon)
+                                      , userpriority
+                                   FROM notifications;
+  }
+
+  MACRO OnNotificationBroadcast(RECORD data)
+  {
+    // The data record contains a cell 'data', which contains the JSON-encoded message, which should have a 'type' cell with
+    // the value "tollium:towl.event".
+    data := DecodeJSON(data.data);
+    IF (CellExists(data, "message") AND CellExists(data.message, "type") AND data.message.type = "tollium:towl.event")
+      this->RefreshNotificationsList();
+  }
+
+  MACRO DoRequestPermission()
+  {
+    this->frame->QueueOutboundMessage("requestpermission", [ type := "notifications" ]);
+  }
+
+  MACRO DoTestNotification()
+  {
+    ShowTowlNotification( "tollium:notifications.testnotification"
+                        , [ webhare_users := [ GetEffectiveUserId() ] ]
+                        , [ timeout := this->timeout->value * 1000
+                          , priority := priority_internal
+                          ]);
+  }
+
+  MACRO DoEditNotification()
+  {
+    RECORD notification := this->notifications->selection;
+    OBJECT dlg := this->LoadScreen(".editnotification", notification);
+    IF (dlg->RunModal() = "ok")
+    {
+      OBJECT work := this->BeginWork();
+      this->towlservice->SetNotificationPriority(this->userobj, notification.name, dlg->priority);
+      work->Finish();
+    }
+  }
+
+  MACRO DoDeleteNotification()
+  {
+    RECORD notification := this->notifications->selection;
+    IF (this->RunMessageBox(".confirmdeletenotification", notification.title) = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      this->towlservice->SetNotificationPriority(this->userobj, notification.name, -4);
+      work->Finish();
+    }
+  }
+>;
+
+
+PUBLIC OBJECTTYPE EditNotification EXTEND TolliumScreenBase
+<
+  PUBLIC PROPERTY priority(GetPriority, -);
+
+  MACRO Init(RECORD data)
+  {
+    this->frame->title := GetTid("system:userrights.editnotification.title", data.title);
+
+    IF (data.userpriority = -3)
+      this->shownotification->value := "always";
+    ELSE IF (data.userpriority = 3)
+      this->shownotification->value := "never";
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN this->BeginWork()->Finish();
+  }
+
+  INTEGER FUNCTION GetPriority()
+  {
+    SWITCH (this->shownotification->value)
+    {
+      CASE "never"
+      {
+        RETURN 3;
+      }
+      CASE "always"
+      {
+        RETURN -3;
+      }
+    }
+    RETURN -4;
+  }
+>;
+
+//*/
+
+PUBLIC OBJECTTYPE AppAccounts EXTEND TolliumScreenBase
+< OBJECT user;
+
+  MACRO Init(RECORD data)
+  {
+    this->user := data.user;
+    this->appaccounts->wrdtype := this->contexts->userapi->wrdschema->GetType("WHUSER_APPACCOUNT");
+    this->appaccounts->entitycontext := [ wrd_leftentity := this->user->entityid ];
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    ///
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE AppAccount EXTEND TolliumScreenBase
+<
+  RECORD entitycontext;
+  INTEGER newid;
+
+  MACRO Init(RECORD data)
+  {
+    this->entitycontext := data.entitycontext;
+  }
+  BOOLEAN FUNCTION OnDevicePageNext()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    work->Validate(this->devicepage);
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    OBJECT user := this->contexts->userapi->GetUser(this->entitycontext.wrd_leftentity);
+
+    RECORD res := user->CreateAppPassword(this->scope->value, this->device->value);
+    this->login->value := this->tolliumuser->login;
+    this->password->value := res.password;
+    this->newid := res.id;
+
+    RETURN work->Finish();
+  }
+
+  MACRO Onpasswordpageinit(RECORD data)
+  {
+    this->wizard->hidecancel := TRUE;
+    this->wizard->ClearPageHistory();
+  }
+
+  PUBLIC INTEGER FUNCTION GetNewEntityId()
+  {
+    RETURN this->newid;
+  }
+>;

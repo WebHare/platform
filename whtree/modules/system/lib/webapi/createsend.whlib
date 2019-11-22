@@ -1,0 +1,173 @@
+<?wh
+/** @topic webapis/email */
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+
+
+CONSTANT STRING apibase := "https://api.createsend.com/api/v3.2/";
+
+/** Createsend integration
+    @long
+       Get your API keys here: https://webharebv.createsend.com/admin/account/apikeys
+
+       API documentation: https://www.campaignmonitor.com/api/
+
+*/
+PUBLIC STATIC OBJECTTYPE CreateSendAPI
+<
+  OBJECT browser;
+  STRING apikey;
+
+  PUBLIC PROPERTY debug(this->browser->debug,this->browser->debug);
+
+  PUBLIC MACRO NEW(STRING apikey)
+  {
+    this->browser := NEW WebBrowser;
+    IF(IsRPCTrafficLogged("system:webapi.createsend"))
+      LogRPCForWebBrowser("system:webapi.createsend", "", this->browser);
+
+    this->apikey := apikey;
+    IF(apikey = "")
+      THROW NEW Exception("No API key set");
+
+    this->browser->SetPassword(apibase, this->apikey, "");
+  }
+
+  MACRO ThrowLastRequest()
+  {
+    THROW NEW Exception(`${this->browser->href}: ${this->browser->GetHTTPStatusText()}`);
+  }
+
+  /** Do a lowlevel call straight to the api
+      @cell options.jsonbody JSON Body to pass
+      @cell options.wrapresponse If true, accept non-200 responses and wrap the returned body to return the response */
+  PUBLIC VARIANT FUNCTION RawAPICall(STRING method, STRING endpoint, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ jsonbody := DEFAULT RECORD
+                               , wrapresponse := FALSE
+                               , urlvariables := DEFAULT RECORD
+                               ], options);
+
+    STRING url := apibase || endpoint || ".json";
+    url := UpdateURLVariables(url, options.urlvariables);
+
+    BLOB body;
+    IF(RecordExists(options.jsonbody))
+      body := EncodeJSONBlob(options.jsonbody);
+
+    IF(NOT this->browser->SendRawRequest(method, url, RECORD[], body) AND NOT options.wrapresponse)
+      this->ThrowLastRequest();
+
+    IF(options.wrapresponse)
+      RETURN [ statustext := this->browser->GetHTTPStatusText()
+             , status := this->browser->GetHTTPStatusCode()
+             , response := DecodeJSONBlob(this->browser->content)
+             ];
+
+    RETURN DecodeJSONBlob(this->browser->content);
+  }
+
+  /** List clients in your account */
+  PUBLIC RECORD ARRAY FUNCTION ListClients()
+  {
+    RETURN EnforceStructure([[ clientid := "", name := "" ]], this->RawAPICall("GET","clients"));
+  }
+
+  /** List mailinglists for a client */
+  PUBLIC RECORD ARRAY FUNCTION ListMailingLists(STRING clientid)
+  {
+    RETURN EnforceStructure([[ listid := "", name := "" ]], this->RawAPICall("GET","clients/" || clientid || "/lists"));
+  }
+
+  /** Subscribe a user
+      @long Optionally supplies custom data.
+
+            Note that you must create custom fields through the webinterface before you can use them (and you will not
+            get an error when setting a nonexisting custom field)
+
+      @cell(record array) options.customfields Custom fields to add   */
+  PUBLIC RECORD FUNCTION AddSubscriber(STRING listid, STRING name, STRING email, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT IsValidEmailAddress(email))
+      THROW NEW Exception(`Invalid email address '${email}'`);
+
+    options := ValidateOptions([ resubscribe := FALSE
+                               , customfields := [[ field := "", value := "" ]]
+                               , consenttotrack := FALSE
+                               ], options, [ optional := ["consenttotrack"]]);
+
+    RECORD req := [ emailaddress := email
+                  , name :=name
+                  , resubscribe := options.resubscribe
+                  , consenttotrack := CellExists(options,"consenttotrack") ? options.consenttotrack ? "Yes" : "No" : "Unchanged"
+                  , customfields := (SELECT "key" := field, value FROM options.customfields)
+                  ];
+
+    RECORD res := this->RawAPICall("POST", "subscribers/" || listid, [ jsonbody := req, wrapresponse := TRUE ]);
+    IF(res.status != 201)
+      this->ThrowLastRequest();
+
+    RETURN [ success := TRUE ];
+  }
+
+  /** Retrieve user's subscription status */
+  PUBLIC RECORD FUNCTION GetSubscriber(STRING listid, STRING email)
+  {
+    /* NOTE: createsend.com tells its cdn to CACHE these API requests... so we can't properly test unsubscription
+       as in, we see the header X-Cache: HIT
+
+       throw in something random to defeat the CDN for this */
+    RECORD res := this->RawAPICall("GET", "subscribers/" || listid,
+      [ urlvariables := CELL[ email
+                            , includetrackingpreference := "true"
+                            , __random := GenerateUFS128BitId()
+                            ]
+      , wrapresponse := TRUE
+      ]);
+
+    IF(res.status = 400 AND res.response.code = 203) //already removed/deleted
+      RETURN DEFAULT RECORD;
+    IF(res.status != 200)
+      this->ThrowLastRequest();
+
+    res := EnforceStructure(
+        [ emailaddress := ""
+        , name := ""
+        , date := DEFAULT DATETIME
+        , state := ""
+        , customfields := [[ "key" := "", value := "" ]]
+        , readsemailwith := ""
+        , consenttotrack := ""
+        ], res.response);
+
+    res := CELL[ ...res
+               , customfields := (SELECT field := COLUMN "key", value FROM res.customfields)
+               , consenttotrack := res.consenttotrack = "Yes"
+               ];
+
+    RETURN res;
+  }
+
+  /** Unsubscribe a user frmo a list
+      @return True if succesfully unsubscribed, false if not on the list*/
+  PUBLIC BOOLEAN FUNCTION RemoveSubscriber(STRING listid, STRING emailaddress)
+  {
+    RECORD res := this->RawAPICall("POST", "subscribers/" || listid || "/unsubscribe",
+      [ jsonbody := CELL[ emailaddress ]
+      , wrapresponse := TRUE
+      ]);
+
+    IF(res.status = 400 AND res.response.code = 203) //already removed/deleted
+      RETURN FALSE;
+    IF(res.status = 200)
+      RETURN TRUE;
+
+    this->ThrowLastRequest();
+    RETURN FALSE; //NOTE: never reached, throws
+  }
+>;

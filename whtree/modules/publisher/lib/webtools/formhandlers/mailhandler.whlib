@@ -1,0 +1,707 @@
+<?wh
+/** @short Standard form handlers
+    @topic forms/standardhandlers
+*/
+
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/smtp.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/mail/mergefields.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/forms/tasks.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
+
+///////////////////////
+//
+// Helpers
+//
+
+PUBLIC STRING FUNCTION ResolveMailTemplate(RECORD settings, OBJECT formdefinitions)
+{
+  STRING mailtemplate;
+  IF(CellExists(settings,'mailtemplate'))
+    mailtemplate := settings.mailtemplate;
+  IF(mailtemplate LIKE "x-wh-internallink:*")
+  {
+    INTEGER mailtemplateid := formdefinitions->GetLinkRef(mailtemplate);
+    IF(mailtemplateid = 0)
+      THROW NEW Exception(`The mailtemplate referenced a WHFS file that appears to be gone (at time of setting the link: ${settings.originaltemplate})`);
+
+    OBJECT target := OpenWHFSObject(mailtemplateid);
+    IF(NOT ObjectExists(target) OR NOT target->isactive)
+      THROW NEW Exception(`The mailtemplate references WHFS file #${mailtemplateid} which has been deleted (at time of setting the link: ${settings.originaltemplate})`);
+
+    mailtemplate := target->GetResourceName();
+  }
+
+  RETURN mailtemplate;
+}
+
+///////////////////////
+//
+// handler objects (usde when form is live)
+//
+
+STATIC OBJECTTYPE MailHandler EXTEND FormHandlerBase
+<
+  STRING handlertype;
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsTestableForResults()
+  {
+    RETURN TRUE;
+  }
+  UPDATE PUBLIC MACRO RunTestResult(OBJECT parent, RECORD result, RECORD options)
+  {
+    RECORD wittydata := options.formresults->GetWittyResultData(result);
+    RECORD settings := CELL[ ...this->settings
+                           ];
+    OBJECT email := GetTaskMail(this->settings, result, this->handlertype, options.form, options.formresults, DEFAULT RECORD);
+    RunEmailTestDialog(parent, email);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailFeedbackHandler EXTEND MailHandler
+<
+  MACRO NEW()
+  {
+    this->handlertype := "feedback";
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailConfirmationHandler EXTEND MailHandler
+<
+  MACRO NEW()
+  {
+    this->handlertype := "confirmation";
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsDuplicateSubmission(RECORD result, OBJECT formresults)
+  {
+    IF (this->settings.onduplicate = "reject")
+    {
+      STRING receiverfield := SELECT AS STRING name FROM this->form->ListFields() WHERE guid = this->settings.receiverfield;
+      IF (CellExists(result.response, receiverfield))
+      {
+        RECORD ARRAY allresults := formresults->ListResults([ outputcolumns := [ email := receiverfield ] ]);
+        RETURN RecordExists(
+            SELECT FROM allresults
+             WHERE ToUppercase(email) = ToUppercase(GetCell(result.response, receiverfield)));
+      }
+    }
+    RETURN FALSE;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailResultsHandler EXTEND MailHandler
+<
+  MACRO NEW()
+  {
+    this->handlertype := "results";
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetFormEditTitle()
+  {
+    IF(RecordExists(SELECT FROM this->settings.mailto WHERE RecordExists(condition)))
+      RETURN GetTid("publisher:formhandlers.mailresults.name-conditions");
+    IF(Length(this->settings.mailto) > 0)
+    {
+      STRING ARRAY emails := SELECT AS STRING ARRAY email FROM this->settings.mailto;
+      RETURN GetTid("publisher:formhandlers.mailresults.name-noconditions", Detokenize(emails,', '));
+    }
+    RETURN "";//default
+  }
+>;
+
+
+///////////////////////
+//
+// Editor
+//
+
+STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
+<
+  STRING handlertype;
+
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    FormComponentExtensionBase::InitExtension(extendablelinescontainer);
+
+    RECORD integrationsettings := this->contexts->formcomponentapi->integrationsettings;
+    IF(RecordExists(integrationsettings) AND integrationsettings.mailrtdtype != "")
+      ^emailcontents->rtd->SetupForRTDType(integrationsettings.mailrtdtype);
+  }
+
+  MACRO SetupIntraFieldPulldown(OBJECT component, STRING ARRAY inputtypes)
+  {
+    RECORD ARRAY candidates := this->contexts->formcomponentapi->GetFieldsForTypes(inputtypes);
+    IF(Length(candidates) > 0)
+    {
+      component->options := component->options CONCAT
+          SELECT rowkey := guid
+               , title := GetTid(title)
+            FROM candidates;
+    }
+  }
+
+  MACRO FillIntraFieldPulldown(OBJECT component, STRING attributename)
+  {
+    STRING fieldvalue := this->node->GetAttribute(attributename);
+    IF (fieldvalue != "")
+    {
+      // If the stored receiverfield points to a non-existing field, add it as an invalid option
+      IF (NOT component->IsValidValue(fieldvalue))
+      {
+        INSERT CELL[ rowkey := fieldvalue
+                   , title := GetTid("publisher:formhandlers.mailresults.deletedfield")
+                   , enabled := FALSE
+                   ] INTO component->options AT 0;
+      }
+      component->value := fieldvalue;
+    }
+  }
+
+  MACRO SubmitIntraFieldPulldown(OBJECT field, STRING attributename)
+  {
+    IF (field->value != "")
+      this->node->SetAttribute(attributename, field->value);
+    ELSE
+      this->node->RemoveAttribute(attributename);
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    IF(this->existing)
+      ^emailcontents->addresults->value := ParseXSBoolean(this->node->GetAttribute("addresults"));
+    ELSE
+      ^emailcontents->addresults->value := this->handlertype = "results";
+
+    this->LoadCurrentTemplate();
+
+    STRING instanceid := this->node->GetAttribute("textid");
+    IF (instanceid != "")
+    {
+      RECORD instance := this->contexts->formcomponentapi->GetInstance(instanceid);
+      IF (RecordExists(instance))
+        ^emailcontents->rtd->value := instance.data;
+    }
+    ^subject->value := this->node->GetAttribute("subject");
+  }
+
+  MACRO LoadCurrentTemplate()
+  {
+    STRING currenttemplate := this->node->GetAttribute("mailtemplate");
+    STRING libname := this->handlertype = "results" ? "mailresultstemplates" : "mailfeedbacktemplates";
+    INTEGER ARRAY libraries := this->owner->contexts->applytester->GetLibrary("publisher:" || libname);
+    IF(Length(libraries)=0)
+      libraries := this->owner->contexts->applytester->GetLibrary("publisher:" || libname);
+    IF(Length(libraries) > 0 OR currenttemplate LIKE "x-wh-internallink:*") //either libraries are setup, or we're already pointing to a file
+    {
+      IF(Length(libraries) > 0)
+      {
+        ^emailcontents->fsobject->roots := libraries;
+      }
+      ELSE
+      {
+        ^emailcontents->templatetype->enabled := FALSE;
+        ^emailcontents->fsobject->enabled := FALSE;
+      }
+
+      IF(currenttemplate LIKE "x-wh-internallink:*")
+      {
+        ^emailcontents->templatetype->value := "fsobject";
+
+        INTEGER mailtemplateid := this->contexts->formcomponentapi->GetLinkRef(currenttemplate);
+        IF(mailtemplateid != 0 AND OpenWHFSObject(mailtemplateid)->isactive)
+        {
+          IF(NOT this->contexts->formcomponentapi->showadvanced)
+            DELETE FROM ^emailcontents->templatetype->options WHERE rowkey = "moduletemplate";
+          ^emailcontents->fsobject->value := mailtemplateid;
+          RETURN;
+        }
+      }
+    }
+    ELSE
+    {
+      DELETE FROM ^emailcontents->templatetype->options WHERE rowkey = "fsobject";
+    }
+
+    IF(currenttemplate != "")
+    {
+      ^emailcontents->templatetype->value := "moduletemplate";
+      ^emailcontents->moduletemplate->value := currenttemplate;
+      IF(NOT this->contexts->formcomponentapi->showadvanced)
+      {
+        ^emailcontents->templatetype->enabled := FALSE;
+      }
+    }
+    ELSE
+    {
+      ^emailcontents->templatetype->value := "rtd";
+      IF(NOT this->contexts->formcomponentapi->showadvanced)
+      {
+        IF(Length(libraries) = 0)// we didn't add the the 'browse' either
+          ^emailcontents->templatetype->visible := FALSE;
+        ELSE
+          DELETE FROM ^emailcontents->templatetype->options WHERE rowkey = "moduletemplate";
+      }
+    }
+
+    IF(this->existing)
+      ^emailcontents->applytemplate->value := this->node->GetAttribute("applytemplate");
+    ^emailcontents->applytemplate->visible := Length(^emailcontents->applytemplate->options)>1;
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF(^emailcontents->templatetype->value = "rtd"
+       AND NOT ^emailcontents->addresults->value
+       AND NOT RecordExists(^emailcontents->rtd->value))
+    {
+      work->AddErrorFor(^emailcontents->rtd, GetTid("publisher:formhandlers.mailresults.emptymailandnoresults"));
+    }
+
+    IF (NOT work->HasFailed())
+    {
+      IF (^subject->value != "")
+        this->node->SetAttribute("subject", ^subject->value);
+      ELSE
+        this->node->RemoveAttribute("subject");
+
+      IF (^emailcontents->applytemplate->value != "")
+        this->node->SetAttribute("applytemplate", ^emailcontents->applytemplate->value);
+      ELSE
+        this->node->RemoveAttribute("applytemplate");
+
+      SWITCH(^emailcontents->templatetype->value)
+      {
+        CASE "rtd"
+        {
+          this->node->RemoveAttribute("mailtemplate");
+        }
+        CASE "fsobject"
+        {
+          OBJECT realtarget := OpenWHFSObject(^emailcontents->fsobject->value);
+          IF(ObjectExists(realtarget))
+          {
+            this->node->SetAttribute("mailtemplate",     this->contexts->formcomponentapi->CreateLinkRef(^emailcontents->fsobject->value));
+            this->node->SetAttribute("originaltemplate", realtarget->GetResourceName());
+          }
+          ELSE
+          {
+            this->node->RemoveAttribute("mailtemplate");
+          }
+        }
+        CASE "moduletemplate"
+        {
+          this->node->SetAttribute("mailtemplate", ^emailcontents->moduletemplate->value);
+        }
+      }
+
+      STRING instanceid := this->node->GetAttribute("textid");
+      RECORD instance :=
+          [ data := ^emailcontents->rtd->value
+          , whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+          ];
+
+      IF (instanceid != "")
+      {
+        this->contexts->formcomponentapi->SetInstance(instanceid, instance);
+      }
+      ELSE
+      {
+        instanceid := this->contexts->formcomponentapi->CreateInstance(instance);
+        this->node->SetAttribute("textid", instanceid);
+      }
+      this->node->SetAttribute("addresults", ^emailcontents->addresults->value ? "true" : "false");
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailHandlerEditor
+<
+  MACRO NEW()
+  {
+    this->handlertype := "feedback";
+  }
+
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    MailHandlerEditor::InitExtension(extendablelinescontainer);
+
+    // If there are any fields containing e-mail addresses, they can be used as the receiver field
+    this->SetupIntraFieldPulldown(^receiverfield, [ "email", "emailarray" ]);
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    MailHandlerEditor::PostInitExtension();
+
+    ^sender->value := this->node->GetAttribute("sender");
+    ^sendername->value := this->node->GetAttribute("sendername");
+    //If sender is set but sendername isn't, stop requiring sendername. may be a webpack import or manual XML modification
+    ^sendername->required := NOT (^sender->value != "" AND ^sendername->value = "");
+
+    this->FillIntraFieldPulldown(^receiverfield, "receiverfield");
+    ^bcc->value := this->node->GetAttribute("bcc");
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    MailHandlerEditor::SubmitExtension(work);
+
+    IF (NOT work->HasFailed())
+    {
+      this->node->SetAttribute("sender", ^sender->value);
+      this->node->SetAttribute("sendername", ^sendername->value);
+
+      this->node->RemoveAttribute("sendoncanceltoo");
+
+      this->SubmitIntraFieldPulldown(^receiverfield, "receiverfield");
+
+      IF (^bcc->value != "")
+        this->node->SetAttribute("bcc", ^bcc->value);
+      ELSE
+        this->node->RemoveAttribute("bcc");
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailConfirmationEditor EXTEND MailFeedbackEditor
+<
+  MACRO NEW()
+  {
+    this->handlertype := "confirmation";
+  }
+
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    MailFeedbackEditor::InitExtension(extendablelinescontainer);
+
+    ^emailcontents->addresults->visible := FALSE;
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    MailFeedbackEditor::PostInitExtension();
+
+    ^checkduplicates->value := this->node->GetAttribute("onduplicate") = "reject";
+
+    INSERT [ type := "http://www.webhare.net/xmlns/publisher/formconfirmfield", inherit := TRUE ] INTO ^emailcontents->^rtd->allowwidgettypes AT END;
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (^emailcontents->templatetype->value = "rtd")
+    {
+      IF (NOT RecordExists(^emailcontents->rtd->value))
+      {
+        work->AddErrorFor(^emailcontents->rtd, GetTid("publisher:formhandlers.mailresults.emptyconfirmationmail"));
+        RETURN;
+      }
+      ELSE
+      {
+        // There should be a confirmation link embedded object present
+        IF (NOT RecordExists(
+            SELECT
+              FROM ^emailcontents->rtd->value.instances
+             WHERE RecordExists(data) AND data.whfstype = "http://www.webhare.net/xmlns/publisher/formconfirmfield"))
+        {
+          work->AddErrorFor(^emailcontents->rtd, GetTid("publisher:formhandlers.mailresults.noconfirmationlink"));
+          RETURN;
+        }
+      }
+    }
+
+    MailFeedbackEditor::SubmitExtension(work);
+
+    IF (^checkduplicates->value)
+      this->node->SetAttribute("onduplicate", "reject");
+    ELSE
+      this->node->RemoveAttribute("onduplicate");
+    this->node->RemoveAttribute("addresults");
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailResultsEditor EXTEND MailHandlerEditor
+<
+  MACRO NEW()
+  {
+    this->handlertype := "results";
+  }
+
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    MailHandlerEditor::InitExtension(extendablelinescontainer);
+
+    // If there are any fields containing e-mail addresses, they can be used as the receiver field
+    this->SetupIntraFieldPulldown(^sendernamefield, [ "email", "string" ]);
+    this->SetupIntraFieldPulldown(^replytofield, [ "email" ]);
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    MailHandlerEditor::PostInitExtension();
+
+    RECORD ARRAY mailto;
+
+    this->FillIntraFieldPulldown(^sendernamefield, "sendernamefield");
+    this->FillIntraFieldPulldown(^replytofield, "replytofield");
+
+    IF(this->node->HasAttribute("receivers")) //legacy attribute
+    {
+      mailto := SELECT email, condition := DEFAULT RECORD
+                  FROM ToRecordArray(TokenizeEmailAddresses(this->node->GetAttribute("receivers")), "email");
+    }
+    FOREVERY(OBJECT mailtonode FROM this->node->GetChildElementsByTagNameNS(this->node->namespaceuri, "mailto")->GetCurrentElements())
+    {
+      INSERT [ email := mailtonode->GetAttribute("email")
+             , condition := this->contexts->formcomponentapi->GetConditionAttribute(mailtonode, "conditionid")
+             ] INTO mailto AT END;
+    }
+    ^mailto->value := mailto;
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    MailHandlerEditor::SubmitExtension(work);
+
+    IF (NOT work->HasFailed())
+    {
+      this->SubmitIntraFieldPulldown(^sendernamefield, "sendernamefield");
+      this->SubmitIntraFieldPulldown(^replytofield, "replytofield");
+
+      FOREVERY(OBJECT mailtonode FROM this->node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "mailto")->GetCurrentElements())
+        mailtonode->Dispose();
+
+      FOREVERY(RECORD mailto FROM ^mailto->value)
+      {
+        OBJECT mailnode := this->node->ownerdocument->CreateElementNS(this->node->namespaceuri, "mailto");
+        this->node->AppendChild(mailnode);
+        mailnode->SetAttribute("email", mailto.email);
+        this->contexts->formcomponentapi->SetConditionAttribute(mailnode, "conditionid", mailto.condition);
+      }
+
+      this->node->RemoveAttribute("receivers"); //remove legacy attribute
+    }
+  }
+>;
+
+
+///////////////////////
+//
+// Tasks
+//
+
+OBJECT FUNCTION GetTaskMail(RECORD settings, RECORD result, STRING handlertype, OBJECT formdefinition, OBJECT formresults, RECORD extramergedata)
+{
+  STRING mailtemplate := ResolveMailTemplate(settings, formdefinition->formdefinitions);
+  OBJECT mail;
+
+  IF(mailtemplate = "")
+    mail := PrepareMailWitty("mod::publisher/lib/internal/forms/defaultmail.html.witty", [ mailtemplate := settings.applytemplate ?? "mod::publisher/data/forms/defaultmailtemplate.html.witty" ]);
+  ELSE
+    mail := PrepareMailWitty(mailtemplate, [ mailtemplate := settings.applytemplate ?? "mod::publisher/data/forms/defaultmailtemplate.html.witty" ]);
+
+  RECORD mailmergedata := formresults->PrepareFormDataForComposer(mail, result, [ attachfiles := settings.attachfiles ]);
+  OBJECT applytester := GetApplyTesterForObject(formresults->GetStorageObject()->id);
+  RECORD mergecontext := CreateMergeFieldsContext(applytester, formresults, formdefinition, result);
+  mergecontext.context->__mergefields->extradata := extramergedata;
+
+  INSERT CELL richcontent := mail->GetRTDBody(settings.text, [ wittyhyperlinks := TRUE
+                                                             , __mergecontext := mergecontext
+                                                             ]) INTO mail->mergerecord;
+
+  IF(settings.subject != "")
+    mail->subject := settings.subject;
+
+  SWITCH (handlertype)
+  {
+    CASE "feedback", "confirmation"
+    {
+      mail->mailfrom := MakeEmailAddress(settings.sendername, settings.sender, TRUE);
+
+      IF (settings.bcc != "")
+        mail->mailbcc := TokenizeEmailAddresses(settings.bcc);
+
+      IF (settings.receiverfield != "")
+      {
+        RECORD ARRAY formfields := formdefinition->ListFields();
+        RECORD receiverfield := SELECT * FROM formfields WHERE ToUppercase(guid) = ToUppercase(settings.receiverfield);
+        IF(RecordExists(receiverfield) AND CellExists(result.response, receiverfield.name))
+          mail->mailto := GetCell(result.response, receiverfield.name);
+      }
+    }
+    CASE "results"
+    {
+      IF (settings.sendernamefield != "")
+      {
+        RECORD ARRAY formfields := formdefinition->ListFields();
+        RECORD sendernamefield := SELECT * FROM formfields WHERE ToUppercase(guid) = ToUppercase(settings.sendernamefield);
+        IF(RecordExists(sendernamefield) AND CellExists(result.response, sendernamefield.name))
+          mail->mailsendername := Getcell(result.response, sendernamefield.name);
+      }
+      IF (settings.replytofield != "")
+      {
+        RECORD ARRAY formfields := formdefinition->ListFields();
+        RECORD replytofield := SELECT * FROM formfields WHERE ToUppercase(guid) = ToUppercase(settings.replytofield);
+        IF(RecordExists(replytofield) AND CellExists(result.response, replytofield.name))
+          mail->replyto := GetCell(result.response, replytofield.name);
+      }
+
+
+      // Create a list of receivers for the results
+      RECORD ARRAY receivers := SELECT *
+                                     , matchresult := formresults->MatchFormCondition(condition, result)
+                                  FROM settings.mailto
+                                 WHERE email != ""
+                                       AND IsValidEmailAddress(email);
+      mail->mailto := SELECT AS STRING ARRAY email FROM receivers WHERE matchresult.success;
+    }
+  }
+  mail->mergerecord := CELL[ ...mail->mergerecord
+                           , ...mailmergedata
+                           , addresults := settings.addresults
+                           ];
+  RETURN mail;
+}
+
+STATIC OBJECTTYPE MailHandlerTask EXTEND FormHandlerTaskBase
+<
+  STRING handlertype;
+
+  RECORD FUNCTION GetExtraMergeData(RECORD results)
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  UPDATE PUBLIC MACRO RunFormTask(RECORD results)
+  {
+    OBJECT mail := GetTaskMail(this->settings, results, this->handlertype, this->formdefinition, this->formresults, this->GetExtraMergeData(results));
+    IF(mail->mailfrom != "" AND NOT IsValidEmailAddress(mail->mailfrom))
+    {
+      this->ResolveByFailure([ sender := mail->mailfrom ], "Invalid sender");
+      RETURN;
+    }
+
+    IF (Length(mail->mailto) = 0)
+    {
+      this->ResolveByCancellation([ receivers := mail->mailto ], "No valid recipients");
+      RETURN;
+    }
+
+    INTEGER ARRAY tasks := mail->QueueMailInWork();
+    this->ResolveByCompletion( CELL[ receivers := mail->mailto, tasks ]);
+  }
+
+  STRING ARRAY FUNCTION GetReceivers(RECORD results)
+  {
+    THROW NEW Exception("GetReceivers not implemented");
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE MailFeedbackTask EXTEND MailHandlerTask
+<
+  MACRO NEW()
+  {
+    this->handlertype := "feedback";
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailConfirmationTask EXTEND MailHandlerTask
+<
+  MACRO NEW()
+  {
+    this->handlertype := "confirmation";
+  }
+
+  UPDATE RECORD FUNCTION GetExtraMergeData(RECORD results)
+  {
+    RECORD data := [ r := results.guid, h := this->handlerguid ];
+    RETURN [ confirmationlink := UpdateURLVariables(this->formresults->GetStorageObject()->link, [ confirm := EncryptForThisServer("publisher:confirmation", EncodeHSON(data)) ]) ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailResultsTask EXTEND MailHandlerTask
+<
+  MACRO NEW()
+  {
+    this->handlertype := "results";
+  }
+>;
+
+RECORD FUNCTION ParseMailHandler(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := CELL[ ...fielddef
+                  , text             := DEFAULT RECORD
+                  , addresults       := ParseXSBoolean(node->GetAttribute("addresults"))
+                  , subject          := node->GetAttribute("subject")
+                  , mailtemplate     := node->GetAttribute("mailtemplate")
+                  , originaltemplate := node->GetAttribute("originaltemplate")
+                  , applytemplate    := node->GetAttribute("applytemplate")
+                  , sender           := node->GetAttribute("sender")
+                  , sendername       := node->GetAttribute("sendername")
+                  , sendernamefield  := node->GetAttribute("sendernamefield")
+                  , replytofield     := node->GetAttribute("replytofield")
+                  , receiverfield    := node->GetAttribute("receiverfield")
+                  , bcc              := node->GetAttribute("bcc")
+                  , attachfiles      := ParseXSBoolean(node->GetAttribute("attachfiles"))
+                  ];
+
+  STRING instance := node->GetAttribute("textid");
+  IF (instance != "" AND parsecontext.getinstance != DEFAULT MACRO PTR)
+    fielddef.text := parsecontext.getinstance(instance).data;
+
+  RETURN fielddef;
+}
+
+PUBLIC RECORD FUNCTION ParseMailFeedbackHandler(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := CELL[ ...ParseMailHandler(fielddef, node, parsecontext)
+                  ];
+  RETURN fielddef;
+}
+
+PUBLIC RECORD FUNCTION ParseMailConfirmationHandler(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := CELL[ ...ParseMailHandler(fielddef, node, parsecontext)
+                  , onduplicate := node->GetAttribute("onduplicate")
+                  ];
+  RETURN fielddef;
+}
+
+PUBLIC RECORD FUNCTION ParseMailResultsHandler(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := ParseMailHandler(fielddef, node, parsecontext);
+
+  RECORD ARRAY mailto;
+  IF(node->HasAttribute("receivers")) //legacy attribute
+  {
+    mailto := SELECT email, condition := DEFAULT RECORD
+                FROM ToRecordArray(TokenizeEmailAddresses(node->GetAttribute("receivers")), "email");
+  }
+
+  IF(parsecontext.getinstance != DEFAULT MACRO PTR)
+  {
+    FOREVERY(OBJECT mailtonode FROM node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "mailto")->GetCurrentElements())
+    {
+      INSERT [ email := mailtonode->GetAttribute("email")
+             , condition := mailtonode->HasAttribute("conditionid") ? parsecontext.getinstance(mailtonode->GetAttribute("conditionid")).data : DEFAULT RECORD
+             ] INTO mailto AT END;
+    }
+  }
+
+  fielddef := CELL[ ...fielddef
+                  , mailto
+                  ];
+  RETURN fielddef;
+}

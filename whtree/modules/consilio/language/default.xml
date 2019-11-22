@@ -1,0 +1,404 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="catalog">   <!-- catalog -->
+    <text tid="publisher">Publisher</text>
+    <textgroup gid="blacklist">   <!-- catalog.blacklist -->
+      <text tid="addpattern">Add pattern</text>
+      <text tid="blacklist">Blacklist</text>
+      <text tid="deletepattern">Delete pattern</text>
+      <text tid="editpattern">Edit pattern</text>
+      <text tid="nofollow_icon">Not following</text>
+      <text tid="noindex_icon">Not indexing</text>
+      <text tid="nolinkcheck_from_icon">Not checking outgoing links</text>
+      <text tid="nolinkcheck_to_icon">Not checking incoming links</text>
+      <text tid="nopatterns">No patterns defined yet</text>
+      <text tid="pattern">URL Pattern</text>
+    </textgroup>
+    <textgroup gid="blacklistpattern">   <!-- catalog.blacklistpattern -->
+      <text tid="options">Options</text>
+      <text tid="options-nofollow">Do not follow outgoing links</text>
+      <text tid="options-noindex">Do not index</text>
+      <text tid="options-nolinkcheck_from">Do not check outgoing links</text>
+      <text tid="options-nolinkcheck_to">Do not check incoming links</text>
+      <text tid="pattern">URL pattern</text>
+      <text tid="title-edit">Edit URL pattern</text>
+      <text tid="title-new">Add URL pattern</text>
+    </textgroup>
+    <textgroup gid="catalogeditor">   <!-- catalog.catalogeditor -->
+      <text tid="debuglevel">Log level catalog</text>
+      <text tid="debuglevel-0">Errors only</text>
+      <text tid="debuglevel-1">Skipped documents</text>
+      <text tid="debuglevel-2">General information</text>
+      <text tid="debuglevel-3">All debugging information</text>
+      <text tid="id">Catalog ID</text>
+      <text tid="indexmanager">Index manager</text>
+      <text tid="indexname">Index name</text>
+      <text tid="invalidindexname">Invalid index name. The name must start with a letter and consist of only characters in range 0-9 and a-z and an underscore (_)</text>
+      <text tid="priority">Priority</text>
+      <text tid="prorityexplain">(-9-9, 0 is the default, 9 is highest priority)</text>
+      <text tid="title-edit">Edit Catalog '<param p="1"/>'</text>
+      <text tid="title-new">New Catalogus</text>
+      <text tid="type">Index content</text>
+      <text tid="type-module">Managed by module definition</text>
+      <text tid="type-standard">Standard management</text>
+      <text tid="type-unmanaged">Unmanaged</text>
+    </textgroup>
+    <textgroup gid="catalogpreview">   <!-- catalog.catalogpreview -->
+      <text tid="clickallresults">Click here to see all <param p="1"/> results.</text>
+      <text tid="error">An error occurred while searching</text>
+      <text tid="id">ID</text>
+      <text tid="noresults">No results found</text>
+      <text tid="numresults"><param p="1"/> results found in <param p="2"/> ms</text>
+      <text tid="query">Search for</text>
+      <text tid="score">Score</text>
+      <text tid="search">Search</text>
+      <text tid="title">Preview Catalog '<param p="1"/>'</text>
+      <text tid="toomanyresults">Only the first <param p="1"/> results are shown.</text>
+      <text tid="url">URL</text>
+    </textgroup>
+    <textgroup gid="catalogpreviewitem">   <!-- catalog.catalogpreviewitem -->
+      <text tid="otherfields">Other Indexed Fields</text>
+      <text tid="resultfields">Generated Result Fields</text>
+      <text tid="showempty">Show empty fields</text>
+      <text tid="standardfields">Standard Fields</text>
+      <text tid="title">View result</text>
+    </textgroup>
+    <textgroup gid="catalogs">   <!-- catalog.catalogs -->
+      <text tid="about">About Consilio</text>
+      <text tid="about-copyright">Portions of this product are based on software developed by the Apache Software Foundation (http://www.apache.org/), which is copyright © 2001 The Apache Software Foundation, all rights reserved, and on Snowball, which is copyright © 2001, Dr Martin Porter.</text>
+      <text tid="about-title">Consilio</text>
+      <text tid="addcatalog">Add Catalog</text>
+      <text tid="addcontentsource">Add Content Source</text>
+      <text tid="apptitle">Consilio catalog management</text>
+      <text tid="blacklist">Blacklist</text>
+      <text tid="cannotloadcontentsource">Error while loading content source <param p="1"/></text>
+      <text tid="catalog">Catalog</text>
+      <text tid="catalogthesaurus">Thesaurus</text>
+      <text tid="checkcatalog">Check</text>
+      <text tid="definedby">Defined by</text>
+      <text tid="deleteitem">Delete</text>
+      <text tid="edititem">Edit</text>
+      <text tid="error">Error</text>
+      <text tid="manageindexmanagers">Manage index managers</text>
+      <text tid="markcatalogascomplete">Mark catalog as up-to-date</text>
+      <text tid="name">Name</text>
+      <text tid="nocatalogs">There are no catalogs defined</text>
+      <text tid="options">Consilio Settings</text>
+      <text tid="preview">Preview</text>
+      <text tid="previewcatalog">Preview Catalog</text>
+      <text tid="queryreport">Search queries</text>
+      <text tid="rebuildcatalog">Rebuild</text>
+      <text tid="restart">Restart Queue Manager</text>
+      <text tid="showerrors">Show errors</text>
+      <text tid="size">Size</text>
+      <text tid="status">Status</text>
+      <text tid="taggedcontentsourcetitle"><param p="1"/>: <param p="2"/></text>
+      <text tid="title">Catalog Management</text>
+      <text tid="updatecatalog">Update</text>
+    </textgroup>
+    <textgroup gid="contentsourceeditor">   <!-- catalog.contentsourceeditor -->
+      <text tid="contentsource">Content Source Type</text>
+      <text tid="disablesource-description">Disable this content source</text>
+      <text tid="discardsummaries-description">Don't generate excerpts</text>
+      <text tid="generalsettings">Advanced Settings</text>
+      <text tid="id">Content Source ID</text>
+      <text tid="maxgroupobjects">Maximum objects per group</text>
+      <text tid="maxgroupobjects-description">(Leave empty for default value)</text>
+      <text tid="selecttype">Type of content to add</text>
+      <text tid="tag">Tag</text>
+      <text tid="title-edit">Edit Content Source</text>
+      <text tid="title-new">New Content Source</text>
+    </textgroup>
+    <textgroup gid="contentsourceerrors">   <!-- catalog.contentsourceerrors -->
+      <text tid="clear">Clear errors</text>
+      <text tid="close">Close</text>
+      <text tid="coltext">Column</text>
+      <text tid="contentsourceerrors">Content source errors</text>
+      <text tid="error">Foutmelding</text>
+      <text tid="errorloc">Action</text>
+      <text tid="file">Selected file</text>
+      <text tid="func">Function</text>
+      <text tid="info">Info</text>
+      <text tid="linetext">Line</text>
+      <text tid="what">Error</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- catalog.messages -->
+      <text tid="cannotloadsettings">Cannot load the settings screen for '<param p="1"/>'.</text>
+      <text tid="catalognameexists">A catalog with the name '<param p="1"/>' already exists</text>
+      <text tid="confirmclearerrors">Are you sure you want to clear these errors?</text>
+      <text tid="confirmdeletecatalog">Are you sure you want to delete catalog '<param p="1"/>'?</text>
+      <text tid="confirmdeletecontentsource">Are you sure you want to delete this content source?</text>
+      <text tid="confirmdeleteselection">Are you sure you want to delete the selected catalogs and sources?</text>
+      <text tid="confirmpatterndelete">Are you sure you want to delete URL pattern '<param p="1"/>'?</text>
+      <text tid="confirmrebuildcatalog">Are you sure you want to check '<param p="1"/>'? The catalog will be usable while it is being checked.</text>
+      <text tid="confirmrestart">Are you sure you want to restart the Queue Manager?</text>
+      <text tid="confirmupdatecatalog">Are you sure you want to update '<param p="1"/>'? The catalog will be usable while it is being checked.</text>
+      <text tid="confirmworddelete">Are you sure you want to delete <ifparam p="1" value="">these words<else/>the word '<param p="1"/>'</ifparam>?</text>
+      <text tid="confirmwordgroupdelete">Are you sure you want to delete the selected word group?</text>
+      <text tid="indexmanagerconnectionfailed">No connection to Consilio could be made.</text>
+      <text tid="notenoughwordsingroup">A word group should contain at least 2 words.</text>
+      <text tid="searcherror">An error occured while searching:<br/><br/><param p="1"/></text>
+      <text tid="sendingcommandfailed">The command could not be sent to the queue manager.</text>
+      <text tid="updatingsrcfieldsfailed">Updating the content source fields failed: <param p="1"/></text>
+      <text tid="wordalreadyonlist">The word '<param p="1"/>' already appears in the word group</text>
+      <text tid="wordnotfound">The word '<param p="1"/>' could not be found.</text>
+    </textgroup>
+    <textgroup gid="options">   <!-- catalog.options -->
+      <text tid="debuglevel_indexmanager">Log level index manager</text>
+      <text tid="debuglevel_indexmanager-0">Errors only</text>
+      <text tid="debuglevel_indexmanager-1">General information</text>
+      <text tid="debuglevel_indexmanager-2">All debugging information</text>
+      <text tid="debuglevel_queuemanager">Log level queue manager</text>
+      <text tid="debuglevel_queuemanager-0">Errors only</text>
+      <text tid="debuglevel_queuemanager-1">Skipped documents</text>
+      <text tid="debuglevel_queuemanager-2">General information</text>
+      <text tid="debuglevel_queuemanager-3">All debugging information</text>
+      <text tid="enablelinkchecker">Enable link checking</text>
+      <text tid="maxgroupobjects">Maximum objects per group</text>
+      <text tid="maxtasktime">Fetcher task timeout</text>
+      <text tid="numworkers">Number of fetcher processes</text>
+      <text tid="options">Consilio Settings</text>
+      <text tid="seconds">seconds</text>
+    </textgroup>
+    <textgroup gid="thesaurus">   <!-- catalog.thesaurus -->
+      <text tid="nowords">There are no word groups defined for this catalog</text>
+      <text tid="thesaurusword">Word</text>
+      <text tid="thesauruswords">Word group</text>
+      <text tid="title">Thesaurus for Catalog '<param p="1"/>'</text>
+      <text tid="word">Word</text>
+      <text tid="wordgroup">Word group</text>
+      <text tid="words">Words</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="catalogerrors">   <!-- catalogerrors -->
+    <text tid="errors">Errors occurred during the indexing of this content source</text>
+    <text tid="none">No errors</text>
+  </textgroup>
+  <textgroup gid="catalogstatus">   <!-- catalogstatus -->
+    <text tid="beingrebuilt">The catalog is being rebuilt, but still searchable</text>
+    <text tid="beingupdated">The catalog is being updated, but still searchable</text>
+    <text tid="disabled">The catalog is temporarily disabled</text>
+    <text tid="error">An error has occurred while indexing</text>
+    <text tid="idle">The catalog is up-to-date and searchable</text>
+    <text tid="nocontentsources">No search paths are assigned to the catalog</text>
+    <text tid="unavailable">The catalog is being filled; results can temporarily be incomplete</text>
+  </textgroup>
+  <textgroup gid="contentproviders">   <!-- contentproviders -->
+    <textgroup gid="custom">   <!-- contentproviders.custom -->
+      <text tid="contentcheckinterval">Check interval</text>
+      <text tid="contentobject">Indexing object</text>
+      <text tid="lastcontentscheck">Last checked</text>
+      <text tid="library">Indexing library</text>
+      <text tid="minutes">minutes (Leave empty for default value)</text>
+      <text tid="never">never</text>
+      <text tid="providertitle">Database contents</text>
+      <textgroup gid="messages">   <!-- contentproviders.custom.messages -->
+        <text tid="invalidobject">The object '<param p="1"/>:<param p="2"/>' is not a valid custom content object</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="external">   <!-- contentproviders.external -->
+      <text tid="http_password">Password</text>
+      <text tid="http_username">Login name</text>
+      <text tid="lastcontentscheck">Last checked</text>
+      <text tid="loginrequired">This URL requires logging on</text>
+      <text tid="never">never</text>
+      <text tid="providertitle">External webserver</text>
+      <text tid="url">URL</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="monitor">   <!-- monitor -->
+    <textgroup gid="queries">   <!-- monitor.queries -->
+      <text tid="catalog">Catalog</text>
+      <text tid="enableintercept">Enable</text>
+      <text tid="openquery">Open</text>
+      <text tid="query">Query</text>
+      <text tid="title">Consilio queries</text>
+      <text tid="when">Date</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="notifications">   <!-- notifications -->
+    <text tid="catalog_uptodate">Consilio Catalog <ifparam p="1" value="2">Rebuilt<else/>Updated</ifparam></text>
+    <text tid="catalog_uptodate-desc">The catalog '<param p="1"/>' has been <ifparam p="2" value="2">rebuilt<else/>updated</ifparam></text>
+  </textgroup>
+  <textgroup gid="objectprops">   <!-- objectprops -->
+    <textgroup gid="boostwords">   <!-- objectprops.boostwords -->
+      <text tid="words">Additional keywords</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="publishersearch">   <!-- publishersearch -->
+    <text tid="linksto">Links to</text>
+  </textgroup>
+  <textgroup gid="report">   <!-- report -->
+    <textgroup gid="linkcheck">   <!-- report.linkcheck -->
+      <text tid="broken_links">broken_links</text>
+      <text tid="checked">Checked</text>
+      <text tid="csvexport">CSV export</text>
+      <text tid="filedate">File Date</text>
+      <text tid="filefolder">File Folder</text>
+      <text tid="fileid">File ID</text>
+      <text tid="filename">File Name</text>
+      <text tid="filepath">File</text>
+      <text tid="filetitle">File Title</text>
+      <text tid="fileurl">File URL</text>
+      <text tid="fileview">View File</text>
+      <text tid="linkcheck">Link check</text>
+      <text tid="nolinks">There are no broken links</text>
+      <text tid="showalllinks">Show all links</text>
+      <text tid="status">Status Code</text>
+      <text tid="statushint">Status</text>
+      <text tid="text">Link Text</text>
+      <text tid="type">Type</text>
+      <text tid="type_text">Type</text>
+      <text tid="url">URL</text>
+      <textgroup gid="linktype">   <!-- report.linkcheck.linktype -->
+        <text tid="canonical">Canonical link</text>
+        <text tid="contentlink">Content link</text>
+        <text tid="frame">Frame link</text>
+        <text tid="hyperlink">Hyperlink</text>
+        <text tid="image">Image</text>
+        <text tid="link">Generic link</text>
+        <text tid="script">Script link</text>
+        <text tid="stylesheet">Style sheet link</text>
+        <text tid="unknown">Unknown link</text>
+      </textgroup>
+      <textgroup gid="status">   <!-- report.linkcheck.status -->
+        <text tid="accepted">Accepted</text>
+        <text tid="badgateway">Bad gateway</text>
+        <text tid="badrequest">Bad request</text>
+        <text tid="circularredirection">Circular redirection</text>
+        <text tid="conflict">Conflict</text>
+        <text tid="connectiontimedout">Connection timed out</text>
+        <text tid="continue">Continue</text>
+        <text tid="couldnotconnect">Could not connect</text>
+        <text tid="created">Created</text>
+        <text tid="expectationfailed">Expectation failed</text>
+        <text tid="forbidden">Forbidden</text>
+        <text tid="found">Found</text>
+        <text tid="gatewaytimeout">Gateway timeout</text>
+        <text tid="gone">Gone</text>
+        <text tid="httpversionnotsupported">HTTP version not supported</text>
+        <text tid="internallinknonexisting">The linked file does not exist anymore</text>
+        <text tid="internallinknotpublished">The linked file is not published</text>
+        <text tid="internalservererror">Internal server error</text>
+        <text tid="lengthrequired">Length required</text>
+        <text tid="methodnotallowed">Method not allowed</text>
+        <text tid="movedpermanently">Moved permanently</text>
+        <text tid="multiplechoices">Multiple choices</text>
+        <text tid="nocontent">No content</text>
+        <text tid="nohttpconnection">No HTTP connection</text>
+        <text tid="nohttpresponse">No HTTP response</text>
+        <text tid="nonauthorativeinformation">No authorative information</text>
+        <text tid="nosecureconnection">No secure connection</text>
+        <text tid="notacceptable">Not acceptable</text>
+        <text tid="notcheckedyet">Not checked yet</text>
+        <text tid="notfound">Page not found (404)</text>
+        <text tid="notimplemented">Not implemented</text>
+        <text tid="notmodified">Not modified</text>
+        <text tid="ok">OK</text>
+        <text tid="partialcontent">Partial content</text>
+        <text tid="paymentrequired">Payment required</text>
+        <text tid="preconditionfailed">Precondition failed</text>
+        <text tid="proxyauthenticationrequired">Proxy authentication required</text>
+        <text tid="requestcouldnotbesent">Request could not be sent</text>
+        <text tid="requestentitytoolarge">Request entity too large</text>
+        <text tid="requestrangenotsatisfiable">Request range not satisfiable</text>
+        <text tid="requesttimeout">Request timeout</text>
+        <text tid="requesturitoolarge">Request-URI too large</text>
+        <text tid="resetcontent">Reset content</text>
+        <text tid="seeother">See other</text>
+        <text tid="servernotfound">Server not found</text>
+        <text tid="serviceunavailable">Service unavailable</text>
+        <text tid="socketerror">Connection error</text>
+        <text tid="switchingprotocols">Switching protocols</text>
+        <text tid="temporaryredirect">Temporary redirect</text>
+        <text tid="toomanyredirections">Too many redirections</text>
+        <text tid="unauthorized">Unauthorized</text>
+        <text tid="unknown">Unknown error</text>
+        <text tid="unsupportedmediatype">Unsupported media type</text>
+        <text tid="useproxy">Use proxy</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="objectreport">   <!-- report.objectreport -->
+      <text tid="nobrokenlinks">There are no broken links to show</text>
+      <text tid="nolinks">There are no links to show</text>
+      <text tid="referrer">Source</text>
+      <text tid="showalllinks">Show all links</text>
+      <text tid="status">Status</text>
+      <text tid="text">Link text</text>
+      <text tid="url">URL</text>
+    </textgroup>
+    <textgroup gid="queries">   <!-- report.queries -->
+      <text tid="csvexport">CSV export</text>
+      <text tid="fromdate">Show starting</text>
+      <text tid="options">Results</text>
+      <text tid="options-grouped">Show grouped results</text>
+      <text tid="optionsbox">Display options</text>
+      <text tid="pages">Pages</text>
+      <text tid="queries">Search queries</text>
+      <text tid="query">Search query</text>
+      <text tid="refresh">Refresh</text>
+      <text tid="results">Results</text>
+      <text tid="when">When</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="rights">   <!-- rights -->
+    <text tid="catalogs">Catalogs</text>
+    <text tid="manage">Manage catalogs</text>
+    <text tid="manage_descr">Edit catalogs and content sources</text>
+    <text tid="metadata">Edit catalog properties</text>
+    <text tid="metadata_descr">View catalogs (but not content sources) and edit catalog properties</text>
+    <text tid="read">View catalogs</text>
+    <text tid="read_descr">View and preview catalogs, but not content sources</text>
+  </textgroup>
+  <textgroup gid="searcherrors">   <!-- searcherrors -->
+    <text tid="connecterror">Could not connect to the search engine</text>
+    <text tid="error">An unknown error occurred</text>
+    <text tid="httperror">An error occurred in the search engine connection (no 'ok' status received)</text>
+    <text tid="indexnotfound">The requested catalog could not be found</text>
+    <text tid="invalidargument">Invalid argument supplied</text>
+    <text tid="noaccess">Access denied to the requested index manager or catalog</text>
+    <text tid="nototalerror">No total number of search results received</text>
+    <text tid="ok">Ok</text>
+    <text tid="senderror">The search query could not be sent to the search engine</text>
+    <text tid="timeouterror">Time out while waiting for the search engine</text>
+    <text tid="unavailable">The requested catalog is not available at the moment</text>
+  </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="elasticesearch">   <!-- tolliumapps.elasticesearch -->
+      <text tid="confirmdeleteindices">Are you sure you want to delete the selected indices? This cannot be undone!</text>
+      <text tid="docs">Documents</text>
+      <text tid="esmgr">ElasticSearch manager</text>
+      <text tid="getmapping">Mappings</text>
+      <text tid="indexmanager">Elasticsearch server</text>
+      <text tid="inspectquery">Inspect query</text>
+      <text tid="runquery">Run query</text>
+      <text tid="size">Size</text>
+    </textgroup>
+    <textgroup gid="indexmanagers">   <!-- tolliumapps.indexmanagers -->
+      <text tid="address">Address</text>
+      <text tid="address-builtin">Internal WebHare connection</text>
+      <text tid="confirmdeleteindexmanager">Are you sure you want to delete the selected index manager?</text>
+      <text tid="editindexmanager">Index manager</text>
+      <text tid="elasticsearch">Elasticsearch</text>
+      <text tid="general">General</text>
+      <text tid="indexmanagers">Index managers</text>
+      <text tid="indexmgr-builtin">Builtin (classic Consilio)</text>
+      <text tid="indexmgr-elasticsearch">Elasticsearch</text>
+      <text tid="name">Name</text>
+      <text tid="prefix">Prefix</text>
+      <text tid="threshold_enabled">Disk usage checks enabled</text>
+      <text tid="type">Type</text>
+      <text tid="watermark_flood">Read-only mode</text>
+      <text tid="watermark_high">Very low disk space</text>
+      <text tid="watermark_low">Low disk space</text>
+      <textgroup gid="messages">   <!-- tolliumapps.indexmanagers.messages -->
+        <text tid="inconsistentwatermarks">All threshold values should be either percentages or absolute byte values</text>
+        <text tid="invalidbytevalue">Field '<param p="1"/>' contains an invalid absolute byte value '<param p="2"/>'</text>
+        <text tid="invalidpercentage">Field '<param p="1"/>' contains an invalid percentage value '<param p="2"/>'</text>
+        <text tid="savesettingserror">An error occurred while applying the new settings<ifparam p="1" value=""><else/>:<br/><br/><param p="1"/></ifparam></text>
+        <text tid="valuetoohigh">The value of field '<param p="1"/>' should not be higher than the value of field '<param p="2"/>'</text>
+        <text tid="valuetoolow">The value of field '<param p="1"/>' should not be lower than the value of field '<param p="2"/>'</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

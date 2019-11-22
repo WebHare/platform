@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="*.xml">
+  <test script="test_samlparse.whscr" />
+  <jstest file="test_wrd_saml.es" tags="wrdauth" />
+</group>

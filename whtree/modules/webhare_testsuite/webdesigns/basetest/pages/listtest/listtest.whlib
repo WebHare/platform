@@ -1,0 +1,14 @@
+<?wh
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+// webhare-testsuite.site/testpages/listtest/
+
+PUBLIC OBJECTTYPE ListTestPage EXTEND StaticPageBase
+<
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    EmbedWittyComponent(this->pagefolder || "listtest.witty:listview");
+  }
+>;

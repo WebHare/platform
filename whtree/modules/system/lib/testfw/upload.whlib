@@ -1,0 +1,37 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+PUBLIC RECORD FUNCTION DoHTML5Upload(BLOB data, STRING filename, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ baseurl := ""
+                              , chunksize := 10000000
+                              , sessionid := ""
+                              , contenttype := ""
+                              ], options);
+  IF(options.baseurl = "")
+    options.baseurl := GetPrimaryWebHareInterfaceURL();
+
+  STRING url := ResolveToAbsoluteURL(options.baseurl, "/.system/filetransfer/filetransfer.shtml");
+  //FIXME CHUNK!
+  url := UpdateURLVariables(url, [ type :=         "upload-html5"
+                                 , size :=         ToString(Length(data))
+                                 , "offset" :=     ToString(0)
+                                 , "chunksize" :=  ToString(Length(data))
+                                 , filename :=     filename
+                                 , sessionid :=    options.sessionid
+                                 , contenttype :=  options.contenttype
+                                 ]);
+
+  IF (NOT testfw->browser->PostWebPageBlob(url, DEFAULT RECORD ARRAY, data))
+    THROW NEW Exception(`upload failure`);
+
+  RECORD res := DecodeJSONBlob(testfw->browser->content);
+  TestEQ(TRUE, RecordExists(res) AND res.complete);
+
+  RETURN CELL [ res.filetoken, res.sessionid, res.downloadurl ];
+}

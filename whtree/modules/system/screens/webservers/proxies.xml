@@ -1,0 +1,112 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/webservers/proxies.whlib"
+         gid="webservers.proxies">
+
+  <messageboxes gid="sysmgmt.webservers.messages">
+    <messagebox name="deleteproxy" icon="question" buttons="yes no" />
+    <messagebox name="testok" icon="information" buttons="close" />
+    <messagebox name="unregisterfailedsuredelete" icon="warning" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="proxies" gid="sysmgmt.webservers.proxies" tid=".title" width="120x" height="30x" allowresize="true">
+
+    <actions>
+      <action name="addproxy" onexecute="doaddproxy" tid="tollium:common.actions.add" />
+      <action name="editproxy" onexecute="doeditproxy" tid="tollium:common.actions.edit" >
+        <enableon source="proxylist" min="1" max="1"/>
+      </action>
+      <action name="deleteproxy" onexecute="dodeleteproxy" tid="tollium:common.actions.delete" >
+        <enableon source="proxylist" min="1" max="1" checkflags="!yourproxy" />
+      </action>
+      <action name="reregister" onexecute="doreregister" />
+    </actions>
+
+    <menus>
+      <menu name="contextmenu">
+        <item action="addproxy" />
+        <item action="editproxy" disablemode="hidden" />
+        <item action="deleteproxy" disablemode="hidden" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener masks="system:webserver.proxies" onevents="gotproxyupdate" />
+    </compositions>
+
+    <body>
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="proxylist"
+                  gid=".columns"
+                  flags="yourproxy"
+                  highlightname="yourproxy"
+                  selectmode="single"
+                  openaction="editproxy"
+                  selectcontextmenu="contextmenu"
+                  newcontextmenu="contextmenu">
+              <column type="text" width="1pr" name="url" />
+              <column type="text" width="2pr" name="description" tid="tollium:common.labels.description"/>
+              <column type="datetime" width="20x" name="lastregistration" iconname="status" storeutc="true" />
+            </list>
+          </cell>
+          <cell>
+            <button action="addproxy" width="1pr" />
+            <button action="editproxy" width="1pr" />
+            <button action="deleteproxy" width="1pr" />
+            <button action="reregister" width="1pr" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+
+  <screen name="updateproxy" gid="webservers.proxies.update" allowresize="true" width="80x">
+
+    <actions>
+      <action name="test" onexecute="dotest" />
+      <action name="confirm" onexecute="submit" tid="tollium:common.actions.ok" />
+    </actions>
+
+    <compositions>
+      <record name="row" />
+    </compositions>
+
+    <body width="1pr" height="1pr">
+      <textedit composition="row" cellname="url" validationchecks="http-url secure-url" required="true" placeholder="https://...:5443/" width="1pr" />
+      <textedit composition="row" cellname="password" width="1pr" required="true" />
+      <textedit composition="row" cellname="reverseaddress" width="1pr" required="true" name="reverseaddress" validationchecks="http-url" />
+      <textarea composition="row" cellname="hostswhitelist" name="hostswhitelist" width="1pr" height="4x" />
+      <textedit composition="row" cellname="description" tid="tollium:common.labels.description" width="1pr" />
+      <heading tid=".lasterror" />
+      <line layout="left">
+        <textarea composition="row" cellname="lasterror" title="" enabled="false" height="6x" />
+      </line>
+    </body>
+    <footer>
+      <grid>
+        <col width="1pr" />
+        <col />
+        <col />
+        <row>
+          <cell>
+            <button action="test" />
+          </cell>
+          <cell>
+            <button action="confirm" />
+          </cell>
+          <cell>
+            <defaultformbuttons buttons="cancel"/>
+          </cell>
+        </row>
+      </grid>
+    </footer>
+  </screen>
+
+</screens>

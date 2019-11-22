@@ -1,0 +1,1138 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="authobjects">   <!-- authobjects -->
+    <text tid="deleteduser">deleted user #<param p="1"/></text>
+    <text tid="nametoolong">The name you have entered is too long.</text>
+    <text tid="rolesamenamealreadyexists">A role with this name already exists.</text>
+    <text tid="unitmoveintoitself">A unit cannot be moved into (a subunit of) itself.</text>
+    <text tid="unitsamenamealreadyexists">A unit with this name already exists.</text>
+    <text tid="unknowndeleteduser">a deleted user</text>
+    <text tid="usersamenamealreadyexists">A user with this name already exists.</text>
+  </textgroup>
+  <textgroup gid="browser">   <!-- browser -->
+    <textgroup gid="anonymize">   <!-- browser.anonymize -->
+      <text tid="attr">Attribute</text>
+      <text tid="atype">Attribute type</text>
+      <text tid="title">Anonymize schema '<param p="1"/>'</text>
+      <text tid="type">Type</text>
+      <textgroup gid="actions">   <!-- browser.anonymize.actions -->
+        <text tid="anonymize">Anonymize</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- browser.anonymize.messages -->
+        <text tid="schema_anonymized">The schema has been anonymized.</text>
+        <text tid="schema_protected">This schema cannot be anonymized, it is protected.</text>
+        <text tid="sure_anonymize">Are you sure you want to anonymize schema '<param p="1"/>'? This operation cannot be undone.</text>
+      </textgroup>
+      <textgroup gid="status">   <!-- browser.anonymize.status -->
+        <text tid="converting">Anonymizing entities of type '<param p="1"/>' - <param p="2"/>%</text>
+        <text tid="getentities">Getting entities for type '<param p="1"/>'</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="main">   <!-- browser.main -->
+      <text tid="creationdate">Creation date</text>
+      <text tid="currententity">Current entity</text>
+      <text tid="description">Description</text>
+      <text tid="entity_description">Entity description</text>
+      <text tid="entity_type">Entity type</text>
+      <text tid="entityid">Entity id</text>
+      <text tid="entitypath">Entity</text>
+      <text tid="firstname">First name</text>
+      <text tid="freeattr">Attribute</text>
+      <text tid="freetype">Search in type</text>
+      <text tid="freevalue">Value</text>
+      <text tid="lastname">Last name</text>
+      <text tid="linkcount">Links</text>
+      <text tid="linkfrom">Link from</text>
+      <text tid="links">Links</text>
+      <text tid="linkto">Link to</text>
+      <text tid="orgname">Organization name</text>
+      <text tid="preview">Preview</text>
+      <text tid="quickfilter">Filter</text>
+      <text tid="resultcount">Results</text>
+      <text tid="search">Search</text>
+      <text tid="searchresults">Results</text>
+      <text tid="tab_history">History</text>
+      <text tid="tab_searchfree">Free search</text>
+      <text tid="tab_searchorg">Search organizations</text>
+      <text tid="tab_searchperson">Search persons</text>
+      <text tid="title">WRD Relation Database</text>
+      <text tid="type">Type</text>
+      <textgroup gid="actions">   <!-- browser.main.actions -->
+        <text tid="about">About Relation Database</text>
+        <text tid="addlink">Add link</text>
+        <text tid="anonymize">Anonymize schema</text>
+        <text tid="auditlog">Login events</text>
+        <text tid="deleteentity">Delete</text>
+        <text tid="deletelink">Delete link</text>
+        <text tid="editentity">Edit</text>
+        <text tid="editlink">Edit link</text>
+        <text tid="editlog">Edit log</text>
+        <text tid="editregistry">Edit entity registry</text>
+        <text tid="exitapplication">Close application</text>
+        <text tid="exportdotstructure">Export schema structure as DOT</text>
+        <text tid="exportschema">Export current schema</text>
+        <text tid="exportxmlmetadata">Export XML schema structure</text>
+        <text tid="extendwrdauth">WRD Authentication</text>
+        <text tid="followlink">Follow link</text>
+        <text tid="forward">Forward</text>
+        <text tid="gotoid">Goto id</text>
+        <text tid="importschema">Import new schema</text>
+        <text tid="managepaymentproviders">Manage payment providers</text>
+        <text tid="managependingpayments">Manage pending payments</text>
+        <text tid="manageschemas">Manage schemas</text>
+        <text tid="managetypes">Manage types</text>
+        <text tid="mergeentity">Merge into</text>
+        <text tid="newfree">New entity</text>
+        <text tid="neworg">New organization</text>
+        <text tid="newperson">New person</text>
+        <text tid="newschema">New schema</text>
+        <text tid="openlink">Open link</text>
+        <text tid="openschema">Open schema</text>
+        <text tid="querybuilder">Query builder</text>
+        <text tid="samlauth">SAML configuration</text>
+        <text tid="schemaprops">Schema properties</text>
+        <text tid="searchfree">Search</text>
+        <text tid="searchorg">Search</text>
+        <text tid="searchperson">Search</text>
+        <text tid="showhistory">Show history</text>
+        <text tid="toggledataviewer">Display dataviewer</text>
+        <text tid="togglelinks">Display links</text>
+      </textgroup>
+      <textgroup gid="menu">   <!-- browser.main.menu -->
+        <text tid="addapplication">WRD Browser</text>
+        <text tid="addschema">This schema</text>
+        <text tid="organization">Organization</text>
+        <text tid="person">Person</text>
+        <text tid="schema">Schema</text>
+        <text tid="schemaextensions">Add schema extension</text>
+        <text tid="searchresults">Search</text>
+        <text tid="wrd">WRD Relation Database</text>
+        <textgroup gid="portlets">   <!-- browser.main.menu.portlets -->
+          <text tid="quicksearch">Quick search</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="messages">   <!-- browser.messages -->
+      <text tid="cannotdeletetype">The base types WRD_PERSON, WRD_ORGANIZATION and WRD_RELATION may not be deleted.</text>
+      <text tid="confirmextendwrdauth">Are you sure you want to add the types required for WRD authentication?</text>
+      <text tid="confirmmergeentity">Are you sure you want to merge the originally selected entity into the entity you just selected ?</text>
+      <text tid="confirmupdatewrdauth">Are you sure you want to update the types needed for WRD authentication?</text>
+      <text tid="deleteentities">Are you sure you want to delete the selected entities?</text>
+      <text tid="deleteentity">Are you sure you want to delete the selected entity?</text>
+      <text tid="deletelinks">Are you sure you want to delete <ifparam p="1" value="1">the selected link<else/>the <param p="1"/> selected links</ifparam>?</text>
+      <text tid="deleteorg">Are you sure you want to delete organization '<param p="1"/>'?</text>
+      <text tid="deleteorgs">Are you sure you want to delete the selected organizations?</text>
+      <text tid="deleteperson">Are you sure you want to delete person '<param p="1"/>'?</text>
+      <text tid="deletepersons">Are you sure you want to delete the selected persons?</text>
+      <text tid="deletetype">Are you sure you want to delete the type '<param p="1"/>'?</text>
+      <text tid="import_schema_replaced">The schema '<param p="1"/>' has been imported. A schema with the same name already existed, it has been renamed to '<param p="2"/>'</text>
+      <text tid="schema_protected_delete">Could not delete schema '<param p="1"/>', this schema is protected.</text>
+      <text tid="schema_protected_import">Could not replace schema '<param p="1"/>', this schema is protected.</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="chooselinktype">   <!-- chooselinktype -->
+    <text tid="chooselinktype">Choose link type</text>
+    <text tid="linkselection">Link properties</text>
+    <text tid="linktypes">Type</text>
+  </textgroup>
+  <textgroup gid="common">   <!-- common -->
+    <textgroup gid="gender">   <!-- common.gender -->
+      <text tid="female">Female</text>
+      <text tid="label">Gender</text>
+      <text tid="male">Male</text>
+    </textgroup>
+    <textgroup gid="generic">   <!-- common.generic -->
+      <text tid="rows"><param p="1"/> rows</text>
+    </textgroup>
+    <textgroup gid="metatypes">   <!-- common.metatypes -->
+      <text tid="1">Object</text>
+      <text tid="2">Link</text>
+      <text tid="3">Attachment</text>
+      <text tid="4">Domain</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="actions">   <!-- commondialogs.actions -->
+      <text tid="email_results">E-mail</text>
+      <text tid="export_results">Export</text>
+      <text tid="exportdirect">Export</text>
+      <text tid="run">Run</text>
+    </textgroup>
+    <textgroup gid="auditlog">   <!-- commondialogs.auditlog -->
+      <text tid="fromdate">Show events from</text>
+      <text tid="refresh">Refresh</text>
+      <text tid="show_failure">Show failures</text>
+      <text tid="show_other">Show other events</text>
+      <text tid="show_success">Show successes</text>
+      <text tid="show_warning">Show warnings</text>
+      <text tid="status">Status</text>
+      <text tid="title">Login events<ifparam p="1" value=""><else/> for <param p="1"/></ifparam></text>
+      <text tid="todate">to</text>
+      <text tid="wrd_creationdate">When</text>
+      <text tid="wrdaudit_account">Account</text>
+      <text tid="wrdaudit_login">Login name</text>
+      <text tid="wrdaudit_type">Event</text>
+      <textgroup gid="wrdauth">   <!-- commondialogs.auditlog.wrdauth -->
+        <text tid="forgotpassword">Forgot password</text>
+        <text tid="getresetlink">Request password reset link</text>
+        <text tid="incorrectpassword">Incorrect password</text>
+        <text tid="login">Logged in</text>
+        <text tid="logincookie">Logged in with cookie</text>
+        <text tid="logindenied">Login was denied</text>
+        <text tid="loginid">Logged in by id</text>
+        <text tid="logout">Logged out</text>
+        <text tid="resetpassword">Password was reset</text>
+        <text tid="resetpasswordfailed">Password reset failed</text>
+        <text tid="unknownlogin">Unknown login name</text>
+        <text tid="unknownlookuplogin">Login name lookup failed</text>
+        <text tid="updatepassword">Password changed</text>
+        <text tid="verificationfailed">Verification failed</text>
+        <text tid="verificationlink">Verification requested</text>
+        <text tid="verificationok">Verification success</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="editaddress">   <!-- commondialogs.editaddress -->
+      <text tid="btn_verify">Verify address</text>
+      <text tid="country">Country</text>
+      <text tid="pagetitle">Edit address</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- commondialogs.messages -->
+      <text tid="addressverify_address_not_found">Address not found</text>
+      <text tid="addressverify_incomplete">The entered address is incomplete.</text>
+      <text tid="addressverify_invalid_nr_detail">Unknown housenumber format</text>
+      <text tid="addressverify_invalid_settings">Address verification is not configured properly</text>
+      <text tid="addressverify_invalid_zip">Unknown zip-code format</text>
+      <text tid="addressverify_lookup_failed">Couldn't connect to the address verification service</text>
+      <text tid="addressverify_not_enough_data">Not enough data to verify this address</text>
+      <text tid="addressverify_ok">Address has been verified, and doesn't contain any errors</text>
+      <text tid="addressverify_zip_not_found">Zip not found</text>
+      <text tid="delete_entity">Are you sure you want to delete this value?</text>
+      <text tid="entity_in_use">This value is used at the moment and therefore cannot be deleted.</text>
+      <text tid="no_email_column">The current selection doesn't contain an email column</text>
+    </textgroup>
+    <textgroup gid="resultexport">   <!-- commondialogs.resultexport -->
+      <text tid="charset">Character set</text>
+      <text tid="comma">Comma</text>
+      <text tid="resultexport">Export results</text>
+      <text tid="semicolon">Semicolon</text>
+      <text tid="separator">Separator</text>
+      <text tid="tab">Tabs</text>
+    </textgroup>
+    <textgroup gid="resultgrid">   <!-- commondialogs.resultgrid -->
+      <text tid="emailbutton">Email</text>
+      <text tid="execute">Execute</text>
+      <text tid="exportdirect">Export immediately</text>
+      <text tid="resultgrid">Results of the query</text>
+    </textgroup>
+    <textgroup gid="simplequerybuilder">   <!-- commondialogs.simplequerybuilder -->
+      <text tid="addeditcolumn">Add/edit column</text>
+      <text tid="addeditfilter">Add/edit filter</text>
+      <text tid="apptitle">WRD simple query editor</text>
+      <text tid="casesensitive">Case sensitive</text>
+      <text tid="condition">Condition</text>
+      <text tid="field">Field</text>
+      <text tid="leaveemptyfortagname">Leave empty to use the tag as column name</text>
+      <text tid="rename">Column name</text>
+      <text tid="value">Value</text>
+      <textgroup gid="addeditcolumn">   <!-- commondialogs.simplequerybuilder.addeditcolumn -->
+        <text tid="renamealreadyexists">A column with this name already exists</text>
+        <text tid="title_addcolumn">Add column</text>
+        <text tid="title_editcolumn">Edit column</text>
+      </textgroup>
+      <textgroup gid="conditions">   <!-- commondialogs.simplequerybuilder.conditions -->
+        <text tid="contains">contains</text>
+        <text tid="equal">equals ( = )</text>
+        <text tid="larger">larger than ( &gt; )</text>
+        <text tid="largerequal">larger than or equals ( &gt;= )</text>
+        <text tid="like">use wildcards (* and ?)</text>
+        <text tid="mentionsany">mentions any</text>
+        <text tid="notcontains">does not contain</text>
+        <text tid="notlike">not like (use wildcard * and ?)</text>
+        <text tid="smaller">smaller than ( &lt; )</text>
+        <text tid="smallerequal">smaller than or equals ( &lt;= )</text>
+        <text tid="unequal">unequal to ( != )</text>
+      </textgroup>
+      <textgroup gid="filters">   <!-- commondialogs.simplequerybuilder.filters -->
+        <text tid="casesensitive">(case sensitive)</text>
+        <text tid="contains"><param p="1"/> contains <param p="2"/></text>
+        <text tid="equal"><param p="1"/> is equal to <param p="2"/></text>
+        <text tid="larger"><param p="1"/> is larger than <param p="2"/></text>
+        <text tid="largerequal"><param p="1"/> is larger than or equal to <param p="2"/></text>
+        <text tid="like"><param p="1"/> is like <param p="2"/></text>
+        <text tid="mentionsany"><param p="1"/> mentions any of <param p="2"/></text>
+        <text tid="notcontains"><param p="1"/> does not contain <param p="2"/></text>
+        <text tid="notlike"><param p="1"/> is not like <param p="2"/></text>
+        <text tid="smaller"><param p="1"/> is smaller than <param p="2"/></text>
+        <text tid="smallerrequal"><param p="1"/> is smaller than or equal to <param p="2"/></text>
+        <text tid="unequal"><param p="1"/> is not equal to <param p="2"/></text>
+      </textgroup>
+      <textgroup gid="main">   <!-- commondialogs.simplequerybuilder.main -->
+        <text tid="about">About ...</text>
+        <text tid="addalternative">Add alternative</text>
+        <text tid="addcolumn">Add column</text>
+        <text tid="addfilter">Add filter</text>
+        <text tid="apptitle">WRD simple query editor</text>
+        <text tid="columnsbox">Columns</text>
+        <text tid="deletecolumn">Delete column</text>
+        <text tid="deletefilter">Delete filter</text>
+        <text tid="editcolumn">Edit column</text>
+        <text tid="editfilter">Edit filter</text>
+        <text tid="filtersbox">Filters</text>
+        <text tid="rename">Column name</text>
+        <text tid="source">Source</text>
+        <text tid="sourcebox">Sources</text>
+        <text tid="sourcename">Name of the source</text>
+        <text tid="specifics">Formal</text>
+        <text tid="tag">Tag</text>
+        <text tid="title">Title</text>
+        <text tid="types">WRD type</text>
+      </textgroup>
+      <textgroup gid="nodes">   <!-- commondialogs.simplequerybuilder.nodes -->
+        <text tid="and">All of the following:</text>
+        <text tid="and-specifics">AND</text>
+        <text tid="or">One or more of the following:</text>
+        <text tid="or-specifics">OR</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="verificationresult">   <!-- commondialogs.verificationresult -->
+      <text tid="correct">Accept correction</text>
+      <text tid="no_city_match">City does not match.</text>
+      <text tid="no_street_match">Street does not match.</text>
+      <text tid="original">Entered data</text>
+      <text tid="pagetitle">Address verification results</text>
+      <text tid="problems">Problems</text>
+      <text tid="returned">Corrected data</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="components">   <!-- components -->
+    <text tid="addressfield">Address</text>
+    <text tid="addressfield_incomplete">Field '<param p="1"/>' contains an incomplete address</text>
+    <text tid="cannotdeletereferredentity">Cannot delete this item, there are other items that hold a reference to it.</text>
+    <text tid="confirmdeleteentity">Are you sure you want to delete this item?</text>
+    <text tid="gender">Gender</text>
+    <textgroup gid="addressvalidation">   <!-- components.addressvalidation -->
+      <text tid="invalidsettings">The address validation settings are invalid<ifparam p="1" value=""><else/><br/><br/>Error message:<br/><param p="1"/></ifparam></text>
+      <text tid="moreinfo">More information</text>
+      <text tid="validationtype">Validation service</text>
+      <text tid="validationtype-default">Default address validation</text>
+      <text tid="validationtype-none">No address validation</text>
+      <textgroup gid="fallback">   <!-- components.addressvalidation.fallback -->
+        <text tid="description">Builtin offline validation</text>
+        <text tid="title">Internal handler</text>
+      </textgroup>
+      <textgroup gid="pdok">   <!-- components.addressvalidation.pdok -->
+        <text tid="description">PDOK offers a variety of digital geo information from the Dutch government. The use of PDOK is for free based on a fair use policy.</text>
+        <text tid="title">PDOK Location Server</text>
+      </textgroup>
+      <textgroup gid="postcodeapi">   <!-- components.addressvalidation.postcodeapi -->
+        <text tid="apikey">API key</text>
+        <text tid="description">Dutch address data from the BAG postal code database.</text>
+        <text tid="title">postcodeapi.nu</text>
+      </textgroup>
+      <textgroup gid="postcodenl">   <!-- components.addressvalidation.postcodenl -->
+        <text tid="apikey">Key</text>
+        <text tid="description">Address validation and enrichment via postcode.nl.</text>
+        <text tid="fullsubscription">Full subscription (disable for 'Postcodecheck Web')</text>
+        <text tid="secret">Secret</text>
+        <text tid="title">postcode.nl</text>
+      </textgroup>
+      <textgroup gid="webservices">   <!-- components.addressvalidation.webservices -->
+        <text tid="description">Use Company.info Webservices to automatically validate and enrich address data.</text>
+        <text tid="login">Login</text>
+        <text tid="password">Password</text>
+        <text tid="title">companyinfo.nl (formerly webservices.nl)</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="quickfilter">   <!-- components.quickfilter -->
+      <text tid="btn_searchfree">Search</text>
+      <text tid="freeattr">in field</text>
+      <text tid="freevalue">for</text>
+      <text tid="searchfree">Search</text>
+      <text tid="searchhint">Search</text>
+    </textgroup>
+    <textgroup gid="wrdfield">   <!-- components.wrdfield -->
+      <text tid="date">Date</text>
+      <text tid="enum-noneselected">(no value selected)</text>
+      <text tid="illegalhson">Illegal HSON data</text>
+      <text tid="max_datetime">Maximum date (forever)</text>
+      <text tid="viewnotsupported">Cannot be displayed</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="editentity">   <!-- editentity -->
+    <text tid="ends_at">ends at</text>
+    <text tid="lifetime">Lifetime settings</text>
+    <text tid="limit">Limited,</text>
+    <text tid="limittype">Limit/end</text>
+    <text tid="nolimit">No limitation or end date</text>
+    <text tid="title">Edit entity</text>
+    <text tid="wrd_creationdate">Available from</text>
+    <text tid="wrd_limitdate">Available until</text>
+  </textgroup>
+  <textgroup gid="entities">   <!-- entities -->
+    <text tid="browsetitle">Entities</text>
+    <text tid="selecttitle">Choose a value</text>
+    <textgroup gid="actions">   <!-- entities.actions -->
+      <text tid="add">Add</text>
+      <text tid="del">Delete</text>
+      <text tid="edit">Edit</text>
+      <text tid="searchfree">Search</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="entitychanges">   <!-- entitychanges -->
+    <text tid="changetype">Change type</text>
+    <text tid="creation">new value</text>
+    <text tid="entitychanges">Changes</text>
+    <text tid="keepinghistory">Change history is kept for <param p="1"/> day(s)</text>
+    <text tid="newvalue">New</text>
+    <text tid="notkeepinghistory">Change history is currently not being kept</text>
+    <text tid="oldvalue">Old</text>
+    <text tid="prop">Property</text>
+    <text tid="title">Title</text>
+    <text tid="type">Type</text>
+    <text tid="update">update</text>
+    <text tid="user">User</text>
+    <text tid="when">Date</text>
+  </textgroup>
+  <textgroup gid="errors">   <!-- errors -->
+    <text tid="dateofdeath_before_birth">The date of death cannot be before the date of birth</text>
+    <text tid="dateofdeath_in_future">The date of death cannot be in the future</text>
+    <text tid="field_invalidvalue">The value for field '<param p="1"/> is invalid.</text>
+    <text tid="field_unique">The submitted value for field '<param p="1"/>' is not unique</text>
+    <text tid="limitdate_before_creationdate">The end date of this relation cannot be before the creation date</text>
+  </textgroup>
+  <textgroup gid="exchange">   <!-- exchange -->
+    <textgroup gid="import">   <!-- exchange.import -->
+      <text tid="analyzing">Analyzing</text>
+      <text tid="choosefile">Choose the file you want to import</text>
+      <text tid="clicknexttostart">A preview of the import results are displayed below. Click "Finish" to close this wizard and start importing the entire file. This may take a while, depending on the size of the file.</text>
+      <text tid="columnname">Column name</text>
+      <text tid="country">Country</text>
+      <text tid="deletelink">Remove</text>
+      <text tid="exampledata">Example data</text>
+      <text tid="fileuploadbox">Upload file</text>
+      <text tid="headerbox">Column headers</text>
+      <text tid="headertype">Column headers</text>
+      <text tid="headertype-noheaders">The top row contains data that should be imported</text>
+      <text tid="headertype-withheaders">The top row contains the column headers</text>
+      <text tid="import">Import</text>
+      <text tid="importcolumn">Mapped fields</text>
+      <text tid="importfile">File</text>
+      <text tid="importing">Importing</text>
+      <text tid="importresults">Import results</text>
+      <text tid="map">&lt;&lt;</text>
+      <text tid="mapbox">Map fields</text>
+      <text tid="mapexplain">Map the fields to the columns in the uploaded file by moving them from the left to the right list using the buttons or by dragging.</text>
+      <text tid="previewexplainbox">Result preview</text>
+      <text tid="previewing">Previewing</text>
+      <text tid="processingline">Processing line <param p="1"/></text>
+      <text tid="rowkey">Column</text>
+      <text tid="title">Available fields</text>
+      <text tid="unmap">&gt;&gt;</text>
+      <text tid="updatemapping">Edit</text>
+      <textgroup gid="errors">   <!-- exchange.import.errors -->
+        <text tid="nocolumnslinked">No fields have been mapped to columns in the imported file</text>
+        <text tid="requiredaddressfields">Not all required address fields for the address attribute '<param p="1"/>' were mapped to a column. The missing fields:<br/><param p="2"/></text>
+        <text tid="requiredcolumnunlinked">A required field has not been mapped to a column in the imported file</text>
+      </textgroup>
+      <textgroup gid="warnings">   <!-- exchange.import.warnings -->
+        <text tid="shouldlinkrequired">The field '<param p="1"/>' is required but has not been linked. Only existing data can be updated.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="importresults">   <!-- exchange.importresults -->
+      <text tid="downloadduplicate">Download duplicate entries</text>
+      <text tid="downloadinvalid">Download invalid entries</text>
+      <text tid="importresults">Import results</text>
+      <text tid="numduplicate">Duplicate entries</text>
+      <text tid="numinvalid">Invalid entries</text>
+      <text tid="numnew">New entries</text>
+      <text tid="numoverwritten">Overwritten entries</text>
+      <text tid="numupdate">Updated entries</text>
+    </textgroup>
+    <textgroup gid="mapdomain">   <!-- exchange.mapdomain -->
+      <text tid="inval">In file</text>
+      <text tid="map">&lt;&lt;</text>
+      <text tid="mapdomain">Map values</text>
+      <text tid="mapinfobox">Map values</text>
+      <text tid="maptoval">Mapped values</text>
+      <text tid="notallassigned">Not all values of the uploaded file were mapped</text>
+      <text tid="novalue">(none)</text>
+      <text tid="occurences">Occurences</text>
+      <text tid="remapinfo">Map the values to the values in the uploaded file by dragging them from the right list to the left list (or by using the appropriate buttons).</text>
+      <text tid="title">Available values</text>
+      <text tid="unmap">&gt;&gt;</text>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- exchange.messageboxes -->
+      <text tid="apparentlynotcsv">Are you sure this is a comma separated values (CSV) text file?</text>
+      <text tid="distinctoverflow">The mapped column contains too many unique values to be mapped.</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="filetypes">   <!-- filetypes -->
+    <text tid="samlidpendpoint">SAML IDP endpoint</text>
+    <text tid="samlspendpoint">SAML SP endpoint</text>
+  </textgroup>
+  <textgroup gid="forms">   <!-- forms -->
+    <textgroup gid="paymentmethod">   <!-- forms.paymentmethod -->
+      <text tid="name">Payment method</text>
+    </textgroup>
+    <textgroup gid="wrdauthprefill">   <!-- forms.wrdauthprefill -->
+      <text tid="description">Prefill the form with the WRD properties of the logged in user</text>
+      <text tid="name">Prefill logged in user</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="gotoid">   <!-- gotoid -->
+    <text tid="entityid">Id</text>
+    <text tid="gotoid">Quick search</text>
+  </textgroup>
+  <textgroup gid="links">   <!-- links -->
+    <textgroup gid="update">   <!-- links.update -->
+      <text tid="extraproperties">Extra properties</text>
+      <text tid="leftentity">Link from</text>
+      <text tid="linkproperties">Link properties</text>
+      <text tid="linkselection">Link properties</text>
+      <text tid="linktypes">Link type</text>
+      <text tid="pagetitle_add">Add link to entity '<param p="1"/>'</text>
+      <text tid="rightentity">Link to</text>
+      <text tid="updatelink">Edit link</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="main">   <!-- main -->
+    <text tid="chooseattribute">Choose</text>
+    <textgroup gid="actions">   <!-- main.actions -->
+      <text tid="openschema">Open schema</text>
+    </textgroup>
+    <textgroup gid="entityeditor">   <!-- main.entityeditor -->
+      <text tid="availabilitybox">Availability</text>
+      <text tid="available_since">Since</text>
+      <text tid="basedata">Base Data</text>
+      <text tid="developers">Developers</text>
+      <text tid="edit">Edit entity</text>
+      <text tid="entity">Entity</text>
+      <text tid="fields">Fields</text>
+      <text tid="history">History</text>
+      <text tid="limitdate">End time</text>
+      <text tid="limitdatesetting">Until</text>
+      <text tid="linkcheck">Link Check</text>
+      <text tid="nolimitdate">Always available</text>
+      <text tid="tagfield">Tag</text>
+      <text tid="wrd_guid">Global unique ID (guid)</text>
+      <text tid="wrd_id">Unique ID</text>
+      <text tid="wrd_modificationdate">Modification date</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="messages">   <!-- messages -->
+    <text tid="cannotopenschema">Cannot open schema '<param p="1"/>'. It might have been removed.</text>
+    <text tid="norightsforschema">You do not have the right to view schema '<param p="1"/>'.</text>
+    <text tid="nosuchentity">That entity does not exist in this schema</text>
+  </textgroup>
+  <textgroup gid="querybuilder">   <!-- querybuilder -->
+    <text tid="allhistory">All historic data</text>
+    <text tid="and">and</text>
+    <text tid="columnselect">Select columns</text>
+    <text tid="cross">Cross join</text>
+    <text tid="default">Normal join (default)</text>
+    <text tid="editfilter">Edit filter</text>
+    <text tid="edithistorymode">Historical mode</text>
+    <text tid="editjointype">Edit join type</text>
+    <text tid="exportquery">Export query</text>
+    <text tid="fieldname">Field name</text>
+    <text tid="left-optional">Left-optional join</text>
+    <text tid="name">Name</text>
+    <text tid="query">Query</text>
+    <text tid="right-optional">Right-optional join</text>
+    <text tid="rightnow">Current version</text>
+    <text tid="routechooser">Choose connection route</text>
+    <text tid="screentitle">Querybuilder</text>
+    <text tid="specificmoment">Specific moment:</text>
+    <text tid="tag">Tag</text>
+    <text tid="validbetween">Valid between</text>
+    <textgroup gid="messages">   <!-- querybuilder.messages -->
+      <text tid="cannotfilteronattr">Cannot filter on attribute '<param p="1"/>'</text>
+      <text tid="debugmessage">Debug message: '<param p="1"/>'</text>
+      <text tid="exception">An exception occurred: <param p="1"/></text>
+      <text tid="limitresults">Limit results</text>
+      <text tid="only100">Only the first 100 results</text>
+      <text tid="toomanyresults">This query will result in a lot of results (<param p="1"/>). Presenting those results can slow down your browser significantly. Are you sure you want to continue?</text>
+    </textgroup>
+    <textgroup gid="querybuilder">   <!-- querybuilder.querybuilder -->
+      <text tid="available">Available fields and types</text>
+      <text tid="close">Close</text>
+      <text tid="criteria">Criteria</text>
+      <text tid="delete">Delete</text>
+      <text tid="descr">Description</text>
+      <text tid="editfilter">Edit filter</text>
+      <text tid="edithistorymode">Set historical mode</text>
+      <text tid="editjointype">Set join type</text>
+      <text tid="editselectnode">Select fields</text>
+      <text tid="exportquery">Export</text>
+      <text tid="exportresults">Export results</text>
+      <text tid="exportresultsasschemaxml">Export for schema XML</text>
+      <text tid="fields">Fields</text>
+      <text tid="importquery">Import</text>
+      <text tid="query">Drag-and-drop query</text>
+      <text tid="querybuilder">Query builder</text>
+      <text tid="results">Results</text>
+      <text tid="runquery">Run</text>
+      <text tid="stuff">Selection</text>
+      <text tid="title">Title</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="rights">   <!-- rights -->
+    <text tid="createschema">Create WRD schemas</text>
+    <text tid="createschema_descr">May create new WRD schemas</text>
+    <text tid="entities">WRD Entities</text>
+    <text tid="metadata">Change schema metadata</text>
+    <text tid="metadata_descr">May change the metadata (types, attributes) of this schema</text>
+    <text tid="read">Read</text>
+    <text tid="read_descr">May read data from this schema</text>
+    <text tid="readwrite">Read and write</text>
+    <text tid="readwrite_descr">May read and modify data from this schema</text>
+    <text tid="schemas">WRD Schemas</text>
+    <text tid="superuser">WRD Superuser</text>
+    <text tid="superuser_descr">May fully manage WRD</text>
+  </textgroup>
+  <textgroup gid="samlauth">   <!-- samlauth -->
+    <text tid="editnameidformat">Edit name identifier format</text>
+    <text tid="nameidformat">Name identifier format</text>
+    <textgroup gid="editcertificate">   <!-- samlauth.editcertificate -->
+      <text tid="acceptuntil">Accept until</text>
+      <text tid="data">File</text>
+      <text tid="editcertificate">Edit certificate</text>
+    </textgroup>
+    <textgroup gid="editconnectedprovider">   <!-- samlauth.editconnectedprovider -->
+      <text tid="acceptuntil">Accept until</text>
+      <text tid="binding">Binding</text>
+      <text tid="bothidpandspfoundindescriptor">The SAML descriptor has both an IDP and an SP role in it - this implementation does not support that.</text>
+      <text tid="cannotretrievemetadata">Could not retrieve the metadata from the specified URL.</text>
+      <text tid="certificates">Certificates</text>
+      <text tid="commonname">Common name</text>
+      <text tid="company">Company</text>
+      <text tid="contacts">Contacts</text>
+      <text tid="default">Default</text>
+      <text tid="downloadmetadata">Download metadata</text>
+      <text tid="editconnectedprovider">Edit connected provder</text>
+      <text tid="entermetadata">Enter metadata</text>
+      <text tid="fieldmetadataurlisrequired">The field 'Metadata URL' is required when downloading metadata.</text>
+      <text tid="givenname">Given name</text>
+      <text tid="index">Index</text>
+      <text tid="isdefault">Default</text>
+      <text tid="location">Location</text>
+      <text tid="metadatadocumentdoesnotvalidate">The metadata document does not validate.</text>
+      <text tid="metadataurl">Metadata URL</text>
+      <text tid="multipledescriptorsbutnotfound">Multiple descriptors are present in the metadata file, but none has the specified entity ID.</text>
+      <text tid="multipledescriptorsnofilter">Multiple descriptors are present in the metadata file, please enter an entity ID to search for</text>
+      <text tid="na">N/A</text>
+      <text tid="nameidformat">Name identifier format</text>
+      <text tid="noentitydescriptors">No entity descriptors were found in the metadata document.</text>
+      <text tid="norelevantservicesfound">No relevant services were found in the metadata document.</text>
+      <text tid="organization_displayname">Organization displayname</text>
+      <text tid="organization_name">Organization name</text>
+      <text tid="organization_url">Organization URL</text>
+      <text tid="organizationinfo">Organization info</text>
+      <text tid="responselocation">Response location URL</text>
+      <text tid="samlentityid">SAML Entity ID</text>
+      <text tid="samlentityiddiffers">The SAML entity described in the metadata differs from the specified id (expected '<param p="1"/>', but found '<param p="2"/>').</text>
+      <text tid="serviceendpoints">Service endpoints</text>
+      <text tid="supportednameidformats">Supported name identifier formats</text>
+      <text tid="surname">Surname</text>
+      <text tid="telephone">Telephone</text>
+      <text tid="type">Type</text>
+      <text tid="validuntil">Valid until</text>
+    </textgroup>
+    <textgroup gid="editcontact">   <!-- samlauth.editcontact -->
+      <text tid="company">Company</text>
+      <text tid="editcontact">Edit contact</text>
+      <text tid="givenname">Given name</text>
+      <text tid="surname">Surname</text>
+      <text tid="telephone">Telephone</text>
+      <text tid="type">Type</text>
+      <text tid="type-administrative">Administrative</text>
+      <text tid="type-billing">Billing</text>
+      <text tid="type-other">Other</text>
+      <text tid="type-support">Support</text>
+      <text tid="type-technical">Technical</text>
+    </textgroup>
+    <textgroup gid="editprovider">   <!-- samlauth.editprovider -->
+      <text tid="allow_redirectbinding">Allow HTTP-Redirect binding</text>
+      <text tid="chooseakeypair">Choose a keypair</text>
+      <text tid="company">Company</text>
+      <text tid="contactinfo">Contact info</text>
+      <text tid="contacts">Contacts</text>
+      <text tid="editprovider">Edit provider</text>
+      <text tid="givenname">Given name</text>
+      <text tid="keypair">Keypair</text>
+      <text tid="nameidformat">Name identifier format</text>
+      <text tid="nameidpolicy">Name identifier policy</text>
+      <text tid="organization_displayname">Organization displayname</text>
+      <text tid="organization_name">Organization name</text>
+      <text tid="organization_url">Organization URL</text>
+      <text tid="organizationinfo">Organization info</text>
+      <text tid="samlentityid">SAML Entity ID</text>
+      <text tid="supportednameidformats">Ondersteunde name identifier formats</text>
+      <text tid="surname">Surname</text>
+      <text tid="telephone">Telephone</text>
+      <text tid="type">Type</text>
+      <text tid="wrd_tag">Tag</text>
+    </textgroup>
+    <textgroup gid="editserviceendpoint">   <!-- samlauth.editserviceendpoint -->
+      <text tid="binding">Binding</text>
+      <text tid="editserviceendpoint">Edit service endpoint</text>
+      <text tid="http-post">HTTP POST</text>
+      <text tid="http-redirect">HTTP Redirect</text>
+      <text tid="index">Index</text>
+      <text tid="isdefault">Default</text>
+      <text tid="location">Location URL</text>
+      <text tid="responselocation">Response location URL</text>
+      <text tid="type">Type</text>
+      <text tid="type-artifactresolutionservice">ArtifactResolutionService</text>
+      <text tid="type-assertionconsumerservice">AssertionConsumerService</text>
+      <text tid="type-attributeconsumingservice">AttributeConsumingService</text>
+      <text tid="type-singlelogoutservice">SingleLogoutService</text>
+      <text tid="type-singlesignonservice">SingleSignOnService</text>
+    </textgroup>
+    <textgroup gid="entermetadata">   <!-- samlauth.entermetadata -->
+      <text tid="entermetadata">Manually enter metadata XML</text>
+      <text tid="metadataexplain">Please place the contents of the metadata XML document here.</text>
+      <text tid="notvalidxmldocument">The entered metadata is not a valid XML document.</text>
+    </textgroup>
+    <textgroup gid="importchangedcertificate">   <!-- samlauth.importchangedcertificate -->
+      <text tid="certchoice">Replacement</text>
+      <text tid="certchoice-expireold">Use the old certificates until</text>
+      <text tid="certchoice-replace">Remove all previous certificates</text>
+      <text tid="explain">The metadata contains a certificate that is not present in the list of certificates. What should be done with the old certificates?</text>
+      <text tid="importchangedcertificate">Import new certificate</text>
+    </textgroup>
+    <textgroup gid="main">   <!-- samlauth.main -->
+      <text tid="addconnectedidp">Add connected IDP</text>
+      <text tid="addconnectedsp">Add connected SP</text>
+      <text tid="addidp">Add IDP</text>
+      <text tid="addsp">Add SP</text>
+      <text tid="connectedidp">Connected IDP</text>
+      <text tid="connectedsamlentityid">Connected SAML Entity ID</text>
+      <text tid="connectedsp">Connected SP</text>
+      <text tid="idp">IDP</text>
+      <text tid="main">SAML entities</text>
+      <text tid="samlentityid">SAML Entity ID</text>
+      <text tid="sp">SP</text>
+      <text tid="type">Type</text>
+      <text tid="wrd_tag">Tag</text>
+    </textgroup>
+    <textgroup gid="openauthdomain">   <!-- samlauth.openauthdomain -->
+      <text tid="openauthdomain">Open authentication domain</text>
+      <text tid="wrd_tag">Tag</text>
+      <text tid="wrd_title">Title</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="schema">   <!-- schema -->
+    <textgroup gid="managetypes">   <!-- schema.managetypes -->
+      <text tid="adddomain">Add domain</text>
+      <text tid="deldomain">Delete domain</text>
+      <text tid="editdomain">Edit domain</text>
+    </textgroup>
+    <textgroup gid="open">   <!-- schema.open -->
+      <text tid="name">Schema</text>
+      <text tid="title">Open WRD schema</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="schemamanager">   <!-- schemamanager -->
+    <text tid="editschemasyncpoint">Edit synchronization source</text>
+    <text tid="nosyncpoints">No synchronization sources have been defined</text>
+    <text tid="peer">Remote server</text>
+    <text tid="pleaseselectapeer">Please select a remote server</text>
+    <text tid="remotewrdschema">External WRD source schema</text>
+    <text tid="synccompleted">Synchronization has completed</text>
+    <text tid="synchronize">Synchronize</text>
+    <text tid="synchronizeschema">Synchronize WRD schema</text>
+    <text tid="verifydisconnectsyncedschema">Are you sure you want to remove this synchronization source?</text>
+    <textgroup gid="errors">   <!-- schemamanager.errors -->
+      <text tid="duplicateschema">The name of the schema is not unique</text>
+      <text tid="needsysoptoenableusermgmt">Only sysops can enable usermanagement on a schema</text>
+    </textgroup>
+    <textgroup gid="importschema">   <!-- schemamanager.importschema -->
+      <text tid="ignoremissingreferences">Ignore missing WHFS references</text>
+      <text tid="importschema">Import schema</text>
+    </textgroup>
+    <textgroup gid="main">   <!-- schemamanager.main -->
+      <text tid="main">Manage WRD schemas</text>
+      <text tid="protected">Protected</text>
+      <text tid="usermgmt">Rights</text>
+      <textgroup gid="actions">   <!-- schemamanager.main.actions -->
+        <text tid="close">Close</text>
+        <text tid="delschema">Delete schema</text>
+        <text tid="dotschema">Export DOT</text>
+        <text tid="editschema">Edit schema</text>
+        <text tid="exportschema">Export schema</text>
+        <text tid="exportschemametadata">Export schema metadata</text>
+        <text tid="importschema">Import schema</text>
+        <text tid="newschema">New schema</text>
+        <text tid="open">Open selected schema</text>
+        <text tid="synchronize">Synchronize</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- schemamanager.messageboxes -->
+      <text tid="deleteschema">Are you sure you want to delete schema '<param p="1"/>'? This operation cannot be undone.</text>
+      <text tid="deleteschemas">Are you sure you want to delete the selected schemas? This operation cannot be undone.</text>
+      <text tid="import_schema_errors">The following errors occured importing the schema:<br/><param p="1"/></text>
+      <text tid="import_schema_norights">You do not have sufficient rights to replace the schema '<param p="1"/>'.</text>
+      <text tid="import_schema_protected">The schema '<param p="1"/>' is protected and cannot be replaced.</text>
+      <text tid="import_schema_replaced">The import replaced the schema '<param p="1"/>'. The existing schema has been renamed to '<param p="2"/>'</text>
+    </textgroup>
+    <textgroup gid="newschema">   <!-- schemamanager.newschema -->
+      <text tid="newschema">New schema</text>
+    </textgroup>
+    <textgroup gid="schemaprops">   <!-- schemamanager.schemaprops -->
+      <text tid="accountemail">Email field</text>
+      <text tid="accountlogin">Login field</text>
+      <text tid="accountpassword">Password field</text>
+      <text tid="accounttype">Type for logins</text>
+      <text tid="addressvalidation">Address validation</text>
+      <text tid="creationsource">Source</text>
+      <text tid="nextordernr">Next order number</text>
+      <text tid="ordernrformat">Order nr format</text>
+      <text tid="payments">Payments</text>
+      <text tid="protect">Protect this schema against imports and deletes</text>
+      <text tid="schema">Schema</text>
+      <text tid="schemaprops">Edit schema properties</text>
+      <text tid="usermgmt">Allow WebHare right grants</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="search">   <!-- search -->
+    <text tid="title">Zoek naar waarden</text>
+    <textgroup gid="preview">   <!-- search.preview -->
+      <text tid="title">Gegevens van geselecteerde waarde</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="forms">   <!-- site.forms -->
+      <textgroup gid="authpages">   <!-- site.forms.authpages -->
+        <text tid="currentpassword">Current password</text>
+        <text tid="email">Email address</text>
+        <text tid="emailchange-button">Change email address</text>
+        <text tid="emailchange-intro">Please enter your new email address</text>
+        <text tid="emailchange-isyourmail">You are already using this email address</text>
+        <text tid="emailchange-processed">We have sent a confirmation email to your new email address '<param p="1"/>'. Click the link in this email to confirm the change.</text>
+        <text tid="emailchange-title">Change email address</text>
+        <text tid="emailchanged">Your email address has been changed</text>
+        <text tid="forgotpassword">Forgot password?</text>
+        <text tid="forgotpassword-button">Send email</text>
+        <text tid="forgotpassword-intro">Enter the email address associated with your account to receive a password reset link</text>
+        <text tid="forgotpassword-processed">Your request has been processed. You'll receive an email with a reset link if we can locate your account.</text>
+        <text tid="forgotpassword-title">Request password reset link</text>
+        <text tid="incorrectlogin-email">The combination of email address and password is incorrect</text>
+        <text tid="incorrectlogin-username">The combination of username and password is incorrect</text>
+        <text tid="incorrectpassword">The password you entered is incorrect</text>
+        <text tid="linkexpired">The link you followed has expired</text>
+        <text tid="login-button">Login</text>
+        <text tid="login-email-intro">Enter your email address and password to login</text>
+        <text tid="login-title">Login</text>
+        <text tid="login-username-intro">Enter your username and password to login</text>
+        <text tid="password">Password</text>
+        <text tid="passwordchange-button">Change password</text>
+        <text tid="passwordchange-intro">Changing the password for '<param p="1"/>'</text>
+        <text tid="passwordchange-processed">Your password has been changed</text>
+        <text tid="passwordchange-title">Change password</text>
+        <text tid="passwordnew">New password</text>
+        <text tid="passwordrepeat">Repeat password</text>
+        <text tid="passwordsmismatch">The passwords you entered did not match</text>
+        <text tid="resetpassword-button">Set new password</text>
+        <text tid="resetpassword-continue">Continue</text>
+        <text tid="resetpassword-intro">Please enter a new password for your account</text>
+        <text tid="resetpassword-processed">Your new password has been set</text>
+        <text tid="resetpassword-title">Reset password</text>
+        <text tid="setpassword-button">Set password</text>
+        <text tid="setpassword-continue">Continue</text>
+        <text tid="setpassword-intro">Please set a password to enable your account</text>
+        <text tid="setpassword-processed">Your account has been enabled</text>
+        <text tid="setpassword-title">Set password</text>
+        <text tid="username">Username</text>
+        <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
+          <text tid="emailinuse">We cannot complete your request, as the new email address is already in use by another account.</text>
+          <text tid="followlink">Click <html:a data-href-param="1">this link</html:a> to confirm your email address.</text>
+          <text tid="receivedfor">We have received a request to change the email address of your account from '<param p="1"/>' to '<param p="2"/>'</text>
+          <text tid="subject">About your email address change request</text>
+        </textgroup>
+        <textgroup gid="forgotpasswordmail">   <!-- site.forms.authpages.forgotpasswordmail -->
+          <text tid="emailunknown">Unfortunately no account was found for this email address ('<param p="1"/>').</text>
+          <text tid="followlink">Use <html:a data-href-param="1">this link</html:a> to choose a new password</text>
+          <text tid="receivedfor">We have received a request to reset the password for <param p="1"/></text>
+          <text tid="subject">Reset your password for <param p="1"/></text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="payments">   <!-- site.forms.payments -->
+        <text tid="afterpay-only-be">Afterpay BE is only available for addresses in Belgium</text>
+        <text tid="afterpay-only-nl">Afterpay NL is only available for addresses in the Netherlands</text>
+        <text tid="selectbank">Select bank</text>
+        <textgroup gid="afterpay">   <!-- site.forms.payments.afterpay -->
+          <text tid="agreeterms">I agree to the <html:a data-href-param="1">AfterPay terms &amp; conditions</html:a></text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="siteprofiles">   <!-- siteprofiles -->
+    <text tid="loginpage">Default login page</text>
+  </textgroup>
+  <textgroup gid="terminology">   <!-- terminology -->
+    <text tid="attrtype">Attribute type</text>
+    <text tid="domain">Domain</text>
+    <text tid="metatype">Metatype</text>
+    <text tid="schema">Schema</text>
+    <text tid="tag">Tag</text>
+    <text tid="type">Type</text>
+  </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="payments">   <!-- tolliumapps.payments -->
+      <text tid="selectcertificate">Select certificate</text>
+      <textgroup gid="afterpay">   <!-- tolliumapps.payments.afterpay -->
+        <text tid="afterpaytype">Type</text>
+        <text tid="merchantid">Merchant ID</text>
+        <text tid="portefeuilleid">PortefeuilleID</text>
+      </textgroup>
+      <textgroup gid="builtins">   <!-- tolliumapps.payments.builtins -->
+        <text tid="disablenoissuer">Don't offer the "no issuer" option</text>
+        <text tid="disablewithissuer">Don't offer the "with issuer" option</text>
+        <text tid="interactiontype">Interaction type</text>
+        <text tid="interactiontype-form">Form-based</text>
+        <text tid="interactiontype-redirect">Redirect-based</text>
+        <text tid="sleep">Payment pages sleep time</text>
+      </textgroup>
+      <textgroup gid="common">   <!-- tolliumapps.payments.common -->
+        <text tid="approved">Approved</text>
+        <text tid="connectionsucceeded">Connection succeeded</text>
+        <text tid="failed">Failed</text>
+        <text tid="incorrectcredentials">Connection failed - incorrect credentials ?</text>
+        <text tid="methods">Methods</text>
+        <text tid="pending">Pending</text>
+        <text tid="testmode">Test mode</text>
+      </textgroup>
+      <textgroup gid="commondialogs">   <!-- tolliumapps.payments.commondialogs -->
+        <text tid="amountpayable">Amount payable</text>
+        <text tid="cancelpayment">Cancel payment</text>
+        <text tid="deletepaymentprovider">Are you sure you want to delete this payment provider ?</text>
+        <text tid="generic">Generic options</text>
+        <text tid="methods">Payment method</text>
+        <text tid="openpaymententity">Open entity</text>
+        <text tid="paymentdate">Payment date</text>
+        <text tid="paymentdetails">Payment details</text>
+        <text tid="paymententity">Entity</text>
+        <text tid="paymentinfo">Payment info</text>
+        <text tid="paymentoptiontag">Payment option</text>
+        <text tid="paymentprovider">Payment provider</text>
+        <text tid="paymentproviders">Payment providers</text>
+        <text tid="paymentreference">Reference</text>
+        <text tid="paymentstatus">Status</text>
+        <text tid="pendingpayments">Pending payments</text>
+        <text tid="recheckedpayment">The payment has been rechecked with the payment provider</text>
+        <text tid="recheckpayment">Recheck payment</text>
+        <text tid="selectpaymentprovider">Select payment provider</text>
+        <text tid="status">Status</text>
+        <text tid="surecancelpayment">Are you sure you want to cancel this payment ?</text>
+        <text tid="tag">Tag</text>
+        <text tid="type">Type</text>
+      </textgroup>
+      <textgroup gid="ideal">   <!-- tolliumapps.payments.ideal -->
+        <text tid="acquirer">Acquirer</text>
+        <text tid="keypair">Keypair</text>
+        <text tid="merchantid">Merchant id</text>
+        <text tid="merchantsubid">Merchant sub id</text>
+        <text tid="privatekeypassword">Private key password</text>
+        <text tid="transactionid">Transaction id</text>
+      </textgroup>
+      <textgroup gid="ingenico">   <!-- tolliumapps.payments.ingenico -->
+        <text tid="apipassword">API Password</text>
+        <text tid="apiuser">API User</text>
+        <text tid="brand">Brand</text>
+        <text tid="directhttpurl">Direct HTTP url</text>
+        <text tid="methods">Payment method</text>
+        <text tid="mode">Mode</text>
+        <text tid="mode-prod">Production (payment gets processed)</text>
+        <text tid="mode-test">Test</text>
+        <text tid="ncerror">Error</text>
+        <text tid="norebranding">None (direct account with Ingenico)</text>
+        <text tid="noregisteredstatus">No status appears to be registered</text>
+        <text tid="orderid">Order ID</text>
+        <text tid="payinfo">Ingenico payment information</text>
+        <text tid="paymentid">Ingenico payment ID</text>
+        <text tid="paymentmethod">Pay method</text>
+        <text tid="pspid">PSP ID</text>
+        <text tid="rebranded">Rebranding</text>
+        <text tid="result">Result</text>
+        <text tid="sha1_in">SHA-1-IN signature</text>
+        <text tid="sha1_in_directlink">SHA-1-IN directlink</text>
+        <text tid="sha1_out">SHA-1-OUT signature</text>
+        <text tid="status">State</text>
+      </textgroup>
+      <textgroup gid="mollie">   <!-- tolliumapps.payments.mollie -->
+        <text tid="apikey">API Key</text>
+        <text tid="connect">Test</text>
+        <text tid="paymentid">Payment ID</text>
+        <text tid="status">Status</text>
+        <text tid="webhooks">Enable webhooks</text>
+      </textgroup>
+      <textgroup gid="multisafepay">   <!-- tolliumapps.payments.multisafepay -->
+        <text tid="apikey">API Key</text>
+        <text tid="connect">Request payment methods</text>
+        <text tid="rawstatus">Raw MSP status</text>
+        <text tid="testmode">Testmode</text>
+        <text tid="testmode-live">Live</text>
+        <text tid="testmode-test">Test</text>
+      </textgroup>
+      <textgroup gid="sisow">   <!-- tolliumapps.payments.sisow -->
+        <text tid="connect">Test</text>
+        <text tid="merchantid">Merchant ID</text>
+        <text tid="merchantsecret">Merchant secret</text>
+        <text tid="transactionid">Transaction id</text>
+      </textgroup>
+      <textgroup gid="spraypay">   <!-- tolliumapps.payments.spraypay -->
+        <text tid="webshopid">Webshop ID</text>
+      </textgroup>
+      <textgroup gid="stripe">   <!-- tolliumapps.payments.stripe -->
+        <text tid="connect">Test</text>
+        <text tid="publickey">Public key</text>
+        <text tid="secretkey">Secret key</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="types">   <!-- types -->
+    <text tid="noparent">No parent type</text>
+    <text tid="tagnotunique">An attribute with this tag already exists</text>
+    <text tid="typetagnotunique">A type with this tag already exists</text>
+    <textgroup gid="attributes">   <!-- types.attributes -->
+      <text tid="addattr">Add attribute</text>
+      <text tid="addchildattr">Add child attribute</text>
+      <text tid="deleteattr">Delete attribute</text>
+      <text tid="editattr">Edit attribute</text>
+      <text tid="manageattrs">Manage attributes of type '<param p="1"/>'</text>
+      <text tid="reqicon">Required</text>
+      <text tid="required">Required</text>
+      <text tid="uniqueicon">Unique</text>
+      <textgroup gid="types" keepemptyreason="Validated by wrd consistencytest">   <!-- types.attributes.types -->
+        <text tid="address">Address</text>
+        <text tid="array">Array</text>
+        <text tid="boolean">Boolean</text>
+        <text tid="date">Date</text>
+        <text tid="datetime">Date and time</text>
+        <text tid="domain">Domain - single select</text>
+        <text tid="domainarray">Domain - multiple select</text>
+        <text tid="email">Email address</text>
+        <text tid="enum">Enumeration</text>
+        <text tid="enumarray">Enumeration array</text>
+        <text tid="file">File</text>
+        <text tid="free">Free text</text>
+        <text tid="image">Image</text>
+        <text tid="integer">Integer</text>
+        <text tid="integer64">Integer (64bit)</text>
+        <text tid="money">Money</text>
+        <text tid="password">Password</text>
+        <text tid="payment">Payment</text>
+        <text tid="paymentprovider">Payment provider</text>
+        <text tid="record">Record (HSON)</text>
+        <text tid="richdocument">Rich document</text>
+        <text tid="statusrecord">Status record</text>
+        <text tid="telephone">Telephone number</text>
+        <text tid="time">Time</text>
+        <text tid="url">URL</text>
+        <text tid="whfsinstance">WHFS instance</text>
+        <text tid="whfsintextlink">WHFS internal/external link</text>
+      </textgroup>
+      <textgroup gid="update">   <!-- types.attributes.update -->
+        <text tid="addform">Attribute settings</text>
+        <text tid="attrtype">Attribute type</text>
+        <text tid="checklinks">Check links within this attribute</text>
+        <text tid="description">Description</text>
+        <text tid="domain">Domain</text>
+        <text tid="editattr">Attribute</text>
+        <text tid="editform">Attribute settings</text>
+        <text tid="id">Id</text>
+        <text tid="isconfidentialdesc">Field contents is confidential</text>
+        <text tid="isordered">Allow ordering of elements</text>
+        <text tid="isrequired">Required</text>
+        <text tid="isrequireddesc">It is required to enter a value for this attribute</text>
+        <text tid="isunique">Unique</text>
+        <text tid="isuniquedesc">This value for this attribute must be unique</text>
+        <text tid="maxwidth">Maximum width</text>
+        <text tid="multiline">Multline edit (textarea)</text>
+        <text tid="requiretype_left">Left link</text>
+        <text tid="requiretype_right">Right link</text>
+        <text tid="tag">Tag</text>
+        <text tid="tagnotunique">This tag name is already in use</text>
+        <text tid="title">Title</text>
+        <text tid="title_add">Add attribute</text>
+        <text tid="title_edit">Edit attribute '<param p="1"/>'</text>
+        <text tid="type">Attribute type</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="deletetype">   <!-- types.deletetype -->
+      <text tid="deletehow">Delete</text>
+      <text tid="deletehow-closeentities">all entities (by closing them)</text>
+      <text tid="deletehow-delentities">all entities (by fully deleting them)</text>
+      <text tid="deletehow-deltype">all entities and the type</text>
+      <text tid="deletetype">Delete type</text>
+      <text tid="verifydeletion">Are you sure you want to delete type '<param p="1"/>'?</text>
+    </textgroup>
+    <textgroup gid="errors">   <!-- types.errors -->
+      <text tid="domaininuse">This domain cannot be deleted, because there are still attributes that reference this domain.</text>
+      <text tid="domaininusebyattr">This domain cannot be deleted, because there are still attributes (eg. '<param p="1"/>') that reference this domain.</text>
+      <text tid="domaininusebytype">This domain cannot be deleted, because there are still types (eg. '<param p="1"/>') that reference this domain.</text>
+      <text tid="typeinuse">This type cannot be deleted, because there are still attributes that reference this type.</text>
+      <text tid="typeinusebyattr">This type cannot be deleted, because there are still attributes (eg '<param p="1"/>') that reference this type.</text>
+      <text tid="typeinusebytype">This type cannot be deleted, because there are still types (eg '<param p="1"/>') that reference this type.</text>
+    </textgroup>
+    <textgroup gid="managepaymentproviders">   <!-- types.managepaymentproviders -->
+      <text tid="managepaymentproviders">Manage payment providers</text>
+      <text tid="manageproviders">Providers</text>
+      <text tid="nosuitablefields">There are no payment or provider attributes in the schema</text>
+      <text tid="paymentfield">Payment field</text>
+      <text tid="providerfield">Payment provider field</text>
+    </textgroup>
+    <textgroup gid="managetypes">   <!-- types.managetypes -->
+      <text tid="addtype">Add type</text>
+      <text tid="deltype">Delete type</text>
+      <text tid="edittype">Edit type</text>
+      <text tid="editvalues">Edit values</text>
+      <text tid="import">Import</text>
+      <text tid="manageattrs">Manage attributes</text>
+      <text tid="managetypes">Manage types</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- types.messages -->
+      <text tid="authnotcorrectlyconfigured">The authentication domain is not correctly configured.</text>
+      <text tid="cannotdeleteattr">Cannot delete attribute '<param p="1"/>' because it is an internal attribute.</text>
+      <text tid="deleteattr">Are you sure you want to delete attribute '<param p="1"/>'?</text>
+      <text tid="notconfiguredforsaml">This WRD schema is not configured for SAML.</text>
+      <text tid="suredeleteconnectedidp">Are you sure you want to delete this connected IDP? This operation cannot be undone.</text>
+      <text tid="suredeleteconnectedsp">Are you sure you want to delete this connected SP? This operation cannot be undone.</text>
+      <text tid="suredeleteidp">Are you sure you want to delete this IDP? This operation cannot be undone.</text>
+      <text tid="suredeletesp">Are you sure you want to delete this SP? This operation cannot be undone.</text>
+    </textgroup>
+    <textgroup gid="metatypes">   <!-- types.metatypes -->
+      <text tid="attachment">Attachment</text>
+      <text tid="classification">Classification</text>
+      <text tid="domain">Domain</text>
+      <text tid="link">Link</text>
+      <text tid="object">Object</text>
+    </textgroup>
+    <textgroup gid="update">   <!-- types.update -->
+      <text tid="classification_of">Classification of</text>
+      <text tid="dbid">Database ID</text>
+      <text tid="description">Description</text>
+      <text tid="edittype">Edit type</text>
+      <text tid="form">Type details</text>
+      <text tid="linkfrom">Link from</text>
+      <text tid="linkto">Link to</text>
+      <text tid="metatype">Metatype</text>
+      <text tid="metatype_form">Type of the type</text>
+      <text tid="name">Attribute name</text>
+      <text tid="noparent">No parent type</text>
+      <text tid="orderingdown">Down</text>
+      <text tid="orderingup">Up</text>
+      <text tid="parenttype">Parenttype</text>
+      <text tid="requiretype_left">Link from</text>
+      <text tid="requiretype_right">Link to</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Title</text>
+      <text tid="title_add">Add type</text>
+      <text tid="title_edit">Edit type</text>
+      <text tid="title_props">Properties of type '<param p="1"/>'</text>
+      <text tid="typepropertiestab">Type</text>
+      <text tid="typetagnotunique">Another type already has this tag in use.</text>
+    </textgroup>
+  </textgroup>
+</language>

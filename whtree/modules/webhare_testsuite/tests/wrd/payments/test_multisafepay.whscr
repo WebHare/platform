@@ -1,0 +1,136 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+STRING currenturl;
+/* Each website has it’s own API key so if you are operating multiple websites be sure to use the correct API key for each site. The API key can be found under the website settings in MultiSafepay Control.
+*/
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_MULTISAFEPAY_APIKEY") = "";
+IF(offlineonly)
+  Print("*** Skipping some tests as TESTFW_MULTISAFEPAY_APIKEY is not set\n\n");
+
+MACRO SetPage(RECORD evt)
+{
+  PRINT("** RECEIVED URL " || evt.frame.url || " **\n");
+  currenturl := evt.frame.url;
+}
+
+ASYNC MACRO SetupMultiSafePay()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("addprovider"));
+  TT("methods")->value := "wrd:multisafepay";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+  TT(":API Key")->value := GetEnvironmentVariable("TESTFW_MULTISAFEPAY_APIKEY") ?? "dummy-key";
+  TT("paymentextension->testmode")->value := "test";
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+
+  TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(rowkey) IN ["IDEAL"];
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  TestEq(["IDEAL"], SELECT AS STRING ARRAY rowkey FROM TT("{select}:Methods")->selection);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("editprovider")); //test persisting between dialogs
+  TestEq(["IDEAL"], SELECT AS STRING ARRAY rowkey FROM TT("{select}:Methods")->selection);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+}
+
+ASYNC MACRO TestPaymentMultiSafePay()
+{
+  IF(offlineonly)
+    RETURN;
+
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  paymentapi->UpdateConfig([ ordernrformat := "TST|" || GenerateUFS128BitId() || "|%d%03n"]);
+
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+
+  RECORD idealmethod := SELECT * FROM methods WHERE title="iDEAL";
+  TestEq(TRUE, RecordExists(idealmethod));
+  TEstEq(TRUE, Length(idealmethod.issuers)>=1);
+
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD properrequest := [ paymentprovider := idealmethod.paymentprovider
+                          , paymentoptiontag := idealmethod.paymentoptiontag
+                          , issuer := idealmethod.issuers[0].rowkey
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          ];
+  IF(testfw->debug)
+    Print("Planned return url: " || properrequest.returnurl || "\n");
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 278.13, properrequest);
+  STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
+  IF(testfw->debug)
+    Print(`Payment url: ${payurl}\n`);
+
+  TestEq("pending", entity->GetField("DATA").status);
+
+  //Even a rescan should keep it pending, it is young
+  paymentapi->ForceRecheckPayment(entity->id);
+  TestEq("pending", entity->GetField("DATA").status);
+
+ //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  //////////// use chrome headless to execute the paymemnt ////////////////////// ADDME generalize cleanup?
+  OBJECT runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+  RECORD session := AWAIT runner->CreateSession();
+  OBJECT connector := NEW ChromeConnector(session.connectorurl, [ debug := TRUE ]);
+  OBJECT conn := AWAIT connector->ConnectToSession(session);
+  OBJECT pageobj := NEW Page(conn);
+  OBJECT navwatcher := NEW NavigationWatcher(conn);
+
+  AWAIT pageobj->Init();
+  AWAIT pageobj->Navigate(payurl);
+
+  OBJECT successbutton := AWAIT WaitForChromeElement(conn, pageobj, "button.btn-msp-success");
+  AWAIT successbutton->Click();
+
+  WHILE(pageobj->mainframe->url NOT LIKE "*wrd/paymentinfo*")
+  {
+    Print("Now on: " || pageobj->mainframe->url || "\n");
+    AWAIT navwatcher->WaitForNavigation();
+  }
+
+  Print("MSP returned to: " || pageobj->mainframe->url || "\n");
+
+  TestEq("approved", entity->GetField("DATA").status);
+
+  //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+}
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR SetupMultiSafePay
+                 , PTR RunStandardPaymentMethodTests
+                 , PTR TestPaymentMultiSafePay
+                 ]);

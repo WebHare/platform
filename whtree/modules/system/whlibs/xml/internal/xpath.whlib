@@ -1,0 +1,64 @@
+<?wh
+/** @private xpath APIs, they don't really follow any spec anymore so move them interally
+*/
+LOADLIB "wh::internal/xml.whlib";
+
+OBJECTTYPE XPathNSResolver
+<
+>;
+
+PUBLIC OBJECTTYPE IndependentXPathNSResolver EXTEND XPathNSResolver
+<
+  PUBLIC RECORD ARRAY __pvt_prefixes;
+
+  PUBLIC MACRO AddNS(STRING prefix, STRING namespaceuri)
+  {
+    INSERT [ prefix := prefix, namespaceuri := namespaceuri ] INTO this->__pvt_prefixes AT END;
+  }
+>;
+
+PUBLIC OBJECTTYPE XpathResult
+<
+  OBJECT query;
+  OBJECT nodelist;
+  INTEGER iteratepos;
+
+  PUBLIC PROPERTY resulttype(GetResultType,-);
+  PUBLIC PROPERTY snapshotlength(GetSnapshotLength,-);
+
+  MACRO NEW(OBJECT document, OBJECT context, OBJECT resolver, STRING actualquery)
+  {
+    this->query := NEW XMLXpathQuery(document);
+
+    IF (ObjectExists(resolver))
+      FOREVERY(RECORD ns FROM resolver->__pvt_prefixes)
+        this->query->RegisterNamespace(ns.prefix, ns.namespaceuri);
+
+    this->nodelist := this->query->ExecuteQuery(actualquery, context);
+    this->iteratepos := -1;
+  }
+
+  INTEGER FUNCTION GetResultType()
+  {
+    //We only support node types, so might as well return that
+    RETURN 5;
+  }
+  INTEGER FUNCTION GetSNapshotLength()
+  {
+    RETURN this->nodelist->length;
+  }
+  PUBLIC OBJECT FUNCTION SnapshotItem(INTEGER idx)
+  {
+    RETURN this->nodelist->Item(idx);
+  }
+  PUBLIC OBJECT FUNCTION iterateNext()
+  {
+    this->iteratepos := this->iteratepos+ 1;
+    RETURN this->SnapshotItem(this->iteratepos);
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetCurrentElements()
+  {
+    RETURN this->nodelist->GetCurrentElements();
+  }
+>;

@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+
+  <param name="scriptpath" value="$testbasedir$" />
+  <test name="generated" path="generated/" okifmissing="true" />
+
+  <!-- to update the tests:
+       wh run mod::webhare_testsuite/scripts/tests/createxmldomtestscripts.whscr
+     -->
+
+</group>

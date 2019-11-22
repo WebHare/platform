@@ -1,0 +1,1285 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::float.whlib";
+
+
+RECORD ARRAY cache_idf_types;
+
+RECORD ARRAY FUNCTION GetIDFTypes()
+{
+  IF (NOT IsDefaultValue(cache_idf_types))
+    RETURN cache_idf_types;
+
+  /*
+  An JPG, TIDD, NEF (or DNG?) can several IFD's (Image File Directory).
+  These are blocks of tags with information on the image.
+  Some existing IFD's are:
+  - IFD0 (IFD of main image) section
+  - IFD1 (IFD of thumbnail image) section
+  - EXIF SubIFD section
+  - GPS
+  */
+
+  RECORD ARRAY orientationmappings :=
+  [ [ id := 1, title := "Normal" ]
+  , [ id := 3, title := "Upside down" ]
+  , [ id := 6, title := "Rotated 90 degrees left" ]
+  , [ id := 8, title := "Rotated 90 degrees right" ]
+  ];
+
+  RECORD ARRAY resolutionmappings :=
+  [ [ id := 2, title := "Inches" ]
+  , [ id := 3, title := "Centimeters" ]
+  ];
+
+  RECORD ARRAY pixelcompositionmappings :=
+  [ [ id := 0, title := "White is zero" ]
+  , [ id := 1, title := "Black is zero" ]
+  , [ id := 2, title := "RGB" ]
+  , [ id := 3, title := "RGB palette" ]
+  , [ id := 4, title := "Transparency mask" ]
+  , [ id := 5, title := "CMYK" ]
+  , [ id := 6, title := "YCbCr" ]
+  , [ id := 8, title := "CIELab" ]
+  ];
+
+  RECORD ARRAY compressionmappings :=
+  [ [ id := 1,     title := "Uncompressed" ]
+  , [ id := 2,     title := "CCITT 1D" ]
+  , [ id := 3,     title := "T4/Group 3 Fax" ]
+  , [ id := 4,     title := "T6/Group 4 Fax" ]
+  , [ id := 5,     title := "LZW" ]
+  , [ id := 6,     title := "JPEG (old-style)" ]
+  , [ id := 7,     title := "JPEG" ]
+  , [ id := 8,     title := "Adobe Deflate" ]
+  , [ id := 9,     title := "JBIG B&W" ]
+  , [ id := 10,    title := "JBIG Color" ]
+  , [ id := 99,    title := "JPEG" ]
+  , [ id := 262,   title := "Kodak 262" ]
+  , [ id := 32766, title := "Next" ]
+  , [ id := 32767, title := "Sony ARW Compressed" ]
+  , [ id := 32769, title := "Packed RAW" ]
+  , [ id := 32770, title := "Samsung SRW Compressed" ]
+  , [ id := 32771, title := "CCIRLEW" ]
+  , [ id := 32773, title := "PackBits" ]
+  , [ id := 32809, title := "Thunderscan" ]
+  , [ id := 32867, title := "Kodak KDC Compressed" ]
+  , [ id := 32895, title := "IT8CTPAD" ]
+  , [ id := 32896, title := "IT8LW" ]
+  , [ id := 32897, title := "IT8MP" ]
+  , [ id := 32898, title := "IT8BL" ]
+  , [ id := 32908, title := "PixarFilm" ]
+  , [ id := 32909, title := "PixarLog" ]
+  , [ id := 32946, title := "Deflate" ]
+  , [ id := 32947, title := "DCS" ]
+  , [ id := 34661, title := "JBIG" ]
+  , [ id := 34676, title := "SGILog" ]
+  , [ id := 34677, title := "SGILog24" ]
+  , [ id := 34712, title := "JPEG 2000" ]
+  , [ id := 34713, title := "Nikon NEF Compressed" ]
+  , [ id := 34715, title := "JBIG2 TIFF FX" ]
+  , [ id := 34718, title := "Microsoft Document Imaging (MDI) Binary Level Codec" ]
+  , [ id := 34719, title := "Microsoft Document Imaging (MDI) Progressive Transform Codec" ]
+  , [ id := 34720, title := "Microsoft Document Imaging (MDI) Vector" ]
+  , [ id := 34892, title := "Lossy JPEG" ]
+  , [ id := 65000, title := "Kodak DCR Compressed" ]
+  , [ id := 65535, title := "Pentax PEF Compressed" ]
+  ];
+
+  // ADDME: use
+  RECORD ARRAY lightsource_values :=
+  [ [ id := 0 ,  title := "Unknown" ]
+  , [ id := 1 ,  title := "Daylight" ]
+  , [ id := 2 ,  title := "Fluorescent" ]
+  , [ id := 3 ,  title := "Tungsten (Incandescent)" ]
+  , [ id := 4 ,  title := "Flash" ]
+  , [ id := 9 ,  title := "Fine Weather" ]
+  , [ id := 10,  title := "Cloudy" ]
+  , [ id := 11,  title := "Shade" ]
+  , [ id := 12,  title := "Daylight Fluorescent" ]
+  , [ id := 13,  title := "Day White Fluorescent" ]
+  , [ id := 14,  title := "Cool White Fluorescent" ]
+  , [ id := 15,  title := "White Fluorescent" ]
+  , [ id := 16,  title := "Warm White Fluorescent" ]
+  , [ id := 17,  title := "Standard Light A" ]
+  , [ id := 18,  title := "Standard Light B" ]
+  , [ id := 19,  title := "Standard Light C" ]
+  , [ id := 20,  title := "D55" ]
+  , [ id := 21,  title := "D65" ]
+  , [ id := 22,  title := "D75" ]
+  , [ id := 23,  title := "D50" ]
+  , [ id := 24,  title := "ISO Studio Tungsten" ]
+  , [ id := 255, title := "Other" ]
+  ];
+
+  RECORD ARRAY flash_values :=
+  [ [ id := 0x0 , title := "No Flash" ]
+  , [ id := 0x1 , title := "Fired" ]
+  , [ id := 0x5 , title := "Fired, Return not detected" ]
+  , [ id := 0x7 , title := "Fired, Return detected" ]
+  , [ id := 0x8 , title := "On, Did not fire" ]
+  , [ id := 0x9 , title := "On, Fired" ]
+  , [ id := 0xd , title := "On, Return not detected" ]
+  , [ id := 0xf , title := "On, Return detected" ]
+  , [ id := 0x10, title := "Off, Did not fire" ]
+  , [ id := 0x14, title := "Off, Did not fire, Return not detected" ]
+  , [ id := 0x18, title := "Auto, Did not fire" ]
+  , [ id := 0x19, title := "Auto, Fired" ]
+  , [ id := 0x1d, title := "Auto, Fired, Return not detected" ]
+  , [ id := 0x1f, title := "Auto, Fired, Return detected" ]
+  , [ id := 0x20, title := "No flash function" ]
+  , [ id := 0x30, title := "Off, No flash function" ]
+  , [ id := 0x41, title := "Fired, Red-eye reduction" ]
+  , [ id := 0x45, title := "Fired, Red-eye reduction, Return not detected" ]
+  , [ id := 0x47, title := "Fired, Red-eye reduction, Return detected" ]
+  , [ id := 0x49, title := "On, Red-eye reduction" ]
+  , [ id := 0x4d, title := "On, Red-eye reduction, Return not detected" ]
+  , [ id := 0x4f, title := "On, Red-eye reduction, Return detected" ]
+  , [ id := 0x50, title := "Off, Red-eye reduction" ]
+  , [ id := 0x58, title := "Auto, Did not fire, Red-eye reduction" ]
+  , [ id := 0x59, title := "Auto, Fired, Red-eye reduction" ]
+  , [ id := 0x5d, title := "Auto, Fired, Red-eye reduction, Return not detected" ]
+  , [ id := 0x5f, title := "Auto, Fired, Red-eye reduction, Return detected" ]
+  ];
+
+  // IDF0/IDF1/EXIF tags
+  RECORD ARRAY known_exif_tags :=
+  [ [ id := 0x0001, tag := "InteropIndex" ]
+  , [ id := 0x0002, tag := "InteropVersion" ]
+  , [ id := 0x000b, tag := "ProcessingSoftware" ]
+  , [ id := 0x00fe, tag := "SubfileType" ]
+  , [ id := 0x00ff, tag := "OldSubfileType" ]
+  , [ id := 0x0100, tag := "ImageWidth" ]
+  , [ id := 0x0101, tag := "ImageHeight" ]
+  , [ id := 0x0102, tag := "BitsPerSample" ]
+  , [ id := 0x0103, tag := "Compression", valuemap := compressionmappings ]
+  , [ id := 0x0106, tag := "PhotometricInterpretation", valuemap := pixelcompositionmappings ] // pixel composition
+  , [ id := 0x0107, tag := "Thresholding" ]
+  , [ id := 0x0108, tag := "CellWidth" ]
+  , [ id := 0x0109, tag := "CellLength" ]
+  , [ id := 0x010a, tag := "FillOrder" ]
+  , [ id := 0x010d, tag := "DocumentName" ]
+  , [ id := 0x010e, tag := "ImageDescription" ]
+  , [ id := 0x010f, tag := "Make" ]
+  , [ id := 0x0110, tag := "Model" ]
+  , [ id := 0x0111, tag := "StripOffsets/PreviewImageStart/PreviewImageStart/JpgFromRawStart" ]
+  , [ id := 0x0112, tag := "Orientation", valuemap := orientationmappings ]
+  , [ id := 0x0115, tag := "SamplesPerPixel" ]
+  , [ id := 0x0116, tag := "RowsPerStrip" ]
+  , [ id := 0x0117, tag := "StripByteCounts/PreviewImageLength/PreviewImageLength/JpgFromRawLength" ]
+  , [ id := 0x0118, tag := "MinSampleValue" ]
+  , [ id := 0x0119, tag := "MaxSampleValue" ]
+  , [ id := 0x011a, tag := "XResolution" ]
+  , [ id := 0x011b, tag := "YResolution" ]
+  , [ id := 0x011c, tag := "PlanarConfiguration" ]
+  , [ id := 0x011d, tag := "PageName" ]
+  , [ id := 0x011e, tag := "XPosition" ]
+  , [ id := 0x011f, tag := "YPosition" ]
+  , [ id := 0x0120, tag := "FreeOffsets" ]
+  , [ id := 0x0121, tag := "FreeByteCounts" ]
+  , [ id := 0x0122, tag := "GrayResponseUnit" ]
+  , [ id := 0x0123, tag := "GrayResponseCurve" ]
+  , [ id := 0x0124, tag := "T4Options" ]
+  , [ id := 0x0125, tag := "T6Options" ]
+  , [ id := 0x0128, tag := "ResolutionUnit", valuemap := resolutionmappings ]
+  , [ id := 0x0129, tag := "PageNumber" ]
+  , [ id := 0x012c, tag := "ColorResponseUnit" ]
+  , [ id := 0x012d, tag := "TransferFunction" ]
+  , [ id := 0x0131, tag := "Software" ]
+  , [ id := 0x0132, tag := "ModifyDate" ]
+  , [ id := 0x013b, tag := "Artist" ]
+  , [ id := 0x013c, tag := "HostComputer" ]
+  , [ id := 0x013d, tag := "Predictor" ]
+  , [ id := 0x013e, tag := "WhitePoint" ]
+  , [ id := 0x013f, tag := "PrimaryChromaticities" ]
+  , [ id := 0x0140, tag := "ColorMap" ]
+  , [ id := 0x0141, tag := "HalftoneHints" ]
+  , [ id := 0x0142, tag := "TileWidth" ]
+  , [ id := 0x0143, tag := "TileLength" ]
+  , [ id := 0x0144, tag := "TileOffsets" ]
+  , [ id := 0x0145, tag := "TileByteCounts" ]
+  , [ id := 0x0146, tag := "BadFaxLines" ]
+  , [ id := 0x0147, tag := "CleanFaxData" ]
+  , [ id := 0x0148, tag := "ConsecutiveBadFaxLines" ]
+  , [ id := 0x014a, tag := "SubIFD" ]
+  , [ id := 0x014c, tag := "InkSet" ]
+  , [ id := 0x014d, tag := "InkNames" ]
+  , [ id := 0x014e, tag := "NumberofInks" ]
+  , [ id := 0x0150, tag := "DotRange" ]
+  , [ id := 0x0151, tag := "TargetPrinter" ]
+  , [ id := 0x0152, tag := "ExtraSamples" ]
+  , [ id := 0x0153, tag := "SampleFormat" ]
+  , [ id := 0x0154, tag := "SMinSampleValue" ]
+  , [ id := 0x0155, tag := "SMaxSampleValue" ]
+  , [ id := 0x0156, tag := "TransferRange" ]
+  , [ id := 0x0157, tag := "ClipPath" ]
+  , [ id := 0x0158, tag := "XClipPathUnits" ]
+  , [ id := 0x0159, tag := "YClipPathUnits" ]
+  , [ id := 0x015a, tag := "Indexed" ]
+  , [ id := 0x015b, tag := "JPEGTables" ]
+  , [ id := 0x015f, tag := "OPIProxy" ]
+  , [ id := 0x0190, tag := "GlobalParametersIFD" ]
+  , [ id := 0x0191, tag := "ProfileType" ]
+  , [ id := 0x0192, tag := "FaxProfile" ]
+  , [ id := 0x0193, tag := "CodingMethods" ]
+  , [ id := 0x0194, tag := "VersionYear" ]
+  , [ id := 0x0195, tag := "ModeNumber" ]
+  , [ id := 0x01b1, tag := "Decode" ]
+  , [ id := 0x01b2, tag := "DefaultImageColor" ]
+  , [ id := 0x01b3, tag := "T82Options" ]
+  , [ id := 0x01b5, tag := "JPEGTables" ]
+  , [ id := 0x0200, tag := "JPEGProc" ]
+  , [ id := 0x0201, tag := "ThumbnailOffset(?)" ]
+  , [ id := 0x0202, tag := "ThumbnailLength(?)" ]
+  , [ id := 0x0203, tag := "JPEGRestartInterval" ]
+  , [ id := 0x0205, tag := "JPEGLosslessPredictors" ]
+  , [ id := 0x0206, tag := "JPEGPointTransforms" ]
+  , [ id := 0x0207, tag := "JPEGQTables" ]
+  , [ id := 0x0208, tag := "JPEGDCTables" ]
+  , [ id := 0x0209, tag := "JPEGACTables" ]
+  , [ id := 0x0211, tag := "YCbCrCoefficients" ]
+  , [ id := 0x0212, tag := "YCbCrSubSampling" ]
+  , [ id := 0x0213, tag := "YCbCrPositioning" ]
+  , [ id := 0x0214, tag := "ReferenceBlackWhite" ]
+  , [ id := 0x022f, tag := "StripRowCounts" ]
+  , [ id := 0x02bc, tag := "ApplicationNotes" ]
+  , [ id := 0x03e7, tag := "USPTOMiscellaneous" ]
+  , [ id := 0x1000, tag := "RelatedImageFileFormat" ]
+  , [ id := 0x1001, tag := "RelatedImageWidth" ]
+  , [ id := 0x1002, tag := "RelatedImageHeight" ]
+  , [ id := 0x4746, tag := "Rating" ]
+  , [ id := 0x4747, tag := "XP_DIP_XML" ]
+  , [ id := 0x4748, tag := "StitchInfo" ]
+  , [ id := 0x4749, tag := "RatingPercent" ]
+  , [ id := 0x800d, tag := "ImageID" ]
+  , [ id := 0x80a3, tag := "WangTag1" ]
+  , [ id := 0x80a4, tag := "WangAnnotation" ]
+  , [ id := 0x80a5, tag := "WangTag3" ]
+  , [ id := 0x80a6, tag := "WangTag4" ]
+  , [ id := 0x80e3, tag := "Matteing" ]
+  , [ id := 0x80e4, tag := "DataType" ]
+  , [ id := 0x80e5, tag := "ImageDepth" ]
+  , [ id := 0x80e6, tag := "TileDepth" ]
+  , [ id := 0x827d, tag := "Model2" ]
+  , [ id := 0x828d, tag := "CFARepeatPatternDim" ]
+  , [ id := 0x828e, tag := "CFAPattern2" ]
+  , [ id := 0x828f, tag := "BatteryLevel" ]
+  , [ id := 0x8290, tag := "KodakIFD" ]
+  , [ id := 0x8298, tag := "Copyright" ]
+  , [ id := 0x829a, tag := "ExposureTime" ]
+  , [ id := 0x829d, tag := "FNumber" ]
+  , [ id := 0x82a5, tag := "MDFileTag" ]
+  , [ id := 0x82a6, tag := "MDScalePixel" ]
+  , [ id := 0x82a7, tag := "MDColorTable" ]
+  , [ id := 0x82a8, tag := "MDLabName" ]
+  , [ id := 0x82a9, tag := "MDSampleInfo" ]
+  , [ id := 0x82aa, tag := "MDPrepDate" ]
+  , [ id := 0x82ab, tag := "MDPrepTime" ]
+  , [ id := 0x82ac, tag := "MDFileUnits" ]
+  , [ id := 0x830e, tag := "PixelScale" ]
+  , [ id := 0x8335, tag := "AdventScale" ]
+  , [ id := 0x8336, tag := "AdventRevision" ]
+  , [ id := 0x835c, tag := "UIC1Tag" ]
+  , [ id := 0x835d, tag := "UIC2Tag" ]
+  , [ id := 0x835e, tag := "UIC3Tag" ]
+  , [ id := 0x835f, tag := "UIC4Tag" ]
+  , [ id := 0x83bb, tag := "IPTC-NAA" ]
+  , [ id := 0x847e, tag := "IntergraphPacketData" ]
+  , [ id := 0x847f, tag := "IntergraphFlagRegisters" ]
+  , [ id := 0x8480, tag := "IntergraphMatrix" ]
+  , [ id := 0x8481, tag := "INGRReserved" ]
+  , [ id := 0x8482, tag := "ModelTiePoint" ]
+  , [ id := 0x84e0, tag := "Site" ]
+  , [ id := 0x84e1, tag := "ColorSequence" ]
+  , [ id := 0x84e2, tag := "IT8Header" ]
+  , [ id := 0x84e3, tag := "RasterPadding" ]
+  , [ id := 0x84e4, tag := "BitsPerRunLength" ]
+  , [ id := 0x84e5, tag := "BitsPerExtendedRunLength" ]
+  , [ id := 0x84e6, tag := "ColorTable" ]
+  , [ id := 0x84e7, tag := "ImageColorIndicator" ]
+  , [ id := 0x84e8, tag := "BackgroundColorIndicator" ]
+  , [ id := 0x84e9, tag := "ImageColorValue" ]
+  , [ id := 0x84ea, tag := "BackgroundColorValue" ]
+  , [ id := 0x84eb, tag := "PixelIntensityRange" ]
+  , [ id := 0x84ec, tag := "TransparencyIndicator" ]
+  , [ id := 0x84ed, tag := "ColorCharacterization" ]
+  , [ id := 0x84ee, tag := "HCUsage" ]
+  , [ id := 0x84ef, tag := "TrapIndicator" ]
+  , [ id := 0x84f0, tag := "CMYKEquivalent" ]
+  , [ id := 0x8546, tag := "SEMInfo" ]
+  , [ id := 0x8568, tag := "AFCP_IPTC" ]
+  , [ id := 0x85b8, tag := "PixelMagicJBIGOptions" ]
+  , [ id := 0x85d8, tag := "ModelTransform" ]
+  , [ id := 0x8602, tag := "WB_GRGBLevels" ]
+  , [ id := 0x8606, tag := "LeafData" ]
+  , [ id := 0x8649, tag := "PhotoshopSettings" ]
+  , [ id := 0x8769, tag := "ExifOffset" ]
+  , [ id := 0x8773, tag := "ICC_Profile" ]
+  , [ id := 0x877f, tag := "TIFF_FXExtensions" ]
+  , [ id := 0x8780, tag := "MultiProfiles" ]
+  , [ id := 0x8781, tag := "SharedData" ]
+  , [ id := 0x8782, tag := "T88Options" ]
+  , [ id := 0x87ac, tag := "ImageLayer" ]
+  , [ id := 0x87af, tag := "GeoTiffDirectory" ]
+  , [ id := 0x87b0, tag := "GeoTiffDoubleParams" ]
+  , [ id := 0x87b1, tag := "GeoTiffAsciiParams" ]
+  , [ id := 0x8822, tag := "ExposureProgram" ]
+  , [ id := 0x8824, tag := "SpectralSensitivity" ]
+  , [ id := 0x8825, tag := "GPSInfo" ]
+  , [ id := 0x8827, tag := "ISO" ]
+  , [ id := 0x8828, tag := "Opto-ElectricConvFactor" ]
+  , [ id := 0x8829, tag := "Interlace" ]
+  , [ id := 0x882a, tag := "TimeZoneOffset" ]
+  , [ id := 0x882b, tag := "SelfTimerMode" ]
+  , [ id := 0x8830, tag := "SensitivityType" ]
+  , [ id := 0x8831, tag := "StandardOutputSensitivity" ]
+  , [ id := 0x8832, tag := "RecommendedExposureIndex" ]
+  , [ id := 0x8833, tag := "ISOSpeed" ]
+  , [ id := 0x8834, tag := "ISOSpeedLatitudeyyy" ]
+  , [ id := 0x8835, tag := "ISOSpeedLatitudezzz" ]
+  , [ id := 0x885c, tag := "FaxRecvParams" ]
+  , [ id := 0x885d, tag := "FaxSubAddress" ]
+  , [ id := 0x885e, tag := "FaxRecvTime" ]
+  , [ id := 0x888a, tag := "LeafSubIFD" ]
+  , [ id := 0x9000, tag := "ExifVersion" ]
+  , [ id := 0x9003, tag := "DateTimeOriginal" ]
+  , [ id := 0x9004, tag := "CreateDate" ]
+  , [ id := 0x9101, tag := "ComponentsConfiguration" ]
+  , [ id := 0x9102, tag := "CompressedBitsPerPixel" ]
+  , [ id := 0x9201, tag := "ShutterSpeedValue" ]
+  , [ id := 0x9202, tag := "ApertureValue" ]
+  , [ id := 0x9203, tag := "BrightnessValue" ]
+  , [ id := 0x9204, tag := "ExposureCompensation" ]
+  , [ id := 0x9205, tag := "MaxApertureValue" ]
+  , [ id := 0x9206, tag := "SubjectDistance" ]
+  , [ id := 0x9207, tag := "MeteringMode" ]
+  , [ id := 0x9208, tag := "LightSource" ]
+  , [ id := 0x9209, tag := "Flash" ]
+  , [ id := 0x920a, tag := "FocalLength" ]
+  , [ id := 0x920b, tag := "FlashEnergy" ]
+  , [ id := 0x920c, tag := "SpatialFrequencyResponse" ]
+  , [ id := 0x920d, tag := "Noise" ]
+  , [ id := 0x920e, tag := "FocalPlaneXResolution" ]
+  , [ id := 0x920f, tag := "FocalPlaneYResolution" ]
+  , [ id := 0x9210, tag := "FocalPlaneResolutionUnit" ]
+  , [ id := 0x9211, tag := "ImageNumber" ]
+  , [ id := 0x9212, tag := "SecurityClassification" ]
+  , [ id := 0x9213, tag := "ImageHistory" ]
+  , [ id := 0x9214, tag := "SubjectArea" ]
+  , [ id := 0x9215, tag := "ExposureIndex" ]
+  , [ id := 0x9216, tag := "TIFF-EPStandardID" ]
+  , [ id := 0x9217, tag := "SensingMethod" ]
+  , [ id := 0x923a, tag := "CIP3DataFile" ]
+  , [ id := 0x923b, tag := "CIP3Sheet" ]
+  , [ id := 0x923c, tag := "CIP3Side" ]
+  , [ id := 0x923f, tag := "StoNits" ]
+  , [ id := 0x927c, tag := "MakerNote(????)" ]
+  , [ id := 0x9286, tag := "UserComment" ]
+  , [ id := 0x9290, tag := "SubSecTime" ]
+  , [ id := 0x9291, tag := "SubSecTimeOriginal" ]
+  , [ id := 0x9292, tag := "SubSecTimeDigitized" ]
+  , [ id := 0x932f, tag := "MSDocumentText" ]
+  , [ id := 0x9330, tag := "MSPropertySetStorage" ]
+  , [ id := 0x9331, tag := "MSDocumentTextPosition" ]
+  , [ id := 0x935c, tag := "ImageSourceData" ]
+  , [ id := 0x9c9b, tag := "XPTitle" ]
+  , [ id := 0x9c9c, tag := "XPComment" ]
+  , [ id := 0x9c9d, tag := "XPAuthor" ]
+  , [ id := 0x9c9e, tag := "XPKeywords" ]
+  , [ id := 0x9c9f, tag := "XPSubject" ]
+  , [ id := 0xa000, tag := "FlashpixVersion" ]
+  , [ id := 0xa001, tag := "ColorSpace" ]
+  , [ id := 0xa002, tag := "ExifImageWidth" ]
+  , [ id := 0xa003, tag := "ExifImageHeight" ]
+  , [ id := 0xa004, tag := "RelatedSoundFile" ]
+  , [ id := 0xa005, tag := "InteropOffset" ]
+  , [ id := 0xa20b, tag := "FlashEnergy" ]
+  , [ id := 0xa20c, tag := "SpatialFrequencyResponse" ]
+  , [ id := 0xa20d, tag := "Noise" ]
+  , [ id := 0xa20e, tag := "FocalPlaneXResolution" ]
+  , [ id := 0xa20f, tag := "FocalPlaneYResolution" ]
+  , [ id := 0xa210, tag := "FocalPlaneResolutionUnit" ]
+  , [ id := 0xa211, tag := "ImageNumber" ]
+  , [ id := 0xa212, tag := "SecurityClassification" ]
+  , [ id := 0xa213, tag := "ImageHistory" ]
+  , [ id := 0xa214, tag := "SubjectLocation" ]
+  , [ id := 0xa215, tag := "ExposureIndex" ]
+  , [ id := 0xa216, tag := "TIFF-EPStandardID" ]
+  , [ id := 0xa217, tag := "SensingMethod" ]
+  , [ id := 0xa300, tag := "FileSource" ]
+  , [ id := 0xa301, tag := "SceneType" ]
+  , [ id := 0xa302, tag := "CFAPattern" ]
+  , [ id := 0xa401, tag := "CustomRendered" ]
+  , [ id := 0xa402, tag := "ExposureMode" ]
+  , [ id := 0xa403, tag := "WhiteBalance" ]
+  , [ id := 0xa404, tag := "DigitalZoomRatio" ]
+  , [ id := 0xa405, tag := "FocalLengthIn35mmFormat" ]
+  , [ id := 0xa406, tag := "SceneCaptureType" ]
+  , [ id := 0xa407, tag := "GainControl" ]
+  , [ id := 0xa408, tag := "Contrast" ]
+  , [ id := 0xa409, tag := "Saturation" ]
+  , [ id := 0xa40a, tag := "Sharpness" ]
+  , [ id := 0xa40b, tag := "DeviceSettingDescription" ]
+  , [ id := 0xa40c, tag := "SubjectDistanceRange" ]
+  , [ id := 0xa420, tag := "ImageUniqueID" ]
+  , [ id := 0xa430, tag := "OwnerName" ]
+  , [ id := 0xa431, tag := "SerialNumber" ]
+  , [ id := 0xa432, tag := "LensInfo" ]
+  , [ id := 0xa433, tag := "LensMake" ]
+  , [ id := 0xa434, tag := "LensModel" ]
+  , [ id := 0xa435, tag := "LensSerialNumber" ]
+  , [ id := 0xa480, tag := "GDALMetadata" ]
+  , [ id := 0xa481, tag := "GDALNoData" ]
+  , [ id := 0xa500, tag := "Gamma" ]
+  , [ id := 0xafc0, tag := "ExpandSoftware" ]
+  , [ id := 0xafc1, tag := "ExpandLens" ]
+  , [ id := 0xafc2, tag := "ExpandFilm" ]
+  , [ id := 0xafc3, tag := "ExpandFilterLens" ]
+  , [ id := 0xafc4, tag := "ExpandScanner" ]
+  , [ id := 0xafc5, tag := "ExpandFlashLamp" ]
+  , [ id := 0xbc01, tag := "PixelFormat" ]
+  , [ id := 0xbc02, tag := "Transformation" ]
+  , [ id := 0xbc03, tag := "Uncompressed" ]
+  , [ id := 0xbc04, tag := "ImageType" ]
+  , [ id := 0xbc80, tag := "ImageWidth" ]
+  , [ id := 0xbc81, tag := "ImageHeight" ]
+  , [ id := 0xbc82, tag := "WidthResolution" ]
+  , [ id := 0xbc83, tag := "HeightResolution" ]
+  , [ id := 0xbcc0, tag := "ImageOffset" ]
+  , [ id := 0xbcc1, tag := "ImageByteCount" ]
+  , [ id := 0xbcc2, tag := "AlphaOffset" ]
+  , [ id := 0xbcc3, tag := "AlphaByteCount" ]
+  , [ id := 0xbcc4, tag := "ImageDataDiscard" ]
+  , [ id := 0xbcc5, tag := "AlphaDataDiscard" ]
+  , [ id := 0xc427, tag := "OceScanjobDesc" ]
+  , [ id := 0xc428, tag := "OceApplicationSelector" ]
+  , [ id := 0xc429, tag := "OceIDNumber" ]
+  , [ id := 0xc42a, tag := "OceImageLogic" ]
+  , [ id := 0xc44f, tag := "Annotations" ]
+  , [ id := 0xc4a5, tag := "PrintIM" ]
+  , [ id := 0xc580, tag := "USPTOOriginalContentType" ]
+  , [ id := 0xc612, tag := "DNGVersion" ]
+  , [ id := 0xc613, tag := "DNGBackwardVersion" ]
+  , [ id := 0xc614, tag := "UniqueCameraModel" ]
+  , [ id := 0xc615, tag := "LocalizedCameraModel" ]
+  , [ id := 0xc616, tag := "CFAPlaneColor" ]
+  , [ id := 0xc617, tag := "CFALayout" ]
+  , [ id := 0xc618, tag := "LinearizationTable" ]
+  , [ id := 0xc619, tag := "BlackLevelRepeatDim" ]
+  , [ id := 0xc61a, tag := "BlackLevel" ]
+  , [ id := 0xc61b, tag := "BlackLevelDeltaH" ]
+  , [ id := 0xc61c, tag := "BlackLevelDeltaV" ]
+  , [ id := 0xc61d, tag := "WhiteLevel" ]
+  , [ id := 0xc61e, tag := "DefaultScale" ]
+  , [ id := 0xc61f, tag := "DefaultCropOrigin" ]
+  , [ id := 0xc620, tag := "DefaultCropSize" ]
+  , [ id := 0xc621, tag := "ColorMatrix1" ]
+  , [ id := 0xc622, tag := "ColorMatrix2" ]
+  , [ id := 0xc623, tag := "CameraCalibration1" ]
+  , [ id := 0xc624, tag := "CameraCalibration2" ]
+  , [ id := 0xc625, tag := "ReductionMatrix1" ]
+  , [ id := 0xc626, tag := "ReductionMatrix2" ]
+  , [ id := 0xc627, tag := "AnalogBalance" ]
+  , [ id := 0xc628, tag := "AsShotNeutral" ]
+  , [ id := 0xc629, tag := "AsShotWhiteXY" ]
+  , [ id := 0xc62a, tag := "BaselineExposure" ]
+  , [ id := 0xc62b, tag := "BaselineNoise" ]
+  , [ id := 0xc62c, tag := "BaselineSharpness" ]
+  , [ id := 0xc62d, tag := "BayerGreenSplit" ]
+  , [ id := 0xc62e, tag := "LinearResponseLimit" ]
+  , [ id := 0xc62f, tag := "CameraSerialNumber" ]
+  , [ id := 0xc630, tag := "DNGLensInfo" ]
+  , [ id := 0xc631, tag := "ChromaBlurRadius" ]
+  , [ id := 0xc632, tag := "AntiAliasStrength" ]
+  , [ id := 0xc633, tag := "ShadowScale" ]
+  , [ id := 0xc634, tag := "SR2Private????" ]
+  , [ id := 0xc634, tag := "DNGAdobeData????" ]
+  , [ id := 0xc634, tag := "MakerNotePentax????" ]
+  , [ id := 0xc634, tag := "DNGPrivateData????" ]
+  , [ id := 0xc635, tag := "MakerNoteSafety" ]
+  , [ id := 0xc640, tag := "RawImageSegmentation" ]
+  , [ id := 0xc65a, tag := "CalibrationIlluminant1" ]
+  , [ id := 0xc65b, tag := "CalibrationIlluminant2" ]
+  , [ id := 0xc65c, tag := "BestQualityScale" ]
+  , [ id := 0xc65d, tag := "RawDataUniqueID" ]
+  , [ id := 0xc660, tag := "AliasLayerMetadata" ]
+  , [ id := 0xc68b, tag := "OriginalRawFileName" ]
+  , [ id := 0xc68c, tag := "OriginalRawFileData" ]
+  , [ id := 0xc68d, tag := "ActiveArea" ]
+  , [ id := 0xc68e, tag := "MaskedAreas" ]
+  , [ id := 0xc68f, tag := "AsShotICCProfile" ]
+  , [ id := 0xc690, tag := "AsShotPreProfileMatrix" ]
+  , [ id := 0xc691, tag := "CurrentICCProfile" ]
+  , [ id := 0xc692, tag := "CurrentPreProfileMatrix" ]
+  , [ id := 0xc6bf, tag := "ColorimetricReference" ]
+  , [ id := 0xc6d2, tag := "PanasonicTitle" ]
+  , [ id := 0xc6d3, tag := "PanasonicTitle2" ]
+  , [ id := 0xc6f3, tag := "CameraCalibrationSig" ]
+  , [ id := 0xc6f4, tag := "ProfileCalibrationSig" ]
+  , [ id := 0xc6f5, tag := "ProfileIFD" ]
+  , [ id := 0xc6f6, tag := "AsShotProfileName" ]
+  , [ id := 0xc6f7, tag := "NoiseReductionApplied" ]
+  , [ id := 0xc6f8, tag := "ProfileName" ]
+  , [ id := 0xc6f9, tag := "ProfileHueSatMapDims" ]
+  , [ id := 0xc6fa, tag := "ProfileHueSatMapData1" ]
+  , [ id := 0xc6fb, tag := "ProfileHueSatMapData2" ]
+  , [ id := 0xc6fc, tag := "ProfileToneCurve" ]
+  , [ id := 0xc6fd, tag := "ProfileEmbedPolicy" ]
+  , [ id := 0xc6fe, tag := "ProfileCopyright" ]
+  , [ id := 0xc714, tag := "ForwardMatrix1" ]
+  , [ id := 0xc715, tag := "ForwardMatrix2" ]
+  , [ id := 0xc716, tag := "PreviewApplicationName" ]
+  , [ id := 0xc717, tag := "PreviewApplicationVersion" ]
+  , [ id := 0xc718, tag := "PreviewSettingsName" ]
+  , [ id := 0xc719, tag := "PreviewSettingsDigest" ]
+  , [ id := 0xc71a, tag := "PreviewColorSpace" ]
+  , [ id := 0xc71b, tag := "PreviewDateTime" ]
+  , [ id := 0xc71c, tag := "RawImageDigest" ]
+  , [ id := 0xc71d, tag := "OriginalRawFileDigest" ]
+  , [ id := 0xc71e, tag := "SubTileBlockSize" ]
+  , [ id := 0xc71f, tag := "RowInterleaveFactor" ]
+  , [ id := 0xc725, tag := "ProfileLookTableDims" ]
+  , [ id := 0xc726, tag := "ProfileLookTableData" ]
+  , [ id := 0xc740, tag := "OpcodeList1" ]
+  , [ id := 0xc741, tag := "OpcodeList2" ]
+  , [ id := 0xc74e, tag := "OpcodeList3" ]
+  , [ id := 0xc761, tag := "NoiseProfile" ]
+  , [ id := 0xc763, tag := "TimeCodes" ]
+  , [ id := 0xc764, tag := "FrameRate" ]
+  , [ id := 0xc772, tag := "TStop" ]
+  , [ id := 0xc789, tag := "ReelName" ]
+  , [ id := 0xc791, tag := "OriginalDefaultFinalSize" ]
+  , [ id := 0xc792, tag := "OriginalBestQualitySize" ]
+  , [ id := 0xc793, tag := "OriginalDefaultCropSize" ]
+  , [ id := 0xc7a1, tag := "CameraLabel" ]
+  , [ id := 0xc7a3, tag := "ProfileHueSatMapEncoding" ]
+  , [ id := 0xc7a4, tag := "ProfileLookTableEncoding" ]
+  , [ id := 0xc7a5, tag := "BaselineExposureOffset" ]
+  , [ id := 0xc7a6, tag := "DefaultBlackRender" ]
+  , [ id := 0xc7a7, tag := "NewRawImageDigest" ]
+  , [ id := 0xc7a8, tag := "RawToPreviewGain" ]
+  , [ id := 0xc7b5, tag := "DefaultUserCrop" ]
+  , [ id := 0xea1c, tag := "Padding" ]
+  , [ id := 0xea1d, tag := "OffsetSchema" ]
+  , [ id := 0xfde8, tag := "OwnerName" ]
+  , [ id := 0xfde9, tag := "SerialNumber" ]
+  , [ id := 0xfdea, tag := "Lens" ]
+  , [ id := 0xfe00, tag := "KDC_IFD" ]
+  , [ id := 0xfe4c, tag := "RawFile" ]
+  , [ id := 0xfe4d, tag := "Converter" ]
+  , [ id := 0xfe4e, tag := "WhiteBalance" ]
+  , [ id := 0xfe51, tag := "Exposure" ]
+  , [ id := 0xfe52, tag := "Shadows" ]
+  , [ id := 0xfe53, tag := "Brightness" ]
+  , [ id := 0xfe54, tag := "Contrast" ]
+  , [ id := 0xfe55, tag := "Saturation" ]
+  , [ id := 0xfe56, tag := "Sharpness" ]
+  , [ id := 0xfe57, tag := "Smoothness" ]
+  , [ id := 0xfe58, tag := "MoireFilter" ]
+  ];
+
+  RECORD ARRAY known_gps_tags :=
+  [ [ id := 0x0000, tag := "GPSVersionID" ]
+  , [ id := 0x0001, tag := "GPSLatitudeRef" ]
+  , [ id := 0x0002, tag := "GPSLatitude" ]
+  , [ id := 0x0003, tag := "GPSLongitudeRef" ]
+  , [ id := 0x0004, tag := "GPSLongitude" ]
+  , [ id := 0x0005, tag := "GPSAltitudeRef" ]
+  , [ id := 0x0006, tag := "GPSAltitude" ]
+  , [ id := 0x0007, tag := "GPSTimeStamp" ]
+  , [ id := 0x0008, tag := "GPSSatellites" ]
+  , [ id := 0x0009, tag := "GPSStatus" ]
+  , [ id := 0x000a, tag := "GPSMeasureMode" ]
+  , [ id := 0x000b, tag := "GPSDOP" ]
+  , [ id := 0x000c, tag := "GPSSpeedRef" ]
+  , [ id := 0x000d, tag := "GPSSpeed" ]
+  , [ id := 0x000e, tag := "GPSTrackRef" ]
+  , [ id := 0x000f, tag := "GPSTrack" ]
+  , [ id := 0x0010, tag := "GPSImgDirectionRef" ]
+  , [ id := 0x0011, tag := "GPSImgDirection" ]
+  , [ id := 0x0012, tag := "GPSMapDatum" ]
+  , [ id := 0x0013, tag := "GPSDestLatitudeRef" ]
+  , [ id := 0x0014, tag := "GPSDestLatitude" ]
+  , [ id := 0x0015, tag := "GPSDestLongitudeRef" ]
+  , [ id := 0x0016, tag := "GPSDestLongitude" ]
+  , [ id := 0x0017, tag := "GPSDestBearingRef" ]
+  , [ id := 0x0018, tag := "GPSDestBearing" ]
+  , [ id := 0x0019, tag := "GPSDestDistanceRef" ]
+  , [ id := 0x001a, tag := "GPSDestDistance" ]
+  , [ id := 0x001b, tag := "GPSProcessingMethod" ]
+  , [ id := 0x001c, tag := "GPSAreaInformation" ]
+  , [ id := 0x001d, tag := "GPSDateStamp" ]
+  , [ id := 0x001e, tag := "GPSDifferential" ]
+  , [ id := 0x001f, tag := "GPSHPositioningError" ]
+  ];
+
+  cache_idf_types :=
+    [ [ tag := "IDF0", knowntags := known_exif_tags ]
+    , [ tag := "IDF1", knowntags := known_exif_tags ]
+    , [ tag := "EXIF", knowntags := known_exif_tags ]
+    , [ tag := "GPS",  knowntags := known_gps_tags  ]
+    ];
+
+  RETURN cache_idf_types;
+}
+
+RECORD ARRAY FUNCTION GetKnownExifTags()
+{
+  RETURN GetIDFTypes()[0].knowntags;
+}
+
+
+PUBLIC STATIC OBJECTTYPE EXIF_Parser
+<
+  PUBLIC /*FIXME*/ RECORD ARRAY ids_blocks;
+
+  BLOB filedata;
+  INTEGER filehandle;
+  BOOLEAN little_endian;
+
+  PUBLIC PROPERTY GeneralTags(GetGeneralTags, -);
+
+  PUBLIC PROPERTY ExifTags(GetExifTags, -);
+
+  RECORD pvt_exifinterpreted;
+  PUBLIC PROPERTY ExifInterpreted(GetInterpretedExifData, -);
+
+  PUBLIC PROPERTY GPSTags(GetGPSTags, -);
+
+  RECORD pvt_gpsinterpreted;
+  PUBLIC PROPERTY GPSInterpreted(GetInterpretedGPSData, -);
+
+
+
+  MACRO NEW(BLOB data)
+  {
+    this->filedata := data;
+
+    this->filehandle := OpenBlobAsFile(this->filedata);
+    STRING fileheader := ReadFrom(this->filehandle,1024);
+
+    // Find out whether it's an JPEG or TIFF
+    // ADDME:  or NEF or DNG...
+    IF(Left(fileheader,3) = "\xFF\xD8\xFF") // a jpeg file
+      this->ParseJPEG();
+    ELSE
+    {
+      this->__ParseTIFFTags(PTR this->ReadTIFFData(this->filehandle, #1, #2));
+    }
+
+    __HS_CloseFile(this->filehandle);
+  }
+
+
+
+  MACRO ParseJPEG()
+  {
+    //JPEG is a much complexer file format. We must scan for a 'SOFn' header, containing image data
+    INTEGER filelen := Length(this->filedata);
+    INTEGER filepos := 2; //initial segment
+    RECORD ARRAY tags;
+
+    WHILE (filepos < filelen)
+    {
+      SetFilePointer(this->filehandle, filepos);
+      STRING segmentdata := ReadFrom(this->filehandle, 64);
+      RECORD segmentinfo := DecodePacket("start:C,type:C,len:N", segmentdata);
+      IF (NOT RecordExists(segmentinfo))
+        RETURN;// tags; //This is a corrupted JPEG file, ignore it!
+
+      IF (segmentinfo.start=255 AND segmentinfo.type=225 AND Substring(segmentdata,4,6)="Exif\0\0") //An APP1 EXIF data block
+      {
+        SetFilePointer(this->filehandle, filepos+10);
+        STRING exifdata := ReadFrom(this->filehandle, segmentinfo.len-8);
+        tags := this->__ParseTIFFTags(PTR this->ReadEXIFData(exifdata, #1, #2));
+        BREAK;
+      }
+      filepos := filepos + 2 + segmentinfo.len; //to the next segment
+    }
+  }
+
+  RECORD ARRAY FUNCTION GetGeneralTags()
+  {
+    RECORD exifidf := SELECT * FROM this->ids_blocks WHERE type = "IDF0";
+    IF (RecordExists(exifidf))
+      RETURN exifidf.tags;
+
+    RETURN DEFAULT RECORD ARRAY; // ??
+  }
+
+  RECORD ARRAY FUNCTION GetExifTags()
+  {
+    RECORD exifidf := SELECT * FROM this->ids_blocks WHERE type = "EXIF";
+    IF (RecordExists(exifidf))
+      RETURN exifidf.tags;
+
+    RETURN DEFAULT RECORD ARRAY; // ??
+  }
+
+  RECORD ARRAY FUNCTION GetGPSTags()
+  {
+    RECORD exifidf := SELECT * FROM this->ids_blocks WHERE type = "GPS";
+    IF (RecordExists(exifidf))
+      RETURN exifidf.tags;
+
+    exifidf := this->ExifTags;
+
+    // Extract GPS tags
+    INTEGER gpsoffset := SELECT AS INTEGER singlevalue FROM exifidf.tags WHERE tag=34853; //0x8825;
+    RECORD gps_idf;
+    IF(gpsoffset=0)
+      gps_idf := [ type := "GPS", tags := DEFAULT RECORD ARRAY ];
+    ELSE
+      gps_idf := [ type := "GPS", tags := this->ParseIFD(exifidf.readdata, gpsoffset, this->little_endian, "GPS") ];
+
+    INSERT gps_idf INTO this->ids_blocks AT END;
+    RETURN gps_idf.tags;
+  }
+
+  RECORD FUNCTION GetInterpretedExifData()
+  {
+    IF (RecordExists(this->pvt_exifinterpreted))
+      RETURN this->pvt_exifinterpreted;
+
+    RECORD exifidf := SELECT * FROM this->ids_blocks WHERE type = "EXIF";
+    IF (NOT RecordExists(exifidf))
+      RETURN DEFAULT RECORD;
+
+    RECORD ARRAY tags := exifidf.tags;
+
+
+
+    RECORD exif_idf0 := SELECT * FROM this->ids_blocks WHERE type = "IDF0";
+    RECORD orientation := SELECT * FROM exif_idf0.tags WHERE id = 274;
+    RECORD orientation_description;
+
+    IF (RecordExists(orientation))
+    {
+PRINT(AnyToString(orientation,"tree"));
+      RECORD ARRAY orientationmappings :=
+          [ [ id := 1, title := "Normal",                   rotation := 0, flip := FALSE ]
+          , [ id := 3, title := "Rotate 180 (upside down)", rotation := 180, flip := FALSE ] // twice to the left or right
+          , [ id := 6, title := "Rotated 90 degrees left",  rotation :=  90, flip := FALSE ] // once to the right
+          , [ id := 8, title := "Rotated 90 degrees right", rotation := 270, flip := FALSE ] // aka need to be rotated 90 deg to the left
+
+          , [ id := 2, title := "Mirror horizontal", rotation := 0, flip_h := TRUE ]
+          , [ id := 4, title := "Mirror vertical",   rotation := 0, flip_v := TRUE ]
+          , [ id := 5, title := "Mirror horizontal and rotate 270 CW", rotation := 270, flip_h := TRUE ]
+          , [ id := 7, title := "Mirror horizontal and rotate 90 CW",  rotation := 90,  flip_h := TRUE]
+          ];
+
+      orientation_description := SELECT * FROM orientationmappings WHERE id = orientation.singlevalue;
+    }
+
+    //RECORD iso := SELECT * FROM tags WHERE id = 34855;
+    //RECORD bitspercolor := SELECT * FROM tags WHERE id = 0x102;//258;
+
+    // NOTE: use singlevalue for strings, the rawvalue ends in a 0-byte
+    this->pvt_exifinterpreted :=
+        [ manufacturer := (SELECT AS STRING rawdata FROM tags WHERE id = 271)
+        , model := (SELECT AS STRING rawdata FROM tags WHERE id = 272)
+
+        , orientation := orientation.singlevalue
+        , orientation_description := RecordExists(orientation_description) ? orientation_description : DEFAULT RECORD
+        //, rotate := RecordExists(orientation) ? orientation.rotation : 0
+        //, flip_h := RecordExists(orientation) ? orientation.flip_h : 0
+        //, flip_v := RecordExists(orientation) ? orientation.flip_v : 0
+
+        , width := (SELECT AS INTEGER singlevalue FROM tags WHERE id = 0xa002)//40962) //256)
+        , height := (SELECT AS INTEGER singlevalue FROM tags WHERE id = 0xa003)//40963) //257)
+
+        //, iso := RecordExists(iso) ? iso.singlevalue : 0
+
+        , iso := (SELECT AS INTEGER singlevalue FROM tags WHERE id = 34855)
+        , selftimerdelay := (SELECT AS INTEGER singlevalue FROM tags WHERE id = 34859) // Exif.Image.SelfTimerMode
+
+        // ExposureTime is saved as rational number
+        // ShutterSpeed is defined as APEX Value
+        // http://www.dpreview.com/forums/thread/2301509
+        , shutterspeed   := this->Describe_Apex_ShutterSpeed((SELECT * FROM Tags WHERE id = 37377).singlevalue)
+
+        /*
+        'FNumber' and 'ApertureValue' fields both describe the same thing,
+        but F numbers in older film cameras are fixed but on modern cameras are continuously variable.
+        So if you look at the exif information on your photos it may show an FNumber of 2.8 but an ApertureValue of 3.0.
+        2.8 is the closest standard F number 3.0 is the real aperture used to take the photo.
+
+        The standard F numbers are important because they relate to the the
+        amount of light reaching the film or the sensor.
+        So 2.8 lets in twice as much light as F4 and F16 lets in half as much light as
+        F8.
+
+        http://www.dpreview.com/forums/post/14696137
+        */
+        , fstop          := this->Describe_Apex_FStop((SELECT * FROM Tags WHERE id = 0x9202).singlevalue) // ApertureValue
+
+
+        , creationdate := this->Parse_EXIF_Date(SELECT AS STRING singlevalue FROM tags WHERE id = 36867) // 'Date and time original image was generated'
+        //, creationdata_orig := (SELECT AS STRING rawdata FROM tags WHERE id = 36867)
+        , digitizeddate := this->Parse_EXIF_Date(SELECT AS STRING rawdata FROM tags WHERE id = 36868) // Date and time image was made digital data
+
+        , artist := (SELECT AS STRING rawdata FROM tags WHERE id = 315) // TESTME
+
+        , thumbnail_offset := (SELECT * FROM tags WHERE id = 0x201)
+        , thumbnail_length := (SELECT * FROM tags WHERE id = 0x202)
+
+        , subjectarea := this->ParseSubjectArea(SELECT * FROM tags WHERE id = 0x9214)
+
+        //, bitpercolor := RecordExists(bitspercolor) ? bitspercolor.singlevalue : 0
+        ];
+
+    RETURN this->pvt_exifinterpreted;
+  }
+
+  RECORD FUNCTION GetInterpretedGPSData()
+  {
+    IF (RecordExists(this->pvt_gpsinterpreted))
+      RETURN this->pvt_gpsinterpreted;
+
+    RECORD gpsidf := SELECT * FROM this->ids_blocks WHERE type = "GPS";
+    IF (NOT RecordExists(gpsidf))
+      RETURN DEFAULT RECORD;
+
+    STRING hemisphere_ns := SELECT AS STRING rawdata FROM gpsidf.tags WHERE id = 1;
+    RECORD latitude_tag := SELECT * FROM gpsidf.tags WHERE id = 2;
+
+    STRING hemisphere_ew := SELECT AS STRING rawdata FROM gpsidf.tags WHERE id = 3;
+    RECORD longitude_tag := SELECT * FROM gpsidf.tags WHERE id = 4;
+
+    this->pvt_gpsinterpreted :=
+        [ latitude  := this->ParseGPSLocation(latitude_tag.arraydata, hemisphere_ns)
+        , longitude := this->ParseGPSLocation(longitude_tag.arraydata, hemisphere_ew)
+        ];
+
+    RETURN this->pvt_gpsinterpreted;
+  }
+
+
+
+
+
+
+  STRING FUNCTION ReadTIFFData(INTEGER filehandle, INTEGER start, INTEGER length)
+  {
+    SetFilePointer(filehandle, start);
+    RETURN ReadFrom(filehandle, length);
+  }
+
+
+  PUBLIC STRING FUNCTION ReadEXIFData(STRING exifdata, INTEGER start, INTEGER length)
+  {
+    RETURN Substring(exifdata, start, length);
+  }
+
+
+
+  RECORD FUNCTION ParseSingleTag(FUNCTION PTR readdata, INTEGER position, BOOLEAN little_endian, RECORD ARRAY knowntags)
+  {
+    RECORD tag := DecodePacket(little_endian ? "id:S,type:S,count:L,dataoffset:L" : "id:N,type:N,count:P,dataoffset:P",
+                               readdata(position, 12));
+    IF(NOT RecordExists(tag) OR tag.type<1 OR tag.type>10 OR tag.count<=0)
+      RETURN DEFAULT RECORD;
+
+    INTEGER elementsize := [ 1,1,2,4,8,0,1,0,4,8][tag.type-1];
+    IF(elementsize=0)
+      RETURN DEFAULT RECORD; //undefined type
+
+    INTEGER datasize := elementsize * tag.count;
+
+    STRING rawdata;
+    IF(datasize <= 4) //the data is stored _inside_ dataoffset
+      rawdata := readdata(position + 8, datasize);
+    ELSE
+      rawdata := readdata(tag.dataoffset, datasize);
+
+    //RECORD taginfo := SELECT * FROM knowntags WHERE id = tag.tag;
+    //INSERT CELL title := RecordExists(taginfo) ? taginfo.title : "Tag #" || tag.tag INTO tag;
+
+    RECORD taginfo := SELECT * FROM knowntags WHERE id = tag.id;
+    INSERT CELL tag := RecordExists(taginfo) ? taginfo.tag : "Tag #" || tag.id INTO tag;
+
+    //Okay, we got the data now.
+    SWITCH(tag.type)
+    {
+      CASE 1 //Unsigned bytes
+      {
+        RECORD decodeddata := DecodePacket("data:C*", rawdata);
+        INSERT CELL arraydata := RecordExists(decodeddata) ? decodeddata.data : DEFAULT INTEGER ARRAY INTO tag;
+        INSERT CELL singlevalue := Length(tag.arraydata) > 0 ? tag.arraydata[0] : 0 INTO tag;
+      }
+      CASE 2 //ASCII string
+      {
+        INSERT CELL arraydata := "" INTO tag;
+        // Don't accept strings which are not valid UTF-8
+        RECORD decodedval  := DecodePacket("data:a"||datasize, rawdata);
+        INSERT CELL singlevalue := RecordExists(decodedval) AND IsValidUTF8(decodedval.data) ? decodedval.data : "" INTO tag;
+      }
+      CASE 3 //Short (16bit unsigned)
+      {
+        RECORD decodeddata := DecodePacket(little_endian ? "data:S*" : "data:N*", rawdata);
+        INSERT CELL arraydata := RecordExists(decodeddata) ? decodeddata.data : DEFAULT INTEGER ARRAY INTO tag;
+        INSERT CELL singlevalue := Length(tag.arraydata) > 0 ? tag.arraydata[0] : 0 INTO tag;
+      }
+      CASE 4,9 //Long and Slong (32bit unsigned/signed)
+      {
+        RECORD decodeddata := DecodePacket(tag.type=4 ? little_endian ? "data:L*" : "data:P*" : little_endian ? "data:l*" : "data:p*", rawdata);
+        INSERT CELL arraydata := RecordExists(decodeddata) ? decodeddata.data : DEFAULT INTEGER ARRAY INTO tag;
+        INSERT CELL singlevalue := Length(tag.arraydata) > 0 ? tag.arraydata[0] : 0 INTO tag;
+      }
+      CASE 7 //Undefined
+      {
+        INSERT CELL arraydata := "" INTO tag;
+        INSERT CELL singlevalue := rawdata INTO tag;
+      }
+      CASE 5,10 //Rational, Srational (Pairs of longs, pair of slongs)
+      {
+        RECORD decodeddata := DecodePacket(tag.type=4 ? little_endian ? "data:L*" : "data:P*" : little_endian ? "data:l*" : "data:p*", rawdata);
+        INTEGER ARRAY source := RecordExists(decodeddata) ? decodeddata.data : DEFAULT INTEGER ARRAY;
+        FLOAT ARRAY dest;
+        FOR(INTEGER i:=1;i<Length(source);i:=i+2)
+        {
+          IF(source[i]!=0)
+            INSERT (FLOAT(source[i-1]))/source[i] INTO dest AT END;
+          ELSE
+            INSERT FLOAT(0) INTO dest AT END;
+        }
+
+        INSERT CELL arraydata := dest INTO tag;
+        INSERT CELL singlevalue := Length(tag.arraydata) > 0 ? tag.arraydata[0] : FLOAT(0) INTO tag;
+      }
+    }
+
+    INSERT CELL rawdata := rawdata INTO tag;
+    INSERT CELL tagoffset := position INTO tag;
+    RETURN tag;
+  }
+
+  RECORD FUNCTION ParseIFD(FUNCTION PTR readdata, INTEGER startposition, BOOLEAN little_endian, STRING idf_name)
+  {
+    RECORD retval := [ type := idf_name
+                     , tags := DEFAULT RECORD ARRAY
+                     , next := 0
+                     ];
+
+    RECORD numtags := DecodePacket(little_endian?"num:S":"num:N",readdata(startposition,2));
+    IF (NOT RecordExists(numtags))
+      RETURN retval;
+
+    RECORD idf_description := SELECT * FROM GetIDFTypes() WHERE tag = idf_name;
+    RECORD ARRAY knowntags := RecordExists(idf_description) ? idf_description.knowntags : DEFAULT RECORD ARRAY;
+
+    FOR(INTEGER tag:=0;tag<numtags.num;tag:=tag+1)
+    {
+      RECORD tagrec:= this->ParseSingleTag(readdata, startposition+2+tag*12, little_endian, knowntags);
+      IF(RecordExists(tagrec))
+        INSERT tagrec INTO retval.tags AT END;
+    }
+
+    RECORD nextifdinfo := DecodePacket(little_endian?"pos:L":"pos:P",readdata(startposition+2+12*numtags.num,4));
+    IF(RecordExists(nextifdinfo))
+      retval.next := nextifdinfo.pos;
+
+    INSERT retval INTO this->ids_blocks AT END;
+
+    RETURN retval;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION __ParseTIFFTags(FUNCTION PTR readdata)
+  {
+    RECORD ARRAY alltags;
+
+    BOOLEAN little_endian := readdata(0,2)="II"; //probably Intel Intel and Motorola Motorola
+    this->little_endian := little_endian;
+    IF(NOT little_endian AND readdata(0,2)!="MM")
+      RETURN alltags; //Not a clue
+
+    RECORD header := DecodePacket(little_endian ? ":@2,check:S,first_ifd:L" : ":@2,check:N,first_ifd:P", readdata(0,8));
+
+    IF(NOT RecordExists(header) OR header.check!=42)
+      RETURN alltags; //Not the answer to... (not following the EXIF spec, at least - there's always a 42 here)
+
+    INTEGER ifd_offset := header.first_ifd;
+    WHILE(TRUE)
+    {
+      RECORD result := this->ParseIFD(readdata, ifd_offset, little_endian, "IDF0");
+      alltags:=alltags CONCAT result.tags;
+      IF(result.next <= ifd_offset) //Must ensure forward progress, also 0 is at terminator
+        BREAK;
+      ifd_offset := result.next;
+    }
+
+  //PRINT(anytostring(alltags,"treE"));
+  //return default record array;
+
+    // Extract EXIF tags
+    INTEGER exifoffset := SELECT AS INTEGER singlevalue FROM alltags WHERE id=34665;
+    IF(exifoffset!=0)
+    {
+      RECORD result := this->ParseIFD(readdata, exifoffset, little_endian, "EXIF");
+//  print(anytostring(result,"tree"));
+      alltags:=alltags CONCAT result.tags;
+    }
+
+    // Extract GPS tags
+    INTEGER gpsoffset := SELECT AS INTEGER singlevalue FROM alltags WHERE id=34853; //0x8825;
+    IF(gpsoffset!=0)
+    {
+      RECORD result := this->ParseIFD(readdata, gpsoffset, little_endian, "GPS");
+      alltags:=alltags CONCAT result.tags;
+    }
+    RETURN alltags;
+  }
+
+
+  /////////////////////////////////////////////////////////////////
+  //
+  // Helpers for interpreting data data
+  //
+
+  // see http://stackoverflow.com/questions/2526304/php-extract-gps-exif-data
+  FLOAT FUNCTION ParseGPSLocation(FLOAT ARRAY parts, STRING hemisphere)
+  {
+    // The format of the coordinates is split in parts like this notation: 52° 13' 48" N
+    FLOAT degrees := Length(parts) > 0 ? parts[0] : 0f;
+    FLOAT minutes := Length(parts) > 1 ? parts[1] : 0f;
+    FLOAT seconds := Length(parts) > 2 ? parts[2] : 0f;
+
+    FLOAT val := degrees + minutes/60 + seconds/3600;
+
+    IF (hemisphere IN ["W","S"])
+      RETURN -val;
+    ELSE
+      RETURN val;
+    //RETURN Floor(latitude_tag.arraydata[0]) + Floor(latitude_tag.arraydata[1] + 0.5)/100;
+  }
+
+  STRING FUNCTION Describe_Apex_ShutterSpeed(FLOAT apexvalue)
+  {
+    FLOAT shutterspeed := Pow(2f, -apexvalue);
+    IF (shutterspeed < 0)
+      RETURN "";
+
+    IF (shutterspeed > 1)
+      RETURN FormatFloat(Floor(shutterspeed + 0.5), 2)||"s";
+
+    RETURN "1/"||FormatFloat(Floor(1/shutterspeed + 0.5),0)||"s";
+  }
+
+  STRING FUNCTION Describe_Apex_FStop(FLOAT apexvalue)
+  {
+    FLOAT fstop := Pow(2f, apexvalue/2);
+    IF (fstop < 0)
+      RETURN "";
+
+    RETURN "f/"||FormatFloat(Floor(fstop + 0.5), 1);
+  }
+
+  /** @short convert EXIF's "YYYY:MM:DD HH:MM:SS" notation into a DATETIME
+  */
+  DATETIME FUNCTION Parse_EXIF_Date(STRING exifdata)
+  {
+    // NOTE: MakeDateFromText cannot propertly parse EXIF's datetime format so whe'll have to do it ourselves
+
+    STRING ARRAY dtparts := Tokenize(exifdata, " ");
+
+    IF (Length(dtparts) != 2)
+      RETURN DEFAULT DATETIME; // invalid format
+
+    STRING ARRAY datecomponents := Tokenize(dtparts[0], ":");
+
+    STRING ARRAY timecomponents := Tokenize(dtparts[1], ":");
+
+//PRINT("**"||anytostring(timecomponents[2],"tree")||"**");
+//PRINT("*"||timecomponents[2]||"*"||ToInteger(timecomponents[2], 0)||"**");
+
+    RETURN MakeDateTime( ToInteger(datecomponents[0], 0)
+                       , ToInteger(datecomponents[1], 0)
+                       , ToInteger(datecomponents[2], 0)
+                       , ToInteger(timecomponents[0], 0)
+                       , ToInteger(timecomponents[1], 0)
+                       , ToInteger(timecomponents[2], 0)
+                       );
+  }
+
+  // FIXME: should we provide a rotated version of the positions too?
+  RECORD FUNCTION ParseSubjectArea(RECORD tag)
+  {
+    IF (tag.count = 3)
+    {
+      RETURN [ x := tag.arraydata[0]
+             , y := tag.arraydata[1]
+             , shape := "circle"
+             , radius := tag.arraydata[2]
+             ];
+    }
+    ELSE IF (tag.count = 4)
+    {
+      RETURN [ x := tag.arraydata[0]
+             , y := tag.arraydata[1]
+             , shape := "circle"
+             , radius := tag.arraydata[2]
+             ];
+    }
+    ELSE
+      RETURN DEFAULT RECORD;
+  }
+>;
+
+
+
+
+// FIXME: make old code below use the new class??
+
+RECORD FUNCTION ParseSingleTag(FUNCTION PTR readdata, INTEGER position, BOOLEAN little_endian)
+{
+  RECORD tag := DecodePacket(little_endian ? "tag:S,type:S,count:L,dataoffset:L" : "tag:N,type:N,count:P,dataoffset:P",
+                             readdata(position, 12));
+  IF(NOT RecordExists(tag) OR tag.type<1 OR tag.type>10 OR tag.count<=0)
+    RETURN DEFAULT RECORD;
+
+  INTEGER elementsize := [ 1,1,2,4,8,0,1,0,4,8][tag.type-1];
+  IF(elementsize=0)
+    RETURN DEFAULT RECORD; //undefined type
+
+  INTEGER datasize := elementsize * tag.count;
+
+  STRING rawdata;
+  IF(datasize <= 4) //the data is stored _inside_ dataoffset
+    rawdata := readdata(position + 8, datasize);
+  ELSE
+    rawdata := readdata(tag.dataoffset, datasize);
+
+  RECORD taginfo := SELECT * FROM GetKnownExifTags() WHERE id = tag.tag;
+  INSERT CELL title := RecordExists(taginfo) ? taginfo.tag/*taginfo.title*/ : "Tag #" || tag.tag INTO tag;
+
+  //Okay, we got the data now.
+  SWITCH(tag.type)
+  {
+    CASE 1 //Unsigned bytes
+    {
+      RECORD decodeddata := DecodePacket("data:C*", rawdata);
+      INSERT CELL arraydata := RecordExists(decodeddata) ? decodeddata.data : DEFAULT INTEGER ARRAY INTO tag;
+      INSERT CELL singlevalue := Length(tag.arraydata) > 0 ? tag.arraydata[0] : 0 INTO tag;
+    }
+    CASE 2 //ASCII string
+    {
+      INSERT CELL arraydata := "" INTO tag;
+      // Don't accept strings which are not valid UTF-8
+      RECORD decodedval  := DecodePacket("data:a"||datasize, rawdata);
+      INSERT CELL singlevalue := RecordExists(decodedval) AND IsValidUTF8(decodedval.data) ? decodedval.data : "" INTO tag;
+    }
+    CASE 3 //Short (16bit unsigned)
+    {
+      RECORD decodeddata := DecodePacket(little_endian ? "data:S*" : "data:N*", rawdata);
+      INSERT CELL arraydata := RecordExists(decodeddata) ? decodeddata.data : DEFAULT INTEGER ARRAY INTO tag;
+      INSERT CELL singlevalue := Length(tag.arraydata) > 0 ? tag.arraydata[0] : 0 INTO tag;
+    }
+    CASE 4,9 //Long and Slong (32bit unsigned/signed)
+    {
+      RECORD decodeddata := DecodePacket(tag.type=4 ? little_endian ? "data:L*" : "data:P*" : little_endian ? "data:l*" : "data:p*", rawdata);
+      INSERT CELL arraydata := RecordExists(decodeddata) ? decodeddata.data : DEFAULT INTEGER ARRAY INTO tag;
+      INSERT CELL singlevalue := Length(tag.arraydata) > 0 ? tag.arraydata[0] : 0 INTO tag;
+    }
+    CASE 7 //Undefined
+    {
+      INSERT CELL arraydata := "" INTO tag;
+      INSERT CELL singlevalue := rawdata INTO tag;
+    }
+    CASE 5,10 //Rational, Srational (Pairs of longs, pair of slongs)
+    {
+      RECORD decodeddata := DecodePacket(tag.type=4 ? little_endian ? "data:L*" : "data:P*" : little_endian ? "data:l*" : "data:p*", rawdata);
+      INTEGER ARRAY source := RecordExists(decodeddata) ? decodeddata.data : DEFAULT INTEGER ARRAY;
+      FLOAT ARRAY dest;
+      FOR(INTEGER i:=1;i<Length(source);i:=i+2)
+      {
+        IF(source[i]!=0)
+          INSERT (FLOAT(source[i-1]))/source[i] INTO dest AT END;
+        ELSE
+          INSERT FLOAT(0) INTO dest AT END;
+      }
+
+      INSERT CELL arraydata := dest INTO tag;
+      INSERT CELL singlevalue := Length(tag.arraydata) > 0 ? tag.arraydata[0] : FLOAT(0) INTO tag;
+    }
+  }
+
+  INSERT CELL rawdata := rawdata INTO tag;
+  INSERT CELL tagoffset := position INTO tag;
+  RETURN tag;
+}
+
+RECORD FUNCTION ParseIFD(FUNCTION PTR readdata, INTEGER startposition, BOOLEAN little_endian)
+{
+  RECORD retval := [ tags := DEFAULT RECORD ARRAY
+                   , next := 0
+                   ];
+
+  RECORD numtags := DecodePacket(little_endian?"num:S":"num:N",readdata(startposition,2));
+  IF (NOT RecordExists(numtags))
+    RETURN retval;
+
+  FOR(INTEGER tag:=0;tag<numtags.num;tag:=tag+1)
+  {
+    RECORD tagrec:= ParseSingleTag(readdata, startposition+2+tag*12, little_endian);
+    IF(RecordExists(tagrec))
+      INSERT tagrec INTO retval.tags AT END;
+  }
+
+  RECORD nextifdinfo := DecodePacket(little_endian?"pos:L":"pos:P",readdata(startposition+2+12*numtags.num,4));
+  IF(RecordExists(nextifdinfo))
+    retval.next := nextifdinfo.pos;
+  RETURN retval;
+}
+
+PUBLIC RECORD ARRAY FUNCTION __ParseTIFFTags(FUNCTION PTR readdata)
+{
+  RECORD ARRAY alltags;
+
+  BOOLEAN little_endian := readdata(0,2)="II"; //probably Intel Intel and Motorola Motorola
+  IF(NOT little_endian AND readdata(0,2)!="MM")
+    RETURN alltags; //Not a clue
+
+  RECORD header := DecodePacket(little_endian ? ":@2,check:S,first_ifd:L" : ":@2,check:N,first_ifd:P", readdata(0,8));
+
+  IF(NOT RecordExists(header) OR header.check!=42)
+    RETURN alltags; //Not the answer to... (not following the EXIF spec, at least - there's always a 42 here)
+
+  INTEGER ifd_offset := header.first_ifd;
+  WHILE(TRUE)
+  {
+    RECORD result := ParseIFD(readdata, ifd_offset, little_endian);
+    alltags:=alltags CONCAT result.tags;
+    IF(result.next <= ifd_offset) //Must ensure forward progress, also 0 is at erminator
+      BREAK;
+    ifd_offset := result.next;
+  }
+
+  INTEGER exifoffset := SELECT AS INTEGER singlevalue FROM alltags WHERE tag=34665;
+  IF(exifoffset!=0)
+  {
+    RECORD result := ParseIFD(readdata, exifoffset, little_endian);
+    alltags:=alltags CONCAT result.tags;
+  }
+  RETURN alltags;
+}
+
+PUBLIC STRING FUNCTION ReadEXIFData(STRING exifdata, INTEGER start, INTEGER length)
+{
+  RETURN Substring(exifdata, start, length);
+}
+
+STRING FUNCTION ReadTIFFData(INTEGER filehandle, INTEGER start, INTEGER length)
+{
+  SetFilePointer(filehandle, start);
+  RETURN ReadFrom(filehandle, length);
+}
+
+PUBLIC RECORD ARRAY FUNCTION ExtractTIFFTags(BLOB filedata)
+{
+  INTEGER filehandle := OpenBlobAsFile(filedata);
+  STRING fileheader := ReadFrom(filehandle,1024);
+  RECORD ARRAY tags := __ParseTIFFTags(PTR ReadTIFFData(filehandle, #1, #2));
+  __HS_CloseFile(filehandle);
+  RETURN tags;
+}

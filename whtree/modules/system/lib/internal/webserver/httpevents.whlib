@@ -1,0 +1,7 @@
+﻿<?wh
+
+/** This library publishes the functions to introspect/manage httpevents in the webserver. Only accessible
+    in the context of the webserver.
+*/
+
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib" EXPORT GetHTTPEventListenerCounts, ClearHTTPEventMessages;

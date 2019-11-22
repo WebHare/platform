@@ -1,0 +1,131 @@
+<?wh
+LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// Get options from an instance array member
+//
+PUBLIC OBJECTTYPE WHFSInstanceOptions EXTEND TolliumOptionSourceBase
+<
+  PUBLIC STRING site;
+  PUBLIC STRING fullpath;
+  PUBLIC STRING typedef;
+  PUBLIC STRING arraycell;
+  PUBLIC STRING rowkeycell;
+  PUBLIC STRING titlecell;
+
+  OBJECT type;
+
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposableListener;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumOptionSourceBase::StaticInit(def);
+    this->site := def.site;
+    this->fullpath := def.fullpath;
+    this->typedef := def.typedef;
+    this->arraycell := def.arraycell;
+    this->rowkeycell := def.rowkeycell;
+    this->titlecell := def.titlecell;
+
+    // Test for existence of contenttype
+    this->type := OpenWHFSType(this->typedef);
+    IF (NOT ObjectExists(this->type))
+      THROW NEW TolliumException(this, "WHFSInstanceOptions referring to non-existing contenttype '" || this->typedef || "'");
+
+    // Check for existence of specified members
+    RECORD arraymember := SELECT id FROM this->type->members WHERE parent = 0 AND ToUppercase(name) = ToUppercase(this->arraycell);
+    IF (NOT RecordExists(arraymember))
+      THROW NEW TolliumException(this, "No such member '" || this->arraycell || "' in contenttype '" || this->typedef || "'");
+    RECORD rowkeymember := SELECT emptyval FROM this->type->members WHERE parent = arraymember.id AND ToUppercase(name) = ToUppercase(this->rowkeycell);
+    IF (NOT RecordExists(rowkeymember))
+      THROW NEW TolliumException(this, "No such member '" || this->rowkeycell || "' in contenttype '" || this->typedef || "'");
+    IF (this->titlecell != "")
+    {
+      RECORD titlemember := SELECT emptyval FROM this->type->members WHERE parent = arraymember.id AND ToUppercase(name) = ToUppercase(this->titlecell);
+      IF (NOT RecordExists(titlemember))
+        THROW NEW TolliumException(this, "No such member '" || this->titlecell || "' in contenttype '" || this->typedef || "'");
+      IF (TypeID(titlemember.emptyval) != TypeID(STRING))
+        THROW NEW TolliumException(this, "Member '" || this->titlecell || "' in contenttype '" || this->typedef || "' cannot be used as a title");
+    }
+    ELSE IF (TypeID(rowkeymember.emptyval) != TypeID(STRING))
+      THROW NEW TolliumException(this, "Member '" || this->rowkeycell || "' in contenttype '" || this->typedef || "' cannot be used as a title");
+
+    // Set the rowkeytype, which is the type of the cell referenced by rowkeycell
+    this->pvt_rowkeytype := TypeID(rowkeymember.emptyval);
+
+    IF(this->site!="") //we are independent
+      this->GenerateContents();
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    IF (this->site = "")
+      this->GenerateContents();
+  }
+
+  MACRO GenerateContents()
+  {
+    INTEGER baseobject;
+    IF (this->site = "" AND ObjectExists(this->composition))
+    {
+      OBJECT whfsinstance := GetWHFSInstanceComposition(this);
+      IF (ObjectExists(whfsinstance))
+        baseobject := whfsinstance->GetBaseForObjectLists();
+    }
+
+    OBJECT instanceobject;
+    IF(this->site="" AND this->fullpath="") //Look in current folder
+    {
+      RECORD baseobjectinfo := SELECT isfolder, parent FROM system.fs_objects WHERE id=baseobject;
+      IF(RecordExists(baseobjectinfo))
+        instanceobject := OpenWHFSObject(baseobject);
+    }
+    ELSE
+    {
+      INTEGER siteroot;
+      IF(this->site="")
+        siteroot := SELECT AS INTEGER highestparent FROM system.fs_objects WHERE id=baseobject;
+      ELSE
+        siteroot := SELECT AS INTEGER root FROM system.sites WHERE ToUppercase(name)=ToUppercase(this->site);
+
+      IF(siteroot!=0)
+      {
+        STRING searchpath := this->fullpath;
+        IF(searchpath LIKE "/*")
+          searchpath := Substring(searchpath,1);
+
+        instanceobject := OpenWHFSObject(siteroot)->OpenByPath(searchpath);
+      }
+    }
+
+    RECORD ARRAY results;
+    IF(ObjectExists(instanceobject))
+    {
+      RECORD instancedata := this->type->GetInstanceData(instanceobject->id);
+
+      results := SELECT rowkey := GetCell(arrayvalues, this->rowkeycell)
+                      , title := this->titlecell != "" ? GetCell(arrayvalues, this->titlecell) : GetCell(arrayvalues, this->rowkeycell)
+                   FROM GetCell(instancedata, this->arraycell) AS arrayvalues;
+
+      //ADDME: Add custom ordering?
+      results := SELECT * FROM results ORDER BY ToUppercase(title);
+    }
+    this->SetOptions(results);
+  }
+
+  PUBLIC UPDATE MACRO CompositionMetadataIsUpdated()
+  {
+    OBJECT whfsinstance := GetWHFSInstanceComposition(this);
+    IF(NOT ObjectExists(whfsinstance))
+      THROW NEW Exception("sp:whfsinstanceoptions expect a sp:whfsinstance composition");
+
+    this->GenerateContents();
+  }
+>;

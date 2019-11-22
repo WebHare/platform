@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <g id="file-fill" fill="none">
+      <path d="M30,12l0,17c0,1-1,1-1,1H11c-1,0-1-1-1-1V3c0,0,0-1,1-1h9"/>
+    </g>
+    <path id="file-corner" d="M32,1c0-1-1-1-1-1h-6.2c-0.3,0-0.6,0-0.7,0.3c-0.1,0.3-0.1,0.6,0.2,0.8l6.5,6.1c0.2,0.2,0.6,0.3,0.8,0.2C31.8,7.2,32,6.9,32,6.6"/>
+    <path id="file-outline" d="M21,0H10C8,0,8,2,8,2v28c0,0,0,2,2,2h20c2,0,2-2,2-2V11L21,0zM30,29c0,0,0,1-1,1H11c-1,0-1-0.6-1-0.9V3c0,0,0-1,1-1h9l10,10L30,29z"/>
+    <path id="fontletter" d="M22,11.082v3.226h-0.316c-0.188-0.744-0.396-1.279-0.624-1.604s-0.542-0.584-0.94-0.778c-0.223-0.105-0.612-0.158-1.169-0.158h-0.888v9.193c0,0.609,0.033,0.99,0.102,1.143c0.066,0.152,0.198,0.285,0.395,0.4c0.196,0.113,0.465,0.171,0.805,0.171h0.396V23h-6.24v-0.325h0.396c0.346,0,0.624-0.062,0.835-0.185c0.152-0.082,0.272-0.223,0.36-0.422c0.064-0.141,0.097-0.51,0.097-1.107v-9.193h-0.861c-0.803,0-1.386,0.17-1.749,0.51c-0.51,0.475-0.832,1.151-0.967,2.03h-0.334v-3.226H22z"/>
+  </defs>
+  <g>
+    <use xlink:href="#file-fill" fill="#ffffff"/>
+    <use xlink:href="#file-outline" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+    <use xlink:href="#file-corner" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+    <use xlink:href="#fontletter" transform="translate(-0.5 0)" fill="#ffffff"/>
+    <use xlink:href="#fontletter" transform="translate(7 4)" fill="#ffffff"/>
+  </g>
+</svg>

@@ -1,0 +1,27 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/networking/ssh.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "user", type := "stringopt" ]
+    , [ name := "password", type := "stringopt" ]
+    , [ name := "ignorecertificate", type := "switch" ]
+    , [ name := "d", type := "switch" ]
+    , [ name := "server", type := "param", required := true ]
+    , [ name := "path", type := "param", required := true ]
+    ]);
+
+IF(NOT RecordExists(args))
+  TerminateScriptWithError("Syntax error");
+
+OBJECT conn := MakeSFTPConnection(args.server, args.user, args.password, [ ignorecertificate := args.ignorecertificate ]);
+IF(args.d)
+  conn->debug := TRUE;
+
+BLOB data := conn->Getfile(args.path);
+STRING outputname := GetNameFromPath(args.path) ?? "download";
+STRING outputpath := MergePath(GetCurrentPath(), outputname);
+StoreDiskFile(outputpath, data, [ overwrite := TRUE ]);
+Print(`Downloaded '${outputname}' as '${outputpath}'\n`);

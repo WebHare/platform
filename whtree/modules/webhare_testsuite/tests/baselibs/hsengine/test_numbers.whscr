@@ -1,0 +1,221 @@
+<?wh
+/// @short Money tests
+
+/*****************************************
+ *
+ * Test correct implementation of the MONEY type and functions
+ *****************************************/
+
+LOADLIB "wh::internal/hsselftests.whlib";
+RECORD ARRAY errors;
+RECORD result;
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// The basic datatypes are assumed to be working correctly
+
+MACRO BinHexTest()
+{
+  OpenTest("TestNumbers: BinHexTest");
+
+  TestEqualInteger( 1, 0, 0x0);
+  TestEqualInteger( 2, 1, 0x1);
+  TestEqualInteger( 3, -1, 0xFFFFFFFF);
+  TestEqualInteger( 4, -2147483648, 0x80000000);
+  TestEqualInteger( 5, 2147483647, 0x7fffffff);
+
+  TestEqualInteger( 6, 0, 0b0);
+  TestEqualInteger( 7, 1, 0b1);
+  TestEqualInteger( 8, -1, 0b11111111111111111111111111111111);
+  TestEqualInteger( 9, -2147483648, 0b10000000000000000000000000000000);
+  TestEqualInteger(10, 2147483647, 0b01111111111111111111111111111111);
+
+  errors := TestCompile('<?wh INTEGER a := 0x100000000;');
+  MustContainError(11, errors, 68);
+  errors := TestCompile('<?wh INTEGER a := 0x100000000000000000000000000000000;');
+  MustContainError(12, errors, 68);
+
+  CloseTest("TestNumbers: BinHexTest");
+}
+
+
+/*** Under overflow - with suffixes ***/
+MACRO SuffixedUnderOverflowTest()
+{
+  OpenTest("TestNumbers: SuffixedOverflowTest");
+
+  result := TestCompileAndRun('<?wh INTEGER a := 0i; PRINT ("" || a); ');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "0", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER a := 2147483647i; PRINT ("" || a); ');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "2147483647", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER a := -2147483648i; PRINT (ToString(a)); ');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "-2147483648", result.output);
+
+  errors := TestCompile('<?wh INTEGER a := 2147483648i;');
+  MustContainError(7, errors, 68);
+
+  errors := TestCompile('<?wh INTEGER a := -2147483649i;');
+  MustContainError(8, errors, 68);
+
+  result := TestCompileAndRun('<?wh MONEY a := 0m; PRINT (FormatMoney(a, 0, ",", ".", FALSE)); ');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "0", result.output);
+
+  result := TestCompileAndRun('<?wh MONEY a := 92233720368547.75807m; PRINT (FormatMoney(a, 0, ",", ".", FALSE)); ');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "92.233.720.368.547,75807", result.output);
+
+  result := TestCompileAndRun('<?wh MONEY a := -92233720368547.75808m; PRINT (FormatMoney(a, 0, ",", ".", FALSE)); ');
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "-92.233.720.368.547,75808", result.output);
+
+//* ADDME: Re-add money overflow detection to harescvript, at least in the constants case
+  errors := TestCompile('<?wh MONEY a := 92233720368547.75808m; PRINT (FormatMoney(a, 0, ",", ".", FALSE)); ');
+  MustContainError(15, errors, 254);
+
+  errors := TestCompile('<?wh MONEY a := -92233720368547.75809m; PRINT (FormatMoney(a, 0, ",", ".", FALSE)); ');
+  MustContainError(16, errors, 254);
+
+  errors := TestCompile('<?wh MONEY a := 0.000001m; PRINT (FormatMoney(a, 0, ",", ".", FALSE)); ');
+  MustContainError(17, errors, 254);
+
+//*/
+  result := TestCompileAndRun('<?wh FLOAT a := 0f; PRINT (FormatFloat(a, 1)); ');
+  TestCleanResult(18, result.errors);
+  TestEqualString(19, "0.0", result.output);
+
+  // */ // FIXME: add under / overflow tests for FLOATs
+
+
+  CloseTest("TestNumbers: SuffixedOverflowTest");
+}
+
+MACRO TestType(INTEGER testno, STRING value, STRING type)
+{
+  errors := TestCompile('<?wh STRING a := ' || value || ';');
+  MustContainError(testno, errors, 62, type, 'STRING');
+}
+
+MACRO AutoTypeTest()
+{
+  OpenTest("TestNumbers: AutoTypeTest");
+
+  TestType ( 1, '0', 'INTEGER');
+  TestType ( 2, '2147483647', 'INTEGER');
+  TestType ( 3, '-2147483648', 'INTEGER');
+  TestType ( 4, '2147483648', 'MONEY');
+  TestType ( 5, '-2147483649', 'MONEY');
+
+  TestType (10, '0.0', 'MONEY');
+  TestType (11, '0.00001', 'MONEY');
+  TestType (12, '0.000010', 'MONEY');
+  TestType (13, '92233720368547.75807', 'MONEY');
+  TestType (14, '92233720368547.758070', 'MONEY');
+  TestType (15, '-92233720368547.75808', 'MONEY');
+  TestType (16, '-92233720368547.758080', 'MONEY');
+  TestType (17, '92233720368547.75808', 'FLOAT');
+  TestType (18, '-92233720368547.75809', 'FLOAT');
+
+  TestType (20, '9223372036854775807', 'FLOAT'); // NOT Integer64!
+  TestType (21, '-9223372036854775808', 'FLOAT'); // NOT Integer64!
+  TestType (22, '9223372036854775808', 'FLOAT');
+  TestType (23, '-9223372036854775809', 'FLOAT');
+  TestType (24, '9223372036854775807.0', 'FLOAT');
+  TestType (25, '-9223372036854775808.0', 'FLOAT');
+
+  CloseTest("TestNumbers: AutoTypeTest");
+}
+
+MACRO RangeTest()
+{
+  OpenTest("TestNumbers: RangeTest");
+
+  TestCleanCompile(1, '<?wh INTEGER i := 2004000000; ?>');
+
+  CloseTest("TestNumbers: RangeTest");
+}
+
+MACRO RandomTest()
+{
+  OpenTest("TestNumbers: RandomTest");
+  TestEqualInteger(1, -1, SeedRandomizer(12345678));
+
+  /* This does a distribution test as well*/
+  INTEGER ARRAY buckets := [ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+  INTEGER ARRAY exp_buckets := [ 6225, 6322, 6253, 6286, 6214, 6308, 6294, 6167, 6246, 6160, 6119, 6349, 6311, 6305, 6201, 6240 ];
+  FOR (INTEGER testcount := 0; testcount < 100000; testcount := testcount + 1)
+  {
+    INTEGER val := Random(-7,8);
+    buckets[val+7] := buckets[val+7]+1;
+  }
+  FOREVERY(INTEGER buck FROM buckets)
+    TestEqualInteger(#buck + 2, buck, exp_buckets[#buck]);
+  TestEqualInteger(19, 2127014660, SeedRandomizer(0));
+  TestEqualInteger(20, 0, SeedRandomizer(2127014660));
+
+  INTEGER ARRAY bla1 := [1,2,3];
+  RECORD ARRAY bla2 := [[x:=4],[x:=5],[x:=6]];
+
+  bla1 := ShuffleArray(bla1);
+  bla2 := ShuffleArray(bla2);
+  TestEq(3,Length(bla1));
+  TestEq(3,Length(bla2));
+
+  CloseTest("TestNumbers: RandomTest");
+}
+
+// Keep in sync with testfinmath.es
+
+MACRO TestRounding(INTEGER base, STRING mode, INTEGER64 ARRAY expect)
+{
+  INTEGER ARRAY iexpect, igot;
+  INTEGER64 ARRAY got;
+  MONEY ARRAY mgot, mexpect;
+
+  FOR (INTEGER i := -base; i <= base; i := i + 1)
+  {
+    INSERT INTEGER(expect[i+base]) INTO iexpect AT END;
+    INSERT INTEGER(expect[i+base]) / 10m INTO mexpect AT END;
+    INSERT RoundToMultiple(i, base, mode) INTO igot AT END;
+    INSERT RoundToMultiple(INTEGER64(i), INTEGER64(base), mode) INTO got AT END;
+    INSERT RoundToMultiple(i / 10m, base / 10m, mode) INTO mgot AT END;
+  }
+
+  TestEQ(expect, got, `Rounding mode ${mode}`);
+  TestEQ(iexpect, igot, `Rounding mode ${mode}`);
+  TestEQ(mexpect, mgot, `Rounding mode ${mode}`);
+}
+
+
+MACRO TestRoundToMultiple()
+{
+  //                                                 -5  -4  -3  -2  -1  0  1  2  3  4  5
+  TestRounding(5, "toward-zero",          INTEGER64[ -5,  0,  0,  0,  0, 0, 0, 0, 0, 0, 5 ]);
+  TestRounding(5, "down",                 INTEGER64[ -5, -5, -5, -5, -5, 0, 0, 0, 0, 0, 5 ]);
+  TestRounding(5, "up",                   INTEGER64[ -5,  0,  0,  0,  0, 0, 5, 5, 5, 5, 5 ]);
+  TestRounding(5, "half-toward-zero",     INTEGER64[ -5, -5, -5,  0,  0, 0, 0, 0, 5, 5, 5 ]);
+  TestRounding(5, "half-down",            INTEGER64[ -5, -5, -5,  0,  0, 0, 0, 0, 5, 5, 5 ]);
+  TestRounding(5, "half-up",              INTEGER64[ -5, -5, -5,  0,  0, 0, 0, 0, 5, 5, 5 ]);
+
+  //                                                 -6  -5  -4  -3  -2  -1  0  1  2  3  4  5  6
+  TestRounding(6, "toward-zero",          INTEGER64[ -6,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 6 ]);
+  TestRounding(6, "down",                 INTEGER64[ -6, -6, -6, -6, -6, -6, 0, 0, 0, 0, 0, 0, 6 ]);
+  TestRounding(6, "up",                   INTEGER64[ -6,  0,  0,  0,  0,  0, 0, 6, 6, 6, 6, 6, 6 ]);
+  TestRounding(6, "half-toward-zero",     INTEGER64[ -6, -6, -6,  0,  0,  0, 0, 0, 0, 0, 6, 6, 6 ]);
+  TestRounding(6, "half-down",            INTEGER64[ -6, -6, -6, -6,  0,  0, 0, 0, 0, 0, 6, 6, 6 ]);
+  TestRounding(6, "half-up",              INTEGER64[ -6, -6, -6,  0,  0,  0, 0, 0, 0, 6, 6, 6, 6 ]);
+}
+
+PRINT("\n === Running TestNumbers\n");
+RangeTest();
+BinHexTest();
+SuffixedUnderOverflowTest();
+AutoTypeTest();
+RandomTest();
+TestRoundToMultiple();

@@ -1,0 +1,23 @@
+<?wh
+// command: consilio:enable_builtin_elasticsearch
+// short: Enables builtin ElasticSearch
+
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+
+MACRO Main()
+{
+  IF(NOT RecordExists(SELECT FROM consilio.indexmanagers WHERE type = 2 AND address = "builtin-elasticsearch"))
+  {
+    GetPrimary()->BeginWork();
+    INSERT INTO consilio.indexmanagers(name, type, address)
+         VALUES ("Builtin Elastic search", 2, "builtin-elasticsearch");
+    GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
+    GetPrimary()->CommitWork();
+  }
+}
+
+OpenPrimary();
+Main();
+

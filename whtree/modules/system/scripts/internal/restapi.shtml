@@ -1,0 +1,13 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::system/lib/remoting/restserver.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+RECORD apirule := (SELECT * FROM GetWebHareAccessRules() WHERE data.apispec != "")[END-1];
+STRING requesturl := GetRequestURL();
+STRING relurl := Substring(DecodeURL(UnpackURL(requesturl).urlpath), Length(apirule.data.path)-1);
+RunRestCall(apirule.data.apispec, relurl, requesturl);

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      html, body, div, span, a, p, h1, h2, h3, h4, h5, h6
+      {
+        font: 15px Arial;
+      }
+      h1.opening
+      {
+        font-weight:bold;
+      }
+      table.withgutter > tbody > tr > td:first-child + td
+      {
+        width:560px;
+      }
+      table.withgutter > tbody > tr > td:first-child
+      {
+        padding-right:10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="shouldbebold" class="opening">Welcome!</h1>
+    <table class="withgutter">
+      <tbody>
+        <tr>
+          <td id="shouldhavepadding20" style="padding-right: 20px"></td>
+          <td id="shouldhave560"></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>

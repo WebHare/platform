@@ -1,0 +1,103 @@
+﻿<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+< PUBLIC MACRO Init(RECORD data)
+  {
+    this->RefreshList();
+  }
+
+  MACRO RefreshList()
+  {
+    RECORD ARRAY newlist := SELECT rowkey := id
+                                 , parameters
+                                 , nexttime
+                                 , scriptname := script
+                                 , description
+                                 , isactiveicon := (enabled ? 1 : 2)
+                                 , style := (enabled ? "" : "notactive")
+                              FROM system_internal.tasks
+                             WHERE tag NOT LIKE "*.*";
+
+    this->tasks->rows := newlist;
+  }
+
+  MACRO DoAdd()
+  {
+    OBJECT diag := this->LoadScreen(".taskscreen", [ id := 0 ]);
+    diag->RunModal();
+    this->RefreshList();
+  }
+
+  MACRO DoEdit()
+  {
+    OBJECT diag := this->LoadScreen(".taskscreen", [ id := this->tasks->value ]);
+    diag->RunModal();
+    this->RefreshList();
+  }
+
+  MACRO DoDelete()
+  {
+    IF (this->RunMessageBox(".confirm_delete") != "yes")
+      RETURN;
+
+    OBJECT work := this->beginWork();
+    DELETE FROM system_internal.tasks WHERE id = this->tasks->value;
+    work->finish();
+    this->RefreshList();
+  }
+>;
+
+PUBLIC OBJECTTYPE TaskScreen EXTEND TolliumScreenBase
+<
+  INTEGER id;
+
+  MACRO Init(RECORD data)
+  {
+    this->id:=data.id;
+
+    IF(this->id != 0)
+    {
+      RECORD task := SELECT * FROM system_internal.tasks WHERE id = this->id;
+
+      this->scriptname->value := task.script;
+      this->description->value := task.description;
+      this->parameters->value := task.parameters;
+      this->repeat->value := task.repeatcount = 0;
+      this->repeatevery->value := task.repeatinterval;
+      this->repeatunit->value := task.repeatintervaltype;
+      this->enabled->value := task.enabled;
+      this->runatstartup->value := task.runatstartup;
+      this->nexttime->value := task.nexttime;
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    INTEGER taskid := this->id;
+    IF(taskid = 0)
+    {
+      taskid := MakeAutonumber(system_internal.tasks, "ID");
+      INSERT INTO system_internal.tasks(id, script)
+             VALUES(taskid, this->scriptname->value);
+    }
+
+    UPDATE system_internal.tasks
+           SET script := this->scriptname->value
+             , description := this->description->value
+             , parameters := this->parameters->value
+             , repeatcount := this->repeat->value ? 0 : 1
+             , repeatinterval := this->repeatevery->value
+             , repeatintervaltype := this->repeatunit->value
+             , enabled := this->enabled->value
+             , runatstartup := this->runatstartup->value
+             , nexttime := this->nexttime->value
+           WHERE id = taskid;
+
+    RETURN work->Finish();
+  }
+>;

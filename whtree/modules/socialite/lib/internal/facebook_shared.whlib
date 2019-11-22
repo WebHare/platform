@@ -1,0 +1,146 @@
+﻿<?wh
+
+/* Shared functions for facebook and facebook oauth 2
+*/
+
+LOADLIB "wh::files.whlib";
+
+
+PUBLIC RECORD FUNCTION GetFacebookXMLNodeAsRecord(OBJECT node)
+{
+  IF (NOT ObjectExists(node))
+    THROW New Exception("No node specified"); // FIXME: why does this happen? no internet access?
+
+  IF (node->getAttribute('list') = 'true')
+  {
+    RECORD data;
+
+    RECORD contents := GetChildNodesAsArray(node);
+    IF (contents.cellname != '')
+      data := CellInsert(data, contents.cellname, contents.entries);
+
+    RETURN data;
+  }
+  ELSE
+  {
+    VARIANT result := GetXMLAsRecordOrString(node);
+    IF (TypeID(result) != TypeID(RECORD))
+      RETURN [ result := result ];
+
+    RETURN GetXMLAsRecordOrString(node);
+  }
+}
+
+PUBLIC VARIANT FUNCTION GetXMLAsRecordOrString(OBJECT rootnode)
+{
+  OBJECT ARRAY nodes := rootnode->childnodes->GetCurrentElements();
+
+  RECORD data;
+
+  BOOLEAN haselements;
+  FOREVERY(OBJECT node FROM nodes)
+  {
+    IF (node->nodeType = node->ELEMENT_NODE)
+    {
+      haselements := TRUE;
+
+      IF (node->getAttribute('list') = 'true')
+      {
+        // This element is a RECORD ARRAY
+        IF (node->hasChildNodes())
+          data := CellInsert(data, node->tagName, GetChildNodesAsArray(node).entries);
+        ELSE
+          data := CellInsert(data, node->tagName, DEFAULT RECORD ARRAY);
+      }
+      ELSE
+      {
+        IF (node->hasChildNodes())
+          data := CellInsert(data, node->tagName, GetXMLAsRecordOrString(node));
+        ELSE
+        {
+          // facebook always give RECORDs some field even when they are empty,
+          // so if there aren't any children, it's an empty STRING
+          data := CellInsert(data, node->tagName, '');
+        }
+      }
+    }
+  }
+
+  IF (haselements)
+    RETURN data;
+  ELSE
+    RETURN rootnode->childrentext;
+}
+
+RECORD FUNCTION GetChildNodesAsArray(OBJECT rootnode)
+{
+  OBJECT ARRAY nodes := rootnode->childnodes->GetCurrentElements();
+
+  STRING cellname;
+  RECORD ARRAY recarr;
+  STRING ARRAY strarr;
+
+  FOREVERY(OBJECT node FROM nodes)
+  {
+    IF (node->nodeType = node->ELEMENT_NODE)
+    {
+      cellname := node->tagName;
+
+      VARIANT celldata := GetXMLAsRecordOrString(node);
+      IF (TypeID(celldata) = TypeID(RECORD))
+        INSERT celldata INTO recarr AT END;
+      ELSE
+        INSERT celldata INTO strarr AT END;
+    }
+  }
+
+  IF (Length(recarr) > 0)
+  {
+    // Return a RECORD ARRAY
+    RETURN [ cellname := cellname
+            , entries  := recarr
+            ];
+  }
+  ELSE
+  {
+    // Return a STRING ARRAY
+    RETURN [ cellname := cellname
+            , entries  := strarr
+            ];
+  }
+}
+
+PUBLIC STRING FUNCTION GetInString(STRING ARRAY ids)
+{
+  STRING idstring := DeTokenize(ids,'","');
+  idstring := '"'||idstring||'"';
+  RETURN idstring;
+}
+
+PUBLIC RECORD FUNCTION __GetGenericRecord(OBJECT browser, RECORD response, STRING maincellname, STRING newcellname)
+{
+//    Print(BlobToString(this->browser->content,16384));
+
+  RECORD responserec;
+  RECORD returnval := [ success      := TRUE
+                      , responserec  := DEFAULT RECORD
+                      , responsetext := BlobToString(browser->content,16384)
+                      ];
+
+  responserec := response.responserec;
+
+  // make an cell for the information which we are interested in
+  IF (maincellname != '')
+  {
+    IF (CellExists(responserec, maincellname))
+      returnval := CellInsert(returnval, newcellname, GetCell(responserec, maincellname));
+    ELSE
+    {
+      // facebook returns no cells if no results were found or when there was an error
+      // create an empty RECORD ARRAY so code expecting the cell doesn't fail
+      returnval := CellInsert(returnval, newcellname, DEFAULT RECORD ARRAY);
+    }
+  }
+
+  RETURN returnval;
+}

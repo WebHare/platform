@@ -1,0 +1,4 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <layer src="tollium:objects/trash" />
+  <layer src="tollium:overlays/eye" />
+</icon>

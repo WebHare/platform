@@ -1,0 +1,69 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webapi/tax/vies.whlib";
+
+MACRO TestVies()
+{
+  RECORD result;
+
+  //hardcoded test values NL
+  result := CheckViesVATCode("NL999996514B01");
+  TestEq(TRUE, result.serviceunavailable);
+  TestEQ(FALSE, result.valid);
+  TestEQ("Exception: Temporary unavailable", result.error);
+
+  result := CheckViesVATCode("NL999996514B02");
+  TestEq(FALSE, result.serviceunavailable);
+  TestEQ(TRUE, result.valid);
+  TestEqLike("*ENSCHEDE*", result.address);
+  TestEqLike("*TEST*", result.name);
+  TestEQ("", result.error);
+
+  result := CheckViesVATCode("NL999996514B03");
+  TestEq(FALSE, result.serviceunavailable);
+  TestEQ(FALSE, result.valid);
+
+  //hardcoded test values BE (FIXME replace with proper test numbers)
+  result := CheckViesVATCode("BE9999999901");
+  TestEq(TRUE, result.serviceunavailable);
+  TestEQ(FALSE, result.valid);
+  TestEQ("Exception: Temporary unavailable", result.error);
+
+  result := CheckViesVATCode("BE9999999902");
+  TestEq(FALSE, result.serviceunavailable);
+  TestEQ(TRUE, result.valid);
+  TestEqLike("*Brussel*", result.address);
+  TestEqLike("*Happy*", result.name);
+  TestEQ("", result.error);
+
+  result := CheckViesVATCode("BE9999999903");
+  TestEq(FALSE, result.serviceunavailable);
+  TestEQ(FALSE, result.valid);
+
+  //real values that cause API calls
+  result := CheckViesVATCode("nl 0000.000.12b00");
+  TestEq(FALSE, result.serviceunavailable);
+  TestEq(FALSE, result.valid);
+  TestEq("NL000000012B00", result.vatnumber);
+  TestEq("Invalid VAT number", result.error);
+
+  result := CheckViesVATCode("NL 8193.190.53B01");
+  TestEq(FALSE, result.serviceunavailable);
+  TestEq(TRUE, result.valid);
+  TestEq("NL819319053B01", result.vatnumber);
+  TestEqLike("*ENSCHEDE*", result.address);
+  TestEqLike("*WEBHARE*", result.name);
+  TestEq("", result.error);
+
+  //we just picked a random HAPPY cooperation
+  result := CheckViesVATCode("BE 0890.294.605");
+  TestEq(FALSE, result.serviceunavailable);
+  TestEq(TRUE, result.valid);
+  TestEq("BE0890294605", result.vatnumber);
+  TestEqLike("*BEKKEVOORT*", ToUppercase(result.address));
+  TestEqLike("*HAPPY*", result.name);
+}
+
+RunTestframework([ PTR TestVies
+                 ]);

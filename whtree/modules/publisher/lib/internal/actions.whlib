@@ -1,0 +1,918 @@
+﻿<?wh
+
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/import.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+
+
+MACRO DoRecurseUpdatePublish(OBJECT repubstate, RECORD site, INTEGER folderid, BOOLEAN setpublish, BOOLEAN toplevel, INTEGER ARRAY acceptabletypes, OBJECT handler)
+{
+  IF(RecordExists(site))
+  {
+    RECORD parentfolder := SELECT * FROM system.fs_objects WHERE id=folderid;
+    RECORD ARRAY allfiles
+       := SELECT * FROM system.fs_objects
+                 WHERE parent=parentfolder.id
+                      AND isfolder = FALSE
+                      AND type IN acceptabletypes;
+
+    FOREVERY(RECORD file FROM allfiles)
+      repubstate->AddDepsOf(file.id, 0/*metadata*/);
+  }
+
+  //to disable publishing, remove the once-published status flag (100000) and the queue/error code ( < 100000)
+  UPDATE system.fs_objects
+        SET published := setpublish
+                             ? ConvertToWillPublish(fs_objects.published, FALSE, TRUE, toplevel ? PubPrio_FolderRepub : PubPrio_SubFolderRepub)
+                             : fs_objects.published - (fs_objects.published%200000)
+        WHERE parent = folderid
+              AND isfolder = FALSE
+              AND type IN acceptabletypes;
+
+  IF (setpublish)
+  {
+    INTEGER ARRAY updated :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE parent = folderid
+           AND isfolder = FALSE
+           AND type IN acceptabletypes
+           AND IsQueuedForPublication(published);
+
+    FOREVERY (INTEGER id FROM updated)
+      handler->FileRepublish(site.id, folderid, id);
+  }
+
+  INTEGER ARRAY subfolders := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent=folderid AND isfolder=true;
+  FOREVERY(INTEGER sub FROM subfolders)
+    DoRecurseUpdatePublish(repubstate, site, sub, setpublish, FALSE, acceptabletypes, handler);
+}
+PUBLIC MACRO RecurseUpdatePublish(INTEGER folderid, BOOLEAN setpublish)
+{
+  INTEGER parentsiteid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=folderid;
+  RECORD site := SELECT * FROM system.sites WHERE id=parentsiteid;
+  OBJECT repubstate;
+
+  IF(RecordExists(site))
+    repubstate := CreateRepublishState();
+
+  INTEGER ARRAY acceptabletypes := SELECT AS INTEGER ARRAY id FROM system.fs_types WHERE isfiletype AND ispublishable;
+  DoRecurseUpdatePublish(repubstate, site, folderid, setpublish, TRUE, acceptabletypes, GetWHFSCommitHandler());
+
+  IF(RecordExists(site))
+    repubstate->DoRepublishes();
+}
+
+MACRO HandlePlanBeforeEffects(OBJECT repubstate, INTEGER destfolder, RECORD ARRAY plan)
+{
+  FOREVERY(RECORD entry FROM plan)
+  {
+    IF(entry.destparent != 0 AND entry.kind = "move")
+      repubstate->AddDepsOf(entry.destid, 3/*content deleted*/);
+  }
+}
+
+MACRO HandlePlanAfterEffects(OBJECT repubstate, INTEGER destfolder, RECORD ARRAY plan)
+{
+  //FIXME PERFORMANCE - a much smarter analysis of republish rules and plan should be possible....
+  FOREVERY(RECORD entry FROM plan)
+  {
+    IF(entry.destparent=0)
+      CONTINUE;
+
+    IF(entry.kind!="move" AND entry.kind!="copy")
+      CONTINUE;
+
+    RECORD file := SELECT id, isfolder FROM system.fs_objects WHERE id = entry.destid;
+    IF(RecordExists(file) //file may no longer exist if it was moved to a deleted folder
+       AND file.isfolder = FALSE
+       AND entry.sourceparent != 0 // files in the root level (which we try to prevent, but may happen with Webdav) are never in a site, so no republishing needed
+       AND entry.kind = "move"
+      )
+    {
+      repubstate->AddDepsOf(entry.destid, 3/*content deleted*/);
+    }
+    ELSE IF(RecordExists(file) AND entry.kind = "copy")
+    {
+      UPDATE system.fs_objects SET ispinned := FALSE WHERE id = entry.destid;// Handle copying of pinned items correctly
+    }
+    ELSE IF(entry.destisfolder)
+      CONTINUE;
+
+    RECORD folder := SELECT FROM system.fs_objects WHERE id = entry.destparent AND isfolder;
+    IF(NOT RecordExists(folder)) //we never created the folder (may be a file/folder overwrite conflict)
+      CONTINUE;
+
+    IF(RecordExists(file))
+      repubstate->AddDepsOf(entry.destid, entry.create ? 2/*new content*/ : 1/*content change*/);
+    repubstate->AddDepsOf(entry.destparent, 2/*new content*/);
+  }
+}
+
+PUBLIC OBJECTTYPE ArchiveExporter
+<
+  PUBLIC MACRO PTR onexportstatusupdate;
+>;
+
+
+
+PUBLIC STATIC OBJECTTYPE BulkReceiveOperation
+<
+  RECORD ARRAY plan;
+  BOOLEAN didplanload;
+
+  ///Create indexfiles if the archive does not contain WebHare metadata. Defaults to true
+  PUBLIC BOOLEAN auto_indexfiles;
+
+  MACRO NEW()
+  {
+    this->auto_indexfiles := TRUE;
+  }
+
+  PUBLIC MACRO AddIndicesToNewFolders()
+  {
+    RECORD ARRAY newfolders := SELECT * FROM this->plan WHERE create=TRUE AND destisfolder=TRUE;
+    FOREVERY(RECORD newfolder FROM newfolders)
+      AddDefaultIndexToFolder(newfolder.destid);
+  }
+
+  /** Get a list of all objects this archive would create
+  PUBLIC RECORD ARRAY FUNCTION GetCurrentPlan()
+  {
+    //Throw an exception, since future versions will likely allow calling GetImportPlan BEFORE Import, but we don't want new code to fail when run on older servers if they expect early access
+    IF(NOT this->didplanload)
+      THROW NEW Exception("GetCurrentPlan() is not available before calling Import()");
+
+    //We're not returning any more fields that people ask from us, to allow safely extending this in the feature without burdening whfs too much right now
+    RETURN SELECT name
+                , destid
+                , destpath
+                , destisfolder
+                , create
+             FROM this->plan
+            WHERE kind="copy";
+  }
+  */
+
+  STRING FUNCTION CheckBulkReceiverPlanForVersioning(OBJECT receiver)
+  {
+    RECORD ARRAY plan := receiver->plan;
+
+    /* Map from destparentpaths to destsite
+       @cell path
+       @cell site
+    */
+    RECORD ARRAY destparentpaths;
+
+    FOREVERY (RECORD rec FROM plan)
+    {
+      RECORD dppos := RecordLowerBound(destparentpaths, rec, [ "DESTPARENTPATH" ]);
+
+      INTEGER destsite;
+      IF (rec.destparentpath = "")
+        destsite := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = rec.destparent;
+      ELSE IF (dppos.found)
+        destsite := destparentpaths[dppos.position].destsite;
+
+      OBJECT destpolicy := GetVersioningPolicyForSite(destsite);
+
+      SWITCH (rec.kind)
+      {
+        CASE "remaining"
+        {
+          RETURN "ok";
+        }
+        CASE "contentlink", "internallink"
+        {
+          IF (NOT ObjectExists(destpolicy))
+            RETURN "ok";
+
+          // Not allowed to create links in a versioned site (ADDME: check with FilterAllowedFSObjectTypes)
+          THROW NEW CopyMoveException(this, "NOTALLOWEDTYPEINVERSIONEDSITE", OpenWHFSObject(rec.sourceid));
+        }
+        CASE "copy"
+        {
+          IF (NOT ObjectExists(destpolicy))
+            RETURN "ok";
+
+          IF (rec.destparent != 0)
+          {
+            // We can't copy a file with default page name into a folder that already has an indexdoc
+            // That would replace the indexdoc deep within whfs, so disallow it.
+            INTEGER indexdoc := SELECT AS INTEGER COLUMN indexdoc FROM system.fs_objects WHERE id = rec.destparent;
+            IF (indexdoc != 0 AND ToLowercase(rec.name) IN whconstant_webserver_indexpages)
+              THROW NEW CopyMoveException(this, "NOINDEXHTMLINVERSIONEDFOLDERWITHINDEX", OpenWHFSObject(rec.sourceid));
+          }
+
+          // Validate the type of the source file is allowed in the versioned site
+          INTEGER sourcetype := SELECT AS INTEGER COLUMN type FROM system.fs_objects WHERE id = rec.sourceid;
+          IF (sourcetype NOT IN destpolicy->FilterAllowedFSObjectTypes([ sourcetype ]))
+            THROW NEW CopyMoveException(this, "NOTALLOWEDTYPEINVERSIONEDSITE", OpenWHFSObject(rec.sourceid));
+
+          IF (NOT rec.create) // overwriting?
+          {
+            RECORD destrec :=
+                SELECT id
+                     , isfolder
+                     , published
+                  FROM system.fs_objects
+                 WHERE id = rec.destid;
+
+            IF (RecordExists(destrec))
+            {
+              destrec := destpolicy->EnrichWithObjectPolicy([ destrec ])[0];
+              IF (destrec.versioned) // Destination file is versioned?
+                THROW NEW CopyMoveException(this, "NOVERSIONEDOVERWRITE", OpenWHFSObject(rec.destid));
+            }
+          }
+
+          receiver->SetPlanRecordOption(rec, [ disablepublish := TRUE ]);
+
+          RECORD newdestparentpath :=
+              [ destparentpath :=   rec.destpath
+              , destsite :=         destsite
+              ];
+          INSERT newdestparentpath INTO destparentpaths AT RecordUpperBound(destparentpaths, newdestparentpath, [ "DESTPARENTPATH" ]);
+        }
+        CASE "move"
+        {
+          RECORD srcdata := SELECT id, isfolder, published, parentsite FROM system.fs_objects WHERE id = rec.sourceid;
+          OBJECT srcpolicy := RecordExists(srcdata) AND srcdata.parentsite != 0 ? GetVersioningPolicyForSite(srcdata.parentsite) : DEFAULT OBJECT;
+
+          IF (ObjectExists(srcpolicy))
+          {
+            RECORD filerec := srcpolicy->EnrichWithObjectPolicy([ srcdata ], [ returnpolicyafteraccept := TRUE ]);
+
+            IF (srcdata.parentsite = destsite)
+            {
+              RECORD fieldspolicy := filerec.policy->GetFields();
+              STRING ARRAY readonlyfields := fieldspolicy.readonly_fields;
+              IF (filerec.draftlocked)
+              {
+                RECORD newfieldspolicy := filerec.policyafteraccept->GetFields();
+                readonlyfields := readonlyfields
+                    CONCAT fieldspolicy.versioned_fields
+                    CONCAT newfieldspolicy.versioned_fields
+                    CONCAT newfieldspolicy.readonly_fields;
+              }
+
+              IF ("name" IN readonlyfields OR "parent" IN readonlyfields)
+                THROW NEW CopyMoveException(this, "VERSIONEDMOVEDISALLOWED", OpenWHFSObject(rec.sourceid));
+
+              IF ("name" IN fieldspolicy.versioned_fields OR "parent" IN fieldspolicy.versioned_fields)
+              {
+                // Must record in draft metadata, cancel the move plan
+                OBJECT file := OpenWHFSObject(rec.sourceid);
+
+                OBJECT sitepolicy := GetVersioningPolicyForFileObject(file);
+                UpdateMetadataForPolicy(sitepolicy, file, [ parent := rec.destparent, name := rec.name ]);
+
+                IF (LENGTH(plan) != 1)
+                  THROW NEW CopyMoveException(this, "NOTALLOWEDOPERATIONINVERSIONEDSITE", OpenWHFSObject(rec.destparent));
+
+                RETURN "bydraft";
+              }
+            }
+            ELSE // cross-site move
+            {
+              // Don't allow versioned files to move out of their site
+              IF (filerec.versioned)
+                THROW NEW CopyMoveException(this, "NOMOVEOUTVERSIONEDSITE", OpenWHFSObject(rec.sourceid));
+            }
+
+            // Not versioned file, just allow move by plan
+          }
+          ELSE IF (ObjectExists(destpolicy))
+          {
+            // Is move into versioned site
+
+            OBJECT source := OpenWHFSObject(rec.sourceid);
+
+            // Validate the type of the source file is allowed in the versioned site
+            IF (source->type NOT IN destpolicy->FilterAllowedFSObjectTypes([ INTEGER(source->type) ]))
+              THROW NEW CopyMoveException(this, "NOTALLOWEDTYPEINVERSIONEDSITE", OpenWHFSObject(rec.sourceid));
+
+            IF (source->isfolder)
+            {
+              INTEGER ARRAY subobjects := source->GetDescendantObjectIds();
+              INTEGER ARRAY subtypes :=
+                  SELECT AS INTEGER ARRAY DISTINCT type
+                    FROM system.fs_objects
+                   WHERE id IN subobjects;
+
+              INTEGER ARRAY allowed_subtypes := destpolicy->FilterAllowedFSObjectTypes(subtypes);
+
+              IF (NOT ArrayIsSetEqual(allowed_subtypes, subtypes))
+                THROW NEW CopyMoveException(this, "NOTALLOWEDTYPEINVERSIONEDSITE", OpenWHFSObject(rec.sourceid));
+            }
+
+            IF (rec.destparent != 0)
+            {
+              // We can't copy a file with default page name into a folder that already has an indexdoc
+              // That would replace the indexdoc deep within whfs, so disallow it.
+              INTEGER indexdoc := SELECT AS INTEGER COLUMN indexdoc FROM system.fs_objects WHERE id = rec.destparent;
+              IF (indexdoc != 0 AND ToLowercase(rec.name) IN whconstant_webserver_indexpages)
+                THROW NEW CopyMoveException(this, "NOINDEXHTMLINVERSIONEDFOLDERWITHINDEX", OpenWHFSObject(rec.sourceid));
+            }
+
+            receiver->SetPlanRecordOption(rec, [ disablepublish := TRUE ]);
+          }
+        }
+        CASE "setindex"
+        {
+          // can only change indexdoc when auto-changed by filecreation during copy action, so no problem
+        }
+        DEFAULT
+        {
+          IF (NOT ObjectExists(destpolicy))
+            RETURN "ok";
+
+          THROW NEW CopyMoveException(this, "NOTALLOWEDOPERATIONINVERSIONEDSITE", OpenWHFSObject(rec.destparent));
+        }
+      }
+    }
+
+    RETURN "ok";
+  }
+>;
+
+PUBLIC OBJECTTYPE CopyMoveException EXTEND Exception
+<
+  PUBLIC OBJECT copymover;
+  PUBLIC STRING errortag;
+  PUBLIC OBJECT errorobject;
+
+  MACRO NEW(OBJECT errorsource, STRING errortag, OBJECT errorbj)
+  : Exception("CopyMoveException: " || errortag || " for object #" || errorbj->id)
+  {
+    this->copymover := errorsource;
+    this->errortag := errortag;
+    this->errorobject := errorbj;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ObjectCopyMover EXTEND BulkReceiveOperation
+<
+  INTEGER destfolderid;
+  STRING type;
+  INTEGER ARRAY sources;
+  INTEGER ARRAY allsiteroots;
+  STRING auditsource;
+  INTEGER ARRAY pvt_created_drafts;
+
+  PUBLIC PROPERTY drafts(pvt_created_drafts, -);
+
+  MACRO NEW(STRING type, INTEGER destfolderid)
+  {
+    IF(type NOT IN ["copy","move","contentlink","internallink"])
+      THROW NEW Exception("Unsupported action type");
+
+    //ADDME: Can we work with one bulk receiver?
+    this->destfolderid := destfolderid;
+    this->type := type;
+  }
+
+  PUBLIC MACRO SetupAuditing(STRING source)
+  {
+    this->auditsource := source;
+  }
+
+  PUBLIC MACRO AddSourceById(INTEGER id)
+  {
+    INSERT id INTO this->sources AT END;
+  }
+
+  INTEGER FUNCTION ContainsSite(OBJECT folder)
+  {
+    this->allsiteroots := SELECT AS INTEGER ARRAY root FROM system.sites;
+
+    INTEGER ARRAY worklist := [ INTEGER(folder->id) ];
+    WHILE (LENGTH(worklist) != 0)
+    {
+      FOREVERY (INTEGER obj FROM worklist)
+        IF (obj IN this->allsiteroots)
+          RETURN obj;
+
+      worklist := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE isfolder AND parent IN worklist;
+    }
+
+    RETURN 0;
+  }
+
+  PUBLIC MACRO Go(OBJECT newowner)
+  {
+    OBJECT destfolder;
+
+    IF (this->destfolderid = 0)
+      destfolder := OpenWHFSRootObject();
+    ELSE
+      destfolder := OpenWHFSObject(this->destfolderid);
+
+    IF (ObjectExists(newowner) AND NOT newowner->HasRightOn("system:fs_fullaccess", destfolder->id))
+      THROW NEW CopyMoveException(this, "NOCREATERIGHTS", destfolder);
+
+    IF (SELECT AS BOOLEAN locked FROM system.sites WHERE id = destfolder->parentsite)
+      THROW NEW CopyMoveException(this, "DESTINATIONSITELOCKED", destfolder);
+
+    BOOLEAN destination_is_versioned := SELECT AS BOOLEAN versioningpolicy!="" FROM system.sites WHERE id = destfolder->parentsite;
+    IF (destination_is_versioned)
+    {
+      // May only handle one object at a time when destination is a versioned site
+      IF (LENGTH(this->sources) != 1)
+        THROW NEW CopyMoveException(this, "TOOMANYOBJECTSTOVERSIONEDSITE", destfolder);
+    }
+
+    BOOLEAN dest_within_site := destfolder->parentsite != 0;
+
+    OBJECT ARRAY handle_objects;
+
+    RECORD ARRAY auditevents;
+    FOREVERY (INTEGER cmid FROM this->sources)
+    {
+      OBJECT obj := OpenWHFSObject(cmid);
+      IF (NOT ObjectExists(obj))
+        CONTINUE;
+
+      // Check whether this file already exists in the destination folder
+      IF (destfolder->id != obj->parent AND ObjectExists(destfolder->OpenByName(obj->name)))
+        THROW NEW CopyMoveException(this, "EXISTS", obj);
+
+      // Restoring this item, we'll assume it's safe to restore (restoring wouldn't be allowed anyway)
+      IF (NOT obj->isactive)
+      {
+        INSERT obj INTO handle_objects AT END;
+        CONTINUE;
+      }
+
+      // To delete an object, a user needs full access rights on the parent
+      IF (this->type="move" AND ObjectExists(newowner) AND NOT newowner->HasRightOn("system:fs_fullaccess", obj->parent))
+        THROW NEW CopyMoveException(this, "NODELETERIGHTS", obj);
+
+      IF (obj->isfolder)
+      {
+        IF (obj->id = destfolder->id)
+          THROW NEW CopyMoveException(this, "OVERSELF", obj);
+
+        IF (obj->IsParentOf(destfolder->id))
+          THROW NEW CopyMoveException(this, "RECURSIVE", obj);
+      }
+      ELSE
+      {
+        IF (destfolder->id = 0)
+          THROW NEW CopyMoveException(this, "NOFILESTOROOT", obj);
+      }
+
+      // Check if we are not moving a site within a site
+      INTEGER siteid := this->ContainsSite(obj);
+
+      IF (dest_within_site AND siteid != 0 AND this->type = "move")
+        THROW NEW CopyMoveException(this, "SITEINSITE", obj);
+
+      INSERT obj INTO handle_objects AT END;
+      IF(this->type="move" AND this->auditsource != "")
+        INSERT [ objectid := obj->id
+               , type := "MOVE"
+               , whfspath := obj->whfspath
+               , destid := this->destfolderid
+               , destpath := destfolder->whfspath
+               ] INTO auditevents AT END;
+    }
+
+    OBJECT handler := GetWHFSCommitHandler();
+    OBJECT repubstate := CreateRepublishState();
+
+    //If we get here, we can actually go copy stuf
+    FOREVERY (OBJECT cmobj FROM handle_objects)
+    {
+      OBJECT receiver := destfolder->MakeBulkReceiver();
+      receiver->SetSourceBase(cmobj->id, cmobj->name);
+
+      IF(this->type="move")
+        receiver->CreateMovePlan(cmobj->parent, [INTEGER(cmobj->id)], "", "merge");
+      ELSE
+        receiver->CreateCopyPlan(cmobj->parent, [INTEGER(cmobj->id)], "", this->type);
+
+      IF (this->CheckBulkReceiverPlanForVersioning(receiver) = "bydraft")
+      {
+        INSERT GetPublicDraft(cmobj->id)->id INTO this->pvt_created_drafts AT END;
+        CONTINUE;
+      }
+
+      HandlePlanBeforeEffects(repubstate, destfolder->id, receiver->plan);
+
+      //PRINT("** execute single copymove plan:\n" || AnyToString(receiver->plan, "boxed"));
+
+      receiver->ExecuteCopyMovePlan();
+      this->plan := this->plan CONCAT receiver->plan;
+      receiver->Finalize();
+    }
+
+    HandlePlanAfterEffects(repubstate, destfolder->id, this->plan);
+    repubstate->DoRepublishes();
+
+    IF(destfolder->id != 0)
+    {
+      IF(GetApplyTesterForObject(destfolder->id)->GetFolderSettings().ordering = "orderable")
+        destfolder->EnsureOrdering(FALSE);
+    }
+
+    //ADDME Make on-commit
+    FOREVERY(RECORD auditevent FROM auditevents)
+      LogAuditEvent(this->auditsource, auditevent);
+  }
+
+>;
+
+
+
+PUBLIC STATIC OBJECTTYPE ArchiveImporter EXTEND BulkReceiveOperation
+<
+  OBJECT ARRAY archives;
+  RECORD ARRAY all_unpacked_files;
+
+  PUBLIC MACRO PTR onprogress;
+  PUBLIC BOOLEAN overwrite;
+  PUBLIC BOOLEAN replace;
+
+  BOOLEAN runningimport;
+
+  PUBLIC MONEY bytesimported;
+  PUBLIC MONEY bytestotal;
+  PUBLIC STRING currentfullpath;
+
+  PUBLIC RECORD FUNCTION AddInput(BLOB archive_data)
+  {
+    IF(this->runningimport OR this->didplanload)
+      THROW NEW Exception("This function cannot be invoked during or after an Import()");
+
+    TRY
+    {
+      OBJECT arc := OpenExistingArchive(archive_data);
+      INSERT arc INTO this->archives AT END;
+      RECORD ARRAY unpacked;
+
+      FOREVERY (RECORD rec FROM arc->entries)
+      {
+        FUNCTION PTR data;
+        IF (rec.type = 0)
+          data := PTR arc->GetFile(rec.fullpath);
+
+        INSERT CELL data := DEFAULT BLOB INTO rec;
+        INSERT CELL getdataptr := data INTO rec;
+        INSERT rec INTO unpacked AT END;
+      }
+      this->all_unpacked_files := this->all_unpacked_files CONCAT unpacked;
+
+      RETURN [ success := TRUE ];
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN [ success := FALSE ];
+    }
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetAllEntries()
+  {
+    RETURN this->all_unpacked_files;
+  }
+
+  PUBLIC RECORD FUNCTION Import(INTEGER parentfolder)
+  {
+    IF(this->runningimport)
+      THROW NEW Exception("This function cannot be invoked during a running Import()");
+
+    this->runningimport := TRUE;
+    this->bytestotal := 0;
+    FOREVERY(RECORD file FROM this->all_unpacked_files)
+      IF(ToUppercase(file.name) NOT IN ["^^WEBHARE_FOLDER_METADATA.XML", "^^WEBHARE_FOLDER_METADATA"])
+        this->bytestotal := this->bytestotal + file.size;
+
+    RECORD errorinfo := __whpub_ImportArchive(this->all_unpacked_files
+                                            , parentfolder
+                                            , this->overwrite
+                                            , this->onprogress != DEFAULT FUNCTION PTR ? PTR this->wrapprogress : DEFAULT FUNCTION PTR
+                                            , [ plancallback := PTR this->CheckBulkReceiverPlanForVersioning ]);
+
+    this->didplanload := TRUE;
+    this->plan := errorinfo.plan;
+    this->runningimport := FALSE;
+
+    //Fresh archives are equivalent
+    IF(this->auto_indexfiles AND NOT this->HasWebHareMetadata())
+    {
+      this->AddIndicesToNewFolders();
+    }
+
+    IF(this->replace) //recycle leftovers
+    {
+      FOREVERY(RECORD info FROM errorinfo.notincluded)
+        OpenWHFSObject(info.id)->RecycleSelf();
+    }
+
+    OBJECT repubstate := CreateRepublishState();
+    HandlePlanAfterEffects(repubstate, parentfolder, this->plan);
+    repubstate->DoRepublishes();
+
+    RETURN errorinfo;
+  }
+
+  PUBLIC MACRO CloseArchives()
+  {
+    IF(this->runningimport)
+      THROW NEW Exception("This function cannot be invoked during a running Import()");
+
+    FOREVERY(OBJECT arc FROM this->archives)
+      arc->Close();
+    this->archives := DEFAULT OBJECT ARRAY;
+  }
+
+  /** Do any of the added archives have WebHare metadta files? */
+  PUBLIC BOOLEAN FUNCTION HasWebHareMetadata()
+  {
+    RETURN RecordExists( SELECT FROM this->all_unpacked_files
+                         WHERE ToUppercase(name) IN ["^^WEBHARE_FOLDER_METADATA.XML", "^^WEBHARE_FOLDER_METADATA" ]);
+  }
+
+  MACRO WrapProgress(RECORD indata)
+  {
+    this->bytesimported := indata.donelen;
+    this->currentfullpath := indata.fullpath;
+    this->onprogress();
+  }
+>;
+
+
+//ADDME bulk version which can work with one ensureordering
+PUBLIC RECORD FUNCTION RestoreWHFSObjects(INTEGER ARRAY objids)
+{
+  RECORD retval := [ restoringtodeletedfolder := INTEGER[]
+                   , restored := INTEGER[]
+                   ];
+  RECORD ARRAY objs := SELECT fs_history.currentparent
+                            , ids := GroupedVAlues(fs_objects.id)
+                         FROM system.fs_objects
+                            , system.fs_history
+                        WHERE fs_objects.id = fs_history.fs_object
+                              AND fs_history.type=0
+                              AND fs_objects.isactive = FALSE
+                              AND fs_objects.id IN objids
+                     GROUP BY currentparent
+                       HAVING currentparent != 0;
+
+  FOREVERY(RECORD objgroup FROM objs)
+  {
+    OBJECT dest := OpenWHFSObject(objgroup.currentparent);
+    IF(IsRecycleOrHistoryWHFSPath(dest->whfspath))
+    {
+      retval.restoringtodeletedfolder := retval.restoringtodeletedfolder CONCAT objgroup.ids;
+      CONTINUE;
+    }
+
+    FOREVERY(INTEGER objid FROM objgroup.ids)
+    {
+      OpenWHFSObject(objid)->MoveTo(dest, "");
+      INSERT objid INTO retval.restored AT END;
+    }
+  }
+
+  RETURN retval;
+}
+
+
+// Called after type change on fsobject, in same work
+PUBLIC MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER oldtype)
+{
+  BOOLEAN addnewindex;
+  BOOLEAN replaceoldindex;
+  BOOLEAN oldprotectindex;
+  BOOLEAN newprotectindex;
+
+  RECORD csp := GetCachedSiteProfiles();
+
+  // Update index files for folders, if necessary
+  IF (fsobject->isfolder)
+  {
+    RECORD oldtypeindex := DescribeContentTypeById(oldtype, [isfolder := TRUE]);
+    RECORD newtypeindex := DescribeContentTypeById(fsobject->type, [isfolder := TRUE]);
+
+    oldprotectindex := RecordExists(oldtypeindex) AND oldtypeindex.protectindexfile;
+    newprotectindex := RecordExists(newtypeindex) AND newtypeindex.protectindexfile;
+
+    RECORD oldindex := fsobject->indexdoc = 0 ? DEFAULT RECORD : RECORD(
+        SELECT id, name, type
+          FROM system.fs_objects
+         WHERE id = fsobject->indexdoc
+           AND isactive);
+
+    IF (newtypeindex.indexfile LIKE "contentlisting:*") // is folder with contentlisting or dynamic folder
+    {
+      IF (RecordExists(oldindex))
+      {
+        IF (oldindex.type IN [ 24, 35 ]) // contentlisting or dynamicfolderindex
+        {
+          STRING createfiletype := newtypeindex.indexfile LIKE "contentlisting:*" ? Substring(newtypeindex.indexfile, 15) : "http://www.webhare.net/xmlns/publisher/contentlisting";
+          OBJECT newfiletype := OpenWHFSType(createfiletype);
+
+          IF (newfiletype->id != oldindex.type)
+          {
+            OBJECT indexfsobject := OpenWHFSObject(oldindex.id);
+            indexfsobject->UpdateMetadata([ type := newfiletype->id ]);
+            ApplyTypeChangeSideEffects(work, indexfsobject, oldindex.type);
+          }
+          RETURN;
+        }
+        ELSE
+        {
+          IF (fsobject->parentsite != 0)
+          {
+            OBJECT site := OpenSite(fsobject->parentsite);
+            IF (ToLowercase(oldindex.name) IN whconstant_webserver_indexpages)
+              work->AddError(GetTid("publisher:common.errors.cannotchangetypeoffolderwithnondefaultindex", oldindex.name));
+          }
+        }
+        fsobject->UpdateMetadata([ indexdoc := 0 ]);
+      }
+
+      AddDefaultIndexToFolder(fsobject->id);
+      fsobject->Refresh();
+    }
+    ELSE IF (RecordExists(oldindex) AND oldindex.type = 35)
+    {
+      // Convert dynamic folder contents index to contentlisting index when used outside dynamic folder
+      OpenWHFSObject(oldindex.id)->UpdateMetadata([ type := 24 ]);
+    }
+
+    IF (oldprotectindex != newprotectindex AND fsobject->indexdoc != 0)
+      OpenWHFSObject(fsobject->indexdoc)->UpdateMetadata([ ispinned := newprotectindex ]);
+  }
+
+  // Set default content type settings for the new type
+  OBJECT newcontenttype := OpenWHFSTypeByID(fsobject->type);
+  IF(ObjectExists(newcontenttype))
+  {
+    // Get and apply default settings
+    RECORD defaults := GetDefaultSettingsForType(newcontenttype->namespace, fsobject->parent, fsobject->id, fsobject->isfolder);
+    RECORD value := newcontenttype->GetInstanceData(fsobject->id);
+    FOREVERY (RECORD cellrec FROM UnpackRecord(value))
+    {
+      RECORD memberdef := SELECT * FROM newcontenttype->members WHERE ToUppercase(name) = ToUppercase(cellrec.name);
+      // If the member is found (should always be true) AND the member has a value cell (should always be true)
+      // AND the current cell value is not the default type value, don't set it to the default member value
+      IF (RecordExists(memberdef)
+          AND CellExists(value, memberdef.name)
+          AND CellExists(defaults, memberdef.name)
+          AND GetCell(value, memberdef.name) != GetTypeDefaultValue(GetHareScriptTypeForMember(memberdef)))
+        defaults := CellDelete(defaults, memberdef.name);
+    }
+    newcontenttype->SetInstanceData(fsobject->id, MakeUpdatedRecord(value, defaults));
+  }
+}
+
+
+
+RECORD FUNCTION GetFolderIndexFile(OBJECT applytester)
+{
+  RECORD folderindex;
+  FOREVERY(RECORD apply FROM applytester->__GetAppliesForcell("FOLDERINDEX"))
+  {
+    // Find the apply rule for this folder
+    folderindex := apply.folderindex;
+
+    // Resolve site/fullpath
+    INTEGER filesite := applytester->__Deprecated_GetObjInfo().obj.parentsite;
+    IF (folderindex.site != "")
+      filesite := SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(name) = ToUppercase(folderindex.site);
+
+    INTEGER targetfile := LookupWHFSObject(filesite, folderindex.fullpath);
+    INSERT CELL file := (SELECT id, name FROM system.fs_objects WHERE id = targetfile AND isfolder = FALSE) INTO folderindex;
+  }
+
+  // If we have a folder index record, check if the folder's type actively overwrites the rule
+  RECORD foldertypeindex := DescribeContentTypeById(applytester->__Deprecated_GetObjInfo().obj.type, [isfolder := TRUE]);
+  IF (RecordExists(foldertypeindex) AND foldertypeindex.indexfile != "")
+  {
+    folderindex := [ indexfile        := foldertypeindex.indexfile
+                   , protectindexfile := foldertypeindex.protectindexfile
+                   , fullpath         := ""
+                   , site             := ""
+                   , newfiletype      := ""
+                   , newfilename      := ""
+                   ];
+  }
+  RETURN folderindex;
+}
+
+
+/** @short Add an index file to a folder
+    @long AddDefaultIndexToFolder() tries to add an index file to the folder with ID parentFolderID.
+          - Check if the site is configured to always use an index assigned to the folder
+            If so, use it. If not then
+          - check if there is an indexfile available in the parent folder.
+            If so: copy this into our folder. If not, then
+          - check if there is a default index file assigned to the site that should be used in no index
+            can be copied from the parent folder.
+            If so: use it. If not, there's nothing we can do.
+          The index file that will be added must be an HTML (type: 5) or HareScript file (type: 7)
+    @param parentFolderID The ID of the folder in which to insert the index file.
+*/
+PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
+{
+  OBJECT applytester := GetApplyTesterForObject(parentfolderid);
+  RECORD folderindex := GetFolderIndexFile(applytester);
+  IF (NOT RecordExists(folderindex))
+    RETURN;
+
+  // When a site versioning policy is active, the default page may not be published
+  INTEGER new_published := PubPrio_DirectEdit;
+  OBJECT sitepolicy := GetVersioningPolicyForSite(applytester->objsite);
+  IF (ObjectExists(sitepolicy))
+    new_published := 0;
+
+  OBJECT parentfolderobj := OpenWHFSObject(parentfolderid);
+  IF (folderindex.indexfile="contentlisting" OR folderindex.indexfile LIKE "contentlisting:*" )
+  {
+    STRING createfiletype := folderindex.indexfile LIKE "contentlisting:*" ? Substring(folderindex.indexfile,15) : "http://www.webhare.net/xmlns/publisher/contentlisting";
+    OBJECT newfiletype := OpenWHFSType(createfiletype);
+    IF(NOT ObjectExists(newfiletype))
+      THROW NEW Exception("Index file type '" || createfiletype || "' not registered");
+
+    STRING filename := folderindex.newfilename;
+    IF(filename="" AND createfiletype = "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents")
+    {
+      filename := "index.shtml";
+    }
+    ELSE IF(filename="")
+    {
+      INTEGER web := SELECT AS INTEGER outputweb FROM system.sites WHERE id = applytester->objsite;
+      filename := GetWebserverDefaultPage(web);
+    }
+
+    parentfolderobj->CreateFile([ type := newfiletype->id
+                                , name := filename
+                                , template := newfiletype->needstemplate ? parentfolderobj->template : 0
+                                , profile := newfiletype->needsprofile ? parentfolderobj->profile : 0
+                                , published := new_published
+                                , ispinned := folderindex.protectindexfile
+                                , dataistrusted := TRUE
+                                ], [ setindex := TRUE ]);
+  }
+  ELSE IF (folderindex.indexfile = "copy_of_file")
+  {
+    IF (RecordExists(folderindex.file))
+    {
+      // FIXME: Handle the case where a file with the name already exists. Clear title on indexdoc
+      OBJECT copyfile := OpenWHFSObject(folderindex.file.id);
+      OBJECT newfile := copyfile->CopyTo(parentfolderobj, folderindex.newfilename);
+      IF (ObjectExists(newfile))
+      {
+        RECORD filetype := DescribeContentTypeById(newfile->type, [ isfolder := FALSE, mockifmissing := TRUE]);
+        newfile->UpdateMetaData([ template := filetype.needstemplate ? parentfolderobj->template : 0
+                                , profile := filetype.needsprofile ? parentfolderobj->profile : 0
+                                , published := new_published
+                                , ispinned := folderindex.protectindexfile
+                                ]);
+        parentfolderobj->UpdateMetadata([ indexdoc := newfile->id ]);
+      }
+    }
+  }
+  ELSE IF (folderindex.indexfile = "contentlink")
+  {
+    IF (RecordExists(folderindex.file))
+    {
+      parentfolderobj->CreateFile([ typens := "http://www.webhare.net/xmlns/publisher/contentlink"
+                                  , name := folderindex.newfilename ?? folderindex.file.name
+                                  // We'll assume new contentlinks need template and profile, because they're mostly used to link to Word documents
+                                  , template := parentfolderobj->template
+                                  , profile := parentfolderobj->profile
+                                  , published := new_published
+                                  , filelink := folderindex.file.id
+                                  , ispinned := folderindex.protectindexfile
+                                  ], [ setindex := TRUE]);
+    }
+  }
+  ELSE IF (folderindex.indexfile = "newfile")
+  {
+    parentfolderobj->CreateFile( [ typens := folderindex.newfiletype
+                                 , name := folderindex.newfilename ?? "index"
+                                 , published := new_published
+                                 , ispinned := folderindex.protectindexfile
+                                 ], [ setindex := TRUE ]);
+  }
+}

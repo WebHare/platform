@@ -1,0 +1,673 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internal/hssupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+PUBLIC MACRO PTR __onlogentry; //used for testframework to record the log
+
+/** This object reads logfiles. It can read 3 types of logs:
+    - access logs (type: 'access')
+
+    The streams in the custom stats must be configured before attempting to read them.
+*/
+
+STATIC OBJECTTYPE LogFileReader
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT linereader;
+
+  STRING pvt_logtype;
+
+  INTEGER64 current_offset;
+
+  INTEGER64 next_offset;
+
+  RECORD ARRAY customstreams;
+
+  INTEGER64 realsize;
+
+  RECORD ARRAY lines;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY logtype(pvt_logtype, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT linereader, INTEGER64 realsize, STRING logtype)
+  {
+    IF (logtype NOT IN [ "access", "modulelog" ])
+      THROW NEW Exception("Unknown log type '" || logtype || "'");
+
+    this->linereader := linereader;
+
+    this->pvt_logtype := logtype;
+    this->current_offset := 0i64;
+    this->realsize := realsize;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC INTEGER64 FUNCTION GetOffset()
+  {
+    RETURN this->current_offset;
+  }
+
+  PUBLIC INTEGER64 FUNCTION GetNextOffset()
+  {
+    RETURN this->next_offset;
+  }
+
+  PUBLIC INTEGER64 FUNCTION GetLength()
+  {
+    RETURN this->realsize;
+  }
+/*
+  PUBLIC MACRO SetOffset(INTEGER64 newoffset)
+  {
+    SetFilePointer(this->logstream, newoffset);
+    this->current_offset := newoffset;
+  }
+*/
+  /** Read a record from the log
+      @cell return.stream Stream of the log entry ('hit', 'statsevent' or name of custom stream)
+      @cell return.time Time of the log entry
+
+      @cell return.remoteip IP of remote client (access only)
+      @cell return.url IP of remote client (access only)
+      @cell return.qualified_url Fully qualified url (access only)
+      @cell return.host Host (access only)
+      @cell return.port Port (access only)
+      @cell return.size Size of the response (access only)
+      @cell return.httpcode HTTP code of response (access only)
+      @cell return.referrer Referrer (might not be filled) (access only)
+      @cell return.pagetime Processing time in ms (access only)
+      @cell return.Trackingstamp Visit cookie id (might not be filled) (access only)
+      @cell return.mimetype MIME-type of returned data (might not be filled) (access only)
+
+      @cell return.Trackingstamp Trackingstamp (stats only)
+      @cell return.type Event type (EV (event), ID (identifying), RV (revisit) (stats only)
+      @cell return.tag Event tag (stats only)
+      @cell return.event Name of the event (filled only with type EV) (stats only)
+      @cell return.parameters Parameters (stats only)
+      @cell return.hsondata HSON data (filled only with types EV & ID) (stats only)
+      @cell return.firsttrackingstamp Trackingstamp of first visit, can be to identify unique visitors (filled only with type RV) (stats only)
+      @cell return.lasttrackingstamp Trackingstamp of last visit (filled only with type RV) (stats only)
+
+      @cell return.parts (modulelog only)
+  */
+  PUBLIC RECORD FUNCTION ReadRecord()
+  {
+    WHILE (TRUE)
+    {
+      IF (LENGTH(this->lines) = 0)
+      {
+        this->lines := this->linereader->ReadLines();
+        IF (LENGTH(this->lines) = 0)
+        {
+          this->current_offset := this->next_offset;
+          RETURN DEFAULT RECORD;
+        }
+      }
+
+      RECORD line := this->lines[0];
+      DELETE FROM this->lines AT 0;
+
+      // Corruption?
+      IF (line.line = "")
+        CONTINUE;
+
+      RECORD rec := this->ParseLine(line.line);
+      IF (RecordExists(rec))
+      {
+        this->current_offset := line.position;
+        this->next_offset := line.newposition;
+
+        RETURN rec;
+      }
+    }
+  }
+
+  /** Skip until the first entry after a specific time
+      @param skip_until Timestamp to skip to
+  */
+  PUBLIC MACRO SkipUntil(DATETIME skip_until)
+  {
+    // Early out
+    IF (skip_until = DEFAULT DATETIME)
+      RETURN;
+
+    WHILE (TRUE)
+    {
+      IF (LENGTH(this->lines) = 0)
+      {
+        this->lines := this->linereader->ReadLines();
+        IF (LENGTH(this->lines) = 0)
+          RETURN;
+      }
+
+      // Find last parsable record, and compare time.
+      BOOLEAN skip_batch;
+      FOR (INTEGER i := LENGTH(this->lines) - 1; i >= 0; i := i - 1)
+      {
+        RECORD rec := this->ParseLine(this->lines[i].line);
+        IF (RecordExists(rec))
+        {
+//          PRINT("Last batch rec: " || FormatISO8601DateTime(rec.time) || ", skip until " || FormatISO8601DateTime(skip_until) || "\n");
+          skip_batch := rec.time < skip_until;
+          BREAK;
+        }
+      }
+
+      IF (NOT skip_batch)
+      {
+        // Delete lines until we have the first line at or beyond the wanted date
+        WHILE (LENGTH(this->lines) > 0)
+        {
+          RECORD rec := this->ParseLine(this->lines[0].line);
+          IF (NOT RecordExists(rec) OR rec.time < skip_until)
+          {
+            this->current_offset := this->lines[0].newposition;
+            DELETE FROM this->lines AT 0;
+          }
+          ELSE
+            BREAK;
+        }
+
+        RETURN;
+      }
+
+//      PRINT("Skip batch of " || LENGTH(this->lines) || " lines!\n");
+
+      // Skip this batch of lines
+      this->current_offset := this->lines[END-1].newposition;
+      this->lines := DEFAULT RECORD ARRAY;
+    }
+  }
+
+  // Parse a record from the log
+  RECORD FUNCTION ParseLine(STRING line)
+  {
+    SWITCH (this->pvt_logtype)
+    {
+    CASE "access"
+      {
+        STRING ARRAY parts := Tokenize(line, '"');
+        IF (LENGTH(parts) NOT IN [ 7, 9 ])
+          RETURN DEFAULT RECORD;
+
+        STRING ARRAY fparts := Tokenize(parts[0], " ");
+        IF (LENGTH(fparts) != 6)
+          RETURN DEFAULT RECORD;
+
+        DATETIME time := ParseDateStamp(fparts[3]);
+
+        STRING ARRAY mparts := Tokenize(parts[2], " ");
+        IF (LENGTH(mparts) != 4)
+          RETURN DEFAULT RECORD;
+
+        STRING ARRAY lastparts := Tokenize(parts[6], " ");
+        IF (LENGTH(lastparts) NOT IN [ 5, 6 ]) // might not have tracking id
+          RETURN DEFAULT RECORD;
+
+        BOOLEAN have_mimetype := LENGTH(parts) = 9;
+        BOOLEAN have_trackingstamp := LENGTH(lastparts) >= 6 OR have_mimetype;
+
+        STRING remoteip := fparts[0];
+        STRING host := lastparts[1];
+        INTEGER port := ToInteger(lastparts[2], 0);
+
+        INTEGER64 pagetime;
+        STRING trackingstamp;
+        STRING mimetype;
+
+        IF (have_trackingstamp)
+        {
+          trackingstamp := lastparts[4];
+          IF (have_mimetype)
+          {
+            mimetype := parts[7];
+            STRING ARRAY postmimeparts := Tokenize(parts[8], " ");
+            IF (LENGTH(postmimeparts) < 2)
+              RETURN DEFAULT RECORD;
+            pagetime := ToInteger64(postmimeparts[1], 0);
+          }
+          ELSE
+            pagetime := ToInteger64(lastparts[5], 0);
+        }
+        ELSE
+          pagetime := ToInteger64(lastparts[4], 0);
+
+        IF (trackingstamp IN [ "-", "" ])
+          trackingstamp := "";
+
+        INTEGER spos := SearchSubString(parts[1], " ") + 1;
+        STRING url := SubString(parts[1], spos, SearchLastSubString(parts[1], " ") - spos);
+
+/*
+0 'remoteip - username [01/Aug/2011:15:06:13 +0000] '
+1 'GET url HTTP/1.1'
+2 ' 200 bytessent '
+3 'referrer'
+4 ' '
+5 'useragent'
+6 ' hostname port bodyreceived [trackerid] ( pagetime /
+7 'mime-type'
+8 'pagetime' )
+*/
+        RETURN
+            [ stream :=           "hit"
+            , time :=             time
+            , remoteip :=         fparts[0]
+            , url :=              url
+            , host :=             host
+            , port :=             port
+            , upload :=           ToInteger64(lastparts[3], 0)
+            , download :=         ToInteger64(mparts[2], 0)
+            , httpcode :=         ToInteger(mparts[1], 0)
+            , referrer :=         parts[3] != "-" ? parts[3] : ""
+            , useragent :=        parts[5]
+            , pagetime :=         pagetime
+            , trackingstamp :=    trackingstamp
+            , mimetype :=         mimetype
+            , method :=           ToUppercase(Left(parts[1], spos-1))
+            ];
+      }
+    CASE "modulelog"
+      {
+        DATETIME time := ParseDateStamp(line);
+
+        INTEGER timestampend := SearchSubstring(line, "]", 27);
+        IF (timestampend > 0)
+          timestampend := timestampend + 2;
+        STRING ARRAY parts := Tokenize(SubString(line, timestampend), "\t");
+
+        RECORD rec :=
+            [ stream :=     "modulelog"
+            , time :=       time
+            , parts :=      parts
+            ];
+
+        RETURN rec;
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("No parser for log type " || this->pvt_logtype);
+      }
+    }
+  }
+
+  PUBLIC MACRO Close()
+  {
+    //PRINT("LogFileReader close\n" || AnyToString(GetStackTrace(), "boxed"));
+    this->linereader->Close();
+  }
+>;
+
+//public for tests. should probably move to an internal lib
+PUBLIC OBJECTTYPE __LineReader
+<
+  OBJECT job;
+
+  BOOLEAN atend;
+
+  MACRO NEW(RECORD data)
+  {
+    RECORD rec := CreateJob("wh::internal/linereadjob.whlib", "WEBHARE");
+    IF (NOT ObjectExists(rec.job))
+      THROW NEW Exception(AnyToString(rec, "tree"));
+    this->job := rec.job;
+    this->job->Start();
+    this->job->ipclink->DoRequest(data);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ReadLines()
+  {
+    IF (this->atend)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD res := this->job->ipclink->DoRequest([ type := "getlines" ]);
+    IF (res.status = "gone")
+      ABORT(AnyToString(this->job->GetErrors(), "boxed"));
+    IF (res.msg.status = "finished")
+    {
+      this->atend := TRUE;
+      RETURN DEFAULT RECORD ARRAY;
+    }
+
+    RETURN res.msg.lines;
+  }
+
+  PUBLIC MACRO Close()
+  {
+    this->job->ipclink->DoRequest([ type := "terminate" ]);
+    this->job->Close();
+    this->job := DEFAULT OBJECT;
+  }
+>;
+
+
+// Parse time until first space character
+DATETIME FUNCTION ParseDateStamp(STRING line)
+{
+  INTEGER spos := SearchSubstring(line, " ", 21);
+  IF (spos = -1)
+    spos := LENGTH(line);
+  RETURN MakeDateFromText(SubString(line, 1, spos - 1));
+}
+
+//ADDME make public? needs a consistent API between sync and async, as much compatible as possible with cluster oepnwebharelogstream
+PUBLIC OBJECT FUNCTION __OpenLogFileByPath(STRING path, INTEGER64 realsize, STRING logtype, INTEGER format, INTEGER64 startposition DEFAULTSTO 0i64)
+{
+  OBJECT reader := NEW __LineReader([ type := "file", path := path, format := format, startposition := startposition ]);
+  RETURN NEW LogFileReader(reader, realsize, logtype);
+}
+
+//ADDME make public? needs a consistent API between sync and async, as much compatible as possible with cluster oepnwebharelogstream
+PUBLIC OBJECT FUNCTION __OpenLogFileBlob(BLOB data, INTEGER64 realsize, STRING logtype, INTEGER format, INTEGER64 startposition DEFAULTSTO 0i64)
+{
+  OBJECT reader := NEW __LineReader([ type := "blob", data := data, format := format, startposition := startposition  ]);
+  RETURN NEW LogFileReader(reader, realsize, logtype);
+}
+
+//ADDME make public? needs a consistent API between sync and async, as much compatible as possible with cluster oepnwebharelogstream
+PUBLIC OBJECTTYPE __AsyncLogReader
+<
+  OBJECT job;
+
+  BOOLEAN atend;
+  INTEGER64 realsize;
+  INTEGER64 current_offset;
+  INTEGER64 next_offset;
+  RECORD ARRAY cache;
+
+  MACRO NEW(RECORD data)
+  {
+    RECORD rec := CreateJob("wh::internal/logreaderjob.whlib", "WEBHARE");
+    IF (NOT ObjectExists(rec.job))
+      THROW NEW Exception(AnyToString(rec, "tree"));
+    this->job := rec.job;
+    this->job->Start();
+    this->job->ipclink->DoRequest(data);
+    this->realsize := data.realsize;
+  }
+
+  PUBLIC INTEGER64 FUNCTION GetOffset()
+  {
+    RETURN this->current_offset;
+  }
+
+  PUBLIC INTEGER64 FUNCTION GetNextOffset()
+  {
+    RETURN this->next_offset;
+  }
+
+  PUBLIC INTEGER64 FUNCTION GetLength()
+  {
+    RETURN this->realsize;
+  }
+
+  PUBLIC RECORD FUNCTION ReadRecord()
+  {
+    IF (LENGTH(this->cache) = 0)
+    {
+      IF (this->atend)
+        RETURN DEFAULT RECORD;
+
+//      PRINT("ALR request batch     " || FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds") || " \n");
+      RECORD res := this->job->ipclink->DoRequest([ type := "getlines" ]);
+      IF (res.status = "gone")
+        ABORT(AnyToString(this->job->GetErrors(), "boxed"));
+      IF (res.msg.status = "finished")
+      {
+        this->current_offset := this->next_offset;
+        this->atend := TRUE;
+        RETURN DEFAULT RECORD;
+      }
+
+//      PRINT("ALR got batch         " || FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds") || " \n\n");
+      this->cache := res.msg.lines;
+    }
+
+    RECORD rec := this->cache[0];
+    DELETE FROM this->cache AT 0;
+    this->current_offset := rec.curr_offset;
+    this->next_offset := rec.next_offset;
+    RETURN rec.value;
+  }
+
+  PUBLIC MACRO Close()
+  {
+//    PRINT("Close job\n");
+    this->job->Close();
+    this->job := DEFAULT OBJECT;
+  }
+>;
+
+/** Log reader for reading log files from multiple days as a single log stream. Returned by [OpenWebHareLogStream](#OpenWebHareLogStream).
+    @topic modules/services
+    @public
+*/
+PUBLIC OBJECTTYPE MultiFileLogReader
+<
+  STRING format;
+  DATETIME startdt;
+  DATETIME limitdt;
+  RECORD ARRAY initiallogfiles;
+  RECORD ARRAY logfiles;
+  OBJECT currentlogfile;
+  DATETIME currentlogfiledate;
+  STRING currentcheckpoint;
+
+  /** @type(string) Get or restore the current position of the log reader
+  */
+  PUBLIC PROPERTY checkpoint(GetCheckpoint, SetCheckpoint);
+
+  /** @private
+      @param format Log format that is being read
+      @param startentries Time stamp to start reading
+      @param limitentries Time stamp to stop reading
+      @param logfiles List of files to read
+  */
+  MACRO NEW(STRING format, DATETIME startentries, DATETIME limitentries, RECORD ARRAY logfiles)
+  {
+    this->format := format;
+    this->startdt := startentries;
+    this->limitdt := limitentries;
+    this->initiallogfiles := logfiles;
+    this->Reset();
+  }
+
+  MACRO Reset()
+  {
+    this->CloseCurrentFile();
+    this->logfiles := this->initiallogfiles;
+    this->currentcheckpoint := "";
+  }
+
+  BOOLEAN FUNCTION OpenNextFile(INTEGER64 startposition)
+  {
+    IF(Length(this->logfiles)=0)
+      RETURN FALSE;
+
+    RECORD logconfig := [ logtype :=        this->format = "access" ? "access" : "modulelog"
+                        , filetype :=       "file"
+                        , path :=           this->logfiles[0].path
+                        , data :=           DEFAULT BLOB
+                        , realsize :=       this->logfiles[0].size64
+                        , format :=         0//logfile.path LIKE "*gz" ? 1 : 0 // 0; text, 1: gzipped
+                        , customstreams :=  DEFAULT RECORD ARRAY
+                        , skip_until :=     GetRoundedDatetime(this->startdt, 1000)
+                        , startposition :=  startposition
+                        ];
+    this->currentlogfile := NEW __AsyncLogReader(logconfig);
+    this->currentlogfiledate := this->logfiles[0].date;
+    DELETE FROM this->logfiles AT 0;
+    RETURN TRUE;
+  }
+  MACRO CloseCurrentFile()
+  {
+    IF(ObjectExists(this->currentlogfile))
+      this->currentlogfile->Close();
+    this->currentlogfile := DEFAULT OBJECT;
+  }
+
+  /** Reads the next record from the log
+      @return Log record
+  */
+  PUBLIC RECORD FUNCTION ReadRecord()
+  {
+    WHILE(TRUE)
+    {
+      IF(NOT Objectexists(this->currentlogfile) AND NOT this->OpenNextFile(0))
+        RETURN DEFAULT RECORD;
+
+      RECORD nextrec := this->currentlogfile->ReadRecord();
+      IF(RecordExists(nextrec) AND nextrec.time < this->limitdt)
+      {
+        //update checkpoint after a succesful read, so we don't loose the checkpoint when falling off the end
+        this->currentcheckpoint := EncodeHSON([ date := this->currentlogfiledate, off := this->currentlogfile->GetNextOffset() ]);
+        RETURN nextrec;
+      }
+
+      // We're at the limit of this file, save the current checkpoint just to be sure
+      this->currentcheckpoint := EncodeHSON([ date := this->currentlogfiledate, off := this->currentlogfile->GetOffset() ]);
+
+      //giving up on this file
+      this->CloseCurrentFile();
+    }
+  }
+
+  /// Closes the log reader, releases all resources
+  PUBLIC MACRO Close()
+  {
+    this->CloseCurrentFile();
+    this->logfiles := DEFAULT RECORD ARRAY;
+  }
+
+  STRING FUNCTION GetCheckpoint()
+  {
+    // Force a valid checkpoint if possible
+    IF (NOT Objectexists(this->currentlogfile))
+      this->OpenNextFile(0);
+
+    IF (this->currentcheckpoint = "" AND Objectexists(this->currentlogfile))
+      this->currentcheckpoint := EncodeHSON([ date := this->currentlogfiledate, off := this->currentlogfile->GetNextOffset() ]);
+
+    RETURN this->currentcheckpoint;
+  }
+
+  MACRO SetCheckpoint(STRING checkpoint)
+  {
+    this->Reset();
+    IF(checkpoint="" OR Length(this->logfiles)=0)
+      RETURN;
+
+    RECORD cp := DecodeHSON(checkpoint);
+    this->currentcheckpoint := checkpoint;
+
+    DELETE FROM this->logfiles WHERE date < cp.date;
+    IF(Length(this->logfiles) = 0)
+    {
+      this->Close();
+      RETURN; //fell off the other edge. leave the checkpoint as it is, just in case (ADDME: or should we update it))
+    }
+    IF(this->logfiles[0].date > cp.date)
+      RETURN; //all logfiles are newer than the checkpoint
+    IF(NOT this->OpenNextFile(cp.off))
+      THROW NEW Exception("Failed to open the log");
+  }
+>;
+
+/** Log a line to a specific module log
+    @loadlib mod::system/lib/services.whlib
+    @param name Name of the log (module:logname)
+    @param line Line to log
+*/
+PUBLIC MACRO ModuleLog(STRING name, STRING line)
+{
+  __SYSTEM_REMOTELOG(name, line);
+  IF(__onlogentry != DEFAULT MACRO PTR)
+    __onlogentry(name, line);
+}
+
+
+PUBLIC OBJECT FUNCTION OpenWebHareLogStreamFromFiles(RECORD ARRAY files, STRING format, DATETIME startentries, DATETIME limitentries) //Currently unused!
+{
+  RETURN NEW MultiFileLogReader(format, startentries, limitentries, SELECT path, date, size64 FROM files);
+}
+
+
+/** Opens a logging stream for reading
+    @param logfile Base name of the log file (eg 'access')
+    @param startentries Timestamp to start reading
+    @param limitentries Timestamp to stop reading
+    @return(object #MultiFileLogReader) Log reader
+    @topic modules/services
+    @public
+    @loadlib mod::system/lib/services.whlib
+*/
+PUBLIC OBJECT FUNCTION OpenWebHareLogStream(STRING logfile, DATETIME startentries, DATETIME limitentries)
+{
+/* we'll leave this responsibility with the user, proper use of checkpointing
+   will make it possible
+
+  IF(limitentries > AddTimeToDate(-5000, GetCurrentDatetime()))
+    THROW NEW Exception("Cannot read current or future log entries - timespan must stop at least 5 seconds in the past"); //ADDME perhaps we need a 'follow' or 'tail' mode
+    */
+  IF(limitentries < startentries)
+    THROW NEW Exception("'startentries' must be before 'limitentries'");
+
+  //Figure out which logfiles to read
+  RECORD config := __SYSTEM_WHCOREPARAMETERS();
+  RECORD ARRAY logfiles := ReadDiskDirectory(config.logroot, logfile || ".*.log*");
+
+  logfiles :=
+      SELECT TEMPORARY date := MakeDateFromText(Tokenize(name,'.')[END-2] || "T000000Z")
+           , path :=      MergePath(config.logroot, name)
+           , date :=      date
+           , size64
+        FROM logfiles
+       WHERE name LIKE "*.????????.log"
+    ORDER BY date;
+  DELETE FROM logfiles WHERE date < GetRoundedDatetime(startentries,86400*1000) OR date >= limitentries;
+
+  RETURN NEW MultiFileLogReader(logfile, startentries, limitentries, logfiles);
+}
+
+/** @short Log a Harescript exception to the notice log
+    @param exc Exception to log
+    @cell(boolean) options.groupid Override the VM group id
+    @cell(boolean) options.addcurrentstack If present and FALSE, skip appending the stack trace to the logging function
+    @cell(string) options.script If set, log this as the name of the script
+    @cell options.info Extra info to log (will be hson encoded)
+    @cell options.contextinfo If present, overrides the contextinfo set by SetErrorContextInfo.
+    @topic modules/services
+    @public
+    @loadlib mod::system/lib/services.whlib
+*/
+PUBLIC MACRO LogHarescriptException(OBJECT exc, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ groupid :=      ""
+      ], options,
+      [ passthroughin := "rest"
+      ]);
+
+  ModuleLog("system:notice", "script\tERROR\t" || (options.groupid ?? GetCurrentGroupId()) || "\t" || EncodeJava(GetExternalSessionData()) || "\tharescript-error\t" || EncodeHarescriptException(exc, options.rest));
+}
+

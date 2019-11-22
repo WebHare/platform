@@ -1,0 +1,256 @@
+﻿<?wh
+/** @short Configuration
+    @long Functions used to manage the WebHare system configuration
+    @topic modules/config */
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/registry.whlib" EXPORT ReadRegistryNode, DeleteRegistryKey, ReadRegistryKey, GetRegistryKeyEventMasks;
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib" EXPORT GetModuleInstallationRoot;
+LOADLIB "mod::system/lib/internal/whconfig.whlib" EXPORT GetDTAPStage, IsNodeApplicableToThisWebHare, IsRestoredWebHare;
+
+/** Base object for custom WebHare checks
+*/
+PUBLIC OBJECTTYPE CustomCheckBase
+<
+  /** Return list of issues (readable text)
+      @return List of issues
+  */
+  PUBLIC STRING ARRAY FUNCTION GetIssues()
+  {
+    RETURN DEFAULT STRING ARRAY;
+  }
+
+  /** Returns extended list of issues
+      @return List of issues
+      @cell return.msg Tid with message text (prefix with ':' to pass fixed texts)
+      @cell return.jumpto Information about where to jump to where more information can be found (message to send to a tollium application)
+      @cell return.jumpto.app Tollium application to start
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetIssueList()
+  {
+    RETURN SELECT msg := ":" || msg FROM ToRecordArray(this->GetIssues(),'msg');
+  }
+>;
+
+RECORD buildinfo;
+
+/** @short Get WebHare version and branding information
+    @return A record describing the version
+    @cell(string) return.basename Product base name (eg WebHare Platform)
+    @cell(string) return.fullname Product full name (eg WebHare Platform v4.26.3)
+    @cell(string) return.version Version (eg v4.26.3)
+    @cell(integer) return.versionnum Version as number (eg 42603)
+    @cell(integer) return.revision Legacy SVN revision number (now always 44168)
+    @cell(string) return.builddate Build date (the compiler's __DATE__)
+    @cell(string) return.buildtime Build time (the compiler's __TIME__)
+    @cell(string) return.committag Git commit tag (not set for developer's builds)
+    @cell(string) return.branch Git branch of this build (not set for developer's builds)
+    @cell(string) return.buildid Build id (not set for developer's builds)
+*/
+PUBLIC RECORD FUNCTION GetWebhareVersionInfo()
+{
+  IF(NOT RecordExists(buildinfo))
+  {
+    buildinfo := CELL[];
+    TRY
+    {
+      BLOB buildinfofile := GetHarescriptResource("whres::buildinfo");
+      IF(Length(buildinfofile) > 0)
+      {
+        FOREVERY(STRING line FROM Tokenize(BlobToString(buildinfofile),'\n'))
+        {
+          STRING param := Left(line,SearchSubstring(line,'='));
+          IF(param="")
+            CONTINUE;
+          buildinfo := CellInsert(buildinfo, param, TrimWhitespace(Substring(line, Length(param)+1)));
+        }
+      }
+    }
+    CATCH(OBJECT e)
+    {
+      //ignore buildinfo open failure
+    }
+  }
+
+  RECORD versioninfo := __SYSTEM_WEBHAREVERSION();
+  IF(CellExists(buildinfo, 'BUILDDATE'))
+    versioninfo.builddate := buildinfo.builddate;
+  IF(CellExists(buildinfo, 'BUILDTIME'))
+    versioninfo.buildtime := buildinfo.buildtime;
+  IF(CellExists(buildinfo, 'HASH'))
+    versioninfo.committag := buildinfo.hash;
+
+  INSERT CELL branch := CellExists(buildinfo,'branch') ? buildinfo.branch : ""
+            , docker := CellExists(buildinfo,'docker') ? buildinfo.docker="1" : FALSE
+            , buildid := CellExists(buildinfo,'buildid') ? ToInteger(buildinfo.buildid,0) : 0
+         INTO versioninfo;
+  RETURN versioninfo;
+}
+
+/** @short Is a specific module installed ?
+    @param modulename Name of the module to test
+    @return TRUE if the module is installed
+*/
+PUBLIC BOOLEAN FUNCTION IsModuleInstalled(STRING modulename)
+{
+  RETURN GetModuleInstallationRoot(modulename) != "";
+}
+
+PUBLIC STRING FUNCTION GetModuleStorageRoot(STRING modulename)
+{
+  RETURN GetWebHareConfiguration().basedataroot || "storage/" || modulename || "/";
+}
+
+/** @short Get the version of this WebHare installation
+    @return The WebHare version (eg "WebHare Platform v4.26.3") */
+PUBLIC STRING FUNCTION GetWebhareVersion()
+{
+  RETURN __SYSTEM_WEBHAREVERSION().fullname;
+}
+/** @short Get the version number of this WebHare installation
+    @return The WebHare version number (eg 42603 for version 4.26.3) */
+PUBLIC INTEGER FUNCTION GetWebhareVersionNumber()
+{
+  RETURN __SYSTEM_WEBHAREVERSION().versionnum;
+}
+/** @short Get the name for this server
+    @return The name for this server */
+PUBLIC STRING FUNCTION GetServerName()
+{
+  RETURN GetcachedWebHareConfig().servername;
+}
+
+/** @short Get the installation directory
+    @long Retrieve the WebHare installation directory
+    @return The WebHare installation directory (eg "/opt/webhare or "C:/b-lex/program files/webhare") */
+PUBLIC STRING FUNCTION GetInstallationRoot()
+{
+  RETURN GetWebHareConfiguration().installationroot;
+}
+
+/** @short IS this a 'considered live' environment
+    @return True if this server's DTAP type is production or acceptance*/
+PUBLIC BOOLEAN FUNCTION IsDTAPLive()
+{
+  RETURN GetDTAPStage() IN ["production","acceptance"];
+}
+
+/** @short Get the WebHare installation/configuration parameters
+    @long This function returns the various path locations and database settings as configured in the webhare-(default-)config.xml file.
+    @return Configuration parameters
+    @cell(boolean) return.use_externaldb True if we're configured to use an external database, false if we used the locally installed WebHare dbserver
+    @cell(string) return.installationtype The installation type ('production', 'restore' or 'test')
+    @cell(string) return.installationroot The WebHare installation root directory (eg /opt/webhare)
+    @cell(string) return.basedataroot The base directory for the WebHare data files (dbase, etc). Custom and modulespecific folders should use the varroot or the ephemeralroot
+    @cell(string) return.config Path to the configuration file
+    @cell(string) return.node Current server's node name in a cluster
+    @cell(string array) return.moduledirs Module search paths
+    @cell(string) return.varroot The directory for the WebHare on-disk data (eg /var/)
+    @cell(string) return.ephemeralroot The directory for the WebHare on-disk data that is relatively easily recovered after loss (eg /var/ephemeral, used for image- and compilecache)
+    @cell(string) return.logroot The directory where log files are stored (eg /log/).
+    @cell(string) return.consilio ip:port used for consilios
+    @cell(integer) return.baseport Baseport for local services (eg 13679)
+    */
+PUBLIC RECORD FUNCTION GetWebHareConfiguration()
+{
+  INTEGER baseport := ToInteger(GetEnvironmentVariable("WEBHARE_BASEPORT"),13679);
+  RECORD params := __SYSTEM_WHCOREPARAMETERS();
+  params := CELL[ ...params
+                , baseport
+                , trustedhost := GetEnvironmentVariable("WEBHARE_SECUREPORT_BINDIP") ?? "127.0.0.1"
+                , trustedport := baseport + 5
+                , use_externaldb := FALSE
+                ];
+  RETURN params;
+}
+
+/** @short Set a registry key if it exists. Module registry keys can be written using the key "modulename.registrykey...".
+    @param confkey Key name
+    @param newval New value (must be of the same type as the existing key)
+    @cell options.createifneeded Create the registry key if it doesn't exist yet.
+    @cell options.initialcreate is the initial create (don't overwrite, only create)
+    @see ReadRegistryKey DeleteRegistryKey ReadRegistryNode
+*/
+PUBLIC MACRO WriteRegistryKey(STRING confkey, VARIANT newval, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ createifneeded := FALSE
+                              , initialcreate := FALSE
+                              ], options);
+
+  IF(confkey LIKE "<*" AND NOT options.createifneeded AND NOT options.initialcreate)
+    THROW NEW Exception(`Writing a user registry requires you to set either createifneeded or initialcreate`); // as you can't initialize it
+
+  RECORD keyinfo := __GetRegistryKey(confkey, TRUE);
+  IF(options.initialcreate AND keyinfo.id != 0)
+    RETURN;
+  IF(keyinfo.id = 0 AND NOT options.createifneeded AND NOT options.initialcreate)
+    THROW NEW Exception(`No such registry key ${confkey}`);
+
+  //No type promotion! It would make your code racy, depending on first value ever written
+  IF(keyinfo.id != 0 AND TypeID(keyinfo.value) != TypeID(newval))
+    THROW NEW Exception(`Invalid type for registry key '${confkey}', got ${GetTypeName(TYPEID(newval))} but expected ${GetTypeName(TYPEID(keyinfo.value))}`);
+
+  __SetRegistryKey(keyinfo, newval);
+}
+
+/** @short Get the primary WebHare interface URL
+    @return The interface url, of the form 'http[s]://server/' */
+PUBLIC STRING FUNCTION GetPrimaryWebhareInterfaceURL()
+{
+  RETURN GetcachedWebHareConfig().primaryinterfaceurl;
+}
+
+RECORD FUNCTION GetCachableDebuggerConfig()
+{
+  RECORD config :=
+      [ dtapstage :=                    GetDTAPStage()
+      , keep_errorterminated_msecs :=   0
+
+      , eventmasks := [ "system:debugger.configchange"
+                      , "system:config.servertype"
+                      ]
+      ];
+
+  // Debugger config matters only for alpha machines
+  IF (config.dtapstage = "development")
+  {
+    OBJECT trans;
+    IF (NOT ObjectExists(GetPrimaryWebhareTransactionObject()))
+      trans := OpenPrimary();
+
+    config.keep_errorterminated_msecs := ReadRegistryKey("system.backend.development.zombietimeout");
+
+    IF (Objectexists(trans))
+      trans->Close();
+  }
+
+  RETURN
+      [ ttl :=        60 * 60 * 1000 // 1 hour
+      , value :=      config
+      , eventmasks := config.eventmasks
+      ];
+}
+
+/** Return the configuration for the debugger
+    @return Debugger configuration
+    @cell(string) return.dtapstage Current dtapstage Current dtap stage
+    @cell(integer) return.keep_errorterminated_msecs Time (in msecs) to keep terminated processes with errors around for the debugger to attach to
+    @cell(string array) return.eventmasks Masks for events that invalidate this configuration
+*/
+PUBLIC RECORD FUNCTION GetDebuggerConfig()
+{
+  RETURN GetAdhocCached([ type := "debugconfig" ], PTR GetCachableDebuggerConfig);
+}
+
+/** Returns the current system configuration
+    @return System configuration record
+*/
+PUBLIC RECORD FUNCTION GetSystemConfigurationRecord()
+{
+  RETURN __SYSTEM_GETSYSTEMCONFIG();
+}

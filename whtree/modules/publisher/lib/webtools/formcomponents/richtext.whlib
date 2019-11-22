@@ -1,0 +1,172 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/webtool.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/rtd.whlib";
+
+
+PUBLIC RECORD FUNCTION GetRichTextAttributeById(OBJECT screen, STRING instanceid)
+{
+  IF (instanceid != "")
+  {
+    RECORD instance := screen->contexts->formcomponentapi->GetInstance(instanceid);
+    IF (RecordExists(instance))
+      RETURN instance.data;
+  }
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION GetRichTextAttribute(OBJECT screen, OBJECT comp, STRING attributename)
+{
+  RETURN GetRichTextAttributeById(screen, comp->GetAttribute(attributename || "id"));
+}
+
+PUBLIC STRING FUNCTION SetRichTextAttributeId(OBJECT screen, STRING instanceid, RECORD value)
+{
+  RECORD instance;
+  IF(RecordExists(value))
+    instance := [ data := value
+                , whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+                ];
+
+  IF (instanceid != "")
+  {
+    screen->contexts->formcomponentapi->SetInstance(instanceid, instance);
+    RETURN RecordExists(value) ? instanceid : "";
+  }
+  ELSE IF(RecordExists(value))
+  {
+    instanceid := screen->contexts->formcomponentapi->CreateInstance(instance);
+    RETURN instanceid;
+  }
+  RETURN "";
+}
+
+PUBLIC MACRO SetRichTextAttribute(OBJECT screen, OBJECT comp, STRING attributename, RECORD value)
+{
+  STRING instanceid := comp->GetAttribute(attributename || "id");
+  STRING newinstanceid := SetRichTextAttributeId(screen, instanceid, value);
+  IF(newinstanceid != instanceid)
+    IF(newinstanceid != "")
+      comp->SetAttribute(attributename || "id", newinstanceid);
+    ELSE
+      comp->RemoveAttribute(attributename || "id");
+}
+
+PUBLIC MACRO SetRichTextInstance(OBJECT screen, OBJECT comp, RECORD value)
+{
+  SetRichTextAttribute(screen, comp, "text", value);
+
+  RECORD options := [ encoding := "utf-8", suppress_urls := TRUE ];
+  STRING plaintext := RecordExists(value) ? BlobToString(ConvertHtmlToPlainText(value.htmltext, options)) : "";
+  STRING title :=
+      SELECT AS STRING TrimWhitespace(line)
+        FROM ToRecordArray(Tokenize(plaintext, "\n"), "line")
+       WHERE TrimWhitespace(line) != "";
+  IF (title != "")
+    comp->SetAttribute("title", title);
+  ELSE
+    comp->RemoveAttribute("title");
+}
+
+PUBLIC STATIC OBJECTTYPE RichText EXTEND FormComponentExtensionBase
+<
+  BOOLEAN mayhavemergefields;
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->mayhavemergefields := this->node->parentnode->GetAttribute("role") = "thankyou";
+    IF (this->mayhavemergefields)
+    {
+      RECORD formsettings := this->contexts->formcomponentapi->integrationsettings;
+      RECORD rtdtype := GetRTDType(RecordExists(formsettings) AND formsettings.mailrtdtype != "" ? formsettings.mailrtdtype : "http://www.webhare.net/xmlns/publisher/defaultmailrtdtype");
+      ^text->allowwidgettypes :=
+          [ ...^text->allowwidgettypes
+          , [ type := "http://www.webhare.net/xmlns/publisher/formmergefield", inherit := TRUE ]
+          , ...rtdtype.allowedobjects
+          ];
+    }
+    ^text->value := GetRichTextAttribute(this, this->node, "text");
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+      SetRichTextInstance(this, this->node, ^text->value);
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormRichText(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  STRING instance := node->GetAttribute("textid");
+  fielddef := CELL[ ...fielddef
+                  , richvalue := DEFAULT RECORD
+                  , novalue := TRUE
+                  , mayhavemergefields := node->parentnode->GetAttribute("role") = "thankyou"
+                  ];
+
+  IF(instance != "")
+  {
+    IF(parsecontext.getinstance != DEFAULT FUNCTION PTR)
+      fielddef.richvalue := parsecontext.getinstance(instance);
+  }
+  ELSE
+  {
+    OBJECT bodynode := node->GetElementsByTagNameNS("http://www.w3.org/1999/xhtml","body")->Item(0);
+    IF(ObjectExists(bodynode))
+    {
+      // Parse data-wh-gettid tid's
+      FOREVERY (OBJECT htmlnode FROM bodynode->QuerySelectorAll("span[data-wh-gettid]")->GetCurrentElements())
+      {
+        // Resolve wh-gettid into a parsed tid ptr (parsexmltidptr will look for the "data-wh-get" and "data-wh-gettid"
+        // attributes to find a fixed text or tid, respectively)
+        htmlnode->SetAttribute("data-wh-gettid", parsecontext.parsexmltidptr(htmlnode, "data-wh-get"));
+      }
+
+      OBJECT doc := NEW RichDocument;
+      doc->ImportFromHTML(StringToBlob(bodynode->innerhtml));
+
+      fielddef.richvalue := [ data := doc->ExportAsRecord() ];
+    }
+  }
+  RETURN fielddef;
+}
+
+PUBLIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
+<
+  PUBLIC PROPERTY richvalue(GetRichValue, SetRichValue);
+
+  PUBLIC STRING __renderedmergefields;
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RETURN CELL[ ...this->GetBaseRenderData()
+               , type := "richtext"
+               , hidetitle := TRUE
+                 //ADDME: Maybe check if there are actually embedded components present which 'requiremergefieldscontext'
+               , hasmergefields := this->form EXTENDSFROM WebtoolFormBase AND this->field.mayhavemergefields
+               , renderedmergefields := this->__renderedmergefields
+               ];
+  }
+
+  RECORD FUNCTION GetRichValue()
+  {
+    RETURN RecordExists(this->field.richvalue) ? this->field.richvalue.data : DEFAULT RECORD;
+  }
+
+  MACRO SetRichValue(RECORD value)
+  {
+    IF (RecordExists(value))
+      this->field.richvalue := [ data := ValidateRichDocument(value) ];
+    ELSE
+      this->field.richvalue := DEFAULT RECORD;
+  }
+>;

@@ -1,0 +1,876 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+
+
+PUBLIC MACRO ValidateSelectRendering(STRING name, RECORD rendersettings)
+{
+  IF(rendersettings.type != "pulldown" AND RecordExists(rendersettings.dataset))
+    THROW NEW Exception(`Setting the dataset for a 'select' field of type 'radio' or 'checkbox' is not allowed (field: '${name}')`);
+  IF(rendersettings.type != "checkboxgroup" AND CellExists(rendersettings,'min') AND rendersettings.min > 1)
+    THROW NEW Exception(`Setting 'min' higher than 1 is not allowed for non-checkbox selects (field: '${name}')`);
+  IF(rendersettings.required AND rendersettings.type = "checkbox")
+    THROW NEW Exception(`Setting 'required' is not allowed for checkbox selects, use min & max (field: '${name}')`);
+}
+
+//Normalize options passed to eg. a select
+PUBLIC RECORD ARRAY FUNCTION FixupOptions(RECORD field, RECORD ARRAY opts, STRING selecttype, BOOLEAN parentenabled)
+{
+  RECORD ARRAY outopts := SELECT value
+                               , htmllabel := CellExists(opts,'htmltitle') ? opts.htmltitle : EncodeHTML(opts.title)
+                               , enabled := (parentenabled OR selecttype="pulldown") AND (CellExists(opts,'enabled') ? opts.enabled : TRUE)
+                               , selected := CellExists(opts,'selected') AND opts.selected
+                               , required := field.required
+                               , subfields := CellExists(opts,'subfields') ? opts.subfields : DEFAULT OBJECT ARRAY
+                               , type := VAR selecttype
+                               , firstid := field.firstid != "" ? field.firstid || "-" || opts.value : ""
+                               , dataset := CellExists(opts,'dataset') ? opts.dataset : DEFAULT RECORD
+                               , extrafields := CellExists(opts,'extrafields') ? opts.extrafields : DEFAULT RECORD
+                               , name := field.name
+                               , orientation := field.orientation
+                               , isoptgroup := CellExists(opts,'isoptgroup') AND opts.isoptgroup
+                               , ingroup  := CellExists(opts,'ingroup') AND opts.ingroup
+                               , enablecomponents := CellExists(opts,'enablecomponents') ? STRING ARRAY(opts.enablecomponents) : STRING[]
+                               , visiblecondition := CellExists(opts,'visiblecondition') ? opts.visiblecondition : ""
+                               , infotext := CellExists(opts,'infotext') ? opts.infotext : DEFAULT RECORD
+                            FROM opts;
+
+  RETURN outopts;
+}
+
+PUBLIC RECORD ARRAY FUNCTION FixupFields(RECORD ARRAY fields)
+{
+  fields := SELECT AS RECORD ARRAY FixupField(fields) FROM fields;
+  RETURN fields;
+}
+
+RECORD basefielddescription :=
+  [ groupclasses           := STRING[]
+  , groupdataset           := DEFAULT RECORD
+  , autocomplete           := STRING[]
+  , errors                 := RECORD[]
+  , enabled                := TRUE
+  , required               := FALSE
+  , type                   := ""
+  , dataset                := DEFAULT RECORD
+  , htmltitle              := ""
+  , hidetitle              := FALSE
+  , firstid                := ""
+  , requiredcondition      := ""
+  , visiblecondition       := ""
+  , enabledcondition       := ""
+  , groupfor               := STRING[]
+  , infotext               := DEFAULT RECORD
+  ];
+
+//Normalize fields passed to the renderer
+PUBLIC RECORD FUNCTION FixupField(RECORD indescription)
+{
+  IF(CellExists(indescription,'__didfixupfield'))
+    RETURN indescription;
+  IF(NOT CellExists(indescription,'type'))
+    THROW NEW Exception("Missing required field 'type'");
+
+  //If 'htmltitle' is missing, get it from 'title' if available
+  IF(CellExists(indescription,'title') AND NOT CellExists(indescription,'htmltitle'))
+    INSERT CELL htmltitle := EncodeHTML(indescription.title) INTO indescription;
+
+  RECORD outdescription;
+  SWITCH(indescription.type)
+  {
+    CASE "group"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , blockstyle := ""
+                            , ...indescription
+                            ];
+    }
+    CASE "array"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , min := 0
+                            , max := 0
+                            , ...indescription
+                            ];
+    }
+    CASE "textedit"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , name := indescription.name
+                            , prefix := ""
+                            , suffix := ""
+                            , valuetype := "string"
+                            , validationchecks := DEFAULT STRING ARRAY
+                            , placeholder := ""
+                            , password := FALSE
+                            , value := ""
+                            , maxlength := 0
+                            , size := 0
+                            , range := DEFAULT RECORD
+                            , ...indescription
+                            ];
+    }
+    CASE "textarea"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , name := indescription.name
+                            , value := ""
+                            , maxlength := 0
+                            , validationchecks := DEFAULT STRING ARRAY
+                            , placeholder := ""
+                            , ...indescription
+                            ];
+    }
+    CASE "rtd"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , rtdtype := ""
+                            , name := indescription.name
+                            , value := ""
+                            , validationchecks := DEFAULT STRING ARRAY
+                            , rtdoptions := DEFAULT RECORD
+                            , ...indescription
+                            ];
+    }
+    CASE "imgedit"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , name := indescription.name
+                            , rtdtype := ""
+                            , value := DEFAULT RECORD
+                            , validationchecks := DEFAULT STRING ARRAY
+                            , ...indescription
+                            ];
+    }
+    CASE "date"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , name := indescription.name
+                            , placeholder := ""
+                            , min := ""
+                            , max := ""
+                            , value := ""
+                            , ...indescription
+                            ];
+    }
+    CASE "time"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , name := indescription.name
+                            , placeholder := ""
+                            , value := ""
+                            , precision := ""
+                            , ...indescription
+                            ];
+    }
+    CASE "upload"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , name := indescription.name
+                            , rtdtype := ""
+                            , value := DEFAULT RECORD
+                            , validationchecks := DEFAULT STRING ARRAY
+                            , ...indescription
+                            ];
+    }
+    CASE "radio","checkbox"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , name := indescription.name
+                            , htmllabel := ""
+                            , value := ""
+                            , selected := FALSE
+                            , subfields := DEFAULT OBJECT ARRAY
+                            , orientation := "vertical"
+                            , enablecomponents := STRING[]
+                            , ...indescription
+                            ];
+    }
+    CASE "select"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , name := indescription.name
+                            , options := DEFAULT RECORD ARRAY
+                            , orientation := "vertical"
+                            , placeholderisset := FALSE
+                            , ...indescription
+                            ];
+
+      IF (indescription.selecttype = "checkbox")
+      {
+        outdescription := CELL[ min := 0
+                              , max := 0
+                              , ...outdescription
+                              , type := "checkboxgroup"
+                              ];
+      }
+      ELSE IF (indescription.selecttype = "radio")
+        outdescription.type := "radiogroup";
+      ELSE
+        outdescription.type := "pulldown";
+
+      outdescription.options := FixupOptions(outdescription, outdescription.options, indescription.selecttype, indescription.enabled);
+      ValidateSelectRendering(outdescription.name, outdescription);
+    }
+    CASE "text"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , value := ""
+                            , ...indescription
+                            ];
+    }
+    CASE "richtext"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , richvalue := DEFAULT RECORD
+                            , ...indescription
+                            ];
+    }
+    CASE "custom"
+    {
+      outdescription := CELL[ ...basefielddescription
+                            , lines := DEFAULT MACRO PTR
+                            , ...indescription
+                            ];
+    }
+    DEFAULT
+    {
+      IF(CellExists(indescription,'name') AND indescription.name != "")
+        THROW NEW Exception(`Don't know how to fixup field '${indescription.name}' of type '${indescription.type}'`);
+      ELSE
+        THROW NEW Exception(`Don't know how to fixup fields of type '${indescription.type}'`);
+    }
+  }
+
+  INSERT CELL __didfixupfield := TRUE INTO outdescription;
+  RETURN outdescription;
+}
+
+PUBLIC MACRO DoRenderIntoSubfield(RECORD fld, MACRO PTR content)
+{
+  STRING txt;
+  txt := txt || '<span class="wh-form__subfield">';
+  IF(NOT fld.hidetitle)
+  {
+    txt := txt || '<label';
+    IF(fld.firstid != "")
+      txt := txt || ' for="' || EncodeValue(fld.firstid) || '"';
+    txt := txt || ' class="wh-form__subfieldlabel">' || fld.htmltitle || '</label>';
+  }
+
+  Print(txt);
+  content();
+  Print('</span>');
+}
+
+PUBLIC STRING FUNCTION GetDatasetAsString(RECORD dataset)
+{
+  STRING datasetstr;
+  IF (RecordExists(dataset))
+  {
+    FOREVERY(RECORD fld FROM UnpackRecord(dataset))
+    {
+      STRING value;
+      IF(TYPEID(fld.value) = TypeID(STRING))
+        value := fld.value;
+      ELSE IF(TYPEID(fld.value) = TypeID(DATETIME))
+        value := Substitute(EncodeJSON(fld.value),'"',''); //Fast iso8601
+      ELSE
+        value := EncodeJSON(fld.value);
+
+      datasetstr := datasetstr || ` data-${EncodeValue(ToLowercase(fld.name))}="${EncodeValue(value)}"`;
+    }
+  }
+  RETURN datasetstr;
+}
+
+STRING FUNCTION GetDateProp(STRING propname, STRING setvalue)
+{
+  IF(setvalue="")
+    RETURN "";
+  IF(setvalue LIKE "now*")
+    RETURN ` data-wh-${propname}="${EncodeValue(setvalue)}"`;
+
+  DATETIME dt := MakeDateFromText(setvalue);
+  IF(dt = DEFAULT DATETIME)
+    THROW NEW Exception(`Cannot parse date value '${setvalue}'`);
+  RETURN ` ${propname}="${FormatDatetime("%Y-%m-%d", dt)}"`;
+}
+
+STRING FUNCTION GetTimeProp(STRING propname, STRING setvalue, STRING precision)
+{
+  IF(setvalue="")
+    RETURN "";
+  IF(setvalue LIKE "now*")
+    RETURN ` data-wh-${propname}="${EncodeValue(setvalue)}"`;
+
+  DATETIME dt := MakeDateFromText("2000-01-01T"||setvalue);
+  IF(dt = DEFAULT DATETIME)
+    THROW NEW Exception(`Cannot parse time value '${setvalue}'`);
+  RETURN ` ${propname}="${(precision = "seconds" ? FormatTimestamp("%H:%M:%S", GetMSecondCount(dt)) : FormatTimestamp("%H:%M", GetMSecondCount(dt)))}"`;
+}
+
+PUBLIC STATIC OBJECTTYPE FormRenderingBase
+<
+  OBJECT webdesign;
+  OBJECT rtdstructure;
+  OBJECT formintegrationplugin;
+
+  MACRO NEW(OBJECT webdesign)
+  {
+    this->webdesign := webdesign;
+    this->formintegrationplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "formintegration")
+                                   ??
+                                   webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher", "formintegration");
+
+    IF(NOT ObjectExists(this->formintegrationplugin))
+      THROW NEW Exception(`Rendering a form requires a configured <formintegration /> webdesign plugin`);
+  }
+
+  PUBLIC MACRO RenderForm(RECORD form)
+  {
+    Print(`<form class="${EncodeValue(Detokenize(form.formclasses,' '))}" `);
+    form.formattributes();
+    Print('>');
+    form.formhiddenfields();
+    form.formallpages();
+    form.formrendernav();
+    Print("</form>");
+  }
+
+  PUBLIC MACRO RenderFormNavigation(RECORD navinfo)
+  {
+    Print('<div class="wh-form__buttongroup wh-form__navbuttons">');
+    Print(`<button type="button" data-wh-form-action="previous" class="wh-form__button wh-form__button--previous"><span class="wh-form__buttonlabel">${EncodeValue(navinfo.prevlabel)}</span></button>`);
+    Print(`<button type="button" data-wh-form-action="next" class="wh-form__button wh-form__button--next"><span class="wh-form__buttonlabel">${EncodeValue(navinfo.nextlabel)}</span></button>`);
+    Print(`<button type="submit" class="wh-form__button wh-form__button--submit"><span class="wh-form__buttonlabel">${EncodeValue(navinfo.submitlabel)}</span></button>`);
+    Print('</div>');
+  }
+
+  PUBLIC MACRO RenderIntoSubField(RECORD fld)
+  {
+    DoRenderIntoSubfield(fld, PTR this->RenderFieldContent(fld));
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasSubfields(RECORD groupdescription)
+  {
+    IF(NOT CellExists(groupdescription,'type'))
+      RETURN FALSE;
+    IF(groupdescription.type IN ["radiogroup","checkboxgroup","pulldown"])
+      RETURN CellExists(groupdescription,'options') AND RecordExists(SELECT FROM groupdescription.options WHERE CellExists(options,'fields') AND Length(options.fields)>0);
+    IF(groupdescription.type IN ["radio","checkbox"])
+      RETURN CellExists(groupdescription,'fields') AND Length(groupdescription.fields)>0;
+    RETURN FALSE;
+  }
+
+  //A groupdescription is a subset of a fielddescription, containing at least name, title, required and groupclasses
+  /*PUBLIC*/ MACRO RenderInGroup(RECORD groupdescription, MACRO PTR renderer)
+  {
+    groupdescription := FixupField(groupdescription);
+
+    STRING ARRAY useclasses := [ "wh-form__fieldgroup"
+                               , "wh-form__fieldgroup--" || groupdescription.type
+                               , ...groupdescription.groupclasses
+                               ];
+
+    IF(this->HasSubfields(groupdescription))
+      INSERT "wh-form__fieldgroup--hassubfields" INTO useclasses AT END;
+
+    BOOLEAN isrequired := groupdescription.required OR (groupdescription.type = "checkboxgroup" AND groupdescription.min >= 1);
+    IF(isrequired)
+      INSERT "wh-form__fieldgroup--required" INTO useclasses AT END;
+    IF(Length(groupdescription.errors)>0)
+      INSERT "wh-form__fieldgroup--error" INTO useclasses AT END;
+    IF(CellExists(groupdescription,'orientation') AND groupdescription.orientation = "horizontal" AND groupdescription.type IN ['radiogroup','checkboxgroup'])
+      INSERT "wh-form__fieldgroup--horizontal" INTO useclasses AT END;
+
+    Print(`<div class="${EncodeValue(Detokenize(useclasses,' '))}"${GetDatasetAsString(groupdescription.groupdataset)}`);
+    FOREVERY(STRING condition FROM ["required","enabled","visible"])
+    {
+      STRING condval := GetCell(groupdescription, condition || "condition");
+      IF(condval != "")
+        Print(` data-wh-form-${condition}-if="${EncodeValue(condval)}"`);
+    }
+    Print(` data-wh-form-group-for="${Detokenize(groupdescription.groupfor,' ')}"`);
+
+    IF (groupdescription.type = "checkboxgroup")
+    {
+      IF (groupdescription.min > 0)
+        Print(` data-wh-min="${groupdescription.min}"`);
+      IF (groupdescription.max > 0)
+        Print(` data-wh-max="${groupdescription.max}"`);
+    }
+
+    Print('><a class="wh-anchor"');
+    IF(CellExists(groupdescription,'firstid') AND groupdescription.firstid != '')
+      Print(` id="${EncodeValue(groupdescription.firstid)}-anchor"`);
+    Print('></a>');
+
+    IF (groupdescription.type != "group" AND (NOT CellExists(groupdescription, "hidetitle") OR NOT groupdescription.hidetitle))
+    {
+      Print(`<label class="wh-form__label"`);
+
+      IF(CellExists(groupdescription,'firstid') AND groupdescription.firstid != '')
+        Print(` for="${EncodeValue(groupdescription.firstid)}"`);
+      Print(`>`);
+
+      IF(groupdescription.htmltitle != "")
+        Print(groupdescription.htmltitle);
+      Print(`</label>`);
+    }
+
+    Print(`<div class="wh-form__fields">`);
+
+    renderer();
+
+    IF(Length(groupdescription.errors) > 0)
+    {
+      Print(`</div><div class="wh-form__errorlist"><ul>`);
+      FOREVERY(RECORD err FROM groupdescription.errors)
+        Print(`<li>${EncodeHTML(err.message)}</li>`);
+      Print(`</ul>`);
+    }
+
+    Print('</div></div>'); //closes wh-form__fields and wh-form__fieldgroup
+  }
+  PUBLIC MACRO RenderFieldLines(RECORD fielddescription) //this renders the content of a fieldgroup
+  {
+    fielddescription := FixupField(fielddescription);
+
+    IF(fielddescription.type = "radiogroup" OR fielddescription.type = "checkboxgroup")
+    {
+      IF(RecordExists(fielddescription.dataset))
+        THROW NEW Exception("radiogroups and checkboxgroups do not support dataset");
+      IF(RecordExists(fielddescription.infotext))
+        THROW NEW Exception(`Don't know how to render infotext for fields of type '${fielddescription.type}' (field: '${fielddescription.name}')`);
+
+      BOOLEAN isradio := fielddescription.type = "radiogroup";
+
+      FOREVERY(RECORD opt FROM fielddescription.options)
+      {
+        BOOLEAN hasinfotext := RecordExists(opt.infotext) AND this->formintegrationplugin->enableinfotexts;
+        //FIXME why do we have to pass orientation to every field, it's not like it can change
+        BOOLEAN subfields := Length(opt.subfields) > 0 AND fielddescription.orientation="vertical"; //cant talk about subfields if we only do one fieldline, i think...
+
+        Print(`<div class="wh-form__fieldline wh-form__fieldline--nowrap${subfields ? " wh-form__fieldline--subfields" : ""}${hasinfotext ? " wh-form__fieldline--hasinfotext" : ""}"`);
+        IF(opt.visiblecondition != "")
+          Print(` data-wh-form-visible-if="${EncodeValue(opt.visiblecondition)}"`);
+        Print(`>`);
+
+        // For the first option of a checkbox group, set the min and max
+        IF (fielddescription.type = "checkboxgroup" AND #opt = 0)
+          opt := CELL[ ...opt, fielddescription.min, fielddescription.max ];
+
+        this->RenderFieldContent(opt);
+
+        IF(hasinfotext)
+          this->RenderInfoText(opt.infotext);
+        Print('</div>');
+      }
+    }
+    ELSE IF(fielddescription.type = "array")
+    {
+      IF(RecordExists(fielddescription.infotext))
+        THROW NEW Exception(`Don't know how to render infotext for fields of type '${fielddescription.type}' (field: '${fielddescription.name}')`);
+
+      // Don't render array contents within a field line
+      this->RenderFieldContent(fielddescription);
+    }
+    ELSE IF(fielddescription.type = "custom")
+    {
+      IF(RecordExists(fielddescription.dataset))
+        THROW NEW Exception("custom fields do not support dataset");
+      IF(fielddescription.lines != DEFAULT MACRO PTR)
+        fielddescription.lines();
+    }
+    ELSE
+    {
+      this->RenderFieldInline(fielddescription);
+    }
+  }
+
+  PUBLIC MACRO RenderFieldInline(RECORD fielddescription)
+  {
+    BOOLEAN hasinfotext := RecordExists(fielddescription.infotext) AND this->formintegrationplugin->enableinfotexts;
+
+    BOOLEAN nowrap := fielddescription.type IN ["checkbox","radio"];
+    Print(`<div class="wh-form__fieldline${nowrap ? " wh-form__fieldline--nowrap" : ""}`);
+
+    IF(hasinfotext)
+      Print(" wh-form__fieldline--hasinfotext");
+
+    Print('">');
+
+    this->RenderFieldContent(fielddescription);
+
+    IF(hasinfotext)
+      this->RenderInfoText(fielddescription.infotext);
+
+    Print('</div>');
+  }
+
+  PUBLIC MACRO RenderInfoText(RECORD infotext)
+  {
+    Print('<div class="wh-form__infotextwrapper"><div class="wh-form__infotext">');
+    this->webdesign->RenderRTD(infotext, [ rtdtype := this->formintegrationplugin->infotextrtdtype ]);
+    Print('</div></div>');
+  }
+
+  PUBLIC MACRO RenderFieldContent(RECORD fielddescription) //this renders the content of a fieldline
+  {
+    fielddescription := FixupField(fielddescription);
+
+    STRING idstr := fielddescription.firstid != "" ? ' id="' || EncodeValue(fielddescription.firstid) || '"' : "";
+
+    //Encode the dataset
+    STRING datasetstr := GetDatasetAsString(fielddescription.dataset);
+
+    SWITCH(fielddescription.type)
+    {
+      CASE "group"
+      {
+        STRING ARRAY parts;
+
+        //Convert "h2" to ["h2",""], convert "p.normal" to ["p","normal"]
+        IF (fielddescription.blockstyle LIKE "*.*")
+          parts := Tokenize(fielddescription.blockstyle, ".");
+        IF (Length(parts) != 2)
+          parts := [ Tokenize(fielddescription.blockstyle, ".")[0], "" ];
+
+        RECORD blockstyle;
+        IF (NOT ObjectExists(this->rtdstructure))
+          this->rtdstructure := this->webdesign->OpenRTD(DEFAULT RECORD)->structure;
+        IF (ObjectExists(this->rtdstructure))
+        {
+          blockstyle := this->rtdstructure->LookupStyle(parts[0], parts[1], TRUE);
+          // If specified style not found, use the first available heading blockstyle
+          IF (NOT RecordExists(blockstyle))
+            blockstyle := SELECT * FROM this->rtdstructure->structure.blockstyles WHERE toclevel > 0;
+        }
+
+        Print(`<${RecordExists(blockstyle) ? blockstyle.containertag : "h2"} class="wh-form__grouptitle ${RecordExists(blockstyle) ? ToLowercase(blockstyle.tag) : ""}">`);
+        Print(fielddescription.htmltitle);
+        Print(`</${RecordExists(blockstyle) ? blockstyle.containertag : "h2"}>`);
+      }
+      CASE "array"
+      {
+        Print(`<input class="wh-form__arrayinput" data-wh-form-name="${fielddescription.name}" data-wh-min="${fielddescription.min}" data-wh-max="${fielddescription.max}" />`);
+
+        Print(`<template><div class="wh-form__arrayrow">`);
+        FOREVERY (OBJECT field FROM fielddescription.subfields)
+          field->RenderField();
+        Print(`<span class="wh-form__arraydelete"></span>`);
+        Print(`</div></template>`);
+
+        FOREVERY (RECORD row FROM fielddescription.rows)
+        {
+          Print(`<div class="wh-form__arrayrow" data-wh-form-rowid="${EncodeValue(row.rowid)}">`);
+          FOREVERY (OBJECT field FROM fielddescription.subfields)
+          {
+            STRING cellname := Substring(field->name, Length(fielddescription.name) + 1);
+            VARIANT savedvalue := field->value; //this is the default, so save it.. we lack a nondestructive 'Render-with-this-value'
+            field->value := GetCell(row.cells, cellname);
+            field->RenderField(); //FIXME we should set the proper ids+names serverside instead of relying on clientisde fixing
+
+            field->value := savedvalue;
+          }
+          Print(`<span class="wh-form__arraydelete"></span>`);
+          Print(`</div>`);
+        }
+
+        Print(`<span class="wh-form__arrayadd"></span>`);
+      }
+      CASE "textedit"
+      {
+        IF(fielddescription.prefix != "")
+          Print(`<span class="wh-form__prefix">${EncodeHTML(fielddescription.prefix)}</span>`);
+
+        STRING type := "text";
+        STRING min, max;
+        IF(fielddescription.password)
+        {
+          type := 'password';
+        }
+        ELSE IF(fielddescription.valuetype = "integer")
+        {
+          type := 'number';
+
+          IF(RecordExists(fielddescription.range) AND CellExists(fielddescription.range, 'min'))
+            min := ToString(fielddescription.range.min);
+          ELSE
+            min := "-2147483648";
+
+          IF(RecordExists(fielddescription.range) AND CellExists(fielddescription.range, 'max'))
+            max := ToString(fielddescription.range.max);
+          ELSE
+            max := "2147483647";
+        }
+        ELSE IF(fielddescription.valuetype = "money")
+        {
+          type := 'number';
+        }
+        ELSE IF('email' IN fielddescription.validationchecks)
+        {
+          type := 'email';
+        }
+        ELSE IF('url' IN fielddescription.validationchecks)
+        {
+          type := 'url';
+        }
+
+        Print(`<input${idstr} type="${type}" name="${EncodeValue(fielddescription.name)}" class="wh-form__textinput"`);
+        /* We need placeholders to work around a Chrome bug where the alignment of an input differs whether or not it has
+           content. https://bugs.chromium.org/p/chromium/issues/detail?id=401185
+           http://stackoverflow.com/questions/20847687/flexbox-vertical-alignment-issue-on-input-tag */
+        Print(` placeholder="${EncodeValue(fielddescription.placeholder ?? " ")}"`);
+        IF(fielddescription.valuetype="money")
+          Print(` step="any"`);
+        IF(fielddescription.required)
+          Print(` required`);
+        IF(fielddescription.maxlength > 0)
+          Print(` maxlength="${fielddescription.maxlength}"`);
+        IF(fielddescription.size > 0)
+          Print(` size="${fielddescription.size}"`);
+        IF(fielddescription.value != "")
+          Print(` value="${EncodeValue(fielddescription.value)}"`);
+        IF(min != "")
+          Print(` min="${min}"`);
+        IF(max != "")
+          Print(` max="${max}"`);
+
+        IF(NOT fielddescription.enabled)
+          Print(` disabled`);
+        IF(Length(fielddescription.autocomplete) > 0 )
+          Print(` autocomplete="${EncodeValue(Detokenize(fielddescription.autocomplete,' '))}"`);
+        Print(`${datasetstr}>`);
+
+        IF(fielddescription.suffix != "")
+          Print(`<span class="wh-form__suffix">${EncodeHTML(fielddescription.suffix)}</span>`);
+      }
+      CASE "textarea"
+      {
+        Print(`<textarea${idstr} class="wh-form__textarea" name="${EncodeValue(fielddescription.name)}"`);
+        IF(fielddescription.placeholder != "")
+          Print(` placeholder="${EncodeValue(fielddescription.placeholder)}"`);
+        IF(fielddescription.required)
+          Print(` required`);
+        IF(fielddescription.maxlength > 0)
+          Print(` maxlength="${fielddescription.maxlength}"`);
+        IF(NOT fielddescription.enabled)
+          Print(` disabled`);
+        IF(Length(fielddescription.autocomplete) > 0 )
+          Print(` autocomplete="${EncodeValue(Detokenize(fielddescription.autocomplete,' '))}"`);
+        Print(`${datasetstr}>`);
+        IF(fielddescription.value != "")
+          Print(EncodeValue(fielddescription.value));
+        Print(`</textarea>`);
+      }
+      CASE "rtd"
+      {
+        Print(`<div${idstr} class="wh-form__rtd" data-wh-form-name="${EncodeValue(fielddescription.name)}" data-wh-rtdoptions="${EncodeValue(EncodeJSON(fielddescription.rtdoptions))}"`);
+        IF(NOT fielddescription.enabled)
+          Print(` data-wh-form-disabled`);
+        Print(`>`);
+        Print(fielddescription.value);
+        Print(`</div>`);
+      }
+      CASE "text"
+      {
+        Print(`<span class="wh-form__text"${datasetstr}>${EncodeHTML(fielddescription.value)}</span>`);
+      }
+      CASE "richtext"
+      {
+        Print(`<div${fielddescription.hasmergefields ? idstr : ""} class="wh-form__richtext"${datasetstr}>`);
+        IF (fielddescription.hasmergefields AND fielddescription.renderedmergefields != "")
+        {
+          // 'renderedmergefields' is set by WebtoolFormBase::Submit, which captures the output from RenderRTD in
+          // WebtoolFormBase::MergeThankYouPageRTDFields, so no encoding necessary
+          Print(fielddescription.renderedmergefields);
+        }
+        ELSE IF(NOT fielddescription.hasmergefields AND RecordExists(fielddescription.richvalue))
+          this->webdesign->RenderRTD(fielddescription.richvalue.data);
+        Print(`</div>`);
+      }
+      CASE "imgedit"
+      {
+        /* We must set data-wh-form-state-listener="true" during rendering to the element that will receive
+           data-wh-form-disabled otherwise we may race to receive dynamic disabling events during form construction */
+        Print(`<div${idstr} class="wh-form__imgedit" data-wh-form-name="${EncodeValue(fielddescription.name)}" tabindex="0" data-wh-form-state-listener="true"`);
+        IF(NOT fielddescription.enabled)
+          Print(` data-wh-form-disabled`);
+        IF(fielddescription.required)
+          Print(` data-wh-form-required`);
+        IF(RecordExists(fielddescription.value))
+          Print(` data-wh-filename="${EncodeValue(fielddescription.value.filename)}"`);
+        Print(`>`);
+        Print(`<div class="wh-form__imgeditholder">`);
+        IF(RecordExists(fielddescription.value))
+          Print(`<div class="wh-form__imgeditimg" style="background-image: url('${EncodeValue(fielddescription.value.link)}')"></div>`);
+        Print(`</div></div>`);
+      }
+      CASE "upload"
+      {
+        Print(`<input${idstr} type="file" class="wh-form__upload"`);
+        Print(` name="${EncodeValue(fielddescription.name)}"`);
+        IF(fielddescription.required)
+          Print(` required`);
+        IF(NOT fielddescription.enabled)
+          Print(` disabled`);
+        IF(RecordExists(fielddescription.value))
+          Print(` data-wh-fileurl="${EncodeValue(fielddescription.value.link)}" data-wh-filename="${EncodeValue(fielddescription.value.filename)}"`);
+        Print(`${datasetstr}>`);
+      }
+      CASE "pulldown"
+      {
+        BOOLEAN anyaddendums := RecordExists(SELECT FROM fielddescription.options WHERE Length(subfields)>0);
+        Print(`<select${idstr} class="wh-form__pulldown" name="${EncodeValue(fielddescription.name)}"`);
+        IF(fielddescription.required)
+          Print(` required`);
+        IF(NOT fielddescription.enabled)
+          Print(` disabled`);
+        IF(Length(fielddescription.autocomplete) > 0 )
+          Print(` autocomplete="${EncodeValue(Detokenize(fielddescription.autocomplete, " "))}"`);
+        Print(`${datasetstr}>`);
+
+        // Add a 'placeholder' option if set
+        IF (fielddescription.placeholderisset)
+        {
+          Print(`<option value="" ${fielddescription.required ? "disabled" : ""} class="wh-form__pulldownplaceholder" selected>`);
+          IF(fielddescription.placeholder != "")
+            Print(EncodeHTML(fielddescription.placeholder));
+          Print(`</option>`);
+        }
+
+        BOOLEAN insideoptgroup;
+        FOREVERY(RECORD opt FROM fielddescription.options)
+        {
+          IF(insideoptgroup AND NOT opt.ingroup)
+          {
+            Print(`</optgroup>`);
+            insideoptgroup := FALSE;
+          }
+          IF(opt.isoptgroup)
+          {
+            Print(`<optgroup label="${EncodeValue(DecodeHTML(opt.htmllabel))}"`); //ADDME should we encode the raw html version into a data attribute?
+            Print(GetDatasetAsString(opt.dataset));
+            Print(`>`);
+            insideoptgroup := TRUE;
+          }
+          ELSE
+          {
+            Print(`<option value="${opt.enabled ? EncodeValue(opt.value) : ""}"${opt.enabled ? "" : " disabled"}${opt.selected ? " selected" : ""}`);
+            IF(Length(opt.enablecomponents) > 0)
+              Print(` data-wh-form-enable="${EncodeValue(Detokenize(opt.enablecomponents, " "))}"`);
+            RECORD dataset := opt.dataset;
+            IF (RecordExists(opt.extrafields))
+            {
+              // Convert values to string
+              INSERT CELL __extrafields := DEFAULT RECORD INTO dataset;
+              FOREVERY (RECORD field FROM UnpackRecord(opt.extrafields))
+                dataset.__extrafields := CellInsert(dataset.__extrafields, field.name, UnmapValueType(ToLowercase(GetTypeName(TypeID(field.value))), field.value, "", FALSE));
+            }
+            Print(GetDatasetAsString(dataset));
+            Print(`>${opt.htmllabel}</option>`);
+          }
+        }
+        IF(insideoptgroup)
+          Print(`</optgroup>`);
+        Print(`</select>`);
+
+        IF(anyaddendums)
+        {
+          FOREVERY(RECORD opt FROM fielddescription.options)
+            FOREVERY(OBJECT fld FROM opt.subfields)
+              fld->RenderIntoSubfield();
+        }
+      }
+      CASE "date"
+      {
+        // Add a 'pattern' for browsers not supporting type="date" (i.e. Safari and IE)
+        Print(`<input${idstr} class="wh-form__textinput wh-form__date" type="date" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" name="${EncodeValue(fielddescription.name)}"`);
+        Print(GetDateProp("min", fielddescription.min));
+        Print(GetDateProp("max", fielddescription.max));
+        Print(GetDateProp("value", fielddescription.value));
+
+        IF(fielddescription.placeholder != "")
+          Print(` placeholder="${EncodeValue(fielddescription.placeholder)}"`);
+        IF(fielddescription.required)
+          Print(` required`);
+        IF(NOT fielddescription.enabled)
+          Print(` disabled`);
+        Print(`${datasetstr}>`);
+      }
+      CASE "time"
+      {
+        Print(`<input${idstr} type="time" class="wh-form__textinput wh-form__time" name="${EncodeValue(fielddescription.name)}"`);
+        Print(GetTimeProp("value", fielddescription.value, fielddescription.precision));
+        Print(` data-wh-precision="${fielddescription.precision}"`);
+
+        // Add a 'pattern' for browsers not supporting type="time" (i.e. Safari and IE)
+        IF (fielddescription.precision = "seconds")
+        {
+          // Set step to 1 (second) for seconds precision
+          Print(` pattern="[0-9]{2}:[0-9]{2}(:[0-9]{2})?" step="1"`);
+        }
+        ELSE
+          Print(` pattern="[0-9]{2}:[0-9]{2}" step="60"`);
+
+        IF(fielddescription.placeholder != "")
+          Print(` placeholder="${EncodeValue(fielddescription.placeholder)}"`);
+        IF(fielddescription.required)
+          Print(` required`);
+        IF(NOT fielddescription.enabled)
+          Print(` disabled`);
+        Print(`${datasetstr}>`);
+      }
+      CASE "radio","checkbox"
+      {
+        //We can't actually use firstid, HTML provides no way to focus-without-selecting a radio button
+        Print(`<input${idstr} type="${fielddescription.type}" class="wh-form__${fielddescription.type}"`);
+        Print(` name="${EncodeValue(fielddescription.name)}" value="${EncodeValue(fielddescription.value)}"`);
+        IF(NOT fielddescription.enabled)
+          Print(` disabled`);
+        IF(fielddescription.selected)
+          Print(` checked`);
+        IF(fielddescription.required)
+          Print(` required`);
+        IF(Length(fielddescription.enablecomponents) > 0)
+          Print(` data-wh-form-enable="${EncodeValue(Detokenize(fielddescription.enablecomponents,' '))}"`);
+        //We have two separate labels, so we can put our custom styled component into the first one without it being affected by the second label growing because of wordrwap
+        Print(`${datasetstr}><label`);
+        IF(fielddescription.firstid != '')
+          Print(` for="${EncodeValue(fielddescription.firstid)}"`);
+        Print(`></label>`);
+        Print(`<span class="wh-form__optiondata ${fielddescription.orientation="horizontal"?"wh-form__optiondata--horizontal":"wh-form__optiondata--vertical"}">`); // grouping for content next to checkbox/radiobutton
+        Print(`<label class="wh-form__optionlabel"`);
+        IF(fielddescription.firstid != '')
+          Print(` for="${EncodeValue(fielddescription.firstid)}"`);
+        Print(`>${fielddescription.htmllabel}</label>`);
+
+        FOREVERY(OBJECT obj FROM fielddescription.subfields)
+          obj->RenderIntoSubfield();
+
+        Print(`</span>`);
+      }
+      CASE "custom"
+      {
+        fielddescription.fieldcontent();
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Don't know how to render fields of type '${fielddescription.type}' (field: '${fielddescription.name}')`);
+      }
+    }
+  }
+
+  PUBLIC MACRO RenderField(RECORD fielddescription)
+  {
+    this->RenderInGroup(fielddescription, PTR this->RenderFieldLines(fielddescription));
+  }
+  PUBLIC MACRO RenderFields(RECORD ARRAY fields)
+  {
+    FOREVERY(RECORD field FROM fields)
+      this->RenderField(field);
+  }
+>;

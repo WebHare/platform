@@ -1,0 +1,824 @@
+﻿<?wh
+/** @short XML parser library
+    @long These functions offers functions to parse XML documents and to execute XPATH queries on them
+    @private We've been trying to split this library up for years, and the calls are pretty low level. We don't want people to use this library
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::internal/xml.whlib";
+LOADLIB "wh::xml/dom.whlib" EXPORT XmlDOMImplementation, XmlDOMException, MakeXMLDocument, MakeXMLDocumentFromHTML;
+LOADLIB "wh::xml/xsd.whlib" EXPORT ParseXSBoolean, ParseXSList, ParseXSInt, ParseXSInt64, MakeXMLSchema, SimplifyXMLValidationErrors;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// DOM Objects: Exceptions
+//
+///////////////////////////////////////////////////////////////////////////////
+
+// ExceptionCode
+PUBLIC INTEGER
+  XmlIndexSizeErr := 1,
+  XmlDomstringSizeErr := 2,
+  XmlHierarchyRequestErr := 3,
+  XmlWrongDocumentErr := 4,
+  XmlInvalidCharacterErr := 5,
+  XmlNoDataAllowedErr := 6,
+  XmlNoModificationAllowedErr := 7,
+  XmlNotFoundErr := 8,
+  XmlNotSupportedErr := 9,
+  XmlInuseAttributeErr := 10,
+  XmlInvalidStateErr := 11,
+  XmlSyntaxErr := 12,
+  XmlInvalidModificationErr := 13,
+  XmlNamespaceErr := 14,
+  XmlInvalidAccessErr := 15;
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// DOM Objects: Definitions
+//
+///////////////////////////////////////////////////////////////////////////////
+
+// XML node types as returned by SelectXML's xml_type cell
+PUBLIC INTEGER
+  XmlElementNode := 1,
+  XmlAttributeNode := 2,
+  XmlTextNode := 3,
+  XmlCdataSectionNode := 4,
+  XmlEntityRefNode := 5,
+  XmlEntityNode := 6,
+  XmlPiNode := 7,
+  XmlCommentNode := 8,
+  XmlDocumentNode := 9,
+  XmlDocumentTypeNode := 10,
+  XmlDocumentFragNode := 11,
+  XmlNotationNode := 12,
+  XmlHtmlDocumentNode := 13,
+  XmlDtdNode := 14,
+  XmlElementDecl := 15,
+  XmlAttributeDecl := 16,
+  XmlEntityDecl := 17,
+  XmlNamespaceDecl := 18,
+  XmlXincludeStart := 19,
+  XmlXincludeEnd := 20,
+  XmlDocbDocumentNode := 21; // (sic)
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Other XML functionality (XPath, SAX, etc.)
+//
+///////////////////////////////////////////////////////////////////////////////
+
+/** @cell doc
+    @cell xpathobj
+    @cell free
+    @cell nextfree
+*/
+RECORD ARRAY opendocs;
+INTEGER firstfreeopendoc := -1;
+
+BOOLEAN FUNCTION IsValidOpenDoc(INTEGER xmldoc)
+{
+  IF(xmldoc<1 OR xmldoc>Length(opendocs))
+    RETURN FALSE;
+
+  RETURN NOT opendocs[xmldoc-1].free;
+}
+
+INTEGER FUNCTION CreateOpenDoc(OBJECT doc)
+{
+  RECORD rec :=
+      [ doc :=          doc
+      , xpathobj :=     doc->CreateXPathQuery()
+      , free :=         FALSE
+      , nextfree :=     -1
+      ];
+
+  IF (firstfreeopendoc = -1)
+  {
+    INSERT rec INTO opendocs AT END;
+    RETURN LENGTH(opendocs);
+  }
+  ELSE
+  {
+    INTEGER docpos := firstfreeopendoc;
+    firstfreeopendoc := opendocs[docpos].nextfree;
+    opendocs[docpos] := rec;
+    RETURN docpos + 1;
+  }
+}
+
+PUBLIC OBJECT FUNCTION __RetrieveParsedXMLDoc(INTEGER xmldoc)
+{
+  IF (NOT IsValidOpenDoc(xmldoc))
+   RETURN DEFAULT OBJECT;
+
+  RETURN opendocs[xmldoc-1].doc;
+}
+
+PUBLIC INTEGER FUNCTION ParseXML(BLOB xmlfile, STRING encoding DEFAULTSTO "", BOOLEAN readonly DEFAULTSTO FALSE)
+{
+  OBJECT doc := MakeXMLDocument(xmlfile, encoding, readonly);
+  RETURN CreateOpenDoc(doc);
+}
+PUBLIC MACRO AddXPathNamespace(INTEGER xmldoc, STRING prefix, STRING namespace)
+{
+  IF(xmldoc<1 OR xmldoc>Length(opendocs) OR NOT RecordExists(opendocs[xmldoc-1]))
+   RETURN;
+  opendocs[xmldoc-1].xpathobj->RegisterNamespace(prefix, namespace);
+}
+PUBLIC INTEGER FUNCTION ParseHTMLAsXML(BLOB htmlfile, STRING encoding DEFAULTSTO "")
+{
+  OBJECT doc := MakeXMLDocumentFromHTML(htmlfile, encoding, FALSE);
+  RETURN CreateOpenDoc(doc);
+}
+
+PUBLIC MACRO CloseXML(INTEGER xmldoc)
+{
+  IF(xmldoc<1 OR xmldoc>Length(opendocs) OR opendocs[xmldoc-1].free)
+    RETURN;
+
+  opendocs[xmldoc-1] :=
+      [ free :=         TRUE
+      , nextfree :=     firstfreeopendoc
+      ];
+  firstfreeopendoc := xmldoc-1;
+}
+
+/** @short Execute an XPATH query on an XML document
+    @param xmldoc XML document to query
+    @param path XPATH query to execute
+    @return A record array containing a record for every node returned by the query, with every attribute in a cell named
+            after the attribute
+    @cell return.xml_name The name of the attribute
+    @cell return.xml_content The contents of the xml node, stripped of any contained tags
+*/
+PUBLIC RECORD ARRAY FUNCTION SelectXML(INTEGER xmldoc, STRING path)
+{
+  IF (NOT IsValidOpenDoc(xmldoc))
+    RETURN DEFAULT RECORD ARRAY ;
+
+  RETURN opendocs[xmldoc-1].xpathobj->__InnerSelectXML(path, DEFAULT OBJECT, TRUE);
+}
+
+RECORD FUNCTION SquashXMLRecord(RECORD ARRAY xmlrecords)
+{
+  RECORD myrec;
+  FOREVERY(RECORD xmlrec FROM xmlrecords)
+    IF (CellExists(myrec, xmlrec.xml_name))
+      myrec := CellUpdate(myrec, xmlrec.xml_name, GetCell(myrec, xmlrec.xml_name) || ' ' || xmlrec.xml_content);
+    ELSE
+      myrec := CellInsert(myrec, xmlrec.xml_name, xmlrec.xml_content);
+
+  RETURN myrec;
+}
+
+/** @short Execute an XPATH query and get all contained tags
+    @long This function, like SelectXML, gets all nodes returned by the query. All attribute cells are renamed to start
+          with 'ATTR_', and the contents of all nodes directly inside the specified node are inserted in a cell, with
+          the cell named after the node's tag, and the contents of the cell filled with the node's context
+    @param xmldoc XML document to query
+    @param xpath XPATH query to execute
+    @return A record array containing a record for every node returned by the query, with every contained node inside a cell
+    @cell return.xml_name The name of the attribute
+    @cell return.xml_content The contents of the xml node, stripped of any contained tags
+*/
+PUBLIC RECORD ARRAY FUNCTION SelectAndSquashXML(INTEGER xmldoc, STRING xpath)
+{
+  RECORD ARRAY retval;
+
+  FOREVERY(RECORD element FROM SelectXML(xmldoc,xpath))
+  {
+    STRING subxpath := xpath || "[" || (#element+1) || "]/*";
+    RECORD thisrec := SquashXMLRecord(SelectXML(xmldoc, subxpath));
+    FOREVERY(RECORD parentelement FROM UnpackRecord(element))
+    {
+      STRING newcellname := parentelement.name;
+      IF (NOT (newcellname LIKE "XML_*"))
+        newcellname := "ATTR_" || newcellname;
+      thisrec := CellInsert(thisrec, newcellname, parentelement.value);
+    }
+
+    INSERT thisrec INTO retval AT END;
+ }
+  RETURN retval;
+}
+
+MACRO __ParseXMLWithCallbacks(BLOB xmlfile, RECORD callbacks, STRING encoding) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+MACRO __ParseHTMLAsXMLWithCallbacks(BLOB xmlfile, RECORD callbacks, STRING encoding) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+
+MACRO FixStartElement(MACRO PTR origfunction, STRING node, RECORD ARRAY attrs)
+{
+  UPDATE attrs SET value := DecodeValue(value);
+  origfunction(node,attrs);
+}
+
+/** @short Parse a blob as an XML document
+    @param xmlfile Blob to parse
+    @param callbacks Record with pointers to macros to be called while parsing. Set the callbacks you want to use.
+    @cell callbacks.start_element Pointer to a MACRO with a STRING argument containing the element's name and a RECORD ARRAY
+                                  argument containing records with a 'field' STRING cell containing the attribute's name
+                                  and a 'value' STRING cell containing the attribute's value.
+                                  Called for every a new element that is found.
+    @cell callbacks.end_element Pointer to a MACRO with a STRING argument containing the element's name.
+                                Called when an element is closed.
+    @cell callbacks.text_node Pointer to a MACRO with a STRING argument containing the text.
+                              Called for text withing elements.
+    @cell callbacks.comment_node Pointer to a MACRO with a STRING argument containing the comment.
+                                 Called for comments
+    @param encoding Encoding to use. See @link ParseXML for possible encodings.
+    @see ParseXML
+*/
+PUBLIC MACRO ParseXMLWithCallbacks(BLOB xmlfile, RECORD callbacks, STRING encoding DEFAULTSTO "")
+{
+  IF(CellExists(callbacks,"start_element") AND callbacks.start_element != DEFAULT MACRO PTR)
+    callbacks := CELL[...callbacks, start_element := PTR FixStartElement(callbacks.start_element, #1, #2) ];
+  __ParseXMLWithCallbacks(xmlfile, callbacks, encoding);
+}
+
+/** @short Parse a blob as a HTML document using the XML parser
+    @param htmlfile Blob to parse
+    @param callbacks Record with pointers to macros to be called while parsing. Set the callbacks you want to use.
+    @cell callbacks.start_element Pointer to a MACRO with a STRING argument containing the element's name and a RECORD ARRAY
+                                  argument containing records with a 'field' STRING cell containing the attribute's name
+                                  and a 'value' STRING cell containing the attribute's value.
+                                  Called for every a new element that is found.
+    @cell callbacks.end_element Pointer to a MACRO with a STRING argument containing the element's name.
+                                Called when an element is closed.
+    @cell callbacks.text_node Pointer to a MACRO with a STRING argument containing the text.
+                              Called for text withing elements.
+    @cell callbacks.comment_node Pointer to a MACRO with a STRING argument containing the comment.
+                                 Called for comments
+    @param encoding Encoding to use. See @link ParseXML for possible encodings.
+    @see ParseXMLWithCallbacks ParseHTMLAsXML
+*/
+PUBLIC MACRO ParseHTMLAsXMLWithCallbacks(BLOB htmlfile, RECORD callbacks, STRING encoding DEFAULTSTO "")
+{
+  IF(CellExists(callbacks,"start_element") AND callbacks.start_element != DEFAULT MACRO PTR)
+    callbacks := CELL[...callbacks, start_element := PTR FixStartElement(callbacks.start_element, #1, #2) ];
+  __ParseHTMLAsXMLWithCallbacks(htmlfile, callbacks, encoding);
+}
+
+
+/** @short Parse XML with callbacks
+    @long This is a very basic XML parser. Extend this object and overwrite the callback functions for a functional parser.
+          As this parser is based on DOM, it will not parse all node types.
+*/
+PUBLIC OBJECTTYPE XmlCallbackParser
+<
+  ////////////////////////////////////////////////////////////////////////////////
+  //
+  // Parse functions
+  //
+
+  /** @short Parse an XML document
+      @param doc An XmlDocument object
+  */
+  PUBLIC MACRO ParseXmlDocument(OBJECT doc)
+  {
+    IF (NOT ObjectExists(doc))
+      RETURN;
+    IF (NOT doc EXTENDSFROM XmlDocument)
+      THROW NEW Exception("Object is not an XML document");
+
+    this->ParseXmlNodeInternal(doc, TRUE);
+  }
+
+  /** @short Parse the contents of a node (excluding the node)
+      @param node An Xml node
+  */
+  PUBLIC MACRO ParseXMLNodeContents(OBJECT node)
+  {
+    IF (NOT ObjectExists(node))
+      RETURN;
+    IF (NOT node EXTENDSFROM XmlNode)
+      THROW NEW Exception("Object is not an XML node: " || GetObjectTypeName(node));
+
+    this->ParseXmlNodeInternal(node, FALSE);
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////
+  //
+  // Callback functions to be updated
+  //
+
+  /** @short Called before parsing the document
+  */
+  MACRO StartDocument()
+  {
+  }
+
+  /** @short Called after the document is parsed
+  */
+  MACRO EndDocument()
+  {
+  }
+
+  /** @short Called when a new element is encountered
+      @param name The (qualified) name of the element
+      @param attributes The element attributes
+      @cell attributes.name The attribute name
+      @cell atrributes.value The attribute value
+  */
+  MACRO StartElement(STRING uri, STRING localname, STRING qname, RECORD ARRAY attributes)
+  {
+  }
+
+  /** @short Called when an element is closed
+      @param name The (qualified) name of the element
+  */
+  MACRO EndElement(STRING uri, STRING localname, STRING qname)
+  {
+  }
+
+  /** @short Called when a processing instruction is encountered
+      @param target The processing instruction target
+      @param data The processing instruction data
+  */
+  MACRO ProcessingInstruction(STRING target, STRING data)
+  {
+  }
+
+  /** @short Called when a text node is encountered
+      @param content The content of the text node
+  */
+  MACRO Text(STRING content)
+  {
+  }
+
+  /** @short Called when a comment is encountered
+      @param content The content of the comment
+  */
+  MACRO Comment(STRING content)
+  {
+  }
+
+  /** @short Called when a CDATA section is encountered
+      @param content The content of the CDATA section
+  */
+  MACRO CdataSection(STRING content)
+  {
+  }
+
+  /** @short Called when an entity reference is encountered
+      @param name The entity name
+  */
+  MACRO EntityReference(STRING name)
+  {
+  }
+
+
+  ////////////////////////////////////////////////////////////////////////////////
+  //
+  // Internal parsing functions
+  //
+
+  MACRO ParseXmlNodeInternal(OBJECT node, BOOLEAN include_node)
+  {
+    IF (NOT include_node)
+    {
+      IF (node->nodetype IN [ XmlElementNode, XmlDocumentNode, XmlHtmlDocumentNode, XmlDocumentFragNode ])
+        this->ParseChildNodes(node);
+      RETURN;
+    }
+
+    IF (node->nodetype = XmlElementNode)
+    {
+      this->StartElement(node->namespaceuri, node->localname, node->nodename, this->ParseAttributes(node));
+      this->ParseChildNodes(node);
+      this->EndElement(node->namespaceuri, node->localname, node->nodename);
+    }
+    ELSE IF (node->nodetype = XmlTextNode)
+    {
+      this->Text(node->nodevalue);
+    }
+    ELSE IF (node->nodetype = XmlCdataSectionNode)
+    {
+      this->CdataSection(node->nodevalue);
+    }
+    ELSE IF (node->nodetype = XmlEntityRefNode)
+    {
+      this->EntityReference(node->nodename);
+    }
+    ELSE IF (node->nodetype = XmlEntityNode)
+    {
+    }
+    ELSE IF (node->nodetype = XmlPiNode)
+    {
+      this->ProcessingInstruction(node->nodename, node->nodevalue);
+    }
+    ELSE IF (node->nodetype = XmlCommentNode)
+    {
+      this->Comment(node->nodevalue);
+    }
+    ELSE IF (node->nodetype = XmlDocumentNode)
+    {
+      this->StartDocument();
+      this->ParseChildNodes(node);
+      this->EndDocument();
+    }
+    ELSE IF (node->nodetype = XmlDocumentTypeNode)
+    {
+    }
+    ELSE IF (node->nodetype = XmlDocumentFragNode)
+    {
+      this->ParseChildNodes(node);
+    }
+    ELSE IF (node->nodetype = XmlNotationNode)
+    {
+    }
+    ELSE IF (node->nodetype = XmlHtmlDocumentNode)
+    {
+      this->StartDocument();
+      this->ParseChildNodes(node);
+      this->EndDocument();
+    }
+    ELSE IF (node->nodetype = XmlDtdNode)
+    {
+    }
+    ELSE IF (node->nodetype = XmlElementDecl)
+    {
+    }
+    ELSE IF (node->nodetype = XmlAttributeDecl)
+    {
+    }
+    ELSE IF (node->nodetype = XmlEntityDecl)
+    {
+    }
+    ELSE IF (node->nodetype = XmlNamespaceDecl)
+    {
+    }
+    ELSE IF (node->nodetype = XmlXincludeStart)
+    {
+    }
+    ELSE IF (node->nodetype = XmlXincludeEnd)
+    {
+    }
+    ELSE IF (node->nodetype = XmlDocbDocumentNode)
+    {
+    }
+  }
+
+  RECORD ARRAY FUNCTION ParseAttributes(OBJECT node)
+  {
+    IF (NOT ObjectExists(node->attributes))
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY attributes;
+    FOR (INTEGER i := 0; i < node->attributes->length; i := i + 1)
+      INSERT [ name := node->attributes->Item(i)->nodename, value := node->attributes->Item(i)->nodevalue ] INTO attributes AT END;
+    RETURN attributes;
+  }
+
+  MACRO ParseChildNodes(OBJECT node)
+  {
+    FOR (OBJECT childnode := node->firstchild; ObjectExists(childnode); childnode := childnode->nextsibling)
+      this->ParseXmlNodeInternal(childnode, TRUE);
+  }
+>;
+
+/** @short An XML parser which writes the parsed document back as XML
+*/
+PUBLIC OBJECTTYPE XmlParserWriter EXTEND XmlCallbackParser
+<
+  UPDATE MACRO StartDocument()
+  {
+    Print('<?xml version="1.0" ?>');
+  }
+
+  UPDATE MACRO EndDocument()
+  {
+  }
+
+  UPDATE MACRO StartElement(STRING uri, STRING localname, STRING qname, RECORD ARRAY attributes)
+  {
+    Print('<' || qname);
+    Print(Detokenize((SELECT AS STRING ARRAY ' ' || attributes.name || '="' || attributes.value || '"' FROM attributes), ''));
+    Print('>');
+  }
+
+  UPDATE MACRO EndElement(STRING uri, STRING localname, STRING qname)
+  {
+    Print('</' || qname || '>');
+  }
+
+  UPDATE MACRO ProcessingInstruction(STRING target, STRING data)
+  {
+    Print('<?' || target || ' ' || data || '?>');
+  }
+
+  UPDATE MACRO Text(STRING content)
+  {
+    Print(content);
+  }
+
+  UPDATE MACRO Comment(STRING content)
+  {
+    Print('<!--' || content || '-->');
+  }
+
+  UPDATE MACRO CdataSection(STRING content)
+  {
+    Print('<![CDATA[' || content || ']]>');
+  }
+
+  UPDATE MACRO EntityReference(STRING name)
+  {
+    Print('&' || name || ';');
+  }
+>;
+
+
+
+//Now THIS is a function where a VARIANT type would have been nice :-)
+STRING FUNCTION EncodeEntityAsXML(RECORD data, FUNCTION PTR blobhandler)
+{
+  STRING realnodename := ToLowercase(data.name); //ADDME: Validate whether it's a proper XML entity name
+
+  IF(IsTypeIdARRAY(TypeID(data.value)))
+  {
+    INTEGER elementtypeid := TypeID(data.value) = TypeID(VARIANT ARRAY) ? TYPEID(VARIANT) : TypeID(GetArrayTypeDefaultElement(Typeid(data.value)));
+    STRING typename := ToLowercase(GetTypeName(elementtypeid));
+
+    STRING retval := `<${realnodename} hs:type='${typename}array'>`;
+    FOREVERY(VARIANT val FROM data.value)
+      retval := retval || EncodeEntityAsXML([ name := typename, value := val ], blobhandler );
+    RETURN retval || "</" || realnodename || ">";
+  }
+
+  SWITCH(TypeID(data.value))
+  {
+    CASE TypeID(BOOLEAN)
+    {
+      RETURN "<" || realnodename || " hs:type='boolean'>" || (data.value?"true":"false") || "</" || realnodename || ">";
+    }
+    CASE TypeID(STRING)
+    {
+      IF (NOT IsValidUTF8(data.value)) //Non-UTF8 data cannot be safely transferred in XML
+      {
+        RETURN "<" || realnodename || " hs:type='string' hs:base64='true'>" || EncodeBase64(data.value) || "</" || realnodename || ">";
+      }
+      ELSE
+      {
+        RETURN "<" || realnodename || " hs:type='string'>" || EncodeValue(data.value) || "</" || realnodename || ">";
+      }
+    }
+    CASE TypeID(DATETIME) //FIXME: Proper XML encoding
+    {
+      RETURN "<" || realnodename || " hs:type='datetime'>" || GetDayCount(data.value) || "," || GetMsecondCount(data.value) || "</" || realnodename || ">";
+    }
+    CASE TypeID(INTEGER)
+    {
+      RETURN "<" || realnodename || " hs:type='integer'>" || data.value || "</" || realnodename || ">";
+    }
+    CASE TypeID(MONEY)
+    {
+      RETURN "<" || realnodename || " hs:type='money'>" || FormatMoney(data.value,0,'.','',FALSE) || "</" || realnodename || ">";
+    }
+    CASE TypeID(FLOAT)
+    {
+      RETURN "<" || realnodename || " hs:type='float'>" || FormatFloat(data.value,20) || "</" || realnodename || ">";
+    }
+    CASE TypeID(BLOB)
+    {
+      IF(blobhandler != DEFAULT MACRO PTR)
+      {
+        STRING handlerresult := blobhandler(realnodename, data.value);
+        IF(handlerresult != "")
+          RETURN handlerresult;
+      }
+      RETURN "<" || realnodename || " hs:type='blob'>" || EncodeBlob(data.value) || "</" || realnodename || ">";
+    }
+    CASE TypeID(RECORD)
+    {
+      RETURN InnerEncodeRecordAsXML(data.value, ToLowercase(data.name), FALSE, "", blobhandler);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Variables of type ${GetTypeName(Typeid(data.value))} cannot be exported to XML`);
+    }
+  }
+}
+
+STRING FUNCTION InnerEncodeRecordAsXML(RECORD rec, STRING nodename, BOOLEAN topnode, STRING xmlns, FUNCTION PTR blobhandler)
+{
+  STRING retval := "<" || nodename || (topnode?" xmlns:hs='"||xmlrecord_namespace||"'" : '')  || " hs:type='record'";
+  IF(xmlns!="")
+    retval := retval || " xmlns='" || EncodeValue(xmlns) || "'";
+
+  RECORD ARRAY cells := UnpackRecord(rec);
+
+  IF (RecordExists(rec) AND Length(cells) = 0) //Empty RECORD
+    RETURN retval || " hs:empty='true'/>";
+
+  retval := retval || ">";
+
+  FOREVERY(RECORD fld FROM cells)
+    retval := retval || EncodeEntityAsXML(fld, blobhandler);
+  RETURN retval || "</" || nodename || ">";
+}
+
+/** @short Encode a HareScript record to XML
+    @param rec Record to encode
+    @param nodename Name for the toplevel node used to encode the record. This name will be converted to lowercase
+    @return The XML string containing the encoded record */
+PUBLIC STRING FUNCTION EncodeRecordAsXML(RECORD rec, STRING nodename, FUNCTION PTR blobhandler DEFAULTSTO DEFAULT FUNCTION PTR)
+{
+  STRING xmlns, localname;
+
+  IF(nodename LIKE '{*}*')
+  {
+    xmlns := Substring(nodename, 1, SearchSubstring(nodename,'}')-1);
+    localname := Right(nodename, Length(nodename) - Length(xmlns) - 2);
+  }
+  ELSE
+  {
+    localname := nodename;
+  }
+
+
+  RETURN InnerEncodeRecordAsXML(rec, localname, TRUE, xmlns, blobhandler);
+}
+
+
+
+
+PUBLIC OBJECTTYPE __INTERNAL_XMLDataEncoder
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY pvt_blobs;
+
+
+  BOOLEAN pvt_allowseparateblobs;
+
+
+  INTEGER64 pvt_inlineblobsizelimit;
+
+
+  INTEGER blobcounter;
+
+
+  STRING pvt_blobnameprefix;
+
+
+  STRING pvt_dirid;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** List of separate blobs
+      @cell(string) name Generated name of the blob (blobnameprefix1, blobnameprefix2, etc.)
+      @cell(integer) size Size of the blob
+      @cell(blob) data The blob itself
+      @cell(dirid) string Set dirid at the time of blob creation
+  */
+  PUBLIC PROPERTY blobs(pvt_blobs, -);
+
+
+  /** Whether to encode blobs bigger than the blob size limit to separate blobs
+  */
+  PUBLIC PROPERTY allowseparateblobs(pvt_allowseparateblobs, pvt_allowseparateblobs);
+
+
+  /** Limit for inline blobs (only honored when allowseparateblobs is TRUE)
+  */
+  PUBLIC PROPERTY inlineblobsizelimit(pvt_inlineblobsizelimit, pvt_inlineblobsizelimit);
+
+
+  /** Prefix for generated blob names
+  */
+  PUBLIC PROPERTY blobnameprefix(pvt_blobnameprefix, pvt_blobnameprefix);
+
+
+  /** Directory id, added to every blob record
+  */
+  PUBLIC PROPERTY dirid(pvt_dirid, pvt_dirid);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->inlineblobsizelimit := 4096;
+    this->pvt_blobnameprefix := "blob-";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+
+  STRING FUNCTION BlobHandler(STRING name, VARIANT value)
+  {
+    IF (this->pvt_allowseparateblobs AND TYPEID(value)=TYPEID(BLOB) AND LENGTH(value) > this->pvt_inlineblobsizelimit)
+    {
+      STRING realnodename := ToLowercase(name); //ADDME: Validate whether it's a proper XML entity name
+      this->blobcounter := this->blobcounter + 1;
+
+      STRING filename := this->pvt_blobnameprefix || this->blobcounter;
+
+      INSERT
+          [ name :=         filename
+          , size :=         LENGTH(value)
+          , data :=         value
+          , dirid :=        this->pvt_dirid
+          ] INTO this->pvt_blobs AT END;
+
+      RETURN "<" || realnodename || " hs:type='blobfile' hs:filename='"||EncodeValue(filename)||"' />";
+    }
+    RETURN "";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Encodes a variable into a stream
+      @param stream Stream to write to
+      @param nodename Name of the root node
+      @param data Data to encode
+  */
+  PUBLIC MACRO EncodeRecordTo(INTEGER stream, STRING nodename, RECORD data)
+  {
+    PrintTo(stream, EncodeRecordAsXML(data, nodename, PTR this->BlobHandler));
+  }
+
+  /** Reset the counter and the blobs (for reuse)
+  */
+  PUBLIC MACRO Reset()
+  {
+    this->pvt_blobs := DEFAULT RECORD ARRAY;
+    this->blobcounter := 0;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE __INTERNAL_XMLDataDecoder
+< // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+  PUBLIC RECORD ARRAY blobs;
+
+  /** Decode a Harescript value encoded in XML
+      @return Decoded value
+  */
+  PUBLIC VARIANT FUNCTION DecodeHareScriptValue(OBJECT node)
+  {
+    RETURN node->__INTERNAL_GetHSValue(PTR this->LookupBlob);
+  }
+
+
+  /** Decode a RECORD Harescript value encoded in XML from a node located by an XPath query
+      @param xmldoc XML document
+      @param rootquery Query to locate the node to decode
+      @return Decoded record
+  */
+  PUBLIC RECORD FUNCTION DecodeHareScriptRecordFromXPathQuery(INTEGER xmldoc, STRING rootquery)
+  {
+    IF (NOT IsValidOpenDoc(xmldoc))
+      THROW NEW Exception("Cannot get an HareScript value from a closed XML document");
+
+    OBJECT query := opendocs[xmldoc-1].xpathobj->ExecuteQuery(rootquery);
+
+    IF(NOT ObjectExists(query) OR query->length=0 OR query->item(0)->GetAttributeNS(xmlrecord_namespace, "type") != "record")
+      RETURN DEFAULT RECORD;
+
+    RETURN query->item(0)->__INTERNAL_GetHSValue(PTR this->LookupBlob);
+  }
+
+
+  /** Function that looks up a blob and retrieves the data.
+      @param filename Name of the blob
+      @return The data of the blob, throw if it doesn't exist (return DEFAULT BLOB for silent failure)
+  */
+  UPDATE PUBLIC BLOB FUNCTION LookupBlob(STRING filename)
+  {
+    RECORD rec :=
+        SELECT *
+          FROM this->blobs
+         WHERE ToUppercase(name) = ToUppercase(filename);
+
+    IF (NOT RecordExists(rec)) // ADDME: report errors
+      RETURN DEFAULT BLOB;
+
+    IF (rec.getdataptr != DEFAULT FUNCTION PTR)
+      RETURN rec.getdataptr();
+
+    RETURN rec.data;
+  }
+>;

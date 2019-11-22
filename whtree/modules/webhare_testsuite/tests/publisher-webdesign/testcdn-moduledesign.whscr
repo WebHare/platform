@@ -1,0 +1,46 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+
+MACRO CHeckURLS()
+{
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT emptyfile := siteroot->OpenByPath("emptyfilefolder/index.html");
+  IF(testfw->debug)
+    PRint("Site expected at " || emptyfile->url || "\n");
+  TestEq(0, GetErrorFromPublished(emptyfile->published), "Failed to publish " || emptyfile->url);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(emptyfile->url), "Page is not served correctly: " || emptyfile->url);
+
+  OBJECT doc := testfw->browser->document;
+  OBJECT ARRAY links := doc->getElements('link[rel="stylesheet"]');
+  TestEq(1, Length(links)); //one style.css from webpack
+
+  STRING csslink := links[0]->GetAttribute("href");
+  STRING imglink := doc->GetElementById("bobimagelink")->textcontent;
+
+  testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest");
+
+  TestEq(FALSE, csslink LIKE "*.dev/*"); //should not be dev-tagged
+  TEstEq(TRUE, IsAbsoluteURL(csslink,FALSE), testfw->browser->href);
+  TestEq("cdn.localhost.beta.webhare.net", UnpackURL(csslink).host);
+
+  TestEQ(TRUE, testfw->browser->GotoWebPage(csslink), csslink);
+
+//  imglink := ResolveToAbsoluteURL(emptyfile->url,imglink);
+  TEstEq(TRUE, IsAbsoluteURL(imglink,FALSE));
+  TestEq("cdn.localhost.beta.webhare.net", UnpackURL(imglink).host);
+  TestEQ(TRUE, testfw->browser->GotoWebPage(imglink));
+}
+
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE, cdnhost := "cdn.localhost.beta.webhare.net" ])
+                 , PTR CheckURLS
+                 ], [ addinterfacealiases := [ "cdn.localhost.beta.webhare.net" ]
+                    ]);
+

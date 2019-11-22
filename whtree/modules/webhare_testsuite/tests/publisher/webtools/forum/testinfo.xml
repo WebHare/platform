@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="forum.whlib">
+  <test script="test_forum_api.whscr" />
+  <jstest file="test_forum_frontend.es" tags="forms" />
+</group>

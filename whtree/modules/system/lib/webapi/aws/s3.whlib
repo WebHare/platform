@@ -1,0 +1,246 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/webapi/aws/awsbase.whlib";
+
+STRING ns_s320060301 := "http://s3.amazonaws.com/doc/2006-03-01/";
+
+CONSTANT RECORD endpoints_s3 := [ "us-standard" := "https://s3.amazonaws.com/"
+                                , "us-west-1" := "https://s3-us-west-1.amazonaws.com/"
+                                , "us-west-2" := "https://s3-us-west-2.amazonaws.com/"
+                                , "sa-east-1" := "https://s3.sa-east-1.amazonaws.com/"
+                                , "eu-west-1" := "https://s3-eu-west-1.amazonaws.com/"
+                                , "ap-southeast-1" := "https://s3-ap-southeast-1.amazonaws.com/"
+                                , "ap-northeast-1" := "https://s3-ap-northeast-1.amazonaws.com/"
+                                ];
+
+PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
+<
+  STRING endpoint;
+
+  MACRO NEW(STRING zone, STRING accesskey, STRING accesssecret)
+  : AmazonAWSInterface(zone, accesskey, accesssecret)
+  {
+    IF(NOT CellExists(endpoints_s3, zone))
+      THROW NEW Exception("Invalid S3 zone '" || zone || "'");
+
+    this->endpoint := GetCell(endpoints_s3,zone);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListAllBuckets()
+  {
+    this->RawAWS4Request("s3","GET",this->endpoint);
+//    this->S3Request("GET","/",DEFAULT RECORD ARRAY,DEFAULT BLOB);
+
+    RECORD ARRAY buckets;
+    FOREVERY(OBJECT bucket FROM this->browser->document->GetElementsByTagNameNS(ns_s320060301, "Bucket")->GetCurrentElements())
+    {
+      RECORD bucketrec := [ name := bucket->GetElementsBytagNameNS(ns_s320060301, "Name")->childrentext
+                          , creationdate := MakeDateFromText(bucket->GetElementsBytagNameNS(ns_s320060301, "CreationDate")->childrentext)
+                          ];
+      INSERT bucketrec INTO buckets AT END;
+    }
+    RETURN buckets;
+  }
+
+  //PUBLIC MACRO MakeBucketPublic(STRING bucket)
+  //{
+  //  STRING id := "MakePublic" || EncodeBase16(GetMD5Hash(bucket));
+  //  STRING req :=  '{'
+  //                || '"Version": "2008-10-17",'
+  //                || '"Id": "' || EncodEJava(id) || '",'
+  //                || '"Statement": ['
+  //                  || '{ "Sid": "AllowPublicRead",'
+  //                    || '"Effect": "Allow",'
+  //                    || '"Principal": {"AWS": ["*"] },'
+  //                    || '"Action": ["s3:GetObject"],'
+  //                    || '"Resource": "arn:aws:s3:::' || EncodeJava(bucket) || '/*"'
+  //                  || '}]'
+  //              || '}';
+  //  this->S3Request("PUT","/?policy",[[ field := "Host", value := bucket ]],StringToBlob(req));
+  //}
+
+/*
+      {
+ "Version": "2008-10-17",
+ "Id": "Public",
+ "Statement": [
+              {
+                "Sid": "AllowPublicRead",
+                "Effect": "Allow",
+                "Principal": { "AWS": ["*"] },
+              "Action": ["s3:GetObject"],
+              "Resource": "arn:aws:s3:::MyBucketName/*"
+              }
+              ]
+}*/
+
+  UPDATE MACRO ProcessAWSError()
+  {
+    IF(ObjectExists(this->browser->document))
+    {
+      OBJECT errorcodenode := this->browser->QS("Error > Code");
+      OBJECT errormessagenode := this->browser->QS("Error > Message");
+      IF(ObjectExists(errorcodenode) AND ObjectExists(errormessagenode))
+        THROW NEW Exception(`S3: ${errorcodenode->textcontent}: ${errormessagenode->textcontent}`);
+    }
+    //override this for service specific error handling. they should throw on error
+    THROW NEW Exception("Request failure");
+  }
+
+  PUBLIC RECORD FUNCTION GetBucket(STRING bucket, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ delimiter := "", prefix := "", marker := "", maxkeys := 1000 ], options);
+
+    //http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
+//    STRING path := UpdateURLVariables("/", );
+//    this->S3Request("GET", path, [[ field := "Host", value := bucket ]], DEFAULT BLOB);
+
+    STRING url := this->endpoint || bucket;
+
+    this->RawAWS4Request("s3", "GET", url
+                          , [ urlparameters := [ [ name := "delimiter", value := options.delimiter ]
+                                               , [ name := "marker", value := options.marker ]
+                                               , [ name := "prefix", value := options.prefix ]
+                                               , [ name := "max-keys", value := ToString(options.maxkeys) ]
+                                               ]]);
+
+    RECORD ARRAY objects;
+    BOOLEAN truncated := ParseXSBoolean(this->browser->document->GetElementsByTagNameNS(ns_s320060301, "IsTruncated")->Item(0)->textcontent);
+    STRING nextmarker := truncated
+        ? this->browser->document->GetElementsByTagNameNS(ns_s320060301, "NextMarker")->Item(0)->textcontent
+        : "";
+    FOREVERY(OBJECT content FROM this->browser->document->GetElementsByTagNameNS(ns_s320060301, "Contents")->GetCurrentElements())
+    {
+      RECORD objectrec := [ name := content->GetElementsBytagNameNS(ns_s320060301, "Key")->childrentext
+                          , lastmodified := MakeDateFromText(content->GetElementsBytagNameNS(ns_s320060301, "LastModified")->childrentext)
+                          , size := ParseXSInt(content->GetElementsBytagNameNS(ns_s320060301, "Size")->childrentext)
+                          , etag := content->GetElementsBytagNameNS(ns_s320060301, "ETag")->childrentext
+                          //ADDME owner id, displayname
+                          ];
+      INSERT objectrec INTO objects AT END;
+    }
+    RETURN [ objects := objects
+           , truncated := truncated
+           , nextmarker := nextmarker
+           ];
+  }
+
+  //Translates the raw bucket api into a folderlike api
+  PUBLIC RECORD ARRAY FUNCTION GetDirectory(STRING bucket, STRING path)
+  {
+    IF(path LIKE "/*")
+      path := Substring(path,1);
+
+    RECORD ARRAY results;
+    STRING marker;
+    WHILE (TRUE)
+    {
+      RECORD res := this->GetBucket(bucket, CELL[ delimiter := "/", prefix := path, marker ]);
+      results := results CONCAT res.objects;
+      IF (NOT res.truncated)
+        BREAK;
+      marker := res.nextmarker;
+      IF (marker = "") // just in case
+        BREAK;
+    }
+
+    RETURN results;
+  }
+
+  PUBLIC RECORD FUNCTION GetObject(STRING bucket, STRING path)
+  {
+    this->RawAWS4Request("s3", "GET", this->PathToUrl(bucket,path), [ accept404 := TRUE ]);
+    IF(this->browser->GetHTTPStatusCode()=404)
+      RETURN DEFAULT RECORD;
+    RETURN [ body := this->browser->content ];
+  }
+
+  STRING FUNCTION PathToURL(STRING bucket, STRING path)
+  {
+    IF(Left(path,1)='/')
+      path := Substring(path,1);
+    RETURN this->endpoint || bucket || "/" || path;
+  }
+
+  PUBLIC RECORD FUNCTION PutObject(STRING bucket, STRING path, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ type := ""
+                                ], options);
+
+    IF(options.type = "")
+      options.type := ScanBlob(data, path).mimetype;
+
+    STRING md5 := EncodeBase64(GetHashForBlob(data, "MD5"));
+    RECORD ARRAY headers := [[ field := "Content-Type", value := options.type ]
+                            ,[ field := "Content-MD5", value := md5 ]
+                            ];
+    this->RawAWS4Request("s3", "PUT", this->PathToUrl(bucket,path), CELL[ headers, body := data]);
+
+    RETURN [ etag := this->browser->GetResponseHeader("ETag")
+           , amzid2 := this->browser->GetResponseHeader("X-MAZ-ID-2")
+           , contentmd5 := md5
+           ];
+  }
+
+  PUBLIC MACRO DeleteObject(STRING bucket, STRING path)
+  {
+    this->RawAWS4Request("s3", "DELETE", this->PathToUrl(bucket,path));
+  }
+
+  /** Sync the contents of a S3 directory locally (eg to grab logfiles for local processing)
+      @param destpath Destination path (will be created if necessary)
+      @param bucket Bucket to read from
+      @param path Path to download
+      @cell(datetime) options.notbefore Do not download files modified before this date
+      @cell(boolean) options.printdownloads Print rpgoress
+  */
+  PUBLIC MACRO SyncToLocal(STRING destpath, STRING bucket, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ notbefore := DEFAULT DATETIME
+                               , printdownloads := FALSE
+                               ], options);
+
+    CreateDiskDirectoryRecursive(destpath,TRUE);
+
+    RECORD ARRAY remotelogs := this->GetDirectory(bucket, path);
+    remotelogs := SELECT *, lastmodified := GetRoundedDatetime(lastmodified, 1000) FROM remotelogs;
+
+    RECORD ARRAY locallogs := ReadDiskDirectory(destpath, "*");
+    FOREVERY(RECORD aborteddownload FROM SELECT * FROM locallogs WHERE name LIKE "*.tmpdownload")
+      DeleteDiskFile(aborteddownload.path);
+
+    FOREVERY (RECORD remotelog FROM remotelogs)
+    {
+      IF(remotelog.lastmodified < options.notbefore)
+        CONTINUE; //too old, not interested
+
+      STRING filename := GetNameFromPath(remotelog.name);
+      RECORD match := SELECT * FROM locallogs WHERE locallogs.name = VAR filename;
+
+      IF(RecordExists(match) AND match.size = remotelog.size AND match.modified >= remotelog.lastmodified) //our version is up to date
+        CONTINUE;
+
+      IF(options.printdownloads)
+        PRINT(`Downloading ${RecordExists(match) ? "updated" : "new"} file '${filename}'... `);
+
+      RECORD logfile := this->GetObject(bucket, remotelog.name);
+      STRING finalname := MergePath(destpath, filename);
+      STRING tempname := finalname || '.tmpdownload';
+
+      StoreDiskFile(tempname, logfile.body, [ overwrite := TRUE ]);
+      SetFileModificationDate(tempname, remotelog.lastmodified);
+      IF(NOT MoveDiskPath(tempname, finalname))
+        THROW NEW Exception(`Failed to move ${tempname} into place`);
+
+      IF(options.printdownloads)
+        PRINT(`done\n`);
+    }
+  }
+>;
+
+

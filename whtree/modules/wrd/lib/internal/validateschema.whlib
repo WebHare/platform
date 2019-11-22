@@ -1,0 +1,182 @@
+<?wh
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+
+INTEGER ARRAY FUNCTION GetAllowedLinkTypes(INTEGER basetype)
+{
+  INTEGER ARRAY result := [ basetype ];
+  FOREVERY (INTEGER child FROM SELECT AS INTEGER ARRAY id FROM wrd.types WHERE parenttype = basetype)
+    result := result CONCAT GetAllowedLinkTypes(child);
+  RETURN result;
+}
+
+STRING FUNCTION GetErrorDescription(INTEGER wrdschemaid, INTEGER entity, INTEGER setting, STRING cellname, INTEGER desttype, INTEGER destentity)
+{
+  RECORD entitydata :=
+      SELECT entities.id
+           , entities.type
+           , typetag := types.tag
+        FROM wrd.entities, wrd.types
+       WHERE entities.type = types.id
+         AND entities.id = entity;
+
+  RECORD destentitydata :=
+      SELECT entities.id
+           , entities.type
+           , typetag := types.tag
+           , types.wrd_schema
+        FROM wrd.entities, wrd.types
+       WHERE entities.type = types.id
+         AND entities.id = destentity;
+
+  IF (desttype = 0 AND destentity != 0)
+    RETURN `Entity #${entity} of type '${entitydata.typetag}'${setting = 0 ? "" : ", setting " || setting}${cellname=""?"":" cell " || cellname} refers to another entity, but should be 0`;
+
+  IF (destentitydata.wrd_schema != wrdschemaid)
+    RETURN `Entity #${entity} of type '${entitydata.typetag}'${setting = 0 ? "" : ", setting " || setting}${cellname=""?"":" cell " || cellname} refers to an entity in another schema (dest entity: ${destentity})`;
+
+  IF (destentitydata.type NOT IN GetAllowedLinkTypes(desttype))
+    RETURN `Entity #${entity} of type '${entitydata.typetag}'${setting = 0 ? "" : ", setting " || setting}${cellname=""?"":" cell " || cellname} refers to entity ${destentity} of type '${destentitydata.typetag}', but should refer to '${SELECT AS STRING tag FROM wrd.types WHERE id = desttype}' (id: ${desttype})`;
+
+  ABORT("Unknown error");
+}
+
+PUBLIC RECORD FUNCTION ValidateWRDSchema(OBJECT wrdschema)
+{
+  TRY
+  {
+    GetPrimary()->PushWork();
+    RETURN DoValidateWRDSchema(wrdschema);
+  }
+  FINALLY
+  {
+    GetPrimary()->PopWork();
+  }
+}
+
+RECORD FUNCTION DoValidateWRDSchema(OBJECT wrdschema)
+{
+  INTEGER errors;
+  STRING ARRAY messages;
+
+  /* Detect wrd.entity_settings.setting pointing to entities outside the schema */
+  Print(" Scanning entities...");
+  RECORD ARRAY valid_entities := SELECT entities.id
+                                      , entities.type
+                                   FROM wrd.entities, wrd.types
+                                  WHERE types.wrd_schema = wrdschema->id
+                                        AND entities.type = types.id
+                               ORDER BY entities.id;
+  //INTEGER ARRAY valid_entity_ids := SELECT AS INTEGER ARRAY id FROM valid_entities ORDER BY id;
+  Print(" " || length(valid_entities) || " entities\n");
+
+  Print(" Scanning for invalid domain references\n");
+  RECORD ARRAY domainattrs := SELECT attrs.id, attrs.tag, typetag := types.tag, attrs.domain
+                                FROM wrd.attrs, wrd.types
+                               WHERE types.wrd_schema = wrdschema->id
+                                     AND attrs.type = types.id
+                                     AND attrs.attributetype IN [1,8];
+  FOREVERY(RECORD attr FROM domainattrs)
+  {
+    Print("  " || attr.typetag || "." || attr.tag || "...");
+    //FIXME parent/child type
+    INTEGER ARRAY valid_domainvalues := SELECT AS INTEGER ARRAY entities.id
+                                          FROM wrd.entities
+                                         WHERE entities.type IN GetAllowedLinkTypes(attr.domain);
+
+    RECORD ARRAY badsettings := SELECT id, entity, setting
+                                  FROM wrd.entity_settings
+                                 WHERE entity_settings.attribute = attr.id
+                                       AND entity_settings.setting != 0
+                                       AND entity_settings.setting NOT IN valid_domainvalues;
+    IF(Length(badsettings)>0)
+    {
+      Print(" " || Length(badsettings) || " errors, eg " || Detokenize(SELECT AS STRING ARRAY(ToString(id)) FROM badsettings LIMIT 3,', '));
+      errors := errors + Length(badsettings);
+
+      FOREVERY (RECORD rec FROM badsettings)
+        INSERT GetErrorDescription(wrdschema->id, rec.entity, rec.id, "", attr.domain, rec.setting) INTO messages AT END;
+    }
+    Print("\n");
+  }
+
+  Print(" Scanning for invalid left/rightentities\n");
+  FOREVERY(RECORD checktype FROM SELECT id, metatype, tag, requiretype_left, requiretype_right FROM wrd.types WHERE wrd_schema = wrdschema->id)
+  {
+    Print("  Checking type '" || checktype.tag || "'...");
+
+    INTEGER requiretype_left := checktype.metatype = 4 ? checktype.id : checktype.requiretype_left;
+    INTEGER requiretype_right := checktype.requiretype_right;
+
+    //FIXME get the proper subset of valid ids, but we'll need to think about parent/type
+    RECORD ARRAY badlefts, badrights;
+
+    INTEGER ARRAY valid_left, valid_right;
+    IF (requiretype_left != 0)
+      valid_left := SELECT AS INTEGER ARRAY id FROM valid_entities WHERE type IN GetAllowedLinkTypes(requiretype_left);
+    IF (requiretype_right != 0)
+      valid_right := SELECT AS INTEGER ARRAY id FROM valid_entities WHERE type IN GetAllowedLinkTypes(requiretype_right);
+
+    IF(checktype.metatype = 1) //object
+      badlefts := SELECT entities.id, leftentity FROM wrd.entities WHERE type = checktype.id AND leftentity != 0;
+    ELSE IF(checktype.metatype IN [2,3]) //2=link,3=classification
+      badlefts := SELECT entities.id, leftentity FROM wrd.entities WHERE type = checktype.id AND NOT LowerBound(valid_left, leftentity).found;
+    ELSE IF(checktype.metatype = 4) //domain
+      badlefts := SELECT entities.id, leftentity FROM wrd.entities WHERE type = checktype.id AND leftentity != 0 AND NOT LowerBound(valid_left, leftentity).found;
+
+    IF(checktype.metatype = 2) //2=link
+      badrights := SELECT entities.id, rightentity FROM wrd.entities WHERE type = checktype.id AND NOT LowerBound(valid_right, rightentity).found;
+    ELSE
+      badrights := SELECT entities.id, rightentity FROM wrd.entities WHERE type = checktype.id AND rightentity != 0;
+
+    IF(Length(badlefts) != 0)
+    {
+      Print("   " || Length(badlefts) || " bad lefts, eg " || Detokenize(SELECT AS STRING ARRAY(ToString(id)) FROM badlefts LIMIT 3,', '));
+      FOREVERY (RECORD rec FROM badlefts)
+        INSERT GetErrorDescription(wrdschema->id, rec.id, 0, "leftentity", requiretype_left, rec.leftentity) INTO messages AT END;
+    }
+    IF(Length(badrights) != 0)
+    {
+      Print("   " || Length(badrights) || " bad rights, eg " || Detokenize(SELECT AS STRING ARRAY(ToString(id)) FROM badrights LIMIT 3,', '));
+      FOREVERY (RECORD rec FROM badrights)
+        INSERT GetErrorDescription(wrdschema->id, rec.id, 0, "rightentity", requiretype_right, rec.rightentity) INTO messages AT END;
+    }
+    Print("\n");
+    errors := errors + Length(badlefts) + Length(badrights);
+  }
+
+  Print(" Scanning for invalid attribute ids on entities\n");
+  FOREVERY(RECORD checktype FROM SELECT id, tag FROM wrd.types WHERE wrd_schema = wrdschema->id)
+  {
+    Print("  Checking type '" || checktype.tag || "'...");
+    INTEGER ARRAY validattrs := SELECT AS INTEGER ARRAY id FROM wrd.attrs WHERE type = checktype.id;
+    RECORD ARRAY badvalues := SELECT entity_settings.entity, entity_settings.id, entity_settings.attribute
+                                FROM wrd.entity_settings, wrd.entities
+                               WHERE entities.type = checktype.id
+                                     AND entity_settings.entity = entities.id
+                                     AND entity_settings.attribute NOT IN validattrs;
+    IF(Length(badvalues) != 0)
+    {
+      errors := errors + Length(badvalues);
+      Print("   " || Length(badvalues) || " bad entity settings, eg " || Detokenize(SELECT AS STRING ARRAY(ToString(id)) FROM badvalues LIMIT 3,', '));
+      badvalues := SELECT attribute, badones := GroupedValues(CELL[entity,id]) FROM badvalues GROUP BY attribute;
+
+      FOREVERY(RECORD badvalue FROM badvalues)
+      {
+        RECORD badattr := DescribeWRDAttribute(badvalue.attribute);
+        STRING schemaname := RecordExists(badattr) ? (SELECT AS STRING name FROM wrd.schemas WHERE id = badattr.wrdschema) : "";
+        STRING badattrinfo := RecordExists(badattr) ? `${schemaname}.${badattr.wrdtypetag}.${badattr.attributetag}` : 'non-existant';
+        FOREVERY(RECORD badentity FROM badvalue.badones)
+          INSERT `Entity #${badentity.entity} of type '${checktype.tag}' setting #${badentity.id}' refers to attribute #${badvalue.attribute} (${badattrinfo})` INTO messages AT END;
+      }
+    }
+    Print("\n");
+  }
+
+  RETURN
+      [ errors :=   errors
+      , messages := messages
+      ];
+}

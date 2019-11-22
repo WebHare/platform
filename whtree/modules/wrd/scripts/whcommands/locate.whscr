@@ -1,0 +1,78 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+// command: wrd:locate <wrd_guid> ...
+// short: Lookup wrd_guids in all WRD schemas
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(),
+        [ [ name := "wrdguid", type := "paramlist" ]
+        ]);
+
+IF(NOT RecordExists(cmdargs))
+{
+  Print("Syntax: wh wrd:locate wrd_guid/wrd_id*\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+
+OBJECT trans := OpenPrimary();
+
+FOREVERY (STRING guid FROM cmdargs.wrdguid)
+{
+  RECORD ARRAY refs;
+
+  INTEGER id := ToInteger(guid, -1);
+  IF (id > 0)
+  {
+    PRINT(`ID: ${id}\n`);
+
+    refs :=
+        SELECT wrdschema :=   schemas.name
+             , typetag :=     types.tag
+             , typename :=    types.title
+             , entityid :=    entities.id
+          FROM wrd.entities
+             , wrd.types
+             , wrd.schemas
+         WHERE entities.id = VAR id
+           AND entities.type = types.id
+           AND types.wrd_schema = schemas.id
+      ORDER BY schemas.name, types.tag;
+  }
+  ELSE
+  {
+    PRINT(`GUID: ${guid}\n`);
+    IF (NOT ValidateWRDGUID(guid))
+    {
+      PRINT("- Not a valid GUID\n");
+      CONTINUE;
+    }
+    ELSE
+    {
+      STRING rawguid := DecodeWRDGUID(guid);
+      refs :=
+          SELECT wrdschema :=   schemas.name
+               , typetag :=     types.tag
+               , typename :=    types.title
+               , entityid :=    entities.id
+            FROM wrd.entities
+               , wrd.types
+               , wrd.schemas
+           WHERE COLUMN guid = rawguid
+             AND entities.type = types.id
+             AND types.wrd_schema = schemas.id
+        ORDER BY schemas.name, types.tag;
+    }
+  }
+
+  FOREVERY (RECORD rec FROM refs)
+    PRINT(`- Schema '${rec.wrdschema}', type ${rec.typetag}, id: ${rec.entityid}\n`);
+
+  IF (LENGTH(refs) = 0)
+    PRINT("- not found\n");
+}

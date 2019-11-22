@@ -1,0 +1,2170 @@
+﻿<?wh
+/** @short HTML reprocessing library
+    @long The HTML reprocessing library allows you to rewrite a HTML document and the
+          hyperlinks it contains, or to convert a HTML document to plain text. It is
+          based on the HareScript XML library, which allows XPath selections on both
+          XML and HTML documents
+    @topic file-formats/html
+*/
+
+LOADLIB "wh::internal/xml.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/html.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+
+// All HTML elements beginning a new block
+STRING ARRAY blocklevel_elements := [
+  "P", "H1", "H2", "H3", "H4", "H5", "H6", "PRE", "OL", "UL", "DL", "DIV",
+  "NOSCRIPT", "BLOCKQUOTE", "FORM", "HR", "TABLE", "FIELDSET", "ADDRESS"
+];
+STRING ARRAY elementstack;
+
+RECORD ARRAY FUNCTION GetRewriteList()
+{
+  RETURN
+    [ [ selector := "link[rel=stylesheet]"
+      , embedattributes := [ "href" ]
+      , linkattributes := DEFAULT STRING ARRAY
+      ]
+    , [ selector := "link:not([rel=stylesheet])"
+      , embedattributes := DEFAULT STRING ARRAY
+      , linkattributes := [ "href" ]
+      ]
+    , [ selector := "a[href]"
+      , embedattributes := DEFAULT STRING ARRAY
+      , linkattributes := [ "href" ]
+      ]
+    , [ selector := "blockquote[cite],q[cite],del[cite],ins[cite]"
+      , embedattributes := DEFAULT STRING ARRAY
+      , linkattributes := [ "cite" ]
+      ]
+    , [ selector := "form"
+      , embedattributes := DEFAULT STRING ARRAY
+      , linkattributes := [ "action" ]
+      ]
+    , [ selector := "img"
+      , embedattributes := [ "src" ]
+      , linkattributes := [ "longdesc" ]
+      ]
+    , [ selector := "input"
+      , embedattributes := [ "src" ]
+      , linkattributes := [ "usemap" ]
+      ]
+    , [ selector := "object"
+      , embedattributes := DEFAULT STRING ARRAY
+      , linkattributes := [ "base", "classid", "codebase", "data", "usemap" ]
+      ]
+    , [ selector := "script"
+      , embedattributes := [ "src" ]
+      , linkattributes := DEFAULT STRING ARRAY
+      ]
+    , [ selector := "area"
+      , embedattributes := [ "target" ]
+      , linkattributes := [ "href" ]
+      ]
+    , [ selector := "applet"
+      , embedattributes := DEFAULT STRING ARRAY
+      , linkattributes := [ "codebase" ]
+      ]
+    , [ selector := "body[background],td[background],th[background],tr[background]"
+      , embedattributes := [ "background" ]
+      , linkattributes := DEFAULT STRING ARRAY
+      ]
+    , [ selector := "frame,iframe"
+      , embedattributes := DEFAULT STRING ARRAY
+      , linkattributes := [ "longdesc","src" ]
+      ]
+    ];
+}
+
+//ADDME: Move varaibels for the plainconverter close rto the plain code,
+STRING plain_text;
+BOOLEAN in_style_tag;
+BOOLEAN in_title_tag; //ADDME:GEneralize this for all the style/script/etctags
+INTEGER ol;
+BOOLEAN dont_break;
+STRING currenthyperlink;
+STRING currenthyperlink_text;
+BOOLEAN first_cell;
+BOOLEAN parsing_text;
+
+BOOLEAN FUNCTION IsEmptyOrSpace(OBJECT node)
+{
+  IF (node->nodetype = 3)
+    RETURN TrimWhitespace(Substitute(node->nodename, '\u00A0', ' '))=""; //already text
+
+  FOR(node := node->firstchild; ObjectExists(node); node := node->nextsibling)
+  {
+    IF(node->nodetype = 1 AND ToUppercase(node->nodename)="BR")
+      CONTINUE;
+    IF(node->nodetype = 3 AND TrimWhitespace(Substitute(node->nodevalue, '\u00A0', ' '))="")
+      CONTINUE;
+
+    RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+
+/** @cell tag Tag name
+    @cell links Lst of link attributes
+    @cell hyperlinks Hyperlinks
+    @cell imgs Image links
+    @cell unsafetag This tag contains unsafe text content
+    @cell visible This (inline) tag is visible, even without content (default: false)
+*/
+RECORD ARRAY htmltags :=
+// Block elements
+  [ [ tag := "BLOCKQUOTE", hyperlinks   := [ "CITE" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "DIV"       , attrs        := [ "ALIGN" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "DL"        , blocktag     := TRUE
+                         ]
+  , [ tag := "FIELDSET"  , blocktag     := TRUE
+                         ]
+  , [ tag := "FORM"      , hyperlinks   := [ "ACTION" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "H1"        , attrs        := [ "ALIGN" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "H2"        , attrs        := [ "ALIGN" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "H3"        , attrs        := [ "ALIGN" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "H4"        , attrs        := [ "ALIGN" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "H5"        , attrs        := [ "ALIGN" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "H6"        , attrs        := [ "ALIGN" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "HR"        , attrs        := [ "ALIGN" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "OL"        , attrs        := [ "START", "TYPE" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "P"         , attrs        := [ "ALIGN" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "PRE"       , blocktag     := TRUE
+                         ]
+  , [ tag := "TABLE"     , attrs        := [ "WIDTH" ]
+                         , imgs         := [ "BACKGROUND" ]
+                         , blocktag     := TRUE
+                         ]
+  , [ tag := "UL"        , attrs        := [ "TYPE" ]
+                         , blocktag     := TRUE
+                         ]
+  // ADDRESS
+  // NOSCRIPT
+
+// Inline elements
+  , [ tag := "A"         , hyperlinks   := [ "HREF" ]
+                         , attrs        := [ "NAME", "TARGET" ]
+                         ]
+  , [ tag := "B"         ]
+  , [ tag := "BIG"       ]
+  , [ tag := "BR"        , emptytag     := TRUE
+                         ]
+  , [ tag := "BUTTON"    , visible      := TRUE
+                         ]
+  , [ tag := "EM"        , rewrite      := DEFAULT FUNCTION PTR ]
+  , [ tag := "I"         ]
+  , [ tag := "IMG"       , imgs         := [ "SRC" ]
+                         , hyperlinks   := [ "LONGDESC" ]
+                         , links        := [ "USEMAP" ]
+                         , attrs        := [ "HEIGHT", "WIDTH", "ALT", "ISMAP", "ALIGN", "BORDER", "HSPACE", "VSPACE" ]
+                         , emptytag     := TRUE
+                         , keeplevel    := 1
+                         , visible      := TRUE
+                         ]
+  , [ tag := "INPUT"     , imgs         := [ "SRC" ]
+                         , links        := [ "USEMAP" ]
+                         , emptytag     := TRUE
+                         , keeplevel    := 1
+                         , visible      := TRUE
+                         ]
+  , [ tag := "LABEL"     ]
+  , [ tag := "MAP"       , visible      := TRUE
+                         ]
+  , [ tag := "OBJECT"    , links        := [ "BASE", "CLASSID", "CODEBASE", "DATA", "USEMAP" ]
+                         , unsafetag    := TRUE
+                         , visible      := TRUE /* ARCHIVE attribute too ? */
+                         ]
+  , [ tag := "Q"         , hyperlinks   := [ "CITE" ]
+                         ]
+  , [ tag := "SCRIPT"    , links        := [ "SRC" ]
+                         , attrs        := [ "TYPE" ]
+                         , unsafetag    := TRUE
+                         , cdata        := TRUE
+                         ]
+  , [ tag := "SELECT"    , visible      := TRUE
+                         ]
+  , [ tag := "SMALL"     ]
+  , [ tag := "SPAN"      ]
+  , [ tag := "STRONG"    , rewrite      := DEFAULT FUNCTION PTR ]
+  , [ tag := "SUB"       ]
+  , [ tag := "SUP"       ]
+  , [ tag := "TEXTAREA"  , visible      := TRUE
+                         ]
+  // ABBR
+  // ACRONYM
+  // BDO
+  // CITE
+  // CODE
+  // DFN
+  // KBD
+  // SAMP
+  // TT
+  // VAR
+
+// Non-flow elements (structural elements, or subelements of flow elements)
+  , [ tag := "AREA"      , attrs        := [ "TARGET" ]
+                         , hyperlinks   := [ "HREF" ]
+                         , emptytag     := TRUE
+                         , keeplevel    := 1
+                         ]
+  , [ tag := "BASE"      , links        := [ "HREF"]
+                         , emptytag     := TRUE
+                         , keeplevel    := -1
+                         ]
+  , [ tag := "BODY"      , imgs         := [ "BACKGROUND" ]
+                         , keeplevel    := -1
+                         ]
+  , [ tag := "DD"        ]
+  , [ tag := "DEL"       , hyperlinks   := [ "CITE" ]
+                         ]
+  , [ tag := "DT"        ]
+  , [ tag := "HEAD"      , links        := [ "PROFILE" ]
+                         , keeplevel    := -1
+                         ]
+  , [ tag := "HTML"      , keeplevel    := -1
+                         ]
+  , [ tag := "INS"       , hyperlinks   := [ "CITE" ]
+                         ]
+  , [ tag := "LEGEND"    ]
+  , [ tag := "LI"        , attrs        := [ "TYPE", "VALUE" ]
+                         , keeplevel    := 1
+                         ]
+  , [ tag := "LINK"      , links        := [ "HREF" ]
+                         , emptytag     := TRUE
+                         , keeplevel    := -1
+                         , attrs        := [ "CHARSET", "HREFLANG", "TYPE", "REL", "REV", "MEDIA", "TARGET" ]
+                         ]
+
+  , [ tag := "OPTGROUP"  ]
+  , [ tag := "OPTION"    ]
+  , [ tag := "PARAM"     , attrs        := [ "ID" ]
+                         , unsafetag    := TRUE ]
+  , [ tag := "STYLE"     , attrs        := [ "TYPE" ]
+                         , cdata        := TRUE
+                         ]
+  , [ tag := "TBODY"     ]
+  , [ tag := "TD"        , imgs         := [ "BACKGROUND" ]
+                         , attrs        := [ "ALIGN", "COLSPAN", "HEIGHT", "ROWSPAN", "VALIGN", "WIDTH" ]
+                         , keeplevel    := 1
+                         ]
+  , [ tag := "TH"        , imgs         := [ "BACKGROUND" ]
+                         , attrs        := [ "ALIGN", "COLSPAN", "HEIGHT", "ROWSPAN", "VALIGN", "WIDTH" ]
+                         , keeplevel    := 1
+                         ]
+  , [ tag := "THEAD"     ]
+  , [ tag := "TITLE"     ]
+  , [ tag := "TR"        , imgs         := [ "BACKGROUND" ]
+  ]
+  // CAPTION
+  // COL
+  // COLGROUP
+  // META
+  // TFOOT
+
+// Loose/frameset elements
+  , [ tag := "APPLET"    , links        := [ "CODEBASE" ]
+                         , unsafetag    := TRUE
+                         , visible      := TRUE
+                         ]
+  , [ tag := "BASEFONT"  ]
+  , [ tag := "CENTER"    , blocktag     := TRUE
+                         , rewrite      := DEFAULT FUNCTION PTR
+                         ]
+  , [ tag := "FONT"      ]
+  , [ tag := "FRAME"     , hyperlinks   := [ "LONGDESC", "SRC" ]
+                         , emptytag     := TRUE
+                         , keeplevel    := 1
+                         , unsafetag    := TRUE
+                         ]
+  , [ tag := "FRAMESET"  ]
+  , [ tag := "IFRAME"    , hyperlinks   := [ "LONGDESC", "SRC" ]
+                         , unsafetag    := TRUE
+                         ]
+  , [ tag := "NOFRAMES"  , blocktag     := TRUE
+                         ]
+  , [ tag := "U"         ]
+  , [ tag := "STRIKE"    ]
+  , [ tag := "S"         ]
+  // DIR (blocktag := TRUE)
+  // ISINDEX (blocktag := TRUE)
+  // MENU (blocktag := TRUE)
+
+// Other, non-standard elements
+  , [ tag := "EMBED"     , links        := [ "BASE", "SRC" ]
+                         , unsafetag    := TRUE ]
+  , [ tag := "MARQUEE"   ]
+  ];
+
+PUBLIC RECORD ARRAY FUNCTION __html_gethtmltags()
+{
+  return htmltags;
+}
+
+RECORD FUNCTION ParseCSSURL(STRING restcss)
+{
+  // restcss like 'url(*'
+  OBJECT parser := NEW StringParser(restcss);
+  parser->ParseN(4);
+  INTEGER parsed := 4;
+  STRING url;
+  STRING quote := parser->TryParse("'") ? "'" : "";
+  IF (quote = "")
+    quote := parser->TryParse('"') ? '"' : "";
+
+  IF (quote != "")
+  {
+    parsed := parsed + 1;
+    WHILE (NOT parser->eof)
+    {
+      STRING data := parser->ParseWhileNotInSet("\\" || quote); //skip until \\ or quote
+      parsed := parsed + LENGTH(data);
+      url := url || data;
+      IF (parser->TryParse(quote))
+      {
+        parsed := parsed + LENGTH(parser->ParseWhileNotInSet(")")) + 2;
+        parser->Next();
+        BREAK;
+      }
+      parser->Next();
+      parsed := parsed + 2;
+      url := url || parser->ParseN(1);
+    }
+  }
+  ELSE
+  {
+    url := parser->ParseWhileNotInSet(")");
+    parsed := parsed + LENGTH(url) + 1;
+    parser->Next();
+  }
+
+  RETURN
+      [ parsed := parsed
+      , url :=    url
+      ];
+}
+
+STRING FUNCTION RewriteCSSUrls(STRING style, STRING baseurl, FUNCTION PTR imagerewritelink)
+{
+  STRING rewritten;
+  STRING val := style;
+  WHILE (TRUE)
+  {
+    INTEGER pos := SearchSubstring(ToUppercase(val),"URL(");
+    IF (pos = -1)
+    {
+      rewritten := rewritten || val;
+      BREAK;
+    }
+    rewritten := rewritten || Left(val, pos + 4);
+    RECORD data := ParseCSSURL(SubString(val, pos));
+    val := SubString(val, pos + data.parsed);
+    IF (baseurl != "")
+      data.url := ResolveToAbsoluteURL(baseurl, data.url);
+    IF (imagerewritelink != DEFAULT FUNCTION PTR)
+      data.url := imagerewritelink(data.url);
+    rewritten := rewritten || "'" || EncodeJava(data.url) || "')";
+  }
+  RETURN rewritten;
+}
+
+//ADDME: This must be tested by harescript tests
+MACRO RewriteElementStart(RECORD callbacks, STRING name, RECORD ARRAY attrs)
+{
+  RECORD taginfo := SELECT * FROM htmltags WHERE ToUppercase(VAR name) = COLUMN tag;
+  IF (RecordExists(taginfo)) //we might understand this tag
+  {
+    IF(CellExists(taginfo,"IMGS"))
+    {
+      IF(CellExists(callbacks,"imageurlrewrite") AND callbacks.imageurlrewrite != DEFAULT MACRO PTR)
+        UPDATE attrs SET value := callbacks.imageurlrewrite(attrs.value) WHERE ToUppercase(attrs.field) IN taginfo.imgs;
+
+      IF(CellExists(callbacks,"globallinkrewrite") AND callbacks.globallinkrewrite != DEFAULT MACRO PTR)
+        UPDATE attrs SET value := callbacks.globallinkrewrite(attrs.value, "image") WHERE ToUppercase(attrs.field) IN taginfo.imgs;
+    }
+    IF(CellExists(taginfo,"HYPERLINKS"))
+    {
+      IF(CellExists(callbacks,"hyperlinkurlrewrite") AND callbacks.hyperlinkurlrewrite != DEFAULT MACRO PTR)
+        UPDATE attrs SET value := callbacks.hyperlinkurlrewrite(attrs.value) WHERE ToUppercase(attrs.field) IN taginfo.hyperlinks;
+
+      IF(CellExists(callbacks,"globallinkrewrite") AND callbacks.globallinkrewrite != DEFAULT MACRO PTR)
+        UPDATE attrs SET value := callbacks.globallinkrewrite(attrs.value, "hyperlink") WHERE ToUppercase(attrs.field) IN taginfo.hyperlinks;
+    }
+    IF(CellExists(taginfo,"LINKS"))
+    {
+      IF(CellExists(callbacks,"globallinkrewrite") AND callbacks.globallinkrewrite != DEFAULT MACRO PTR)
+        UPDATE attrs SET value := callbacks.globallinkrewrite(attrs.value, "other") WHERE ToUppercase(attrs.field) IN taginfo.links;
+    }
+  }
+
+  IF(CellExists(callbacks,"IMAGEURLREWRITE") OR CellExists(callbacks,"GLOBALLINKREWRITE"))
+  {
+    FOREVERY(RECORD rec FROM attrs)
+      IF (ToUppercase(rec.field)="STYLE")
+      {
+        STRING value := rec.value;
+        IF(CellExists(callbacks,"IMAGEURLREWRITE"))
+          value := RewriteCSSUrls(value, "", callbacks.imageurlrewrite);
+        IF(CellExists(callbacks,"GLOBALLINKREWRITE"))
+          value := RewriteCSSUrls(value, "", callbacks.globallinkrewrite);
+        attrs[#rec].value := value;
+      }
+  }
+
+  IF (CellExists(callbacks,"beforestartelement"))
+    callbacks.beforestartelement(name, attrs);
+
+  IF(callbacks.fixietags)
+    name := FixIETags(name);
+
+  IF(CanRenderContents(callbacks) AND (NOT CellExists(callbacks,'tagfilter') OR ToLowercase(name) IN callbacks.tagfilter))
+  {
+    IF(callbacks.fragmentlevel = "inlineelements" AND ToUppercase(name) IN blocklevel_elements) //AKA convert ALL block elements to br
+    {
+      //mooooo (nothing to do)
+    }
+    ELSE
+    {
+      Print('<' || name);
+      FOREVERY(RECORD att FROM attrs)
+      {
+        Print(' ' || att.field || '="' || EncodeValue(att.value) || '"');
+      }
+      IF (ToUppercase(name) IN html_empty_elements)
+        Print(' /');
+      Print('>');
+    }
+  }
+  INSERT ToUppercase(name) INTO elementstack AT END;
+
+  IF (CellExists(callbacks,"afterstartelement"))
+    callbacks.afterstartelement(name, attrs);
+}
+MACRO RewriteElementEnd(RECORD callbacks, STRING name)
+{
+  IF(callbacks.fixietags)
+    name := FixIETags(name);
+
+  DELETE FROM elementstack AT Length(elementstack)-1;
+
+  IF (CellExists(callbacks,"beforeendelement"))
+    callbacks.beforeendelement(name);
+
+  IF(CanRenderContents(callbacks))
+  {
+    IF(callbacks.fragmentlevel = "inlineelements" AND ToUppercase(name) IN blocklevel_elements) //AKA convert ALL block elements to br
+    {
+      Print("<br />");
+    }
+    ELSE IF(NOT CellExists(callbacks,'tagfilter') OR ToLowercase(name) IN callbacks.tagfilter)
+    {
+      IF (ToUppercase(name) NOT IN html_empty_elements)
+        Print('</' || name || '>');
+    }
+  }
+
+  IF (CellExists(callbacks,"afterendelement"))
+    callbacks.afterendelement(name);
+}
+STRING FUNCTION EncodeRewrittenValue(STRING text)
+{
+  text:=EncodeValue(text);
+  text:=Substitute(text,"&#13;",'\r');
+  text:=Substitute(text,"&#10;",'\n');
+  text:=Substitute(text,"&#9;",'\t');
+  RETURN text;
+}
+MACRO RewriteText(RECORD callbacks, STRING text)
+{
+  IF(CanRenderContents(callbacks))
+  {
+    IF("SCRIPT" IN elementstack)
+      Print(text);
+    ELSE
+      Print(EncodeRewrittenValue(text));
+  }
+}
+MACRO RewriteComment(RECORD callbacks, STRING text)
+{
+  IF(CanRenderContents(callbacks))
+  {
+    Print('<!-- ' || text || ' -->');
+  }
+}
+MACRO RewritePI(RECORD callbacks, STRING target, STRING data)
+{
+  IF(target="xml")
+    RETURN;
+
+  IF(CanRenderContents(callbacks))
+  {
+    Print('<?' || target || ' ' || data || '>');
+  }
+}
+BOOLEAN FUNCTION CanRenderContents(RECORD callbacks)
+{
+  IF(callbacks.fragmentlevel IN ["blockelements","inlineelements"] AND "BODY" NOT IN elementstack)
+    RETURN FALSE;
+  RETURN TRUE;
+}
+STRING FUNCTION FixIETags(STRING name)
+{
+  IF(ToUppercase(name)="STRONG")
+    RETURN "b";
+  IF(ToUppercase(name)="EM")
+    RETURN "i";
+  RETURN ToLowercase(name);
+}
+
+/** @short Smart HTML rewriter
+    @param outputid Document destination
+    @param htmldoc HTML Document to rewrite
+    @param callbacks Record with situation specific callbacks
+    @param encoding Optional parameter specifying encoding. Defaults to "".
+    @cell callbacks.imageurlrewrite Image source rewriter
+    @cell callbacks.hyperlinkurlrewrite Hyperlink source rewriter
+    @cell callbacks.globallinkrewrite Global link rewriter (both images and hyperlinks) */
+PUBLIC MACRO RewriteHTMLDocumentTo(INTEGER outputid, BLOB htmldoc, RECORD callbacks, STRING encoding DEFAULTSTO "")
+{
+  INTEGER save_output;
+  IF(outputid!=0)
+    save_output := RedirectOutputTo(outputid);
+
+  elementstack := DEFAULT STRING ARRAY;
+  IF(NOT CellExists(callbacks,"fragmentlevel"))
+    INSERT CELL fragmentlevel := "" INTO callbacks;
+  IF(NOT CellExists(callbacks,"fixietags"))
+    INSERT CELL fixietags := FALSE INTO callbacks;
+
+  ParseHTMLAsXMLWithCallbacks(htmldoc,
+    [ start_element := PTR RewriteElementStart(callbacks, #1, #2)
+    , end_element := PTR RewriteElementEnd(callbacks, #1)
+    , text_node := PTR RewriteText(callbacks, #1)
+    , comment_node := PTR RewriteComment(callbacks, #1)
+    , pi_node := PTR RewritePI(callbacks, #1, #2)
+    ],
+    encoding);
+
+  IF(outputid!=0)
+    RedirectOutputTo(save_output);
+}
+
+
+/** @short Convert a HTML blob to plain text
+    @param htmldoc Document to convert
+    @param options Conversion options
+    @signature BLOB FUNCTION ConvertHtmlToPlainText(BLOB htmldoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+    @cell options.imagehandling Image handling (0=convert to ALT tag. 1=convert to Witty-safe alttags)
+    @cell options.encoding Encoding for the HTML document (leave empty for autodetect)
+    @cell options.linkresolver Macro ptr to hyperlink resolver object (needed for figuring out if witty links should be escaped)
+    @cell options.suppress_urls Set to TRUE to prevent hyperlink url's from being printed
+    @return The plain text document */
+PUBLIC BLOB FUNCTION ConvertHtmlToPlainText(BLOB htmldoc, VARIANT options DEFAULTSTO DEFAULT RECORD, STRING encoding DEFAULTSTO "", FUNCTION PTR linkresolver DEFAULTSTO DEFAULT FUNCTION PTR)
+{
+  RECORD conversion_options :=
+      [ imagehandling := 0
+      , encoding := ""
+      , linkresolver := DEFAULT FUNCTION PTR
+      , suppress_urls := FALSE
+      ];
+  IF (TypeID(options) = TypeID(INTEGER)) // fallback for legacy arguments
+    conversion_options := ValidateOptions(conversion_options, CELL[ imagehandling := options, encoding, linkresolver ]);
+  ELSE
+    conversion_options := ValidateOptions(conversion_options, options);
+
+  // Initialize
+  plain_text := "";
+  ol := -1;
+  dont_break := FALSE;
+  currenthyperlink := "";
+  first_cell := FALSE;
+  parsing_text := FALSE;
+  in_style_tag := FALSE;
+  in_title_tag := FALSE;
+
+  // Parse HTML
+  ParseHTMLAsXMLWithCallbacks(htmldoc,
+    [ start_element := PTR PlainElementStart(conversion_options, #1, #2)
+    , end_element := PTR PlainElementEnd(conversion_options, #1)
+    , text_node := PTR PlainText(conversion_options, #1)
+    ],
+    conversion_options.encoding);
+
+  //Never start text with a space/cr
+  WHILE (Left(plain_text,1) IN [" ","\r","\n"])
+   plain_text:=Substring(plain_text,1,Length(plain_text));
+
+  // Remove triple line breaks
+  WHILE (SearchSubString(plain_text, " \r\n") >= 0)
+    plain_text := Substitute(plain_text, " \r\n", "\r\n");
+  WHILE (SearchSubString(plain_text, "\r\n\r\n\r\n") >= 0)
+    plain_text := Substitute(plain_text, "\r\n\r\n\r\n", "\r\n\r\n");
+
+  INTEGER plaindoc := CreateStream();
+  PrintTo(plaindoc, plain_text);
+
+  RETURN MakeBlobFromStream(plaindoc);
+}
+
+STRING FUNCTION GetAttr(RECORD ARRAY attrs, STRING field)
+{
+  // Look up attribute value for a given field
+  FOREVERY (RECORD attr FROM attrs)
+    IF (ToUppercase(attr.field) = field)
+      RETURN attr.value;
+  RETURN "";
+}
+
+MACRO PlainElementStart(RECORD options, STRING name, RECORD ARRAY attrs)
+{
+  STRING tag := ToUppercase(name);
+  IF (tag IN blocklevel_elements)       // Insert a newline for every content separating HTML node
+  {
+    IF (NOT dont_break)
+      plain_text := plain_text || "\r\n";
+    ELSE
+      dont_break := FALSE;
+  }
+  SWITCH(tag)
+  {
+    CASE "BR"                           // Break - insert newline
+    {
+      plain_text := plain_text || "\r\n";
+    }
+    CASE "STYLE"
+    {
+      in_style_tag := TRUE; //ADDME: Also support SCRIPT, etc
+    }
+    CASE "TITLE"
+    {
+      in_title_tag := TRUE; //ADDME: Also support SCRIPT, etc
+    }
+    CASE "A"                            // Hyperlink - remember link href to display after link text
+    {
+      currenthyperlink := GetAttr(attrs, "HREF");
+      currenthyperlink_text := "";
+    }
+    CASE "IMG"                          // Image - insert 'alt' text, if any
+    {
+      STRING alt := GetAttr(attrs, "ALT");
+      IF (alt = "")
+        RETURN;
+
+      plain_text := plain_text || (options.imagehandling = 1 ? "[[" : "[") || alt || "]";
+    }
+    CASE "UL"                           // Unordered list - set start value to -1 (don't display number)
+    {
+      ol := -1;
+    }
+    CASE "OL"                           // Ordered list - set start value to first number
+    {
+      ol := ToInteger(GetAttr(attrs, "START"), 1); // Number LI's, starting with value of start attribute,
+                                                   // or 1 if no or illegal start was given
+      IF (ol < 0)
+        ol := 1;
+    }
+    CASE "LI"                           // Prefix list item with '*' or number value
+    {
+      IF (ol = -1)
+        plain_text := plain_text || "\r\n* ";
+      ELSE
+      {
+        ol := ToInteger(GetAttr(attrs, "VALUE"), ol);
+        plain_text := plain_text || "\r\n" || ol || ". ";
+        ol := ol + 1;
+      }
+    }
+    CASE "TR"                           // New table row - next table cell is the first in this row
+    {
+      first_cell := TRUE;
+    }
+    CASE "TH", "TD"                     // New table cell - print tab character between cells
+    {
+      IF (NOT first_cell)
+        plain_text := plain_text || "\t";
+      ELSE
+        first_cell := FALSE;
+
+      // Don't insert a break before next block-level element
+      dont_break := TRUE;
+    }
+  }
+}
+
+BOOLEAN FUNCTION TextEqualsHyperlink(STRING text, STRING hyperlink, FUNCTION PTR linkresolver)
+{
+  IF (linkresolver != DEFAULT MACRO PTR)
+    hyperlink := linkresolver(hyperlink);
+
+  IF(text=hyperlink)
+    RETURN TRUE;
+  IF(hyperlink="mailto:"||text) //just a simple mailto link ?
+    RETURN TRUE;
+  IF(hyperlink LIKE "http://*" AND ("http://" || text = hyperlink OR "http://" || text || "/" = hyperlink))
+    RETURN TRUE;
+
+  RETURN FALSE;
+}
+
+MACRO PlainElementEnd(RECORD options, STRING name)
+{
+  // Print hyperlink href, if we have any
+  IF (NOT options.suppress_urls AND ToUppercase(name) = "A" AND currenthyperlink != "")
+  {
+    IF (TextEqualsHyperlink(currenthyperlink_text, currenthyperlink, options.linkresolver)) // Put '<' and '>' around the link if the link text is the link itself
+      plain_text := Left(plain_text, Length(plain_text)-Length(currenthyperlink_text)) || Right(plain_text, Length(currenthyperlink_text));
+    ELSE
+      plain_text := plain_text || " <URL:" || currenthyperlink || ">";
+    currenthyperlink := "";
+  }
+  IF(ToUppercase(name)="STYLE")
+    in_style_tag:=FALSE;
+  IF(ToUppercase(name)="TITLE")
+    in_title_tag:=FALSE;
+  IF (ToUppercase(name) = "TR")
+    plain_text := plain_text || "\r\n";
+}
+
+MACRO PlainText(RECORD options, STRING text)
+{
+  IF(in_style_tag OR in_title_tag)
+    RETURN;
+  IF (currenthyperlink != "")
+    currenthyperlink_text := currenthyperlink_text || text;
+
+  // Change newlines/tabs to spaces
+  text := Substitute(text, "\r", " ");
+  text := Substitute(text, "\n", " ");
+  text := Substitute(text, "\t", " ");
+
+  // Remove all extra spaces
+  text := Substitute(text, "\xC2\xA0", " ");  // C2 A0 is the UTF-8 sequence for the &#160; character (non-breaking space)
+  WHILE (SearchSubString(text, "  ") >= 0)
+    text := Substitute(text, "  ", " ");
+
+  plain_text := plain_text || text;
+}
+
+
+
+/** @short An HTML parser
+*/
+PUBLIC STATIC OBJECTTYPE HtmlRewriter EXTEND XmlCallbackParser
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  // Parse mode
+  STRING mode;
+
+  // Parsed text
+  // @cell depth Index of element in element_stack
+  // @cell text HTML text to output
+  RECORD ARRAY parsed;
+
+  RECORD ARRAY element_stack;
+  BOOLEAN adding_text;
+  BOOLEAN incomplete_html;
+  BOOLEAN line_in_progress; // (whether visible elements have emitted within a blocktag after the start/last br
+  STRING trailing_whitespace;
+  INTEGER element_depth;
+  INTEGER richdocmode;
+  BOOLEAN truncated;
+
+  STRING ARRAY eliminate_msoffice_prefixes;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+
+  /// If enabled, prints out a lot of debug info
+  PUBLIC BOOLEAN debug;
+
+  /// If enabled (default), try to clean up MS Office noise (strictly, this breaks (X)HTML conformance)
+  PUBLIC BOOLEAN cleanup_msoffice;
+
+  /// Enable filtering based on allowed_tags and allowed_attrs, and filter all unknown attributes
+  PUBLIC BOOLEAN strict_filtering;
+
+  /// Whether to allow comments tags
+  PUBLIC BOOLEAN allow_comments;
+
+  /// Whether to allow block tags. set by parse mode
+  BOOLEAN allow_blocktags;
+
+  /// Whether to allow tags like <SCRIPT>, <OBJECT>, <APPLET>, <EMBED>, <FRAME>, <IFRAME>, etc that directly or indirectly allow scripting. Disabled by default
+  PUBLIC BOOLEAN allow_scripting;
+
+  /// HTML tag listing used to filter (see beginning of this file for its format)
+  PUBLIC RECORD ARRAY htmltags;
+
+  /// List of allowed tags, if strict filtering is enabled
+  PUBLIC STRING ARRAY allowed_tags;
+
+  /// List of allowed attributes (in addition to our standard per-tag list), if strict filtering is enabled
+  PUBLIC STRING ARRAY allowed_attrs;
+
+  /// List of disallowed attributes
+  PUBLIC STRING ARRAY disallowed_attrs;
+
+  /// Strip whitespace (whitespace characters and empty elements) from the beginning and end of the document
+  PUBLIC BOOLEAN trim_whitespace;
+
+  /// Replace all newlines by spaces (for flash, which renders newlines)
+  PUBLIC BOOLEAN clean_newlines;
+
+  /// Maximum text length (defaults to -1/no limit)
+  PUBLIC INTEGER max_content_length;
+
+  /// If the text was truncated because of max_content_length was reached
+  PUBLIC PROPERTY content_truncated(truncated, -);
+
+  /// Parse mode, one of "inline", "block" or "html". Defaults to "html"
+  PUBLIC PROPERTY parsemode(mode, SetParseMode);
+
+  PUBLIC PROPERTY fix_loose_tags(-, SetLooseTagsFixing);
+
+  /** If set, this function is called for every encountered link within attributes
+      (see the 'links' attribute in the html array for the attributes that are handles as links)
+      Give back the rewritten link (signature: STRING FUNCTION(STRING link)
+  */
+  PUBLIC FUNCTION PTR rewrite_link;
+
+  /** If set, this function is called for every encountered hyperlink within attributes
+      (see the 'links' attribute in the html array for the attributes that are handles as hyperlinks)
+      Give back the rewritten hyperlink (signature: STRING FUNCTION(STRING hyperlink)
+  */
+  PUBLIC FUNCTION PTR rewrite_hyperlink;
+
+  /** If set, this function is called for every encountered image url within attributes
+      (see the 'imgs' attribute in the html array for the attributes that are handles as hyperlinks)
+      Give back the rewritten image url (signature: STRING FUNCTION(STRING imageurl)
+  */
+  PUBLIC FUNCTION PTR rewrite_img;
+
+  /** Parsed (and rewritten) html
+  */
+  PUBLIC PROPERTY parsed_text(GetParsed, -);
+
+  PUBLIC BOOLEAN __structuredmode; //we probably should move away from this filter for structured docs and use a cleaner start and dom-based method, but for now, we'll use htmlrewriter as it's already deeply integrated into rte.whlib
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    // Use the default htmltags list; add default tag rewriters to fix some loose/frameset tags
+    this->htmltags := htmltags;
+    this->allow_comments := TRUE;
+
+    // By default, allow all known tags and their known attributes, and HTML core attributes
+    this->allowed_tags := SELECT AS STRING ARRAY tag FROM this->htmltags;
+    this->allowed_attrs := [ "ID", "CLASS", "STYLE", "TITLE" ];
+
+    this->trim_whitespace := TRUE;
+    this->max_content_length := -1;
+    this->parsemode := "html";
+    this->cleanup_msoffice := TRUE;
+
+    this->Reset();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE MACRO ParseXmlNodeInternal(OBJECT node, BOOLEAN include_node)
+  {
+    this->PrintDebug("Got node '" || node->nodename || "' type " || node->nodetype || ", include node: " || (include_node?"y":"n"));
+    XmlCallbackParser::ParseXmlNodeInternal(node, include_node);
+  }
+
+  /// Reset for a new parse
+  MACRO Reset()
+  {
+    this->PrintDebug("");
+    this->PrintDebug("### Resetting parser state ###");
+    this->parsed := DEFAULT RECORD ARRAY;
+    this->element_stack := DEFAULT RECORD ARRAY;
+    this->adding_text := FALSE;
+    this->incomplete_html := FALSE;
+    this->line_in_progress := FALSE;
+    this->trailing_whitespace := "";
+    this->element_depth := 0;
+    this->truncated := FALSE;
+  }
+
+  RECORD FUNCTION GetTagInfo(STRING tagname, BOOLEAN allow_emptytags)
+  {
+    RECORD taginfo := SELECT * FROM this->htmltags WHERE ToUppercase(tag) = ToUppercase(tagname);
+    IF (NOT RecordExists(taginfo)) // Unknown tag
+      RETURN DEFAULT RECORD;
+
+    BOOLEAN allowed;
+    STRING disallowreason := "";
+    IF (NOT (CellExists(taginfo, "rewrite") AND taginfo.rewrite != DEFAULT FUNCTION PTR)) // No tag rewriter
+    {
+      allowed := FALSE;
+      // Unsafe must be tested first, because returning it has side effects (ignoring the subtree below it)
+      IF (NOT this->allow_scripting AND CellExists(taginfo, "unsafetag") AND taginfo.unsafetag) // Unsafe tag
+        disallowreason := "unsafe";
+      ELSE IF (this->strict_filtering AND taginfo.tag NOT IN this->allowed_tags)
+        disallowreason := "notallowed";
+      ELSE IF (NOT this->allow_blocktags AND CellExists(taginfo, "blocktag") AND taginfo.blocktag) // Block tag
+        disallowreason := "blocktag";
+      ELSE IF (NOT allow_emptytags AND CellExists(taginfo, "emptytag") AND taginfo.emptytag) // Empty tag
+        disallowreason := "empty";
+      ELSE
+        allowed := TRUE;
+    }
+    ELSE
+      allowed := TRUE;
+
+    INSERT CELL allowed := allowed INTO taginfo;
+    INSERT CELL disallowreason := disallowreason INTO taginfo;
+    IF (NOT CellExists(taginfo, "keeplevel"))
+      INSERT CELL keeplevel := 0 INTO taginfo;
+    RETURN taginfo;
+  }
+
+  STRING FUNCTION FixLooseTags(RECORD taginfo, RECORD ARRAY attributes, BOOLEAN opentag)
+  {
+    SWITCH (taginfo.tag)
+    {
+      CASE "CENTER"
+      {
+        IF ("DIV" NOT IN this->allowed_tags)
+          RETURN '';
+        IF (opentag)
+          RETURN '<div' || this->WriteAttributes(taginfo, attributes) || ' style="text-align: center;">';
+        ELSE
+          RETURN '</div>';
+      }
+      CASE "EM"
+      {
+        IF ("I" NOT IN this->allowed_tags)
+          RETURN '';
+        RETURN '<' || (opentag ? '' : '/') || 'i>';
+      }
+      CASE "FONT" // Not enabled by default, it can be activated by calling RewriteFontTags(TRUE)
+      {
+        IF ("SPAN" NOT IN this->allowed_tags)
+          RETURN '';
+        IF (opentag)
+        {
+          // Rewrite font attributes to css styles
+          STRING tag := '<span';
+          STRING styles;
+          FOREVERY (RECORD attr FROM attributes)
+          {
+            SWITCH (ToUppercase(attr.name))
+            {
+              CASE "COLOR"
+              {
+                styles := styles || 'color:' || attr.value || ';';
+              }
+            }
+          }
+          RETURN tag || (styles != "" ? ' style="' || styles || '"' : '') || '>';
+        }
+        ELSE
+          RETURN '</span>';
+      }
+      CASE "STRONG"
+      {
+        IF ("B" NOT IN this->allowed_tags)
+          RETURN '';
+        RETURN '<' || (opentag ? '' : '/') || 'b>';
+      }
+    }
+    RETURN "";
+  }
+
+  STRING FUNCTION WriteAttributes(RECORD taginfo, RECORD ARRAY attributes)
+  {
+    STRING tagattributes;
+    FOREVERY (RECORD attr FROM attributes)
+    {
+      STRING attrname := ToUppercase(attr.name);
+      IF (attrname IN this->disallowed_attrs)
+      {
+        this->PrintDebug("Skipping disallowed attribute " || attr.name);
+        CONTINUE;
+      }
+      IF(NOT this->allow_scripting AND attrname LIKE "ON*")
+      {
+        this->PrintDebug("Skipping disallowed scripting attribute " || attr.name);
+        CONTINUE;
+      }
+
+      STRING attrvalue;
+
+      IF (CellExists(taginfo, "links") AND attrname IN taginfo.links)
+      {
+        attrvalue := attr.value;
+        IF (this->rewrite_link != DEFAULT FUNCTION PTR)
+          attrvalue := this->rewrite_link(attrvalue);
+      }
+      ELSE IF(CellExists(taginfo, "hyperlinks") AND attrname IN taginfo.hyperlinks)
+      {
+        attrvalue := attr.value;
+        IF (this->rewrite_hyperlink != DEFAULT FUNCTION PTR)
+          attrvalue := this->rewrite_hyperlink(attrvalue);
+      }
+      ELSE IF (CellExists(taginfo, "imgs") AND attrname IN taginfo.imgs)
+      {
+        attrvalue := attr.value;
+        IF (this->rewrite_img != DEFAULT FUNCTION PTR)
+          attrvalue := this->rewrite_img(attrvalue);
+      }
+      ELSE IF (this->strict_filtering=FALSE OR ((CellExists(taginfo, "attrs") AND attrname IN taginfo.attrs) OR attrname IN this->allowed_attrs))
+      {
+        attrvalue := attr.value;
+      }
+
+      IF (attrvalue != "")
+        tagattributes := tagattributes || ' ' || ToLowercase(attr.name) || '="' || this->EncodeHtml(attrvalue) || '"';
+    }
+    RETURN tagattributes;
+  }
+
+  STRING FUNCTION EncodeHtml(STRING text)
+  {
+    // Only do special character substitution, don't convert CR/LF
+    RETURN Substitute(Substitute(EncodeValue(text),"&#13;","\r"),"&#10;","\n");
+  }
+
+  STRING FUNCTION CleanupWhitespace(STRING text)
+  {
+    // Change carriage returns/tabs to spaces, leave newlines alone
+    text := Substitute(text, "\r", " ");
+    text := Substitute(text, "\t", " ");
+    IF (this->clean_newlines)
+      text := Substitute(text, "\n", " ");
+
+    // Remove all extra spaces
+    /* &nbsp; (C2 A0 is the UTF-8 sequence for the &#160; character (non-breaking space) is not html whitespace
+       , see http://www.w3.org/TR/html401/struct/text.html#h-9.1)
+      text := Substitute(text, "\xC2\xA0", " ");
+    */
+    WHILE (SearchSubString(text, "  ") >= 0)
+      text := Substitute(text, "  ", " ");
+
+    // Remove empty lines
+    WHILE (SearchSubString(text, "\n\n") >= 0)
+      text := Substitute(text, "\n\n", "\n");
+
+    RETURN text;
+  }
+
+  MACRO SetParseMode(STRING mode)
+  {
+    IF(mode NOT IN [ "inline", "block", "html" ])
+      THROW NEW Exception("Unsupported mode '" || mode || "'");
+
+    this->mode := mode;
+    this->allow_blocktags := mode != "inline";
+  }
+
+  MACRO PrintDebug(STRING msg)
+  {
+    IF (this->debug)
+      Print("HR: " || Substitute(TrimWhitespace(msg), "\n", "\nHR: ") || "\n");
+  }
+
+  MACRO DisallowedBlockElementBoundary(STRING tagname)
+  {
+    IF (this->line_in_progress)
+    {
+      this->PrintDebug("Block tag " || tagname || " boundary while line in progress, scheduling br on next visible content");
+      IF (this->trailing_whitespace = "")
+        this->trailing_whitespace := ("BR" IN this->allowed_tags ? "\b" : " ");
+      this->line_in_progress := FALSE;
+    }
+    ELSE
+    {
+      this->PrintDebug("Block tag " || tagname || " boundary while no line in progress, ignoring");
+    }
+  }
+
+  /// Called before emitting visible inline content
+  MACRO BeforeVisibleContent()
+  {
+    IF (this->trailing_whitespace != "")
+    {
+      this->PrintDebug("Emitting scheduled whitespace (" || this->element_depth || ")");
+      FOREVERY (STRING whitespace FROM Tokenize(this->trailing_whitespace, "\b"))
+      {
+        IF (#whitespace > 0)
+        {
+          INSERT [ depth := this->element_depth
+                 , text := "<br/>"
+                 , istext := FALSE
+                 , keep := 0
+                 ] INTO this->parsed AT END;
+        }
+        INSERT [ depth := this->element_depth
+               , text := whitespace
+               , istext := TRUE
+               , keep := 0
+               ] INTO this->parsed AT END;
+      }
+      this->trailing_whitespace := "";
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // XML parser callbacks
+  //
+
+  UPDATE MACRO StartDocument()
+  {
+    this->PrintDebug("StartDocument (mode = " || this->mode || ")");
+  }
+
+  UPDATE MACRO EndDocument()
+  {
+    this->PrintDebug("EndDocument");
+
+    this->BeforeVisibleContent();
+
+    IF (this->mode = "html" AND this->incomplete_html)
+    {
+      this->PrintDebug("Adding HTML closing tags (" || this->element_depth || ")");
+      INSERT [ depth := this->element_depth
+             , text := '</body></html>'
+             , istext := FALSE
+             , keep := -1
+             ] INTO this->parsed AT END;
+    }
+  }
+
+  UPDATE MACRO StartElement(STRING uri, STRING localname, STRING qname, RECORD ARRAY attributes)
+  {
+    STRING tagname := ToLowercase(localname != "" ? localname : qname);
+    this->PrintDebug("StartElement " || tagname);
+
+    BOOLEAN ignore_all := FALSE;
+    BOOLEAN ignore_content := FALSE;
+
+    IF (Length(this->element_stack) = 0)
+      this->incomplete_html := ToUppercase(tagname) != "HTML";
+    ELSE
+    {
+      ignore_all := this->element_stack[0].ignore_all;
+      ignore_content := this->element_stack[0].ignore_content;
+    }
+
+    IF(this->cleanup_msoffice AND Length(this->eliminate_msoffice_prefixes) != 0)
+    {
+      /* msoffice inserts bogus nodes that originally look like this:
+         <?xml:namespace prefix = o ns = "urn:schemas-microsoft-com:office:office" /><o:p></o:p>
+         the MakeXMLFromHTML parser turns it into this:
+         <?xml:namespace prefix = o ns = "urn:schemas-microsoft-com:office:office" /><p xmlns:o="" />
+         so that is the pattern we'll be looking for */
+      IF(RecordExists(SELECT FROM attributes WHERE value="" AND name LIKE "xmlns:*" AND Substring(name,6) IN this->eliminate_msoffice_prefixes))
+      {
+        this->PrintDebug("Ignoring suspicious msoffice node '" || tagname || "'");
+        ignore_all := TRUE;
+      }
+    }
+
+    INSERT [ tag := ToUppercase(tagname), ignore_all := ignore_all, ignore_content := ignore_content  ] INTO this->element_stack AT 0;
+
+
+    IF (ignore_all OR ignore_content)
+    {
+      this->PrintDebug("Ignoring tag start '"||tagname||"', unsafe tag or child thereof");
+      RETURN;
+    }
+
+    IF (ToUppercase(tagname) = "HTML")
+    {
+      this->PrintDebug("Stopping adding contents, found html node - reverting to normal parsing");
+      this->adding_text := FALSE;
+    }
+
+    // Start adding text after we find a 'body' tag, if the first tag is an 'html' tag
+    IF (this->mode != "html" AND NOT this->adding_text)
+    {
+      IF (this->incomplete_html OR ToUppercase(tagname) = "BODY")
+      {
+        this->PrintDebug("Start adding contents");
+        this->adding_text := TRUE;
+      }
+
+      IF (NOT (this->incomplete_html AND this->adding_text))
+      {
+        this->PrintDebug("Not adding text");
+        RETURN;
+      }
+    }
+    ELSE IF (this->mode = "html" AND Length(this->element_stack) = 1 AND this->incomplete_html)
+    {
+      this->PrintDebug("Adding HTML opening tags (" || this->element_depth || ")");
+      INSERT [ depth := this->element_depth
+             , text := '<html><body>'
+             , istext := FALSE
+             , keep := -1
+             ] INTO this->parsed AT END;
+    }
+
+    RECORD taginfo := this->GetTagInfo(tagname, TRUE);
+    IF (NOT RecordExists(taginfo))
+    {
+      this->PrintDebug("Skipping unknown tag " || tagname);
+      RETURN;
+    }
+
+    BOOLEAN isblocktag := CellExists(taginfo, "blocktag") AND taginfo.blocktag;
+    BOOLEAN isemptytag := CellExists(taginfo, "emptytag") AND taginfo.emptytag;
+
+    IF (NOT taginfo.allowed)
+    {
+      this->PrintDebug("Skipping tag start '" || tagname || "', reason: " || taginfo.disallowreason);
+      IF (taginfo.disallowreason = "unsafe")
+        this->element_stack[0].ignore_all := TRUE;
+
+      IF (taginfo.disallowreason = "block" OR isblocktag)
+        this->DisallowedBlockElementBoundary(tagname);
+      ELSE IF (taginfo.tag = "BR")
+      {
+        this->PrintDebug("Emitting space to compensate for removed BR (" || this->element_depth || ")");
+        INSERT [ depth := this->element_depth
+               , text := ' '
+               , istext := TRUE
+               , keep := 0
+               ] INTO this->parsed AT END;
+      }
+
+      RETURN;
+    }
+    IF(this->__structuredmode AND ToUppercase(tagname) = "DIV" AND (SELECT AS STRING " "||value||" " FROM attributes WHERE name="class") LIKE "* -wh-rtd-embeddedobject *")
+    {
+      taginfo.attrs := taginfo.attrs CONCAT ["DATA-INSTANCEREF"];
+      UPDATE attributes SET value := Substitute(value, "-wh-rtd-embeddedobject", "wh-rtd-embeddedobject") WHERE name = "class";
+      DELETE FROM attributes WHERE name="style";
+      this->element_stack[0].ignore_content := TRUE;
+      taginfo.keeplevel := 1;
+      //this->DisallowedBlockElementBoundary("DIV"); //FIXME seems unsafe, if a div ever contains another div as 'noise'....
+    }
+    IF(this->__structuredmode AND ToUppercase(tagname) = "DIV" AND (SELECT AS STRING " "||value||" " FROM attributes WHERE name="class") LIKE "* wh-rtd-embeddedobject *")
+    {
+      taginfo.attrs := taginfo.attrs CONCAT ["DATA-INSTANCEREF"];
+      DELETE FROM attributes WHERE name="style";
+      this->element_stack[0].ignore_content := TRUE;
+      taginfo.keeplevel := 1;
+      //this->DisallowedBlockElementBoundary("DIV"); //FIXME seems unsafe, if a div ever contains another div as 'noise'....
+    }
+
+    IF (isblocktag)
+    {
+      // Emitting block tag, that will end the previous line
+      this->line_in_progress := FALSE;
+    }
+
+    IF (CellExists(taginfo, "rewrite") AND taginfo.rewrite != DEFAULT FUNCTION PTR)
+    {
+      this->PrintDebug("Rewriting tag");
+
+      STRING rewrite := taginfo.rewrite(taginfo, attributes, TRUE);
+      IF (rewrite != "")
+        this->BeforeVisibleContent();
+
+      this->PrintDebug("Emitting rewritten tag (" || this->element_depth || ")");
+      INSERT [ depth := this->element_depth
+             , text := rewrite
+             , istext := FALSE
+             , keep := taginfo.keeplevel
+             ] INTO this->parsed AT END;
+
+      // Emitting block start tag, increase element level for child elements
+      IF (rewrite != "")
+        this->element_depth := this->element_depth + 1;
+      RETURN;
+    }
+
+    IF (taginfo.tag = "BR")
+    {
+      this->PrintDebug("Encountered BR, scheduling another on next visible content");
+      this->trailing_whitespace := this->trailing_whitespace || ("BR" IN this->allowed_tags ? "\b" : " ");
+      RETURN;
+    }
+
+    this->BeforeVisibleContent();
+
+    STRING opentag := '<' || tagname || this->WriteAttributes(taginfo, attributes);
+    IF (isemptytag)
+      opentag := opentag || '/';
+    opentag := opentag || '>';
+
+    this->PrintDebug("Emitting tag (" || this->element_depth || ")");
+    INSERT [ depth := this->element_depth
+           , text := opentag
+           , istext := FALSE
+           , keep := taginfo.keeplevel
+           ] INTO this->parsed AT END;
+
+    // Emitting block start tag, increase element level for child elements
+    IF (NOT isemptytag)
+      this->element_depth := this->element_depth + 1;
+  }
+
+  UPDATE MACRO EndElement(STRING uri, STRING localname, STRING qname)
+  {
+    STRING tagname := ToLowercase(localname != "" ? localname : qname);
+    this->PrintDebug("EndElement " || tagname);
+
+    INTEGER depth := Length(this->element_stack);
+    BOOLEAN ignore_all := this->element_stack[0].ignore_all;
+    DELETE FROM this->element_stack AT 0;
+    IF (ignore_all)
+    {
+      this->PrintDebug("Ignoring tag end '"||tagname||"', unsafe tag or child thereof");
+      RETURN;
+    }
+    IF (Length(this->element_stack) > 0 AND (this->element_stack[0].ignore_all OR this->element_stack[0].ignore_content))
+    {
+      this->PrintDebug("Ignoring tag inside ignored section");
+      RETURN;
+    }
+
+    // Stop adding text if we find a 'body' tag
+    IF (this->mode != "html" AND this->adding_text)
+    {
+      IF (ToUppercase(tagname) = "BODY")
+      {
+        this->PrintDebug("Stop adding contents");
+        this->adding_text := FALSE;
+      }
+    }
+    IF (this->mode != "html" AND NOT this->adding_text)
+      RETURN;
+
+    RECORD taginfo := this->GetTagInfo(tagname, FALSE);
+    IF (NOT RecordExists(taginfo))
+    {
+      this->PrintDebug("Skipping unknown tag " || tagname);
+      RETURN;
+    }
+
+    BOOLEAN isblocktag := CellExists(taginfo, "blocktag") AND taginfo.blocktag;
+    BOOLEAN isemptytag := CellExists(taginfo, "emptytag") AND taginfo.emptytag;
+
+    IF (NOT taginfo.allowed)
+    {
+      this->PrintDebug("Skipping tag end '" || tagname || "', reason: " || taginfo.disallowreason);
+      IF (isblocktag)
+      {
+        this->DisallowedBlockElementBoundary(tagname);
+      }
+      RETURN;
+    }
+
+    IF (CellExists(taginfo, "rewrite") AND taginfo.rewrite != DEFAULT FUNCTION PTR)
+    {
+      STRING rewrite := taginfo.rewrite(taginfo, DEFAULT RECORD ARRAY, FALSE);
+      IF (rewrite != "")
+      {
+        this->BeforeVisibleContent();
+
+        // Emitting block end tag, decrease element level for parent element
+        this->element_depth := this->element_depth - 1;
+      }
+
+      this->PrintDebug("Emitting rewritten tag (" || this->element_depth || ")");
+      INSERT [ depth := this->element_depth
+             , text := rewrite
+             , istext := FALSE
+             , keep := taginfo.keeplevel
+             ] INTO this->parsed AT END;
+      RETURN;
+    }
+    this->BeforeVisibleContent();
+
+    IF (isemptytag)
+      RETURN; // Don't need to emit close tag for empty tags
+
+    // Ending block tag ends line
+    if (isblocktag)
+    {
+      this->line_in_progress := FALSE;
+      this->PrintDebug("Line ended by block tag ending");
+    }
+
+    // Emitting block end tag, decrease element level for parent element
+    this->element_depth := this->element_depth - 1;
+
+    this->PrintDebug("Emitting tag (" || this->element_depth || ")");
+    INSERT [ depth := this->element_depth
+           , text := '</' || qname || '>'
+           , istext := FALSE
+           , keep := taginfo.keeplevel
+           ] INTO this->parsed AT END;
+  }
+
+  UPDATE MACRO ProcessingInstruction(STRING target, STRING data)
+  {
+    this->PrintDebug("ProcessingInstruction " || target);
+
+    IF(target="xml:namespace" AND this->cleanup_msoffice)
+    {
+      /* See http://www.w3.org/TR/1998/WD-xml-names-19980518
+         example: <?xml:namespace ns='urn:uuid:C4ED1820-6207-11d1-A29F-00AA00C14882/' src='http://www.w3.org' prefix='w3c' ?>
+         in practice: <?xml:namespace prefix = o ns = "urn:schemas-microsoft-com:office:office" />
+         do not bother reading the above draft spec, microsoft didn't either.
+      */
+      RECORD ARRAY nspi := ParseNSPI(data);
+      STRING prefix := SELECT AS STRING value FROM nspi WHERE name="prefix";
+      IF(prefix!="" AND prefix NOT IN this->eliminate_msoffice_prefixes)
+      {
+        this->PrintDebug("Adding namespace prefix '" || prefix || "' into the eliminationt list");
+        INSERT prefix INTO this->eliminate_msoffice_prefixes AT END;
+      }
+      RETURN;
+    }
+
+    IF (this->mode != "html" AND NOT this->adding_text)
+      RETURN;
+
+//ADDME: Introduce allow_processinginstructions, defaulting to FALSE?
+//    this->parsed := this->parsed || '<?' || target || ' ' || data || '?>';
+  }
+
+  UPDATE MACRO Text(STRING content)
+  {
+    this->PrintDebug("Text '" || EncodeJava(content) || "'");
+
+    IF (Length(this->element_stack) > 0 AND (this->element_stack[0].ignore_all OR this->element_stack[0].ignore_content))
+    {
+      this->PrintDebug("Ignoring, child of unsafe tag");
+      RETURN;
+    }
+
+    IF (this->mode != "html" AND NOT this->adding_text)
+      RETURN;
+
+    // Print content of script and style tags as-is (they're interpreted as CDATA by browsers)
+    BOOLEAN noencode := RecordExists(SELECT FROM this->element_stack WHERE tag IN [ "SCRIPT", "STYLE" ]);
+
+    // Cleanup whitespace if not currently printing pre tag content
+    IF (NOT noencode AND NOT RecordExists(SELECT FROM this->element_stack WHERE tag = "PRE"))
+      content := this->CleanupWhitespace(content);
+
+    // All whitespace left?
+    INTEGER trailing_whitespace_start := LENGTH(TrimWhitespace("!" || content)) - 1;
+    IF (trailing_whitespace_start != 0)
+    {
+      // No: emit the non-whitespace stuff and schedule the rest
+      this->BeforeVisibleContent();
+      this->trailing_whitespace := SubString(content, trailing_whitespace_start); // No encode necessary for whitespace
+      content := Left(content, trailing_whitespace_start);
+
+      this->PrintDebug("Emitting text (" || this->element_depth || ")");
+      INSERT [ depth := this->element_depth
+             , text := noencode ? content : this->EncodeHtml(content)
+             , istext := TRUE
+             , keep := 1
+             ] INTO this->parsed AT END;
+      this->PrintDebug("Emitted " || (noencode ? "unencoded " : "") || "text '"||EncodeJava(content)||/*"', scheduled whitespace '"||EncodeJava(this->trailing_whitespace)||*/"', line now in progress");
+
+      this->line_in_progress := TRUE;
+    }
+    ELSE
+    {
+      this->PrintDebug("Scheduling only-whitespace '"||EncodeJava(content)||"'");
+      this->trailing_whitespace := this->trailing_whitespace || content;
+    }
+  }
+
+  UPDATE MACRO Comment(STRING content)
+  {
+    this->PrintDebug("Comment '" || EncodeJava(content) || "'");
+
+    IF (this->mode != "html" AND NOT this->adding_text)
+      RETURN;
+
+    IF (Length(this->element_stack) > 0 AND (this->element_stack[0].ignore_all OR this->element_stack[0].ignore_content))
+    {
+      this->PrintDebug("Ignoring, child of unsafe tag");
+      RETURN;
+    }
+
+    IF (this->allow_comments)
+    {
+      this->PrintDebug("Emitting comment (" || this->element_depth || ")");
+      INSERT [ depth := this->element_depth
+             , text := '<!--' || content || '-->'
+             , istext := FALSE
+             , keep := 0
+             ] INTO this->parsed AT END;
+    }
+  }
+
+  UPDATE MACRO CdataSection(STRING content)
+  {
+    this->PrintDebug("CdataSection '" || EncodeJava(content) || "'");
+
+    IF (this->mode != "html" AND NOT this->adding_text)
+      RETURN;
+
+    IF (this->element_stack[0].ignore_all)
+    {
+      this->PrintDebug("Ignoring, child of unsafe tag");
+      RETURN;
+    }
+
+    this->BeforeVisibleContent();
+    this->PrintDebug("Emitted cdata '"||EncodeJava(content)||"', line now in progress");
+    this->line_in_progress := TRUE;
+
+    //ADDME if we support XHTML, we should create commented CDATA tags...
+    RECORD taginfo := SELECT * FROM htmltags WHERE ToUppercase(tag) = ToUppercase(this->element_stack[0].tag);
+    IF(RecordExists(taginfo) AND CellExists(taginfo, "CDATA") AND taginfo.cdata)
+    {
+      //Implide CDATA section
+      this->PrintDebug("Emitting implicit CDATA (" || this->element_depth || ")");
+      INSERT [ depth := this->element_depth
+             , text := content
+             , istext := TRUE
+             , keep := 1
+             ] INTO this->parsed AT END;
+      RETURN;
+    }
+
+    this->PrintDebug("Emitting CDATA (" || this->element_depth || ")");
+    INSERT [ depth := this->element_depth
+           , text := '<![CDATA[' || content || ']]>'
+           , istext := FALSE
+           , keep := 1
+           ] INTO this->parsed AT END;
+  }
+
+  UPDATE MACRO EntityReference(STRING name)
+  {
+    this->PrintDebug("EntityReference '" || name || "'");
+
+    IF (this->mode != "html" AND NOT this->adding_text)
+      RETURN;
+
+    IF (Length(this->element_stack) > 0 AND (this->element_stack[0].ignore_all OR this->element_stack[0].ignore_content))
+    {
+      this->PrintDebug("Ignoring, child of unsafe tag");
+      RETURN;
+    }
+
+    this->BeforeVisibleContent();
+    this->PrintDebug("Emitted entity reference '&"||name||";', line now in progress");
+    this->line_in_progress := TRUE;
+
+    this->PrintDebug("Emitting entity reference (" || this->element_depth || ")");
+    INSERT [ depth := this->element_depth
+           , text := '&' || name || ';'
+           , istext := TRUE
+           , keep := 1
+           ] INTO this->parsed AT END;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC UPDATE MACRO ParseXmlDocument(OBJECT doc)
+  {
+    this->Reset();
+    XmlCallbackParser::ParseXmlDocument(doc);
+  }
+
+  /** Parse the contents of a node - only works for mode inline & block
+  */
+  PUBLIC UPDATE MACRO ParseXmlNodeContents(OBJECT node)
+  {
+    IF (this->mode = "html")
+      THROW NEW Exception("ParseXmlNodeContents cannot be used in mode 'html'");
+    this->Reset();
+    this->adding_text := TRUE;
+    this->incomplete_html := TRUE;
+    this->StartDocument();
+    XmlCallbackParser::ParseXmlNodeContents(node);
+    this->EndDocument();
+  }
+
+  PUBLIC MACRO RewriteFontTags(BOOLEAN dorewrite)
+  {
+    // Add font tag to list if not on list already, otherwise reset it
+    RECORD defaulttag := SELECT * FROM htmltags WHERE tag = "FONT";
+    INTEGER fonttag := (SELECT AS INTEGER #tags + 1 FROM this->htmltags AS tags WHERE tags.tag = "FONT") - 1;
+    IF (fonttag < 0)
+    {
+      fonttag := Length(this->htmltags);
+      INSERT defaulttag INTO this->htmltags AT END;
+    }
+    ELSE
+      this->htmltags[fonttag] := defaulttag;
+
+    IF (dorewrite)
+    {
+      INSERT CELL rewrite := PTR this->FixLooseTags INTO this->htmltags[fonttag];
+    }
+    ELSE
+    {
+      INSERT CELL attrs := [ "COLOR" ] INTO this->htmltags[fonttag];
+    }
+
+    IF (this->debug)
+      this->PrintDebug(AnyToString(this->htmltags, "boxed"));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetLooseTagsFixing(BOOLEAN enable)
+  {
+    IF (enable)
+    {
+      UPDATE this->htmltags SET rewrite := PTR this->FixLooseTags WHERE tag = "CENTER";
+      UPDATE this->htmltags SET rewrite := PTR this->FixLooseTags WHERE tag = "EM";
+      UPDATE this->htmltags SET rewrite := PTR this->FixLooseTags WHERE tag = "STRONG";
+    }
+    ELSE
+    {
+      UPDATE this->htmltags SET rewrite := DEFAULT FUNCTION PTR WHERE tag = "CENTER";
+      UPDATE this->htmltags SET rewrite := DEFAULT FUNCTION PTR WHERE tag = "EM";
+      UPDATE this->htmltags SET rewrite := DEFAULT FUNCTION PTR WHERE tag = "STRONG";
+    }
+  }
+
+  STRING FUNCTION GetParsed()
+  {
+    // If maximum content length = 0, return nothing
+    IF (this->max_content_length = 0)
+    {
+      this->truncated := TRUE;
+      RETURN "";
+    }
+
+    this->truncated := FALSE;
+    RECORD ARRAY parsed := this->parsed;
+    INTEGER pos, lastpos;
+
+    IF (this->trim_whitespace)
+    {
+      // Find the first text part to keep
+      pos := (SELECT AS INTEGER #parsed + 1 FROM parsed WHERE keep > 0) - 1;
+
+      IF (this->debug)
+      {
+        this->PrintDebug("Trimming empty text and elements at start of document, currently " || Length(parsed) || " parsed elements (pos = " || pos || "):");
+        this->PrintDebug(AnyToString((SELECT n := #parsed, * FROM parsed), "boxed"));
+      }
+
+      // If no relevant text part was found, return empty string
+      IF (pos < 0)
+        RETURN '';//Detokenize((SELECT AS STRING ARRAY text FROM parsed WHERE keep < 0), '');
+
+      // Delete whitespace at start of first text part
+      STRING parsedtext := parsed[pos].text;
+      STRING trimmedtext := TrimWhitespace(parsedtext);
+      IF (Length(trimmedtext) < Length(parsedtext))
+        parsed[pos].text := Right(parsedtext, Length(parsedtext) - SearchSubstring(parsedtext, trimmedtext));
+
+      // For each part before the first text part, keep it if it's a parent of the text part
+      INTEGER curlevel := parsed[pos].depth;
+      FOR (INTEGER curpos := pos - 1; curpos >= 0; curpos := curpos - 1)
+        IF (parsed[curpos].keep = 0)
+        {
+          IF (parsed[curpos].depth >= curlevel)
+          {
+            DELETE FROM parsed AT curpos;
+            pos := pos - 1;
+          }
+          ELSE
+            curlevel := parsed[curpos].depth;
+        }
+
+      // Find the last text part to keep (we don't have to check if we found something, because we would have returned from
+      // this function already if the first part was not found)
+      lastpos := SELECT AS INTEGER #parsed FROM parsed WHERE keep > 0 ORDER BY #parsed DESC;
+    }
+    ELSE
+    {
+      lastpos := Length(parsed) - 1;
+    }
+
+    INTEGER contentlength;
+    IF (this->max_content_length > 0)
+    {
+      IF (this->debug)
+      {
+        this->PrintDebug("Truncating at " || this->max_content_length || " characters, currently " || Length(parsed) || " parsed elements (pos = " || pos || "):");
+        this->PrintDebug(AnyToString((SELECT n := #parsed, * FROM parsed), "boxed"));
+      }
+
+      FOR (; pos <= lastpos; pos := pos + 1)
+      {
+        IF (NOT parsed[pos].istext)
+          CONTINUE;
+        INTEGER parsedlength := UCLength(parsed[pos].text);
+        this->PrintDebug("Content length with parsed part " || pos || " is " || (contentlength + parsedlength));
+        IF (contentlength + parsedlength > this->max_content_length)
+        {
+          INTEGER trimlength := contentlength + parsedlength - this->max_content_length;
+          this->PrintDebug("trimlength = " || trimlength || ", parsedlength = " || parsedlength);
+          IF (trimlength = parsedlength)
+          {
+            DELETE FROM parsed AT pos;
+            pos := pos - 1;
+          }
+          ELSE
+          {
+            this->PrintDebug("Trimming " || trimlength || " character" || (trimlength != 1 ? "s": ""));
+            parsed[pos].text := UCLeft(parsed[pos].text, parsedlength - trimlength);
+          }
+          this->truncated := TRUE;
+          UPDATE parsed SET keep := 0 WHERE #parsed > pos;
+          BREAK;
+        }
+        contentlength := contentlength + parsedlength;
+      }
+    }
+
+    IF (this->trim_whitespace OR this->max_content_length > 0)
+    {
+      IF (this->trim_whitespace)
+        pos := SELECT AS INTEGER #parsed FROM parsed WHERE keep > 0 ORDER BY #parsed DESC;
+
+      IF (this->debug)
+      {
+        this->PrintDebug("Trimming whitespace or truncating last content node, currently " || Length(parsed) || " parsed elements (pos = " || pos || (this->truncated ? ", truncated" : "") || "):");
+        this->PrintDebug(AnyToString((SELECT n := #parsed, * FROM parsed), "boxed"));
+      }
+
+      // Delete whitespace at end of last text part
+      STRING parsedtext := parsed[pos].text;
+      STRING trimmedtext := this->trim_whitespace ? TrimWhitespace(parsedtext) : parsedtext;
+      INTEGER parsedlength := UCLength(trimmedtext) + SearchSubstring(parsedtext, trimmedtext);
+      IF (NOT this->truncated AND this->max_content_length > 0 AND (contentlength - UCLength(parsedtext)) + parsedlength > this->max_content_length)
+      {
+        parsedlength := this->max_content_length - contentlength;
+        this->truncated := TRUE;
+      }
+      IF (Length(trimmedtext) < Length(parsedtext))
+        parsed[pos].text := UCLeft(parsedtext, parsedlength);
+
+      IF (this->trim_whitespace OR this->truncated)
+      {
+        IF (this->debug)
+        {
+          this->PrintDebug("Trimming empty text and elements at end of document, currently " || Length(parsed) || " parsed elements (pos = " || pos || "):");
+          this->PrintDebug(AnyToString((SELECT n := #parsed, * FROM parsed), "boxed"));
+        }
+
+        // For each part after the last text part, keep it if it's a parent of the text part
+        INTEGER curlevel := parsed[pos].depth;
+        IF (this->trim_whitespace)
+          pos := pos + 1;
+        ELSE
+        {
+          WHILE (pos > 0 AND NOT parsed[pos].istext)
+            pos := pos - 1;
+          curlevel := parsed[pos].depth;
+          pos := pos + 1;
+        }
+        WHILE (pos < Length(parsed))
+        {
+          this->PrintDebug("pos = " || pos || ", curlevel = " || curlevel || ", keep = " || parsed[pos].keep || ", depth = " || parsed[pos].depth);
+          IF (parsed[pos].keep = 0)
+          {
+            IF (parsed[pos].depth >= curlevel)
+              DELETE FROM parsed AT pos;
+            ELSE
+            {
+              curlevel := parsed[pos].depth;
+              pos := pos + 1;
+            }
+          }
+          ELSE
+            pos := pos + 1;
+        }
+      }
+
+      IF (this->debug)
+      {
+        this->PrintDebug("Trimmed empty text and elements, currently " || Length(parsed) || " parsed elements");
+        this->PrintDebug("Returning parsed:\n" || AnyToString((SELECT n := #parsed, * FROM parsed), "boxed"));
+      }
+    }
+
+    // Concatenate all (remaining) parts
+    RETURN Detokenize((SELECT AS STRING ARRAY text FROM parsed), "");
+  }
+
+>;
+
+MACRO RewriteLinksToRelative(STRING baseurl, STRING currenturl, OBJECT checkattr)
+{
+  IF(Left(checkattr->nodevalue, Length(baseurl)) = baseurl)
+    checkattr->nodevalue := MakeRelativeLinkFromURL(currenturl, checkattr->nodevalue);
+}
+
+PUBLIC OBJECTTYPE HtmlRewriterContext
+<
+  RECORD ARRAY customrewrites;
+
+  MACRO NEW()
+  {
+  }
+
+  RECORD ARRAY FUNCTION GetAllRewrites()
+  {
+    RECORD ARRAY rewrites := this->customrewrites;
+    FOREVERY(RECORD tag FROM htmltags)
+    {
+      // All tags can contain a STYLE attribute with images
+      INSERT [ type := "href", linkclass := "img", tagname := tag.tag, attributename := "STYLE" ] INTO rewrites AT END;
+
+      IF(CellExists(tag,"imgs"))
+        FOREVERY(STRING attrname FROM tag.imgs)
+          INSERT [ type := "href", linkclass := "img", tagname := tag.tag, attributename := attrname ] INTO rewrites AT END;
+
+      IF(CellExists(tag,"hyperlinks"))
+        FOREVERY(STRING attrname FROM tag.hyperlinks)
+          INSERT [ type := "href", linkclass := "hyperlink", tagname := tag.tag, attributename := attrname ] INTO rewrites AT END;
+
+      IF(CellExists(tag,"links"))
+        FOREVERY(STRING attrname FROM tag.links)
+          INSERT [ type := "href", linkclass := "link", tagname := tag.tag, attributename := attrname ] INTO rewrites AT END;
+    }
+    RETURN rewrites;
+  }
+
+  //Add custom tag/attribute pairs to the list of links to rewrite
+  PUBLIC MACRO AddLinkAttribute(STRING tagname, STRING attributename)
+  {
+    INSERT [ type := "href", linkclass := "link", tagname := tagname, attributename := attributename ] INTO this->customrewrites AT END;
+  }
+
+  //Update all links using a custom function
+  PUBLIC MACRO RewriteAllLinks(OBJECT startnode, FUNCTION PTR rewriter) //DEPRECATED!  We need a cleaner API, this one is difficult to use
+  {
+    RECORD ARRAY rewrites := SELECT tag := ToLowercase(Any(tagname)), attrs := GroupedValues(allrewrites)
+                               FROM this->GetAllRewrites() AS allrewrites
+                           GROUP BY ToUppercase(tagname);
+
+    FOREVERY(RECORD torewrite FROM rewrites)
+      FOREVERY(OBJECT tag FROM startnode->GetElementsByTagName(torewrite.tag)->GetCurrentElements())
+      {
+        FOREVERY(OBJECT checkattr FROM tag->attributes->GetCurrentNodes())
+          FOREVERY(RECORD rewriteattr FROM torewrite.attrs)
+            IF(ToUppercase(rewriteattr.attributename) = ToUppercase(checkattr->nodename))
+              rewriter(tag, checkattr);
+      }
+  }
+
+  //Convert all links inside the 'baseurl' space to relative links based on currenturl
+  PUBLIC MACRO RewriteLinksToRelative(STRING baseurl, STRING currenturl, OBJECT node)
+  {
+    this->RewriteAllLinks(node, PTR RewriteLinksToRelative(baseurl, currenturl, #2));
+  }
+
+  MACRO DoRewriteLinks(OBJECT startnode, FUNCTION PTR rewriter, RECORD options, BOOLEAN alllinks)
+  {
+     FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+       IF(cellrec.name NOT IN ["BASEURL","BASECONTEXT"])
+         THROW NEW Exception("Unrecognized option '" || cellrec.name || "'");
+
+    STRING baseurl;
+    IF(CellExists(options, "BASEURL"))
+      baseurl := options.baseurl;
+
+    IF(CellExists(options, "BASECONTEXT"))
+    {
+      OBJECT basetag := options.basecontext->QuerySelector("base");
+      IF(ObjectExists(basetag) AND basetag->HasAttribute("href"))
+        baseurl := baseurl != "" ? ResolveToAbsoluteURL(baseurl, basetag->GetAttribute("href")) : basetag->GetAttribute("href");
+    }
+
+    //rewrite inline CSS <style type="text/css" too
+    FOREVERY(OBJECT style FROM startnode->QuerySelectorAll("style")->GetCurrentElements())
+      IF(ObjectExists(style->firstchild))
+        style->firstchild->textcontent := RewriteCSSUrls(style->firstchild->textcontent, baseurl, rewriter);
+
+    FOREVERY(OBJECT stylednode FROM startnode->QuerySelectorAll("*[style]")->GetCurrentElements())
+      stylednode->SetAttribute("style", RewriteCSSUrls(stylednode->GetAttribute("style"), baseurl, rewriter));
+
+    FOREVERY(RECORD torewrite FROM GetRewriteList())
+    {
+      STRING ARRAY rewriteattrs := torewrite.embedattributes;
+      IF(alllinks)
+        rewriteattrs := rewriteattrs CONCAT torewrite.linkattributes;
+      IF(Length(rewriteattrs) = 0)
+        CONTINUE;
+
+      FOREVERY(OBJECT tag FROM startnode->QuerySelectorAll(torewrite.selector)->GetCurrentElements())
+        FOREVERY(STRING attrname FROM rewriteattrs)
+        {
+          STRING inval := tag->GetAttribute(attrname);
+          IF(inval="")
+            CONTINUE;
+          IF(baseurl != "")
+            inval := ResolveToAbsoluteURL(baseurl, inval);
+          IF(rewriter != DEFAULT FUNCTION PTR)
+            inval := rewriter(inval);
+          tag->SetAttribute(attrname, inval);
+        }
+    }
+  }
+
+  /** List all embedded links in a document
+      @return List of all distinct embedded links
+  */
+  PUBLIC STRING ARRAY FUNCTION ListEmbeddedLinks(OBJECT startnode)
+  {
+    STRING ARRAY result;
+
+    FOREVERY (RECORD torewrite FROM GetRewriteList())
+    {
+      STRING ARRAY rewriteattrs := torewrite.embedattributes;
+      IF (Length(rewriteattrs) = 0)
+        CONTINUE;
+
+      FOREVERY (OBJECT tag FROM startnode->QuerySelectorAll(torewrite.selector)->GetCurrentElements())
+        FOREVERY (STRING attrname FROM rewriteattrs)
+        {
+          STRING inval := tag->GetAttribute(attrname);
+          IF (inval="")
+            CONTINUE;
+          INSERT inval INTO result AT END;
+        }
+    }
+
+    RETURN GetSortedSet(result);
+  }
+
+  /** Returns all references of embedded objects
+  */
+  PUBLIC STRING ARRAY FUNCTION ListEmbeddedInstanceIds(OBJECT startnode)
+  {
+    STRING ARRAY result;
+
+    FOREVERY (OBJECT tag FROM startnode->QuerySelectorAll(".wh-rtd-embeddedobject,.-wh-rtd-embeddedobject")->GetCurrentElements())
+    {
+      // we don't need to ignore references contained within other embedded objects, because the embeddedobjects should have no children
+      STRING instanceref := tag->GetAttribute("data-instanceid");
+      IF (instanceref != "")
+        INSERT instanceref INTO result AT END;
+    }
+
+    RETURN GetSortedSet(result);
+  }
+
+  PUBLIC MACRO RewriteEmbeddedLinks(OBJECT startnode, FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->DoRewriteLinks(startnode, rewriter, options, FALSE);
+  }
+
+  PUBLIC MACRO RewriteLinks(OBJECT startnode, FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->DoRewriteLinks(startnode, rewriter, options, TRUE);
+  }
+
+  MACRO DoCleanup(OBJECT node, RECORD options, BOOLEAN top)
+  {
+    STRING nodename := node->nodename;
+    OBJECT parent := node->parentnode;
+    BOOLEAN unwrapnode;
+    BOOLEAN makeinline;
+
+    // Remove comments
+    IF(node->nodetype=8)
+    {
+      parent->RemoveChild(node);
+      RETURN;
+    }
+
+    IF(node->nodetype=1)
+    {
+      IF(CellExists(options, "allowscript") AND options.allowscript = FALSE)
+      {
+        IF(nodename="script")
+        {
+          IF(parent->nodetype = 9)
+            THROW NEW Exception("Cannot eliminate the root node of a document");
+          parent->RemoveChild(node);
+          RETURN;
+        }
+
+        FOREVERY(OBJECT attr FROM node->attributes->GetCurrentNodes())
+          IF(ToLowercase(attr->nodename) LIKE "on*")
+            node->RemoveAttributeNode(attr);
+      }
+
+      IF( (CellExists(options, "allowembed") AND options.allowembed = FALSE AND nodename IN ["iframe","frame","applet","object","frameset"])
+          OR (CellExists(options,"limittags") AND nodename NOT IN options.limittags)
+          OR (CellExists(options,"removetags") AND nodename IN options.removetags)
+          )
+      {
+        unwrapnode := TRUE;
+        IF (nodename IN ["blockquote", "div", "dl", "fieldset", "form", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "ol", "p", "pre", "table", "ul", "center", "noframes"])
+          makeinline := TRUE;
+      }
+
+      IF(top = FALSE
+         AND CellExists(options,"converttoinline")
+         AND options.converttoinline
+         AND nodename IN ["blockquote", "div", "dl", "fieldset", "form", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "ol", "p", "pre", "table", "ul", "center", "noframes"])
+      {
+        unwrapnode := TRUE;
+        makeinline := TRUE;
+      }
+    }
+
+//    IF(options.allowembed = FALSE AND nodename IN ["iframe",""])
+    IF(node->nodetype=1 OR node->nodetype=9)
+      FOREVERY(OBJECT child FROM node->childnodes->GetCurrentElements())
+        this->DoCleanup(child, options, FALSE);
+
+    IF(makeinline)
+    {
+      //add a <BR/> unless our content ends with a <BR/> already
+      IF(NOT ObjectExists(node->lastchild) OR node->lastchild->nodename != "br")
+        node->ownerdocument->CreateElement("br")->inject(node, 'after');
+    }
+
+    IF(unwrapnode)
+    {
+      IF(parent->nodetype = 9)
+        THROW NEW Exception("Cannot eliminate the root node of a document");
+
+      //Flatten it
+      WHILE(ObjectExists(node->firstchild))
+        parent->InsertBefore(node->firstchild, node);
+
+      parent->RemoveChild(node);
+    }
+  }
+
+  /** Rewrite a HTML document
+      @param options noscript
+  */
+  PUBLIC MACRO CleanupHTML(OBJECT startingnode, RECORD options)
+  {
+    FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+      IF(cellrec.name NOT IN ["ALLOWSCRIPT","ALLOWEMBED","LIMITTAGS","REMOVETAGS","CONVERTTOINLINE"])
+        THROW NEW Exception("Unexpected option '" || cellrec.name || "'");
+
+    IF(CellExists(options,"limittags"))
+    {
+      FOREVERY(STRING opt FROM options.limittags)
+        options.limittags[#opt] := ToLowercase(opt);
+    }
+    IF(CellExists(options,"removetags"))
+    {
+      FOREVERY(STRING opt FROM options.removetags)
+        options.removetags[#opt] := ToLowercase(opt);
+    }
+    this->DoCleanup(startingnode, options, TRUE);
+  }
+
+  PUBLIC MACRO TrimWhitespaceStart(OBJECT startingnode)
+  {
+    WHILE(ObjectExists(startingnode->firstchild) AND IsEmptyOrSpace(startingnode->firstchild))
+      startingnode->RemoveChild(startingnode->firstchild);
+
+    IF(ObjectExists(startingnode->firstchild) AND startingnode->firstchild->nodetype = 3)
+    {
+      STRING nodeval := startingnode->firstchild->nodevalue;
+      WHILE(TRUE)
+      {
+        IF(nodeval LIKE "\u00A0*")
+          nodeval := Substring(nodeval, Length("\u00A0"));
+        ELSE IF(Left(nodeval, 1) IN [" ","\r","\n","\t"])
+          nodeval := Substring(nodeval,1);
+        ELSE
+          BREAK;
+      }
+      startingnode->firstchild->nodevalue := nodeval;
+    }
+  }
+
+  PUBLIC MACRO TrimWhitespaceEnd(OBJECT startingnode)
+  {
+    WHILE(ObjectExists(startingnode->lastchild) AND IsEmptyOrSpace(startingnode->lastchild))
+      startingnode->RemoveChild(startingnode->lastchild);
+
+    IF(ObjectExists(startingnode->lastchild) AND startingnode->lastchild->nodetype = 3)
+    {
+      STRING nodeval := startingnode->lastchild->nodevalue;
+      WHILE(TRUE)
+      {
+        IF(nodeval LIKE "*\u00A0")
+          nodeval := Left(nodeval, Length(nodeval) - Length("\u00A0"));
+        ELSE IF(Right(nodeval, 1) IN [" ","\r","\n","\t"])
+          nodeval := Left(nodeval, Length(nodeval) - 1);
+        ELSE
+          BREAK;
+      }
+      startingnode->lastchild->nodevalue := nodeval;
+    }
+  }
+
+  PUBLIC MACRO ApplyCSSInline(BLOB css, OBJECT refnode, BOOLEAN destructive DEFAULTSTO FALSE)
+  {
+    // The actual rewriter:
+    OBJECT cssparser := MakeCSSStyleSheet(css);
+    refnode := cssparser->RewriteDomStyles(refnode, destructive);
+  }
+
+  /** @short Output the specified DOM document as HTML
+      @param startnode Startnode or document to render. We'll be rendering the children of this node, not the node itself.
+  */
+  PUBLIC BLOB FUNCTION GenerateHTML(OBJECT startnode, OBJECT do_not_use DEFAULTSTO DEFAULT OBJECT) //do_not_use used to be startnode, with startnode being the document
+  {
+    RETURN StringToBlob((do_not_use ?? startnode)->innerhtml);
+  }
+  /** @short Print the specified DOM document as HTML
+      @param startnode Startnode or document to render. We'll be rendering the children of this node, not the node itself.
+  */
+  PUBLIC MACRO PrintHTMLTo(INTEGER outdoc, OBJECT startnode)
+  {
+    PrintTo(outdoc, startnode->innerhtml);
+  }
+>;

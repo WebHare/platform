@@ -1,0 +1,9 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" lib="mod::publisher/lib/screens/objectprops/specialtypes.whlib" gid="screens.objectprops.specialtypes">
+
+  <tabsextension name="prebuiltpage" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="lib">
+    <insert position="settings" where="after">
+      <select name="pagetype" type="pulldown" composition="contentdata" cellname="prebuilttag" required="true" onchange="gotpagetypechange" />
+    </insert>
+  </tabsextension>
+
+</screens>

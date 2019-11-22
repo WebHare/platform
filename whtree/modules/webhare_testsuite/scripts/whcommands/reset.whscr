@@ -1,0 +1,345 @@
+<?wh
+// command: webhare_testsuite:reset
+// short: Cleanup finished tests and regenerate the testsuite
+
+/* We're moving to 1 auto-installed testsite and run as much tests here as
+   possible, cutting back on site republish/reconstruction time */
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/webtools/poll.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "module", type := "param" ]
+    ]);
+
+IF(args.module != "") //we're being requested for a specific module auto-installed
+  RETURN; //then don't run. we only want to be in the global loop
+
+OBJECT trans := OpenPrimary();
+
+UpdateSocialiteEmbeddableScripts("GTM", ourgtmtestcontainer, TRUE);
+
+trans->BeginWork();
+
+OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
+OBJECT testsiteholder := backendsite->rootobject->EnsureFolder ( [ name := "webhare-testsuite.site", type := 1 ]);
+
+OBJECT testsite := OpenTestsuiteSite();
+IF(NOT ObjectExists(testsite))
+{
+  OBJECT testroot := OpenWHFSRootObject()->EnsureFolder([ name := "WebHare testsuite site"]);
+  testsite := CreateSiteFromFolder(testroot->id);
+
+  IF(GetWebHareVersionInfo().docker)
+  {
+    //If we're initializing a docker version... might as well setup ports and bindings
+    STRING usehostname := ReadRegistryKey("system.global.servername");
+    IF(usehostname NOT LIKE "*.*")
+      usehostname := "127.0.0.1";
+
+    INTEGER webserverid := MakeAutoNumber(system.webservers,"id");
+    INTEGER portid := MakeAutoNumber(system.ports,"id");
+    INSERT INTO system.ports(id,ip,port,virtualhost)
+           VALUES(portid,"", 8000,TRUE);
+
+    //on a DB with just 1 webserver of interface type, UpdateSystemBackendSite will automatically pick that one
+    STRING url := "http://" || usehostname ||":" || 8000 || "/";
+    INSERT INTO system.webservers(id,type,baseurl,outputextension)
+           VALUES (webserverid,1,url,'.html');
+
+    Print("Configured a webinterface at http://" || usehostname || ":8000/\n");
+    backendsite->SetPrimaryOutput(webserverid, "/");
+  }
+}
+ELSE
+{
+  PRINT("Throwing away existing testsite contents\n");
+  FOREVERY(RECORD subobj FROM SELECT id FROM system.fs_objects WHERE parent = testsite->id)
+    OpenWHFSObject(subobj.id)->RecycleSelf();
+}
+testsite->SetPrimaryOutput(backendsite->outputweb, "/webhare-testsuite.site/");
+
+testsite->rootobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/sitesettings",
+                     [ sitedesign := "webhare_testsuite:basetest"
+                     ]);
+
+OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
+
+//root index
+testsite->rootobject->CreateFile(
+  [ name := "index.rtd"
+  , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+  , publish := TRUE
+  ], [setindex := TRUE])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+                        [ data := [ htmltext := StringToBlob('<html><body><p class="normal">Welcome to the testsite</p></body></html>') ]
+                        ]);
+
+//'legacy' tests
+FOREVERY(STRING basename FROM ["portal1","portal1-domainless"])
+{
+  OBJECT portal1folder  := testsite->rootobject->CreateFolder( [ name := basename ] );
+  portal1folder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+
+  OBJECT testrequiresysopfolder := portal1folder->CreateFolder([name := "requiresysop"]);
+  OBJECT testrequiresysopfile := testrequiresysopfolder->CreateFile( [ type := prebuilttype->id, name := "index.shtml", publish := TRUE ], [setindex := TRUE]);
+  OBJECT testrequiresysopcompressable := testrequiresysopfolder->CreateFile( [ type := 21, name := "test.txt", publish := TRUE, data:= StringToBlob(RepeatText("Hello, World!\n",100)) ]);
+
+  prebuilttype->SetInstanceData(testrequiresysopfile->id, [ prebuilttag := "requiresysoptest"]);
+  OBJECT testrequiresysoporconsiliofile := portal1folder->CreateFolder([name := "requiresysop-or-consilio"])
+                                   ->CreateFile( [ type := prebuilttype->id, name := "index.shtml", publish := TRUE ], [setindex := TRUE]);
+  prebuilttype->SetInstanceData(testrequiresysoporconsiliofile->id, [ prebuilttag := "requiresysoptest"]);
+}
+
+OBJECT portal2folder  := testsite->rootobject->CreateFolder( [ name := "portal2" ] );
+portal2folder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+
+OBJECT testsuiteportalfolder  := testsite->rootobject->CreateFolder( [ name := "testsuiteportal" ] );
+testsuiteportalfolder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+
+testsite->rootobject->CreateFolder([name := "staticlogin"])->CreateFile(
+  [ name := "login"
+  , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
+  , publish := TRUE
+  , data := StringToBlob(` <form id="form" class="wh-wrdauth__loginform">
+                              login: <input id="login" name="login" value="" /><br/>
+                              password: <input id="password" name="password" type="password" /><br/> <input type="submit" />
+                            </form>
+                            Login result: <span id="loginresult" style="display: none">failed</span>`)
+  ], [setindex := TRUE]);
+
+testsite->rootobject->CreateFolder([ name := "staticprotected" ])->CreateFile(
+  [ name := "document.rtd"
+  , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+  , publish := TRUE
+  ],[ setindex := TRUE ])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+      [ data := [ htmltext := StringToBlob('<html><body><p class="normal">THE FIRST PROTECTED CONTENT</p></body></html>') ]
+      ]);
+
+testsite->rootobject->CreateFolder([ name := "staticprotected2" ])->CreateFile(
+  [ name := "document.rtd"
+  , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+  , publish := TRUE
+  ], [ setindex := TRUE ])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+      [ data := [ htmltext := StringToBlob('<html><body><p class="normal">THE PROTECTED CONTENT</p></body></html>') ]
+      ]);
+
+//SAML test
+OBJECT testsamlfolder := testsite->rootobject->CreateFolder([name := "test-saml"]);
+testsamlfolder->CreateFile(
+  [ name := "document.rtd"
+  , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+  , publish := TRUE
+  ],[setindex := TRUE]);
+
+OBJECT portalidpfolder := testsamlfolder->CreateFolder([name := "portal-idp"]);
+portalidpfolder->CreateFile([ name := "portal-idp", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+portalidpfolder->CreateFile([ name := "saml-idp", publish := TRUE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]);
+
+OBJECT portalspfolder := testsamlfolder->CreateFolder([name := "portal-sp"]);
+portalspfolder->CreateFile([ name := "portal-sp", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+portalspfolder->CreateFile([ name := "portal-sp-nologout", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ]);
+portalspfolder->CreateFile([ name := "saml-sp-test-sp", publish := TRUE, typens := "http://www.webhare.net/xmlns/wrd/samlspendpoint" ]);
+
+//Set up webtools test space
+OBJECT webtools   := testsite->rootobject->CreateFolder( [ name := "webtools" ] );
+OBJECT pollfile   := webtools->CreateFile( [ name := "polltest", typens := "http://www.webhare.net/xmlns/publisher/pollwebtool", publish := TRUE ]);
+OpenPoll(pollfile->id)->SetOptions([ [ title := "Blue" ], [ title := "Red"] ]);
+
+OBJECT forumcommentsfile := webtools->CreateFile([ name:= "forumcomments", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+OBJECT forumcommentsfile2 := webtools->CreateFile([ name:= "forumcomments-closedate", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+OBJECT forumcommentsfile3 := webtools->CreateFile([ name:= "forumcomments-recaptcha", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+
+OBJECT mailresultcustomwitty := webtools->CreateFile( [ name := "mailresult-custom.html.witty", data := StringToBlob(`
+  <body>
+    [if iscancel]
+      Too bad you've cancelled [field.firstname.text]!
+    [else]
+      Hello [field.firstname.text]! <a id="editlink" href="[pagedata.editlink]">Edit!</a>
+    [/if]
+  </body>"
+`)]);
+OBJECT mailresultwitty := webtools->CreateFile( [ name := "mailresult.html.witty", data := StringToBlob("<body>[if iscancel]Too bad you've cancelled [field.firstname.text]![else]Hello [field.firstname.text]![/if]</body>") ]);
+
+//Set up a forms testpage
+OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "testpages" ] );
+OBJECT formtest := testpages->CreateFile( [ name := "formtest", type := prebuilttype->id, publish := TRUE ] );
+prebuilttype->SetInstanceData(formtest->id, [ prebuilttag := "formtest" ]);
+
+OBJECT listtest := testpages->CreateFile( [ name := "listtest", type := prebuilttype->id, publish := TRUE ] );
+prebuilttype->SetInstanceData(listtest->id, [ prebuilttag := "listtest" ]);
+
+OBJECT pagelisttest := testpages->CreateFile( [ name := "pagelisttest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
+OBJECT otherpagelisttest := testpages->CreateFile( [ name := "otherpagelisttest", title := "other", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
+
+OBJECT foldertemplatetest := testpages->CreateFolder( [ name := "foldertemplate", typens := "http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder", title := "Testsuite Folder Template", ispinned := TRUE ] );
+foldertemplatetest->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
+OBJECT foldertemplatetestindex := foldertemplatetest->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ], [ setindex := TRUE ]);
+
+OBJECT foldertemplatetestsub := foldertemplatetest->CreateFolder([name := "sub"]);
+foldertemplatetestsub->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+foldertemplatetestsub->CreateFile( [ name := "internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := foldertemplatetestindex->id, publish := TRUE ]);
+foldertemplatetestsub->CreateFile( [ name := "contentlink", typens := "http://www.webhare.net/xmlns/publisher/contentlink", filelink := foldertemplatetestindex->id, publish := TRUE ]);
+foldertemplatetestsub->CreateFile( [ name := "externallink", typens := "http://www.webhare.net/xmlns/publisher/externallink", externallink := "https://www.webhare.dev/", publish := TRUE ]);
+
+FOREVERY(STRING basename FROM ["wrdauthtest","wrdauthtest-domainless"])
+{
+  OBJECT wrdauthtest := testpages->CreateFile( [ name := basename, type := prebuilttype->id, publish := TRUE ] );
+  prebuilttype->SetInstanceData(wrdauthtest->id, [ prebuilttag := "wrdauthtest" ]);
+
+  OBJECT wrdauthtest_router := testpages->CreateFile( [ name := basename || "-router", type := prebuilttype->id, publish := TRUE ] );
+  prebuilttype->SetInstanceData(wrdauthtest_router->id, [ prebuilttag := "wrdauthtest-router" ]);
+
+  OBJECT wrdauthtest_router_extended := testpages->CreateFile( [ name := basename || "-router-extended", type := prebuilttype->id, publish := TRUE ] );
+  prebuilttype->SetInstanceData(wrdauthtest_router_extended->id, [ prebuilttag := "wrdauthtest-router" ]);
+
+  OBJECT wrdauthtest_router_broken := testpages->CreateFile( [ name := basename || "-router-broken", type := prebuilttype->id, publish := TRUE ] );
+  prebuilttype->SetInstanceData(wrdauthtest_router_broken->id, [ prebuilttag := "wrdauthtest-router" ]);
+
+  OBJECT wrdauthtest_static := testpages->CreateFile( [ name := basename || "-static", type := prebuilttype->id, publish := TRUE ] );
+  prebuilttype->SetInstanceData(wrdauthtest_static->id, [ prebuilttag := "wrdauthtest-static" ]);
+}
+
+OBJECT staticpage := testpages->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+
+OBJECT dynamicpage := testpages->CreateFile( [ name := "dynamicpage", type := prebuilttype->id, publish := TRUE ] );
+prebuilttype->SetInstanceData(dynamicpage->id, [ prebuilttag := "dynamicpage" ]);
+
+testpages->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
+
+testsite->rootobject->EnsureFolder([name := "tmp"]);
+
+FOREVERY(STRING filename FROM ["simpletest.rtd","v2videotest.rtd","consenttest.rtd"])
+{
+  OBJECT testfile  := testpages->CreateFile([name := filename, typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+        [ data := [ htmltext := StringToBlob(`<html><body><p class="normal">${filename}</p><div class="wh-rtd-embeddedobject" data-instanceid="videoobject"></div></body></html>`)
+                  , instances := [[ instanceid := "videoobject"
+                                  , data := MakeVideoEmbedInstance("youtube", "BAf7lcYEXag")
+                                  ]
+                                 ]
+                  ]
+        ]);
+}
+
+ScheduleFolderRepublish(testsite->id,TRUE,TRUE);
+
+STRING alttestsitehost := ReadRegistryKey("webhare_testsuite.tests.alttestsitehost");
+OBJECT alttestsite;
+
+IF(alttestsitehost = "" AND GetWebHareVersionInfo().docker)
+{
+  alttestsitehost := "localhost.webhare.org";
+  WriteRegistryKey("webhare_testsuite.tests.alttestsitehost", alttestsitehost);
+}
+
+IF(alttestsitehost = "")
+{
+  Print("webhare_testsuite.tests.alttestsitehost not set, not creating the alt testsite\n");
+}
+
+IF(alttestsitehost != "")
+{
+  RECORD primaryinterface := UnpackURL(backendsite->webroot);
+  STRING testportaldomain := primaryinterface.host;
+  STRING alternatedomain := UnpackURL(alttestsitehost).host;
+
+  IF(Substring(testportaldomain, SearchSubstring(testportaldomain,'.')) = Substring(alternatedomain, SearchSubstring(alternatedomain,'.')))
+  {
+    ABORT("testportal and alternate domain may not share the same subdomain (" || testportaldomain || ", " || alternatedomain || ")");
+  }
+
+  STRING alturl := primaryinterface.scheme || "://" || alttestsitehost || (primaryinterface.isdefaultport?"":":" || primaryinterface.port) || "/";
+
+  //delete any existing webservers using the url
+  DELETE FROM system.webservers WHERE ToUppercase(UnpackURL(baseurl).host) = ToUppercase(alttestsitehost);
+
+  //recreate it
+  INTEGER altwebserverid := Makeautonumber(system.webservers,"id");
+  INSERT INTO system.webservers(id,baseurl,outputextension,diskfolder)
+         VALUES (altwebserverid,alturl,'.html','webhare_testsuite.altsite/');
+
+  //Now setup the alternate site which should run on an alternative hostname, if available
+  alttestsite := OpenTestsuiteAltSite();
+  IF(NOT ObjectExists(alttestsite))
+  {
+    OBJECT alttestroot := OpenWHFSRootObject()->EnsureFolder([ name := "WebHare testsuite site - alt host"]);
+    alttestsite := CreateSiteFromFolder(alttestroot->id);
+    Print("Creating alt testsite\n");
+  }
+  ELSE
+  {
+    PRINT("Throwing away existing alt testsite contents\n");
+    FOREVERY(RECORD subobj FROM SELECT id FROM system.fs_objects WHERE parent = alttestsite->id)
+      OpenWHFSObject(subobj.id)->RecycleSelf();
+  }
+  alttestsite->SetPrimaryOutput(altwebserverid, "/");
+
+  alttestsite->rootobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/sitesettings",
+                           [ sitedesign := "webhare_testsuite:basetest"
+                           ]);
+
+  alttestsite->rootobject->CreateFile(
+    [ name := "requirewhaccount.rtd"
+    , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , publish := TRUE
+    ])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+        [ data := [ htmltext := StringToBlob('<html><body><p class="normal">requirewhaccount</p><div class="wh-rtd-embeddedobject" data-instanceid="htmlobject"></div></body></html>')
+                  , instances := [[ instanceid := "htmlobject"
+                                  , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
+                                            , html := `<script>window.parent.parent.postMessage({type:"webhare_testsuite:requirewhaccount"},"*")</script>`
+                                            ]
+                                  ]
+                                 ]
+                  ]
+        ]);
+}
+
+INTEGER indexmanagerid := GetDefaultIndexManager();
+UPDATE consilio.indices
+   SET indexmanager := indexmanagerid
+     , indexname := Substitute(name, ":", whconstant_consilio_module_sep)
+ WHERE name LIKE "webhare_testsuite:*";
+
+trans->CommitWork();
+IF(ObjectExists(alttestsite))
+{
+  RECORD reloadstatus := RefreshGlobalWebserverConfig();
+  Print("Updated webserver settings\n");
+  IF(Length(reloadstatus.broken_listeners)>0)
+  {
+    Print("Issues opening some ports!\n");
+    DumpValue(reloadstatus.broken_listeners,'boxed');
+  }
+}
+
+WaitForCompiledAssetpack("webhare_testsuite:basetest");
+
+WaitForPublishCompletion(testsite->id); //the testsite better be published as tests will be using it!
+IF(ObjectExists(alttestsite))
+  WaitForPublishCompletion(alttestsite->id);
+
+IF(RecordExists(PollWHServiceState("poststartdone"))) //we've already started webhare, so this was not the first runonce
+  Runtestframework(MACRO PTR[]); //cleanup any pending testframework state

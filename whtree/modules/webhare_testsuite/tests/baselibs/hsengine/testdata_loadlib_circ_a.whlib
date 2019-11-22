@@ -1,0 +1,4 @@
+<?wh
+
+// Direct circular link
+LOADLIB "test::testdata_loadlib_circ_a.whlib";

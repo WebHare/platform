@@ -1,0 +1,25 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC OBJECTTYPE PrimaryManager
+<
+  OBJECT mytrans;
+
+  PUBLIC VARIANT FUNCTION Run(FUNCTION PTR functiontorun)
+  {
+    OBJECT savetrans;
+    IF(HavePrimaryTransaction())
+      savetrans := GetPrimary();
+
+    SetPrimaryWebhareTransaction(ObjectExists(this->mytrans) ? this->mytrans->id : 0);
+    TRY
+    {
+      RETURN functiontorun();
+    }
+    FINALLY
+    {
+      this->mytrans := GetPrimaryWebhareTransactionObject();
+      SetPrimaryWebhareTransaction(ObjectExists(savetrans) ? savetrans->id : 0);
+    }
+  }
+>;

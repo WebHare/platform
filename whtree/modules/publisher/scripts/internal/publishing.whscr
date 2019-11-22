@@ -1,0 +1,134 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+
+
+LOADLIB "mod::publisher/lib/internal/publishing-backend.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+
+LOADLIB "mod::publisher/lib/internal/outputmedia/localfs.whlib";
+
+LOADLIB "mod::publisher/lib/internal/publication/publish.whlib";
+
+
+// ----------------------------------------------------------------------------
+//
+// Main code
+//
+
+
+// Redirect normal output to error output
+RedirectOutputTo(2);
+
+RECORD ARRAY vars :=
+  [ [ name := "measure",       type := "switch", defaultvalue := FALSE ]
+  , [ name := "debug",         type := "switch", defaultvalue := FALSE ]
+  , [ name := "files",         type := "paramlist" ]
+  ];
+
+RECORD arguments := ParseArguments(GetConsoleArguments(), vars);
+IF (NOT RecordExists(arguments))
+{
+  PRINT("Couldn't parse commandline arguments: "||Detokenize(GetConsoleArguments(), " ")||"\n");
+  PRINT("\n");
+  PRINT("Syntax:\n");
+  PRINT("publishing [ --measure ] [ --debug ] [ files ]\n");
+  SetConsoleExitCode(1); // EXIT_FAILURE
+  RETURN;
+}
+
+measure := arguments.measure;
+IF(measure)
+  SetupFunctionProfiling("publisher:publishing.whscr", Detokenize(arguments.files, " "));
+
+publishing_debug := arguments.debug;
+
+// Parse parameters
+INTEGER ARRAY my_files;
+
+FOREVERY (STRING file FROM arguments.files)
+{
+  INTEGER fileid := ToInteger(file, 0);
+  IF (fileid <= 0)
+  {
+    OBJECT trans := OpenPrimary();
+    OBJECT fileobj := OpenWHFSObjectByPath(file);
+    IF(ObjectExists(fileobj) AND NOT fileobj->isfolder)
+      fileid := fileobj->id;
+    trans->Close();
+  }
+  IF(fileid <= 0)
+  {
+    PRINT("Illegal file id '"||file||"'\n");
+    SetConsoleExitCode(1); // EXIT_FAILURE
+    RETURN;
+  }
+  INSERT fileid INTO my_files AT END;
+}
+
+BOOLEAN debug := arguments.debug;
+BOOLEAN interactive_conversion := LENGTH(my_files) = 0;
+
+DATETIME total_start := GetCurrentDateTime();
+
+
+WHILE (TRUE)
+{
+  INTEGER fileid;
+  if (NOT interactive_conversion) //IDs are given on the command line
+  {
+    IF (LENGTH(my_files) = 0)
+        BREAK;
+    fileid := my_files[0];
+    DELETE FROM my_files AT 0;
+  }
+  ELSE //IDs are read from the stdin
+  {
+    STRING file := ReadLineFrom(0, 256, TRUE);
+
+    fileid := ToInteger(file, -1);
+    IF (fileid != ToInteger(file, 0))
+    {
+      PRINT("Received unexpected command '" || file || "'\n");
+      SetConsoleExitCode(1); // EXIT_FAILURE
+      RETURN;
+    }
+  }
+
+  DATETIME start := GetCurrentDateTime();
+
+  OpenPrimary();
+  SetErrorContextInfo([ source := "publisher:publishing", id := fileid ]);
+  INTEGER status := (NEW Reader)->Run(fileid, measure);
+  GetPrimary()->Close();
+
+  IF (measure)
+  {
+    INTEGER msecsdiff := GetDatetimeDifference(start, GetCurrentDateTime()).msecs;
+    PrintTo(1,"Publication time:" || FormatMoney(msecsdiff / 1000m, 3, ".", "", TRUE) || " seconds\n");
+  }
+
+  PrintTo(1, "STATUS:" || status || "\n");
+}
+
+IF (measure)
+{
+  INTEGER msecsdiff := GetDatetimeDifference(total_start, GetCurrentDateTime()).msecs;
+  PRINT("Total publication time:" || FormatMoney(msecsdiff / 1000m, 3, ".", "", TRUE) || " seconds\n");
+}
+
+SetConsoleExitCode(0);
+RETURN;

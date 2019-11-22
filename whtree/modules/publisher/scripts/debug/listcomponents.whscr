@@ -1,0 +1,27 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+OpenPrimary();
+RECORD ARRAY allcomponents :=
+    SELECT uri := namespace
+         , components := GroupedValues(allcomps)
+      FROM GetAllFormComponents() AS allcomps
+     GROUP BY namespace;
+FOREVERY (RECORD comps FROM allcomponents)
+{
+  Print("Component namespace " || comps.uri || "\n");
+  FOREVERY (RECORD comp FROM comps.components)
+  {
+    STRING ARRAY supportedvalues;
+    IF(comp.supportedvaluesfunc != "")
+      supportedvalues := MakeFunctionPtr(comp.supportedvaluesfunc)(DEFAULT OBJECT);
+    DELETE CELL supportedvaluesfunc FROM comp;
+    INSERT CELL supportedvalues := Detokenize(supportedvalues, ", ") INTO comp;
+    comps.components[#comp] := comp;
+  }
+  DumpValue(comps.components, "boxed");
+}

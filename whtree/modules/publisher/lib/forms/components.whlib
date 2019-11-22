@@ -1,0 +1,694 @@
+<?wh
+/** @short Base classes for implementing form components and handlers
+    @topic forms/baseclasses
+*/
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
+
+
+
+/* Base classes and APIs to implement custom components (questions and hadlers) */
+
+PUBLIC RECORD __pvt_formhandlerinit;
+
+PUBLIC STATIC OBJECTTYPE FormHandlerBase
+<
+  RECORD __handlerinfo;
+  /// The handler settings, containing the handler node attributes and settings from the handler's parser function
+
+  PUBLIC PROPERTY settings(this->__handlerinfo.handler.settings,-);
+  PUBLIC PROPERTY form(this->__handlerinfo.form,-);
+
+  MACRO NEW()
+  {
+    IF(NOT RecordExists(__pvt_formhandlerinit))
+      THROW NEW Exception("A FormHandler object cannot be directly constructed");
+    this->__handlerinfo := __pvt_formhandlerinit;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsConfirmationHandler()
+  {
+    RETURN "confirmation" IN this->__handlerinfo.handler.handlertaskfor;
+  }
+  PUBLIC BOOLEAN FUNCTION IsSubmitHandler()
+  {
+    RETURN "submit" IN this->__handlerinfo.handler.handlertaskfor;
+  }
+  PUBLIC BOOLEAN FUNCTION IsCancelHandler()
+  {
+    RETURN "cancel" IN this->__handlerinfo.handler.handlertaskfor;
+  }
+
+  /** @short Prefill form fields
+  */
+  PUBLIC MACRO PrepareRendering()
+  {
+  }
+
+  /** @short Validate the form file before saving it (invoked by editor)
+      @param work The work object to which to report warnings and errors
+      @param curform The form definitions object
+      @param contexts The currently active contexts.
+  */
+  PUBLIC MACRO ValidateFormFile(OBJECT work, OBJECT curform, OBJECT contexts)
+  {
+  }
+
+  /** @short Validate form results
+      @param work The work object to which to report warnings and errors
+  */
+  PUBLIC MACRO ValidateForm(OBJECT work)
+  {
+  }
+
+  /** @short Hook into submission. No errors yet and any store results handler has already run*/
+  PUBLIC MACRO PrepareSubmit(OBJECT work)
+  {
+  }
+
+  /** @short Postprocess result */
+  PUBLIC RECORD FUNCTION UpdateResultAfterSubmit(RECORD result)
+  {
+    RETURN result;
+  }
+
+  /** @short Get the title for use in the form editor */
+  PUBLIC STRING FUNCTION GetFormEditTitle()
+  {
+    RETURN "";
+  }
+  /** @short Return if this handler can be tested at result-level */
+  PUBLIC BOOLEAN FUNCTION IsTestableForResults()
+  {
+    RETURN FALSE;
+  }
+  /** @short Actually run the test */
+  PUBLIC MACRO RunTestResult(OBJECT parent, RECORD result, RECORD options)
+  {
+    THROW NEW Exception("Must override RunTestResult if IsTestableForResults returns TRUE");
+  }
+>;
+
+/** Base class for a form field (typically a question)
+*/
+PUBLIC OBJECTTYPE FormFieldBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT form;
+  RECORD field;
+  STRING pvt_htmltitle;
+  BOOLEAN pvt_hidetitle;
+  BOOLEAN pvt_required;
+  BOOLEAN pvt_visible;
+  BOOLEAN pvt_enabled;
+  OBJECT pvt_parent;
+  RECORD pvt_dataset;
+  RECORD pvt_requiredcondition;
+  RECORD pvt_enabledcondition;
+  RECORD pvt_visiblecondition;
+  STRING pvt_formgroup;
+  STRING ARRAY __groupclasses;
+  /// Keeps whether the preinit for this component has already been called
+  BOOLEAN __havepreinited;
+  /// Let's not make this a public property yet, we might have to store references to the RTD instead of the full RTD text to prevent (image) blobs from getting loaded into the cache
+  RECORD infotext;
+  /// Mark as component as being currently disabled because it's a subcomponent. Knocks out validation
+  PUBLIC BOOLEAN __enablecomponent_disabled;
+
+  /// Our direct children
+  OBJECT ARRAY __childcomponents;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables and properties
+  //
+
+  PUBLIC RECORD groupdataset;
+  PUBLIC PROPERTY groupclasses(__groupclasses, SetGroupClasses);
+  PUBLIC STRING ARRAY autocomplete;
+
+  /// Name of the field
+  PUBLIC PROPERTY name(this->field.name,-);
+
+  /// Title of this field
+  PUBLIC PROPERTY parent(this->pvt_parent, -);
+
+  /// Title of this field
+  PUBLIC PROPERTY title(GetTitle, SetTitle);
+
+  /// HTML Title of this field - if set, overrides title
+  PUBLIC PROPERTY htmltitle(this->pvt_htmltitle, SetHTMLTitle);
+
+  /// Hide the title for this field
+  PUBLIC PROPERTY hidetitle(this->pvt_hidetitle, this->pvt_hidetitle);
+
+  /// Whether this field is required
+  PUBLIC PROPERTY required(this->pvt_required, SetRequired);
+
+  /// Whether this field is enabled
+  PUBLIC PROPERTY enabled(pvt_enabled, SetEnabled);
+
+  /// Whether this field is visible
+  PUBLIC PROPERTY visible(pvt_visible, Setvisible);
+
+  /// Dataset to put in the field &lt;input&gt; element (only when the field expands to a single input!)
+  PUBLIC PROPERTY dataset(pvt_dataset, pvt_dataset);
+
+  PUBLIC PROPERTY formorder(this->field.formorder, -);
+
+  PUBLIC PROPERTY novalue(this->field.novalue, -);
+
+  PUBLIC PROPERTY requiredcondition(pvt_requiredcondition, SetRequiredCondition);
+  PUBLIC PROPERTY enabledcondition(pvt_enabledcondition, SetEnabledCondition);
+  PUBLIC PROPERTY visiblecondition(pvt_visiblecondition, SetVisibleCondition);
+  PUBLIC PROPERTY conditionname(GetConditionName, -);
+
+  PUBLIC PROPERTY formgroup(GetFormGroup, -);
+
+  PUBLIC PROPERTY qname(this->field.qname, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  {
+    this->form := form;
+    this->field := field;
+    this->pvt_visible := field.visible;
+    this->pvt_parent := parent;
+    this->pvt_htmltitle := GetHTMLTid(field.title);
+    this->pvt_hidetitle := field.hidetitle;
+    this->pvt_required := field.required;
+    this->pvt_enabled := field.enabled;
+    this->pvt_dataset := field.dataset;
+    this->groupdataset := field.groupdataset;
+    this->groupclasses := field.groupclasses;
+    this->autocomplete := field.autocomplete;
+    this->pvt_requiredcondition := field.requiredcondition;
+    this->pvt_enabledcondition := field.enabledcondition;
+    this->pvt_visiblecondition := field.visiblecondition;
+    this->pvt_formgroup := field.formgroup;
+    this->infotext := field.infotext;
+
+    IF(ObjectExists(parent))
+      parent->__AddChildComponent(this);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetTitle()
+  {
+    RETURN DecodeHTML(this->pvt_htmltitle);
+  }
+  MACRO SetTitle(STRING title)
+  {
+    this->pvt_htmltitle := EncodeHTML(title);
+  }
+  MACRO SetHTMLTitle(STRING title)
+  {
+    this->pvt_htmltitle := title;
+  }
+
+  MACRO SetRequired(BOOLEAN newval)
+  {
+    this->pvt_required := newval;
+  }
+
+  MACRO SetEnabled(BOOLEAN newval)
+  {
+    this->pvt_enabled := newval;
+  }
+  MACRO SetVisible(BOOLEAN newval)
+  {
+    this->pvt_visible := newval;
+  }
+  MACRO SetGroupClasses(STRING ARRAY newgroupclasses)
+  {
+    this->__groupclasses := newgroupclasses;
+  }
+  MACRO SetRequiredCondition(RECORD newcondition)
+  {
+    newcondition := ValidateFormCondition(newcondition);
+    this->pvt_requiredcondition := newcondition;
+  }
+  MACRO SetEnabledCondition(RECORD newcondition)
+  {
+    newcondition := ValidateFormCondition(newcondition);
+    this->pvt_enabledcondition := newcondition;
+  }
+  MACRO SetVisibleCondition(RECORD newcondition)
+  {
+    newcondition := ValidateFormCondition(newcondition);
+    this->pvt_visiblecondition := newcondition;
+  }
+  STRING FUNCTION GetConditionName()
+  {
+    RETURN this->name ?? this->guid;
+  }
+
+  OBJECT FUNCTION GetFormGroup()
+  {
+    IF (ObjectExists(this->parent))
+      RETURN this->parent->formgroup;
+    IF (this->pvt_formgroup = "")
+      RETURN DEFAULT OBJECT;
+    RETURN GetMember(this->form, "^" || this->pvt_formgroup);
+  }
+
+  PUBLIC STRING ARRAY FUNCTION GetComponentNames()
+  {
+    RETURN STRING[this->name];
+  }
+
+  PUBLIC MACRO __SetInfoText(RECORD newtext)
+  {
+    //TODO make public API as soon as we're sure how caching of infotext with big embedded objects will be done safely
+    this->infotext := newtext;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper fuctions
+  //
+
+  /** Create a subfield
+      @param type Requested type
+      @param name Subfield name (we'll automatically make it globally unique)
+      @param matchattributes Settings needed to select the proper field subtype
+      @return THe newly created field */
+  PUBLIC OBJECT FUNCTION CreateSubField(STRING type, STRING name, RECORD matchattributes DEFAULTSTO DEFAULT RECORD)
+  {
+    OBJECT field := this->form->AppendFormField(this, type, this->name || '.' || name, matchattributes);
+    RETURN field;
+  }
+
+  //register a child
+  PUBLIC MACRO __AddChildComponent(OBJECT child)
+  {
+    INSERT child INTO this->__childcomponents AT END;
+  }
+
+  /** Get child components. Arrays need this to properly handle subfields
+      @return List of registered children */
+  PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    RETURN this->__childcomponents;
+  }
+
+  //prepare a builtin field for rendering
+  RECORD FUNCTION GetBaseRenderData()
+  {
+    RECORD fld := this->field;
+    IF(NOT CellExists(fld,'firstid'))
+      INSERT CELL firstid := this->form->formidprefix || fld.name INTO fld;
+
+    FOREVERY(STRING upd FROM ["placeholder","prefix","suffix"])
+      IF(CellExists(fld,upd))
+        fld := CellUpdate(fld, upd, GetTid(GetCell(fld,upd)));
+
+    STRING ARRAY groupclasses;
+    OBJECT ARRAY relevantelts, relevantelts_required;
+    FOR(OBJECT formcomponent := this; ObjectExists(formcomponent); formcomponent := formcomponent->parent)
+    {
+      groupclasses := groupclasses CONCAT formcomponent->groupclasses;
+
+      INSERT formcomponent INTO relevantelts AT END;
+      INSERT formcomponent INTO relevantelts_required AT END;
+      // For required conditions, we don't have to chase formgroups, as required conditions cannot be defined on groups
+      IF(ObjectExists(formcomponent->formgroup))
+        INSERT formcomponent->formgroup INTO relevantelts AT END;
+    }
+
+    fld := [ ...fld
+           , htmltitle := this->htmltitle
+           , hidetitle := this->hidetitle
+           , required := this->required
+           , enabled := this->enabled
+           , dataset := this->dataset
+           , infotext := this->infotext
+           , groupdataset := this->groupdataset
+           , groupclasses := groupclasses
+           , autocomplete := this->autocomplete
+
+           // do not transmit conditions if they're already unconditionally irrelevant
+           , requiredcondition := this->required ? "" : this->form->__ExplainConditionsForJS(relevantelts_required, "requiredcondition")
+           , enabledcondition := this->enabled ? this->form->__ExplainConditionsForJS(relevantelts, "enabledcondition") : ""
+           , visiblecondition := this->form->__ExplainConditionsForJS(relevantelts, "visiblecondition") //note - we wouldn't get called if invisible, so no need to hide the condition
+
+           , groupfor := this->GetComponentNames()
+           ];
+
+    INSERT CELL errors := (SELECT message := text FROM this->form->__formerrors WHERE comp=this)
+           INTO fld;
+    RETURN fld;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD FUNCTION __GetRenderData() //public only because SELECT needs it for options..
+  {
+    RETURN CELL[ ...this->GetBaseRenderData()
+               , type := "custom"
+               , lines := PTR this->RenderFieldLines
+               ];
+  }
+
+  /** Return if this field is set (satisfies any possible 'required' condition). Fields should override this */
+  PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN TRUE;
+  }
+
+  // This function returns if the component is now visible or can be made visible through (group)visiblecondition (i.e. if it
+  // has to be sent to the client)
+  PUBLIC BOOLEAN FUNCTION IsFrontendVisible()
+  {
+    OBJECT formgroup := this->formgroup;
+    IF (ObjectExists(formgroup) AND NOT formgroup->visible)
+      RETURN FALSE;
+    IF (ObjectExists(this->parent) AND NOT this->parent->visible)
+      RETURN FALSE;
+    RETURN this->pvt_visible;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsNowVisible()
+  {
+    // Check if made invisible directly or through group
+    IF (NOT this->IsFrontendVisible())
+      RETURN FALSE;
+
+    // Check if containing page is visible
+    OBJECT page := this->form->__GetPageContainingField(this);
+    IF (ObjectExists(page) AND NOT page->IsNowVisible())
+      RETURN FALSE;
+
+    IF (ObjectExists(this->parent) AND NOT this->parent->IsNowVisible())
+      RETURN FALSE;
+
+    OBJECT formgroup := this->formgroup;
+    IF (ObjectExists(formgroup) AND NOT formgroup->IsNowVisible())
+      RETURN FALSE;
+
+    IF(RecordExists(this->visiblecondition) AND NOT this->form->MatchFormCondition(this->visiblecondition, DEFAULT RECORD).success)
+      RETURN FALSE;
+
+    RETURN TRUE;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsNowEnabled()
+  {
+    // Check if made disabled directly, through enabledcomponents or through group
+    IF(NOT this->pvt_enabled OR this->__enablecomponent_disabled)
+      RETURN FALSE;
+
+    IF (ObjectExists(this->parent) AND NOT this->parent->IsNowEnabled())
+      RETURN FALSE;
+
+    OBJECT formgroup := this->formgroup;
+    IF (ObjectExists(formgroup) AND NOT formgroup->IsNowEnabled())
+      RETURN FALSE;
+
+    // Check enabled conditions
+    IF(RecordExists(this->enabledcondition) AND NOT this->form->MatchFormCondition(this->enabledcondition, DEFAULT RECORD).success)
+      RETURN FALSE;
+
+    RETURN TRUE;
+  }
+
+  /** Return true if this field is available for setting - its enabled and visible */
+  PUBLIC BOOLEAN FUNCTION IsNowSettable()
+  {
+    RETURN this->IsNowVisible() AND this->IsNowEnabled();
+  }
+
+  /** Return true if this field is required, either statically or by its condition */
+  PUBLIC BOOLEAN FUNCTION IsNowRequired()
+  {
+    IF(NOT this->IsNowSettable())
+      RETURN FALSE;
+
+    IF(this->required)
+      RETURN TRUE;
+
+    IF(RecordExists(this->requiredcondition))
+      RETURN this->form->MatchFormCondition(this->requiredcondition, DEFAULT RECORD).success;
+
+    RETURN FALSE;
+  }
+
+  /** Validate the field, should return errors through AddErrorFor. Fields may override this for more complex checks,
+      but should still invoke the base function */
+  PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->IsSet() AND this->IsNowRequired())
+      work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.required"));
+  }
+
+  /** Returns the data for PrepareFormDataForComposer and GetWittyResultdata (ie the fields as avaialble in mails) */
+  PUBLIC RECORD FUNCTION GetComposableData()
+  {
+    RETURN [ title := this->title
+           , raw   := this->value
+           , files := DEFAULT RECORD ARRAY
+           ];
+  }
+
+  /** Returns extra merge fields for this field
+      @param value The current value, if set
+      @return A list of extra fields
+      @cell(string) return.name The field name
+      @cell(string) return.title The field title
+      @cell(record) return.value The current value of this extra field
+      @cell(string array) return.supportedvalues If this extra field can be used
+          as the source of a form condition, the supported values
+      @cell(record array) return.options If supportedvalues includes "options",
+          these options are available for this extra field
+      @cell return.options.rowkey The option's value
+      @cell(string) return.options.title The option's title
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetExtraMergeFields(RECORD value)
+  {
+    RETURN RECORD[];
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsPartOf(OBJECT comp)
+  {
+    RETURN FALSE;
+  }
+
+  /** Render the field into a group (RenderInGroup). Delegates individual rendering lines to RenderFieldLines */
+  PUBLIC MACRO RenderField()
+  {
+    IF(this->IsFrontendVisible())
+      this->form->__GetRenderer()->RenderField(this->__GetRenderData());
+  }
+  /** Render the .wh-form__fieldline lines */
+  PUBLIC MACRO RenderFieldLines()
+  {
+    IF(this->IsFrontendVisible())
+      this->form->__GetRenderer()->RenderFieldInline(CELL[ ...this->__GetRenderData()
+                                                         , fieldcontent := PTR this->RenderFieldContent
+                                                         ]);
+  }
+  PUBLIC MACRO RenderFieldContent()
+  {
+    THROW NEW Exception(`Field problem - RenderFieldContent not implemented (field: ${this->name})`);
+  }
+  PUBLIC MACRO RenderIntoSubField()
+  {
+    IF(this->IsFrontendVisible())
+      this->form->__GetRenderer()->RenderIntoSubField(this->__GetRenderData());
+  }
+
+  PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+
+  }
+  PUBLIC RECORD FUNCTION GetStorageValue()
+  {
+    IF(IsDefaultvalue(this->value))
+      RETURN DEFAULT RECORD;
+
+    RECORD retval := [ result := this->value
+                     , attachments := RECORD[]
+                     ];
+    RETURN retval;
+  }
+  PUBLIC MACRO SetFromStorage(VARIANT value, RECORD ARRAY attachments)
+  {
+    this->value := value;
+  }
+  PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    STRING rettype;
+    IF(TYPEID(this->value) = TYPEID(BOOLEAN))
+      rettype := "boolean";
+    ELSE IF(TYPEID(this->value) = TYPEID(INTEGER))
+      rettype := "integer";
+    ELSE
+      rettype := "text";
+
+    RETURN [[ title := this->title
+            , name := "value"
+            , type := rettype
+           ]];
+  }
+  PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    RETURN inputvalues;
+  }
+
+  PUBLIC MACRO __EnsurePreInit()
+  {
+    IF(NOT this->__havepreinited)
+    {
+      this->__havepreinited:=TRUE;
+      this->PreInitComponent();
+    }
+  }
+
+  //Override this macro to inject code that will run after the formcomponents and handlers are initialized
+  PUBLIC MACRO PreInitComponent()
+  {
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ComposedFormFieldBase EXTEND FormFieldBase
+<
+  OBJECT ARRAY __composed_fields;
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+  }
+
+  //'simple' set up of new fields, one per line
+  MACRO SetupComposition(OBJECT ARRAY components)
+  {
+    FOREVERY(OBJECT comp FROM components)
+    {
+      IF(comp->parent != this)
+        THROW NEW Exception(`Field '${comp->name}' should have '${this->name}' as its parent but has been `
+                            || `created ${ObjectExists(comp->parent) ? `with parent '${comp->parent->name}` : `without a parent`}`);
+    }
+
+    this->__composed_fields := components;
+    IF(this->__havepreinited)
+      this->__EnsurePreInit(); //rerun for the new fields, if needed
+  }
+
+  UPDATE PUBLIC MACRO __EnsurePreInit()
+  {
+    FormFieldBase::__EnsurePreInit();
+    FOREVERY(OBJECT line FROM this->__composed_fields)
+      line->__EnsurePreInit();
+  }
+
+  UPDATE PUBLIC MACRO RenderField() //combine our properties with the subfields, and start rendering stuff
+  {
+    IF(NOT this->IsFrontendVisible())
+      RETURN;
+
+    FOREVERY(OBJECT line FROM this->__composed_fields)
+      line->RenderField();
+  }
+  UPDATE PUBLIC MACRO RenderFieldLines()
+  {
+    THROW NEW Exception(`Composition problem - RenderFieldLines may not be directly invoked (field: ${this->name})`);
+  }
+  UPDATE PUBLIC MACRO RenderIntoSubField()
+  {
+    THROW NEW Exception(`Composition problem - RenderIntoSubField may not be directly invoked (field: ${this->name})`);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    FOREVERY(OBJECT line FROM this->__composed_fields)
+      line->ValidateValue(work);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ValuelessFormFieldBase EXTEND FormFieldBase
+<
+  RECORD __value;
+
+  PUBLIC PROPERTY value(__value,-);
+
+  UPDATE PUBLIC RECORD FUNCTION GetComposableData()
+  {
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE SelectFormFieldBase EXTEND ComposedFormFieldBase
+<
+  OBJECT selectfield;
+  PUBLIC PROPERTY value(this->selectfield->value, this->selectfield->value);
+  PUBLIC PROPERTY options(this->selectfield->options, this->selectfield->options);
+  PUBLIC PROPERTY selection(this->selectfield->selection, this->selectfield->selection);
+  PUBLIC PROPERTY type(this->selectfield->type, this->selectfield->type);
+  PUBLIC PROPERTY placeholder(this->selectfield->placeholder, this->selectfield->placeholder);
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : ComposedFormFieldBase(form, parent, field)
+  {
+    this->selectfield := this->CreateSubField("select", "select");
+    this->selectfield->type := "pulldown";
+    this->selectfield->htmltitle := this->htmltitle;
+    this->selectfield->required := this->required;
+    this->SetupComposition([this->selectfield]);
+  }
+
+  UPDATE MACRO SetRequired(BOOLEAN newval)
+  {
+    FormFieldBase::SetRequired(newval);
+    this->selectfield->required := newval;
+  }
+
+  UPDATE STRING FUNCTION GetConditionName()
+  {
+    RETURN this->selectfield->conditionname;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetComposableData()
+  {
+    RECORD base := ComposedFormFieldBase::GetComposableData();
+    INSERT CELL text := Detokenize( (SELECT AS STRING ARRAY title FROM this->options WHERE selected),'; ') INTO base;
+    RETURN base;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    RETURN this->selectfield->EnrichWithFormattedResults(exportoptions, inputvalues);
+  }
+  UPDATE PUBLIC MACRO SetTitle(STRING title)
+  {
+    ComposedFormFieldBase::SetTitle(title);
+    this->selectfield->htmltitle := this->htmltitle;
+  }
+  UPDATE PUBLIC MACRO SetHTMLTitle(STRING title)
+  {
+    ComposedFormFieldBase::SetHTMLTitle(title);
+    this->selectfield->htmltitle := this->htmltitle;
+  }
+  UPDATE PUBLIC MACRO SetValueIfValid(VARIANT val)
+  {
+    this->selectfield->SetValueIfValid(val);
+  }
+>;
+
+

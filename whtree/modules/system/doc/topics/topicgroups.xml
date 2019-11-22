@@ -1,0 +1,9 @@
+<topicgroups xmlns="http://www.webhare.net/xmlns/dev/topic">
+  <group title="HareScript" topics="harescript-core harescript-language harescript-utils database" />
+  <group title="CMS and Websites" topics="sitedev siteprofiles widgets forms modules witty publisher-components " />
+  <group title="Internet and utilities" topics="internet webapis xml rpc graphics file-formats localization" />
+  <group title="Backend applications" topics="tollium tollium-components icons publisher-apps" />
+  <group title="WebHare R Database" topics="wrd wrdauth payments wrd-components" />
+  <group title="Installation and setup" topics="installation changelogs" />
+  <group title="Developer support" topics="testframework internals" />
+</topicgroups>

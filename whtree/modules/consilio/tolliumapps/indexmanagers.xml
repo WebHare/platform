@@ -1,0 +1,50 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="indexmanagers.whlib" gid="tolliumapps.indexmanagers">
+
+  <screen name="indexmanagers" width="120x">
+    <body>
+      <listedit name="mgrs" ongetrows="ongetmgrs" onrowedit="oneditmgr" onrowdelete="ondeletemgr" minwidth="50x" minheight="8gr">
+        <column name="name" iconname="icon" type="text" width="1pr" />
+        <column name="type" type="text" width="1pr" />
+        <column name="address" type="text" width="2pr" />
+      </listedit>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="editindexmanager">
+    <compositions>
+      <record name="indexmgr" />
+    </compositions>
+    <body spacers="none">
+      <tabs name="settings" type="server">
+        <tab tid=".general" spacers="top left right bottom">
+          <textedit composition="indexmgr" cellname="name" required="true" />
+          <textedit composition="indexmgr" cellname="address" name="address" validationchecks="http-url" />
+          <select composition="indexmgr" cellname="type" name="type" type="radio" rowkeytype="integer" onchange="ontypechange">
+            <option rowkey="1" tid=".indexmgr-builtin" />
+            <option rowkey="2" tid=".indexmgr-elasticsearch" selected="true" />
+          </select>
+        </tab>
+        <tab tid=".elasticsearch" spacers="top left right bottom">
+          <line layout="left">
+            <checkbox
+                name="threshold_enabled"
+                title=""
+                labeltid=".threshold_enabled"
+                value="true"
+                enablecomponents="watermark_low watermark_high watermark_flood" />
+          </line>
+          <textedit name="watermark_low" width="10x" />
+          <textedit name="watermark_high" width="10x" />
+          <textedit name="watermark_flood" width="10x" />
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+</screens>
+

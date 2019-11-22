@@ -1,0 +1,39 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE EnableOnTest EXTEND TolliumScreenBase
+<
+  MACRO DoSubWindow()
+  {
+    this->LoadScreen(".enableontest_subwindow")->RunModal();
+  }
+>;
+
+PUBLIC OBJECTTYPE EnableOnTest_SubWindow EXTEND TolliumScreenBase
+<
+  MACRO DoReload()
+  {
+    this->reloadlist->rows := [ [ title := "Reloaded" ] ];
+  }
+
+  MACRO DoClose()
+  {
+    this->tolliumresult := "close";
+  }
+>;
+
+PUBLIC OBJECTTYPE EnableComponentsTest_SubWindow EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->RunMessageBox(".subwindow");
+  }
+>;
+
+PUBLIC OBJECTTYPE enablecomponentstest_arrayedit EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->arrayedit->value := [ [ title := "Title" ] ];
+  }
+>;

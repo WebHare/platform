@@ -1,0 +1,113 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+__CONSTREF RECORD ARRAY contents :=
+    [ [ wrd_creationdate := MakeDateFromText("2001-10-01T00:00:00Z"),       test_datetime := DEFAULT DATETIME ]
+    , [ wrd_creationdate := MakeDateFromText("2018-10-01T00:00:00Z"),       test_datetime := MakeDateFromText("2018-10-01T00:00:00Z") ]
+    , [ wrd_creationdate := MakeDateFromText("2018-10-01T00:00:00.001Z"),   test_datetime := MakeDateFromText("2018-10-01T00:00:00.001Z") ]
+    , [ wrd_creationdate := MakeDateFromText("2018-10-01T23:59:59.999Z"),   test_datetime := MakeDateFromText("2018-10-01T23:59:59.999Z") ]
+    , [ wrd_creationdate := MakeDateFromText("2018-10-02T00:00:00Z"),       test_datetime := MakeDateFromText("2018-10-02T00:00:00Z") ]
+    , [ wrd_creationdate := MakeDateFromText("2018-10-02T00:00:00.001Z"),   test_datetime := MakeDateFromText("2018-10-02T00:00:00.001Z") ]
+    , [ wrd_creationdate := MakeDateFromText("2018-10-02T23:59:59.999Z"),   test_datetime := MakeDateFromText("2018-10-02T23:59:59.999Z") ]
+    , [ wrd_creationdate := MakeDateFromText("2018-10-03T00:00:00Z"),       test_datetime := MakeDateFromText("2018-10-03T00:00:00Z") ]
+    , [ wrd_creationdate := MakeDateFromText("3001-10-01T00:00:00Z"),       test_datetime := MAX_DATETIME ]
+    ];
+
+__CONSTREF DATETIME ARRAY dts := SELECT AS DATETIME ARRAY test_datetime FROM contents;
+
+MACRO SetupSchema()
+{
+  OBJECT schemaobj := testfw->GetWRDSchema();
+
+  testfw->BeginWork();
+
+  OBJECT dom_obj := schemaobj->CreateType("TEST_DTRANGE");
+  dom_obj->CreateAttribute("TEST_DATETIME",    "DATETIME",  [ isunique := FALSE, isrequired := FALSE, title := "Datetime" ]);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+
+  // wrd_creationdate can't be DEFAULT DATETIME or MAX_DATETIME
+  FOREVERY (RECORD rec FROM contents)
+    dom_obj->CreateEntity(rec);
+
+  testfw->CommitWork();
+}
+
+MACRO TestDatetimeInRange()
+{
+  OBJECT schemaobj := testfw->GetWRDSchema();
+
+  FOREVERY (STRING testfield FROM [ "WRD_CREATIONDATE", "TEST_DATETIME"])
+    FOREVERY (DATETIME lb FROM dts)
+      FOREVERY (DATETIME rb FROM dts)
+      {
+            //DumpValue(CELL[ testfield, lb, rb ]);
+
+        FUNCTION PTR query := PTR schemaobj->^test_dtrange->RunQuery(
+            [ outputcolumn := "TEST_DATETIME"
+            , filters := [ [ field := testfield, matchtype := "__INRANGE", value := [ lb, rb ] ]
+                         ]
+            , historymode := "all"
+            ]);
+
+        DATETIME ARRAY res := GetSortedSet(query());
+
+        DATETIME ARRAY expect :=
+            SELECT AS DATETIME ARRAY test_datetime
+              FROM contents
+             WHERE (testfield = "WRD_CREATIONDATE" ? wrd_creationdate >= lb : test_datetime >= lb)
+               AND (testfield = "WRD_CREATIONDATE" ? wrd_creationdate <= rb : test_datetime <= rb);
+
+        TestEQ(expect, res);
+      }
+}
+
+MACRO TestDatetimeConditionOptimizations()
+{
+  OBJECT schemaobj := testfw->GetWRDSchema();
+
+  FOREVERY (STRING testfield FROM [ "WRD_CREATIONDATE", "TEST_DATETIME"])
+    FOREVERY (DATETIME lb FROM dts)
+      FOREVERY (DATETIME rb FROM dts)
+      {
+        IF (testfield = "WRD_CREATIONDATE" AND lb = rb AND lb IN [ DEFAULT DATETIME, MAX_DATETIME ])
+          CONTINUE; // wrd_creationdate can't be DEFAULT DATETIME or MAX_DATETIME, so results will be off
+
+        FOREVERY (STRING lb_matchtype FROM [ ">=", ">" ])
+          FOREVERY (STRING rb_matchtype FROM [ "<", "<=" ])
+          {
+            //DumpValue(CELL[ testfield, lb, rb, lb_matchtype, rb_matchtype ]);
+
+            DATETIME ARRAY res := schemaobj->^test_dtrange->RunQuery(
+                [ outputcolumn := "TEST_DATETIME"
+                , filters := [ [ field := testfield, matchtype := lb_matchtype, value := lb ]
+                             , [ field := testfield, matchtype := rb_matchtype, value := rb ]
+                             ]
+                , historymode := "all"
+                ]);
+
+            DATETIME ARRAY expect :=
+                SELECT AS DATETIME ARRAY test_datetime
+                  FROM contents
+                 WHERE (lb_matchtype = ">="
+                              ? (testfield = "WRD_CREATIONDATE" ? wrd_creationdate >= lb : test_datetime >= lb)
+                              : (testfield = "WRD_CREATIONDATE" ? wrd_creationdate > lb : test_datetime > lb))
+                   AND (rb_matchtype = "<="
+                              ? (testfield = "WRD_CREATIONDATE" ? wrd_creationdate <= rb : test_datetime <= rb)
+                              : (testfield = "WRD_CREATIONDATE" ? wrd_creationdate < rb : test_datetime < rb));
+
+            TestEQ(expect, res);
+          }
+      }
+}
+
+RunTestframework([ PTR SetupSchema
+                 , PTR TestDatetimeInRange
+                 , PTR TestDatetimeConditionOptimizations
+                 ]);

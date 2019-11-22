@@ -1,0 +1,401 @@
+﻿<?wh
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/remoting/remotable.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+
+
+/// Internal counter for remoter objects
+INTEGER remoter_counter;
+
+OBJECT lastremote;
+
+
+PUBLIC OBJECTTYPE RemoteObject EXTEND InternalRemotableBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  MACRO NEW()
+  {
+    lastremote := PRIVATE this;
+  }
+>;
+
+
+STATIC OBJECTTYPE Remoter
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Id of this remoter
+  INTEGER64 remoterid;
+
+
+  /// List of types sent to the other side
+  STRING ARRAY sent_types;
+
+
+  /// List of types received from the other side
+  RECORD ARRAY received_types;
+
+
+  /// List of seen objects (both sent to and received from the other side)
+  RECORD ARRAY objectlist;
+
+
+  /// Object registration counter (initiator counts from 0 in steps of 2, receiver counts from 1 in steps from 2
+  INTEGER objidcounter;
+
+
+  /// Whether the session has been closed
+  BOOLEAN session_closed;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /** Execute a function/macro call. Must also return a value for macros, that will be ignored.
+      @param objid
+      @param methodname
+      @param data
+      @return variant
+  */
+  PUBLIC FUNCTION PTR remotecall;
+
+  /** Execute a function/macro call, don't return result
+      @param objid
+      @param methodname
+      @param data
+  */
+  PUBLIC MACRO PTR asyncremotecall;
+
+  /// Function to close the remote session
+  PUBLIC FUNCTION PTR remotesessionclose;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(BOOLEAN initiator)
+  {
+    // Register remoter
+    remoter_counter := remoter_counter + 1;
+    this->remoterid := remoter_counter;
+
+    this->objidcounter := initiator ? 0 : 1;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Allocate a new object id
+  INTEGER FUNCTION GetNewObjectId()
+  {
+    this->objidcounter := this->objidcounter + 2;
+    RETURN this->objidcounter;
+  }
+
+
+  /** Get a list of methods for a object
+      @return
+      @cell(string) return.name Name of the method
+      @cell(integer) return.returntype Return type (0 for macros)
+      @cell(record array) return.parameters List of parameters
+      @cell(integer) return.type TypeID of this paremeter (0 for not specified)
+      @cell(boolean) return.has_default Whether the parameter has a default value
+  */
+  RECORD ARRAY FUNCTION EnumerateClassMethods(OBJECT obj)
+  {
+    IF (NOT (obj EXTENDSFROM RemotableObject))
+      THROW NEW Exception("Cannot marshal object of type '"||GetObjectTypeName(obj)||"', as it doesn't extend RemotableObject");
+
+    STRING ARRAY methodnames := obj->__GetRemotableMethods();
+
+    RECORD ARRAY data;
+
+    FOREVERY (STRING name FROM methodnames)
+    {
+      FUNCTION PTR meth := GetObjectMethodPtr(obj, name);
+
+      RECORD signdata := GetRawFunctionPtrSignature(meth);
+      INSERT
+          [ name :=             name
+          , returntype :=       signdata.returntype
+          , parameters :=       signdata.params
+          , excessargstype :=   signdata.excessargstype
+          ] INTO data AT END;
+    }
+
+    RETURN data;
+  }
+
+
+  /// Calls a remote function
+  VARIANT FUNCTION RemotingFunc(
+    OBJECT obj,
+    STRING methodname,
+    VARIANT ARRAY args) __ATTRIBUTES__(SKIPTRACE, VARARG)
+  {
+    IF (this->session_closed)
+      THROW NEW Exception("Cannot call this method, the session has already been closed");
+
+    RETURN this->remotecall(obj, methodname, args);
+  }
+
+
+  /// Calls a remote macro
+  MACRO RemotingMacro(
+    OBJECT obj,
+    STRING methodname,
+    VARIANT ARRAY args) __ATTRIBUTES__(SKIPTRACE, VARARG)
+  {
+    IF (this->session_closed)
+      THROW NEW Exception("Cannot call this method, the session has already been closed");
+
+    this->remotecall(obj, methodname, args);
+  }
+
+
+  /// Calls a remote macro/function, asynchronously without callback
+  MACRO RemotingAsync(
+    OBJECT obj,
+    STRING methodname,
+    VARIANT ARRAY args) __ATTRIBUTES__(SKIPTRACE, VARARG)
+  {
+    IF (this->session_closed)
+      THROW NEW Exception("Cannot call this method, the session has already been closed");
+
+    this->asyncremotecall(obj, methodname, args);
+  }
+
+
+  /// Closes the current session
+  MACRO SessionCloseFunc()
+  {
+    IF (this->session_closed)
+      THROW NEW Exception("Cannot close the session, it has already been closed");
+    this->session_closed := TRUE;
+    this->remotesessionclose();
+  }
+
+
+  /// Creates the local instantiation of a remote object
+  OBJECT FUNCTION CreateRemoteObject(INTEGER id, RECORD ARRAY methods)
+  {
+    RECORD pos := RecordLowerbound(this->objectlist, [ objectid := id ], [ "OBJECTID" ]);
+    IF (pos.found)
+      RETURN this->objectlist[pos.position].obj;
+
+    OBJECT obj := NEW RemoteObject;
+    OBJECT privobj := lastremote;
+    lastremote := DEFAULT OBJECT;
+
+    FUNCTION PTR remotingfunc := PTR this->RemotingFunc;
+    FUNCTION PTR remotingmacro := PTR this->RemotingMacro;
+    FUNCTION PTR remotingasync := PTR this->RemotingAsync;
+
+    FOREVERY (RECORD method FROM methods)
+    {
+      // Bind object & method name immediately
+      RECORD ARRAY params :=
+          [ [ source :=       0
+            , value :=        obj
+            ]
+          , [ source :=       0
+            , value :=        method.name
+            ]
+          ];
+
+      // Add other parameters too. We don't have the default values, so add as vararg parameters (no value)
+      FOREVERY (RECORD methodparam FROM method.parameters)
+      {
+        RECORD param;
+        IF (methodparam.type != 0)
+          INSERT CELL type := methodparam.type INTO param;
+        INSERT CELL source := methodparam.has_default ? -#methodparam - 1 : #methodparam + 1 INTO param;
+        INSERT param INTO params AT END;
+      }
+
+      // Use CellExists for 'excessparamtype', 3.06 and lower don't return this
+      BOOLEAN is_vararg := CellExists(method, "EXCESSARGSTYPE") AND method.excessargstype != 0;
+
+      FUNCTION PTR baseptr := method.returntype = 0 ? remotingmacro : remotingfunc;
+
+      FUNCTION PTR rebound := __HS_REBINDFUNCTIONPTR2(
+          baseptr,
+          params,
+          LENGTH(method.parameters) + 1,
+          is_vararg);
+
+      MemberInsert(privobj, method.name, FALSE, rebound);
+
+      IF (this->asyncremotecall != DEFAULT FUNCTION PTR)
+      {
+        FUNCTION PTR asyncrebound := __HS_REBINDFUNCTIONPTR2(
+            remotingasync,
+            params,
+            LENGTH(method.parameters) + 1,
+            is_vararg);
+
+        MemberInsert(privobj, "__ASYNC_" || method.name, FALSE, asyncrebound);
+      }
+    }
+
+    IF (this->remotesessionclose != DEFAULT FUNCTION PTR)
+      MemberInsert(privobj, "__REMOTINGCLOSESESSION", FALSE, PTR this->SessionCloseFunc);
+
+    // Add registrations
+    obj->__remoter_registrations :=
+        [ [ remoterid :=      this->remoterid
+          , objectid :=       id
+          ]
+        ];
+
+    INSERT [ objectid := id, obj := obj ] INTO this->objectlist AT pos.position;
+
+    RETURN obj;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Get the id of an object, for sending to remote server
+      @param obj Object
+      @return
+      @cell(integer) return.id Id of the oobject
+      @cell(boolean) return.seen Whether the object has been seen before
+      @cell(boolean) return.seentype Whether another object of this type has been seen before
+      @cell(string) return.type Type of this object (only if seen=false)
+      @cell(record array) return.methods List of methods of an object of this type (only if seentype=false)
+      @cell(string) return.methods.name Name of the method
+      @cell(integer) return.methods.returntype Return type (0 for macros)
+      @cell(record array) return.methods.parameters List of parameters
+      @cell(integer) return.methods.type TypeID of this paremeter (0 for not specified)
+      @cell(boolean) return.methods.has_default Whether the parameter has a default value
+  */
+  PUBLIC RECORD FUNCTION GetObjectId(OBJECT obj)
+  {
+    IF (NOT (obj EXTENDSFROM InternalRemotableBase))
+      THROW NEW Exception("Object of type '" || GetObjectTypeName(obj) || "' does not extend from RemotableObject");
+
+    // Does this object have a registration already?
+    RECORD pos := RecordLowerbound(obj->__remoter_registrations, [ remoterid := this->remoterid ], [ "REMOTERID" ]);
+    IF (pos.found)
+    {
+      // Yes: is has been seen before (and so has the type)
+      RETURN
+          [ id :=       obj->__remoter_registrations[pos.position].objectid
+          , seen :=     TRUE
+          , seentype := TRUE
+          ];
+    }
+
+    // No, this object is new
+    INTEGER id := this->GetNewObjectId();
+
+    // Register mapping in object and local objectlist
+    INSERT [ remoterid := this->remoterid, objectid := id ] INTO obj->__remoter_registrations AT pos.position;
+
+    RECORD newreg :=
+        [ objectid :=   id
+        , obj :=        obj
+        ];
+
+    INSERT newreg INTO this->objectlist AT RecordLowerbound(this->objectlist, newreg, [ "OBJECTID" ]).position;
+
+    // Get the type, see if we need to send it
+    STRING type := obj->__GetRemoterTypeName();
+    pos := Lowerbound(this->sent_types, type);
+
+    IF (pos.found)
+    {
+      RETURN
+          [ id := id
+          , type := type
+          , seen := FALSE
+          , seentype := TRUE
+          ];
+    }
+
+    // Register type
+    INSERT type INTO this->sent_types AT pos.position;
+
+    RETURN
+        [ id :=         id
+        , type :=       type
+        , seen :=       FALSE
+        , seentype :=   FALSE
+        , methods :=    this->EnumerateClassMethods(obj)
+        ];
+  }
+
+
+  /** Registers a remote type
+      @param name Name of the type
+      @param methods List of methods (as returned by GetObjectId on the remote server)
+  */
+  PUBLIC MACRO RegisterType(STRING name, RECORD ARRAY methods)
+  {
+    RECORD rec :=
+        [ name :=       name
+        , methods :=    methods
+        ];
+
+    RECORD pos := RecordLowerbound(this->received_types, rec, [ "NAME" ]);
+    // ADDME: check if already exists?
+
+    INSERT rec INTO this->received_types AT pos.position;
+  }
+
+
+  /// Retrieves an already existing object by id
+  PUBLIC OBJECT FUNCTION GetRemoteObject(INTEGER id)
+  {
+    RECORD pos := RecordLowerbound(this->objectlist, [ objectid := id ], [ "OBJECTID" ]);
+    IF (pos.found)
+      RETURN this->objectlist[pos.position].obj;
+
+    THROW NEW Exception("Got request to instantiate remote object '" || id || "', which doesn't exist");
+  }
+
+
+  /** Instantiates a new remote object
+      @param id Id of the object
+      @param type Name of the object type. Must have been registered with registertype first!
+  */
+  PUBLIC OBJECT FUNCTION InstantiateRemoteObject(INTEGER id, STRING type)
+  {
+    RECORD pos := RecordLowerbound(this->received_types, [ name := type ], [ "NAME" ]);
+    IF (NOT pos.found)
+    {
+      ABORT(AnyToString(this->objectlist, "boxed"));
+      THROW NEW Exception("Unknown remoter object type '" || type || "'");
+    }
+
+    RETURN this->CreateRemoteObject(id, this->received_types[pos.position].methods);
+  }
+
+
+  PUBLIC BOOLEAN FUNCTION HasRemoted()
+  {
+    RETURN LENGTH(this->sent_types) != 0;
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION CreateObjectRemoter(BOOLEAN is_initiator)
+{
+  RETURN NEW Remoter(is_initiator);
+}
+

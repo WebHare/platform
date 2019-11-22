@@ -1,0 +1,54 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+  lib="screens/tests/wrd.whlib">
+
+  <screen name="edit" gid="main.entityeditor" allowresize="true">
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+    <body>
+      <tabs type="regular" height="1pr">
+        <tab name="fields">
+          <wrd:field entity="entity" field="TEST_ARRAY" name="arraybox" public="1" />
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="entityrefcolumn" implementation="none">
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+    <body>
+      <arrayedit name="wrdtools" composition="entity" cellname="users" roweditscreen=".edituser" minheight="5x" height="1pr">
+        <wrd:entityrefcolumn name="id" field="wrd_contact_email" type="text" width="1pr" />
+        <column name="weight" type="integer" align="right" width="8x" />
+      </arrayedit>
+      <arrayedit name="fstools"
+                 roweditscreen=".edittool"
+                 minwidth="60x"
+                 minheight="6x"
+                 >
+        <wrd:entityrefcolumn name="guid" field="wrd_contact_email" type="text" width="1pr" inputkind="wrd_guid" wrdcontext="testwrdschema" wrdtype="wrd_person"/>
+        <column name="weight" type="integer" align="right" width="8x" />
+      </arrayedit>
+    </body>
+  </screen>
+
+  <screen name="entitycontext">
+    <compositions>
+      <wrd:entity name="person" wrdtype="wrd_person" />
+    </compositions>
+    <body>
+      <wrd:gender composition="person" cellname="wrd_gender" name="gender" />
+      <textedit composition="person" cellname="wrd_contact_email" name="email" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

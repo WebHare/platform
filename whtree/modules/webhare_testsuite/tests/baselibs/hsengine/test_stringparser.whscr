@@ -1,0 +1,358 @@
+<?wh
+/** @short String parser tests */
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+
+RECORD ARRAY errors;
+RECORD result;
+
+MACRO SetParserPositionEOF(OBJECT parser, INTEGER pos, BOOLEAN eof)
+{
+  __HS_SetPrivateMember(parser, "pvt_pos", pos);
+  __HS_SetPrivateMember(parser, "pvt_eof", eof);
+}
+
+
+RECORD FUNCTION GenerateState(STRING data, INTEGER pos)
+{
+  RETURN
+      [ pos             := pos
+      , eof             := pos >= LENGTH(data)
+      , current         := pos < 0 ? "" : SubString(data, pos, 1)
+      , remaining_data  := SubString(data, pos)
+      ];
+}
+
+RECORD FUNCTION GenerateFaultyState(STRING data, INTEGER pos, BOOLEAN eof)
+{
+  RETURN
+      [ pos             := pos
+      , eof             := eof
+      , current         := pos < 0 OR eof ? "" : SubString(data, pos, 1)
+      , remaining_data  := SubString(data, pos)
+      ];
+}
+
+RECORD FUNCTION GetParserState(OBJECT parser)
+{
+  RETURN
+      [ pos             := parser->position
+      , eof             := parser->eof
+      , current         := parser->current
+      , remaining_data  := parser->remaining_data
+      ];
+}
+
+MACRO ResetTest()
+{
+  OpenTest("TestStringParser: ResetTest");
+
+  TestEqual(1, GenerateState("abc", 0), GetParserState(NEW StringParser("abc")));
+
+  OBJECT parser := NEW StringParser;
+  TestEqual(2, GenerateState("", 0), GetParserState(parser));
+
+  parser->Reset("abc");
+  TestEqual(3, GenerateState("abc", 0), GetParserState(parser));
+
+  parser->Next();
+  TestEqual(4, GenerateState("abc", 1), GetParserState(parser));
+
+  parser->Reset("def");
+  TestEqual(5, GenerateState("def", 0), GetParserState(parser));
+
+  CloseTest("TestStringParser: ResetTest");
+}
+
+MACRO NextTest()
+{
+  OpenTest("TestStringParser: NextTest");
+
+  OBJECT parser := NEW StringParser("ab");
+  TestEqual(1, GenerateState("ab", 0), GetParserState(parser));
+
+  parser->Next();
+  TestEqual(2, GenerateState("ab", 1), GetParserState(parser));
+
+  parser->Next();
+  TestEqual(3, GenerateState("ab", 2), GetParserState(parser));
+
+  parser->Next();
+  TestEqual(4, GenerateState("ab", 2), GetParserState(parser));
+
+  // Test state inconsistency resilience:
+  SetParserPositionEOF(parser, 3, TRUE);
+  TestEqual(5, 3, parser->position);
+  TestEqual(6, TRUE, parser->eof);
+  parser->Next();
+
+  TestEqual(7, GenerateState("ab", 3), GetParserState(parser));
+
+  SetParserPositionEOF(parser, 1, TRUE);
+  TestEqual(8, 1, parser->position);
+  TestEqual(9, TRUE, parser->eof);
+
+  parser->Next();
+  TestEqual(10, GenerateFaultyState("ab", 1, TRUE), GetParserState(parser));
+
+  SetParserPositionEOF(parser, 3, FALSE);
+  TestEqual(11, 3, parser->position);
+  TestEqual(12, FALSE, parser->eof);
+
+  parser->Next();
+  TestEqual(13, GenerateState("ab", 2), GetParserState(parser));
+
+  SetParserPositionEOF(parser, -2, FALSE);
+  parser->Next();
+  TestEqual(14, GenerateState("ab", 2), GetParserState(parser));
+
+  CloseTest("TestStringParser: NextTest");
+}
+
+MACRO ParseWhileInSetTest()
+{
+  OpenTest("TestStringParser: ParseWhileInSetTest");
+
+  OBJECT parser := NEW StringParser("abcd");
+  TestEqual(1, GenerateState("abcd", 0), GetParserState(parser));
+
+  parser->ParseWhileInSet("a");
+  TestEqual(2, GenerateState("abcd", 1), GetParserState(parser));
+
+  parser->ParseWhileInSet("B");
+  TestEqual(3, GenerateState("abcd", 1), GetParserState(parser));
+
+  parser->ParseWhileInSet("bc");
+  TestEqual(4, GenerateState("abcd", 3), GetParserState(parser));
+
+  parser->ParseWhileInSet("de");
+  TestEqual(5, GenerateState("abcd", 4), GetParserState(parser));
+
+  // Test state inconsistency resilience:
+  SetParserPositionEOF(parser, 5, TRUE);
+  TestEqual(6, 5, parser->position);
+  TestEqual(7, TRUE, parser->eof);
+  parser->ParseWhileInSet("d");
+
+  TestEqual(8, GenerateState("abcd", 4), GetParserState(parser));
+
+  SetParserPositionEOF(parser, 3, TRUE);
+  TestEqual(9, 3, parser->position);
+  TestEqual(10, TRUE, parser->eof);
+
+  // ParseWhileInSet ignores eof
+  parser->ParseWhileInSet("d");
+  TestEqual(11, GenerateFaultyState("abcd", 4, TRUE), GetParserState(parser));
+
+  SetParserPositionEOF(parser, 5, FALSE);
+  TestEqual(12, 5, parser->position);
+  TestEqual(13, FALSE, parser->eof);
+
+  parser->ParseWhileInSet("d");
+  TestEqual(14, GenerateState("abcd", 4), GetParserState(parser));
+
+  SetParserPositionEOF(parser, -2, FALSE);
+  parser->ParseWhileInSet("a");
+  TestEqual(15, GenerateState("abcd", 4), GetParserState(parser));
+
+  CloseTest("TestStringParser: ParseWhileInSetTest");
+}
+
+MACRO ParseWhileNotInSetTest()
+{
+  OpenTest("TestStringParser: ParseWhileNotInSetTest");
+
+  OBJECT parser := NEW StringParser("abcd");
+  TestEqual(1, GenerateState("abcd", 0), GetParserState(parser));
+
+  parser->ParseWhileNotInSet("a");
+  TestEqual(2, GenerateState("abcd", 0), GetParserState(parser));
+
+  parser->ParseWhileNotInSet("b");
+  TestEqual(3, GenerateState("abcd", 1), GetParserState(parser));
+
+  parser->ParseWhileNotInSet("bc");
+  TestEqual(4, GenerateState("abcd", 1), GetParserState(parser));
+
+  parser->ParseWhileNotInSet("de");
+  TestEqual(5, GenerateState("abcd", 3), GetParserState(parser));
+
+  parser->ParseWhileNotInSet("fg");
+  TestEqual(6, GenerateState("abcd", 4), GetParserState(parser));
+
+  // Test state inconsistency resilience:
+  SetParserPositionEOF(parser, 5, TRUE);
+  TestEqual(7, 5, parser->position);
+  TestEqual(8, TRUE, parser->eof);
+  parser->ParseWhileNotInSet("e");
+
+  TestEqual(9, GenerateState("abcd", 4), GetParserState(parser));
+
+  SetParserPositionEOF(parser, 3, TRUE);
+  TestEqual(10, 3, parser->position);
+  TestEqual(11, TRUE, parser->eof);
+
+  // ParseWhileNotInSet ignores eof
+  parser->ParseWhileNotInSet("e");
+  TestEqual(12, GenerateFaultyState("abcd", 4, TRUE), GetParserState(parser));
+
+  SetParserPositionEOF(parser, 5, FALSE);
+  TestEqual(13, 5, parser->position);
+  TestEqual(14, FALSE, parser->eof);
+
+  parser->ParseWhileNotInSet("e");
+  TestEqual(15, GenerateState("abcd", 4), GetParserState(parser));
+
+  SetParserPositionEOF(parser, -2, FALSE);
+  parser->ParseWhileNotInSet("z");
+  TestEqual(16, GenerateState("abcd", 4), GetParserState(parser));
+
+  CloseTest("TestStringParser: ParseWhileNotInSetTest");
+}
+
+MACRO TryParseTest()
+{
+  OpenTest("TestStringParser: TryParseTest");
+
+  OBJECT parser := NEW StringParser("abcd");
+  TestEqual(1, GenerateState("abcd", 0), GetParserState(parser));
+
+  TestEqual(2, FALSE, parser->TryParse(""));
+  TestEqual(3, GenerateState("abcd", 0), GetParserState(parser));
+
+  TestEqual(4, TRUE, parser->TryParse("a"));
+  TestEqual(5, GenerateState("abcd", 1), GetParserState(parser));
+
+  TestEqual(6, FALSE, parser->TryParse("bd"));
+  TestEqual(7, GenerateState("abcd", 1), GetParserState(parser));
+
+  TestEqual(8, TRUE, parser->TryParse("bc"));
+  TestEqual(9, GenerateState("abcd", 3), GetParserState(parser));
+
+  TestEqual(10, FALSE, parser->TryParse("de"));
+  TestEqual(11, GenerateState("abcd", 3), GetParserState(parser));
+
+  TestEqual(12, FALSE, parser->TryParse("D"));
+  TestEqual(13, GenerateState("abcd", 3), GetParserState(parser));
+
+  TestEqual(14, TRUE, parser->TryParse("d"));
+  TestEqual(15, GenerateState("abcd", 4), GetParserState(parser));
+
+  // Test state inconsistency resilience:
+  SetParserPositionEOF(parser, 5, TRUE);
+  TestEqual(16, 5, parser->position);
+  TestEqual(17, TRUE, parser->eof);
+  TestEqual(18, FALSE, parser->TryParse("d"));
+
+  TestEqual(19, GenerateState("abcd", 5), GetParserState(parser));
+
+  SetParserPositionEOF(parser, 3, TRUE);
+  TestEqual(20, 3, parser->position);
+  TestEqual(21, TRUE, parser->eof);
+
+  // TryParse ignores eof, uses only position
+  TestEqual(22, TRUE, parser->TryParse("d"));
+  TestEqual(23, GenerateState("abcd", 4), GetParserState(parser));
+
+  SetParserPositionEOF(parser, 5, FALSE);
+  TestEqual(24, 5, parser->position);
+  TestEqual(25, FALSE, parser->eof);
+
+  // TryParse doesn't care too much about correcting
+  TestEqual(26, FALSE, parser->TryParse("d"));
+  TestEqual(27, GenerateFaultyState("abcd", 5, FALSE), GetParserState(parser));
+
+  SetParserPositionEOF(parser, -2, FALSE);
+  parser->TryParse("a");
+  TestEqual(28, GenerateFaultyState("abcd", -2, FALSE), GetParserState(parser));
+
+  CloseTest("TestStringParser: TryParseTest");
+}
+
+MACRO TryParseCaseTest()
+{
+  OpenTest("TestStringParser: TryParseCaseTest");
+
+  OBJECT parser := NEW StringParser("AbCd");
+  TestEqual(1, GenerateState("AbCd", 0), GetParserState(parser));
+
+  TestEqual(2, FALSE, parser->TryParseCase(""));
+  TestEqual(3, GenerateState("AbCd", 0), GetParserState(parser));
+
+  TestEqual(4, TRUE, parser->TryParseCase("a"));
+  TestEqual(5, GenerateState("AbCd", 1), GetParserState(parser));
+
+  TestEqual(6, FALSE, parser->TryParseCase("bd"));
+  TestEqual(7, GenerateState("AbCd", 1), GetParserState(parser));
+
+  TestEqual(8, TRUE, parser->TryParseCase("Bc"));
+  TestEqual(9, GenerateState("AbCd", 3), GetParserState(parser));
+
+  TestEqual(10, FALSE, parser->TryParseCase("DE"));
+  TestEqual(11, GenerateState("AbCd", 3), GetParserState(parser));
+
+  TestEqual(12, TRUE, parser->TryParseCase("D"));
+  TestEqual(13, GenerateState("AbCd", 4), GetParserState(parser));
+
+  // Test state inconsistency resilience:
+  SetParserPositionEOF(parser, 5, TRUE);
+  TestEqual(14, 5, parser->position);
+  TestEqual(15, TRUE, parser->eof);
+  TestEqual(16, FALSE, parser->TryParseCase("d"));
+
+  TestEqual(17, GenerateState("AbCd", 5), GetParserState(parser));
+
+  SetParserPositionEOF(parser, 3, TRUE);
+  TestEqual(18, 3, parser->position);
+  TestEqual(19, TRUE, parser->eof);
+
+  // TryParse ignores eof, uses only position
+  TestEqual(20, TRUE, parser->TryParseCase("d"));
+  TestEqual(21, GenerateState("AbCd", 4), GetParserState(parser));
+
+  SetParserPositionEOF(parser, 5, FALSE);
+  TestEqual(22, 5, parser->position);
+  TestEqual(23, FALSE, parser->eof);
+
+  // TryParseCase doesn't care too much about correcting
+  TestEqual(24, FALSE, parser->TryParseCase("d"));
+  TestEqual(25, GenerateFaultyState("AbCd", 5, FALSE), GetParserState(parser));
+
+  SetParserPositionEOF(parser, -2, FALSE);
+  parser->TryParseCase("a");
+  TestEqual(26, GenerateFaultyState("AbCd", -2, FALSE), GetParserState(parser));
+
+  CloseTest("TestStringParser: TryParseCaseTest");
+}
+
+MACRO TestStates()
+{
+  OBJECT parser := NEW StringParser("123456");
+  RECORD begin := parser->SaveState();
+  TestEq(0, parser->GetDistanceFromState(begin));
+  TestEQ("", parser->GetLastParsed(0));
+  TestEQ("", parser->GetLastParsed(-1));
+  TestEQ("", parser->GetLastParsed(1));
+  TestEQ("12", parser->ParseN(2));
+  RECORD two := parser->SaveState();
+  TestEq(2, parser->GetDistanceFromState(begin));
+  TestEQ("12", parser->GetLastParsed(2));
+  parser->RestoreState(begin);
+  TestEq(0, parser->GetDistanceFromState(begin));
+
+  parser->Reset("123456");
+  TestThrows(PTR parser->GetDistanceFromState(begin));
+  parser->RestoreState(begin);
+  TestEQ(-2, parser->GetDistanceFromState(two));
+}
+
+PRINT("\n === Running TestStringParser\n");
+ResetTest();
+NextTest();
+ParseWhileInSetTest();
+ParseWhileNotInSetTest();
+TryParseTest();
+TryParseCaseTest();
+TestStates();

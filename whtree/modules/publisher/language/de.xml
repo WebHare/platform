@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="de" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Bitte setze das Häkchen</text>
+      <text tid="title">Kontrolle</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">Weiter</text>
+      <text tid="previouspage">Zurück</text>
+      <text tid="selectfile">Datei auswählen</text>
+      <text tid="starsrequired">* zeigt ein Pflichtfeld an</text>
+      <text tid="submit">Abschicken</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">Die Adresse konnte nicht gefunden werden.</text>
+        <text tid="invalid_nr_detail">Ungültige Hausnummer.</text>
+        <text tid="invalid_zip">Ungültige Postleitzahl.</text>
+        <text tid="zip_not_found">Unbekannte Postleitzahl/Hausnummer Kombination.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">Die Eingabe darf nur Zahlen und/oder Buchstaben befassen.</text>
+        <text tid="check">Wähle zwischen <param p="1"/> und <param p="2"/> Angaben.</text>
+        <text tid="default">Die Eingabe ist nicht korrekt.</text>
+        <text tid="digits">Die Eingabe darf nur Zahlen enthalten.</text>
+        <text tid="email">Die Eingabe muss eine gültige E-Mail-Adresse sein.</text>
+        <text tid="email_baddomain">Aufgrund von technischen Schwierigkeiten mit dem Mailprovider <param p="1"/> benötigen wir eine andere E-Mail Adresse.</text>
+        <text tid="email_suggestion">Meinst du <param p="1"/>?</text>
+        <text tid="equalto">Dieses Feld muss übereinstimmen mit dem anderen Feld.</text>
+        <text tid="integer">Die Eingabe muss eine Zahl sein.</text>
+        <text tid="length">Die Länge der Eingabe ist ungültig. Es können zwischen <param p="1"/> und <param p="2"/> Zeichen eingegeben werden.</text>
+        <text tid="max">Die Eingabe muss kleiner oder gleich <param p="1"/> sein.</text>
+        <text tid="maxcheck">Wähle maximal <param p="1"/> Angaben aus.</text>
+        <text tid="maxlength">Die Eingabe ist zu lang. Es dürfen höchstens <param p="1"/> Zeichen eingegeben werden.</text>
+        <text tid="min">Die Eingabe muss größer oder gleich <param p="1"/> sein.</text>
+        <text tid="mincheck">Die Eingabe ist zu kurz. Es müssen mindestens <param p="1"/> Zeichen eingegeben werden.</text>
+        <text tid="minlength">Wähle mindestens <param p="1"/> Optionen aus.</text>
+        <text tid="notblank">Die Eingabe darf nicht leer sein.</text>
+        <text tid="number">Die Eingabe muss eine Zahl sein.</text>
+        <text tid="pattern">Die Eingabe ist ungültig.</text>
+        <text tid="range">Die Eingabe muss zwischen <param p="1"/> und <param p="2"/> liegen.</text>
+        <text tid="required">Dies ist ein Pflichtfeld.</text>
+        <text tid="url">Die Eingabe muss eine gültige URL sein.</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

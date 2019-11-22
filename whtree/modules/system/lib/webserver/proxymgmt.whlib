@@ -1,0 +1,245 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+
+
+RECORD FUNCTION AuthHandler(STRING realm, STRING url, STRING password)
+{
+  RETURN
+      [ username := "webhare"
+      , password := password
+      ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION ListWebHareProxies()
+{
+  RETURN SELECT id, url, status, reverseaddress
+           FROM system.proxies;
+}
+
+STRING FUNCTION SetAVerificationURL()
+{
+  STRING data := GenerateUFS128BitId();
+  GetPrimary()->BeginWork();
+  TRY
+  {
+    WriteRegistryKey("system.webserver.global.proxyservers.verificationcode", data);
+    GetPrimary()->CommitWork();
+  }
+  CATCH(OBJECT e)
+  {
+    GetPrimary()->RollbackWork();
+    THROW e;
+  }
+  RETURN AddVariableToURL(GetPrimaryWebhareInterfaceURL(), "proxy_test", data);
+;
+}
+
+PUBLIC RECORD FUNCTION TestWebHareProxy(STRING url, STRING password, STRING reverseaddress)
+{
+  OBJECT browser := NEW WebBrowser;
+  RECORD retval := [ success := FALSE, errorcode := "", errormessage := "" ];
+  INTEGER statuscode;
+
+  RECORD result;
+  OBJECT lock := OpenLockManager()->LockMutex("system:webserver.proxyconfig");
+  TRY
+  {
+    STRING verificationurl := SetAVerificationURL();
+    IF(IsRPCTrafficLogged("system:webservers.proxies"))
+      LogRPCForWebbrowser("system:webservers.proxies", "test", browser);
+    browser->onauth := PTR AuthHandler(#1, #2, password);
+
+    // Generate a new verification code for this registration round
+    browser->timeout := 5000;
+    result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(url, "/rpc"), "test", [ STRING(reverseaddress), verificationurl ]);
+    statuscode := browser->GetHTTPStatusCode();
+  }
+  FINALLY
+  {
+    lock->Close();
+    browser->Close();
+  }
+
+  IF (RecordExists(result) AND result.success)
+  {
+    IF (result.result.success)
+    {
+      retval.success := TRUE;
+      RETURN retval;
+    }
+    ELSE
+    {
+      SWITCH (result.result.code)
+      {
+        CASE "wrongverificationcode"
+        {
+          retval.errorcode := "wrongverificationcode";
+          retval.errormessage := GetTid("system:sysmgmt.webservers.messages.wrongverificationcode");
+        }
+        CASE "interfaceurlnothosted"
+        {
+          retval.errorcode := "interfaceurlnothosted";
+          retval.errormessage := GetTid("system:sysmgmt.webservers.messages.interfaceurlnothosted");
+        }
+        DEFAULT
+        {
+          retval.errorcode := "unkownerror";
+          retval.errormessage := GetTid("system:sysmgmt.webservers.messages.unknownproxyerror", result.result.code);
+        }
+      }
+      RETURN retval;
+    }
+  }
+  ELSE IF (browser->GetHTTPStatusCode() = 401)
+  {
+    retval.errorcode := "wrongpassword";
+    retval.errormessage := GetTid("system:sysmgmt.webservers.messages.wrongpassword");
+    RETURN retval;
+  }
+  ELSE IF (NOT RecordExists(result) OR NOT result.success)
+  {
+    retval.errorcode := "couldnotconnect";
+    retval.errormessage := GetTid("system:sysmgmt.webservers.messages.couldnotconnect");
+    RETURN retval;
+  }
+  ELSE
+  {
+    retval.errorcode := "proxycouldnotconnect";
+    retval.errormessage := GetTid("system:sysmgmt.webservers.messages.proxycouldnotconnect");
+    RETURN retval;
+  }
+}
+
+MACRO DoReloadWebhare(BOOLEAN iscommit)
+{
+  IF(iscommit)
+    ReloadWebhareConfig(TRUE, FALSE);
+}
+//TODO whitelist etc support
+PUBLIC RECORD FUNCTION GetWebHareProxies()
+{
+  RETURN [ proxies := SELECT url, password, callback := reverseaddress, description
+                        FROM system.proxies ];
+}
+PUBLIC MACRO SetWebhareProxies(RECORD proxyconfig)
+{
+  INTEGER ARRAY blindkill; //proxies we can remove without deregistration
+  RECORD ARRAY currentproxies := SELECT * FROM system.proxies ORDER BY id;
+  BOOLEAN mustregister;
+
+  FOREVERY(RECORD proxydef FROM RECORD ARRAY(proxyconfig.proxies))
+  {
+    RECORD proxydata := ValidateOptions([url := "", password := "", callback := "", description := ""]
+                                        , proxydef, [ title := "proxy", optional := ["description"] ]);
+    //rename callbakc cell
+    proxydata := CELL[...proxydata, reverseaddress := proxydata.callback, DELETE callback];
+
+    //proxy passwords are unique, so it's a good method to identify an existing proxy
+    RECORD match := SELECT * FROM currentproxies WHERE password = proxydef.password;
+    IF(RecordExists(match))
+    {
+      //add any other proxies with matching url to the kill list
+      blindkill := blindkill CONCAT SELECT AS INTEGER ARRAY id FROM system.proxies WHERE id != match.id AND (proxies.url=proxydef.url OR proxies.password=proxydef.password);
+
+      UPDATE system.proxies SET RECORD proxydata WHERE id = match.id;
+      mustregister := TRUE;
+
+      DELETE FROM currentproxies WHERE password = proxydef.password;
+    }
+    ELSE
+    {
+      INSERT proxydata INTO system.proxies;
+      mustregister := TRUE;
+    }
+  }
+
+  IF(Length(blindkill)>0)
+    DELETE FROM system.proxies WHERE id IN blindkill;
+  FOREVERY(RECORD proxy FROM currentproxies)
+  {
+    GetPrimary()->RegisterCommitHandler("", PTR DoUnregisterOnCommit(#1, proxy));
+    DELETE FROM system.proxies WHERE id = proxy.id;
+  }
+  IF(mustregister)
+  {
+    GetPrimary()->BroadcastOnCommit("system:webserver.proxies", DEFAULT RECORD);
+    GetPrimary()->RegisterCommitHandler("system:reloadwebhareconfig-true-false", PTR DoReloadWebhare(#1));
+  }
+}
+
+MACRO DoUnregisterOnCommit(BOOLEAN iscommit, RECORD proxy)
+{
+  IF(iscommit)
+    DoUnregister(proxy);
+}
+
+BOOLEAN FUNCTION DoUnregister(RECORD proxyinfo)
+{
+  OBJECT lock := OpenLockManager()->LockMutex("system:webserver.proxyconfig");
+  OBJECT browser := NEW WebBrowser;
+  RECORD result;
+  TRY
+  {
+    STRING verificationurl := SetAVerificationURL();
+
+    IF(IsRPCTrafficLogged("system:webservers.proxies"))
+      LogRPCForWebbrowser("system:webservers.proxies", "delete", browser);
+    browser->onauth := PTR AuthHandler(#1, #2, proxyinfo.password);
+    browser->timeout := 10000;
+    result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(proxyinfo.url, "/rpc"), "unregisterProxyClient",
+        [ GetServerName()
+        , proxyinfo.reverseaddress
+        , verificationurl
+        ]);
+  }
+  FINALLY
+  {
+    lock->Close();
+    browser->Close();
+  }
+  RETURN RecordExists(result) AND result.success AND result.result.success;
+}
+PUBLIC INTEGER FUNCTION SetWebHareProxy(INTEGER existingid, RECORD proxydata)
+{
+  IF (existingid = 0)
+  {
+    existingid := MakeAutonumber(system.proxies, "ID");
+    INSERT INTO system.proxies(id) VALUES (existingid);
+  }
+
+  DELETE CELL id FROM proxydata;
+  UPDATE system.proxies SET RECORD proxydata WHERE COLUMN id = existingid;
+
+  GetPrimary()->BroadcastOnCommit("system:webserver.proxies", DEFAULT RECORD);
+  GetPrimary()->RegisterCommitHandler("system:reloadwebhareconfig-true-false", PTR DoReloadWebhare(#1));
+  RETURN existingid;
+}
+
+PUBLIC BOOLEAN FUNCTION UnregisterWebHareProxy(INTEGER proxyid)
+{
+  RECORD proxydata :=
+       SELECT url
+            , password
+            , reverseaddress
+        FROM system.proxies
+      WHERE id = proxyid;
+  IF(NOT RecordExists(proxydata))
+    THROW NEW Exception("No such proxy #" || proxyid);
+  RETURN DoUnregister(proxydata);
+}
+PUBLIC MACRO DeleteWebHareProxy(INTEGER proxyid)
+{
+  DELETE FROM system.proxies WHERE id = proxyid;
+  GetPrimary()->BroadcastOnCommit("system:webserver.proxies", DEFAULT RECORD);
+  GetPrimary()->RegisterCommitHandler("system:reloadwebhareconfig-true-false", PTR DoReloadWebhare(#1));
+}

@@ -1,0 +1,307 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+
+PUBLIC OBJECTTYPE TolliumWRDQueryParameterField EXTEND TolliumComponentBase
+< PRIVATE VARIANT FUNCTION GetValue()
+  {
+    SWITCH (this->attrtype)
+    {
+      CASE 0
+      {
+        ABORT("Illegal attribute type encountered");
+      }
+      CASE 6, 12
+      {
+        IF (this->subtype = "year")
+        {
+          RETURN [ year_start := MakeDate(this->currentobjects[0]->value, this->descr.startmonth, this->descr.startday)
+                 , year_limit := MakeDate(this->currentobjects[0]->value + 1, this->descr.startmonth, this->descr.startday) ];
+        }
+        ELSE IF (this->subtype = "list")
+        {
+          RETURN [ valuestart := this->currentobjects[0]->selection.valuestart
+                 , valuelimit := this->currentobjects[0]->selection.valuelimit ];
+        }
+      }
+    }
+    RETURN this->currentobjects[0]->value;
+  }
+
+  PRIVATE MACRO SetValue(VARIANT val)
+  {
+    this->currentobjects[0]->value := val;
+  }
+  PRIVATE OBJECT ARRAY currentobjects;
+
+  //  , PRIVATE MACRO ChangePassword()
+  PRIVATE MACRO CreateComponents()
+  {
+    SWITCH (this->attrtype)
+    {
+      CASE 2 /* Free form */, 4 /* E-mail address */, 5 /* Telephone */, 21 /* URL */
+      {
+        OBJECT comp;
+        comp := this->CreateSubComponent("textedit");
+
+        comp->title := this->title;
+        this->currentobjects := [comp];
+      }
+      CASE 6 /* date */, 12 /* datetime */
+      {
+        IF (this->subtype = "year")
+        {
+          IF (CellExists(this->descr, "VALUESTART") AND CellExists(this->descr, "VALUELIMIT"))
+          {
+            INTEGER count := this->descr.valuelimit - this->descr.valuestart;
+            IF (count < 20 AND count > 0)
+            {
+              OBJECT comp := this->CreateSubComponent("select");
+              RECORD ARRAY opts;
+              IF (this->descr.startmonth != 1 OR this->descr.startday != 1)
+                FOR (INTEGER i := this->descr.valuestart; i < this->descr.valuelimit; i := i + 1)
+                 INSERT [ rowkey := i, title := ToString(i) || " - " || ToString(i + 1) ] INTO opts AT END;
+              ELSE
+                FOR (INTEGER i := this->descr.valuestart; i < this->descr.valuelimit; i := i + 1)
+                 INSERT [ rowkey := i, title := ToString(i) ] INTO opts AT END;
+
+              comp->type := this->select_style;
+              comp->options := opts;
+              comp->selection := opts[0];
+              comp->title := this->title;
+              comp->readonly := this->readonly;
+
+              IF (CellExists(this->descr, "VALUEDEFAULT"))
+              {
+                INTEGER val := this->descr.valuedefault;
+                IF (val >= this->descr.valuestart AND val < this->descr.valuelimit)
+                  comp->selection := opts[val - this->descr.valuestart];
+              }
+
+              this->currentobjects := [comp];
+              RETURN; //no default setting
+            }
+          }
+          OBJECT comp := this->CreateSubComponent("textedit");
+          comp->title := this->title!="" ? this->title : this->attrinfo.title;
+          comp->valuetype := "integer";
+          comp->readonly := this->readonly;
+
+          this->currentobjects := [comp];
+        }
+        ELSE IF (this->subtype = "list")
+        {
+          OBJECT comp := this->CreateSubComponent("select");
+          comp->type := "pulldown";
+          comp->title := this->title;
+          comp->options := this->descr.valuelist;
+          comp->selection := SELECT * FROM comp->options WHERE rowkey = this->descr.valuedefault;
+
+          this->currentobjects := [comp];
+        }
+        ELSE
+        {
+          OBJECT comp := this->CreateSubComponent("datetime");
+          comp->title := this->title;
+          comp->storeutc := this->attrtype = 12; //ADDME: wanneer precies ? misschien 2 WRD types toevoegen, een voor UTC Tijd en een voor Unconverted tijd ?
+          comp->type := this->attrtype=6?"date":this->attrtype=11?"time":"datetime";
+          comp->readonly := this->readonly;
+          IF (CellExists(this->descr, "VALUEDEFAULT"))
+            comp->value := this->descr.valuedefault;
+
+          this->currentobjects := [comp];
+          RETURN;
+        }
+      }
+      CASE 15 /* Integer */, 18 /* Integer64 */, 11 /* time */
+      {
+        //FIXME! Geen cellexists geklooi! Velden bestaan (en dus in je definitie), of niet, en niets ertussenin!
+        IF (CellExists(this->descr, "VALUESTART") AND CellExists(this->descr, "VALUELIMIT"))
+        {
+          INTEGER64 count := this->descr.valuelimit - this->descr.valuestart;
+          IF (count < 20 AND count > 0)
+          {
+            OBJECT comp := this->CreateSubComponent("select");
+            RECORD ARRAY opts;
+            FOR (INTEGER64 i := this->descr.valuestart; i < this->descr.valuelimit; i := i + 1)
+            {
+              IF (this->attrtype = 18)
+                INSERT [ rowkey := i, title := ToString(i) ] INTO opts AT END;
+              ELSE
+                INSERT [ rowkey := INTEGER(i), title := ToString(i) ] INTO opts AT END;
+            }
+
+            comp->type := this->select_style;
+            comp->options := opts;
+            comp->selection := opts[0];
+            comp->title := this->title;
+            comp->readonly := this->readonly;
+
+            IF (CellExists(this->descr, "VALUEDEFAULT"))
+            {
+              INTEGER val := this->descr.valuedefault;
+              IF (val >= this->descr.valuestart AND val < this->descr.valuelimit)
+                comp->selection := opts[val - this->descr.valuestart];
+            }
+
+            this->currentobjects := [comp];
+            RETURN; //no default setting
+          }
+        }
+
+        OBJECT comp := this->CreateSubComponent("textedit");
+        comp->title := this->title!="" ? this->title : this->attrinfo.title;
+        comp->valuetype := this->attrtype = 18 ? "integer64" : "integer";
+        comp->readonly := this->readonly;
+
+        this->currentobjects := [comp];
+      }
+      CASE 1 /*Single*/
+      {
+        OBJECT comp := this->CreateSubComponent("select");
+
+        STRING title_attr;
+
+        FOREVERY (title_attr FROM [ "WRD_TITLE", "WRD_TAG" ])
+          IF (RecordExists(this->descr.domaintype->GetAttribute(title_attr)))
+            BREAK;
+        IF (title_attr = "")
+          ABORT("Could not find a suitable presentation attribute");
+
+        RECORD ARRAY opts := RunWRDQuery(
+          [ sources := [ [ type := this->descr.domaintype
+                         , filters := this->descr.filters
+                         , outputcolumns := [ title := title_attr
+                                            , rowkey := "WRD_ID"
+                                            ] ] ] ]);
+
+        IF (this->presentation_function != DEFAULT FUNCTION PTR)
+        {
+          RECORD ARRAY new_opts;
+          FOREVERY (RECORD opt FROM opts)
+          {
+            RECORD newdata := this->presentation_function(opt.rowkey, opt.title);
+            IF (NOT RecordExists(newdata))
+              CONTINUE;
+
+            opt.title := newdata.title;
+            IF (CellExists(newdata, "SORTKEY"))
+              INSERT CELL sortkey := newdata.sortkey INTO opt;
+            ELSE
+              INSERT CELL sortkey := newdata.title INTO opt;
+
+            INSERT opt INTO new_opts AT END;
+          }
+          opts := SELECT title, rowkey, sortkey FROM new_opts ORDER BY sortkey;
+        }
+        ELSE
+          opts := SELECT title, rowkey FROM opts ORDER BY title;
+
+        IF(Length(opts)=0)
+          opts := [[ rowkey := 0, title := "", sortkey := "" ]];
+
+        //ADDME: Geen lege waarde tonen indien niet toegestaan (maar hoe om te gaan met current entities die nog geen waarde hebben ondanks de requirement?)
+        //ADDME: Bij grote domeinen kiezen voor een invulbox ipv pulldown (automatisch bij 10 of 20 ofzo wisselen, gebruiker mogelijkheid tot override bieden?)
+        comp->type := this->select_style;
+        comp->options := opts;
+        comp->selection := opts[0];
+        comp->title := this->title;
+        comp->readonly := this->readonly;
+
+        this->currentobjects := [comp];
+      }
+      DEFAULT
+      {
+        OBJECT comp := this->CreateSubComponent("text");
+        comp->value := "(type " || this->attrinfo.attributetype || " not yet supported)";
+        comp->title := this->title!="" ? this->title : this->attrinfo.title;
+        this->currentobjects := [comp];
+        RETURN; //no default setting
+      }
+    }
+
+    IF(CellExists(this->descr, "VALUEDEFAULT"))
+      this->currentobjects[0]->value := this->descr.valuedefault;
+  }
+
+//  , PRIVATE OBJECT wrdtype //ADDME: Remove when we're able to pass parameters to function pointers
+
+  PRIVATE RECORD descr;
+
+  /////////////////////////////////////////////////////////////////////
+  //
+  // TolliumWRDQueryParameterField
+  //
+  PUBLIC MACRO NEW()
+  {
+    this->select_style := "pulldown";
+    this->invisibletitle := TRUE;
+  }
+
+  PUBLIC MACRO DynamicInit(INTEGER attrtype, STRING subtype, RECORD descr)
+  {
+    this->attrtype := attrtype;
+    this->subtype := subtype;
+    this->presentation_function := descr.presentation_function;
+    this->descr := descr;
+
+  //  IF(ObjectExists(composition))
+  //    INSERT this INTO composition->wrdfields AT END;
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD description)
+  {
+    TolliumComponentBase::StaticInit(description);
+
+  //  this->readonly := description.readonly;
+  //  IF(description.style!="")
+  //    this->select_style := description.style;
+
+    this->title := this->ConvertTextPointer(description.tp);
+
+  //  IF(description.entity = "")
+  //    ABORT("A WRD field requires an entity");
+
+    this->DynamicInit(0, "", DEFAULT RECORD);
+  }
+
+  PUBLIC MACRO WRD_Setup()
+  {
+    //Destroy current fields
+    FOREVERY(OBJECT obj FROM this->currentobjects)
+    {
+      obj->DeleteComponent();
+    }
+
+    this->currentobjects := DEFAULT OBJECT ARRAY;
+    IF(this->attrtype != 0)
+    {
+      this->CreateComponents();
+      OBJECT pos := this;
+      FOREVERY (OBJECT obj FROM this->currentobjects)
+      {
+        this->parent->InsertComponentAfter(obj, pos, FALSE);
+        pos := obj;
+      }
+    }
+  }
+  PUBLIC INTEGER attrtype;
+  PUBLIC STRING subtype;
+  PUBLIC STRING select_style;
+
+  /** Function to change the presentation of the presented options (for domain values only)
+      @param id Id of the entity
+      @param title Current title
+      @return Record with the presentation title
+      @cell return.title Title of the entity
+      @cell return.sortkey Optional sortkey, set tot title if missing
+  */
+  PUBLIC FUNCTION PTR presentation_function;
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+  }
+>;

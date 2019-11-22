@@ -1,0 +1,1603 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/ber.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+RECORD ARRAY universaltypes :=
+  [ [ tagnr := 1, types := [ "BOOLEAN"] ]
+  , [ tagnr := 2, types := [ "INTEGER"] ]
+  , [ tagnr := 3, types := [ "BIT STRING"] ]
+  , [ tagnr := 4, types := [ "OCTET STRING"] ]
+  , [ tagnr := 5, types := [ "NULL"] ]
+  , [ tagnr := 6, types := [ "OBJECT IDENTIFIER"] ]
+  , [ tagnr := 7, types := [ "ObjectDescriptor"] ]
+  , [ tagnr := 8, types := [ "INSTANCE OF", "EXTERNAL"] ]
+  , [ tagnr := 9, types := [ "REAL"] ]
+  , [ tagnr := 10,  types := [ "ENUMERATED"] ]
+  , [ tagnr := 11,  types := [ "EMBEDDED PDV"] ]
+  , [ tagnr := 12,  types := [ "UTF8String"] ]
+  , [ tagnr := 13,  types := [ "RELATIVE-OID"] ]
+  , [ tagnr := 16,  types := [ "SEQUENCE", "SEQUENCE OF"] ]
+  , [ tagnr := 17,  types := [ "SET", "SET OF"] ]
+  , [ tagnr := 18,  types := [ "NumericString"] ]
+  , [ tagnr := 19,  types := [ "PrintableString"] ]
+  , [ tagnr := 20,  types := [ "TeletexString", "T61String"] ]
+  , [ tagnr := 21,  types := [ "VideotexString"] ]
+  , [ tagnr := 22,  types := [ "IA5String"] ]
+  , [ tagnr := 23,  types := [ "UTCTime"] ]
+  , [ tagnr := 24,  types := [ "GeneralizedTime"] ]
+  , [ tagnr := 25,  types := [ "GraphicString"] ]
+  , [ tagnr := 26,  types := [ "VisibleString", "ISO646String"] ]
+  , [ tagnr := 27,  types := [ "GeneralString"] ]
+  , [ tagnr := 28,  types := [ "UniversalString"] ]
+  , [ tagnr := 29,  types := [ "CHARACTER STRING"] ]
+  , [ tagnr := 30,  types := [ "BMPString"] ]
+  ];
+
+// X.681 10.6
+STRING ARRAY non_objectclassliterals :=
+    [ "BIT", "BOOLEAN", "CHARACTER", "CHOICE", "DATE", "DATE-TIME", "DURATION", "EMBEDDED", "END", "ENUMERATED"
+    , "EXTERNAL", "FALSE", "INSTANCE", "INTEGER", "INTERSECTION", "MINUS-INFINITY", "NULL", "OBJECT", "OCTET"
+    , "PLUS-INFINITY", "REAL", "RELATIVE-OID", "SEQUENCE", "SET", "TIME", "TIME-OF-DAY", "TRUE", "UNION"
+    ];
+
+/** Parses ASN.1 descriptions. This parser knows enough about ASN.1 to parse the PKCS definitions.
+*/
+STATIC OBJECTTYPE ASN1Parser EXTEND StringParser
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** @cell(string) name Name of the type
+      @cell(record) type Type description record
+      @cell(string) type.name Name of the underlying type
+      @cell(string array) type.tags Tags allowed by this type (format 'class:tagvalue')
+      @cell(boolean) type.isref If this is a reference to another type (by use name to find it)
+      @cell(record array) type.fields Fields of SEQUENCE / SET type
+      @cell(string) type.fields.name Name of the type
+      @cell(string array) type.fields.tags List of possible tags (format 'class:tagvalue')
+      @cell(string) type.fields.tagtype Tagging type: '' / 'implicit' / 'explicit'
+      @cell(boolean) type.fields.isoptional
+      @cell(boolean) type.fields.hasdefault
+      @cell(string) type.fields.defaultvalue
+      @cell(record) type.fields.type Type of SEQUENCE OF / SET OF
+      @cell(string) type.enumvalues Enumeration values
+      @cell(string) type.enumvalues.text Text of value
+      @cell(integer) type.enumvalues.intvalue Integer value
+      @cell(string) type.fieldref Name of the ANY DEFINED BY field
+  */
+  RECORD ARRAY types;
+
+  /// Whether all the tags have been looked up and propagated
+  BOOLEAN compiled;
+
+  /// Default tag class
+  STRING defaulttagclass;
+
+  /// Extensibility implied of module
+  BOOLEAN extensibilityimplied;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  : StringParser()
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Parser functions
+  //
+
+  BOOLEAN FUNCTION IsType(STRING name)
+  {
+    RETURN Left(name, 1) = ToUppercase(Left(name, 1));
+  }
+
+  BOOLEAN FUNCTION IsName(STRING name)
+  {
+    RETURN Left(name, 1) = ToLowercase(Left(name, 1));
+  }
+
+  STRING FUNCTION DetermineWordType(STRING name)
+  {
+    STRING prefix := name LIKE "&*" ? "&" : "";
+    IF (prefix != "")
+      name := SubString(name, 1);
+
+    STRING firstchar := Left(name, 1);
+    IF (SearchSubString(this->set_alpha, firstchar) = -1)
+      RETURN prefix || "other";
+
+    RETURN prefix || (this->IsType(name)
+        ? name = ToUppercase(name) AND name NOT IN non_objectclassliterals
+            ? "objectclassreference"
+            : "typereference"
+        : "valuereference");
+  }
+
+  BOOLEAN FUNCTION TryParseWord(STRING word)
+  {
+    RECORD state := this->SaveState();
+    IF (this->ParseWord() != word)
+    {
+      this->RestoreState(state);
+      RETURN FALSE;
+    }
+    RETURN TRUE;
+  }
+
+  /// Skips whitespace and comments ('-- ... newline' or '-- ... --')
+  MACRO SkipWhitespace()
+  {
+    WHILE (TRUE)
+    {
+      this->ParseWhileInSet(" \n");
+      IF (NOT this->TryParse("--"))
+        RETURN;
+
+      WHILE (NOT this->TryParse("--") AND NOT this->TryParse("\n") AND NOT this->eof)
+      {
+        this->TryParse("-");
+        this->ParseWhileNotInSet("-\n");
+      }
+    }
+  }
+
+  /// Parse something that looks like a word / number / whatever
+  STRING FUNCTION ParseWord()
+  {
+    this->SkipWhitespace();
+    STRING matchset := SearchSubString(this->set_digit || ".", this->current) = -1
+        ? this->set_alpha||this->set_digit||"-&"
+        : this->set_alpha||this->set_digit||"-&.";
+    STRING word := this->ParseWhileInSet(matchset);
+    this->SkipWhitespace();
+    RETURN word;
+  }
+
+  /// Very rough decoder for a default value
+  STRING FUNCTION ParseValue()
+  {
+    RETURN TrimWhitespace(this->ParseWhileNotInSet(",}"));
+  }
+
+  /// Skip stuff within { ... }
+  BOOLEAN FUNCTION SkipBracedSection()
+  {
+    this->SkipWhitespace();
+    IF (this->TryParse("{"))
+    {
+      INTEGER nest := 1;
+      WHILE (nest != 0)
+      {
+        this->SkipWhitespace();
+        IF (this->TryParse("{"))
+          nest := nest + 1;
+        ELSE IF (this->TryParse("}"))
+          nest := nest - 1;
+        ELSE
+          this->SkipN(1);
+      }
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  /// Skip stuff within ( ... )
+  BOOLEAN FUNCTION SkipParenSection()
+  {
+    this->SkipWhitespace();
+    IF (this->TryParse("("))
+    {
+      INTEGER nest := 1;
+      WHILE (nest != 0)
+      {
+        this->SkipWhitespace();
+        IF (this->TryParse("("))
+          nest := nest + 1;
+        ELSE IF (this->TryParse(")"))
+          nest := nest - 1;
+        ELSE
+          this->SkipN(1);
+      }
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+
+  STRING FUNCTION GetLocation()
+  {
+    INTEGER linenr := LENGTH(Tokenize(Left(this->pvt_data, this->pvt_pos), "\n")) - 1;
+    INTEGER linestart := SearchLastSubstring(this->pvt_data, "\n", this->pvt_pos-1) + 1;
+    STRING line := Tokenize(this->pvt_data, "\n")[linenr];
+    RETURN "Line " || Right("    " || linenr, 5) || ": " || line || "\n" || RepeatText(" ", 12 + this->pvt_pos - linestart) || "^\n";
+  }
+
+  MACRO GotError(STRING error)
+  {
+    ABORT(error || "\n" || this->GetLocation());
+  }
+
+  MACRO Expect(STRING expected)
+  {
+    IF (NOT this->TryParse(expected))
+    {
+      this->SkipWhitespace();
+      IF (NOT this->TryParse(expected))
+        this->GotError("Expected: " || expected);
+    }
+    this->SkipWhitespace();
+  }
+
+  MACRO ExpectWord(STRING expected)
+  {
+    IF (NOT this->TryParseWord(expected))
+    {
+      this->SkipWhitespace();
+      this->GotError("Expected: " || expected);
+    }
+  }
+
+  MACRO ParseImports()
+  {
+    WHILE (TRUE)
+    {
+      WHILE (TRUE)
+      {
+        STRING word := this->ParseWord();
+        IF (NOT this->TryParse(","))
+          BREAK;
+      }
+      this->ExpectWord("FROM");
+      this->ParseWord();
+      this->SkipBracedSection();
+      IF (this->TryParse(";"))
+        BREAK;
+    }
+  }
+
+  /// Parses the fields of a SET/SEQUENCE/CHOICE
+  RECORD ARRAY FUNCTION ParseSequenceFields()
+  {
+    RECORD ARRAY items;
+    this->Expect("{");
+
+//    PRINT("SF start at line " || LENGTH(Tokenize(Left(this->pvt_data, this->pvt_pos), "\n")) || "\n");
+
+    WHILE (TRUE)
+    {
+      RECORD item :=
+          [ name :=         ""
+          , tags :=         DEFAULT STRING ARRAY
+          , tagtype :=      ""
+          , isoptional :=   FALSE
+          , hasdefault :=   FALSE
+          , defaultvalue := ""
+          , type :=         DEFAULT RECORD
+          ];
+
+      item.name := this->ParseWord();
+      IF (item.name = "...")
+      {
+        IF (NOT this->TryParse(","))
+          BREAK;
+        CONTINUE;
+      }
+      ELSE IF (item.name = "COMPONENTS")
+      {
+        this->ExpectWord("OF");
+
+        RECORD type := this->ParseType();
+
+        item.type :=
+            [ name :=       "COMPONENTS OF"
+            , fields :=
+                  [ [ name :=         "data"
+                    , tags :=         DEFAULT STRING ARRAY
+                    , tagtype :=      ""
+                    , isoptional :=   FALSE
+                    , hasdefault :=   FALSE
+                    , defaultvalue := ""
+                    , type :=         type
+                    ]
+                  ]
+            , tags :=       DEFAULT STRING ARRAY
+            , rawtag :=     ""
+            , tagtype :=    ""
+            , isref :=      FALSE
+            , enumvalues := DEFAULT RECORD ARRAY
+            ];
+      }
+      ELSE
+      {
+        item.type := this->ParseType();
+
+        this->SkipWhitespace();
+        IF (this->TryParseWord("OPTIONAL"))
+          item.isoptional := TRUE;
+        ELSE IF (this->TryParseWord("DEFAULT"))
+        {
+          this->SkipWhitespace();
+          item.hasdefault := TRUE;
+          item.defaultvalue := this->ParseValue();
+        }
+      }
+
+      INSERT item INTO items AT END;
+
+      this->SkipWhitespace();
+      IF (NOT this->TryParse(","))
+        BREAK;
+    }
+
+//    PRINT("SF end at line " || LENGTH(Tokenize(Left(this->pvt_data, this->pvt_pos), "\n")) || "\n");
+    this->Expect("}");
+    RETURN items;
+  }
+
+  RECORD ARRAY FUNCTION ParseEnumeration()
+  {
+    RECORD ARRAY result;
+    this->SkipWhitespace();
+    IF (this->current = "{")
+    {
+      this->Expect("{");
+      INTEGER intvalue := 0;
+      WHILE (TRUE)
+      {
+        STRING word := this->ParseWord();
+        IF (this->TryParse("("))
+        {
+          intvalue := ToInteger(this->ParseWord(), -1);
+          this->Expect(")");
+        }
+
+        INSERT
+            [ text :=       word
+            , intvalue :=   intvalue
+            ] INTO result AT END;
+
+        intvalue := intvalue + 1;
+        IF (NOT this->TryParse(","))
+          BREAK;
+      }
+      this->Expect("}");
+    }
+    RETURN result;
+  }
+
+  RECORD FUNCTION ParseClassSyntax()
+  {
+    STRING ARRAY startwords;
+    BOOLEAN have_mandatory;
+
+    RECORD ARRAY fields;
+    this->SkipWhitespace();
+    WHILE (this->current NOT IN [ "}", "]" ])
+    {
+      IF (this->TryParse("["))
+      {
+        RECORD rec := this->ParseClassSyntax();
+        this->Expect("]");
+
+        rec.type := "optional";
+
+        IF (NOT have_mandatory)
+          startwords := startwords CONCAT rec.starttypes;
+        INSERT rec INTO fields AT END;
+      }
+      ELSE
+      {
+        STRING word := this->ParseWord();
+        IF (word = "")
+        {
+          IF (this->TryParse(","))
+          {
+            word := ",";
+            this->SkipWhitespace();
+          }
+          ELSE
+            this->GotError("Expected ',' or word");
+        }
+
+        IF (NOT have_mandatory)
+          startwords := startwords CONCAT [ word ];
+        have_mandatory := TRUE;
+
+        INSERT
+            [ type :=   "word"
+            , word :=   word
+            ] INTO fields AT END;
+      }
+      this->SkipWhitespace();
+    }
+    RETURN
+        [ type :=     "root"
+        , fields :=   fields
+        ];
+  }
+
+  RECORD FUNCTION ParseClass()
+  {
+    RECORD ARRAY fields;
+
+/* X.681 9.4
+ FieldSpec ::=
+ TypeFieldSpec (typefieldreference(=&type) TypeOptionalitySpec?)
+ FixedTypeValueFieldSpec (valuefieldreference(&valueref) Type UNIQUE ? ValueOptinalitySpec?) |
+ VariableTypeValueFieldSpec (valuefieldreference(&valueref) FieldName ValueOptinalitySpec?) |
+ FixedTypeValueSetFieldSpec (valuesetfieldreference(=&type) Type ValueSetOptionalitySpec?) |
+ VariableTypeValueSetFieldSpec (valuesetfieldereference(=&type) FieldName ValueSetOptionalitySpec?) |
+ ObjectFieldSpec (objecfieldereference(=&objectref) DefinedObjectClass OpjectOptionaltySpec?) |
+ ObjectSetFieldSpec (objectsetfieldrefenence(=&type) DefinedObjectClass ObjectSetOptionalitySpec?)
+*/
+
+    this->Expect("{");
+    WHILE (TRUE)
+    {
+      STRING fieldname := this->ParseWord();
+      IF (fieldname NOT LIKE "&*")
+        THROW NEW Exception("Expected token starting with '&'");
+
+      STRING fieldnametype := this->DetermineWordType(fieldname);
+      SWITCH (fieldnametype)
+      {
+        CASE "&typereference"
+          {
+            RECORD state := this->SaveState();
+
+            STRING word := this->ParseWord();
+            STRING wordtype := this->DetermineWordType(word);
+
+            IF (word IN [ "", "OPTIONAL", "DEFAULT" ])
+            {
+              // FIXME: parse reference from out of module
+              STRING defval := word = "OPTIONAL" ? this->ParseWord() : "";
+
+              INSERT
+                  [ name :=         fieldname
+                  , fieldtype :=    "typefield"
+                  , isoptional :=   word IN [ "OPTIONAL", "DEFAULT" ]
+                  , defval :=       defval
+                  ] INTO fields AT END;
+            }
+            ELSE
+              ABORT("Not implemented class field type");
+          }
+        CASE "&valuereference"
+          {
+            RECORD state := this->SaveState();
+
+            STRING word := this->ParseWord();
+            STRING wordtype := this->DetermineWordType(word);
+
+            SWITCH (wordtype)
+            {
+              CASE "typereference" // FixedTypeValueFieldSpec
+                {
+                  this->RestoreState(state);
+
+                  RECORD type := this->ParseType();
+                  BOOLEAN isunique := this->TryParseWord("UNIQUE");
+
+                  INSERT
+                      [ name :=         fieldname
+                      , fieldtype :=    "fixedtypevalue"
+                      , type :=         type
+                      , isunique :=     isunique
+                      ] INTO fields AT END;
+                }
+              DEFAULT
+                {
+                  ABORT("Not implemented " || wordtype || " " || word);
+                }
+            }
+          }
+        DEFAULT
+          {
+            ABORT("Not implemented " || fieldnametype || " " || fieldname);
+          }
+      }
+
+      IF (NOT this->TryParse(","))
+        BREAK;
+    }
+    this->Expect("}");
+
+    RECORD syntax;
+    IF (this->TryParseWord("WITH"))
+    {
+      this->ExpectWord("SYNTAX");
+      this->Expect("{");
+      syntax := this->ParseClassSyntax();
+      this->Expect("}");
+    }
+
+
+    RETURN
+        [ name :=       ""
+        , rawtag :=     "CLASS"
+        , fields :=     fields
+        , syntax :=     syntax
+        ];
+  }
+
+  RECORD FUNCTION ParseType()
+  {
+    STRING ARRAY tags;
+    STRING tagtype;
+    STRING fieldref;
+
+    this->SkipWhitespace();
+
+    // for NamedType, skip the name
+    IF (this->IsName(this->current))
+      this->ParseWord();
+
+    IF (this->TryParse("[")) //
+    {
+      /* Format is very roughly like
+            field ::= NAME tagging fieldtype
+            tagging ::= [ '[' [ class ':' ] tagvalue ']' [ EXPLICIT / IMPLICIT ] ]
+            class ::= UNIVERSAL / APPLICATION / PRIVATE
+            fieldtype ::= ( TYPE [ OPTIONAL / DEFAULT value ] / ANY [ DEFINED BY fieldval ] )
+      */
+      STRING word := this->ParseWord();
+
+      // ADDME: encodingreference?
+      tags := [ "2:" ];
+      IF (word IN [ "UNIVERSAL", "APPLICATION", "PRIVATE" ])
+      {
+        tags[0] := ToString(SearchElement([ "UNIVERSAL", "APPLICATION", "PRIVATE" ], word)) || ":";
+        word := this->ParseWord();
+      }
+      tags[0] := tags[0] || word;
+      IF (NOT this->TryParse("]"))
+        ABORT("Expected ']'");
+
+      tagtype := "default:" || this->defaulttagclass;
+      this->SkipWhitespace();
+      IF (this->TryParse("IMPLICIT"))
+        tagtype := "implicit";
+      ELSE IF (this->TryParse("EXPLICIT"))
+        tagtype := "explicit";
+      this->SkipWhitespace();
+    }
+
+    STRING type := this->ParseWord();
+    IF (type = "CLASS")
+    {
+      RETURN this->ParseClass();
+    }
+    IF (type IN [ "BIT", "OCTET", "OBJECT", "CHARACTER" ])
+      type := TrimWhitespace(type || " " || this->parseWord());
+
+    RECORD ARRAY fields;
+    IF (type IN [ "SEQUENCE", "SET", "CHOICE" ])
+    {
+      STRING word := this->ParseWord();
+      IF (word = "SIZE")
+      {
+        IF (NOT this->TryParse("("))
+          ABORT("Expected '('");
+        this->ParseWhileNotInSet(")");
+        this->Next();
+        word := this->ParseWord();
+      }
+      IF (word = "OF")
+      {
+        type := type || " OF";
+
+        RECORD typerec := this->ParseType();
+        fields :=
+            [ [ name :=         "data"
+              , tags :=         DEFAULT STRING ARRAY
+              , tagtype :=      ""
+              , isoptional :=   FALSE
+              , hasdefault :=   FALSE
+              , defaultvalue := ""
+              , type :=         typerec
+              ]
+            ];
+      }
+      ELSE
+        fields := this->ParseSequenceFields();
+    }
+
+    RECORD ARRAY enumvalues;
+    IF (type IN [ "INTEGER", "ENUMERATED" ])
+      enumvalues := this->ParseEnumeration();
+    ELSE
+      this->SkipBracedSection(); // record fields
+    this->SkipParenSection(); // INTEGER range
+
+    STRING rawtag;
+    FOREVERY (RECORD rec FROM universaltypes)
+      IF (type IN rec.types)
+        rawtag := "0:" || rec.tagnr;
+
+    IF (type = "ANY")
+    {
+      rawtag := "*";
+
+      // ADDME only allow if contained within sequence / set spec as field
+      IF (this->TryParse("DEFINED"))
+      {
+        this->SkipWhitespace();
+        IF (NOT this->TryParse("BY"))
+          ABORT("Expect 'BY': " || this->remaining_data);
+        this->SkipWhitespace();
+        fieldref := this->ParseWord();
+        this->SkipWhitespace();
+      }
+    }
+
+
+    IF (LENGTH(tags) = 0 AND rawtag != "")
+      tags := [ rawtag ];
+
+    RETURN
+        [ name :=       type
+        , fields :=     fields
+        , tags :=       tags
+        , rawtag :=     rawtag
+        , tagtype :=    tagtype
+        , isref :=      rawtag = "" AND type NOT IN [ "ANY", "CHOICE" ]
+        , enumvalues := enumvalues
+        , fieldref :=   fieldref
+        ];
+  }
+
+  MACRO ParseDeclarations()
+  {
+    IF (this->TryParse("IMPORTS"))
+      this->ParseImports();
+
+    WHILE (NOT this->eof)
+    {
+      this->SkipWhitespace();
+      IF (this->eof)
+        BREAK;
+
+      STRING name := this->ParseWord();
+      IF (name = "END")
+        RETURN;
+
+      IF (name = "")
+        this->GotError("Expected a name");
+
+      this->SkipWhitespace();
+      IF (NOT this->TryParse("::="))
+      {
+        // FIXME: parse & store variables
+        this->ParseType();
+        this->Expect("::=");
+        IF (NOT this->SkipBracedSection())
+          this->ParseWord();
+        CONTINUE;
+      }
+
+      RECORD type := this->ParseType();
+
+      RECORD pos := RecordLowerBound(this->types, [ name := name ], [ "NAME" ]);
+      IF (NOT pos.found)
+      {
+        INSERT
+            [ name :=     name
+            , type :=     type
+            ] INTO this->types AT pos.position;
+      }
+    }
+  }
+
+  MACRO CompileTags()
+  {
+    IF (NOT this->compiled)
+    {
+      // First expand all components of the fields
+      FOREVERY (RECORD type FROM this->types)
+        this->types[#type] := this->ExpandComponentsOfFields(type);
+
+      FOREVERY (RECORD type FROM this->types)
+        this->types[#type] := this->LookupTags(type, 0, TRUE);
+
+      this->compiled := TRUE;
+    }
+  }
+
+  RECORD FUNCTION ExpandComponentsOfFields(RECORD rec)
+  {
+    BOOLEAN havechange := TRUE;
+    RECORD orec := rec;
+    WHILE (havechange)
+    {
+      havechange := FALSE;
+      RECORD ARRAY newfields;
+      FOREVERY (RECORD field FROM rec.type.fields)
+      {
+        IF (field.type.name = "COMPONENTS OF")
+        {
+          RECORD pos := RecordLowerBound(this->types, [ name := field.type.fields[0].type.name ], [ "NAME" ]);
+          IF (pos.found)
+            newfields := newfields CONCAT this->types[pos.position].type.fields;
+          havechange := TRUE;
+        }
+        ELSE
+        {
+          field := this->ExpandComponentsOfFields(field);
+          INSERT field INTO newfields AT END;
+        }
+      }
+
+      rec.type.fields := newfields;
+    }
+    RETURN rec;
+  }
+
+  RECORD FUNCTION ResolveType(RECORD type)
+  {
+    IF (NOT CellExists(type, "ISREF"))
+      ABORT(type);
+    WHILE (RecordExists(type) AND type.isref)
+    {
+      RECORD pos := RecordLowerBound(this->types, [ name := type.name ], [ "NAME" ]);
+      IF (NOT pos.found)
+        RETURN DEFAULT RECORD;
+      type := this->types[pos.position].type;
+    }
+    RETURN type;
+  }
+
+  RECORD FUNCTION LookupTags(RECORD rec, INTEGER depth, BOOLEAN deep)
+  {
+    // For references only get the tags and tagtype for the type, that's enough
+    IF (rec.type.isref)
+    {
+      IF (LENGTH(rec.type.tags) = 0) // If we have tags, we're good to go
+      {
+        RECORD pos := RecordLowerBound(this->types, [ name := rec.type.name ], [ "NAME" ]);
+        IF (pos.found)
+        {
+          // Do non-deep lookup on the referenced type (store the result for future reference, a deep lookup will follow)
+          IF (LENGTH(this->types[pos.position].type.tags) = 0)
+            this->types[pos.position] := this->LookupTags(this->types[pos.position], depth + 1, FALSE);
+
+          rec.type.tags := this->types[pos.position].type.tags;
+          rec.type.tagtype := this->types[pos.position].type.tagtype;
+        }
+        ELSE
+        {
+          // Error in the ASN.1 file, no such type!
+        }
+      }
+    }
+    ELSE
+    {
+      BOOLEAN need_choice_fields := LENGTH(rec.type.tags) = 0 AND rec.type.name = "CHOICE";
+
+      IF (deep OR need_choice_fields)
+      {
+        // Lookup all field tags
+        FOREVERY (RECORD field FROM rec.type.fields)
+        {
+          // Lookup the tags (updates the 'type' cell of the field)
+          field := this->LookupTags(field, depth + 1, deep);
+          IF (LENGTH(field.tags) = 0)
+          {
+            field.tags := field.type.tags;
+            field.tagtype := field.type.tagtype;
+          }
+
+          rec.type.fields[#field] := field;
+        }
+
+        IF (need_choice_fields)
+        {
+          FOREVERY (RECORD field FROM rec.type.fields)
+            rec.type.tags := rec.type.tags CONCAT field.tags;
+        }
+      }
+    }
+
+    IF (rec.type.tagtype LIKE "default:*")
+    {
+      RECORD rtype := this->ResolveType(rec.type);
+      IF (RecordExists(rtype) AND rtype.name = "CHOICE")
+        rec.type.tagtype := "explicit";
+      ELSE
+        rec.type.tagtype := SubString(rec.type.tagtype, 8);
+    }
+
+    RETURN rec;
+  }
+
+  MACRO ParseModule()
+  {
+    this->SkipWhitespace();
+    STRING name := this->ParseWord();
+
+    this->SkipBracedSection();
+    this->SkipWhitespace();
+
+    IF (NOT this->TryParse("DEFINITIONS"))
+      ABORT("Expected: 'DEFINITIONS': " || this->remaining_data);
+
+    this->SkipWhitespace();
+
+    this->defaulttagclass := this->TryParse("EXPLICIT")
+        ? "explicit"
+        : this->TryParse("IMPLICIT")
+              ? "implicit"
+              : ""; // automatic not supported, default
+    this->SkipWhitespace();
+    IF (this->defaulttagclass != "" AND NOT this->TryParse("TAGS"))
+      ABORT("Expected: 'TAGS': " || this->remaining_data);
+
+    // Set default
+    this->defaulttagclass := this->defaulttagclass ?? "explicit";
+    this->SkipWhitespace();
+
+    IF (this->TryParse("EXTENSIBILITY"))
+    {
+      this->ExpectWord("IMPLIED");
+      this->extensibilityimplied := TRUE;
+    }
+
+    this->Expect("::=");
+    this->SkipWhitespace();
+
+    this->ExpectWord("BEGIN");
+    this->SkipWhitespace();
+
+    this->ParseDeclarations();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Parses a list of ASN.1 types
+      @cell doc List of types
+  */
+  PUBLIC MACRO ParseListOfTypes(STRING doc)
+  {
+    // Place the doc in the stringparser
+    this->Reset(doc);
+    this->compiled := FALSE;
+
+    this->ParseDeclarations();
+  }
+
+  PUBLIC MACRO ParseDocument(STRING doc)
+  {
+    // Place the doc in the stringparser
+    this->Reset(doc);
+    this->compiled := FALSE;
+
+    WHILE (NOT this->eof)
+    {
+      this->ParseModule();
+      this->SkipWhitespace();
+    }
+  }
+
+  /** Get the parsed ASN.1 description (used for input to ASN1DataParser)
+  */
+  PUBLIC RECORD FUNCTION GetDescription()
+  {
+    this->CompileTags();
+    RETURN
+        [ types :=                  this->types
+        , extensibilityimplied :=   TRUE
+        ];
+  }
+>;
+
+/** Parses a ASN.1 BER/DER encoded data structure based on a parsed ASN.1 description
+*/
+STATIC OBJECTTYPE ASN1BERDecoder
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** @cell(string) name Name of the type
+      @cell(record) type Type description record
+      @cell(string) type.name Name of the underlying type
+      @cell(string array) type.tags Tags allowed by this type (format 'class:tagvalue')
+      @cell(boolean) type.isref If this is a reference to another type (by use name to find it)
+      @cell(record array) type.fields Fields of SEQUENCE / SET type
+      @cell(string) type.fields.name Name of the type
+      @cell(string array) type.fields.tags List of possible tags (format 'class:tagvalue')
+      @cell(string) type.fields.tagtype Tagging type: '' / 'implicit' / 'explicit'
+      @cell(boolean) type.fields.isoptional
+      @cell(boolean) type.fields.hasdefault
+      @cell(string) type.fields.defaultvalue
+      @cell(record) type.fields.type Type of SEQUENCE OF / SET OF
+      @cell(string) type.fields.fieldref Name of the ANY DEFINED BY field
+      @cell(string) type.enumvalues Enumeration values
+      @cell(string) type.enumvalues.text Text of value
+      @cell(string) type.enumvalues.value Integer value
+  */
+  RECORD ARRAY types;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Permissive mode (don't balk on missing types & definitions). Defaults to TRUE.
+  PUBLIC BOOLEAN permissive;
+
+  /** Contains parser errors in permissive mode
+      @cell path
+      @cell message
+  */
+  PUBLIC RECORD ARRAY errors;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD description)
+  {
+    this->permissive := TRUE;
+    this->types := description.types;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO AddError(STRING message, STRING path)
+  {
+    IF (NOT this->permissive)
+      THROW NEW Exception(message || ", at " || path);
+    INSERT
+        [ path :=     path
+        , message :=  message
+        ] INTO this->errors AT END;
+  }
+
+  /// Resolves type records that references to the actual type
+  RECORD FUNCTION ResolveType(RECORD type, STRING path)
+  {
+    WHILE (RecordExists(type) AND type.isref)
+      type := this->LookupType(type.name, path);
+    RETURN type;
+  }
+
+  /// Lookup type by name
+  RECORD FUNCTION LookupType(STRING name, STRING path, BOOLEAN fatalerror DEFAULTSTO FALSE)
+  {
+    RECORD pos := RecordLowerBound(this->types, [ name := name ], [ "NAME" ]);
+    IF (pos.found)
+      RETURN this->types[pos.position].type;
+
+    IF (fatalerror)
+    {
+      STRING bestmatch := GetBestMatch(name, (SELECT AS STRING ARRAY COLUMN name FROM this->types), [ casesensitive := FALSE ]);
+      IF (bestmatch != "")
+        THROW NEW Exception("Cannot locate type '" || name || "' in the ASN.1 definition, did you mean '" || bestmatch || "'? (path: '" || path || "')");
+      ELSE
+        THROW NEW Exception("Cannot locate type '" || name || "' in the ASN.1 definition (path: '" || path || "')");
+    }
+
+    this->AddError("Cannot locate type '" || name || "'", path);
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION ParseSequence(OBJECT berdecoder, RECORD ARRAY fields, STRING path)
+  {
+    RECORD result := [ __fields := DEFAULT STRING ARRAY ];
+
+    FOREVERY (RECORD field FROM fields)
+    {
+      // Get the tag of the current BER field, see if it matches with this field
+      RECORD tag := berdecoder->GetTag();
+      BOOLEAN ismatch := RecordExists(tag) AND (((tag.tag_class || ":" || tag.value) IN field.tags) OR ("*" IN field.tags));
+
+      IF (ismatch)
+      {
+        OBJECT subdecoder := berdecoder;
+        IF (field.tagtype = "explicit")
+        {
+          // The data of explicitly tagged is wrapped
+          subdecoder := berdecoder->ReadConstruction();
+        }
+
+        // Parse the field, and add it as specified
+        RECORD rec := this->ParseTypedField(subdecoder, field, path || "." || field.name, result);
+        result := CellInsert(result, field.name, rec.value);
+        IF (rec.isany)
+        {
+          IF (NOT CellExists(result, "__ENCODING"))
+            INSERT CELL __encoding := DEFAULT RECORD INTO result;
+          result.__encoding := CellInsert(result.__encoding, field.name, rec.typename);
+        }
+
+        INSERT field.name INTO result.__fields AT END;
+      }
+      ELSE
+      {
+        IF (field.hasdefault)
+          result := CellInsert(result, field.name, this->ParseDefaultValue(field, path || "." || field.name));
+        ELSE // Just add default value
+          result := CellInsert(result, field.name, this->GetDefaultValue(field.type, path || "." || field.name, FALSE));
+      }
+    }
+    RETURN result;
+  }
+
+  VARIANT FUNCTION ParseDefaultValue(RECORD field, STRING path)
+  {
+    RECORD type := this->ResolveType(field.type, path);
+    IF (NOT RecordExists(type))
+      RETURN DEFAULT RECORD;
+
+    SWITCH (type.name)
+    {
+      CASE "CHOICE"
+        {
+          RETURN [ __field := "" ];
+        }
+      CASE "ANY"
+        {
+          RETURN DEFAULT RECORD;
+        }
+    }
+
+    SWITCH (type.rawtag)
+    {
+      CASE "0:1"
+      {
+        RETURN ToUppercase(field.defaultvalue) = "TRUE";
+      }
+    }
+
+    this->AddError("Can't parse default value for type '" || type.name || "', tag " || type.rawtag || ", value '" || field.defaultvalue || "'", path);
+    RETURN DEFAULT RECORD;
+  }
+
+  VARIANT FUNCTION GetDefaultValue(RECORD type, STRING path, BOOLEAN justtype)
+  {
+    type := this->ResolveType(type, path);
+    IF (NOT RecordExists(type))
+      RETURN DEFAULT RECORD;
+
+    SWITCH (type.name)
+    {
+      CASE "CHOICE"
+        {
+          RETURN [ __field := "" ];
+        }
+      CASE "ANY"
+        {
+          RETURN DEFAULT RECORD;
+        }
+    }
+
+    SWITCH (type.rawtag)
+    {
+      CASE "0:1"
+        { RETURN FALSE; }
+      CASE "0:2"
+        { RETURN 0; }
+      CASE "0:3"
+        {
+          RETURN
+              [ bits :=   0
+              , bytes :=  0
+              , data :=   ""
+              ];
+        }
+      CASE "0:4", "0:12", "0:19"
+        { RETURN ""; }
+      //CASE "0:5"
+      //  { RETURN DEFAULT RECORD; }
+      CASE "0:5", "0:6"
+        { RETURN ""; }
+      CASE "0:16", "0:17"
+        {
+          IF (type.name IN [ "SEQUENCE", "SET" ])
+          {
+            RECORD result := [ __fields := DEFAULT STRING ARRAY ];
+            IF (NOT justtype)
+            {
+              FOREVERY (RECORD field FROM type.fields)
+                result := CellInsert(result, field.name, this->GetDefaultValue(field.type, path || "." || field.name, FALSE));
+            }
+            RETURN result;
+          }
+          ELSE
+          {
+            VARIANT val := this->GetDefaultValue(type.fields[0].type, path || "[0]", TRUE);
+            RETURN GetTypeDefaultArray(TypeID(val));
+          }
+        }
+      CASE "0:23"
+        { RETURN DEFAULT DATETIME; }
+    }
+
+    this->AddError("Don't known the default for type '" || type.name || "', tag " || type.rawtag, path);
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION TryResolveAnyField(RECORD type, RECORD parentrecord, STRING path)
+  {
+    type := this->ResolveType(type, path);
+    STRING ARRAY fieldref := Tokenize(type.fieldref, ".");
+
+    IF (fieldref[0] != "")
+    {
+      BOOLEAN allok := TRUE;
+      VARIANT res := parentrecord;
+      FOREVERY (STRING fieldname FROM fieldref)
+      {
+        IF (TypeID(res) != TypeID(RECORD))
+        {
+          allok := FALSE;
+          BREAK;
+        }
+        res := GetCell(res, fieldname);
+      }
+
+      type := DEFAULT RECORD;
+      IF (NOT allok OR TypeID(res) != TypeID(STRING))
+        this->AddError("Cannot find field for ANY DEFINED BY: '" || Left(path, SearchLastSubstring(path, ".")) || "." || type.fieldref, path);
+      ELSE
+        type := this->LookupType("Any-" || Substitute(res || "", ".", "-"), path);
+
+      IF (NOT RecordExists(type))
+        type :=
+            [ name := "ANY"
+            , isref := FALSE
+            , fieldref := ""
+            , needtype := "Any-" || Substitute(res || "", ".", "-")
+            ];
+      ELSE
+        type := this->ResolveType(type, path);
+    }
+
+    RETURN type;
+  }
+
+  VARIANT FUNCTION ParseTypedField(OBJECT berdecoder, RECORD field, STRING path, RECORD parentrecord)
+  {
+    RECORD type := this->ResolveType(field.type, path);
+    IF (NOT RecordExists(type))
+      RETURN DEFAULT RECORD;
+
+    IF (type.name = "ANY")
+      type := this->TryResolveAnyField(type, parentrecord, path);
+
+    STRING typename := type.name;
+    BOOLEAN isany := TRUE;
+    IF (type.name = "ANY")
+    {
+      RECORD tag := berdecoder->GetTag();
+      typename := tag.tag_class || ":" || tag.value;
+    }
+
+    RETURN [ typename := typename, isany := isany, value := this->ParseTypedData(berdecoder, type, path, FALSE, parentrecord) ];
+  }
+
+  VARIANT FUNCTION ParseTypedData(OBJECT berdecoder, RECORD type, STRING path, BOOLEAN isarrayelt, RECORD parentrecord)
+  {
+    type := this->ResolveType(type, path);
+
+    RECORD otype := type;
+
+    IF (type.name = "ANY")
+      type := this->TryResolveAnyField(type, parentrecord, path);
+
+    RECORD tag := berdecoder->GetTag();
+    STRING tagval := tag.tag_class || ":" || tag.value;
+
+    SWITCH (type.name)
+    {
+      CASE "CHOICE"
+        {
+          RECORD result := [ __field := "" ];
+          FOREVERY (RECORD field FROM type.fields)
+            IF (tagval IN field.tags)
+            {
+              OBJECT subdecoder := berdecoder;
+              IF (field.tagtype = "explicit") // The data of explicitly tagged is wrapped
+                subdecoder := berdecoder->ReadConstruction();
+
+              result := CellInsert(result, field.name, this->ParseTypedData(subdecoder, field.type, path || "." || field.name, FALSE, parentrecord));
+              result.__field := field.name;
+            }
+          RETURN result;
+        }
+      CASE "ANY"
+        {
+          IF (tagval IN [ "0:16", "0:17" ])
+          {
+            berdecoder->SkipCurrentTag();
+            IF (CellExists(type, "NEEDTYPE"))
+              this->AddError("Need type " || type.needtype || " declared to parse ANY containing a SEQUENCE or a SET", path);
+            ELSE
+              this->AddError("Don't know how to parse SEQUENCE or SET in an ANY rule without DEFINED BY", path);
+
+            RETURN DEFAULT RECORD;
+          }
+          type := [ name := "ANY", rawtag := tagval, fieldref := "" ];
+        }
+    }
+
+    SWITCH (type.rawtag)
+    {
+      CASE "0:1"
+        { RETURN berdecoder->ReadBoolean(); }
+      CASE "0:2"
+        { RETURN berdecoder->ReadBigInteger(); }
+      CASE "0:3"
+        {
+          STRING data := berdecoder->ReadOctetString();
+          RETURN
+              [ bits :=   LENGTH(data) * 8 - 8 - GetByteValue(data)
+              , bytes :=  LENGTH(data) - 1
+              , data :=   SubString(data, 1)
+              ];
+        }
+      CASE "0:4"
+         , "0:12" // UTF8String
+         , "0:18" // NumericString (subset of ASCII)
+         , "0:19" // PrintableString (subset of ASCII)
+         , "0:20" // T61 string (treated as ASCII subset. See http://en.wikipedia.org/wiki/ITU_T.61)
+         , "0:21" // VideoTex T.100/101 (treated as ASCII subset. See http://www.itu.int/rec/dologin_pub.asp?lang=e&id=T-REC-T.100-198811-I!!PDF-E&type=items, from http://en.wikipedia.org/wiki/Videotex)
+         , "0:22" // IA5String (ASCII, but could differ between regions...)
+        { RETURN berdecoder->ReadOctetString(); }
+      CASE "0:5"
+        { RETURN berdecoder->ReadOctetString(); }
+      CASE "0:6"
+        { RETURN berdecoder->ReadObjectIdentifier(); }
+      CASE "0:10"
+        {
+          INTEGER val := berdecoder->ReadInteger();
+          RETURN SELECT AS STRING text FROM type.enumvalues WHERE intvalue = val;
+        }
+      CASE "0:16", "0:17"
+        {
+          OBJECT fieldsdecoder := berdecoder->ReadConstruction();
+          IF (type.name = "SEQUENCE")
+            RETURN this->ParseSequence(fieldsdecoder, type.fields, path);
+          ELSE IF (type.name = "SET")
+            this->AddError("Cannot parse SET yet", path);
+          ELSE // SEQUENCE OF, SET OF (ordered/unordered array types)
+          {
+            // Get elements
+            VARIANT ARRAY res;
+            WHILE (NOT fieldsdecoder->IsAtEnd())
+            {
+              INSERT this->ParseTypedData(fieldsdecoder, type.fields[0].type, path || "[" || LENGTH(res) || "]", TRUE, parentrecord) INTO res AT END;
+            }
+
+            // Coalesce to known type if all stuff is the same (use default if empty)
+            VARIANT cres;
+            IF (LENGTH(res) = 0)
+              cres := RepeatElement(this->GetDefaultValue(type.fields[0].type, path || "[0]", TRUE), 0);
+            ELSE
+            {
+              INTEGER ftype := TypeID(res[0]);
+              cres := GetTypeDefaultArray(ftype);
+              FOREVERY (VARIANT elt FROM res)
+              {
+                IF (TypeID(elt) = ftype)
+                  INSERT elt INTO cres AT END;
+                ELSE
+                {
+                  cres := res;
+                  BREAK;
+                }
+              }
+            }
+
+            IF (isarrayelt)
+              RETURN [ data := cres ];
+            RETURN cres;
+          }
+        }
+      CASE "0:23"
+        {
+          STRING data := berdecoder->ReadOctetString();
+          INTEGER year := ToInteger(Left(data, 2), 0);
+          RETURN MakeDateFromText((year < 80 ? "20" : "19") || Left(data, 6) || "T" || SubString(data, 6));
+        }
+    }
+
+    this->AddError("No decoder yet for '" || type.name || "', tag " || type.rawtag, path);
+    berdecoder->SkipCurrentTag();
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO EncodeSequence(OBJECT berencoder, RECORD ARRAY fields, STRING path, RECORD value)
+  {
+    FOREVERY (RECORD field FROM fields)
+    {
+      IF (CellExists(value, "__FIELDS") ? field.name IN value.__fields : CellExists(value, field.name))
+      {
+        INTEGER tag_class, tag_value;
+        STRING ARRAY tagparts := Tokenize(field.tags[0], ":");
+
+        IF (LENGTH(tagparts) >= 2)
+        {
+          tag_class := ToInteger(tagparts[0], 0);
+          tag_value := ToInteger(tagparts[1], 0);
+        }
+
+        VARIANT fieldval := GetCell(value, field.name);
+//        IF (IsDefaultValue(fieldval) AND field.isoptional AND TypeID()
+//          CONTINUE;
+
+        INTEGER idx;
+        IF (field.tagtype = "explicit")
+          berencoder->StartConstruction(tag_class, tag_value);
+
+        idx := this->EncodeTypedField(berencoder, field, path || "." || field.name, fieldval, value);
+
+        IF (field.tagtype = "explicit")
+          berencoder->EndConstruction();
+        ELSE IF (field.tags[0] != '*' AND field.type.name != "CHOICE")
+          berencoder->OverwriteTagType(idx, tag_class, tag_value);
+      }
+      ELSE IF (NOT field.isoptional AND NOT field.hasdefault)
+        THROW NEW Exception("Missing cell '" || field.name || "' at '" || path || "'");
+    }
+  }
+
+  INTEGER FUNCTION EncodeTypedField(OBJECT berencoder, RECORD field, STRING path, VARIANT value, RECORD parentrecord)
+  {
+    RECORD type := this->ResolveType(field.type, path);
+    IF (NOT RecordExists(type))
+      THROW NEW Exception("Type not found");
+
+    IF (type.name ="ANY")
+      type := this->TryResolveAnyField(type, parentrecord, path);
+
+    IF (type.name = "ANY" AND CellExists(parentrecord, "__ENCODING") AND CellExists(parentrecord.__encoding, field.name))
+    {
+      STRING typename := GetCell(parentrecord.__encoding, field.name);
+      IF (typename LIKE "*:*")
+        type := [ name := "-", rawtag := typename, isref := FALSE ];
+      ELSE
+        type := this->LookupType(GetCell(parentrecord.__encoding, field.name), path);
+    }
+
+    IF (type.name = "ANY")
+      THROW NEW Exception("Dont know how to encode '" || path || "', please supply __ENCODING");
+
+    RETURN this->EncodeTypedData(berencoder, type, path, value, FALSE, parentrecord);
+  }
+
+  INTEGER FUNCTION EncodeTypedData(OBJECT berencoder, RECORD type, STRING path, VARIANT value, BOOLEAN isarrayelt, RECORD parentrecord)
+  {
+    type := this->ResolveType(type, path);
+    INTEGER idx;
+
+    IF (type.name ="ANY")
+    {
+      type := this->TryResolveAnyField(type, parentrecord, path);
+      type := this->ResolveType(type, path);
+    }
+
+    SWITCH (type.name)
+    {
+      CASE "CHOICE"
+        {
+          FOREVERY (RECORD field FROM type.fields)
+            IF (CellExists(value, field.name))
+            {
+              STRING ARRAY tagparts := Tokenize(field.tags[0], ":");
+              INTEGER tag_class := ToInteger(tagparts[0], 0);
+              INTEGER tag_value := ToInteger(tagparts[1], 0);
+
+              INTEGER wrapidx;
+              IF (field.tagtype = "explicit")
+                wrapidx := berencoder->StartConstruction(tag_class, tag_value);
+
+              idx := this->EncodeTypedField(berencoder, field, path || "." || field.name, GetCell(value, field.name), value);
+
+              IF (field.tagtype = "explicit")
+              {
+                berencoder->EndConstruction();
+                RETURN wrapidx;
+              }
+
+              berencoder->OverwriteTagType(idx, tag_class, tag_value);
+              RETURN idx;
+            }
+
+          THROW NEW Exception("None of the choices found at '" || path || "'");
+        }
+      CASE "ANY"
+        {
+          THROW NEW Exception("Can't encode ANY");
+//          IF (tagval IN [ "0:16", "0:17" ])
+//            ABORT("Don't know how to parse SEQUENCE or SET in an ANY rule without DEFINED BY");
+//          type := [ name := "ANY", rawtag := tagval ];
+        }
+    }
+
+    SWITCH (type.rawtag)
+    {
+      CASE "0:1"
+      {
+        RETURN berencoder->AddBoolean(value);
+      }
+      CASE "0:2"
+      {
+        IF (TypeID(value) = TypeID(STRING))
+          RETURN berencoder->AddBigInteger(value);
+        RETURN berencoder->AddInteger(value);
+      }
+      CASE "0:3"
+      {
+        IF (NOT CellExists(value, "DATA"))
+          THROW NEW Exception("Missing cell 'DATA' at path '" || path || "'");
+
+        IF (CellExists(value, "__DATATYPE"))
+        {
+          STRING encoded;
+          RECORD typerec := this->LookupType(value.__datatype, path || ".__datatype");
+          IF (RecordExists(typerec))
+          {
+            OBJECT localencoder := NEW BerEncoder;
+            this->EncodeTypedData(localencoder, typerec, path || ".data", value.data, FALSE, parentrecord);
+            encoded := localencoder->GetRequest();
+          }
+
+          value := [ bits := LENGTH(encoded) * 8, data := encoded ];
+        }
+
+        INTEGER minbits := (LENGTH(value.data) * 8 - value.bits) % 8;
+        STRING data := ByteToString(minbits) || value.data;
+        idx := berencoder->AddOctetString(data);
+      }
+      CASE "0:4"
+         , "0:12" // UTF8String
+         , "0:18" // NumericString (subset of ASCII)
+         , "0:19" // PrintableString (subset of ASCII)
+         , "0:20" // T61 string (treated as ASCII subset. See http://en.wikipedia.org/wiki/ITU_T.61)
+         , "0:21" // VideoTex T.100/101 (treated as ASCII subset. See http://www.itu.int/rec/dologin_pub.asp?lang=e&id=T-REC-T.100-198811-I!!PDF-E&type=items, from http://en.wikipedia.org/wiki/Videotex)
+         , "0:22" // IA5String (ASCII, but could differ between regions...)
+      {
+        IF (TypeID(value) = TypeID(RECORD))
+        {
+          IF (NOT CellExists(value, "__DATATYPE"))
+            THROW NEW Exception("Missing cell '__DATATYPE' in RECORD for string recursive encoding at '" || path || "'");
+          IF (NOT CellExists(value, "DATA"))
+            THROW NEW Exception("Missing cell 'DATA' in RECORD for string recursive encoding at '" || path || "'");
+
+          RECORD typerec := this->LookupType(value.__datatype, path || ".__DATATYPE");
+          IF (RecordExists(typerec))
+          {
+            OBJECT localencoder := NEW BerEncoder;
+            this->EncodeTypedData(localencoder, typerec, path || ".DATA", value.data, FALSE, parentrecord);
+            value := localencoder->GetRequest();
+          }
+        }
+        ELSE IF (TypeID(value) != TypeID(STRING))
+          THROW NEW Exception("Expected type 'STRING' at '" || path || "' for type " || type.rawtag);
+
+        idx := berencoder->AddOctetString(value);
+      }
+      CASE "0:5"
+      {
+        idx := berencoder->AddOctetString(value);
+      }
+      CASE "0:6"
+      {
+        IF (TypeID(value) != TypeID(STRING))
+          THROW NEW Exception("Expected type 'STRING' at '" || path || "'");
+
+        RETURN berencoder->AddObjectIdentifier(value);
+      }
+      CASE "0:16", "0:17"
+      {
+        idx := berencoder->StartConstruction(0, ToInteger(SubString(type.rawtag, 2), 0));
+
+        IF (type.name = "SEQUENCE")
+          this->EncodeSequence(berencoder, type.fields, path, value);
+        ELSE IF (type.name = "SET")
+          THROW NEW Exception("Cannot encode SET yet, at '" ||  path || "'");
+        ELSE // SEQUENCE OF, SET OF (ordered/unordered array types)
+        {
+          STRING localpath := path;
+          IF (isarrayelt)
+            localpath := localpath || ".data";
+
+          VARIANT arrayval := (isarrayelt ? value.data : value);
+          IF (NOT IsTypeIDArray(TypeID(arrayval)))
+            THROW NEW Exception("Value is not an array, at '" || localpath || "'");
+
+          FOREVERY (VARIANT v FROM arrayval)
+            this->EncodeTypedData(berencoder, type.fields[0].type, localpath || "[" || #v || "]", v, TRUE, parentrecord);
+        }
+
+        berencoder->EndConstruction();
+        RETURN idx;
+      }
+
+      CASE "0:23"
+      {
+        RETURN berencoder->AddUTCTime(value);
+      }
+
+      DEFAULT
+      {
+        THROW NEW Exception("Unsupported type rawtag " || type.rawtag);
+      }
+    }
+
+    // Correct type type of universal types
+    IF (type.rawtag LIKE "0:*")
+    {
+      berencoder->OverwriteTagType(idx, 0, ToInteger(SubString(type.rawtag, 2), 0));
+//      PRINT("Post: " || EncodeBase16(SubString(berencoder->GetRequest(), idx, 5)) || "\n");
+    }
+
+    RETURN idx;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Parse BER-encoded ASN.1 data with a specific type
+      @param berdecoder BER decoder with the data to decode
+      @return
+      @cell(record array) return.errors List of parse errors (only in permissive mode)
+
+  */
+  PUBLIC RECORD FUNCTION ParseData(OBJECT berdecoder, STRING type)
+  {
+    this->errors := DEFAULT RECORD ARRAY;
+
+    RECORD typerec := this->LookupType(type, "document", TRUE);
+
+    VARIANT value := DEFAULT RECORD;
+    IF (RecordExists(typerec) AND RecordExists(berdecoder->GetTag()))
+      value := this->ParseTypedData(berdecoder, typerec, "document", FALSE, DEFAULT RECORD);
+
+    RETURN
+        [ value :=    value
+        , errors :=   this->errors
+        ];
+  }
+
+  /** BER-encode ASN.1 data with a specific type
+  */
+  PUBLIC MACRO EncodeData(OBJECT berencoder, STRING type, VARIANT value)
+  {
+    RECORD typerec := this->LookupType(type, "document", TRUE);
+
+    this->EncodeTypedData(berencoder, typerec, "document", value, FALSE, DEFAULT RECORD);
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION GetASN1Parser()
+{
+  RETURN NEW ASN1Parser();
+};
+
+PUBLIC OBJECT FUNCTION GetASN1BERDecoder(RECORD description)
+{
+  RETURN NEW ASN1BERDecoder(description);
+};

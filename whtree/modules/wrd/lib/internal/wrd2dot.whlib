@@ -1,0 +1,179 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+
+STRING FUNCTION GetSafeName(STRING inname)
+{
+  inname := GetSafeFileName(inname);
+  inname := Substitute(inname, '-', '_');
+  RETURN inname;
+}
+
+PUBLIC BLOB FUNCTION MakeDotFromWRDSchema(OBJECT wrdschema,
+                                          BOOLEAN show_titles,
+                                          BOOLEAN show_ids,
+                                          BOOLEAN show_descriptions,
+                                          BOOLEAN show_domvalues,
+                                          BOOLEAN show_domvalueswithouttags,
+                                          BOOLEAN show_standardattributes)
+{
+  IF (NOT ObjectExists(wrdschema))
+    RETURN DEFAULT BLOB;
+
+  INTEGER outfile := CreateStream();
+
+  PrintTo(outfile, "// Graphical representation of WRD schema '" || wrdschema->tag || "'\n");
+  PrintTo(outfile, "// Generated " || FormatISO8601DateTime(GetCurrentDateTime(), "", "minutes") || "\n");
+  PrintTo(outfile, "\n");
+
+  PrintTo(outfile, "digraph " || GetSafeName(wrdschema->tag) || " {\n");
+  PrintTo(outfile, "  node [ fontname=\"ArialNarrow\", labeljust=\"l\", labelloc=\"t\" ];\n");
+
+  RECORD ARRAY wrdtypes := SELECT * FROM wrd.types WHERE wrd_schema = wrdschema->id ORDER BY ToUppercase(tag), id;
+  STRING ARRAY objects;
+  FOREVERY (RECORD wrdtype FROM wrdtypes)
+  {
+    STRING typename;
+    STRING ARRAY domvalues;
+    STRING ARRAY labels;
+    STRING ARRAY edges;
+    SWITCH (wrdtype.metatype)
+    {
+      CASE 1 // Object
+      {
+        typename := "object";
+        INSERT ToLowercase(wrdtype.tag) INTO objects AT END;
+      }
+      CASE 2 // Link
+      {
+        typename := "link";
+        RECORD lefttype := SELECT * FROM wrdtypes WHERE id = wrdtype.requiretype_left;
+        RECORD righttype := SELECT * FROM wrdtypes WHERE id = wrdtype.requiretype_right;
+        INSERT ToLowercase(lefttype.tag) || ":t" || lefttype.id || " -> " || ToLowercase(wrdtype.tag) || ":t" || wrdtype.id || " [ arrowtail=\"diamond\", dir=\"back\" ]" INTO edges AT END;
+        INSERT ToLowercase(wrdtype.tag) || ":t" || wrdtype.id || " -> " || ToLowercase(righttype.tag) || ":t" || righttype.id || " [ arrowtail=\"diamond\", dir=\"back\" ]" INTO edges AT END;
+      }
+      CASE 3 // attachment
+      {
+        typename := "attachment";
+        RECORD lefttype := SELECT * FROM wrdtypes WHERE id = wrdtype.requiretype_left;
+        INSERT ToLowercase(lefttype.tag) || ":t" || lefttype.id || " -> " || ToLowercase(wrdtype.tag) || ":t" || wrdtype.id || " [ arrowtail=\"empty\", dir=\"back\" ]" INTO edges AT END;
+      }
+      CASE 4 // Domain
+      {
+        typename := "domain";
+        IF (show_domvalues)
+        {
+          RECORD ARRAY doments := SELECT * FROM wrd.entities WHERE type = wrdtype.id ORDER BY ordering, ToUppercase(tag), id;
+          INTEGER numempty;
+          FOREVERY (RECORD doment FROM doments)
+          {
+            STRING domvalue := "-" || doment.tag;
+            IF (show_ids)
+              domvalue := domvalue || (doment.tag != "" ? " (" || doment.id || ")" : ToString(doment.id));
+            IF (show_titles AND doment.title != "")
+              domvalue := domvalue || "\\n\\\"" || doment.title || "\\\"";
+            IF (show_ids OR doment.tag != "" OR (show_titles AND doment.title != ""))
+              INSERT domvalue INTO domvalues AT END;
+            ELSE
+              numempty := numempty + 1;
+          }
+          IF (numempty > 0)
+            INSERT "\\<" || numempty || " empty value" || (numempty > 1 ? "s" : "") || "\\>" INTO domvalues AT END;
+        }
+      }
+    }
+
+    RECORD attrcontents := GetAttributeContents(OpenWRDType(wrdtype.id), 0, wrdtypes, show_titles, show_ids, show_descriptions, show_domvalues, show_domvalueswithouttags, show_standardattributes);
+    labels := labels CONCAT attrcontents.labels;
+    edges := edges CONCAT attrcontents.edges;
+
+    PrintTo(outfile, "\n  " || ToLowercase(wrdtype.tag) || " [ shape=\"record\", label=\"{<t" || wrdtype.id || ">" || wrdtype.tag || (show_ids ? " (" || wrdtype.id || ")" : "") || " : " || typename
+      || (show_titles AND wrdtype.title != "" ? "\\n\\\"" || wrdtype.title || "\\\"" : "")
+      || (show_descriptions AND wrdtype.description != "" ? "\\n" || wrdtype.description : "")
+      || (Length(labels) > 0 ? "|" || Detokenize(labels, "|") : "")
+      || (Length(domvalues) > 0 ? "|" || Detokenize(domvalues, "\\n") : "")
+      || "}\" ];\n");
+    FOREVERY (STRING edge FROM edges)
+      PrintTo(outfile, "  " || edge || ";\n");
+  }
+
+  /*ADDME: Doesn't seem to work (it crashes GraphViz)
+  IF (Length(objects) > 0)
+  {
+    PrintTo(outfile, "\n  subgraph {\n");
+    PrintTo(outfile, "    rank = same; " || Detokenize(objects, "; ") || ";\n");
+    PrintTo(outfile, "  }\n");
+  }
+  */
+
+  PrintTo(outfile, "\n}\n");
+
+  RETURN MakeBlobFromStream(outfile);
+}
+
+RECORD FUNCTION GetAttributeContents(OBJECT wrdtype,
+                                     INTEGER parentattr,
+                                     RECORD ARRAY wrdtypes,
+                                     BOOLEAN show_titles,
+                                     BOOLEAN show_ids,
+                                     BOOLEAN show_descriptions,
+                                     BOOLEAN show_domvalues,
+                                     BOOLEAN show_domvalueswithouttags,
+                                     BOOLEAN show_standardattributes)
+{
+  //ADDME: IF (standardattributes) Show standard type attributes!
+  RECORD ARRAY wrdattrs := SELECT * FROM wrd.attrs WHERE type = wrdtype->id AND parent = parentattr ORDER BY ToUppercase(tag), id;
+  RECORD contents := [ labels := DEFAULT STRING ARRAY
+                     , edges := DEFAULT STRING ARRAY
+                     ];
+  FOREVERY (RECORD wrdattr FROM wrdattrs)
+  {
+    STRING attrid := "a" || wrdattr.id;
+    STRING attrtype := "";
+    STRING attrcontents := "";
+    SWITCH (wrdattr.attributetype)
+    {
+      CASE 1 // Domain single
+         , 8 // Domain multiple
+      {
+        attrtype := wrdattr.attributetype = 1 ? "domain single" : "domain multiple";
+        RECORD domaintype := SELECT * FROM wrdtypes WHERE id = wrdattr.domain;
+        INSERT ToLowercase(wrdtype->tag) || ":" || attrid || " -> " || ToLowercase(domaintype.tag) || ":t" || domaintype.id || " [ arrowtail=\"odiamond\", dir=\"back\" ]" INTO contents.edges AT END;
+      }
+      CASE 2 { attrtype := "free"; }
+      CASE 3 { attrtype := "address"; }
+      CASE 4 { attrtype := "email"; }
+      CASE 5 { attrtype := "telephone"; }
+      CASE 6 { attrtype := "date"; }
+      CASE 7 { attrtype := "password"; }
+      CASE 9 { attrtype := "image"; }
+      CASE 10 { attrtype := "file"; }
+      CASE 11 { attrtype := "time"; }
+      CASE 12 { attrtype := "datetime"; }
+      CASE 13
+      {
+        attrtype := "array";
+        RECORD arraycontents := GetAttributeContents(wrdtype, wrdattr.id, wrdtypes, show_titles, show_ids, show_descriptions, show_domvalues, show_domvalueswithouttags, show_standardattributes);
+        contents.edges := contents.edges CONCAT arraycontents.edges;
+        attrcontents := "{" || Detokenize(arraycontents.labels, "|") || "}";
+      }
+      CASE 14 { attrtype := "money"; }
+      CASE 15 { attrtype := "integer"; }
+      CASE 16 { attrtype := "boolean"; }
+      CASE 17 { attrtype := "richdocument"; }
+      CASE 18 { attrtype := "integer64"; }
+      CASE 19 { attrtype := "whfs_instance"; }
+      CASE 20 { attrtype := "whfs_intextlink"; }
+      CASE 21 { attrtype := "url"; }
+    }
+    INSERT (attrcontents != "" ? "{" : "")
+      || "<" || attrid || "> +" || wrdattr.tag || (show_ids ? " (" || wrdattr.id || ")" : "") || " : " || attrtype
+      || (show_titles AND wrdattr.title != "" ? "\\n\\\"" || wrdattr.title || "\\\"" : "")
+      || (show_descriptions AND wrdattr.description != "" ? "\\n" || wrdattr.description : "")
+      || (attrcontents != "" ? "|" || attrcontents || "}" : "")
+      INTO contents.labels AT END;
+  }
+  RETURN contents;
+}

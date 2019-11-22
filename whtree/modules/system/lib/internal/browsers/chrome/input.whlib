@@ -1,0 +1,462 @@
+<?wh
+
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+
+//https://github.com/GoogleChrome/puppeteer/blob/master/lib/USKeyboardLayout.js
+RECORD ARRAY uskeyboardlayout :=
+  [ [ name := '0',                  keyCode := 48, _key := '0', code := 'Digit0' ]
+  , [ name := '1',                  keyCode := 49, _key := '1', code := 'Digit1' ]
+  , [ name := '2',                  keyCode := 50, _key := '2', code := 'Digit2' ]
+  , [ name := '3',                  keyCode := 51, _key := '3', code := 'Digit3' ]
+  , [ name := '4',                  keyCode := 52, _key := '4', code := 'Digit4' ]
+  , [ name := '5',                  keyCode := 53, _key := '5', code := 'Digit5' ]
+  , [ name := '6',                  keyCode := 54, _key := '6', code := 'Digit6' ]
+  , [ name := '7',                  keyCode := 55, _key := '7', code := 'Digit7' ]
+  , [ name := '8',                  keyCode := 56, _key := '8', code := 'Digit8' ]
+  , [ name := '9',                  keyCode := 57, _key := '9', code := 'Digit9' ]
+  , [ name := 'Power',              _key := 'Power', code := 'Power' ]
+  , [ name := 'Eject',              _key := 'Eject', code := 'Eject' ]
+  , [ name := 'Abort',              keyCode := 3, code := 'Abort', _key := 'Cancel' ]
+  , [ name := 'Help',               keyCode := 6, code := 'Help', _key := 'Help' ]
+  , [ name := 'Backspace',          keyCode := 8, code := 'Backspace', _key := 'Backspace' ]
+  , [ name := 'Tab',                keyCode := 9, code := 'Tab', _key := 'Tab' ]
+  , [ name := 'Numpad5',            keyCode := 12, shiftKeyCode := 101, _key := 'Clear', code := 'Numpad5', shiftKey := '5', location := 3 ]
+  , [ name := 'NumpadEnter',        keyCode := 13, code := 'NumpadEnter', _key := 'Enter', text := '\r', location := 3 ]
+  , [ name := 'Enter',              keyCode := 13, code := 'Enter', _key := 'Enter', text := '\r' ]
+  , [ name := '\r',                 keyCode := 13, code := 'Enter', _key := 'Enter', text := '\r' ]
+  , [ name := '\n',                 keyCode := 13, code := 'Enter', _key := 'Enter', text := '\r' ]
+  , [ name := 'ShiftLeft',          keyCode := 16, code := 'ShiftLeft', _key := 'Shift', location := 1 ]
+  , [ name := 'ShiftRight',         keyCode := 16, code := 'ShiftRight', _key := 'Shift', location := 2 ]
+  , [ name := 'ControlLeft',        keyCode := 17, code := 'ControlLeft', _key := 'Control', location := 1 ]
+  , [ name := 'ControlRight',       keyCode := 17, code := 'ControlRight', _key := 'Control', location := 2 ]
+  , [ name := 'AltLeft',            keyCode := 18, code := 'AltLeft', _key := 'Alt', location := 1 ]
+  , [ name := 'AltRight',           keyCode := 18, code := 'AltRight', _key := 'Alt', location := 2 ]
+  , [ name := 'Pause',              keyCode := 19, code := 'Pause', _key := 'Pause' ]
+  , [ name := 'CapsLock',           keyCode := 20, code := 'CapsLock', _key := 'CapsLock' ]
+  , [ name := 'Escape',             keyCode := 27, code := 'Escape', _key := 'Escape' ]
+  , [ name := 'Convert',            keyCode := 28, code := 'Convert', _key := 'Convert' ]
+  , [ name := 'NonConvert',         keyCode := 29, code := 'NonConvert', _key := 'NonConvert' ]
+  , [ name := 'Space',              keyCode := 32, code := 'Space', _key := ' ' ]
+  , [ name := 'Numpad9',            keyCode := 33, shiftKeyCode := 105, _key := 'PageUp', code := 'Numpad9', shiftKey := '9', location := 3 ]
+  , [ name := 'PageUp',             keyCode := 33, code := 'PageUp', _key := 'PageUp' ]
+  , [ name := 'Numpad3',            keyCode := 34, shiftKeyCode := 99, _key := 'PageDown', code := 'Numpad3', shiftKey := '3', location := 3 ]
+  , [ name := 'PageDown',           keyCode := 34, code := 'PageDown', _key := 'PageDown' ]
+  , [ name := 'End',                keyCode := 35, code := 'End', _key := 'End' ]
+  , [ name := 'Numpad1',            keyCode := 35, shiftKeyCode := 97, _key := 'End', code := 'Numpad1', shiftKey := '1', location := 3 ]
+  , [ name := 'Home',               keyCode := 36, code := 'Home', _key := 'Home' ]
+  , [ name := 'Numpad7',            keyCode := 36, shiftKeyCode := 103, _key := 'Home', code := 'Numpad7', shiftKey := '7', location := 3 ]
+  , [ name := 'ArrowLeft',          keyCode := 37, code := 'ArrowLeft', _key := 'ArrowLeft' ]
+  , [ name := 'Numpad4',            keyCode := 37, shiftKeyCode := 100, _key := 'ArrowLeft', code := 'Numpad4', shiftKey := '4', location := 3 ]
+  , [ name := 'Numpad8',            keyCode := 38, shiftKeyCode := 104, _key := 'ArrowUp', code := 'Numpad8', shiftKey := '8', location := 3 ]
+  , [ name := 'ArrowUp',            keyCode := 38, code := 'ArrowUp', _key := 'ArrowUp' ]
+  , [ name := 'ArrowRight',         keyCode := 39, code := 'ArrowRight', _key := 'ArrowRight' ]
+  , [ name := 'Numpad6',            keyCode := 39, shiftKeyCode := 102, _key := 'ArrowRight', code := 'Numpad6', shiftKey := '6', location := 3 ]
+  , [ name := 'Numpad2',            keyCode := 40, shiftKeyCode := 98, _key := 'ArrowDown', code := 'Numpad2', shiftKey := '2', location := 3 ]
+  , [ name := 'ArrowDown',          keyCode := 40, code := 'ArrowDown', _key := 'ArrowDown' ]
+  , [ name := 'Select',             keyCode := 41, code := 'Select', _key := 'Select' ]
+  , [ name := 'Open',               keyCode := 43, code := 'Open', _key := 'Execute' ]
+  , [ name := 'PrintScreen',        keyCode := 44, code := 'PrintScreen', _key := 'PrintScreen' ]
+  , [ name := 'Insert',             keyCode := 45, code := 'Insert', _key := 'Insert' ]
+  , [ name := 'Numpad0',            keyCode := 45, shiftKeyCode := 96, _key := 'Insert', code := 'Numpad0', shiftKey := '0', location := 3 ]
+  , [ name := 'Delete',             keyCode := 46, code := 'Delete', _key := 'Delete' ]
+  , [ name := 'NumpadDecimal',      keyCode := 46, shiftKeyCode := 110, code := 'NumpadDecimal', _key := '\u0000', shiftKey := '.', location := 3 ]
+  , [ name := 'Digit0',             keyCode := 48, code := 'Digit0', shiftKey := ')', _key := '0' ]
+  , [ name := 'Digit1',             keyCode := 49, code := 'Digit1', shiftKey := '!', _key := '1' ]
+  , [ name := 'Digit2',             keyCode := 50, code := 'Digit2', shiftKey := '@', _key := '2' ]
+  , [ name := 'Digit3',             keyCode := 51, code := 'Digit3', shiftKey := '#', _key := '3' ]
+  , [ name := 'Digit4',             keyCode := 52, code := 'Digit4', shiftKey := '$', _key := '4' ]
+  , [ name := 'Digit5',             keyCode := 53, code := 'Digit5', shiftKey := '%', _key := '5' ]
+  , [ name := 'Digit6',             keyCode := 54, code := 'Digit6', shiftKey := '^', _key := '6' ]
+  , [ name := 'Digit7',             keyCode := 55, code := 'Digit7', shiftKey := '&', _key := '7' ]
+  , [ name := 'Digit8',             keyCode := 56, code := 'Digit8', shiftKey := '*', _key := '8' ]
+  , [ name := 'Digit9',             keyCode := 57, code := 'Digit9', shiftKey := '\(', _key := '9' ]
+  , [ name := 'KeyA',               keyCode := 65, code := 'KeyA', shiftKey := 'A', _key := 'a' ]
+  , [ name := 'KeyB',               keyCode := 66, code := 'KeyB', shiftKey := 'B', _key := 'b' ]
+  , [ name := 'KeyC',               keyCode := 67, code := 'KeyC', shiftKey := 'C', _key := 'c' ]
+  , [ name := 'KeyD',               keyCode := 68, code := 'KeyD', shiftKey := 'D', _key := 'd' ]
+  , [ name := 'KeyE',               keyCode := 69, code := 'KeyE', shiftKey := 'E', _key := 'e' ]
+  , [ name := 'KeyF',               keyCode := 70, code := 'KeyF', shiftKey := 'F', _key := 'f' ]
+  , [ name := 'KeyG',               keyCode := 71, code := 'KeyG', shiftKey := 'G', _key := 'g' ]
+  , [ name := 'KeyH',               keyCode := 72, code := 'KeyH', shiftKey := 'H', _key := 'h' ]
+  , [ name := 'KeyI',               keyCode := 73, code := 'KeyI', shiftKey := 'I', _key := 'i' ]
+  , [ name := 'KeyJ',               keyCode := 74, code := 'KeyJ', shiftKey := 'J', _key := 'j' ]
+  , [ name := 'KeyK',               keyCode := 75, code := 'KeyK', shiftKey := 'K', _key := 'k' ]
+  , [ name := 'KeyL',               keyCode := 76, code := 'KeyL', shiftKey := 'L', _key := 'l' ]
+  , [ name := 'KeyM',               keyCode := 77, code := 'KeyM', shiftKey := 'M', _key := 'm' ]
+  , [ name := 'KeyN',               keyCode := 78, code := 'KeyN', shiftKey := 'N', _key := 'n' ]
+  , [ name := 'KeyO',               keyCode := 79, code := 'KeyO', shiftKey := 'O', _key := 'o' ]
+  , [ name := 'KeyP',               keyCode := 80, code := 'KeyP', shiftKey := 'P', _key := 'p' ]
+  , [ name := 'KeyQ',               keyCode := 81, code := 'KeyQ', shiftKey := 'Q', _key := 'q' ]
+  , [ name := 'KeyR',               keyCode := 82, code := 'KeyR', shiftKey := 'R', _key := 'r' ]
+  , [ name := 'KeyS',               keyCode := 83, code := 'KeyS', shiftKey := 'S', _key := 's' ]
+  , [ name := 'KeyT',               keyCode := 84, code := 'KeyT', shiftKey := 'T', _key := 't' ]
+  , [ name := 'KeyU',               keyCode := 85, code := 'KeyU', shiftKey := 'U', _key := 'u' ]
+  , [ name := 'KeyV',               keyCode := 86, code := 'KeyV', shiftKey := 'V', _key := 'v' ]
+  , [ name := 'KeyW',               keyCode := 87, code := 'KeyW', shiftKey := 'W', _key := 'w' ]
+  , [ name := 'KeyX',               keyCode := 88, code := 'KeyX', shiftKey := 'X', _key := 'x' ]
+  , [ name := 'KeyY',               keyCode := 89, code := 'KeyY', shiftKey := 'Y', _key := 'y' ]
+  , [ name := 'KeyZ',               keyCode := 90, code := 'KeyZ', shiftKey := 'Z', _key := 'z' ]
+  , [ name := 'MetaLeft',           keyCode := 91, code := 'MetaLeft', _key := 'Meta' ]
+  , [ name := 'MetaRight',          keyCode := 92, code := 'MetaRight', _key := 'Meta' ]
+  , [ name := 'ContextMenu',        keyCode := 93, code := 'ContextMenu', _key := 'ContextMenu' ]
+  , [ name := 'NumpadMultiply',     keyCode := 106, code := 'NumpadMultiply', _key := '*', location := 3 ]
+  , [ name := 'NumpadAdd',          keyCode := 107, code := 'NumpadAdd', _key := '+', location := 3 ]
+  , [ name := 'NumpadSubtract',     keyCode := 109, code := 'NumpadSubtract', _key := '-', location := 3 ]
+  , [ name := 'NumpadDivide',       keyCode := 111, code := 'NumpadDivide', _key := '/', location := 3 ]
+  , [ name := 'F1',                 keyCode := 112, code := 'F1', _key := 'F1' ]
+  , [ name := 'F2',                 keyCode := 113, code := 'F2', _key := 'F2' ]
+  , [ name := 'F3',                 keyCode := 114, code := 'F3', _key := 'F3' ]
+  , [ name := 'F4',                 keyCode := 115, code := 'F4', _key := 'F4' ]
+  , [ name := 'F5',                 keyCode := 116, code := 'F5', _key := 'F5' ]
+  , [ name := 'F6',                 keyCode := 117, code := 'F6', _key := 'F6' ]
+  , [ name := 'F7',                 keyCode := 118, code := 'F7', _key := 'F7' ]
+  , [ name := 'F8',                 keyCode := 119, code := 'F8', _key := 'F8' ]
+  , [ name := 'F9',                 keyCode := 120, code := 'F9', _key := 'F9' ]
+  , [ name := 'F10',                keyCode := 121, code := 'F10', _key := 'F10' ]
+  , [ name := 'F11',                keyCode := 122, code := 'F11', _key := 'F11' ]
+  , [ name := 'F12',                keyCode := 123, code := 'F12', _key := 'F12' ]
+  , [ name := 'F13',                keyCode := 124, code := 'F13', _key := 'F13' ]
+  , [ name := 'F14',                keyCode := 125, code := 'F14', _key := 'F14' ]
+  , [ name := 'F15',                keyCode := 126, code := 'F15', _key := 'F15' ]
+  , [ name := 'F16',                keyCode := 127, code := 'F16', _key := 'F16' ]
+  , [ name := 'F17',                keyCode := 128, code := 'F17', _key := 'F17' ]
+  , [ name := 'F18',                keyCode := 129, code := 'F18', _key := 'F18' ]
+  , [ name := 'F19',                keyCode := 130, code := 'F19', _key := 'F19' ]
+  , [ name := 'F20',                keyCode := 131, code := 'F20', _key := 'F20' ]
+  , [ name := 'F21',                keyCode := 132, code := 'F21', _key := 'F21' ]
+  , [ name := 'F22',                keyCode := 133, code := 'F22', _key := 'F22' ]
+  , [ name := 'F23',                keyCode := 134, code := 'F23', _key := 'F23' ]
+  , [ name := 'F24',                keyCode := 135, code := 'F24', _key := 'F24' ]
+  , [ name := 'NumLock',            keyCode := 144, code := 'NumLock', _key := 'NumLock' ]
+  , [ name := 'ScrollLock',         keyCode := 145, code := 'ScrollLock', _key := 'ScrollLock' ]
+  , [ name := 'AudioVolumeMute',    keyCode := 173, code := 'AudioVolumeMute', _key := 'AudioVolumeMute' ]
+  , [ name := 'AudioVolumeDown',    keyCode := 174, code := 'AudioVolumeDown', _key := 'AudioVolumeDown' ]
+  , [ name := 'AudioVolumeUp',      keyCode := 175, code := 'AudioVolumeUp', _key := 'AudioVolumeUp' ]
+  , [ name := 'MediaTrackNext',     keyCode := 176, code := 'MediaTrackNext', _key := 'MediaTrackNext' ]
+  , [ name := 'MediaTrackPrevious', keyCode := 177, code := 'MediaTrackPrevious', _key := 'MediaTrackPrevious' ]
+  , [ name := 'MediaStop',          keyCode := 178, code := 'MediaStop', _key := 'MediaStop' ]
+  , [ name := 'MediaPlayPause',     keyCode := 179, code := 'MediaPlayPause', _key := 'MediaPlayPause' ]
+  , [ name := 'Semicolon',          keyCode := 186, code := 'Semicolon', shiftKey := ':', _key := ';' ]
+  , [ name := 'Equal',              keyCode := 187, code := 'Equal', shiftKey := '+', _key := '=' ]
+  , [ name := 'NumpadEqual',        keyCode := 187, code := 'NumpadEqual', _key := '=', location := 3 ]
+  , [ name := 'Comma',              keyCode := 188, code := 'Comma', shiftKey := '\<', _key := ',' ]
+  , [ name := 'Minus',              keyCode := 189, code := 'Minus', shiftKey := '_', _key := '-' ]
+  , [ name := 'Period',             keyCode := 190, code := 'Period', shiftKey := '>', _key := '.' ]
+  , [ name := 'Slash',              keyCode := 191, code := 'Slash', shiftKey := '?', _key := '/' ]
+  , [ name := 'Backquote',          keyCode := 192, code := 'Backquote', shiftKey := '~', _key := '`' ]
+  , [ name := 'BracketLeft',        keyCode := 219, code := 'BracketLeft', shiftKey := '{', _key := '[' ]
+  , [ name := 'Backslash',          keyCode := 220, code := 'Backslash', shiftKey := '|', _key := '\\' ]
+  , [ name := 'BracketRight',       keyCode := 221, code := 'BracketRight', shiftKey := '}', _key := ']' ]
+  , [ name := 'Quote',              keyCode := 222, code := 'Quote', shiftKey := '"', _key := '\'' ]
+  , [ name := 'AltGraph',           keyCode := 225, code := 'AltGraph', _key := 'AltGraph' ]
+  , [ name := 'Props',              keyCode := 247, code := 'Props', _key := 'CrSel' ]
+  , [ name := 'Cancel',             keyCode := 3, _key := 'Cancel', code := 'Abort' ]
+  , [ name := 'Clear',              keyCode := 12, _key := 'Clear', code := 'Numpad5', location := 3 ]
+  , [ name := 'Shift',              keyCode := 16, _key := 'Shift', code := 'ShiftLeft' ]
+  , [ name := 'Control',            keyCode := 17, _key := 'Control', code := 'ControlLeft' ]
+  , [ name := 'Alt',                keyCode := 18, _key := 'Alt', code := 'AltLeft' ]
+  , [ name := 'Accept',             keyCode := 30, _key := 'Accept' ]
+  , [ name := 'ModeChange',         keyCode := 31, _key := 'ModeChange' ]
+  , [ name := ' ',                  keyCode := 32, _key := ' ', code := 'Space' ]
+  , [ name := 'Print',              keyCode := 42, _key := 'Print' ]
+  , [ name := 'Execute',            keyCode := 43, _key := 'Execute', code := 'Open' ]
+  , [ name := '\u0000',             keyCode := 46, _key := '\u0000', code := 'NumpadDecimal', location := 3 ]
+  , [ name := 'a',                  keyCode := 65, _key := 'a', code := 'KeyA' ]
+  , [ name := 'b',                  keyCode := 66, _key := 'b', code := 'KeyB' ]
+  , [ name := 'c',                  keyCode := 67, _key := 'c', code := 'KeyC' ]
+  , [ name := 'd',                  keyCode := 68, _key := 'd', code := 'KeyD' ]
+  , [ name := 'e',                  keyCode := 69, _key := 'e', code := 'KeyE' ]
+  , [ name := 'f',                  keyCode := 70, _key := 'f', code := 'KeyF' ]
+  , [ name := 'g',                  keyCode := 71, _key := 'g', code := 'KeyG' ]
+  , [ name := 'h',                  keyCode := 72, _key := 'h', code := 'KeyH' ]
+  , [ name := 'i',                  keyCode := 73, _key := 'i', code := 'KeyI' ]
+  , [ name := 'j',                  keyCode := 74, _key := 'j', code := 'KeyJ' ]
+  , [ name := 'k',                  keyCode := 75, _key := 'k', code := 'KeyK' ]
+  , [ name := 'l',                  keyCode := 76, _key := 'l', code := 'KeyL' ]
+  , [ name := 'm',                  keyCode := 77, _key := 'm', code := 'KeyM' ]
+  , [ name := 'n',                  keyCode := 78, _key := 'n', code := 'KeyN' ]
+  , [ name := 'o',                  keyCode := 79, _key := 'o', code := 'KeyO' ]
+  , [ name := 'p',                  keyCode := 80, _key := 'p', code := 'KeyP' ]
+  , [ name := 'q',                  keyCode := 81, _key := 'q', code := 'KeyQ' ]
+  , [ name := 'r',                  keyCode := 82, _key := 'r', code := 'KeyR' ]
+  , [ name := 's',                  keyCode := 83, _key := 's', code := 'KeyS' ]
+  , [ name := 't',                  keyCode := 84, _key := 't', code := 'KeyT' ]
+  , [ name := 'u',                  keyCode := 85, _key := 'u', code := 'KeyU' ]
+  , [ name := 'v',                  keyCode := 86, _key := 'v', code := 'KeyV' ]
+  , [ name := 'w',                  keyCode := 87, _key := 'w', code := 'KeyW' ]
+  , [ name := 'x',                  keyCode := 88, _key := 'x', code := 'KeyX' ]
+  , [ name := 'y',                  keyCode := 89, _key := 'y', code := 'KeyY' ]
+  , [ name := 'z',                  keyCode := 90, _key := 'z', code := 'KeyZ' ]
+  , [ name := 'Meta',               keyCode := 91, _key := 'Meta', code := 'MetaLeft' ]
+  , [ name := '*',                  keyCode := 106, _key := '*', code := 'NumpadMultiply', location := 3 ]
+  , [ name := '+',                  keyCode := 107, _key := '+', code := 'NumpadAdd', location := 3 ]
+  , [ name := '-',                  keyCode := 109, _key := '-', code := 'NumpadSubtract', location := 3 ]
+  , [ name := '/',                  keyCode := 111, _key := '/', code := 'NumpadDivide', location := 3 ]
+  , [ name := ';',                  keyCode := 186, _key := ';', code := 'Semicolon' ]
+  , [ name := '=',                  keyCode := 187, _key := '=', code := 'Equal' ]
+  , [ name := ',',                  keyCode := 188, _key := ',', code := 'Comma' ]
+  , [ name := '.',                  keyCode := 190, _key := '.', code := 'Period' ]
+  , [ name := '`',                  keyCode := 192, _key := '`', code := 'Backquote' ]
+  , [ name := '[',                  keyCode := 219, _key := '[', code := 'BracketLeft' ]
+  , [ name := '\\',                 keyCode := 220, _key := '\\', code := 'Backslash' ]
+  , [ name := ']',                  keyCode := 221, _key := ']', code := 'BracketRight' ]
+  , [ name := '\'',                 keyCode := 222, _key := '\'', code := 'Quote' ]
+  , [ name := 'Attn',               keyCode := 246, _key := 'Attn' ]
+  , [ name := 'CrSel',              keyCode := 247, _key := 'CrSel', code := 'Props' ]
+  , [ name := 'ExSel',              keyCode := 248, _key := 'ExSel' ]
+  , [ name := 'EraseEof',           keyCode := 249, _key := 'EraseEof' ]
+  , [ name := 'Play',               keyCode := 250, _key := 'Play' ]
+  , [ name := 'ZoomOut',            keyCode := 251, _key := 'ZoomOut' ]
+  , [ name := ')',                  keyCode := 48, _key := ')', code := 'Digit0' ]
+  , [ name := '!',                  keyCode := 49, _key := '!', code := 'Digit1' ]
+  , [ name := '@',                  keyCode := 50, _key := '@', code := 'Digit2' ]
+  , [ name := '#',                  keyCode := 51, _key := '#', code := 'Digit3' ]
+  , [ name := '$',                  keyCode := 52, _key := '$', code := 'Digit4' ]
+  , [ name := '%',                  keyCode := 53, _key := '%', code := 'Digit5' ]
+  , [ name := '^',                  keyCode := 54, _key := '^', code := 'Digit6' ]
+  , [ name := '&',                  keyCode := 55, _key := '&', code := 'Digit7' ]
+  , [ name := '(',                  keyCode := 57, _key := '\(', code := 'Digit9' ]
+  , [ name := 'A',                  keyCode := 65, _key := 'A', code := 'KeyA' ]
+  , [ name := 'B',                  keyCode := 66, _key := 'B', code := 'KeyB' ]
+  , [ name := 'C',                  keyCode := 67, _key := 'C', code := 'KeyC' ]
+  , [ name := 'D',                  keyCode := 68, _key := 'D', code := 'KeyD' ]
+  , [ name := 'E',                  keyCode := 69, _key := 'E', code := 'KeyE' ]
+  , [ name := 'F',                  keyCode := 70, _key := 'F', code := 'KeyF' ]
+  , [ name := 'G',                  keyCode := 71, _key := 'G', code := 'KeyG' ]
+  , [ name := 'H',                  keyCode := 72, _key := 'H', code := 'KeyH' ]
+  , [ name := 'I',                  keyCode := 73, _key := 'I', code := 'KeyI' ]
+  , [ name := 'J',                  keyCode := 74, _key := 'J', code := 'KeyJ' ]
+  , [ name := 'K',                  keyCode := 75, _key := 'K', code := 'KeyK' ]
+  , [ name := 'L',                  keyCode := 76, _key := 'L', code := 'KeyL' ]
+  , [ name := 'M',                  keyCode := 77, _key := 'M', code := 'KeyM' ]
+  , [ name := 'N',                  keyCode := 78, _key := 'N', code := 'KeyN' ]
+  , [ name := 'O',                  keyCode := 79, _key := 'O', code := 'KeyO' ]
+  , [ name := 'P',                  keyCode := 80, _key := 'P', code := 'KeyP' ]
+  , [ name := 'Q',                  keyCode := 81, _key := 'Q', code := 'KeyQ' ]
+  , [ name := 'R',                  keyCode := 82, _key := 'R', code := 'KeyR' ]
+  , [ name := 'S',                  keyCode := 83, _key := 'S', code := 'KeyS' ]
+  , [ name := 'T',                  keyCode := 84, _key := 'T', code := 'KeyT' ]
+  , [ name := 'U',                  keyCode := 85, _key := 'U', code := 'KeyU' ]
+  , [ name := 'V',                  keyCode := 86, _key := 'V', code := 'KeyV' ]
+  , [ name := 'W',                  keyCode := 87, _key := 'W', code := 'KeyW' ]
+  , [ name := 'X',                  keyCode := 88, _key := 'X', code := 'KeyX' ]
+  , [ name := 'Y',                  keyCode := 89, _key := 'Y', code := 'KeyY' ]
+  , [ name := 'Z',                  keyCode := 90, _key := 'Z', code := 'KeyZ' ]
+  , [ name := ':',                  keyCode := 186, _key := ':', code := 'Semicolon' ]
+  , [ name := '<',                  keyCode := 188, _key := '\<', code := 'Comma' ]
+  , [ name := '_',                  keyCode := 189, _key := '_', code := 'Minus' ]
+  , [ name := '>',                  keyCode := 190, _key := '>', code := 'Period' ]
+  , [ name := '?',                  keyCode := 191, _key := '?', code := 'Slash' ]
+  , [ name := '~',                  keyCode := 192, _key := '~', code := 'Backquote' ]
+  , [ name := '{',                  keyCode := 219, _key := '{', code := 'BracketLeft' ]
+  , [ name := '|',                  keyCode := 220, _key := '|', code := 'Backslash' ]
+  , [ name := '}',                  keyCode := 221, _key := '}', code := 'BracketRight' ]
+  , [ name := '"',                  keyCode := 222, _key := '"', code := 'Quote' ]
+  ];
+
+INTEGER FUNCTION _modifierBit(STRING keyname)
+{
+  IF(keyname = 'Alt')
+    RETURN 1;
+  IF(keyname = 'Control')
+    RETURN 2;
+  IF(keyname = 'Meta')
+    RETURN 4;
+  IF(keyname = 'Shift')
+    RETURN 8;
+  RETURN 0;
+}
+
+RECORD FUNCTION _keyDescriptionForString(STRING keyString, INTEGER modifiers)
+{
+  BOOLEAN shift := modifiers BITAND 8 = 8;
+  RECORD description := [ _key := "", keyCode := 0, code := "", text := "", location := 0 ];
+  RECORD definition := SELECT * FROM uskeyboardlayout WHERE name = keystring;
+  IF(NOT RecordExists(definition))
+    THROW NEW Exception(`Unknown key '${keystring}'`);
+
+  IF(CellExists(definition, "_key"))
+    description._key := definition._key;
+  IF(shift AND CellExists(definition,"shiftkey"))
+    description._key := definition.shiftKey;
+
+  IF(CellExists(definition, "keycode"))
+    description.keycode := definition.keycode;
+  IF(shift AND CellExists(definition,"shiftkeycode"))
+    description.keycode := definition.shiftKeycode;
+
+  IF(CellExists(definition, "code"))
+    description.code := definition.code;
+
+  IF(CellExists(definition, "location"))
+    description.location := definition.location;
+
+  IF(modifiers BITAND 7 = 0) // if any modifiers besides shift are pressed, no text should be sent
+  {
+    IF(Length(description._key) = 1)
+      description.text := description._key;
+
+    IF(CellExists(definition,'text'))
+      description.text := definition.text;
+
+    IF(shift AND CellExists(definition,"shifttext"))
+      description.text := definition.shifttext;
+  }
+  RETURN description;
+}
+
+PUBLIC STATIC OBJECTTYPE Keyboard
+<
+  OBJECT pvt_client;
+
+  INTEGER pvt_modifiers;
+
+  PUBLIC PROPERTY modifiers(pvt_modifiers, -);
+
+  MACRO NEW(OBJECT client)
+  {
+    this->pvt_client := client;
+  }
+  PUBLIC ASYNC MACRO Down(STRING name, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    //https://github.com/GoogleChrome/puppeteer/blob/master/lib/Input.js#L43
+
+    RECORD description := _keyDescriptionForString(name, this->pvt_modifiers);
+
+    //- const autoRepeat = this._pressedKeys.has(description.code);
+    //- this._pressedKeys.add(description.code);
+    this->pvt_modifiers := this->pvt_modifiers BITOR _modifierBit(description._key);
+
+    STRING text := CellExists(options,'text') ? options.text : description.text;
+    RECORD request := [ //- type: text ? 'keyDown' : 'rawKeyDown',
+                        type     :=       "keyDown"
+                      , code     := description.code
+                      , "key"    := description._key
+                      , text     := text
+                      , modifiers := this->pvt_modifiers
+                      , windowsVirtualKeyCode := description.keyCode
+                        //- text: text,
+                        //- unmodifiedText: text,
+                        //- autoRepeat,
+                      , location := description.location
+                      , isKeypad := CellExists(description,'location') AND description.location = 3
+                      ];
+
+    AWAIT this->pvt_client->^Input->^dispatchKeyEvent(request);
+  }
+  PUBLIC ASYNC MACRO Press(STRING name, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    AWAIT this->Down(name, options);
+    //if (options && options.delay)
+    //  await new Promise(f => setTimeout(f, options.delay));
+    AWAIT this->Up(name);
+  }
+  PUBLIC ASYNC MACRO Up(STRING name)
+  { //https://github.com/GoogleChrome/puppeteer/blob/master/lib/Input.js#L135
+    RECORD description := _keyDescriptionForString(name, this->pvt_modifiers);
+    this->pvt_modifiers := this->pvt_modifiers BITAND BITNEG _modifierBit(description._key);
+    //this._pressedKeys.delete(description.code);
+
+    RECORD request := [ type := "keyUp"
+                      , modifiers := this->pvt_modifiers
+                      , code     := description.code
+                      , "key"    := description._key
+                      , location := description.location
+                      , windowsVirtualKeyCode := description.keyCode
+                      ];
+
+    AWAIT this->pvt_client->^Input->^dispatchKeyEvent(request);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE Mouse
+<
+  OBJECT pvt_client;
+  OBJECT pvt_keyboard;
+
+  INTEGER pvt_x;
+  INTEGER pvt_y;
+  STRING pvt_button;
+
+  MACRO NEW(OBJECT client, OBJECT keyboard)
+  {
+    this->pvt_client := client;
+    this->pvt_keyboard := keyboard;
+
+    this->pvt_button := "none";
+  }
+
+  PUBLIC ASYNC MACRO Move(INTEGER x, INTEGER y, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ steps :=    1
+        ], options);
+
+    this->pvt_x := x;
+    this->pvt_y := y;
+
+    INTEGER fromx := this->pvt_x, fromy := this->pvt_y;
+    FOR (INTEGER i := 1; i <= options.steps; i := i + 1)
+    {
+      AWAIT this->pvt_client->^Input->^dispatchMouseEvent(
+          [ type :=       "mouseMoved"
+          , button :=     this->pvt_button
+          , x :=          fromX + (this->pvt_x - fromX) * (i / options.steps)
+          , y :=          fromY + (this->pvt_y - fromY) * (i / options.steps)
+          , modifiers :=  this->pvt_keyboard->modifiers
+          ]);
+    }
+  }
+
+  PUBLIC ASYNC MACRO Click(INTEGER x, INTEGER y, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ delay :=    0
+        , button :=   "left"
+        ], options);
+
+    this->Move(x, y);
+    this->Down(CELL[ options.button ]);
+    IF (options.delay != 0)
+      AWAIT NEW WaitableTimer(options.delay)->WaitSignalled();
+    AWAIT this->Up(CELL[ options.button ]);
+  }
+
+  PUBLIC ASYNC MACRO Down(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ button :=       "left"
+        , clickcount :=   1
+        ], options);
+    this->pvt_button := options.button;
+
+    AWAIT this->pvt_client->^Input->^dispatchMouseEvent(
+        [ type :=       "mousePressed"
+        , button :=     this->pvt_button
+        , x :=          this->pvt_x
+        , y :=          this->pvt_y
+        , modifiers :=  this->pvt_keyboard->modifiers
+        , clickCount := options.clickcount
+        ]);
+  }
+
+  PUBLIC ASYNC MACRO Up(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ button :=       "left"
+        , clickcount :=   1
+        ], options);
+    this->pvt_button := options.button;
+
+    AWAIT this->pvt_client->^Input->^dispatchMouseEvent(
+        [ type :=       "mouseReleased"
+        , button :=     this->pvt_button
+        , x :=          this->pvt_x
+        , y :=          this->pvt_y
+        , modifiers :=  this->pvt_keyboard->modifiers
+        , clickCount := options.clickcount
+        ]);
+  }
+
+
+>;

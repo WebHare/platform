@@ -1,0 +1,194 @@
+<?wh
+
+/** This script tests the consistency of a wrd schema, and tries to pinpoint reference defects
+
+   It uses multiple methods to check consistency, so some errors may be reported twice
+*/
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+OBJECT trans := OpenPrimary();
+STRING ARRAY errors;
+
+BOOLEAN checkdata := TRUE;
+
+/// Inefficient function to get the name of an entitytype
+STRING FUNCTION GetEntityTypeName(INTEGER entity_type_id)
+{
+  RECORD entityrec := SELECT wrd_schema, title FROM wrd.types WHERE id = entity_type_id;
+  IF (NOT RecordExists(entityrec))
+  {
+    PRINT("Found a reference to entity type #" || entity_type_id || ", which does not have a corresponding record" || "\n");
+    RETURN "(ILLEGAL REFERENCE: TYPE #" || entity_type_id || ")";
+  }
+  RECORD schemarec := SELECT name FROM wrd.schemas WHERE id = entityrec.wrd_schema;
+
+  RETURN schemarec.name || "." || entityrec.title;
+}
+
+/// Inefficient function to get the name of an entitytype
+STRING FUNCTION GetAttributeTypeName(INTEGER attr_type_id)
+{
+  RECORD attr := SELECT type, title FROM wrd.attrs WHERE id = attr_type_id;
+  IF (NOT RecordExists(attr))
+    RETURN "(ILLEGAL REFERENCE: ATTR #" || attr_type_id || ")";
+  RETURN GetEntityTypeName(attr.type) || "." || attr.title;
+}
+
+
+STRING FUNCTION GetTypeOfEntity(INTEGER entity_id)
+{
+  INTEGER mytype := SELECT AS INTEGER type FROM wrd.entities WHERE id = entity_id;
+  IF (mytype = 0)
+    RETURN "(ILLEGAL REFERENCE: ENTITY #" || entity_id || ")";
+  RETURN GetEntityTypeName(mytype);
+}
+
+
+FOREVERY (RECORD schemarec FROM (SELECT * FROM wrd.schemas))
+{
+  PRINT("Checking WRD schema " || schemarec.name || "\n");
+
+  INTEGER schemaid := schemarec.id;
+
+  // Get list of all legal types
+  INTEGER ARRAY legal_types := SELECT AS INTEGER ARRAY id FROM wrd.types WHERE wrd_schema = schemaid;
+
+  /// Check entity-types
+  FOREVERY (RECORD type FROM SELECT * FROM wrd.types WHERE wrd_schema = schemaid)
+  {
+    IF (type.requiretype_left != 0 AND type.requiretype_left NOT IN legal_types)
+    {
+      STRING error := "WRD type " || schemarec.name || "." || type.title || " refers to type " || GetEntityTypeName(type.requiretype_left) || ", which is not in the same schema!";
+      INSERT error INTO errors AT END;
+    }
+    IF (type.requiretype_right != 0 AND type.requiretype_right NOT IN legal_types)
+    {
+      STRING error := "WRD type " || schemarec.name || "." || type.title || " refers to type " || GetEntityTypeName(type.requiretype_right) || ", which is not in the same schema!";
+      INSERT error INTO errors AT END;
+    }
+  }
+
+  /// Check attributes
+  FOREVERY (RECORD attr FROM SELECT * FROM wrd.attrs WHERE type IN legal_types)
+  {
+    IF (attr.domain != 0 AND attr.domain NOT IN legal_types)
+    {
+      STRING error := "WRD type " || schemarec.name || "." || attr.title || " refers to type " || GetEntityTypeName(attr.domain) || ", which is not in the same schema!";
+      INSERT error INTO errors AT END;
+    }
+  }
+
+  IF (NOT checkdata)
+    CONTINUE;
+
+  INTEGER ARRAY legal_attrtypes := SELECT AS INTEGER ARRAY id FROM wrd.attrs WHERE type IN legal_types;
+  INTEGER ARRAY legal_entities := SELECT AS INTEGER ARRAY id FROM wrd.entities WHERE type IN legal_types;
+
+  FOREVERY (RECORD entity FROM SELECT * FROM wrd.entities WHERE type IN legal_types)
+  {
+    IF (entity.leftentity != 0 AND entity.leftentity NOT IN legal_entities)
+    {
+      STRING error := "Entity #" || entity.id || " of type " || GetEntityTypeName(entity.type) || " refers to entity #" || entity.leftentity || " of type " || GetTypeOfEntity(entity.leftentity) || ", which is not in the same schema!";
+      INSERT error INTO errors AT END;
+    }
+    IF (entity.rightentity != 0 AND entity.rightentity NOT IN legal_entities)
+    {
+      STRING error := "Entity #" || entity.id || " of type " || GetEntityTypeName(entity.type) || " refers to entity #" || entity.rightentity || " of type " || GetTypeOfEntity(entity.rightentity) || ", which is not in the same schema!";
+      INSERT error INTO errors AT END;
+    }
+  }
+
+  INTEGER ARRAY legal_settings := SELECT AS INTEGER ARRAY id FROM wrd.entity_settings WHERE entity IN legal_entities;
+
+  FOREVERY (RECORD setting FROM SELECT * FROM wrd.entity_settings WHERE entity IN legal_entities)
+  {
+    IF (setting.attribute != 0 AND setting.attribute NOT IN legal_attrtypes)
+    {
+      STRING error := "Setting #" || setting.id || " of attribute " || GetAttributeTypeNameByTypeId(setting.attribute) || " is for entity #" || setting.entity || " of type " || GetTypeOfEntity(setting.entity) || ", which is not in the same schema!";
+      INSERT error INTO errors AT END;
+      CONTINUE; // Skip other checks, the schema is wrong anyway
+    }
+
+    IF (setting.setting != 0 AND setting.setting NOT IN legal_entities)
+    {
+      STRING error := "Setting #" || setting.id || " of attribute " || GetAttributeTypeNameByTypeId(setting.attribute) || " refers to entity #" || setting.setting || " of type " || GetTypeOfEntity(setting.setting) || ", which is not in the same schema!";
+      INSERT error INTO errors AT END;
+    }
+  }
+  // ADDME: check if type of referenced entities is correct
+}
+
+PRINT("Checking overall data typing consistency\n");
+
+RECORD ARRAY typefails;
+
+// FIXME: don't know if this works correctly!
+typefails :=
+  SELECT referring_id := referring.id
+       , referred_id := referred.id
+       , wanttype := referring_type.requiretype_left
+    FROM wrd.entities AS referring
+       , wrd.entities AS referred
+       , wrd.types AS referring_type
+   WHERE referring.leftentity != 0
+     AND referring.leftentity = referred.id
+     AND referring.type = referring_type.id
+     AND referred.type != referring_type.requiretype_left
+     AND referring_type.requiretype_left != 0;
+
+// FIXME: don't know if this works correctly!
+typefails := typefails CONCAT
+  SELECT referring_id := referring.id
+       , referred_id := referred.id
+       , wanttype := referring_type.requiretype_right
+    FROM wrd.entities AS referring
+       , wrd.entities AS referred
+       , wrd.types AS referring_type
+   WHERE referring.rightentity != 0
+     AND referring.rightentity = referred.id
+     AND referring.type = referring_type.id
+     AND referred.type != referring_type.requiretype_right
+     AND referring_type.requiretype_right != 0;
+
+FOREVERY (RECORD fail FROM typefails)
+{
+  STRING error := "Entity #" || fail.referring_id || " of type " || GetTypeOfEntity(fail.referring_id) || " refers to entity #" || fail.referred_id || " of type " || GetTypeOfEntity(fail.referred_id) || ", but it should refer to an entity of type " || GetEntityTypeName(fail.wanttype);
+  INSERT error INTO errors AT END;
+}
+
+// FIXME: don't know if this works correctly!
+RECORD ARRAY settingfails :=
+  SELECT entity_id := entity_settings.entity
+       , setting_id := entity_settings.id
+       , referred_id := entity_settings.setting
+       , attrtype := attrs.id
+       , wanttype := attrs.domain
+    FROM wrd.entity_settings
+       , wrd.entities
+       , wrd.attrs
+   WHERE entity_settings.attribute = attrs.id
+     AND entity_settings.setting = entities.id
+     AND attrs.domain != 0
+     AND attrs.domain != entities.type;
+
+FOREVERY (RECORD fail FROM settingfails)
+{
+  STRING error := "Setting #" || fail.setting_id || " of type " || GetAttributeTypeNameByTypeId(fail.attrtype) || " for entity #" || fail.entity_id || " refers to entity #" || fail.referred_id || " of type " || GetTypeOfEntity(fail.referred_id) || ", but it should refer to an entity of type " || GetEntityTypeName(fail.wanttype);
+  INSERT error INTO errors AT END;
+}
+
+
+IF (LENGTH(errors) = 0)
+{
+  PRINT("No errors found");
+}
+ELSE
+{
+  PRINT("Number of errors found: " || LENGTH(errors) || "\n");
+  FOREVERY (STRING error FROM errors)
+    PRINT(" " || error || "\n");
+}
+

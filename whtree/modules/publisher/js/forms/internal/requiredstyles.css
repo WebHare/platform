@@ -1,0 +1,30 @@
+/* Required form rules */
+
+/* Hide explicitly hidden pages and groups
+   Initially hide second and further pages, unless explicitly marked as visible (better for initial rendering  */
+  .wh-form__page ~ .wh-form__page:not(.wh-form__page--visible)
+, .wh-form__page--hidden
+, .wh-form__fieldgroup--hidden
+, .wh-form__fieldline--hidden
+{
+  display:none;
+}
+
+.wh-form:not(.wh-form--allowprevious) .wh-form__button--previous
+, .wh-form:not(.wh-form--allownext) .wh-form__button--next
+, .wh-form:not(.wh-form--allowsubmit) .wh-form__button--submit
+{
+  display:none;
+}
+
+/* Temp workaround for formsapi/forms prefill clash */
+.wh-form__prefillarea + .wh-form-prefill
+{
+  display: none;
+}
+
+/* Required so image styling (Eg neutral.css) doesn't blow up the styling if you didn't include imgedit itself */
+.wh-form__imgedit
+{
+  position:relative;
+}

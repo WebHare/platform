@@ -1,0 +1,169 @@
+﻿<?wh
+
+LOADLIB "wh::devsupport.whlib";
+
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE Transport
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN pvt_senderrortraces;
+  STRING pvt_transportname;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY senderrortraces(pvt_senderrortraces, -);
+
+  PUBLIC PROPERTY transportname(pvt_transportname, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(STRING transportname)
+  {
+    this->pvt_transportname:=transportname;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** @return
+      @cell return.functionname
+      @cell return.args
+  */
+  PUBLIC RECORD FUNCTION DecodeRequest(BLOB body, STRING functionname)
+  {
+    THROW NEW Exception("Override this!");
+  }
+
+
+  /** @return
+      @cell return.headers
+      @cell return.data
+      @cell return.keeprunning
+  */
+  PUBLIC RECORD FUNCTION EncodeResponse(BOOLEAN is_macro, VARIANT response, STRING srhid, RECORD requesttoken)
+  {
+    THROW NEW Exception("Override this!");
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeException(OBJECT e, RECORD requesttoken)
+  {
+    RETURN
+        [ headers :=    [ [ field := "Status", value := "500 Exception executing RPC: " || e->what ] ]
+        , data :=       DEFAULT BLOB
+        , keeprunning :=FALSE
+        ];
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeErrors(RECORD ARRAY errors, RECORD requesttoken)
+  {
+    RETURN
+        [ headers :=    [ [ field := "Status", value := "500 Encountered errors, see logs" ] ]
+        , data :=       DEFAULT BLOB
+        , keeprunning :=FALSE
+        ];
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeMissingFunction(STRING functionname, RECORD requesttoken)
+  {
+    RETURN
+        [ headers :=    [ [ field := "Status", value := "403 Could not find function " || functionname ] ]
+        , data :=       DEFAULT BLOB
+        , keeprunning :=FALSE
+        ];
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  STRING FUNCTION GetExceptionString(OBJECT e, BOOLEAN is_hs_error)
+  {
+    STRING res := (is_hs_error ? "Internal exception" : "Exception") || ": '" || e->what || "'";
+    IF (is_hs_error AND Length(e->errors) != 0)
+      res := res || ", at " || e->errors[0].filename || "(" || e->errors[0].line || "," || e->errors[0].col || ")";
+    IF (LENGTH(e->trace) != 0)
+    {
+      FOR (INTEGER i := LENGTH(e->trace); i > 0; i := i - 1)
+        res := res || ", at " || e->trace[i - 1].filename || "(" || e->trace[i - 1].line || "," || e->trace[i - 1].col || ")";
+    }
+    RETURN res;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD FUNCTION HandlePersistentSessions(BLOB requestbody, STRING whs_srh)
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+
+  PUBLIC MACRO Persist()
+  {
+    DetachScriptFromRequest();
+  }
+
+  PUBLIC BOOLEAN FUNCTION TrySendResult(RECORD encoded_result)
+  {
+    RETURN FALSE;
+  }
+
+  RECORD ARRAY FUNCTION FilterTrace(RECORD ARRAY trace)
+  {
+    RETURN SELECT *
+             FROM trace
+            WHERE filename NOT LIKE "mod::system/lib/internal/remoting/*";
+  }
+  RECORD FUNCTION GetNiceError(RECORD ARRAY errors)
+  {
+    RECORD ARRAY trace;
+    STRING message, suffix;
+
+    FOREVERY (RECORD err FROM errors)
+    {
+      IF(err.iserror)
+      {
+        STRING msg := err.code > 0 ? GetHareScriptMessageText(TRUE, err.code, err.param1, err.param2) : "";
+        IF(#err=0 AND (err.filename != "" OR err.line != 0))
+          suffix := " (" || err.filename || "#" || err.line || "#" || err.col || ")";
+
+        message := (#err=0 ? "" : message || ", ") || msg;
+      }
+      ELSE IF(err.istrace)
+      {
+        IF(err.filename LIKE "mod::system/lib/internal/remoting/*")
+          CONTINUE;
+
+        INSERT
+            [ filename :=     err.filename
+            , func :=         err.func
+            , line :=         err.line
+            , col :=          err.col
+            ] INTO trace AT 0;
+      }
+    }
+    RETURN [ message := message || suffix
+           , trace := trace
+           ];
+  }
+>;

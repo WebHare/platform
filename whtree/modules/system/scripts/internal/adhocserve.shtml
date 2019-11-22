@@ -1,0 +1,30 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+
+STRING url := GetRequestURL();
+STRING localpath := Substring(url, SearchSubstring(url, "/.adhocserve/") + 13);
+
+// Split the local path (after "/.adhocserver/") into port id (first part) and requested file path
+STRING id := Tokenize(localpath, "/")[0];
+STRING path := Substring(localpath, Length(id));
+
+// Connect to the global port
+OBJECT link := ConnectToGlobalIPCPort("system:adhocserver." || id);
+IF (NOT ObjectExists(link))
+  AbortWithHTTPError(410, "This port is not available");
+
+// Request the file path
+RECORD response := link->DoRequest([ path := path ]);
+
+// If an HTTP status was returned, abort
+IF (CellExists(response.msg, "status"))
+  AbortWithHTTPError(response.msg.status);
+
+// Return the requested data
+FOREVERY (RECORD header FROM response.msg.headers)
+  AddHTTPHeader(header.field, header.value, FALSE);
+SendWebFile(response.msg.data);

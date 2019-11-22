@@ -1,0 +1,555 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/logging.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/modulemanager.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/internal/validation/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
+
+BOOLEAN debug;
+OBJECT trans;
+
+MACRO ApplyServerConfig()
+{
+  OBJECT serverconfigxsd := MakeXMLSchema(GetWebhareResource("mod::system/data/serverconfig.xsd"));
+  STRING baseroot := GetWebHareConfiguration().basedataroot;
+
+  STRING varconfiglocation := MergePath(GetWebHareConfiguration().varroot, "currentserverconfig.xml");
+
+  OBJECT browser := NEW WebBrowser;
+  STRING configurl := GetEnvironmentVariable("WEBHARE_CONFIGURL");
+  IF (configurl != "")
+  {
+    PRINT(`Server config: Getting configuration from '${configurl}'\n`);
+
+    BLOB configfile;
+    IF (configurl LIKE "file://*")
+    {
+      configfile := GetDiskResource(SubString(configurl, 7), [ allowmissing := TRUE ]);
+      IF (LENGTH(configfile) = 0)
+        PRINT(`Server config: Could not find configuration at '${configurl}'\n`);
+    }
+    ELSE
+    {
+      RECORD startupdata := CELL[ start := GetCurrentDateTime(), ...PollWHServiceState("startup") ];
+      configurl := UpdateURLVariables(configurl,
+            [ installationid := ReadRegistryKey("system.global.installationid")
+            , data :=           EncodeHSON(CELL
+                                    [ version :=        GetWebhareVersionInfo().version
+                                    , starttime :=      startupdata.start
+                                    ])
+            ]);
+
+
+      IF (browser->GotoWebPage(configurl))
+        configfile := browser->content;
+      IF (LENGTH(configfile) = 0)
+        PRINT(`Server config: Could not download configuration from '${configurl}', code ${browser->GetHTTPStatusText()}\n`);
+    }
+
+    IF (LENGTH(configfile) != 0)
+    {
+      OBJECT doc := MakeXMLDocument(configfile);
+      IF (ObjectExists(doc)
+          AND ObjectExists(doc->documentelement)
+          AND LENGTH(serverconfigxsd->ValidateDocument(doc)) = 0)
+      {
+        CreateDiskDirectoryRecursive(MergePath(baseroot, "etc"), TRUE);
+        TRY
+          StoreDiskFile(MergePath(baseroot, "etc/serverconfig.xml"), configfile, [ overwrite := TRUE ]);
+        CATCH (OBJECT e)
+          PRINT(`Server config: Could not store downloaded server configuration file from '${configurl}': ${e->what}\n`);
+      }
+      ELSE
+      {
+        PRINT(`Server config: Downloaded server configuration file  from '${configurl}' is not a valid server configuration file\n`);
+        IF (ObjectExists(doc))
+          DumpValue(serverconfigxsd->ValidateDocument(doc));
+      }
+    }
+  }
+
+  BLOB serverconfigfile := GetDiskResource(MergePath(baseroot, "etc/serverconfig.xml"), [allowmissing := TRUE]);
+  IF (LENGTH(serverconfigfile) = 0)
+  {
+    IF (LENGTH(GetDiskResource(varconfiglocation,[allowmissing := TRUE])) != 0)
+    {
+      // Have current serverconfig: remove it and softreset again.
+      PRINT("Server config: Configuration has been removed\n");
+
+      DeleteDiskFile(varconfiglocation);
+      ReloadWebhareConfig(TRUE, TRUE);
+    }
+
+    RETURN;
+  }
+
+  OBJECT doc := MakeXMLDocument(serverconfigfile);
+  IF (NOT ObjectExists(doc) OR LENGTH(serverconfigxsd->ValidateDocument(doc)) != 0)
+  {
+    PRINT("Server config: Stored serverconfig.xml is not valid anymore\n");
+    RETURN;
+  }
+
+  IF (ObjectExists(doc) AND ObjectExists(doc->documentelement) AND doc->documentelement->localname = "remoteserverconfig")
+  {
+    STRING url := doc->documentelement->GetAttribute("url");
+    IF (NOT browser->GotoWebPage(url))
+    {
+      PRINT("Server config: Could not retrieve remote serverconfig from URL '" || url || "'\n");
+      RETURN;
+    }
+
+    PRINT("Server config: Getting config from '" || url || "'\n");
+
+    doc := browser->document;
+    IF (NOT ObjectExists(doc))
+      doc := MakeXMLDocument(browser->content);
+
+    IF (NOT ObjectExists(doc) OR LENGTH(serverconfigxsd->ValidateDocument(doc)) != 0)
+    {
+      PRINT(`Server config: Remote serverconfig from URL ${url} is not valid\n`);
+      RETURN;
+    }
+
+    serverconfigfile := browser->content;
+  }
+
+  IF (NOT ObjectExists(doc) OR NOT ObjectExists(doc->documentelement))
+  {
+    PRINT("Server config: File is not a valid XML document\n");
+    RETURN;
+  }
+
+  OBJECT root := doc->documentelement;
+  OBJECT query := doc->CreateXPathQuery();
+  query->RegisterNamespace("t", "http://www.webhare.net/xmlns/system/serverconfig");
+
+  IF (root->localname != "serverconfig")
+  {
+    PRINT("Server config: Configuration doesn't have <serverconfig> root node, but '" || root->localname || "'\n");
+    RETURN;
+  }
+
+  BOOLEAN require_softreset;
+
+  STRING existing_hash := GetHashForBlob(GetDiskResource(varconfiglocation, [allowmissing := TRUE ]), "SHA-1");
+  IF (existing_hash != GetHashForBlob(serverconfigfile, "SHA-1"))
+  {
+    PRINT("Server config: Server configuration file has changed\n");
+    require_softreset := TRUE;
+
+    StoreDiskFile(varconfiglocation, serverconfigfile, [ overwrite := TRUE]);
+  }
+
+  RECORD ARRAY bindings;
+  RECORD ARRAY webservers;
+  BOOLEAN installedmodule;
+
+  RECORD ARRAY existingmodules :=
+      SELECT name :=        ToLowercase(name)
+           , lastmodified
+           , isinstalled
+        FROM GetInstalledModulesOverview(FALSE)
+    ORDER BY ToLowercase(name);
+
+  FOREVERY (OBJECT xml_module FROM query->ExecuteQuery("./t:modules/t:module", root)->GetCurrentElements())
+  {
+    STRING name := xml_module->GetAttribute("name");
+    STRING url := xml_module->GetAttribute("url");
+
+    RECORD pos := RecordLowerBound(existingmodules, [ name := ToLowercase(name) ], [ "NAME" ]);
+    IF (pos.found AND NOT existingmodules[pos.position].isinstalled)
+    {
+      PRINT("Already a non-installed version of module '" || name || "' present\n");
+      CONTINUE;
+    }
+
+    DATETIME lastmodified := pos.found ? existingmodules[pos.position].lastmodified : DEFAULT DATETIME;
+
+    BOOLEAN bres := browser->GotoWebPage(url);
+
+    IF (NOT bres)
+    {
+      PRINT("Could not download module '" || name || "' from url '" || url || "'\n");
+      CONTINUE;
+    }
+
+    DATETIME remote_lastmodified := MakeDateFromText(browser->GetResponseHeader("Last-Modified"));
+    IF (remote_lastmodified < lastmodified)
+    {
+//      PRINT("Current version of module '" || name || "' is newer\n");
+      CONTINUE;
+    }
+//    ELSE PRINT("Current version of module '" || name || "' is too old: " || FormatISO8601DateTime(lastmodified) || " vs " || FormatISO8601DateTime(remote_lastmodified) || "\n");
+
+    trans->BeginWork();
+    RECORD res := ImportModule(browser->content);
+    RECORD ARRAY commiterrors;
+
+    IF (LENGTH(res.errors) != 0)
+    {
+      trans->RollbackWork();
+      PRINT("Server config: Errors importing module '" || name || "'\n");
+      FOREVERY (STRING error FROM res.errors)
+        PRINT(" Error: " || error || "\n");
+    }
+    ELSE
+    {
+      trans->CommitWork();
+      PRINT("Server config: Imported module '" || name || "'\n");
+      installedmodule := TRUE;
+
+     //FIXME __FlushModuleListing();
+    }
+
+    FOREVERY (STRING warning FROM res.warnings)
+      PRINT(" Warning: " || warning || "\n");
+
+    IF (LENGTH(commiterrors) != 0)
+      PRINT("Commit errors:\n" || AnyToString(commiterrors, "boxed"));
+  }
+
+  IF (installedmodule)
+  {
+    //FIXME send a softreset
+    PRINT("FIXME: must send a soft reset after installing modules\n"); //or something similar, which should also take care of the other steps below..
+    //__FlushCaches();
+
+    ReconfigureLogFiles();
+    RecompileSiteProfiles();
+  }
+
+  trans->BeginWork();
+
+  BOOLEAN require_config_reload;
+
+  FOREVERY (OBJECT xml_binding FROM query->ExecuteQuery("./t:bindings/t:binding", root)->GetCurrentElements())
+  {
+    STRING name := xml_binding->GetAttribute("name");
+    STRING ip := xml_binding->GetAttribute("ip");
+    INTEGER port := ToInteger(xml_binding->GetAttribute("port"), -1);
+    BOOLEAN virtualhost := xml_binding->GetAttribute("virtualhost") IN [ "1", "true" ];
+    IF (port <= 0 OR port > 65535) // error!
+    {
+      PRINT("Serverconfig: Illegal port nr '" || xml_binding->GetAttribute("port") || "'\n");
+      CONTINUE;
+    }
+
+    RECORD exists :=
+        SELECT *
+          FROM system.ports
+         WHERE COLUMN port = VAR port
+           AND ((COLUMN ip = VAR ip) OR (COLUMN ip = "" AND xml_binding->GetAttribute("ip") = "0.0.0.0"));
+
+    IF (RecordExists(exists))
+    {
+      IF (exists.virtualhost != virtualhost)
+        PRINT("Virtualhost settings for IP '" || ip || "', port: " || port || " differ from serverconfig.xml\n");
+
+      INSERT
+          [ name := xml_binding->GetAttribute("name")
+          , id := exists.id
+          ] INTO bindings AT END;
+    }
+    ELSE
+    {
+      INTEGER id := MakeAutoNumber(system.ports, "ID");
+      INSERT INTO system.ports(id, port, ip, virtualhost, description) VALUES
+          ( id
+          , port
+          , ip
+          , virtualhost
+          , "Serverconfig: " || name || "(" || ip || "/" || port || "/" || (virtualhost?"virtual":"normal") || ")"
+          );
+
+      INSERT [ name := xml_binding->GetAttribute("name"), id := id ] INTO bindings AT END;
+
+      PRINT(`Server config: Added binding: '${name}, ip: '${ip}', port: ${port}, virtualhost: ${virtualhost ? "yes" : "no"}\n`);
+      require_config_reload := TRUE;
+    }
+  }
+
+  FOREVERY (OBJECT xml_webserver FROM query->ExecuteQuery("./t:webservers/t:interface", root)->GetCurrentElements() CONCAT query->ExecuteQuery("./t:webservers/t:output", root)->GetCurrentElements())
+  {
+    STRING name := xml_webserver->GetAttribute("name");
+    BOOLEAN virtualhost := xml_webserver->GetAttribute("virtualhost") IN [ "1", "true" ];
+
+    INTEGER port := virtualhost ? 0 :
+        SELECT AS INTEGER id
+          FROM bindings
+         WHERE COLUMN name = xml_webserver->GetAttribute("binding");
+
+    STRING baseurl := xml_webserver->GetAttribute("baseurl");
+    BOOLEAN is_interface := xml_webserver->localname = "interface";
+
+    IF (virtualhost)
+    {
+      IF (baseurl = "")
+      {
+        PRINT("Server config: Missing baseurl for virtualhost webserver '" || xml_webserver->GetAttribute("name") || "'");
+        CONTINUE;
+      }
+    }
+    ELSE IF (port = 0)
+    {
+      PRINT("Server config: Could not find binding for virtualhost webserver '" || xml_webserver->GetAttribute("name") || "'");
+      CONTINUE;
+    }
+
+    RECORD existing :=
+        SELECT id
+          FROM system.webservers
+         WHERE virtualhost
+                  ? COLUMN baseurl = VAR baseurl
+                  : COLUMN port = VAR port;
+
+    IF (NOT RecordExists(existing))
+    {
+      existing := [ id := MakeAutoNumber(system.webservers, "ID") ];
+
+      STRING diskfolder;
+
+      IF (NOT is_interface)
+      {
+        STRING basefolder := GetWebserverBaseOutputFolder();
+        RECORD unpacked_url := UnpackURL(baseurl);
+
+        FOR(INTEGER tryseq := -1;;tryseq := tryseq+1)
+        {
+          STRING tryfolder := basefolder || unpacked_url.host;
+          IF(tryseq != -1)
+            tryfolder := tryfolder || "-" || (tryseq = 0 ? unpacked_url.port : tryseq);
+          tryfolder := tryfolder || "/" || unpacked_url.urlpath;
+          IF(tryfolder NOT LIKE "*/")
+            tryfolder := tryfolder || "/";
+
+          IF(NOT RecordExists(SELECT FROM system.webservers WHERE ToUppercase(COLUMN diskfolder) = ToUppercase(tryfolder)))
+          {
+            diskfolder := tryfolder;
+            BREAK;
+          }
+        }
+      }
+
+      INSERT INTO system.webservers(id, type, baseurl, diskfolder, outputextension, port, title)
+         VALUES ( existing.id
+                , is_interface ? 1 : 0 // interface : output
+                , baseurl
+                , diskfolder
+                , ".html"
+                , port
+                , "Serverconfig: " || name);
+
+      PRINT(`Server config: Added ${is_interface ? "interface" : "output"} webserver on url '${baseurl}'\n`);
+      require_config_reload := TRUE;
+    }
+
+    IF (is_interface AND ParseXSBoolean(xml_webserver->GetAttribute("isprimary")))
+    {
+      OBJECT backendsite := EnsureSystemBackendSite();
+      IF (backendsite->sitedesign != "tollium:webinterface" OR backendsite->outputfolder != "/" OR backendsite->outputweb != existing.id)
+      {
+        backendsite->UpdateSiteMetadata(
+            [ sitedesign := "tollium:webinterface"
+            , outputfolder := "/"
+            , outputweb := existing.id
+            ]);
+        PRINT(`Server config: Made '${baseurl}' the primary interface URL\n`);
+      }
+    }
+
+    INSERT [ id := existing.id, name := name ] INTO webservers AT END;
+
+    // Rulesets
+    FOREVERY (OBJECT xml_ruleset FROM query->ExecuteQuery("./t:ruleset", xml_webserver)->GetCurrentElements())
+    {
+      STRING path := xml_ruleset->GetAttribute("path");
+      STRING ruleset := xml_ruleset->GetAttribute("name");
+
+      RECORD existing_rule :=
+          SELECT *
+            FROM system.access
+           WHERE webserver = existing.id
+             AND hostingsrc = 6
+             AND COLUMN path = VAR path
+             AND COLUMN hostingpath = VAR ruleset;
+
+      IF (NOT RecordExists(existing_rule))
+      {
+        INSERT INTO system.access(webserver, path, hostingsrc, hostingpath)
+          VALUES (existing.id, path, 6, ruleset);
+
+        PRINT("Server config: Webserver '" || name || "' added ruleset '" || ruleset || "'\n");
+        require_config_reload := TRUE;
+      }
+    }
+  }
+
+  // Make sure ports & webservers are present before we checkout sites
+  trans->CommitWork();
+
+  // Execute the (partial) softresets
+  IF (require_config_reload OR require_softreset)
+    ReloadWebhareConfig(TRUE, require_softreset);
+
+  //FIXME Also reload if SERVERNAME or DTAP STAGE changed because of serverconfig. But you really shouldn't use it that way to speed up WebHare restarts
+}
+
+MACRO PreflightChecks()
+{
+  IF (GetDatabaseType() = "whdb")
+  {
+    INTEGER ARRAY roles := SELECT AS INTEGER ARRAY ToInteger(SubString(COLUMN role_name, 7),0)
+                             FROM information_schema.all_roles
+                            WHERE role_schema = "DEFINITION_SCHEMA"
+                              AND role_name LIKE "WHUSER_*";
+
+    FOREVERY(INTEGER role FROM roles)
+    {
+      PRINT("Dropping user WHUSER_" || role || "\n");
+      __SendWHDBCommand(trans->id, "DROP USER WHUSER_" || role);
+    }
+  }
+
+  //Update system.webservers output path if still referring to the pre-docker path
+  STRING outputpath := ReadSoftLink("/opt/webhare/output");
+  IF(outputpath = "/opt/whdata/output")
+    UPDATE system.webservers SET diskfolder := Substitute(diskfolder, "/opt/webhare/output/", "/opt/whdata/output/");
+}
+
+MACRO UpdateModuleNotifications()
+{
+  trans->BeginWork();
+
+  // Create a list of registered notifications
+  RECORD ARRAY notifications;
+  FOREVERY (RECORD mod FROM GetWebHareModules())
+    IF (RecordExists(mod.portal))
+      notifications := notifications CONCAT SELECT *
+                                                 , module := (SELECT AS INTEGER id
+                                                                FROM system.modules
+                                                               WHERE name = mod.name)
+                                              FROM mod.portal.notifications;
+
+  // Check if current notifications are still registered
+  FOREVERY (RECORD cur_ntf FROM SELECT * FROM system.towl_notifications)
+  {
+    RECORD new_ntf := SELECT *
+                           , idx := #notifications
+                        FROM notifications
+                       WHERE notifications.module = cur_ntf.module
+                             AND notifications.name = cur_ntf.name;
+
+    IF (RecordExists(new_ntf))
+    {
+      // Update current notification
+      UPDATE system.towl_notifications
+         SET descriptiontid := new_ntf.description
+           , defaultenabled := new_ntf.defaultenabled
+       WHERE id = cur_ntf.id;
+
+      // Don't need to add this, it already exists
+      DELETE FROM notifications AT new_ntf.idx;
+    }
+    ELSE
+    {
+      // Current notification no longer registered, delete it
+      DELETE FROM system.towl_notifications
+             WHERE id = cur_ntf.id;
+    }
+  }
+
+  // Add all new notifications that don't exist yet
+  FOREVERY (RECORD new_ntf FROM notifications)
+  {
+    INSERT INTO system.towl_notifications(module, name, descriptiontid, defaultenabled)
+           VALUES(new_ntf.module, new_ntf.name, new_ntf.description, new_ntf.defaultenabled);
+  }
+
+  trans->CommitWork();
+}
+
+MACRO HandleRunonceOutput(RECORD module, RECORD ro_result)
+{
+  FOREVERY(STRING msg FROM ro_result.messages)
+    Print(module.name || " poststart runonce script: " || msg || "\n");
+}
+
+MACRO RunPostStartRunOnceScripts()
+{
+  RECORD ARRAY modlist := GetWebHareModules();
+
+  FOREVERY (RECORD module FROM modlist)
+  {
+    OBJECT validator := GetModuleXMLValidator(module.name);
+    INSERT CELL runoncescripts := ParseModuleDefRunonce(validator) INTO module;
+
+    RECORD ro_result := RunRunOnceScripts(module, "poststart", debug);
+    HandleRunonceOutput(module, ro_result);
+  }
+}
+
+debug := GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "";
+DATETIME start := GetCurrentDatetime();
+
+IF (NOT IsDatabaseReadOnly())
+{
+  //just in case this serverm missed its initdb due to odd upgradeo rdering
+  trans := OpenPrimary();
+  trans->BeginWork();
+  IF(ReadRegistryKey("system.global.servername") = "")
+    WriteRegistryKey("system.global.servername", GetSystemHostName(TRUE));
+  IF(ReadRegistryKey("system.global.installationid") = "")
+    WriteRegistryKey("system.global.installationid", GenerateUFS128BitId());
+  IF(ReadRegistryKey("system.webserver.security.cachesecret")="")
+    WriteRegistryKey("system.webserver.security.cachesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
+  IF(ReadRegistryKey("system.webserver.security.cookiesecret")="")
+    WriteRegistryKey("system.webserver.security.cookiesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
+  IF(ReadRegistryKey("system.webserver.security.elasticsecret")="")
+  {
+    STRING secret;
+    WHILE(secret = "" OR secret LIKE "*-*")
+      secret := GenerateUFS128BitId()||GenerateUFS128BitId();
+    WriteRegistryKey("system.webserver.security.elasticsecret", secret);
+  }
+  trans->CommitWork();
+
+  ApplyServerConfig();
+  trans->BeginWork();
+  UpdateSystemBackendSite();
+  trans->CommitWork();
+
+  trans->BeginWork();
+  PreflightChecks();
+  trans->CommitWork();
+
+  UpdateModuleNotifications();
+
+  RunPostStartRunOnceScripts();
+  Print("All post start tasks completed\n");
+}
+
+SetWHServiceState("poststartdone", [ start := start, finished := GetCurrentDatetime() ]);

@@ -1,0 +1,9 @@
+<?wh
+
+LOADLIB "mod::system/lib/services.whlib";
+
+
+PUBLIC MACRO OpenFormsTest(OBJECT parent, OBJECT openhandler, RECORD parentobject)
+{
+  openhandler->SendURL("/.publisher/backend/testpage.shtml?fsobject=" || EncryptForThisServer("publisher:testpage", parentobject.objectid));
+}

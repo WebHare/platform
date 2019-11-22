@@ -1,0 +1,1011 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema xmlns="http://www.webhare.net/xmlns/wrd/components"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/wrd/components"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:annotation>
+    <xs:documentation>
+      @topic wrd-components/wrd
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
+
+  <xs:simpleType name="HistoryMode">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="now"/>
+      <xs:enumeration value="all"/>
+      <!-- ADDME: other history mode require datetime parameters to the object -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="SelectMethod">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="pulldown"/>
+      <xs:enumeration value="checkbox"/>
+      <xs:enumeration value="checkboxlist"/>
+      <xs:enumeration value="inlinecheckboxlist"/>
+      <xs:enumeration value="radio"/>
+      <xs:enumeration value="dialog">
+        <xs:annotation>
+          <xs:documentation>
+            Display as a browse field (somewhat like the Publisher's &lt;browseforobject&gt; component)
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="DeleteMethod">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="delete">
+        <xs:annotation>
+          <xs:documentation>
+            Delete the entity, and any entities that referred to it by left/rightentity. Entity settings that have us a domain setting, will be set to 0
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="close">
+        <xs:annotation>
+          <xs:documentation>
+            Close the entity on deletion (set its LIMITDATE to 'now')
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="delete-closereferred">
+        <xs:annotation>
+          <xs:documentation>
+            Delete if unreferenced - close otherwise
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="delete-denyreferred">
+        <xs:annotation>
+          <xs:documentation>
+            Delete if unreferenced, deny deletion otherwise
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="close-denyreferred">
+        <xs:annotation>
+          <xs:documentation>
+            Close if unreferenced, deny deletion otherwise
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="entity">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="composition" lib="components/entity.whlib" objecttype="TolliumWRDEntity" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:CompositionBase" />
+      <xs:attributeGroup ref="tc:IsComposable" />
+      <xs:attribute name="onstorevalue" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature returntype="record" arguments="object record" />
+          </xs:appinfo>
+          <xs:documentation>
+            Update the record as passed to CreateEntity/UpdateFields. Receives the current work object and the offered updates, should return the new update record
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="attributebase" type="xs:string" />
+      <xs:attribute name="wrdtype" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            Tag of wrdtype to use. Requires a wrd:schema appcontext
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="autoupdate" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>
+            Automatically update the composition if the underlying entity is modified
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="onupdate" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature />
+          </xs:appinfo>
+          <xs:documentation>
+            Called when the entity is updated, either through Load or an autoupdate
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="gender">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="components.gender" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attributeGroup ref="tc:Required" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="domaintagedit">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="components.domaintagedit" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="tc:IsDirtyable" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+
+      <xs:attribute name="onchange" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+
+      <xs:attribute name="casesensitive" type="xs:boolean" />
+      <xs:attribute name="restrictvalues" type="xs:boolean" />
+
+      <xs:attributeGroup ref="sc:Placeholder" />
+
+      <xs:attribute name="wrdtype" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            The WRD domain which provides the tags
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="field">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" lib="components/field.whlib" objecttype="TolliumWRDField" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attribute name="field" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="type" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="imagewidth" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="imageheight" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="datetimetype" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="maxlength" type="xs:integer" default="0">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="precision" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="storeutc" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="mimetypes" type="s:StringList">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="selectmethod" type="SelectMethod">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="entity" type="tc:ComponentRef">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="edittype" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attributeGroup ref="tc:Required" />
+      <xs:attribute name="policy" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="policytid" type="sc:Tid">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="onpolicycheck" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature returntype="boolean" arguments="string" />
+          </xs:appinfo>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="emptyvalue" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="entercurrentpassword" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="password" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="verification" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="defaultcountry" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="errorlabel" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="errorlabeltid" type="sc:Tid">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="forceverification" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="hr" type="xs:boolean" default="true">
+        <xs:annotation>
+          <xs:documentation>
+            Set to false to suppress the &lt;hr> closing a box
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="columnheaders" type="xs:boolean" default="true">
+        <xs:annotation>
+          <xs:documentation>
+            Specifies whether the headers with the column titles must be shown.
+            Default is TRUE, the headers will be hidden when set to FALSE.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="arraybox">
+    <xs:annotation>
+      <xs:appinfo>
+        <!-- <s:tolliumcomponent placement="block" lib="components/arraybox.whlib" objecttype="TolliumWRDArrayBox" /> -->
+        <s:tolliumcomponent placement="block" fragment="components.arraybox" />
+      </xs:appinfo>
+      <xs:documentation>
+        ADDME: what is an arraybox??
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attribute name="entity" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="field" type="tc:ComponentRef">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="hr" type="xs:boolean" default="true">
+        <xs:annotation>
+          <xs:documentation>
+            Set to false to suppress the &lt;hr> closing a box
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="columnheaders" type="xs:boolean" default="true">
+        <xs:annotation>
+          <xs:documentation>
+            Specifies whether the headers with the column titles must be shown.
+            Default is TRUE, the headers will be hidden when set to FALSE.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="selectentity">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" lib="components/selectentity.whlib" objecttype="TolliumWRDEntitySelectionField" />
+        <s:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded" >
+        <!-- FIXME howto?
+        <xs:element ref="s:column" />
+        <xs:any namespace="##other" processContents="strict" />
+        -->
+        <xs:any namespace="##any" processContents="strict" />
+      </xs:choice>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attributeGroup ref="sc:Errorlabel" />
+      <xs:attributeGroup ref="tc:OnChange" />
+      <xs:attributeGroup ref="tc:Required" />
+
+      <xs:attribute name="displayattribute" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            The TAG of the attribute to use as title
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="type" type="SelectMethod">
+        <xs:annotation>
+          <xs:documentation>
+            Which display mode to use
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="domaintag" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="selectmultiple" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="addressfield">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="components.tolliumwrdaddressfield" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attributeGroup ref="sc:Required" />
+      <xs:attribute name="verification" type="xs:boolean" />
+      <xs:attribute name="forceverification" type="xs:boolean" />
+      <xs:attribute name="defaultcountry" type="xs:string" />
+      <xs:attribute name="errorlabel" type="xs:string" />
+      <xs:attribute name="errorlabeltid" type="sc:Tid" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="countryfields">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" lib="components/countryfields.whlib" objecttype="TolliumWRDCountryFields" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attribute name="defaultcountry" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attributeGroup ref="tc:Required" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="paramfield">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" lib="components/queryparameterfield.whlib" objecttype="TolliumWRDQueryParameterField" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:element>
+
+  <xs:element name="quickfilter">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="inline" fragment="components.quickfilter" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+
+      <xs:attribute name="onsearch" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature arguments="recordarray" />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:attributeGroup name="QueryAttributes">
+    <xs:attributeGroup ref="tc:ComponentBase" />
+    <xs:attributeGroup ref="tc:IsComposableListener" />
+    <xs:attribute name="rowkeytag" type="xs:string" default="WRD_ID">
+      <xs:annotation>
+        <xs:documentation>
+          The tag of the output column to use as the options' rowkeys. Defaults to "WRD_ID".
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="titletag" type="xs:string" default="WRD_TITLE">
+      <xs:annotation>
+        <xs:documentation>
+          The tag of the output column, or Witty text using output columns tags, to use as the options' titles. Defaults to
+          "WRD_TITLE".
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="orderingtag" type="xs:string" default="">
+      <xs:annotation>
+        <xs:documentation>
+          The tag of the ordering column.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+  </xs:attributeGroup>
+
+  <xs:element name="runquery">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <xs:documentation>
+            This option source can be used to select the results of a query.
+          </xs:documentation>
+          <s:tolliumcomponent placement="optionsource" lib="components/runquery.whlib" objecttype="RunQuery" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="QueryAttributes" />
+      <xs:attribute name="wrdschema" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            The WRD schema to query
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="wrdtype" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            The WRD type to query
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="queryresults">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <xs:documentation>
+            This option source can be used to select the results of a query.
+          </xs:documentation>
+          <s:tolliumcomponent placement="optionsource" lib="components/queryresults.whlib" objecttype="QueryResults" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="QueryAttributes" />
+
+      <xs:attribute name="wrdcontext" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            <html:p>Name of the WRD appcontext to retrieve the wrd schema from (use in combination with 'querytag' attribute)</html:p>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+
+      <xs:attribute name="wrdschema" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            The WRD schema were the query is stored.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+
+      <xs:attribute name="querytag" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            The tag of the stored query.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="EntityListBase">
+    <xs:sequence minOccurs="0" maxOccurs="unbounded">
+      <xs:choice>
+        <xs:any namespace="##other" processContents="strict" /> <!-- columns, styles -->
+        <xs:element ref="entityrefcolumn" />
+      </xs:choice>
+    </xs:sequence>
+    <xs:attributeGroup ref="tc:ComponentBase" />
+    <xs:attributeGroup ref="s:ListBorders" />
+    <!-- <xs:attributeGroup ref="tc:OnChange" /> -->
+
+    <xs:attributeGroup ref="sc:Gid" />
+
+    <xs:attribute name="onfocusin" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature />
+        </xs:appinfo>
+        <xs:documentation>Invoked when this list receives focus</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="onmaprows" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature returntype="recordarray" arguments="recordarray" />
+        </xs:appinfo>
+        <xs:documentation>
+          <html:p>
+            Handler to preprocess the array value before displaying it as list rows. Can be used to convert/add columns to the list, or to remove rows
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="openaction" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            The openaction will be fired when a list item is doubleclicked.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="onselect" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature arguments="" />
+        </xs:appinfo>
+        <xs:documentation>
+          <html:p>
+            Handler called when an entity is selected
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="requestcolumns" type="s:StringList">
+      <xs:annotation>
+        <xs:documentation>
+          List of columns to request. If not specified, all columns named in the column list are requested, plus a 'rowkey' field with the WRD_ID
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="historymode" type="HistoryMode" default="now">
+      <xs:annotation>
+        <xs:documentation>
+          History mode for the query. If set to anything but now, non-live objects will be grayed out
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="icons" type="s:StringList">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            Contains a list of iconnames, separated by a space.
+            Each iconname is written in this format: modulename:category/iconname.
+            The icon itself must be a PNG picture with the path/filename: modulename/web/img/category/iconname.16x16.png.
+            Icons can be used by using the 'iconname'-attribute in a list &lt;column&gt;.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="emptytid" type="sc:Tid">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            When the list is empty, the text with the given tid will be shown.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="empty" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            When the list is empty, the text defined here will be shown.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="rowselect" />
+
+    <xs:attribute name="sortable" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Is the input sortable for the user, options: TRUE, FALSE</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="sortascending" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Sort the input ascending, options: TRUE, FALSE</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="sortcolumn" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Column name which the input needs to be sorted</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="orderable" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Is the input orderable for the user (with move up / move down buttons), options: TRUE, FALSE</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="linkfrom" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>A wrd:entity which should be used as the wrd_leftentity for values in this entitylist. Will force the creation of a temporary entity if necessary to store newly added values</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attributeGroup ref="ContextAndType" />
+    <xs:attributeGroup ref="s:ListContextMenus" />
+  </xs:complexType>
+
+  <xs:attributeGroup name="ContextAndType">
+    <xs:attribute name="wrdcontext" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Name of the WRD appcontext to retrieve the wrd schema from (use in combination with 'wrdtype' attribute)</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="wrdschema" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Name of the WRD schema to use (if no wrdcontext is specified)</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="wrdtype" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Name of the WRD type to use (from the schema from the appcontext specified by the 'wrdcontext' attribute)</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:complexType name="EntitiesEdit">
+    <xs:complexContent>
+      <xs:extension base="EntityListBase">
+        <xs:attribute name="flags" type="s:Flags">
+          <xs:annotation>
+            <xs:documentation>
+              <html:p>Define the list flags here, which will be used by selectableflags and by a droptarget's sourceflags and targetflags.</html:p>
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="deletemode" type="DeleteMethod">
+          <xs:annotation>
+            <xs:documentation>
+              If set, explains how to allow entity deletion.
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+
+        <xs:attribute name="entityeditscreen" type="s:ScreenFragmentReference" default="">
+          <xs:annotation>
+            <xs:documentation>
+              <html:p>
+                Reference to the screen to use to edit an entity. Should extend from WRDEntityEditScreenBase (or implement the same interface)
+              </html:p>
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+
+        <xs:attribute name="onentityedit" type="tc:Handler">
+          <xs:annotation>
+            <xs:appinfo>
+              <s:callbacksignature returnvalue="integer" arguments="object record integer" />
+            </xs:appinfo>
+            <xs:documentation>
+              <html:p>
+                Handler used for adding/editing rows. By default, the roweditscreen is used
+              </html:p>
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+
+        <xs:attribute name="onentitydelete" type="tc:Handler">
+          <xs:annotation>
+            <xs:appinfo>
+              <s:callbacksignature arguments="object integer" />
+            </xs:appinfo>
+            <xs:documentation>
+              <html:p>
+                Handler used in case of the user trying to delete an entity.
+                If onrowdelete is specified, the default confirmation messagebox will not be used.
+              </html:p>
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+
+        <xs:attribute name="onchangeorder" type="tc:Handler">
+          <xs:annotation>
+            <xs:appinfo>
+              <s:callbacksignature arguments="object integerarray" />
+            </xs:appinfo>
+            <xs:documentation>The name of the function to perform when the ordering of rows changes</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+
+        <xs:attributeGroup ref="s:ArrayListEditButtons" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:element name="entitiesedit" type="EntitiesEdit">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="components.entitiesedit" />
+        <s:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+        <s:extraparser field="styles" type="s:liststyles" target="./s:style|./s:layout" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:unique name="uniquecolumnnames_entitiesedit">
+      <xs:selector xpath="./s:column" />
+      <xs:field xpath="@name" />
+    </xs:unique>
+    <xs:unique name="uniquestylenames_entitiesedit">
+      <xs:selector xpath="./s:style" />
+      <xs:field xpath="@name" />
+    </xs:unique>
+  </xs:element>
+
+  <!-- deprecated, use <entitiesedit> element -->
+  <xs:element name="entitybrowser" type="EntitiesEdit">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="components.entitiesedit" />
+        <s:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+        <s:extraparser field="styles" type="s:liststyles" target="./s:style|./s:layout" />
+      </xs:appinfo>
+      <xs:documentation>
+        deprecated, use &lt;entitiesedit&gt; element
+      </xs:documentation>
+    </xs:annotation>
+    <xs:unique name="uniquecolumnnames_entitybrowser">
+      <xs:selector xpath="./s:column" />
+      <xs:field xpath="@name" />
+    </xs:unique>
+    <xs:unique name="uniquestylenames_entitybrowser">
+      <xs:selector xpath="./s:style" />
+      <xs:field xpath="@name" />
+    </xs:unique>
+  </xs:element>
+
+  <xs:element name="entitylist">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="components.entitylist" />
+        <s:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+        <s:extraparser field="styles" type="s:liststyles" target="./s:style|./s:layout" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="EntityListBase">
+          <xs:attribute name="flags" type="s:Flags">
+            <xs:annotation>
+              <xs:documentation>
+                <html:p>Define the list flags here, which will be used by selectableflags and by a droptarget's sourceflags and targetflags.</html:p>
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+
+          <xs:attribute name="selectmultiple" type="xs:boolean">
+            <xs:annotation>
+              <xs:documentation>
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+    <xs:unique name="uniquecolumnnames_entitylist">
+      <xs:selector xpath="./s:column" />
+      <xs:field xpath="@name" />
+    </xs:unique>
+    <xs:unique name="uniquestylenames_entitylist">
+      <xs:selector xpath="./s:style" />
+      <xs:field xpath="@name" />
+    </xs:unique>
+  </xs:element>
+
+  <xs:element name="entityrefcolumn">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="listcolumn" lib="components/entityrefcolumn.whlib" objecttype="EntityRefColumn" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <!-- addme: extend tollium listcolumn complextype? -->
+      <xs:attributeGroup ref="tc:ListColumnBase" />
+
+      <xs:attribute name="field" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            <html:p>
+              The TAG of the field to show
+            </html:p>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+
+      <xs:attribute name="inputkind" default="wrd_id">
+        <xs:annotation>
+          <xs:documentation>
+            <html:p>
+              Type of the input field we're use to look up the value
+            </html:p>
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="wrd_id"/>
+            <xs:enumeration value="wrd_guid"/>
+            <xs:enumeration value="WRD_ID"/>
+            <xs:enumeration value="WRD_GUID"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+
+      <xs:attribute name="type" type="s:ListColumnType" use="required" />
+      <xs:attributeGroup ref="ContextAndType" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="entitylistener">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="composition"
+                              lib="components/entitylistener.whlib"
+                              objecttype="TolliumWRDEntityListener"
+                              />
+        </xs:appinfo>
+      </xs:annotation>
+
+      <xs:attribute name="onupdate" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature />
+          </xs:appinfo>
+          <xs:documentation>
+            Called when the entity is updated
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+
+      <xs:attributeGroup ref="tc:EventListenerBase" />
+
+      <!-- FIXME: The attributes from ContextAndType don't seem to be used ?
+                  Instead ->SetListener(OBJECT wrdentity) must be called on the component ?
+      -->
+      <xs:attributeGroup ref="ContextAndType" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="addressvalidation">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="components.addressvalidation" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="s:ComposableComponentBase" />
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

@@ -1,0 +1,54 @@
+<?wh
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+STRING folderindex_siteprofile :=
+'<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+  || '<apply>'
+    || '<to type="folder" pathmask="*/contentlisting/*" />'
+    || '<folderindex indexfile="contentlisting" />'
+  || '</apply>'
+  || '<apply>'
+    || '<to type="folder" pathmask="*/newfile/*" />'
+    || '<folderindex indexfile="newfile" newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />'
+  || '</apply>'
+|| '</siteprofile>';
+
+
+MACRO TestFolderIndex()
+{
+  testfw->BeginWork();
+  testfw->SetupTestWebdesignWebsite(folderindex_siteprofile);
+  testfw->CommitWork();
+
+  TestSiteProfilesNoErrors();
+
+  testfw->BeginWork();
+  OBJECT testsite := testfw->GetTestSite();
+
+  OBJECT folder_contentlisting := testsite->rootobject->CreateFolder([name := "contentlisting" ]);
+  AddDefaultIndexToFolder(folder_contentlisting->id);
+
+  OBJECT indexfile := folder_contentlisting->OpenByName("index.html");
+  TestEq(TRUE, ObjectExists(indexfile));
+  TestEq(24, indexfile->type);
+  TestEq(TRUE, indexfile->publish);
+
+  OBJECT folder_newfile := testsite->rootobject->CreateFolder([name := "newfile" ]);
+  TEstEQ(0, folder_newfile->indexdoc);
+  AddDefaultIndexToFolder(folder_newfile->id);
+
+  folder_newfile := OpenWHFSObject(folder_newfile->id);
+  TEstEQ(TRUE, folder_newfile->indexdoc != 0);
+  indexfile := OpenWHFSObject(folder_newfile->indexdoc);
+  TestEq("http://www.webhare.net/xmlns/publisher/richdocumentfile", indexfile->typens);
+  TestEq("index", indexfile->name);
+  //Just like a contentindex is published by default, we'll assume you're doing this because you want new folders to appear by default, so create the index
+  TestEq(TRUE, indexfile->publish);
+
+  testfw->RollbackWork();
+}
+
+RunTestFramework ([ PTR TestFolderindex ]);

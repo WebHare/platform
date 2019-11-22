@@ -1,0 +1,214 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/remoting/client.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/testfw/upload.whlib";
+
+
+/* Tests the receiver part of the upload component
+*/
+
+OBJECT browser;
+
+RECORD FUNCTION AuthHandler(STRING realm, STRING url)
+{
+  RETURN
+      [ username := testfw->GetUserLogin("sysop")
+      , password := testfw->GetUserPassword("sysop")
+      ];
+}
+
+MACRO InitBrowser()
+{
+  IF (NOT ObjectExists(browser))
+  {
+    browser := NEW WebBrowser;
+    browser->onauth := PTR AuthHandler;
+  }
+}
+
+
+RECORD FUNCTION DoBlobRequest(RECORD params, BLOB data)
+{
+  InitBrowser();
+
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING url := ResolveToAbsoluteURL(port.baseurl, "/.system/filetransfer/filetransfer.shtml");
+
+  FOREVERY (RECORD rec FROM UnpackRecord(params))
+    url := AddVariableToUrl(url, ToLowercase(rec.name), rec.value||"");
+
+  IF (NOT browser->PostWebPageBlob(url, DEFAULT RECORD ARRAY, data))
+    RETURN DEFAULT RECORD;
+
+  RETURN DecodeJSONBlob(browser->content);
+}
+
+RECORD ARRAY FUNCTION GetUploadedFiles(STRING ARRAY filetokens)
+{
+  InitBrowser();
+
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING url := ResolveToAbsoluteURL(port.baseurl, "/wh_services/webhare_testsuite/test/");
+
+  // Use to crash with 'requires authentication'.
+  RETURN InvokeRemoteFunctionWithBrowser(browser, url|| "getwebserveruploadedfiles", filetokens);
+}
+
+RECORD FUNCTION ManipWebserverSession(STRING action, STRING sessionid, STRING passwd, RECORD data DEFAULTSTO DEFAULT RECORD)
+{
+  InitBrowser();
+
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING url := ResolveToAbsoluteURL(port.baseurl, "/wh_services/webhare_testsuite/test/");
+
+  // Use to crash with 'requires authentication'.
+  RETURN InvokeRemoteFunctionWithBrowser(browser, url|| "ManipWebserverSession", action, sessionid, passwd, data);
+}
+
+
+MACRO TestUpload()
+{
+  // Simple upload
+  RECORD res := DoHTML5Upload(StringToBlob("1234"), "file1.txt");
+
+  // Test whether the files arrived successfully
+  TestEQ(TRUE, RecordExists(ManipWebserverSession("get", Tokenize(res.filetoken, "/")[0], "system_filetransfer")));
+  TestEQ(
+      [ [ filename :=     "file1.txt"
+        , contenttype :=  "text/plain"
+        , data :=         "7110EDA4D09E062AA5E4A390B0A572AC0D2C0220"
+        ]
+      ], GetUploadedFiles([ STRING(res.filetoken) ]));
+
+  // Test whether the files are cleaned from memory after first retrieve
+  TestThrows(PTR GetUploadedFiles([ STRING(res.filetoken) ]));
+
+  TestEQ(FALSE, RecordExists(ManipWebserverSession("get", Tokenize(res.filetoken, "/")[0], "system_filetransfer")));
+
+  // Multiple upload
+  res := DoHTML5Upload(StringToBlob("1234"), "file1.txt");
+  RECORD res2 := DoHTML5Upload(StringToBlob("2345"), "file2.txt", [ contenttype := "text/plain", sessionid := res.sessionid ]);
+  RECORD res3 := DoHTML5Upload(StringToBlob("3456"), "file3.txt", [ contenttype := "", sessionid := res.sessionid ]);
+
+  // Get first 2 files
+  TestEQ(
+      [ [ filename :=     "file1.txt"
+        , contenttype :=  "text/plain"
+        , data :=         "7110EDA4D09E062AA5E4A390B0A572AC0D2C0220"
+        ]
+      , [ filename :=     "file2.txt"
+        , contenttype :=  "text/plain"
+        , data :=         "D2F75E8204FEDF2EACD261E2461B2964E3BFD5BE"
+        ]
+      ], GetUploadedFiles([ STRING(res.filetoken), res2.filetoken ]));
+
+  // Must then be cleared from session
+  TestThrows(PTR GetUploadedFiles([ STRING(res.filetoken) ]));
+  TestThrows(PTR GetUploadedFiles([ STRING(res2.filetoken) ]));
+
+  // 3rd file must not be affected
+  TestEQ(
+      [ [ filename :=     "file3.txt"
+        , contenttype :=  "text/plain"
+        , data :=         "AE8FE380DD9AA5A7A956D9085FE7CF6B87D0D028"
+        ]
+      ], GetUploadedFiles([ STRING(res3.filetoken) ]));
+
+  TestThrows(PTR GetUploadedFiles([ STRING(res3.filetoken) ]));
+
+  // Last file must clear session
+  TestEQ(FALSE, RecordExists(ManipWebserverSession("get", Tokenize(res3.filetoken, "/")[0], "system_filetransfer")));
+}
+
+MACRO TestChunkedUpload()
+{
+  RECORD res := DoBlobRequest(
+      [ type :=         "upload-html5"
+      , size :=         10
+      , "offset" :=     0
+      , "chunksize" :=  4
+      , filename :=     "file1.txt"
+      ], StringToBlob("1234"));
+
+  // filetoken may only be filled at completion
+  TestEQ("", RecordExists(res) ? res.filetoken : "fail");
+
+  res := DoBlobRequest(
+      [ type :=         "upload-html5"
+      , "offset" :=     6
+      , "chunksize" :=  4
+      , sessionid :=    res.sessionid
+      , fileid :=       res.fileid
+      ], StringToBlob("7890"));
+
+  // filetoken may only be filled at completion
+  TestEQ("", RecordExists(res) ? res.filetoken : "fail");
+
+  res := DoBlobRequest(
+      [ type :=         "upload-html5"
+      , "offset" :=     4
+      , "chunksize" :=  2
+      , sessionid :=    res.sessionid
+      , fileid :=       res.fileid
+      ], StringToBlob("56"));
+
+  // filetoken may only be filled at completion
+  TestEQ(TRUE, RecordExists(res) AND res.complete);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(res.downloadurl));
+  TestEq("1234567890", BlobToString(testfw->browser->content));
+
+  TestEQ(
+      [ [ filename :=     "file1.txt"
+        , contenttype :=  "text/plain"
+        , data :=         "01B307ACBA4F54F55AAFC33BB06BBBF6CA803E9A"
+        ]
+      ], GetUploadedFiles([ STRING(res.filetoken) ]));
+}
+
+MACRO TestSessionMgmt()
+{
+  RECORD res := DoBlobRequest(
+      [ type :=         "upload-createsession"
+      ], DEFAULT BLOB);
+
+  TestEQ(TRUE, RecordExists(res));
+  STRING sessionid := res.sessionid;
+
+  res := DoBlobRequest(
+      [ type :=         "upload-html5"
+      , size :=         4
+      , "offset" :=     0
+      , "chunksize" :=  4
+      , sessionid :=    sessionid
+      , name :=         "file1.txt"
+      ], StringToBlob("1234"));
+
+  TestEQ(TRUE, RecordExists(res) AND res.complete);
+  TestEQ(sessionid, res.sessionid);
+
+  STRING filetoken := res.filetoken;
+
+  TestEQ(TRUE, RecordExists(ManipWebserverSession("get", Tokenize(res.filetoken, "/")[0], "system_filetransfer")));
+
+  res := DoBlobRequest(
+      [ type :=         "upload-cancelsession"
+      , sessionid :=    sessionid
+      ], DEFAULT BLOB);
+
+  TestEQ(FALSE, RecordExists(ManipWebserverSession("get", Tokenize(filetoken, "/")[0], "system_filetransfer")));
+  TestThrows(PTR GetUploadedFiles([ filetoken ]));
+}
+
+Runtestframework([ PTR TestUpload
+                 , PTR TestChunkedUpload
+                 , PTR TestSessionMgmt
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);
+

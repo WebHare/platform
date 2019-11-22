@@ -1,0 +1,107 @@
+<?wh
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::graphics/core.whlib";
+
+STRING FUNCTION FormatColor(INTEGER color)
+{
+  RETURN "0x" || Right("0000000" || ToUppercase(ToString(color, 16)), 8);
+}
+
+MACRO CssColorTest()
+{
+  OpenTest("TestColors: CssColorTest");
+
+  // First, test the color formatting function :-)
+  TestEqual(1,  "0x00000000", FormatColor(0x00000000));
+  TestEqual(2,  "0x00000001", FormatColor(0x00000001));
+  TestEqual(3,  "0x10000000", FormatColor(0x10000000));
+  TestEqual(4,  "0x12345678", FormatColor(0x12345678));
+  TestEqual(5,  "0xFEDCBA09", FormatColor(0xFEDCBA09));
+
+  // Test 'transparent'
+  TestEqual(6,  "0x00000000", FormatColor(GfxCreateColorFromCss("transparent")));
+  TestEqual(7,  "0x00000000", FormatColor(GfxCreateColorFromCss("  TRANSPARENT    ")));
+  TestEqual(8,  "0x00000000", FormatColor(GfxCreateColorFromCss("\r\nTransparent\r\n")));
+
+  // Test named colors
+  TestEqual(9,  "0xFF000000", FormatColor(GfxCreateColorFromCss("Black")));
+  TestEqual(10, "0xFFC0C0C0", FormatColor(GfxCreateColorFromCss("silver")));
+  TestEqual(11, "0xFF808080", FormatColor(GfxCreateColorFromCss("GRAY")));
+  TestEqual(12, "0xFFFFFFFF", FormatColor(GfxCreateColorFromCss("White")));
+  TestEqual(13, "0xFF800000", FormatColor(GfxCreateColorFromCss("maroon")));
+  TestEqual(14, "0xFFFF0000", FormatColor(GfxCreateColorFromCss("RED")));
+  TestEqual(15, "0xFF800080", FormatColor(GfxCreateColorFromCss("Purple")));
+  TestEqual(16, "0xFFFF00FF", FormatColor(GfxCreateColorFromCss("fuchsia")));
+  TestEqual(17, "0xFF008000", FormatColor(GfxCreateColorFromCss("GREEN")));
+  TestEqual(18, "0xFF00FF00", FormatColor(GfxCreateColorFromCss("Lime")));
+  TestEqual(19, "0xFF808000", FormatColor(GfxCreateColorFromCss("olive")));
+  TestEqual(20, "0xFFFFFF00", FormatColor(GfxCreateColorFromCss("YELLOW")));
+  TestEqual(21, "0xFF000080", FormatColor(GfxCreateColorFromCss("Navy")));
+  TestEqual(22, "0xFF0000FF", FormatColor(GfxCreateColorFromCss("blue")));
+  TestEqual(23, "0xFF008080", FormatColor(GfxCreateColorFromCss("TEAL")));
+  TestEqual(24, "0xFF00FFFF", FormatColor(GfxCreateColorFromCss("Aqua")));
+
+  // Test hex values
+  TestEqual(25, "0xFF000000", FormatColor(GfxCreateColorFromCss("#000")));
+  TestEqual(26, "0xFF000000", FormatColor(GfxCreateColorFromCss("#000000")));
+  TestEqual(27, "0xFFFFFFFF", FormatColor(GfxCreateColorFromCss("#FFF")));
+  TestEqual(28, "0xFFFFFFFF", FormatColor(GfxCreateColorFromCss("#ffffff")));
+  TestEqual(29, "0xFF112233", FormatColor(GfxCreateColorFromCss("#123")));
+  TestEqual(30, "0xFFABCDEF", FormatColor(GfxCreateColorFromCss("#abcdef")));
+
+  // Test RGB
+  TestEqual(31, "0xFF000000", FormatColor(GfxCreateColorFromCss("rgb(0, 0, 0)")));
+  TestEqual(32, "0xFF000000", FormatColor(GfxCreateColorFromCss("rgb(0,0,0)")));
+  TestEqual(33, "0xFFFF8000", FormatColor(GfxCreateColorFromCss("rgb(255, 128, 0)")));
+  TestEqual(34, "0xFF0080FF", FormatColor(GfxCreateColorFromCss("rgb(0,128,255)")));
+  TestEqual(35, "0xFFFF8000", FormatColor(GfxCreateColorFromCss("rgb(256, 128, -1)")));
+  TestEqual(36, "0xFF0080FF", FormatColor(GfxCreateColorFromCss("rgb(-1234,128,5678)")));
+
+  // Test RGBA
+  TestEqual(33, "0x00FF8000", FormatColor(GfxCreateColorFromCss("rgba(255, 128, 0, 0)")));
+  TestEqual(34, "0xFF0080FF", FormatColor(GfxCreateColorFromCss("rgba(0, 128, 255, 1)")));
+  TestEqual(35, "0x40FFFFFF", FormatColor(GfxCreateColorFromCss("rgba(255, 255, 255, .25)")));
+  TestEqual(36, "0x80FFFFFF", FormatColor(GfxCreateColorFromCss("rgba(255, 255, 255, 0.5)")));
+  TestEqual(37, "0xFFFFFFFF", FormatColor(GfxCreateColorFromCss("rgba(255, 255, 255, 2)")));
+  TestEqual(38, "0x00FFFFFF", FormatColor(GfxCreateColorFromCss("rgba(255, 255, 255, -1)")));
+  TestEqual(38, "0x12345678", FormatColor(GfxCreateColorFromCss("rgba(52, 86, 120, .07)")));
+
+  // Test HSL
+  TestEqual(39, "0xFFFFFFFF", FormatColor(GfxCreateColorFromCss("hsl(0, 0%, 100%)")));
+  TestEqual(40, "0xFFFFFFFF", FormatColor(GfxCreateColorFromCss("hsl(78, 0%, 100%)")));
+  TestEqual(41, "0xFFFFFFFF", FormatColor(GfxCreateColorFromCss("hsl(321, 0%, 100%)")));
+  TestEqual(42, "0xFF808080", FormatColor(GfxCreateColorFromCss("hsl(0, 0%, 50%)")));
+  TestEqual(43, "0xFF000000", FormatColor(GfxCreateColorFromCss("hsl(0, 0%, 0%)")));
+  TestEqual(44, "0xFFFF0000", FormatColor(GfxCreateColorFromCss("hsl(0, 100%, 50%)")));
+  TestEqual(45, "0xFF00FF00", FormatColor(GfxCreateColorFromCss("hsl(120, 100%, 50%)")));
+  TestEqual(46, "0xFF0000FF", FormatColor(GfxCreateColorFromCss("hsl(240, 100%, 50%)")));
+  TestEqual(47, "0xFFBF40BF", FormatColor(GfxCreateColorFromCss("hsl(300, 50%, 50%)")));
+  TestEqual(48, "0xFF8080FF", FormatColor(GfxCreateColorFromCss("hsl(240, 100%, 75%)")));
+  TestEqual(49, "0xFF352697", FormatColor(GfxCreateColorFromCss("hsl(248, 60%, 37%)")));
+  TestEqual(50, "0xFF362698", FormatColor(GfxCreateColorFromCss("hsl(248.3, 60.1%, 37.3%)")));
+  TestEqual(51, "0xFF966313", FormatColor(GfxCreateColorFromCss("hsl(37, 78%, 33%)")));
+  TestEqual(52, "0xFF4E6553", FormatColor(GfxCreateColorFromCss("hsl(135, 13%, 35%)")));
+  TestEqual(53, "0xFFED7651", FormatColor(GfxCreateColorFromCss("hsl(14.3, 81.7%, 62.4%)")));
+  TestEqual(54, "0xFFB430E5", FormatColor(GfxCreateColorFromCss("hsl(-76.3, 77.5%, 54.2%)")));
+
+  // Test unpacking colors
+  TestEqual(55, 255, GfxUnpackColor(GfxCreateColorFromCss("#ffffff")).r);
+  TestEqual(55, 255, GfxUnpackColor(GfxCreateColorFromCss("#ffffff")).g);
+  TestEqual(55, 255, GfxUnpackColor(GfxCreateColorFromCss("#ffffff")).b);
+  TestEqual(55, 255, GfxUnpackColor(GfxCreateColorFromCss("#ffffff")).a);
+
+  TestEqual(55, 0, GfxUnpackColor(GfxCreateColorFromCss("#000")).r);
+  TestEqual(55, 0, GfxUnpackColor(GfxCreateColorFromCss("#000")).g);
+  TestEqual(55, 0, GfxUnpackColor(GfxCreateColorFromCss("#000")).b);
+  TestEqual(55, 255, GfxUnpackColor(GfxCreateColorFromCss("#000")).a);
+
+  TestEqual(55, 52, GfxUnpackColor(GfxCreateColorFromCss("rgba(52, 86, 120, .07)")).r); // 0x12345678
+  TestEqual(55, 86, GfxUnpackColor(GfxCreateColorFromCss("rgba(52, 86, 120, .07)")).g);
+  TestEqual(55, 120, GfxUnpackColor(GfxCreateColorFromCss("rgba(52, 86, 120, .07)")).b);
+  TestEqual(55, 18, GfxUnpackColor(GfxCreateColorFromCss("rgba(52, 86, 120, .07)")).a);
+
+  CloseTest("TestColors: CssColorTest");
+}
+
+PRINT("\n === Running TestColors\n");
+CssColorTest();

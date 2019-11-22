@@ -1,0 +1,138 @@
+<?wh
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
+
+PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
+<
+  RECORD ARRAY datalayerpushes;
+  OBJECT webdesign;
+  STRING pvt_account;
+  STRING pvt_integration;
+  STRING pvt_launch;
+
+  PUBLIC PROPERTY account(pvt_account, SetAccount);
+  PUBLIC PROPERTY integration(pvt_integration, SetIntegration);
+  PUBLIC PROPERTY launch(pvt_launch, SetLaunch);
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ account := node->GetAttribute("account")
+           , integration := node->GetAttribute("integration") ?? "script"
+           , launch := node->GetAttribute("launch") ?? "pagerender"
+           ];
+  }
+
+  MACRO ValidateCode(STRING code)
+  {
+    IF(code != "")
+      ValidateGTMCode(code);
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
+  {
+    this->webdesign := webdesign;
+
+    //Check the registry for an override - unless it's our own testcontainer
+    this->pvt_account := config.account;
+    IF(this->pvt_account != ourgtmtestcontainer)
+      this->pvt_account := ReadRegistryKey("socialite.localoverrides.tagmanager") ?? this->pvt_account;
+
+    this->pvt_integration := config.integration;
+    this->pvt_launch := config.launch;
+  }
+
+  UPDATE PUBLIC MACRO DatalayerPush(RECORD instruction)
+  {
+    INSERT instruction INTO this->datalayerpushes AT END;
+  }
+
+  MACRO PrintDatalayerPushes()
+  {
+    IF(Length(this->datalayerpushes) = 0)
+      RETURN;
+
+    STRING pushes := EncodeJSON(this->datalayerpushes);
+
+    IF(this->pvt_integration = "script" AND this->pvt_launch="pagerender")
+    {
+      pushes := Substring(pushes, 1, Length(pushes)-2); //Remove the [ and ] wrapping the array
+      Print(`<script>(window.dataLayer||[]).push(${pushes})</script>`);
+    }
+    ELSE //yep, we can legally do this: https://html.spec.whatwg.org/multipage/custom-elements.html#custom-elements
+    {
+      Print(`<wh-socialite-gtm push="${EncodeValue(pushes)}"></wh-socialite-gtm>`);
+    }
+  }
+
+  MACRO SetupPluginConfig()
+  {
+    IF((this->pvt_integration != "script" OR this->pvt_launch != "pagerender") AND this->pvt_account != "")
+      this->webdesign->SetJSPluginConfig("socialite:gtm", [ a := this->pvt_account, h := this->pvt_integration = "selfhosted", m := this->pvt_launch = "manual" ]);
+    ELSE
+      this->webdesign->SetJSPluginConfig("socialite:gtm", DEFAULT RECORD);
+  }
+  MACRO SetAccount(STRING newaccount)
+  {
+    IF(this->webdesign->startedrendering)
+      THROW NEW Exception("The GTM account cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+
+    this->pvt_account := newaccount;
+    this->SetupPluginConfig();
+  }
+  MACRO SetIntegration(STRING newintegration)
+  {
+    IF(this->webdesign->startedrendering)
+      THROW NEW Exception("The GTM integration cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+
+    this->pvt_integration := newintegration;
+    this->SetupPluginConfig();
+  }
+  MACRO SetLaunch(STRING newlaunch)
+  {
+    IF(this->webdesign->startedrendering)
+      THROW NEW Exception("The GTM integration cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+
+    this->pvt_launch := newlaunch;
+    this->SetupPluginConfig();
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    this->SetupPluginConfig();
+
+    /* https://support.google.com/tagmanager/answer/6103696?hl=en
+       - the script part as high as possible in the head, the noscript as high as possible in the body
+       */
+    webdesign->InsertWithCallback(PTR this->DoTagManager_Head(webdesign), "dependencies-top");
+    webdesign->InsertWithCallback(PTR this->DoTagManager_Body(webdesign), "body-top");
+    webdesign->InsertWithCallback(PTR this->PrintDatalayerPushes, "body-bottom");
+  }
+
+  MACRO DoTagManager_Head(OBJECT webdesign)
+  {
+    IF(this->pvt_account = "" OR this->pvt_integration != "script" OR this->pvt_launch != "pagerender")
+      RETURN;
+
+    BOOLEAN compact := webdesign->wittyencoding LIKE "*-NI";
+    STRING code := "<script>";
+    code := code || "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='//www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','" || EncodeJava(this->pvt_account)|| "');";
+    code := code || "</script>" || (compact?'':'\n');
+    Print(code);
+  }
+  MACRO DoTagManager_Body(OBJECT webdesign)
+  {
+    IF(this->pvt_account = "" OR this->pvt_launch != "pagerender")
+      RETURN;
+
+    //The noscript code is probably always useful. no need to intercept it
+    BOOLEAN compact := webdesign->wittyencoding LIKE "*-NI";
+    STRING code := '<noscript><iframe src="//www.googletagmanager.com/ns.html?id=' || EncodeURL(this->pvt_account) || '" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' || (compact?'':'\n');
+    Print(code);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION HookGetDebugSettings()
+  {
+    RETURN [[ grouptitle := "Commonly used", tag := "sne", title := "Don't embed external scripts like GTM" ]];
+  }
+>;

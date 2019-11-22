@@ -1,0 +1,494 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+/** Mutex port handler, handles all mutex lock requests
+
+    ADDME: deadlock detection
+*/
+PUBLIC STATIC OBJECTTYPE MutexPortHandler EXTEND IPCPortHandlerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** List of mutexes
+      @cell name Name of the mutex
+      @cell owner Current owner (DEFAULT RECORD if no owner)
+      @cell owner.link
+      @cell owner.waitingsince
+      @cell owner.trace
+      @cell waiters List of waiters
+      @cell waiters.link
+      @cell waiters.waitingsince
+      @cell waiters.trace
+  */
+  RECORD ARRAY mutexes;
+
+
+  /** List of active links
+      @cell id
+      @cell link
+      @cell clientname
+      @cell groupid
+      @cell connectedsince
+      @cell waiting
+      @cell waituntil
+      @cell waitfor
+      @cell replyid If waiting, id of the reply to send
+  */
+  RECORD ARRAY links;
+
+
+  /// Counter for the link ids
+  INTEGER linkid_counter;
+
+
+  /** Event log. Used only when not empty
+      @cell src
+      @cell time
+      @cell msg
+  */
+  RECORD ARRAY log;
+
+  BOOLEAN logtraces;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT port)
+  : IPCPortHandlerBase(port)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  UPDATE RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    IF (NOT this->IsCellOk(message, "TASK", TypeID(STRING)))
+      THROW NEW Exception("Wrong message format, expected 'task' cell");
+
+    SWITCH (message.task)
+    {
+      CASE "init"
+      {
+        IF (RecordExists(this->log))
+          this->LogEvent(link, "Init client name to '" || message.clientname || "', group id: " || message.groupid);
+
+        UPDATE this->links
+           SET clientname :=  message.clientname
+             , groupid :=     message.groupid
+         WHERE COLUMN link = VAR link;
+
+        RETURN
+            [ result := "message"
+            , msg :=    [ status := "ok"
+                        , logtraces := this->logtraces
+                        ]
+            ];
+      }
+
+      CASE "setclientname"
+      {
+        IF (RecordExists(this->log))
+          this->LogEvent(link, "Set client name to '" || message.clientname || "', group id: " || message.groupid);
+
+        UPDATE this->links
+           SET clientname :=  message.clientname
+             , groupid :=     message.groupid
+         WHERE COLUMN link = VAR link;
+
+         // No reply needed
+         RETURN
+            [ result := "defer"
+            ];
+      }
+
+      CASE "setdebugging"
+      {
+        IF (NOT message.eventlog)
+          this->log := DEFAULT RECORD ARRAY;
+        ELSE
+          this->LogEvent(link, "Set debugging: eventlog: " || (message.eventlog ? "yes" : "no"));
+
+        IF (this->logtraces != message.logtraces)
+        {
+          this->logtraces := message.logtraces;
+          FOREVERY (RECORD rec FROM this->links)
+            rec.link->SendMessage([ task := "setdebugging", logtraces := this->logtraces ]);
+        }
+
+        RETURN
+            [ result := "message"
+            , msg :=    [ status := "ok"
+                        , msg :=    ""
+                        ]
+            ];
+      }
+
+      CASE "lock"
+      {
+        /* Request to lock a mutex
+        */
+        IF (RecordExists(this->log))
+          this->LogEvent(link, "Lock mutex '" || message.mutexname || "', trylock: " || (message.trylock ? "yes" : "no"));
+
+        STRING res := this->GrabMutex(link, message.mutexname, message.trylock, message.wait_until, message.trace);
+
+        SWITCH (res)
+        {
+          CASE "ok"
+          {
+            RETURN
+                [ result := "message"
+                , msg :=    [ status := "ok"
+                            , msg :=    ""
+                            ]
+                ];
+          }
+
+          CASE "no"
+          {
+            RETURN
+                [ result := "message"
+                , msg :=    [ status := "no"
+                            , msg :=    ""
+                            ]
+                ];
+          }
+
+          CASE "alreadywaiting"
+          {
+            RETURN
+                [ result := "message"
+                , msg :=    [ status := "error"
+                            , msg :=    "Already waiting for a mutex"
+                            ]
+                ];
+          }
+
+          CASE "waiting"
+          {
+            INTEGER pos := this->GetLinkPos(link);
+            this->links[pos].replyid := replyid;
+            this->links[pos].waiting := TRUE;
+
+            RETURN
+                [ result := "defer"
+                ];
+          }
+        }
+      }
+
+    CASE "unlock"
+      {
+        /* Request to unlock a mutex
+        */
+        IF (RecordExists(this->log))
+          this->LogEvent(link, "Unlock mutex '" || message.mutexname || "'");
+
+        this->ReleaseMutex(link, message.mutexname);
+        this->NotifyCandidates();
+        RETURN
+            [ result := "defer" ];
+/*            [ result := "message"
+                , msg :=    [ status := "ok"
+                        , msg :=    ""
+                        ]
+            ];
+*/
+      }
+
+    CASE "status"
+      {
+        /* Status report request
+        */
+        RETURN
+            [ result := "message"
+            , msg :=    [ status := "ok"
+                        , mutexes :=
+                           (SELECT mutexname
+                                 , taken := RecordExists(owner)
+                                 , takenby := RecordExists(owner) ?
+                                              (SELECT AS INTEGER id
+                                                 FROM this->links
+                                                WHERE COLUMN link = mutexes.owner.link) : 0
+                                 , waiters := LENGTH(candidates)
+                                 , takentrace := RecordExists(owner) ? owner.trace : DEFAULT RECORD ARRAY
+                              FROM this->mutexes)
+                        , links :=
+                           (SELECT id
+                                 , clientname
+                                 , groupid
+                                 , connectedsince
+                                 , waiting
+                                 , COLUMN waituntil
+                                 , waitfor
+                                 , waittrace
+                              FROM this->links)
+                        , log := this->log
+                        , logtraces := this->logtraces
+                        ]
+            ];
+      }
+    }
+
+    THROW NEW Exception("Mutex manager script received unknown command '"||message.task||"'");
+  }
+
+
+  /** New incoming link, administer it in the links array
+  */
+  UPDATE MACRO OnLinkAccepted(OBJECT link)
+  {
+    this->linkid_counter := this->linkid_counter + 1;
+    INSERT
+        [ id := this->linkid_counter
+        , link := link
+        , clientname := ""
+        , groupid := ""
+        , connectedsince := GetCurrentDateTime()
+        , replyid := 0i64
+        , waiting := FALSE
+        , waituntil := DEFAULT DATETIME
+        , waitfor := ""
+        , waittrace := DEFAULT RECORD ARRAY
+        ] INTO this->links AT END;
+
+    IF (RecordExists(this->log))
+      this->LogEvent(link, "New link");
+  }
+
+
+  /** A link has been closed: release owned mutexes, notify all waiters on those
+  */
+  UPDATE MACRO OnLinkClosed(OBJECT link)
+  {
+    IF (RecordExists(this->log))
+      this->LogEvent(link, "Link closed");
+
+    BOOLEAN any_freed;
+
+    FOREVERY (RECORD mutex FROM this->mutexes)
+    {
+      // Is the owner of this mutex the current link?
+      IF (RecordExists(mutex.owner) AND mutex.owner.link = link)
+      {
+        // Release the mutex notify candidates later
+        this->mutexes[#mutex].owner := DEFAULT RECORD;
+        any_freed := TRUE;
+      }
+
+      // Remove this link from the list of candidates
+      INTEGER pos := -1;
+      FOREVERY (RECORD candidate FROM mutex.candidates)
+        IF (candidate.link = link)
+          pos := #candidate;
+
+      IF (pos >= 0)
+        DELETE FROM this->mutexes[#mutex].candidates AT pos;
+    }
+
+    // Delete from the list of active links
+    DELETE FROM this->links AT this->GetLinkPos(link);
+
+    IF (any_freed)
+      this->NotifyCandidates();
+  }
+
+
+  /// Calc next timeout: the next time a link waituntil expires
+  UPDATE DATETIME FUNCTION GetNextTimeout()
+  {
+    RETURN
+        SELECT AS DATETIME COLUMN waituntil
+          FROM this->links CONCAT [ [ waiting := TRUE, waituntil := MAX_DATETIME ] ]
+         WHERE waiting;
+  }
+
+
+  /// A link waituntil has expired. Find that link and release the mutex
+  UPDATE MACRO OnTimeOut()
+  {
+    DATETIME now := GetCurrentDateTime();
+
+    FOREVERY (RECORD link FROM this->links)
+    {
+      IF (link.waiting AND link.waituntil < now)
+      {
+        IF (RecordExists(this->log))
+          this->LogEvent(link.link, "Wait timeout, releasing mutex " || link.waitfor);
+
+        this->ReleaseMutex(link.link, link.waitfor); // Also releases waiting for that mutex
+        this->SendLinkReply(#link, "timeout");
+        BREAK;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO LogEvent(OBJECT link, STRING msg)
+  {
+    IF (LENGTH(this->log) = 100)
+      DELETE FROM this->log AT 0;
+
+    STRING src :=
+        SELECT AS STRING clientname || " (" || id || ")"
+          FROM this->links
+         WHERE COLUMN link = VAR link;
+
+    INSERT [ src := src, time := GetCurrentDateTime(), msg := msg ] INTO this->log AT END;
+  }
+
+
+  INTEGER FUNCTION GetLinkPos(OBJECT searchlink)
+  {
+    INTEGER pos :=
+        (SELECT AS INTEGER #links + 1
+           FROM this->links
+          WHERE link = searchlink) - 1;
+
+    IF (pos = -1)
+      ABORT("Mutex manager internal consistency error: could not find a link in the links array");
+
+    RETURN pos;
+  }
+
+
+  STRING FUNCTION GrabMutex(OBJECT link, STRING mutexname, BOOLEAN trylock, DATETIME waituntil, RECORD ARRAY trace)
+  {
+    INTEGER linkpos := this->GetLinkPos(link);
+
+    // If you are waiting for one mutex, can't get another
+    IF (this->links[linkpos].waiting)
+      RETURN "alreadywaiting";
+
+    RECORD linkrec :=
+        [ link          := link
+        , waitingsince  := GetCurrentDateTime()
+        , trace         := trace
+        ];
+
+    // Locate the mutex
+    FOREVERY (RECORD mutex FROM this->mutexes)
+    {
+      IF (mutex.mutexname = mutexname)
+      {
+        // Already owned? If no, we're done
+        IF (NOT RecordExists(mutex.owner))
+        {
+          this->mutexes[#mutex].owner := linkrec;
+          RETURN "ok";
+        }
+
+        // If trylock = TRUE and the lock failed, don't register as waiter
+        IF (trylock)
+          RETURN "no";
+
+        // Waiting registration
+        INSERT linkrec INTO this->mutexes[#mutex].candidates AT END;
+
+        this->links[linkpos].waiting := TRUE;
+        this->links[linkpos].waituntil := waituntil;
+        this->links[linkpos].waitfor := mutexname;
+        this->links[linkpos].waittrace := trace;
+
+        RETURN "waiting";
+      }
+    }
+
+    // Mutex not found: insert a new one (taken by the current link)
+    INSERT [ mutexname   := mutexname
+           , owner       := linkrec
+           , candidates  := DEFAULT RECORD ARRAY
+           ] INTO this->mutexes AT END;
+
+    RETURN "ok";
+  }
+
+
+  /** Release a mutex (or a wait for a mutex) by a certain link.
+      Doesn't notify others that the mutex is freed!
+  */
+  MACRO ReleaseMutex(OBJECT link, STRING mutexname)
+  {
+    FOREVERY (RECORD mutex FROM this->mutexes)
+    {
+      IF (mutex.mutexname = mutexname)
+      {
+        BOOLEAN is_candidate := FALSE;
+
+        FOREVERY (RECORD candidate FROM mutex.candidates)
+        {
+          IF (candidate.link = link)
+          {
+            DELETE FROM this->mutexes[#mutex].candidates AT #candidate;
+            is_candidate := TRUE;
+            BREAK;
+          }
+        }
+
+        IF (NOT is_candidate AND RecordExists(mutex.owner) AND mutex.owner.link = link)
+        {
+          this->mutexes[#mutex].owner := DEFAULT RECORD;
+          this->NotifyCandidates();
+        }
+        BREAK;
+      }
+    }
+  }
+
+
+  /// Sends a reply to a waiting link.
+  MACRO SendLinkReply(INTEGER linkpos, STRING status)
+  {
+    INTEGER64 replyid := this->links[linkpos].replyid;
+
+    // And stop waiter
+    this->links[linkpos].waiting := FALSE;
+    this->links[linkpos].waituntil := DEFAULT DATETIME;
+    this->links[linkpos].waitfor := "";
+    this->links[linkpos].waittrace := DEFAULT RECORD ARRAY;
+    this->links[linkpos].replyid := 0i64;
+
+    this->SendPorthandlerReply(this->links[linkpos].link,
+        [ status := status
+        , msg := ""
+        ], replyid);
+  }
+
+
+  /// For every untaken mutex, notify the first candidate that the link is now free.
+  MACRO NotifyCandidates()
+  {
+    FOREVERY (RECORD mutex FROM this->mutexes)
+    {
+      IF (RecordExists(mutex.owner))
+        CONTINUE;
+
+      IF (LENGTH(mutex.candidates) = 0)
+        CONTINUE;
+
+      RECORD primecandidate := mutex.candidates[0];
+      OBJECT link := primecandidate.link;
+
+      // Get reply id
+      INTEGER pos := this->GetLinkPos(link);
+
+      this->SendLinkReply(pos, "ok");
+      this->mutexes[#mutex].owner := primecandidate;
+      DELETE FROM this->mutexes[#mutex].candidates AT 0;
+    }
+  }
+>;
+

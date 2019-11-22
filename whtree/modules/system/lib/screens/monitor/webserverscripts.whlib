@@ -1,0 +1,168 @@
+﻿<?wh
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE WebserverScripts EXTEND MonitorPanelBase
+<
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+
+  /** @short This monitor has been activated, start refreshing */
+  UPDATE PUBLIC MACRO EnableRefresh()
+  {
+    this->listener->enabled := TRUE;
+  }
+  /** @short This monitor has been deactivated, stop refreshing */
+  UPDATE PUBLIC MACRO DisableRefresh()
+  {
+    this->listener->enabled := FALSE;
+  }
+
+  MACRO OnScriptEvent(RECORD ARRAY events)
+  {
+    this->RefreshMonitorPanel();
+  }
+
+  STRING FUNCTION GetLastError(RECORD ARRAY messages)
+  {
+    FOREVERY (RECORD msg FROM messages)
+      IF (msg.iserror)
+        RETURN msg.message;
+    RETURN "";
+  }
+
+  STRING FUNCTION GetStatusTid(STRING status)
+  {
+    SWITCH (status)
+    {
+    CASE "none"         { RETURN GetTID("system:monitor.webserverscripts.manager.status-none"); }
+    CASE "starting"     { RETURN GetTID("system:monitor.webserverscripts.manager.status-starting"); }
+    CASE "running"      { RETURN GetTID("system:monitor.webserverscripts.manager.status-running"); }
+    CASE "terminated"   { RETURN GetTID("system:monitor.webserverscripts.manager.status-terminated"); }
+    CASE "released"     { RETURN GetTID("system:monitor.webserverscripts.manager.status-released"); }
+    CASE "crashed"      { RETURN GetTID("system:monitor.webserverscripts.manager.status-crashed"); }
+    CASE "shutdown"     { RETURN GetTID("system:monitor.webserverscripts.manager.status-shutdown"); }
+    }
+    RETURN "Unknown code: " || status;
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  {
+    OBJECT mgmt_link := ConnectToIPCPort("system:scriptmanager");
+    IF (NOT ObjectExists(mgmt_link))
+    {
+      this->applist->rows := DEFAULT RECORD ARRAY;
+      this->applist->empty := GetTID("system:monitor.webserverscripts.manager.couldnotcontact");
+      RETURN;
+    }
+
+    RECORD rec := mgmt_link->DoRequest([ task := "status" ]);
+    IF (rec.status != "ok" OR NOT rec.msg.success)
+    {
+      this->applist->rows := DEFAULT RECORD ARRAY;
+      IF (rec.status = "ok")
+        this->applist->empty := GetTID("system:monitor.webserverscripts.manager.error", rec.msg.error);
+      ELSE
+        this->applist->empty := GetTID("system:monitor.webserverscripts.manager.couldnotcontact");
+
+      mgmt_link->Close();
+      RETURN;
+    }
+
+    this->applist->empty := "";
+    this->applist->rows :=
+        SELECT rowkey :=        id
+             , name :=          tid!="" ? GetTid(tid) : title
+             , status :=        this->GetStatusTid(status)
+             , since
+             , lasterror :=     this->GetLastError(messages)
+             , messages
+             , screen
+             , hasdetails :=    screen != "" AND status = "running"
+          FROM rec.msg.reply.scripts;
+
+    PRINT("Refresh:\n" || AnyToString(rec.msg.reply, "tree"));
+
+    mgmt_link->Close();
+
+    this->OnApplistSelect(); //refresh history
+    this->OnMessageSelect();
+  }
+
+  MACRO DoTerminate()
+  {
+    OBJECT mgmt_link := ConnectToIPCPort("system:scriptmanager");
+    IF (NOT ObjectExists(mgmt_link))
+      RETURN;
+
+    RECORD x := mgmt_link->DoRequest([ task := "terminate", id := this->applist->value ]);
+    PRINT(AnyToString(x, "tree"));
+
+    mgmt_link->Close();
+    this->ForceMonitorRefresh();
+  }
+
+  MACRO DoDetails()
+  {
+    RECORD sel := this->applist->selection;
+    OBJECT scr := this->LoadScreen(sel.screen, DEFAULT RECORD);
+    scr->RunModal();
+  }
+
+  MACRO OnApplistSelect()
+  {
+    RECORD sel := this->applist->selection;
+    IF(NOT RecordExists(sel))
+    {
+      this->historylist->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    this->historylist->rows :=
+        SELECT *
+             , rowkey := #msg
+             , datesortkey := FormatDateTime("%Y%m%dT%H%M%S%Q", date) || (10000000-#msg)
+          FROM sel.messages AS msg;
+  }
+
+  MACRO OnMessageSelect()
+  {
+    RECORD sel := this->historylist->selection;
+    IF (NOT RecordExists(sel))
+      this->detailtext->value := "";
+    ELSE
+    {
+      RECORD ARRAY messages := SELECT * FROM sel.errors WHERE code >= 0;
+      RECORD ARRAY trace := SELECT * FROM sel.errors WHERE code < 0;
+
+      STRING detailtext;
+
+      IF(Length(messages)>0)
+      {
+        detailtext := "Error/warning messages:\n";
+        FOREVERY(RECORD msg FROM messages)
+        {
+          detailtext := detailtext || msg.filename || " (" || msg.line || "," || msg.col || "):" || GetHareScriptMessageText(msg.iserror, msg.code, msg.param1, msg.param2) || "\n";
+        }
+      }
+      IF(Length(trace)>0)
+      {
+        IF(detailtext!="")
+          detailtext := detailtext || "\nError trace:\n";
+        FOREVERY(RECORD msg FROM trace)
+        {
+          detailtext := detailtext || msg.filename || " " || msg.param1 || " (" || msg.line || "," || msg.col || ")\n";
+        }
+      }
+
+      this->detailtext->value := detailtext;
+    }
+  }
+>;

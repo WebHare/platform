@@ -1,0 +1,152 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+
+INTEGER max_lines_in_cache := 256;
+
+
+PUBLIC MACRO RunAsyncLineReader(OBJECT link, RECORD data)
+{
+  INTEGER diskstream;
+  INTEGER decompressedstream;
+
+  IF (CellExists(data, "FORMAT") AND data.format = 1)
+  {
+    IF (data.type = "blob")
+      decompressedstream := OpenBlobAsDecompressingStream(data.data, "GZIP");
+    ELSE
+    {
+      BLOB diskfile := GetDiskResource(data.path, [ allowmissing := TRUE ]);
+      IF (LENGTH(diskfile) = 0)
+        diskstream := OpenBlobAsFile(DEFAULT BLOB);
+      ELSE
+        decompressedstream := OpenBlobAsDecompressingStream(diskfile, "GZIP");
+    }
+
+    IF (decompressedstream = 0)
+      THROW NEW Exception("Can't decompress file - is it really compressed with GZIP?");
+
+    // Set position (can't seek in decompressed stream)
+    INTEGER64 toread := data.startposition;
+    WHILE (toread > 0)
+    {
+      STRING linedata := ReadFrom(decompressedstream, INTEGER(toread > 32678 ? 32768i64 : toread));
+      INTEGER len := LENGTH(linedata);
+      IF (len = 0)
+        BREAK;
+      ELSE
+        toread := toread - len;
+    }
+  }
+  ELSE
+  {
+    IF (data.type = "blob")
+      diskstream := OpenBlobAsFile(data.data);
+    ELSE IF (data.type = "file")
+    {
+      diskstream := OpenDiskFile(data.path, FALSE);
+      IF (diskstream = 0)
+        diskstream := OpenBlobAsFile(DEFAULT BLOB);
+    }
+
+    // Set position (can't seek in decompressed stream)
+    SetFilePointer(diskstream, data.startposition);
+  }
+
+  INTEGER stream := diskstream;
+  IF (decompressedstream != 0)
+    stream := decompressedstream;
+
+  ReadRecords(link, stream, data.startposition);
+
+  IF (diskstream != 0)
+    CloseDiskFile(diskstream);
+  IF (decompressedstream != 0)
+    CloseZlibDecompressor(decompressedstream);
+}
+
+MACRO ReadRecords(OBJECT link, INTEGER stream, INTEGER64 position)
+{
+  RECORD ARRAY cache;
+
+  BOOLEAN atend;
+
+  WHILE (TRUE)
+  {
+    // Max readlinefrom reads 32768 bytes. Max log line length is much longer (256kb or 512 kb), so workaround
+    INTEGER64 totalposition := position;
+    STRING totalline;
+
+    WHILE (LENGTH(cache) < 1024 AND NOT atend)
+    {
+      STRING line := ReadLineFrom(stream, 65536, FALSE);
+      IF (line = "")
+        atend := IsAtEndOfStream(stream);
+      IF (line LIKE "*\n")
+      {
+        INTEGER linelen := LENGTH(line);
+        position := position + linelen;
+
+        // Remove LF
+        line := Left(line, linelen - 1);
+        totalline := totalline || line;
+
+        // Remove CR (might have been in previous read)
+        IF (totalline LIKE "*\r")
+          line := Left(totalline, LENGTH(totalline) - 1);
+
+        INSERT [ position := totalposition, line := totalline, newposition := position ] INTO cache AT END;
+        totalline := "";
+        totalposition := position;
+      }
+      ELSE IF (atend)
+      {
+        IF (totalline != "")
+          INSERT [ position := totalposition, line := totalline, newposition := position ] INTO cache AT END;
+        BREAK;
+      }
+      ELSE
+      {
+        INTEGER linelen := LENGTH(line);
+        position := position + linelen;
+        totalline := totalline || line;
+      }
+    }
+
+    RECORD rec := link->ReceiveMessage(MAX_DATETIME);
+    IF (rec.status = "gone")
+      BREAK;
+    ELSE IF (rec.status = "ok")
+    {
+      SWITCH (rec.msg.type)
+      {
+        CASE "getlines"
+          {
+            BOOLEAN finished := atend AND LENGTH(cache) = 0;
+            link->SendReply(
+                [ status := finished ? "finished" : "lines"
+                , lines :=  cache
+                ], rec.msgid);
+            cache := DEFAULT RECORD ARRAY;
+
+            IF (finished)
+              BREAK;
+          }
+        CASE "terminate"
+          {
+            RETURN;
+          }
+      }
+    }
+  }
+}
+
+OBJECT link := GetIPCLinkToParent();
+
+RECORD msg := link->ReceiveMessage(MAX_DATETIME);
+link->SendReply([ type := "online" ], msg.msgid);
+
+RunAsyncLineReader(link, msg.msg);

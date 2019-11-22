@@ -1,0 +1,1068 @@
+/* The base WS2013 design: themes & RTD
+
+   The basic color scheme:
+
+                c70     c100      a70     a100
+   scheme1  #d7546e  #c60c30  #91c8ed  #63b1e5
+   scheme2  #f2a252  #ec7a08  #91c8ed  #63b1e5
+   scheme3  #78ba71  #3f9c35  #91c8ed  #63b1e5
+   scheme4  #4cb4ca  #0094b3  #dd4c9c  #cf0072
+   scheme5  #836ca5  #4f2d7f  #dd4c9c  #cf0072
+
+   (scheme1 is 'most' busy, scheme 5 is 'least' busy @ UT)
+   (c70 = content 70%, a100 = calltoaction 100%, etc)
+
+   Dark sites:
+
+                    dark scheme     light scheme
+   light            #111111         #ffffff
+   lighter          #222222         #ffffff
+   lightest         #333333         #ffffff
+   wihi             #444444         #f5faff    (widget highlight ?)
+   lightestinverse  #ffffff         #333333
+*/
+
+/* **************************************************************************
+
+Global page, HTML5 setup, style reset
+
+************************************************************************** */
+html, body, p, h1, h2, h3, h4, h5, h6, form { padding:0; margin:0; }
+img { border:none; }
+article, aside, details, figcaption, figure, footer, header, hgroup, nav, section, summary { display: block; }
+audio, canvas, video { display: inline-block; }
+datalist, template { display: none; }
+
+/* Defaults */
+html
+{
+  background-color: #ebf0f5;
+  font: 15px/22px Arial, Helvetica, Sans-Serif;
+  min-width:320px;
+}
+h1
+{
+  font: normal 36px "LinotypeUniversW02-Cn", "Arial Narrow", Arial;
+  text-transform: uppercase;
+}
+h2
+{
+  font: normal 26px "LinotypeUniversW02-Cn", "Arial Narrow", Arial;
+  text-transform: uppercase;
+}
+h3
+{
+  font: normal 20px "LinotypeUniversW02-Cn", "Arial Narrow", Arial;
+  text-transform: uppercase;
+}
+h4
+{
+  font: normal 16px "LinotypeUniversW02-Cn", "Arial Narrow", Arial;
+}
+
+
+/* **************************************************************************
+
+ Scheme colors. Note these are ALL !important, because specifying an explicit
+ color mixin should be pretty much equivalent to setting a color using style=
+
+************************************************************************** */
+
+/* global colors */
+
+  .fg-white
+, html.darkscheme .fg-lightestinverse
+{
+  color:#ffffff !important;
+}
+
+  .fg-black
+, .fg-lightestinverse
+{
+  color:#333333 !important;
+}
+
+  .bg-white
+, .bg-light
+, .bg-lighter
+, .bg-lightest
+{
+  background-color:#ffffff !important;
+}
+html.darkscheme .bg-light
+{
+  background-color:#111111 !important;
+}
+html.darkscheme .bg-lighter
+{
+  background-color:#222222 !important;
+}
+html.darkscheme .bg-lightest
+{
+  background-color:#333333 !important;
+}
+.bg-black
+{
+  background-color: #000000 !important;
+}
+.bg-transparent
+{
+  background-color: transparent !important;
+}
+
+.bg-wihi /* perhaps we can replace bg-default ? */
+{
+  background-color: #f5faff !important;
+}
+html.darkscheme .bg-wihi
+{
+  background-color: #444444 !important;
+}
+
+.bg-wihi-hlightest /* wihi, hover to lightest */
+{
+  background-color: #f5faff !important;
+  -webkit-transition: background-color 0.15s;
+  transition: background-color 0.15s;
+}
+.bg-wihi-hlightest:hover
+{
+  background-color: #ffffff !important;
+}
+html.darkscheme .bg-wihi-hlightest
+{
+  background-color: #444444 !important;
+  -webkit-transition: background-color 0.15s;
+  transition: background-color 0.15s;
+}
+html.darkscheme .bg-wihi-hlightest:hover
+{
+  background-color: #333333 !important;
+}
+
+.bg-default /* this is only relevant in combination with bg-transparent on one of the parent objects */
+{
+  background:#f5faff !important;
+}
+
+.bg-hdefault /* mixin: hover background to the default color */
+{
+  background-color: transparent; /* give us something to transition from, if unspecified */
+}
+.bg-hdefault:hover
+{
+  -webkit-transition: background-color 0.15s;
+  transition: background-color 0.15s;
+  background-color: #f5faff !important;
+}
+
+.bg-hwhite /* mixin: hover background to white */
+{
+  background-color: transparent; /* give us something to transition from, if unspecified */
+}
+.bg-hwhite:hover
+{
+  -webkit-transition: background-color 0.15s;
+  transition: background-color 0.15s;
+  background-color: #ffffff !important;
+}
+
+.bg-hblack /* mixin: hover background to white */
+{
+  background-color: transparent; /* give us something to transition from, if unspecified */
+}
+.bg-hblack:hover
+{
+  -webkit-transition: background-color 0.15s;
+  transition: background-color 0.15s;
+  background-color: #222222 !important;
+}
+
+/* schemed colors */
+
+html.scheme1 .outline-a70  { outline-color:#91c8ed !important; }
+html.scheme2 .outline-a70  { outline-color:#91c8ed !important; }
+html.scheme3 .outline-a70  { outline-color:#91c8ed !important; }
+html.scheme4 .outline-a70  { outline-color:#dd4c9c !important; }
+html.scheme5 .outline-a70  { outline-color:#dd4c9c !important; }
+
+html.scheme1 .outline-a100  { color:#63b1e5 !important; }
+html.scheme2 .outline-a100  { color:#63b1e5 !important; }
+html.scheme3 .outline-a100  { color:#63b1e5 !important; }
+html.scheme4 .outline-a100  { color:#cf0072 !important; }
+html.scheme5 .outline-a100  { color:#cf0072 !important; }
+
+
+
+html.scheme1 .bg-a70  { background-color:#91c8ed !important; }
+html.scheme2 .bg-a70  { background-color:#91c8ed !important; }
+html.scheme3 .bg-a70  { background-color:#91c8ed !important; }
+html.scheme4 .bg-a70  { background-color:#dd4c9c !important; }
+html.scheme5 .bg-a70  { background-color:#dd4c9c !important; }
+
+html.scheme1 .bg-a100  { background-color:#63b1e5 !important; }
+html.scheme2 .bg-a100  { background-color:#63b1e5 !important; }
+html.scheme3 .bg-a100  { background-color:#63b1e5 !important; }
+html.scheme4 .bg-a100  { background-color:#cf0072 !important; }
+html.scheme5 .bg-a100  { background-color:#cf0072 !important; }
+
+html.scheme1 .fg-a70  { color:#91c8ed !important; }
+html.scheme2 .fg-a70  { color:#91c8ed !important; }
+html.scheme3 .fg-a70  { color:#91c8ed !important; }
+html.scheme4 .fg-a70  { color:#dd4c9c !important; }
+html.scheme5 .fg-a70  { color:#dd4c9c !important; }
+
+
+html.scheme1 .fg-a100  { color:#63b1e5 !important; }
+html.scheme2 .fg-a100  { color:#63b1e5 !important; }
+html.scheme3 .fg-a100  { color:#63b1e5 !important; }
+html.scheme4 .fg-a100  { color:#cf0072 !important; }
+html.scheme5 .fg-a100  { color:#cf0072 !important; }
+
+
+.bg-a70-h100                     { -webkit-transition: background-color 0.15s; transition: background-color 0.15s }
+html.scheme1 .bg-a70-h100        { background-color:#91c8ed !important; }
+html.scheme2 .bg-a70-h100        { background-color:#91c8ed !important; }
+html.scheme3 .bg-a70-h100        { background-color:#91c8ed !important; }
+html.scheme4 .bg-a70-h100        { background-color:#dd4c9c !important; }
+html.scheme5 .bg-a70-h100        { background-color:#dd4c9c !important; }
+html.scheme1 .bg-a70-h100:hover  { background-color:#63b1e5 !important; }
+html.scheme2 .bg-a70-h100:hover  { background-color:#63b1e5 !important; }
+html.scheme3 .bg-a70-h100:hover  { background-color:#63b1e5 !important; }
+html.scheme4 .bg-a70-h100:hover  { background-color:#cf0072 !important; }
+html.scheme5 .bg-a70-h100:hover  { background-color:#cf0072 !important; }
+
+.bg-a100-h70                     { -webkit-transition: background-color 0.15s; transition: background-color 0.15s }
+html.scheme1 .bg-a100-h70        { background-color:#63b1e5 !important; }
+html.scheme2 .bg-a100-h70        { background-color:#63b1e5 !important; }
+html.scheme3 .bg-a100-h70        { background-color:#63b1e5 !important; }
+html.scheme4 .bg-a100-h70        { background-color:#cf0072 !important; }
+html.scheme5 .bg-a100-h70        { background-color:#cf0072 !important; }
+html.scheme1 .bg-a100-h70:hover  { background-color:#91c8ed !important; }
+html.scheme2 .bg-a100-h70:hover  { background-color:#91c8ed !important; }
+html.scheme3 .bg-a100-h70:hover  { background-color:#91c8ed !important; }
+html.scheme4 .bg-a100-h70:hover  { background-color:#dd4c9c !important; }
+html.scheme5 .bg-a100-h70:hover  { background-color:#dd4c9c !important; }
+
+
+
+
+
+html.scheme1 .bg-c70      { background-color:#d7546e !important; }
+html.scheme2 .bg-c70      { background-color:#f2a252 !important; }
+html.scheme3 .bg-c70      { background-color:#78ba71 !important; }
+html.scheme4 .bg-c70      { background-color:#4cb4ca !important; }
+html.scheme5 .bg-c70      { background-color:#836ca5 !important; }
+
+.bg-c70-h100                    { -webkit-transition: background-color 0.15s; transition: background-color 0.15s }
+html.scheme1 .bg-c70-h100       { background-color:#d7546e !important; }
+html.scheme2 .bg-c70-h100       { background-color:#f2a252 !important; }
+html.scheme3 .bg-c70-h100       { background-color:#78ba71 !important; }
+html.scheme4 .bg-c70-h100       { background-color:#4cb4ca !important; }
+html.scheme5 .bg-c70-h100       { background-color:#836ca5 !important; }
+html.scheme1 .bg-c70-h100:hover { background-color:#c60c30 !important; }
+html.scheme2 .bg-c70-h100:hover { background-color:#ec7a08 !important; }
+html.scheme3 .bg-c70-h100:hover { background-color:#3f9c35 !important; }
+html.scheme4 .bg-c70-h100:hover { background-color:#0094b3 !important; }
+html.scheme5 .bg-c70-h100:hover { background-color:#4f2d7f !important; }
+
+.bg-h70                        { -webkit-transition: background-color 0.15s; transition: background-color 0.15s; background:transparent; }
+html.scheme1 .bg-h70:hover     { background-color:#d7546e !important; }
+html.scheme2 .bg-h70:hover     { background-color:#f2a252 !important; }
+html.scheme3 .bg-h70:hover     { background-color:#78ba71 !important; }
+html.scheme4 .bg-h70:hover     { background-color:#4cb4ca !important; }
+html.scheme5 .bg-h70:hover     { background-color:#836ca5 !important; }
+
+.bg-h70                     { -webkit-transition: background-color 0.15s; transition: background-color 0.15s; background:transparent; }
+html.scheme1 .bg-h100:hover { background-color:#c60c30 !important; }
+html.scheme2 .bg-h100:hover { background-color:#ec7a08 !important; }
+html.scheme3 .bg-h100:hover { background-color:#3f9c35 !important; }
+html.scheme4 .bg-h100:hover { background-color:#0094b3 !important; }
+html.scheme5 .bg-h100:hover { background-color:#4f2d7f !important; }
+
+
+.fg-c100-bg-h100                        { -webkit-transition: color 0.15s, background-color 0.5s; transition: color 0.15s, background-color 0.5s;}
+html.scheme1 .fg-c100-bg-h100           { color:#c60c30; }
+html.scheme2 .fg-c100-bg-h100           { color:#ec7a08; }
+html.scheme3 .fg-c100-bg-h100           { color:#3f9c35; }
+html.scheme4 .fg-c100-bg-h100           { color:#0094b3; }
+html.scheme5 .fg-c100-bg-h100           { color:#4f2d7f; }
+
+.fg-c100-bg-h100:hover                  { color:#ffffff !important;}
+html.scheme1 .fg-c100-bg-h100:hover     { background-color:#c60c30 !important; }
+html.scheme2 .fg-c100-bg-h100:hover     { background-color:#ec7a08 !important; }
+html.scheme3 .fg-c100-bg-h100:hover     { background-color:#3f9c35 !important; }
+html.scheme4 .fg-c100-bg-h100:hover     { background-color:#0094b3 !important; }
+html.scheme5 .fg-c100-bg-h100:hover     { background-color:#4f2d7f !important; }
+
+html.scheme1 .fg-c70      { color:#d7546e !important; }
+html.scheme2 .fg-c70      { color:#f2a252 !important; }
+html.scheme3 .fg-c70      { color:#78ba71 !important; }
+html.scheme4 .fg-c70      { color:#4cb4ca !important; }
+html.scheme5 .fg-c70      { color:#836ca5 !important; }
+
+html.scheme1 .stroke-c70      { stroke:#d7546e !important; }
+html.scheme2 .stroke-c70      { stroke:#f2a252 !important; }
+html.scheme3 .stroke-c70      { stroke:#78ba71 !important; }
+html.scheme4 .stroke-c70      { stroke:#4cb4ca !important; }
+html.scheme5 .stroke-c70      { stroke:#836ca5 !important; }
+
+/* on hover, take foreground color to c70 */
+.fg-hc70                                       { -webkit-transition: color 0.15s, background-color 0.5s; transition: color 0.15s, background-color 0.5s;}
+html.scheme1 .fg-hc70:hover                    { color:#d7546e !important; }
+html.scheme2 .fg-hc70:hover                    { color:#f2a252 !important; }
+html.scheme3 .fg-hc70:hover                    { color:#78ba71 !important; }
+html.scheme4 .fg-hc70:hover                    { color:#4cb4ca !important; }
+html.scheme5 .fg-hc70:hover                    { color:#836ca5 !important; }
+html.scheme1 .hover-trigger:hover .fg-hc70      { color:#d7546e !important; }
+html.scheme2 .hover-trigger:hover .fg-hc70      { color:#f2a252 !important; }
+html.scheme3 .hover-trigger:hover .fg-hc70      { color:#78ba71 !important; }
+html.scheme4 .hover-trigger:hover .fg-hc70      { color:#4cb4ca !important; }
+html.scheme5 .hover-trigger:hover .fg-hc70      { color:#836ca5 !important; }
+
+html.scheme1 .br-c70      { border-color:#d7546e !important; }
+html.scheme2 .br-c70      { border-color:#f2a252 !important; }
+html.scheme3 .br-c70      { border-color:#78ba71 !important; }
+html.scheme4 .br-c70      { border-color:#4cb4ca !important; }
+html.scheme5 .br-c70      { border-color:#836ca5 !important; }
+
+html.scheme1 .br-c100     { border-color:#c60c30 !important; }
+html.scheme2 .br-c100     { border-color:#ec7a08 !important; }
+html.scheme3 .br-c100     { border-color:#3f9c35 !important; }
+html.scheme4 .br-c100     { border-color:#0094b3 !important; }
+html.scheme5 .br-c100     { border-color:#4f2d7f !important; }
+
+html.scheme1 .br-a70      { border-color:#91c8ed !important; }
+html.scheme2 .br-a70      { border-color:#91c8ed !important; }
+html.scheme3 .br-a70      { border-color:#91c8ed !important; }
+html.scheme4 .br-a70      { border-color:#dd4c9c !important; }
+html.scheme5 .br-a70      { border-color:#dd4c9c !important; }
+
+html.scheme1 .br-a100     { border-color:#63b1e5 !important; }
+html.scheme2 .br-a100     { border-color:#63b1e5 !important; }
+html.scheme3 .br-a100     { border-color:#63b1e5 !important; }
+html.scheme4 .br-a100     { border-color:#cf0072 !important; }
+html.scheme5 .br-a100     { border-color:#cf0072 !important; }
+
+.br-a70-h100                   { -webkit-transition: color 0.15s, background-color 0.5s; transition: color 0.15s, background-color 0.5s;}
+html.scheme1 .br-a70-h100      { border-color:#91c8ed !important; }
+html.scheme2 .br-a70-h100      { border-color:#91c8ed !important; }
+html.scheme3 .br-a70-h100      { border-color:#91c8ed !important; }
+html.scheme4 .br-a70-h100      { border-color:#dd4c9c !important; }
+html.scheme5 .br-a70-h100      { border-color:#dd4c9c !important; }
+html.scheme1 .hover-trigger:hover .br-a70-h100 { border-color:#63b1e5 !important; }
+html.scheme2 .hover-trigger:hover .br-a70-h100 { border-color:#63b1e5 !important; }
+html.scheme3 .hover-trigger:hover .br-a70-h100 { border-color:#63b1e5 !important; }
+html.scheme4 .hover-trigger:hover .br-a70-h100 { border-color:#cf0072 !important; }
+html.scheme5 .hover-trigger:hover .br-a70-h100 { border-color:#cf0072 !important; }
+
+
+html.scheme1 .bg-c100     { background-color:#c60c30 !important; }
+html.scheme2 .bg-c100     { background-color:#ec7a08 !important; }
+html.scheme3 .bg-c100     { background-color:#3f9c35 !important; }
+html.scheme4 .bg-c100     { background-color:#0094b3 !important; }
+html.scheme5 .bg-c100     { background-color:#4f2d7f !important; }
+
+html.scheme1 .fg-c100     { color:#c60c30 !important; }
+html.scheme2 .fg-c100     { color:#ec7a08 !important; }
+html.scheme3 .fg-c100     { color:#3f9c35 !important; }
+html.scheme4 .fg-c100     { color:#0094b3 !important; }
+html.scheme5 .fg-c100     { color:#4f2d7f !important; }
+
+html.scheme1 .fg-a100     { color:#63b1e5 !important; }
+html.scheme2 .fg-a100     { color:#63b1e5 !important; }
+html.scheme3 .fg-a100     { color:#63b1e5 !important; }
+html.scheme4 .fg-a100     { color:#cf0072 !important; }
+html.scheme5 .fg-a100     { color:#cf0072 !important; }
+
+
+/* **************************************************************************
+
+ Scheme colored images
+
+************************************************************************** */
+
+/* V2 scheme image definition */
+ .si-w16-c70
+,.si-w16-a70
+,.si-w16-c100
+,.si-w16-white
+,.si-w24-c70
+,.si-w24-c100
+,.si-w24-a70
+,.si-w24-white
+,.si-w32-c70
+,.si-w32-a70
+,.si-w32-c100
+,.si-w32-white
+,.si-w64-c70
+,.si-w64-a70
+,.si-w64-c100
+,.si-w64-white
+{
+  display:inline-block;
+  background-repeat: no-repeat;
+}
+ .si-w16-c70
+,.si-w16-a70
+,.si-w16-c100
+,.si-w16-white
+,.si-w16-black
+,.si-w16-grey
+{
+  width: 16px;
+  height: 16px;
+}
+ .si-w24-c70
+,.si-w24-a70
+,.si-w24-c100
+,.si-w24-white
+,.si-w24-black
+{
+  width:24px;
+  height:24px;
+}
+ .si-w32-c70
+,.si-w32-a70
+,.si-w32-c100
+,.si-w32-white
+,.si-w32-black
+{
+  width:32px;
+  height:32px;
+}
+ .si-w64-c70
+,.si-w64-a70
+,.si-w64-c100
+,.si-w64-white
+,.si-w64-black
+{
+  width:64px;
+  height:64px;
+}
+
+/* V2 scheme image positions */
+
+/* white versions */
+.si-w16-white             { background-position:-24px  -24px !important; }
+.si-w24-white             { background-position:-20px  -20px !important; }
+.si-w32-white             { background-position:-16px  -16px !important; }
+
+/* black versions */
+.si-w16-black             { background-position:-24px  -152px !important; }
+.si-w24-black             { background-position:-20px  -150px !important; }
+.si-w32-black             { background-position:-16px  -150px !important; }
+
+/* grey versions */
+.si-w16-grey              { background-position:-24px  -216px !important; }
+
+.trigger-hover:hover .si-w16-hwhite { background-position:-24px  -24px !important; }
+.trigger-hover:hover .si-w24-hwhite { background-position:-20px  -20px !important; }
+.trigger-hover:hover .si-w32-hwhite { background-position:-16px  -16px !important; }
+
+
+/* Scheme 1 */
+html.scheme1 .si-w16-c70  { background-position:-24px -280px ; }
+html.scheme1 .si-w16-a70  { background-position:-24px -728px ; }
+html.scheme1 .si-w16-c100 { background-position:-24px -216px ; }
+html.scheme1 .si-w24-c70  { background-position:-20px -276px ; }
+html.scheme1 .si-w24-c100 { background-position:-20px -404px ; }
+html.scheme1 .si-w24-a70  { background-position:-20px -340px ; }
+html.scheme1 .si-w32-c70  { background-position:-16px -272px ; }
+html.scheme1 .si-w32-a70  { background-position:-16px -336px ; }
+html.scheme1 .si-w32-c100 { background-position:-16px -400px ; }
+html.scheme1 .si-w64-c70  { background-position: 0px  -256px ; }
+html.scheme1 .si-w64-a70  { background-position: 0px  -320px ; }
+html.scheme1 .si-w64-c100 { background-position: 0px  -384px ; }
+
+/* Scheme 2 */
+html.scheme2 .si-w16-a70  { background-position:-24px -728px ; }
+html.scheme2 .si-w16-c70  { background-position:-24px -472px ; }
+html.scheme2 .si-w16-c100 { background-position:-24px -600px ; }
+html.scheme2 .si-w24-c70  { background-position:-20px -468px ; }
+html.scheme2 .si-w24-c100 { background-position:-20px -596px ; }
+html.scheme2 .si-w24-a70  { background-position:-20px -532px ; }
+html.scheme2 .si-w32-c70  { background-position:-16px -464px ; }
+html.scheme2 .si-w32-a70  { background-position:-16px -528px ; }
+html.scheme2 .si-w32-c100 { background-position:-16px -592px ; }
+html.scheme2 .si-w64-c70  { background-position: 0px  -448px ; }
+html.scheme2 .si-w64-a70  { background-position: 0px  -512px ; }
+
+/* Scheme 3 */
+html.scheme3 .si-w16-a70  { background-position:-24px -728px ; }
+html.scheme3 .si-w16-c70  { background-position:-24px -664px ; }
+html.scheme3 .si-w16-c100 { background-position:-24px -792px ; }
+html.scheme3 .si-w24-c70  { background-position:-20px -660px ; }
+html.scheme3 .si-w24-c100 { background-position:-20px -788px ; }
+html.scheme3 .si-w24-a70  { background-position:-20px -724px ; }
+html.scheme3 .si-w32-c70  { background-position:-16px -656px ; }
+html.scheme3 .si-w32-a70  { background-position:-16px -720px ; }
+html.scheme3 .si-w32-c100 { background-position:-16px -784px ; }
+html.scheme3 .si-w64-c70  { background-position: 0px  -640px ; }
+html.scheme3 .si-w64-a70  { background-position: 0px  -704px ; }
+
+
+/* Scheme 4 */
+html.scheme4 .si-w16-a70  { background-position:-24px -1112px ; }
+html.scheme4 .si-w16-c70  { background-position:-24px -856px ; }
+html.scheme4 .si-w16-c100 { background-position:-24px -984px ; }
+html.scheme4 .si-w24-c70  { background-position:-20px -852px ; }
+html.scheme4 .si-w24-c100 { background-position:-20px -980px ; }
+html.scheme4 .si-w24-a70  { background-position:-20px -916px ; }
+html.scheme4 .si-w32-c70  { background-position:-16px -848px ; }
+html.scheme4 .si-w32-a70  { background-position:-16px -912px ; }
+html.scheme4 .si-w32-c100 { background-position:-16px -976px ; }
+html.scheme4 .si-w64-c70  { background-position: 0px  -832px ; }
+html.scheme4 .si-w64-a70  { background-position: 0px  -896px ; }
+
+
+/* Scheme 5 */
+html.scheme5 .si-w16-a70  { background-position:-24px -1112px ; }
+html.scheme5 .si-w16-c70  { background-position:-24px -1048px ; }
+html.scheme5 .si-w16-c100 { background-position:-24px -1176px ; }
+html.scheme5 .si-w24-c70  { background-position:-20px -1044px ; }
+html.scheme5 .si-w24-c100 { background-position:-20px -1172px ; }
+html.scheme5 .si-w24-a70  { background-position:-20px -1108px ; }
+html.scheme5 .si-w32-c70  { background-position:-16px -1040px ; }
+html.scheme5 .si-w32-a70  { background-position:-16px -1104px ; }
+html.scheme5 .si-w32-c100 { background-position:-16px -1168px ; }
+html.scheme5 .si-w64-c70  { background-position: 0px  -1024px ; }
+html.scheme5 .si-w64-a70  { background-position: 0px  -1088px ; }
+
+
+
+/* **************************************************************************
+
+ List of images
+
+************************************************************************** */
+
+.img-arrowleft16       { background-image: url("../img/common/16-arrow_left.png"); }
+.img-arrowup16         { background-image: url("../img/common/16-arrow_up.png"); }
+.img-arrowright16      { background-image: url("../img/common/16-arrow_right.png"); }
+.img-arrowdown16       { background-image: url("../img/common/16-arrow_down.png"); }
+.img-close16           { background-image: url("../img/common/16-close.png"); }
+.img-download16        { background-image: url("../img/common/16-download.png"); }
+.img-email16           { background-image: url("../img/common/16-email.png"); }
+.img-facebook16        { background-image: url("../img/common/16-facebookklein.png"); }
+.img-linkedin16        { background-image: url("../img/common/16-linkedinklein.png"); }
+.img-locatie16         { background-image: url("../img/common/16-locatie.png"); }
+.img-locatie54_16      { background-image: url("../img/common/16-locatie-54.png"); }
+.img-inschrijven16     { background-image: url("../img/common/16-inschrijven.png"); }
+.img-kalender16        { background-image: url("../img/common/16-kalender.png"); }
+.img-phone16           { background-image: url("../img/common/16-phone.png"); }
+.img-roundclose16      { background-image: url("../img/common/16-roundclose.png"); }
+.img-search16          { background-image: url("../img/common/16-search.png"); }
+.img-search16          { background-image: url("../img/common/16-search.png"); }
+.img-taal16            { background-image: url("../img/common/16-taal.png"); }
+.img-tijd16            { background-image: url("../img/common/16-tijd.png"); }
+.img-year116           { background-image: url("../img/common/16-1_jaar.png"); }
+.img-year216           { background-image: url("../img/common/16-2_jaar.png"); }
+.img-year316           { background-image: url("../img/common/16-3_jaar.png"); }
+.img-year416           { background-image: url("../img/common/16-4_jaar.png"); }
+.img-parttime16        { background-image: url("../img/common/16-deeltijd.png"); }
+.img-fulltime16        { background-image: url("../img/common/16-voltijd.png"); }
+.img-radiobutton16        { background-image: url("../img/common/16-radiobutton.png"); }
+.img-radiobuttonactive16        { background-image: url("../img/common/16-radiobutton_active.png"); }
+
+.img-alumni24          { background-image: url("../img/common/24-alumni.png"); }
+.img-book24            { background-image: url("../img/common/24-book.png"); }
+.img-fair24            { background-image: url("../img/common/24-fair.png"); }
+.img-man24             { background-image: url("../img/common/24-man.png"); }
+.img-menu24            { background-image: url("../img/common/24-menu.png"); }
+.img-twitter24         { background-image: url("../img/common/24-twitter.png"); }
+.img-informatie24      { background-image: url("../img/common/24-informatie.png"); }
+.img-issuu24           { background-image: url("../img/common/24-issuu.png"); }
+.img-linkedin24        { background-image: url("../img/common/24-linkedin.png"); }
+.img-facebook24        { background-image: url("../img/common/24-facebook.png"); }
+.img-doubledegree24    { background-image: url("../img/common/24-double-degree.png"); }
+.img-jointdegree24     { background-image: url("../img/common/24-joint-degree.png"); }
+.img-legenda24         { background-image: url("../img/common/24-legenda.png"); }
+.img-specialisatie24   { background-image: url("../img/common/24-specialisatie.png"); }
+.img-koffer24          { background-image: url("../img/common/24-koffer.png"); }
+.img-vrouw24           { background-image: url("../img/common/24-vrouw.png"); }
+.img-drempelloos24      { background-image: url("../img/common/24-drempelloze-toelating.png"); }
+.img-drempelloosvoorwaarden24      { background-image: url("../img/common/24-drempelloze-toelating-onder-voorwaarden.png"); }
+
+
+.img-acreditation32    { background-image: url("../img/common/32-acreditatie.png"); }
+.img-apprequirements32 { background-image: url("../img/common/32-toelatings-voorwaarden.png"); }
+.img-attachment32      { background-image: url("../img/common/32-bijlage.png"); }
+.img-awards32          { background-image: url("../img/common/32-awards.png"); }
+.img-bachelor32        { background-image: url("../img/common/32-bachelor.png"); }
+.img-calendar32        { background-image: url("../img/common/32-kalender.png"); }
+.img-campus32          { background-image: url("../img/common/32-campus.png"); }
+.img-chat32            { background-image: url("../img/common/32-chat.png"); }
+.img-courses32         { background-image: url("../img/common/32-courses.png"); }
+.img-collegegeld32     { background-image: url("../img/common/32-collegegeld.png"); }
+.img-download32        { background-image: url("../img/common/32-download.png"); }
+.img-education32       { background-image: url("../img/common/32-education.png"); }
+.img-email32           { background-image: url("../img/common/32-mail.png"); }
+.img-excel32           { background-image: url("../img/common/32-excel.png"); }
+.img-exchangeprogram32 { background-image: url("../img/common/32-uitwisselingsprogrammas.png"); }
+.img-executiveedu32    { background-image: url("../img/common/32-executive_education.png"); }
+.img-events32          { background-image: url("../img/common/32-events.png"); }
+.img-file32            { background-image: url("../img/common/32-file.png"); }
+.img-fax32             { background-image: url("../img/common/32-fax.png"); }
+.img-hightea32         { background-image: url("../img/common/32-hightea.png"); }
+.img-incompany32       { background-image: url("../img/common/32-in_company.png"); }
+.img-kalender32        { background-image: url("../img/common/32-kalender.png"); }
+.img-leergangen32      { background-image: url("../img/common/32-leergangen.png"); }
+.img-linkedin32        { background-image: url("../img/common/32-linkedin.png"); }
+.img-master32          { background-image: url("../img/common/32-master.png"); }
+.img-masterclasses32   { background-image: url("../img/common/32-masterclasses.png"); }
+.img-network32         { background-image: url("../img/common/32-network.png"); }
+.img-organisation32    { background-image: url("../img/common/32-organisation.png"); }
+.img-powerpoint32      { background-image: url("../img/common/32-powerpoint.png"); }
+.img-pdf32             { background-image: url("../img/common/32-pdf.png"); }
+.img-phone32           { background-image: url("../img/common/32-telefoon.png"); }
+.img-pld32             { background-image: url("../img/common/32-pld.png"); }
+.img-phd32             { background-image: url("../img/common/32-phd.png"); }
+.img-research32        { background-image: url("../img/common/32-research.png"); }
+.img-sum32             { background-image: url("../img/common/32-sum.png"); }
+.img-studyadvice32     { background-image: url("../img/common/32-bindend-studie-advies.png"); }
+.img-studyroute32      { background-image: url("../img/common/32-studie-route.png"); }
+.img-symposia32        { background-image: url("../img/common/32-symposia.png"); }
+.img-target32          { background-image: url("../img/common/32-target.png"); }
+.img-tuitionfee32      { background-image: url("../img/common/32-collegegeld.png"); }
+.img-twitter32         { background-image: url("../img/common/32-twitter.png"); }
+.img-tour32            { background-image: url("../img/common/32-tour.png"); }
+.img-word32            { background-image: url("../img/common/32-word.png"); }
+
+
+.img-paperclip64       { background-image: url("../img/common/64-paperclip.png"); }
+.img-paperclipsloped64 { background-image: url("../img/common/64-paperclip-schuin.png"); }
+
+
+/* ***************************************************************************
+
+   Color schemes for widgets only
+   (remember that the main content is also considered a widget)
+*/
+
+  html.scheme1 .widget-docblock h2
+, html.scheme1 .widget-docblock h3
+, html.scheme1 .widget-docblock h4
+{
+  color: #c60c30;
+}
+  html.scheme2 .widget-docblock h2
+, html.scheme2 .widget-docblock h3
+, html.scheme2 .widget-docblock h4
+{
+  color: #ec7a08;
+}
+  html.scheme3 .widget-docblock h2
+, html.scheme3 .widget-docblock h3
+, html.scheme3 .widget-docblock h4
+{
+  color: #3f9c35;
+}
+  html.scheme4 .widget-docblock h2
+, html.scheme4 .widget-docblock h3
+, html.scheme4 .widget-docblock h4
+{
+  color: #0094b3;
+}
+  html.scheme5 .widget-docblock h2
+, html.scheme5 .widget-docblock h3
+, html.scheme5 .widget-docblock h4
+{
+  color: #4f2d7f;
+}
+
+/* **************************************************************************
+
+Misceallenous stuff to clean/fix
+
+************************************************************************** */
+/* old, remove sometime */
+html.scheme1 .bg-cta-c70  { background-color:#91c8ed !important; }
+html.scheme2 .bg-cta-c70  { background-color:#91c8ed !important; }
+html.scheme3 .bg-cta-c70  { background-color:#91c8ed !important; }
+html.scheme4 .bg-cta-c70  { background-color:#dd4c9c !important; }
+html.scheme5 .bg-cta-c70  { background-color:#dd4c9c !important; }
+
+html.scheme1 .bg-cta-c100  { background-color:#63b1e5 !important; }
+html.scheme2 .bg-cta-c100  { background-color:#63b1e5 !important; }
+html.scheme3 .bg-cta-c100  { background-color:#63b1e5 !important; }
+html.scheme4 .bg-cta-c100  { background-color:#cf0072 !important; }
+html.scheme5 .bg-cta-c100  { background-color:#cf0072 !important; }
+
+html.scheme1 .fg-cta-c70  { color:#91c8ed !important; }
+html.scheme2 .fg-cta-c70  { color:#91c8ed !important; }
+html.scheme3 .fg-cta-c70  { color:#91c8ed !important; }
+html.scheme4 .fg-cta-c70  { color:#dd4c9c !important; }
+html.scheme5 .fg-cta-c70  { color:#dd4c9c !important; }
+
+
+html.scheme1 .fg-cta-c100  { color:#63b1e5 !important; }
+html.scheme2 .fg-cta-c100  { color:#63b1e5 !important; }
+html.scheme3 .fg-cta-c100  { color:#63b1e5 !important; }
+html.scheme4 .fg-cta-c100  { color:#cf0072 !important; }
+html.scheme5 .fg-cta-c100  { color:#cf0072 !important; }
+/* old until here */
+
+/* V2 scheme images */
+/*
+FIXME: specify when it's ok to specify the backimage-image youself for a class
+       and when to use one of the img- classes below
+
+FIXME: issue with img-search16... we need background-position: -24px .....;
+ */
+
+
+html.scheme1 .widget-header-label .label { background-position:  0 0; }
+html.scheme2 .widget-header-label .label { background-position: 0 -80px; }
+html.scheme3 .widget-header-label .label { background-position: 0 -160px; }
+html.scheme4 .widget-header-label .label { background-position: 0 -240px; }
+html.scheme5 .widget-header-label .label { background-position: 0 -320px; }
+
+
+.bg-white .circlemask    { background-position: 0px 0px; !important; }
+.bg-black .circlemask    { background-position: 0px -188px; !important; }
+.bg-default .circlemask  { background-position: 0px -94px; !important; }
+
+
+/*.studyinfowidget .footer div.duration*/ .schemeimg
+{
+  background-image: url("../img/common/16-tijd.png");
+}
+/*.studyinfowidget .footer div.duration*/ .schemeimg.year4,
+.year4
+{
+  background-image: url("../img/common/16-4_jaar.png");
+}
+/*.studyinfowidget .footer div.duration*/ .schemeimg.year3,
+.year3
+{
+  background-image: url("../img/common/16-3_jaar.png");
+}
+/*.studyinfowidget .footer div.duration*/ .schemeimg.year2,
+.year2
+{
+  background-image: url("../img/common/16-2_jaar.png");
+}
+/*.studyinfowidget .footer div.duration*/ .schemeimg.year1,
+.year1
+{
+  background-image: url("../img/common/16-1_jaar.png");
+}
+
+
+/*
+  popout, e.g. the small dark-grey "note" that opens when the users hovers over the small questionmark-icon in the tgs widget (amongst others)
+
+*/
+.popout
+{
+  display: none;
+  max-width: 270px;
+  min-height: 64px;
+
+  padding: 25px 8px 25px 40px;
+  background-color: #444444;
+  color: #FFFFFF;
+  font: italic 15px/22px Arial;
+
+  -webkit-transform: translate3d(0,0,0);
+}
+.popout.active
+{
+  display: block;
+}
+.popout a
+{
+  color: #FFFFFF;
+}
+.popout .flap
+{
+  position: absolute;
+  right: -32px;
+  top: 32px;
+  bottom: 0;
+
+  width: 32px;
+  background-color: #444444;
+}
+.popout .flap:before
+{
+  content: " ";
+
+  position: absolute;
+  top: -32px;
+  width: 32px;
+  height: 64px;
+  background: transparent url("../img/common/tooltip_flap.png") no-repeat scroll right top;
+}
+.popout:after
+{
+  content: " ";
+
+  position: absolute;
+  left: 50%;
+  margin-left: -8px;
+  bottom: -8px;
+
+  width: 16px;
+  height: 8px;
+
+  background: transparent url("../img/common/tooltip_arrow.png") no-repeat scroll top left;
+}
+
+
+/* Component: image with fold. Applied by JS to all img.toprightfold
+*/
+div.clipimage
+{
+  position:relative;
+}
+div.clipimage:after /* the fold*/
+{
+  content:"";
+  display:block;
+  position:absolute;
+  top:0;
+  right:0;
+  width:32px;
+  height:64px;
+  background: transparent url("../img/common/widgetfold.png") no-repeat top right;
+}
+
+div.clipimage > img /* this hidden image helps us to resize */
+{
+  visibility: hidden;
+}
+div.clipimage > div.leftpart
+{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  top: 0;
+  left: -32px;
+}
+div.clipimage > div.leftpart > img
+{
+  position:relative;
+  left:32px;
+}
+div.clipimage > div.toppart
+{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  top: 32px;
+  left: 0;
+}
+div.clipimage > div.toppart > img
+{
+  position:relative;
+  top:-32px;
+}
+
+/* Component: slideshow
+*/
+.jumpbuttons .wh-slideshow-jumpbutton
+{
+  display: inline-block;
+  margin: 0 2px;
+  position:relative !important;
+}
+.jumpbuttons .wh-slideshow-jumpbutton.wh-slideshow-selected
+{
+  background-image: url("../img/common/16-radiobutton_active.png");
+}
+
+
+/* Docblocks
+   - docblocks are content entered in the RTD, or custom content that should
+     be styled pretty much like RTD content
+
+     this is in basedesign.css so the RTD can access it
+*/
+
+/* Default horizontal margins for the blockelements inside a docbock */
+.widget-docblock > *
+{
+  margin-left:25px;
+  margin-right:25px;
+}
+html.fluid-design .widget-docblock > *
+{
+  margin-left:15px;
+  margin-right:15px;
+}
+
+ .widget-docblock > p.normal
+,.widget-docblock .wh-rtd-embeddedobject > p.normal
+{
+  margin-bottom: 12px;
+}
+
+ .widget-docblock > h1 + p.normal
+,.widget-docblock > h1 + div
+,.widget-docblock > h1 + ul
+,.widget-docblock > h1 + ol
+,.widget-docblock > h2 + p.normal
+,.widget-docblock > h2 + div
+,.widget-docblock > h2 + ul
+,.widget-docblock > h2 + ol
+,.widget-docblock > h3 + p.normal
+,.widget-docblock > h3 + div
+,.widget-docblock > h3 + ul
+,.widget-docblock > h3 + ol
+,.widget-docblock .wh-rtd-embeddedobject > h1 + p.normal
+,.widget-docblock .wh-rtd-embeddedobject > h1 + div
+,.widget-docblock .wh-rtd-embeddedobject > h1 + ul
+,.widget-docblock .wh-rtd-embeddedobject > h1 + ol
+,.widget-docblock .wh-rtd-embeddedobject > h2 + p.normal
+,.widget-docblock .wh-rtd-embeddedobject > h2 + div
+,.widget-docblock .wh-rtd-embeddedobject > h2 + ul
+,.widget-docblock .wh-rtd-embeddedobject > h2 + ol
+,.widget-docblock .wh-rtd-embeddedobject > h3 + p.normal
+,.widget-docblock .wh-rtd-embeddedobject > h3 + div
+,.widget-docblock .wh-rtd-embeddedobject > h3 + ul
+,.widget-docblock .wh-rtd-embeddedobject > h3 + ol
+{
+  margin-top: 20px;
+}
+
+ html.fluid-design .widget-docblock > h1 + p.normal
+,html.fluid-design .widget-docblock > h1 + div
+,html.fluid-design .widget-docblock > h1 + ul
+,html.fluid-design .widget-docblock > h1 + ol
+,html.fluid-design .widget-docblock > h2 + p.normal
+,html.fluid-design .widget-docblock > h2 + div
+,html.fluid-design .widget-docblock > h2 + ul
+,html.fluid-design .widget-docblock > h2 + ol
+,html.fluid-design .widget-docblock > h3 + p.normal
+,html.fluid-design .widget-docblock > h3 + div
+,html.fluid-design .widget-docblock > h3 + ul
+,html.fluid-design .widget-docblock > h3 + ol
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h1 + p.normal
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h1 + div
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h1 + ul
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h1 + ol
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h2 + p.normal
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h2 + div
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h2 + ul
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h2 + ol
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h3 + p.normal
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h3 + div
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h3 + ul
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > h3 + ol
+{
+  margin-top: 10px;
+}
+
+
+ .widget-docblock > p.normal + h1
+,.widget-docblock > div + h1
+,.widget-docblock > ul + h1
+,.widget-docblock > ol + h1
+,.widget-docblock > p.normal + h2
+,.widget-docblock > div + h2
+,.widget-docblock > ul + h2
+,.widget-docblock > ol + h2
+,.widget-docblock .wh-rtd-embeddedobject > p.normal + h1
+,.widget-docblock .wh-rtd-embeddedobject > div + h1
+,.widget-docblock .wh-rtd-embeddedobject > ul + h1
+,.widget-docblock .wh-rtd-embeddedobject > ol + h1
+,.widget-docblock .wh-rtd-embeddedobject > p.normal + h2
+,.widget-docblock .wh-rtd-embeddedobject > div + h2
+,.widget-docblock .wh-rtd-embeddedobject > ul + h2
+,.widget-docblock .wh-rtd-embeddedobject > ol + h2
+{
+  margin-top: 40px;
+}
+
+ html.fluid-design .widget-docblock > p.normal + h1
+,html.fluid-design .widget-docblock > div + h1
+,html.fluid-design .widget-docblock > ul + h1
+,html.fluid-design .widget-docblock > ol + h1
+,html.fluid-design .widget-docblock > p.normal + h2
+,html.fluid-design .widget-docblock > div + h2
+,html.fluid-design .widget-docblock > ul + h2
+,html.fluid-design .widget-docblock > ol + h2
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > p.normal + h1
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > div + h1
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > ul + h1
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > ol + h1
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > p.normal + h2
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > div + h2
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > ul + h2
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > ol + h2
+{
+  margin-top: 20px;
+}
+
+
+ .widget-docblock > p.normal + h3
+,.widget-docblock > div + h3
+,.widget-docblock > ul + h3
+,.widget-docblock > ol + h3
+,.widget-docblock .wh-rtd-embeddedobject > p.normal + h3
+,.widget-docblock .wh-rtd-embeddedobject > div + h3
+,.widget-docblock .wh-rtd-embeddedobject > ul + h3
+,.widget-docblock .wh-rtd-embeddedobject > ol + h3
+{
+  margin-top: 30px;
+}
+
+ html.fluid-design .widget-docblock > p.normal + h3
+,html.fluid-design .widget-docblock > div + h3
+,html.fluid-design .widget-docblock > ul + h3
+,html.fluid-design .widget-docblock > ol + h3
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > p.normal + h3
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > div + h3
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > ul + h3
+,html.fluid-design .widget-docblock .wh-rtd-embeddedobject > ol + h3
+{
+  margin-top: 15px;
+}
+
+
+.widget-docblock ul
+{
+  padding-left: 0;
+  padding-right: 0;
+  list-style: none;
+}
+.widget-docblock ul li
+{
+  padding-left: .7em;
+  text-indent: -.7em;
+}
+html.rtl .widget-docblock ul li
+{
+  padding-left: 0em;
+  padding-right: .7em;
+}
+.widget-docblock ul li:before
+{
+  content: "•";
+  font-size: 20px;
+  padding-right: 5px;
+  position: relative;
+  top: 2px;
+}
+html.rtl .widget-docblock ul li:before
+{
+  padding-right: 0;
+  padding-left: 5px;
+}
+
+.widget-docblock ol
+{
+  list-style-position: inside;
+  padding:0;
+}
+
+.widget-docblock img
+{
+  max-width:100%;
+  height:auto;
+}
+

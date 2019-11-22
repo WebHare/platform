@@ -1,0 +1,154 @@
+<?wh
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+
+PUBLIC CONSTANT STRING officedocuments_relationships_uri := "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+PUBLIC CONSTANT STRING package_relationships_uri := "http://schemas.openxmlformats.org/package/2006/relationships";
+PUBLIC CONSTANT STRING officedocument_uri := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument";
+PUBLIC CONSTANT STRING drawingml_main_uri := "http://schemas.openxmlformats.org/drawingml/2006/main";
+PUBLIC CONSTANT STRING presentationml_main_uri := "http://schemas.openxmlformats.org/presentationml/2006/main";
+
+//ADDME: choose a better name
+PUBLIC OBJECTTYPE FilepartWithRels
+<
+  OBJECT pvt_relations;
+  OBJECT parent;
+  OBJECT pvt_document;
+  STRING pvt_path;
+  OBJECT ooxmlarchive;
+
+  PUBLIC PROPERTY document(pvt_document, -);
+  PUBLIC PROPERTY relations(pvt_relations, -);
+  PUBLIC PROPERTY path(pvt_path, -);
+  PUBLIC BOOLEAN dirty;
+  MACRO PTR ARRAY beforesavecallbacks;
+
+  MACRO NEW(OBJECT parent, OBJECT archive, STRING path)
+  {
+    this->parent := parent;
+    this->ooxmlarchive := archive;
+    this->pvt_path := path;
+    this->pvt_document := this->GetPart(path);
+    this->pvt_relations := this->GetRelations();
+
+    this->parent->RegisterFilePart(this, path);
+  }
+
+  PUBLIC BLOB FUNCTION PrepareSaveableVersion()
+  {
+    FOREVERY(MACRO PTR callback FROM this->beforesavecallbacks)
+      callback();
+    RETURN this->document->GetDocumentBlob(FALSE);
+  }
+
+  PUBLIC MACRO AddBeforeSaveCallback(MACRO PTR callback)
+  {
+    INSERT callback INTO this->beforesavecallbacks AT END;
+  }
+
+  OBJECT FUNCTION GetPart(STRING path)
+  {
+    RETURN MakeXMLDocument(this->ooxmlarchive->GetFile(path), "", FALSE);
+  }
+
+  OBJECT FUNCTION GetRelations()
+  {
+    STRING relpath := GetDirectoryFromPath(this->pvt_path) || "_rels/" ||
+                      GetNameFromPath(this->pvt_path) || ".rels";
+
+    RETURN this->GetPart(relpath);
+  }
+
+  OBJECT FUNCTION GetNodeByAttribute(STRING attribute, STRING value)
+  {
+    FOREVERY (OBJECT relation FROM this->pvt_relations->documentelement->childnodes->GetCurrentElements())
+    {
+      IF (relation->GetAttribute(attribute) = value)
+        RETURN relation;
+    }
+
+    THROW NEW Exception(this->pvt_path || ": Can't find relation where '" || attribute || "' is '" || value || "'");
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC OBJECT FUNCTION OpenRelationByAttribute(STRING attribute, STRING value)
+  {
+    OBJECT node := this->GetNodeByAttribute(attribute, value);
+
+    IF (ObjectExists(node))
+    {
+      STRING partpath := node->GetAttribute("Target");
+      IF(partpath NOT LIKE "/*")
+        partpath := GetDirectoryFromPath(this->pvt_path) || partpath;
+
+      OBJECT part := this->parent->GetRegisteredFilePart(partpath);
+      IF(ObjectExists(part))
+        RETURN part;
+
+      RETURN NEW FilepartWithRels(this->parent, this->ooxmlarchive, partpath);
+    }
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC OBJECT FUNCTION GetNodeByID(STRING rid)
+  {
+    RETURN this->GetNodeByAttribute("Id", rid);
+  }
+
+  PUBLIC OBJECT FUNCTION GetNodeByType(STRING type)
+  {
+    RETURN this->GetNodeByAttribute("Type", type);
+  }
+
+  PUBLIC OBJECT FUNCTION OpenRelationByID(STRING rid)
+  {
+    RETURN this->OpenRelationByAttribute("Id", rid);
+  }
+
+  PUBLIC OBJECT FUNCTION OpenRelationByType(STRING type)
+  {
+    RETURN this->OpenRelationByAttribute("Type", type);
+  }
+
+  //Debug functions
+
+  PUBLIC MACRO PrintInfo()
+  {
+    Print("===\n");
+
+    Print("Path: " || this->pvt_path || "\n");
+    IF (NOT ObjectExists(this->pvt_document))
+    {
+      Print("No document\n");
+    }
+    ELSE
+    {
+      OBJECT partroot := this->pvt_document->documentelement;
+      Print("NS: " || partroot->namespaceuri || "\n");
+    }
+
+    IF (NOT ObjectExists(this->pvt_relations))
+    {
+      Print("No relations\n");
+    }
+    ELSE
+    {
+      Print("There are relations\n");
+    }
+
+    Print("===\n");
+  }
+>;
+
+PUBLIC FLOAT FUNCTION EmuToPixels(STRING value)
+{
+  RETURN ToFloat(value, 0) / 9525.0;
+}
+
+PUBLIC FLOAT FUNCTION ReadEmu(OBJECT obj, STRING attr)
+{
+  RETURN EmuToPixels(obj->GetAttribute(attr));
+}

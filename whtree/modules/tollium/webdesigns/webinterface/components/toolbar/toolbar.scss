@@ -1,0 +1,130 @@
+/****************************************************************************************************************************
+ * Toolbar & toolbar button
+*/
+t-toolbar
+{
+  display: flex;
+  height: 72px;
+  background-position: right 74px top 50%;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+t-toolbar-buttongroup
+{
+  display: inline-block;
+  height: 72px;
+  overflow: hidden;
+}
+.t-toolbar-buttongroup__left
+{
+  flex: 1 100%;
+}
+.t-toolbar-buttongroup__right
+{
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+t-toolbar-buttongroup > t-button
+{
+  flex: 1 0 auto;
+  height: 72px;
+  padding: 16px 4px;
+  font-size: 11px;
+  line-height: inherit;
+  border: none;
+  text-align: center;
+  margin: 0;
+}
+
+t-toolbar-buttongroup > t-button > img
+{
+  height: 24px;
+  width: 24px;
+  margin: 0;
+}
+t-toolbar-buttongroup > t-button:not(.todd--disabled):hover > img
+{
+  opacity: 1;
+}
+/* line 454, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-toolbar-buttongroup > t-button.pressed > img,
+t-toolbar-buttongroup > t-button.button--active > img,
+t-toolbar-buttongroup > t-button:active > img
+{
+  /*left: 1px;
+  position: relative;
+  top: 1px;*/
+}
+t-toolbar-buttongroup > t-button.todd--disabled.pressed > img,
+t-toolbar-buttongroup > t-button.todd--disabled:button--active > img,
+t-toolbar-buttongroup > t-button.todd--disabled.pressed:hover > img,
+t-toolbar-buttongroup > t-button.todd--disabled:active:hover > img
+{
+  left: 0;
+  top: 0;
+}
+t-toolbar-buttongroup > t-button + t-button
+{
+  margin-left: 4px;
+}
+t-toolbar-buttongroup > span.divider
+{
+  position:relative;
+  display: inline-block;
+  vertical-align: top;
+  height: 100%;
+  width: 0;
+  margin: 2px 8px 0 8px;
+}
+t-toolbar-buttongroup > span.divider:before
+{
+  content:"";
+  position:absolute;
+  top:12px;
+  border: 1px solid #626262;
+  bottom:18px;
+  width:0;
+}
+
+/****************************************************************************************************************************
+* Toolbar & toolbar button
+  A toolbar button icon takes up 24x24.
+*/
+t-toolbar
+{
+  background-color: #4a4a4a;
+}
+t-toolbar-buttongroup > t-button
+{
+  color: #ffffff;
+  background-image: none;
+  box-shadow: none;
+  min-width: 64px;
+}
+
+t-toolbar-buttongroup > t-button:hover:not(.pressed)
+, t-toolbar-buttongroup > t-button.button--active:not(.pressed)
+{
+  background-color: rgba(255,255,255,.11);
+  background-image: none;
+}
+t-toolbar-buttongroup > t-button:hover.pressed
+{
+  background-color: #52aefe;
+  background-image: none;
+}
+t-toolbar-buttongroup > t-button.todd--disabled
+{
+  opacity: .45;
+  background-image: none;
+  background-color: transparent;
+  color: #ffffff;
+  border: none;
+}
+
+t-toolbar-buttongroup > t-button.todd--disabled:hover
+{
+  background-color: transparent;
+}
+
+

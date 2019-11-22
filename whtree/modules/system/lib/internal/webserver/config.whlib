@@ -1,0 +1,1191 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+
+/* ADDME log errors encounted (ie the current RETURN/CONTINUEs) */
+
+//RECORD ARRAY hosts;
+
+PUBLIC BOOLEAN FUNCTION IsCertificateForHostname(RECORD cert, STRING hostname)
+{
+  hostname := ToLowercase(hostname);
+  IF(hostname IN cert.servernames)
+    RETURN TRUE;
+
+  STRING firstname := Tokenize(hostname, ".")[0];
+
+  /* Check for matches with wildcard dnsaltnames
+      a.b.c matches *.b.c
+      *.b.c matches *.b.c
+      x.a.b.c does not match *.b.c
+      a.*.c does not match *.b.c
+  */
+  FOREVERY (STRING sname FROM cert.servernames)
+    IF (Left(sname, 2) = "*." AND hostname = firstname || SubString(sname, 1))
+      RETURN TRUE;
+
+  RETURN FALSE;
+}
+
+
+/** @cell inrows.type Webserver type
+    @cell inrows.diskfolder Webserver disk folder */
+PUBLIC RECORD ARRAY FUNCTION EnrichWebserversWithOutputFolder(RECORD ARRAY inrows)
+{
+  FOREVERY(RECORD row FROM inrows)
+  {
+    STRING outputfolder;
+    IF(row.type=1)
+    {
+      outputfolder := MergePath(GetWebhareConfiguration().varroot, "system.webharebackend");
+    }
+    ELSE IF(row.diskfolder = "" OR IsPathAbsolute(row.diskfolder))
+    {
+      outputfolder := row.diskfolder;
+    }
+    ELSE
+    {
+      outputfolder := MergePath(GetWebserverBaseOutputFolder(), row.diskfolder);
+    }
+
+    IF (outputfolder != "" AND outputfolder NOT LIKE '*/') //need to append a slash?
+      outputfolder := outputfolder || '/';
+
+    INSERT CELL outputfolder := outputfolder INTO row;
+    inrows[#row] := row;
+  }
+  RETURN inrows;
+}
+
+STRING FUNCTION ConvertPath(STRING module, STRING data, BOOLEAN iswildcardmatch, BOOLEAN iscookiematch)
+{
+  STRING pathsofar;
+
+  IF(ToUppercase(data) LIKE "ROOT:*")
+    pathsofar := MergePath("/", SubString(data,5));
+  ELSE IF(ToUppercase(data) LIKE "ALLROOTS:*")
+  {
+    IF (iswildcardmatch AND SubString(data, 9, 1) IN [ "*", "?" ])
+      pathsofar := SubString(data,9);
+    ELSE IF (NOT iscookiematch)
+      pathsofar := MergePath("/", SubString(data,9));
+    ELSE
+      pathsofar := SubString(data,9);
+  }
+  ELSE IF(ToUppercase(data) LIKE "OUTPUTROOTS:*")
+  {
+    IF (iswildcardmatch AND SubString(data, 12, 1) IN [ "*", "?" ])
+      pathsofar := SubString(data,12);
+    ELSE IF (NOT iscookiematch)
+      pathsofar := MergePath("/", SubString(data,12));
+    ELSE
+      pathsofar := SubString(data,12);
+  }
+  ELSE IF(ToUppercase(data) LIKE "PROXY:/*")
+    pathsofar := SubString(data,7);
+  ELSE IF(ToUppercase(data) LIKE "PROXY:*")
+    pathsofar := SubString(data,6);
+  ELSE
+    RETURN "";
+
+  IF(NOT iscookiematch AND data LIKE "*/" AND pathsofar NOT LIKE "*/")
+    pathsofar := pathsofar || "/";
+
+  RETURN pathsofar;
+}
+
+/** Splits a <namespace>::<base>/<path>
+    @cell return.ns Namespace
+    @cell return.base Base name
+    @cell return.path Path (without the leading slash)
+*/
+RECORD FUNCTION SplitTriplet(STRING inpath)
+{
+  INTEGER doublecolon := SearchSubstring(inpath,'::');
+  STRING namespace := Left(inpath,doublecolon);
+
+  inpath := Substring(inpath, Length(namespace)+2);
+
+  INTEGER pathstart := SearchSubstring(inpath, '/');
+  RETURN [ ns := namespace
+         , base := Left(inpath,pathstart)
+         , path := Substring(inpath,pathstart+1)
+         ];
+}
+
+
+PUBLIC STRING FUNCTION GetWebserverBaseOutputFolder()
+{
+  RETURN GetWebHareConfiguration().basedataroot || 'output/';
+}
+PUBLIC STRING FUNCTION GetWebhareBackendServerFolder()
+{
+  RETURN MergePath(GetWebhareConfiguration().varroot, "system.webharebackend");
+}
+PUBLIC STRING FUNCTION GetWebserverOutputFolder(INTEGER webserverid)
+{
+  RECORD serverinfo := SELECT type, diskfolder FROM system.webservers WHERE id = webserverid;
+  IF(NOT RecordExists(serverinfo))
+    RETURN "";
+  RETURN EnrichWebserversWithOutputFolder([ serverinfo ])[0].outputfolder;
+}
+
+RECORD ARRAY FUNCTION ProcessIPList(RECORD ARRAY ips, BOOLEAN autodenyipv6)
+{
+  RECORD ARRAY retval;
+  FOREVERY(RECORD inip FROM ips)
+  {
+    IF(inip.mask LIKE "ipv4:*")
+      inip.mask := Substring(inip.mask,5);
+
+    INSERT inip INTO retval AT END;
+
+    IF(autodenyipv6 AND NOT inip.is_allow AND (inip.mask LIKE "*/0" OR inip.mask LIKE "*/00") AND inip.mask NOT LIKE "*:*") //ipv4 all-out deny
+    {
+      INSERT [ mask := "::/0", is_allow := FALSE ] INTO retval AT END;
+    }
+  }
+  RETURN retval;
+}
+
+RECORD FUNCTION GetCacheableMimeTypes()
+{
+  RECORD ARRAY types := SELECT mimetype, extension, parsetype, forcedispositionattachment FROM system.mimetypes;
+  types := types CONCAT
+      [ [ mimetype :=     "x-webhare-builtin/eventserver"
+        , extension :=    ""
+        , parsetype :=    5
+        , forcedispositionattachment := FALSE
+        ]
+      ];
+
+  RETURN [ ttl := 15 * 60 * 1000
+         , value := types
+         , eventmasks := [ "system:internal.webserver.didconfigreload" ]
+         ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetMimeTypes()
+{
+  RETURN GetAdhocCached( [ type := "mimetypes" ], PTR GetCacheableMimeTypes);
+}
+
+PUBLIC RECORD ARRAY FUNCTION AddVaryCookieHeader(RECORD ARRAY headers)
+{
+  INTEGER pos := (SELECT AS INTEGER #headers + 1 FROM headers WHERE ToUppercase(name) = "VARY") - 1;
+  IF (pos = -1)
+    INSERT [ name := "Vary", value := "Cookie" ] INTO headers AT END;
+  ELSE IF (ToUppercase(headers[pos].value) NOT LIKE "*COOKIE*")
+    headers[pos].value := headers[pos].value || ", Cookie";
+
+  RETURN headers;
+}
+
+STRING ARRAY FUNCTION ParseCommaList(STRING list)
+{
+  RETURN list = "" ? STRING[] : Tokenize(list, ",");
+}
+
+OBJECTTYPE WebConfigBuilder
+<
+  STRING baseoutputpath;
+  INTEGER nextruleid;
+  RECORD ARRAY errors;
+  RECORD finalconfig;
+  BOOLEAN minimalconfig;
+
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ minimalconfig := FALSE ], options);
+    this->minimalconfig := options.minimalconfig;
+    IF(NOT this->minimalconfig)
+      this->baseoutputpath := GetWebserverBaseOutputFolder();
+  }
+
+  RECORD ARRAY FUNCTION GetRuleSet(STRING basepath, INTEGER ARRAY limitservers, STRING ruleset, RECORD ARRAY hosts)
+  {
+    STRING modname := Tokenize(ruleset, ':')[0];
+    STRING rulesetname := Substring(ruleset, Length(modname)+1);
+    IF(modname="" OR rulesetname="")
+      RETURN DEFAULT RECORD ARRAY;
+
+    OBJECT xmlfile;
+    TRY
+      xmlfile := GetModuleDefinitionXML(modname);
+    CATCH
+      RETURN DEFAULT RECORD ARRAY;
+    IF(NOT ObjectExists(xmlfile))
+      RETURN DEFAULT RECORD ARRAY;
+
+    STRING sourcefile := GetModuleDefinitionXMLResourceName(modname);
+    OBJECT backend := xmlfile->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backend")->Item(0);
+    IF(NOT ObjectExists(backend))
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY outrules;
+    OBJECT ARRAY webrulesets := backend->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webruleset")->GetCurrentElements();
+    FOREVERY(OBJECT webruleset FROM webrulesets)
+    {
+      IF(webruleset->GetAttribute("name")!=rulesetname)
+        CONTINUE;
+
+      INTEGER priority := ParseWebRulePriority(webruleset->GetAttribute("priority"));
+
+      //found it!
+      FOREVERY(OBJECT rulenode FROM GetWebRuleNodes(webruleset))
+      {
+        STRING path := rulenode->GetAttribute("path");
+        IF(path LIKE "*:*")
+          CONTINUE; //absolute paths? nah...
+
+        //path := basepath, but avoid creating a // in the path
+        IF(basepath LIKE "*/" AND path LIKE "/*")
+          path := basepath || Substring(path,1);
+        ELSE
+          path := basepath || path;
+
+        RECORD baserule := this->GetBaseRule(path, priority, sourcefile || ":" || rulenode->linenum);
+        RECORD parsed := ParseWebRuleData(modname, baserule, rulenode, sourcefile);
+        this->errors := this->errors CONCAT SELECT source, error := message FROM parsed.errors;
+        IF(NOT RecordExists(parsed.rule))
+          CONTINUE;
+
+        parsed.rule.limitservers := limitservers;
+        INSERT parsed.rule INTO outrules AT END;
+      }
+    }
+    RETURN outrules;
+  }
+  RECORD ARRAY FUNCTION GeneratePreloadRules(INTEGER ARRAY interfacehosts)
+  {
+    // Set up a global error rule (ADDME: Allow modules to set up such global rules, and then have the system module deal with it
+    RECORD errorrule := this->GetBaseRule("/", webrulepriority_before, "GeneratePreloadRules");
+    errorrule.matchtype := 1; //initial
+    errorrule.errorpath := GetModuleInstallationRoot("system") || "web/errors";
+
+    RECORD eventserverrule := this->GetBaseRule("/wh_events/", webrulepriority_after, "GeneratePreloadRules");
+    eventserverrule.matchtype := 1; //initial
+    eventserverrule.allowallmethods := TRUE;
+    eventserverrule.forcecontenttype := "x-webhare-builtin/eventserver";
+    eventserverrule.datastorage :=
+        [ [ resource :=     "mod::system/web/global/eventserver.html"
+          , isfolder :=     FALSE
+          , method :=       "direct"
+          ]
+        ];
+
+    RETURN [ errorrule, eventserverrule ];
+  }
+
+  RECORD ARRAY FUNCTION FilterWebRuleData(RECORD ARRAY inrules, STRING modulename, RECORD ARRAY hosts)
+  {
+    RECORD ARRAY outrules;
+    FOREVERY(RECORD rule FROM inrules)
+    {
+      TRY
+      {
+        RECORD ARRAY appendrules;
+        rule.errorpath := this->ConvertWebDir(modulename, rule.errorpath, hosts);
+
+        IF (NOT CellExists(rule, "datastorage"))
+          ABORT(rule);
+
+        INSERT rule INTO appendrules AT END;
+
+        IF(rule.applyruleset != "")
+        {
+          IF(rule.applyruleset NOT LIKE "*:*")
+            rule.applyruleset := modulename || ":" || rule.applyruleset;
+
+          RECORD ARRAY baseexpansion := this->GetRuleSet(rule.path, rule.limitservers, rule.applyruleset, hosts);
+          RECORD ARRAY filtered := this->FilterWebRuleData(baseexpansion, Tokenize(rule.applyruleset,':')[0], hosts);
+
+          appendrules := appendrules CONCAT filtered;
+        }
+
+        //done all checks, 'commit' the rule to our rule list
+        outrules := outrules CONCAT appendrules;
+      }
+      CATCH(OBJECT e)
+      {
+        INSERT [ source := rule.source, error := e->what ] INTO this->errors AT END;
+      }
+    }
+    RETURN outrules;
+  }
+
+  STRING FUNCTION ConvertWebDir(STRING module, STRING data, RECORD ARRAY hosts)
+  {
+    IF(ToUppercase(data) LIKE "SITE:*")
+    {
+      INTEGER res := LookupWHFSObject(0, data);
+      IF(res != 0)
+      {
+        //ADDME why don't we have a call mapping an id to an on-disk-ptah ? §
+        RECORD resinfo := SELECT webservers.diskfolder
+                               , siteoutputfolder := sites.outputfolder
+                               , fs_objects.fullpath
+                               , webservers.type
+                            FROM system.webservers
+                               , system.sites
+                               , system.fs_objects
+                           WHERE fs_objects.id = res
+                                 AND fs_objects.parentsite = sites.id
+                                 AND sites.outputweb = webservers.id;
+        IF(RecordExists(resinfo))
+        {
+          STRING diskfolder := EnrichWebserversWithOutputFolder([ resinfo ])[0].outputfolder;
+          STRING path := CollapsePath(diskfolder || "/" || resinfo.siteoutputfolder  || "/" || resinfo.fullpath);
+          IF(resinfo.fullpath LIKE "*/" AND path NOT LIKE "*/")
+            path := path || "/";
+          RETURN path;
+        }
+      }
+      RETURN "";
+    }
+    IF(ToUppercase(data) LIKE "WEB:*")
+    {
+      STRING modpath := GetModuleInstallationRoot(module);
+      STRING pathsofar := MergePath(modpath || "web", Substring(data,4));
+      IF(data LIKE "*/" AND pathsofar NOT LIKE "*/")
+        pathsofar := pathsofar || "/";
+      RETURN pathsofar;
+    }
+    IF(ToUppercase(data) LIKE "VAR:*")
+    {
+      STRING pathsofar := GetWebHareConfiguration().varroot || module || "." || CollapsePath(Substring(data, 4));
+      IF(data LIKE "*/" AND pathsofar NOT LIKE "*/")
+        pathsofar := pathsofar || "/";
+      RETURN pathsofar;
+    }
+    IF(ToUppercase(data) LIKE "EPHEMERAL:*")
+    {
+      STRING pathsofar := GetWebHareConfiguration().ephemeralroot || module || "." || CollapsePath(Substring(data, 10));
+      IF(data LIKE "*/" AND pathsofar NOT LIKE "*/")
+        pathsofar := pathsofar || "/";
+      RETURN pathsofar;
+    }
+    IF(ToUppercase(data) LIKE "MODULEWEB:*")
+    {
+      data := Substring(data, 10);
+      STRING modulename := Left(data, SearchSubstring(data, '/'));
+      STRING modpath := GetModuleInstallationRoot(modulename);
+      IF(modpath="")
+        RETURN "";
+
+      STRING pathsofar := MergePath(modpath || "web", Substring(data, Length(modulename)+1));
+      IF(data LIKE "*/" AND pathsofar NOT LIKE "*/")
+        pathsofar := pathsofar || "/";
+      RETURN pathsofar;
+    }
+    IF(ToUppercase(data) LIKE "MOD::*")
+    {
+      RETURN GetWebHareResourceDiskPath(data);
+    }
+    IF(ToUppercase(data) LIKE "DESIGNFILES:*")
+    {
+      STRING designfilespath := ReadRegistryKey("system.backend.development.designfiles");
+      IF (designfilespath = "")
+        RETURN "";
+
+      OBJECT whfsobj := OpenWHFSObjectByPath(designfilespath);
+      IF (NOT ObjectExists(whfsobj) OR NOT whfsobj->isfolder OR whfsobj->parentsite = 0)
+        RETURN "";
+
+      OBJECT site := OpenSite(whfsobj->parentsite);
+      IF (NOT ObjectExists(site))
+        RETURN "";
+
+      STRING pathsofar := this->FixPath(hosts, "site::" || site->name || MergePath("/", SubString(data, 12)));
+      IF(data LIKE "*/" AND pathsofar NOT LIKE "*/")
+        pathsofar := pathsofar || "/";
+
+      RETURN pathsofar;
+    }
+    RETURN "";
+  }
+
+  RECORD FUNCTION GetBaseRule(STRING path, INTEGER priority, STRING source)
+  {
+    this->nextruleid := this->nextruleid - 1;
+    RETURN GetBaseWebRule(this->nextruleid, path, priority, source);
+  }
+
+  STRING FUNCTION FixPath(RECORD ARRAY hosts, STRING inpath)
+  {
+    IF(inpath = "" OR IsPathAbsolute(inpath))
+      RETURN inpath;
+
+    IF(inpath LIKE "site::*")
+    {
+      RECORD split := SplitTriplet(inpath);
+
+      RECORD siteinfo := SELECT root, outputfolder, outputweb FROM system.sites WHERE ToUppercase(name)=ToUppercase(split.base);
+      IF(NOT RecordExists(siteinfo) OR siteinfo.outputfolder="" OR siteinfo.outputweb = 0)
+        RETURN "";
+
+      STRING basediskfolder := SELECT AS STRING outputfolder FROM hosts WHERE hosts.id = siteinfo.outputweb;
+      basediskfolder := MergePath(basediskfolder, siteinfo.outputfolder);
+      basediskfolder := MergePath(basediskfolder, split.path);
+      RETURN basediskfolder;
+    }
+    IF(IsAbsoluteResourcePath(inpath))
+    {
+      TRY
+      {
+        RETURN GetWebHareResourceDiskPath(inpath);
+      }
+      CATCH(OBJECT ignore)
+      {
+        RETURN ""; //TODO warning
+      }
+    }
+
+    RETURN this->baseoutputpath || Substring(inpath, Left(inpath,1)='/' ? 1 : 0);
+  }
+
+  RECORD ARRAY FUNCTION GenerateModuleConfig(INTEGER ARRAY interfacehosts, RECORD ARRAY hosts)
+  {
+    INTEGER ARRAY allhosts := SELECT AS INTEGER ARRAY id FROM hosts;
+    RECORD ARRAY rules;
+
+    FOREVERY(RECORD mod FROM (SELECT * FROM GetWebHareModules() ORDER BY name))
+    {
+      OBJECT xmlfile := GetModuleDefinitionXML(mod.name);
+      STRING filename := GetModuleDefinitionXMLResourceName(mod.name);
+
+      IF(ObjectExists(xmlfile) AND ObjectExists(xmlfile->documentelement))
+      {
+        //Create a virtual dir for the module itself
+        RECORD rule := this->GetBaseRule("/tollium_todd.res/" || mod.name || "/", webrulepriority_after, "Implicit for " || filename);
+        rule.datastorage :=
+            [ [ resource :=       `mod::${mod.name}/web/resources/`
+              , isfolder :=       TRUE
+              , method :=         "direct"
+              ]
+            ];
+        rule.matchtype := 1;
+        //bit of a hack to ensure this rule are ordered later than 'global' rules (to prevent /tollium_todd/ overwrites)
+        rule.limitservers := allhosts;
+        INSERT rule INTO rules AT END;
+
+        OBJECT backend := xmlfile->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backend")->Item(0);
+        FOREVERY(OBJECT rulenode FROM GetWebRuleNodes(backend))
+        {
+          STRING path := rulenode->GetAttribute("path");
+          BOOLEAN isproxy := ToUppercase(path) LIKE "PROXY:*";
+          BOOLEAN iswildcardmatch := rulenode->GetAttribute("match") = "wildcards";
+          BOOLEAN iscookiematch := rulenode->GetAttribute("match") = "cookie";
+
+          rule := this->GetBaseRule(ConvertPath(mod.name, path, iswildcardmatch, iscookiematch), webrulepriority_default, filename || ":" || rulenode->linenum);
+          IF(rule.path="" AND NOT isproxy)
+            CONTINUE;
+
+          IF(isproxy)
+          {
+            //don't touch proxy rules, let them apply everywhere
+            rule.limitservers := [-1000];
+          }
+          ELSE IF(ToUppercase(path) LIKE "ALLROOTS:*")
+          {
+            rule.limitservers := DEFAULT INTEGER ARRAY;
+          }
+          ELSE IF(ToUppercase(path) LIKE "OUTPUTROOTS:*")
+          {
+            INTEGER ARRAY outputhosts :=
+                SELECT AS INTEGER ARRAY id
+                  FROM ToRecordArray(allhosts, "ID")
+                 WHERE id NOT IN interfacehosts;
+
+            IF (LENGTH(outputhosts) = 0) //no output webservers at all?
+              CONTINUE;
+
+            rule.limitservers := outputhosts;
+          }
+          ELSE
+          {
+            IF(Length(interfacehosts)=0) //no interface webserves at all?
+              CONTINUE;
+
+            rule.limitservers := interfacehosts;
+          }
+
+          RECORD parsed := ParseWebRuleData(mod.name, rule, rulenode, filename);
+          this->errors := this->errors CONCAT SELECT source, error := message FROM parsed.errors;
+          IF(NOT RecordExists(parsed.rule))
+            CONTINUE;
+
+          rules := rules CONCAT this->FilterWebRuleData(RECORD[parsed.rule], mod.name, hosts);
+        }
+
+        OBJECT servicesnode := xmlfile->documentelement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")->Item(0);
+        IF (ObjectExists(servicesnode))
+        {
+          OBJECT ARRAY webservicenodes := servicesnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webservice")->GetCurrentElements();
+          FOREVERY (OBJECT node FROM webservicenodes)
+          {
+            IF (NOT IsNodeApplicableToThisWebHare(node))
+              CONTINUE;
+
+            RECORD def := ParseWebServiceDefinitionNode(mod.name, node);
+
+            INTEGER webservice_priority := webrulepriority_default;
+
+            // Exact rule for the service without trailing slash
+            RECORD webservicerule := this->GetBaseRule("/wh_services/" || mod.name || "/" || def.name, webservice_priority, filename || ":" || node->linenum);
+            webservicerule.matchtype := 0; //exact
+
+            IF (def.require_whauth)
+              webservicerule.extauthscript := "mod::system/scripts/internal/auth/rpc.whscr";
+            webservicerule.limitservers := allhosts;
+            webservicerule.checkandvm := def.checkandvm;
+
+            INSERT webservicerule INTO rules AT END;
+
+            // And another for the subdir
+            webservicerule.path := "/wh_services/" || mod.name || "/" || def.name || "/";
+            webservicerule.matchtype := 1; //initial
+            webservicerule.matchassubdir := FALSE; // Don't redirect when modname '/' def.name is encountered
+
+            INSERT webservicerule INTO rules AT END;
+
+            rule := this->GetBaseRule("/wh_services.whsock/" || mod.name || "/" || def.name, webservice_priority, filename || ":" || node->linenum);
+            webservicerule.matchtype := 0; //exact
+
+            IF (def.require_whauth)
+              webservicerule.extauthscript := "mod::system/scripts/internal/auth/rpc.whscr";
+            webservicerule.limitservers := allhosts;
+
+            INSERT webservicerule INTO rules AT END;
+
+            // And another for the subdir
+            webservicerule.path := "/wh_services.whsock/" || mod.name || "/" || def.name || "/";
+            webservicerule.matchtype := 1; //initial
+            webservicerule.matchassubdir := FALSE; // Don't redirect when modname '/' def.name is encountered
+
+            INSERT webservicerule INTO rules AT END;
+          }
+        }
+
+        FOREVERY(RECORD design FROM mod.webdesigns)
+        {
+          IF(design.istemplate)
+            CONTINUE;
+
+          RECORD sdrule := this->GetBaseRule("/.publisher/sd/" || mod.name || "/" || design.name || "/", webrulepriority_after, filename || ":" || design.line);
+          sdrule.matchtype := 1; //initial
+          sdrule.datastorage :=
+              [ [ resource :=     MergePath(design.designroot, "/web/")
+                , isfolder :=     TRUE
+                , method :=       "direct"
+                ]
+              ];
+
+          INSERT sdrule INTO rules AT END;
+        }
+      } //     IF(ObjectExists(xmlfile))
+
+      IF(Length(interfacehosts)=0) //all legacy rules require an interface websrever, so if none are specified, skip
+        CONTINUE;
+    }
+
+    RETURN rules;
+  }
+
+  /** Convert siteprofile diskstoragelocation paths for the root of the current site
+  */
+  RECORD ARRAY FUNCTION RewriteSiteProfileWebRuleDataStorage(RECORD ARRAY datastorage, RECORD applytosite)
+  {
+    FOREVERY (RECORD rec FROM datastorage)
+    {
+      IF (rec.resource LIKE "siteroot:*")
+      {
+        STRING resource := SubString(rec.resource, 9);
+        IF (Left(resource, 1) = "/")
+          resource := Substring(resource, 1);
+
+        datastorage[#rec].resource := "root:" || SubString(applytosite.outputfolder, 1) || resource;
+      }
+    }
+    RETURN datastorage;
+  }
+
+  RECORD ARRAY FUNCTION GenerateSiteprofileConfig(RECORD ARRAY hosts)
+  {
+    RECORD csp := GetCachedSiteProfiles();
+    INTEGER ARRAY allaffectedsites;
+
+    FOREVERY(RECORD rule FROM csp.webrules)
+      allaffectedsites := ArrayUnion(allaffectedsites, rule.siteids);
+
+    csp.webrules := SELECT *, rules := this->FilterWebRuleData([RECORD(webrules.rule)], webrules.module, hosts) FROM csp.webrules;
+
+    //ADDME preevaluate any site:: references. we can probably preevaluate about everything ?
+
+    //The sites to apply rules to
+    RECORD ARRAY applytosites := SELECT id
+                                      , sitename :=     ToLowercase(name)
+                                      , outputweb
+                                      , outputfolder
+                                   FROM system.sites
+                                  WHERE id IN allaffectedsites
+                                        AND outputweb != 0;
+    RECORD ARRAY outrules;
+    FOREVERY(RECORD applytosite FROM applytosites)
+      FOREVERY(RECORD match FROM SELECT * FROM csp.webrules WHERE applytosite.id IN webrules.siteids)
+      {
+        RECORD ARRAY myrules := SELECT *
+                                     , datastorage :=   this->RewriteSiteProfileWebRuleDataStorage(datastorage, applytosite)
+                                     , limitservers :=  [ INTEGER(applytosite.outputweb) ]
+                                     , path :=          Left(applytosite.outputfolder,Length(applytosite.outputfolder)-1) || path
+                                     , vars :=          CELL[ ...vars, applytosite.sitename, siteslug := Tolowercase(Substitute(applytosite.sitename, " ", "-")) ]
+                                  FROM match.rules;
+        outrules := outrules CONCAT myrules;
+      }
+
+    outrules := SELECT *, id := id + 1 + #outrules FROM outrules; //make their IDs unique
+    RETURN outrules;
+  }
+
+  STRING FUNCTION LookupDataStoragePath(RECORD rule, STRING resource, RECORD ARRAY hosts, RECORD ARRAY sortedsites)
+  {
+    TRY
+    {
+      STRING orgresource := resource;
+      IF (resource LIKE "__legacyredirect::*") // redirectto(script/folder)
+        resource := this->ConvertWebDir(rule.vars.modulename, SubString(resource, 18), hosts);
+      ELSE IF (resource LIKE "__legacyfixpath::*") // system.access hostingsrc
+        resource := this->FixPath(hosts, SubString(resource, 17));
+      ELSE
+      {
+        // Subtitute all variables
+        FOREVERY (RECORD rec FROM UnpackRecord(rule.vars))
+          resource := Substitute(resource, `[${ToLowercase(rec.name)}]`, rec.value);
+
+        IF (resource LIKE "*[*") // unsubstituted variable?
+          THROW NEW Exception(`Unsubstituted variable '${Tokenize(Tokenize(resource, "[")[1], "]")[0]}' in webrule path`);
+
+        IF (resource LIKE "siteoutput::*")
+        {
+          RECORD triplet := SplitTriplet(resource);
+          RECORD pos := RecordLowerBound(sortedsites, [ name := ToLowercase(triplet.base) ], [ "NAME" ]);
+          IF (pos.found)
+            resource := MergePath(sortedsites[pos.position].outputfolder, triplet.path);
+          ELSE
+            THROW NEW Exception(`Non-existing/published site '${triplet.base}' referenced in webrule path`);
+        }
+        ELSE IF (resource LIKE "whdata::*")
+          resource := MergePath(GetWebhareConfiguration().basedataroot, SubString(resource, 8));
+        ELSE IF (resource LIKE "mod::*")
+        {
+          resource := GetWebHareResourceDiskPath(resource);
+        }
+        ELSE
+          THROW NEW Exception(`Illegal resource path '${resource}' used in webrule`);
+      }
+
+      //PRINT(`${orgresource} => ${resource}\n`);
+      RETURN resource;
+    }
+    CATCH (OBJECT e)
+    {
+      INSERT [ source := rule.source, error := e->what ] INTO this->errors AT END;
+      RETURN "";
+    }
+  }
+
+  RECORD ARRAY FUNCTION LookupDataStoragePaths(RECORD ARRAY rules, RECORD ARRAY hosts)
+  {
+    RECORD ARRAY sites :=
+        SELECT name :=      ToLowercase(name)
+             , outputweb
+             , subfolder := outputfolder
+          FROM system.sites
+         WHERE outputfolder != ""
+           AND outputweb != 0;
+
+    sites :=
+        SELECT *
+             , outputfolder :=  MergePath(outputfolder, subfolder)
+          FROM JoinArrays(sites, "outputweb", hosts, [ outputfolder := "" ], [ joinfield := "id" ]);
+
+    sites := SELECT * FROM sites ORDER BY name;
+
+    FOREVERY (RECORD rule FROM rules)
+      IF (NOT CellExists(rule, "vars"))
+        ABORT(rule);
+
+    FOREVERY (RECORD rule FROM rules)
+      FOREVERY (RECORD datastorage FROM rule.datastorage)
+        rules[#rule].datastorage[#datastorage].resource := this->LookupDataStoragePath(rule, datastorage.resource, hosts, sites);
+
+    RETURN rules;
+  }
+
+  PUBLIC MACRO Run()
+  {
+    BOOLEAN autodenyipv6 := TRUE;
+    STRING useciphersuite;
+    IF(NOT this->minimalconfig)
+    {
+      autodenyipv6 := ReadRegistryKey("system.webserver.security.autodenyipv6");
+      useciphersuite := ReadRegistryKey("system.webserver.security.ciphersuite");
+    }
+
+    //NGINX mode?
+    RECORD ARRAY ports;
+    IF(NOT this->minimalconfig)
+    {
+      ports := SELECT keypairobj := COLUMN keypair != 0 ? OpenKeyPair(COLUMN keypair) : DEFAULT OBJECT
+                    , id
+                    , ip := ip = "" ? "0.0.0.0" : ip
+                    , port
+                    , virtualhost
+                    , ciphersuite := useciphersuite ?? default_ciphersuites
+                    , ports.keypair
+                    , istrustedport := FALSE
+                 FROM system.ports;
+
+      ports := SELECT *
+                    , privatekey :=        ports.keypair != 0 ? BlobToString(keypairobj->privatekey) : ""
+                    , certificatechain :=  ports.keypair != 0 ? BlobToString(keypairobj->certificatechain) : ""
+                    , DELETE keypairobj
+                 FROM ports
+                WHERE ports.keypair = 0 OR ObjectExists(keypairobj);
+    }
+
+    STRING secureport_bindip := GetEnvironmentVariable("WEBHARE_SECUREPORT_BINDIP");
+
+    //Add the NGINX/reverse proxy port
+    INSERT [ id := -2
+           , ip := secureport_bindip ?? "127.0.0.1"
+           , privatekey := ""
+           , certificatechain := ""
+           , port := GetWebHareConfiguration().trustedport
+           , virtualhost := TRUE
+           , ciphersuite := ""
+           , istrustedport := TRUE
+           ] INTO ports AT END;
+
+    IF (secureport_bindip IN [ "", "0.0.0.0" ])
+    {
+      INSERT [ id := -3
+             , ip := secureport_bindip = "" ? "::1" : "::0"
+             , privatekey := ""
+             , certificatechain := ""
+             , port := GetWebHareConfiguration().trustedport
+             , virtualhost := TRUE
+             , ciphersuite := ""
+             , istrustedport := TRUE
+             ] INTO ports AT END;
+    }
+
+    INTEGER ARRAY validports := SELECT AS INTEGER ARRAY id FROM ports;
+
+    //Add the loopback port
+    INTEGER loopbackport := GetWebHareConfiguration().baseport + 4;
+    INSERT [ id := -1
+           , ip := "127.0.0.1"
+           , privatekey := ""
+           , certificatechain := ""
+           , port := loopbackport
+           , virtualhost := FALSE
+           , ciphersuite := ""
+           , istrustedport := FALSE
+           ] INTO ports AT END;
+
+    RECORD ARRAY hosts;
+    RECORD ARRAY hostaccessrules;
+
+    IF(NOT this->minimalconfig)
+    {
+      STRING interfacebasefolder := GetWebhareBackendServerFolder();
+      hosts
+            := SELECT TEMPORARY forcehttps := port = 0 AND baseurl LIKE "https:*"
+                    , TEMPORARY unpackedbaseurl := UnpackURL(baseurl)
+                    , id
+                    , defaultpages := whconstant_webserver_indexpages
+                    , is_interface_webserver := type=1
+                    , baseurl
+                    , port := webservers.port
+                    , lowercasemode := TRUE
+                    , forcehttps := forcehttps
+                    , forcehttpsport := forcehttps ? unpackedbaseurl.port : 0
+                    , type
+                    , diskfolder
+                    , stricttransportsecurity
+                 FROM system.webservers
+                WHERE type IN [0,1]
+                      AND (port = 0 OR port IN validports);
+
+      //Add HSTS headers
+      FOREVERY(RECORD host FROM hosts)
+        IF(host.stricttransportsecurity >0)
+        {
+          RECORD hstsrule := this->GetBaseRule("/", webrulepriority_default, "HSTS for " || host.baseurl);
+          hstsrule.matchtype := 1;
+          hstsrule.limitservers := [ INTEGER(host.id) ];
+          INSERT [[ name := "Strict-Transport-Security", value := "max-age=" || host.stricttransportsecurity ]] INTO hstsrule.addheaders AT END;
+          INSERT hstsrule INTO hostaccessrules AT END;
+        }
+
+      hosts := EnrichWebserversWithOutputFolder(hosts);
+      hosts := EnrichWithListenHosts(hosts);
+
+    }
+    INSERT [ id := -1000
+           , outputfolder := ""
+           , defaultpages := DEFAULT STRING ARRAY
+           , is_interface_webserver := FALSE
+           , hostname := '_proxy'
+           , port := 0
+           , listenhosts := ["_proxy"]
+           , lowercasemode := FALSE
+           , forcehttps := FALSE
+           , forcehttpsport := 0
+           ] INTO hosts AT END;
+    INSERT [ id := -1001
+           , outputfolder := GetModuleInstallationRoot("system") || 'web/loopback/'
+           , defaultpages := DEFAULT STRING ARRAY
+           , is_interface_webserver := FALSE
+           , hostname := '127.0.0.1'
+           , port := -1
+           , listenhosts := DEFAULT STRING ARRAY
+           , lowercasemode := TRUE
+           , forcehttps := FALSE
+           , forcehttpsport := 0
+           ] INTO hosts AT END;
+
+
+    RECORD ARRAY access;
+    IF(NOT this->minimalconfig)
+    {
+      RECORD ARRAY access_ips := SELECT * FROM system.access_ips;
+
+      access := SELECT TEMPORARY datastorageresource :=      hostingsrc IN [ 2, 3 ] ? hostingpath : ""
+                                , id
+                                , path
+                                , realm := path
+                                , authrequired := authrequirement
+                                , errorpath := this->FixPath(hosts,errorpath)
+                                , finalerrorpath := FALSE
+                                , extauthscript := authscript
+                                , matchtype
+                                , matchmethods := DEFAULT STRING ARRAY
+                                , authtype
+                                , authlist
+                                , datastorage :=                datastorageresource = ""
+                                                                    ? RECORD[]
+                                                                    : [ CELL[ resource := "__legacyfixpath::" || datastorageresource
+                                                                            , isfolder := hostingsrc = 2
+                                                                            , method := "direct"
+                                                                            ]
+                                                                      ]
+                                , redirect :=                   hostingsrc IN [ 4, 5 ]
+                                , redirecttarget :=             hostingsrc IN [ 4, 5 ] ? hostingpath : ""
+                                , redirecttarget_is_folder :=   hostingsrc = 5
+                                , iplist := ProcessIPList((SELECT mask, is_allow FROM access_ips WHERE accessid = access.id), autodenyipv6)
+                                , limitservers := webserver != 0 ? [INTEGER(webserver)] : DEFAULT INTEGER ARRAY
+                                , allowallmethods := FALSE
+                                , addheaders := DEFAULT RECORD ARRAY
+                                , cachecontrol := ""
+                                , applyruleset := hostingsrc = 6 ? hostingpath : ""
+                                , redirectcode := redirectcode != 0 ? redirectcode : 301
+                                , matchassubdir := TRUE
+                                , fixcase := fixcase
+                                , disablecaching
+                                , maxage
+                                , forcecontenttype := ""
+                                , wrdschema := ""
+                                , checkandvm := DEFAULT RECORD
+                                , applysource
+                                , accounts := DEFAULT RECORD ARRAY
+                                , vars := DEFAULT RECORD
+                                , priority := webrulepriority_default
+                                , source := `system:access, id: ${id}`
+                             FROM system.access
+                            WHERE NOT disabled
+                                  AND hostingsrc != 1;
+
+      UPDATE access SET addheaders := addheaders CONCAT [[ name := "Cache-Control", value := "no-cache" ]] WHERE disablecaching;
+      UPDATE access SET addheaders := addheaders CONCAT [[ name := "Cache-Control", value := "max-age=" || maxage ]] WHERE disablecaching = FALSE AND maxage>0;
+
+      //Set externalonly wherever we're securing for external user _only_
+      UPDATE access SET extauthscript := "mod::system/scripts/internal/auth/externalonly.whscr"
+        WHERE extauthscript = "" AND authlist = TRUE AND authtype = 0;
+
+      //ADDME: a set extauthscript should deny authtype/authlist on the same access rule! (as we can't chain the scripts)
+      UPDATE access
+         SET extauthscript := "mod::system/scripts/internal/webhare-auth.whscr"
+           , addheaders :=    AddVaryCookieHeader(addheaders)
+       WHERE extauthscript = "" AND (authtype != 0 OR authlist);
+
+      FOREVERY(RECORD webruleset FROM (SELECT * FROM access WHERE applyruleset!=""))
+      {
+        RECORD ARRAY baserules := this->GetRuleSet(webruleset.path, webruleset.limitservers, webruleset.applyruleset, hosts);
+        RECORD ARRAY filtered := this->FilterWebRuleData(baserules, Tokenize(webruleset.applyruleset,':')[0], hosts);
+        access := access CONCAT filtered;
+      }
+
+      //ADDME: specify this through siteprofiles
+      OBJECT designtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfilessite");
+      IF(ObjectExists(designtype))
+      {
+        RECORD ARRAY designsites := SELECT sites.outputweb, sites.outputfolder
+                                      FROM system.fs_objects, system.sites
+                                     WHERE fs_objects.type = designtype->id
+                                           AND fs_objects.id = sites.id
+                                           AND outputweb != 0;
+
+        FOREVERY(RECORD site FROM designsites)
+        {
+          access := access CONCAT this->FilterWebRuleData(this->GetRuleSet(site.outputfolder, [INTEGER(site.outputweb)], "publisher:allowcorsall", hosts), "publisher", hosts);
+        }
+      }
+
+      //Generate redirecting hosts
+      RECORD ARRAY redirecthosts := SELECT webservers.id
+                                         , baseurl := ANY(baseurl)
+                                         , aliases := GroupedValues(ToUppercase(hostname))
+                                         , stricttransportsecurity := ANY(stricttransportsecurity)
+                                      FROM system.webservers, system.webservers_aliases
+                                     WHERE webservers_aliases.webserver = webservers.id
+                                           AND webservers_aliases.explicit = FALSE
+                                           AND webservers.port = 0
+                                  GROUP BY webservers.id;
+
+      FOREVERY(RECORD host FROM redirecthosts)
+      {
+        RECORD url := UnpackURL(host.baseurl);
+        INSERT [ id := -host.id
+               , baseurl := ""
+               , diskfolder := ""
+               , forcehttps := url.secure AND url.isdefaultport
+               , forcehttpsport := 0
+               , hostname := url.host
+               , is_interface_webserver := FALSE
+               , lowercasemode := FALSE
+               , outputfolder := ""
+               , port := 0
+               , type := 0
+               , defaultpages := DEFAULT STRING ARRAY
+               , listenhosts := host.aliases
+               ] INTO hosts AT END;
+
+        RECORD redirectrule := this->GetBaseRule("/", webrulepriority_default, "Redirectrule for " || host.baseurl);
+        redirectrule.redirectcode := 301;
+        redirectrule.redirect := TRUE;
+        redirectrule.matchtype := 1;
+        redirectrule.redirecttarget := url.scheme || "://" || url.host || (url.isdefaultport ? "" : ":" || url.port) || "/";
+        redirectrule.redirecttarget_is_folder := TRUE; //keeps subvars
+        redirectrule.limitservers := [ INTEGER(-host.id) ];
+        IF(host.stricttransportsecurity > 0)
+          INSERT [[ name := "Strict-Transport-Security", value := "max-age=" || host.stricttransportsecurity ]] INTO redirectrule.addheaders AT END;
+
+        INSERT redirectrule INTO access AT END;
+      }
+    }
+
+    INTEGER ARRAY interfacehosts := SELECT AS INTEGER ARRAY id FROM hosts WHERE is_interface_webserver;
+    RECORD ARRAY rules;
+    IF(NOT this->minimalconfig)
+    {
+      rules := hostaccessrules
+               CONCAT this->GeneratePreloadRules(interfacehosts)
+               CONCAT access
+               CONCAT this->GenerateModuleConfig(interfacehosts, hosts)
+               CONCAT this->GenerateSiteprofileConfig(hosts);
+      rules := this->LookupDataStoragePaths(rules, hosts);
+    }
+
+
+    //Open up all rights to loopbacks
+    RECORD loopbackrule := this->GetBaseRule("/", webrulepriority_default, "Loopback rule");
+    loopbackrule.matchtype := 1;
+    loopbackrule.limitservers := [-1001];
+    INSERT loopbackrule INTO rules AT END;
+
+    rules := SELECT *
+                  , data :=   CELL[ path
+                                  , ruleset :=            applyruleset
+                                  , wrdschema
+                                  , checkandvm
+                                  , authtype :=           CellExists(rules, "AUTHTYPE") ? authtype : 0
+                                  , authlist :=           CellExists(rules, "AUTHLIST") ? authlist : FALSE
+                                  , applysource :=        CellExists(rules, "APPLYSOURCE") ? applysource : 0
+                                  , apispec :=            CellExists(rules, "APISPEC") ? apispec : ""
+                                  , accounts
+                                  , datastorage
+                                  ]
+               FROM rules
+           ORDER BY priority // priority overrides win
+                  , Length(limitservers) = 0 AND matchtype != 3 DESC //global non-cookie rules come first
+                  , matchtype IN [0,1] DESC //initial/exact first
+                  , matchtype = 2 DESC   //then wildcards
+                  , ToUppercase(path);    //then by path
+
+    // Delete columns from access table that aren't passed to the webserver
+    rules :=
+        SELECT *
+             , DELETE authlist
+             , DELETE authtype
+             , DELETE disablecaching
+             , DELETE maxage
+             , DELETE applysource
+          FROM rules;
+
+    this->finalconfig := CELL
+      [ version := 1
+      , generated := GetCurrentDatetime()
+      , generatedby := GetWebhareVersion()
+      , ports := ports
+      , hosts := hosts
+      , types := RECORD[]
+      , rules := rules
+      , trust_xforwardedfor := STRING[]
+
+      , errorlog := 99
+      , accesslog := 99
+      , script_timeout := 900
+      , keep_process_history := 60000
+      , stripextensions := STRING[]
+      , errors := this->errors
+      , debugurlmasks := STRING[]
+      ];
+
+    IF(NOT this->minimalconfig)
+    {
+      this->finalconfig.debugurlmasks := ParseCommaList(ReadRegistryKey("system.webserver.global.debugurls"));
+      IF (LENGTH(this->finalconfig.debugurlmasks) != 0)
+      {
+        INSERT
+            [ source :=   ""
+            , error :=    "Header accessrule and path debugging is enabled on the webserver"
+            , jumpto :=   [ app := "system:config", panel := "registry", registrykey := "system.webserver.global.debugurls" ] //TODO move to webserver tweaks and jump there!
+            ] INTO this->errors AT END;
+      }
+
+      FOREVERY(STRING tok FROM Tokenize(ReadRegistryKey("system.webserver.global.proxyservers.trustxforwardedfor"),","))
+      {
+        tok := TrimWhitespace(tok);
+        IF(tok LIKE "*.*.*.*" OR tok LIKE "*::*")
+          INSERT tok INTO this->finalconfig.trust_xforwardedfor AT END;
+      }
+
+      this->finalconfig.errorlog := ReadRegistryKey("system.webserver.global.errorlogdays");
+      this->finalconfig.accesslog := ReadRegistryKey("system.webserver.global.accesslogdays");
+      this->finalconfig.script_timeout := ReadRegistryKey("system.webserver.global.scripttimeout");
+      this->finalconfig.keep_process_history := ReadRegistryKey("system.webserver.global.historyseconds") * 1000;
+      this->finalconfig.stripextensions := ParseXSList(ToUppercase(ReadRegistryKey("publisher.publication.stripextensions")));
+      this->finalconfig.types := GetCacheableMimeTypes().value;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION GetFinalConfig()
+  {
+    RETURN this->finalconfig;
+  }
+>;
+
+PUBLIC RECORD FUNCTION CreateMinimalWebserverConfig()
+{
+  OBJECT builder := NEW WebConfigBuilder([ minimalconfig := TRUE]);
+  builder->Run();
+  RETURN builder->GetFinalConfig();
+}
+
+PUBLIC RECORD FUNCTION DownloadWebserverConfig()
+{
+  OBJECT builder := NEW WebConfigBuilder();
+  builder->Run();
+  RETURN builder->GetFinalConfig();
+}
+
+/** Returns all locations where a module webruleset has been applied
+    @param rulesetname Name of ruleset, qualified with module name (eg: newsletter:tracker)
+    @return
+    @cell return.host Hostname
+    @cell return.port Port
+    @cell return.secure Whether this is a secure port
+    @cell return.path Path where set is applied
+    @cell return.pathmask Path with "*" appended, for speed.
+*/
+PUBLIC RECORD ARRAY FUNCTION GetModuleWebRuleSetLocations(STRING rulesetname)
+{
+  RECORD ARRAY locations :=
+      SELECT webserver_id :=      webservers.id
+           , webserver_baseurl := webservers.baseurl
+           , path
+           , ports.port
+           , secure :=            COLUMN keypair != 0
+        FROM system.access
+           , system.webservers
+           , system.ports
+       WHERE hostingsrc = 6
+         AND hostingpath = VAR rulesetname
+         AND webserver = webservers.id
+         AND access.disabled = FALSE
+         AND (webservers.port = 0 ? virtualhost : webservers.port = ports.id);
+
+  locations :=
+      SELECT path
+           , pathmask :=          path || "*"
+           , secure
+           , webserver_id
+           , host :=              UnpackURL(webserver_baseurl).host
+           , port
+        FROM locations;
+
+  locations := locations CONCAT
+      SELECT host :=          aliases.hostname
+           , port
+           , path
+           , pathmask
+           , secure
+        FROM locations
+           , system.webservers_aliases AS aliases
+       WHERE locations.webserver_id = aliases.webserver
+         AND aliases.webserver IN (SELECT AS INTEGER ARRAY webserver_id FROM VAR locations);
+
+  // undouble just in case
+  locations :=
+      SELECT host
+           , port
+           , path :=          Any(path)
+           , pathmask :=      Any(pathmask)
+           , paths :=         GroupedValues(path)
+           , pathmasks :=     GroupedValues(pathmask)
+           , secure :=        Any(secure)
+        FROM locations
+    GROUP BY host, port
+    ORDER BY host, port;
+
+  RETURN locations;
+}
+
+/** @short Generate a string to uniquely identify this webhare instance for certbot API verification (ie talking to the same server) */
+PUBLIC STRING FUNCTION GenerateWebserverUUID()
+{
+  Return EncodeBase64(GetSHA1Hash(GetServerName() || GetSystemHostName()));
+}

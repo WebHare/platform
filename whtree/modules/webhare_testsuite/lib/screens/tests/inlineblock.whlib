@@ -1,0 +1,10 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE InlineBlockTest EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+  }
+>;
+

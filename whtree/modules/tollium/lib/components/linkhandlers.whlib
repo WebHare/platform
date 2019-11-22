@@ -1,0 +1,20 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+PUBLIC OBJECTTYPE TolliumLinkHandlers EXTEND TolliumComponentBase
+<
+  OBJECT ARRAY pvt_linkhandlers;
+
+  PUBLIC PROPERTY linkhandlers(pvt_linkhandlers,-);
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->pvt_linkhandlers := def.linkhandlers;
+  }
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
+  {
+
+  }
+>;

@@ -1,0 +1,19 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="components">
+
+  <fragment name="selectuser" lib="components/selectuser.whlib" gid=".selectuser">
+    <actions>
+      <action name="edit" onexecute="doedit" title="" />
+      <action name="clear" onexecute="doclear" title="" />
+    </actions>
+    <contents>
+      <line>
+        <textedit name="username" title="" enabled="false" width="1pr" />
+        <button action="edit" name="editbtn" title="" icon="tollium:actions/edit" hinttid="tollium:common.actions.edit"/>
+        <button action="clear" name="clearbtn" title="" icon="tollium:actions/delete" hinttid="tollium:common.actions.clear"/>
+      </line>
+    </contents>
+  </fragment>
+
+</screens>

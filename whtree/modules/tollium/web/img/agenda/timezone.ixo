@@ -1,0 +1,4 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <backgroundlayer src="tollium:objects/timezones" />
+  <layer src="tollium:overlays/filetypes/clock" />
+</icon>

@@ -1,0 +1,27 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+PRINT("Args:" || Detokenize(GetConsoleArguments(), ",") || "\n");
+
+RegisterHandleReadCallback(0, PTR GotConsoleInput);
+AddInterruptCallback(PTR GotInterrupt);
+
+// Wait max nr of seconds, don't want the test to timeout
+WaitUntil(DEFAULT RECORD, AddTimeToDate(5000, GetCurrentDateTime()));
+
+MACRO GotConsoleInput()
+{
+  STRING line := ReadLineFrom(0, 4096, TRUE);
+  IF (ToUppercase(line) NOT LIKE "ERROR*")
+    PRINT("Reflect:"||line||"\n");
+  ELSE
+    PrintTo(2, "ReflectError:"||line||"\n");
+}
+
+MACRO GotInterrupt()
+{
+  PRINT("Interrupt\n");
+}

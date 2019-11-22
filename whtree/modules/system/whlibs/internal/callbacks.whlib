@@ -1,0 +1,866 @@
+﻿<?wh (* ISSYSTEMLIBRARY *)
+
+LOADLIB "wh::system.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+
+/// Event stream for event callbacks and broadcasts. Init with -2 so it doesn't clash with any handles or -1 (usual timeout return)
+INTEGER eventstream := -2;
+
+/// List of all wait read handles
+INTEGER ARRAY waitreadhandles;
+
+/// List of all wait write handles
+INTEGER ARRAY waitwritehandles;
+
+/** List of event registrations (ordered on event)
+    @cell(string) event Name of event
+    @cell(record array) data List of registrations, ordered on id
+    @cell(integer) data.id Registration id
+    @cell(function ptr) data.callback Callback
+    @cell(boolean) data.aggregate_events Whether to aggregate events (give a record array to the callback)
+*/
+RECORD ARRAY eventregistrations;
+
+/** List of handle read registrations (ordered on handle)
+    @cell(integer) handle Handle
+    @cell(record array) data List of registrations, ordered on id
+    @cell(integer) data.id Registration id
+    @cell(function ptr) data.callback Callback
+*/
+RECORD ARRAY handlereadregistrations;
+
+/** List of handle read registrations (ordered on handle)
+    @cell(integer) handle Handle
+    @cell(record array) data List of registrations, ordered on id
+    @cell(integer) data.id Registration id
+    @cell(function ptr) data.callback Callback
+*/
+RECORD ARRAY handlewriteregistrations;
+
+/** List of timed callback registrations (ordered on when)
+    @cell(datetime) when
+    @cell(record array) data List of registrations, ordered on id
+    @cell(integer) data.id Registration id
+    @cell(function ptr) data.callback Callback
+*/
+RECORD ARRAY timedcallbackregistrations;
+
+/** Map of registration id (ordered on id)
+    @cell(integer) id Registration id
+    @cell(string) type Type of registration ('event'/'handle','timedcallback')
+    @cell(string) event Event (only valid for event registrations)
+    @cell(integer) handle Handle (only valid for handle registrations)
+    @cell(datetime) when Callback time (only valid for timed callback registrations)
+*/
+RECORD ARRAY registrationmap;
+
+/** List of micro tasks
+    @cell(integer) type 0: function ptr, 1: obj->__runmicrotask(params)
+    @cell(function ptr) func
+    @cell(object) obj
+    @cell(variant array) params
+*/
+RECORD ARRAY microtasks;
+
+/// Counter to generate ids for event callback registrations
+INTEGER counter;
+
+/// List of forbidden broadcasts (a broadcast for an event may not be called within a handler for that event)
+STRING ARRAY __internal_forbidden_broadcasts;
+
+
+
+/* ADDME: Update documentation on when it is valid to use REgister(Multi)EventCallback. eg, porthandlers allow it too */
+
+
+/** Registers an callback function capable of handling multiple events to be called when a certain event is dispatched. Only supported
+    in the following contexts: tollium, appserver and porthandler.
+    @param event Event to wait on (LIKE match)
+    @param callback Callback to call when the event arrives. Signature: MACRO callback(STRING event, RECORD ARRAY msg)
+    @cell options.serializer If provided, serialize calls using this serializer, use DEFAULT OBJECT for no serializing. If not provided,
+        serialize calls for this registration.
+    @return Registration id, for use with UnregisterEventCallback
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC INTEGER FUNCTION RegisterMultiEventCallback(STRING event, FUNCTION PTR callback, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ serializer :=   DEFAULT OBJECT
+      , eventmetadata := FALSE
+      ],
+      options,
+      [ optional := [ "serializer" ]]);
+
+  INTEGER ARRAY req_argsm := [ TypeID(STRING), TypeID(RECORD ARRAY) ];
+  IF (NOT ValidateFunctionPtr(callback, 0, req_argsm))
+  {
+    THROW NEW Exception(
+            "The callback given to RegisterMultiEventCallback has an invalid function signature: Expected " ||
+            ExplainFunctionSignature(0, req_argsm) || ", got " || ExplainFunctionPtrSignature(callback));
+  }
+
+  // don't serialize when serializer has been explicitly specified to be DEFAULT OBJECT
+  BOOLEAN serialize := NOT CellExists(options, "serializer") OR ObjectExists(options.serializer);
+  RETURN DoRegisterEventCallback(event, callback, CELL[ serializer := DEFAULT OBJECT, serialize, ...options, is_multiple := TRUE ]);
+}
+
+/** Registers an callback function capable of handling a single event to be called when a certain event is dispatched. Only supported
+    in the following contexts: tollium, appserver and porthandler.
+    @param event Event to wait on (LIKE match)
+    @param callback Callback to call when the event arrives. Signature: MACRO callback(STRING event, RECORD msg)
+    @return Registration id, for use with UnregisterEventCallback
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC INTEGER FUNCTION RegisterEventCallback(STRING event, FUNCTION PTR callback)
+{
+  INTEGER ARRAY req_args := [ TypeID(STRING), TypeID(RECORD) ];
+  IF (NOT ValidateFunctionPtr(callback, 0, req_args))
+  {
+    THROW NEW Exception(
+            "The callback given to RegisterEventCallback has an invalid function signature: Expected " ||
+            ExplainFunctionSignature(0, req_args) || ", got " || ExplainFunctionPtrSignature(callback));
+  }
+  RETURN DoRegisterEventCallback(event, callback, [ serialize := FALSE, is_multiple := FALSE, eventmetadata := FALSE ]);
+}
+
+INTEGER FUNCTION DoRegisterEventCallback(STRING event, FUNCTION PTR callback, RECORD options)
+{
+  IF (eventstream < 0)
+  {
+    eventstream := __HS_EVENT_CREATESTREAM();
+    INSERT eventstream INTO waitreadhandles AT END;
+  }
+
+  counter := counter + 1;
+  RECORD datarec :=
+      [ id :=                   counter
+      , callback :=             callback
+      , aggregate_events :=     options.is_multiple
+      , asynccontext :=         NEW __HS_INTERNAL_ASYNCCONTEXT(2)
+      , serializer :=           DEFAULT OBJECT
+      , eventmetadata :=        options.eventmetadata
+      ];
+
+  IF (options.serialize)
+    datarec.serializer := NEW EventCallbackSerializer(options.serializer, datarec);
+
+  RECORD lookup := RecordLowerBound(eventregistrations, [ event := event ], [ "EVENT" ]);
+  IF (NOT lookup.found)
+  {
+    // Event does not exist yet, create it
+    INSERT
+        [ event :=      event
+        , data :=       [ datarec ]
+        ] INTO eventregistrations AT lookup.position;
+
+    __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(eventstream, [ event ], STRING[], FALSE);
+  }
+  ELSE
+  {
+    // Insert datarec at data in event (keep ordering on cell id)
+    INSERT datarec
+      INTO eventregistrations[lookup.position].data
+        AT RecordLowerBound(eventregistrations[lookup.position].data, [ id := datarec.id ], [ "ID" ]).position;
+  }
+
+  lookup := RecordLowerBound(registrationmap, [ id := counter ], [ "ID" ]);
+  INSERT
+      [ id :=     counter
+      , type :=   "event"
+      , event :=  event
+      ] INTO registrationmap AT lookup.position;
+
+  RETURN counter;
+}
+
+/** Registers an callback function that will be called when a handle is read signalled. Only supported
+    in the following contexts: tollium, appserver and porthandler.
+    @param handle Handle
+    @param callback Callback to call when the handle is read signalled arrives. Signature: MACRO callback()
+    @return Registration id, for use with UnregisterHandleCallback
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC INTEGER FUNCTION RegisterHandleReadCallback(INTEGER handle, FUNCTION PTR callback)
+{
+  INTEGER ARRAY req_args := DEFAULT INTEGER ARRAY;
+  IF (NOT ValidateFunctionPtr(callback, 0, req_args))
+  {
+    THROW NEW Exception(
+            "The callback given to RegisterHandleReadCallback has an invalid function signature: Expected " ||
+            ExplainFunctionSignature(0, req_args) || ", got " || ExplainFunctionPtrSignature(callback));
+  }
+
+  counter := counter + 1;
+  RECORD datarec :=
+      [ id :=                   counter
+      , callback :=             callback
+      , asynccontext :=         NEW __HS_INTERNAL_ASYNCCONTEXT(1)
+      ];
+
+  RECORD lookup := RecordLowerBound(handlereadregistrations, [ handle := handle ], [ "HANDLE" ]);
+  IF (NOT lookup.found)
+  {
+    // Event does not exist yet, create it
+    INSERT
+        [ handle :=     handle
+        , data :=       [ datarec ]
+        ] INTO handlereadregistrations AT lookup.position;
+    INSERT handle INTO waitreadhandles AT lookup.position;
+  }
+  ELSE
+  {
+    // Insert datarec at data in event (keep ordering on cell id)
+    INSERT datarec
+      INTO handlereadregistrations[lookup.position].data
+        AT RecordLowerBound(handlereadregistrations[lookup.position].data, [ id := datarec.id ], [ "ID" ]).position;
+  }
+
+  lookup := RecordLowerBound(registrationmap, [ id := counter ], [ "ID" ]);
+  INSERT
+      [ id :=     counter
+      , type :=   "handle-read"
+      , handle := handle
+      ] INTO registrationmap AT lookup.position;
+
+  RETURN counter;
+}
+
+/** Registers an callback function that will be called when a handle is write signalled. Only supported
+    in the following contexts: tollium, appserver and porthandler.
+    @param handle Handle
+    @param callback Callback to call when the handle is write signalled arrives. Signature: MACRO callback()
+    @return Registration id, for use with UnregisterHandleCallback
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC INTEGER FUNCTION RegisterHandleWriteCallback(INTEGER handle, FUNCTION PTR callback)
+{
+  INTEGER ARRAY req_args := DEFAULT INTEGER ARRAY;
+  IF (NOT ValidateFunctionPtr(callback, 0, req_args))
+  {
+    THROW NEW Exception(
+            "The callback given to RegisterHandleWriteCallback has an invalid function signature: Expected " ||
+            ExplainFunctionSignature(0, req_args) || ", got " || ExplainFunctionPtrSignature(callback));
+  }
+
+  counter := counter + 1;
+  RECORD datarec :=
+      [ id :=                   counter
+      , callback :=             callback
+      , asynccontext :=         NEW __HS_INTERNAL_ASYNCCONTEXT(1)
+      ];
+
+  RECORD lookup := RecordLowerBound(handlewriteregistrations, [ handle := handle ], [ "HANDLE" ]);
+  IF (NOT lookup.found)
+  {
+    // Event does not exist yet, create it
+    INSERT
+        [ handle :=     handle
+        , data :=       [ datarec ]
+        ] INTO handlewriteregistrations AT lookup.position;
+    INSERT handle INTO waitwritehandles AT lookup.position;
+  }
+  ELSE
+  {
+    // Insert datarec at data in event (keep ordering on cell id)
+    INSERT datarec
+      INTO handlewriteregistrations[lookup.position].data
+        AT RecordLowerBound(handlewriteregistrations[lookup.position].data, [ id := datarec.id ], [ "ID" ]).position;
+  }
+
+  lookup := RecordLowerBound(registrationmap, [ id := counter ], [ "ID" ]);
+  INSERT
+      [ id :=     counter
+      , type :=   "handle-write"
+      , handle := handle
+      ] INTO registrationmap AT lookup.position;
+
+  RETURN counter;
+}
+
+
+/** Register a callback that will be called at the first wait point after a specified time. Only supported
+    in the following contexts: tollium, appserver and porthandler.
+    @param when Time after which the callback must be called.
+    @param callback Callback to be called (Signature: MACRO callback())
+    @return id Id for the timeout, can be used UnregisterTimedCallback to unregister; automatically unregistered
+        when the callback is done.
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC INTEGER FUNCTION RegisterTimedCallback(DATETIME when, FUNCTION PTR callback)
+{
+  INTEGER ARRAY req_args := DEFAULT INTEGER ARRAY;
+  IF (NOT ValidateFunctionPtr(callback, 0, req_args))
+  {
+    THROW NEW Exception(
+            "The callback given to RegisterTimedCallback has an invalid function signature: Expected " ||
+            ExplainFunctionSignature(0, req_args) || ", got " || ExplainFunctionPtrSignature(callback));
+  }
+
+  counter := counter + 1;
+  RECORD datarec :=
+      [ id :=                   counter
+      , callback :=             callback
+      , asynccontext :=         NEW __HS_INTERNAL_ASYNCCONTEXT(1)
+      ];
+
+  RECORD lookup := RecordLowerBound(timedcallbackregistrations, [ when := when ], [ "WHEN" ]);
+  IF (NOT lookup.found)
+  {
+    // Event does not exist yet, create it
+    INSERT
+        [ when :=       when
+        , data :=       [ datarec ]
+        ] INTO timedcallbackregistrations AT lookup.position;
+  }
+  ELSE
+  {
+    // Insert datarec at data in event (keep ordering on cell id)
+    INSERT datarec
+      INTO timedcallbackregistrations[lookup.position].data
+        AT RecordLowerBound(timedcallbackregistrations[lookup.position].data, [ id := datarec.id ], [ "ID" ]).position;
+  }
+
+  lookup := RecordLowerBound(registrationmap, [ id := counter ], [ "ID" ]);
+  INSERT
+      [ id :=     counter
+      , type :=   "timedcallback"
+      , when :=   when
+      ] INTO registrationmap AT lookup.position;
+
+  RETURN counter;
+}
+
+
+/** Schedule a micro task
+    @param(function ptr) Task function to run
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC MACRO ScheduleMicroTask(MACRO PTR task)
+{
+  OBJECT asynccontext := NEW __HS_INTERNAL_ASYNCCONTEXT(1);
+
+  INSERT [ type := 0, func := task, asynccontext := asynccontext ] INTO microtasks AT END;
+}
+
+/** Schedule a microtask with an async trace
+    @param task Task function to run
+    @param asynccontext Async stack trace
+*/
+PUBLIC MACRO ScheduleMicroTaskWithAsyncContext(MACRO PTR task, OBJECT asynccontext)
+{
+  INSERT [ type := 0, func := task, asynccontext := asynccontext ] INTO microtasks AT END;
+}
+
+/** Schedule micro tasks which call the __RunMicroTask member an the object. The __RunMicroTask must have signature MACRO __RunMicroTask(RECORD context).
+    @param(object) obj Object to call __RunMicroTask on.
+    @param(record array) contexts List of contexts. A callback is scheduled for every context.
+*/
+PUBLIC MACRO ScheduleObjectMicroTasks(OBJECT obj, RECORD ARRAY contexts)
+{
+  IF (NOT IsDefaultValue(contexts))
+  {
+    RECORD base := [ type := 1, obj := obj ];
+    RECORD ARRAY vals;
+    FOREVERY (RECORD rec FROM contexts)
+    {
+      RECORD toinsert := base;
+      INSERT CELL context := rec INTO toinsert;
+      INSERT toinsert INTO vals AT END;
+    }
+    microtasks := microtasks CONCAT vals;
+  }
+}
+
+
+/** Unregisters a previously registered callback (handle, event or timed)
+    @param id Id, given back by RegisterEventCallback, RegisterMultiEventCallback, RegisterHandleReadCallback or RegisterTimedCallback.
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC MACRO UnregisterCallback(INTEGER id)
+{
+  RECORD lookup := RecordLowerBound(registrationmap, [ id := id ], [ "ID" ]);
+  IF (NOT lookup.found)
+    THROW NEW Exception("Attempt to unregister already unregistered callback");
+
+  RECORD reg := registrationmap[lookup.position];
+  DELETE FROM registrationmap AT lookup.position;
+  SWITCH (reg.type)
+  {
+    CASE "event"
+    {
+      lookup := RecordLowerBound(eventregistrations, [ event := reg.event ], [ "EVENT" ]);
+      RECORD r := eventregistrations[lookup.position];
+
+      INTEGER pos := RecordLowerBound(r.data, [ id := id ], [ "ID" ]).position;
+      DELETE FROM eventregistrations[lookup.position].data AT pos;
+      IF (LENGTH(r.data) = 1)
+      {
+       __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(eventstream, STRING[], STRING[ r.event ], FALSE);
+        DELETE FROM eventregistrations AT lookup.position;
+      }
+    }
+    CASE "handle-read"
+    {
+      lookup := RecordLowerBound(handlereadregistrations, [ handle := reg.handle ], [ "HANDLE" ]);
+      RECORD r := handlereadregistrations[lookup.position];
+
+      INTEGER pos := RecordLowerBound(r.data, [ id := id ], [ "ID" ]).position;
+      DELETE FROM handlereadregistrations[lookup.position].data AT pos;
+      IF (LENGTH(r.data) = 1)
+      {
+        DELETE FROM handlereadregistrations AT lookup.position;
+        DELETE FROM waitreadhandles AT lookup.position;
+      }
+    }
+    CASE "handle-write"
+    {
+      lookup := RecordLowerBound(handlewriteregistrations, [ handle := reg.handle ], [ "HANDLE" ]);
+      RECORD r := handlewriteregistrations[lookup.position];
+
+      INTEGER pos := RecordLowerBound(r.data, [ id := id ], [ "ID" ]).position;
+      DELETE FROM handlewriteregistrations[lookup.position].data AT pos;
+      IF (LENGTH(r.data) = 1)
+      {
+        DELETE FROM handlewriteregistrations AT lookup.position;
+        DELETE FROM waitwritehandles AT lookup.position;
+      }
+    }
+    CASE "timedcallback"
+    {
+      lookup := RecordLowerBound(timedcallbackregistrations, [ when := reg.when ], [ "WHEN" ]);
+      RECORD r := timedcallbackregistrations[lookup.position];
+
+      INTEGER pos := RecordLowerBound(r.data, [ id := id ], [ "ID" ]).position;
+      DELETE FROM timedcallbackregistrations[lookup.position].data AT pos;
+      IF (LENGTH(r.data) = 1)
+      {
+        DELETE FROM timedcallbackregistrations AT lookup.position;
+      }
+    }
+  }
+}
+
+MACRO DoBroadcastEvent(STRING event, RECORD msg, BOOLEAN islocal)
+{
+  IF(event IN __internal_forbidden_broadcasts)
+    THROW NEW Exception("Attempting to broadcast event '" || event || "' while handling an event of that type");
+
+  INSERT CELL __recordexists := RecordExists(msg)
+            , __sourcegroup := __HS_GetCurrentGroupID()
+         INTO msg;
+
+  __HS_EVENT_BROADCAST(event, msg, islocal);
+
+  // Make sure the broadcast is handled immediately
+  __HS_ProcessCurrentBroadcasts();
+}
+
+/** Broadcasts an event
+    @param event Name of the event
+    @param msg Message to send (must be simple, no blobs or objects allowed)
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC MACRO BroadcastEvent(STRING event, RECORD msg)
+{
+  DoBroadcastEvent(event, msg, FALSE);
+}
+
+/** Broadcasts an event only in this process (not in other processes)
+    @param event Name of the event
+    @param msg Message to send (must be simple, no blobs or objects allowed)
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC MACRO BroadcastLocalEvent(STRING event, RECORD msg)
+{
+  DoBroadcastEvent(event, msg, TRUE);
+}
+
+/// Returns the time of the next timed callback to be called (MAX_DATETIME if none exists)
+PUBLIC DATETIME FUNCTION __INTERNAL_GetEventCallBackTimeout()
+{
+  IF (LENGTH(microtasks) != 0)
+    RETURN DEFAULT DATETIME;
+  RETURN RecordExists(timedcallbackregistrations) ? timedcallbackregistrations[0].when : MAX_DATETIME;
+}
+
+/// Returns the handles to wait on when waiting for callbacks. Returns DEFAULT INTEGER ARRAY when no registrations active.
+PUBLIC INTEGER ARRAY FUNCTION __INTERNAL_GetEventCallBackHandles()
+{
+  RETURN waitreadhandles;
+}
+
+/// Returns the handles to wait on when waiting for callbacks. Returns DEFAULT INTEGER ARRAY when no registrations active.
+PUBLIC INTEGER ARRAY FUNCTION __INTERNAL_GetEventCallBackWriteHandles()
+{
+  RETURN waitwritehandles;
+}
+
+INTEGER ARRAY FUNCTION IntersectIntegerArrays(INTEGER ARRAY ar, INTEGER ARRAY br)
+{
+  INTEGER bpos := 0, blen := LENGTH(br);
+  INTEGER ARRAY rr;
+  FOREVERY (INTEGER a FROM ar)
+  {
+    FOR (; bpos < blen AND br[bpos] <= a; bpos := bpos + 1)
+      IF (a = br[bpos])
+        INSERT a INTO rr AT END;
+  }
+  RETURN rr;
+}
+
+/** Handle callback events (call this when the handle gotten from __INTERNAL_GetEventCallBackHandle is signalled)
+    Also checks all the other handles from __INTERNAL_GetEventCallBackHandle
+*/
+PUBLIC BOOLEAN FUNCTION __INTERNAL_HandleEventCallbackEvents(INTEGER handle, STRING type DEFAULTSTO "")
+{
+  BOOLEAN did_anything := FALSE;
+  IF (type = "" AND handle != -1)
+  {
+    // Determine if the handle was read or write signalled
+    IF (handle IN waitreadhandles)
+    {
+      type := handle IN waitwritehandles AND WaitForMultiple([ handle ], DEFAULT INTEGER ARRAY, 0) = -1
+          ? "handle-write"
+          : "handle-read";
+    }
+    ELSE
+      type := "handle-write";
+  }
+
+  IF (handle IN (type = "handle-read" ? waitreadhandles : waitwritehandles))
+  {
+    INTEGER ARRAY check_readhandles := waitreadhandles;
+    INTEGER ARRAY check_writehandles := waitwritehandles;
+
+    WHILE (TRUE)
+    {
+      // Do the callbacks
+      did_anything := HandleSignalledCBHandle(handle, type) OR did_anything;
+
+      check_readhandles := IntersectIntegerArrays(waitreadhandles, check_readhandles);
+      check_writehandles := IntersectIntegerArrays(waitwritehandles, check_writehandles);
+
+      RECORD rec := __HS_WAITFORMULTIPLEUNTIL(check_readhandles, check_writehandles, DEFAULT DATETIME);
+      IF (LENGTH(rec.read) != 0)
+      {
+        handle := rec.read[0];
+        type := "handle-read";
+      }
+      ELSE IF (LENGTH(rec.write) != 0)
+      {
+        handle := rec.write[0];
+        type := "handle-write";
+      }
+      ELSE
+        BREAK;
+    }
+  }
+
+  WHILE (LENGTH(timedcallbackregistrations) > 0 AND timedcallbackregistrations[0].when <= GetCurrentDateTime())
+  {
+    RECORD reg := timedcallbackregistrations[0].data[0];
+    DELETE FROM timedcallbackregistrations[0].data AT 0;
+    IF (LENGTH(timedcallbackregistrations[0].data) = 0)
+      DELETE FROM timedcallbackregistrations AT 0;
+    DELETE FROM registrationmap AT RecordLowerBound(registrationmap, [ id := reg.id ], [ "ID" ]).position;
+
+    __WITHASYNCCONTEXT(reg.asynccontext)
+      reg.callback();
+
+    did_anything := TRUE;
+    RunMicroTasks();
+  }
+  IF (NOT did_anything)
+    did_anything := RunMicroTasks();
+
+  RETURN did_anything;
+}
+
+STATIC OBJECTTYPE EventCallbackSerializer
+<
+  RECORD reg;
+  RECORD ARRAY pending;
+  FUNCTION PTR queuerunner;
+  BOOLEAN running;
+
+  MACRO NEW(OBJECT serializer, RECORD reg)
+  {
+    this->reg := reg;
+    this->queuerunner := ObjectExists(serializer)
+        ? serializer->Wrap(PTR this->RunQueue, [ coalescetag := `system:callback:${reg.id}` ])
+        : PTR this->SerializedRunQueue();
+  }
+
+  PUBLIC MACRO AddEvents(STRING event, RECORD ARRAY msgs)
+  {
+    RECORD pos := RecordLowerBound(this->pending, CELL[ event ], [ "EVENT" ]);
+    IF (NOT pos.found)
+      INSERT CELL[ event, msgs ] INTO this->pending AT pos.position;
+    ELSE
+      this->pending[pos.position].msgs := this->pending[pos.position].msgs CONCAT msgs;
+
+    this->queuerunner();
+  }
+
+  MACRO SerializedRunQueue()
+  {
+    IF (this->running)
+      RETURN;
+    this->running := TRUE;
+    this->RunQueue();
+    this->running := FALSE;
+  }
+
+  MACRO RunQueue()
+  {
+    STRING ARRAY oldlist := __internal_forbidden_broadcasts;
+
+    WHILE (NOT IsDefaultValue(this->pending))
+    {
+      RECORD rec := this->pending[0];
+      DELETE FROM this->pending AT 0;
+
+      IF (NOT RecordLowerBound(registrationmap, this->reg, [ "ID" ]).found)
+      {
+        this->pending := RECORD[];
+        RETURN;
+      }
+
+      __internal_forbidden_broadcasts := STRING[ ...oldlist, rec.event ];
+      TRY
+        __WITHASYNCCONTEXT(this->reg.asynccontext)
+          this->reg.callback(rec.event, rec.msgs);
+      FINALLY
+        __internal_forbidden_broadcasts := oldlist;
+    }
+  }
+>;
+
+BOOLEAN FUNCTION HandleSignalledCBHandle(INTEGER handle, STRING type)
+{
+  BOOLEAN did_anything;
+  IF (handle = eventstream)
+  {
+    STRING curr_event;
+    RECORD ARRAY msgs;
+
+    WHILE (TRUE)
+    {
+      // Get next event
+      RECORD res := __TryReadEventFromStream(eventstream, TRUE);
+
+      // If we have an event the same type as the queue: store it in the queue
+      IF (res.status = "ok" AND (LENGTH(msgs) = 0 OR curr_event = res.event))
+      {
+        curr_event := res.event; // for when case length(msgs) = 0, adding an if would be slower
+        INSERT res INTO msgs AT END;
+        CONTINUE;
+      }
+
+      // Current message (if available) is other type than in queue: send out queue.
+      IF (LENGTH(msgs) != 0)
+      {
+        STRING ARRAY oldlist := __internal_forbidden_broadcasts;
+
+        // Because events work with masks, walk all registrations
+        FOREVERY (RECORD rec FROM eventregistrations)
+        {
+          IF (curr_event NOT LIKE rec.event)
+            CONTINUE;
+
+          FOREVERY (RECORD t FROM rec.data)
+          {
+            IF (ObjectExists(t.serializer))
+              t.serializer->AddEvents(curr_event, t.eventmetadata ? msgs : (SELECT AS RECORD ARRAY msg FROM msgs));
+          }
+
+          STRING ARRAY newlist := oldlist;
+          INSERT res.event INTO newlist AT END;
+
+          TRY
+          {
+            // Found registration
+            FOREVERY (RECORD t FROM rec.data)
+            {
+              IF (ObjectExists(t.serializer))
+                CONTINUE;
+
+              __internal_forbidden_broadcasts := newlist;
+              did_anything := TRUE;
+              IF (t.aggregate_events)
+              {
+                __WITHASYNCCONTEXT(t.asynccontext)
+                  t.callback(curr_event, t.eventmetadata ? msgs : (SELECT AS RECORD ARRAY msg FROM msgs));
+              }
+              ELSE
+              {
+                __WITHASYNCCONTEXT(t.asynccontext)
+                  FOREVERY (RECORD msg FROM msgs)
+                    t.callback(curr_event, t.eventmetadata ? msg : msg.msg);
+              }
+              __internal_forbidden_broadcasts := oldlist;
+
+              RunMicroTasks();
+            }
+          }
+          CATCH(OBJECT e)
+          {
+            __internal_forbidden_broadcasts := oldlist;
+            THROW;
+          }
+        }
+      }
+
+      IF (res.status != "ok")
+        BREAK;
+
+      msgs := [ RECORD(res) ];
+      curr_event := res.event;
+    }
+  }
+  ELSE IF (type = "handle-read")
+  {
+    RECORD lookup := RecordLowerBound(handlereadregistrations, [ handle := handle ], [ "HANDLE" ]);
+    IF (lookup.found)
+    {
+      // The forevery makes a copy, so this is safe on reentry.
+      FOREVERY (RECORD t FROM handlereadregistrations[lookup.position].data)
+      {
+        __WITHASYNCCONTEXT(t.asynccontext)
+          t.callback();
+        RunMicroTasks();
+      }
+      did_anything := TRUE;
+    }
+  }
+  ELSE IF (type = "handle-write")
+  {
+    RECORD lookup := RecordLowerBound(handlewriteregistrations, [ handle := handle ], [ "HANDLE" ]);
+    IF (lookup.found)
+    {
+      // The forevery makes a copy, so this is safe on reentry.
+      FOREVERY (RECORD t FROM handlewriteregistrations[lookup.position].data)
+      {
+        __WITHASYNCCONTEXT(t.asynccontext)
+          t.callback();
+        RunMicroTasks();
+      }
+      did_anything := TRUE;
+    }
+  }
+
+  RETURN did_anything;
+}
+
+BOOLEAN FUNCTION RunMicroTasks()
+{
+  BOOLEAN did_anything := FALSE;
+  WHILE (LENGTH(microtasks) != 0)
+  {
+    did_anything := TRUE;
+    RECORD task := microtasks[0];
+    DELETE FROM microtasks AT 0;
+    IF (task.type = 0)
+    {
+      __WITHASYNCCONTEXT(task.asynccontext)
+        task.func();
+    }
+    ELSE IF (task.type = 1)
+      task.obj->__RunMicroTask(task.context);
+  }
+  RETURN did_anything;
+}
+
+PUBLIC MACRO __HS_ProcessCurrentBroadcasts()
+{
+  IF (eventstream > 0)
+    HandleSignalledCBHandle(eventstream, "handle-read");
+}
+
+/** Tries to read an event from an event stream
+    @param stream
+    @param returntimeout If no event is present, return a timeout record
+*/
+PUBLIC RECORD FUNCTION __TryReadEventFromStream(INTEGER stream, BOOLEAN returntimeout)
+{
+  RECORD rec := __HS_EVENT_STREAMREAD(stream);
+  IF (NOT RecordExists(rec))
+  {
+    IF (returntimeout)
+    {
+      RETURN
+          [ status := "timeout"
+          , event :=  ""
+          , msg :=    DEFAULT RECORD
+          , issynchronous := FALSE
+          ];
+
+    }
+    RETURN rec;
+  }
+
+  RETURN CELL
+      [ status :="ok"
+      , event := rec.name
+      , ...MapEventMessage(rec.value)
+      ];
+}
+
+RECORD FUNCTION MapEventMessage(RECORD inmsg)
+{
+  BOOLEAN issynchronous := CellExists(inmsg,'__sourcegroup') AND inmsg.__sourcegroup = __HS_GetCurrentGroupID();
+  IF(CellExists(inmsg,"__recordexists") AND NOT inmsg.__recordexists)
+    inmsg := DEFAULT RECORD;
+  ELSE
+    DELETE CELL __recordexists, __sourcegroup FROM inmsg;
+
+  RETURN CELL[ msg := inmsg
+             , issynchronous
+             ];
+}
+
+// Internal functions to loadlib (ADDME: get those from interface.whlib)
+DATETIME FUNCTION GetCurrentDateTime() __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC RECORD ARRAY FUNCTION __HS_ListCallbacks()
+{
+  RECORD ARRAY retval;
+  FOREVERY (RECORD reg FROM timedcallbackregistrations)
+    FOREVERY (RECORD rec FROM reg.data)
+      __WITHASYNCCONTEXT(rec.asynccontext)
+        INSERT CELL[ rec.id, rec.callback, stacktrace := GetAsyncStackTrace(), type := "timedcallback", reg.when ] INTO retval AT END;
+  FOREVERY (RECORD reg FROM eventregistrations)
+    FOREVERY (RECORD rec FROM reg.data)
+      __WITHASYNCCONTEXT(rec.asynccontext)
+        INSERT CELL[ rec.id, rec.callback, stacktrace := GetAsyncStackTrace(), type := "event", reg.event ] INTO retval AT END;
+  FOREVERY (RECORD reg FROM handlereadregistrations)
+    FOREVERY (RECORD rec FROM reg.data)
+      __WITHASYNCCONTEXT(rec.asynccontext)
+        INSERT CELL[ rec.id, rec.callback, stacktrace := GetAsyncStackTrace(), type := "handle-read", reg.handle ] INTO retval AT END;
+  FOREVERY (RECORD reg FROM handlewriteregistrations)
+    FOREVERY (RECORD rec FROM reg.data)
+      __WITHASYNCCONTEXT(rec.asynccontext)
+        INSERT CELL[ rec.id, rec.callback, stacktrace := GetAsyncStackTrace(), type := "handle-write", reg.handle ] INTO retval AT END;
+
+  RETURN retval;
+}
+

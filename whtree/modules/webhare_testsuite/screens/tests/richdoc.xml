@@ -1,0 +1,114 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/richdoc.whlib">
+
+  <screen name="main" title="Rich Text Editor" icon="wrd_organizer:mailclient"
+          width="800px" height="600px" allowresize="true" menubar="menubar">
+    <actions>
+      <action name="openhtml" title="Open HTML..." onexecute="doopenhtml" />
+      <action name="openemail" title="Open E-mail..." onexecute="doopenemail" />
+      <action name="reply" title="Reply" onexecute="doreply" />
+      <action name="rewrite" title="Rewrite" onexecute="dorewrite" />
+      <action name="send" title="Download" onexecute="dosend" />
+      <action name="editrawhtml" title="Edit raw html" onexecute="doeditrawhtml" shortcut="ctrl+shift+e" />
+      <action name="clearformatting" title="Clear Formatting" onexecute="doclearformatting" />
+      <action name="undirty" title="Undirty" onexecute="doundirty" />
+      <action name="showmessage" onexecute="doshowmessage" shortcut="ctrl+shift+m" />
+      <action name="insertobject" onexecute="doinsertobject" />
+      <action name="createobject" onexecute="docreateobject" />
+      <action name="insertinlineobject" onexecute="doinsertinlineobject" />
+      <action name="insertimage" onexecute="doinsertimage" />
+      <action name="inserttwocol" onexecute="doinserttwocol" />
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item title="M01">
+          <item action="insertobject" title="A01 Insert Object" />
+          <item action="createobject" title="A02 Create Object" />
+          <item action="insertinlineobject" title="A03 Insert Inline Object" />
+          <item action="insertimage" title="A04 Insert Image" />
+          <item action="inserttwocol" title="A05 Insert Two Column Object" />
+        </item>
+      </menu>
+    </menus>
+    <body name="body" spacers="none">
+      <panel height="1pr" name="editorpanel">
+        <tabs name="rteholder" height="1pr" savestate="selectedtab" onselect="onchangetab">
+          <tab name="rtetab" title="Tab with Free RTE">
+            <richarea name="editor" width="1pr" height="1pr" type="email"/>
+          </tab>
+          <tab name="pageedittab" title="Tab with page editing RTE">
+            <richdocument name="pageedit" width="1pr" height="1pr" type="pageeditor" />
+          </tab>
+          <tab name="othertab" title="Tab with Structured RTE">
+            <textedit name="focusfield" title="textfield" value="textfield for testing focus. try focussing this field and TAB-bing back to the Editor" width="1pr" />
+            <textedit name="dirty" title="Dirty" enabled="false" />
+            <richdocument name="structured" width="1pr" height="1pr" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc" contentareawidth="900px" />
+          </tab>
+        </tabs>
+      </panel>
+    </body>
+    <footer>
+      <line layout="left">
+        <textedit title="Lose selection in IE" width="1x" />
+        <checkbox name="editorvisible" onchange="togglevisible" label="Visible" />
+        <checkbox name="editorenabled" onchange="toggleenabled" label="Enabled" />
+        <checkbox name="editorreadonly" onchange="togglereadonly" label="Readonly" />
+        <checkbox name="showcounter" onchange="GotShowCounterChange" title="" label="Show counter" />
+      </line>
+      <line layout="left">
+        <button name="openhtmlbutton" action="openhtml" />
+        <button name="openemailbutton" action="openemail" />
+        <button name="replybutton" action="reply" />
+        <button name="rawhtmlbutton" action="editrawhtml" />
+        <button name="rewritebutton" action="rewrite" />
+        <button name="sendbutton" action="send" />
+        <button name="clearformattingbutton" action="clearformatting" />
+        <button name="undirtybutton" action="undirty" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="editrawhtml" title="Edit raw html" allowresize="true" savestate="size" implementation="none">
+    <body>
+      <codeedit public="true" name="code" width="1pr" height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="allowformat" title="RTD with allowformatting">
+    <actions>
+      <action name="editrawhtml" title="Edit raw html" onexecute="doeditrawhtml" shortcut="ctrl+shift+e" />
+    </actions>
+    <body>
+      <richarea name="myrte" type="html-block" tagfilter="p b i ul a-href" public="true"/>
+      <button name="rawhtmlbutton" action="editrawhtml" />
+    </body>
+  </screen>
+
+  <screen name="autotest1" allowresize="1">
+    <body>
+      <richarea name="testrte" public="true" height="1pr" />
+    </body>
+  </screen>
+
+  <screen name="autotest2" allowresize="1">
+    <body>
+      <richdocument name="testrte" public="true" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc" height="1pr" />
+      <richdocument name="testrtewithlinkhandler" public="true" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" height="1pr" />
+    </body>
+  </screen>
+
+  <screen name="testblock">
+    <body>
+      <textedit name="customtext" title="Custom text" value="" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

@@ -1,0 +1,126 @@
+﻿<?wh
+
+LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+
+PUBLIC OBJECTTYPE BetaTreeObjectTypeDescriber EXTEND ObjectTypeDescriber
+< PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RETURN
+        SELECT id
+             , name
+             , icon     := "tollium:smileys/wink"
+          FROM webhare_testsuite.rights_tree
+         WHERE id = objectid;
+  }
+
+  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetRootObjects(OBJECT user)
+  {
+    RETURN GetRootObjects(user, 0);
+  }
+
+  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetObjectChildren(INTEGER id, OBJECT user)
+  {
+    RETURN
+        SELECT AS INTEGER ARRAY COLUMN id
+          FROM webhare_testsuite.rights_tree
+         WHERE parent = VAR id;
+  }
+
+  PUBLIC UPDATE BOOLEAN FUNCTION IsObjectVisibleForUser(INTEGER id, OBJECT user)
+  {
+    RETURN user->HasRightOn("webhare_testsuite:objectright", id) OR
+           user->HasRightOn("webhare_testsuite:objectright2_impl", id);
+  }
+>;
+
+OBJECTTYPE BetaTreeFlatObjectTypeDescriber EXTEND ObjectTypeDescriber
+< PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RETURN
+        SELECT id
+             , name
+             , icon     := "tollium:smileys/wink"
+          FROM webhare_testsuite.rights_tree
+         WHERE id = objectid;
+  }
+>;
+
+
+STRING FUNCTION GetFullName(INTEGER query_id)
+{
+  RECORD rec :=
+      SELECT parent
+           , name
+        FROM webhare_testsuite.rights_tree
+       WHERE id = query_id;
+
+  IF (NOT RecordExists(rec) OR rec.parent = 0)
+    RETURN "";
+
+  RETURN GetFullName(rec.parent) || "/" || rec.name;
+}
+
+INTEGER ARRAY FUNCTION GetRootObjects(OBJECT current_user, INTEGER root_node)
+{
+  IF (current_user->HasRightOn("beta:objectright", root_node))
+  {
+    // Return all root objects
+    RETURN
+      SELECT AS INTEGER ARRAY id
+        FROM webhare_testsuite.rights_tree
+       WHERE parent = root_node;
+  }
+
+  INTEGER ARRAY results;
+  INTEGER ARRAY worklist := [ root_node ];
+
+  WHILE (LENGTH(worklist) != 0)
+  {
+    RECORD ARRAY nodes :=
+        SELECT id
+             , hasright := current_user->HasRightOn("beta:objectright", id)
+          FROM webhare_testsuite.rights_tree
+         WHERE parent IN worklist;
+
+    results := results CONCAT
+        SELECT AS INTEGER ARRAY id
+          FROM nodes
+         WHERE hasright;
+
+    worklist :=
+        SELECT AS INTEGER ARRAY id
+          FROM nodes
+         WHERE NOT hasright;
+  }
+
+  RETURN results;
+}
+
+/** Return data describing object (dummy for 0)
+*/
+PUBLIC RECORD FUNCTION GetRightsObjectData(OBJECT current_user, INTEGER objectid)
+{
+  IF (objectid != 0)
+  {
+    RETURN
+      SELECT id
+           , name
+           , fullname := GetFullName(id)
+           , icon     := "tollium:smileys/wink"
+           , children := (SELECT AS INTEGER ARRAY id
+                            FROM webhare_testsuite.rights_tree
+                           WHERE parent = objectid)
+        FROM webhare_testsuite.rights_tree
+       WHERE id = objectid
+         AND current_user->HasRightOn("beta:objectright", id);
+  }
+
+  RETURN
+    [ id            := 0
+    , name          := ""
+    , fullname      := ""
+    , icon          := ""
+    , children      := GetRootObjects(current_user, 0)
+    ];
+}

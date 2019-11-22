@@ -1,0 +1,15 @@
+@INCLUDE_PATH = /home/cvs/doxygen
+@INCLUDE = general
+
+OUTPUT_DIRECTORY       = /home/cvs/web/drawlib
+INPUT = /home/cvs/repository.doxygen/webhare/drawlib
+GENERATE_TAGFILE = /home/cvs/doxygen/drawlib.tag
+TAGFILES = /home/cvs/doxygen/blex.tag
+EXCLUDE = /home/cvs/repository.doxygen/webhare/drawlib/jpeg \
+         /home/cvs/repository.doxygen/webhare/drawlib/png \
+         /home/cvs/repository.doxygen/webhare/drawlib/drawlib \
+         /home/cvs/repository.doxygen/webhare/drawlib/wmflib \
+         /home/cvs/repository.doxygen/webhare/drawlib/drawlib_test \
+         /home/cvs/repository.doxygen/webhare/drawlib/drawlib_test_function \
+         /home/cvs/repository.doxygen/webhare/drawlib/tests \
+         /home/cvs/repository.doxygen/webhare/drawlib/utils

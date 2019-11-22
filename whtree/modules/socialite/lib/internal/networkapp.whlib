@@ -1,0 +1,332 @@
+﻿<?wh
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::socialite/lib/database.whlib";
+LOADLIB "mod::socialite/lib/networkapi/facebookv2.whlib";
+LOADLIB "mod::socialite/lib/networkapi/facebookv3.whlib";
+LOADLIB "mod::socialite/lib/networkapi/twitter.whlib";
+LOADLIB "mod::socialite/lib/networkapi/linkedin_v2.whlib";
+LOADLIB "mod::socialite/lib/networkapi/yammer.whlib";
+LOADLIB "mod::socialite/lib/networkapi/foursquare.whlib";
+LOADLIB "mod::socialite/lib/networkapi/youtube.whlib";
+LOADLIB "mod::socialite/lib/networkapi/vimeo.whlib";
+LOADLIB "mod::socialite/lib/networkapi/google.whlib";
+LOADLIB "mod::socialite/lib/networkapi/instagram.whlib";
+LOADLIB "mod::socialite/lib/networkapi/pinterest.whlib";
+LOADLIB "mod::socialite/lib/networkapi/youku.whlib";
+LOADLIB "mod::socialite/lib/networkapi/moneybird.whlib";
+
+LOADLIB "mod::socialite/lib/internal/support.whlib";
+
+
+
+OBJECT FUNCTION MyGetPrimaryWebhareTransactionObject()
+{
+  RETURN GetPrimaryWebhareTransaction() = 0 ? DEFAULT OBJECT : GetTransactionObjectById(GetPrimaryWebhareTransaction());
+}
+
+
+OBJECTTYPE NetworkApp
+<
+  RECORD app;
+  RECORD ARRAY appkeys;
+  INTEGER sessionid;
+
+  MACRO NEW(RECORD apprec)
+  {
+    this->app := apprec;
+    this->appkeys := apprec.appkeys;
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasSessionEverLoggedIn(INTEGER sessionid)
+  {
+    THROW NEW Exception("This network doesn't implement HasSessionEverLoggedIn");
+  }
+
+  MACRO SetupForSession(RECORD session)
+  {
+    this->sessionid := session.id;
+  }
+
+  PUBLIC INTEGER FUNCTION GetCurrentPersistentSession()
+  {
+    RETURN this->sessionid;
+  }
+
+  PUBLIC INTEGER FUNCTION GetPersistentSessionId(STRING tag)
+  {
+    RETURN SELECT AS INTEGER id FROM socialite.sessions WHERE ToUppercase(sessions.tag) = ToUppercase(VAR tag) AND application=this->app.id AND persistent = TRUE;
+  }
+
+  PUBLIC INTEGER FUNCTION OpenPersistentSession(INTEGER sessionid)
+  {
+    RECORD session := SELECT * FROM socialite.sessions WHERE id = sessionid AND application=this->app.id;
+
+    IF (NOT RecordExists(session))
+      THROW NEW Exception('Session with id #"'||sessionid||'" was not found.');
+    this->SetupForSession(session);
+    RETURN session.id;
+  }
+
+  PUBLIC INTEGER FUNCTION OpenPersistentSessionByTag(STRING tag)
+  {
+    RECORD session := SELECT * FROM socialite.sessions WHERE ToUppercase(sessions.tag) = ToUppercase(VAR tag) AND application=this->app.id;
+
+    IF (NOT RecordExists(session))
+      THROW NEW Exception('session with tag "'||tag||'" was not found.');
+    this->SetupForSession(session);
+    RETURN session.id;
+  }
+
+  PUBLIC RECORD FUNCTION __ExecuteFeedQuery(STRING query, INTEGER maxnum)
+  {
+    THROW NEW Exception("This network application does not yet support feed queries");
+  }
+>;
+
+
+OBJECTTYPE AccessTokenNetworkApp EXTEND NetworkApp
+< STRING pvt_jsredirecturl;
+  STRING pvt_publickey;
+
+  PUBLIC PROPERTY jsredirecturl(pvt_jsredirecturl, -);
+
+  MACRO NEW(RECORD apprec)
+  : NetworkApp(apprec)
+  {
+  }
+
+  MACRO SetupAccessTokenApp()
+  {
+    this->pvt_publickey := SELECT AS STRING value FROM this->appkeys WHERE tag = 'publickey';
+    STRING privatekey := SELECT AS STRING value FROM this->appkeys WHERE tag = 'privatekey';
+    STRING authcallbackhosturl := SELECT AS STRING value FROM this->appkeys WHERE tag = 'authcallbackhosturl';
+    this->pvt_jsredirecturl := SELECT AS STRING value FROM this->appkeys WHERE tag = 'jsredirecturl';
+    this->SetApplicationAuthKeys(this->pvt_publickey, privatekey);
+    this->SetAuthCallbackHostURL(authcallbackhosturl);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION HasSessionEverLoggedIn(INTEGER sessionid)
+  {
+    RECORD session := SELECT * FROM socialite.sessions WHERE id = sessionid AND application=this->app.id;
+    IF (NOT RecordExists(session))
+      THROW NEW Exception('Session with id #"'||sessionid||'" was not found.');
+    RETURN session.accesstoken != "";
+  }
+
+  UPDATE MACRO SetupForSession(RECORD session)
+  {
+    IF (session.accesstoken = "")
+      THROW NEW SocialiteException("EXPIRED","This session has never logged in");
+
+    this->accesstoken := session.accesstoken;
+    NetworkApp::SetupForSession(session);
+  }
+
+  PUBLIC RECORD FUNCTION StartPersistentAppLogin(INTEGER sessionid, STRING callbackurl, STRING state)
+  {
+    //FIXME Get the privileges to request from the database. Validate sessionid to be from this app while we're at it
+    STRING reqperms := SELECT AS STRING requestpermissions FROM socialite.sessions WHERE id=sessionid;
+    STRING ARRAY requestprivs;
+
+    FOREVERY(STRING permid FROM Tokenize(reqperms, ','))
+    {
+      IF (this->pvt_newpermissionmodel)
+      {
+        IF (permid != "")
+          INSERT permid INTO requestprivs AT END;
+      }
+      ELSE
+      {
+        STRING permname := SELECT AS STRING userapi FROM globalpermissionmap WHERE id=ToInteger(permid,0);
+        IF(permname!="")
+          INSERT permname INTO requestprivs AT END;
+      }
+    }
+
+    RETURN this->StartLogin(callbackurl, requestprivs, state);
+  }
+
+  PUBLIC MACRO FinishPersistentAppLogin(INTEGER sessionid, STRING sessiontoken, STRING verifier)
+  {
+    this->FinishLogin(sessiontoken, verifier); // Call the FinishLogin for that specific network
+
+    this->UpdateStoredAccessToken(sessionid);
+  }
+
+  // Reload the stored access token for a persistent session
+  PUBLIC MACRO ReloadStoredAccessToken()
+  {
+    IF (this->sessionid = 0)
+      THROW NEW Exception("Can only reload an accesstoken for persistent sessions");
+
+    this->accesstoken :=
+        SELECT AS STRING accesstoken
+          FROM socialite.sessions
+         WHERE id = this->sessionid;
+  }
+
+  PUBLIC MACRO UpdateStoredAccessToken(INTEGER sessionid)
+  {
+    UPDATE socialite.sessions
+       SET accesstoken := this->accesstoken
+         , authorized := this->accesstoken != ""
+         , authorizedat := this->accesstoken = "" ? DEFAULT DATETIME : GetCurrentDateTime()
+         , verifiedat := this->accesstoken = "" ? DEFAULT DATETIME : GetCurrentDateTime()
+     WHERE id = sessionid;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE OAuthNetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+  }
+>;
+
+PUBLIC OBJECTTYPE TwitterNetworkApp EXTEND OAuthNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : OAuthNetworkApp(apprec)
+  {
+    EXTEND THIS BY TwitterConnection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE FacebookV2NetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY FacebookV2Connection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE FacebookV3NetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY FacebookV3Connection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE LinkedInV2NetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY LinkedInV2Connection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE YammerNetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY YammerConnection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE FourSquareNetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY FourSquareConnection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE YoutubeNetworkApp EXTEND AccessTokenNetworkApp
+<
+  STRING developerkey;
+
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY YoutubeConnection;
+    this->developerkey := SELECT AS STRING value FROM this->appkeys WHERE tag = "developerkey";
+    this->SetupAccessTokenApp();
+  }
+>;
+
+/*PUBLIC OBJECTTYPE LastfmNetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY LastFMConnection;
+    this->SetupAccessTokenApp();
+  }
+>;
+*/
+
+PUBLIC OBJECTTYPE VimeoNetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY VimeoConnection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE InstagramNetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY InstagramConnection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE PinterestNetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY PinterestConnection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE GoogleNetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY GoogleConnection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE YoukuNetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY YoukuConnection;
+    this->SetupAccessTokenApp();
+  }
+>;
+
+PUBLIC OBJECTTYPE MoneybirdNetworkApp EXTEND AccessTokenNetworkApp
+<
+  MACRO NEW(RECORD apprec)
+  : AccessTokenNetworkApp(apprec)
+  {
+    EXTEND THIS BY MoneybirdConnection;
+    this->SetupAccessTokenApp();
+  }
+>;
+

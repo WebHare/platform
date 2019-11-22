@@ -1,0 +1,516 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "mod::publisher/lib/analytics.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/webapi/geonames.whlib";
+LOADLIB "mod::system/lib/webapi/oauth2.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE Oauth2Client EXTEND TolliumFragmentBase
+<
+  BOOLEAN __isOauth2Client; //used to recognize us
+  RECORD __value;
+  PUBLIC PROPERTY value(__value, SetValue);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->pvt_invisibletitle := TRUE;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    ^clientid->title := this->title;
+  }
+
+  MACRO SetValue(RECORD val)
+  {
+    this->__value := RecordExists(val) ? EnforceStructure( [ clientid := "", clientsecret := "" ], val) : DEFAULT RECORD;
+    ^clientid->value := RecordExists(this->__value) ? this->__value.clientid : "";
+  }
+  MACRO DoConfigureClient()
+  {
+    RECORD newval := this->contexts->screen->RunScreen(Resolve("webapis.xml#configureclient"), [ value := this->__value ]);
+    IF(RecordExists(newval))
+      this->SetValue(CELL[...this->__value, ...newval]);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ConfigureClient EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    IF(RecordExists(data.value))
+    {
+      ^clientid->value := data.value.clientid;
+      ^clientsecret->value := data.value.clientsecret;
+    }
+    ^callbackurl->value := GetDefaultOauth2RedirectURL();
+  }
+  RECORD FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    RETURN work->Finish() ? CELL[ clientid := ^clientid->value, clientsecret := ^clientsecret->value ] : DEFAULT RECORD;
+  }
+>;
+
+PUBLIC OBJECTTYPE Oauth2Authorization EXTEND TolliumFragmentBase
+<
+  RECORD __value;
+  OBJECT authport;
+  OBJECT waitscreen;
+  PUBLIC MACRO PTR onauthorize;
+  PUBLIC MACRO PTR oncheck;
+  PUBLIC PROPERTY value(__value, SetValue);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->pvt_invisibletitle := TRUE;
+    this->onauthorize := def.onauthorize;
+    this->oncheck := def.oncheck;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    ^authorization->title := this->title;
+  }
+
+  MACRO SetValue(RECORD val)
+  {
+    this->__value := val;
+    IF(RecordExists(val))
+    {
+      ^authorization->value := "Authorized";
+    }
+    ELSE
+    {
+      ^authorization->value := "";
+    }
+  }
+  MACRO EndCurrentAuth()
+  {
+    IF(ObjectExists(this->authport))
+    {
+      this->authport->Close();
+      this->authport := DEFAULT OBJECT;
+    }
+    IF(ObjectExists(this->waitscreen))
+    {
+      this->waitscreen->tolliumresult := "close";
+      this->waitscreen := DEFAULT OBJECT;
+    }
+  }
+  MACRO DoAuthorize(OBJECT browser)
+  {
+    this->EndCurrentAuth();
+
+    //TODO just create an IPC channel, more robust. and use a promise for easier dual resolving (the auth may still complete while we're gone)
+    RECORD authinfo := this->onauthorize();
+    STRING portname := GenerateTemporaryIPCPortName();
+    this->authport := CreateIPCPort(portname);
+    STRING state := "ipc:" || portname;
+
+    this->authport->AsyncWaitRead(MAX_DATETIME)->Then(PTR this->HandleConnection(authinfo, #1));
+    browser->SendURL(UpdateURLVariables(authinfo.__oauth2_authflow.url, [ state := state ]));
+
+    this->waitscreen := this->contexts->screen->LoadScreen(Resolve("webapis.xml#oauth2wait"), CELL[ authinfo, state ]);
+    this->waitscreen->RunModal();
+    this->EndCurrentAuth();
+  }
+  MACRO HandleConnection(RECORD authinfo, RECORD conn)
+  {
+    IF(NOT ObjectExists(this->authport))
+      RETURN;
+
+    OBJECT accepted := this->authport->Accept(MAX_DATETIME); //FIXME DEFAULT DATETIME raced...
+
+    accepted->SendMessage(authinfo);
+    accepted->AsyncWaitRead(MAX_DATETIME)->Then(PTR this->HandleAuthResponse(accepted, authinfo, #1));
+  }
+  MACRO HandleAuthResponse(OBJECT port, RECORD authinfo, RECORD data)
+  {
+    RECORD msg := port->ReceiveMessage(MAX_DATETIME);
+    RECORD tokeninfo := msg.msg;
+    port->Close();
+    this->EndCurrentAuth();
+
+    IF(this->oncheck != DEFAULT MACRO PTR)
+    {
+      TRY
+      {
+        IF(NOT this->oncheck(tokeninfo))
+          RETURN;
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        RunExceptionReportDialog(this, e);
+        RETURN;
+      }
+    }
+    this->SetValue(tokeninfo);
+  }
+>;
+
+PUBLIC OBJECTTYPE OAuth2Wait EXTEND TolliumScreenBase
+<
+>;
+
+
+PUBLIC OBJECTTYPE TimeZoneEdit EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING pvt_value;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY value(pvt_value, SetValue);
+
+  PUBLIC FUNCTION PTR onchange;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->pvt_invisibletitle := TRUE;
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->onchange := def.onchange;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->current->title := this->title;
+  }
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+    STRING fieldtitle := this->errorlabel != "" ? this->errorlabel : this->title;
+
+    IF (this->required AND this->value = "")
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO DoEdit()
+  {
+    STRING newvalue := this->owner->RunScreen(Resolve("webapis.xml#timezoneeditscreen"),
+        [ lookup := PTR this->LookupTimeZone
+        , alltimezones := this->GetAllTimeZones()
+        , curvalue := this->value
+        ]);
+    IF (newvalue != "")
+    {
+      // Setting the new value checks and normalizes the incoming value, so we'll store the old value, set the new value and
+      // compare the old value with the newly set value (which may differ from the incoming value) to see if it has actually
+      // changed
+      STRING oldvalue := this->value;
+      this->value := newvalue;
+      IF (this->value != oldvalue AND this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
+    }
+  }
+
+  MACRO DoClear()
+  {
+    IF (this->value != "")
+    {
+      this->value := "";
+      IF (this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION GetAllTimeZones_Uncached()
+  {
+    STRING lang := this->owner->tolliumuser->language;
+    RECORD ARRAY timezones := GetAvailableTimeZones(lang);
+    RECORD ARRAY countries := SELECT *, country := GetCell(countries, lang) FROM GetCountryList(lang) AS countries;
+    timezones :=
+        SELECT *
+             , code := code ?? "none"
+             , country := country ?? this->GetTid(".none")
+          FROM JoinArrays(timezones, "code", countries, [ country := "" ], [ rightouterjoin := TRUE ]);
+    RETURN [ value := timezones
+           , ttl := 24 * 60 * 60 * 1000 // cache for a day, this value only changes after a restart of WebHare anyway
+           ];
+  }
+
+  RECORD ARRAY FUNCTION GetAllTimeZones()
+  {
+    RETURN GetAdhocCached([ what := "timezones" ], PTR this->GetAllTimeZones_Uncached);
+  }
+
+  RECORD FUNCTION LookupTimeZone(STRING zoneid)
+  {
+    IF (zoneid = "")
+      RETURN DEFAULT RECORD;
+
+    RECORD zone := SELECT * FROM this->GetAllTimeZones() WHERE ToUppercase(tz) = ToUppercase(zoneid);
+    IF (NOT RecordExists(zone))
+      THROW NEW TolliumException(this, "Unknown time zone '" || zoneid || "'");
+    RETURN [ id := zone.tz
+           , title := zone.comments
+           ];
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetValue(STRING value)
+  {
+    IF (value != this->pvt_value)
+    {
+      // Normalize value
+      RECORD zone := this->LookupTimeZone(value);
+      this->pvt_value := RecordExists(zone) ? zone.id : "";
+      this->current->value := RecordExists(zone) ? zone.title : "";
+      this->clear->enabled := this->pvt_value != "";
+    }
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE TimeZoneEditScreen EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING pvt_value;
+  OBJECT geonames;
+  FUNCTION PTR lookuptimezone;
+  RECORD ARRAY alltimezones;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->lookuptimezone := data.lookup;
+    this->geonames := NEW GeoNamesAPI();
+    this->geonames->language := this->tolliumuser->language;
+
+    IF (NOT this->geonames->available)
+    {
+      DATETIME now := GetCurrentDateTime();
+      this->alltimezones :=
+        SELECT TEMPORARY utcoffset := GetUTCOffset(now, tz)
+             , TEMPORARY isunique := NOT RecordExists(SELECT FROM data.alltimezones AS other WHERE other.comments = alltimezones.comments AND other.tz != alltimezones.tz)
+             , rowkey := tz
+             , title := `${comments} (${this->FormatTimeZoneOffset(utcoffset)}${isunique ? "" : " – " || Substitute(tz_split[END-1], "_", " ")})`
+             , code
+          FROM data.alltimezones
+        ORDER BY utcoffset
+               , NormalizeText(comments, this->tolliumuser->language)
+               , NormalizeText(tz_split[END-1], this->tolliumuser->language);
+
+      ^geonames->visible := FALSE;
+      ^manual->visible := TRUE;
+      ^country->options :=
+          SELECT DISTINCT rowkey := code
+               , title := country
+            FROM data.alltimezones
+           ORDER BY code = "none" DESC
+                  , NormalizeText(country, this->tolliumuser->language);
+      ^timezone->required := TRUE;
+      RECORD curtimezone := SELECT * FROM this->alltimezones WHERE tz = data.curvalue;
+      IF (RecordExists(curtimezone))
+      {
+        ^country->value := curtimezone.code;
+        ^timezone->value := curtimezone.tz;
+      }
+      ELSE
+      {
+        STRING ipcountry := GetGeoIPCountryForIP(this->contexts->controller->GetClientRemoteIP());
+        IF (ipcountry != "")
+        {
+          ^country->value := ipcountry;
+        }
+      }
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnMessage(RECORD data)
+  {
+    SWITCH (data.status)
+    {
+      CASE 0
+      {
+        // Get the timezone for the received location
+        this->SetTimeZone(this->geonames->GetLatLngTimeZone(data.latitude, data.longitude));
+        this->tolliumresult := "ok";
+      }
+      CASE -1 // No GeoLocation support
+      {
+        this->SetTimeZone(this->pvt_value);
+        this->RunSimpleScreen("warning", this->GetTid(".messages.geolocation_unsupported"));
+      }
+      CASE 1 // Permission denied
+      {
+        this->SetTimeZone(this->pvt_value);
+        this->RunSimpleScreen("warning", this->GetTid(".messages.geolocation_nopermission"));
+      }
+      CASE 2 // Position unavailable
+      {
+        this->SetTimeZone(this->pvt_value);
+        this->RunSimpleScreen("error", this->GetTid(".messages.geolocation_unavailable"));
+      }
+      CASE 3 // Timeout
+      {
+        this->SetTimeZone(this->pvt_value);
+        this->RunSimpleScreen("error", this->GetTid(".messages.geolocation_timeout"));
+      }
+      DEFAULT
+      {
+        this->SetTimeZone(this->pvt_value);
+        this->RunSimpleScreen("error", this->GetTid(".messages.geolocation_error"));
+      }
+    }
+  }
+
+  MACRO OnResultSelected()
+  {
+    RECORD selected := ^results->selection;
+    IF (RecordExists(selected) AND selected.rowkey > 0)
+      this->SetTimeZone(this->geonames->GetLatLngTimeZone(selected.latitude, selected.longitude));
+    ELSE
+      this->SetTimeZone("");
+  }
+
+  MACRO OnCountrySelected()
+  {
+    RECORD ARRAY countryzones :=
+        SELECT *
+          FROM this->alltimezones
+         WHERE code = ^country->value;
+    ^timezone->options := countryzones ?? [ [ rowkey := "", title := "", enabled := FALSE, invalidselection := TRUE ] ];
+  }
+
+  MACRO OnTimezoneSelected()
+  {
+    this->pvt_value := ^timezone->value;
+  }
+
+  STRING FUNCTION Submit()
+  {
+    RETURN this->pvt_value;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO DoRetrieveLocation()
+  {
+    ^selected->value := this->GetTid(".messages.retrievinglocation");
+    this->frame->QueueOutboundMessage("geolocation", DEFAULT RECORD);
+  }
+
+  MACRO DoSearch()
+  {
+    RECORD ARRAY results := this->geonames->SearchPlace(^query->value);
+    IF (Length(results) > 0)
+    {
+      ^results->options :=
+          SELECT title := name || ", " || countryname
+               , rowkey := #results + 1
+               , latitude := lat
+               , longitude := lng
+            FROM results;
+      ^results->enabled := TRUE;
+      ^results->value := 1;
+    }
+    ELSE
+    {
+      ^results->options := [ [ rowkey := 0, title := this->GetTid(".noresults") ] ];
+      ^results->enabled := FALSE;
+    }
+    this->OnResultSelected();
+    ^results->visible := TRUE;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetTimeZone(STRING zoneid)
+  {
+    RECORD zone := this->lookuptimezone(zoneid);
+    this->pvt_value := RecordExists(zone) ? zone.id : "";
+    ^selected->value := RecordExists(zone) ? zone.title : this->GetTid(".noselection");
+  }
+
+  STRING FUNCTION FormatTimeZoneOffset(INTEGER utcoffset)
+  {
+    BOOLEAN negative := utcoffset < 0;
+    IF (negative)
+      utcoffset := -utcoffset;
+    STRING formatted := this->tolliumuser->FormatTimestamp(utcoffset, "minutes");
+    RETURN negative ? "-" || formatted : "+" || formatted;
+  }
+>;

@@ -1,0 +1,93 @@
+<?wh
+/** @topic webapis/aws */
+
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/http.whlib";
+
+LOADLIB "mod::system/lib/webapi/aws/awsbase.whlib";
+
+CONSTANT STRING ns_sns20100331 := "http://sns.amazonaws.com/doc/2010-03-31/";
+
+/** @short Simple notification service */
+PUBLIC OBJECTTYPE AmazonAWSSNSInterface EXTEND AmazonAWSInterface
+<
+  STRING endpoint;
+
+  MACRO NEW(STRING zone, STRING accesskey, STRING accesssecret)
+  : AmazonAWSInterface(zone, accesskey, accesssecret)
+  {
+    //https://docs.aws.amazon.com/general/latest/gr/rande.html
+    this->endpoint := `https://sns.${zone}.amazonaws.com${zone LIKE "cn-*" ? ".cn" : ""}/`;
+  }
+
+  /** @short List available topics
+      @return Topics
+      @cell(string) return.topicarn ARN of the topic */
+  PUBLIC RECORD ARRAY FUNCTION ListTopics()
+  {
+    RECORD ARRAY urlparameters := [[ name := "Action", value := "ListTopics" ], [name := "Version", value := "2010-03-31"]];
+    OBJECT response := this->RawAWS4Request("sns", "GET", this->endpoint,CELL[urlparameters]);
+
+    RECORD ARRAY topics;
+    FOREVERY(OBJECT membernode FROM response->ListElements(ns_sns20100331, "TopicArn"))
+      INSERT [ topicarn := membernode->GetAttribute("topicarn") ] INTO topics AT END;
+
+    RETURN topics;
+  }
+
+  /** @short Send a sms
+      @param phonenumber Phonenumber to receive SMS
+      @param message The message to send
+      @cell(string) options.senderid Sender of the message
+      @cell(string) options.smstype Delivery quality, either 'Promotional' (cheap) or 'Transactional' (fast)
+      @return API call information
+      @cell(string) return.messageid Message id
+      @cell(string) return.requestid Request id
+      */
+  PUBLIC RECORD FUNCTION PublishSMS(STRING phonenumber, STRING message, RECORD options)
+  {
+    IF(phonenumber NOT LIKE "+*" OR ToInteger64(Substring(phonenumber,1),-1) <= 0)
+      THROW NEW Exception(`Invalid phonenumber '${phonenumber}'`);
+
+    options := ValidateOptions([ smstype := ""
+                               , senderid := ""
+                               ], options, [ enums := [ smstype := [ "Promotional", "Transactional"] ]]);
+
+    IF(Length(options.senderid) > 11 OR NOT (NEW RegEx("^[A-Z0-9a-z]+$")->Test(options.senderid)))
+      THROW NEW Exception("Sender ID must be 1-11 alphanumeric characters");
+
+    RECORD ARRAY reqvars := [[ name := "Action", value := "Publish" ]
+                            ,[ name := "Version", value := "2010-03-31"]
+                            ,[ name := "PhoneNumber", value := phonenumber]
+                            ,[ name := "Message", value := message]
+                            ];
+
+    INTEGER varseq := 1;
+    IF(options.smstype != "" )
+    {
+      reqvars := reqvars CONCAT [[ name := `MessageAttributes.entry.${varseq}.Name`, value := "AWS.SNS.SMS.SMSType" ]
+                                ,[ name := `MessageAttributes.entry.${varseq}.Value.DataType`, value := "String" ]
+                                ,[ name := `MessageAttributes.entry.${varseq}.Value.StringValue`, value := options.smstype ]
+                                ];
+      varseq := varseq + 1;
+    }
+    IF(options.senderid != "" )
+    {
+      reqvars := reqvars CONCAT [[ name := `MessageAttributes.entry.${varseq}.Name`, value := "AWS.SNS.SMS.SenderID" ]
+                                ,[ name := `MessageAttributes.entry.${varseq}.Value.DataType`, value := "String" ]
+                                ,[ name := `MessageAttributes.entry.${varseq}.Value.StringValue`, value := options.senderid ]
+                                ];
+      varseq := varseq + 1;
+    }
+
+    RECORD req := CreateHTTPUrlencodedRequest(reqvars);
+    OBJECT response := this->RawAWS4Request("sns","POST",this->endpoint,CELL[req.body,req.headers]);
+    OBJECT messageid := PickFirst(response->ListElements(ns_sns20100331, "MessageId"));
+    OBJECT requestid := PickFirst(response->ListElements(ns_sns20100331, "RequestId"));
+
+    RETURN CELL [ messageid := ObjectExists(messageid) ? messageid->textcontent : ""
+                , requestid := ObjectExists(requestid) ? requestid->textcontent : ""
+                ];
+  }
+>;
+

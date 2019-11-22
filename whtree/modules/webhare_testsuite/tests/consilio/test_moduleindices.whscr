@@ -1,0 +1,249 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+MACRO TestESCreationAPIs()
+{
+  __indexmanager_debugall := TRUE;
+  //__webbrowser_debugall := TRUE;
+
+  // Ensure it doesn't exist in ES ... we'll do a raw action
+  TestEq(TRUE, GetBuiltinElasticSearchId() != 0, "Must have a builtin ES configured!");
+  SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "DELETE", "/webhare_testsuite" || whconstant_consilio_module_sep || "testindex*", DEFAULT RECORD);
+
+  // We should be able to open the catalog
+  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
+  TestEq(TRUE, ObjectExists(catalog));
+
+  // EnsureIt still doesn't exist on the index manager
+  RECORD result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  TestEq(FALSE, catalog->id IN result.indices);
+
+  // Try the low level API first. Make sure it does exist
+  catalog->EnsureIndex();
+  result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  TestEq(TRUE, catalog->id IN result.indices);
+  TestEq(RECORD[[ suffix := "" ]], catalog->ListSuffixes());
+
+  RECORD checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", "/webhare_testsuite" || whconstant_consilio_module_sep || "testindex/_mapping", DEFAULT RECORD);
+  //dumpvalue(checkindex,'tree');
+  TestEq("keyword", checkindex.result.webhare_testsuite__testindex.mappings.properties.keyword.type);
+  TestEq(FALSE, CellExists(checkindex.result."webhare_testsuite__testindex".mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
+
+  catalog->EnsureIndex(); //calling twice should be okay, it's "Ensure" not "Create"
+
+  // Delete it again from the index manager
+  catalog->DeleteIndex();
+  result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  TestEq(FALSE, catalog->id IN result.indices);
+
+  // Create a subindex
+  catalog->EnsureIndex([suffix := "suffix"]);
+  result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
+  TestEq(FALSE, catalog->id IN result.indices);
+  TestEq(TRUE, "suffix" IN result.suffixes);
+  TestEq(RECORD[[ suffix := "suffix" ]], catalog->ListSuffixes());
+
+  checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", "/webhare_testsuite" || whconstant_consilio_module_sep || "testindex-suffix/_mapping", DEFAULT RECORD);
+  //dumpvalue(checkindex,'tree');
+  TestEq("keyword", checkindex.result."webhare_testsuite__testindex-suffix".mappings.properties.keyword.type);
+
+  catalog->EnsureIndex([suffix := "suffix"]); //calling twice should be okay, it's "Ensure" not "Create"
+
+  // Delete it again from the index manager
+  catalog->DeleteIndex();
+  result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
+  TestEq(FALSE, catalog->id IN result.indices);
+  TestEq(FALSE, "suffix" IN result.suffixes);
+  TestEq(RECORD[], catalog->ListSuffixes());
+
+  // Create two subindices
+  catalog->EnsureIndex([ suffix := "suffix1" ] );
+  catalog->EnsureIndex([ suffix := "suffix2" ] );
+  result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
+  TestEq(FALSE, catalog->id IN result.indices);
+  TestEq(2, Length(result.suffixes));
+  TestEq(TRUE, "suffix1" IN result.suffixes);
+  TestEq(TRUE, "suffix2" IN result.suffixes);
+  TestEq(RECORD[[ suffix := "suffix1" ], [ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
+
+  // Delete one of the subindices
+  catalog->DeleteIndex([ suffix := "suffix1" ]);
+  result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
+  TestEq(FALSE, catalog->id IN result.indices);
+  TestEq(1, Length(result.suffixes));
+  TestEq(FALSE, "suffix1" IN result.suffixes);
+  TestEq(TRUE, "suffix2" IN result.suffixes);
+  TestEq(RECORD[[ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
+
+  // We should be able open to the catalog
+  catalog := OpenConsilioCatalog("webhare_testsuite:module_reference");
+  TestEq(TRUE, ObjectExists(catalog));
+
+  // It still doesn't exist on the index manager
+  result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  TestEq(FALSE, catalog->id IN result.indices);
+
+  // Make sure it does exist
+  catalog->EnsureIndex();
+  result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  TestEq(TRUE, catalog->id IN result.indices);
+
+  // Delete it again from the index manager
+  catalog->DeleteIndex();
+  result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  TestEq(FALSE, catalog->id IN result.indices);
+
+  // Check if duplicate fieldnames through including field groups are properly detected
+  catalog := OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames");
+  TestEq(TRUE, ObjectExists(catalog));
+  TestThrows(PTR catalog->EnsureIndex());
+
+  // Check if circular fieldgroup references are properly detected
+  catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_direct");
+  TestEq(TRUE, ObjectExists(catalog));
+  TestThrows(PTR catalog->EnsureIndex());
+  catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_indirect");
+  TestEq(TRUE, ObjectExists(catalog));
+  TestThrows(PTR catalog->EnsureIndex());
+
+  // Check if circular fieldgroup references are properly detected
+  catalog := OpenConsilioCatalog("webhare_testsuite:circular_module_reference");
+  TestEq(TRUE, ObjectExists(catalog));
+  TestThrows(PTR catalog->EnsureIndex());
+}
+
+MACRO TestESBulkInsertion()
+{
+  // Ensure index doesn't exist in ES ... we'll do a raw action
+  TestEq(TRUE, GetBuiltinElasticSearchId() != 0, "Must have a builtin ES configured!");
+  SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "DELETE", "/webhare_testsuite" || whconstant_consilio_module_sep || "testindex*", DEFAULT RECORD);
+
+  // Make sure it's indeed nonexistent
+  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
+  TestEq(TRUE, ObjectExists(catalog));
+  RECORD result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  TestEq(FALSE, catalog->id IN result.indices);
+
+  //Offering an undeclared cell must fail (this tests ES error handling, if we start catching errors earlier we might need something else or a raw mode to explicitly trigger ES error handling)
+  TestThrowsLike("*(strict_dynamic_mapping_exception)", PTR catalog->AddObjects(
+                    [[ objectid := "test1"
+                     , documentfields := [ 'no.such.field.yet' := 42 ]
+                    ]],[ suffix := "sub1"]));
+
+  //But we should be able to manually offer it if we specify a mapping containing it
+  catalog->EnsureIndex( [ suffix := "sub1", fieldgroup := "webhare_testsuite:nosuchfieldyet" ]);
+  catalog->AddObjects(
+                    [[ objectid := "test1"
+                     , documentfields := [ 'no.such.field.yet' := 42 ]
+                    ]],[ suffix := "sub1"]);
+
+  //Can't offer xyz yet to our unspecified_record
+  TestThrowsLike("*(strict_dynamic_mapping_exception)", PTR catalog->AddObjects(
+                    [[ objectid := "test1"
+                     , documentfields := [ 'unspecified_record.xyz' := 43 ]
+                    ]],[ suffix := "sub1"]));
+
+  //But we should be able to set it through a wildcard if we add it
+  catalog->EnsureIndex( [ suffix := "sub1", fieldgroup := "webhare_testsuite:unspecifiedwildcards" ]);
+  catalog->AddObjects(
+                    [[ objectid := "test1"
+                     , documentfields := [ 'unspecified_record.xyz' := 43 ]
+                    ]],[ suffix := "sub1"]);
+
+  //Ensure dynamic templates work
+  catalog->AddObjects(
+                    [[ objectid := "test1"
+                     , documentfields := [ 'group_record_field.ds_text' := 44 ]
+                    ]],[ suffix := "sub1"]);
+
+  //Verify ds_Text's mapping
+  RECORD checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", "/webhare_testsuite" || whconstant_consilio_module_sep || "testindex-sub1/_mapping", DEFAULT RECORD);
+  TestEq("keyword", checkindex.result."webhare_testsuite__testindex-sub1".mappings.properties.group_record_field.properties.ds_text.type);
+  TestEq(FALSE, CellExists(checkindex.result."webhare_testsuite__testindex-sub1".mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
+
+  // Throw some objects into a suffix. We want the index to sort it out
+  RECORD ARRAY docs;
+  //2*28*24 * 3 = 4032 events
+  FOR(INTEGER month := 1; month <= 2; month := month + 1)
+    FOR(INTEGER day := 1; day <= 28; day := day + 1)
+      FOR(INTEGER hour := 0; hour <= 23; hour := hour + 1)
+        FOR(INTEGER hit := 0; hit <= 2; hit := hit + 1)
+      {
+        DATETIME ts := MakeDatetime(2018,month,day,hour,0,0);
+        STRING tstext := FormatISO8601Datetime(ts);
+        INSERT CELL[ objectid := "obj_" || hit || "_" || tstext
+                   , documentfields := [ "@timestamp" := ts
+                                       , "title" := `My lovely doc for ${tstext} hit #${hit}`
+                                       , int_field := (((month*100)+day)*100+hour)*100+hit
+                                       ]
+                   ] INTO docs AT END;
+
+      }
+
+  //Blast my docs into ES
+  catalog->AddObjects(docs, [ suffix := "sub2"
+                            , synchronous := TRUE
+                            , chunksize := Length(docs)/2 + 2
+                            ]);
+
+  //Verify subindex was properly ensured
+  checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", "/webhare_testsuite" || whconstant_consilio_module_sep || "testindex-sub2/_mapping", DEFAULT RECORD);
+  TestEq("keyword", checkindex.result."webhare_testsuite__testindex-sub2".mappings.properties.keyword.type);
+
+  RECORD res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("int_field", "=", docs[END-1].documentfields.int_field), [ mapping := [ title := "", int_field := 0]]);
+  //dumpvalue(res,'tree');
+  TestEq(1, res.totalcount);
+  TestEq(docs[END-1].documentfields.title, res.results[0].title);
+
+  /* FIXME expecting things like this to work: (
+  ABORT(RunConsilioSearch("webhare_testsuite:testindex", CQMatch("int_field", "=", docs[END-1].documentfields.int_field)));
+    wanted to not have to specify a mapping! basically, whatever I dontt have to tell GetInstanceData due to <contenttype> I don't want to have to tell RunConsilioSearch when dealing with Module indices
+
+  ABORT(RunConsilioSearch("webhare_testsuite:testindex", CQMatch("title", "=", "My lovely doc for 2018-02-28T23:00:00Z hit #2")));
+  this worked in Kibana:
+        "filter": [
+        {
+          "bool": {
+            "should": [
+              {
+                "match_phrase": {
+                  "title": "My lovely doc for 2018-02-28T23:00:00Z hit #2"
+                }
+              }
+            ],
+            "minimum_should_match": 1
+          }
+        }
+  */
+
+}
+
+MACRO TestESDeletion()
+{
+  // Delete the catalog itself - FIXME dont touch our main testing catalog, it will unlink it from the ES instance, annoying testers
+  testfw->BeginWork();
+  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
+  //catalog->DeleteSelf();
+  testfw->CommitWork();
+
+  // We cannot check if the index is deleted from the index manager, because that happens in a separate task, which we cannot wait upon
+
+  //FIXME we should not leave the system in an inconsistent state (deleting and index that should exist due to module  definition ruels)  test with a scratch api?
+}
+
+RunTestframework(
+    [ PTR TestESCreationAPIs
+    , PTR TestESBulkInsertion
+    , PTR TestESDeletion
+    ],
+    [ consilio := TRUE
+    ]);

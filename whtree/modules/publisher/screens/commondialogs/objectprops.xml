@@ -1,0 +1,187 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/commondialogs/objectprops.whlib"
+         gid="commondialogs">
+
+  <messageboxes gid=".messageboxes">
+    <messagebox name="siteprofileerrors" icon="warning" buttons="ok" />
+    <messagebox name="deletetaskconfirm" icon="question" buttons="yes no" />
+    <messagebox name="deleteoldindexconfirm" icon="warning" buttons="yes no" />
+    <messagebox name="replaceindexconfirm" icon="question" buttons="yes no" />
+    <messagebox name="indexnotpublished" icon="warning" buttons="ok" />
+    <messagebox name="deletemultiplerightsconfirm" icon="warning" buttons="yes no" />
+    <messagebox name="folderwithoutindex" icon="warning" buttons="ok" />
+    <messagebox name="unpinconfirm" icon="question" buttons="yes no" dontshowagain="yes" />
+    <messagebox name="cannotreplacepinnedindex" icon="error" buttons="ok" />
+    <messagebox name="contentlinkpointstononindex" icon="error" buttons="ok" />
+    <messagebox name="noversionedfieldswerechanged" icon="information" buttons="ok" />
+    <messagebox name="confirmcanceldraft" icon="question" buttons="yes no" />
+    <messagebox name="confirmcancelrequest" icon="question" buttons="yes no" />
+    <messagebox name="confirmrestore" icon="question" buttons="yes no" />
+    <messagebox name="draftcancelled" buttons="close" />
+    <messagebox name="requestcancelled" buttons="close" />
+    <messagebox name="noindexhtmlinversionedfolderwithindex" icon="error" buttons="ok" />
+    <messagebox name="submitversionedfiletoapplychanges" icon="information" buttons="ok" dontshowagain="ok" />
+  </messageboxes>
+
+  <screen name="objectprops" gid=".objectprops" title="" allowresize="true" savestate="size" minwidth="70x" width="80x" height="30x" flags="ispinned">
+    <actions>
+      <action name="addtask" tid="tollium:common.actions.add" onexecute="doaddtask" frameflags="!ispinned" />
+      <action name="edittask" tid="tollium:common.actions.edit" onexecute="doedittask" frameflags="!ispinned">
+        <enableon source="tasks" min="1" max="1" />
+      </action>
+      <action name="deletetask" tid="tollium:common.actions.delete" onexecute="dodeletetask" frameflags="!ispinned">
+        <enableon source="tasks" min="1" max="1" />
+      </action>
+      <action name="gotopublishedurl" onexecute="dogotopublishedurl" title="" />
+      <action name="requestapproval" onexecute="dorequestapproval" />
+      <action name="canceldraft" onexecute="docanceldraft" title="" />
+      <action name="cancelrequest" onexecute="docancelrequest" title="" />
+      <action name="restore" onexecute="dorestore" title="" />
+    </actions>
+    <body layout="form" height="1pr" spacers="none">
+      <panel name="versioningmessagesbox" backgroundcolor="#FEFFDE" visible="false" spacers="left right" borders="bottom">
+        <panel name="versioningmessagepanel" height="1pr" width="1pr" layout="left">
+          <line>
+            <text name="versioningmessage" title="" value="" wordwrap="true" width="1pr" />
+            <text name="revertdraft" title="" valuetid="versioning.revertdraft" action="canceldraft" visible="false" />
+            <text name="withdrawrequest" title="" valuetid="versioning.withdrawrequest" action="cancelrequest" visible="false" />
+            <text name="restoreitem" title="" valuetid="versioning.restore" action="restore" visible="false" />
+          </line>
+        </panel>
+        <text name="versioningmovemessage" title="" value="" />
+      </panel>
+      <tabs name="maintabs" height="1pr">
+        <tab name="maintab" tid="commondialogs.propsshared.maintab">
+          <!-- FIXME do we need this? heading tid="commondialogs.propsshared.formtitle" /-->  <!-- FIXME this was box name='settings', we'll probably need to fix it as an insertion point -->
+
+          <!-- general fields -->
+          <textedit tid="~name" name="name" required="true" width="1pr" maxlength="256" validationchecks="whfsname" />
+          <textedit tid="tollium:common.labels.title" name="title" width="1pr" maxlength="256" />
+          <textarea tid="tollium:common.labels.description" name="description" height="3gr" maxlength="2048" showcounter="true" />
+          <textarea tid="tollium:common.labels.keywords" name="keywords" height="1gr" maxlength="1024" showcounter="true"/>
+          <panel name="settings"></panel> <!-- this is just an insertion point. fixes #49 -->
+
+          <!-- link-type specific fields -->
+          <publisher:intextlink name="link" width="1pr" visible="false" />
+          <publisher:browseforobject name="path" acceptfolders="false" width="1pr" visible="false" onchange="onpathchange" />
+
+          <!-- Site-specific fields -->
+
+
+
+          <!-- box name=settings endewd here -->
+          <heading tid="commondialogs.propsshared.info" name="typeh"/>
+          <line>
+            <text name="type"/>
+            <text name="size"  title=""/> <!--tid="commondialogs.propsshared.size"-->
+          </line>
+          <line>
+            <text name="modified" tid="commondialogs.propsshared.modified" />
+            <!--datetime name="creationdate" tid=".created" type="datetime" precision="minutes" storeutc="true" readonly="true" title=""/-->
+            <text name="creationdatebrackets" tid=".created" visible="false" />
+          </line>
+
+          <text name="deleted" tid="commondialogs.propsshared.deleted" visible="false" />
+          <text name="originallocation" visible="false" />
+
+          <heading name="restrictions" />
+          <line layout="left">
+            <checkbox name="pinobject" title="" onchange="updatepinned" visible="false" />
+            <text name="objectpinned" title="" visible="false" />
+          </line>
+
+          <!-- box name=restictions ended here -->
+
+          <panel name="publishpanel">
+            <!-- Actually a bit of a hack to center the text both horizontally and vertically -->
+            <panel name="notpublished" visible="false">
+              <text name="notpublishedtext" title="" value="" />
+            </panel>
+            <panel  name="publicationsettings">
+              <heading tid=".publicationsettings"/>
+              <line>
+                <select name="template" type="pulldown" />
+                <text name="template_forced" title="" valuetid=".forcedbyparent" visible="false" />
+              </line>
+              <checkbox name="force_template_local" tid=".forcetemplate" labeltid=".local" />
+              <checkbox name="force_template_recursive" title="" labeltid=".recursive" />
+
+              <line>
+                <select name="profile" type="pulldown" />
+                <text name="profile_forced" title="" valuetid=".forcedbyparent" visible="false" />
+              </line>
+              <checkbox name="force_profile_local" tid=".forceprofile" labeltid=".local" />
+              <checkbox name="force_profile_recursive" title="" labeltid=".recursive" />
+
+              <line layout="left">
+                <checkbox name="publish" title="" labeltid=".publish" />
+              </line>
+              <line layout="left">
+                <checkbox name="makeindex" title="" labeltid=".makeindex" />
+              </line>
+            </panel>
+          </panel>
+        </tab>
+        <tab name="tasksettings" height="1pr">
+          <grid height="1pr">
+            <col width="1pr" />
+            <col />
+            <row height="1pr">
+              <cell>
+                <list name="tasks"
+                      gid=".tasks"
+                      selectmode="single"
+                      emptytid=".notasks"
+                      sortcolumn="when"
+                      sortable="false"
+                      width="1pr" minwidth="60x" height="1pr" minheight="6x">
+                  <column name="task" type="text" />
+                  <column name="when" type="datetime" precision="minutes" width="16x" storeutc="true" />
+                </list>
+              </cell>
+              <cell>
+                <panel name="tasksactions">
+                  <button action="addtask" width="1pr" />
+                  <button action="edittask" width="1pr" />
+                  <button action="deletetask" width="1pr" />
+                </panel>
+              </cell>
+            </row>
+          </grid>
+        </tab>
+        <tab name="linkcheck" layout="left" tid="commondialogs.propsshared.linkcheck" visible="false">
+          <includefragment fragment="consilio:report.objectreport" name="objectreport" />
+        </tab>
+      </tabs>
+    </body>
+    <footer layout="right">
+      <line>
+        <button name="requestapproval_button" action="requestapproval" tid=".requestapproval" visible="false" />
+        <button name="ok_button" tid="tollium:common.actions.ok" tolliumresult="ok" isdefault="true" />
+        <button name="cancel_button" tid="tollium:common.actions.cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="taskprops" gid=".taskprops" title="">
+    <compositions>
+      <radiogroup name="event" />
+    </compositions>
+    <body>
+      <radiobutton name="start" group="event" rowkey="1" tid=".event" labeltid=".event-start" />
+      <radiobutton name="end" group="event" rowkey="2" title="" labeltid=".event-end" />
+      <line>
+        <radiobutton name="move" group="event" rowkey="3" title="" labeltid=".event-move" enablecomponents="folder" />
+        <publisher:browseforobject name="folder" acceptfiles="false" required="true" errorlabeltid=".event-move" title="" showclear="false"/>
+      </line>
+      <radiobutton name="delete" group="event" rowkey="4" title="" labeltid=".event-delete" />
+      <radiobutton name="setindexdoc" group="event" rowkey="5" title="" labeltid=".event-setindexdoc" />
+      <datetime name="when" type="datetime" precision="minutes" required="true" storeutc="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

@@ -1,0 +1,96 @@
+﻿<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/backend/users.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+
+
+OBJECT trans := OpenPrimary();
+OBJECT userapi := GetPrimaryWebhareUserApi();
+
+RECORD ARRAY allusers :=
+    SELECT *
+      FROM userapi->accounttype->RunQuery(
+                [ outputcolumns :=
+                      [ id :=         "WRD_ID"
+                      , realname :=   "WRD_TITLE"
+                      , email :=      userapi->wrdschema->accountemailtag
+                      , guid  :=      "WRD_GUID"
+                      ]
+                ])
+  ORDER BY guid;
+
+RECORD ARRAY allobjs := SELECT TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
+                             , authobjects.id
+                             , authobjects.name
+                             , realname :=  up.found ? allusers[up.position].realname : "<other schema>"
+                             , email :=     up.found ? allusers[up.position].email : "<other schema>"
+                             , unitid := units.id
+                             , unitname := units.name
+                             , otherschema := NOT up.found
+                          FROM system.authobjects, system.authobjects as units
+                               WHERE units.id = authobjects.parent;
+
+RECORD ARRAY allrights := GetListOfRights();
+
+//OBJECT user := OpenSystemAuthObject(1);
+trans->BeginWork();
+OBJECT user := EnsureCreatedMagicSysop("<shelluser>");
+trans->CommitWork();
+
+Print("id;name;realname;email;unitid;unitname;right;grantoption;objecttype;objectid;objectname\n");
+
+FOREVERY(RECORD r FROM allrights)
+{
+  RECORD ARRAY grants := GetDirectGrantsForRight(r.rightname);
+  FOREVERY(RECORD grant FROM grants)
+  {
+    RECORD granteerec := SELECT * FROM allobjs WHERE grant.grantee = allobjs.id;
+    IF(NOT RecordExists(granteerec))
+    {
+      PrintTo(2,"Grantee #" || grant.grantee || " missing\n");
+      CONTINUE;
+    }
+
+    STRING line := granteerec.id || ";"
+          || EncodeExcelCSV(granteerec.name) || ";"
+          || EncodeExcelCSV(granteerec.realname) || ";"
+          || EncodeExcelCSV(granteerec.email) || ";"
+          || granteerec.unitid || ";"
+          || EncodeExcelCSV(granteerec.unitname) || ";"
+          || EncodeExcelCSV(r.rightname) || ";"
+          || EncodeExcelCSV(grant.withgrantoption?"true":"false") || ";";
+
+    IF(r.isglobal)
+    {
+      Print(line || ";;");
+    }
+    ELSE
+    {
+      TRY
+      {
+        RECORD pathrec := user->GetObjectPath(r.objecttypename, grant."object");
+        IF (NOT RecordExists(pathrec) OR NOT pathrec.visible)
+          CONTINUE;
+
+        STRING ARRAY pathitems := SELECT AS STRING ARRAY name FROM pathrec.path WHERE id != 0;
+        PRINT(line);
+        Print(EncodeExcelCSV(r.objecttypename) || ";");
+        Print(grant."object" || ";");
+        Print(EncodeExcelCSV(Detokenize(pathitems,"/")));
+      }
+      CATCH (OBJECT e)
+      {
+        LogHarescriptException(e);
+        PrintTo(2, "Exception looking up object path (type: " || r.objecttypename || "): " || e->what || "\n");
+        CONTINUE;
+      }
+    }
+    Print("\n");
+  }
+}

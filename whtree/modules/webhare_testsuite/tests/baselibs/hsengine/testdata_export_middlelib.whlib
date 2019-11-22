@@ -1,0 +1,23 @@
+<?wh
+
+LOADLIB "test::testdata_export_toplib.whlib" EXPORT i, i2 __ATTRIBUTES__(DEPRECATED);
+
+PUBLIC BOOLEAN activated1 := FALSE;
+
+BOOLEAN activated2 := FALSE;
+
+PUBLIC MACRO Activate1()
+{
+  activated1 := TRUE;
+}
+
+PUBLIC MACRO Activate2()
+{
+  activated2 := TRUE;
+}
+
+PUBLIC BOOLEAN FUNCTION IsActivated2()
+{
+  RETURN activated2;
+}
+

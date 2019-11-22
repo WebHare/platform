@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Spanish stop word list for WebHare Consilio
+
+In this file a list of common words is specified, which are considered less
+important for search queries. Accents are removed or rewritten by Consilio when
+necessary, but be sure to save this file as UTF-8 if you add accented
+characters.
+If you make changes to this file, be sure to put it in the etc/lang directory
+of your WebHare installation, otherwise it will be overwritten when upgrading or
+reinstalling WebHare.
+
+The words on this list are taken from
+http://snowball.tartarus.org/algorithms/spanish/stop.txt
+-->
+<stopwords xmlns="http://www.webhare.net/xmlns/consilio/stopwords" xml:lang="es">
+  <word>a<!--to--></word>
+  <word>al<!--a + el--></word>
+  <word>algo<!--something--></word>
+  <word>algunas<!--some--></word>
+  <word>algunos<!--some--></word>
+  <word>ante<!--before--></word>
+  <word>antes<!--before--></word>
+  <word>como<!--how--></word>
+  <word>con<!--with--></word>
+  <word>contra<!--against--></word>
+  <word>cual<!--who--></word>
+  <word>cuando<!--when--></word>
+  <word>de<!--from, of--></word>
+  <word>del<!--de + el--></word>
+  <word>desde<!--from--></word>
+  <word>donde<!--where--></word>
+  <word>durante<!--during--></word>
+  <word>e<!--and (variant of y)--></word>
+  <word>el<!--the--></word>
+  <word>ella<!--she--></word>
+  <word>ellas<!--they--></word>
+  <word>ellos<!--they--></word>
+  <word>en<!--in--></word>
+  <word>entre<!--between--></word>
+  <word>era</word>
+  <word>erais</word>
+  <word>eran</word>
+  <word>eras</word>
+  <word>eres</word>
+  <word>es</word>
+  <word>esa<!--that--></word>
+  <word>esas<!--those--></word>
+  <word>ese<!--that--></word>
+  <word>eso<!--that--></word>
+  <word>esos<!--those--></word>
+  <word>esta<!--this--></word>
+  <word>estaba</word>
+  <word>estabais</word>
+  <word>estaban</word>
+  <word>estabas</word>
+  <word>estad</word>
+  <word>estada</word>
+  <word>estadas</word>
+  <word>estado</word>
+  <word>estados</word>
+  <word>estamos</word>
+  <word>estando</word>
+  <word>estar<!--to be--></word>
+  <word>estaremos</word>
+  <word>estará</word>
+  <word>estarán</word>
+  <word>estarás</word>
+  <word>estaré</word>
+  <word>estaréis</word>
+  <word>estaría</word>
+  <word>estaríais</word>
+  <word>estaríamos</word>
+  <word>estarían</word>
+  <word>estarías</word>
+  <word>estas<!--these--></word>
+  <word>este<!--this--></word>
+  <word>estemos</word>
+  <word>esto<!--this--></word>
+  <word>estos<!--these--></word>
+  <word>estoy</word>
+  <word>estuve</word>
+  <word>estuviera</word>
+  <word>estuvierais</word>
+  <word>estuvieran</word>
+  <word>estuvieras</word>
+  <word>estuvieron</word>
+  <word>estuviese</word>
+  <word>estuvieseis</word>
+  <word>estuviesen</word>
+  <word>estuvieses</word>
+  <word>estuvimos</word>
+  <word>estuviste</word>
+  <word>estuvisteis</word>
+  <word>estuviéramos</word>
+  <word>estuviésemos</word>
+  <word>estuvo</word>
+  <word>está</word>
+  <word>estábamos</word>
+  <word>estáis</word>
+  <word>están</word>
+  <word>estás</word>
+  <word>esté</word>
+  <word>estéis</word>
+  <word>estén</word>
+  <word>estés</word>
+  <word>fue</word>
+  <word>fuera</word>
+  <word>fuerais</word>
+  <word>fueran</word>
+  <word>fueras</word>
+  <word>fueron</word>
+  <word>fuese</word>
+  <word>fueseis</word>
+  <word>fuesen</word>
+  <word>fueses</word>
+  <word>fui</word>
+  <word>fuimos</word>
+  <word>fuiste</word>
+  <word>fuisteis</word>
+  <word>fuéramos</word>
+  <word>fuésemos</word>
+  <word>ha</word>
+  <word>habida</word>
+  <word>habidas</word>
+  <word>habido</word>
+  <word>habidos</word>
+  <word>habiendo</word>
+  <word>habremos</word>
+  <word>habrá</word>
+  <word>habrán</word>
+  <word>habrás</word>
+  <word>habré</word>
+  <word>habréis</word>
+  <word>habría</word>
+  <word>habríais</word>
+  <word>habríamos</word>
+  <word>habrían</word>
+  <word>habrías</word>
+  <word>habéis</word>
+  <word>había</word>
+  <word>habíais</word>
+  <word>habíamos</word>
+  <word>habían</word>
+  <word>habías</word>
+  <word>han</word>
+  <word>has</word>
+  <word>hasta<!--until--></word>
+  <word>hay<!--there is/are--></word>
+  <word>haya</word>
+  <word>hayamos</word>
+  <word>hayan</word>
+  <word>hayas</word>
+  <word>hayáis</word>
+  <word>he</word>
+  <word>hemos</word>
+  <word>hube</word>
+  <word>hubiera</word>
+  <word>hubierais</word>
+  <word>hubieran</word>
+  <word>hubieras</word>
+  <word>hubieron</word>
+  <word>hubiese</word>
+  <word>hubieseis</word>
+  <word>hubiesen</word>
+  <word>hubieses</word>
+  <word>hubimos</word>
+  <word>hubiste</word>
+  <word>hubisteis</word>
+  <word>hubiéramos</word>
+  <word>hubiésemos</word>
+  <word>hubo</word>
+  <word>la<!--the, her--></word>
+  <word>las<!--the, them--></word>
+  <word>le<!--to him, her--></word>
+  <word>les<!--to them--></word>
+  <word>lo<!--him--></word>
+  <word>los<!--the, them--></word>
+  <word>me<!--me--></word>
+  <word>mi<!--me--></word>
+  <word>mis<!--mi plural--></word>
+  <word>mucho<!--much, many--></word>
+  <word>muchos<!--many--></word>
+  <word>muy<!--very--></word>
+  <word>más<!--more--></word>
+  <word>mí<!--me--></word>
+  <word>mía</word>
+  <word>mías</word>
+  <word>mío<!--mine--></word>
+  <word>míos</word>
+  <word>nada<!--nothing--></word>
+  <word>ni<!--nor--></word>
+  <word>no<!--no--></word>
+  <word>nos<!--us--></word>
+  <word>nosotras<!--we--></word>
+  <word>nosotros<!--we--></word>
+  <word>nuestra</word>
+  <word>nuestras</word>
+  <word>nuestro<!--ours--></word>
+  <word>nuestros</word>
+  <word>o<!--or--></word>
+  <word>os<!--you--></word>
+  <word>otra<!--other--></word>
+  <word>otras<!--other--></word>
+  <word>otro<!--other--></word>
+  <word>otros<!--other--></word>
+  <word>para<!--for--></word>
+  <word>pero<!--pero--></word>
+  <word>poco<!--few--></word>
+  <word>por<!--for, by, etc--></word>
+  <word>porque<!--because--></word>
+  <word>que<!--who, that--></word>
+  <word>quien<!--whom, that--></word>
+  <word>quienes<!--who--></word>
+  <word>qué<!--what?--></word>
+  <word>se<!--himself, from him etc--></word>
+  <word>sea</word>
+  <word>seamos</word>
+  <word>sean</word>
+  <word>seas</word>
+  <word>seremos</word>
+  <word>será</word>
+  <word>serán</word>
+  <word>serás</word>
+  <word>seré</word>
+  <word>seréis</word>
+  <word>sería</word>
+  <word>seríais</word>
+  <word>seríamos</word>
+  <word>serían</word>
+  <word>serías</word>
+  <word>seáis</word>
+  <word>sido</word>
+  <word>siendo</word>
+  <word>sin<!--without--></word>
+  <word>sobre<!--on--></word>
+  <word>sois</word>
+  <word>somos</word>
+  <word>son</word>
+  <word>soy</word>
+  <word>su<!--his, her--></word>
+  <word>sus<!--su plural--></word>
+  <word>suya</word>
+  <word>suyas</word>
+  <word>suyo<!--his, hers, theirs--></word>
+  <word>suyos</word>
+  <word>sí<!--himself etc--></word>
+  <word>también<!--also--></word>
+  <word>tanto<!--so much, many--></word>
+  <word>te<!--thee--></word>
+  <word>tendremos</word>
+  <word>tendrá</word>
+  <word>tendrán</word>
+  <word>tendrás</word>
+  <word>tendré</word>
+  <word>tendréis</word>
+  <word>tendría</word>
+  <word>tendríais</word>
+  <word>tendríamos</word>
+  <word>tendrían</word>
+  <word>tendrías</word>
+  <word>tened</word>
+  <word>tenemos</word>
+  <word>tenga</word>
+  <word>tengamos</word>
+  <word>tengan</word>
+  <word>tengas</word>
+  <word>tengo</word>
+  <word>tengáis</word>
+  <word>tenida</word>
+  <word>tenidas</word>
+  <word>tenido</word>
+  <word>tenidos</word>
+  <word>teniendo</word>
+  <word>tenéis</word>
+  <word>tenía</word>
+  <word>teníais</word>
+  <word>teníamos</word>
+  <word>tenían</word>
+  <word>tenías</word>
+  <word>ti<!--thee--></word>
+  <word>tiene</word>
+  <word>tienen</word>
+  <word>tienes</word>
+  <word>todo<!--all--></word>
+  <word>todos<!--all--></word>
+  <word>tu<!--thy--></word>
+  <word>tus<!--tu plural--></word>
+  <word>tuve</word>
+  <word>tuviera</word>
+  <word>tuvierais</word>
+  <word>tuvieran</word>
+  <word>tuvieras</word>
+  <word>tuvieron</word>
+  <word>tuviese</word>
+  <word>tuvieseis</word>
+  <word>tuviesen</word>
+  <word>tuvieses</word>
+  <word>tuvimos</word>
+  <word>tuviste</word>
+  <word>tuvisteis</word>
+  <word>tuviéramos</word>
+  <word>tuviésemos</word>
+  <word>tuvo</word>
+  <word>tuya</word>
+  <word>tuyas</word>
+  <word>tuyo<!--thine--></word>
+  <word>tuyos</word>
+  <word>tú<!--thou--></word>
+  <word>un<!--a--></word>
+  <word>una<!--a--></word>
+  <word>uno<!--a--></word>
+  <word>unos<!--a--></word>
+  <word>vosotras<!--you--></word>
+  <word>vosotros<!--you--></word>
+  <word>vuestra</word>
+  <word>vuestras</word>
+  <word>vuestro<!--yours--></word>
+  <word>vuestros</word>
+  <word>y<!--and--></word>
+  <word>ya<!--already--></word>
+  <word>yo<!--I--></word>
+  <word>él<!--he--></word>
+  <word>éramos</word>
+</stopwords>

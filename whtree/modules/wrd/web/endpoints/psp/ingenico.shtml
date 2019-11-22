@@ -1,0 +1,20 @@
+<?wh
+//this page is used by direct ingenico communications, outside the return flow (it pushes payment status updates etc)
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
+
+
+OBJECT trans := OpenPrimary();
+STRING _ps := GetWebVariable("_ps");
+
+RECORD data := ReinstantiatePayment(_ps);
+IF(NOT data.payment->ProcessIngenicoReturnURL(GetRequestURL(), GetRequestMethod(), GetClientRemoteIP()))
+  ABORT("Unable to prcocess the return URL");
+
+trans->BeginLockedWork("wrd:payments.payment:" || data.paymententity->id);
+ProcessCompletedPayment(data.payment->paymenthandler, data.paymentattr.tag, data.payment, data.paymententity, FALSE);
+trans->CommitWork();

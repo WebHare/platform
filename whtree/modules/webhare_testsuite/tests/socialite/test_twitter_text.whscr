@@ -1,0 +1,119 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::socialite/lib/twitter-text.whlib";
+LOADLIB "mod::socialite/lib/networkapi/twitter.whlib";
+
+MACRO TestLinkDetection()
+{
+  STRING tweet := "This is a € #test with å link to http://example.com/ for good measure";
+
+  RECORD ARRAY links := twttr->txt->ExtractUrlsWithIndices(tweet);
+  TestEq(1, Length(links));
+  TestEq("http://example.com/", links[0].url);
+  TestEq("example.com", links[0].display_url);
+  TestEq([ 36, 55 ], links[0].indices);
+
+  RECORD ARRAY tags := twttr->txt->ExtractHashtagsWithIndices(tweet);
+  TestEq(1, Length(tags));
+  TestEq("test", tags[0].hashtag);
+  TestEq([ 14, 19 ], tags[0].indices);
+}
+
+MACRO TestFormatTextHtml()
+{
+  // Tweet text contains an encoded html entity '&amp;'
+  STRING text := 'RT @bram_nauta: Mijn laatste Column in de \"Bits&amp;chips\" is speciaal voor de kids. #utwente @BitsChips https://t.co/TlzWIRgtHj';
+  RECORD entities := [ hashtags := [ [ text := 'utwente'
+                                     , indices := [85, 93]
+                                     ]
+                                   ]
+                     , media := [ [ display_url := 'pic.twitter.com/TlzWIRgtHj'
+                                  , expanded_url := 'http://twitter.com/bram_nauta/status/751401063035576321/photo/1'
+                                  , id := 751401060934246434.18643427139613777399
+                                  , id_str := '751401060934246400'
+                                  , media_url := 'http://pbs.twimg.com/media/Cm2DSKjWYAAEMbW.jpg'
+                                  , media_url_https := 'https://pbs.twimg.com/media/Cm2DSKjWYAAEMbW.jpg'
+                                  , source_status_id := 751401063035576299.85334642697125673294
+                                  , source_status_id_str := '751401063035576321'
+                                  , source_user_id := 374945897
+                                  , source_user_id_str := '374945897'
+                                  , type := 'photo'
+                                  , url := 'https://t.co/TlzWIRgtHj'
+                                  , indices := [105, 128]
+                                  , sizes := [ large := [ h := 1024
+                                                        , resize := 'fit'
+                                                        , w := 768
+                                                        ]
+                                             , medium := [ h := 1024
+                                                         , resize := 'fit'
+                                                         , w := 768
+                                                         ]
+                                             , small := [ h := 680
+                                                        , resize := 'fit'
+                                                        , w := 510
+                                                        ]
+                                             , thumb := [ h := 150
+                                                        , resize := 'crop'
+                                                        , w := 150
+                                                        ]
+                                             ]
+                                  ]
+                                ]
+                     , symbols := DEFAULT RECORD ARRAY
+                     , urls := DEFAULT RECORD ARRAY
+                     , user_mentions := [ [ id := 374945897
+                                          , id_str := '374945897'
+                                          , name := 'Bram Nauta'
+                                          , screen_name := 'bram_nauta'
+                                          , indices := [3, 14]
+                                          ]
+                                        , [ id := 37892977
+                                          , id_str := '37892977'
+                                          , name := 'Bits&Chips'
+                                          , screen_name := 'BitsChips'
+                                          , indices := [94, 104]
+                                          ]
+                                        ]
+                     ];
+
+  STRING htmltext := MakeTwitterHtmlText(text, entities);
+  TestEq('RT <span class=\"twitter-user\" data-screenname=\"bram_nauta\" data-name=\"Bram Nauta\">@bram_nauta<\/span>: Mijn laatste Column in de \"Bits&#38;chips\" is speciaal voor de kids. <span class=\"twitter-hashtag\" data-hashtag=\"utwente\">#utwente<\/span> <span class=\"twitter-user\" data-screenname=\"BitsChips\" data-name=\"Bits&#38;Chips\">@BitsChips<\/span> <a class=\"twitter-media\" href=\"https://t.co/TlzWIRgtHj\">https://t.co/TlzWIRgtHj<\/a>', htmltext);
+
+  // Tweet text contains a multibyte Unicode character '\u2026'
+  text := 'Opvoeden 101 #pokemongo #pokemon #utwente #mamablogger #nerds #90s\u2026 https://t.co/YGgcrgx4YE';
+  entities := [ hashtags := [ [ text := 'pokemongo'
+                              , indices := [13, 23]
+                              ]
+                            , [ text := 'pokemon'
+                              , indices := [24, 32]
+                              ]
+                            , [ text := 'utwente'
+                              , indices := [33, 41]
+                              ]
+                            , [ text := 'mamablogger'
+                              , indices := [42, 54]
+                              ]
+                            , [ text := 'nerds'
+                              , indices := [55, 61]
+                              ]
+                            , [ text := '90s'
+                              , indices := [62, 66]
+                              ]
+                            ]
+              , symbols := DEFAULT RECORD ARRAY
+              , urls := [ [ display_url := 'instagram.com/p/BHzKYd_h5m11\u2026'
+                          , expanded_url := 'https://www.instagram.com/p/BHzKYd_h5m11SG_H_Jyi7ihfJCXrOL_P_XFzAU0/'
+                          , url := 'https://t.co/YGgcrgx4YE'
+                          , indices := [68, 91]
+                          ]
+                        ]
+              , user_mentions := DEFAULT RECORD ARRAY
+              ];
+
+  htmltext := MakeTwitterHtmlText(text, entities);
+  TestEq('Opvoeden 101 <span class=\"twitter-hashtag\" data-hashtag=\"pokemongo\">#pokemongo</span> <span class=\"twitter-hashtag\" data-hashtag=\"pokemon\">#pokemon</span> <span class=\"twitter-hashtag\" data-hashtag=\"utwente\">#utwente</span> <span class=\"twitter-hashtag\" data-hashtag=\"mamablogger\">#mamablogger</span> <span class=\"twitter-hashtag\" data-hashtag=\"nerds\">#nerds</span> <span class=\"twitter-hashtag\" data-hashtag=\"90s\">#90s</span>&#8230; <a class=\"twitter-url\" href=\"https://t.co/YGgcrgx4YE\">https://t.co/YGgcrgx4YE</a>', htmltext);
+}
+
+RunTestFramework([ PTR TestLinkDetection
+                 , PTR TestFormatTextHtml
+                 ]);

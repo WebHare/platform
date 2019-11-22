@@ -1,0 +1,1141 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+CONSTANT RECORD dbinfo_baserow :=
+  [ subnodes    := RECORD[]
+  , data        := ""
+  , expanded    := FALSE
+  , canedit     := FALSE
+  , candownload := FALSE
+  , canpreview  := FALSE
+  ];
+
+
+STRING FUNCTION LeftPad(STRING val, INTEGER len)
+{
+  RETURN Substring(RepeatText("0", len), Length(val)) || val;
+}
+
+PUBLIC RECORD ARRAY FUNCTION UnpackJSONToDBInfoRows(RECORD inrec, STRING basename, BOOLEAN canedit, BOOLEAN orphan)
+{
+  RECORD ARRAY results;
+  BOOLEAN candownload, canpreview;
+  FOREVERY(RECORD cellrec FROM (SELECT * FROM UnpackRecord(inrec) ORDER BY name))
+  {
+    STRING val;
+    RECORD ARRAY subnodes;
+
+    SWITCH(TypeId(cellrec.value))
+    {
+      CASE TypeID(INTEGER)
+      {
+        val := ToString(cellrec.value);
+      }
+      CASE TypeID(INTEGER ARRAY)
+      {
+        val := Detokenize(SELECT AS STRING ARRAY ToString(arrayval) FROM ToRecordArray(cellrec.value,"arrayval") LIMIT 10, ", ");
+        IF(Length(cellrec.value)>10)
+           val := val || "...";
+        val := val || (val != "" ? " " : "") || "(" || Length(cellrec.value) || " items)";
+      }
+      CASE TypeID(MONEY)
+      {
+        val := FormatMoney(cellrec.value, 2, ".", ",", FALSE);
+      }
+      CASE TypeID(FLOAT)
+      {
+        val := FormatFloat(cellrec.value, 5);
+      }
+      CASE TypeID(STRING)
+      {
+        IF(cellrec.value LIKE "????-??-??T??:??:*Z" OR cellrec.value = "MAX_DATETIME")
+        {
+          /// DATETIME is treated as a string (which is an issue here)
+          val := cellrec.value;
+          DELETE CELL value FROM cellrec;
+          INSERT CELL value := val = "MAX_DATETIME" ? MAX_DATETIME : MakeDateFromText(val) INTO cellrec;
+          val := cellrec.value = MAX_DATETIME
+              ? "MAX_DATETIME"
+              : FormatISO8601DateTime(cellrec.value, "", "", "", TRUE) ?? (cellrec.value = DEFAULT DATETIME
+                  ? "DEFAULT DATETIME"
+                  : GetDayCount(cellrec.value) || "T" || FormatDateTime("%H:%M:%S.%Q", cellrec.value));
+        }
+        ELSE
+          val := "'" || cellrec.value || "'";
+      }
+      CASE TypeID(STRING ARRAY)
+      {
+        val := Detokenize(SELECT AS STRING ARRAY "'" || arrayval || "'" FROM ToRecordArray(cellrec.value,"arrayval") LIMIT 10, ", ");
+        IF(Length(cellrec.value)>10)
+           val := val || "...";
+        val := val || (val != "" ? " " : "") || "(" || Length(cellrec.value) || " items)";
+      }
+      CASE TypeID(BOOLEAN ARRAY)
+      {
+        val := Detokenize(SELECT AS STRING ARRAY arrayval ? "TRUE" : "FALSE" FROM ToRecordArray(cellrec.value,"arrayval") LIMIT 10, ", ");
+        IF(Length(cellrec.value)>10)
+           val := val || "...";
+        val := val || (val != "" ? " " : "") || "(" || Length(cellrec.value) || " items)";
+      }
+      CASE TypeID(DATETIME ARRAY)
+      {
+        val := Detokenize(SELECT AS STRING ARRAY FormatISO8601DateTime(arrayval) FROM ToRecordArray(cellrec.value,"arrayval") LIMIT 10, ", ");
+        IF(Length(cellrec.value)>10)
+           val := val || "...";
+        val := val || (val != "" ? " " : "") || "(" || Length(cellrec.value) || " items)";
+      }
+      CASE TypeID(BOOLEAN)
+      {
+        val := cellrec.value ? "TRUE" : "FALSE";
+      }
+      CASE TypeID(DATETIME)
+      {
+        val := cellrec.value = MAX_DATETIME
+            ? "MAX_DATETIME"
+            : FormatISO8601DateTime(cellrec.value, "", "", "", TRUE) ?? (cellrec.value = DEFAULT DATETIME
+                ? "DEFAULT DATETIME"
+                : GetDayCount(cellrec.value) || "T" || FormatDateTime("%H:%M:%S.%Q", cellrec.value));
+      }
+      CASE TypeID(RECORD)
+      {
+        subnodes := UnpackJSONToDBInfoRows(cellrec.value, basename || cellrec.name || ".", canedit, orphan);
+        val := Length(UnpackRecord(cellrec.value)) || " cells";
+      }
+      CASE TypeID(RECORD ARRAY)
+      {
+        val := Length(cellrec.value) || " items";
+        subnodes := SELECT AS RECORD ARRAY
+             CELL[ ...dbinfo_baserow
+                 , name     := "#" || LeftPad(ToString(#value), Length(ToString(Length(cellrec.value))))
+                 , rowkey   := basename || "." || #value
+                 , subnodes := UnpackJSONToDBInfoRows(value, basename || cellrec.name || "." || #value || ".", canedit, orphan)
+                 , type     := "record array"
+                 ] FROM cellrec.value;
+      }
+      CASE TypeID(VARIANT ARRAY)
+      {
+        val := Length(cellrec.value) || " items";
+      }
+      CASE TypeID(BLOB)
+      {
+        val := "BLOB (" || FormatMoney(MONEY(Length64(cellrec.value)), 0, '', ',', TRUE) || " bytes)";
+        candownload := TRUE;
+        canpreview := TRUE;
+      }
+    }
+    INSERT CELL[ ...dbinfo_baserow
+               , rowkey         := basename || cellrec.name
+               , name           := ToLowercase(cellrec.name)
+               , data           := val ?? IsTypeIDArray(TypeID(cellrec.value)) ? Length(val) || " items" : ""
+               , subnodes
+               , canedit        := TypeID(cellrec.value) NOT IN [ TypeID(RECORD ARRAY), TypeID(RECORD), TypeID(VARIANT), TypeID(VARIANT ARRAY) ]
+               , candownload
+               , canpreview
+               , type           := ToLowercase(GetTypeName(TypeID(cellrec.value)))
+               , typenr         := TYPEID(cellrec.value)
+               , original       := cellrec.value
+               , listrowclasses := orphan ? ["grayedout"] : STRING[]
+               ] INTO results AT END;
+  }
+  RETURN results;
+}
+
+PUBLIC RECORD ARRAY FUNCTION UnpackToDBInfoRows(OBJECT tolliumuser, RECORD inrec, STRING basename, BOOLEAN canedit, BOOLEAN orphan)
+{
+  RECORD ARRAY results;
+  FOREVERY(RECORD cellrec FROM (SELECT * FROM UnpackRecord(inrec) ORDER BY name))
+  {
+    STRING val;
+    RECORD ARRAY subnodes;
+    BOOLEAN candownload, canpreview;
+    SWITCH(TypeId(cellrec.value))
+    {
+      CASE TypeID(INTEGER)
+      {
+        val := ToString(cellrec.value);
+      }
+      CASE TypeID(MONEY)
+      {
+        val := tolliumuser->FormatMoney(cellrec.value, 1, FALSE);
+      }
+      CASE TypeID(FLOAT)
+      {
+        val := tolliumuser->FormatFloat(cellrec.value, 5);
+      }
+      CASE TypeID(STRING)
+      {
+        val := "'" || cellrec.value || "'";
+        canpreview := TRUE;
+      }
+      CASE TypeID(BOOLEAN)
+      {
+        val := cellrec.value ? "true" : "false";
+      }
+      CASE TypeID(DATETIME)
+      {
+        val := cellrec.value = MAX_DATETIME
+            ? "MAX_DATETIME"
+            : FormatISO8601DateTime(cellrec.value, "", "", "", TRUE) ?? (cellrec.value = DEFAULT DATETIME
+                ? "DEFAULT DATETIME"
+                : GetDayCount(cellrec.value) || "T" || FormatDateTime("%H:%M:%S.%Q", cellrec.value));
+      }
+      CASE TypeID(BLOB)
+      {
+        val := "blob (" || FormatMoney(MONEY(Length64(cellrec.value)), 0, '', ',', TRUE) || " bytes)";
+        candownload := TRUE;
+        canpreview := TRUE;
+      }
+    }
+    INSERT CELL[ ...dbinfo_baserow
+               , rowkey         := basename || cellrec.name
+               , name           := ToLowercase(cellrec.name)
+               , data           := val
+               , subnodes
+               , canedit
+               , candownload
+               , canpreview
+               , type           := ToLowercase(GetTypeName(TypeID(cellrec.value)))
+               , original       := cellrec.value
+               , listrowclasses := orphan ? ["grayedout"] : STRING[]
+               ] INTO results AT END;
+  }
+  RETURN results;
+}
+
+RECORD ARRAY FUNCTION UnpackCTYPERichDocument(INTEGER type, RECORD rtd, OBJECT tolliumuser, STRING mybasename, BOOLEAN canedit, BOOLEAN orphan)
+{
+  RECORD contents;
+
+  SWITCH (type)
+  {
+    CASE 15
+    {
+      contents :=
+          CELL[ ...dbinfo_baserow
+              , name := "htmltext"
+              , data := Length(rtd.htmltext) || ' bytes'
+              , rowkey := mybasename || 'htmltext'
+              , candownload := TRUE
+              , original := [ filename := "htmltext.html", mimetype := "text/html", data := rtd.htmltext ]
+              , type := "blob"
+              ];
+    }
+    CASE 20
+    {
+      contents :=
+         CELL[ ...dbinfo_baserow
+             , name := "formtext"
+             , data := Length(rtd.formtext) || ' bytes'
+             , rowkey := mybasename || 'formtext'
+             , candownload := TRUE
+             , canpreview := TRUE
+             , original := [ filename := "formtext.html", mimetype := "text/html", data := rtd.formtext ]
+             , type := "blob"
+             ];
+    }
+  }
+  RETURN
+      [ contents
+      , CELL[ ...dbinfo_baserow
+            , name := "links" // internal links
+            , data := Length(rtd.links) || ' links'
+            , rowkey := mybasename || 'links'
+            , subnodes :=
+                  (SELECT AS RECORD ARRAY CELL[ ...dbinfo_baserow
+                                              , name        := "#" || #links
+                                              , data        := ""
+                                              , rowkey      := mybasename || "." || #links
+                                              , subnodes    := UnpackToDBInfoRows(tolliumuser, links, mybasename || ".links." || #links, /* canedit */ FALSE, orphan)
+                                              , type        := "array"
+                                              ] FROM rtd.links)
+            , type := "array"
+            ]
+      , CELL[ ...dbinfo_baserow
+            , name := "instances"
+            , data := Length(rtd.instances) || ' instances'
+            , rowkey := mybasename || 'instances'
+            , subnodes := UnpackCTYpeRichDocumentInstances(rtd.instances, tolliumuser, mybasename, canedit, orphan)
+            , type := "array"
+            ]
+      , CELL[ ...dbinfo_baserow
+            , name := "embedded"
+            , data := Length(rtd.embedded) || ' embedded'
+            , rowkey := mybasename || '.embedded'
+            , subnodes :=
+                  (SELECT AS RECORD ARRAY CELL[ ...dbinfo_baserow
+                                              , name := "#" || #embedded
+                                              , data := ""
+                                              , subnodes := UnpackToDBInfoRows(tolliumuser, embedded, mybasename||'.embedded.' || #embedded, FALSE, orphan)
+                                              , type := "array"
+                                              , rowkey := mybasename || '.embedded.' || #embedded
+                                              ] FROM rtd.embedded)
+            , type := "array"
+           ]
+         ];
+}
+
+RECORD ARRAY FUNCTION UnpackCTYPEFormCondition(INTEGER type, RECORD condition, OBJECT tolliumuser, STRING mybasename, BOOLEAN canedit, BOOLEAN orphan)
+{
+  RETURN [ CELL[ ...dbinfo_baserow
+               , name := "field"
+               , data := condition.field
+               , rowkey := mybasename || 'field'
+               , type := "string"
+               ]
+         , CELL[ ...dbinfo_baserow
+               , name := "matchtype"
+               , data := condition.matchtype
+               , rowkey := mybasename || 'matchtype'
+               , type := "string"
+               ]
+         ]
+         CONCAT
+         UnpackJSONToDBInfoRows(CELL[ condition.value ], mybasename, canedit, orphan);
+}
+
+RECORD ARRAY FUNCTION UnpackCTYpeRichDocumentInstances(RECORD ARRAY instances, OBJECT tolliumuser, STRING mybasename, BOOLEAN canedit, BOOLEAN orphan)
+{
+  instances := SELECT *, subtype := OpenWHFSType(instances.data.whfstype, [ openorphans := TRUE ]) FROM instances;
+
+  RETURN SELECT AS RECORD ARRAY CELL[ ...dbinfo_baserow
+                                    , name :=       "instance " || #instances || " " || instances.instanceid
+                                    , data :=       instances.data.whfstype
+                                    , rowkey   :=   mybasename || #instances
+                                    , subnodes :=   UnpackCTYPEToDBInfoRows(subtype, 0, tolliumuser, instances.data, mybasename || #instances || ".", canedit, orphan)
+                                    , type     :=   "instance"
+                                    ] FROM instances;
+}
+PUBLIC RECORD ARRAY FUNCTION UnpackCTYPEToDBInfoRows(OBJECT whfstype, INTEGER curparent, OBJECT tolliumuser, RECORD inrec, STRING basename, BOOLEAN canedit, BOOLEAN orphan)
+{
+  RECORD ARRAY results;
+  BOOLEAN candownload, canpreview;
+  FOREVERY(RECORD cellrec FROM (SELECT * FROM UnpackRecord(inrec) ORDER BY name))
+  {
+    STRING val;
+    RECORD ARRAY subnodes;
+
+    RECORD memberinfo := SELECT * FROM whfstype->allmembers WHERE ToUppercase(name) = ToUppercase(cellrec.name) AND parent = curparent;
+    IF(NOT RecordExists(memberinfo))
+      CONTINUE;
+
+    BOOLEAN orphanmember := orphan OR memberinfo.orphan;
+    SWITCH(memberinfo.type)
+    {
+      CASE 1,2
+      {
+        val := cellrec.value;
+      }
+      CASE 5 //file
+      {
+        IF(RecordExists(cellrec.value))
+        {
+          val := cellrec.value.filename || " (" || cellrec.value.mimetype || ", " || Length64(cellrec.value.data) || " bytes)";
+          candownload := TRUE;
+          canpreview := TRUE;
+          subnodes := UnpackToDBInfoRows(tolliumuser, cellrec.value, basename || cellrec.name, FALSE, orphanmember);
+        }
+      }
+      CASE 6 //bool
+      {
+        val := cellrec.value ? "true" : "false";
+      }
+      CASE 7 //integer
+      {
+        val := ToString(cellrec.value);
+      }
+      CASE 11 //whfsref
+      {
+        IF(cellrec.value != 0)
+          val := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = cellrec.value;
+      }
+      CASE 12 //array
+      {
+        val := Length(cellrec.value) || " items";
+        subnodes := SELECT *, mybase := basename || cellrec.name || "." || #rows FROM cellrec.value AS rows;
+        subnodes := SELECT AS RECORD ARRAY CELL[ ...dbinfo_baserow
+                                               , name     := "#" || #subnodes
+                                               , rowkey   := mybase
+                                               , subnodes := UnpackCTYPEToDBInfoRows(whfstype, memberinfo.id, tolliumuser, subnodes, mybase || ".", canedit, orphanmember)
+                                               , type     := "array"
+                                               , listrowclasses := orphanmember ? ["grayedout"] : STRING[]
+                                               ] FROM subnodes;
+      }
+      CASE 15 //richdoc
+      {
+        IF (RecordExists(cellrec.value))
+        {
+          val := "rich document";
+          subnodes := subnodes CONCAT UnpackCTYPERichDocument(memberinfo.type, cellrec.value, tolliumuser, basename || "." || cellrec.name || ".", canedit, orphanmember);
+        }
+        ELSE
+          val := "empty rich document";
+      }
+      CASE 16
+      {
+        IF(RecordExists(cellrec.value) AND cellrec.value.externallink != "")
+          val := cellrec.value.externallink;
+        ELSE IF(RecordExists(cellrec.value) AND cellrec.value.internallink != 0)
+          val := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = cellrec.value.internallink;
+      }
+      CASE 20 //webtool form definition
+      {
+        IF (RecordExists(cellrec.value))
+        {
+          val := "webtool form definition";
+          subnodes := subnodes CONCAT UnpackCTYPERichDocument(memberinfo.type, cellrec.value, tolliumuser, basename || "." || cellrec.name || ".", canedit, orphanmember);
+        }
+        ELSE
+          val := "empty webtool form definition";
+      }
+      CASE 22 //webtool form condition
+      {
+        IF (RecordExists(cellrec.value))
+        {
+          val := "webtool form condition";
+          subnodes := subnodes CONCAT UnpackCTYPEFormCondition(memberinfo.type, cellrec.value, tolliumuser, basename || "." || cellrec.name || ".", canedit, orphanmember);
+        }
+        ELSE
+          val := "empty webtool form condition";
+      }
+      DEFAULT
+      {
+        SWITCH(TypeId(cellrec.value))
+        {
+          CASE TypeID(INTEGER)
+          {
+            val := ToString(cellrec.value);
+          }
+          CASE TypeID(INTEGER ARRAY)
+          {
+            val := Detokenize(SELECT AS STRING ARRAY ToString(arrayval) FROM ToRecordArray(cellrec.value,"arrayval") LIMIT 10, ", ");
+            IF(Length(cellrec.value)>10)
+               val := val || "...";
+            val := val || (val != "" ? " " : "") || "(" || Length(cellrec.value) || " items)";
+          }
+          CASE TypeID(MONEY)
+          {
+            val := tolliumuser->FormatMoney(cellrec.value, 1, FALSE);
+          }
+          CASE TypeID(FLOAT)
+          {
+            val := tolliumuser->FormatFloat(cellrec.value, 5);
+          }
+          CASE TypeID(STRING)
+          {
+            val := "'" || cellrec.value || "'";
+          }
+          CASE TypeID(STRING ARRAY)
+          {
+            val := Detokenize(SELECT AS STRING ARRAY "'" || arrayval || "'" FROM ToRecordArray(cellrec.value,"arrayval") LIMIT 10, ", ");
+            IF(Length(cellrec.value)>10)
+               val := val || "...";
+            val := val || (val != "" ? " " : "") || "(" || Length(cellrec.value) || " items)";
+          }
+          CASE TypeID(BOOLEAN)
+          {
+            val := cellrec.value ? "true" : "false";
+          }
+          CASE TypeID(DATETIME)
+          {
+            val := cellrec.value = MAX_DATETIME
+                ? "MAX_DATETIME"
+                : FormatISO8601DateTime(cellrec.value, "", "", "", TRUE) ?? (cellrec.value = DEFAULT DATETIME
+                    ? "DEFAULT DATETIME"
+                    : GetDayCount(cellrec.value) || "T" || FormatDateTime("%H:%M:%S.%Q", cellrec.value));
+          }
+          CASE TypeID(RECORD)
+          {
+            SWITCH (memberinfo.type)
+            {
+              CASE 18 // instance
+                {
+                  IF (CellExists(cellrec.value, "WHFSTYPE"))
+                  {
+                    val := "instance, type: " || cellrec.value.whfstype;
+                    OBJECT subtype := OpenWHFSType(cellrec.value.whfstype, [ openorphans := TRUE ]);
+                    subnodes := UnpackCTYPEToDBInfoRows(subtype, 0, tolliumuser, cellrec.value, basename || cellrec.name || ".", canedit, orphanmember);
+                  }
+                  ELSE
+                    val := "empty instance";
+                }
+              DEFAULT
+                {
+                  val := "record";
+                  subnodes := UnpackJSONToDBInfoRows(cellrec.value, basename || cellrec.name || ".", canedit, orphan);
+                }
+            }
+          }
+          CASE TypeID(RECORD ARRAY)
+          {
+            val := Length(cellrec.value) || " items";
+            subnodes :=
+                SELECT AS RECORD ARRAY CELL[ ...dbinfo_baserow
+                                           , name     := "#" || #value
+                                           , rowkey   := basename || "." || #value
+                                           , subnodes := UnpackCTYPEToDBInfoRows(whfstype, memberinfo.id, tolliumuser, value, basename || cellrec.name || "." || #value || ".", canedit, orphanmember)
+                                           , type     := "array"
+                                           , listrowclasses := orphanmember ? ["grayedout"] : STRING[]
+                                           ] FROM cellrec.value;
+
+          }
+          CASE TypeID(BLOB)
+          {
+            val := "blob (" || FormatMoney(MONEY(Length64(cellrec.value)), 0, '', ',', TRUE) || " bytes)";
+            candownload := TRUE;
+            canpreview := TRUE;
+          }
+        }
+      }
+    }
+
+    INSERT CELL[ ...dbinfo_baserow
+               , rowkey         := basename || cellrec.name
+               , name           := ToLowercase(cellrec.name)
+               , data           := val
+               , subnodes
+               , canedit
+               , candownload
+               , canpreview
+               , type           := GetFSMemberTypeName(memberinfo.type)
+               , typenr         := memberinfo.type
+               , original       := cellrec.value
+               , listrowclasses := orphanmember ? ["grayedout"] : STRING[]
+               ] INTO results AT END;
+  }
+  RETURN results;
+}
+
+PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
+<
+  INTEGER fsobjid;
+  OBJECT fsobj;
+  OBJECT applytester;
+  RECORD parentsite;
+  RECORD ARRAY cachedapplyrules;
+  STRING currentapplyfile;
+
+  OBJECT siteprofdoc;
+  STRING currentsiteprof;
+
+  OBJECT FUNCTION OpenSiteprof(STRING path)
+  {
+    IF(path != this->currentsiteprof)
+    {
+      this->currentsiteprof := path;
+      this->siteprofdoc := RetrieveCachedXMLResource(this->currentsiteprof).doc;
+    }
+    RETURN this->siteprofdoc;
+  }
+
+  PUBLIC INTEGER jumpto;
+
+  MACRO Init(RECORD data)
+  {
+    this->fsobjid := data.fsobj;
+    ^consiliotab->Setup(this->fsobjid);
+    IF(NOT this->Refresh())
+      RETURN;
+
+    this->frame->title := this->GetTid(".inspect", ToString(this->fsobj->id), this->fsobj->name);
+  }
+
+  MACRO OnRefresh(STRING event, RECORD data)
+  {
+    this->Refresh();
+  }
+
+  BOOLEAN FUNCTION Refresh()
+  {
+    this->fsobj := OpenWHFSObject(this->fsobjid);
+    IF(NOT ObjectExists(this->fsobj))
+    {
+      this->tolliumresult := "cancel";
+      RETURN FALSE;
+    }
+    this->applytester := GetApplyTesterForObject(this->fsobjid);
+
+    this->RefreshDBInfo();
+    this->RefreshDrafts();
+    this->ReloadApplyRules();
+    this->RefreshFSObjectType();
+    this->RefreshRefs();
+    ^consiliotab->Refresh(this->fsobj);
+    this->OnApplySelect();
+    RETURN TRUE;
+  }
+
+  MACRO FillDBInfo(OBJECT comp, OBJECT myfsobj, INTEGER versionid)
+  {
+    RECORD fsobj;
+    IF (ObjectExists(myfsobj))
+    {
+      fsobj := SELECT * FROM system.fs_objects WHERE id = myfsobj->id;
+      this->parentsite := SELECT * FROM system.sites WHERE id = myfsobj->id;
+    }
+    IF(NOT RecordExists(fsobj))
+    {
+      comp->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    RECORD ARRAY outrows :=
+      [ CELL[ ...dbinfo_baserow
+            , rowkey := "fs_object"
+            , name := "system.fs_objects"
+            , subnodes := UnpackToDBInfoRows(this->tolliumuser, fsobj, "fs_object.", FALSE, FALSE)
+            , data := ToString(myfsobj->id)
+            , type := "table row"
+            ]
+      ];
+
+    IF (RecordExists(this->parentsite))
+    {
+      INSERT CELL[ ...dbinfo_baserow
+                 , rowkey := "sites"
+                 , name := "system.sites"
+                 , subnodes := UnpackToDBInfoRows(this->tolliumuser, CellDelete(this->parentsite, "id"), "sites.", FALSE, FALSE)
+                 , data := ToString(this->parentsite.id)
+                 , type := "table row"
+                 ] INTO outrows AT END;
+    }
+
+    RECORD fs_history := SELECT * FROM system.fs_history WHERE fs_object = myfsobj->id;
+    IF (RecordExists(fs_history))
+    {
+      INSERT CELL[ ...dbinfo_baserow
+                 , rowkey := "fs_history"
+                 , name := "system.fs_history"
+                 , subnodes := UnpackToDBInfoRows(this->tolliumuser, fs_history, "fs_history.", FALSE, FALSE)
+                 , data := ToString(fs_history.id)
+                 , type := "table row"
+                 ] INTO outrows AT END;
+    }
+
+    RECORD ARRAY types := SELECT fs_type,id FROM system.fs_instances WHERE fs_object = myfsobj->id;
+    FOREVERY(RECORD typ FROM types)
+    {
+      OBJECT typeinfo := OpenWHFSTypeById(typ.fs_type);
+      RECORD instance := typeinfo->GetInstanceData(myfsobj->id, [ orphans := TRUE ]);
+      INSERT CELL[ ...dbinfo_baserow
+                 , name := typeinfo->namespace
+                 , rowkey := ToSTring(typ.fs_type)
+                 , subnodes := UnpackCTYPEToDBInfoRows(typeinfo, 0, this->tolliumuser, instance, typ.fs_type || ".", TRUE, FALSE)
+                 , data := ToString(typ.id)
+                 , type := "whfs instance"
+                 ] INTO outrows AT END;
+
+    }
+
+    IF (versionid != 0)
+    {
+      RECORD rec := SELECT * FROM system.fs_versionevents WHERE id = versionid;
+      INSERT CELL[ ...dbinfo_baserow
+                 , rowkey := "fs_versionevents"
+                 , name := "system.fs_versionevents"
+                 , subnodes := UnpackToDBInfoRows(this->tolliumuser, rec, "fs_versionevents.", FALSE, FALSE)
+                 , data := ToString(versionid)
+                 , type := "table row"
+                 ] INTO outrows AT END;
+    }
+
+    comp->rows := outrows;
+  }
+
+  MACRO RefreshDBInfo()
+  {
+    this->FillDBInfo(^dbinfo, this->fsobj, 0);
+
+    //ADDME show if 'isnew' too, _if_ we'd add a content listing when creating?
+    IF(RecordExists(this->parentsite)
+       AND ( (this->fsobj->isfolder
+              AND RecordExists(SELECT FROM system.fs_objects AS files, system.fs_objects AS folders
+                                WHERE folders.id=this->fsobj->id AND folders.indexdoc=files.id AND files.type=24)
+             )
+           OR (NOT this->fsobj->isfolder)
+           )
+      )
+    {
+      INTEGER cl := this->applytester->GetSitePlaceHolder();
+      IF(cl != 0)
+        ^usedcontentlistingfile->value := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = cl;
+      ELSE
+        ^usedcontentlistingfile->value := GetTid("publisher:commondialogs.objectprops.contentlistingdefault");
+    }
+    ELSE
+      ^usedcontentlistingfile->visible := FALSE;
+  }
+
+  MACRO DoEditDBInfo(OBJECT comp DEFAULTSTO DEFAULT OBJECT, INTEGER fsobjid DEFAULTSTO 0)
+  {
+    RECORD sel := (comp ?? ^dbinfo)->selection;
+    STRING ARRAY toks := Tokenize(sel.rowkey,'.');
+
+    OBJECT whfstype := OpenWHFSTypeById(ToInteger(toks[0],0));
+    IF(NOT ObjectExists(whfstype))
+      RETURN;
+
+    OBJECT scr := this->LoadScreen(".ctypefieldedit", [ whfstype := whfstype
+                                                      , fieldtype := sel.typenr
+                                                      , rowkey := Detokenize(ArraySlice(toks,1),'.')
+                                                      , fsobj := fsobjid ?? this->fsobjid
+                                                      ]);
+    IF (scr->RunModal() = "ok")
+      this->Refresh();
+  }
+
+  MACRO DoEditDraftDBInfo()
+  {
+    this->DoEditDBInfo(^draftdbinfo, ^drafts->selection.id);
+  }
+
+  MACRO DoPreviewDBInfo(OBJECT comp DEFAULTSTO DEFAULT OBJECT, INTEGER fsobjid DEFAULTSTO 0)
+  {
+    RECORD sel := (comp ?? ^dbinfo)->selection;
+    STRING ARRAY toks := Tokenize(sel.rowkey,'.');
+
+    OBJECT scr := this->LoadScreen(".stringfieldpreview", sel);
+    IF (scr->RunModal() = "ok")
+      this->Refresh();
+  }
+
+  MACRO DoPreviewDraftDBInfo()
+  {
+    this->DoPreviewDBInfo(^draftdbinfo, ^drafts->selection.id);
+  }
+
+  MACRO OnDbinfoDownload(OBJECT downloadhandler)
+  {
+    VARIANT todownload := ^dbinfo->selection.original;
+    IF(TypeID(todownload) = TypeID(BLOB))
+      downloadhandler->SendFile(todownload, "", "");
+    ELSE IF(TypeID(todownload) = TypeID(RECORD))
+      downloadhandler->SendFile(todownload.data, todownload.mimetype, todownload.filename);
+  }
+
+  MACRO OnDraftDbinfoDownload(OBJECT downloadhandler)
+  {
+    VARIANT todownload := ^draftdbinfo->selection.original;
+    IF(TypeID(todownload) = TypeID(BLOB))
+      downloadhandler->SendFile(todownload, "", "");
+    ELSE IF(TypeID(todownload) = TypeID(RECORD))
+      downloadhandler->SendFile(todownload.data, todownload.mimetype, todownload.filename);
+  }
+
+
+  MACRO RefreshDrafts()
+  {
+    RECORD ARRAY rows :=
+        SELECT rowkey :=  "draft-" || id
+             , id
+             , versionid :=  0
+             , type :=    ispublic ? this->GetTid(".public") : this->GetTid(".private")
+             , user
+             , when :=    creationdate
+          FROM GetDrafts(this->fsobj->id)
+      ORDER BY id;
+
+    rows := rows CONCAT
+        SELECT rowkey :=    "version-" || id
+             , id :=        draft_object
+             , versionid := id
+             , user :=      user
+             , type :=      eventtype = VersionEventType_Request ? this->GetTid(".requestapproval") :
+                                eventtype = VersionEventType_AcceptApply ? this->GetTid(".approved") :
+                                    this->GetTid(".denied")
+             , when
+          FROM system.fs_versionevents
+         WHERE live_object = this->fsobj->id;
+
+    IF(ObjectExists(this->contexts->userapi)) //under extreme configuration issues, such as a 427->426 downgrade, userapi may not exist
+      rows := this->contexts->userapi->EnrichUsers("USER", rows, [ celltype := "authobjectid", rightouterjoin := TRUE ]);
+    ELSE
+      rows := SELECT *, entityid := 0, fullname := "" FROM rows;
+
+    ^drafts->rows :=
+        SELECT *
+             , user :=    entityid = 0 ? this->GetTid(".unknownuser") : fullname
+          FROM rows;
+    ^draftcontenttypes->visible := LENGTH(^drafts->rows) != 0;
+  }
+
+  MACRO GotSelectDraft()
+  {
+    IF (RecordExists(^drafts->selection))
+      this->FillDBInfo(^draftdbinfo, OpenWHFSDraft(^drafts->selection.id)->fsobject, ^drafts->selection.versionid);
+    ELSE
+      this->FillDBInfo(^draftdbinfo, DEFAULT OBJECT, 0);
+  }
+
+  MACRO RefreshRefs()
+  {
+    ^refs->rows :=
+        SELECT rowkey :=    fs_objects.id
+             , path :=      Any(whfspath)
+             , namespace := Any(fs_types.namespace)
+          FROM system.fs_settings
+             , system.fs_instances
+             , system.fs_objects
+             , system.fs_types
+         WHERE fs_settings.fs_instance = fs_instances.id
+           AND fs_objects.id = fs_instances.fs_object
+           AND fs_objects.isactive = TRUE
+           AND fs_types.id = fs_instances.fs_type
+           AND fs_settings.fs_object = this->fsobjid
+      GROUP BY fs_objects.id
+      ORDER BY Any(whfspath)
+         LIMIT 200;
+  }
+
+  MACRO ReloadApplyRules()
+  {
+    RECORD ARRAY rows;
+
+    //Find the filetype first
+    RECORD typeinfo := SELECT * FROM GetCachedSiteProfiles().contenttypes WHERE id = this->fsobj->type AND fstype.isfoldertype = this->fsobj->isfolder;
+    IF(RecordExists(typeinfo))
+    {
+      OBJECT siteprofdoc := this->OpenSiteprof(typeinfo.siteprofile);
+      IF(ObjectExists(siteprofdoc))
+      {
+        FOREVERY(OBJECT node FROM siteprofdoc->documentelement->childnodes->GetCurrentElements())
+        {
+          IF(node->linenum = typeinfo.line) //TODO should actually use a nodeidx, but noone currently puts multiple types on one line
+          {
+            INSERT [ rowkey := typeinfo.siteprofile || ":#" || node->linenum
+                   , path := typeinfo.siteprofile
+                   , startline := typeinfo.line
+                   , code := node->outerxml
+                   ] INTO rows AT END;
+            BREAK;
+          }
+        }
+      }
+    }
+
+    FOREVERY(RECORD apply FROM this->applytester->__GetAppliesForcell(""))
+    {
+      OBJECT siteprofdoc := this->OpenSiteprof(apply.siteprofile);
+
+      RECORD row := [ rowkey := apply.siteprofile || ":" || apply.applyindex
+                    , path := apply.siteprofile
+                    , startline := 0
+                    , code := ""
+                    ];
+
+      OBJECT applynode := siteprofdoc->GetElementsByTagNameNS(namespace_sp,"apply")->Item(apply.applyindex);
+      IF(ObjectExists(applynode))
+      {
+        row.startline := applynode->linenum;
+        row.code := applynode->outerxml;
+      }
+
+      INSERT row INTO rows AT END;
+    }
+    this->cachedapplyrules := rows;
+    this->RefreshApplyRules();
+  }
+
+  MACRO RefreshApplyRules()
+  {
+    RECORD ARRAY showrules := this->cachedapplyrules;
+    IF(^searchapplyrules->value != "")
+      showrules := SELECT * FROM showrules WHERE ToUppercase(code) LIKE ToUppercase("*"||^searchapplyrules->value||"*");
+
+    ^applies->rows := showrules;
+    IF(NOT RecordExists(^applies->selection) AND Length(showrules)>0)
+      ^applies->selection := ^applies->rows[0];
+  }
+
+  MACRO OnApplySelect()
+  {
+    RECORD selection := ^applies->selection;
+    STRING code;
+
+    IF(RecordExists(selection))
+    {
+      IF(this->currentapplyfile != selection.path)
+      {
+        this->currentapplyfile := selection.path;
+        ^applyblock->value := BlobtoString(GetWebhareResource(selection.path));
+      }
+      ^applyblock->GotoTopLine(selection.startline);
+      ^applyblock->markers := [[ line := selection.startline, col := 1, color := "#95cdfe", type := "gutter" ]];
+    }
+    ELSE
+    {
+      this->currentapplyfile := "";
+      ^applyblock->value := "";
+      ^applyblock->markers := RECORD[];
+    }
+  }
+
+  MACRO RefreshFSObjectType()
+  {
+    RECORD type := DescribeContentTypeById(this->fsobj->type, [ mockifmissing := TRUE, isfolder := this->fsobj->isfolder ]);
+    ^fstypeid->value := ToString(this->fsobj->type);
+
+    ^typetitle->value := GetTid(type.title);
+    ^namespace->value := type.namespace;
+    ^searchprovider->value := type.searchprovider;
+    ^ishidden->value := NOT this->fsobj->isfolder ? this->GetTid(".filescantbehidden") : type.ishidden ? GetTid("~yes") : GetTid("~no");
+
+    RECORD redirectinfo := GetSystemRedirectInfo(this->fsobjid);
+    IF(redirectinfo.success)
+    {
+      IF(redirectinfo.webpageobjectname != "")
+      {
+        ^dynamicexecution->visible := TRUE;
+        ^dynamicexecution_webpageobjectname->visible := TRUE;
+        ^dynamicexecution_webpageobjectname->value := redirectinfo.webpagelibrary || "#" || redirectinfo.webpageobjectname;
+      }
+    }
+
+    IF (RecordExists(type.dynamicexecution) AND NOT ^dynamicexecution->visible) //not yet set above...
+    {
+      IF (type.dynamicexecution.startmacro != "")
+      {
+        ^dynamicexecution->visible := TRUE;
+        ^dynamicexecution_library->visible := TRUE;
+        ^dynamicexecution_library->value := type.dynamicexecution.webpagelibrary;
+
+        IF (type.dynamicexecution.startmacro != "")
+        {
+          ^dynamicexecution_startmacro->visible := TRUE;
+          ^dynamicexecution_startmacro->value:= type.dynamicexecution.startmacro;
+        }
+
+        IF (type.dynamicexecution.webpageobjectname != "")
+        {
+          ^dynamicexecution_webpageobjectname->visible := TRUE;
+          ^dynamicexecution_webpageobjectname->value:= type.dynamicexecution.webpageobjectname;
+        }
+
+        ^dynamicexecution_cached->visible := TRUE;
+        ^dynamicexecution_cached->value := type.dynamicexecution.cachettl != 0 ? GetTid("~yes") : GetTid("~no");
+      }
+    }
+  }
+
+  MACRO DoJumpToReference()
+  {
+    this->jumpto := ^refs->value;
+    this->tolliumresult := "jump";
+  }
+
+>;
+
+
+VARIANT FUNCTION DeepGet(RECORD fromrecord, STRING ARRAY refptr)
+{
+  IF(NOT CellExists(fromrecord, refptr[0]))
+    THROW NEW Exception("Cannot find '" ||refptr[0] || "'");
+
+  VARIANT val := GetCell(fromrecord, refptr[0]);
+  IF(Length(refptr)=1)
+    RETURN val;
+
+  IF(IsTypeidArray(TypeId(val)))
+  {
+    INTEGER rownum := ToInteger(refptr[1],-1);
+    IF(rownum < 0 OR rownum >= Length(val))
+      THROW NEW Exception("No row #" || rownum);
+
+    IF(Length(refptr)>2)
+      RETURN DeepGet(val[rownum], ArraySlice(refptr,2));
+    ELSE
+      RETURN val[rownum];
+  }
+
+  IF(TypeID(val) = TypeID(RECORD))
+    RETURN DeepGet(val, ARraySlice(refptr,1));
+
+  THROW NEW Exception("Not a record");
+}
+RECORD FUNCTION DeepSet(RECORD fromrecord, STRING ARRAY refptr, VARIANT newvalue)
+{
+  IF(NOT CellExists(fromrecord, refptr[0]))
+    THROW NEW Exception("Cannot find '" ||refptr[0] || "'");
+
+  VARIANT val := GetCell(fromrecord, refptr[0]);
+
+  IF(IsTypeidArray(TypeId(val)))
+  {
+    INTEGER rownum := ToInteger(refptr[1],-1);
+    IF(rownum < 0 OR rownum >= Length(val))
+      THROW NEW Exception("No row #" || rownum);
+
+    IF(Length(refptr)>2)
+      val[rownum] := DeepSet(val[rownum], ArraySlice(refptr,2), newvalue);
+    ELSE
+      val[rownum] := newvalue;
+  }
+  ELSE IF(TypeID(val) = TypeID(RECORD))
+    val := CellUpdate(val, refptr[1], newvalue);
+  ELSE
+    val := newvalue;
+
+  RETURN CellUpdate(fromrecord, refptr[0], val);
+}
+
+RECORD FUNCTION DeepSetXSON(RECORD fromrecord, STRING ARRAY refptr, VARIANT newvalue)
+{
+  RETURN DeepSetJSON(fromrecord, refptr, newvalue);
+}
+
+RECORD FUNCTION DeepSetJSON(RECORD fromrecord, STRING ARRAY refptr, VARIANT newvalue)
+{
+  IF(NOT CellExists(fromrecord, refptr[0]))
+    THROW NEW Exception("Cannot find '" ||refptr[0] || "'");
+
+  VARIANT val := GetCell(fromrecord, refptr[0]);
+
+  IF(IsTypeidArray(TypeId(val)))
+  {
+    INTEGER rownum := ToInteger(refptr[1],-1);
+    IF(rownum < 0 OR rownum >= Length(val))
+      THROW NEW Exception("No row #" || rownum);
+
+    IF(Length(refptr)>2)
+      val[rownum] := DeepSetJSON(val[rownum], ArraySlice(refptr,2), newvalue);
+    ELSE
+      val[rownum] := newvalue;
+  }
+  ELSE IF(TypeID(val) = TypeID(RECORD))
+    val := CellUpdate(val, refptr[1], newvalue);
+  ELSE
+    val := newvalue;
+
+  RETURN CellUpdate(fromrecord, refptr[0], val);
+}
+
+
+PUBLIC OBJECTTYPE CTypeFieldEdit EXTEND TolliumScreenbase
+<
+  OBJECT whfstype;
+  OBJECT datafield;
+  INTEGER fieldtype;
+  INTEGER objid;
+  STRING fieldname;
+
+  MACRO Init(RECORD data)
+  {
+    this->whfstype := data.whfstype;
+    this->objid := data.fsobj;
+    this->fieldname := ToLowercase(data.rowkey);
+    this->fieldtype := data.fieldtype;
+
+    SWITCH(this->fieldtype)
+    {
+      CASE 1,2//string
+      {
+        this->datafield := this->CreateTolliumComponent("textarea");
+        this->datafield->height := "1pr";
+      }
+      CASE 4 //datetime
+      {
+        DATETIME value := DeepGet(this->whfstype->GetInstanceData(this->objid, [ orphans := TRUE ]), Tokenize(this->fieldname,'.'));
+        this->datafield := this->CreateTolliumComponent("datetime");
+        IF (value != DEFAULT DATETIME AND GetDayCount(value) = 0)
+          this->datafield->type := "time";
+        this->datafield->precision := "milliseconds";
+      }
+      CASE 5 //file
+      {
+        this->datafield := this->CreateTolliumComponent("fileedit");
+      }
+      CASE 6 //boolean
+      {
+        this->datafield := this->CreateTolliumComponent("select");
+        this->datafield->type := "radio";
+        this->datafield->options := [ [ rowkey := TRUE, title := "true" ]
+                                    , [ rowkey := FALSE, title := "false" ]
+                                    ];
+      }
+      CASE 7 //integer
+      {
+        this->datafield := this->CreateTolliumComponent("textedit");
+        this->datafield->valuetype := "integer";
+      }
+      CASE 11 //whfsref
+      {
+        this->datafield := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components","browseforobject");
+        this->datafield->acceptunpublished := TRUE;
+      }
+      CASE 16 //intextlink
+      {
+        this->datafield := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components","intextlink");
+      }
+      DEFAULT
+      {
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+    }
+
+    this->datafield->title := this->fieldname;
+    this->datafield->value := DeepGet(this->whfstype->GetInstanceData(this->objid, [ orphans := TRUE ]), Tokenize(this->fieldname,'.'));
+    this->body->InsertComponentBefore(this->datafield, DEFAULT OBJECT, TRUE);
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(NOT work->HasFailed())
+    {
+      RECORD data := this->whfstype->GetInstanceData(this->objid, [ orphans := TRUE ]);
+      STRING ARRAY nametoks := Tokenize(this->fieldname,'.');
+      data := DeepSet(data, nametoks, this->datafield->value);
+      this->whfstype->SetInstanceData( this->objid
+                                     , CellInsert(DEFAULT RECORD, nametoks[0], GetCell(data,nametoks[0]))
+                                     , [ orphans := TRUE ]
+                                     );
+    }
+    RETURN work->Finish();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE StringFieldPreview EXTEND TolliumScreenbase
+<
+  MACRO Init(RECORD data)
+  {
+    SWITCH (data.type)
+    {
+      CASE "string"
+      {
+        this->datafield->value := data.original;
+      }
+      CASE "blob"
+      {
+        BLOB fielddata;
+        IF (TypeID(data.original) = TypeID(BLOB))
+          fielddata := data.original;
+        ELSE IF (TypeID(data.original) = TypeID(RECORD) AND RecordExists(data.original))
+          fielddata := data.original.data;
+
+        this->datafield->value := BlobToString(fielddata, 65536);
+      }
+      DEFAULT
+      {
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+    }
+    this->field->value := data.name;
+  }
+>;

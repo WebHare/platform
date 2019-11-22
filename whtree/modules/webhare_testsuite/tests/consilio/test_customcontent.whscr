@@ -1,0 +1,596 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::consilio/lib/catalog.whlib";
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/editorsupport.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+
+
+INTEGER indexid;
+INTEGER contentsource;
+
+OBJECT search_obj;
+
+RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ extrafields :=    DEFAULT RECORD
+      , storequery :=     FALSE
+      ], options);
+
+  search_obj->empty_result_record :=
+      [ groupid :=        ""
+      , objectid :=       ""
+      , date_indexdate := DEFAULT DATETIME
+      , ...options.extrafields
+      ];
+  search_obj->save_searches := options.storequery;
+
+  RECORD query := CQMatch("contentsource", "=", contentsource);
+  IF (searchquery != "")
+    query := CQAnd([ query, CQParseUserQuery(searchquery) ]);
+  RECORD res := search_obj->SearchQuery(query, 0, 1000);
+  RETURN
+      SELECT groupid
+           , objectid
+           , indexdate :=     date_indexdate
+           , ...MakeReplacedRecord(options.extrafields, results)
+        FROM res.results
+    ORDER BY groupid, objectid;
+}
+
+// Wait for command completion, then require that index & db are fully synced
+MACRO TestCompleteSyncAfterCommand()
+{
+  testfw->WaitQueueEmpty();
+  TestEQ((SELECT groupid, objectid, indexdate FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid), SearchAll(""));
+}
+
+MACRO TestCustomContent()
+{
+  testfw->StartTrans("sysop", TRUE);
+
+  search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+  RECORD res;
+
+  // Prefix for object/group ids, just to stress the itf
+  STRING idprefix := "\n\r\t()[]{}^$+-%!\"";//" \n\r\t()[]{}^$+-%!\"";
+
+  testfw->BeginWork();
+
+  // Clear the current contents
+  DELETE FROM webhare_testsuite.consilio_index;
+
+  indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
+  contentsource := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
+      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
+      , maxgroupobjects :=      1000
+      , discardsummaries :=     TRUE
+      ]);
+
+  TestThrows(PTR AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
+      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
+      , maxgroupobjects :=      1000
+      , discardsummaries :=     TRUE
+      ]));
+
+  testfw->CommitWork();
+
+  // Clear the index
+  CheckConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  TestEQ(0, LENGTH(SearchAll("")));
+
+  testfw->BeginWork();
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, adate, text)
+      VALUES(idprefix||"a", idprefix||"a1", MakeDate(1970, 1, 10), MakeDate(2010, 1, 1), "a a1");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, adate, text)
+      VALUES(idprefix||"a", idprefix||"a2", MakeDate(1970, 1, 10), MakeDate(2011, 1, 1), "a a2");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"b", idprefix||"b1", MakeDate(1970, 1, 10), "b b1");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"c", idprefix||"c1", MakeDate(1970, 1, 10), "c c1");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"c", idprefix||"c2", MakeDate(1970, 1, 10), "c c2");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"c", idprefix||"c3", MakeDate(1970, 1, 10), "c c3");
+  testfw->CommitWork();
+
+  // Rebuild the index
+  CheckConsilioIndex(indexid);
+
+  TestCompleteSyncAfterCommand();
+
+  // Test stored user queries
+  TestEq(0, Length(SELECT FROM consilio.query_results WHERE COLUMN indexid = VAR indexid));
+  RECORD ARRAY results := SearchAll("a", [ storequery := TRUE ]);
+  TestEQ((SELECT groupid, objectid, indexdate FROM webhare_testsuite.consilio_index WHERE groupid = idprefix||"a" ORDER BY groupid, objectid), results);
+  RECORD ARRAY queries := SELECT * FROM consilio.query_results WHERE COLUMN indexid = VAR indexid;
+  TestEq(1, Length(queries));
+  TestEq("a", queries[0].query);
+  TestEq(2, queries[0].results);
+  TestEq(TRUE, queries[0].sess != "");
+
+  // Test content source id in custom content source object
+  res := search_obj->Search("+indexed_by:"||contentsource, 0, 1000);
+  TestEQ(6, res.totalcount);
+
+  // Test date range search
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:["||DateTimeToString(MakeDate(2010,1,1))||",}", 0, 1000);
+  TestEQ(2, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
+
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{"||DateTimeToString(MakeDate(2010,1,1))||",}", 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
+
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
+
+  // Test date match queries
+  // Date match queries aren't fully supported by Consilio, so they're rewritten as date range filters. As a result, you
+  // cannot just search for a date, so the query must include a non-date query.
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource), CQMatch("adate", ">=", MakeDate(2010,1,1)) ]), 0, 1000);
+  TestEQ(2, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
+
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource), CQMatch("adate", ">", MakeDate(2010,1,1)) ]), 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
+
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource), CQMatch("adate", "<=", MakeDate(2010,1,1)) ]), 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
+
+
+  // Test result fields
+  search_obj->ResetEmptyResultRecord(); // By default all known fields are returned, in this case "initialfilter" and
+                                        // "date_adate", supplemented with the default fields "groupid" and "objectid"
+                                        // Also, if summary_length > 0 (which it is by default), a "_summary" is returned
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  TestEq(
+      [ groupid := idprefix||"a"
+      , objectid := idprefix||"a1"
+      , initialfilter := "obj://" || idprefix||"a" || "/" || idprefix||"a1"
+      , date_adate := MakeDate(2010, 1, 1)
+      , summary := ""
+      ], res.results[0]);
+
+  search_obj->summary_length := 0; // Don't return "summary"
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  TestEq(
+      [ groupid := idprefix||"a"
+      , objectid := idprefix||"a1"
+      , initialfilter := "obj://" || idprefix||"a" || "/" || idprefix||"a1"
+      , date_adate := MakeDate(2010, 1, 1)
+      ], res.results[0]);
+
+  search_obj->empty_result_record :=
+      DEFAULT RECORD; // By default "groupid" and "objectid" are returned
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  TestEq(
+      [ groupid := idprefix||"a"
+      , objectid := idprefix||"a1"
+      ], res.results[0]);
+
+  search_obj->empty_result_record :=
+      [ _score := 0f // Generated field "_score"
+      ];
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  TestEq(
+      [ groupid := idprefix||"a"
+      , objectid := idprefix||"a1"
+      , _score := 1f
+      ], res.results[0]);
+
+  search_obj->empty_result_record :=
+      [ score := 0f // If "score" is requested and "_score" is not, the "_score" field is returned as "score"
+      ];
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  TestEq(
+      [ groupid := idprefix||"a"
+      , objectid := idprefix||"a1"
+      , score := 1f
+      ], res.results[0]);
+
+  search_obj->empty_result_record :=
+      [ date_adate := DEFAULT DATETIME // Return custom field "date_adate"
+      ];
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  TestEq(
+      [ groupid := idprefix||"a"
+      , objectid := idprefix||"a1"
+      , date_adate := MakeDate(2010, 1, 1)
+      ], res.results[0]);
+
+  search_obj->empty_result_record :=
+      [ nonexisting := "doesn't exist" // Undefined field is filled with default value
+      ];
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  TestEq(
+      [ groupid := idprefix||"a"
+      , objectid := idprefix||"a1"
+      , nonexisting := ""
+      ], res.results[0]);
+
+  //Find nothing
+  res := RunConsilioSearch(testfw->GetCatalogName_1(), DEFAULT RECORD);
+  TestEq(0,Length(res.results));
+
+  res := RunConsilioSearch(testfw->GetCatalogName_1(), CQAll());
+  TestEq(6,Length(res.results));
+
+  res := RunConsilioSearch(testfw->GetCatalogName_1(), CQParseUserQuery(""));
+  TestEq(0,Length(res.results));
+
+  // Rebuild testing update object, delete object, delete group, keep group, add group/object
+  testfw->BeginWork();
+  UPDATE webhare_testsuite.consilio_index
+     SET indexdate := MakeDate(1970, 1, 11)
+   WHERE objectid = idprefix||"a1";
+  DELETE FROM webhare_testsuite.consilio_index WHERE objectid = idprefix||"a2";
+  DELETE FROM webhare_testsuite.consilio_index WHERE groupid = idprefix||"b";
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate)
+      VALUES(idprefix||"d", idprefix||"d1", MakeDate(1970, 1, 10));
+  testfw->CommitWork();
+
+  CheckConsilioIndex(indexid);
+
+  TestCompleteSyncAfterCommand();
+
+  // check a single group
+  testfw->BeginWork();
+  UPDATE webhare_testsuite.consilio_index
+     SET indexdate := MakeDate(1970, 1, 10)
+   WHERE objectid = idprefix||"a1";
+  testfw->CommitWork();
+
+  CheckConsilioGroup(contentsource, idprefix||"a");
+
+  TestCompleteSyncAfterCommand();
+
+  // check a single object
+  testfw->BeginWork();
+  UPDATE webhare_testsuite.consilio_index
+     SET indexdate := MakeDate(1970, 1, 11)
+   WHERE objectid = idprefix||"a1";
+  testfw->CommitWork();
+
+  CheckConsilioObject(contentsource, idprefix||"a", idprefix||"a1");
+
+  TestCompleteSyncAfterCommand();
+
+  // delete a single group & object, check new object & group
+  testfw->BeginWork();
+  DELETE FROM webhare_testsuite.consilio_index
+   WHERE objectid = idprefix||"a1";
+  DELETE FROM webhare_testsuite.consilio_index
+   WHERE objectid = idprefix||"d1";
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate)
+      VALUES(idprefix||"e", idprefix||"e1", MakeDate(1970, 1, 10));
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate)
+      VALUES(idprefix||"f", idprefix||"f1", MakeDate(1970, 1, 10));
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, spiderfrom)
+      VALUES(idprefix||"f", idprefix||"f2", MakeDate(1970, 1, 10), (SELECT AS INTEGER id FROM webhare_testsuite.consilio_index WHERE objectid = idprefix||"f1"));
+  testfw->CommitWork();
+
+  DeleteConsilioGroup(indexid, idprefix||"a");
+  DeleteConsilioObject(indexid, idprefix||"d1");
+  CheckConsilioGroup(contentsource, idprefix||"e");
+  CheckConsilioObject(contentsource, idprefix||"f", idprefix||"f1"); // Must spider to f2
+
+  TestCompleteSyncAfterCommand();
+
+  // Updates
+  testfw->BeginWork();
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate)
+      VALUES(idprefix||"a", idprefix||"a1", MakeDate(1970, 1, 10));
+  UPDATE webhare_testsuite.consilio_index
+     SET indexdate :=                   MakeDate(1970, 1, 11)
+       , objectrequiredindexdate :=     MakeDate(1970, 1, 10)
+       , grouprequiredindexdate :=      MakeDate(1970, 1, 12)
+   WHERE objectid = idprefix||"c1";
+  UPDATE webhare_testsuite.consilio_index
+     SET indexdate :=                   MakeDate(1970, 1, 11)
+       , objectrequiredindexdate :=     MakeDate(1970, 1, 12)
+       , grouprequiredindexdate :=      MakeDate(1970, 1, 10)
+   WHERE objectid = idprefix||"c2";
+  UPDATE webhare_testsuite.consilio_index
+     SET indexdate :=                   MakeDate(1970, 1, 11)
+       , objectrequiredindexdate :=     MakeDate(1970, 1, 12)
+       , grouprequiredindexdate :=      MakeDate(1970, 1, 12)
+   WHERE objectid = idprefix||"c3";
+  DELETE FROM webhare_testsuite.consilio_index
+   WHERE objectid = idprefix||"e1";
+
+  testfw->CommitWork();
+
+  UpdateConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+  TestEQ(
+      [ [ groupid := idprefix||"a",   objectid := idprefix||"a1",     indexdate := MakeDate(1970, 1, 10) ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c1",     indexdate := MakeDate(1970, 1, 10) ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c2",     indexdate := MakeDate(1970, 1, 10) ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c3",     indexdate := MakeDate(1970, 1, 11) ]
+      , [ groupid := idprefix||"f",   objectid := idprefix||"f1",     indexdate := MakeDate(1970, 1, 10) ]
+      , [ groupid := idprefix||"f",   objectid := idprefix||"f2",     indexdate := MakeDate(1970, 1, 10) ]
+      ], SearchAll(""));
+
+  // Prepare for data in list tests
+  testfw->BeginWork();
+  DELETE FROM webhare_testsuite.consilio_index;
+
+  {
+    INTEGER b1_id := MakeAutonumber(webhare_testsuite.consilio_index, "id");
+    FOREVERY (RECORD rec FROM
+        [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          indexdate := MakeDate(1970, 1, 10) ]
+        , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata",          indexdate := MakeDate(1970, 1, 11), id := b1_id ]
+        , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata",          indexdate := MakeDate(1970, 1, 12), spiderfrom := b1_id ]
+        , [ groupid := idprefix||"b",   objectid := idprefix||"b3",                   indexdate := MakeDate(1970, 1, 13), spiderfrom := b1_id ]
+        , [ groupid := idprefix||"c",   objectid := idprefix||"c1",                   indexdate := MakeDate(1970, 1, 14) ]
+        , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", indexdate := MakeDate(1970, 1, 15) ]
+        ])
+    {
+      INSERT rec INTO webhare_testsuite.consilio_index;
+    }
+  }
+  testfw->CommitWork();
+
+  UpdateConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  TestEQ(
+      [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          indexdate := MakeDate(1970, 1, 10), datafrom := "list" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata",          indexdate := MakeDate(1970, 1, 11), datafrom := "list" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata",          indexdate := MakeDate(1970, 1, 12), datafrom := "fetch-list" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b3",                   indexdate := MakeDate(1970, 1, 13), datafrom := "fetch" ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c1",                   indexdate := MakeDate(1970, 1, 14), datafrom := "fetch" ]
+      , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", indexdate := MakeDate(1970, 1, 15), datafrom := "list" ]
+      ], SearchAll("", [ extrafields := [ datafrom := "" ] ]));
+
+  CheckConsilioObject(contentsource, idprefix||"a", idprefix||"a1_withdata");
+  CheckConsilioObject(contentsource, idprefix||"b", idprefix||"b2_withdata");
+  CheckConsilioObject(contentsource, idprefix||"d", idprefix||"d1_withdata_fromlist");
+  testfw->WaitQueueEmpty();
+
+  TestEQ(
+      [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          indexdate := MakeDate(1970, 1, 10), datafrom := "fetch" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata",          indexdate := MakeDate(1970, 1, 11), datafrom := "list" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata",          indexdate := MakeDate(1970, 1, 12), datafrom := "fetch" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b3",                   indexdate := MakeDate(1970, 1, 13), datafrom := "fetch" ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c1",                   indexdate := MakeDate(1970, 1, 14), datafrom := "fetch" ]
+      , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", indexdate := MakeDate(1970, 1, 15), datafrom := "fetchfromlist-list" ]
+      ], SearchAll("", [ extrafields := [ datafrom := "" ] ]));
+
+  // Clear for error tests
+  testfw->BeginWork();
+  DELETE FROM webhare_testsuite.consilio_index;
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"b", idprefix||"b1", MakeDate(1970, 1, 10), "");
+  testfw->CommitWork();
+
+  UpdateConsilioIndex(indexid);
+  TestCompleteSyncAfterCommand();
+
+  // Throw in fetchobject; old content must remain & error must be reported
+  DATETIME starttest := GetCurrentDatetime();
+
+  testfw->BeginWork();
+  UPDATE webhare_testsuite.consilio_index
+     SET indexdate := MakeDate(1970, 1, 11)
+       , text:=       "THROW";
+  testfw->CommitWork();
+
+  __ConsilioClearErrors(contentsource);
+  UpdateConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  RECORD ARRAY relevanterrors;
+  relevanterrors := SELECT * FROM GetLastNoticeErrors() WHERE channel='ERROR' AND when >= starttest;
+  relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource;
+  TestEq(1,Length(relevanterrors), "Cannot find my error - may also imply a backwards-incompatible notice.log error format change!");
+  TestEq("Exception: THROWN", relevanterrors[0].data.errors[0].message);
+  TestEQ(
+      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1",     indexdate := MakeDate(1970, 1, 10) ]
+      ], SearchAll(""));
+
+  // Abort in fetchobject; old content must remain & error must be reported
+  starttest := GetCurrentDatetime();
+  testfw->BeginWork();
+  UPDATE webhare_testsuite.consilio_index
+     SET indexdate := MakeDate(1970, 1, 11)
+       , text:=       "ABORT";
+  testfw->CommitWork();
+
+  __ConsilioClearErrors(contentsource);
+  UpdateConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  relevanterrors := SELECT * FROM GetLastNoticeErrors() WHERE channel='ERROR' AND when >= starttest;
+  relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource;
+  TestEq(1,Length(relevanterrors));
+  TestEq("Custom error message: 'ABORT'.", relevanterrors[0].data.errors[0].message);
+  TestEQ(
+      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1",     indexdate := MakeDate(1970, 1, 10) ]
+      ], SearchAll(""));
+
+  // Abort in fetchobject; old content must remain & error must be reported
+  starttest := GetCurrentDatetime();
+  testfw->BeginWork();
+  UPDATE webhare_testsuite.consilio_index
+     SET indexdate := MakeDate(1970, 1, 11)
+       , text:=       "CRASH";
+  testfw->CommitWork();
+
+  __ConsilioClearErrors(contentsource);
+  UpdateConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  TestEQ(TRUE, (SELECT AS STRING what FROM __ConsilioGetErrors().errors WHERE COLUMN contentsourceid = VAR contentsource) LIKE "*process exited with exit code 1*");
+  TestEQ(
+      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1",     indexdate := MakeDate(1970, 1, 10) ]
+      ], SearchAll(""));
+
+  testfw->BeginWork();
+  UPDATE webhare_testsuite.consilio_index
+     SET indexdate := MakeDate(1970, 1, 11)
+       , text:=       "";
+  testfw->CommitWork();
+
+  __ConsilioClearErrors(contentsource);
+  WaitForPromise(CheckConsilioGroupSynchronously("BETA_CUSTOMSOURCE", idprefix||"b"));
+
+  TestEQ(
+      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1",     indexdate := MakeDate(1970, 1, 11) ]
+      ], SearchAll(""));
+
+
+  // Prepare for field existence query tests
+  testfw->BeginWork();
+  DELETE FROM webhare_testsuite.consilio_index;
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, adate)
+      VALUES(idprefix||"a", idprefix||"a1", MakeDate(1970, 1, 10), MakeDate(2010, 1, 1));
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, adate, text)
+      VALUES(idprefix||"b", idprefix||"b1", MakeDate(1970, 1, 10), MakeDate(2010, 2, 2), "b b1");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"c", idprefix||"c1", MakeDate(1970, 1, 10), "c c1");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate)
+      VALUES(idprefix||"d", idprefix||"d1", MakeDate(1970, 1, 10));
+  testfw->CommitWork();
+
+  UpdateConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  TestEQ(
+      [ [ groupid := idprefix||"a", objectid := idprefix||"a1", indexdate := MakeDate(1970, 1, 10), date_adate := MakeDate(2010, 1, 1) ]
+      , [ groupid := idprefix||"b", objectid := idprefix||"b1", indexdate := MakeDate(1970, 1, 10), date_adate := MakeDate(2010, 2, 2) ]
+      , [ groupid := idprefix||"c", objectid := idprefix||"c1", indexdate := MakeDate(1970, 1, 10), date_adate := DEFAULT DATETIME ]
+      , [ groupid := idprefix||"d", objectid := idprefix||"d1", indexdate := MakeDate(1970, 1, 10), date_adate := DEFAULT DATETIME ]
+      ], SearchAll("", [ extrafields := [ date_adate := DEFAULT DATETIME ] ]));
+
+  // Test exists queries
+  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:*", 0, 1000);
+  TestEQ(2, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
+
+  res := search_obj->Search("+contentsource:"||contentsource||" +body:*", 0, 1000);
+  TestEQ(2, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
+
+  // Because there is no dedicated exists query in Consilio, these are being rewritten to range filters, which are always
+  // applied after searching, so "+(body:* date_adate:*)" is effectively interpreted as "+body:* +date_adate:*"
+  //TODO: When switching to Elasticsearch, which does have an exists query, this should return a1, b1 and c1
+  res := search_obj->Search("+contentsource:"||contentsource||" +(body:* date_adate:*)", 0, 1000);
+  TestEQ(1, res.totalcount);
+  //TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
+  //TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
+
+  res := search_obj->Search("+contentsource:"||contentsource||" +body:* +date_adate:*", 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
+
+  // Because there is no dedicated exists query in Consilio, these are being rewritten to range filters, which cannot be
+  // negated and are always applied after searching, so "-body:*" is effectively interpreted as "+body:*"
+  //TODO: When switching to Elasticsearch, which does have an exists query, this should return a1 and d1
+  res := search_obj->Search("+contentsource:"||contentsource||" -body:*", 0, 1000);
+  TestEQ(2, res.totalcount);
+  //TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
+  //TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"d1"));
+
+  res := RunConsilioSearch(testfw->GetCatalogName_1(), CQAnd([ CQMatch("contentsource", "=", contentsource), CQHas("date_adate") ]));
+  TestEQ(2, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
+
+  // Prepare for non-ASCII query tests
+  testfw->BeginWork();
+  DELETE FROM webhare_testsuite.consilio_index;
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, adate, text)
+      VALUES(idprefix||"a", idprefix||"a1", MakeDate(1970, 1, 10), MakeDate(2010, 1, 1), "å1 🍻");
+  testfw->CommitWork();
+
+  UpdateConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+__indexmanager_debugall := true;
+  res := search_obj->Search("+body:a1", 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+  res := search_obj->Search("+body:å1", 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+  res := search_obj->Search("+body:\"å1\"", 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+  res := search_obj->SearchQuery(CQMatch("body", "CONTAINS", "a1"), 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+  res := search_obj->SearchQuery(CQMatch("body", "CONTAINS", "å1"), 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+  res := search_obj->SearchQuery(CQMatch("body", "=", "a1"), 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+  res := search_obj->SearchQuery(CQMatch("body", "=", "å1"), 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+  res := search_obj->SearchQuery(CQMatch("body", "=", "å1\"\r\n€"), 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+/* Not working (yet?)
+  res := search_obj->SearchQuery(CQMatch("body", "=", "🍻"), 0, 1000);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+  res := search_obj->SearchQuery(CQMatch("body", "=", "🍺"), 0, 1000);
+  TestEQ(0, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+*/
+
+  testfw->BeginWork();
+  DELETE FROM webhare_testsuite.consilio_index;
+  testfw->CommitWork();
+
+  UpdateConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  testfw->EndTrans();
+}
+
+RunTestframework(
+    [ PTR TestCustomContent ],
+    [ consilio := TRUE
+    , testusers :=
+        [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
+        ]
+    ]);

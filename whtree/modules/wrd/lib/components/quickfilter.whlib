@@ -1,0 +1,188 @@
+﻿<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
+
+PUBLIC OBJECTTYPE QuickFilter EXTEND TolliumFragmentBase
+<
+  OBJECT pvt_type;
+  RECORD ARRAY pvt_searchattributes;
+  PUBLIC MACRO PTR onsearch;
+  PUBLIC PROPERTY wrdtype(pvt_type, SetWRDType);
+  PUBLIC PROPERTY searchattributes(pvt_searchattributes, SetSearchAttributes);
+
+  /// Current type of free search value box, init to 0
+  INTEGER lastfreetype;
+
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->onsearch := def.onsearch;
+  }
+
+  MACRO SetWRDType(OBJECT type)
+  {
+    this->pvt_type := type;
+    this->SetupAttributeSelection();
+  }
+
+  MACRO SetSearchAttributes(RECORD ARRAY searchattributes)
+  {
+    this->pvt_searchattributes :=
+        SELECT TEMPORARY isdivider := CellExists(searchattributes, "ISDIVIDER") AND searchattributes.isdivider
+             , *
+             , isdivider :=   isdivider
+             , tag :=         isdivider ? "" : tag
+             , title :=       (CellExists(searchattributes, "TITLE") ? title : "")
+             , autowildcards := CellExists(searchattributes, "AUTOWILDCARDS") ? autowildcards : FALSE
+          FROM searchattributes;
+    IF (ObjectExists(this->pvt_type))
+      this->SetupAttributeSelection();
+  }
+
+  MACRO SetupAttributeSelection()
+  {
+    STRING lastattr := this->owner->tolliumuser->GetRegistryKey(GetSchemaBaseKey(this->wrdtype->wrdschema) || RegSafeName(this->wrdtype->tag) || ".lastattr", "");
+
+    // FIXME: Searching through SINGLEDOMAIN / MULTIPLEDOMAIN isn't possible yet
+    RECORD ARRAY attrs := SELECT rowkey := ToUppercase(tag)
+                               , title := title ?? ToUppercase(tag)
+                               , attributetype
+                               , attrinfo := attrinfo
+                               , autowildcards := FALSE
+                            FROM this->wrdtype->ListAttributes(0) AS attrinfo
+                           WHERE attributetype IN [ 2, 4, 5, 6, 11, 12, 15, 18, 21, 23 ] OR tag="WRD_GUID"
+                        ORDER BY tag="WRD_ID" DESC, NormalizeText(title ?? ToUppercase(tag), this->owner->tolliumuser->language);
+
+    IF(this->wrdtype->tag="WRD_RELATION")
+      DELETE FROM attrs WHERE rowkey = "WRD_TITLE"; //will never be searchable
+
+    IF (LENGTH(this->pvt_searchattributes) != 0)
+    {
+      attrs := SELECT * FROM attrs ORDER BY rowkey;
+      RECORD ARRAY newattrs;
+
+      FOREVERY (RECORD rec FROM this->pvt_searchattributes)
+      {
+        IF (rec.isdivider)
+          INSERT rec INTO newattrs AT END;
+        ELSE
+        {
+          RECORD pos := RecordLowerBound(attrs, [ rowkey := ToUppercase(rec.tag) ], [ "ROWKEY" ]);
+          IF (NOT pos.found)
+          {
+            IF (RecordExists(SELECT FROM this->wrdtype->ListAttributes(0) WHERE tag = rec.tag))
+              THROW NEW Exception("Tag '" || rec.tag || "' is of a type which isn't supported by the quickfilter.");
+            ELSE
+              THROW NEW Exception("No such attribute with tag '" || rec.tag || "' in type " || this->wrdtype->title);
+          }
+          // Apply title override if present
+          RECORD attr := attrs[pos.position];
+          attr.title := rec.title ?? attr.title;
+          attr.autowildcards := rec.autowildcards;
+
+          INSERT attr INTO newattrs AT END;
+        }
+      }
+
+      attrs := newattrs;
+    }
+
+    STRING ARRAY tags := SELECT AS STRING ARRAY rowkey FROM attrs WHERE NOT CellExists(attrs, "ISDIVIDER");
+
+    IF (LENGTH(tags) = 0)
+      THROW NEW Exception("No attributes selected for filter on WRD type '" || this->pvt_type->title || "' (" || this->pvt_type->tag || ")");
+
+    IF(lastattr NOT IN tags) //find a better one..
+      FOREVERY(STRING tryit FROM ["WRD_LASTNAME","WRD_ORGNAME","WRD_TITLE","WRD_ID"])
+        IF(tryit IN tags)
+        {
+          lastattr := tryit;
+          BREAK;
+        }
+
+    IF (lastattr NOT IN tags)
+      lastattr := tags[0];
+
+    this->freeattr->options := attrs;
+    this->freeattr->value := lastattr;
+
+    IF (LENGTH(attrs) = 1)
+      this->freeattr->visible := FALSE;
+  }
+
+  // upon selection of the attribute to search in,
+  // create a search field for it which matches it's valuetype
+  MACRO OnSelectFreeAttr()
+  {
+    IF (NOT RecordExists(this->freeattr->selection))
+      RETURN;
+
+    this->owner->tolliumuser->SetRegistryKey(GetSchemaBaseKey(this->pvt_type->wrdschema) || RegSafeName(this->pvt_type->tag) || ".lastattr", this->freeattr->value);
+
+    INTEGER attrtype := this->freeattr->selection.attributetype;
+
+    IF (this->lastfreetype != attrtype)
+    {
+      this->freevalue->DeleteComponent();
+      SWITCH (attrtype)
+      {
+        CASE 0, 2, 4, 5, 21, 23
+        {
+          this->freevalue := this->CreateSubComponent("textedit");
+        }
+        CASE 6, 11, 12
+        {
+          this->freevalue := this->CreateSubComponent("datetime");
+          this->freevalue->type := attrtype = 6 ? "date" : (attrtype = 11 ? "time" : "datetime");
+        }
+        CASE 15, 18
+        {
+          this->freevalue := this->CreateSubComponent("textedit");
+          this->freevalue->valuetype := attrtype = 18 ? "integer64" : "integer";
+        }
+      }
+      this->freevalue->defaultbutton := this->btn_searchfree;
+      this->freevalue->title := GetTid("wrd:components.quickfilter.freevalue");
+      //this->freevalue->width := "1pr";
+      this->parent->InsertComponentAfter(this->freevalue, this->freeattr, FALSE);
+      this->lastfreetype := attrtype;
+      //FIXME this->frame->flags.can_search_free := TRUE;
+    }
+  }
+
+  MACRO DoSearchFree()
+  {
+    OBJECT feedback := this->owner->BeginUnvalidatedFeedback();
+    this->ValidateValue(feedback);
+    IF(feedback->HasFailed())
+    {
+      feedback->Finish();
+      RETURN;
+    }
+
+    RECORD ARRAY filters;
+    SWITCH (this->lastfreetype)
+    {
+      CASE 2, 4, 5, 21, 23
+      {
+        STRING value := this->freevalue->value;
+        IF (this->freeattr->selection.autowildcards)
+          value := Substitute(Substitute("*" || Substitute(value, " ", "*") || "*", "**", "*"), "**", "*");
+
+        filters := [ [ field := this->freeattr->value, match_type := "LIKE", value := value ] ];
+      }
+      CASE 0, 15, 18, 6, 11, 12
+      {
+        filters := [ [ field := this->freeattr->value, match_type := "=", value := this->freevalue->value ] ];
+      }
+    }
+
+    this->OnSearch(filters);
+  }
+
+>;

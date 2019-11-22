@@ -1,0 +1,1045 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:g="http://www.webhare.net/xmlns/google/components"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/layout.whlib"
+         gid="tests.layout">
+
+  <screen name="layouttest" menubar="menubar" allowresize="true">
+    <actions>
+      <action name="openwizard" onexecute="doopenwizard" title="A01 Open wizard" />
+      <action name="opentabs" onexecute="doopentabs" title="A02 Open tabs" shortcut="ctrl+t" />
+      <action name="opensplit" onexecute="doopensplit" title="A03 Open split" shortcut="ctrl+s" />
+      <action name="openbox" onexecute="doopenbox" title="A04 Open box" />
+      <action name="openform" onexecute="doopenform" title="A05 Open form" />
+      <action name="opentable" onexecute="doopentable" title="A06 Open table" />
+      <action name="opentable2" onexecute="doopentable2" title="A07 Open table2" />
+      <action name="opengrid" onexecute="doopengrid" title="A08 Open grid" />
+      <action name="openmargins" onexecute="doopenmargins" title="A09 Open margins" />
+      <action name="openimage" onexecute="doopenimage" title="A11 Open image" />
+      <action name="openfileedit" onexecute="doopenfileedit" title="A12 Open file edit" />
+      <action name="openlayoutcomponents" onexecute="doopenlayoutcomponents" title="A13 Layout components" />
+      <action name="openboxesingrid" onexecute="doopenboxesingrid" title="A14 Boxes in grid" />
+      <action name="openlayoutcomponents3" onexecute="doopenlayoutcomponents3" title="A15 Layout components" />
+      <action name="openlayoutcomponents4" onexecute="doopenlayoutcomponents4" title="A16 Layout components" />
+      <action name="openlistbuttons" onexecute="doopenlistbuttons" title="A16 List with buttons" />
+      <action name="opentoolbar" onexecute="doopentoolbar" title="A17 Toolbar" />
+      <action name="openlistwidth" onexecute="doopenlistwidth" title="A18 listwidth" />
+      <action name="opendivers" onexecute="doopendivers" title="A19 Rekenfout scrollbars vertical" shortcut="ctrl+e" />
+      <action name="opentabsspace" onexecute="doopentabsspace" title="A20 Open tabsspace" />
+      <action name="openvscroll" onexecute="doopenvscroll" title="A21 Open vscroll" />
+      <action name="gridcolwidth" onexecute="dogridcolwidth" title="A22 gridcolwidth" />
+      <action name="openautosuggest" onexecute="doopenautosuggest" title="A23 Open autosuggest" />
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item title="M01 Actions">
+          <item action="openwizard" />
+          <item action="opentabs" />
+          <item action="opensplit" />
+          <item action="openbox" />
+          <item action="openform" />
+          <item action="opentable" />
+          <item action="opentable2" />
+          <item action="opengrid" />
+          <item action="openmargins" />
+          <item action="openimage" />
+          <item action="openfileedit" />
+          <item action="openlayoutcomponents" />
+          <item action="openboxesingrid" />
+          <item action="openlayoutcomponents3" />
+          <item action="openlayoutcomponents4" />
+          <item action="openlistbuttons" />
+          <item action="opentoolbar" />
+          <item action="openlistwidth" />
+          <item action="opendivers" />
+          <item action="opentabsspace" />
+          <item action="openvscroll" />
+          <item action="gridcolwidth" />
+          <item action="openautosuggest" />
+        </item>
+      </menu>
+    </menus>
+    <body name="body">
+      <text name="longtext" title="Long text" value="Ridiculously long text designed to overflow the 1024px limit, especially with no overflow. Ridiculously long text designed to overflow the 1024px limit, especially with no overflow." />
+    </body>
+  </screen>
+
+  <screen name="layouttest_wizard">
+    <body name="body" spacers="none">
+      <wizard name="wizard" minwidth="480px" minheight="375px">
+        <page name="page1">
+          <textedit name="requiredtextedit" required="true" title="required text edit" />
+        </page>
+        <page name="page2" isfinish="true">
+        </page>
+      </wizard>
+    </body>
+  </screen>
+
+  <screen name="layouttest_tabs" menubar="menubar" title="Layouttest: tabs">
+    <actions>
+      <action name="showappholder" onexecute="doshowappholder" title="A01 Show app holder" />
+      <action name="toggletabnames" onexecute="dotoggletabnames" title="A02 Toggle tab names" />
+      <action name="sync" onexecute="dosync" />
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item title="M01 Actions">
+          <item action="showappholder" />
+          <item action="toggletabnames" />
+        </item>
+      </menu>
+    </menus>
+    <body name="body" spacers="none">
+      <tabs name="servertabs" type="server" onselect="ontabselect" savestate="selectedtab">
+        <tab name="emptytab">
+        </tab>
+        <tab name="appholder">
+          <tabs name="tabs" selectedtab="tab2" onselect="ontabselect">
+            <tab name="tab1" width="400px" height="250px">
+              <box title="selector" name="selector"  hr="false">
+                <select name="typepulldown"
+                        title="Type"
+                        type="pulldown"
+                        flags="showproduct showimagetext">
+                  <option rowkey="P01"
+                          flags="showproduct"
+                          enablecomponents="productsku"
+                          title="P01" />
+                  <option rowkey="P02"
+                          flags="showimagetext"
+                          enablecomponents="type_imagetext_title type_imagetext_button_title type_imagetext_image"
+                          title="P02" />
+                </select>
+              </box>
+              <tabs type="server">
+                <tab title="product" name="product">
+                  <visibleon source="typepulldown" checkflags="showproduct" min="1" />
+                  <box title="Kies een product" hr="false">
+                    <textedit required="true" title="Product" name="productsku"/>
+                  </box>
+                </tab>
+                <tab title="imagetext" name="imagetext">
+                  <visibleon source="typepulldown" checkflags="showimagetext" min="1" />
+                  <textedit title="Titel" name="type_imagetext_title" width="1pr"/>
+                  <box title="Afbeelding" hr="false">
+                    <imageedit required="true"
+                               imagewidth="267px"
+                               imageheight="100px"
+                               errorlabel="Afbeelding"
+                               name="type_imagetext_image"/>
+
+                  </box>
+                  <box title="Knop" hr="false">
+                    <textedit title="Knoptext" name="type_imagetext_button_title" width="1pr"/>
+                    <select name="select_on_servertab" type="pulldown" title="Select-in-servertab">
+                      <option rowkey="s1" title="S1" />
+                      <option rowkey="s2" title="S2" />
+                    </select>
+                  </box>
+                </tab>
+              </tabs>
+            </tab>
+            <tab name="tab2" width="300px" height="350px">
+              <text name="tab1_imagetext_title" title="Tab1 title" />
+              <text name="tab3_texteditstack2" title="Stackedtab2 title" />
+              <button name="syncbutton" action="sync" title="Sync"/>
+            </tab>
+            <tab name="untitledtab" title=""> <!-- shouldn't cause crashes or Weird Effects, and should be reachable -->
+              <text name="untitledtabtext" title="" value="empty tab" />
+            </tab>
+            <tab name="tab3"  width="400px" height="350px">
+              <panel borders="all" height="1pr">
+              <tabs name="stackedtabs" type="stacked" height="1pr" savestate="selectedtab">
+                <tab name="stackedtab0" title="Stacked tab 0" visible="false" /> <!-- invisible initial tab shouldn't confuse <tabs> component -->
+                <tab name="stackedtab1" title="Stacked tab 1">
+                  <textedit name="texteditstack1" title="Textedit stackedtab 1" />
+                </tab>
+                <tab name="stackedtab2" title="Stacked tab 2">
+                  <textedit name="texteditstack2" title="Textedit stackedtab 2" />
+                </tab>
+                <tab name="stackedtab3" title="Stacked tab 3">
+                  <textedit name="texteditstack3" title="Textedit stackedtab 2" />
+                </tab>
+              </tabs>
+              </panel>
+            </tab>
+          </tabs>
+        </tab>
+      </tabs>
+      <text name="selectedtab" title="Selected tab" />
+      <text name="selectedstackedtab" title="Selected stacked tab" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="layouttest_split" implementation="none">
+    <body name="body" width="640px" height="480px" spacers="none">
+      <split name="topsplith1" type="horizontal">
+        <part width="100px" name="split_left">
+          <split name="topsplitv11" type="vertical">
+            <part height="100px" name="split_topleft">
+              <panel height="1pr" backgroundcolor="#ffdddd" name="panel_ffdddd">
+                <text value="ffdddd" />
+              </panel>
+            </part>
+            <part height="100px" name="split_bottomleft">
+              <panel height="1pr" backgroundcolor="#ddffdd" name="panel_ddffdd">
+                <text value="ddffdd" />
+              </panel>
+            </part>
+          </split>
+        </part>
+        <part width="100px" name="split_right">
+          <split name="topsplitv12" type="vertical">
+            <part height="150px" name="split_topright">
+              <panel height="1pr" backgroundcolor="#ffffdd" name="panel_ffffdd">
+                <text value="ffffdd" />
+              </panel>
+            </part>
+            <part height="100px" name="split_bottomright">
+              <panel height="1pr" backgroundcolor="#ddddff" name="panel_ddddff">
+                <text value="ddddff" />
+              </panel>
+            </part>
+          </split>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="layouttest_box" implementation="none">
+    <body name="body">
+      <!-- the box is set to 180x120, so even though inner items try to make it bigger, the box should win -->
+      <box name="box1" checkbox="true" width="180px" height="120px" title="Box 1">
+        <textarea name="textarea1" title="" width="185px" height="125px"/>
+      </box>
+      <!-- the box is set to minimally 180x120, so the contained textarea should be making it bigger -->
+      <box name="box2" checkbox="true" minwidth="180px" minheight="120px" title="Box 2">
+        <textarea name="textarea2" title="" width="185px" height="125px"/>
+      </box>
+      <!-- the box is set to 180x120, but the inner textarea forces a minimumwidth, so eventually this box should be identical to the one above -->
+      <box name="box3" checkbox="true" width="180px" height="120px" title="Box 3">
+        <textarea name="textarea3" title="" minwidth="185px" minheight="125px"/>
+      </box>
+    </body>
+  </screen>
+
+  <screen name="layouttest_form" implementation="none" gid="">
+    <body name="body">
+      <!-- using splits a 'width:auto' trick -->
+      <split type="horizontal" name="layouttest_splitrow1">
+        <part>
+          <panel height="7gr" name="snappedpanel"> <!-- we wrap all these texts in a panel to help with gridline snapping -->
+            <text name="emptytext" /> <!-- should still occupy a lineheight -->
+            <text name="settext" title="label" value="a very long value after an apparently short label" />
+            <text name="longlabel" title="a longer label" value="a shorter value" />
+            <line>
+              <text name="nolabel" value="a text without a label, with margintop, should still h-align"/>
+            </line>
+            <text name="nolabel_wrapped" value="a text without a label, with margintop, should still h-align a text without a label, with margintop, should still h-align" width="1pr" wordwrap="true"/>
+            <text name="nolabel_crs" value="a text without a label, with margintop, should still h-align&#10;a text without a label, with margintop, should still h-align" width="1pr" />
+          </panel>
+        </part>
+        <part width="1pr">
+        </part>
+      </split>
+
+      <split type="horizontal" name="layouttest_splitrow2">
+        <part name="layouttest_splitrow2_part1">
+          <split type="vertical" name="layouttest_splitrow2_vert">
+            <part name="layouttest_splitrow2_vert_part1">
+              <line>
+                <text name="nohmargin_1" value="nohmargin1" />
+                <text name="nohmargin_2" value="nohmargin2" />
+              </line>
+            </part>
+            <part height="1pr" name="layouttest_splitrow2_vert_part2">
+            </part>
+          </split>
+        </part>
+        <part name="layouttest_splitrow2_part2">
+          <line>
+            <text name="withmargin1" value="withmargin1" />
+            <text name="withmargin2" value="withmargin2" />
+          </line>
+        </part>
+        <part width="1pr" name="layouttest_splitrow2_part3">
+        </part>
+      </split>
+
+      <!-- left,right and form layouts without titles should align -->
+      <split type="horizontal" name="layouttest_modes">
+        <part>
+          <line layout="left">
+            <text name="mode_left" value="shouldalign" />
+          </line>
+          <line layout="right">
+            <text name="mode_right" value="shouldalign" />
+          </line>
+          <line layout="form">
+            <text name="mode_form" value="shouldalign" />
+          </line>
+        </part>
+        <part>
+          <line layout="left">
+            <text name="grid_aligntest" value="ce... grid aligntest" />
+          </line>
+          <grid>
+            <col />
+            <col />
+            <col />
+            <row>
+              <cell name="grid_leftcell"><text value="cell"/></cell>
+              <cell name="grid_middlecell"><text value="cell"/></cell>
+              <cell name="grid_rightcell"><text value="cell"/></cell>
+            </row>
+          </grid>
+        </part>
+        <part width="1pr">
+        </part>
+      </split>
+
+      <line layout="left">
+        <text name="ellipsistest" ellipsis="true" value="Ellipsis on a very long value Ellipsis on a very long value Ellipsis on a very long value Ellipsis on a very long value Ellipsis on a very long value Ellipsis on a very long value Ellipsis on a very long value Ellipsis on a very long value Ellipsis on a very long value" />
+      </line>
+
+    </body>
+  </screen>
+
+  <screen name="layouttest_table" implementation="none">
+    <body>
+      <grid name="mygrid">
+        <col />
+        <col />
+        <row>
+          <cell name="cell_left" backgroundcolor="#ffeeee">
+            <text name="text_left" title="" value="this is the left cell" />
+          </cell>
+          <cell name="cell_right" backgroundcolor="#eeffee">
+            <text name="text_right" title="" value="this is the right cell" />
+          </cell>
+        </row>
+        <row>
+          <cell name="cell_middle" colspan="2" backgroundcolor="#ffffee">
+            <text name="text_middle" title="" value="this is the middle cell" />
+          </cell>
+        </row>
+      </grid>
+      <grid name="mylist">
+        <col />
+        <row>
+          <cell name="cell_bottom" backgroundcolor="#eeeeff">
+            <list name="list_bottom" width="250px" minwidth="250px" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+
+  <screen name="layouttest_table2" implementation="none">
+    <body>
+      <box name="showinstudyfinders" tid=".showinstudyfinders" enablecomponents="studyfinders studyfinderimage" checkbox="true">
+        <grid height="1pr">
+          <col width="40x"/>
+          <col/>
+          <row height="1pr">
+            <cell>
+              <select name="studyfinders" type="checkboxlist" height="1pr" width="1pr">
+                <option rowkey="rowkey1" title="option 1" />
+                <option rowkey="rowkey2" title="option 2" />
+                <option rowkey="rowkey3" title="option 3" />
+              </select>
+            </cell>
+            <cell>
+              <text tid=".studyfinderimage"/>
+              <imageedit name="studyfinderimage"/>
+            </cell>
+          </row>
+        </grid>
+      </box>
+    </body>
+  </screen>
+
+
+  <screen name="layouttest_gridlayout" title="Grid Layout">
+    <actions>
+      <action name="toggleprogress" onexecute="dotoggleprogress" title="toggle" />
+    </actions>
+    <compositions>
+      <radiogroup name="radiogroup_1" />
+    </compositions>
+    <body name="body">
+      <line>
+        <text name="text_1_1" value="Text 1" />
+        <button name="button_1_1" title="B1" />
+        <spacer name="spacer_1_1" width="10px" />
+        <buttongroup name="buttongroup_1_1" layout="horizontal">
+          <button name="button_1_2" title="B2" />
+          <button name="button_1_3" title="B3" />
+          <button name="button_1_4" title="B3" />
+        </buttongroup>
+        <spacer name="spacer_1_2" width="10px" />
+        <button name="button_1_5" type="icon" icon="tollium:drinks/beer" />
+        <spacer name="spacer_1_3" width="10px" />
+        <buttongroup layout="horizontal">
+          <button name="button_1_6" type="icon" icon="tollium:drinks/wine" />
+          <button name="button_1_7" type="icon" icon="tollium:drinks/coffee" />
+        </buttongroup>
+        <spacer name="spacer_1_4" width="10px" />
+        <select name="select_1_1" type="pulldown">
+          <option rowkey="s1" title="S1" />
+          <option rowkey="s2" title="S2" />
+        </select>
+      </line>
+      <tabs name="tabs_1" height="1pr">
+        <line>
+          <text name="text_2_1" value="Text 2" />
+          <button name="button_2_1" title="B4" />
+          <spacer name="spacer_2_1" minwidth="10px" />
+          <buttongroup layout="horizontal">
+            <button name="button_2_2" title="B5" />
+            <button name="button_2_3" title="B6" />
+            <button name="button_2_4" title="B6" />
+          </buttongroup>
+          <spacer name="spacer_2_2" width="10px" />
+          <button name="button_2_5" type="icon" icon="tollium:drinks/beer" />
+          <spacer name="spacer_2_3" width="10px" />
+          <buttongroup layout="horizontal">
+            <button name="button_2_6" type="icon" icon="tollium:drinks/wine" />
+            <button name="button_2_7" type="icon" icon="tollium:drinks/coffee" />
+          </buttongroup>
+          <spacer name="spacer_2_4" width="10px" />
+          <select name="select_2_1" type="pulldown">
+            <option rowkey="s3" title="S3" />
+            <option rowkey="s4" title="S4" />
+          </select>
+        </line>
+        <tab name="tab_1" title="Tab 1">
+          <grid>
+            <col width="1pr" />
+            <col width="1pr" />
+            <row>
+              <cell>
+                <box title="Lorem ipsum">
+                  <text title="" value="Dolor sit amet" />
+                </box>
+                <text name="text_3_1" title="" value="Lorem ipsum dolor sit amet" />
+                <text name="text_3_2" title="Lorem ipsum" value="Dolor sit amet" />
+                <text name="text_3_3" title="" value="Lorem ipsum dolor sit amet" />
+                <textedit name="textedit_3_4" title="Dolor sit amet" value="Lorem ipsum" />
+                <line>
+                  <progress name="progress" title="Lorem ipsum" />
+                  <button action="toggleprogress" />
+                </line>
+                <textedit name="textedit_3_6" title="Dolor sit amet" value="Lorem ipsum" required="true" />
+                <textedit name="textedit_3_7" title="Dolor sit amet" value="Lorem ipsum" />
+                <line layout="left">
+                  <checkbox name="checkbox_3_8" label="Lorem ipsum" />
+                </line>
+                <text name="text_3_9" title="Lorem ipsum" value="Dolor sit amet" />
+                <text name="text_3_10" title="" value="Lorem ipsum dolor sit amet" />
+                <line layout="left">
+                  <checkbox name="checkbox_3_11" label="Lorem ipsum" />
+                </line>
+                <line layout="right"><textedit width="1pr" /></line>
+                <textedit name="textedit_3_12" title="Dolor sit amet" value="Lorem ipsum" enabled="false" />
+                <line layout="left">
+                  <radiobutton name="radio_3_13" group="radiogroup_1" label="Dolor sit amet" />
+                </line>
+                <select name="select_3_14" type="checkbox" title="Lorem">
+                  <option rowkey="ipsum" title="Ipsum" selected="true" />
+                  <option rowkey="dolor" title="Dolor" />
+                  <option rowkey="sit" title="Sit" enabled="false" />
+                  <option rowkey="amet" title="Amet" />
+                </select>
+                <text name="text_3_15" title="Lorem ipsum" value="Dolor sit amet" />
+                <select name="select_3_16" type="pulldown" title="Lorem">
+                  <option rowkey="ipsum" title="Ipsum" />
+                  <option rowkey="dolor" title="Dolor" selected="true" />
+                  <option rowkey="sit" title="Sit" enabled="false" />
+                  <option rowkey="amet" title="Amet" />
+                </select>
+                <text name="text_3_17" title="Lorem ipsum" value="Dolor sit amet" />
+                <select name="select_3_18" type="checkbox" title="Lorem">
+                  <option rowkey="ipsum" title="Ipsum" selected="true" />
+                  <option rowkey="dolor" title="Dolor" />
+                </select>
+                <select name="select_3_19" type="radio" title="Lorem">
+                  <option rowkey="sit" title="Sit" enabled="false" selected="true" />
+                  <option rowkey="amet" title="Amet" />
+                </select>
+          <line layout="right"><textedit width="1pr" /></line>
+              </cell>
+              <cell>
+                <text name="text_4_1" title="Lorem ipsum" value="Dolor sit amet" />
+                <line layout="left">
+                  <checkbox name="checkbox_4_2" label="Lorem ipsum" />
+                </line>
+                <text name="text_4_3" title="" value="Lorem ipsum dolor sit amet" />
+                <line>
+                  <text name="text_4_4" title="" value="Lorem ipsum" />
+                  <text name="text_4_5" title="" value="dolor sit amet" />
+                </line>
+                <select name="select_4_6" title="Dolor sit amet" type="pulldown" enabled="false">
+                  <option rowkey="lorem" title="Lorem" />
+                  <option rowkey="ipsum" title="Ipsum" />
+                </select>
+                <text name="text_4_7" title="Lorem ipsum" value="Dolor sit amet" />
+                <textedit name="textedit_4_8" title="Dolor sit amet" value="Lorem ipsum" required="true" />
+                <textarea name="textarea_4_9" title="Dolor sit amet" value="Lorem ipsum" />
+                <line>
+                  <textedit name="textedit_4_10" title="Dolor sit amet" value="Lorem ipsum" width="1pr" />
+                  <textarea name="textarea_4_11" title="Dolor sit amet" value="Lorem ipsum" required="true" width="1pr" />
+                </line>
+          <line layout="left"><textedit width="1pr" /></line>
+                <text name="text_4_12" title="Lorem ipsum" value="Dolor sit amet" />
+                <select name="select_4_13" type="checkbox" title="Lorem">
+                  <option rowkey="ipsum" title="Ipsum" />
+                  <option rowkey="dolor" title="Dolor" />
+                  <option rowkey="sit" title="Sit" enabled="false" selected="true" />
+                  <option rowkey="amet" title="Amet" />
+                </select>
+                <text name="text_4_14" title="Lorem ipsum" value="Dolor sit amet" />
+                <textedit name="textedit_4_15" title="Dolor sit amet" value="Lorem ipsum" required="true" />
+                <textarea name="textarea_4_16" title="Dolor sit amet" value="Lorem ipsum" height="6x" enabled="false" />
+                <text name="text_4_17" title="Lorem ipsum" value="Dolor sit amet" />
+                <textedit name="textedit_4_18" title="Dolor sit amet" value="Lorem ipsum" required="true" />
+          <line layout="left"><textedit width="1pr" /></line>
+              </cell>
+            </row>
+          </grid>
+        </tab>
+      </tabs>
+    </body>
+  </screen>
+
+  <screen name="layouttest_grid">
+    <actions>
+      <action name="buttonaction" onexecute="dobuttonaction" />
+    </actions>
+    <body name="body">
+      <grid>
+        <col width="1pr" />
+        <col width="1pr" />
+        <col width="1pr" />
+        <col width="1pr" />
+        <col width="1pr" />
+        <row>
+          <cell>
+            <textedit name="textedit" width="1pr" title="TE1" />
+            <panel height="2gr" name="stretchareaholder" width="1pr" >
+              <textarea name="stretcharea" height="1pr" /> <!-- test whether area adopts the height from the textarea, and everything still aligns to the grid -->
+            </panel>
+            <text name="bottomlefttext" value="bottomleft text" />
+          </cell>
+          <cell name="middlecell">
+            <textarea name="defaultarea" title="TA2" />
+            <textedit name="textedit4" width="1pr" title="TE4" />
+            <text name="bottommiddletext" value="bottommiddle text" />
+          </cell>
+          <cell name="rightmiddlecell">
+            <textedit name="textedit2" width="1pr" title="TE2" />
+            <textedit name="textedit3" width="1pr" title="TE3" />
+            <select type="pulldown" name="pulldown" title="P1">
+              <option rowkey="opt1" title="Opt1" />
+            </select>
+          </cell>
+          <cell>
+            <text name="texttop" value="top text&#10;yeey" height="2gr" />
+            <button name="button" title="button" action="buttonaction" />
+          </cell>
+          <cell name="righttopcell">
+            <select type="pulldown"
+                    name="sel1"
+                    title=""
+                    >
+              <option rowkey="date_before" title="O1" />
+              <option rowkey="date_onorafter" title="O2" />
+            </select>
+            <date name="date1" errorlabeltid=".datetarget" required="true" title=""/>
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="layouttest_margins">
+    <body name="body">
+       <textedit name="te1" width="1pr" title="TE1" />
+      <line>
+         <textedit name="te2" title="TE2" />
+         <select name="te3" title="SE1" type="pulldown">
+           <option title="O1" rowkey="01"/>
+           <option title="O2" rowkey="02"/>
+           <option title="O3" rowkey="03"/>
+         </select>
+         <button name="bu1" title="BU1" />
+         <button name="bu2" title="BU2" />
+       </line>
+    </body>
+  </screen>
+
+  <screen name="layouttest_image">
+    <body name="body">
+         <image title="IE1" name="imageedit"/>
+      <line>
+         <select name="te3" title="SE1" type="pulldown">
+           <option title="O1" rowkey="01"/>
+           <option title="O2" rowkey="02"/>
+           <option title="O3" rowkey="03"/>
+         </select>
+         <button name="bu1" title="BU1" />
+         <button name="bu2" title="BU2" />
+       </line>
+    </body>
+  </screen>
+
+  <screen name="layouttest_fileedit">
+    <body name="body">
+      <fileedit title="FE1" name="fileedit1"/>
+      <line>
+        <fileedit title="FE2" name="fileedit2"/>
+         <select name="te3" title="SE1" type="pulldown">
+           <option title="O1" rowkey="01"/>
+           <option title="O2" rowkey="02"/>
+           <option title="O3" rowkey="03"/>
+         </select>
+         <button name="bu1" title="BU1" />
+         <button name="bu2" title="BU2" />
+       </line>
+       <grid height="2gr">
+         <col width="2pr"/>
+         <col width="1pr"/>
+         <row height="2gr">
+           <cell backgroundcolor="#FF0000">
+             <image height="2gr" width="2pr"/>
+           </cell>
+           <cell>
+           </cell>
+         </row>
+         <row height="1gr">
+           <cell>
+           </cell>
+           <cell>
+           </cell>
+         </row>
+       </grid>
+       <grid height="3gr">
+         <col width="2pr"/>
+         <col width="1pr"/>
+         <row height="2gr">
+           <cell backgroundcolor="#DDFFDD" rowspan="2">
+             <image height="2gr" width="2pr" value="tollium:messages/warning"/>
+           </cell>
+           <cell backgroundcolor="#DDDDFF">
+             <text value="Boven"/>
+           </cell>
+         </row>
+         <row height="1gr">
+           <cell backgroundcolor="#DDFDFD">
+             <line>
+               <image height="1gr"/>
+               <text value="Onder"/>
+             </line>
+           </cell>
+         </row>
+       </grid>
+       <line>
+         <image height="1gr"/>
+         <text value="Onder"/>
+       </line>
+       <line>
+         <image />
+         <text value="Onder"/>
+       </line>
+       <line>
+         <image height="16px" width="16px"/>
+         <text value="Onder"/>
+       </line>
+       <image title="Image no height"/>
+       <image title="Image 16px" height="16px"/>
+
+    </body>
+  </screen>
+
+  <screen name="layouttest_layoutcomponents">
+    <body name="body">
+      <line>
+        <fileedit title="FE1" name="fileedit1"/>
+        <datetime name="dt1" title="DT1" type="date"/>
+        <datetime name="dt2" title="DT2" type="datetime" precision="minutes"/>
+      </line>
+      <line>
+        <fileedit title="FE2" name="fileedit2"/>
+        <datetime name="dt3" title="DT3" type="date"/>
+        <select name="te3" title="SE1" type="pulldown">
+          <option title="O1" rowkey="01"/>
+          <option title="O2" rowkey="02"/>
+          <option title="O3" rowkey="03"/>
+        </select>
+        <textedit title="TE1"/>
+      </line>
+      <line>
+        <button name="bu1" title="BU1" />
+        <button name="bu2" title="BU2" />
+      </line>
+    </body>
+  </screen>
+
+  <screen name="layouttest_boxesingrid">
+    <body name="body">
+      <grid>
+        <col/>
+        <col/>
+        <row>
+          <cell name="ta1holder">
+            <box title="BOX">
+              <textarea title="" height="1pr" width="1pr" name="TA1" />
+            </box>
+          </cell>
+          <cell>
+          </cell>
+        </row>
+        <row>
+          <cell>
+            <heading title="HEADING"/>
+            <textarea title="" height="1pr" width="1pr" name="TA2" />
+          </cell>
+          <cell>
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="layouttest_layoutcomponents3" allowresize="true">
+    <body name="body">
+      <grid>
+        <col/>
+        <col/>
+        <row>
+          <cell>
+            <textarea title="" height="1pr" width="1pr" value="Lalalala1 lalala2 lalala3 lalala4 lalala5 lalala6 lalala7 lalala8" />
+          </cell>
+          <cell>
+            <textarea title=""  value="Lalalala1 lalala2 lalala3 lalala4 lalala5 lalala6 lalala7 lalala8"/>
+          </cell>
+        </row>
+      </grid>
+      <grid>
+        <col/>
+        <col/>
+        <row>
+          <cell>
+            <heading title="HEADING"/>
+            <textarea title="" height="1pr" width="1pr"/>
+          </cell>
+          <cell>
+          </cell>
+        </row>
+      </grid>
+      <text title="TE" value="Een behoorlijke lange tekst lang lang een hele lange tekst" wordwrap="true"/>
+    </body>
+  </screen>
+
+  <screen name="layouttest_layoutcomponents4" allowresize="true">
+    <body name="body">
+      <grid>
+        <col/>
+        <col/>
+        <row>
+          <cell>
+            <textarea title="TA" height="12gr" value="Lalalala1 lalala2 lalala3 lalala4 lalala5 lalala6 lalala7 lalala8" />
+            <textedit title="TE" />
+          </cell>
+          <cell>
+            <textarea title="TA2"  value="Lalalala1 lalala2 lalala3 lalala4 lalala5 lalala6 lalala7 lalala8"/>
+            <textedit title="TE" />
+          </cell>
+        </row>
+      </grid>
+      <grid>
+        <col/>
+        <col/>
+        <row>
+          <cell>
+            <heading title="HEADING"/>
+            <textarea title="" height="1pr" width="1pr"/>
+          </cell>
+          <cell>
+          </cell>
+        </row>
+      </grid>
+      <text title="TE" value="Een behoorlijke lange tekst lang lang een hele lange tekst" wordwrap="true"/>
+    </body>
+  </screen>
+
+
+  <screen name="layouttest_listbuttons" allowresize="true">
+    <body name="body" spacers="none">
+      <panel backgroundcolor="#f0f0f0" spacers="left right">
+        <line layout="tabs-space">
+          <text/>
+          <button title="Boe"/>
+        </line>
+      </panel>
+      <list height="1pr" width="1pr">
+      </list>
+      <panel backgroundcolor="#f0f0f0" spacers="left right">
+        <line layout="tabs-space">
+          <textedit/>
+        </line>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="layouttest_toolbar" allowresize="true">
+    <actions>
+      <action name="do" onexecute="@notimplemented" title="ACTION"/>
+    </actions>
+    <toolbar>
+      <button name="dobutton" action="do"/>
+      <button name="dobutton2" action="do"/>
+    </toolbar>
+    <body name="body">
+      <line>
+        <checkbox label="checkbox" title="CHECK" />
+        <text title="TITLE" value="VALUE"/>
+      </line>
+      <textedit title="TE"/>
+      <split type="horizontal">
+        <part width="1pr">
+          <tabs>
+            <tab title="Een hele veel langere naam voor deze TAB1">
+            </tab>
+            <tab title="TAB2">
+            </tab>
+            <tab title="TAB3">
+            </tab>
+            <tab title="TAB4">
+            </tab>
+          </tabs>
+        </part>
+        <part width="1pr">
+          <panel height="1gr" borders="none"/>
+          <panel height="1gr" borders="all">
+          </panel>
+          <panel height="1gr" borders="all">
+          </panel>
+          <panel height="1gr" borders="all">
+          </panel>
+          <panel height="1gr" borders="all">
+          </panel>
+          <panel height="1gr" borders="all">
+          </panel>
+          <panel height="1gr" borders="none" backgroundcolor="#FF0000"/>
+        </part>
+        <part width="1pr">
+          <panel height="1gr" borders="all">
+          </panel>
+          <panel height="1gr" borders="none">
+          </panel>
+          <panel height="1gr" borders="none">
+          </panel>
+          <panel height="1gr" borders="none">
+          </panel>
+          <panel height="1gr" borders="none">
+          </panel>
+          <panel height="1gr" borders="none" backgroundcolor="#FF0000"/>
+        </part>
+
+        <part width="1pr">
+          <list height="1pr" columnheaders="true">
+            <column title="COLUMN" type="text" name="col"/>
+          </list>
+          <textedit name="te1" value="" title="TE1"/>
+          <textedit name="te2" value="" title="TE2"/>
+          <textedit name="te3" value="" title="TE3"/>
+          <text name="te4" value="" title="TE4" />
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="layouttest_listwidth" allowresize="true">
+    <actions>
+      <action name="do" onexecute="@notimplemented" title="ACTION"/>
+    </actions>
+    <toolbar>
+      <button name="dobutton" action="do"/>
+      <button name="dobutton2" action="do"/>
+    </toolbar>
+    <body name="body">
+      <panel width="600px">
+        <list height="1pr" columnheaders="true" >
+          <column title="COLUMN 100px" type="text" name="col1" minwidth="100px" width="150px" />
+          <column title="COLUMN 100px" type="text" name="col2" width="150px"/>
+          <column title="COLUMN 100px" type="text" name="col3" width="150px"/>
+          <column title="COLUMN 100px" type="text" name="col4" width="150px"/>
+        </list>
+        <!--list height="1pr" columnheaders="true" width="300px">
+          <column title="COLUMN" type="text" name="col1"/-->
+          <!--column title="COLUMN" type="text" name="col2"/>
+          <column title="COLUMN" type="text" name="col3"/>
+          <column title="COLUMN" type="text" name="col4"/-->
+        <!--/list-->
+      </panel>
+    </body>
+  </screen>
+
+  <!--screen name="layouttest_divers" allowresize="true">
+    <actions>
+      <action name="do" onexecute="@notimplemented" title="ACTION"/>
+    </actions>
+    <toolbar>
+      <button name="dobutton" action="do"/>
+      <button name="dobutton2" action="do"/>
+    </toolbar>
+    <body name="body">
+      <text value="Disable comments to trigger _ error"/>
+      <panel width="300px" gid="what_ever">
+        <text tid=".ennutitle" valuetid="en_nu_gid.enuvalue"/>
+      </panel>
+    </body>
+  </screen-->
+
+ <screen name="layouttest_divers" gid=".update" allowresize="true" savestate="position size" title="" height="347px">
+    <compositions>
+      <record name="newsitem" />
+    </compositions>
+    <body>
+      <box title="347 pixels is niet genoeg maar toch geen balken!" height="1pr">
+        <textedit composition="newsitem" cellname="title" maxlength="250" required="true" minwidth="40x" width="1pr"/>
+        <textarea composition="newsitem" cellname="message" maxlength="4000" minheight="6x" minwidth="40x" width="1pr" height="1pr" required="true" />
+        <datetime composition="newsitem" cellname="creationdate" name="creationdate" type="datetime" storeutc="true" />
+      </box>
+      <box tid=".publishdate" enablecomponents="publish_date_from publish_date_until" checkbox="true" value="false" name="usepublishdate" >
+        <datetime composition="newsitem" type="datetime" cellname="publish_date_from" name="publish_date_from" enabled="false" storeutc="true" />
+        <datetime composition="newsitem" type="datetime" cellname="publish_date_until" name="publish_date_until" enabled="false" storeutc="true" />
+      </box>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+
+  <screen name="layouttest_tabsspace">
+    <body>
+      <split type="vertical">
+        <part>
+          <split type="horizontal">
+            <part width="300px" name="topleftpanel">
+              <line layout="tabs-space">
+                <buttongroup layout="horizontal">
+                  <button name="showpart" icon="tollium:indy.buttonbar/showpart" type="icon" />
+                  <button name="folderup" icon="tollium:actions/levelup" type="icon" />
+                  <button name="folderpath2" icon="tollium:indy.buttonbar/folderpath" type="icon" />
+                </buttongroup>
+                <spacer />
+                <buttongroup layout="horizontal">
+                  <button name="enablesortingbutton" icon="tollium:indy.buttonbar/setordering" type="icon" />
+                  <button name="moveupbutton" icon="tollium:actions/up" type="icon" />
+                  <button name="movedownbutton" icon="tollium:indy.buttonbar/arrowdown" type="icon" />
+                  <button name="filelistmulti" icon="tollium:indy.buttonbar/showmultirow" type="icon" />
+                  <button name="filelistsingle" icon="tollium:indy.buttonbar/showsinglerow" type="icon" />
+                </buttongroup>
+              </line>
+            </part>
+            <part>
+            </part>
+          </split>
+        </part>
+        <part>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="layouttest_vscroll" width="500px">
+    <body name="body">
+      <panel height="50px">
+        <text value="toppanel, no scroll" />
+      </panel>
+      <panel name="scrollpanel" vscroll="true" width="450px" >
+        <panel name="contentpanel" height="1000px" width="400px" backgroundcolor="#ccccff" >
+          <text value="Big sized inner panel, within vscroll panel" />
+          <text value="Should have scroll" />
+        </panel>
+      </panel>
+      <panel height="50px">
+        <text value="footerpanel, no scroll" />
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="layouttest_gridcolwidth" width="500px">
+    <body name="body">
+      <panel height="50px">
+        <text value="grid width=1pr 2 cols without width" />
+      </panel>
+      <panel  backgroundcolor="#0000ff" height="1pr" width="1pr">
+        <grid height="1pr" width="1pr">
+          <col/>
+          <col/>
+          <row>
+            <cell width="1pr">
+              <panel height="1pr" backgroundcolor="#FFFF00" width="1pr">
+                <text value="a"/>
+              </panel>
+            </cell>
+            <cell>
+              <panel height="1pr" backgroundcolor="#FF0000"  width="1pr">
+                <text value="a"/>
+              </panel>
+            </cell>
+          </row>
+        </grid>
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="layouttest_autosuggest" allowresize="true">
+    <body>
+      <!-- we're trying to phase out combobox, but it'll take a while -->
+      <combobox name="legacystatic" title="LegacyStatic">
+        <option title="6" />
+        <option title="7" />
+        <option title="8" />
+        <option title="9" />
+      </combobox>
+      <line>
+        <combobox name="legacydynamic" title="LegacyDynamic"/>
+        <checkbox name="legacyextra" onchange="onlegacyextrachange" label="extra" title=""/>
+      </line>
+      <line>
+        <checkbox name="enablecombo" enablecomponents="combo" value="true" title="Enable combo" />
+        <textedit name="combo" title="COMBO" minimumsuggestlength="0">
+          <option title="I Haz Combo2"/>
+          <option title="Combo1"/>
+        </textedit>
+      </line>
+      <textedit name="combodynamic" title="ComboDynamic">
+        <autosuggest suggestobjectname="../../lib/screens/tests/layout.whlib#dynamicautosuggest" />
+      </textedit>
+      <tagedit name="tagedit" title="TagEdit">
+        <autosuggest suggestobjectname="../../lib/screens/tests/layout.whlib#dynamicautosuggest" />
+      </tagedit>
+      <tagedit name="tageditrestrict" title="TagEditRestrict" onvalidatetags="onvalidatetagrestrict">
+        <autosuggest suggestobjectname="../../lib/screens/tests/layout.whlib#dynamicautosuggest" />
+      </tagedit>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+</screens>
+

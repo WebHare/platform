@@ -1,0 +1,74 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+
+
+RECORD hotfixstate :=
+    [ modules :=      RECORD[]
+    ];
+
+FOREVERY (STRING module FROM GetSortedSet(GetInstalledModulenames()))
+{
+  RECORD rec := CELL
+      [ module
+      , messages :=   STRING[]
+      ];
+
+  STRING path := GetModuleInstallationRoot(module);
+  IF (RecordExists(GetDiskFileProperties(MergePath(path, "history/source.zip"))))
+  {
+    RECORD changes := GetModuleModifiedFiles(path || "/", FALSE);
+    IF (changes.success AND RecordExists(changes.files))
+    {
+      STRING ARRAY limitedfiles := SELECT AS STRING ARRAY COLUMN path FROM changes.files LIMIT 4;
+      INTEGER unnamed := LENGTH(changes.files) - LENGTH(limitedfiles);
+      INSERT `:Module ${module} has hotfixes: ${Detokenize(STRING ARRAY(limitedfiles), ", ")}${unnamed = 0 ? "" : ` and ${unnamed} more`}` INTO rec.messages AT END;
+    }
+  }
+
+  BLOB manifestblob := GetDiskResource(MergePath(path, "history/manifest.xml"), [ allowmissing := TRUE ]);
+  IF (LENGTH(manifestblob) != 0)
+  {
+    OBJECT manifestdoc := MakeXMLDocument(manifestblob);
+    RECORD manifest := ParseModuleManifest(manifestdoc);
+
+    IF (manifest.original_source = "git" AND manifest.source_haslocalremoterevision)
+    {
+      IF (manifest.source_revision != manifest.source_localremoterevision OR manifest.source_revision != manifest.source_remoterevision)
+      {
+        IF (manifest.source_localremoterevision = "")
+        {
+          INSERT `:Module ${module} was deployed without a repository in source control` INTO rec.messages AT END;
+        }
+        ELSE IF (manifest.source_revision != manifest.source_localremoterevision)
+        {
+          // Either uncommitted changes or not rebased yet
+          IF (RecordExists(SELECT FROM manifest.commits WHERE id = manifest.source_localremoterevision))
+          {
+            // Local remote is ancestor of current commit - so current commit just hasn't been pushed yet
+            INSERT `:Module ${module} was deployed while its commit had not been pushed to source control` INTO rec.messages AT END;
+          }
+        }
+      }
+    }
+
+    IF (manifest.has_modifications)
+      INSERT `:Module ${module} had uncommitted changes when it was deployed` INTO rec.messages AT END;
+  }
+
+  IF (LENGTH(rec.messages) != 0)
+    INSERT rec INTO hotfixstate.modules AT END;
+}
+
+IF (LENGTH(hotfixstate.modules) != 0)
+  PRINT(`The following modules have problems: ${Detokenize((SELECT AS STRING ARRAY module FROM hotfixstate.modules), ", ")}\n`);
+
+STRING hotfixfile := GetWebHareConfiguration().ephemeralroot || "hotfixstate.json";
+StoreDiskFile(hotfixfile, EncodeJSONBlob(hotfixstate), [ overwrite := TRUE ]);

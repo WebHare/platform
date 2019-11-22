@@ -1,0 +1,39 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+OpenPrimary();
+
+RECORD ARRAY fssettings := SELECT fs_member
+                                , count := COUNT(*)
+                                , settingsize := SUM(INTEGER64(Length(setting)))
+                                , numblobs := SUM(Length(blobdata)>0?1:0)
+                                , blobsize := SUM(Length64(blobdata))
+                             FROM system.fs_settings
+                         GROUP BY fs_member;
+
+fssettings := SELECT fssettings.*
+                   , fs_members.fs_type
+                   , fs_members.name
+                   , fs_members.orphan
+                FROM fssettings, system.fs_members
+               WHERE fs_members.id = fssettings.fs_member;
+
+RECORD ARRAY fstypes := SELECT id, namespace
+                          FROM system.fs_types
+                         WHERE fs_types.id IN (SELECT AS INTEGER ARRAY DISTINCT fs_type FROM fssettings)
+                      ORDER BY namespace;
+
+FOREVERY(RECORD type FROM fstypes)
+{
+  RECORD ARRAY mymembers := SELECT *
+                              FROM fssettings
+                             WHERE fssettings.fs_type = type.id
+                         ORDER BY ToUppercase(name);
+
+  Print(`${type.namespace} - ${SELECT AS INTEGER SUM(mymembers.count) FROM mymembers} settings - ${SELECT AS INTEGER64 SUM(blobsize+settingsize)/1024/1024 FROM mymembers} MB\n`);
+  //FIXME generate full paths to member names
+  dumpvalue(mymembers,[format:="boxed",name:=""]);
+  Print("\n");
+}

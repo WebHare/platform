@@ -1,0 +1,52 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
+         lib="screens/userrights/dialogs/addgranttousers.whlib">
+
+  <!-- Add a right to pre-chosen users/roles -->
+  <screen name="addgranttousers"
+          title=""
+          minwidth="80x"
+          width="120x"
+          minheight="20x"
+          height="35x"
+          allowresize="true"
+          savestate="size"
+          gid="userrights.rights" >
+
+    <actions>
+      <action name="submitaction" onexecute="submit" title="" />
+    </actions>
+
+    <body>
+      <split type="horizontal">
+        <part width="1pr">
+          <includefragment name="objecttree" fragment="userrights/parts/objecttree.objecttree" />
+        </part>
+        <part width="2pr">
+          <list name="rightslist"
+                height="1pr"
+                selectmode="single"
+                gid="userrights.commondialogs.columns"
+                selectableflags="canmanage"
+                openaction="submitaction"
+                flags="canmanage"
+                onselect="onrightselect"
+                sortable="false"
+                borders="top right bottom">
+            <column name="title" type="text" width="1pr" tid=".right" />
+            <column name="description" type="text" width="2pr" />
+
+            <style name="ungrantable" textcolor="#9a9a9a" />
+          </list>
+        </part>
+      </split>
+      <line layout="left">
+        <checkbox name="grantwithgrantoption" title="" labeltid=".withgrantoption"/>
+      </line>
+      <textarea name="comment" tid="system:userrights.commondialogs.rights.comment" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+</screens>

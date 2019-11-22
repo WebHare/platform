@@ -1,0 +1,72 @@
+<?wh
+/** @short Frontend pages
+    @topic wrdauth/frontendpages
+*/
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
+
+/** Implement standard login/passwordreset etc pages
+    @param(object %WebdesignBase) webdesign Webdesign
+    @cell options.logincomponent Component to use for loginpage
+    @cell options.ongetloginwittydata Callback invoked for extra witty variables for the login page, if rendered
+    @cell options.fallbacktologin Fallback to the login page if not logged in. Defaults to true
+    @return Page to render, if current state requires one (DEFAULT OBJECT if no special page and currently logged in or fallbacktologin unset)
+*/
+PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+    [ logincomponent := "" //FIXME remove this, only cooper needs it
+    , ongetloginwittydata := DEFAULT FUNCTION PTR
+    , fallbacktologin := TRUE //Return loginpage if no explicit route found
+    ], options);
+
+  OBJECT authplugin := webdesign->GetWRDAuthPlugin();
+  IF(NOT ObjectExists(authplugin))
+    THROW NEW Exception("No wrdauth plugin available");
+  //IF(authplugin->IsLoggedIn())
+  //  THROW NEW Exception("WRDAuthLoginResetFlow is only available for not-loggedin users");
+
+  STRING action := GetWebVariable("wrd_pwdaction");
+  IF(action IN ["forgotpassword"])
+  {
+    IF(authplugin->IsLoggedIn())
+      Redirect(GetWRDPagesCleanURL());
+    RETURN GetForgotPasswordPage(webdesign, options);
+  }
+  IF(action IN ["resetpassword","setpassword"])
+  {
+    IF(authplugin->IsLoggedIn())
+      Redirect(GetWRDPagesCleanURL());
+
+    RETURN GetResetPasswordPage(webdesign, action, options);
+  }
+  IF(action = "emailchange")
+  {
+    IF(NOT authplugin->IsLoggedIn())
+      Redirect(GetWRDPagesCleanURL());
+    IF("emailchange" NOT IN authplugin->routerfeatures)
+      AbortWithHTTPError(403, "emailchange not allowed by routerfeatures");
+    IF(GetWebVariable("_ed") != "")
+      RETURN GetEmailChangedPage(webdesign, options);
+    RETURN GetEmailChangePage(webdesign, options);
+  }
+  IF(action = "passwordchange")
+  {
+    IF(NOT authplugin->IsLoggedIn())
+      Redirect(GetWRDPagesCleanURL());
+    IF("passwordchange" NOT IN authplugin->routerfeatures)
+      AbortWithHTTPError(403, "passwordchange not allowed by routerfeatures");
+    RETURN GetPasswordChangePage(webdesign, options);
+  }
+
+  IF(action = "")
+  {
+    IF(options.fallbacktologin AND NOT authplugin->IsLoggedIn())
+      RETURN GetLoginPage(webdesign, options);
+
+    RETURN DEFAULT OBJECT; //you'll need to route this yourself
+  }
+
+  Redirect(GetWRDPagesCleanURL()); //if it did look like on of our urls, we'll at least fix it
+}

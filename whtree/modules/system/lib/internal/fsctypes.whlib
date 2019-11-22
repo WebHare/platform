@@ -1,0 +1,127 @@
+﻿<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+
+/** Set to true in WHFSCommitHandler when changes have been made to fstypes/members
+    Disables the adhoccache for type data
+*/
+PUBLIC BOOLEAN uncommitted_fstypes_changes;
+
+//PUBLIC RECORD ARRAY whfstypecache; //FIXME How to ensure flushing after a commit?! Does that even matter?
+
+PUBLIC BOOLEAN FUNCTION IsArrayVersionOf(INTEGER soloversion, INTEGER arrayversion)
+{
+  RETURN (soloversion IN [1,2] AND arrayversion IN [3,14])
+         OR (soloversion = 11 AND arrayversion = 13);
+}
+/*
+PUBLIC MACRO FlushContentTypeCache()
+{
+  whfstypecache:=DEFAULT RECORD ARRAY;
+}*/
+
+/** Return the members of a type, sorted on (parent,name)
+    @return
+    @cell return.id Id of the member
+    @cell return.name Name (lowercased)
+    @cell return.type
+    @cell return.publish
+    @cell return.maxlength
+    @cell return.emptyval
+    @cell return.allowed
+    @cell return.parent Id of the parent array member
+*/
+PUBLIC RECORD ARRAY FUNCTION GetMembers(INTEGER typedefid)
+{
+  RETURN uncommitted_fstypes_changes
+      ? GetCachableMembers(typedefid).value
+      : GetAdhocCached([ type := "members", typedefid := typedefid ], PTR GetCachableMembers(typedefid));
+}
+
+RECORD FUNCTION GetCachableMembers(INTEGER typedefid)
+{
+  // Lowercase the name, we want to do quick case-insensitive lookups
+  RECORD ARRAY rawmembers :=
+      SELECT TEMPORARY lowercase_name := ToLowercase(name)
+           , *
+           , name := lowercase_name
+        FROM system.fs_members
+       WHERE fs_type = typedefid
+    ORDER BY parent, lowercase_name;
+
+  RECORD ARRAY memberlist;
+  FOREVERY (RECORD memberrec FROM rawmembers)
+  {
+    VARIANT emptyval;
+    STRING ARRAY allowed;
+
+    SWITCH(memberrec.type)
+    {
+      CASE 1 // Single
+      {
+        emptyval := "";
+      }
+      CASE 3,14 // Multiple, string array
+      {
+        emptyval := DEFAULT STRING ARRAY;
+      }
+      CASE 2 // Text
+      {
+        emptyval := "";
+      }
+      CASE 5 // Memo
+      {
+        emptyval := DEFAULT RECORD;
+      }
+      CASE 11
+      {
+        emptyval := 0;
+      }
+      CASE 13
+      {
+        emptyval := DEFAULT INTEGER ARRAY;
+      }
+      CASE 12
+      {
+        emptyval := DEFAULT RECORD ARRAY;
+      }
+      CASE 15, 16, 18, 20, 21, 22 //RTD, intextlink, instance, formdefinition, record, formcondition
+      {
+        emptyval := DEFAULT RECORD;
+      }
+      DEFAULT
+      {
+        emptyval := AnyTypeFromString("", memberrec.type);
+      }
+    }
+
+    INSERT INTO memberlist(id, name, type, publish
+                          ,emptyval, parent, orphan)
+           VALUES(memberrec.id, memberrec.name, memberrec.type, memberrec.publish
+                 ,emptyval, memberrec.parent, memberrec.orphan)
+           AT END;
+  }
+  RETURN
+      [ eventmasks := [ "publisher:compiled_siteprofiles"
+                      , "system:whfs.types"
+                      ]
+      , value :=      memberlist
+      ];
+}
+
+PUBLIC STRING FUNCTION EncodeMember(VARIANT data, INTEGER type)
+{
+  RECORD coding := AnyTypeToString(data);
+  IF(coding.type != type)
+  {
+    // Casting rules. INTEGER/MONEY -> FLOAT, INTEGER->MONEY
+    IF (type = 8 AND coding.type IN [ 7, 9 ])
+      coding := AnyTypeToString(FLOAT(data));
+    ELSE IF (type = 9 AND coding.type = 7)
+      coding := AnyTypeToString(MONEY(data));
+    ELSE
+      ABORT("Illegal member type change");
+  }
+  RETURN coding.data;
+}

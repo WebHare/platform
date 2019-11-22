@@ -1,0 +1,7 @@
+<?wh
+
+PUBLIC CONSTANT STRING ARRAY controlled_fields := [ "comment", "pins" ]; //cant list these in row above, or every field has to explicitly enable them
+PUBLIC CONSTANT STRING ARRAY condition_fields := [ "requiredcondition", "enabledcondition", "visiblecondition" ]; //cant list these in row above, or every field has to explicitly enable them
+PUBLIC CONSTANT STRING ARRAY advanced_fields := [ "name", "enabled", "groupclasses", "comment", "pins" ];
+PUBLIC CONSTANT STRING ARRAY default_fields := [ "name", "title", "hidetitle", "required", "enabled", "groupclasses", "label", "placeholder", "prefix", "suffix" ];
+

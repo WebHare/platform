@@ -1,0 +1,1187 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "wh::internet/webbrowser.whlib";
+
+PUBLIC OBJECTTYPE SlackAPI
+<
+  PUBLIC BOOLEAN debug;
+  PUBLIC BOOLEAN showpingpong;
+  PUBLIC BOOLEAN showcommandurls;
+  PUBLIC BOOLEAN showunknoweventcontents;
+  PUBLIC BOOLEAN debugmagic;
+  PUBLIC STRING parsemode;
+  PUBLIC BOOLEAN markdown;
+  PUBLIC BOOLEAN prefixbots;
+
+  BOOLEAN stopeventreceived; // received socialite:stopslackmonitor event?
+  BOOLEAN persistentconnection; // Are we currently on a persistent connection
+  BOOLEAN pvt_managerrunning;
+
+  BOOLEAN initializing;
+  OBJECT browser;
+
+  STRING boturl;
+  PUBLIC STRING token;
+  STRING pvt_channel;
+  PUBLIC PROPERTY channel(GetChannel, SetChannel);
+  RECORD ARRAY pvt_channels;
+  RECORD ARRAY privatechannels;
+
+  RECORD ARRAY pvt_users;
+  RECORD ARRAY pvt_registeredbots;
+  STRING personaltoken;
+
+  PUBLIC PROPERTY posturl(ConstructURL, -);
+
+  PUBLIC PROPERTY users(GetUserNames, -);
+  PUBLIC PROPERTY onlineusers(GetOnlineUserNames, -);
+  PUBLIC PROPERTY offlineusers(GetOffineUserNames, -);
+  PUBLIC PROPERTY registeredbots(GetRegisteredBotNames, -);
+  PUBLIC PROPERTY channels(GetChannelNames, -);
+  PUBLIC PROPERTY imchannels(GetIMChannelNames, -);
+  PUBLIC PROPERTY isconnected(connected, -);
+  PUBLIC PROPERTY mgrrunning(pvt_managerrunning, -);
+
+
+  STRING apiurl;
+  RECORD authrec;
+  BOOLEAN authenticated;
+
+  OBJECT socket;
+  RECORD socketinfo;
+  BOOLEAN connected;
+  PUBLIC BOOLEAN throwondisconnect;
+  INTEGER lastid;
+
+  PUBLIC BOOLEAN usemagic;
+
+  RECORD ARRAY overrides;
+  INTEGER starttime;
+
+  /** @short Initializes defaults
+      @long Sets the basic internal properties to their defaults.
+  */
+  MACRO NEW(STRING slack DEFAULTSTO "webhare")
+  {
+    this->browser := NEW webbrowser;
+    this->boturl := "https://" || slack || ".slack.com/services/hooks/slackbot";
+    this->apiurl := "https://slack.com/api/";// The Slack API URL, should not be changed unless Slack instructs us to do so.
+    this->lastid := 1;
+    this->parsemode := "none";
+    this->starttime := GetUnixTimestamp(GetCurrentDateTime());
+    this->prefixbots := TRUE;
+  }
+
+
+  /*****************************************************************************
+  *
+  *  PRIVATE MEMBER FUNCTIONS
+  *
+  */
+
+  /** @short Sets the current channel.
+      @long Sets the current channel for the user; will throw an exception if the user attempts to join a nonexisting channel.
+      @param(STRING) channel The name of the channel the user wishes to join.
+  */
+  MACRO SetChannel(STRING channel)
+  {
+    IF(channel NOT IN this->channels AND this->isconnected)// If we are connected, we may do a meaningful existence check for the chosen channel
+      THROW NEW Exception("Cannot change channel to nonexisting channel '" || channel || "' (possible channels are: '" || Detokenize(this->channels, "', '") || "')");
+
+    this->pvt_channel := channel;
+  }
+
+  /** @short Returns the channel.
+      @long Returns the name of the channel the (authenticated) user is currently connected to or the name of the channel pre-set for the API if the user is not authenticated.
+      @retun(STRING) The name of the channel.
+  */
+  STRING FUNCTION GetChannel()
+  {
+    RETURN this->pvt_channel;
+  }
+
+  /** @short Creates a base URL for the HTTP API.
+      @long Creates a base URL for the HTTP API based on the bot url, the HTTP authentication token and the current channel.
+      @return(STRING) The URL commands to the HTTP API may be sent to.
+  */
+  STRING FUNCTION ConstructURL()
+  {
+    RETURN this->boturl || "?token=" || this->token || "&channel=%23" || this->channel;
+  }
+
+  /** @short Opens a websocket.
+      @long Instantiates a websocket connection using the Slack RTM API.
+  */
+  MACRO OpenWebSocket()
+  {
+    // Attempt to open a web socket
+    RECORD socketdata := this->ExecuteCommand("rtm.start");
+    IF(socketdata.ok != TRUE)
+      RETURN;
+
+    this->socketinfo := socketdata;
+
+    RECORD socket := this->browser->OpenWebSocket(socketdata.url, DEFAULT RECORD ARRAY);
+    IF(socket.success)
+      this->socket := socket.conn;
+
+    RECORD data;
+    data := this->ReceiveData(1000);
+    IF(NOT CellExists(data, "TYPE"))
+    {
+      DumpValue(data, 'tree');
+      THROW NEW Exception("Unexpected data packet received, halting!");
+    }
+    IF(NOT (data.type = "hello"))
+      THROW NEW Exception("An error has occurred while trying to set up the websocket connection!:\n" || AnyToString(data, "tree"));
+
+    this->connected := TRUE;
+    IF(this->debug)
+      PRINT("[DEBUG] Websocket connection setup complete, now listening for messages.\n");
+
+    this->pvt_users := socketdata.users;
+    this->pvt_channels := socketdata.channels;
+    this->pvt_registeredbots := socketdata.bots;
+  }
+
+  /** @short Executes a command on the server.
+      @long Sends the given command to the Slack server with the given options and returns the server response.
+      @param(STRING) command The command to execute.
+      @param(RECORD) options A record with the arguments for the command, in the form [ paramname := "param value" ]
+      @return(RECORD) The response record as received from the Slack server.
+  */
+  RECORD FUNCTION ExecuteCommand(STRING command, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT this->authenticated)
+      THROW NEW Exception("Only authenticated users can use the Slack command API");
+
+    STRING querystring;
+    FOREVERY(RECORD entry FROM UnpackRecord(options))
+      querystring := querystring || "&" || ToLowercase(entry.name) || "=" || Substitute(EncodeJSON(entry.value), '"', "");
+
+    STRING fullurl := this->apiurl || command || "?token=" || this->personaltoken || querystring;
+    IF(this->debug AND this->showcommandurls)
+      PRINT("[DEBUG] Command URL: " || fullurl || "\n");
+
+    this->browser->SendRawRequest("GET", fullurl, DEFAULT RECORD ARRAY, DEFAULT BLOB);
+    IF(this->browser->GetHTTPStatusCode() != 200)
+      IF(NOT this->persistentconnection)
+        THROW NEW Exception("Browser got HTTP status " || this->browser->GetHTTPStatusCode());
+      ELSE
+      {
+        INTEGER attempts := 0;
+        INTEGER maxattempts := 1000;
+        WHILE(this->browser->GetHTTPStatusCode() != 200)
+        {
+          Sleep(attempts % maxattempts);
+          this->browser->SendRawRequest("GET", fullurl, DEFAULT RECORD ARRAY, DEFAULT BLOB);
+        }
+        PRINT("Reconnected.\n");
+      }
+
+    RETURN DecodeJSON(BlobToString(this->browser->content));
+  }
+
+  /** @short Retrieves all usernames.
+      @return(STRING ARRAY) An array with the names of all users in the user's team.
+  */
+  STRING ARRAY FUNCTION GetUserNames()
+  {
+    RETURN SELECT AS STRING ARRAY name FROM this->pvt_users;
+  }
+
+  /** @short Retrieves the names of all online users.
+      @return(STRING ARRAY) An array with the names of all users currently online in the user's team.
+  */
+  STRING ARRAY FUNCTION GetOnlineUserNames()
+  {
+    RETURN SELECT AS STRING ARRAY name FROM this->pvt_users WHERE ToUpperCase(presence) = "ACTIVE";
+  }
+
+  /** @short Retrieves the names of all offline users.
+      @return(STRING ARRAY) An array with the names of all users currently offline in the user's team.
+  */
+  STRING ARRAY FUNCTION GetOffineUserNames()
+  {
+    RETURN SELECT AS STRING ARRAY name FROM this->pvt_users WHERE ToUpperCase(presence) != "ACTIVE" AND NOT deleted;
+  }
+
+  STRING ARRAY FUNCTION GetRegisteredBotNames()
+  {
+    //DumpValue(this->pvt_registeredbots, 'tree');
+    RETURN SELECT AS STRING ARRAY name FROM this->pvt_registeredbots WHERE NOT deleted;
+  }
+
+  /** @short Retrieves all channel names.
+      @return(STRING ARRAY) An array with the names for all channels for the current user.
+  */
+  STRING ARRAY FUNCTION GetChannelNames()
+  {
+    RETURN (SELECT AS STRING ARRAY name FROM this->pvt_channels) CONCAT this->GetIMChannelNames();
+  }
+
+  /** @short Retrieves all IM channel names.
+      @return(STRING ARRAY) An array with the names for all IM channels for the current user.
+  */
+  STRING ARRAY FUNCTION GetIMChannelNames()
+  {
+    //abort(this->privatechannels, 'tree');
+    RETURN  SELECT AS STRING ARRAY name FROM this->pvt_users WHERE id IN (SELECT AS STRING ARRAY user FROM this->privatechannels);
+  }
+
+  /** @short Loads the channel list.
+      @long Queries the Slack server for a list of all channels and stores it.
+  */
+  RECORD FUNCTION ListChannels()
+  {
+    RETURN this->ExecuteCommand("channels.list");
+  }
+
+  /** @short Load the channel list.
+      @long Queries the Slack server for a list of all channels and stores it.
+  */
+  MACRO GetChannels()
+  {
+    this->pvt_channels := this->ExecuteCommand("channels.list").channels;
+  }
+
+  /** @short Load your personal IM channels.
+      @long Queries the Slack server for a list of all the IM channels open to you.
+      @return(RECORD) The raw response record as received from the server.
+  */
+  RECORD FUNCTION GetIMChannels()
+  {
+    this->privatechannels := this->ExecuteCommand("im.list").ims;
+    RETURN this->privatechannels;
+  }
+
+  /** @short Load the userlist.
+      @long Queries the Slack server for a list of all members.
+      @return(RECORD) The raw response record as received from the server.
+  */
+  RECORD FUNCTION GetUsers()
+  {
+    IF(this->connected)/// Incompatible
+      RETURN this->pvt_users;
+
+    this->pvt_users := this->ExecuteCommand("users.list").members;
+    RETURN this->pvt_users;
+  }
+
+  /** @short Receives a data packet
+      @long Receives a packet of data from the websocket connection and attempts to handle it automatically.
+      @param(INTEGER) overridetime An override option for how long to wait for a packet. If left empty, will listen for a maximum of ten seconds (10.000 ms).
+      @return(RECORD) The packet received from the websocket connection.
+  */
+  RECORD FUNCTION ReceiveData(INTEGER overridetime DEFAULTSTO DEFAULT INTEGER)
+  {
+    RECORD data := this->socket->ReceivePacket(AddTimeToDate(overridetime ?? 10000, GetCurrentDateTime()));
+    IF(NOT CellExists(data, "data"))
+    {
+      IF(CellExists(data, "status"))
+      {
+        IF(CellExists(data, "status") AND data.status = "incomplete")
+        {
+          // Ignore it
+          IF(this->debug AND this->showpingpong)
+            PRINT("[DEBUG] No-op received; sending ping\n");
+
+          this->SendPing();
+        }
+        ELSE IF(CellExists(data, "status") AND data.status = "gone")
+          IF(this->throwondisconnect)
+            THROW NEW Exception("The websocket server has gone away");
+          ELSE
+            this->connected := FALSE;
+
+        RETURN DEFAULT RECORD;
+      }
+      RETURN data;
+    }
+    ELSE
+    {
+      // Handle callbacks for known types
+      RECORD datarec := DecodeJSON(data.data);
+      IF(CellExists(datarec, "type"))
+      {
+        IF(this->usemagic)
+        {
+          this->HandleEventMagically(datarec);
+          RETURN datarec;
+        }
+        /**
+        *
+        *  If you want to skip the magic handling and implement a simple, more basic handler for your Slack client app, turn off magic and override the HandleEventStatically macro.
+        *
+        */
+        this->HandleEventStatically(datarec);
+      }
+    }
+    RETURN DecodeJSON(data.data);
+  }
+
+  /** @short A simpler, static handler for events.
+      @long This macro will handle events statically, within a simple switch statement which implements each event in it's own case. If you want to create a really simple client app, you may want to override this macro and set this usemagic boolean to false in your implementation.
+  */
+  MACRO HandleEventStatically(RECORD datarec)
+  {
+    IF(this->initializing)
+    {
+      this->initializing := FALSE;
+      RETURN;
+    }
+
+    IF(CellExists(datarec, "ts"))
+    {
+      INTEGER ts := ToInteger(Tokenize(datarec.ts, ".")[0], 0);
+      IF(ts < this->starttime)
+        RETURN;
+    }
+
+    SWITCH(datarec.type)
+    {
+      CASE "message"
+      {
+        PRINT("User '" || this->GetUserName(datarec.user) || "' posted to " || this->GetChannelName(datarec.channel) || ": " || datarec.text || "\n");
+      }
+      CASE "user_typing"
+      {
+        PRINT("User '" || this->GetUserName(datarec.user) || "' is typing...\n");
+      }
+      CASE "presence_change"
+      {
+        PRINT("User '" || this->GetUserName(datarec.user) || "' changed their presence to " || datarec.presence || ".\n");
+      }
+      CASE "bot_added"
+      {
+        PRINT("A bot was added: " || datarec.bot.name || " is now active\n");
+      }
+      CASE "pong"
+      {
+        IF(this->debug AND this->showpingpong)
+          PRINT("[DEBUG] Received a pong: " || datarec.data || "\n");
+      }
+      CASE "channel_created"
+      {
+        PRINT("A channel named " || this->GetChannelName(datarec.channel.id) || " by " || this->GetUserName(datarec.channel.creator) || ".\n");
+        this->GetChannels();
+      }
+      CASE "channel_joined"
+      {
+        PRINT("User " || this->GetUserName(datarec.members[END-1]) || " has joined channel " || this->GetChannelName(datarec.channel.id) || ".\n");
+      }
+      DEFAULT
+      {
+        IF(this->debug)
+          PRINT("[DEBUG] An event of type '" || datarec.type || "' was received.\n");
+        IF(this->debug AND this->showunknoweventcontents)
+          PRINT("\t" || EncodeJSON(datarec) || "\n");
+      }
+    }
+  }
+
+  /** @short Sends a ping.
+      @long Sends a ping to the server; this is just a simple keepalive mechanism, the user should leave it alone.
+  */
+  MACRO SendPing()
+  {
+    this->SendSocketData([ type := "ping", time := GetCurrentDateTime() ]);
+  }
+
+  /** @short Returns a username.
+      @long Returns the username matching the given user ID string.
+      @param(STRING) id The user ID string.
+      @return(STRING) The username matching the given ID.
+  */
+  PUBLIC STRING FUNCTION GetUserName(STRING id)
+  {
+    IF(id = "slackbot")
+      RETURN id;
+
+    STRING first := SELECT AS STRING name FROM this->pvt_users WHERE COLUMN id = VAR id;
+    IF(first != "")
+      RETURN first;
+
+    first := SELECT AS STRING name FROM this->pvt_registeredbots WHERE COLUMN id = VAR id;
+    IF(first = "")
+      RETURN "*UNKNOWN USER*";
+
+    IF(this->prefixbots)
+      RETURN "[BOT] " || first;
+    RETURN first;
+  }
+
+  /** @short Returns the channel name.
+      @long Returns the channel name for the given channel ID string. If no matching channel exists, returns an empty string.
+      @param(STRING) id The channel ID string.
+      @return(STRING) The name of the channel with the given ID.
+  */
+  PUBLIC STRING FUNCTION GetChannelName(STRING id)
+  {
+    RETURN SELECT AS STRING name FROM this->pvt_channels WHERE COLUMN id = VAR id;
+    abort(SELECT AS STRING name FROM this->pvt_channels WHERE COLUMN id = VAR id);
+    STRING channelname := "#" || SELECT AS STRING name FROM this->pvt_channels WHERE COLUMN id = VAR id;
+    IF(channelname = "#")// Perhaps a private channel?
+      channelname := "@" || SELECT AS STRING name FROM this->pvt_users WHERE COLUMN id = (SELECT AS STRING user FROM this->privatechannels WHERE COLUMN id = VAR id);
+
+    IF(channelname IN [ "#", "@" ])
+      RETURN "";
+    RETURN channelname;
+  }
+
+  /** @short Sends data to the websocket.
+      @long Sends a data packet to the websocket and increments the internal communications counter.
+      @param(RECORD) data The data packet to send to the websocket.
+  */
+  MACRO SendSocketData(RECORD data)
+  {
+    INSERT CELL id := this->lastid + 1 INTO data;
+    this->socket->SendData(EncodeJSON(data));
+    this->lastid := this->lastid + 1;
+  }
+
+  /** @short Escapes a post message.
+      @long Escapes a post message, replacing the characters '&', '<' & '>' with '&amp;', '&lt;' & '&gt;' respectively.
+      @param(STRING) message The message contents to escape.
+      @return(STRING) The escaped equivalent of the given message.
+  */
+  STRING FUNCTION EscapeMessage(STRING message)
+  {
+    RETURN Substitute(Substitute(Substitute(message, ">", "&gt;"), "<", "&lt;"), "&", "&amp;");
+  }
+
+  /** @short Converts an event type string to a callback name
+      @long Basically converts the name of the given eventtype to it's CamelCased equivalent and wraps it in "On" + eventtype + "Received".
+      @param(STRING) type The eventtype as received from the server
+      @return(STRING) The callback name resulting from the conversion.
+  */
+  STRING FUNCTION ToCallback(STRING type)
+  {
+    STRING ARRAY parts := Tokenize(type, "_");
+    STRING out := "On";
+    FOREVERY(STRING part FROM parts)
+      out := out || ToUpperCase(LEFT(part, 1)) || ToLowerCase(Substring(part, 1));
+
+    RETURN out || "Received";
+  }
+
+  /** @short Handles an incoming event
+      @long Handles all incoming events and automatigically tries to resolve it to an event callback within the library
+      @param(RECORD) event The event record sent from the Slack server, after JSON decoding it.
+  */
+  MACRO HandleEventMagically(RECORD event)
+  {
+    IF(this->initializing)
+    {
+      this->initializing := FALSE;
+      RETURN;
+    }
+
+    IF(CellExists(event, "ts"))
+    {
+      INTEGER ts := ToInteger(Tokenize(event.ts, ".")[0], 0);
+      IF(ts < this->starttime)
+        RETURN;
+    }
+
+
+    STRING handlername := this->ToCallback(event.type);
+    IF(this->debug AND this->debugmagic)
+      IF(event.type != "pong" OR (event.type = "pong" AND this->showpingpong))
+        PRINT("[DEBUG] Magic resolution for eventtype '" || event.type || "': SlackAPI::" || handlername || "\n");
+
+    this->OnAnyEvent(event, handlername);
+
+    IF(MemberExists(this, handlername) AND this->GetOverrideFor(handlername) = DEFAULT MACRO PTR)
+    {
+      MACRO PTR handler := GetObjectMethodPTR(this, handlername);
+      handler(event);
+    }
+    ELSE IF(this->GetOverrideFor(handlername) != DEFAULT MACRO PTR)
+    {
+      MACRO PTR handler := this->GetOverrideFor(handlername);
+      handler(event);
+    }
+    ELSE
+      this->OnUnknownEventReceived(event);
+  }
+
+  MACRO PTR FUNCTION GetOverrideFor(STRING handler)
+  {
+    RECORD override := SELECT * FROM this->overrides WHERE ToUpperCase(handlername) = ToUpperCase(handler);
+    IF(NOT RecordExists(override))
+      RETURN DEFAULT MACRO PTR;
+
+    RETURN override.macroptr;
+  }
+
+  MACRO StopSlackMonitor(STRING eventname, RECORD data)
+  {
+    PRINT("Received stop command.");
+    this->stopeventreceived := TRUE;
+  }
+
+  /*****************************************************************************
+  *
+  *  PUBLIC API
+  *
+  */
+
+  /** @short Sets the authentication token.
+      @long Sets the authentication token for the user. This is required to use the websocket connection and Slack RTM API.
+      @param(STRING) token The authentication token the user received from Slack.
+  */
+  PUBLIC MACRO SetAuthenticationToken(STRING token)
+  {
+    this->personaltoken := token;
+  }
+
+  /** @short Post a message as slackbot.
+      @long Posts the given message to the current channel as the slackbot.
+      @param(STRING) text The message text to post.
+  */
+  PUBLIC MACRO MakeBotSay(STRING text)
+  {
+    this->browser->SendRawRequest("POST", this->posturl, DEFAULT RECORD ARRAY, StringToBlob(this->EscapeMessage(text)));
+  }
+
+  /** @short Authenticates a user.
+      @long Authenticates a user based on the given authentication token and attempts to open a websocket connection to the Slack RTMP API.
+      @param(STRING) token The authentication token for the user.
+  */
+  PUBLIC MACRO authenticate(STRING token DEFAULTSTO "")
+  {
+    IF(token = "")
+      token := this->personaltoken;
+    ELSE
+      this->personaltoken := token;
+
+    IF(token = "")
+      THROW NEW Exception("No authentication token given, unable to authenticate user!");
+
+    this->browser->SendRawRequest("GET", this->apiurl || "auth.test?token=" || token, DEFAULT RECORD ARRAY, DEFAULT BLOB);
+    IF(this->browser->GetHTTPStatusCode() != 200)
+      IF(NOT this->persistentconnection)
+        THROW NEW Exception("Browser got HTTP status " || this->browser->GetHTTPStatusCode());
+      ELSE
+      {
+        INTEGER attempts := 0;
+        INTEGER maxattempts := 1000;
+        WHILE(this->browser->GetHTTPStatusCode() != 200)
+        {
+          Sleep(attempts % maxattempts);
+          this->browser->SendRawRequest("GET", this->apiurl || "auth.test?token=" || token, DEFAULT RECORD ARRAY, DEFAULT BLOB);
+        }
+        PRINT("Reconnected.\n");
+      }
+
+    this->authrec := DecodeJSON(BlobToString(this->browser->content));
+    IF(this->authrec.ok)
+      this->authenticated := TRUE;
+
+    this->GetChannels();
+    this->GetUsers();
+    this->GetIMChannels();
+    IF(this->pvt_channel = "")
+      this->SetChannel(this->channels[0]);
+
+    IF(this->debug)
+      PRINT("[DEBUG] Authentication successful, you are now connected to channel #" || this->channel || ";\n");
+
+    this->OpenWebSocket();
+  }
+
+  /** @short Searches for messages.
+      @long Searches the Slack server for messages matching the given search string.
+      @param(STRING) term The string to search the server for.
+      @return(RECORD) The response record as received by the server.
+  */
+  PUBLIC RECORD FUNCTION FindMessages(STRING term)
+  {
+    RETURN this->ExecuteCommand("search.messages", [ query := term ]);
+  }
+
+  /** @short Posts a message.
+      @long Posts a message to the current channel using the websocket transport if available, HTTP API otherwise.
+      @param(STRING) message The message to post to the server.
+      @return(RECORD) The response from the server if the HTTP API was used or DEFAULT RECORD if a websocket transport is available.
+  */
+  PUBLIC RECORD FUNCTION PostMessage(STRING message)
+  {
+    STRING channelid := SELECT AS STRING id FROM this->pvt_channels WHERE name = this->channel;
+    IF(ObjectExists(this->socket))
+    {
+      // Use websocket transport
+      this->SendSocketData([ type := "message", channel := channelid, text := message ]);
+      RETURN DEFAULT RECORD;//this->ReceiveData(1000);
+    }
+
+    RETURN this->ExecuteCommand("chat.postMessage", [ channel := channelid, text := this->EscapeMessage(message), as_user := TRUE, parse := this->parsemode, mrkdwn := this->markdown ]);
+  }
+
+  /** @short Posts a message as a bot.
+      @long Posts a message as the given bot to the current channel using the HTTP API.
+      @param(STRING) botname The name of the bot to impersonate.
+      @param(STRING) message The message to post.
+      @return(REOCRD) The response record as received from the server.
+  */
+  PUBLIC RECORD FUNCTION PostMessageAsBot(STRING botname, STRING message)
+  {
+    STRING channelid := SELECT AS STRING id FROM this->pvt_channels WHERE name = this->channel;
+    RETURN this->ExecuteCommand("chat.postMessage", [ channel := channelid, text := this->EscapeMessage(message), username := botname, parse := this->parsemode, mrkdwn := this->markdown ]);
+  }
+
+  /** @short Posts a private message.
+      @long Posts a private message to another user.
+      @param(STRING) username The name of the intended recipient.
+      @param(STRING) message The message to send.
+      @return(RECORD) The response packet received from the server.
+  */
+  PUBLIC RECORD FUNCTION PostPrivateMessage(STRING username, STRING message)
+  {
+    STRING userid := SELECT AS STRING id FROM this->pvt_users WHERE ToUpperCase(name) = ToUpperCase(username);
+    IF(userid = "" AND username != "slackbot")
+      THROW NEW Exception("Invalid user '" || username || "'");
+    ELSE IF(username = "slackbot")
+      userid := "slackbot";
+
+    STRING channelid := SELECT AS STRING id FROM this->privatechannels WHERE user = userid;
+    IF(channelid = "")
+      THROW NEW Exception("It is not possible to send private messages to " || username);
+
+    IF(ObjectExists(this->socket))
+    {
+      // Use websocket transport
+      this->SendSocketData([ type := "message", channel := channelid, text := this->EscapeMessage(message) ]);
+      RETURN this->ReceiveData(1000);
+    }
+
+    RETURN this->ExecuteCommand("chat.postMessage", [ channel := channelid, text := message, as_user := TRUE, parse := this->parsemode, mrkdwn := this->markdown ]);
+  }
+
+  /** @short Posts a private message as a bot.
+      @long Posts a private message to another user as the given bot.
+      @param(STRING) botname The name of the bot to impersonate.
+      @param(STRING) username The name of the intended recipient.
+      @param(STRING) message The message to send.
+      @return(RECORD) The response packet received from the server.
+  */
+  PUBLIC RECORD FUNCTION PostPrivateMessageAsBot(STRING botname, STRING username, STRING message)
+  {
+    STRING userid := SELECT AS STRING id FROM this->pvt_users WHERE ToUpperCase(name) = ToUpperCase(username);
+    IF(userid = "")
+      THROW NEW Exception("Invalid user '" || username || "'");
+
+    STRING channelid := SELECT AS STRING id FROM this->privatechannels WHERE user = userid;
+    IF(channelid = "")
+      THROW NEW Exception("It is not possible to send private messages to " || username);
+
+    RETURN this->ExecuteCommand("chat.postMessage", [ channel := channelid, text := this->EscapeMessage(message), username := botname, parse := this->parsemode, mrkdwn := this->markdown ]);
+  }
+
+  /** @short Retrieves the channel's contents.
+      @long Retrieves all messages within the current channel.
+      @return(RECORD ARRAY) The full message history in the current channel.
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetChannelContents()
+  {
+    STRING channelid := SELECT AS STRING id FROM this->pvt_channels WHERE name = this->channel;
+    RETURN this->ExecuteCommand("channels.history", [ channel := channelid ]).messages;
+  }
+
+  /** @short Retrieves the IM history.
+      @long Retrieves the full IM history betweent the authenticated user and the given user.
+      @param(STRING) username The name of the user to retrieve the IM history with.
+      @return(RECORD ARRAY) A record array representing the complete message history between the current and given user.
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetIMHistory(STRING username)
+  {
+    STRING userid := SELECT AS STRING id FROM this->pvt_users WHERE ToUpperCase(name) = ToUpperCase(username);
+    IF(userid = "")
+      THROW NEW Exception("Invalid user '" || username || "'");
+
+    STRING channelid := SELECT AS STRING id FROM this->privatechannels WHERE user = userid;
+    IF(channelid = "")
+      THROW NEW Exception("It is not possible to send private messages to " || username);
+
+    RETURN this->ExecuteCommand("im.history", [ channel := channelid ]).messages;
+  }
+  /** @short Monitors a Slack server.
+      @long Monitors a Slack server. If the websocket is disconnected, prints a message and does nothing further.
+      @param(INTEGER) updateinterval The update interval for the listener, defaults to 500 milliseconds.
+      @param(BOOLEAN) debug Wether or not to return debug information, defaults to FALSE.
+      @param(BOOLEAN) showunknowneventcontents Wether or not to print out the contents of unknown events, defaults to FALSE.
+  */
+  PUBLIC MACRO MonitorServer(INTEGER updateinterval DEFAULTSTO 500, BOOLEAN debug DEFAULTSTO FALSE, BOOLEAN showunknoweventcontents DEFAULTSTO FALSE)
+  {
+    this->initializing := TRUE;
+    this->debug := debug;
+    this->showunknoweventcontents := showunknoweventcontents;
+
+
+
+    // FIXME: why don't we receive the event?
+    RegisterEventCallback("socialite:stopslackmonitor", PTR this->stopslackmonitor);
+
+    this->authenticate();
+    WHILE(this->isconnected AND NOT this->stopeventreceived)
+      this->ReceiveData(updateinterval);
+
+    PRINT("Connection to Slack server lost; halting.\n");
+  }
+
+  /** @short Monitors a Slack server persistently
+      @long Monitors a Slack server. If the websocket is disconnected, simply re-authenticates and reconnects.
+      @param(INTEGER) updateinterval The update interval for the listener, defaults to 500 milliseconds.
+      @param(BOOLEAN) debug Wether or not to return debug information, defaults to FALSE.
+      @param(BOOLEAN) showunknowneventcontents Wether or not to print out the contents of unknown events, defaults to FALSE.
+  */
+  PUBLIC MACRO MonitorServerPersistent(INTEGER updateinterval DEFAULTSTO 500, BOOLEAN debug DEFAULTSTO FALSE, BOOLEAN showunknoweventcontents DEFAULTSTO FALSE)
+  {
+    this->initializing := TRUE;
+    this->debug := debug;
+    this->showunknoweventcontents := showunknoweventcontents;
+    this->persistentconnection := TRUE;
+
+    RegisterEventCallback("socialite:stopslackmonitor", PTR this->stopslackmonitor);
+
+    PRINT("Connecting to Slack server @ " || this->apiurl || "\n");
+
+    WHILE(NOT this->stopeventreceived)
+    {
+      this->authenticate();
+      WHILE(this->isconnected AND NOT this->stopeventreceived)
+        this->ReceiveData(updateinterval);
+
+      PRINT("Connection to Slack server lost; reconnecting...\n");
+    }
+  }
+
+  PUBLIC MACRO Disconnect()
+  {
+    this->stopeventreceived := TRUE;
+  }
+
+  /** @short Creates a userlink.
+      @long Creates a userlink (Slack-formatting rules are followed) for the given username.
+      @param(STRING) username The username of the user to create a link for.
+      @return(STRING) The userlink.
+  */
+  PUBLIC STRING FUNCTION GetUserLink(STRING username)
+  {
+    RETURN "<@" || (SELECT AS STRING id FROM this->pvt_users WHERE name = username) || "|" || username || ">";
+  }
+
+  /** @short Convert user names to mentions.
+      @long Replaces all instances of known usernames in the given string to mentions by prepending them with an '@' character.
+      @param(STRING) text The string to convert
+      @return(STRING) The converted string.
+  */
+  PUBLIC STRING FUNCTION UsernamesToLinks(STRING text)
+  {
+    FOREVERY(STRING user FROM this->users)
+      text := Substitute(text, "@" || user, this->GetUserLink(user));
+
+    RETURN text;
+  }
+
+  /** @short Sets an ad-hoc override for an event.
+      @param(STRING) handlername The handler name to override, e.g. OnMessageReceived
+      @param(MACRO PTR) macroptr The handler macro to use instead; should accept one RECORD parameter.
+  */
+  PUBLIC MACRO SetOverrideFor(STRING handlername, MACRO PTR macroptr)
+  {
+    IF(Length(SELECT * FROM this->overrides WHERE COLUMN handlername = VAR handlername) > 0)
+      this->ClearOverrideFor(handlername);
+
+    INSERT [ handlername := handlername, macroptr := macroptr ] INTO this->overrides AT END;
+  }
+
+  /** @short Clears an override set by SetOverrideFor.
+      @param(STRING) handlername The handler name for which to remove the override.
+  */
+  PUBLIC MACRO ClearOverrideFor(STRING handlername)
+  {
+    DELETE FROM this->overrides WHERE COLUMN handlername = VAR handlername;
+  }
+
+  PUBLIC MACRO __ClearAllOverrides()
+  {
+    this->overrides := DEFAULT RECORD ARRAY;
+  }
+
+  /***************************************************************************************************
+  *
+  *  DEPRECATED PUBLIC API METHODS
+  *
+  */
+
+  // Undocumented to discourage use.
+  PUBLIC RECORD ARRAY FUNCTION FormatMessages(RECORD ARRAY messages)__ATTRIBUTES__(DEPRECATED "FormatMessages is deprecated and may be removed in the future. Please follow the API spec and implement a handler callback for received messages")
+  {
+    RECORD ARRAY output;
+    //abort(messages, 'tree');
+    FOREVERY(RECORD message FROM SELECT * FROM messages WHERE type = "message")
+    {
+      DumpValue(message, 'tree');
+      STRING username := CellExists(message, "user")? message.user : message.username;
+      INSERT [ username := (SELECT AS STRING name FROM this->pvt_users WHERE id = username), posted := message.ts, text := message.text  ] INTO output AT END;
+    }
+
+    RETURN output;
+  }
+
+  /***************************************************************************************************
+  *
+  *  EVENT HANDLER CALLBACKS (PRIVATE)
+  *
+  *  These are the internal event handlers, which your implementation might want to override. Many are just stubs.
+  *
+  */
+
+  /** @short global event handler (usefull for debugging)
+      @long beware that you might receive a 'pong' event every second (so logging it might create a big log file)
+  */
+  MACRO OnAnyEvent(RECORD data, STRING evt DEFAULTSTO "")
+  {
+    IF(this->GetOverrideFor("OnAnyEvent") != DEFAULT MACRO PTR)
+    {
+      MACRO PTR override := this->GetOverrideFor("OnAnyEvent");
+      override(data);
+    }
+  }
+
+  /** @short Fallback handler for unknown events
+      @long This handler will handle any event type which cannot be resolved to an existing handler macro.
+  */
+  MACRO OnUnknownEventReceived(RECORD data)
+  {
+    PRINT("Unknown event of type " || data.type || " received;\n");
+    IF(this->showunknoweventcontents)
+      PRINT("\t" || EncodeJSON(data) || "\n");
+
+    STRING callback := this->ToCallback(data.type);
+    IF(NOT MemberExists(this, callback))
+      PRINT("Additionally, there appears to be no callback named '" || callback || "'' to call for magic handling...\n");
+  }
+
+  // This one should simply exist, the default implementation enables a debug message, let's not care if the user overwrites it.
+  MACRO OnPongReceived(RECORD data)
+  {
+    IF(this->debug AND this->showpingpong)
+      PRINT("[DEBUG] Received a pong: " || data.data || "\n");
+  }
+
+  MACRO OnHelloReceived(RECORD data)
+  {
+    this->connected := TRUE;
+  }
+
+  MACRO OnMessageReceived(RECORD data)
+  {
+    //
+    IF(CellExists(data, 'user'))
+      PRINT("User '" || this->GetUserName(data.user) || "' posted to " || this->GetChannelName(data.channel) || ": " || data.text || "\n");
+  }
+
+  MACRO OnUserTypingReceived(RECORD data)
+  {
+    //
+    PRINT("User '" || this->GetUserName(data.user) || "' is typing...\n");
+  }
+
+  MACRO OnChannelMarkedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnChannelCreatedReceived(RECORD data)
+  {
+    //
+    PRINT("A channel named " || this->GetChannelName(data.channel.id) || " was created by " || this->GetUserName(data.channel.creator) || ".\n");
+    this->GetChannels();
+  }
+
+  MACRO OnChannelJoinedReceived(RECORD data)
+  {
+    //
+    PRINT("User " || this->GetUserName(data.channel.members[END-1]) || " has joined channel " || this->GetChannelName(data.channel.id) || ".\n");
+  }
+
+  MACRO OnChannelLeftReceived(RECORD data)
+  {
+    //
+    PRINT("User " || this->GetUserName(data.channel.members[END-1]) || " has left channel " || this->GetChannelName(data.channel.id) || ".\n");
+  }
+
+  MACRO OnChannelDeletedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnChannelRenameReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnChannelArchiveReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnChannelUnarchiveReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnChannelHistoryChangedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnIMReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnIMOpenReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnIMMarkedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnIMHistoryChangedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnGroupJoinedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnGroupLeftReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnGroupOpenReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnGroupCloseReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnGroupArchiveReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnGroupUnArchiveReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnGroupRenameReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnGroupMarkedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnGroupHistoryChangedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnFileCreatedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnFileSharedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnFileUnsharedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnFilePublicReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnFilePrivateReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnFileChangeReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnFileDeletedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnFileCommentAddedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnFileCommentEditedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnFileCommentDeletedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnPinAddedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnPinRemovedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnPresenceChangeReceived(RECORD data)
+  {
+    //
+    //DumpValue(data, 'tree');
+    //IF(this->connected)
+    //  UPDATE this->pvt_users SET presence := data.presence WHERE id = presence.user;
+
+    PRINT("User '" || this->GetUserName(data.user) || "' changed their presence to " || data.presence || ".\n");
+  }
+
+  MACRO OnManualPresenceChangeReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnPrefChangeReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnUserChangeReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnTeamJoinReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnStarAddedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnStarRemovedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnReactionAddedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnReactionRemovedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnReconnectURLReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnEmojiChangedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnCommandsChangedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnTeamPlanChangeReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnTeamPrefChangeReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnTeamRenameReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnTeamDomainChangeReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnEmailDomainChangedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnBotAddedReceived(RECORD data)
+  {
+    //
+    PRINT("A bot was added: " || data.bot.name || " is now active\n");
+  }
+
+  MACRO OnBotChangedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnAccountsChangedReceived(RECORD data)
+  {
+    //
+  }
+
+  MACRO OnTeamMigrationStartedReceived(RECORD data)
+  {
+    //
+  }
+
+
+>;
+
+PUBLIC OBJECT FUNCTION GetSlackAPI()
+{
+  RETURN NEW SlackAPI;
+}

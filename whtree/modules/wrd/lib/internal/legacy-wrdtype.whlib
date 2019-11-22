@@ -1,0 +1,425 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/import.whlib";
+LOADLIB "mod::wrd/lib/internal/queries.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/setentity.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdtype.whlib";
+LOADLIB "mod::wrd/lib/internal/legacy-wrdentity.whlib";
+
+PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
+<
+  PUBLIC PROPERTY description (GetDescription, -);
+  PUBLIC PROPERTY languagecode(currentlanguage, -);
+  PUBLIC PROPERTY childtypeids(__childtypeids, -);
+  PUBLIC PROPERTY abstract(this->typerec.abstract, -);
+
+  PUBLIC STRING list_attributes;
+
+  PUBLIC INTEGER wrd_requiretype_left;
+  PUBLIC INTEGER wrd_requiretype_right;
+  PRIVATE OBJECT pvt_parenttype;
+
+  PRIVATE INTEGER pvt_metatype;
+
+  PRIVATE STRING currentlanguage;
+
+  PUBLIC STRING ARRAY required_base_attributes;
+  PUBLIC STRING ARRAY unique_base_attributes;
+
+  ////////////////////////////////////////////////////////////////////
+  //
+  // NEW and database loading
+
+  PUBLIC MACRO NEW(OBJECT wrdschema, RECORD typerec, STRING currentlanguage)
+  : WRDTypeBase(wrdschema, typerec)
+  //ADDME: Allow instantiating type at different time
+  {
+    this->LoadType(typerec);
+    this->currentlanguage := currentlanguage;
+  }
+
+  UPDATE OBJECT FUNCTION __CreateEntityObject(RECORD entityrec)
+  {
+    RETURN NEW LegacyWRDEntity(this, entityrec);
+  }
+
+  UPDATE RECORD FUNCTION LoadType(RECORD typerec)
+  {
+    RECORD data := WRDTypeBase::LoadType(typerec);
+    this->wrd_requiretype_left := typerec.requiretype_left;
+    this->wrd_requiretype_right := typerec.requiretype_right;
+
+    this->required_base_attributes := Tokenize(typerec.required_fields,",");
+    this->unique_base_attributes := Tokenize(typerec.unique_fields,",");
+    this->pvt_metatype := typerec.metatype;
+    this->pvt_parenttype := this->pvt_wrdschema->GetTypeById(this->typerec.parenttype);
+    RETURN data;
+  }
+
+  PUBLIC MACRO ReloadType()
+  {
+    this->__ReloadType();
+  }
+
+
+
+  ////////////////////////////////////////////////////////////////////
+  //
+  // Other stuff
+
+  PUBLIC STRING FUNCTION GenerateGUID()
+  {
+    RETURN EncodeWRDGUID(CreateGUID());
+  }
+
+  UPDATE PUBLIC MACRO UpdateTypeMetadata(RECORD newmetadata)
+  {
+    IF(CellExists(newmetadata,'requiretype_left'))
+    {
+      INSERT CELL linkfrom := newmetadata.requiretype_left INTO newmetadata;
+      DELETE CELL requiretype_left FROM newmetadata;
+    }
+    IF(CellExists(newmetadata,'requiretype_right'))
+    {
+      INSERT CELL linkto := newmetadata.requiretype_right INTO newmetadata;
+      DELETE CELL requiretype_right FROM newmetadata;
+    }
+    this->UpdateMetadata(newmetadata);
+  }
+
+  /** @return Result
+      @cell entityid Id of newly created entity (only if no errors occurred)
+      @cell errors List of errors
+      @cell errors.tag Tag of attribute with the error
+      @cell errors.code Error code ("REQUIRED", "TOOLARGE", etc.) ADDME: document all
+      @cell errors.attr_title Title of attribute
+      @cell settingids Ids of all newly created settings
+  */
+  PUBLIC RECORD FUNCTION CreateEntity(RECORD entitydata)
+  {
+    RECORD res := LegacyUpdateEntity(this, entitydata, 0, DEFAULT DATETIME);
+    this->domainvalues_cached := FALSE;
+    RETURN res;
+  }
+
+  /** @return Result
+      @cell entityid The newly created entity */
+  PUBLIC OBJECT FUNCTION CreateEntity2(RECORD entitydata)
+  {
+    RETURN this->__DoCreateEntity(entitydata);
+  }
+
+  PUBLIC RECORD FUNCTION CreateDomVal(INTEGER parent, STRING title, RECORD entitydata)
+  {
+    // Update the record for the create entity function
+    INSERT CELL wrd_title := title INTO entitydata;
+    INSERT CELL wrd_leftentity := parent INTO entitydata;
+    this->domainvalues_cached := FALSE;
+    RECORD res:= LegacyUpdateEntity(this, entitydata, 0, DEFAULT DATETIME);
+    this->domainvalues_cached := FALSE;
+    RETURN res;
+  }
+
+  PUBLIC STRING FUNCTION GetNewAttributeTag(INTEGER parentattribute, STRING inputtag)
+  {
+    RETURN GetSafeWRDTag(inputtag, PTR this->TagInUse(parentattribute, #1));
+  }
+
+  /* the attribute types for attributes
+     1  = DOMAIN_SINGLE   - domain (single select)
+     2  = FREE
+     3  = ADDRESS
+     4  = EMAIL
+     5  = TELEPHONE
+     6  = DATE
+     7  = PASSWORD
+     8  = DOMAIN_MULTIPLE - domain (multiple select)
+     9  = IMAGE
+     10 = FILE
+     11 = TIME
+     12 = DATETIME
+     13 = ARRAY
+     14 = MONEY
+     15 = INTEGER
+     16 = BOOLEAN
+     17 = RICHDOCUMENT
+     18 = INTEGER64
+     19 = WHFS_INSTANCE
+     20 = WHFS_INTEXTLINK
+     21 = URL
+
+     FIXME: Better (e.g. a lot of) documentation
+
+     To create an array, with one child attribute:
+
+     RECORD arrayattribute := typeobj->CreateAttribute("ARRAY", "Some array attribute", "Descr", "ARRAY_ATTRIBUTE_TAG", "");
+     RECORD arraychildattribute := typeobj->CreateAttribute("FREE", "Some child element", "Descr", "ARRAY_ATTRIBUTE_TAG.CHILD_ATTRIBUTE_TAG", "");
+
+  */
+  PUBLIC RECORD FUNCTION CreateAttribute (STRING attributetype, STRING attributetitle, STRING description, STRING attributetag, STRING domaintag)
+  {
+    INTEGER domain;
+    IF(domaintag!="")
+    {
+      OBJECT targettype := this->wrdschema->__GetTypeByTag(domaintag);
+      IF(NOT ObjectExists(targettype))
+        THROW NEW Exception(`No such domain ${domaintag}`);
+      domain := targettype->id;
+    }
+    this->__DoCreateAttribute(attributetype,attributetitle,description,attributetag,domain);
+    RETURN this->GetAttributeInfoByTag(attributetag);
+  }
+
+  PUBLIC MACRO UpdateAttributeMetadata(STRING tag, RECORD newsettings)
+  {
+    this->UpdateAttribute(tag,newsettings);
+  }
+
+  /*
+  OBJECT FUNCTION WRDType::GetAttribute (INTEGER find_id)
+  {
+    RECORD attr := SELECT *
+                     FROM wrd.attrs
+                    WHERE id = find_id
+                      AND type = this->typerec.id;
+
+    IF(NOT RecordExists(attr))
+      RETURN DEFAULT OBJECT;
+
+    RETURN NEW WRDAttribute(this, attr);
+  }
+  */
+
+  PUBLIC INTEGER FUNCTION LookupEntity(STRING tagname, VARIANT tagval, BOOLEAN match_case DEFAULTSTO TRUE)
+  {
+    RETURN this->Search(tagname, tagval, [matchcase:=match_case]);
+  }
+
+  PUBLIC INTEGER FUNCTION LookupWRDEntityByAttribute(STRING tagname, VARIANT tagval, BOOLEAN match_case DEFAULTSTO TRUE)
+  {
+    RETURN this->Search(tagname, tagval, [matchcase:=match_case]);
+  }
+
+  /** Returns description of all attributes in this type
+      @return Record per attribute (not all described)
+      @cell return.__localtag
+      @cell return.__reftype
+      @cell return.attributeid Id of attribute (0 for base attributes)
+      @cell return.attributetype Type of this attribute
+      @cell return.base Whether this is a base attribute
+      @cell return.creationdate
+      @cell return.description (not available for internal attributes)
+      @cell return.domain If this a domain attribute, id of the domain this attribute refers to
+      @cell return.isalternative
+      @cell return.iscustom
+      @cell return.isgenerated Whether this attribute is
+      @cell return.isreadonly Whether this is a read-only attribute
+      @cell return.isrequired Whether this a required attribute
+      @cell return.isunique Whether values in this attribute must be unique (when present)
+      @cell return.isupdateable
+      @cell return.isinherited
+      @cell return.keephistory
+      @cell return.limitdate
+      @cell return.localtag
+      @cell return.maxlength
+      @cell return.checklinks
+      @cell return.multiline
+      @cell return.ordering
+      @cell return.parent Parent attribute
+      @cell return.tag Tag
+      @cell return.title Translated title of this attribute
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAttributes(INTEGER fromparent)
+  {
+    RETURN SELECT *, attributeid := id
+             FROM this->ListAttributes(fromparent);
+  }
+
+  PUBLIC RECORD FUNCTION GetAttributeInfo(INTEGER attrid)
+  {
+    RECORD basedata := this->GetAttributeById(attrid);
+    IF(RecordExists(basedata))
+      INSERT CELL attributeid := attrid INTO basedata;
+    RETURN basedata;
+  }
+
+  PUBLIC RECORD FUNCTION GetAttributeInfoByTag(STRING find_tag)
+  {
+    RECORD basedata := this->GetAttribute(find_tag);
+    IF(RecordExists(basedata))
+      INSERT CELL attributeid := basedata.id INTO basedata;
+    RETURN basedata;
+  }
+
+  /** @short Returns all requested fields of the entity with the given find_id
+      @param find_ids ids of the entity
+      @param fields name of the fields to return
+      @return Record array with a cell for each requested field, in unspecified order
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetEntitiesFields(INTEGER ARRAY find_ids, STRING ARRAY fields)
+  {
+    RETURN this->GetEntitiesFieldsAt(find_ids, fields, GetCurrentDatetime());
+  }
+
+  /** @short Returns all requested fields of all entities matching the ids
+      @param find_ids ids of the entity
+      @param fields name of the fields to return
+      @param when the time of which you want to know the value of. It does not need to equal a specific time at which the fields were updated.
+      @return Record array with a cell for each requested field, un unspecified order
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetEntitiesFieldsAt(INTEGER ARRAY find_ids, STRING ARRAY fields, DATETIME when)
+  {
+    RECORD ARRAY filters;
+    IF(Length(find_ids)=0)
+      RETURN DEFAULT RECORD ARRAY;
+
+    IF(Length(find_ids) = 1)
+      filters := [ [ field := "WRD_ID", value := find_ids[0] ] ];
+    ELSE
+      filters := [ [ field := "WRD_ID", matchtype := "IN", value := find_ids ] ];
+
+    //note: getentityfields sees ALL entities, but returns values as they were at 'when'.
+    OBJECT query := MakeWRDQuery([ sources := [[ type := this
+                                               , filters := filters
+                                               , outputcolumns := fields
+                                               , historymode := "all"
+                                               ]
+                                              ]
+                                 ]);
+    query->current_time := when;
+    RETURN query->Execute();
+  }
+
+  /** @short Returns all requested fields of the entity with the value they had at the specified time
+      @param find_id id of the entity
+      @param fields name of the fields to return
+      @param when the time of which you want to know the value of. It does not need to equal a specific time at which the fields were updated.
+      @return Record with a cell for each requested field (not all described)
+  */
+  PUBLIC RECORD FUNCTION GetEntityFieldsAt(INTEGER find_id, STRING ARRAY fields, DATETIME when)
+  {
+    RECORD ARRAY results := this->GetEntitiesFieldsAt([find_id], fields, when);
+    RETURN RECORD(results);
+  }
+
+  PUBLIC RECORD FUNCTION GetEntityFieldsBefore(INTEGER find_id, STRING ARRAY fields, DATETIME when)
+  {
+    when := AddTimeToDate(-1, when);
+    RETURN this->GetEntityFieldsAt(find_id, fields, when);
+  }
+
+  /** @short gets a list of dates on which the specified entity has been modified
+      @param find_id Id of the entity to check
+      @return list of all datetimes on which the entity was modified
+  */
+  PUBLIC DATETIME ARRAY FUNCTION GetEntityModificationDates(INTEGER find_id)
+  {
+    RETURN [GetCurrentDatetime()];
+  }
+
+  PUBLIC RECORD FUNCTION GetNewEntityFields(STRING ARRAY fields)
+  {
+    RETURN this->GetDefaultValues(fields);
+  }
+
+
+
+  PUBLIC RECORD ARRAY FUNCTION GetDomVals(STRING findtag)
+  {
+    IF(NOT IsDtapLive())
+      THROW NEW Exception(`LegacyWRDType::GetDomVals conflicts with WRDType2017::GetDomVals and is deprecated. If you can't switch to the WRD2017 API yet, at least replace GetDomVals with ListDomVals`);
+
+    RECORD res := this->GetAllDomvals(findtag);
+    IF(NOT res.isdom)
+    {
+      RETURN SELECT *
+                  , ordering := 0
+               FROM res.type->RunQuery( [ outputcolumns := [ id := "WRD_ID"
+                                                    , title := "WRD_TITLE"
+                                                    , tag := "WRD_TAG"
+                                                    , guid := "WRD_GUID"
+                                                    ]
+                                 ]);
+    }
+    DATETIME when := GetCurrentDatetime();
+    RETURN SELECT * FROM res.vals WHERE creationdate <= when AND when < limitdate;
+  }
+
+  PUBLIC BOOLEAN FUNCTION Exists(INTEGER verifyid)
+  {
+    INTEGER ARRAY validtypeids := [INTEGER(this->typerec.id)] CONCAT this->__childtypeids;
+    RETURN RecordExists(SELECT FROM wrd.entities WHERE id = verifyid AND type IN validtypeids);
+  }
+
+  /** @short Get an entity by its tag
+    @long Get an entity of this type, looking it up by its tag
+    @param tag Tag to look up (case insensitive), or the WRD global unique id if tag starts with 'WRD:'
+    @return The entity object, or a default object if no entity was found */
+  PUBLIC OBJECT FUNCTION GetEntityByTag(STRING tag)
+  {
+    INTEGER entity := this->LookupEntity("WRD_TAG", tag, FALSE);
+    IF(entity = 0)
+      RETURN DEFAULT OBJECT;
+    ELSE
+      RETURN this->GetEntity(entity);
+  }
+
+  PRIVATE STRING FUNCTION GetDescription()
+  {
+    RETURN this->typerec.description;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsDomainType()
+  {
+    RETURN this->typerec.metatype=4;
+  }
+
+  PUBLIC OBJECT FUNCTION OpenWRDEntityByGuid (STRING http_guid)
+  {
+    http_guid := ToUpperCase(http_guid);
+
+    IF (LEFT(http_guid, 4) != "WRD:")
+      THROW NEW Exception("Global unique ids must start with 'wrd:'");
+
+    // Find the entity, to know the WRD type id
+    RECORD entityrec := SELECT entity_id := entities.id
+                          FROM wrd.entities
+                         WHERE entities.type = this->id
+                               AND ToUppercase(guid) = ToUppercase(DecodeWRDGUID(http_guid));
+    IF (NOT RecordExists(entityrec))
+      RETURN DEFAULT OBJECT;
+
+    // Find the type, open it and return the entity
+    RETURN this->GetEntity(entityrec.entity_id);
+  }
+
+  //ADDME: Meer error checks, zoals op requiretype_left & right
+
+  PUBLIC OBJECT FUNCTION MakeQuery(RECORD querydata)
+  {
+    INTEGER resultlimit := -1;
+    IF (CellExists(querydata, "resultlimit"))
+    {
+      resultlimit := querydata.resultlimit;
+      DELETE CELL resultlimit FROM querydata;
+    }
+
+    RECORD wrdquery := [sources := [ MakeMergedRecord([type := this],querydata)]];
+    IF (resultlimit >= 0)
+      INSERT CELL resultlimit := resultlimit INTO wrdquery;
+
+    RETURN MakeWRDQuery(wrdquery);
+  }
+
+
+  PUBLIC OBJECT FUNCTION CreateImportSession()
+  {
+    RETURN NEW WRDImporter(this);
+  }
+
+>;

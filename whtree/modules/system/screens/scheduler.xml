@@ -1,0 +1,95 @@
+<?xml version="1.0" ?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+       gid="scheduler"
+       lib="screens/scheduler.whlib">
+
+  <messageboxes gid=".messages">
+    <messagebox name="confirm_delete" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="main" gid=".main" allowresize="true" savestate="size" width="120x" height="30x">
+
+    <actions gid=".actions">
+      <action name="add" onexecute="doadd" tid="tollium:common.actions.add"  />
+      <action name="edit" onexecute="doedit" tid="tollium:common.actions.edit">
+        <enableon source="tasks" max="1" min="1" />
+      </action>
+      <action name="delete" onexecute="dodelete" tid="tollium:common.actions.delete">
+        <enableon source="tasks" max="1" min="1" />
+      </action>
+    </actions>
+
+    <menus gid=".menus">
+      <menu name="context_menu">
+        <item action="edit"/>
+        <item action="delete"/>
+      </menu>
+
+      <menu name="new_menu">
+        <item action="add"/>
+      </menu>
+
+    </menus>
+
+    <body>
+      <grid width="1pr" height="1pr">
+        <col width="1pr"/>
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="tasks"
+                  width="1pr"
+                  openaction="edit"
+                  selectcontextmenu="context_menu"
+                  icons="tollium:status/checked tollium:status/negative"
+                  newcontextmenu="new_menu"
+                  selectmode="single">
+              <column type="datetime" name="nexttime" width="20x" storeutc="true" iconname="isactiveicon" />
+              <column type="text" name="scriptname" />
+              <column type="text" name="parameters" />
+              <column type="text" name="description" />
+              <style name="notactive" textcolor="#808080" />
+            </list>
+          </cell>
+          <cell>
+            <button action="add" />
+            <button action="edit"  />
+            <button action="delete" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+
+  <screen name="taskscreen" gid=".taskscreen" allowresize="true" savestate="size" minwidth="400px">
+    <body layout="form" height="1pr">
+      <textedit name="scriptname" required="true" maxlength="1024" width="1pr" />
+      <textedit name="parameters" maxlength="4096" width="1pr" />
+      <textarea name="description" tid="tollium:common.labels.description" maxlength="2048" width="1pr" />
+      <datetime name="nexttime" type="datetime" storeutc="true" />
+      <line layout="left">
+        <checkbox name="repeat" title="" labeltid=".repeatevery" value="true" enablecomponents="repeatevery repeatunit" />
+        <textedit name="repeatevery" errorlabeltid=".repeatevery" title="" valuetype="integer" emptyvalue="0" required="true" width="6x" />
+        <select name="repeatunit" type="pulldown" rowkeytype="integer" title="">
+          <option rowkey="3" tid="tollium:common.units.seconds" />
+          <option rowkey="0" tid="tollium:common.units.minutes" selected="true" />
+          <option rowkey="1" tid="tollium:common.units.hours" />
+          <option rowkey="2" tid="tollium:common.units.days" />
+        </select>
+      </line>
+      <line layout="left">
+        <checkbox name="enabled" title="" labeltid=".enabled" value="true" />
+      </line>
+      <line layout="left">
+        <checkbox name="runatstartup" title="" labeltid=".runatstartup" />
+      </line>
+    </body>
+    <footer>
+     <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

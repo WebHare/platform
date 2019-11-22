@@ -1,0 +1,259 @@
+<?wh
+/** @short Money type utility functions
+    @long This library contains functions that manipulate money type variables in different ways.
+          Money types are used to store fractional values. Money values support up to 5 decimals,
+          but unlike floating point values, they have no accuracy loss when storing decimal values.
+          The money type utility functions could for example be used in financial applications.
+    @topic harescript-core/money
+*/
+
+LOADLIB "wh::internal/interface.whlib";
+
+/** @short Formats a MONEY value and returns the resulting STRING.
+    @long
+This function creates a STRING from a MONEY value using the given format parameters.
+The number of decimals can be 0 to 5. When the decimals parameter is less than 0 or
+greater than 5, all decimals will be shown. When the actual number of decimals is
+greater than the requested number of decimals, the value will be rounded to fit when
+the round parameter is TRUE. When round is FALSE, all significant decimals will be
+shown, with at least the given number of decimals. When decimals are rounded, the
+following rules apply: 5 and higher is rounded up, 4 and lower is rounded down, e.g.
+0.15 rounded to 1 decimal becomes 0.2 and 0.14 becomes 0.1.
+decimalsep and thousandsep may be empty, in which case there will be no decimal or
+thousand separator.
+
+    @param value       The @italic money value to format
+    @param decimals    The number of decimals (range 0 to 5)
+    @param decimalsep  The decimal separator (e.g. ',')
+    @param thousandsep The thousand separator (e.g. '.')
+    @param round       Indicates if the value needs to be rounded or expanded
+
+    @return The string formatted @italic value
+    @see Tomoney, MoneyToInteger, MoneyToFloat
+    @example
+// This will print: 10,001.3
+// FormatMoney has rounded this value
+PRINT (FormatMoney(10001.3454, 1, ".", ",", TRUE));
+
+// This will print: 10.001,4
+// FormatMoney has rounded this value
+PRINT (FormatMoney(10001.3554, 1, ",", ".", TRUE));
+
+// This will print: 1.3454
+// No rounding, so the exact number of decimals will be printed
+PRINT (FormatMoney(1.3454, 1, ".", ",", FALSE));
+*/
+PUBLIC STRING FUNCTION FormatMoney(MONEY value, INTEGER decimals, STRING decimalsep, STRING thousandsep, BOOLEAN round)
+{
+  INTEGER64 baseval := ToInteger64(__HS_MoneyToString(value),0); //FIXME shortcircuit in HS engine
+  IF(decimals<0 OR decimals > 5)
+    decimals := 5;
+
+  INTEGER64 primarypart := baseval / 100000;
+  INTEGER64 decimalpart := baseval % 100000;
+  BOOLEAN isnegative := baseval<0;
+
+  IF(isnegative)
+  {
+    primarypart := -primarypart;
+    decimalpart := -decimalpart;
+  }
+
+  IF(round AND decimals < 5)
+  {
+    decimalpart := decimalpart + ([50000,5000,500,50,5][decimals]);
+    decimalpart := decimalpart - (decimalpart % [ 100000, 10000, 1000, 100, 10][decimals]);
+    IF(decimalpart >= 100000)
+    {
+      decimalpart := decimalpart - 100000;
+      primarypart := primarypart + 1;
+    }
+  }
+
+
+  STRING primarystr := ToString(primarypart);
+  IF(thousandsep!="")
+    FOR(INTEGER insertpos := Length(primarystr)-3; insertpos > 0; insertpos := insertpos - 3)
+      primarystr := Left(primarystr,insertpos) || thousandsep || Substring(primarystr, insertpos);
+
+  STRING decimalstr := Right("0000"||decimalpart,5);
+
+  IF(round)
+  {
+    decimalstr := Left(decimalstr, decimals);
+  }
+  ELSE
+  {
+    WHILE(decimalstr LIKE "*0" AND Length(decimalstr) > decimals)
+      decimalstr:=Left(decimalstr,Length(decimalstr)-1);
+  }
+  RETURN (isnegative?"-":"") || primarystr || (decimalstr=""?"":decimalsep||decimalstr);
+}
+
+
+
+
+/** @short Creates a MONEY value from a STRING.
+    @long This function creates a MONEY value from a STRING. The function automatically
+          determines the decimal separator by searching the last occurance of '.' or ','.
+          This will then be used as the decimal point; the thousand separator is assumed
+          to be the opposite character (i.e. '.' when the decimal separator is ',' and
+          vice versa). When no separator is found, the decimal point is assumed to be at
+          the end of the string and no thousand separator is defined. To avoid problems with STRING to MONEY
+          conversions it is recommended that you replace the thousand separators by empty strings before conversions
+          When a string cannot be converted, the default value @italic defval is returned.
+    @param value The STRING value to read the MONEY value from
+    @param defval The MONEY value to return when the string could not be converted
+    @return The money value read from @italic value
+    @see FormatMoney, Substitute
+    @example
+// The MONEY value m will be: 1345.4
+MONEY m := ToMoney("1.345,4", 0);
+
+// The MONEY value m will be: 1234567.89
+MONEY m := ToMoney("1,234,567.89", 0);
+
+// The MONEY value m will be: 0.0 (duplicate decimal separator ',')
+MONEY m := ToMoney("1,234,567", 0);
+
+//The MONEY value m will be: 1234567
+//The thousand separator is ','
+MONEY m := ToMoney(Substitute("1,234,567", ",", ""), 0);
+
+// The MONEY value m will be: 0.0 ("E" is an invalid money string)
+MONEY m := ToMoney("E 17,95", 0);
+*/
+PUBLIC MONEY FUNCTION ToMoney(STRING value, MONEY defval)
+{
+  // Did we process a valid MONEY value?
+  BOOLEAN valid := FALSE;
+
+  // Find the sign of this value
+  BOOLEAN negative := FALSE;
+  IF (LEFT(value, 1) = '-')
+  {
+    value := RIGHT(value, Length(value)-1);
+    negative := TRUE;
+  }
+  ELSE IF (LEFT(value, 1) = '+')
+  {
+    value := RIGHT(value, Length(value)-1);
+  }
+
+  // Search for the most right decimal separator
+  STRING sep; // Thousand separator
+  INTEGER decimalSeparator := SearchLastSubstring(value, ".");
+  IF (decimalSeparator >= 0)
+    sep := ",";
+  IF (SearchLastSubstring(value, ",") > decimalSeparator)
+  {
+    decimalSeparator := SearchLastSubstring(value, ",");
+    sep := ".";
+  }
+
+  IF (decimalSeparator = -1)
+    decimalSeparator := Length(value);
+
+  INTEGER power := 0;
+  MONEY amount := 0;
+  // Process the decimals
+  FOR (INTEGER i := decimalSeparator + 1; i < Length(value); i := i + 1)
+  {
+    valid := TRUE;
+    MONEY thisValue := ToInteger(SubString(value, i, 1), -1);
+    IF (thisValue != -1.0)
+    {
+      power := power - 1;
+      FOR (INTEGER j := power; j < 0; j := j + 1)
+      {
+        thisValue := thisValue / 10;
+      }
+      amount := negative ? (amount - thisValue) : (amount + thisValue);
+    }
+    ELSE
+      RETURN defval;
+  }
+
+  // Process the rest
+  power := 0;
+  INTEGER seppos := 0; // Number of positions between two thousand
+                       // separators (or the decimal and a thousand
+                       // separator).
+  FOR (INTEGER i := decimalSeparator - 1; i >= 0; i := i - 1)
+  {
+    valid := TRUE;
+    MONEY thisValue := ToInteger(SubString(value, i, 1), -1);
+    IF (thisValue != -1)
+    {
+      FOR (INTEGER j := power; j > 0; j := j - 1)
+      {
+        thisValue := thisValue * 10;
+      }
+      MONEY prevamount := amount;
+      amount := negative ? (amount - thisValue) : (amount + thisValue);
+      IF (negative ? (amount > prevamount) : (amount < prevamount))
+        RETURN defval;//Overflow
+      power := power + 1;
+      seppos := seppos + 1;
+    }
+    ELSE IF ((seppos = 3) AND (SubString(value, i, 1) = sep))
+      seppos := 0;
+    ELSE
+      RETURN defval;
+  }
+
+  IF (NOT valid)
+    amount := defval;
+
+  RETURN amount;
+}
+
+
+
+
+/** @short Casts a FLOAT value to a MONEY value.
+    @long  This function can be used to convert a FLOAT to a MONEY value. When the FLOAT value
+           is too big or precise to fit into a MONEY, it flows over or precision is lost, so you
+           should make sure the FLOAT value is in the MONEY range.
+    @param value The FLOAT value to be converted
+    @return The MONEY value of value
+    @see MoneyToFloat, FloatToInteger
+    @example
+// The MONEY value will be 1.2345
+MONEY m := FloatToMoney(1.2345);
+
+// The MONEY value will be 1.23456. As a MONEY variable can have up
+// to 5 decimals, the last decimals are lost.
+MONEY m := FloatToMoney(1.23456789)
+*/
+PUBLIC MONEY FUNCTION FloatToMoney(FLOAT value)
+{
+  RETURN __HS_ToMoney(value);
+}
+
+
+
+
+/** @short Converts a MONEY value to an INTEGER value.
+    @long  This function can be used to convert a MONEY to a INTEGER value. Make sure that the MONEY value is
+           within the INTEGER range to avoid an overflow. Decimals in a MONEY value will be truncated during the conversion.
+    @param value The MONEY value to be converted
+    @return The INTEGER value of @italic value
+    @see IntegerToMoney, MoneyToFloat
+    @example
+// The INTEGER value will be 17
+INTEGER i := MoneyToInteger(17.0);
+
+// The INTEGER value will be 17. As an INTEGER has no decimals, the
+// decimals in the MONEY value are lost.
+INTEGER i := MoneyToInteger(17.58765);
+
+// The INTEGER value will be -2147483648. As the MONEY value is
+// outside the INTEGER range, the INTEGER value flows over.
+INTEGER i := MoneyToInteger(2147483648.);
+*/
+
+PUBLIC INTEGER FUNCTION MoneyToInteger(MONEY value)
+{
+  RETURN __HS_ToInteger(value);
+}

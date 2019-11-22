@@ -1,0 +1,1003 @@
+<?wh
+/** @short Base classes for forms and form pages
+    @topic forms/baseclasses
+*/
+/* Returns FormBase class and basic functions needed to implement backends for your forms (but not form files) */
+
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "mod::publisher/lib/analytics.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib" EXPORT GetFormRequestURL, GetFormWebVariable;
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/webpagebase.whlib";
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+
+//Direct API to allow us to optimize this in the future (by eg not actually creating the form all the time)
+/*
+PUBLIC RECORD FUNCTION GetWittyDataForForm(STRING formdefinitionfile, STRING formname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN OpenForm(formdefinitionfile, formname, options)->GetWittyData();
+}
+*/
+
+//we're not using this text yet, but prevent it from being deleted. can't mark individual tids as 'keep'
+CONSTANT STRING wildcard_is_required_text := /*tid*/"publisher:site.forms.starsrequired";
+
+OBJECT defaultrenderer;
+
+//return a renderer for eg widget previews containing forms
+OBJECT FUNCTION GetDefaultRenderer()
+{
+  IF(NOT ObjectExists(defaultrenderer))
+    defaultrenderer := NEW FormRenderingBase(DEFAULT OBJECT);
+  RETURN defaultrenderer;
+}
+
+OBJECTTYPE FormsFeedbackObject EXTEND FeedbackObjectBase
+<
+  OBJECT form;
+
+  MACRO NEW(OBJECT form, OBJECT transaction, STRING mutex)
+  : FeedbackObjectBase(transaction, mutex)
+  {
+    this->form := form;
+  }
+
+  PUBLIC BOOLEAN FUNCTION Finish()
+  {
+    IF(this->terminated)
+      THROW NEW Exception("This feedback object has already been terminated");
+
+    this->TryCommit();
+    this->form->__HandleWorkResult(this->errors, this->warnings);
+    RETURN NOT this->HasFailed();
+  }
+>;
+
+STATIC OBJECTTYPE FormPage
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT form;
+  RECORD page;
+  PUBLIC BOOLEAN visible;
+  PUBLIC PROPERTY role(this->page.role,-);
+  RECORD pvt_visiblecondition;
+  PUBLIC STRING title;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables and properties
+  //
+
+  PUBLIC PROPERTY visiblecondition(pvt_visiblecondition, SetVisibleCondition);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT form, RECORD page)
+  {
+    this->form := form;
+    this->page := page;
+    this->visible := TRUE;
+    this->title := GetTid(page.title);
+    this->pvt_visiblecondition := page.visiblecondition;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC BOOLEAN FUNCTION ContainsField(OBJECT field)
+  {
+    RETURN RecordExists(SELECT FROM this->page.fields WHERE name = field->name);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsNowVisible()
+  {
+    IF(NOT this->visible)
+      RETURN FALSE;
+    IF(RecordExists(this->visiblecondition) AND NOT this->form->MatchFormCondition(this->visiblecondition, DEFAULT RECORD).success)
+      RETURN FALSE;
+    RETURN TRUE;
+  }
+
+  PUBLIC MACRO RenderPage(INTEGER pagenum)
+  {
+    IF(NOT this->visible) //permanently invisible
+      RETURN;
+
+    Print(`<div class="wh-form__page`);
+    IF (pagenum>0)
+      Print(" wh-form__page--hidden");
+    ELSE
+      Print(" wh-form__page--visible");
+    Print(`"`);
+    IF (this->title != "")
+      Print(` data-wh-form-pagetitle="${EncodeValue(this->title)}"`);
+
+    IF (this->page.role != "")
+    {
+      Print(` data-wh-form-pagerole="${EncodeValue(this->page.role)}"`);
+
+      IF (this->page.role = "thankyou")
+      {
+        STRING redirect := this->page.redirect;
+        IF (redirect != "")
+          Print(` data-wh-form-pageredirect="${EncodeValue(redirect)}"`);
+      }
+    }
+    IF (RecordExists(this->visiblecondition))
+    {
+      STRING condition := this->form->__ExplainConditionsForJS([ this ], "visiblecondition");
+      Print(` data-wh-form-visible-if="${EncodeValue(condition)}"`);
+    }
+    Print('>');
+
+    FOREVERY (RECORD field FROM this->page.fields)
+    {
+      RECORD fld := SELECT * FROM this->form->__formfields WHERE ToUppercase(name) = ToUppercase(field.name);
+      fld.obj->RenderField();
+    }
+
+    Print(`</div>`);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetVisibleCondition(RECORD newcondition)
+  {
+    newcondition := ValidateFormCondition(newcondition);
+    this->pvt_visiblecondition := newcondition;
+  }
+>;
+
+/** @short Form base object
+*/
+PUBLIC OBJECTTYPE FormBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC RECORD __form;
+  RECORD ARRAY __formerrors;
+  RECORD ARRAY __formwarnings;
+  RECORD ARRAY __formmessages;
+
+  /** @cell name
+      @cell obj
+  */
+  RECORD ARRAY __formfields;
+  RECORD ARRAY __formbuttons;
+  RECORD ARRAY __formpages;
+  OBJECT __wrdauthplugin;
+  BOOLEAN __didsearchwrdauthplugin;
+  BOOLEAN __havepreinited;
+  STRING __formlanguagecode;
+  OBJECT __formlastwork;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties and variables
+  //
+
+  /// The current value of the form as a record
+  PUBLIC PROPERTY formvalue(__GetFormValue, -);
+
+  /// Rendering engine for this form
+  PUBLIC OBJECT formrenderer;
+
+  /// Webcontext for the form
+  PUBLIC PROPERTY formcontext(this->__form.webcontext, -);
+
+  /// Applytester for the form
+  PUBLIC PROPERTY formapplytester(this->__form.applytester, -);
+
+  /// prefix for ids
+  PUBLIC STRING formidprefix;
+
+  /// URL for the the form
+  PUBLIC PROPERTY formurl(__GetFormUrl, -);
+
+  /// Language for the form
+  PUBLIC PROPERTY formlanguagecode(__formlanguagecode, -);
+
+  /// Form classes(defaults to wh-form wh-styledinput, only printed if you're using [form.formrender]
+  PUBLIC STRING ARRAY formclasses;
+
+  /// Form JS handler. Defaults to publisher:rpc, unless it's a legacy form (no <page>s) which require JS registration
+  PUBLIC STRING formjshandler;
+
+  /// Custom data attributes
+  PUBLIC RECORD formdataset;
+
+  /// Label for 'previous page' buttoon
+  PUBLIC STRING formprevlabel;
+
+  /// Label for 'next page' buttoon
+  PUBLIC STRING formnextlabel;
+
+  /// Label for 'submit' buttoon
+  PUBLIC STRING formsubmitlabel;
+
+  /// 'Fixed' form variables, used for conditions
+  PUBLIC RECORD formvariables;
+
+  /// Form submittype (new or edit)
+  PUBLIC STRING formsubmittype;
+
+  /// Allow historic values to be selected
+  PUBLIC BOOLEAN selecthistoricvalues;
+
+  /// Form reference (persisted over RPCs, seen and possible modifyable by clients so should not contain sensitive or replayable data)
+  PUBLIC STRING formref;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    IF(NOT RecordExists(__passthrough))
+      THROW NEW Exception("Forms should not be directly instantiated but created using OpenForm");
+
+    this->formsubmittype := "new";
+    this->__form := __passthrough;
+    this->formref := __passthrough.formref;
+    __passthrough := DEFAULT RECORD;
+    this->formjshandler := this->__form.jshandler;
+    this->formclasses := ["wh-form","wh-styledinput"];
+    this->formidprefix := this->__form.idprefix;
+    this->__formbuttons := this->__form.buttons;
+    this->__formlanguagecode := this->__form.languagecode ?? ObjectExists(this->formcontext) ? this->formcontext->languagecode : "en";
+    this->formprevlabel :=    GetTidForLanguage(this->__formlanguagecode, this->__form.prevlabel ?? /*TID*/"publisher:site.forms.previouspage");
+    this->formnextlabel :=    GetTidForLanguage(this->__formlanguagecode, this->__form.nextlabel ?? /*TID*/"publisher:site.forms.nextpage");
+    this->formsubmitlabel :=  GetTidForLanguage(this->__formlanguagecode, this->__form.submitlabel ?? /*TID*/"publisher:site.forms.submit");
+
+    //must do this last, at least so form components can access the languagecode
+    this->__InstantiateFields(DEFAULT OBJECT, this->__form.fields);
+    this->__InstantiatePages(this->__form.pages);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  RECORD FUNCTION __GetFormValue()
+  {
+    RECORD val := CELL[];
+    FOREVERY(RECORD fld FROM this->__formfields)
+      IF (NOT fld.obj->novalue AND fld.name NOT LIKE "*.*" /* ignore subfields */ )
+        val := CellInsert(val, fld.name, fld.obj->value);
+    RETURN val;
+  }
+
+  STRING FUNCTION __GetFormURL()
+  {
+    IF(ObjectExists(this->formcontext))
+      RETURN this->formcontext->baseurl;
+    ELSE
+      RETURN "";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT ARRAY FUNCTION __InstantiateFields(OBJECT parent, RECORD ARRAY fields)
+  {
+    OBJECT ARRAY instantiated;
+    FOREVERY(RECORD fld FROM fields)
+    {
+      OBJECT fldobj := this->__InstantiateField(parent, fld);
+      INSERT fldobj INTO instantiated AT END;
+      MemberInsert(this, "^" || fld.name, FALSE, fldobj);
+      IF(this->__form.legacymode)
+        MemberInsert(this, fld.name, FALSE, fldobj); //legacy support - forms should from now on always use '^' syntax!
+    }
+    RETURN instantiated;
+  }
+
+  MACRO __FormAllFields()
+  {
+    FOREVERY(RECORD fld FROM this->__formfields)
+      IF(NOT ObjectExists(fld.obj->parent))
+        fld.obj->RenderField();
+  }
+
+  MACRO __InstantiatePages(RECORD ARRAY pages)
+  {
+    OBJECT ARRAY instantiated;
+    FOREVERY (RECORD page FROM pages)
+    {
+      OBJECT pageobj := NEW FormPage(PRIVATE this, page);
+      INSERT CELL[ ...page, obj := pageobj ] INTO this->__formpages AT END;
+      IF (page.name != "")
+        MemberInsert(this, "^" || page.name, FALSE, pageobj);
+    }
+  }
+
+  MACRO __FormHiddenFields() //renders all toplevel fields not allocated to a page
+  {
+    //TODO just assign objects to their page (make it their parent) to simplify finding the unmatched fields
+    IF(Length(this->__formpages) = 0)
+      RETURN;
+
+    RECORD ARRAY torender := SELECT * FROM this->__formfields WHERE NOT ObjectExists(obj->parent); //get only top level fields
+    FOREVERY(RECORD page FROM this->__formpages)
+    {
+      STRING ARRAY fieldnames := SELECT AS STRING ARRAY ToUppercase(name) FROM page.fields;
+      DELETE FROM torender WHERE ToUppercase(name) IN fieldnames;
+    }
+    FOREVERY(RECORD renderit FROM torender)
+      renderit.obj->RenderField();
+  }
+
+  MACRO __FormAllPages()
+  {
+    FOREVERY(RECORD page FROM this->__formpages)
+      page.obj->RenderPage(#page);
+  }
+
+  PUBLIC OBJECT FUNCTION __GetRenderer()
+  {
+    IF (Objectexists(this->formrenderer))
+      RETURN this->formrenderer;
+
+    IF (NOT ObjectExists(this->formcontext) OR NOT MemberExists(this->formcontext, "GetFormRenderer"))
+      RETURN GetDefaultRenderer();
+
+    RETURN this->formcontext->GetFormRenderer();
+  }
+
+  MACRO __SendFormMessage(STRING _field, STRING _prop, VARIANT data)
+  {
+    DELETE FROM this->__formmessages WHERE field = _field AND prop = _prop;
+    INSERT [ field := _field, prop :=_prop, data := data ] INTO this->__formmessages AT END;
+  }
+
+  PUBLIC MACRO __EnsurePreInit()
+  {
+    this->__havepreinited := TRUE;
+    FOREVERY(RECORD field FROM this->__formfields)
+      field.obj->__EnsurePreInit();
+  }
+
+  RECORD FUNCTION __ResolveConditionGUIDs(RECORD condition)
+  {
+    SWITCH (condition.matchtype)
+    {
+      CASE "IN", "HAS", "IS", "HASVALUE"
+      {
+        STRING condition_field := condition.field;
+        STRING extra_field;
+        IF (condition_field LIKE "*$*")
+        {
+          condition_field := Tokenize(condition.field, "$")[0];
+          extra_field := Substring(condition.field, Length(condition_field));
+        }
+        RECORD match := SELECT * FROM this->ListFields() WHERE guid = condition_field;
+        IF(RecordExists(match))
+          condition.field := match.obj->conditionname || extra_field;
+
+        // Convert array values to string (JavaScript checks <input> values, which are always strings)
+        IF (TypeID(condition.value) != TypeID(STRING ARRAY) AND IsTypeIDArray(TypeID(condition.value)))
+        {
+          STRING ARRAY value;
+          IF(Length(condition.value) > 0) //more than one element
+          {
+            //detect type
+            STRING rowkeytype := ToLowercase(GetTypeName(TypeID(condition.value[0])));
+            value := SELECT AS STRING ARRAY UnmapValueType(rowkeytype, val, "", FALSE) FROM ToRecordArray(condition.value, "val");
+          }
+          condition := CELL[ ...condition, value ];
+        }
+        // If matching case insensitive, uppercase the condition values
+        IF (condition.matchtype IN [ "IN", "HAS", "IS" ] AND CellExists(condition, "options") AND CellExists(condition.options, "matchcase") AND NOT condition.options.matchcase)
+        {
+          IF (IsTypeIDArray(TypeID(condition.value)))
+            condition.value := SELECT AS STRING ARRAY ToUppercase(val) FROM ToRecordArray(condition.value, "val");
+          ELSE IF (TypeID(condition.value) = TypeID(STRING))
+            condition.value := ToUppercase(condition.value);
+        }
+      }
+      CASE "AND", "OR"
+      {
+        FOREVERY (RECORD subcondition FROM condition.conditions)
+          condition.conditions[#subcondition] := this->__ResolveConditionGUIDs(subcondition);
+      }
+      CASE "NOT"
+      {
+        condition.condition := this->__ResolveConditionGUIDs(condition.condition);
+      }
+    }
+    RETURN condition;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Internal public API
+  //
+
+  PUBLIC OBJECT FUNCTION __InstantiateField(OBJECT parent, RECORD field)
+  {
+    OBJECT newfield;
+    INTEGER insertpos := Length(this->__formfields); //record planned position so we keep subfields from eg <select><option><textarea> _after_ us in eg. result lists
+    field.formorder := Length(this->__formfields) + 1;
+    TRY
+      newfield := field.fieldobject(PRIVATE this, parent, field);
+    CATCH (OBJECT e)
+      THROW NEW Exception(`Error while instantiating field ${field.name} of type ${field.type}: ${e->what}`, [ trace := e->trace ]);
+
+    INSERT
+        CELL[ name := ToUppercase(field.name ?? field.guid)
+            , field.isstatic
+            , field.isgroup
+            , field.formpage
+            , field.formgroup
+            , field.guid
+            , field.title
+            , obj := newfield
+            , field.supportedvalues
+            , defaulttype := GetFieldTypeID(field.supportedvalues)
+            , columntype := GetFieldColumnType(field.supportedvalues)
+            ] INTO this->__formfields AT insertpos;
+    RETURN newfield;
+  }
+
+  PUBLIC STRING FUNCTION __ExplainConditionsForJS(OBJECT ARRAY objs, STRING conditionname)
+  {
+    RECORD ARRAY conditions;
+    FOREVERY (OBJECT obj FROM objs)
+      IF (ObjectExists(obj))
+      {
+        RECORD cond := Getmember(obj, conditionname);
+        IF (RecordExists(cond))
+          INSERT cond INTO conditions AT END;
+      }
+
+    IF (LENGTH(conditions) > 1)
+      conditions := [ CELL[ matchtype := "AND", conditions ] ];
+
+    RECORD condition := conditions;
+    IF(NOT RecordExists(condition))
+      RETURN "";
+
+    RETURN EncodeJSON([ c := this->__ResolveConditionGUIDs(condition) ]);
+  }
+
+  PUBLIC OBJECT FUNCTION __GetPageContainingField(OBJECT field)
+  {
+    FOREVERY(RECORD page FROM this->__formpages)
+      IF (page.obj->ContainsField(field))
+        RETURN page.obj;
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC MACRO __HandleWorkResult(RECORD ARRAY errors, RECORD ARRAY warnings)
+  {
+    this->__formerrors := this->__formerrors CONCAT errors;
+    this->__formwarnings := this->__formwarnings CONCAT warnings;
+  }
+
+  PUBLIC MACRO __FormSetData(RECORD fields)
+  {
+    FOREVERY(RECORD field FROM this->__formfields) //always run in form order, easier for interdependent fields
+    {
+      IF(NOT CellExists(fields, field.name))
+        CONTINUE;
+
+      IF(NOT field.obj->IsFrontendVisible()) // The component was never sent to the client, so it cannot have been updated
+        CONTINUE;
+
+      // We cannot reliably determine which fields are currently enabled, based on the value of other fields (of which the
+      // updated value might not have been processed yet), so we'll just update anything we're receiving and leave the
+      // responsibility of using the updated values with the form handler
+      field.obj->UpdateFromJS(GetCell(fields,field.name));
+    }
+  }
+
+  PUBLIC RECORD FUNCTION __FormDoSubmit(RECORD rpcsubmitinfo)
+  {
+    //Construct the fields - FIXME move this back to NEW() but it gives confusing errors. #586
+    IF(NOT MemberExists(this,'submit'))
+      THROW NEW Exception("The object handling this form has no Submit() function to handle submissions");
+
+    FUNCTION PTR submit := GetObjectMethodPtr(this,'submit');
+    IF(NOT ValidateFunctionPtr(submit, TYPEID(RECORD), [TYPEID(RECORD)]))
+      THROW NEW Exception("This form's submit handler must be of the form RECORD FUNCTION Submit(RECORD)");
+
+    RECORD result;
+    BOOLEAN worknotclosed;
+    TRY
+    {
+      result := submit(CellExists(rpcsubmitinfo,'extrasubmit') ? rpcsubmitinfo.extrasubmit : DEFAULT RECORD);
+    }
+    FINALLY
+    {
+      IF (ObjectExists(this->__formlastwork) AND NOT this->__formlastwork->terminated)
+      {
+        this->__formlastwork->Cancel();
+        worknotclosed := TRUE;
+      }
+    }
+
+    IF (worknotclosed)
+      THROW NEW Exception("The Submit() function of the object handling this form returned with work still open");
+
+    RETURN [ success := Length(this->__formerrors) = 0
+           , result := result
+           , errors :=   (SELECT name := Objectexists(comp) ? comp->name : "", message := text, metadata FROM this->__formerrors   ORDER BY ObjectExists(comp) ? comp->formorder : -1)
+           , warnings := (SELECT name := Objectexists(comp) ? comp->name : "", message := text, metadata FROM this->__formwarnings ORDER BY ObjectExists(comp) ? comp->formorder : -1)
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION __FormDoInvoke(STRING methodname, VARIANT ARRAY args)
+  {
+    STRING targetname := Left(methodname,SearchSubstring(methodname,'.'));
+    OBJECT target;
+
+    IF(targetname = "")
+    {
+      target := this;
+    }
+    ELSE
+    {
+      target := GetMember(this, "^"||targetname);
+      IF(NOT ObjectExists(target) OR NOT (target EXTENDSFROM FormFieldBase))
+        THROW NEW Exception(targetname || " is not a field");
+
+      methodname := Substring(methodname, Length(targetname) + 1);
+    }
+
+
+    STRING callname := "RPC_" || ToUppercase(Left(methodname,1)) || Substring(methodname,1);
+    IF(NOT MemberExists(target, callname))
+      THROW NEW Exception(`${targetname = "" ? "Form" : `Field '${targetname}'`} object has no function '${callname}'`);
+    IF (GetMemberType(target, callname) = "PRIVATE")
+      THROW NEW Exception(`${targetname = "" ? "Form" : `Field '${targetname}'`} object function '${callname}' is private`);
+
+    this->__formmessages := DEFAULT RECORD ARRAY;
+    VARIANT result := CallAnyPtrVA(GetObjectMethodPtr(target, callname), args);
+    RETURN [ result := result
+           , messages := this->__formmessages
+           ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD FUNCTION GetWittyData()
+  {
+    RECORD wittydata := [ formattributes := PTR this->__FormAttributes
+                        , formallfields := PTR this->__FormAllFields
+                        , formhiddenfields := PTR this->__FormHiddenFields
+                        , formallpages := PTR this->__FormAllPages
+                        , formrender := PTR this->RenderForm
+                        , formrendernav := PTR this->__FormNavigation
+                        , formclasses := this->formclasses
+                        , formbuttons := (SELECT result, title FROM this->__formbuttons)
+                        ];
+
+    // Create a witty fully describing the form
+    FOREVERY(RECORD fld FROM this->__formfields)
+    {
+      wittydata := CellInsert(wittydata, fld.name, [ render := PTR fld.obj->RenderField
+                                                   , renderintosubfield := PTR fld.obj->RenderIntoSubfield
+                                                   ]);
+    }
+    RETURN wittydata;
+  }
+
+  PUBLIC MACRO RenderForm()
+  {
+    this->__GetRenderer()->RenderForm(this->GetWittyData());
+  }
+
+  MACRO __FormAttributes()
+  {
+    Print(` method="post"`);
+    Print(' action="javascript:console.error(\'No RPC handler installed\');"');
+    IF(this->__form.externalformname != "") //this is also the trigger for eg Upload fields to take over (as they can't work with POST submission)
+      Print(` data-wh-form-id="${EncodeValue(this->__form.externalformname)}"`);
+    IF(this->formref != "")
+      Print(` data-wh-form-ref="${EncodeValue(this->formref)}"`);
+
+    IF(this->formjshandler != "")
+      Print(` data-wh-form-handler="${EncodeValue(this->formjshandler)}"`);
+    IF(RecordExists(this->formvariables))
+      FOREVERY(RECORD field FROM UnpackRecord(this->formvariables))
+      {
+        STRING rowkeytype := ToLowercase(GetTypeName(TypeID(field.value)));
+        Print(` data-wh-form-var-${ToLowercase(GetSafeName(field.name))}="${EncodeValue(UnmapValueType(rowkeytype, field.value, "", FALSE))}"`);
+      }
+
+    Print(GetDatasetAsString(this->formdataset));
+  }
+
+  MACRO __FormNavigation()
+  {
+    RECORD navdata := [ prevlabel :=   this->formprevlabel
+                      , nextlabel :=   this->formnextlabel
+                      , submitlabel := this->formsubmitlabel
+                      ];
+    this->__GetRenderer()->RenderFormNavigation(navdata); //FIXME we're sending this in for completeness, but it should only need to know whether there are multiple pages
+  }
+
+  /** Get a field by name
+      @param findname Name of field to get
+      @return The field matching the name. DEFAULT OBJECT if not found */
+  PUBLIC OBJECT FUNCTION GetFormField(STRING findname)
+  {
+    IF(findname = "")
+      RETURN DEFAULT OBJECT;
+
+    RETURN SELECT AS OBJECT obj FROM this->__formfields WHERE ToUppercase(name) = ToUppercase(VAR findname);
+  }
+
+  /** Append a new field to the form
+      @param parent Owner of the new field. DEFAULT OBJECT if the field will be a toplevel field
+      @param type Type of the new field. If not specified a random name is set.
+      @param name Field name to use in the form
+      @param matchattributes Settings needed to select the proper field subtype
+  */
+  PUBLIC OBJECT FUNCTION AppendFormField(OBJECT parent, STRING type, STRING name, RECORD matchattributes DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(ObjectExists(parent) AND NOT (parent EXTENDSFROM FormFieldBase))
+      THROW NEW Exception("The specified parent is not a form field");
+    IF(ObjectExists(this->GetFormField(name)))
+      THROW NEW Exception(`A field named '${name}' already exists`);
+
+    RECORD ARRAY comptypes := GetFormComponentDef("", type, [ nofail := TRUE ]);
+    RECORD field := basefieldstructure;
+    RECORD comptype;
+    FOREVERY (RECORD testtype FROM comptypes)
+      IF (AttributesMatch(matchattributes, testtype))
+      {
+        field := CELL[ ...field, ...matchattributes ];
+        comptype := testtype;
+        BREAK;
+      }
+
+    IF (NOT RecordExists(comptype))
+      comptype := comptypes[0]; // Fallback to old behaviour (treating GetFormComponentDef as RECORD FUNCTION)
+
+    field.fieldobject := PTR MakeObject(comptype.fieldobject, #1, #2, #3);
+    field.name := name ?? "dynamic$" || Length(this->__formfields); //FIXME dedupe
+    field.type := comptype.parsertype;
+
+    RETURN this->__InstantiateField(parent, field);
+  }
+
+  MACRO __FormValidateHooks(OBJECT workobj)
+  {
+
+  }
+
+  /** @short Begin transactional work
+      @long This function returns a transactional work object, and request any objects on the current screen to perform validation of their filled-in values
+      @cell(object array) options.validate Objects to validate. If the list is empty, nothing is validated. If this options is not passed, all fields will be validated
+      @cell(boolean) options.database Open work on the database. Defaults to TRUE
+      @cell(string) options.mutex Name of mutex to use when opening work
+      @return A transactional work object */
+  PUBLIC OBJECT FUNCTION BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ mutex := ""
+                               , validate := [ this ]
+                               , database := TRUE
+                               ], options);
+
+    IF (ObjectExists(this->__formlastwork) AND NOT this->__formlastwork->terminated)
+      THROW NEW Exception(`Cannot call BeginWork, another work object is still open`);
+
+    OBJECT workobj := NEW FormsFeedbackObject(PRIVATE this, options.database ? GetPrimary() : DEFAULT OBJECT, options.mutex);
+    this->__formlastwork := workobj;
+
+    TRY
+    {
+      //First check the specified form - ADDME support specifying a page object for partial validation ?
+      IF(Length(options.validate)>0)
+      {
+        FOREVERY(RECORD fld FROM this->__formfields)
+          fld.obj->ValidateValue(workobj);
+        this->__FormValidateHooks(workobj);
+      }
+    }
+    CATCH (OBJECT e)
+    {
+      // Ensure the work object isn't leaked
+      workobj->Cancel();
+      THROW;
+    }
+
+    RETURN workobj;
+  }
+
+  PUBLIC OBJECT FUNCTION GetWRDAuthPlugin()
+  {
+    IF(this->__didsearchwrdauthplugin)
+      RETURN this->__wrdauthplugin;
+
+    IF(ObjectExists(this->__form.applytester))
+    {
+      OBJECT webcontext := __GetWebContextForApplyTester(this->__form.applytester, this->__form.applytester->__Deprecated_GetObjInfo().obj.id);
+      this->__wrdauthplugin := webcontext->GetWRDAuthPLugin();
+    }
+    this->__didsearchwrdauthplugin := TRUE;
+    RETURN this->__wrdauthplugin;
+  }
+
+  PUBLIC RECORD FUNCTION PrepareFormDataForComposer(OBJECT mailcomposer, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ attachfiles := FALSE
+                               , language := this->formlanguagecode
+                               ], options);
+
+    RECORD result := this->GetWittyResultData( [ language := options.language ]);
+    IF(options.attachfiles)
+      ApplyWittyToComposer(mailcomposer, result);
+
+    RETURN result;
+  }
+
+  PUBLIC RECORD FUNCTION GetWittyResultData(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ language := this->formlanguagecode
+                                , submittedfields := STRING[]
+                                ], options);
+    RECORD retval := [ allfields := RECORD[]
+                     , pages := RECORD[]
+                     , files := RECORD[]
+                     , field := CELL[]
+                     , url := ""
+                     , ipaddress := ""
+                     , ipcountrycode := ""
+                     , useragent := ""
+                     , submitdate := ""
+                     , submittime := ""
+                     , pagedata := DEFAULT RECORD
+                     , ischange := FALSE
+                     , iscancel := FALSE
+                     ];
+
+    IF(IsRequest())
+    {
+      retval.url := GetFormRequestURL();
+      retval.ipaddress := GetClientAssumedIP();
+      retval.ipcountrycode := GetClientGeoIPCountry();
+      retval.useragent := GetWebHeader("User-agent");
+    }
+
+    FOREVERY(RECORD page FROM this->__formpages)
+    {
+      IF(page.obj->role != "")
+        CONTINUE;
+
+      RECORD ARRAY bygroup;
+      FOREVERY(RECORD field FROM SELECT * FROM this->__formfields WHERE COLUMN formpage = #page)
+      {
+        IF(field.isgroup)
+        {
+          INSERT [ title := field.obj->title
+                 , fields := RECORD[]
+                 , name := field.obj->name
+                 ] INTO bygroup AT END;
+          CONTINUE;
+        }
+        IF(NOT field.isstatic OR Length(field.supportedvalues) = 0) //not a writable field
+          CONTINUE;
+
+        IF(NOT RecordExists(bygroup) OR ToUppercase(field.formgroup) != ToUppercase(bygroup[END-1].name)) //open a group
+          INSERT [ title := ""
+                 , fields := RECORD[]
+                 , name := ""
+                 ] INTO bygroup AT END;
+
+        RECORD val := field.obj->GetComposableData();
+        IF(NOT RecordExists(val))
+          CONTINUE;
+
+        val := CELL[ fieldname := field.name
+                   , fieldguid := field.guid
+                   , issubmitted := ToUppercase(field.guid ?? field.name) IN options.submittedfields
+                   , link := ""
+                   , ...val
+                   ];
+
+        //FIXME align with EncodeWittyField
+        IF(NOT CellExists(val,'text'))
+        {
+          STRING textvalue;
+          SWITCH(TYPEID(val.raw))
+          {
+            CASE TYPEID(BOOLEAN)
+            {
+              textvalue := GetTidForLanguage(options.language, val.raw ? "tollium:tilde.yes" : "tollium:tilde.no");
+            }
+            CASE TYPEID(STRING)
+            {
+              textvalue := val.raw;
+            }
+            CASE TYPEID(INTEGER)
+            {
+              textvalue := ToString(val.raw);
+            }
+            CASE TYPEID(DATETIME) //FIXME discovert and support time
+            {
+              // When "en" is specified, use GB notation (day month year) instead of US notation (month day, year) by default
+              // (specify "en-US" to get the US notation)
+              textvalue := this->FormatFormDate(val.raw, CELL[ options.language ]);
+            }
+            DEFAULT
+            {
+            }
+          }
+          INSERT CELL text := textvalue INTO val;
+        }
+
+        IF(Left(field.obj->name, 2) != "__") //do not add internal/guid stuff by its own name
+          retval.field := CellInsert(retval.field, field.obj->name, val);
+
+        INSERT val INTO retval.allfields AT END;
+        INSERT val INTO bygroup[END-1].fields AT END;
+        retval.files := retval.files CONCAT val.files;
+      }
+
+      bygroup := SELECT *
+                      , anysubmitted := RecordExists(SELECT FROM bygroup.fields WHERE issubmitted)
+                   FROM bygroup;
+
+      INSERT CELL[ title := page.obj->title
+                 , groups := bygroup
+                 , anysubmitted := RecordExists(SELECT FROM bygroup WHERE anysubmitted)
+                 ] INTO retval.pages AT END;
+    }
+
+    RETURN retval;
+  }
+
+  PUBLIC STRING FUNCTION FormatFormDate(DATETIME value, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ language := this->formlanguagecode ], options);
+    // When "en" is specified, use GB notation (day month year) instead of US notation (month day, year) by default
+    // (specify "en-US" to get the US notation)
+    RETURN LocalizeDatetime("dMMMMy", value, options.language = "en" ? "en-GB" : options.language);
+  }
+
+  PUBLIC RECORD FUNCTION MatchFormCondition(RECORD condition, RECORD result)
+  {
+    IF(NOT RecordExists(result))
+    {
+      result := [ form := this
+                , submittype := this->formsubmittype
+                ];
+    }
+    RETURN MatchFormCondition(condition, result, this->__formfields);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListFields()
+  {
+    RETURN SELECT * FROM this->__formfields WHERE isstatic AND Length(supportedvalues) > 0;
+  }
+
+  PUBLIC MACRO PrefillWithSingleResult(RECORD results)
+  {
+    RECORD ARRAY formfields := this->ListFields();
+    FOREVERY (RECORD resultfield FROM UnpackRecord(results.response))
+    {
+      OBJECT formfield := SELECT AS OBJECT obj FROM formfields WHERE ToUppercase(guid) = ToUppercase(resultfield.name);
+      IF (NOT ObjectExists(formfield))
+        formfield := SELECT AS OBJECT obj FROM formfields WHERE ToUppercase(name) = ToUppercase(resultfield.name);
+      IF (ObjectExists(formfield) /*AND NOT IsDefaultValue(resultfield.value)*/ AND CanCastTypeTo(TypeID(resultfield.value), TypeID(formfield->value)))
+        formfield->value := resultfield.value;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION __SubmitFormNow()
+  {
+    RECORD res := this->__FormDoSubmit(DEFAULT RECORD);
+    IF(NOT res.success)
+    {
+      LogDebug("publisher:form", "Server-side form submission failure", res);
+      THROW NEW Exception("Form submission failed"); //FIXME report the errors
+    }
+    RETURN res.result;
+  }
+
+>;
+
+
+PUBLIC OBJECTTYPE WebtoolFormPage EXTEND WebPageBase
+<
+  PROPERTY form(__GetForm, -);
+
+  PUBLIC OBJECT FUNCTION __GetForm()
+  {
+    RETURN this->webdesign->webtoolform;
+  }
+
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    IF(ObjectExists(this->form))
+    {
+      IF(NOT this->form->IsAvailable())
+        RETURN this->webdesign->GetRTDBody(this->form->unavailabletext);
+
+      // __MaybeConfirmResult returns false if invalid confirmation data was supplied or if the result cannot be confirmed
+      // (e.g. it could not be found or was already confirmed)
+      IF (NOT this->form->__MaybeConfirmResult())
+        RETURN PTR Print(GetHTMLTidForLanguage(this->form->formlanguagecode, "publisher:webtools.site.messages.confirmlinkexpired"));
+
+      RETURN this->form->GetFormBody();
+    }
+    RETURN DEFAULT MACRO PTR;
+  }
+
+  /** @short Do additonal form validation
+      @long This function is called after the validation of the individual form fields and before processing the form results.
+      @param work The currently opened work object
+  */
+  PUBLIC MACRO Validate(OBJECT work)
+  {
+  }
+
+  /** @short Do additional form processing
+      @long This function is called after the work has been validated initially and before the results are stored. Additional
+          errors and warning can be added to the work object. The result record is returned to the client. `resultsguid`
+          should not be used as the name of a result record cell.
+      @param work The currently opened work object
+      @param extradata Extra form data
+      @return The result record  */
+  PUBLIC RECORD FUNCTION Submit(OBJECT work, RECORD extradata)
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC VARIANT FUNCTION WCS_CallFormService(STRING method, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  {
+    SWITCH (ToUppercase(method))
+    {
+      CASE "SUBMIT"
+      {
+        RECORD submitinfo := args[0];
+        this->form->__FormSetData(submitinfo.fields);
+        RETURN this->form->__FormDoSubmit(submitinfo);
+      }
+      CASE "INVOKE"
+      {
+        RECORD submitinfo := args[0];
+        this->form->__FormSetData(submitinfo.fields);
+        RETURN this->form->__FormDoInvoke(submitinfo.methodname, submitinfo.args);
+      }
+    }
+    THROW NEW Exception(`Unknown form request method '${method}'`);
+  }
+>;

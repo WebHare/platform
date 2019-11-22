@@ -1,0 +1,40 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
+
+
+MACRO TestParserHtml()
+{
+  // Regression: Consilio returned the text of all 'title' texts as title instead of only html>head>title
+  RECORD parsed := ParseHTMLPage(StringToBlob(`<!doctype html>
+    <html>
+      <head>
+        <title>test</title>
+      </head>
+      <body>
+        <svg>
+          <title>nope</title>
+        </svg>
+      </body>
+    </html>`));
+  TestEq("test", parsed.title);
+
+  // Treat <li> as a block element
+  parsed := ParseHTMLPage(StringToBlob(`<!doctype html>
+    <html>
+      <body>
+        <ul>
+          <li>aap</li><li>noot</li><li>mies</li>
+        </ul>
+      </body>
+    </html>`));
+  TestEq("aap noot mies", parsed.text);
+}
+
+RunTestframework([ PTR TestParserHtml
+                 ]
+                 );

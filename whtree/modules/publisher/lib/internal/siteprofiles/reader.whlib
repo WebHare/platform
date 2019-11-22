@@ -1,0 +1,2144 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+
+LOADLIB "mod::system/lib/commonxml.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+
+
+PUBLIC RECORD __webdesign_config; //used to initialize webdesign configuration
+/// Cached language systems
+PUBLIC RECORD cached_languagesystems;
+
+PUBLIC RECORD ARRAY tidcachepersite;
+PUBLIC STRING namespace_t := "http://www.webhare.net/xmlns/tollium/screens";
+PUBLIC STRING namespace_sp := "http://www.webhare.net/xmlns/publisher/siteprofile";
+PUBLIC STRING newsletter_sp := "http://www.webhare.net/xmlns/newsletter/siteprofile";
+
+OBJECT current_apply_rule_tester_cache;
+
+PUBLIC RECORD FUNCTION GetDefaultFolderSettings()
+{
+  RETURN [ ordering := "orderable"
+         , filterscreen := ""
+         , contentslisthandler := [ library := "mod::publisher/lib/components/filelist.whlib"
+                                  , objectname := "DefaultContentsListHandler"
+                                  ]
+         ];
+}
+
+BOOLEAN FUNCTION MatchPathRegex(STRING pattern, STRING path)
+{
+  OBJECT compiledpattern := NEW RegEx(pattern, "i"); //case insensitive
+  BOOLEAN result := compiledpattern->Test(path);
+  //DumpValue(CELL[pattern,path,result]);
+  RETURN result;
+}
+
+RECORD FUNCTION UpdateListedAttributes(RECORD origrec, RECORD updatewith)
+{
+  FOREVERY(STRING fld FROM updatewith.haslist)
+    IF(CellExists(origrec,fld))
+      origrec := CellUpdate(origrec, fld, GetCell(updatewith,fld));
+  RETURN origrec;
+}
+
+
+OBJECTTYPE SiteProfileLanguageFileSystem EXTEND LanguageFileSystem
+<
+  RECORD ARRAY langfiles;
+
+  MACRO NEW(STRING siteprofile, INTEGER basefolder)
+  : LanguageFileSystem("Language folders for siteprofile " || siteprofile)
+  {
+    OBJECT langfiletype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/languagefile");
+    this->langfiles := SELECT id, name := ToLowercase(name)
+                         FROM system.fs_objects
+                        WHERE parent = VAR basefolder
+                              AND ToUppercase(name) LIKE "*.XML"
+                     ORDER BY ToUppercase(name)="DEFAULT.XML" DESC, ToUppercase(name);
+
+    this->languagecodes := SELECT AS STRING ARRAY Tokenize(ToLowercase(name),'.')[0] FROM this->langfiles;
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION OpenLanguageXMLFile(INTEGER langcodeidx)
+  {
+    RETURN MakeXMLDocument(SELECT AS BLOB data FROM system.fs_objects WHERE id = this->langfiles[langcodeidx].id AND isactive);
+  }
+  UPDATE PUBLIC MACRO SaveLanguageXMLFile(INTEGER langcodeidx, BLOB filedata)
+  {
+    GetPrimary()->BeginWork();
+    OpenWHFSObject(this->langfiles[langcodeidx].id)->UpdateData(filedata);
+    GetPrimary()->CommitWork();
+  }
+>;
+
+PUBLIC OBJECTTYPE SiteProfileObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING tidmodule;
+
+  RECORD langinfo;
+  OBJECT langsystem;
+  INTEGER whfsid;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Name of this siteprofile (path like site:..., module:..., etc)
+  PUBLIC STRING name;
+
+  /// Modification date for the data of this siteprofile
+  PUBLIC DATETIME modtime;
+
+  /// XML document for this siteprofile
+  PUBLIC OBJECT xmldoc;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER id, STRING name, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ xmldoc := DEFAULT OBJECT ], options);
+    IF(name="" AND id != 0)
+      name := GetDirectResourceName(id);
+
+    OBJECT fsobj;
+    RECORD profdata;
+
+    IF(id = 0 AND (name LIKE "site::*" OR name LIKE "whfs::*"))
+    {
+      fsobj := OpenWHFSObjectByPath(name);
+      IF(NOT ObjectExists(fsobj) OR fsobj->type != 27)
+        THROW NEW Exception ("No such site profile '" || name || "'");
+      id := fsobj->id;
+    }
+    ELSE IF (id != 0)
+    {
+      fsobj := OpenWHFSObject(id);
+      IF(NOT ObjectExists(fsobj) OR fsobj->type != 27)
+        THROW NEW Exception ("No such site profile '" || name || "' with id " || id);
+    }
+
+    this->xmldoc := options.xmldoc;
+    IF(NOT ObjectExists(this->xmldoc))
+    {
+      IF (ObjectExists(fsobj))
+      {
+        profdata :=
+            [ data :=       fsobj->data
+            , modified :=   fsobj->modificationdate
+            ];
+      }
+      ELSE
+        profdata := RetrieveWebHareResource(name);
+
+      this->xmldoc := MakeXMLDocument(profdata.data, "UTF-8", TRUE);
+      this->modtime := profdata.modified;
+    }
+    this->name := name;
+    this->whfsid := id;
+    this->tidmodule := __GetModuleBaseFromResourceName(name);
+
+    //ADDME make siteprofile code robust against corrupt xmldocs (just don't load them)
+    IF(NOT ObjectExists(this->xmldoc) OR NOT ObjectExists(this->xmldoc->documentelement))
+      THROW NEW Exception(`Siteprofile ${name} appears to be empty`);
+
+    //Get language nodes
+    OBJECT langnode := this->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "languagefolder")->Item(0);
+    IF(ObjectExists(langnode))
+    {
+      this->langinfo := [ embedded := FALSE
+                        , fullpath := langnode->GetAttribute("fullpath")
+                        ];
+    }
+    ELSE IF(this->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "language")->Length > 0)
+    {
+      this->langinfo := [ embedded := TRUE ];
+    }
+    ELSE IF (id != 0)
+    {
+      OBJECT siteroot := (fsobj ?? OpenWHFSObject(id))->highestparentobject;
+      IF (ObjectExists(siteroot))
+      {
+        OBJECT langfolder := siteroot->OpenByPath("design/language");
+        IF (ObjectExists(langfolder))
+        {
+          this->langinfo := [ embedded := FALSE
+                            , fullpath := langfolder->fullpath
+                            ];
+        }
+      }
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO BootLanguageSystem()
+  {
+    IF(ObjectExists(this->langsystem) OR NOT RecordExists(this->langinfo))
+      RETURN;
+
+    IF(this->langinfo.embedded = FALSE)
+    {
+      INTEGER basesite := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = this->whfsid;
+      IF(basesite=0)
+        THROW NEW Exception("Cannot locate parentsite for siteprofile");
+
+      STRING path := this->langinfo.fullpath;
+      IF(path LIKE "/*")
+        path := Substring(path,1);
+
+      OBJECT basefolder := OpenWHFSObject(basesite);
+      IF(path != "")
+        basefolder := basefolder->OpenByPath(path);
+      IF(NOT ObjectExists(basefolder))
+        THROW NEW Exception("Unable to open language folder '" || this->langinfo.fullpath || "'");
+
+      this->langsystem := NEW SiteProfileLanguageFileSystem(this->name, basefolder->id);
+    }
+    ELSE
+    {
+      //Boot up an embedded filesystem
+      this->langsystem := NEW EmbeddedLanguageFileSystem(this->name, this->xmldoc);
+    }
+  }
+
+  STRING FUNCTION CalcTIDForLanguage(STRING langcode, STRING tid, STRING p1, STRING p2, STRING p3, STRING p4, BOOLEAN rich)
+  {
+    OBJECT nodeptr := this->GetLanguageNodePtr(langcode, tid, FALSE);
+    IF(NOT ObjectExists(nodeptr))
+    {
+      STRING failtext := __shortfailtid ? Substring(tid,SearchLastSubstring(tid,'.')) : "(cannot find text: " || tid || ")";
+      IF(rich)
+        failtext := EncodeHTML(failtext);
+      RETURN failtext;
+    }
+    RETURN this->EvaluateLanguageNodePtr(nodeptr, p1, p2, p3, p4, rich);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC OBJECT FUNCTION GetLanguageSystem()
+  {
+    IF(NOT ObjectExists(this->langsystem))
+      this->BootLanguageSystem();
+    RETURN this->langsystem;
+  }
+
+  PUBLIC OBJECT FUNCTION GetLanguageNodePtr(STRING langcode, STRING tid, BOOLEAN gid)
+  {
+    this->BootLanguageSystem();
+    RETURN ObjectExists(this->langsystem) ? this->langsystem->GetNodePtr(langcode, tid, gid) : DEFAULT OBJECT;
+  }
+
+  PUBLIC STRING FUNCTION EvaluateLanguageNodePtr(OBJECT nodeptr, STRING p1, STRINg p2, STRING p3, STRING p4, BOOLEAN html)
+  {
+    RETURN this->langsystem->EvaluateNodePtr(nodeptr, p1, p2, p3, p4, html);
+  }
+
+  PUBLIC STRING FUNCTION GetTidForLanguage(STRING langcode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    RETURN this->CalcTIDForLanguage(langcode, tid, p1, p2, p3, p4, FALSE);
+  }
+
+  PUBLIC STRING FUNCTION GetHTMLTidForLanguage(STRING langcode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    RETURN this->CalcTIDForLanguage(langcode, tid, p1, p2, p3, p4, TRUE);
+  }
+
+  PUBLIC OBJECT FUNCTION GetApplyNode(RECORD applyblock)
+  {
+    RETURN this->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "apply")->Item(applyblock.applyindex);
+  }
+
+  PUBLIC OBJECT FUNCTION GetTabsExtension(STRING name)
+  {
+    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_t, "tabsextension")->GetCurrentElements())
+      IF(editor->GetAttribute("name")=name)
+        RETURN editor;
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC OBJECT FUNCTION GetPropertyEditor(STRING name)
+  {
+    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "propertyeditor")->GetCurrentElements())
+      IF(editor->GetAttribute("name")=name)
+        RETURN editor;
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC OBJECT FUNCTION GetContentEditor(STRING name)
+  {
+    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "contenteditor")->GetCurrentElements())
+      IF(editor->GetAttribute("name")=name)
+        RETURN editor;
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC STRING FUNCTION GetTitleOrTid2(RECORD element, STRING langcode, STRING defaulttitle)
+  {
+    IF(element.tid != "")
+      RETURN this->GetTidForLanguage(langcode, element.tid);
+
+    IF(CellExists(element,"title"))
+      RETURN element.title;
+    RETURN defaulttitle;
+  }
+
+  PUBLIC STRING FUNCTION GetTitleOrTid(OBJECT element, STRING langcode, STRING defaulttitle)
+  {
+    RECORD el := [ tid := element->GetAttribute("tid") ];
+    IF(element->HasAttribute("title"))
+      INSERT CELL title := element->GetAttribute("title") INTO el;
+    RETURN this->GetTitleOrTid2(el,langcode,defaulttitle);
+  }
+
+  PUBLIC STRING FUNCTION ParseFSPath(OBJECT node, STRING attrname)
+  {
+    IF(NOT node->HasAttribute(attrname))
+      RETURN "";
+
+    RETURN this->ParseFSPathString(node->GetAttribute(attrname));
+  }
+
+  PUBLIC STRING FUNCTION ParseFSPathString(STRING val)
+  {
+    ///IF(val LIKE "module::*" OR val LIKE "site::*" OR val LIKE "modulescript::*" OR val LIKE "moduledata::*" OR val LIKE "moduleroot::*")
+   //   RETURN val;
+    IF(val LIKE "mod::*" OR val LIKE "site::*")
+      RETURN val;
+
+    IF(val LIKE "currentsite::*")
+    {
+      IF(this->name NOT LIKE "site::*")
+        THROW NEW Exception("currentsite paths are not supported by siteprofiles not loaded from a site (offending path = '" || val || "')");
+      RETURN Tokenize(this->name,"/")[0] || "/" || Substring(val,13);
+    }
+    IF(val LIKE "/*")
+    {
+      IF(this->name NOT LIKE "site::*")
+      {
+        THROW NEW Exception("currentsite paths are not supported by siteprofiles not loaded from a site (offending path = '" || val || "')");
+      }
+      RETURN Tokenize(this->name,"/")[0] || val;
+    }
+    RETURN MakeAbsoluteResourcePath(this->name, val);
+  }
+
+  PUBLIC STRING FUNCTION ParseFSTwopartPathString(STRING site, STRING fullpath)
+  {
+    IF(fullpath LIKE "mod::*")
+      RETURN fullpath;
+
+    IF(site!="")
+      RETURN "site::" || site || (fullpath LIKE "/*" ? "" : "/") || fullpath;
+
+    RETURN MakeAbsoluteResourcePath(this->name, fullpath);
+  }
+
+  PUBLIC STRING FUNCTION ParseTextPointer(OBJECT el, STRING attr, STRING gid)
+  {
+    RETURN ParseXMLTIDPtr(this->tidmodule, gid, el, attr);
+  }
+>;
+
+RECORD FUNCTION GetCachableTidSources(INTEGER siteid)
+{
+  RECORD csp := GetCachedSiteProfiles();
+  RECORD ARRAY siteprofs := SELECT name, applysiteprofiles, langinfo FROM csp.siteprofiles WHERE siteid IN siteprofiles.sites;
+
+  //Expand to the full list (ADDME cache languageinfo in CSP, avoid opening siteprofiles which really don't have any language stuff)
+  RECORD ARRAY checksiteprofs := siteprofs;
+  WHILE(Length(checksiteprofs) > 0)
+  {
+    STRING ARRAY nextsiteprofs;
+    FOREVERY(RECORD prof FROM checksiteprofs)
+      IF(Length(prof.applysiteprofiles) > 0)
+        FOREVERY(STRING apply FROM prof.applysiteprofiles)
+          IF(apply NOT IN nextsiteprofs)
+            INSERT apply INTO nextsiteprofs AT END;
+
+    checksiteprofs := SELECT name, applysiteprofiles, langinfo FROM csp.siteprofiles WHERE name IN nextsiteprofs;
+    siteprofs := siteprofs CONCAT checksiteprofs;
+  }
+
+  RETURN
+      [ eventmasks := [ "publisher:internal.siteprofiles.recompiled" ]
+      , value :=      SELECT TEMPORARY fsobj := name LIKE "whfs:*" OR name LIKE "site:*" ? OpenWHFSObjectByPath(name) : DEFAULT OBJECT
+                           , id :=              ObjectExists(fsobj) ? fsobj->id : 0
+                           , name
+                        FROM siteprofs
+      ];
+}
+
+PUBLIC OBJECT ARRAY FUNCTION GetTidSources(INTEGER siteid)
+{
+  //FIXME require parent to offer us a cache ?
+  RECORD ARRAY siteprofs := GetAdhocCached([ type := "sitetidsources", siteid := siteid ], PTR GetCachableTidSources(siteid));
+  RETURN SELECT AS OBJECT ARRAY NEW SiteProfileObject(id, name) FROM siteprofs;
+}
+
+PUBLIC INTEGER FUNCTION GetHareScriptTypeForMember(RECORD memberrec)
+{
+  //                                     0     1           2        3                4          5      6         7         8       9       10    11        12
+  //member type is index of typename in ["nvt","SELECTONE","STRING","SELECTMULTIPLE","DATETIME","FILE","BOOLEAN","INTEGER","FLOAT","MONEY","nvt","WHFSREF","ARRAY"]
+  SWITCH (memberrec.type)
+  {
+    CASE 1,2,3
+    {
+      RETURN TypeID(STRING);
+    }
+    CASE 6
+    {
+      RETURN TypeID(BOOLEAN);
+    }
+    CASE 7
+    {
+      RETURN TypeID(INTEGER);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unsupported member type " || memberrec.type);
+    }
+  }
+}
+
+VARIANT FUNCTION StringToMemberType(STRING membercontent, INTEGER membertype)
+{
+  //                                     0     1           2        3                4          5      6         7         8       9       10    11        12
+  //member type is index of typename in ["nvt","SELECTONE","STRING","SELECTMULTIPLE","DATETIME","FILE","BOOLEAN","INTEGER","FLOAT","MONEY","nvt","WHFSREF","ARRAY"]
+  SWITCH (membertype)
+  {
+    CASE 1,2,3
+    {
+      RETURN membercontent;
+    }
+    CASE 6
+    {
+      RETURN ToUppercase(membercontent) IN [ "1", "TRUE" ];
+    }
+    CASE 7
+    {
+      RETURN ToInteger(membercontent, 0);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unsupported member type " || membertype);
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////////////////
+//
+// APPLY/TO interpretation
+//
+/*
+PUBLIC BOOLEAN FUNCTION ApplyIsMatch(RECORD apply, RECORD site, RECORD folder, RECORD affected, BOOLEAN affected_is_file)
+{
+  IF(apply.allsites = FALSE AND (NOT RecordExists(site) OR site.id NOT IN apply.siteids))
+    RETURN FALSE;
+
+  FOREVERY (RECORD appl FROM apply.tos)
+    IF(ToIsMatch(appl, site, folder, affected, affected_is_file, DEFAULT OBJECT))
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+*/
+RECORD FUNCTION GetFakeRootObject()
+{
+  RETURN [ id := 0,  parent := 0, parentsite := 0, fullpath := "", whfspath := "/", url := "", type := 0, indexdoc := 0 ];
+}
+
+RECORD FUNCTION GetFakeObject(BOOLEAN isfolder, INTEGER type, STRING basefullpath, STRING basewhfspath, STRING url, INTEGER parentid, INTEGER objid)
+{
+  IF (Right(basefullpath,1) != '/')
+    basefullpath := basefullpath || '/';
+  IF (Right(basewhfspath,1) != '/')
+    basewhfspath := basewhfspath || '/';
+
+  RETURN [ id := objid
+         , parent := parentid
+         , isfolder := isfolder
+         , type := type
+         , fullpath := basefullpath || "new object" || (isfolder ? "/" : "")
+         , whfspath := basewhfspath || "new object" || (isfolder ? "/" : "")
+         , parentsite := (SELECT AS INTEGER highestparent FROM system.fs_objects WHERE id=parentid)
+         , filelink := 0
+         , indexdoc := 0
+         , url := url
+         ];
+}
+
+RECORD FUNCTION GetBaseInfoForApplyCheck(INTEGER fsobjectid)
+{
+  RECORD fsobjinfo := SELECT id, parent, parentsite, type, filelink, fullpath, whfspath, indexdoc, isfolder, url FROM system.fs_objects WHERE id = fsobjectid;
+  IF(NOT RecordExists(fsobjinfo))
+    RETURN DEFAULT RECORD;
+
+  RECORD site;
+  IF (fsobjinfo.parentsite != 0)
+  {
+    site := SELECT * FROM system.sites WHERE id = fsobjinfo.parentsite;
+    INSERT CELL type := (SELECT AS INTEGER type FROM system.fs_objects WHERE id=site.id) INTO site;
+  }
+
+  RECORD objectitself := fsobjinfo;
+  RECORD parent := fsobjinfo.parentsite = fsobjectid ? objectitself : RECORD(SELECT * FROM system.fs_objects WHERE id = fsobjinfo.parent);
+  RETURN [ site := site
+         , parent := parent
+         , obj := objectitself
+         , isfile := fsobjinfo.isfolder = FALSE
+         , isfake := FALSE
+         ];
+}
+
+RECORD FUNCTION GetFakeBaseInfoForApplyCheck(INTEGER parentfolder, BOOLEAN isfile, INTEGER ftypeid)
+{
+  RECORD curparent;
+  IF (parentfolder != 0)
+    curparent := SELECT id, parent, parentsite, fullpath, whfspath, type, indexdoc, url FROM system.fs_objects WHERE id = parentfolder;
+  ELSE
+    curparent := GetFakeRootObject();
+
+  // Create a fake file/folder record, for site profiles to work
+  RECORD curitem := GetFakeObject(NOT isfile, ftypeid, curparent.fullpath, curparent.whfspath, curparent.url, curparent.id, 0);
+  RECORD parentsite := RecordExists(curparent) ? RECORD(SELECT * FROM system.sites WHERE id = curparent.parentsite) : DEFAULT RECORD;
+  IF (RecordExists(parentsite))
+    INSERT CELL type := (SELECT AS INTEGER type FROM system.fs_objects WHERE id = VAR parentsite.id) INTO parentsite;
+
+  RETURN [ site := parentsite
+         , parent := curparent
+         , obj := curitem
+         , isfile := isfile
+         , isfake := TRUE
+         ];
+}
+
+BOOLEAN FUNCTION TestRequiredRight(OBJECT user, STRING rightname, INTEGER fsobject)
+{
+  IF (rightname = "")
+    RETURN TRUE;
+
+  IF (rightname IN [ "system:fs_fullaccess", "system:fs_browse" ])
+    RETURN user->HasRightOn(rightname, fsobject);
+
+  RETURN IsRightGlobal(rightname) ? user->HasRight(rightname) : user->HasRightOn(rightname, 0);
+}
+
+PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
+{
+  RECORD webdesign := [ library         := "mod::publisher/lib/webdesign.whlib"
+                      , objectname      := "WebDesignBase"
+                      , witty           := "mod::publisher/lib/defaultwebdesign.witty"
+                      , assetpack       := ""
+                      , basedependency  := ""
+                      , designfolder    := ""
+                      , maxcontentwidth := ""
+                      , wittyencoding   := "HTML"
+                      , defaultgid      := ""
+                      , asyncbundle     := FALSE
+
+                      , renderinfo      := DEFAULT RECORD
+                      , supportserrors  := TRUE
+                      , supportsaccessdenied := FALSE
+                      , supportedlanguages := DEFAULT STRING ARRAY
+                      , siteprofile     := ""
+                      , is404           := FALSE
+                      , contentnavstops := DEFAULT STRING ARRAY
+                      , lazyloadcss     := FALSE
+                      ];
+  RETURN webdesign;
+}
+PUBLIC RECORD FUNCTION GetDefaultSettingsForType(STRING typedef, INTEGER parent, INTEGER objid, BOOLEAN isfile)
+{
+  RECORD csp := GetCachedSiteProfiles();
+  RECORD contenttype := SELECT * FROM system.fs_types WHERE ToUppercase(namespace) = ToUppercase(typedef);
+  IF (NOT RecordExists(contenttype))
+    RETURN DEFAULT RECORD;
+
+  RECORD defaultsettings;
+  OBJECT applytester := objid = 0 ? GetApplyTesterForFakeObject(parent, isfile, contenttype.id)
+                                  : GetApplyTesterForObject(objid);
+
+  FOREVERY(RECORD apply FROM applytester->__GetAppliesForcell("DEFAULTSETTINGS"))
+  {
+    RECORD settings := SELECT * FROM apply.defaultsettings WHERE COLUMN typedef=VAR typedef;
+    IF (RecordExists(settings))
+    {
+      // Convert member 'content' fields to member type
+      FOREVERY (RECORD memberrec FROM settings.members)
+      {
+        RECORD memberdef := SELECT * FROM system.fs_members WHERE fs_type = contenttype.id AND ToUppercase(name) = ToUppercase(memberrec.name);
+        IF (RecordExists(memberdef))
+        {
+          IF (NOT CellExists(defaultsettings, memberrec.name))
+            defaultsettings := CellInsert(defaultsettings, memberrec.name, StringToMemberType(memberrec.content, memberdef.type));
+          ELSE
+            defaultsettings := CellUpdate(defaultsettings, memberrec.name, StringToMemberType(memberrec.content, memberdef.type));
+        }
+      }
+    }
+  }
+  RETURN defaultsettings;
+}
+
+OBJECTTYPE RepublishState
+<
+  RECORD csp;
+  RECORD ARRAY repub_instructions;
+  INTEGER ARRAY repub_linkdests;
+
+  PUBLIC MACRO NEW()
+  {
+    this->csp := GetCachedSiteProfiles();
+  }
+
+  /**
+      @param type Modification type (0=metadata changed, 1=content changed, 3=content deleted, 2=content created)
+  */
+  PUBLIC MACRO AddDepsOf(INTEGER fsobj, INTEGER type)
+  {
+    OBJECT applytester := GetApplyTesterForObject(fsobj);
+    IF(NOT ObjectExists(applytester) OR applytester->__Deprecated_GetObjInfo().obj.parentsite=0)
+      RETURN;
+
+    IF(applytester->__Deprecated_GetObjInfo().isfile)
+      INSERT fsobj INTO this->repub_linkdests AT END; //make sure attached links are republished
+
+    //ADDME: Prevent repeated lookups of the same file(s) (eg a sitemap)
+    FOREVERY(RECORD apply FROM applytester->__GetAppliesForcell("REPUBLISHES"))
+    {
+      FOREVERY(RECORD republish FROM apply.republishes)
+      {
+        //Skip if onchange is set, and it is not pointing to metadata, or this is a content modification
+        IF(republish.onchange != "" AND (republish.onchange != "metadata" OR type != 0))
+          CONTINUE;
+
+        IF(republish.scope = "references")
+        {
+          RECORD ARRAY links := this->GetReferencesTo([fsobj]);
+          FOREVERY(RECORD link FROM links)
+            IF(link.parentsite IN apply.siteids)
+              this->ExecuteRepubDep(republish, link.parent, link.parentsite, apply.siteids);
+        }
+        ELSE IF(republish.scope="")
+        {
+          this->ExecuteRepubDep(republish, applytester->__Deprecated_GetObjInfo().isfile ? applytester->__Deprecated_GetObjInfo().obj.parent : fsobj, applytester->__Deprecated_GetObjInfo().obj.parentsite, apply.siteids);
+        }
+      }
+    }
+
+    FOREVERY(RECORD apply FROM applytester->__GetAppliesForcell("SCHEDULETASKNOWS"))
+      FOREVERY(RECORD scheduletask FROM apply.scheduletasknows)
+      {
+        TRY
+        {
+          ScheduleTimedTask(scheduletask.task);
+        }
+        CATCH(OBJECT e)
+        {
+          //The user seeing it is not likely the cause but siteprofiles are messed up. So just log it and ignore...
+          LogHarescriptException(e);
+          CONTINUE;
+        }
+      }
+  }
+
+  RECORD ARRAY FUNCTION GetReferencesTo(INTEGER ARRAY linkdests)
+  {
+    //Eliminate duplicate ids in the list
+    linkdests := SELECT AS INTEGER ARRAY DISTINCT id FROM ToRecordArray(linkdests, "ID") WHERE id != 0;
+
+    RECORD ARRAY linkinglist;
+    WHILE(Length(linkdests)>0)
+    {
+      //work in groups of 1000
+      INTEGER ARRAY workslice := ArraySlice(linkdests,0,1000);
+      linkdests := ArraySlice(linkdests,1000);
+
+      //Get intlink/contentlink references
+      linkinglist := linkinglist CONCAT SELECT id, parent, parentsite
+                                          FROM system.fs_objects
+                                         WHERE filelink IN workslice
+                                               AND fs_objects.isactive;
+
+      //Get contenttype references
+      linkinglist := linkinglist CONCAT SELECT fs_objects.id, fs_objects.parent, fs_objects.parentsite
+                                          FROM system.fs_objects
+                                             , system.fs_settings
+                                             , system.fs_instances
+                                         WHERE fs_settings.fs_object IN workslice
+                                               AND fs_settings.fs_instance = fs_instances.id
+                                               AND fs_instances.fs_object = fs_objects.id
+                                               AND fs_objects.isactive;
+    }
+    RETURN SELECT DISTINCT * FROM linkinglist;
+  }
+
+  PUBLIC MACRO DoRepublishes()
+  {
+    OBJECT handler := GetWHFSCommitHandler();
+
+    //ADDME: More collapsing and cleaning?
+    this->repub_instructions := SELECT DISTINCT * FROM this->repub_instructions;
+
+    FOREVERY(RECORD instruction FROM this->repub_instructions)
+      ExecuteRepublishInstruction(instruction.basefolder, instruction.mask, instruction.recursive, TRUE, instruction.indexonly, handler);
+
+    DELETE FROM this->repub_instructions ALL;
+
+    RECORD ARRAY links := this->GetReferencesTo(this->repub_linkdests);
+    IF(Length(links)>0)
+    {
+       UPDATE system.fs_objects
+          SET published := ConvertToWillpublish(published, FALSE, FALSE, PubPrio_DirectEdit)
+        WHERE id IN (SELECT AS INTEGER ARRAY id FROM links);
+
+       FOREVERY (RECORD rec FROM links)
+         handler->FileRepublish(rec.parentsite, rec.parent, rec.id);
+     }
+  }
+
+   PRIVATE MACRO ExecuteRepubDep(RECORD republish, INTEGER basefolder, INTEGER basesite, INTEGER ARRAY siteids)
+   {
+     IF(republish.sitemask!="") //takes precedence over have_site
+     {
+       IF(republish.folder="")
+         RETURN; //don't care without a folder
+
+       RECORD ARRAY affected_sites := SELECT id, name
+                                        FROM system.sites
+                                       WHERE ToUppercase(name) LIKE ToUppercase(republish.sitemask)
+                                             AND (Length(siteids)=0 OR id IN siteids);
+       FOREVERY(RECORD siterec FROM affected_sites)
+       {
+         INTEGER target := LookupWHFSObject(siterec.id, republish.folder);
+         IF(target != 0)
+         {
+           INSERT INTO this->repub_instructions(basefolder, mask, recursive, indexonly)
+                       VALUES(target, republish.mask, republish.recursive, republish.indexonly)
+                       AT END;
+         }
+       }
+       RETURN;
+     }
+
+     //Resolve paths
+     IF(republish.folder!="" AND republish.folder LIKE '/*')
+     {
+       INTEGER target := LookupWHFSObject(basesite, republish.folder);
+       IF(target = 0)
+         RETURN;
+
+       basefolder := target;
+     }
+     ELSE IF(republish.folder!="")
+     {
+       STRING folderpath := SELECT AS STRING fullpath FROM system.fs_objects WHERE id=basefolder;
+       IF(folderpath="")
+         RETURN;
+
+       INTEGER target := LookupWHFSObject(basesite, CollapsePath(folderpath || "/" || republish.folder));
+       IF(target = 0)
+         RETURN;
+
+       basefolder := target;
+     }
+
+     INSERT INTO this->repub_instructions(basefolder, mask, recursive, indexonly)
+            VALUES(basefolder, republish.mask, republish.recursive, republish.indexonly)
+            AT END;
+   }
+>;
+
+PUBLIC OBJECT FUNCTION CreateRepublishState()
+{
+  RETURN NEW RepublishState;
+}
+
+MACRO ExecuteRepublishInstruction(INTEGER folder, STRING mask, BOOLEAN recursive, BOOLEAN toplevel, BOOLEAN indexonly, OBJECT handler)
+{
+  IF(indexonly)
+  {
+    INTEGER indexdoc :=
+        SELECT AS INTEGER folders.indexdoc
+          FROM system.fs_objects AS folders
+             , system.fs_objects AS files
+         WHERE folders.id = folder
+           AND folders.isfolder
+           AND files.id = folders.indexdoc
+           AND files.publish
+           AND files.isfolder = FALSE;
+
+    IF(indexdoc!=0)
+    {
+      UPDATE system.fs_objects
+             SET published := ConvertToWillpublish(published, FALSE, FALSE, toplevel ? PubPrio_FolderRepub : PubPrio_SubFolderRepub)
+             WHERE fs_objects.id = VAR indexdoc
+                   AND fs_objects.publish = TRUE;
+
+      handler->FileRepublish((SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=VAR folder), folder, indexdoc);
+    }
+  }
+  ELSE
+  {
+    __RepublishFolder(folder, toplevel, /*non-template-too=*/FALSE, mask, FALSE);
+  }
+  IF(recursive)
+  {
+    FOREVERY(INTEGER id FROM SELECT AS INTEGER ARRAY fs_objects.id FROM system.fs_objects WHERE parent=folder AND isfolder)
+      ExecuteRepublishInstruction(id, mask, TRUE, FALSE, indexonly, handler);
+  }
+}
+
+PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesigninfo, INTEGER errorcode, OBJECT override_contentobject, OBJECT pageobject, BOOLEAN renderwidgetpreview, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  RECORD saveconfig := __webdesign_config;
+  TRY
+  {
+    __webdesign_config := MakeMergedRecord(webdesigninfo
+                                          , [ applytester := applytester
+                                            , errorcode := errorcode
+                                            , override_contentobject := override_contentobject
+                                            , pageobject := pageobject
+                                            , renderwidgetpreview := renderwidgetpreview
+                                            ]);
+
+    //STRING lib := MakeAbsoluteResourcePath(webdesigninfo.moduledesignfolder ?? webdesigninfo.designfolder, webdesigninfo.library);
+
+    OBJECT designobj := MakeObject(webdesigninfo.library, webdesigninfo.objectname);
+    IF(NOT MemberExists(designobj, "__PREPAREPAGE"))
+      THROW NEW Exception("The design object " || webdesigninfo.library || ":" || webdesigninfo.objectname || " does not derive from WebDesignBase");
+    designobj->__PreparePage();
+    RETURN designobj;
+  }
+  FINALLY
+  {
+    __webdesign_config := saveconfig;
+  }
+}
+
+PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
+{
+  OBJECT applytester := GetApplyTesterForObject(fileid);
+  IF(NOT ObjectExists(applytester))
+    RETURN [ success := FALSE, error := "fsobject id #" || fileid || " unmatched (deleted?)" ];
+
+  RECORD webdesign;
+  TRY
+  {
+    webdesign := applytester->GetWebDesignObjinfo();
+    IF(RecordExists(webdesign) AND webdesign.is404)
+      RETURN [ success := FALSE, error := "The file #" || fileid || " links to a nonexisting file" ];
+  }
+  CATCH(OBJECT e)
+  {
+    //prebuilt files can throw in GetWebDesignObjinfo
+    LogHarescriptException(e);
+    RETURN [ success := FALSE, error := `Cannot get webdesign info for #${fileid}: ${e->what}` ];
+  }
+  INTEGER ARRAY folders := [ INTEGER(applytester->__Deprecated_GetObjInfo().obj.parent) ];
+  OBJECT executiontester;
+  RECORD settings;
+
+  INTEGER finaltype := applytester->__Deprecated_GetObjInfo().obj.type;
+  IF(finaltype = 20) //contentlink
+    finaltype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = applytester->__Deprecated_GetObjInfo().obj.filelink;
+
+  IF(finaltype = 39) //prebuiltpages
+  {
+    OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
+    RECORD prebuiltinfo := prebuilttype->GetInstanceData(fileid);
+    settings := applytester->GetPrebuiltPageSettings(prebuiltinfo.prebuilttag);
+
+    IF(NOT RecordExists(settings))
+      RETURN [ success := FALSE, error := "fsobject id #" || fileid || " cannot find prebuilt settings with tag '" || prebuiltinfo.prebuilttag || "'" ];
+    IF(settings.type != "dynamic")
+      RETURN [ success := FALSE, error := "fsobject id #" || fileid || " is not a dynamic prebuilt file" ];
+
+    settings := settings.dynexecute;
+  }
+  ELSE IF(finaltype = 25) //SHTML page
+  {
+    OBJECT dest := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.type = 20 ? applytester->__Deprecated_GetObjInfo().obj.filelink : fileid);
+
+    STRING library := ObjectExists(dest) AND dest->isactive ? dest->GetResourceName() : "";
+    settings := [ startlibrary := library
+                , webpagelibrary := library
+                , startmacro := ""
+                , webpageobjectname := ""
+                , routerfunction := ""
+                , cachettl := 0
+                , pagefolder := ""
+                ];
+  }
+  ELSE
+  {
+    IF(finaltype = 35)
+    {
+      executiontester := applytester->GetApplyTesterForParent();
+      IF(NOT ObjectExists(executiontester))
+        THROW NEW Exception("unable to retrieve parent settings for fsobject #" || fileid);
+
+      INSERT executiontester->__Deprecated_GetObjInfo().obj.parent INTO folders AT END;
+      finaltype := executiontester->__Deprecated_GetObjInfo().obj.type;
+    }
+    ELSE
+    {
+      executiontester := applytester;
+    }
+
+    RECORD result := executiontester->GetDynExecProfileSettings(finaltype);
+    IF(NOT result.success)
+    {
+      IF(result.badtype)
+      {
+        STRING ns := SELECT AS STRING " (" || namespace || ") " FROM system.fs_types WHERE id = result.type;
+        RETURN [ success := FALSE, error := "Unable to retrieve dynamic execution settings for #" || executiontester->__Deprecated_GetObjInfo().obj.id || " - its type #" || result.type || ns || " is not a dynamicexecution type" ];
+      }
+      ELSE
+        RETURN [ success := FALSE, error := "Unable to retrieve dynamic execution settings for #" || executiontester->__Deprecated_GetObjInfo().obj.id || " - no apply rule with <dynamicexecution> matched" ];
+    }
+
+    settings := result.dyn;
+  }
+
+  INSERT CELL folders := folders INTO settings;
+  INSERT CELL success := TRUE INTO settings;
+  INSERT CELL objurlpath := UnpackURL(applytester->__Deprecated_GetObjInfo().obj.url).urlpath INTO settings;
+
+  RETURN settings;
+}
+
+STATIC OBJECTTYPE ApplyRuleTesterCache
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Cache for types namespace->id
+      @cell namespace Type namespace (sorted on this cell)
+      @cell id Id of type
+      @cell obj WHFSType object (filled when requested)
+  */
+  RECORD ARRAY typecache;
+
+  /** Cache for type id->namespace
+      @cell id
+      @cell namespace
+  */
+  RECORD ARRAY revtypecache;
+
+  /** Instance data cache
+      @cell type Type id
+      @cell id WHFS object id
+      @cell data
+  */
+  RECORD ARRAY instancecache;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC INTEGER FUNCTION GetWHFSTypeId(STRING namespace)
+  {
+    RECORD pos := RecordLowerBound(this->typecache, [ namespace := namespace ], [ "NAMESPACE"]);
+    IF (NOT pos.found)
+    {
+      RECORD rec :=
+          [ namespace :=  namespace
+          , id :=         GetTypeForNamespace(namespace)
+          , obj :=        DEFAULT OBJECT
+          ];
+
+      INSERT rec INTO this->typecache AT pos.position;
+      INSERT rec INTO this->revtypecache AT RecordUpperBound(this->revtypecache, rec, [ "ID" ]);
+    }
+    RETURN this->typecache[pos.position].id;
+  }
+
+  PUBLIC STRING FUNCTION GetWHFSTypeNamespace(INTEGER id, BOOLEAN isfolder)
+  {
+    IF (id = 0)
+    {
+      RETURN isfolder
+          ? "http://www.webhare.net/xmlns/publisher/normalfolder"
+          : "http://www.webhare.net/xmlns/publisher/unknownfile";
+    }
+
+    RECORD pos := RecordLowerBound(this->revtypecache, [ id := id ], [ "ID" ]);
+    IF (NOT pos.found )
+    {
+      RECORD rec :=
+          [ id :=         id
+          , namespace :=  GetNamespaceForType(id, TRUE) // always pass folder, only matters when id = 0, we handled that.
+          , obj :=        DEFAULT OBJECT
+          ];
+
+      INSERT rec INTO this->revtypecache AT pos.position;
+      INSERT rec INTO this->typecache AT RecordUpperBound(this->typecache, rec, [ "NAMESPACE" ]);
+    }
+    RETURN this->revtypecache[pos.position].namespace;
+  }
+
+  PUBLIC OBJECT FUNCTION GetWHFSTypeObject(STRING namespace)
+  {
+    RECORD pos := RecordLowerBound(this->typecache, [ namespace := namespace ], [ "NAMESPACE"]);
+    IF (NOT pos.found)
+    {
+      OBJECT whfstype := OpenWHFSType(namespace);
+      INSERT
+          [ namespace :=  namespace
+          , id :=         ObjectExists(whfstype) ? whfstype->id : 0
+          , obj :=        whfstype
+          ] INTO this->typecache AT pos.position;
+    }
+    ELSE IF (NOT ObjectExists(this->typecache[pos.position].obj))
+      this->typecache[pos.position].obj := OpenWHFSTypeById(this->typecache[pos.position].id);
+
+    RETURN this->typecache[pos.position].obj;
+  }
+
+  PUBLIC RECORD FUNCTION GetInstanceData(STRING namespace, INTEGER fsobjectid)
+  {
+    OBJECT obj := this->GetWHFSTypeObject(namespace);
+    IF (NOT ObjectExists(obj))
+      RETURN DEFAULT RECORD;
+
+    RECORD pos := RecordLowerBound(this->instancecache, [ type := obj->id, id := fsobjectid ], [ "ID", "TYPE" ]);
+    IF (NOT pos.found)
+    {
+      INSERT
+          [ type :=   obj->id
+          , id :=     fsobjectid
+          , data :=   obj->GetInstancedata(fsobjectid)
+          ] INTO this->instancecache AT pos.position;
+    }
+
+    RETURN this->instancecache[pos.position].data;
+  }
+>;
+
+MACRO ClearApplyRuleTesterCache(BOOLEAN iscommit DEFAULTSTO TRUE)
+{
+  current_apply_rule_tester_cache := DEFAULT OBJECT;
+}
+
+/** Apply rule tester
+    @public
+    @topic siteprofiles/api
+*/
+STATIC OBJECTTYPE ApplyRuleTester
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT cache;
+
+  RECORD objinfo;
+
+  RECORD csp;
+
+  RECORD ARRAY matchinfo;
+
+  INTEGER contenttype;
+
+  STRING prebuilttag;
+  BOOLEAN haveprebuilttag;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** @type(integer) Type of the file/folder for this tester */
+  PUBLIC PROPERTY objtype(this->objinfo.obj.type, -);
+
+  /** @type(string) Namespace of the type of the file/folder for this tester */
+  PUBLIC PROPERTY objtypens(GetObjTypeNS, -);
+
+  /// @type(integer) The parent of the current object. This parent may point outside the site
+  PUBLIC PROPERTY objparent(this->objinfo.obj.parent, -);
+
+  /// @type(integer) The site of the current object
+  PUBLIC PROPERTY objsite(this->objinfo.obj.parentsite, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD objinfo)
+  {
+    this->contenttype := -1;
+    this->objinfo := objinfo;
+
+    this->InitCache();
+    this->ReadCSP();
+  }
+
+  STRING FUNCTION GetObjTypeNS()
+  {
+    RETURN GetFSTypeNS(this->objinfo.obj.type, this->objinfo.obj.isfolder);
+  }
+
+  /** Get a cachekey for this applytester (ie all unique fields)
+      @return Cache key
+  */
+  PUBLIC STRING FUNCTION __GetCacheKey()
+  {
+    RETURN this->objinfo.obj.type || "-" || this->objinfo.obj.parent || "-" || this->objinfo.obj.id;
+  }
+
+  /** Get accounting source to which we allocate hits
+      @return The accounting source for use in %LogAccountingHit */
+  PUBLIC STRING FUNCTION GetAccountingSource()
+  {
+    //TODO Allow apply rules to set/override accounting source (but we may still want to prefix then?)
+    IF(this->objsite != 0)
+    {
+      STRING sitesource := SELECT AS STRING "site:" || name FROM system.sites WHERE id = this->objsite;
+      IF(sitesource != "")
+        RETURN sitesource;
+    }
+    RETURN "site:#" || this->objsite;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO InitCache()
+  {
+
+    IF (NOT ObjectExists(current_apply_rule_tester_cache))
+    {
+      current_apply_rule_tester_cache := NEW ApplyRuleTesterCache;
+      IF (GetPrimary()->IsWorkOpen())
+        GetPrimary()->RegisterCommitHandler("", PTR ClearApplyRuleTesterCache);
+      ELSE
+        ScheduleMicroTask(PTR ClearApplyRuleTesterCache);
+    }
+    this->cache := current_apply_rule_tester_cache;
+  }
+
+  RECORD ARRAY FUNCTION MinimizeApplies(RECORD ARRAY recs)
+  {
+    FOREVERY (RECORD rec FROM recs)
+    {
+      FOREVERY (RECORD c FROM UnpackRecord(rec))
+        IF (IsDefaultValue(c.value) AND c.name != "CRITERIA")
+          rec := CellDelete(rec, c.name);
+      recs[#rec] := rec;
+    }
+
+    UPDATE recs
+       SET criteria :=  this->MinimizeApplies(criteria)
+     WHERE CellExists(recs, "CRITERIA");
+
+    RETURN recs;
+  }
+
+  RECORD ARRAY FUNCTION FilterApplies(RECORD ARRAY recs, INTEGER siteid)
+  {
+    FOREVERY (RECORD rec FROM recs)
+    {
+      FOREVERY (RECORD c FROM UnpackRecord(rec))
+        IF (IsDefaultValue(c.value) AND c.name NOT IN [ "SITEPROFILE", "ALLSITES", "SITEIDS", "TOS", "APPLYINDEX" ])
+          rec := CellDelete(rec, c.name);
+      rec.tos := this->MinimizeApplies(rec.tos);
+      recs[#rec] := rec;
+    }
+
+    DELETE FROM recs WHERE NOT allsites AND siteid NOT IN siteids;
+    RETURN recs;
+  }
+
+  RECORD FUNCTION GetCachableCSPSubset(INTEGER siteid)
+  {
+    RECORD value := MakeReplacedRecord(
+          [ prebuilttag_memberid :=   0
+          , prebuilttag_typeid :=     0
+          , applies :=                DEFAULT RECORD ARRAY
+          ], GetCachedSiteProfiles());
+
+    value.applies := this->FilterApplies(value.applies, siteid);
+
+    RETURN
+        [ value :=        value
+        , eventmasks :=   [ "publisher:internal.siteprofiles.recompiled" ]
+        , ttl :=          60 * 1000
+        ];
+  }
+
+  MACRO ReadCSP()
+  {
+    INTEGER siteid := RecordExists(this->objinfo.site) ? this->objinfo.site.id : 0;
+
+    this->csp := GetAdhocCached([ type := "filteredcsp", siteid := siteid ], PTR this->GetCachableCSPSubset(siteid));
+    this->matchinfo := RepeatElement(
+        [ tested :=   FALSE
+        , matches :=  FALSE
+        ], LENGTH(this->csp.applies));
+  }
+
+  MACRO TestApply(INTEGER nr)
+  {
+    this->matchinfo[nr].tested := TRUE;
+    this->matchinfo[nr].matches := this->ApplyIsMatch(this->csp.applies[nr]);
+  }
+
+  BOOLEAN FUNCTION MatchType(INTEGER foldertype, STRING matchwith, BOOLEAN isfolder)
+  {
+    IF(foldertype<1000 AND matchwith=ToString(foldertype)) //only match by ID for well-knowns
+      RETURN TRUE;
+
+    STRING namespace := this->cache->GetWHFSTypeNamespace(foldertype, isfolder);
+    IF (namespace LIKE matchwith)
+      RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  BOOLEAN FUNCTION TestPathConstraint(RECORD rec, RECORD site, RECORD parentitem)
+  {
+    IF (CellExists(rec, "PATHMASK") AND rec.pathmask!="" AND (ToUppercase(this->objinfo.obj.fullpath) NOT LIKE ToUppercase(rec.pathmask)))
+      RETURN FALSE;
+    IF (CellExists(rec, "PARENTMASK") AND rec.parentmask!="" AND (NOT RecordExists(parentitem) OR ToUppercase(parentitem.fullpath) NOT LIKE ToUppercase(rec.parentmask)))
+      RETURN FALSE;
+    IF (CellExists(rec, "PARENTTYPE") AND rec.parenttype!="" AND (NOT RecordExists(parentitem) OR NOT this->MatchType(parentitem.type, rec.parenttype,TRUE)))
+      RETURN FALSE;
+    IF (CellExists(rec, "SITETYPE") AND rec.sitetype != "" AND (NOT RecordExists(site) OR NOT this->MatchType(site.type, rec.sitetype, TRUE)))
+      RETURN FALSE;
+    IF (CellExists(rec, "PATHREGEX") AND rec.pathregex!="" AND NOT MatchPathRegex(rec.pathregex, this->objinfo.obj.fullpath))
+      RETURN FALSE;
+    IF (CellExists(rec, "PARENTREGEX") AND rec.parentregex!="" AND (NOT RecordExists(parentitem) OR NOT MatchPathRegex(rec.parentregex, parentitem.fullpath)))
+      RETURN FALSE;
+    RETURN TRUE;
+  }
+
+  INTEGER FUNCTION GetContentType()
+  {
+    IF(this->objinfo.obj.type != 20) //contentlink
+      RETURN this->objinfo.obj.type;
+    IF(this->contenttype != -1)
+      RETURN this->contenttype;
+
+    this->contenttype := SELECT AS INTEGER fs_objects.type
+                           FROM system.fs_objects
+                          WHERE fs_objects.id = this->objinfo.obj.filelink;
+    RETURN this->contenttype;
+  }
+
+  STRING FUNCTION GetPrebuiltTag()
+  {
+    IF(this->objinfo.obj.id = 0 OR this->objinfo.obj.isfolder)
+      RETURN "";
+    IF(NOT this->haveprebuilttag)
+    {
+      // Move 'parent = 0' condition out of query, database optimizes wrong
+      RECORD ARRAY candidates :=
+          SELECT setting :=     fs_settings.setting
+               , parent :=      fs_settings.parent
+            FROM system.fs_settings
+               , system.fs_instances
+           WHERE fs_instances.fs_object = this->objinfo.obj.id
+             AND fs_settings.fs_instance = fs_instances.id
+             AND fs_instances.fs_type = this->csp.prebuilttag_typeid
+             AND fs_settings.fs_member = this->csp.prebuilttag_memberid;
+//           AND fs_settings.parent = 0 // this one was used as primary search, should have used fs_object condition
+
+      this->prebuilttag := SELECT AS STRING setting FROM candidates WHERE parent = 0;
+      this->haveprebuilttag := TRUE;
+    }
+    RETURN this->prebuilttag;
+  }
+
+  BOOLEAN FUNCTION ToIsMatch(RECORD element, RECORD site, RECORD folder)
+  {
+    SWITCH(element.type)
+    {
+      CASE "and"
+      {
+        FOREVERY(RECORD crit FROM element.criteria)
+          IF (NOT this->ToIsMatch(crit, site, folder))
+            RETURN FALSE;
+        RETURN TRUE;
+      }
+      CASE "or"
+      {
+        FOREVERY(RECORD crit FROM element.criteria)
+          IF (this->ToIsMatch(crit, site, folder))
+            RETURN TRUE;
+        RETURN FALSE;
+      }
+      CASE "not"
+      {
+        FOREVERY(RECORD crit FROM element.criteria)
+          IF (this->ToIsMatch(crit, site, folder))
+            RETURN FALSE;
+        RETURN TRUE;
+      }
+      CASE "xor"
+      {
+        BOOLEAN sofar:=false;
+        FOREVERY(RECORD crit FROM element.criteria)
+          sofar := sofar XOR this->ToIsMatch(crit, site, folder);
+        RETURN sofar;
+      }
+      CASE "testdata"
+      {
+        INTEGER testid;
+
+        IF(element.target="parent")
+          testid := folder.id;
+        ELSE IF(element.target="root")
+          testid := RecordExists(site) ? site.id : 0;
+        ELSE
+          testid := this->objinfo.obj.id;
+
+        IF(testid=0)
+          RETURN FALSE;
+
+        RECORD instance := this->cache->GetInstanceData(element.typedef, testid);
+
+        STRING membername := element.membername;
+        IF(NOT CellExists(instance, membername))
+          RETURN FALSE;
+
+        IF(TypeId(GetCell(instance, membername))=TypeId(STRING) AND GetCell(instance, membername) = (CellExists(element, "VALUE") ? element.value : ""))
+          RETURN TRUE;
+        IF(TypeId(GetCell(instance, membername))=TypeId(INTEGER) AND GetCell(instance, membername) = (CellExists(element, "VALUE") ? ToInteger(element.value,-1) : 0))
+          RETURN TRUE;
+        IF(TypeId(GetCell(instance, membername))=TypeId(BOOLEAN) AND GetCell(instance, membername) = (CellExists(element, "VALUE") ? ParseXSBoolean(element.value) : FALSE))
+          RETURN TRUE;
+        IF(TypeId(GetCell(instance, membername))=TypeId(DATETIME) AND GetCell(instance, membername) = (CellExists(element, "VALUE") ? MakeDateFromText(element.value) : DEFAULT DATETIME))
+          RETURN TRUE;
+
+        RETURN FALSE;
+      }
+      CASE "to"
+      {
+        IF (CellExists(element, "MATCH_FILE") AND element.match_file AND NOT this->objinfo.isfile)
+          RETURN FALSE;
+        IF (CellExists(element, "MATCH_INDEX") AND element.match_index AND (NOT RecordExists(folder) OR folder.indexdoc != this->objinfo.obj.id))
+          RETURN FALSE;
+        IF (CellExists(element, "MATCH_FOLDER") AND element.match_folder AND this->objinfo.isfile)
+          RETURN FALSE;
+
+        IF (CellExists(element, "FOLDERTYPE") AND element.foldertype!="" AND NOT this->MatchType(this->objinfo.obj.type, element.foldertype, TRUE))
+          RETURN FALSE;
+        IF (CellExists(element, "FILETYPE") AND element.filetype!="" AND NOT this->MatchType(this->objinfo.obj.type, element.filetype, FALSE))
+          RETURN FALSE;
+        IF (CellExists(element, "CONTENTFILETYPE") AND element.contentfiletype!="" AND NOT this->MatchType(this->GetContentType(), element.contentfiletype, FALSE))
+          RETURN FALSE;
+
+        IF (CellExists(element, "TYPENEEDSTEMPLATE") AND element.typeneedstemplate AND NOT this->IsTypeNeedsTemplate())
+          RETURN FALSE;
+        IF (CellExists(element, "PREBUILTMASKS") AND Length(element.prebuiltmasks) > 0 AND NOT this->MatchPrebuiltMasks(element.prebuiltmasks))
+          RETURN FALSE;
+        IF (CellExists(element, "WEBFEATURES") AND Length(element.webfeatures) > 0 AND NOT this->MatchWebfeatures(element.webfeatures))
+          RETURN FALSE;
+
+        IF (CellExists(element, "SITENAME") AND element.sitename!="" AND (NOT RecordExists(site) OR ToUppercase(site.name) != ToUppercase(element.sitename)))
+            RETURN FALSE;
+        IF (CellExists(element, "SITEMASK") AND element.sitemask!="" AND (NOT RecordExists(site) OR ToUppercase(site.name) NOT LIKE ToUppercase(element.sitemask)))
+            RETURN FALSE;
+        IF (CellExists(element, "SITEREGEX") AND element.siteregex!="" AND (NOT RecordExists(site) OR NOT MatchPathRegex(element.siteregex, site.name)))
+            RETURN FALSE;
+
+        IF (NOT this->TestPathConstraint(element, site, folder))
+          RETURN FALSE;
+      }
+    }
+    RETURN TRUE;
+  }
+
+  BOOLEAN FUNCTION ApplyIsMatch(RECORD apply)
+  {
+    IF(apply.allsites = FALSE AND (NOT RecordExists(this->objinfo.site) OR this->objinfo.site.id NOT IN apply.siteids))
+      RETURN FALSE;
+
+    FOREVERY (RECORD appl FROM apply.tos)
+      IF (this->ToIsMatch(appl, this->objinfo.site, this->objinfo.parent))
+        RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+  RECORD FUNCTION GetTypeRecordData()
+  {
+    RETURN
+        SELECT needstemplate
+             , capturesubpaths
+             , isacceptableindex
+             , ispublishedassubdir
+          FROM system.fs_types
+         WHERE id = this->GetContentType();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO InitForBaseInfo(INTEGER fsobjectid)
+  {
+    this->objinfo := GetBaseInfoForApplyCheck(fsobjectid);
+    this->ReadCSP();
+  }
+
+  /** Is this a type needing a template?
+      @return TRUE if this file type needs a template
+  */
+  PUBLIC BOOLEAN FUNCTION IsTypeNeedsTemplate()
+  {
+    //Split off as API to allow us to cache stuff
+    RECORD typerec := this->GetTypeRecordData();
+    RETURN RecordExists(typerec) AND typerec.needstemplate;
+  }
+  /** Does this type match any of these prebuilt masks? (like <to prebuiltmasks=)
+  */
+  PUBLIC BOOLEAN FUNCTION MatchPrebuiltMasks(STRING ARRAY masks)
+  {
+    RETURN MatchCommonXMLWildcardMasks(this->GetPrebuiltTag(), masks);
+  }
+  /** Are any of these webfeatures active? (like <to webfeatures=)
+  */
+  PUBLIC BOOLEAN FUNCTION MatchWebfeatures(STRING ARRAY masks)
+  {
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    FOREVERY (STRING feature FROM sitesettingstype->GetInstanceData(this->objsite).webfeatures)
+      IF (MatchCommonXMLWildcardMasks(feature, masks))
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  /** Returns all relevant applies for a specific cell
+      @cell return.siteprofile
+      @cell return.applyindex
+      @cell return.siteids
+  */
+  PUBLIC RECORD ARRAY FUNCTION __GetAppliesForcell(STRING cellname)
+  {
+    RECORD ARRAY filtered;
+    FOREVERY (RECORD apply FROM this->csp.applies)
+    {
+      IF (cellname != "" AND (NOT CellExists(apply,cellname) OR IsDefaultValue(GetCell(apply, cellname))))
+        CONTINUE;
+
+      IF (NOT this->matchinfo[#apply].tested)
+        this->TestApply(#apply);
+      IF (this->matchinfo[#apply].matches)
+      {
+        IF (cellname = "")
+          INSERT apply INTO filtered AT END;
+        ELSE
+        {
+          // Only give back requested cell plus a few standard cells
+          RECORD result :=
+              [ siteprofile :=  apply.siteprofile
+              , applyindex :=   apply.applyindex
+              , siteids :=      apply.siteids
+              ];
+
+          result := CellInsert(result, cellname, GetCell(apply, cellname));
+          INSERT result INTO filtered AT END;
+        }
+      }
+    }
+    RETURN filtered;
+  }
+
+  PUBLIC RECORD FUNCTION GetFormDefinitionFile(STRING name)
+  {
+    RECORD match;
+    FOREVERY(RECORD apply FROM this->__GetAppliesForcell("FORMDEFINITIONS"))
+      FOREVERY(RECORD formdef FROM apply.formdefinitions)
+        IF(formdef.name = name)
+          match := formdef;
+    RETURN match;
+  }
+
+  PUBLIC RECORD FUNCTION GetCachedProperty(STRING cellname, RECORD defaultvalue)
+  {
+    RECORD retval := defaultvalue;
+    STRING ARRAY fields := SELECT AS STRING ARRAY name FROM UnpackRecord(defaultvalue);
+
+    FOREVERY(RECORD apply FROM this->__GetAppliesForcell(cellname))
+      retval := UpdateListedAttributes(retval, GetCell(apply, cellname));
+
+    RETURN retval;
+  }
+
+  PUBLIC RECORD FUNCTION GetPrebuiltPageSettings(STRING tag)
+  {
+    RECORD retval;
+    FOREVERY(RECORD apply FROM this->__GetAppliesForcell("PREBUILTPAGES"))
+      FOREVERY(RECORD prebuilt FROM apply.prebuiltpages)
+        IF(ToUppercase(prebuilt.tag) = ToUppercase(tag))
+        {
+          IF(NOT RecordExists(retval))
+            retval := prebuilt;
+          ELSE
+            retval := UpdateListedAttributes(retval, prebuilt);
+        }
+    RETURN retval;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetPrebuiltPages()
+  {
+    RECORD ARRAY pages;
+    FOREVERY(RECORD apply FROM this->__GetAppliesForcell("PREBUILTPAGES"))
+      FOREVERY(RECORD prebuilt FROM apply.prebuiltpages)
+      {
+        INTEGER offs := (SELECT AS INTEGER #pages+1 FROM pages WHERE ToUppercase(pages.tag) = ToUppercase(prebuilt.tag))-1;
+        IF(offs=-1)
+          INSERT prebuilt INTO pages AT END;
+        ELSE
+          pages[offs] := UpdateListedAttributes(pages[offs], prebuilt);
+      }
+
+    RETURN pages;
+  }
+
+  PUBLIC STRING FUNCTION GetSiteLanguage(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ webcontext := DEFAULT OBJECT ], options);
+    STRING lang, getlanguagefunction;
+    FOREVERY(RECORD apply FROM this->__GetAppliesForcell("SITELANGUAGE"))
+    {
+      IF(apply.sitelanguage.has_lang)
+        lang := apply.sitelanguage.lang;
+      IF(apply.sitelanguage.has_getlanguagefunction)
+        getlanguagefunction := apply.sitelanguage.getlanguagefunction;
+    }
+
+    STRING finallang;
+    IF (getlanguagefunction != "" AND ObjectExists(options.webcontext))
+      finallang := MakeFunctionPtr(getlanguagefunction, TYPEID(STRING), [TYPEID(OBJECT)])(options.webcontext);
+
+    RETURN finallang ?? lang ?? "en";
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetMailTemplates()
+  {
+    RECORD ARRAY mailtemplates;
+    FOREVERY(RECORD apply FROM this->__GetAppliesForcell("MAILTEMPLATES"))
+      FOREVERY(RECORD mailtemplate FROM apply.mailtemplates)
+      {
+        IF(mailtemplate.path != "") //refers to a titled template
+          INSERT [ path := mailtemplate.path, title := mailtemplate.title ?? ":" || mailtemplate.path, ordering := mailtemplate.ordering ] INTO mailtemplates AT END;
+
+        FOREVERY (RECORD source FROM mailtemplate.sources)
+        {
+          OBJECT sourceobj := this->LookupSource(source);
+          IF (ObjectExists(sourceobj))
+          {
+            mailtemplates := mailtemplates
+                             CONCAT
+                             SELECT path := OpenWHFSObject(id)->GetResourceName()
+                                  , title := ":" || title
+                                  , ordering
+                               FROM system.fs_objects
+                              WHERE parent = sourceobj->id
+                                    AND title != ""
+                                    AND (type = 5 //HTML
+                                         OR type = 26 //witty
+                                         OR (type = 21 AND ToUppercase(name) LIKE "*.HTML") //plain text
+                                        );
+          }
+        }
+      }
+
+    //Post process the templates. For any dupes, use ordering (and then alphabetic ordering) to find first title match
+    mailtemplates := SELECT TEMPORARY title := (SELECT AS STRING COLUMN title FROM GroupedValues(mailtemplates) ORDER BY ordering, ToUppercase(COLUMN title))
+                          , title := title
+                          , path
+                       FROM mailtemplates
+                   GROUP BY path
+                   ORDER BY ANY(ordering), ToUppercase(title), ToUppercase(path);
+
+    RETURN mailtemplates;
+  }
+
+  PUBLIC STRING FUNCTION GetDefaultMailTemplate()
+  {
+    RECORD mailtempl := this->GetMailTemplates();
+    RETURN RecordExists(mailtempl) ? mailtempl.path : "";
+  }
+
+  /** Get our <rtddoc> settings
+      @return An empty record if not `<rtddoc rtdtype=>`` is set*/
+  PUBLIC RECORD FUNCTION GetRTDTypeSettings()
+  {
+    RECORD rtddoc := [ rtdtype := ""
+                     , htmlclass := ""
+                     , bodyclass := ""
+                     , margins := ""
+                     , has_htmlclass := FALSE
+                     , has_bodyclass := FALSE
+                     ];
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("RTDDOC"))
+    {
+      rtddoc := CELL[...rtddoc, ...apply.rtddoc];
+      IF(CellExists(apply.rtddoc,'htmlclass'))
+        rtddoc.has_htmlclass := TRUE;
+      IF(CellExists(apply.rtddoc,'bodyclass'))
+        rtddoc.has_bodyclass := TRUE;
+    }
+
+    RETURN rtddoc.rtdtype != "" ? rtddoc : DEFAULT RECORD;
+  }
+
+  PUBLIC RECORD FUNCTION GetWebDesignObjinfo()
+  {
+    RECORD webdesign;
+
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("WEBDESIGN"))
+    {
+      IF (NOT RecordExists(webdesign))
+        webdesign := GetDefaultWebDesignInfo();
+
+      webdesign.library         := apply.webdesign.library         ?? webdesign.library;
+      webdesign.objectname      := apply.webdesign.objectname      ?? webdesign.objectname;
+      webdesign.witty           := apply.webdesign.witty           ?? webdesign.witty;
+      webdesign.designfolder    := apply.webdesign.designfolder    ?? webdesign.designfolder;
+      webdesign.maxcontentwidth := apply.webdesign.maxcontentwidth ?? webdesign.maxcontentwidth;
+      webdesign.siteprofile     := apply.siteprofile;
+      webdesign.wittyencoding   := apply.webdesign.wittyencoding   ?? webdesign.wittyencoding ;
+
+      webdesign.assetpack            := apply.webdesign.has_assetpack            ? apply.webdesign.assetpack            : webdesign.assetpack     ;
+      webdesign.basedependency       := apply.webdesign.has_basedependency       ? apply.webdesign.basedependency       : webdesign.basedependency;
+      webdesign.supportserrors       := apply.webdesign.has_supportserrors       ? apply.webdesign.supportserrors       : webdesign.supportserrors;
+      webdesign.supportsaccessdenied := apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webdesign.supportsaccessdenied;
+      webdesign.asyncbundle          := apply.webdesign.has_asyncbundle          ? apply.webdesign.asyncbundle          : webdesign.asyncbundle;
+      webdesign.contentnavstops      := apply.webdesign.has_contentnavstops      ? apply.webdesign.contentnavstops      : webdesign.contentnavstops;
+      webdesign.lazyloadcss          := apply.webdesign.has_lazyloadcss          ? apply.webdesign.lazyloadcss          : webdesign.lazyloadcss;
+      webdesign.supportedlanguages   := SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(apply.webdesign.supportedlanguages CONCAT webdesign.supportedlanguages, "lang");
+    }
+
+    IF (RecordExists(webdesign))
+    {
+      IF(this->objinfo.obj.type = 39) //prebuiltpage
+      {
+        OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
+        RECORD prebuiltinfo := prebuilttype->GetInstanceData(this->objinfo.obj.id);
+        RECORD prebuiltsettings := this->GetPrebuiltPageSettings(prebuiltinfo.prebuilttag);
+        IF(NOT RecordExists(prebuiltsettings))
+          THROW NEW Exception(`Do not know how to render prebuilt file with tag '${prebuiltinfo.prebuilttag}'`);
+
+        webdesign.renderinfo := [ webpagelibrary := prebuiltsettings.dynexecute.webpagelibrary
+                                , startlibrary := prebuiltsettings.dynexecute.startlibrary
+                                , rendermacro := prebuiltsettings.dynexecute.startmacro
+                                , preparemacro := ""
+                                , objectname := prebuiltsettings.dynexecute.webpageobjectname
+                                , issystemredirect := prebuiltsettings.type="dynamic"
+                                , capturesubpaths := prebuiltsettings.capturesubpaths
+                                ];
+      }
+      ELSE IF (this->objinfo.obj.type = 20)//content link
+      {
+        OBJECT link_tester := GetApplyTesterForObject(this->objinfo.obj.filelink);
+        IF (ObjectExists(link_tester))
+          webdesign.renderinfo := link_tester->GetObjRenderInfo();
+        ELSE
+          webdesign.is404 := TRUE;
+      }
+      ELSE
+      {
+        webdesign.renderinfo := this->GetObjRenderInfo();
+      }
+    }
+
+
+    RETURN webdesign;
+  }
+
+  PUBLIC RECORD FUNCTION GetObjRenderInfo()
+  {
+    RECORD typerec;
+    RECORD bodyrenderer;
+
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("BODYRENDERER"))
+    {
+      IF (#apply=0)
+      {
+        typerec := this->GetTypeRecordData();
+        bodyrenderer := [ webpagelibrary := ""
+                        , startlibrary := ""
+                        , rendermacro := ""
+                        , preparemacro := ""
+                        , objectname  := ""
+                        , issystemredirect := FALSE
+                        , capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths
+                        ];
+      }
+      IF (apply.bodyrenderer.library != "")
+      {
+        bodyrenderer.webpagelibrary := apply.bodyrenderer.library;
+        bodyrenderer.startlibrary := apply.bodyrenderer.library;
+      }
+      IF (apply.bodyrenderer.rendermacro != "" OR apply.bodyrenderer.preparemacro != "" OR apply.bodyrenderer.objectname != "")
+      {
+        bodyrenderer.rendermacro := apply.bodyrenderer.rendermacro;
+        bodyrenderer.preparemacro := apply.bodyrenderer.preparemacro;
+        bodyrenderer.objectname := apply.bodyrenderer.objectname;
+      }
+    }
+    RETURN bodyrenderer;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetWebDesignPlugins()
+  {
+    RECORD ARRAY plugins;
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("PLUGINS"))
+      plugins := plugins CONCAT apply.plugins;
+
+    RETURN
+        SELECT AS RECORD ARRAY CellInsert(Any(plugins), "DATAS", GroupedValues(data))
+          FROM plugins
+      GROUP BY combine ? "name:" || name : "id:" || ToString(#plugins)
+             , combine ? namespace : "";
+  }
+
+  PUBLIC RECORD FUNCTION GetPluginConfiguration(STRING namespace, STRING localname)
+  {
+    RECORD plugin := SELECT * FROM this->GetWebDesignPlugins() AS plugins WHERE plugins.namespace = VAR namespace AND plugins.name = VAR localname;
+    IF(NOT RecordExists(plugin))
+      RETURN DEFAULT RECORD;
+    RETURN CombinePartialNodes(plugin.datas);
+  }
+
+  //Tollium Publisher version of GetCustomFields
+  PUBLIC RECORD FUNCTION GetCustomFields(OBJECT user, STRING langcode)
+  {
+    //ADDME: Gettext the error messages!
+    RECORD retval := [ propertyeditors := DEFAULT RECORD ARRAY
+                     , errors := DEFAULT STRING ARRAY
+                     , hidestandardfields := DEFAULT RECORD ARRAY
+                     ];
+
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("EXTENDPROPERTIES"))
+      FOREVERY(RECORD extendprops FROM apply.extendproperties)
+      {
+        IF(extendprops.isundo)
+        {
+          DELETE FROM retval.propertyeditors WHERE name LIKE extendprops.mask;
+          CONTINUE;
+        }
+
+        IF(extendprops.requirewebdesign AND NOT RecordExists(this->GetWebDesignObjinfo()))
+          CONTINUE;
+
+        TRY
+        {
+          IF(NOT TestRequiredRight(user, extendprops.requireright, this->__Deprecated_GetObjInfo().obj.id))
+            CONTINUE;
+        }
+        CATCH(OBJECT e)
+        {
+          INSERT "Error checking rights for property editor '" || EncodeJava(extendprops.name) || "': " || e->what INTO retval.errors AT END;
+          CONTINUE;
+        }
+
+        STRING selector;
+        IF (extendprops.extension != "")
+        {
+          selector := Tokenize(extendprops.extension,'#')[1];
+          INSERT CELL siteprofile := Tokenize(extendprops.extension,'#')[0] INTO extendprops;
+        }
+        ELSE
+        {
+          selector := '__selector://*[local-name()="propertyeditor"][@name="' || extendprops.name || '"]';
+          INSERT CELL siteprofile := apply.siteprofile INTO extendprops;
+        }
+        INSERT CELL selector := selector INTO extendprops;
+        INSERT extendprops INTO retval.propertyeditors AT END;
+      }
+
+    RETURN retval;
+  }
+
+  PUBLIC RECORD FUNCTION GetFolderSettings()
+  {
+    RECORD settings := GetDefaultFolderSettings();
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("FOLDERSETTINGS"))
+    {
+      IF(apply.foldersettings.has_filterscreen)
+        settings.filterscreen := apply.foldersettings.filterscreen;
+      IF(apply.foldersettings.ordering!="")
+        settings.ordering := apply.foldersettings.ordering;
+      IF(RecordExists(apply.foldersettings.contentslisthandler))
+        settings.contentslisthandler := apply.foldersettings.contentslisthandler;
+    }
+    RETURN settings;
+  }
+
+  PUBLIC INTEGER FUNCTION GetUploadFileTypeMapping(STRING filename, STRING mimetype)
+  {
+    STRING suggestfiletype;
+
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("UPLOADTYPEMAPPING"))
+    {
+      FOREVERY(RECORD mapping FROM apply.uploadtypemapping)
+      {
+        IF(mapping.filenamemask != "" AND ToUppercase(filename) NOT LIKE ToUppercase(mapping.filenamemask))
+          CONTINUE;
+        IF(mapping.mimetypemask != "" AND ToUppercase(mimetype) NOT LIKE ToUppercase(mapping.mimetypemask))
+          CONTINUE;
+        suggestfiletype := mapping.filetype;
+      }
+    }
+
+    IF(suggestfiletype != "")
+    {
+      RECORD suggested := LookupContentTypeByName(suggestfiletype);
+      RETURN RecordExists(suggested) AND RecordExists(suggested.filetype) ? suggested.id : 0;
+    }
+
+    RETURN MimetypeToFiletype(mimetype);
+  }
+
+  PUBLIC RECORD FUNCTION GetURLHistorySettings()
+  {
+    RETURN this->GetCachedProperty("urlhistory", [ redirecton404 := TRUE, store := TRUE, passthrough := ["utm_*"] ]);
+  }
+
+  PUBLIC RECORD FUNCTION GetUsePublishTemplate(BOOLEAN haswebdesign)
+  {
+    RECORD usetempl := [ script := "mod::publisher/scripts/internal/publishother.whscr"
+                       , skipnormalrepublish := TRUE //no need to depend on templates
+                       , isdefault := TRUE
+                       ];
+    RECORD csp := GetCachedSiteProfiles();
+    IF(RecordExists(csp))
+    {
+      // Dynamic execute files types (and of type dynamicfoldercontents) must be published by publishsystemredirect
+      RECORD contenttype;
+      IF(this->__Deprecated_GetObjInfo().obj.type != 0)
+        contenttype := LookupContentTypeById(this->__Deprecated_GetObjInfo().obj.type);
+      IF (RecordExists(contenttype)
+          AND RecordExists(contenttype.filetype)
+          AND (RecordExists(contenttype.filetype.dynamicexecution)
+               OR contenttype.namespace = "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
+               OR (haswebdesign AND contenttype.namespace IN ["http://www.webhare.net/xmlns/publisher/shtmlfile"])))
+      {
+        usetempl.script := "mod::publisher/scripts/internal/publishsystemredirect.whscr";
+        usetempl.isdefault := FALSE;
+        RETURN usetempl; //these are now forced to publishsystemredirect so a systemredirect can handle them
+      }
+
+      FOREVERY(RECORD apply FROM this->__GetAppliesForcell("USEPUBLISHTEMPLATE"))
+      {
+        usetempl := apply.usepublishtemplate;
+        INSERT CELL isdefault := FALSE INTO usetempl;
+      }
+    }
+    RETURN usetempl;
+  }
+
+  PUBLIC RECORD FUNCTION GetLastValueForCell(STRING cellname)
+  {
+    RECORD ARRAY applies := this->__GetAppliesForcell(cellname);
+    RETURN Length(applies) > 0 ? GetCell(applies[END-1], cellname) : DEFAULT RECORD;
+  }
+
+  PUBLIC INTEGER FUNCTION GetSitePlaceHolder()
+  {
+    RECORD contentlisting := this->GetLastValueForCell("CONTENTLISTING");
+    IF(NOT RecordExists(contentlisting))
+      RETURN 0;
+
+    // Resolve site/fullpath - FIXME - Use the siteprofile's site as the base, not the current site
+    INTEGER filesite := this->__Deprecated_GetObjInfo().obj.parentsite;
+    IF (contentlisting.site != "")
+      filesite := SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(name) = ToUppercase(contentlisting.site);
+
+    //We accept accidentally selecting a folder.. should be rare an WHFS stored contentlistings are obsolete anyway
+    RETURN LookupWHFSObject(filesite, contentlisting.fullpath);
+  }
+
+  /** @short Get tag repository for a specific contenttype member */
+  PUBLIC RECORD FUNCTION GetTagSourceForFSMember(STRING contenttype, STRING membername)
+  {
+    RECORD result;
+    RECORD searchrec := [ contenttype := contenttype, membername := membername ];
+
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("TAGSOURCES"))
+    {
+      RECORD pos := RecordLowerBound(apply.tagsources, searchrec, [ "CONTENTTYPE", "MEMBERNAME" ]);
+      IF (pos.found)
+      {
+        RECORD tagsource := apply.tagsources[pos.position];
+        result :=
+            [ tagfolder :=  tagsource.tagfolder
+            , repository := tagsource.repository
+            , allowcreate := tagsource.allowcreate
+            ];
+      }
+    }
+
+    IF(RecordExists(result))
+      RETURN [ success := TRUE, data := result ];
+
+    RETURN [ success := FALSE ];
+  }
+
+  /** Is this object a site root ? */
+  PUBLIC BOOLEAN FUNCTION IsSiteRoot()
+  {
+    RETURN this->objinfo.obj.id = this->objinfo.site.id;
+  }
+
+  /** Is this object new ? */
+  PUBLIC BOOLEAN FUNCTION IsNew()
+  {
+    RETURN this->objinfo.obj.id = 0;
+  }
+
+  /** Is this object an index document */
+  PUBLIC BOOLEAN FUNCTION IsIndexDoc()
+  {
+    RETURN this->objinfo.obj.id = this->objinfo.parent.indexdoc;
+  }
+
+  /** Return an apply tester for the parent object. If the parent is outside the
+      site, this will simply return itself, not an applytester for an out-of-site object */
+  PUBLIC OBJECT FUNCTION GetApplyTesterForParent()
+  {
+    RECORD baseinfo := this->objinfo;
+    IF(baseinfo.obj.id = baseinfo.site.id) //you already had the highest parent
+      RETURN this;
+
+    baseinfo.obj := baseinfo.parent;
+    baseinfo.parent := RECORD(SELECT * FROM system.fs_objects WHERE id = baseinfo.parent.parent);
+    baseinfo.isfile := FALSE;
+    RETURN NEW ApplyRuleTester(baseinfo);
+  }
+
+  /** @short Get dynamic execution settings */
+  PUBLIC RECORD FUNCTION GetDynExecProfileSettings(INTEGER finaltype)
+  {
+    RECORD csp := GetcachedSiteProfiles();
+    RECORD dyn;
+
+    RECORD contenttype;
+    IF(finaltype != 0)
+      contenttype := LookupContentTypeById(finaltype);
+
+    RECORD typeinfo;
+    IF(RecordExists(contenttype))
+      typeinfo := contenttype.foldertype ?? contenttype.filetype;
+    IF(NOT RecordExists(typeinfo) OR NOT RecordExists(typeinfo.dynamicexecution))
+    {
+      RETURN [ success := FALSE, badtype := TRUE, type := finaltype ];
+    }
+    ELSE
+    {
+      dyn := typeinfo.dynamicexecution;
+    }
+
+    IF(RecordExists(dyn))
+      RETURN [ success := TRUE, dyn := dyn ];
+
+    RETURN [ success := FALSE, badtype := FALSE ];
+  }
+
+  PUBLIC RECORD FUNCTION GetUpdatedWidget(RECORD intypedef)
+  {
+    FOREVERY(RECORD apply FROM this->__GetAppliesForcell("setwidget"))
+      FOREVERY(RECORD setwidget FROM apply.setwidget)
+      {
+        IF(setwidget.contenttype = intypedef.namespace)
+        {
+          IF(RecordExists(setwidget.editor))
+            intypedef.editor := setwidget.editor;
+          IF(RecordExists(setwidget.renderer))
+            intypedef.renderer := setwidget.renderer;
+          IF(setwidget.has_wittycomponent)
+          {
+            intypedef.wittycomponent := setwidget.wittycomponent;
+            intypedef.previewcomponent := setwidget.previewcomponent;
+          }
+          ELSE IF(setwidget.has_previewcomponent)
+            intypedef.previewcomponent := setwidget.previewcomponent;
+        }
+      }
+    RETURN intypedef;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetCustomSettings(STRING ns, STRING localname)
+  {
+    RECORD ARRAY retval;
+    FOREVERY(RECORD apply FROM this->__GetAppliesForcell("customnodes"))
+    {
+      RECORD ARRAY matchingnodes := SELECT * FROM apply.customnodes WHERE customnodes.namespaceuri = ns AND customnodes.localname = localname;
+      IF(Length(matchingnodes)>0)
+      {
+        OBJECT siteprof := NEW SiteProfileObject(0, apply.siteprofile);
+        OBJECT applynode := siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "apply")->Item(apply.applyindex);
+
+        IF(ObjectExists(applynode))
+        {
+          OBJECT ARRAY matchingchildren := applynode->ListChildren(ns, localname);
+          FOREVERY(OBJECT child FROM matchingchildren)
+            INSERT [ siteprofile := siteprof, applynode := applynode, node := child ] INTO retval AT END;
+        }
+      }
+    }
+    RETURN retval;
+  }
+
+  OBJECT FUNCTION LookupSource(RECORD source)
+  {
+    STRING resolvename := source.path;
+
+    IF(resolvename NOT LIKE "*::*")
+    {
+      // Resolve relative to the site if this is an absolute path, or relative to the target object itself if this is a folder,
+      // or relative to the parent if this is a file
+      OBJECT relativeto;
+      IF(resolvename LIKE "/*")
+        relativeto := OpenWHFSObject(this->objinfo.site.id);
+      ELSE
+        relativeto := OpenWHFSObject(this->objinfo.obj.isfolder ? this->objinfo.obj.id : this->objinfo.obj.parent);
+      IF(NOT ObjectExists(relativeto) OR NOT relativeto->isactive)
+        RETURN DEFAULT OBJECT;
+
+      resolvename := MakeAbsoluteResourcePath(relativeto->GetResourceName(), resolvename);
+    }
+
+    RETURN OpenWHFSObjectByPath(resolvename);
+  }
+
+  PUBLIC INTEGER ARRAY FUNCTION GetLibrary(STRING libraryname)
+  {
+    // Each apply with a setmedialibrary overwrites the media library, so we only have to check the last apply
+    RECORD lastmatchrule;
+    FOREVERY(RECORD applyrule FROM this->__GetAppliesForcell("setlibrary"))
+      FOREVERY(RECORD setlibrary FROM applyrule.setlibrary)
+      {
+        IF(setlibrary.name != libraryname)
+          CONTINUE;
+
+        lastmatchrule := setlibrary;
+      }
+
+    IF(NOT RecordExists(lastmatchrule)) //nothing at all found
+      RETURN DEFAULT INTEGER ARRAY;
+
+    INTEGER ARRAY retval;
+    FOREVERY (RECORD source FROM lastmatchrule.sources)
+    {
+      OBJECT sourceobj := this->LookupSource(source);
+      IF (ObjectExists(sourceobj) AND sourceobj->isfolder)
+        INSERT sourceobj->id INTO retval AT END;
+    }
+    RETURN retval;
+  }
+
+  /** Get objinfo from this object. Just so we don't have to recalculate it for performance reasons.
+  */
+  PUBLIC RECORD FUNCTION __Deprecated_GetObjInfo() __ATTRIBUTES__(DEPRECATED "Don't use, move functionality into this object")
+  {
+    RETURN this->objinfo;
+  }
+
+  PUBLIC OBJECT FUNCTION GetVersioningPolicy()
+  {
+    RETURN GetVersioningPolicyForSite(RecordExists(this->objinfo.site) ? this->objinfo.site.id : 0);
+  }
+>;
+
+/** Returns an apply tester for a specific WHFS file/folder
+    @param obj WHFS id of the file/folder
+    @return(object #ApplyRuleTester) Apply tester
+    @topic siteprofiles/api
+    @public
+    @loadlib mod::publisher/lib/siteprofiles.whlib
+*/
+PUBLIC OBJECT FUNCTION GetApplyTesterForObject(INTEGER obj)
+{
+  RECORD objinfo := GetBaseInfoForApplyCheck(obj);
+  IF (NOT RecordExists(objinfo))
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW ApplyRuleTester(objinfo);
+}
+
+/** Returns an apply tester for a hypothetical WHFS file/folder
+    @param parentfolder WHFS id of the parent folder
+    @param isfile Whether the hypothetical object is a file
+    @param ftypeid File/folder type id of the hypothetical object
+    @return(object #ApplyRuleTester) Apply tester
+    @topic siteprofiles/api
+    @public
+    @loadlib mod::publisher/lib/siteprofiles.whlib
+*/
+PUBLIC OBJECT FUNCTION GetApplyTesterForFakeObject(INTEGER parentfolder, BOOLEAN isfile, INTEGER ftypeid)
+{
+  RECORD objinfo := GetFakeBaseInfoForApplyCheck(parentfolder, isfile, ftypeid);
+  IF (NOT RecordExists(objinfo))
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW ApplyRuleTester(objinfo);
+}
+
+RECORD FUNCTION GetCacheableRTDType(STRING typename)
+{
+  RECORD csp := GetcachedSiteProfiles();
+  RECORD typedef := SELECT * FROM csp.contenttypes WHERE namespace=typename AND isrtdtype;
+  RETURN [ value := typedef
+         , eventmasks := [ "publisher:internal.siteprofiles.recompiled" ]
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetRTDType(STRING typename)
+{
+  RETURN GetAdhocCached([ getrtdtype := typename ], PTR GetCacheableRTDType(typename));
+}
+

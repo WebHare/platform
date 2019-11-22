@@ -1,0 +1,97 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
+
+
+BOOLEAN atend;
+RECORD ARRAY cache;
+OBJECT link;
+OBJECT log;
+
+INTEGER64 finish_reply_id;
+
+INTEGER max_cache_size := 8192;
+INTEGER min_transfer_size := 1024;
+
+MACRO RunBufferLoop()
+{
+  WHILE (TRUE)
+  {
+    IF (NOT atend AND LENGTH(cache) < max_cache_size)
+    {
+      RECORD rec := log->ReadRecord();
+      IF (NOT RecordExists(rec))
+        atend := TRUE;
+
+      INSERT
+          [ value :=        rec
+          , curr_offset :=  log->GetOffset()
+          , next_offset :=  log->GetNextOffset()
+          ] INTO cache AT END;
+
+      // At LEAST min_transfer_size records per time (pipeline buffer size)
+      IF (LENGTH(cache) < min_transfer_size)
+        CONTINUE;
+    }
+
+    DATETIME wait_until := atend OR LENGTH(cache) = max_cache_size ? MAX_DATETIME : DEFAULT DATETIME;
+
+//    PRINT("LR new batch finished " || FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds") || " \n");
+
+    RECORD rec := link->ReceiveMessage(wait_until);
+    IF (rec.status = "timeout")
+      CONTINUE;
+    IF (rec.status = "gone")
+      BREAK;
+    IF (rec.status = "ok")
+    {
+      BOOLEAN finished := atend AND LENGTH(cache) = 0;
+      IF (finished)
+      {
+        finish_reply_id := rec.msgid;
+        //PRINT("LR finished\n");
+        BREAK;
+      }
+
+      link->SendReply(
+          [ status := "lines"
+          , lines :=  cache
+          ], rec.msgid);
+      cache := DEFAULT RECORD ARRAY;
+    }
+
+//    PRINT("LR batch sent         " || FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds") || " \n");
+  }
+}
+
+link := GetIPCLinkToParent();
+
+RECORD rec := link->ReceiveMessage(MAX_DATETIME);
+link->SendReply([ type := "online" ], rec.msgid);
+
+INTEGER64 startposition := CellExists(rec.msg, "STARTPOSITION") ? rec.msg.startposition : 0i64;
+
+IF (rec.msg.filetype = "file") //FIXME verify our caller has SUPER privileges - we're accepting raw paths here
+  log := __OpenLogFileByPath(rec.msg.path, rec.msg.realsize, rec.msg.logtype, rec.msg.format, startposition);
+ELSE IF (rec.msg.filetype = "blob")
+  log := __OpenLogFileBlob(rec.msg.data, rec.msg.realsize, rec.msg.logtype, rec.msg.format, startposition);
+ELSE
+  THROW NEW Exception("Unknown filetype '" || rec.msg.filetype || "'");
+
+IF (CellExists(rec.msg, "SKIP_UNTIL"))
+  log->SkipUntil(rec.msg.skip_until);
+
+RunBufferLoop();
+
+IF (finish_reply_id != 0)
+{
+  link->SendReply(
+      [ status := "finished"
+      , lines :=  cache
+      ], finish_reply_id);
+}
+
+

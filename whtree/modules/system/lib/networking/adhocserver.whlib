@@ -1,0 +1,182 @@
+<?wh
+/** @private Adhoc server is used by the printer.whlib API but not sufficiently important yet to makeit public */
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE AdHocServer
+<
+  FUNCTION PTR callback;
+  RECORD options;
+  STRING id;
+  OBJECT port;
+  RECORD ARRAY cachedfiles;
+
+  /// The base URL for this adhoc server
+  PUBLIC PROPERTY baseurl(GetBaseURL, -);
+
+  /** @short Create a new adhoc server
+      @param callback The callback function
+  */
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->options := ValidateOptions(
+        [ nocache := FALSE
+        , callback := DEFAULT FUNCTION PTR
+        , logdebug := FALSE
+        ], options);
+
+    this->id := GenerateUFS128BitId(); // Random id
+    this->port := CreateGlobalIPCPort("system:adhocserver." || this->id);
+
+    // Register and store read callback for the port
+    IF (this->options.logdebug)
+      LogDebug("AdHocServer", "Start listening", this->id);
+    this->port->userdata :=
+        [ cb := RegisterHandleReadCallback(this->port->handle, PTR this->HandleIncomingConnection) ];
+  }
+
+  /** @short Prefill the file cache
+      @long Use this function to precache files. Files that are found in this cache are returned directly (if the 'nocache'
+          options wasn't set). If a path was not present, the callback function is called to retrieve (and subsequently cache)
+          the file.
+      @param files The files to cache
+      @cell(string) files.path The (absolute) file path
+      @cell(blob) files.data The file data
+      @cell(record array) files.headers HTTP headers to send with this file (e.g. "Content-Type")
+      @cell(string) files.headers.field Header field
+      @cell(string) files.headers.value Header value
+  */
+  PUBLIC MACRO PrecacheFiles(RECORD ARRAY files)
+  {
+    FOREVERY (RECORD file FROM files)
+    {
+      file.headers := this->FixupCharset(file.headers);
+      RECORD pos := RecordLowerBound(this->cachedfiles, CELL[ file.path ], [ "path" ]);
+      IF (pos.found)
+      {
+        IF (this->options.logdebug)
+          LogDebug("AdHocServer", "Update cached file", this->id, file.headers, Length(file.data));
+        this->cachedfiles[pos.position] := file;
+      }
+      ELSE
+      {
+        IF (this->options.logdebug)
+          LogDebug("AdHocServer", "Add cached file", this->id, file.headers, Length(file.data));
+        INSERT file INTO this->cachedfiles AT pos.position;
+      }
+    }
+  }
+
+  /** @short Close this adhoc server
+  */
+  PUBLIC MACRO Close()
+  {
+    IF (this->options.logdebug)
+      LogDebug("AdHocServer", "Stop listening", this->id);
+    UnregisterCallback(this->port->userdata.cb);
+    this->port->Close();
+  }
+
+  MACRO HandleIncomingConnection()
+  {
+    OBJECT link := this->port->Accept(DEFAULT DATETIME);
+    IF (ObjectExists(link))
+    {
+      // Register and store read callback for the port (add the link object to the function binding, so we don't have to
+      // store each link)
+      IF (this->options.logdebug)
+        LogDebug("AdHocServer", "Incoming connection", this->id, link->handle);
+      link->userdata :=
+          [ cb := RegisterHandleReadCallback(link->handle, PTR this->HandleIncomingMessage(link)) ];
+    }
+  }
+
+  ASYNC MACRO HandleIncomingMessage(OBJECT link)
+  {
+    RECORD message := link->ReceiveMessage(DEFAULT DATETIME);
+    IF (message.status != "ok")
+    {
+      IF (this->options.logdebug)
+        LogDebug("AdHocServer", "Connection gone", this->id, link->handle);
+      UnregisterCallback(link->userdata.cb);
+      link->Close();
+      RETURN;
+    }
+
+    // Check cache
+    IF (NOT this->options.nocache)
+    {
+      RECORD pos := RecordLowerBound(this->cachedfiles, CELL[ message.msg.path ], [ "path" ]);
+      IF (pos.found)
+      {
+        RECORD file := this->cachedfiles[pos.position];
+        IF (this->options.logdebug)
+          LogDebug("AdHocServer", "Cache: Return file", this->id, message.msg, file.headers, Length(file.data));
+        link->SendReply(CELL[ file.headers, file.data ], message.msgid);
+        RETURN;
+      }
+    }
+
+    // Call the callback
+    IF (this->options.callback != DEFAULT FUNCTION PTR)
+    {
+      TRY
+      {
+        RECORD response := AWAIT this->options.callback(message.msg.path);
+        IF (NOT RecordExists(response))
+        {
+          IF (this->options.logdebug)
+            LogDebug("AdHocServer", "Callback: File not found", this->id, message.msg, 404);
+          link->SendReply([ status := 404 ], message.msgid);
+        }
+        ELSE IF (CellExists(response, "status"))
+        {
+          IF (this->options.logdebug)
+            LogDebug("AdHocServer", "Callback: Return status", this->id, message.msg, response.status);
+          link->SendReply(CELL[ response.status ], message.msgid);
+        }
+        ELSE
+        {
+          RECORD file := CELL[ headers := this->FixupCharset(response.headers), response.data ];
+          IF (NOT this->options.nocache)
+            this->PrecacheFiles([ CELL[ ...file, message.msg.path ] ]);
+          IF (this->options.logdebug)
+            LogDebug("AdHocServer", "Callback: Return file", this->id, message.msg, response.headers, Length(response.data));
+          link->SendReply(file, message.msgid);
+        }
+      }
+      CATCH (OBJECT e)
+      {
+        LogHareScriptException(e);
+        IF (this->options.logdebug)
+          LogDebug("AdHocServer", "Callback: Error", this->id, message.msg, e->what);
+        link->SendReply([ status := 500 ], message.msgid);
+      }
+      RETURN;
+    }
+    IF (this->options.logdebug)
+      LogDebug("AdHocServer", "No callback or cache for request", this->id, message.msg);
+    link->SendReply([ status := 503 ], message.msgid);
+  }
+
+  STRING FUNCTION GetBaseURL()
+  {
+    RETURN ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.adhocserve/" || this->id);
+  }
+
+  // Add 'charset=utf-8' to 'text' content types if no other charset was explicitly set
+  RECORD ARRAY FUNCTION FixupCharset(RECORD ARRAY headers)
+  {
+    RECORD header := SELECT *, idx := #headers FROM headers WHERE ToUppercase(field) = "CONTENT-TYPE";
+    IF (RecordExists(header) AND header.value LIKE "text/*" AND header.value NOT LIKE "*;*charset=*")
+      headers[header.idx].value := header.value || "; charset=utf-8";
+    RETURN headers;
+  }
+>;

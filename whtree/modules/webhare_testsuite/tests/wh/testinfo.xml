@@ -1,0 +1,7 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test name="hscore"     path="hscore/" />
+  <test name="database"   path="database/" />
+  <test name="jscomponents"    path="jscomponents/" />
+  <test name="webserver"  path="webserver/" />
+  <test name="sftp"       path="sftp/" />
+</group>

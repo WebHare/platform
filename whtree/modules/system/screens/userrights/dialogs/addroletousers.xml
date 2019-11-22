@@ -1,0 +1,21 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
+         lib="screens/userrights/dialogs/addroletousers.whlib">
+
+  <!-- Add a role to pre-chosen users -->
+  <screen name="addroletousers"
+          gid="system:userrights.commondialogs.rights"
+          minwidth="80x"
+          width="120x"
+          height="35x"
+          allowresize="true"
+          savestate="size">
+    <body >
+      <includefragment name="selectuserrole" fragment="userrights/parts/selectuserrole.selectuserrole" />
+      <textarea name="comment" tid="~comments" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+</screens>

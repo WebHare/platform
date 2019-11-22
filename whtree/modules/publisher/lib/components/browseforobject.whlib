@@ -1,0 +1,312 @@
+﻿<?wh
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+
+PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // The selected FS object
+  OBJECT pvt_value;
+
+  // Folder id to start browsing
+  INTEGER pvt_folder;
+
+  // Callback to call if another file/folder has been chosen
+  PUBLIC FUNCTION PTR onchange;
+
+  PUBLIC STRING site;
+  PUBLIC STRING fullpath;
+
+  /// type of display to use for the browse dialog ('list' or 'thumbnails')
+  STRING browsetype;
+
+  /// WHFS objecttype in which the thumbnail can be found (FIXME: make dynamic)
+  STRING thumbnailwhfstype;
+
+  /// name of the field in the WHFS object which contains the thumbnail image (FIXME: make dynamic)
+  STRING thumbnailwhfsfield;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Id of the selected file or folder, returns 0 if no file/folder was selected, unless acceptrootfolder=true - then 0 is the root folder and -1 is 'no selection'
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /** The value of the folder tree (the selected folder or the selected file's parent folder). This can be set to start
+      browsing in a given folder if no value was set. If a value is set, changing this property has no effect.
+  */
+  PUBLIC PROPERTY folder(pvt_folder, SetFolder);
+
+  /** If TRUE, files are accepted
+  */
+  PUBLIC BOOLEAN acceptfiles;
+
+  /** If TRUE, folders are accepted
+  */
+  PUBLIC BOOLEAN acceptfolders;
+
+  /** If TRUE, root folder is accepted
+  */
+  PUBLIC BOOLEAN acceptrootfolder;
+
+  /** Space-separated list of file/folder type namespaces of accepted files/folders, leave empty to accept all types
+  */
+  PUBLIC STRING ARRAY accepttypes;
+
+  /** If TRUE, non-published files will also be shown
+  */
+  PUBLIC BOOLEAN acceptunpublished;
+
+  /** Root folders to show in the browse dialog, leave empty to show all accessible folders
+  */
+  PUBLIC INTEGER ARRAY roots;
+
+  /** The description in the browse dialog, leave empty for default text
+  */
+  PUBLIC STRING description;
+
+  /** Show the clear button? */
+  PUBLIC BOOLEAN showclear;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->pvt_invisibletitle := TRUE;
+    this->showclear := TRUE;
+    this->browsetype := "list";
+    this->acceptfiles := TRUE;
+    this->acceptfolders := TRUE;
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->acceptfiles := def.acceptfiles;
+    this->acceptfolders := def.acceptfolders;
+    this->acceptrootfolder := def.acceptrootfolder;
+    this->accepttypes := def.accepttypes;
+    this->acceptunpublished := def.acceptunpublished;
+
+    this->description := def.description;
+    this->onchange := def.onchange;
+    this->browsetype := def.browsetype;
+
+    this->site := def.site;
+    this->fullpath := def.fullpath;
+
+    this->thumbnailwhfstype := def.thumbnailwhfstype;
+    this->thumbnailwhfsfield := def.thumbnailwhfsfield;
+    this->showclear := def.showclear;
+  }
+
+  PUBLIC UPDATE MACRO PreInitComponent()
+  {
+    this->path->readonly := this->readonly;
+    this->path->visible := this->visible;
+    this->path->title := this->title;
+    this->path->value := this->GetPathString();
+    this->path->width := this->width;
+
+    this->browse->visible := this->visible AND NOT this->readonly;
+    this->clear->visible := this->visible AND NOT this->readonly AND this->showclear;
+  }
+
+  PUBLIC MACRO __test_executebrowse() //for testapi use only!
+  {
+    this->browse->action->TolliumClick();
+  }
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+    STRING fieldtitle := this->errorlabel ?? this->title;
+
+    IF((this->enabled AND this->required) AND NOT ObjectExists(this->pvt_value))
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  INTEGER FUNCTION GetValue()
+  {
+    RETURN ObjectExists(this->pvt_value) ? this->pvt_value->id : this->acceptrootfolder ? -1 : 0;
+  }
+
+  MACRO SetValue(INTEGER value)
+  {
+    IF (value != this->value)
+    {
+      IF(value = -1 OR (NOT this->acceptrootfolder AND value = 0)) //resetting
+      {
+        this->pvt_value := DEFAULT OBJECT;
+        this->folder := 0;
+      }
+      ELSE
+      {
+        OBJECT newvalue := value = 0 ? OpenWHFSRootObject() : OpenWHFSObject(value);
+
+        // ignore the new value if it's not of an acceptable type
+        IF (ObjectExists(newvalue)
+            AND Length(this->accepttypes) > 0
+            AND (SELECT AS STRING namespace FROM system.fs_types WHERE id = newvalue->type) NOT IN this->accepttypes)
+          RETURN;
+
+        this->pvt_value := newvalue;
+        this->folder := ObjectExists(newvalue) ? newvalue->parent : 0;
+      }
+
+      IF (ObjectExists(this->path))
+        this->path->value := this->GetPathString();
+    }
+  }
+
+  MACRO SetFolder(INTEGER folder)
+  {
+    IF (this->value != 0 OR folder = this->pvt_folder)
+      RETURN;
+    this->pvt_folder := folder;
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newstate)
+  {
+    this->pvt_enabled := newstate;
+
+    IF (ObjectExists(this->browse))
+    {
+      this->browse->enabled := newstate;
+
+      IF (ObjectExists(this->browse->action)) // FIXME: we should not need this. fix the reason we need this!
+        this->browse->action->enabled := newstate;
+    }
+    IF (ObjectExists(this->clear))
+    {
+      this->clear->enabled := newstate;
+
+      IF (ObjectExists(this->clear->action)) // FIXME: we should not need this. fix the reason we need this!
+        this->clear->action->enabled := newstate;
+    }
+  }
+
+  UPDATE MACRO SetReadOnly(BOOLEAN newstate)
+  {
+    TolliumFragmentBase::SetReadOnly(newstate);
+
+    IF (ObjectExists(this->path))
+      this->path->readonly := newstate;
+
+    // Visibility of buttons depend on readonly state
+    this->UpdateComponentVisibility();
+  }
+
+  UPDATE MACRO SetVisible(BOOLEAN newstate)
+  {
+    TolliumFragmentBase::SetVisible(newstate);
+    this->UpdateComponentVisibility();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO UpdateComponentVisibility()
+  {
+    IF (ObjectExists(this->path))
+      this->path->visible := this->pvt_visible;
+    IF (ObjectExists(this->browse))
+      this->browse->visible := this->pvt_visible AND NOT this->readonly;
+    IF (ObjectExists(this->clear))
+      this->clear->visible := this->pvt_visible AND NOT this->readonly AND this->showclear;
+  }
+
+  STRING FUNCTION GetPathString()
+  {
+    IF (NOT ObjectExists(this->pvt_value) OR IsRecycleOrHistoryWHFSPath(this->pvt_value->whfspath))
+      RETURN "";
+
+    IF(this->pvt_value->id  = 0) //webhare root!
+      RETURN GetTid("publisher:components.foldertree.fsroot");
+
+    STRING path := this->pvt_value->fullpath;
+    RECORD site := SELECT name FROM system.sites WHERE id = this->pvt_value->parentsite;
+    IF (RecordExists(site))
+      path := site.name || ":" || path;
+    ELSE
+      path := this->pvt_value->whfspath;
+
+    RETURN path;
+  }
+
+
+  MACRO DoBrowse()
+  {
+    RECORD baseinfo;
+    IF(this->value != 0)
+      baseinfo := SELECT parent FROM system.fs_objects WHERE id=this->value AND isactive;
+
+    OBJECT filedlg := CreateBrowseForWHFSObjectDialog(this->owner);
+    filedlg->type := this->browsetype;
+
+    IF (this->description != "")
+      filedlg->description := this->description;
+
+    filedlg->acceptfiles        := this->acceptfiles;
+    filedlg->acceptfolders      := this->acceptfolders;
+    filedlg->accepttypes        := this->accepttypes;
+    filedlg->acceptunpublished  := this->acceptunpublished;
+
+    filedlg->thumbnailwhfstype  := this->thumbnailwhfstype;
+    filedlg->thumbnailwhfsfield := this->thumbnailwhfsfield;
+
+    IF(RecordExists(baseinfo))
+    {
+      filedlg->folder := baseinfo.parent;
+    }
+    ELSE //then determinate starting position based on data
+    {
+      filedlg->SetFolderBySiteFullpath(this, this->site, this->fullpath);
+    }
+
+    filedlg->roots := this->roots;
+    filedlg->value := this->value;
+
+    IF (filedlg->folder = 0)
+      filedlg->folder := this->folder;
+    IF (filedlg->folder = 0 AND Length(filedlg->roots) > 0)
+      filedlg->folder := filedlg->roots[0];
+
+    IF (filedlg->RunModal() = "ok")
+    {
+      BOOLEAN docallback;
+      IF (this->value != filedlg->value AND this->onchange != DEFAULT FUNCTION PTR)
+        docallback := TRUE;
+      this->value := filedlg->value;
+      IF (docallback)
+        this->onchange();
+    }
+  }
+
+  MACRO DoClear()
+  {
+    this->value := 0;
+    IF(this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
+  }
+>;

@@ -1,0 +1,44 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+// ---------------------------------------------------------------------------
+//
+// Event listener
+//
+
+/** This component listens to events, and gives callbacks when those events are received.
+    The callback @a onevent is called when an event is broadcasted that matches a mask.
+    If an event matches multiple different masks, @a onevent is called once for every mask!
+    The callback handler will only be invoked after the PostInit phase. Events received before
+    that are buffered.
+*/
+
+PUBLIC STATIC OBJECTTYPE TolliumEventListener EXTEND TolliumEventListenerBase
+<
+  /** Callback when event is received. Signature: macro_ptr(STRING event, RECORD ARRAY data)
+  */
+  PUBLIC FUNCTION PTR onevent;
+
+  /** Callback when events are received. Signature: macro_ptr(RECORD ARRAY events)
+  */
+  PUBLIC FUNCTION PTR onevents;
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumEventListenerBase::StaticInit(definition);
+
+    this->onevent := definition.onevent;
+    this->onevents := definition.onevents;
+    // Set masks via property setter, ensures registration of callback
+    this->masks := definition.masks;
+  }
+
+  UPDATE MACRO ProcessEvents(RECORD ARRAY events)
+  {
+    IF (this->onevents != DEFAULT FUNCTION PTR)
+      this->onevents(events);
+    ELSE FOREVERY(RECORD event FROM events)
+      IF(this->onevent != DEFAULT FUNCTION PTR)
+        this->onevent(event.event, RECORD[event.data]); //combine all the events? but callers should just hook onevents() if they want the most efficient delivery
+  }
+>;

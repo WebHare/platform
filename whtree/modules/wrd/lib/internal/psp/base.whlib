@@ -1,0 +1,357 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
+
+PUBLIC RECORD paymentbaseoptions :=
+  [ paymentoptiontag := ""
+  , paymenthandler := ""
+  , issuer := ""
+  , customerid := ""
+  , orderid := ""
+  , orderdescription := "" //DEPRECATED!
+  , language := ""
+  , ipaddress := ""
+
+  , wrdpersonentity := DEFAULT OBJECT
+  , wrdpersonfields := DEFAULT RECORD
+  , billingaddress := DEFAULT RECORD
+  , shippingaddress := DEFAULT RECORD
+  , orderlines := RECORD[]
+  ];
+
+PUBLIC STRING FUNCTION GetInternalReturnURL(STRING paymenttok, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ isnotification := FALSE ], options);
+
+  STRING returnurl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.wrd/endpoints/psp/return.shtml?pi=" || EncodeURL(paymenttok));
+  IF(options.isnotification)
+    returnurl := returnurl || "&notification=" || EncryptForThisServer("wrd:payments.isnotification", paymenttok);
+  RETURN returnurl;
+}
+
+/** @short Base class for WRD payment providers
+    @topic payments/internals */
+PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
+<
+  RECORD settings;
+  DATETIME creationdate;
+  STRING pvt_psptype;
+  PUBLIC STRING paymenthandler;
+  MONEY pvt_payable;
+  STRING __paymentuuid;
+  STRING __orderid;
+  STRING __issuer;
+  PUBLIC STRING pvt_paymentref;
+
+  STRING pvt_interactiontype;
+  STRING pvt_status;
+
+  STRING pvt_paymentoptiontag;
+
+  PUBLIC DATETIME pvt_paymentdate;
+
+  PUBLIC RECORD __paymentapi_mydata;
+
+  PUBLIC STRING cardnumber;
+
+  PUBLIC BOOLEAN needspaymentref;
+
+  PUBLIC PROPERTY paymentdate(pvt_paymentdate,-);
+
+  PUBLIC PROPERTY paymentoptiontag(pvt_paymentoptiontag, -);
+
+  PUBLIC PROPERTY psptype(pvt_psptype, -);
+
+  PUBLIC PROPERTY paymentref(pvt_paymentref, -);
+  PUBLIC PROPERTY orderid(__orderid, -);
+  PUBLIC PROPERTY issuer(__issuer, -);
+  PUBLIC PROPERTY paymentuuid(__paymentuuid, -);
+
+  PUBLIC PROPERTY status(pvt_status, -);
+
+  PUBLIC PROPERTY amountpayable(pvt_payable,-);
+
+  PUBLIC PROPERTY interactiontype(pvt_interactiontype, -);
+
+  /** @param contexttag
+      @param type Type of this payment provider (set by derived implementations)
+      @param interactiontype Type of client/server communication (redirect, form, external or execute) */
+  MACRO NEW(STRING type, STRING interactiontype, RECORD settings)
+  {
+    IF(interactiontype NOT IN ["redirect","form","external","execute"])
+      THROW NEW Exception(`Unexpected interactiontype '${interactiontype}'`);
+    this->settings := settings;
+    this->pvt_psptype := type;
+    this->pvt_interactiontype := interactiontype;
+  }
+
+  /** Get the current PSP status
+      @cell(boolean) return.unknown If true, PSP status check unknown or not supported
+      @cell(boolean) return.success If true, PSP status check succeeded
+      @cell(string) return.message Status message*/
+  PUBLIC RECORD FUNCTION GetPSPStatus()
+  {
+    RETURN [ unknown := TRUE, success := FALSE, message := "" ];
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    THROW NEW Exception(`__DoGetPaymentOptions must be implemented for PSP type ${this->psptype}`);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetPaymentOptions(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ getissuers := TRUE, language := GetTidLanguage() ], options);
+
+    RETURN SELECT *
+                , requirements :=   CellExists(opt,'requirements') ? opt.requirements : STRING[]
+                , htmlagreeterms := CellExists(opt,'htmlagreeterms') ? opt.htmlagreeterms : ""
+                , islive :=         CellExists(opt,'islive') ? opt.islive : TRUE //ASSUME it to be live then...
+             FROM this->__DoGetPaymentOptions(options) AS opt;
+  }
+
+  RECORD FUNCTION GetCustomerInfo(RECORD paymentmethod, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ requirements := STRING[]
+                               ], options);
+
+    IF("ipaddress" IN options.requirements AND NOT IsValidIPAddress(paymentmethod.ipaddress))
+      THROW NEW Exception("Requiring a valid IP address");
+    IF("billingaddress" IN options.requirements AND NOT RecordExists(paymentmethod.billingaddress))
+      THROW NEW Exception("Requiring a billing address");
+    IF("wrd_lastname" IN options.requirements AND NOT ObjectExists(paymentmethod.wrdpersonentity) AND NOT RecordExists(paymentmethod.wrdpersonfields))
+      THROW NEW Exception("Requiring a person");
+
+    RECORD customerinfo := [ wrd_initials := ""
+                           , wrd_firstname := ""
+                           , wrd_dateofbirth := DEFAULT DATETIME
+                           , wrd_gender := 0
+                           , wrd_infix := ""
+                           , wrd_lastname := ""
+                           , wrd_contact_email := ""
+                           , wrd_contact_phone := ""
+                           , wrd_contact_phone2 := ""
+                           , ipaddress := paymentmethod.ipaddress
+                           , billingaddress := DEFAULT RECORD
+                           , shippingaddress := DEFAULT RECORD
+                           , customerid := paymentmethod.customerid
+                           ];
+
+    IF(ObjectExists(paymentmethod.wrdpersonentity))
+    {
+      RECORD outcolumns := CELL[ "WRD_INITIALS", "WRD_FIRSTNAME", "WRD_DATEOFBIRTH", "WRD_GENDER", "WRD_INFIX", "WRD_LASTNAME" ];
+      IF(RecordExists(paymentmethod.wrdpersonentity->wrdtype->GetAttribute("WRD_CONTACT_EMAIL")))
+        outcolumns := CELL[...outcolumns, "WRD_CONTACT_EMAIL" ];
+      IF(RecordExists(paymentmethod.wrdpersonentity->wrdtype->GetAttribute("WRD_CONTACT_PHONE")))
+        outcolumns := CELL[...outcolumns, "WRD_CONTACT_PHONE" ];
+      IF(RecordExists(paymentmethod.wrdpersonentity->wrdtype->GetAttribute("WRD_CONTACT_PHONE2")))
+        outcolumns := CELL[...outcolumns, "WRD_CONTACT_PHONE2" ];
+
+      RECORD res := paymentmethod.wrdpersonentity->GetFields(outcolumns);
+      IF(RecordExists(res))
+        customerinfo := CELL[...customerinfo, ...res];
+    }
+
+    IF(RecordExists(paymentmethod.wrdpersonfields))
+      FOREVERY(RECORD fld FROM UnpackRecord(paymentmethod.wrdpersonfields))
+        customerinfo := CellUpdate(customerinfo, fld.name, fld.value);
+
+    IF(customerinfo.wrd_contact_phone2 != "" AND customerinfo.wrd_contact_phone = "")
+    {
+      customerinfo.wrd_contact_phone2 :=  customerinfo.wrd_contact_phone;
+      customerinfo.wrd_contact_phone := "";
+    }
+
+    IF("wrd_contact_phone" IN options.requirements AND customerinfo.wrd_contact_phone = "")
+      THROW NEW Exception("Requiring an phone number");
+
+    IF("customerid" IN options.requirements AND customerinfo.customerid = "")
+      THROW NEW Exception("Requiring customer id");
+
+    IF("wrd_contact_email" IN options.requirements AND customerinfo.wrd_contact_email = "")
+      THROW NEW Exception("Requiring an email address");
+
+    IF("wrd_gender" IN options.requirements AND customerinfo.wrd_gender = 0)
+      THROW NEW Exception("Requiring gender");
+
+    IF(RecordExists(paymentmethod.billingaddress))
+    {
+      customerinfo.billingaddress := EnforceStructure(
+        [ city := ""
+        , country := ""
+        , street := ""
+        , zip := ""
+        , nr_detail := ""
+        ], paymentmethod.billingaddress);
+    }
+    IF(RecordExists(paymentmethod.shippingaddress))
+    {
+      customerinfo.shippingaddress := EnforceStructure(
+        [ city := ""
+        , country := ""
+        , street := ""
+        , zip := ""
+        , nr_detail := ""
+        ], paymentmethod.shippingaddress);
+    }
+    RETURN customerinfo;
+  }
+
+  /** Request a precheck if this payment would be accepted - evaluates any known static rules
+      @param amount_payable Amount to request payment for (including any taxes and costs)
+      @param paymentmethod Payment options
+      @return Payment precheck status
+      @cell(record array) return.errors @includecelldef /lib/payments.whlib#PaymentAPI::StartPayment.return.errors
+  */
+  PUBLIC RECORD FUNCTION CheckPaymentRequest(MONEY amount_payable, RECORD paymentmethod)
+  {
+    RECORD result := [ errors := RECORD[] ];
+    RETURN result;
+  }
+
+  /** Set up the actual transaction details
+      @param amount_payable Amount to request payment for (including any taxes and costs)
+      @param paymentmethod Payment options
+      */
+  PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    paymentmethod := ValidateOptions(paymentbaseoptions, paymentmethod);
+    this->pvt_payable := amount_payable;
+    this->pvt_status := "pending";
+    this->pvt_paymentoptiontag := paymentmethod.paymentoptiontag;
+    this->paymenthandler := paymentmethod.paymenthandler;
+    this->__paymentuuid := GenerateUFS128BitId();
+    this->__orderid := paymentmethod.orderid ?? paymentmethod.orderdescription;
+    this->__issuer := paymentmethod.issuer;
+  }
+
+
+  PUBLIC MACRO __SetupExistingTransaction(RECORD paymentmetadata)
+  {
+    this->creationdate := paymentmetadata.creationdate;
+    this->pvt_payable := paymentmetadata.amountpayable;
+
+    RECORD meta := EnforceStructure([ p := ""
+                                    , o := ""
+                                    , d := DEFAULT DATETIME
+                                    , s := ""
+                                    , h := ""
+                                    , u := ""
+                                    , m := [ issuer := ""
+                                           , orderid := ""
+                                           , orderdescription := "" //legacy name
+                                           ]
+                                    ], paymentmetadata.__paymentdata);
+
+    this->__issuer := meta.m.issuer;
+    this->__orderid := meta.m.orderid ?? meta.m.orderdescription;
+
+    this->pvt_paymentref := meta.p;
+    this->pvt_paymentoptiontag := meta.o;
+    this->pvt_paymentdate := meta.d;
+    this->pvt_status := meta.s ?? "pending";
+    this->paymenthandler := meta.h;
+    this->__paymentuuid := meta.u;
+  }
+
+  PUBLIC RECORD FUNCTION MakePaymentValue()
+  {
+    IF(this->status NOT IN validstatusses)
+      THROW NEW Exception(`Payment has invalid status '${this->status}'`);
+
+    RECORD __paymentdata := [ a := MONEY(this->amountpayable)
+                            , m := CELL[ issuer := this->issuer
+                                       , orderid := this->orderid
+                                       , ...this->__GetPaymentData()
+                                       ]
+                            , s := STRING(this->status)
+                            , o := STRING(this->paymentoptiontag)
+                            , p := STRING(this->paymentref)
+                            , d := DATETIME(this->paymentdate)
+                            , h := STRING(this->paymenthandler)
+                            , u := STRING(this->paymentuuid)
+                            , provider := this->__paymentapi_mydata.paymentprovider
+                            ];
+    RETURN CreatePaymentRecord([__paymentdata]);
+  }
+
+  /** Return the state of the payment (eg a reference generated by the acquirer or payment service)
+  */
+  PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC RECORD FUNCTION RunPaymentRequest(STRING paymenttok)
+  {
+    RECORD result := [ submitinstruction := DEFAULT RECORD
+                     , complete := FALSE
+                     , errors := RECORD[]
+                     , processnow := FALSE
+                     ];
+
+    IF(this->interactiontype = "redirect")
+    {
+      STRING url := this->GetPayRedirectUrl(paymenttok);
+      result.submitinstruction := [ type := "redirect", url := url ];
+    }
+    ELSE IF(this->interactiontype = "form")
+    {
+      RECORD form := this->GetPayFormData(paymenttok);
+      result.submitinstruction := [ type := "form", form := form ];
+    }
+    ELSE IF(this->interactiontype = "execute")
+    {
+      this->ExecutePayment(paymenttok);
+      result.processnow := TRUE;
+    }
+    ELSE
+    {
+      THROW NEW Exception(`Don't know how to handle paymenttype '${this->interactiontype}'`);
+    }
+    RETURN result;
+  }
+
+  PUBLIC RECORD FUNCTION GetPayFormData(STRING paymenttok)
+  {
+    THROW NEW Exception("GetPayFormData not implemented by this payment method");
+  }
+  PUBLIC STRING FUNCTION GetPayRedirectUrl(STRING paymenttok) //eg a url taking you to ideal
+  {
+    THROW NEW Exception("GetPayRedirectUrl not implemented by this payment method");
+  }
+  PUBLIC MACRO ExecutePayment(STRING paymenttok) //eg BetaalGarant
+  {
+    THROW NEW Exception("ExecutePayment not implemented by this payment method");
+  }
+
+  PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    THROW NEW Exception(`The payment method '${this->pvt_psptype}' does not support ProcessReturnURL`);
+  }
+
+  PUBLIC MACRO CancelPayment()
+  {
+    this->pvt_status := "failed";
+  }
+  PUBLIC MACRO RecheckPayment()
+  {
+  }
+
+  /** Get status for the current user as HTML, if possible in the current language
+      @return HTML encoded (rich) status message */
+  PUBLIC STRING FUNCTION GetHTMLStatusForUser()
+  {
+    RETURN "";
+  }
+>;
+

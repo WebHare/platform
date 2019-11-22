@@ -1,0 +1,7 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="restructuringtests.whlib">
+  <test script="richdocument.whscr" />
+  <test script="richdocumenteditor.whscr" />
+  <test script="testrtddoc.whscr" />
+  <test script="testrtdpublish.whscr" />
+  <test script="test-rtdedit-savepublish.whscr" />
+</group>

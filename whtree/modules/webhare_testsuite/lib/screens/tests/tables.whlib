@@ -1,0 +1,325 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::filetypes/icalendar.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE SelectionTest EXTEND TolliumScreenBase
+< OBJECT subtable;
+
+  PUBLIC MACRO Init()
+  {
+    FOR (INTEGER r := 0; r < 3; r := r + 1)
+      FOR (INTEGER c := 0; c < 3; c := c + 1)
+        this->tbl->GetCell(r, c)->value := r || ":" || c;
+    this->tbl->GetCell(1, 2)->selectable := FALSE;
+
+    this->subtable := this->CreateTolliumComponent("table");
+    this->subtable->selectmode:="single";
+    this->subtable->SetupTable([2],[1]);
+    this->subtable->GetCell(0,0)->value := "S0-0";
+    this->subtable->GetCell(1,0)->value := "S1-0";
+    this->subtable->selection := this->subtable->GetCell(1,0);
+
+    this->tbl->GetCell(2,2)->panel->InsertComponentAfter(this->subtable,DEFAULT OBJECT,TRUE);
+
+    this->tbl->selection := this->tbl->GetCell(0, 0);
+  }
+
+  MACRO DoShowSelection()
+  {
+    STRING strs := this->tbl->selectmode || "/" || this->subtable->selectmode;
+    OBJECT ARRAY objs;
+    SWITCH (this->tbl->selectmode)
+    {
+      CASE "single" { IF (ObjectExists(this->tbl->selection)) objs := [ OBJECT(this->tbl->selection) ]; }
+      CASE "multiple" { objs := this->tbl->selection; }
+    }
+    FOREVERY (OBJECT o FROM objs)
+      strs := strs || "\n" || o->row || ":" || o->col;
+    this->info->value := TrimWhitespace(strs);
+  }
+
+  MACRO DoToggleSelectMode()
+  {
+    STRING ARRAY modes := [ "none", "single", "multiple" ];
+    this->tbl->selectmode := modes[(SearchElement(modes, this->tbl->selectmode) + 1) % 3];
+    this->DoShowSelection();
+  }
+  MACRO DoToggleInnerSelectMode()
+  {
+    STRING ARRAY modes := [ "none", "single"];
+    this->subtable->selectmode := modes[(SearchElement(modes, this->tbl->selectmode) + 1) % 2];
+  }
+  MACRO DoOpenAction()
+  {
+  }
+>;
+
+PUBLIC OBJECTTYPE CalendarTest EXTEND TolliumScreenBase
+< PRIVATE RECORD ARRAY appointments;
+  INTEGER eventcounter;
+
+  PUBLIC MACRO Init()
+  {
+    // Make the wednesday in the current week a holiday
+    this->cal->holidays := [ INTEGER(GetDayCount(GetCurrentDateTime()) - UnpackDateTime(GetCurrentDateTime()).dayofweek + 3) ];
+    this->calendartype->value := this->cal->type;
+
+    this->RegisterLocalDragType("local:calendartest.category", DEFAULT STRING ARRAY);
+
+    this->categories->rows :=
+        [ [ rowkey := "custom"
+          , category := "Custom"
+          , draginfo := [ type := "local:calendartest.category", data := [ category := "custom" ] ]
+          ]
+        ]
+        CONCAT
+        SELECT rowkey := name
+             , category := ToUppercase(Left(name, 1)) || Substring(name, 1)
+             , draginfo := [ type := "local:calendartest.category", data := [ category := name ] ]
+          FROM this->cal->categories;
+
+    this->cal->date := MakeDate(2015,11,1);
+    this->appointments := [ [ uid := "GREENEVENT"
+                            , dtstart := MAkeDatetime(2015,10,31,2,0,0)
+                            , dtend := MAkeDatetime(2015,10,31,3,30,0)
+                            , allday := FALSE
+                            , summary := "New Green Event"
+                            , categories := ["green"]
+                            , flags := [ editable := TRUE ]
+                            ]
+                          , [ uid := "REDEVENT"
+                            , dtstart := MAkeDatetime(2015,11,1,4,0,0)
+                            , dtend := MAkeDatetime(2015,11,1,4,40,0)
+                            , allday := FALSE
+                            , summary := "Red Wedding"
+                            , categories := ["red"]
+                            , flags := [ editable := TRUE ]
+                            ]
+                          , [  uid := "YELLOWEVENT"
+                            , dtstart := MAkeDatetime(2015,10,31,3,0,0)
+                            , dtend := MAkeDatetime(2015,10,31,4,30,0)
+                            , allday := FALSE
+                            , summary := "The Yellow Event"
+                            , categories := ["yellow"]
+                            , flags := [ editable := TRUE ]
+                            ]
+                          , [  uid := "PURPLEEVENT"
+                            , dtstart := MAkeDatetime(2015,10,25,23,0,0)
+                            , dtend := MAkeDatetime(2015,10,25,23,30,0)
+                            , allday := FALSE
+                            , summary := "Purple Rain"
+                            , categories := ["purple"]
+                            , flags := [ editable := TRUE ]
+                            ]
+                          ];
+
+    this->GoDate();
+  }
+
+  PUBLIC MACRO DoChangeCalendarType()
+  {
+    this->cal->type := this->calendartype->value;
+  }
+
+  PUBLIC MACRO PrevWeek()
+  {
+    SWITCH(this->cal->type)
+    {
+      CASE 'DAY'
+      {
+        this->curdate->value := AddDaysToDate(-1, this->curdate->value);
+      }
+      CASE 'WEEK'
+      {
+        this->curdate->value := AddDaysToDate(-7, this->curdate->value);
+      }
+      CASE 'MONTH'
+      {
+        this->curdate->value := AddMonthsToDate(-1, this->curdate->value);
+      }
+    }
+    this->GoDate();
+  }
+
+  PUBLIC MACRO NextWeek()
+  {
+    SWITCH(this->cal->type)
+    {
+      CASE 'DAY'
+      {
+        this->curdate->value := AddDaysToDate(1, this->curdate->value);
+      }
+      CASE 'WEEK'
+      {
+        this->curdate->value := AddDaysToDate(7, this->curdate->value);
+      }
+      CASE 'MONTH'
+      {
+        this->curdate->value := AddMonthsToDate(1, this->curdate->value);
+      }
+    }
+    this->GoDate();
+  }
+
+  PUBLIC MACRO GoDate()
+  {
+    this->cal->date := this->curdate->value;
+  }
+
+  PUBLIC MACRO GoToday()
+  {
+    this->curdate->value := GetCurrentDateTime();
+    this->GoDate();
+  }
+
+  PUBLIC MACRO AddEvent()
+  {
+  }
+
+  PUBLIC MACRO UpdateEvent()
+  {
+    IF (RecordExists(this->cal->selection) AND this->cal->selection.tolliumtype = 'event')
+    {
+      RECORD event := SELECT * FROM this->appointments WHERE uid = this->cal->selection.uid;
+      OBJECT dialog := this->LoadScreen(".updateevent",[ event ]);
+
+      IF (dialog->RunModal() = "ok")
+      {
+        event := dialog->event;
+
+        INTEGER pos := SELECT AS INTEGER #appointments FROM this->appointments AS appointments WHERE uid = event.uid;
+        this->appointments[pos] := event;
+        this->cal->UpdateEvent(event);
+      }
+    }
+  }
+
+  PUBLIC MACRO DeleteEvent()
+  {
+    IF (RecordExists(this->cal->selection) AND this->cal->selection.tolliumtype = 'event')
+    {
+      DELETE FROM this->appointments WHERE uid = this->cal->selection.uid;
+      this->cal->DeleteEvent(this->cal->selection.uid);
+    }
+  }
+
+  PUBLIC MACRO DoLogEvents()
+  {
+    Print(EncodeICalCalendar(this->appointments));
+  }
+
+
+  PUBLIC RECORD ARRAY FUNCTION GetAppointments(DATETIME fromdate, DATETIME todate)
+  {
+/*      ShowDebug(this, [ fromdate := fromdate
+                    , todate   := todate
+                    , eventsfound := SELECT * FROM this->appointments WHERE dtend > fromdate AND dtstart < todate
+                    ]); */
+    RETURN SELECT * FROM this->appointments WHERE dtend > fromdate AND dtstart < todate;
+  }
+
+  PUBLIC MACRO AppointmentChange(RECORD app)
+  {
+    Print('Appointment '||app.uid||' changed, now from '||FormatDateTime('%#d %B %Y %H:%M',app.dtstart)||' to '||FormatDateTime('%#d %B %Y %H:%M',app.dtend)||'\n');
+  }
+
+  MACRO DropCell(RECORD dragdata, DATETIME newstart, DATETIME newend, STRING mode)
+  {
+    FOREVERY (RECORD rec FROM dragdata.items)
+    {
+      SWITCH (rec.type)
+      {
+        CASE "local:calendartest.category"
+        {
+          RECORD app := MakeDefaultICalEvent();
+
+          app.dtstart := newstart;
+          app.dtend   := newend;
+          app.summary := "New Event";
+/*
+          ShowDebug(this, [ start := app.dtstart
+                          , "end" := app.dtend
+                          ]);
+*/
+          STRING category := rec.data.category;
+          IF (category = "custom")
+          {
+            OBJECT dialog := this->LoadScreen(".updatecategory");
+            IF (dialog->RunModal() = "ok")
+            {
+              STRING title := dialog->category.name;
+              category := ToLowercase(title);
+
+              IF (NOT RecordExists(SELECT FROM this->categories->rows WHERE ToLowercase(rowkey) = category))
+              {
+                INSERT [ rowkey := category
+                       , category := title
+                       , color := dialog->category.color
+                       , draginfo := [ type := "local:calendartest.category", data := [ category := category ] ]
+                       ] INTO this->categories->rows AT END;
+
+                this->cal->AddCategory(category, dialog->category.color);
+              }
+            }
+            ELSE
+              RETURN;
+          }
+          app.categories := [ category ];
+          INSERT CELL flags := [ editable := TRUE] INTO app;
+
+          INSERT app INTO this->appointments AT END;
+          OBJECT event := this->cal->AddEvent(app);
+
+          this->eventcounter := this->eventcounter + 1;
+//          event->hint := "This is event #" || this->eventcounter;
+        }
+      }
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE UpdateEvent EXTEND TolliumScreenBase
+<  PUBLIC RECORD event;
+
+   PUBLIC MACRO Init(RECORD event)
+   {
+     this->event := event;
+     this->summary->value := event.summary;
+     this->dtstart->value := event.dtstart;
+     this->dtend->value   := event.dtend;
+   }
+
+   PUBLIC BOOLEAN FUNCTION Submit()
+   {
+     this->event.summary := this->summary->value;
+     this->event.dtstart := this->dtstart->value;
+     this->event.dtend   := this->dtend->value;
+//     this->tolliumresult := 'ok';
+     RETURN TRUE;
+   }
+>;
+
+PUBLIC OBJECTTYPE UpdateCategory EXTEND TolliumScreenBase
+< PUBLIC RECORD category;
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    IF (this->name->value = "")
+    {
+      this->RunMessageBox(".calendar_invalid_category");
+      RETURN FALSE;
+    }
+    IF (this->color->value = "" OR this->color->value NOT LIKE "#??????" OR ToInteger(Right(this->color->value, 6), -1, 16) = -1)
+    {
+      this->RunMessageBox(".calendar_invalid_color");
+      RETURN FALSE;
+    }
+
+    this->category := [ name  := this->name->value
+                      , color := this->color->value ];
+
+    RETURN TRUE;
+  }
+>;
+

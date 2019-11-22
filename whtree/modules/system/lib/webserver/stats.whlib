@@ -1,0 +1,103 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC RECORD FUNCTION GetRawWebserverUsageStats(DATETIME rangestart, DATETIME rangelimit)
+{
+  RECORD ARRAY stats := SELECT * FROM system.webservers_usage WHERE rangestart <= time AND time < rangelimit;
+  stats := SELECT *, day := GetRoundedDatetime(time,86400*1000) FROM stats;
+
+  RECORD ARRAY perhostdata := SELECT webserver, day, upload := SUM(upload), download := SUM(download), hits := SUM(hits) FROM stats GROUP BY webserver,day;
+  RECORD ARRAY webservernames := SELECT id, baseurl FROM system.webservers;
+  perhostdata := SELECT *, url := (SELECT AS STRING baseurl FROM webservernames WHERE webservernames.id = perhostdata.webserver) FROM perhostdata ORDER BY day, webserver;
+
+  RECORD response := [ usagestats := perhostdata
+                     , serverurl := GetPrimaryWebhareInterfaceURL()
+                     ];
+
+  RETURN response;
+}
+
+PUBLIC RECORD FUNCTION GetWebserverUsageStatsAsXLSX(RECORD ARRAY statsrecs)
+{
+  statsrecs := SELECT *
+                    , minday := (SELECT AS DATETIME Min(day) FROM usagestats)
+                    , maxday := (SELECT AS DATETIME Max(day) FROM usagestats)
+                FROM statsrecs;
+
+  DATETIME globalmin := SELECT AS DATETIME Min(minday) FROM statsrecs WHERE minday != DEFAULT DATETIME;
+  DATETIME globalmax := SELECT AS DATETIME Max(maxday) FROM statsrecs WHERE maxday != DEFAULT DATETIME;
+
+  DATETIME ARRAY dates;
+  IF(globalmin != DEFAULT DATETIME)
+  {
+    FOR(DATETIME x := globalmin; x <= globalmax; x := AddDaysToDate(1,x))
+      INSERT x INTO dates AT END;
+  }
+
+
+  RECORD ARRAY statsrows;
+  FOREVERY(RECORD statsrec FROM statsrecs)
+  {
+    RECORD ARRAY bywebsite := SELECT measurements := GroupedValues(usagestats)
+                                   , url
+                                FROM statsrec.usagestats
+                            GROUP BY url;
+
+    FOREVERY(RECORD website FROM bywebsite)
+    {
+      RECORD outrow := [ domain := website.url
+                       , server := statsrec.serverurl
+                       , totalbandwidth := 0f
+                       , totalhits := 0
+                       , totalupload := 0f
+                       , totaldownload := 0f
+                       ];
+
+      FOREVERY(DATETIME date FROM dates)
+      {
+        RECORD hit := SELECT * FROM website.measurements WHERE measurements.day = date;
+        FLOAT day_download := RecordExists(hit) ? FLOAT(hit.download) / 1000 / 1000 / 1000 : 0f;
+        FLOAT day_upload :=   RecordExists(hit) ? FLOAT(hit.upload) /   1000 / 1000 / 1000 : 0f;
+        INTEGER day_hits :=     RecordExists(hit) ? INTEGER(hit.hits) : 0;
+
+        outrow.totaldownload := outrow.totaldownload + day_download;
+        outrow.totalupload := outrow.totalupload + day_upload;
+        outrow.totalhits := outrow.totalhits + day_hits;
+
+        outrow := Cellinsert(outrow, "download_" || GetDayCount(date), day_download);
+        outrow := Cellinsert(outrow, "upload_" || GetDayCount(date), day_upload);
+        outrow := Cellinsert(outrow, "hits_" || GetDayCount(date), day_hits);
+      }
+      outrow.totalbandwidth := outrow.totaldownload + outrow.totalupload;
+      INSERT outrow INTO statsrows AT END;
+    }
+  }
+
+  OBJECT columnout := NEW XLSXColumnFileWriter;
+
+  columnout->columns := [[ name := "domain", title := "Domain", type := "text" ]
+                        ,[ name := "server", title := "Server", type := "text" ]
+                        ,[ name := "totalbandwidth", title := "Total bandwidth (GB)", type := "float" ]
+                        ,[ name := "totalhits",      title := "Total hits", type := "integer" ]
+                        ,[ name := "totaldownload",  title := "Total download (GB)", type := "float" ]
+                        ,[ name := "totalupload",    title := "Total upload (GB)", type := "float" ]
+                        ];
+
+  FOREVERY(DATETIME date FROM dates)
+    columnout->columns := columnout->columns CONCAT [ [ name := "download_" || GetDayCount(date), title := "Download " || FormatDatetime("%d-%m", date) || " (GB)", type := "float" ]
+                                                    , [ name := "upload_" || GetDayCount(date), title := "Upload " || FormatDatetime("%d-%m", date) || " (GB)", type := "float" ]
+                                                    , [ name := "hits_" || GetDayCount(date), title := "Hits " || FormatDatetime("%d-%m", date), type := "integer" ]
+                                                    ];
+
+  statsrows := SELECT * FROM statsrows ORDER BY totalbandwidth DESC, domain;
+  columnout->WriteRows(statsrows);
+
+  STRING filename := "bandwidth";
+  IF(Length(dates)>0)
+    filename := filename || "-" || FormatDateTime("%Y%m%d", dates[0]) || "-" || FormatDateTime("%Y%m%d", dates[END-1]);
+  RETURN WrapBlob(columnout->MakeOutputFile(), filename  || ".xlsx");
+}

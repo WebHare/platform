@@ -1,0 +1,127 @@
+﻿<?wh
+
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+
+PUBLIC OBJECTTYPE embedblock1_comp EXTEND TolliumFragmentBase
+<
+// //  UPDATE PUBLIC PROPERTY title(GetTitle, SetTitle);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  MACRO NEW()
+  {
+    this->invisibletitle := TRUE;
+
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    RETURN
+        [ whfstype :=   "http://www.webhare.net/xmlns/beta/embedblock1"
+        , id :=         this->idvalue->value
+        , styletitle := this->styletitle->value
+        ];
+  }
+
+  MACRO SetValue(RECORD data)
+  {
+    this->idvalue->value := RecordExists(data) ? data.id : "";
+    this->styletitle->value := RecordExists(data) ? data.styletitle : "";
+  }
+>;
+
+PUBLIC OBJECTTYPE embedblock2_comp EXTEND TolliumFragmentBase
+<
+//  UPDATE PUBLIC PROPERTY title(GetTitle, SetTitle);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  MACRO NEW()
+  {
+    this->invisibletitle := TRUE;
+
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    RETURN
+        [ whfstype :=   "http://www.webhare.net/xmlns/beta/embedblock2"
+        , id2 :=         this->idvalue->value
+        , styletitle := this->styletitle->value
+        ];
+  }
+
+  MACRO SetValue(RECORD data)
+  {
+    this->idvalue->value := RecordExists(data) ? data.id2 : "";
+    this->styletitle->value := RecordExists(data) ? data.styletitle : "";
+  }
+
+//  STRING FUNCTION GetTitle() { RETURN this->idtitle->title; }
+//  UPDATE MACRO SetTitle(STRING newtitle) { this->idtitle->title := newtitle; }
+>;
+
+
+PUBLIC OBJECTTYPE embedblock1_renderer EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    PRINT("Block1 Preview: <b>" || this->data.id || "</b>");
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    IF(this->webdesign->targetobject->name = "widget.html")
+      ABORT("Expected the override renderer to be invoked - MakeRTD lost docobjectid? siteprofile override failed?");
+    PRINT("Block1 Rendered: <i>" || this->data.id || "</i>");
+  }
+>;
+
+PUBLIC OBJECTTYPE EmbedInlineBlock1Renderer EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    PRINT(`<span class="embedinlineblock1result">Block1 Inline Rendered: <i>${EncodeHTML(this->data.id)}</i></span>`);
+  }
+>;
+
+
+PUBLIC OBJECTTYPE EmbedBlock1Widget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    PRINT(`<div class="embedblock1result">Block1 Widget Rendered: <i>${EncodeHTML(this->data.id)}</i></div>`);
+  }
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    EmbedWittyComponent(Resolve("embedtest.witty:block1"), this->data); //Invoking EmbedWittyComponent proves we have a witty context
+  }
+>;
+
+PUBLIC OBJECTTYPE embedblock1_renderer_override EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    PRINT(`<div class="embedblock1result">Block1 Override Rendered: <i>${EncodeHTML(this->data.id)}</i></div>`);
+  }
+>;
+
+PUBLIC OBJECTTYPE embedblock2_renderer EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    PRINT("Block2 Preview: <b>" || this->data.id2 || "</b>");
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    PRINT("Block2 Rendered: <i>" || this->data.id2 || "</i>");
+  }
+
+>;

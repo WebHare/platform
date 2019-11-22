@@ -1,0 +1,125 @@
+<?wh
+
+// command: archiveoutput
+// short: Archive unreferenced output folders
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+RECORD args;
+STRING ARRAY basedirs;
+RECORD ARRAY allsites;
+
+OBJECT trans := OpenPrimary();
+
+args := ParseArguments(GetConsoleArguments(), [ [ name := "debug", type := "switch" ]
+                                              ]);
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: wh publisher:archiveoutput [--debug]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+BOOLEAN debug := args.debug OR IsRunningInEditor();
+STRING outputbase := GetWebserverBaseOutputFolder();
+STRING archiveto := outputbase || ".archive";
+CreateDiskDirectoryRecursive(archiveto, TRUE);
+
+RECORD ARRAY serverroots := SELECT url := baseurl, diskpath := webservers.diskfolder
+                              FROM system.webservers
+                             WHERE diskfolder != "" AND type = 0;
+
+RECORD ARRAY foreigners := SELECT url, diskpath := MergePath(MergePath(webservers.diskfolder,sites.outputfolder),fs_objects.fullpath)
+                             FROM system.fs_objects, system.sites, system.webservers
+                            WHERE fs_objects.type = 1
+                                  AND fs_objects.parentsite = sites.id
+                                  AND sites.outputweb = webservers.id;
+
+RECORD ARRAY possibleroots := serverroots CONCAT foreigners;
+UPDATE possibleroots SET diskpath := MergePath(outputbase, possibleroots.diskpath) WHERE diskpath NOT LIKE "/*";
+IF(debug)
+  DumpValue(possibleroots,'boxed');
+
+basedirs := [ outputbase ] CONCAT SELECT AS STRING ARRAY diskpath FROM possibleroots;
+
+FOREVERY(STRING basedir FROM basedirs)
+{
+  WHILE(basedir LIKE "?*/")
+    basedir := Left(basedir,Length(basedir)-1);
+  basedirs[#basedir] := basedir;
+}
+
+allsites := SELECT folder := MergePath(diskfolder, outputfolder)
+                 , name := sites.name
+              FROM system.sites, system.webservers
+             WHERE sites.outputweb = webservers.id
+                   AND webservers.type = 0
+                   AND webservers.diskfolder != "";
+
+allsites := SELECT * FROM allsites ORDER BY ToUppercase(folder);
+
+UPDATE allsites SET folder := MergePath(outputbase, folder) WHERE NOT IsPathAbsolute(folder);
+
+IF(debug)
+  DumpValue(allsites, 'boxed');
+
+MACRO CheckForTrash(STRING curdir)
+{
+  RECORD ownedbysite := SELECT * FROM allsites WHERE folder = VAR curdir;
+  IF(RecordExists(ownedbysite))
+  {
+    IF(debug)
+      Print(`${curdir} contains site ${ownedbysite.name}, skipping\n`);
+    RETURN;
+  }
+
+  RECORD ARRAY contains_sites := SELECT * FROM allsites WHERE ToUppercase(folder) LIKE ToUppercase(curdir || "/*");
+  FOREVERY(RECORD item FROM (SELECT * FROM ReadDiskDirectory(curdir,"*") ORDER BY ToUppercase(name)))
+  {
+    IF(item.path = archiveto)
+      CONTINUE;
+
+    STRING fullpath := item.path;
+    IF(debug)
+      Print(`Matching ${fullpath}: `);
+
+    RECORD exact_match := SELECT * FROM contains_sites WHERE ToUppercase(folder) = ToUppercase(fullpath);
+    RECORD ARRAY sites_in_path := SELECT * FROM contains_sites WHERE ToUppercase(folder) LIKE ToUppercase(fullpath || "/*");
+
+    IF(RecordExists(exact_match))
+    {
+      IF(debug)
+        Print(`site '${exact_match.name}'\n`);
+    }
+    ELSE IF(Length(sites_in_path)>0)
+    {
+      IF(debug)
+        Print(`${Length(sites_in_path)} site(s) in subfolders\n`);
+    }
+    ELSE
+    {
+      IF(debug)
+        Print("nothing inside!\n");
+
+      STRING basename := Substitute(Substring(fullpath,Length(curdir)+1),"/",".");
+      STRING destfolder := Left(MergePath(archiveto, basename),100) || "-" || FormatISO8601Datetime(GetCurrentDatetime(), "day","milliseconds","",FALSE);
+      Print("Move " || fullpath || " to " || destfolder || "\n");
+
+      IF(NOT MoveDiskPath(fullpath, destfolder))
+        TerminateScriptWithError(`Move ${fullpath} to ${destfolder} failed`);
+    }
+  }
+}
+
+FOREVERY(STRING basedir FROM basedirs)
+{
+  IF(debug)
+    Print(`Looking for possible trash in: ${basedir}\n`);
+
+  CheckForTrash(basedir);
+}

@@ -1,0 +1,806 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+
+BOOLEAN debug := FALSE;
+BOOLEAN debug_encode := FALSE;
+
+/* The BER (Basic Encoding Rules) is part of ASN.1 and documented in X209.pdf
+   The code here aims to implement the minimum necessary of BER to implement
+   LDAP, and will not implement anything unnecessary for LDAP support.
+   LDAP (RFC 2251) limits BER in the following way:
+   - Only the definite form of length encoding will be used.
+   - OCTET STRING values will be encoded in the primitive form only.
+   - If the value of a BOOLEAN type is true, the encoding MUST have
+     its contents octets set to hex "FF".
+   - If a value of a type is its default value, it MUST be absent.
+     Only some BOOLEAN and INTEGER types have default values in this
+     protocol definition.
+
+   These restrictions do not apply to ASN.1 types encapsulated inside of
+   OCTET STRING values, such as attribute values, unless otherwise
+   noted.
+
+   The tag numbering used by BER is described in ASN.1: X208.pdf
+
+   An example of BER decoding of an rfc2251 bindrequest message follows:
+   \x30\x0c\x02\x01\x01\x60\x07\x02\x01\x03\x04\x00\x80\x00
+
+   RFC2251 expects a Sequence of INTEGER messageid, choice, optional
+   30: 00110000 = class 0 (universal), constructed, tag 16: SEQUENCE
+   0c: 00001100 = definitive short length: 12
+   02: 00000002 = class 0 (universal), primitive, tag 2: INTEGER
+   01: 00000001 = definitive short length: 1
+   01: 00000001 = integer value: 1
+   60: 01100000 = class 1 (application), constructed, tag 0: CHOICE APPLICATION bindrequest
+   07: 00000111 = definitive short length: 7
+   02: 00000010 = class 0 (universal), primitive, tag 2: INTEGER
+   01: 00000001 = definitive short length: 1
+   03: 00000011 = integer value: 3
+   04: 00000100 = class 0 (universal), primitive, tag 4: OCTETSTRING
+   00: 00000000 = definitive short length: 0
+   80: 10000000 = class 2 (context), primitive, tag 0: simple authentication
+   00: 00000000 = definitive short length: 0
+*/
+
+PUBLIC CONSTANT INTEGER BER_Class_Universal := 0
+                      , BER_Class_Application := 1
+                      , BER_Class_ContextSpecific := 2
+                      , BER_Class_Private := 3
+                      ;
+PUBLIC CONSTANT INTEGER BER_Universal_Boolean := 1
+                      , BER_Universal_Integer := 2
+                      , BER_Universal_BitString := 3
+                      , BER_Universal_OctetString := 4
+                      , BER_Universal_Null := 5
+                      , BER_Universal_ObjectIdentifier := 6
+                      , BER_Universal_ObjectDescriptor := 7
+                      , BER_Universal_External := 8
+                      , BER_Universal_Real := 9
+                      , BER_Universal_Enumerated := 10
+                      , BER_Universal_Sequence := 16 // also SequenceOf
+                      , BER_Universal_Set := 17 // also SetOf
+                      , BER_Universal_UTCTime := 23
+                      , BER_Universal_GeneralizedTime := 24
+                      ;
+
+PUBLIC OBJECTTYPE StaticBERDecoder
+< STRING data;          // data to decode
+  BOOLEAN complete;     // do we have a complete tag?
+  RECORD tag;           // current tag [ INTEGER value, INTEGER tag_class, BOOLEAN constructed ]
+  INTEGER len;          // current tag length
+  INTEGER begin;        // start of current tag within data
+  INTEGER endpos;       // end of this construction
+
+  MACRO NEW(STRING data, INTEGER begin DEFAULTSTO 0, INTEGER endpos DEFAULTSTO 2147483646)
+  {
+    // endpos = 2147483647: dynamic decoder
+    this->data := data;
+    this->begin := begin;
+    this->endpos := endpos = 2147483646 ? LENGTH(data) : endpos;
+
+    this->Init();
+  }
+  MACRO Init()
+  {
+    IF (debug)
+      PrintTo(2,'Init\n');
+    this->tag := DEFAULT RECORD;
+    this->len := -1;
+    this->complete := FALSE;
+
+    IF (this->begin >= this->endpos)
+    {
+      IF (debug)
+        PrintTo(2,'No more data\n');
+      RETURN;
+    }
+
+    IF (debug)
+      PrintTo(2,'  Reading next tag\n');
+    RECORD parsedtag := ParseTag(this->data, this->begin);
+    IF (parsedtag.valid)
+    {
+      IF (debug)
+        PrintTo(2,'  Reading next length\n');
+      RECORD parsedlen := ParseLength(this->data, this->begin + parsedtag.bytes_parsed);
+      IF (parsedlen.valid)
+      {
+        this->begin := this->begin + parsedtag.bytes_parsed + parsedlen.bytes_parsed;
+        this->tag := parsedtag.tag;
+        this->len := parsedlen.len;
+        this->complete := Length(this->data) - this->begin >= this->len;
+
+        IF (debug)
+          PrintTo(2,'  Read tag, value='||this->tag.value||', tag_class='||this->tag.tag_class||', constructed='||(this->tag.constructed?'TRUE':'FALSE')||', length='||this->len||', complete='||(this->complete?'TRUE':'FALSE')||', contents="'||UCTruncate(EncodeBase16(SubString(this->data, this->begin, this->len)), 12) || '"\n');
+
+        IF (NOT this->complete AND this->endpos != 2147483647)
+        {
+          THROW NEW Exception("Item has been truncated");
+        }
+
+        RETURN;
+      }
+      ELSE IF (this->endpos != 2147483647)
+        THROW NEW Exception("Reached end of buffer when reading length");
+    }
+    ELSE IF (this->endpos != 2147483647)
+      THROW NEW Exception("Reached end of buffer when reading tag");
+  }
+
+  MACRO RequireComplete()
+  {
+    IF (NOT RecordExists(this->tag))
+    {
+      IF (debug)
+        PrintTo(2,'  No data, no tag present\n');
+      THROW NEW Exception("Trying to read when end of data has been reached");
+    }
+    ELSE IF (NOT this->complete)
+    {
+      IF (debug)
+        PrintTo(2,'  No data, complete=FALSE\n');
+      THROW NEW Exception("Trying to read incomplete item");
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsAtEnd()
+  {
+    RETURN this->begin >= this->endpos AND NOT RecordExists(this->tag);
+  }
+
+  /** Return how many bytes we parsed */
+  PUBLIC INTEGER FUNCTION GetNumParsedBytes()
+  {
+    RETURN this->begin + this->len;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsComplete()
+  {
+    RETURN this->complete;
+  }
+
+  PUBLIC RECORD FUNCTION GetTag()
+  {
+    RETURN this->tag;
+  }
+
+  PUBLIC INTEGER FUNCTION GetLength()
+  {
+    RETURN this->len;
+  }
+
+  PUBLIC MACRO SkipCurrentTag()
+  {
+    IF (debug)
+      PrintTo(2,'Skipping tag\n');
+    this->begin := this->begin + this->len;
+    this->Init();
+  }
+
+  PUBLIC OBJECT FUNCTION ReadConstruction()
+  {
+    IF (debug)
+      PrintTo(2,'Reading construction, data="'||EncodeBase16(SubString(this->data, this->begin, this->len))||'", begin='||this->begin||', len='||this->len||'\n');
+
+    this->RequireComplete();
+    IF (NOT this->tag.constructed)
+    {
+      IF (debug)
+        PrintTo(2,'  No construction, complete='||(this->complete?'TRUE':'FALSE')||', tag.constructed='||(this->complete AND this->tag.constructed?'TRUE':'FALSE')||'\n');
+      THROW NEW Exception("Trying to read non-constructed item as construction");
+    }
+
+    OBJECT sub_construction := NEW StaticBERDecoder(this->data, this->begin, this->begin + this->len);
+    this->SkipCurrentTag();
+    RETURN sub_construction;
+  }
+
+  PUBLIC INTEGER FUNCTION ReadInteger()
+  {
+    IF (debug)
+      PrintTo(2,'Reading integer, data="'||EncodeBase16(SubString(this->data, this->begin, this->len))||'", begin='||this->begin||', len='||this->len||'\n');
+
+    this->RequireComplete();
+    IF (this->tag.constructed OR this->len = 0 OR this->len > 4/*SizeOf(INTEGER)*/)
+    {
+      IF (debug)
+        PrintTo(2,'  No integer, complete='||(this->complete?'TRUE':'FALSE')||', tag.constructed='||(this->complete AND this->tag.constructed?'TRUE':'FALSE')||', len='||this->len||'\n');
+      THROW NEW Exception("Trying to read constructed item or too big value as integer");
+    }
+
+    INTEGER integer_bytes;
+    INTEGER byte := GetByteValue(Substring(this->data, this->begin, 1));
+    IF (byte BITAND 0x80 = 0x80)
+      integer_bytes := -1;
+    integer_bytes := (integer_bytes BITLSHIFT 8) BITOR byte;
+
+    INTEGER begin := this->begin + 1;
+    WHILE (begin < this->begin+this->len)
+    {
+      byte := GetByteValue(Substring(this->data, begin, 1));
+      integer_bytes := (integer_bytes BITLSHIFT 8) BITOR byte;
+      begin := begin + 1;
+    }
+
+    IF (debug)
+      PrintTo(2,'  Read integer '||integer_bytes||'\n');
+    this->SkipCurrentTag();
+    RETURN integer_bytes;
+  }
+
+  PUBLIC VARIANT FUNCTION ReadBigInteger()
+  {
+    IF (debug)
+      PrintTo(2,'Reading big integer, data="'||EncodeBase16(SubString(this->data, this->begin, this->len))||'", begin='||this->begin||', len='||this->len||'\n');
+
+    this->RequireComplete();
+    IF (this->tag.constructed OR this->len = 0)
+    {
+      IF (debug)
+        PrintTo(2,'  No integer, complete='||(this->complete?'TRUE':'FALSE')||', tag.constructed='||(this->complete AND this->tag.constructed?'TRUE':'FALSE')||', len='||this->len||'\n');
+      THROW NEW Exception("Trying to read constructed item or invalid value as big integer");
+    }
+
+    IF (this->len > 4) /*SizeOf(INTEGER)*/
+    {
+      STRING output := EncodeBase16(Substring(this->data, this->begin, this->len));
+      IF (debug)
+        PrintTo(2,'  Read big integer as string "'||output||'"\n');
+      this->SkipCurrentTag();
+      RETURN output;
+    }
+
+    INTEGER integer_bytes;
+    INTEGER byte := GetByteValue(Substring(this->data, this->begin, 1));
+    IF (byte BITAND 0x80 = 0x80)
+      integer_bytes := -1;
+    integer_bytes := (integer_bytes BITLSHIFT 8) BITOR byte;
+
+    INTEGER begin := this->begin + 1;
+    WHILE (begin < this->begin+this->len)
+    {
+      byte := GetByteValue(Substring(this->data, begin, 1));
+      integer_bytes := (integer_bytes BITLSHIFT 8) BITOR byte;
+      begin := begin + 1;
+    }
+
+    IF (debug)
+      PrintTo(2,'  Read big integer '||integer_bytes||'\n');
+    this->SkipCurrentTag();
+    RETURN integer_bytes;
+  }
+
+  PUBLIC BOOLEAN FUNCTION ReadBoolean()
+  {
+    IF (debug)
+      PrintTo(2,'Reading boolean, data="'||EncodeBase16(SubString(this->data, this->begin, this->len))||'", begin='||this->begin||', len='||this->len||'\n');
+
+    this->RequireComplete();
+    IF (this->tag.constructed OR this->len != 1)
+    {
+      IF (debug)
+        PrintTo(2,'  No boolean, complete='||(this->complete?'TRUE':'FALSE')||', tag.constructed='||(this->complete AND this->tag.constructed?'TRUE':'FALSE')||', len='||this->len||'\n');
+      THROW NEW Exception("Trying to read constructed item or invalid value as boolean");
+    }
+
+    BOOLEAN isset := GetByteValue(Substring(this->data, this->begin, 1)) != 0;
+
+    IF (debug)
+      PrintTo(2,'  Read boolean '||(isset?"TRUE":"FALSE")||'\n');
+    this->SkipCurrentTag();
+    RETURN isset;
+  }
+
+  PUBLIC STRING FUNCTION ReadOctetString()
+  {
+    IF (debug)
+      PrintTo(2,'Reading string, data="'||EncodeBase16(SubString(this->data, this->begin, this->len))||'", begin='||this->begin||', len='||this->len||'\n');
+
+    // BER spec allows constructed strings, but LDAP refuses them
+    this->RequireComplete();
+    IF (this->tag.constructed)
+    {
+      IF (debug)
+        PrintTo(2,'  No string, complete='||(this->complete?'TRUE':'FALSE')||', tag.constructed='||(this->tag.constructed?'TRUE':'FALSE')||'\n');
+      THROW NEW Exception("Trying to read constructed item as octet string");
+    }
+
+    STRING output := Substring(this->data, this->begin, this->len);
+    IF (debug)
+      PrintTo(2,'  Read string "'||EncodeJava(output)||'"\n');
+    this->SkipCurrentTag();
+    RETURN output;
+  }
+
+  PUBLIC DATETIME FUNCTION ReadUTCTime()
+  {
+    IF (debug)
+      PrintTo(2,'Reading UTC time, data="'||EncodeBase16(SubString(this->data, this->begin, this->len))||'", begin='||this->begin||', len='||this->len||'\n');
+
+    this->RequireComplete();
+    IF (this->tag.constructed)
+    {
+      IF (debug)
+        PrintTo(2,'  No UTC time, complete='||(this->complete?'TRUE':'FALSE')||', tag.constructed='||(this->tag.constructed?'TRUE':'FALSE')||'\n');
+      THROW NEW Exception("Trying to read constructed item as datetime");
+    }
+
+    STRING timestr := Substring(this->data, this->begin, this->len);
+    STRING input := (Left(timestr, 2) > "70" ? "19" : "20") || timestr;
+    input := Left(input, 8) || "T" || Substring(input, 8);
+    DATETIME output := MakeDateFromText(input);
+    IF (debug)
+      PrintTo(2,'  Read UTC time "'||FormatISO8601DateTime(output)||'" from "'||EncodeJava(timestr)||'"\n');
+    this->SkipCurrentTag();
+    RETURN output;
+  }
+
+  PUBLIC STRING FUNCTION ReadObjectIdentifier()
+  {
+    IF (debug)
+      PrintTo(2,'Reading OID, data="'||EncodeBase16(SubString(this->data, this->begin, this->len))||'", begin='||this->begin||', len='||this->len||'\n');
+
+    this->RequireComplete();
+    IF (this->tag.constructed OR this->len = 0)
+    {
+      IF (debug)
+        PrintTo(2,'  No OID, complete='||(this->complete?'TRUE':'FALSE')||', tag.constructed='||(this->complete AND this->tag.constructed?'TRUE':'FALSE')||', len='||this->len||'\n');
+      THROW NEW Exception("Trying to read constructed item or invalid value as OID");
+    }
+
+    INTEGER byte := GetByteValue(Substring(this->data, this->begin, 1));
+
+    // First byte: 40 * nr1 + nr2
+    STRING oid := (byte / 40) || "." || (byte % 40);
+    INTEGER begin := this->begin + 1;
+
+    WHILE (begin < this->begin+this->len)
+    {
+      INTEGER value;
+      byte := GetByteValue(Substring(this->data, begin, 1));
+      begin := begin + 1;
+
+      WHILE (byte BITAND 0x80 = 0x80)
+      {
+        byte := byte BITAND 127;
+        value := value * 128 + byte;
+
+        byte := GetByteValue(Substring(this->data, begin, 1));
+        begin := begin + 1;
+      }
+      value := value * 128 + byte;
+
+      oid := oid || "." || value;
+    }
+
+    IF (debug)
+      PrintTo(2,'  Read OID '||oid||'\n');
+    this->SkipCurrentTag();
+    RETURN oid;
+  }
+>;
+
+/** BER decoder that allows extra data to be added
+*/
+PUBLIC OBJECTTYPE DynamicBERDecoder EXTEND StaticBERDecoder
+<
+  MACRO NEW(STRING initialidata)
+  : StaticBERDecoder(initialidata, 0, 2147483647)
+  {
+  }
+
+  PUBLIC MACRO AddData(STRING newdata)
+  {
+    this->data := this->data || newdata;
+    IF (NOT this->complete)
+      this->Init();
+  }
+>;
+
+PUBLIC OBJECTTYPE BERDecoder EXTEND DynamicBERDecoder
+<
+  MACRO NEW(STRING initialidata)
+  : DynamicBERDecoder(initialidata)
+  {
+  }
+>;
+
+
+PUBLIC OBJECTTYPE BEREncoder
+< STRING request;
+  RECORD ARRAY constructions;
+
+  /// List of tags that can still be replaced (debug only)
+  INTEGER ARRAY replacabletags;
+
+  PUBLIC INTEGER FUNCTION StartConstruction(INTEGER tag_class, INTEGER tag_type)
+  {
+    INTEGER tag_index := Length(this->request);
+    RECORD new_constr := GetDefaultConstruction();
+    new_constr.tag_index := tag_index;
+
+    this->InsertTag(tag_index, TRUE, tag_class, tag_type);
+
+    new_constr.lengthstart := Length(this->request);
+    this->InsertLength(new_constr.lengthstart, 0); // Dummy length, for now
+
+    new_constr.datastart := Length(this->request);
+
+    INSERT new_constr INTO this->constructions AT END;
+
+    IF (debug_encode)
+    {
+      PRINT(RepeatText(" ", LENGTH(this->constructions) - 1) || "Start construction at " || tag_index || " (" || tag_class || ":" || tag_type || ")\n");
+      INSERT tag_index INTO this->replacabletags AT END;
+    }
+
+    RETURN tag_index;
+  }
+
+  PUBLIC MACRO EndConstruction()
+  {
+    RECORD constr := this->constructions[Length(this->constructions)-1];
+
+    INTEGER final_data_len := Length(this->request) - constr.datastart;
+    this->ReplaceLength(constr.lengthstart, final_data_len);
+
+    DELETE FROM this->constructions AT Length(this->constructions) - 1;
+
+    IF (debug_encode)
+    {
+      PRINT(RepeatText(" ", LENGTH(this->constructions)) || "Ended construction at " || constr.tag_index || ", len=" || final_data_len || ", end=" || LENGTH(this->request) || "\n");
+      this->replacabletags := ArraySlice(this->replacabletags, 0, UpperBound(this->replacabletags, final_data_len));
+    }
+  }
+
+  PUBLIC INTEGER FUNCTION AddInteger(INTEGER value)
+  {
+    STRING result;
+    IF (value < -8388608 OR value > 8388607)
+      result := result || ByteToString((value BITRSHIFT 24) BITAND 0xFF);
+    IF (value < -32768 OR value > 32767)
+      result := result || ByteToString((value BITRSHIFT 16) BITAND 0xFF);
+    IF (value < -128 OR value > 127)
+      result := result || ByteToString((value BITRSHIFT 8) BITAND 0xFF);
+    result := result || ByteToString(value BITAND 0xFF);
+
+    INTEGER int_index := Length(this->request);
+    INTEGER len := Length(result);
+
+    this->InsertTag(int_index, FALSE, BER_Class_Universal, BER_Universal_Integer);
+    this->InsertLength(Length(this->request), len);
+    this->request := this->request || result;
+
+    IF (debug_encode)
+    {
+      PRINT(RepeatText(" ", LENGTH(this->constructions)) || "Added INTEGER at " || int_index || " (" || BER_Class_Universal || ":" || BER_Universal_Integer || ")\n");
+      INSERT int_index INTO this->replacabletags AT END;
+    }
+
+    RETURN int_index;
+  }
+
+  /** Add a base16-encoded integer. If the highest bit of the left digit is 1 (the first digit is 8, 9, A, B, C, D, E or F), the number is assumed to be negative
+      Length should be a multiple of 2.
+  */
+  PUBLIC INTEGER FUNCTION AddBigInteger(STRING base16enc)
+  {
+    IF ((LENGTH(base16enc) % 2) = 1)
+      THROW NEW Exception("Illegal big integer, length should be a multiple of 2");
+
+    // Normalize (remove superfluous 00 and FF at start)
+    WHILE (LENGTH(base16enc) > 2)
+    {
+      // If the first 9 bits are identical, the first 8 are 00 or FF and can be discarded
+      INTEGER first9bits := ToInteger(Left(base16enc, 3), 0, 16) BITRSHIFT 3;
+      IF (first9bits != 0 AND first9bits != 511)
+        BREAK;
+      base16enc := SubString(base16enc, 2);
+    }
+
+    STRING value := DecodeBase16(base16enc);
+
+    INTEGER str_index := Length(this->request);
+    this->InsertTag(str_index, FALSE, BER_Class_Universal, BER_Universal_Integer);
+    this->InsertLength(Length(this->request), Length(value));
+    this->request := this->request || value;
+
+    IF (debug_encode)
+    {
+      PRINT(RepeatText(" ", LENGTH(this->constructions)) || `Added (big) INTEGER at ${str_index} (${BER_Class_Universal}:${BER_Universal_Integer}) (bytes: ${EncodeBase16(value)})\n`);
+      INSERT str_index INTO this->replacabletags AT END;
+    }
+
+    RETURN str_index;
+  }
+
+  PUBLIC INTEGER FUNCTION AddBoolean(BOOLEAN value)
+  {
+    INTEGER bool_index := Length(this->request);
+    this->InsertTag(bool_index, FALSE, BER_Class_Universal, BER_Universal_Boolean);
+    this->InsertLength(Length(this->request), 1);
+    this->request := this->request || (value ? ByteToString(0xFF) : ByteToString(0));
+
+    IF (debug_encode)
+    {
+      PRINT(RepeatText(" ", LENGTH(this->constructions)) || "Added BOOLEAN at " || bool_index || " (" || BER_Class_Universal || ":" || BER_Universal_Integer || ")\n");
+      INSERT bool_index INTO this->replacabletags AT END;
+    }
+
+    RETURN bool_index;
+  }
+
+  PUBLIC INTEGER FUNCTION AddOctetString(STRING value)
+  {
+    INTEGER str_index := Length(this->request);
+    this->InsertTag(str_index, FALSE, BER_Class_Universal, BER_Universal_OctetString);
+    this->InsertLength(Length(this->request), Length(value));
+    this->request := this->request || value;
+
+    IF (debug_encode)
+    {
+      PRINT(RepeatText(" ", LENGTH(this->constructions)) || "Added OCTET STRING at " || str_index || " (" || BER_Class_Universal || ":" || BER_Universal_OctetString || ")\n");
+      INSERT str_index INTO this->replacabletags AT END;
+    }
+
+    RETURN str_index;
+  }
+
+  PUBLIC INTEGER FUNCTION AddObjectIdentifier(STRING value)
+  {
+    STRING ARRAY parts := Tokenize(value, ".");
+
+    // First byte: 40 * nr1 + nr2
+    STRING result := ByteToString(ToInteger(parts[0], 0) * 40 + ToInteger(parts[1], 0));
+
+    parts := ArraySlice(parts, 2);
+    FOREVERY (STRING part FROM parts)
+    {
+      INTEGER intvalue := ToInteger(part, 0);
+      STRING ival;
+      BOOLEAN more;
+
+      WHILE (intvalue > 0 OR NOT more)
+      {
+        ival := ByteToString((intvalue % 128) + (more ? 128 : 0)) || ival;
+        intvalue := intvalue / 128;
+        more := TRUE;
+      }
+      result := result || ival;
+    }
+
+    INTEGER oid_index := Length(this->request);
+    INTEGER len := Length(result);
+
+    this->InsertTag(oid_index, FALSE, BER_Class_Universal, BER_Universal_ObjectIdentifier);
+    this->InsertLength(Length(this->request), len);
+    this->request := this->request || result;
+
+    IF (debug_encode)
+    {
+      PRINT(RepeatText(" ", LENGTH(this->constructions)) || "Added OBJECT IDENTIFIER at " || oid_index || " (" || BER_Class_Universal || ":" || BER_Universal_ObjectIdentifier || ")\n");
+      INSERT oid_index INTO this->replacabletags AT END;
+    }
+
+    RETURN oid_index;
+  }
+
+  PUBLIC INTEGER FUNCTION AddUTCTime(DATETIME value)
+  {
+    INTEGER str_index := Length(this->request);
+    this->InsertTag(str_index, FALSE, BER_Class_Universal, BER_Universal_UTCTime);
+    STRING result := FormatDateTime("%y%m%d%H%M%SZ", value);
+    this->InsertLength(Length(this->request), Length(result));
+    this->request := this->request || result;
+
+    IF (debug_encode)
+    {
+      PRINT(RepeatText(" ", LENGTH(this->constructions)) || "Added UTCTime at " || str_index || " (" || BER_Class_Universal || ":" || BER_Universal_UTCTime || ")\n");
+      INSERT str_index INTO this->replacabletags AT END;
+    }
+
+    RETURN str_index;
+  }
+
+  PUBLIC MACRO OverwriteTagType(INTEGER tag_index, INTEGER tag_class, INTEGER tag_type)
+  {
+    RECORD oldtag := ParseTag(this->request, tag_index);
+    IF (NOT oldtag.valid)
+      RETURN; // Throw!
+
+    this->request := Left(this->request, tag_index) || SubString(this->request, tag_index + oldtag.bytes_parsed);
+    this->InsertTag(tag_index, oldtag.tag.constructed, tag_class, tag_type);
+
+    IF (debug_encode)
+      PRINT(RepeatText(" ", LENGTH(this->constructions)) || "Overwrite tag at " || tag_index || " (" || tag_class || ":" || tag_type || ")\n");
+  }
+
+  PUBLIC STRING FUNCTION GetRequest()
+  {
+    RETURN this->request;
+  }
+
+  MACRO ReplaceLength(INTEGER len_index, INTEGER size)
+  {
+    RECORD oldlen := ParseLength(this->request, len_index);
+    IF (NOT oldlen.valid)
+      RETURN; // Throw!
+
+    this->request := Left(this->request, len_index) || Right(this->request, Length(this->request) - len_index - oldlen.bytes_parsed);
+    this->InsertLength(len_index, size);
+  }
+
+  MACRO InsertTag(INTEGER tag_index, BOOLEAN is_constructed, INTEGER tag_class, INTEGER tag_type)
+  {
+    STRING encoded;
+    IF (tag_type < 31)
+    {
+      encoded := ByteToString((tag_class BITLSHIFT 6) + (is_constructed ? 32 : 0) + tag_type);
+    }
+    ELSE
+    {
+      BOOLEAN must_emit := TRUE;
+      WHILE (tag_type != 0 OR must_emit)
+      {
+        encoded := ByteToString((must_emit ? 0 : 128) + (tag_type BITAND 127)) || encoded;
+        tag_type := tag_type BITRSHIFT 7;
+        must_emit := FALSE;
+      }
+      encoded := ByteToString((tag_class BITLSHIFT 6) + (is_constructed ? 32 : 0) + 31) || encoded;
+    }
+
+    this->request := Left(this->request, tag_index) || encoded || Substring(this->request, tag_index);
+
+    IF (debug_encode)
+      this->replacabletags := ArraySlice(this->replacabletags, 0, UpperBound(this->replacabletags, tag_index));
+  }
+
+  MACRO InsertLength(INTEGER len_index, INTEGER size)
+  {
+    STRING encoded;
+    IF (size < 128)
+    {
+      encoded := ByteToString(size);
+    }
+    ELSE
+    {
+      WHILE (size > 0)
+      {
+        encoded := ByteToString(size BITAND 0xFF) || encoded;
+        size := size BITRSHIFT 8;
+      }
+      encoded := ByteToString(Length(encoded) BITOR 0x80) || encoded;
+    }
+
+    this->request := Left(this->request, len_index) || encoded || Right(this->request, Length(this->request) - len_index);
+  }
+>;
+
+RECORD FUNCTION GetDefaultTag()
+{
+  RETURN [ value := -1
+         , tag_class := -1
+         , constructed := FALSE
+         ];
+}
+
+RECORD FUNCTION GetDefaultConstruction()
+{
+  RETURN [ datastart := -1
+         , lengthstart := -1
+         , tag_index := -1
+         ];
+}
+
+RECORD FUNCTION ParseTag(STRING data, INTEGER begin)
+{
+  IF (debug)
+    PrintTo(2,'Parsing tag, data="'||EncodeBase16(SubString(data, begin, 4))||'", begin='||begin||'\n');
+  RECORD to_return := [ bytes_parsed := 0
+                      , tag := GetDefaultTag()
+                      , valid := FALSE
+                      ];
+
+  IF (begin >= Length(data))
+    RETURN to_return; // Data corrupted
+
+  INTEGER byte := GetByteValue(Substring(data, begin, 1));
+
+  to_return.tag.tag_class := (byte BITAND 0xC0) BITRSHIFT 6;
+  to_return.tag.constructed := (byte BITAND 0x20) != 0;
+  to_return.bytes_parsed := 1;
+  to_return.valid := TRUE;
+
+  IF (byte BITAND 0x1F != 0x1F)
+  {
+    // This is a 'short' tag
+    to_return.tag.value := byte BITAND 0x1F;
+
+    IF (debug)
+      PrintTo(2,'  Parsed short tag, value='||to_return.tag.value||', tag_class='||to_return.tag.tag_class||', constructed='||(to_return.tag.constructed?'TRUE':'FALSE')||'\n');
+    RETURN to_return;
+  }
+
+  // It's a long tag. Read all the octets, bit 7 to 1 are part of the tag, bit 8 indicates that this is the last octet
+  to_return.tag.value := 0;
+
+  // Loop until we have all digits
+  WHILE (TRUE)
+  {
+    // Increment read pointer, and verify we're not overrunning our buffer
+    begin := begin + 1;
+    IF (begin = Length(data))
+    {
+      to_return.valid := FALSE;
+      RETURN to_return;
+    }
+    byte := GetByteValue(Substring(data, begin, 1));
+
+    // Add this value to the current tag
+    to_return.bytes_parsed := to_return.bytes_parsed + 1;
+    to_return.tag.value := (to_return.tag.value BITLSHIFT 7) BITOR (byte BITAND 0x7F);
+
+    // Loop until we find the terminator
+    IF (byte BITAND 0x80 = 0)
+      BREAK;
+  }
+
+  IF (debug)
+    PrintTo(2,'  Parsed long tag, value='||to_return.tag.value||', tag_class='||to_return.tag.tag_class||', constructed='||(to_return.tag.constructed?'TRUE':'FALSE')||'\n');
+  RETURN to_return;
+}
+
+RECORD FUNCTION ParseLength(STRING data, INTEGER begin)
+{
+  IF (debug)
+    PrintTo(2,'Parsing length, data="'||EncodeBase16(SubString(data, begin, 4))||'", begin='||begin||'\n');
+  RECORD to_return := [ bytes_parsed := 0
+                      , len := 0
+                      , valid := FALSE
+                      ];
+
+  IF (begin >= Length(data))
+    RETURN to_return; // Data corrupted
+
+  INTEGER byte := GetByteValue(Substring(data, begin, 1));
+
+  to_return.bytes_parsed := 1;
+  to_return.valid := TRUE;
+
+  IF (byte BITAND 0x80 != 0x80)
+  {
+    // This is a 'short' length
+    to_return.len := byte BITAND 0x7F;
+
+    IF (debug)
+      PrintTo(2,'  Parsed short length '||to_return.len||'\n');
+    RETURN to_return;
+  }
+
+  // This is a 'long' length. get the number of octets
+  INTEGER num_octets := byte BITAND 0x7F;
+  to_return.len := 0;
+
+  WHILE (num_octets > 0)
+  {
+    // Increment read pointer, and verify we're not overrunning our buffer
+    begin := begin + 1;
+    IF (begin = Length(data))
+    {
+      to_return.valid := FALSE;
+      RETURN to_return;
+    }
+    byte := GetByteValue(Substring(data, begin, 1));
+
+    to_return.bytes_parsed := to_return.bytes_parsed + 1;
+    num_octets := num_octets - 1;
+    to_return.len := (to_return.len BITLSHIFT 8) BITOR byte;
+  }
+
+  IF (debug)
+    PrintTo(2,'  Parsed long length '||to_return.len||'\n');
+  RETURN to_return;
+}

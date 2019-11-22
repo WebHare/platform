@@ -1,0 +1,16 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+OBJECT usermgmtschema := OpenWRDSchema("system:usermgmt");
+IF(usermgmtschema->accountemailtag = "") //new schema (an existing one would have already chosen an emailtag)
+{
+  usermgmtschema->ApplySchemaDefinition([ schemaresource := "mod::system/data/wrdschemas/default.wrdschema.xml" ]);
+  usermgmtschema->UpdateMetadata([ protected := TRUE, usermgmt := TRUE ]);
+}
+trans->CommitWork();

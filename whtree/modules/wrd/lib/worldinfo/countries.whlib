@@ -1,0 +1,216 @@
+﻿<?wh
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::util/localization.whlib";
+
+/** @short Get the XML document describing all address fields */
+OBJECT FUNCTION GetCountryXMLDoc()
+{
+  RECORD rec := RetrieveCachedXMLResource("mod::wrd/data/worldinfo.xml");
+  RETURN RecordExists(rec) ? rec.doc : DEFAULT OBJECT;
+}
+
+STRING FUNCTION GetFirstSetCell(RECORD ARRAY options, STRING fieldname)
+{
+  FOREVERY(RECORD opt FROM options)
+    IF(CellExists(opt,fieldname))
+    {
+      RETURN GetCell(opt,fieldname);
+    }
+  RETURN "";
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetWRDCountryList(STRING language, STRING selected, INTEGER wrd_schema DEFAULTSTO 0)
+{
+  selected := ToUppercase(selected);
+  language := ToUppercase(language);
+
+  RECORD ARRAY countries := [ [ isempty := true, selected := FALSE, code := "", title := "" ] ]
+                            CONCAT
+                            SELECT isempty := FALSE, selected := FALSE, code, title := GetCell(country,language)
+                              FROM GetCountryList(language) AS country;
+
+  countries := SELECT *
+                    , selected := code = VAR selected
+                 FROM countries
+             ORDER BY code != "", NormalizeText(title, language);
+
+  RETURN countries;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetWRDCountryPhoneCodes(STRING language)
+{
+  RETURN GetAdhocCached([ type := "phonecodes", language := language ], PTR GetCachedWRDCountryPhoneCodes(language));
+}
+
+RECORD FUNCTION GetCachedWRDCountryPhoneCodes(STRING language)
+{
+  language := ToUppercase(language);
+
+  RECORD ARRAY countrylist := SELECT code, title := GetCell(country,language) FROM GetCountryList(language) AS country;
+
+  RECORD ARRAY phonecodes :=
+      SELECT code
+           , phone
+           , title := (SELECT AS STRING title FROM countrylist WHERE countrylist.code = info.code)
+        FROM GetAdhocCached(CELL[ type := "info" ], PTR GetWRDCountryInfoFromXML()) AS info
+       WHERE CellExists(info, "phone") ? phone != "" : FALSE;
+
+  RETURN
+      [ value := (SELECT * FROM phonecodes WHERE title != "" ORDER BY NormalizeText(title, language))
+      , eventmasks := [ "system:softreset" ]
+      ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetWRDCountryBumperCodes(STRING language)
+{
+  RETURN GetAdhocCached([ type := "bumpercodes", language := language ], PTR GetCachedWRDCountryBumperCodes(language));
+}
+
+RECORD FUNCTION GetCachedWRDCountryBumperCodes(STRING language)
+{
+  language := ToUppercase(language);
+
+  RECORD ARRAY countrylist := SELECT code, title := GetCell(country,language) FROM GetCountryList(language) AS country;
+
+  RECORD ARRAY bumpercodes :=
+      SELECT code
+           , bumpercode
+           , title := (SELECT AS STRING title FROM countrylist WHERE countrylist.code = info.code)
+        FROM GetAdhocCached(CELL[ type := "info" ], PTR GetWRDCountryInfoFromXML()) AS info
+       WHERE CellExists(info, "bumpercode") ? bumpercode != "" : FALSE;
+
+  RETURN
+      [ value := (SELECT * FROM bumpercodes WHERE title != "" ORDER BY NormalizeText(title, language))
+      , eventmasks := [ "system:softreset" ]
+      ];
+}
+
+RECORD FUNCTION GetWRDCountryInfoFromXML()
+{
+  OBJECT global_xmldoc := GetCountryXMLDoc();
+
+  OBJECT globalxpathcontext := global_xmldoc->CreateXPathQuery();
+  globalxpathcontext->RegisterNamespace("wi","http://www.webhare.net/xmlns/wrd/worldinfo");
+
+  RECORD ARRAY results := globalxpathcontext->SelectXML(`/wi:worldinfo/wi:countrylist/wi:country`);
+
+  RETURN
+      [ value := results
+      , eventmasks := [ "system:softreset" ]//ADDME: Event mask for file on disk changed?
+      ];
+}
+
+PUBLIC RECORD FUNCTION __GetWRDAddressInfo(STRING countrycode, STRING language)
+{
+  countrycode := ToUppercase(countrycode);
+  RETURN GetAdhocCached(CELL[ countrycode, language ], PTR GetWRDAddressInfoFromXML(countrycode, language));
+}
+
+/** @short Describe an address format
+    @cell return.fields A record array of address fields for this language (combines all fields above, street, etc, except country)
+    @cell return.fields.tag A tag for this field (STREET, NR_DETAIL, CITY, STATE, POBOX, ZIP, or a local specific tag)
+    @cell return.fields.title Name for this field in selected language
+    @cell return.fields.ordering Relative 1-based ordering for this field
+    @cell return.fields.required True if this field is required */
+PUBLIC RECORD ARRAY FUNCTION GetWRDAddressInfo(STRING countrycode, STRING language, INTEGER schemaid DEFAULTSTO 0)
+{
+  RETURN __GetWRDAddressInfo(countrycode, language).fields;
+}
+
+
+PUBLIC RECORD FUNCTION GetWRDAddressField(STRING tag, STRING language)
+{
+  tag := ToUppercase(tag);
+  RETURN GetAdhocCached(CELL[ tag, language ], PTR GetWRDAddressFieldFromXML(tag, language));
+}
+
+//Get props in this ordering: local specific first, then global specific, then local defaults first, then global defaults
+RECORD ARRAY FUNCTION SelectMultiDOC(OBJECT globaldoc, STRING countrycode, STRING subpath)
+{
+  STRING default_base := "/wi:worldinfo/wi:defaultaddressformat";
+  STRING country_base := "/wi:worldinfo/wi:countrylist/wi:country[@code='" || EncodeValue(countrycode) || "']/wi:addressformat";
+
+  RECORD ARRAY results;
+  OBJECT globalxpathcontext := globaldoc->CreateXPathQuery();
+  globalxpathcontext->RegisterNamespace("wi","http://www.webhare.net/xmlns/wrd/worldinfo");
+
+  results := globalxpathcontext->SelectXML(country_base || subpath);
+  results := results CONCAT globalxpathcontext->SelectXML(default_base || subpath);
+
+  RETURN results;
+}
+
+RECORD FUNCTION GetWRDAddressInfoFromXML(STRING countrycode, STRING language)
+{
+  OBJECT global_xmldoc := GetCountryXMLDoc();
+
+  RECORD ARRAY addressformat_basesettings := SelectMultidoc(global_xmldoc, countrycode, "");
+  RETURN
+      [ value := GetWRDAddressInfoFieldsFromXML(addressformat_basesettings, global_xmldoc, countrycode, language)
+      , eventmasks := [ "system:softreset" ]//ADDME: Event mask for file on disk changed?
+      ];
+}
+
+RECORD FUNCTION GetWRDAddressFieldFromXML(STRING tag, STRING language)
+{
+  OBJECT global_xmldoc := GetCountryXMLDoc();
+
+  RECORD ARRAY addressformat_basesettings := [ [ ordering := tag ] ];
+  RETURN
+      [ value := GetWRDAddressInfoFieldsFromXML(addressformat_basesettings, global_xmldoc, "", language).fields
+      , eventmasks := [ "system:softreset" ]//ADDME: Event mask for file on disk changed?
+      ];
+}
+
+RECORD FUNCTION GetWRDAddressInfoFieldsFromXML(RECORD ARRAY addressformat_basesettings, OBJECT global_xmldoc, STRING countrycode, STRING language)
+{
+  RECORD ARRAY fields;
+
+  STRING ordering := GetFirstSetCell(addressformat_basesettings, "ordering");
+  ordering := Substitute(ordering,',',',,'); //Translate , to ,,
+  ordering := Substitute(ordering,'+',','); //and + to ,
+  FOREVERY(STRING fld FROM Tokenize(ordering,","))
+  {
+    IF(fld="") //This means: LF after last field
+    {
+      IF(Length(fields)>0)
+        fields[Length(fields)-1].break_after:=true;
+      CONTINUE;
+    }
+
+    STRING field_selector := "/wi:field[@tag='" || EncodeValue(fld) || "']";
+    RECORD ARRAY tag_settings := SelectMultidoc(global_xmldoc, countrycode, field_selector);
+    RECORD ARRAY langinfo := SelectMultidoc(global_xmldoc, countrycode, field_selector || "/wi:title");
+
+    RECORD english_fieldname := SELECT * FROM langinfo WHERE NOT CellExists(langinfo,"lang") LIMIT 1; //Get the first..
+    IF(NOT RecordExists(english_fieldname))
+      THROW NEW Exception("Error in country database: country '" || countrycode || "' has no default text for address field '" || fld || "'");
+
+    RECORD localized_fieldname;
+    IF(ToUppercase(language)!="EN") // Ignore the warning given by whcompile: CellExists must be checked first!
+      localized_fieldname := SELECT * FROM langinfo
+                              WHERE CellExists(langinfo,"xml:lang") ? ToUppercase(langinfo."xml:lang")=ToUppercase(language) : FALSE
+                              LIMIT 1; //Get the first..
+
+    //TODO shouldn't we just convert all addresses to witty format here ?
+    RECORD fieldinfo := [ tag := ToUppercase(fld)
+                        , title := RecordExists(localized_fieldname) ? localized_fieldname.xml_content : english_fieldname.xml_content
+                        , required := GetFirstSetCell(tag_settings, "required")="yes"
+                        , ordering := #fld + 1
+                        , break_after := false
+                        , autocomplete := SELECT AS STRING autocomplete FROM tag_settings WHERE CellExists(tag_settings, "autocomplete")
+                        ];
+
+    INSERT fieldinfo INTO fields AT END;
+  }
+  //Always convert last field to LF
+  IF(Length(fields)>0)
+    fields[Length(fields)-1].break_after:=true;
+
+  RETURN CELL [ fields
+              , addressformat := GetFirstSetCell(addressformat_basesettings, "addressformat")
+              ];
+}

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs/>
+  <g>
+    <rect x="24" y="22" width="4" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M30,22v2h1c1,0,1-1,1-1v-1H30z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="8" y="22" width="4" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="16" y="22" width="4" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M4,22H2H0v1c0,0,0,1,1,1h3V22z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="8" y="8" width="4" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="16" y="8" width="4" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="24" y="8" width="4" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M32,9c0,0,0-1-1-1h-1v2v2h2V9z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="30" y="16" width="2" height="4" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M2,10h2V8H1C0,8,0,9,0,9v3h2V10z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect y="16" width="2" height="4" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+  </g>
+</svg>

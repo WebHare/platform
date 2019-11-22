@@ -1,0 +1,2426 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+
+LOADLIB "mod::publisher/lib/internal/blit/hashapi.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/support.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/repositorytree.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/conflictresolution.whlib";
+
+/* List of types that must be ignored
+   These are only ignored when building a tree from whfs, to keep the rest as consistent as possible.
+*/
+STRING ARRAY ignored_types :=
+    [ "http://www.webhare.net/xmlns/publisher/previewinfo"
+    , "http://www.webhare.net/xmlns/blexdev_blit/v2/checkedoutfolder" // clone on copy for targz & copying, may not end op in repository
+    ];
+
+STRING ARRAY fulltree_ignored_types :=
+    [ "http://www.webhare.net/xmlns/publisher/previewinfo"
+    ];
+
+STRING ARRAY basedata_included_types :=
+    [ "http://www.webhare.net/xmlns/publisher/sitesettings"
+    , "http://www.webhare.net/xmlns/blexdev_blit/v2/inclusionsettings"
+    ];
+
+RECORD defaultbasedata :=
+    [ type :=         ""
+    , ispinned :=     "0"
+    , publish :=      "0"
+    , title :=        ""
+    , description :=  ""
+    , externallink := ""
+    , filelink :=     ""
+    , indexdoc :=     "" // Only folders
+    , template :=     ""
+    , profile :=      ""
+    , ordering :=     "0"
+    , requiretemplate := "0"
+    , requireprofile := "0"
+    , requiretemplateinsubfolders := "0"
+    , requireprofileinsubfolders := "0"
+    ];
+
+OBJECTTYPE BlitRecursiveException EXTEND Exception
+< MACRO NEW(STRING what) : Exception(what) {}
+>;
+
+STATIC OBJECTTYPE BlitInclusionSettings
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY inclusionsettings;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD data)
+  {
+    OBJECT inclusionsettings_type := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/inclusionsettings");
+    FOREVERY (OBJECT source FROM data.sources)
+    {
+      IF (source EXTENDSFROM WHFSDescriptionTreeBase)
+      {
+        IF (RecordExists(source->root))
+        {
+          RECORD instancedata :=
+                SELECT AS RECORD COLUMN data
+                  FROM source->root.instances
+                 WHERE typens = "http://www.webhare.net/xmlns/blexdev_blit/v2/inclusionsettings";
+
+          RECORD ARRAY settings;
+          settings := RecordExists(instancedata) ? instancedata.settings : DEFAULT RECORD ARRAY;
+
+          this->inclusionsettings :=
+              SELECT path :=          ToUppercase(SubString(fsobject, 5))
+                   , self
+                   , recursive
+                   , basefields :=    CellExists(settings, "BASEFIELDS") ? basefields : DEFAULT STRING ARRAY
+                FROM settings
+               WHERE fsobject LIKE "repo:*";
+        }
+      }
+      ELSE
+      {
+        RECORD ARRAY settings := inclusionsettings_type->GetInstanceData(source->id).settings;
+
+        settings :=
+            SELECT *
+                 , obj :=    OpenWHFSObject(fsobject)
+              FROM settings;
+
+        STRING rootpath := source->whfspath;
+        IF (RecordExists(SELECT FROM settings WHERE NOT ObjectExists(obj) OR obj->whfspath NOT LIKE rootpath || "*"))
+          THROW NEW Exception("The Blit inclusion settings for this repository are inconsistent, please fix first");
+
+        this->inclusionsettings :=
+            SELECT path :=    obj->whfspath
+                 , self
+                 , recursive
+                 , basefields
+              FROM settings;
+
+        this->inclusionsettings :=
+            SELECT *
+                 , path :=    ToUppercase(SubString(path, LENGTH(rootpath), LENGTH(path) - LENGTH(rootpath) - (path LIKE "*/" ? 1 : 0)))
+              FROM this->inclusionsettings
+             WHERE path LIKE rootpath || "*";
+      }
+    }
+
+    this->inclusionsettings :=
+        SELECT *
+          FROM this->inclusionsettings
+      ORDER BY ToUppercase(path);
+
+    //PRINT(AnyToString(this->inclusionsettings, "boxed"));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD FUNCTION GetISettings(STRING path)
+  {
+    RECORD pos := RecordLowerBound(this->inclusionsettings, [ path := ToUppercase(path) ], [ "PATH" ]);
+    IF (NOT pos.found)
+      RETURN DEFAULT RECORD;
+
+    RETURN this->inclusionsettings[pos.position];
+  }
+>;
+
+STATIC OBJECTTYPE WHFSDescriptionTreeBase EXTEND TreeBase
+< // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION ExtractDescriptionTree(RECORD rtree, BOOLEAN convert_children)
+  {
+    RECORD metadata := this->ExtractDescriptionTreeObjectMetadata(rtree);
+
+    IF (LENGTH(rtree.children) = 0)
+    {
+      // Default folder
+      RETURN
+          [ isfolder :=     TRUE
+          , name :=         rtree.name
+          , data :=         DEFAULT BLOB
+          , basedata :=     metadata.basedata
+          , instances :=    DEFAULT RECORD ARRAY
+          , types :=        DEFAULT RECORD ARRAY
+          , children :=     DEFAULT RECORD ARRAY
+          ];
+    }
+
+    RECORD ARRAY instances;
+
+    RECORD datarec :=
+        SELECT *
+          FROM rtree.children
+         WHERE name IN [ "data.file", "data.folder" ];
+
+    RECORD ARRAY instancefiles :=
+        SELECT *
+          FROM rtree.children
+         WHERE name LIKE "instance-*.dat";
+
+
+    FOREVERY (RECORD instancefile FROM instancefiles)
+      INSERT this->ParseInstanceDataFile(instancefile) INTO instances AT END;
+
+    FOREVERY (RECORD rec FROM instances)
+      IF (NOT CellExists(rec, "TYPENS"))
+        ABORT(instancefiles);
+
+    instances :=
+        SELECT *
+          FROM instances
+         WHERE RecordExists(instances)
+      ORDER BY typens;
+
+    //PRINT(AnyToString(instances, "boxed"));
+
+    IF (datarec.name = "data.file")
+    {
+      RETURN
+          [ isfolder :=     FALSE
+          , name :=         rtree.name
+          , data :=         datarec.data
+          , basedata :=     metadata.basedata
+          , instances :=    instances
+          , children :=     DEFAULT RECORD ARRAY
+          , cachedata :=    [ datahash := datarec.hash ]
+          ];
+    }
+    ELSE
+    {
+      RECORD type_file :=
+          SELECT *
+            FROM rtree.children
+           WHERE name = "types.dat";
+
+      RECORD ARRAY types;
+      IF (RecordExists(type_file))
+        types := this->ParseTypeDescriptionDataFile(type_file);
+
+      RETURN
+          [ isfolder :=     TRUE
+          , name :=         rtree.name
+          , data :=         DEFAULT BLOB
+          , basedata :=     metadata.basedata
+          , instances :=    instances
+          , types :=        types
+          , children :=     convert_children
+                ? (SELECT AS RECORD ARRAY this->ExtractDescriptionTree(children, TRUE)
+                     FROM datarec.children)
+                : datarec.children
+          ];
+    }
+  }
+
+  // Set filtered fields to default
+  RECORD FUNCTION SetFilteredBaseDataToDefault(RECORD basedata, RECORD isetting)
+  {
+    BOOLEAN no_filter := NOT RecordExists(isetting) OR isetting.self != "partial";
+    IF (no_filter)
+      RETURN basedata;
+
+    // Set unwanted fields to their defaults
+    RECORD final_basedata := defaultbasedata;
+    FOREVERY (STRING field FROM isetting.basefields)
+      IF (CellExists(basedata, field))
+        final_basedata := CellUpdate(final_basedata, field, GetCell(basedata, field));
+    RETURN final_basedata;
+  }
+
+  // Filter out unwanted base fields (for diff)
+  RECORD FUNCTION FilterBaseData(RECORD basedata, RECORD isetting)
+  {
+    BOOLEAN no_filter := NOT RecordExists(isetting) OR isetting.self != "partial";
+    IF (no_filter)
+      RETURN basedata;
+
+    // Set unwanted fields to their defaults
+    RECORD final_basedata;
+    FOREVERY (STRING field FROM isetting.basefields)
+      IF (CellExists(basedata, field))
+        final_basedata := CellInsert(final_basedata, field, GetCell(basedata, field));
+    RETURN final_basedata;
+  }
+
+  RECORD ARRAY FUNCTION FilterInstances(RECORD ARRAY instances, RECORD isetting)
+  {
+    BOOLEAN no_filter := NOT RecordExists(isetting) OR isetting.self != "partial";
+    IF (no_filter)
+      RETURN instances;
+
+    instances :=
+        SELECT *
+          FROM instances
+         WHERE typens IN basedata_included_types;
+
+    RETURN instances;
+  }
+
+  RECORD FUNCTION ReadBaseData(RECORD rec)
+  {
+    RECORD result := defaultbasedata;
+
+    IF (NOT RecordExists(rec) OR rec.isfolder)
+      RETURN result;
+
+    RECORD basedata;
+    FOREVERY (STRING s FROM Tokenize(BlobToString(rec.data, -1), "\n"))
+      IF (s != "")
+      {
+        INTEGER pos := SearchSubString(s, ":");
+        basedata := CellInsert(basedata, Left(s, pos), DecodeJava(SubString(s, pos + 1)));
+      }
+
+    RETURN MakeUpdatedRecord(result, basedata);
+  }
+
+  RECORD FUNCTION ExtractDescriptionTreeObjectMetadata(RECORD rtree)
+  {
+    // Default folder?
+    IF (LENGTH(rtree.children) = 0)
+      RETURN [ basedata := this->ReadBaseData(DEFAULT RECORD) ];
+
+    RECORD basedata_file :=
+        SELECT *
+          FROM rtree.children
+         WHERE name = "basedata.dat";
+
+    RETURN
+        [ basedata :=     this->ReadBaseData(basedata_file)
+        ];
+  }
+
+  RECORD FUNCTION GenerateBaseDataFile(RECORD basedatarec)
+  {
+    // Encode only fields that aren't default
+    STRING ARRAY toencode;
+    FOREVERY (RECORD field FROM UnpackRecord(basedatarec))
+      IF (NOT CellExists(defaultbasedata, field.name) OR GetCell(defaultbasedata, field.name) != field.value)
+        INSERT ToLowercase(field.name) || ":" || EncodeJava(field.value) || "\n" INTO toencode AT END;
+
+    BLOB basedata := StringToBlob(Detokenize(toencode, ""));
+
+    RETURN
+        [ name :=       "basedata.dat"
+        , isfolder :=   FALSE
+        , data :=       basedata
+        ];
+  }
+
+  /** @param data
+      @cell typens
+      @cell data
+  */
+  RECORD FUNCTION GenerateInstanceDataFile(RECORD data)
+  {
+    IF (CellExists(data, "STATUS"))
+      ABORT("Cell 'status' not allowed in instancedata");
+
+    // Base 16 encoded, don't want problems with case
+    RETURN
+        [ name :=       "instance-" || ToLowercase(EncodeBase16(GetSHA1Hash(data.typens))) || ".dat"
+        , isfolder :=   FALSE
+        , data :=       EncodeHSONBlob(data)
+        ];
+  }
+
+  RECORD FUNCTION ParseInstanceDataFile(RECORD data)
+  {
+    // Try to get some data when we have a conflict, needed to determine the typens.
+    BLOB contents;
+    IF (CellExists(data, "STATUS") AND data.status IN [ "existence-conflict", "data-conflict" ])
+      contents := (data.data_changes ?? data.data_current).data;
+    ELSE IF (CellExists(data, "DATA"))
+      contents := data.data;
+
+    RECORD rec := LENGTH(contents) != 0
+        ? DecodeHSONBLob(contents)
+        : DEFAULT RECORD;
+
+    IF (CellExists(data, "STATUS"))
+      INSERT CELL status := data.status INTO rec;
+
+    RETURN rec;
+  }
+
+  RECORD ARRAY FUNCTION ParseTypeDescriptionDataFile(RECORD file)
+  {
+    RETURN CellExists(file, "DATA") AND LENGTH(file.data) != 0
+        ? DecodeHSONBLob(file.data)
+        : DEFAULT RECORD ARRAY;
+  }
+
+  RECORD FUNCTION GenerateTypeDescriptionDataFile(RECORD ARRAY types)
+  {
+    RETURN
+        [ name :=       "types.dat"
+        , isfolder :=   FALSE
+        , data :=       EncodeHSONBlob(types)
+        ];
+  }
+
+  RECORD FUNCTION FilterByInclusionSettings(RECORD dtree, STRING path, STRING recursive_setting, OBJECT inclusionsettings, BOOLEAN keep_isettings)
+  {
+    STRING self_setting := recursive_setting;
+    RECORD isetting := inclusionsettings->GetISettings(path);
+    IF (RecordExists(isetting))
+    {
+      self_setting := isetting.self;
+      recursive_setting := isetting.recursive;
+    }
+
+    IF (self_setting = "ignore" OR NOT RecordExists(dtree))
+      RETURN DEFAULT RECORD;
+
+    IF (keep_isettings)
+      INSERT CELL isetting := isetting INTO dtree;
+
+    IF (CellExists(dtree, "BASEDATA"))
+      dtree.basedata := this->SetFilteredBaseDataToDefault(dtree.basedata, isetting);
+    IF (CellExists(dtree, "INSTANCES"))
+      dtree.instances := this->FilterInstances(dtree.instances, isetting);
+
+    STRING childrenrootpath := path = "" ? "" : path || "/";
+    IF (dtree.isfolder)
+    {
+      dtree.children :=
+          SELECT AS RECORD ARRAY this->FilterByInclusionSettings(children, childrenrootpath || name, recursive_setting, inclusionsettings, keep_isettings)
+            FROM dtree.children;
+
+      DELETE
+        FROM dtree.children
+       WHERE NOT RecordExists(children);
+
+      IF (LENGTH(dtree.children) = 0 AND CellExists(dtree, "STATUS") AND dtree.status = "merge")
+        RETURN DEFAULT RECORD;
+    }
+
+    RETURN dtree;
+  }
+>;
+
+STATIC OBJECTTYPE WHFSTreeDataIndexer
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  RECORD ARRAY pvt_fs_objects;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER whfsroot)
+  {
+    INTEGER ARRAY all_objects := [ whfsroot ] CONCAT this->GetTreeFSObjectIdsRecursive([ whfsroot ]);
+
+    RECORD ARRAY fs_objects :=
+        SELECT id
+             , data
+             , description
+             , isfolder
+             , ispinned
+             , name
+             , publish
+             , type
+             , title
+             , externallink
+             , filelink
+             , indexdoc
+             , template
+             , profile
+             , ordering
+             , requiretemplate
+             , requireprofile
+             , requiretemplateinsubfolders
+             , requireprofileinsubfolders
+             , modificationdate
+             , parent
+             , fscacherec :=    DEFAULT RECORD
+             , instances :=     DEFAULT RECORD ARRAY
+             , children :=      DEFAULT RECORD ARRAY
+          FROM system.fs_objects
+         WHERE id IN all_objects
+      ORDER BY id;
+
+    FOREVERY (RECORD rec FROM fs_objects)
+    {
+      RECORD pos := RecordLowerBound(fs_objects, [ id := rec.parent ], [ "ID" ]);
+      IF (NOT pos.found)
+        CONTINUE;
+
+      INSERT
+          [ id :=     rec.id
+          , name :=   rec.name
+          ] INTO fs_objects[pos.position].children AT END;
+    }
+
+    RECORD ARRAY fscacherecs :=
+       SELECT *
+         FROM publisher.blithashcache
+        WHERE id IN all_objects;
+
+    FOREVERY (RECORD rec FROM fscacherecs)
+    {
+      // Add modificationdate as search key to immediately reject mismatches
+      RECORD pos := RecordLowerBound(fs_objects, rec, [ "ID", "MODIFICATIONDATE" ]);
+      IF (NOT pos.found)
+        CONTINUE;
+
+      fs_objects[pos.position].fscacherec := rec;
+    }
+
+    // Get all instances of the files
+    RECORD ARRAY instances :=
+        SELECT id :=      fs_instances.fs_object
+             , type :=    fs_instances.fs_type
+          FROM system.fs_instances, system.fs_types
+         WHERE fs_instances.fs_object IN all_objects
+               AND fs_types.cloneoncopy = TRUE
+               AND fs_types.id = fs_instances.fs_type;
+
+    // Get type objects for all the instances
+    RECORD ARRAY types :=
+        SELECT type
+             , typeobj :=   OpenWHFSTypeById(type)
+          FROM (SELECT DISTINCT type FROM instances)
+      ORDER BY type;
+
+    FOREVERY (RECORD instance FROM instances)
+    {
+      // Locate the type of the instance (resilient against changes)
+      RECORD pos := RecordLowerBound(types, instance, [ "TYPE" ]);
+      IF (NOT pos.found)
+        CONTINUE;
+
+      OBJECT type := types[pos.position].typeobj;
+
+      // Locate the file record
+      RECORD fspos := RecordLowerBound(fs_objects, instance, [ "ID" ]);
+      IF (NOT fspos.found)
+        CONTINUE;
+
+      INSERT
+          [ type :=   type
+          , data :=   DEFAULT RECORD
+          ] INTO fs_objects[fspos.position].instances AT END;
+    }
+
+    this->pvt_fs_objects := fs_objects;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  INTEGER ARRAY FUNCTION GetTreeFSObjectIdsRecursive(INTEGER ARRAY parents)
+  {
+    INTEGER ARRAY children :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE parent IN parents;
+
+    RETURN children CONCAT (LENGTH(children) = 0 ? DEFAULT INTEGER ARRAY : this->GetTreeFSObjectIdsRecursive(children));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD FUNCTION GetById(INTEGER id)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_fs_objects, [ id := id ], [ "ID" ]);
+    IF (NOT pos.found)
+      RETURN DEFAULT RECORD;
+    RETURN this->pvt_fs_objects[pos.position];
+  }
+>;
+
+/** Description tree
+    Describes whfs tree data, record with all data per file/folder
+*/
+STATIC OBJECTTYPE WHFSDescriptionTree EXTEND WHFSDescriptionTreeBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY types;
+
+  RECORD ARRAY pvt_errors;
+
+  BOOLEAN cleanwhitespace;
+
+  STRING ARRAY ignored_types;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY has_errors(GetHasErrors, -);
+
+  PUBLIC PROPERTY errors(pvt_errors, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD cdata)
+  {
+    this->ignored_types := ignored_types;
+
+    SWITCH (cdata.type)
+    {
+    CASE "folder"
+      {
+        this->types :=
+            SELECT id
+                 , namespace
+                 , used :=      FALSE
+              FROM system.fs_types
+             WHERE isfiletype OR isfoldertype
+          ORDER BY id;
+
+        IF (CellExists(cdata, "CLEANWHITESPACE"))
+          this->cleanwhitespace := cdata.cleanwhitespace;
+
+        OBJECT ARRAY overridesources := [ OBJECT(cdata.folder) ];
+        IF (CellExists(cdata, "OVERRIDEINCLUSIONSETTINGS") AND ObjectExists(cdata.overrideinclusionsettings))
+          overridesources := [ OBJECT(cdata.overrideinclusionsettings) ];
+        ELSE IF (CellExists(cdata, "FULLTREE") AND cdata.fulltree)
+        {
+          overridesources := DEFAULT OBJECT ARRAY;
+          this->ignored_types := fulltree_ignored_types;
+        }
+
+        OBJECT isettings := NEW BlitInclusionSettings([ sources := overridesources ]);
+
+        OBJECT indexer := NEW WHFSTreeDataIndexer(cdata.folder->id);
+
+        OBJECT mapper := NEW BlitWHFSRefMapper(cdata.folder);
+        this->pvt_root := this->GenerateDescriptionTreeRecursive(cdata.folder->id, indexer, mapper, "", "full", isettings);
+        IF(NOT RecordExists(this->pvt_root))
+          THROW NEW Exception("Failed to generated description tree for folder #" || cdata.folder->id);
+
+        DELETE
+          FROM this->types
+         WHERE NOT used;
+      }
+    CASE "raw"
+      {
+        this->pvt_root := cdata.root;
+      }
+    CASE "filtertypes"
+      {
+        STRING ARRAY standard_types :=
+            SELECT AS STRING ARRAY namespace
+              FROM system.fs_types
+             WHERE id <= 1000
+          ORDER BY namespace;
+
+        this->pvt_root := this->FilterTypeDescriptionsRecursive(cdata.root, standard_types);
+      }
+    CASE "rtree"
+      {
+        this->pvt_root := this->ExtractDescriptionTree(cdata.rtree->root, TRUE);
+        IF(NOT RecordExists(this->pvt_root))
+          THROW NEW Exception("Failed to find root for 'rtree' #" || cdata.rtree->root);
+      }
+    CASE "mods"
+      {
+        this->pvt_root := this->ApplyDifftree(cdata.org->root, cdata.diff->root);
+        IF(NOT RecordExists(this->pvt_root))
+          THROW NEW Exception("Failed to find root for 'mods' #" || cdata.org->root || ', #' || cdata.diff->root);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  BOOLEAN FUNCTION GetHasErrors()
+  {
+    RETURN LENGTH(this->pvt_errors) != 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION RemoveStatusRecursive(RECORD node)
+  {
+    DELETE CELL status FROM node;
+    node.instances := SELECT typens, data FROM node.instances WHERE status NOT IN [ "delete", "staydeleted" ];
+    IF (node.isfolder)
+      FOREVERY (RECORD child FROM node.children)
+        node.children[#child] := this->RemoveStatusRecursive(child);
+    RETURN node;
+  }
+
+  RECORD FUNCTION ApplyDifftree(RECORD root, RECORD diff)
+  {
+    IF (NOT RecordExists(diff))
+      RETURN root;
+
+    SWITCH (diff.status)
+    {
+    CASE "keep", "unmodified", "staydeleted"
+      {
+        RETURN root;
+      }
+    CASE "data-conflict", "existence-conflict", "type-conflict"
+      {
+        ABORT("Diff tree with conflicts cannot be applied!");
+      }
+    CASE "add", "replace", "update"
+      {
+        RETURN this->RemoveStatusRecursive(diff);
+      }
+    CASE "delete"   { RETURN DEFAULT RECORD; }
+    CASE "merge", "update-metadata", "update-metadata-types", "update-types"
+      {
+        RECORD ARRAY elts :=
+            SELECT mode :=    SUM(mode)
+                 , elts :=    GroupedValues(data)
+              FROM (SELECT name, mode := 1, data := children FROM root.children) CONCAT
+                   (SELECT name, mode := 2, data := children FROM diff.children)
+          GROUP BY ToUppercase(name);
+
+        RECORD ARRAY newchildren;
+        FOREVERY (RECORD rec FROM elts)
+        {
+          rec := this->ApplyDifftree(
+              rec.mode != 2 ? rec.elts[0] : DEFAULT RECORD,
+              rec.mode = 1 ? DEFAULT RECORD : rec.elts[rec.mode - 2]);
+          IF (RecordExists(rec))
+            INSERT rec INTO newchildren AT END;
+        }
+        root.children := newchildren;
+
+        IF (diff.status IN [ "update-metadata", "update-metadata-types" ])
+        {
+          root.name := diff.name;
+          root.basedata := diff.basedata;
+          root.instances := SELECT typens, data FROM diff.instances WHERE status NOT IN [ "delete", "staydeleted" ];
+        }
+        IF (diff.status IN [ "update-metadata-types", "update-types" ])
+          root.types := diff.types;
+
+        RETURN root;
+      }
+    }
+    ABORT("Unsupported status '" || diff.status || "'");
+  }
+
+  STRING FUNCTION MapBaseDataWHFSRef(RECORD rec, STRING cellname, OBJECT mapper, STRING path)
+  {
+    INTEGER objid := GetCell(rec, cellname);
+    TRY
+    {
+      RETURN mapper->MapWHFSRef(objid);
+    }
+    CATCH (OBJECT e)
+    {
+      INSERT
+          [ type :=       "reference"
+          , source :=     "basedata"
+          , cellname :=   cellname
+          , path :=       path
+          , references := (SELECT AS STRING whfspath FROM system.fs_objects WHERE id = objid)
+          ] INTO this->pvt_errors AT END;
+      RETURN "";
+    }
+  }
+
+  /** Filters out setting ids from exported instancedata. FIXME: Use member data about the structure
+      @param idata instance data
+      @return Instance data with all settingids removed
+  */
+  RECORD FUNCTION FilterSettingIds(RECORD idata)
+  {
+    DELETE CELL settingid FROM idata;
+    DELETE CELL fs_settingid FROM idata;
+    DELETE CELL __blobsource FROM idata;
+
+    FOREVERY (RECORD rec FROM UnpackRecord(idata))
+    {
+      SWITCH (TypeID(rec.value))
+      {
+      CASE TypeID(RECORD)
+        {
+          idata := CellUpdate(idata, rec.name, this->FilterSettingIds(rec.value));
+        }
+      CASE TypeID(RECORD ARRAY)
+        {
+          idata := CellUpdate(idata, rec.name,
+              SELECT AS RECORD ARRAY this->FilterSettingIds(value)
+                FROM rec.value);
+        }
+      }
+    }
+    RETURN idata;
+  }
+
+  RECORD ARRAY FUNCTION GenerateDescriptionInstances(INTEGER whfsroot, OBJECT indexer, OBJECT mapper, STRING path, RECORD isetting)
+  {
+    RECORD irec := indexer->GetById(whfsroot);
+
+    //PRINT("GDI " || OpenWHFSObject(whfsroot)->whfspath || "\n");
+
+    RECORD ARRAY instances;
+    IF (NOT RecordExists(irec))
+      THROW NEW Exception("Could not get indexed instances for fs object #" || whfsroot);
+
+    instances := irec.instances;
+
+    FOREVERY (RECORD rec FROM instances)
+    {
+      IF (rec.type->namespace IN this->ignored_types)
+        CONTINUE;
+
+      TRY
+      {
+        RECORD rawdata := rec.type->ExportInstanceData(whfsroot, mapper, TRUE);
+        instances[#rec].data := this->FilterSettingIds(rawdata);
+      }
+      CATCH (OBJECT< BlitWHFSRefMapperMapFailureException > e)
+      {
+        INSERT
+            [ type :=       "reference"
+            , source :=     "instance"
+            , typens :=     rec.type->namespace
+            , path :=       path
+            , references := e->whfspath
+            ] INTO this->pvt_errors AT END;
+      }
+    }
+
+    instances :=
+        SELECT typens :=    type->namespace
+             , data
+          FROM instances
+         WHERE RecordExists(data)
+      ORDER BY type->namespace;
+
+//    IF (LENGTH(instances) != 0)
+//      PRINT(" " || Detokenize((SELECT AS STRING ARRAY typens FROM instances), ", ") || "\n");
+
+    RETURN this->FilterInstances(instances, isetting);
+  }
+
+  RECORD FUNCTION GenerateBaseData(RECORD rec, STRING path, RECORD isetting, OBJECT mapper)
+  {
+    STRING typens;
+    IF (rec.type != 0)
+    {
+      RECORD tpos := RecordLowerBound(this->types, [ id := rec.type ], [ "ID" ]);
+      IF (tpos.found)
+      {
+        typens := this->types[tpos.position].namespace;
+        this->types[tpos.position].used := TRUE;
+      }
+    }
+
+    BOOLEAN no_filter := NOT RecordExists(isetting) OR isetting.self != "partial";
+
+    BOOLEAN want_filelink := no_filter OR "filelink" IN isetting.basefields;
+    BOOLEAN want_indexdoc := no_filter OR "indexdoc" IN isetting.basefields;
+    BOOLEAN want_template := no_filter OR "template" IN isetting.basefields;
+    BOOLEAN want_profile := no_filter OR "profile" IN isetting.basefields;
+
+    RECORD basedata :=
+        [ type :=                           typens
+        , ispinned :=                       rec.ispinned ? "1" : "0"
+        , publish :=                        rec.publish ? "1" : "0"
+        , title :=                          rec.title
+        , description :=                    rec.description
+        , externallink :=                   rec.externallink
+        , filelink :=                       want_filelink ? this->MapBaseDataWHFSRef(rec, "FILELINK", mapper, path) : ""
+        , indexdoc :=                       want_indexdoc ? this->MapBaseDataWHFSRef(rec, "INDEXDOC", mapper, path) : ""
+        , template :=                       want_template ? this->MapBaseDataWHFSRef(rec, "TEMPLATE", mapper, path) : ""
+        , profile :=                        want_profile ? this->MapBaseDataWHFSRef(rec, "PROFILE", mapper, path) : ""
+        , ordering :=                       ToString(rec.ordering)
+        , requiretemplate :=                rec.requiretemplate ? "1" : "0"
+        , requireprofile :=                 rec.requireprofile ? "1" : "0"
+        , requiretemplateinsubfolders :=    rec.requiretemplateinsubfolders ? "1" : "0"
+        , requireprofileinsubfolders :=     rec.requireprofileinsubfolders ? "1" : "0"
+        ];
+
+    RETURN this->SetFilteredBaseDataToDefault(basedata, isetting);
+  }
+
+  RECORD FUNCTION GenerateDescriptionTreeRecursive(INTEGER whfsroot, OBJECT indexer, OBJECT mapper, STRING path, STRING recursive_setting, OBJECT inclusionsettings)
+  {
+    STRING self_setting := recursive_setting;
+
+    RECORD isetting := inclusionsettings->GetISettings(path);
+    IF (RecordExists(isetting))
+    {
+      self_setting := isetting.self;
+      recursive_setting := isetting.recursive;
+    }
+
+    IF (self_setting = "ignore")
+      RETURN DEFAULT RECORD;
+
+    RECORD rec;
+    RECORD fscacherec;
+    RECORD ARRAY children;
+
+    RECORD indexed_rec := indexer->GetById(whfsroot);
+    IF (NOT RecordExists(indexed_rec))
+      THROW NEW Exception("Could not find indexed record for fs object #" || whfsroot);
+
+    rec := indexed_rec;
+    fscacherec := indexed_rec.fscacherec;
+    children := indexed_rec.children;
+
+    RECORD basedata := this->GenerateBaseData(rec, path, isetting, mapper);
+
+    RECORD ARRAY instances := this->GenerateDescriptionInstances(whfsroot, indexer, mapper, path, isetting);
+
+    IF (rec.isfolder)
+    {
+      STRING childrenrootpath := path = "" ? "" : path || "/";
+      children :=
+          SELECT AS RECORD ARRAY this->GenerateDescriptionTreeRecursive(id, indexer, mapper, childrenrootpath || name, recursive_setting, inclusionsettings)
+            FROM children;
+      children := SELECT * FROM children WHERE RecordExists(children);
+    }
+
+    // Cleanup newline style, leading whitespace and trailing newline
+    BOOLEAN modified_whitespace;
+    BOOLEAN has_conflictmarker;
+    STRING contenttype;
+    IF (this->cleanwhitespace AND NOT rec.isfolder)
+    {
+      IF (RecordExists(fscacherec) AND fscacherec.contenttype != "")
+        contenttype := fscacherec.contenttype;
+      ELSE
+      {
+        RECORD det := ScanBlob(rec.data, rec.name);
+        contenttype := det.mimetype;
+      }
+
+      IF (contenttype LIKE "text*" OR
+          contenttype LIKE "application/*webhare*" OR
+          contenttype IN [ "application/x-javascript" ])
+      {
+        STRING org_hash := GetBlitFileHash(rec.data);
+        rec.data := CleanTextFileWhitespace(rec.data);
+        modified_whitespace := GetBlitFileHash(rec.data) != org_hash;
+        has_conflictmarker := HasConflictMarker(rec.data);
+      }
+    }
+
+    RECORD result :=
+        [ isfolder :=     rec.isfolder
+        , data :=         rec.data
+        , name :=         rec.name
+        , basedata :=     basedata
+        , instances :=    instances
+        , children :=     children
+        , source :=       [ fsobjectid := whfsroot ]
+        ];
+
+    // Apply cache stuff
+    IF (NOT rec.isfolder)
+    {
+      RECORD cachedata :=
+          [ id :=                   whfsroot
+          , modificationdate :=     rec.modificationdate
+          , modified_whitespace :=  modified_whitespace
+          , has_conflictmarker :=   has_conflictmarker
+          , contenttype :=          contenttype
+          ];
+
+      IF (RecordExists(fscacherec) AND NOT modified_whitespace)
+        INSERT CELL datahash := fscacherec.hash INTO cachedata;
+
+      INSERT CELL cachedata := cachedata INTO result;
+    }
+
+    IF (rec.isfolder)
+    {
+      // Gather all referenced types from this folder and all subfiles (subfolders have their own descriptions)
+      RECORD ARRAY local_instances := instances;
+      FOREVERY (RECORD child FROM result.children)
+        local_instances := local_instances CONCAT child.instances;
+
+      // Get all custom file/folder types for this folder and its children
+      RECORD ARRAY fsobjecttypes :=
+          SELECT typens :=    Any(objs.basedata.type)
+               , data :=      DEFAULT RECORD
+            FROM [ result ] CONCAT children AS objs
+           WHERE objs.basedata.type != ""
+        GROUP BY objs.basedata.type
+          HAVING OpenWHFSType(Any(objs.basedata.type), [ openorphans := TRUE ])->id > 1000;
+
+      // Gather all embedded instances too
+      RECORD ARRAY embedded_instances;
+      FOREVERY (RECORD instancerec FROM local_instances)
+        embedded_instances := embedded_instances CONCAT this->GetEmbeddedInstances(instancerec.data);
+
+      RECORD ARRAY types :=
+          SELECT typens
+               , instances :=   GroupedValues(data)
+            FROM local_instances CONCAT embedded_instances CONCAT fsobjecttypes AS instances
+        GROUP BY typens;
+
+      INSERT CELL types :=
+         (SELECT AS RECORD ARRAY DescribeType(OpenWHFSType(typens, [ openorphans := TRUE ]), COLUMN instances)
+            FROM types
+        ORDER BY typens) INTO result;
+
+      // Filter non-referenced orphan members out of the instancedata
+      FOREVERY (RECORD child FROM result.children)
+        result.children[#child].instances := FilterInstances(child.instances, result.types);
+      result.instances := FilterInstances(result.instances, result.types);
+    }
+
+    RETURN result;
+  }
+
+  // Scans for embedded instances (without type support, just raw scanning)
+  RECORD ARRAY FUNCTION GetEmbeddedInstances(RECORD instance)
+  {
+    RECORD ARRAY result;
+    FOREVERY (RECORD rec FROM UnpackRecord(instance))
+    {
+      SWITCH (TypeID(rec.value))
+      {
+        CASE TypeID(RECORD ARRAY)
+        {
+          FOREVERY (RECORD elt FROM rec.value)
+            result := result CONCAT this->GetEmbeddedInstances(elt);
+        }
+        CASE TypeID(RECORD)
+        {
+          IF (CellExists(rec.value, "WHFSTYPE") AND TypeID(rec.value.whfstype) = TypeID(STRING))
+            INSERT [ typens := rec.value.whfstype, data := rec.value ] INTO result AT END;
+          result := result CONCAT this->GetEmbeddedInstances(rec.value);
+        }
+      }
+    }
+    RETURN result;
+  }
+
+  RECORD FUNCTION GenerateRepositoryTreeRecursive(RECORD dtree)
+  {
+    BLOB basedata := StringToBlob(Detokenize(
+        (SELECT AS STRING ARRAY ToLowercase(name) || ":" || EncodeJava(value) || "\n"
+           FROM UnpackRecord(dtree.basedata)), ""));
+
+    RECORD res :=
+        [ name :=       dtree.name
+        , isfolder :=   TRUE
+        , children :=   [ this->GenerateBaseDataFile(dtree.basedata) ]
+        ];
+
+    IF (CellExists(dtree, "SOURCE"))
+      INSERT CELL source := dtree.source INTO res;
+
+    IF (NOT dtree.isfolder)
+    {
+      // Add file data
+      RECORD rec :=
+          [ name :=     "data.file"
+          , isfolder := FALSE
+          , data :=     dtree.data
+          ];
+
+      IF (CellExists(dtree, "CACHEDATA"))
+      {
+        IF (CellExists(dtree.cachedata, "ID"))
+          INSERT CELL cachedata := dtree.cachedata INTO rec;
+        IF (CellExists(dtree.cachedata, "DATAHASH"))
+          INSERT CELL hash := dtree.cachedata.datahash INTO rec;
+      }
+
+      INSERT rec INTO res.children AT END;
+    }
+    ELSE
+    {
+      // Add type description file
+      INSERT this->GenerateTypeDescriptionDataFile(dtree.types) INTO res.children AT END;
+
+      // Add folder children
+      INSERT
+          [ name :=     "data.folder"
+          , isfolder := TRUE
+          , children :=
+                SELECT AS RECORD ARRAY this->GenerateRepositoryTreeRecursive(children)
+                  FROM dtree.children
+              ORDER BY name
+          ] INTO res.children AT END;
+    }
+
+    // Add instances files
+    FOREVERY (RECORD instance FROM dtree.instances)
+      INSERT this->GenerateInstanceDataFile(instance) INTO res.children AT END;
+
+    RETURN res;
+  }
+
+  RECORD FUNCTION CalculateHashesRecursive(RECORD tree)
+  {
+    IF (CellExists(tree, "HASH"))
+      RETURN tree;
+
+    IF (tree.isfolder)
+    {
+      FOREVERY (RECORD rec FROM tree.children)
+        tree.children[#rec] := this->CalculateHashesRecursive(rec);
+
+      INSERT CELL hash := GetBlitFolderHash(tree.children) INTO tree;
+    }
+    ELSE
+      INSERT CELL hash := GetBlitFileHash(tree.data) INTO tree;
+
+    RETURN tree;
+  }
+
+  MACRO CheckReferencesRecursive(RECORD tree, OBJECT checker, STRING path)
+  {
+    FOREVERY (RECORD instance FROM tree.instances)
+    {
+      // Skip checking deleted instances for references
+      IF (NOT RecordExists(instance.data))
+        CONTINUE;
+
+      OBJECT type := OpenWHFSType(instance.typens, [ openorphans := TRUE ]);
+
+      IF (NOT ObjectExists(type))
+        THROW NEW Exception("CheckReferencesRecursive failed to open WHFS type \""||instance.typens||"\""||AnyToString(instance,"tree"));
+
+      STRING ARRAY failed := checker->CheckInstanceReferences(type, instance.data, this);
+      IF (LENGTH(failed) != 0)
+      {
+        INSERT
+            [ type :=         "internal-reference"
+            , source :=       "instance"
+            , typens :=       type->namespace
+            , path :=         path
+            , references :=   failed[0]
+            ] INTO this->pvt_errors AT END;
+      }
+    }
+
+    IF (tree.isfolder)
+    {
+      STRING childpathbase := path = "" ? "" : path || "/";
+      FOREVERY (RECORD rec FROM tree.children)
+        this->CheckReferencesRecursive(rec, checker, childpathbase || rec.name);
+    }
+  }
+
+  /** Filter out all types & type members that aren't actually used in this tree
+  */
+  RECORD FUNCTION FilterTypeDescriptionsRecursive(RECORD tree, STRING ARRAY standard_types)
+  {
+    // Get all sources (this folder and all children files)
+    RECORD ARRAY sources :=
+        [ tree ] CONCAT SELECT * FROM tree.children WHERE NOT isfolder;
+
+    // Get instances for the base filetypes. Skip types that are a standard type on this installation.
+    // If they have instance data for that type, we'll still include them at the next step
+    RECORD ARRAY instances :=
+        SELECT typens :=  basedata.type
+             , data :=    DEFAULT RECORD
+          FROM sources
+         WHERE basedata.type != ""
+           AND NOT LowerBound(standard_types, basedata.type).found;
+
+    // Gather all instances (also embedded ones)
+    FOREVERY (RECORD rec FROM sources)
+      FOREVERY (RECORD instance FROM rec.instances)
+        instances := instances CONCAT [ instance ] CONCAT this->GetEmbeddedInstances(instance);
+
+    // Group them on namespace
+    instances :=
+        SELECT namespace := typens
+             , data :=      GroupedValues(data)
+          FROM instances
+      GROUP BY typens
+      ORDER BY typens;
+
+    // Visit all types in this folder, filter out unused types and unused members
+    RECORD ARRAY filtered_types;
+    FOREVERY (RECORD type FROM tree.types)
+    {
+      // Skip types we don't have an instance for
+      RECORD pos := RecordLowerBound(instances, type, [ "NAMESPACE" ]);
+      IF (NOT pos.found)
+        CONTINUE;
+
+      // Filter members based on the members actually used in the instances
+      type.members := FilterMembersRecurse(type.members, instances[pos.position].data);
+      INSERT type INTO filtered_types AT END;
+    }
+    tree.types := filtered_types;
+
+    // Apply filters recursive to subfolders
+    FOREVERY (RECORD rec FROM tree.children)
+      IF (rec.isfolder)
+        tree.children[#rec] := this->FilterTypeDescriptionsRecursive(rec, standard_types);
+
+    RETURN tree;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC OBJECT FUNCTION ApplyInclusionSettings(OBJECT override)
+  {
+    OBJECT inclusionsettings := NEW BlitInclusionSettings([ sources := ObjectExists(override) ? [ this, override ] : [ this ] ]);
+    RECORD filtered_root := this->FilterByInclusionSettings(this->pvt_root, "", "full", inclusionsettings, FALSE);
+    RETURN NEW WHFSDescriptionTree([ type := "raw", root := filtered_root ]);
+  }
+
+  PUBLIC OBJECT FUNCTION FilterTypeDescriptions()
+  {
+    RETURN NEW WHFSDescriptionTree([ type := "filtertypes", root := this->pvt_root ]);
+  }
+
+  PUBLIC OBJECT FUNCTION BuildRepositoryTree()
+  {
+    IF (this->has_errors)
+      THROW NEW Exception("Cannot build a repository tree from a description tree with errors");
+
+    RECORD rawtree := this->GenerateRepositoryTreeRecursive(this->pvt_root);
+    rawtree := this->CalculateHashesRecursive(rawtree);
+
+    RETURN EncapsulateRawRepositoryTree(rawtree);
+  }
+
+  PUBLIC BOOLEAN FUNCTION CheckReferences()
+  {
+    DELETE
+      FROM this->pvt_errors
+     WHERE type = "internal-reference";
+
+    OBJECT checker := NEW ReferenceChecker;
+    this->CheckReferencesRecursive(this->pvt_root, checker, "");
+    RETURN NOT this->has_errors;
+  }
+>;
+
+
+STATIC OBJECTTYPE WHFSDescriptionDiffTree EXTEND WHFSDescriptionTreeBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY types;
+
+  STRING ARRAY registeredtypes;
+
+  INTEGER ARRAY allfolderswithsites;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD data)
+  {
+    IF (data.type = "rtree")
+      this->pvt_root := this->ExtractModificationDTree(data.rtree->root);
+    ELSE IF (data.type = "filter")
+      this->pvt_root := this->FilterTree(data.diff->root, data.acceptedpaths, DEFAULT STRING ARRAY);
+    ELSE IF (data.type = "raw")
+      this->pvt_root := data.root;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BOOLEAN FUNCTION HasConflictsRecursive(RECORD node)
+  {
+    IF (NOT RecordExists(node))
+      RETURN FALSE;
+
+    SWITCH (node.status)
+    {
+      CASE "data-conflict", "existence-conflict", "type-conflict", "merge-nameconflict"
+        {
+          RETURN TRUE;
+        }
+      CASE "merge", "update-metadata", "update-metadata-types", "update-types"
+        {
+          FOREVERY (RECORD child FROM node.children)
+            IF (this->HasConflictsRecursive(child))
+              RETURN TRUE;
+        }
+    }
+    RETURN FALSE;
+  }
+
+  BOOLEAN FUNCTION IsExactMatch(STRING ARRAY path, RECORD ARRAY acceptedpaths)
+  {
+    FOREVERY (RECORD rec FROM acceptedpaths)
+      IF (Detokenize(path, "/") = Detokenize(rec.path, "/"))
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  RECORD FUNCTION FilterTree(RECORD diff, RECORD ARRAY acceptedpaths, STRING ARRAY path)
+  {
+    BOOLEAN ismatch := this->IsExactMatch(path, acceptedpaths);
+
+    IF (diff.status IN [ "data-conflict", "update-metadata", "update-metadata-types", "update-types", "merge" ])
+    {
+      IF (NOT ismatch)
+      {
+        IF (diff.status IN [ "update-metadata-types", "update-types" ])
+          diff.status := "update-types";
+        ELSE
+          diff.status := "merge";
+      }
+
+      RECORD ARRAY newchildren;
+      FOREVERY (RECORD child FROM diff.children)
+      {
+        RECORD rec := this->FilterTree(child, acceptedpaths, path CONCAT [ STRING(child.name) ]);
+        IF (RecordExists(rec))
+          INSERT rec INTO newchildren AT END;
+      }
+
+      diff.children := newchildren;
+
+      IF (LENGTH(newchildren) = 0 AND diff.status = "merge")
+        RETURN DEFAULT RECORD;
+
+      RETURN diff;
+    }
+
+    RETURN ismatch ? diff : DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION InsertStatusRecursive(RECORD tree, STRING status)
+  {
+    INSERT CELL status := status INTO tree;
+    IF (tree.isfolder)
+    {
+      FOREVERY (RECORD child FROM tree.children)
+        tree.children[#child] := this->InsertStatusRecursive(child, status);
+    }
+    RETURN tree;
+  }
+
+  RECORD FUNCTION ProcessName(RECORD treerec)
+  {
+    IF (treerec.status NOT IN [ "existence-conflict", "type-conflict", "data-conflict", "merge-nameconflict" ])
+      RETURN DEFAULT RECORD;
+
+    STRING parentname := RecordExists(treerec.data_parent) ? treerec.data_parent.name : "";
+    STRING currentname := RecordExists(treerec.data_current) ? treerec.data_current.name : "";
+    STRING changesname := RecordExists(treerec.data_changes) ? treerec.data_changes.name : "";
+
+    IF (parentname = currentname OR currentname = changesname OR changesname = parentname)
+      RETURN DEFAULT RECORD;
+
+    RETURN
+        [ parent :=       parentname
+        , current :=      currentname
+        , changes :=      changesname
+        ];
+  }
+
+  RECORD FUNCTION ProcessDataFile(RECORD datarec)
+  {
+    RECORD conflict;
+    IF (datarec.status IN [ "existence-conflict", "data-conflict" ])
+    {
+      // In a full conflict some of the stuff does not exist - no problem, ReadBaseData can handle that
+      conflict :=
+          [ parent :=    datarec.data_parent
+          , changes :=   datarec.data_changes
+          , current :=   datarec.data_current
+          ];
+
+      // FIXME: Try a merge?
+
+      // Just for fun, return the new data
+      RECORD newrec := datarec.data_changes;
+      INSERT CELL status := datarec.status INTO newrec;
+      datarec := newrec;
+    }
+
+    RETURN
+        [ conflict :=   conflict
+        , file :=       datarec
+        , changed :=    datarec.status NOT IN [ "unmodified", "keep" ]
+        ];
+  }
+
+  RECORD FUNCTION ProcessBaseDataFile(RECORD basedata_file)
+  {
+    RECORD conflict;
+    IF (basedata_file.status IN [ "existence-conflict", "data-conflict" ])
+    {
+      // In a full conflict some of the stuff does not exist - no problem, ReadBaseData can handle that
+      conflict :=
+          [ parent:=    this->ReadBaseData(basedata_file.data_parent)
+          , current :=  this->ReadBaseData(basedata_file.data_current)
+          , changes :=  this->ReadBaseData(basedata_file.data_changes)
+          ];
+
+      // Try to merge base data
+      RECORD merged := TryResolveBaseDataConflict(conflict);
+      IF (RecordExists(merged))
+      {
+        // Merge succesfull, replace with new data
+        basedata_file := this->GenerateBaseDataFile(merged.data);
+        INSERT CELL status := "replace" INTO basedata_file;
+        conflict := DEFAULT RECORD;
+      }
+    }
+
+    RETURN
+        [ conflict :=   conflict
+        , file :=       basedata_file
+        , changed :=    basedata_file.status NOT IN [ "unmodified", "keep" ]
+        ];
+  }
+
+  RECORD FUNCTION ProcessInstanceDataFiles(RECORD ARRAY instancedata_files)
+  {
+    RECORD ARRAY conflicts;
+    BOOLEAN changed;
+
+    // Order all return files and conflicts by name
+    instancedata_files :=
+        SELECT *
+          FROM instancedata_files
+      ORDER BY name;
+
+    FOREVERY (RECORD instancedata_file FROM instancedata_files)
+    {
+      IF (instancedata_file.status NOT  IN [ "unmodified", "keep" ])
+        changed := TRUE;
+
+      IF (instancedata_file.status IN [ "existence-conflict", "type-conflict", "data-conflict" ])
+      {
+        RECORD current := this->ParseInstanceDataFile(instancedata_file.data_current);
+        RECORD changes := this->ParseInstanceDataFile(instancedata_file.data_changes);
+
+        STRING typens := (current ?? changes).typens;
+
+        IF (RecordExists(current))
+          INSERT CELL status := "keep" INTO current;
+        ELSE
+          current := [ typens := typens, status := "staydeleted" ];
+
+        IF (RecordExists(changes))
+          INSERT CELL status := "replace" INTO changes;
+        ELSE
+          changes := [ typens := typens, status := "delete" ];
+
+        RECORD conflict :=
+            [ typens :=   typens
+            , parent :=   this->ParseInstanceDataFile(instancedata_file.data_parent)
+            , current :=  current
+            , changes :=  changes
+            ];
+/*
+        // Try to merge base data
+        RECORD merged := TryResolveInstanceDataConflict(conflict);
+        IF (RecordExists(merged))
+        {
+          // Merge succesfull, replace with new data
+          instancedata_file := this->GenerateBaseDataFile(merged.data);
+          INSERT CELL status := "replace" INTO instancedata_file;
+          instancedata_files[#instancedata_file] := instancedata_file;
+        }
+        ELSE*/
+          INSERT conflict INTO conflicts AT RecordUpperBound(conflicts, conflict, [ "TYPENS" ]);
+      }
+    }
+
+    RETURN
+        [ conflict :=   LENGTH(conflicts) != 0 ? [ conflicts := conflicts ] : DEFAULT RECORD
+        , files :=      instancedata_files
+        , changed :=    changed
+        ];
+  }
+
+  RECORD FUNCTION ProcessTypesFile(RECORD types_files)
+  {
+    RECORD conflict;
+
+    // Also use conflict resolution in 'keep' & 'replace' scenario's. Always want the union of local & remote types,
+    // conflict resolution in instance files may cause the data of any of the two to be imported
+    IF (types_files.status IN [ "existence-conflict", "data-conflict", "keep", "replace" ])
+    {
+      // In a full conflict some of the stuff does not exist - no problem, ReadBaseData can handle that
+      conflict :=
+          [ parent:=    this->ParseTypeDescriptionDataFile(types_files.data_parent)
+          , current :=  this->ParseTypeDescriptionDataFile(types_files.data_current)
+          , changes :=  this->ParseTypeDescriptionDataFile(types_files.data_changes)
+          ];
+
+      // Try to merge base data
+      RECORD merged := TryResolveTypesConflict(conflict);
+      IF (RecordExists(merged))
+      {
+        // Merge succesfull, replace with new data
+        types_files := this->GenerateTypeDescriptionDataFile(merged.data);
+        INSERT CELL status := "replace" INTO types_files;
+        conflict := DEFAULT RECORD;
+      }
+    }
+
+    RETURN
+        [ conflict :=   conflict
+        , file :=       types_files
+        ];
+  }
+
+  RECORD FUNCTION AddStatusRecursive(RECORD node, STRING status, STRING childstatus DEFAULTSTO "")
+  {
+    INSERT CELL status := status INTO node;
+    IF (node.isfolder)
+      FOREVERY (RECORD child FROM node.children)
+        node.children[#child] := this->AddStatusRecursive(child, childstatus ?? status, "");
+
+    node.instances :=
+        SELECT *
+            , status := childstatus ?? status
+          FROM node.instances;
+
+    RETURN node;
+  }
+
+  RECORD FUNCTION GetTConflictRecord(RECORD tree)
+  {
+    RECORD parent := RecordExists(tree.data_parent) ? this->ExtractDescriptionTree(tree.data_parent, TRUE) : DEFAULT RECORD;
+    RECORD changes := RecordExists(tree.data_changes) ? this->ExtractDescriptionTree(tree.data_changes, TRUE) : DEFAULT RECORD;
+    RECORD current := RecordExists(tree.data_current) ? this->ExtractDescriptionTree(tree.data_current, TRUE) : DEFAULT RECORD;
+
+    changes := RecordExists(changes)
+          ? this->AddStatusRecursive(changes, RecordExists(current) ? "replace" : "add", "add")
+          : this->AddStatusRecursive(current, "delete");
+    IF (RecordExists(current))
+      current := this->AddStatusRecursive(current, "keep");
+
+    RETURN
+        [ parent :=    parent
+        , changes :=   changes
+        , current :=   current
+        ];
+  }
+
+  /** Results statuses:
+      - delete Delete 'name'
+      - add Add new tree in place
+      - replace Delete 'name' and add new tree in place
+      - merge (folder) Handle sub-statuses (keep metadata as-is)
+      - update-metadata Update metadata, and handle sub-actions
+      - update Update file metadata & data
+  */
+  RECORD FUNCTION ExtractModificationDTree(RECORD tree)
+  {
+    SWITCH (tree.status)
+    {
+    CASE "replace", "data-conflict", "type-conflict"
+      {
+        ABORT("The statuses replaced, data-conflict or type-conflict may not happen on folder-level");
+      }
+    CASE "existence-conflict"
+      {
+        RETURN
+            [ status :=     "existence-conflict"
+            , name :=       tree.name
+            , isfolder :=   tree.isfolder
+            , children :=   DEFAULT RECORD ARRAY
+            , tconflict :=  this->GetTConflictRecord(tree)
+            , nconflict :=  DEFAULT RECORD
+            , dconflict :=  DEFAULT RECORD
+            , bconflict :=  DEFAULT RECORD
+            , mconflict :=  DEFAULT RECORD
+            ];
+
+        ABORT("Replaced or conflict folder may not happen on this level");
+      }
+    CASE "unmodified", "staydeleted", "keep" // No change in current tree
+      {
+        RETURN DEFAULT RECORD;
+      }
+    CASE "delete"
+      {
+        RETURN
+            [ status :=   "delete"
+            , name :=     tree.name
+            , isfolder := tree.isfolder
+            , children := DEFAULT RECORD ARRAY
+            ];
+      }
+    CASE "add"
+      {
+        RECORD descr := this->ExtractDescriptionTree(tree, TRUE);
+        descr := this->InsertStatusRecursive(descr, "add");
+        RETURN descr;
+      }
+    CASE "merge", "merge-rename", "merge-nameconflict" // folder children might have changed
+      {
+        RECORD ARRAY data_files :=
+            SELECT *
+              FROM tree.children
+             WHERE name IN [ "data.file", "data.folder" ];
+
+        // A conflict with type change (folder<->file) manifests itself by an existince-conflict on either
+        // the data.file or data.folder (other file will have status 'add')
+        IF (LENGTH(SELECT FROM data_files WHERE status NOT IN [ "staydeleted", "delete" ]) >= 2) // Keeping both data.file and data.folder?
+        {
+          RETURN
+              [ status :=     "type-conflict"
+              , name :=       tree.name
+              , isfolder :=   tree.isfolder
+              , children :=   DEFAULT RECORD ARRAY
+              , tconflict :=  this->GetTConflictRecord(tree)
+              , nconflict :=  DEFAULT RECORD
+              , dconflict :=  DEFAULT RECORD
+              , bconflict :=  DEFAULT RECORD
+              , mconflict :=  DEFAULT RECORD
+              ];
+        }
+
+        // Keep only the current stuff
+        RECORD data_file :=
+            SELECT *
+              FROM data_files
+             WHERE status IN [ "keep", "replace", "add", "data-conflict", "existence-conflict", "type-conflict", "unmodified", "merge" ];
+
+        IF (NOT RecordExists(data_file))
+          ABORT("Missing data!");
+
+        // Get base data file
+        RECORD basedata_file :=
+            SELECT *
+              FROM tree.children
+             WHERE status IN [ "keep", "replace", "add", "data-conflict", "existence-conflict", "type-conflict", "unmodified" ]
+               AND name = "basedata.dat";
+
+        // Get type describer file
+        RECORD types_file :=
+            SELECT *
+              FROM tree.children
+             WHERE status IN [ "keep", "replace", "add", "data-conflict", "existence-conflict", "type-conflict", "unmodified" ]
+               AND name = "types.dat";
+
+        // Get instance data files (want 'delete' too, translates to set data to DEFAULT RECORD)
+        RECORD ARRAY instancedata_files :=
+            SELECT *
+              FROM tree.children
+             WHERE status IN [ "keep", "replace", "add", "data-conflict", "existence-conflict", "type-conflict", "unmodified", "delete" ]
+               AND name LIKE "instance-*.dat";
+
+        RECORD mconflict, bconflict, dconflict, nconflict;
+
+        // Name conflict?
+        nconflict := this->ProcessName(tree);
+
+        // Process base data
+        RECORD pr_basedata := this->ProcessBaseDataFile(basedata_file);
+        bconflict := pr_basedata.conflict;
+        basedata_file := pr_basedata.file;
+
+        // Process instance data
+        RECORD pr_instances := this->ProcessInstanceDataFiles(instancedata_files);
+        mconflict := pr_instances.conflict;
+        instancedata_files := pr_instances.files;
+
+        // Detect changes
+        BOOLEAN type_change := LENGTH(SELECT FROM data_files WHERE status NOT IN [ "keep", "staydeleted" ]) >= 2; // FIXME: does this actually work? Wouldn't the old file/folder be deleted?
+//        BOOLEAN basedata_change := basedata_file.status NOT IN [ "unmodified", "keep" ];
+//        BOOLEAN data_change := data_file.status NOT IN [ "unmodified", "keep" ];
+//        BOOLEAN instancedata_change := RecordExists(SELECT FROM instancedata_files WHERE status NOT IN [ "unmodified", "keep" ]);
+
+        RECORD ARRAY newchildren :=
+            [ basedata_file ] CONCAT instancedata_files;
+
+        // Process file/folder data
+        IF (data_file.name = "data.file")
+        {
+          // It's now a file
+          RECORD pr_data := this->ProcessDataFile(data_file);
+          dconflict := pr_data.conflict;
+          data_file := pr_data.file;
+        }
+        ELSE
+        {
+          // It's now a folder
+          RECORD ARRAY new_folder_children;
+          FOREVERY (RECORD rec FROM data_file.children)
+          {
+            rec := this->ExtractModificationDTree(rec);
+            IF (RecordExists(rec))
+              INSERT rec INTO new_folder_children AT END;
+          }
+          data_file.children := new_folder_children;
+
+          // Process type data
+          RECORD pr_types := this->ProcessTypesFile(types_file);
+          types_file := pr_types.file;
+
+          INSERT types_file INTO newchildren AT END;
+        }
+
+        INSERT data_file INTO newchildren AT END;
+
+        RECORD rec := this->ExtractDescriptionTree(
+            [ name :=       tree.name
+            , isfolder :=   TRUE
+            , children :=   newchildren
+            ], FALSE);
+
+        BOOLEAN have_heavy_conflict := RecordExists(dconflict) OR RecordExists(bconflict) OR RecordExists(mconflict);
+        BOOLEAN have_conflict := RecordExists(dconflict) OR RecordExists(bconflict) OR RecordExists(mconflict) OR RecordExists(nconflict);
+        IF (have_conflict)
+        {
+          INSERT CELL tconflict := DEFAULT RECORD INTO rec;
+          INSERT CELL nconflict := nconflict INTO rec;
+          INSERT CELL dconflict := dconflict INTO rec;
+          INSERT CELL bconflict := bconflict INTO rec;
+          INSERT CELL mconflict := mconflict INTO rec;
+
+          //PRINT("Detected conflict!\n" || AnyToString(rec, "tree"));
+        }
+
+        IF (type_change)
+          INSERT CELL status := "replace" INTO rec;
+        ELSE
+        {
+          IF (rec.isfolder)
+          {
+            BOOLEAN changed_metadata;
+            BOOLEAN changed_only_types := TRUE;
+            BOOLEAN changed_metadata_types;
+
+            FOREVERY (RECORD childrec FROM tree.children)
+            {
+              IF (childrec.status IN [ "staydeleted", "keep", "unmodified" ])
+                CONTINUE;
+
+              IF (childrec.name LIKE "instance-*.dat" OR childrec.name = "basedata.dat")
+              {
+                changed_metadata := TRUE;
+                changed_only_types := FALSE;
+              }
+              ELSE IF (childrec.name = "types.dat")
+                changed_metadata_types := TRUE;
+            }
+
+            changed_only_types := changed_only_types AND changed_metadata_types;
+            changed_metadata_types := changed_metadata_types AND changed_metadata;
+
+            INSERT CELL status := have_heavy_conflict
+                ? "data-conflict"
+                : (changed_metadata OR changed_metadata_types) OR tree.status = "merge-rename"
+                      ? changed_metadata_types ? "update-metadata-types" : "update-metadata"
+                      : have_conflict
+                            ? "merge-nameconflict"
+                            : (changed_only_types ? "update-types" : "merge") INTO rec;
+          }
+          ELSE
+          {
+            // See if any file changed on server (or the name). if not, ignore
+            IF (tree.status NOT IN [ "merge-rename", "merge-nameconflict" ] AND NOT RecordExists(
+                SELECT
+                  FROM tree.children
+                 WHERE status NOT IN [ "staydeleted", "keep", "unmodified" ]))
+              RETURN DEFAULT RECORD;
+
+            INSERT CELL status := have_conflict
+                ? "data-conflict"
+                : "update" INTO rec;
+          }
+        }
+
+        RETURN rec;
+      }
+    DEFAULT
+      {
+        ABORT("Unexpected folder status '" || tree.status || "'");
+      }
+    }
+  }
+
+  MACRO ApplyTreeRecursive(RECORD dtree, OBJECT fs_object, OBJECT torepub, RECORD parentsiterec, RECORD parentfolderrec)
+  {
+    IF (NOT RecordExists(dtree))
+      RETURN;
+
+    IF (dtree.status = "delete")
+      ABORT("Not allowed!");
+
+    IF (dtree.status IN [ "data-conflict", "existence-conflict", "type-conflict", "merge-nameconflict" ])
+      ABORT("Diff tree with conflicts cannot be applied!");
+
+    IF (dtree.isfolder)
+    {
+      RECORD folderrec := __FindFolder(fs_object->id);
+      RECORD siterec := parentsiterec;
+
+      // Detect sites switch!
+      IF (fs_object->parentsite != (RecordExists(siterec) ? siterec.id : 0))
+      {
+        siterec := __FindSite(fs_object->parentsite);
+        parentfolderrec := folderrec;
+      }
+
+      // Remove all deleted and hard-replaced children
+      FOREVERY (RECORD child FROM dtree.children)
+      {
+        IF (child.status IN [ "delete", "replace" ])
+        {
+          OBJECT child_obj := fs_object->OpenByPath(child.name);
+          IF (ObjectExists(child_obj))
+          {
+            IF (RecordExists(siterec))
+            {
+              IF (child_obj->isfolder)
+              {
+                RECORD deletefolderrec := __FindFolder(child_obj->id);
+                torepub->AddDepsOf(deletefolderrec.id, 3/*content deleted*/);
+              }
+              ELSE
+              {
+                RECORD deletefilerec := __FindFile(child_obj->id);
+                torepub->AddDepsOf(deletefilerec.id, 3/*deleted*/);
+              }
+              torepub->AddDepsOf(folderrec.id, 3/*deleted*/);
+            }
+
+            IF (child_obj->id IN this->allfolderswithsites) //if we can't delete a folder because it has a site, then just don't!
+              CONTINUE; //THROW NEW Exception("Can't delete folder " || child_obj->whfspath || ", it contains a site (" || Detokenize(GetSitesInFolder(child_obj->id), ", ") || ")");
+
+            child_obj->RecycleSelf();
+          }
+        }
+      }
+
+      FOREVERY (RECORD child FROM dtree.children)
+      {
+        OBJECT child_obj := fs_object->OpenByPath(child.name);
+        IF (child.status IN [ "add", "replace" ])
+        {
+          // FIXME: check for overwrite!
+          child_obj := child.isfolder
+                ? fs_object->CreateFolder([ name := child.name ])
+                : fs_object->CreateFile([ name := child.name ]);
+
+
+          IF (RecordExists(siterec)) //Folder gone, parent gone or out-of-site folder
+          {
+            IF (child.isfolder)
+            {
+              RECORD newfolder := __FindFolder(child_obj->id);
+              torepub->AddDepsOf(newfolder.id, 3 /*created*/);
+            }
+            ELSE
+            {
+              RECORD newfile := __FindFile(child_obj->id);
+              torepub->AddDepsOf(newfile.id, 2/*created*/);
+            }
+
+            torepub->AddDepsOf(folderrec.id, 2/*created*/);
+          }
+        }
+
+        IF (child.status != "delete")
+        {
+          IF (child_obj->name != child.name) // Case sensitivity...
+          {
+            IF (RecordExists(siterec))
+            {
+              IF (child_obj->id IN this->allfolderswithsites)
+                THROW NEW Exception("Can't rename folder " || child_obj->whfspath || ", it contains a site (" || Detokenize(GetSitesInFolder(child_obj->id), ", ") || ")");
+
+              RECORD old_obj := child_obj->isfolder ? __FindFolder(child_obj->id) : __FindFile(child_obj->id);
+              child_obj->UpdateMetadata([ name := child.name ]);
+              RECORD new_obj := child_obj->isfolder ? __FindFolder(child_obj->id) : __FindFile(child_obj->id);
+
+              torepub->AddDepsOf(old_obj.id, 3/*deleted*/);
+              torepub->AddDepsOf(new_obj.id, 2/*created*/);
+
+              torepub->AddDepsOf(folderrec.id, 3/*deleted*/);
+              torepub->AddDepsOf(folderrec.id, 2/*created*/);
+            }
+            ELSE
+              child_obj->UpdateMetadata([ name := child.name ]);
+          }
+
+          // When changing the type from foreignfolder to something else, first reset the type
+          IF (child_obj->type = 1 AND CellExists(child.basedata, "TYPE") AND child.basedata.type != "http://www.webhare.net/xmlns/publisher/foreignfolder")
+          {
+            IF (child_obj->id IN this->allfolderswithsites)
+              THROW NEW Exception("Can't change type of folder " || child_obj->whfspath || ", it contains a site (" || Detokenize(GetSitesInFolder(child_obj->id), ", ") || ")");
+
+            child_obj->UpdateMetadata([ type := 0 ]);
+          }
+
+          TRY
+          {
+            this->ApplyTreeRecursive(child, child_obj, torepub, siterec, folderrec);
+          }
+          CATCH (OBJECT< BlitRecursiveException > e)
+          {
+            THROW e;
+          }
+          CATCH (OBJECT e)
+          {
+            OBJECT n := NEW BlitRecursiveException("Error applying updates to " || child_obj->whfspath || ": " || e->what);
+            n->trace := e->trace;
+            THROW n;
+          }
+        }
+      }
+    }
+    ELSE
+    {
+      IF (dtree.status IN [ "update", "add", "replace" ])
+      {
+        // Use the existing type to avoid call to (heavy) FixupFileType
+        fs_object->UpdateMetadata([ data := dtree.data, type := fs_object->type ]);
+
+        IF (RecordExists(parentsiterec))
+        {
+          RECORD newfile := __FindFile(fs_object->id);
+          torepub->AddDepsOf(newfile.id, 0/*metadata*/);
+        }
+      }
+    }
+  }
+
+  MACRO ApplyTreeMetadataRecursive(RECORD dtree, OBJECT fs_object, OBJECT mapper, RECORD ARRAY types, OBJECT torepub, RECORD parentsiterec, RECORD parentfolderrec)
+  {
+    IF (NOT RecordExists(dtree))
+      RETURN;
+
+    IF (dtree.status = "delete")
+      ABORT("Not allowed!");
+
+    IF (dtree.status IN [ "data-conflict", "existence-conflict", "type-conflict", "merge-nameconflict" ])
+      ABORT("Diff tree with conflicts cannot be applied!");
+
+    RECORD folderrec := parentfolderrec;
+    RECORD siterec := parentsiterec;
+
+    // Always handle type data in folders
+    IF (dtree.isfolder)
+    {
+      folderrec := __FindFolder(fs_object->id);
+
+      // Detect sites switch!
+      IF (fs_object->parentsite != (RecordExists(siterec) ? siterec.id : 0))
+      {
+        siterec := __FindSite(fs_object->parentsite);
+        parentfolderrec := folderrec;
+      }
+
+      // Register all types
+      FOREVERY (RECORD type FROM dtree.types)
+      {
+        STRING typehash := GetMD5Hash(EncodeHson(type)); //avoid reregistering types we've seen before, registerwhfstype is slow
+        IF (typehash NOT IN this->registeredtypes)
+        {
+          INSERT typehash INTO this->registeredtypes AT END;
+          RegisterWHFSType(type);
+
+          // Place new type in type cache if not there yet
+          RECORD pos := RecordLowerBound(this->types, type, [ "NAMESPACE" ]);
+          IF (NOT pos.found)
+          {
+            INSERT
+                [ id :=         OpenWHFSType(type.namespace, [ openorphans := TRUE ])->id
+                , namespace :=  type.namespace
+                ] INTO this->types AT pos.position;
+          }
+        }
+      }
+
+      // Sort them for further use
+      types :=
+          SELECT *
+            FROM dtree.types
+        ORDER BY namespace;
+    }
+
+    IF (dtree.status NOT IN [ "merge" ]) // only 'merge' skips metadata updates
+    {
+      INTEGER type;
+      IF (dtree.basedata.type != "")
+      {
+        RECORD tpos := RecordLowerBound(this->types, [ namespace := dtree.basedata.type ], [ "NAMESPACE" ]);
+        IF (tpos.found)
+          type := this->types[tpos.position].id;
+      }
+
+      RECORD metadata_updates :=
+          [ type :=                         type
+          , ispinned :=                     dtree.basedata.ispinned = "1"
+          , title :=                        DecodeJava(dtree.basedata.title)
+          , description :=                  DecodeJava(dtree.basedata.description)
+          , template :=                     mapper->UnmapWHFSRef(dtree.basedata.template)
+          , profile :=                      mapper->UnmapWHFSRef(dtree.basedata.profile)
+          , ordering :=                     ToInteger(dtree.basedata.ordering, 0)
+          ];
+
+      IF (NOT dtree.isfolder)
+      {
+        INSERT CELL publish := dtree.basedata.publish = "1" INTO metadata_updates;
+        INSERT CELL externallink := dtree.basedata.externallink INTO metadata_updates;
+        INSERT CELL filelink := mapper->UnmapWHFSRef(dtree.basedata.filelink) INTO metadata_updates;
+      }
+      ELSE
+      {
+        metadata_updates := MakeMergedrecord(metadata_updates,
+          [ requiretemplate :=              dtree.basedata.requiretemplate = "1"
+          , requireprofile :=               dtree.basedata.requireprofile = "1"
+          , requiretemplateinsubfolders :=  dtree.basedata.requiretemplateinsubfolders = "1"
+          , requireprofileinsubfolders :=   dtree.basedata.requireprofileinsubfolders = "1"
+          , indexdoc :=                     mapper->UnmapWHFSRef(dtree.basedata.indexdoc)
+          ]);
+      }
+
+      BOOLEAN must_republish;
+
+      IF (RecordExists(dtree.isetting) AND dtree.isetting.self = "partial")
+      {
+        RECORD filtered_updates;
+        FOREVERY (STRING s FROM dtree.isetting.basefields)
+          IF (CellExists(metadata_updates, s))
+            filtered_updates := CellInsert(filtered_updates, s, GetCell(metadata_updates, s));
+
+        IF (RecordExists(filtered_updates))
+        {
+          fs_object->UpdateMetadata(filtered_updates);
+          must_republish := TRUE;
+        }
+      }
+      ELSE
+      {
+        fs_object->UpdateMetadata(metadata_updates);
+        must_republish := TRUE;
+      }
+
+      FOREVERY (RECORD instance FROM dtree.instances)
+      {
+        IF (instance.status = "staydeleted")
+          CONTINUE;
+
+        OBJECT whfstype := OpenWHFSType(instance.typens, [ openorphans := TRUE ]);
+        IF (instance.status != "delete" AND RecordExists(instance.data))
+          whfstype->ImportInstanceData(fs_object->id, instance.data, mapper, TRUE);
+        ELSE
+        {
+          // Instance file was deleted, generate a default instance and use it to overwrite
+          RECORD pos := RecordLowerBound(types, [ namespace := instance.typens ], [ "NAMESPACE" ]);
+          RECORD data;
+          IF (NOT pos.found)
+          {
+            // No type definition found. Happens when an instance is deleted. FIXME Really should include type data
+            // in that case, but that's too difficult to do for now.
+            data := whfstype->defaultinstance;
+            //THROW NEW Exception("Missing type definition for '" || instance.typens || "'");
+          }
+          ELSE
+            data := AddInstanceDataMissingMembers(DEFAULT RECORD, types[pos.position]);
+          whfstype->ImportInstanceData(fs_object->id, data, DEFAULT OBJECT, TRUE);
+
+          must_republish := TRUE;
+        }
+      }
+
+      IF (must_republish AND RecordExists(siterec))
+      {
+        IF (fs_object->isfolder)
+        {
+          ScheduleFolderRepublish(fs_object->id, FALSE, FALSE);
+
+          RECORD findfolderrec := __FindFolder(fs_object->id);
+          torepub->AddDepsOf(findfolderrec.id, 0 /*metadata change*/);
+        }
+        ELSE
+        {
+          ScheduleFileRepublish(fs_object->id);
+
+          RECORD filerec := __FindFile(fs_object->id);
+          torepub->AddDepsOf(filerec.id, 0 /*metadata change*/);
+        }
+      }
+    }
+
+    IF (dtree.isfolder)
+    {
+      FOREVERY (RECORD child FROM dtree.children)
+      {
+        IF (child.status != "delete")
+        {
+          OBJECT child_obj := fs_object->OpenByPath(child.name);
+          TRY
+          {
+            this->ApplyTreeMetadataRecursive(child, child_obj, mapper, types, torepub, siterec, folderrec);
+          }
+          CATCH (OBJECT< BlitRecursiveException > e)
+          {
+            THROW e;
+          }
+          CATCH (OBJECT e)
+          {
+            OBJECT n := NEW BlitRecursiveException("Error applying metadata to " || child_obj->whfspath || ": " || e->what);
+            n->trace := e->trace;
+            THROW n;
+          }
+        }
+      }
+    }
+  }
+
+  RECORD FUNCTION RecheckForConflicts(RECORD root)
+  {
+    IF (NOT RecordExists(root.tconflict) AND NOT RecordExists(root.nconflict) AND NOT RecordExists(root.mconflict) AND NOT RecordExists(root.bconflict) AND NOT RecordExists(root.dconflict))
+    {
+      DELETE CELL tconflict FROM root;
+      DELETE CELL nconflict FROM root;
+      DELETE CELL dconflict FROM root;
+      DELETE CELL bconflict FROM root;
+      DELETE CELL mconflict FROM root;
+
+      IF (NOT root.isfolder)
+        root.status := "update";
+      ELSE
+        root.status := "update-metadata-types";
+    }
+    RETURN root;
+  }
+
+  RECORD FUNCTION ResolveTypeConflictRecursive(RECORD root, STRING ARRAY path, RECORD newtree)
+  {
+    IF (LENGTH(path) = 0)
+      RETURN newtree;
+
+    IF (root.isfolder)
+    {
+      FOREVERY (RECORD child FROM root.children)
+        IF (ToUppercase(child.name) = ToUppercase(path[0]))
+        {
+          RECORD newchild := this->ResolveTypeConflictRecursive(child, ArraySlice(path, 1), newtree);
+          IF (RecordExists(newchild))
+            root.children[#child] := newchild;
+          ELSE
+            DELETE FROM root.children AT #child;
+          BREAK;
+        }
+    }
+
+    RETURN root;
+  }
+
+  RECORD FUNCTION ResolveNameConflictRecursive(RECORD root, STRING ARRAY path, STRING name)
+  {
+    IF (LENGTH(path) = 0)
+    {
+      IF (ToUppercase(root.name) != ToUppercase(name))
+        THROW NEW Exception("Name conflict resolutions may ony change case of the name");
+
+      root.nconflict := DEFAULT RECORD;
+      root.name := name;
+
+      RETURN this->RecheckForConflicts(root);
+    }
+
+    IF (root.isfolder)
+    {
+      FOREVERY (RECORD child FROM root.children)
+        IF (ToUppercase(child.name) = ToUppercase(path[0]))
+          root.children[#child] := this->ResolveNameConflictRecursive(child, ArraySlice(path, 1), name);
+    }
+
+    RETURN root;
+  }
+
+  RECORD FUNCTION ResolveDataConflictRecursive(RECORD root, STRING ARRAY path, BLOB data)
+  {
+    IF (LENGTH(path) = 0)
+    {
+      IF (NOT root.isfolder)
+      {
+        root.dconflict := DEFAULT RECORD;
+        root.data := data;
+      }
+      RETURN this->RecheckForConflicts(root);
+    }
+
+    IF (root.isfolder)
+    {
+      FOREVERY (RECORD child FROM root.children)
+        IF (ToUppercase(child.name) = ToUppercase(path[0]))
+          root.children[#child] := this->ResolveDataConflictRecursive(child, ArraySlice(path, 1), data);
+    }
+
+    RETURN root;
+  }
+
+  RECORD FUNCTION ResolveBaseDataConflictRecursive(RECORD root, STRING ARRAY path, RECORD newbasedata)
+  {
+    IF (LENGTH(path) = 0)
+    {
+      root.bconflict := DEFAULT RECORD;
+      root.basedata := newbasedata;
+
+      RETURN this->RecheckForConflicts(root);
+    }
+
+    IF (root.isfolder)
+    {
+      FOREVERY (RECORD child FROM root.children)
+        IF (ToUppercase(child.name) = ToUppercase(path[0]))
+          root.children[#child] := this->ResolveBaseDataConflictRecursive(child, ArraySlice(path, 1), newbasedata);
+    }
+
+    RETURN root;
+  }
+
+  RECORD FUNCTION ResolveMetaDataConflictRecursive(RECORD root, STRING ARRAY path, RECORD ARRAY instances)
+  {
+    IF (LENGTH(path) = 0 AND RecordExists(root.mconflict))
+    {
+      RECORD ARRAY orgroot := root.instances;
+
+      FOREVERY (RECORD rec FROM instances)
+      {
+        RECORD pos := RecordLowerBound(root.mconflict.conflicts, rec, [ "TYPENS" ]);
+        IF (pos.found)
+        {
+          // Remove this conflict
+          DELETE FROM root.mconflict.conflicts AT pos.position;
+
+          // Update the instance data (add if missing, delete if set to default record)
+          pos := RecordLowerBound(root.instances, rec, [ "TYPENS" ]);
+          IF (NOT pos.found)
+            INSERT rec.result INTO root.instances AT pos.position;
+          ELSE
+            root.instances[pos.position] := rec.result;
+          IF (NOT RecordExists(root.instances[pos.position]))
+            DELETE FROM root.instances AT pos.position;
+        }
+      }
+
+      IF (LENGTH(root.mconflict.conflicts) = 0)
+        root.mconflict := DEFAULT RECORD;
+
+      RETURN this->RecheckForConflicts(root);
+    }
+
+    IF (root.isfolder)
+    {
+      FOREVERY (RECORD child FROM root.children)
+        IF (ToUppercase(child.name) = ToUppercase(path[0]))
+          root.children[#child] := this->ResolveMetaDataConflictRecursive(child, ArraySlice(path, 1), instances);
+    }
+
+    RETURN root;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Puclic API
+  //
+
+  PUBLIC BOOLEAN FUNCTION HasConflicts()
+  {
+    RETURN this->HasConflictsRecursive(this->root);
+  }
+
+  PUBLIC RECORD FUNCTION Apply(OBJECT folder, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->types :=
+        SELECT id
+             , namespace
+          FROM system.fs_types
+         WHERE isfiletype OR isfoldertype
+      ORDER BY namespace;
+
+    this->allfolderswithsites := CalculateAllFolderContainingSites();
+
+    OBJECT ARRAY overridesources := [ folder, this ];
+    IF (CellExists(options, "FULLTREE") AND options.fulltree)
+      overridesources := DEFAULT OBJECT ARRAY;
+
+    OBJECT inclusionsettings := NEW BlitInclusionSettings([ sources := overridesources ]);
+    RECORD filtered_root := this->FilterByInclusionSettings(this->pvt_root, "", "full", inclusionsettings, TRUE);
+
+    OBJECT mapper := NEW BlitWHFSRefMapper(folder);
+    mapper->ignore_missing_references := CellExists(options, "IGNOREMISSINGREFS") AND options.ignoremissingrefs;
+    OBJECT torepub := CreateRepublishState();
+
+    RECORD parentfolder := __FindFolder(folder->id);
+    RECORD parentsite := RecordExists(parentfolder) ? __FindSite(parentfolder.parentsite) : DEFAULT RECORD;
+
+    TRY
+    {
+      this->ApplyTreeRecursive(filtered_root, folder, torepub, parentsite, parentfolder);
+      mapper->RepopulateCache();
+      this->ApplyTreeMetadataRecursive(filtered_root, folder, mapper, DEFAULT RECORD ARRAY, torepub, parentsite, parentfolder);
+    }
+    CATCH (OBJECT< BlitRecursiveException > e)
+    {
+      THROW e;
+    }
+    CATCH (OBJECT e)
+    {
+      OBJECT n := NEW Exception("Error applying updates to " || folder->whfspath || ": " || e->what);
+      n->trace := e->trace;
+      THROW n;
+    }
+
+    torepub->DoRepublishes();
+    RETURN
+        [ missing_references :=   mapper->missing_references
+        ];
+  }
+
+  PUBLIC OBJECT FUNCTION Clone()
+  {
+    RETURN NEW WHFSDescriptionDiffTree([ type := "raw", root := this->pvt_root ]);
+  }
+
+  PUBLIC OBJECT FUNCTION ApplyInclusionSettings(OBJECT target)
+  {
+    OBJECT inclusionsettings := NEW BlitInclusionSettings([ sources := [ target, this ] ]);
+    RECORD filtered_root := this->FilterByInclusionSettings(this->pvt_root, "", "full", inclusionsettings, FALSE);
+    RETURN NEW WHFSDescriptionDiffTree([ type := "raw", root := filtered_root ]);
+  }
+
+  PUBLIC OBJECT FUNCTION ApplyOnDescriptionTree(OBJECT dtree)
+  {
+    RETURN NEW WHFSDescriptionTree([ type := "mods", org := dtree, diff := this->ApplyInclusionSettings(dtree) ]);
+  }
+
+  PUBLIC MACRO ResolveTypeConflict(STRING ARRAY path, RECORD newtree)
+  {
+    this->pvt_root := this->ResolveTypeConflictRecursive(this->pvt_root, path, newtree);
+  }
+
+  PUBLIC MACRO ResolveNameConflict(STRING ARRAY path, STRING name)
+  {
+    this->pvt_root := this->ResolveNameConflictRecursive(this->pvt_root, path, name);
+  }
+
+  PUBLIC MACRO ResolveDataConflict(STRING ARRAY path, BLOB data)
+  {
+    this->pvt_root := this->ResolveDataConflictRecursive(this->pvt_root, path, data);
+  }
+
+  PUBLIC MACRO ResolveBasedataConflict(STRING ARRAY path, RECORD basedata)
+  {
+    this->pvt_root := this->ResolveBaseDataConflictRecursive(this->pvt_root, path, basedata);
+  }
+
+  /** @param instances
+      @cell typens
+      @cell result
+  */
+  PUBLIC MACRO ResolveMetadataConflict(STRING ARRAY path, RECORD ARRAY instances)
+  {
+    this->pvt_root := this->ResolveMetadataConflictRecursive(this->pvt_root, path, instances);
+  }
+>;
+
+RECORD FUNCTION GetObjectHashesFromRepositoryRecursive(RECORD root)
+{
+  IF (NOT RecordExists(root))
+    RETURN DEFAULT RECORD;
+
+  RECORD result :=
+      [ name :=       root.name
+      , isfolder :=   root.isfolder
+      , hash :=       root.hash
+      ];
+
+  IF (CellExists(root, "SOURCE"))
+    INSERT CELL source := root.source INTO result;
+
+  IF (root.isfolder)
+  {
+    RECORD childrenfolder :=
+        SELECT *
+          FROM root.children
+         WHERE name = "data.folder";
+
+    RECORD ARRAY children :=
+        SELECT AS RECORD ARRAY GetObjectHashesFromRepositoryRecursive(children)
+          FROM (childrenfolder ?? [ children := DEFAULT RECORD ARRAY ]).children;
+
+    INSERT CELL children := children INTO result;
+  }
+  RETURN result;
+}
+
+PUBLIC OBJECT FUNCTION GetObjectHashesFromRepository(OBJECT rtree)
+{
+  RETURN EncapsulateRawRepositoryTree(GetObjectHashesFromRepositoryRecursive(rtree->root));
+}
+
+PUBLIC OBJECT FUNCTION CreateWHFSDescriptionTree(OBJECT folder, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := MakeMergedrecord([ type := "folder", folder := folder ], options);
+  RETURN NEW WHFSDescriptionTree(options);
+}
+
+PUBLIC OBJECT FUNCTION CreateWHFSDescriptionTreeFromRepository(OBJECT rtree)
+{
+  RETURN NEW WHFSDescriptionTree([ type := "rtree", rtree := rtree ]);
+}
+
+PUBLIC OBJECT FUNCTION GenerateWHFSDescriptionDiffTree(OBJECT repositorydifftree)
+{
+  RETURN NEW WHFSDescriptionDiffTree([ type := "rtree", rtree := repositorydifftree ]);
+}
+
+PUBLIC OBJECT FUNCTION FilterWHFSDescriptionDiffTree(OBJECT ddtree, RECORD ARRAY acceptedpaths)
+{
+  RETURN NEW WHFSDescriptionDiffTree([ type := "filter", diff := ddtree, acceptedpaths := acceptedpaths ]);
+}

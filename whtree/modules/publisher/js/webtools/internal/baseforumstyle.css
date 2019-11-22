@@ -1,0 +1,5 @@
+.wh-forumcomments--notloaded
+, .wh-forumcomments--closed .wh-forumcomments__respond
+{
+  display:none;
+}

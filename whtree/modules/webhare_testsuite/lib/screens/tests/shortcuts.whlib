@@ -1,0 +1,22 @@
+﻿<?wh
+
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE ShortcutTest EXTEND TolliumScreenBase
+<
+  INTEGER counter;
+
+
+  MACRO DoFKey_Vanilla()
+  {
+    this->counter := this->counter + 1;
+    this->textedit->value := "fkey_vanilla" || " " || this->counter;
+  }
+
+  MACRO DoFKey_Ctrl()
+  {
+    this->counter := this->counter + 1;
+    this->textedit->value := "fkey_ctrl" || " " || this->counter;
+  }
+>;

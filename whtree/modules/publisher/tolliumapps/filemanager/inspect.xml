@@ -1,0 +1,154 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         library="inspect.whlib"
+         gid="filemanager.inspect">
+
+  <screen name="inspect" gid=".inspect" title=""
+          minwidth="70x"
+          width="120x" height="32x"
+          allowresize="true" savestate="size"
+          >
+    <actions>
+      <action name="editdbinfo" tid="tollium:common.actions.edit">
+        <enableon source="dbinfo" min="1" max="1" checkflags="canedit" onexecute="doeditdbinfo" />
+        <enableon source="draftdbinfo" min="1" max="1" checkflags="canedit" onexecute="doeditdraftdbinfo" />
+      </action>
+      <action name="previewdbinfo" tid=".preview">
+        <enableon source="dbinfo" min="1" max="1" checkflags="canpreview" onexecute="dopreviewdbinfo" />
+        <enableon source="draftdbinfo" min="1" max="1" checkflags="canpreview" onexecute="dopreviewdraftdbinfo" />
+      </action>
+
+      <downloadaction name="dbinfodownload" tid="tollium:common.actions.download">
+        <enableon source="dbinfo" min="1" max="1" checkflags="candownload" ondownload="ondbinfodownload" />
+        <enableon source="draftdbinfo" min="1" max="1" checkflags="candownload" ondownload="ondraftdbinfodownload" />
+      </downloadaction>
+      <action name="jumptoreference" tid="tollium:common.actions.edit" onexecute="dojumptoreference">
+        <enableon source="refs" min="1" max="1" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="dbinfomenu">
+        <item action="editdbinfo" />
+        <item action="previewdbinfo" />
+        <item action="dbinfodownload" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <record name="fsobjecttypesettings" />
+      <eventlistener masks="publisher:internal.siteprofiles.memberschanged" onevent="onrefresh" />
+    </compositions>
+
+    <body layout="form" height="1pr" spacers="none">
+      <tabs name="maintabs" height="1pr" savestate="selectedtab">
+        <tab name="contenttypes" layout="left" tid="commondialogs.propsshared.contenttypes">
+          <panel height="1pr">
+            <list name="dbinfo"
+                  selectmode="single"
+                  openaction="editdbinfo"
+                  flags="canedit candownload canpreview"
+                  selectcontextmenu="dbinfomenu"
+                  borders="all">
+              <column name="name" type="text" tree="true" />
+              <column name="type" type="text" width="20x" />
+              <column name="data" type="text" />
+            </list>
+          </panel>
+           <text name="usedcontentlistingfile" />
+
+        </tab>
+        <tab name="draftcontenttypes" layout="left" tid="commondialogs.propsshared.drafts">
+          <split type="horizontal" splitter="transparent">
+            <part width="1pr">
+              <list name="drafts"
+                    selectmode="single"
+                    onselect="gotselectdraft"
+                    borders="top bottom left"
+                    sortascending="false">
+                <column name="when" type="datetime" width="18x" precision="minutes" />
+                <column name="user" type="text" width="1pr" />
+                <column name="type" type="text" width="1pr" />
+              </list>
+            </part>
+            <part width="2pr">
+              <list name="draftdbinfo"
+                    selectmode="single"
+                    openaction="editdbinfo"
+                    flags="canedit candownload canpreview"
+                    selectcontextmenu="dbinfomenu"
+                    borders="top right bottom">
+                <column name="name" type="text" tree="true" />
+                <column name="type" type="text" width="20x" />
+                <column name="data" type="text" />
+              </list>
+            </part>
+          </split>
+        </tab>
+        <tab name="applyrules">
+          <textedit name="searchapplyrules" onchange="refreshapplyrules" tid="~search" />
+          <split type="vertical" height="1pr">
+            <part height="1pr">
+              <list name="applies" selectmode="single" borders="top left right" onselect="onapplyselect" height="1pr" sortable="false">
+                <column name="path" type="text" />
+                <column name="startline" type="integer" tid="~line" align="right" width="6x"/>
+              </list>
+            </part>
+            <part height="1pr" borders="left bottom right">
+              <codeedit height="1pr" enabled="false" name="applyblock" />
+            </part>
+          </split>
+        </tab>
+        <tab name="consilio" title="Consilio">
+          <includefragment fragment="inspect/consilio.xml#consiliotab" name="consiliotab"/>
+        </tab>
+        <tab name="fsobjecttype">
+          <text name="typetitle" />
+          <textedit name="namespace" enabled="false" width="1pr" />
+          <text name="fstypeid" />
+          <textedit name="searchprovider" enabled="false" width="1pr" />
+          <text name="ishidden" />
+          <heading name="dynamicexecution" visible="false" />
+          <textedit name="dynamicexecution_library" enabled="false" visible="false" width="1pr" />
+          <textedit name="dynamicexecution_startmacro" enabled="false" visible="false" width="1pr" />
+          <textedit name="dynamicexecution_webpageobjectname" enabled="false" visible="false" width="1pr" />
+          <text name="dynamicexecution_cached" visible="false"  />
+        </tab>
+        <tab name="references">
+          <list name="refs"
+                height="1pr"
+                selectmode="single"
+                openaction="jumptoreference"
+                emptytid=".noreferences">
+            <column name="path" type="text" />
+            <column name="namespace" type="text" />
+          </list>
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+
+
+  <screen name="ctypefieldedit" gid=".ctypefieldedit" allowresize="true" savestate="size">
+    <body name="body">
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="stringfieldpreview" gid=".stringfieldpreview" allowresize="true" savestate="size" width="100x" height="18x">
+    <body name="body">
+      <text name="field" />
+      <panel borders="top right left bottom" height="1pr" width="1pr">
+        <codeedit name="datafield" enabled="false" height="1pr" width="1pr"/>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+</screens>

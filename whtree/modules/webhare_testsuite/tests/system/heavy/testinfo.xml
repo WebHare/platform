@@ -1,0 +1,5 @@
+﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <group name="harescript" skipautotests="true">
+    <test script="harescript.whscr" />
+  </group>
+</group>

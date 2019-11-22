@@ -1,0 +1,92 @@
+﻿<?wh
+/** @topic wrdauth/saml */
+
+/** Base type for SAML SP configuration
+*/
+PUBLIC OBJECTTYPE SAMLSPConfigBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// WRD Auth plugin
+  OBJECT plugin;
+
+  /// Configuration data
+  RECORD config;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT plugin, RECORD configdata)
+  {
+    this->plugin := plugin;
+    this->config := configdata;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Process an incoming SAML AuthenticationStatement
+      @param statement Decoded SAML statement
+      @return
+      @cell return.entityid
+      @cell return.name
+      @cell return.code 'ok', 'unknownlogin', 'error'
+  */
+  PUBLIC RECORD FUNCTION ProcessAuthenticationStatement(RECORD statement)
+  {
+    THROW NEW Exception("This function must be overridden");
+  }
+>;
+
+/** Base type for SAML IDP configuration
+*/
+PUBLIC OBJECTTYPE SAMLIDPConfigBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT plugin;
+
+  /// Configuration data
+  RECORD config;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT plugin, RECORD configdata)
+  {
+    this->plugin := plugin;
+    this->config := configdata;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Generates the data for an authentication statement for the currently logged in user
+
+      @return
+      @cell(record) return.subject
+      @cell(record) return.subject.nameid
+      @cell(string) return.subject.nameid.format
+      @cell(string) return.subject.nameid.value
+      @cell(record array) return.attributes
+      @cell(string) return.attributes.name
+      @cell(string) return.attributes.value
+  */
+  PUBLIC RECORD FUNCTION GenerateAuthenticationStatement()
+  {
+    THROW NEW Exception("This function must be overridden");
+  }
+
+>;

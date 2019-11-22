@@ -1,0 +1,215 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
+LOADLIB "mod::publisher/lib/internal/pagerendering.whlib";
+
+MACRO SendFileDirect(OBJECT openobj, INTEGER source, BOOLEAN usepublish)
+{
+  OBJECT sourceobj := OpenWHFSObject(source);
+
+  // Determine the mimetype by extension of the original source file (openobj is probably a draft, with its id as name)
+  STRING extension := SubString(ToLowercase(GetExtensionFromPath(sourceobj->fullpath)), 1);
+  STRING mimetype :=
+      SELECT AS STRING COLUMN mimetype
+        FROM system.mimetypes
+       WHERE COLUMN extension = VAR extension;
+
+  //When explicitly previewing, disable mimetypes which we know trigger downloads (eg chrome)
+  IF(ToUppercase(Tokenize(mimetype,';')[0]) IN ["TEXT/CALENDAR"])
+    mimetype := "text/plain";
+
+  IF(usepublish)
+  {
+    RECORD fp := RunFilePublish(sourceobj->id, FALSE);
+    IF(fp.success)
+    {
+      IF (mimetype != "")
+        AddHTTPHeader("Content-type", mimetype, FALSE);
+      SendWebFile(fp.files[0].data);
+    }
+    ELSE IF(Length(fp.hserrors) > 0)
+      GenerateHTTPErrorPage(500, [ allerrors := fp.hserrors, groupid := fp.hsgroupid ]);
+    ELSE
+      ABORT(fp); //what to do? we'll sort it out when we see the cases
+  }
+  ELSE
+  {
+    IF (mimetype != "")
+      AddHTTPHeader("Content-type", mimetype, FALSE);
+    SendWebFile(openobj->data);
+  }
+}
+
+PUBLIC MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpreview, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ instanceid := 0 ], options);
+
+  OBJECT applytester := GetApplyTesterForObject(source);
+  IF(NOT ObjectExists(applytester))
+    THROW NEW Exception("Unable to locate the webdesign for #" || source);
+
+  RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+  IF(NOT RecordExists(webdesigninfo))
+  {
+    Print(EncodeHTML("The live preview is only available for sites using <webdesign>"));
+    RETURN;
+  }
+
+  // Check if the file type needs a template (if not, send it directly)
+  OBJECT contentfiletype := OpenWHFSTypeById(openobj->type);
+  IF (NOT renderwidgetpreview AND NOT contentfiletype->needstemplate)
+  {
+    RECORD usetempl := applytester->GetUsePublishTemplate(FALSE);
+    SendFileDirect(openobj, source, NOT usetempl.isdefault );
+    RETURN;
+  }
+
+  RECORD sourceinfo := GetSystemRedirectInfo(source);
+  IF(sourceinfo.success)
+  {
+    RunThePage(source, sourceinfo, openobj->id);
+    RETURN;
+  }
+
+  __pageinfo := [ pagefolder := GetDirectoryFromPath(webdesigninfo.renderinfo.webpagelibrary) ];
+
+  OBJECT pageobject := MakeObject(webdesigninfo.renderinfo.webpagelibrary, webdesigninfo.renderinfo.objectname, openobj);
+  OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 200, openobj, pageobject, renderwidgetpreview);
+
+  IF (renderwidgetpreview)
+  {
+    RECORD instancedata;
+    IF (options.instanceid != 0)
+    {
+      instancedata := GetWHFSInstanceDirect(options.instanceid);
+      instancedata.whfsfileid := openobj->id;
+    }
+    ELSE
+    {
+      OBJECT type := OpenWHFSTypeById(openobj->type);
+      instancedata := type->GetInstanceData(openobj->id);
+      INSERT CELL whfstype := type->namespace INTO instancedata;
+      INSERT CELL whfsfileid := openobj->id INTO instancedata;
+    }
+
+    // Lookup RTD type
+    RECORD rtdtypesettings := GetRTDTypeSettings(applytester);
+    STRING rtdtype := RecordExists(rtdtypesettings) ? rtdtypesettings.rtdtype : "";
+
+    IF (rtdtype = "")
+      THROW NEW Exception("An RTD type is required to preview a widget, please set an <rtddoc rtdtype=...>");
+
+    webdesign->RunAsWidgetPreview(PTR webdesign->RenderWidgetInstance(instancedata));
+    RETURN;
+  }
+
+  webdesign->RunPage();
+}
+
+PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent, BOOLEAN insertoutputtools)
+{
+  OBJECT findpattern := NEW RegEx('<link rel="stylesheet" href="([^"]*)/.ap/([^/"]*)/ap.css"><script src="([^"]*)/.ap/([^/"]*)/ap.js"([^>]*)');
+  STRING content := BlobToString(outgoingcontent);
+  RECORD ARRAY matches := findpattern->Exec(content);
+  IF(Length(matches) > 4)
+  {
+    IF (matches[2].value NOT LIKE "*.dev")
+    {
+      //matches[5] == JS options (async, crossorigin=anonymous)
+      STRING toinsert;
+      IF(matches[0].value LIKE "*/.esm-experimental/*")
+      {
+        toinsert := `${matches[1].value}/.ap/${matches[2].value}.dev/ap.css">`
+                    || `<script src="/.esm-experimental/!/${matches[2].value}.dev/ap.js"${matches[5].value}`;
+      }
+      ELSE
+      {
+        toinsert := `${matches[1].value}/.ap/${matches[2].value}.dev/ap.css">`
+                    || `<script src="${matches[3].value}/.ap/tollium.polyfills/ap.js"></script>`
+                    || `<script src="${matches[3].value}/.ap/${matches[2].value}.dev/ap.js"${matches[5].value}`;
+      }
+      content := Left(content, matches[1].start) || toinsert || Substring(content,matches[5].start+matches[5].len);
+    }
+
+    STRING injection;
+    IF(insertoutputtools)
+    {
+      STRING outtoolsurlbase := matches[1].value || "/.publisher/common/outputtools/";
+      injection := '<link href="' || EncodeValue(outtoolsurlbase || "outputtools.css") || '" rel="stylesheet">'
+                    || '<script src="' || EncodeValue(outtoolsurlbase || "outputtools.js") || '" id="wh-publisher-outputtools"></script>';
+    }
+
+    INTEGER headclose := SearchSubstring(content,'</head>');
+    IF(headclose != -1)
+    {
+      content := Left(content, headclose) || injection || Substring(content, headclose);
+      outgoingcontent := StringToBlob(content);
+    }
+
+    RETURN [ outputtag := UnmapBundleUuid(matches[2].value)
+           , content := outgoingcontent
+           ];
+  }
+  RETURN DEFAULT RECORD;
+}
+
+/** Formats a X-WH-Proxy header
+    @param source
+    @param binding
+    @param proto
+    @param forip
+    @param localip
+    @param localport
+    @return Formatted X-WH-Proxy header value
+*/
+PUBLIC STRING FUNCTION FormatXWHProxyHeader(RECORD data)
+{
+  data := ValidateOptions(
+      [ source :=     ""
+      , binding :=    0
+      , proto :=      ""
+      , forip :=      ""
+      , localip :=    ""
+      , localport :=  0
+      ],
+      data,
+      [ required := [ "source", "proto", "forip", "localip", "localport" ]
+      ]);
+
+  FOREVERY (RECORD param FROM UnpackRecord(CELL[ data.source, data.proto, data.forip, data.localip ]))
+    IF (param.value LIKE "*;*" OR param.value LIKE "*\n*")
+      THROW NEW Exception(`Illegal proxy header parameter '${param.name}': ${EncodeJava(param.value)}`);
+
+  STRING header := `source=${EncodeJava(data.source)}`;
+  IF (data.binding != 0)
+    header := header || `;binding=${data.binding}`;
+  header := header || `;proto=${EncodeJava(data.proto)};for=${EncodeJava(data.forip)};local=${FormatSocketAddress(EncodeJava(data.localip), data.localport)}`;
+  RETURN header;
+}
+
+/** Returns the X-WH-Proxy header that is needed for a forwarded request
+*/
+PUBLIC STRING FUNCTION CalculateXWHProxyHeaderForRequestForwarding(STRING source)
+{
+  STRING proto := GetClientRequestURL() LIKE "https:*" ? "https" : "http";
+  RETURN FormatXWHProxyHeader(CELL[ source
+                                  , binding :=    GetClientBinding()
+                                  , proto
+                                  , forip :=      GetClientRemoteIp()
+                                  , localip :=    GetClientLocalIp()
+                                  , localport :=  GetClientLocalPort()
+                                  ]);
+}

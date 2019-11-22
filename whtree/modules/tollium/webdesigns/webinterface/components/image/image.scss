@@ -1,0 +1,87 @@
+@import "~@webhare/dompack-overlays/styles/mixins";
+
+/****************************************************************************************************************************
+ * Image
+ */
+.t-image
+{
+/*  position: relative;*/
+  overflow: hidden;
+}
+.t-image__wrapper
+{
+  position: relative;
+  display: table; /* shrink-wrap. IE & Edge unfortunately don't support width: max-content; */
+}
+.t-image--clickable
+{
+  cursor: pointer;
+}
+
+/* FIXME: move part of styling to skin ! */
+.t-image__overlay
+{
+  @include dompack-overlays;
+
+  box-shadow: 0 0 3px rgba(0,0,0,0.2);
+  border:     2px solid rgba(255, 255, 255, 0.8);
+
+    &:focus
+  , &:active
+  , &:hover
+  {
+    outline: 0;
+    border:  2px solid #308fe2;
+  }
+
+  /* FIXME: temporary for focus testing
+  &:focus
+  {
+    background-color: rgba(255,0,255,0.5);
+  }
+  */
+
+  &--selected
+  {
+    /*background-color: rgba(0, 0, 0, 0.3);*/
+    border: 2px solid #308fe2;
+    box-shadow: 0 0 3px rgba(1,1,1,0.25);
+  }
+
+  &__dragger
+  {
+    width: 8px;
+    height: 8px;
+    background-color: #FFFFFF; /* rgba(255, 128, 0, 0.5); */
+    opacity: 0;
+    transition: 0.2s opacity;
+  }
+
+  &--selected .t-image__overlay__dragger
+  {
+    background-color: #308fe2;
+  }
+
+    &:hover  .t-image__overlay__dragger
+  , &:active .t-image__overlay__dragger
+  , &:focus  .t-image__overlay__dragger
+  {
+    opacity: 1;
+    background-color: #308fe2;
+    transition: 0.4s opacity;
+  }
+}
+
+
+
+.t-image__overlay__title
+{
+  padding: 8px 5px;
+  color:   #FFFFFF;
+  text-shadow: 1px 1px 1px rgba(0,0,0,0.65);
+  font-weight: bold;
+
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+

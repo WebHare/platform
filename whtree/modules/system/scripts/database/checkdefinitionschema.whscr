@@ -1,0 +1,133 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "fix", type := "switch" ]
+                              ]);
+
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: checkdefinitionschema.whscr [--fix]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+BOOLEAN errors;
+SCHEMA
+< TABLE < INTEGER objectid
+        , STRING name
+        , INTEGER parent
+        , INTEGER type
+        > objects
+, TABLE < INTEGER objectid
+        > schemas
+, TABLE < INTEGER objectid
+        , INTEGER primary
+        > tables
+, TABLE < INTEGER objectid
+        , INTEGER columnid
+        , INTEGER refersto
+        > columns
+> definition_schema;
+
+//Validate tables
+RECORD ARRAY alltables;
+OBJECT trans := OpenPrimary([ recoverymode := TRUE ]);
+trans->BeginWork();
+
+definition_schema := BindTransactionToSchema(trans->id, "DEFINITION_SCHEMA");
+
+RECORD ARRAY allobjects := SELECT * FROM definition_schema.objects;
+
+//Validate schemas
+INTEGER ARRAY validschemaids := SELECT AS INTEGER ARRAY objectid FROM allobjects WHERE type=1;
+RECORD ARRAY invalidschemas := SELECT * FROM definition_schema.schemas WHERE objectid NOT IN validschemaids;
+IF(Length(invalidschemas) > 0)
+{
+  errors := TRUE;
+  Print("The following DEFINITION_SCHEMA.SCHEMAS have no matching entry in OBJECTS: " || Detokenize( (SELECT AS STRING ARRAY ToString(objectid) FROM invalidschemas ORDER BY objectid),',') || "\n");
+  IF(args.fix)
+    DELETE FROM definition_schema.schemas WHERE objectid IN (SELECT AS INTEGER ARRAY invalidschemas.objectid FROM invalidschemas);
+}
+
+MACRO RereadAllTables()
+{
+  alltables := SELECT *
+                    , parentid := (SELECT AS INTEGER parent FROM allobjects WHERE allobjects.objectid = tables.objectid)
+                    , name := (SELECT AS STRING name FROM allobjects WHERE allobjects.objectid = tables.objectid)
+                 FROM definition_schema.tables;
+}
+
+RereadAllTables();
+
+INTEGER ARRAY validtableids := SELECT AS INTEGER ARRAY objectid FROM allobjects WHERE type=2;
+RECORD ARRAY invalidtables := SELECT * FROM alltables WHERE objectid NOT IN validtableids;
+IF(Length(invalidtables) > 0)
+{
+  errors := TRUE;
+  Print("The following DEFINITION_SCHEMA.TABLES have no matching entry in OBJECTS: " || Detokenize( (SELECT AS STRING ARRAY ToString(objectid) FROM invalidtables ORDER BY objectid),',') || "\n");
+  IF(args.fix)
+    DELETE FROM definition_schema.tables WHERE objectid IN (SELECT AS INTEGER ARRAY invalidtables.objectid FROM invalidtables);
+}
+
+//Validate columns
+RECORD ARRAY allcolumns := SELECT *
+                                , parentid := (SELECT AS INTEGER parent FROM allobjects WHERE allobjects.objectid = columns.objectid)
+                                , name := (SELECT AS STRING name FROM allobjects WHERE allobjects.objectid = columns.objectid)
+                             FROM definition_schema.columns;
+INTEGER ARRAY validcolids := SELECT AS INTEGER ARRAY objectid FROM allobjects WHERE type=3;
+RECORD ARRAY invalidcols := SELECT * FROM allcolumns WHERE objectid NOT IN validcolids;
+IF(Length(invalidcols) > 0)
+{
+  errors := TRUE;
+  Print("The following DEFINITION_SCHEMA.COLUMNS have no matching entry in OBJECTS: " || Detokenize( (SELECT AS STRING ARRAY ToString(objectid) FROM invalidcols ORDER BY objectid),',') || "\n");
+  IF(args.fix)
+    DELETE FROM definition_schema.columns WHERE objectid IN (SELECT AS INTEGER ARRAY invalidcols.objectid FROM invalidcols);
+}
+
+//Validate primary key of tables
+RECORD ARRAY tables_without_primaries := SELECT *
+                                           FROM alltables
+                                          WHERE primary != 0
+                                                AND NOT RecordExists(SELECT FROM allcolumns WHERE allcolumns.parentid = alltables.objectid AND allcolumns.columnid = alltables.primary);
+IF(Length(tables_without_primaries) > 0)
+{
+  errors := TRUE;
+  Print("The following DEFINITION_SCHEMA.TABLES refer to a nonexisting PRIMARY: " || Detokenize( (SELECT AS STRING ARRAY objectid || " (" || name || ")" FROM tables_without_primaries ORDER BY objectid),',') || "\n");
+  IF(args.fix)
+    UPDATE definition_schema.tables SET primary := 0 WHERE objectid IN (SELECT AS INTEGER ARRAY tables_without_primaries.objectid FROM tables_without_primaries);
+  RereadAllTables(); //let's just always reread to keep non --fix and --fix codepaths as similar as possible
+}
+
+INTEGER ARRAY unreferencable_tables := SELECT AS INTEGER ARRAY objectid FROM alltables WHERE primary = 0;
+RECORD ARRAY impossible_referencers := SELECT * FROM allcolumns WHERE refersto IN unreferencable_tables;
+IF(Length(impossible_referencers) > 0)
+{
+  errors := TRUE;
+  Print("The following DEFINITION_SCHEMA.COLUMNS refer tables which can't accept references due to not having a primary key:\n");
+  Print(Detokenize( (SELECT AS STRING ARRAY objectid || " (" || name || ")" FROM impossible_referencers ORDER BY objectid),',') || "\n");
+  IF(args.fix)
+  {
+    UPDATE definition_schema.columns SET refersto := 0 WHERE objectid IN (SELECT AS INTEGER ARRAY impossible_referencers.objectid FROM impossible_referencers);
+  }
+}
+
+IF(errors AND NOT args.fix)
+{
+  Print("There were errors, consult database.md for more information on this script\n");
+  SetConsoleExitCode(1);
+}
+IF(errors AND args.fix)
+{
+  RECORD ARRAY commiterrors := trans->CommitWork();
+  IF(length(commiterrors)>0)
+  {
+    Print("Commit errors:\n");
+    DumpValue(commiterrors,'boxed');
+  }
+  ELSE
+  {
+    PRint("Fixes were committed\n");
+  }
+}

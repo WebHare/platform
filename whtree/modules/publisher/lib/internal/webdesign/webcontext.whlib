@@ -1,0 +1,319 @@
+﻿<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+
+LOADLIB "mod::socialite/lib/google/recaptcha.whlib";
+
+
+PUBLIC RECORD __pageinfo;
+
+PUBLIC RECORD FUNCTION __SplitBaseAndSubUrl(STRING requesturl, STRING urlpath)
+{
+  INTEGER qmark := SearchSubstring(requesturl,'?');
+  STRING append;
+  IF(qmark >= 0)
+  {
+    append := SubString(requesturl, qmark);
+    requesturl := Left(requesturl, qmark);
+  }
+
+  // Always put the the /!/ part in the subpath
+  requesturl := Substitute(requesturl, '/%21', '/!');
+  INTEGER stoppoint := SearchSubstring(requesturl, '/!/');
+  STRING exsubpath;
+  IF (stoppoint > -1)
+  {
+    exsubpath := SubString(requesturl, stoppoint + 1);
+    requesturl := Left(requesturl, stoppoint + 1);
+  }
+
+  // Fastpath when the request urlpath equals the file urlpath
+  // not lowercasing here to let tests force slow path
+  RECORD unpacked := UnpackURL(requesturl);
+  IF (unpacked.urlpath = urlpath)
+  {
+    RETURN CELL
+        [ absolutebaseurl :=    requesturl
+        , subpath :=            exsubpath
+        , append
+        ];
+  }
+
+  // Get the host root url
+  STRING hostrooturl := RepackURL(CELL[ ...unpacked, urlpath := "" ]);
+
+  // Get the path parts of the file urlpath
+  STRING ARRAY urlpathparts := Tokenize(urlpath, "/");
+  INTEGER urlpathpos := 0;
+
+  // Get the path parts of the request path
+  STRING ARRAY absparts := Tokenize(unpacked.urlpath, "/");
+
+  INTEGER splitpoint;
+  FOR (; splitpoint < LENGTH(absparts); splitpoint := splitpoint + 1)
+  {
+    // ignore path parts starting with '!'
+    IF (absparts[splitpoint] LIKE "!*")
+      CONTINUE;
+
+    // Break at first mismatching part
+    IF (urlpathpos = LENGTH(urlpathparts))
+    {
+      // allow a '/' at the end of the absolutebaseurl
+      IF (splitpoint = LENGTH(absparts) - 1 AND absparts[splitpoint] = "")
+        splitpoint := splitpoint + 1;
+      BREAK;
+    }
+
+    // ignore case
+    IF (ToLowercase(absparts[splitpoint]) != ToLowercase(urlpathparts[urlpathpos]))
+      BREAK;
+
+    urlpathpos := urlpathpos + 1;
+  }
+
+  // Ensure the absolutebaseurl ends in a slash when the suburl ends in one
+  STRING absolutebaseurl := hostrooturl || Detokenize(ArraySlice(absparts, 0, splitpoint), "/");
+  IF ((urlpath = "" OR urlpath LIKE "*/") AND absolutebaseurl NOT LIKE "*/")
+    absolutebaseurl := absolutebaseurl || "/";
+
+  RECORD retval := CELL
+      [ absolutebaseurl
+      , subpath :=            Detokenize(ArraySlice(absparts, splitpoint), "/") || exsubpath
+      , append
+      ];
+
+  RETURN retval;
+}
+
+PUBLIC STATIC OBJECTTYPE WebContext
+<
+  //webdesign config. it's format may change between versions, so external users should not rely on it
+  RECORD __config;
+
+  RECORD ARRAY pvt_plugins;
+  OBJECT pvt_contentobject;
+  OBJECT pvt_targetobject;
+  OBJECT pvt_targetfolder;
+  OBJECT pvt_targetsite;
+  OBJECT pvt_targetapplytester;
+
+  //The base URL for this page
+  PUBLIC STRING baseurl;
+  //The language to use (eg 'en', 'nl')
+  PUBLIC STRING languagecode;
+  //The object being published/displayed
+  PUBLIC PROPERTY targetobject(pvt_targetobject, -);
+  //The folder containing the targetobject, if targetobject is a file. Otherwise, the target object
+  PUBLIC PROPERTY targetfolder(pvt_targetfolder, -);
+  //The site containing the targetobject;
+  PUBLIC PROPERTY targetsite(pvt_targetsite, -);
+  //The apply tester for the targetobject
+  PUBLIC PROPERTY targetapplytester(pvt_targetapplytester, -);
+  //The object providing the source. This will differ from targetobject if targetobject is a contentlink.
+  PUBLIC PROPERTY contentobject(pvt_contentobject, -);
+
+  PUBLIC OBJECT __mergefields;
+
+  MACRO NEW()
+  {
+    this->__config := __webdesign_config;
+    this->languagecode := "en";
+  }
+
+  OBJECT FUNCTION __CreatePlugin(RECORD pluginrecord)
+  {
+    OBJECT pluginobj := MakeObject(pluginrecord.objectname);
+    RECORD mergedconfiguration := CombinePartialNodes(pluginrecord.datas);
+    pluginobj->ConfigurePlugin(this, mergedconfiguration);
+    RETURN pluginobj;
+  }
+
+  MACRO RunPluginHooks(RECORD pluginrecord)
+  {
+    FOREVERY(RECORD otherplugin FROM this->pvt_plugins)
+    {
+      IF(otherplugin.init)
+        CONTINUE;
+
+      BOOLEAN ishooking;
+      FOREVERY(RECORD hook FROM otherplugin.hooksplugins)
+        IF(hook.namespaceuri = pluginrecord.namespace AND hook.localname = pluginrecord.name)
+        {
+          ishooking := TRUE;
+          BREAK;
+        }
+
+      IF(ishooking)
+        this->GetPlugin(otherplugin.namespace, otherplugin.name);
+    }
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetPluginsByFeature(STRING featurename)
+  {
+    OBJECT ARRAY plugins;
+
+    FOREVERY(RECORD plugin FROM this->pvt_plugins)
+      IF(featurename IN plugin.hooksfeatures)
+      {
+        IF(NOT ObjectExists(plugin.pluginobj))
+        {
+          this->pvt_plugins[#plugin].init := TRUE;
+          this->pvt_plugins[#plugin].pluginobj := this->__CreatePlugin(plugin);
+          this->RunPluginHooks(plugin); //also invoke plugins that affect this pugin
+        }
+
+        INSERT this->pvt_plugins[#plugin].pluginobj INTO plugins AT END;
+      }
+    RETURN plugins;
+  }
+
+  PUBLIC OBJECT FUNCTION GetPlugin(STRING ns, STRING localname)
+  {
+    FOREVERY(RECORD plugin FROM this->pvt_plugins)
+      IF(plugin.namespace = ns AND plugin.name = localname)
+      {
+        IF(NOT ObjectExists(plugin.pluginobj))
+        {
+          this->pvt_plugins[#plugin].init := TRUE;
+          this->pvt_plugins[#plugin].pluginobj := this->__CreatePlugin(plugin);
+          this->RunPluginHooks(plugin); //also invoke plugins that affect this pugin
+        }
+
+        RETURN this->pvt_plugins[#plugin].pluginobj;
+      }
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC OBJECT FUNCTION GetWRDAuthPlugin()
+  {
+    RETURN this->GetPlugin("http://www.webhare.net/xmlns/wrd", "wrdauth");
+  }
+
+  PUBLIC MACRO __SetAvailablePlugins(RECORD ARRAY plugins)
+  {
+    this->pvt_plugins := SELECT *, pluginobj := DEFAULT OBJECT, init := FALSE FROM plugins;
+  }
+
+  MACRO PreparePlugins()
+  {
+    UPDATE this->pvt_plugins SET pluginobj := this->__CreatePlugin(pvt_plugins) WHERE pluginobj = DEFAULT OBJECT;
+    FOREVERY(RECORD plugin FROM this->pvt_plugins)
+    {
+      this->RunPluginHooks(plugin);
+    }
+  }
+
+  PUBLIC MACRO __SetObjectId(INTEGER objectid, OBJECT applytester)
+  {
+    this->pvt_targetobject := OpenWHFSObject(objectid);
+    this->pvt_targetfolder := ObjectExists(this->pvt_targetobject) ? this->pvt_targetobject->isfolder ? this->pvt_targetobject : this->pvt_targetobject->parentobject : DEFAULT OBJECT;
+    this->pvt_targetsite := ObjectExists(this->pvt_targetobject) ? OpenSite(this->pvt_targetobject->parentsite) : DEFAULT OBJECT;
+    this->pvt_targetapplytester := applytester;
+    this->languagecode := this->pvt_targetapplytester->GetSiteLanguage([ webcontext := this ]);
+
+    IF(ObjectExists(this->pvt_targetobject))
+    {
+      IF(RecordExists(this->__config) AND ObjectExists(this->__config.override_contentobject))
+      {
+        this->pvt_contentobject := this->__config.override_contentobject;
+      }
+      ELSE IF(this->pvt_targetobject->type=20) //contentlink
+      {
+        this->pvt_contentobject := OpenWHFSObject(this->pvt_targetobject->filelink);
+        IF(NOT ObjectExists(this->pvt_contentobject))
+          THROW NEW Exception("Contentlink #" || this->pvt_targetobject->id || " links to an nonexisting file");
+        IF(this->pvt_contentobject->isfolder)
+          THROW NEW Exception("Contentlink #" || this->pvt_targetobject->id || " links to folder #" || this->pvt_targetobject->filelink);
+        IF(NOT this->pvt_contentobject->isactive)
+          THROW NEW Exception("Contentlink #" || this->pvt_targetobject->id || " links to deleted file #" || this->pvt_targetobject->filelink);
+      }
+      ELSE
+      {
+        this->pvt_contentobject := this->pvt_targetobject;
+      }
+    }
+  }
+
+  PUBLIC OBJECT FUNCTION OpenForm(STRING formname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN OpenFormWithContext(this, formname, options);
+  }
+
+  PUBLIC RECORD FUNCTION GetWittyDataForForm(STRING formname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->OpenForm(formname, options)->GetWittyData();
+  }
+
+  PUBLIC STRING FUNCTION GetDefaultMailTemplate()
+  {
+    RETURN this->pvt_targetapplytester->GetDefaultMailTemplate();
+  }
+
+  PUBLIC MACRO AddPublicationWarning(STRING text)
+  {
+    LogWarning("publisher:addpublicationwarning", text, [ stacktrace := GetStackTrace()
+                                                        , targetobject := ObjectExists(this->pvt_targetobject) ? this->pvt_targetobject->whfspath : ""
+                                                        ]);
+  }
+
+  STRING FUNCTION __GetCaptchaURL()
+  {
+    STRING url := IsWHDebugOptionSet("nsc") ? "mock" : GetFormRequestURL();
+    RETURN url;
+  }
+
+  PUBLIC STRING FUNCTION GetCaptchaAPIKey()
+  {
+    STRING url := this->__GetCaptchaURL();
+    RETURN GetRecaptchaPublicKey(url);
+  }
+  PUBLIC BOOLEAN FUNCTION VerifyCaptchaResponse(STRING response)
+  {
+    IF(response = "")
+      RETURN FALSE;
+
+    STRING url := this->__GetCaptchaURL();
+    RETURN VerifyRecaptchaResponse(url, response);
+  }
+  PUBLIC BOOLEAN FUNCTION AllowToSkipCaptchaCheck()
+  {
+    OBJECT captchaplugin := this->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "captchaintegration");
+    IF(ObjectExists(captchaplugin))
+    {
+      IF(captchaplugin->skipfunction != "" AND MakeFunctionPtr(captchaplugin->skipfunction)(this))
+        RETURN TRUE; //allowed to skip!
+    }
+    RETURN FALSE;
+  }
+  PUBLIC STRING FUNCTION ExpandContextVariables(STRING indata)
+  {
+    IF(indata NOT LIKE "*[*")
+      RETURN indata;
+
+    //TODO share with webserver config.whlib ?
+    STRING sitename := this->targetsite->name;
+    RECORD vars := CELL[ sitename
+                       , siteslug := Tolowercase(Substitute(sitename, " ", "-"))
+                       ];
+
+    FOREVERY (RECORD rec FROM UnpackRecord(vars))
+      indata := Substitute(indata, `[${ToLowercase(rec.name)}]`, rec.value);
+
+    //TODO fail if unexpected name
+    indata := Substitute(indata,'[[','['); //support simple escaping
+
+    RETURN indata;
+  }
+
+>;

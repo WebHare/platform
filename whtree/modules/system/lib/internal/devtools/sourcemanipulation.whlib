@@ -1,0 +1,434 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/harescript.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+/** Determines which loadlibs are present in the source
+    and where new loadlibs can be placed
+    @param source
+    @return
+    @cell(integer array) return.allowed_lines Line numbers of lines where new loadlibs can be placed at column position 1.
+    @cell(integer array) return.empty_lines Line numbers of lines without content
+    @cell(record array) return.loadlibs
+    @cell(string) return.loadlibs.path Path for loadlib
+    @cell(integer) return.loadlibs.line Line number where this loadlibs is placed
+    @cell(integer) return.minline Minimum line nr where new loadlibs can be placed
+    @cell(integer) return.maxline Maximinum line nr where new loadlibs can be placed
+*/
+PUBLIC RECORD FUNCTION GetLoadlibPositionData(STRING source)
+{
+  INTEGER str := OpenHareScriptFile(StringToBlob(source));
+  RECORD rec := GetHareScriptFileToken(str);
+
+  // Skip shebang
+  IF (rec.token LIKE "*#!/*")
+    rec := GetHareScriptFileToken(str);
+
+  INTEGER ARRAY allowed_lines, empty_lines;
+  RECORD ARRAY loadlibs;
+
+  INTEGER loadlibstart;
+  STRING curr_loadlib;
+  INTEGER minline;
+  INTEGER maxline := 2;
+
+  BOOLEAN allow_content := FALSE;
+  BOOLEAN firsttoken := TRUE;
+  INTEGER lastline;
+  BOOLEAN nextislinestart := FALSE;
+  WHILE (TRUE)
+  {
+    IF (NOT RecordExists(rec))
+      BREAK;
+
+    BOOLEAN atlinestart := nextislinestart;
+    nextislinestart := FALSE;
+
+    IF (allow_content)
+    {
+      FOR (; lastline <= rec.line; lastline := lastline + 1)
+        INSERT lastline INTO allowed_lines AT END;
+      allow_content := FALSE;
+    }
+
+    //DumpValue(rec, "tree");
+
+    // After an opening tag, increase the minline, need an indication where to place the first loadlib
+    IF (rec.token LIKE "<" || "?wh*")
+      minline := rec.line + 1;
+
+    IF (rec.token LIKE "//*")
+    {
+      allow_content := TRUE; // allow content at the start of the next line
+      nextislinestart := TRUE;
+    }
+    ELSE IF (rec.isexternaldata OR Left(rec.token,2) = "/*")
+    {
+      IF (Left(rec.token,2) = "/**")
+      {
+        // Might be library comment!
+        IF (LENGTH(loadlibs) = 0)
+          minline := rec.line + 1;
+      }
+    }
+    ELSE IF (rec.iswhitespace)
+    {
+      allow_content := TRUE;
+      // detect empty lines
+      STRING ARRAY lines := Tokenize(Substitute(rec.token, "\r", ""), "\n");
+      FOR (INTEGER i := atlinestart ? 0 : 1; i < LENGTH(lines) - 1; i := i + 1)
+        IF (lines[i] = "")
+          INSERT rec.line + i INTO empty_lines AT END;
+      nextislinestart := LENGTH(lines) > 1 AND lines[END - 1] = "";
+    }
+    ELSE IF (rec.token = ";")
+    {
+      // Process the loadlib before this ';' token
+      IF (curr_loadlib != "")
+        INSERT [ path := curr_loadlib, line := rec.line ] INTO loadlibs AT END;
+      allow_content := TRUE;
+      firsttoken := TRUE;
+    }
+    ELSE IF (firsttoken AND ToUppercase(rec.token) != "LOADLIB")
+    {
+      // First non-loadlib, stop parsing
+      maxline := rec.line;
+      BREAK;
+    }
+    ELSE IF (ToUppercase(rec.token) = "LOADLIB")
+    {
+      // Got a loadlib, start parsing it
+      loadlibstart := rec.line;
+      firsttoken := FALSE;
+    }
+    ELSE IF (rec.token LIKE "'*" OR rec.token LIKE '"*')
+    {
+      // Only string in a loadlib statement is the loadlib path itself, record it
+      curr_loadlib := SubString(rec.token, 1, LENGTH(rec.token) - 2);
+    }
+
+    lastline := rec.line + 1;
+    maxline := lastline;
+    rec := GetHareScriptFileToken(str);
+  }
+
+  CloseHarescriptFile(str);
+
+  RETURN
+      [ allowed_lines :=    allowed_lines
+      , empty_lines :=      empty_lines
+      , loadlibs :=         loadlibs
+      , minline :=          minline
+      , maxline :=          maxline
+      ];
+}
+
+/** Get the data for ordering loadlibs
+    @param path
+    @return
+    @cell return.groupprio Group priority (0 is top, 4 is lowest)
+    @cell return.module Module of loadlib (may be empty)
+    @cell return.path Path elements of loadlib
+*/
+RECORD FUNCTION DescribeLoadLib(STRING path)
+{
+  RECORD retval :=
+      [ groupprio :=    0
+      , module :=       ""
+      , path :=         DEFAULT STRING ARRAY
+      ];
+
+  IF (path NOT LIKE "*::*")
+  {
+    retval.groupprio := 5;
+    retval.path := Tokenize(path, "/");
+    RETURN retval;
+  }
+  retval.path := Tokenize(Tokenize(path, "::")[1], "/");
+
+  IF (path LIKE "module::*" OR path LIKE "moduleroot::*" OR path LIKE "mod::*")
+  {
+    retval.module := retval.path[0];
+    retval.groupprio := retval.module IN [ "system", "publisher" ,"tollium", "consilio", "webpack" ] ? 1 : 2;
+    retval.path[0] := Tokenize(path, "::")[0];
+  }
+  ELSE IF (path LIKE "wh::*")
+    retval.groupprio := 0;
+  ELSE IF (path LIKE "site::*" OR path LIKE "currentsite::*")
+    retval.groupprio := 3;
+  ELSE
+    retval.groupprio := 4;
+  RETURN retval;
+}
+
+/** Compares two loadlibs, returns where they should be placed relative to each other
+     -1: pre < post, 1: post < pre
+    @param lib
+    @param compareto
+    @return
+    @cell return.same_group Whether the loadlibs are in the same group (module)
+    @cell return.position <0 if lib should be placed before compareto, >0 if lib should be placed after compareto. 0 if not in
+        the same group, but no intra-group ordering is specified. The absolute value is 1 if same_group is TRUE, 2 if same_group is FALSE.
+*/
+PUBLIC RECORD FUNCTION CompareLoadLibs(STRING lib, STRING compareto)
+{
+  RECORD libdata := DescribeLoadLib(lib);
+  RECORD comparetodata := DescribeLoadLib(compareto);
+
+  // Same group priority?
+  IF (libdata.groupprio != comparetodata.groupprio)
+    RETURN [ same_group := FALSE, position := libdata.groupprio < comparetodata.groupprio ? -1 : 1 ];
+
+  // Same group?
+  IF (libdata.module != comparetodata.module)
+    RETURN [ same_group := FALSE, position := 0 ];
+
+  // compare paths - internal libs should go after non-internal at the same level
+  INTEGER l_lib := LENGTH(libdata.path);
+  INTEGER l_compareto := LENGTH(comparetodata.path);
+
+  INTEGER shared_count := Min[]([ l_lib, l_compareto ]);
+  FOR (INTEGER idx := 0; idx < shared_count; idx := idx + 1)
+  {
+    IF ((l_lib - 1 > idx) != (l_compareto - 1 > idx))
+      RETURN [ same_group := TRUE, position := l_compareto - 1 > idx ? -2 : 2 ];
+    IF ((libdata.path[idx] = "internal") != (comparetodata.path[idx] = "internal"))
+      RETURN [ same_group := TRUE, position := comparetodata.path[idx] = "internal" ? -2 : 2 ];
+    IF (libdata.path[idx] != comparetodata.path[idx])
+      RETURN [ same_group := TRUE, position := libdata.path[idx] < comparetodata.path[idx] ? -2 : 2 ];
+  }
+  RETURN [ same_group := TRUE, position := l_lib < l_compareto ? -2 : 2 ];
+}
+
+/** Returns the position to place loadlib instruction
+    @param s Source file
+    @param path Library URI
+    @return
+    @cell success
+    @cell insertpos Byte position to insert (only when success is true)
+    @cell data String to insert (only when success is true)
+    @cell message Message Error/success message
+*/
+PUBLIC RECORD FUNCTION GetLoadlibInsertInstructions(STRING s, STRING path)
+{
+  RECORD posdata := GetLoadlibPositionData(s);
+//  DumpValue(posdata, "tree");
+
+  IF (RecordExists(SELECT FROM posdata.loadlibs WHERE COLUMN path = VAR path))
+    RETURN [ success := FALSE, message := `A LOADLIB for ${path} is already present` ];
+
+  // Compute the line to insert
+  STRING instr := 'LOADLIB "' || path || '";\n';
+
+  // Compare paths with all existing loadlibs
+  RECORD ARRAY positions :=
+      SELECT TEMPORARY comp := CompareLoadlibs(COLUMN path, VAR path)
+           , *
+           , same_group :=  comp.same_group
+           , position :=    comp.position
+        FROM posdata.loadlibs;
+
+  // Set the default insert position and the number of empty lines wanted before and after this loadlib
+  INTEGER wantline := posdata.minline;
+  INTEGER need_space_before := 1;
+  INTEGER need_space_after := 2;
+
+  IF (LENGTH(positions) != 0)
+  {
+    // Find the loadlib that has the closest relation to our loadlib
+    RECORD ARRAY ordered :=
+        SELECT TEMPORARY before := position > 0
+             , beforepos := #positions - (before?1:0)
+             , afterpos :=  #positions + (before?0:1)
+             , wantline :=  line + (before?0:1)
+             , *
+          FROM positions
+      ORDER BY position < 0 ? -position : position DESC // order by absolute position value
+             , position DESC // positive positions first
+             , position <= 0 ? -#positions : #positions; // negative/0 position: last match, positive position: first match
+
+    // Delete funky positions
+    DELETE FROM ordered WHERE COLUMN wantline NOT IN posdata.allowed_lines;
+
+    IF (RecordExists(ordered))
+    {
+      wantline := ordered[0].wantline;
+
+      // The first loadlib wants one empty line before it. Different groups are separated by 1 line
+      need_space_before := ordered[0].beforepos < 0 OR NOT positions[ordered[0].beforepos].same_group ? 1 : 0;
+
+      // The last loadlib wants two empty line after it. Different groups are separated by 1 line
+      need_space_after := ordered[0].afterpos = LENGTH(positions) ? 2 : NOT positions[ordered[0].afterpos].same_group ? 1 : 0;
+    }
+  }
+
+  // Still a funky position?
+  IF (wantline NOT IN posdata.allowed_lines)
+    RETURN [ success := FALSE, message := "Could not find a valid LOADLIB insert position" ];
+
+  // Add newlines to the inserted text for missing empty lines
+  FOR (INTEGER i := 0; i < need_space_before; i := i + 1)
+    IF (wantline - 1 - i NOT IN posdata.empty_lines)
+      instr := "\n" || instr;
+  FOR (INTEGER i := 0; i < need_space_after; i := i + 1)
+    IF (wantline + i NOT IN posdata.empty_lines)
+      instr := instr || "\n";
+
+  // Compute the insert position
+  INTEGER insertpos := LENGTH(Detokenize(ArraySlice(Tokenize(s, "\n"), 0, wantline - 1), "\n")) + 1;
+
+  RETURN
+      [ success :=    TRUE
+      , insertpos :=  insertpos
+      , data :=       instr
+      , message :=    "Added " || TrimWhitespace(instr)
+      ];
+}
+
+/** Tries to insert a loadlib in a file
+    @param s Source file
+    @param path Loadlib path
+    @return
+    @cell return.success
+    @cell return.data Edited source file
+    @cell return.message
+*/
+PUBLIC RECORD FUNCTION InsertLoadLibStatement(STRING s, STRING path)
+{
+  RECORD instr := GetLoadlibInsertInstructions(s, path);
+  IF (NOT instr.success)
+    RETURN [ success := FALSE, message := instr.message ];
+
+  STRING result := Left(s, instr.insertpos) || instr.data || Substring(s, instr.insertpos);
+  RETURN [ success := TRUE, data := result, message := instr.message ];
+}
+
+
+RECORD ARRAY FUNCTION GetUncommentedTokens(BLOB infile)
+{
+  INTEGER hsfile := OpenHareScriptFile(infile);
+  RECORD ARRAY outtokens;
+
+  WHILE(TRUE)
+  {
+    RECORD tok := GetHareScriptFileToken(hsfile);
+    IF(NOT RecordExists(tok))
+      BREAK;//eof
+
+    IF(Length(outtokens)>0 AND tok.rawtoken NOT LIKE "*\n*" AND (tok.iswhitespace OR Left(tok.rawtoken,2) IN ["/*","//"])) //only eat tokens on the same line
+      outtokens[END-1].trailing := outtokens[END-1].trailing || tok.rawtoken;
+    ELSE
+    {
+      INSERT CELL trailing := "" INTo tok;
+      INSERT tok INTO outtokens AT END;
+    }
+  }
+  CloseHarescriptfile(hsfile);
+  RETURN outtokens;
+}
+STRING FUNCTION GetRecombinedTokens(RECORD ARRAY intokens)
+{
+  RETURN Detokenize( (SELECT AS STRING ARRAY rawtoken || trailing FROM intokens), "");
+}
+
+STRING FUNCTION GetStringToken(STRING tok)
+{
+  IF(Left(tok,1) IN ["'",'"'] AND Right(tok,1)=Left(tok,1)) //it's a string
+    RETURN DecodeJava(Substring(tok,1,Length(tok)-2));
+  RETURN "";
+}
+
+/** Rewrite module:: loadlibs */
+PUBLIC RECORD FUNCTION RewriteModuleLoadlibsToMod(STRING infile)
+{
+  RECORD ARRAY intokens := GetUncommentedTokens(StringToBlob(infile));
+  BOOLEAN anychanges;
+
+  FOREVERY(RECORD intok FROM intokens)
+  {
+    IF(ToUppercase(intok.rawtoken) = "LOADLIB")
+    {
+      STRING lib := GetStringToken(intokens[#intok+1].token);
+      IF(lib LIKE "module::*" OR lib LIKE "moduleroot::*")
+      {
+        STRING newpath := MakeAbsoluteResourcePath("", lib);
+        IF(newpath NOT LIKE "mod::*/include/*") //we -dont- want to write out include, it'll only make future include->lib renames harder
+        {
+          intokens[#intok+1].rawtoken := `"${newpath}"`;
+          anychanges := TRUE;
+        }
+      }
+    }
+  }
+
+  RETURN [ anychanges := anychanges, data := GetRecombinedTokens(intokens) ];
+}
+
+/** Removes/replaces a specific loadlib from a source file
+    @param infile File to manipulate
+    @param tokill Loadlib to remove
+    @param replwith Loadlib to replace it with
+    @return
+    @cell return.success
+    @cell return.data New file
+*/
+PUBLIC RECORD FUNCTION RemoveLoadlibStatement(STRING infile, STRING tokill)
+{
+  RECORD ARRAY intokens := GetUncommentedTokens(StringToBlob(infile));
+  tokill := MakeAbsoluteResourcePath("", tokill);
+  BOOLEAN prev_emptyline;
+  FOREVERY(RECORD intok FROM intokens)
+  {
+    BOOLEAN mustremove;
+    IF (ToUppercase(intok.rawtoken) = "LOADLIB")
+    {
+      // Invalid loadlib paths may cause exceptions here
+      TRY
+        mustremove := MakeAbsoluteResourcePath("", GetStringToken(intokens[#intok+1].token)) = tokill;
+      CATCH;
+    }
+    IF(mustremove)
+    {
+      IF(intokens[#intok+2].rawtoken = ";") //save to kill
+      {
+        DELETE FROM intokens AT #intok+2;
+        DELETE FROM intokens AT #intok+1;
+        DELETE FROM intokens AT #intok;
+
+        // Remove whitespace and line comments on the rest of the line
+        WHILE (LENGTH(intokens) > #intok)
+        {
+          IF (intokens[#intok].iswhitespace)
+          {
+            IF (intokens[#intok].rawtoken LIKE "*\n*")
+            {
+              intokens[#intok].rawtoken := SubString(intokens[#intok].rawtoken, SearchSubstring(intokens[#intok].rawtoken, "\n") + 1);
+
+              // If the previous line and the next line are both empty, remove the next empty line
+              IF (prev_emptyline AND intokens[#intok].rawtoken LIKE "\n*")
+                intokens[#intok].rawtoken := SubString(intokens[#intok].rawtoken, SearchSubstring(intokens[#intok].rawtoken, "\n") + 1);
+
+              IF (intokens[#intok].rawtoken = "")
+                DELETE FROM intokens AT #intok;
+              BREAK;
+            }
+            DELETE FROM intokens AT #intok;
+          }
+          ELSE IF (Left(intokens[#intok].rawtoken, 2) = "//")
+          {
+            DELETE FROM intokens AT #intok;
+            BREAK;
+          }
+          ELSE
+            BREAK;
+        }
+
+        RETURN [ success := TRUE, data := GetRecombinedTokens(intokens), message := "LOADLIB was removed" ];
+      }
+      RETURN [ success := FALSE, message := `Could not remove LOADLIB of ${tokill}` ];
+    }
+    prev_emptyline := intok.rawtoken LIKE "*\n\n" OR (intok.rawtoken = "\n" AND intok.col = 1);
+  }
+  RETURN [ success := FALSE, message := `Could not find LOADLIB of ${tokill}` ];
+}

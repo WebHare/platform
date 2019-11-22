@@ -1,0 +1,194 @@
+<?wh
+// command: tasks [subcommand]
+// short: Manage tasks
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/tasks.whlib";
+LOADLIB "mod::system/lib/internal/tasks/execution.whlib";
+
+MACRO ListQueues(STRING ARRAY params)
+{
+  IF(Length(params) > 0) //none supported yet
+  {
+    Print("Syntax: wh tasks listqueues\n");
+    TerminateScriptWithError("");
+  }
+
+  RECORD ARRAY queuedirs := SELECT * FROM ReadDiskDirectory(GetModuleStorageRoot("system") || "persistentqueues/","*") ORDER BY name;
+  FOREVERY(RECORD queuedir FROM queuedirs)
+  {
+    FOREVERY(RECORD queue FROM SELECT * FROM ReadDiskDirectory(queuedir.path,"*") ORDER BY name)
+    {
+      Print(`${queuedir.name}:${queue.name}\n`);
+    }
+  }
+}
+
+
+MACRO ImportTask(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "path", type := "param", required := TRUE ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh tasks import <path>\n");
+    TerminateScriptWithError("");
+  }
+
+  RECORD task := DecodeHSONBlob(GetDiskResource(subargs.path));
+  task := EnforceStructure([__taskmeta := [ type := "" ]], task);
+  IF(task.__taskmeta.type != "managedtask")
+    THROW NEW Exception(`Unrecognized task type '${task.__taskmeta.type}`);
+
+  //DumpValue(task);
+  //FIXME priority
+  GetPrimary()->BeginWork();
+  INTEGER taskid := ScheduleManagedTask(task.tasktype, task.taskdata, [ auxdata := task.auxdata ]);
+  GetPrimary()->CommitWork();
+  Print(`Created task 'm${taskid}'\n`);
+}
+
+MACRO ExportTask(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "taskid", type := "param", required := TRUE ]
+      , [ name := "path", type := "param", required := TRUE ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh tasks export <taskid> <path>\n");
+    TerminateScriptWithError("");
+  }
+
+  RECORD taskdata;
+  IF(subargs.taskid LIKE "m*")
+  {
+    INTEGER gettaskid := ToInteger(Substring(subargs.taskid,1),0);
+    RECORD task := SELECT * FROM system_internal.managedtasks WHERE id = gettaskid;
+    IF(NOT RecordExists(task))
+      THROW NEW Exception(`No such managed task #${gettaskid}`);
+
+    taskdata := CELL[ task.tasktype
+                    , priority := "" //FIXME
+                    , taskdata := DecodeHSON(task.taskdata)
+                    , auxdata := DecodeHSONBlob(task.auxdata)
+                    , __taskmeta := [ type := "managedtask"
+                                    , webhare := GetWebhareVersionNumber()
+                                    , source := GetServerName()
+                                    , exported := GetCurrentDatetime()
+                                    , id := "m" || task.id
+                                    ]
+                    ];
+  }
+  ELSE
+  {
+    THROW NEW Exception(`Task id '${subargs.taskid}' is not a valid task id`);
+  }
+
+  IF(subargs.path = "-")
+  {
+    Print(EncodeHSON(taskdata) || "\n");
+  }
+  ELSE
+  {
+    StoreDiskFile(subargs.path, EncodeHSONBlob(taskdata));
+  }
+}
+
+MACRO RunTask(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "taskid", type := "param", required := TRUE ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh tasks run <taskid>\n");
+    TerminateScriptWithError("");
+  }
+
+  IF(subargs.taskid LIKE "m*")
+  {
+    RECORD taskdata := SELECT *, isephemeral := FALSE, queueid := "db" || Substring(subargs.taskid,1)
+                           FROM system.managedtasks
+                          WHERE id = ToInteger(Substring(subargs.taskid,1),0);
+
+    IF(NOT RecordExists(taskdata))
+      THROW NEW Exception(`No such task '${subargs.taskid}'`);
+
+    RECORD taskinfo := GetTaskTypeSettings(taskdata.tasktype, FALSE);
+    IF(NOT RecordExists(taskinfo))
+      THROW NEW Exception(`No definition for tasks of type '${taskdata.tasktype}'`);
+    IF (taskinfo.applyerror != "")
+      THROW NEW Exception(`Task type '${taskdata.tasktype}' is not enabled on this installation: ${taskinfo.applyerror}`);
+
+    RECORD executeinfo := GetTaskExecuteInfo(taskdata, taskinfo);
+    SetupFunctionProfiling("system:tasks", "Run managed task " || subargs.taskid);
+    TRY
+    {
+      RECORD res := ExecuteManagedTask(executeinfo, TRUE);//<-- debug. make option?
+      dumpvalue(res, [ name := "taskresult", format := "tree" ]);
+      RETURN;
+    }
+    FINALLY
+    {
+      ReportFunctionProfile("system:tasks", "Run managed task " || subargs.taskid);
+    }
+  }
+  ELSE
+  {
+    THROW NEW Exception(`Task id '${subargs.taskid}' is not a valid task id`);
+  }
+}
+
+MACRO Main()
+{
+  RECORD ARRAY options := [ [ name := "command", type := "param", required := TRUE ]
+                          , [ name := "params", type := "paramlist" ]
+                          ];
+
+  RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+
+  SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
+  {
+    CASE "listqueues"
+    {
+      ListQueues(cmdargs.params);
+    }
+    CASE "export"
+    {
+      ExportTask(cmdargs.params);
+    }
+    CASE "import"
+    {
+      importTask(cmdargs.params);
+    }
+    CASE "run"
+    {
+      RunTask(cmdargs.params);
+    }
+    DEFAULT
+    {
+      Print("Syntax: wh tasks <command>\n");
+      Print("  listqueues:             List task queues\n");
+      Print("  run <taskid>:           Run a task\n");
+      Print("  export <taskid> <path>: Export the specified task\n");
+      Print("  import <path>:          Import an exported task\n");
+      TerminateScriptWithError("");
+    }
+  }
+}
+
+OpenPrimary();
+Main();

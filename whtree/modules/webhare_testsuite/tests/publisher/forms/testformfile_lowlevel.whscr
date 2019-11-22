@@ -1,0 +1,171 @@
+<?wh
+/* Test some low-level stuff oand corner cases in the form api */
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+
+PUBLIC MACRO BuildForm()
+{
+  BuildWebtoolForm();
+}
+
+MACRO DirectFormStorage1()
+{
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT webtoolform := OpenFormFileDefinition(formfile);
+  OBJECT formresults := OpenFormFileResults(formfile);
+  OBJECT liveform := webtoolform->__OpenAsLiveForm("en");
+
+  liveform->^firstname->value := "Pietje";
+
+  RECORD ARRAY fields := liveform->ListFields();
+  STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
+  GetMember(liveform, "^" || emailfieldname)->value := "directsubmit1@beta.webhare.net";
+
+  RECORD source := WrapBlob(GetWebHareResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg");
+  liveform->^upload->value := source;
+
+  RECORD res := liveform->__SubmitFormNow();
+  TestEq(1, formresults->GetResultsCount());
+
+  RECORD submitted := formresults->GetSingleResult(res.resultsguid);
+  TestEqLike("mod::webhare_testsuite/*", submitted.useragent);
+
+  //Open in edit mode
+  liveform := webtoolform->__OpenAsLiveForm("en");
+  liveform->EditExistingResult(res.resultsguid);
+
+  TestEqMembers(source, liveform->^upload->value, "*,-__BLOBSOURCE,-HASH,-DOMINANTCOLOR");
+  TestEq(TRUE, liveform->^upload->value.hash != "", "should have a hash after storage");
+  TestEqLike("#??????", liveform->^upload->value.dominantcolor);
+
+  //test image hosting for editing
+  RECORD imghost := liveform->^upload->__GetRenderData();
+  //dumpvalue(imghost);
+  TestEq(TRUE, imghost.value.link != "");
+
+  STRING imglink := ResolveToAbsoluteURL(formfile->url, imghost.value.link);
+  TEstEq(TRUE, testfw->browser->GotoWebPage(imglink), imglink);
+  TestEq("image/jpeg", testfw->browser->contenttype);
+
+  //frontend resolves the link, we need to not be confused by that
+  liveform->^upload->UpdateFromJS([filename := imghost.value.filename, link := imglink]);
+
+  //Make sure image stays after editing something else
+  liveform->^firstname->value := "Kereltje";
+
+  liveform->__SubmitFormNow();
+  TestEq(1, formresults->GetResultsCount()); //should have been an edit
+
+  submitted := formresults->GetSingleResult(res.resultsguid);
+  //dumpvalue(submitted);
+  TestEq("Kereltje", submitted.response.firstname);
+  TestEqMembers(source, submitted.response.upload, "*,-__BLOBSOURCE,-HASH,-DOMINANTCOLOR");
+}
+
+MACRO DirectFormStorage2()
+{
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT webtoolform := OpenFormFileDefinition(formfile);
+  OBJECT formresults := OpenFormFileResults(formfile);
+  OBJECT liveform := webtoolform->__OpenAsLiveForm("en");
+
+  RECORD ARRAY fields := liveform->ListFields();
+  STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
+  GetMember(liveform, "^" || emailfieldname)->value := "directsubmit2@beta.webhare.net";
+
+  RECORD source := WrapBlob(StringToBlob("Gimme gimme gimme"), "man(1).txt");
+  liveform->^upload->value := source;
+
+  RECORD res := liveform->__SubmitFormNow();
+  TestEq(2, formresults->GetResultsCount());
+
+  //Open in edit mode
+  liveform := webtoolform->__OpenAsLiveForm("en");
+  liveform->EditExistingResult(res.resultsguid);
+
+  TestEqMembers(source, liveform->^upload->value, "*,-__BLOBSOURCE,-HASH,-DOMINANTCOLOR");
+
+  //test file hosting for editing
+  RECORD filehost := liveform->^upload->__GetRenderData();
+  TestEq(TRUE, filehost.value.link != "");
+
+  STRING filelink := ResolveToAbsoluteURL(formfile->url, filehost.value.link);
+  TEstEq(TRUE, testfw->browser->GotoWebPage(filelink), filelink);
+  TestEq("text/plain", testfw->browser->contenttype);
+
+  liveform->^upload->UpdateFromJS([filename := filehost.value.filename, link := filehost.value.link]);
+
+  liveform->__SubmitFormNow();
+}
+
+MACRO VerifyAndCleanupMail()
+{
+  //flush tasks and collect our mail
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+  TestEq(4, Length(testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net")));
+}
+
+MACRO WorkHandlingErrors()
+{
+  OBJECT liveform := OpenForm("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml", "workhandlingerrorsform");
+
+  // Test no transaction leaking, and correct handling of work errors
+  liveform->^mode->value := "nofinish";
+  TestThrowsLike("*returned with work still open*", PTR liveform->__SubmitFormNow());
+
+  liveform->^mode->value := "normal";
+  TestEQ(DEFAULT RECORD, liveform->__SubmitFormNow());
+
+  liveform->^mode->value := "throws";
+  TestThrowsLike("Form exception", PTR liveform->__SubmitFormNow());
+
+  liveform->^mode->value := "normal";
+  TestEQ(DEFAULT RECORD, liveform->__SubmitFormNow());
+
+  liveform->^mode->value := "doublework";
+  TestEQ(DEFAULT RECORD, liveform->__SubmitFormNow());
+
+  liveform->^mode->value := "doublebegin";
+  TestThrowsLike("*another work object is still open*", PTR liveform->__SubmitFormNow());
+
+  liveform->^mode->value := "normal";
+  TestEQ(DEFAULT RECORD, liveform->__SubmitFormNow());
+
+  liveform->^twolevel->value := [ throwsomething := TRUE ];
+  TestThrowsLike("*throwsomething was present in the value record*", PTR liveform->__SubmitFormNow());
+
+  liveform->^mode->value := "nofinish";
+  liveform->^twolevel->value := [ throwsomething := TRUE ];
+  TestThrowsLike("*throwsomething was present in the value record*", PTR liveform->__SubmitFormNow());
+}
+
+MACRO TestAttributeMatching()
+{
+  SetTidLanguage("nl");
+  OBJECT liveform := OpenForm("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml", "coretest", [ formref := "CORE-TEST-FORM" ]);
+
+  TestEQ(TRUE, "wh-testsuite-matchattributes-type1" IN liveform->^matchattributes_type1->groupclasses);
+  TestEQ(TRUE, "wh-testsuite-matchattributes-type2-true" IN liveform->^matchattributes_type2_true->groupclasses);
+  TestEQ(TRUE, "wh-testsuite-matchattributes-type2-false" IN liveform->^matchattributes_type2_false->groupclasses);
+}
+
+RunTestframework([ PTR BuildForm
+                 , PTR DirectFormStorage1
+                 , PTR DirectFormStorage2
+                 , PTR VerifyAndCleanupMail
+                 , PTR WorkHandlingErrors
+                 , PTR TestAttributeMatching
+                 ], [ canceltasks := ["publisher:mailfeedback","publisher:mailresults"]
+                    ]);

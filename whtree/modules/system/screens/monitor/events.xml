@@ -1,0 +1,94 @@
+﻿<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor/events.whlib"
+         gid="monitor">
+
+  <messageboxes>
+  </messageboxes>
+
+  <screen name="events" gid=".events" title="">
+    <actions>
+      <action name="openwrdschema" onexecute="doopenwrdschema" />
+      <action name="openwrdentity" onexecute="doopenwrdentity" />
+      <action name="openinpublisher" onexecute="doopeninpublisher" />
+      <action name="applyfilter" onexecute="doapplyfilter" />
+      <action name="clearlist" onexecute="doclearlist" />
+    </actions>
+
+    <menus gid=".menus">
+      <menu name="wrdentitymenu">
+        <item action="openwrdentity" />
+      </menu>
+    </menus>
+
+    <body height="1pr">
+
+      <split type="horizontal">
+        <part width="1pr" spacers="right">
+
+          <line>
+            <checkbox name="enableintercept" onchange="onenableinterceptchange" />
+            <textedit name="eventfilter" title="" width="1pr" />
+            <button action="applyfilter" />
+          </line>
+          <line>
+            <checkbox name="decodeknownmessages" onchange="onenablemessagedecodingchange" />
+            <button action="clearlist" width="1pr" tid="tollium:common.actions.clear" />
+          </line>
+
+          <list name="events"
+                selectmode="single"
+                onselect="onselectevent"
+                height="1pr"
+                borders="top right"
+                >
+            <column name="when"  type="datetime" precision="seconds" storeutc="true" width="22x" sortkeyname="rowkey" /><!-- 18 min -->
+            <column name="event" type="text" />
+            <column name="description" type="text" />
+          </list>
+        </part>
+
+        <part width="1pr" spacers="left" name="messageinfo" visible="false">
+          <grid>
+            <col width="1pr" />
+            <col />
+
+            <row>
+              <cell>
+                <text name="eventwhen" />
+                <text name="eventname" />
+              </cell>
+
+              <cell>
+                <button name="button_openinwrd" action="openwrdschema" tid=".openwrdschema" width="1pr" />
+                <button name="button_openinpublisher" action="openinpublisher" tid=".openinpublisher" width="1pr" />
+              </cell>
+            </row>
+          </grid>
+
+          <panel spacers="top" height="1pr">
+            <tabs name="eventtabs" height="1pr">
+              <tab name="interpreteddatatab">
+                <list name="wrdentities"
+                      gid="wrdentitiescolumns"
+                      selectcontextmenu="wrdentitymenu"
+                      selectmode="single"
+                      height="1pr"
+                      >
+                  <column name="id"     type="integer" align="right" width="12x" />
+                  <column name="title"  type="text" width="1pr" />
+                  <column name="action" type="text" width="12x" />
+                </list>
+              </tab>
+              <tab name="eventdatatab">
+                <hsvalue name="eventdata" />
+              </tab>
+            </tabs>
+          </panel>
+
+        </part>
+      </split>
+
+    </body>
+  </screen>
+
+</screens>

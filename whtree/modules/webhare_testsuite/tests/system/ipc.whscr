@@ -1,0 +1,34 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO GlobalCommTest()
+{
+  STRING portname := "webhare_testsuite:globaltestport" || GenerateTemporaryIPCPortName();
+  OBJECT port := CreateGlobalIPCPort(portname);
+
+  OBJECT link_a := ConnectToGlobalIPCPort(portname);
+  TestEQ(TRUE, ObjectExists(link_a));
+
+  OBJECT link_b := port->Accept(DEFAULT DATETIME);
+  TestEQ(TRUE, ObjectExists(link_b));
+
+  STRING data := "12345678";
+  WHILE (LENGTH(data) < 64 * 1024 * 1024)
+    data := data || data;
+
+  FOR (INTEGER i := 0; i < 16; i := i + 1)
+    link_a->SendMessage([ data := data ]);
+
+  FOR (INTEGER i := 0; i < 16; i := i + 1)
+  {
+    RECORD rec := link_b->ReceiveMessage(MAX_DATETIME);
+    TestEQ("ok", rec.status);
+    TestEQ([ data := data ], rec.msg);
+  }
+}
+
+RunTestframework([ PTR GlobalCommTest ]);

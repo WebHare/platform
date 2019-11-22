@@ -1,0 +1,71 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+
+MACRO TestDynamicInsert()
+{
+  OBJECT trans := OpenPrimary();
+
+  trans->allowerrordelay := FALSE;
+
+  trans->BeginWork();
+
+  // Cleanup
+  IF (trans->SchemaExists("webhare_testsuite_testschema"))
+    trans->DropSchema("webhare_testsuite_testschema", [ cascade := TRUE ]);
+  trans->CreateSchema("webhare_testsuite_testschema", "", "");
+
+  __LegacyCreateTable(trans, "webhare_testsuite_testschema", "testtable",
+      [ primarykey :=   "id"
+      , cols :=         [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 111 ]
+                        , [ column_name := "normalint", data_type := "INTEGER" ]
+                        , [ column_name := "normalvarchar", data_type := "VARCHAR", character_octet_length := 16 ]
+                        ]
+      ]);
+
+  trans->CommitWork();
+
+  TABLE
+  < INTEGER id
+  , INTEGER normalint
+  , STRING normalvarchar
+  > testtable := BindTransactionToTable(trans->id, "webhare_testsuite_testschema.testtable");
+
+  OBJECT inserter := GetDynamicInserter(GetPrimary(), "webhare_testsuite_testschema.testtable", [ cols := [ "id", "normalint", "normalvarchar" ] ]);
+
+  trans->BeginWork();
+
+  inserter->InsertRecords(
+      [ [ id := 1, normalint := 1 ]
+      ]);
+
+  inserter->InsertRecords(
+      [ [ id := 2, normalint := 2 ]
+      , [ id := 3, normalint := 3 ]
+      , [ id := 4, normalint := 4, normalvarchar := "4" ]
+      , [ id := 5, normalint := 5, normalvarchar := "5" ]
+      ]);
+
+  trans->CommitWork();
+
+  TestEQ(
+      [ [ id := 1, normalint := 1, normalvarchar := "" ]
+      , [ id := 2, normalint := 2, normalvarchar := "" ]
+      , [ id := 3, normalint := 3, normalvarchar := "" ]
+      , [ id := 4, normalint := 4, normalvarchar := "4" ]
+      , [ id := 5, normalint := 5, normalvarchar := "5" ]
+      ], SELECT id, normalint, normalvarchar FROM testtable ORDER BY id);
+}
+
+RunTestframework(
+      [ PTR TestDynamicInsert
+      ],
+      [ usedatabase := FALSE
+      ]);

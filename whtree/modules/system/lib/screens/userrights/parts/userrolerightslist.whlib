@@ -1,0 +1,351 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+
+LOADLIB "mod::wrd/lib/internal/authobjects.whlib";
+
+
+
+PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER cbid;
+
+  OBJECT pvt_wrdauthobject;
+
+  OBJECT rightsinfo;
+
+  BOOLEAN userlistdirty;
+
+  STRING saveuserlistempty;
+
+  BOOLEAN anygrantablerights;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC FUNCTION PTR onselect;
+
+  PUBLIC FUNCTION PTR onemptylistdisplayname;
+
+  PUBLIC PROPERTY wrdauthobject(pvt_wrdauthobject, SetWRDAuthObject);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium registration
+  //
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->saveuserlistempty := this->userlistbyrole->empty;
+    this->anygrantablerights := this->contexts->user->HasAnyGrantableRight();
+
+    IF(NOT this->anygrantablerights)
+    {
+      this->addrighttousers->enabled := FALSE;
+      this->makerolefromrights->enabled := FALSE;
+    }
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->rightsinfo := GetRightsInfoObject(this->owner->tolliumuser->authobject);
+    this->cbid := RegisterMultiEventCallback("system:rights.change", PTR this->OnUpdateEvent);
+
+    this->ReloadPermissionsForUserOrRole();
+  }
+
+  UPDATE PUBLIC MACRO OnUnloadComponent()
+  {
+    IF (this->cbid != 0)
+      UnregisterCallback(this->cbid);
+    this->cbid := 0;
+    TolliumFragmentBase::OnUnloadComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetWRDAuthObject(OBJECT obj)
+  {
+    this->pvt_wrdauthobject := obj;
+    this->ReloadPermissionsForUserOrRole();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnUpdateEvent(STRING event, RECORD ARRAY data)
+  {
+    this->ReloadPermissionsForUserOrRole();
+  }
+
+  MACRO OnSelectHandler()
+  {
+    IF (this->onselect != DEFAULT FUNCTION PTR)
+      this->onselect();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO OnRightsTabChange()
+  {
+    IF(this->rightstabs->selectedtab = this->userstab AND this->userlistdirty)
+    {
+      this->userlistbyrole->empty := this->saveuserlistempty;
+      this->ReloadUsersForSelectedRole();
+    }
+    ELSE IF(this->userlistdirty)
+    {
+      this->userlistbyrole->empty := "";
+    }
+  }
+
+  // Generate rows with permissions (both rights and roles) belonging to the authobjectid (user or role)
+  // used by the UserRights editor function DoShowPermissionsForUserOrRole()
+  RECORD ARRAY FUNCTION GetPermissionRows(OBJECT wrdauthobject)
+  {
+    INTEGER ARRAY granted_role_entityids := GetRoleEntityIdsGrantedToUser(this->contexts->userapi, wrdauthobject);
+
+    RECORD ARRAY roles := GetRolesByFilter(this->contexts->controller, [ [ field := "WRD_ID", matchtype := "IN", value := granted_role_entityids ] ], this->owner->tolliumuser);
+
+    INTEGER ARRAY authobjectids := SELECT AS INTEGER ARRAY authobjectid FROM roles;
+    INTEGER ARRAY withgrantoptionids := wrdauthobject->HasRightOnMultiple("system:manageroles", authobjectids);
+    INTEGER ARRAY canmanageids := this->owner->tolliumuser->HasRightOnMultiple("system:manageroles", authobjectids);
+
+    RECORD ARRAY tree :=
+        SELECT *
+             , rowkey :=          "role_" || rowkey
+             , icon :=            3 // role
+             , objectpath :=      ""
+             , canmanage :=       authobjectid IN canmanageids
+             , withgrantoption := ""//authobjectid IN withgrantoptionids ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+             , isrole :=          TRUE
+             , subnodes :=        this->anygrantablerights ? GetDirectRightRows(this->contexts->userapi->GetRole(wrd_id), this->owner->tolliumuser, FALSE, this->rightsinfo) : DEFAULT RECORD ARRAY
+             , expanded :=        FALSE
+          FROM roles
+      ORDER BY ToUppercase(name);
+
+    // Add list of rights
+    IF(this->anygrantablerights)
+      tree := tree CONCAT GetDirectRightRows(wrdauthobject, this->owner->tolliumuser, TRUE, this->rightsinfo);
+
+    RETURN tree;
+  }
+
+  MACRO ReloadPermissionsForUserOrRole()
+  {
+    IF (NOT ObjectExists(this->pvt_wrdauthobject))
+    {
+      this->rightstabs->visible := FALSE;
+      this->directpermissions->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    this->rightstabs->visible := TRUE;
+
+    IF (this->pvt_wrdauthobject EXTENDSFROM WRDAuthRole) //role selected
+    {
+      IF(this->anygrantablerights)
+      {
+        this->rightstabs->type := "regular";
+      }
+      ELSE
+      {
+        this->rightstabs->type := "server";
+        this->rightstabs->selectedtab := this->userstab;
+      }
+
+      this->addroletousers->enabled := FALSE;
+      this->userlistdirty := TRUE;
+      this->OnRightsTabChange(); //will reload if needed
+
+      IF(NOT this->anygrantablerights)
+        RETURN;
+    }
+    ELSE
+    {
+      this->rightstabs->type := "server";
+      this->rightstabs->selectedtab := this->rightstab;
+
+      this->addroletousers->enabled := TRUE;
+    }
+
+    RECORD ARRAY prows := this->GetPermissionRows(this->pvt_wrdauthobject);
+
+    IF (LENGTH(prows)=0)
+    {
+      IF (this->pvt_wrdauthobject EXTENDSFROM WRDAuthUser)
+        this->directpermissions->empty := GetTid("system:userrights.empty.permissionsfromuser-none", this->pvt_wrdauthobject->GetUserRightsName());
+      ELSE IF(this->pvt_wrdauthobject EXTENDSFROM WRDAuthRole)
+        this->directpermissions->empty := GetTid("system:userrights.empty.permissionsfromrole-none", this->pvt_wrdauthobject->GetUserRightsName());
+    }
+
+
+    this->directpermissions->rows :=
+        SELECT *
+          FROM prows
+      ORDER BY isrole
+             , ToUpperCase(COLUMN name)
+             , ToUppercase(COLUMN objectpath);
+  }
+
+  MACRO ReloadUsersForSelectedRole()
+  {
+    this->userlistdirty := FALSE;
+    INTEGER ARRAY roleusers := GetUsersEntityIdsWithRole(this->contexts->userapi, this->pvt_wrdauthobject);
+
+    RECORD ARRAY rows := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := roleusers ] ], this->owner->tolliumuser);
+    rows := EnrichWithUnitPath(rows, this->owner->tolliumuser);
+    this->userlistbyrole->rows := rows;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO OnTypedDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAddRoleToUsers()
+  {
+    MakeAddGrantOfSelectableRoleToUserDialog(this->owner, [ OBJECT(this->pvt_wrdauthobject) ])->RunModal();
+  }
+
+  MACRO DoAddRightToUsers()
+  {
+    MakeAddGrantToUsersDialog(this->owner, [ OBJECT(this->pvt_wrdauthobject) ])->RunModal();
+  }
+
+  MACRO DoAddUsersToRole()
+  {
+    MakeAddGrantOfRoleToSelectableUsersDialog(this->owner, this->pvt_wrdauthobject)->RunModal();
+  }
+
+  MACRO DoRevokeFromUsers()
+  {
+    MakeRevokeDialog(this->owner,
+        (SELECT grantee := this->pvt_wrdauthobject, rightname, objectid FROM this->directpermissions->selection WHERE NOT isrole),
+        (SELECT grantee := this->pvt_wrdauthobject, roleobj := this->contexts->userapi->GetRole(wrd_id) FROM this->directpermissions->selection WHERE isrole))->RunModal();
+  }
+
+  MACRO DoMakeRoleFromRights()
+  {
+    OBJECT dialog := MakeAddEditRoleDialog(this->owner, DEFAULT OBJECT, this->pvt_wrdauthobject->authapi->GetUnit(this->pvt_wrdauthobject->GetParentUnitId()));
+    IF(dialog->RunModal() = "ok")
+    {
+      OBJECT newrole := dialog->roleobj;
+      OBJECT work := this->owner->BeginWork();
+      FOREVERY(RECORD right FROM this->directpermissions->selection)
+        TolliumGrantRightTo(work, this->rightsinfo, this->owner->tolliumuser, newrole, right.rightname, [ INTEGER(right.objectid) ], FALSE, ""); //FIXME need to set a comment for these grants - ^comment->value);
+
+      work->Finish();
+    }
+  }
+
+  MACRO DoEditGrant()
+  {
+    RECORD sel := this->directpermissions->selection[0];
+    IF (sel.isrole)
+      MakeEditRoleGrantDialog(this->owner, this->pvt_wrdauthobject, this->contexts->userapi->GetRole(sel.wrd_id))->RunModal();
+    ELSE
+      MakeEditRightGrantDialog(this->owner, this->pvt_wrdauthobject, sel.rightname, sel.objectid)->RunModal();
+  }
+
+  MACRO DoEditRoleGrant()
+  {
+    RECORD sel := this->userlistbyrole->selection[0];
+    MakeEditRoleGrantDialog(this->owner, this->contexts->userapi->GetUser(sel.wrd_id), this->pvt_wrdauthobject)->RunModal();
+  }
+
+  MACRO DoRemoveUsersFromRole()
+  {
+    MakeRevokeDialog(this->owner,
+        DEFAULT RECORD ARRAY,
+        (SELECT grantee := this->contexts->userapi->GetUser(wrd_id), roleobj := this->pvt_wrdauthobject FROM this->userlistbyrole->selection))->RunModal();
+  }
+>;
+
+STRING FUNCTION SafeGetObjectPath(OBJECT rightsinfo, RECORD rightdata, INTEGER objectid, OBJECT authobject)
+{
+  TRY
+  {
+    RETURN rightsinfo->GetObjectFullPath(rightdata.objecttypename, objectid, authobject);
+  }
+  CATCH (OBJECT e)
+  {
+    LogHarescriptException(e);
+    RETURN GetTid("system:userrights.error");
+  }
+}
+
+RECORD ARRAY FUNCTION GetDirectRightRows(OBJECT wrdauthuser, OBJECT browseuser, BOOLEAN managable, OBJECT rightsinfo)
+{
+  STRING txtmodule := GetTid('system:userrights.common.module');
+
+  RECORD ARRAY grants;
+  IF(ObjectExists(wrdauthuser->authobject))
+  {
+    grants := SELECT *
+                   , rightdata := rightsinfo->GetRightByName(rightname)
+                FROM GetDirectGrantsTo(wrdauthuser->authobject);
+  }
+
+  RECORD ARRAY rows :=
+      SELECT rowkey :=          "grant_" || wrdauthuser->entityid || "_" || objectid || "_" || rightname
+           , righticon :=       1 // 1=direct grant
+           , name :=            rightdata.title
+           , icon := 1          // 1=direct grant, 2=indirect, 3=role
+           , isrole :=          FALSE
+           , rightisglobal :=   rightdata.isglobal
+           , roleid :=          0
+           , userentityid :=    wrdauthuser->entityid
+           , wrd_id :=          wrdauthuser->entityid
+           , rightname
+           , objectid
+           , objectpath :=      rightdata.isglobal ? "" : SafeGetObjectPath(rightsinfo, rightdata, objectid, browseuser->authobject)
+           , withgrantoption := withgrantoption ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+           , expanded :=        FALSE
+        FROM grants
+       WHERE RecordExists(rightdata);
+
+  rows := SELECT *
+               , canmanage :=   managable AND (rightisglobal ? browseuser->CanManageRight(rows.rightname) : browseuser->CanManageRightOn(rows.rightname, objectid))
+            FROM rows
+           WHERE (rightisglobal ? TRUE : objectpath != "")
+                 AND (rightisglobal ? browseuser->HasRight(rows.rightname) : browseuser->HasRightOn(rows.rightname, objectid));
+
+  RETURN
+      SELECT *
+        FROM rows
+    ORDER BY ToUppercase(name)
+           , ToUppercase(objectpath);
+}

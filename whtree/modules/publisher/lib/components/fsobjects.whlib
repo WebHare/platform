@@ -1,0 +1,387 @@
+<?wh
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+// FIXME: <fsobject orderby="" /> currently doesn't specify a set of parameters,
+//        because of this we must use GetCell causing orderby to get ALL RECORD's from the table.
+
+
+OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN transform_touppercase;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC STRING rowkeycell;
+  PUBLIC STRING titlecell;
+
+  /// By default the titlecell will be searched for in the file record.
+  /// If a titlewhfstype is specified, the titlecell will be searched for in the specified contenttype instead.
+  PUBLIC STRING titlewhfstype;
+
+  PUBLIC STRING show;
+  PUBLIC STRING orderby;
+  PUBLIC BOOLEAN publish;
+  PUBLIC BOOLEAN skipindex;
+  PUBLIC BOOLEAN showhidden;
+  PUBLIC STRING type;
+  PUBLIC STRING mask;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposableListener;
+    this->show := "all";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumOptionSourceBase::StaticInit(def);
+    this->rowkeycell := def.rowkeycell;
+    this->titlecell := def.titlecell;
+    this->titlewhfstype := def.titlewhfstype;
+    this->show := def.show;
+    this->orderby := def.orderby;
+    this->publish := def.publish;
+    this->skipindex := def.skipindex;
+    this->showhidden := def.showhidden;
+    this->type := def.type;
+    this->mask := def.mask;
+
+    IF(this->rowkeycell LIKE "*:touppercase") //needed for @campus portability which didn't use siteprofiles (only contenteditor) and touppercased folder names
+    {
+      this->transform_touppercase := TRUE;
+      this->rowkeycell := Left(this->rowkeycell, Length(this->rowkeycell)-12);
+    }
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    // Test for existence of rowkey and title cell
+    IF (this->titlewhfstype = "")
+    {
+      RECORD testrec := SELECT * FROM system.fs_objects LIMIT 1;
+
+      // title will derive from the specified titlecell in the file record,
+      // so check the existence of the field
+      IF (NOT CellExists(testrec, this->rowkeycell))
+        THROW NEW TolliumException(this, "FSObjects references non-existing rowkeycell '" || this->rowkeycell || "'");
+      IF (NOT CellExists(testrec, this->titlecell))
+        THROW NEW TolliumException(this, "FSObjects references non-existing titlecell '" || this->titlecell || "'");
+
+      // Set the rowkeytype, which is the type of the cell referenced by rowkeycell
+      this->pvt_rowkeytype := TypeID(GetCell(testrec, this->rowkeycell));
+    }
+    ELSE // title will derive from contenttype member with the specified titlecell
+    {
+      OBJECT titlewhfstype := OpenWHFSType(this->titlewhfstype);
+
+      IF (NOT ObjectExists(titlewhfstype))
+        THROW NEW TolliumException(this, "FSObjects references non-existing titlewhfstype '" || this->titlewhfstype || "'");
+
+      IF (NOT RecordExists(SELECT FROM titlewhfstype->members WHERE ToLowerCase(name) = ToLowerCase(this->titlecell)))
+        THROW NEW TolliumException(this, "FSObjects references non-existing titlecell '" || this->titlecell || "' within whfstype '" || this->titlewhfstype || "'");
+    }
+  }
+
+  PUBLIC UPDATE MACRO CompositionMetadataIsUpdated()
+  {
+    OBJECT whfsinstance := GetWHFSInstanceComposition(this);
+    IF(NOT ObjectExists(whfsinstance))
+      THROW NEW Exception("A WHFSInstance composition was expected");
+
+    this->InvalidateCurrentOptions();
+  }
+
+  UPDATE MACRO RegenerateOptions()
+  {
+    RECORD ARRAY options;
+    IF (this->show IN [ "files", "folders", "all" ])
+    {
+      FOREVERY (OBJECT searchroot FROM this->GetSearchRoots())
+      {
+        IF (NOT ObjectExists(searchroot))
+          CONTINUE;
+        INTEGER indexdocid := this->skipindex ? searchroot->indexdoc : 0;
+        RECORD csp := GetCachedSiteProfiles();
+        INTEGER ARRAY filtertypes :=
+            SELECT AS INTEGER ARRAY id
+              FROM csp.contenttypes
+             WHERE ToUppercase(namespace) LIKE ToUppercase(this->type)
+                   AND (RecordExists(filetype) OR RecordExists(foldertype));
+
+        RECORD ARRAY results :=
+            SELECT id
+                 , rowkey := GetCell(fs_objects, this->rowkeycell)
+                 , title := this->titlewhfstype=""
+                     ? (GetCell(fs_objects, this->titlecell)!="" ? GetCell(fs_objects, this->titlecell) : name)
+                     : name
+                 , ordercell := this->GetOrderValue(fs_objects, this->orderby)
+              FROM system.fs_objects
+             WHERE parent = searchroot->id
+                   AND id != indexdocid
+                   AND ToUppercase(name) LIKE ToUppercase(this->mask)
+                   AND (this->publish ? publish = TRUE : TRUE)
+                   AND (this->show="all" OR isfolder = (this->show="folders"))
+                   AND (this->type != "" ? type IN filtertypes : TRUE)
+                   AND (this->showhidden ? TRUE : type NOT IN csp.hiddenfoldertypes);
+
+        IF (Length(results) > 0)
+        {
+          IF (this->titlewhfstype != "")
+          {
+            // get the titles of all fsobjects in one sweep
+            OBJECT titlewhfstype := OpenWHFSType(this->titlewhfstype);
+
+            IF (NOT ObjectExists(titlewhfstype))
+              THROW NEW TolliumException(this, "FSObjects references non-existing titlewhfstype '" || this->titlewhfstype || "'");
+
+            RECORD ARRAY titles := titlewhfstype->GetBulkData((SELECT AS INTEGER ARRAY id FROM results), [this->titlecell]);
+            INTEGER ARRAY havetitles := SELECT AS INTEGER ARRAY id FROM titles;
+
+            // now merge the found titles with the results and keep the title set to the name
+            // for those results for which the specified titlecell was empty
+            UPDATE results
+               SET title := (SELECT AS STRING GetCell(titles[#titlerow], this->titlecell)
+                               FROM titles AS titlerow
+                              WHERE results.id = titlerow.id)
+             WHERE id IN havetitles;
+          }
+          options := options CONCAT results;
+        }
+      }
+    }
+
+    IF (Length(options) > 0)
+    {
+      IF(this->transform_touppercase)
+        UPDATE options SET rowkey := ToUppercase(rowkey);
+
+      IF(this->orderby != "")
+      {
+        INTEGER orderby_type := TypeID(options[0].ordercell);
+
+        IF (orderby_type = TypeID(STRING))
+          options := SELECT * FROM options ORDER BY NormalizeText(ordercell, this->owner->tolliumuser->language);
+        ELSE IF (orderby_type = TypeID(INTEGER))
+          options := SELECT * FROM options ORDER BY ordercell;
+        ELSE
+          THROW NEW Exception("The cell specified for orderby is not of a supported type (expected STRING or INTEGER)");
+      }
+      ELSE
+        options := SELECT * FROM options ORDER BY NormalizeText(title, this->owner->tolliumuser->language);
+    }
+
+    this->SetOptions(options);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Function to update
+  //
+
+  OBJECT ARRAY FUNCTION GetSearchRoots()
+  {
+    THROW NEW TolliumException(this, "GetSearchRoots should be updated");
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  VARIANT FUNCTION GetOrderValue(RECORD fsobject, STRING orderby)
+  {
+    IF(orderby = "")
+      RETURN "";
+    RETURN GetCell(fsobject, orderby);
+  }
+>;
+
+
+PUBLIC OBJECTTYPE FSObjects EXTEND ObjectSourceBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING pvt_site;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC STRING fullpath;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY site(pvt_site, SetSite);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    ObjectSourceBase::StaticInit(def);
+    this->fullpath := def.fullpath;
+    this->site := def.site;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetSite(STRING sitename)
+  {
+    IF(this->pvt_site = sitename)
+      RETURN;
+
+    this->pvt_site := sitename;
+    this->InvalidateCurrentOptions();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE OBJECT ARRAY FUNCTION GetSearchRoots()
+  {
+    INTEGER baseobject;
+    IF (this->site = "" AND ObjectExists(this->composition))
+    {
+      OBJECT whfsinstance := GetWHFSInstanceComposition(this);
+      IF (ObjectExists(whfsinstance))
+        baseobject := whfsinstance->GetBaseForObjectLists();
+    }
+
+    OBJECT searchroot;
+    IF(this->site="" AND this->fullpath="") //Look in current folder
+    {
+      RECORD baseobjectinfo := SELECT isfolder, parent FROM system.fs_objects WHERE id=baseobject;
+      IF(RecordExists(baseobjectinfo))
+        searchroot := OpenWHFSObject(baseobjectinfo.isfolder ? baseobject : baseobjectinfo.parent);
+    }
+    ELSE
+    {
+      INTEGER siteroot;
+      IF(this->site="")
+        siteroot := SELECT AS INTEGER highestparent FROM system.fs_objects WHERE id=baseobject;
+      ELSE
+        siteroot := SELECT AS INTEGER root FROM system.sites WHERE ToUppercase(name)=ToUppercase(this->site);
+
+      IF(siteroot!=0)
+      {
+        STRING searchpath := this->fullpath;
+        IF(searchpath LIKE "/*")
+          searchpath := Substring(searchpath,1);
+
+        searchroot := OpenWHFSObject(siteroot)->OpenByPath(searchpath);
+        IF(ObjectExists(searchroot) AND NOT searchroot->isfolder)
+          searchroot := DEFAULT OBJECT;
+      }
+    }
+    RETURN [ searchroot ];
+  }
+>;
+
+
+PUBLIC OBJECTTYPE FSLibrary EXTEND ObjectSourceBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING pvt_fslibrary;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY fslibrary(pvt_fslibrary, SetFSLibrary);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    ObjectSourceBase::StaticInit(def);
+    this->fslibrary := def.fslibrary;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetFSLibrary(STRING library)
+  {
+    IF(this->pvt_fslibrary = library)
+      RETURN;
+
+    this->pvt_fslibrary := library;
+    this->InvalidateCurrentOptions();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE OBJECT ARRAY FUNCTION GetSearchRoots()
+  {
+    IF(this->fslibrary="")
+      RETURN OBJECT[];
+
+    OBJECT applytester := this->contexts->applytester ?? this->GetAppContext("publisher:applytester");
+    IF(NOT ObjectExists(applytester))
+      RETURN OBJECT[];
+
+    OBJECT ARRAY searchroots;
+    FOREVERY (INTEGER libid FROM applytester->GetLibrary(this->fslibrary))
+    {
+      OBJECT libobject := OpenWHFSObject(libid);
+      IF (ObjectExists(libobject))
+        INSERT libobject INTO searchroots AT END;
+    }
+    RETURN searchroots;
+  }
+>;

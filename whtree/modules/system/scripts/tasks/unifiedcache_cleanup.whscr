@@ -1,0 +1,37 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
+
+SetupFunctionProfiling("unified_cachecleanup", "");
+RECORD info := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "dryrun", type := "switch" ]
+                              , [ name := "debug", type := "switch" ]
+                              , [ name := "ignorenewerthan", type := "stringopt" ]
+                              , [ name := "deleteafterdays", type := "stringopt" ]
+                              ]);
+IF(NOT RecordExists(info))
+{
+  Print("Invalid arguments\n");
+  RETURN;
+}
+
+INTEGER ignore_newer_than := Tointeger(info.ignorenewerthan,60)*60*1000; //ignore files created less than 60 minutes ago
+INTEGER delete_after_days := ToInteger(info.deleteafterdays,2); //delete files not requested for more than 2 days
+
+DATETIME ignore_modified_after := AddTimeToDate(-ignore_newer_than,GetCurrentDatetime());
+RECORD ARRAY deletion_candidates := GetCurrentUnifiedCacheContents(ignore_modified_after);
+deletion_candidates := FilterRecentHits(deletion_candidates, AddDaysTodate(-delete_after_days, GetRoundedDatetime(GetCurrentDatetime(), 86400*1000)), ignore_modified_after);
+
+IF(info.dryrun OR info.debug)
+{
+  Dumpvalue(deletion_candidates,'boxed');
+  Print(Length(deletion_candidates) || " images, " || Length(SELECt FROM deletion_candidates WHERE expired) || " to delete\n");
+}
+
+IF(NOT info.dryrun)
+  FOREVERY(RECORD candidate FROM deletion_candidates)
+    IF(candidate.expired)
+      DeleteDiskFile(candidate.fullpath);

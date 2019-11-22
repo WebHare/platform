@@ -1,0 +1,8 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="Payments"
+       shortdescription="WRD payment APIs"
+       docorder="setup psps implementing-psp">
+  <section name="payments" title="Payments" />
+  <section name="selector" title="Payment selector" />
+  <section name="internals" title="Payment internals" />
+</topic>

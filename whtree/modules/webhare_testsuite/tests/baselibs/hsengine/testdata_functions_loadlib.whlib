@@ -1,0 +1,20 @@
+﻿<?wh
+MACRO test2func() { print ("Test"); }
+PUBLIC MACRO PTR test2ptr := PTR test2func;
+
+PUBLIC STRING FUNCTION RetTest3() { RETURN "test3"; }
+PUBLIC FUNCTION PTR PtrRetTest3_loadlib := PTR RetTest3;
+
+PUBLIC STRING FUNCTION PassThrough(STRING data) { RETURN data; }
+
+PUBLIC STRING FUNCTION DefaultValue(STRING data, STRING d2 DEFAULTSTO "2") { RETURN data||"-"||d2; }
+
+PUBLIC STRING FUNCTION CallPtrRetTest3_loadlib() { RETURN PtrRetTest3_loadlib(); }
+
+PUBLIC FUNCTION PTR CallOnDeinit;
+
+MACRO OnDeinit() __ATTRIBUTES__(DEINITMACRO)
+{
+  IF (CallOnDeinit != DEFAULT FUNCTION PTR)
+    CallOnDeinit();
+}

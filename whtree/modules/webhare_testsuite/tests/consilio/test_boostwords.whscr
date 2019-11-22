@@ -1,0 +1,180 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::filetypes/richdocument.whlib";
+
+LOADLIB "mod::consilio/lib/catalog.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+INTEGER indexid;
+INTEGER contentsource;
+
+OBJECT search_obj;
+
+BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
+{
+  RETURN event.groupid = ToString(expectfile);
+}
+
+MACRO TestBoostWords()
+{
+  OBJECT boostwords_type := OpenWHFSType("http://www.webhare.net/xmlns/consilio/boostwords");
+
+  // Create and fill the test site
+  testfw->BeginWork();
+
+  OBJECT site := testfw->SetupTestWebdesignWebsite("");
+  OBJECT siteroot := site->rootobject;
+
+  AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  indexid := testfw->GetCatalogIdByName(testfw->GetCatalogName_1());
+  contentsource := testfw->GetPublisherContentSource(testfw->GetCatalogName_1(), siteroot->id);
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT file_1 := siteroot->CreateFile([name:="testfile1.rtd", title := "important", type := richdoctype->id, publish := TRUE]);
+  OBJECT file_2 := siteroot->CreateFile([name:="testfile2.rtd", title := "blabla", type := richdoctype->id, publish := TRUE]);
+
+  OBJECT myrichdoc := NEW RichDocument;
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob(
+`<html><head></head><body>
+<p class="normal">blabla</p>
+</body></html>`)
+                 ]);
+  richdoctype->SetInstanceData(file_1->id, [data := myrichdoc->ExportAsRecord()]);
+
+  myrichdoc := NEW RichDocument;
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob(
+`<html><head></head><body>
+<p class="normal">blabla test</p>
+</body></html>`)
+                 ]);
+  richdoctype->SetInstanceData(file_2->id, [data := myrichdoc->ExportAsRecord()]);
+
+  OBJECT ARRAY fileevents := [ OBJECT(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_1->id,#1)))
+                             , testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_2->id,#1))
+                             ];
+
+  testfw->CommitWork();
+
+  Print("waiting for changes indexed...\n");
+  testfw->RefreshWebserverConfig();
+  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPromise(CreatePromiseAll(fileevents));
+  testfw->WaitConsilioQueueEmpty();
+  Print("it's indexed\n");
+
+  search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+  search_obj->empty_result_record := DEFAULT RECORD;
+  search_obj->summary_length := 0;
+
+  // Search for 'blabla', which will return file 2 as first result, as it has 'blabla' in its title
+  RECORD results := search_obj->Search("blabla", 0, 10);
+  TestEq(
+      [ totalcount := 2
+      , results :=
+            [ [ objectid := file_2->objecturl
+              , groupid := ToString(file_2->id)
+              ]
+            , [ objectid := file_1->objecturl
+              , groupid := ToString(file_1->id)
+              ]
+            ]
+      ], results);
+
+  // Search for 'important', which will only return file 1
+  results := search_obj->Search("important", 0, 10);
+  TestEq(
+      [ totalcount := 1
+      , results :=
+            [ [ objectid := file_1->objecturl
+              , groupid := ToString(file_1->id)
+              ]
+            ]
+      ], results);
+
+  testfw->BeginWork();
+  boostwords_type->SetInstanceData(file_2->id, [ words := [ "important" ] ]);
+  testfw->CommitWork();
+
+  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_2->id,#1)));
+  testfw->WaitConsilioQueueEmpty();
+
+  // Search for 'important', which will now return both files, starting with file 2, as it has 'important' in its keywords
+  results := search_obj->Search("important", 0, 10);
+  TestEq(
+      [ totalcount := 2
+      , results :=
+            [ [ objectid := file_2->objecturl
+              , groupid := ToString(file_2->id)
+              ]
+            , [ objectid := file_1->objecturl
+              , groupid := ToString(file_1->id)
+              ]
+            ]
+      ], results);
+
+  testfw->BeginWork();
+  boostwords_type->SetInstanceData(file_1->id, [ words := [ "blabla" ] ]);
+  testfw->CommitWork();
+
+  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_1->id,#1)));
+  testfw->WaitConsilioQueueEmpty();
+
+  // Search for 'blabla', which will return file 1 as first result, as it has 'blabla' in its keywords
+  results := search_obj->Search("blabla", 0, 10);
+  TestEq(
+      [ totalcount := 2
+      , results :=
+            [ [ objectid := file_1->objecturl
+              , groupid := ToString(file_1->id)
+              ]
+            , [ objectid := file_2->objecturl
+              , groupid := ToString(file_2->id)
+              ]
+            ]
+      ], results);
+
+  // Allow terms by default, returns file 2, which has 'test' but doesn't have 'nothing'
+  results := search_obj->Search("test nothing", 0, 10);
+  TestEq(
+      [ totalcount := 1
+      , results :=
+            [ [ objectid := file_2->objecturl
+              , groupid := ToString(file_2->id)
+              ]
+            ]
+      ], results);
+
+  // Require terms explicitly, returns nothing, because file 2 only has 'test' but doesn't have 'nothing'
+  results := search_obj->Search("+test +nothing", 0, 10);
+  TestEq(
+      [ totalcount := 0
+      , results := DEFAULT RECORD ARRAY
+      ], results);
+
+  // Require terms by default, returns nothing, because file 2 only has 'test' but doesn't have 'nothing'
+  search_obj->and_search := TRUE;
+  results := search_obj->Search("test nothing", 0, 10);
+  TestEq(
+      [ totalcount := 0
+      , results := DEFAULT RECORD ARRAY
+      ], results);
+}
+
+RunTestframework(
+    [ PTR TestBoostWords ],
+    [ consilio := TRUE
+    , testusers :=
+        [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
+        ]
+    ]);

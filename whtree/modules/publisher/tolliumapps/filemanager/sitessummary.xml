@@ -1,0 +1,39 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="sitessummary.whlib"
+         gid="sysmgmt.sitessummary"
+         >
+
+  <screen name="sitessummary"
+          gid=".sitessummary" tid=".title"
+          allowresize="true"
+          icon="tollium:filemgr/mydocuments"
+          width="130x" height="25x">
+    <actions>
+      <action name="editsite" onexecute="doeditsite" title="" />
+    </actions>
+    <body>
+      <panel width="1pr" height="1pr">
+        <list name="summary"
+              selectmode="single"
+              openaction="editsite"
+              emptytid=".nosites"
+              width="1pr" height="1pr"
+              minwidth="80x" minheight="5x"
+              >
+          <column name="name" type="text" />
+          <column name="files" type="integer" sortkeyname="files_sort" width="10x" align="right" />
+          <column name="folders" type="integer" sortkeyname="folders_sort" width="10x" align="right" />
+          <column name="inputsize" type="text" sortkeyname="inputsize_sort" width="15x" align="right" />
+          <column name="outputsize" type="text" sortkeyname="outputsize_sort" width="15x" align="right" />
+          <column name="puberrors" type="integer" sortkeyname="puberrors_sort" width="10x" align="right" emptyvalue="-1" />
+          <column name="pubwarnings" type="integer" sortkeyname="pubwarnings_sort" width="10x" align="right" emptyvalue="-1" />
+          <column name="brokenlinks" type="integer" sortkeyname="brokenlinks_sort" width="10x" align="right" emptyvalue="-1" />
+        </list>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+
+</screens>

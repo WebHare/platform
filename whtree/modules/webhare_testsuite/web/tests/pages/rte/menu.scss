@@ -1,0 +1,181 @@
+/** copied from tollium skin.scss, controls.scss and apps.scss */
+
+/****************************************************************************************************************************
+ * Menus and menubar
+ */
+/* line 268, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-scroller-vertical {
+  margin-top: 4px;
+  margin-bottom: 4px;
+
+  right: 4px;
+  width: 5px;
+
+  background-color: rgba(0, 0, 0, 0.20);
+  border-radius: 3px;
+  z-index: 99;
+
+  opacity: 0;
+  transition: opacity 0.50s;
+  -webkit-transition: opacity 0.50s;
+}
+/* line 278, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+  .wh-scrollableview:hover .wh-scroller-vertical
+, .wh-scrollableview.wh-scrollableview-scrolling .wh-scroller-vertical /* if our tab hasn't got focus, but a scrollwheel is used to scroll */
+{
+  opacity: 1;
+  transition: opacity 0.20s;
+  -webkit-transition: opacity 0.20s;
+}
+/* line 283, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-scroller-vertical {
+  visibility: hidden;
+}
+/* line 285, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-scrollableview-canscroll-v .wh-scroller-vertical {
+  visibility: visible;
+}
+/* line 287, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-menu-detached.wh-scrollableview-canscroll-v .wh-menu {
+  padding-right: 15px;
+}
+ul.wh-menubar
+{
+  overflow: hidden;
+  height: 28px;
+}
+html ul.wh-menubar li
+{
+  padding: 6px 8px 4px 8px;
+  height: 28px;
+}
+  ul.wh-menulist.showshortcuts > li[data-menushortcut]
+{
+  overflow: hidden;
+  white-space: nowrap;
+}
+  ul.wh-menulist.showshortcuts > li[data-menushortcut]:before
+{
+  content: attr(data-menushortcut);
+  float: right;
+  display: inline-block;
+  padding-left: 15px;
+  margin-right: -15px;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 17px;
+  text-transform: uppercase;
+}
+/* line 374, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-menu-detached,
+.wh-menu-context,
+{
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+  /* shrink-wrap using inline-block, because the scrollableview wrapper might get the position: absolute;
+     which would otherwise shrink-wrap us */
+
+  display: inline-block;
+  padding: 0;
+  z-index: 5;
+  /* Reset stacking context */
+
+  border-radius: 3px;
+  /* Workaround for bottom right rounded corner on safari - apparently box-shadow triggers it */
+
+}
+ul.wh-menulist
+{
+  z-index: 9999;
+}
+.wh-menu li
+{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+ul.wh-menu:not(.wh-menubar)
+{
+  box-shadow:0 0 8px rgba(0,0,0,.2);
+}
+ul.wh-menu.wh-menubar
+{
+  background-color:#4a4a4a;
+}
+ul.wh-menu.wh-menubar > li
+{
+  color:#ffffff;
+}
+ul.wh-menu.wh-menubar > li.selected
+{
+  color:#000000;
+}
+ul.wh-menu.wh-menubar > li.divider
+{
+  display:none;
+}
+
+/* General menu styling */
+.wh-menu-detached.wh-scrollableview-canscroll-v .wh-menu
+{
+  padding-right: 15px;
+}
+ul.wh-menu
+{
+  background: #ffffff;
+  /*box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.2);*/
+  min-width:100px;
+}
+ul.wh-menu li
+{
+  color: #000000;
+  padding: 0 20px;
+  height: 23px;
+  line-height:23px;
+}
+ul.wh-menu li.currentvalue::before
+{
+  content: "\2022";
+  position:absolute;
+  left:8px;
+}
+
+ul.wh-menu li.selected
+/*, ul.wh-menu li:hover*/
+{
+  background-color: #95cdfe !important;
+}
+
+ul.wh-menu.hassubselect li.selected
+{
+  background: #b3b3b3;
+}
+
+
+ul.wh-menu li.disabled:hover
+{
+  background-color: transparent;
+}
+ul.wh-menu li.divider:hover
+{
+  background-color: transparent;
+  color: inherit;
+}
+ul.wh-menulist li.disabled
+{
+  color: #b3b3b3;
+}
+ul.wh-menulist li.divider
+{
+  cursor: default;
+  padding:2px 0px;
+  height: 5px;
+}
+
+ul.wh-menulist li.divider:after /*using an after rule so our divider doesn't cover the background padding */
+{
+  content: "";
+  display: block;
+  background: 1px #b3b3b3;
+  height: 1px;
+}

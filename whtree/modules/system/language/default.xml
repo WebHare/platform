@@ -1,0 +1,2831 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="backend">   <!-- backend -->
+    <textgroup gid="login">   <!-- backend.login -->
+      <text tid="loginbackground">Log in</text>
+      <textgroup gid="dialogs">   <!-- backend.login.dialogs -->
+        <text tid="loginconfigerror">You could not be logged in due to a configuration error. Please contact your system administrator.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="personal">   <!-- backend.personal -->
+      <text tid="personalsettings">Personal settings</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="common">   <!-- common -->
+    <text tid="deleted">(deleted)</text>
+    <text tid="filter">Filter</text>
+    <text tid="modificationdate">Last modified</text>
+    <text tid="object">Object</text>
+  </textgroup>
+  <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
+      <text tid="mailviewer">View email</text>
+      <text tid="screentitle">Mail Queue</text>
+      <text tid="viewsource">View source</text>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
+      <text tid="notenoughrights">You do not have enough rights to start this application.</text>
+      <text tid="notenoughrights_spec">You do not have enough rights to start this application.<br/><br/>The following right(s) are needed: <param p="1"/>.</text>
+    </textgroup>
+    <textgroup gid="rightsproblem">   <!-- commondialogs.rightsproblem -->
+      <text tid="title">Rights problem</text>
+    </textgroup>
+    <textgroup gid="runscriptdialog">   <!-- commondialogs.runscriptdialog -->
+      <text tid="script_terminated">Script has terminated, exit code: <param p="1"/></text>
+      <text tid="title_notstarted">Not started: <param p="1"/></text>
+      <text tid="title_running">Running: <param p="1"/></text>
+      <text tid="title_terminated">Terminated: <param p="1"/></text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="debugger" limitlanguages="en">   <!-- debugger -->
+    <text tid="apptitle">Debugger</text>
+    <text tid="autoreconnect">Auto reconnect</text>
+    <text tid="breakpoint-filename">Breakpoint filename</text>
+    <text tid="changeautoreconnect">Toggle autoreconnect</text>
+    <text tid="closefile">Close file</text>
+    <text tid="connectfailed">Could not connect to job.</text>
+    <text tid="continuejob">Continue</text>
+    <text tid="control">Execute</text>
+    <text tid="couldnotfindcompiledlibrary">Could not find the right compiled library</text>
+    <text tid="debugconfig">Config</text>
+    <text tid="detachjob">Detach</text>
+    <text tid="errorgettingframevariables">Error getting frame variables</text>
+    <text tid="erroroutput">Error text</text>
+    <text tid="exit">Exit</text>
+    <text tid="file">File</text>
+    <text tid="filehasbeenchanged">The script has loaded an older version of this file. Line numbers and variables may not be correct.</text>
+    <text tid="filename">Filename</text>
+    <text tid="files">Files</text>
+    <text tid="framevariable">Frame variabele</text>
+    <text tid="func">Function</text>
+    <text tid="getblobreferences">Take blob snapshot</text>
+    <text tid="getmemorysnapshot">Take memory snapshot</text>
+    <text tid="getmemorysnapshotwithunreferenced">Take memory snapshot (with garbage)</text>
+    <text tid="getobjectsnapshot">Take objects snapshot</text>
+    <text tid="jobnotfound">Could not find the job anymore.</text>
+    <text tid="len">Length</text>
+    <text tid="line">Line</text>
+    <text tid="loadlinglibraries">Loading libraries</text>
+    <text tid="main">Debugger</text>
+    <text tid="mode">Mode</text>
+    <text tid="mode-base16">Base16</text>
+    <text tid="mode-base64">Base64</text>
+    <text tid="mode-hexdump">Hexdump</text>
+    <text tid="mode-rawtext">Raw text</text>
+    <text tid="multiplesourceversionsloaded">Multiple versions of this file have been loaded (by weblets).</text>
+    <text tid="novariables">No active variables</text>
+    <text tid="novarsexternalfunction">No variables (external function)</text>
+    <text tid="openbreakpoint">Open breakpoint</text>
+    <text tid="opendbfile">Open database file</text>
+    <text tid="openfile">Open file</text>
+    <text tid="openstacktraceitem">Open stacktrace item</text>
+    <text tid="pausejob">Pause</text>
+    <text tid="pausereason_breakpoint">breakpoint</text>
+    <text tid="pausereason_debuggertrap">debugger trap</text>
+    <text tid="position">Position</text>
+    <text tid="removeallbreakpoints">Remove all breakpoints</text>
+    <text tid="removebreakpoint">Remove breakpoint</text>
+    <text tid="ruleconnect">Rule connector</text>
+    <text tid="runtocursor">Run to cursor</text>
+    <text tid="selectjob">Job monitor</text>
+    <text tid="showerrortext">Show the error</text>
+    <text tid="showprofiles">Show profiles</text>
+    <text tid="snapshots">Profiles</text>
+    <text tid="stacktrace-function">Stacktrace function</text>
+    <text tid="stackunwound">The stack has been unwound by the exception</text>
+    <text tid="startfunctionprofiling">Start function profiling</text>
+    <text tid="startmemoryprofiling">Start memory profiling</text>
+    <text tid="stepintojob">Step into</text>
+    <text tid="stepjob">Step</text>
+    <text tid="stepoutjob">Step out function</text>
+    <text tid="stoppedwitherror">The script has stopped with an error.</text>
+    <text tid="stopprofiling">Stop profiling</text>
+    <text tid="stringlength"><param p="1"/> bytes, <param p="2"/> chars</text>
+    <text tid="symbolsearch">Symbol search</text>
+    <text tid="textarea">File contents</text>
+    <text tid="value">Value</text>
+    <text tid="variabletext">Contents of variable '<param p="1"/>'</text>
+    <text tid="viewframevariable">View frame variable</text>
+    <text tid="zombietimeout">Zombie timeout</text>
+    <text tid="zombietimeoutinfo">(in seconds, 0 disables zombies)</text>
+    <textgroup gid="messages">   <!-- debugger.messages -->
+      <text tid="connectfailed">Could not connect to job (<param p="1"/>).</text>
+      <text tid="debuggergone">Debugger manager has disappeared.</text>
+      <text tid="disconnectedfromjob">You have been disconnected from this job (the host process has terminated or another user has disconnected you).</text>
+      <text tid="jobnotfound">Could not find job.</text>
+    </textgroup>
+    <textgroup gid="profiles">   <!-- debugger.profiles -->
+      <text tid="allcachescleared">All caches have been cleared</text>
+      <text tid="apptitle">Profiles</text>
+      <text tid="avg_selftime">Selftime (avg)</text>
+      <text tid="avg_totaltime">Totaltime (avg)</text>
+      <text tid="button-clearallcaches">Clear caches</text>
+      <text tid="caches">Caches</text>
+      <text tid="callcount">Call count</text>
+      <text tid="callcountfrac">Call count (frac)</text>
+      <text tid="childopen">Open child</text>
+      <text tid="clearallcaches">Clear All Caches</text>
+      <text tid="clearlist">Clear list</text>
+      <text tid="command">Command</text>
+      <text tid="ct_children">Children</text>
+      <text tid="ct_parents">Parents</text>
+      <text tid="depth">Depth</text>
+      <text tid="description">Description</text>
+      <text tid="editsource">Edit source</text>
+      <text tid="functionname">Function</text>
+      <text tid="info">Info</text>
+      <text tid="length">Length</text>
+      <text tid="library">Library</text>
+      <text tid="name">Name</text>
+      <text tid="ownelements">Own elements</text>
+      <text tid="ownsize">Own size</text>
+      <text tid="parentopen">Open parent</text>
+      <text tid="selfheap">Heap (self)</text>
+      <text tid="selfheapfrac">Heap (self, frac)</text>
+      <text tid="selftime">Time (self)</text>
+      <text tid="source">Source</text>
+      <text tid="suredeleteprofiles">Are you sure you want to delete all profiles from this session?</text>
+      <text tid="totalelements">Referenced elements</text>
+      <text tid="totalheap">Heap (total)</text>
+      <text tid="totalheapfrac">Heap (total, frac)</text>
+      <text tid="totalsize">Referenced size</text>
+      <text tid="totaltime">Total time</text>
+      <text tid="type">Type</text>
+      <text tid="webserveradhoccache">Manage Webserver Adhoccache</text>
+      <text tid="when">Date</text>
+    </textgroup>
+    <textgroup gid="profilestatus">   <!-- debugger.profilestatus -->
+      <text tid="function">(profiling: functions)</text>
+      <text tid="memory">(profiling: memory)</text>
+    </textgroup>
+    <textgroup gid="ruleconnector">   <!-- debugger.ruleconnector -->
+      <text tid="activate">Activate</text>
+      <text tid="activateautoconnect">I feel lucky</text>
+      <text tid="app">Tollium app</text>
+      <text tid="autobreakjob">Stop on connect</text>
+      <text tid="autoconnecting">Listening for autoconnect…</text>
+      <text tid="connect">Connect</text>
+      <text tid="creationdate">Creationdate</text>
+      <text tid="deactivate">Deactivate</text>
+      <text tid="details">Details</text>
+      <text tid="groupid">Group ID</text>
+      <text tid="listening">Listening…</text>
+      <text tid="notactive">Not active</text>
+      <text tid="ruleconnector">Rule connector</text>
+      <text tid="script">Script</text>
+      <text tid="scriptexcludemasks">Script exclude masks</text>
+      <text tid="scriptmask">Script mask</text>
+      <text tid="scripttype">Script type</text>
+      <text tid="site_authenticationrecord">Authenticationrecord edits</text>
+      <text tid="site_debuggertrap">Debugger trap</text>
+      <text tid="site_start">Start</text>
+      <text tid="site_terminate">Termination</text>
+      <text tid="site_terminateerrors">Termination with errors</text>
+      <text tid="status">Status</text>
+      <text tid="type_script">All scripts</text>
+      <text tid="type_tolliumapp">WebHare app</text>
+      <text tid="url">URL</text>
+      <text tid="user">User</text>
+      <text tid="user_all">All users</text>
+      <text tid="user_me">Me</text>
+    </textgroup>
+    <textgroup gid="selectjob">   <!-- debugger.selectjob -->
+      <text tid="autobreakjob">Stop on connect</text>
+      <text tid="clientname">Client</text>
+      <text tid="connect">Connect</text>
+      <text tid="cpu">CPU</text>
+      <text tid="creationdate">Creationdate</text>
+      <text tid="disconnect">Disconnect other user</text>
+      <text tid="displayerrorterminated">Show terminated jobs</text>
+      <text tid="groupid">Job ID</text>
+      <text tid="processcode">Process ID</text>
+      <text tid="script">Script</text>
+      <text tid="selectjob">Job monitor</text>
+      <text tid="status">Status</text>
+      <text tid="terminate">Terminate</text>
+    </textgroup>
+    <textgroup gid="status">   <!-- debugger.status -->
+      <text tid="notconnected">Not connected</text>
+      <text tid="running">Running</text>
+      <text tid="status">Status</text>
+      <text tid="stopped">Stopped</text>
+      <text tid="terminated">Terminated</text>
+    </textgroup>
+    <textgroup gid="symbolsearch">   <!-- debugger.symbolsearch -->
+      <text tid="definition">Definition</text>
+      <text tid="emptysearchfor">No search items</text>
+      <text tid="name">Name</text>
+      <text tid="noresults">No results</text>
+      <text tid="open">Open</text>
+      <text tid="path">File path</text>
+      <text tid="position">Position</text>
+      <text tid="searchfor">Search for</text>
+      <text tid="symbolsearch">Symbol search</text>
+      <text tid="type">Type</text>
+    </textgroup>
+    <textgroup gid="variableinspector">   <!-- debugger.variableinspector -->
+      <text tid="download">Download</text>
+      <text tid="name">Name</text>
+      <text tid="retrievefull">Retrieve fully</text>
+      <text tid="showtext">Show contents</text>
+      <text tid="switchencoding">Switch encoding</text>
+      <text tid="value">Value</text>
+      <text tid="variableinspector">Variable inspector</text>
+      <text tid="variables">Variables</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="installedfonts">   <!-- installedfonts -->
+    <text tid="installedfonts">Installed fonts</text>
+  </textgroup>
+  <textgroup gid="mailer">   <!-- mailer -->
+    <text tid="attachments">Attachments</text>
+    <text tid="mailerbcc">Bcc</text>
+    <text tid="mailercc">Cc</text>
+    <text tid="mailerfrom">From</text>
+    <text tid="mailersubject">Subject</text>
+    <text tid="mailerto">To</text>
+    <text tid="preview">Preview</text>
+    <text tid="title">Send email</text>
+    <textgroup gid="actions">   <!-- mailer.actions -->
+      <text tid="attach">Add attachment</text>
+      <text tid="deleteattachment">Remove attachment</text>
+      <text tid="openattachment">Download attachment</text>
+      <text tid="send">Send</text>
+    </textgroup>
+    <textgroup gid="columns">   <!-- mailer.columns -->
+      <text tid="filename">Attachment</text>
+      <text tid="filesize">File size</text>
+      <text tid="filetype">File type</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- mailer.messages -->
+      <text tid="confirm_cancel">The message has not been sent yet. Are you sure you want to discard this email?</text>
+      <text tid="confirm_delete_attachment">Are you sure you want to remove attachment '<param p="1"/>'</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="mailqueue">   <!-- mailqueue -->
+    <textgroup gid="messages">   <!-- mailqueue.messages -->
+      <text tid="confirm_delete">Are you sure you want to delete?</text>
+      <text tid="confirm_delete_multiple">Are you sure you want to delete the selected messages?</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="main">   <!-- main -->
+    <textgroup gid="messages">   <!-- main.messages -->
+      <text tid="deletestartmenuitem">Are you sure you want to remove start menu item '<param p="1"/>'?</text>
+      <text tid="insafemode">You are now in safe mode. Add-on modules will not be available.</text>
+      <text tid="mustactivatelicense">This WebHare installation does not appear to have a valid license key. Some functionality and logins for non-sysop users will be disabled until this problem is fixed.<br/><br/>Do you want to install a license key now?</text>
+      <text tid="safemoderequiressysop">You must be logged in as a syop to use safe mode.</text>
+      <text tid="webhareclosedforinvalidlicense">WebHare is currently unavailable. Please contact your system administrator.  <br/><br/>We apologise for the inconvienence.</text>
+      <text tid="webhareclosedformaintaince">WebHare has been closed for maintainance. Please try again later.  <br/><br/>We apologise for the inconvienence.</text>
+    </textgroup>
+    <textgroup gid="userstartmenu">   <!-- main.userstartmenu -->
+      <text tid="edittitle">New title</text>
+      <text tid="title">Title</text>
+      <text tid="windowtitle">Edit my start menu</text>
+      <text tid="windowtitle_edit">Edit title</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="module">   <!-- module -->
+    <text tid="webruleset-noindex">Do not index (robots.txt)</text>
+    <textgroup gid="appgroups">   <!-- module.appgroups -->
+      <text tid="apps">Applications</text>
+      <text tid="cms">Content Management</text>
+      <text tid="development">Development</text>
+      <text tid="documentation">Documentation</text>
+      <text tid="setup">System</text>
+    </textgroup>
+    <textgroup gid="apps">   <!-- module.apps -->
+      <text tid="dashboard">Dashboard</text>
+      <text tid="dba">Database management</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="monitor">   <!-- monitor -->
+    <text tid="surecancelscheduleddowntime">Are you sure you wish to cancel the scheduled downtime?</text>
+    <text tid="sureclosewebharelogin">Are you sure you want to close the login for users other than sysops?</text>
+    <text tid="surekillallsessions">Are you sure you want to close all the applications of this user?</text>
+    <text tid="surekillsession">Are you sure you want to close this application?</text>
+    <textgroup gid="apprunner">   <!-- monitor.apprunner -->
+      <text tid="title">Service manager</text>
+    </textgroup>
+    <textgroup gid="apps">   <!-- monitor.apps -->
+      <text tid="box_appusers">Users of application <param p="1"/></text>
+      <text tid="box_runningapps">Application in use</text>
+      <text tid="sendmessagetoappusers">Send a message to users of this application</text>
+      <text tid="sendmessagetomoduleusers">Send a message to users of this module</text>
+      <text tid="sendmessagetoselectedusers">Send a message to the selected users</text>
+      <text tid="title">Applications</text>
+      <textgroup gid="appusers">   <!-- monitor.apps.appusers -->
+        <text tid="appusers">User name</text>
+        <text tid="browser">Browser/platform</text>
+        <text tid="lastaccess">Last access</text>
+        <text tid="lastactive">Last active</text>
+        <text tid="lastpoll">Last poll</text>
+        <text tid="memusage">Memory usage</text>
+        <text tid="noappselected">There's no application selected</text>
+        <text tid="noappusersanymore">Currently noone is using the application <param p="1"/></text>
+        <text tid="realname">Name</text>
+        <text tid="timestarted">Start time</text>
+        <text tid="typename">Types</text>
+        <text tid="username">Username</text>
+      </textgroup>
+      <textgroup gid="runningapps">   <!-- monitor.apps.runningapps -->
+        <text tid="appmemory">Memory usage</text>
+        <text tid="appname">Application name</text>
+        <text tid="name">Name</text>
+        <text tid="noappsrunning">There are currently no applications running</text>
+        <text tid="nocontact">Contact with application runners has not been established yet</text>
+        <text tid="runcount">Instances</text>
+        <text tid="runcount_desc">Amount of instances running for this user</text>
+        <text tid="title">Title</text>
+        <text tid="usercount">Users</text>
+        <text tid="usercount_desc">Number of users which have one or more instances of this application open</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="checks">   <!-- monitor.checks -->
+      <text tid="title">System messages</text>
+    </textgroup>
+    <textgroup gid="columns">   <!-- monitor.columns -->
+      <text tid="family">Familiy</text>
+      <text tid="filename">Filename</text>
+      <text tid="isboldicon">Bold</text>
+      <text tid="isitalicicon">Italic</text>
+      <text tid="istruetypeicon">Truetype</text>
+      <text tid="style">Style</text>
+    </textgroup>
+    <textgroup gid="events">   <!-- monitor.events -->
+      <text tid="applyfilter">Filter</text>
+      <text tid="clearlist">Clear</text>
+      <text tid="decodeknownmessages">Decode known messages</text>
+      <text tid="description">Description</text>
+      <text tid="enableintercept">Log events</text>
+      <text tid="event">Event</text>
+      <text tid="eventdata">Data send with event</text>
+      <text tid="eventdatatab">Event data</text>
+      <text tid="eventname">Event name</text>
+      <text tid="eventwhen">Time</text>
+      <text tid="id">ID</text>
+      <text tid="interpreteddatatab">Interpreted</text>
+      <text tid="openinpublisher">Open in Publisher</text>
+      <text tid="openinwrd">Open in WRD</text>
+      <text tid="openwrdentity">Open WRD entity</text>
+      <text tid="openwrdschema">Open WRD schema</text>
+      <text tid="title">Events</text>
+      <text tid="when">Time</text>
+      <textgroup gid="events">   <!-- monitor.events.events -->
+        <text tid="clear">Clear</text>
+        <text tid="datastr">Data</text>
+        <text tid="enableintercept">Enable</text>
+        <text tid="event">Event</text>
+        <text tid="events">Events</text>
+        <text tid="when">Date</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="groups">   <!-- monitor.groups -->
+      <text tid="ap">WebHare Platform</text>
+      <text tid="dev">Development</text>
+      <text tid="other">Other</text>
+      <text tid="tasks">Tasks and queues</text>
+    </textgroup>
+    <textgroup gid="installedfonts">   <!-- monitor.installedfonts -->
+      <text tid="title">Installed fonts</text>
+    </textgroup>
+    <textgroup gid="locks">   <!-- monitor.locks -->
+      <text tid="clientname">Client name</text>
+      <text tid="col">Column</text>
+      <text tid="filename">Filename</text>
+      <text tid="func">Function</text>
+      <text tid="groupid">VM ID</text>
+      <text tid="line">Line</text>
+      <text tid="locked">Locked</text>
+      <text tid="name">Name</text>
+      <text tid="nostacktrace">No stack trace recorded</text>
+      <text tid="opentracerow">Open file</text>
+      <text tid="position">Position</text>
+      <text tid="stacktrace">Record stack traces</text>
+      <text tid="title">Global locks</text>
+      <text tid="waiting">Wachtend</text>
+    </textgroup>
+    <textgroup gid="login">   <!-- monitor.login -->
+      <text tid="password">Password</text>
+      <text tid="savelogin">Remember my login</text>
+      <text tid="username">Usename</text>
+    </textgroup>
+    <textgroup gid="logs">   <!-- monitor.logs -->
+      <text tid="title">Logs</text>
+      <textgroup gid="overview">   <!-- monitor.logs.overview -->
+        <text tid="applysettings">Apply</text>
+        <text tid="date">Date</text>
+        <text tid="dateoption">Date</text>
+        <text tid="download">Download</text>
+        <text tid="filter">Filter</text>
+        <text tid="logtype">Log type</text>
+        <text tid="logtype-access">access</text>
+        <text tid="logtype-debug">debug</text>
+        <text tid="logtype-errors">errors</text>
+        <text tid="logtype-notice">notice</text>
+        <text tid="logtype-rpc">rpc</text>
+        <text tid="logtype-servicemanager">servicemanager</text>
+        <text tid="message_part">Report</text>
+        <text tid="nr_kb">Number of KB</text>
+        <text tid="openstacktrace">Open stacktrace</text>
+        <text tid="settings">Settings</text>
+        <text tid="tab_htmltree">HS value</text>
+        <text tid="tab_raw">RAW</text>
+        <text tid="tab_stacktrace">Stacktrace</text>
+        <text tid="title">System log files</text>
+        <textgroup gid="stacktrace">   <!-- monitor.logs.overview.stacktrace -->
+          <text tid="filename">File name</text>
+          <text tid="position">Position</text>
+          <text tid="stacktrace-function">Stacktrace function</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="panel">   <!-- monitor.logs.panel -->
+        <text tid="date">Date</text>
+        <text tid="errorlogbox">Error log</text>
+        <text tid="logs">Logs</text>
+        <text tid="message">Log message</text>
+        <text tid="runlogsscreen">Open Logs screen</text>
+        <text tid="servicemanagerlogbox">Service manager</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="mailqueue">   <!-- monitor.mailqueue -->
+      <text tid="title">Outgoing e-mail</text>
+    </textgroup>
+    <textgroup gid="managedtasks">   <!-- monitor.managedtasks -->
+      <text tid="title">Managed tasks</text>
+    </textgroup>
+    <textgroup gid="nodemodules">   <!-- monitor.nodemodules -->
+      <text tid="title">Node modules</text>
+      <textgroup gid="actions">   <!-- monitor.nodemodules.actions -->
+        <text tid="fetchnewcopy">Fetch new copy</text>
+        <text tid="fixmodules">Run fixmodules</text>
+        <text tid="link">Link</text>
+        <text tid="prune">Prune</text>
+        <text tid="revealinfinder">Reveal in Finder</text>
+        <text tid="unlink">Unlink</text>
+      </textgroup>
+      <textgroup gid="columns">   <!-- monitor.nodemodules.columns -->
+        <text tid="linksto">Links to</text>
+        <text tid="name">Module / node module</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="processlist">   <!-- monitor.processlist -->
+      <text tid="abort">Abort</text>
+      <text tid="abortprocess">Abort</text>
+      <text tid="appname">Application name</text>
+      <text tid="appstats">Application statistics</text>
+      <text tid="appstatus">State</text>
+      <text tid="avgrunning">Avg. CPU usage</text>
+      <text tid="avgtime">Avg. time</text>
+      <text tid="backingstore">Backing store size</text>
+      <text tid="blobstore">Blob store size</text>
+      <text tid="cannotfindsource">Cannot find source</text>
+      <text tid="cannotfindsourcetab">Cannot find source</text>
+      <text tid="codeview">Source</text>
+      <text tid="col">Column</text>
+      <text tid="count">Count</text>
+      <text tid="cpu">CPU</text>
+      <text tid="creationdate">Creation date</text>
+      <text tid="databaseuser">Database user</text>
+      <text tid="debugprocess">Open in debugger</text>
+      <text tid="errors">Errors</text>
+      <text tid="filename">Filename</text>
+      <text tid="finishdate">Finish date</text>
+      <text tid="func">Function</text>
+      <text tid="groupcount"><ifparam p="1" value="1">1 script<else/><param p="1"/> scripts</ifparam></text>
+      <text tid="groupid">Group id</text>
+      <text tid="heap">Heap size</text>
+      <text tid="hidetolliuminternals">Hide WebHare communication scripts</text>
+      <text tid="history">History</text>
+      <text tid="history_secs">History length (seconds)</text>
+      <text tid="ignoreparameters">Ignore parameters</text>
+      <text tid="instructions">Instructions executed</text>
+      <text tid="line">Line</text>
+      <text tid="locked">Locked</text>
+      <text tid="lockorder">Order</text>
+      <text tid="locks">Locks</text>
+      <text tid="lockstatus">Max. lock: <param p="1"/>, max. wait: <param p="2"/>, <param p="3"/> waiters</text>
+      <text tid="locktime">Lock time</text>
+      <text tid="mainscript">Main script</text>
+      <text tid="maxconcurrent">Max. concurrent</text>
+      <text tid="maxlocktime">Max. lock time</text>
+      <text tid="maxwaittime">Max. wait time</text>
+      <text tid="message">Message</text>
+      <text tid="name">Name</text>
+      <text tid="noerrors">The process terminated without errors.</text>
+      <text tid="noerrorsreported">No errors have been reported in this period.</text>
+      <text tid="nostacktrace">No stack trace available</text>
+      <text tid="objectcount">Nr. of objects</text>
+      <text tid="opentracerow">Show source</text>
+      <text tid="position">Position</text>
+      <text tid="processgone">Cannot find process data anymore, it has terminated too long ago.</text>
+      <text tid="processview">Process data</text>
+      <text tid="refresh">Refresh</text>
+      <text tid="running">Running</text>
+      <text tid="runningcount"><param p="1"/> running</text>
+      <text tid="script">Script</text>
+      <text tid="size_txt">Size</text>
+      <text tid="stack">Stack size</text>
+      <text tid="stacktrace">Stack trace</text>
+      <text tid="status">State</text>
+      <text tid="title">Webserver processes</text>
+      <text tid="total_running">Total CPU</text>
+      <text tid="total_running_txt">CPU total</text>
+      <text tid="totaltime">Total time</text>
+      <text tid="userdata">User data</text>
+      <text tid="useremail">Email address</text>
+      <text tid="username">Login name</text>
+      <text tid="viewprocess">View process data</text>
+      <text tid="viewtab">View tab</text>
+      <text tid="waiting">Waiting</text>
+      <text tid="waittime">Wait time</text>
+    </textgroup>
+    <textgroup gid="queuemessages">   <!-- monitor.queuemessages -->
+      <text tid="taskscheduled">The task has been scheduled</text>
+      <text tid="verifyruntask">Are you sure you want to run script '<param p="1"/>' now?</text>
+      <text tid="verifyruntaskbadinstalltype">The selected script ''<param p="1"/>'' has been specifically marked to not run on this installation. It should only be run on an installation of type '<param p="2"/>' but your installation has been configured as type '<param p="3"/>'. Usually scripts are marked this way to prevent duplicate actions (eg sending  email or procesing purchases).<br/><br/>Do you still want to run this script anyway?</text>
+    </textgroup>
+    <textgroup gid="queues">   <!-- monitor.queues -->
+      <text tid="analyzerqueuelength">Output analyzer queue length</text>
+      <text tid="consilioqueue">Consilio queue</text>
+      <text tid="contentsources">Content sources</text>
+      <text tid="contentsources-desc"><param p="2"/>/<param p="1"/> (<param p="3"/> disabled)</text>
+      <text tid="currenttask">Current task</text>
+      <text tid="deadline">Deadline</text>
+      <text tid="description">Description</text>
+      <text tid="estimate_unavailable">estimate unavailable</text>
+      <text tid="estimatedcompletion">Estimated completion</text>
+      <text tid="indexmanagers">Index Managers</text>
+      <text tid="indexstatus">Status</text>
+      <text tid="janitor_nexttask">Next janitor task</text>
+      <text tid="name">Name</text>
+      <text tid="nexttime">Next run</text>
+      <text tid="publisherqueue">Publisher queue</text>
+      <text tid="queuelength">Queue length</text>
+      <text tid="running">Running</text>
+      <text tid="runtaskinforeground">Run task in foreground</text>
+      <text tid="scheduletasknow">Schedule task now</text>
+      <text tid="script">Script</text>
+      <text tid="starttime">Starttime</text>
+      <text tid="tasks">Tasks</text>
+      <text tid="time">Time</text>
+      <text tid="title">Queues</text>
+      <text tid="workers">Workers</text>
+      <textgroup gid="indexmanagerstatus">   <!-- monitor.queues.indexmanagerstatus -->
+        <text tid="available">Available</text>
+        <text tid="checking">Should be checked</text>
+        <text tid="flood_watermark">Read-only mode (<ifparam p="2" value="more">&gt; <param p="1"/> in use<else/>&lt; <param p="1"/> available</ifparam>)</text>
+        <text tid="high_watermark">Very low disk space (<ifparam p="2" value="more">&gt; <param p="1"/> in use<else/>&lt; <param p="1"/> available</ifparam>)</text>
+        <text tid="low_watermark">Low disk space (<ifparam p="2" value="more">&gt; <param p="1"/> in use<else/>&lt; <param p="1"/> available</ifparam>)</text>
+        <text tid="offline">Offline</text>
+        <text tid="optimizing">Being optimized</text>
+        <text tid="unauthorized">Unauthorized</text>
+        <text tid="unknown">Unknown</text>
+      </textgroup>
+      <textgroup gid="workerstatus">   <!-- monitor.queues.workerstatus -->
+        <text tid="checkgroup">Reindexing '<param p="1"/>' in catalog '<param p="2"/>'</text>
+        <text tid="checkindex">Checking catalog '<param p="1"/>'</text>
+        <text tid="checkindexsource">Checking catalog '<param p="1"/>': '<param p="2"/>'</text>
+        <text tid="checkindexstate">Checking index state</text>
+        <text tid="checkobject">Indexing '<param p="1"/>' in catalog '<param p="2"/>'</text>
+        <text tid="cleanupindex">Cleaning up catalog '<param p="1"/>'</text>
+        <text tid="deactivategroup">Deleting '<param p="1"/>'<ifparam p="2" value=""><else/> from catalog '<param p="2"/>'</ifparam></text>
+        <text tid="deletegroup">Deleting '<param p="1"/>' from catalog '<param p="2"/>'</text>
+        <text tid="deleteobject">Deleting '<param p="1"/>' from catalog '<param p="2"/>'</text>
+        <text tid="fastcheckgroup">Indexing '<param p="1"/>' in catalog '<param p="2"/>'</text>
+        <text tid="idle">&lt;no task&gt;</text>
+        <text tid="unavailable">&lt;unavailable&gt;</text>
+        <text tid="unknown">&lt;unknown&gt;</text>
+        <text tid="updategroup">Updating '<param p="1"/>' in catalog '<param p="2"/>'</text>
+        <text tid="updateindex">Updating catalog '<param p="1"/>'</text>
+        <text tid="updateindexsource">Updating catalog '<param p="1"/>': '<param p="2"/>'</text>
+        <text tid="workerpages"><param p="1"/> <ifparam p="1" value="1">item<else/>items</ifparam></text>
+        <text tid="workertask"><param p="1"/><ifparam p="2" value=""><else/> (<param p="2"/>)</ifparam></text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="rpclog">   <!-- monitor.rpclog -->
+      <text tid="title">RPC logs</text>
+      <textgroup gid="panel">   <!-- monitor.rpclog.panel -->
+        <text tid="loggedforever">Log always</text>
+        <text tid="loggeduntil">Log until <param p="1"/></text>
+        <text tid="loggeduntilexpires">Logged until <param p="1"/> (expires in <ifparam p="2" value="1">1 day<else/><param p="2"/> days</ifparam>)</text>
+        <text tid="notlogged">Not logged</text>
+        <text tid="rpclog">RPC logs</text>
+        <text tid="title">Log name</text>
+        <text tid="until">Until</text>
+      </textgroup>
+      <textgroup gid="settings">   <!-- monitor.rpclog.settings -->
+        <text tid="dateinpast">The 'log until' date cannot be in the past.</text>
+        <text tid="loguntil">Log until</text>
+        <text tid="loguntil-forever">Log always</text>
+        <text tid="loguntil-not">Don't log</text>
+        <text tid="loguntil-until">Log until</text>
+        <text tid="loguntildate">Log until</text>
+        <text tid="profile">Profile (automatically disabled after 4 hours)</text>
+        <text tid="title">Edit log settings</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="scheduledowntime">   <!-- monitor.scheduledowntime -->
+      <text tid="estimateddowntime">Estimated duration</text>
+      <text tid="locklogin">Lock login</text>
+      <text tid="scheduledowntime">Schedule downtime</text>
+      <text tid="scheduletime">Start</text>
+    </textgroup>
+    <textgroup gid="sendmessage">   <!-- monitor.sendmessage -->
+      <text tid="applytemplate">Template settings</text>
+      <text tid="applytemplatetotext">Apply</text>
+      <text tid="defaultmessage">Geachte heer/mevrouw,<br/><br/>deze server zal (over XX minuten / vandaag om XX:XX / op XX-XX-XXX om XX:XX) worden geüpdatet. Hiervoor wordt u automatisch uitgelogd.<br/><br/>Sluit a.u.b. uw openstaande applicaties. Niet-opgeslagen gegevens kunnen verloren gaan.<br/><br/>Het onderhoud zal ongeveer XX minuten in beslag nemen. Na deze periode kunt u weer inloggen. <br/><br/>Onze excuses voor het ongemak.<br/><br/>--<br/><br/>Dear sir / madam,<br/><br/>This server will be updated (in XX minutes / today at XX:XX AM/PM / XX-XX-XXXX at XX-XX AM-PM). You will be automatically logged out.<br/><br/>Please close any running applications. Unsaved data could be lost.<br/><br/>The maintenance will take approximately XX minutes. After this period you can log in again.<br/><br/>We apologize for any inconvenience.</text>
+      <text tid="global_msgtitle">Global announcement</text>
+      <text tid="message">Message</text>
+      <text tid="messagetype">Send as</text>
+      <text tid="messagetype-broadcast">Broadcast (dialog)</text>
+      <text tid="messagetype-towl">Notification (Towl)</text>
+      <text tid="minutes">minutes</text>
+      <text tid="msg">Message</text>
+      <text tid="sendmessage">Verstuur</text>
+      <text tid="serverupdate">Server update</text>
+      <text tid="template">Template</text>
+      <text tid="template-none">None</text>
+      <text tid="template-serverupdate">Server update</text>
+      <text tid="title">Title</text>
+      <text tid="title_toall">Send a global announcement</text>
+      <text tid="title_toallusersofapp">Send a message to users of application '<param p="1"/>'</text>
+      <text tid="title_toallusersofmodule">Send a message to users of module '<param p="1"/>'</text>
+      <text tid="title_touser">Send a message to user '<param p="1"/>'</text>
+      <text tid="title_tousers">Send a message to selected users</text>
+      <text tid="updatelanguage">Language</text>
+      <text tid="updatelanguage-dutch">Dutch</text>
+      <text tid="updatelanguage-dutch_and_english">Dutch and English</text>
+      <text tid="updatelanguage-english">English</text>
+      <text tid="updatetime">Update duration</text>
+      <text tid="updatewhen">Update time</text>
+    </textgroup>
+    <textgroup gid="taskproperties">   <!-- monitor.taskproperties -->
+      <text tid="defaulttimeout">Default timeout (<param p="1"/>)</text>
+      <text tid="enabled">Enabled</text>
+      <text tid="inapplicable">Not applicable</text>
+      <text tid="lastmessages">Last messages</text>
+      <text tid="nexttime">Next run time</text>
+      <text tid="parameters">Parameters</text>
+      <text tid="properties">Properties</text>
+      <text tid="scriptname">Script name</text>
+      <text tid="tag">Tag</text>
+      <text tid="taskproperties">Task properties</text>
+      <text tid="timeout">Script timeout</text>
+    </textgroup>
+    <textgroup gid="users">   <!-- monitor.users -->
+      <text tid="appcount">Applications</text>
+      <text tid="application">Application</text>
+      <text tid="applicationtitle">Application name</text>
+      <text tid="appmemory">Total memory</text>
+      <text tid="apps">Applications</text>
+      <text tid="appstats">Application data</text>
+      <text tid="backingstore">Backing store</text>
+      <text tid="blobstore">Blobs</text>
+      <text tid="browser">Browser</text>
+      <text tid="cancelscheduleddowntime">Cancel downtime</text>
+      <text tid="closewebharelogin">Close login</text>
+      <text tid="heap">Heap</text>
+      <text tid="instructions">Instructions</text>
+      <text tid="ipaddress">IP address</text>
+      <text tid="lastaccess">Last access</text>
+      <text tid="lastactive">Last active</text>
+      <text tid="lastpoll">Last poll</text>
+      <text tid="library">Library</text>
+      <text tid="loginstatus">WebHare login status</text>
+      <text tid="loginstatus_closed">Login is CLOSED</text>
+      <text tid="loginstatus_licenseexpired">Login is CLOSED, license expired</text>
+      <text tid="loginstatus_nolicense">Login is CLOSED, no license</text>
+      <text tid="loginstatus_open">Login is open</text>
+      <text tid="logintime">Logintime</text>
+      <text tid="memoryusage">Memory usage</text>
+      <text tid="messaging">Messages</text>
+      <text tid="objectcount">Object count</text>
+      <text tid="openwebharelogin">Open login</text>
+      <text tid="realname">Name</text>
+      <text tid="running">Active?</text>
+      <text tid="scheduledowntime">Schedule downtime</text>
+      <text tid="sendglobalmessage">Send a global message</text>
+      <text tid="sendmessagetouser">Send a message to this user</text>
+      <text tid="sessionid">Session id</text>
+      <text tid="stack">Stack</text>
+      <text tid="starturl">Start URL</text>
+      <text tid="stats">Statistics</text>
+      <text tid="timestarted">Start time</text>
+      <text tid="title">Users</text>
+      <text tid="total_appcount">Number of applications</text>
+      <text tid="total_appmemory">Memory usage</text>
+      <text tid="total_onlineusers">Online users</text>
+      <text tid="typename">Types</text>
+      <text tid="username">User name</text>
+      <textgroup gid="menus">   <!-- monitor.users.menus -->
+        <text tid="killallsessions">Close all applications</text>
+        <text tid="killsession">Close application</text>
+      </textgroup>
+      <textgroup gid="types">   <!-- monitor.users.types -->
+        <text tid="basic">Basic</text>
+        <text tid="cookie">Cookie</text>
+        <text tid="digest">Digest</text>
+        <text tid="tollium">WebHare backend</text>
+        <text tid="unknown">Unknown</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="webserverscripts">   <!-- monitor.webserverscripts -->
+      <text tid="title">Cluster services</text>
+      <textgroup gid="dialogs">   <!-- monitor.webserverscripts.dialogs -->
+        <text tid="resourcemanagererror">There was an error contacting the resource manager</text>
+      </textgroup>
+      <textgroup gid="manager">   <!-- monitor.webserverscripts.manager -->
+        <text tid="couldnotcontact">Could not contact webserver management script</text>
+        <text tid="date">At</text>
+        <text tid="details">Details</text>
+        <text tid="error">The following error occurred: <param p="1"/></text>
+        <text tid="lasterror">Last message</text>
+        <text tid="message">Error message</text>
+        <text tid="name">Name</text>
+        <text tid="runhistory">History</text>
+        <text tid="since">Since</text>
+        <text tid="status">Status</text>
+        <text tid="status-crashed">Crashed</text>
+        <text tid="status-none">Not started</text>
+        <text tid="status-released">Released</text>
+        <text tid="status-running">Running</text>
+        <text tid="status-shutdown">Shut down</text>
+        <text tid="status-starting">Starting</text>
+        <text tid="status-terminated">Terminated</text>
+        <text tid="title">Cluster services</text>
+        <textgroup gid="actions">   <!-- monitor.webserverscripts.manager.actions -->
+          <text tid="details">Details</text>
+          <text tid="history">History</text>
+          <text tid="refresh">Refresh</text>
+          <text tid="terminate">Terminate</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="resourcemanager">   <!-- monitor.webserverscripts.resourcemanager -->
+        <text tid="cache">Cache</text>
+        <text tid="clearcache">Clear cache</text>
+        <text tid="file_requests">File requests</text>
+        <text tid="icon_requests">Icon requests</text>
+        <text tid="icon_requests_from_cache">Icon requests statisfied from cache</text>
+        <text tid="iconlist_requests">Iconlist requests</text>
+        <text tid="notrunning">The resourcemanager script is currently not running</text>
+        <text tid="title">Resource manager</text>
+        <text tid="xml_from_cache">XML requests statisfied from cache</text>
+        <text tid="xml_requests">XML requests</text>
+        <text tid="xmlcache_size">XML documents in cache</text>
+      </textgroup>
+      <textgroup gid="runhistory">   <!-- monitor.webserverscripts.runhistory -->
+        <text tid="date">At</text>
+        <text tid="details">Details</text>
+        <text tid="message">Error message</text>
+        <text tid="title">Run history</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="whdb">   <!-- monitor.whdb -->
+      <text tid="client">Client</text>
+      <text tid="col">Column</text>
+      <text tid="count">Count</text>
+      <text tid="currentrpc">Current call</text>
+      <text tid="enablegrouping">Group on plan and origin</text>
+      <text tid="filename">Stack trace</text>
+      <text tid="func">Function</text>
+      <text tid="id">Query ID</text>
+      <text tid="janitor">Janitor</text>
+      <text tid="line">Line</text>
+      <text tid="nexttask">Next task</text>
+      <text tid="norpcinfo">RPC info is not available</text>
+      <text tid="nostacktrace">No stack trace available</text>
+      <text tid="numhints">Cleanup hints</text>
+      <text tid="opentracerow">Show source</text>
+      <text tid="origin">Origin</text>
+      <text tid="plan">Plan</text>
+      <text tid="querylogtab">Query log</text>
+      <text tid="refcount">Refs</text>
+      <text tid="resetlog">Clear</text>
+      <text tid="rpcinfo">Call details</text>
+      <text tid="sentrows">Sent rows</text>
+      <text tid="settings">Debug settings</text>
+      <text tid="showrpcinfo">Record call details (global setting, enable only for debugging)</text>
+      <text tid="source">Source</text>
+      <text tid="stacktrace">Stack trace</text>
+      <text tid="starttime">Start time</text>
+      <text tid="time">Processing time</text>
+      <text tid="title">WebHare Database</text>
+      <text tid="transactionstab">Transactions</text>
+      <text tid="transid">Trans ID</text>
+      <text tid="transstage">Stage</text>
+      <text tid="username">Username</text>
+      <text tid="waitsfor">Waiting for</text>
+      <text tid="waituntil">Wait until</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="newportal">   <!-- newportal -->
+    <textgroup gid="main">   <!-- newportal.main -->
+      <text tid="main">WebHare Portal</text>
+      <text tid="moreinfo">More information.</text>
+      <text tid="news">System news</text>
+      <text tid="personalsettings">Personal settings</text>
+      <text tid="socialite_auth">Socialite authorizations</text>
+      <textgroup gid="actions">   <!-- newportal.main.actions -->
+        <text tid="about">About 'WebHare'</text>
+        <text tid="enablecols_1">1 column</text>
+        <text tid="enablecols_2">2 columns</text>
+        <text tid="enablecols_3">3 columns</text>
+      </textgroup>
+      <textgroup gid="menubar">   <!-- newportal.main.menubar -->
+        <text tid="choosecols">Set number of columns</text>
+        <text tid="enablecolsaction_1">1 column</text>
+        <text tid="enablecolsaction_2">2 columns</text>
+        <text tid="enablecolsaction_3">3 columns</text>
+        <text tid="mainmenu">Portal</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="notifications">   <!-- notifications -->
+    <text tid="broadcast"><param p="1"/></text>
+    <text tid="broadcast-desc"><param p="1"/></text>
+    <textgroup gid="maintenance">   <!-- notifications.maintenance -->
+      <text tid="otherday">This server will be updated on <param p="1"/> at <param p="2"/>. You will be logged out. Please close all applications to avoid loss of data. The maintenance will take approximately <param p="3"/> minutes.</text>
+      <text tid="today">This server will be updated today at <param p="1"/>. You will be logged out. Please close all applications to avoid loss of data. The maintenance will take approximately <param p="2"/> minutes.</text>
+    </textgroup>
+    <textgroup gid="webdav">   <!-- notifications.webdav -->
+      <text tid="putexception">File Write Error</text>
+      <text tid="putexception-desc">The file '<param p="1"/>' could not be saved</text>
+    </textgroup>
+    <textgroup gid="whfs">   <!-- notifications.whfs -->
+      <text tid="siteprofcompiled">Site Profiles Recompiled</text>
+      <text tid="siteprofcompiled-desc">The site profiles are now recompiled</text>
+      <text tid="siteproferrors">Site Profile Errors</text>
+      <text tid="siteproferrors-desc">Errors have occurred while recompiling the following site profiles:<br/><param p="1"/></text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="portal">   <!-- portal -->
+    <text tid="about">About WebHare</text>
+    <text tid="asloginsnotsupported">To login as another user, use your own account and add '?openas=&lt;username&gt;' to the URL.</text>
+    <text tid="editusersettings">Personal settings</text>
+    <text tid="iedownloadsettinghint">If your browser is configured to properly allow downloads from this WebHare server, you can disable this warning in your Personal Settings</text>
+    <text tid="login">Log in</text>
+    <text tid="loginconfigerror">Login error - please contact your system administrator.</text>
+    <text tid="loginfailed">Login has failed</text>
+    <text tid="mysettings">My settings</text>
+    <text tid="portal">WebHare portal</text>
+    <text tid="portletcolumns">Set number of columns</text>
+    <text tid="usermenu">My start menu</text>
+    <textgroup gid="apps">   <!-- portal.apps -->
+      <text tid="config">Modules and Configuration</text>
+      <text tid="databaseeditor">Database editor</text>
+      <text tid="documentation">Developer's documentation</text>
+      <text tid="monitor">Monitoring</text>
+      <text tid="profilingmonitor">Profiling monitor</text>
+      <text tid="sysmgmt">System Management</text>
+      <text tid="userrights">User Management</text>
+      <text tid="webservers">Webservers</text>
+    </textgroup>
+    <textgroup gid="login">   <!-- portal.login -->
+      <text tid="login">Login</text>
+      <text tid="password">Password</text>
+      <text tid="savelogin">Remember my login</text>
+      <text tid="username">Username</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- portal.messages -->
+      <text tid="confirmexittollium">This will exit all WebHare applications.</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="rights">   <!-- rights -->
+    <text tid="accessrules">Access rules</text>
+    <text tid="authobjects">User Management</text>
+    <text tid="authobjects-descr">All rights for user, unit and role management</text>
+    <text tid="browseunits">Browse</text>
+    <text tid="browseunits-descr">The right to see a unit, and its underlying units, users and roles</text>
+    <text tid="default">Miscellaneous</text>
+    <text tid="default-descr">All rights that haven't been placed in another rightsgroup</text>
+    <text tid="fs">File system</text>
+    <text tid="fs-descr">File system related rights</text>
+    <text tid="fs_browse">Browse</text>
+    <text tid="fs_browse-descr">Viewing rights on this filesystem object and all underlying objects</text>
+    <text tid="fs_fullaccess">Full access</text>
+    <text tid="fs_fullaccess-descr">Full rights on this filesystem object and all underlying objects</text>
+    <text tid="fs_objects">Files and folders</text>
+    <text tid="manageroles">Manage roles</text>
+    <text tid="manageroles-descr">Managing roles, and granting those roles to or to revoke them from other users</text>
+    <text tid="manageunit">Manage all</text>
+    <text tid="manageunit-descr">Manage units and their underlying units, users and roles</text>
+    <text tid="openas">Open as user</text>
+    <text tid="openas-descr">Allows to open WebHare as any (non-sysop) user in this unit</text>
+    <text tid="supervisor">Supervisor</text>
+    <text tid="supervisor-descr">Manage the dashboard, monitor the server</text>
+    <text tid="sysop">Sysop</text>
+    <text tid="sysop-descr">Full management rights for this installation</text>
+    <text tid="units">Units</text>
+    <text tid="unreferenced">Obsolete rights</text>
+    <text tid="unreferenced-descr">Rights and objecttypes that are not or no longer offered by a module</text>
+    <text tid="urlaccess">URL access</text>
+    <text tid="urlaccess-descr">Allows access to this URL</text>
+    <text tid="webdav_datafolders">WebDav data folders</text>
+    <text tid="webdav_fullaccess">Full access</text>
+    <text tid="webdav_fullaccess-descr">Full access (read and write) to the contents of this folder</text>
+    <text tid="webdav_readaccess">Read-only access</text>
+    <text tid="webdav_readaccess-descr">Read-only access to the contents of this folder</text>
+    <text tid="webservermgmt">Webserver management</text>
+    <text tid="webservermgmt-descr">Manage webservers and accessrules</text>
+    <text tid="webservers">Webservers</text>
+    <textgroup gid="access">   <!-- rights.access -->
+      <text tid="allwebservers">(global)</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="scheduler">   <!-- scheduler -->
+    <textgroup gid="main">   <!-- scheduler.main -->
+      <text tid="description">Description</text>
+      <text tid="main">Scheduler</text>
+      <text tid="nexttime">Next time</text>
+      <text tid="parameters">Parameters</text>
+      <text tid="scriptname">Script name</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- scheduler.messages -->
+      <text tid="confirm_delete">Are you sure you want to delete the selected task?</text>
+    </textgroup>
+    <textgroup gid="taskscreen">   <!-- scheduler.taskscreen -->
+      <text tid="enabled">Enable this task</text>
+      <text tid="nexttime">Next execution time</text>
+      <text tid="parameters">Parameters</text>
+      <text tid="repeatevery">repeat every</text>
+      <text tid="runatstartup">Execute this task every time WebHare is started</text>
+      <text tid="scriptname">Script name</text>
+      <text tid="taskprops">Task properties</text>
+      <text tid="taskscreen">Task</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="screens">   <!-- screens -->
+    <textgroup gid="monitor">   <!-- screens.monitor -->
+      <textgroup gid="mailqueue">   <!-- screens.monitor.mailqueue -->
+        <text tid="confirmdeletemail">Are you sure you want to delete the selected mail(s) ?</text>
+        <text tid="confirmrequeuemail">Are you sure you want to resend the selected mail(s) ?</text>
+        <textgroup gid="panel">   <!-- screens.monitor.mailqueue.panel -->
+          <text tid="creationdate">Created at</text>
+          <text tid="filter">Filter</text>
+          <text tid="flush">Retry all mail</text>
+          <text tid="forward">Forward</text>
+          <text tid="nextattempt">Next attempt</text>
+          <text tid="receiver">Receiver</text>
+          <text tid="requeue">Resend mail</text>
+          <text tid="result">View send result</text>
+          <text tid="sender">Sender</text>
+          <text tid="showsentmail">Show sent mail</text>
+          <text tid="subject">Subject</text>
+          <text tid="testmailsubject">Test mail from '<param p="1"/>'</text>
+        </textgroup>
+        <textgroup gid="result">   <!-- screens.monitor.mailqueue.result -->
+          <text tid="finalreceiver">Final receiver</text>
+          <text tid="lasterror">Last error</text>
+          <text tid="response">SMTP response</text>
+          <text tid="result">Send result</text>
+          <text tid="route">Route</text>
+          <text tid="sender">Sender</text>
+          <text tid="serverip">SMTP server ip</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
+        <text tid="confirmdeletetasks">Are you sure you want to delete the tasks?</text>
+        <text tid="confirmrescheduletasks">Are you sure you want to reschedule the tasks?</text>
+        <textgroup gid="managedtask">   <!-- screens.monitor.managedtasks.managedtask -->
+          <text tid="creationdate">Queued at</text>
+          <text tid="datatab">Task data</text>
+          <text tid="finished">Finished at</text>
+          <text tid="id">Database id</text>
+          <text tid="lasterrors">Last errors</text>
+          <text tid="managedtask">Managed task properties</text>
+          <text tid="manualcall">Manual call</text>
+          <text tid="metadatatab">Metadata</text>
+          <text tid="nextattempt">Next attempt at</text>
+          <text tid="returnvaluetab">Return value</text>
+        </textgroup>
+        <textgroup gid="panel">   <!-- screens.monitor.managedtasks.panel -->
+          <text tid="creationdate">Queued at</text>
+          <text tid="flush">Retry all now</text>
+          <text tid="nextattempt">Next attempt</text>
+          <text tid="reschedule">Reschedule task</text>
+          <text tid="showcompletedtasks">Show completed tasks</text>
+          <text tid="status">Status</text>
+          <text tid="tasktype">Task type</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="sysmgmt">   <!-- screens.sysmgmt -->
+      <textgroup gid="needsysop" limitlanguages="en">   <!-- screens.sysmgmt.needsysop -->
+        <textgroup gid="main">   <!-- screens.sysmgmt.needsysop.main -->
+          <text tid="explainneedsysop">A WebHare installation needs a sysop to complete configuration.<br/><br/><br/><br/>As this server has been newly installed, you can create a sysop now.</text>
+          <text tid="finished">Installation wizard finished</text>
+          <text tid="login">Login name</text>
+          <text tid="login-placeholder">(eg. sysop@example.org)</text>
+          <text tid="password">Password</text>
+          <text tid="passwordrepeat">Repeat password</text>
+          <text tid="serversettings">Global server settings</text>
+          <text tid="sysopcredentials">Sysop credentials</text>
+          <text tid="title">Installation wizard</text>
+          <text tid="welcome">Welcome to WebHare</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="setsearchablefields">   <!-- setsearchablefields -->
+    <text tid="fields">Fields</text>
+    <text tid="fieldsperson">Fields for the 'person' type</text>
+    <text tid="fieldsrole">Fields for the 'role' type</text>
+    <text tid="fieldsunit">Fields for the 'unit' type</text>
+    <text tid="setfields">Set searchable fields</text>
+    <text tid="setfieldsperson">Set searchable 'person' fields</text>
+    <text tid="setfieldsrole">Set searchable 'role' fields</text>
+    <text tid="setfieldsunit">Set searchable 'unit' fields</text>
+    <text tid="title">Configure searchable fields</text>
+  </textgroup>
+  <textgroup gid="setuserdefaults">   <!-- setuserdefaults -->
+    <text tid="settings">Default settings</text>
+    <text tid="title">Set new user defaults</text>
+  </textgroup>
+  <textgroup gid="sysmgmt">   <!-- sysmgmt -->
+    <text tid="decimalsepandthousandsepmustdiffer">You cannot choose the same symbol for both the decimal separator and the thousands separator.</text>
+    <text tid="userconfirmpassword">The passwords do not match. Please enter exactly the same passwords in both the 'password' and 'confirm password' fields.</text>
+    <text tid="userinvalidcurpassword">The password entered in 'Current password' is invalid.</text>
+    <textgroup gid="adhoccache">   <!-- sysmgmt.adhoccache -->
+      <text tid="cachesize">Cache size</text>
+      <text tid="flushcache">Flush</text>
+      <text tid="hits">Hits</text>
+      <text tid="maxentries">Maximum items</text>
+      <text tid="minperlibrary">Minimum per library</text>
+      <text tid="misses">Misses</text>
+      <text tid="oldestitem">Oldest item</text>
+      <text tid="refresh">Refresh</text>
+      <text tid="requests">Requests</text>
+      <text tid="settings">Settings</text>
+      <text tid="settingstitle">Ad hoc cache global settings</text>
+      <text tid="status">Webserver adhoc cache status</text>
+      <text tid="title">Ad hoc cache</text>
+      <text tid="webservercurrent">(Webserver cache: <param p="1"/> / <param p="2"/>)</text>
+    </textgroup>
+    <textgroup gid="apprunner">   <!-- sysmgmt.apprunner -->
+      <text tid="addappdata">Add a service</text>
+      <text tid="appmenu">Services</text>
+      <text tid="duplicatename">A service with this name already exists.<br/><br/>Please choose another name for the service.</text>
+      <text tid="editappdata">Edit service properties</text>
+      <text tid="illegalname">The name of the service contains illegal characters. <br/><br/>Please only use letters, digits, underscores and hyphens.</text>
+      <text tid="inactive">Inactive</text>
+      <text tid="lasterror">Last message</text>
+      <text tid="name">Name</text>
+      <text tid="notrunning">Not running</text>
+      <text tid="ondemand">On demand</text>
+      <text tid="persistent">Persistent</text>
+      <text tid="running">Running</text>
+      <text tid="since">Since</text>
+      <text tid="title">Service manager</text>
+      <text tid="type">Type</text>
+      <text tid="unknown">Unknown</text>
+      <textgroup gid="actions">   <!-- sysmgmt.apprunner.actions -->
+        <text tid="refresh">Refresh</text>
+        <text tid="reload">Reload</text>
+        <text tid="restart">Restart</text>
+      </textgroup>
+      <textgroup gid="editappdata">   <!-- sysmgmt.apprunner.editappdata -->
+        <text tid="cmdline">Command line</text>
+        <text tid="editappdata">Edit service '<param p="1"/>'</text>
+        <text tid="name">Name</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- sysmgmt.apprunner.messages -->
+        <text tid="apprunnergone">The service manager proces cannot be contacted.</text>
+        <text tid="deleteapp">Are you sure you want to delete service '<param p="1"/>'?</text>
+        <text tid="restartfailed">The service could not be restarted.<br/><br/>Please make sure the command line is correct.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="editreg">   <!-- sysmgmt.editreg -->
+      <text tid="appmenu">Registry</text>
+      <text tid="name">Name</text>
+      <text tid="title">WebHare Registry</text>
+      <text tid="value">Value</text>
+      <textgroup gid="actions">   <!-- sysmgmt.editreg.actions -->
+        <text tid="editkey">Edit</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="editregkey">   <!-- sysmgmt.editregkey -->
+      <text tid="blob">Blob</text>
+      <text tid="boolean">Boolean</text>
+      <text tid="datetime">Datetime</text>
+      <text tid="description">Description</text>
+      <text tid="editregkey">Edit registry key</text>
+      <text tid="false">False</text>
+      <text tid="initialvalue">Initial value</text>
+      <text tid="integer">Integer</text>
+      <text tid="invalidrecordvalue">Invalid HSON-encoded record value</text>
+      <text tid="name">Key name</text>
+      <text tid="record">Record</text>
+      <text tid="string">String</text>
+      <text tid="true">True</text>
+      <text tid="type">Type</text>
+      <text tid="value">Value</text>
+    </textgroup>
+    <textgroup gid="errors">   <!-- sysmgmt.errors -->
+      <text tid="cannotreplacemodule">Unable to replace the existing module '<param p="1"/>'</text>
+      <text tid="cannotrestorebackup">Unable to restore the backup version of module '<param p="1"/>' - module is now unavailable</text>
+      <text tid="containingmodule">Trying to replace the module '<param p="1"/>' with a module file containing the module '<param p="2"/>'</text>
+      <text tid="ioerror">I/O error creating '<param p="1"/>'</text>
+      <text tid="missingmodules">Unable to install this module, the following required modules are not installed: <param p="1"/>.</text>
+      <text tid="modulealreadyexists">The module '<param p="1"/>' already exists, only one version of the module can be installed</text>
+      <text tid="notvalidmodulefile">The uploaded file is not a proper WebHare module archive file</text>
+      <text tid="notvalidmodulefileforthisversion">The uploaded file cannot be installed in this version of WebHare. This installation is <param p="2"/>, but <param p="1"/> is required for this module.</text>
+    </textgroup>
+    <textgroup gid="geoip">   <!-- sysmgmt.geoip -->
+      <text tid="title">GeoIP management</text>
+    </textgroup>
+    <textgroup gid="keystore">   <!-- sysmgmt.keystore -->
+      <text tid="invalidhostname">The webserver does not appear to be a valid hostname. Are you sure you want to use this value as Common Name?</text>
+      <text tid="invalidkeyfile">The file '<param p="1"/>' does not appear to be a valid private key</text>
+      <text tid="overwritewithselfsigned">Are you sure you want to replace the certificate of this key with a self-signed certificate?</text>
+      <text tid="rsa">RSA</text>
+      <text tid="suredeletekey">Are you sure you want to delete key '<param p="1"/>'? This operation can't be undone!</text>
+      <text tid="title">Keys and certificates</text>
+      <textgroup gid="createkey">   <!-- sysmgmt.keystore.createkey -->
+        <text tid="bits">Bits</text>
+        <text tid="createkey">Create key</text>
+        <text tid="duplicatekeyfile">This key is already in use</text>
+        <text tid="invalidname">The key name is invalid</text>
+        <text tid="ioerror">They key could not be saved due to an disk error.</text>
+        <text tid="keyfile">Key file</text>
+        <text tid="name">Name</text>
+        <text tid="title">Title</text>
+      </textgroup>
+      <textgroup gid="createselfsignedcert">   <!-- sysmgmt.keystore.createselfsignedcert -->
+        <text tid="altnames">Alternative DNS names</text>
+        <text tid="c">Country</text>
+        <text tid="cn">Common name (host)</text>
+        <text tid="createselfsignedcert">Create self-signed certificate</text>
+        <text tid="l">Locality</text>
+        <text tid="o">Organisation</text>
+        <text tid="ou">Organisation unit</text>
+        <text tid="st">State / province</text>
+        <text tid="validuntil">Valid until</text>
+        <text tid="valituntilmustbeinfuture">The 'valid until' date must be in the future.</text>
+      </textgroup>
+      <textgroup gid="generatecsr">   <!-- sysmgmt.keystore.generatecsr -->
+        <text tid="altnames">Alternative names</text>
+        <text tid="country">Country</text>
+        <text tid="csr">CSR</text>
+        <text tid="generate">Generate</text>
+        <text tid="generatecsr">Generate Certificate Signing Request</text>
+        <text tid="invalidhostname">Invalid host name</text>
+        <text tid="locality">City</text>
+        <text tid="organization">Organization</text>
+        <text tid="organizationunit">Organization unit</text>
+        <text tid="readfromcert">Read from certificate</text>
+        <text tid="readfromlastcsr">Read from last CSR</text>
+        <text tid="state">State</text>
+        <text tid="webserver">Webserver</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- sysmgmt.keystore.main -->
+        <text tid="addkey">Add key</text>
+        <text tid="certificate">Certificate</text>
+        <text tid="certificatealreadyinstalled">This certificate is already installed.</text>
+        <text tid="certificatedoesnotmatchissuer">The certificate issuer does not match the subject of the signing certificate.</text>
+        <text tid="certificatenotforthiskey">This certificate does not belong to the selected key.</text>
+        <text tid="createselfsignedcert">Create self-signed certificate</text>
+        <text tid="deletekey">Delete key</text>
+        <text tid="downloadcertificate">Download certificate</text>
+        <text tid="downloadkey">Download key</text>
+        <text tid="generatecsr">Generate CSR</text>
+        <text tid="keyfile">Key file</text>
+        <text tid="keylength">Key length</text>
+        <text tid="keystillreferencedbyentity">This key is still referenced by a WRD entity from schema '<param p="1"/>', type '<param p="2"/>', entity tag '<param p="3"/>'.</text>
+        <text tid="keystillreferencedbyport">This key is still used by the binding of port <param p="2"/>, IP <param p="1"/>.</text>
+        <text tid="main">Keys and certificates</text>
+        <text tid="missingcertificate">The certificate for issuer '<param p="1"/>' is not in the certificate file and not known in the central certificate store.</text>
+        <text tid="missingcertificatechain">This certificate file does not contain a certificate chain.</text>
+        <text tid="noncertificateinchain">This file contains an invalid certificate.</text>
+        <text tid="signatureverificationfailed">The validation of the certificate chain failed.</text>
+        <text tid="unsupportedsignaturealgorithm">The signature algorithm "<param p="1"/>" is not supported.</text>
+        <text tid="uploadcertificate">Install certificate</text>
+        <text tid="uploadkey">Upload key</text>
+        <text tid="validuntil">Valid until</text>
+        <text tid="viewcertificatechain">View certificates</text>
+      </textgroup>
+      <textgroup gid="viewcertificatechain">   <!-- sysmgmt.keystore.viewcertificatechain -->
+        <text tid="altnames">Alternative names</text>
+        <text tid="certificatechain">Certificate chain</text>
+        <text tid="certificatedata">Certificate date</text>
+        <text tid="commonname">Common name</text>
+        <text tid="country">Country</text>
+        <text tid="dns_altnames">DNS alternate names</text>
+        <text tid="expired"><html:b>Expired!</html:b></text>
+        <text tid="expires_in_days">Expires in <param p="1"/> days</text>
+        <text tid="expires_soon_in_days"><html:b>Expires in <param p="1"/> days</html:b></text>
+        <text tid="locality">Locality</text>
+        <text tid="notsignedbynextcert">Not signed by next certificate!</text>
+        <text tid="organization">Organization</text>
+        <text tid="selfsigned">Self-signed</text>
+        <text tid="signature">Signature</text>
+        <text tid="signaturenotchecked">Signature cannot be checked</text>
+        <text tid="signaturestatus">Status</text>
+        <text tid="signedbynextcert">Signed by next certificate</text>
+        <text tid="state">State/province</text>
+        <text tid="subject">Subject</text>
+        <text tid="validfrom">Valid from</text>
+        <text tid="validuntil">Valid until</text>
+        <text tid="viewcertificatechain">Certificate chain</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="main">   <!-- sysmgmt.main -->
+      <text tid="app">System management</text>
+      <text tid="main">System management</text>
+      <textgroup gid="actions">   <!-- sysmgmt.main.actions -->
+        <text tid="about">About System management</text>
+        <text tid="addtostartmenu">Add to start menu</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="messages">   <!-- sysmgmt.messages -->
+      <text tid="deletekey">Are you sure you want to delete key '<param p="1"/>'?</text>
+      <text tid="deletenode">Are you sure you want to delete node '<param p="1"/>' and its subnodes?</text>
+    </textgroup>
+    <textgroup gid="modules">   <!-- sysmgmt.modules -->
+      <text tid="author">Author</text>
+      <text tid="config">Configure</text>
+      <text tid="copyright">Copyright</text>
+      <text tid="languages">Available translations</text>
+      <text tid="library">Library</text>
+      <text tid="modifications">Modifications</text>
+      <text tid="reloadmodules">Reload modules</text>
+      <text tid="requireright">Requires right</text>
+      <text tid="runapplication">Start application</text>
+      <text tid="screen">Screen</text>
+      <text tid="scriptsandrpcstab">Scripts &amp; RPC's</text>
+      <text tid="servicestab">Services</text>
+      <text tid="showmoduleinfo">Information</text>
+      <text tid="startmacro">Startmacro</text>
+      <text tid="type_builtin">Built-in</text>
+      <text tid="type_deleted">Deleted</text>
+      <text tid="type_installed">Installed</text>
+      <text tid="type_local">Locally managed</text>
+      <text tid="uncommitted">Uncommitted changes</text>
+      <text tid="versionstitle">Versions of module '<param p="1"/>'</text>
+      <text tid="vmpermissions">VM permissions</text>
+      <textgroup gid="columns">   <!-- sysmgmt.modules.columns -->
+        <text tid="basename">Module name</text>
+        <text tid="type">Type</text>
+      </textgroup>
+      <textgroup gid="columns_applications">   <!-- sysmgmt.modules.columns_applications -->
+        <text tid="name">Application name</text>
+        <text tid="title">Title</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="receiverproperties">   <!-- sysmgmt.receiverproperties -->
+      <text tid="receiverproperties">Receiver properties</text>
+    </textgroup>
+    <textgroup gid="registry">   <!-- sysmgmt.registry -->
+      <text tid="title">WebHare registry</text>
+    </textgroup>
+    <textgroup gid="remoting">   <!-- sysmgmt.remoting -->
+      <text tid="title">Webhare remoting</text>
+      <textgroup gid="editservice">   <!-- sysmgmt.remoting.editservice -->
+        <text tid="debugsettings">Debug settings</text>
+        <text tid="log_decoded_requests">Log requests</text>
+        <text tid="log_decoded_responses">Log responses</text>
+        <text tid="log_raw_requests">Log raw requests (xml/json)</text>
+        <text tid="log_raw_responses">Log raw responses (xml/json)</text>
+        <text tid="profile">Profile</text>
+        <text tid="rpcloglevel">Log level</text>
+        <text tid="title">Manage service settings</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- sysmgmt.remoting.main -->
+        <text tid="log_decoded_requests_icon">Log requests</text>
+        <text tid="log_decoded_responses_icon">Log responses</text>
+        <text tid="log_raw_requests_icon">Log raw requests (xml/json)</text>
+        <text tid="log_raw_responses_icon">Log raw responses (xml/json)</text>
+        <text tid="module">Module</text>
+        <text tid="profile_icon">Profile</text>
+        <text tid="rpcloglevel">Log level</text>
+        <text tid="service">Service</text>
+        <text tid="title">Manage remoting settings</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="scheduler">   <!-- sysmgmt.scheduler -->
+      <text tid="title">Scheduler</text>
+    </textgroup>
+    <textgroup gid="sessionlist">   <!-- sysmgmt.sessionlist -->
+      <text tid="title">Activity Monitor</text>
+      <textgroup gid="sessionlist">   <!-- sysmgmt.sessionlist.sessionlist -->
+        <text tid="active">Active</text>
+        <text tid="application">Application</text>
+        <text tid="globalmessage">Global message</text>
+        <text tid="ipaddress">IP address</text>
+        <text tid="killsession">End session</text>
+        <text tid="lastactive">Last active</text>
+        <text tid="memoryusage">Memory usage</text>
+        <text tid="objectcount">Objects</text>
+        <text tid="refresh">Refresh</text>
+        <text tid="sessionid">ID</text>
+        <text tid="sessionlist">Activity Monitor</text>
+        <text tid="timestarted">Start time</text>
+        <text tid="url">URL</text>
+        <text tid="user">User</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="systemnews">   <!-- sysmgmt.systemnews -->
+      <text tid="title">System News</text>
+      <text tid="unknown">Unknown</text>
+      <textgroup gid="overview">   <!-- sysmgmt.systemnews.overview -->
+        <text tid="appmenu">System News</text>
+        <text tid="title">System News</text>
+        <textgroup gid="columns">   <!-- sysmgmt.systemnews.overview.columns -->
+          <text tid="creationdate">Creation date</text>
+          <text tid="title">Title</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="update">   <!-- sysmgmt.systemnews.update -->
+        <text tid="en">English</text>
+        <text tid="from_later_than_now">The time to end the publication must be at a later time than the time to start the publication.</text>
+        <text tid="general">Properties</text>
+        <text tid="lang">Language</text>
+        <text tid="message">Message</text>
+        <text tid="nl">Dutch</text>
+        <text tid="title_en">Title</text>
+        <text tid="window_add">Add news item</text>
+        <text tid="window_edit">Edit news item '<param p="1"/>'</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="tolliumbackend">   <!-- sysmgmt.tolliumbackend -->
+      <text tid="applettitle">Authentication</text>
+      <text tid="authentication">Authentication</text>
+      <text tid="basic_auth">Basic</text>
+      <text tid="cleartext_password">Store user passwords in clear text in the WebHare database (required for Windows XP SP2 WebDav)</text>
+      <text tid="cookie">Cookie/session based authentication</text>
+      <text tid="cookie_domain">Cookie domain</text>
+      <text tid="dashboard">Dashboard branding</text>
+      <text tid="digest_auth">Digest</text>
+      <text tid="exclude_accounts">Exclude accounts</text>
+      <text tid="http">HTTP authentication (browser pop-up)</text>
+      <text tid="http_authentication">HTTP authentication</text>
+      <text tid="imap">IMAP server</text>
+      <text tid="initialredirect">After logging in, redirect users to</text>
+      <text tid="keytype_development">Development server key</text>
+      <text tid="keytype_notpresent">No license key present</text>
+      <text tid="keytype_oldstyle">Old format license key (never updated)</text>
+      <text tid="keytype_production">Production server key</text>
+      <text tid="layouttitle">Application portal title</text>
+      <text tid="legacyappfilter">Legacy application filter</text>
+      <text tid="legacyui">Enable classic webinterface</text>
+      <text tid="login_method">Login method</text>
+      <text tid="servername">Server name</text>
+      <text tid="servertype">Server type (DTAP)</text>
+      <text tid="servertype-acceptance">Acceptance</text>
+      <text tid="servertype-development">Development</text>
+      <text tid="servertype-production">Production</text>
+      <text tid="servertype-test">Test</text>
+      <text tid="session_authentication">Session authentication</text>
+      <text tid="timeout">Inactivity time-out</text>
+      <text tid="title">WebHare backend interface</text>
+      <text tid="toddfallbackurl">Fallback URL</text>
+      <text tid="unlimited">Unlimited</text>
+      <text tid="updatelicense">Update licensekey</text>
+      <text tid="verbose_log">Verbose authentication logging (caution: may cause passwords to be logged too)</text>
+      <text tid="webhare_interface">WebHare interface authentication</text>
+      <text tid="webserver">Webserver</text>
+      <text tid="windowtitle">Authentication</text>
+    </textgroup>
+    <textgroup gid="webdav">   <!-- sysmgmt.webdav -->
+      <textgroup gid="data">   <!-- sysmgmt.webdav.data -->
+        <text tid="appmenu">Folders</text>
+        <text tid="diskfolder">Shared folder</text>
+        <text tid="foldername">Folder name</text>
+        <text tid="rightsfolder">Rights</text>
+        <text tid="title">WebDav Data Folders</text>
+      </textgroup>
+      <textgroup gid="folder">   <!-- sysmgmt.webdav.folder -->
+        <text tid="badname">The folder name you entered is invalid</text>
+        <text tid="diskfolder">Folder to share</text>
+        <text tid="foldername">WebDav folder name</text>
+        <text tid="forcelowercase">Use lowercase names on disk</text>
+        <text tid="webdav_folder">Manage WebDav data folder</text>
+        <text tid="webdavdata">WebDAV folder properties</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- sysmgmt.webdav.messages -->
+        <text tid="deletefolder">Are you sure you want to delete folder '<param p="1"/>'?</text>
+        <text tid="deleteuser">Are you sure you want to remove access for the user '<param p="1"/>'?</text>
+        <text tid="deleteusers">Are you sure you want to remove access for <param p="1"/> users?</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="webservers">   <!-- sysmgmt.webservers -->
+      <text tid="title">Webservers</text>
+      <textgroup gid="accessrules">   <!-- sysmgmt.webservers.accessrules -->
+        <text tid="externalusers">External users</text>
+        <text tid="ipfilters">IP filters</text>
+        <text tid="title">Access rules</text>
+        <text tid="view">View URL</text>
+        <text tid="webhareusers">WebHare users</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.accessrules.columns -->
+          <text tid="description">Description</text>
+          <text tid="path">Path</text>
+          <text tid="protected">Protected</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="bindings">   <!-- sysmgmt.webservers.bindings -->
+        <text tid="allip6s">All local IPv6 addresses</text>
+        <text tid="allips">All local IPv4 addresses</text>
+        <text tid="confirmdeleteusedinding">You seem to be connected using this port. Are you REALLY SURE you want to delete this port?</text>
+        <text tid="title">Ports and incoming connections</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.bindings.columns -->
+          <text tid="ip">IP address</text>
+          <text tid="port">Port</text>
+          <text tid="secure">Secure</text>
+          <text tid="virtualhost">Name-based</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="externalusers">   <!-- sysmgmt.webservers.externalusers -->
+        <text tid="externalusers">External users</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.externalusers.columns -->
+          <text tid="description">Description</text>
+          <text tid="username">Username</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="ipfilters">   <!-- sysmgmt.webservers.ipfilters -->
+        <text tid="allowed">Allowed</text>
+        <text tid="allowwithoutdeny">IP filters are not effective without at least one denying rule.</text>
+        <text tid="denied">Denied</text>
+        <text tid="title">IP filters</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.ipfilters.columns -->
+          <text tid="mask">IP mask</text>
+          <text tid="status">Access</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="messages">   <!-- sysmgmt.webservers.messages -->
+        <text tid="cannotdeletebindinginuse">The webserver '<param p="1"/>' needs to be removed from this binding before you can delete it.</text>
+        <text tid="cannotdeletefilledgroup">This group cannot be deleted at this moment because there are webserver inside.</text>
+        <text tid="cannotdeleteprimaryinterface">The webserver '<param p="1"/>' can not be deleted at this moment, because it hosts the primary WebHare interface.</text>
+        <text tid="cannotdeleteyourserver">The webserver '<param p="1"/>' can not be deleted at this moment, because you are using this webserver now to access this configuration screen.</text>
+        <text tid="checkingwebservers">A webserver check has been scheduled, the list will update when it's done</text>
+        <text tid="couldnotconnect">Could not connect to the proxy.</text>
+        <text tid="deleteaccessrule">Are you sure you want to delete this access rule?</text>
+        <text tid="deletealias">Are you sure you want to delete alias '<param p="1"/>'?</text>
+        <text tid="deletebinding">Are you sure you want to delete this binding?</text>
+        <text tid="deletegroup">Are you sure you want to delete this group?</text>
+        <text tid="deleteipfilter">Are you sure you want to delete this IP filter?</text>
+        <text tid="deletemimetype">Are you sure you want to delete the file type with extension '<param p="1"/>'?</text>
+        <text tid="deleteproxy">Are you sure you want to unregister from proxy '<param p="1"/>'?</text>
+        <text tid="deleteselection">Are you sure you want to delete the selection ?</text>
+        <text tid="deleteuser">Are you sure you want to delete these users?</text>
+        <text tid="deletewebserver">Are you sure you want to delete webserver '<param p="1"/>'?</text>
+        <text tid="interfaceurlnothosted">The proxy detected that the local connection address does not resolve to this server, because the WebHare interface URL was not found on the connected server. Is this a backup of the original server?</text>
+        <text tid="proxycouldnotconnect">The proxy could not connect to your local connect address.</text>
+        <text tid="testok">The connection test to the proxy succeeded.</text>
+        <text tid="unknownproxyerror">The proxy could not verify the connection to this server, and returned the following error code: '<param p="1"/>'</text>
+        <text tid="unregisterfailedsuredelete">Could not unregister this server with the proxy. Are you sure you want to remove the registration locally?</text>
+        <text tid="useipfiltersiwithoutdeny">Users will not be denied access because no denying rule is present. Are you sure you want to configure the IP filters this way?</text>
+        <text tid="verifydeletefilledgroup">Deleting this group will permanently delete the contained webservers, aliases and access rule settings and cannot be undone.<br/><br/>Are you sure you want to delete this group?</text>
+        <text tid="wrongpassword">Could not connect to the proxy: the password was wrong.</text>
+        <text tid="wrongverificationcode">The proxy detected that the local connection address does not resolve to this server, because the used verification code was not known on the connected server. Is this a backup of the original server?</text>
+      </textgroup>
+      <textgroup gid="mimetype">   <!-- sysmgmt.webservers.mimetype -->
+        <text tid="extension">Extension</text>
+        <text tid="mimetype">Mime type</text>
+        <text tid="parsetype">Handling</text>
+        <text tid="parsetype-0">Send as-is</text>
+        <text tid="parsetype-1">HareScript</text>
+        <text tid="parsetype-2">CGI</text>
+        <text tid="parsetype-3">Script</text>
+        <text tid="parsetype-4">HareScript (websocket)</text>
+        <text tid="windowtitle_add">Add file type</text>
+        <text tid="windowtitle_edit">Edit file type with extension '<param p="1"/>'</text>
+        <textgroup gid="errors">   <!-- sysmgmt.webservers.mimetype.errors -->
+          <text tid="duplicate_extension">The extension '<param p="1"/>' is already in use, please choose an other extension</text>
+          <text tid="extension_starting_dot">The extension cannot start with a dot (.)</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="mimetypes">   <!-- sysmgmt.webservers.mimetypes -->
+        <text tid="title">File types</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.mimetypes.columns -->
+          <text tid="extension">Extension</text>
+          <text tid="handling">Handling</text>
+          <text tid="mimetype">Mime type</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="overview">   <!-- sysmgmt.webservers.overview -->
+        <text tid="accessrules">Access rules</text>
+        <text tid="addalias">Alias</text>
+        <text tid="addalias_contextmenu">Add alias</text>
+        <text tid="addgroup">Group</text>
+        <text tid="addwebserver">Webserver</text>
+        <text tid="addwebservergroup">Group</text>
+        <text tid="bindings">Ports</text>
+        <text tid="certbotrequest">Request LetsEncrypt certificate</text>
+        <text tid="exportusagestats">Export usage stats</text>
+        <text tid="filetypes">Filetypes</text>
+        <text tid="filter">Filter</text>
+        <text tid="filterchange">Change</text>
+        <text tid="keystore">Keystore</text>
+        <text tid="nofiltermatch">No webservers or aliasses contain the text '<param p="1"/>'</text>
+        <text tid="permissions">Rights</text>
+        <text tid="preview">View site</text>
+        <text tid="proxies">Proxies</text>
+        <text tid="schedulecheck">Schedule webservers check</text>
+        <text tid="title">Webserver management</text>
+        <text tid="webroot">All webservers</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.overview.columns -->
+          <text tid="path">Location</text>
+          <text tid="rules">Rules</text>
+          <text tid="sites">Sites</text>
+          <text tid="webserver">Webserver</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="proxies">   <!-- sysmgmt.webservers.proxies -->
+        <text tid="reregister">Reregister</text>
+        <text tid="title">Proxies</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.proxies.columns -->
+          <text tid="lastregistration">Last registration</text>
+          <text tid="url">URL</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="scripts">   <!-- sysmgmt.webservers.scripts -->
+        <text tid="eventcompletion">WHFS event completion</text>
+        <text tid="getconfig">Webserver dynamic reconfiguration</text>
+        <text tid="mutexmgr">Mutex manager</text>
+        <text tid="resourcemgr">Module cache</text>
+      </textgroup>
+      <textgroup gid="types">   <!-- sysmgmt.webservers.types -->
+        <text tid="external_webhare">External (publish only, no hosting)</text>
+        <text tid="webhare_interface">WebHare backend (webinterface)</text>
+        <text tid="webhare_output">WebHare output webserver</text>
+        <text tid="webhare_rulesonly">Host access rules only, no published content</text>
+      </textgroup>
+      <textgroup gid="updateaccessrule">   <!-- sysmgmt.webservers.updateaccessrule -->
+        <text tid="allservers">All webservers hosted on this installation</text>
+        <text tid="appliesto">Applies to</text>
+        <text tid="applysource">Apply source</text>
+        <text tid="authlist">Use external user accounts to log in</text>
+        <text tid="authrequirement">IP access rules</text>
+        <text tid="authrequirement-and">Users must match IP access rules AND must login if required</text>
+        <text tid="authrequirement-or">Users must login if they were rejected by the IP access rules</text>
+        <text tid="authtype">Login method</text>
+        <text tid="authtype-allwebhareaccounts">All users must login using their WebHare account</text>
+        <text tid="authtype-nologinrequired">No WebHare account login</text>
+        <text tid="authtype-somewebhareaccounts">Only selected WebHare users are able to login</text>
+        <text tid="dbroles">Database roles</text>
+        <text tid="dbroles-explanation">(comma-separated)</text>
+        <text tid="dbroles-hint">Comma-separated list of roles</text>
+        <text tid="description">Description</text>
+        <text tid="disablecaching">Disable browser caching</text>
+        <text tid="enabled">Enable this access rule</text>
+        <text tid="errorhandling">Error handling</text>
+        <text tid="errorpath">Location of error files</text>
+        <text tid="externaldb">Connect to external or remote databases (LDAP, ODBC, Oracle, etc)</text>
+        <text tid="externalscript">Custom authorization script:</text>
+        <text tid="externalscript_error">Custom authorization script</text>
+        <text tid="fixcase">If a file cannot be found, try alternative capitalizations</text>
+        <text tid="forcehttps">Redirect HTTP users to HTTPS</text>
+        <text tid="fulldb">Establish connections as the WebHare database operator</text>
+        <text tid="general">General</text>
+        <text tid="hostingsource">Hosting source</text>
+        <text tid="hostingsrc-alternate">Alternative content folder</text>
+        <text tid="hostingsrc-cgi">CGI script directory</text>
+        <text tid="hostingsrc-module">WebHare module website</text>
+        <text tid="hostingsrc-redirect">Redirect to URL</text>
+        <text tid="hostingsrc-singlefile">Handled by single (HareScript) file</text>
+        <text tid="hostingsrc-standard">Standard serving</text>
+        <text tid="hsrights">HareScript rights</text>
+        <text tid="keepsubpath">Keep URL subpath</text>
+        <text tid="localdb">Local WebHare database</text>
+        <text tid="localdb-localdb">Establish connections to the local WebHare database</text>
+        <text tid="localdb-none">May not establish (additional) connections</text>
+        <text tid="login">Page logins</text>
+        <text tid="matchtype">Path matching</text>
+        <text tid="matchtype-exact">Requested path must match exactly</text>
+        <text tid="matchtype-initial">Initial path must match</text>
+        <text tid="matchtype-wildcard">Wildcard matching</text>
+        <text tid="maxage">Maximum cache age</text>
+        <text tid="othermethods">Other login methods</text>
+        <text tid="path">For requested path</text>
+        <text tid="redirectcode">Redirect code</text>
+        <text tid="redirectcode-301">301 - Moved permanently</text>
+        <text tid="redirectcode-302">302 - Found at different location</text>
+        <text tid="redirectcode-303">303 - See other</text>
+        <text tid="redirectcode-307">307 - Moved temporarily</text>
+        <text tid="seconds">seconds</text>
+        <text tid="super">Full access to the system (files and processes)</text>
+        <text tid="tcpip">Allow networking (TCP/IP)</text>
+        <text tid="title">Access rule</text>
+        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateaccessrule.errors -->
+          <text tid="cannot_redirect_to_initial_matchtype">When redirecting to an URL, the field '<param p="1"/>' must be set to '<param p="2"/>'</text>
+          <text tid="duplicate_path">The path you specified already has an access rule defined.</text>
+          <text tid="invalid_role">Could not find role '<param p="1"/>'</text>
+          <text tid="login_required">You must select a login method if logging in is an alternative to matching the IP access rules.</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="updatealias">   <!-- sysmgmt.webservers.updatealias -->
+        <text tid="explicit">Alias type</text>
+        <text tid="explicit-false">Redirect to main URL</text>
+        <text tid="explicit-true">This is an alternative hostname</text>
+        <text tid="hostname">Hostname</text>
+        <text tid="title">Alias properties</text>
+      </textgroup>
+      <textgroup gid="updatebinding">   <!-- sysmgmt.webservers.updatebinding -->
+        <text tid="address">Specified address</text>
+        <text tid="allip6s">All local IPv6 addresses</text>
+        <text tid="allips">All local IPv4 addresses</text>
+        <text tid="hostingtype">Hosting type</text>
+        <text tid="ip">IP address</text>
+        <text tid="localip">Available on</text>
+        <text tid="namebinding">Name based</text>
+        <text tid="port">Port</text>
+        <text tid="portbinding">IP and port based</text>
+        <text tid="portgroup">Port and IP</text>
+        <text tid="privatekeys">Key</text>
+        <text tid="readonlywarning">These values cannot be changed because the binding is being used by you.</text>
+        <text tid="securehosting">Secure (SSL) hosting, using:</text>
+        <text tid="selectacertificate">Choose a key...</text>
+        <text tid="updatebinding">Binding</text>
+        <text tid="virtualhosting">Binding type</text>
+        <textgroup gid="errors">   <!-- sysmgmt.webservers.updatebinding.errors -->
+          <text tid="invalid_ip">This is not a valid IP address</text>
+          <text tid="invalid_port">The field 'Port' containts an valid port number</text>
+          <text tid="port_used">This port is already being used, please choose an other port number</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="updateexternaluser">   <!-- sysmgmt.webservers.updateexternaluser -->
+        <text tid="description">Description</text>
+        <text tid="password">Password</text>
+        <text tid="password_again">Password (again)</text>
+        <text tid="updateexternaluser">External user</text>
+        <text tid="username">Username</text>
+        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateexternaluser.errors -->
+          <text tid="duplicate_username">The username '<param p="1"/>' is already in use for this webserver</text>
+          <text tid="passwords_dont_match">The entered passwords do not match</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="updateipfilter">   <!-- sysmgmt.webservers.updateipfilter -->
+        <text tid="allow_access">Allow access</text>
+        <text tid="deny_access">Deny access</text>
+        <text tid="mask">IP mask</text>
+        <text tid="title">IP Filter</text>
+        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateipfilter.errors -->
+          <text tid="duplicate_mask">The IP mask you specified has already been defined.</text>
+          <text tid="invalid_mask">The IP mask you entered is invalid.</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="updatewebserver">   <!-- sysmgmt.webservers.updatewebserver -->
+        <text tid="aliasswap">The hostname '<param p="1"/>' was already on the alias list for this webserver.The new hostname will be set for this webserver as its preferred hostname, and the old hostname '<param p="2"/>' will be moved to the alias list instead.</text>
+        <text tid="bound-allips">All local IP addresses</text>
+        <text tid="boundto">Bound to</text>
+        <text tid="extension">Output extension</text>
+        <text tid="folder">Output folder</text>
+        <text tid="servertype">Webserver type</text>
+        <text tid="stricttransportsecurity">Strict Transport Security (HSTS)</text>
+        <text tid="stricttransportsecurity-0">Not set</text>
+        <text tid="stricttransportsecurity-2592000">1 month</text>
+        <text tid="stricttransportsecurity-31536000">1 year (recommended)</text>
+        <text tid="stricttransportsecurity-63072000">3 years</text>
+        <text tid="stricttransportsecurity-7776000">3 months</text>
+        <text tid="stricttransportsecurity-86400">1 day</text>
+        <text tid="stricttransportsecurity-900">15 minutes (for testing)</text>
+        <text tid="updatewebserver">Edit webserver</text>
+        <text tid="url">URL</text>
+        <text tid="urllockedforversioning">The URL cannot be changed because this webservers hosts one or more versioned sites.</text>
+        <text tid="virtualhosted">Name-based hosting</text>
+      </textgroup>
+      <textgroup gid="webhareusers">   <!-- sysmgmt.webservers.webhareusers -->
+        <text tid="webhareusers">WebHare users</text>
+      </textgroup>
+      <textgroup gid="webservergroup">   <!-- sysmgmt.webservers.webservergroup -->
+        <text tid="title">Name</text>
+        <text tid="webservergroup">Edit webserver group</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="system">   <!-- system -->
+    <textgroup gid="apprunner">   <!-- system.apprunner -->
+      <text tid="apprunnerdown">The service manager is unavaialble</text>
+    </textgroup>
+    <textgroup gid="webservers">   <!-- system.webservers -->
+      <textgroup gid="updatewebserver">   <!-- system.webservers.updatewebserver -->
+        <text tid="bindingrequireshttp">The selected port does not have encryption set up, so the URL must start with 'http://'.</text>
+        <text tid="bindingrequireshttps">The selected port has been configured to use encryption, so the URL must start with 'https://'.</text>
+        <text tid="hostnameinuse">The hostname '<param p="1"/>' is already in use by a different virtual hosted webserver.</text>
+        <text tid="hostnameinuseasalias">The hostname '<param p="1"/>' is already in use by an alias of the virtual hosted webserver' <param p="2"/>'.</text>
+        <text tid="urlnosubpath">The URL of a hosted webserver may not contain a subpath, it must be of the form 'http(s)://hostname/'.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="webservertweaks">   <!-- system.webservertweaks -->
+      <text tid="accesslogcheckpoint">Current access.log checkpoint</text>
+      <text tid="basefolderforoutput">Base folder for output webservers</text>
+      <text tid="days">days</text>
+      <text tid="diversion">Diversion</text>
+      <text tid="divertcachedays">Diversion cache</text>
+      <text tid="divertdsstore">Divert Apple's DS Store folders</text>
+      <text tid="divertmacfileforks">Divert Apple's file forks</text>
+      <text tid="divertthumbsdb">Divert Windows' Thumbs.db folders</text>
+      <text tid="general">General</text>
+      <text tid="loggingtab">Logging</text>
+      <text tid="measure">Measure</text>
+      <text tid="nginx">NGinx</text>
+      <text tid="nginxfrontend">Expect NGINX to provide the frontend webserver</text>
+      <text tid="proxy">Proxy</text>
+      <text tid="seconds">seconds</text>
+      <text tid="security">Security</text>
+      <text tid="simulatesharepoint">Try to mimick Sharepoint headers</text>
+      <text tid="webdav">WebDav</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="commondialogs">   <!-- tolliumapps.commondialogs -->
+      <textgroup gid="runscript">   <!-- tolliumapps.commondialogs.runscript -->
+        <text tid="runscriptdialog">Not started</text>
+        <text tid="saveoutput">Save output</text>
+        <text tid="sendline">Send line</text>
+        <text tid="terminate">Terminate</text>
+      </textgroup>
+      <textgroup gid="webharepeers">   <!-- tolliumapps.commondialogs.webharepeers -->
+        <text tid="addlegacyserver">Add legacy server</text>
+        <text tid="addpeer">Add server</text>
+        <text tid="connect">Connect</text>
+        <text tid="editpeer">Edit server</text>
+        <text tid="lastuse">Last use</text>
+        <text tid="mustreauthserver">Your authentication on the remote server has (almost) expired.<br/><br/>Select 'connect' to reauthenticate yourself to the server.</text>
+        <text tid="peerservers">WebHare servers</text>
+        <text tid="reauthserver">Authentication has expired</text>
+        <text tid="serverurl">Server URL</text>
+      </textgroup>
+      <textgroup gid="wittytest">   <!-- tolliumapps.commondialogs.wittytest -->
+        <text tid="data">Data</text>
+        <text tid="emailtab">Email</text>
+        <text tid="emailtest">Email test</text>
+        <text tid="html">HTML</text>
+        <text tid="htmlapproximation">This is an approximation of the HTML in the email</text>
+        <text tid="htmlsourcetab">HTML Source</text>
+        <text tid="pdf">PDF</text>
+        <text tid="pdflog">Log</text>
+        <text tid="wittypath">Witty path</text>
+        <text tid="wittytest">Witty test</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="config">   <!-- tolliumapps.config -->
+      <textgroup gid="config">   <!-- tolliumapps.config.config -->
+        <text tid="config">Configuration</text>
+      </textgroup>
+      <textgroup gid="deploy">   <!-- tolliumapps.config.deploy -->
+        <textgroup gid="deploymodule">   <!-- tolliumapps.config.deploy.deploymodule -->
+          <text tid="branchnotonorigin">The current branch of this module is not present on the origin. This may happen if you are working on a feature branch. Please commit and push first. Are you sure you want to proceed deploying this module?</text>
+          <text tid="cannotreplacemodule">Cannot replace module '<param p="1"/>'.</text>
+          <text tid="differentbranch">The module on the server is from a different branch (local: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Are you sure you want to replace it?</text>
+          <text tid="differentrepository">The module on the server is from a different repository (local: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Are you sure you want to replace it?</text>
+          <text tid="invalidversion">The module '<param p="1"/>' on the server has version '<param p="2"/>' which does not satisfy the requested version '<param p="3"/>'</text>
+          <text tid="missingrequiredmoduleonpeer">The required module '<param p="1"/>' is not present on the server.</text>
+          <text tid="modulehaspeerchanges">The module on the server has been modified after installation. <br/><br/>Are you sure you want to replace the it?</text>
+          <text tid="notatbranchhead">The HEAD of your git working copy is not at the branch head - you either have local changes you did not push to the origin server, or the origin server has changes you haven't pulled to your local copy yet.<br/><br/>Please merge or rebase, and then push the changes to origin. Are you sure you want to proceed?</text>
+          <text tid="notgituptodate">A newer version of this module is available in the central repository. Please update your local module first. <br/><br/>Are you sure you want to deploy this (outdated) version?</text>
+          <text tid="peerchangeswarning">Module has been modified after installation</text>
+          <text tid="reviewchanges">Review changes</text>
+          <text tid="uncommittedchanges">This module has uncommitted changes. Are you sure you want to deploy this module?</text>
+          <text tid="unpushedchanges">The local git repository contains commits that haven't yet been pushed to the central repository. Please push these changes first.<br/><br/>Are you sure you want to proceed with deploying this module?</text>
+          <text tid="uploadnewmodule">This module does not exist on the server yet. Are you sure you want to deploy this module?</text>
+        </textgroup>
+        <textgroup gid="modulefilediff">   <!-- tolliumapps.config.deploy.modulefilediff -->
+          <text tid="ignorewhitespace">Ignore white space at the beginning and ending of lines</text>
+          <text tid="title">Diff of file '<param p="2"/>' in module '<param p="1"/>'</text>
+          <text tid="titlemultiple">Diff of multiple files in module '<param p="1"/>'</text>
+        </textgroup>
+        <textgroup gid="reviewdiffs">   <!-- tolliumapps.config.deploy.reviewdiffs -->
+          <text tid="moduledoesnothavesourcezip">The module on the peer does not have its original source available</text>
+          <text tid="nodifferences">No differences found</text>
+          <text tid="path">Path</text>
+          <text tid="remotemodulehasnofilelist">The module on the peer does not have a file listing available</text>
+          <text tid="reviewmodulepeerchanges">Files modified after module installation</text>
+          <text tid="reviewremotetolocaldiff">Review differences between remote and local module '<param p="1"/>'</text>
+          <text tid="showdiff">Show diff</text>
+          <text tid="showfulldiff">Show full diff</text>
+          <text tid="status">Status</text>
+        </textgroup>
+        <textgroup gid="reviewincomingcommits">   <!-- tolliumapps.config.deploy.reviewincomingcommits -->
+          <text tid="author">Author</text>
+          <text tid="date">Date</text>
+          <text tid="id">Commit ID</text>
+          <text tid="message">Message</text>
+          <text tid="reviewincomingcommits">Incoming commits</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->
+        <text tid="altserver">SMTP server</text>
+        <text tid="blocked">Blocked</text>
+        <text tid="confirm_delete_mailroute">Are you sure you want to delete this mailroute?</text>
+        <text tid="confirmdeletecorrection">Are you sure you want to delete the selected correction?</text>
+        <text tid="confirmdeletereceiver">Are you sure you want to delete receiver '<param p="1"/>' from the whitelist?</text>
+        <text tid="confirmdeletesender">Are you sure you want to delete sender '<param p="1"/>' from the whitelist?</text>
+        <text tid="correctionsempty">No corrections have been specified yet</text>
+        <text tid="correctiontype">Correction type</text>
+        <text tid="correctiontype-block">Block</text>
+        <text tid="correctiontype-rewrite">Fix domain name</text>
+        <text tid="defaultport">(usually 25)</text>
+        <text tid="defaultsendsettings">Outgoing mailserver</text>
+        <text tid="defaultsmtp">Default</text>
+        <text tid="editcorrection">Address correction</text>
+        <text tid="editmailroute">Mail route</text>
+        <text tid="editmailrouterule">Mail route rule</text>
+        <text tid="editmask">Edit mask</text>
+        <text tid="editmaskrow">Mask</text>
+        <text tid="editsmtpserver">Edit SMTP server</text>
+        <text tid="emailcorrectionstab">Address corrections</text>
+        <text tid="fallbackvalues">Fallback values</text>
+        <text tid="hostname">Server name</text>
+        <text tid="ignore">Black hole (don't send)</text>
+        <text tid="invalidredirectto">The rewrite must be of the form '*@domainname'</text>
+        <text tid="mailconfig">Configure</text>
+        <text tid="mailfrom">Default "from" address</text>
+        <text tid="mailroutes">Email routing</text>
+        <text tid="mask">Mask</text>
+        <text tid="masks">Conditions</text>
+        <text tid="masks_from">The sender (From:) matches one of:</text>
+        <text tid="masks_to">The addressee (To:) matches one of:</text>
+        <text tid="originmask">Origin mask</text>
+        <text tid="outgoing">Outgoing mailserver (SMTP)</text>
+        <text tid="outgoingaddressrewrite">Include the original destination address (between '+' and '@')</text>
+        <text tid="outgoingmailaddress">Destination address</text>
+        <text tid="outgoingredirect-false">Send to the mail recipient (To:)</text>
+        <text tid="outgoingredirect-true">Redirect all emails to</text>
+        <text tid="port">Port</text>
+        <text tid="receiversempty">All receiver addresses are permitted</text>
+        <text tid="receiverstab">Receivers</text>
+        <text tid="redirect">Send emails</text>
+        <text tid="rewriteto">Rewrite to</text>
+        <text tid="routesempty">Please note: at least one mail route must be added to send email from this server.</text>
+        <text tid="routestab">Routes</text>
+        <text tid="sendermask">Sender (From:)</text>
+        <text tid="sendersempty">All sender addresses are permitted</text>
+        <text tid="senderstab">Senders</text>
+        <text tid="serverurl">SMTP server</text>
+        <text tid="smtp_test_error">Testing the mailserver gave the following error:<br/><param p="1"/></text>
+        <text tid="smtp_test_success">Could succesfully connect to the specified SMTP server</text>
+        <text tid="smtpconfig">Default mail server</text>
+        <text tid="smtpserver">Server</text>
+        <text tid="snsendpoint">SNS Endpoint</text>
+        <text tid="suggestionfuzz">Suggestion fuzz factor</text>
+        <text tid="suredontsendemail">Are you sure you want to block all emails that follow this mailroute?</text>
+        <text tid="target">Target</text>
+        <text tid="usealternativesmtpserver-alternative">Alternative server</text>
+        <text tid="usealternativesmtpserver-default">Use the default SMTP server</text>
+        <text tid="usealternativesmtpserver-dontsend">Black hole (block all email)</text>
+        <text tid="usefornonwhitelisted">Use if sender is not whitelisted</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- tolliumapps.config.main -->
+        <text tid="checkhotfixes">Check for modifications</text>
+        <text tid="configuremodule">Configure</text>
+        <text tid="connectremote">Connect</text>
+        <text tid="deletemodule">Are you sure you want to delete module '<param p="1"/>'?</text>
+        <text tid="deletemodulefailed">The deletion of module '<param p="1"/>' has failed.</text>
+        <text tid="deploymodule">Deploy module</text>
+        <text tid="differentbranch">The server version is on a different branch</text>
+        <text tid="dontshowdeleted">Only show current modules</text>
+        <text tid="langedit">Language editor</text>
+        <text tid="lastmodified">Last updated</text>
+        <text tid="modulepushed">Module '<param p="1"/>' has been deployed to the peer.</text>
+        <text tid="name">Name</text>
+        <text tid="openwebsite">Open website</text>
+        <text tid="outofdate">The server module is out of date</text>
+        <text tid="peerhasnomodules">No installed modules found</text>
+        <text tid="reviewincomingcommits">Review missing commits</text>
+        <text tid="reviewmodulepeerchanges">Review changes on peer</text>
+        <text tid="reviewremotetolocaldiff">Review differences (remote to local)</text>
+        <text tid="revision">Source revision</text>
+        <text tid="showdeleted">Show current and deleted modules</text>
+        <text tid="uncommittedchanges">(+ changes)</text>
+        <text tid="version">Version</text>
+        <text tid="versions">Versions</text>
+      </textgroup>
+      <textgroup gid="moduleinfo">   <!-- tolliumapps.config.moduleinfo -->
+        <text tid="appgroup">Group</text>
+        <text tid="applicationstab">Applications</text>
+        <text tid="date">Date</text>
+        <text tid="dependencies">Dependencies</text>
+        <text tid="history">History</text>
+        <text tid="hotfixes">Local changes</text>
+        <text tid="metabox">Module information</text>
+        <text tid="misctab">Misc</text>
+        <text tid="modifiedfiles">Modified files</text>
+        <text tid="moduleinfo">Module info</text>
+        <text tid="name">Name</text>
+        <text tid="path">Path</text>
+        <text tid="server">Server</text>
+        <text tid="source">Source</text>
+        <text tid="sourcerepositoryurl">Repository URL</text>
+        <text tid="sourcerepositoryuuid">Repository UUID</text>
+        <text tid="sourcerevision">Source revision</text>
+        <text tid="status">Status</text>
+        <text tid="userfullname">User</text>
+        <text tid="version">Versie</text>
+      </textgroup>
+      <textgroup gid="moduleversions">   <!-- tolliumapps.config.moduleversions -->
+        <text tid="archived">Archived</text>
+        <text tid="downloadmodule">Download</text>
+        <text tid="hotfixes">Show hotfixes</text>
+        <text tid="modified">(modified)</text>
+        <text tid="obsoletiondate">Obsoleted</text>
+        <text tid="revision">Source revision</text>
+        <text tid="uploaddate">Installed</text>
+        <text tid="version">Version</text>
+      </textgroup>
+      <textgroup gid="settings">   <!-- tolliumapps.config.settings -->
+        <text tid="accesslog">Keep access log</text>
+        <text tid="accountname">Account name</text>
+        <text tid="allowpasswordreset">Allow password reset</text>
+        <text tid="archivedays">Archive module versions</text>
+        <text tid="archiving">Archiving</text>
+        <text tid="autodenyipv6">Automatically deny IPv6 access to URLs, if a global IPv4 deny exists</text>
+        <text tid="branding">Branding</text>
+        <text tid="cachesecret">Image cache key</text>
+        <text tid="checkipallowmask">IPs allowed to /webhare/check/</text>
+        <text tid="commaexplain">(comma separated)</text>
+        <text tid="cookiesecret">Cookie encryption key</text>
+        <text tid="dashboardbackground">Background</text>
+        <text tid="displayimage">Logo:</text>
+        <text tid="displayname">Title top right:</text>
+        <text tid="elasticsecret">Elasticsearch key</text>
+        <text tid="errorlog">Keep error log</text>
+        <text tid="fullaccessips">IPs skipping login checks</text>
+        <text tid="geonames">GeoNames</text>
+        <text tid="geonamesinfo">The GeoNames webservice is used to determine the time zone based on the user's location or by searching for a location. This requires a (free) GeoNames account.</text>
+        <text tid="harescript">HareScript</text>
+        <text tid="identity">Identity</text>
+        <text tid="infotext">Information</text>
+        <text tid="infotitle">Login info title</text>
+        <text tid="logfiles">Logfiles</text>
+        <text tid="login">Login</text>
+        <text tid="logindialog">Login screen</text>
+        <text tid="mailretention">Save sent emails</text>
+        <text tid="overrideopenssl">Set OpenSSL ciphersuite</text>
+        <text tid="processhistory">Keep process history</text>
+        <text tid="registergeonames">Click here to register for a GeoNames account</text>
+        <text tid="scripttimeout">Script time out</text>
+        <text tid="security">Security</text>
+        <text tid="securitykeys">Security keys</text>
+        <text tid="server">Server</text>
+        <text tid="servername">Server name</text>
+        <text tid="servertype">Server type (DTAP)</text>
+        <text tid="servertype-acceptance">Acceptance</text>
+        <text tid="servertype-development">Development</text>
+        <text tid="servertype-production">Production</text>
+        <text tid="servertype-test">Test</text>
+        <text tid="settings">Global settings</text>
+        <text tid="tasks">Tasks</text>
+        <text tid="tasksfinishedretention">Save completed tasks</text>
+        <text tid="trustxforwarded">IPs trusted to set X-Forwarded-For</text>
+        <text tid="usagelog">Keep usage log</text>
+        <text tid="webhareurl">WebHare URL</text>
+        <text tid="wrdauditlogdays">Keep WRD audit events</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="caches">   <!-- tolliumapps.dashboard.caches -->
+        <text tid="confirmdeleteentries">Are you sure you want to delete the selected cache entries ?</text>
+        <text tid="func">Function</text>
+        <text tid="hash">Hash</text>
+        <text tid="id">ID</text>
+        <text tid="lastuse">Last use</text>
+        <text tid="precalculatedcache">Precalculated cache</text>
+        <text tid="state">State</text>
+      </textgroup>
+      <textgroup gid="dashboard">   <!-- tolliumapps.dashboard.dashboard -->
+        <text tid="buildinfo">Build</text>
+        <text tid="cachescleared">All WebHare's internal caches have been cleared.</text>
+        <text tid="clearcaches">Clear caches</text>
+        <text tid="comment">Comment</text>
+        <text tid="confirmsoftreset">Are you sure you want to perform a soft reset?</text>
+        <text tid="created">Created</text>
+        <text tid="datetime">Date &amp; time</text>
+        <text tid="displayname">User</text>
+        <text tid="editsnooze">Edit snooze</text>
+        <text tid="errors">Error messages</text>
+        <text tid="general">General</text>
+        <text tid="gototask">Go to</text>
+        <text tid="infile">in file '<param p="1"/>'</text>
+        <text tid="lastupdate">Last update</text>
+        <text tid="main">Dashboard</text>
+        <text tid="message">Error message</text>
+        <text tid="messagetidatsnooze">Error message</text>
+        <text tid="multiplemessages">(multiple error messages)</text>
+        <text tid="noerrors">There are no known issues</text>
+        <text tid="openinseparatetab">Open panel in separate tab</text>
+        <text tid="platform">Platform</text>
+        <text tid="refreshbutton">Refresh now</text>
+        <text tid="remove">Remove</text>
+        <text tid="server">Server version</text>
+        <text tid="snoozed_until">snoozed until <param p="1"/></text>
+        <text tid="snoozer">Snoozer</text>
+        <text tid="snoozes">Snoozes</text>
+        <text tid="softreset">Soft reset</text>
+        <text tid="togglerefreshbutton">Auto refresh</text>
+        <text tid="until">Until</text>
+        <text tid="untilinpast">Until date must be in the future.</text>
+        <text tid="uptime">Uptime</text>
+        <text tid="uptimedata"><param p="1"/> (started <param p="2"/>), webserver uptime: <param p="3"/> (started <param p="4"/>)</text>
+      </textgroup>
+      <textgroup gid="fonts">   <!-- tolliumapps.dashboard.fonts -->
+        <text tid="css">CSS</text>
+        <text tid="family">Family</text>
+        <text tid="filename">File name</text>
+        <text tid="fontinfo">Font information</text>
+        <text tid="installedfonts">Fonts</text>
+        <text tid="isboldicon">Bold</text>
+        <text tid="isitalicicon">Italic</text>
+        <text tid="istruetypeicon">Truetype</text>
+        <text tid="style">Style</text>
+      </textgroup>
+      <textgroup gid="systemnews">   <!-- tolliumapps.dashboard.systemnews -->
+        <text tid="allunits">This message will be displayed to all users.<br/> Add units to only show the message to those units.</text>
+        <text tid="audience">Audience (units)</text>
+        <text tid="createdby_string">Created by</text>
+        <text tid="deletenews_multiple">Are you sure you want to delete the selected news items?</text>
+        <text tid="deletenews_single">Are you sure you want to delete news item '<param p="1"/>'?</text>
+        <text tid="message">Message</text>
+        <text tid="newsitem">News item</text>
+        <text tid="publish_date_from">From</text>
+        <text tid="publish_date_until">until</text>
+        <text tid="publishdate">Publish this newsitem</text>
+        <text tid="systemnews">System news</text>
+        <text tid="target">Publication</text>
+        <text tid="targetlang">Show to</text>
+        <text tid="targetlang-en">English users only</text>
+        <text tid="targetlang-nl">Dutch users only</text>
+        <text tid="targetlang-nlen">Dutch and English speaking users</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dba">   <!-- tolliumapps.dba -->
+      <textgroup gid="importwizard">   <!-- tolliumapps.dba.importwizard -->
+        <text tid="importwizard">Schema import wizard</text>
+        <text tid="schemaname">Schema name</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- tolliumapps.dba.main -->
+        <text tid="addcolumn">Add column</text>
+        <text tid="autonumber">Autonumbering (from <param p="1"/>)</text>
+        <text tid="columnname">Column name</text>
+        <text tid="columns">Columns</text>
+        <text tid="columntype">Column type</text>
+        <text tid="constraints">Additional constraints</text>
+        <text tid="databasewhlib">dbschema.whlib</text>
+        <text tid="dba">Database administration</text>
+        <text tid="defs">Schema definition</text>
+        <text tid="exportschema">Export schema</text>
+        <text tid="importschema">Import schema</text>
+        <text tid="indices">Indices</text>
+        <text tid="is_unique">Unique</text>
+        <text tid="is_uppercase">Uppercase</text>
+        <text tid="name">Name</text>
+        <text tid="noschemadef">There is no module which describes this schema</text>
+        <text tid="not_null">Not null</text>
+        <text tid="on_delete_cascade">On delete cascade</text>
+        <text tid="on_delete_set_default">On delete set default</text>
+        <text tid="primarykey">Primary key</text>
+        <text tid="references">References</text>
+        <text tid="roleid">Role id</text>
+        <text tid="roles">Roles</text>
+        <text tid="runsqlclient">SQLClient</text>
+        <text tid="unique">Unique</text>
+        <text tid="updateschemas">Update all schemas</text>
+        <text tid="verifydeletecolumn">Are you sure you want to (drop) delete the column '<param p="1"/>'?</text>
+        <text tid="verifydeleteschema">Are you sure you want to delete the schema '<param p="1"/>'?</text>
+        <text tid="verifydeletetable">Are you sure you want to drop (delete) table '<param p="1"/>'?</text>
+      </textgroup>
+      <textgroup gid="webharedb">   <!-- tolliumapps.dba.webharedb -->
+        <text tid="database">WebHare database</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="login">   <!-- tolliumapps.login -->
+      <textgroup gid="forgotpassword">   <!-- tolliumapps.login.forgotpassword -->
+        <text tid="finished">You will receive an email with further instructions</text>
+        <text tid="forgotpassword">Forgot password</text>
+        <text tid="linkisexpired">The reset link you've followed has expired</text>
+        <text tid="passwordupdated">Your password has been updated</text>
+        <text tid="resetpassword">Reset password</text>
+        <text tid="verificationcode">Verification code</text>
+        <text tid="verificationcodeexplain">Sent in a separate message</text>
+        <text tid="verifiermismatch">Your verification did not match the code we provided to you</text>
+        <text tid="welcome">To reset your password, please enter the email address associated with your account</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
+    <textgroup gid="webapis">   <!-- tolliumcomponents.webapis -->
+      <text tid="authorization">Authorization</text>
+      <text tid="authorize">Authorize</text>
+      <text tid="callbackurl">Callback/redirect URL</text>
+      <text tid="clientid">Client id</text>
+      <text tid="clientsecret">Client secret</text>
+      <text tid="configureclient">Configure</text>
+      <text tid="oauth2wait">Oauth2 authorization</text>
+      <text tid="waiting">Waiting for confirmation</text>
+      <textgroup gid="timezoneedit">   <!-- tolliumcomponents.webapis.timezoneedit -->
+        <text tid="auto">Automatic</text>
+        <text tid="country">Country</text>
+        <text tid="manual">Manual</text>
+        <text tid="none">General time zones</text>
+        <text tid="noresults">No results found</text>
+        <text tid="noselection">No time zone selected</text>
+        <text tid="query">Search for a city</text>
+        <text tid="results">Choose a result</text>
+        <text tid="retrievelocation">Get the time zone for current location</text>
+        <text tid="search">City</text>
+        <text tid="selected">Selected time zone</text>
+        <text tid="timezone">Time zone</text>
+        <text tid="timezoneeditscreen">Edit Time Zone</text>
+        <textgroup gid="messages">   <!-- tolliumcomponents.webapis.timezoneedit.messages -->
+          <text tid="geolocation_error">An error has occurred while retrieving the current location</text>
+          <text tid="geolocation_nopermission">No permission to retrieve the current location</text>
+          <text tid="geolocation_timeout">A timeout occurred while retrieving the current location</text>
+          <text tid="geolocation_unavailable">The current location cannot be retrieved at the moment</text>
+          <text tid="geolocation_unsupported">Retrieving the location is not possible in this browser</text>
+          <text tid="retrievinglocation">Retrieving location...</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="userrights">   <!-- userrights -->
+    <text tid="closesearchbar">Close search</text>
+    <text tid="error">An error occurred while trying to determine the object path. Please notify an administrator of this error.</text>
+    <text tid="new">Add</text>
+    <text tid="norightstodeleteall">You do not have enough rights to delete all grants.</text>
+    <text tid="nosearchresult">No results for '<param p="1"/>'</text>
+    <text tid="searchbox">Search</text>
+    <text tid="selectusertocopyallpermissionsto">Choose the user or role you want to copy the role and/or right grants to.</text>
+    <text tid="syncedauthobjects">The user database is synchronized</text>
+    <text tid="togglesearchbarbutton">Search</text>
+    <text tid="unitroot">Units</text>
+    <textgroup gid="actions">   <!-- userrights.actions -->
+      <text tid="about">About User Management</text>
+      <text tid="addrighttousers">Grant right</text>
+      <text tid="addrighttousers-hint">Grant a right to the selected user or role</text>
+      <text tid="addrighttousers-list">Grant right</text>
+      <text tid="addroletousers">Grant role</text>
+      <text tid="addroletousers-hint">Grant a role to the selected user</text>
+      <text tid="addroletousers-list">Grant role</text>
+      <text tid="adduserstorole">Grant to</text>
+      <text tid="adduserstorole-hint">Grant this role to other users</text>
+      <text tid="adduserstorolecontext">Grant to</text>
+      <text tid="copypermissions">Copy all grants to ...</text>
+      <text tid="delete">Delete</text>
+      <text tid="delete-hint">Delete the selected item(s)</text>
+      <text tid="edit">Properties</text>
+      <text tid="edit-hint">Edit the selected item properties</text>
+      <text tid="edit-list">Properties</text>
+      <text tid="editgrant">Edit</text>
+      <text tid="editgrant-hint">Edit the selected grant</text>
+      <text tid="editgrant-list">Properties</text>
+      <text tid="editobject">Edit</text>
+      <text tid="exportallgrants">Export all (role) grants</text>
+      <text tid="exportallusers">Export all users</text>
+      <text tid="exportobjectrights">Export rights on objects</text>
+      <text tid="exportusersinunit">Export users in this unit</text>
+      <text tid="getresetlink">Create password reset link</text>
+      <text tid="grant">Grant right</text>
+      <text tid="grant-hint">Grant a right on the selected object or to the selected user</text>
+      <text tid="grantrightonobject">Grant right</text>
+      <text tid="integration">Integration</text>
+      <text tid="makerolefromrights">Make role</text>
+      <text tid="makerolefromrights-hint">Create a new role using the selected rights.</text>
+      <text tid="managelegacyapps">Manage rights for legacy modules</text>
+      <text tid="move">Move</text>
+      <text tid="move-hint">Move the selected item(s)</text>
+      <text tid="newrole">New role</text>
+      <text tid="newrole-hint">Add a new role</text>
+      <text tid="newunit">New unit</text>
+      <text tid="newunit-hint">Create a new unit</text>
+      <text tid="newuser">New user</text>
+      <text tid="newuser-hint">Add a new user</text>
+      <text tid="objectrights">Export object rights</text>
+      <text tid="openas">Login as</text>
+      <text tid="openas-hint">Open the interface as this user</text>
+      <text tid="properties">Properties</text>
+      <text tid="properties-hint">View the properties of the selected item</text>
+      <text tid="reload">Reload</text>
+      <text tid="removeusersfromrole">Delete</text>
+      <text tid="removeusersfromrole-hint">Revoke the grants of this role to the selected user(s)</text>
+      <text tid="report">Show object rights</text>
+      <text tid="revokefromusers">Delete</text>
+      <text tid="revokefromusers-hint">Revoke the selected grant or role from this user</text>
+      <text tid="revokefromusers-list">Delete</text>
+      <text tid="revokerightfromlist-hint">Revoke the selected grant</text>
+      <text tid="revokerightonobject">Delete</text>
+      <text tid="search">Find users and roles</text>
+      <text tid="searchsimple">Search</text>
+      <text tid="selectall">Select all</text>
+      <text tid="selectall-hint">Select all items</text>
+      <text tid="setupsearchfields">Configure searchfields</text>
+      <text tid="setuserdefaults">User defaults</text>
+      <text tid="showobject">Jump to</text>
+      <text tid="syncauthobjects">Synchronize database</text>
+      <text tid="togglesearchbar">Search...</text>
+    </textgroup>
+    <textgroup gid="appaccount">   <!-- userrights.appaccount -->
+      <text tid="device">Device</text>
+      <text tid="device-placeholder">Eg. work-PC, my Mac</text>
+      <text tid="login">Login</text>
+      <text tid="lookverycarefullyiwillshowthisonlyonce">These credentials will be shown only once. Please record them somewhere, or enter them into the application needed and let it save the password.<br/><br/>If you lose this password, you can delete this application password and let WebHare create a new one.</text>
+      <text tid="password">Password</text>
+      <text tid="scope">Scope</text>
+      <text tid="windowtitle">Create new application account</text>
+    </textgroup>
+    <textgroup gid="appaccounts">   <!-- userrights.appaccounts -->
+      <text tid="appaccountstab">Passwords for apps and devices</text>
+      <text tid="device">Device</text>
+      <text tid="lastlogin">Last login</text>
+      <text tid="scope">Scope</text>
+      <text tid="windowtitle">App and Device passwords</text>
+    </textgroup>
+    <textgroup gid="columns">   <!-- userrights.columns -->
+      <text tid="description">Description</text>
+      <text tid="email">Email</text>
+      <text tid="fullname">Full name</text>
+      <text tid="lastlogin">Last login</text>
+      <text tid="name">Username</text>
+      <text tid="objectpath">Object</text>
+      <text tid="objects">Objects</text>
+      <text tid="permission">Right</text>
+      <text tid="unit">Unit</text>
+      <text tid="unitpath">Unit</text>
+      <text tid="units">Units</text>
+      <text tid="withgrantoption">Grantable</text>
+    </textgroup>
+    <textgroup gid="common">   <!-- userrights.common -->
+      <text tid="allobjectsoftype">All objects of type '<param p="1"/>'.</text>
+      <text tid="invisible">Invisible</text>
+      <text tid="module">module</text>
+      <text tid="rootunit">(Root unit)</text>
+      <text tid="searchresults">Search results</text>
+    </textgroup>
+    <textgroup gid="commondialogs">   <!-- userrights.commondialogs -->
+      <textgroup gid="actions">   <!-- userrights.commondialogs.actions -->
+        <text tid="editrightinlist">Properties</text>
+        <text tid="editrightinlist-hint">Edit the selected grant</text>
+        <text tid="grantrightinlist">Grant right</text>
+        <text tid="grantrightinlist-hint">Grant rights on this object to another user or role</text>
+        <text tid="revokerightfromlist">Delete</text>
+        <text tid="revokerightfromlist-hint">Revoke the selected grant</text>
+      </textgroup>
+      <textgroup gid="columns">   <!-- userrights.commondialogs.columns -->
+        <text tid="description">Description</text>
+        <text tid="fullname">Full name</text>
+        <text tid="grantable">Grantable</text>
+        <text tid="name">Name</text>
+        <text tid="right">Right</text>
+        <text tid="unit">Unit</text>
+      </textgroup>
+      <textgroup gid="edittitles">   <!-- userrights.commondialogs.edittitles -->
+        <text tid="titleallobjects">Manage rights on all objects of type '<param p="1"/>'</text>
+        <text tid="titleobject">Manage rights on object '<param p="1"/>'</text>
+        <text tid="titlerole">Edit grant to role '<param p="1"/>'</text>
+        <text tid="titleroletouser">Edit rolegrant to user '<param p="1"/>'</text>
+        <text tid="titleuser">Edit grant to user '<param p="1"/>'</text>
+      </textgroup>
+      <textgroup gid="errors">   <!-- userrights.commondialogs.errors -->
+        <text tid="founddeleteduserorrole">Could not revoke the grants of one or more users or roles, because these users or roles didn't exist anymore.</text>
+        <text tid="grantdoesnotexistanymore">The selected grant does not exist anymore.</text>
+        <text tid="needselectgrouporobject">Please select a rightsgroup, objecttype or object.</text>
+        <text tid="needselectonetypepofobject">Can only grant to rights to multiple objects when they have the same type.</text>
+        <text tid="needselectrole">Please select a role.</text>
+        <text tid="needselectunit">Please select a unit.</text>
+        <text tid="needselectuser">Please select a user.</text>
+        <text tid="needselectuserorrole">Please select a user or a role.</text>
+        <text tid="norelevantrights">This group or objecttype does not have any relevant rights.</text>
+        <text tid="noresultsinunit">This unit does not contain any <ifparam p="1" value="0">users or roles<else/><ifparam p="1" value="1">users<else/>roles</ifparam></ifparam>.</text>
+        <text tid="norightspresent">No users or roles have any right on this group or object.</text>
+        <text tid="norighttomanagerole">You are not allowed to manage role '<param p="1"/>'</text>
+        <text tid="norighttorevokerole">You do not have the right to revoke role '<param p="1"/>'.</text>
+        <text tid="notenoughrightsonunit">You do not have enough rights on this unit for this operation (you need the right '<param p="1"/>').</text>
+        <text tid="rolehasbeendeleted">Role '<param p="1"/>' does not exist anymore.</text>
+        <text tid="useralreadyhasrole">User '<param p="1"/>' already has a grant for role '<param p="2"/>'.</text>
+        <text tid="usercannotviewunitofgrantablerole">User '<param p="1"/>' will not be able to grant role '<param p="2"/>' to others, because this user does not have the right to view the unit of this role.</text>
+        <text tid="usercannotviewunitofrole">User '<param p="1"/>' will not be able to see he or she has been granted role '<param p="2"/>', because this user does not have the right to view the unit of this role. The user will have all rights granted to this role.</text>
+        <text tid="userhasbeendeleted">User '<param p="1"/>' does not exist anymore.</text>
+      </textgroup>
+      <textgroup gid="grantpropertytitles">   <!-- userrights.commondialogs.grantpropertytitles -->
+        <text tid="titlerole">Properties of grant to role '<param p="1"/>'</text>
+        <text tid="titleroletouser">Properties of rolegrant to user '<param p="1"/>'</text>
+        <text tid="titleuser">Properties of grant to user '<param p="1"/>'</text>
+      </textgroup>
+      <textgroup gid="granttitles">   <!-- userrights.commondialogs.granttitles -->
+        <text tid="titleallobjects">Grant a right on all objects of type '<param p="1"/>'</text>
+        <text tid="titlegroup">Grant a right from group '<param p="1"/>'</text>
+        <text tid="titleobject">Grant a right on object '<param p="1"/>'</text>
+        <text tid="titleright">Grant right '<param p="1"/>'</text>
+        <text tid="titleroletospecificuser">Grant a role to user '<param p="1"/>'</text>
+        <text tid="titleroletospecificusers">Grant a role to multiple users</text>
+        <text tid="titlespecificroletousers">Grant role  '<param p="1"/>' to users</text>
+        <text tid="titletomultiple">Grant a right to multiple users/roles</text>
+        <text tid="titletorole">Grant a right to role '<param p="1"/>'</text>
+        <text tid="titletouser">Grant a right to user '<param p="1"/>'</text>
+      </textgroup>
+      <textgroup gid="objecttreerightsview">   <!-- userrights.commondialogs.objecttreerightsview -->
+        <text tid="export">Export</text>
+        <text tid="exportrights">Export rights</text>
+        <text tid="fullname">Full name</text>
+        <text tid="goto">Jump to</text>
+        <text tid="objecttreerightsview">Object rights</text>
+        <text tid="path">Path</text>
+        <text tid="properties">Properties</text>
+        <text tid="remove_duplicates">Remove duplicates</text>
+        <text tid="right">Right</text>
+        <text tid="username">Username</text>
+        <text tid="viarole">Via role</text>
+      </textgroup>
+      <textgroup gid="rights">   <!-- userrights.commondialogs.rights -->
+        <text tid="additionaloptions">Options</text>
+        <text tid="addroletousers">Grant a role to users</text>
+        <text tid="authobjectfullid"><ifparam p="1" value="1">User<else/>Role</ifparam> '<param p="2"/>' (unit: '<param p="3"/>')</text>
+        <text tid="canbegranted">Grantable</text>
+        <text tid="comment">Explanation</text>
+        <text tid="editrightgrant">Right grant</text>
+        <text tid="grant">Grant</text>
+        <text tid="grantdatetime">Date of grant</text>
+        <text tid="grantor">Granted by</text>
+        <text tid="objectpath">Object</text>
+        <text tid="rightsgroup">Rightsgroup</text>
+        <text tid="rightslist">Right</text>
+        <text tid="rolegrant">Rolegrant</text>
+        <text tid="rolename">Role</text>
+        <text tid="search">Search</text>
+        <text tid="selectuserrole">Select a user or a role</text>
+        <text tid="singleright">Right</text>
+        <text tid="withadminoption">This user may grant this role to others.</text>
+        <text tid="withgrantoption">This user or role may grant this right to others.</text>
+      </textgroup>
+      <textgroup gid="search">   <!-- userrights.commondialogs.search -->
+        <text tid="goto">Show</text>
+      </textgroup>
+      <textgroup gid="select">   <!-- userrights.commondialogs.select -->
+        <text tid="selectrole">Select a role</text>
+        <text tid="selectroles">Select one or more roles</text>
+        <text tid="selectunit">Select a unit</text>
+        <text tid="selectuser">Select a user</text>
+        <text tid="selectuserorrole">Select a user or a role</text>
+        <text tid="selectusers">Select one or more users</text>
+        <text tid="selectusersorroles">Select one or more users or roles</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dialog">   <!-- userrights.dialog -->
+      <textgroup gid="messages">   <!-- userrights.dialog.messages -->
+        <text tid="suredelete">Are you sure you want to delete <ifparam p="1" value="1">this item<else/>these items</ifparam>?</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dialogues">   <!-- userrights.dialogues -->
+      <text tid="actionfailed">Action failed <param p="1"/></text>
+      <text tid="cannotgetobjecttreeforobjecttype">Failed to get a list of objects for <ifparam p="1" value="1">objecttype<else/>objecttypes</ifparam> <param p="2"/></text>
+      <text tid="cannotmoveunittochild">A unit cannot be moved to one of its subunits.</text>
+      <text tid="cannotresetunmanageduser">Cannot send a password link for this account, WebHare doesn't manage its password</text>
+      <text tid="cantdeletetoplevelunit">You can't delete your top level units. Only a sysop or manager of a parent unit can do this.</text>
+      <text tid="confirmdeletemenuitem">Are you sure you want to delete the shortcut '<param p="1"/>'?</text>
+      <text tid="confirmdeletenotification">Are you sure you want to delete notification '<param p="1"/>'?</text>
+      <text tid="confirmpdfpreview">The availability of PDF previews depends on your browser, browser settings and whether or not a PDF reader is installed on your system.<br/><br/>If PDF previews happen to be unavailable we advise you to contact your system administrator or browser vendor for further support.</text>
+      <text tid="confirmresetwarnings">Are you sure you want to reset all warnings, including all "Don't show again" checkboxes?</text>
+      <text tid="copyonlyrightstorole">Role grants cannot be copied to another role. Do you want to copy only the right grants to the selected role?</text>
+      <text tid="dangerousrightsrevoke">Revoking <ifparam p="1" value="1">this grant<else/>these grants</ifparam> will cause you to lose some rights that have not been granted to you in any other way. Do you want to proceed?</text>
+      <text tid="deletefailedbecause">Failed to delete <param p="1"/> <param p="2"/> because <param p="3"/></text>
+      <text tid="deletemultipleitemswarning">Are you sure you want to delete the selected items?</text>
+      <text tid="deletenonemptyunit">You cannot delete this unit, as it still contains users or roles.</text>
+      <text tid="deleterolewarning">Are you sure you want to delete role '<param p="1"/>'?</text>
+      <text tid="deleteunitwarning">Are you sure you want to delete unit '<param p="1"/>'?</text>
+      <text tid="deleteuserwarning">Are you sure you want to delete user '<param p="1"/>'?</text>
+      <text tid="dragdroperror">An error occurred while attempting to move this object: '<param p="1"/>'</text>
+      <text tid="emptysearchvalue">Please enter a search term.</text>
+      <text tid="guidalreadyused">This GUID is already in use.</text>
+      <text tid="invalidguid">Invalid GUID.</text>
+      <text tid="languagechanged">Your interface language is set to English. Every application started from now on will use this language. Running applications will use the old language until they are restarted.</text>
+      <text tid="loginnametoolong">The username is too long, it can containa  maximum of 256 characters.</text>
+      <text tid="moveunittorootwarning">Are you sure you want to make unit '<param p="1"/>' a main unit?</text>
+      <text tid="moveunitwarning">Are you sure you want to move unit '<param p="1"/>' to unit '<param p="2"/>'?</text>
+      <text tid="movewarning">Are you sure you want to move <ifparam p="1" value="1">user '<param p="2"/>'<else/><ifparam p="1" value="3">role '<param p="2"/>'<else/>the selected items</ifparam></ifparam> to unit '<param p="3"/>'?</text>
+      <text tid="mustselectunit">Please select a unit.</text>
+      <text tid="needselectright">Please select a right to grant on this object</text>
+      <text tid="nodroponroot">Assigning users or roles to the root unit is not supported.</text>
+      <text tid="noprefsforoverride">You cannot manage the preferences for the override user in recovery mode.</text>
+      <text tid="norightspresent"><ifparam p="1" value="1">Right group<else/>Objecttype</ifparam> '<param p="2"/>' do not have any accessible rights.</text>
+      <text tid="notunitmanager">You need unitmanager rights to do this.</text>
+      <text tid="notunitmanagerforrole">You do not have unitmanager rights for the unit role '<param p="1"/>' belongs to.</text>
+      <text tid="notunitmanagerforuser">You do not have unitmanager rights for user '<param p="1"/>'.</text>
+      <text tid="notunitmanageronparent">You need unitmanager rights on the parent unit to do this.</text>
+      <text tid="nounit">User '<param p="1"/>' is not associated to any known unit. Would you like to assign a unit now?</text>
+      <text tid="objecthasnorights">The selected object has no rights which can be granted.</text>
+      <text tid="objectnolongerexists">This object no longer exists.</text>
+      <text tid="passwordchange">You have changed your password. The next time you log in, you will be asked for this new password.</text>
+      <text tid="passwordtoolong">The password is too long, it can contain a maximum of 256 characters.</text>
+      <text tid="protectedunit">This unit is protected and cannot be deleted.</text>
+      <text tid="protecteduser">This user is protected and cannot be deleted.</text>
+      <text tid="removeuserfromrole">Are you sure you want to remove user '<param p="1"/>' from role '<param p="2"/>'?</text>
+      <text tid="removeusersfromrole">Are you sure you want to remove multiple users from role '<param p="1"/>'?</text>
+      <text tid="revokegrantfromrole">Are you sure you want to revoke right '<param p="1"/>' from role '<param p="2"/>'?</text>
+      <text tid="revokegrantfromuser">Are you sure you want to revoke right '<param p="1"/>' from user '<param p="2"/>'?</text>
+      <text tid="revokegrants">Are you sure you want to revoke these grants?</text>
+      <text tid="revokegrantsfromrole">Are you sure you want to revoke these grants from role '<param p="1"/>'?</text>
+      <text tid="revokegrantsfromuser">Are you sure you want to revoke these grants from user '<param p="1"/>'?</text>
+      <text tid="revokerolefromuser">Are you sure you want to revoke role '<param p="1"/>' from user '<param p="2"/>'?</text>
+      <text tid="revokerolesfromuser">Are you sure you want to revoke these roles from user '<param p="1"/>'?</text>
+      <text tid="rolenametoolong">The name of the role is too long; it can contain a maximum of 256 chareacters.</text>
+      <text tid="selectusertoassignfiles">The user you are deleting is owner of one more files. Please select another user to transfer ownership of these files.</text>
+      <text tid="toomanyusers">You cannot create new users, because you have reached the maximum number of users.</text>
+      <text tid="unitnametoolong">The name of the unit is too long, it can contain a maximum of 256 characters.</text>
+      <text tid="userapinotset">Because of configuration problems the user API could not be loaded. Please contact the system administrator.</text>
+    </textgroup>
+    <textgroup gid="editnotification">   <!-- userrights.editnotification -->
+      <text tid="high">High</text>
+      <text tid="low">Low</text>
+      <text tid="normal">Normal</text>
+      <text tid="shownotification">Show notification</text>
+      <text tid="shownotification-always">Always</text>
+      <text tid="shownotification-never">Never</text>
+      <text tid="shownotification-priority">Only with priority at least</text>
+      <text tid="title">Edit Notification '<param p="1"/>'</text>
+      <text tid="veryhigh">Very high</text>
+      <text tid="verylow">Very low</text>
+    </textgroup>
+    <textgroup gid="editpassword">   <!-- userrights.editpassword -->
+      <text tid="accountconfirm">Confirm password</text>
+      <text tid="accountpassword">New password</text>
+      <text tid="curpassword">Current password</text>
+      <text tid="windowtitle">Change password</text>
+    </textgroup>
+    <textgroup gid="editrole">   <!-- userrights.editrole -->
+      <text tid="editrole">Edit role</text>
+      <text tid="name">Name</text>
+      <text tid="parentunit">Parent unit</text>
+      <text tid="selectunit">Change</text>
+      <text tid="whuser_comment">Comment</text>
+      <text tid="wrd_title">Name</text>
+    </textgroup>
+    <textgroup gid="editunit">   <!-- userrights.editunit -->
+      <text tid="change">Change</text>
+      <text tid="editunit">Edit unit</text>
+      <text tid="parentunitname">Parent unit</text>
+      <text tid="unitname">Name</text>
+      <text tid="whuser_comment">Comment</text>
+      <text tid="wrd_title">Name</text>
+    </textgroup>
+    <textgroup gid="edituser">   <!-- userrights.edituser -->
+      <text tid="account">Account</text>
+      <text tid="advanced">Advanced</text>
+      <text tid="alwaysdisabled">Always disabled</text>
+      <text tid="ampm">12-hour clock (AM/PM)</text>
+      <text tid="apostrophe">Apostrophe (')</text>
+      <text tid="app">Application</text>
+      <text tid="appaccountstab">Create passwords for apps and devices</text>
+      <text tid="autodetect">autodetect</text>
+      <text tid="autodetectexplain">your timezone and browser language</text>
+      <text tid="autodetectpre">You can try to</text>
+      <text tid="background">Background</text>
+      <text tid="browsertitleprefix">Browser tab text</text>
+      <text tid="changeownsettings">Personal settings</text>
+      <text tid="colon">Colon (:)</text>
+      <text tid="comma">Comma (,)</text>
+      <text tid="confirm">Confirm password</text>
+      <text tid="creationdate">Creation date</text>
+      <text tid="decimalsep">Decimal separator</text>
+      <text tid="device">Device</text>
+      <text tid="dot">Dot (.)</text>
+      <text tid="editmapping">Edit</text>
+      <text tid="edituser">Edit user</text>
+      <text tid="enableguidedit">Enable editing the GUID</text>
+      <text tid="entities">Identity</text>
+      <text tid="explainguid">The GUID uniquely identifies this user between different WebHare installations and user schemas. Usually you can leave the default generated value alone.</text>
+      <text tid="favorites">Favorites</text>
+      <text tid="fillout">Fill out the user's information</text>
+      <text tid="fullname">Full name</text>
+      <text tid="invalid">Please enter a user name.</text>
+      <text tid="invalidemail">The entered username is not a valid email address.</text>
+      <text tid="lastip">Last IP-address</text>
+      <text tid="lastlogin">Last login</text>
+      <text tid="logoff">Close</text>
+      <text tid="messagebox">Send the following confirmation message</text>
+      <text tid="messageboxinvite">The following message will be sent</text>
+      <text tid="militarytime">Use 24 hours clock</text>
+      <text tid="none">None</text>
+      <text tid="notificationsandwarnings">Notifications</text>
+      <text tid="notificationstab">Notifications</text>
+      <text tid="passconfirmerror">The password confirmation is different from the password.</text>
+      <text tid="password">Password</text>
+      <text tid="passwordlink">Password</text>
+      <text tid="passwordlinktext">Click here to change your password</text>
+      <text tid="preferences">Preferences</text>
+      <text tid="prefs">Preferences</text>
+      <text tid="prefsdate">Date format</text>
+      <text tid="prefsdate_100">dd-mm-yyyy (<param p="1"/>)</text>
+      <text tid="prefsdate_200">dd/mm/yyyy (<param p="1"/>)</text>
+      <text tid="prefsdate_300">mm-dd-yyyy (<param p="1"/>)</text>
+      <text tid="prefsdate_400">mm/dd/yyyy (<param p="1"/>)</text>
+      <text tid="prefsdate_500">yyyy-mm-dd (<param p="1"/>)</text>
+      <text tid="prefsdate_600">yyyy/mm/dd (<param p="1"/>)</text>
+      <text tid="prefslang">Language</text>
+      <text tid="prefslang_de">Deutsch (German)</text>
+      <text tid="prefslang_en">English</text>
+      <text tid="prefslang_jp">??? (Japanese)</text>
+      <text tid="prefslang_nl">Nederlands (Dutch)</text>
+      <text tid="prefslongdateformat">Long date display</text>
+      <text tid="prefsshortdateformat">Short date display</text>
+      <text tid="prefstime">Time format</text>
+      <text tid="prefstime_100">24 hours format (<param p="1"/>)</text>
+      <text tid="prefstime_200">12 hours format (<param p="1"/>)</text>
+      <text tid="resetwarnings">Reset all warnings</text>
+      <text tid="resetwarnings-label">Warning messages</text>
+      <text tid="resetwarnings-labelend">(EG "Don't show again", "Remember this answer")</text>
+      <text tid="schemaname">Schema</text>
+      <text tid="scope">Scope</text>
+      <text tid="selectmethod">Please select how you want to add the user</text>
+      <text tid="selectunit">Change</text>
+      <text tid="showdeveloperapps">Show developer applications</text>
+      <text tid="showiedownloadwarning">Avoid IE's download blocker using the dowload dialog</text>
+      <text tid="showpdfpreview">Show PDF previews</text>
+      <text tid="space">Space ( )</text>
+      <text tid="startmenu">Start menu</text>
+      <text tid="status">Status</text>
+      <text tid="thousandsep">Thousand separator</text>
+      <text tid="timeformat">Time format</text>
+      <text tid="timemilitary">24-hour clock</text>
+      <text tid="timezone">Timezone</text>
+      <text tid="timezone-africa">Africa</text>
+      <text tid="timezone-america">America</text>
+      <text tid="timezone-antarctica">Antarctica</text>
+      <text tid="timezone-arctic">Arctic</text>
+      <text tid="timezone-asia">Asia</text>
+      <text tid="timezone-atlantic">Atlantic Ocean</text>
+      <text tid="timezone-australia">Australia</text>
+      <text tid="timezone-europe">Europe</text>
+      <text tid="timezone-general">General</text>
+      <text tid="timezone-indian">Indian Ocean</text>
+      <text tid="timezone-pacific">Pacific Ocean</text>
+      <text tid="timezone-unknown">Unknown</text>
+      <text tid="title">Title</text>
+      <text tid="unitname">Unit</text>
+      <text tid="unitnamenew">Unit</text>
+      <text tid="userinfo">User information</text>
+      <text tid="username">Username</text>
+      <text tid="usernamenew">Login name</text>
+      <text tid="userpreferences">Personal preferences</text>
+      <text tid="utc">UTC</text>
+      <text tid="warnings">Warnings</text>
+      <text tid="whuser_disabled">Block this account</text>
+      <text tid="whuser_disablereason">Block reason</text>
+      <text tid="whuser_password">Password</text>
+      <text tid="windowtitle">Edit personal preferences</text>
+      <text tid="wizardfinishmessage">You have finished this wizard</text>
+      <text tid="wizardwelcome">Add a user</text>
+      <text tid="wrd_creationdate">Creation date</text>
+      <text tid="wrd_firstname">First name</text>
+      <text tid="wrd_fullname">Full name</text>
+      <text tid="wrd_gender">Gender</text>
+      <text tid="wrd_guid">GUID</text>
+      <text tid="wrd_infix">Infix</text>
+      <text tid="wrd_lastname">Last name</text>
+    </textgroup>
+    <textgroup gid="empty">   <!-- userrights.empty -->
+      <text tid="nousersinrole">There are no users with this role.</text>
+      <text tid="permissionsfromrole-none">There are no permissions defined for role '<param p="1"/>'</text>
+      <text tid="permissionsfromuser">Select a user or role to display the granted rights and roles</text>
+      <text tid="permissionsfromuser-none">There are no permissions defined for user '<param p="1"/>'</text>
+      <text tid="searchresults">No users or roles were found</text>
+      <text tid="usersinunits">Select a unit to display its users and roles</text>
+      <text tid="usersinunits-none">There are no users or roles in this unit</text>
+    </textgroup>
+    <textgroup gid="errors">   <!-- userrights.errors -->
+      <text tid="allitemsaredeleted">None of the items you are moving still exist.</text>
+      <text tid="alreadygranted">This permission is already granted to that user.</text>
+      <text tid="cannotbeownparent">an object cannot be it's own parent</text>
+      <text tid="cannotdeletefilledunit">You are not allowed to delete this unit, because it is not empty.</text>
+      <text tid="cannotdeletenonemptyunit">You are not allowed to delete this unit, because it still contains users or roles.</text>
+      <text tid="cannotmoveunitinitself">Cannot move a unit into itself or into one of its subunits.</text>
+      <text tid="deleterolefailed">Could not delete role '<param p="1"/>', because of the following error: <param p="2"/>.</text>
+      <text tid="deleterolewithoutrolemanagerright">You are not allowed this role, because you do not have the right to manage roles in it's unit.</text>
+      <text tid="deleteuserfailed">Could not delete user '<param p="1"/>', because of the following error: <param p="2"/>.</text>
+      <text tid="deleteuserwithoutunitmanagerright">You are not allowed this user, because you do not have the right to manage roles in it's unit.</text>
+      <text tid="expectedonlyusers">expected a only users</text>
+      <text tid="missingusers">not all users exist anymore</text>
+      <text tid="namealreadyinuse">There already exists a unit, user or role in this unit with the same name.</text>
+      <text tid="nameinuse">the name is already in use</text>
+      <text tid="nonexistant_parentid">the given parent does not exist</text>
+      <text tid="nonexistantrole">the role does not exist</text>
+      <text tid="nonexistantunit">the unit does not exist</text>
+      <text tid="notallowedtocreateunit">You cannot create a unit here, because you do not have the right to manage the parent unit.</text>
+      <text tid="notallowedtoeditrole">You cannot edit this role because you don't have the right to manage it.</text>
+      <text tid="notallowedtoeditunit">You are not allowed to edit this unit.</text>
+      <text tid="notallowedtograntrightfor">Right '<param p="1"/>' cannot be granted to user/role '<param p="2"/>', because that right has already been granted to that user or role.</text>
+      <text tid="notallowedtograntrightto">You are not allowed to grant right '<param p="1"/>' to '<param p="2"/>'</text>
+      <text tid="notallowedtograntroleto">You are not allowed to grant role '<param p="1"/>' to '<param p="2"/>'</text>
+      <text tid="notallowedtomanageright">You are not allowed to manage right '<param p="1"/>'</text>
+      <text tid="notallowedtomanagerole">You are not allowed to manage role '<param p="1"/>'</text>
+      <text tid="notallowedtomoverole">You cannot move this role because you don't have the right to manage roles in either the source or the destination unit.</text>
+      <text tid="notallowedtorevokerightfrom">You are not allowed to revoke right '<param p="1"/>' from '<param p="2"/>'</text>
+      <text tid="notallowedtorevokerolefrom">You are not allowed to revoke role '<param p="1"/>' from '<param p="2"/>'</text>
+      <text tid="notanunit">the given object is not a unit</text>
+      <text tid="notarole">the given object is not a role</text>
+      <text tid="notrolemanageronparentforrolemove">You are not allowed to move this role, because you do not have the right to manage roles in its unit.</text>
+      <text tid="notunitmanagerondestinationforunitmove">You are not allowed to move the unit here, because you do not have the right to manage the destination unit.</text>
+      <text tid="notunitmanageronparentforunitdelete">You are not allowed to delete this unit, because you do no have the right to manage its parent unit.</text>
+      <text tid="notunitmanageronparentforunitmove">You are not allowed to move this unit, because you do not have the right to manage its parent unit.</text>
+      <text tid="notunitmanageronparentforusermove">You are not allowed to move this user, because you do not have the right to manage its unit.</text>
+      <text tid="parentcannotbechild">cannot have a child as a parent</text>
+      <text tid="parentnotarole">the given parent is not a role</text>
+      <text tid="parentnotaunit">the given parent is not an unit</text>
+      <text tid="rolealreadyhasgrantforright">Role '<param p="1"/>' already has a grant for right '<param p="2"/>'.</text>
+      <text tid="rolehasbeendeleted">The role you are editing has been deleted.</text>
+      <text tid="rolescannotbeinroot">roles cannot be in the root, they must belong to an unit.</text>
+      <text tid="selectedrolehasbeendeleted">The selected role does not exist anymore.</text>
+      <text tid="selectedunithasbeendeleted">The seleted unit does not exist anymore.</text>
+      <text tid="selecteduserhasbeendeleted">The selected user does not exist anymore.</text>
+      <text tid="unitnotempty">the unit is not empty</text>
+      <text tid="useralreadyhasgrantforright">User '<param p="1"/>' already has a grant for right '<param p="2"/>'.</text>
+      <text tid="userhasbeendeleted">The user you are editing has been deleted.</text>
+      <text tid="userisprotected">You are not allowed the protected user '<param p="1"/>'.</text>
+      <text tid="usernamealreadyinuse">A user with the same login name already exists.</text>
+      <text tid="userscannotbeinroot">users cannot be in the root, they must belong to an unit.</text>
+    </textgroup>
+    <textgroup gid="export">   <!-- userrights.export -->
+      <text tid="allgrants">All grants</text>
+      <text tid="comment">Explanation</text>
+      <text tid="grantdate">Granted at</text>
+      <text tid="grantor">Granted by</text>
+      <text tid="objectpath">Object path</text>
+      <text tid="objecttypename">Object type</text>
+      <text tid="rightname">Right</text>
+      <text tid="type">Type</text>
+      <text tid="unitname">Unit</text>
+      <text tid="withgrantoption">May grant this right</text>
+    </textgroup>
+    <textgroup gid="exports">   <!-- userrights.exports -->
+      <text tid="exportobjectrights">Rights on objects</text>
+      <text tid="exportusers">All users</text>
+      <text tid="exportusersinunit">Users in '<param p="1"/>'</text>
+      <textgroup gid="csvcolumns">   <!-- userrights.exports.csvcolumns -->
+        <text tid="created">Created</text>
+        <text tid="fullname">Full name</text>
+        <text tid="lastlogin">Last login</text>
+        <text tid="path">Path</text>
+        <text tid="right">Right</text>
+        <text tid="username">Username</text>
+        <text tid="viarole">Via role</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="getresetlink">   <!-- userrights.getresetlink -->
+      <text tid="getresetlink">Password reset link</text>
+      <text tid="resetcode">Verification<br/> code</text>
+      <text tid="resetlink">Reset link</text>
+    </textgroup>
+    <textgroup gid="menus">   <!-- userrights.menus -->
+      <text tid="app">User Management</text>
+      <text tid="edit">Edit</text>
+      <text tid="exports">Exports</text>
+      <text tid="file">File</text>
+      <text tid="grants">Grants</text>
+      <text tid="move">Move</text>
+      <text tid="new">Add</text>
+      <text tid="newunitcontext">New unit</text>
+      <text tid="viewsearchbar">Search</text>
+    </textgroup>
+    <textgroup gid="notificationsettings">   <!-- userrights.notificationsettings -->
+      <text tid="deniedexplain">You have blocked desktop notifications in your browser.</text>
+      <text tid="displaybrowserexplain">Notifications are displayed in your browser</text>
+      <text tid="displaydesktopexplain">Notifications are displayed on your desktop</text>
+      <text tid="grantedexplain">You have granted this application the right to show desktop notifications</text>
+      <text tid="module">Module</text>
+      <text tid="nonotifications">No notifications displayed yet.</text>
+      <text tid="notificationballoons">Notification popus</text>
+      <text tid="notifications">Notifications</text>
+      <text tid="notsupportedtabexplain">Your current browser does not support desktop notifications.</text>
+      <text tid="onlypriority">Show only if priority at least</text>
+      <text tid="requestexplain">Your browser must allow desktop notifications -</text>
+      <text tid="requestpermission">request permission</text>
+      <text tid="showon">Display notifications</text>
+      <text tid="showon-browser">in your browser</text>
+      <text tid="showon-desktop">on your desktop</text>
+      <text tid="status">Show</text>
+      <text tid="testnotification">Send test notification</text>
+      <text tid="timeout">Display notification during</text>
+      <text tid="timeout-desc">second(s)</text>
+      <text tid="timeoutlabel">during</text>
+      <text tid="title">Notification</text>
+      <text tid="windowtitle">Notifications</text>
+      <textgroup gid="priorities">   <!-- userrights.notificationsettings.priorities -->
+        <text tid="high">High</text>
+        <text tid="low">Low</text>
+        <text tid="normal">Normal</text>
+        <text tid="onlypriority">Show notifications with a priority higher than</text>
+        <text tid="veryhigh">Very high</text>
+        <text tid="verylow">Very low</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="prepareresetlink">   <!-- userrights.prepareresetlink -->
+      <text tid="prepareresetlink">Create password reset link</text>
+      <text tid="resettype-codedresetlink">Generate a link and a separate code to send through a different channel</text>
+      <text tid="resettype-directresetlink">Generate a link that allows a direct password reset</text>
+    </textgroup>
+    <textgroup gid="report">   <!-- userrights.report -->
+      <text tid="export">Export</text>
+      <text tid="fullname">Full name</text>
+      <text tid="goto">Jump to</text>
+      <text tid="path">Path</text>
+      <text tid="properties">Properties</text>
+      <text tid="remove_duplicates">Remove duplicates</text>
+      <text tid="report">Show all users with rights below this object</text>
+      <text tid="right">Right</text>
+      <text tid="username">Username</text>
+    </textgroup>
+    <textgroup gid="rights">   <!-- userrights.rights -->
+      <text tid="additionaloptions">Options</text>
+      <text tid="withadminoption">This user or role may grant this right to others.</text>
+      <text tid="withgrantoption">This user or role may grant this right to others.</text>
+    </textgroup>
+    <textgroup gid="screentitles">   <!-- userrights.screentitles -->
+      <text tid="addrole">New role</text>
+      <text tid="addunit">New unit</text>
+      <text tid="adduser">New user</text>
+      <text tid="editrole">Edit role '<param p="1"/>'</text>
+      <text tid="editunit">Edit unit '<param p="1"/>'</text>
+      <text tid="edituser">Edit user '<param p="1"/>'</text>
+      <text tid="main">User Management</text>
+    </textgroup>
+    <textgroup gid="search">   <!-- userrights.search -->
+      <text tid="goto">Jump to</text>
+      <text tid="searchbutton">Search</text>
+    </textgroup>
+    <textgroup gid="selectunit">   <!-- userrights.selectunit -->
+      <text tid="moveitems-descr">Choose the unit where you want to move the selected items to.</text>
+      <text tid="moveitems-title">Choose the destination</text>
+      <text tid="moverole-descr">Choose the unit where you want to move role '<param p="1"/>' to.</text>
+      <text tid="moverole-title">Choose the destination</text>
+      <text tid="moveunit-descr">Choose the unit where you want to move unit '<param p="1"/>' to.</text>
+      <text tid="moveunit-title">Choose the destination</text>
+      <text tid="moveuser-descr">Choose the unit where you want to move user '<param p="1"/>' to.</text>
+      <text tid="moveuser-title">Choose the destination</text>
+      <text tid="newrole-descr">Choose the unit you in which you want to place the new role.</text>
+      <text tid="newrole-title">Choose the destination</text>
+      <text tid="newunit-descr">Choose the unit where you want to place the new unit.</text>
+      <text tid="newunit-title">Choose the destination</text>
+      <text tid="newuser-descr">Choose the unit where you want to place the new user.</text>
+      <text tid="newuser-title">Choose the destination</text>
+    </textgroup>
+    <textgroup gid="shortcuteditor">   <!-- userrights.shortcuteditor -->
+      <text tid="folderdeleted">This folder does not exist anymore</text>
+      <text tid="icon">Icon</text>
+      <text tid="ordering">Ordering</text>
+      <text tid="path">Path</text>
+      <text tid="title">Title</text>
+      <text tid="windowtitle">Edit favorite</text>
+    </textgroup>
+    <textgroup gid="showrightsusage">   <!-- userrights.showrightsusage -->
+      <text tid="directgrantcount">direct grants</text>
+      <text tid="showrightsusage">Show rights usage</text>
+      <text tid="title">rightname</text>
+    </textgroup>
+    <textgroup gid="tabs">   <!-- userrights.tabs -->
+      <text tid="objectstab">Module and object rights</text>
+      <text tid="rights">Rights</text>
+      <text tid="unitstab">Users and roles</text>
+      <text tid="users">Users</text>
+    </textgroup>
+    <textgroup gid="unittree">   <!-- userrights.unittree -->
+      <text tid="searchfor">Search</text>
+      <text tid="searchresults">Search results</text>
+      <text tid="units">Units</text>
+    </textgroup>
+    <textgroup gid="userrolerightslist">   <!-- userrights.userrolerightslist -->
+      <textgroup gid="tabs">   <!-- userrights.userrolerightslist.tabs -->
+        <text tid="rights">Rights</text>
+        <text tid="users">Users</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webserver">   <!-- webserver -->
+    <textgroup gid="webservers">   <!-- webserver.webservers -->
+      <textgroup gid="main">   <!-- webserver.webservers.main -->
+        <text tid="certificates">Certificates</text>
+        <text tid="main">Certificates</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webservers">   <!-- webservers -->
+    <textgroup gid="proxies">   <!-- webservers.proxies -->
+      <textgroup gid="update">   <!-- webservers.proxies.update -->
+        <text tid="hostswhitelist">Hosts whitelist</text>
+        <text tid="lasterror">Last error</text>
+        <text tid="password">Password</text>
+        <text tid="portswhitelist">Ports whitelist</text>
+        <text tid="reverseaddress">Local connect address</text>
+        <text tid="test">Test</text>
+        <text tid="updateproxy">Edit proxy</text>
+        <text tid="url">URL</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="webservers">   <!-- webservers.webservers -->
+      <textgroup gid="certbotrequest">   <!-- webservers.webservers.certbotrequest -->
+        <text tid="certbotrequest">LetsEncrypt (Certbot) certificate request</text>
+        <text tid="domainnames">Domain names</text>
+        <text tid="domainnames-placeholder">The name(s) to request, eg www.example.net example.net</text>
+        <text tid="nothostedhere">The hostname '<param p="1"/>'' is not hosted on this server</text>
+        <text tid="request">Request certificate</text>
+        <text tid="result">Request result</text>
+      </textgroup>
+      <textgroup gid="exportusagestats">   <!-- webservers.webservers.exportusagestats -->
+        <text tid="enddate">End date</text>
+        <text tid="exportusagestats">Export usage stats</text>
+        <text tid="startdate">Start date</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="wrdentitiescolumns">   <!-- wrdentitiescolumns -->
+    <text tid="action">Action</text>
+    <text tid="id">ID</text>
+    <text tid="title">Title</text>
+  </textgroup>
+</language>

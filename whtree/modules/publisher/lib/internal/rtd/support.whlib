@@ -1,0 +1,216 @@
+<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+
+PUBLIC BOOLEAN FUNCTION IsEmbeddedObject(OBJECT node)
+{
+  IF(ToUppercase(node->nodename) NOT IN ["DIV","SPAN"])
+    RETURN FALSE;
+  STRING ARRAY classlist := ParseXSList(node->GetAttribute("class"));
+  RETURN "wh-rtd-embeddedobject" IN classlist OR "-wh-rtd-embeddedobject" IN classlist;
+
+}
+
+PUBLIC STRING ARRAY FUNCTION FilterAllowTags(STRING ARRAY baseset, STRING ARRAY allowtags)
+{
+  STRING ARRAY keep;
+  FOREVERY(STRING tag FROM allowtags)
+    IF(ToUppercase(tag) IN baseset)
+      INSERT ToUppercase(tag) INTO keep AT END;
+  RETURN keep;
+}
+
+PUBLIC MACRO TrimRTDWhitespace(OBJECT body)
+{
+  WHILE(IsRTDEmptyOrWhitespace(body->firstchild))
+    body->RemoveChild(body->firstchild);
+  WHILE(IsRTDEmptyOrWhitespace(body->lastchild))
+    body->RemoveChild(body->lastchild);
+}
+
+PUBLIC BOOLEAN FUNCTION IsRTDEmptyOrWhitespace(OBJECT node)
+{
+  IF(NOT ObjectExists(node))
+    RETURN FALSE;
+  IF(node->nodetype=3)
+    RETURN TrimWhitespace(Substitute(node->nodevalue, '\u00A0', ' '))=""; //already text
+  IF(node->nodetype!=1)
+    RETURN FALSE;
+  IF(ToUppercase(node->nodename) = "BR")
+    RETURN TRUE;
+  IF(ToUppercase(node->nodename) IN ["IMG","IFRAME"] OR IsEmbeddedObject(node))
+    RETURN FALSE; //NEVER whitespace
+
+  FOR(node := node->firstchild; ObjectExists(node); node := node->nextsibling)
+  {
+    IF(NOT IsRTDEmptyOrWhitespace(node))
+      RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+
+PUBLIC RECORD FUNCTION SplitIntLink(STRING intlink)
+{
+  INTEGER splitpos := Length(intlink);
+  FOREVERY(STRING app FROM [ '?', '!', '#'])
+  {
+    INTEGER pos := SearchSubstring(intlink, app);
+    IF(pos >= 0 AND pos < splitpos)
+     splitpos := pos;
+  }
+
+  RETURN [ append := Substring(intlink, splitpos)
+         , link := Left(intlink, splitpos)
+         ];
+}
+
+PUBLIC OBJECT FUNCTION CreateInstanceBlockNode(OBJECT doc, STRING instanceid)
+{
+  IF(NOT Objectexists(doc))
+    THROW NEW Exception("Document is empty");
+
+  OBJECT myblock := doc->CreateElement("div");
+  myblock->SetAttribute("class", "wh-rtd-embeddedobject");
+  myblock->SetAttribute("data-instanceid", instanceid);
+  RETURN myblock;
+}
+
+/* this object is created by
+   - <richdocument> itself - so child documents in a widget can get the settings, cleaning out inheritance
+   - objectproperties - allowing inheritance of the rtd settings
+   - editdocument - the context for editdoc(*)
+
+   (*) not yet, editdocument uses __ExplicitSetupFile until it has switched to dynamic contents */
+PUBLIC OBJECTTYPE RichDocumentContext
+<
+  PUBLIC RECORD rtdtypeinfo;
+>;
+
+PUBLIC OBJECTTYPE AnchorableBase
+<
+  STRING pvt_anchor;
+
+  PUBLIC PROPERTY anchor(pvt_anchor, SetAnchor);
+
+  PUBLIC STRING FUNCTION SuggestAnchor()
+  {
+    THROW NEW Exception("SuggestAnchor() must be overridden");
+  }
+  PUBLIC MACRO SetAnchor(STRING anchortext)
+  {
+    this->pvt_anchor := anchortext;
+  }
+  PUBLIC RECORD FUNCTION GetInfo()
+  {
+    RETURN [ title := ""
+           , link := ""
+           , tagname := ""
+           ];
+  }
+>;
+
+PUBLIC OBJECTTYPE CustomAnchor EXTEND AnchorableBase
+<
+  STRING tagname;
+  PUBLIC STRING title;
+  PUBLIC STRING linktitle;
+
+  MACRO NEW(STRING tagname, STRING title)
+  {
+    IF(tagname NOT IN ["p","h1","h2","h3","h4","h5","h6"])
+      THROW NEW Exception("Invalid tagname"); //might add more tags in the future
+
+    this->tagname := tagname;
+    this->title := title;
+  }
+  PUBLIC MACRO RenderAnchor()
+  {
+    Print('<' || this->tagname || ' id="' || EncodeValue(this->anchor) || '">' || EncodeHTML(this->title) || '</' || this->tagname || '>');
+  }
+  UPDATE PUBLIC STRING FUNCTION SuggestAnchor()
+  {
+    RETURN this->title;
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetInfo()
+  {
+    RETURN [ title := this->linktitle ?? this->title
+           , link := this->pvt_anchor != "" ? "#" || this->pvt_anchor : ""
+           , tagname := this->tagname
+           ];
+  }
+>;
+
+PUBLIC OBJECTTYPE AnchorableRichObject EXTEND AnchorableBase
+<
+  OBJECT richobject;
+  MACRO NEW(OBJECT richobject)
+  {
+    this->richobject := richobject;
+  }
+  UPDATE PUBLIC STRING FUNCTION SuggestAnchor()
+  {
+    RETURN this->richobject->GetRawText(256,TRUE);
+  }
+  UPDATE PUBLIC MACRO SetAnchor(STRING anchortext)
+  {
+    AnchorableBase::SetAnchor(anchortext);
+    this->richobject->generatedanchor := anchortext;
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetInfo()
+  {
+    RETURN [ title := this->richobject->blocknode->textcontent
+           , link := this->richobject->GetAnchorLink()
+           , tagname := ToLowercase(this->richobject->blocknode->tagname)
+           ];
+  }
+>;
+
+
+PUBLIC RECORD FUNCTION __ValidateRichDocumentLike(RECORD inrichdoc, BOOLEAN isrtd, BOOLEAN iswhfsrefmapped)
+{
+  IF(NOT RecordExists(inrichdoc))
+    RETURN DEFAULT RECORD;
+
+  RECORD baserec := [ embedded := DEFAULT RECORD ARRAY
+                    , links := DEFAULT RECORD ARRAY
+                    , instances := DEFAULT RECORD ARRAY
+                    ];
+  IF(isrtd)
+    baserec := CELL[...baserec, htmltext := DEFAULT BLOB];
+  ELSE
+    baserec := CELL[...baserec, formtext := DEFAULT BLOB];
+
+  inrichdoc := ValidateOptions(baserec, inrichdoc);
+
+  //using *, cell to validate that these cells exists
+  IF (iswhfsrefmapped)
+  {
+    inrichdoc.embedded := SELECT *
+                               , contentid
+                               , data
+                               , source_fsobject := CellExists(embedded,'source_fsobject') ? embedded.source_fsobject : ""
+                            FROM inrichdoc.embedded;
+  }
+  ELSE
+  {
+    inrichdoc.embedded := SELECT *
+                               , contentid
+                               , data
+                               , source_fsobject := CellExists(embedded,'source_fsobject') ? embedded.source_fsobject : 0
+                            FROM inrichdoc.embedded;
+  }
+
+  inrichdoc.instances := SELECT AS RECORD ARRAY ValidateOptions([data := DEFAULT RECORD, instanceid := "" ], instances, [ required := ["data","instanceid"], title := "instance"])
+                           FROM inrichdoc.instances;
+
+  IF(RecordExists(SELECT FROM inrichdoc.embedded GROUP BY contentid HAVING Count(*)>1))
+    THROW NEW Exception("Embedded data contains duplicate content ids");
+  IF (RecordExists(SELECT FROM inrichdoc.instances GROUP BY instances.instanceid HAVING Count(*)>1))
+    THROW NEW Exception("Embedded instances contain duplicate instance ids");
+  IF (RecordExists(SELECT FROM inrichdoc.instances WHERE NOT CellExists(data,'whfstype')))
+    THROW NEW Exception("Embedded instances without whfstype");
+
+  RETURN inrichdoc;
+}

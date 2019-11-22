@@ -1,0 +1,1607 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/rtd.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/webtools/formcomponents/richtext.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/validation.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
+LOADLIB "mod::publisher/tolliumapps/formedit/formcomponentapi.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/internal/mail/mergefields.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+CONSTANT STRING pagedragtype := "local:page";
+CONSTANT STRING groupdragtype := "local:group";
+CONSTANT STRING questiondragtype := "local:question";
+
+CONSTANT RECORD basequestionlistrow :=
+    [ title := ""
+    , guid := ""
+    , type := 0
+    , overlay := 0
+    , icons := INTEGER[]
+    , icons_hint := ""
+    , canaddgroups := FALSE
+    , canaddquestions := FALSE
+    , canaddtexts := FALSE
+    , canaddhandlers := FALSE
+    , caneditrow := TRUE
+    , canduplicate := FALSE
+    , candelete := FALSE
+    , isdeleted := FALSE
+    , isform := FALSE
+    , ispage := FALSE
+    , isgroup := FALSE
+    , isquestion := FALSE
+    , istext := FALSE
+    , ishandler := FALSE
+    , isselectable := FALSE
+    , intextpage := FALSE
+    , ingroup := FALSE
+    , canmoveup := FALSE
+    , canmovedown := FALSE
+    , node := DEFAULT OBJECT
+    ];
+
+
+PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN readonly;
+
+  OBJECT formdefsobject;
+  STRING formdefsresource;
+  OBJECT formdefsfile;
+  RECORD ARRAY instancedatacache;
+
+  OBJECT curform;
+
+  RECORD ARRAY formcomponents;
+  RECORD pagecompdef;
+  RECORD overviewpagecompdef;
+  RECORD thankyoupagecompdef;
+  RECORD groupcompdef;
+  RECORD ARRAY testablehandlers;
+  MACRO PTR ARRAY validationhandlers;
+  RECORD ARRAY formhandlers;
+  BOOLEAN confirmationhandler;
+
+  RECORD ARRAY editorextensions;
+  STRING uselanguage;
+
+  INTEGER insertposition;
+  BOOLEAN allowsubmittype;
+  PUBLIC RECORD integrationsettings;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->contexts->formcomponentapi := NEW FormComponentAPI(PRIVATE this);
+    this->contexts->formcomponentapi->showadvanced := this->contexts->user->HasRight("system:supervisor");
+    this->frame->flags.showdevoptions := this->contexts->user->ShowDeveloperOptions();
+    ^importwebpackitem->visible := IsModuleInstalled("webpack")
+                                   AND RecordExists(RetrieveWebhareResource("mod::webpack/lib/screens/survey-import.whlib", [ allowmissing := TRUE ]));
+
+    IF (ObjectExists(this->contexts->applytester))
+      this->integrationsettings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+    this->allowsubmittype := RecordExists(this->integrationsettings) AND this->integrationsettings.allowsubmittype;
+
+    //we need to use the language that applies to the form, not the current user's language!
+    this->uselanguage := ObjectExists(this->contexts->applytester) ? this->contexts->applytester->GetSiteLanguage() : this->contexts->user->language;
+
+    this->RegisterLocalDragType(pagedragtype, DEFAULT STRING ARRAY);
+    this->RegisterLocalDragType(groupdragtype, DEFAULT STRING ARRAY);
+    this->RegisterLocalDragType(questiondragtype, DEFAULT STRING ARRAY);
+
+    this->formcomponents :=
+        SELECT *
+             , title := GetTid(title)
+             , tid := title
+             , description := GetTid(description)
+             , qname := FormatQName(components)
+             , canadd := TRUE // Updated based on opened file apply rules
+             , builtin := namespace = xmlns_forms
+          FROM GetAllFormComponents() AS components;
+    this->pagecompdef :=
+        SELECT *
+          FROM this->formcomponents
+         WHERE namespace = "http://www.webhare.net/xmlns/publisher/forms"
+               AND name = "page"
+               AND matchattribute.role = "";
+    this->overviewpagecompdef :=
+        SELECT *
+          FROM this->formcomponents
+         WHERE namespace = "http://www.webhare.net/xmlns/publisher/forms"
+               AND name = "page"
+               AND matchattribute.role = "overview";
+    this->thankyoupagecompdef :=
+        SELECT *
+          FROM this->formcomponents
+         WHERE namespace = "http://www.webhare.net/xmlns/publisher/forms"
+               AND name = "page"
+               AND matchattribute.role = "thankyou";
+    this->groupcompdef := SELECT * FROM this->formcomponents WHERE qname = "http://www.webhare.net/xmlns/publisher/forms#group";
+
+    this->formhandlers :=
+        SELECT *
+             , title := GetTid(title)
+             , description := GetTid(description)
+             , qname := FormatQName(handlers)
+             , canadd := TRUE // Updated based on opened file apply rules
+             , builtin := namespace = xmlns_forms
+          FROM GetAllFormHandlers() AS handlers;
+
+    INSERT "http://www.webhare.net/xmlns/publisher/formwebtool" INTO this->contexts->editdocumentapi->editcontenttypes AT END;
+    this->contexts->editdocumentapi->onsetenabled := PTR this->SetEnabled;
+    this->contexts->editdocumentapi->onloaddata := PTR this->LoadData;
+    this->contexts->editdocumentapi->onstoredata := PTR this->StoreData;
+    this->contexts->editdocumentapi->onconfirmsave := PTR this->OnConfirmSave;
+    this->contexts->editdocumentapi->onvalidate := PTR this->ValidateFormFile;
+    this->contexts->editdocumentapi->onsave := PTR this->OnSave;
+
+    this->RefreshStoreResultsUI();
+
+    this->LoadEditorExtensions();
+    this->UpdateAllowDenyFormComponents();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Edit document API
+  //
+
+  MACRO LoadData()
+  {
+    RECORD data := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool");
+    this->ReadFormDefinition(data.data, FALSE);
+    IF(this->contexts->editdocumentapi->readonly)
+      this->SetReadOnly(this->contexts->editdocumentapi->readonly); //this will currently trigger ReloadList
+    ELSE
+      this->ReloadList();
+  }
+
+  MACRO StoreData()
+  {
+    RECORD data := this->formdefsfile->ExportAsRecord();
+    this->contexts->editdocumentapi->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", [ data := data ]);
+  }
+
+  MACRO VerifySanity()
+  {
+    IF(GetDtapStage() != "development")
+      RETURN;
+
+    //TODO give user a chance to escape or disable validation temporarily?
+    RECORD data := this->formdefsfile->ExportAsRecord();
+    IF(Length(ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := data.formtext ]).errors) > 0)
+      this->RunEditSource(TRUE); //validate immediately
+  }
+
+  MACRO SetEnabled(BOOLEAN enabled)
+  {
+    this->SetReadOnly(NOT enabled);
+  }
+
+  BOOLEAN FUNCTION OnConfirmSave(BOOLEAN ispublish)
+  {
+    IF(NOT ispublish)
+      RETURN TRUE; //we don't care about drafts
+
+    //TODO check if retention period actually changed, we might spuriously give this error now if results are close to being expired
+    INTEGER numtoexpire := GetFormExpectedExpiredResults(this->contexts->applytester, this->GetFormWHFSObjectId(), this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool"));
+    IF(numtoexpire > 0 AND this->RunSimpleScreen("verify",  GetTid("publisher:tolliumapps.formedit.messages.willdeleteresults", ToString(numtoexpire))) != "yes")
+      RETURN FALSE;
+
+    RETURN TRUE; //no further objections
+  }
+  MACRO OnSave(OBJECT work, BOOLEAN ispublish)
+  {
+    IF(NOT ispublish)
+      RETURN; //we don't care about drafts
+
+    RecalculateFormResultsExpirationDates(this->GetFormWHFSObjectId());
+    DeleteExpiredFormResults(this->GetFormWHFSObjectId());
+  }
+
+  MACRO ValidateFormFile(OBJECT work)
+  {
+    // Check if there are no RTDs with merge fields on non-thankyou pages
+    OBJECT finalform := this->curform->__OpenAsLiveForm(this->uselanguage);
+    FOREVERY (RECORD field FROM finalform->__form.fields)
+    {
+      IF (field.qname != "http://www.webhare.net/xmlns/publisher/forms#richtext" // Not a richtext field
+          OR NOT RecordExists(field.richvalue) // No value set
+          OR finalform->__form.pages[field.formpage].role = "thankyou") // On a thankyou page where mergefields are permitted
+        CONTINUE;
+
+      RECORD rtd := ValidateRichDocument(field.richvalue.data);
+      // In older forms, empty richtext fields could contain a reference to a non-existing rich document, so check if the
+      // rtd actually exists
+      IF (RecordExists(rtd))
+      {
+        FOREVERY (RECORD instance FROM rtd.instances)
+        {
+
+          RECORD type := LookupContentTypes(instance.data.whfstype);
+          IF (RecordExists(type) AND type.requiremergefieldscontext)
+          {
+            RECORD fielddesc := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage ]);
+            work->AddError(GetTid("publisher:tolliumapps.formedit.messages.onlythankyoumergefields", fielddesc.pagetitle));
+            RETURN;
+          }
+        }
+      }
+      finalform->__form.fields[#field].richvalue.data := rtd;
+    }
+
+    // Check if there is at most one mail confirmation handler
+    BOOLEAN hasconfirmationhandler;
+    FOREVERY (RECORD handler FROM finalform->ListHandlers())
+    {
+      IF (handler.handlerobject->IsConfirmationHandler())
+      {
+        IF (hasconfirmationhandler)
+        {
+          work->AddError(GetTid("publisher:tolliumapps.formedit.messages.multipleconfirmationhandlers"));
+          RETURN;
+        }
+        hasconfirmationhandler := TRUE;
+      }
+
+      handler.handlerobject->ValidateFormFile(work, this->curform, this->contexts);
+    }
+
+    // Give the validation handlers an opportunity to do whole-form validation
+    FOREVERY (MACRO PTR validate FROM this->validationhandlers)
+    {
+      validate(work, this->curform, this->contexts);
+      IF (work->HasFailed())
+        RETURN;
+    }
+  }
+
+  MACRO MarkFormAsDirty()
+  {
+    this->frame->flags.isdirty := TRUE;
+    this->contexts->editdocumentapi->MarkDocumentAsDirty();
+  }
+
+  RECORD FUNCTION GetInstanceData(STRING type)
+  {
+    RETURN this->contexts->editdocumentapi->GetInstanceData(type);
+  }
+
+  MACRO SetInstanceData(STRING type, RECORD data)
+  {
+    this->contexts->editdocumentapi->SetInstanceData(type, data);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+  MACRO DoImportWebpack()
+  {
+    IF(MakeFunctionPtr("mod::webpack/lib/screens/survey-import.whlib#RunSurveyImport")(this, [ form := this->curform, formobjectid := this->GetFormWHFSObjectId() ]))
+    {
+      this->MarkFormAsDirty();
+      this->ReloadList([expandall := TRUE ]);
+    }
+  }
+
+  MACRO DoAddPage()
+  {
+    OBJECT page := this->curform->AddPage("");
+    this->MarkFormAsDirty();
+    this->ReloadList();
+    ^questions->selection := SELECT * FROM ^questions->rows WHERE ObjectExists(rows.node) AND rows.node->IsSameNode(page->node);
+  }
+
+  MACRO DoAddGroup()
+  {
+    INTEGER selectedidx := SELECT AS INTEGER #rows FROM ^questions->rows WHERE rowkey = ^questions->value[0];
+    WHILE (NOT ^questions->rows[selectedidx].ispage
+        AND NOT ^questions->rows[selectedidx].isform)
+      selectedidx := selectedidx - 1;
+
+    INTEGER page := ^questions->rows[selectedidx].page;
+    OBJECT curpage := this->curform->GetPage(page);
+    INTEGER question := Length(curpage->GetComponents());
+    OBJECT newgroup := curpage->AppendComponent("group");
+
+    IF (this->RunScreen("formcomponent.xml#editcomponent",
+        [ node := newgroup
+        , compdef := this->groupcompdef
+        , existing := FALSE
+        ]) = "ok")
+    {
+      this->MarkFormAsDirty();
+      this->ReloadList();
+      ^questions->selection := SELECT * FROM ^questions->rows WHERE ObjectExists(rows.node) AND rows.node->IsSameNode(newgroup);
+    }
+    ELSE
+    {
+      newgroup->parentnode->RemoveChild(newgroup);
+    }
+  }
+
+  MACRO AddComponentOfType(STRING component)
+  {
+    INTEGER selectedidx := SELECT AS INTEGER #rows FROM ^questions->rows WHERE rowkey = ^questions->value[0];
+    WHILE (NOT ^questions->rows[selectedidx].isgroup
+        AND NOT ^questions->rows[selectedidx].ispage
+        AND NOT ^questions->rows[selectedidx].isform)
+      selectedidx := selectedidx - 1;
+
+    INTEGER page := ^questions->rows[selectedidx].page;
+    OBJECT curpage := this->curform->GetPage(page);
+    INTEGER question := Length(curpage->GetComponents());
+    OBJECT newquestion := curpage->AppendComponent(Tokenize(component, "$")[0]);
+    RECORD compdef := SELECT * FROM this->formcomponents WHERE qname = component;
+    this->ApplyMatchAttribute(newquestion, compdef);
+
+    IF (this->RunScreen("formcomponent.xml#editcomponent",
+        [ node := newquestion
+        , compdef := compdef
+        , existing := FALSE
+        ]) = "ok")
+    {
+      IF (^questions->selection.isgroup)
+      {
+        // If a group node was selected, append the question to the group
+        newquestion->Dispose();
+        ^questions->rows[selectedidx].node->AppendChild(newquestion);
+      }
+      ELSE IF (^questions->selection.isquestion)
+      {
+        // If a question was selected, insert the question as sibling after the selected question
+        newquestion->Dispose();
+        ^questions->selection.node->parentnode->InsertBefore(newquestion, ^questions->selection.node->nextelementsibling);
+      }
+
+      this->MarkFormAsDirty();
+      this->ReloadList();
+      ^questions->selection := SELECT * FROM ^questions->rows WHERE ObjectExists(rows.node) AND rows.node->IsSameNode(newquestion);
+    }
+    ELSE
+    {
+      newquestion->parentnode->RemoveChild(newquestion);
+    }
+
+  }
+
+  MACRO DoAddQuestion()
+  {
+    STRING ARRAY forbiddentypes :=
+        [ "http://www.webhare.net/xmlns/publisher/forms#richtext"    // Richtexts are added explicity
+        , "http://www.webhare.net/xmlns/publisher/forms#customfield" // Only in custom forms
+        , this->pagecompdef.qname                                    // Pages are added explicity
+        , this->overviewpagecompdef.qname                            // Overview pages are added explicity
+        , this->thankyoupagecompdef.qname                            // Thank you pages are added explicity
+        , this->groupcompdef.qname                                   // Groups are added explicity
+        ];
+    RECORD ARRAY available := SELECT *
+                                FROM this->formcomponents
+                               WHERE canadd AND qname NOT IN forbiddentypes;
+    IF (Length(available) = 0)
+    {
+      this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.formedit.messages.noavailablequestiontypes"));
+      RETURN;
+    }
+    STRING component := this->RunScreen("formcomponent.xml#selectcomponent",
+        [ components := available
+        , type := "question"
+        ]);
+    IF (component = "")
+      RETURN;
+    this->AddComponentOfType(component);
+  }
+
+  MACRO DoAddText()
+  {
+    this->AddComponentOfType("http://www.webhare.net/xmlns/publisher/forms#richtext");
+  }
+
+  MACRO DoDuplicateQuestion()
+  {
+    OBJECT source := ^questions->selection.node;
+    OBJECT sourcepage := ^questions->selection.page;
+    OBJECT newnode := sourcepage->DuplicateComponent(source);
+
+    this->MarkFormAsDirty();
+    this->ReloadList();
+
+    ^questions->selection := SELECT * FROM ^questions->rows WHERE ObjectExists(rows.node) AND rows.node->IsSameNode(newnode);
+  }
+
+  MACRO DoAddHandler()
+  {
+    STRING ARRAY forbiddentypes := ["http://www.webhare.net/xmlns/publisher/forms#customhandler"];
+    RECORD ARRAY available := SELECT *
+                                FROM this->formhandlers
+                               WHERE canadd
+                                     AND qname NOT IN forbiddentypes;
+    // There can be only one confirmation handler
+    IF (RecordExists(SELECT FROM this->curform->GetParsedHandlers() WHERE "confirmation" IN handlertaskfor))
+      DELETE FROM available WHERE "confirmation" IN handlertaskfor;
+    IF (Length(available) = 0)
+    {
+      this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.formedit.messages.noavailablehandlertypes"));
+      RETURN;
+    }
+    STRING component := this->RunScreen("formcomponent.xml#selectcomponent",
+        [ components := available
+        , type := "handler"
+        ]);
+    IF (component != "")
+    {
+      INTEGER handler := Length(this->curform->GetHandlers());
+      OBJECT newhandler := this->curform->AddHandler(component);
+      RECORD compdef := SELECT * FROM this->formhandlers WHERE qname = component;
+
+      IF (compdef.editextension = "" OR this->RunScreen("formhandler.xml#edithandler",
+          [ node := newhandler
+          , compdef := compdef
+          , existing := FALSE
+          ]) = "ok")
+      {
+        this->MarkFormAsDirty();
+        this->ReloadList();
+        ^questions->selection := SELECT * FROM ^questions->rows WHERE ObjectExists(rows.node) AND rows.node->IsSameNode(newhandler);
+      }
+      ELSE
+        newhandler->parentnode->RemoveChild(newhandler);
+    }
+  }
+
+  MACRO DoEditPage()
+  {
+    IF (this->RunScreen("formcomponent.xml#editcomponent",
+        [ node := ^questions->selection.node
+        , compdef := ^questions->selection.compdef
+        , existing := TRUE
+        ]) = "ok")
+    {
+      this->MarkFormAsDirty();
+      this->ReloadList();
+    }
+  }
+
+  MACRO DoEditQuestion()
+  {
+    IF (this->RunScreen("formcomponent.xml#editcomponent",
+        [ node := ^questions->selection.node
+        , compdef := ^questions->selection.compdef
+        , existing := TRUE
+        ]) = "ok")
+    {
+      this->MarkFormAsDirty();
+      this->ReloadList();
+    }
+  }
+
+  MACRO DoEditHandler()
+  {
+    RECORD sel := ^questions->selection;
+    IF(sel.rowkey = "implicithandler")
+    {
+      this->DoSettings();
+      RETURN;
+    }
+
+    IF (sel.compdef.editextension = "")
+    {
+      this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.formedit.messages.noeditablehandlerfields"));
+      RETURN;
+    }
+    IF (this->RunScreen("formhandler.xml#edithandler",
+        [ node := sel.node
+        , compdef := sel.compdef
+        , existing := TRUE
+        ]) = "ok")
+    {
+      this->MarkFormAsDirty();
+      this->ReloadList();
+    }
+  }
+
+  MACRO DoDeleteItem()
+  {
+    STRING ARRAY itemtypes :=
+        SELECT AS STRING ARRAY Tokenize(Any(rowkey), "-")[0]
+          FROM ^questions->selection
+         GROUP BY Tokenize(rowkey, "-")[0];
+
+    IF ((Length(^questions->selection) > 1
+            AND this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.formedit.messages.confirmdeleteitems", Length(itemtypes) > 1 ? "" : itemtypes[0], ToString(Length(^questions->selection))), [ buttons := [ "yes", "no" ], defaultbutton := "no" ]) != "yes")
+        OR (Length(^questions->selection) = 1
+            AND this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.formedit.messages.confirmdeleteitem", itemtypes[0]), [ buttons := [ "yes", "no" ], defaultbutton := "no" ]) != "yes"))
+      RETURN;
+
+    BOOLEAN anydeleted;
+    FOREVERY (RECORD tokill FROM ^questions->selection)
+    {
+      IF(tokill.ispage)
+      {
+        IF (this->ContainsPinnedItems(tokill.node, "existence"))
+          this->RunSimpleScreen("error", GetTid("publisher:tolliumapps.formedit.messages.pagehaspinnedcontent", tokill.title));
+        ELSE
+        {
+          this->curform->DeletePage(tokill.node);
+          anydeleted := TRUE;
+        }
+      }
+      ELSE IF(tokill.isgroup)
+      {
+        IF (this->ContainsPinnedItems(tokill.node, "existence"))
+          this->RunSimpleScreen("error", GetTid("publisher:tolliumapps.formedit.messages.grouphaspinnedcontent", tokill.title));
+        ELSE
+        {
+          this->curform->DeleteGroup(tokill.node);
+          anydeleted := TRUE;
+        }
+      }
+      ELSE IF(tokill.isquestion)
+      {
+        this->curform->DeleteComponent(tokill.node);
+        anydeleted := TRUE;
+      }
+      ELSE IF(tokill.ishandler)
+      {
+        this->curform->DeleteHandler(tokill.node);
+        anydeleted := TRUE;
+      }
+      ELSE
+        THROW NEW Exception(`Don't know how to delete '${tokill.node->nodename}' node`);
+    }
+
+    IF (anydeleted)
+    {
+      this->MarkFormAsDirty();
+      this->ReloadList();
+    }
+  }
+
+  MACRO DoSettings()
+  {
+    IF(this->RunScreen("#settings",
+        [ node := this->curform->node
+        , objectid := this->GetFormWHFSObjectId()
+        , extensions := SELECT AS STRING ARRAY tabext FROM this->editorextensions WHERE CellExists(editorextensions, "tabext")
+        ]) = "ok")
+    {
+      this->MarkFormAsDirty();
+      this->RefreshStoreResultsUI();
+    }
+  }
+
+  MACRO RefreshStoreResultsUI()
+  {
+    RECORD formsettings := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool");
+    INTEGER storedays := GetFormResultsExpirationDaysByInstance(this->contexts->applytester, formsettings).storeresults;
+    this->frame->flags.canviewresults := storedays > 0;
+
+    ^showresultsbutton->visible := this->frame->flags.canviewresults;
+    ^resultsbuttons->visible := this->frame->flags.canviewresults;
+  }
+
+  MACRO DoShowResults()
+  {
+    this->RunScreen("results.xml#results",
+        [ fsobjid := this->GetFormWHFSObjectId()
+        , formobj := this->curform
+        , uselanguage := this->uselanguage
+        , testablehandlers := this->testablehandlers
+        , showpending := this->confirmationhandler
+        ]);
+  }
+
+  MACRO DoEditSource()
+  {
+    this->RunEditSource(FALSE); //we need a non-validating route just in case the validator crashes
+  }
+
+  MACRO RunEditSource(BOOLEAN validateimmediately)
+  {
+    RECORD data := this->formdefsfile->ExportAsRecord();
+    data := this->RunScreen("editsource.xml#editsource", CELL[ data, validateimmediately ]);
+    IF (RecordExists(data))
+    {
+      this->ReadFormDefinition(data, TRUE);
+      this->MarkFormAsDirty();
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO DoMoveToTop()
+  {
+    OBJECT node := ^questions->selection.node;
+    node->parentnode->InsertBefore(node, node->parentnode->firstelementchild);
+    this->ReloadList();
+  }
+  MACRO DoMoveUp()
+  {
+    OBJECT node := ^questions->selection.node;
+    node->parentnode->InsertBefore(node, node->previouselementsibling);
+    this->ReloadList();
+  }
+  MACRO DoMoveDown()
+  {
+    OBJECT node := ^questions->selection.node;
+    node->parentnode->InsertBefore(node, node->nextelementsibling->nextelementsibling);
+    this->ReloadList();
+  }
+  MACRO DoMoveToBottom()
+  {
+    OBJECT node := ^questions->selection.node;
+
+    // Move the page node to just before the last text page node(s)
+    IF(^questions->selection.ispage)
+    {
+      OBJECT refnode := node->parentnode->lastelementchild;
+      WHILE (ObjectExists(refnode))
+      {
+        IF (refnode->IsSameNode(node))
+          RETURN; // Nothing to do
+        IF (refnode->namespaceuri = "http://www.webhare.net/xmlns/publisher/forms"
+            AND refnode->localname = "page"
+            AND refnode->GetAttribute("role") = "")
+        {
+          node->parentnode->InsertBefore(node, refnode->nextelementsibling);
+          this->ReloadList();
+          RETURN;
+        }
+        refnode := refnode->previouselementsibling;
+      }
+    }
+
+    node->parentnode->AppendChild(node);
+    this->ReloadList();
+  }
+
+  MACRO OnDropItems(RECORD dragdata, RECORD target, STRING action, STRING type)
+  {
+    BOOLEAN changes;
+    STRING expand_page;
+
+    FOREVERY (RECORD item FROM dragdata.items)
+    {
+      RECORD selection := SELECT * FROM ^questions->rows WHERE rowkey = item.data.rowkey;
+      OBJECT node := type="copy" ? selection.page->DuplicateComponent(selection.node) : selection.node;
+      IF (selection.isdeleted)
+      {
+        // When undeleting a question, clear its tag if it's already used again
+        STRING checktag := node->GetAttribute("name");
+        IF (checktag != "" AND RecordExists(this->GetFieldByTag(checktag)))
+          node->RemoveAttribute("name");
+      }
+      IF (item.type = pagedragtype)
+      {
+        SWITCH (action)
+        {
+          CASE "insertbefore"
+          {
+            // Insert the page before the target page, unless the selected page is the target page or the selected page
+            // already is the target page's previous sibling
+            OBJECT targetprev := target.node->previouselementsibling;
+            IF (NOT node->IsSameNode(target.node)
+                AND (NOT ObjectExists(targetprev) OR NOT targetprev->IsSameNode(node)))
+            {
+              node->Dispose();
+              target.node->parentnode->InsertBefore(node, target.node);
+              changes := TRUE;
+            }
+          }
+        }
+      }
+      ELSE IF (item.type = questiondragtype OR item.type = groupdragtype)
+      {
+        SWITCH (action)
+        {
+          CASE "ontarget"
+          {
+            // Append the question/group to the target page, unless it's already on this page
+            IF (NOT node->parentnode->IsSameNode(target.node))
+            {
+              node->Dispose();
+              target.node->AppendChild(node);
+              expand_page := target.guid;
+              changes := TRUE;
+            }
+          }
+          CASE "insertbefore"
+          {
+            OBJECT targetprev := target.node->previouselementsibling;
+            IF (NOT node->IsSameNode(target.node)
+                AND (NOT ObjectExists(targetprev) OR NOT targetprev->IsSameNode(node)))
+            {
+              node->Dispose();
+              target.node->parentnode->InsertBefore(node, target.node);
+              changes := TRUE;
+            }
+          }
+          CASE "appendchild"
+          {
+            // Move the question/group to the bottom of the target page/group, unless it's already the last question on this page
+            IF (node->parentnode->IsSameNode(target.node))
+            {
+              OBJECT targetnext := node->nextelementsibling;
+              IF (ObjectExists(targetnext) AND NOT node->IsSameNode(targetnext))
+              {
+                node->Dispose();
+                target.node->AppendChild(node);
+                changes := TRUE;
+              }
+            }
+            ELSE
+            {
+              node->Dispose();
+              target.node->AppendChild(node);
+              changes := TRUE;
+            }
+          }
+        }
+      }
+    }
+    IF (changes)
+    {
+      this->MarkFormAsDirty();
+      this->ReloadList([ force_expanded_pages := expand_page != "" ? [ expand_page ] : STRING[]]);
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks from FormComponentAPI/EditorExtensionsAPI
+  //
+  RECORD ARRAY FUNCTION GetConditionSources()
+  {
+    RECORD ARRAY sources;
+
+    RECORD ARRAY fields := this->GetFieldsForTypes(STRING[]);
+    FOREVERY (RECORD field FROM fields)
+    {
+      IF ("options" IN field.supportedvalues)
+      {
+        RECORD ARRAY options := field.obj->options;
+        IF (Length(options) > 0)
+        {
+          INSERT
+              [ rowkey := field.guid
+              , title := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle
+              , options := (SELECT rowkey
+                                 , title
+                              FROM field.obj->options)
+              , type := "in"
+              , supportedvalues := field.supportedvalues
+              ] INTO sources AT END;
+        }
+      }
+      ELSE IF ("boolean" IN field.supportedvalues)
+      {
+        INSERT
+            [ rowkey := field.guid
+            , title := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle
+            , type := "hasvalue"
+            , supportedvalues := field.supportedvalues
+            ] INTO sources AT END;
+      }
+      FOREVERY (RECORD extrafield FROM field.obj->GetExtraMergeFields(DEFAULT RECORD))
+      {
+        IF (CellExists(extrafield, "supportedvalues"))
+        {
+          IF ("options" IN extrafield.supportedvalues)
+          {
+            IF (CellExists(extrafield, "options") AND Length(extrafield.options) > 0)
+            {
+              INSERT
+                  [ rowkey := field.guid || "$" || extrafield.name
+                  , title := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle || " – " || extrafield.title
+                  , options := extrafield.options
+                  , type := "in"
+                  , supportedvalues := extrafield.supportedvalues
+                  ] INTO sources AT END;
+            }
+          }
+          ELSE IF ("boolean" IN field.supportedvalues)
+          {
+            INSERT
+                [ rowkey := field.guid || "$" || extrafield.name
+                , title := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle || " – " || extrafield.title
+                , type := "hasvalue"
+                , supportedvalues := extrafield.supportedvalues
+                ] INTO sources AT END;
+          }
+        }
+      }
+    }
+
+    IF(this->allowsubmittype)
+    {
+      RECORD ARRAY submittypes :=
+          [ [ rowkey := "new", title := this->GetTid(".formsubmittype-new") ]
+          , [ rowkey := "change", title := this->GetTid(".formsubmittype-change") ]
+          , [ rowkey := "cancel", title := this->GetTid(".formsubmittype-cancel") ]
+          ];
+      IF (this->confirmationhandler)
+        submittypes := submittypes CONCAT
+            [ [ rowkey := "pending", title := this->GetTid(".formsubmittype-pending") ]
+            , [ rowkey := "confirm", title := this->GetTid(".formsubmittype-confirm") ]
+            , [ rowkey := "duplicate", title := this->GetTid(".formsubmittype-duplicate") ]
+            ];
+      INSERT [ rowkey := "formsubmittype"
+             , title := this->GetTid(".formsubmittype")
+             , options := submittypes
+             , type := "in"
+             , supportedvalues := [ "string" ]
+             ] INTO sources AT END;
+    }
+
+    RETURN sources;
+  }
+
+  RECORD ARRAY FUNCTION GetFieldsForTypes(STRING ARRAY types)
+  {
+    IF (Length(types) = 0)
+      RETURN this->curform->ListFields([ languagecode := this->uselanguage ]);
+    RETURN SELECT * FROM this->curform->ListFields([ languagecode := this->uselanguage ]) WHERE ArraysIntersect(types, supportedvalues);
+  }
+
+  RECORD FUNCTION GetField(STRING guid)
+  {
+    RETURN SELECT * FROM this->curform->ListFields([ languagecode := this->uselanguage ]) WHERE COLUMN guid = VAR guid;
+  }
+  RECORD FUNCTION GetFieldByTag(STRING findtag)
+  {
+    RETURN SELECT * FROM this->curform->ListFields([ languagecode := this->uselanguage ]) WHERE ToUppercase(name) = ToUppercase(findtag);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ReadFormDefinition(RECORD data, BOOLEAN isreload)
+  {
+    this->formdefsfile := CreateNewFormdefinitionsFile();
+    IF (RecordExists(data))
+      this->formdefsfile->ImportFromRecord(data);
+
+    this->frame->flags.isdirty := FALSE;
+
+    this->LoadForm();
+
+    IF (isreload)
+      this->ReloadList();
+  }
+
+  MACRO ApplyCustomSettings()
+  {
+    RECORD ARRAY settings := this->contexts->applytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "extendformeditor");
+    IF(Length(settings)=0)
+      RETURN;
+
+    FOREVERY(RECORD setting FROM settings)
+    {
+      IF(setting.node->HasAttribute("settingsextension"))
+      {
+        STRING extid := `extension#${Length(this->editorextensions)}`;
+        STRING screensfile := Tokenize(setting.node->GetAttribute("settingsextension"), "#")[0];
+        INSERT CELL
+            [ extid
+            , tabext := MakeAbsoluteResourcePath(setting.siteprofile->name, setting.node->GetAttribute("settingsextension"))
+            ] INTO this->editorextensions AT END;
+      }
+      ELSE IF(setting.node->HasAttribute("extendobject"))
+      {
+        STRING library := Tokenize(setting.node->GetAttribute("extendobject"), "#")[0];
+        STRING objtype := Substring(setting.node->GetAttribute("extendobject"), Length(library) + 1);
+        library := MakeAbsoluteResourcePath(setting.siteprofile->name, library);
+
+        this->ApplyExtensionObject(library, objtype);
+      }
+
+      IF (setting.node->HasAttribute("validationfunc"))
+      {
+        STRING funcpath := MakeAbsoluteResourcePath(setting.siteprofile->name, setting.node->GetAttribute("validationfunc"));
+        INSERT MakeFunctionPTR(funcpath) INTO this->validationhandlers AT END;
+      }
+
+      IF(setting.node->HasAttribute("manual"))
+        ^help->manual := setting.node->GetAttribute("manual");
+      IF(setting.node->HasAttribute("manuallanguages"))
+        ^help->languages := ParseXSList(setting.node->GetAttribute("manuallanguages"));
+      IF(setting.node->HasAttribute("manualaccesstoken"))
+        ^help->accesstoken := setting.node->GetAttribute("manualaccesstoken");
+    }
+  }
+
+  MACRO ApplyExtensionObject(STRING library, STRING objtype)
+  {
+    RECORD saveoptions := passthrough_formeditorextension_options;
+    TRY
+    {
+      STRING extid := `extension#${Length(this->editorextensions)}`;
+      //pass FormEditorExtensionBase::NEW() data through a global, so extensions can use NEW() without worrying about passthrough params
+      passthrough_formeditorextension_options := [ contexts := this->contexts
+                                                 ];
+      OBJECT extobj := MakeObject(library, objtype);
+      IF (extobj NOT EXTENDSFROM FormEditorExtensionBase)
+        THROW NEW Exception("Object does not derive from FormEditorExtensionBase");
+      RECORD ARRAY buttons, menuitems;
+      FOREVERY (RECORD button FROM extobj->GetToolbarButtons())
+      {
+        OBJECT newaction := this->CreateTolliumComponent("action");
+        newaction->onexecute := button.onexecute;
+        OBJECT newbutton := this->CreateTolliumComponent("button");
+        newbutton->title := button.title;
+        newbutton->icon := button.icon;
+        newbutton->action := newaction;
+        INSERT [ component := newbutton, type := "button" ] INTO buttons AT END;
+
+        OBJECT newmenuitem := this->CreateTolliumComponent("menuitem");
+        newmenuitem->title := button.title;
+        newmenuitem->action := newaction;
+        INSERT [ isdivider := FALSE, menuitem := newmenuitem ] INTO menuitems AT END;
+      }
+      ^toolbar->items := ^toolbar->items CONCAT buttons;
+      FOREVERY (RECORD item FROM menuitems)
+      {
+        INSERT item INTO this->frame->menubar->items AT this->insertposition;
+        this->insertposition := this->insertposition + 1;
+      }
+
+      INSERT CELL
+          [ extid
+          , extobj
+          , buttons
+          , menuitems
+          ] INTO this->editorextensions AT END;
+      //DELETE FROM oldextensions WHERE COLUMN extid = VAR extid;
+    }
+    CATCH (OBJECT e)
+    {
+      LogHarescriptException(e);
+      this->RunSimpleScreen("error", GetTid("publisher:tolliumapps.formedit.messages.extensionloaderror", `${library}#${objtype}`, e->what));
+    }
+    FINALLY
+    {
+      passthrough_formeditorextension_options := saveoptions;
+    }
+  }
+
+  MACRO LoadEditorExtensions()
+  {
+    // Is there an 'editdocumentmenu' insertion point?
+    this->insertposition :=
+        (SELECT AS INTEGER #items + 1
+           FROM ^menubar->items
+          WHERE NOT isdivider
+                AND menuitem->title = "#####") - 1;
+
+    IF (this->insertposition < 0)
+      this->insertposition := Length(this->frame->menubar->items);
+
+    this->editorextensions := DEFAULT RECORD ARRAY;
+    this->ApplyCustomSettings();
+  }
+
+  MACRO UpdateAllowDenyFormComponents()
+  {
+    UPDATE this->formcomponents SET canadd := FALSE;
+    UPDATE this->formhandlers SET canadd := FALSE;
+
+    RECORD ARRAY applies := this->contexts->applytester->__GetAppliesForcell("WEBTOOLSFORMRULES");
+    IF (RecordExists(applies))
+    {
+      FOREVERY (RECORD apply FROM applies)
+      {
+        RECORD ARRAY allowdenyrules := SELECT * FROM apply.webtoolsformrules WHERE comp = "component";
+        FOREVERY (RECORD comp FROM this->formcomponents)
+        {
+          FOREVERY (RECORD rule FROM allowdenyrules)
+            IF (comp.qname LIKE rule.type)
+              this->formcomponents[#comp].canadd := rule.allow;
+        }
+        allowdenyrules := SELECT * FROM apply.webtoolsformrules WHERE comp = "handler";
+        FOREVERY (RECORD comp FROM this->formhandlers)
+        {
+          FOREVERY (RECORD rule FROM allowdenyrules)
+            IF (comp.qname LIKE rule.type)
+              this->formhandlers[#comp].canadd := rule.allow;
+        }
+      }
+    }
+  }
+
+  MACRO LoadForm()
+  {
+    IF ("webtoolform" NOT IN this->formdefsfile->GetFormDefinitions())
+    {
+      // Initialize an empty form
+      this->curform := this->formdefsfile->CreateFormDefinition("webtoolform");
+
+      //Add a text to the thankyou
+      OBJECT thankyouquestion := this->curform->GetPage(1)->AppendComponent("http://www.webhare.net/xmlns/publisher/forms#richtext");
+
+      STRING thankyoutext := GetTidForLanguage(this->uselanguage, "publisher:tolliumapps.formedit.initialthankyou");
+      RECORD text := [ htmltext := StringToBlob(`<html><body><p class="normal">${thankyoutext}</p></body></html>`) ];
+      SetRichTextInstance(this, thankyouquestion, text);
+    }
+    ELSE
+    {
+      this->curform := this->formdefsfile->OpenFormDefinition("webtoolform");
+      RepairFormIfNeeded(this->curform);
+    }
+    this->contexts->mergefields := NEW MergeFieldsContext([ type := "formdef", formdef := this->curform ], this->uselanguage);
+  }
+
+  RECORD FUNCTION FormatQuestionNode(OBJECT page, OBJECT question, STRING rowkey, STRING pagerole)
+  {
+    RECORD ARRAY matching_components := SELECT * FROM this->formcomponents WHERE namespace = question->namespaceuri AND name = question->localname;
+    RECORD component;// := this->formdefsfile->LookupComponentDef(question);
+    FOREVERY (RECORD match FROM matching_components)
+    {
+      IF (ComponentMatches(question, match))
+      {
+        component := match;
+        BREAK;
+      }
+    }
+    STRING qname := question->namespaceuri || "#" || question->localname;
+    IF (NOT RecordExists(component))
+      THROW NEW Exception(`Unknown question type '${qname}'`);
+    BOOLEAN required := ParseXSBoolean(question->GetAttribute("required"));
+    BOOLEAN istext := qname = "http://www.webhare.net/xmlns/publisher/forms#richtext";
+    RECORD draginfo := this->frame->flags.canedit
+        ? [ type := questiondragtype
+          , data := CELL[ rowkey, istext ]
+          ]
+        : DEFAULT RECORD;
+
+    STRING ARRAY pins := ParseXSList(question->GetAttribute("pins"));
+    RETURN CELL[ ...basequestionlistrow
+               , rowkey
+               , title := question->GetAttribute("title")
+                   ?? GetTidForLanguage(this->uselanguage, question->GetAttribute("tid"))
+                   ?? question->GetAttribute("label")
+                   ?? GetTidForLanguage(this->uselanguage, question->GetAttribute("labeltid"))
+                   ?? question->GetAttribute("name")
+               , type := ^questions->GetIcon(component.icon)
+               , icons := (question->GetAttribute("requiredconditionid") != "" ? [ 3 ] : required ? [ 1 ] : INTEGER[]) CONCAT ("existence" IN pins ? [ 2 ] : INTEGER[])
+               , icons_hint := required ? GetTid("publisher:tolliumapps.formedit.required") : ""
+               , canaddtexts := TRUE
+               , candelete := "existence" NOT IN pins
+               , page
+               , pins
+               , isquestion := TRUE
+               , canduplicate := ObjectExists(page) //only duplicate questions not on trash
+               , istext
+               , ishandler := TRUE
+               , isselectable := TRUE
+               , intextpage := pagerole != ""//ADDME: Proper support for these kind of properties based on role, probably using the page compdefs
+               , node := question
+               , compdef := component
+               , draginfo
+               , style := pagerole = "thankyou-redirect" ? "inactive" : ""//ADDME: Proper support for these kind of properties based on role, probably using the page compdefs
+               ];
+  }
+
+  MACRO ReloadList(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ force_expanded_pages := STRING[]
+                                , expandall := FALSE
+                                ],options);
+    this->testablehandlers := RECORD[];
+    this->confirmationhandler := FALSE;
+
+    //Build the form
+    OBJECT finalform := this->curform->__OpenAsLiveForm(this->uselanguage);
+
+    BOOLEAN issinglepage := this->curform->GetPage(0)->node->nodename = "form";
+    this->frame->flags.issinglepage := issinglepage;
+
+    RECORD ARRAY formrows;
+    FOR (INTEGER page := 0, numpages := this->curform->GetNumPages(); page < numpages; page := page + 1)
+    {
+      OBJECT formpage := this->curform->GetPage(page);
+      STRING pagerole := formpage->role;
+      RECORD pagecompdef := pagerole = "thankyou" ? this->thankyoupagecompdef : this->pagecompdef;
+      BOOLEAN istextpage := pagerole = "thankyou";//ADDME: Proper support for these kind of properties based on role, probably using the page compdefs
+      BOOLEAN isredirectpage := formpage->redirect != "";
+      IF (isredirectpage)
+        pagerole := pagerole || "-redirect";
+
+      RECORD ARRAY questions;
+      INTEGER groupnum;
+      FOREVERY (OBJECT question FROM formpage->GetComponents())
+      {
+        IF (question->namespaceuri = xmlns_forms AND question->localname = "group")
+        {
+          RECORD ARRAY groupquestions;
+          FOREVERY (OBJECT groupquestion FROM formpage->GetComponents(question))
+          {
+            STRING rowkey := `question-${page}-${groupquestion->GetAttribute("guid") ?? groupquestion->GetAttribute("name") ?? ToString(#groupquestion)}`;
+            RECORD node := this->FormatQuestionNode(formpage, groupquestion, rowkey, pagerole);
+            IF(RecordExists(node))
+              INSERT CELL[ ...node
+                         , canaddquestions := NOT istextpage
+                         ] INTO groupquestions AT END;
+          }
+
+          groupquestions :=
+              SELECT *
+                   , ingroup := TRUE
+                   , canmoveup := #question > 0
+                   , canmovedown := #question < Length(groupquestions) - 1
+                FROM groupquestions AS question;
+
+          STRING rowkey := `group-${page}-${ToString(groupnum)}`;
+          BOOLEAN istext := NOT RecordExists(SELECT FROM groupquestions WHERE NOT groupquestions.istext);
+          RECORD draginfo := this->frame->flags.canedit
+              ? [ type := groupdragtype, data := CELL[ rowkey, istext ] ]
+              : DEFAULT RECORD;
+          STRING ARRAY pins := ParseXSList(question->GetAttribute("pins"));
+          INSERT CELL[ ...basequestionlistrow
+                     , rowkey
+                     , title := question->GetAttribute("title") ?? GetTid(this->groupcompdef.tid, ToString(groupnum + 1))
+                     , type := ^questions->GetIcon(this->groupcompdef.icon)
+                     , icons := "existence" IN pins ? [ 2 ] : INTEGER[]
+                     , page
+                     , guid := question->GetAttribute("guid")
+                     , node := question
+                     , expanded := TRUE
+                     , subnodes := groupquestions
+                     , candelete := "existence" NOT IN pins
+                     , pins
+                     , draginfo
+                     , isquestion := TRUE
+                     , isgroup := TRUE
+                     , istext
+                     , isselectable := TRUE
+                     , canaddquestions := NOT istextpage
+                     , canaddtexts := TRUE
+                     , intextpage := pagerole != ""//ADDME: Proper support for these kind of properties based on role, probably using the page compdefs
+                     , compdef := this->groupcompdef
+                     ] INTO questions AT END;
+          groupnum := groupnum + 1;
+        }
+        ELSE
+        {
+          STRING rowkey := `question-${page}-${question->GetAttribute("guid") ?? question->GetAttribute("name") ?? ToString(#question)}`;
+          RECORD node := this->FormatQuestionNode(formpage, question, rowkey, pagerole);
+          IF(RecordExists(node))
+            INSERT CELL[ ...node
+                       , canaddquestions := NOT istextpage
+                       ] INTO questions AT END;
+        }
+      }
+
+      questions := SELECT *
+                        , canmoveup := #question > 0
+                        , canmovedown := #question < Length(questions) - 1
+                     FROM questions AS question;
+
+      STRING rowkey := `page-${formpage->guid ?? ToString(page)}`;
+      RECORD draginfo := this->frame->flags.canedit AND pagerole = ""//ADDME: Proper support for these kind of properties based on role, probably using the page compdefs
+          ? [ type := pagedragtype, data := [ rowkey := rowkey ] ]
+          : DEFAULT RECORD;
+      STRING ARRAY pins := ParseXSList(formpage->node->GetAttribute("pins"));
+
+      // The previous row can be moved down if this page is not a text page
+      IF (RecordExists(formrows))
+        formrows[END-1].canmovedown := formrows[END-1].canmovedown AND NOT istextpage;
+
+      STRING pagetitle := GetTid(pagecompdef.tid, ToString(page + 1));
+      IF(RecordExists(this->integrationsettings) AND this->integrationsettings.enablepagetitles)
+      {
+        STRING giventitle := formpage->node->GetAttribute("pagetitle") ?? GetTidForLanguage(this->uselanguage, formpage->node->GetAttribute("pagetid"));
+        IF(giventitle != "")
+          pagetitle := pagetitle || ": " || giventitle;
+      }
+
+      INSERT
+          CELL[ ...basequestionlistrow
+              , rowkey
+              , title := pagetitle
+              , type := ^questions->GetIcon(pagecompdef.icon || (isredirectpage ? "+tollium:overlays/filetypes/link" : ""))
+              , icons := "existence" IN pins ? [ 2 ] : INTEGER[]
+              , canaddgroups := NOT isredirectpage
+              , canaddquestions := NOT istextpage AND NOT isredirectpage
+              , canaddtexts := NOT isredirectpage
+              , candelete := "existence" NOT IN pins
+              , ispage := TRUE
+              , isselectable := TRUE
+              , node := formpage->node
+              , page
+              , pins
+              , formpage->guid
+              , draginfo
+              , expanded := TRUE
+              , subnodes := questions
+              //ADDME support moveup/down but properly recognize the page roles
+              , canmoveup := NOT istextpage AND page > 0
+              , canmovedown := NOT istextpage
+              , compdef := pagecompdef
+              ] INTO formrows AT END;
+    }
+    // The last page cannot be moved down
+    IF (RecordExists(formrows))
+      formrows[END-1].canmovedown := FALSE;
+
+    RECORD ARRAY handlers := [ this->GetImplictHandler() ];
+
+    FOREVERY (OBJECT handler FROM this->curform->GetHandlers())
+    {
+      STRING handlerguid := handler->GetAttribute("guid");
+      OBJECT handlerobj := SELECT AS OBJECT handlerobject FROM finalform->ListHandlers() WHERE guid = handlerguid;
+
+      RECORD component :=
+          SELECT *
+            FROM this->formhandlers
+           WHERE namespace = handler->namespaceuri
+                 AND name = handler->localname;
+
+      STRING title;
+      IF(ObjectExists(handlerobj))
+        title := handlerobj->GetFormEditTitle();
+      IF(title = "")
+        title := RecordExists(component) ? component.title : handler->localname;
+
+      IF(ObjectExists(handlerobj) AND handlerobj->IsTestableForResults())
+        INSERT CELL[ title, handlerobj ] INTO this->testablehandlers AT END;
+
+      STRING ARRAY pins := ParseXSList(handler->GetAttribute("pins"));
+      RECORD handlerrow := [ ...basequestionlistrow
+                           , rowkey := `handler-${handlerguid ?? ToString(#handler)}`
+                           , title := title
+                           , type := RecordExists(component) ? ^questions->GetIcon(component.icon) : 0
+                           , icons := "existence" IN pins ? [ 2 ] : INTEGER[]
+                           , pins := pins
+                           , candelete := "existence" NOT IN pins
+                           , ishandler := TRUE
+                           , isselectable := TRUE
+                           , node := handler
+                           , compdef := component
+                           ];
+
+      IF(RecordExists(component))
+      {
+        IF (component.qname = "http://www.webhare.net/xmlns/publisher/forms#customhandler")
+          handlerrow.title := handler->GetAttribute("title");
+        ELSE IF (component.qname = "http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler")
+          this->confirmationhandler := TRUE;
+      }
+
+      IF (handlerobj->IsConfirmationHandler())
+        INSERT handlerrow INTO handlers AT 0;
+      ELSE
+        INSERT handlerrow INTO handlers AT END;
+    }
+
+    //Empty line!
+    INSERT CELL[...basequestionlistrow
+               , rowkey := "handlers-emptylineabove"
+               ] INTO formrows AT END;
+
+    INSERT
+        [ ...basequestionlistrow
+        , rowkey := "handlers"
+        , title := this->GetTid(".handlers")
+        , type := ^questions->GetIcon("tollium:objects/cogs")
+        , expanded := TRUE
+        , subnodes := handlers
+        ] INTO formrows AT END;
+
+    // The list tries to keep expanded nodes expanded by their rowkeys. However, the page rowkeys are based on the pages'
+    // positions within the form, so they change when the page order changes. We'll make a list of guid's of expanded pages,
+    // so we can properly restore the expanded pages.
+    BOOLEAN haverows := Length(^questions->rows) > 0;
+    STRING ARRAY expandedpages := options.force_expanded_pages;
+    BOOLEAN expandedhandlers;
+    IF (haverows)
+    {
+      expandedpages := expandedpages CONCAT
+          SELECT AS STRING ARRAY guid
+            FROM ^questions->rows
+           WHERE rowkey IN ^questions->expanded
+                 AND (ispage OR isgroup)
+                 AND guid NOT IN expandedpages;
+      expandedhandlers := "handlers" IN ^questions->expanded;
+    }
+
+    //Any deleted questions?
+    RECORD ARRAY trashedquestions;
+    BOOLEAN expandedtrash;
+    FOREVERY (OBJECT question FROM this->curform->GetTrashedComponents())
+    {
+      STRING rowkey := `trash-${question->GetAttribute("name") ?? question->GetAttribute("guid") ?? ToString(#question)}`;
+      RECORD node := this->FormatQuestionNode(DEFAULT OBJECT, question, rowkey, "trash");
+      IF(RecordExists(node))
+        INSERT CELL[ ...node
+                   , canaddtexts := FALSE
+                   , canaddgroups := FALSE
+                   , canaddquestions := FALSE
+                   , caneditrow := FALSE
+                   , candelete := FALSE
+                   , isdeleted := TRUE
+                   ] INTO trashedquestions AT END;
+    }
+    IF(Length(trashedquestions) > 0) //generate a trash
+    {
+      expandedtrash := haverows AND "deletedquestions" IN ^questions->expanded;
+      formrows := formrows
+                  CONCAT
+                  [ [ ...basequestionlistrow
+                    , rowkey := "deletedquestions-emptylineabove"
+                    ]
+                  , [ ...basequestionlistrow
+                    , rowkey := "deletedquestions"
+                    , title := this->GetTid(".deletedquestions")
+                    , type := ^questions->GetIcon("tollium:objects/trash")
+                    , expanded := FALSE
+                    , subnodes := trashedquestions
+                    ]
+                  ];
+    }
+
+
+    ^questions->rows := formrows;
+
+    IF(options.expandall)
+    {
+      ^questions->expanded := SELECT AS STRING ARRAY rowkey FROM ^questions->rows WHERE expandable;
+    }
+    ELSE IF (haverows)
+    {
+      ^questions->expanded :=
+          (SELECT AS STRING ARRAY rowkey FROM ^questions->rows WHERE guid IN expandedpages)
+          CONCAT (expandedhandlers ? [ "handlers" ] : STRING[])
+          CONCAT (expandedtrash ? [ "deletedquestions" ] : STRING[]);
+    }
+
+    this->VerifySanity();
+  }
+
+  RECORD FUNCTION GetImplictHandler() //the implicit handler shows and links to storage settings
+  {
+    RECORD formsettings;
+    IF(ObjectExists(this->contexts->applytester))
+      formsettings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+
+    RECORD settings := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool");
+    INTEGER curstoreresults := settings.storeresults = 0 ? GetFormDefaultStoreResults(formsettings) : settings.storeresults < 0 ? 0 : settings.storeresults;
+
+    STRING title := curstoreresults = 0 ? this->GetTid(".implicthandler-dontstore") : this->GetTid(".implicthandler-storedays", ToString(curstoreresults));
+    RETURN CELL[ ...basequestionlistrow
+               , rowkey := "implicithandler"
+               , title
+               , type := 4 //actions:save
+               , icons := [2] //'existence' pin
+               , pins := ["existence"]
+               , ishandler := TRUE
+               , isselectable := TRUE
+               ];
+  }
+
+  MACRO ApplyMatchAttribute(OBJECT question, RECORD compdef)
+  {
+    FOREVERY (RECORD attr FROM UnpackRecord(compdef.matchattribute))
+    {
+      IF (IsTypeIDArray(TypeID(attr.value)))
+        question->SetAttribute(ToLowercase(attr.name), attr.value[0]);
+      ELSE
+        question->SetAttribute(ToLowercase(attr.name), attr.value);
+    }
+  }
+
+  BOOLEAN FUNCTION ContainsPinnedItems(OBJECT container, STRING pin)
+  {
+    FOREVERY (OBJECT node FROM container->childnodes->GetCurrentElements())
+    {
+      IF (node->HasAttribute("pins") AND pin IN ParseXSList(node->GetAttribute("pins")))
+        RETURN TRUE;
+      IF (node->childnodes->length > 0 AND this->ContainsPinnedItems(node, pin))
+        RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  INTEGER FUNCTION GetFormWHFSObjectId()
+  {
+    RETURN this->contexts->editdocumentapi->baseobject;
+  }
+
+  MACRO SetReadOnly(BOOLEAN readonly)
+  {
+    IF(this->readonly = readonly)//no change!
+      RETURN;
+
+    this->readonly := readonly;
+
+    this->RefreshStoreResultsUI();
+
+    this->frame->flags.canedit := NOT this->readonly;
+
+    ^additem->visible := this->frame->flags.canedit;
+    ^deletemenu->visible := this->frame->flags.canedit;
+
+    ^addbutton->visible := this->frame->flags.canedit;
+    ^deletebutton->visible := this->frame->flags.canedit;
+
+    this->ReloadList();
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT ARRAY extensions;
+  OBJECT node;
+  INTEGER objectid;
+  RECORD settings;
+  INTEGER defaultstoreresults;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->node := data.node;
+    this->objectid := data.objectid;
+
+    this->settings := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool");
+
+    RECORD formsettings;
+    IF(ObjectExists(this->contexts->applytester))
+      formsettings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+
+    IF(RecordExists(formsettings) AND formsettings.maxstoredays = 0) //there shall be no saving
+    {
+      ^overwritestoreresults->visible := FALSE;
+      ^overwritestoreresults->value := FALSE; //revert to default
+    }
+    ELSE
+    {
+      ^cannotsaveresults->visible := FALSE;
+      this->defaultstoreresults := GetFormDefaultStoreResults(formsettings);
+
+      //append the number of days the default is set to
+      ^overwritestoreresults->options[0].title := `${^overwritestoreresults->options[0].title} (${this->defaultstoreresults} ${GetTid("~units.days")})`;
+
+      // If storeresults = 0, the default value is used as the result retention period, show -1 as the value
+      // If storeresults is -1, results won't be stored, show 0 as the value
+      ^storeresults->value := this->settings.storeresults = 0 ? -1 : this->settings.storeresults < 0 ? 0 : this->settings.storeresults;
+      IF(RecordExists(formsettings) AND formsettings.maxstoredays >= 0)
+        ^storeresults->maximumvalue  := formsettings.maxstoredays;
+      ^overwritestoreresults->value := this->settings.storeresults != 0;
+    }
+
+
+    ^disablecaptcha->visible := RecordExists(formsettings) AND formsettings.usecaptcha;
+    ^disablecaptcha->value := this->settings.disablecaptcha;
+    ^available->value := NOT this->settings.unavailable;
+    ^unavailabletext->value := this->settings.unavailabletext;
+
+    ^tabs->extendposition := Length(^tabs->pages);
+    ^tabs->insertpoints :=
+        [ [ name := "settings", component := ^settings_insertpoint ]
+        ];
+    FOREVERY (STRING extension FROM data.extensions)
+    {
+      RECORD result := ^tabs->LoadTabsExtension(extension);
+      OBJECT settingsextension := result.fragment;
+      IF (settingsextension NOT EXTENDSFROM FormSettingsExtensionBase)
+        THROW NEW TolliumException(result.components[0], "Form settingsextension does not extend FormSettingsExtensionBase");
+
+      INSERT settingsextension INTO this->extensions AT END;
+      ^tabs->RunExtensionsPostInit();
+    }
+
+    // If the disablecaptcha option is unavailable and there are no settings inserted, hide the storeresults divider
+    ^storeresultsdivider->visible := ^other_settings->HasAnyVisibleComponents();
+
+    FOREVERY (OBJECT tab FROM ^tabs->pages)
+      tab->visible := tab->HasAnyVisibleComponents();
+    IF (^tabs->GetNumVisiblePages() <= 1)
+      ^tabs->type := "server";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+  MACRO OnAvailableChange()
+  {
+    ^unavailabletext->enabled := ^available->value = FALSE;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT feedback := this->BeginFeedback();
+
+    // Validation and storage are separate steps, as editdocumentapi's SetInstanceData is not dependent on a feedback being
+    // opened. This way, no data will be stored if the validation of one of extensions failed.
+    // Validate the extensions
+    FOREVERY (OBJECT extension FROM this->extensions)
+      extension->ValidateValue(feedback);
+
+    IF(feedback->HasFailed())
+    { //no need to give warnings if we've already
+      feedback->Finish();
+      RETURN FALSE;
+    }
+
+    INTEGER newstoreresults := ^overwritestoreresults->value ? ^storeresults->value : this->defaultstoreresults;
+    // If storeresults = 0, use the default value; if storeresults is -1, use 0
+    INTEGER curstoreresults := this->settings.storeresults = 0 ? this->defaultstoreresults : this->settings.storeresults < 0 ? 0 : this->settings.storeresults;
+
+    IF (newstoreresults < curstoreresults)
+      feedback->AddWarning(GetTid("publisher:tolliumapps.formedit.messages.storechangedelayed"));
+
+    // Store the general settings
+    RECORD instancedata :=
+        CELL[ ...this->settings
+              // If the value is 0, storeresults is saved as -1; for the default value, storeresults is saved as 0
+            , storeresults := ^overwritestoreresults->value ? (^storeresults->value = 0 ? -1 : ^storeresults->value) : 0
+            , unavailabletext := ^unavailabletext->value
+            , unavailable := NOT ^available->value
+            ];
+    IF(^disablecaptcha->enabled)
+      instancedata.disablecaptcha := ^disablecaptcha->value;
+    this->contexts->editdocumentapi->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", instancedata);
+
+    ^tabs->SubmitExtensions(feedback);
+
+    RETURN feedback->Finish();
+  }
+>;
+
+
+PUBLIC MACRO EditWebToolForm(OBJECT parent, RECORD target)
+{
+  parent->tolliumcontroller->SendApplicationMessage(
+      "publisher:webtoolform",
+      [ type := "editform"
+      , id   := target.id
+      ],
+      DEFAULT RECORD,
+      TRUE);
+}

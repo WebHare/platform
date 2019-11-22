@@ -1,0 +1,48 @@
+<?wh
+/** @topic sitedev/dynamic */
+
+LOADLIB "wh::crypto.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+/** Require basic login/password verification for a page. Aborts on login failure. This allows you to implement
+    trivial authentication for eg feeds and APIs but is not intended as a full-fledged login system for hundreds of users
+    @param realm Realm name. This is usually shown in the HTTP Basic auth popup to show what you're logging in to
+    @param accounts Valid accounts
+    @cell(string) accounts.username Username (case insensitive)
+    @cell(string) accounts.password Raw password (case sensitive)
+    @cell(string) accounts.passwordkey Password registry key. This can be set using `wh registry set --password <registrykey> <password>``
+    @return Username with which the user logged in. Does not return if login failed but sends a 401 Authorization required instead
+    */
+PUBLIC STRING FUNCTION RequireHTTPLogin(STRING realm, RECORD ARRAY accounts, RECORD options DEFAULTSTO DEFAULT RECORd)
+{
+  options := ValidateOptions(CELL[], options); //not yet, until we start crude rate limits..
+
+  RECORD headerinfo := GetParsedAuthenticationHeader();
+  IF(headerinfo.type = "BASIC")
+  {
+    FOREVERY(RECORD account FROM accounts)
+    {
+      IF(ToUppercase(account.username) != ToUppercase(headerinfo.username))
+        CONTINUE;
+
+      IF(CellExists(account,'password') AND account.password != "" AND headerinfo.password = account.password)
+        RETURN account.username; //match!
+
+      IF(CellExists(account,'passwordkey'))
+      {
+        //We don't require a transaction from the caller so we can be fast if we ever need to be by caching the db value
+        STRING keyvalue := RunInSeparatePrimary(PTR ReadRegistryKey(account.passwordkey));
+        IF(keyvalue != "" AND VerifyWebharePasswordHash(headerinfo.password, keyvalue))
+          RETURN account.username; //match!
+      }
+    }
+  }
+
+  AddHTTPHeader("WWW-Authenticate", `Basic realm="${EncodeJava(realm)}"`, FALSE);
+  AbortWithHTTPError(401);
+}
+

@@ -1,0 +1,21 @@
+<?wh
+/** @private Format parser. (may be replaced with tika at some point) */
+
+
+PUBLIC RECORD FUNCTION CreateParsedPage()
+{
+  RETURN [ success := TRUE                      // Successfully parsed
+         , knownmimetype := TRUE                // Is this a known mime type (only for errors)
+         , errormsg := ""                       // If not successful, contains error message
+         , type_ext := ""                       // Page type (file extension, e.g. "html", "pdf", etc.)
+         , index_page := TRUE                   // Should this page be indexed?
+         , follow_links := TRUE                 // Index links on this page?
+         , title := ""                          // Page title
+         , keywords := ""                       // Keywords to indentify this page
+         , description := ""                    // Description
+         , links := DEFAULT RECORD ARRAY        // [ link, text, type ] links found
+         , isdynamic := FALSE                   // Dynamic document?
+         , text := ""                           // Page body text
+         , extrafields := DEFAULT RECORD ARRAY  // extra fields tso submit with the page
+         ];
+}

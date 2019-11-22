@@ -1,0 +1,1009 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+MACRO SimpleTest()
+{
+  testfw->BeginWork();
+
+  TestEq(DEFAULT INTEGER ARRAY,OpenWHFSRootObject()->GetFullTree());
+  TestEq(DEFAULT INTEGER ARRAY,OpenWHFSRootObject()->GetWHFSTree());
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  TEstEq(0,firstfolder->highestparent);
+  TestEq(DEFAULT INTEGER ARRAY,firstfolder->GetFullTree());
+  TestEq([INTEGER(firstfolder->id)],firstfolder->GetWHFSTree());
+
+  TestEq(TRUE, ObjectExists(firstfolder));
+
+  TestEq(TRUE, firstfolder->isfolder);
+  TestEq(firstfolder->id, OpenWHFSObjectByPath('/' || firstfolder->name)->id);
+  TestEq(firstfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath)->id);
+  TestEq(FALSE, ObjectExists(OpenWHFSObjectByPath(firstfolder->whfspath || "bla")));
+  TestEq(firstfolder->id, OpenWHFSObjectByPath('/')->OpenByPath(firstfolder->name)->id);
+  TestEq(firstfolder->id, OpenWHFSObjectByPath('/')->OpenByPath(firstfolder->name,[expect:="any"])->id);
+
+  OBJECT subfolder := firstfolder->CreateFolder([name:='sub']);
+  OBJECT subfolder2 := firstfolder->CreateFolder([name:='sub2']);
+
+  TestEq(subfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->id);
+  TestEq(subfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub', [ expect := "folder" ])->id);
+  TestEq(subfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub', [ expect := "any" ])->id);
+  TestEq(firstfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('..')->id);
+  TestEq(subfolder2->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('../sub2')->id);
+  TestEq(0, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('../..')->id);
+  TestEq(0, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('../../../../../..')->id);
+  TestEq(firstfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('../../../../../../' || firstfolder->name)->id);
+
+  TestThrowsLike("*mpty path*", PTR OpenWHFSObjectByPath("", [ expect := "any" ]));
+  TestThrowsLike("*absolute path*", PTR OpenWHFSObjectByPath(".", [ expect := "any" ]));
+  TestThrowsLike("*absolute path*", PTR OpenWHFSObjectByPath("repository", [ expect := "any" ]));
+  TestThrowsLike("No such WHFS*nosuchsub", PTR OpenWHFSObjectByPath(firstfolder->whfspath || 'nosuchsub', [ expect := "any" ]));
+  TestThrowsLike("*open*as a file*sub", PTR OpenWHFSObjectByPath(firstfolder->whfspath || 'sub', [ expect := "file" ]));
+  TestThrowsLike("No such WHFS*nosuchsub*(relative to*)", PTR firstfolder->OpenByPath('nosuchsub', [ expect := "any" ]));
+  TestThrowsLike("*open*as a file*sub*(relative to*)", PTR firstfolder->OpenByPath('sub', [ expect := "file" ]));
+
+  OBJECT testfile := subfolder->CreateFile([name := "testfile.txt", data := StringToBlob("Testfile")]); //this is testsite/sub/testfile.txt
+  TestThrowsLike("*currentsite::sub/testfile.txt*", PTR subfolder->GetResource("currentsite::sub/testfile.txt"));
+  TestThrowsLike("*currentsite::/sub/testfile.txt*", PTR subfolder->GetResource("currentsite::/sub/testfile.txt"));
+  TestThrowsLike("Cannot open*as a folder*)", PTR subfolder->OpenByPath("testfile.txt", [expect:="folder"]));
+  TestEq(testfile->id, subfolder->OpenByPath("testfile.txt", [expect:="file"])->id);
+  TestThrowsLike("Cannot open WHFS*", PTR subfolder->OpenByName("testfile.txt", [expect:="folder"]));
+  TestThrowsLike("Cannot find object*because*does not accept paths*", PTR subfolder->OpenByName("../testfile.txt", [expect:="folder"]));
+  TestThrowsLike("Cannot find object*because*does not accept paths*", PTR subfolder->OpenByName(".", [expect:="folder"]));
+  TestThrowsLike("Cannot find object*because*does not accept paths*", PTR subfolder->OpenByName("..", [expect:="folder"]));
+  TestEq(testfile->id, subfolder->OpenByName("testfile.txt", [expect:="file"])->id);
+  TestEq("Testfile", BlobToString(subfolder->GetResource("testfile.txt")));
+  TestEq("Testfile", BlobToString(subfolder->GetResource("../sub/testfile.txt")));
+  TestEq("Testfile", BlobToString(subfolder2->GetResource("../sub/testfile.txt")));
+
+  TestEq("Testfile", BlobToString(subfolder2->GetResource("whfs::" || testfile->whfspath)));
+
+  //These now throw, global names require global visibility
+  TestThrows(PTR GetWebhareResource("filebyid::" || testfile->id));
+  TestThrows(PTR GetHareScriptResource("filebyid::" || testfile->id));
+
+  TestEq(299732, Length(subfolder2->Getresource("mod::webhare_testsuite/data//test/bob.jpg")));
+  TestEq(5829, Length(subfolder2->Getresource("whres::xml/xml.xsd")));
+
+  //Upload an empty file with a .witty extension - now gets no filetype
+  OBJECT wittyfile := firstfolder->CreateFile([name := "test.witty", data := DEFAULT BLOB]);
+  TestEq('http://www.webhare.net/xmlns/publisher/unknownfile', wittyfile->typens);
+  TestEq(DEFAULT INTEGER ARRAY,wittyfile->GetFullTree());
+  TestEq([INTEGER(firstfolder->id),wittyfile->id],wittyfile->GetWHFSTree());
+
+  OBJECT root := OpenWHFSRootObject();
+  TestEq(TRUE, root->IsParentOf(firstfolder->id));
+  TestEq(FALSE, root->IsChildOf(firstfolder->id));
+
+  TestEq(FALSE, root->IsParentOf(root->id));
+  TestEq(FALSE, root->IsChildOf(root->id));
+
+  TestEq(FALSE, firstfolder->IsParentOf(root->id));
+  TestEq(TRUE, firstfolder->IsChildOf(root->id));
+
+  TestEq(TRUE, firstfolder->IsParentOf(wittyfile->id));
+  TestEq(FALSE, firstfolder->IsChildOf(wittyfile->id));
+
+  TestEq(FALSE, wittyfile->IsParentOf(firstfolder->id));
+  TestEq(TRUE, wittyfile->IsChildOf(firstfolder->id));
+
+  TestEq(TRUE, root->IsParentOf(wittyfile->id));
+  TestEq(FALSE, root->IsChildOf(wittyfile->id));
+
+  /* Test descendant functions */
+  OBJECT subsubfolder := subfolder2->CreateFolder([name:="sub2sub"]);
+  OBJECT subsubfile := subfolder2->CreateFile([name:="sub2file", typens := "http://www.webhare.net/xmlns/publisher/unknownfile", data := DEFAULT BLOB]);
+  INTEGER ARRAY subs;
+
+  subs := firstfolder->GetDescendantFolderIds(-1);
+  TestEq(0, Length(subs));
+  subs := firstfolder->GetDescendantFolderIds(0);
+  TestEq(0, Length(subs));
+  subs := firstfolder->GetDescendantFolderIds(1);
+  TestEq(TRUE, firstfolder->id NOT IN subs, "Don't include ourselves");
+  TestEq(2, Length(subs));
+  TestEq(3,Length(firstfolder->GetDescendantFileIds(1)));
+  TestEq(TRUE, subfolder->id IN subs);
+  TestEq(TRUE, subfolder2->id IN subs);
+  subs := firstfolder->GetDescendantObjectIds(1);
+  TestEq(3, Length(subs));
+  TestEq(TRUE, wittyfile->id IN subs);
+  TestEq(TRUE, subfolder->id IN subs);
+  TestEq(TRUE, subfolder2->id IN subs);
+  subs := firstfolder->GetDescendantFolderIds(2);
+  TestEq(3, Length(subs));
+  TestEq(TRUE, subfolder->id IN subs);
+  TestEq(TRUE, subfolder2->id IN subs);
+  TestEq(TRUE, subsubfolder->id IN subs);
+  subs := firstfolder->GetDescendantObjectIds();
+  TestEq(6, Length(subs));
+  TestEq(TRUE, subfolder->id IN subs);
+  TestEq(TRUE, subfolder2->id IN subs);
+  TestEq(TRUE, subsubfolder->id IN subs);
+  TestEq(TRUE, subsubfile->id IN subs);
+  TestEq(6, Length(firstfolder->GetDescendantObjectIds(3)));
+  TestEq(6, Length(firstfolder->GetDescendantObjectIds()));
+
+  testfw->CommitWork();
+
+  //Test resource/relative path support
+  testfw->BeginWork();
+  CreateSiteFromFolder(firstfolder->id);
+  subfolder := OpenWHFSObject(subfolder->id);
+
+  TestEq("Testfile", BlobToString(subfolder->GetResource("site::" || firstfolder->name || "/sub/testfile.txt")));
+  TestEq("Testfile", BlobToString(subfolder->GetResource("currentsite::sub/testfile.txt")));
+  TestEq("Testfile", BlobToString(subfolder->GetResource("currentsite::sub/testfile.txt")));
+  TestEq("Testfile", BlobToString(subfolder->GetResource("../../" || firstfolder->name || "/sub/testfile.txt")));
+
+  //for historical reason, site:: and currentsite:: urls never leave a site, even when specifying ..
+  TestEq("Testfile", BlobToString(subfolder->GetResource("site::" || firstfolder->name || "/../sub/testfile.txt")));
+  TestEq("Testfile", BlobToString(subfolder->GetResource("currentsite::../sub/testfile.txt")));
+
+  OBJECT siteobj := OpenSite(firstfolder->id);
+  TestEq(subfolder->id, siteobj->OpenByPath('sub', [ expect := "folder" ])->id);
+  TestThrows(PTR  siteobj->OpenByPath('sub', [ expect := "file" ]));
+  testfw->RollbackWork();
+
+  TestEq(FALSE, IsValidWHFSName("^file", FALSE));
+  TestEq(FALSE, IsValidWHFSName("!file", FALSE));
+  TestEq(FALSE, IsValidWHFSName(" ^file", FALSE));
+  TestEq(FALSE, IsValidWHFSName(" !file", FALSE));
+  TestEq(TRUE, IsValidWHFSName("_^file", FALSE));
+  TestEq(TRUE, IsValidWHFSName("_!file", FALSE));
+}
+
+MACRO WrappedTest()
+{
+  testfw->BeginWork();
+
+  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
+  RECORD goudvisfile := WrapBlob(GetWebhareResource("mod::webhare_testsuite/tests/wrd/testdata/goudvis.png"), "goudvis-name.png");
+
+  /* You *must* specify name explicitly, we're not going to take 'filename' from wrapped as that will be very confusing in
+     an UpdateMetadata call: if you give it a 'wrapped' with a different filename and don't explicitly set a name := to UpdateMetadata,
+     should we be renaming? - so just ignore filename */
+  TestThrows(PTR testfolderobj->CreateFile([ wrapped := goudvisfile ]));
+
+  OBJECT img := testfolderobj->CreateFile([ name := "goudvis.png", wrapped := goudvisfile ]);
+  RECORD wrapped := img->GetWrapped();
+  TestEq(FALSE, RecordExists(wrapped.refpoint));
+  TestEq("#020000", wrapped.dominantcolor);
+
+  wrapped.refpoint := [ x := 5, y := 5 ];
+  DELETE CELL hash, data FROM wrapped;
+
+  img->UpdateMetadata(CELL[ wrapped ]);
+  wrapped := img->GetWrapped();
+  TestEq([ x := 5, y := 5 ], wrapped.refpoint);
+
+  testfw->RollbackWork();
+}
+
+MACRO LookupPathTests()
+{
+  testfw->BeginWork();
+
+  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
+  OBJECT testsite := testfolderobj->CreateFolder([ name := "webhare_testsuite_movetest" ]);
+  OBJECT subfolder := testsite->CreateFolder([name := "sub"]);
+
+  TestEq([INTEGER(testfolderobj->id), testsite->id], testsite->GetWHFSTree());
+  TestEq(DEFAULT INTEGER ARRAY, testsite->GetFullTree());
+  CreateSiteFromFolder(testsite->id);
+
+  testsite := OpenWHFSObject(testsite->id);
+  TestEq([INTEGER(testfolderobj->id), testsite->id], testsite->GetWHFSTree());
+
+  TestEq(testsite->id,  LookupWHFSObject(0, '/' || testsite->whfspath));
+  TestEq(testsite->id,  LookupWHFSObject(testsite->id, '/'));
+  TestEq(subfolder->id, LookupWHFSObject(testsite->id, '/sub/'));
+  TestEq(subfolder->id, LookupWHFSObject(subfolder->id, './'));
+  TestEq(testsite->id,  LookupWHFSObject(subfolder->id, '..'));
+  TestEq(subfolder->id, LookupWHFSObject(subfolder->id, '/..')); // '..' should not be able to escape
+
+  //closest and no match support
+  TestEq(-1, LookupWHFSObject(testsite->id, '/sub/a'));
+  TestEq( [ id := testsite->id,  leftover := "a",  route := DEFAULT INTEGER ARRAY    ], ResolveWHFSObjectByPath(testsite->id, '/a'));
+  TestEq( [ id := subfolder->id, leftover := "a",  route := [INTEGER(subfolder->id)] ], ResolveWHFSObjectByPath(testsite->id, '/sub/a'));
+  TestEq( [ id := subfolder->id, leftover := "a/", route := [INTEGER(subfolder->id)] ], ResolveWHFSObjectByPath(testsite->id, '/sub/a/'));
+  TestEq( [ id := testsite->id,  leftover := "",   route := DEFAULT INTEGER ARRAY   ], ResolveWHFSObjectByPath(testsite->id, ''));
+
+  TestEq( [ id := subfolder->id, leftover := "a/", route := [INTEGER(subfolder->id), INTEGER(testsite->id), INTEGER(subfolder->id) ] ], ResolveWHFSObjectByPath(testsite->id, '/sub/../sub/a/'));
+
+  TestEq(testsite->id, OpenWHFSObjectByPath("site::" || "webhare_testsuite_movetest/")->id);
+  TestEq(testsite->id, OpenWHFSObjectByPath("site::" || "webhare_testsuite_movetest")->id);
+  TestEq(testsite->id, OpenWHFSObjectByPath("site::" || "webhare_testsuite_movetest/..")->id);
+
+  testfw->RollbackWork();
+}
+
+
+MACRO PublishOnOffTest()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  OBJECT imgfile := firstfolder->CreateFile( [ name := "cmyk_kikkertje", data := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/cmyk_kikkertje.jpg")]);
+
+  TestEq(12,imgfile->type);
+  TestEq(FALSE, imgfile->publish);
+  imgfile->UpdateMetadata([publish:=TRUE]);
+  TestEq(TRUE, imgfile->publish);
+  imgfile->UpdateMetadata([publish:=FALSE]);
+  TestEq(FALSE, imgfile->publish);
+
+  OBJECT templatefile := firstfolder->CreateFile( [ name := "blabla.tpl", data := StringToBlob("<?wh LOADLIB 'module::publisher/template-v2.whlib';")]);
+  TestEq(28,templatefile->type);
+  TestEq(FALSE, templatefile->publish);
+  templatefile->UpdateMetadata([publish:=TRUE]);
+  TestEq(FALSE, templatefile->publish); //shouldn't be allowed to publish a template
+  templatefile->UpdateMetadata([publish:=FALSE]);
+  TestEq(FALSE, templatefile->publish);
+
+  templatefile->UpdateMetadata([publish:=TRUE, type := 12]);
+  TestEq(TRUE, templatefile->publish); //but should if i'm making it an image
+  templatefile->UpdateMetadata([typens := "http://www.webhare.net/xmlns/publisher/templatefile"]);
+  TestEq(28, templatefile->type);
+  TestEq(FALSE, templatefile->publish); //and stop when it becomes a template again
+  imgfile->UpdateMetadata([publish:=TRUE, type := 28]);
+  TestEq(FALSE, imgfile->publish); //can't publish something becoming template
+
+  testfw->RollbackWork();
+}
+
+MACRO StripExtensionsTest()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT testfile := firstfolder->CreateFile( [ name := "extensiontest-0.doc", type := 4]);
+  TestEq(TRUE, TestFlagFromPublished(testfile->published, PublishedFlag_StripExtension));
+  testfile := firstfolder->CreateFile( [ name := "extensiontest-1.doc", type := 0]);
+  TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_StripExtension));
+  testfile := firstfolder->CreateFile( [ name := "extensiontest-2.schaap", type := 4]);
+  TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_StripExtension));
+  TestEq(4, testfile->type);
+  testfile->UpdateMetadata([name := "extensiontest-2.doc"]);
+  TestEq(4, testfile->type);
+  TestEq(TRUE, TestFlagFromPublished(testfile->published, PublishedFlag_StripExtension));
+  testfile->UpdateMetadata([type := 0]);
+  TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_StripExtension));
+
+  testfw->RollbackWork();
+}
+
+MACRO IsActiveTest()
+{
+  testfw->BeginWork();
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  OBJECT activetest := firstfolder->CreateFile([name := "isactivetest"]);
+
+  TestEq(TRUE, activetest->isactive);
+  activetest->RecycleSelf();
+  TestEq(FALSE, activetest->isactive);
+  TestEq(FALSE, OpenWHFSObject(activetest->id)->isactive);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+
+  //I still want to be able to set contenttypes on recycled data
+  OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test");
+  betatype->SetInstanceData(activetest->id, [ stringtest := "a" ] );
+  TestEq("a", betatype->GetInstanceData(activetest->id).stringtest);
+
+  testfw->CommitWork();
+}
+
+MACRO TemplateProfileTest()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT templprofbase := firstfolder->CreateFolder([name := "activetest"]);
+  OBJECT templprofbase2 := firstfolder->CreateFolder([name := "activetest2"]);
+  OBJECT testtemplate := firstfolder->CreateFile([name := "testtemplate", type := 28]);
+  OBJECT testprofile := firstfolder->CreateFile([name := "testprofile", type := 29]);
+  OBJECT testtemplate2 := firstfolder->CreateFile([name := "testtemplate2", type := 28]);
+  OBJECT testprofile2 := firstfolder->CreateFile([name := "testprofile2", type := 29]);
+
+  OBJECT testdoc, testhtml, testsub;
+
+  testdoc := templprofbase->CreateFile([name := "fake.doc", type := 4]);
+  TestEq(0, testdoc->template);
+  TestEq(0, testdoc->profile);
+  testdoc->DeleteSelf();
+
+  //Set the template & profile as defaults
+  templprofbase->UpdateMetadata([template := testtemplate->id, profile := testprofile->id]);
+
+  //DOCs should pick up both template&profile defaults
+  testdoc := templprofbase->CreateFile([name := "fake.doc", type := 4]);
+  TestEq(testtemplate->id, testdoc->template);
+  TestEq(testprofile->id, testdoc->profile);
+  testdoc->DeleteSelf();
+
+  //HTML documents should remain unaffected by profile, but affected by template
+  testhtml := templprofbase->CreateFile([name := "fake.html", type := 7]);
+  TestEq(testtemplate->id, testhtml->template);
+  TestEq(0, testhtml->profile);
+  testhtml->DeleteSelf();
+
+  //New folder should pick 'm up too
+  testsub := templprofbase->CreateFolder([name := "subdir"]);
+  TestEq(testtemplate->id, testsub->template);
+  TestEq(testprofile->id, testsub->profile);
+
+  //Explicitly set them, the defaults should be ignored now
+  testdoc := templprofbase->CreateFile([name := "fake.doc", type := 4, template := 0, profile := 0]);
+  TestEq(0, testdoc->template);
+  TestEq(0, testdoc->profile);
+
+  //Now mark the template&profile as required
+  templprofbase->UpdateMetadata([requiretemplate := TRUE, requireprofile := TRUE]);
+  testdoc->Refresh();
+  TestEq(testtemplate->id, testdoc->template);
+  TestEq(testprofile->id, testdoc->profile);
+
+  //Try to change the template&profile
+  testdoc->UpdateMetadata([template := testtemplate2->id, profile := testprofile2->id]);
+  testdoc->Refresh();
+  TestEq(testtemplate->id, testdoc->template);
+  TestEq(testprofile->id, testdoc->profile);
+
+  //Try to create a new file with a forced different template
+  OBJECT testdoc2 := templprofbase->CreateFile([name := "fake2.doc", type := 4, template := testtemplate2->id, profile := testprofile2->id]);
+  TestEq(testtemplate->id, testdoc2->template);
+  TestEq(testprofile->id, testdoc2->profile);
+
+  //Now we test auto-reapply and auto-removal of templates/profiles
+  testdoc->UpdateMetadata( [ type := 5 ]); //turn it into a HTML file.
+  TestEq(0, testdoc->profile);
+  TestEq(testtemplate->id, testdoc->template);
+
+  //Even forcing a profile should be ignored
+  testdoc->UpdateMetadata( [ profile := testprofile->id ]);
+  TestEq(0, testdoc->profile);
+
+  //turn it into an unknown file (should want neither template nor profile)
+  testdoc->UpdateMetadata( [ type := 0, template := testtemplate->id ]);
+  TestEq(0, testdoc->profile);
+  TestEq(0, testdoc->template);
+
+  //test the 'we suddenly detected a 0 byte files type' scenario (webdav often does this)
+  OBJECT laterdetectfile := templprofbase->CreateFile( [name := "xxxxx"]);
+  TestEq(0, laterdetectfile->type);
+  TestEq(0, laterdetectfile->template);
+  laterdetectfile->UpdateData(StringToBlob('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> <HTML><TITLE>I am html!</TITLE></HTML>'));
+  TestEq(5, laterdetectfile->type);
+  TestEq(testtemplate->id, laterdetectfile->template);
+
+  /* regression test:
+     - Heb map met een bestand, vanuit site A met template A, gekopieerd naar site B
+     - Na kopieren is bestand geforceerd aan template A gekoppeld, en wordt geforceerd door zijn map
+     - Echter, zijn map is geforceerd gekoppeld aan template B
+  */
+  OBJECT folder_with_template_a := templprofbase->CreateFolder([ name := "sub_a" ]);
+  OBJECT testdoc_a := folder_with_template_a->CreateFile( [name := "sub_a.doc", type := 4 ]);
+  TestEq(testtemplate->id, testdoc_a->template);
+  TestEq(FALSE, folder_with_template_a->requiretemplate);
+  TestEq(FALSE, folder_with_template_a->requiretemplateinsubfolders);
+
+  templprofbase2->UpdateMetadata( [ template := testtemplate2->id, requiretemplateinsubfolders := TRUE ]);
+  OBJECT folder_with_template_b := templprofbase2->CreateFolder([ name := "sub_b" ]);
+  TestEq(TRUE, folder_with_template_b->requiretemplate);
+  TestEq(TRUE, folder_with_template_b->requiretemplateinsubfolders);
+  OBJECT copied_folder := folder_with_template_a->CopyTo(folder_with_template_b,"copy_sub_a");
+
+  //should have adapted to templprofbase2 requiremtents now
+  TestEq(testtemplate2->id, copied_folder->template);
+  TestEq(TRUE, copied_folder->requiretemplate);
+  TestEq(TRUE, copied_folder->requiretemplateinsubfolders);
+
+  OBJECT copy_of_testdoc_a := copied_folder->OpenByPath("sub_a.doc");
+  TestEq(testtemplate2->id, copy_of_testdoc_a->template);
+
+  /* copying fixed template/profile requirements, but moving didn't! */
+  folder_with_template_a->MoveTo(folder_with_template_b,"move_sub_a");
+
+  //should have adapted to templprofbase2 requiremtents now
+  TestEq(testtemplate2->id, folder_with_template_a->template);
+  TestEq(TRUE, folder_with_template_a->requiretemplate);
+  TestEq(TRUE, folder_with_template_a->requiretemplateinsubfolders);
+
+  OBJECT moved_testdoc_a := folder_with_template_a->OpenByPath("sub_a.doc");
+  TestEq(testtemplate2->id, moved_testdoc_a->template);
+
+  //issue 6829: template not forced on a new contentlink.
+  testdoc := firstfolder->CreateFile([name := "fake.doc", type := 4]);
+  TestEq(0,testdoc->template); //no template yet (so no accidental copying)
+
+  OBJECT testlink := folder_with_template_a->CreateFile([name := "linktodoc.doc", type := 20, filelink := testdoc->id]);
+  TestEq(folder_with_template_a->template, testlink->template);
+
+  testfw->CommitWork();
+}
+
+MACRO GetSetTest()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT testfile := firstfolder->CreateFile([name:="getsettest"]);
+
+  OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test");
+
+  betatype->SetInstanceData(testfile->id, [ stringtest := "a" ] );
+
+  testfw->CommitWork();
+  testfw->BeginWork();
+
+  TestEq("a", betatype->GetInstanceData(testfile->id).stringtest);
+
+  testfw->CommitWork();
+  testfw->BeginWork();
+
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringtest := "b" ] );
+
+  testfw->CommitWork();
+  testfw->BeginWork();
+
+  TestEq("b", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringtest);
+
+  testfw->CommitWork();
+  testfw->BeginWork();
+
+  testfile->SetInstanceDataByType(betatype, [ stringtest := "c" ] );
+
+  testfw->CommitWork();
+  testfw->BeginWork();
+
+  TestEq("c", testfile->GetInstanceDataByType(betatype).stringtest);
+
+  //Setting a nonexisting field should crash
+  TRY
+  {
+    testfile->SetInstanceDataByType(betatype, [ bestaatniet := "d" ] );
+    ABORT("Did not get the expected exception while setting a non-existant member");
+  }
+  CATCH(OBJECT<WHFSException> e)
+  {
+    TestEq(TRUE, e->IsInvalidArgument());
+  }
+
+  testfw->CommitWork();
+}
+
+MACRO MoveTest()
+{
+  BLOB testzip_no_metadata := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/no_metadata.zip");
+
+  testfw->BeginWork();
+
+  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
+  OBJECT testsite := testfolderobj->CreateFolder([ name := "webhare_testsuite_movetest" ]);
+  TestEq([INTEGER(testfolderobj->id), testsite->id], testsite->GetWHFSTree());
+  TestEq(DEFAULT INTEGER ARRAY, testsite->GetFullTree());
+  //CreateSiteFromFolder(testsite->id);
+
+  testsite := OpenWHFSObject(testsite->id);
+  TestEq([INTEGER(testfolderobj->id), testsite->id], testsite->GetWHFSTree());
+  //TestEq([INTEGER(testsite->id)], testsite->GetFullTree());
+
+  //TestEq(testsite->id, OpenWHFSObject(testsite->id)->highestparent);
+
+  TestEq(testsite->id, OpenWHFSObjectByPath("whfs::/webhare_testsuite.testfolder/" || "webhare_testsuite_movetest")->id);
+  TestEq(FALSE, ObjectExists(OpenWHFSObjectByPath("filebyid::" || testsite->id)));
+
+  OBJECT imp := NEW ArchiveImporter;
+  imp->AddInput(testzip_no_metadata);
+  imp->Import(testsite->id);
+
+  OBJECT goudvis := testsite->OpenByPath("no_metadata/goudvis.png");
+  TestEq(TRUE, ObjectExists(goudvis));
+
+  TestEq(goudvis->id, OpenWHFSObjectByPath("whfs::/webhare_testsuite.testfolder/" || "webhare_testsuite_movetest/no_metadata/goudvis.png")->id);
+
+  TestEq([INTEGER(testfolderobj->id), testsite->id, goudvis->parent, goudvis->id], goudvis->GetWHFSTree());
+
+  MarkAsPublished(goudvis->id, FALSE);
+  testfw->CommitWork();
+
+  DATETIME timestamp := GetCurrentDatetime();
+
+  //moving should republish all subfiles
+  testfw->BeginWork();
+  testsite->OpenByPath("no_metadata")->MoveTo(testsite,"no_metadata_newname");
+  testfw->CommitWork();
+
+  TestEq(TRUE, IsBeingPublishedSince(goudvis->id, timestamp));
+}
+
+MACRO TestRecyleMoveTrick()
+/* test the oneill site recycle/move trick: create a folder, move it into the
+   recyclebin (edit it, and allow it to stay in the recyclebin if the edit is
+     aborted), then move it to its real location */
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT recyclemovefolder := firstfolder->CreateFolder([name := "recyclemove"]);
+  OBJECT recyclemovedest := firstfolder->CreateFolder([name := "recyclemovedest"]);
+
+  recyclemovefolder->RecycleSelf();
+  TestEq(FALSE, recyclemovefolder->parent = 0);
+
+  recyclemovefolder->MoveTo(recyclemovedest, "recyclemove.2");
+  TestEQ("recyclemove.2", recyclemovefolder->name);
+  TestEQ(recyclemovedest->id, recyclemovefolder->parent);
+
+  recyclemovefolder := OpenWHFSObject(recyclemovefolder->id);
+  TestEQ("recyclemove.2", recyclemovefolder->name);
+  TestEQ(recyclemovedest->id, recyclemovefolder->parent);
+
+  testfw->CommitWork();
+}
+
+MACRO LinkTest()
+{
+  //Test copy's behavior when resolving links inside/outside base. We will test using contenttype whfsrefs and assume all
+  //other code uses the same method of thinking (this is verified in other tests, eg whfs_archiving)
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT linktestbase := firstfolder->CreateFolder([name := "linktestbase"]);
+  OBJECT linktestdest := firstfolder->CreateFolder([name := "linktestdest"]);
+  OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test");
+
+  OBJECT linkfile := linktestbase->CreateFile([name:="refs"]);
+  OBJECT neighbourfile := linktestbase->CreateFile([name:="neighbour"]);
+  betatype->SetInstanceData(linkfile->id, [ _whfsarray := [ INTEGER(linkfile->id), linktestbase->id, linktestdest->id, 0, neighbourfile->id ] ]);
+
+  OBJECT refscopy := linkfile->CopyTo(linktestdest, "refscopy");
+  INTEGER ARRAY refs := betatype->GetInstanceData(refscopy->id)._whfsarray;
+  TestEq(refscopy->id, refs[0]);
+  TestEq(linktestbase->id, refs[1]);
+  TestEq(linktestdest->id, refs[2]);
+  TestEq(neighbourfile->id, refs[3]);
+  refscopy->RecycleSelf(); //don't need you anymore for further tests
+
+  refscopy := linktestbase->CopyTo(linktestdest, "copyall")->OpenByName("refs");
+  refs := betatype->GetInstanceData(refscopy->id)._whfsarray;
+  TestEq(refscopy->id, refs[0]);
+  TestEq(refscopy->parent, refs[1]);
+  TestEq(linktestdest->id, refs[2]);
+  TestEq(refscopy->parentobject->OpenByName("neighbour")->id, refs[3]);
+  refscopy->RecycleSelf(); //don't need you anymore for further tests
+
+  linkfile->MoveTo(linktestdest, "refscopy");
+  refs := betatype->GetInstanceData(linkfile->id)._whfsarray;
+  TestEq(linkfile->parent, linktestdest->id);
+  TestEq(linkfile->id, refs[0]);
+  TestEq(linktestbase->id, refs[1]);
+  TestEq(linktestdest->id, refs[2]);
+  TestEq(neighbourfile->id, refs[3]);
+
+  linkfile->MoveTo(linktestbase, "refs");
+  refs := betatype->GetInstanceData(linkfile->id)._whfsarray;
+  TestEq(linkfile->parent, linktestbase->id);
+  TestEq(linkfile->id, refs[0]);
+  TestEq(linktestbase->id, refs[1]);
+  TestEq(linktestdest->id, refs[2]);
+  TestEq(neighbourfile->id, refs[3]);
+
+  linktestbase->MoveTo(linktestdest, "refsmove");
+  refs := betatype->GetInstanceData(linkfile->id)._whfsarray;
+  TestEq(linkfile->parent, linktestbase->id);
+  TestEq(linkfile->id, refs[0]);
+  TestEq(linktestbase->id, refs[1]);
+  TestEq(linktestdest->id, refs[2]);
+  TestEq(neighbourfile->id, refs[3]);
+
+  linktestbase->MoveTo(firstfolder, "linktestbase");
+  OBJECT intlink := linktestbase->CreateFile([name := "link.whlink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := linkfile->id]);
+  TestEq(19,intlink->type);
+  TestEq("http://www.webhare.net/xmlns/publisher/internallink", intlink->typens);
+  OBJECT intlinkcopy := intlink->CopyTo(linktestdest,"copiedlink.whlink");
+  TestEq(linkfile->id, intlinkcopy->filelink);
+
+  testfw->CommitWork();
+}
+
+MACRO IndexDocTest()
+{
+  testfw->BeginWork();
+  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
+
+  OBJECT idtest := testfolderobj->CreateFolder([ name := "idtest" ]);
+
+  OBJECT idfolder1 := testfolderobj->CreateFolder([ name := "idfolder1" ]);
+  TestEq(0, idfolder1->indexdoc);
+
+  OBJECT testdoc1 := idfolder1->CreateFile([name := "fake.doc", type := 4, template := 0, profile := 0]);
+  idfolder1->UpdateMetadata([indexdoc := testdoc1->id]);
+  TestEq(testdoc1->id, idfolder1->indexdoc);
+  idfolder1->UpdateMetadata([indexdoc := 0]);
+  TestEq(0, idfolder1->indexdoc);
+  testdoc1->UpdateMetadata(CELL[],[setindex := TRUE ]);
+  TestEq(testdoc1->id, OpenWHFSObject(idfolder1->id)->indexdoc);
+
+  testdoc1->RecycleSelf();
+
+  idfolder1->UpdateMetadata(DEFAULT RECORD);
+  TestEq(0, idfolder1->indexdoc);
+
+  OBJECT testhtml := idfolder1->CreateFile([name := "fake.js", type := 6 ]);
+  TestEq(0, idfolder1->indexdoc);
+  Testeq("http://www.webhare.net/xmlns/publisher/javascriptfile", testhtml->typens);
+
+  OBJECT testdoc2 := idfolder1->CreateFile([name := "fake.doc", type := 4, template := 0, profile := 0]);
+  TestEq(0, idfolder1->indexdoc);
+
+  OBJECT idfolder2 := testfolderobj->CreateFolder([ name := "idfolder2" ]);
+  TestEq(0, idfolder1->indexdoc);
+
+  testhtml->RecycleSelf();
+  testdoc2->RecycleSelf();
+
+  testdoc1 := idfolder1->CreateFile([name := "fake.doc", type := 4, template := 0, profile := 0 ], [setindex := TRUE]);
+  TestEq(testdoc1->id, idfolder1->indexdoc);
+
+  testdoc1->MoveTo(idfolder2, "");
+  idfolder1->Refresh();
+  idfolder2->Refresh();
+
+  TestEq(0, idfolder1->indexdoc);
+  TestEq(testdoc1->id, idfolder2->indexdoc);
+
+  testhtml := idfolder1->CreateFile([name := "fake.js", type := 6 ]);
+
+  // testdoc1 was index, when moved will still be index
+  testdoc1->MoveTo(idfolder1, "");
+
+  idfolder1->Refresh();
+  idfolder2->Refresh();
+
+  TestEq(testdoc1->id, idfolder1->indexdoc);
+  TestEq(0, idfolder2->indexdoc);
+
+  idfolder1->UpdateMetadata([indexdoc := 0]);
+  OBJECT testhtml2 := idfolder2->CreateFile([name := "fake.js", type := 6 ]);
+
+  // testdoc1 was no index, when moved to non-empty folder still won't be index
+  testdoc1->MoveTo(idfolder2, "");
+
+  idfolder1->Refresh();
+  idfolder2->Refresh();
+
+  TestEq(0, idfolder1->indexdoc);
+  TestEq(0, idfolder2->indexdoc);
+
+  testfw->CommitWork();
+}
+
+MACRO SiteDeletionTest()
+{
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
+  OBJECT testsiteroot := testfolderobj->CreateFolder([ name := "webhare_testsuite_site1" ]);
+  OBJECT testsite := CreateSiteFromFolder(testsiteroot->id);
+  TestEq(TRUE, ObjectExists(OpenSiteByname("webhare_testsuite_site1")));
+  TestEq("http://www.webhare.net/xmlns/publisher/normalfolder",testsiteroot->typens);
+  testsiteroot->RecycleSelf();
+  TestEq(FALSE, ObjectExists(OpenSiteByname("webhare_testsuite_site1")));
+
+  testfw->RollbackWork();
+}
+
+MACRO InsertPropertiesTest()
+{
+  BLOB testzip_no_metadata := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/no_metadata.zip");
+
+  testfw->BeginWork();
+  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
+
+  OBJECT testsite := testfolderobj->CreateFolder([ name := "betatest_site"]);
+
+  RECORD ARRAY a_files := UnpackArchive(testzip_no_metadata);
+  FOREVERY (RECORD rec FROM a_files)
+  {
+    IF (rec.name = "")
+      CONTINUE;
+
+    testsite->CreateFile([ name := IsValidWHFSName(rec.name,FALSE) ? rec.name : GetSafefilename(rec.name), data := rec.data ]);
+  }
+
+  RECORD ARRAY expect_files :=
+      [ [ name := "Kastjes en muren 2.pdf", title := "Kastjes en muren 2" ]
+      , [ name := "docgen_2.tar.gz",        title := "" ]
+      , [ name := "goudvis.png",            title := "" ]
+      , [ name := "lorum_ipsum.doc",        title := "Eerste gezamenlijke nieuwsbrief wordt binnenkort verstuurd, houd uw mailbox in de gaten" ]
+      ];
+
+  RECORD ARRAY got_files := SELECT name, title FROM system.fs_objects WHERE parent = testsite->id ORDER BY name;
+
+  TestEq(expect_files, got_files);
+  testfw->RollbackWork();
+}
+
+MACRO ExtendedZipTest()
+{
+  BLOB testzip_no_metadata := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/no_metadata.zip");
+
+  testfw->BeginWork();
+  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
+
+  OBJECT testsite := testfolderobj->CreateFolder([ name := "webhare_testsuite_2" ]);
+
+  OBJECT imp := NEW ArchiveImporter;
+  imp->AddInput(testzip_no_metadata);
+  imp->Import(testsite->id);
+
+  RECORD ARRAY expect_files :=
+      [ [ name := "Kastjes en muren 2.pdf", title := "Kastjes en muren 2" ]
+      , [ name := "docgen_2.tar.gz",        title := "" ]
+      , [ name := "goudvis.png",            title := "" ]
+      , [ name := "lorum_ipsum.doc",        title := "Eerste gezamenlijke nieuwsbrief wordt binnenkort verstuurd, houd uw mailbox in de gaten" ]
+      ];
+
+  OBJECT finalfolder := testsite->OpenByName("no_metadata");
+  RECORD ARRAY got_files := SELECT name, title FROM system.fs_objects WHERE parent = finalfolder->id ORDER BY name;
+  TestEq(expect_files, got_files);
+
+  //The files should be autopublished. Try one
+  OBJECT goudvis := finalfolder->OpenByPath("goudvis.png");
+  TestEq(TRUE, goudvis->publish);
+
+  TestEq(TRUE, IsBeingPublished(goudvis->id));
+  TestEq(FALSE, GetOncePublishedFromPublished(goudvis->published));
+
+  //Set it to "now published"
+  MarkAsPublished(goudvis->id, FALSE);
+  goudvis := finalfolder->OpenByPath("goudvis.png");
+  TestEq(TRUE, goudvis->publish);
+  TestEq(TRUE, GetErrorFromPublished(goudvis->published)=0);
+  TestEq(TRUE, GetOncePublishedFromPublished(goudvis->published));
+
+  //Re-extract!
+  imp := NEW ArchiveImporter;
+  imp->AddInput(testzip_no_metadata);
+  imp->Import(testsite->id);
+
+  goudvis := finalfolder->OpenByPath("goudvis.png");
+  TestEq(TRUE, goudvis->publish);
+  TestEq(0, GetErrorFromPublished(goudvis->published));//not expecting any effect, we're not overwriting!
+  TestEq(TRUE, GetOncePublishedFromPublished(goudvis->published));
+
+  imp := NEW ArchiveImporter;
+  imp->overwrite := TRUE;
+  imp->AddInput(testzip_no_metadata);
+  imp->Import(testsite->id);
+
+  goudvis := finalfolder->OpenByPath("goudvis.png");
+  TestEq(TRUE, goudvis->publish);
+  TestEq(TRUE, IsBeingPublished(goudvis->id));
+  TestEq(TRUE, GetOncePublishedFromPublished(goudvis->published));
+
+  testfw->RollbackWork();
+}
+
+MACRO UniqueNameGenerationTest()
+{
+  testfw->BeginWork();
+  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
+  OBJECT myfolder := testfolderobj->CreateFolder([ name := "uniquenames" ]);
+
+  STRING l256a := "aaaa";
+  WHILE (LENGTH(l256a) < 256)
+    l256a := l256a || l256a;
+
+  STRING r240a := LEFT(l256a, 236) || ".doc";
+  STRING r240b := LEFT(l256a, 235) || "-9.doc";
+  STRING r240c := LEFT(l256a, 235) || "-9.txt";
+
+  STRING ARRAY existing_files :=
+      [ "a.tar.gz"
+      , "a.doc"
+      , "a-1.tar.gz"
+      , "b.doc"
+      , "b-1.doc"
+      , "b-3.doc"
+      , "b-4.doc"
+      , "d--1.doc"
+      , "e-0.doc"
+      , "f-a.doc"
+      , "unnamed"
+      , r240b
+      , r240c
+      , "webhare.txt"
+      , ".doc"
+      ];
+
+  FOREVERY (STRING filename FROM existing_files)
+    myfolder->CreateFile([ name := filename ]);
+
+  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("a.tar.gz",0));
+  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("^a.tar.gz",0));
+  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("a-1.tar.gz",0));
+  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("a-2.tar.gz",0));
+  TestEq("a-3.tar.gz", myfolder->GenerateUniqueName("a-3.tar.gz",0));
+  TestEq("a-1.doc", myfolder->GenerateUniqueName("a.doc",0));
+  TestEq("a-1.doc", myfolder->GenerateUniqueName("a-1.doc",0));
+  TestEq("a-2.doc", myfolder->GenerateUniqueName("a-2.doc",0));
+  TestEq("b-2.doc", myfolder->GenerateUniqueName("b.doc",0));
+  TestEq("b-2.doc", myfolder->GenerateUniqueName("b-1.doc",0));
+  TestEq("b-2.doc", myfolder->GenerateUniqueName("b-2.doc",0));
+  TestEq("b-5.doc", myfolder->GenerateUniqueName("b-3.doc",0));
+  TestEq("b-5.doc", myfolder->GenerateUniqueName("b-4.doc",0));
+  TestEq("b-5.doc", myfolder->GenerateUniqueName("b-5.doc",0));
+  TestEq("c.doc", myfolder->GenerateUniqueName("c.doc",0));
+  TestEq("c-1.doc", myfolder->GenerateUniqueName("c--1.doc",0));
+  TestEq("d-1.doc", myfolder->GenerateUniqueName("d--1.doc",0));
+  TestEq("d-0.doc", myfolder->GenerateUniqueName("d-0.doc",0));
+  TestEq("e-0-1.doc", myfolder->GenerateUniqueName("e-0.doc",0));
+  TestEq("f-a-1.doc", myfolder->GenerateUniqueName("f-a.doc",0));
+  TestEq("unnamed-1", myfolder->GenerateUniqueName("unnamed",0));
+  TestEq("doc", myfolder->GenerateUniqueName(".doc",0));
+  TestEq(r240a, myfolder->GenerateUniqueName(r240a,0));
+  TestEq("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.doc", myfolder->GenerateUniqueName("a" || r240a,0));
+  TestEq("webhare.doc", myfolder->GenerateUniqueName(r240b,0)); // overload of aa...aa (10).doc (241 chars)
+  TestEq("webhare-1.txt", myfolder->GenerateUniqueName(r240c,0)); // overload of aa...aa (10).doc (241 chars)
+  TestEq("fail.doc", myfolder->GenerateUniqueName("fail?.doc",0));
+  TestEq("fail.txt", myfolder->GenerateUniqueName("fail?.txt",0));
+  TestEq("index.html", myfolder->GenerateUniqueName("^index.html",0));
+
+  TestEq("bachelor-colloquium-owk-jacqueline-aalberssamenwerking-in-collaborative-data-teams.-onderzoek-naar-typen-van-samenwerking-en-bevorderende-en-belemmerende-factoren-in-data-teams-ter-verbetering-van-het-onderwijs-en-nog-een-heel-lang-verha"
+        , myfolder->GenerateUniqueName("bachelor-colloquium-owk-jacqueline-aalberssamenwerking-in-collaborative-data-teams. -onderzoek naar typen van samenwerking en bevorderende en belemmerende factoren in data teams ter verbetering van het onderwijs- en nog een heel lang verhaal dat we misschien niet willen weten omdat het zo lang is",0));
+
+  testfw->CommitWork();
+}
+
+MACRO NeedsTemplateProfileTest()
+{
+  testfw->BeginWork();
+  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
+
+  OBJECT templfile := testfolderobj->CreateFile([name := "needstest.tpl",type:=28]);
+  OBJECT profilefile := testfolderobj->CreateFile([name := "needstest.prl",type:=29]);
+
+  OBJECT worddoc := testfolderobj->CreateFile([name := "needstest.doc",type:=4]);
+  TestEq(TRUE,worddoc->needstemplate);
+  TestEq(TRUE,worddoc->needsprofile);
+
+  OBJECT htmldoc := testfolderobj->CreateFile([name := "needstest.html",type:=7]);
+  TestEq(TRUE,htmldoc->needstemplate);
+  TestEq(FALSE,htmldoc->needsprofile);
+
+  OBJECT worddoc_intlink := testfolderobj->CreateFile([name := "needstest.doc.intlink",type:=19,filelink:=worddoc->id]);
+  TestEq(FALSE,worddoc_intlink->needstemplate);
+  TestEq(FALSE,worddoc_intlink->needsprofile);
+
+  OBJECT htmldoc_intlink := testfolderobj->CreateFile([name := "needstest.html.intlink",type:=19,filelink:=htmldoc->id]);
+  TestEq(FALSE,htmldoc_intlink->needstemplate);
+  TestEq(FALSE,htmldoc_intlink->needsprofile);
+
+  OBJECT worddoc_contentlink := testfolderobj->CreateFile([name := "needstest.doc.clink",type:=20,filelink:=worddoc->id]);
+  TestEq(TRUE,worddoc_contentlink->needstemplate);
+  TestEq(TRUE,worddoc_contentlink->needsprofile);
+
+  OBJECT htmldoc_contentlink := testfolderobj->CreateFile([name := "needstest.html.clink",type:=20,filelink:=htmldoc->id]);
+  TestEq(TRUE,htmldoc_contentlink->needstemplate);
+  TestEq(FALSE,htmldoc_contentlink->needsprofile);
+
+  worddoc_contentlink->UpdateMetadata([profile := profilefile->id, template := templfile->id]);
+  TestEq(profilefile->id, worddoc_contentlink->profile);
+  TestEq(templfile->id, worddoc_contentlink->template);
+  worddoc_contentlink->UpdateMetadata([profile := 0, template := 0]);
+  TestEq(0, worddoc_contentlink->profile);
+  TestEq(0, worddoc_contentlink->template);
+
+  htmldoc_contentlink->UpdateMetadata([profile := profilefile->id, template := templfile->id]);
+  TestEq(0, htmldoc_contentlink->profile);
+  TestEq(templfile->id, htmldoc_contentlink->template);
+  htmldoc_contentlink->UpdateMetadata([profile := 0, template := 0]);
+  TestEq(0, htmldoc_contentlink->profile);
+  TestEq(0, htmldoc_contentlink->template);
+
+  worddoc_intlink->UpdateMetadata([profile := profilefile->id, template := templfile->id]);
+  TestEq(0, worddoc_intlink->profile);
+  TestEq(0, worddoc_intlink->template);
+  worddoc_intlink->UpdateMetadata([profile := 0, template := 0]);
+  TestEq(0, worddoc_intlink->profile);
+  TestEq(0, worddoc_intlink->template);
+
+  htmldoc_intlink->UpdateMetadata([profile := profilefile->id, template := templfile->id]);
+  TestEq(0, htmldoc_intlink->profile);
+  TestEq(0, htmldoc_intlink->template);
+  htmldoc_intlink->UpdateMetadata([profile := 0, template := 0]);
+  TestEq(0, htmldoc_intlink->profile);
+  TestEq(0, htmldoc_intlink->template);
+
+  //repoint worddoclink to a htmlfile while setting profile/template
+  worddoc_contentlink->UpdateMetadata([profile := profilefile->id, template := templfile->id, filelink := htmldoc->id]);
+  TestEq(0, worddoc_contentlink->profile);
+  TestEq(templfile->id, worddoc_contentlink->template);
+  worddoc_contentlink->UpdateMetadata([profile := 0, template := 0 ]);
+  TestEq(0, worddoc_contentlink->profile);
+  TestEq(0, worddoc_contentlink->template);
+
+  //repoint worddoclink back to the worddoc while setting profile/template
+  worddoc_contentlink->UpdateMetadata([profile := profilefile->id, template := templfile->id, filelink := worddoc->id]);
+  TestEq(profilefile->id, worddoc_contentlink->profile);
+  TestEq(templfile->id, worddoc_contentlink->template);
+  worddoc_contentlink->UpdateMetadata([profile := 0, template := 0 ]);
+  TestEq(0, worddoc_contentlink->profile);
+  TestEq(0, worddoc_contentlink->template);
+
+  testfw->CommitWork();
+}
+
+MACRO TestWHFSResourceNameMapper()
+{
+  OBJECT mapper := NEW WHFSResourceNameMapper;
+
+  TestEQ(``, mapper->MapWHFSRef(0));
+
+  OBJECT testsuite_site := OpenTestsuiteSite();
+  TestEQ(`site::${testsuite_site->name}/index.rtd`, mapper->MapWHFSRef(testsuite_site->OpenByPath("index.rtd")->id));
+  TestEQ(`site::${testsuite_site->name}/webtools/polltest`, mapper->MapWHFSRef(testsuite_site->OpenByPath("webtools/polltest")->id));
+
+  OBJECT testroot := testfw->GetWHFSTestRoot();
+  OBJECT idfolder1_fakejs := testroot->OpenByPath("idfolder1/fake.js");
+  TestEQ(`whfs::${idfolder1_fakejs->whfspath}`, mapper->MapWHFSRef(testroot->OpenByPath("idfolder1/fake.js")->id));
+
+  // check twice for caching
+  TestEQ(`whfs::${idfolder1_fakejs->whfspath}`, mapper->MapWHFSRef(testroot->OpenByPath("idfolder1/fake.js")->id));
+  TestEQ(`site::${testsuite_site->name}/index.rtd`, mapper->MapWHFSRef(testsuite_site->OpenByPath("index.rtd")->id));
+  TestEQ(`site::${testsuite_site->name}/webtools/polltest`, mapper->MapWHFSRef(testsuite_site->OpenByPath("webtools/polltest")->id));
+
+  // Unmapping
+  TestEQ(testroot->OpenByPath("idfolder1/fake.js")->id,       mapper->UnMapWHFSRef(`whfs::${idfolder1_fakejs->whfspath}`));
+  TestEQ(testsuite_site->OpenByPath("index.rtd")->id,         mapper->UnMapWHFSRef(`site::${testsuite_site->name}/index.rtd`));
+  TestEQ(testsuite_site->OpenByPath("webtools/polltest")->id, mapper->UnMapWHFSRef(`site::${testsuite_site->name}/webtools/polltest`));
+  TestEQ(testroot->OpenByPath("idfolder1/fake.js")->id,       mapper->UnMapWHFSRef(`whfs::${idfolder1_fakejs->whfspath}`));
+  TestEQ(testsuite_site->OpenByPath("index.rtd")->id,         mapper->UnMapWHFSRef(`site::${testsuite_site->name}/index.rtd`));
+  TestEQ(testsuite_site->OpenByPath("webtools/polltest")->id, mapper->UnMapWHFSRef(`site::${testsuite_site->name}/webtools/polltest`));
+
+  TestEQ(0, mapper->UnMapWHFSRef(`site::${testsuite_site->name}/nowaythisfileexists.4343434`));
+
+  // Mapper that doesn't ignore missing refs
+  mapper := NEW WHFSResourceNameMapper;
+  mapper->ignore_missing_references := FALSE;
+  TestThrows(PTR mapper->UnMapWHFSRef(`site::${testsuite_site->name}/nowaythisfileexists.4343434`));
+}
+
+Runtestframework( [ PTR SimpleTest
+                  , PTR WrappedTest
+                  , PTR LookupPathTests
+                  , PTR StripExtensionsTest
+                  , PTR UniqueNameGenerationTest
+                  , PTR PublishOnOffTest
+                  , PTR GetSetTest
+                  , PTR MoveTest
+                  , PTR TestRecyleMoveTrick
+                  , PTR LinkTest
+                  , PTR TemplateProfileTest
+                  , PTR SiteDeletionTest
+                  , PTR IsActiveTest
+                  , PTR IndexDocTest
+                  , PTR InsertPropertiesTest
+                  , PTR ExtendedZipTest
+                  , PTR NeedsTemplateProfileTest
+                  , PTR TestWHFSResourceNameMapper
+                  ]);

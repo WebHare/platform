@@ -1,0 +1,21 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECT got_tabs;
+
+PUBLIC OBJECTTYPE Test EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+  }
+>;
+
+PUBLIC OBJECTTYPE ExtensionWithCode EXTEND TolliumTabsExtensionBase
+<
+  UPDATE PUBLIC MACRO InitExtension(OBJECT tabs)
+  {
+    IF (ObjectExists(got_tabs))
+      THROW NEW Exception("Initialized twice");
+    got_tabs := tabs;
+  }
+>;

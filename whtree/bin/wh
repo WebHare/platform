@@ -1,0 +1,1330 @@
+#!/bin/bash
+source ${BASH_SOURCE%/*}/../lib/wh-functions.sh
+
+REQUIRENPMVERSION="5.3.0"
+export WHBUILD_PLATFORM="`uname | tr A-Z a-z`"
+
+if [ "$1" == "-v" ]; then
+  VERBOSE=1
+  shift
+fi
+if [ "$1" == "-f" ]; then
+  FORCE=1
+  shift
+fi
+if [ "$1" == "-i" ]; then
+  IGNORERUNNING=1
+  shift
+fi
+
+# We must have $WEBHARE_DIR, pointing to the 'whtree'.
+if [ -z "$WEBHARE_DIR" ]; then
+  if [ -n "$WEBHARE_CHECKEDOUT_TO" ]; then
+    export WEBHARE_DIR="$WEBHARE_CHECKEDOUT_TO/whtree"
+  else
+    export WEBHARE_DIR=`cd ${BASH_SOURCE%/*}/..; pwd`
+  fi
+
+  [ "$VERBOSE" == "1" ] && echo "WebHare installation dir: $WEBHARE_DIR"
+fi
+
+# Try to set WEBHARE_CHECKEDOUT_TO from WEBHARE_DIR where possible
+if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
+  if [ -f "$WEBHARE_DIR/../base_makefile" ]; then
+    WEBHARE_CHECKEDOUT_TO="`cd ${WEBHARE_DIR}/..; pwd`"
+  fi
+fi
+
+# If you haven't set WEBHARE_DATAROOT... read .webhare-envsettings if possible. wh console should set it.
+if [ -z "$WEBHARE_DATAROOT" ] && [ -f "$WEBHARE_DIR/.webhare-envsettings.sh" ]; then
+  source $WEBHARE_DIR/.webhare-envsettings.sh
+fi
+
+# If we haven't found WEBHARE_DATAROOT that way, discover it
+if [ -z "$WEBHARE_DATAROOT" ] ; then
+  WEBHARE_DATAROOT="$WEBHARE_DIR/whdata"
+  __WEBHARE_DATAROOT_AUTOSET=1
+fi
+
+# Discover which database we'll be using
+if [ "$WEBHARE_INITIALDB" == "postgres" -o "$WEBHARE_INITIALDB" == "postgresql"  ]; then  #support postgres as alias
+  WEBHARE_INITIALDB=postgresql
+elif [ "$WEBHARE_INITIALDB" == "dbserver" -o "$WEBHARE_INITIALDB" == "" ]; then
+  WEBHARE_INITIALDB=dbserver
+else
+  echo "Invalid WEBHARE_INITIALDB setting: $WEBHARE_INITIALDB"
+  exit 1
+fi
+
+if [ -f $WEBHARE_DATAROOT/postgresql/db/postgresql.conf ] || ( [ ! -f $WEBHARE_DATAROOT/dbase/translog.whdb -a "$WEBHARE_INITIALDB" == "postgresql" ] ); then
+  export __WEBHARE_DBASE="postgresql" # __ var because external users should not set it! they should set WEBHARE_INITIALDB
+  if [ -z "$WEBHARE_DBASENAME" ]; then
+    export WEBHARE_DBASENAME="webhare" # embedded database is always named WH
+  fi
+else
+  export __WEBHARE_DBASE="dbserver"
+  export WEBHARE_DBASENAME=""
+fi
+
+# Source settings.sh from the dataroot for non-docker installations
+if [ -z "$WEBHARE_IN_DOCKER" -a -f "$WEBHARE_DATAROOT"/settings.sh ]; then
+  . "$WEBHARE_DATAROOT"/settings.sh
+fi
+
+
+# If you haven't set WEBHARE_BASEPORT, assume it to be 13679
+if [ -z "$WEBHARE_BASEPORT" ]; then
+  WEBHARE_BASEPORT=13679
+fi
+
+# If you haven't set WEBHARE_TEMP, assume it to be $WEBHARE_DATAROOT/tmp
+if [ -z "$WEBHARE_TEMP" ]; then
+  WEBHARE_TEMP="$WEBHARE_DATAROOT/tmp"
+fi
+
+[ "$VERBOSE" == "1" ] && echo "WebHare data directory:   $WEBHARE_DATAROOT"
+[ "$VERBOSE" == "1" ] && echo "WebHare base port number: $WEBHARE_BASEPORT"
+
+if [ -n "$WHBUILD_DEBUG" ]; then
+  WHBUILD_DIPREFIX=debug-
+else
+  WHBUILD_DIPREFIX=release-
+fi
+
+if [ -n "$WEBHARE_CHECKEDOUT_TO" ]; then
+  if [ -z "$WEBHARE_BUILDDIR" ]; then
+    WEBHARE_BUILDDIR="`cd $WEBHARE_CHECKEDOUT_TO; DIRNAME="${PWD##*/}" ; cd ..; echo $PWD/whbuild/${WHBUILD_DIPREFIX}${DIRNAME}`"
+  fi
+  WEBHARE_BUILDHOLDERS="`cd $WEBHARE_CHECKEDOUT_TO; cd ..; echo $PWD/whbuild`"
+fi
+
+export WEBHARE_CHECKEDOUT_TO
+export WEBHARE_BUILDDIR
+export WEBHARE_DIR
+export WEBHARE_BASEPORT
+export WEBHARE_DATAROOT
+
+# Ensures npm stable ordering - https://github.com/npm/npm/issues/17048
+export LANG="en_US.UTF-8"
+export LC_ALL="en_US.UTF-8"
+
+INSTR="$1"
+shift
+OPTIONS="$*"
+
+if [ ! -d "$WEBHARE_DIR" ]; then
+  echo "Cannot find WebHare installation" 2>&1
+  exit 1
+fi
+
+fixup_remotes()
+{
+  if grep -q gitlab.b-lex.com "$1/.git/config" ; then
+    mv -f "$1/.git/config" "$1/.git/config.preconvert"
+    sed -e 's/gitlab.b-lex.com/gitlab.webhare.com/' "$1/.git/config.preconvert" > "$1/.git/config"
+    rm -f "$1/.git/config.preconvert"
+
+    echo "Switched repository $1 to use gitlab.webhare.com instead of gitlab.b-lex.com"
+  fi
+}
+
+deprecation_sleep()
+{
+  for P in 1 2 3 4 5 ; do
+    echo -n "."
+    sleep 1
+  done
+  echo ""
+}
+
+vercomp () {
+  # https://stackoverflow.com/questions/4023830/how-compare-two-strings-in-dot-separated-version-format-in-bash
+  if [[ $1 == $2 ]]
+  then
+      return 0
+  fi
+  local IFS=.
+  local i ver1=($1) ver2=($2)
+  # fill empty fields in ver1 with zeros
+  for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+  do
+      ver1[i]=0
+  done
+  for ((i=0; i<${#ver1[@]}; i++))
+  do
+      if [[ -z ${ver2[i]} ]]
+      then
+          # fill empty fields in ver2 with zeros
+          ver2[i]=0
+      fi
+      if ((10#${ver1[i]} > 10#${ver2[i]}))
+      then
+          return 1
+      fi
+      if ((10#${ver1[i]} < 10#${ver2[i]}))
+      then
+          return 2
+      fi
+  done
+  return 0
+}
+
+whcompile()
+{
+  loadenvsettings
+  $WEBHARE_DIR/bin/whcompile "$@"
+}
+
+exec_whcompile()
+{
+  loadenvsettings
+  exec $WEBHARE_DIR/bin/whcompile "$@"
+}
+
+wh()
+{
+  $WEBHARE_DIR/bin/wh "$@"
+}
+
+exec_wh()
+{
+  $WEBHARE_DIR/bin/wh "$@"
+}
+
+check_webhare_running()
+{
+  if [ "$IGNORERUNNING" == "1" ]; then
+    return
+  fi
+
+  if ! is_webhare_running ; then
+    echo "WebHare does not seem to be running"
+    exit 1
+  fi
+}
+
+check_webhare_not_running()
+{
+  if [ "$IGNORERUNNING" == "1" ]; then
+    return
+  fi
+
+  if is_webhare_running ; then
+    echo "WebHare is already running"
+    exit 1
+  fi
+}
+
+estimate_buildj()
+{
+  if [ -n "$WHBUILD_NUMPROC" ]; then
+    return
+  fi
+
+  if [ "$WHBUILD_PLATFORM" == "darwin" ]; then
+    WHBUILD_NUMPROC=$(( `sysctl hw.ncpu | cut -d":" -f2` + 1 ))
+  elif [ "$WHBUILD_PLATFORM" == "linux" ]; then
+    WHBUILD_NUMPROC=`LANG=en_US.utf8 lscpu 2>/dev/null | grep "^CPU(s):" | cut -d: -f2` #2>/dev/null because centos 5 util-linux does not include lscpu
+    MAXPROC=$(( `cat /proc/meminfo | grep ^MemTotal | cut -b10-24` / 1024000 ))
+    if [ -z "$WHBUILD_NUMPROC" ]; then
+      WHBUILD_NUMPROC=4
+    elif [ $WHBUILD_NUMPROC -gt $MAXPROC ]; then
+      WHBUILD_NUMPROC=$MAXPROC
+    fi
+  else
+    echo "Unable to estimate proper build flags"
+    exit 1
+  fi
+}
+
+setup_buildsystem()
+{
+  if [ -n "$WEBHARE_IN_DOCKER" -a -z "$WHBUILD_ALLOW" ]; then
+    echo "If WEBHARE_IN_DOCKER is set you must set WHBUILD_ALLOW to be able to 'wh make'"
+    exit 1
+  fi
+
+  if [ -z "$WEBHARE_BUILDDIR" ]; then
+    echo "Haven't determined the WebHare builddir - your checkout looks too different from what I'm used to"
+    exit 1
+  fi
+  mkdir -p $WEBHARE_BUILDDIR
+
+  if [ -f "$WEBHARE_BUILDDIR/Makefile" ]; then
+    echo "We no longer care for the Makefile ($WEBHARE_BUILDDIR/Makefile), it'll only confuse me"
+    echo "Are you OK with me deleting it? (answer YES)"
+    echo ""
+    read answer
+    if [ "$answer" != "YES" ]; then
+      echo "Then I fear you're on your own"
+      exit 1
+    fi
+    rm "$WEBHARE_BUILDDIR/Makefile"
+  fi
+
+  if [ "$WHBUILD_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
+    if ! which brew >/dev/null 2>&1 ; then
+      echo ""
+      echo "On OSX we rely on Homebrew (http://brew.sh) and some additional packages being installed."
+      echo "If you want me to install it, type YES"
+      echo ""
+      read answer
+      if [ "$answer" != "YES" ]; then
+        echo "Then I fear you're on your own"
+        exit 1
+      fi
+      echo "Invoking Homebrew's installer"
+      ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+      if ! which brew >/dev/null 2>&1 ; then
+        echo "Homebrew is still unavailable"
+        exit 1
+      fi
+    fi
+
+    if [ -z "$NOBREW" ]; then
+      # Only update homebrew if webhare.rb changed or last check was a day ago
+      TODAY="`date +%Y%m%d`"
+      if [ "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare.rb" -nt "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install" ] ||
+         [ "$TODAY" != "`cat $WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install`" ]; then
+        mkdir -p $WEBHARE_CHECKEDOUT_TO/.checkoutstate
+        echo -n "Brew: "
+        if ! brew install --only-dependencies $WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare.rb ; then exit ; fi
+        echo "$TODAY" > $WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install
+      fi
+    fi
+  elif [ "$WHBUILD_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
+    REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel GeoIP-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel unixODBC-devel libicu-devel libxml2-devel valgrind-devel libgit2-devel libmaxminddb-devel libpq-devel"
+    if ! which ccache > /dev/null 2>&1 ; then
+      REQUIREPACKAGES="$REQUIREPACKAGES ccache"
+    fi
+    MISSINGPACKAGES=
+    for P in $REQUIREPACKAGES; do
+      ASSUME=0
+      for Q in $WEBHARE_ASSUMEPACKAGES ; do
+        if [ "$P" == "$Q" ]; then
+          ASSUME=1
+        fi
+      done
+      if [ "$ASSUME" == "1" ]; then
+        continue
+      fi
+      if ! rpm -q $P >/dev/null ; then
+        MISSINGPACKAGES="$MISSINGPACKAGES $P"
+      fi
+    done
+
+    if [ -n "$MISSINGPACKAGES" ]; then
+      echo ""
+      echo "We need to install the following packages:"
+      echo "$MISSINGPACKAGES"
+      echo ""
+      if [ "$WEBHARE_IN_DOCKER" == "1" ]; then
+        echo "WEBHARE_IN_DOCKER set, aborting build. You probably want to update your Dockerfile"
+        exit 1
+      fi
+      if [ "$FORCE" != "1" ]; then
+        echo "If you want me to install them, type YES"
+        echo ""
+        read answer
+        if [ "$answer" != "YES" ]; then
+          echo "Then I fear you're on your own"
+          exit 1
+        fi
+      fi
+
+      sudo dnf install -y $MISSINGPACKAGES
+    fi
+  fi
+
+  vercomp "`npm -v`" "$REQUIRENPMVERSION"
+  if [ "$?" == "2" ]; then
+    echo "You have npm `npm -v`, we desire $REQUIRENPMVERSION or higher"
+    if [ -z "$FORCE" ]; then
+      echo "If you want me to install it, type YES (in uppercase)"
+      read answer
+      if [ "$answer" != "YES" ]; then
+        echo "Then I fear you're on your own"
+        exit 1
+      fi
+    fi
+    npm install -g npm
+  fi
+
+  export SRCDIR=$WEBHARE_CHECKEDOUT_TO
+  export WHBUILD_PLATFORM
+
+  if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
+    # don't set relative paths, not all tools can handle relative paths
+    export CCACHE_DIR=$WEBHARE_BUILDHOLDERS/ccache
+
+    mkdir -p $CCACHE_DIR
+
+    # Colors are nice
+    export GCC_COLORS=1
+
+    # We also want pdf-box. Homebrew/Fedora don't ship it so we'll just manually download it
+    PDFBOX_BASEDIR="$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/data/engines/"
+    PDFBOX_VERSION="2.0.8"
+    PDFBOX_DOWNLOADPATH="$PDFBOX_BASEDIR/pdfbox-app-$PDFBOX_VERSION.jar"
+    PDFBOX_FINALPATH="$PDFBOX_BASEDIR/pdfbox-app.jar"
+
+    if [ ! -f "$PDFBOX_DOWNLOADPATH" -o ! -f "$PDFBOX_FINALPATH" ]; then
+      mkdir -p "$PDFBOX_BASEDIR"
+      if ! curl https://build.webhare.org/whbuild/pdfbox-app-$PDFBOX_VERSION.jar > "$PDFBOX_DOWNLOADPATH.tmp" ; then
+        echo PDFBOX download failed
+        exit 1
+      fi
+      mv "$PDFBOX_DOWNLOADPATH.tmp" "$PDFBOX_DOWNLOADPATH"
+    fi
+
+    # Make sure pdf-box points to our desired vesrion
+    ln -f "$PDFBOX_DOWNLOADPATH" "$PDFBOX_FINALPATH"
+  fi
+}
+
+setup_webhare_envsettings()
+{
+  if [ -f $WEBHARE_DIR/modules/system/whres/buildinfo ]; then
+    export WEBHARE_DISPLAYBUILDINFO=$(
+      source $WEBHARE_DIR/modules/system/whres/buildinfo
+      echo -n "branch $branch, commit ${hash:0:10}"
+      if [ -n "$buildid" ]; then
+        echo ", build $buildid"
+      else
+        echo ", manual build"
+      fi
+    )
+  else
+    export WEBHARE_DISPLAYBUILDINFO=$(
+      cd $WEBHARE_DIR
+      GIT_HEAD_SHA1=$(git rev-parse HEAD)
+      GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+      GIT_ORIGIN_URL=$(git config --get remote.origin.url)
+      echo "developer's build: branch $GIT_ORIGIN_URL:$GIT_BRANCH, commit ${GIT_HEAD_SHA1:0:10}"
+    )
+  fi
+
+  > $WEBHARE_DATAROOT/.webhare-envsettings.sh
+
+  cat << HERE > $WEBHARE_DATAROOT/.webhare-envsettings.sh
+export WEBHARE_DIR="$WEBHARE_DIR"
+export WEBHARE_DATAROOT="$WEBHARE_DATAROOT"
+export WEBHARE_BASEPORT="$WEBHARE_BASEPORT"
+export WEBHARE_DISPLAYBUILDINFO="$WEBHARE_DISPLAYBUILDINFO"
+export WEBHARE_ISRESTORED="$WEBHARE_ISRESTORED"
+export WEBHARE_TEMP="$WEBHARE_TEMP"
+export __WEBHARE_DBASE="$__WEBHARE_DBASE"
+export WEBHARE_DBASENAME="$WEBHARE_DBASENAME"
+export WEBHARE_DBASE_READONLY="$WEBHARE_DBASE_READONLY"
+HERE
+
+  if [ "$1" != "" ]; then
+    if [ -z "$WEBHARE_DEBUGSESSION" ]; then
+      WEBHARE_DEBUGSESSION=default
+    fi
+    cat << HERE >> $WEBHARE_DATAROOT/.webhare-envsettings.sh
+export WEBHARE_DEBUG="$1"
+export WEBHARE_DEBUGSESSION="$WEBHARE_DEBUGSESSION"
+HERE
+  fi
+
+  # Are we the 'primary' installation for a WEBHARE_DIR ?
+  if [ -z "$WEBHARE_NOINSTALLATIONINFO" -a -z "$WEBHARE_IN_DOCKER" ]; then
+    cp $WEBHARE_DATAROOT/.webhare-envsettings.sh $WEBHARE_DIR/.webhare-envsettings.sh
+  fi
+
+  # Load the current settings
+  source $WEBHARE_DATAROOT/.webhare-envsettings.sh
+}
+
+right_pad()
+{
+  PAD="                                       "
+  if [ "${#1}" -gt "${#PAD}" ]; then
+    PAD=""
+  else
+    PAD="${PAD:${#1}}"
+  fi
+  echo "$1$PAD"
+}
+
+cleanup_merged_branches()
+{
+  local FINALBRANCHES BRANCHESTOKILL
+
+  git fetch
+  FINALBRANCHES="`git branch | cut -b3- | egrep '(^master|^release/)'`"
+
+  for TIP in $FINALBRANCHES ; do
+    echo "Checking tip $TIP for obsolete branches"
+    BRANCHESTOKILL=`git branch --merged remotes/origin/$TIP | cut -b3- | egrep -v '(^master|^release/|^edge/)'`
+    for P in $BRANCHESTOKILL ; do
+      echo "Deleting local branch '$P'"
+      git branch -D $P  #force deletion, otherwise this will fail just because local master is out of date
+    done
+  done
+}
+
+show_commandfile_help() # instr filename
+{
+  local COMMAND SHORT
+  COMMAND=$(grep -ie "^\(#\|///\?\) *command: " $2)
+  SHORT=$(grep -ie "^\(#\|///\?\) *short: " $2)
+
+  COMMAND=${COMMAND#*: }
+  SHORT=${SHORT#*: }
+  if [ -z "$SHORT" ]; then
+    return
+  fi
+
+  if [ -z "$COMMAND" ]; then
+    COMMAND="$1"
+  fi
+  echo "$(right_pad "$COMMAND") $SHORT"
+}
+
+list_commands()
+{
+  grep -oe "^[a-z]*" ${BASH_SOURCE%/*}/../modules/system/doc/wh.txt
+  SCRIPTDIRS="$WEBHARE_DIR/modules/system/scripts/whcommands/"
+
+  for SCRIPTDIR in $SCRIPTDIRS; do
+    for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh; do
+      if [ -f $SCRIPTPATH ]; then
+        FILENAME="${SCRIPTPATH##*/}"
+        INSTR="${FILENAME%.*}"
+        echo "$INSTR"
+      fi
+    done
+  done
+  if [ -x "$WEBHARE_DIR/bin/runscript" ]; then
+    loadshellconfig
+    for MODULE in $WEBHARE_CFG_MODULES; do
+      if [ "$MODULE" != "system" ]; then
+        getmoduledir MODULEDIR $MODULE
+        SCRIPTDIR="${MODULEDIR}scripts/whcommands/"
+        for SCRIPTPATH in "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh; do
+          if [ -f $SCRIPTPATH ]; then
+            FILENAME="${SCRIPTPATH##*/}"
+            INSTR="$MODULE:${FILENAME%.*}"
+            echo "$INSTR"
+          fi
+        done
+      fi
+    done
+  fi
+}
+
+run_help()
+{
+  local SCRIPTDIRS SCRIPTDIR SCRIPTPATH FILENAME INSTR
+  cat ${BASH_SOURCE%/*}/../modules/system/doc/wh.txt
+
+  SCRIPTDIRS="$WEBHARE_DIR/modules/system/scripts/whcommands/"
+
+  for SCRIPTDIR in $SCRIPTDIRS; do
+    for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh; do
+      if [ -f $SCRIPTPATH ]; then
+        FILENAME="${SCRIPTPATH##*/}"
+        INSTR="${FILENAME%.*}"
+        show_commandfile_help "$INSTR" "$SCRIPTPATH"
+      fi
+    done
+  done
+
+  INSTR=help
+  if [ -x "$WEBHARE_DIR/bin/runscript" ]; then
+    loadshellconfig
+    for MODULE in $WEBHARE_CFG_MODULES; do
+      if [ "$MODULE" != "system" ]; then
+        getmoduledir MODULEDIR $MODULE
+        SCRIPTDIR="${MODULEDIR}scripts/whcommands/"
+        for SCRIPTPATH in "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh; do
+          if [ -f $SCRIPTPATH ]; then
+            FILENAME="${SCRIPTPATH##*/}"
+            INSTR="$MODULE:${FILENAME%.*}"
+            show_commandfile_help "$INSTR" "$SCRIPTPATH"
+          fi
+        done
+      fi
+    done
+  else
+    echo "Not querying modules for commands or help, because runscript isn't built yet"
+  fi
+}
+
+function control_c()
+{
+  echo "SIGINT"
+  kill %1
+  kill %2
+  exit 1
+}
+
+getscripttorun()
+{
+  VARNAME=$1
+  while shift; do
+    if [ "$1" == "--whdebug" ]; then
+      shift
+    elif [ "${1:0:1}" != "-" ]; then
+      break;
+    fi
+  done
+  eval $VARNAME=\$1
+}
+
+if [ "$WHTOOL_PLUGIN" == "1" ]; then
+  plugin_run "$@"
+fi
+
+git_update_all()
+{
+  pushd $WEBHARE_CHECKEDOUT_TO >/dev/null
+  UPDATEERRORS=""
+  UPDATEFATAL=0
+
+  if ! git merge-base --is-ancestor master origin/master ; then
+    echo "YOU HAVE MODIFIED THE MASTER BRANCH - but you're not allowed to commit directly"
+    echo "Aborting update, fix this first"
+    exit 1
+  fi
+
+  testre="\<webhare\>"
+  if [[ "$1" =~ $testre ]] || [ -z "$1" ]; then
+
+    fixup_remotes $WEBHARE_CHECKEDOUT_TO
+
+    # Update automatically only when current branch is 'master' or 'release/*'
+    WEBHARE_BRANCH=$(git symbolic-ref --short HEAD 2> /dev/null)
+    if [[ "$WEBHARE_BRANCH" =~ ^master$|^release/ ]]; then
+      echo "Update $WEBHARE_CHECKEDOUT_TO"
+      if ! git pull --rebase && [ "$WEBHARE_IGNORE_WHUP_FAILURE" != "1" ]; then
+        UPDATEERRORS="$UPDATEERRORS webhare"
+        UPDATEFATAL=1
+      fi
+    elif [ "$WEBHARE_REBASE_EDGE_BRANCH" == "1" ] && [[ "$WEBHARE_BRANCH" =~ ^edge/ ]]; then
+      # if the edge branche forked of a release branch, rebase on that, otherwise on origin/master
+      local TESTBRANCHES=$(git show-ref | grep -o origin/release/.*)
+      local EDGEPARENT=origin/master
+      for TESTBRANCH in $TESTBRANCHES; do
+        MERGEBASE=$(git merge-base $TESTBRANCH HEAD)
+        if [ -n "$MERGEBASE" ] && ! git merge-base --is-ancestor $MERGEBASE origin/master; then
+          EDGEPARENT="$TESTBRANCH"
+          break;
+        fi
+      done
+      echo "Rebasing branch $WEBHARE_BRANCH to origin branch $EDGEPARENT"
+
+      if ( ! git fetch || ! git rebase $EDGEPARENT ) && [ "$WEBHARE_IGNORE_WHUP_FAILURE" != "1" ]; then
+        UPDATEERRORS="$UPDATEERRORS webhare"
+        UPDATEFATAL=1
+      fi
+    fi
+  fi
+
+  # If your current branch isnt "master", update "master" with the origins hash. you're not supposed to manually commit to it anyway
+  if [ "`git rev-parse --abbrev-ref HEAD`" != "master" -a -f ".git/refs/remotes/origin/master" ]; then
+    git branch -f master `git rev-parse remotes/origin/master`
+  fi
+
+  # Cleanup merged branches
+  cleanup_merged_branches
+
+  # Check sublime package
+  if [ -d "$HOME/Library/Application Support/Sublime Text 3/Packages/WebHare/.git" ]; then
+    echo
+    echo "Updating Sublime WebHare package"
+    if ! ( cd "$HOME/Library/Application Support/Sublime Text 3/Packages/WebHare" && git pull --rebase ) ; then
+      UPDATEERRORS="$UPDATEERRORS sublime-webhare-package"
+    fi
+  fi
+
+  # Check webhare-connect-helper
+  if [ -d "$HOME/projects/connect-helper/.git" ]; then
+    echo
+    echo "Updating WebHare connect helper"
+    if ! ( cd "$HOME/projects/connect-helper" && git pull --rebase ) ; then
+      UPDATEERRORS="$UPDATEERRORS connect-helper"
+    fi
+  fi
+
+  # Check packages
+  cd whtree/node_modules
+  for P in `find . -maxdepth 1 -type l` ; do
+    echo "Updating $P"
+    if ! ( cd $P && git pull --rebase ) ; then
+      UPDATEERRORS="$UPDATEERRORS $P"
+      UPDATEFATAL=1
+    fi
+  done
+
+  get_installable_moduledirs DIRS
+
+  for P in $DIRS; do
+    if [ -d "$P/.git/refs/remotes" ]; then
+      cd "$P"
+      MODNAME=${P##*/}
+      testre="\<$MODNAME\>"
+
+      # Convert remotes, if needed
+      fixup_remotes "$P"
+
+      if [[ "$1" =~ $testre ]] || [ -z "$1" ]; then
+        echo
+        echo "Updating module '$MODNAME': "
+        if ! git pull --rebase ; then
+          UPDATEERRORS="$UPDATEERRORS $MODNAME"
+        fi
+      fi
+    fi
+  done
+  popd >/dev/null
+
+  if [ -n "$UPDATEERRORS" ]; then
+    echo ""
+    echo "The following packages were not updated:$UPDATEERRORS"
+  fi
+  if [ "$UPDATEFATAL" == "1" ]; then
+    echo "This appears to be fatal, please fix!"
+    exit 1
+  fi
+}
+
+setup_for_console()
+{
+  mkdir -p "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
+  WEBHARE_DATAROOT="`cd $WEBHARE_DATAROOT; pwd`" #Ensure we have a full path
+}
+
+case $INSTR in
+  "exec")
+    setup_for_console
+    getwhparameters
+
+    PROCESS="$1"
+    shift
+
+    if [ ! -x "$PROCESS" -a -x "$WEBHARE_DIR/bin/$PROCESS" ]; then #resolve to bin path ?
+      PROCESS="$WEBHARE_DIR/bin/$PROCESS"
+    fi
+
+    exec $PROCESS "$@"
+    exit 255
+    ;;
+
+  "console")
+    DEBUGTAGS=
+    if [ "$1" == "--profile" ]; then
+      DEBUGTAGS=apr
+      shift;
+    elif [ "$1" == "--coverage" ]; then
+      DEBUGTAGS=cov
+      shift;
+    fi
+
+    check_webhare_not_running
+    setup_for_console
+
+    getwhparameters
+    setup_webhare_envsettings "$DEBUGTAGS"
+
+    if [ "$DEBUGTAGS" == "" ]; then
+      # no processing needed, just exec
+      exec $WEBHARE_DIR/bin/webhare "$@" console
+      exit 255
+    fi
+
+    TOSHOWFILE=
+    if [ "$DEBUGTAGS" == "cov" ]; then
+      runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
+
+      echo "Coverage data will be stored in ${WEBHARE_DATAROOT}ephemeral/profiles/$WEBHARE_DEBUGSESSION"
+      echo
+    fi
+
+    echo "Starting console mode"
+    cd "$WEBHARE_DATAROOT"/tmp
+    $WEBHARE_DIR/bin/webhare "$@" console
+
+    if [ "$DEBUGTAGS" == "cov" ]; then
+      echo
+      echo "Processing coverage data in ${WEBHARE_DATAROOT}ephemeral/profiles/$WEBHARE_DEBUGSESSION"
+      runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr"
+      echo "Results are available in ${WEBHARE_DATAROOT}ephemeral/profiles/${WEBHARE_DEBUGSESSION}/index.html"
+      TOSHOWFILE="${WEBHARE_DATAROOT}ephemeral/profiles/${WEBHARE_DEBUGSESSION}/index.html"
+    fi
+
+    setup_webhare_envsettings # Reset to defaults
+
+    if [ -n "$TOSHOWFILE" ]; then
+      [ "$WHBUILD_PLATFORM" == "darwin" ] && open "$TOSHOWFILE"
+      [ "$WHBUILD_PLATFORM" == "linux" ] && xdg-open "$TOSHOWFILE"
+    fi
+
+    exit 0
+    ;;
+
+  "reset-coverage")
+    runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
+    ;;
+
+  "calculate-coverage")
+    loadenvsettings
+    exec_runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr"
+    ;;
+
+  "cachereset")
+    check_webhare_running
+    CLEARPERSISTENT=
+    while [ "$#" -ne 0 ]; do
+      if [ "$1" == "-p" ]; then
+        CLEARPERSISTENT=-p
+      else
+        echo "Unknown option $1"
+        exit 1
+      fi
+      shift
+    done
+    exec_runscript mod::system/scripts/whcommands/softreset.whscr -c $CLEARPERSISTENT
+    ;;
+
+  "run")
+    getscripttorun SCRIPT "$@"
+    if [ -z "$SCRIPT" ]; then
+      echo "Specify the script to run"
+      exit 1
+    fi
+
+    if [ "${SCRIPT: -3}" == ".es" -o "${SCRIPT: -3}" == ".js" ]; then
+      setup_node
+      BASE_DIR=$WEBHARE_DIR/node_modules
+      while (true); do
+        if [ "$1" == "--debug" ]; then
+          NODEOPTIONS=--debug
+          shift
+        elif [ "$1" == "--inspect" ]; then
+          NODEOPTIONS=--inspect
+          shift
+        elif [ "$1" == "--whdebug" ]; then
+          shift
+          shift
+        else
+          break
+        fi
+      done
+      exec node $NODEOPTIONS "$@"
+      exit 1
+    else
+      if [ "$1" == "--whdebug" ]; then
+        shift
+        export WEBHARE_DEBUG="$1"
+        shift
+      elif [[ $1 =~ ^--whdebug=(.*) ]]; then
+        export WEBHARE_DEBUG="${BASH_REMATCH[1]}"
+        shift
+      elif [ "$1" == "--profile" ]; then
+        export WEBHARE_DEBUG=apr
+        shift
+      elif [ "$1" == "--coverage" ]; then
+        export WEBHARE_DEBUG=cov
+        shift
+      elif [ "$1" == "--debugbrk" ]; then
+        export WEBHARE_DEBUG=brk
+        shift
+      fi
+      exec_runscript --workerthreads 4 "$@"
+    fi
+    ;;
+
+  "clonerestoredb" | "backuplocal")
+    if [ "$INSTR" != "backuplocal" -a -z "$1" ]; then
+      echo "Syntax: clonerestoredb <destdir>"
+      exit 1
+    fi
+
+    getwhparameters
+    if [ -z "$STORAGEPATH" -o -z "$RECORDSTORAGEPATH" -o -z "$INDEXSTORAGEPATH" ];then
+      echo "Failed to retrieve database configuration"
+      exit 1
+    fi
+
+    if [ "$INSTR" = "backuplocal" ]; then
+      BACKUPDEST=`cd $STORAGEPATH ; cd .. ; pwd`/backups/`date +%Y-%m-%dT%H.%M`
+      mkdir -p $BACKUPDEST
+    else
+      mkdir -p $1
+      BACKUPDEST=`cd $1 ; pwd`
+    fi
+
+    if [ -f "$BACKUPDEST/translog.whdb" ]; then
+      echo "$1 already seems to contain a database, it will be overwritten!"
+      echo "Press enter to continue, or CTRL+C to abort now"
+      read
+    fi
+
+    mkdir -p "$BACKUPDEST"
+
+    mkdir -- "$BACKUPDEST/backup" "$BACKUPDEST/blob"
+    rm -rf -- "$BACKUPDEST/dbase"
+    BLOBDEST="$BACKUPDEST"
+    if ! is_webhare_running; then
+      echo "WebHare must be running for a $INSTR";
+      exit 1
+    fi
+
+    # Start job control, needed to start backup in background
+    set -m
+    trap control_c SIGINT
+
+    [ "$VERBOSE" == "1" ] && echo "Launching backup process"
+    "${WEBHARE_DIR}/bin/backup" -cp --threads --blobmode=reference --suspendfile $BACKUPDEST/backup/suspend $BACKUPDEST/backup/backup > $BACKUPDEST/backuplog 2>&1 &
+    tail -n 1000 -f "$BACKUPDEST/backuplog" &
+
+    echo "Copying/linking blobs..."
+    [ "$VERBOSE" == "1" ] && MYOPTS=-v
+
+    for BLOBBASEFOLDER in blob ` cd $STORAGEPATH ; echo blob-* `; do
+      if [ ! -d "$STORAGEPATH/$BLOBBASEFOLDER" ]; then
+        continue
+      fi
+
+      for BLOBSUBFOLDER in ` cd "$STORAGEPATH/$BLOBBASEFOLDER"; echo *` ; do
+        mkdir -p "$BLOBDEST/$BLOBBASEFOLDER/$BLOBSUBFOLDER"
+        pushd "$STORAGEPATH/$BLOBBASEFOLDER/$BLOBSUBFOLDER" >/dev/null
+        FILES=`echo *`
+        if [ "$FILES" != "*" ]; then
+          ln -f $MYOPTS * "$BLOBDEST/$BLOBBASEFOLDER/$BLOBSUBFOLDER/" 2>&1 | grep -v "File exists"
+        fi
+        popd >/dev/null
+      done
+
+    done
+
+    # remove the suspend file and wait for the backup to finish
+    echo "Creating a backup"
+    rm -f -- "$BACKUPDEST/backup/suspend"
+    # Bring the backup to the foreground, wait for it to finish
+    fg %1 > /dev/null
+    # See if backup has really finished
+    if [ ! -f "$BACKUPDEST/backup/backup.md5" ]; then
+      echo "Database backup process failed"
+      kill -INT %2
+      exit 1
+    fi
+    sleep 1
+    kill -INT %2
+
+    if [ "$INSTR" = "backuplocal" ]; then
+      echo "Your backup is in $BACKUPDEST/backup/"
+    else
+      echo "Restoring the backup"
+      "${WEBHARE_DIR}/bin/dbserver" --restore "$BACKUPDEST/backup/backup" --restoreto "$BACKUPDEST/dbase" --blobsource "$BACKUPDEST" --blobimportmode hardlink
+      echo "Removing backup intermediate"
+      rm -rf "$BACKUPDEST/backup/" "$BACKUPDEST/blob/"
+      echo "Your restored database is in $BACKUPDEST/dbase"
+    fi
+    ;;
+
+  "republish")
+    check_webhare_running
+    runscript --workerthreads 4 mod::publisher/scripts/internal/publishing.whscr --measure "$@"
+    ;;
+
+  "reindex")
+    check_webhare_running
+    runscript --workerthreads 4 mod::publisher/scripts/tools/reindex_publisher.whscr "$@"
+    ;;
+
+  "help" | "")
+    run_help
+    ;;
+
+  "terminate")
+    check_webhare_running
+    kill `pgrep -f $WEBHARE_DIR/bin`
+    ;;
+
+  "kill")
+    check_webhare_running
+    kill -9 `pgrep -f $WEBHARE_DIR/bin`
+    ;;
+
+  "activity")
+    getlog LOGFILE access
+    cut -d' ' -f4 -- "$LOGFILE" | cut -d':' -f2,3 | sort | uniq -c
+    ;;
+
+  "dumplog")
+    getlog LOGFILE $1
+    if [ -n "$LOGFILE" ]; then
+      cat $LOGFILE
+    else
+      echo "Could not find log '$1'"
+    fi
+    ;;
+
+  "dirs")
+    if [ ! -z "$WEBHARE_CHECKEDOUT_TO" ]; then
+      echo "git checkout:  $WEBHARE_CHECKEDOUT_TO"
+    fi
+    getwhparameters
+    echo "Installation:  $WEBHARE_DIR"
+    echo "Log files:     $LOGFILEPATH"
+    echo ""
+    echo "Data root:     $WEBHARE_DATAROOT"
+    echo "Database data: $STORAGEPATH"
+    echo "Database recs: $RECORDSTORAGEPATH"
+    echo "Database idx:  $INDEXSTORAGEPATH"
+    echo ""
+    set|grep ^WEBHARE_
+    ;;
+
+  "noderun")
+    setup_node
+    noderun $@
+    ;;
+
+  "mocharun")
+    setup_node
+    EXTRA_WATCH=
+    COVERAGE=
+    if [[ " $@ " = *" --watch "* ]] || [[ " $@ " = *" -w "* ]]; then
+      EXTRA_WATCH="--watch-extensions es,js"
+    fi
+    if [ "$1" == "--debug" ]; then
+      NODEOPTIONS="$NODEOPTIONS --debug"
+      shift
+    fi
+    if [ "$1" == "--coverage" ]; then
+      COVERAGE=1
+      shift
+    fi
+
+    BASE_DIR=$WEBHARE_DIR/node_modules
+    if [ -n "$COVERAGE" ]; then
+      if [ -n "$EXTRA_WATCH" ]; then
+        echo "Coverage testing and watching are mutally exclusive"
+        exit 1
+      fi
+
+      if ! which nyc >/dev/null 2>&1 ; then
+        echo "Install 'nyc' to run coverage tests (npm i -g nyc)"
+        exit 1
+      fi
+
+      # Run nyc in /tmp, it creates a lot of directories. Resolve all files first
+      MOCHAPARAMS=
+      while [ "$#" -ne 0 ]; do
+        if [[ $1 == -* ]]; then
+          echo "Unknown option $1"
+          exit 1
+        fi
+        if [[ $1 == /* ]]; then
+          MOCHAPARAMS="$MOCHAPARAMS $1"
+        else
+          MOCHAPARAMS="$MOCHAPARAMS $PWD/$1"
+        fi
+        shift
+      done
+
+      # prepare environment for nyc
+      mkdir -p /tmp/nyc
+      ln -fs $WEBHARE_DIR/modules/webhare_testsuite/data/.nycrc /tmp/nyc/.nycrc
+
+      # and run it
+      cd $WEBHARE_DIR
+      echo "nyc --report-dir /tmp/coverage node $NODEOPTIONS $BASE_DIR/.bin/_mocha $MOCHAPARAMS"
+      exec nyc --extension .es --report-dir /tmp/coverage node $NODEOPTIONS $BASE_DIR/.bin/_mocha $MOCHAPARAMS
+    elif [ "${1: -3}" == ".es" ] || [ "${2: -3}" == ".es" ]; then
+      if [ -n "$WEBHARE_BABELCACHE" ]; then
+        export BABEL_CACHE_PATH="$WEBHARE_BABELCACHE/babel-cache.json"
+      else
+        export BABEL_CACHE_PATH=$WEBHARE_DATAROOT/ephemeral/babelcache/babel-node
+      fi
+      exec node $NODEOPTIONS $BASE_DIR/@babel/node/lib/_babel-node \
+        --plugins $WEBHARE_DIR/node_modules/@babel/plugin-transform-modules-commonjs \
+        --ignore ignore_nothing --extensions ".es" \
+        $BASE_DIR/.bin/_mocha $EXTRA_WATCH "$@"
+    fi
+    exit 1
+    ;;
+
+  "getrootdir")
+    echo ${WEBHARE_CHECKEDOUT_TO:-WEBHARE_DIR}
+    ;;
+
+  "getdatadir")
+    getwhparameters
+    echo $WEBHARE_DATAROOT
+    ;;
+
+  "getoutputdir")
+    exec_runscript mod::system/scripts/internal/getoutputdir.whscr "$1"
+    ;;
+
+  "getmodule")
+    echo "wh getmodule has been replaced by: wh module get"
+    exit 1
+    ;;
+
+  "getmoduledir")
+    getmoduledir MODULEDIR "$1"
+    echo $MODULEDIR
+    ;;
+
+  "getmodulelist")
+    loadshellconfig
+    echo $WEBHARE_CFG_MODULES
+    ;;
+
+  "compile")
+    exec_whcompile "$@"
+    ;;
+
+  "setupmyshell")
+    cat << HERE
+wh() { $WEBHARE_DIR/bin/wh "\$@"; } ;
+whcd() {
+  local DEST;
+  if [ -z "\$1" ]; then
+    DEST="\`wh getrootdir\`" ;
+  elif [[ \$1 == http:* ]] || [[ \$1 == https:* ]] ; then
+    DEST="\`wh getoutputdir \"\$1\"\`" ;
+  elif [[ \$1 == mod::* ]] ; then
+    DEST="\`wh getmoduledir \"\${1:5}\"\`";
+  else
+    DEST="\`wh getmoduledir \"\$1\"\`";
+  fi;
+  [ -n "\$DEST" ] && cd "\$DEST";
+} ;
+export -f wh ;
+export -f whcd ;
+source $WEBHARE_DIR/lib/wh-bashautocomplete.sh
+HERE
+    ;;
+
+  "runtest")
+    setup_node
+    runscript --workerthreads 10 --onlyshippedfonts mod::system/scripts/internal/tests/runtest.whscr "$@"
+    EXITCODE=$?
+    if [ "$EXITCODE" != "0" ]; then
+      echo "Test failed with exit code $EXITCODE"
+      exit $EXITCODE
+    fi
+    exit 0
+    ;;
+
+  "make")
+    if [[ $OPTIONS =~ install ]]; then
+      check_webhare_not_running
+    fi
+    setup_buildsystem
+    estimate_buildj
+    cd $WEBHARE_BUILDDIR
+    if ! make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile $OPTIONS ; then
+      [ -z "$WEBHARE_IN_DOCKER" ] && cat $WEBHARE_CHECKEDOUT_TO/addons/makefailed.txt
+      exit 1
+    fi
+    exit 0
+    ;;
+
+  "fixbuild")
+    check_webhare_not_running
+    setup_buildsystem
+    estimate_buildj
+    cd $WEBHARE_BUILDDIR
+
+    # Cannot build a target for this in the makefile, we want to serialise these steps
+    for P in clean-icu-provider clean-libs postuninstall install; do
+      make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile $P $OPTIONS
+    done
+    exit
+    ;;
+
+  "builddocker")
+    exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/builddocker.sh "$@"
+    ;;
+
+  "testdocker")
+    exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh "$@"
+    ;;
+
+  "testmodule")
+    exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh -m "$@"
+    ;;
+
+  "isrunning")
+    is_webhare_running && exit 0 || exit 1
+    ;;
+
+  "waitfor")
+    if [ "$1" != "poststart" -a "$1" != "poststartdone" ]; then
+      echo "Only poststart and poststartdone are supported"
+      exit 1
+    fi
+    eval `$WEBHARE_DIR/bin/webhare printparameters`
+    WAITFOR="${WEBHARE_DATAROOT}ephemeral/system.servicestate/$1"
+    while true; do
+      if [ -f "$WAITFOR" ]; then
+        exit 0
+      fi
+      sleep .2
+    done
+    ;;
+
+  "obsoletebranches")
+    if [ -n "$1" ]; then
+      if [ ! -d "$1" ]; then
+        echo "No such directory: $1"
+        exit 1
+      fi
+      cd $1
+    else
+      cd $WEBHARE_CHECKEDOUT_TO
+    fi
+
+    cleanup_merged_branches
+    ;;
+
+  "freshdbconsole")
+    check_webhare_not_running
+    setup_for_console
+
+    eval `$WEBHARE_DIR/bin/webhare printparameters`
+
+    ALLOWFRESHFILE="$WEBHARE_DATAROOT/etc/allow-fresh-db"
+    if [ ! -f "$ALLOWFRESHFILE" ]; then
+      echo "freshdbconsole WIPES YOUR DATABASE on startup"
+      echo "To prove this is what you wish, please create a file named '$ALLOWFRESHFILE'"
+      exit 1
+    fi
+
+    rm -rf -- "$WEBHARE_DATAROOT"/postgresql
+    rm -rf -- "$WEBHARE_DATAROOT"/dbase/index* "$WEBHARE_DATAROOT"/dbase/db-*.* "$WEBHARE_DATAROOT"/dbase/translog.* "$WEBHARE_DATAROOT"/dbase/blob*
+    rm -rf -- "$WEBHARE_DATAROOT"/log "$WEBHARE_DATAROOT"/system.cache "$WEBHARE_DATAROOT"/publisher.pb "$WEBHARE_DATAROOT"/publisher.pd "$WEBHARE_DATAROOT"/system.last-shrinkwrap-var
+    rm -rf -- "$WEBHARE_DATAROOT"/index -- "$WEBHARE_DATAROOT"/elasticsearch
+    exec $WEBHARE_DIR/bin/wh "$@" console
+    exit 255
+    ;;
+
+  "installsocketbinder")
+    git clone https://github.com/WebHare/socket_binder.git /tmp/installsocketbinder.$$
+    cd /tmp/installsocketbinder.$$
+    make
+    if [ "$WHBUILD_PLATFORM" == "darwin" ]; then
+      sudo make install-darwin
+    else
+      sudo make install
+      echo "Make install ran, now do whatever it takes to start socketbinder on this platform"
+    fi
+    exit 0
+    ;;
+
+  "up")
+    eval `$WEBHARE_DIR/bin/webhare printparameters`
+    if [ -z "$*" ]; then
+      echo "=== Updating $WEBHARE_CHECKEDOUT_TO and modules ==="
+      git_update_all
+    fi
+    exit 0
+    ;;
+
+  "st" | "status")
+    eval `$WEBHARE_DIR/bin/webhare printparameters`
+    echo "=== Status of $WEBHARE_CHECKEDOUT_TO ==="
+    for P in $WEBHARE_CHECKEDOUT_TO $WEBHARE_DATAROOT/installedmodules/* ; do
+      git status $P
+    done
+    exit 0
+    ;;
+
+  "mic" | "umic")
+    setup_buildsystem
+    eval `$WEBHARE_DIR/bin/webhare printparameters`
+    check_webhare_not_running
+    [ "$INSTR" == "umic" ] && git_update_all
+    estimate_buildj
+    cd $WEBHARE_BUILDDIR
+    if ! make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile install ; then
+      [ -z "$WEBHARE_IN_DOCKER" ] && cat $WEBHARE_CHECKEDOUT_TO/addons/makefailed.txt
+       exit 1
+    fi
+
+    getwhparameters
+
+    exec $WEBHARE_DIR/bin/wh "$@" console
+    exit 255
+    ;;
+
+  "hstest")
+    if [ -z "$1" ]; then
+      echo "Specify the test to run"
+      exit 1
+    fi
+    setup_buildsystem
+    estimate_buildj
+    cd $WEBHARE_BUILDDIR
+    exec make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile HSTEST=$1 harescript-test
+    exit 255
+    ;;
+
+  "eslint")
+    getwhparameters
+    CHECKDIR=
+    TORUN=".bin/eslint"
+    args=()
+    if [ "$1" == "--watch" ]; then
+      TORUN=".bin/esw -w --color -f simple"
+      shift;
+    elif [ "$1" == "--fix" ]; then
+      # remove the cache directives
+      args=( --fix )
+      shift;
+    fi
+    if [ $# -eq 0 ]; then
+      args+=("$WEBHARE_CHECKEDOUT_TO/whtree/modules/")
+    else
+      args+=( "$@" )
+    fi
+    "$WEBHARE_DIR/node_modules/"$TORUN --cache --cache-location "$WEBHARE_DATAROOT/ephemeral/eslintcache/cache" -c "$WEBHARE_DIR/modules/system/data/validation/eslintrc.json" --ext .js,.es --ignore-pattern "**/node_modules/**" --ignore-pattern "**/bower_components/**" "${args[@]}"
+    exit $?
+    ;;
+
+  "__listcommands")
+    list_commands | sort -u
+    exit 0
+    ;;
+
+  *)
+    if [[ $INSTR =~ .*:.* ]]; then
+      TARGETMODULE=${INSTR%:*}
+      SUBCOMMAND=${INSTR##*:}
+      getmoduledir MODULEDIR $TARGETMODULE
+
+      if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" ]; then
+        exec /bin/bash "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" "$@"
+      fi
+      if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.whscr" ]; then
+        exec_runscript --workerthreads 4 "mod::$TARGETMODULE/scripts/whcommands/$SUBCOMMAND.whscr" "$@"
+      fi
+      if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" ]; then
+        setup_node
+        exec node "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" "$@"
+      fi
+
+      echo "Don't know how to process command '$SUBCOMMAND' for module $TARGETMODULE"
+      exit 1
+    else #Command not in the form 'xxx:yyy'
+      if [ -f "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.sh" ]; then
+        exec /bin/bash "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.sh" "$@"
+      fi
+      if [ -f "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.whscr" ]; then
+        exec_runscript --workerthreads 4 "mod::system/scripts/whcommands/$INSTR.whscr" "$@"
+      fi
+    fi
+
+    echo "Command '$INSTR' not understood - use 'wh help' for a list of instructions"
+    exit 1
+    ;;
+esac

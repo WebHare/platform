@@ -1,0 +1,84 @@
+<?wh
+
+
+/* any.whlib is a staging area for potential new functions or operators, to figure
+   out what we exactly need and have an easy way to convert all callers afterwards.
+
+   We expect it to be mostly be about matching algorithms, hence 'any.whlib'
+
+   DO NOT USE IN EXTERNAL MODULES, THIS LIRBARY OR FUNCTIONS MAY GO AWAY (if we move things like this into language syntax)
+
+   (but feel free to copy paste to your code - you can even keep the name)
+*/
+PUBLIC BOOLEAN FUNCTION __MatchesAnyMask(STRING lookfor, STRING ARRAY masks)
+{
+  FOREVERY(STRING mask FROM masks)
+    IF(ToUppercase(lookfor) LIKE ToUppercase(mask))
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+PUBLIC BOOLEAN FUNCTION __MatchesAllMasks(STRING lookfor, STRING ARRAY masks)
+{
+  FOREVERY(STRING mask FROM masks)
+    IF(ToUppercase(lookfor) NOT LIKE ToUppercase(mask))
+      RETURN FALSE;
+  RETURN TRUE;
+}
+
+PUBLIC VARIANT FUNCTION __ArrayMove(VARIANT inarray, INTEGER idx, VARIANT direction)
+{
+  IF(NOT IsTypeIdArray(TYPEID(inarray)))
+    THROW NEW Exception(`Variable passed to __ArrayMove is not an array`);
+
+  INTEGER len := Length(inarray);
+  IF(idx<0 OR idx >= len)
+    THROW NEW Exception(`Element ${idx} is out of bounds, array is ${len} elements long`);
+
+  INTEGER newposition;
+  IF(TypeID(direction) = TypeID(STRING))
+  {
+    SWITCH(direction)
+    {
+      CASE "top"
+      {
+        newposition := 0;
+      }
+      CASE "bottom"
+      {
+        newposition := len-1;
+      }
+      CASE "up"
+      {
+        newposition := idx-1;
+      }
+      CASE "down"
+      {
+        newposition := idx+1;
+        RETURN ArraySlice(inarray, 0, idx) CONCAT ArraySlice(inarray, idx + 1, 1) CONCAT ArraySlice(inarray, idx, 1) CONCAT ArraySlice(inarray, idx + 2);
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Invalid direction '${direction}', expected down, up, totop or tobottom`);
+      }
+    }
+  }
+  ELSE IF(TypeID(direction) = TypeID(INTEGER))
+  {
+    newposition := direction;
+  }
+  ELSE
+  {
+    THROW NEW Exception(`Invalid direction, must be INTEGER or STRING but is ${GetTypeName(TypeID(direction))}`);
+  }
+
+  VARIANT tokeep := inarray[idx];
+  DELETE FROM inarray AT idx;
+
+  IF(newposition < 0)
+    newposition := 0;
+  IF(newposition >= len)
+    newposition := len - 1;
+  INSERT tokeep INTO inarray AT newposition;
+  RETURN inarray;
+}

@@ -1,0 +1,1199 @@
+﻿<?wh
+/** @short Accessing a LDAP server as a database
+    @long This library provides SQL access to an LDAP server.
+    @topic database/ldap
+*/
+
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/ber.whlib";
+LOADLIB "wh::internal/ldap.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::dbase/loopback.whlib"; //fixme killme
+
+BOOLEAN ldapdebug := FALSE;
+INTEGER ldapdebugstream := 1;
+
+/* ADDME description for database
+        description.supports_block_cursors = true;
+        description.max_joined_tables = 1;
+        description.supports_single = true;
+        description.supports_data_modify = false;
+        description.supports_nulls = false;
+        description.needs_locking_and_recheck = false;
+        description.needs_uppercase_names = false;
+*/
+
+RECORD FUNCTION DecodeLDAPResult(OBJECT msg)
+{
+  RETURN [ resultcode := msg->ReadInteger()
+         , last_matched_dn := msg->ReadOctetString()
+         , last_error_message := msg->ReadOctetString()
+         ];
+}
+
+
+STRING FUNCTION MakeOctetString(VARIANT invalue)
+{
+/*std_string BLEX_FASTCALL ldaptransection_MakeOctetString(HareScript_VarId var, HareScript_VirtualMachine *vm)
+{
+        HareScript_VariableTypes_Type type = vm->GetStackMachine().GetType(var);
+        switch (type)
+        {
+        // Only the STRING datatype is supported by LDAP
+        case HareScript_VariableTypes_String: return vm->GetStackMachine().GetSTLString(var);
+        }
+        throw std_runtime_error("Database exception 'LDAP driver only supports STRING table-fields.'.");
+}*/
+  IF(TypeID(invalue) = TypeID(STRING))
+    RETURN STRING(invalue);
+  ELSE
+  {
+    IF(ldapdebug)
+      PrintTo(ldapdebugstream,"LDAP: exception: LDAP driver only supports STRING table-fields.'\n");
+    THROW NEW Exception("Database exception 'LDAP driver only supports STRING table-fields.'.");
+  }
+}
+
+/* This code is stuff framework for using ASN.1 stuff in LDAP (quick decode of packets)
+
+OBJECT asn1_decoder;
+
+OBJECT FUNCTION GetASN1Decoder()
+{
+  IF (NOT ObjectExists(asn1_decoder))
+  {
+    BLOB asn1_ldap := GetHarescriptResource("whres::asn1/ldap.asn1");
+
+    OBJECT asn1_parser := GetASN1Parser();
+    asn1_parser->ParseDocument(BlobToString(asn1_ldap));
+    RECORD descr := asn1_parser->GetDescription();
+
+    asn1_decoder := GetASN1BERDecoder(descr);
+  }
+  RETURN asn1_decoder;
+}
+
+// Decode howto:
+//   OBJECT msg_debug := NEW BERDecoder(this->responsebuffer);
+//   OBJECT parser := GetASN1Decoder();
+//   PRINT("Decoded message:\n" || AnyToString(parser->ParseData(msg_debug, "LDAPMessage"), "tree"));
+*/
+
+//The low level connection
+OBJECTTYPE LDAPConnection
+<
+  INTEGER mainsocket;
+  PUBLIC /*FIXME private, but cursor neds it */INTEGER msgid;
+  STRING responsebuffer;
+  PUBLIC STRING ARRAY caseinsensitiveattributes;
+
+  /// LDAP version to connect with (default: 2)
+  PUBLIC INTEGER version;
+
+  /// LDAP page size (RFC 2696)
+  PUBLIC INTEGER pagesize;
+
+  MACRO NEW()
+  {
+    this->version := 2;
+    this->caseinsensitiveattributes := ["SN"];
+  }
+
+  PUBLIC OBJECT FUNCTION StartLDAPMessage(INTEGER type)
+  {
+    OBJECT request := NEW BEREncoder;
+    request->StartConstruction(BER_Class_Universal, BER_Universal_Sequence);
+
+    this->msgid := this->msgid+1;
+    request->AddInteger(this->msgid); //message id
+    request->StartConstruction(BER_Class_Application, type);
+    RETURN request;
+  }
+
+  PUBLIC BOOLEAN FUNCTION Connect(STRING host, INTEGER port, BOOLEAN secure)
+  {
+    this->mainsocket := CreateTCPSocket();
+    IF(this->mainsocket<=0)
+      RETURN FALSE;
+
+    IF(NOT ConnectSocket(this->mainsocket, host, port)
+       OR (secure AND NOT SetSecureConnection(this->mainsocket, TRUE)))
+    {
+      CloseSocket(this->mainsocket);
+      this->mainsocket := 0;
+      RETURN FALSE;
+    }
+
+    SetSocketTimeout(this->mainsocket, 60000);
+    RETURN TRUE;
+  }
+
+  PUBLIC MACRO Disconnect()
+  {
+    CloseSocket(this->mainsocket);
+    this->mainsocket := 0;
+  }
+
+  PUBLIC RECORD FUNCTION TransactMessage(OBJECT inmsg)
+  {
+    inmsg->EndConstruction(); //request
+    inmsg->EndConstruction(); //wrapper
+
+    IF(ldapdebug)
+      PrintTo(ldapdebugstream,"LDAP send: " || EncodeBase16(inmsg->GetRequest()) || "\n");
+    IF (NOT PrintTo(this->mainsocket, inmsg->GetRequest()))
+    {
+      IF(ldapdebug)
+        PrintTo(ldapdebugstream,"LDAP exception: " || "LDAP I/O send error - " || GetSocketErrorText(GetLastSocketError(this->mainsocket)) || "\n");
+      THROW NEW Exception("LDAP I/O send error - " || GetSocketErrorText(GetLastSocketError(this->mainsocket)));
+    }
+    RETURN this->GetResponse(this->msgid);
+  }
+
+  PUBLIC RECORD FUNCTION GetResponse(INTEGER msgid)
+  {
+    WHILE(TRUE) //wait until the right message id arrives (there may be unrequested notifications)
+    {
+      OBJECT response := this->Receive();
+      OBJECT response_seq := response->ReadConstruction();
+
+      INTEGER received_msgid := response_seq->ReadInteger();
+      IF(received_msgid != msgid)
+      {
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP: Skipping message with id " || received_msgid || " because i want " || msgid || "\n");
+        CONTINUE;
+      }
+
+      INTEGER protocolop := response_seq->GetTag().value;
+      OBJECT msg := response_seq->ReadConstruction();
+      OBJECT controls := response_seq->IsAtEnd() ? DEFAULT OBJECT : response_seq->ReadConstruction();
+
+      RETURN [ protocolop := protocolop
+             , msg := msg
+             , controls := controls
+             ];
+    }
+  }
+
+  //Receive a single message
+  OBJECT FUNCTION Receive()
+  {
+    IF(ldapdebug)
+      PrintTo(ldapdebugstream,"LDAP: Start receive\n");
+    WHILE(TRUE)
+    {
+      IF(this->responsebuffer != "") //Got a full response in the buffer?
+      {
+        OBJECT msg := NEW BERDecoder(this->responsebuffer);
+        IF(msg->IsComplete())
+        {
+          IF(ldapdebug)
+            PrintTo(ldapdebugstream,"LDAP recv: " || EncodeBase16(Left(this->responsebuffer, msg->GetNumParsedBytes())) || "\n");
+
+          this->responsebuffer := Substring(this->responsebuffer, msg->GetNumParsedBytes());
+          IF(ldapdebug)
+            PrintTo(ldapdebugstream,"LDAP recv: " || Length(this->responsebuffer) || " bytes left in buffer\n");
+          RETURN msg;
+        }
+      }
+      STRING adddata := ReadFrom(this->mainsocket,-1024);
+      IF(adddata="")
+      {
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP exception: " || "LDAP I/O read error - " || GetSocketErrorText(GetLastSocketError(this->mainsocket)) || "\n");
+        THROW NEW Exception("LDAP I/O read error - " || GetSocketErrorText(GetLastSocketError(this->mainsocket)));
+      }
+
+      this->responsebuffer := this->responsebuffer || adddata;
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION Bind(STRING dn, STRING password)
+  {
+    OBJECT bind_request := this->StartLDAPMessage(LDAP_protocolOp_bindRequest);
+    bind_request->AddInteger(this->version); //version
+    bind_request->AddOctetString(dn); //name
+
+    INTEGER choice_auth := bind_request->AddOctetString(password); //authstring
+    bind_request->OverwriteTagType(choice_auth, BER_Class_ContextSpecific, 0 /* simple auth */);
+
+    RECORD response := this->TransactMessage(bind_request);
+
+    IF(response.protocolop != LDAP_protocolop_BindResponse)
+      RETURN FALSE;
+
+    RECORD bindresponse := DecodeLDAPResult(response.msg);
+    RETURN bindresponse.resultcode = LDAP_resultCode_success;
+  }
+
+>;
+
+OBJECTTYPE LDAPCursor EXTEND TransactionCursorBase
+<
+  OBJECT ldaptrans;
+  RECORD query;
+  OBJECT pending_search_result;
+
+  BOOLEAN broken;
+  BOOLEAN finished;
+
+  OBJECT searchconn;
+  BOOLEAN followed_referrer;
+
+  STRING paging_cookie;
+
+  MACRO NEW(OBJECT trans, RECORD query)
+  {
+    query.maxblockrows := 1; //FIXME shouldn't be needed
+
+    this->ldaptrans := trans;
+    this->searchconn := this->ldaptrans->conn;
+    this->query := query;
+    IF(ldapdebug)
+      PrintRecordTo(ldapdebugstream,query,'tree');
+
+    INTEGER numreferrals := 0;
+    WHILE(TRUE)
+    {
+      RECORD res :=  this->SetupSearch(this->query);
+      IF(NOT res.success)
+      {
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP: Search failed\n");
+        this->finished := TRUE;
+        RETURN;
+      }
+      IF(NOT res.redirect)
+      {
+        RETURN;
+      }
+
+      //REFERRAL
+      IF(numreferrals >= 5)
+      {
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP: Search failed - too many recursions\n");
+        this->finished := TRUE;
+        RETURN;
+      }
+      numreferrals := numreferrals + 1;
+
+      IF(ldapdebug)
+        PrintTo(ldapdebugstream,"LDAP: Search referred to " || RepackURL(res.url) ||"\n");
+
+      IF(this->followed_referrer)
+        this->searchconn->Disconnect();
+
+      this->followed_referrer := TRUE;
+      this->searchconn := NEW LDAPConnection;
+      IF(res.url.scheme NOT IN ["ldap","ldaps"])
+      {
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP: Search failed - referral failed (unrecognized schema)\n");
+        this->finished := TRUE;
+        RETURN;
+      }
+      IF(NOT this->searchconn->Connect(res.url.host, res.url.port, res.url.scheme="ldaps")
+         OR NOT this->searchconn->Bind("",""))
+      {
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP: Search failed - referral failed (cannot connect)\n");
+        this->finished := TRUE;
+        RETURN;
+      }
+    }
+  }
+
+  RECORD FUNCTION SetupSearch(RECORD query)
+  {
+    this->pending_search_result := DEFAULT OBJECT;
+
+    //Construct a Search request
+    OBJECT searchrequest := this->searchconn->StartLDAPMessage(LDAP_protocolOp_searchRequest);
+    searchrequest->AddOctetString(this->ldaptrans->baseobject);
+    searchrequest->OverwriteTagType(searchrequest->AddInteger(this->ldaptrans->scope), BER_CLASS_Universal, BER_Universal_Enumerated);
+    searchrequest->OverwriteTagType(searchrequest->AddInteger(0/*neverDerefAliases*/), BER_CLASS_Universal, BER_Universal_Enumerated);
+
+  //ADDME: What to do with limit == 0 (in HareScript it means: no results, in LDAP it means: all results)
+//        if (query.limit == -1) //no limit
+      searchrequest->AddInteger(0); //size limit : Rob: Due to case-sensitivity issues we MUST use post-filtering
+//        else
+//            search_request.AddInteger(query.limit); //size limit
+
+    searchrequest->AddInteger(0); //time limit
+    searchrequest->AddBoolean(false); //types only
+
+    //Create the search filter
+
+    //ADDME: Clean up ugly hack to get stuff to work
+    BOOLEAN opened_construction := false;
+    FOREVERY(RECORD single FROM query.singleconditions)
+    {
+      //FIXME: Allow user to specify the case-insensitive columns. Look up the default list from LDAP specs
+      RECORD columninfo := query.tablesources[0].columns[single.columnid];
+      BOOLEAN attr_index_caseinsensitive;
+      FOREVERY(STRING attr FROM this->ldaptrans->caseinsensitiveattributes)
+        IF(ToUppercase(attr) = ToUppercase(columninfo.dbase_name))
+          attr_index_caseinsensitive := TRUE;
+
+      IF(columninfo.type = TypeID(STRING)
+         AND (single.casesensitive OR attr_index_caseinsensitive)) //As we don't know whether the attribute is case-sensitive, and whether matching is CS is determined by the ldap server, it's only safe to handle CS searches :/
+      {
+        /*ADDME: We're not handling 'dn' condition, because dn is not a searchable attribute
+        in LDAP. A dn search should be mapped onto a scope setting (using
+        SetLDAPSearchScope in HareScript or, ideally, by setting the correct
+        search scope when constructing the search request above). */
+        IF(ToUppercase(columninfo.dbase_name) = "DN")
+          CONTINUE;
+        IF(single.condition NOT IN ["<","<=","=",">",">=","!=","LIKE"])
+          CONTINUE;
+
+        STRING value := MakeOctetString(single.value);
+        IF(single.condition = "LIKE" AND value="")
+          single.condition := "="; //Implement LIKE "" as = ""
+
+        IF(NOT opened_construction)
+        {
+          searchrequest->StartConstruction(BER_Class_ContextSpecific, LDAP_Filter_And);
+          opened_construction := TRUE;
+        }
+        IF(single.condition != "LIKE") //condition != LIKE
+        {
+          // let it->handled flag stay on false, use postfiltering because LDAP doesn't understand casesensitivity like we do
+          // ADDME: Where is handled?
+
+          BOOLEAN wrap_in_not := FALSE;
+          IF(value != "")
+          {
+            //We can't just check for empty values to check whether an attribute exists, because all
+            //non-existing attributes are filled with an empty string, so they all do exist.
+            INTEGER filtertype := LDAP_Filter_EqualityMatch;
+            //Because LDAP can only test Not, EqualityMatch, LessOrEqual and GreaterOrEqual,
+            //the HareScript conditions have to be mapped to LDAP filter conditions
+            SWITCH(single.condition)
+            {
+              CASE "<" //Less => Not GreaterOrEqual
+              {
+                filtertype := LDAP_Filter_GreaterOrEqual;
+                wrap_in_not := TRUE;
+              }
+              CASE "<=" //LessEqual => LessOrEqual
+              {
+                filtertype := LDAP_Filter_LessOrEqual;
+              }
+              CASE "=" //Equal => EqualtiyMatch
+              {
+                filtertype := LDAP_Filter_EqualityMatch;
+              }
+              CASE ">=" //BiggerEqual => GreaterOrEqual
+              {
+                filtertype := LDAP_Filter_GreaterOrEqual;
+              }
+              CASE ">" //Bigger => Not LessOrEqual
+              {
+                filtertype := LDAP_Filter_LessOrEqual;
+                wrap_in_not := TRUE;
+              }
+              CASE "!=" //UnEqual => Not EqualityMatch
+              {
+                filtertype := LDAP_Filter_EqualityMatch;
+                wrap_in_not := true;
+              }
+            }
+            IF(wrap_in_not)
+              searchrequest->StartConstruction(BER_Class_ContextSpecific, LDAP_Filter_Not);
+
+            searchrequest->StartConstruction(BER_Class_ContextSpecific, filtertype);
+            searchrequest->AddOctetString(columninfo.dbase_name);
+            searchrequest->AddOctetString(value);
+            searchrequest->EndConstruction(); //end construction of filter condition
+          }
+          ELSE //The value is empty, so we have to look whether the attribute is (not) present
+               // FIXME: what does LDAP do with other conditions than equal???
+          {
+            IF(single.condition = "=") // Equal
+            {
+              wrap_in_not := TRUE;
+              searchrequest->StartConstruction(BER_Class_ContextSpecific, LDAP_Filter_Not);
+            }
+            searchrequest->OverwriteTagType(searchrequest->AddOctetString(columninfo.dbase_name), BER_Class_ContextSpecific, LDAP_Filter_Present);
+          }
+
+          IF (wrap_in_not)
+            searchrequest->EndConstruction(); //end construction of not condition
+        }
+        ELSE //LIKE condition
+        {
+          //We have to treat '?' as '*' (there is no distinction
+          //between the two in LDAP), so we'll let the second phase
+          //deal with the '?'
+          // For now: let it->handled flag stay on false, as LDAP case-sensitivity is at odds with ours
+          //it->handled = false; //(value.find('?') == std_string_npos);
+
+          searchrequest->StartConstruction(BER_Class_ContextSpecific, LDAP_Filter_Substrings);
+          searchrequest->AddOctetString(columninfo.dbase_name);
+          searchrequest->StartConstruction(BER_Class_Universal, BER_Universal_Sequence);
+
+          STRING ARRAY subtokens := Tokenize(Substitute(value, '*', '?'),'?');
+          FOREVERY(STRING tok FROM subtokens)
+          {
+            IF(tok="")
+              CONTINUE;
+
+            INTEGER matchtype := #tok=0 ? LDAP_SubstringFilter_Initial
+                                 : #tok=Length(subtokens)-1 ? LDAP_SubstringFilter_Final
+                                 : LDAP_SubstringFilter_Any;
+
+            searchrequest->OverwriteTagType(searchrequest->AddOctetString(tok), BER_Class_ContextSpecific, matchtype);
+          }
+
+          searchrequest->EndConstruction(); //universial seq
+          searchrequest->EndConstruction(); //filter substrings
+        }
+      }
+    }
+
+    IF(opened_construction)
+    {
+      searchrequest->EndConstruction(); //end construction of and filter
+    }
+    ELSE
+    {
+      searchrequest->OverwriteTagType(searchrequest->AddOctetString("objectClass"), BER_Class_ContextSpecific, LDAP_Filter_Present);
+    }
+
+    //Create a sequence of attributes we want
+    searchrequest->StartConstruction(BER_Class_Universal, BER_Universal_Sequence);
+    //ADDME: add columns to select
+    searchrequest->EndConstruction(); //end construction of attribute description list
+
+    // When paging is requested, add the paging (RFC 2696) control
+    IF (this->searchconn->version = 3 AND this->searchconn->pagesize != 0)
+    {
+      searchrequest->EndConstruction(); //end construction of LDAPMessage.protocolOp
+      searchrequest->StartConstruction(BER_Class_ContextSpecific, 0); // Open LDAPMessage.controls (with [0] tag)
+
+      searchrequest->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // Open controls[0]
+      searchrequest->AddOctetString("1.2.840.113556.1.4.319"); // write controls[0].controlType. Not an object identifier! Strange, but spec...
+      // Non-critical, skip controls[0].criticality boolean
+
+      // Construct realSearchControlValue SEQUENCE. to be wrapped in controls[0].controlValue
+      OBJECT controlvalue := NEW BEREncoder;
+      controlvalue->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // open realSearchControlValue
+      controlvalue->AddInteger(this->searchconn->pagesize); // realSearchControlValue.size
+      controlvalue->AddOctetString(this->paging_cookie); // realSearchControlValue.cookie
+      controlvalue->EndConstruction(); // close realSearchControlValue
+
+      searchrequest->AddOctetString(controlvalue->GetRequest()); // write controls[0].controlValue
+      searchrequest->EndConstruction(); // close LDAPMessage controls[0]
+
+      // Leave LDAPMessage controls open for TransactMessage to close
+    }
+
+    RECORD reply := this->searchconn->TransactMessage(searchrequest);
+
+    IF(reply.protocolop != LDAP_protocolOp_searchResponseEntry)
+    {
+      IF(ldapdebug)
+        PrintTo(ldapdebugstream,"LDAP: IOResponse: " || reply.protocolop || "\n");
+
+      IF(reply.protocolop = LDAP_protocolOp_searchResultReference)
+      {
+        /* SearchResultReference ::= [APPLICATION 19] SEQUENCE
+                                     SIZE (1..MAX) OF uri URI
+        */
+        IF (reply.msg->IsAtEnd())
+          RETURN [ success := FALSE, redirect := FALSE ];
+
+        // ADDME: support more uri's
+        STRING uri := reply.msg->ReadOctetString();
+        IF (uri = "")
+          RETURN [ success := FALSE, redirect := FALSE ];
+
+        RECORD decoded := UnpackURL(uri);
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP Redirect:\n" || AnyToSTring(decoded,'tree'));
+
+        IF(RecordExists(decoded))
+          RETURN [ success := TRUE, redirect := TRUE, url := decoded ];
+
+        RETURN [ success := FALSE, redirect := FALSE ];
+      }
+
+      // FIXME: not all response types begin are an LDAPResult at the start, so this decode failes
+      RECORD response := DecodeLDAPResult(reply.msg);
+      IF(response.resultcode = LDAP_resultCode_partialResults) //Got referral
+      {
+        //referral has form "Referral:\n<url>"
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP partial: " || EncodeJava(response.last_error_message) || "\n");
+
+        STRING ARRAY toks := Tokenize(response.last_error_message, "\n");
+        IF(Length(toks)<2 OR toks[0]!="Referral:")
+          RETURN [ success := FALSE, redirect := FALSE ];
+
+        STRING uri := toks[1];
+        IF(uri NOT LIKE "ldap*://*")
+          uri := "ldap://" || uri;
+
+        RECORD decoded := UnpackURL(uri);
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP Redirect:\n" || AnyToSTring(decoded,'tree'));
+
+        IF(RecordExists(decoded))
+          RETURN [ success := TRUE, redirect := TRUE, url := decoded ];
+
+        /* FIXME IMPLEMENT REFERRALS
+                      std_string referral;
+                      reply.second.ReadOctetString(&referral); //Discard matcheddn
+                      reply.second.ReadOctetString(&referral); //Contains the referral
+std_string ref;
+Blex_EncodeJava(referral.begin(),referral.end(),std_back_inserter(ref));
+DEBUGPrintTo(ldapdebugstream,"Got referral: " << ref);
+                      std_vector<std_string> lines;
+                      //referral has form "Referral:\n<url>"
+                      Blex_TokenizeString(referral, '\n', &lines);
+                      if (lines.size() < 2 || lines[0] != "Referral:")
+                      {
+                              DEBUGPrintTo(ldapdebugstream,"No redirection received");
+                              return GotNothing;
+                      }
+
+                      referral = lines[1];
+                      lines.clear();
+                      //<url> has form "[ldap://]server[:port]"
+                      Blex_TokenizeString(referral, ':', &lines);
+                      Blex_SocketAddress ldap_server;
+                      ldap_server.port = 0;
+                      bool ldap_secure = false;
+                      if (lines.size() == 1)
+                      {
+                              //non-secure "server"
+                              ldap_server.addr = Blex_ResolveHostname(lines[0]);
+                              ldap_server.port = PORT_LDAP;
+                      }
+                      else if (lines[0] == "ldap")
+                      {
+                              //non-secure "ldap://server[:port]"
+                              referral = lines[1].substr(2);
+                              ldap_server.addr = Blex_ResolveHostname(lines[1].substr(2));
+                              /*if (ldap_server.addr == 0) //If it's not a hostname, try as ip
+                                      ldap_server.addr = IPAddressFromString(lines[1].substr(2));* /
+                              if (lines.size() > 2)
+                                  ldap_server.port = Blex_DecodeUnsignedNumber<U16>(lines[2].begin(),lines[2].end(),10).first;
+                              else
+                                  ldap_server.port = PORT_LDAP;
+                      }
+                      else if (lines[0] == "ldaps")
+                      {
+                              //secure "ldaps://server[:port]"
+                              referral = lines[1].substr(2);
+                              ldap_server.addr = Blex_ResolveHostname(lines[1].substr(2));
+                              /*if (ldap_server.addr == 0) //If it's not a hostname, try as ip
+                                      ldap_server.addr = IPAddressFromString(lines[1].substr(2));* /
+                              if (lines.size() > 2)
+                                  ldap_server.port = Blex_DecodeUnsignedNumber<U16>(lines[2].begin(),lines[2].end(),10).first;
+                              else
+                                  ldap_server.port = PORT_LDAPS;
+                              ldap_secure = true;
+                      }
+                      else if (lines[1].substr(0,2) != "//")
+                      {
+                              //non-secure "server[:port]"
+                              ldap_server.addr = Blex_ResolveHostname(lines[0]);
+                              if (lines.size() > 1)
+                                  ldap_server.port = Blex_DecodeUnsignedNumber<U16>(lines[1].begin(),lines[1].end(),10).first;
+                              else
+                                  ldap_server.port = PORT_LDAP;
+                      }
+                      if (ldap_server.port == 0)
+                      {
+                              DEBUGPrintTo(2,"No valid redirection received");
+                              return GotNothing;
+                      }
+                      if(ldap_server == current_server)
+                      {
+                              DEBUGPrintTo(2,"Got a redirect to self");
+                              return GotNothing;
+                      }
+
+                      DEBUGPrintTo(2,"Reconnecting " << (ldap_secure ? "secure " : "") << "to " <<
+                                 (ldap_server.addr >> 24) << "." <<
+                                 (ldap_server.addr >> 16 & 255) << "." <<
+                                 (ldap_server.addr >> 8 & 255) << "." <<
+                                 (ldap_server.addr & 255) <<
+                                 ":" << ldap_server.port);
+
+                      //close and recreate socket
+                      sock->Close();
+                      sock.reset(new SOCKETTYPE(Blex_Socket_Stream));
+
+                      //setup new connection, using empty binddn and password (will no longer be valid for new LDAP server)
+                      if (!(TryConnect(ldap_server, ldap_secure) && Bind("","")))
+                      {
+                              DEBUGPrintTo(2,"Could not reconnect");
+                              return GotNothing;
+                      }
+
+                      return GotReferral;*/
+      }
+      ELSE
+      {
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP: Error " || response.resultcode || ": " || response.last_error_message || "\n");
+        RETURN [ success := FALSE ];
+      }
+    }
+    this->pending_search_result := reply.msg;
+    RETURN [ success := TRUE, redirect := FALSE ];
+  }
+
+  RECORD FUNCTION AttributeInsert(RECORD currec, STRING cellname, STRING ARRAY vals)
+  {
+    RECORD outputcol := SELECT * FROM this->query.tablesources[0].columns WHERE ToUppercase(dbase_name) = ToUppercase(cellname);
+    IF(RecordExists(outputcol) AND (outputcol.fase BITAND 3)!=0) //only add the columns required in fase 1 & 2
+    {
+      //FIXME TYPE CONVERSION?
+      IF(outputcol.type = TypeID(STRING))
+      {
+        currec := CellInsert(currec, outputcol.name, Length(vals) > 0 ? vals[0] : "");
+      }
+      ELSE IF(outputcol.type = TypeID(STRING ARRAY))
+      {
+        currec := CellInsert(currec, outputcol.name, vals);
+      }
+      ELSE IF(outputcol.type = TypeID(INTEGER))
+      {
+        currec := CellInsert(currec, outputcol.name, Length(vals) > 0 ? ToInteger(vals[0],0) : 0);
+      }
+      ELSE
+      {
+        IF(ldapdebug)
+          PrintTo(ldapdebugstream,"LDAP: Cannot decode search result for column " || outputcol.name || " of type " || GetTypeName(outputcol.type) || "\n");
+        THROW NEW Exception("LDAP: Cannot decode search result for column " || outputcol.name || " of type " || GetTypeName(outputcol.type));
+      }
+    }
+    RETURN currec;
+  }
+
+  RECORD FUNCTION DecodeSearchResult(OBJECT msg)
+  {
+    RECORD searchresult := this->AttributeInsert(CELL[], 'dn', [STRING(msg->ReadOctetString())]);
+    OBJECT attrs := msg->ReadConstruction();
+
+    WHILE(attrs->IsComplete())
+    {
+      OBJECT this_attr := attrs->ReadConstruction();
+      STRING description := this_attr->ReadOctetString();
+      OBJECT vals := this_attr->ReadConstruction();
+
+      STRING ARRAY retvalues;
+      WHILE(vals->IsComplete())
+        INSERT vals->ReadOctetString() INTO retvalues AT END;
+
+      searchresult := this->AttributeInsert(searchresult, description, retvalues);
+    }
+    //ADDME: Null translation should take care of this
+    FOREVERY(RECORD col FROM this->query.tablesources[0].columns)
+      IF((col.fase BITAND 3)!=0 AND NOT CellExists(searchresult, col.name))
+      {
+        //FIXME TYPE CONVERSION?
+        IF(col.type = TypeID(STRING))
+        {
+          searchresult := CellInsert(searchresult, col.name, "");
+        }
+        ELSE IF(col.type = TypeID(STRING ARRAY))
+        {
+          searchresult := CellInsert(searchresult, col.name, DEFAULT STRING ARRAY);
+        }
+        ELSE
+        {
+          IF(ldapdebug)
+            PrintTo(ldapdebugstream,"LDAP: Cannot decode search result for column " || col.name || " of type " || GetTypeName(col.type) || "\n");
+
+          THROW NEW Exception("LDAP: Cannot decode search result for column " || col.name || " of type " || GetTypeName(col.type));
+        }
+      }
+
+    RETURN searchresult;
+  }
+
+  RECORD FUNCTION RetrieveSingleRow()
+  {
+    OBJECT searchres;
+
+    IF(NOT ObjectExists(this->pending_search_result))
+    {
+      RECORD reply := this->searchconn->GetResponse(this->searchconn->msgid);
+      IF (reply.protocolop = LDAP_protocolOp_searchResponse)
+      {
+        // No controls sequence? Than we won't have a paging control, and we're done
+        IF (NOT ObjectExists(reply.controls))
+          RETURN DEFAULT RECORD;
+
+        WHILE (NOT reply.controls->IsAtEnd())
+        {
+          // Loop through all controls
+          OBJECT control := reply.controls->ReadConstruction();
+
+          // Read control values
+          STRING oid := control->ReadOctetString(); // Not an object identifier! Strange, but spec...
+          BOOLEAN criticality := control->GetTag().value != 4 ? control->ReadBoolean() : FALSE;
+          STRING controlvalue := control->ReadOctetString();
+
+          IF (oid = "1.2.840.113556.1.4.319") // Paging (see RFC 2696)
+          {
+            OBJECT control_decoder := NEW StaticBERDecoder(controlvalue);
+            OBJECT controldata := control_decoder->ReadConstruction();
+
+            INTEGER size := controldata->ReadInteger(); // realSearchControlValue.size: estimate for total nr of results
+            STRING cookie := controldata->ReadOctetString(); // realSearchControlValue.cookie: cookie for next request
+
+            this->paging_cookie := cookie;
+
+            // Empty cookie means end of results?
+            IF (cookie = "")
+              RETURN DEFAULT RECORD;
+
+            // Redo search with current query, but new cookie
+            this->SetupSearch(this->query);
+            BREAK;
+          }
+        }
+
+        // pending search result is filled by SetupSearch if successfull
+        IF (NOT ObjectExists(this->pending_search_result))
+          RETURN DEFAULT RECORD;
+
+        searchres := this->pending_search_result;
+        this->pending_search_result := DEFAULT OBJECT;
+      }
+      ELSE
+      {
+        IF(reply.protocolop != LDAP_protocolOp_searchResponseEntry)
+          RETURN DEFAULT RECORD;
+
+        searchres := reply.msg;
+      }
+    }
+    ELSE
+    {
+      searchres := this->pending_search_result;
+      this->pending_search_result := DEFAULT OBJECT;
+    }
+
+    RETURN this->DecodeSearchResult(searchres);
+  }
+
+  UPDATE /*FIXME PRIVATE*/PUBLIC MACRO RetrieveNextBlock() //ADDME Move this implementation to generic code
+  {
+    this->pvt_currentblock := DEFAULT RECORD ARRAY;
+    WHILE(NOT this->finished AND Length(this->pvt_currentblock) < this->query.maxblockrows)
+    {
+      RECORD add := this->RetrieveSingleRow();
+      IF(RecordExists(add))
+      {
+        IF(ldapdebug)
+          PrintRecordTo(2,add,'boxed');
+        INSERT add INTO this->pvt_currentblock AT END;
+      }
+      ELSE
+        this->finished := TRUE;
+    }
+  }
+
+  MACRO Flush()
+  {
+    WHILE(RecordExists(this->RetrieveSingleRow()))
+      /*loop*/;
+  }
+
+  UPDATE /*FIXME PRIVATE*/PUBLIC MACRO GetFase2Data(INTEGER ARRAY rowlist)
+  {
+  }
+
+  UPDATE /*FIXME PRIVATE*/PUBLIC MACRO Close()
+  {
+    IF(this->followed_referrer)
+      this->searchconn->Disconnect();
+    ELSE IF(NOT this->finished)
+      this->Flush();
+  }
+>;
+
+OBJECTTYPE LDAPTransaction EXTEND TransactionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Lowlevel LDAP connection
+  OBJECT conn;
+
+  /// Searchscope base object
+  STRING baseobject;
+
+  /// Searchscope scope
+  INTEGER scope;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables and properties
+  //
+
+  PUBLIC PROPERTY caseinsensitiveattributes(this->conn->caseinsensitiveattributes, this->conn->caseinsensitiveattributes);
+
+  /// LDAP version to connect with
+  PUBLIC PROPERTY version(this->conn->version, this->conn->version);
+
+  /// If non-zero, max page size (only used in LDAPv3 mode)
+  PUBLIC PROPERTY pagesize(this->conn->pagesize, this->conn->pagesize);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overridden stuff
+  //
+
+  UPDATE STRING FUNCTION GetType()
+  {
+    RETURN "ldap";
+  }
+
+  UPDATE /*FIXME PRIVATE*/PUBLIC OBJECT/*< LowLevelCursor >*/ FUNCTION OpenCursor(RECORD query, STRING type)
+  {
+    IF(type!="SELECT")
+      THROW NEW Exception("LDAP transactions only support SELECTs");
+    RETURN NEW LDAPCursor(PRIVATE this, query);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC BOOLEAN FUNCTION Connect(STRING host, INTEGER port, BOOLEAN secure, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(ObjectExists(this->conn))
+      this->conn->Disconnect();
+
+    this->conn := NEW LDAPConnection();
+    IF (CellExists(options, "VERSION"))
+      this->conn->version := options.version;
+    IF (CellExists(options, "PAGESIZE"))
+    {
+      IF (this->conn->version != 3)
+        THROW NEW Exception("Pagesize is only allowed with LDAPv3");
+      this->conn->pagesize := options.pagesize;
+    }
+
+    IF(NOT this->conn->Connect(host,port,secure))
+    {
+      this->conn := DEFAULT OBJECT;
+      RETURN FALSE;
+    }
+    RETURN TRUE;
+  }
+
+  PUBLIC MACRO SetSearchScope(STRING dn, INTEGER scope)
+  {
+    this->baseobject := dn;
+    this->scope := scope;
+  }
+
+  PUBLIC MACRO Disconnect()
+  {
+    this->conn->Disconnect();
+    this->conn := DEFAULT OBJECT;
+  }
+
+  PUBLIC BOOLEAN FUNCTION Bind(STRING dn, STRING password)
+  {
+    RETURN this->conn->Bind(dn, password);
+  }
+
+>;
+
+OBJECTTYPE LDAPCallForwarder
+<
+  PUBLIC PROPERTY caseinsensitiveattributes(this->clientdata.ldaptrans->caseinsensitiveattributes, this->clientdata.ldaptrans->caseinsensitiveattributes);
+
+  PUBLIC PROPERTY pagesize(this->clientdata.ldaptrans->pagesize, this->clientdata.ldaptrans->pagesize);
+
+  PUBLIC MACRO SetSearchScope(STRING dn, INTEGER scope)
+  {
+    this->clientdata.ldaptrans->SetSearchScope(dn, scope);
+  }
+>;
+
+/** @short Open an LDAP connection
+    @long Open a connection to a given LDAP server
+    @param server The server address to connect to
+    @param port The server port to connect to. Leave at 0 to use the default port
+    @param binddn The distiguished name to connect as
+    @param passwd The password to connect with
+    @param secure Use a secure (SSL) connection
+    @return If >0, the transaction id. <= 0 on error */
+PUBLIC INTEGER FUNCTION OpenLDAPConnection(STRING server, INTEGER port, STRING binddn, STRING passwd, BOOLEAN secure DEFAULTSTO FALSE, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(port=0)
+    port := secure ? 636 : 389;
+
+  OBJECT trans := NEW LDAPTransaction;
+  IF(NOT trans->Connect(server, port, secure, options))
+    RETURN -1;
+
+  IF(trans->Bind(binddn, passwd))
+  {
+    OBJECT ldaptrans := CreateForwardingLoopbackTransactionFromObject(trans, [ ldaptrans := trans ]);
+    EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(ldaptrans) BY LDAPCallForwarder;
+    RETURN ldaptrans->id;
+  }
+  trans->Disconnect();
+  RETURN -1;
+}
+
+PUBLIC OBJECT FUNCTION OpenLDAPTransaction(STRING server, INTEGER port, STRING binddn, STRING passwd, BOOLEAN secure, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  INTEGER conn := OpenLDAPConnection(server,port,binddn,passwd,secure,options);
+  RETURN conn > 0 ? GetTransactionObjectById(conn) : DEFAULT OBJECT;
+}
+
+/** @short Set the LDAP search scope
+    @long Set the search scope for LDAP SELECTs. The base distinguished name is used as the search root, e.g.
+          "o=B-Lex,c=NL" for searches within B-Lex. The scope is used to determine which subset of the base
+          dn is searched through. Possible values are:
+{@pre 0  Base Object    Search only through the object identified by the base dn
+1  Single Level   Search through all direct children of the base dn object
+2  Whole Subtree  Search through all descendants of the base dn object }
+          All SELECTs are performed within the given search scope. When no search scope is set, all
+          selections will be empty, so it is imported to call this function before doing a SELECT on
+          an LDAP table. It is possible to change the search scope between SELECTs.
+          Make sure the search scope is supported by the LDAP server connected to, otherwise all
+          selections will be empty.
+    @param transaction The LDAP transaction id
+    @param dn The base object distinguished name
+    @param scope The search scope */
+PUBLIC MACRO SetLDAPSearchScope(INTEGER transaction, STRING dn, INTEGER scope)
+{
+  //Print(AnyToString(GetTransactionObjectById(transaction)->forwardto,'tree'));
+  GetTransactionObjectById(transaction)->clientdata.ldaptrans->SetSearchScope(dn,scope); //FIXME forwardto
+}
+
+/** @short Parse an LDAP distinguished name
+    @long This function takes a distinguished name and returns a list of attributes, according to the specification in RFC
+          1779. Newlines and multi-component RDNs are not supported. The list of attributes is sorted from most significant
+          (right) to least significant (left).
+    @return A list of DN attributes
+    @cell return.type The attribute name (or dotted OID representation)
+    @cell return.value The attribute value
+    @example
+// Returns [ [ type := "c", value := "nl" ], [ type := "o", value := "B-Lex" ] ]
+RECORD ARRAY attributes := ParseDN("o=B-Lex, c=nl");
+*/
+PUBLIC RECORD ARRAY FUNCTION ParseDN(STRING dn)
+{
+  RECORD ARRAY attrs;
+  RECORD curattr := [ type := "", value := "" ];
+  STRING state := "key";
+
+  FOR (INTEGER i := 0; i < Length(dn); i := i + 1)
+  {
+    STRING char := Substring(dn, i, 1);
+
+    SWITCH (state)
+    {
+      CASE "key"
+      {
+        IF (char = ' ')
+          CONTINUE;
+        ELSE IF (char = 'O' AND i+3 < Length(dn) AND Substring(dn, i, 4) = "OID.")
+        {
+          curattr.type := curattr.type || Substring(dn, i, 4);
+          i := i + 3;
+          state := "oid";
+          CONTINUE;
+        }
+        ELSE IF (char = 'o' AND i+3 < Length(dn) AND Substring(dn, i, 4) = "oid.")
+        {
+          curattr.type := curattr.type || Substring(dn, i, 4);
+          i := i + 3;
+          state := "oid";
+          CONTINUE;
+        }
+        ELSE IF ((char >= 'A' AND char <= 'Z') OR (char >= 'a' AND char <= 'z') OR (char >= '0' AND char <= '9') OR char = ' ')
+        {
+          curattr.type := curattr.type || char;
+          state := "key_char";
+          CONTINUE;
+        }
+      }
+      CASE "key_char"
+      {
+        IF ((char >= 'A' AND char <= 'Z') OR (char >= 'a' AND char <= 'z') OR (char >= '0' AND char <= '9') OR char = ' ')
+        {
+          curattr.type := curattr.type || char;
+          CONTINUE;
+        }
+        ELSE IF (char = '=')
+        {
+          curattr.type := TrimWhitespace(curattr.type);
+          state := "string";
+          CONTINUE;
+        }
+      }
+      CASE "oid", "oid_digit"
+      {
+        IF (char >= '0' AND char <= '9')
+        {
+          curattr.type := curattr.type || char;
+          state := "oid_digit";
+          CONTINUE;
+        }
+        ELSE IF (state = "oid_digit" AND char = '.')
+        {
+          curattr.type := curattr.type || char;
+          state := "oid";
+          CONTINUE;
+        }
+        ELSE IF (char = ' ')
+        {
+          state := "key_space";
+          CONTINUE;
+        }
+        ELSE IF (char = '=')
+        {
+          state := "string";
+          CONTINUE;
+        }
+      }
+      CASE "key_space"
+      {
+        IF (char = ' ')
+          CONTINUE;
+        ELSE IF (char = '=')
+        {
+          state := "string";
+          CONTINUE;
+        }
+      }
+      CASE "string"
+      {
+        IF (char = ' ')
+          CONTINUE;
+        ELSE IF (char = '\\')
+        {
+          state := "string_pair";
+          CONTINUE;
+        }
+        ELSE IF (char = '"')
+        {
+          state := "special";
+          CONTINUE;
+        }
+        ELSE IF (char = '#')
+        {
+          state := "hex";
+          CONTINUE;
+        }
+        ELSE IF (char NOT IN [ ',', '=', '+', '<', '>', ';' ])
+        {
+          curattr.value := curattr.value || char;
+          state := "string_normal";
+          CONTINUE;
+        }
+      }
+      CASE "string_normal"
+      {
+        IF (char IN [ ',', ';' ])
+        {
+          curattr.value := TrimWhitespace(curattr.value);
+          INSERT curattr INTO attrs AT 0;
+        }
+        ELSE IF (char = '\\')
+        {
+          state := "string_pair";
+          CONTINUE;
+        }
+        ELSE IF (char NOT IN [ '=', '+', '<', '>', '#', '"' ])
+        {
+          curattr.value := curattr.value || char;
+          CONTINUE;
+        }
+      }
+      CASE "string_pair", "special_pair"
+      {
+        IF (char IN [ ',', '=', '+', '<', '>', '#', ';', '\\', '"' ])
+        {
+          curattr.value := curattr.value || char;
+          state := state = "string_pair" ? "string_normal" : "special";
+          CONTINUE;
+        }
+      }
+      CASE "special"
+      {
+        IF (char = '"')
+        {
+          state := "special_end";
+          CONTINUE;
+        }
+        ELSE IF (char = '\\')
+        {
+          state := "special_pair";
+          CONTINUE;
+        }
+        // All other characters accepted as value
+        curattr.value := curattr.value || char;
+        CONTINUE;
+      }
+      CASE "special_end"
+      {
+        IF (char = ' ')
+        {
+          state := "separator_space";
+          CONTINUE;
+        }
+        IF (char IN [ ',', ';' ])
+        {
+          INSERT curattr INTO attrs AT 0;
+        }
+      }
+      CASE "hex"
+      {
+      }
+      CASE "separator_space"
+      {
+        IF (char = ' ')
+          CONTINUE;
+        ELSE IF (char IN [ ',', ';' ])
+        {
+          INSERT curattr INTO attrs AT 0;
+        }
+      }
+      DEFAULT
+      {
+        // Should not happen, but just to be sure
+        Abort("Unknown state '" || state || "'");
+      }
+    }
+
+    // If we got here, we finished an attribute or encountered an invalid char
+    state := "key";
+    curattr.type := "";
+    curattr.value := "";
+  }
+  IF (curattr.type != "")
+    INSERT curattr INTO attrs AT 0;
+
+  RETURN attrs;
+}

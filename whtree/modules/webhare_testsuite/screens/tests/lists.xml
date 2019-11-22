@@ -1,0 +1,291 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/lists.whlib">
+
+  <screen name="basetest" title="Base list testing" width="600px" height="500px" menubar="menubar" allowresize="true">
+    <actions>
+      <action name="foreven">
+        <enableon source="staticlist" min="1" checkflags="iseven" onexecute="doforeven" />
+      </action>
+      <action name="forodd">
+        <enableon source="staticlist" min="1" checkflags="!iseven" onexecute="doforodd" />
+      </action>
+      <action name="something" onexecute="dosomething" />
+      <action name="foreven2">
+        <enableon source="staticlist" min="1" checkflags="iseven" onexecute="doforeven2" />
+        <enableon source="dynamiclist" min="1" onexecute="doforodd2" />
+      </action>
+      <action name="jumptest" onexecute="dojumptest" />
+      <action name="emptylist" onexecute="doemptylist" />
+      <action name="changeemptytext" onexecute="dochangeemptytext" />
+      <action name="sortordered" onexecute="dosortordered" />
+      <action name="select9" onexecute="doselect9" />
+      <action name="togglelist" onexecute="dotogglelist" />
+      <action name="makedeeptree" onexecute="domakedeeptree" />
+      <action name="truncatelist" onexecute="dotruncatelist" />
+      <action name="switchselectmode" onexecute="DoSwitchSelectMode" />
+      <action name="switchfocusin" onexecute="DoSwitchFocusIn" />
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item title="M01">
+          <item action="foreven" title="M02 foreven" />
+          <item action="forodd" title="M03 forodd" />
+          <item action="foreven2" title="M05 foreven2" />
+          <item action="jumptest" title="M06 jumptest" />
+          <item action="emptylist" title="M07 emptylist" />
+          <item action="changeemptytext" title="M08 changeempty" />
+          <item action="sortordered" title="M09 sortordered" />
+          <item action="select9" title="M10 select9" />
+          <item action="togglelist" title="M11 togglelist" name='m11' />
+          <item action="makedeeptree" title="M12 makedeeptree" name='m12' />
+          <item action="truncatelist" title="M13 truncatelist" />
+          <item action="switchselectmode" title="M14 switchselectmode" />
+          <item action="switchfocusin" title="M15 switchfocusin" />
+        </item>
+      </menu>
+      <menu name="staticcontext">
+        <item action="foreven" title="MC01 for even" disablemode="hidden"/>
+        <item action="forodd" title="MC02 for odd" disablemode="hidden"/>
+        <item action="something" title="MC03 do something" />
+        <item action="foreven2" title="MC04 for even2" disablemode="hidden"/>
+        <divider />
+      </menu>
+      <menu name="staticnew">
+        <item action="something" title="MC04 do something" />
+      </menu>
+    </menus>
+    <body>
+      <list name="staticlist" selectmode="single" onselect="onstaticlistselect" oncheck="onstaticlistcheck" height="1pr" flags="iseven" selectcontextmenu="staticcontext" newcontextmenu="staticnew" highlightname="highlight">
+        <column type="text" name="textcol" title="Text col" tree="true" />
+        <column type="integer" name="intcol" title="Integer column" checkboxname="cbox" checkboxvisible="cboxvisible" checkboxenabled="cboxenabled" />
+        <column type="text" name="expandcol" title="Expand/collapse col" collapsedname="collapsed" />
+      </list>
+      <list name="dynamiclist" ongetpath="dogetpath" ongetchildren="dogetchildren" selectmode="multiple" onselect="ondynamiclistselect" height='1pr' sortable="false">
+        <column type="text" name="textcol" title="Text col" tree="true" />
+        <column type="integer" name="intcol" title="Integer column" />
+      </list>
+      <panel>
+        <line layout="left">
+          <text name="staticlistselection" title="Top list selection" />
+          <text name="staticlistchecked" title="Top list checked" />
+          <text name="dynamiclistselection" title="Bottom list selection" />
+          <text name="staticlistfocusincount" title="Top list focusin count" value="0" />
+        </line>
+        <line layout="left">
+          <button action="foreven" title="B01 ForEven" name="forevenbutton" />
+          <button action="forodd" title="B02 ForOdd" name="foroddbutton" />
+          <button action="foreven2" title="B05 ForEven2" name="forevenbutton2" />
+        </line>
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="columntypes" title="Columntypes testing" allowresize="true">
+    <body>
+      <split type="vertical">
+        <part height="1pr" name="toppart">
+          <split type="horizontal">
+            <part width="1pr" name="leftpart">
+              <list name="list1"
+                    icons="tollium:networking/computer tollium:networking/nethood tollium:media/soundon tollium:overlays/protected" rowiconhintname="rowiconhint"
+                    rowiconname="rowicon"
+                    oniconclick="oniconclick"
+                    selectmode="single"
+                    height="1pr"
+                    >
+                <column type="text" name="rowkey" title="Text (rowkey)" sortkeyname="sorttext" />
+
+                <column type="icon" name="icon" title="Icon" hintname="iconhint" iconoverlayname="iconoverlay" iconlink="true" />
+                <column type="icons" name="icons" title="Icons" hintname="iconshint" iconoverlayname="iconoverlay" />
+
+                <column type="email" name="email" title="Email" hintname="emailhint" iconname="icon" iconoverlayname="iconoverlay" />
+                <column type="url"   name="url"   title="URL"   hintname="urlhint" iconname="icon" iconoverlayname="iconoverlay" />
+                <column type="text"  name="urlhint" title="URL2"  linkname="url" />
+
+                <column type="date" name="date" title="Date" />
+                <column type="time" name="time" title="Time" />
+                <column type="datetime" name="datetime" hintname="datetimehint" title="Datetime" />
+
+                <!--
+                ADDME ?:
+                - integer
+                - integer64
+                - money
+                - blobrecord
+                -->
+
+                <style name="bold" bold="1" />
+                <style name="italic" italic="1" />
+                <style name="textcolor" textcolor="#0000FF" />
+                <style name="backgroundcolor" backgroundcolor="#FF00FF" />
+                <!-- ADDME: test color and backgroundcolor -->
+              </list>
+              <textedit enabled="false" name="feedback" />
+            </part>
+            <part width="8x" name="rightpart">
+            </part>
+          </split>
+        </part>
+        <part height="1gr" name="bottompart">
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="multirow" title="Multirow list" allowresize="true">
+    <actions>
+      <action name="newicon" onexecute="donewicons" />
+      <action name="markread">
+        <enableon source="normal" checkflags="unread" selectionmatch="any" onexecute="domarkread_normal" />
+        <enableon source="layout" checkflags="unread" selectionmatch="any" onexecute="domarkread_layout" />
+      </action>
+    </actions>
+    <body>
+      <split type="horizontal">
+        <part name="normalpart" width="1pr" layout="left">
+          <text title="Normale standaardlayout" value="" />
+          <panel height="1pr">
+            <list name="normal"
+                  empty="There are no rows to display"
+                  sortcolumn="senddate"
+                  icons="tollium:mailclient/mail_opened tollium:mailclient/mail_closed tollium:mailclient/label"
+                  selectmode="multiple"
+                  sortascending="false"
+                  flags="unread"
+                  openaction="markread">
+
+              <column name="status" title="" type="icon" hintname="statushint" />
+              <column name="subject" title="Subject" type="text" width="2pr" style="subject" />
+              <column name="sender" title="Sender" type="email" width="1pr" style="sender" />
+              <column name="senddate" title="Date" type="datetime" storeutc="true" width="17x" style="senddate" />
+
+              <style name="unread" bold="true" backgroundcolor="#f8fcff" />
+              <style name="subject" textcolor="#555555" />
+              <style name="sender" textcolor="#002266" />
+              <style name="senddate" />
+            </list>
+          </panel>
+        </part>
+        <part name="layoutpart" width="1pr" layout="left">
+          <line>
+            <text title="Aangepaste Outlook-achtige layout" value="" />
+            <select name="layoutname" type="pulldown" onchange="onlayoutchange">
+              <option rowkey="" title="Normal" />
+              <option rowkey="tworows" title="Two rows" selected="true" />
+              <option rowkey="threerows" title="Three rows" />
+            </select>
+            <button action="newicon" title="Regen icons"/>
+          </line>
+          <panel height="1pr">
+            <list name="layout"
+                  empty="There are no rows to display"
+                  sortcolumn="senddate"
+                  icons="tollium:mailclient/mail_opened tollium:mailclient/mail_closed tollium:mailclient/label"
+                  selectmode="multiple"
+                  sortascending="false"
+                  flags="unread"
+                  openaction="markread"
+                  rowlayout="tworows">
+
+              <column name="status" title="" type="icon" hintname="statushint"/>
+              <column name="subject" title="Subject" type="text" width="2pr" style="subject" />
+              <column name="sender" title="Sender" type="email" width="1pr" style="sender" />
+              <column name="senddate" title="Date" type="datetime" storeutc="true" width="17x" style="senddate" />
+
+              <rowlayout name="tworows">
+                <col coldef="status" />
+                <col coldef="sender" />
+                <col coldef="senddate" />
+                <row>
+                  <cell rowspan="2" coldef="status" />
+                  <cell coldef="sender" />
+                  <cell coldef="senddate" />
+                </row>
+                <row>
+                  <cell colspan="2" coldef="subject" />
+                </row>
+              </rowlayout>
+
+              <style name="unread" bold="true" backgroundcolor="#f8fcff" />
+              <style name="subject" textcolor="#555555" />
+              <style name="sender" textcolor="#002266" />
+              <style name="senddate" />
+            </list>
+          </panel>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="listeditor" title="List editor" allowresize="true">
+    <body>
+      <text value="listeditor below" />
+      <listedit name="listeditor" />
+    </body>
+  </screen>
+
+  <screen name="findasyoutypelist" title="Find as you type test" height="40x" width="40x">
+    <body>
+      <list name="list"
+            selectmode="single">
+        <column name="title" type="text" />
+        <column name="rowid" type="text" />
+      </list>
+    </body>
+  </screen>
+
+  <screen name="celleditlist" title="Cell edit test" height="23x" width="120x">
+    <actions>
+      <action name="openaction" onexecute="onrowedit" />
+    </actions>
+    <body>
+      <select name="selectmode" type="pulldown" onchange="onselectmodechange" title="List selection mode">
+        <option rowkey="" title="none"/>
+        <option rowkey="single" title="single" selected="true"/>
+        <option rowkey="multiple" title="multiple"/>
+      </select>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="leesplankje"
+                selectmode="single"
+                oncelledit="oncelledit"
+                openaction="openaction"
+                height="1pr">
+            <column name="title" title="Title" type="text" edittype="textedit" />
+            <column name="email" title="E-mail" type="email" edittype="textedit" checkboxname="checked" checkboxvisible="checkbox" />
+          </list>
+        </cell>
+        <cell width="1pr">
+          <arrayedit name="arrayedit" height="1pr">
+            <column name="title" title="Title" type="text" edittype="textedit" />
+            <column name="email" title="E-mail" type="email" edittype="textedit" checkboxname="checked" checkboxvisible="checkbox" />
+          </arrayedit>
+        </cell>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="resizetest" title="Resizetest" allowresize="true">
+    <actions>
+      <action name="size1" onexecute="dosize1" title="5x"/>
+      <action name="size2" onexecute="dosize2" title="10x"/>
+      <action name="size3" onexecute="dosize3" title="15x"/>
+    </actions>
+    <body name="body">
+      <line>
+        <button action="size1" />
+        <button action="size2" />
+        <button action="size3" />
+      </line>
+      <list name="list"
+            selectmode="single"
+            width="50x"
+            height="15x">
+        <column name="rowkey" title="Title" type="integer" />
+      </list>
+    </body>
+  </screen>
+
+
+</screens>

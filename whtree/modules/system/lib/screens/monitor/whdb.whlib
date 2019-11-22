@@ -1,0 +1,185 @@
+﻿<?wh
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+INTEGER max_history := 20000;
+
+MACRO __BeginWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+MACRO __RollbackWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+
+PUBLIC OBJECTTYPE WHDB EXTEND MonitorPanelBase
+< OBJECT trans;
+
+  RECORD ARRAY historic_queries; // Max max_history, max 1 minute
+  INTEGER64 cutoffid;
+
+  RECORD ARRAY columns;
+  BOOLEAN have_grouped_columns;
+
+  MACRO Init()
+  {
+    this->trans := GetPrimaryWebhareTransactionObject();
+
+    __BeginWHDBWork(this->trans->id);
+    BOOLEAN rpcvalue := SELECT AS BOOLEAN value = "ON"
+          FROM __SendWHDBCommand(this->trans->id, "SHOW PARAMETER RPCINFO");
+    __RollbackWHDBWork(this->trans->id);
+    this->rpcinfo->value := rpcvalue;
+
+    this->columns := this->querylog->columns;
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    __BeginWHDBWork(this->trans->id);
+    RECORD ARRAY translist := __SendWHDBCommand(this->trans->id, "SHOW TRANSACTIONS");
+    RECORD janitorinfo := __SendWHDBCommand(this->trans->id, "SHOW JANITOR");
+    RECORD ARRAY querylog := __SendWHDBCommand(this->trans->id, "SHOW QUERYLOG");
+    __RollbackWHDBWork(this->trans->id);
+
+    INTEGER loglen := LENGTH(querylog);
+    INTEGER hlen := LENGTH(this->historic_queries);
+
+    IF (loglen != 0)
+    {
+      INTEGER pos := 0;
+      IF (this->cutoffid != 0)
+        pos := RecordUpperBound(querylog, [ id := this->cutoffid ], [ "ID" ]);
+      this->cutoffid := querylog[END-1].id;
+
+      IF (pos = 0)
+        this->historic_queries := this->historic_queries CONCAT querylog;
+      ELSE
+        this->historic_queries := this->historic_queries CONCAT ArraySlice(querylog, pos);
+
+      INTEGER newlen := hlen + loglen - pos;
+      INTEGER hpos := newlen - max_history;
+
+      IF (hpos > 0)
+        this->historic_queries := ArraySlice(this->historic_queries, hpos);
+
+      // Not sorted on starttime, so sort it (RecordUpperBound doesn't like not completely sorted arrays)
+      this->historic_queries := SELECT * FROM this->historic_queries ORDER BY starttime;
+      INTEGER dpos := RecordUpperBound(this->historic_queries, [ starttime := AddTimeToDate(-60000, GetCurrentDateTime()) ], [ "STARTTIME" ]);
+      IF (dpos != 0)
+        this->historic_queries := ArraySlice(this->historic_queries, dpos);
+    }
+
+    this->transactions->rows := SELECT *
+                                     , rowkey := transid // needed so the list can keep it's selection after a rows update (in case of highlighting a long running database connection)
+                                  FROM translist;
+
+    IF (this->have_grouped_columns != this->enablegrouping->value)
+    {
+      RECORD ARRAY newcolumns := this->columns;
+      IF (this->enablegrouping->value)
+      {
+        DELETE FROM newcolumns WHERE ToUppercase(name) IN [ "TRANSID", "STARTTIME" ];
+        UPDATE newcolumns SET title := this->GetTid(".count") WHERE ToUppercase(name) = "ID";
+      }
+
+      this->querylog->columns := newcolumns;
+      this->have_grouped_columns := this->enablegrouping->value;
+    }
+
+    IF (this->enablegrouping->value)
+    {
+      this->querylog->rows :=
+          SELECT rowkey :=  plan || origin
+               , id :=      INTEGER64(Count(*))
+               , transid := 0
+               , starttime := DEFAULT DATETIME
+               , plan
+               , origin
+               , sentrows :=  SUM(sentrows)
+               , time :=      SUM(time)
+            FROM this->historic_queries
+        GROUP BY plan, origin
+        ORDER BY Count(*) DESC
+           LIMIT 400;
+    }
+    ELSE
+    {
+      this->querylog->rows :=
+          SELECT *
+               , rowkey := ToString(id)
+            FROM this->historic_queries
+        ORDER BY time DESC
+               , starttime DESC
+           LIMIT 400;
+    }
+
+    STRING maxwait := janitorinfo.maxwait = 0 ? "INSANE" : janitorinfo.maxwait = 1 ? "busy" : janitorinfo.maxwait = 86400 ? "normal" : `${janitorinfo.maxwait} s`;
+    this->waituntil->value := this->tolliumuser->FormatDatetime(janitorinfo.waituntil, "seconds", FALSE, TRUE) || ` (${maxwait})`;
+    this->nexttask->value := janitorinfo.nexttask;
+    this->numhints->value := ToString(janitorinfo.numhints);
+  }
+
+  MACRO OnRPCInfoChange()
+  {
+    __BeginWHDBWork(this->trans->id);
+    __SendWHDBCommand(this->trans->id, "SET GLOBAL RPCINFO TO " || (this->rpcinfo->value ? "ON" : "OFF"));
+    __RollbackWHDBWork(this->trans->id);
+  }
+
+  MACRO OnChangeGrouping()
+  {
+    // Needed to force sending the value
+    this->RefreshMonitorPanel();
+  }
+
+  MACRO OnQueryLogSelect()
+  {
+    STRING origin;
+    RECORD sel := this->querylog->selection;
+    IF (RecordExists(sel))
+      origin := sel.origin;
+
+    STRING ARRAY lines := Tokenize(origin, "\n");
+    IF (lines[0] = "")
+      lines := DEFAULT STRING ARRAY;
+
+    RECORD ARRAY trace;
+
+    OBJECT r := NEW RegEx("([^ ]*) at ([^:]*):([^:]*)(: (.*))?");
+    FOREVERY (STRING line FROM lines)
+    {
+      RECORD ARRAY m := r->Exec(line);
+      IF (LENGTH(m) != 0)
+      {
+        INSERT
+            [ rowkey :=     #line + 1
+            , filename :=   m[1].value
+            , line :=       ToInteger(m[2].value, 0)
+            , col :=        ToInteger(m[3].value, 0)
+            , func :=       m[5].value
+            ] INTO trace AT END;
+      }
+    }
+
+    this->trace->rows := trace;
+    this->plan->value := RecordExists(sel) ? sel.plan : "";
+  }
+
+  MACRO DoOpenTraceRow()
+  {
+    OBJECT screen := this->LoadScreen("monitor/processlist.codeview",
+        [ rows :=   this->trace->rows
+        , value :=  this->trace->value
+        ]);
+
+    screen->RunModal();
+  }
+
+  MACRO DoResetLog()
+  {
+    this->historic_queries := DEFAULT RECORD ARRAY;
+    this->RefreshMonitorPanel();
+  }
+>;

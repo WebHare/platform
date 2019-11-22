@@ -1,0 +1,101 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/precalc/support.whlib";
+
+
+OpenPrimary();
+OBJECT link := GetIPCLinkToParent();
+
+BOOLEAN debug;
+
+RECORD msg := link->ReceiveMessage(MAX_DATETIME);
+IF (msg.status != "ok" OR msg.msg.task != "config")
+  ABORT("Excected config");
+
+debug := msg.msg.debug;
+
+IF (debug)
+  PRINT(`${TimeStamp()} DB writer started\n`);
+
+DATETIME nextcommit := MAX_DATETIME;
+WHILE (TRUE)
+{
+  msg := link->ReceiveMessage(nextcommit);
+  IF (msg.status = "timeout")
+  {
+    IF (debug)
+      PRINT(`${TimeStamp()} DB writer commit\n`);
+    DATETIME start := GetCurrentDateTime();
+    GetPrimary()->CommitWork();
+    IF (debug)
+      PRINT(`${TimeStamp()} DB writer commit done in ${GetDatetimeDifference(start, GetCurrentDateTime()).msecs}ms\n`);
+    BroadcastEvent('system:precalccache.updated', DEFAULT RECORD);
+    nextcommit := MAX_DATETIME;
+    CONTINUE;
+  }
+
+  IF (msg.status != "ok" OR msg.msg.task = "stop")
+    BREAK;
+
+  IF (debug)
+    PRINT(`${TimeStamp()} DB writer task ${msg.msg.task}\n`);
+
+  IF (nextcommit = MAX_DATETIME)
+  {
+    IF (debug)
+      PRINT(`${TimeStamp()} DB writer start new commit cycle\n`);
+    GetPrimary()->BeginWork();
+    nextcommit := AddTimeToDate(5000, GetCurrentDateTime());
+  }
+
+  DATETIME start := GetCurrentDateTime();
+  SWITCH (msg.msg.task)
+  {
+    CASE "invalidateall"
+    {
+      UPDATE system.precalccache SET state := "softexpired" WHERE state = "valid";
+    }
+    CASE "insert"
+    {
+      INSERT msg.msg.value INTO system.precalccache;
+    }
+    CASE "update"
+    {
+      UPDATE system.precalccache
+         SET RECORD msg.msg.value
+       WHERE hash = msg.msg.hash;
+    }
+    CASE "delete"
+    {
+      FOREVERY (STRING hash FROM msg.msg.hashes)
+        DELETE FROM system.precalccache WHERE COLUMN hash = VAR hash;
+    }
+    CASE "deleteall"
+    {
+      DELETE FROM system.precalccache;
+
+      // Immediate commit
+      nextcommit := GetCurrentDateTime();
+    }
+    CASE "commit"
+    {
+      // Immediate commit
+      nextcommit := GetCurrentDateTime();
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Illegal task '${msg.msg.task}'`);
+    }
+  }
+
+  IF (debug)
+    PRINT(`${TimeStamp()} DB writer task ${msg.msg.task} done in ${GetDatetimeDifference(start, GetCurrentDateTime()).msecs}ms\n`);
+}
+
+IF (debug)
+  PRINT(`${TimeStamp()} DB writer shutdown\n`);
+link->Close();

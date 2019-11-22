@@ -1,0 +1,140 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         lib="screens/commondialogs/simplequerybuilder.whlib"
+         gid="commondialogs.simplequerybuilder">
+
+  <screen name="simplequerybuilder"
+          allowresize="true"
+          tid=".apptitle"
+          gid=".main"
+          onshow="onshow"
+          savestate="position size">
+    <actions>
+      <action name="addfilter" onexecute="doaddfilter" />
+      <action name="addalternative" onexecute="doaddalternative">
+        <enableon source="filterlist" min="1" checkflags="canaddalternative" />
+      </action>
+      <action name="editfilter" onexecute="doeditfilter">
+        <enableon source="filterlist" min="1" checkflags="canedit" />
+      </action>
+      <action name="deletefilter" onexecute="dodeletefilter">
+        <enableon source="filterlist" min="1" checkflags="candelete" />
+      </action>
+
+      <action name="addcolumn" onexecute="doaddcolumn" />
+      <action name="editcolumn" onexecute="doeditcolumn">
+        <enableon source="columns" min="1" max="1" checkflags="caneditcolumn" />
+      </action>
+      <action name="deletecolumn" onexecute="dodeletecolumn">
+        <enableon source="columns" min="1" checkflags="caneditcolumn" />
+      </action>
+    </actions>
+
+    <body height="1pr">
+      <box name="sourcebox">
+        <line layout="left">
+          <text valuetid=".sourcename" />
+        </line>
+        <select name="types"
+                type="pulldown"
+                onchange="ontypechange" />
+      </box>
+      <box tid=".filtersbox" height="1pr" hr="false">
+        <grid height="1pr">
+          <col width="1pr" />
+          <col />
+          <row height="1pr">
+            <cell>
+              <panel height="1pr">
+                <list name="filterlist"
+                      selectmode="single"
+                      height="1pr"
+                      width="1pr"
+                      flags="canaddalternative canedit candelete"
+                      openaction="editfilter"
+                      sortable="false">
+                  <column name="title" type="text" />
+                  <column name="specifics" type="text" />
+                </list>
+              </panel>
+            </cell>
+            <cell>
+              <button action="addfilter" width="1pr" tid="tollium:common.actions.add"/>
+              <button action="addalternative" width="1pr" />
+              <line>
+                <button action="editfilter" width="1pr" tid="tollium:common.actions.edit" />
+              </line>
+              <button action="deletefilter" width="1pr"  tid="tollium:common.actions.delete"/>
+            </cell>
+          </row>
+        </grid>
+      </box>
+      <box name="columnsbox" height="1pr" hr="false">
+        <grid height="1pr">
+          <col width="1pr" />
+          <col />
+          <row height="1pr">
+            <cell>
+              <panel height="1pr">
+                <list name="columns"
+                      selectmode="multiple"
+                      flags="caneditcolumn"
+                      openaction="editcolumn">
+                  <column name="rename" type="text" />
+                  <column name="title" type="text" />
+                  <column name="tag" type="text" />
+                </list>
+              </panel>
+            </cell>
+            <cell>
+              <button action="addcolumn" width="1pr" />
+              <button action="editcolumn" width="1pr" />
+              <button action="deletecolumn" width="1pr" />
+            </cell>
+          </row>
+        </grid>
+      </box>
+    </body>
+    <footer name="dialogbuttons">
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="addeditcolumn" allowresize="true" savestate="position size">
+    <body>
+      <select name="field"
+              type="pulldown" />
+
+      <textedit name="rename" width="1pr" />
+      <text valuetid=".leaveemptyfortagname" />
+      <panel height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+
+  <screen name="addeditfilter" allowresize="true" savestate="position size">
+    <compositions>
+      <wrd:entity name="filterentity" />
+    </compositions>
+    <body>
+      <select name="field"
+              type="pulldown"
+              onchange="onfieldchange" />
+
+      <select name="condition"
+              type="pulldown" />
+
+      <checkbox title=""
+                name="casesensitive"
+                labeltid=".casesensitive" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

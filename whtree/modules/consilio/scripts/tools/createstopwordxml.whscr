@@ -1,0 +1,181 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+// The base URL to download the stopwords file from (replace %1 with lowercase language name)
+STRING baseurl := "http://snowball.tartarus.org/algorithms/%1/stop.txt";
+// The base file name to use for the stopwords XML file (replace %1 with language code)
+STRING basefile := "%1_stopwords.xml";
+// The base introduction text for the stopwords XML file (replace %1 with language name and %2 with download URL)
+STRING baseintro := "\n" //                                                                          |80
+                 || "%1 stop word list for WebHare Consilio\n"
+                 || "\n"
+                 || "In this file a list of common words is specified, which are considered less\n"
+                 || "important for search queries. Accents are removed or rewritten by Consilio when\n"
+                 || "necessary, but be sure to save this file as UTF-8 if you add accented\n"
+                 || "characters.\n"
+                 || "If you make changes to this file, be sure to put it in the etc/lang directory\n"
+                 || "of your WebHare installation, otherwise it will be overwritten when upgrading or\n"
+                 || "reinstalling WebHare.\n"
+                 || "\n"
+                 || "The words on this list are taken from\n"
+                 || "%2\n";
+// The base skipped words text for the stopwords XML file (append space-separated skipped words)
+STRING baseskipped := "\n"
+                   || "The following words containing an apostroph have been split into separate\n"
+                   || "parts, because Consilio considers punctuation as white space (words that were\n"
+                   || "only added as part of a split word are marked as such):\n"
+                   || "\n";
+
+// The stopwords XML namespace
+STRING namespace := "http://www.webhare.net/xmlns/consilio/stopwords";
+
+// Check for valid language code input
+STRING ARRAY args := GetConsoleArguments();
+IF (Length(args) < 1)
+{
+  Print("Usage: createstopwordxml <langcode> (Note: langcode is not country code!)\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+STRING langcode := ToLowercase(args[0]);
+STRING langname; // The language name is also used (in lowercase) to construct the download URL
+SWITCH (langcode)
+{
+  // These are all languages on the Snowball site having a stopwords list
+  CASE "da" { langname := "Danish"; }
+  CASE "de" { langname := "German"; }
+  CASE "en" { langname := "English"; }
+  CASE "es" { langname := "Spanish"; }
+  CASE "fi" { langname := "Finnish"; }
+  CASE "fr" { langname := "French"; }
+  CASE "hu" { langname := "Hungarian"; }
+  CASE "it" { langname := "Italian"; }
+  CASE "nl" { langname := "Dutch"; }
+  CASE "no" { langname := "Norwegian"; }
+  CASE "pt" { langname := "Portuguese"; }
+  CASE "ro" { langname := "Romanian"; }
+  CASE "ru" { langname := "Russian"; }
+  CASE "sv" { langname := "Swedish"; }
+  DEFAULT
+  {
+    Print("Unknown or unsupported language code '" || langcode || "'\n");
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+}
+
+// Download the stopwords file
+STRING stopurl := Substitute(baseurl, "%1", ToLowercase(langname));
+Print("Downloading " || stopurl || "...");
+OBJECT browser := NEW WebBrowser();
+IF (NOT browser->GotoWebPage(stopurl))
+{
+  Print("failed\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+Print("ok\n");
+
+// Read the downloaded stopwords file (which is not UTF-8 and will have to be converted)
+Print("Reading words...");
+// [ STRING word /* The stop word */, BOOLEAN part /* This is part of a split word */, STRING comment /* Optional comment */ ]
+RECORD ARRAY stopwords;
+// List of words that were split (used for displaying them in the file's header)
+STRING ARRAY skippedwords;
+FOREVERY (STRING line FROM Tokenize(DecodeCharSet(BlobToString(browser->content, -1), "ISO-8859-1"), "\n"))
+{
+  // Comments start with the "|" character
+  STRING ARRAY words := Tokenize(line, "|");
+  // words[0] contains all text up to the first "|" character
+  STRING word := ToLowercase(TrimWhitespace(words[0]));
+  IF (word = "")
+    CONTINUE;
+
+  // Read the comment for this word, if any (this will not read multi-line comments)
+  STRING comment := Length(words) > 1 ? TrimWhitespace(words[1]) : "";
+
+  // Split this word if it contains an apostroph
+  IF (SearchSubstring(word, "'") >= 0)
+  {
+    STRING ARRAY parts := Tokenize(word, "'");
+    FOREVERY (STRING part FROM parts)
+      IF (NOT RecordExists(SELECT FROM stopwords WHERE COLUMN word = part))
+      {
+        INSERT [ word := part
+               , part := TRUE // Add the word as part of a split word
+               , comment := "" // Omit comment
+               ] INTO stopwords AT END;
+      }
+    INSERT word INTO skippedwords AT END;
+  }
+  ELSE
+  {
+    // This word is already on the list (as part of a split word), replace it with this word
+    DELETE FROM stopwords WHERE COLUMN word = VAR word;
+    INSERT [ word := word
+           , part := FALSE
+           , comment := comment
+           ] INTO stopwords AT END;
+  }
+}
+
+// Order the stopwords alphabetically
+stopwords := SELECT * FROM stopwords ORDER BY ToUppercase(word);
+skippedwords := SELECT AS STRING ARRAY word FROM ToRecordArray(skippedwords, "word") ORDER BY ToUppercase(word);
+Print("ok\n");
+
+// Create the stopwords XML file
+STRING stopfile := Substitute(basefile, "%1", langcode);
+Print("Creating stopword file '" || stopfile || "'...");
+
+// Create an XML document
+OBJECT stopdocument := (NEW XmlDOMImplementation())->CreateDocument(namespace, "stopwords", DEFAULT OBJECT);
+OBJECT stopwordsnode := stopdocument->documentelement;
+stopwordsnode->SetAttribute("xmlns", namespace);
+stopwordsnode->SetAttribute("xml:lang", langcode);
+
+// Create intro text
+STRING intro := Substitute(Substitute(baseintro, "%1", langname), "%2", stopurl);
+
+// Add skipped words text to the intro text, if there are skipped words
+IF (Length(skippedwords) > 0)
+{
+  STRING skipped; // Text with skipped words
+  INTEGER len; // Current line length
+  FOREVERY (STRING word FROM skippedwords)
+  {
+    // If the line length would exceed 80 characters when adding this word, start a new line
+    IF (len + 1 + Length(word) > 80)
+    {
+      skipped := skipped || "\n";
+      len := 0;
+    }
+    skipped := skipped || (len > 0 ? " " : "") || word;
+    len := len + 1 + Length(word);
+  }
+  // Add the skipped word list to the intro text
+  intro := intro || baseskipped || skipped || "\n";
+}
+
+// Add intro text
+stopwordsnode->parentnode->InsertBefore(stopdocument->CreateComment(intro), stopwordsnode);
+
+// Add words
+FOREVERY (RECORD word FROM stopwords)
+{
+  // Add the word to the XML document
+  OBJECT wordnode := stopwordsnode->AppendChild(stopdocument->CreateElement("word"));
+  wordnode->AppendChild(stopdocument->CreateTextNode(word.word));
+  IF (word.part)
+    wordnode->SetAttribute("part", "true");
+
+  IF (word.comment != "")
+    wordnode->AppendChild(stopdocument->CreateComment(word.comment));
+}
+
+// Write the XML document to disk
+StoreDiskFile(stopfile, stopdocument->GetDocumentBlob(TRUE), [ overwrite := TRUE ]);
+Print("ok\n");

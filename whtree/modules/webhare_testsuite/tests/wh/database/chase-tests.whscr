@@ -1,0 +1,451 @@
+<?wh // Testscript
+
+LOADLIB "mod::webhare_testsuite/lib/db/test_client.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+ClientStart(2);
+
+TABLE <INTEGER intdata, STRING strdata, BOOLEAN booldata> beta_modifytests;
+INTEGER test_fp_trans;
+INTEGER cursorid;
+
+RECORD ARRAY update_recs;
+BOOLEAN FUNCTION TestRecord(RECORD testr)
+{
+  INSERT testr INTO update_recs AT END;
+  RETURN TRUE;
+}
+
+//--------------------------------------------------------------------------------
+// Test 1; normal record-update chase
+
+IF (clientid = 0)
+{
+  // Put standard record into beta_modifytests, commit and open new trans
+  SectionStart(1);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+
+  __BindWHDBMetaTables(test_fp_trans);
+  IF (NOT WHDBColumnExists("beta_modifytests","intdata"))
+    SendWHDBCommand(test_fp_trans, "CREATE TABLE beta_modifytests(intdata INTEGER, strdata VARCHAR(1024), booldata BOOLEAN)");
+
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  DELETE FROM beta_modifytests;
+  INSERT INTO beta_modifytests(intdata, strdata, booldata) VALUES (1, "a", TRUE);
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors test 1");
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="a",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  SectionEnd(1);
+}
+
+IF (clientid = 1)
+{
+  // Update record and commit, while client 0 has trans open.
+  SectionStart(2);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  UPDATE beta_modifytests SET strdata := "b" WHERE intdata = 1;
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="b",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors test 1");
+
+  SectionEnd(2);
+}
+
+IF (clientid = 0)
+{
+  // Also update, in old trans, see if chase was ok.
+  SectionStart(3);
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="a",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  update_recs := DEFAULT RECORD ARRAY;
+  UPDATE beta_modifytests SET booldata := FALSE WHERE intdata = 1 AND TestRecord(beta_modifytests);
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="b",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+  TestEqualRecordArrays([[intdata:=1,strdata:="a",booldata:=TRUE], [intdata:=1, strdata:="b",booldata:=TRUE]], update_recs);
+
+  RollBackWHDBTransaction(test_fp_trans);
+
+  SectionEnd(3);
+}
+
+//--------------------------------------------------------------------------------
+// Test 2; normal record-update chase where the DB-condition changes
+IF (clientid = 0)
+{
+  SectionStart(4);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  DELETE FROM beta_modifytests;
+  INSERT INTO beta_modifytests(intdata, strdata, booldata) VALUES (1, "a", TRUE);
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="a",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors test 1");
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  SectionEnd(4);
+}
+IF (clientid = 1)
+{
+  SectionStart(5);
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="a",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  UPDATE beta_modifytests SET intdata := 2 WHERE strdata = "a";
+
+  TestEqualRecordArrays([[intdata:=2,strdata:="a",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    FAIL("Commit errors test 1");
+
+  SectionEnd(5);
+}
+IF (clientid = 0)
+{
+  SectionStart(6);
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="a",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  update_recs := DEFAULT RECORD ARRAY;
+  UPDATE beta_modifytests SET booldata := FALSE WHERE intdata > 0 AND TestRecord(beta_modifytests);
+
+  TestEqualRecordArrays([[intdata:=2,strdata:="a",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+  TestEqualRecordArrays([[intdata:=1,strdata:="a",booldata:=TRUE], [intdata:=2,strdata:="a",booldata:=TRUE]], update_recs);
+
+  RollBackWHDBTransaction(test_fp_trans);
+
+  SectionEnd(6);
+}
+//--------------------------------------------------------------------------------
+// Test 3; normal record-update chase where the DB-condition changes
+
+IF (clientid = 0)
+{
+  SectionStart(7);
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  DELETE FROM beta_modifytests;
+  INSERT INTO beta_modifytests(intdata, strdata, booldata) VALUES (1, "abc", TRUE);
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors test 3");
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="abc",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  UPDATE beta_modifytests SET strdata := "xyz" WHERE intdata = 1;
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="xyz",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  SectionEnd(7);
+}
+IF (clientid = 1)
+{
+  SectionStart(8);
+
+  test_fp_trans := OpenTransaction("~webhare", "", "hang1");
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="abc",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  UpcomingHang("hang1"); // Signal upcoming hangs
+  // This hangs until the update in section 9 has finished
+  UPDATE beta_modifytests SET booldata := FALSE WHERE intdata = 1;
+  SectionEnd(8);
+}
+IF (clientid = 0)
+{
+  SectionStart(9);
+
+  UPDATE beta_modifytests SET strdata := "xzy" WHERE intdata = 1;
+  TestEqualRecordArrays([[intdata:=1,strdata:="xzy",booldata:=TRUE]], (SELECT * FROM beta_modifytests));
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors test 1");
+
+  SectionEnd(9);
+}
+IF (clientid = 1)
+{
+  SectionStart(10);
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="xzy",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors test 1");
+  SectionEnd(10);
+}
+
+//--------------------------------------------------------------------------------
+// Test 4; chasing turning an update to dummy. update xzy to xyz in two different
+// transactions, and delete it from the second - used to trigger a locking bug due
+// to the second update being a dummy
+IF (clientid = 1)
+{
+  SectionStart(11);
+  test_fp_trans := OpenTransaction("~webhare", "", "hang2");
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="xzy",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+  SectionEnd(11);
+}
+IF (clientid = 0)
+{
+  SectionStart(12);
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="xzy",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+  UPDATE beta_modifytests SET strdata := "xyz" WHERE intdata = 1;
+  TestEqualRecordArrays([[intdata:=1,strdata:="xyz",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+
+  SectionEnd(12);
+}
+IF (clientid = 1)
+{
+  SectionStart(13);
+  TestEqualRecordArrays([[intdata:=1,strdata:="xzy",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+
+  UpcomingHang("hang2"); // Signal upcoming hangs
+  // This hangs until the update in section 11 has finished
+  UPDATE beta_modifytests SET strdata := "xyz" WHERE intdata = 1;
+
+  SectionEnd(13);
+}
+IF (clientid = 0)
+{
+  SectionStart(14);
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="xyz",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors section #14");
+
+  SectionEnd(14);
+}
+IF (clientid = 1)
+{
+  SectionStart(15);
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="xyz",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+  DELETE FROM beta_modifytests WHERE intdata=1;
+  TestEqualRecordArrays(DEFAULT RECORD ARRAY, (SELECT * FROM beta_modifytests));
+
+  RollbackWHDBTransaction(test_fp_trans);
+
+  //Test that our rollback was indeed effective
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+  TestEqualRecordArrays([[intdata:=1,strdata:="xyz",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+  RollbackWHDBTransaction(test_fp_trans);
+
+  SectionEnd(15);
+}
+
+/* Giving up on trying to reproduce this one
+
+Scenario of evil.
+
+3 transacties. tegelijk gestart. autocommit off
+
+1: UPDATE beta_modifytests SET intdata := 50
+2: UPDATE beta_modifytests SET intdata := 60
+1: COMMIT
+3: UPDATE beta_modifytests SET intdata := 70
+Wacht tot 3 automatisch rollbackt wegens timeout
+2: COMMIT
+
+SQL> select * from beta_modifytests
++-------+-------+--------+
+|INTDATA|STRDATA|BOOLDATA|
++-------+-------+--------+
+|9      |''     |FALSE   |
+|25     |''     |FALSE   |
++-------+-------+--------+
+
+
+
+//--------------------------------------------------------------------------------
+// Test 5; .... locking issues, still unknown what causes them
+IF (clientid = 0)
+{
+  SectionStart(16);
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+  DELETE FROM beta_modifytests;
+  INSERT INTO beta_modifytests(intdata) VALUES(5);
+  TestEqualRecordArrays([[intdata:=5,strdata:="",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+  CommitWHDBTransaction(test_fp_trans);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+  UPDATE beta_modifytests SET intdata := 6; //force a chase
+  UPDATE beta_modifytests SET intdata := 7; //force another chase
+  SectionEnd(16);
+}
+IF(clientid = 1) //This one tries to Lock the evil record
+{
+  SectionStart(17);
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  cursorid := WHDBDCOpen(test_fp_trans, "beta_modifytests", ["intdata"], FALSE, TRUE);
+
+  IF (NOT WHDBDCNextRow(cursorid))
+    ABORT("Cannot move to first row in beta_modifytests");
+
+  SectionEnd(17);
+}
+IF (clientid = 0)
+{
+  SectionStart(18);
+  CommitWHDBTransaction(test_fp_trans);
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+  TestEqualRecordArrays([[intdata:=5,strdata:="",booldata:=FALSE]], (SELECT * FROM beta_modifytests));
+  SectionEnd(18);
+}
+*/
+
+//--------------------------------------------------------------------------------
+// Test 6; Webhare local WHERE-clause retest after update
+IF (clientid = 0)
+{
+  SectionStart(16);
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  SendWHDBCommand(test_fp_trans, "DROP TABLE beta_modifytests CASCADE");
+  SendWHDBCommand(test_fp_trans, "CREATE TABLE beta_modifytests(intdata INTEGER, strdata VARCHAR(1024), booldata BOOLEAN) ");
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+  INSERT INTO beta_modifytests(intdata, strdata) VALUES (1, "1");
+  INSERT INTO beta_modifytests(intdata, strdata) VALUES (1, "2");
+  CommitWHDBTransaction(test_fp_trans);
+
+  INTEGER test_fp_trans_1 := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests :=BindTransactionToTable (test_fp_trans_1, "beta_modifytests");
+  UPDATE beta_modifytests SET intdata := 2 WHERE strdata = "1";
+
+  INTEGER test_fp_trans_2 := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+
+  CommitWHDBTransaction(test_fp_trans_1);
+
+  beta_modifytests :=BindTransactionToTable (test_fp_trans_2, "beta_modifytests");
+  UPDATE beta_modifytests SET intdata := 2 WHERE intdata * 1 = 1; // Locally tested
+
+  CommitWHDBTransaction(test_fp_trans_2);
+
+  SectionEnd(16);
+}
+
+//--------------------------------------------------------------------------------
+// Test 7; Chase-chain intermediates removal
+
+IF (clientid = 0)
+{
+  SectionStart(17);
+
+  INTEGER test_fp_trans_1, test_fp_trans_2;
+  TABLE table_1 LIKE beta_modifytests;
+  TABLE table_2 LIKE beta_modifytests;
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  SendWHDBCommand(test_fp_trans, "DROP TABLE beta_modifytests CASCADE");
+  SendWHDBCommand(test_fp_trans, "CREATE TABLE beta_modifytests(intdata INTEGER, strdata VARCHAR(1024), booldata BOOLEAN) ");
+  CommitWHDBTransaction(test_fp_trans);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  table_1 := BindTransactionToTable(test_fp_trans, "beta_modifytests");
+  INSERT INTO table_1(intdata, strdata) VALUES (1, "A");
+  CommitWHDBTransaction(test_fp_trans);
+
+  test_fp_trans_1 := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  table_1 := BindTransactionToTable(test_fp_trans_1, "beta_modifytests");
+
+  INTEGER sectionid := SELECT AS INTEGER id FROM SendWHDBCommand(test_fp_trans_1, "SHOW DBFILE_SECTIONS") WHERE tablename="BETA_MODIFYTESTS";
+  IF (sectionid = 0)
+    ABORT("Determining section id of BETA_MODIFYTESTS failed!");
+  RECORD ARRAY sectiondata;
+
+  test_fp_trans_2:= __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  table_2 := BindTransactionToTable(test_fp_trans_2, "beta_modifytests");
+  UPDATE table_2 SET strdata := "B";
+  CommitWHDBTransaction(test_fp_trans_2);
+
+  test_fp_trans_2 := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  table_2 := BindTransactionToTable(test_fp_trans_2, "beta_modifytests");
+  UPDATE table_2 SET strdata := "C";
+  CommitWHDBTransaction(test_fp_trans_2);
+
+  test_fp_trans_2 := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  table_2 := BindTransactionToTable(test_fp_trans_2, "beta_modifytests");
+  UPDATE table_2 SET strdata := "D";
+  UPDATE table_2 SET strdata := "E";
+  RollbackWHDBTransaction(test_fp_trans_2);
+
+  // Both check the contents and make sure the 'B', 'D' and 'E' versions are deleted by scanning the relevant section.
+  RECORD ARRAY contents := SELECT strdata FROM table_1;
+  TestEqualRecordArrays([[strdata:="A"]], contents);
+
+  sectiondata:= SendWHDBCommand(test_fp_trans_1, "SHOW SECTION " || sectionid);
+  // We expect that the record with B, D or E are either gone or have their inserter and deleter both set to 0
+  RECORD ARRAY data :=
+        SELECT *
+          FROM sectiondata
+         WHERE (strdata = "B" OR strdata = "D" OR strdata = "E")
+           AND (__ins != 0 OR __del != 0) // 0,0 is legal
+           AND (__ins != -1 OR __del != -1) // -1,-1 is legal
+             ;
+
+  IF (LENGTH(data) != 0)
+  {
+    /* This error can occur when other transactions are active.
+       Run this test with only a database (no publisher, webserver, consilio or whatnot) to
+       test it properly.
+    */
+    PRINT("Section contents:\n");
+    PrintRecordArrayTo(0, sectiondata, "boxed");
+    PRINT("Problem records:\n");
+    PrintRecordArrayTo(0, data, "boxed");
+    ABORT("B, D and E record have NOT been removed! (is this test running isolated?)");
+  }
+
+  UPDATE table_1 SET strdata := "F";
+
+  contents := SELECT strdata FROM table_1;
+  TestEqualRecordArrays([[strdata:="F"]], contents);
+
+  RECORD ARRAY errors := CommitWHDBTransaction(test_fp_trans_1);
+  IF (LENGTH(errors) != 0)
+  {
+    PRINT("Commit failed!\n");
+    PrintRecordArrayTo(0, errors, "boxed");
+  }
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  SendWHDBCommand(test_fp_trans, "DROP TABLE beta_modifytests CASCADE");
+  CommitWHDBTransaction(test_fp_trans);
+
+  SectionEnd(17);
+}
+
+TestEnd(18);

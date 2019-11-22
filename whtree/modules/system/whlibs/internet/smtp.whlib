@@ -1,0 +1,709 @@
+﻿<?wh
+/** @short Simple Mail Transfer Protocol (SMTP)
+    @long This library offers functions to build messages (including messages with alternative HTML parts and attachments), and send those messages to a mailserver using the SMTP protocol
+    @topic internet/email
+*/
+
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/mime.whlib" EXPORT TokenizeEmailAddresses, SplitEmailName;
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+STRING set_qtext, set_text, set_atext, set_fws, set_ctext;
+
+BOOLEAN FUNCTION CheckRoute(STRING route)
+{
+  //ADDME to be implemented
+  RETURN TRUE;
+}
+
+MACRO InitSets(OBJECT parser)
+{
+  set_qtext := parser->RemoveFromSet(parser->set_ascii, "\t\r\n \\\""); // from rfc 2822
+  set_text := parser->RemoveFromSet(parser->set_ascii, "\r\n"); // from rfc 2822
+  set_atext := parser->set_alpha || parser->set_digit || "!#$%&'*+-/=?^_`{|}~"; // from rfc 2822
+  set_fws := " \r\n\t";
+  set_ctext := parser->RemoveFromSet(parser->set_ascii, "()\\"); // from rfc 2822
+}
+
+
+BOOLEAN FUNCTION CheckPhrase(STRING phrase)
+{
+  // phrase = 1*word / obs-phrase
+  // word = atom / quoted-string
+  // atom = [CFWS] 1*atext [CFWS]
+  // ccontent = ctext / quoted-pair / comment
+  // comment = "(" *([FWS] ccontent) [FWS] ")"
+  // CFWS = *([FWS] comment) (([FWS] comment) / FWS)
+  // quoted-pair = ("\" text)
+  // qcontent = qtext / quoted-pair
+  // quoted-string = [CFWS] DQUOTE *([FWS] qcontent) [FWS] DQUOTE [CFWS]
+
+  OBJECT parser := NEW StringParser(phrase);
+
+  IF (set_qtext = "")
+    InitSets(parser);
+
+  WHILE (NOT parser->eof)
+  {
+    parser->ParseWhileInSet(set_fws);
+
+    IF (parser->TryParse('(')) // comment
+    {
+      // Parse comment. Quotes can be nested
+      INTEGER nesting := 1;
+      WHILE (nesting > 0 AND NOT parser->eof)
+      {
+        parser->ParseWhileInSet(set_ctext);
+        SWITCH (parser->current)
+        {
+        CASE ")"  { nesting := nesting - 1; }
+        CASE "("  { nesting := nesting + 1; }
+        CASE "\\"
+          {
+            parser->Next();
+            IF (SearchSubString(set_text, parser->current) = -1)
+              RETURN FALSE;
+          }
+        DEFAULT   { RETURN FALSE; }
+        }
+        parser->Next();
+      }
+      IF (nesting != 0)
+        RETURN FALSE;
+    }
+    ELSE IF (parser->TryParse('"')) // quoted-string
+    {
+      // Parse quoted-string
+      WHILE (TRUE)
+      {
+        parser->ParseWhileInSet(set_qtext || set_fws);
+        SWITCH (parser->current)
+        {
+        CASE '"'  { BREAK; }
+        CASE "\\"
+          {
+            parser->Next();
+            IF (SearchSubString(set_text, parser->current) = -1)
+              RETURN FALSE;
+            parser->Next();
+          }
+        DEFAULT   { RETURN FALSE; }
+        }
+        parser->Next();
+      }
+
+      // Eat ending '"'
+      parser->Next();
+    }
+    ELSE
+    {
+      // Must be atom - must be non-empty or end of string please
+      IF (parser->ParseWhileInSet(set_atext) = "" AND NOT parser->eof)
+        RETURN FALSE;
+    }
+  }
+  RETURN TRUE;
+}
+
+BOOLEAN FUNCTION CheckQuoted(STRING word)
+{
+  OBJECT parser := NEW StringParser(word);
+  parser->Next();
+
+  IF (set_qtext = "")
+    InitSets(parser);
+
+  WHILE (TRUE)
+  {
+    parser->ParseWhileInSet(set_qtext);
+    IF (parser->TryParse('"'))
+      RETURN parser->eof;
+    IF (NOT parser->TryParse('\\')) // If not a slash: it was a non-qtext thingy
+      RETURN FALSE;
+    parser->Next(); // quoated-pair: Eat "\"
+    IF (parser->current = "" OR SearchSubString(set_text, parser->current) = -1) // Is text?
+      RETURN FALSE;
+    parser->Next(); // Eat text
+  }
+}
+
+STRING ARRAY specials := ['(', ')', '<', '>', '@', ',', ';', ':', '\\', '"', '.', '[', ']'];
+
+
+BOOLEAN FUNCTION CheckAtom(STRING word)
+{
+  INTEGER i;
+  FOR (i := 0; i < Length(word); i := i + 1)
+  {
+    STRING char := Substring(word, i, 1);
+
+    //Check for space
+    IF (char = " ")
+      RETURN FALSE;
+
+    //Check for specials
+    IF (char IN specials)
+      RETURN FALSE;
+
+    //Check for control chars
+    INTEGER byte := GetByteValue(char);
+
+    IF (byte <= 31 OR byte >= 127)
+      RETURN FALSE;
+  }
+
+  RETURN TRUE;
+}
+
+BOOLEAN FUNCTION CheckLocalPart(STRING localpart)
+{
+//  PRINT("Checking local part '" || EncodeJava(localpart) || "'\n");
+  IF (localpart = "")
+    RETURN FALSE;
+
+  IF (Left(localpart, 1) = '"' AND Right(localpart, 1) = '"')
+    RETURN CheckQuoted(localpart);
+
+  FOREVERY (STRING word FROM Tokenize(localpart, "."))
+  {
+    IF (NOT CheckAtom(word))
+      RETURN FALSE;
+  }
+
+  RETURN TRUE;
+}
+
+BOOLEAN FUNCTION CheckDomain(STRING domain)
+{
+  IF (RIGHT(domain, 1) = ".")
+    domain := LEFT(domain, LENGTH(domain) - 1);
+
+  STRING ARRAY subdomains := Tokenize(domain, ".");
+  IF (LENGTH(subdomains) < 2)
+    RETURN FALSE;
+
+  FOREVERY (STRING subdomain FROM subdomains)
+  {
+    IF (subdomain = "")
+      RETURN FALSE;
+
+    IF (NOT CheckAtom(subdomain))
+      RETURN FALSE;
+  }
+
+  RETURN TRUE;
+}
+
+/** @short Check if an email address is valid
+    @long  This function checks if a given email address appears to be valid. It does
+           not verify whether the domain name actually exists, or whether the user exists on the mailserver.
+    @loadlib mod::system/lib/mailer.whlib
+    @param emailaddress Email adres to verify (address part only - eg. as returned by SplitEmailName)
+    @return True if the email address appears to be a well-formed email address
+    @see SplitEmailName
+*/
+PUBLIC BOOLEAN FUNCTION IsValidEmailAddress(STRING emailaddress)
+{
+  STRING ARRAY name_addr_check := Tokenize(emailaddress, '<');
+
+  // First check if we have a simple address or a name & address pair
+
+  IF (Length(name_addr_check) = 2)
+  {
+    IF (NOT (Right(name_addr_check[1], 1) = ">"))
+      RETURN FALSE;
+
+    // check if the name's valid
+    IF (NOT CheckPhrase(name_addr_check[0]))
+      RETURN FALSE;
+
+    STRING routeaddress := name_addr_check[1];
+    routeaddress := Left(routeaddress, Length(routeaddress) - 1);
+
+    STRING ARRAY route_check := Tokenize(routeaddress, ':');
+
+    IF (Length(route_check) = 2)
+    {
+      // check if the route is valid
+      IF (NOT CheckRoute(route_check[0]))
+        RETURN FALSE;
+
+      emailaddress := route_check[1];
+    }
+    ELSE IF (Length(route_check) = 1)
+      emailaddress := routeaddress;
+    ELSE
+      RETURN FALSE;
+
+  }
+  ELSE IF (Length(name_addr_check) != 1)
+    RETURN FALSE;
+
+  // Now check the simple address
+
+  STRING ARRAY address_spec := Tokenize(emailaddress,'@');
+
+  IF (Length(address_spec) != 2)
+    RETURN FALSE;
+
+  IF (NOT CheckLocalPart(address_spec[0]))
+    RETURN FALSE;
+
+  IF (NOT CheckDomain(address_spec[1]))
+    RETURN FALSE;
+
+  RETURN TRUE;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// SMTP Connection management
+//
+
+/** Handles an SMTP connection to a server
+*/
+PUBLIC STATIC OBJECTTYPE SMTPConnection
+<
+  OBJECT socket;
+  RECORD pvt_lasterror;
+  BOOLEAN onspeakingterms;
+  STRING pvt_hostname;
+  STRING ARRAY capabilities;
+  BOOLEAN lmtp;
+
+  /// @type record Last error @includecelldef #SendCommand.return
+  PUBLIC PROPERTY lasterror(pvt_lasterror,-);
+
+  /// Local hostname, set after call to Connect
+  PUBLIC PROPERTY myhostname(pvt_hostname,-);
+
+  MACRO NEW()
+  {
+    this->socket := CreateSocket("TCP");
+  }
+
+  /** Closes the connection
+  */
+  PUBLIC MACRO Close()
+  {
+    IF(ObjectExists(this->socket))
+    {
+      IF(this->onspeakingterms)
+      {
+        this->SendCommand("QUIT");
+      }
+
+      this->socket->Close();
+      this->socket := DEFAULT OBJECT;
+      this->onspeakingterms := FALSE;
+    }
+  }
+
+  /** Get a string with the last error message
+      @return Error string (code + message)
+  */
+  PUBLIC STRING FUNCTION GetErrorMessage()
+  {
+    IF(RecordExists(this->lasterror))
+      RETURN this->lasterror.code || " " || this->lasterror.message;
+    RETURN "No SMTP error";
+  }
+
+  /** Sets the timeout for the underlying TCP connection in milliseconds
+      @param timeout New timeout in milliseconds
+  */
+  PUBLIC MACRO SetTimeout(INTEGER timeout)
+  {
+    this->socket->timeout := timeout;
+  }
+
+  BOOLEAN FUNCTION SendEhlo()
+  {
+    RECORD response := this->SendCommand(`${this->lmtp ? "LHLO" : "EHLO"} ${this->myhostname}`);
+    IF (response.code != 250)
+    {
+      this->pvt_lasterror := response;
+
+      // Wrong response to HELO command
+      this->Close();
+      RETURN FALSE;
+    }
+    this->capabilities := Arrayslice(Tokenize(response.message,"\n"),1);
+    RETURN TRUE;
+  }
+
+  /** Connects to a remote server
+      @param server Server hostname
+      @param serverport Server port
+      @cell options.lmtp Connect using LMTP instead of SMTP
+      @return TRUE if the succesfully connected
+  */
+  PUBLIC BOOLEAN FUNCTION Connect(STRING server, INTEGER serverport, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ lmtp := FALSE ], options);
+    IF (NOT this->socket->Connect(server,serverport))
+      RETURN FALSE;
+
+    this->lmtp := options.lmtp;
+    RECORD response := this->GetResponse();
+
+    // Check if we can proceed to introduce ourselves
+    IF (response.code != 220)
+    {
+      this->pvt_lasterror := response;
+
+      // Failed to receive welcome message
+      this->Close();
+      RETURN FALSE;
+    }
+
+    // Try to look up our domainname
+    IF(this->pvt_hostname = "")
+      this->pvt_hostname := GetSystemHostName(FALSE);
+
+    IF(this->pvt_hostname ="")
+      this->pvt_hostname := "[" || this->socket->localip || "]";
+
+    IF(NOT this->SendEhlo())
+      RETURN FALSE;
+
+    this->onspeakingterms := TRUE;
+    RETURN TRUE;
+  }
+
+  /** @short This function will decode a SMTP response
+      @long The function will handle multi-line responses and return codes/messages
+      @return Record with the response
+      @cell(integer) return.code Integer of the SMTP return code (0 if the connection TCP was terminated).
+      @cell(string) return.message String with the returned message (can be a multiline message separated by \n's), empty if
+         the TCP connection was terminated.
+  */
+  RECORD FUNCTION GetResponse()
+  {
+    STRING message;
+    INTEGER code;
+    WHILE(TRUE)
+    {
+      STRING received := ReadLineFrom(this->socket->handle, 4096, TRUE);
+      IF(received="")
+        BREAK; //eof (ADDME log as corrupt)
+
+      message := (message != "" ? message || "\n" : "") || Substring(received,4);
+      IF(received NOT LIKE "???-*")
+      {
+        code := ToInteger(left(received,3),0);
+        BREAK;
+      }
+    }
+
+    IF(code=0 AND message="")
+      message := this->socket->GetErrorMessage();
+
+    RETURN [ message := message
+           , code := code
+           ];
+  }
+
+  /** Sends a command to the remote server
+      @param cmd Line with the SMTP command (eg 'MAIL FROM:<myemail@example.com>')
+      @return Response from the server @includecelldef @GetResponse.return
+      @cell(string) return.inreplyto Sent command
+  */
+  PUBLIC RECORD FUNCTION SendCommand(STRING cmd)
+  {
+    IF(NOT ObjectExists(this->socket))
+      THROW NEW Exception("SMTP connection was already closed");
+    PrintTo(this->socket->handle, cmd || '\r\n');
+    RETURN CELL[ ...this->GetResponse()
+               , inreplyto := cmd
+               ];
+  }
+
+  /** Clears the last error
+  */
+  PUBLIC MACRO ClearLastError()
+  {
+    this->pvt_lasterror := DEFAULT RECORD;
+  }
+
+  /** Runs the complete flow for sending an e-mail
+      @param receivers List of recievers
+      @param sender Sender
+      @param mimeheaders MIME headers @includecelldef SendMIMEMessageTo.headers
+      @param toppart MIME message top-part @includecelldef SendMIMEMessageTo.toppart
+      @cell options.rawheaders @includecelldef SendMIMEMessageTo.options.rawheaders
+      @return Response
+      @cell(boolean) return.success Whether sending the message was sent to at least one of the recipients
+      @cell(record array) return.failures List of recipients that were not accepted
+      @cell(string) return.failures.receiver Receiver address
+      @cell(integer) return.failures.code Error code (eg 442)
+      @cell(string) return.failures.test Error message
+      @cell(string) return.message Error message (set when #SendMessage.return.success is false)
+      @cell(string) return.smtpserverip Address of the remote server (in format host:port)
+  */
+  PUBLIC RECORD FUNCTION SendMessage(STRING ARRAY receivers, STRING sender, RECORD ARRAY mimeheaders, RECORD toppart, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ rawheaders := FALSE ], options);
+    RECORD retval :=
+        [ success := FALSE
+        , failures := DEFAULT RECORD ARRAY
+        , message := ""
+        , smtpserverip := this->socket->remoteip || ":" || this->socket->remoteport
+        ];
+
+    IF (Length(receivers)=0)
+      RETURN retval;
+
+    RECORD sender_split := SplitEmailName(sender);
+    RECORD response := this->SendCommand(`MAIL FROM:<${sender_split.email}>`);
+    IF (response.code != 250)
+    {
+      this->pvt_lasterror := response;
+      retval.message := response.message;
+      RETURN retval;
+    }
+
+    FOREVERY(STRING receiver FROM receivers)
+    {
+      RECORD receiver_split := SplitEmailName(receiver);
+      response := this->SendCommand(`RCPT TO:<${receiver_split.email}>`);
+      IF (response.code != 250)
+      {
+        INSERT INTO retval.failures(receiver, code, text)
+               VALUES(receiver, response.code, response.message) AT END;
+      }
+      ELSE
+      {
+        retval.success := TRUE;
+      }
+    }
+
+    IF (NOT retval.success)
+    {
+      response := this->SendCommand('RSET');
+      retval.message := "No recipient was accepted";
+      RETURN retval;
+    }
+
+    response := this->SendCommand('DATA');
+    IF (response.code != 354)
+    {
+      this->pvt_lasterror := response;
+      retval.success := FALSE; //didn't work anyway
+      retval.message := response.message;
+      RETURN retval;
+    }
+
+    IF (NOT RecordExists(SELECT FROM mimeheaders WHERE ToUppercase(field)="MESSAGE-ID"))
+    {
+      INSERT INTO mimeheaders(field,value) VALUES("Message-Id", CreateNewMessageId("")) AT END;
+    }
+
+    SendMIMEMessageTo(mimeheaders, toppart, PTR SendSMTPLine(this->socket->handle,#1), [ rawheaders := options.rawheaders ]);
+    // End with a line with a single period '.'
+    PrintTo(this->socket->handle, ".\r\n");
+
+    response := this->GetResponse();
+    retval.message := response.message;
+    IF (response.code != 250)
+    {
+      retval.success := FALSE; //didn't work anyway
+      this->pvt_lasterror := response;
+      RETURN retval;
+    }
+    RETURN retval;
+  }
+
+  /// Returns whether the remote server supports TLS
+  PUBLIC BOOLEAN FUNCTION SupportsTLS()
+  {
+    RETURN "STARTTLS" IN this->capabilities;
+  }
+
+  /** Initiates encryption with TLS
+      @return Whether the operation succeeded
+  */
+  PUBLIC BOOLEAN FUNCTION StartTLS()
+  {
+    //FIXME certificate verification
+    RECORD resp := this->SendCommand("STARTTLS");
+    IF(resp.code != 220)
+    {
+      this->lasterror := resp;
+      THROW NEW Exception("StartTLS failed: " || resp.code || " " || resp.message);
+    }
+    IF(NOT this->socket->StartSSL(TRUE))
+    {
+      THROW NEW Exception("StartTLS failed: unable to establish SSL connection");
+    }
+    RETURN this->SendEhlo();
+  }
+>;
+
+OBJECT ARRAY smtpconns;
+
+OBJECT FUNCTION GetSMTPConn(INTEGER connid)
+{
+  IF(connid<1 OR connid>Length(smtpconns))
+    THROW NEW Exception("Invalid SMTP connection id #" || connid);
+  IF(NOT ObjectExists(smtpconns[connid-1]))
+    THROW NEW Exception("Invalid SMTP connection id #" || connid || " (connection already closed)");
+  RETURN smtpconns[connid-1];
+}
+
+
+/** @short This function will try to create a connection to an SMTP server
+    @param server String containing the host of the SMTP server
+    @param serverport Integer of the port of the smtp server
+    @param timeout Optional. If >0, sets a timeout (in ms) on the connection and uses it while connecting
+    @return ID of the connection (an error has occured when ID < 0)
+    @see CloseSMTPConnection
+*/
+PUBLIC INTEGER FUNCTION CreateSMTPConnection(STRING server, INTEGER serverport, INTEGER timeout DEFAULTSTO 0)
+{
+  OBJECT conn := NEW SMTPConnection;
+  IF(timeout>0)
+    conn->SetTimeout(timeout);
+
+  IF(NOT conn->Connect(server, serverport))
+  {
+    conn->Close();
+    RETURN -2;
+  }
+
+  INSERT conn INTO smtpconns AT END;
+  RETURN Length(smtpconns);
+}
+
+/** @short This function will check and clear the last error that occured
+    @param this->socket->handle Integer of the this->socket->handle
+    @return Record with the error if an error exists
+    @return.code Integer of the error code
+    @return.message String with the error message (can be a multiline message separated by \n's) */
+PUBLIC RECORD FUNCTION GetSMTPError(INTEGER connectionid)
+{
+  OBJECT conn := GetSMTPConn(connectionid);
+  RECORD last := conn->lasterror;
+  conn->ClearLastError();
+  IF(NOT RecordExists(last))
+    last := [code := 0, message := "No error"];
+  RETURN last;
+}
+
+/** @short This function will close the connection to the SMTP server
+    @param this->socket->handle ID of the connection
+    @see CreateSMTPConnection
+*/
+PUBLIC MACRO CloseSMTPConnection(INTEGER connectionid)
+{
+  GetSMTPConn(connectionid)->Close();
+  smtpconns[connectionid-1] := DEFAULT OBJECT;
+}
+
+PUBLIC RECORD FUNCTION SendSMTPCustomCommand(INTEGER serverid, STRING cmd)
+{
+  RETURN GetSMTPConn(serverid)->SendCommand(cmd);
+}
+
+
+MACRO SendSMTPLine(INTEGER streamid, STRING data)
+{
+  If (data LIKE ".*")
+    data := '.' || data;
+  data := data || "\r\n";
+  PrintTo(streamid, data);
+}
+
+/** @short This function will send a message to the SMTP server
+    @param this->socket->handle ID of the connection (created by CreateSMTPConnection)
+    @param receivers Array of email addresses of the receivers
+    @param sender Email address of the sender
+    @param mimeheaders Headers to send with the message
+    @param toppart Top-level part of the MIME message to send
+    @return A record describing any errors
+    @cell return.success If true, at least one receiver was accepted by the SMTP server
+    @cell return.failures A record array of (STRING receiver, INTEGER code, STRING text) detailing any
+                          partial delivery failures
+    @cell return.message Message sent back by the SMTP server after the DATA command (error upon failure, acceptance message if success)
+    @cell return.smtpserverip IP address of SMTP server
+    @see CreateSMTPConnection, CloseSMTPConnection
+*/
+PUBLIC RECORD FUNCTION SendSMTPMessage(INTEGER connectionid, STRING ARRAY receivers, STRING sender, RECORD ARRAY mimeheaders, RECORD toppart)
+{
+  RETURN GetSMTPConn(connectionid)->SendMessage(receivers, sender, mimeheaders, toppart);
+}
+
+/** @short Create a basic email header
+    @param mailfrom Name and email address of email sender
+    @param subject Subject of the email to create
+    @param hostname Host generating this message (used for message-id generation). This should be left empty when unknown,
+                    it will be then be automatically generated.
+    @return A record array containing the basic header fields
+*/
+PUBLIC RECORD ARRAY FUNCTION GetSMTPEmailHeader(STRING mailfrom, STRING subject, STRING hostname)
+{
+  RECORD ARRAY headers :=  [ [ field := "From",           value := PrettyFormatEmailAddress(mailfrom) ]
+                           , [ field := "Subject",        value := subject ]
+                           , [ field := "MIME-Version",   value := "1.0" ]
+                           , [ field := "Date",           value := FormatDatetime("%a, %d %b %Y %H:%M:%S +0000", GetCurrentDatetime()) ]
+                           ];
+  IF (hostname != "")
+    INSERT INTO headers(field,value) VALUES("Message-Id", CreateNewMessageId(hostname)) AT END;
+
+  RETURN headers;
+}
+
+
+/** @short Simple mail send function
+    @param mailserver Hostname and optional port number of the mailserver (eg "mail.b-lex.com" or "testmail.example.org:2525")
+    @param mailfrom From email address and name
+    @param mailto A string array of recipients to put in the To header
+    @param mailcc A string array of recipients to put in the Cc header (Carbon Copy)
+    @param mailbcc A string array of recipients which will not be mentioned in the header (Blind Carbon Copy)
+    @param subject The subject of the message
+    @param messagetext The raw text of the message (separating individual lines with \r\n is recommended)
+    @param attachments Record array of attachments of (name, contenttype, data)
+    @return A record describing success or failure after sending the message
+    @cell return.success If true, at least one receiver was accepted by the SMTP server
+    @cell return.failures A record array of (STRING receiver, INTEGER code, STRING text) detailing any partial delivery failures
+    @cell return.errcode SMTP error code, if a global error occured
+    @cell return.errmsg SMTP error message, if a global error occured
+*/
+PUBLIC RECORD FUNCTION SendSMTPSingleMessage(STRING mailserver, STRING mailfrom, STRING ARRAY mailto, STRING ARRAY mailcc, STRING ARRAY mailbcc, STRING subject, STRING messagetext, RECORD ARRAY attachments)
+{
+  INTEGER messagestream := CreateStream();
+  PrintTo(messagestream, messagetext);
+
+  RECORD toppart := [ ID := 0
+                    , mimetype := "text/plain"
+                    , description := "content"
+                    , data := MakeBlobFromStream(messagestream)
+                    , subparts := DEFAULT RECORD ARRAY
+                    ];
+
+  toppart := AddAttachmentsToMail(toppart, attachments);
+
+  STRING ARRAY mailservertoks := Tokenize(mailserver||":",":"); //append : to ensure we have something to tokenize
+  OBJECT conn := NEW SMTPConnection;
+
+  IF(NOT conn->Connect(mailservertoks[0], ToInteger(mailservertoks[1],25)))
+    RETURN [ success := FALSE, failures := DEFAULT RECORD ARRAY, errcode := 0, errmsg := "No error"];
+
+  //Build the email itself
+  RECORD ARRAY mailheader := GetSMTPEmailHeader(mailfrom, subject, conn->myhostname);
+
+  INSERT INTO mailheader(field,value) VALUES("To", DeTokenize(mailto, ",")) AT END;
+  IF (Length(mailcc) > 0)
+    INSERT INTO mailheader(field,value) VALUES("Cc", DeTokenize(mailcc, ",")) AT END;
+
+  RECORD result := conn->SendMessage(mailto CONCAT mailcc CONCAT mailbcc, mailfrom, mailheader, toppart);
+  RECORD error := conn->lasterror;
+  INSERT CELL errcode := RecordExists(error) ? error.code : 0   INTO result;
+  INSERT CELL errmsg := RecordExists(error) ? error.message:"" INTO result;
+
+  conn->Close();
+  RETURN result;
+}

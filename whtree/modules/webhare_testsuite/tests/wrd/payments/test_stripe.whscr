@@ -1,0 +1,116 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_STRIPE_PUBLICKEY") = "";
+
+ASYNC MACRO SetupStripe()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
+  TT("methods")->value := "wrd:stripe";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+  TT(":Public key")->value := GetEnvironmentVariable("TESTFW_STRIPE_PUBLICKEY") ?? "dummy-id";
+  TT(":Secret key")->value := GetEnvironmentVariable("TESTFW_STRIPE_SECRETKEY") ?? "dummy-secret";
+  //TT("paymentextension->testmode")->value := true;
+  IF(NOT offlineonly)
+  {
+    AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  }
+
+  TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(title) IN ["ALIPAY","IDEAL","WECHAT"];
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+}
+
+ASYNC MACRO TestPaymentStripe()
+{
+  IF(offlineonly)
+    RETURN;
+
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  TestEq(3,Length(methods));
+  RECORD ideal := SELECT * FROM methods WHERE ToUppercase(title)="IDEAL";
+  //TEstEq(TRUE, Length(methods[0].issuers)>=1); - we don't support issues (yet?)
+
+  testfw->BeginWork();
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD properrequest := [ paymentprovider := ideal.paymentprovider
+                          , paymentoptiontag := ideal.paymentoptiontag
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          ];
+
+  IF(testfw->debug)
+    Print("Planned return url: " || properrequest.returnurl || "\n");
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 212.13, properrequest);
+  STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
+  IF(testfw->debug)
+    Print(`Payment url: ${payurl}\n`);
+
+  TestEq("pending", entity->GetField("DATA").status);
+
+  //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  //////////// use chrome headless to execute the paymemnt ////////////////////// ADDME generalize this..
+  OBJECT runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+  RECORD session := AWAIT runner->CreateSession();
+  OBJECT connector := NEW ChromeConnector(session.connectorurl, [ debug := TRUE ]);
+  OBJECT conn := AWAIT connector->ConnectToSession(session);
+  OBJECT pageobj := NEW Page(conn);
+  OBJECT navwatcher := NEW NavigationWatcher(conn);
+
+  AWAIT pageobj->Init();
+  AWAIT pageobj->Navigate(payurl);
+
+  OBJECT bankbutton := AWAIT WaitForChromeElement(conn, pageobj, "button[name=success][value=true]");
+
+  OBJECT pageloadwaiter := navwatcher->WaitForNavigation();
+  AWAIT bankbutton->Click();
+
+  WHILE(pageobj->mainframe->url NOT LIKE "*wrd/paymentinfo*")
+  {
+    Print("Now on: " || pageobj->mainframe->url || "\n");
+    AWAIT navwatcher->WaitForNavigation();
+  }
+
+  Print("STRIPE returned to: " || pageobj->mainframe->url || "\n");
+
+  TestEq("approved", entity->GetField("DATA").status);
+}
+
+{
+
+}
+
+IF(offlineonly)
+  Print("*** Skipping some tests as TESTFW_STRIPE_PUBLICKEY is not set\n\n");
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR SetupStripe
+                 , PTR RunStandardPaymentMethodTests
+                 , PTR TestPaymentStripe
+                 ]);

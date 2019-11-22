@@ -1,0 +1,137 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "mod::publisher/lib/rtd.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+PUBLIC STATIC OBJECTTYPE EditableRichDocument EXTEND RichDocument
+<
+  PUBLIC MACRO SaveToWHFS(OBJECT whfsobject)
+  {
+    whfsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [ data := this->ExportAsRecord() ]);
+    whfsobject->UpdateMetadata(DEFAULT RECORD); //ensure modtime update
+  }
+
+  /** Add a new embedded file to the list of embedded files
+      @param wrappedfile Wrapped file record
+      @param options
+      @cell options.contentid Hint for contentid id. Ignored if the id already exists
+      @return Contentid url (format: 'cid:[contentid]')
+  */
+  PUBLIC STRING FUNCTION AddEmbeddedFile(RECORD wrappedfile, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ contentid := "" ], options);
+
+    DELETE CELL contentid, url FROM wrappedfile;
+
+    STRING contentid := options.contentid ?? GenerateUFS128BitId();
+    WHILE (RecordExists(SELECT FROM this->embeddedfiles WHERE COLUMN contentid = VAR contentid))
+      contentid := GenerateUFS128BitId();
+
+    INSERT CELL contentid := contentid
+              , url := ""
+           INTO wrappedfile;
+    INSERT wrappedfile INTO this->embeddedfiles AT END;
+    RETURN "cid:" || contentid;
+  }
+
+  PUBLIC STRING FUNCTION CreateLinkRef(INTEGER newlinkref)
+  {
+    IF(newlinkref=0)
+      RETURN "";
+
+    STRING linkid := SELECT AS STRING tag FROM this->links WHERE linkref = VAR newlinkref;
+    IF(linkid="")
+    {
+      linkid := "RL-" || GenerateUFS128BitId();
+      INSERT [ tag := linkid, linkref := newlinkref ] INTO this->links AT END;
+    }
+    RETURN "x-richdoclink:" || linkid;
+  }
+
+  PUBLIC MACRO SetLinkRef(STRING tag, INTEGER newlinkref)
+  {
+    IF(tag NOT LIKE "x-richdoclink:*")
+      THROW NEW Exception("Unrecognized link " || tag);
+
+    INTEGER existinglinkpos := SELECT AS INTEGER #links + 1 FROM this->links WHERE links.tag = Substring(VAR tag, 14);
+    IF(existinglinkpos > 0)
+    {
+      this->links[existinglinkpos-1].linkref := newlinkref;
+    }
+    ELSE
+    {
+      INSERT [ tag := Substring(tag,14), linkref := newlinkref ] INTO this->links AT END;
+    }
+  }
+
+  /** Add a new instance to the list of instances
+      @param data Instance data
+      @cell data.whfstype Type of the instance
+      @param options
+      @cell options.instanceid Hint for instance id. Ignored if the id already exists
+      @return New instanceid
+  */
+  PUBLIC STRING FUNCTION CreateInstance(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ instanceid := "" ], options);
+
+    OBJECT type := OpenWHFSType(data.whfstype);
+    IF(NOT ObjectExists(type))
+      THROW NEW Exception("No such contenttype '" || data.whfstype || "'");
+
+    //FIXME also normalize 'deeper' records/structures. but we should probably throw on incorrect members, not ignore them
+    RECORD outrec := CELL[ ...MakeReplacedRecord(type->defaultinstance, data)
+                         , whfstype := type->namespace
+                         ];
+
+    STRING newid := options.instanceid ?? GenerateUFS128BitId();
+    WHILE(RecordExists(SELECT FROM this->instances WHERE instanceid=newid))
+      newid := GenerateUFS128BitId();
+
+    INSERT [ instanceid := newid, data := outrec ] INTO this->instances AT END;
+    RETURN newid;
+  }
+
+  PUBLIC OBJECT FUNCTION CreateInstanceBlockNode(STRING instanceid)
+  {
+    this->EnsureBody();
+    RETURN CreateInstanceBlockNode(this->htmldoc, instanceid);
+  }
+
+  /** Append an embedded object to the end of the document
+      @param data Object data
+      @param options
+      @cell options.instanceid Hint for instance id. Ignored if the id already exists
+      @return Id of the newly created object */
+  PUBLIC STRING FUNCTION AppendInstance(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING newid := this->CreateInstance(data, options);
+    this->body->AppendChild(this->CreateInstanceBlockNode(newid));
+    RETURN newid;
+  }
+
+  PUBLIC MACRO SetInstance(STRING updateid, RECORD data)
+  {
+    INTEGER updatepos := SELECT AS INTEGER #instances+1 FROM this->instances WHERE instanceid = updateid;
+    IF(updatepos=0)
+      THROW NEW Exception("No such instance '" || updateid || "'");
+
+    DELETE CELL whfstype FROM data;
+    this->instances[updatepos-1].data := MakeReplacedRecord(this->instances[updatepos-1].data, data);
+  }
+
+  PUBLIC OBJECT FUNCTION AppendBlock(RECORD style)
+  {
+    this->EnsureBody();
+    IF(NOT RecordExists(style))
+      style := this->pvt_structure->GetDefaultStyle();
+
+    OBJECT newnode := this->body->ownerdocument->CreateElement(style.containertag);
+    newnode->SetAttribute("class", ToLowercase(style.tag));
+    this->body->AppendChild(newnode);
+
+    RETURN newnode;
+  }
+>;
+

@@ -1,0 +1,273 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::filetypes/bibtex.whlib";
+
+STRING texacc := "@comment {BLARGH!}\n\n\n\n"
+|| "@string { bla = \"blaat\" }\n"
+|| "@proceedings{DBLP_conf_edbt_2004,\n"
+|| "  editor    = {Elisa Bertino and\n"
+|| "               Stavros Christodoulakis and\n"
+|| "               Dimitris Plexousakis and\n"
+|| "               Vassilis Christophides and\n"
+|| "               Manolis Koubarakis and\n"
+|| "               Klemens B{\"o}hm and\n"
+|| "               Elena Ferrari},\n"
+|| "  title     = {Advances in Database Technology - EDBT 2004, 9th International\n"
+|| "               Conference on Extending Database Technology, Heraklion, Crete,\n"
+|| "               Greece, March 14-18, 2004, Proceedings},\n"
+|| "  booktitle = {EDBT},\n"
+|| "  publisher = {Springer},\n"
+|| "  series    = {Lecture Notes in Computer Science},\n"
+|| "  volume    = {2992},\n"
+|| "  year      = {2004},\n"
+|| "  isbn      = {3-540-21200-0},\n"
+|| "  bibsource = {DBLP, http://dblp.uni-trier.de}\n"
+|| "}\n";
+
+STRING texquote := '@comment "BLARGH!"\n\n\n\n'
+ || '@string { bla = "blaat" }\n'
+ || '@proceedings{DBLP_conf_edbt_2004,\n'
+ || ' editor    = "Elisa Bertino and\n'
+ || '              {Stavros Christodoulakis} and\n'
+ || '              Dimitris Plexousakis and\n'
+ || '              Vassilis Christophides and\n'
+ || '              Manolis Koubarakis and\n'
+ || '              Klemens B{\"o}hm and\n'
+ || '              Elena Ferrari",\n'
+ || ' title     = "Advances in Database Technology - EDBT 2004, 9th International\n'
+ || '              Conference on Extending Database Technology, Heraklion, Crete,\n'
+ || '              Greece, March 14-18, 2004, Proceedings",\n'
+ || ' booktitle = "EDBT",\n'
+ || ' publisher = "Springer",\n'
+ || ' series    = "Lecture Notes in Computer Science",\n'
+ || ' volume    = "2992",\n'
+ || ' year      = "2004",\n'
+ || ' isbn      = "3-540-21200-0",\n'
+ || ' bibsource = "DBLP, http://dblp.uni-trier.de"\n'
+ || '}\n';
+
+MACRO TestBiBTeXTokenizer()
+{
+  OpenTest("TestBiBTeXTokenizer");
+
+  OBJECT tok := NEW BiBTeXTokenizer(texacc);
+
+  INTEGER i := 0;
+  WHILE(tok->token != "eof" AND i < 999)// Hard limit to prevent endless loops in test
+  {
+    tok->ConsumeToken();
+    i := i + 1;
+  }
+
+  //TestEq(67, i);
+
+  CloseTest("TestBiBTeXTokenizer");
+}
+
+MACRO TestBiBTeXParser()
+{
+  OpenTest("TestBiBTeXParser");
+
+  OBJECT bib := NEW BibTexParser;
+
+  ///PRINT("\n\n\n=== Running test on accolade version:\n\n\n");
+
+  RECORD bibtex := bib->ParseBiBTeX(texacc, FALSE);
+  //DumpValue(bibtex, 'tree');
+
+  TestEq("proceedings", bibtex.type);
+  TestEq("DBLP_conf_edbt_2004", bibtex.name);
+  TestEq(9, Length(bibtex.declarations));
+  TestEq("volume", bibtex.declarations[5].keyname);
+  TestEq("2992", bibtex.declarations[5].value);
+  TestEq("isbn", bibtex.declarations[7].keyname);
+  TestEq("3-540-21200-0", bibtex.declarations[7].value);
+
+  //PRINT("\n\n=== Running test on quoted version:\n\n\n");
+
+  // Now run the same test on the quoted version:
+  bibtex := bib->ParseBiBTeX(texquote, FALSE);
+
+  //DumpValue(bibtex, 'tree');
+
+  TestEq("proceedings", bibtex.type);
+  TestEq("DBLP_conf_edbt_2004", bibtex.name);
+  TestEq(9, Length(bibtex.declarations));
+  TestEq("volume", bibtex.declarations[5].keyname);
+  TestEq("2992", bibtex.declarations[5].value);
+  TestEq("isbn", bibtex.declarations[7].keyname);
+  TestEq("3-540-21200-0", bibtex.declarations[7].value);
+
+
+  CloseTest("TestBiBTeXParser");
+}
+
+MACRO TestModesEqual()
+{
+  OpenTest("TestModesEqual");
+
+  OBJECT bib := NEW BibTexParser;
+  BLOB a := StringToBlob(Substitute(Substitute(AnyToString(bib->ParseBiBTeX(texquote).asrecord, 'tree'), "\\\\\\", "\\"), "{Stavros Christodoulakis}", "Stavros Christodoulakis"));// The substitute accounts for the extra backslash introduced to keep the texquote version inline.
+  BLOB b := StringToBlob(AnyToString(bib->ParseBiBTeX(texacc).asrecord, 'tree'));
+  TestEqTextBlob(a, b);
+
+  CloseTest("TestModesEqual");
+}
+
+MACRO TestSpecExample()
+{
+  OpenTest("TestSpecExample");
+
+  OBJECT bib := NEW BibTexParser();
+  //// This is the example 'valid' but ill-formed BiBTex from http://www.bibtex.org/Format/
+  //// If this nasty piece of formatting works, we're almost guaranteed to be on spec (insofar as that is meaningful).
+  STRING bibtex := "@article{mrx05,\n"
+                || 'auTHor = "Mr. X",\n'
+                || "Title = {Something Great},\n"
+                || 'publisher = "nob" # "ody",\n'
+                || "YEAR = 2005,\n"
+                || "}\n";
+
+  RECORD result := bib->ParseBiBTeX(bibtex, FALSE);
+  TestEq(5, Length(result.declarations));
+  TestEq("2005", result.declarations[4].value);
+  TestEq("publisher", result.declarations[2].keyname);
+  TestEq("nob", result.declarations[2].value);
+  TestEq("publisher", result.declarations[3].keyname);/// Concatenation may depend on implemenation; having the same keyname twice implies concatenation in order.
+  TestEq("ody", result.declarations[3].value);
+  TestEq("Mr. X", result.declarations[0].value);
+  CloseTest("TestSpecExample");
+}
+
+MACRO TestAllTestFiles()
+{
+  OpenTest("TestAllTestFiles");
+
+  STRING ARRAY files := [ "glenn2011"
+                        , "goenster2015"
+                        , "Ahmed2012a"
+                        , "Alrehaili2012a"
+                        , "Baldridge2009a"
+                        , "Bay2008b"
+                        , "Confalonieri2013a"
+                        , "Dabrowski2014a"
+                        , "deLeeuw2014a"
+                        , "Delgado2014a"
+                        , "DelPozo2014a"
+                        , "Francone2014a"
+                        , "Geipel2014a"
+                        , "Getzin2014a"
+                        , "GrowAfrica2014a"
+                        , "Hampton2011a"
+                        , "Kelcey2012a"
+                        , "Laliberte2011a"
+                        , "Lan2010a"
+                        , "Leroux2014a"
+                        , "Loew2013a"
+                        , "Loew2014a"
+                        , "Meroni2014a"
+                        , "Mosleh2014a"
+                        , "Najafabadi2014a"
+                        , "Naughton2011a"
+                        , "Nelson2014a"
+                        , "Rossini2013a"
+                        , "Roy2014a"
+                        , "Salami2014a"
+                        , "Son2013a"
+                        , "Suomalainen2014a"
+                        , "Turner2014a"
+                        , "Verrelst2013a"
+                        , "Vina2004a"
+                        , "Yan2010a"
+                        , "Yan2014a"
+                        , "Zhang2014a"
+                        , "Zhu2014a"
+                        ];
+
+  OBJECT parser := NEW BibTexParser;
+  TestEq(TRUE, ObjectExists(parser));
+  FOREVERY(STRING file FROM files)
+  {
+    file := file || ".bib";
+    BLOB test := OpenTestFile("bibx/" || file);
+    RECORD result := parser->ParseBiBTeX(BlobToString(test), FALSE);
+
+    //DumpValue(result, 'tree');
+
+    TestEq(TRUE, RecordExists(result), file);
+    TestEq(TRUE, CellExists(result, 'type'), file);// Mandatory field
+    TestEq(TRUE, ToUpperCase(result.type) IN [ "ARTICLE", "BOOK", "INBOOK", "PROCEEDINGS", "INPROCEEDINGS", "CONFERENCE", "INCOLLECTION", "MANUAL", "TECHREPORT", "PHDTHESIS", "MASTERTHESIS", "MISC", "UNPUBLISHED", "REPORT", "THESIS" ], `${file}: Illegal entry type '${result.type}'"`);// Legal types
+    TestEq(TRUE, CellExists(result, 'declarations'), file);
+    TestEq(TRUE, result.name != "", `${file}: Mandatory field name not set or incorrectly parsed`);// Mandatory field
+    // Check the entries:
+    STRING ARRAY keys := SELECT AS STRING ARRAY ToLowerCase(keyname) FROM result.declarations WHERE value != "";
+    TestEq(TRUE, Length(keys) > 0, file);// Zero is illegal, but in some cases one is not...
+    TestEq(TRUE, Length(keys) < 13, file);// Arbitary, based on the current set of reference files
+    TestEq(TRUE, "author" IN keys, file);// Not technically a requirement, but it IS a requirement for all the relevant types here.
+    TestEq(TRUE, "title" IN keys, `${file}: Required field 'title' not set or incorrectly parsed`);// This one IS a technical requirement; there is not a single type that may omit the title field
+//    RECORD validationresult := ValidateBiBTeXEntry(result);
+//    IF(RecordExists(validationresult))
+//    {
+//      PRINT("\tEntry is invalid (type: '" || result.type || "'):\n\t" || Substitute(AnyToString(validationresult, 'tree'), "\n", "\n\t") || "\n");
+//    }
+
+ /* ADDME? not sure who is caring about these errors
+    IF(Length(result.errors) > 0)
+    {
+      PRINT("There were errors parsing the file:\n");
+      //DumpValue(result.errors, "boxed");
+      PRINT(GetHumanReadableErrors(result, file));
+    }
+    */
+    //TestEq(FALSE, RecordExists(ValidateBiBTeXEntry(result)), AnyToString(ValidateBiBTeXEntry(result), "tree"));
+  }
+
+  CloseTest("TestAllTestFiles");
+}
+
+MACRO TestBiBTeXTransliteration()
+{
+  OBJECT p := NEW BibTexParser();
+  TestEq(TRUE, p->IsEntitySupported("\\textgreater"));
+  TestEq(FALSE, p->IsEntitySupported("\\bestaatniet"));
+  TestEq(FALSE, p->IsEntitySupported("{\"o}"));
+  ///"Val{\'{e}}rie" yields "Val&#769;erie" somehow
+  TestEq(DecodeHTML("&#769;"), p->TranslateEntity("\\'"));
+  TestEq("\\'", p->TranslateCharacter(DecodeHTML("&#769;")));
+  TestEq("\\'{e}", p->TranslateCharacter("é"));
+
+  TestEq("\\Eta", TrimWhitespace(p->TranslateCharacter("Η")));
+  TestEq("Η", p->TranslateEntity("\\Eta"));
+  TestEq(">", p->TranslateEntity("\\textgreater"));
+
+  RECORD parsed := p->ParseBiBTeX(texacc);
+  STRING editor := SELECT AS STRING value FROM parsed.declarations WHERE keyname = "editor";
+  editor := p->DecodeTexEntities(editor);
+  editor := Substitute(editor, '{\\"o}', "ö");
+}
+
+MACRO TestBiBTeXOutput()
+{
+  OBJECT p := NEW BibTexParser();
+  TestEq(TRUE, p->parseoutaccolades);
+  RECORD texout := p->ParseBiBTeX(texacc);
+
+  TestEq(-1, SearchSubstring(texout.declarations[0].value, "{"));
+
+  p->parseoutaccolades := FALSE;
+  texout := p->ParseBiBTeX(texacc);
+
+  TestEq(130, SearchSubstring(texout.declarations[0].value, "{"));
+}
+
+
+PRINT("\n === Running TestBiBTeX\n");
+TestSpecExample();
+TestBiBTeXTokenizer();
+TestBiBTeXParser();
+TestModesEqual();
+TestAllTestFiles();
+TestBiBTeXTransliteration();
+TestBiBTeXOutput();

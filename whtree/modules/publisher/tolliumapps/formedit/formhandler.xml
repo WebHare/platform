@@ -1,0 +1,34 @@
+<screens
+    xmlns="http://www.webhare.net/xmlns/tollium/screens"
+    xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+    library="formhandler.whlib"
+    gid="tolliumapps.formedit">
+
+  <screen name="edithandler" gid=".edithandler" width="100x">
+    <body spacers="none">
+      <tabs name="tabs" type="regular" height="1pr">
+        <tab name="settings">
+          <spacer name="settings_insertpoint" visible="false" />
+          <!-- insert position="settings" where="after" -->
+        </tab>
+        <tab name="dependencies">
+          <p:formcondition name="condition" />
+          <spacer name="dependencies_insertpoint" visible="false" />
+        </tab>
+        <tab name="advanced">
+          <textarea name="comment" width="1pr" height="2gr" />
+          <select name="pins" type="checkbox" onchange="onpinschange">
+            <option rowkey="existence" />
+          </select>
+          <spacer name="advanced_insertpoint" visible="false" />
+          <!-- insert position="advanced" where="after" -->
+        </tab>
+        <!-- newtab -->
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

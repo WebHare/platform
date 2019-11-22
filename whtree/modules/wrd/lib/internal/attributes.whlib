@@ -1,0 +1,514 @@
+<?wh
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+// The properties of these attribute tags cannot be changed via the WRD backend interface
+STRING ARRAY nonupdateablecols := ["WRD_GUID","WRD_ID","WRD_LIMITDATE","WRD_MODIFICATIONDATE"
+                                  ,"WRD_CREATIONDATE","WRD_TAG","WRD_FULLNAME"
+                                  ,"WRD_LEFTENTITY","WRD_RIGHTENTITY"
+                                  ];
+
+PUBLIC RECORD FUNCTION BaseAttributeValidation(RECORD metadata)
+{
+  IF(CellExists(metadata,'tag'))
+  {
+    IF(metadata.tag="")
+      THROW NEW Exception("Attribute tags cannot be made empty");
+    IF(metadata.tag!=TrimWhitespace(metadata.tag))
+      THROW NEW Exception("Attribute tags cannot start or end with whitespace");
+
+    metadata.tag := ToUppercase(metadata.tag);
+  }
+  RETURN metadata;
+}
+
+RECORD ARRAY FUNCTION GetSubAttrs(INTEGER whichtype)
+{
+  // Retrieve all attributes
+  RECORD ARRAY attrs :=
+         SELECT TEMPORARY uppercasetag := ToUppercase(tag)
+              , id
+              , attributetype
+              , base := FALSE
+              , title
+              , localtag := uppercasetag
+              , __localtag := uppercasetag
+              , description
+              , domain       := IsDomainAttributeType(attributetype) ? domain : 0 // Only return domain for domain attrs
+              , __reftype := DEFAULT OBJECT
+              , iscustom := TRUE
+              , isgenerated := FALSE
+              , isreadonly := FALSE
+              , isalternative := FALSE
+              , isrequired := required
+              , isordered := ordered
+              , isupdateable := uppercasetag NOT IN nonupdateablecols
+              , isunique
+              , parent
+              , maxlength := (attributetype IN // (string type fields)
+                                [ 2/*free*/
+                                , 3/*address*/
+                                , 4/*e-mail*/
+                                , 5/*telephone*/
+                                , 7/*password*/
+                                , 21/*url*/
+                                ]) ? 4096 : 0
+              , checklinks
+              , multiline
+              , generatetag := ""
+              , allowedvalues := allowedvalues != "" ? Tokenize(allowedvalues,'\t') : DEFAULT STRING ARRAY
+          FROM wrd.attrs AS mainattrs
+         WHERE type = whichtype;
+
+  RECORD ARRAY conflictingattrs := SELECT localtag, parent
+                                     FROM attrs
+                                 GROUP BY localtag, parent
+                                  HAVING COUNT(*)>1;
+
+  IF(Length(conflictingattrs) > 0)
+    THROW NEW Exception(`Cannot load WRD type #${whichtype} due to duplicate attr/tag '${conflictingattrs[0].localtag}' with parent #${conflictingattrs[0].parent}`);
+
+ attrs :=
+     SELECT *
+          , __parentpos :=
+                     (SELECT AS INTEGER #parents + 1
+                        FROM attrs AS parents
+                       WHERE parents.id = list.parent) - 1
+          , __selectattributeids := [ INTEGER(list.id) ]
+       FROM attrs AS list;
+
+  FOREVERY (RECORD rec FROM attrs)
+  {
+    INTEGER id := rec.id;
+    INTEGER pos := rec.__parentpos;
+
+    WHILE (pos != -1)
+    {
+      INSERT id INTO attrs[pos].__selectattributeids AT END;
+      pos := attrs[pos].__parentpos;
+    }
+  }
+
+  // Don't leave mess hanging around
+  attrs := SELECT *, DELETE __parentpos FROM attrs;
+  RETURN attrs;
+}
+
+STRING FUNCTION CompletePath(RECORD ARRAY attrlist, STRING tag, INTEGER myparent)
+{
+  WHILE(myparent!=0)
+  {
+    RECORD parentrec := SELECT * FROM attrlist WHERE attrlist.id = myparent;
+    IF(NOT RecordExists(parentrec))
+      THROW NEW Exception("Cannot resolve parent for WRD attribute #" || myparent);
+    myparent := parentrec.parent;
+    tag := parentrec.localtag || "." || tag;
+  }
+  RETURN tag;
+}
+
+RECORD ARRAY FUNCTION FixupChildren(RECORD ARRAY attrlist)
+{
+  RETURN SELECT *, tag := CompletePath(attrlist, thisattr.localtag, thisattr.parent) FROM attrlist AS thisattr;
+}
+
+PUBLIC RECORD ARRAY FUNCTION __SelectAttributes(RECORD typerec, STRING langcode)
+{
+  RECORD ARRAY attrs := GetSubAttrs(typerec.id);
+  attrs := FixupChildren(attrs); //fixes all 'tag's
+  attrs := SELECT *, isinherited := FALSE, ishiddenbyparent := FALSE FROM attrs;
+
+  RECORD ARRAY base_attrs;
+  IF(typerec.parenttype != 0)
+  {
+    base_attrs := SELECT *, isinherited := TRUE FROM __SelectAttributes( (SELECT * FROM wrd.types WHERE id = typerec.parenttype ), langcode);
+    STRING ARRAY inheritedtags := SELECT AS STRING ARRAY ToUppercase(tag) FROM base_attrs;
+    UPDATE attrs SET ishiddenbyparent := ToUppercase(tag) IN inheritedtags;
+  }
+  ELSE
+  {
+    base_attrs := SELECT *, ishiddenbyparent := FALSE FROM GetMetaTypeAttributes(typerec, langcode);
+  }
+
+  attrs := base_attrs CONCAT GetBuiltinAttributes(typerec, langcode) CONCAT attrs;
+  IF(Length(SELECT FROM attrs WHERE tag="WRD_TITLE")>1 AND typerec.tag IN ["WRD_PERSON","WRD_ORGANIZATION"]) //eliminate the old version of the attribute
+    DELETE FROM ATTRS WHERE tag="WRD_TITLE" AND generatetag="WRD_RELATION_TITLE";
+
+  attrs := SELECT *
+                , attributetypename := GetAttributeTypeNameByTypeId(attributetype)
+             FROM attrs;
+
+  RETURN attrs;
+}
+
+//Get the attributes that apply to every entity with this metatype
+RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
+{
+  RECORD lang := GetLangTexts(langcode);
+  RECORD ARRAY builtin_attrs :=
+    [ [ tag := "WRD_GUID"
+      , localtag := "WRD_GUID"
+      , base := TRUE
+      , attributetype := 2/*text*/
+      , cellname := "guid"
+      , title := lang.attrlabels.wrd_guid
+      , domain := 0
+      , __reftype := DEFAULT OBJECT
+      , cellnames := [ "guid" ]
+      , isgenerated := TRUE
+      , isreadonly := FALSE
+      , isalternative := FALSE
+      , isrequired := FALSE
+      , isordered := FALSE
+      , isunique := TRUE
+      , iscustom := FALSE
+      , isupdateable := FALSE
+      , isinherited := FALSE
+      , id := 0
+      , generatetag := "WRD_GUID"
+      , parent := 0
+      , description := ""
+      , maxlength := 36
+      , checklinks := FALSE
+      , multiline := FALSE
+      ]
+    , [ tag := "WRD_ID"
+      , localtag := "WRD_ID"
+      , base := TRUE
+      , attributetype := 15/*integer*/
+      , cellname := "id"
+      , title := lang.attrlabels.wrd_id
+      , domain := 0
+      , __reftype := DEFAULT OBJECT
+      , cellnames := STRING[]
+      , isgenerated := FALSE
+      , isreadonly := TRUE
+      , isalternative := FALSE
+      , isrequired := FALSE
+      , isordered := FALSE
+      , isunique := TRUE
+      , iscustom := FALSE
+      , isupdateable := FALSE
+      , isinherited := FALSE
+      , id := 0
+      , parent := 0
+      , generatetag := ""
+      , description := ""
+      , maxlength := 0
+      , checklinks := FALSE
+      , multiline := FALSE
+      ]
+    , [ tag := "WRD_TYPE"
+      , localtag := "WRD_TYPE"
+      , base := TRUE
+      , attributetype := 15/*integer*/
+      , cellname := "type"
+      , title := lang.attrlabels.wrd_type||" (id)"
+      , domain := 0
+      , __reftype := DEFAULT OBJECT
+      , cellnames := STRING[]
+      , isgenerated := FALSE
+      , isreadonly := TRUE
+      , isalternative := FALSE
+      , isrequired := FALSE
+      , isordered := FALSE
+      , isunique := FALSE
+      , iscustom := FALSE
+      , isupdateable := TRUE
+      , isinherited := FALSE
+      , id := 0
+      , parent := 0
+      , description := ""
+      , maxlength := 0
+      , checklinks := FALSE
+      , multiline := FALSE
+      , generatetag := ""
+      ]
+    , [ tag := "WRD_TAG"
+      , localtag := "WRD_TAG"
+      , base := TRUE
+      , attributetype := 2 /* free text */
+      , cellname := "tag"
+      , title := lang.attrlabels.wrd_tag
+      , domain := 0
+      , __reftype := DEFAULT OBJECT
+      , cellnames := STRING[]
+      , isgenerated := FALSE
+      , isreadonly := FALSE
+      , isalternative := FALSE
+      , isrequired := FALSE
+      , isordered := FALSE
+      , isunique := TRUE
+      , iscustom := FALSE
+      , isinherited := FALSE
+      , isupdateable := "WRD_TAG" NOT IN nonupdateablecols
+      , id := 0
+      , parent := 0
+      , description := ""
+      , maxlength := 256
+      , checklinks := FALSE
+      , multiline := FALSE
+      , generatetag := ""
+      ]
+    , [ tag := "WRD_CREATIONDATE"
+      , localtag := "WRD_CREATIONDATE"
+      , base := TRUE
+      , attributetype := 12 /* datetime */
+      , cellname := "creationdate"
+      , title := lang.attrlabels.wrd_creationdate
+      , domain := 0
+      , __reftype := DEFAULT OBJECT
+      , cellnames := STRING[]
+      , isgenerated := FALSE
+      , isreadonly := FALSE
+      , isalternative := FALSE
+      , isrequired := FALSE
+      , isordered := FALSE
+      , isunique := FALSE
+      , iscustom := FALSE
+      , isinherited := FALSE
+      , isupdateable := "WRD_CREATIONDATE" NOT IN nonupdateablecols
+      , id := 0
+      , parent := 0
+      , description := ""
+      , maxlength := 0
+      , checklinks := FALSE
+      , multiline := FALSE
+      , generatetag := ""
+      ]
+    , [ tag := "WRD_LIMITDATE"
+      , localtag := "WRD_LIMITDATE"
+      , base := TRUE
+      , attributetype := 12 /* datetime */
+      , cellname := "limitdate"
+      , title := lang.attrlabels.wrd_limitdate
+      , domain := 0
+      , __reftype := DEFAULT OBJECT
+      , cellnames := STRING[]
+      , isgenerated := FALSE
+      , isreadonly := FALSE
+      , isalternative := FALSE
+      , isrequired := FALSE
+      , isordered := FALSE
+      , isunique := FALSE
+      , iscustom := FALSE
+      , isinherited := FALSE
+      , isupdateable := "WRD_LIMITDATE" NOT IN nonupdateablecols
+      , id := 0
+      , parent := 0
+      , description := ""
+      , maxlength := 0
+      , checklinks := FALSE
+      , multiline := FALSE
+      , generatetag := ""
+      ]
+    , [ tag := "WRD_MODIFICATIONDATE"
+      , localtag := "WRD_MODIFICATIONDATE"
+      , base := TRUE
+      , attributetype := 12 /* datetime */
+      , cellname := "modificationdate"
+      , title := lang.attrlabels.wrd_modificationdate
+      , domain := 0
+      , __reftype := DEFAULT OBJECT
+      , cellnames := STRING[]
+      , isgenerated := FALSE
+      , isreadonly := FALSE
+      , isalternative := FALSE
+      , isrequired := FALSE
+      , isordered := FALSE
+      , isunique := FALSE
+      , iscustom := FALSE
+      , isinherited := FALSE
+      , isupdateable := "WRD_MODIFICATIONDATE" NOT IN nonupdateablecols
+      , id := 0
+      , parent := 0
+      , description := ""
+      , maxlength := 0
+      , checklinks := FALSE
+      , multiline := FALSE
+      , generatetag := ""
+      ]
+    ];
+
+  RECORD ARRAY extra_attrs;
+
+  IF(typerec.metatype=4) //Domain
+  {
+    extra_attrs := extra_attrs CONCAT
+                    [ [ tag := "WRD_ORDERING"
+                      , base := TRUE
+                      , attributetype := 15
+                      , cellname := "ordering"
+                      , title := lang.attrlabels.wrd_ordering
+                      , isgenerated := FALSE
+                      , isreadonly := FALSE
+                      , isalternative := FALSE
+                      , isordered := FALSE
+                      , isrequired := FALSE
+                      , isinherited := FALSE
+                      , isunique := FALSE
+                      , __reftype := DEFAULT OBJECT
+                      , cellnames := STRING[]
+                      , id   := 0
+                      , parent := 0
+                      , maxlength := 0
+                      , generatetag := ""
+                      ]
+                    ];
+  }
+
+  IF((typerec.metatype IN [3/*link*/,2/*classification*/] AND typerec.requiretype_left != 0) OR (typerec.metatype = 4))
+  {
+    INSERT[ tag           := "WRD_LEFTENTITY"
+          , localtag      := "WRD_LEFTENTITY"
+          , base          := TRUE
+          , attributetype := 1 /* reference */
+          , cellname      := "leftentity"
+          , title         := lang.attrlabels.wrd_linkof
+          , domain        := typerec.metatype = 4 ? typerec.id : typerec.requiretype_left
+          , __reftype := DEFAULT OBJECT
+          , cellnames := STRING[]
+          , isgenerated   := FALSE
+          , isreadonly    := FALSE
+          , isalternative := FALSE
+          , isordered      := FALSE
+          , isrequired    := typerec.metatype IN [3,2]
+          , isunique      := FALSE
+          , iscustom      := FALSE
+          , isinherited := FALSE
+          , isupdateable  := "WRD_LEFTENTITY" NOT IN nonupdateablecols
+          , __typewrdid   := typerec.metatype = 4 ? typerec.id : typerec.requiretype_left
+          , __typeinfo    := DEFAULT OBJECT
+          , id   := 0
+          , parent        := 0
+          , description := ""
+          , maxlength := 0
+          , checklinks := FALSE
+          , multiline := FALSE
+          , generatetag := ""
+          ] INTO builtin_attrs AT END;
+  }
+  IF(typerec.metatype = 2/*classification*/ AND typerec.requiretype_right != 0)
+  {
+    INSERT[ tag           := "WRD_RIGHTENTITY"
+          , localtag      := "WRD_RIGHTENTITY"
+          , base          := TRUE
+          , attributetype := 1 /* reference */
+          , cellname      := "rightentity"
+          , title         := lang.attrlabels.wrd_linkto
+          , domain        := typerec.requiretype_right
+          , __reftype := DEFAULT OBJECT
+          , cellnames := STRING[]
+          , isgenerated   := FALSE
+          , isreadonly    := FALSE
+          , isalternative := FALSE
+          , isordered     := FALSE
+          , isrequired    := TRUE
+          , isunique      := FALSE
+          , iscustom      := FALSE
+          , isinherited := FALSE
+          , isupdateable  := "WRD_RIGHTENTITY" NOT IN nonupdateablecols
+          , __typewrdid   := typerec.requiretype_right
+          , __typeinfo    := DEFAULT OBJECT
+          , id   := 0
+          , parent        := 0
+          , description := ""
+          , maxlength := 0
+          , checklinks := FALSE
+          , multiline := FALSE
+          , generatetag := ""
+          ] INTO builtin_attrs AT END;
+  }
+
+  builtin_attrs := SELECT *, allowedvalues := DEFAULT STRING ARRAY FROM builtin_attrs;
+  extra_attrs := SELECT *, iscustom := FALSE
+                      , isupdateable := ToUpperCase(tag) NOT IN nonupdateablecols
+                      , domain := 0
+                      , localtag := tag
+                      , description := ""
+                      , checklinks := FALSE
+                      , multiline := FALSE
+                      , generatetag
+                      , allowedvalues := DEFAULT STRING ARRAY
+                   FROM extra_attrs;
+
+  RETURN builtin_attrs CONCAT extra_attrs;
+}
+//Get builtin attributes for predefined entity types (eg person)
+RECORD ARRAY FUNCTION GetBuiltinAttributes(RECORD typerec, STRING langcode)
+{
+  RECORD lang := GetLangTexts(langcode);
+  RECORD ARRAY extra_attrs;
+  STRING ARRAY required_base_attributes := Tokenize(typerec.required_fields,",");
+  STRING ARRAY unique_base_attributes := Tokenize(typerec.unique_fields,",");
+
+  IF(typerec.tag="WRD_PERSON")
+  {
+    extra_attrs := SELECT tag
+                        , base := TRUE
+                        , attributetype
+                        , isrequired := tag IN required_base_attributes
+                        , isordered := FALSE
+                        , isunique := tag IN unique_base_attributes
+                        , cellname
+                        , isgenerated := NOT tags.base
+                        , title := name
+                        , isreadonly := tag IN [ "WRD_FULLNAME", "WRD_GUID", "WRD_SALUTE_FORMAL", "WRD_SALUTE_INFORMAL", "WRD_FORMALNAME", "WRD_ADDRESS_FORMAL"  ]
+                        , isalternative := tag IN ["WRD_FULLNAME", "WRD_SALUTE_FORMAL", "WRD_SALUTE_INFORMAL", "WRD_FORMALNAME", "WRD_ADDRESS_FORMAL" ]
+                        , isinherited := FALSE
+                        , __reftype := DEFAULT OBJECT
+//FIXME                        , __domainvalues := tag="WRD_GENDER" ? (SELECT * FROM GetGenderOptions(DEFAULT RECORD, this->pvt_wrdschema->pvt_lang, tag) WHERE tag!="" ORDER BY ToUppercase(tag)): DEFAULT RECORD ARRAY
+//FIXME                        , __domainvalues_cached := TRUE
+                        , id := 0
+                        , cellnames := CellExists(tags, "CELLNAMES") ? tags.cellnames : DEFAULT STRING ARRAY
+                        , generatetag := tags.base ? "" : tag
+                        , parent := 0
+                        , description := ""
+                        , maxlength
+                     FROM GetAllPersonTags(langcode, typerec.wrd_schema) AS tags
+                    WHERE tag NOT IN ["WRD_GUID"];
+  }
+
+  IF(typerec.tag IN ["WRD_RELATION", "WRD_PERSON", "WRD_ORGANIZATION"])
+  {
+    STRING ARRAY cellnames;
+    IF(typerec.tag != "WRD_ORGANIZATION")
+      cellnames := [ "firstname", "firstnames", "infix", "initials", "lastname", "type" ];
+
+    RECORD titleattr := [ tag := "WRD_TITLE"
+                        , base := TRUE
+                        , attributetype := 2
+                        , cellname := ""
+                        , description := ""
+                        , title := lang.attrlabels.wrd_title
+                        , isgenerated := TRUE
+                        , isreadonly := TRUE
+                        , isalternative := FALSE
+                        , isrequired := FALSE
+                        , isordered := FALSE
+                        , isinherited := FALSE
+                        , isunique := FALSE
+                        , __reftype := DEFAULT OBJECT
+                        , id   := 0
+                        , parent := 0
+                        , cellnames := cellnames
+                        , maxlength := 256
+                        , generatetag := typerec.tag = "WRD_RELATION" ? "WRD_RELATION_TITLE" : typerec.tag = "WRD_PERSON" ? "WRD_FULLNAME" : "WRD_ORGNAME"
+                        ];
+    INSERT titleattr INTO extra_attrs AT END;
+  }
+
+  // Add some extra cells to extra_attrs
+  extra_attrs := SELECT *, iscustom := FALSE
+                      , isupdateable := ToUpperCase(tag) NOT IN nonupdateablecols
+                      , domain := 0
+                      , localtag := tag
+                      , checklinks := FALSE
+                      , multiline := FALSE
+                      , ishiddenbyparent := FALSE
+                      , allowedvalues := DEFAULT STRING ARRAY
+                   FROM extra_attrs;
+
+  RETURN extra_attrs;
+
+}

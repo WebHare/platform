@@ -1,0 +1,3563 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/detect.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::internal/filetypes.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/export.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+///
+
+/** Looks up an object from a path relative to another object
+    @param(object %WHFSFolder) relativeto Base object
+    @param findpath Path to look up
+    @cell options.expect Either 'file', 'folder', 'any'
+    @return @includecelldef #OpenWHFSObjectOrRoot.return
+*/
+OBJECT FUNCTION DoPathLookup(OBJECT relativeto, STRING findpath, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ expect := "" ], options, [ enums := [ expect := ["file","folder","any","" ]]] );
+
+  IF (NOT ObjectExists(relativeto))
+  {
+    IF(findpath = "") //for backwards compat, we still allow "" to refer to self for relative functions (eg openbypath)
+      THROW NEW Exception("Empty path specified");
+    IF(findpath NOT LIKE "/*" AND findpath NOT LIKE "*::*")
+      THROW NEW Exception("An absolute path is required");
+  }
+
+  IF (ObjectExists(relativeto) AND findpath LIKE "/*")
+    THROW NEW Exception("The OpenByPath function of WHFSFolder doesn't accept absolute paths.");
+
+  STRING relto := ObjectExists(relativeto) ? ` (relative to ${relativeto->whfspath})` : '';
+  INTEGER id := LookupWHFSObject(ObjectExists(relativeto) ? relativeto->id : 0, findpath);
+  IF(id=-1)
+  {
+    IF(options.expect != "")
+      THROW NEW Exception(`No such WHFS object: ${findpath}${relto}`);
+    RETURN DEFAULT OBJECT;
+  }
+
+  OBJECT toreturn := OpenWHFSObjectOrRoot(id);
+  IF(options.expect = "file" AND toreturn->isfolder)
+   THROW NEW Exception(`Cannot open WHFS object as a file, it's a folder: ${findpath}${relto}`);
+  IF(options.expect = "folder" AND NOT toreturn->isfolder)
+   THROW NEW Exception(`Cannot open WHFS object as a folder, it's a file: ${findpath}${relto}`);
+  RETURN toreturn;
+}
+
+PUBLIC STRING FUNCTION GetFSTypeNS(INTEGER fstype, BOOLEAN isfolder)
+{
+  STRING ns;
+  IF(fstype != 0)
+    ns := SELECT AS STRING namespace FROM system.fs_types WHERE id = fstype;
+  IF(ns != "")
+    RETURN ns;
+  RETURN isfolder ? "http://www.webhare.net/xmlns/publisher/normalfolder" : "http://www.webhare.net/xmlns/publisher/unknownfile";
+}
+
+PUBLIC RECORD ARRAY FUNCTION FixupRecycleBinNames(RECORD ARRAY inrecs)
+{
+  INTEGER ARRAY inactiveids := SELECT AS INTEGER ARRAY id FROM inrecs WHERE NOT isactive;
+  IF(Length(inactiveids)=0)
+    RETURN inrecs;
+
+  RECORD ARRAY names := SELECT fs_object
+                             , currentname
+                          FROM system.fs_history
+                         WHERE fs_history.fs_object IN inactiveids
+                      ORDER BY fs_object;
+
+  FOREVERY(RECORD inrec FROM inrecs)
+  {
+    IF(inrec.isactive)
+      CONTINUE;
+    RECORD pos := RecordLowerBound(names, [ fs_object := inrec.id ], ["FS_OBJECT"]);
+    IF(NOT pos.found)
+      CONTINUE;
+    inrecs[#inrec].name := names[pos.position].currentname;
+  }
+
+  RETURN inrecs;
+}
+
+
+PUBLIC OBJECTTYPE InstanceMapperBase
+<
+  /** @short Set to true to ignore attempts to set an non-existing member */
+  PUBLIC BOOLEAN ignore_missing_members;
+
+  /** Unmaps a text-reference to an id.
+      @param whfsref Mapped reference to a file
+  */
+  PUBLIC INTEGER FUNCTION UnmapWHFSRef(STRING whfsref)
+  {
+    THROW NEW WHFSException("INVALIDARG","UnmapWHFSRef not defined");
+  }
+>;
+
+
+BOOLEAN FUNCTION CanPublishType(INTEGER type)
+{
+  RETURN type=0 OR (SELECT AS BOOLEAN ispublishable FROM system.fs_types WHERE fs_types.id=VAR type);
+}
+BOOLEAN FUNCTION IsStripExtension(INTEGER type, STRING name)
+{
+  RECORD publisherconfig := GetPublisherConfiguration();
+  RETURN type IN publisherconfig.subdirfiletypes AND ToUppercase(GetExtensionFromPath(name)) IN publisherconfig.stripextensions;
+}
+
+/** Fixup title, wrapped and type members in the metadata
+*/
+RECORD FUNCTION FixupDataAndType(RECORD newmetadata, RECORD oldversion)
+{
+  IF(CellExists(newmetadata,'scandata')) //just to be safe
+    THROW NEW Exception("FixupDataType newmetadata should not contain a scandata cell");
+
+  BLOB data;
+  BOOLEAN keepolddata;
+  RECORD newwrapped;
+  IF(CellExists(newmetadata,'wrapped'))
+    newwrapped := newmetadata.wrapped;
+  DELETE CELL wrapped FROM newmetadata;
+
+  //Flatten any possible incarnation of 'data' into 'newmetadata'
+  IF(CellExists(newwrapped, 'data'))
+  {
+    IF(CellExists(newmetadata,'data'))
+      THROW NEW Exception("Cannot set both 'data' in wrapped and in the toplevel metadata record");
+    data := newwrapped.data;
+    INSERT CELL data := data INTO newmetadata;
+  }
+  ELSE IF(CellExists(newmetadata,'data'))
+  {
+    data := newmetadata.data;
+  }
+  ELSE IF(RecordExists(oldversion))
+  { //Not folding into newmetadata as the right blob is already in the database
+    data := oldversion.data;
+    keepolddata := TRUE;
+  }
+
+  STRING filename := CellExists(newmetadata,'name') ? newmetadata.name : RecordExists(oldversion) ? oldversion.name : "";
+  RECORD setwrapped;
+  IF(NOT IsCompleteScanData(newwrapped)) //we need to Scan
+  {
+    //do not overwrite properties that are by definition sourced from 'data' (ie ScanBlob)
+    newwrapped := CELL[...newwrapped, DELETE hash, DELETE width, DELETE height, DELETE rotation, DELETE mirrored ];
+    //remove unset properties
+    IF(CellExists(newwrapped,'dominantcolor') AND newwrapped.dominantcolor = "")
+      DELETE CELL dominantcolor FROM newwrapped;
+
+    IF(keepolddata) //the 'data' member has not been overwritten
+    {
+      setwrapped := CELL[...DecodeScanData(oldversion.scandata), ...newwrapped ];
+    }
+    ELSE
+    {
+      setwrapped := CELL[...ScanBlob(data, filename, [ generatehash := TRUE, extractdominantcolor := TRUE ]), ...newwrapped];
+    }
+  }
+
+  //merge any new changes (FIXME validate hashes etc?)
+  setwrapped := ValidateScannedData(CELL[...setwrapped, ...newwrapped, DELETE data]);
+  INSERT CELL scandata := EncodeScanData(setwrapped, FALSE) INTO newmetadata;
+
+  IF(NOT CellExists(newmetadata,'title') AND NOT RecordExists(oldversion)) //autodetect title? (we do it here because we needed the scandata for this)
+  {
+    RECORD meta := GetDocumentMetadata(CELL[...setwrapped, data]);
+    INSERT CELL title := LimitUTF8Bytes(TrimWhitespace(meta.title),256) INTO newmetadata;
+  }
+
+  //figure out the type
+  INTEGER settype;
+  IF(CellExists(newmetadata,'type'))
+    settype := newmetadata.type; //explicitly set
+  ELSE IF(NOT RecordExists(oldversion) OR (Length(oldversion.data)=0 AND oldversion.type=0)) //new type, or overwriting placeholder (workaround for applications which first create a 0 byte file and then fill it, eg through webdav)
+    settype := MimetypeToFiletype(setwrapped.mimetype);
+  ELSE
+    settype := oldversion.type;
+
+  BOOLEAN dataistrusted := CellExists(newmetadata,'dataistrusted') AND newmetadata.dataistrusted;
+  IF(dataistrusted = FALSE AND settype IN whconstant_whfstypes_scriptable AND NOT CanEffectiveUserScript())
+  {
+    IF(keepolddata)
+      settype := oldversion.type; //set back to old type
+    ELSE
+      settype := 21; //plain text file
+  }
+
+  newmetadata := CELL[...newmetadata, type := settype, DELETE dataistrusted ];
+  RETURN newmetadata;
+}
+
+/** Returns list of metadatafields that may be updated
+    @param folder
+*/
+STRING ARRAY FUNCTION GetUpdatableMetadataFields(BOOLEAN folder)
+{
+  STRING ARRAY base := [ "TITLE", "DESCRIPTION", "CREATIONDATE", "MODIFICATIONDATE", "MODIFIEDBY", "NAME", "KEYWORDS", "TYPE", "TEMPLATE", "PROFILE", "ORDERING", "FILELINK", "ISPINNED" ];
+  IF(folder)
+    base := base CONCAT [ "REQUIRETEMPLATE", "REQUIREPROFILE" ,"REQUIRETEMPLATEINSUBFOLDERS", "REQUIREPROFILEINSUBFOLDERS", "INDEXDOC" ];
+  ELSE
+    base := base CONCAT [ "DATA", "EXTERNALLINK", "PUBLISH", "PUBLISHED", "WRAPPED", "SCANDATA" ];
+  RETURN base;
+}
+
+/** Verifies incoming metadata for files/folders, throws when errors are detected
+    @param metadata New metadata
+    @param isfolder Whether this metadata is for a folder
+*/
+RECORD FUNCTION VerifyMetadata(RECORD metadata, BOOLEAN isfolder)
+{
+  IF(CellExists(metadata,'title') AND Length(metadata.title)>1024)
+    THROW NEW WHFSException("OTHER","The field 'title' may not be longer than 256 characters");
+  IF(CellExists(metadata,'description') AND Length(metadata.description)>2048)
+    THROW NEW WHFSException("OTHER","The field 'description' may not be longer than 2048 characters");
+  IF(CellExists(metadata,'keywords') AND Length(metadata.keywords)>1024)
+    THROW NEW WHFSException("OTHER","The field 'keywords' may not be longer than 1024 characters");
+
+  IF(CellExists(metadata,"typens"))
+  {
+    IF(CellExists(metadata,"type"))
+      THROW NEW WHFSException("OTHER","Cannot specify both 'type' and 'typens'");
+
+    INTEGER settype;
+    IF(metadata.typens != "http://www.webhare.net/xmlns/publisher/normalfolder"
+       AND metadata.typens != "http://www.webhare.net/xmlns/publisher/unknownfile")
+    {
+      settype := SELECT AS INTEGER id FROM system.fs_types WHERE namespace = metadata.typens;
+      IF(settype=0)
+        THROW NEW Exception("Unknown type '" || metadata.typens || "'");
+    }
+
+    DELETE CELL typens FROM metadata;
+    INSERT CELL type := settype INTO metadata;
+  }
+
+  IF(CellExists(metadata,'type') AND metadata.type!=0)
+  {
+    //ADDME: If in cache, use that info
+    RECORD typeinfo := SELECT * FROM system.fs_types WHERE id=metadata.type;
+    IF(NOT RecordExists(typeinfo))
+      THROW NEW WHFSException("OTHER","Invalid type #" || metadata.type);
+    IF(NOT typeinfo.isfoldertype AND NOT typeinfo.isfiletype)
+      THROW NEW WHFSException("OTHER","Type #" || metadata.type || ' (' || typeinfo.namespace || ') is not registered as either a file type or a folder type');
+    IF(isfolder AND NOT typeinfo.isfoldertype)
+      THROW NEW WHFSException("OTHER","Type #" || metadata.type || ' (' || typeinfo.namespace || ') is a file type, not a folder type');
+    IF(NOT isfolder AND NOT typeinfo.isfiletype)
+      THROW NEW WHFSException("OTHER","Type #" || metadata.type || ' (' || typeinfo.namespace || ') is a folder type, not a file type');
+  }
+
+  IF(CellExists(metadata,'getdataptr')) //FIXME can't we get rid of getdataptr? Isn't this just a hack for ImportArchive ?
+  {
+    IF(metadata.getdataptr != DEFAULT FUNCTION PTR)
+    {
+      DELETE CELL data FROM metadata;
+      INSERT CELL data := metadata.getdataptr() INTO metadata;
+    }
+    DELETE CELL getdataptr FROM metadata;
+  }
+  RETURN metadata;
+}
+
+BOOLEAN FUNCTION LookupNeedsTemplate(INTEGER type, INTEGER filelink)
+{
+  IF(type IN GetNeedsTemplateTypes())
+    RETURN TRUE;
+  IF(type = 20 AND (SELECT AS INTEGER COLUMN type FROM system.fs_objects WHERE id=VAR filelink) IN GetNeedsTemplateTypes())
+    RETURN TRUE;
+  RETURN FALSE;
+}
+BOOLEAN FUNCTION LookupNeedsProfile(INTEGER type, INTEGER filelink)
+{
+  IF(type IN GetNeedsProfileTypes())
+    RETURN TRUE;
+  IF(type = 20 AND (SELECT AS INTEGER COLUMN  type FROM system.fs_objects WHERE id=VAR filelink) IN GetNeedsProfileTypes())
+    RETURN TRUE;
+  RETURN FALSE;
+}
+
+
+/** @short Base class for WHFS objects
+*/
+OBJECTTYPE WHFSObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Id of this object (0 for the root)
+  INTEGER pvt_id;
+
+
+  /// Whether this is a folder
+  BOOLEAN pvt_isfolder;
+
+
+  /// Whether this object exists (isn't deleted)
+  BOOLEAN pvt_exists;
+
+
+  /// Id of the parent of this object
+  INTEGER pvt_parent;
+
+
+  /// Id of the parent site of this object
+  INTEGER pvt_parentsite;
+
+  /// Id of the highest parent
+  INTEGER pvt_highestparent;
+
+
+  /// Full path of this object (within the site)
+  STRING pvt_fullpath;
+
+
+  /// WHFS path to this object
+  STRING pvt_whfspath;
+
+
+  /// Publication URL of this object
+  STRING pvt_url;
+
+
+  /// Name of this object
+  STRING pvt_name;
+
+
+  /// Title of this object
+  STRING pvt_title;
+
+
+  /// Description of this object
+  STRING pvt_description;
+
+
+  /// Creationdate of this object
+  DATETIME pvt_creationdate;
+
+
+  /// Modificationdate this object
+  DATETIME pvt_modificationdate;
+
+  /// Last user/role that modified the object
+  INTEGER pvt_modifiedby;
+
+
+  /// Object id of the template of this object
+  INTEGER pvt_template;
+
+
+  /// Object id of the profile of this object
+  INTEGER pvt_profile;
+
+
+  /// WHFS type of this object
+  INTEGER pvt_type;
+
+
+  /// Keywords of this object
+  STRING pvt_keywords;
+
+
+  /// Whether this object is active (not in the trash)
+  BOOLEAN pvt_isactive;
+
+
+  /// Whether this object is pinned (locked for renaming/deleting)
+  BOOLEAN pvt_ispinned;
+
+
+  /// Ordering of this file
+  INTEGER pvt_ordering;
+
+  /// Publication URL of the index document of this folder
+  STRING pvt_indexurl;
+
+  RECORD pvt_fsobjectdata;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Whether this is a folder
+  PUBLIC PROPERTY isfolder(pvt_isfolder,-);
+
+
+  /// Id of this object
+  PUBLIC PROPERTY id(pvt_id,-);
+
+
+  /// Id of parent object of this file/folder
+  PUBLIC PROPERTY parent(pvt_parent,-);
+
+
+  /// Parent object
+  PUBLIC PROPERTY parentobject(GetParentObject,-);
+
+  /// Id of the parent site
+  PUBLIC PROPERTY parentsite(pvt_parentsite,-);
+
+  /// Id of the highest in-site parent (ie, parentsite->root)
+  PUBLIC PROPERTY highestparent(pvt_highestparent,-);
+
+  PUBLIC PROPERTY highestparentobject(GetHighestParentObject,-);
+
+
+  /// Full path within this site
+  PUBLIC PROPERTY fullpath(pvt_fullpath,-);
+
+
+  /// Full path whfs path
+  PUBLIC PROPERTY whfspath(pvt_whfspath,-);
+
+
+  /** Base url for the object
+      @private it's doubtful that end users really want this, they are probably looking for 'link' */
+  PUBLIC PROPERTY objecturl(pvt_url,-);
+  PUBLIC PROPERTY url(pvt_url, -); //legacy name for 'objecturl'
+
+
+  /// Direct link to this object, empty if not published
+  PUBLIC PROPERTY link(pvt_indexurl, -);
+  PUBLIC PROPERTY indexurl(pvt_indexurl, -); //legacy name for 'link'
+
+  /// Name
+  PUBLIC PROPERTY name(pvt_name,-);
+
+
+  /// Title
+  PUBLIC PROPERTY title(pvt_title,-);
+
+
+  /// Description
+  PUBLIC PROPERTY description(pvt_description,-);
+
+
+  /// Keywords
+  PUBLIC PROPERTY keywords(pvt_keywords, -);
+
+
+  /// Creationdate
+  PUBLIC PROPERTY creationdate(pvt_creationdate,-);
+
+
+  /// Modificationdate
+  PUBLIC PROPERTY modificationdate(pvt_modificationdate,-);
+
+  /// Modified by
+  PUBLIC PROPERTY modifiedby(pvt_modifiedby,-);
+
+  /// Id of template
+  PUBLIC PROPERTY template(pvt_template, -);
+
+
+  /// Id of profile
+  PUBLIC PROPERTY profile(pvt_profile, -);
+
+
+  /// Id of the type of this whfs object
+  PUBLIC PROPERTY type(pvt_type,-);
+
+  /// Namespace of the type of this whfs object
+  PUBLIC PROPERTY typens(GetTypeNS,-);
+
+
+  /// Whether this object is active (not in the trash)
+  PUBLIC PROPERTY isactive(pvt_isactive,-);
+
+
+  /// Whether this object is pinned (locked for renaming/deleting)
+  PUBLIC PROPERTY ispinned(pvt_ispinned,-);
+
+  /// Ordering number
+  PUBLIC PROPERTY ordering(pvt_ordering,-);
+
+
+  /// Whether this object needs a template
+  PUBLIC PROPERTY needstemplate(GetNeedsTemplate, -);
+
+
+  /// Whether this object needs a template
+  PUBLIC PROPERTY needsprofile(GetNeedsProfile, -);
+
+  /// Is versioning active on this object?
+  //PUBLIC PROPERTY isversioned(GetIsVersioned, -);
+
+  /// Whether files of this type can function as index
+  PUBLIC PROPERTY isacceptableindex(GetIsAcceptableIndex, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD me)
+  {
+    this->pvt_exists := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  OBJECT FUNCTION GetHighestParentObject()
+  {
+    RETURN this->pvt_highestparent = 0 ? DEFAULT OBJECT : OpenWHFSObject(this->pvt_highestparent);
+  }
+
+  OBJECT FUNCTION GetParentObject()
+  {
+    RETURN this->id=0 ? DEFAULT OBJECT : this->pvt_parent = 0 ? OpenWHFSRootObject() : OpenWHFSObject(this->pvt_parent);
+  }
+
+  BOOLEAN FUNCTION GetNeedsTemplate()
+  {
+    RETURN this->isfolder OR LookupNeedsTemplate(this->type,this->filelink);
+  }
+
+
+  BOOLEAN FUNCTION GetNeedsProfile()
+  {
+    RETURN this->isfolder OR LookupNeedsProfile(this->type,this->filelink);
+  }
+/*
+  BOOLEAN FUNCTION GetIsVersioned()
+  {
+    IF(this->parentsite=0)
+      RETURN FALSE;
+    RETURN SELECT AS BOOLEAN isversioned FROM system.sites WHERE id = this->parentsite;
+  }
+*/
+
+  STRING FUNCTION GetTypeNS()
+  {
+    RETURN GetFSTypeNS(this->pvt_type, this->isfolder);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Fill all variables with the data from the system.fs_objects table
+      @param me Database record
+  */
+  MACRO RefreshMetadata(RECORD me)
+  {
+    this->pvt_fsobjectdata := me;
+    this->pvt_id := me.id;
+    this->pvt_isfolder := me.isfolder;
+    this->pvt_parent := me.parent;
+    this->pvt_parentsite := me.parentsite;
+    this->pvt_highestparent := me.highestparent;
+    this->pvt_fullpath := me.fullpath;
+    this->pvt_whfspath := me.whfspath;
+    this->pvt_url := me.objecturl;
+
+    this->pvt_name := me.name;
+    this->pvt_title := me.title;
+    this->pvt_description := me.description;
+    this->pvt_keywords := me.keywords;
+    this->pvt_creationdate := me.creationdate;
+    this->pvt_modificationdate := me.modificationdate;
+    this->pvt_modifiedby := me.modifiedby;
+
+    this->pvt_template := me.template;
+    this->pvt_profile := me.profile;
+    this->pvt_type := me.type;
+    this->pvt_isactive := me.isactive;
+    this->pvt_ispinned := me.ispinned;
+    this->pvt_ordering := me.ordering;
+    this->pvt_indexurl := me.indexurl;
+  }
+
+  /** Run the update hooks
+      @param oldversion Old database record
+      @param newversion New database record
+  */
+  MACRO DoUpdateHooks(RECORD oldversion, RECORD newversion)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  BOOLEAN FUNCTION GetIsAcceptableIndex()
+  {
+    IF(this->isfolder)
+      RETURN FALSE;
+
+    OBJECT typeinfo := OpenWHFSTypeById(this->type);
+    RETURN ObjectExists(typeinfo) AND typeinfo->isacceptableindex;
+  }
+
+  /** @short Update the metadata for this whfs object. Throws on invalid data.
+      @long Modification date and modified by are updated when the data or type of a file is updated.
+            Auto-detects and updates type, title, description and keywords if not specified when replacing a 0-byte file.
+      @param newmetadata New metadata. All cells are optional.
+      @cell newmetadata.title Title of the object (string, max 256 characters)
+      @cell newmetadata.description Description of the object (string, max 2048 characters)
+      @cell newmetadata.keywords Keywords (string, max 1024 characters)
+      @cell newmetadata.creationdate Creationdate for this object (datetime)
+      @cell newmetadata.modificationdate Modificationdate for this object (datetime)
+      @cell newmetadata.name Name of this object (string, must check ok with IsValidWHFSName);
+      @cell newmetadata.type Id of the type of this object (integer)
+      @cell newmetadata.template Id of the template of this object (integer, must be 0 or link to valid template)
+      @cell newmetadata.profile Id of the profile of this object (integer, must be 0 or link to valid profile)
+      @cell newmetadata.ordering Relative ordering vs other objects in the parent folder (integer)
+
+      @cell newmetadata.requiretemplate Whether all files in this folder must use the template of this folder
+        (boolean, folders only)
+      @cell newmetadata.requireprofile Whether all files in this folder must use the profiles of this folder
+        (boolean, folders only)
+      @cell newmetadata.requiretemplateinsubfolders Whether all subfolders must force the template of this folder
+        recursively (boolean, folders only)
+      @cell newmetadata.requireprofileinsubfolders Whether all subfolders must force the profile of this folder
+        recursively (boolean, folders only)
+      @cell newmetadata.indexdoc Id of indexdocument of this folder (integer, folders only, must link to file
+        within this folder)
+
+      @cell newmetadata.data Data of the file (blob, files only)
+      @cell newmetadata.filelink Id of object this file links to (integer, files only)
+      @cell newmetadata.externallink URL this file links to (string, files only)
+      @cell newmetadata.publish Whether this file is published. Ignored for non-publishable file types. (boolean, files only)
+      @cell newmetadata.published Publication status of this file is published (integer, files only)
+
+      @see WHFSFolder::CreateFile, WHFSFolder::CreateFolder
+  */
+  PUBLIC MACRO UpdateMetadata(RECORD newmetadata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ runhooks := TRUE
+                                , setindex := FALSE
+                                ], options);
+
+    BOOLEAN republish_file := FALSE;
+
+    OBJECT commithandler := GetWHFSCommitHandler();
+
+    RECORD oldversion := SELECT * FROM system.fs_objects WHERE id=this->pvt_id;
+    IF(NOT RecordExists(oldversion))
+      RETURN;
+
+    newmetadata := VerifyMetadata(newmetadata, this->pvt_isfolder);
+    IF(NOT this->isfolder)
+      newmetadata := FixupDataAndType(newmetadata, oldversion);
+
+
+    STRING ARRAY canupdate := GetUpdatableMetadataFields(this->pvt_isfolder);
+    FOREVERY(RECORD cellrec FROM UnpackRecord(newmetadata))
+      IF(ToUppercase(cellrec.name) NOT IN canupdate)
+        THROW NEW WHFSException("OTHER",`The field '${cellrec.name}' can not be updated through UpdateMetadata`);
+
+
+    BOOLEAN isrename := CellExists(newmetadata,'name') AND newmetadata.name != oldversion.name;
+
+    IF(this->pvt_isfolder = FALSE
+       AND (CellExists(newmetadata,'data')
+            OR (CellExists(newmetadata,'type') AND newmetadata.type != this->pvt_type)
+           ))
+    {
+      IF (CellExists(newmetadata, "TYPE"))
+      {
+        // File type change. If the file isn't an acceptable index anymore, unmark it as indexdoc
+        BOOLEAN isacceptableindex := SELECT AS BOOLEAN COLUMN isacceptableindex FROM system.fs_types WHERE id = newmetadata.type;
+        IF (NOT isacceptableindex)
+        {
+          RECORD parentrec :=
+              SELECT *
+                FROM system.fs_objects
+               WHERE id = oldversion.parent
+                 AND indexdoc = this->pvt_id;
+
+          IF (RecordExists(parentrec))
+          {
+            // The file is currently indexdoc, reset the parent folder's indexdoc.
+            commithandler->ObjectUpdate(this->parentsite, oldversion.parent, oldversion.parent);
+
+            UPDATE system.fs_objects
+               SET indexdoc := 0
+             WHERE id = oldversion.parent;
+            GetWHFSCommitHandler()->FolderIndexDocUpdated(oldversion.parent);
+          }
+        }
+      }
+
+      IF(options.runhooks)
+        RunModuleHookTarget("system:whfs_file_aftercontentupdate"
+                              , [ id := this->pvt_id
+                                , oldtype := this->pvt_type
+                                , newtype := CellExists(newmetadata,'type') ? newmetadata.type : this->pvt_type
+                                , data := CellExists(newmetadata,'data') ? newmetadata.data : this->data
+                                ]);
+
+      republish_file := TRUE;
+    }
+
+    //Type changed on a published file, to a type that cannot be published?
+    INTEGER destfiletype := CellExists(newmetadata,'type') ? newmetadata.type : oldversion.type;
+    IF(this->pvt_isfolder = FALSE AND destfiletype != this->pvt_type AND this->publish AND NOT CanPublishType(destfiletype))
+    {
+      DELETE CELL publish FROM newmetadata;
+      INSERT CELL publish := FALSE INTO newmetadata;
+    }
+
+    IF(options.runhooks)
+      RunModuleHookTarget(this->pvt_isfolder ? "system:whfs_folder_aftermetadataupdate" : "system:whfs_file_aftermetadataupdate"
+                             , [ id := this->pvt_id
+                               , oldtype := this->pvt_type
+                               , newtype := CellExists(newmetadata,'type') ? newmetadata.type : this->pvt_type
+                               ]);
+
+    RECORD parentinfo := SELECT template
+                              , profile
+                              , reqtemplate := this->isfolder ? requiretemplateinsubfolders : requiretemplate
+                              , reqprofile  := this->isfolder ? requireprofileinsubfolders : requireprofile
+                           FROM system.fs_objects
+                          WHERE id = oldversion.parent;
+
+    INTEGER newtype := CellExists(newmetadata, 'type') ? newmetadata.type : this->pvt_type;
+    STRING newname  := CellExists(newmetadata,'name') ? newmetadata.name : oldversion.name ;
+    INTEGER newlink := this->isfolder ? 0 : CellExists(newmetadata, 'filelink') ? newmetadata.filelink : oldversion.filelink;
+    INTEGER newcontenttype := newtype = 20 ? (SELECT AS INTEGER type FROM system.fs_objects WHERE id=newlink) : newtype;
+    BOOLEAN old_need_template := this->needstemplate;
+    BOOLEAN old_need_profile  := this->needsprofile;
+    BOOLEAN new_need_template;
+    BOOLEAN new_need_profile;
+
+    IF(this->isfolder OR (newtype = this->pvt_type AND (newtype!=20 OR newlink = this->filelink)))
+    {
+      new_need_template := old_need_template;
+      new_need_profile := old_need_profile;
+    }
+    ELSE //Need to recheck desttype/link
+    {
+
+      new_need_template := LookupNeedsTemplate(newtype,newlink);
+      new_need_profile := LookupNeedsProfile(newtype,newlink);
+    }
+
+    BOOLEAN inherit_template_from_parent := new_need_template AND RecordExists(parentinfo) AND parentinfo.reqtemplate;
+    BOOLEAN inherit_profile_from_parent  := new_need_profile AND RecordExists(parentinfo) AND parentinfo.reqprofile;
+
+    IF(new_need_template AND NOT old_need_template AND NOT CellExists(newmetadata,'template')) //it's a new requirement, but our caller didn't bother specifying anything
+      inherit_template_from_parent := TRUE;
+    IF(new_need_profile AND NOT old_need_profile AND NOT CellExists(newmetadata,'profile')) //it's a new requirement, but our caller didn't bother specifying anything
+      inherit_profile_from_parent := TRUE;
+
+    IF(NOT new_need_template)
+    {
+      DELETE CELL template FROM newmetadata;
+      INSERT CELL template := 0 INTO newmetadata;
+    }
+    IF(NOT new_need_profile)
+    {
+      DELETE CELL profile FROM newmetadata;
+      INSERT CELL profile := 0 INTO newmetadata;
+    }
+    IF(inherit_template_from_parent)
+    {
+      DELETE CELL template FROM newmetadata;
+      INSERT CELL template := parentinfo.template INTO newmetadata;
+
+      IF(this->isfolder)
+      {
+        DELETE CELL requiretemplate FROM newmetadata;
+        DELETE CELL requiretemplateinsubfolders FROM newmetadata;
+        INSERT CELL requiretemplate := TRUE INTO newmetadata;
+        INSERT CELL requiretemplateinsubfolders := TRUE INTO newmetadata;
+      }
+    }
+    IF(inherit_profile_from_parent)
+    {
+      DELETE CELL profile FROM newmetadata;
+      INSERT CELL profile := parentinfo.profile INTO newmetadata;
+
+      IF(this->isfolder)
+      {
+        DELETE CELL requireprofile FROM newmetadata;
+        DELETE CELL requireprofileinsubfolders FROM newmetadata;
+        INSERT CELL requireprofile := TRUE INTO newmetadata;
+        INSERT CELL requireprofileinsubfolders := TRUE INTO newmetadata;
+      }
+    }
+
+    IF(CellExists(newmetadata,'publish') AND NOT CellExists(newmetadata,'published'))
+    {
+      INTEGER newpublished := oldversion.published;
+      IF(newmetadata.publish AND CanPublishType(destfiletype))
+        newpublished := ConvertToWillpublish(newpublished, FALSE, TRUE,  PubPrio_DirectEdit);
+      ELSE
+        newpublished := newpublished - (newpublished%200000);
+
+      INSERT CELL published := newpublished INTO newmetadata;
+    }
+
+    DELETE CELL publish FROM newmetadata;
+    INTEGER newpublished := CellExists(newmetadata,'published') ? newmetadata.published : oldversion.published;
+
+    IF(oldversion.publish AND republish_file) //may need to republish
+    {
+      IF(IsPublish(newpublished))
+        newpublished := ConvertToWillpublish(newpublished, FALSE, FALSE,  PubPrio_DirectEdit);
+    }
+
+    IF(this->isfolder AND (oldversion.type = 3) != (newtype = 3)) //it started or stopped being a photoalbum
+    {
+      //Republish all images in the folder
+      UPDATE system.fs_objects
+             SET published := ConvertToWillPublish(published,
+                                     /*firsttime=*/FALSE,
+                    /*enable_publish_if_disabled=*/FALSE,
+                                           PubPrio_DirectEdit)
+             WHERE parent = this->pvt_id
+                   AND type = 12/*image*/
+                   AND publish = TRUE;
+    }
+
+    IF(this->isfolder AND CellExists(newmetadata,'indexdoc') AND newmetadata.indexdoc != oldversion.indexdoc)
+    {
+      //Indexdocument changed. Republish old and new one, if needed
+      INTEGER ARRAY toupdate;
+      IF(oldversion.indexdoc != 0)
+        INSERT oldversion.indexdoc INTO toupdate AT END;
+      IF(newmetadata.indexdoc != 0)
+      {
+        INSERT newmetadata.indexdoc INTO toupdate AT END;
+        RECORD newindexdocdata := SELECT parent FROM system.fs_objects WHERE id = newmetadata.indexdoc AND isactive;
+        IF (RecordExists(newindexdocdata) AND newindexdocdata.parent != this->pvt_id)
+          THROW NEW Exception("Folder is not the parent of new index document #" || newmetadata.indexdoc);
+      }
+
+      UPDATE system.fs_objects SET published := ConvertToWillPublish(published,
+                                                               /*firsttime=*/FALSE,
+                                              /*enable_publish_if_disabled=*/FALSE,
+                                                                     PubPrio_DirectEdit)
+                               WHERE id IN toupdate
+                                     AND isactive = TRUE;
+
+      FOREVERY (INTEGER id FROM toupdate)
+      {
+        commithandler->FileRepublish(this->parentsite, this->pvt_id, id);
+        commithandler->ObjectUpdate(this->parentsite, this->pvt_id, id);
+      }
+      GetWHFSCommitHandler()->FolderIndexDocUpdated(this->pvt_id);
+    }
+
+    IF(NOT CellExists(newmetadata,"modificationdate"))
+      INSERT CELL modificationdate := GetCurrentDatetime() INTO newmetadata;
+    IF(NOT CellExists(newmetadata,"modifiedby"))
+      INSERT CELL modifiedby := GetEffectiveUserID() INTO newmetadata;
+
+    IF (CellExists(newmetadata, "PARENT") AND newmetadata.parent != oldversion.parent)
+    {
+      commithandler->ObjectMove(oldversion.parentsite, oldversion.parent, this->pvt_id);
+      INTEGER new_parentsite := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = newmetadata.parent;
+      commithandler->ObjectMoved(new_parentsite, newmetadata.parent, this->pvt_id);
+    }
+    ELSE IF (isrename)
+    {
+      commithandler->ObjectRename(oldversion.parentsite, oldversion.parent, this->pvt_id);
+      IF(this->isfolder AND this->parentsite = this->id)
+      {
+        UPDATE system.sites SET name := newname WHERE root = this->id;
+        //siteprofiles rules can apply by name, but they often convert this to siteids, so renaming a site requires recompilation
+        GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+      }
+    }
+
+//    IF(NOT CellExists(newmetadata, "ordering"))
+//      INSERT CELL ordering := (SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = ((CellExists(newmetadata, "PARENT"))? newmetadata.parent : oldversion.parent) ) INTO newmetadata;// Added 10-04-2015 for the new ordering mechanism
+//    IF(newmetadata.ordering = 0)
+//      newmetadata.ordering := 1;
+
+    IF (IsPublish(oldversion.published) AND NOT IsPublish(newpublished))
+      commithandler->Unpublished(oldversion.parentsite, oldversion.parent, this->pvt_id);
+    ELSE IF (IsQueuedForPublication(newpublished))
+      commithandler->FileRepublish(oldversion.parentsite, oldversion.parent, this->pvt_id);
+
+    newpublished := SetFlagsInPublished(newpublished, PublishedFlag_StripExtension, this->isfolder = FALSE AND IsStripExtension(newcontenttype, newname));
+
+    DELETE CELL published FROM newmetadata;
+    INSERT CELL published := newpublished INTO newmetadata;
+
+    //This is our deepest and final check.
+    IF( (CellExists(newmetadata,'data') AND newtype IN whconstant_whfstypes_scriptable)
+        OR (this->pvt_type != newtype AND newtype iN whconstant_whfstypes_scriptable))
+    {
+      IF(NOT CanEffectiveUserScript())
+        THROW NEW Exception ("User #" || GetEffectiveUserId() || " is not allowed to modify the data of object #" || this->pvt_id || " of scriptable type #" || newtype);
+    }
+
+    UPDATE system.fs_objects SET RECORD newmetadata WHERE id=this->pvt_id;
+
+    commithandler->ObjectUpdate(this->parentsite, this->pvt_parent, this->pvt_id);
+
+    // If template/profile data is updates, cascade them through the tree
+    IF (this->isfolder
+        AND (CellExists(newmetadata, "TEMPLATE")
+             OR CellExists(newmetadata, "PROFILE")
+             OR CellExists(newmetadata, "REQUIRETEMPLATE")
+             OR CellExists(newmetadata, "REQUIRETEMPLATEINSUBFOLDERS")
+             OR CellExists(newmetadata, "REQUIREPROFILE")
+             OR CellExists(newmetadata, "REQUIREPROFILEINSUBFOLDERS")))
+    {
+      FixupTemplateProfileInfo(this->pvt_id, CellExists(newmetadata, "REQUIRETEMPLATEINSUBFOLDERS"), CellExists(newmetadata, "REQUIREPROFILEINSUBFOLDERS"));
+    }
+
+    IF(this->isfolder AND isrename) //ADDME wouldn't above code already trigger a repub?
+    {
+      UpdatePublishedRecursive(this->parentsite, this->id, FALSE, DEFAULT OBJECT);
+    }
+
+    RECORD newversion := SELECT * FROM system.fs_objects WHERE id=this->pvt_id;
+    this->DoUpdateHooks(oldversion, newversion);
+
+    IF(options.setindex)
+      this->parentobject->UpdateMetadata([ indexdoc := this->id ]);
+
+    IF(RecordExists(newversion))
+      this->RefreshMetadata(newversion);
+    ELSE
+      this->pvt_exists := FALSE;
+
+    IF(NOT this->pvt_isfolder)
+      GetWHFSCommitHandler()->AddCompletionEvent( [ type := "replacefile", id := this->id ]);
+  }
+
+  /** Refresh all metadata from the database
+  */
+  PUBLIC BOOLEAN FUNCTION Refresh()
+  {
+    // Root is always up-to-date
+    IF (this->pvt_id = 0)
+      RETURN TRUE;
+
+    RECORD newversion := SELECT * FROM system.fs_objects WHERE id=this->pvt_id;
+    IF(RecordExists(newversion))
+      this->RefreshMetadata(newversion);
+    ELSE
+      this->pvt_exists := FALSE;
+
+    RETURN this->pvt_exists;
+  }
+
+
+  /** @short Create a copy of this file/folder in the destination folder, with optional rename.
+      @param destfolder Destination folder
+      @param newname New name of the file, leave empty to keep the original name
+      @return Object of newly copy (or DEFAULT OBJECT on failure)
+  */
+  PUBLIC OBJECT FUNCTION CopyTo(OBJECT destfolder, STRING newname)
+  {
+    IF(NOT ObjectExists(destfolder) OR NOT destfolder->isfolder)
+      THROW New WHFSException("OTHER", "Move destination is not a folder");
+
+    INTEGER newid;
+
+    /* When copying a folder to a new folder, the newly created folder is the receiver
+       When copying a file to a new folder, its new parent is the receiver */
+
+    OBJECT copyer := destfolder->MakeBulkReceiver();
+    copyer->SetSourceBase(this->id, newname ?? this->name);
+
+    copyer->CreateCopyPlan(this->parent, [INTEGER(this->pvt_id)], newname);
+    copyer->ExecuteCopyMovePlan();
+
+    IF(Length(copyer->plan)>0)
+      newid := copyer->plan[0].destid;
+
+    copyer->Finalize();
+    //destfolder->EnsureOrdering();
+
+    IF(newid=0)
+      RETURN DEFAULT OBJECT;
+
+     OBJECT retval := OpenWHFSObject(newid);
+     IF(retval->ispinned) //toplevel of a copy should never be pinned, make it easy to undo
+       retval->UpdateMetadata([ ispinned := FALSE ]);
+     RETURN retval;
+  }
+
+
+  /** @short Moves this file/folder to the destination folder, with optional rename.
+      @param destfolder Destination folder
+      @param newname New name of this file/folder, empty to keep orignal name
+  */
+  PUBLIC MACRO MoveTo(OBJECT destfolder, STRING newname)
+  {
+    IF(NOT ObjectExists(destfolder) OR NOT destfolder->isfolder)
+      THROW NEW WHFSException("OTHER", "Move destination is not a folder");
+
+    IF(destfolder->id != this->pvt_parent)
+    {
+      IF(debugmapping)
+        Print("WHFS: move of " || this->id || " to " || destfolder->id || " as " || newname || " requires a bulk operation\n");
+      OBJECT copyer := destfolder->MakeBulkReceiver();
+      copyer->SetSourceBase(this->id, newname);
+
+      // FIXME build an api to choose merge/overwrite
+      copyer->CreateMovePlan(this->parent, [INTEGER(this->pvt_id)], newname, "weak");
+      copyer->ExecuteCopyMovePlan();
+      copyer->Finalize();
+
+      this->Refresh();
+    }
+    ELSE IF(newname!="")
+    {
+      IF(debugmapping)
+        Print("WHFS: move of " || this->id || " to " || destfolder->id || " as " || newname || " is actually a rename\n");
+      this->UpdateMetadata([name:=newname]);
+    }
+    ELSE
+    {
+      IF(debugmapping)
+        Print("WHFS: move of " || this->id || " to " || destfolder->id || " as " || newname || " is actually a no-op\n");
+    }
+
+    //TODO This should probably be merged into the above code
+    IF(newname!="" AND this->isfolder AND this->parentsite = this->id)
+      UPDATE system.sites SET name := newname WHERE root = this->id;
+
+    //destfolder->EnsureOrdering();
+  }
+
+  MACRO DeleteOrRecycle(BOOLEAN is_recycle)
+  {
+    IF(NOT this->pvt_exists)
+      THROW NEW WHFSException("OTHER","This object is already deleted");
+
+    OBJECT commithandler := GetWHFSCommitHandler();
+    commithandler->DoDeleteOrRecycle(this->parentsite, /*this->pvt_isfolder ? this->pvt_id :*/ this->pvt_parent, this->pvt_id, is_recycle);
+
+    this->Refresh();
+  }
+
+  /** Move this file or folder to the trash
+  */
+  PUBLIC MACRO RecycleSelf()
+  {
+    IF(this->pvt_id=0)
+      THROW NEW WHFSException("OTHER","This object cannot be recycled");
+
+    this->DeleteOrRecycle(TRUE);
+  }
+
+
+  /** Deletes this file or folder
+  */
+  PUBLIC MACRO DeleteSelf()
+  {
+    IF(this->pvt_id=0)
+      THROW NEW WHFSException("OTHER","This object cannot be deleted");
+
+    this->DeleteOrRecycle(FALSE);
+  }
+
+  PUBLIC MACRO RestoreSelf()
+  {
+    RECORD historyinfo := SELECT * FROM system.fs_history WHERE fs_object = this->id AND type = 0;
+    IF(NOT RecordExists(historyinfo))
+      THROW NEW Exception("No history information for this object, cannot figure out original location");
+
+    OBJECT newparent := historyinfo.currentparent = 0 ? OpenWHFSRootObject() : OpenWHFSObject(historyinfo.currentparent);
+    this->MoveTo(newparent, "");
+    //FIXME newparent->EnsureOrdering() .... but let's just ask MoveTo to take care of that!
+  }
+
+  /** @short Returns the instance data for a specific whfs type
+      @param typenamespace Namespace of the type
+      @return Instance data for that type
+  */
+  PUBLIC RECORD FUNCTION GetInstanceData(STRING typenamespace)
+  {
+    OBJECT fstype := OpenWHFSType(typenamespace);
+    IF (NOT ObjectExists(fstype))
+      THROW NEW WHFSException("OTHER","No content type found for namespace '" || EncodeJava(typenamespace) || "'");
+    RETURN fstype->GetInstanceData(this->id);
+  }
+
+  PUBLIC RECORD FUNCTION GetInstanceDataByType(OBJECT type)
+  {
+    RETURN type->GetInstanceData(this->id);
+  }
+
+  /** @short Sets the instance data for a specific WHFS type
+      @param typenamespace Namespace of the type
+      @param newdata New instance data to write
+      @param options Options
+      @cell options.isvisibleedit Whether the modificationdate should be adjusted (defaults to the contenttype cloneoncopy value).
+  */
+  PUBLIC MACRO SetInstanceData(STRING typenamespace, RECORD newdata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    OBJECT fstype := OpenWHFSType(typenamespace);
+    IF (NOT ObjectExists(fstype))
+      THROW NEW WHFSException("OTHER","No content type found for namespace '" || EncodeJava(typenamespace) || "'");
+    fstype->SetInstanceData(this->id, newdata, options);
+  }
+
+  PUBLIC MACRO SetInstanceDataByType(OBJECT type, RECORD newdata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    type->SetInstanceData(this->id, newdata, options);
+  }
+
+  /** @short Filters instancedata updates, cells with the same value as currently on disk will be removed
+      @param typenamespace Namespace of the type
+      @param newdata Instance data to filter
+      @return List of cells that have a different value from the currently instance data
+  */
+  PUBLIC RECORD FUNCTION FilterInstanceDataUpdates(STRING typenamespace, RECORD newdata)
+  {
+    OBJECT fstype := OpenWHFSType(typenamespace);
+    IF (NOT ObjectExists(fstype))
+      THROW NEW WHFSException("OTHER","No content type found for namespace '" || EncodeJava(typenamespace) || "'");
+    RETURN fstype->FilterInstanceDataUpdates(this->id, newdata);
+  }
+
+  PUBLIC RECORD FUNCTION FilterInstanceDataUpdatesByType(OBJECT type, RECORD newdata)
+  {
+    RETURN type->FilterInstanceDataUpdates(this->id, newdata);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tree
+  //
+  INTEGER ARRAY FUNCTION GetTree(INTEGER stopfolder)
+  {
+    INTEGER cur := this->id;
+    INTEGER ARRAY tree;
+    INTEGER maxiterations := 16;
+
+    WHILE(cur != 0 AND maxiterations>0)
+    {
+      INSERT cur INTO tree AT 0;
+      IF(cur = stopfolder)
+        BREAK;
+      maxiterations := maxiterations - 1;
+      cur := SELECT AS INTEGER parent FROM system.fs_objects WHERE fs_objects.id = cur;
+    }
+    RETURN tree;
+  }
+
+  /** @short Get the tree from the publisher root to this object
+      @return An array of integers containing all the ids of all objects up to, and including, this object
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetWHFSTree()
+  {
+    RETURN this->GetTree(0);
+  }
+  /** @short Get the tree from the publisher root to this object
+      @return An array of integers containing all the ids from the site root folder up to, and including, this object
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetFullTree()
+  {
+    IF(this->parentsite = 0)
+      RETURN DEFAULT INTEGER ARRAY;
+    RETURN this->GetTree(this->parentsite);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsParentOf(INTEGER otherobj)
+  {
+    RETURN IsParentObjectOf(this->id, otherobj);
+  }
+  PUBLIC BOOLEAN FUNCTION IsChildOf(INTEGER otherobj)
+  {
+    RETURN IsParentObjectOf(otherobj, this->id);
+  }
+
+
+  ///Return the resource name for the current object
+  PUBLIC STRING FUNCTION GetResourceName()
+  {
+    STRING sitename;
+    IF(this->parentsite != 0)
+      sitename := SELECT AS STRING name FROM system.sites WHERE id = this->parentsite;
+    IF(sitename != "")
+      RETURN "site::" || ToLowercase(sitename || this->fullpath);
+    ELSE
+      RETURN "whfs::" || Substring(this->whfspath,1);
+  }
+
+  /** Returns the event masks for broadcasts fired for this object
+  */
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN DEFAULT STRING ARRAY;
+  }
+>;
+
+/** WHFS folder object
+    @topic sitedev/whfs
+    @public
+*/
+OBJECTTYPE WHFSFolder EXTEND WHFSObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Whether the template of this folder is forced on all the files in this folder
+  BOOLEAN pvt_requiretemplate;
+
+
+  /// Whether the profile of this folder is forced on all the files in this folder
+  BOOLEAN pvt_requireprofile;
+
+
+  /// Whether the template of this folder is forced on all subfolders and files in those folders recursively
+  BOOLEAN pvt_requiretemplateinsubfolders;
+
+
+  /// Whether the profile of this folder is forced on all subfolders and files in those folders recursively
+  BOOLEAN pvt_requireprofileinsubfolders;
+
+
+  /// Id of the index document of this folder
+  INTEGER pvt_indexdoc;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Whether the template of this folder is forced on all the files in this folder
+  PUBLIC PROPERTY requiretemplate(pvt_requiretemplate, -);
+
+
+  /// Whether the template of this folder is forced on all subfolders and files in those folders recursively
+  PUBLIC PROPERTY requiretemplateinsubfolders(pvt_requiretemplateinsubfolders, -);
+
+
+  /// Whether the profile of this folder is forced on all the files in this folder
+  PUBLIC PROPERTY requireprofile(pvt_requireprofile, -);
+
+
+  /// Whether the profile of this folder is forced on all subfolders and files in those folders recursively
+  PUBLIC PROPERTY requireprofileinsubfolders(pvt_requireprofileinsubfolders, -);
+
+
+  /// Id of the index document of this folder
+  PUBLIC PROPERTY indexdoc(pvt_indexdoc, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD me)
+  : WHFSObject(me)
+  {
+    this->RefreshMetadata(me);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Fill all variables with the data from the system.fs_objects table
+  */
+  UPDATE MACRO RefreshMetadata(RECORD me)
+  {
+    WHFSObject::RefreshMetadata(me);
+    this->pvt_requiretemplate := me.requiretemplate;
+    this->pvt_requiretemplateinsubfolders := me.requiretemplateinsubfolders;
+
+    this->pvt_requireprofile := me.requireprofile;
+    this->pvt_requireprofileinsubfolders := me.requireprofileinsubfolders;
+
+    this->pvt_indexdoc := me.indexdoc;
+  }
+
+  /** Fixups the metadata for new objects (calculate new published value, set creationdate, modificationdate,
+      owner, (require)template/profile(insubfolders)
+      @param metadata Metadata for new object
+      @param isfolder Type of the new object
+  */
+  RECORD FUNCTION FixupNewObjectMetadata(RECORD metadata, BOOLEAN isfolder)
+  {
+    STRING ARRAY caninsert := GetUpdatableMetadataFields(isfolder) CONCAT ["ID"];
+    FOREVERY(RECORD cellrec FROM UnpackRecord(metadata))
+      IF(ToUppercase(cellrec.name) NOT IN caninsert)
+        THROW NEW WHFSException("OTHER",`The field '${cellrec.name}' is invalid, or this specific field can not be set during inserts`);
+
+    IF(NOT this->pvt_exists)
+      THROW NEW WHFSException("OTHER","The parent object is already deleted");
+    IF(NOT CellExists(metadata,"name"))
+      THROW NEW WHFSException("OTHER","Missing cell 'name' for new object");
+    IF(NOT IsValidWHFSName(metadata.name, FALSE))
+      THROW NEW WHFSException("INVALIDNAME","Invalid name '" || metadata.name || "' for new object");
+    IF(RecordExists(SELECT FROM system.fs_objects WHERE parent = this->id AND ToUppercase(name) = ToUppercase(metadata.name)))
+      THROW NEW WHFSException("OTHER",`An object '${metadata.name}' already exists in folder '${this->whfspath}'`);
+
+    INTEGER type := CellExists(metadata,"type") ? metadata.type : 0;
+    IF(type=20 AND CellExists(metadata,'filelink')) //content link, resolve the true type
+      type := SELECT AS INTEGER fs_objects.type FROM system.fs_objects WHERE id=metadata.filelink;
+
+    INTEGER published := CellExists(metadata, "published") ? metadata.published : 0;
+    published := SetFlagsInPublished(published, PublishedFlag_StripExtension, isfolder = FALSE AND IsStripExtension(type, metadata.name));
+
+    //FIXME Also handle/validate 'published' field if it exists in the metadata
+    IF(isfolder = FALSE AND CellExists(metadata,"publish"))
+    {
+      //FIXME Work through siteprofile and cache typeinfo
+      IF(metadata.publish)
+        metadata.publish := CanPublishType(type);
+
+      BOOLEAN published_is_publish := GetErrorFromPublished(published) != 0 OR GetOncePublishedFromPublished(published);
+      IF(metadata.publish != published_is_publish)
+        IF(metadata.publish)
+          published := ConvertToWillPublish(published, TRUE, TRUE, PubPrio_DirectEdit);
+        ELSE
+          published := published - (published%200000);
+    }
+
+    IF(NOT CellExists(metadata,"CREATIONDATE") OR metadata.creationdate = DEFAULT DATETIME)
+    {
+      DELETE CELL creationdate FROM metadata;
+      INSERT CELL creationdate := GetCurrentDatetime() INTO metadata;
+    }
+    IF(NOT CellExists(metadata,"MODIFICATIONDATE") OR metadata.modificationdate = DEFAULT DATETIME)
+    {
+      DELETE CELL modificationdate FROM metadata;
+      INSERT CELL modificationdate := CellExists(metadata,"CREATIONDATE")
+                                        ? metadata.creationdate
+                                        : GetCurrentDatetime() INTO metadata;
+    }
+
+    IF(NOT CellExists(metadata,"modifiedby"))
+    {
+      INSERT CELL modifiedby := GetEffectiveUserID() INTO metadata;
+    }
+
+    DELETE CELL isfolder FROM metadata;
+    DELETE CELL parent FROM metadata;
+    DELETE CELL publish FROM metadata;
+    DELETE CELL published FROM metadata;
+    INSERT CELL published := published INTO metadata;
+    INSERT CELL isfolder := isfolder INTO metadata;
+
+    IF(CellExists(metadata,"id"))
+    {
+      IF(metadata.id<256)
+        THROW NEW WHFSException("OTHER","Invalid id for new object");
+    }
+    ELSE
+    {
+      INSERT CELL id := this->GetNewFSObjectId() INTO metadata;
+    }
+
+    INSERT CELL parent := this->pvt_id INTO metadata;
+
+    IF(isfolder OR type IN GetNeedsTemplateTypes())
+    {
+      IF(isfolder ? this->pvt_requiretemplateinsubfolders : this->pvt_requiretemplate)
+      {
+        DELETE CELL template FROM metadata;
+        INSERT CELL template := this->template INTO metadata;
+
+        IF(isfolder)
+        {
+          DELETE CELL requiretemplate FROM metadata;
+          DELETE CELL requiretemplateinsubfolders FROM metadata;
+          INSERT CELL requiretemplate := TRUE INTO metadata;
+          INSERT CELL requiretemplateinsubfolders := TRUE INTO metadata;
+        }
+      }
+      ELSE IF(NOT CellExists(metadata,'template'))
+      {
+        INSERT CELL template := this->template INTO metadata;
+      }
+    }
+    IF(isfolder OR type IN GetNeedsProfileTypes())
+    {
+      IF(isfolder ? this->pvt_requireprofileinsubfolders : this->pvt_requireprofile)
+      {
+        DELETE CELL profile FROM metadata;
+        INSERT CELL profile := this->profile INTO metadata;
+
+        IF(isfolder)
+        {
+          DELETE CELL requireprofile FROM metadata;
+          DELETE CELL requireprofileinsubfolders FROM metadata;
+          INSERT CELL requireprofile := TRUE INTO metadata;
+          INSERT CELL requireprofileinsubfolders := TRUE INTO metadata;
+        }
+      }
+      ELSE IF(NOT CellExists(metadata,'profile'))
+      {
+        INSERT CELL profile := this->profile INTO metadata;
+      }
+    }
+//    IF(NOT CellExists(metadata, "ordering"))// Added 10-04-2015 for the new ordering mechanism (next 3 nonemtpy lines)
+//      INSERT CELL ordering := 0 INTO metadata;
+
+//    metadata.ordering := (metadata.ordering > 0)? metadata.ordering : SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = metadata.parent;
+//    IF(metadata.ordering = 0)
+//      metadata.ordering := 1;
+
+//    DumpValue(metadata, 'tree');
+    RETURN metadata;
+  }
+
+
+  /** Run update hooks (correct templates and profiles recursively)
+  */
+  UPDATE MACRO DoUpdateHooks(RECORD oldversion, RECORD newversion)
+  {
+    WHFSObject::DoUpdateHooks(oldversion, newversion);
+
+    BOOLEAN repub_folder, repub_grandchildren;
+
+    IF(newversion.requiretemplate AND (oldversion.requiretemplate = FALSE OR oldversion.template != newversion.template))
+    {
+      UPDATE system.fs_objects
+             SET template := newversion.template
+           WHERE parent = this->id
+                 AND type IN GetNeedsTemplateTypes()
+                 AND isfolder = FALSE;
+      repub_folder := TRUE;
+    }
+
+    IF(newversion.requireprofile AND (oldversion.requireprofile = FALSE OR oldversion.profile != newversion.profile))
+    {
+      UPDATE system.fs_objects
+             SET profile := newversion.profile
+           WHERE parent = this->id
+                 AND type IN GetNeedsProfileTypes()
+                 AND isfolder = FALSE;
+      repub_folder := TRUE;
+    }
+
+    //Now get our template/profile recursion plan
+    BOOLEAN doreqtempl := newversion.requiretemplateinsubfolders != oldversion.requiretemplateinsubfolders;
+    BOOLEAN doreqprofl := newversion.requireprofileinsubfolders  != oldversion.requireprofileinsubfolders;
+    BOOLEAN dosettempl := newversion.requiretemplateinsubfolders AND (oldversion.requiretemplateinsubfolders=FALSE OR oldversion.template != newversion.template);
+    BOOLEAN dosetprofl := newversion.requireprofileinsubfolders  AND (oldversion.requireprofileinsubfolders=FALSE  OR oldversion.profile != newversion.profile);
+
+    IF(dosettempl OR dosetprofl)
+      repub_grandchildren := TRUE;
+    IF(doreqtempl OR doreqprofl OR dosettempl OR dosetprofl)
+      RecurseTemplProf(this->id, doreqtempl, doreqprofl, dosettempl, dosetprofl
+                      ,newversion.requiretemplateinsubfolders, newversion.requireprofileinsubfolders
+                      ,newversion.template, newversion.profile);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Allocates an id for a new whfs object
+  */
+  PUBLIC INTEGER FUNCTION GetNewFSObjectId()
+  {
+    RETURN MakeAutonumber(system.fs_objects, "id");
+  }
+
+  /** Create a new folder
+      @param metadata Metadata of the new folder. All cells except name are optional.
+      @param newmetadata New metadata. All cells are optional.
+      @cell newmetadata.id Id of the new folder (integer, optional)
+      @cell newmetadata.title Title of the folder (string, max 256 characters, optional)
+      @cell newmetadata.description Description of the folder (string, max 2048 characters, optional)
+      @cell newmetadata.keywords Keywords (string, max 1024 characters, optional)
+      @cell newmetadata.creationdate Creationdate for this folder (datetime, optional)
+      @cell newmetadata.modificationdate Modificationdate for this folder (datetime, optional)
+      @cell newmetadata.name Name of this folder (string, must check ok with IsValidWHFSName, required);
+      @cell newmetadata.type Id of the type of this folder (integer, optional)
+      @cell newmetadata.template Id of the template of this folder (integer, must be 0 or link to valid template, optional)
+      @cell newmetadata.profile Id of the profile of this folder (integer, must be 0 or link to valid profile, optional)
+      @cell newmetadata.ordering Relative ordering vs other objects in the parent folder (integer, optional)
+      @cell newmetadata.requiretemplate Whether all files in this folder must use the template of this folder
+        (boolean, optional)
+      @cell newmetadata.requireprofile Whether all files in this folder must use the profiles of this folder
+        (boolean, optional)
+      @cell newmetadata.requiretemplateinsubfolders Whether all subfolders must force the template of this folder
+        recursively (boolean, optional)
+      @cell newmetadata.requireprofileinsubfolders Whether all subfolders must force the profile of this folder
+        recursively (boolean, optional)
+      @cell newmetadata.indexdoc Id of indexdocument of this folder (integer, must link to file within this folder,
+        optional)
+  */
+  PUBLIC OBJECT FUNCTION CreateFolder(RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ runhooks := TRUE ], options);
+
+    metadata := VerifyMetadata(metadata, TRUE);
+    metadata := this->FixupNewObjectMetadata(metadata, TRUE);
+
+    INSERT metadata INTO system.fs_objects;
+    OBJECT commithandler := GetWHFSCommitHandler();
+    commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
+
+    OBJECT newfolder := OpenWHFSObject(metadata.id); //FIXME Check insertion error and throw, we may never return DEFAULT
+    IF(NOT ObjectExists(newfolder))
+      THROW NEW WHFSException("OTHER","Unexpected database insert error");
+
+    IF(options.runhooks)
+      RunModuleHookTarget("system:whfs_folder_aftermetadataupdate"
+                             , [ id := metadata.id
+                               , oldtype := 0
+                               , newtype := CellExists(metadata,'type') ? metadata.type : 0
+                               ]);
+
+    RETURN newfolder;
+  }
+
+  /** @short Get a file, create if it doesn't exist.
+      @param requiredmetadata The required metadata. The name cell is used to lookup the existing file
+      @param optionalmetadata Optional metadata, will only be used when creating the file
+      @return The file */
+  PUBLIC OBJECT FUNCTION EnsureFile(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
+  {
+    OBJECT existing := this->OpenByName(requiredmetadata.name);
+    IF(ObjectExists(existing))
+    {
+      IF(existing->isfolder)
+        THROW NEW Exception("Expected '" || requiredmetadata.name || "' in '" || this->whfspath || "' to be a file, but its a folder");
+
+      IF (requiredmetadata.name = existing->name)
+        DELETE CELL name FROM requiredmetadata;
+
+      IF (RecordExists(UnpackRecord(requiredmetadata)))
+        existing->UpdateMetadata(requiredmetadata);
+
+      RETURN existing;
+    }
+    RETURN this->CreateFile(MakeMergedRecord(requiredmetadata, optionalmetadata));
+  }
+
+  /** @short Get an folder, create if it doesn't exist.
+      @param requiredmetadata The required metadata. The name cell is used to lookup the existing folder
+      @param optionalmetadata Optional metadata, will only be used when creating the folder
+      @return The folder */
+  PUBLIC OBJECT FUNCTION EnsureFolder(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
+  {
+    OBJECT existing := this->OpenByName(requiredmetadata.name);
+    IF(ObjectExists(existing))
+    {
+      IF(NOT existing->isfolder)
+        THROW NEW Exception("Expected '" || requiredmetadata.name || "' in '" || this->whfspath || "' to be a folder, but its a file");
+
+      IF (requiredmetadata.name = existing->name)
+        DELETE CELL name FROM requiredmetadata;
+
+      IF (RecordExists(UnpackRecord(requiredmetadata)))
+        existing->UpdateMetadata(requiredmetadata);
+
+      RETURN existing;
+    }
+    RETURN this->CreateFolder(MakeMergedRecord(requiredmetadata, optionalmetadata));
+  }
+
+  /** Create a new file
+      @param metadata Metadata of the new file. All cells except name are optional
+      @cell(integer) newmetadata.id Id of the new file
+      @cell(string) newmetadata.title Title of the file (max 256 bytes)
+      @cell(string) newmetadata.description Description of the file (max 2048 bytes)
+      @cell(string) newmetadata.keywords Keywords (string, max 1024 bytes, optional)
+      @cell(datetime) newmetadata.creationdate Creationdate for this file
+      @cell(datetime) newmetadata.modificationdate Modificationdate for this file
+      @cell(string) newmetadata.name Name of this file (required, must check ok with %IsValidWHFSName)
+      @cell(integer) newmetadata.type Id of the type of this file
+      @cell(integer) newmetadata.ordering Relative ordering vs other objects in the parent folder
+      @cell(blob) newmetadata.data Data of the file
+      @cell(integer) newmetadata.filelink Id of object this file links to
+      @cell(string) newmetadata.externallink URL this file links to
+      @cell(boolean) newmetadata.publish Whether this file is published. Ignored for non-publishable file types
+      @cell(boolean) options.setindex Set to TRUE to make this document the folder's index
+  */
+  PUBLIC OBJECT FUNCTION CreateFile(RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    //note: template, profile, dataistrusted and published are not documented as they are deprecated or for internal use only
+    //      dataistrusted should have been an option, not metadata
+    options := ValidateOptions( [ runhooks := TRUE
+                                , setindex := FALSE
+                                ], options);
+
+    metadata := VerifyMetadata(metadata, FALSE);
+    metadata := FixupDataAndType(metadata, DEFAULT RECORD);
+    metadata := this->FixupNewObjectMetadata(metadata, FALSE);
+
+    OBJECT commithandler := GetWHFSCommitHandler();
+    IF (CellExists(metadata, "PUBLISHED") AND IsPublish(metadata.published))
+      commithandler->FileRepublish(this->parentsite, metadata.parent, metadata.id);
+
+    INSERT metadata INTO system.fs_objects;
+    commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
+
+    IF(options.setindex)
+      this->UpdateMetadata([indexdoc := metadata.id]);
+
+    OBJECT toret := OpenWHFSObject(metadata.id);
+    IF(NOT ObjectExists(toret))
+      THROW NEW WHFSException("OTHER","Unexpected database insert error (access denied?)");
+
+    // If this is a file with an indexdoc name, make it the indexdoc of this folder.
+    // else, if the folder doesn't have an index and the new file can function as one, it becomes the index.
+    IF (ToLowercase(toret->name) IN whconstant_webserver_indexpages)
+    {
+      this->UpdateMetadata([indexdoc := toret->id]);
+    }
+
+    IF(options.runhooks)
+    {
+      IF(CellExists(metadata,"data"))
+      {
+        RunModuleHookTarget("system:whfs_file_aftercontentupdate",
+                                    [ id := toret->id
+                                    , oldtype := 0
+                                    , newtype := toret->type
+                                    , data := metadata.data
+                                    ]);
+      }
+
+      RunModuleHookTarget("system:whfs_file_aftermetadataupdate", [ id := toret->id, oldtype := 0, newtype := toret->type ]);
+    }
+    GetWHFSCommitHandler()->AddCompletionEvent( [ type := "addfile", id := toret->id ]);
+
+    RETURN toret;
+  }
+
+
+  /** Looks up a file or folder within this folder by name
+      @param findname Name of the file/folder
+      @cell options.expect If set to "folder", "file" or "any", throw if the object was not found or not of the expected type
+      @return WHFS object of the file or folder when found, DEFAULT OBJECT when not found
+  */
+  PUBLIC OBJECT FUNCTION OpenByName(STRING findname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(findname LIKE "*/*" OR findname="." OR findname="..")
+    {
+      options := ValidateOptions([ expect := "" ], options, [ enums := [ expect := ["file","folder","any","" ]]] );
+      IF(options.expect != "")
+        THROW NEW Exception(`Cannot find object '${findname}' because OpenByName does not accept paths`);
+      RETURN DEFAULT OBJECT;
+    }
+
+    RETURN DoPathLookup(this, findname, options);
+  }
+
+  /** Retrieve a resource with path and modtime. Implements relative path and currentsite:: support. Throws if file not found
+      @return @includecelldef #LookupGlobalResourceByPath.return
+  */
+  PUBLIC RECORD FUNCTION RetrieveResource(STRING resourcepath)
+  {
+    IF(resourcepath LIKE "currentsite::*" OR resourcepath LIKE "/*")
+    {
+      IF(this->parentsite = 0)
+        THROW NEW RetrieveResourceException(resourcepath, "No such resource  because the base object '" || this->whfspath || "' is not inside a site", DEFAULT RECORD ARRAY);
+
+       RETURN LookupGlobalResourceByPath(this->parentsite, resourcepath LIKE "/*" ? resourcepath : "/" || Substring(resourcepath, 13), resourcepath);
+    }
+    IF(resourcepath NOT LIKE "*::*") //relative path
+    {
+      RETURN LookupGlobalResourceByPath(this->id, resourcepath, resourcepath);
+    }
+
+    RETURN LookupGlobalResourceByPath(0, resourcepath, resourcepath);
+  }
+
+  /** Get a resource relative to this location. Implements relative path and currentsite:: support. Throws if file not found
+      @param resourcepath Resource path
+      @return Resource data
+  */
+  PUBLIC BLOB FUNCTION GetResource(STRING resourcepath)
+  {
+    RETURN this->RetrieveResource(resourcepath).data;
+  }
+
+  /** Looks up a file or folder within this folder by relative path
+      @param findpath Path of file/folder, relative to this path
+      @cell options.expect If set to "folder", "file" or "any", throw if the object was not found or not of the expected type
+      @return @includecelldef #DoPathLookup.return
+  */
+  PUBLIC OBJECT FUNCTION OpenByPath(STRING findpath, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN DoPathLookup(this, findpath, options);
+  }
+
+  /** @short Get the ids of all descendant folders of this folder, not including the current folder */
+  PUBLIC INTEGER ARRAY FUNCTION GetDescendantFolderids(INTEGER maxdepth DEFAULTSTO 32)
+  {
+    RETURN GetWHFSDescendantIds(this->id, TRUE, FALSE, maxdepth);
+  }
+
+  /** @short Get the ids of all descendant objects in this folder, not including the current folder */
+  PUBLIC INTEGER ARRAY FUNCTION GetDescendantObjectIds(INTEGER maxdepth DEFAULTSTO 32)
+  {
+    RETURN GetWHFSDescendantIds(this->id, TRUE, TRUE, maxdepth);
+  }
+
+  /** @short Get the ids of all descendant files in this folder, not including the current folder */
+  PUBLIC INTEGER ARRAY FUNCTION GetDescendantFileIds(INTEGER maxdepth DEFAULTSTO 32)
+  {
+    RETURN GetWHFSDescendantIds(this->id, FALSE, TRUE, maxdepth);
+  }
+
+  /** Set up an object capable of receiving actions in bulk. */
+  PUBLIC OBJECT FUNCTION MakeBulkReceiver()
+  {
+    RETURN NEW WHFSBulkReceiver(PRIVATE this);
+  }
+
+  /** Export this folder
+      @param options Optional parameters
+      @cell(string) options.initialname Name for the top level folder. If not set, named after the current folder
+      @cell(boolean) options.recursive Export recursively (defaults to true)
+      @cell(boolean) options.withmetadata Export metadata too, generating wharchives. If not set, generates zip files. Defaults to true)
+      @cell(macro ptr) options.onprogress Progress callback
+      @cell(integer array) options.limitobjects IDs of objects to actually export. If not set, exports all
+      @cell(integer) options.splitsize Split archives after writing this number of bytes
+      @return Export result
+      @cell(record array) return.files Exported files
+  */
+  PUBLIC RECORD FUNCTION ExportFolder(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ initialname := this->name
+                               , recursive := TRUE
+                               , onprogress := DEFAULT MACRO PTR
+                               , withmetadata := TRUE
+                               , limitobjects := INTEGER[]
+                               , splitsize := 0
+                               ], options, [ optional := [ "limitobjects" ]]);
+
+    OBJECT exp := NEW WHFSExporter(PRIVATE this);
+    exp->initialname := options.initialname;
+    exp->recursive := options.recursive;
+    exp->onprogress := options.onprogress;
+    exp->withmetadata := options.withmetadata;
+    exp->breakup_size := options.splitsize;
+
+    IF(CellExists(options,'limitobjects'))
+      IF(Length(options.limitobjects) > 0)
+        exp->limitobjects := options.limitobjects;
+      ELSE
+        THROW NEW Exception("Empty list of objects to pack passed"); //TODO if it makes more sense, we could just create empty archives for this case..
+
+    RECORD ARRAY files;
+    BLOB ARRAY archives := exp->CreateArchives();
+    STRING extension := options.withmetadata ? ".wharchive" : ".zip";
+
+    FOREVERY(BLOB file FROM archives)
+    {
+      STRING parttag := #file = 0 AND LENGTH(archives) = 1 ? "" : "." || Right("00"||#file,3);
+      STRING filename := (options.initialname ?? this->name) || parttag || extension;
+      INSERT WrapBlob(file, filename) INTO files AT END;
+    }
+    RETURN [ files := files ];
+  }
+
+  /** Reorders (changes ordering field) files/folders within this object so that the objects
+      in @a objectids are ordered just before @a before. Keeps the original ordering (with the
+      changes), but renumbers all ordering fields.
+      @param objectids Ids of objects to change the ordering of
+      @param before Id of object the reordered objects should come directly before.
+  */
+  PUBLIC MACRO ReorderObjectsBefore(INTEGER ARRAY objectids, INTEGER before)
+  {
+    IF (SearchElement(objectids, 0) != -1)
+      THROW NEW Exception("Cannot reorder filesystem object #0");
+
+    // See if before is ordered too.
+    INTEGER before_obj_pos := SearchElement(objectids, before);
+
+    INTEGER ARRAY all_moved_ex_before := objectids;
+    IF (before_obj_pos != -1)
+      DELETE FROM all_moved_ex_before AT before_obj_pos;
+
+    // Get all other (all non-reordered objects, but always with before) in their current order.
+    INTEGER ARRAY all_other_objects :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE parent = this->id
+           AND id NOT IN all_moved_ex_before
+      ORDER BY ordering;
+
+    // Get all reordered objects in their current order
+    INTEGER ARRAY select_objects :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE id IN objectids
+           AND parent = this->id
+      ORDER BY ordering;
+
+    // Determine the position to insert the objects
+    INTEGER before_pos;
+    IF (before != 0)
+    {
+      before_pos := SearchElement(all_other_objects, before);
+      IF (before_pos = -1)
+        before_pos := LENGTH(all_other_objects);
+      ELSE IF (before_obj_pos != -1)
+      {
+        // Before is reordered too, remove it from the non-reordered list.
+        DELETE FROM all_other_objects AT before_obj_pos;
+      }
+    }
+    ELSE
+      before_pos := LENGTH(all_other_objects);
+
+    // Insert all reordered objects at the correct place
+    FOREVERY (INTEGER id FROM select_objects)
+      INSERT id INTO all_other_objects AT before_pos + #id;
+
+    // Write back the new ordering
+    UPDATE system.fs_objects
+       SET ordering := SearchElement(all_other_objects, id) + 1
+     WHERE id IN all_other_objects;
+  }
+
+  /** Ensures that ordering is set for every child of this folder
+      Assumes the default ordering defined as 'ORDER BY ordering, ToUpperCase(title), ToUpperCase(name), id'; if you wish to use a different ordering, please override the query.
+  */
+  PUBLIC MACRO EnsureOrdering(BOOLEAN force_ordering)
+  {
+    RECORD ARRAY select_objects :=
+           SELECT id, ordering
+             FROM system.fs_objects
+            WHERE parent = this->id
+         ORDER BY ordering, ToUpperCase(name), ToUpperCase(title), id;
+
+    IF(NOT force_ordering AND NOT RecordExists(SELECT FROM select_objects WHERE ordering != 0))
+      RETURN; //
+
+    FOREVERY(RECORD obj FROM select_objects)
+    {
+      UPDATE system.fs_objects SET ordering := #obj + 1 WHERE id = obj.id;
+    }
+  }
+
+  /** Resets the ordering for this folder
+      Legacy behaviour has always been 'unordered equals ordering = 0' so we preserve this behaviour.
+  */
+  PUBLIC MACRO RemoveOrdering()
+  {
+    UPDATE system.fs_objects SET ordering := 0 WHERE parent = this->id;
+  }
+
+
+  /** Generate an unique name, based on a base name
+      @param suggestion Suggested name
+      @cell options.ignoreobject Existing object to ignore (ie if renaming a file), defaults to 0
+      @cell options.safename Generate a URL safe name (defaults to true)
+      @return A name that doesn't exist in this folder yet, based on the suggestion
+  */
+  PUBLIC STRING FUNCTION GenerateUniqueName(STRING suggestion, VARIANT options DEFAULTSTO CELL[])
+  {
+    IF(TypeiD(options)=TypeID(INTEGER)) //legacy workaround - FIXME fix the callers once everyone is 4.11
+      options := [ ignoreobject := options ];
+
+    RETURN GenerateUniqueName(this->id, suggestion, options);
+  }
+
+  /** Returns the event masks for broadcasts fired for this object
+  */
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN [ "system:whfs.folder." || this->id ];
+  }
+>;
+
+
+/** WHFS file object
+    @topic sitedev/whfs
+    @public
+*/
+OBJECTTYPE WHFSFile EXTEND WHFSObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Cached file data
+  BLOB pvt_data;
+
+
+  /// Cached size of the data
+  INTEGER pvt_size;
+
+
+  /// Whether the data in the cache is valid
+  BOOLEAN pvt_cacheddata;
+
+
+  /// Whether the data size in the cache is valid
+  BOOLEAN pvt_cachedsize;
+
+  /// Whether this file is published
+  BOOLEAN pvt_publish;
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Data of this file
+  PUBLIC PROPERTY data(GetData, -);
+
+
+  /// Size of the data of this file
+  PUBLIC PROPERTY size(GetSize, -);
+
+
+  /// Id of file this file links to (only for link-files)
+  PUBLIC PROPERTY filelink(this->pvt_fsobjectdata.filelink, -);
+
+  /// URL this file links to (only for link-files)
+  PUBLIC PROPERTY externallink(this->pvt_fsobjectdata.externallink, -);
+
+  /// Whether this file is published
+  PUBLIC PROPERTY publish(pvt_publish, -);
+
+
+  /// Current publish status number
+  PUBLIC PROPERTY published(this->pvt_fsobjectdata.published, -);
+
+  /// First publication date. Please note that WebHare versions before 3.13 never recorded this, and have usually set it to the creationdate of the file
+  PUBLIC PROPERTY firstpublishdate(this->pvt_fsobjectdata.firstpublishdate,-);
+  /// Last publication date.
+  PUBLIC PROPERTY lastpublishdate(this->pvt_fsobjectdata.lastpublishdate,-);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD me)
+  : WHFSObject(me)
+  {
+    this->RefreshMetadata(me);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  BLOB FUNCTION GetData()
+  {
+    IF(NOT this->pvt_cacheddata)
+    {
+      this->pvt_data := SELECT AS BLOB data FROM system.fs_objects WHERE id=this->id;
+      this->pvt_size := Length(this->pvt_data);
+      this->pvt_cacheddata := TRUE;
+      this->pvt_cachedsize := TRUE;
+    }
+    RETURN this->pvt_data;
+  }
+
+  INTEGER FUNCTION GetSize()
+  {
+    IF(NOT this->pvt_cachedsize)
+    {
+      this->pvt_size := SELECT AS INTEGER Length(data) FROM system.fs_objects WHERE id=this->id;
+      this->pvt_cachedsize:=TRUE;
+    }
+    RETURN this->pvt_size;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE MACRO RefreshMetadata(RECORD me)
+  {
+    WHFSObject::RefreshMetadata(me);
+    this->pvt_publish := me.publish;
+  }
+
+    // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Update the data of this file
+      @param newdata New data
+  */
+  PUBLIC MACRO UpdateData(BLOB newdata)
+  {
+    this->UpdateMetadata([data := newdata]);
+  }
+
+  /** Schedule a republish */
+  PUBLIC MACRO ScheduleRepublish()
+  {
+    UPDATE system.fs_objects
+       SET published := ConvertToWillpublish(published, FALSE, FALSE, PubPrio_Scheduled) //if you actually bother to republish a single file, expedite it
+     WHERE id = this->id
+           AND isfolder = FALSE
+           AND publish;
+
+    GetWHFSCommitHandler()->FileRepublish(this->parentsite, this->parent, this->id);
+  }
+
+  /** @short Get this file as a wrapped blob record */
+  PUBLIC RECORD FUNCTION GetWrapped() //ADDME image contenttype data may be used as a cache instead of parsing the blob. But is it really more efficient in practice ?
+  {
+    RETURN WrapFSObjectData(this->id, this->data, this->pvt_fsobjectdata);
+  }
+
+  /** Returns the event masks for broadcasts fired for this object
+  */
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN [ "system:whfs.folder." || this->parent ];
+  }
+>;
+
+/** Returns a WHFS file or folder object from the id of the object. Returns DEFAULT OBJECT for id 0, use
+    [OpenWHFSRootObject](#OpenWHFSRootObject) to open the root folder object.
+    @param findid Id of the object
+    @return(object %WHFSFolder %WHFSFile) WHFS file or folder object (DEFAULT OBJECT if the object does not exist)
+    @see OpenWHFSRootObject, OpenWHFSObjectByPath
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+*/
+PUBLIC OBJECT FUNCTION OpenWHFSObject(INTEGER findid)
+{
+  IF(findid=0)
+    RETURN DEFAULT OBJECT;
+
+  RECORD objinfo := SELECT id, isfolder, parent, highestparent, parentsite, fullpath, whfspath, objecturl, indexurl
+                         , name, title, description, keywords, scandata
+                         , requiretemplate, requiretemplateinsubfolders, template
+                         , requireprofile, requireprofileinsubfolders, profile
+                         , creationdate, modificationdate, modifiedby
+                         , type, indexdoc, filelink, externallink, isactive, ispinned, ordering
+                         , publish, published, firstpublishdate, lastpublishdate
+                      FROM system.fs_objects
+                     WHERE fs_objects.id = VAR findid;
+  IF(NOT RecordExists(objinfo))
+    RETURN DEFAULT OBJECT;
+
+  RETURN objinfo.isfolder ? NEW WHFSFolder(objinfo) : NEW WHFSFile(objinfo);
+}
+
+
+/** @short Returns a WHFS file or folder object from the whfs path of the object.
+    @param fullpath Full path of the object. "site::..." paths are also allowed.
+    @cell options.expect If set to "folder", "file" or "any", throw if the object was not found or not of the expected type
+    @return WHFS file or folder object (DEFAULT OBJECT if the object does not exist)
+    @see OpenWHFSObject, OpenWHFSObjectByPath
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+*/
+PUBLIC OBJECT FUNCTION OpenWHFSObjectByPath(STRING fullpath, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN DoPathLookup(DEFAULT OBJECT, fullpath, options);
+}
+
+
+/** @short Returns the WHFS folder object of the root folder
+    @return WHFS folder object
+    @cell(integer) return.id Value is 0
+    @cell(boolean) return.isfolder Boolean is set to TRUE
+    @cell(integer) return.parent Value is 0
+    @cell(integer) return.parentsite Value is 0
+    @cell(integer) return.highestparent Value is 0
+    @cell(string) return.fullpath Value is empty
+    @cell(string) return.whfspath Value is '/'
+    @cell(string) return.url Value is empty
+    @cell(string) return.indexurl Value is empty
+    @cell(string) return.name Value is empty
+    @cell(string) return.title Value is empty
+    @cell(string) return.description Value is empty
+    @cell(string) return.keywords Value is empty
+    @cell(boolean) return.requiretemplate Boolean is set to FALSE
+    @cell(boolean) return.requiretemplateinsubfolders Boolean is set to FALSE
+    @cell(integer) return.template Id to give up the template id. Value is 0
+    @cell(boolean) return.requireprofile Boolean is set to FALSE
+    @cell(boolean) return.requireprofileinsubfolders Boolean is set to FALSE
+    @cell(integer) return.profile Id to give up the profile id. Value is 0
+    @cell(datetime) return.creationdate Date of creation. Value is DEFAULT DATETIME
+    @cell(datetime) return.modificationdate Date from last modification. Value is DEFAULT DATETIME
+    @cell(integer) return.modifiedby Value is 0
+    @cell(integer) return.type Value is 0
+    @cell(integer) return.indexdoc Value is 0
+    @cell(integer) return.filelink Value is 0
+    @cell(string) return.externallink Value is empty
+    @cell(boolean) return.isactive Boolean is set to TRUE
+    @cell(boolean) return.ispinned Boolean is set to FALSE
+    @cell(integer) return.ordering Value is 0
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+    @see OpenWHFSObject, OpenWHFSObjectByPath
+*/
+PUBLIC OBJECT FUNCTION OpenWHFSRootObject()
+{
+  // Make a new folder object using a record with the same fields as returned in the select in OpenWHFSObject
+  RETURN NEW WHFSFolder(
+        [ id                            := 0
+        , isfolder                      := TRUE
+        , parent                        := 0
+        , parentsite                    := 0
+        , highestparent                 := 0
+        , fullpath                      := ""
+        , whfspath                      := "/"
+        , objecturl                     := ""
+        , indexurl                      := ""
+        , name                          := ""
+        , title                         := ""
+        , description                   := ""
+        , keywords                      := ""
+        , requiretemplate               := FALSE
+        , requiretemplateinsubfolders   := FALSE
+        , template                      :=   0
+        , requireprofile                := FALSE
+        , requireprofileinsubfolders    := FALSE
+        , profile                       := 0
+        , creationdate                  := DEFAULT DATETIME
+        , modificationdate              := DEFAULT DATETIME
+        , modifiedby                    := 0
+        , type                          := 0
+        , indexdoc                      := 0
+        , filelink                      := 0
+        , externallink                  := ""
+        , isactive                      := TRUE
+        , ispinned                      := FALSE
+        , ordering                      := 0
+        ]);
+}
+
+/** internal version which doesn't mind opening '0'
+    @param objid Id of the WHFS object
+    @return(object %WHFSFolder %WHFSFile) WHFS object
+*/
+OBJECT FUNCTION OpenWHFSObjectOrRoot(INTEGER objid)
+{
+  IF(objid=0)
+    RETURN OpenWHFSRootObject();
+  RETURN OpenWHFSObject(objid);
+}
+
+
+
+/** The copy/move handler handles copies, move and deletes with a destination
+    within the database file/folder tables.
+
+    It can handle import into db and copy/move/delete of files in db.
+    References are exported in the following format:
+    pathwithin Path from within source root
+    :pathwithin Path from whfs root
+    sitename:pathwithinsite Path within specified site
+*/
+STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Current datetime at the start of the operation.
+  */
+  PUBLIC DATETIME now;
+
+
+  /** Id of user that will become the owner of newly created files
+  */
+  PUBLIC INTEGER newowner;
+
+
+  /** Destination folder
+  */
+  OBJECT destfolder;
+
+
+  /** Bulk sender object, which handles exporting the metadata and references
+      of files that will be copied/moved
+  */
+  OBJECT bulksender;
+
+
+  /** Whether file references are mapped to text
+  */
+  BOOLEAN mapfilereferences;
+
+
+  /** List of all created files
+  */
+  INTEGER ARRAY createdfiles;
+
+
+  /** Progress callback
+  */
+  FUNCTION PTR pvt_onprogress;
+
+
+  /** The plan that is built from all the actions
+      Old comment: //planned_entries is a flat list of the data we wish to create - FIXME merge with import_entries
+      @cell kind Kind of action ('copy', 'remaining')
+      @cell sourceid Id of source file/folder ('copy' only)
+      @cell sourceisfolder Whether the source is a folder (if not, a file) ('copy' only)
+
+      @cell destid Id of destination file/folder (0 if not existing just yet)
+      @cell name New name of destination
+      @cell create Whether destination file/folder must be created
+      @cell destpath Path of final destination object
+      @cell depth Depth of destination (in folder levels)
+      @cell sourceparent Id of parent of the source ('copy' only)
+      @cell destparentpath Path of the parent of the source
+      @cell destisfolder Whether the destination is a folder
+  */
+  RECORD ARRAY planned_entries;
+
+
+  /** XML data decoder
+  */
+  OBJECT pvt_xmldecoder;
+
+
+  MONEY progresssofar;
+
+
+  OBJECT commithandler;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /** If TRUE, all the other files in the destination folders that will not be overwritten will be collected
+      in the plan (kind 'remaining')
+  */
+  PUBLIC BOOLEAN collect_remaining;
+
+
+  /** If true, allow overwriting of files */
+  PUBLIC BOOLEAN overwrite_files;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** List of all planned entries
+  */
+  PUBLIC PROPERTY plan(planned_entries, -);
+
+
+  /** Callback called with progress info
+      @param data
+      @cell data.progress Progress (0..100)
+      @cell data.file
+  */
+  PUBLIC PROPERTY onprogress(pvt_onprogress, pvt_onprogress);
+
+
+  /** XML decoder to use
+  */
+  PUBLIC PROPERTY xmldecoder(pvt_xmldecoder, pvt_xmldecoder);
+
+  BOOLEAN allowscripting;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & admin stuff
+  //
+
+  /** Constructs a new WHFSBulkReveiver, for actions to a specific destination folder (why?)
+      @param destfolder Destination folder.
+  */
+  MACRO NEW(OBJECT destfolder)
+  {
+    // Get the current time
+    this->now := GetCurrentDatetime();
+
+    // Get the owner for new files, and store the destfolder
+    this->newowner := GetEffectiveUserId();
+    this->allowscripting := CanEffectiveUserScript();
+    this->destfolder := destfolder;
+    this->overwrite_files := TRUE;
+
+    this->pvt_xmldecoder := NEW __INTERNAL_XMLDataDecoder;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Generate a tree of all source fs objects
+      @param sourceparent Parent of the objects
+      @param copyids Ids of objects to copy (or, when empty, just grabs all files)
+      @return List of all fs objects
+      @cell return.id Id of object
+      @cell return.name Name of object
+      @cell return.isfolder Whether the object is a folder
+      @cell return.children List of children (only when the object is a folder)
+  */
+  RECORD ARRAY FUNCTION RecurseSourcePlan(INTEGER sourceparent, INTEGER ARRAY copyids)
+  {
+    //Grab the source files
+    RETURN SELECT id
+                , name
+                , isfolder
+                , children := isfolder ? this->RecurseSourcePlan(id, DEFAULT INTEGER ARRAY) : DEFAULT RECORD ARRAY
+                , parent
+                , isactive
+             FROM system.fs_objects
+            WHERE parent = sourceparent
+              AND (Length(copyids) = 0 OR id IN copyids);
+  }
+
+
+  /** Recursively builds the copy plan for a folder
+      @param sourceparent Parent of the source for this folder
+      @param sourceobjs List of all source objects to copy
+      @param destinationfolder Id of destination folder; if it exists, 0 otherwise
+      @param pathsofar Current path to destination
+      @param depth Folder depth
+  */
+  MACRO RecurseGenerateCopyPlan(INTEGER sourceparent, RECORD ARRAY sourceobjs, INTEGER destinationfolder, STRING pathsofar, INTEGER depth, STRING type)
+  {
+//    PRINT("RecurseGenerateCopyPlan: dest folder: #" || destinationfolder || ", path so far: " || pathsofar || "\n");
+
+    // Get the current objects in the destination folder, if it exists (destfolder 0 is a valid folder, but only when depth = 0)
+    RECORD ARRAY destobjs;
+    IF (destinationfolder != 0 OR depth = 0)
+    {
+      destobjs :=
+          SELECT id
+               , name
+               , isfolder
+               , overwritten    := FALSE
+               , fs_objects.type
+            FROM system.fs_objects
+           WHERE parent = destinationfolder;
+    }
+
+    //Create the plan
+    FOREVERY(RECORD sourceobj FROM sourceobjs)
+    {
+      // Is there a file with that name present? (find the position within the destobjs array)
+      INTEGER destpos := (
+          SELECT AS INTEGER #destobjs + 1
+            FROM destobjs
+           WHERE ToUppercase(destobjs.name) = ToUppercase(sourceobj.name)) - 1;
+
+      RECORD destobj;
+      IF (destpos != -1)
+      {
+        IF(this->overwrite_files OR sourceobj.isfolder)
+        {
+          // Yes there is, mark as overwritten
+          destobjs[destpos].overwritten := TRUE;
+          destobj := destobjs[destpos];
+        }
+        ELSE
+        {
+          //Remove it from the plan
+          CONTINUE;
+        }
+      }
+
+      // Create a copy entry for the plan
+      INSERT [ itemid :=   LENGTH(this->planned_entries) + 1
+             , kind :=     type
+             , sourceid := sourceobj.id
+             , destid :=   RecordExists(destobj) ? destobj.id : 0
+             , create :=   NOT RecordExists(destobj)
+             , name :=     sourceobj.name
+             , destpath := pathsofar || sourceobj.name || (sourceobj.isfolder ? "/" : "")
+             , depth :=    depth
+
+             , sourceparent   := sourceparent
+             , destparent     := destinationfolder
+             , destparentpath := pathsofar
+             , sourceisfolder := sourceobj.isfolder
+             , destisfolder   := RecordExists(destobj) ? destobj.isfolder : sourceobj.isfolder
+             , progress       := 0m
+             , haschildren :=    Length(sourceobj.children) > 0
+             ]
+             INTO this->planned_entries AT END;
+
+      IF (Length(sourceobj.children) > 0 AND (NOT RecordExists(destobj) OR destobj.type!=1))
+      {
+        // Recurse the children
+        this->RecurseGenerateCopyPlan(sourceobj.id, sourceobj.children, RecordExists(destobj) ? destobj.id : 0, pathsofar || sourceobj.name || "/", depth+1, type);
+      }
+    }
+
+    // If the remaining files in the destination needs to be collected, add entries for them too.
+    IF (this->collect_remaining)
+    {
+      FOREVERY (RECORD rec FROM (SELECT * FROM destobjs WHERE NOT overwritten))
+      {
+        INSERT [ itemid :=              LENGTH(this->planned_entries) + 1
+               , kind :=                "remaining"
+               , destid :=              rec.id
+               , name :=                rec.name
+               , destpath :=            pathsofar || rec.name || (rec.isfolder ? "/" : "")
+               , depth :=               depth
+
+               , destparent :=          destinationfolder
+               , destparentpath :=      pathsofar
+               , destisfolder :=        rec.isfolder
+
+               , sourceparent :=        sourceparent
+               , sourceisfolder :=      FALSE
+               , create :=              FALSE
+               , progress :=            0m
+
+               ] INTO this->planned_entries AT END;
+      }
+    }
+  }
+
+
+  /** Recursively builds the move plan
+      @param sourceparent Parent of the source for this objects
+      @param sourceobjs List of all source objects to copy
+      @cell sourceobjs.id Id of object
+      @cell sourceobjs.name Name of object
+      @cell sourceobjs.isfolder Whether the object is a folder
+      @cell sourceobjs.children List of children (only when the object is a folder)
+      @param destinationfolder Id of destination folder; if it exists, 0 otherwise
+      @param depth Folder depth
+      @param mode One of "",
+                         "replace" Replace the target completely
+                         "merge"   Replace the target, keep non-replaced subfiles in folder
+                         "weak"    Move when file/folder does not exist in destination
+  */
+  BOOLEAN FUNCTION RecurseGenerateMovePlan(INTEGER sourceparent, RECORD ARRAY sourceobjs, INTEGER destinationfolder, STRING pathsofar, INTEGER depth, STRING mode)
+  {
+    // Get all the objects in the destination folder
+    RECORD ARRAY destobjs :=
+        SELECT id
+             , name
+             , isfolder
+             , overwritten    := FALSE
+          FROM system.fs_objects
+         WHERE parent = destinationfolder;
+
+    //Create the plan
+    FOREVERY(RECORD sourceobj FROM sourceobjs)
+    {
+      // Is there a file with that name present? (find the position within the destobjs array)
+      INTEGER destpos := (
+          SELECT AS INTEGER #destobjs + 1
+            FROM destobjs
+           WHERE ToUppercase(destobjs.name) = ToUppercase(sourceobj.name)) - 1;
+
+      IF (destpos != -1 AND destobjs[destpos].id != sourceobj.id)
+      {
+        // Yes there is, mark as overwritten
+        destobjs[destpos].overwritten := TRUE;
+        RECORD destobj := destobjs[destpos];
+
+        IF (mode = "weak")
+        {
+          // The folder exists; iterate through the subfolders to see if they need to be moved in.
+          IF (sourceobj.isfolder AND destobj.isfolder)
+          {
+            IF (LENGTH(sourceobj.children) != 0)
+              this->RecurseGenerateMovePlan(sourceobj.id, sourceobj.children, destobj.id, pathsofar || sourceobj.name || "/", depth + 1, mode);
+          }
+          CONTINUE;
+        }
+
+        // Is this a folder? If so, we need a specific mode
+        IF (destobj.isfolder AND mode = "")
+          RETURN FALSE;
+
+        // Issue an replace
+        INSERT [ itemid         := LENGTH(this->planned_entries) + 1
+               , kind           := "replace"
+               , sourceid       := sourceobj.id
+               , destid         := destobj.id
+               , create         := FALSE
+               , name           := sourceobj.name
+               , destpath       := pathsofar || sourceobj.name || (sourceobj.isfolder ? "/" : "")
+               , depth          := depth
+
+               , sourceparent   := sourceparent
+               , destparent     := destinationfolder
+               , destparentpath := pathsofar
+               , sourceisfolder := sourceobj.isfolder
+               , destisfolder   := destobj.isfolder
+               , progress       := 0m
+               ]
+               INTO this->planned_entries AT END;
+
+        IF (destobj.isfolder AND mode = "merge")
+        {
+          INTEGER ARRAY merge_source_ids :=
+              SELECT AS INTEGER ARRAY id
+                FROM system.fs_objects
+               WHERE parent = destobj.id;
+
+          // Gather the source objects
+          RECORD ARRAY merge_srcs := this->RecurseSourcePlan(destobj.id, merge_source_ids);
+          IF (LENGTH(merge_srcs) != 0)
+            this->RecurseGenerateMovePlan(destobj.id, merge_srcs, sourceobj.id, pathsofar || sourceobj.name || "/", depth + 1, "weak");
+        }
+      }
+      ELSE
+      {
+        // No there isn't, just move the file/folder
+        INSERT [ itemid         := LENGTH(this->planned_entries) + 1
+               , kind           := "move"
+               , sourceid       := sourceobj.id
+               , destid         := sourceobj.id
+               , create         := FALSE
+               , name           := sourceobj.name
+               , destpath       := pathsofar || sourceobj.name || (sourceobj.isfolder ? "/" : "")
+               , depth          := depth
+
+               , sourceparent   := sourceparent
+               , destparent     := destinationfolder
+               , destparentpath := pathsofar
+               , sourceisfolder := sourceobj.isfolder
+               , destisfolder   := sourceobj.isfolder
+               , progress       := 0m
+               ]
+               INTO this->planned_entries AT END;
+
+        // And don't recurse, the move will do that for us.
+      }
+    }
+    RETURN TRUE;
+  }
+
+
+  /** Generate an ID for all objects in the plan that don't have one yet
+  */
+  MACRO GeneratePlanIds()
+  {
+    UPDATE this->planned_entries SET destid := MakeAutonumber(system.fs_objects,"id") WHERE destid=0;
+  }
+
+
+  MACRO ExecuteCopyAction(RECORD tocopy, FUNCTION PTR get_metadata, STRING type)
+  {
+    // Lookup the destination folder; it should exist because of the lowest-depth ordering,
+    OBJECT destfolder := this->destfolder->OpenByPath(tocopy.destparentpath);
+    IF(NOT ObjectExists(destfolder))
+      THROW NEW WHFSException("OTHER","ExecuteCopyAction: Cannot find folder '" || tocopy.destparentpath || "' relative to folder " || this->destfolder->whfspath);
+
+    // Do all objects
+    FOREVERY(RECORD copyrec FROM tocopy.objs)
+    {
+      IF (this->onprogress != DEFAULT FUNCTION PTR)
+        this->onprogress([ donelen := this->progresssofar, progress := copyrec.progress, file := copyrec.name, fullpath := copyrec.destpath]);
+
+        // Retrieve metadata for the source file
+      RECORD src := get_metadata(copyrec);
+      IF(NOT RecordExists(src))
+        THROW NEW WHFSException("OTHER","ExecuteCopyAction: Missing metadata for " || copyrec.destpath);
+
+      RECORD newmetadata := src;
+
+      //FIXME FIXUP REFERENCES
+      DELETE CELL instances FROM newmetadata;
+      newmetadata.name := copyrec.name;
+
+      DELETE CELL modificationdate FROM newmetadata;
+      DELETE CELL modifiedby FROM newmetadata;
+
+      INSERT CELL modifiedby := GetEffectiveUserId() INTO newmetadata;
+
+      IF(NOT copyrec.create AND (copyrec.sourceisfolder != copyrec.destisfolder)) //we're replacing a completely different type
+      {
+        OBJECT dest := OpenWHFSObject(copyrec.destid);
+        IF(dest->type=1) // we're overwriting something foreign!?
+          CONTINUE; //no thanks
+
+        copyrec.create := TRUE;
+        copyrec.destid := MakeAutonumber(system.fs_objects, "id");
+        dest->RecycleSelf();
+      }
+
+      IF(copyrec.sourceisfolder)
+      {
+        // Source is a folder; don't copy the data
+        DELETE CELL data, filelink, externallink, publish, wrapped FROM newmetadata;
+
+        IF(this->mapfilereferences)
+        {
+          IF (CellExists(newmetadata, "INDEXDOC"))
+          {
+            INTEGER indexdoc := this->UnmapWHFSRef(newmetadata.indexdoc);
+            DELETE CELL indexdoc FROM newmetadata;
+            INSERT CELL indexdoc:=indexdoc INTO newmetadata;
+          }
+        }
+
+        IF(copyrec.haschildren AND CellExists(newmetadata,"TYPE") AND newmetadata.type=1)
+          DELETE CELL type FROM newmetadata;
+
+      }
+      ELSE
+      {
+        IF(this->mapfilereferences)
+        {
+          IF (CellExists(newmetadata, "FILELINK"))
+            newmetadata := [...newmetadata, filelink := this->UnmapWHFSRef(newmetadata.filelink) ];
+        }
+
+        // Source is a file, remove irrelevant cells
+        DELETE CELL requiretemplate, requireprofile, requiretemplateinsubfolders
+                  , requireprofileinsubfolders, indexdoc FROM newmetadata;
+
+        IF( (type="contentlink" OR type="internallink") AND newmetadata.type NOT IN [18,19,20])
+        {
+          DELETE CELL data FROM newmetadata;
+          newmetadata.type := type="contentlink" ? 20 : 19;
+          newmetadata.filelink := copyrec.sourceid;
+        }
+      }
+
+      IF(this->mapfilereferences) //ADDME: (optionally?) discard out-of-tree references ?
+      {
+        // Unmap references when needed
+        IF (CellExists(newmetadata, "TEMPLATE"))
+        {
+          INTEGER template := this->UnmapWHFSRef(newmetadata.template);
+          DELETE CELL template FROM newmetadata;
+          INSERT CELL template:=template INTO newmetadata;
+        }
+        IF (CellExists(newmetadata, "PROFILE"))
+        {
+          INTEGER profile := this->UnmapWHFSRef(newmetadata.profile);
+          DELETE CELL profile FROM newmetadata;
+          INSERT CELL profile:=profile INTO newmetadata;
+        }
+      }
+
+      IF(CellExists(newmetadata,'type') AND (newmetadata.type IN whconstant_whfstypes_scriptable AND NOT this->allowscripting))
+        newmetadata.type := 0;
+
+      RECORD result;
+      OBJECT updateobj;
+      IF(copyrec.create)
+      {
+        // It is a new file, create it.
+        INSERT CELL id := copyrec.destid INTO newmetadata;
+
+        INSERT copyrec.destid INTO this->createdfiles AT END;
+
+        IF(copyrec.sourceisfolder)
+          updateobj := destfolder->CreateFolder(newmetadata);
+        ELSE
+          updateobj := destfolder->CreateFile(newmetadata);
+      }
+      INTEGER ARRAY set_instantiations;
+
+      // Set type instances
+      FOREVERY(RECORD inst FROM src.instances)
+      {
+        INSERT inst.type->ImportInstanceData(copyrec.destid, inst.data, this->mapfilereferences ? this : DEFAULT OBJECT, TRUE)
+               INTO set_instantiations AT END;
+      }
+
+      IF(NOT copyrec.create)
+      {
+        //Delete existing but unreferenced instances on dest object
+        INTEGER ARRAY killinstances := SELECT AS INTEGER ARRAY fs_instances.id
+                                          FROM system.fs_instances, system.fs_types
+                                         WHERE fs_instances.fs_type = fs_types.id
+                                               AND fs_instances.fs_object = copyrec.destid
+                                               AND fs_types.cloneoncopy = TRUE
+                                               AND fs_instances.id NOT IN set_instantiations
+                                               ;
+
+        DELETE FROM system.fs_instances WHERE id IN killinstances;
+
+        // Update the metadata
+        updateobj := OpenWHFSObject(copyrec.destid);
+
+        IF(updateobj->type = 1 OR (CellExists(newmetadata,'type') AND newmetadata.type=1)) //you cannot create or undo a foreign folder's foreignness this way
+          DELETE CELL type FROM newmetadata;
+
+        updateobj->UpdateMetadata(newmetadata);
+      }
+
+      IF(NOT copyrec.sourceisfolder)
+        this->progresssofar := this->progresssofar + Length(updateobj->data);
+    }
+  }
+
+
+  MACRO ExecuteMoveAction(RECORD tomove)
+  {
+    // Lookup the destination folder; it should exist because of the lowest-depth ordering,
+    OBJECT destfolder := this->destfolder->OpenByPath(tomove.destparentpath);
+    OBJECT sourcefolder := OpenWHFSObjectOrRoot(tomove.sourceparent);
+    IF (NOT ObjectExists(destfolder))
+      THROW NEW WHFSException("OTHER","ExecuteMoveAction: Cannot find folder '" || tomove.destparentpath || "' relative to folder " || this->destfolder->whfspath);
+
+    BOOLEAN replace := tomove.kind = "replace";
+
+    // These are all moves from the same folder to the same folder
+
+    BOOLEAN index_moved := FALSE;
+    INTEGER new_index := destfolder->indexdoc;
+
+    INTEGER republish_prio := tomove.depth = 0 ? PubPrio_FolderRepub : PubPrio_SubFolderRepub;
+
+    // Move all objects
+    FOREVERY (RECORD moverec FROM tomove.objs)
+    {
+      IF (this->onprogress != DEFAULT FUNCTION PTR)
+        this->onprogress([ donelen := this->progresssofar, progress := moverec.progress, file := moverec.name, fullpath := moverec.destpath ]);
+
+      BOOLEAN isindexdoc := sourcefolder->indexdoc = moverec.sourceid;
+      BOOLEAN disablepublish := CellExists(moverec, "OPTIONS") AND moverec.options.disablepublish;
+
+      IF (replace AND moverec.destid != moverec.sourceid)
+      {
+        // Recycle the destination folder
+        OBJECT to_replace := OpenWHFSObject(moverec.destid);
+        IF (NOT ObjectExists(to_replace))
+          THROW NEW WHFSException("OTHER","ExecuteMoveAction: Cannot find object #" || moverec.destid || " in folder " || this->destfolder->whfspath);
+
+        to_replace->RecycleSelf();
+      }
+
+      RECORD oldrec :=
+          SELECT parent
+               , published
+               , isfolder
+               , parentsite
+            FROM system.fs_objects
+           WHERE id = moverec.sourceid;
+
+      // Execute the move, republish if currently published, reset the owner.
+      UPDATE system.fs_objects
+         SET parent     := destfolder->id
+           , name       := moverec.name
+           , published  := isfolder
+                              ? published
+                              : disablepublish
+                                      ? ConvertToWontPublish(published)
+                                      : ConvertToWillPublish(published,
+                                               /*firsttime=*/true,
+                              /*enable_publish_if_disabled=*/false,
+                                                             republish_prio)
+           , modifiedby := this->newowner
+           , modificationdate := this->now
+//           , ordering := (SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = destfolder->id)// Added 10-04-2015 for new ordering mechanism
+       WHERE id = moverec.sourceid;
+
+      this->commithandler->ObjectMove(oldrec.parentsite, oldrec.parent, moverec.sourceid);
+      this->commithandler->ObjectMoved(destfolder->parentsite, destfolder->id, moverec.sourceid);
+      IF (NOT oldrec.isfolder AND IsPublish(oldrec.published) AND NOT disablepublish)
+        this->commithandler->FileRepublish(destfolder->parentsite, destfolder->id, moverec.sourceid);
+
+      // Update the owner in subfiles
+      UpdatePublishedRecursive(destfolder->parentsite, moverec.sourceid, disablepublish, this->commithandler);
+
+      IF (isindexdoc)
+      {
+        index_moved := TRUE;
+        IF (new_index = 0)
+          new_index := moverec.sourceid;
+      }
+      IF (ToLowercase(moverec.name) IN whconstant_webserver_indexpages AND NOT moverec.sourceisfolder)
+        new_index := moverec.sourceid;
+    }
+
+    IF (index_moved AND sourcefolder->id != destfolder->id)
+    {
+      // Index file was moved, see if any mandatory indexdoc is still present
+      sourcefolder->UpdateMetadata([ indexdoc :=
+          SELECT AS INTEGER id
+            FROM system.fs_objects
+           WHERE parent = sourcefolder->id
+             AND NOT isfolder
+             AND ToLowercase(name) IN whconstant_webserver_indexpages ]);
+    }
+
+    IF (new_index != destfolder->indexdoc)
+      destfolder->UpdateMetadata ([ indexdoc := new_index ]);
+
+    // Fixup stuff like required template/profile, recursively
+    FixupTemplateProfileInfo(destfolder->id, FALSE, FALSE);
+  }
+
+
+  /** The 'setindex'-action looks at a folder, and retrieves the
+      metadata for that folder. If the indexdoc is newly created file,
+      it is replaced by the from the metadata (this because the indexdoc set
+      to the first created file).
+  */
+  MACRO ExecuteSetIndexAction(RECORD tocopy, FUNCTION PTR get_metadata)
+  {
+    OBJECT destfolder := this->destfolder;
+
+    RECORD obj := tocopy.objs[0];
+
+    RECORD src := get_metadata(obj);
+    IF(NOT RecordExists(src))
+    {
+      // It is not an error when the source folder has id 0 and has no metadata (used in unpack actions)
+      IF (obj.sourceid = 0)
+        RETURN;
+
+      THROW NEW WHFSException("OTHER","ExecuteSetIndexAction: Missing metadata for source folder");
+    }
+
+    IF (this->onprogress != DEFAULT FUNCTION PTR)
+      this->onprogress([ donelen := this->progresssofar, progress := obj.progress, file := obj.name, fullpath := obj.destpath ]);
+
+    // FIXME: this code seems very wrong. Test whether the src.indexdoc is really the new indexdoc.
+
+    // Update the indexdoc if it is 0 or has been auto-assigned to one of the newly created files
+    IF (destfolder->indexdoc = 0 OR destfolder->indexdoc IN this->createdfiles)
+    {
+      IF(this->mapfilereferences)
+      {
+        IF (CellExists(src, "INDEXDOC"))
+        {
+          INTEGER indexdoc := this->UnmapWHFSRef(src.indexdoc);
+          DELETE CELL indexdoc FROM src;
+          INSERT CELL indexdoc:=indexdoc INTO src;
+        }
+      }
+
+      // Only set the indexdoc when it is newly created.
+      IF (src.indexdoc IN this->createdfiles)
+        destfolder->UpdateMetadata([indexdoc := src.indexdoc]);
+    }
+  }
+
+  /** Precalculate the progress per folder
+  */
+  RECORD ARRAY FUNCTION PrecalcProgress(RECORD ARRAY actions_per_folder)
+  {
+    MONEY totalfiles;
+    FOREVERY (RECORD rec FROM actions_per_folder)
+      totalfiles := totalfiles + LENGTH(rec.objs);
+
+    MONEY nowfiles;
+    FOREVERY (RECORD rec FROM actions_per_folder)
+    {
+      FOREVERY(RECORD obj FROM rec.objs)
+      {
+        UPDATE actions_per_folder[#rec].objs
+               SET progress := 100 * (nowfiles + #objs) / totalfiles;
+      }
+      nowfiles := nowfiles + LENGTH(rec.objs);
+    }
+    RETURN actions_per_folder;
+  }
+
+
+  /** Executes the action plan
+  */
+  MACRO ExecuteActionPlan(FUNCTION PTR get_metadata)
+  {
+    // First generate ids for all objects that will be newly created
+    this->GeneratePlanIds();
+
+    IF(debugmapping)
+    {
+      PRINT("***PLANNED_ENTRIES***\n");
+      printrecordarrayto(0,this->planned_entries,'boxed');
+    }
+
+    // Group the planned actions per folder, lowest folders first.
+    RECORD ARRAY actions_per_folder :=
+        SELECT sourceparent
+             , destparentpath
+             , kind
+             , objs := GroupedValues(planned_entries)
+             , depth
+          FROM this->planned_entries
+      GROUP BY depth, sourceparent, destparentpath, kind
+      ORDER BY depth;
+
+    actions_per_folder := this->PrecalcProgress(actions_per_folder);
+
+    // Go execute!
+    FOREVERY(RECORD action FROM actions_per_folder)
+    {
+      SWITCH (action.kind)
+      {
+        CASE "copy", "contentlink", "internallink"
+        {
+          this->ExecuteCopyAction(action, get_metadata, action.kind);
+        }
+      CASE "move", "replace"    { this->ExecuteMoveAction(action); }
+      CASE "setindex"           { this->ExecuteSetIndexAction(action, get_metadata); }
+      CASE "remaining"          { /* ignore */ }
+      DEFAULT
+        {
+          THROW NEW Exception("Unknown action '"||action.kind||"' encoutered in WHFSBulkReceiver");
+        }
+      }
+    }
+  }
+
+
+  /** Collects all metadata for a fs object
+      @param source Source object (from the plan)
+      @param source.sourceid Id of the source file
+      @return Lots of metadata (not mapped!)
+  */
+  RECORD FUNCTION GetCopyMetadata(RECORD source)
+  {
+    RECORD sourceinfo := SELECT name, title, keywords, description, externallink
+                              , ordering, type, indexdoc, data, filelink
+                              , template, requiretemplate, requiretemplateinsubfolders
+                              , profile, requireprofile, requireprofileinsubfolders
+                              , publish, modifiedby, ispinned, wrapped := DecodeScanData(scandata)
+                           FROM system.fs_objects
+                          WHERE id = source.sourceid;
+
+    IF(RecordExists(sourceinfo))
+    {
+      RECORD ARRAY instances := SELECT type := OpenWHFSTypeById(fs_types.id)
+                                  FROM system.fs_instances, system.fs_types
+                                 WHERE fs_instances.fs_object = source.sourceid
+                                       AND fs_types.cloneoncopy = TRUE
+                                       AND fs_types.id = fs_instances.fs_type;
+
+      INSERT CELL instances := SELECT *
+                                    , data := type->ExportInstanceData(source.sourceid, this->bulksender, TRUE)
+                                 FROM instances
+                                 INTO sourceinfo;
+    }
+
+    IF (CellExists(source, "OPTIONS") AND source.options.disablepublish)
+      sourceinfo.publish := FALSE;
+
+    RETURN sourceinfo;
+  }
+
+
+  /** Retrieve the metadata for an imported file
+  */
+  RECORD FUNCTION GetImportMetadata(RECORD source, RECORD ARRAY import_entries, RECORD ARRAY allmetadatas)
+  {
+    RECORD metainfo;
+    RECORD retval;
+    OBJECT typeobj;
+
+    IF(source.sourceisfolder)
+    {
+      RECORD folderinfo := SELECT AS RECORD metadata FROM allmetadatas WHERE ToUppercase(path) = ToUppercase(source.destpath);
+      IF(RecordExists(folderinfo))
+        metainfo := folderinfo.folder;
+
+      IF(RecordExists(metainfo))
+      {
+        retval := [ indexdoc := metainfo.indexpath
+                  ];
+
+        IF(metainfo.type!="http://www.webhare.net/xmlns/publisher/normalfolder")
+        {
+          OBJECT lookuptype := OpenWHFSType(metainfo.type, [ openorphans := TRUE ]);
+          IF(ObjectExists(lookuptype))
+            typeobj := lookuptype;
+        }
+      }
+      ELSE
+      {
+        IF(debugmapping)
+          Print("** did not find metadata for folder " || source.destpath || "\n");
+
+        retval := [ indexdoc := ""
+                  ];
+      }
+    }
+    ELSE
+    {
+      RECORD imp := SELECT * FROM import_entries WHERE searchpath = source.destpath;
+      IF(NOT RecordExists(imp))
+      {
+        Print("** did not find import entry for file " || source.destpath || "\n");
+        RETURN DEFAULT RECORD;
+      }
+
+      RECORD folderinfo := SELECT AS RECORD metadata FROM allmetadatas WHERE ToUppercase(path) = ToUppercase(source.destparentpath);
+      IF(RecordExists(folderinfo))
+        metainfo := SELECT * FROM folderinfo.files WHERE ToUppercase(name) = ToUppercase(source.name);
+
+      IF(RecordExists(metainfo))
+      {
+        IF(CellExists(metainfo,'type') AND metainfo.type!='http://www.webhare.net/xmlns/publisher/unknownfile')
+        {
+          OBJECT lookuptype := OpenWHFSType(metainfo.type, [ openorphans := TRUE ]);
+          IF(ObjectExists(lookuptype))
+            typeobj := lookuptype;
+        }
+
+        //FIXME why not insert cell publish ?
+        INSERT CELL published := ConvertToWillPublish(metainfo.data.published, TRUE, FALSE, PubPrio_SubFolderRepub) INTO retval;
+      }
+      ELSE
+      {
+        IF(debugmapping)
+          Print("** did not find metadata for file " || source.destpath || "\n");
+      }
+
+      IF(CellExists(imp,'getdataptr'))
+        INSERT CELL getdataptr := imp.getdataptr INTO retval;
+      INSERT CELL data := imp.data INTO retval;
+    }
+
+    IF(RecordExists(metainfo))
+    {
+      //FIXME report errors about missing instances
+      RECORD ARRAY instances;
+//      PrintRecordArrayTo(0,metainfo.contentinstances,'tree');
+      FOREVERY(RECORD instancerec FROM metainfo.contentinstances)
+      {
+//        Print("**" || source.name || " " || instancerec.namespace || "\n");
+        OBJECT typedef := OpenWHFSType(instancerec.namespace, [ openorphans := TRUE ]);
+        IF(NOT ObjectExists(typedef))
+          CONTINUE;
+
+        INSERT [ type := typedef, data := instancerec.instance ] INTO instances AT END;
+      }
+
+      IF(ObjectExists(typeobj))
+      {
+        IF((source.sourceisfolder AND NOT typeobj->foldertype) OR (NOT source.sourceisfolder AND NOT typeobj->filetype))
+          typeobj:=DEFAULT OBJECT;
+      }
+
+      retval := [ ...retval
+                , instances := instances
+                , name := source.name
+                , title := metainfo.data.title
+                , description := metainfo.data.description
+                , ispinned := CellExists(metainfo.data,'ispinned') ? metainfo.data.ispinned : FALSE
+                , externallink := CellExists(metainfo.data,'externallink') ? metainfo.data.externallink : ''
+                , keywords := CellExists(metainfo.data,'keywords') ? metainfo.data.keywords : ''
+                , template := metainfo.templatepath
+                , profile :=  metainfo.profilepath
+                , filelink := CellExists(metainfo,'linkpath') ? metainfo.linkpath : ''
+                , ordering := metainfo.data.ordering
+                , type := ObjectExists(typeobj) ? typeobj->id : 0
+                , wrapped := CellExists(metainfo,'wrapped') ? metainfo.wrapped : DEFAULT RECORD
+                ];
+    }
+    ELSE
+    {
+      IF(NOT source.sourceisfolder)
+        INSERT CELL publish := TRUE INTO retval;
+
+      retval := MakeMergedRecord(retval,
+                                 [instances := DEFAULT RECORD ARRAY
+                                 ,name := source.name
+                                 ]);
+    }
+    RETURN retval;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Unmaps a text-reference to an id.
+      @param whfsref Mapped reference to a file
+  */
+  UPDATE PUBLIC INTEGER FUNCTION UnmapWHFSRef(STRING whfsref)
+  {
+    INTEGER objid;
+    IF(whfsref!="")
+    {
+      //FIXME: look in a cache
+      INTEGER colon := SearchSubstring(whfsref,":");
+      RECORD file;
+
+      IF (colon=-1)
+      {
+        IF(whfsref="/" OR whfsref="./") //special case. old webhare generates /, nowadays we do the cleaner './'
+        {
+          objid := this->destfolder->id;
+        }
+        ELSE
+        {
+          IF(whfsref LIKE '/*') //old webhare did generate initial slashes
+            whfsref := SubString(whfsref, 1);
+
+          IF(debugmapping)
+            Print("UnmapWHFSRef: Lookup " || whfsref || " in planned_entries\n");
+          objid := SELECT AS INTEGER COLUMN destid FROM this->planned_entries WHERE ToUppercase(whfsref)=ToUppercase(destpath);
+        }
+      }
+      ELSE IF(colon=0)//lacking site name
+      {
+        objid := LookupWHFSObject(0, Substring(whfsref,1));
+        IF(objid<0)
+          objid:=0;
+      }
+      ELSE
+      {
+        INTEGER siteid := SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(sites.name)=ToUppercase(Left(whfsref,colon));
+        IF(siteid!=0)
+          objid := LookupWHFSObject(siteid, substring(whfsref,colon+1));
+        IF(objid<0)
+          objid:=0;
+      }
+    }
+    ELSE
+    {
+
+    }
+    IF(debugmapping)
+      Print("UnmapWHFSRef: Mapped [" || whfsref || "] to " || objid || "\n");
+    RETURN objid;
+  }
+
+
+  /** Indicates that this receiver will be used for importing from a targz export, with
+      mapped references.
+  */
+  PUBLIC MACRO SetImportBase()
+  {
+    this->mapfilereferences := TRUE;
+  }
+
+
+  /** Sets a root source folder. All references that link to a file within this folder will
+      also be copied/moved.
+      @param sourceobject Root source object
+      @param assume_prepend Optional folder name to put all files in
+  */
+  PUBLIC MACRO SetSourceBase(INTEGER sourceobject, STRING assume_prepend)
+  {
+    this->bulksender := NEW WHFSBulkSender(sourceobject, assume_prepend);
+    this->mapfilereferences := TRUE;
+  }
+
+
+  /* Planning involves figuring out which files/folders we will
+     be overwriting. Based on the plan, any conflict resolution
+     strategy can be defined
+     */
+
+  /** Create a copy plan.
+      @param sourcefolderid Id of source folder
+      @param sourceobjs Ids of files/folders to copy
+      @param newname When copying/moving only one file, optional new name for the file.
+      @param type Copy type ("copy" or "contentlink")
+  */
+  PUBLIC MACRO CreateCopyPlan(INTEGER sourcefolderid, INTEGER ARRAY sourceobjs, STRING newname, STRING type DEFAULTSTO "copy")
+  {
+    // Gather the source objects
+    RECORD ARRAY srcs := this->RecurseSourcePlan(sourcefolderid, sourceobjs);
+
+    //Update any names referring to deleted directories
+    srcs := FixupRecycleBinNames(srcs);
+
+    //Special case when renaming
+    IF(newname!="")
+    {
+      IF(Length(srcs) = 1)
+        srcs[0].name := newname;
+      ELSE IF (Length(srcs) > 1)
+        THROW NEW WHFSException("OTHER","Cannot rename during a copy/move operation when handling more than one file");
+    }
+
+    // Generate the copy plan
+    this->GenerateCopyPlan(sourcefolderid, srcs, this->destfolder->id, type);
+  }
+
+
+  /** Create a move plan.
+      @param sourcefolderid Id of source folder
+      @param sourceobjs Ids of files/folders to copy
+      @param newname When copying/moving only one file, optional new name for the file.
+  */
+  PUBLIC MACRO CreateMovePlan(INTEGER sourcefolderid, INTEGER ARRAY sourceobjs, STRING newname, STRING mode)
+  {
+    //Gather the source objects
+    RECORD ARRAY srcs := this->RecurseSourcePlan(sourcefolderid, sourceobjs);
+
+    //Update any names referring to deleted directories
+    srcs := FixupRecycleBinNames(srcs);
+
+    //Special case when renaming
+    IF(newname!="")
+    {
+      IF(Length(srcs) = 1)
+        srcs[0].name := newname;
+      ELSE IF (Length(srcs) > 1)
+        THROW NEW WHFSException("OTHER","Cannot rename during a copy/move operation when handling more than one file");
+    }
+
+    // Generate the move plan
+    IF (NOT this->RecurseGenerateMovePlan(sourcefolderid, srcs, this->destfolder->id, "", 0, mode))
+      THROW NEW Exception("Found a folder that will be overwritten; another move mode must be specified");
+  }
+
+
+  /** Generates a copy plan.
+      @param sourceparent Folder where the source objects come from (optional, may be 0)
+      @param sourceobjs List of source objects (organized in tree)
+      @cell sourceobjs.id Id of object
+      @cell sourceobjs.name Name of object
+      @cell sourceobjs.isfolder Whether the object is a folder
+      @cell sourceobjs.children List of children (only when the object is a folder)
+      @param destinationfolder Folder to copy all the source objects to
+  */
+  PUBLIC MACRO GenerateCopyPlan(INTEGER sourceparent, RECORD ARRAY sourceobjs, INTEGER destinationfolder, STRING type DEFAULTSTO "copy")
+  {
+    this->RecurseGenerateCopyPlan(sourceparent, sourceobjs, destinationfolder, "", 0, type);
+
+    // Afterwards, set the indexdoc of the destfolder to the indexdoc of the srcfolder if that is copied.
+    INSERT [ itemid :=   LENGTH(this->planned_entries) + 1
+           , kind :=     "setindex"
+           , sourceid := sourceparent
+           , destid :=   destinationfolder
+           , create :=   FALSE
+           , name :=     ""
+           , destpath := ""
+           , depth :=    0
+
+           , sourceparent   := sourceparent
+           , destparent     := destinationfolder
+           , destparentpath := ""
+           , sourceisfolder := TRUE
+           , destisfolder   := TRUE
+           , progress := 0m
+           ] INTO this->planned_entries AT END;
+  }
+
+
+  /** @short Executes a copy plan
+      @long When copying/moving files into a folder, if any file with the standard index names (eg index.html) is
+      copied into the folder, that file will become indexdoc.
+      Otherwise, if the destination already has an indexdoc, it won't be changed. If it hadn't, the indexdoc
+      of the source folder will become indexdoc, or, if no indexdoc was copied/moved, any file that can become
+      index will become the indexdoc.
+  */
+  PUBLIC MACRO ExecuteCopyMovePlan()
+  {
+    this->commithandler := GetWHFSCommitHandler();
+
+    IF(this->mapfilereferences)
+      this->ExecuteActionPlan(PTR this->bulksender->ExportMetadata(#1, PTR this->GetCopyMetaData));
+    ELSE
+      this->ExecuteActionPlan(PTR this->GetCopyMetaData);
+  }
+
+
+  /** @short Executes an import plan.
+      @param import_entries List of all imported entries. ADDME Rob says: refactor or something?
+          Add to the bulk sender?
+  */
+  PUBLIC MACRO ExecuteImportPlan(RECORD ARRAY import_entries)
+  {
+    this->commithandler := GetWHFSCommitHandler();
+
+    //Gather import data per folder
+    RECORD ARRAY perfoldermetadata;
+
+    STRING ARRAY seentypes;
+    FOREVERY(RECORD imp FROM import_entries)
+      IF(imp.name="^^webhare_folder_metadata.xml")
+      {
+        RECORD data := ParseImportMetadata(CellExists(imp,'getdataptr') AND imp.getdataptr != DEFAULT MACRO PTR ? imp.getdataptr() : imp.data, this->pvt_xmldecoder);
+        IF(RecordExists(data))
+        {
+          STRING path := imp.basepath;
+          IF (path LIKE "/*")
+            path := SubString(path, 1);
+
+          INSERT [ path := path , metadata := data ] INTO perfoldermetadata AT END;
+
+          IF(RecordExists(data.meta) AND Length(data.meta.describetypes)>0)
+          {
+            FOREVERY(RECORD type FROM data.meta.describetypes)
+            {
+              STRING typehash := GetMD5Hash(EncodeHson(type)); //avoid reregistering types we've seen before, registerwhfstype is slow
+              IF(typehash NOT IN seentypes)
+              {
+                IF(debugmapping)
+                {
+                  Print("registering type\n");
+                  Printrecordto(0,type,'tree');
+                }
+                INSERT typehash INTO seentypes AT END;
+                RegisterWHFSType(type);
+              }
+            }
+          }
+        }
+      }
+
+    IF(debugmapping)
+    {
+      Print("targz metadata:\n");
+      Printrecordarrayto(0,perfoldermetadata,'tree');
+    }
+    this->ExecuteActionPlan(PTR this->GetImportMetaData(#1, import_entries, perfoldermetadata));
+  }
+
+
+  /// Finalize the action.
+  PUBLIC MACRO Finalize()
+  {
+    this->commithandler := GetWHFSCommitHandler();
+
+    INTEGER ARRAY updatedfolders := SELECT AS INTEGER ARRAY DISTINCT destparent
+                                      FROM this->plan
+                                     WHERE destparent != 0;
+
+    updatedfolders := updatedfolders CONCAT
+                        SELECT AS INTEGER ARRAY DISTINCT sourceparent
+                             FROM this->plan
+                             WHERE sourceparent != 0
+                                   AND kind IN ["move"]
+                                   AND sourceparent NOT IN updatedfolders;
+
+
+    //ADDME: Remove folders for which we know the plan already specified a new index?
+    INTEGER ARRAY updatedindices := SELECT AS INTEGER ARRAY indexdoc
+                                      FROM system.fs_objects
+                                     WHERE id IN updatedfolders;
+
+    UPDATE system.fs_objects
+           SET published := ConvertToWillpublish(published, FALSE, FALSE,  PubPrio_DirectEdit)
+           WHERE id IN updatedindices
+                 AND publish = TRUE
+                 AND template != 0
+                 AND isactive = TRUE;
+
+    RECORD ARRAY republishes :=
+        SELECT id
+             , parent
+             , parentsite
+          FROM system.fs_objects
+         WHERE id IN updatedindices
+           AND publish = TRUE
+           AND template != 0
+           AND isactive = TRUE;
+
+    FOREVERY (RECORD rec FROM republishes)
+      this->commithandler->FileRepublish(rec.parentsite, rec.parent, rec.id);
+
+    //any moves clears trashing info
+    INTEGER ARRAY cleartrashfor := SELECT AS INTEGER ARRAY destid FROM this->plan WHERE NOT create;
+    IF(Length(cleartrashfor) > 0)
+      DELETE FROM system.fs_history WHERE type = 0 AND fs_object IN cleartrashfor;
+  }
+
+  PUBLIC MACRO SetPlanRecordOption(RECORD planrecord, RECORD options)
+  {
+    FOREVERY (RECORD rec FROM UnpackRecord(options))
+      IF (rec.name NOT IN [ "DISABLEPUBLISH" ])
+        THROW NEW Exception("Illegal option '" || rec.name || "'");
+
+    RECORD pos := RecordLowerBound(this->planned_entries, planrecord, [ "ITEMID" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("Could not located plan item");
+
+    RECORD baseoptions :=
+        [ disablepublish := FALSE
+        ];
+
+    IF (NOT CellExists(this->planned_entries[pos.position], "OPTIONS"))
+      INSERT CELL options := baseoptions INTO this->planned_entries[pos.position];
+
+    this->planned_entries[pos.position].options := MakeReplacedRecord(this->planned_entries[pos.position].options, options);
+  }
+>;
+
+
+/** Maps/unmaps WHFS references to their resource names (site::... or whfs::...)
+*/
+PUBLIC STATIC OBJECTTYPE WHFSResourceNameMapper EXTEND InstanceMapperBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Cache for MapWHFSRef
+      @cell id Id of file (sortkey)
+      @cell path Result path
+  */
+  RECORD ARRAY mapcache;
+
+  /** Unmap for UnmapWHFSRef
+      @cell path Path (sortkey)
+      @cell id Unmapped id
+  */
+  RECORD ARRAY unmapcache;
+
+  /// List of missing references (used when ignore_missing_references is TRUE)
+  STRING ARRAY pvt_missing_references;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables and properties
+  //
+
+  /** Whether to silently set missing references to 0
+  */
+  PUBLIC BOOLEAN ignore_missing_references;
+
+  /** String array with missing references
+  */
+  PUBLIC PROPERTY missing_references(pvt_missing_references, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->ignore_missing_references := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Override to allow reference to webhare-private
+      @param id Id of the file
+      @param currentref Reference made by MapExternalWHFSRef ('site::' or 'whfs::', only for active files)
+      @param resourcename Resourcename, also set for non-active files
+      @return Reference. Just return currentref for standard behaviour.
+  */
+  STRING FUNCTION OverrideMapWHFSRef(INTEGER id, STRING currentref, STRING resourcename)
+  {
+    // Allow references to the keystore
+    IF (resourcename LIKE "whfs::/webhare-private/system/keystore/*")
+      RETURN resourcename;
+
+    RETURN currentref;
+  }
+
+  /** Override to handle prefixes other than site:: and whfs::
+      @param currentid Current id ('site::' and 'whfs::' references have been resoleved. -2: unrecognized type, -1: not found, >= 0: found)
+      @param path Reference path
+      @return -2 for unrecognized type, -1 for recognized but not found, >=0 valid link. Just return currentid for standard behaviour
+  */
+  INTEGER FUNCTION OverrideUnmapWHFSRef(INTEGER currentid, STRING path)
+  {
+    RETURN currentid;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Maps a WHFS reference to a string
+      @param objid WHFS reference id
+      @return resource name
+  */
+  PUBLIC STRING FUNCTION MapWHFSRef(INTEGER objid)
+  {
+    IF (objid = 0)
+      RETURN "";
+
+    RECORD pos := RecordLowerBound(this->mapcache, [ id := objid ], [ "ID" ]);
+    IF (pos.found)
+    {
+      STRING path := this->mapcache[pos.position].path;
+      IF(debugmapping)
+        Print(`MapWHFSRef: mapped ${objid} -> ${path} (from cache)\n`);
+
+      RETURN path;
+    }
+
+    STRING path := MapExternalWHFSRef(objid);
+
+    // Path empty means the file doesn't exist or is in whfs-private.
+    STRING resourcename := path ?? SELECT AS STRING `whfs::${whfspath}` FROM system.fs_objects WHERE id = objid;
+    IF (resourcename != "")
+      path := this->OverrideMapWHFSRef(objid, path, resourcename);
+
+    INSERT CELL[ id := objid, path ] INTO this->mapcache AT pos.position;
+
+    IF (debugmapping)
+      Print(`MapWHFSRef: mapped ${objid} -> ${path}\n`);
+
+    RETURN path;
+  }
+
+  /** Unmap a mapped WHFS reference back to a WHFS id
+      @param path WHFS mapped reference
+      @return Resource id
+  */
+  UPDATE PUBLIC INTEGER FUNCTION UnmapWHFSRef(STRING path)
+  {
+    IF (path = "")
+      RETURN 0;
+
+    INTEGER id;
+    STRING lpath := ToLowercase(path);
+    RECORD pos := RecordLowerBound(this->unmapcache, [ path := lpath ], [ "PATH" ]);
+    IF (pos.found)
+    {
+      id := this->unmapcache[pos.position].id;
+      IF (debugmapping)
+        Print(`UnmapWHFSRef: Unmapped [${path}] to ${id} (from cache)\n`);
+
+      RETURN id;
+    }
+
+    IF(path LIKE "site::*" OR path LIKE "whfs::*")
+      id := LookupWHFSObject(0, path);
+    ELSE
+      id := -2;
+
+    // Allow override
+    id := this->OverrideUnmapWHFSRef(id, path);
+
+    IF (id <= -2)
+      THROW NEW Exception(`Unrecognized WHFS mapping '${path}'`);
+
+    IF (id = -1)
+    {
+      IF (NOT this->ignore_missing_references)
+        THROW NEW Exception(`Cannot locate object '${path}'`);
+
+      RECORD mrpos := LowerBound(this->pvt_missing_references, path);
+      IF (NOT mrpos.found)
+        INSERT path INTO this->pvt_missing_references AT mrpos.position;
+      IF (debugmapping)
+        Print(`UnmapWHFSRef: Could not unmap [${path}]\n`);
+
+      id := 0;
+    }
+
+    INSERT CELL[ id, path := lpath ] INTO this->unmapcache AT pos.position;
+    RETURN id;
+  }
+>;

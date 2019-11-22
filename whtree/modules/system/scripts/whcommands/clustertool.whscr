@@ -1,0 +1,160 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/clustering2.whlib";
+
+
+RECORD ARRAY options := [ [ name := "command", type := "param", required := TRUE ]
+                        , [ name := "params", type := "paramlist" ]
+                        ];
+
+//Ssee dbase_diskio.cpp for these constants
+INTEGER blocksize := 128;
+INTEGER blockspersection := 448;
+OBJECT trans;
+
+PUBLIC RECORD ARRAY FUNCTION ListDBSections()
+{
+  RETURN SELECT tableid, schemaname := ANY(schemaname), tablename := ANY(tablename), sections := GroupedValues(id), numsections := COUNT(*)
+           FROM __SendWHDBCommand(trans->id, "SHOW DBFILE_SECTIONS")
+       GROUP BY tableid;
+}
+
+PUBLIC RECORD ARRAY FUNCTION AnalyzeSections(INTEGER ARRAY sectionids)
+{
+  RECORD ARRAY tablesections;
+  FOREVERY(INTEGER section FROM sectionids)
+  {
+    RECORD ARRAY sectionoverview := __SendWHDBCommand(trans->id, "SHOW SECTIONHEADERS " || section);
+
+    sectionoverview := SELECT startblock := __rec, limitblock := __rec + (__len+blocksize-1)/blocksize, blocks := (__len+blocksize-1)/blocksize FROM sectionoverview;
+    INTEGER blocksused := SELECT AS INTEGER SUM(blocks) FROM sectionoverview;
+    RECORD ARRAY blocksizes := SELECT blocks, num:=COUNT(*) FROM sectionoverview GROUP BY blocks ORDER BY blocks;
+    INTEGER singleblocks := Length(SELECT FROM sectionoverview WHERE blocks=1);
+
+    INTEGER blocksfree := blockspersection - blocksused;
+    MONEY fillfactor := 100 * MONEY(blocksused)/MONEY(blockspersection) ;
+    INSERT CELL [ section, blocksused, blocksfree, singleblocks, blocksizes, fillfactor ] INTO tablesections AT END;
+  }
+  RETURN tablesections;
+}
+
+MACRO RunReport(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+    [ [ name := "v", type := "switch" ]
+    ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh clustertool report [-v]\n");
+    TerminateScriptWithError("Invalid syntax");
+  }
+
+  trans->BeginWork();
+  RECORD ARRAY tables := ListDBSections();
+  IF(subargs.v)
+    DumpValue( (SELECT schemaname, tablename, num := Length(sections) FROM tables ORDER BY schemaname, tablename), 'boxed');
+
+  IF(NOT subargs.v)
+    DELETE FROM tables WHERE Length(sections) = 1; //we don't normally care about 1-section tables, fillfactor is pretty meaningless as there's nothing to optimize
+
+  FOREVERY(RECORD tablerec FROM tables)
+  {
+    IF(tablerec.schemaname="") //free space
+      CONTINUE;
+
+    IF(subargs.v)
+      Print("Processing " || tablerec.schemaname || "." || tablerec.tablename || "\n");
+    RECORD ARRAY tablesections := AnalyzeSections(tablerec.sections);
+    IF(subargs.v)
+      DumpValue(tablesections, [ format := 'boxed', name := tablerec.schemaname || "." || tablerec.tablename ]);
+
+    MONEY avg_fillfactor := SELECT AS MONEY AVG(fillfactor) FROM tablesections;
+    tables[#tablerec] := CELL[...tables[#tablerec] , avg_fillfactor];
+  }
+
+  DumpValue(tables,'boxed');
+}
+
+MACRO RunClusterTable(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "rewriteall", type := "switch" ]
+      , [ name := "justcompact", type := "switch" ]
+      , [ name := "minfill", type := "stringopt" ]
+      , [ name := "maxshared", type := "stringopt" ]
+      , [ name := "tablename", type := "param", required := TRUE ]
+      , [ name := "groupkey", type := "param" ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh clustertool cluster [ --rewriteall ] [ --minfill perc ] [ --maxshared nr ] [ --justcompact ] tablename [ groupingkey ]\n");
+    TerminateScriptWithError("Invalid syntax");
+  }
+
+  STRING groupkey;
+  SWITCH (ToLowercase(subargs.tablename))
+  {
+    CASE "wrd.entities"           { groupkey := "TYPE"; }
+    CASE "wrd.entity_settings"    { groupkey := "ENTITY"; }
+    CASE "system.fs_objects"      { groupkey := "PARENT"; }
+    CASE "system.fs_settings"     { groupkey := "FS_INSTANCE"; }
+    CASE "system.fs_instances"    { groupkey := "FS_OBJECT"; }
+    CASE "wrd.auditevents"        { groupkey := "ENTITY"; }
+  }
+
+  IF (subargs.groupkey != "")
+  {
+    IF (groupkey != "" AND ToUppercase(subargs.groupkey) != groupkey)
+      TerminateScriptWithError(`Table '${ToUppercase(subargs.tablename)}' already has predefined groupkey '${groupkey}'}`);
+    groupkey := ToUppercase(subargs.groupkey);
+  }
+  ELSE IF (groupkey = "" AND NOT subargs.justcompact)
+    TerminateScriptWithError(`Need a grouping key for table '${subargs.tablename}', no predefined grouping key defined`);
+
+  OBJECT engine := NEW DBClusterEngine;
+  engine->rewriteall := subargs.rewriteall;
+
+  IF (subargs.minfill != "")
+  {
+    INTEGER minfill := ToInteger(subargs.minfill, 0);
+    IF (minfill < 25 OR minfill > 100)
+      TerminateScriptWithError(`Illegal minimum fill percentage ${subargs.minfill}`);
+    engine->small_section_fill_perc := minfill;
+  }
+
+  IF (subargs.maxshared != "")
+  {
+    INTEGER maxshared := ToInteger(subargs.maxshared, 0);
+    IF (maxshared < 4)
+      TerminateScriptWithError(`Illegal maximum shared sections value ${subargs.maxshared}`);
+    engine->max_shared_sections := maxshared;
+  }
+
+  engine->ClusterTable(subargs.tablename, groupkey, CELL[ subargs.justcompact ]);
+}
+
+trans := OpenPrimary([ clustermode := TRUE ]);
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+SWITCH(RecordExists(cmdargs) ? cmdargs.command : "HELP")
+{
+  CASE "report"
+  {
+    RunReport(cmdargs.params);
+  }
+  CASE "cluster"
+  {
+    RunClusterTable(cmdargs.params);
+  }
+  DEFAULT
+  {
+    Print("Syntax: wh clustertool report ....\n");
+    TerminateScriptWithError("Invalid syntax");
+  }
+}
+

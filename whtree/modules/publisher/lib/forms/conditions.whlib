@@ -1,0 +1,78 @@
+<?wh
+/** @short APIs for creating form conditions
+    @topic forms/api
+*/
+
+LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
+
+
+/** @short Create a form condition checking if the value of a select field is one of a given list of values
+    @param field The field to match
+    @param matchtype Match operation; currently only "IN" is supported
+    @param value The value to check, should be an array for matchtype "IN"
+    @cell options.matchcase Match case (defaults to TRUE)
+    @return The form condition
+*/
+PUBLIC RECORD FUNCTION FCMatch(OBJECT field, STRING matchtype, VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN ValidateFormCondition(CELL[ field := field->conditionname, matchtype, value, options ]);
+}
+
+/** @short Create a form condition checking if a field value is set
+    @param field The field to check; currently only select fields are supported
+    @return The form condition
+    @example
+// Only show the shipping address field if the separate shipping address checkbox is checked
+myform->^shipping_address->visiblecondition := FCIsSet(myform->^separate_shipping_address);
+*/
+PUBLIC RECORD FUNCTION FCIsSet(OBJECT field)
+{
+  RETURN ValidateFormCondition(CELL[ field := field->conditionname, matchtype := "HASVALUE", value := TRUE ]);
+}
+
+/** @short Create a form condition that matches if all of the given conditions match
+    @param conditions The list of conditions to check
+    @return The form condition
+*/
+PUBLIC RECORD FUNCTION FCAnd(RECORD ARRAY conditions)
+{
+  // Optimize nested AND conditions ([ [ a AND b ] AND c ] = [ a AND b AND c ])
+  RECORD ARRAY and_conditions;
+  FOREVERY (RECORD condition FROM conditions)
+    IF (condition.matchtype = "AND")
+      and_conditions := and_conditions CONCAT condition.conditions;
+    ELSE
+      INSERT condition INTO and_conditions AT END;
+  RETURN ValidateFormCondition(CELL[ matchtype := "AND", conditions := and_conditions ]);
+}
+
+/** @short Create a form condition that matches if any of the given conditions match
+    @param conditions The list of conditions to check
+    @return The form condition
+*/
+PUBLIC RECORD FUNCTION FCOr(RECORD ARRAY conditions)
+{
+  // Optimize nested OR conditions ([ [ a OR b ] OR c ] = [ a OR b OR c ])
+  RECORD ARRAY or_conditions;
+  FOREVERY (RECORD condition FROM conditions)
+    IF (condition.matchtype = "OR")
+      or_conditions := or_conditions CONCAT condition.conditions;
+    ELSE
+      INSERT condition INTO or_conditions AT END;
+  RETURN ValidateFormCondition(CELL[ matchtype := "OR", conditions := or_conditions ]);
+}
+
+/** @short Create a form condition that matches if the given conditions does not match
+    @param condition The condition to check
+    @return The form condition
+*/
+PUBLIC RECORD FUNCTION FCNot(RECORD condition)
+{
+  // Optimize double NOT condition
+  IF (RecordExists(condition) AND condition.matchtype = "NOT")
+    RETURN condition.condition;
+  // Optimize FCNot(FCIsSet())
+  IF (RecordExists(condition) AND condition.matchtype = "HASVALUE")
+    RETURN CELL[ ...condition, value := NOT condition.value ];
+  RETURN ValidateFormCondition(CELL[ matchtype := "NOT", condition ]);
+}

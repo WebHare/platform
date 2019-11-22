@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 21.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 32 32" style="enable-background:new 0 0 32 32;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:url(#SVGID_1_);}
+	.st1{fill:#4A4A4A;}
+	.st2{fill:#0592E1;}
+</style>
+<g id="Layer_2">
+
+		<linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="2.9869" y1="23.5131" x2="29.0131" y2="8.4869" gradientTransform="matrix(1 0 0 -1 0 32)">
+		<stop  offset="0" style="stop-color:#FFFFFF"/>
+		<stop  offset="0.7545" style="stop-color:#F5F5F5"/>
+		<stop  offset="0.9973" style="stop-color:#F5F5F5"/>
+	</linearGradient>
+	<polygon class="st0" points="27,27 5,27 5,5 27,5 	"/>
+</g>
+<g>
+	<path class="st1" d="M27,4H5C4,4,4,5,4,5v22c0,0,0,1,1,1h22c1,0,1-1,1-1V5C28,5,28,4,27,4z M26,26H6V6h20V26z"/>
+	<g>
+		<path id="checkmark" class="st2" d="M12.7,22.3c0.2,0.4,0.7,0.5,1.1,0.5l0,0l0,0c0.5,0,0.8-0.2,1.1-0.6l8.3-10.4
+			c0.5-0.6,0.4-1.6-0.2-2s-1.6-0.4-2,0.2l-7.2,9l-3.4-4.1c-0.4-0.5-1.4-0.6-2-0.1s-0.7,1.4-0.1,2L12.7,22.3z"/>
+	</g>
+</g>
+</svg>

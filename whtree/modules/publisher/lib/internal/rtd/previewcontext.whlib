@@ -1,0 +1,109 @@
+<?wh
+LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+PUBLIC OBJECTTYPE PreviewContext
+<
+  OBJECT fsobject;
+  OBJECT applytester;
+  RECORD rtdtypeinfo;
+  PUBLIC STRING languagecode;
+
+  //The folder containing the targetobject, if targetobject is a file. Otherwise, the target object
+  PUBLIC PROPERTY targetfolder(GetTargetFolder, -);
+  //The site containing the targetobject;
+  PUBLIC PROPERTY targetsite(GetTargetSite, -);
+  //NOTE! Not exposing fsobject, not sure if we'll always have this in the future (think 'new file' without reserving an on-disk id)
+  //The apply tester for the targetobject
+  PUBLIC PROPERTY targetapplytester(applytester, -);
+  PUBLIC OBJECT __mergefields;
+
+  MACRO NEW(OBJECT fsobject, OBJECT applytester, RECORD rtdtypeinfo)
+  {
+    this->fsobject := fsobject;
+    this->applytester := applytester;
+    this->rtdtypeinfo := rtdtypeinfo;
+    this->languagecode := ObjectExists(applytester) ? applytester->GetSiteLanguage() : "en";
+  }
+
+  /** Is this a RTD preview? The preview context always returns true, webdesign returns false */
+  PUBLIC BOOLEAN FUNCTION IsRTDPreview()
+  {
+    RETURN TRUE;
+  }
+
+  /** @short Open RTD data using an rtdtype
+      @signature OBJECT FUNCTION OpenRTD(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+      @param richdoc The rich document
+      @cell(string) options.rtdtype Path to structure to use. If not set, the parent RTD type is used
+      @return(object %RichDocument) The requested document */
+  PUBLIC OBJECT FUNCTION OpenRTD(RECORD richdoc, VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(TypeID(options) = TypeID(STRING))
+      options := [ rtdtype := options ];
+    options := ValidateOptions([ rtdtype := "" ], options);
+
+    STRING rtdtype := options.rtdtype;
+    RECORD typeinfo := this->rtdtypeinfo;
+    IF(rtdtype!="") //override
+    {
+      typeinfo := GetRTDType(rtdtype);
+      IF(NOT RecordExists(typeinfo))
+        THROW NEW Exception("No such RTDType registered: " || rtdtype);
+    }
+
+    OBJECT rtd := NEW PublishableRichDocument;
+    rtd->ImportFromRecord(richdoc);
+    rtd->pvt_baseobject := this->fsobject;
+    rtd->pvt_applytester := this->applytester;
+    rtd->previewcontext := this;
+/* ADDME ?
+    rtd->webdesign := this;
+    rtd->pvt_baseobject := this->targetobject;
+    rtd->pvt_applytester := this->pvt_targetapplytester;
+*/
+    IF(RecordExists(typeinfo))
+      rtd->ApplyRTDType(typeinfo);
+    RETURN rtd;
+  }
+
+  /** @short Open and render a RTD */
+  PUBLIC MACRO RenderRTD(RECORD richdoc, VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT RecordExists(richdoc))
+      RETURN;
+
+    OBJECT torender := this->OpenRTD(richdoc, options);
+    torender->RenderAllObjects();
+  }
+
+  OBJECT FUNCTION GetTargetSite()
+  {
+    RETURN ObjectExists(this->targetapplytester) ? OpenSite(this->targetapplytester->objsite) : DEFAULT OBJECT;
+  }
+  OBJECT FUNCTION GetTargetFolder()
+  {
+    RETURN ObjectExists(this->targetapplytester) ? OpenWHFSObject(this->targetapplytester->objparent) : DEFAULT OBJECT;
+  }
+
+  PUBLIC RECORD FUNCTION GetWittyDataForForm(STRING formname)
+  {
+    RETURN DEFAULT RECORD; //just a stub for now...
+  }
+  PUBLIC OBJECT FUNCTION OpenForm(STRING formname)
+  {
+    RETURN OpenFormWithContext(this, formname);
+  }
+  PUBLIC MACRO AddPublicationWarning(STRING text)
+  {
+    OBJECT targetfolder := this->targetfolder;
+    LogWarning("publisher:addpublicationwarning", text, [ stacktrace := GetStackTrace()
+                                                        , targetfolder := ObjectExists(targetfolder) ? targetfolder->whfspath : ""
+                                                        ]);
+  }
+>;

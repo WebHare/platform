@@ -1,0 +1,241 @@
+<?wh
+LOADLIB "wh::internal/interface.whlib";
+
+//We should probably merge this with another (internal?) library, or cleanup as proper algorithms.
+//Currently shared between wrdtype enrich and whfstype enrich
+
+/** Enrich a record array
+    @param inrows Source rows to enrich
+    @param idcellname Id cell in rows to enrich (append '[]' if the cell is an array, use wrapfields to insert another cell instead of replacing this cell)
+    @param options Options
+    @cell(record) options.leftouterjoin If set, use this record as source row for enrich rows which don't match a source row/
+    @cell(boolean) options.rightouterjoin If FALSE, delete inrows without matching enrichment, otherwise call getdefaultjoinrecord function ptr and use that to enrich the source row.
+    @cell(boolean) options.matchcase If TRUE, compare the id cells case insensitive.
+    @cell(string) options.wrapfields If not empty, wrap the enriched fields in a cell with this name
+    @param getbulkfields Function to call to get data to enrich the inrows with.
+        Signature: RECORD ARRAY FUNCTION function_ptr(VARIANT idcellvalues, BOOLEAN leftouterjoin, BOOLEAN matchcase).
+        Needs to return a record array with a cell '__JOINID' which is used to match the enrich rows to the source rows
+    @param getdefaultjoinrecord Must return a default row to use for right outer joins with missing enrich row.
+        Signature: RECORD FUNCTION getdefaultjoinrecord()
+    @return Enriched rows
+*/
+PUBLIC RECORD ARRAY FUNCTION ExecuteEnrichment(RECORD ARRAY inrows, STRING idcellname, RECORD options, FUNCTION PTR getbulkfields, FUNCTION PTR getdefaultjoinrecord)
+{
+  options := ValidateOptions([ leftouterjoin := DEFAULT RECORD
+                             , rightouterjoin := FALSE
+                             , wrapfields := ""
+                             , presentfield := ""
+                             , matchcase := TRUE
+                             ], options);
+
+
+  STRING wrapfields := options.wrapfields;
+  STRING presentfield := options.presentfield;
+
+  RECORD leftouterjoin := options.leftouterjoin;
+  IF(Length(inrows)=0 AND NOT RecordExists(leftouterjoin))
+    RETURN DEFAULT RECORD ARRAY;
+
+  BOOLEAN rightouterjoin := options.rightouterjoin;
+
+  BOOLEAN joinarrays := idcellname LIKE "*[]";
+  IF (joinarrays)
+    idcellname := Left(idcellname, LENGTH(idcellname) - 2);
+
+  INTEGER joinfieldtype := Length(inrows) > 0
+      ? TYPEID(GetCell(inrows[0], idcellname))
+      : joinarrays
+            ? TYPEID(BOOLEAN ARRAY)
+            : TYPEID(BOOLEAN); //dummy type so we can deal with empty arrays
+
+  BOOLEAN uppercase := joinfieldtype = (joinarrays ? TYPEID(STRING ARRAY) : TypeID(STRING)) AND options.matchcase = FALSE;
+  VARIANT getids := joinarrays ? GetTypeDefaultValue(joinfieldtype) : GetTypeDefaultArray(joinfieldtype);
+
+
+  IF(NOT RecordExists(leftouterjoin))
+  {
+    IF (NOT joinarrays)
+    {
+      IF (uppercase)
+      {
+        FOREVERY (RECORD inrow FROM inrows)
+          INSERT ToUppercase(GetCell(inrow, idcellname)) INTO getids AT END;
+      }
+      ELSE
+      {
+        FOREVERY (RECORD inrow FROM inrows)
+          INSERT GetCell(inrow, idcellname) INTO getids AT END;
+      }
+    }
+    ELSE
+    {
+      IF (uppercase)
+      {
+        FOREVERY (RECORD inrow FROM inrows)
+          FOREVERY (STRING id FROM GetCell(inrow, idcellname))
+            INSERT ToUppercase(id) INTO getids AT END;
+      }
+      ELSE
+      {
+        FOREVERY (RECORD inrow FROM inrows)
+          getids := getids CONCAT GetCell(inrow, idcellname);
+      }
+    }
+
+    // Make the list distinct
+    getids := __HS_SQL_SortArray(getids, FALSE, TRUE);
+  }
+
+  RECORD ARRAY input := getbulkfields(getids, RecordExists(leftouterjoin), uppercase);
+  IF (uppercase)
+    UPDATE input SET __joinid := ToUppercase(__joinid);
+
+  RECORD ARRAY enrichmentdata := SELECT * FROM input ORDER BY __joinid;
+
+  BOOLEAN ARRAY used;
+  IF(RecordExists(leftouterjoin))
+    used := RepeatElement(FALSE, Length(enrichmentdata));
+
+  RECORD ARRAY outrows;
+  RECORD defaults;
+
+  IF (NOT joinarrays)
+  {
+    FOREVERY(RECORD inrow FROM inrows)
+    {
+      inrows[#inrow] := DEFAULT RECORD;
+
+      VARIANT lookup := GetCell(inrow, idcellname);
+      IF(uppercase)
+        lookup := ToUppercase(lookup);
+
+      RECORD pos := RecordLowerBound(enrichmentdata, [ __joinid := lookup ], [ "__JOINID" ]);
+      RECORD matchrow;
+      IF (NOT pos.found)
+      {
+        IF(NOT rightouterjoin)
+          CONTINUE;
+        IF(NOT RecordExists(defaults))
+          defaults := getdefaultjoinrecord();
+        matchrow := defaults;
+        IF(presentfield != "")
+          matchrow := CellInsert(matchrow, presentfield, "left");
+      }
+      ELSE
+      {
+        matchrow := enrichmentdata[pos.position];
+        IF(RecordExists(leftouterjoin))
+          used[pos.position] := TRUE;
+        IF(presentfield != "")
+          matchrow := CellInsert(matchrow, presentfield, "both");
+      }
+
+      DELETE CELL __joinid FROM matchrow;
+      IF (NOT IsDefaultValue(wrapfields))
+        matchrow := CellInsert(DEFAULT RECORD, wrapfields, matchrow);
+      IF (CellExists(matchrow,idcellname)) //The right hand side version will win in a join, to allow   domainvalue,[ domainvalue := "WRD_TITLE" ] enrichments
+        inrow := CellDelete(inrow, idcellname);
+
+      INSERT MakeMergedRecord(inrow, matchrow) INTO outrows AT END;
+    }
+  }
+  ELSE
+  {
+    FOREVERY(RECORD inrow FROM inrows)
+    {
+      inrows[#inrow] := DEFAULT RECORD;
+
+      VARIANT lookup := GetCell(inrow, idcellname);
+      IF (uppercase)
+        FOREVERY (STRING s FROM lookup)
+          lookup[#s] := ToUppercase(s);
+
+      RECORD ARRAY results;
+      FOREVERY (VARIANT elt FROM lookup)
+      {
+        RECORD matchrow;
+        RECORD pos := RecordLowerBound(enrichmentdata, [ __joinid := elt ], [ "__JOINID" ]);
+        IF (NOT pos.found)
+        {
+          IF(NOT rightouterjoin)
+            CONTINUE;
+          IF(NOT RecordExists(defaults))
+            defaults := getdefaultjoinrecord();
+          matchrow := defaults;
+          IF(presentfield != "")
+            matchrow := CellInsert(matchrow, presentfield, "left");
+        }
+        ELSE
+        {
+          matchrow := enrichmentdata[pos.position];
+          DELETE CELL __joinid FROM matchrow;
+          IF(RecordExists(leftouterjoin))
+            used[pos.position] := TRUE;
+          IF(presentfield != "")
+            matchrow := CellInsert(matchrow, presentfield, "both");
+        }
+        INSERT matchrow INTO results AT END;
+      }
+
+      IF (IsDefaultValue(wrapfields))
+      {
+        inrow := CellDelete(inrow, idcellname);
+        inrow := CellInsert(inrow, idcellname, results);
+      }
+      ELSE
+        inrow := CellInsert(inrow, wrapfields, results);
+
+      INSERT inrow INTO outrows AT END;
+    }
+  }
+
+  IF(RecordExists(leftouterjoin))
+  {
+    IF (NOT joinarrays)
+    {
+      FOREVERY(BOOLEAN itemused FROM used)
+        IF(NOT itemused)
+        {
+          //add missing values from the LHS default
+          RECORD newrec := CELL[...leftouterjoin, ...enrichmentdata[#itemused]];
+          //add the idcellname from the RHS, so we know what we were joining on
+          IF(NOT CellExists(newrec, idcellname))
+            newrec := CellInsert(newrec, idcellname, enrichmentdata[#itemused].__joinid);
+          IF(presentfield != "")
+            newrec := CellInsert(newrec, presentfield, "right");
+
+          DELETE CELL __joinid FROM newrec;
+          INSERT newrec INTO outrows AT END;
+        }
+    }
+    ELSE
+    {
+      RECORD ARRAY results;
+      FOREVERY(BOOLEAN itemused FROM used)
+        IF (NOT itemused)
+        {
+          DELETE CELL __joinid FROM enrichmentdata[#itemused];
+          IF(presentfield != "")
+            enrichmentdata[#itemused] := CellInsert(enrichmentdata[#itemused], presentfield, "right");
+          INSERT enrichmentdata[#itemused] INTO results AT END;
+        }
+
+      RECORD newrec := leftouterjoin;
+      IF (IsDefaultValue(wrapfields))
+      {
+        newrec := CellDelete(newrec, idcellname);
+        newrec := CellInsert(newrec, idcellname, results);
+      }
+      ELSE
+      {
+        newrec := CellInsert(newrec, wrapfields, results);
+        IF(NOT CellExists(newrec, idcellname))
+          newrec := CellInsert(newrec, idcellname, GetTypeDefaultValue(joinfieldtype));
+      }
+
+      INSERT newrec INTO outrows AT END;
+    }
+  }
+
+  RETURN outrows;
+}

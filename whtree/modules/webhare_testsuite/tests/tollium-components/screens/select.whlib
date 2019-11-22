@@ -1,0 +1,66 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE testsubscreen EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->RunSimpleScreen("info", "test");
+    ^pulldown->options := [[ rowkey := 1, title := "First"]
+                          ,[ rowkey := 2, title := "Second"]
+                          ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE GenerateInvoice EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^existinginvoices->options := [[ invalidselection := TRUE, rowkey := 0, title := "" ]];
+
+    IF(data.delete_existing)
+      DELETE FROM ^whichinvoice->options WHERE rowkey="existing";
+
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE TestInvisibleSelect EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^nl_usestandardtext->visible := FALSE;
+    TestEq(TRUE, ^nl_shorttext->enabled);
+    PRINT("************ disabling**************\n\n");
+    ^nl_usestandardtext->value := FALSE;
+    TestEq(TRUE, ^nl_shorttext->enabled);
+  }
+>;
+
+PUBLIC RECORD FUNCTION BadFreeOptionsHandler(OBJECT contexts, STRING invalidparamrequest) //used by testvalidate.whscr
+{
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION GetFreeOptions(OBJECT contexts)
+{
+  TestEq(TRUE, ObjectExists(contexts->Controller));
+  RETURN [ options := [[ rowkey := 42, title := "Fortytwo"]
+                      ,[ rowkey := 44, title := "Fortyfour" ]
+                      ]
+         ];
+}
+
+PUBLIC STATIC OBJECTTYPE TestOptionSource EXTEND TolliumScreenBase
+<
+  RECORD FUNCTION GetLocalOptions()
+  {
+    RETURN [ options := [[ rowkey := 38, title := "Thirtyeight"]
+                        ]
+           ];
+  }
+>;
+

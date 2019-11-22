@@ -1,0 +1,8 @@
+<?wh
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+AddHTTPHeader("Content-Type","text/plain",FALSE);
+
+Print("# This 'no indexing' robots.txt has been configured in the WebHare access rules\n");
+Print("User-agent: *\nDisallow: /\n");

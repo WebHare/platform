@@ -1,0 +1,69 @@
+<?wh
+/** This test contains just the managed queue parts and tries to send out
+    a thousand mails. It's not something we normally need to run as part of CI */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testfw/smtpsimulator.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+
+OBJECT mailserverobject;
+CONSTANT INTEGER nummails := 100;
+
+MACRO Prepare()
+{
+  INTEGER mailserverport := testfw->GetServerPort();
+  STRING testmailserver := "smtp://127.0.0.1:" || mailserverport;
+  mailserverobject := GetSMTPReceiver("127.0.0.1", mailserverport, [ directbouncemasks := ["bounce.*"], bouncehandling := "SES", connectdelay := 700]);
+
+  testfw->BeginWork();
+  INSERT [ tag         := "webhare_testsuite:testmailersmtp"
+         , mask        := "*@smtp.beta.webhare.net"
+         , serverurl   := testmailserver
+         , sendermask  := "*@bounce.beta.webhare.net *@sender.beta.webhare.net"
+         , ordering    := -99999
+         , description := "Created by test_mailsersmtp"
+         ] INTO system.mailqueue_route;
+
+  testfw->CommitWork();
+}
+
+MACRO MailPerformanceTest()
+{
+  TestEq(0, Length(mailserverobject->messages), 'mailqueue should be empty at start of test');
+  OBJECT composer := MakeEmailComposer();
+  composer->mailfrom := "info@sender.beta.webhare.net";
+  composer->mailto := "to@smtp.beta.webhare.net";
+  composer->subject := "A test of the mail€r service™";
+  composer->SetRichBody(StringToBlob("This is the test: &euro; € ümlaut ßß"), "text/plain");
+
+  INTEGER64 start1 := GetUnixTimestampMsecs(GetCurrentDatetime());
+  testfw->BeginWork();
+  FOR(INTEGER i := 0 ; i < nummails; i := i + 1)
+
+    composer->QueueMailInWork();
+  testfw->CommitWork();
+
+  Print("Queueing the mails: " || GetUnixTimestampMsecs(GetCurrentDatetime()) - start1 || "ms\n");
+
+  //Process incoming mails
+  FOR(INTEGER i := 0; i < nummails; i := i + 1)
+    mailserverobject->ReceiveMessage(MAX_DATETIME);
+
+  INTEGER64 start2 := GetUnixTimestampMsecs(GetCurrentDatetime());
+  testfw->FlushTasks(["system:outgoingmail"]);
+  INTEGER64 end1 := GetUnixTimestampMsecs(GetCurrentDatetime());
+  Print("Sending the mails: " || end1-start2 || "ms\n");
+  Print("Total time of the MailPerformanceTest: " || end1-start2 || "ms\n");
+  Print("Per mail: " || FormatFloat( (end1-start1) * 100 / nummails,2) || "ms\n");
+}
+
+RunTestframework([ PTR Prepare
+                 , PTR MailPerformanceTest
+                 ], [ canceltasks := [ "system:outgoingmail" ]
+                    ] );

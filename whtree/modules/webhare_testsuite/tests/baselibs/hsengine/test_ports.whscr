@@ -1,0 +1,174 @@
+<?wh
+/// @short Ports functions test
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+MACRO TestReadSignalledStatus(INTEGER testid, BOOLEAN expect_status, INTEGER handle)
+{
+  BOOLEAN is_signalled := WaitForMultiple([ handle ], DEFAULT INTEGER ARRAY, 0) = handle;
+
+  TestEqual(testid, expect_status, is_signalled);
+}
+
+// FIXME: add tests for timeouts on ->Accept and ->ReceiveMessage
+
+MACRO BaseTest()
+{
+  OpenTest("TestPorts: Base");
+
+  RECORD res;
+
+  // Create a port
+  OBJECT port1 := CreateIPCPort("test1");
+  TestEq(TRUE, ObjectExists(port1));
+  TestEq(FALSE, port1->IsSignalled());
+  TestReadSignalledStatus(3, FALSE, port1->handle);
+
+  // And another
+  OBJECT port2 := CreateIPCPort("test2");
+  TestEq(TRUE, ObjectExists(port2));
+  TestReadSignalledStatus(5, FALSE, port2->handle);
+
+  // No duplicate ports
+  TestThrows(PTR CreateIPCPort("test1"));
+
+  // Make 3 connections to the same port
+  OBJECT l1a := ConnectToIPCPort("test1");
+  TestEq(TRUE, ObjectExists(l1a));
+  TestEq(FALSE, l1a->IsSignalled());
+  TestReadSignalledStatus(12, FALSE, l1a->handle);
+  TestEq(TRUE, port1->IsSignalled());
+  TestReadSignalledStatus(14, TRUE, port1->handle);
+
+  OBJECT l2a := ConnectToIPCPort("test1") ;
+  TestEq(TRUE, ObjectExists(l2a));
+  TestEq(FALSE, l2a->IsSignalled());
+  TestReadSignalledStatus(17, FALSE, l2a->handle);
+
+  OBJECT l3a := ConnectToIPCPort("test1") ;
+  TestEq(TRUE, ObjectExists(l3a));
+  TestEq(FALSE, l3a->IsSignalled());
+  TestReadSignalledStatus(20, FALSE, l3a->handle);
+  TestEq(TRUE, port1->IsSignalled());
+  TestReadSignalledStatus(22, TRUE, port1->handle);
+
+  // Accept connections
+  OBJECT l1b := port1->Accept(DEFAULT DATETIME);
+  TestEq(TRUE, ObjectExists(l1b));
+  TestEq(TRUE, port1->IsSignalled());
+  TestEq(FALSE, l1a->IsSignalled());
+  TestEq(FALSE, l1b->IsSignalled());
+
+  OBJECT l2b := port1->Accept(DEFAULT DATETIME);
+  TestEq(TRUE, ObjectExists(l2b));
+  TestEq(TRUE, port1->IsSignalled());
+  TestEq(FALSE, l2b->IsSignalled());
+
+  // Send messages on the connections
+  RECORD send_a1 := l1a->SendMessage([ test := "a1", test2 := "x" ]);
+  TestEq("ok", send_a1.status);
+  TestEq(FALSE, l1a->IsSignalled());
+  TestEq(TRUE, l1b->IsSignalled());
+
+  RECORD send_a2 := l1a->SendMessage([ test := "a2" ]);
+  TestEq("ok", send_a2.status);
+  TestEq(FALSE, l1a->IsSignalled());
+  TestEq(TRUE, l1b->IsSignalled());
+
+  RECORD send_b := l2b->SendMessage([ test := "b" ]);
+  TestEq("ok", send_b.status);
+  TestEq(TRUE, l2a->IsSignalled());
+  TestEq(FALSE, l2b->IsSignalled());
+
+  RECORD send_c := l3a->SendMessage([ test := "c" ]);
+  TestEq("ok", send_c.status);
+  TestEq(FALSE, l3a->IsSignalled());
+
+  // Receive messages
+  res := l1a->ReceiveMessage(DEFAULT DATETIME);
+  TestEq([ status := "timeout" ], res);
+
+  res := l1b->ReceiveMessage(DEFAULT DATETIME);
+  TestEq([ status := "ok", msg := [ test := "a1", test2 := "x" ], msgid := send_a1.msgid, replyto := 0i64 ], res);
+
+  res := l1b->ReceiveMessage(DEFAULT DATETIME);
+  TestEq([ status := "ok", msg := [ test := "a2" ], msgid := send_a2.msgid, replyto := 0i64 ], res);
+
+  res := l1b->ReceiveMessage(DEFAULT DATETIME);
+  TestEq([ status := "timeout" ], res);
+
+  res := l2a->ReceiveMessage(DEFAULT DATETIME);
+  TestEq([ status := "ok", msg := [ test := "b" ], msgid := send_b.msgid, replyto := 0i64 ], res);
+
+  // Long blob (about 100kb)
+  STRING s := "0123456789";
+  WHILE (LENGTH(s) < 100000)
+    s := s || s;
+
+  l1a->SendMessage([ a := StringToBlob(s) ]);
+  TestEq(s, BlobToString(l1b->ReceiveMessage(MAX_DATETIME).msg.a, -1));
+
+  // Accept l3 and receive
+  OBJECT l3b := port1->Accept(DEFAULT DATETIME);
+  TestEq(TRUE, ObjectExists(l2b));
+  TestEq(FALSE, port1->IsSignalled());
+  TestEq(TRUE, l3b->IsSignalled());
+
+  res := l3b->ReceiveMessage(DEFAULT DATETIME);
+  TestEq([ status := "ok", msg := [ test := "c" ], msgid := send_c.msgid, replyto := 0i64 ], res);
+
+  // Closing of endpoints of link l1
+  l1b->Close();
+  TestEq(TRUE, l1a->IsSignalled());
+
+  res := l1a->SendMessage([ test := "a3" ]);
+  TestEq("gone", res.status);
+
+  res := l1a->ReceiveMessage(DEFAULT DATETIME);
+  TestEq("gone", res.status);
+  l1a->Close();
+
+  TestThrows(PTR l1a->SendMessage([ test := "a3" ]));
+  TestThrows(PTR l1a->ReceiveMessage(DEFAULT DATETIME));
+  TestThrows(PTR l1a->IsSignalled);
+
+  // Replies
+  RECORD send_b1 := l2a->SendReply([ test := "br" ], send_b.msgid);
+  TestEq("ok", send_b1.status);
+
+  res := l2b->ReceiveMessage(DEFAULT DATETIME);
+  TestEq([ status := "ok", msg := [ test := "br" ], msgid := send_b1.msgid, replyto := send_b.msgid ], res);
+
+  // Receive doesn't detect close until all messages have arrived
+  l2a->SendMessage([ test := "b2" ]);
+  l2a->Close();
+
+  res := l2b->ReceiveMessage(DEFAULT DATETIME);
+  TestEq("ok", res.status);
+
+  res := l2b->ReceiveMessage(DEFAULT DATETIME);
+  TestEq("gone", res.status);
+  l2b->Close();
+
+  // Close ports
+  OBJECT l4a := ConnectToIPCPort("test1") ;
+
+  port1->Close();
+  TestThrows(PTR port1->IsSignalled);
+  TestThrows(PTR port1->Accept(DEFAULT DATETIME));
+
+  TestEq(TRUE, l4a->IsSignalled());
+
+  l3a->Close();
+  l3b->Close();
+  l4a->Close();
+  port2->Close();
+
+  CloseTest("TestPorts: Base");
+}
+
+PRINT("\n === Running TestPorts\n");
+BaseTest();

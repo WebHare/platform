@@ -1,0 +1,41 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/search/searchproviders.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+OBJECT contenttype;
+
+PUBLIC STRING FUNCTION GetTestField(STRING fieldname, INTEGER objid)
+{
+  IF (NOT ObjectExists(contenttype))
+    contenttype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest");
+  IF (objid != 0 AND contenttype->GetInstanceData(objid).testfield = objid)
+    RETURN ToString(objid);
+  RETURN "";
+}
+
+PUBLIC STRING FUNCTION GetArrayField(STRING fieldname, STRING arrayfieldname, INTEGER objid, INTEGER arrayid)
+{
+  IF (NOT ObjectExists(contenttype))
+    contenttype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest");
+  IF (objid != 0 AND contenttype->GetInstanceData(objid).testfield = objid)
+    RETURN "array_" || objid || "_" || arrayid;
+  RETURN "";
+}
+
+PUBLIC OBJECTTYPE TestProvider EXTEND BaseSearchProvider
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSearchContents(INTEGER objid)
+  {
+    IF (NOT ObjectExists(contenttype))
+      contenttype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest");
+    RECORD data := contenttype->GetInstanceData(objid);
+    RETURN
+        SELECT AS RECORD ARRAY WrapBlob(StringToBlob(arrayfield), "arrayfield.txt")
+          FROM data.testarray;
+  }
+>;

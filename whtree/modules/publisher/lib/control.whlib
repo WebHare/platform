@@ -1,0 +1,408 @@
+﻿<?wh
+/** @short Scheduler/queue control
+    @long Controls the publication queue of WebHare AP. This library offers function to process
+          the file 'published' cell, add files to the publication queue and analyze the contents
+          of the queue.
+    @private ScheduleFile/FolderRepublish must become a single function, and with MakeChangesIndexedPromise exposed elsehwere.
+             clean up arg syntax (with a transitional vararg period and we can reenable control.whlib)
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT SetFlagsInPublished, GetFlagsFromPublished, IsPublish, GetErrorFromPublished, GetOncePublishedFromPublished, TestFlagFromPublished
+                                                          , PublishedFlag_OncePublished, PublishedFlag_Scheduled, PublishedFlag_Warning, PublishedFlag_HasWebDesign
+                                                          , PublishedFlag_StripExtension, PublishedFlag_HasPublicDraft, PublishedFlag_SubmittedForApproval;
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+/** @short See if a document has events scheduled for it
+    @param published A file.published cell
+    @return True if the file was ever succesfully published (its file.url cell is valid) */
+PUBLIC BOOLEAN FUNCTION GetScheduledFromPublished(INTEGER published)
+{
+  RETURN TestFlagFromPublished(published, PublishedFlag_Scheduled);
+}
+
+
+
+///Republish all files in the specified folder
+///folderid:     Folder whose files should be republished
+///allfirsttime: True to mark all files as published for the first time (eg. after a folder move. SHOULD DROP THIS FLAG)
+PUBLIC MACRO __RepublishFolder(INTEGER folderid, BOOLEAN toplevel, BOOLEAN non_template_too, STRING mask, BOOLEAN onlyiffailed)
+{
+  INTEGER prio := toplevel ? PubPrio_FolderRepub : PubPrio_SubFolderRepub;
+  UPDATE system.fs_objects SET published := ConvertToWillpublish(published, FALSE, FALSE, prio)
+               WHERE parent = folderid
+                     AND isfolder = FALSE
+                     AND (mask = "*" ? TRUE : ToUppercase(fs_objects.name) LIKE ToUppercase(mask))
+                     AND publish = TRUE
+                     AND (non_template_too ? TRUE :
+                                (fs_objects.type=22 /*standalone*/
+                                 OR fs_objects.template!=0
+                                 OR fs_objects.lastpublishdate < fs_objects.modificationdate
+                                 OR GetErrorFromPublished(published)!=0
+                                 OR TestFlagFromPublished(published, PublishedFlag_HasWebDesign)
+                                )
+                     AND (onlyiffailed ? GetErrorFromPublished(published) != 0 : TRUE)
+                         );
+
+  OBJECT handler := GetWHFSCommitHandler();
+  handler->FolderRepublish((SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=folderid), folderid);
+}
+
+/** Republish all files in the specified folder, and all files in its subfolders*/
+PRIVATE MACRO RepublishFolderRecursive(INTEGER folderid, BOOLEAN toplevel, BOOLEAN non_template_too)
+{
+  __RepublishFolder(folderid, toplevel, non_template_too, "*", FALSE);
+
+  OBJECT folder := OpenWHFSObject(folderid);
+  IF(NOT ObjectExists(folder))
+    RETURN; //no longer exists (or a virtual theme folder, but we're trying to get rid of them)
+
+  IF (folder->parentsite != 0) // within a site?
+  {
+    FOREVERY (RECORD folderrec FROM SELECT id FROM system.fs_objects
+                                            WHERE parent = folderid
+                                                  AND isfolder = TRUE
+                                                  AND type != 1
+                                                  AND url != "")
+    {
+      RepublishFolderRecursive(folderrec.id, FALSE, non_template_too);
+    }
+  }
+  ELSE // outside a site, republish all published sites
+  {
+    RECORD ARRAY sites :=
+        SELECT sites.id
+          FROM system.sites
+             , system.fs_objects
+         WHERE sites.id IN folder->GetDescendantFolderids()
+           AND fs_objects.id = sites.id
+           AND fs_objects.url != "";
+
+    FOREVERY (RECORD site FROM sites)
+      RepublishFolderRecursive(site.id, FALSE, non_template_too);
+  }
+}
+
+/** @short republish a specific file
+    @long Use this function to schedule a republish of a specific file in your site.
+          If a user does not have edit rights on a file, the file will not be republished.
+    @param fileid The Id of the file to republish
+*/
+PUBLIC MACRO ScheduleFileRepublish(INTEGER fileid)
+{
+  OBJECT obj := OpenWHFSObject(fileid);
+  IF(ObjectExists(obj) AND obj->isfolder = FALSE)
+    obj->ScheduleRepublish();
+}
+
+
+/** @short republish a specific folder
+    @long Use this function to schedule the publication of all files in a specific folder in your site.
+          If a user does not have edit rights on a file, the file will not be republished.
+    @param folderid The Id of the folder to republish
+    @param recursive TRUE to republish the folder, and all subfolders.
+    @param non_templates_too (optional) also publish files which do not depend on a template and rarely need to be republished
+*/
+PUBLIC MACRO ScheduleFolderRepublish(INTEGER folderid, BOOLEAN recursive, BOOLEAN non_templates_too DEFAULTSTO FALSE)
+{
+  if (recursive)
+  {
+    // call the RepublishFolder macro
+    RepublishFolderRecursive(folderid,TRUE, non_templates_too);
+  }
+  else
+  {
+    // call the RepublishFolder macro
+    __RepublishFolder(folderid,TRUE, non_templates_too, "*", FALSE);
+  }
+}
+
+
+/** @short Get the publisher's state
+    @long Returns complete information about the publisher's current state and progress.
+          This function may only be called by sysop users. The FILES table must be bound
+          to a WebHare transaction for this function to work
+    @return A record describing the publisher's state, or a non-existing record if we couldn't contact the publisher
+    @cell return.total Total number of files in queue
+    @cell return.measured Number of files for which we have an estimated publication time
+    @cell return.totaltime The total of measured times, in milliseconds
+    @cell return.workers Number of worker processes
+    @cell return.queuetop An integer array, consisting of the top files in the queue
+    @cell return.processes A record array of (processnum, fileid, seconds) describing what the active processes are doing */
+PUBLIC RECORD FUNCTION GetPublisherState()
+{
+  IF (GetDatabaseType() != "whdb")
+    RETURN DEFAULT RECORD;
+
+  RECORD state := __PUBLISHER_GETPUBLISHERSTATE(system.fs_objects);
+  IF (RecordExists(state))
+  {
+    INTEGER ARRAY new_queuetop;
+    //decode the comma-separated queue top list
+    FOREVERY(STRING queueentry FROM Tokenize(state.queuetop,','))
+    {
+      INSERT ToInteger(queueentry,0) INTO new_queuetop AT END;
+    }
+
+    RECORD ARRAY new_processes;
+    //decode the tab-separated process list
+    FOREVERY(STRING processentry FROM Tokenize(state.processes,'\t'))
+    {
+      STRING ARRAY subdata := Tokenize(processentry,',');
+      IF (length(subdata)<2) //broken process entry or no processes, skip
+        CONTINUE;
+      INSERT INTO new_processes(processnum, fileid, seconds)
+             VALUES(ToInteger(subdata[0],0), ToInteger(subdata[1],0), ToInteger(subdata[2],0))
+             AT END;
+    }
+
+    //update the state record with the new data. have to remove them first
+    //because we're overwriting the types
+    DELETE CELL queuetop FROM state;
+    DELETE CELL processes FROM state;
+    INSERT CELL queuetop := new_queuetop INTO state;
+    INSERT CELL processes := new_processes INTO state;
+  }
+  RETURN state;
+}
+
+
+
+
+/** @short Add a scheduled task for a file
+    @param fileid ID of the affected file
+    @param when Date and time, in UTC, when the task should be executed
+    @param eventtype The type of event to schedule (1 = start publishing (or republish), 2 = stop publishing, 3 = move file, 4 = delete file, 5 = make file indexdoc)
+    @param destfolder Destination folder for scheduled move commands */
+PUBLIC MACRO AddFileTask(INTEGER fileid, DATETIME when, INTEGER eventtype, INTEGER destfolder)
+{
+  // insert the event
+  INSERT INTO publisher.schedule (file,when,event,folder)
+                          VALUES (fileid,when,eventtype,destfolder);
+
+  // mark the file as having a schedule attached
+  UPDATE system.fs_objects
+         SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, TRUE)
+         WHERE id = fileid;
+
+  GetTransactionObjectById(GetBindingFromSchema(system).transaction)->ScheduleTask("publisher:scheduledtasks",when);
+}
+
+/** @short Edit a scheduled task
+    @param taskid ID of the task to edit
+    @param when Date and time, in UTC, when the task should be executed
+    @param eventtype The type of event to schedule (1 = start publishing, 2 = stop publishing, 3 = move file, 4 = delete file, 5 = make file indexdoc)
+    @param destfolder Destination folder for scheduled move commands */
+PUBLIC MACRO EditFileTask(INTEGER taskid, DATETIME when, INTEGER eventtype, INTEGER destfolder)
+{
+  RECORD task := SELECT * FROM publisher.schedule WHERE id=taskid;
+  IF (NOT RecordExists(task))
+    RETURN;
+
+  UPDATE publisher.schedule SET when   := VAR when,
+                                event  := eventtype,
+                                folder := destfolder
+                            WHERE schedule.id = taskid;
+
+  //moved a scheduled item forward?
+  IF (when < task.when)
+    GetTransactionObjectById(GetBindingFromSchema(system).transaction)->ScheduleTask("publisher:scheduledtasks",when);
+}
+
+
+
+
+
+/** @short Delete a scheduled task
+    @param taskid ID of the task to delete */
+PUBLIC MACRO DeleteFileTask(INTEGER taskid)
+{
+  RECORD task := SELECT * FROM publisher.schedule WHERE id=taskid;
+  IF (NOT RecordExists(task))
+    RETURN;
+
+  DELETE FROM publisher.schedule WHERE id = taskid;
+
+  IF (NOT RecordExists(SELECT FROM publisher.schedule WHERE schedule.file = task.file LIMIT 1))
+  {
+    //No more remaining tasks, so disable the 'Scheduled' status for the file
+    UPDATE system.fs_objects
+       SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, FALSE)
+     WHERE id = task.file;
+  }
+}
+
+MACRO DoFolder(INTEGER folderid, STRING filemask, BOOLEAN top, BOOLEAN nontemplatetoo, BOOLEAN recursive, BOOLEAN onlyiffailed)
+{
+  __RepublishFolder(folderid, /*toplevel=*/top, /*nontemplatetoo=*/nontemplatetoo, filemask, onlyiffailed);
+
+  IF(recursive)
+  {
+    FOREVERY (INTEGER subfolderid FROM SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = folderid AND isfolder)
+      DoFolder(subfolderid, filemask, FALSE, nontemplatetoo, TRUE, onlyiffailed);
+  }
+}
+PUBLIC RECORD FUNCTION __DoRepublishByMask(STRING mask, BOOLEAN nontemplatetoo, BOOLEAN recursive, MACRO PTR callback, BOOLEAN onlyiffailed, STRING limitdesign)
+{
+  STRING sitemask := Left(mask, SearchSubstring(mask,':'));
+  STRING foldername;
+  STRING filemask;
+  RECORD retval := [ errors := DEFAULT STRING ARRAY ];
+
+  IF (sitemask = "")
+  {
+    sitemask := mask;
+    foldername := "/";
+    filemask := "*";
+  }
+  ELSE
+  {
+    STRING filefolderpath := Substring(mask, Length(sitemask)+1);
+    foldername := SearchSubstring(filefolderpath,'/') = -1 ? "/" : GetDirectoryFromPath(filefolderpath);
+    filemask := SearchSubstring(filefolderpath,'/') = -1 ? filefolderpath : GetNameFromPath(filefolderpath);
+  }
+
+  RECORD ARRAY affected_sites := SELECT id, name
+                                   FROM system.sites
+                                  WHERE outputweb != 0
+                                        AND locked = FALSE
+                                        AND ToUppercase(sites.name) LIKE ToUppercase(sitemask)
+                              ORDER BY ToUppercase(sites.name);
+
+  IF(limitdesign != "")
+  {
+    affected_sites := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings")->Enrich(affected_sites, "ID", ["sitedesign"]);
+    DELETE FROM affected_sites WHERE affected_sites.sitedesign != limitdesign;
+  }
+
+  IF(Length(affected_sites)=0)
+  {
+    INSERT "No site matched mask '" || mask || "'" INTO retval.errors AT END;
+    RETURN retval;
+  }
+
+  FOREVERY(RECORD siterec FROM affected_sites)
+  {
+    GetPrimary()->PushWork();
+
+    IF(callback != DEFAULT MACRO PTR)
+      callback( ((#siterec+1) * 1f)/Length(affected_sites), siterec.name);
+
+    OBJECT folder := OpenWHFSObject(siterec.id);
+    IF(foldername != "/")
+    {
+      STRING relpath := foldername LIKE "/*" ? SubString(foldername, 1) : foldername;
+      folder := folder->OpenByPath(relpath);
+    }
+    IF(NOT ObjectExists(folder))
+    {
+      INSERT "Cannot find folder '" || foldername || "' in site '" || siterec.name || "'" INTO retval.errors AT END;
+    }
+    ELSE
+    {
+      //ScheduleFolderRepublish(site.root, TRUE, this->nontemplatetoo);
+      DoFolder(folder->id, filemask, TRUE, nontemplatetoo, recursive, onlyiffailed);
+    }
+    GetPrimary()->PopWork();
+  }
+  RETURN retval;
+}
+
+PUBLIC MACRO ScheduleMaskRepublish(STRING mask, BOOLEAN recursive, BOOLEAN non_templates_too DEFAULTSTO FALSE)
+{
+  __DoRepublishByMask(mask, non_templates_too, recursive, DEFAULT MACRO PTR, FALSE, "");
+}
+
+PUBLIC OBJECT FUNCTION MakeChangesIndexedPromise()
+{
+  RETURN GetWHFSCommitHandler()->WaitForChangesIndexed();
+}
+
+INTEGER ARRAY FUNCTION GetInterestingFolders(INTEGER curfolder)
+{
+  INTEGER ARRAY result;
+  INTEGER ARRAY worklist := [ curfolder ];
+  WHILE (LENGTH(worklist) != 0)
+  {
+    result := result CONCAT worklist;
+    worklist := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent IN worklist AND isfolder=TRUE;
+  }
+  RETURN result;
+}
+
+BOOLEAN FUNCTION IsFolderPublishing(INTEGER root, BOOLEAN recursive)
+{
+  RECORD ARRAY objects := SELECT id, isfolder, publish, published, whfspath FROM system.fs_objects WHERE parent = root;
+  IF (recursive)
+  {
+    FOREVERY (RECORD o FROM objects)
+      IF (o.isfolder AND IsFolderPublishing(o.id, TRUE))
+        RETURN TRUE;
+  }
+
+  FOREVERY (RECORD o FROM objects)
+    IF (NOT o.isfolder AND o.publish AND (o.published%100000) > 0 AND (o.published%100000) < 100)
+      RETURN TRUE;
+
+  RETURN FALSE;
+}
+
+/** Wait for publication to complete
+    @param startingfolder Folder we're waiting to complete republishing (recursively)
+    @cell(datetime) options.deadline Maximum time to wait (defaults to MAX_DATETIME)
+    @cell(integer) options.reportfrequency If set, frequency (in ms) to report we're still waiting
+    @return Ttrue if publication completed, false on timeout*/
+PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ deadline := MAX_DATETIME
+                             , reportfrequency := 0
+                             ], options);
+
+  IF(NOT HavePrimaryTransaction() OR GetPrimary()->IsWorkOpen())
+    THROW NEW Exception(`Cannot have open work while waiting for publish completion`);
+
+  OBJECT eventmgr := NEW EventManager;
+  TRY
+  {
+    OBJECT folderobj := OpenWHFSObject(startingfolder);
+    INTEGER ARRAY folderids := [ INTEGER(folderobj->id) ] CONCAT folderobj->GetDescendantFolderids();
+    FOREVERY(INTEGER fol FROM folderids)
+      eventmgr->RegisterInterest("publisher:publish.folder." || fol);
+
+    DATETIME currentwaitlimit := MAX_DATETIME;
+    IF(options.reportfrequency != 0)
+      currentwaitlimit := AddTimeToDate(options.reportfrequency, GetCurrentDatetime());
+
+    /* FIXME if a publishing process crashes, it does not send an event, so we might wait indefinitely because publishER does not broadcast any event about  the crash
+             testframework works because it sets reportfrequency, it just delays us a bit..
+    */
+    WHILE(IsFolderPublishing(startingfolder, TRUE))
+    {
+      RECORD event := eventmgr->ReceiveEvent(MIN[]([currentwaitlimit, options.deadline]));
+      IF(event.status = "timeout")
+      {
+        IF(GetCurrentDatetime() >= options.deadline)
+          RETURN FALSE;
+
+        //waitlimit HavePrimaryTransaction
+        Print("Publication in folder #" || startingfolder || " still isn't complete...\n");
+        currentwaitlimit := AddTimeToDate(options.reportfrequency, GetCurrentDatetime());
+
+      }
+    }
+    RETURN TRUE;
+  }
+  FINALLY
+  {
+    eventmgr->Close();
+  }
+}
+

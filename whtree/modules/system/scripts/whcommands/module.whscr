@@ -1,0 +1,170 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/devtools/support.whlib";
+
+
+MACRO PrintSyntaxAndTerminate()
+{
+  Print("Syntax: wh module <command>\n");
+  Print("  create <module>:         Create a module\n");
+  Print("  createwebdesign <name>:  Create a webdesign in a module\n");
+  Print("  download <name>:         Download the specified module\n");
+  Print("  install <path|url>:      Install a module\n");
+  Print("  rm <module>:             Delete a module\n");
+}
+
+MACRO CmdDelete(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "modulename", type := "param", required := TRUE ]
+      ]);
+
+  IF(subargs.modulename = "")
+  {
+    Print("Syntax: wh module rm <modulename>");
+    TerminateScriptWithError("Invalid syntax");
+  }
+
+  DeleteModule(subargs.modulename);
+}
+
+/////////////////////////////////////////////////
+//
+// Main
+//
+
+RECORD ARRAY options := [ [ name := "command", type := "param", required := TRUE ]
+                        , [ name := "params", type := "paramlist" ]
+                        ];
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+
+SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
+{
+  CASE "create"
+  {
+    RECORD subargs := ParseArguments(cmdargs.params,
+        [ [ name := "module", type := "param", required := TRUE ]
+        , [ name := "language", type := "stringopt"  ]
+        , [ name := "nogit", type := "switch"  ]
+        ]);
+
+    IF(NOT RecordExists(subargs))
+    {
+      Print("Syntax: wh module create [--language code] [--nogit] [subpath/]<modulename>\n");
+      TerminateScriptWithError("Invalid syntax");
+    }
+
+    STRING ARRAY modtokens := Tokenize(subargs.module,'/');
+    IF(Length(modtokens) > 2)
+      THROW NEW Exception(`Module name '${subargs.module}' may contain only one subpath component`);
+
+    OpenPrimary();
+    RECORD res := SetupModule(Length(modtokens)>1 ? modtokens[0] : "", modtokens[END-1],
+        [ defaultlanguage := subargs.language ?? "en"
+        , gitinit := NOT subargs.nogit
+        ]);
+
+    Print(`Created module in ${res.destpath}${subargs.nogit ? "" : " (with empty git repository)"}\n`);
+  }
+  CASE "createwebdesign"
+  {
+    RECORD subargs := ParseArguments(cmdargs.params,
+        [ [ name := "name", type := "param", required := TRUE ]
+        , [ name := "domainname", type := "param", required := TRUE ]
+        , [ name := "language", type := "stringopt"  ]
+        , [ name := "template", type := "stringopt" ]
+        ]);
+
+    IF(NOT RecordExists(subargs) OR subargs.name NOT LIKE "?*:?*")
+    {
+      Print("Syntax: wh module createwebdesign [--language langcode] [--template module:template] <module>:<name> <domainname>\n");
+      TerminateScriptWithError("Invalid syntax");
+    }
+
+    STRING module := Tokenize(subargs.name, ':')[0];
+    STRING designname := Tokenize(subargs.name, ':')[1];
+
+    RECORD setup := SetupWebDesign(subargs.template ?? "publisher:blank", module, designname,
+                                   [ title := designname
+                                   , defaultlanguage := subargs.language
+                                   , domainname := subargs.domainname
+                                   ]);
+
+  }
+  CASE "download"
+  {
+    RECORD subargs := ParseArguments(cmdargs.params,
+        [ [ name := "output", type := "stringopt" ]
+        , [ name := "module", type := "param", required := TRUE ]
+        ]);
+
+    IF(NOT RecordExists(subargs))
+    {
+      Print("Syntax: wh module download [--output path] <module>\n");
+      TerminateScriptWithError("Invalid syntax");
+    }
+
+    STRING target := subargs.output ?? "whmodule-" || subargs.module || "-" || FormatDatetime("%Y-%m-%d", GetcurrentDatetime()) || ".tar.gz";
+    OBJECT archiver := NEW ModuleArchiver;
+    RECORD moduledata := archiver->CreateArchive(subargs.module);
+    StoreDiskFile(target, moduledata.data, [ overwrite := TRUE ]);
+    Print(`Saved module to ${target}\n`);
+  }
+  CASE "install"
+  {
+    RECORD subargs := ParseArguments(cmdargs.params,
+        [ [ name := "path", type := "param", required := TRUE ]
+        ]);
+
+    IF(NOT RecordExists(subargs))
+    {
+      Print("Syntax: wh module install <path | url>\n");
+      TerminateScriptWithError("Invalid syntax");
+    }
+
+    BLOB toinstall;
+    IF(IsAbsoluteURL(subargs.path, FALSE))
+    {
+      OBJECT browser := NEW WebBrowser;
+      IF(NOT browser->GotoWebPage(subargs.path))
+        THROW NEW Exception(`Failed to download from ${subargs.path}`);
+
+      toinstall := browser->content;
+    }
+    ELSE
+    {
+      toinstall := GetDiskResource(subargs.path);
+    }
+
+    OpenPrimary();
+    RECORD installres := ImportModule(toinstall);
+    IF(Length(installres.errors) > 0)
+    {
+      Print("Installation failed:\n" || Detokenize(installres.errors,"\n") || "\n");
+      SetConsoleExitCode(1);
+    }
+    ELSE
+    {
+      Print(`Module '${installres.importmodulename}' installed\n`);
+      IF(Length(installres.warnings) > 0)
+        Print("There were warnings:\n" || Detokenize(installres.warnings,"\n") || "\n");
+    }
+  }
+  CASE "rm","del","delete"
+  {
+    CmdDelete(cmdargs.params);
+  }
+  DEFAULT
+  {
+    PrintSyntaxAndTerminate();
+    SetConsoleExitCode(1);
+  }
+}

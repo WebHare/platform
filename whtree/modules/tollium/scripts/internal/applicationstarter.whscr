@@ -1,0 +1,594 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
+
+LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
+
+
+/** This library owns all tollium applications, keeps their crash histories
+*/
+
+INTEGER keephistory := 20; // in seconds
+INTEGER checkinterval := 10; // in seconds
+
+BOOLEAN log_appstarter := FALSE;
+
+/* Interaction
+
+  Every frontend app has an ID which they speicify when starting a backendapplication. If none
+  is specified, the app generates one for them and gives it to the frontend.
+
+  After an application is started, the job is transferred to this script. This script will own
+  that job, so it can access crash results.
+
+  The frontend connects to this script and listens on that id. Due to concurrency/restarts, etc.
+  a frontent may have multiple ids.
+
+  Crash-info is kept for X minutes.
+*/
+
+/** Todd event manager - handles push sessions and messaging
+*/
+STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING localid;
+
+  OBJECT linkport;
+
+  OBJECT dispatcher;
+
+  RECORD ARRAY apps;
+
+  RECORD ARRAY frontends;
+
+  INTEGER cleanupcb;
+
+  OBJECT parentlink;
+  INTEGER parentlinkcb;
+
+  RECORD debugconfig;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT port)
+  : IPCPortHandlerBase(port)
+  {
+    this->flat_responses := TRUE;
+
+    this->localid := "O:" || GetCurrentGroupId();
+    STRING myportname := "tollium:link." || this->localid;
+    this->linkport := CreateIPCPort(myportname);
+    __INTERNAL_KeepPortGlobal(this->linkport);
+    this->dispatcher := NEW ToddLinkDispatcher(this->localid || "(as)");
+
+    this->AddListeningPort(this->linkport);
+    RegisterTimedCallback(AddTimeToDate(checkinterval*1000, GetCurrentDateTime()), PTR this->CleanupOldApps);
+
+    this->parentlink := GetIPCLinkToParent();
+    this->parentlinkcb := RegisterHandleReadCallback(this->parentlink->handle, PTR this->GotParentMessage);
+
+    IF (log_appstarter)
+      this->LogDebug("Started, my port: " || myportname);
+
+    // Wait for queries for existance, and broadcast our own existance
+    RegisterEventCallback("tollium:applicationstarter.query", PTR this->GotExistenceQuery);
+    BroadcastEvent("tollium:applicationstarter.exists", [ id := this->localid ]);
+    RegisterEventCallback("system:debugger.*", PTR this->GotDebuggerEvent);
+
+    this->ReloadDebuggerConfig();
+    FOREVERY (STRING mask FROM this->debugconfig.eventmasks)
+      RegisterEventCallback("system:debugger.configchange", PTR this->GotDebuggerConfigInvalidation);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO LogDebug(STRING message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  {
+    INSERT message INTO args AT 0;
+    INSERT "ng-appstart" INTO args AT 0;
+    CallMacroPTRVA(PTR LogDebug, args);
+  }
+
+  MACRO LogApplicationErrors(STRING appname, STRING appid, STRING externalsessiondata, RECORD ARRAY errors)
+  {
+    RECORD data :=
+        [ app :=        appname
+        , warnings :=   DEFAULT RECORD ARRAY
+        , errors :=     SELECT filename, line, col, message FROM errors where code >= 0
+        , trace :=      SELECT filename, line, col, func FROM errors WHERE code < 0 LIMIT 100
+        ];
+
+    // Keep error notices a bit small
+    INTEGER budget := 100*1024;
+    FOREVERY (RECORD rec FROM data.errors)
+    {
+      IF (LENGTH(data.errors[#rec].message) > budget)
+        data.errors[#rec].message := Left(data.errors[#rec].message, budget) || "…";
+      budget := budget - LENGTH(data.errors[#rec].message);
+    }
+
+    STRING encodeddata := EncodeHSON(data);
+    IF(Length(encodeddata)>126*1024)
+      encodeddata := "-";
+
+    ModuleLog("system:notice", "tollium\tERROR\t" || appid || "\t"||EncodeJava(externalsessiondata)||"\tharescript-error\t" || encodeddata);
+  }
+
+  STRING ARRAY FUNCTION ReloadDebuggerConfig()
+  {
+    this->debugconfig := CallFunctionFromJob("module::system/configure.whlib", "GetDebuggerConfig");
+    RETURN this->debugconfig.eventmasks;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotExistenceQuery(STRING event, RECORD data)
+  {
+    BroadcastEvent("tollium:applicationstarter.exists", [ id := this->localid ]);
+  }
+
+  MACRO GotDebuggerConfigInvalidation(STRING event, RECORD data)
+  {
+    this->ReloadDebuggerConfig();
+  }
+
+  MACRO GotDebuggerEvent(STRING event, RECORD data)
+  {
+    IF (event LIKE "system:debugger.attach.*"
+        OR event LIKE "system:debugger.detach.*"
+        OR event LIKE "system:debugger.running.*"
+        OR event LIKE "system:debugger.paused.*")
+    {
+      STRING groupid := Tokenize(event, ".")[2];
+
+      RECORD pos := RecordLowerBound(this->apps, [ appid := groupid ], [ "APPID" ]);
+      IF (NOT pos.found)
+        RETURN;
+
+      RECORD fpos := RecordLowerBound(this->frontends, [ frontendid := this->apps[pos.position].frontendid ], [ "FRONTENDID" ]);
+      IF (NOT fpos.found)
+        RETURN;
+
+      this->frontends[fpos.position].msgqueue->QueueMessage(
+          [ type :=     "debugstatus"
+          , appid :=    "A:" || groupid
+          , attached := event NOT LIKE "system:debugger.detach.*"
+          , paused :=   event NOT LIKE "system:debugger.running.*"
+          ]);
+    }
+  }
+
+  MACRO GotParentMessage()
+  {
+    RECORD res := this->parentlink->ReceiveMessage(DEFAULT DATETIME);
+    IF (log_appstarter)
+      this->LogDebug("Got mgmt message", res);
+
+    IF (res.status = "gone")
+    {
+      UnregisterCallback(this->parentlinkcb);
+      this->parentlink->Close();
+      this->parentlink := DEFAULT OBJECT;
+      RETURN;
+    }
+    IF (res.status = "timeout")
+      RETURN;
+
+    IF (res.msg.task = "tryrelease")
+    {
+      IF (IsScriptOutOfDate())
+      {
+        IF (log_appstarter)
+          this->LogDebug("Out of date, releasing");
+        IF (ObjectExists(this->pvt_port))
+          this->pvt_port->Close();
+        this->pvt_port := DEFAULT OBJECT;
+
+        this->parentlink->SendMessage([ type := "tryrelease-ok" ]);
+
+        UnregisterCallback(this->parentlinkcb);
+        this->parentlink->Close();
+        this->parentlink := DEFAULT OBJECT;
+      }
+      ELSE
+      {
+        IF (log_appstarter)
+          this->LogDebug("Not out of date, staying alive");
+        this->parentlink->SendMessage([ type := "tryrelease-cancel" ]);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // More stuff
+  //
+
+  // Incoming link connection
+  MACRO HandleLinkConnection()
+  {
+    OBJECT link := this->linkport->Accept(DEFAULT DATETIME);
+
+    // Keep link handling internal until we know its a comm link
+    IF (ObjectExists(link))
+      link->userdata := [ cbid := RegisterHandleReadCallback(link->handle, PTR this->LinkConnectionSignalled(link)) ];
+  }
+
+  MACRO LinkConnectionSignalled(OBJECT link)
+  {
+    RECORD msg := link->ReceiveMessage(DEFAULT DATETIME);
+    IF (msg.status = "timeout")
+      RETURN;
+
+    IF (msg.status = "gone")
+    {
+      UnregisterCallback(link->userdata.cbid);
+      link->Close();
+      RETURN;
+    }
+
+    TRY
+    {
+      STRING type := this->GetMsgCell(msg.msg, "TYPE", TypeID(STRING));
+      IF (type = "linkmessages")
+      {
+        // Handoff to dispatcher
+        UnregisterCallback(link->userdata.cbid);
+        this->dispatcher->RegisterLink(link, msg.msg);
+      }
+    }
+    CATCH (OBJECT e)
+    {
+    }
+  }
+
+  VARIANT FUNCTION GetMsgCell(RECORD message, STRING name, INTEGER type)
+  {
+    IF (NOT this->IsCellOk(message, name, type))
+      THROW NEW Exception("Wrong message format, expected '"||ToLowercase(name)||"' cell");
+    RETURN GetCell(message, name);
+  }
+
+  MACRO CleanupOldApps()
+  {
+    DATETIME cutoff := AddTimeToDate(-keephistory*1000, GetCurrentDateTime());
+
+    FOR (INTEGER i := 0; i < LENGTH(this->apps);)
+    {
+      IF (this->apps[i].stopped <= cutoff)
+      {
+        RECORD pos := RecordLowerBound(this->frontends, [ frontendid := this->apps[i].frontendid ], [ "FRONTENDID" ]);
+        this->frontends[pos.position].apps := this->frontends[pos.position].apps - 1;
+        IF (this->frontends[pos.position].apps = 0)
+        {
+          IF (log_appstarter)
+            this->LogDebug("No more apps for frontend " || this->apps[i].frontendid || ", destroying");
+
+          this->frontends[pos.position].msgqueue->Close();
+          DELETE FROM this->frontends AT pos.position;
+        }
+
+        DELETE FROM this->apps AT i;
+      }
+      ELSE
+        i := i + 1;
+    }
+
+    // Stop if we have been released has been and we don't have frontends anymore
+    IF (NOT ObjectExists(this->pvt_port) AND LENGTH(this->frontends) = 0)
+      TerminateScript();
+
+    RegisterTimedCallback(AddTimeToDate(checkinterval*1000, GetCurrentDateTime()), PTR this->CleanupOldApps);
+  }
+
+  /** Start an application. Asynchronous, so we can start multiple applications together
+  */
+  OBJECT ASYNC FUNCTION StartApp(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    // Read parameters
+    RECORD invoke := this->GetMsgCell(message, "INVOKE", TypeID(RECORD));
+
+    STRING frontendid := this->GetMsgCell(invoke, "FRONTENDID", TypeID(STRING));
+    BOOLEAN highpriority := this->GetMsgCell(invoke, "HIGHPRIORITY", TypeID(BOOLEAN));
+    STRING app := this->GetMsgCell(invoke, "APP", TypeID(STRING));
+    RECORD launchuserinfo := this->GetMsgCell(invoke, "LAUNCHUSERINFO", TypeID(RECORD));
+    INTEGER loggedin_entityid := this->GetMsgCell(launchuserinfo, "LOGGEDIN", TypeID(INTEGER));
+    STRING loggedin_name := this->GetMsgCell(launchuserinfo, "LOGGEDIN_NAME", TypeID(STRING));
+
+    // Create an application host
+    RECORD jobrec := CreateJob("mod::tollium/scripts/internal/applicationhost.whscr", "WEBHARE");
+
+    // Errors creating the job?
+    IF (NOT ObjectExists(jobrec.job))
+    {
+      IF (log_appstarter)
+        this->LogDebug("Error starting app");
+
+      this->LogApplicationErrors(app, "", "", jobrec.errors);
+
+      // No debugging possible, compile error
+      this->SendPorthandlerReply(link,
+          [ status := "errors"
+          , errors := jobrec.errors
+          ], replyid);
+
+      RETURN DEFAULT RECORD;
+    }
+
+    RECORD authrec := jobrec.job->GetAuthenticationRecord();
+    INSERT CELL tollium :=
+        [ app :=
+              [ name :=           app
+              , title :=          app
+              , data :=           DEFAULT RECORD
+              ]
+        , user :=
+              [ realname :=       ""
+              , emailaddress :=   ""
+              , language :=       ""
+              , login :=          loggedin_name ?? "<" || loggedin_entityid || ">"
+              , eventidentifier := ""
+              , wrdentityid :=    loggedin_entityid
+              , authobjectid :=   0
+              ]
+        ] INTO authrec;
+    jobrec.job->SetAuthenticationRecord(authrec);
+
+    IF (log_appstarter)
+      this->LogDebug("Created app " || jobrec.job->groupid || ", frontendid " || frontendid);
+
+    // Send configuration to job & start it
+    jobrec.job->SetPriority(highpriority ? "high" : "normal");
+    jobrec.job->ipclink->SendMessage(invoke);
+    jobrec.job->Start();
+
+    // Wait for startup (or crash). ADDME: timeout?
+    RECORD rec := AWAIT jobrec.job->ipclink->AsyncReceiveMessage(MAX_DATETIME);
+    IF (rec.status != "ok")
+    {
+      IF (rec.status != "gone") // ADDME: Should log a timeout here
+        jobrec.job->Terminate();
+
+      // Wait for the job to become signalled (the debugger might have taken control of it)
+      AWAIT jobrec.job->AsyncWaitRead(MAX_DATETIME);
+
+      RECORD ARRAY errors := jobrec.job->GetErrors();
+      STRING groupid := jobrec.job->groupid;
+      STRING externalsessiondata := jobrec.job->GetExternalSessionData();
+      jobrec.job->Close();
+
+      IF (LENGTH(errors) != 0)
+        this->LogApplicationErrors(app, groupid, externalsessiondata, errors);
+
+      this->SendPorthandlerReply(link,
+          [ status :=         "errors"
+          , errors :=         errors
+          , appid :=          groupid
+          , debugtimeout :=   this->debugconfig.keep_errorterminated_msecs
+          ], replyid);
+      RETURN DEFAULT RECORD;
+    }
+
+    STRING appid := jobrec.job->groupid;
+    OBJECT job := jobrec.job;
+
+    STRING linkid;
+    OBJECT msgqueue;
+    RECORD pos := RecordLowerBound(this->frontends, [ frontendid := frontendid ], [ "FRONTENDID" ]);
+    IF (pos.found)
+    {
+      IF (log_appstarter)
+        this->LogDebug("Attach to existing message queue for frontendid " || frontendid || " (" || pos.position || ")");
+      msgqueue := this->frontends[pos.position].msgqueue;
+      linkid := this->frontends[pos.position].linkid;
+    }
+    ELSE
+    {
+      IF (log_appstarter)
+        this->LogDebug("Constructing new message queue for frontendid " || frontendid || " (" || pos.position || ")");
+
+      // Create unique link id (otherwise we might recreate a link with the same name)
+      linkid := this->localid || "/" || frontendid || "/" || GenerateUFS128BitId();
+      msgqueue := NEW ToddMessageLinkEndpoint(this->dispatcher, linkid, frontendid);
+
+      INSERT
+          [ frontendid := frontendid
+          , linkid :=     linkid
+          , msgqueue :=   msgqueue
+          , apps :=       0
+          , laststop :=   DEFAULT DATETIME
+          ] INTO this->frontends AT pos.position;
+    }
+
+    this->frontends[pos.position].apps := this->frontends[pos.position].apps + 1;
+
+    job->userdata :=
+        [ cbid :=         RegisterHandleReadCallback(job->handle, PTR this->GotJobSignalled(job))
+        , lcbid :=        RegisterHandleReadCallback(job->ipclink->handle, PTR this->GetJobLinkSignalled(job))
+        , msgqueue :=     msgqueue
+        , appid :=        appid
+        , frontendid :=   frontendid
+        , app :=          app
+        , invoke :=       message.invoke
+        ];
+
+    INSERT
+        [ appid :=        appid
+        , job :=          job
+        , frontendid :=   frontendid
+        , stopped :=      MAX_DATETIME
+        , errors :=       DEFAULT RECORD ARRAY
+        , lastactivity := GetCurrentDateTime()
+        , requestdata :=  message.invoke.requestdata
+        , browsertriplet :=   message.invoke.browsertriplet
+        ] INTO this->apps AT RecordUpperBound(this->apps, [ appid := appid ], [ "APPID" ]);
+
+    IF (log_appstarter)
+      this->LogDebug("job " || job->groupid || " started");
+
+    this->SendPorthandlerReply(link,
+        [ status :=     "ok"
+        , linkid :=     linkid
+        , frontendid := frontendid
+        , appdata :=    rec.msg
+        ], replyid);
+
+    RETURN DEFAULT RECORD;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overridden stuff
+  //
+
+  /** The link port is multiplexed with the normal port handling, to simplify
+      the implementation considerably
+  */
+  UPDATE RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    IF (CellExists(message, "TYPE") AND TypeID(message.type) = TypeID(STRING) AND message.type = "linkmessages")
+    {
+      this->dispatcher->RegisterLink(link, message);
+      RETURN [ result := "releaselink" ];
+    }
+
+    IF (NOT this->IsCellOk(message, "TASK", TypeID(STRING)))
+      THROW NEW Exception("Wrong message format, expected 'task' cell");
+
+    SWITCH (message.task)
+    {
+      CASE "startapp"
+        {
+          // Async function,
+          this->StartApp(link, message, replyid)->OnError(PTR this->SendExceptionReply(link, replyid, #1));
+          RETURN
+              [ result := "defer"
+              ];
+        }
+      CASE "getapps"
+        {
+          RETURN
+              [ result := "message"
+              , msg :=
+                    [ apps :=
+                        SELECT appid
+                             , frontendid
+                             , app :=           job->userdata.app
+                             , stopped
+                             , errors
+                             , lastactivity
+                             , requestdata
+                             , browsertriplet
+                          FROM this->apps
+                    ]
+              ];
+        }
+      DEFAULT
+        {
+          THROW NEW Exception("Unknown message type '" || message.task || "'");
+        }
+    }
+  }
+
+  MACRO GotJobSignalled(OBJECT job)
+  {
+    IF (log_appstarter)
+      this->LogDebug("job " || job->groupid || " signalled");
+    UnregisterCallback(job->userdata.cbid);
+    IF (job->userdata.lcbid != 0)
+    {
+      UnregisterCallback(job->userdata.lcbid);
+      job->userdata.lcbid := 0;
+    }
+
+    RECORD ARRAY errors := job->GetErrors();
+
+    STRING appname := job->userdata.invoke.app;
+    IF (LENGTH(errors) != 0)
+    {
+      IF (log_appstarter)
+        this->LogDebug("Forwarding errors: " || anytostring(errors,'tree'));
+
+      this->LogApplicationErrors(appname, job->userdata.appid, job->GetExternalSessionData(), errors);
+    }
+    ELSE IF (log_appstarter)
+      this->LogDebug("Application " || appname || " with id " || job->userdata.appid || " has terminated without errors");
+
+    // Send error message
+    job->userdata.msgqueue->QueueMessage(
+        [ type :=     "error"
+        , appid :=    "A:" || job->userdata.appid
+        , errors :=   errors
+        , debugtimeout := this->debugconfig.keep_errorterminated_msecs
+        ]);
+
+    RECORD pos := RecordLowerBound(this->apps, [ appid := job->userdata.appid ], [ "APPID" ]);
+    this->apps[pos.position].stopped := GetCurrentDateTime();
+    this->apps[pos.position].errors := errors;
+
+    job->Close();
+  }
+
+  MACRO GetJobLinkSignalled(OBJECT job)
+  {
+    RECORD rec := job->ipclink->ReceiveMessage(DEFAULT DATETIME);
+    IF (rec.status = "timeout")
+      RETURN;
+    IF (rec.status = "gone")
+    {
+      UnregisterCallback(job->userdata.lcbid);
+      job->userdata.lcbid := 0;
+      RETURN;
+    }
+
+    SWITCH (rec.msg.type)
+    {
+      CASE "useractivity"
+      {
+        RECORD pos := RecordLowerBound(this->apps, [ appid := job->userdata.appid ], [ "APPID" ]);
+        this->apps[pos.position].lastactivity := GetCurrentDateTime();
+      }
+    }
+  }
+
+  UPDATE INTEGER FUNCTION WaitForEvent(INTEGER ARRAY default_handles, DATETIME wait_until)
+  {
+    RETURN IPCPortHandlerBase::WaitForEvent(default_handles CONCAT this->dispatcher->handles, wait_until);
+  }
+
+  UPDATE MACRO OnHandleSignalled(INTEGER handle)
+  {
+    IF (log_appstarter)
+      this->LogDebug("handlesignalled", handle);
+    this->dispatcher->ProcessSignalledHandle(handle);
+  }
+>;
+
+
+// Create BEFORE we create the port
+OBJECT commport := InitManagedScript();
+//OBJECT commport := CreateIPCPort("tollium:appowner");
+//__INTERNAL_KeepPortGlobal(commport);
+
+OBJECT handler := NEW AppOwnerPortHandler(commport);
+handler->Run();

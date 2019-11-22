@@ -1,0 +1,192 @@
+<?wh
+
+LOADLIB "mod::system/lib/mailer.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+
+MACRO TestMailWhitelists()
+{
+  //Create a email field to test stuff with
+  OBJECT work;
+  OBJECT screen := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+                                                   [ component := "textedit"
+                                                   , settings := DEFAULT RECORD
+                                                   ]);
+
+  screen->comp->validationchecks := ["email-maysendfrom"];
+
+  FOREVERY(RECORD test FROM [[ address := "any@receiver.beta.webhare.net", fail := TRUE ]
+                            ,[ address := "Arnold <any@receiver.beta.webhare.net>", fail := TRUE ]
+                            ,[ address := "any@sender.beta.webhare.net", fail := FALSE ]
+                            ,[ address := "Arnold <any@sender.beta.webhare.net>", fail := FALSE ]
+                            ,[ address := "any+test@sender.beta.webhare.net", fail := FALSE ]
+                            ,[ address := "someone+whitelisted@xx.beta.webhare.net", fail := FALSE ]
+                            ])
+  {
+    screen->comp->value := test.address;
+
+    work := screen->BeginFeedback();
+    IF(test.fail)
+      TestEqLike("*'any@receiver.beta.webhare.net'*not allowed to send email*", work->errors[0].text);
+    ELSE
+      TestEq(RECORD[], work->errors);
+    work->Cancel();
+  }
+
+  screen->comp->validationchecks := ["email-maysendto"];
+
+  FOREVERY(RECORD test FROM [[ address := "any@sender.beta.webhare.net", fail := TRUE ]
+                            ,[ address := "Arnold <any@sender.beta.webhare.net>", fail := TRUE ]
+                            ,[ address := "any@receiver.beta.webhare.net", fail := FALSE ]
+                            ,[ address := "Arnold <any@receiver.beta.webhare.net>", fail := FALSE ]
+                            ])
+  {
+    screen->comp->value := test.address;
+
+    work := screen->BeginFeedback();
+    IF(test.fail)
+      TestEqLike("*'any@sender.beta.webhare.net'*not allowed to receive email*", work->errors[0].text);
+    ELSE
+      TestEq(RECORD[], work->errors);
+    work->Cancel();
+  }
+
+  screen->comp->validationchecks := ["emails-maysendto"];
+
+  FOREVERY(RECORD test FROM [[ address := "any@sender.beta.webhare.net, any@receiver.beta.webhare.net", fail := TRUE ]
+                            ,[ address := "Arnold <any@sender.beta.webhare.net>, Arnold <any@receiver.beta.webhare.net>", fail := TRUE ]
+                            ,[ address := "any@receiver.beta.webhare.net, other@receiver.beta.webhare.net", fail := FALSE ]
+                            ,[ address := "Arnold <any@receiver.beta.webhare.net>, Other <other@receiver.beta.webhare.net>", fail := FALSE ]
+                            ])
+  {
+    screen->comp->value := test.address;
+
+    work := screen->BeginFeedback();
+    IF(test.fail)
+      TestEqLike("*'any@sender.beta.webhare.net'*not allowed to receive email*", work->errors[0].text);
+    ELSE
+      TestEq(RECORD[], work->errors);
+    work->Cancel();
+  }
+}
+
+MACRO TestMailSuggestions()
+{
+  TestEq(DEFAULT RECORD, GetEmailAutocorrection("nochange@beta.webhare.net")); //no change - not even close to an existing rule
+  TestEq(DEFAULT RECORD, GetEmailAutocorrection("fixme@exact.beta.webhare.net")); //no change - exact match for a fuzzy rule
+
+  TestEq( [ suggestion := "fixme@exact.beta.webhare.net"
+          , force := TRUE
+          , blocked := FALSE
+          ], GetEmailAutocorrection("fixme@exatc.beta.webhare.net"));
+
+  TestEq( [ suggestion := "fixme@exact.beta.webhare.net"
+          , force := TRUE
+          , blocked := FALSE
+          ], GetEmailAutocorrection("fixme@bijna.beta.WEBHARE.net"));
+
+  TestEq( [ suggestion := "fixme@exact.beta.webhare.net"
+          , force := FALSE
+          , blocked := FALSE
+          ], GetEmailAutocorrection("fixme@exact.BETA.webhare.nte"));
+
+  TestEq( [ suggestion := "fixme@exact.beta.webhare.net"
+          , force := FALSE
+          , blocked := FALSE
+          ], GetEmailAutocorrection("fixme@exact.BETA.webhare.nte"));
+
+  TestEq( [ suggestion := "pietje@fuzzy.beta.webhare.net"
+          , force := FALSE
+          , blocked := FALSE
+          ], GetEmailAutocorrection("pietje@fuzy.beta.webhare.net"));
+
+  TestEq( [ suggestion := ""
+          , force := TRUE
+          , blocked := TRUE
+          ], GetEmailAutocorrection("PIETJE@BLOCKED.BETA.WEBHARE.NET"));
+
+  TestEq( [ suggestion := ""
+          , force := TRUE
+          , blocked := TRUE
+          ], GetEmailAutocorrection("pietje@beta.weBhare.net"));
+
+  TestEq( [ suggestion := "pietje@hotmail.beta.webhare.net"
+          , force := FALSE
+          , blocked := FALSE
+          ], GetEmailAutocorrection("pietje@homail.beta.webhare.net"));
+}
+
+MACRO TestFormsapiFixing()
+{
+  BuildWebtoolForm();
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+
+  OBJECT webtoolform := OpenFormFileDefinition(formfile);
+  OBJECT webtoolresults := OpenFormFileResults(formfile);
+  RECORD ARRAY fields := webtoolform->ListFields();
+
+  STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
+
+  RECORD submitrec := [ firstname := "Test correction"
+                      ];
+  submitrec := CellInsert(submitrec, emailfieldname, "fixme@exatc.beta.webhare.net");
+
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  TestEq("fixme@exact.beta.webhare.net", GetCell(submitted.response, emailfieldname));
+
+  submitrec := [ firstname := "Test block"
+               ];
+  submitrec := CellInsert(submitrec, emailfieldname, "PIETJE@BLOCKED.BETA.WEBHARE.NET");
+  res := tester->SubmitForm(submitrec);
+  TestEq(FALSE, res.success);
+  TestEq(1,Length(res.errors));
+  TestEqLIke("*@blocked.beta.webhare.net*alternative*", res.errors[0].message);
+}
+
+ASYNC MACRO TestMailRouteDialog()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:config"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("mailroutes"));
+  TestEq("Blocked", SELECT AS STRING target FROM TT("emailcorrections")->rows WHERE mask="*@blocked.beta.webhare.net");
+
+  //Add a correction
+  AWAIT ExpectScreenChange(+1, PTR TTClick("emailcorrections->add"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("masks->add"));
+  TT("mask")->value := "*@testje.beta.webhare.net";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TT("correctiontype")->value := "block";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("Blocked", TT("emailcorrections")->selection.target);
+  AWAIT ExpectScreenChange(+1, PTR TTClick("emailcorrections->edit"));
+  TT("correctiontype")->value := "rewrite";
+  TT("rewriteto")->value := "*@test2.beta.webhare.net";
+  TT("suggestionfuzz")->value := 1;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR SetupTestWhitelists
+                 , PTR TestMailWhitelists
+                 , PTR TestMailSuggestions
+                 , PTR TestFormsapiFixing
+                 , PTR TestMaiLRouteDialog
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    , mailwhitelists := FALSE
+                    ]);

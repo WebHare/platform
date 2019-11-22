@@ -1,0 +1,836 @@
+﻿<?wh
+LOADLIB "wh::filetypes/richdocument.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+
+OBJECT typetestfolder;
+OBJECT testfile;
+RECORD setversion;
+
+INTEGER FUNCTION GetNumSettings(INTEGER objid)
+{
+  RETURN Length(SELECT FROM system.fs_settings, system.fs_instances WHERE fs_instances.id=fs_settings.fs_instance AND fs_instances.fs_object = objid);
+}
+INTEGER FUNCTION GetNumInstances(INTEGER objid)
+{
+  RETURN Length(SELECT FROM system.fs_instances WHERE fs_instances.fs_object = objid);
+}
+
+//debugmapping := TRUE;
+
+/////////////////////////////////////////////////
+// Test data
+RECORD foldermeta := [ title := "Folder title"
+                     , description := "Folder description"
+                     , keywords := "Folder keywords"
+                     , ispinned := TRUE
+                     ];
+RECORD filemeta   := [ title := "File title"
+                     , description := "File description"
+                     , keywords := "File keywords"
+                     ];
+RECORD emptyversion := [ stringtest := ""
+                       , arraytest := DEFAULT RECORD ARRAY
+                       , _whfsarray := DEFAULT INTEGER ARRAY
+                       , stringarray := DEFAULT STRING ARRAY
+                       , richtest := DEFAULT RECORD
+                       , instancetest := DEFAULT RECORD
+                       , recordtest := DEFAULT RECORD
+                       ];
+
+
+MACRO ContentTypes()
+{
+  testfw->StartTrans("~webhare",FALSE);;
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  typetestfolder := firstfolder->CreateFolder([name := "typetest.1" ,title:="whfs_archiving test"]);
+
+  testfile := typetestfolder->CreateFile([name := "ctypetest", type := 0]);
+
+  //Start with the expected empty instance
+  TestEq(emptyversion, testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test"));
+
+  OBJECT myrichdoc := NEW RichDocument;
+  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+
+  setversion := emptyversion;
+  setversion.stringtest := "Simpele string";
+  setversion._whfsarray := [ INTEGER(typetestfolder->id), testfile->id ];
+  setversion.stringarray := ["1","2","3"];
+  setversion.richtest := DEFAULT RECORD;
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", setversion);
+  TestEq(setversion, testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test"));
+
+  //Given the above record, there should be only 1 instance record (with 6 settings)
+  TestEq(6, GetNumSettings(testfile->id));
+  TestEq(1, GetNumInstances(testfile->id));
+
+  //printrecordarrayto(0,(select fs_settings.* from system.fs_instances,system.fs_settings where fs_settings.fs_instance=fs_instances.id and fs_instances.fs_type=1130),'boxed');
+
+  /* Create simple instance data */
+
+  INSERT INTO setversion.arraytest(textcell, _whfscell, intextcell, stringarray, blobcell)
+         VALUES("Text 1", testfile->id, MakeIntExtInternalLink(testfile->id, "?test#"), ["ABC"], DEFAULT RECORD) AT END;
+  INSERT INTO setversion.arraytest(textcell, _whfscell, intextcell, stringarray,blobcell)
+         VALUES("", 0, MakeIntExtExternalLink("http://nu.nl/"), default string array, DEFAULT RECORD) AT END;
+  INSERT INTO setversion.arraytest(textcell, _whfscell, intextcell, stringarray, blobcell)
+         VALUES("Text 3", typetestfolder->id, DEFAULT RECORD, default string array, DEFAULT RECORD) AT END;
+  INSERT INTO setversion.arraytest(textcell, _whfscell, intextcell, stringarray, blobcell)
+         VALUES("", firstfolder->id, [ externallink := "http://nu.nl/", internallink := typetestfolder->id, append := "xyz" ], ["abc","def"], DEFAULT RECORD) AT END;
+  setversion.richtest := myrichdoc->ExportAsRecord();
+  setversion.recordtest := [ va := VARIANT[42, "BEAGLE" ]];
+  setversion.instancetest :=
+            [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
+            , id := "TestInstance-1"
+            , styletitle := ""
+            , fsref := 0
+            ];
+
+  setversion := RecurseDeleteSettingIds(setversion, DEFAULT STRING ARRAY);
+
+  INTEGER rdelts := 1 + LENGTH(setversion.richtest.embedded);
+
+  typetestfolder->SetInstanceData("http://www.webhare.net/xmlns/beta/test", setversion);
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", setversion);
+
+  setversion.arraytest[3].intextcell.internallink := 0; //should be reset, as externallink takes precedence
+  setversion.arraytest[3].intextcell.append := "";
+
+/*Print("--dump data--\n");
+dumpvalue(testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test"), 'tree');
+Print("--done dump data--\n");
+print("expect:\n");
+dumpvalue(setversion,'tree');
+*/
+
+  TestEq(setversion, RecurseDeleteSettingIds(testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test"), ["LINK","HASH"]));
+  TestEq(6/*initial test*/+4/*array test rows*/+11/*array test elements*/+rdelts+2/*instance*/+1/*record*/, GetNumSettings(testfile->id));
+  TestEq(setversion, RecurseDeleteSettingIds(typetestfolder->GetInstanceData("http://www.webhare.net/xmlns/beta/test"), ["LINK","HASH"]));
+  TestEq(6/*initial  test*/+4/*array test rows*/+11/*array test elements*/+rdelts+2/*instance*/+1/*record*/, GetNumSettings(typetestfolder->id));
+
+  /* Create a subfolder. Give it an indexdoc. Give those metadata */
+  OBJECT subfolder := typetestfolder->CreateFolder([name := "subfolder", ordering := 12]);
+  OBJECT cooldoc := subfolder->CreateFile([name:="test.doc",type:=4,publish:=TRUE,data:=GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/links.docx")]);
+  OBJECT cooltxt := subfolder->CreateFile([name:="test.txt",type:=21,data:=StringToBlob("Dit is de eerste test")]);
+  subfolder->UpdateMetadata([indexdoc := cooldoc->id]);
+  subfolder->UpdateMetadata(foldermeta);
+
+  cooldoc->UpdateMetadata(filemeta);
+  TestEq("Dit is de eerste test", BlobToSTring(cooltxt->data,1000));
+  cooltxt->UpdateMetadata([data:=StringToBlob("Dit is een test")]);
+  cooltxt:=OpenWHFSObject(cooltxt->id);
+  TestEq("Dit is een test", BlobToSTring(cooltxt->data,1000));
+
+  subfolder := OpenWHFSObject(subfolder->id);
+  TestEq(cooldoc->id, subfolder->indexdoc);
+
+  OBJECT subsubfolder := subfolder->CreateFolder([name := "subsubfolder"]);
+  OBJECT subsubfolderfile := subsubfolder->CreateFile([name:="index.doc", type := 4, publish := TRUE]); //adding a file to trigger an error when replacing the folder
+
+  OBJECT contentlinkfile := subfolder->CreateFile([name:="test2.doc", type:=20, filelink:=cooldoc->id, ordering := 1]);
+  OBJECT intlinkfile := subfolder->CreateFile([name:="test2.txt.lnk", type:=18, filelink:=cooltxt->id, ordering := 3]);
+  OBJECT extlinkfile := subfolder->CreateFile([name:="test3.lnk", type:=19, externallink:="http://www.webhare.net/", ordering := -5]);
+  OBJECT imgfile := subfolder->CreateFile([ name:="harrispilton.jpg", data := GetWebhareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), wrapped := [ dominantcolor := "#0000EE"]]);
+
+  testfw->Commit();
+}
+
+MACRO SelfTest()
+{
+  testfw->StartTrans("~webhare",FALSE);;
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  VerifyTheCopy(OpenWHFSObject(typetestfolder->id), FALSE, "exact", DEFAULT DATETIME, TRUE);
+  testfw->Commit();
+}
+
+MACRO RenamingCopyTest()
+{
+  testfw->StartTrans("~webhare",FALSE);;
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  //Copy what we have
+  DATETIME copyminimum := GetCurrentDatetime();
+  OBJECT copytest := typetestfolder->CopyTo(firstfolder, "typetest.2");
+  testfw->Commit();
+
+  testfw->StartTrans("~webhare",FALSE);
+  VerifyTheCopy(copytest, FALSE, "minimum", copyminimum, TRUE);
+  testfw->Commit();
+}
+
+MACRO NonrenamingCopytest()
+{
+  //Copy what we have, but don't use a renaming copy. Execution paths may differ
+  DATETIME copyminimum := GetCurrentDatetime();
+
+  testfw->StartTrans("~webhare",FALSE);;
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  OBJECT copydest := firstfolder->CreateFolder( [ name := "copyreceiver" ]);
+  OBJECT copytest := typetestfolder->CopyTo(copydest, "");
+  testfw->Commit();
+
+  testfw->StartTrans("~webhare",FALSE);
+  VerifyTheCopy(copytest, FALSE, "minimum", copyminimum, TRUE);
+  testfw->Commit();
+}
+
+MACRO ActionCopytest()
+{
+  DATETIME copyminimum := GetCurrentDatetime();
+
+  testfw->StartTrans("~webhare",FALSE);;
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  OBJECT copydest := firstfolder->CreateFolder( [ name := "copyreceiver2" ]);
+  OBJECT cm := NEW ObjectCopyMover("copy", copydest->id);
+  cm->AddSourceById(typetestfolder->id);
+  cm->Go(testfw->GetUserObject("sysop"));
+  testfw->Commit();
+
+  testfw->StartTrans("~webhare",FALSE);;
+  VerifyTheCopy(copydest->OpenByName("typetest.1"), FALSE, "minimum", copyminimum, TRUE);
+  testfw->Commit();
+
+  testfw->StartTrans("~webhare",FALSE);;
+  OBJECT source2 := testfw->GetWHFSTestRoot2();
+  copydest := firstfolder->CreateFolder( [ name := "copyreceiver3" ]);
+
+  cm := NEW ObjectCopyMover("copy", copydest->id);
+  cm->AddSourceById(source2->id);
+  cm->Go(testfw->GetUserObject("sysop"));
+
+  TestEQ(TRUE, ObjectExists(copydest->OpenByName(source2->name)));
+  testfw->Commit();
+}
+
+MACRO Archiving()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  DATETIME copyminimum := GetCurrentDatetime();
+  BLOB thearchive := typetestfolder->ExportFolder( [initialname := "typetest.4" ]).files[0].data;
+  TestEq("application/x-webhare-archive", ScanBlob(thearchive).mimetype);
+
+  RECORD imp := ImportWHFSArchive(firstfolder, thearchive, [ overwrite := TRUE ]);
+
+  VerifyTheCopy(firstfolder->OpenByName("typetest.4"), FALSE, "minimum", copyminimum, TRUE);
+  TestEq(DEFAULT RECORD ARRAY, imp.notincluded);
+
+
+  testfw->CommitWork();
+}
+
+MACRO Archiving_Nometa()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  DATETIME copyminimum := GetCurrentDatetime();
+  BLOB thearchive := typetestfolder->ExportFolder([ initialname := "archive_nometa"
+                                                  , withmetadata := FALSE
+                                                  ]).files[0].data;
+
+  TestEq("application/zip", ScanBlob(thearchive).mimetype);
+
+  RECORD imp := ImportWHFSArchive(firstfolder, thearchive, [ overwrite := TRUE ]);
+
+  VerifyTheCopy(firstfolder->OpenByName("archive_nometa"), FALSE, "minimum", copyminimum, FALSE);
+  TestEq(DEFAULT RECORD ARRAY, imp.notincluded);
+
+  testfw->CommitWork();
+}
+
+STRING addmappedcellsiteprofile_before :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/addmappedcell">'
+      || '<member name="arraytest" type="array">'
+        || '<member name="str" type="string" />'
+      || '</member>'
+    || '</contenttype>'
+  ||'</siteprofile>';
+
+STRING addmappedcellsiteprofile_after :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/addmappedcell">'
+      || '<member name="arraytest" type="array">'
+        || '<member name="str" type="string" />'
+        || '<member name="intlink" type="whfsref" />'
+      || '</member>'
+    || '</contenttype>'
+  ||'</siteprofile>';
+
+MACRO ArchivingAddMappedCell()
+{
+
+  testfw->BeginWork();
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT testsite := CreateSiteFromFolder(firstfolder->id);
+
+  OBJECT siteprof_before := firstfolder->CreateFile([name:="addmappedcellsiteprofile_before.siteprl", data := StringToBlob(addmappedcellsiteprofile_before)]);
+  OBJECT siteprof_after := firstfolder->CreateFile([name:="addmappedcellsiteprofile_after.siteprl", data := StringToBlob(addmappedcellsiteprofile_after)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof_before->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT archivesfolder := firstfolder->CreateFolder([name:="addmap.toarchive"]);
+  OBJECT addmappedtestfile := archivesfolder->CreateFile([name:="addmappedtest"]);
+  addmappedtestfile->SetInstanceData("http://www.webhare.net/xmlns/beta/addmappedcell", [ arraytest := [[ str := "abc" ]] ]);
+
+  BLOB arc := archivesfolder->ExportFolder([ initialname := "" ]).files[0].data;
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof_before->id));
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof_after->id));
+  addmappedtestfile->RecycleSelf();
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  DATETIME copyminimum := GetCurrentDatetime();
+  RECORD imp := ImportWHFSArchive(archivesfolder, arc, [ overwrite := TRUE ]);
+  addmappedtestfile := archivesfolder->OpenByPath("addmappedtest");
+
+  RECORD inst := addmappedtestfile->GetInstanceData("http://www.webhare.net/xmlns/beta/addmappedcell");
+  TestEq(1, Length(inst.arraytest));
+  TestEq(TRUE, CellExists(inst.arraytest[0], 'intlink'), "Perhaps cached whfs types weren't flushed after updating the site profile");
+  TestEq(0, inst.arraytest[0].intlink);
+  TestEq("abc", inst.arraytest[0].str);
+
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof_after->id));
+  testfw->CommitWork();
+
+}
+
+MACRO ArchivingRoot()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  OBJECT destfolder := firstfolder->CreateFolder([name:="typetest.9"]);
+  DATETIME copyminimum := GetCurrentDatetime();
+  BLOB arc := typetestfolder->ExportFolder([ initialname := "" ]).files[0].data;
+  RECORD imp := ImportWHFSArchive(destfolder, arc, [ overwrite := TRUE ]);
+
+  VerifyTheCopy(firstfolder->OpenByName("typetest.9"), TRUE, "minimum", copyminimum, TRUE);
+
+  TestEq(DEFAULT RECORD ARRAY, imp.notincluded);
+
+  testfw->CommitWork();
+}
+
+MACRO ArchivingContainedSite()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT sitecontainer := firstfolder->CreateFolder([name := "sitecontainer"]);
+  OBJECT sitecopy := typetestfolder->CopyTo(sitecontainer, "betatest_site");
+  CreateSiteFromFolder(sitecopy->id);
+
+  OBJECT destfolder := firstfolder->CreateFolder([name:="sitecontainer.dest"]);
+  DATETIME copyminimum := GetCurrentDatetime();
+  BLOB arc := sitecontainer->ExportFolder().files[0].data;
+  RECORD imp := ImportWHFSArchive(destfolder, arc, [ overwrite := TRUE ]);
+
+  testfw->CommitWork();
+  testfw->BeginWork();
+
+  VerifyTheCopy(destfolder->OpenByName("sitecontainer")->OpenByName("betatest_site"), TRUE, "minimum", copyminimum, TRUE);
+
+  TestEq(DEFAULT RECORD ARRAY, imp.notincluded);
+
+  testfw->CommitWork();
+}
+
+MACRO MovingOfTree()
+{
+  testfw->BeginWork();
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  typetestfolder->MoveTo(firstfolder, "typetest.3");
+  VerifyTheCopy(firstfolder->OpenByName("typetest.3"), FALSE, "exact", DEFAULT DATETIME, TRUE);
+
+  //restore situation
+  typetestfolder->MoveTo(firstfolder, "typetest.1");
+
+  testfw->CommitWork();
+}
+
+MACRO ArchivingWithRemainingFile()
+{
+  testfw->BeginWork();
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  //Export/import we have (ADDME test through WHFS apis too or convert?)
+
+  OBJECT extrafolder := firstfolder->CreateFolder([ name := "typetest.5" ]);
+  OBJECT extrafile := extrafolder->CreateFile([ name := "extrafile" ]);
+
+  DATETIME copyminimum := GetCurrentDatetime();
+  BLOB arc := typetestfolder->ExportFolder([ initialname := "typetest.5" ]).files[0].data;
+  RECORD imp := ImportWHFSArchive(firstfolder, arc, [ overwrite := TRUE ]);
+
+  VerifyTheCopy(firstfolder->OpenByName("typetest.5"), FALSE, "minimum", copyminimum, TRUE);
+  TestEq([ [ id := extrafile->id, isfolder := FALSE ] ], imp.notincluded);
+
+  testfw->CommitWork();
+}
+
+MACRO ArchivingFIleOverFolder()
+{
+  testfw->BeginWork();
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  OBJECT importer := NEW ArchiveImporter;
+  //ADDME test the callbacks too!
+  BLOB arc := typetestfolder->ExportFolder([ initialname := "typetest.11" ]).files[0].data;
+  importer->AddInput(arc);
+  importer->overwrite := TRUE;
+  DATETIME copyminimum := GetCurrentDatetime();
+
+  OBJECT tt11 := firstfolder->CreateFolder([name := "typetest.11"]);
+  OBJECT subf := tt11->CreateFolder([name := "subfolder"]);//create foreign folder over which we'll unpack
+  subf->CreateFolder([name := "test.txt", type := 1]); //foreign folder. should NEVER be overwritten
+  subf->CreateFolder([name := "test.doc"]);
+  subf->CreateFile([name := "subsubfolder"]); //FIXME archiver should report and publisher should tell that subsubfolder/index.html can't be created due to a file/folder conflict
+
+  importer->Import(firstfolder->id);
+
+  TestEq(TRUE, subf->OpenByPath('test.txt')->isfolder);
+  TestEq(1, subf->OpenByPath('test.txt')->type);
+  TestEq(FALSE, subf->OpenByPath('test.doc')->isfolder);
+  TestEq(TRUE, subf->OpenByPath('subsubfolder')->isfolder);
+
+  testfw->CommitWork();
+}
+
+MACRO ArchivingOverForeignFolder()
+{
+  testfw->BeginWork();
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  //Export/import we have (ADDME test through WHFS apis too or convert?)
+
+  OBJECT importer := NEW ArchiveImporter;
+  //ADDME test the callbacks too!
+  BLOB arc := typetestfolder->ExportFolder([ initialname := "typetest.10" ]).files[0].data;
+  importer->AddInput(arc);
+  importer->overwrite := TRUE;
+  DATETIME copyminimum := GetCurrentDatetime();
+  OBJECT subforeign := firstfolder->CreateFolder([name := "typetest.10"])->CreateFolder([name := "subfolder",type:=1]);//create foreign folder over which we'll unpack
+
+  importer->Import(firstfolder->id);
+
+  OBJECT subfolder := firstfolder->OpenByName("typetest.10")->OpenByName("subfolder");
+  TestEq(1,subfolder->type);//must remain foreign
+  TestEq(0, Length(SELECT FROM system.fs_objects WHERE parent = subfolder->id));
+
+  subfolder := OpenWHFSObject(subfolder->id);
+  //explicitly create a foreign folder containing a file. annoying edgecase we have to protect against (WebHares will blindly generate archives like this)
+  subforeign->UpdateMetadata([type:=0]);
+  subforeign->CreateFile([name:="blabla.txt"]);
+  subforeign->UpdateMetadata([type:=1]);
+
+  arc := firstfolder->OpenByName("typetest.10")->ExportFolder().files[0].data;
+  subforeign->OpenByPath("blabla.txt")->DeleteSelf();
+
+  subfolder->UpdateMetadata([type:=0]); //make it a normal folder
+
+  importer := NEW ArchiveImporter;
+  importer->AddInput(arc);
+  importer->overwrite := TRUE;
+  importer->Import(firstfolder->id);
+
+  subfolder := firstfolder->OpenByName("typetest.10")->OpenByName("subfolder");
+  TestEq(0,subfolder->type);//must remain normal
+  TestEq(1, Length(SELECT FROM system.fs_objects WHERE parent = subfolder->id)); //and can now contain a file
+  TestEq(TRUE, ObjectExists(subfolder->OpenByName("blabla.txt")));
+
+  subfolder->DeleteSelf();
+
+  importer := NEW ArchiveImporter;
+  importer->AddInput(arc);
+  importer->overwrite := TRUE;
+
+  importer->Import(firstfolder->id);
+  subfolder := firstfolder->OpenByName("typetest.10")->OpenByName("subfolder");
+  TestEq(0,subfolder->type);//automatically turns normal
+  TestEq(1, Length(SELECT FROM system.fs_objects WHERE parent = subfolder->id)); //but not contain anything
+  TestEq(TRUE, ObjectExists(subfolder->OpenByName("blabla.txt")));
+
+  testfw->CommitWork();
+}
+
+BLOB FUNCTION Archive(RECORD ARRAY files)
+{
+  OBJECT arc := CreateNewArchive("zip");
+  FOREVERY(RECORD file FROM files)
+    IF(file.name = "")
+      arc->AddFolder(file.path, file.modtime);
+    ELSE
+      arc->AddFile(file.path || "/" || file.name, file.data, file.modtime);
+  RETURN arc->MakeBlob();
+}
+
+MACRO ArchivingWithoutmetadataVsStraightInsert()
+{
+  testfw->BeginWork();
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  RECORD ARRAY a_files := UnpackArchive(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/no_metadata.zip"));
+  UPDATE a_files SET path := "typetest.6";
+
+  RECORD imp := ImportWHFSArchive(firstfolder, Archive(a_files), [ overwrite := TRUE ]);
+
+  UPDATE a_files SET path := "typetest.7";
+  FOREVERY (RECORD rec FROM SELECT * FROM a_files ORDER BY path, name)
+  {
+    STRING path := rec.path;
+    IF (path NOT LIKE "*/")
+      path := path || "/";
+    path := path || rec.name;
+    IF (path LIKE "*/")
+      path := LEFT(path, LENGTH(path) - 1);
+
+    STRING ARRAY pathelts := Tokenize(path, "/");
+    INTEGER lastelt := LENGTH(pathelts) - 1;
+
+    OBJECT root := firstfolder;
+    FOREVERY (STRING elt FROM pathelts)
+    {
+      IF (#elt != lastelt)
+      {
+        OBJECT newroot := root->OpenByName(elt);
+        IF (ObjectExists(newroot))
+          root := newroot;
+      }
+      ELSE IF (rec.name = "")
+        root->CreateFolder([ name := elt ]);
+      ELSE
+        root->CreateFile([ name := IsValidWHFSName(elt,FALSE) ? elt: GetSafefilename(elt), data := rec.data, modificationdate := rec.modtime, publish := TRUE ]);
+    }
+  }
+  CompareFSItems(firstfolder->OpenByName("typetest.6"), firstfolder->OpenByName("typetest.7"), TRUE);
+  testfw->CommitWork();
+
+  //now overwrite the files without metadata. this destroyed contenttype instances earlier (hooks generated them before killinstances came around to wipe 'm all)
+  testfw->BeginWork();
+
+  UPDATE a_files SET path := "typetest.6";
+  imp := ImportWHFSArchive(firstfolder, Archive(a_files), [ overwrite := TRUE ]);
+  CompareFSItems(firstfolder->OpenByName("typetest.6"), firstfolder->OpenByName("typetest.7"), TRUE);
+  testfw->CommitWork();
+}
+
+MACRO UnpackingSiteVsNonsite()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  OBJECT sitefolder := firstfolder->CreateFolder([ name := "site.1" ]);
+  CreateSiteFromFolder(sitefolder->id);
+
+  RECORD ARRAY a_files := UnpackArchive(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/no_metadata.zip"));
+  UPDATE a_files SET path := "typetest.8";
+  RECORD imp := ImportWHFSArchive(sitefolder, Archive(a_files), [ overwrite := TRUE ]);
+  CompareFSItems(firstfolder->OpenByName("typetest.7"), sitefolder->OpenByName("typetest.8"), TRUE);
+
+  RECORD ARRAY expect_files :=
+      [ [ name := "Kastjes en muren 2.pdf", title := "Kastjes en muren 2" ]
+      , [ name := "docgen_2.tar.gz",        title := "" ]
+      , [ name := "goudvis.png",            title := "" ]
+      , [ name := "lorum_ipsum.doc",        title := "Eerste gezamenlijke nieuwsbrief wordt binnenkort verstuurd, houd uw mailbox in de gaten" ]
+      ];
+
+  RECORD ARRAY got_files := SELECT name, title FROM system.fs_objects WHERE parent = sitefolder->OpenByName("typetest.8")->id ORDER BY name;
+
+  TestEq(expect_files, got_files);
+
+  testfw->CommitWork();
+}
+
+
+MACRO DateTimesMatch(DATETIME expect, DATETIME got, STRING timematchmode, DATETIME mintime)
+{
+  IF(timematchmode="ignore")
+    RETURN;
+  IF(timematchmode = "minimum")
+  {
+    IF(got >= mintime)
+    {
+      TestEq(TRUE, TRUE);
+    }
+    ELSE
+    {
+      Print("FAIL minimum " || FormatDatetime("%Y-%m-%dT%H:%M:%S.%Q", mintime) || " got " || FormatDatetime("%Y-%m-%dT%H:%M:%S.%Q", got) || "\n");
+      TestEq(TRUE, FALSE);
+    }
+    RETURN;
+  }
+
+  // If rounding is allowed, correct got within 2 seconds (zip archive limitation)
+  IF (timematchmode="round" AND expect != got)
+    got := AddTimeToDate(GetMsecondCount(expect) % 2000, got);
+
+  IF (expect != got)
+  {
+    PRINT("FAIL " || timematchmode || "\n");
+
+    TestEq(expect, got);
+    RETURN;
+  }
+}
+
+MACRO VerifyTheCopy(OBJECT destfolder, BOOLEAN skip_root, STRING timematchmode, DATETIME mintime, BOOLEAN expectmeta)
+{
+  IF(timematchmode = "minimum" AND mintime = DEFAULT DATETIME)
+    ABORT("Invalid minimum datetime specified");
+
+  OBJECT testfile2 := destfolder->OpenByName("ctypetest");
+  TestEq(TRUE, ObjectExists(testfile2));
+
+  OBJECT testfile2_org := typetestfolder->OpenByName("ctypetest");
+  DateTimesMatch(testfile2_org->modificationdate, testfile2->modificationdate, timematchmode, mintime);
+
+  //Update setversion to match the supposedly remapped folders
+  setversion.arraytest[0]._whfscell := testfile2->id;
+  setversion.arraytest[0].intextcell.internallink := testfile2->id;
+  setversion._whfsarray := [INTEGER(destfolder->id), INTEGER(testfile2->id)];
+
+  IF(debugmapping)
+    Print("testfile2->id = " || testfile2->id || "\n");
+  setversion.arraytest[2]._whfscell := destfolder->id;
+  IF(debugmapping)
+    Print("destfolder->id = " || destfolder->id || "\n");
+
+  IF(expectmeta)
+    TestEq(setversion, RecurseDeleteSettingIds(testfile2->GetInstanceData("http://www.webhare.net/xmlns/beta/test"), ["LINK", "HASH"]));
+  TestEq(expectmeta ? GetNumSettings(testfile->id) : 0, GetNumSettings(testfile2->id));
+  TestEq(expectmeta ? GetNumInstances(testfile->id) : 0, GetNumInstances(testfile2->id));
+
+  IF (NOT skip_root)
+  {
+    IF(expectmeta)
+      TestEq(setversion, RecurseDeleteSettingIds(destfolder->GetInstanceData("http://www.webhare.net/xmlns/beta/test"), ["LINK", "HASH"]));
+    TestEq(expectmeta ? GetNumSettings(typetestfolder->id) : 0, GetNumSettings(destfolder->id));
+    TestEq(expectmeta ? GetNumInstances(typetestfolder->id) : 0, GetNumInstances(destfolder->id));
+  }
+
+  OBJECT subfolder := destfolder->OpenByName("subfolder");
+  TestEq(TRUE, ObjectExists(subfolder));
+  OBJECT cooldoc := subfolder->OpenByName("test.doc");
+  TestEq(TRUE, ObjectExists(cooldoc));
+
+  OBJECT cooldoc_org := typetestfolder->OpenByName("subfolder")->OpenByName("test.doc");
+  DateTimesMatch(cooldoc_org->modificationdate, cooldoc->modificationdate, timematchmode, mintime);
+
+  TestEq(4, cooldoc->type);
+  TestEq(expectmeta ? foldermeta.title : "", subfolder->title);
+  TestEq(expectmeta ? foldermeta.description : "", subfolder->description);
+  TestEq(expectmeta ? foldermeta.keywords : "", subfolder->keywords);
+  TestEq(expectmeta ? filemeta.title : "Doc met links", cooldoc->title);
+  TestEq(expectmeta ? filemeta.description : "", cooldoc->description);
+  TestEq(expectmeta ? filemeta.keywords : "", cooldoc->keywords);
+
+  TestEq(expectmeta ? cooldoc->id : 0, subfolder->indexdoc);
+
+  OBJECT subsubfolder := subfolder->OpenByName("subsubfolder");
+  TestEq(TRUE, ObjectExists(subsubfolder));
+
+  OBJECT cooltxt := subfolder->OpenByName("test.txt");
+  TestEq("Dit is een test", BlobToSTring(cooltxt->data,1000));
+
+  OBJECT cooltxt_org := typetestfolder->OpenByName("subfolder")->OpenByName("test.txt");
+  DateTimesMatch(cooltxt_org->modificationdate, cooltxt->modificationdate, timematchmode, mintime);
+
+  //Verify root folder integriry
+  IF (NOT skip_root AND expectmeta)
+    TestEq("whfs_archiving test", destfolder->title);
+
+  //Verify generated internal links
+  OBJECT contentlinkfile := subfolder->OpenByName("test2.doc");
+  OBJECT intlinkfile := subfolder->OpenByName("test2.txt.lnk");
+  OBJECT extlinkfile := subfolder->OpenByName("test3.lnk");
+  OBJECT imgfile := subfolder->OpenByName("harrispilton.jpg");
+
+  IF(expectmeta)
+  {
+    TestEq(cooldoc->id, contentlinkfile->filelink);
+    TestEq(cooltxt->id, intlinkfile->filelink);
+    TestEq("http://www.webhare.net/", extlinkfile->externallink);
+  }
+  ELSE
+  {
+    TestEq(FALSE, ObjectExists(contentlinkfile));
+    TestEq(FALSE, ObjectExists(intlinkfile));
+    TestEq(FALSE, ObjectExists(extlinkfile));
+  }
+  TestEq(TRUE, cooldoc->publish);
+  TestEq(expectmeta ? FALSE : TRUE, cooltxt->publish); //without expectedmeta, reverts back to default
+
+  OBJECT contentlinkfile_org := typetestfolder->OpenByName("subfolder")->OpenByName("test2.doc");
+  OBJECT intlinkfile_org := typetestfolder->OpenByName("subfolder")->OpenByName("test2.txt.lnk");
+  OBJECT extlinkfile_org := typetestfolder->OpenByName("subfolder")->OpenByName("test3.lnk");
+  OBJECT imgfile_org := typetestfolder->OpenByName("subfolder")->OpenByName("harrispilton.jpg");
+
+  IF(expectmeta)
+  {
+    DateTimesMatch(contentlinkfile_org->modificationdate, contentlinkfile->modificationdate, timematchmode, mintime);
+    DateTimesMatch(intlinkfile_org->modificationdate, intlinkfile->modificationdate, timematchmode, mintime);
+    DateTimesMatch(extlinkfile_org->modificationdate, extlinkfile->modificationdate, timematchmode, mintime);
+    TestEq(1, contentlinkfile->ordering);
+    TestEq(3, intlinkfile->ordering);
+    TestEq(-5, extlinkfile->ordering);
+  }
+  DateTimesMatch(imgfile_org->modificationdate, imgfile->modificationdate, timematchmode, mintime);
+
+  TestEq(expectmeta ? "#0000EE" : "#EFF0EB", imgfile->GetWrapped().dominantcolor);
+  TestEq(expectmeta ? 12 : 0, subfolder->ordering);
+  TestEq(expectmeta ? foldermeta.ispinned : FALSE, subfolder->ispinned);
+}
+
+MACRO CompareFSItems(OBJECT expected, OBJECT actual, BOOLEAN is_root)
+{
+  IF (NOT is_root)
+  {
+    TestEq(expected->name, actual->name);
+  }
+  ELSE
+  {
+    IF (NOT ObjectExists(expected) OR NOT ObjectExists(actual))
+      ABORT("Expected valid expected and actual objects");
+  }
+
+  TestEq(expected->isfolder,    actual->isfolder);
+  TestEq(expected->title,       actual->title);
+  TestEq(expected->description, actual->description);
+  TestEq(expected->type       , actual->type);
+
+  /* Compare the content types */
+  RECORD ARRAY expected_instances := SELECT fs_types.namespace
+                                       FROM system.fs_instances, system.fs_types
+                                      WHERE fs_instances.fs_object = expected->id
+                                            AND fs_instances.fs_type = fs_types.id
+                                            AND fs_types.cloneoncopy
+                                   ORDER BY fs_types.namespace;
+
+  RECORD ARRAY actual_instances := SELECT fs_types.namespace
+                                     FROM system.fs_instances, system.fs_types
+                                    WHERE fs_instances.fs_object = actual->id
+                                          AND fs_instances.fs_type = fs_types.id
+                                          AND fs_types.cloneoncopy
+                                 ORDER BY fs_types.namespace;
+
+  TestEq(expected_instances, actual_instances);
+
+  IF (NOT expected->isfolder)
+  {
+    TestEq(expected->publish,     actual->publish);
+  }
+  ELSE
+  {
+    RECORD ARRAY left_items :=
+        SELECT name
+             //, modificationdate
+          FROM system.fs_objects
+         WHERE parent = expected->id
+      ORDER BY name;
+
+    RECORD ARRAY right_items :=
+        SELECT name
+             //, modificationdate
+          FROM system.fs_objects
+         WHERE parent = actual->id
+      ORDER BY name;
+
+    TestEq(left_items, right_items);
+
+    FOREVERY (RECORD item FROM left_items)
+      CompareFSItems(expected->OpenByName(item.name), actual->OpenByName(item.name), FALSE);
+  }
+}
+
+MACRO ContentTypesCleanup()
+{
+  testfw->StartTrans("~webhare",FALSE);
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", emptyversion);
+  TestEq(emptyversion, testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test"));
+  TestEq(0, GetNumSettings(testfile->id));
+  TestEq(0, GetNumInstances(testfile->id));
+
+  testfw->Commit();
+}
+
+MACRO OverwriteIndexDocWithHTML()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT overwritefolder := firstfolder->CreateFolder( [ name := "overwritefolder" ]);
+  OBJECT indexhtml := overwritefolder->CreateFile([name := "index.html", type := 5]);
+  overwritefolder->UpdateMetadata([indexdoc := indexhtml->id]);
+
+  BLOB arc := overwritefolder->ExportFolder().files[0].data;
+
+  //Now create an indexdoc there
+  indexhtml->RecycleSelf();
+  OBJECT indexdoc := overwritefolder->CreateFile([name := "index.doc", type := 4]);
+  overwritefolder->UpdateMetadata([indexdoc := indexdoc->id]);
+
+  //Extract the original archive
+  //This caused "Error: Exception EXCEPTION: New index document #41543 for folder #41539 does not exist." in 307
+  RECORD imp := ImportWHFSArchive(firstfolder, arc, [ overwrite := TRUE ]);
+  RECORD ARRAY rootfiles := SELECT * FROM system.fs_objects WHERE parent=overwritefolder->id ORDER BY name;
+  TestEq(2,Length(rootfiles));
+  TestEq("index.doc", rootfiles[0].name);
+  TestEq("index.html", rootfiles[1].name);
+
+  overwritefolder := OpenWHFSObject(overwritefolder->id); //RefreshMetadata();
+  TestEq(rootfiles[1].id, overwritefolder->indexdoc);
+
+  testfw->RollbackWork();
+}
+
+RunTestframework( [ PTR ContentTypes
+                  , PTR SelfTest
+                  , PTR RenamingCopytest
+                  , PTR NonRenamingCopytest
+                  , PTR ActionCopyTest
+                  , PTR Archiving
+                  , PTR Archiving_Nometa
+                  , PTR ArchivingAddMappedCell
+                  , PTR ArchivingRoot
+                  , PTR ArchivingContainedSite
+                  , PTR ArchivingFIleOverFolder
+                  , PTR ArchivingOverForeignFolder
+                  , PTR MovingOfTree
+                  , PTR ArchivingWithRemainingFile
+                  , PTR ArchivingWithoutmetadataVsStraightInsert
+                  , PTR UnpackingSiteVsNonsite
+                  , PTR ContentTypesCleanup
+                  , PTR OverwriteIndexDocWithHTML
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ]
+                     ]);

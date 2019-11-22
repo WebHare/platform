@@ -1,0 +1,24 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+PUBLIC OBJECTTYPE TolliumSpacer EXTEND TolliumComponentBase
+<
+  MACRO NEW()
+  {
+    this->componenttype := "spacer";
+
+    //FIXME: Ensure screenparser doesn't even try to give us a tid (it will confuse language validation)
+    this->title := "";
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    this->owner->tolliumcontroller->SendComponent(this, DEFAULT RECORD);
+    TolliumComponentBase::TolliumWebRender();
+  }
+>;

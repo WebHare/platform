@@ -1,0 +1,254 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="mailrouting.whlib" gid="tolliumapps.config.mailrouting">
+
+  <screen name="mailconfig">
+    <body>
+      <heading tid=".defaultsendsettings" />
+      <textedit name="hostname" required="true" width="1pr"/>
+      <line>
+        <textedit name="port" valuetype="integer" width="6x" required="true" />
+        <text valuetid=".defaultport" />
+      </line>
+      <textedit name="authusername" tid="~username"/>
+      <textedit name="authpassword" tid="~password" password="true" />
+
+      <heading tid=".fallbackvalues" />
+      <textedit name="mailfrom" required="true" validationchecks="email-maysendfrom" />
+      <line layout="left">
+        <checkbox name="usefornonwhitelisted" title="" labeltid=".usefornonwhitelisted" />
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="editsmtpserver" width="50x">
+    <body>
+      <!-- heading tid=".heading_smtpserver" -->
+      <textedit name="hostname" required="true" width="1pr"/>
+      <line>
+        <textedit name="port" valuetype="integer" width="6x" required="true" value="25" />
+        <text valuetid=".defaultport" />
+      </line>
+      <textedit name="authusername" tid="~username"/>
+      <textedit name="authpassword" tid="~password" password="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+
+  <screen name="mailroutes" width="130x" height="40x" allowresize="true">
+    <actions>
+      <action name="mailconfig" onexecute="domailconfig"/>
+    </actions>
+    <body spacers="none">
+      <tabs height="1pr">
+        <tab name="routestab">
+          <heading tid=".smtpconfig" />
+          <line>
+            <textedit name="smtpserver" enabled="false" width="1pr"/>
+            <button action="mailconfig"/>
+          </line>
+          <textedit name="snsendpoint" enabled="false" width="1pr" />
+          <hr/>
+          <heading tid=".mailroutes" />
+          <listedit name="routes"
+                    ongetrows="ongetroutes"
+                    onrowedit="oneditmailroute"
+                    onrowdelete="ondeletemailroute"
+                    emptytid=".routesempty"
+                    onchangeorder="onchangeorder"
+                    eventmasks="system:internal/mailroutechange"
+                    height="1pr">
+            <column name="description"  type="text" width="2pr" tid="~description" />
+
+            <column name="sendermaskcomma" tid=".sendermask"  type="text" hintname="sendermaskhint" width="2pr" /><!-- sender (from) masks -->
+            <column name="maskcomma"  tid=".mask"       type="text" hintname="maskhint" width="2pr" /><!-- receivers (to) masks -->
+
+            <column name="outgoingmailaddress" type="text" width="2pr" /><!-- redirect all mails to: -->
+            <column name="altserver"    type="text" width="2pr"/>
+          </listedit>
+        </tab>
+        <tab name="senderstab">
+          <listedit name="senders"
+                    ongetrows="ongetsenders"
+                    onrowedit="oneditsender"
+                    onrowdelete="ondeletesender"
+                    emptytid=".sendersempty"
+                    eventmasks="system:internal/mailroutechange"
+                    height="1pr">
+            <column name="mask" tid=".mask" type="text" width="1pr"/>
+            <column name="description"  type="text" width="2pr" tid="~description" />
+          </listedit>
+        </tab>
+        <tab name="receiverstab">
+          <listedit name="receivers"
+                    ongetrows="ongetreceivers"
+                    onrowedit="oneditreceiver"
+                    onrowdelete="ondeletereceiver"
+                    emptytid=".receiversempty"
+                    eventmasks="system:internal/mailroutechange"
+                    height="1pr">
+            <column name="mask" tid=".mask" type="text" width="1pr"/>
+            <column name="description"  type="text" width="2pr" tid="~description" />
+          </listedit>
+        </tab>
+        <tab name="emailcorrectionstab">
+          <listedit name="emailcorrections"
+                    ongetrows="ongetcorrections"
+                    onrowedit="oneditcorrection"
+                    onrowdelete="ondeletecorrection"
+                    emptytid=".correctionsempty"
+                    eventmasks="system:internal/mailroutechange"
+                    onchangeorder="onchangeorder"
+                    height="1pr">
+            <column name="description"  type="text" width="2pr" tid="~description" />
+            <column name="maskcomma"  tid=".mask"       type="text" hintname="maskhint" width="2pr" /><!-- receivers (to) masks -->
+            <column name="target" type="text" width="2pr" /><!-- redirect all mails to: -->
+          </listedit>
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+
+  <screen name="editmailroute" width="70x" minwidth="60x" allowresize="true">
+    <actions>
+      <action name="editsmtpserver" onexecute="doeditsmtpserver" title="" />
+    </actions>
+
+    <compositions>
+      <radiogroup name="usealternativesmtpserver" onchange="gotsmtpserverchange" />
+    </compositions>
+
+    <body>
+      <textedit name="description" width="1pr" required="true" tid="~description" />
+      <textedit name="tag" width="1pr" tid="~tag" />
+      <textedit name="originmask" width="1pr" />
+
+      <heading tid=".masks_from" />
+      <arrayedit name="masks_from"
+                 columnheaders="false"
+                 onrowedit="doeditmailrouterule_from"
+                 minrows="1"
+                 minwidth="50x"
+                 minheight="3x"
+                 height="1pr"
+                 errorlabeltid=".masks_from"
+                 >
+                 <!-- ADDME: oncelledit="oncelledit" -->
+        <column name="mask" type="text" width="1pr" />
+      </arrayedit>
+
+      <heading tid=".masks_to" />
+      <arrayedit name="masks_to"
+                 columnheaders="false"
+                 onrowedit="doeditmailrouterule_to"
+                 minrows="1"
+                 minwidth="50x"
+                 minheight="3x"
+                 height="1pr"
+                 errorlabeltid=".masks_to"
+                 >
+                 <!-- ADDME: oncelledit="oncelledit" -->
+        <column name="mask" type="text" width="1pr" />
+      </arrayedit>
+
+      <heading tid=".outgoing" />
+      <lines layout="left">
+        <radiobutton group="usealternativesmtpserver" rowkey="default" title="" labeltid=".usealternativesmtpserver-default" />
+        <line>
+          <radiobutton group="usealternativesmtpserver" rowkey="alternative" enablecomponents="editserverurl" title="" labeltid=".usealternativesmtpserver-alternative" />
+          <textedit title="" errorlabeltid=".serverurl" name="serverurl" enabled="false" width="1pr" />
+          <button name="editserverurl" action="editsmtpserver" tid="tollium:common.actions.edit" />
+        </line>
+        <radiobutton group="usealternativesmtpserver" rowkey="dontsend" title="" labeltid=".usealternativesmtpserver-dontsend" />
+      </lines>
+      <heading tid=".redirect" />
+      <lines layout="left">
+        <select type="radio" rowkeytype="boolean" name="outgoingredirect" title="" implicitenablecomponents="false">
+          <option rowkey="false"/>
+          <option rowkey="true" enablecomponents="outgoingmailaddress outgoingaddressrewrite">
+            <textedit title="" errorlabeltid=".outgoingmailaddress" name="outgoingmailaddress" required="true" validationchecks="email-maysendto" width="1pr"/>
+          </option>
+        </select>
+        <checkbox name="outgoingaddressrewrite" title="" labeltid=".outgoingaddressrewrite" />
+      </lines>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+
+
+  <screen name="editmailrouterule" width="60x">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit name="mask" width="1pr" required="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="editmask">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit composition="row" cellname="mask" name="mask" width="1pr" required="true" />
+      <textedit composition="row" cellname="description" name="description" width="1pr" tid="~description" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="editcorrection">
+    <body>
+      <heading tid=".masks" />
+      <arrayedit name="masks"
+                 columnheaders="false"
+                 roweditscreen="#editmaskrow"
+                 minwidth="50x"
+                 minheight="3x"
+                 height="1pr"
+                 errorlabeltid=".masks"
+                 >
+                 <!-- ADDME: oncelledit="oncelledit" -->
+        <column name="mask" type="text" width="1pr" />
+      </arrayedit>
+      <select name="correctiontype" type="radio">
+        <option rowkey="rewrite" enablecomponents="rewriteto suggestionfuzz" />
+        <option rowkey="block" />
+      </select>
+      <textedit name="rewriteto" required="true"  />
+      <textedit name="suggestionfuzz" valuetype="integer" />
+      <textedit name="description" width="1pr" tid="~description" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="editmaskrow" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit composition="row" cellname="mask" name="mask" width="1pr" required="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+
+</screens>

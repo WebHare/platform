@@ -1,0 +1,498 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+STRING iconnamespace := "http://www.webhare.net/xmlns/tollium/icons";
+STRING svgnamespace := "http://www.w3.org/2000/svg";
+
+// Explicitly set width and height attributes on the <svg> root node if not present, otherwise Firefox won't draw the SVG
+// Also set viewBox to properly scale the image in IE11 (canvg)
+BLOB FUNCTION FixupSVGSize(BLOB svgdata, INTEGER width, INTEGER height)
+{
+  // Cannot use RetrieveCachedXMLResource as it returns a read-only XML document!
+  OBJECT doc := MakeXMLDocument(svgdata);
+  IF (NOT ObjectExists(doc) OR doc->documentelement->namespaceuri != svgnamespace)
+    RETURN DEFAULT BLOB;
+
+  IF (NOT doc->documentelement->HasAttribute("width") OR doc->documentelement->GetAttribute("width") LIKE "*%")
+    doc->documentelement->SetAttribute("width", width || "");
+  ELSE
+    width := ToInteger(doc->documentelement->GetAttribute("width"), width);
+  IF (NOT doc->documentelement->HasAttribute("height") OR doc->documentelement->GetAttribute("height") LIKE "*%")
+    doc->documentelement->SetAttribute("height", height || "");
+  ELSE
+    height := ToInteger(doc->documentelement->GetAttribute("height"), height);
+  IF (NOT doc->documentelement->HasAttribute("viewBox"))
+    doc->documentelement->SetAttribute("viewBox", "0 0 " || width || " " || height);
+
+  RETURN doc->GetDocumentBlob(FALSE);
+}
+
+STRING ARRAY FUNCTION GetIconEventMasks(STRING icon)
+{
+  INTEGER colon := SearchSubstring(icon,':');
+  IF (colon = -1)
+    RETURN STRING[];
+
+  RETURN GetResourceEventMasks([`mod::${Left(icon, colon)}/web/img/${Substring(icon, colon + 1)}`]);
+}
+
+// Get a list image infos for icons with a given name with different sizes
+RECORD ARRAY FUNCTION GetIconTypes(STRING icon, STRING ARRAY colors)
+{
+  INTEGER colon := SearchSubstring(icon,':');
+  IF (colon = -1)
+    RETURN DEFAULT RECORD ARRAY;
+
+  STRING module := Left(icon,colon);
+  icon := Substring(icon,colon+1,Length(icon));
+
+  //FIXME: should cache which images exist
+  STRING imgmask := "/img/" || icon || ".*";
+  STRING imgpath := GetDirectoryFromPath(imgmask);
+  STRING diskpath := GetDirectoryFromPath(GetModuleInstallationRoot(module) || "web" || imgmask);
+  imgmask := GetNameFromPath(imgmask);
+
+  RECORD ARRAY imgtypes;
+  FOREVERY (RECORD imgfile FROM ReadDiskDirectory(diskpath, imgmask))
+  {
+    // We're only interested in files
+    IF (imgfile.type != 0)
+      CONTINUE;
+
+    STRING ARRAY nametoks := Tokenize(imgfile.name,'.');
+    // Accept "name.size.png", "name.size.color.png", "name.svg" and "name.ixo"
+    IF (Length(nametoks)<3 AND NOT ((imgfile.name LIKE "*.ixo" OR imgfile.name LIKE "*.svg") AND Length(nametoks)=2))
+      CONTINUE;
+
+    STRING color;
+    IF(Length(nametoks)>2 AND nametoks[END-2] IN ["b","c","w"]) //looks like we have color info
+    {
+      color := nametoks[END-2];
+      DELETE FROM nametoks AT END-2;
+    }
+
+    STRING sizeinfo := nametoks[END-2];
+    INTEGER width, height;
+
+    IF(Length(nametoks)>2 AND sizeinfo LIKE "*x*")
+    {
+      INTEGER xpos := SearchSubstring(sizeinfo,'x');
+      width := ToInteger(Left(sizeinfo, xpos),0);
+      height := ToInteger(Substring(sizeinfo, xpos+1),0);
+
+      IF(width<=0 OR height<=0)
+      {
+        width := 0;
+        height := 0;
+      }
+    }
+
+    STRING mimetype;
+    SWITCH (nametoks[END-1])
+    {
+      CASE "png"
+      {
+        mimetype := "image/png";
+      }
+      CASE "gif"
+      {
+        mimetype := "image/gif";
+      }
+      CASE "jpg"
+      {
+        mimetype := "image/jpeg";
+      }
+      CASE "svg"
+      {
+        mimetype := "image/svg+xml";
+      }
+      CASE "ixo"
+      {
+        mimetype := "text/xml";
+        width := 0;
+        height := 0;
+        color := "";
+      }
+      DEFAULT
+      {
+        // This is a file we're not interested in
+        CONTINUE;
+      }
+    }
+
+    STRING respath := "mod::" || module || "/web" || imgpath || imgfile.name;
+
+    INSERT [ type := mimetype
+           , filename := imgfile.name
+           , width := width
+           , height := height
+           , color := color
+           , path := imgfile.path
+           , respath := respath
+           , eventmasks := GetResourceEventMasks([respath])
+           ] INTO imgtypes AT END;
+  }
+
+  IF(Length(colors) > 0) //requesting a color? then prefer that color (return XML files anyway)
+  {
+    RECORD ARRAY colormatches := SELECT * FROM imgtypes WHERE color IN colors;
+    IF(Length(colormatches)>0)
+      RETURN colormatches CONCAT SELECT * FROM imgtypes WHERE type = "text/xml";
+  }
+
+  RETURN SELECT * FROM imgtypes WHERE imgtypes.color=""; //don't return images with mismatched color
+}
+
+// Get image info for one icon with a given name and specified width and height
+RECORD FUNCTION GetIconType(STRING findicon, INTEGER width, INTEGER height, STRING color)
+{
+  STRING icon := findicon;
+
+  INTEGER colon := SearchSubstring(icon,':');
+  IF (colon = -1)
+    RETURN DEFAULT RECORD;
+
+  STRING module := Left(icon,colon);
+  icon := Substring(icon,colon+1,Length(icon));
+
+  BLOB tryblob;
+  STRING srctype;
+
+  STRING imgpath := "/img/" || icon || "." || width || "x" || height;
+  IF(color != "")
+    imgpath := imgpath || "." || color;
+  STRING diskpath := GetModuleInstallationRoot(module) || "web";
+
+  FOREVERY (RECORD type FROM [ [ extension := ".png", mimetype := "image/png" ]
+                             , [ extension := ".gif", mimetype := "image/gif" ]
+                             , [ extension := ".jpg", mimetype := "image/jpeg" ]
+                             ])
+  {
+    TRY
+    {
+      tryblob := GetDiskResource(diskpath || imgpath || type.extension);
+      srctype := type.mimetype;
+      BREAK;
+    }
+    CATCH (OBJECT e) {}
+  }
+  IF (Length(tryblob) = 0)
+    RETURN DEFAULT RECORD;
+
+  RETURN [ type := srctype, data := tryblob, color := color ];
+}
+
+
+PUBLIC RECORD FUNCTION GetModuleIcon(STRING iconname, INTEGER width, INTEGER height, STRING color, BOOLEAN allowsvg DEFAULTSTO TRUE)
+{
+  // The special "tollium:countryflags/" namespace is mapped to the Publisher common assets
+  IF (iconname LIKE "wrd:countryflags/*" OR iconname LIKE "tollium:countryflags/*")
+  {
+    STRING countrycode := Substring(iconname, SearchSubstring(iconname, "/") + 1);
+    STRING diskpath := GetModuleInstallationRoot("publisher") || "web/common/countryflags/1x1/" || countrycode || ".svg";
+    TRY
+    {
+      RETURN [ type := "image/svg+xml"
+             , data := GetDiskResource(diskpath)
+             , color := ""
+             ];
+    }
+    CATCH (OBJECT e)
+    {
+      // Invalid countrycode
+      THROW NEW Exception("Illegal countryflag " || countrycode || " requested");
+    }
+  }
+
+  // The special "tollium:colors/" namespace is used for generated color images
+  //ADDME: do we still need this? can't tollium provide it using DIVs?
+  IF (iconname LIKE "tollium:colors/*")
+  {
+    STRING colorcode := Substring(iconname, 15);
+    TRY
+    {
+      // Get the color value (throws on invalid color)
+      GfxCreateColorFromCSS(colorcode);
+    }
+    CATCH (OBJECT e)
+    {
+      // Invalid color
+      THROW NEW Exception("Illegal color " || colorcode || " requested");
+    }
+    // Create a single color empty SVG
+    STRING svg := '<?xml version="1.0" encoding="utf-8"?>\n'
+               || '<svg version="1.1" '
+               ||      'xmlns="http://www.w3.org/2000/svg" '
+               ||      'style="stroke-width: 0px; background-color: ' || EncodeValue(colorcode) || ';" '
+               ||      'width="' || width || '" '
+               ||      'height="' || height || '" '
+               ||      'viewBox="0 0 ' || width || ' ' || height || '" '
+               ||      '/>';
+    RETURN [ type := "image/svg+xml"
+           , data := StringToBlob(svg)
+           , color := ""
+           ];
+  }
+
+  RECORD rawicon := GetIconType(iconname, width, height, color);
+  IF(RecordExists(rawicon))
+    RETURN rawicon;
+
+  //Lookup the placeholder
+  RECORD ARRAY bestplaceholder := GetAvailableModuleIcons("tollium:placeholders/broken", width, height, color);
+  IF(RecordExists(bestplaceholder))
+    RETURN [ type := bestplaceholder[0].type, data := GetDiskResource(bestplaceholder[0].path), color := bestplaceholder[0].color ];
+
+  THROW NEW Exception("Unable to load image " || iconname || " and unable to load the placeholder/broken fallback image");
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetAvailableModuleIcons(STRING icon, INTEGER requested_width, INTEGER requested_height, STRING color)
+{
+  IF (icon LIKE "wrd:countryflags/*" OR icon LIKE "tollium:countryflags/*")
+  {
+    RECORD countryicon := GetModuleIcon(icon, requested_width, requested_height, color);
+    RETURN [ [ type := countryicon.type
+             , filename := GetSafeFilename(Substring(icon, 15)) || "." || requested_width || "x" || requested_height || ".svg"
+             , width := requested_width
+             , height := requested_height
+             , color := countryicon.color
+             , path := ""
+             , data := countryicon.data
+             , eventmasks := GetResourceEventMasks([`mod::publisher/web/common/countryflags/1x1/`])
+             ]
+           ];
+  }
+  IF (icon LIKE "tollium:colors/*")
+  {
+    RECORD coloricon := GetModuleIcon(icon, requested_width, requested_height, color);
+    RETURN [ [ type := coloricon.type
+             , filename := GetSafeFilename(Substring(icon, 15)) || "." || requested_width || "x" || requested_height || ".svg"
+             , width := requested_width
+             , height := requested_height
+             , color := coloricon.color
+             , path := ""
+             , data := coloricon.data
+             , eventmasks := STRING[]
+             ]
+           ];
+  }
+
+  STRING ARRAY colors := color != "" ? Tokenize(color, ",") : DEFAULT STRING ARRAY;
+  RECORD ARRAY physlist := GetIconTypes(icon, colors);
+  FLOAT requested_aspect := requested_width = 0 OR requested_height = 0 ? 1f : FLOAT(requested_width) / FLOAT(requested_height);
+
+  /* Score the images. We prefer
+     1) an image with the exact same width/height
+     2) any larger image whose aspect ratio is closest to our image
+     3) any smaller image whose aspect ratio is closest to our image
+     (width/height of the image isn't a factor)
+     ADDME: Improve algorithm? */
+
+  RETURN SELECT * FROM physlist
+         ORDER BY type="text/xml" DESC //Prefer XML
+                , width = requested_width AND height = requested_height DESC // Direct size match
+                , type="image/svg+xml" DESC //Then we prefer SVGs
+                , width >= requested_width AND height >= requested_height AND height > 0 ? Abs(FLOAT(width)/FLOAT(height) - requested_aspect) : FLOAT(999999999) ASC // Larger image? Closest aspect ratio match
+                , height > 0 ? Abs(FLOAT(width)/FLOAT(height) - requested_aspect) : 0f// Other images closest aspect ratio match
+                , width * height DESC // Largest image
+                , (SearchElement(colors, COLUMN color) + 1) ?? Length(colors) + 1; // Color preference
+}
+
+INTEGER FUNCTION ReadPixelSize(OBJECT node, STRING attr)
+{
+  STRING value := node->GetAttribute(attr);
+  IF (value NOT LIKE "*px")
+    RETURN 0; // Also if value is "0"
+
+  RETURN ToInteger(Left(value, Length(value) - 2), 0);
+}
+
+RECORD ARRAY FUNCTION ResolveXMLIcon(STRING path, INTEGER width, INTEGER height, STRING color, RECORD options, RECORD status)
+{
+  RECORD data;
+  TRY
+  {
+    data := RetrieveCachedXMLResource(path);
+  }
+  CATCH (OBJECT e) {}
+  IF (NOT RecordExists(data) OR NOT ObjectExists(data.doc) OR data.doc->documentelement->namespaceuri != iconnamespace)
+    RETURN DEFAULT RECORD ARRAY;
+  STRING modulename;
+  IF (path LIKE "module*::*")
+    modulename := Tokenize(Tokenize(path, "::")[1], "/")[0];
+
+  STRING ARRAY colors := [ "" ];
+  IF (color != "")
+    INSERT Left(color, 1) INTO colors AT END;
+  RECORD ARRAY images;
+  FOREVERY (OBJECT layer FROM data.doc->documentelement->childnodes->GetCurrentElements())
+  {
+    IF (layer->localname NOT IN [ "layer", "backgroundlayer" ])
+      CONTINUE;
+    STRING name := layer->GetAttribute("src");
+    IF (name != "")
+    {
+      IF (name NOT LIKE "*:*")
+        name := modulename || ":" || name;
+      IF (name IN status.seen)
+        RETURN DEFAULT RECORD ARRAY;
+
+      INTEGER size := ReadPixelSize(layer, "size");
+      IF (size != 0 AND size != width AND size != height)
+        CONTINUE;
+      IF (layer->GetAttribute("color") NOT IN colors)
+        CONTINUE;
+
+      RECORD layerstatus := status;
+      // Only honour translation if size specified
+      IF (size != 0)
+      {
+        layerstatus := MakeUpdatedRecord(layerstatus, [ translatex := status.translatex + ReadPixelSize(layer, "translatex")
+                                                      , translatey := status.translatey + ReadPixelSize(layer, "translatey")
+                                                      ]);
+      }
+      RECORD ARRAY layerimgs := GetCacheableImage(name, width, height, color, options, layerstatus).value;
+      IF (Length(layerimgs) = 0)
+        RETURN DEFAULT RECORD ARRAY;
+
+      IF (layer->GetAttribute("invertable") != "")
+        UPDATE layerimgs
+           SET invertable := layer->GetAttribute("invertable") IN [ "1", "true" ];
+      IF (layer->localname = "backgroundlayer")
+        UPDATE layerimgs
+           SET knockout := FALSE;
+
+      images := images CONCAT layerimgs;
+    }
+  }
+  RETURN images;
+}
+
+/// Aggregate event masks from layer images, with an additional set of eventmasks
+STRING ARRAY FUNCTION GetLayerEventMasks(RECORD ARRAY layers, STRING ARRAY eventmasks)
+{
+  FOREVERY (RECORD layer FROM layers)
+    eventmasks := eventmasks CONCAT layer.eventmasks;
+  RETURN GetSortedSet(eventmasks);
+}
+
+RECORD FUNCTION GetCacheableImage(STRING name, INTEGER width, INTEGER height, STRING color, RECORD options, RECORD status DEFAULTSTO DEFAULT RECORD)
+{
+  // Always add an eventmask for the icon
+  STRING ARRAY eventmasks := GetIconEventMasks(name);
+
+  IF (NOT RecordExists(status))
+    status := [ seen := DEFAULT STRING ARRAY
+              , translatex := 0
+              , translatey := 0
+              ];
+
+  RECORD ARRAY available := GetAvailableModuleIcons(name, width, height, color);
+
+  IF(Length(available) > 0 AND available[0].type="text/xml")
+  {
+    RECORD ARRAY layers := ResolveXMLIcon(available[0].respath, width, height, color, options, status);
+
+    INSERT name INTO status.seen AT END;
+    RETURN [ value :=       layers
+           , eventmasks :=  GetLayerEventMasks(layers, eventmasks)
+           ];
+  }
+  DELETE FROM available WHERE type="text/xml";
+
+  IF(Length(available) > 0 AND available[0].type="image/svg+xml")
+  {
+    BLOB svgdata := available[0].path != "" ? FixupSVGSize(GetDiskResource(available[0].path), width, height) : available[0].data;
+    IF (Length(svgdata) = 0)
+    {
+      IF (options.nobroken)
+        RETURN CELL [ ttl := 60 * 1000
+                    , value := DEFAULT RECORD ARRAY
+                    , eventmasks
+                    ];
+    }
+    ELSE
+    {
+      eventmasks := GetSortedSet(available[0].eventmasks CONCAT eventmasks);
+      RETURN CELL[ ttl := 24 * 60 * 60 * 1000
+                 , value := [ [ data := svgdata
+                              , type := available[0].type
+                              , color := available[0].color
+                              , invertable := TRUE
+                              , knockout := TRUE
+                              , translatex := status.translatex
+                              , translatey := status.translatey
+                              , eventmasks := eventmasks
+                              ]
+                            ]
+                 , eventmasks
+                 ];
+    }
+  }
+  DELETE FROM available WHERE type="image/svg+xml";
+
+  IF(Length(available)=0)
+  {
+    IF (options.nobroken)
+      RETURN [ ttl := 60 * 1000
+             , value := DEFAULT RECORD ARRAY
+             ];
+
+    name := "tollium:placeholders/broken";
+    available := GetAvailableModuleIcons(name, width, height, color);
+  }
+
+  RECORD icon := GetModuleIcon(name, available[0].width, available[0].height, available[0].color, TRUE);
+  eventmasks := GetSortedSet(eventmasks CONCAT available[0].eventmasks);
+
+  RETURN CELL[ ttl := 24 * 60 * 60 * 1000
+             , value := [ [ data := icon.data
+                          , type := icon.type
+                          , color := icon.color
+                          , invertable := FALSE
+                          , knockout := TRUE
+                          , translatex := status.translatex
+                          , translatey := status.translatey
+                          , eventmasks := eventmasks
+                          ]
+                        ]
+             , eventmasks
+             ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetImage(STRING name, INTEGER width, INTEGER height, STRING overlayname, STRING color, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := MakeUpdatedRecord([ nocache := FALSE  // Skip cache
+                               , nobroken := FALSE // Don't return 'broken' image
+                               ], options);
+  IF (options.nocache)
+    RETURN GetCacheableImage(name, width, height, color, options).value;
+  RETURN GetAdhocCached([ name := name
+                        , width :=width
+                        , height :=height
+                        , color := color
+                        ], PTR GetCacheableImage(name, width, height, color, options));
+}
+
+PUBLIC STRING FUNCTION RewriteImgStyles(BLOB inimage, STRING imagename)
+{
+  OBJECT svg := MakeXMLDocument(inimage);
+  IF(NOT ObjectExists(svg->documentelement))
+    THROW NEW Exception("Unable to process image " || imagename);
+
+  FOREVERY(OBJECT styletag FROM svg->GetElementsByTagName('style')->GetCurrentElements())
+  {
+    OBJECT cssom := MakeCSSStyleSheet(StringToBlob(styletag->textcontent));
+    cssom->RewriteDomStyles(svg);
+  }
+  RETURN svg->documentelement->outerxml;
+}
+

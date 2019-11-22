@@ -1,0 +1,72 @@
+﻿<?wh
+LOADLIB "wh::money.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+
+PUBLIC OBJECTTYPE Status EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->DoRefresh();
+  }
+
+  MACRO DoRefresh()
+  {
+    RECORD stats := GetAdhocCacheStats();
+    this->oldestitem->value := this->tolliumuser->FormatTime(stats.oldestitem, "seconds", TRUE);
+    this->cachesize->value := ToString(stats.cachesize);
+    this->requests->value := ToString(stats.requests);
+    this->hits->value := stats.hits || (stats.requests > 0 ? " (" || FormatMoney((stats.hits * 100m) / stats.requests, 2, ".", "", TRUE) || "%)" : "");
+    this->misses->value := (stats.requests-stats.hits) || (stats.requests > 0 ? " (" || FormatMoney(((stats.requests-stats.hits) * 100m) / stats.requests, 2, ".", "", TRUE) || "%)" : "");
+  }
+
+  MACRO DoFlushCache()
+  {
+    InvalidateAdhocCache();
+    this->DoRefresh();
+  }
+
+  MACRO DoSettings()
+  {
+    this->LoadScreen(".settings")->RunModal();
+    this->DoRefresh();
+  }
+
+>;
+
+PUBLIC OBJECTTYPE Settings EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    RECORD config := GetAdhocCacheSettings();
+    this->maxentries->minimumvalue := config.minimum_maxentries;
+    this->maxentries->minimumvalueisset := TRUE;
+    this->minperlibrary->minimumvalue := config.minimum_minperlibrary;
+    this->minperlibrary->minimumvalueisset := TRUE;
+
+    this->maxentries->value := ReadRegistryKey("system.services.adhoccache.maxentries");
+    this->minperlibrary->value := ReadRegistryKey("system.services.adhoccache.minperlibrary");
+
+    IF(this->maxentries->value < this->maxentries->minimumvalue)
+      this->maxentries->value := this->maxentries->minimumvalue;
+    IF(this->minperlibrary->value < this->minperlibrary->minimumvalue)
+      this->minperlibrary->value := this->minperlibrary->minimumvalue;
+
+    this->maxentries_current->value := GetTid("system:sysmgmt.adhoccache.webservercurrent", ToString(GetAdhocCacheStats().cachesize), ToString(this->maxentries->value));
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    WriteRegistryKey("system.services.adhoccache.maxentries", this->maxentries->value);
+    WriteRegistryKey("system.services.adhoccache.minperlibrary", this->minperlibrary->value);
+    IF (work->Finish())
+    {
+      TwistAdhocCacheKnobs(this->maxentries->value, this->minperlibrary->value);
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+>;

@@ -1,0 +1,185 @@
+<?wh
+LOADLIB "wh::internal/ber.whlib";
+LOADLIB "wh::internal/ldap.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+OpenTest("TestBERLimits");
+
+STRING bind_request_buffer := "\x30\x0c\x02\x01\x01\x60\x07\x02\x01\x03\x04\x00\x80\x00";
+
+//Try various buffer lengths, make sure they all indicate they're invalid
+FOR (INTEGER i := 0; i < 14; i := i + 1)
+{
+  OBJECT incomplete_decoder := NEW BERDecoder(Substring(bind_request_buffer, 0, i));
+  TestEqualBoolean(i + 1, FALSE, incomplete_decoder->IsComplete());
+}
+
+//The complete buffer should be complete
+OBJECT complete_decoder := NEW BERDecoder(bind_request_buffer);
+TestEqualBoolean(16, TRUE, complete_decoder->IsComplete());
+
+CloseTest("TestBERLimits");
+
+
+OpenTest("TestBERSearchRequest");
+
+//A simple search request
+STRING search_request_verify := "\x30\x3f\x02\x01\x02\x63\x3a\x04\x0d\x6f\x3d\x42\x2d\x4c\x65\x78\x2c\x20\x63\x3d\x4e\x4c\x0a\x01\x02\x0a\x01\x00\x02\x01\x00\x02\x01\x00\x01\x01\x00\xa0\x18\xa3\x0a\x04\x02\x6f\x75\x04\x04\x50\x72\x6f\x67\xa3\x0a\x04\x02\x73\x6e\x04\x04\x4e\x6f\x6f\x74\x30\x00";
+
+OBJECT encode_search_request := NEW BEREncoder();
+encode_search_request->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // LDAPMessage
+encode_search_request->AddInteger(2); // MessageID
+encode_search_request->StartConstruction(BER_Class_Application, LDAP_protocolOp_searchRequest); // SearchRequest
+encode_search_request->AddOctetString("o=B-Lex, c=NL"); // baseObject
+INTEGER i := encode_search_request->AddInteger(LDAP_scope_wholeSubtree); // scope
+encode_search_request->OverwriteTagType(i, BER_Class_Universal, BER_Universal_Enumerated);
+i := encode_search_request->AddInteger(LDAP_derefAliases_neverDerefAliases); // derefAliases
+encode_search_request->OverwriteTagType(i, BER_Class_Universal, BER_Universal_Enumerated);
+encode_search_request->AddInteger(0); // sizeLimit
+encode_search_request->AddInteger(0); // timeLimit
+encode_search_request->AddBoolean(FALSE); // attrsOnly
+encode_search_request->StartConstruction(BER_Class_ContextSpecific, LDAP_Filter_and); // and Filter
+encode_search_request->StartConstruction(BER_Class_ContextSpecific, LDAP_Filter_equalityMatch); // equalityMatch Filter
+encode_search_request->AddOctetString("ou"); // attributeType
+encode_search_request->AddOctetString("Prog"); // attributeValue
+encode_search_request->EndConstruction(); // equalityMatch Filter
+encode_search_request->StartConstruction(BER_Class_ContextSpecific, LDAP_Filter_equalityMatch); // equalityMatch Filter
+encode_search_request->AddOctetString("sn"); // attributeType
+encode_search_request->AddOctetString("Noot"); // attributeValue
+encode_search_request->EndConstruction(); // equalityMatch Filter
+encode_search_request->EndConstruction(); // and Filter
+encode_search_request->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // attributes
+encode_search_request->EndConstruction(); // attributes
+encode_search_request->EndConstruction(); // SearchRequest
+encode_search_request->EndConstruction(); // LDAPMessage
+
+STRING search_request_constructed := encode_search_request->GetRequest();
+TestEqualInteger(1, 65, Length(search_request_constructed));
+TestEqualStringBinary(2, search_request_verify, search_request_constructed);
+
+OBJECT decode_search_request := NEW BERDecoder(search_request_constructed);
+TestEqualBoolean(3, TRUE, ObjectExists(decode_search_request));
+TestEqualBoolean(4, TRUE, decode_search_request->IsComplete());
+
+OBJECT decode_ldapmessage := decode_search_request->ReadConstruction();
+TestEqualBoolean(5, TRUE, ObjectExists(decode_ldapmessage));
+TestEqualInteger(6, 2, decode_ldapmessage->ReadInteger());
+
+OBJECT decode_searchrequest := decode_ldapmessage->ReadConstruction();
+TestEqualBoolean(7, TRUE, ObjectExists(decode_searchrequest));
+TestEqualString(8, "o=B-Lex, c=NL", decode_searchrequest->ReadOctetString());
+TestEqualInteger(9, 2, decode_searchrequest->ReadInteger());
+TestEqualInteger(10, 0, decode_searchrequest->ReadInteger());
+TestEqualInteger(11, 0, decode_searchrequest->ReadInteger());
+TestEqualInteger(12, 0, decode_searchrequest->ReadInteger());
+TestEqualBoolean(13, FALSE, decode_searchrequest->ReadInteger() = 0xFF);
+
+OBJECT decode_and := decode_searchrequest->ReadConstruction();
+TestEqualBoolean(14, TRUE, ObjectExists(decode_and));
+
+OBJECT decode_equality_1 := decode_and->ReadConstruction();
+TestEqualBoolean(15, TRUE, ObjectExists(decode_equality_1));
+TestEqualString(16, "ou", decode_equality_1->ReadOctetString());
+TestEqualString(17, "Prog", decode_equality_1->ReadOctetString());
+
+OBJECT decode_equality_2 := decode_and->ReadConstruction();
+TestEqualBoolean(18, TRUE, ObjectExists(decode_equality_2));
+TestEqualString(19, "sn", decode_equality_2->ReadOctetString());
+TestEqualString(20, "Noot", decode_equality_2->ReadOctetString());
+
+OBJECT decode_attributes := decode_searchrequest->ReadConstruction();
+TestEqualBoolean(21, TRUE, ObjectExists(decode_attributes));
+
+CloseTest("TestBERSearchRequest");
+
+{
+  OpenTest("TestBERIntegerEncoding");
+  OBJECT encode_int := NEW BEREncoder();
+
+  VARIANT ARRAY vals := VARIANT
+      [ (-1 BITLSHIFT 31)
+      , (-1 BITLSHIFT 24)
+      , (-1 BITLSHIFT 24)+1
+      , (-1 BITLSHIFT 16)
+      , (-1 BITLSHIFT 16)+1
+      , (-1 BITLSHIFT 8)
+      , (-1 BITLSHIFT 8)+1
+      , -1
+      , 0
+      , (1 BITLSHIFT 8)-1
+      , (1 BITLSHIFT 8)
+      , (1 BITLSHIFT 16)-1
+      , (1 BITLSHIFT 16)
+      , (1 BITLSHIFT 24)-1
+      , (1 BITLSHIFT 24)
+      , (1 BITLSHIFT 30)-1+(1 BITLSHIFT 30)
+      , "0100000000"
+      , "7FFFFFFFFF"
+      , [ write := "00", read := 0 ]
+      , [ write := "7F", read := 127 ]
+      , [ write := "80", read := -128 ]
+      , [ write := "FF", read := -1 ]
+      , [ write := "0000", read := 0 ]
+      , [ write := "7FFF", read := 32767 ]
+      , [ write := "8000", read := -32768 ]
+      , [ write := "FFFF", read := -1 ]
+      , [ write := "000000", read := 0 ]
+      , [ write := "7FFFFF", read := (1 BITLSHIFT 23) - 1 ]
+      , [ write := "800000", read := -1 BITLSHIFT 23 ]
+      , [ write := "FFFFFF", read := -1 ]
+      , [ write := "00000000", read := 0 ]
+      , [ write := "7FFFFFFF", read := (1 BITLSHIFT 30)-1+(1 BITLSHIFT 30) ]
+      , [ write := "80000000", read := (-1 BITLSHIFT 31) ]
+      , [ write := "FFFFFFFF", read := -1 ]
+      , [ write := "0000000000", read := 0 ]
+      , [ write := "7FFFFFFFFF", read := "7FFFFFFFFF" ]
+      , [ write := "8000000000", read := "8000000000" ]
+      , [ write := "FFFFFFFFFF", read := -1 ]
+      , [ write := "000000000000", read := 0 ]
+      , [ write := "007FFFFFFFFF", read := "7FFFFFFFFF" ]
+      , [ write := "008000000000", read := "008000000000" ]
+      , [ write := "00FFFFFFFFFF", read := "00FFFFFFFFFF" ]
+      , [ write := "FF0000000000", read := "FF0000000000" ]
+      , [ write := "FF7FFFFFFFFF", read := "FF7FFFFFFFFF" ]
+      , [ write := "FF8000000000", read := "8000000000" ]
+      , [ write := "FFFFFFFFFFFF", read := -1 ]
+      , [ write := "00000000000000", read := 0 ]
+      , [ write := "00007FFFFFFFFF", read := "7FFFFFFFFF" ]
+      , [ write := "00008000000000", read := "008000000000" ]
+      , [ write := "0000FFFFFFFFFF", read := "00FFFFFFFFFF" ]
+      , [ write := "FFFF0000000000", read := "FF0000000000" ]
+      , [ write := "FFFF7FFFFFFFFF", read := "FF7FFFFFFFFF" ]
+      , [ write := "FFFF8000000000", read := "8000000000" ]
+      , [ write := "FFFFFFFFFFFFFF", read := -1 ]
+      , [ write := "0000000000000000", read := 0 ]
+      , [ write := "0000007FFFFFFFFF", read := "7FFFFFFFFF" ]
+      , [ write := "0000008000000000", read := "008000000000" ]
+      , [ write := "000000FFFFFFFFFF", read := "00FFFFFFFFFF" ]
+      , [ write := "FFFFFF0000000000", read := "FF0000000000" ]
+      , [ write := "FFFFFF7FFFFFFFFF", read := "FF7FFFFFFFFF" ]
+      , [ write := "FFFFFF8000000000", read := "8000000000" ]
+      , [ write := "FFFFFFFFFFFFFFFF", read := -1 ]
+      ];
+
+  encode_int->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // LDAPMessage
+  FOREVERY (VARIANT val FROM vals)
+  {
+    VARIANT towrite := TypeID(val) = TypeID(RECORD) ? val.write : val;
+    IF (TypeID(towrite) = TypeID(INTEGER))
+      encode_int->AddInteger(towrite);
+    ELSE
+      encode_int->AddBigInteger(towrite);
+  }
+  encode_int->EndConstruction(); // LDAPMessage
+
+  OBJECT decode_outer := NEW BERDecoder(encode_int->GetRequest());
+  OBJECT decode_int := decode_outer->ReadConstruction();
+  FOREVERY (VARIANT val FROM vals)
+  {
+    VARIANT toread := TypeID(val) = TypeID(RECORD) ? val.read : val;
+    TestEQ(toread, decode_int->ReadBigInteger(), `Value ${AnyToString(val, "tree")}`);
+  }
+
+  CloseTest("TestBERIntegerEncoding");
+}
+

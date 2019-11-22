@@ -1,0 +1,41 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/rtd/convert.whlib";
+
+RECORD info := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "reconvert", type := "switch" ]
+                              , [ name := "rename", type := "switch" ]
+                              , [ name := "embedvideo", type := "switch" ]
+                              , [ name := "path", type := "param", required := TRUE ]
+                              , [ name := "width", type := "param" ]
+                              ]);
+
+IF(NOT RecordExists(info))
+{
+  Print("Syntax: msword2rtd <path>\n");
+  Print("  Recursively converts doc & docx to richtext documents\n");
+  Print("  --reconvert   Reconvert earlier converted documents (rolls back any changes!)\n");
+  Print("  --rename      Rename *.doc and *.docx files to *.rtd\n");
+  Print("  --embedvideo  Attempt to discover and convert various classic video embeds\n");
+  RETURN;
+}
+
+RECORD options := [ progress := TRUE
+                  , reconvert := info.reconvert
+                  , rename := info.rename
+                  , embedvideo := info.embedvideo
+                  , verbose := TRUE
+                  , width := info.width
+                  ];
+
+OpenPrimary();
+OBJECT toconvert := OpenWHFSOBjectByPath(info.path);
+IF(NOT ObjectExists(toconvert))
+  ABORT("Did not find path '" || info.path || "'");
+
+IF(toconvert->isfolder)
+  __ConvertDOCSToRTd(toconvert->id, options);
+ELSE
+  __ConvertDOCToRTd([id := toconvert->id, name := toconvert->name, type := toconvert->type, data := toconvert->data, whfspath := toconvert->whfspath], options);

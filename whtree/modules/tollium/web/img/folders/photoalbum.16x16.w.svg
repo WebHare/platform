@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <path id="folder-tab" d="M2,5C1.016,5,1,6,1,6v2h12.5l2-3C15.5,5,3,5,2,5z"/>
+    <path id="folder-outline" d="M30,4H19l-4,6H2c-1,0-2,0.5-2,1.5v16C0,29,1,30,2,30c0,0,27,0,28,0s2-1,2-2V6C32,5,31,4,30,4zM2,28V12h14l4-6h10v22H2z"/>
+    <rect id="maskcanvas" width="32px" height="32px" fill="#ffffff"/>
+    <mask id="photoalbummask">
+      <use xlink:href="#maskcanvas"/>
+      <path d="M30.4,11.3C30.2,11.1,30,11,29.7,11l-2.4,0.1l-0.9-2.3c-0.2-0.5-0.7-0.7-1.2-0.5l-8.4,3.3l-7,0.3C9.4,12,9,12.5,9,13l0.1,1.7l-3.6,1.4c-0.2,0.1-0.4,0.3-0.5,0.5c-0.1,0.2-0.1,0.5,0,0.7l5.6,14.1c0.1,0.2,0.3,0.4,0.5,0.5c0.2,0.1,0.4,0.1,0.5,0.1c0.1,0,0.1,0,0.2,0l11.5-4.5l7.3-0.4c0,0,0.1,0,0.1,0c0.4-0.1,0.8-0.5,0.7-0.9l-0.1-1.9l0.1-0.1c0.5-0.2,0.7-0.7,0.5-1.2l-0.8-2.1l-0.4-9C30.7,11.6,30.6,11.4,30.4,11.3zM29,15.6l0.3,5.7l0.1,1.7l0.1,1.9l0,0.3l-1,0l-5.7,0.3l-11.4,0.6L11,15.9L10.9,14l0-0.2l0.7,0l5.7-0.3l8.9-0.4l1.9-0.1l0.9,0L29,15.6zM25,10.4l0.3,0.9l-2.9,0.1L25,10.4zM7,17.5l2.2-0.9L9.5,24L7,17.5zM11.9,29.9L11.1,28l6.4-0.3L11.9,29.9z" transform="scale(0.9) translate(0 3.5)" stroke="#000000" stroke-width="2"/>
+    </mask>
+  </defs>
+  <g>
+    <use xlink:href="#folder-outline" fill="#ffffff" stroke="#ffffff" stroke-width="0" style="mask:url(&quot;#photoalbummask&quot;);"/>
+    <use xlink:href="#folder-tab" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+    <linearGradient id="skygradient" gradientUnits="userSpaceOnUse" x1="20" y1="30" x2="20" y2="2.0005">
+      <stop offset="0" style="stop-color:#DAF4FF"/>
+      <stop offset="1" style="stop-color:#C6E5FF"/>
+    </linearGradient>
+    <linearGradient id="mountainsgradient" gradientUnits="userSpaceOnUse" x1="10" y1="21.1436" x2="30" y2="21.1436">
+      <stop offset="0" style="stop-color:#81CE2E"/>
+      <stop offset="1" style="stop-color:#73B670"/>
+    </linearGradient>
+    <path fill="#ffffff" d="M29.7,25.9c0,0.3-0.4,0.5-0.9,0.5H11.5c-0.8,0-1.9,0.1-1.9-0.3l-3.5-8.8c-0.3-0.1,3.8-1.8,3.8-1.8s0.3-2.5,0.3-2.5s3.3-0.5,3.5-0.5H22l0.7-0.1c0,0.1,6.2-0.2,6.5-0.2l0.5,4.2" transform="scale(0.9) translate(0 3.5)"/>
+    <path fill="#ffffff" d="M20.2,21.7c-8.4-0.3-9.7-4-9.7-4v7.7c0,0.3,0.2,4.9,1.2,4.9l17-3.9c0.7,0,0.9-0.2,0.9-0.5C29.7,25.9,24.4,21.8,20.2,21.7z" transform="scale(0.9) translate(0 3.5)"/>
+    <path style="fill:#FFFFFF;fill-opacity:0.1;" d="M15,26.4h13.6c0.6,0,1-0.2,1-0.5v-5.6" transform="scale(0.9) translate(0 3.5)"/>
+    <path d="M30.4,11.3C30.2,11.1,30,11,29.7,11l-2.4,0.1l-0.9-2.3c-0.2-0.5-0.7-0.7-1.2-0.5l-8.4,3.3l-7,0.3C9.4,12,9,12.5,9,13l0.1,1.7l-3.6,1.4c-0.2,0.1-0.4,0.3-0.5,0.5c-0.1,0.2-0.1,0.5,0,0.7l5.6,14.1c0.1,0.2,0.3,0.4,0.5,0.5c0.2,0.1,0.4,0.1,0.5,0.1c0.1,0,0.1,0,0.2,0l11.5-4.5l7.3-0.4c0,0,0.1,0,0.1,0c0.4-0.1,0.8-0.5,0.7-0.9l-0.1-1.9l0.1-0.1c0.5-0.2,0.7-0.7,0.5-1.2l-0.8-2.1l-0.4-9C30.7,11.6,30.6,11.4,30.4,11.3zM29,15.6l0.3,5.7l0.1,1.7l0.1,1.9l0,0.3l-1,0l-5.7,0.3l-11.4,0.6L11,15.9L10.9,14l0-0.2l0.7,0l5.7-0.3l8.9-0.4l1.9-0.1l0.9,0L29,15.6zM25,10.4l0.3,0.9l-2.9,0.1L25,10.4zM7,17.5l2.2-0.9L9.5,24L7,17.5zM11.9,29.9L11.1,28l6.4-0.3L11.9,29.9z" fill="#ffffff" stroke="#ffffff" stroke-width="0" transform="scale(0.9) translate(0 3.5)"/>
+  </g>
+</svg>

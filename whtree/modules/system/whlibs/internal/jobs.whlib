@@ -1,0 +1,1002 @@
+﻿<?wh (* ISSYSTEMLIBRARY *)
+/** @short Job management and IPC communication
+    @long Functions to create and run other jobs, and to communicate with them */
+
+LOADLIB "wh::system.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/callbacks.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/hsservices.whlib";
+
+PUBLIC INTEGER FUNCTION __HS_CREATENAMEDIPCPORT(STRING name) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __HS_CLOSENAMEDIPCPORT(INTEGER portid) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER FUNCTION __HS_CONNECTTOIPCPORT(STRING name) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER FUNCTION __HS_ACCEPTIPCCONNECTION(INTEGER namedport) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __HS_SENDIPCMESSAGE(INTEGER endpoint, VARIANT message, INTEGER64 replyto) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __HS_RECEIVEIPCMESSAGE(INTEGER endpoint) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN FUNCTION __HS_ISIPCLINKVALID(INTEGER endpoint) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __HS_CLOSEIPCENDPOINT(INTEGER endpoint) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER FUNCTION __HS_GETIPCLINKTOPARENT() __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC RECORD FUNCTION __HS_CreateJob(STRING script) __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_SetJobArguments(INTEGER handle, STRING ARRAY arguments) __ATTRIBUTES__(EXTERNAL);
+INTEGER FUNCTION __HS_GetJobExitcode(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_StartJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_ReleaseJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_TerminateJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_DeleteJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+BOOLEAN FUNCTION __HS_TryCancelJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_SetJobCancellable(BOOLEAN newcancellable) __ATTRIBUTES__(EXTERNAL);
+BOOLEAN FUNCTION __HS_GetJobCancellable() __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __HS_SETJOBEXTERNALSESSIONDATA(INTEGER handle, STRING newdata) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING FUNCTION __HS_GETJOBEXTERNALSESSIONDATA(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __HS_SETJOBAUTHENTICATIONRECORD(INTEGER handle, RECORD authrec) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __HS_GETJOBAUTHENTICATIONRECORD(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __HS_SETJOBENVIRONMENT(INTEGER handle, RECORD ARRAY environment) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD ARRAY FUNCTION __HS_GETJOBENVIRONMENT(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC OBJECT FUNCTION __HS_INTERNAL_CreateEndpointObjectWithID(INTEGER endpointhandle)
+{
+  RETURN NEW IPCLinkEndPoint(endpointhandle);
+}
+
+/** List of registered exception types
+    @cell type Type of exception
+    @cell createfunc Function to rebuild the exception. Signature: OBJECT createfunc(RECORD data (type, what, trace, other optional elements) )
+*/
+RECORD ARRAY registered_exception_types;
+
+OBJECTTYPE MessageWaiter EXTEND __HS_INTERNAL_AsyncCallbackWaitHelperBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT link;
+  INTEGER64 replyto;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT link, DATETIME wait_until, INTEGER64 replyto)
+  {
+    this->link := link;
+    this->replyto := replyto;
+
+    IF (this->link->pvt_handle = 0)
+      THROW NEW Exception("Cannot receive messages on an already closed IPC link");
+    IF (ObjectExists(this->link->asyncmessagewaiter))
+      THROW NEW Exception("Only one asynchronous read operation permitted at a time");
+
+    this->link->asyncmessagewaiter := PRIVATE this;
+
+    IF (wait_until = DEFAULT DATETIME)
+      this->GotTimeout(DEFAULT RECORD);
+    ELSE
+    {
+      this->SetTimeout(wait_until);
+      this->AddHandleRead(this->link->pvt_handle);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  UPDATE BOOLEAN FUNCTION HandleCallback(INTEGER handle, RECORD context)
+  {
+    RECORD rec := this->link->ReceiveMessage(DEFAULT DATETIME);
+    IF (rec.status != "timeout" OR handle = -1)
+    {
+      IF (this->replyto != 0 AND rec.status = "ok" AND rec.replyto != this->replyto)
+        this->defer.reject(NEW Exception("Received a reply to message " || rec.replyto || " but did AsyncDoRequest for " || this->replyto || ": " || AnyToString(rec, "tree")));
+      ELSE
+        this->defer.resolve(rec);
+
+      this->link->asyncmessagewaiter := DEFAULT OBJECT;
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  UPDATE MACRO HandleCancel(OBJECT cancelexception)
+  {
+    __HS_INTERNAL_AsyncCallbackWaitHelperBase::HandleCancel(cancelexception);
+    this->link->asyncmessagewaiter := DEFAULT OBJECT;
+  }
+>;
+
+
+/** This objecttypes contains the endpoint of an IPC link.
+    You can send messages to the other endpoint of the link, and receive messages
+    from the other endpoint.
+
+    If you need to wait on a message, you can use the @a handle property as a parameter
+    to WaitForMultiple. The handle is signalled when a message is in queue, or when the
+    other endpoint is closed.
+*/
+PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN pvt_autothrow;
+
+  /// Deferred promise for async wait
+  OBJECT asyncmessagewaiter;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** Throw received exceptions (in __exception cell within messages) automatically
+  */
+  PUBLIC PROPERTY autothrow(pvt_autothrow, pvt_autothrow);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER endpointid)
+  : __HS_INTERNAL_OutputObject(endpointid, FALSE)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Sends a message to the other endpoint of the link
+      @param message Message to send
+      @return Result of send action
+      @cell return.status One of the following codes:
+                'ok': message sent successfully
+                'gone': other endpoint of the link has been closed
+      @cell return.msgid Id of the sent message
+  */
+  PUBLIC RECORD FUNCTION SendMessage(RECORD message)
+  {
+    RETURN this->SendReply(message, 0);
+  }
+
+
+  /** Sends a reply to another message to the other endpoint of the link
+      @param message Message to send
+      @param replyto Id of the message this is a reply to
+      @return Result of send action
+      @cell return.status One of the following codes:
+                'ok': message sent successfully
+                'gone': other endpoint of the link has been closed
+      @cell return.msgid Id of the sent message (type: INTEGER64)
+  */
+  PUBLIC RECORD FUNCTION SendReply(RECORD message, INTEGER64 replyto)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot send messages on an already closed IPC link");
+
+    WHILE (TRUE)
+    {
+      RECORD result := __HS_SENDIPCMESSAGE(this->pvt_handle, message, replyto);
+      IF (result.status = "linkfull")
+      {
+        WaitForMultiple(DEFAULT INTEGER ARRAY, DEFAULT INTEGER ARRAY, 10);
+        CONTINUE;
+      }
+      IF (result.status = "error")
+        THROW NEW Exception("Cannot send messages on an already closed IPC link");
+
+      RETURN result;
+    }
+  }
+
+
+  /** Sends an exception reply to the other endpoint of the link
+      @param e Exception to send. The member function EncodeForIPC will be used to encode the exception. When EncodeForIPC returns
+         a non-standard exception type, the type MUST be registered with RegisterReceivedExceptionType on the receiving side. The
+         receiving side will only throw when it has autothrow enabled.
+      @param replyto Id of the message this is a reply to
+      @return Result of send action
+      @cell return.status One of the following codes:
+                'ok': message sent successfully
+                'gone': other endpoint of the link has been closed
+      @cell return.msgid Id of the sent message
+  */
+  PUBLIC RECORD FUNCTION SendExceptionReply(OBJECT e, INTEGER64 replyto)
+  {
+    RETURN this->SendReply([ __exception := e->EncodeForIPC() ], replyto);
+  }
+
+
+  /** Receives a message from the other endpoint
+      @param wait_until Block until this time, DEFAULT DATETIME for immediate return.
+      @return Result of the action
+      @cell return.status One of the following codes:
+                'ok': message received successfully
+                'timeout': no message was present
+                'gone': other endpoint of the link has been closed
+      @cell return.msg The received message (only when status = 'ok')
+      @cell return.msgid Id of the message (only when status = 'ok')
+  */
+  PUBLIC RECORD FUNCTION ReceiveMessage(DATETIME wait_until)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot receive messages on an already closed IPC link");
+
+    RECORD result;
+
+    WHILE (TRUE)
+    {
+      result := __HS_RECEIVEIPCMESSAGE(this->pvt_handle);
+      IF (result.status = "error")
+        THROW NEW Exception("Cannot receive message from an already closed IPC link");
+      IF (result.status = "ok" AND this->pvt_autothrow AND CellExists(result.msg, "__EXCEPTION"))
+        ThrowReceivedException(result.msg.__exception);
+      IF (result.status != "none")
+        RETURN result;
+
+      IF (NOT this->Wait(wait_until))
+        RETURN [ status := "timeout" ];
+    }
+  }
+
+
+  /** Receive a message, returns a promise that will be fulfilled when the message arives. Resolves
+      with same status messages as ReceiveMessage
+      @param wait_until Resolve with status 'timeout' if the message hasn't arrived at this time.
+      @return promise
+  */
+  PUBLIC OBJECT FUNCTION AsyncReceiveMessage(DATETIME wait_until)
+  {
+    RETURN NEW MessageWaiter(PRIVATE this, wait_until, 0)->promise;
+  }
+
+
+  /** Sends a message and waits for the reply. Throws if a reply to another messages comes in.
+      @param message Message to send
+      @return Result of the action
+      @cell return.status One of the following codes:
+                'ok': message received successfully
+                'timeout': no message was received before
+                'gone': other endpoint of the link has been closed
+      @cell return.msg The received message (only when status = 'ok')
+      @cell return.msgid Id of the message (only when status = 'ok', INTEGER64)
+  */
+  PUBLIC RECORD FUNCTION DoRequest(RECORD message)
+  {
+    RECORD rec := this->SendMessage(message);
+    IF (rec.status != "ok")
+      RETURN rec;
+
+    INTEGER64 msgid := rec.msgid;
+
+    rec := this->ReceiveMessage(MAX_DATETIME);
+    IF (rec.status = "ok" AND rec.replyto != msgid)
+      THROW NEW Exception("Received a reply to message " || rec.replyto || " but did DoRequest for " || msgid || ": " || AnyToString(rec, "tree"));
+
+    RETURN rec;
+  }
+
+
+  /** Sends a message and waits for the reply. Throws if a reply to another messages comes in.
+      @param message Message to send
+      @return Result of the action
+      @cell return.status One of the following codes:
+                'ok': message received successfully
+                'timeout': no message was received before
+                'gone': other endpoint of the link has been closed
+      @cell return.msg The received message (only when status = 'ok')
+      @cell return.msgid Id of the message (only when status = 'ok', INTEGER64)
+  */
+  PUBLIC OBJECT FUNCTION AsyncDoRequest(RECORD message)
+  {
+    RECORD rec := this->SendMessage(message);
+    IF (rec.status != "ok")
+      RETURN CreateResolvedPromise(rec);
+
+    RETURN NEW MessageWaiter(PRIVATE this, MAX_DATETIME, rec.msgid)->promise;
+
+//    INTEGER64 msgid := rec.msgid;
+//    RETURN this->InternalAsyncReceiveMessage(MAX_DATETIME, rec.msgid);
+  }
+
+
+  /** Returns whether this object is signalled (a message is present or the other endpoint has
+      been closed).
+      @return TRUE if the object is signalled.
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSignalled()
+  {
+    RETURN this->IsReadSignalled();
+  }
+
+
+  /** Closes this endpoint.
+  */
+  UPDATE PUBLIC MACRO Close()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot close this IPC endpoint, it has been closed already");
+
+    IF (ObjectExists(this->asyncmessagewaiter))
+      this->asyncmessagewaiter->promise->cancel();
+
+    __HS_CLOSEIPCENDPOINT(this->pvt_handle);
+    this->pvt_handle := 0;
+  }
+>;
+
+
+
+/** Object that describes a job
+*/
+PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Link the the job
+  OBJECT pvt_link;
+
+  /// Group id of the job
+  STRING pvt_groupid;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** IPC Link tot the job
+  */
+  PUBLIC PROPERTY ipclink(pvt_link, -);
+
+  /** Group id of the job (should be quite unique)
+  */
+  PUBLIC PROPERTY groupid(pvt_groupid, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER jobid, STRING groupid)
+  : __HS_INTERNAL_OutputObject(jobid, FALSE)
+  {
+    this->pvt_handle := jobid;
+    this->pvt_groupid := groupid;
+
+    INTEGER endpointid := __HS_GETIPCLINKTOJOB(this->pvt_handle);
+    IF (endpointid != 0)
+      this->pvt_link := __HS_INTERNAL_CreateEndpointObjectWithID(endpointid);
+    ELSE
+      THROW NEW Exception("Could not get the link to a job");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC MACRO Start()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot start a closed job");
+
+    __HS_StartJob(this->pvt_handle);
+  }
+
+
+  /** Sets the priority of the job.
+      @param priority New priority (allowed: 'normal', 'high')
+  */
+  PUBLIC MACRO SetPriority(STRING priority)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot set priority of a closed job");
+    IF (priority NOT IN [ "normal", "high" ])
+      THROW NEW Exception("Illegal priority value '" || priority || "', allowed are 'normal' and 'high'");
+
+    __HS_SETGROUPPRIORITY(this->pvt_handle, priority = "high");
+  }
+
+  PUBLIC MACRO SetConsoleArguments(STRING ARRAY arguments)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot set arguments of a closed job");
+
+    __HS_SetJobArguments(this->pvt_handle, arguments);
+  }
+  PUBLIC INTEGER FUNCTION GetConsoleExitCode()
+  {
+    IF(NOT this->IsSignalled())
+      THROW NEW Exception("Cannot get exit code of a running job");
+    RETURN __HS_GetJobExitCode(this->pvt_handle);
+  }
+
+  /** Creates a pipe, redirects the output of the job to that pipe, and returns the
+      read end. Only works when job hasn't been started yet. Close the pipe with ClosePipe.
+      @return Pipe read handle
+  */
+  PUBLIC INTEGER FUNCTION CaptureOutput()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot capture output of a closed job");
+
+    RETURN __HS_CAPTUREJOBOUTPUT(this->pvt_handle);
+  }
+
+
+  PUBLIC MACRO Release()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot release a closed job");
+
+    __HS_ReleaseJob(this->pvt_handle);
+    this->pvt_handle := 0;
+  }
+
+
+  /** Tries to cancel a job. If the job is cancellable, it has been sent
+      a signal to abort as soon as possible.
+      @long A job can mark itself as cancellable by calling [SetCancellable](#SetCancellable)
+      @return Whether the job was cancellable, and will soon be terminating.
+      @see SetCancellable
+  */
+  PUBLIC BOOLEAN FUNCTION TryCancel()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot cancel a closed job");
+
+    RETURN __HS_TryCancelJob(this->pvt_handle);
+  }
+
+
+  /** Returns whether this object is signalled (the job has completed)
+      @return True if the job is currently sugnalled
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSignalled()
+  {
+    RETURN this->IsReadSignalled();
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot close an already closed job");
+
+    IF (ObjectExists(this->pvt_link) AND this->pvt_link->handle != 0)
+      this->pvt_link->Close();
+
+    // Send abort to the job, break the pipes & wait for the job to actually terminate
+    __HS_TerminateJob(this->pvt_handle);
+    this->Wait(MAX_DATETIME);
+
+    __HS_DeleteJob(this->pvt_handle);
+    this->pvt_handle := 0;
+  }
+
+  /** Waits for the job to finish, and returns the errors the job generated
+      @return List of errors @includecelldef #__HS_GetJobErrors.return
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetErrors()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot get errors of a closed job");
+
+    this->Wait(MAX_DATETIME);
+    RETURN SELECT * FROM __HS_GetJobErrors(this->pvt_handle) WHERE NOT iswarning;
+  }
+
+  /** Returns the external session data of the job
+      @return External session data
+  */
+  PUBLIC STRING FUNCTION GetExternalSessionData()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot get external session data of a closed job");
+
+    RETURN __HS_GETJOBEXTERNALSESSIONDATA(this->pvt_handle);
+  }
+
+  /** Set the external session data of the job
+      @param newdata New external session data
+  */
+  PUBLIC MACRO SetExternalSessionData(STRING newdata)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot set external session data of a closed job");
+
+    __HS_SETJOBEXTERNALSESSIONDATA(this->pvt_handle, newdata);
+  }
+
+
+  /** Get the current authentication record of the job
+      @return Authentication record
+  */
+  PUBLIC RECORD FUNCTION GetAuthenticationRecord()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot get the authentication record of a closed job");
+
+    RETURN __HS_GETJOBAUTHENTICATIONRECORD(this->pvt_handle);
+  }
+
+
+  /** Overwrite the current authentication record of the job
+      @param authrec New authentication record
+  */
+  PUBLIC MACRO SetAuthenticationRecord(RECORD authrec)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot set the authentication record of a closed job");
+
+    __HS_SETJOBAUTHENTICATIONRECORD(this->pvt_handle, authrec);
+  }
+
+  /** Get the current environment record of the job
+      @return Environment
+      @cell(string) return.name Name of the environment variable
+      @cell(string) return.value Value of the environment variable
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetEnvironment()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot get the environment of a closed job");
+
+    RETURN __HS_GETJOBENVIRONMENT(this->pvt_handle);
+  }
+
+
+  /** Overwrite the current environment record of the job
+      @param environment New environment
+      @cell(string) environment.name Name of the environment variable
+      @cell(string) environment.value Value of the environment variable
+  */
+  PUBLIC MACRO SetEnvironment(RECORD ARRAY environment)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot set the environment of a closed job");
+
+    __HS_SETJOBENVIRONMENT(this->pvt_handle, environment);
+  }
+
+>;
+
+
+OBJECTTYPE __PipeMarshaller
+  < PRIVATE INTEGER pvt_pipe;
+
+    PRIVATE MACRO SetMarshaller() __ATTRIBUTES__(EXTERNAL);
+
+
+    PUBLIC MACRO NEW(INTEGER pipe)
+    {
+      this->pvt_pipe := pipe;
+      this->SetMarshaller();
+    }
+    PUBLIC PROPERTY pipe(pvt_pipe, -);
+  >;
+
+PUBLIC OBJECT FUNCTION CreatePipeMarshaller(INTEGER pipe)
+{
+  RETURN NEW __PipeMarshaller(pipe);
+}
+
+// ---------------------------------------------------------------------------
+//
+// Job management
+//
+
+
+PUBLIC OBJECT FUNCTION __HS_INTERNAL_RestoreJob(INTEGER jobid, STRING groupid)
+{
+  RETURN NEW Job(jobid, groupid);
+}
+
+/** Waits until any handle is read-signalled.
+    @param handles List of handles to wait on
+    @param wait_until Time to wait until. The function will not return unless either that time is
+        reached or one of the handles became signalled.
+    @param skip_zero_waits If TRUE, return -1 immediately if the wait_until has already been reached,
+        without checking the signalled status of the handles
+    @return -1 if none of the handles was signalled, otherwised the signalled handle
+*/
+INTEGER FUNCTION WaitUntilAnyHandleIsSignalled(INTEGER ARRAY handles, DATETIME wait_until, BOOLEAN skip_zero_waits)
+{
+  IF (wait_until = DEFAULT DATETIME AND skip_zero_waits)
+    RETURN -1;
+
+  WHILE (TRUE)
+  {
+    INTEGER msecs_wait := 60*60*1000; // Max an hour
+
+    RECORD diff := GetDatetimeDifference(GetCurrentDateTime(), wait_until);
+    IF (NOT RecordExists(diff) OR diff.days < 0 )
+      msecs_wait := 0;
+    ELSE IF (diff.days = 0 AND diff.msecs < msecs_wait)
+      msecs_wait := diff.msecs;
+
+    // If we are already at timeout, return that. We just did a receive and nothing was there.
+    IF (msecs_wait = 0 AND skip_zero_waits)
+      RETURN -1;
+
+    INTEGER res := WaitForMultiple(handles, DEFAULT INTEGER ARRAY, msecs_wait);
+    IF (res != -1)
+      RETURN res;
+  }
+}
+
+
+/** Does a request to a port handled by a porthandler object
+    @param port Port
+    @param msg Message to send
+    @param send_async Whether the message can be sent asynchronously
+    @param timeout Time before which the reply must have arrived
+    @return
+    @cell return.success Whether the porthandler has sent a reply
+    @cell return.error If the request didn't manage to send a reply, describes the error
+    @cell return.reply The reply of the porthandler
+* /
+PUBLIC RECORD FUNCTION DoIPCRequestToHandler(OBJECT link, VARIANT msg, BOOLEAN send_async, DATETIME timeout)
+{
+  RECORD res := SendIPCMessage(port, msg, TRUE, send_async, timeout);
+  IF (res.status != "OK")
+  {
+    RETURN
+        [ success := FALSE
+        , error   := "Could not send message to port handler, code: " || res.status
+        , reply   := DEFAULT RECORD
+        ];
+  }
+
+  res := ReceiveIPCReply(port, res.msgid, timeout);
+  IF (res.status != "OK")
+  {
+    RETURN
+        [ success := FALSE
+        , error   := "Error receiving reply from port handler, code: " || res.status
+        , reply   := DEFAULT RECORD
+        ];
+  }
+  RETURN res.msg;
+}
+*/
+
+/** Sets the cancellbility status of this job
+    @param newcancellable Whether the jo0b can be cancelled
+*/
+PUBLIC MACRO SetCancellable(BOOLEAN newcancellable)
+{
+  __HS_SETJOBCANCELLABLE(newcancellable);
+}
+
+/** Returns whether this job is currently marked as cancellable
+    @return TRUE if the job is marked as cancellable
+*/
+PUBLIC BOOLEAN FUNCTION IsCancellable()
+{
+  RETURN __HS_GETJOBCANCELLABLE();
+}
+
+// ---------------------------------------------------------------------------
+//
+// Event manager
+//
+
+/** Eventmanager object. Used to receive events and broadcast them.
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC OBJECTTYPE EventManager
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Event stream handle
+  INTEGER stream;
+
+
+  /** List of current registrations
+      @cell id Registration id
+      @cell mask Mask (exact string match)
+  */
+  RECORD ARRAY registrations;
+
+
+  /** Counter for registration ids
+  */
+  INTEGER counter;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Handle to wait on, becomes signalled when a message might be available
+  */
+  PUBLIC PROPERTY handle(GetHandle, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Construct a new event manager, don't forget to call @a Close when not needed anymore
+  */
+  MACRO NEW()
+  {
+    this->stream := __HS_EVENT_CREATESTREAM();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  INTEGER FUNCTION GetHandle()
+  {
+    RETURN this->stream;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO UnregisterInterestByPos(INTEGER pos)
+  {
+    IF (pos != -1)
+    {
+      __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(this->stream, STRING[], STRING[ this->registrations[pos].mask ], FALSE);
+      DELETE FROM this->registrations AT pos;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Registers an interest. Registrations are counted, so every registration must be matched
+      by an unregistration
+      @param mask Eventname mask to register interest for (LIKE match)
+      @return Id of the registration.
+      @see UnregisterInterest
+  */
+  PUBLIC INTEGER FUNCTION RegisterInterest(STRING mask)
+  {
+    __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(this->stream, [ mask ], STRING[], FALSE);
+    this->counter := this->counter + 1;
+    INSERT [ id := this->counter, mask := mask ] INTO this->registrations AT END;
+    RETURN this->counter;
+  }
+
+
+  /** Unregisters an interest
+      @param id Id of registered interest
+  */
+  PUBLIC MACRO UnregisterInterest(INTEGER id)
+  {
+    INTEGER pos :=
+       (SELECT AS INTEGER #registrations + 1
+          FROM this->registrations
+         WHERE COLUMN id = VAR id) - 1;
+
+    this->UnregisterInterestByPos(pos);
+  }
+
+
+  /** Unregisters an interest
+      @param mask Mask to unregister interest for
+  */
+  PUBLIC MACRO UnregisterInterestByName(STRING mask)
+  {
+    INTEGER pos :=
+       (SELECT AS INTEGER #registrations + 1
+          FROM this->registrations
+         WHERE COLUMN mask = VAR mask) - 1;
+
+    this->UnregisterInterestByPos(pos);
+  }
+
+
+  /** Clears all registered interests
+  */
+  PUBLIC MACRO ClearInterests()
+  {
+    __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(this->stream, STRING[], STRING[], TRUE);
+  }
+
+
+  /** Broadcasts an event to all listeners that have registered an interest in events of that name
+      @param event Name of the event
+      @param msg Message to add
+  */
+  PUBLIC MACRO BroadcastEvent(STRING event, RECORD msg)
+  {
+    BroadcastEvent(event, msg);
+  }
+
+  /** Tries to receive incoming events
+      @param wait_until Wait until this time for events, DEFAULT DATETIME for events that are
+          currently on the queue
+      @return DEFAULT RECORD if no event is available
+      @cell return.status Return status, 'ok' or 'timeout'
+      @cell return.event Name of the event
+      @cell return.msg Message with the event
+  */
+  PUBLIC RECORD FUNCTION ReceiveEvent(DATETIME wait_until)
+  {
+    RECORD rec := __TryReadEventFromStream(this->stream, FALSE);
+    IF (RecordExists(rec))
+      RETURN rec;
+
+    WaitForMultipleUntil([ this->stream ], INTEGER[], wait_until);
+    RETURN __TryReadEventFromStream(this->stream, TRUE);
+  }
+
+
+  /** Asynchronously receives an event
+      @param wait_until If this timeout is reached, give back a timeout status
+      @return A promise that resolves when an event is received or the timeout is reached
+      @cell return.status Return status, 'ok' or 'timeout'
+      @cell return.event Name of the received event ('' for timeout)
+      @cell return.msg Message of event (DEFAULT RECORD for timeout)
+  */
+  PUBLIC OBJECT ASYNC FUNCTION AsyncReceiveEvent(DATETIME wait_until)
+  {
+    RECORD rec := __TryReadEventFromStream(this->stream, FALSE);
+    IF (RecordExists(rec))
+      RETURN rec;
+
+    OBJECT helper := NEW __HS_INTERNAL_AsyncCallbackWaitHelperBase();
+    helper->SetTimeout(wait_until);
+    helper->AddHandleRead(this->handle);
+
+    AWAIT helper->promise;
+    RETURN __TryReadEventFromStream(this->stream, TRUE);
+  }
+
+
+  /** Wait until a message might be available
+      @param until Deadline to wait until
+      @return Returns whether the message queue is signalled, so a message might be available
+  */
+  PUBLIC BOOLEAN FUNCTION Wait(DATETIME until)
+  {
+    RETURN WaitForMultipleUntil([ INTEGER(this->handle) ], DEFAULT INTEGER ARRAY, until) = this->handle;
+  }
+
+
+  /** Closes this event manager, releases all resources
+  */
+  PUBLIC MACRO Close()
+  {
+    __HS_EVENT_CLOSESTREAM(this->stream);
+  }
+>;
+
+// ---------------------------------------------------------------------------
+//
+// Other stuff
+//
+
+/** Register an exception type that can be received from IPC links for automatic throwing by receivemessage
+    @param type Type of exception (must match the name sent over the link, case-sensitive)
+    @param createfunc Function that creates a new exception object. Signature: OBJECT FUNCTION createfunc(RECORD encoded_data).
+    @topic harescript-core/ipc
+    @public
+    @loadlib wh::ipc.whlib
+*/
+PUBLIC MACRO RegisterReceivedExceptionType(STRING type, FUNCTION PTR createfunc)
+{
+  RECORD lookup := RecordLowerBound(registered_exception_types, [ type := type ], [ "TYPE" ]);
+  IF (lookup.found)
+    registered_exception_types[lookup.position] := [ type := type, createfunc := createfunc ];
+  ELSE
+    INSERT [ type := type, createfunc := createfunc ] INTO registered_exception_types AT lookup.position;
+}
+
+/** Decodes an __exception record received by receivemessage. Throws on unknown object types
+    @param rec Exception data
+    @cell rec.type Type ('exception' for standard exception)
+    @cell rec.what Exception what
+    @cell rec.trace Exception trace
+    @return Decoded object
+*/
+PUBLIC OBJECT FUNCTION DecodeReceivedException(RECORD rec)
+{
+  // FIXME: check for welformedness of rec, to avoid crashes
+  OBJECT e;
+  IF (rec.type = "exception")
+  {
+    e := NEW EXCEPTION(rec.what);
+    e->trace := RECORD ARRAY(rec.trace);
+  }
+  ELSE IF (rec.type = "harescripterrorexception")
+    e := NEW HARESCRIPTERROREXCEPTION(rec.list);
+  ELSE
+  {
+    RECORD lookup := RecordLowerBound(registered_exception_types, [ type := rec.type ], [ "TYPE" ]);
+    IF (lookup.found)
+      e := registered_exception_types[lookup.position].createfunc(rec);
+    IF (NOT ObjectExists(e))
+      e := NEW EXCEPTION("Exception of unknown type '" || rec.type || "' received: " || rec.what);
+    IF (NOT (e EXTENDSFROM Exception))
+      THROW NEW EXCEPTION("Exception createfunction for type '" || rec.type || "' didn't return an object of type EXCEPTION");
+  }
+
+  RETURN e;
+}
+
+/** Decodes an __exception record received by receivemessage, and throws it
+    @param rec Exception data
+    @cell rec.type Type ('exception' for standard exception)
+    @cell rec.what Exception what
+    @cell rec.trace Exception trace
+*/
+PUBLIC MACRO ThrowReceivedException(RECORD rec) __ATTRIBUTES__(SKIPTRACE)
+{
+  THROW DecodeReceivedException(rec);
+}
+
+/** Creates a pipe
+    @return Pipe set handles
+    @cell return.read Handle of the read end of the pipe
+    @cell return.write Handle of the write end of the pipe
+*/
+PUBLIC RECORD FUNCTION CreatePipeSet() __ATTRIBUTES__(EXTERNAL);
+
+/** Closes one end of a pipe
+    @param handle Read or write handle
+*/
+PUBLIC MACRO ClosePipe(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+
+/** Sets the threshold for the read end of a pipe to be signalled (number of bytes that
+    must be present to get signalled)
+    @param handle Pipe read handle
+    @param threshold New signalling threshold in number of bytes
+*/
+PUBLIC MACRO SetPipeReadSignalThreshold(INTEGER handle, INTEGER threshold) __ATTRIBUTES__(EXTERNAL);
+
+/** Sets the yield threshold for the write end of a pipe. A job writing to the pipe
+    will yield after the set number of bytes is queued in the pipe
+    @param handle Pipe write handle
+    @param threshold New yield threshold in number of bytes
+*/
+PUBLIC MACRO SetPipeYieldThreshold(INTEGER handle, INTEGER threshold) __ATTRIBUTES__(EXTERNAL);
+
+
+/** Returns the list of errors for a job
+    @param handle Job handle
+    @return List of errors
+    @cell(integer) return.code Error code
+    @cell(integer) return.line Line number for the error
+    @cell(integer) return.col Column number for the error
+    @cell(string) return.filename Filename for the error
+    @cell(string) return.func Function where the error occurred
+    @cell(string) return.message Error message
+    @cell(string) return.param1 First parameter for the error message
+    @cell(string) return.param2 Second parameter for the error message
+    @cell(boolean) return.iserror Whether this is a error
+    @cell(boolean) return.istrace Whether this is a trace
+    @cell(boolean) return.iswarning Whether this is a warning
+*/
+PUBLIC RECORD ARRAY FUNCTION __HS_GetJobErrors(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+
+// Creates a pipe, and redirects the output of the job through that pipe
+PUBLIC INTEGER FUNCTION __HS_CaptureJobOutput(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+
+
+INTEGER FUNCTION __HS_GETIPCLINKTOJOB(INTEGER jobid) __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_SETGROUPPRIORITY(INTEGER jobid, BOOLEAN highpriority) __ATTRIBUTES__(EXTERNAL);

@@ -1,0 +1,222 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/errors.whlib";
+
+LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
+
+
+/* Please note view.shtml is used under two circumstances:
+   1: __whpub_preview set to 'preview' - the WebHare preview screen. We prevent
+      caching and catch mimetypes that don't properly display in an iframe
+   2: __whpub_preview set to 'debug' - explicitly enabled preview mode
+     through debug. in this case, we switch the assetpackage to dev mode and
+     also enable the outputtools */
+
+BOOLEAN FUNCTION IsValidPlainText(BLOB text)
+{
+  STRING tocheck := BlobToString(text, 1024);
+
+  // If the text starts with a UTF-8 BOM, assume it's UTF-8
+  IF (EncodeBase16(Left(tocheck, 3)) = "EFBBBF")
+    RETURN TRUE;
+
+  // Check if the text is valid UTF-8 (checks for valid ASCII as well)
+  FOR (INTEGER i := 0; i < 4; i := i + 1)
+  {
+    IF (IsValidUTF8(tocheck))
+      RETURN TRUE;
+
+    // It may have been truncated within a valid UTF-8 sequence, check with a byte less data
+    tocheck := Left(tocheck, Length(tocheck) - 1);
+  }
+
+  // It's not valid
+  RETURN FALSE;
+}
+
+INTEGER FUNCTION GetRootindexDoc()
+{
+  INTEGER rootindexdoc := (SELECT AS INTEGER indexdoc FROM system.fs_objects WHERE id = 16) ?? 16;
+  RETURN rootindexdoc;
+}
+
+// Headers which we should never forward
+STRING ARRAY forbiddenheaders := ["CONTENT-LENGTH", "TRANSFER-ENCODING", "CONNECTION", "ACCEPT-ENCODING" ];
+
+// MIME types for which we show the image preview page
+STRING ARRAY preview_image_mimetypes :=
+    [ "image/gif", "image/jpeg", "image/png", "image/svg+xml" ];
+
+// MIME types for which we show the contents directly
+STRING ARRAY preview_direct_mimetypes :=
+    [ "text/html", "text/plain", "application/json" ];
+
+IF(GetWebVariable('wh-forcepdfpreview') = '1')
+{
+  AddHTTPHeader("Content-Disposition", "inline", FALSE);
+  INSERT "application/pdf" INTO preview_direct_mimetypes AT END;
+}
+
+IF(GetWebHeader("X-WHPub-IsPreview") != "")
+  ABORT("view.shtml loop detected, X-WHPub-IsPreview header is set!");
+
+STRING clienturl := GetClientRequestURL();
+AddHTTPHeader("X-WHPub-Preview", clienturl, FALSE);
+
+// If this is called from within the publisher, the '__whpub_lang_' variable is set
+STRING lang := GetWebVariable("__whpub_lang_");
+// Remove the publisher preview variable
+clienturl := DeleteVariableFromUrl(clienturl, "__whpub_lang_");
+clienturl := DeleteVariableFromUrl(clienturl, "__whpub_clock_");
+
+
+// The same for the server URL
+STRING serverurl := GetRequestURL();
+
+// Check if this is a pxl callback, which we won't repeat. note that some PXL requests are HEAD, but some are POST! (beacon)
+// So we can't check for method anymore
+//TODO: Proper solution for duplicate access log lines?
+IF (serverurl LIKE "*/.px/*")
+{
+  RECORD unpacked := UnpackUrl(serverurl);
+  IF (unpacked.urlpath LIKE ".px/*")
+  {
+    AddHTTPHeader("Status", "200 Intercepted by Publisher preview", FALSE);
+    Print('.'); //prevent Fetch errors in console, it doesn't like 0 byte files
+    RETURN;
+  }
+}
+
+serverurl := DeleteVariableFromUrl(serverurl, "__whpub_lang_");
+serverurl := DeleteVariableFromUrl(serverurl, "__whpub_clock_");
+
+RECORD ARRAY requestheaders := GetAllWebHeaders();
+// Rename the '__whpub_preview' cookie
+RECORD cookieheader := SELECT *, idx := #requestheaders FROM requestheaders WHERE ToUppercase(field) = "COOKIE";
+IF (RecordExists(cookieheader))
+{
+  STRING ARRAY cookies := Tokenize(cookieheader.value, ";");
+  FOREVERY(STRING cookie FROM cookies)
+    IF(TrimWhitespace(cookie) LIKE "__whpub_preview=*")
+      cookies[#cookie] := Substitute(cookie, "__whpub_preview=", "__passedon_whpub_preview=");
+
+  requestheaders[cookieheader.idx].value := TrimWhitespace(Detokenize(cookies, ";"));
+}
+
+// The message page url
+INSERT [ field := "X-WHPub-IsPreview", value := "1" ] INTO requestheaders AT END;
+INSERT [ field := "X-WH-Proxy", value := CalculateXWHProxyHeaderForRequestForwarding("view_shtml") ] INTO requestheaders AT END;
+
+OBJECT browser := NEW WebBrowser;
+browser->autofollow := FALSE; // Don't follow redirects ourselves (e.g. logout redirects)
+DELETE FROM requestheaders WHERE ToUppercase(COLUMN field) IN forbiddenheaders;
+
+//Connect using the trusted port
+browser->SendRawRequest(GetRequestMethod(), serverurl, requestheaders, GetRequestBody()
+                       , [ connecthost := GetWebHareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
+
+//Strip frame options so we can be embedded in the publisher
+AddHTTPHeader("X-Frame-Options", "", FALSE);
+
+// If language is defined, we're in the preview browser, do some extra stuff
+IF (lang != "")
+{
+  OpenPrimary();
+  // Warn if the requested page redirects to somewhere else
+  IF (browser->GetHTTPStatusCode() IN [ 300, 301, 302, 303, 307 ])
+  {
+    STRING location := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field) = "LOCATION";
+    IF (location != "")
+    {
+      NEW ShowMessagePage(lang,clienturl,"redirection","",location)->RunPageForWHFSId(GetRootindexDoc());
+      RETURN;
+    }
+  }
+
+  // Certain image types can be previewed on the nice image preview page
+  ELSE IF (browser->mimetype IN preview_image_mimetypes)
+  {
+    RECORD info := ScanBlob(browser->content);
+    Redirect(UpdateURLVariables("/.publisher/common/preview/showimage.shtml"
+                               , [ lang := lang, clienturl := clienturl, width := ToString(info.width), height := ToString(info.height), mimetype := browser->mimetype ]));
+  }
+
+  // For file types that cannot be shown directly in the browser, show the message page
+  ELSE IF (browser->mimetype NOT IN preview_direct_mimetypes)
+  {
+    RECORD opts;
+    IF(browser->mimetype="application/pdf")
+      INSERT CELL pdflink := UpdateURLVariables(clienturl, [ "wh-forcepdfpreview" := "1" ]) INTO opts;
+
+    NEW ShowMessagePage(lang,clienturl,"notviewable",browser->mimetype,"",opts)->RunPageForWHFSId(GetRootindexDoc());
+    RETURN;
+  }
+  ELSE IF (browser->mimetype = "text/plain" AND NOT IsValidPlainText(browser->content))
+  {
+    NEW ShowMessagePage(lang,clienturl,"notviewable","","")->RunPageForWHFSId(GetRootindexDoc());
+    RETURN;
+  }
+}
+
+//LogInfo("whpub preview", "send data", [ url := url, status := browser->GetHTTPStatusCode(), contentlength := Length(browser->content), contentdata := BlobToString(browser->content, 512) ]);
+
+//strip CSP and frame options, they're usually incompatible with webhare
+//AddHTTPHeader("Content-Security-Policy", "", FALSE);
+
+STRING ARRAY sentheaders;
+FOREVERY (RECORD header FROM browser->responseheaders)
+{
+  STRING upfield := ToUppercase(header.field);
+  IF((upfield IN forbiddenheaders AND (GetRequestMethod() != "HEAD" OR upfield != "CONTENT-LENGTH"))
+      OR upfield IN ["X-FRAME-OPTIONS","CONTENT-SECURITY-POLICY"])
+    CONTINUE;
+
+  IF(upfield = "X-WEBHAREPREVIEW-FRAME-OPTIONS")
+    header.field := "X-FRAME-OPTIONS";
+
+  //Set 'always_add' to false on first header, so we can overwrite any webserver AddHeaders (they've already been set by the webserver)
+  BOOLEAN isfirst := upfield NOT IN sentheaders;
+  INSERT upfield INTO sentheaders AT END;
+  AddHTTPHeader(header.field, header.value, isfirst=FALSE);
+}
+IF(NOT RecordExists(SELECT FROM browser->responseheaders WHERE ToUppercase(field)="CACHE-CONTROL"))
+  AddHTTPHeader("Cache-Control", "no-cache", FALSE); //If the origin doesn't specify a caching policy, it's probably static. Disable caching then in the preview
+
+BLOB outgoingcontent := browser->content;
+STRING mimetype := ToUppercase(Tokenize(browser->GetResponseHeader("Content-Type"),';')[0]);
+
+STRING previewcookie := GetWebCookie("__whpub_preview");
+IF(previewcookie IN ["debug","devpackage"])
+{
+  IF(mimetype = "TEXT/HTML")
+  {
+    RECORD rewritten := RewriteAssetpackCode(outgoingcontent, previewcookie="debug");
+    IF(RecordExists(rewritten))
+    {
+      outgoingcontent := rewritten.content;
+      WaitForCompiledAssetpack(rewritten.outputtag); // Wait for the first compile of the assetpack
+    }
+  }
+  ELSE IF(mimetype = "TEXT/CACHE-MANIFEST")
+  {
+    LogWebserverError("Manifest blocked in output debugmode: We do not return a manifest in output debugmode as the manifest will not contain links to the '.dev' assetpack files");
+    AbortWithHTTPError(403, "Manifest blocked in output debugmode", [htmlbody := "<h1>Manifest blocked</h1><p>We do not return a manifest in output debugmode as the manifest will not contain links to the '.dev' assetpack files</p>"]);
+  }
+}
+
+// Explicitly add HTTP response status
+IF (browser->GetHTTPStatusCode() > 0)
+  AddHTTPHeader("Status", browser->GetHTTPStatusText(), FALSE);
+ELSE
+  AddHTTPHeader("Status", "500 Could not get resource: " || browser->GetHTTPStatusText(), FALSE);
+
+SendWebFile(outgoingcontent);

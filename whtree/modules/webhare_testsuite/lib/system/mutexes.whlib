@@ -1,0 +1,61 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+OBJECT lockmgr := OpenLockManager();
+
+OBJECT link := GetIPCLinkToParent();
+
+RECORD ARRAY mutexes;
+
+WHILE (TRUE)
+{
+  RECORD rec := link->ReceiveMessage(MAX_DATETIME);
+
+  IF (CellExists(rec.msg, "RUNAT"))
+    WaitForMultipleUntil(DEFAULT INTEGER ARRAY, DEFAULT INTEGER ARRAY, rec.msg.runat);
+
+  RECORD response;
+
+  TRY
+  {
+    SWITCH (rec.msg.type)
+    {
+    CASE "lock"
+      {
+        OBJECT mutex := lockmgr->LockMutex(rec.msg.mutexname);
+        INSERT [ name := rec.msg.mutexname, obj := mutex ] INTO mutexes AT END;
+      }
+    CASE "trylock"
+      {
+        OBJECT mutex := lockmgr->TryLockMutex(rec.msg.mutexname, rec.msg.waituntil);
+        IF (ObjectExists(mutex))
+          INSERT [ name := rec.msg.mutexname, obj := mutex ] INTO mutexes AT END;
+        response := [ locked := ObjectExists(mutex) ];
+      }
+    CASE "unlock"
+      {
+        OBJECT mutex := SELECT AS OBJECT obj FROM mutexes WHERE name = rec.msg.mutexname;
+        DELETE FROM mutexes WHERE name = rec.msg.mutexname;
+        mutex->Close();
+      }
+    CASE "haslocked"
+      {
+        response := [ locked := lockmgr->HasLockedMutex(rec.msg.mutexname) ];
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Unknown type '" || rec.msg.type || "'");
+      }
+    }
+
+    link->SendReply(response, rec.msgid);
+  }
+  CATCH (OBJECT e)
+  {
+    link->SendExceptionReply(e, rec.msgid);
+  }
+}

@@ -1,0 +1,71 @@
+<beta xmlns="http://www.webhare.net/xmlns/beta/exttest" xmlns:t="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+  <level1>
+    <level2>
+      <level42>
+        <t:tabsextension>
+          <t:compositions>
+            <t:radiogroup name="addedgroup" />
+          </t:compositions>
+          <t:newtab title="First tab">
+            <t:arrayedit name="arrayedit" roweditscreen=".extendededitor" >
+              <t:column name="text" type="text" />
+            </t:arrayedit>
+            <t:rte name="rte"
+                 type="richdocument"
+                 height="1pr"
+                 minheight="300px">
+              <t:linkhandlers>
+                <test:customlinkhandler />
+              </t:linkhandlers>
+            </t:rte>
+          </t:newtab>
+          <t:newtab title="Extra tab" name="extratab">
+            <t:arrayedit name="" roweditscreen=".extendededitor" > <!-- Do NOT 'name' this arrayedit. this is specifically about testing that unnamed arrayedit (anonymous, not injected into scope) do not prevent their submembers ('list') from being injected into scope -->
+              <t:column name="text" type="text" />
+            </t:arrayedit>
+            <t:text name="text1" title="Intoxication" value="0.8&#8240;" />
+            <t:radiobutton name="addedgroup_k1" group="addedgroup" label="Radio button shared with the next tab" rowkey="k1" />
+            <t:radiobutton name="externalgroup_k1" group="externalradiogroup" label="Radio button shared with main tab" rowkey="k1" />
+          </t:newtab>
+          <t:newtab gid="test" name="yattab" public="true">
+            <t:radiobutton name="addedgroup_k2" group="addedgroup" label="Radio button shared with the previous tab" rowkey="k2" value="true" />
+            <t:imageedit name="mainedit" imagewidth="150px" imageheight="150px" imagesetwidth="105px" imagesetheight="150px" imageresizemethod="scale" value="tollium:placeholders/sillouette_female"/>
+            <t:select name="beschikbaarheid" type="radio" public="true">
+              <t:option rowkey="beschikbaar" />
+              <t:option rowkey="verkocht" />
+              <t:option rowkey="binnenkort" />
+            </t:select>
+            <t:includefragment fragment=".testfragment" />
+          </t:newtab>
+        </t:tabsextension>
+
+      </level42>
+      <level43>
+        <t:tabsextension lib="module::webhare_testsuite/screens/tests/tabextensions.whlib" name="extensionwithcode" implementation="lib">
+          <t:newtab title="Third tab">
+            <t:text title="" value="Text" />
+          </t:newtab>
+        </t:tabsextension>
+      </level43>
+    </level2>
+  </level1>
+
+  <t:screen name="extendededitor" implementation="rowedit">
+    <t:compositions>
+      <t:record name="row" />
+    </t:compositions>
+    <t:body>
+      <t:textedit composition="row" cellname="text" />
+      <t:defaultformbuttons buttons="ok cancel" />
+    </t:body>
+  </t:screen>
+
+  <t:fragment name="testfragment"
+              implementation="none"
+              >
+    <t:contents>
+      <t:text value="Text from loaded fragment" />
+    </t:contents>
+  </t:fragment>
+
+</beta>

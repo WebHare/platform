@@ -1,0 +1,57 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor/rpclog.whlib"
+         gid="monitor">
+
+  <screen name="rpclog" gid=".rpclog.panel">
+    <actions>
+      <action name="properties" onexecute="doeditrpclog" tid="tollium:common.actions.properties">
+        <enableon source="logslist" min="1" />
+      </action>
+    </actions>
+    <compositions>
+      <eventlistener masks="system:registry.system.logging.rpc" onevents="gotregistryevents" />
+    </compositions>
+    <body height="1pr">
+      <grid height="1pr" width="80x">
+        <col width="1pr"/>
+        <col/>
+        <row height="1pr">
+          <cell>
+            <list name="logslist"
+                  selectmode="single"
+                  borders="right"
+                  height="1pr"
+                  openaction="properties"
+                  icons="tollium:status/negative tollium:status/checked tollium:status/warning"
+                  >
+              <column name="title" type="text" width="30x"/>
+              <column name="until" type="text" iconname="untilicon" />
+            </list>
+          </cell>
+          <cell>
+            <button action="properties" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="editrpclogsettings" tid=".title" gid=".rpclog.settings" width="50x">
+    <body layout="form" height="1pr">
+      <select name="loguntil" type="radio">
+        <option rowkey="not" />
+        <option rowkey="forever" />
+        <option rowkey="until">
+          <datetime name="loguntildate" type="datetime" precision="minutes" title="" required="true" storeutc="true" errorlabeltid=".loguntildate" />
+        </option>
+      </select>
+      <lines layout="left">
+        <checkbox name="profile" title="" labeltid=".profile" />
+      </lines>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

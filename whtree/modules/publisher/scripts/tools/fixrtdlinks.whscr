@@ -1,0 +1,110 @@
+<?wh
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+OBJECT trans := OpenPrimary();
+BOOLEAN anychangeonfsobj;
+RECORD ARRAY currenthyperlinks := SELECT fs_settings.setting
+                                       , fs_settings.fs_object
+                                    FROM system.fs_members
+                                       , system.fs_settings
+                                   WHERE fs_members.type = 15 //richdocument
+                                         AND fs_settings.fs_member = fs_members.id
+                                         AND fs_settings.ordering = 2 //links
+                                         AND fs_members.orphan = FALSE;
+
+currenthyperlinks := SELECT *, destination := (SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = currenthyperlinks.fs_object AND isactive) FROM currenthyperlinks;
+currenthyperlinks := SELECT * FROM currenthyperlinks WHERE destination!="";
+
+RECORD FUNCTION FixupRTD(STRING whfspath, RECORD rtd, STRING typename, STRING namesofar)
+{
+  IF(Length(rtd.htmltext) = 0)
+    RETURN DEFAULT RECORD;
+
+  OBJECT indoc := MakeXMLDocumentFromHTML(rtd.htmltext);
+  OBJECT ARRAY hyperlinks := indoc->GetElementsByTagName("a")->GetCurrentElements();
+  BOOLEAN anychange;
+
+  FOREVERY(OBJECT link FROM hyperlinks)
+  {
+    STRING href := link->GetAttribute("href");
+    IF(href LIKE "x-richdoclink:*" AND NOT RecordExists(SELECT FROM rtd.links WHERE tag = Substring(href,14)))
+    {
+      Print(whfspath || " " || typename || " " || namesofar || "\n");
+      Print("Missing link: " || href);
+      RECORD match := SELECT * FROM currenthyperlinks WHERE setting = Substring(href,14);
+      IF(RecordExists(match))
+      {
+        Print("... SHOULD point to " || match.destination || ", fixing\n");
+        anychange := TRUE;
+        INSERT INTO rtd.links(tag, linkref) VALUES(Substring(href,14), match.fs_object) AT END;
+      }
+      ELSE
+        Print("... no match\n");
+    }
+  }
+  IF(anychange)
+    RETURN rtd;
+  RETURN DEFAULT RECORD;
+}
+
+RECORD FUNCTION FixupInstance(STRING whfspath, RECORD data, STRING typename, STRING namesofar)
+{
+  FOREVERY(RECORD cellrec FROM UnpackRecord(data))
+  {
+    IF(TypeID(cellrec.value) = TypeID(RECORD ARRAY))
+    {
+      RECORD ARRAY rows := SELECT AS RECORD ARRAY FixupInstance(whfspath, recs, typename, namesofar || cellrec.name || "[" || #recs || "].")  FROM cellrec.value AS recs;
+      data := CellUpdate(data, cellrec.name, rows);
+    }
+    //looks like a RTD?
+    ELSE IF(TypeID(cellrec.value) = TypeID(RECORD) AND CellExists(cellrec.value, "HTMLTEXT") AND CellExists(cellrec.value, "EMBEDDED") AND CellExists(cellrec.value, "LINKS") AND CellExists(cellrec.value, "INSTANCES"))
+    {
+      RECORD fixedup := FixupRTD(whfspath, cellrec.value, typename, namesofar || cellrec.name );
+      IF(RecordExists(fixedup))
+      {
+        anychangeonfsobj := TRUE;
+        data := CellUpdate(data, cellrec.name, fixedup);
+      }
+    }
+    ELSE IF(TypeID(cellrec.value) = TypeID(RECORD))
+    {
+      data := CellUpdate(data, cellrec.name, FixupInstance(whfspath, cellrec.value, typename, namesofar || cellrec.name || "."));
+    }
+  }
+  RETURN data;
+}
+
+RECORD ARRAY tocheck := SELECT fs_members.fs_type, docs := GroupedValues([ id := fs_objects.id, whfspath := fs_objects.whfspath])
+                          FROM system.fs_members
+                             , system.fs_settings
+                             , system.fs_instances
+                             , system.fs_objects
+                         WHERE fs_members.type = 15 //richdocument
+                               AND fs_settings.fs_member = fs_members.id
+                               AND fs_settings.ordering = 0 //body text
+                               AND fs_instances.id = fs_settings.fs_instance
+                               AND fs_objects.id = fs_instances.fs_object
+                               AND fs_objects.isactive
+                               AND fs_members.orphan = FALSE
+                               AND Length(fs_settings.blobdata) > 0
+                      GROUP BY fs_members.fs_type;
+
+FOREVERY(RECORD checktype FROM tocheck)
+{
+  GetPrimary()->BeginWork();
+  OBJECT whfstype := OpenWHFSTypeById(checktype.fs_type);
+  RECORD ARRAY objects := SELECT DISTINCT id,whfspath FROM checktype.docs;
+
+  FOREVERY(RECORD obj FROM objects)
+  {
+    RECORD instance := whfstype->GetInstanceData(obj.id);
+    anychangeonfsobj := FALSE;
+    instance := FixupInstance(obj.whfspath, instance, whfstype->namespace, "");
+    IF(anychangeonfsobj)
+      whfstype->SetInstanceData(obj.id, instance);
+  }
+  GetPrimary()->CommitWork();
+}
+

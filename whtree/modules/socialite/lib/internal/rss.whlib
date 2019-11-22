@@ -1,0 +1,35 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::filetypes/rss.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+
+PUBLIC RECORD FUNCTION GetRSSItems(STRING url)
+{
+  RECORD ARRAY items;
+  OBJECT br := NEW WEBBrowser;
+
+  br->timeout := 20000; //20 secs is safe ?
+  IF(NOT br->GotoWebPage(url))
+    THROW NEW Exception("Unable to retrieve " || url);
+
+  //some rss feeds give wrong content-type like 'text/html' and in that case html/body are wrapped around rss in document object
+  // so parse raw content to prefent content-type confusion
+  RECORD result := ParseRSSFeedFromDocument(url, MakeXMLDocument(br->content));
+
+//  RECORD result := ParseRSSFeedFromDocument(url, br->document);
+
+  br->Close();
+
+  RETURN [ format := "rss"
+         , entries := (SELECT created := date
+                           , messageid := EncodeUFS(GetMD5Hash(GetDayCount(date) || ":" || GetMsecondCount(date) || ":" || title))
+                           , data := [ richtext := description //FIXME Sanitize!
+                                     , title := title
+                                     , url := items.url
+                                     ]
+                        FROM result.items)
+         ];
+}

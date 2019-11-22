@@ -1,0 +1,872 @@
+﻿<?wh
+/// @short File library tests
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/detect.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+
+RECORD ARRAY errors;
+
+MACRO CSVTest()
+{
+  OpenTest("CSVTest");
+
+  //Simple test with newlines (to verify, save content below as 3.csv and open in excel)
+  STRING input := '"A","B""X","C"\r\n"D","E\r\nF","G"\r\n\r\nH,"I\n",J\rK,"L\rM",N';
+
+  TestEq( [ [ tokens := ['A','B"X','C'] ]
+          , [ tokens := ['D','E\nF','G'] ]
+          , [ tokens := ['H','I\n','J'] ]
+          , [ tokens := ['K','L\nM','N'] ]
+          ]
+        , ExcelTextParser(input, "", "ISO-8859-1", TRUE));
+
+  //Test whether various quote behaviours match excel exactly (to verify, save content below as 1.csv and open in excel)
+  STRING testdata:=`A;B;C
+A";""B";C
+A""B;C
+A"B"C;D
+A""B"";C
+"A";B;C
+ "A";B;C
+"A"B;C
+"A"B";C
+""""A"";B
+`;
+
+  TestEq( [ [ tokens := [ 'A',      'B', 'C' ] ]
+          , [ tokens := [ 'A"',     'B"','C' ] ]
+          , [ tokens := [ 'A""B',   'C' ] ]
+          , [ tokens := [ 'A"B"C',  'D' ] ]
+          , [ tokens := [ 'A""B""', 'C' ] ]
+          , [ tokens := [ 'A',      'B', 'C' ] ]
+          , [ tokens := [ ' "A"',   'B', 'C' ] ]
+          , [ tokens := [ 'AB',     'C' ] ]
+          , [ tokens := [ 'AB"',    'C' ] ]
+          , [ tokens := [ '"A""',   'B' ] ]
+          ]
+        , ParseCSVRows(StringToBlob(testdata), [ astokenarray := TRUE ]));
+
+  //UTF-8 inside suspected ISO-8859-1 but adaptive UTF-8 enabled: should work
+  TestEq( [ [ tokens := ["ABC\u20ACDEF"] ] ] , ExcelTextParser("ABC\u20ACDEF", "", "ISO-8859-1", TRUE));
+  //UTF-8 inside suspected ISO-8859-1 but adaptive UTF-8 disabld: individual UTF-8 bytes are translated, giving 2 chars + 1 gibberish
+  TestEq( [ [ tokens := ["ABC\u00E2?\u00ACCDEF"] ] ] , ExcelTextParser("ABC\u20ACCDEF", "", "ISO-8859-1", FALSE));
+  //ISO-88591 inside suspected ISO-8859-1 and adaptive UTF-8 enabled: should work
+  TestEq( [ [ tokens := ["ABC\u00F6DEF"] ] ] , ExcelTextParser("ABC\xF6DEF", "", "ISO-8859-1", TRUE));
+  //ISO-88591 inside suspected ISO-8859-1 and adaptive UTF-8 disabled: should work
+  TestEq( [ [ tokens := ["ABC\u00F6DEF"] ] ] , ExcelTextParser("ABC\xF6DEF", "", "ISO-8859-1", FALSE));
+
+  STRING testdatawithheaders := `name;email
+Pietje;pietje@example.com;really
+Jan;jan@example.com
+Klaas`;
+
+  TestEq( [ [ tokens := [ 'name','email' ] ]
+          , [ tokens := [ 'Pietje','pietje@example.com', 'really' ] ]
+          , [ tokens := [ 'Jan','jan@example.com' ] ]
+          , [ tokens := [ 'Klaas' ] ]
+          ]
+        , ParseCSVRows(StringToBlob(testdatawithheaders), [ astokenarray := TRUE ]));
+
+  TestEq( [ [ name := "Pietje", email := "pietje@example.com", C := "really" ]
+          , [ name := 'Jan', email := "jan@example.com", C := "" ]
+          , [ name := 'Klaas', email := "", C := "" ]
+          ]
+        , ParseCSVRows(StringToBlob(testdatawithheaders)));
+
+  TestEq( [ [ A := "name", B := "email", C := "" ]
+          , [ A := "Pietje", B := "pietje@example.com", C := "really" ]
+          , [ A := 'Jan', B := "jan@example.com", C := "" ]
+          , [ A := 'Klaas', B := "", C := "" ]
+          ]
+        , ParseCSVRows(StringToBlob(testdatawithheaders), [ processheaders := FALSE ]));
+
+  CloseTest("CSVTest");
+}
+
+MACRO CSVCreateTest()
+{
+  DATETIME now := makeDatetime(2011,12,8,7,58,12);
+  DATETIME sometime := makeDatetime(2011,11,9,6,6,6);
+  RECORD ARRAY rows :=
+      [ [ title := "Title 1", bool := TRUE, date := now, int := 17,    time:=now, time2 := GetMsecondCount(now), moneyfield := 1.5 ]
+      , [ title := "Title 2", bool := FALSE, date := sometime, int := 666, time:=sometime, time2 := MakeTime(6, 6, 6), moneyfield := 2.5 ]
+      ];
+
+  RECORD ARRAY columns :=
+    [ [ name := "title", title := "Col 1:title", type := "text" ]
+    , [ name := "bool",  title := "Col 2:bool",  type := "boolean" ]
+    , [ name := "date",  title := "Col 3:date",  type := "date"    , storeutc := TRUE ]
+    , [ name := "int",   title := "Col 4:int",   type := "integer" ]
+    , [ name := "time",  title := "Col 5:time",  type := "time" , storeutc := TRUE ]
+    , [ name := "time2",  title := "Col 6:time2",  type := "timestamp"  ]
+    , [ name := "moneyfield",  title := "Col 7:moneyfield",  type := "money"  ]
+    ];
+
+  OBJECT csvout;
+
+  csvout := NEW CSVColumnFileWriter;
+  csvout->columns := columns;
+  csvout->booleans_to_yesno := TRUE;
+  csvout->timezone := "CET";
+  csvout->languagecode := "NL";
+  csvout->WriteRows(rows);
+
+  TestEq('\"Col 1:title\";\"Col 2:bool\";\"Col 3:date\";\"Col 4:int\";\"Col 5:time\";\"Col 6:time2\";\"Col 7:moneyfield\"\r\n\"Title 1\";\"ja\";\"08-12-2011\";\"17\";\"8:58:12\";\"7:58:12\";\"1.5\"\r\n\"Title 2\";\"nee\";\"09-11-2011\";\"666\";\"7:06:06\";\"6:06:06\";\"2.5\"\r\n'
+  , BlobToString(csvout->MakeOutputFile(),-1));
+
+  //Also test the auto-detect
+  csvout := NEW CSVColumnFileWriter;
+  csvout->WriteRows(rows);
+  TestEq('\"TITLE\";\"BOOL\";\"INT\";\"MONEYFIELD\";\"DATE\";\"TIME\";\"TIME2\"\r\n\"Title 1\";\"true\";\"17\";\"1.5\";\"08-12-2011 7:58:12\";\"08-12-2011 7:58:12\";\"28692000\"\r\n\"Title 2\";\"false\";\"666\";\"2.5\";\"09-11-2011 6:06:06\";\"09-11-2011 6:06:06\";\"21966000\"\r\n'
+        , BlobToString(csvout->MakeOutputFile(),-1));
+
+}
+
+MACRO LoopbackReaders()
+{
+  OpenTest("TestFiles: LoopbackReaders");
+  STRING testsrcdata := "Dit is een test\r\nDit is er nog een\nEn dit is de laatste";
+  BLOB testdata := StringToBlob(testsrcdata);
+  INTEGER testfile;
+
+  testfile := OpenBlobAsFile(testdata);
+  TestEq( "Dit is een test", ReadLineFrom(testfile,1024,TRUE));
+  TestEq( "Dit is er nog een", ReadLineFrom(testfile,1024,TRUE));
+  TestEq( "En dit is de laatste", ReadLineFrom(testfile,1024,TRUE));
+  TestEq( "", ReadLineFrom(testfile,1024,TRUE));
+  CloseBlobFile(testfile);
+
+  testfile := OpenBlobAsFile(testdata);
+  TestEq( "Dit is een test\r\n", ReadLineFrom(testfile,1024,FALSE));
+  TestEq( "Dit is er nog een\n", ReadLineFrom(testfile,1024,FALSE));
+  TestEq( "En dit is de laatste", ReadLineFrom(testfile,1024,FALSE));
+  TestEq( "", ReadLineFrom(testfile,1024,FALSE));
+  CloseBlobFile(testfile);
+
+  testfile := OpenBlobAsFile(testdata);
+  TestEq( "Dit is", ReadLineFrom(testfile,6,FALSE));
+  TestEq( " een test\r", ReadLineFrom(testfile,10,FALSE));
+  TestEq( "\n", ReadLineFrom(testfile,11,FALSE));
+  TestEq( "Dit is er n", ReadLineFrom(testfile,11,FALSE));
+  CloseBlobFile(testfile);
+
+  testfile := OpenBlobAsFile(testdata);
+  TestEq( "Dit is", ReadLineFrom(testfile,6,TRUE));
+  TestEq( " een test", ReadLineFrom(testfile,10,TRUE));
+  TestEq( "", ReadLineFrom(testfile,11,TRUE));
+  TestEq( "Dit is er n", ReadLineFrom(testfile,11,TRUE));
+  CloseBlobFile(testfile);
+
+  testfile := OpenBlobAsFile(testdata);
+  STRING data := ReadFromFile(testfile,GetFilelength(testfile));
+  TestEq( testsrcdata, data);
+  CloseBlobFile(testfile);
+
+  /* Make sure the buffering works (read in chunks of out of the 32k buffer to check whether the chopping works properly) */
+  testsrcdata := Left(testsrcdata,7);
+  STRING totaldata;
+  INTEGER passes := (4*32768)/Length(testsrcdata);
+  FOR(INTEGER i:=0;i<passes;i:=i+1)
+    totaldata := totaldata || testsrcdata;
+
+  testdata := StringToBlob(totaldata);
+  testfile := OpenBlobAsFile(testdata);
+  FOR(INTEGER i:=0;i<passes;i:=i+1)
+  {
+    STRING input := ReadFrom(testfile, Length(testsrcdata));
+    TestEqualString(18+i, Substring(totaldata,i*Length(testsrcdata),Length(testsrcdata)), input);
+  }
+  CloseBlobFile(testfile);
+
+  testfile := OpenBlobAsFile(StringToBlob("regel met r\r erin"));
+  TestEq( "regel met r\r erin", ReadLineFrom(testfile,128,TRUE));
+  CloseBlobFile(testfile);
+
+  CloseTest("TestFiles: LoopbackReaders");
+}
+
+MACRO BufferFilepointertest()
+{
+  OpenTest("TestFiles: BufferFilepointertest");
+  STRING testsrcdata := "Dit is een test\r\nDit is er nog een\nEn dit is de laatste";
+  BLOB testdata := StringToBlob(testsrcdata);
+  INTEGER testfile;
+
+  /* Test whether file pointer manipulation is not disturbed by buffering */
+  testfile := OpenBlobAsFile(testdata);
+  TestEqualString ( 1, "Dit is een test", ReadLineFrom(testfile,1024,TRUE));
+  TestEq(Length("Dit is een test\r\n"), INTEGER(GetFilePointer(testfile)));
+
+  SetFilePointer(testfile, GetFilePointer(testfile)-4);
+  TestEqualString ( 3, "st", ReadLineFrom(testfile,1024,TRUE));
+  CloseBlobFile(testfile);
+
+
+  /* Now slice it! */
+  testdata := MakeSlicedBlob(testdata, 1, Length(testdata)-2);
+  testfile := OpenBlobAsFile(testdata);
+  TestEqualString ( 4, "it is een test", ReadLineFrom(testfile,1024,TRUE));
+  TestEq( Length("it is een test\r\n"), INTEGER(GetFilePointer(testfile)));
+  SetFilePointer(testfile, GetFilePointer(testfile)-4);
+  TestEqualString ( 6, "st", ReadLineFrom(testfile,1024,TRUE));
+  TestEqualString ( 7, "Dit is er nog een", ReadLineFrom(testfile,1024,TRUE));
+  TestEqualString ( 8, "En dit is de laatst", ReadLineFrom(testfile,1024,TRUE));
+  CloseBlobFile(testfile);
+
+  CloseTest("TestFiles: BufferFilepointertest");
+}
+
+MACRO BlobManipTest()
+{
+  OpenTest("TestFiles: BlobManip");
+
+  //Test with empty blob first..
+  BLOB simpleblob := DEFAULT BLOB;
+  TestEqualInteger( 1, 0, LENGTH(simpleblob));
+
+  //Test a simple 13-byte blob
+  INTEGER newblobstream := CreateStream();
+  TestEq(0i64, GetStreamLength(newblobstreaM));
+  PrintTo(newblobstream, "Hello, World\n");
+  TestEq(13i64, GetStreamLength(newblobstreaM));
+  BLOB newblob := MakeBlobFromStream(newblobstream);
+
+  //Test the length of this blob in various ways
+  TestEqualInteger( 4, 13, LENGTH(newblob));
+  INTEGER openblob := OpenBlobAsFile(newblob);
+  TestEq(13i64, GetFileLength(openblob));
+  TestEq(0i64, GetFilePointer(openblob));
+  TestEq( "Hello, World\n", ReadFromFile(openblob,100));
+  TestEq(13i64, GetFilePointer(openblob));
+
+  //Test setting file pointers
+  SetFilePointer(openblob,3);
+  TestEq(3i64, GetFilePointer(openblob));
+  TestEq( "lo, World\n", ReadFromFile(openblob,100));
+  TestEqualBoolean(11, TRUE/* no i/o errors */, CloseBlobFile(openblob));
+
+  CloseTest("TestFiles: BlobManip");
+}
+
+MACRO ComposedBlobTest()
+{
+  OpenTest("TestFiles: ComposedBlobTest");
+
+  BLOB ta := StringToBlob("12345");
+  BLOB tb := StringToBlob("abcde");
+
+  BLOB tc := MakeComposedBlob(
+      [ [ data :=     ta
+        , start :=    1i64
+        , length :=   3i64
+        ]
+      , [ data :=     tb
+        , start :=    1i64
+        , length :=   3i64
+        ]
+      , [ data :=     ta
+        , start :=    1
+        ]
+      , [ data :=     tb
+        , start :=    1
+        , length :=   4
+        ]
+      , [ data :=     ta
+        ]
+      ]);
+
+  TestEQ("234bcd2345bcde12345", BlobToString(tc, -1));
+
+  CloseTest("TestFiles: ComposedBlobTest");
+}
+
+MACRO UnpackOleTest()
+{
+  OpenTest("TestFiles: UnpackOleTest");
+
+  STRING testfile := /*testdata_dir || */"testole_plaindoc.doc";
+  BLOB testblob := OpenTestFile(testfile);
+  IF(length(testblob)=0)
+    ABORT("Cannot open file " ||testfile);
+
+  RECORD props := DetectFileType(testblob, testfile);
+
+  //Ensure opening went succesful
+  TestEqualBoolean(1, FALSE, Length(testblob)=0);
+
+  RECORD oleprops := __HS_UnpackOleProps(testblob);
+  TestEqualBoolean(2, TRUE, RecordExists(oleprops));
+  //TestEqualString (3, "{00020906-0000-0000-C000-000000000046}", oleprops.clsid);
+
+  RECORD ARRAY propsets := SELECT * FROM oleprops.propsets ORDER BY name;
+  TestEqualInteger(4, 2, Length(propsets));
+  TestEqualString (5, "\005DocumentSummaryInformation", propsets[0].name);
+  TestEqualString (6, "\005SummaryInformation", propsets[1].name);
+
+  RECORD ARRAY docsumprops := SELECT * FROM propsets[0].sections[0].properties ORDER BY id;
+  RECORD ARRAY sumprops := SELECT * FROM propsets[1].sections[0].properties ORDER BY id;
+
+  TestEq( "Categorie", (SELECT * FROM docsumprops WHERE id=2).data);
+  TestEq( "B-Lex Information Technologies", (SELECT * FROM docsumprops WHERE id=15).data);
+  TestEq( "Handleiding WebHare Professional", (SELECT * FROM sumprops WHERE id=2).data);
+  TestEq( "keyword 1\r\nkeyword 2\r\nkeyword 3", (SELECT * FROM sumprops WHERE id=5).data);
+  TestEqualInteger(11, 1, (SELECT * FROM sumprops WHERE id=14).data);
+  TestEqualDatetime(12, MakeDatetime(2000,9,27,15,02,00), (SELECT * FROM sumprops WHERE id=13).data);
+
+  testblob := OpenTestFile("olepropscrash.doc");
+  props := DetectFileType(testblob, "");
+  TestEq("application/msword", props.contenttype);
+
+  CloseTest("TestFiles: UnpackOleTest");
+}
+
+MACRO MiscTest()
+{
+  OpenTest("TestFiles: MiscTest");
+
+  //Collapse a path (no extensive tests are necessary- blextest alrady deals with that)
+  TestEq("f", CollapsePath("b/../c/d/../../e/../../f"));
+  TestEq("/f", CollapsePath("/b/../c/d/../../e/../../f"));
+  TestEq("b/c/d", CollapsePath("A:/../b/c/d/"));
+
+  TestEq("b-lex", GetBasenameFromPath("/my/dir/b-lex.html"));
+  TestEq(".html", GetExtensionFromPath("/my/dir/b-lex.html"));
+  TestEq(".htaccess", GetBasenameFromPath("/my/dir/.htaccess"));
+  TestEq("", GetExtensionFromPath("/my/dir/.htaccess"));
+  TestEq("..", GetBasenameFromPath("/my/dir/.."));
+  TestEq("", GetExtensionFromPath("/my/dir/.."));
+  TestEq(".htaccess", GetBasenameFromPath("/my/dir/.htaccess.txt"));
+  TestEq(".txt", GetExtensionFromPath("/my/dir/.htaccess.txt"));
+
+  //Test openining a nonexisting file
+  STRING testfile := selftests_hsengine_tests_dir || "does-not-exist.txt";
+  BLOB testblob := MakeBlobFromDiskfile(testfile);
+//  BLOB testblob := OpenTestFile("does-not-exist.txt");
+  TestEqualInteger(13, 0, Length(testblob));
+  TestThrows(PTR GetDiskResource(testfile));
+  TestEq(DEFAULT BLOB, GetDiskResource(testfile,[allowmissing := TRUE]));
+
+  TestEqualBoolean(14, FALSE, GenerateTemporaryPathname() = GenerateTemporaryPathname());
+  TestEq("uber-12-strassen-", GetSafeFileName(".Über '12' _Straßen_.?"));
+  TestEq("unknown", GetSafeFileName("????? ??????? ?????????"));
+  TestEq("index.html", GetSafeFileName("^index.html"));
+
+  STRING testdir := GenerateTemporaryPathname();
+  TestEq(TRUE, CreateDiskDirectory(testdir, TRUE));
+  TestEq(TRUE, CreateDiskDirectory(testdir || "/dir1", TRUE));
+  TestEq(TRUE, CreateSoftLink(testdir || "/dir2", "dir1"));
+  TestEq("dir1", ReadSoftLink(testdir || "/dir2"));
+  TestEq(FALSE, DeleteDiskDirectory(testdir|| "/dir2"));
+  TestEq(TRUE, DeleteDiskFile(testdir || "/dir2"));
+  TestEq(TRUE, CreateSoftLink(testdir || "/dir2", "dir1"));
+  TestEq(FALSE, DeleteDiskDirectory(testdir));
+  TestEq(TRUE, DeleteDiskDirectoryRecursive(testdir));
+
+  CloseTest("TestFiles: MiscTest");
+}
+
+MACRO ArchiveTest()
+{
+  OpenTest("TestFiles: ArchiveTest");
+
+  {
+    INTEGER newarchive := CreateArchive();
+    TestEqualBoolean(1, FALSE, newarchive = 0);
+    AddFileToArchive(newarchive, "file1", StringToBlob("File nummer 1"), MakeDate(2002,1,1));
+    AddFolderToArchive(newarchive, "folder1", MakeDate(2003,4,5));
+    AddFileToArchive(newarchive, "folder1/file2", StringToBlob("File nummer 2"), MakeDate(2002,2,3));
+    AddFolderToArchive(newarchive, "folder2", MakeDate(2004,5,6));
+    AddFolderToArchive(newarchive, "folder2/folder3", MakeDate(2005,6,7));
+    AddFileToArchive(newarchive, "tio_base/webdesigns/tio_corporate/bower_components/designfiles/frameworks.iframeresizer.contentwindow/file.js", DEFAULT BLOB, MakeDate(2002,1,1));
+
+    BLOB archive := MakeBlobFromArchive(newarchive);
+
+    RECORD ARRAY results := UnpackArchive(archive,".zip");
+    results := SELECT * FROM results ORDER BY path, name;
+
+    TestEq( [ [ path := "", name := "file1", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ]
+            , [ path := "folder1", name := "", modtime := DEFAULT DATETIME, data := DEFAULT BLOB ]
+            , [ path := "folder1", name := "file2", modtime := MakeDate(2002,2,3), data := StringToBlob("File nummer 2") ]
+            , [ path := "folder2", name := "", modtime := DEFAULT DATETIME, data := DEFAULT BLOB ]
+            , [ path := "folder2/folder3", name := "", modtime := DEFAULT DATETIME, data := DEFAULT BLOB ]
+            , [ path := "tio_base/webdesigns/tio_corporate/bower_components/designfiles/frameworks.iframeresizer.contentwindow", name := "file.js", modtime := MakeDate(2002,1,1), data := DEFAULT BLOB ]
+            ], results);
+  }
+
+  {
+    OBJECT newarchive := CreateNewArchive("zip");
+    newarchive->AddFile("file1", StringToBlob("File nummer 1"), MakeDate(2002,1,1));
+    newarchive->AddFolder("folder1", MakeDate(2003,4,5));
+    newarchive->AddFile("folder1/file2", StringToBlob("File nummer 2"), MakeDate(2002,2,3));
+    newarchive->AddFolder("folder2", MakeDate(2004,5,6));
+    newarchive->AddFolder("folder2/folder3", MakeDate(2005,6,7));
+
+    TestThrowsLike("Invalid path name", PTR newarchive->AddFile(".", DEFAULT BLOB, MakeDate(2002,1,1)));
+    TestThrowsLike("Invalid path name", PTR newarchive->AddFolder(".", MakeDate(2002,1,1)));
+
+    BLOB archive := newarchive->MakeBlob();
+    newarchive->Close();
+
+    RECORD ARRAY results := UnpackArchive(archive,".zip");
+    results := SELECT * FROM results ORDER BY path, name;
+
+    TestEqual(4, [ [ path := "", name := "file1", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ]
+                 , [ path := "folder1", name := "", modtime := MakeDate(2003,4,5), data := DEFAULT BLOB ]
+                 , [ path := "folder1", name := "file2", modtime := MakeDate(2002,2,3), data := StringToBlob("File nummer 2") ]
+                 , [ path := "folder2", name := "", modtime := MakeDate(2004,5,6), data := DEFAULT BLOB ]
+                 , [ path := "folder2/folder3", name := "", modtime := MakeDate(2005,6,7), data := DEFAULT BLOB ]
+                 ], results);
+  }
+
+
+  //This crashed once (incorrect destruction ordering in HSVM Context)
+  RECORD result := TestCompileAndRun('<?wh LOADLIB "wh::filetypes/archiving.whlib"; CreateArchive(); ');
+  TestCleanResult(8,result.errors);
+
+  // Test of rewrite of UnpackArchive via new Archive object
+  BLOB ziparchiveblob := OpenTestFile("ziptest.zip");
+  RECORD ARRAY results := SELECT * FROM UnpackArchive(ziparchiveblob) ORDER BY path, name;
+  TestEqual(10,
+      [ [ path := "",                   name := "file1.txt",modtime := MakeDateTime(2009, 3, 12, 14, 58, 26), data := StringToBlob("dit is file1") ]
+      , [ path := "folder1",            name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 58, 42), data := DEFAULT BLOB ]
+      , [ path := "folder1",            name := "file2.txt",modtime := MakeDateTime(2009, 3, 12, 14, 58, 40), data := StringToBlob("dit is file2") ]
+      , [ path := "folder2",            name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 58, 30), data := DEFAULT BLOB ]
+      , [ path := "folder2/folder3",    name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 58, 46), data := DEFAULT BLOB ]
+      , [ path := "folder2/folder3",    name := "file3.txt",modtime := MakeDateTime(2009, 3, 12, 14, 58, 34), data := StringToBlob("dit is file3") ]
+      ], results);
+
+  BLOB targzarchiveblob := OpenTestFile("ziptest.tar.gz");
+  results := SELECT * FROM UnpackArchive(ziparchiveblob) ORDER BY path, name;
+  TestEqual(11,
+      [ [ path := "",                   name := "file1.txt",modtime := MakeDateTime(2009, 3, 12, 14, 58, 26), data := StringToBlob("dit is file1") ]
+      , [ path := "folder1",            name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 58, 42), data := DEFAULT BLOB ]
+      , [ path := "folder1",            name := "file2.txt",modtime := MakeDateTime(2009, 3, 12, 14, 58, 40), data := StringToBlob("dit is file2") ]
+      , [ path := "folder2",            name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 58, 30), data := DEFAULT BLOB ]
+      , [ path := "folder2/folder3",    name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 58, 46), data := DEFAULT BLOB ]
+      , [ path := "folder2/folder3",    name := "file3.txt",modtime := MakeDateTime(2009, 3, 12, 14, 58, 34), data := StringToBlob("dit is file3") ]
+      ], results);
+
+  // New unpacking API
+
+//  BLOB ziparchiveblob := OpenTestFile("ziptest.zip");
+  {
+    OBJECT ziparchive := OpenExistingArchive(ziparchiveblob);
+
+    RECORD ARRAY zipentries :=
+        SELECT *
+             , data := type = 0 ? BlobToString(ziparchive->GetFile(fullpath), -1) : ""
+          FROM ziparchive->entries
+      ORDER BY fullpath;
+
+    TestEqual(20,
+        [ [ fullpath := "file1.txt",                  path := "",                   name := "file1.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 14, 58, 26), size := 12, data := "dit is file1" ]
+        , [ fullpath := "folder1",                    path := "folder1",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 42), size := 0,  data := "" ]
+        , [ fullpath := "folder1/file2.txt",          path := "folder1",            name := "file2.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 14, 58, 40), size := 12, data := "dit is file2" ]
+        , [ fullpath := "folder2",                    path := "folder2",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 30), size := 0,  data := "" ]
+        , [ fullpath := "folder2/folder3",            path := "folder2/folder3",    name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 46), size := 0,  data := "" ]
+        , [ fullpath := "folder2/folder3/file3.txt",  path := "folder2/folder3",    name := "file3.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 14, 58, 34), size := 12, data := "dit is file3" ]
+        ], zipentries);
+
+    TestEqual(21, "", ziparchive->archivecomment);
+
+    ziparchive->archivecomment := "testcommentaar";
+    ziparchive->RemoveEntries("", "file1.txt");
+    ziparchive->RemoveEntries("folder2", "*");
+    ziparchive->RemoveEntries("folder1", "file2.txt");
+
+    ziparchive->AddFile("folder1/file4.txt",         StringToBlob("dit is file4"), MakeDateTime(2009, 3, 1,  10,  0,  2));
+    ziparchive->AddFolder("folder2/folder5",                                       MakeDateTime(2009, 3, 2,  10,  0,  4));
+    ziparchive->AddFile("folder2/folder5/file6.txt", StringToBlob("dit is file6"), MakeDateTime(2009, 3, 3,  10,  0,  6));
+
+    BLOB newarchive := ziparchive->MakeBlob();
+    ziparchive->Close();
+
+    ziparchive := OpenExistingArchive(newarchive);
+
+    zipentries :=
+        SELECT *
+             , data := type = 0 ? BlobToString(ziparchive->GetFile(fullpath), -1) : ""
+          FROM ziparchive->entries
+      ORDER BY fullpath;
+
+    TestEqual(22,
+        [ [ fullpath := "folder1",                    path := "folder1",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 42), size := 0,  data := "" ]
+        , [ fullpath := "folder1/file4.txt",          path := "folder1",            name := "file4.txt",    type := 0, modtime := MakeDateTime(2009, 3, 1,  10,  0,  2), size := 12, data := "dit is file4" ]
+        , [ fullpath := "folder2",                    path := "folder2",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 30), size := 0,  data := "" ]
+        , [ fullpath := "folder2/folder5",            path := "folder2/folder5",    name := "",             type := 1, modtime := MakeDateTime(2009, 3, 2,  10,  0,  4), size := 0,  data := "" ]
+        , [ fullpath := "folder2/folder5/file6.txt",  path := "folder2/folder5",    name := "file6.txt",    type := 0, modtime := MakeDateTime(2009, 3, 3,  10,  0,  6), size := 12, data := "dit is file6" ]
+        ], zipentries);
+
+//    TestEqual(23, "testcommentaar", ziparchive->archivecomment);
+
+    ziparchive->Close();
+  }
+
+  {
+    OBJECT targzarchive := OpenExistingArchive(targzarchiveblob);
+
+    RECORD ARRAY targzentries :=
+        SELECT *
+             , data := type = 0 ? BlobToString(targzarchive->GetFile(fullpath), -1) : ""
+          FROM targzarchive->entries
+      ORDER BY fullpath;
+
+    TestEqual(30,
+        [ [ fullpath := "file1.txt",                  path := "",                   name := "file1.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 26), size := 12, data := "dit is file1" ]
+        , [ fullpath := "folder1",                    path := "folder1",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  data := "" ]
+        , [ fullpath := "folder1/file2.txt",          path := "folder1",            name := "file2.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 40), size := 12, data := "dit is file2" ]
+        , [ fullpath := "folder2",                    path := "folder2",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  data := "" ]
+        , [ fullpath := "folder2/folder3",            path := "folder2/folder3",    name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  data := "" ]
+        , [ fullpath := "folder2/folder3/file3.txt",  path := "folder2/folder3",    name := "file3.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 34), size := 12, data := "dit is file3" ]
+        ], targzentries);
+
+    targzarchive->Close();
+  }
+
+  /* An archive consisting of
+     lvl1.jpg
+     map2/lvl2.jpg
+     map2/map3/lvl3.jpg
+     map2/map3/lvl3b.jpg
+     and their respective forks
+  */
+
+  RECORD ARRAY macarchive :=
+    [ [ path := "", name := "lvl1.jpg" ]
+    , [ path := "__MACOSX", name := "" ]
+    , [ path := "__MACOSX", name := "._lvl1.jpg" ]
+    , [ path := "map2", name := "" ]
+    , [ path := "map2", name := "lvl2.jpg" ]
+    , [ path := "__MACOSX/map2", name := "" ]
+    , [ path := "__MACOSX/map2", name := "._lvl2.jpg" ]
+    , [ path := "map2/map3", name := "" ]
+    , [ path := "map2/map3", name := "lvl3.jpg" ]
+    , [ path := "__MACOSX/map2/map3", name := "" ]
+    , [ path := "__MACOSX/map2/map3", name := "._lvl3.jpg" ]
+    , [ path := "map2/map3", name := "lvl3b.jpg" ]
+    , [ path := "__MACOSX/map2/map3", name := "._lvl3b.jpg" ]
+    ];
+
+  TestEqual(31,5,length(select from macarchive where name='')); //folders
+  TestEqual(32,8,length(select from macarchive where name!='')); //files
+  macarchive := FilterMacOSForksFromArchive(macarchive);
+  TestEqual(33,4,length(select from macarchive where name!='')); //files
+  TestEqual(34,2,length(select from macarchive where name='')); //folders
+
+  /* A junky archive (someone moved files into the __macosx dir
+     lvl1.jpg
+     and its fork
+     __macosx/map2/blabla
+     __macosx/map3/.lvl3.jpg
+  */
+
+  macarchive :=
+    [ [ path := "", name := "lvl1.jpg" ]
+    , [ path := "__MACOSX", name := "" ]
+    , [ path := "__MACOSX", name := "._lvl1.jpg" ]
+    , [ path := "__MACOSX/map2", name := "" ]
+    , [ path := "__MACOSX/map2", name := "blabla" ]
+    , [ path := "__MACOSX/map3", name := "" ]
+    , [ path := "__MACOSX/map3", name := "._lvl3.jpg" ]
+    ];
+
+  TestEqual(35,3,length(select from macarchive where name='')); //folders
+  TestEqual(36,4,length(select from macarchive where name!='')); //files
+  macarchive := FilterMacOSForksFromArchive(macarchive);
+  TestEqual(37,2,length(select from macarchive where name!='')); //files
+  TestEqual(38,2,length(select from macarchive where name='')); //folders
+
+  CloseTest("TestFiles: ArchiveTest");
+}
+
+MACRO ZlibTest()
+{
+  OpenTest("TestFiles: ArchiveEncodingTest");
+
+  BLOB ziparchiveblob := OpenTestFile("encoded.zip");
+
+  BLOB encoded_gzip := MakeZlibCompressedFile(ziparchiveblob,"GZIP",5);
+  TestEq(ziparchiveblob, MakeZlibDecompressedFile(encoded_gzip,"GZIP"));
+
+/*  BLOB encoded_zlib := MakeZlibCompressedFile(ziparchiveblob,"ZLIB",5);
+  TestEq(ziparchiveblob, MakeZlibDecompressedFile(encoded_zlib,"ZLIB"));
+*/
+  BLOB encoded_zlibraw := MakeZlibCompressedFile(ziparchiveblob,"ZLIBRAW",5);
+  BLOB encoded_zlibraw_withjunk := StringToBlob(BlobToString(encoded_zlibraw,-1) || "GARBAGE");
+  TestEq(ziparchiveblob, MakeZlibDecompressedFile(encoded_zlibraw_withjunk,"ZLIBRAW:"||Length(encoded_zlibraw)));
+
+  CloseTest("TestFiles: ArchiveEncodingTest");
+}
+
+MACRO ArchiveEncodingTest()
+{
+  OpenTest("TestFiles: ArchiveEncodingTest");
+
+  {
+    BLOB ziparchiveblob := OpenTestFile("encoded.zip");
+    RECORD ARRAY results := SELECT * FROM UnpackArchive(ziparchiveblob) ORDER BY path, name;
+    TestEqual(1,
+        [ [ path := "", name := "t\u20ACst.txt" ,modtime := MakeDateTime(2009, 5, 29, 16, 06, 48), data := StringToBlob("test") ]
+        ], results);
+  }
+
+  {
+    OBJECT newarchive := CreateNewArchive("zip");
+    newarchive->AddFile("t\u20ACst", StringToBlob("File nummer 1"), MakeDate(2002,1,1));
+
+    BLOB archive := newarchive->MakeBlob();
+    newarchive->Close();
+    RECORD ARRAY results := UnpackArchive(archive,".zip");
+    TestEqual(3, [ [ path := "", name := "t\u20ACst", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ] ]
+              ,results);
+  }
+
+  CloseTest("TestFiles: ArchiveEncodingTest");
+}
+
+
+MACRO RedirectTest()
+{
+  OpenTest("TestFiles: RedirectTest");
+
+  BOOLEAN saved_show_test_progress := show_test_progress;
+  show_test_progress := FALSE;
+
+  TestEqualInteger(1, 0, RedirectOutputTo(0));
+
+  INTEGER testblobstream := CreateStream();
+  PrintTo(testblobstream,"1234567");
+  BLOB testblob := MakeBlobFromStream(testblobstream);
+
+  INTEGER newstr := CreateStream();
+  PrintTo(newstr,"test");
+  RedirectOutputTo(newstr);
+  TestEqualInteger(2, newstr, RedirectOutputTo(newstr));
+  Print("test2");
+  SendBlobTo(0,testblob);
+
+  ?>987654321<?wh //Prints 987654321 through harescript.
+
+  BLOB finalblob := MakeBlobFromStream(newstr);
+
+  RedirectOutputTo(0);
+  TestEqualInteger(3, 0, RedirectOutputTo(0));
+  TestEqualInteger(4, 4 + 5 + 7 + 9, Length(finalblob));
+
+  show_test_progress := saved_show_test_progress;
+
+  RECORD result;
+  result := TestCompileAndRun('<?wh PrintTo(12345,"beeh"); ');
+  MustContainError(999, result.errors, 185, "12345"); //invalid output id
+  result := TestCompileAndRun('<?wh RedirectOutputTo(12345); Print("beeh"); ');
+  MustContainError(999, result.errors, 206, "12345"); //invalid redirected output id
+
+  CloseTest("TestFiles: RedirectTest");
+}
+
+STRING FUNCTION UncachedReadFile(STRING path)
+{
+  INTEGER fileid := OpenDiskFile(path, TRUE);
+  STRING content := ReadFromFile(fileid, 16384);
+  CloseDiskFile(fileid);
+  RETURN content;
+}
+
+MACRO FSTest()
+{
+  OpenTest("TestFIles: FSTest");
+
+  STRING temppath := GenerateTemporaryPathname();
+  INTEGER outfile := CreateDiskFile(temppath, FALSE, TRUE);
+  TestEqualBoolean(1, TRUE, outfile>0);
+  PrintTo(outfile,"abcdef");
+  TestEq(6i64, GetFilelength(outfile));
+  TestEqualBOolean(3, TRUE, CloseDiskFile(outfile));
+
+  BLOB outfileblob := MakeBLobFromDiskFile(temppath);
+  TestEqualInteger(4, 6, Length(outfileblob));
+  TestEqualInteger(5, 6, Length(BLobToString(outfileblob,7)));
+
+  outfile := OpenDiskFile(temppath, TRUE);
+  TestEqualBoolean(6, TRUE, outfile>0);
+  STRING outfilestring := ReadFromFile(outfile, 10);
+  TestEqualInteger(7, 6, Length(outfilestring));
+  SetDiskFileLength(outfile, 0);
+  PrintTo(outfile,"abcdef");
+  TestEq(6i64, GetFilelength(outfile));
+  TestEqualBOolean(9, TRUE, CloseDiskFile(outfile));
+
+  TestEqualBoolean(10, TRUE, DeleteDiskFile(temppath));
+  TestEqualInteger(11, 6, Length(outfileblob));
+
+  STRING tempdir := GenerateTemporaryPathname();
+  CreateDiskDirectory(tempdir, TRUE);
+  BLOB dirblob := MakeBlobFromDiskFile(tempdir);
+  INTEGER dontcrash := OpenBlobAsFile(dirblob);
+  TestEqual(13, TRUE, dontcrash > 0); //ADDME are we sure it must always succeed to open a directory?
+  STRING nodata := ReadFrom(dontcrash,24);
+  TestEqual(15, "", nodata);
+  TestEq(0i64, GetFileLength(dontcrash));
+  CloseBlobFile(dontcrash);
+
+  StoreDiskFile(MergePath(tempdir, "1.txt"), StringToBlob("test 1"), [ inplace := FALSE ]);
+  TestEq("test 1", UncachedReadFile(MergePath(tempdir, "1.txt")));
+
+  StoreDiskFile(MergePath(tempdir, "2.txt"), StringToBlob("test 2"), [ inplace := TRUE ]);
+  TestEq("test 2", UncachedReadFile(MergePath(tempdir, "2.txt")));
+
+  TestThrows(PTR StoreDiskFile(MergePath(tempdir, "2.txt"), StringToBlob("test 3"), [ inplace := FALSE ]));
+  TestThrows(PTR StoreDiskFile(MergePath(tempdir, "2.txt"), StringToBlob("test 3"), [ inplace := TRUE ]));
+  TestEq("test 2", UncachedReadFile(MergePath(tempdir, "2.txt")));
+
+  StoreDiskFile(MergePath(tempdir, "1.txt"), StringToBlob("test 4"), [ overwrite := TRUE, inplace := FALSE ]);
+  TestEq("test 4", UncachedReadFile(MergePath(tempdir, "1.txt")));
+
+  StoreDiskFile(MergePath(tempdir, "1.txt"), StringToBlob("test 5"), [ overwrite := TRUE, inplace := TRUE ]);
+  TestEq("test 5", UncachedReadFile(MergePath(tempdir, "1.txt")));
+
+  StoreDiskFile(MergePath(tempdir, RepeatText("3",240)||".txt"), StringToBlob("test 6"), [ inplace := TRUE ]);
+  TestEq("test 6", UncachedReadFile(MergePath(tempdir, RepeatText("3",240)||".txt")));
+
+  StoreDiskFile(MergePath(tempdir, RepeatText("4",240)||".txt"), StringToBlob("test 7"), [ inplace := FALSE ]);
+  TestEq("test 7", UncachedReadFile(MergePath(tempdir, RepeatText("4",240)||".txt")));
+
+  //FIXME: Also think up a fix for DeleteDiskFile with an open file interaction
+
+  CloseTest("TestFIles: FSTest");
+}
+
+MACRO DetectFiletypeTest()
+{
+  OpenTest("TestFiles: DetectFiletypeTest");
+
+  RECORD detect := DetectFIletype(StringToBlob("GIF89a"),"xxx.gif"); //used to cause a record-does-not-exist
+  TestEq("application/octet-stream", detect.contenttype);
+
+  TestEq("application/octet-stream", ScanBlob(DEFAULT BLOB, "test.txt").mimetype);
+  TestEq("text/html", ScanBlob(STringToBLob(' <!doctype html> ')).mimetype);
+  TestEq("text/html", ScanBlob(STringToBLob('<!DOCTYPE html> <title>x</title>')).mimetype);
+  TestEq("text/html", ScanBlob(DEFAULT BLOB, "test.txt", [ mimetype := "text/html" ]).mimetype);
+
+  BLOB dummygif := StringToBlob(DecodeBase16("47494638396101000100800000ffffffffffff21f90401000000002c00000000010001000002024401003b"));
+  detect := WrapBlob(dummygif, "", [ extractdominantcolor := TRUE]);
+  TestEq("image/gif", detect.mimetype);
+  TestEq("noname.gif", detect.filename);
+  TestEq("transparent", detect.dominantcolor);
+
+  //test robustness against broken canvas
+  detect := WrapBlob(MakeSlicedBlob(dummygif,0,20), "", [ extractdominantcolor := TRUE]);
+  TestEq("", detect.dominantcolor);
+
+  detect := WrapBlob(dummygif,"bladiebla.png");
+  TestEq("image/gif", detect.mimetype);
+  TestEq(".gif", detect.extension);
+  TestEq("bladiebla.png", detect.filename);
+
+  detect := DetectFiletype(dummygif,"bladiebla.png");
+  TestEq("image/gif", detect.contenttype);
+  TestEq("gif", detect.extension);
+
+  detect := WrapBlob(dummygif,"bladiebla.*");
+  TestEq("image/gif", detect.mimetype);
+  TestEq(".gif", detect.extension);
+  TestEq("bladiebla.gif", detect.filename);
+
+  //edge cases
+  TestEq(".gif", WrapBlob(dummygif,".*").filename);
+  TestEq("*.gif", WrapBlob(dummygif,"*.*").filename);
+
+  //unknown extension
+  TestEq("test", WrapBlob(StringToBlob("hoi!"),"test.*").filename);
+
+  //short text files
+  TestEq("text/plain", WrapBlob(StringToBlob("test"),"test.txt").mimetype);
+  TestEq("application/octet-stream", WrapBlob(StringToBlob("test"),"").mimetype);
+
+  RECORD imgl1 := ScanBlob(OpenTestFile("exif/landscape_1.jpg"),"");
+  TestEq(600, imgl1.width);
+  TestEq("image/jpeg", imgl1.mimetype);
+
+  imgl1 := ScanBlob(OpenTestFile("exif/landscape_1.jpg"),"",[mimetype := "text/html"]);
+  TestEq(0, imgl1.width);
+  TestEq("text/html", imgl1.mimetype);
+
+
+  CloseTest("TestFiles: DetectFiletypeTest");
+}
+
+MACRO TestRelativePath()
+{
+  TestEq("c", ResolveToRelativePath("/a/b/", "/a/b/c"));
+  TestEq("../c", ResolveToRelativePath("/a/b/", "/a/c"));
+  TestEq("../../c", ResolveToRelativePath("/a/b/", "/c"));
+  TestEq("../../c/d", ResolveToRelativePath("/a/b/", "/c/d"));
+  TestEq("../d", ResolveToRelativePath("a/b/", "a/d"));
+  TestEq("d", ResolveToRelativePath("a/b", "a/d"));
+  TestEq("../d", ResolveToRelativePath("a/b/c", "a/d"));
+}
+
+MACRO TestModTimes()
+{
+  OpenTest("TestFiles: DetectFiletypeTest");
+
+  STRING tempdir := GenerateTemporaryPathname();
+  CreateDiskDirectoryRecursive(tempdir, TRUE);
+
+  STRING testfilepath := MergePath(tempdir, "file.dat");
+  RECORD props;
+
+  FOR (INTEGER i := 0; i < 10; i := i + 1)
+  {
+    DeleteDiskFile(testfilepath);
+    StoreDiskFile(testfilepath, StringToBlob("file.dat"));
+    props := GetDiskFileProperties(testfilepath);
+    IF ((GetMSecondCount(props.modified) % 1000) > 5)
+      BREAK;
+  }
+
+  IF((GetMsecondCount(props.modified) % 1000) != 0) //your filesystem supports sub-second precision
+  {
+    BLOB blobdata := GetDiskResource(testfilepath);
+    DATETIME blobdatamodtime := GetBlobModTime(blobdata);
+    TestEQ(props.modified, blobdatamodtime);
+
+    RECORD scan := ReadDiskDirectory(tempdir, "file.dat");
+    TestEQ("file.dat", scan.name);
+    TestEQ(props.modified, scan.modified);
+
+    // mseconds must be > 5, so subtracting 3 won't get to 0
+    DATETIME newdate := AddTimeToDate(-3, props.modified);
+    SetFileModificationDate(testfilepath, newdate);
+    RECORD newprops := GetDiskFileProperties(testfilepath);
+    TestEQ(newdate, newprops.modified);
+  }
+
+  DeleteDiskFile(testfilepath);
+  DeleteDiskDirectory(tempdir);
+
+  CloseTest("TestFiles: DetectFiletypeTest");
+}
+
+PRINT("\n === Running TestFiles\n");
+LoopbackReaders();
+CSVTest();
+CSVCreateTest();
+FSTest();
+ArchiveTest();
+BlobManipTest();
+ComposedBlobTest();
+UnpackOleTest();
+MiscTest();
+RedirectTest();
+BufferFilepointertest();
+ZlibTest();
+ArchiveEncodingTest();
+DetectFiletypeTest();
+TestRelativePath();
+TestModTimes();

@@ -1,0 +1,14 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+OBJECT link := ConnectToIPCPort("testoverrideexecutelibrary");
+IF (ObjectExists(link))
+{
+  link->SendMessage([ type := "foundme!" ]);
+  link->Close();
+}
+
+PUBLIC MACRO Test()
+{
+}

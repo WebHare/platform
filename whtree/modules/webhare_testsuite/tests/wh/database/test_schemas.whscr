@@ -1,0 +1,100 @@
+<?wh
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "mod::webhare_testsuite/lib/db/test_funcs.whlib";
+LOADLIB "wh::os.whlib";
+
+INTEGER testsequencenumber := 0;
+INTEGER runonly := 0;
+
+BOOLEAN FUNCTION RunTest(STRING testname)
+{
+  testsequencenumber := testsequencenumber + 1;
+  IF (runonly != 0 AND testsequencenumber != runonly)
+    RETURN false;
+
+  PRINT("Running test " || testsequencenumber || ": " || testname || "\n");
+  RETURN true;
+}
+
+MACRO WaitForIndex(INTEGER transid)
+{
+  SendWHDBCommand(transid,"WAIT INDEX");
+}
+
+INTEGER FUNCTION OpenTestTrans()
+{
+  INTEGER tr := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  __BindWHDBMetaTables(tr);
+  RETURN tr;
+}
+
+MACRO TestCommitSuccess(INTEGER transid)
+{
+  RECORD ARRAY errors := CommitWHDBTransaction(transid);
+  IF(Length(errors)>0)
+  {
+    FOREVERY(RECORD err FROM errors)
+    {
+      PRINT(err.message||"\n");
+    }
+    ABORT("Unexpected commit errors");
+  }
+}
+
+MACRO TestCommitFailure(INTEGER transid)
+{
+  IF(Length(CommitWHDBTransaction(transid))=0)
+    ABORT("Unexpected commit success");
+}
+
+STRING ARRAY args := GetConsoleArguments();
+IF (Length(args)=1)
+  runonly := ToInteger(args[0],-1);
+
+INTEGER test_fp_trans;
+
+// Needed cleanup
+{
+  test_fp_trans := OpenTestTrans();
+  RECORD ARRAY existing := SELECT schema_name FROM information_schema.SCHEMATA WHERE SCHEMA_NAME LIKE "DBTEST_*";
+  FOREVERY (RECORD t FROM existing)
+    SendWHDBCommand(test_fp_trans,"DROP SCHEMA " || t.schema_name);
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Create and drop schema"))
+{
+  test_fp_trans := OpenTestTrans();
+
+  // Create the schema
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA DBTEST_1 AUTHORIZATION _SYSTEM");
+
+  // Create, insert into, select from and drop a table to test schema existance
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE DBTEST_1.TEST_TABLE ( ID INTEGER )");
+  TABLE< INTEGER ID > test_table := BindTransactionToTable(test_fp_trans,"dbtest_1.test_table"); // Case insensitivity test
+  INSERT INTO test_table(id) VALUES (4);
+  IF (NOT RecordArraysEqual((SELECT * FROM test_table), [[id:=4]]))
+    Abort("Schema table insert error");
+  SendWHDBCommand(test_fp_trans,"DROP TABLE dbtest_1.TEST_TABLE");
+
+  IF (LENGTH(SELECT FROM information_schema.tables WHERE TABLE_SCHEMA="DBTEST_1" AND TABLE_NAME="TEST_TABLE") > 0)
+    Abort("Meta-objects record of table not removed");
+
+  // Drop the schema
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+
+  // Create schema with normal user role
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE system.modify_test_role");
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION system.modify_test_role");
+
+  // Try to grant metadata management to public
+  SendWHDBCommand(test_fp_trans,"GRANT system.modify_test_role TO PUBLIC GRANTED BY system.modify_test_role");
+
+  // And drop the schema
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  SendWHDBCommand(test_fp_trans,"DROP ROLE system.modify_test_role");
+  TestCommitSuccess(test_fp_trans);
+}

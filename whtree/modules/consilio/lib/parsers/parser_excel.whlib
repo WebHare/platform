@@ -1,0 +1,31 @@
+<?wh
+/** @private Format parser. (may be replaced with tika at some point) */
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/detect.whlib";
+LOADLIB "wh::parser/excel.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
+
+PUBLIC RECORD FUNCTION ParseExcelFile(BLOB excelblob)
+{
+  INTEGER excelfile := OpenExcelFile(excelblob);
+  IF (excelfile <= 0)
+    RETURN [ success := FALSE, errormsg := "Could not open Excel document" ];
+
+  RECORD parsed_page := CreateParsedPage();
+  parsed_page.type_ext := "xls";
+  parsed_page.follow_links := FALSE;
+
+  // Read document meta data
+  RECORD doc_meta := GetDocumentMetadata(WrapBlob(excelblob,"excel.xls"));
+  parsed_page.title := CleanWhitespace(doc_meta.title);
+  parsed_page.keywords := CleanWhitespace(doc_meta.keywords);
+  parsed_page.description := CleanWhitespace(doc_meta.description);
+
+  parsed_page.text := CleanWhitespace(GetAllExcelLabelText(excelfile));
+
+  //CloseMSWordDocument(worddoc);
+
+  RETURN parsed_page;
+}

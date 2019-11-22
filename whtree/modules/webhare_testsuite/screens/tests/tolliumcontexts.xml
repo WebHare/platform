@@ -1,0 +1,11 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/tests/tolliumcontexts.whlib">
+
+  <screen name="contexttest" >
+    <body>
+    </body>
+  </screen>
+
+</screens>

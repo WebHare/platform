@@ -1,0 +1,628 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+STRING ARRAY subjects := [ "Lorem ipsum dolor sit amet, consectetuer adipiscing elit"
+                         , "Nunc id lorem"
+                         , "Sed at justo"
+                         , "Suspendisse sollicitudin, sem vel placerat aliquet, nisi sapien dictum nisi, nec commodo quam erat eget mi"
+                         , "Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas"
+                         , "Proin ultricies neque at justo"
+                         , "Donec porta sodales urna. Nullam quis leo. Ut rutrum ante a dui. Praesent convallis vehicula lectus. Donec ut eros ac libero fringilla tincidunt. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Sed vitae massa. Pellentesque scelerisque lorem. Sed eros augue, tempus vitae, molestie in, semper quis, erat. Donec interdum neque et lacus imperdiet mattis. Donec et erat. Aenean pede arcu, ultricies a, tincidunt vel, vestibulum ac, nibh. Phasellus sollicitudin ornare urna. Suspendisse quis eros. Curabitur ante lorem, vulputate facilisis, hendrerit sed, fermentum eget, sem. Fusce tempus. Integer vulputate. Duis lorem. Praesent condimentum vehicula massa."
+                         , "Nunc eros quam, fermentum sed, tempus vitae, tempus nec, elit"
+                         , "Nullam blandit fermentum sapien"
+                         , "Sed gravida metus ut neque"
+                         ];
+RECORD ARRAY names := [ [ name := "Brian N. Breault",     email := "kris+breault@example.net" ]
+                      , [ name := "Tamela T. Whildin",    email := "kris+whildin@example.net" ]
+                      , [ name := "Bradley L. Fenderson", email := "kris+fenderson@example.net" ]
+                      , [ name := "Benny L. Lankford",    email := "kris+lankford@example.net" ]
+                      , [ name := "Raymond V. McKinney",  email := "kris+mckinney@example.net" ]
+                      , [ name := "Monica L. Staton",     email := "kris+staton@example.net" ]
+                      , [ name := "Daniel C. Smith",      email := "kris+smith@example.net" ]
+                      , [ name := "Janet A. Fowler",      email := "kris+fowler@example.net" ]
+                      , [ name := "Kenneth J. Castle",    email := "kris+castle@example.net" ]
+                      , [ name := "Kevin L. Barton",      email := "kris+barton@example.net" ]
+                      ];
+
+PUBLIC OBJECTTYPE BaseTest EXTEND TolliumScreenBase
+< INTEGER rowkeycounter;
+  INTEGER staticlistfocusincounter;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    RECORD ARRAY rows :=      [[ textcol := "Row #1|"
+                               , intcol := 1
+                               , expanded := TRUE
+                               , iseven := TRUE
+                               , cbox := FALSE
+                               , expandcol := "Row #1 is expanded"
+                               , collapsed := "Row #1 is collapsed"
+                               , cboxenabled := TRUE
+                               , cboxvisible := TRUE
+                               , highlight := TRUE
+                               , rowkey := 1
+                               , subnodes := [[ textcol := "Row #1.1"
+                                              , intcol := 2
+                                              , expanded := FALSE
+                                              , iseven := FALSE
+                                              , cbox := TRUE
+                                              , cboxenabled := TRUE
+                                              , cboxvisible := TRUE
+                                              , expandcol := "Row #1.1 is ok"
+                                              , collapsed := "should never see this, unexpandable row"
+                                              , highlight := FALSE
+                                              , rowkey := 2
+                                              ]
+                                             ,[ textcol := "Row #1.2"
+                                              , intcol := 3
+                                              , expanded := FALSE
+                                              , iseven := TRUE
+                                              , cbox := TRUE
+                                              , cboxenabled := TRUE
+                                              , cboxvisible := FALSE
+                                              , expandcol := "Row #1.2 doesn't care"
+                                              , collapsed := "Row #1.2 doesn't care"
+                                              , highlight := FALSE
+                                              , rowkey := 3
+                                              ]
+                                             ]
+                               ]
+                              ,[ textcol := "Row #2|"
+                               , intcol := 4
+                               , tolliumselected := TRUE
+                               , expanded := FALSE
+                               , iseven := FALSE
+                               , cbox := TRUE
+                               , cboxenabled := TRUE
+                               , cboxvisible := TRUE
+                               , expandcol := "Row #2 doesn't care"
+                               , collapsed := "Row #2 doesn't care"
+                               , highlight := FALSE
+                               , rowkey := 4
+                               , listrowclasses := ["grayedout"]
+                               , subnodes := [[ textcol := "Row #2.1"
+                                              , intcol := 5
+                                              , expanded := FALSE
+                                              , iseven := TRUE
+                                              , cbox := FALSE
+                                              , cboxenabled := TRUE
+                                              , cboxvisible := TRUE
+                                              , expandcol := "Row #2.1 doesn't care"
+                                              , collapsed := "Row #2.1 doesn't care"
+                                              , highlight := FALSE
+                                              , rowkey := 5
+                                              ]
+                                             ,[ textcol := "Row #2.2"
+                                              , intcol := 6
+                                              , expanded := FALSE
+                                              , iseven := FALSE
+                                              , cbox := FALSE
+                                              , cboxenabled := FALSE
+                                              , cboxvisible := FALSE
+                                              , expandcol := "Row #2.2 is ok"
+                                              , collapsed := "should never see this, unexpandable row"
+                                              , highlight := FALSE
+                                              , rowkey := 6
+                                              ]
+                                             ]
+                               ]
+                              ,[ textcol := "Row #3|"
+                               , intcol := 7
+                               , expanded := FALSE
+                               , iseven := TRUE
+                               , cbox := TRUE
+                               , cboxenabled := FALSE
+                               , cboxvisible := TRUE
+                               , expandcol := "Row #3 is ok"
+                               , collapsed := "should never see this, unexpandable row"
+                               , highlight := FALSE
+                               , rowkey := 7
+                               ]
+                              ,[ textcol := "Row #4|"
+                               , intcol := 8
+                               , expanded := FALSE
+                               , iseven := TRUE
+                               , cbox := FALSE
+                               , cboxenabled := FALSE
+                               , cboxvisible := TRUE
+                               , expandcol := "Row #4 is initially collapsed"
+                               , collapsed := "Row #4 is initially collapsed"
+                               , highlight := FALSE
+                               , rowkey := 8
+                               , subnodes := [[ textcol := "Row #4.1"
+                                              , intcol := 9
+                                              , expanded := FALSE
+                                              , iseven := TRUE
+                                              , cbox := FALSE
+                                              , cboxenabled := TRUE
+                                              , cboxvisible := TRUE
+                                              , expandcol := "Row #4.1 doesn't care"
+                                              , collapsed := "Row #4.1 doesn't care"
+                                              , highlight := FALSE
+                                              , rowkey := 9
+                                              ]
+                                             ]
+                               ]
+                              ];
+
+    // Sort like 2 1 3 -> should be sorted 1 2 3 in interface due to default sort
+    this->staticlist->rows :=
+        SELECT *
+          FROM rows
+      ORDER BY textcol NOT LIKE "*#2|*";
+
+    IF(Length(data.params)>0 AND data.params[0]="jumpnow")
+    {
+      this->DoJumpTest();
+    }
+    ELSE IF(Length(data.params)>0 AND data.params[0]="prepjump")
+    {
+      this->DoPrepJump();
+    }
+  }
+
+  STRING ARRAY FUNCTION DoGetPath(STRING srowkey) //ADDME implement and test
+  {
+    INTEGER rowkey := ToInteger(srowkey, -1);
+    STRING ARRAY path;
+    WHILE (TRUE)
+    {
+      INSERT ToString(rowkey) INTO path AT 0;
+      rowkey := (rowkey - 10) - (rowkey % 10);
+      IF (rowkey <= 0)
+        BREAK;
+    }
+    RETURN path;
+  }
+
+  RECORD ARRAY FUNCTION DoGetChildren(RECORD parent)
+  {
+    this->rowkeycounter := this->rowkeycounter + 10;
+
+    RETURN [
+             [ rowkey     := ToString(this->rowkeycounter)
+             , textcol    := 'haschildren ' || this->rowkeycounter
+             , intcol     := this->rowkeycounter
+             , expanded   := RecordExists(parent)=FALSE //expand first lvl
+             , expandable := TRUE
+             ]
+           , [ rowkey     := ToString(this->rowkeycounter+1)
+             , textcol    := '0 nochildren ' || this->rowkeycounter
+             , intcol     := this->rowkeycounter
+             , expanded   := FALSE
+             , expandable := FALSE
+             ]
+           ];
+
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  MACRO OnStaticListSelect()
+  {
+    this->staticlistselection->value := ToString(this->staticlist->value);
+  }
+  MACRO onstaticlistcheck(RECORD row, STRING cboxname)
+  {
+    this->staticlistchecked->value := "[" || row.rowkey || "," || cboxname || "] " || Detokenize(SELECT AS STRING ARRAY ToString(rowkey) FROM this->staticlist->rows WHERE cbox," ");
+  }
+  MACRO OnDynamicListSelect()
+  {
+    this->dynamiclistselection->value := Detokenize((SELECT AS STRING ARRAY x FROM ToRecordArray(this->dynamiclist->value,"x") ORDER BY x),' ');
+  }
+  MACRO OnStaticListFocusIn()
+  {
+    this->staticlistfocusincounter := this->staticlistfocusincounter + 1;
+    ^staticlistfocusincount->value := ToString(this->staticlistfocusincounter);
+  }
+  MACRO DoSelect9()
+  {
+    this->staticlist->value := 9;
+  }
+  MACRO DoToggleList()
+  {
+    this->staticlist->visible := NOT this->staticlist->visible;
+  }
+  MACRO DoForOdd()
+  {
+
+  }
+  MACRO DoForOdd2()
+  {
+    TestEQ(TRUE, this->dynamiclist->IsFocused(), "Dynamic list should be focused");
+  }
+  MACRO DoForEven()
+  {
+    this->staticlist->value := 2;
+  }
+  MACRO DoForEven2()
+  {
+    TestEQ(TRUE, this->staticlist->IsFocused(), "Static list should be focused");
+    this->DoForEven();
+  }
+  MACRO DoSOmething()
+  {
+    this->staticlist->value := 1;
+  }
+  MACRO DoPrepJump()
+  {
+    RECORD ARRAY rows;
+    FOR(INTEGER i:=1;i<300;i:=i+1)
+      INSERT [ rowkey := i
+             , textcol := "Row #" || Right("00"||i,3)
+             , intcol := 1
+             , expanded := TRUE
+             , iseven := TRUE
+             , cbox := FALSE
+             , cboxvisible := TRUE
+             , cboxenabled := TRUE
+             , subnodes := DEFAULT RECORD ARRAY
+             , expandcol := ""
+             , collapsed := ""
+             , highlight := FALSE
+             ] INTO rows AT END;
+
+    rows :=
+        SELECT *
+          FROM rows
+      ORDER BY rowkey <= 150 ? rowkey : 300 - rowkey;
+
+    this->staticlist->rows := rows;
+  }
+  MACRO DoJumpTest()
+  {
+    this->DoPrepJump();
+    this->staticlist->value := 150;
+  }
+
+  MACRO DoEmptyList()
+  {
+    this->staticlist->rows := DEFAULT RECORD ARRAY;
+  }
+  MACRO DoTruncateList()
+  {
+    this->staticlist->rows := ArraySlice(this->staticlist->rows,0,5);
+  }
+
+  MACRO DoChangeEmptyText()
+  {
+    STRING ARRAY list :=
+        [ ""
+        , "empty 1"
+        , "empty 2\nsecond line"
+        ];
+
+    this->staticlist->empty := list[(SearchElement(list, this->staticlist->empty) + 1) % LENGTH(list)];
+  }
+
+  MACRO DoSortOrdered()
+  {
+    this->staticlist->sortcolumn := "<ordered>";
+  }
+
+  MACRO DoMakeDeepTree()
+  {
+    this->dynamiclist->value := [ "300" ];
+    this->dynamiclist->value := [ "21" ];
+  }
+
+  MACRO DoSwitchSelectMode()
+  {
+    this->staticlist->selectmode := this->staticlist->selectmode = "single" ? "none" : "single";
+    this->staticlist->ExtUpdatedComponent();
+  }
+
+  MACRO DoSwitchFocusIn()
+  {
+    this->staticlist->onfocusin := IsDefaultValue(this->staticlist->onfocusin)
+        ? PTR this->OnStaticListFocusIn
+        : DEFAULT FUNCTION PTR;
+    this->staticlist->ExtUpdatedComponent();
+  }
+>;
+
+PUBLIC OBJECTTYPE ColumnTypes EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->list1->rows :=
+      [ [ style := "bold"
+        , rowicon := 3
+        , rowiconhint := "hover row1cell0"
+        , rowkey := "<R01>"
+        , sorttext := "R1"
+
+        , icon := 0
+        , iconoverlay := 0
+        , iconhint := ""
+        , iconshint := ""
+
+        , icons := [1,2]
+
+        , email := "info@example.net"
+        , emailhint := "mail us!"
+
+        , url := "http://www.webhare.nl"
+        , urlhint := "visit us!"
+
+        , date := DEFAULT DATETIME
+        , time := GetMsecondCount(MakeDatetime(2012,11,10,9,8,7))
+
+        , "datetime" := MakeDatetime(2012,10,11,9,8,7)
+        , datetimehint := "Erg laat!"
+        ]
+      , [ style := "italic"
+        , rowicon := 0
+        , rowiconhint := ""
+        , rowkey := "<D02>"
+        , sorttext := "R2"
+
+        , icon := 1
+        , iconoverlay := 0
+        , iconhint := "No."
+
+        , icons := [1,2]
+        , iconshint := "Allerlei iconen!"
+
+        , email := ""
+        , emailhint := ""
+
+        , url := ""
+        , urlhint := ""
+
+        , date := MakeDatetime(2012,11,10,9,8,7)
+        , time := 0
+        , "datetime" := DEFAULT DATETIME
+        , datetimehint := "Kweenie"
+        ]
+      , [ rowicon := 3
+        , rowiconhint := ""
+        , rowkey := "<A03>"
+        , sorttext := "R3"
+
+        , icon := 2
+        , iconoverlay := 4
+        , iconhint := ""
+
+        , icons := [1,2]
+        , iconshint := ""
+
+        , email := ""
+        , emailhint := ""
+
+        , url := ""
+        , urlhint := ""
+
+        , date := MakeDatetime(2012,10,11,9,8,7)
+        , time := GetMsecondCount(MakeDatetime(2012,11,10,12,53,7))
+        , "datetime" := MakeDatetime(2012,10,11,9,8,7)
+        , datetimehint := "Erg laat!"
+        ]
+      , [ style := "textcolor"
+        , rowicon := 3
+        , rowiconhint := ""
+        , rowkey := "<A04>"
+        , sorttext := "R4"
+
+        , icon := 2
+        , iconoverlay := 4
+        , iconhint := ""
+
+        , icons := [1,2]
+        , iconshint := ""
+
+        , email := ""
+        , emailhint := ""
+
+        , url := ""
+        , urlhint := ""
+
+        , date := MakeDatetime(2012,10,11,9,8,8)
+        , time := GetMsecondCount(MakeDatetime(2012,11,10,12,54,27))
+        , "datetime" := MakeDatetime(2012,10,11,9,18,7)
+        , datetimehint := "Nog veel later!"
+        ]
+      , [ style := "backgroundcolor"
+        , rowicon := 3
+        , rowiconhint := ""
+        , rowkey := "<A05>"
+        , sorttext := "R5"
+
+        , icon := 2
+        , iconoverlay := 4
+        , iconhint := ""
+
+        , icons := [1,2]
+        , iconshint := ""
+
+        , email := ""
+        , emailhint := ""
+
+        , url := ""
+        , urlhint := ""
+
+        , date := MakeDatetime(2012,10,11,9,8,8)
+        , time := GetMsecondCount(MakeDatetime(2012,11,10,12,54,27))
+        , "datetime" := MakeDatetime(2012,10,11,9,18,7)
+        , datetimehint := "Nog veel later!"
+        ]
+      ];
+
+    this->list1->footerrows :=
+        [ [ style := "bold"
+          , rowicon := 3
+          , rowiconhint :=""
+          , rowkey := "<R01>"
+          , icons := [2,3]
+
+          , email := "info@example.net"
+          , emailhint := "email us!"
+
+          , time := GetMsecondCount(MakeDatetime(2012,11,10,9,8,7))
+          , "datetime" := MakeDatetime(2012,10,11,9,8,7)
+          , datetimehint := "Oi!"
+          ]
+        ];
+  }
+  MACRO OnIconClick(RECORD rec, STRING str)
+  {
+    this->feedback->value := "Iconclick: " || rec.rowkey || " " || str;
+  }
+
+>;
+
+PUBLIC OBJECTTYPE MultiRow EXTEND TolliumScreenBase
+< RECORD ARRAY rows;
+
+  MACRO Init(RECORD data)
+  {
+    SeedRandomizer(1);
+
+    FOR (INTEGER i := 0; i < 50; i := i + 1)
+    {
+      RECORD person := names[Random(0, Length(names) - 1)];
+      INSERT [ unread := Random(0, 2) = 2
+             , subject := "SU" || Right("0"||i,2) || " " || subjects[Random(0, Length(subjects) - 1)]
+             , sender := person.name || " <" || person.email || ">"
+             , senddate := MakeDateTime(Random(2007, 2008), Random(1, 12), Random(1, 28), Random(0, 23), Random(0, 59), Random(0, 59))
+             , status := 0
+             , statushint := ""
+             , style := ""
+             , rowkey := i
+             ] INTO this->rows AT END;
+    }
+    this->RefreshRows();
+  }
+
+  MACRO RefreshRows()
+  {
+    UPDATE this->rows SET status := 1, statushint := "", style := "" WHERE NOT unread;
+    UPDATE this->rows SET status := 2, statushint := "Unread", style := "unread" WHERE unread;
+
+    this->normal->rows := this->rows;
+    this->normal->footerrows := [[ status := 0, subject := "footer-subject", sender := "", senddate := MakeDate(2014,6,13), statushint := "" ]
+                                ,[ status := 1, subject := "", sender := "footer-sender", senddate := DEFAULT DATETIME, statushint :="footer-status-hint" ]
+                                ];
+    this->layout->rows := this->rows;
+  }
+
+  MACRO DoMarkRead_Normal()
+  {
+    this->DoMarkRead(this->normal->value);
+  }
+  MACRO DoMarkRead_Layout()
+  {
+    this->DoMarkRead(this->layout->value);
+  }
+
+  MACRO OnDrop(OBJECT source, RECORD droptarget, STRING dropaction, STRING droptype)
+  {
+    this->DoMarkUnread([ INTEGER(droptarget.rowkey) ]);
+  }
+  MACRO OnLayoutChange()
+  {
+    this->layout->rowlayout := this->layoutname->value;
+  }
+
+  MACRO DoMarkRead(INTEGER ARRAY selection)
+  {
+    UPDATE this->rows SET unread := FALSE WHERE rowkey IN selection;
+    this->RefreshRows();
+  }
+
+  MACRO DoMarkUnread(INTEGER ARRAY selection)
+  {
+    UPDATE this->rows SET unread := TRUE WHERE rowkey IN selection;
+    this->RefreshRows();
+  }
+
+  MACRO DoNewIcons()
+  {
+    STRING ARRAY icons := ["abort_error","checked","error","io_error","marker","negative","neutral","not_available","positive","serious_error"];
+    UPDATE this->layout->rows SET status := this->layout->GetIcon("tollium:status/" || icons[Random(0,Length(icons)-1)]);
+  }
+>;
+
+PUBLIC OBJECTTYPE FindAsYouTypeList EXTEND TolliumScreenBase
+< MACRO Init(RECORD data)
+  {
+    RECORD ARRAY rows;
+    FOR (INTEGER i := 0; i < 140; i := i + 1)
+      INSERT [ title := ToString(i), rowid := "<" || i || ">" ] INTO rows AT END;
+
+    this->list->rows := rows;
+  }
+>;
+
+PUBLIC OBJECTTYPE CellEditList EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->leesplankje->rows := [ [ rowkey := "aap",      title := "Aap",      email := "aap@example.org",     checkbox := TRUE, checked := FALSE ]
+                               , [ rowkey := "noot",     title := "Noot",     email := "noot@example.org",    checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "mies",     title := "Mies",     email := "mies@example.org",    checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "wim",      title := "Wim",      email := "wim@example.org",     checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "zus",      title := "Zus",      email := "zus@example.org",     checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "jet",      title := "Jet",      email := "jet@example.org",     checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "teun",     title := "Teun",     email := "teun@example.org",    checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "vuur",     title := "Vuur",     email := "vuur@example.org",    checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "gijs",     title := "Gijs",     email := "gijs@example.org",    checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "lam",      title := "Lam",      email := "lam@example.org",     checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "kees",     title := "Kees",     email := "kees@example.org",    checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "bok",      title := "Bok",      email := "bok@example.org",     checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "wei-de",   title := "Wei-de",   email := "weide@example.org",   checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "does",     title := "Does",     email := "does@example.org",    checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "hok",      title := "Hok",      email := "hok@example.org",     checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "duif",     title := "Duif",     email := "duif@example.org",    checkbox := FALSE, checked := FALSE ]
+                               , [ rowkey := "scha-pen", title := "Scha-pen", email := "schapen@example.org", checkbox := FALSE, checked := FALSE ]
+                               ];
+    ^arrayedit->value := ^leesplankje->rows;
+  }
+
+  MACRO onselectmodechange()
+  {
+    ^leesplankje->selectmode := ^selectmode->value;
+  }
+
+  BOOLEAN FUNCTION OnCellEdit(RECORD row, STRING cellname, STRING newvalue)
+  {
+    IF (cellname != "email")
+      this->leesplankje->UpdateSingleRow(CellUpdate(row, cellname, ToUppercase(Left(newvalue, 1)) || Substring(newvalue, 1)));
+    ELSE
+      this->leesplankje->UpdateSingleRow(CellUpdate(row, cellname, newvalue));
+    RETURN TRUE;
+  }
+
+  MACRO OnRowEdit()
+  {
+    reflect("row edit");
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ResizeTest EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^list->rows := ToRecordArray([ 1, 2, 3, 4, 5, 6 ], "rowkey");
+  }
+
+  MACRO DoSize1()
+  {
+    ^list->height := "5x";
+    ^body->ExtUpdatedComponent();
+  }
+
+  MACRO DoSize2()
+  {
+    ^list->height := "10x";
+    ^body->ExtUpdatedComponent();
+  }
+
+  MACRO DoSize3()
+  {
+    ^list->height := "15x";
+    ^body->ExtUpdatedComponent();
+  }
+
+>;

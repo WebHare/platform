@@ -1,0 +1,223 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         lib="screens/querybuilder.whlib"
+         gid="querybuilder">
+
+  <messageboxes gid=".messages">
+    <messagebox name="toomanyresults" buttons="yes no">
+      <button tolliumresult="only100" tid=".limitresults" />
+    </messagebox>
+    <messagebox name="debugmessage" buttons="ok" />
+    <messagebox name="exception" buttons="close" />
+  </messageboxes>
+
+  <screen name="querybuilder" gid=".querybuilder" allowresize="true" width="1000x" height="800x" menubar="menubar" icon="tollium:database/sql_client" flags="havequery" >
+    <actions>
+      <action name="close" onexecute="cancel" />
+      <action name="runquery" frameflags="havequery" onexecute="dorunquery" />
+      <action name="exportquery" frameflags="havequery" onexecute="doexportquery" />
+      <action name="importquery" onexecute="doimportquery" />
+      <action name="exportresults" frameflags="havequery" onexecute="doexportresults" />
+      <action name="exportresultsasschemaxml" frameflags="havequery" onexecute="doexportresultsasschemaxml" />
+      <action name="edithistorymode" >
+        <enableon source="resultselect" min="1" onexecute="doedithistorymoderesultselect" />
+        <enableon source="query" min="1" checkflags="isnode" onexecute="doedithistorymodequery" />
+      </action>
+      <action name="editfilter" onexecute="doeditfilter">
+        <enableon source="query" min="1" checkflags="isfilter" requirefocus="true" />
+      </action>
+      <action name="editselectnode" onexecute="doeditselectnode">
+        <enableon source="resultselect" min="1" requirefocus="true" />
+      </action>
+      <action name="delete" >
+        <enableon source="resultselect" min="1" onexecute="dodeleteresultselect" />
+        <enableon source="query" min="1" onexecute="dodeletequery" />
+      </action>
+      <action name="editjointype" onexecute="doeditjointype">
+        <enableon source="query" min="1" checkflags="isnode !isrootnode" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="menubar">
+        <item action="runquery" />
+        <item action="exportquery" />
+        <item action="importquery" />
+        <divider />
+        <item action="exportresults" />
+        <item action="exportresultsasschemaxml" />
+        <divider/>
+        <item action="close" />
+      </menu>
+
+      <menu name="nodecontextmenu">
+        <item action="editjointype" disablemode="hidden" />
+        <item action="edithistorymode" disablemode="hidden" />
+        <item action="editfilter" disablemode="hidden" />
+        <item action="editselectnode" disablemode="hidden" />
+        <item action="delete" />
+      </menu>
+    </menus>
+
+    <toolbar>
+      <button action="runquery" icon="tollium:actions/play"/>
+      <button action="exportquery" icon="tollium:actions/export" />
+      <button action="importquery" icon="tollium:actions/import" />
+      <divider />
+      <button action="exportresults" icon="tollium:files/application_vnd_ms-excel" />
+      <button action="exportresultsasschemaxml" icon="tollium:files/text_xml" />
+    </toolbar>
+
+    <body>
+      <split type="vertical">
+        <part height="2pr">
+          <split type="horizontal">
+            <part width="1pr" >
+              <panel height="1pr">
+                <list name="types" selectmode="multiple" borders="top left">
+                  <acceptdrops ondrop="ontypedropnew">
+                    <accepttype type="local:querybuilder.removetype" dropeffects="move" />
+                    <accepttype type="local:querybuilder.removefilter" dropeffects="move" />
+                  </acceptdrops>
+                  <column name="typename" type="text" tree="true" tid=".available" />
+                  <column name="title" type="text" tid="tollium:common.labels.title" />
+                </list>
+              </panel>
+            </part>
+            <part width="3pr">
+              <split type="vertical">
+                <part height="1pr">
+                  <list name="resultselect"
+                        selectmode="single"
+                        selectcontextmenu="nodecontextmenu"
+                        borders="top right"
+                        openaction="editselectnode">
+                    <acceptdrops ondrop="onresultselectdrop2">
+                      <accepttype type="local:querybuilder.type" dropeffects="move" />
+                      <accepttype type="local:querybuilder.column" dropeffects="move" />
+                    </acceptdrops>
+                    <column name="stuff" type="text" width="1pr"/>
+                    <column name="fields"  type="text" width="3pr"/>
+                  </list>
+                </part>
+                <part height="1pr" >
+                  <list name="query"
+                        selectmode="single"
+                        borders="right"
+                        selectcontextmenu="nodecontextmenu"
+                        flags="isnode isfilter isrootnode"
+                        openaction="editfilter" >
+                    <acceptdrops ondrop="onquerydropnew">
+                      <accepttype type="local:querybuilder.type" dropeffects="move" />
+                      <accepttype type="local:querybuilder.column" dropeffects="move" />
+                    </acceptdrops>
+                    <column name="title" type="text" tree="true" tid=".criteria" width="1pr"/>
+                    <column name="descr" type="text" width="3pr"/>
+                  </list>
+                </part>
+              </split>
+            </part>
+          </split>
+        </part>
+        <part height="1pr" spacers="top">
+          <heading tid=".results"/>
+          <list name="results" />
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="editfilter">
+    <compositions>
+      <wrd:entity name="filterentity" />
+    </compositions>
+    <body layout="form">
+      <text name="fieldname" />
+      <select name="filtertype" title="Filter type" type="pulldown">
+        <option rowkey="equal" title="Equal to" />
+        <option rowkey="contains" title="Contains" />
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+
+  </screen>
+
+  <screen name="routechooser" width="500px" height="300px" allowresize="true" savestate="size">
+    <body layout="form">
+      <text name="fieldname" />
+      <list name="resultselect" selectmode="single">
+        <column name="stuff" type="text" title="Stuff"/>
+      </list>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="exportquery" width="500px" height="300px" implementation="none">
+    <body>
+      <textarea name="query" width="1pr" height="1pr" public="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="edithistorymode">
+    <compositions>
+      <radiogroup name="historymode" />
+    </compositions>
+    <body>
+      <panel>
+        <radiobutton title="" labeltid=".rightnow" name="historymode_now" group="historymode" rowkey="now" />
+        <line>
+          <radiobutton title="" labeltid=".specificmoment" name="historymode_at" group="historymode" rowkey="at" enablecomponents="history_at" />
+          <datetime name="history_at" type="datetime" title="" />
+        </line>
+        <line>
+          <radiobutton title="" labeltid=".validbetween" name="historymode_range" group="historymode" rowkey="range" enablecomponents="history_range_start history_range_limit" />
+          <datetime name="history_range_start" type="datetime" title="" />
+          <datetime name="history_range_limit" type="datetime" tid=".and" />
+        </line>
+        <radiobutton title="" labeltid=".allhistory" name="historymode_all" group="historymode" rowkey="all" value="true" />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="editjointype">
+    <compositions>
+      <radiogroup name="jointype" />
+    </compositions>
+    <body>
+      <panel>
+        <radiobutton title="" labeltid=".default" group="jointype" rowkey="default" />
+        <radiobutton title="" labeltid=".right-optional" group="jointype" rowkey="right-optional" />
+        <radiobutton title="" labeltid=".left-optional" group="jointype" rowkey="left-optional" />
+        <radiobutton title="" labeltid=".cross" group="jointype" rowkey="cross" />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="columnselect" width="50x" height="30x" allowresize="true" savestate="size">
+    <body>
+      <panel height="1pr">
+        <list name="columns">
+          <column name="name" checkboxname="selected" type="text" />
+          <column name="tag" type="text" />
+        </list>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

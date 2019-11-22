@@ -1,0 +1,268 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::consilio/lib/internal/checks.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/checks/webserver.whlib";
+LOADLIB "mod::system/lib/internal/devtools/node.whlib";
+
+
+PUBLIC MACRO DeleteOldSnoozes()
+{
+  IF (IsDatabaseReadonly())
+    RETURN;
+
+  OBJECT trans := OpenPrimary();
+  trans->BeginWork();
+
+  OBJECT wrd_type := GetPrimaryWebhareUserAPI()->wrdschema->GetType("WHUSER_SYSTEMMESSAGE_SNOOZES");
+  RECORD ARRAY todelete := wrd_type->RunQuery(
+      [ outputcolumns := [ "WRD_ID" ]
+      , filters := [ [ field := "UNTIL", matchtype := "<", value := AddDaysToDate(-7, GetCurrentDatetime()) ] ]
+      ]);
+
+  FOREVERY (RECORD rec FROM todelete)
+  {
+    wrd_type->GetEntity(rec.wrd_id)->DeleteEntity();
+    LogAuditEvent("system:systemmessages",
+        [ id :=                 rec.wrd_id
+        , type :=               "autodelete"
+        ]);
+
+  }
+
+  trans->CommitWork();
+}
+
+RECORD ARRAY FUNCTION RunDevelopmentChecks()
+{
+  RECORD ARRAY node_issues := CheckNodeModulesInModule(GetWebhareConfiguration().installationroot);
+  FOREVERY (STRING module FROM __SYSTEM_GetInstalledModuleNames())
+  {
+    STRING path := GetModuleInstallationRoot(module);
+    node_issues := node_issues CONCAT CheckNodeModulesInModule(path);
+  }
+
+  RETURN
+      SELECT msg :=   ":" || error || " in " || basepath
+        FROM node_issues;
+}
+
+RECORD ARRAY FUNCTION GetHotFixCheckResult()
+{
+  RECORD ARRAY messages;
+
+  STRING hotfixfile := GetWebHareConfiguration().ephemeralroot || "hotfixstate.json";
+  RECORD data := DecodeJSONBlob(GetDiskResource(hotfixfile, [ allowmissing := TRUE ]));
+  IF (RecordExists(data))
+  {
+    FOREVERY (RECORD module FROM RECORD ARRAY(data.modules))
+    {
+      FOREVERY (STRING msg FROM STRING ARRAY(module.messages))
+        INSERT CELL
+            [ msg
+            , jumpto := [ app := "system:config", module := module.module ]
+            ] INTO messages AT END;
+    }
+  }
+  RETURN messages;
+}
+
+PUBLIC RECORD ARRAY FUNCTION RunChecks()
+{
+  RECORD ARRAY messages;
+
+  OBJECT validationpromise := AsyncCallFunctionFromJob("mod::system/lib/internal/restart_reset.whlib", "ValidateModules");
+  OBJECT deletetaskpromise := AsyncCallFunctionFromJob("mod::system/lib/internal/checks/checker.whlib", "DeleteOldSnoozes");
+
+  IF (IsDatabaseReadonly())
+  {
+    INSERT [ msg := ":The WebHare database is in readonly mode!"
+           ] INTO messages AT END;
+  }
+
+  DATETIME plannedoutage := ReadRegistryKey("system.webserver.global.locking.scheduleddowntime");
+  IF(NOT IsDefaultValue(plannedoutage))
+  {
+    // We have an outage planned; let's see if sysops are supposed to do something:
+    IF(plannedoutage < GetCurrentDatetime())
+    {
+      INSERT [ msg := ":Downtime has been scheduled at " || FormatDateTime("%H:%M:%S", plannedoutage)
+             ] INTO messages AT END;
+    }
+  }
+  IF(ReadRegistryKey("system.webserver.global.locking.sysoponly"))
+  {
+    INSERT [ msg := ":Logins for non-sysops have been closed"
+           ] INTO messages AT END;
+  }
+  IF(ReadRegistryKey("system.services.smtp.mailfrom")="")
+  {
+    INSERT [ msg := ":The email fallback FROM address has not been configured"
+           ] INTO messages AT END;
+  }
+
+  //Unbound IPs (and other config issues?)
+  STRING saved_configpath := MergePath(GetWebHareConfiguration().varroot, "system.cache/webserver-config");
+  IF(RecordExists(GetDiskFileProperties(saved_configpath)))
+  {
+    RECORD config := DecodeHSONBlob(GetDiskResource(saved_configpath));
+    IF(CellExists(config,'version') AND config.version = GetWebhareVersionNumber()) //We may ocassionally deal with the webserver-config information of a previous WebHare version.. so just don't parse it then
+    {
+      FOREVERY(RECORD brokenlistener FROM config.reloadstatus.broken_listeners)
+        INSERT [ msg := `:Webserver cannot bind to ${brokenlistener.ip}:${brokenlistener.port}` ] INTO messages AT END;
+    }
+  }
+
+  //Missing servers
+  RECORD ARRAY missing_webservers := (SELECT hostname := UnpackURL(baseurl).host, lastseen, lastcheckerror FROM system.webservers WHERE lastseen != lastcheck)
+                                     CONCAT
+                                     (SELECT hostname, lastseen, lastcheckerror FROM system.webservers_aliases WHERE lastseen != lastcheck);
+
+  FOREVERY(RECORD missingserver FROM missing_webservers)
+  {
+    INSERT [ msg := ":" || GetWebserverErrorMessage(missingserver.hostname, missingserver.lastseen, missingserver.lastcheckerror)
+           , messagetag := [ type := "system:checker.hostname", hostname := missingserver.hostname ]
+           ] INTO messages AT END;
+  }
+
+  DATETIME task_this_old_should_be_finished := AddTimeToDate(-60*60*1000, GetCurrentDatetime());
+  STRING ARRAY tasksbytype := SELECT AS STRING ARRAY DISTINCT tasktype FROM system.managedtasks WHERE finished = DEFAULT DATETIME AND creationdate < task_this_old_should_be_finished;
+  FOREVERY(STRING task FROM tasksbytype)
+  {
+    IF(task = "system:outgoingmail")
+      INSERT [ msg := ":Mailqueue is stuck"
+             , jumpto := [ app := "system:dashboard", panel := "system:managedtasks" ]
+             ] INTO messages AT END;
+    ELSE
+      INSERT [ msg := `:Task of type '${task}' is stuck`
+             , jumpto := [ app := "system:dashboard", panel := "system:managedtasks" ]
+             ] INTO messages AT END;
+  }
+
+  // Module issues
+  messages := messages CONCAT SELECT msg := `:${resourcename}: ${line}:${col}: Error: ${message}` FROM GetLoadErrors();
+  messages := messages CONCAT SELECT msg := `:${msg}` FROM ToRecordArray(GetModuleDependencyIssues(),'msg');
+
+  //Count recent bounces
+  RECORD ARRAY recentmail := SELECT failed := lasterrors != ""
+                               FROM system.managedtasks
+                              WHERE tasktype = "system:outgoingmail"
+                                    AND NOT iscancelled
+                                    AND finished > AddTimeToDate(-60*60*1000, GetCurrentDatetime());
+  INTEGER numfailed := Length(SELECT FROM recentmail WHERE failed);
+  IF(numfailed >= 3 AND numfailed >= Length(recentmail)/5) // 3 bounces and at least in an hour
+  {
+    INSERT
+        [ msg := ":Mail error rate is " || (numfailed * 100 / Length(recentmail)) || "% over the last hour"
+        , messagetag := [ type := "system:checker.mailerrorrate" ]
+        ] INTO messages AT END;
+  }
+
+  // Tollium registry stuff
+  STRING backendurl := GetPrimaryWebhareInterfaceURL();
+  IF (backendurl = "")
+  {
+    INSERT [ msg := ":Backend WebHare URL unknown"  ] INTO messages AT END;
+  }
+  ELSE IF (TOUppercase(UnpackURL(backendurl).host) IN ["LOCALHOST","127.0.0.1","::1","0.0.0.0","::0"])
+  {
+    INSERT [ msg := ":Backend WebHare URL '" || backendurl || "' is not a remotely reachable interface"  ] INTO messages AT END;
+  }
+
+  //Stuck proxy servers
+  RECORD ARRAY brokenproxies := SELECT url FROM system.proxies WHERE status != "ok" ORDER BY url;
+  FOREVERY(RECORD brokenproxy FROM brokenproxies)
+  {
+    INSERT [ msg := ":No control over proxy " || brokenproxy.url ] INTO messages AT END;
+  }
+
+  //Custom checks (ADDME run them in parallel and in separate jobs)
+  FOREVERY(RECORD check FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "check"))
+  {
+    STRING ARRAY issues;
+    STRING objectname := check.node->GetAttribute("objectname");
+    IF(check.node->HasAttribute("library"))
+      objectname := "module::" || check.module || "/" || check.node->GetAttribute("library") || "#" || objectname;
+    ELSE
+      objectname := MakeAbsoluteResourcePath(check.resource, objectname);
+
+    TRY
+    {
+      OBJECT obj := MakeObject(objectname);
+      IF(NOT obj EXTENDSFROM CustomCheckBase)
+        THROW NEW Exception("The check does not derive from CustomCheckBase");
+
+      messages := messages CONCAT obj->GetIssueList();
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      INSERT [ msg := ":Error running check " || objectname || ": " || e->what ] INTO messages AT END;
+    }
+  }
+  // Stuck tasks
+  RECORD ARRAY stucktasks := SELECT tag := tag ?? script, error, id, script
+                               FROM system_internal.tasks
+                               WHERE enabled
+                                     AND error != "";
+
+  FOREVERY(RECORD stucktask FROM stucktasks)
+  {
+    INSERT [ msg := ":Task '" || stucktask.tag || "' has errors"
+           , jumpto := [ app := "system:dashboard", panel := "system:queues", taskid := stucktask.id ]
+           ]
+           INTO messages AT END;
+  }
+
+  messages := messages CONCAT RunWebserverChecks();
+  messages := messages CONCAT RunConsilioChecks();
+  messages := messages CONCAT GetHotFixCheckResult();
+  messages := messages CONCAT SELECT *, msg := ":" || msg FROM WaitForPromise(validationpromise);
+
+  IF (GetDTAPStage() = "development")
+    messages := messages CONCAT RunDevelopmentChecks();
+
+  WaitForPromise(deletetaskpromise);
+
+  RECORD ARRAY snoozes :=
+      SELECT *
+        FROM GetPrimaryWebhareUserAPI()->wrdschema->GetType("WHUSER_SYSTEMMESSAGE_SNOOZES")->RunQuery(
+              [ outputcolumns :=
+                    [ "MESSAGETAGHASH"
+                    , "WRD_ID"
+                    , "SNOOZER"
+                    , "UNTIL"
+                    , "COMMENT"
+                    ]
+              , filters := [ [ field := "UNTIL", matchtype := ">=", value := GetCurrentDatetime() ]]
+              ])
+    ORDER BY messagetaghash;
+
+  messages :=
+      SELECT TEMPORARY messagetag :=  CellExists(messages, "MESSAGETAG") ? COLUMN messagetag : [ type := "tag-from-text", msg := msg ]
+           , TEMPORARY messagetaghash := EncodeBase16(GetSHA1Hash(EncodeHSON(messagetag)))
+           , TEMPORARY snooze_pos :=  RecordLowerBound(snoozes, [ messagetaghash := messagetaghash ], [ "MESSAGETAGHASH"])
+           , *
+           , snoozed :=         snooze_pos.found
+           , snooze_data :=     snooze_pos.found ? snoozes[snooze_pos.position] : DEFAULT RECORD
+           , messagetag :=      messagetag
+           , messagetaghash :=  messagetaghash
+        FROM messages;
+
+  RETURN messages;
+}

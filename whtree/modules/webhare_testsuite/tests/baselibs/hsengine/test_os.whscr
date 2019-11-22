@@ -1,0 +1,86 @@
+<?wh
+/// @short Internet functions test
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::datetime.whlib";
+
+RECORD ARRAY errors;
+RECORD result;
+
+MACRO WaitForMultipleTest()
+{
+  OpenTest("TestOS: WaitForMultiple");
+
+  DATETIME before_wait := GetCurrentDateTime();
+  INTEGER waiter;
+
+//  Print("Current time: " || FormatDateTime("%d-%m-%Y %H:%M:%S.%Q", before_wait) || "\n");
+
+  waiter := WaitForMultiple(DEFAULT INTEGER ARRAY, DEFAULT INTEGER ARRAY, 1000);
+  DATETIME after_wait := GetCurrentDateTime();
+  DATETIME expect_min := AddTimeToDate(750, before_wait); // windows measures in 10ms quantums
+
+//  Print("After time: " || FormatDateTime("%d-%m-%Y %H:%M:%S.%Q", after_wait) || "\n");
+
+  TestEqualInteger(1, -1, waiter);
+  TestEqualBoolean(2, true, after_wait > expect_min);
+
+  waiter := WaitForMultiple(DEFAULT INTEGER ARRAY, DEFAULT INTEGER ARRAY, 0);
+  TestEqualInteger(3, -1, waiter);
+
+  CloseTest("TestOS: WaitForMultiple");
+}
+
+MACRO ProcessTest()
+{
+  STRING executable := GetEnvironmentVariable("WEBHARE_HS_TEST_EXECUTABLE");
+  STRING ARRAY extraparams;
+
+  IF(executable="")
+  {
+    STRING whroot := GetEnvironmentVariable("WEBHARE_DIR") ?? GetEnvironmentVariable("WHTREE");
+    IF(whroot != "")
+    {
+      executable := MergePath(whroot, "bin/wh");
+      extraparams := ["run"];
+    }
+  }
+  ELSE
+  {
+    STRING config := GetEnvironmentVariable("WEBHARE_HS_TEST_CONFIG");
+    IF (config = "")
+      THROW NEW Exception("WEBHARE_HS_TEST_CONFIG must be set for this test, and point to the hsrun configuration");
+    extraparams := ["--config",config];
+  }
+  IF (executable = "")
+    THROW NEW Exception("WEBHARE_HS_TEST_EXECUTABLE must be set for this test, and point to the hsrun executable");
+
+  OBJECT process := CreateProcess(executable, extraparams CONCAT [ "test::testdata_os_a.whscr", "0", "1", "2" ], TRUE, TRUE, TRUE, FALSE);
+  process->Start();
+  WaitUntil([ read := process->output_handle ], AddTimeToDate(200, GetCurrentDateTime()));
+  TestEq("Args:0,1,2\n", ReadLineFrom(process->output_handle, 4096, FALSE));
+  PrintTo(process->input_handle, "Test\n");
+  WaitUntil([ read := process->output_handle ], AddTimeToDate(200, GetCurrentDateTime()));
+  TestEq("Reflect:Test\n", ReadLineFrom(process->output_handle, 4096, FALSE));
+  PrintTo(process->input_handle, "Error\n");
+  STRING line;
+  WHILE (TRUE)
+  {
+    WaitUntil([ read := process->errors_handle ], AddTimeToDate(200, GetCurrentDateTime()));
+    line := ReadLineFrom(process->errors_handle, 4096, FALSE);
+    IF (line NOT LIKE "[*") // Debug output
+      BREAK;
+  }
+  TestEq("ReflectError:Error\n", line);
+  process->SendInterrupt();
+  WaitUntil([ read := process->output_handle ], AddTimeToDate(200, GetCurrentDateTime()));
+  TestEq("Interrupt\n", ReadLineFrom(process->output_handle, 4096, FALSE));
+  process->Terminate();
+  process->Close();
+}
+
+PRINT("\n === Running TestOS\n");
+WaitForMultipleTest();
+ProcessTest();

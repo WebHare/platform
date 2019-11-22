@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile
+   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+   xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+
+  <!--
+  Webtools consists of:
+
+  - Poll
+    - database definition
+    - file/widget type (serving both as holder/editor for poll data and as widget to preview/publish in RTD's)
+    - embeddededitor for the poll file type
+    - Webhare API
+    - RPC
+    - JS API (promise based)
+   -->
+
+
+  <!--
+    Poll file
+
+    These shared the same rendercode:
+    - "http://www.webhare.net/xmlns/publisher/pollwebtool"
+    - "http://www.webhare.net/xmlns/publisher/pollwidget"
+  -->
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/pollwebtool"
+              tolliumicon="tollium:messageboxes/question"
+              tid="filetypes.webtool-poll"
+              renderlibrary="mod::publisher/lib/webtools/internal/renderpoll.whlib"
+              renderobjectname="PollWidget"
+              wittycomponent="mod::publisher/lib/webtools/internal/renderpoll.witty:renderpoll"
+              >
+    <members>
+      <member name="allowvotestill" type="datetime" /><!-- ADDME: implement this option -->
+
+      <!--
+           ADDME: (when a customer pays for this) option to specify when results become available
+
+           DEFAULT DATETIME - always
+           ...              - from the specified date
+                            - after the poll closes
+           MAX DATETIME     - never
+
+      <member name="shoresults"     type="datetime" />
+      -->
+
+      <member name="ismultiplechoice"    type="boolean" />
+      <member name="question"            type="richdocument" />
+      <member name="messageaftervoting"  type="richdocument" />
+
+      <member name="title"               type="string" />
+
+      <member name="options" type="array">
+        <member name="guid"  type="string" /><!-- GUID used for referencing the option -->
+        <member name="title" type="string" />
+
+        <!-- to make options (for which there already are votes) or to prepare an option to become available later) -->
+        <member name="hide"  type="boolean" />
+
+        <!-- member name="intlink" type="whfsref" --><!-- whfsobject, for other poll option editors to do magic things (experimental for now) -->
+      </member>
+    </members>
+  </widgettype>
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/pollwebtool" />
+
+    <setobjecteditor screen=".editpoll" />
+
+    <!-- allow voting again after a day (7 * 1440 minutes) -->
+    <pollsettings allowvotingagainafter="10080" />
+  </apply>
+
+  <!-- ADDME: celledit on the poll might be very nice.
+              However in that case we might also want a 'lock' mechanism against accidental edits since 'click-to-edit' is less explicit than
+              selection+click an edit button+'ok'.
+  -->
+
+  <screen name="editpoll"
+          xmlns="http://www.webhare.net/xmlns/tollium/screens"
+          lib="mod::publisher/lib/screens/objectprops/webtools-poll.whlib"
+          width="85x"
+         >
+    <compositions>
+      <p:whfsinstance name="fsobject" typedef="http://www.webhare.net/xmlns/publisher/pollwebtool" />
+    </compositions>
+    <body gid="webtools.editpoll" spacers="none">
+
+      <!-- datetime at which voting becomes impossible
+      <t:datetime cellname="allowvotestill" composition="contentdata" type="datetime" />
+      -->
+
+      <tabs height="1pr">
+        <tab tid=".tab_question">
+          <heading tid=".header_question" />
+
+          <textedit cellname="title" composition="fsobject" />
+
+          <richdocument cellname="question" composition="fsobject" />
+
+          <panel spacers="top bottom">
+            <heading tid=".header_options" />
+
+            <line layout="left">
+              <checkbox cellname="ismultiplechoice" composition="fsobject"
+                        title="" labeltid=".ismultiplechoice"
+                        />
+            </line>
+
+            <arrayedit name="options"
+                       cellname="options"
+                       composition="fsobject"
+                       orderable="true"
+                       onmaprows="onmapoptionrows"
+                       onrowdelete="onrowdelete"
+                       roweditscreen=".editpolloption"
+                       minheight="14x"
+                       height="1pr"
+                       >
+              <column name="title" type="text"    width="1pr" />
+              <column name="votes" type="integer" width="9x" align="right" />
+
+              <style name="hidden" textcolor="#888888" />
+            </arrayedit>
+
+            <text name="totalvoters" title="" />
+          </panel>
+        </tab>
+        <tab tid=".tab_aftervoting">
+          <heading tid=".header_thanks" />
+
+          <richdocument cellname="messageaftervoting" composition="fsobject" />
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="editpolloption"
+          xmlns="http://www.webhare.net/xmlns/tollium/screens"
+          gid="webtools.editpolloption" tid=".frametitle_option"
+          implementation="lib"
+          lib="mod::publisher/lib/screens/objectprops/webtools-poll.whlib"
+          >
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <line layout="left">
+        <checkbox composition="row" cellname="hide"
+                  title="" labeltid=".hide"
+                  />
+      </line>
+      <textarea composition="row" cellname="title" width="40x" height="2x" />
+      <textedit composition="row" cellname="guid" visible="false" readonly="true" title="GUID"/>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+
+  <!--
+    Form file
+  -->
+  <grouptype namespace="http://www.webhare.net/xmlns/publisher/mailwidgets" tid="siteprofile.widgets.mail" />
+
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/formmergefield" embedtype="inline"
+              tid="webtools.mergefield.widgettitle"
+              ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
+              renderobjectname="mod::publisher/lib/internal/forms/mergefield.whlib#MergeFieldWidget"
+              editfragment="#editmergefield"
+              requiremergefieldscontext="true">
+    <members>
+      <member name="fieldname" type="string" />
+    </members>
+  </widgettype>
+
+  <fragment name="editmergefield" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="lib" library="mod::publisher/lib/internal/forms/mergefield.whlib">
+    <contents gid="webtools.mergefield">
+      <select composition="fsinstance" cellname="fieldname" name="fieldname" type="pulldown" required="true" />
+    </contents>
+  </fragment>
+
+  <!-- This embedded object embeds the form results within the mail. We're not exposing it to all users for now, so the
+       form's mailrtdtype should explicity allow this widgettype to use it. -->
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/formresultsfield"
+              tid="webtools.resultsfield.widgettitle"
+              ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
+              renderobjectname="mod::publisher/lib/internal/forms/resultsfield.whlib#ResultsFieldWidget"
+              requiremergefieldscontext="true">
+    <members>
+    </members>
+  </widgettype>
+
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/formconfirmfield" embedtype="inline"
+              tid="webtools.confirmfield.widgettitle"
+              ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
+              renderobjectname="mod::publisher/lib/internal/forms/confirmfield.whlib#ConfirmFieldWidget"
+              editfragment="#editconfirmfield"
+              requiremergefieldscontext="true">
+    <members>
+      <member name="linktext" type="string" />
+    </members>
+  </widgettype>
+
+  <fragment name="editconfirmfield" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="lib" library="mod::publisher/lib/internal/forms/confirmfield.whlib">
+    <contents gid="webtools.confirmfield">
+      <textedit composition="fsinstance" cellname="linktext" placeholdertid=".placeholder" width="1pr" />
+    </contents>
+  </fragment>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/formwebtool">
+    <member name="disablecaptcha" type="boolean" />
+    <!-- Because the default value is 0 and the default should be "use the server default retention period", the value -1 (or
+         any value < 0) is used to signify 0 days (don't store at all) -->
+    <member name="storeresults" type="integer" />
+    <member name="data" type="formdefinition" />
+    <member name="unavailable" type="boolean" />
+    <member name="unavailabletext" type="richdocument" />
+    <member name="fixformoptions" type="record" /> <!-- archived original remapping in case we ever need it. at some point we can drop this member -->
+  </contenttype>
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/formwebtool"
+      tid="filetypes.webtool-form"
+      tolliumicon="tollium:files/application_x-webhare-survey"
+      blobiscontent="false"
+      needstemplate="true"
+      needsprofile="false"
+      ispublishable="true"
+      requirescontent="false"
+      isacceptableindex="true"
+      ispublishedassubdir="true">
+    <dynamicexecution webpageobjectname="mod::publisher/lib/forms/base.whlib#WebtoolFormPage" />
+  </filetype>
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/formwebtool" />
+    <setobjecteditor name="publisher:webtoolform" separateapp="true" supportsversioning="true" />
+  </apply>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/formcondition">
+    <member name="data" type="formcondition" />
+    <member name="fixformoptions" type="record" /> <!-- archived original condition in case we ever need it. at some point we can drop this member -->
+  </contenttype>
+
+  <!-- form as widget
+
+       we can't set the standard form as a widget, because we can't control
+       the widget preview then
+   -->
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/formwidget"
+              renderobjectname="mod::publisher/lib/widgets/formwidget.whlib#FormWidgetBase"
+              tid="siteprofile.widgets.formwidget">
+  </widgettype>
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/formwidget" />
+    <setobjecteditor name="publisher:webtoolform" separateapp="true" />
+  </apply>
+
+
+  <!-- The default type that is used for editing rtd fields -->
+  <rtdtype namespace="http://www.webhare.net/xmlns/publisher/rtdfielddefaulttype">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="NORMAL" containertag="p" textstyles="b i u a-href" />
+    </blockstyles>
+  </rtdtype>
+
+</siteprofile>

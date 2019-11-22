@@ -1,0 +1,71 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/remoting/client.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+PUBLIC STRING ARRAY FUNCTION GetCertifiableHostnames()
+{
+  STRING ARRAY allhostnames;
+  FOREVERY(RECORD host FROM DownloadWebserverConfig().hosts)
+    allhostnames := allhostnames CONCAT host.listenhosts;
+  RETURN allhostnames;
+}
+
+PUBLIC RECORD FUNCTION RequestCertbotCertificate(STRING ARRAY hostnames, BOOLEAN staging)
+{
+  //Make sure all these hostnames exist locally
+  STRING ARRAY allhostnames := GetCertifiableHostnames();
+
+  FOREVERY(STRING name FROM hostnames)
+  {
+    IF(Left(name,2) != "*." AND ToUppercase(name) NOT IN allhostnames)
+      RETURN [ success := FALSE, error := "hostnotlocal", errordata := name ];
+  }
+
+  STRING filename := Substitute("certbot-" || hostnames[0], '*', '_wildcard');
+  OBJECT keypair := OpenKeyPairByName(filename);
+  IF(NOT ObjectExists(keypair))
+  {
+    //Create a key
+    OBJECT evpkey := GenerateCryptoKey("RSA", 2048);
+
+    GetPrimary()->BeginWork();
+    keypair := CreateKeyPair(filename, StringToBlob(evpkey->privatekey), [ description := Left("originally for: " || Detokenize(hostnames,','),4096) ]);
+    GetPrimary()->CommitWork();
+  }
+
+  BLOB csr := keypair->GenerateCSR([ c := "NL", st := "OV", l := "Enschede", o := "WebHare bv", cn := hostnames[0], dnsaltnames := hostnames ]);
+  STRING servicebase := "https://cms1.webhare.com/wh_services/webhare_services/certbot/";
+  RECORD token := [ now := GetCurrentDatetime(), type := "system:certbot", uuid := GenerateWebserverUUID() ];
+  RECORD es := InvokeRemoteFunction(servicebase || "CreateCertificate2", csr, staging, EncryptForThisServer("system:certbot", token));
+  IF(NOT es.success)
+    RETURN [ success := false, error := "remoteerror", errordata := es.output ];
+
+  BLOB certificatefile := StringToBlob(es.fullchain);
+  IF(NOT staging)
+  {
+    RECORD res := keypair->TestCertificate(certificatefile);
+    IF(NOT res.success)
+      RETURN [ success := false, error := "certificateerror", errordata := res.message, certificatefile := certificatefile ];
+  }
+
+  GetPrimary()->BeginWork();
+  keypair->UpdateMetadata( [ certificatechain := certificatefile
+                           , certbotoutput := StringToBlob(es.output)
+                           ]);
+  GetPrimary()->CommitWork();
+
+  // Reload the webserver config
+  Print("Reloading configuration...\n");
+  ReloadWebhareConfig(TRUE, FALSE);
+  RETURN [ success := TRUE ];
+}
+

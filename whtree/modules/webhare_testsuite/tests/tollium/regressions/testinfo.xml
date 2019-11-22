@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <jstest file="test_tab_enableoncrash.es"/>
+  <jstest file="test_fragment_visibility.es"/>
+</group>

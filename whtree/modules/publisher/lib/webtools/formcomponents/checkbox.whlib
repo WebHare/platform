@@ -1,0 +1,114 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+PUBLIC OBJECTTYPE FormCheckBox EXTEND FormComponentExtensionBase
+<
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    this->owner->GetDefaultField("required")->label := GetTid("publisher:formcomponents.checkbox.requiredlabel");
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    OBJECT titlefield := this->owner->GetDefaultField("title");
+    OBJECT labelfield := this->owner->GetDefaultField("label");
+    OBJECT hidetitlefield := this->owner->GetDefaultField("hidetitle");
+
+    IF (NOT this->existing)
+      hidetitlefield->value := TRUE;
+
+    // If either title or label is empty, fill it with label resp. title
+    IF (titlefield->value != "" AND labelfield->value = "")
+      labelfield->value := titlefield->value;
+    ELSE IF (titlefield->value = "" AND labelfield->value != "")
+      titlefield->value := labelfield->value;
+
+    // The 'hide title' field is only visible if set to FALSE (the default value is TRUE)
+    hidetitlefield->visible := NOT hidetitlefield->value;
+
+    // If title and label are equal and hide title is TRUE, hide the title field
+    IF (titlefield->value = labelfield->value AND hidetitlefield->value)
+    {
+      titlefield->visible := FALSE;
+      titlefield->required := FALSE;
+      labelfield->required := TRUE;
+    }
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+    {
+      OBJECT titlefield := this->owner->GetDefaultField("title");
+      OBJECT labelfield := this->owner->GetDefaultField("label");
+      // If the title isn't visible, set it to the label
+      IF (NOT titlefield->visible)
+        titlefield->value := labelfield->value;
+    }
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormCheckbox(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  IF(node->HasAttribute("value"))
+    INSERT CELL value := ParseXSBoolean(node->GetAttribute("value")) INTO fielddef;
+  INSERT CELL label := parsecontext.parsexmltidptr(node, "label") INTO fielddef;
+  RETURN fielddef;
+}
+
+PUBLIC OBJECTTYPE CheckBoxField EXTEND FormFieldBase
+<
+  STRING pvt_htmllabel;
+
+  PUBLIC BOOLEAN value;
+
+  /// Label for this checkbox
+  PUBLIC PROPERTY label(Getlabel, Setlabel);
+
+  /// HTML Label for this checkbox - if set, overrides label
+  PUBLIC PROPERTY htmllabel(this->pvt_htmllabel, this->pvt_htmllabel);
+
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+    this->pvt_htmllabel := CellExists(field,'label') ? GetHTMLTid(field.label) : "";
+    this->value := CellExists(field,'value') AND field.value;
+  }
+
+  STRING FUNCTION GetLabel()
+  {
+    RETURN DecodeHTML(this->pvt_htmllabel);
+  }
+  MACRO SetLabel(STRING label)
+  {
+    this->pvt_htmllabel := EncodeHTML(label);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RETURN CELL[ ...this->GetBaseRenderData()
+               , selected := this->value
+               , value := "1"
+               , htmllabel := this->pvt_htmllabel
+               , type := "checkbox"
+               ];
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN this->value;
+  }
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    this->value:=Length(jsdata)>0;
+  }
+>;

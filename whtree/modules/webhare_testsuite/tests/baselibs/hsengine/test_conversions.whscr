@@ -1,0 +1,201 @@
+<?wh
+/// @short Type conversions tests
+
+LOADLIB "wh::internal/hsselftests.whlib";
+RECORD ARRAY errors;
+RECORD result;
+
+// The INTEGER value 35 expressed in all of the supported radices(?)
+// v[n] produces the n based equivalent of '35'.
+STRING ARRAY v;
+INSERT "" INTO v AT END;
+INSERT "" INTO v AT END;
+INSERT "100011" INTO v AT END;
+INSERT "1022" INTO v AT END;
+INSERT "203" INTO v AT END;
+INSERT "120" INTO v AT END;
+INSERT "55" INTO v AT END;
+INSERT "50" INTO v AT END;
+INSERT "43" INTO v AT END;
+INSERT "38" INTO v AT END;
+INSERT "35" INTO v AT END;
+INSERT "32" INTO v AT END;
+INSERT "2B" INTO v AT END;
+INSERT "29" INTO v AT END;
+INSERT "27" INTO v AT END;
+INSERT "25" INTO v AT END;
+INSERT "23" INTO v AT END;
+INSERT "21" INTO v AT END;
+INSERT "1H" INTO v AT END;
+INSERT "1G" INTO v AT END;
+INSERT "1F" INTO v AT END;
+INSERT "1E" INTO v AT END;
+INSERT "1D" INTO v AT END;
+INSERT "1C" INTO v AT END;
+INSERT "1B" INTO v AT END;
+INSERT "1A" INTO v AT END;
+INSERT "19" INTO v AT END;
+INSERT "18" INTO v AT END;
+INSERT "17" INTO v AT END;
+INSERT "16" INTO v AT END;
+INSERT "15" INTO v AT END;
+INSERT "14" INTO v AT END;
+INSERT "13" INTO v AT END;
+INSERT "12" INTO v AT END;
+INSERT "11" INTO v AT END;
+INSERT "10" INTO v AT END;
+INSERT "Z" INTO v AT END;
+
+// The testnumbers (2-36 (Tointeger, Tostring) or 2-73 % 37 (Equality)) refer to
+// the current tested radix.
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// When an error should be reported, the output is undefined.
+
+// STRING and PRINT() are assumed to be implemented,
+// i.e. PRINT(t) should output the value of STRING t.
+
+/*** Tointeger [30] ***/
+MACRO TointegerTest()
+{
+  OpenTest("TestConversions: TointegerTest");
+
+  FOR (INTEGER i := 2; i <= 36; i := i + 1)
+    TestEqualInteger(i, 35, Tointeger(v[i], -1, i));
+
+  TestEqualInteger(37, 35, Tointeger("35", -1));
+
+  TestEqualInteger(38, -1, Tointeger("2", -1, 2));
+  TestEqualInteger(39, -1, Tointeger(" ", -1, 3));
+  TestEqualInteger(40, -1, Tointeger("!", -1, 4));
+  TestEqualInteger(41, -1, Tointeger("@", -1, 5));
+  TestEqualInteger(42, -1, Tointeger("#", -1, 6));
+  TestEqualInteger(43, -1, Tointeger("$", -1, 7));
+  TestEqualInteger(44, -1, Tointeger("%", -1, 8));
+  TestEqualInteger(45, -1, Tointeger("^", -1, 9));
+  TestEqualInteger(46, -1, Tointeger("&", -1, 10));
+  TestEqualInteger(47, -1, Tointeger("*", -1, 11));
+  TestEqualInteger(48, -1, Tointeger("(", -1, 12));
+  TestEqualInteger(49, -1, Tointeger(")", -1, 13));
+  TestEqualInteger(50, -1, Tointeger("-", -1, 14));
+  TestEqualInteger(51, -1, Tointeger("_", -1, 15));
+  TestEqualInteger(52, -1, Tointeger("=", -1, 16));
+  TestEqualInteger(53, -1, Tointeger("+", -1, 17));
+  TestEqualInteger(54, -1, Tointeger(".", -1, 18));
+  TestEqualInteger(55, -1, Tointeger(",", -1, 19));
+
+  result := TestCompileAndRun('<?wh PRINT (""||Tointeger("1", -1, 1)); ?>');
+  MustContainError(56, result.errors, 126, '2', '36');
+
+  result := TestCompileAndRun('<?wh PRINT (""||Tointeger("1", -1, 37)); ?>');
+  MustContainError(57, result.errors, 126, '2', '36');
+
+  errors := TestCompile('<?wh PRINT (""||Tointeger(1, "a", TRUE)); ?>');
+  MustContainError(58, errors, 62, 'INTEGER', 'STRING');
+  MustContainError(59, errors, 62, 'STRING', 'INTEGER');
+  MustContainError(60, errors, 62, 'BOOLEAN', 'INTEGER');
+
+  CloseTest("TestConversions: TointegerTest");
+}
+
+/*** Tointeger64 [30] ***/
+MACRO Tointeger64Test()
+{
+  OpenTest("TestConversions: Tointeger64Test");
+
+  TestEqual(1, 9223372036854775807i64, Tointeger64("9223372036854775807", -1));
+  TestEqual(2, -9223372036854775808i64, Tointeger64("-9223372036854775808", -1));
+
+  FOR (INTEGER i := 2; i <= 36; i := i + 1)
+    TestEqual(i + 10, 35i64, Tointeger64(v[i], -1, i));
+
+  TestEqual(100, 35i64, Tointeger64("35", -1));
+
+  TestEqual(101, -1i64, Tointeger64("2", -1, 2));
+  TestEqual(102, -1i64, Tointeger64(" ", -1, 3));
+  TestEqual(103, -1i64, Tointeger64("!", -1, 4));
+  TestEqual(104, -1i64, Tointeger64("@", -1, 5));
+  TestEqual(105, -1i64, Tointeger64("#", -1, 6));
+  TestEqual(106, -1i64, Tointeger64("$", -1, 7));
+  TestEqual(107, -1i64, Tointeger64("%", -1, 8));
+  TestEqual(108, -1i64, Tointeger64("^", -1, 9));
+  TestEqual(109, -1i64, Tointeger64("&", -1, 10));
+  TestEqual(110, -1i64, Tointeger64("*", -1, 11));
+  TestEqual(111, -1i64, Tointeger64("(", -1, 12));
+  TestEqual(112, -1i64, Tointeger64(")", -1, 13));
+  TestEqual(113, -1i64, Tointeger64("-", -1, 14));
+  TestEqual(114, -1i64, Tointeger64("_", -1, 15));
+  TestEqual(115, -1i64, Tointeger64("=", -1, 16));
+  TestEqual(116, -1i64, Tointeger64("+", -1, 17));
+  TestEqual(117, -1i64, Tointeger64(".", -1, 18));
+  TestEqual(118, -1i64, Tointeger64(",", -1, 19));
+
+  result := TestCompileAndRun('<?wh PRINT (""||Tointeger64("1", -1, 1)); ?>');
+  MustContainError(120, result.errors, 126, '2', '36');
+
+  result := TestCompileAndRun('<?wh PRINT (""||Tointeger64("1", -1, 37)); ?>');
+  MustContainError(121, result.errors, 126, '2', '36');
+
+  errors := TestCompile('<?wh PRINT (""||Tointeger64(1, "a", TRUE)); ?>');
+  MustContainError(122, errors, 62, 'INTEGER', 'STRING');
+  MustContainError(123, errors, 62, 'STRING', 'INTEGER64');
+  MustContainError(124, errors, 62, 'BOOLEAN', 'INTEGER');
+
+  CloseTest("TestConversions: Tointeger64Test");
+}
+
+/*** Tostring [30] **/
+MACRO TostringTest()
+{
+  OpenTest("TestConversions: TostringTest");
+
+  FOR (INTEGER i := 2; i <= 36; i := i + 1)
+    TestEqualString(i, v[i], Tostring(35, i));
+
+  TestEqualString(37, "35", Tostring(35));
+
+  result := TestCompileAndRun('<?wh Print(Tostring(1, 1)); ?>');
+  MustContainError(38, result.errors, 126, '2', '36');
+
+  result := TestCompileAndRun('<?wh Print(Tostring(1, 37)); ?>');
+  MustContainError(39, result.errors, 126, '2', '36');
+
+  errors := TestCompile('<?wh Print(Tostring(2147483648, 2)); ?>');
+  MustContainError(40, errors, 62, "MONEY", "INTEGER64");
+
+  errors := TestCompile('<?wh Print(Tostring("a", TRUE)); ?>');
+  MustContainError(41, errors, 62, 'STRING', 'INTEGER64');
+  MustContainError(42, errors, 62, 'BOOLEAN', 'INTEGER');
+
+  TestEqualString(50, "2147483647", Tostring(2147483647));
+  TestEqualString(51, "-2147483648", Tostring(-2147483648));
+  TestEqualString(52, "9223372036854775807", Tostring(9223372036854775807i64));
+  TestEqualString(53, "-9223372036854775808", Tostring(-9223372036854775808i64));
+
+  CloseTest("TestConversions: TostringTest");
+}
+
+/*** Equality ***/
+// Oftewel: Hoe heet ook alweer het feit dat twee functies die elkaars inverse
+// zijn achter elkaar uitgevoerd het oorspronkelijke argument opleveren? Want
+// dat test deze test namelijk.
+MACRO EqualityTest()
+{
+  OpenTest("TestConversions: EqualityTest");
+
+  FOR (INTEGER i := 2; i <= 36; i := i + 1)
+    TestEqualInteger(i, 35, Tointeger(Tostring(35, i), -1, i));
+
+  FOR (INTEGER i := 2; i <= 36; i := i + 1)
+    TestEqualString(i+37, "100011", Tostring(Tointeger("100011", -1, i), i));
+
+  CloseTest("TestConversions: EqualityTest");
+}
+
+PRINT("\n === Running TestConversions\n");
+TointegerTest();
+Tointeger64Test();
+TostringTest();
+EqualityTest();

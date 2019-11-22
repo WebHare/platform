@@ -1,0 +1,1762 @@
+﻿<?wh
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "mod::webhare_testsuite/lib/db/test_funcs.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/clustering2.whlib";
+
+TABLE <INTEGER id, INTEGER refc> beta_table1;
+TABLE <INTEGER id, INTEGER refc> beta_table2;
+TABLE <INTEGER id, INTEGER refc> beta_table3;
+TABLE <INTEGER id, INTEGER refa, INTEGER refb> beta_table4;
+INTEGER testsequencenumber := 0;
+INTEGER runonly := 0;
+
+SetOutputBuffering(FALSE);
+
+BOOLEAN FUNCTION RunTest(STRING testname)
+{
+  testsequencenumber := testsequencenumber + 1;
+  IF (runonly != 0 AND testsequencenumber != runonly)
+    RETURN false;
+
+  PRINT("Running test " || testsequencenumber || ": " || testname || "\n");
+  RETURN true;
+}
+
+MACRO WaitForIndex(INTEGER transid)
+{
+  SendWHDBCommand(transid,"WAIT INDEX");
+}
+
+INTEGER FUNCTION OpenTestTrans(STRING name DEFAULTSTO "")
+{
+  INTEGER tr := __avoiddepwarning_StartWHDBTransaction([user:="~webhare", passwd:="", auto:=false, clientname := name]);
+  SetPrimaryWebhareTransaction(tr);
+
+  beta_table0 := BindTransactionToTable(tr,"beta_dbtests.table0");
+  beta_table1 := BindTransactionToTable(tr,"beta_dbtests.table1");
+  beta_table2 := BindTransactionToTable(tr,"beta_dbtests.table2");
+  beta_table3 := BindTransactionToTable(tr,"beta_dbtests.table3");
+  beta_table4 := BindTransactionToTable(tr,"beta_dbtests.table4");
+  RETURN tr;
+}
+
+MACRO TestCommitFailure(INTEGER transid)
+{
+  IF(Length(CommitWHDBTransaction(transid))=0)
+    ABORT("Unexpected commit success");
+}
+
+INTEGER FUNCTION OpenTestAutoTrans()
+{
+  INTEGER tr :=__avoiddepwarning_StartWHDBTransaction([user:="~webhare", passwd:="", auto:=true]);
+  __BindWHDBMetaTables(tr);
+  beta_table1 := BindTransactionToTable(tr,"beta_dbtests.table1");
+  beta_table2 := BindTransactionToTable(tr,"beta_dbtests.table2");
+  beta_table3 := BindTransactionToTable(tr,"beta_dbtests.table3");
+  beta_table4 := BindTransactionToTable(tr,"beta_dbtests.table4");
+  RETURN tr;
+}
+
+MACRO TestWorkCommitSuccess(INTEGER transid)
+{
+  RECORD ARRAY errors := CommitWHDBWork(transid);
+  IF(Length(errors)>0)
+  {
+    FOREVERY(RECORD err FROM errors)
+    {
+      PRINT(err.message||"\n");
+    }
+    ABORT("Unexpected commit errors");
+  }
+}
+
+MACRO TestWorkCommitFailure(INTEGER transid)
+{
+  IF(Length(CommitWHDBWork(transid))=0)
+    ABORT("Unexpected commit success");
+}
+
+
+STRING ARRAY args := GetConsoleArguments();
+IF (Length(args)=1)
+  runonly := ToInteger(args[0],-1);
+
+INTEGER test_fp_trans ;
+
+//First create the tables
+test_fp_trans := OpenTestTrans();
+
+IF(RecordExists(SELECT FROM information_schema.schemata WHERE schema_name="BETA_DBTESTS"))
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA BETA_DBTESTS");
+ELSE IF(RecordExists(SELECT FROM information_schema.tables WHERE table_schema="BETA_DBTESTS"))
+  ABORT("Can't get rid of the BETA_DBTESTS schema!");
+
+SendWHDBCommand(test_fp_trans,"CREATE SCHEMA beta_dbtests AUTHORIZATION _system"); // Needed for TABLE columns
+TestCommitSuccess(test_fp_trans);
+
+//--------------------------------------------------------------------------------
+//
+// Start of the tests
+//
+IF (RunTest("Autonumber wraparound"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table0(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  TestCommitSuccess(test_fp_trans);
+
+  CallFunctionFromJob("mod::webhare_testsuite/lib/db/test_funcs.whlib#InsertTable0Record");
+
+  test_fp_trans := OpenTestTrans();
+  TestEq([1], SELECT AS INTEGER ARRAY id FROM beta_table0 ORDER BY id);
+
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table0");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table0(id INTEGER AUTONUMBER 2147483645 PRIMARY KEY)");
+  TestCommitSuccess(test_fp_trans);
+
+  CallFunctionFromJob("mod::webhare_testsuite/lib/db/test_funcs.whlib#InsertTable0Record");
+  CallFunctionFromJob("mod::webhare_testsuite/lib/db/test_funcs.whlib#InsertTable0Record");
+
+  test_fp_trans := OpenTestTrans();
+  TestEq([2147483645,2147483646], SELECT AS INTEGER ARRAY id FROM beta_table0 ORDER BY id);
+  TestCommitSuccess(test_fp_trans);
+
+  TestThrows(PTR CallFunctionFromJob("mod::webhare_testsuite/lib/db/test_funcs.whlib#InsertTable0Record"));
+  test_fp_trans := OpenTestTrans();
+  DELETE FROM beta_table0 WHERE id = 2147483645;
+  TestCommitSuccess(test_fp_trans);
+
+  //we need to cluster to ensure the index is clean (as autonumber uses the index and can sometimes still see the record we delete above)
+  OBJECT primary := OpenPrimary();
+  OBJECT engine := NEW DBClusterEngine;
+  engine->rewriteall := TRUE;
+  engine->ClusterTable("BETA_DBTESTS.TABLE0", "ID");
+  primary->Close();
+
+  test_fp_trans := OpenTestTrans();
+  TestEq([2147483646], SELECT AS INTEGER ARRAY id FROM beta_table0 ORDER BY id);
+  TestCommitSuccess(test_fp_trans);
+
+  CallFunctionFromJob("mod::webhare_testsuite/lib/db/test_funcs.whlib#InsertTable0Record");
+  test_fp_trans := OpenTestTrans();
+  TestEq([2147483645,2147483646], SELECT AS INTEGER ARRAY id FROM beta_table0 ORDER BY id);
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table0");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table0(id INTEGER AUTONUMBER 2147483645 PRIMARY KEY)");
+  TestEq(2147483645, MakeAutonumber(beta_table0, "id"));
+  TestEq(2147483646, MakeAutonumber(beta_table0, "id"));
+  TestEq(2147483645, MakeAutonumber(beta_table0, "id"));
+
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table0");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Metadata integrity tests (create table, etc)"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table2(id INTEGER AUTONUMBER 1 PRIMARY KEY, refc INTEGER REFERENCES beta_dbtests.table1)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table3(id INTEGER AUTONUMBER 1 PRIMARY KEY, refc INTEGER REFERENCES beta_dbtests.table1)");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.table1 ADD COLUMN refc INTEGER REFERENCES beta_dbtests.table2");
+
+  TestCommitSuccess(test_fp_trans);
+  //Try to create table1 again (should fail, dupe)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  TestCommitFailure(test_fp_trans);
+
+  //Try to drop table1 (should fail, it is referred by table2)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table1");
+  TestCommitFailure(test_fp_trans);
+
+  //Try to drop table2 (should fail, it is referred by table1) with a different syntax, meaning the same thing
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table2 RESTRICT");
+  TestCommitFailure(test_fp_trans);
+
+  //Try to drop table 3 (should succeed!)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table3 RESTRICT");
+
+  TestCommitSuccess(test_fp_trans);
+
+  //Recreate table 3
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table3(id INTEGER AUTONUMBER 1 PRIMARY KEY, refc INTEGER REFERENCES beta_dbtests.table1)");
+  TestCommitSuccess(test_fp_trans);
+
+  //Try to drop table2 and all its referred tables (should SUCCEED!) with a different syntax, meaning the same thing
+  test_fp_trans := OpenTestTrans();
+
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table2 CASCADE");
+
+  TestCommitSuccess(test_fp_trans);
+
+} //end metadata integrity tests
+
+IF (RunTest("Referential integrity"))
+{
+  //Recreate all the tables (should succeed if the above CASCADE DELETE worked)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table2(id INTEGER AUTONUMBER 1 PRIMARY KEY, refc INTEGER REFERENCES beta_dbtests.table1)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table3(id INTEGER AUTONUMBER 1 PRIMARY KEY, refc INTEGER REFERENCES beta_dbtests.table1)");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.table1 ADD COLUMN refc INTEGER REFERENCES beta_dbtests.table2");
+  TestCommitSuccess(test_fp_trans);
+
+  //Test whether basic referential integrity works. Insert two referring records first..
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table1(id, refc) VALUES(101,0);
+  INSERT INTO beta_table2(id, refc) VALUES(102,101);
+  TestCommitSuccess(test_fp_trans);
+
+  //Now test integrity checking. Deleting beta_table1's contents should fail
+  test_fp_trans := OpenTestTrans();
+  DELETE FROM beta_table1 WHERE id=101;
+  TestCommitFailure(test_fp_trans);
+
+  //It should work if we delete _both_
+  test_fp_trans := OpenTestTrans();
+  DELETE FROM beta_table1 WHERE id=101;
+  DELETE FROM beta_table2 WHERE id=102;
+  TestCommitSuccess(test_fp_trans);
+
+  //The 'rolled back' insert test - try to insert something. in a new
+  //tranasction, refer to it, delete the reference and then delete the referred item.
+  //the database complains about being missing a reference, but there is none!
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table1(id, refc) VALUES(101,0);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table2(id, refc) VALUES(102,101);
+  DELETE FROM beta_table2;
+  DELETE FROM beta_table1;
+  TestCommitSuccess(test_fp_trans);
+
+  //Insert data to test our joins (IDs in table1 are range 101-200, IDs in table2 are range 201-300, IDs in table3 are range 301-400)
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table1(id,refc) VALUES (101,201);
+  INSERT INTO beta_table2(id,refc) VALUES (201,101);
+  INSERT INTO beta_table3(id,refc) VALUES (301,102);
+  INSERT INTO beta_table3(id,refc) VALUES (302,101);
+  INSERT INTO beta_table3(id,refc) VALUES (303,102);
+  INSERT INTO beta_table2(id,refc) VALUES (202,101);
+  INSERT INTO beta_table1(id,refc) VALUES (102,202);
+  TestCommitSuccess(test_fp_trans);
+
+  //Try to join the tables together in the following chain (301,303) -> 102 -> 202 -> 101 -> 201, get 'refc' field here ( will be 101)
+  test_fp_trans := OpenTestTrans();
+
+  RECORD ARRAY finalresults := SELECT step5.refc
+                                 FROM beta_table3 AS step1, beta_table1 AS step2, beta_table2 AS step3, beta_table1 AS step4, beta_table2 AS step5
+                                WHERE step1.id != 302 AND step2.id=step1.refc AND step3.id=step2.refc AND step4.id=step3.refc AND step5.id=step4.refc;
+
+  IF (Length(finalresults) != 2 OR finalresults[0].refc!=101 OR finalresults[1].refc!=101)
+  {
+    printRecordArrayTo(0,finalresults,"boxed");
+    ABORT("Not what we expected: (two results, both 101)");
+  }
+
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table1 CASCADE");
+  TestCommitSuccess(test_fp_trans);
+
+} //referential integrity
+
+IF (RunTest("Cascading deletes that tries to delete a record via two paths."))
+{
+  test_fp_trans := OpenTestTrans();
+  {
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableO(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY, refX INTEGER REFERENCES beta_dbtests.tableO ON DELETE CASCADE)");
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableB(id INTEGER AUTONUMBER 1 PRIMARY KEY, refX INTEGER REFERENCES beta_dbtests.tableO ON DELETE CASCADE)");
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableC(id INTEGER AUTONUMBER 1 PRIMARY KEY, refa INTEGER REFERENCES beta_dbtests.tableA ON DELETE CASCADE, refb INTEGER REFERENCES beta_dbtests.tableB ON DELETE CASCADE)");
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableD(id INTEGER AUTONUMBER 1 PRIMARY KEY, refa INTEGER REFERENCES beta_dbtests.tableA ON DELETE CASCADE, refb INTEGER REFERENCES beta_dbtests.tableB ON DELETE SET DEFAULT)");
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableE(id INTEGER AUTONUMBER 1 PRIMARY KEY, refa INTEGER REFERENCES beta_dbtests.tableA ON DELETE SET DEFAULT, refb INTEGER REFERENCES beta_dbtests.tableB ON DELETE CASCADE)");
+
+    TABLE <INTEGER id> beta_tableO := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableO");
+    TABLE <INTEGER id, INTEGER refx> beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+    TABLE <INTEGER id, INTEGER refx> beta_tableB := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableB");
+    TABLE <INTEGER id, INTEGER refa, INTEGER refb> beta_tableC := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableC");
+    TABLE <INTEGER id, INTEGER refa, INTEGER refb> beta_tableD := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableD");
+    TABLE <INTEGER id, INTEGER refa, INTEGER refb> beta_tableE := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableE");
+
+    INSERT INTO beta_tableO(id) VALUES (1);
+    INSERT INTO beta_tableA(id,refx) VALUES (2,1);
+    INSERT INTO beta_tableB(id,refx) VALUES (3,1);
+    INSERT INTO beta_tableC(id,refa,refb) VALUES (4,2,3);
+    INSERT INTO beta_tableD(id,refa,refb) VALUES (5,2,3);
+    INSERT INTO beta_tableE(id,refa,refb) VALUES (6,2,3);
+
+    DELETE FROM beta_tableO;
+    IF (Length(SELECT FROM beta_tableO)>=1) ABORT("Still data in beta_tableO");
+    IF (Length(SELECT FROM beta_tableA)>=1) ABORT("Still data in beta_tableA");
+    IF (Length(SELECT FROM beta_tableB)>=1) ABORT("Still data in beta_tableB");
+    IF (Length(SELECT FROM beta_tableC)>=1) ABORT("Still data in beta_tableC");
+    IF (Length(SELECT FROM beta_tableD)>=1) ABORT("Still data in beta_tableD");
+    IF (Length(SELECT FROM beta_tableE)>=1) ABORT("Still data in beta_tableE");
+
+    SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableO CASCADE");
+  }
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Ultra-long indexed fields"))
+{
+  // Test for ultra-long indexed fields
+  test_fp_trans := OpenTestTrans();
+  {
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA1(id VARCHAR(128) PRIMARY KEY, nr INTEGER)");
+    TestCommitSuccess(test_fp_trans);
+  }
+
+  // ADDME: Should FORCE index selection through the SQL command line and should have a way to verify that the index was actually chosen (perhaps an index hit counter?)
+
+  test_fp_trans := OpenTestTrans();
+  {
+    WaitForIndex(test_fp_trans);
+    TABLE <STRING id, INTEGER nr> beta_table := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA1");
+
+    INSERT INTO beta_table(id, nr) VALUES ("0123456789012345678901234567890123456789012345678901234567890123456789A", 1);
+    INSERT INTO beta_table(id, nr) VALUES ("0123456789012345678901234567890123456789012345678901234567890123456789B", 2);
+
+    RECORD ARRAY res;
+    res := SELECT * FROM beta_table WHERE id = "0123456789012345678901234567890123456789012345678901234567890123456789B";
+    IF (LENGTH(res) != 1 OR res[0].nr != 2)
+      ABORT("Select malfunction on indexed long fields (1)");
+    res := SELECT * FROM beta_table WHERE id = "0123456789012345678901234567890123456789012345678901234567890123456789A";
+    IF (LENGTH(res) != 1 OR res[0].nr != 1)
+      ABORT("Select malfunction on indexed long fields (2)");
+
+    SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA1 CASCADE");
+  }
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Set default"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableO(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY, refX INTEGER REFERENCES beta_dbtests.tableO ON DELETE SET DEFAULT)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  TABLE <INTEGER id> beta_tableO := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableO");
+  TABLE <INTEGER id, INTEGER refx> beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+
+  INSERT INTO beta_tableO(id) VALUES (1);
+  INSERT INTO beta_tableA(id, refx) VALUES (2, 1);
+  DELETE FROM beta_tableO;
+
+  IF (NOT RecordArraysEqual((SELECT * FROM beta_tableA), [[id:=2, refx:=0]]))
+  {
+    PRINT("Expect:\n");PrintRecordArrayTo(0, [[id:=2, refx:=0]], "boxed");
+    PRINT("Got:\n");PrintRecordArrayTo(0, (SELECT * FROM beta_tableA), "boxed");
+    ABORT("Set default did not work!");
+  }
+
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableO CASCADE");
+
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Test for LIKE operator"))
+{
+  test_fp_trans := OpenTestTrans();
+  {
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA1(id VARCHAR(128) PRIMARY KEY, nr INTEGER)");
+    TestCommitSuccess(test_fp_trans);
+  }
+
+  // ADDME: Should FORCE index selection through the SQL command line and should have a way to verify that the index was actually chosen (perhaps an index hit counter?)
+
+  test_fp_trans := OpenTestTrans();
+  {
+    WaitForIndex(test_fp_trans);
+    TABLE <STRING id, INTEGER nr> beta_table := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA1");
+    // UPPERCASE index will be created on id; we can't make non-uppercased indices yet
+
+    INSERT INTO beta_table(id, nr) VALUES ("e.tpl", 1);
+    INSERT INTO beta_table(id, nr) VALUES ("e.TPl", 2);
+    INSERT INTO beta_table(id, nr) VALUES ("de.TPl", 3);
+    INSERT INTO beta_table(id, nr) VALUES ("dde.TPl", 4);
+
+    IF ((LENGTH(SELECT FROM beta_table WHERE TOUPPERCASE(id) LIKE "*.TPL") != 4) OR
+        (LENGTH(SELECT FROM beta_table WHERE TOUPPERCASE(id) LIKE "E*.TPL") != 2) OR
+        (LENGTH(SELECT FROM beta_table WHERE TOUPPERCASE(id) LIKE "?E*.TPL") != 1) OR
+        (LENGTH(SELECT FROM beta_table WHERE TOUPPERCASE(id) LIKE "*E*.TPL") != 4) OR
+        (LENGTH(SELECT FROM beta_table WHERE TOUPPERCASE(id) LIKE "E*") != 2))
+      ABORT("LIKE operator malfunction");
+
+    INSERT INTO beta_table(id, nr) VALUES ("0123456789012345678901234567890123456789012345678901234567890123456789A", 1);
+
+    IF ((LENGTH(SELECT FROM beta_table WHERE TOUPPERCASE(id) LIKE "0123456789012345678901234567890123456789012345678901234567890123456789A") != 1) OR
+        (LENGTH(SELECT FROM beta_table WHERE TOUPPERCASE(id) LIKE "0123456789012345678901234567890123456789012345678901234567890123456789B") != 0))
+      ABORT("LIKE operator malfunction");
+
+    SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA1 CASCADE");
+  }
+  TestCommitSuccess(test_fp_trans);
+} //like operator
+
+IF (RunTest("Basic index creation"))
+{
+  // Create + destroy, all within transaction
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA1(id integer, cell2 varchar(256))");
+  SendWHDBCommand(test_fp_trans,"create index myindex on beta_dbtests.tableA1(id , cell2)");
+  SendWHDBCommand(test_fp_trans,"drop index myindex on beta_dbtests.tableA1");
+  SendWHDBCommand(test_fp_trans,"drop table beta_dbtests.tableA1");
+  TestCommitSuccess(test_fp_trans);
+
+  // Create table, fill table, create index
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA1(id integer, cell2 varchar(256))");
+  TABLE < INTEGER id, STRING cell2 > tablea1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA1");
+  FOR (INTEGER i := 1; i < 10000; i := i + 1)
+    INSERT INTO tablea1(id, cell2) VALUES (i, "str " || i);
+  SendWHDBCommand(test_fp_trans,"create index myindex on beta_dbtests.tableA1(id, cell2)");
+  TestCommitSuccess(test_fp_trans);
+
+  // Wait
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans, "WAIT INDEX");
+  TestCommitSuccess(test_fp_trans);
+
+  // Destroy
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"drop index myindex on beta_dbtests.tableA1");
+  SendWHDBCommand(test_fp_trans,"drop table beta_dbtests.tableA1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Test multicolumn indices operator"))
+{
+  test_fp_trans := OpenTestTrans();
+  {
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA1(id integer, cell2 varchar(256))");
+    SendWHDBCommand(test_fp_trans,"create index myindex on beta_dbtests.tableA1(id , cell2)");
+    TestCommitSuccess(test_fp_trans);
+  }
+
+  // ADDME: Should FORCE index selection through the SQL command line and should have a way to verify that the index was actually chosen (perhaps an index hit counter?)
+
+  test_fp_trans := OpenTestTrans();
+  {
+    WaitForIndex(test_fp_trans);
+    TABLE <INTEGER id, STRING cell2> beta_table := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA1");
+
+    INSERT INTO beta_table(id, cell2) VALUES(5,"abc");
+    INSERT INTO beta_table(id, cell2) VALUES(6,"def");
+    INSERT INTO beta_table(id, cell2) VALUES(7,"GHI");
+    INSERT INTO beta_table(id, cell2) VALUES(8,"JKL");
+    TestCommitSuccess(test_fp_trans);
+  }
+
+  test_fp_trans := OpenTestTrans();
+  {
+    TABLE <INTEGER id, STRING cell2> beta_table := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA1");
+    IF ((LENGTH(SELECT FROM beta_table WHERE id=5 AND cell2="abc") != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=6 AND cell2="def") != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=7 AND cell2="GHI") != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=8 AND cell2="JKL") != 1))
+      ABORT("Multicolumn index failed");
+
+    IF ((LENGTH(SELECT FROM beta_table WHERE id=5 AND cell2="ABC") != 0)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=6 AND cell2="DEF") != 0)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=7 AND cell2="ghi") != 0)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=8 AND cell2="jkl") != 0))
+      ABORT("Multicolumn index failed (2)");
+
+    IF ((LENGTH(SELECT FROM beta_table WHERE id=5 AND ToUppercasE(cell2)="ABC") != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=6 AND ToUppercase(cell2)=ToUppercase("def")) != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=7 AND ToUppercase(cell2)="GHI") != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=8 AND ToUppercase(cell2)=ToUppercase("jkl")) != 1))
+      ABORT("Multicolumn index failed (3)");
+
+    SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA1 CASCADE");
+  }
+  TestCommitSuccess(test_fp_trans);
+} //multicol indices operator
+
+IF (RunTest("Test multicolumn indices operator with uppercase indices "))
+{
+  test_fp_trans := OpenTestTrans();
+  {
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA1(id integer, cell2 varchar(256))");
+    SendWHDBCommand(test_fp_trans,"create uppercase index myindex on beta_dbtests.tableA1(id , cell2)");
+    TestCommitSuccess(test_fp_trans);
+  }
+
+  // ADDME: Should FORCE index selection through the SQL command line and should have a way to verify that the index was actually chosen (perhaps an index hit counter?)
+
+  test_fp_trans := OpenTestTrans();
+  {
+    WaitForIndex(test_fp_trans);
+    TABLE <INTEGER id, STRING cell2> beta_table := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA1");
+
+    INSERT INTO beta_table(id, cell2) VALUES(5,"abc");
+    INSERT INTO beta_table(id, cell2) VALUES(6,"def");
+    INSERT INTO beta_table(id, cell2) VALUES(7,"GHI");
+    INSERT INTO beta_table(id, cell2) VALUES(8,"JKL");
+    TestCommitSuccess(test_fp_trans);
+  }
+
+  test_fp_trans := OpenTestTrans();
+  {
+     TABLE <INTEGER id, STRING cell2> beta_table := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA1");
+     IF ((LENGTH(SELECT FROM beta_table WHERE id=5 AND cell2="abc") != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=6 AND cell2="def") != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=7 AND cell2="GHI") != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=8 AND cell2="JKL") != 1))
+      ABORT("Multicolumn uppercase index failed");
+
+    IF ((LENGTH(SELECT FROM beta_table WHERE id=5 AND cell2="ABC") != 0)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=6 AND cell2="DEF") != 0)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=7 AND cell2="ghi") != 0)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=8 AND cell2="jkl") != 0))
+      ABORT("Multicolumn uppercase index failed (2)");
+
+    IF ((LENGTH(SELECT FROM beta_table WHERE id=5 AND ToUppercasE(cell2)="ABC") != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=6 AND ToUppercase(cell2)=ToUppercase("def")) != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=7 AND ToUppercase(cell2)="GHI") != 1)
+        OR (LENGTH(SELECT FROM beta_table WHERE id=8 AND ToUppercase(cell2)=ToUppercase("jkl")) != 1))
+      ABORT("Multicolumn uppercase index failed (3)");
+
+
+    SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA1 CASCADE");
+  }
+  TestCommitSuccess(test_fp_trans);
+} //multicol indices operator
+
+IF (RunTest("Test reference checking isolation"))
+{
+  // test of een reference die gebouwd transactie A die verwijst naar iets wat tijdens het starten van A niet aanwezig
+  //  was, maar tijdens A toegevoegd wordt door B, een fout oplevert (zou wel moeten!)
+
+  test_fp_trans := OpenTestTrans();
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableO(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY, refX INTEGER REFERENCES beta_dbtests.tableO ON DELETE CASCADE)");
+  TestCommitSuccess(test_fp_trans);
+
+  INTEGER test_fp_trans_A := OpenTestTrans();
+  INTEGER test_fp_trans_B := OpenTestTrans();
+
+  TABLE <INTEGER id> beta_tableO_B := BindTransactionToTable(test_fp_trans_B,"beta_dbtests.tableO");
+  TABLE <INTEGER id, INTEGER refx> beta_tableA_A := BindTransactionToTable(test_fp_trans_A,"beta_dbtests.tableA");
+
+  INSERT INTO beta_tableO_B(id) VALUES (10);
+  TestCommitSuccess(test_fp_trans_B);
+
+  INSERT INTO beta_tableA_A(id, refx) VALUES (20, 10);
+  TestCommitFailure(test_fp_trans_A);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableO CASCADE");
+  TestCommitSuccess(test_fp_trans);
+} // Test reference checking isolation
+
+BOOLEAN FUNCTION ReturnFalse(INTEGER a)
+{
+  RETURN FALSE;
+}
+
+IF (RunTest("Test double chase"))
+{
+  {
+    INTEGER test_fp_trans := OpenTestTrans("Doublechase:Table create");
+    SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA1(id integer, cell2 varchar(256))");
+    SendWHDBCommand(test_fp_trans,"create uppercase index myindex on beta_dbtests.tableA1(id , cell2)");
+    TestCommitSuccess(test_fp_trans);
+
+    test_fp_trans := OpenTestTrans("Doublechase:Initial insert");
+    WaitForIndex(test_fp_trans);
+    TABLE <INTEGER id, STRING cell2> beta_table := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA1");
+    INSERT INTO beta_table(id, cell2) VALUES (1, "A");
+    TestCommitSuccess(test_fp_trans);
+  }
+
+  INTEGER test_fp_trans_A := OpenTestTrans("Doublechase:Table update to 'BCA'");
+  INTEGER test_fp_trans_B := OpenTestTrans("Doublechase:Table update to 'B'");
+  INTEGER test_fp_trans_C := OpenTestTrans("Doublechase:Table update to 'BC'");
+
+  TABLE <INTEGER id, STRING cell2> beta_table_A := BindTransactionToTable(test_fp_trans_A,"beta_dbtests.tableA1");
+  TABLE <INTEGER id, STRING cell2> beta_table_B := BindTransactionToTable(test_fp_trans_B,"beta_dbtests.tableA1");
+  TABLE <INTEGER id, STRING cell2> beta_table_C := BindTransactionToTable(test_fp_trans_C,"beta_dbtests.tableA1");
+
+  UPDATE beta_table_B SET RECORD [ cell2 := "B" ];
+  TestCommitSuccess(test_fp_trans_B);
+
+  UPDATE beta_table_C SET cell2 := cell2 || "C";
+  TestCommitSuccess(test_fp_trans_C);
+
+  UPDATE beta_table_A SET cell2 := cell2 || "A";
+  IF ((SELECT cell2 FROM beta_table_A)[0].cell2 != "BCA")
+  {
+    PRINT("Should have 'BCA', got: '" || (SELECT cell2 FROM beta_table_A)[0].cell2 || "'");
+    ABORT("Double chase failed");
+  }
+
+  SendWHDBCommand(test_fp_trans_A,"DROP TABLE beta_dbtests.tableA1 CASCADE");
+  TestCommitSuccess(test_fp_trans_A);
+}
+
+IF (RunTest("Cascading deletes on a record that just moved away after an update"))
+{
+  TABLE <INTEGER id> beta_tableA;
+  TABLE <INTEGER id, INTEGER refx, INTEGER dummy> beta_tableB;
+
+  //First set up a simple scenario..
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableB(id INTEGER AUTONUMBER 1 PRIMARY KEY, refX INTEGER REFERENCES beta_dbtests.tableA ON DELETE CASCADE, dummy INTEGER)");
+
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  beta_tableB := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableB");
+
+  INSERT INTO beta_tableA(id) VALUES (50);
+  INSERT INTO beta_tableB(id,refx,dummy) VALUES (60,50,500);
+  TestCommitSuccess(test_fp_trans);
+
+  //Now the actual test..
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  beta_tableB := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableB");
+
+  //Update beta_tableB, so that its record gets assigned a new ID
+  UPDATE beta_tableB SET dummy := 800 WHERE id=60;
+  //Delete beta_tableA, which should cascade to the new record
+  DELETE FROM beta_tableA WHERE id=50;
+
+  IF (Length(SELECT FROM beta_tableA)>=1) ABORT("Still data in beta_tableA");
+  IF (Length(SELECT FROM beta_tableB)>=1) ABORT("Still data in beta_tableB");
+  TestCommitSuccess(test_fp_trans); //if this one fails, referential
+
+  //Clean up
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA CASCADE");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Updating an primary key"))
+{
+  TABLE <INTEGER id> beta_tableA;
+
+  //First set up a simple scenario..
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+
+  INSERT INTO beta_tableA(id) VALUES (1);
+  UPDATE beta_tableA SET id := 2 WHERE id = 1;
+
+  TestCommitFailure(test_fp_trans);
+}
+
+IF (RunTest("Column-dropping artefacts"))
+{
+  TABLE <INTEGER id> beta_tableA;
+  TABLE <INTEGER id, INTEGER refa, INTEGER test> beta_tableB;
+  TABLE <INTEGER id> beta_tableB2;
+
+  //First set up a simple scenario..
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableB(id INTEGER AUTONUMBER 1 PRIMARY KEY, test INTEGER UNIQUE, refa INTEGER REFERENCES beta_dbtests.tableA)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"WAIT INDEX");
+
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  beta_tableB := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableB");
+  beta_tableB2 := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableB");
+  INSERT INTO beta_tableA(id) VALUES (1);
+  INSERT INTO beta_tableA(id) VALUES (2);
+  INSERT INTO beta_tableB(id, test, refa) VALUES (1, 1, 0);
+  INSERT INTO beta_tableB(id, test, refa) VALUES (2, 1, 0);
+  INSERT INTO beta_tableB(id, test, refa) VALUES (3, 2, 1);
+  INSERT INTO beta_tableB(id, test, refa) VALUES (4, 3, 2);
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableB DROP COLUMN test");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableB DROP COLUMN refa");
+
+  DELETE FROM beta_tableA;
+  IF (Length(SELECT FROM beta_tableB2)!=4)
+    ABORT("Rows deleted from B that should have remained");
+
+  // On commit, unique-ness. May not be tested due to drop.
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA CASCADE");
+  IF(NOT whdbcolumnexists("beta_dbtests.tableB","id"))
+    ABORT("Cascading drop of A also deleted B!");
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableB CASCADE");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Test transaction instability after metadata failure"))
+{
+  // WebHare database server v2.29.09 crashed when trying to select SYSTEM_CONFIG after failing a metadata modification (metadata
+  // verification threw an exception, which caused the on-disk file pointers to be set to NULL, crashing any selection done on any
+  // table
+  TABLE <INTEGER id> beta_tableA;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_tableA(id) VALUES(12345);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ADD COLUMN id INTEGER");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  IF (Length(SELECT FROM beta_tableA)!=1) ABORT("Odd data in beta_tableA ?"); //force a table read
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA RESTRICT");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Test lingering table reference (table to table)"))
+{
+  // WebHare database server v2.29.10 seems to remember that a table has referrers, even when
+  // those referring tables are already dropped
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableC(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableB(id INTEGER AUTONUMBER 1 PRIMARY KEY, refc INTEGER REFERENCES beta_dbtests.tableC, refa INTEGER REFERENCES beta_dbtests.tableA)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA CASCADE");
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableC RESTRICT");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Test lingering table reference (column to table)"))
+{
+  // The same test as above, but now with only a lingering referring column
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableC(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableB(id INTEGER AUTONUMBER 1 PRIMARY KEY, refc INTEGER REFERENCES beta_dbtests.tableC, refa INTEGER REFERENCES beta_dbtests.tableA)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableB DROP COLUMN refc");
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableC RESTRICT");
+  TestCommitSuccess(test_fp_trans);
+
+  //cleanup
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA CASCADE");
+  TestCommitSuccess(test_fp_trans);
+}
+IF (RunTest("Limit with MONEYs"))
+{
+  TABLE <INTEGER id, MONEY mon> beta_tableA;
+
+  //First set up a simple scenario..
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY, mon MONEY)");
+
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+
+  INSERT INTO beta_tableA(id, mon) VALUES (1, 1);
+  INSERT INTO beta_tableA(id, mon) VALUES (2, 2);
+  RECORD a := SELECT FROM beta_tableA WHERE mon = 1 LIMIT 1;
+  RECORD b := SELECT FROM beta_tableA WHERE mon = 2 LIMIT 1;
+
+  IF (NOT RecordExists(a) OR NOT RecordExists(b))
+    ABORT("Select LIMIT error");
+
+  TestCommitSuccess(test_fp_trans);
+
+  //cleanup
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA CASCADE");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Adding non-NULL columns without filling them, unique with non-unique stuffs"))
+{
+  TABLE <INTEGER id, INTEGER uniq, INTEGER nn > beta_tableA;
+
+  //First set up a simple scenario..
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  TestCommitSuccess(test_fp_trans);
+
+  // Add and delete unique and not null columns
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ADD COLUMN normal INTEGER");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ADD COLUMN uniq INTEGER UNIQUE");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ADD COLUMN nn INTEGER NOT NULL");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA DROP COLUMN normal");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA DROP COLUMN uniq");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA DROP COLUMN nn");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+
+  INSERT INTO beta_tableA(id) VALUES (1);
+  INSERT INTO beta_tableA(id) VALUES (2);
+
+  TestCommitSuccess(test_fp_trans);
+
+  // Test adding unique column without providing unique values, and updating within the transaction
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ADD COLUMN uniq INTEGER UNIQUE");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  UPDATE beta_tableA SET uniq := 2;
+  TestCommitFailure(test_fp_trans);
+
+  // Test adding unique column without providing unique values, with invalid records already present
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ADD COLUMN uniq INTEGER UNIQUE");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  UPDATE beta_tableA SET uniq := 2;
+  TestCommitFailure(test_fp_trans);
+
+  // Test adding unique column with providing unique values
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ADD COLUMN uniq INTEGER UNIQUE");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  UPDATE beta_tableA SET uniq := id;
+  TestCommitSuccess(test_fp_trans);
+
+  // Test adding not null column without providing values
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ADD COLUMN nn INTEGER NOT NULL");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  TestCommitFailure(test_fp_trans);
+
+  // Test dropping unique attribute, and immediately de-uniqueing them,
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  UPDATE beta_tableA SET uniq := 1;
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ALTER COLUMN uniq DROP UNIQUE");
+  TestCommitSuccess(test_fp_trans);
+
+  // Test adding unique attribute (without providing unique values)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ALTER COLUMN uniq SET UNIQUE");
+  TestCommitFailure(test_fp_trans);
+
+  // Test adding unique attribute (without providing unique values)
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  UPDATE beta_tableA SET uniq := id;
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ALTER COLUMN uniq SET UNIQUE");
+  TestCommitSuccess(test_fp_trans);
+
+  // Test adding not null attribute, while proving null values
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ADD COLUMN nn INTEGER");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ALTER COLUMN nn SET NOT NULL");
+  TestCommitFailure(test_fp_trans);
+
+  // Test adding not null attribute, while proving non-null values
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  UPDATE beta_tableA SET nn := 1;
+  TestCommitSuccess(test_fp_trans);
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ALTER COLUMN nn SET NOT NULL");
+  TestCommitSuccess(test_fp_trans);
+
+  // Testing dropping not null attribute
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  UPDATE beta_tableA SET nn := 1;
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ALTER COLUMN nn DROP NOT NULL");
+  TestCommitSuccess(test_fp_trans);
+
+  //cleanup + test if table drop handling works
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA ALTER COLUMN nn SET NOT NULL");
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA CASCADE");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Altering names of columns"))
+{
+  TABLE <INTEGER id, INTEGER id2, INTEGER id3 > beta_tableA;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY, id2 INTEGER)");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_tableA(id, id2) VALUES (1,2);
+  TestCommitSuccess(test_fp_trans);
+
+  // Test renaming to an occupied name
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA RENAME COLUMN id2 TO id");
+  TestCommitFailure(test_fp_trans);
+
+  // Test renaming to an free name
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA RENAME COLUMN id2 TO id3");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  IF (NOT RecordArraysEqual((SELECT id, id3 FROM beta_tableA), [[id:=1, id3:=2]]))
+    ABORT("Rename did not work!");
+  TestCommitSuccess(test_fp_trans);
+
+  //cleanup + test if table drop handling works
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA CASCADE");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Regression: LIKE matching fails on indexed columns"))
+{
+  //ADDME: Force use of index
+  test_fp_trans := OpenTestTrans();
+  TABLE <INTEGER id, STRING text > beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tablea");
+
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER PRIMARY KEY, text VARCHAR(64))");
+  SendWHDBCommand(test_fp_trans,"CREATE UNIQUE INDEX test on beta_dbtests.tableA(text[32],id)");
+  FOR(INTEGER i:=1;i<=1000;i:=i+1)
+    INSERT INTO beta_tableA(id,text) VALUES(i, "Text." || i);
+  WaitForIndex(test_fp_trans);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tablea");
+  IF (NOT RecordArraysEqual((SELECT text FROM beta_tableA WHERE text LIKE 'Text.100*' order by id), [[text:="Text.100"],[text:="Text.1000"]]))
+  {
+    PrintRecordArrayTo(0,(SELECT text FROM beta_tableA WHERE text LIKE 'Text.100*'),"boxed");
+    ABORT("Regressed");
+  }
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA CASCADE");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Regression: triple delete confuses janitor"))
+{
+  TABLE <INTEGER id, INTEGER id2, INTEGER id3, INTEGER id4 > beta_tableA;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY, id2 INTEGER, id3 INTEGER, id4 INTEGER)");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_tableA(id, id2, id3, id4) VALUES (1,2,3,4);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA DROP COLUMN id2");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA DROP COLUMN id3");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.tableA DROP COLUMN id4");
+  TestCommitSuccess(test_fp_trans);
+
+  // ADDME: This once crashed the janitor during Column Cleanup. We need
+  // a WAIT JANITOR CLEANUP or something similair to actually test this
+  // condition (it caused the janitor to eternally fail cleanup in 2.29.16)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA CASCADE");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Inserting in parallel dropped table"))
+{
+  TABLE <INTEGER id, INTEGER id2 > beta_tableA;
+
+  INTEGER test_fp_trans_b := 0;
+
+  // Insert before drop
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY, id2 INTEGER)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans_b := OpenTestTrans();
+  test_fp_trans := OpenTestTrans();
+
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_tableA(id, id2) VALUES (1,2);
+
+  SendWHDBCommand(test_fp_trans_b,"DROP TABLE beta_dbtests.tableA");
+
+  TestCommitSuccess(test_fp_trans_b);
+  TestCommitFailure(test_fp_trans);
+
+  // Insert after drop
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY, id2 INTEGER)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans_b := OpenTestTrans();
+  test_fp_trans := OpenTestTrans();
+
+  SendWHDBCommand(test_fp_trans_b,"DROP TABLE beta_dbtests.tableA");
+
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_tableA(id, id2) VALUES (1,2);
+
+  TestCommitSuccess(test_fp_trans_b);
+  TestCommitFailure(test_fp_trans);
+
+  // create, insert and drop within one transaction
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY, id2 INTEGER)");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_tableA(id, id2) VALUES (1,2);
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Sending ridiculously large fase 2 packets"))
+{
+  TABLE <INTEGER id, STRING s1, STRING s2, STRING s3, STRING s4, STRING s5, STRING s6, STRING s7 > beta_tableA;
+
+  INTEGER test_fp_trans_b := 0;
+
+  // Insert before drop
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,
+        "CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY" ||
+        ", s1 VARCHAR(4096)" ||
+        ", s2 VARCHAR(4096)" ||
+        ", s3 VARCHAR(4096)" ||
+        ", s4 VARCHAR(4096)" ||
+        ", s5 VARCHAR(4096)" ||
+        ", s6 VARCHAR(4096)" ||
+        ", s7 VARCHAR(4096))");
+
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+
+  STRING l4096 := "ABCDEFGH";
+  WHILE (LENGTH(l4096) != 4096)
+    l4096 := l4096 || l4096;
+
+  FOR (INTEGER i := 0; i < 128; i := i + 1)
+    INSERT INTO beta_tableA(id, s1, s2, s3, s4, s5, s6, s7) VALUES
+            (i + 1, l4096, l4096, l4096, l4096, l4096, l4096, l4096);
+
+  RECORD ARRAY res := SELECT * FROM beta_tableA ORDER BY id;
+  FOREVERY (RECORD r FROM res)
+  {
+    IF (r.id != #r + 1 OR r.s1 != l4096 OR r.s2 != l4096 OR r.s3 != l4096 OR
+        r.s5 != l4096 OR r.s5 != l4096 OR r.s6 != l4096 OR r.s7 != l4096)
+    {
+      PRINT("Wanted:");
+      PrintRecordTo(0, [id := #r + 1, s1 := l4096, s2 := l4096, s3 := l4096,s4 := l4096, s5 := l4096, s6 := l4096, s7 := l4096 ], "boxed");
+      PRINT("Got:");
+      PrintRecordTo(0, r, "boxed");
+
+      ABORT("Fase2 content sending error - sent content does not match expected values!");
+    }
+  }
+
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("TABLE columns"))
+{
+  TABLE <INTEGER tid, INTEGER t > beta_table1;
+  TABLE <INTEGER id > beta_tableA;
+
+  // Table with TABLE column
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(tid INTEGER AUTONUMBER 1 PRIMARY KEY, t TABLE)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  TestCommitSuccess(test_fp_trans);
+
+  // Reference to such a table: must fail
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table2(id INTEGER AUTONUMBER 1 PRIMARY KEY, t INTEGER REFERENCES beta_dbtests.table1)");
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  INSERT INTO beta_table1(tid, t) VALUES (1, 1234512); // Should fail
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_table1(tid, t) VALUES (1, GetWHDBTableId(beta_tablea));
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA");
+  IF (LENGTH(SELECT FROM beta_table1) != 0)
+    ABORT("Cascading TABLE columns doesn't work");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Column reference by table column"))
+{
+  TABLE <INTEGER tid, INTEGER t, INTEGER r > beta_table1;
+  TABLE <INTEGER id > beta_tableA;
+  TABLE <STRING s > beta_tableB;
+
+  // Table with TABLE column
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(tid INTEGER AUTONUMBER 1 PRIMARY KEY, t TABLE, r INTEGER REFERENCES BY COLUMN t)");
+  TestCommitFailure(test_fp_trans);
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(tid INTEGER AUTONUMBER 1 PRIMARY KEY, t TABLE, r INTEGER REFERENCES BY COLUMN t ON DELETE SET DEFAULT)");
+  TestCommitFailure(test_fp_trans);
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(tid INTEGER AUTONUMBER 1 PRIMARY KEY, t TABLE, r INTEGER REFERENCES BY COLUMN tid ON DELETE CASCADE)");
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableB(id VARCHAR(64) PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(tid INTEGER AUTONUMBER 1 PRIMARY KEY, t TABLE, r INTEGER REFERENCES BY COLUMN t ON DELETE CASCADE)");
+  TestCommitSuccess(test_fp_trans);
+
+  // Reference to such a table: must fail
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table2(id INTEGER AUTONUMBER 1 PRIMARY KEY, t INTEGER REFERENCES beta_dbtests.table1)");
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_table1(tid, t, r) VALUES (1, GetWHDBTableId(beta_tablea), 6);
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_tablea(id) VALUES (6);
+  INSERT INTO beta_table1(tid, t, r) VALUES (1, GetWHDBTableId(beta_tablea), 6);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  DELETE FROM beta_tablea;
+  IF (LENGTH(SELECT FROM beta_table1) != 0)
+    ABORT("Cascading reference by column doesn't work");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  beta_tableB := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableB");
+  INSERT INTO beta_table1(tid, t, r) VALUES (1, GetWHDBTableId(beta_tableb), 6);
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_tablea(id) VALUES (6);
+  INSERT INTO beta_table1(tid, t, r) VALUES (1, GetWHDBTableId(beta_tablea), 6);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableA");
+  IF (LENGTH(SELECT FROM beta_table1) != 0)
+    ABORT("Cascading table columns and reference by column doesn't work");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table1");
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableb");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Adding a reference to a column"))
+{
+  TABLE <INTEGER id, INTEGER r > beta_table1;
+  TABLE <INTEGER id > beta_tableA;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(id INTEGER AUTONUMBER 1 PRIMARY KEY, r INTEGER)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_tableA(id) VALUES(1);
+  INSERT INTO beta_tableA(id) VALUES(3);
+  INSERT INTO beta_table1(id, r) VALUES(1, 1);
+  INSERT INTO beta_table1(id, r) VALUES(2, 2);
+  TestCommitSuccess(test_fp_trans);
+
+  // Check whether faulty references are rejected (must)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.table1 ALTER COLUMN r SET REFERENCES beta_dbtests.tablea");
+  TestCommitFailure(test_fp_trans);
+
+  // Check whether valid actions are rejected (mustn't)
+  test_fp_trans := OpenTestTrans();
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  DELETE FROM beta_table1 WHERE id = 2;
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.table1 ALTER COLUMN r SET REFERENCES beta_dbtests.tablea");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table1");
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tablea");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("DROP AUTONUMBER should actually work"))
+{
+  TABLE <INTEGER id > beta_table1;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(id INTEGER AUTONUMBER 50)");
+
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  INSERT INTO beta_table1(id) VALUES(0); //0 forces an autonumber on that field
+
+  IF (NOT RecordArraysEqual((SELECT * FROM beta_table1 ORDER BY id), [[id:=50]]))
+  {
+    PrintRecordArrayTo(0,(SELECT * FROM beta_table1 ORDER BY id),"boxed");
+    ABORT("Regressed");
+  }
+
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.table1 ALTER COLUMN id DROP AUTONUMBER");
+  INSERT INTO beta_table1(id) VALUES(0); //0 should now remain 0
+  IF (NOT RecordArraysEqual((SELECT * FROM beta_table1 ORDER BY id), [[id:=0],[id:=50]]))
+  {
+    PrintRecordArrayTo(0,(SELECT * FROM beta_table1 ORDER BY id),"boxed");
+    ABORT("Regressed");
+  }
+
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE beta_dbtests.table1 ALTER COLUMN id SET AUTONUMBER 150");
+  INSERT INTO beta_table1(id) VALUES(0); //0 should now autonubmer again
+  IF (NOT RecordArraysEqual((SELECT * FROM beta_table1 ORDER BY id), [[id:=0],[id:=50],[id:=150]]))
+  {
+    PrintRecordArrayTo(0,(SELECT * FROM beta_table1 ORDER BY id),"boxed");
+    ABORT("Regressed");
+  }
+
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Blobs inserting and retrieving")) //29
+{
+  OpenTest("TestDatabase: Blobs inserting and retrieving");
+  TABLE <INTEGER id, BLOB b> beta_tableb;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableb(id INTEGER, b BLOB)");
+  beta_tableb := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableb");
+
+  STRING blobexample := "These are the contents of a blob";
+  BLOB b := StringToBlob(blobexample);
+
+  INSERT INTO beta_tableb(id, b) VALUES (1, b);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_tableb := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableb");
+  BLOB c := SELECT AS BLOB beta_tableb.b FROM beta_tableb LIMIT 1;
+  STRING cs := BlobToString(c, 4096);
+
+  IF (cs != blobexample)
+    ABORT("Blob inserting doesn't work anymore");
+  TestCommitSuccess(test_fp_trans);
+
+  // Try duplicate blob insertion
+  test_fp_trans := OpenTestTrans();
+  beta_tableb := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableb");
+  INSERT INTO beta_tableb(id, b) VALUES (2, b);
+
+  INTEGER uploadid := GetWHDBBlobInternalId(B);
+  TestEqual(1, uploadid, (SELECT AS INTEGER GetWHDBBlobInternalId(column b) FROM beta_tableb WHERE id=1));
+  TestEqual(2, uploadid, (SELECT AS INTEGER GetWHDBBlobInternalId(column b) FROM beta_tableb WHERE id=2));
+
+  TestCommitSuccess(test_fp_trans);
+
+  // Try re-insertion
+  test_fp_trans := OpenTestTrans();
+  beta_tableb := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableb");
+
+  BLOB inblob := SELECT AS BLOB COLUMN b FROM beta_tableb WHERE Id=2;
+  TestEqual(3, uploadid, GetWHDBBlobInternalId(inblob));
+  INSERT INTO beta_tableb(id, b) VALUES (3, b);
+  TestEqual(4, uploadid, (SELECT AS INTEGER GetWHDBBlobInternalId(column b) FROM beta_tableb WHERE id=3));
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableb");
+  TestCommitSuccess(test_fp_trans);
+  CloseTest("TestDatabase: Blobs inserting and retrieving");
+}
+
+IF (RunTest("Repair of auto-transaction after work commit failures"))
+{
+  TABLE <INTEGER id, BOOLEAN test> beta_tableb;
+
+  test_fp_trans := OpenTestAutoTrans();
+  BeginWHDBWork(test_fp_trans);
+
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableb(id INTEGER PRIMARY KEY, test BOOLEAN)");
+  beta_tableb := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableb");
+
+  TestWorkCommitSuccess(test_fp_trans);
+
+  // Trigger commit error
+  BeginWHDBWork(test_fp_trans);
+  INSERT INTO beta_tableb(id, test) VALUES (1, TRUE);
+  INSERT INTO beta_tableb(id, test) VALUES (1, TRUE);
+  TestWorkCommitFailure(test_fp_trans);
+
+  // Retry, must succeed now
+  BeginWHDBWork(test_fp_trans);
+
+  INSERT INTO beta_tableb(id, test) VALUES (1, TRUE);
+  UPDATE beta_tableb SET test := FALSE;
+  IF (NOT RecordArraysEqual((SELECT * FROM beta_tableb ORDER BY id), [[id:=1,test:=FALSE]]))
+    ABORT("Repair of failed auto-transaction failed");
+
+  TestWorkCommitSuccess(test_fp_trans);
+
+  // Changes must commit
+  IF (NOT RecordArraysEqual((SELECT * FROM beta_tableb ORDER BY id), [[id:=1,test:=FALSE]]))
+    ABORT("Repair of failed auto-transaction failed");
+
+  CloseWHDBAutoTransaction(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.tableb");
+  TestCommitSuccess(test_fp_trans);
+}
+IF (RunTest("Too quick removal of intermediate records"))
+{
+  /* This tests tests whether intermediate versions of records aren't thrown away
+     too soon.
+
+     The old database inserter-updater equivalence test checked if any transactions in
+     the range [inserter, updater] (inclusive) were active (== readable)
+     This is wrong; if there is a transaction that has updater on its earlier_running_list
+     the updater may be seen as rollbacked. It should have checked if there were any
+     referenced transactions in the range [inserter, updater].
+     As a consequence, the old version of a record was removed, but there was still a
+     transaction that should have been able to see it.
+
+   extra:       |---------------------------------------------------------|
+   t_0            |----I--|
+   t_1                       |---U-----|
+   t_2                               |--------------------P---|
+   t_3                                      |----S----|
+                       Insert    Update          Scan     Problem
+
+    In the scan of t_3, the inserter and upater are seen as equivalent, but it is missed that
+    t_2 sees t_1 as rollbacked. The record is marked as permanently invisible, and in the
+    later scan in t_2, the record has vanished in thin air.
+  */
+
+  // Open an extra transaction to prevent finalization of all other transactions
+  INTEGER extra := OpenTestTrans();
+
+  // We build a new table, and insert a record
+  INTEGER t_0 := OpenTestTrans();
+  SendWHDBCommand(t_0, "DROP SCHEMA beta_dbtests");
+  SendWHDBCommand(t_0, "CREATE SCHEMA beta_dbtests AUTHORIZATION _system");
+  SendWHDBCommand(t_0, "CREATE TABLE beta_dbtests.TEST ( id INTEGER, t varchar(64))");
+  TABLE < INTEGER id, STRING t > test := BindTransactionToTable(t_0, "beta_dbtests.test");
+  INSERT INTO test(id, t) values (1,"a");
+  TestCommitSuccess(t_0);
+
+  INTEGER t_1 := OpenTestTrans();
+
+  // Update the record
+  TABLE test_1 LIKE test :=  BindTransactionToTable(t_1, "beta_dbtests.test");
+  UPDATE test_1 SET t := "B";
+
+  INTEGER t_2 := OpenTestTrans();
+  TABLE test_2 LIKE test :=  BindTransactionToTable(t_2, "beta_dbtests.test");
+
+  TestCommitSuccess(t_1);
+
+  INTEGER t_3 := OpenTestTrans();
+  TABLE test_3 LIKE test :=  BindTransactionToTable(t_3, "beta_dbtests.test");
+
+  // Scan over test_3: if database is wrong, the original record is marked as permanently invisible
+  IF (LENGTH(SELECT * FROM test_3) = 0)
+    ABORT("test_3 should not be empty");
+
+  // Check if the record still exists
+  IF (LENGTH(SELECT * FROM test_2) = 0)
+    ABORT("test_2 should not be empty");
+
+  RollbackWHDBTransaction(extra);
+  RollbackWHDBTransaction(t_2);
+  RollbackWHDBTransaction(t_3);
+}
+IF (RunTest("IN with >1023 elements"))
+{
+  TABLE <INTEGER id, INTEGER a > beta_tableA;
+  TABLE <INTEGER id, INTEGER b > beta_tableB;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans, "DROP SCHEMA beta_dbtests");
+  SendWHDBCommand(test_fp_trans, "CREATE SCHEMA beta_dbtests AUTHORIZATION _system");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER PRIMARY KEY, a INTEGER)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableB(id INTEGER PRIMARY KEY, b INTEGER)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"WAIT INDEX");
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  beta_tableB := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableB");
+  INTEGER ARRAY ints;
+
+  FOR (INTEGER i := 1; i <= 3057; i := i + 1)
+  {
+    INSERT i INTO ints AT END;
+    INSERT INTO beta_tablea(id, a) VALUES (i, 1);
+    INSERT INTO beta_tableb(id, b) VALUES (i, 1);
+  }
+
+  FOREVERY (INTEGER a FROM [ 0, 1, 1022, 1023, 1024, 1025, 2044, 2045, 2046, 2047, 2048, 2049 ])
+  {
+    PRINT("Select test " || a || "\n");
+
+    INTEGER ARRAY list;
+    FOR (INTEGER b := 1; b <= a; b := b + 1)
+      INSERT b INTO list AT END;
+
+    IF (LENGTH(SELECT FROM beta_tableA WHERE id IN list) != LENGTH(list))
+      ABORT("Missing elements when selecting "||LENGTH(list)||" elements");
+  }
+
+  // Any elements missed?
+  UPDATE beta_tableA
+     SET a := 2
+   WHERE id IN ints;
+
+  IF (RecordExists(SELECT FROM beta_tableA WHERE a != 2))
+    ABORT("Update missed element");
+
+  FOREVERY (INTEGER a FROM [ 0, 1, 1022, 1023, 1024, 1025, 2044, 2045, 2046, 2047, 2048, 2049 ])
+  {
+    PRINT("Update test " || a || "\n");
+
+    INTEGER ARRAY list;
+    FOR (INTEGER b := 1; b <= a; b := b + 1)
+      INSERT b INTO list AT END;
+
+    UPDATE beta_tableA
+       SET a := VAR a
+     WHERE id IN list;
+
+    INTEGER gotcount := LENGTH(SELECT FROM beta_tableA WHERE COLUMN a = VAR a);
+
+    IF (gotcount != LENGTH(list))
+      ABORT("Missing elements when updating "||LENGTH(list)||" elements, got " || gotcount || " elements");
+  }
+
+  PRINT("Cross test " || LENGTH(ints) || "\n");
+  RECORD ARRAY crossresult :=
+      SELECT
+        FROM beta_tablea
+           , beta_tableb
+       WHERE beta_tablea.id IN ints
+         AND beta_tableb.id IN ints;
+
+  IF (LENGTH(crossresult) != LENGTH(ints) * LENGTH(ints))
+  {
+    ABORT("Cross join missed elements, got: " || LENGTH(crossresult) || ", wanted: " || LENGTH(ints) * LENGTH(ints));
+  }
+
+  FOREVERY (INTEGER a FROM [ 0, 1, 1022, 1023, 1024, 1025, 2044, 2045, 2046, 2047, 2048, 2049 ])
+  {
+    PRINT("Cross test " || a || "\n");
+
+    INTEGER ARRAY list;
+    FOR (INTEGER b := 1; b <= a; b := b + 1)
+      INSERT b INTO list AT END;
+
+    crossresult :=
+          SELECT
+            FROM beta_tablea
+               , beta_tableb
+           WHERE beta_tablea.id IN list
+             AND beta_tableb.id IN list;
+
+    IF (LENGTH(crossresult) != LENGTH(list) * LENGTH(list))
+      ABORT("Cross join missed elements with "||LENGTH(list)||" elements, got " || LENGTH(crossresult) || " elements");
+  }
+
+  PRINT("Inner join test " || LENGTH(ints) || "\n");
+
+  RECORD ARRAY innerresult :=
+      SELECT
+        FROM beta_tablea
+           , beta_tableb
+       WHERE beta_tablea.id IN ints
+         AND beta_tableb.id IN ints
+         AND beta_tablea.id = beta_tableb.id;
+
+  IF (LENGTH(innerresult) != LENGTH(ints))
+  {
+    ABORT("Inner join missed elements, got: " || LENGTH(innerresult) || ", wanted: " || LENGTH(ints));
+  }
+
+  FOREVERY (INTEGER a FROM [ 0, 1, 1022, 1023, 1024, 1025, 2044, 2045, 2046, 2047, 2048, 2049 ])
+  {
+    PRINT("Inner join test " || a || "\n");
+
+    INTEGER ARRAY list;
+    FOR (INTEGER b := 1; b <= a; b := b + 1)
+      INSERT b INTO list AT END;
+
+    innerresult :=
+          SELECT
+            FROM beta_tablea
+               , beta_tableb
+           WHERE beta_tablea.id IN list
+             AND beta_tableb.id IN list
+             AND beta_tablea.id = beta_tableb.id;
+
+    IF (LENGTH(innerresult) != LENGTH(list))
+      ABORT("Inner join missed elements with "||LENGTH(list)||" elements, got " || LENGTH(innerresult) || " elements");
+  }
+
+
+  DELETE
+    FROM beta_tablea
+   WHERE id IN ints;
+
+  IF (RecordExists(SELECT FROM beta_tableA))
+    ABORT("Delete missed element");
+
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Delete of record with concurrently added cascading reference"))
+{
+  TABLE <INTEGER id, INTEGER parent > beta_tableA;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans, "DROP SCHEMA beta_dbtests");
+  SendWHDBCommand(test_fp_trans, "CREATE SCHEMA beta_dbtests AUTHORIZATION _system");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER PRIMARY KEY, parent INTEGER REFERENCES beta_dbtests.tableA ON DELETE CASCADE)");
+  TestCommitSuccess(test_fp_trans);
+
+  // Create rec(1)
+  // Trans a start
+  //  A:Create rec(2->1)
+  // Trans b start
+  // Trans a commit
+  //  B:Delete rec(1)
+  // Trans b commit -> Must give error, still reference from 2
+
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  INSERT INTO beta_tableA(id) VALUES (1);
+  TestCommitSuccess(test_fp_trans);
+
+  INTEGER test_fp_transA := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_transA,"beta_dbtests.tableA");
+
+  INSERT INTO beta_tableA(id, parent) VALUES (2, 1);
+
+  INTEGER test_fp_transB := OpenTestTrans();
+  TestCommitSuccess(test_fp_transA);
+
+  beta_tableA := BindTransactionToTable(test_fp_transB,"beta_dbtests.tableA");
+  DELETE FROM beta_tableA;
+  TestCommitFailure(test_fp_transB); // Must fail due to non-cascaded reference from id:2.
+
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+
+  TestEq([ [ id := 1, parent := 0 ], [ id := 2, parent := 1 ] ], (SELECT * FROM beta_tableA ORDER BY id));
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Speculative readahead"))
+{
+  TABLE <INTEGER id> beta_tableA;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans, "DROP SCHEMA beta_dbtests");
+  SendWHDBCommand(test_fp_trans, "CREATE SCHEMA beta_dbtests AUTHORIZATION _system");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER)");
+  TestCommitSuccess(test_fp_trans);
+
+  // Create rec(1)
+  // Trans a start
+  //  A:Create rec(2->1)
+  // Trans b start
+  // Trans a commit
+  //  B:Delete rec(1)
+  // Trans b commit -> Must give error, still reference from 2
+
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  FOR (INTEGER i := 1; i < 66; i := i + 1)
+    INSERT INTO beta_tableA(id) VALUES (i);
+  TestCommitSuccess(test_fp_trans);
+
+  INTEGER test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+
+  FOR (INTEGER i := 1; i < 66; i := i + 1)
+  {
+    RECORD x := SELECT * FROM beta_tableA WHERE id + 1 = i + 1 LIMIT 1; // Don't send filter/limit to db.
+    TestEq(x.id, i);
+  }
+  TestCommitSuccess(test_fp_trans);
+}
+
+INTEGER acceptedinteger := 0;
+BOOLEAN FUNCTION AcceptOneIntegerThenThrow(INTEGER id)
+{
+  IF (acceptedinteger = 0)
+    acceptedinteger := id;
+  ELSE
+    THROW NEW Exception("STOP!");
+  RETURN TRUE;
+}
+
+IF (RunTest("Autotrans update vs exceptions")) // Fixed in 3.11
+{
+  TABLE <INTEGER id> beta_tableA;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans, "DROP SCHEMA beta_dbtests");
+  SendWHDBCommand(test_fp_trans, "CREATE SCHEMA beta_dbtests AUTHORIZATION _system");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.tableA(id INTEGER)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+  FOR (INTEGER i := 1; i <= 3; i := i + 1)
+    INSERT INTO beta_tableA(id) VALUES (i);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestAutoTrans();
+  beta_tableA := BindTransactionToTable(test_fp_trans,"beta_dbtests.tableA");
+
+  BeginWHDBWork(test_fp_trans);
+
+  acceptedinteger := 0;
+  TRY
+  {
+    UPDATE beta_tableA
+      SET id := id + 10
+    WHERE AcceptOneIntegerThenThrow(id);
+  }
+  CATCH (OBJECT e)
+  {
+  }
+
+  CommitWHDBWork(test_fp_trans);
+
+  INTEGER ARRAY expected := SELECT AS INTEGER ARRAY i = acceptedinteger ? i + 10 : i FROM ToRecordArray([1,2,3], "I") ORDER BY i = acceptedinteger ? i + 10 : i;
+  TestEQ(expected, (SELECT AS INTEGER ARRAY id FROM beta_tableA ORDER BY id));
+
+  CloseWHDBAutoTransaction(test_fp_trans);
+}
+
+IF (RunTest("Disable cascading"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans, "DROP SCHEMA beta_dbtests");
+  SendWHDBCommand(test_fp_trans, "CREATE SCHEMA beta_dbtests AUTHORIZATION _system");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(id INTEGER AUTONUMBER 1 PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table2(id INTEGER AUTONUMBER 1 PRIMARY KEY, refc INTEGER REFERENCES beta_dbtests.table1 ON DELETE CASCADE)");
+
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT, INSERT, DELETE ON SCHEMA beta_dbtests TO PUBLIC GRANTED BY _SYSTEM");
+
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+
+  SendWHDBCommand(test_fp_trans,"SET CLIENT CATCH_ERRORS TO NONE");
+
+  // Normal delete
+  INSERT INTO beta_table1(id) VALUES (1);
+  INSERT INTO beta_table2(id, refc) VALUES (2, 1);
+  DELETE FROM beta_table1 WHERE id = 1;
+
+  IF (RecordExists(SELECT FROM beta_table1) OR RecordExists(SELECT FROM beta_table2))
+    ABORT("Delete failed");
+
+  INSERT INTO beta_table1(id) VALUES (1);
+  INSERT INTO beta_table2(id, refc) VALUES (2, 1);
+
+  SendWHDBCommand(test_fp_trans,"SET LOCAL CASCADING TO OFF");
+
+  // Delete without cascading
+  DELETE FROM beta_table1 WHERE id = 1;
+
+  IF (RecordExists(SELECT FROM beta_table1))
+    ABORT("Delete failed");
+  IF (NOT RecordExists(SELECT FROM beta_table2))
+    ABORT("Cascaded");
+
+  // Reenable cascading
+  SendWHDBCommand(test_fp_trans,"SET LOCAL CASCADING TO ON");
+  IF (NOT RecordExists(SELECT FROM beta_table2))
+    ABORT("Cascaded after re-enabling cascading!");
+
+  // Reinsert & delete with cascading
+  INSERT INTO beta_table1(id) VALUES (1);
+  DELETE FROM beta_table1 WHERE id = 1;
+
+  IF (RecordExists(SELECT FROM beta_table1) OR RecordExists(SELECT FROM beta_table2))
+    ABORT("Not cascaded!");
+
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user:="", passwd:="", auto:=false, clientname := "anonymous"]);
+  SetPrimaryWebhareTransaction(test_fp_trans);
+
+  beta_table1 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table1");
+  beta_table2 := BindTransactionToTable(test_fp_trans,"beta_dbtests.table2");
+
+  INSERT INTO beta_table1(id) VALUES (1);
+  INSERT INTO beta_table2(id, refc) VALUES (2, 1);
+
+  SendWHDBCommand(test_fp_trans,"SET LOCAL CASCADING TO OFF");
+
+  // Delete without cascading
+  DELETE FROM beta_table1 WHERE id = 1;
+
+  SendWHDBCommand(test_fp_trans,"SET LOCAL CASCADING TO OFF");
+  TestCommitFailure(test_fp_trans);
+}
+
+test_fp_trans := OpenTestTrans();
+SendWHDBCommand(test_fp_trans,"DROP SCHEMA BETA_DBTESTS");
+TestCommitSuccess(test_fp_trans);

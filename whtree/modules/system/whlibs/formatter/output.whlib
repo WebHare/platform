@@ -1,0 +1,275 @@
+﻿<?wh
+/** @short Formatter access functions
+    @long Internal library providing access to the formatter */
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::parser/objects.whlib";
+LOADLIB "wh::graphics/core.whlib";
+
+RECORD ARRAY pages;
+MACRO __PUBLISHER_PAINTCURRENTIMAGE(INTEGER canvasid, INTEGER startx, INTEGER starty, INTEGER endx, INTEGER endy) __ATTRIBUTES__(EXTERNAL "parser");
+
+//This function is called by the HTML rendering engine to create an image link
+PUBLIC MACRO __ENTRYPOINT_imagecallback(INTEGER pageid, RECORD paintinfo)
+{
+  RECORD page := SELECT * FROM pages WHERE id=pageid;
+  IF(NOT RecordExists(page))
+    RETURN; //someone was faking pages (old output providers)
+
+  IF(NOT cellExists(paintinfo,'isrtdimage')) //we came from C
+  {
+    INSERT CELL renderimage := PTR __PUBLISHER_PAINTCURRENTIMAGE INTO paintinfo;
+    INSERT CELL isrtdimage := FALSE INTO paintinfo;
+  }
+  ELSE
+  {
+    INSERT CELL renderimage := paintinfo.painter INTO paintinfo;
+    INSERT CELL margintop := 0 INTO paintinfo;
+    INSERT CELL marginleft := 0 INTO paintinfo;
+    INSERT CELL marginbottom := 0 INTO paintinfo;
+    INSERT CELL marginright := 0 INTO paintinfo;
+  }
+
+  page.page->ExecuteImageCallback(paintinfo);
+}
+
+//This function is called by the HTML rendering engine to create hyperlinks...
+PUBLIC MACRO __ENTRYPOINT_HYPERLINKCALLBACK(INTEGER pageid, RECORD hyperlinkinfo)
+{
+  RECORD page := SELECT * FROM pages WHERE id=pageid;
+  IF(NOT RecordExists(page))
+    RETURN; //someone was faking pages (old output providers)
+
+  page.page->ExecuteHyperlinkCallback(hyperlinkinfo);
+}
+
+/** @param imageinfo
+    @cell imageinfo.is_known_photo We know the image is a photo
+    @cell imageinfo.lenx Width of the image in pixels
+    @cell imageinfo.leny Height of the image in pixels
+    @cell imageinfo.alttag UTF-8 encoded alttag
+    @cell imageinfo.title UTF-8 encoded title
+    @cell imageinfo.animated_gif Animated GIF file, if any (blob)
+    @cell imageinfo.align Image alignment (0=unknown, 1=left, 2=right)
+    @cell imageinfo.uniqueid Unique ID for image (if we see the image again in the current conversion, it should have the same ID)
+    @cell imageinfo.wrapping Shape wrapping distance info
+    @cell imageinfo.wrapping.left Padding at left of paragraph, in 20ths of a point
+    @cell imageinfo.wrapping.right Padding at right of paragraph
+    @cell imageinfo.wrapping.top Padding at top of paragraph
+    @cell imageinfo.wrapping.bottom Padding at bottom of paragraph
+    @cell imageinfo.painter Painting function (MACRO (INTEGER canvas, INTEGER startx, INTEGER startx, INTEGER lenx, INTEGER leny)
+*/
+MACRO __PUBLISHER_OUTPUT_INSERTIMAGE(INTEGER formatterid, RECORD imageinfo)  __ATTRIBUTES__(EXTERNAL "parser");
+
+
+OBJECTTYPE PublicationImage
+<
+  PUBLIC STRING uniqueid;
+  PUBLIC INTEGER width;
+  PUBLIC INTEGER height;
+  PUBLIC BLOB animatedgif;
+  PUBLIC BOOLEAN isphoto;
+  PUBLIC STRING alternativetext;
+  PUBLIC INTEGER align;
+  PUBLIC RECORD wrapping;
+  PUBLIC STRING longdesc;
+  PUBLIC STRING title;
+
+  MACRO NEW()
+  {
+    this->wrapping := [ left := 0, right := 0, top := 0, bottom := 0 ];
+  }
+  PUBLIC MACRO RenderImage(INTEGER canvas, INTEGER x, INTEGER y, INTEGER width, INTEGER height)
+  {
+  }
+>;
+
+OBJECTTYPE PublicationImageFromBlob EXTEND PublicationImage
+<
+  BLOB contents;
+  RECORD fileinfo;
+  PUBLIC BOOLEAN isrtdimage;
+
+  MACRO NEW(BLOB contents, RECORD fileinfo)
+  {
+    this->contents := contents;
+    this->fileinfo := fileinfo;
+    //FIXME set animated_gif if it is
+
+    this->width := fileinfo.imginfo.width;
+    this->height := fileinfo.imginfo.height;
+    this->isphoto := fileinfo.contenttype = "image/jpeg";
+  }
+  PUBLIC UPDATE MACRO RenderImage(INTEGER canvas, INTEGER x, INTEGER y, INTEGER width, INTEGER height)
+  {
+    INTEGER myimage := GfxCreateResizedCanvasFromImageBlob(this->contents, this->fileinfo.imginfo.width, this->fileinfo.imginfo.height);
+    IF (this->fileinfo.imginfo.width != width OR this->fileinfo.imginfo.height != height) //ADDME combine both these steps where possible
+      GfxResizeCanvas(myimage, width, height);
+    GfxDrawCanvas(canvas, myimage, x, y);
+    GfxDestroyCanvas(myimage);
+  }
+>;
+
+//FIXME sure we need to hardcode the OutputBase vs PageBase distinction ?
+PUBLIC STATIC OBJECTTYPE FormattingOutputBase
+<
+  PUBLIC MACRO PTR imagecallback;
+
+  MACRO NEW()
+  {
+  }
+
+  PUBLIC MACRO ClosePage(INTEGER pageid)
+  {
+    //these pageids are guaranteed to be unique, because of RegisterFormattedOutput
+    RECORD page := SELECT * FROM pages WHERE id=pageid;
+    IF(NOT RecordExists(page))
+      THROW NEW Exception("No such opened page #" || pageid);
+    page.page->Close();
+  }
+
+  PUBLIC MACRO CloseOutput()
+  {
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE FormattingPageBase
+<
+  INTEGER pvt_id;
+  INTEGER pvt_outputstream;
+  OBJECT pvt_publicationoutput;
+
+  PUBLIC PROPERTY id(pvt_id,-);
+  PUBLIC PROPERTY formattingoutput(pvt_publicationoutput,-);
+  PUBLIC PROPERTY outputstream(pvt_outputstream,-);
+
+  /** @param publicationoutput Parent FormattingOutputBase
+      @param outputstream Output stream id (0 if this stream cannot receive PRINTs)
+      @param outputpageid Internal id for the output page object */
+  MACRO NEW(OBJECT publicationoutput, INTEGER outputstream, INTEGER outputpageid, MACRO PTR setupme DEFAULTSTO DEFAULT MACRO PTR)
+  {
+    IF(outputpageid=0)
+      outputpageid := setupme(this);
+
+    this->pvt_publicationoutput := publicationoutput;
+    this->pvt_outputstream := outputstream;
+    this->pvt_id := outputpageid;
+
+    INSERT INTO pages(id, publicationoutput, page)
+           VALUES(this->id, publicationoutput, PRIVATE this)
+           AT END;
+  }
+
+  PUBLIC MACRO Print(STRING data)
+  {
+    PrintTo(this->pvt_outputstream, data);
+  }
+
+  PUBLIC OBJECT FUNCTION PrepareImageFromFile(BLOB imagedata)
+  {
+    RECORD fileinfo := ScanBlob(imagedata, '');
+    IF(fileinfo.mimetype NOT LIKE "image/*")
+      THROW NEW Exception("The data passed to EmbedImageFile does not appear to be an image");
+
+    OBJECT img := NEW PublicationImageFromBlob(imagedata, fileinfo);
+    RETURN img;
+  }
+
+  /** @short Embed an image into the current output
+      @param imagedata Image data
+      @param uniqueid Unique id, if known, associated with the image (used to prevent double-embedding of double-referred imags)
+      @param width Image width as embedded, in pixels (0 if not known)
+      @param height Image height as embedded, ix pixels (0 if not known) */
+  PUBLIC MACRO EmbedImage(OBJECT image)
+  {
+    RECORD imginfo := [ is_known_photo := image->isphoto
+                      , lenx := image->width
+                      , leny := image->height
+                      , alttag := image->alternativetext
+                      , animated_gif := image->animatedgif
+                      , align := image->align
+                      , uniqueid := image->uniqueid
+                      , wrapping := image->wrapping
+                      , painter := PTR image->RenderImage
+                      , title := image->title
+                      , isrtdimage := image->isrtdimage
+                      ];
+
+    IF(image->isrtdimage) //shortcircuit around the C code
+    {
+      //FIXME discover cellsize etc
+      INSERT CELL cellsize := 0 INTO imginfo;
+      INSERT CELL bgcolor := 0xFFFFFFFF INTO imginfo;
+      __ENTRYPOINT_imagecallback(this->formattingoutput->id, imginfo);
+    }
+    ELSE
+      //FIXME internalid should also be stored and managed by us
+      __PUBLISHER_OUTPUT_INSERTIMAGE(this->formattingoutput->id, imginfo);
+  }
+
+  PUBLIC MACRO PrintParserObject(INTEGER parserobjectid)
+  {
+    PrintParserObject(this->id, parserobjectid);
+  }
+
+  PUBLIC MACRO ExecuteHyperlinkCallback(RECORD hyperlinkinfo)
+  {
+    BOOLEAN mustredirect := this->pvt_outputstream != 0;
+    INTEGER oldoutput;
+    IF(mustredirect)
+      oldoutput := RedirectOutputTo(this->pvt_outputstream);
+
+    TRY
+    {
+      MACRO PTR callback := this->formattingoutput->hyperlinkcallback;
+      IF (callback != DEFAULT MACRO PTR)
+        callback(hyperlinkinfo);
+    }
+    CATCH(OBJECT e)
+    {
+      IF(mustredirect)
+        RedirectOutputTo(oldoutput);
+      THROW e;
+    }
+    IF(mustredirect)
+      RedirectOutputTo(oldoutput);
+  }
+  MACRO ExecuteImageCallback(RECORD imageinfo)
+  {
+    IF(this->formattingoutput->imagecallback = DEFAULT MACRO PTR)
+      RETURN;
+
+    BOOLEAN mustredirect := this->pvt_outputstream != 0;
+    INTEGER oldoutput;
+    IF(mustredirect)
+      oldoutput := RedirectOutputTo(this->pvt_outputstream);
+
+    TRY
+    {
+      this->formattingoutput->imagecallback(imageinfo);
+    }
+    CATCH(OBJECT e)
+    {
+      IF(mustredirect)
+        RedirectOutputTo(oldoutput);
+      THROW e;
+    }
+    IF(mustredirect)
+      RedirectOutputTo(oldoutput);
+  }
+
+  PUBLIC MACRO Close()
+  {
+    //these pageids are guaranteed to be unique, because of RegisterFormattedOutput
+    DELETE FROM pages WHERE id=this->id;
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION GetFormattingPage(INTEGER findpageid)
+{
+  RECORD match := SELECT * FROM pages WHERE id=findpageid;
+  IF(NOT RecordExists(match))
+    THROW NEW Exception("No such formatting page #" || findpageid);
+  RETURN MakePublicObjectReference(match.page);
+}

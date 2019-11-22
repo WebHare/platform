@@ -1,0 +1,401 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/actions.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+
+
+OBJECT fullrightfolder;
+OBJECT lisasfolder;
+INTEGER test1id, test2id, test3id;
+
+RECORD FUNCTION mysearchrecyclebin(INTEGER owner, INTEGER ARRAY dummy, STRING namecontains, DATETIME fromdate, DATETIME todate)
+{
+  RETURN
+      [ success :=    TRUE
+      , recs :=       SearchRecycleBin(
+                            [ owner :=        owner
+                            , namecontains := namecontains
+                            , fromdate :=     fromdate
+                            , todate :=       todate
+                            ])
+      ];
+}
+
+MACRO Setup()
+{
+  testfw->BeginWork();
+
+  OBJECT testbase := testfw->GetWHFSTestRoot();
+  fullrightfolder := testbase->CreateFolder([ name := "fullrightfolder" ]);
+  lisasfolder := testbase->CreateFolder([ name := "lisasfolder", modifiedby := testfw->GetUserAuthobjectid("lisa") ]);
+  fullrightfolder->CreateFile( [ name := "justadummy" ]);
+  fullrightfolder->EnsureOrdering(TRUE);
+
+  RECORD ARRAY destfiles := SELECT id,name,ordering FROM system.fs_objects WHERE parent=fullrightfolder->id ORDER BY name;
+  TestEq(1,Length(destfiles));
+  TestEq("justadummy", destfiles[0].name);
+  TestEq(1, destfiles[0].ordering);
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+
+  testfw->GetUserObject("bart")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("bart"), fullrightfolder->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), fullrightfolder->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), lisasfolder->id, FALSE, TRUE);
+
+  testfw->CommitWork();
+}
+
+MACRO TestEQRBResult(RECORD ARRAY expect, RECORD ARRAY got)
+{
+  expect := SELECT * FROM expect ORDER BY id, name;
+  got := SELECT * FROM got ORDER BY id, name;
+
+  TestEQ((SELECT id, isfolder, /*originalpath, */deletionuserid, origlocation FROM expect),
+         (SELECT id, isfolder, /*originalpath, */deletionuserid, origlocation FROM got));
+
+  FOREVERY (RECORD g FROM got)
+    TestEQ(TRUE, g.deletiondate >= expect[#g].deletiondate_begin OR g.deletiondate <= expect[#g].deletiondate_end);
+}
+
+MACRO RecyclebinSearch()
+{
+  testfw->BeginWork();
+
+  OBJECT test1 := fullrightfolder->CreateFile([ name := "test1" ]);
+  test1id := test1->id;
+
+  OBJECT test2 := fullrightfolder->CreateFile([ name := "test2" ]);
+  test2id := test2->id;
+
+  OBJECT test3 := lisasfolder->CreateFile([ name := "test3" ]);
+  test3id := test3->id;
+
+  fullrightfolder->EnsureOrdering(TRUE);
+
+  RECORD ARRAY destfiles := SELECT name,ordering FROM system.fs_objects WHERE parent=fullrightfolder->id ORDER BY name;
+  TestEq( [[ name := "justadummy", ordering := 3]
+          ,[ name := "test1", ordering := 1]
+          ,[ name := "test2", ordering := 2]
+          ], destfiles);
+
+  testfw->CommitWork();
+
+  DATETIME deletiondate_begin := GetCurrentDateTime();
+
+  testfw->SetTestUser("bart");
+  testfw->BeginWork();
+  test1->RecycleSelf();
+  testfw->CommitWork();
+
+  testfw->SetTestUser("lisa");
+  testfw->BeginWork();
+  test2->RecycleSelf();
+  test3->RecycleSelf();
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  // Revoke lisa's right on her folder, her deletes should still be visible because she is the deleting user
+  testfw->GetUserObject("lisa")->RevokeRightFromOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), lisasfolder->id, FALSE, TRUE);
+  testfw->CommitWork();
+
+  DATETIME deletiondate_end := AddTimeToDate(1, GetCurrentDateTime());
+
+  testfw->SetTestUser("bart");
+  testfw->BeginWork();
+
+  RECORD res;
+
+  res := mysearchrecyclebin(0, DEFAULT INTEGER ARRAY, "", DEFAULT DATETIME, DEFAULT DATETIME);
+  TestEQ(TRUE, res.success);
+  TestEQRBResult(
+      [ [ id :=                 test1->id
+        , name :=               "test1"
+        , isfolder :=           FALSE
+        , originalpath :=       ""
+        , deletiondate_begin := deletiondate_begin
+        , deletiondate_end :=   deletiondate_end
+        , deletionuserid :=     testfw->GetUserAuthobjectid("bart")
+        , origlocation :=       fullrightfolder->id
+        ]
+      , [ id :=                 test2->id
+        , name :=               "test2"
+        , isfolder :=           FALSE
+        , originalpath :=       ""
+        , deletiondate_begin := deletiondate_begin
+        , deletiondate_end :=   deletiondate_end
+        , deletionuserid :=     testfw->GetUserAuthobjectid("lisa")
+        , origlocation :=       fullrightfolder->id
+        ]
+      ], res.recs);
+
+  testfw->SetTestUser("lisa");
+  res := mysearchrecyclebin(0, DEFAULT INTEGER ARRAY, "", DEFAULT DATETIME, DEFAULT DATETIME);
+  TestEQ(TRUE, res.success);
+  TestEQRBResult(
+      [ [ id :=                 test1->id
+        , name :=               "test1"
+        , isfolder :=           FALSE
+        , originalpath :=       ""
+        , deletiondate_begin := deletiondate_begin
+        , deletiondate_end :=   deletiondate_end
+        , deletionuserid :=     testfw->GetUserAuthobjectid("bart")
+        , origlocation :=       fullrightfolder->id
+        ]
+      , [ id :=                 test2->id
+        , name :=               "test2"
+        , isfolder :=           FALSE
+        , originalpath :=       ""
+        , deletiondate_begin := deletiondate_begin
+        , deletiondate_end :=   deletiondate_end
+        , deletionuserid :=     testfw->GetUserAuthobjectid("lisa")
+        , origlocation :=       fullrightfolder->id
+        ]
+      , [ id :=                 test3->id
+        , name :=               "test3"
+        , isfolder :=           FALSE
+        , originalpath :=       ""
+        , deletiondate_begin := deletiondate_begin
+        , deletiondate_end :=   deletiondate_end
+        , deletionuserid :=     testfw->GetUserAuthobjectid("lisa")
+        , origlocation :=       lisasfolder->id
+        ]
+      ], res.recs);
+
+  testfw->SetTestUser("bart");
+  res := mysearchrecyclebin(testfw->GetUserAuthobjectid("bart"), DEFAULT INTEGER ARRAY, "", DEFAULT DATETIME, DEFAULT DATETIME);
+  TestEQ(TRUE, res.success);
+  TestEQ(SortArray([ test1id ]), (SELECT AS INTEGER ARRAY id FROM res.recs ORDER BY id));
+
+//  testfw->SetTestUser("lisa");
+//  res := mysearchrecyclebin(0, [ INTEGER(lisasfolder->id) ], "", DEFAULT DATETIME, DEFAULT DATETIME);
+//  TestEQ(TRUE, res.success);
+//  TestEQ(SortArray([ test3id ]), (SELECT AS INTEGER ARRAY id FROM res.recs ORDER BY id));
+
+  testfw->SetTestUser("bart");
+  res := mysearchrecyclebin(0, DEFAULT INTEGER ARRAY, "test1", DEFAULT DATETIME, DEFAULT DATETIME);
+  TestEQ(TRUE, res.success);
+  TestEQ(SortArray([ test1id ]), (SELECT AS INTEGER ARRAY id FROM res.recs ORDER BY id));
+
+  res := mysearchrecyclebin(0, DEFAULT INTEGER ARRAY, "", deletiondate_end, DEFAULT DATETIME);
+  TestEQ(TRUE, res.success);
+  TestEQ(DEFAULT RECORD ARRAY, res.recs);
+
+  res := mysearchrecyclebin(0, DEFAULT INTEGER ARRAY, "", DEFAULT DATETIME, deletiondate_begin);
+  TestEQ(TRUE, res.success);
+  TestEQ(DEFAULT RECORD ARRAY, res.recs);
+  testfw->RollbackWork();
+
+}
+
+MACRO TestDupeRecycle()
+{
+  testfw->BeginWork();
+
+  //Test the uncommon situation where one file gets hit twice by RecycleSelf
+
+  OBJECT dupetest := fullrightfolder->CreateFile([ name := "webhare-testsuite-dupetest" ]);
+  dupetest->RecycleSelf();
+
+  RECORD ARRAY historyslots := SELECT * FROM system.fs_history WHERE fs_object = dupetest->id;
+  TestEq(1, Length(historyslots), "should have one history slot");
+
+  dupetest->RecycleSelf();
+
+  RECORD ARRAY historyslots2 := SELECT * FROM system.fs_history WHERE fs_object = dupetest->id;
+  TestEq(1, Length(historyslots2), "dupe recycles, however they happen, should clean out old shots");
+  TestEq(historyslots[0].id, historyslots2[0].id, "First event should survive");
+
+  RECORD res;
+
+  res := mysearchrecyclebin(0, DEFAULT INTEGER ARRAY, "webhare-testsuite-dupetest", DEFAULT DATETIME, DEFAULT DATETIME);
+  TestEQ(TRUE, res.success);
+  TEstEq( [[ id := dupetest->id, origlocation := fullrightfolder->id ]], SELECT id,origlocation FROM res.recs);
+
+  /* test an even more uncommon situation where a file somehow returned but still appears recycled
+     (would require a pretty bad race, but on the other hand, we don't want to wind up with undeletable files) */
+  OBJECT weirddupetest := fullrightfolder->CreateFile([ name := "webhare-testsuite-weirddupetest" ]);
+  weirddupetest->RecycleSelf();
+  weirddupetest->MoveTo(fullrightfolder, "webhare-testsuite-weirddupetest");
+  weirddupetest->RecycleSelf();
+  TestEq(TRUE, weirddupetest->parent != fullrightfolder->id, "Should have been re-recycled properly");
+
+  RECORD ARRAY historyslots3 := SELECT * FROM system.fs_history WHERE fs_object = weirddupetest->id;
+  TestEq(1, Length(historyslots3), "dupe recycles, however they happen, should clean out old shots");
+  testfw->RollbackWork();
+}
+
+
+MACRO TestObjCopyMove(BOOLEAN testcopy)
+{
+  testfw->BeginWork();
+  OBJECT test1 := OpenWHFSObject(test1id);
+  TestEq(Tostring(test1->id), test1->name);
+  OBJECT cm := NEW ObjectCopyMover(testcopy ? "copy" : "move", fullrightfolder->id);
+  cm->AddSourceById(test1id);
+  cm->Go(testfw->GetUserObject("bart"));
+
+  TestEq(testcopy, RecordExists(SELECT FROM system.fs_history WHERE fs_object = test1id)); //history should still be there
+  test1 := OpenWHFSObject(test1id);
+  IF(testcopy)
+  {
+    TestEq(ToString(test1id), test1->name);
+  }
+  ELSE
+  {
+    TestEq("test1", test1->name);
+    TestEq(fullrightfolder->id, test1->parent);
+  }
+
+  RECORD ARRAY destfiles := SELECT name,ordering FROM system.fs_objects WHERE parent=fullrightfolder->id ORDER BY name;
+  TestEq( [[ name := "grolsch", ordering := 1]
+          ,[ name := "justadummy", ordering := 4]
+          ,[ name := "palm", ordering := 3]
+          ,[ name := "test1", ordering := 2]
+          ], destfiles);
+
+  testfw->RollbackWork();
+}
+
+MACRO RestoreStuff()
+{
+  OBJECT test1;
+
+  testfw->BeginWork();
+
+  //put conflicting orders#s in place
+  fullrightfolder->CreateFile( [ name := "grolsch" ]);
+  fullrightfolder->CreateFile( [ name := "palm" ]);
+  fullrightfolder->EnsureOrdering(TRUE);
+
+  RECORD ARRAY destfiles := SELECT name,ordering FROM system.fs_objects WHERE parent=fullrightfolder->id ORDER BY name;
+  TestEq( [[ name := "grolsch", ordering := 1]
+          ,[ name := "justadummy", ordering := 3]
+          ,[ name := "palm", ordering := 2]
+          ], destfiles);
+
+  testfw->CommitWork();
+  testfw->BeginWork();
+
+  test1 := OpenWHFSObject(test1id);
+  TestEq(TRUE, RecordExists(SELECT FROM system.fs_history WHERE fs_object = test1id));
+
+  RestoreWHFSObjects([INTEGER(test1->id)]);
+  test1 := OpenWHFSObject(test1id);
+
+  //should no longer be any history for this object
+  TestEq(FALSE, RecordExists(SELECT FROM system.fs_history WHERE fs_object = test1id));
+  TestEq(fullrightfolder->id, test1->parent);
+  TestEq(TRUE, test1->isactive);
+  TestEQ("test1", test1->name);
+  TestEq(TRUE, test1->isactive);
+  TestEQ("test1", test1->name);
+
+  testfw->RollbackWork();
+
+  testfw->BeginWork();
+  test1 := OpenWHFSObject(test1id);
+  TestEq(Tostring(test1->id), test1->name);
+  test1->CopyTo(fullrightfolder,"");
+  TestEq(Tostring(test1->id), test1->name);
+  test1 := OpenWHFSObject(test1id);
+  TestEq(Tostring(test1->id), test1->name);
+
+  TestEq(TRUE, RecordExists(SELECT FROM system.fs_history WHERE fs_object = test1id)); //history should still be there
+
+  testfw->RollbackWork();
+
+  //try to move and copy using the ObjectCopyMover
+  TestObjCopyMove(FALSE);
+
+  //try to copy using the ObjectCopyMover
+  TestObjCopyMove(TRUE);
+}
+
+OBJECT FUNCTION CreateFormWithResults(OBJECT dest, STRING filename)
+{
+  testfw->BeginWork();
+
+  // Create a form in /tmp within a folder
+  OBJECT formfile_original := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT formfile := formfile_original->CopyTo(dest, filename);
+
+  testfw->CommitWork();
+
+  testfw->WaitForPublishCompletion(OpenTestsuiteSite()->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+
+  OBJECT webtoolform := OpenFormFileDefinition(formfile);
+  RECORD ARRAY fields := webtoolform->ListFields();
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
+  RECORD submitrec := [ firstname := "Pietje"
+                      , upload := [ filename := "allstar.txt"
+                                  , link := "data:text/plain,someBODY"
+                                  ]
+                      , date := "2017-11-22"
+                      , checkboxes := ["copt1","copt3"]
+                      , checkboxfield := "yes"
+                      , integerfield := "42"
+                      ];
+
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
+
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  RETURN formfile;
+}
+
+MACRO TestFormExpiring()
+{
+  testfw->BeginWork();
+  OBJECT tmpdir := OpenTestsuiteSite()->OpenByPath("webtools")->EnsureFolder([ name := "tmp" ]);
+  OBJECT container := tmpdir->EnsureFolder([ name := "container" ]);
+  testfw->CommitWork();
+
+  BuildWebtoolForm( [ checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE ]);
+
+  OBJECT directform := CreateFormWithResults(tmpdir, "form");
+  OBJECT subform := CreateFormWithResults(container, "formincontainer");
+
+  testfw->BeginWork();
+
+  directform->RecycleSelf();
+  container->RecycleSelf();
+
+  RECORD direct_expire := ExpireRecycleBinItem(directform->id, SELECT AS INTEGER id FROM system.fs_history WHERE fs_object = directform->id);
+  RECORD container_expire := ExpireRecycleBinItem(container->id, SELECT AS INTEGER id FROM system.fs_history WHERE fs_object = container->id);
+
+  TestEQ([ success := FALSE, code := "hasformresults", deleted := 0, kept := 1 ], direct_expire);
+  TestEQ([ success := TRUE, code := "deleted", deleted := 1, kept := 1 ], container_expire);
+
+  TestEQ(TRUE, RecordExists(SELECT FROM system.fs_history WHERE fs_object = subform->id));
+
+  tmpdir->RecycleSelf();
+
+  testfw->CommitWork();
+}
+
+
+RunTestFrameworK([ PTR Setup
+                 , PTR RecyclebinSearch
+                 , PTR TestDupeRecycle
+                 , PTR RestoreStuff
+                 , PTR TestFormExpiring
+                 ], [ testusers := [[ login := "lisa" ]
+                                   ,[ login := "bart" ]
+                                   ]]);

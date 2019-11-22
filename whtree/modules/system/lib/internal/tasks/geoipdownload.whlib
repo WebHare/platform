@@ -1,0 +1,57 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+PUBLIC RECORD FUNCTION UpdateGEOIPDatabases()
+{
+  // Url with links to downloads: https://dev.maxmind.com/geoip/geoip2/geolite2/
+  OBJECT browser := NEW WebBrowser;
+  STRING geoiproot := GetWebHareConfiguration().varroot || "geoip";
+  CreateDiskDirectoryRecursive(geoiproot, TRUE);
+
+  STRING ARRAY errors, messages;
+
+  //Remove geoip legacy
+  DeleteDiskWildcardsRecursive(MergePath(geoiproot,"source"));
+  DeleteDiskWildcardsRecursive(MergePath(geoiproot,"db_*.dat"));
+
+  FOREVERY(STRING database FROM ["Country","City"])
+  {
+    STRING sourceurl := `https://geolite.maxmind.com/download/geoip/database/GeoLite2-${database}.tar.gz`;
+    STRING shippedpath := MergePath(GetWebHareConfiguration().installationroot, `geoip/GeoLite2-${database}.mmdb`);
+    STRING downloadedpath := MergePath(GetWebHareConfiguration().varroot, `geoip/geoip-${ToLowercase(database)}.mmdb`);
+
+    RECORD currentversionprops := GetDiskFileProperties(downloadedpath) ?? GetDiskFileProperties(shippedpath);
+
+    RECORD ARRAY headers;
+    IF(RecordExists(currentversionprops) AND currentversionprops.modified != DEFAULT DATETIME)
+    {
+      INSERT [ field := "If-Modified-Since", value := FormatHttpDateTime(currentversionprops.modified) ] INTO headers AT END;
+      INSERT "We currently have version: " || FormatDatetime("%Y-%m-%d %H:%M:%S", currentversionprops.modified) || " of " || database INTO messages AT END;
+    }
+
+    browser->SendRawRequest("GET", sourceurl, headers, DEFAULT BLOB);
+    IF(browser->GetHTTPStatusCode() = 200)
+    {
+      BLOB mmdb := SELECT AS BLOB data FROM UnpackArchive(browser->content) WHERE name LIKE "*.mmdb";
+      IF(Length(mmdb) = 0)
+      {
+        INSERT `Download of '${database}' database failed` INTO messages AT END;
+        CONTINUE;
+      }
+
+      StoreDiskFile(downloadedpath, mmdb, [ overwrite := TRUE ]);
+      INSERT "Updated GeoIP database from " || sourceurl INTO messages AT END;
+    }
+    ELSE
+    {
+      INSERT "GeoIP database at " || sourceurl || ": " || browser->GetHTTPStatusText() INTO messages AT END;
+    }
+  }
+
+  RETURN CELL [ success := Length(errors) = 0, errors, messages ];
+}

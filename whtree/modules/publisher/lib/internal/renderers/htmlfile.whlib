@@ -1,0 +1,62 @@
+<?wh
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+PUBLIC OBJECTTYPE StaticHTMLFile EXTEND StaticPageBase
+<
+  MACRO NEW(OBJECT contentobject)
+  : StaticPageBase(contentobject)
+  {
+  }
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    SendBlobTo(0,this->contentobject->data);
+  }
+>;
+
+/* Backup copy of the original implementation with support for nowebdesign & allowwitty, in case someone still needs it.
+   We can probably drop this code after summer 2019
+
+LOADLIB "wh::witty.whlib";
+
+OBJECTTYPE RunPageRaw
+<
+  UPDATE PUBLIC MACRO RunPage()
+  {
+    this->pagewitty := NEW WittyTemplate("HTML");
+    this->pagewitty->LoadCodeDirect("[contents]");
+    this->RunPageWithContents(PTR this->pageobject->RunBody(this));
+  }
+>;
+
+PUBLIC OBJECTTYPE StaticHTMLFile EXTEND StaticPageBase
+<
+  RECORD settings;
+
+  MACRO NEW(OBJECT contentobject)
+  : StaticPageBase(contentobject)
+  {
+    this->settings := contentobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/htmlfile");
+  }
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    IF(this->settings.nowebdesign)
+    {
+      //ADDME cleaner approach?
+      EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(webdesign) BY RunPageRaw;
+    }
+  }
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    IF(this->settings.allowwitty)
+    {
+      OBJECT subwitty := NEW WittyTemplate("HTML");
+      subwitty->LoadBlob(this->contentobject->data, this->contentobject->fullpath);
+      subwitty->Run(DEFAULT RECORD);
+      RETURN;
+    }
+    SendBlobTo(0,this->contentobject->data);
+  }
+>;
+
+
+*/

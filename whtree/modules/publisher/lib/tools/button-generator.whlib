@@ -1,0 +1,224 @@
+<?wh
+/** @short Button generator
+    @long Dynamically create buttons with text, using the built-in graphics functions */
+
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "wh::graphics/filters.whlib";
+LOADLIB "mod::publisher/lib/template-v2.whlib";
+
+/*
+
+  Button Generator Record Array:
+
+  NAME                    TYPE        DESCRIPTION                                   REQUIRED
+  Caption                 STRING      button caption text                           NO (default "")
+  CaptionFontColor        INTEGER     caption text color                            NO (default: [255,255,255,255])
+  CaptionFontFamliy       STRING      caption text font family (e.g. ARIAL)         NO (default: "Arial")
+  CaptionFontStyle        STRING      caption text font style (e.g. Regular)        NO (default: "Regular")
+  CaptionFontSize         INTEGER     caption text size in points                   NO (default: 12)
+  CaptionXPosition        INTEGER     caption text reference x-coordinate           YES
+  CaptionYPosition        INTEGER     caption text reference y-coordinate           YES
+  CaptionHAlign           STRING      caption text horizontal alignment             NO (default: CENTER)
+  CaptionVAlign           STRING      caption text vertical alignment               NO (default: BASELINE)
+  GlyphCanvas             INTEGER     canvas of the glyph-icon                      NO (default: 0)
+  GlyphXPos               INTEGER     upperleft x-position of glyph                 NO (default: 0)
+  GlyphYPos               INTEGER     upperleft y-position of glyph                 NO (default: 0)
+  BackgroundCanvas        INTEGER     background canvas ID                          NO (default: no canvas)
+  Width                   INTEGER     button width in pixels                        YES
+  Height                  INTEGER     button height in pixels                       YES
+  Filename                STRING      button filename (with extension)              YES
+  FileType                STRING      button filetype ("PNG", "PALETTEDPNG", "JPG") NO (default: PALETTEDPNG)
+  CutoutXPosition         INTEGER     upperleft cutout x-coordinate                 NO (default: 0)
+  CutoutYPosition         INTEGER     upperleft cutout y-coordinate                 NO (default: 0)
+  BackgroundEffect        STRING      background effect ("","BLUR", "SUPERBLUR")    NO (default: "")
+  HighlightColor          INTEGER     background color                              NO (default: [0,0,0,0])
+  BorderType              STRING      border type ("", "THINRECT")                  NO (default: "")
+  BorderColor             INTEGER     border color                                  NO (default: [0,0,0,255])
+  AntiAliasing            BOOLEAN     true to turn on antialiasing                  NO (default: true)
+  */
+
+MACRO CheckButtonDataValidity(RECORD ARRAY buttondata)
+{
+  RECORD ARRAY bad_elements := SELECT * FROM buttondata WHERE (NOT CellExists(buttondata,"CaptionXPosition"));
+  if (LENGTH(bad_elements)!=0)
+    ABORT("Buttondata contains records without a 'CaptionXPosition' cell");
+
+  bad_elements := SELECT * FROM buttondata WHERE (NOT CellExists(buttondata,"CaptionYPosition"));
+  if (LENGTH(bad_elements)!=0)
+    ABORT("Buttondata contains records without a 'CaptionYPosition' cell");
+
+  bad_elements := SELECT * FROM buttondata WHERE (NOT CellExists(buttondata,"Width"));
+  if (LENGTH(bad_elements)!=0)
+    ABORT("Buttondata contains records without a 'Width' cell");
+
+  bad_elements := SELECT * FROM buttondata WHERE (NOT CellExists(buttondata,"Height"));
+  if (LENGTH(bad_elements)!=0)
+    ABORT("Buttondata contains records without a 'Height' cell");
+
+  bad_elements := SELECT * FROM buttondata WHERE (NOT CellExists(buttondata,"Filename"));
+  if (LENGTH(bad_elements)!=0)
+    ABORT("Buttondata contains records without a 'Filename' cell");
+
+}
+
+RECORD ARRAY FUNCTION FillDefaultButtonValues(RECORD ARRAY buttondata)
+{
+  buttondata := SELECT Caption := CELLEXISTS(buttondata,"Caption") ? buttondata.caption : "",
+                       CaptionFontColor := CELLEXISTS(buttondata,"CaptionFontColor") ? buttondata.CaptionFontColor : GfxCreateColor(255,255,255,255),
+                       CaptionFontFamily := CELLEXISTS(buttondata,"CaptionFontFamily") ? buttondata.CaptionFontFamily : "Arial",
+                       CaptionFontStyle := CELLEXISTS(buttondata,"CaptionFontStyle") ? buttondata.CaptionFontStyle : "Regular",
+                       CaptionFontSize := CELLEXISTS(buttondata,"CaptionFontSize") ? buttondata.CaptionFontSize : 12,
+                       CaptionHAlign := CELLEXISTS(buttondata,"CaptionHAlign") ? buttondata.CaptionHAlign : "CENTER",
+                       CaptionVALign := CELLEXISTS(buttondata,"CaptionVAlign") ? buttondata.CaptionVAlign : "BASELINE",
+                       BackgroundCanvas := CELLEXISTS(buttondata,"BackgroundCanvas") ? buttondata.BackgroundCanvas : 0,
+                       FileType := CELLEXISTS(buttondata,"FileType") ? buttondata.FileType : "PALETTEDPNG",
+                       CutoutXPosition := CELLEXISTS(buttondata,"CutoutXPosition") ? buttondata.CutoutXPosition : 0,
+                       CutoutYPosition := CELLEXISTS(buttondata,"CutoutYPosition") ? buttondata.CutoutYPosition : 0,
+                       BackgroundEffect := CELLEXISTS(buttondata,"BackgroundEffect") ? buttondata.BackgroundEffect : "",
+                       HighlightColor := CELLEXISTS(buttondata,"HighlightColor") ? buttondata.HighlightColor : gfxCreateColor(0,0,0,0),
+                       BorderType := CELLEXISTS(buttondata,"BorderType") ? buttondata.BorderType : "",
+                       BorderColor := CELLEXISTS(buttondata,"BorderColor") ? buttondata.BorderColor : GfxCreateColor(0,0,0,255),
+                       GlyphCanvas := CELLEXISTS(buttondata,"GlyphCanvas") ? buttondata.GlyphCanvas : 0,
+                       GlyphXPos := CELLEXISTS(buttondata,"GlyphXPos") ? buttondata.GlyphXPos : 0,
+                       GlyphYPos := CELLEXISTS(buttondata,"GlyphYPos") ? buttondata.GlyphYPos : 0,
+                       AntiAliasing := CELLEXISTS(buttondata,"AntiAliasing") ? buttondata.AntiAliasing : TRUE,
+                       CaptionXPosition, CaptionYPosition, Width, Height, Filename FROM buttondata;
+
+  return buttondata;
+}
+
+/** @short Generate the buttons
+    @long Generates the buttons as defined in your specifications, and writes the images to the output buttons
+    @param buttondata Record array describing the buttons to generate
+    @cell buttondata.Caption                 STRING      button caption text                           NO (default "")
+    @cell buttondata.CaptionFontColor        INTEGER     caption text color                            NO (default: [255,255,255,255])
+    @cell buttondata.CaptionFontFamliy       STRING      caption text font family (e.g. ARIAL)         NO (default: "Arial")
+    @cell buttondata.CaptionFontStyle        STRING      caption text font style (e.g. Regular)        NO (default: "Regular")
+    @cell buttondata.CaptionFontSize         INTEGER     caption text size in points                   NO (default: 12)
+    @cell buttondata.CaptionXPosition        INTEGER     caption text reference x-coordinate           YES
+    @cell buttondata.CaptionYPosition        INTEGER     caption text reference y-coordinate           YES
+    @cell buttondata.CaptionHAlign           STRING      caption text horizontal alignment             NO (default: CENTER)
+    @cell buttondata.CaptionVAlign           STRING      caption text vertical alignment               NO (default: BASELINE)
+    @cell buttondata.GlyphCanvas             INTEGER     canvas of the glyph-icon                      NO (default: 0)
+    @cell buttondata.GlyphXPos               INTEGER     upperleft x-position of glyph                 NO (default: 0)
+    @cell buttondata.GlyphYPos               INTEGER     upperleft y-position of glyph                 NO (default: 0)
+    @cell buttondata.BackgroundCanvas        INTEGER     background canvas ID                          NO (default: no canvas)
+    @cell buttondata.Width                   INTEGER     button width in pixels                        YES
+    @cell buttondata.Height                  INTEGER     button height in pixels                       YES
+    @cell buttondata.Filename                STRING      button filename (with extension)              YES
+    @cell buttondata.FileType                STRING      button filetype ("PNG", "PALETTEDPNG", "JPG") NO (default: PALETTEDPNG)
+    @cell buttondata.CutoutXPosition         INTEGER     upperleft cutout x-coordinate                 NO (default: 0)
+    @cell buttondata.CutoutYPosition         INTEGER     upperleft cutout y-coordinate                 NO (default: 0)
+    @cell buttondata.BackgroundEffect        STRING      background effect ("","BLUR", "SUPERBLUR")    NO (default: "")
+    @cell buttondata.HighlightColor          INTEGER     background color                              NO (default: [0,0,0,0])
+    @cell buttondata.BorderType              STRING      border type ("", "THINRECT")                  NO (default: "")
+    @cell buttondata.BorderColor             INTEGER     border color                                  NO (default: [0,0,0,255])
+    @cell buttondata.AntiAliasing            BOOLEAN     true to turn on antialiasing                  NO (default: true)
+*/
+PUBLIC MACRO GenerateButtons(RECORD ARRAY buttondata)
+{
+  // first, check if all the necessary columns are present
+  CheckButtonDataValidity(buttondata);
+  // second, fill in the default values if necessary...
+  buttondata := FillDefaultButtonValues(buttondata);
+  /*
+  DEBUG_HTML_FORMAT  := TRUE;
+  ShowRecordArray(buttondata);
+  */
+
+  FOREVERY (RECORD button FROM buttondata)
+  {
+    INTEGER buttoncanvas;
+    /* check if we need part of the background canvas or not*/
+    if (button.BackgroundCanvas = 0)
+    {
+      // no background, so create a canvas!
+      buttoncanvas := GfxCreateCanvas(button.Width, button.Height, button.HighlightColor);
+    }
+    else
+    {
+      // cut the buttoncanvas from the background canvas..
+      buttoncanvas := GfxCreateCanvasFromCanvas(button.BackgroundCanvas, button.CutoutXPosition, button.CutoutYPosition, button.Width, button.Height);
+      // check if need to blur the canvas..
+      switch(TOUPPERCASE(button.BackgroundEffect))
+      {
+      case "BLUR"
+        {
+          GfxBlurCanvas(buttoncanvas);
+          GfxBlurCanvas(buttoncanvas);
+        }
+      case "SUPERBLUR"
+        {
+          GfxBlurCanvas(buttoncanvas);
+          GfxBlurCanvas(buttoncanvas);
+          GfxBlurCanvas(buttoncanvas);
+          GfxBlurCanvas(buttoncanvas);
+          GfxBlurCanvas(buttoncanvas);
+          GfxBlurCanvas(buttoncanvas);
+        }
+      default
+        {
+        }
+      }
+      // check if we need a highlight..
+      if (button.HighlightColor != 0)
+      {
+        GfxDrawRectangle(buttoncanvas, 0, 0, GfxGetCanvasWidth(buttoncanvas), GfxGetCanvasHeight(buttoncanvas), button.HighlightColor);
+      }
+    }
+
+    GfxSetAlphaMode(buttoncanvas, "BLEND255");
+
+    /* mach einen shoenen border.. */
+    switch(TOUPPERCASE(button.BorderType))
+    {
+    case "THINRECT"
+      {
+        GfxDrawRectangleBorder(buttoncanvas, 0, 0, GfxGetCanvasWidth(buttoncanvas)-1, GfxGetCanvasHeight(buttoncanvas)-1, button.BorderColor,1);
+      }
+    case ""
+      {
+      }
+    default
+      {
+        ABORT("Unsupported bordertype");
+      }
+    }
+
+    /* put the glyph onto the canvas */
+    if (button.GlyphCanvas != 0)
+    {
+      GfxDrawCanvas(buttoncanvas, button.GlyphCanvas, button.GlyphXpos, button.GlyphYpos);
+    }
+
+    /* draw text */
+    INTEGER fontID := GfxCreateFont(button.captionfontfamily, button.captionfontstyle, button.captionfontsize);
+    GfxSetFontAntiAliasing(fontID, button.antialiasing);
+    GfxSetFontColor(fontID, button.CaptionFontColor);
+    GfxSetFontAlignment(fontID, button.CaptionHAlign, button.CaptionVAlign);
+    GfxDrawText(buttoncanvas, button.CaptionXPosition, button.CaptionYPosition, fontID, button.Caption);
+    GfxDestroyFont(fontID);
+    /* write the outputfile.. */
+    BLOB imageblob;
+    SWITCH(button.FileType)
+    {
+    case "PNG"
+      {
+        imageblob := GfxCreatePNGBlobFromCanvas(buttoncanvas,FALSE, FALSE);
+      }
+    case "PALETTEDPNG"
+      {
+        imageblob := GfxCreatePNGBlobFromCanvas(buttoncanvas,TRUE, FALSE);
+      }
+    case "JPG"
+      {
+        imageblob := GfxCreateJPGBLobFromCanvas(buttoncanvas);
+      }
+    default
+      {
+        ABORT("Unsupported Filetype");
+      }
+    }
+    CreateFileFromBlob(button.filename, imageblob);
+  }
+}

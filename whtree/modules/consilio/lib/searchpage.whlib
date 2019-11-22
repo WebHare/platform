@@ -1,0 +1,199 @@
+<?wh
+/// @private Searching should be done through api.whlib (cacheable a nd without the option for string-merge built queries)
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/internal/language.whlib";
+LOADLIB "mod::consilio/lib/internal/results_support.whlib";
+
+STRING FUNCTION FormatText(STRING text, STRING sub1 DEFAULTSTO "" , STRING sub2 DEFAULTSTO "",STRING sub3 DEFAULTSTO "",STRING sub4 DEFAULTSTO "")
+{
+  //ADDME: Not entirely correct, should avoid double-replacement (eg sub1 containts %1, cuasing it toe be replaced again,etc)
+  //ADDME: Move it to gettext.whlib ?
+  text := Substitute(text,"%0",sub1);
+  text := Substitute(text,"%1",sub2);
+  text := Substitute(text,"%2",sub3);
+  text := Substitute(text,"%3",sub4);
+  return text;
+}
+
+// Consilio uses "\x1D" to denote the start of a matching word and "\x1C" to denote the end. This function highlights
+// matched words using highlightstart en highlightend (usually something like "<b>" and "</b>", respectively).
+STRING FUNCTION HighlightSearchWords(STRING text, STRING highlightstart, STRING highlightend)
+{
+  text := Substitute(text, "\x1D", highlightstart);
+  text := Substitute(text, "\x1C", highlightend);
+
+  RETURN text;
+}
+
+/** @short Start a new Consilio search
+    @long Use this function to start a new Consilio search. This function returns
+          an option record, which you can use to set search options before calling
+          @link GetConsilioState. See the Consilio integration documentation for
+          more information about the options record.
+    @param catalog The Consilio catalog to search
+    @param language Language to use for language-specific search result texts and
+                    search options (stemming of the query etc). Currently supported
+                    languages are "en" (English), "nl" (Dutch), and "de" (German).
+    @return A Consilio options record */
+PUBLIC RECORD FUNCTION OpenConsilio(STRING catalog, STRING catalogpwd/*deprecated*/, STRING language) __ATTRIBUTES__(DEPRECATED "Use OpenSearchObject API instead")
+{
+  RETURN __OpenConsilio(catalog, catalogpwd, language);
+}
+
+PUBLIC RECORD FUNCTION __OpenConsilio(STRING catalog, STRING catalogpwd/*deprecated*/, STRING language)
+{
+  RECORD lang := GetConsilioLanguageTexts(language);
+  RETURN [ __catalog         := catalog
+         , __languagecode    := language //needed for the error message function
+         , tag               := ""
+         , actionurl         := "?"
+         , restricturl       := GetWebVariable("restrict")
+         , summarylength     := 200
+         , highlightsummary  := TRUE
+         , highlightstart    := '<b>'
+         , highlightend      := '</b>'
+         , urllength         := 0
+         , resultsperpage    := 10
+         , directpagelinks   := 9
+         , showsearchbox     := TRUE
+         , datetimeformat    := "%d-%m-%Y"
+         , datetimelanguage  := language
+         , datetimezone      := "CET"
+         , lang              := lang
+         , query             := GetWebVariable("words")
+         , page              := ToInteger(GetWebVariable("page"), 1)
+         ];
+}
+
+/** @short Search Consilio and return the results
+    @long Use this function to get a record with Consilio search results. You can
+          use this record as a WITTY data record for displaying the results. See
+          the Consilio integration documentation for more information on how to
+          use this function and the results record.
+    @param options A Consilio options record as returned by @link OpenConsilio
+    @return A record which can be used in WITTY pages */
+PUBLIC RECORD FUNCTION GetConsilioState(RECORD options) __ATTRIBUTES__(DEPRECATED "Use OpenSearchObject API instead")
+{
+  RETURN __GetConsilioState(options);
+}
+
+PUBLIC RECORD FUNCTION __GetConsilioState(RECORD options)
+{
+  IF (NOT RecordExists(options))
+    Abort("No valid Consilio options record");
+
+  // Get web variables
+  STRING words := options.query;
+  INTEGER page := options.page;
+  INTEGER first := (page-1) * options.resultsperpage;
+  STRING sessid := GetWebVariable("s");
+
+  RECORD sess := [ sessid := sessid, tag := options.tag ];
+
+  // Get search results
+  RECORD search := SessionedSearchFor(sess, words, options.__catalog, options.restricturl, first, (options.resultsperpage > 0 ? options.resultsperpage : -1), options.summarylength, options.__languagecode);
+  IF (search.status != SearchOK)
+    RETURN [success := false, errormessage := GetErrorMessage(search.status, options.__languagecode) , lang := options.lang];
+
+  // If a new session was started, redirect to the new session (to avoid sessions
+  // being created after a refresh of the results page)
+  IF (search.sess.sessid != sessid)
+    Redirect(ReplaceVariableInUrl(GetRequestURL(),"s",search.sess.sessid));
+
+  first := first + 1; // Make result numbering 1-based
+  INTEGER last := first + Length(search.results) - 1;
+  INTEGER prevpage := (page > 1) ? page - 1 : 0;
+  INTEGER nextpage := (last < search.totalcount) ? page + 1 : 0;
+
+  // Prepare pages array (to display direct links to search results pages)
+  RECORD ARRAY directpagelinks;
+  INTEGER totalpages;
+  IF (options.resultsperpage > 0 AND options.directpagelinks > 0)
+  {
+    totalpages := (search.totalcount + options.resultsperpage - 1) / options.resultsperpage;
+    INTEGER startpage := page - (options.directpagelinks-1) / 2;
+
+    IF ((startpage + options.directpagelinks - 1) > totalpages)
+      startpage := totalpages - options.directpagelinks + 1;
+    IF (startpage < 1)
+      startpage := 1;
+
+    IF (startpage > 1)
+      INSERT [text := "...", page := 0, url := "", islink := FALSE] INTO directpagelinks AT END;
+
+    INTEGER i;
+    FOR (i := startpage ; i <= totalpages AND (i - startpage) < options.directpagelinks; i := i + 1)
+    {
+      INSERT [ text := ToString(i)
+             , page := i
+             , url := (i != page) ? MakeLink(search.sess.sessid, i) : ""
+             , islink := TRUE
+             ] INTO directpagelinks AT END;
+    }
+
+    IF (i <= totalpages)
+      INSERT [text := "...", page := 0, url := "", islink := FALSE] INTO directpagelinks AT END;
+  }
+
+  STRING base_result_text;
+  IF (Length(directpagelinks)>1) //multiple pages
+    base_result_text := options.lang.label_results_multipage;
+  ELSE IF (Length(search.results)>1)
+    base_result_text := options.lang.label_results_singlepage;
+  ELSE IF (Length(search.results)=1)
+    base_result_text := options.lang.label_results_justone;
+  ELSE
+    base_result_text := options.lang.label_results_none;
+
+  // Prepare witty data
+  RECORD pagedata := [ resultstitle := FormatText(base_result_text,words,ToString(first),ToString(last), ToString(search.totalcount))
+                     , words := words
+                     , catalog := options.__catalog
+                     , restrict := options.restricturl
+                     , count := search.totalcount
+                     , status := search.status
+                     , resultsperpage := options.resultsperpage
+                     , first_num := first
+                     , last_num := last
+                     , prevlink := (first > 1) ? MakeLink(search.sess.sessid, prevpage) : ""
+                     , nextlink := (last < search.totalcount) ? MakeLink(search.sess.sessid, nextpage) : ""
+                     , directpagelink := directpagelinks
+                     , lastpage := totalpages
+                     , multiplepages := Length(directpagelinks)>1
+                     , showsearchbox := options.showsearchbox OR words = ""
+                     , showsearchresults := words != ""
+                     , lang := options.lang
+                     , actionurl := options.actionurl
+                     , result := (SELECT num := id + 1
+                                       , id := fileid
+                                       , url
+                                       , shorturl := ShortenUrl(url, options.urllength)
+                                       , title := (options.highlightsummary) ? HighlightSearchWords(title, options.highlightstart, options.highlightend) : HighlightSearchWords(title, "", "")
+                                       , summary := (options.highlightsummary) ? HighlightSearchWords(summary, options.highlightstart, options.highlightend) : HighlightSearchWords(summary, "", "")
+                                       , size := FormatSize(size)
+                                       , date := (modificationdate != DEFAULT DATETIME) ? FormatDateTime(options.datetimeformat, modificationdate) : ""
+                                       , type := PTR PrintTypeText(type, options.lang)
+                                       , type_ext := type
+                                       , score
+                                    FROM search.results)
+                     , success := TRUE
+                     , errormessage := ""
+                     , webvariables := (SELECT *  /* but strip vars we use ourselvevs */
+                                          FROM GetAllWebVariables()
+                                         WHERE name NOT IN ["words","submit","submit.x","submit.y","page","restrict"]
+                                       )
+                     ];
+  RETURN pagedata;
+}
+
+MACRO PrintTypeText(STRING type_ext, RECORD lang)
+{
+  IF (CellExists(lang.types, type_ext))
+    PRINT(GetCell(lang.types, type_ext));
+  ELSE
+    PRINT(lang.types.unknown);
+}

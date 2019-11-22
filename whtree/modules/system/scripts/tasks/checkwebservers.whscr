@@ -1,0 +1,169 @@
+<?wh
+/* wh run mod::system/scripts/tasks/checkwebservers.whscr
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/pkcs.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+OBJECT browser;
+STRING myuuid;
+BOOLEAN debug;
+INTEGER numsleeps := 0;
+
+STRING FUNCTION CheckHost(STRING baseurl)
+{
+  STRING gotourl := ResolveToAbsoluteURL(baseurl, "/.webhare/direct/uuid");
+  IF(NOT browser->GotoWebPage(gotourl))
+  {
+    IF(numsleeps < 5)
+      Sleep(2000); //retry after 2 seconds to avoid flakes - but spend up to 10 seconds in these type sof sleeps
+
+    numsleeps := numsleeps + 1;
+    IF(NOT browser->GotoWebPage(gotourl))
+      RETURN Left(browser->GetHTTPStatusText(),512) ?? "Unknown error";
+  }
+
+  STRING serveruuid := BlobToString(browser->content);
+  IF(serveruuid != myuuid)
+  {
+    IF(debug)
+      Print("Expected serveruuid " || myuuid || " got " || Left(serveruuid,64)||"\n");
+    RETURN "Not hosted by this WebHare";
+  }
+
+  RECORD unp := UnpackURL(baseurl);
+  IF(NOT unp.secure)
+    RETURN "";
+
+  IF (browser->peercertificatechain = "")
+    RETURN "No peercertificatechain?";
+
+  TRY
+  {
+    RECORD certdata := DecodePEMFile(browser->peercertificatechain);
+    IF (certdata.type = "multiple")
+      certdata := RECORD(certdata.parts);
+
+    IF (NOT RecordExists(certdata) OR certdata.type != "certificate")
+      RETURN `:The certificate returned by '${baseurl}' is not a valid certificate file`;
+
+    DATETIME now := GetCurrentDateTime();
+    IF (certdata.valid_until < now)
+      RETURN `:The certificate returned by '${baseurl}' has expired`;
+    ELSE IF (certdata.valid_until < AddDaysToDate(21, now))
+    {
+      RECORD diff := GetDateTimeDifference(now, certdata.valid_until);
+      RETURN `:The certificate returned by '${baseurl}' will expire in ${diff.days} days`;
+    }
+
+    IF(Length(certdata.servernames) = 1 AND certdata.servernames[0] = "No matching certificate installed") //special case, webhare sends this cert to nginx for unmatched hostnames
+      RETURN `:No matching certificate installed`;
+
+    IF(NOT IsCertificateForHostname(certdata, unp.host))
+      RETURN `:The certificate does not match the hostname, it would match: ${Detokenize(certdata.servernames,' ')}`;
+
+    RETURN "";
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN `Error decoding the certificate returned by '${baseurl}': ${e->what}`;
+  }
+}
+
+//Check webservers for reachability
+
+OpenPrimary();
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch" ]
+    ]);
+
+IF (NOT RecordExists(args))
+  TerminateScriptWithError("Syntax: wh run mod::lib/system/scripts/tasks/checkwebservers.whscr [ --debug ]");
+
+debug := args.debug OR IsRunningInEditor();
+myuuid := GenerateWebserverUUID();
+IF(debug)
+  Print("myuuid = " || myuuid || "\n");
+
+browser := NEW WebBrowser;
+browser->timeout := 2000;
+browser->autofollow := FALSE;
+//browser->debug := TRUE;
+
+INTEGER ARRAY seenwebservers, seenaliases;
+DATETIME checkstart := GetCurrentdatetime();
+
+RECORD FUNCTION CheckHostEntry(STRING url)
+{
+  STRING host := UnpackURL(url).host;
+  IF(SearchSubstring(host,'?')>=0 OR SearchSubstring(host,'*')>=0) //cannot validate these
+    RETURN DEFAULT RECORD; //ok!
+
+  STRING status := CheckHost(url);
+  IF(debug)
+    Print(url || " - " || (status != "" ? GetTid(status) : "no error") || "\n");
+
+  IF(status = "")
+    RETURN DEFAULT RECORD;
+
+  RETURN [ lastcheck := checkstart
+         , lastcheckerror := status
+         ];
+}
+
+FOREVERY(RECORD webserver FROM SELECT * FROM system.webservers WHERE type IN [0,1])
+{
+  RECORD ARRAY aliases := SELECT * FROM system.webservers_aliases WHERE webservers_aliases.webserver = VAR webserver.id;
+  IF(webserver.port != 0) //not vhosted, so connection issues are mostly harmless, and it's not likely to be an external site as it can't possibly have SSL+SNI
+  {
+    INSERT webserver.id INTO seenwebservers AT END;
+    FOREVERY(RECORD alias FROM aliases)
+      INSERT alias.id INTO seenaliases AT END;
+    CONTINUE;
+  }
+
+  RECORD res := CheckHostEntry(webserver.baseurl);
+  IF(RecordExists(res))
+  {
+    GetPrimary()->BeginWork();
+    UPDATE system.webservers SET RECORD res WHERE id = webserver.id;
+    GetPrimary()->CommitWork();
+  }
+  ELSE
+  {
+    INSERT webserver.id INTO seenwebservers AT END;
+  }
+
+  FOREVERY(RECORD alias FROM aliases)
+  {
+    RECORD gotourl := UnpackURL(webserver.baseurl);
+    gotourl.host := alias.hostname;
+    res := CheckHostEntry(RepackURL(gotourl));
+    IF(RecordExists(res))
+    {
+      GetPrimary()->BeginWork();
+      UPDATE system.webservers_aliases SET RECORD res WHERE id = alias.id;
+      GetPrimary()->CommitWork();
+    }
+    ELSE
+    {
+      INSERT alias.id INTO seenaliases AT END;
+    }
+  }
+}
+
+GetPrimary()->BeginWork();
+UPDATE system.webservers SET lastcheck := checkstart, lastseen := checkstart, lastcheckerror := "" WHERE id IN seenwebservers;
+UPDATE system.webservers_aliases SET lastcheck := checkstart, lastseen := checkstart, lastcheckerror := "" WHERE id IN seenaliases;
+GetPrimary()->BroadcastOnCommit("system:internal.checkwebservers", DEFAULT RECORD);
+GetPrimary()->CommitWork();

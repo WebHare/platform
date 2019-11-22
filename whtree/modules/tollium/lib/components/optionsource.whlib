@@ -1,0 +1,18 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+PUBLIC OBJECTTYPE TolliumOptionSource EXTEND TolliumOptionSourceBase
+<
+  MACRO PTR ongetoptions;
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumOptionSourceBase::StaticInit(def);
+    this->ongetoptions := def.ongetoptions;
+  }
+  UPDATE MACRO RegenerateOptions()
+  {
+    //TODO pick up and support eventmasks
+    this->options := this->ongetoptions().options;
+  }
+>;

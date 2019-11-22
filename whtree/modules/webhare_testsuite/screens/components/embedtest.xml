@@ -1,0 +1,34 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:google="http://www.webhare.net/xmlns/google/components"
+         xmlns:socialite="http://www.webhare.net/xmlns/socialite/components"
+         lib="screens/components/embedtest.whlib"
+         gid="media">
+
+  <fragment name="embedblock1_comp"
+            >
+    <contents>
+      <textedit title="id" name="idvalue" />
+      <!-- <textedit title="title" name="idtitle" /> -->
+      <textedit title="styletitle" name="styletitle" />
+    </contents>
+  </fragment>
+
+  <fragment name="embedinlineblock1_comp" implementation="none">
+    <contents>
+      <textedit title="id" composition="contentdata" cellname="id" />
+      <!-- <textedit title="title" composition="contentdata" cellname="idtitle" /> -->
+      <textedit title="styletitle" composition="contentdata" cellname="styletitle" />
+    </contents>
+  </fragment>
+
+  <fragment name="embedblock2_comp"
+            >
+    <contents>
+      <textedit title="id2" name="idvalue" />
+      <!-- <textedit title="title" name="idtitle" /> -->
+      <textedit title="styletitle" name="styletitle" />
+    </contents>
+  </fragment>
+
+</screens>
+

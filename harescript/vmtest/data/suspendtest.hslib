@@ -1,0 +1,12 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+//PRINT("Suspend test script start\n");
+
+OBJECT link := GetIPCLinkToParent();
+
+INTEGER handle := WaitForMultipleUntil([INTEGER(link->handle)], DEFAULT INTEGER ARRAY, MAX_DATETIME);
+
+//PRINT("Wait for multiple result: " || handle || "\n");

@@ -1,0 +1,334 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+MACRO RunWRDAuthPageWitty(OBJECT webcontext, STRING component, RECORD data)
+{
+  STRING witty := webcontext->GetWRDAuthPlugin()->authpageswitty;
+  IF(witty != "")
+  {
+    OBJECT userwitty := LoadWittyLibrary(witty, "HTML-NI");
+    IF(userwitty->HasComponent(component))
+    {
+      userwitty->RunComponent(component,data);
+      RETURN;
+    }
+  }
+
+  OBJECT systemwitty := LoadWittyLibrary("mod::wrd/witty/authpages.witty","HTML-NI");
+  systemwitty->RunComponent(component, data);
+}
+
+PUBLIC STRING FUNCTION GetWRDPagesCleanURL(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ currenturl := ""], options);
+  IF(options.currenturl = "")
+    options.currenturl := GetFormRequestURL();
+
+  RETURN UpdateURLVariables(options.currenturl, [ wrd_pwdaction := ""
+                                                , _ed := ""
+                                                , verifier := ""
+                                                ]);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Login
+//
+
+PUBLIC OBJECTTYPE LoginForm EXTEND Formbase
+<
+  PUBLIC BOOLEAN loginemail;
+
+  MACRO NEW()
+  {
+    OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
+    IF(wrdschema->accountemailtag = wrdschema->accountlogintag)
+    {
+      ^username->title := GetTid("wrd:site.forms.authpages.email");
+      ^username->validationchecks := ["email"];
+      INSERT "email" INTO ^username->autocomplete AT END;
+      this->loginemail := TRUE;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
+  {
+    OBJECT work := this->BeginWork([database := FALSE]);
+    OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
+    RECORD result := authplugin->Login(^username->value, ^password->value);
+    IF(NOT result.success)
+      work->AddErrorFor(^password, this->loginemail ? GetTid("wrd:site.forms.authpages.incorrectlogin-username")
+                                                    : GetTid("wrd:site.forms.authpages.incorrectlogin-email"));
+
+    IF(NOT work->Finish())
+      RETURN DEFAULT RECORD;
+
+    RETURN [ submitinstruction := [ type := "reload" ]];
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options)
+{
+  OBJECT loginform := webdesign->OpenForm("wrd:authpages#login");
+  webdesign->isstandardcontentpage := TRUE;
+  webdesign->pagetitle := GetTid("wrd:site.forms.authpages.login-title");
+
+  RECORD wittyvars := [ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
+                      , form := loginform->GetWittyData()
+                      ];
+
+  IF(options.ongetloginwittydata != DEFAULT FUNCTION PTR)
+  {
+    wittyvars := CELL[ ...wittyvars
+                     , ...options.ongetloginwittydata()
+                     ];
+  }
+
+  IF(options.logincomponent != "") //FIXME remove this, only cooper needs it
+    RETURN NEW SimpleWebPage(PTR EmbedWittyComponent(options.logincomponent, wittyvars));
+  ELSE
+    RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "login", wittyvars));
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Forgot password (sends you the email)
+//
+
+
+PUBLIC OBJECTTYPE ForgotPasswordForm EXTEND Formbase
+<
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
+  {
+    OBJECT work := this->BeginWork([database := FALSE]);
+    IF(NOT work->Finish())
+      RETURN DEFAULT RECORD;
+
+    this->formcontext->GetWRDAuthPlugin()->HandleForgotPassword(^email->value);
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION GetForgotPasswordPage(OBJECT webdesign, RECORD options)
+{
+  OBJECT loginform := webdesign->OpenForm("wrd:authpages#forgotpassword");
+  webdesign->isstandardcontentpage := TRUE;
+  webdesign->pagetitle := GetTid("wrd:site.forms.authpages.forgotpassword-title");
+
+  RECORD wittyvars := [ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
+                      , form := loginform->GetWittyData()
+                      ];
+  RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "forgotpassword", wittyvars));
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Reset password (link from email)
+//
+
+PUBLIC OBJECTTYPE ResetPasswordForm EXTEND Formbase
+<
+  PUBLIC RECORD verifyresult;
+
+  MACRO NEW()
+  {
+    this->verifyresult := this->formcontext->GetWRDAuthPlugin()->ProcessVerificationLink(GetFormWebVariable("_ed"), GetFormWebVariable("verifier"));
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
+  {
+    OBJECT work := this->BeginWork();
+    IF(NOT this->verifyresult.success)
+      work->AddErrorFor(^passwordnew, GetTid("wrd:site.forms.authpages.linkexpired"));
+
+    IF(NOT work->HasFailed() AND ^passwordnew->value != ^passwordrepeat->value)
+      work->AddErrorFor(^passwordnew, GetTid("wrd:site.forms.authpages.passwordsmismatch"));
+
+    IF(NOT work->HasFailed())
+    {
+      OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
+      OBJECT userentity := wrdschema->accounttype->GetEntity(this->verifyresult.entityid);
+      userentity->UpdateEntity(CellInsert(CELL[], wrdschema->accountpasswordtag, CreateWebharePasswordHash(^passwordnew->value)));
+    }
+
+    IF(work->Finish())
+      this->formcontext->GetWRDAuthPlugin()->LoginById(this->verifyresult.entityid, FALSE);
+
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetResetPasswordPage(OBJECT webdesign, STRING action, RECORD options)
+{
+  OBJECT loginform := webdesign->OpenForm("wrd:authpages#resetpassword");
+  webdesign->isstandardcontentpage := TRUE;
+  webdesign->pagetitle := action = "setpassword" ? GetTid("wrd:site.forms.authpages.setpassword-title")
+                                                 : GetTid("wrd:site.forms.authpages.resetpassword-title");
+
+  RECORD wittyvars := CELL[ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
+                          ];
+  IF(NOT loginform->verifyresult.success)
+    RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "linkexpired", wittyvars));
+
+  wittyvars := CELL[ ...wittyvars
+                   , form := loginform->GetWittyData()
+                   , continuelink := GetWRDPagesCleanURL()
+                   ];
+
+  RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, action, wittyvars));
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Change email
+//
+
+PUBLIC OBJECTTYPE EmailChangeForm EXTEND Formbase
+<
+  MACRO NEW()
+  {
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
+  {
+    OBJECT work := this->BeginWork();
+
+    OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
+    RECORD userinfo := authplugin->GetLoggedinEntityFields( STRING[authplugin->wrdschema->accountemailtag] );
+    IF(NOT RecordExists(userinfo))
+      THROW NEW Exception("User does not appear to be logged in");
+
+    STRING oldemail := GetCell(userinfo, authplugin->wrdschema->accountemailtag);
+    IF(^email->value = oldemail)
+    {
+      work->AddErrorFor(^email, GetTid("wrd:site.forms.authpages.emailchange-isyourmail"));
+    }
+
+    IF(NOT work->HasFailed())
+    {
+      //FIXME check if email already in use
+      //FIXME fixup the audit event generation around passwordreset links and verification links. it looks a bit messed up now, different things going to different logs
+
+      RECORD emaildata := [ oldemail := oldemail
+                          , newemail := ^email->value
+                          , hostname := UnpackURL(GetFormRequestURL()).host
+                          , confirmlink := ""
+                          ];
+
+      IF(ToUppercase(oldemail) != ToUppercase(^email->value)) //different email
+      {
+        INTEGER match := authplugin->wrdschema->accounttype->Search(authplugin->wrdschema->accountemailtag, ^email->value, [matchcase := FALSE]);
+        IF(match = 0) //not in use
+        {
+          emaildata.confirmlink := authplugin->CreateVerificationLink(GetFormRequestURL(), authplugin->GetLoggedinEntity(), [ secret := [ newemail := ^email->value ]]).verifiedlink;
+        }
+      }
+
+      STRING mailtemplate := this->formcontext->targetapplytester->GetDefaultMailTemplate();
+      OBJECT mail := authplugin->PrepareAuthPageMail("emailchangemail");
+      mail->mergerecord := emaildata;
+      mail->mailto := STRING[^email->value];
+
+      mail->QueueMailInWork();
+    }
+
+    work->Finish();
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetEmailChangePage(OBJECT webdesign, RECORD options)
+{
+  OBJECT loginform := webdesign->OpenForm("wrd:authpages#emailchange");
+  webdesign->isstandardcontentpage := TRUE;
+  webdesign->pagetitle := GetTid("wrd:site.forms.authpages.emailchange-title");
+
+  RECORD wittyvars := CELL[ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
+                          ];
+
+  STRING text_emailchange_processed := EncodeHTML(GetTid("wrd:site.forms.authpages.emailchange-processed", "$$$EMAILADDRESS$$$"));
+  text_emailchange_processed := Substitute(text_emailchange_processed, "$$$EMAILADDRESS$$$", `<span data-merge="textContent:form.email"></span>`);
+
+  wittyvars := CELL[ ...wittyvars
+                   , form := loginform->GetWittyData()
+                   , text_emailchange_processed := PTR Print(text_emailchange_processed)
+                   ];
+
+  RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "emailchange", wittyvars));
+}
+
+PUBLIC OBJECT FUNCTION GetEmailChangedPage(OBJECT webdesign, RECORD options)
+{
+  OBJECT authplugin := webdesign->GetWRDAuthPlugin();
+  RECORD verifyresult := authplugin->ProcessVerificationLink(GetWebVariable("_ed"),GetWebVariable("verifier"));
+  RECORD wittyvars := CELL[ ...authplugin->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
+                          ];
+  IF(NOT verifyresult.success)
+    RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "linkexpired", wittyvars));
+
+  GetPrimary()->BeginWork();
+  OBJECT toupdate := authplugin->wrdschema->accounttype->GetEntity(verifyresult.entityid);
+  RECORD updaterec := CellInsert(CELL[], authplugin->wrdschema->accountemailtag, verifyresult.secret.newemail);
+  toupdate->UpdateEntity(updaterec);
+  GetPrimary()->CommitWork();
+
+  RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "emailchanged", wittyvars));
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Change password
+//
+
+PUBLIC OBJECTTYPE PasswordChangeForm EXTEND Formbase
+<
+  MACRO NEW()
+  {
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
+  {
+    OBJECT work := this->BeginWork();
+
+    OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
+    IF(NOT authplugin->VerifyCurrentPassword(^currentpassword->value))
+      work->AddErrorFor(^currentpassword, GetTid("wrd:site.forms.authpages.incorrectpassword"));
+    IF(NOT work->HasFailed() AND ^passwordnew->value != ^passwordrepeat->value)
+      work->AddErrorFor(^passwordnew, GetTid("wrd:site.forms.authpages.passwordsmismatch"));
+
+    authplugin->UpdateCurrentUserPassword(^passwordnew->value);
+    work->Finish();
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetPasswordChangePage(OBJECT webdesign, RECORD options)
+{
+  OBJECT loginform := webdesign->OpenForm("wrd:authpages#passwordchange");
+  webdesign->isstandardcontentpage := TRUE;
+  webdesign->pagetitle := GetTid("wrd:site.forms.authpages.passwordchange-title");
+
+  OBJECT authplugin := webdesign->GetWRDAuthPlugin();
+  RECORD wittyvars := CELL[ ...authplugin->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
+                          ];
+  STRING currentlogin := authplugin->accounttype->GetEntityField(authplugin->GetLoggedinEntity(), authplugin->wrdschema->accountlogintag);
+
+  wittyvars := CELL[ ...wittyvars
+                   , currentlogin
+                   , form := loginform->GetWittyData()
+                   ];
+
+  RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "passwordchange", wittyvars));
+}

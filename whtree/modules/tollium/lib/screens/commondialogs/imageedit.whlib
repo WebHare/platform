@@ -1,0 +1,88 @@
+<?wh
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+//FIXME ensure canvas destruction when the dialog is abandoned
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  RECORD ARRAY history;
+  
+  PUBLIC MACRO ResetImage()
+  {
+    this->history := DEFAULT RECORD ARRAY;
+    this->RefreshImage();
+  }
+  
+  PUBLIC MACRO SetImage(BLOB data, STRING filename)
+  {
+    this->ResetImage();
+    
+    INSERT [ action := "loadimage", data := data, filename := filename ] INTO this->history AT END;
+    this->RefreshImage();
+  }
+  
+  MACRO DoUndo()
+  {
+    DELETE FROM this->history AT Length(this->history)-1;
+    this->RefreshImage();
+  }
+  
+  MACRO DoCrop()
+  {
+    INSERT [ action := "crop", selection := this->img->selection] INTO this->history AT END;
+    this->RefreshImage();
+  }
+
+  MACRO RefreshImage()
+  {
+    INTEGER imagecanvas;
+    FOREVERY(RECORD item FROM this->history)
+    {
+      IF(imagecanvas = 0)
+      {
+        SWITCH(item.action)
+        {
+          CASE "loadimage"
+          {
+            imagecanvas := GfxCreateCanvasFromImageBlob(item.data);
+          }
+          DEFAULT
+          {
+            ABORT("Unrecognized type '" || item.action || "' (no canvas open)");
+          }
+        }
+      }
+      ELSE
+      {
+        SWITCH(item.action)
+        {
+          CASE "crop"
+          {
+            INTEGER newcanvas := GfxCreateCanvasFromCanvas(imagecanvas, item.selection.left, item.selection.top, item.selection.width, item.selection.height);
+            GfxDestroyCanvas(imagecanvas);
+            imagecanvas := newcanvas;
+          }
+          DEFAULT
+          {
+            ABORT("Unrecognized type '" || item.action || "'");
+          }
+        }
+      }
+    }
+  
+    IF(imagecanvas!=0)
+    {
+      this->img->SetImage(GfxCreateJPGBlobFromCanvas(imagecanvas),"");
+      this->img->allowselection := TRUE;
+      GfxDestroyCanvas(imagecanvas);
+    }
+    ELSE
+    {
+      this->img->value := DEFAULT RECORD;
+      this->img->allowselection := FALSE;
+    }
+    
+    this->frame->flags.canundo := Length(this->history)>0;
+  }
+>;

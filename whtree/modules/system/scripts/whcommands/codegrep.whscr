@@ -1,0 +1,221 @@
+﻿<?wh
+// command: codegrep [...]
+// short: Codegrep CLI
+
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/codegrep.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+RECORD ARRAY options := [ [ name := "i", type := "switch" ]
+                        , [ name := "skippath", type := "stringlist" ]
+                        , [ name := "scanpath", type := "stringlist" ]
+                        , [ name := "prefix", type := "stringopt" ]
+                        , [ name := "moduleprefix", type := "stringopt" ]
+                        , [ name := "stdmoduleprefix", type := "stringopt" ]
+                        , [ name := "js", type := "switch" ]
+                        , [ name := "css", type := "switch" ]
+                        , [ name := "harescript", type := "switch" ]
+                        , [ name := "html", type := "switch" ]
+                        , [ name := "xml", type := "switch" ]
+                        , [ name := "nocolor", type := "switch" ]
+                        , [ name := "format", type := "stringopt" ]
+                        , [ name := "context", type := "stringopt" ]
+                        , [ name := "search", type := "param", required := TRUE]
+                        ];
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+IF(NOT RecordExists(cmdargs))
+{
+  Print("Syntax: codegrep.whscr [--js] [--css] [--xml] [--harescript] [--html] [--nocolor] [--context <numlines>] [--prefix <prefix>] [-i] <expression>\n");
+  RETURN;
+}
+
+STRING ARRAY filetypes;
+IF (cmdargs.js)
+  INSERT "js" INTO filetypes AT END;
+IF (cmdargs.css)
+  INSERT "css" INTO filetypes AT END;
+IF (cmdargs.harescript)
+  INSERT "harescript" INTO filetypes AT END;
+IF (cmdargs.html)
+  INSERT "html" INTO filetypes AT END;
+IF (cmdargs.xml)
+  INSERT "xml" INTO filetypes AT END;
+
+IF(NOT IsConsoleATerminal())
+  cmdargs.nocolor := TRUE;
+
+INTEGER context := ToInteger(cmdargs.context, 0);
+
+OBJECT trans;
+TRY
+{
+  trans := OpenPrimary();
+}
+CATCH(OBJECT ignore)
+{
+  Print("** Database is not running, only files on disk will be checked\n");
+}
+
+OBJECT searcher := NEW GlobalTextSearcher(cmdargs.search,
+    [ types :=          filetypes
+    , casesensitive :=  NOT cmdargs.i
+    , maxresults :=     -1
+    , skippathmasks :=  cmdargs.skippath
+    , scanpathmasks :=  cmdargs.scanpath
+    , context :=        context
+    , skipdatabase :=   NOT ObjectExists(trans)
+    ]);
+
+STRING err := searcher->TestPattern();
+IF (err != "")
+{
+  PRINT("The search pattern is not a valid regular expression. Please escape stuff like '(' and ')' with a '\\'\n\n");
+  PRINT("Error: " || err || "\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+RECORD ARRAY lastcontext;
+STRING lastpath;
+INTEGER lastmatchline, lastprintline;
+WHILE (TRUE)
+{
+  RECORD comp := searcher->GetNextResult();
+  IF (NOT RecordExists(comp))
+    BREAK;
+
+  // Max nr of characters of line context of matches (characters before/after)
+  INTEGER maxsurround := 256;
+
+  IF (comp.type = "newfile")
+  {
+    // New file is being searched, flush after context for the last file, if any
+    IF (RecordExists(lastcontext))
+      FOREVERY (RECORD contextline FROM lastcontext)
+        PrintLine(contextline.linedata, lastpath, contextline.line, 0);
+    lastcontext := DEFAULT RECORD ARRAY;
+    lastmatchline := 0;
+    lastprintline := 0;
+  }
+  ELSE IF (comp.type = "result")
+  {
+    // Split result line into the part before the match, the match and the part after the match
+    INTEGER startcol := 0;
+    INTEGER startlen := comp.col - 1;
+    STRING prefix;
+
+    IF (startlen > maxsurround)
+    {
+      startcol := startlen - maxsurround;
+      startlen := maxsurround;
+      prefix := "...";
+    }
+
+    STRING prestr := prefix || UCSubString(comp.linedata, startcol, startlen);
+    STRING matchstr := UCSubString(comp.linedata, startcol + startlen, comp.uclen);
+    STRING endstr := UCSubString(comp.linedata, startcol + startlen + comp.uclen);
+
+    IF (Length(endstr) > maxsurround)
+      endstr := UCLeft(endstr, maxsurround) || "...";
+
+    // Add ANSI color
+    STRING linedata;
+    IF (cmdargs.nocolor)
+      linedata := prestr || matchstr || endstr;
+    ELSE
+      linedata :=
+          prestr ||
+          AnsiCmd("bold,red") ||
+          Substitute(matchstr, "\n", AnsiCmd("reset") || "\n" || AnsiCmd("bold,red")) ||
+          AnsiCmd("reset") ||
+          endstr;
+
+    // Determine source path
+    STRING path := GetSourcePath(comp);
+    IF (path != lastpath)
+      lastpath := path;
+
+    // Print the after context of the previous line and before context of the current line, account for overlap
+    IF (NOT RecordExists(comp.contextbefore) OR comp.line != lastmatchline)
+    {
+      IF (RecordExists(lastcontext))
+      {
+        // Print the after context lines, but not the current match line
+        FOREVERY (RECORD contextline FROM lastcontext)
+        {
+          IF (contextline.line <= lastprintline)
+            CONTINUE;
+          IF (contextline.line = comp.line)
+            BREAK;
+          PrintLine(contextline.linedata, lastpath, contextline.line, 0);
+          lastprintline := contextline.line;
+        }
+      }
+      IF (RecordExists(comp.contextbefore))
+      {
+        // If there are lines between the end of the after context and the beginning of the before context, print "..."
+        IF (RecordExists(lastcontext) AND lastprintline + 1 < comp.contextbefore[0].line)
+          PrintLine("...", path, 0, 0);
+
+        // Print the before context lines that are not present in the after context
+        FOREVERY (RECORD contextline FROM comp.contextbefore)
+        {
+          IF (lastprintline >= contextline.line)
+            CONTINUE;
+          PrintLine(contextline.linedata, path, contextline.line, 0);
+          lastprintline := contextline.line;
+        }
+      }
+
+      // Print the matching lines
+      FOREVERY (STRING linepart FROM Tokenize(linedata, "\n"))
+      {
+        PrintLine(linedata, path, comp.line + #linepart, #linepart = 0 ? comp.col : 1);
+        lastprintline := comp.line + #linepart;
+      }
+    }
+
+    lastcontext := comp.contextafter;
+    lastmatchline := comp.line;
+  }
+  ELSE IF (comp.type = "error")
+  {
+    Print("Error reading '" || GetSourcePath(comp) || "': " || comp.what || "\n");
+  }
+}
+
+STRING FUNCTION GetSourcePath(RECORD comp)
+{
+  IF (comp.source = "db")
+    RETURN cmdargs.prefix || comp.whfspath;
+  ELSE IF (comp.source = "module")
+  {
+    STRING prefix := comp.module IN whconstant_builtinmodules
+        ? cmdargs.stdmoduleprefix ?? cmdargs.moduleprefix
+        : cmdargs.moduleprefix;
+
+    IF (prefix = "")
+      RETURN comp.fullpath;
+    ELSE
+      RETURN prefix || (prefix LIKE "*/" ? "" : "/") || comp.module || "/" || comp.localpath;
+  }
+  RETURN "";
+}
+
+MACRO PrintLine(STRING linedata, STRING path, INTEGER line, INTEGER col)
+{
+  IF (cmdargs.format = "")
+    Print(path || ":" || line || ":" || col || ":" || linedata || "\n");
+  ELSE
+  {
+    STRING output := cmdargs.format;
+    output := Substitute(output, "%path", path);
+    output := Substitute(output, "%linedata", linedata);
+    output := Substitute(output, "%line", ToString(line));
+    output := Substitute(output, "%col", ToString(col));
+    output := Substitute(output, "\\n", "\n");
+    PRINT(output || "\n");
+  }
+}

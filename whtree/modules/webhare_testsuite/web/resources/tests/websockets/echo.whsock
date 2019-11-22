@@ -1,0 +1,78 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/webserver/websocket.whlib";
+
+
+OBJECT handler;
+OBJECT link;
+
+handler := CreateWebSocketHandler();
+handler->ondata := PTR OnData;
+handler->onclose := PTR OnClose;
+handler->Run();
+
+IF (ObjectExists(link))
+  link->SendMessage([ type := "terminating" ]);
+
+
+MACRO OnData(STRING data)
+{
+  IF (data LIKE "CONNECT:*")
+  {
+    link := ConnectToIPCPort("system:whmanager");
+    RECORD res := [ msg := [ status := "ok" ] ];
+    IF (ObjectExists(link))
+      res := link->DoRequest([ type := "connect", port := SubString(data, 8) ]);
+    handler->SendData("connect " || res.msg.status);
+    RETURN;
+  }
+  IF (data = "LOWIDLE")
+  {
+    handler->maxidle := 2;
+    handler->pingresponsetimeout := 2;
+  }
+
+  // Prints may not kill the websockets stream
+  PRINT("DEBUG DATA!\n");
+  handler->SendData("Echo: " || data);
+
+  // Wait a bit to let the next packet get into the buffer - testing behaviour when buffer is full for large packets
+  Sleep(200);
+};
+
+MACRO OnClose(INTEGER code, STRING message)
+{
+  //LogWebserverError("Got close " || code || ", msg: '" || EncodeJava(message) || "'");
+  IF (ObjectExists(link))
+    link->SendMessage([ type := "gotclose" ]);
+};
+
+
+
+/*
+
+INTEGER FUNCTION SetupContinuingInput() __ATTRIBUTES__(EXTERNAL);
+
+INTEGER str := SetupContinuingInput();
+PRINT("You're welcome\n");
+FlushWebResponse(MAX_DATETIME);
+
+FOR (INTEGER i := 0; i < 10; i := i + 1)
+{
+  STRING line := ReadLineFrom(str, 4096, FALSE);
+
+  PRINT(i || ": " || line);
+  FlushWebResponse(MAX_DATETIME);
+}
+PRINT("Final\n");
+
+/*
+
+telnet localhost 8000
+GET /tollium_todd.res/beta/debug/wstest.shtml HTTP/1.0
+
+line
+
+//*/

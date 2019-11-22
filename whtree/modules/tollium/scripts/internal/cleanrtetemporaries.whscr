@@ -1,0 +1,40 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+MACRO ClearFolder(OBJECT path)
+{
+  DATETIME cutoff := AddDaysToDate(-7, GetCurrentDateTime());
+
+  RECORD ARRAY todelete :=
+      SELECT id
+        FROM system.fs_objects
+       WHERE parent = path->id
+         AND modificationdate < cutoff;
+
+  FOREVERY (RECORD rec FROM todelete)
+    OpenWHFSObject(rec.id)->DeleteSelf();
+}
+
+
+OBJECT path := OpenWHFSObjectByPath("/webhare-private/tollium/rte-temp");
+IF (ObjectExists(path))
+  ClearFolder(path);
+
+path := OpenWHFSObjectByPath("/webhare-private/tollum/rte-temp");
+IF (ObjectExists(path))
+{
+  ClearFolder(path);
+
+  OBJECT tollumfolder := path->parentobject;
+  IF (NOT RecordExists(SELECT FROM system.fs_objects WHERE parent = path->id))
+    path->RecycleSelf();
+  IF (NOT RecordExists(SELECT FROM system.fs_objects WHERE parent = tollumfolder->id))
+    tollumfolder->RecycleSelf();
+}
+
+trans->CommitWork();

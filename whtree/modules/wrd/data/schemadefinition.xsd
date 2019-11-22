@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
+  xmlns:q="http://www.webhare.net/xmlns/wrd/query"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/wrd/schemadefinition"
+  xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+  xmlns:wrds="http://www.webhare.net/xmlns/wrd/schemadefinition"
+  xmlns:wrdschema="http://www.webhare.net/xmlns/wrd/schemadefinition"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:annotation>
+    <xs:documentation>
+      Site profiles XML file schema specification.
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/wrd/query" schemaLocation="mod::wrd/data/querydefinition.xsd"/>
+
+  <xs:simpleType name="Name">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="schemadefinition" type="SchemaDefinition" >
+    <xs:unique name="Types">
+      <xs:selector xpath="./wrds:object|./wrds:link|./wrds:classification|./wrds:attachment|./wrds:domain" />
+      <xs:field xpath="@tag" />
+    </xs:unique>
+  </xs:element>
+
+  <xs:complexType name="SchemaDefinition">
+    <xs:sequence>
+      <xs:element name="import" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="definitionfile" type="xs:string" use="required">
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:sequence minOccurs="0" maxOccurs="unbounded">
+        <xs:choice>
+          <xs:element name="object" type="ObjectDefinition" />
+          <xs:element name="link" type="LinkDefinition" />
+          <xs:element name="attachment" type="AttachmentDefinition" />
+          <xs:element name="domain" type="DomainDefinition" />
+
+          <!-- legacy -->
+          <xs:element name="classification" type="AttachmentDefinition" />
+        </xs:choice>
+        <xs:element ref="q:queries" minOccurs="0" maxOccurs="1" />
+        <xs:element name="keyvalues" minOccurs="0" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="keyvalue" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+
+    </xs:sequence>
+    <xs:attribute ref="xml:lang" />
+    <xs:attribute name="accounttype" type="Name" />
+    <xs:attribute name="accountloginfield" type="Name" />
+    <xs:attribute name="accountpasswordfield" type="Name" />
+    <xs:attribute name="accountemailfield" type="Name" />
+  </xs:complexType>
+
+  <xs:complexType name="TypeDefinition">
+    <xs:sequence>
+      <xs:choice>
+        <xs:element name="attributes" type="Attributes" minOccurs="0" maxOccurs="1">
+          <xs:unique name="AttributeTags">
+            <xs:selector xpath="*" />
+            <xs:field xpath="@tag" />
+          </xs:unique>
+        </xs:element>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="tag" type="Name" use="required" />
+    <xs:attribute name="title" type="xs:string" />
+    <xs:attribute name="description" type="xs:string" />
+    <xs:attribute name="parent" type="Name" />
+    <xs:attribute name="deleteclosedafter" /> <!-- reserved for future use -->
+    <xs:attribute name="keephistorydays" type="xs:integer" />
+  </xs:complexType>
+
+  <xs:complexType name="ObjectDefinition">
+    <xs:complexContent>
+      <xs:extension base="TypeDefinition">
+        <xs:sequence>
+          <xs:element name="values" type="Values" minOccurs="0" maxOccurs="1" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="LinkDefinition">
+    <xs:complexContent>
+      <xs:extension base="TypeDefinition">
+        <xs:attribute name="linkfrom" type="Name">
+        </xs:attribute>
+        <xs:attribute name="linkto" type="Name">
+        </xs:attribute>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="AttachmentDefinition">
+    <xs:complexContent>
+      <xs:extension base="TypeDefinition">
+        <xs:sequence>
+          <xs:element name="values" type="Values" minOccurs="0" maxOccurs="1" />
+        </xs:sequence>
+        <xs:attribute name="linkfrom" type="Name">
+        </xs:attribute>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="DomainDefinition">
+    <xs:complexContent>
+      <xs:extension base="TypeDefinition">
+        <xs:sequence>
+          <xs:element name="values" type="DomainValues" minOccurs="0" maxOccurs="1" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="Attributes">
+    <xs:sequence minOccurs="0" maxOccurs="unbounded">
+      <xs:group ref="Attribute" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:group name="Attribute">
+    <xs:choice>
+      <xs:element name="address" type="PlainAttribute" />
+      <xs:element name="array" type="ArrayAttribute">
+        <xs:unique name="AttributeArrayTags">
+          <xs:selector xpath="*" />
+          <xs:field xpath="@tag" />
+        </xs:unique>
+      </xs:element>
+      <xs:element name="boolean" type="PlainAttribute" />
+      <xs:element name="domain" type="DomainAttribute" />
+      <xs:element name="domainarray" type="DomainAttribute" />
+      <xs:element name="date" type="PlainAttribute" />
+      <xs:element name="datetime" type="PlainAttribute" />
+      <xs:element name="email" type="PlainAttribute" />
+      <xs:element name="enum" type="EnumAttribute" />
+      <xs:element name="enumarray" type="EnumAttribute" />
+      <xs:element name="file" type="PlainAttribute" />
+      <xs:element name="free" type="TextAttribute" />
+      <xs:element name="url" type="TextAttribute" />
+      <xs:element name="image" type="PlainAttribute" />
+      <xs:element name="integer" type="PlainAttribute" />
+      <xs:element name="integer64" type="PlainAttribute" />
+      <xs:element name="money" type="PlainAttribute" />
+      <xs:element name="password" type="PlainAttribute" />
+      <xs:element name="paymentprovider" type="PlainAttribute" />
+      <xs:element name="payment" type="DomainAttribute" />
+      <xs:element name="richdocument" type="TextAttribute" />
+      <xs:element name="statusrecord" type="EnumAttribute" />
+      <xs:element name="time" type="PlainAttribute" />
+      <xs:element name="telephone" type="PlainAttribute" />
+      <xs:element name="whfsinstance" type="PlainAttribute" />
+      <xs:element name="whfsintextlink" type="LinkAttribute" />
+      <xs:element name="record" type="PlainAttribute" />
+      <xs:element name="obsolete" type="ObsoleteAttribute" />
+
+      <!-- legacy -->
+      <xs:element name="domainsingle" type="DomainAttribute" />
+      <xs:element name="domainmultiple" type="DomainAttribute" />
+    </xs:choice>
+  </xs:group>
+
+  <xs:complexType name="PlainAttribute">
+    <xs:sequence>
+      <xs:element name="documentation" minOccurs="0" />
+    </xs:sequence>
+    <xs:attribute name="tag" type="Name" use="required" />
+    <xs:attribute name="title" type="xs:string"  />
+    <xs:attribute name="description" type="xs:string" />
+    <xs:attribute name="unique" type="xs:boolean" />
+    <xs:attribute name="required" type="xs:boolean" />
+  </xs:complexType>
+
+  <xs:complexType name="ObsoleteAttribute">
+    <xs:sequence>
+      <xs:element name="documentation" minOccurs="0" />
+    </xs:sequence>
+    <xs:attribute name="tag" type="Name" use="required" />
+    <xs:attribute name="title" type="xs:string"  />
+  </xs:complexType>
+
+  <xs:complexType name="ArrayAttribute">
+    <xs:complexContent>
+      <xs:extension base="PlainAttribute">
+        <xs:sequence minOccurs="0" maxOccurs="unbounded">
+          <xs:group ref="Attribute" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="DomainAttribute">
+    <xs:complexContent>
+      <xs:extension base="PlainAttribute">
+        <xs:attribute name="domain" type="Name" use="required">
+        </xs:attribute>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="EnumAttribute">
+    <xs:complexContent>
+      <xs:extension base="PlainAttribute">
+        <xs:attribute name="allowedvalues" use="required">
+          <xs:simpleType>
+            <xs:list itemType="xs:string" />
+          </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="gid">
+        </xs:attribute>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="LinkAttribute">
+    <xs:complexContent>
+      <xs:extension base="PlainAttribute">
+        <xs:attribute name="checklinks" type="xs:boolean">
+        </xs:attribute>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="TextAttribute">
+    <xs:complexContent>
+      <xs:extension base="PlainAttribute">
+        <xs:attribute name="checklinks" type="xs:boolean">
+        </xs:attribute>
+        <xs:attribute name="multiline" type="xs:boolean">
+        </xs:attribute>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="Values">
+    <xs:sequence minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="value">
+        <xs:complexType>
+          <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="field" type="Field" />
+            <xs:element name="arrayfield" type="ArrayField" />
+          </xs:choice>
+        </xs:complexType>
+        <xs:unique name="ValueFieldTags">
+          <xs:selector xpath="field" />
+          <xs:field xpath="@tag" />
+        </xs:unique>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="matchattribute" use="required" type="Name" />
+    <xs:attribute name="overwriteattributes">
+      <xs:simpleType>
+        <xs:list itemType="Name" />
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="DomainValues">
+    <xs:sequence minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="value" type="DomainValue">
+        <xs:unique name="DomainValueFieldTags">
+          <xs:selector xpath="./wrds:field|./wrds:arrayfield" />
+          <xs:field xpath="@tag" />
+        </xs:unique>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="matchattribute" use="required" type="Name" />
+    <xs:attribute name="overwriteattributes">
+      <xs:simpleType>
+        <xs:list itemType="Name" />
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="DomainValue">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="field" type="Field" />
+        <xs:element name="arrayfield" type="ArrayField" />
+      </xs:choice>
+      <xs:element name="subvalues" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="value" type="DomainValue" minOccurs="0" maxOccurs="unbounded">
+              <xs:unique name="SubDomainValueFieldTags">
+                <xs:selector xpath="./wrds:field|./wrds:arrayfield" />
+                <xs:field xpath="@tag" />
+              </xs:unique>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Field">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="tag" type="Name" />
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="ArrayField">
+    <xs:sequence>
+      <xs:element name="element"  minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="field" type="Field" />
+            <xs:element name="arrayfield" type="ArrayField" />
+          </xs:choice>
+        </xs:complexType>
+        <xs:unique name="ArrayFieldTags">
+          <xs:selector xpath="./wrds:field|./wrds:arrayfield" />
+          <xs:field xpath="@tag" />
+        </xs:unique>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="tag" type="Name" />
+  </xs:complexType>
+
+</xs:schema>

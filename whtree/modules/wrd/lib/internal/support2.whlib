@@ -1,0 +1,227 @@
+﻿<?wh
+/* separate support lib for the objectapi (support.whlib combines both objectapi and manage stuff)
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/graphs.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+
+/// If true, get type records from adhoccache
+PUBLIC BOOLEAN disablewrdcache; //this is set as soon as we update metadata, and destroys all caching for this VM. it should probably be reset on commit
+
+/** @topic wrd/api
+    @public
+    @loadlib mod::wrd/lib/api.whlib
+    @short Get a link to a (resized) image in WRD
+    @param baseurl Base url for links. If left empty, the link will start with "/.uc/"
+    @param imageid Setting id of the file
+    @param scalemethod Image processing method
+    @return URL for the file
+*/
+PUBLIC STRING FUNCTION GetCachedWRDImageURL(STRING baseurl, INTEGER imageid, RECORD scalemethod)
+{
+  RETURN GetUnifiedCacheURL(baseurl, 1, 3, imageid, scalemethod);
+}
+
+/** @topic wrd/api
+    @public
+    @loadlib mod::wrd/lib/api.whlib
+    @short Get a link to a file in WRD
+    @param baseurl Base url for links. If left empty, the link will start with "/.uc/"
+    @param fileid Setting id of the file
+    @return URL for the file
+*/
+PUBLIC STRING FUNCTION GetCachedWRDFileURL(STRING baseurl, INTEGER fileid)
+{
+  RETURN GetUnifiedCacheURL(baseurl, 2, 3, fileid, DEFAULT RECORD);
+}
+
+PUBLIC RECORD FUNCTION MappedSplitBlobSetting(STRING setting, BLOB blobdata, INTEGER fs_object, OBJECT whfs_mapper)
+{
+  RECORD retval := SplitBlobSetting(setting, blobdata, fs_object);
+  IF (NOT IsDefaultValue(whfs_mapper))
+    retval := CELL[ ...retval, source_fsobject := whfs_mapper->MapWHFSRef(retval.source_fsobject) ];
+
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION MappedJoinBlobSetting(RECORD fileinfo, OBJECT whfs_mapper)
+{
+  RECORD retval := JoinBlobSetting(fileinfo);
+  IF (NOT IsDefaultValue(whfs_mapper))
+    retval := CELL[ ...retval, fs_object := whfs_mapper->UnmapWHFSRef(retval.fs_object) ];
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION GetWrappedObjectFromWRDSetting(RECORD entitysetting, BOOLEAN isfile, OBJECT linkgetter, OBJECT whfs_mapper)
+{
+  INTEGER fs_object;
+  STRING rawdata := entitysetting.rawdata;
+  IF (rawdata LIKE "WHFS:*")
+  {
+    rawdata := SubString(rawdata, 5);
+    IF (ObjectExists(linkgetter))
+      fs_object := linkgetter->GetLink(entitysetting.id);
+    ELSE
+      fs_object := SELECT AS INTEGER fsobject FROM wrd.entity_settings_whfslink WHERE id = entitysetting.id; // Allow deleted refs
+  }
+
+  RECORD retval := MappedSplitBlobSetting(rawdata, entitysetting.blobdata, fs_object, whfs_mapper);
+  IF(isfile)
+    INSERT CELL fileid := entitysetting.id INTO retval;
+  ELSE
+    INSERT CELL imageid := entitysetting.id INTO retval;
+
+  retval.__blobsource := "w" || entitysetting.id;
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION ReadWRDWHFSIntExtLink(RECORD setting, OBJECT linkgetter, OBJECT whfs_mapper)
+{
+  IF(setting.rawdata="")
+    RETURN DEFAULT RECORD;
+
+  RECORD result;
+  IF (Left(setting.rawdata,1)="*") //external link
+  {
+    result := [ externallink := Substring(setting.rawdata,1)
+              , internallink := 0
+              , append := ""
+              ];
+  }
+  ELSE IF (setting.rawdata="WHFS" OR setting.rawdata LIKE "WHFS:*")
+  {
+    INTEGER internallink := ObjectExists(linkgetter)
+        ? linkgetter->GetLink(setting.id)
+        : SELECT AS INTEGER fsobject FROM wrd.entity_settings_whfslink WHERE id = setting.id;
+
+    result := CELL
+        [ externallink := ""
+        , internallink := internallink
+        , append := Substring(setting.rawdata, 5)
+        ];
+  }
+  ELSE
+    THROW NEW Exception("Unrecognized whfs int/extlink format");
+
+  IF (NOT IsDefaultValue(whfs_mapper))
+    result := CELL[ ...result, internallink := whfs_mapper->MapWHFSRef(result.internallink) ];
+
+  RETURN result;
+}
+
+PUBLIC RECORD ARRAY FUNCTION MyGetDomainAt(INTEGER domainid, DATETIME when, OBJECT wrdschema)
+{
+  RETURN SELECT id
+              , title
+              , tag
+              , ordering
+              , guid := EncodeWRDGUID(guid)
+           FROM wrd.entities
+          WHERE type = domainid
+                AND creationdate <= when
+                AND when < limitdate
+       ORDER BY ToUppercase(tag), id; //Our callers expect tag,id ordering for optimizations
+}
+
+PUBLIC BOOLEAN FUNCTION KillEntities(INTEGER ARRAY typeids, DATETIME deadline, BOOLEAN debug, BOOLEAN delete_attributes)
+{
+  /* Make a topological sort of the types linking graph. If we delete the entities of the types in that order,
+     we will delete only entities that aren't referred by other entities (by leftentity/rightentity)
+     This will minimize cascading in the database. If cycles exist, they will be broken, and cascading will occur.
+  */
+  OBJECT graph := NEW GraphObject;
+
+  // Get types to delete
+  RECORD ARRAY types :=
+      SELECT vertex := NEW GraphVertex
+           , id
+           , tag
+           , metatype
+           , requiretype_left
+           , requiretype_right
+        FROM wrd.types
+       WHERE types.id IN typeids
+    ORDER BY id;
+
+  // Add the vertices to the graph
+  FOREVERY (RECORD type FROM types)
+    graph->AddVertex(type.vertex);
+
+  // Store type data in the vertices, construct the edges between the type vertices
+  FOREVERY (RECORD type FROM types)
+  {
+    type.vertex->data := [ id := type.id, tag := type.tag, metatype := type.metatype ];
+    IF (type.requiretype_left != 0 AND type.requiretype_left != type.id AND type.requiretype_left IN typeids)
+      type.vertex->AddSimpleEdge(SELECT AS OBJECT vertex FROM types WHERE id = type.requiretype_left);
+    IF (type.requiretype_right != 0 AND type.requiretype_right != type.id AND type.requiretype_right IN typeids)
+      type.vertex->AddSimpleEdge(SELECT AS OBJECT vertex FROM types WHERE id = type.requiretype_right);
+  }
+
+  // Break any graph cycles (shouldn't be there, but with some database manipulation that could happen)
+  BreakGraphCycles(graph);
+
+  // Sort the graph topologically, so vertices with no links to them are placed first
+  OBJECT ARRAY sorted := TopologicalSort(graph);
+  // Ready to start deleting!
+  // First delete all entity settings - array leafs first
+/*  RECORD ARRAY killattributes :=
+      SELECT attrs.id, attrs.tag
+        FROM wrd.attrs
+       WHERE attrs.type IN typeids
+    ORDER BY parent != 0 DESC; //first those with a parent (ADDME sort by depth)
+*/
+/*  //SLice the ids to prevent timeouts when cascading a set of deletes
+  FOREVERY(RECORD attr FROM killattributes)
+  {
+    IF(debug)
+      Print("wrd:deletetask: deleting attribute #" || attr.id || " (" || attr.tag || ")\n");
+    WHILE(TRUE)
+    {
+      INTEGER ARRAY tokill := SELECT AS INTEGER ARRAY id FROM wrd.entity_settings WHERE attribute = attr.id LIMIT 1023;
+      IF(Length(tokill)=0)
+        BREAK;
+      DELETE FROM wrd.entity_settings WHERE id IN tokill;
+
+      IF(deadline != MAX_DATETIME AND GetCurrentdatetime() > deadline)
+        RETURN FALSE;
+    }
+    IF(delete_attributes)
+      DELETE FROM wrd.attrs WHERE id = attr.id;
+  }
+*/
+  // Delete all the entities from the types (in the order that will minimize cascades)
+  FOREVERY (OBJECT vertex FROM sorted)
+  {
+    IF(debug)
+      Print("wrd:deletetask: deleting type #" || vertex->data.id || "\n");
+    WHILE(TRUE)
+    {
+      INTEGER ARRAY tokill := SELECT AS INTEGER ARRAY id FROM wrd.entities WHERE type = vertex->data.id LIMIT 1023;
+      IF(LEngth(tokill)=0)
+        BREAK;
+      DELETE FROM wrd.entities WHERE id IN tokill;
+
+      IF(deadline != MAX_DATETIME) //being run by the cleanup scripts
+      {
+        //Commit what we can. We don't want to build up tens of thousands of dead references to verify
+        GetPrimary()->CommitWork();
+        GetPrimary()->BeginWork();
+      }
+
+      IF(deadline != MAX_DATETIME AND GetCurrentdatetime() > deadline)
+        RETURN FALSE;
+    }
+  }
+  IF(delete_attributes)
+    DELETE FROM wrd.attrs WHERE attrs.type IN typeids;
+
+  RETURN TRUE;
+}

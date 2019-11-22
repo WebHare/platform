@@ -1,0 +1,70 @@
+﻿<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+
+
+OBJECT trans := OpenPrimary();
+OBJECT userapi := GetPrimaryWebhareUserApi();
+
+RECORD ARRAY allusers :=
+    SELECT *
+      FROM userapi->accounttype->RunQuery(
+                [ outputcolumns :=
+                      [ id :=         "WRD_ID"
+                      , realname :=   "WRD_TITLE"
+                      , email :=      userapi->wrdschema->accountemailtag
+                      , guid  :=      "WRD_GUID"
+                      ]
+                ])
+  ORDER BY guid;
+
+RECORD ARRAY allobjs := SELECT TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
+                             , authobjects.id
+                             , authobjects.name
+                             , realname :=  up.found ? allusers[up.position].realname : "<other schema>"
+                             , email :=     up.found ? allusers[up.position].email : "<other schema>"
+                             , unitid := units.id
+                             , unitname := units.name
+                             , type :=      authobjects.type
+                             , otherschema := NOT up.found
+                          FROM system.authobjects, system.authobjects as units
+                               WHERE units.id = authobjects.parent;
+
+DELETE FROM allobjs WHERE type = 1 AND otherschema;
+
+RECORD ARRAY rolegrants := SELECT * FROM system.rolegrants;
+
+Print("id;name;realname;email;unitid;unitname;roleid;rolename;roleunitid;roleunitname\n");
+
+FOREVERY(RECORD grant FROM rolegrants)
+{
+  RECORD granteerec := SELECT * FROM allobjs WHERE grant.grantee = allobjs.id;
+  IF(NOT RecordExists(granteerec))
+  {
+    PrintTo(2,"Grantee #" || grant.grantee || " missing\n");
+    CONTINUE;
+  }
+
+  RECORD roleinfo := SELECT * FROM allobjs WHERE id=grant.role;
+  IF(NOT RecordExists(roleinfo))
+  {
+    PrintTo(2,"Role #" || grant.role || " missing\n");
+    CONTINUE;
+  }
+
+  Print(granteerec.id || ";"
+        || EncodeExcelCSV(granteerec.name) || ";"
+        || EncodeExcelCSV(granteerec.realname) || ";"
+        || EncodeExcelCSV(granteerec.email) || ";"
+        || granteerec.unitid || ";"
+        || EncodeExcelCSV(granteerec.unitname) || ";"
+        || grant.role || ";"
+        || EncodeExcelCSV(roleinfo.name) || ";"
+        || roleinfo.unitid || ";"
+        || EncodeExcelCSV(roleinfo.unitname)
+        || "\n");
+}

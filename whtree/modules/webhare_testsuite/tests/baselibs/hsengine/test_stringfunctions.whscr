@@ -1,0 +1,929 @@
+﻿<?wh
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+RECORD ARRAY errors;
+RECORD result;
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// STRING and PRINT() are assumed to be implemented,
+// i.e. PRINT(t) should output the value of STRING t.
+
+VARIANT FUNCTION MakeArrayFromValue(VARIANT val, INTEGER count)
+{
+  VARIANT arr := GetTypeDefaultArray(TypeId(val));
+  FOR (; count != 0; count := count - 1)
+    INSERT val INTo arr AT END;
+  RETURN arr;
+}
+
+MACRO TestHtml(STRING intext, STRING outtext, BOOLEAN encode_only DEFAULTSTO FALSE)
+{
+  STRING to := EncodeHTML(intext);
+  TestEq(outtext,to);
+
+  IF(encode_only)
+      return;
+
+  STRING fromtext := DecodeHTML(outtext);
+  TestEq(intext, fromtext);
+}
+
+MACRO TestHtmlDecode(STRING intext, STRING outtext)
+{
+  STRING to := DecodeHTML(intext);
+  TestEq(outtext,to);
+}
+
+MACRO TestValue(STRING intext, STRING outtext, BOOLEAN encode_only DEFAULTSTO FALSE)
+{
+  STRING to := EncodeValue(intext);
+  TestEq(outtext,to);
+
+  IF(encode_only)
+      return;
+
+  STRING fromtext := DecodeValue(outtext);
+  TestEq(intext, fromtext);
+}
+
+MACRO TestSharedHTMLValueDecoder(FUNCTION PTR decoder)
+{
+  TestEq("<", decoder("&lt;"));
+  TestEq(">", decoder("&gt;"));
+  TestEq("\xC3\x91", decoder("&Ntilde;"));
+  TestEq("\xCE\xA9", decoder("&Omega;"));
+  TestEQ("\u2232", decoder("&ClockwiseContourIntegral;"));
+  TestEq("fj", decoder("&fjlig;"));
+  TestEq("\uD835\uDD38", decoder("&Aopf;"));
+  TestEq("\xCE\xA9", decoder("&#937;"));
+  TestEq("\xCE\xA9", decoder("&#x3A9;"));
+  TestEq("\xCE\xA9", decoder("&#X3A9;"));
+  TestEq("\xCE\xA9", decoder("&#X3a9;"));
+  TestEq("'", decoder("&apos;"));
+
+  TestEq("", decoder("&aacut;"));
+  TestEq("", decoder("&aacutea;"));
+  TestEq("", decoder("&Ntild;"));
+  TestEq("", decoder("&junk;"));
+  TestEq("", decoder("&;"));
+  TestEq("", decoder("&#;"));
+  TestEq("", decoder("&#A;"));
+  TestEq("", decoder("&#9A;"));
+  TestEq("", decoder("&#x;"));
+  TestEq("", decoder("&#x9Z;"));
+
+  TestEq("<", decoder('&lt;'));
+  TestEq("&", decoder('&amp;'));
+  TestEq("", decoder('&junk;'));
+  TestEq("\u00D1", decoder('&Ntilde;'));
+  TestEq("\u00D1", decoder('&#xD1;'));
+  TestEq("\u01E5", decoder('&#485;'));
+}
+
+MACRO DecodeEncodeTest()
+{
+  OpenTest("TestStringFunctions: DecodeEncodeTest");
+
+  TestHtml("blabla", "blabla");
+  TestHtml("\nd\t", "<br />d&#9;");
+  TestHtml("\004hey\005", "hey", true);
+  TestHtml("", "");
+  TestHtml("hey\blaat", "heylaat", true);
+  TestHtml("\xC7\xA5", "&#485;");
+  TestHtml("hey blaat", "hey blaat");
+
+  TestSharedHTMLValueDecoder(PTR DecodeHTML);
+  TestSharedHTMLValueDecoder(PTR DecodeValue);
+
+  TestEq("b", DecodeHTML("<b>b</b>"));
+  TestEq("", DecodeHTML("<bb</b>"));
+  TestEq("b", DecodeHTML("<b a=\">\">b"));
+  TestEq("ab", DecodeHTML("a</b>b"));
+  TestEq("Hi!", DecodeHTML('<b>Hi!</b>'));
+  TestEq("\n", DecodeHTML('<br>'));
+  TestEq("\n", DecodeHTML('<br/>'));
+  TestEq("\n", DecodeHTML('<Br>'));
+  TestEq("\n", DecodeHTML('<bR/>'));
+  TestEq("\n", DecodeHTML('<bR />'));
+
+  TestEq("<b>b</b>", DecodeValue("<b>b</b>"));
+  TestEq("<bb</b>", DecodeValue("<bb</b>"));
+  TestEq(`<b a=">">b`, DecodeValue("<b a=\">\">b"));
+  TestEq("a</b>b", DecodeValue("a</b>b"));
+  TestEq("<b>Hi!</b>", DecodeValue('<b>Hi!</b>'));
+  TestEq("<br>", DecodeValue('<br>'));
+  TestEq("<br/>", DecodeValue('<br/>'));
+
+  TestValue("blabla", "blabla");
+  TestValue("\nd\t", "&#10;d&#9;");
+  TestValue("\004hey\005", "hey", true);
+  TestValue("", "");
+  TestValue("hey\blaat", "heylaat", true);
+  TestValue("\xC7\xA5", "&#485;");
+  TestValue("<&>", "&#60;&#38;&#62;");
+  TestValue("hey blaat", "hey blaat");
+
+  TestEqualString(1, "H\345r\352\nS\307r1\376t", DecodeBase16("48E572EA0A53C77231FE74"));
+  TestEqualString(2, "H\345r\352\nS\307r1\376", DecodeBase16("48E572EA0A53C77231FE7"));
+  TestEqualString(3, "48E572EA0A53C77231FE74", EncodeBase16("H\345r\352\nS\307r1\376t"));
+  TestEqualInteger(4, 11, Length(DecodeBase16("48E572EA0A53C77231FE74")));
+  TestEqualInteger(5, 10, Length(DecodeBase16("48E572EA0A53C77231FE7")));
+  TestEqualInteger(6, 22, Length(EncodeBase16("H\345r\352\nS\307r1\376t")));
+  result := TestCompileAndRun('<?wh PRINT(DecodeBase16(EncodeBase16("HareScript"))); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "HareScript", result.output);
+
+  TestEqualString(9, '<tag attr="value">Hare&Script</tag>\n', DecodeHTML('&#60;tag attr="value"&#62;Hare&#38;Script&#60;/tag&#62;<BR />'));
+  TestEqualString(10, '&#60;tag attr="value"&#62;Hare&#38;Script&#60;/tag&#62;<br />', EncodeHTML('<tag attr="value">Hare&Script</tag>\n'));
+  result := TestCompileAndRun('<?wh PRINT(DecodeHTML(EncodeHTML(\'<tag attr="value">Hare&Script</tag>\\n\'))); ?>');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, '<tag attr="value">Hare&Script</tag>\n', result.output);
+
+  TestEqualString(13, "'hare'\n\"Script\"", DecodeJava("\\'hare\\'\\n\\\"Script\\\""));
+  TestEqualString(14, "\\'hare\\'\\n\\\"Script\\\"", EncodeJava("'hare'\n\"Script\""));
+  result := TestCompileAndRun('<?wh PRINT(DecodeJava(EncodeJava("\'hare\'\\n\\\"Script\\\""))); ?>');
+  TestCleanResult(15, result.errors);
+  TestEqualString(16, "'hare'\n\"Script\"", result.output);
+  TestEQ("\\uD834\\uDD1E", EncodeJava("\uD834\uDD1E"));
+  TestEQ("\\uD834\\uDD1E", EncodeJava(UCToString(0x1D11E)));
+  TestEQ(UCToString(0x1D11E), DecodeJava("\\uD834\\uDD1E"));
+
+  TestEqualString(17, "\"Hare, ?Script=*+\\", DecodeURL("%22Hare%2C%20%3FScript%3D%2A%2B%5C"));
+  TestEqualString(18, "%22Hare%2C%20%3FScript%3D%2A%2B%5C", EncodeURL("\"Hare, ?Script=*+\\"));
+  result := TestCompileAndRun('<?wh PRINT(DecodeURL(EncodeURL("\\\"Hare, ?Script=*+\\\\"))); ?>');
+  TestCleanResult(19, result.errors);
+  TestEqualString(20, "\"Hare, ?Script=*+\\", result.output);
+
+  TestEq('Hare&Script\n', DecodeHTML('<tag attr=&#34;value&#34;>Hare&#38;Script</tag>&#10;'));
+  TestEq('<tag attr="value">Hare&Script</tag>\n', DecodeValue('<tag attr=&#34;value&#34;>Hare&#38;Script</tag>&#10;'));
+
+  TestEq('&#60;tag attr=&#34;value&#34;&#62;Hare&#38;Script&#60;/tag&#62;&#10;', EncodeValue('<tag attr="value">Hare&Script</tag>\n'));
+  result := TestCompileAndRun('<?wh PRINT(DecodeValue(EncodeValue(\'<tag attr="value">Hare&Script</tag>\\n\'))); ?>');
+  TestCleanResult(23, result.errors);
+  TestEqualString(24, '<tag attr="value">Hare&Script</tag>\n', result.output);
+  TestEq("'", DecodeValue('&apos;'));
+
+  TestEq("<\\/script>", EncodeJava('</script>'));
+
+  TestEqualString(25, "Joshee", EncodeJava(DecodeBase16("4A6F73E920686565")));
+
+  CloseTest("TestStringFunctions: DecodeEncodeTest");
+}
+
+MACRO CodingTest()
+{
+  OpenTest("TestStringFunctions: CodingTest");
+
+  //simple tests
+  TestEqualString(1, "A", ByteToString(65));
+  TestEqualInteger(2, 65, GetByteValue("A"));
+  TestEqualInteger(3, 65, GetByteValue("Abcdefg"));
+
+  //test extreme cases for these functions
+  TestEqualInteger(4, 0, GetByteValue(""));
+  TestEqualString(5, "", ByteToString(-1));
+  TestEqualString(6, "\000", ByteToString(0));
+  TestEqualString(7, "\377", ByteToString(255));
+  TestEqualString(8, "", ByteToString(256));
+
+  //simple tests, with unicode characters
+  TestEqualString(9, "A", UCToString(65));
+  TestEqualString(10, "©", UCToString(169));
+  TestEqualString(11, "€", UCToString(8364)); //hebrew character
+
+  TestEqualInteger(12, 8364, GetUCValue("€abc"));
+  TestEqualInteger(13, 65, GetUCValue("Abc"));
+  TestEqualInteger(14, 169, GetUCValue("©"));
+
+  TestEq("Pz8/", EncodeBase64("\x3f\x3f\x3f"));
+  TestEq("Pz8_", EncodeUFS("\x3f\x3f\x3f"));
+  TestEq("\x3f\x3f\x3f", DecodeUFS("Pz8_"));
+
+  TestEq("JBSWY3DPFQQFO33SNRSA====", EncodeBase32("Hello, World"));
+  TestEq("91IMOR3F5GG5ERRIDHI0====", EncodeBase32Hex("Hello, World"));
+  TestEq("Hello, World", DecodeBase32("jbswy3dpfqqfo33snrsa"));
+  TestEq("Hello, World", DecodeBase32Hex("91imor3f5gg5erridhi0"));
+  TestEq("", DecodeBase32("91imor3f5gg5erridhi0"));
+  TestEq("", DecodeBase32Hex("jbswy3dpfqqfo33snrsa"));
+
+  CloseTest("TestStringFunctions: CodingTest");
+}
+
+MACRO UTF8Test()
+{
+  OpenTest("TestStringFunctions: UTF8Test");
+
+  //Simple UTF8 encoding tests.
+  TestEqualString(1, "Über", UCLeft("Überhaupt",4));
+  TestEqualString(2, "Übe", Left("Überhaupt",4));
+
+  TestEqualString(3, "ÄËÜÖ", UCRight("ÜberhauptÄËÜÖ",4));
+  TestEqualString(4, "ÜÖ", Right("ÜberhauptÄËÜÖ",4));
+
+  TestEqualInteger(5, 18, Length("ÜberhauptÄËÜÖ"));
+  TestEqualInteger(6, 13, UCLength("ÜberhauptÄËÜÖ"));
+
+  TestEqualString(7, "ptÄ", UCSubString("ÜberhauptÄËÜÖ",7,3));
+  TestEqualString(8, "upt", SubString("ÜberhauptÄËÜÖ",7,3));
+
+  TestEqualInteger(9, 2, SearchSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber"));
+  TestEqualInteger(10, 1, UCSearchSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber"));
+  TestEqualInteger(11, 1, UCSearchSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber", -1));
+  TestEqualInteger(12, 1, UCSearchSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber", 0));
+  TestEqualInteger(13, 14, UCSearchSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber", 2));
+  TestEqualInteger(14, -1, UCSearchSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber", 15));
+  TestEqualInteger(15, -1, UCSearchSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber", 1000));
+
+  TestEqualInteger(16, 20, SearchLastSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber"));
+  TestEqualInteger(17, 14, UCSearchLastSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber"));
+  TestEqualInteger(18, 14, UCSearchLastSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber", 1000));
+  TestEqualInteger(19, 14, UCSearchLastSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber", 16));
+  TestEqualInteger(20, 1, UCSearchLastSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber", 15));
+  TestEqualInteger(21, -1, UCSearchLastSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber", 0));
+  TestEqualInteger(22, -1, UCSearchLastSubString("ÜberhauptÄËÜÖÜberhauptÄËÜÖ","ber", -1));
+
+  TestEqualString(23, "ptÄËÜÖ", UCSubString("ÜberhauptÄËÜÖ",7));
+
+  TestEq("€", Normalizetext("€", "nl")); //make sure utf8 passes through
+  TestEq("ab", GetSafeName("\x1Fab"));
+  TestEq("ab", GetSafeName("\x1Fab", [utf8:=TRUE]));
+  TestEq("a-b", GetSafeName("a\u00A0b"));
+  TestEq("a-b", GetSafeName("a\u00A0b", [utf8:=true]));
+  TestEq("大学特色", GEtSafeNAme("大学特色", [utf8:=TRUE]));
+  TestEq("Über-12-straßen", GEtSafeNAme(".Über '12' _Straßen_.?", [utf8:=TRUE]));
+  TestEq("uber-12-strassen", GEtSafeNAme(".Über '12' _Straßen_.?", [utf8:=FALSE]));
+  TestEq("unknown", GetSafeName(":::"));
+  TestEq("weetniet", GetSafeName(":::", [ fallback := "weetniet"]));
+  TestEq("ab", GetSafeName("a:b"));
+  TestEq("a-b", GetSafeName("a:b", [ tohyphens := ":" ]));
+
+  CloseTest("TestStringFunctions: UTF8Test");
+}
+
+/*** Left [54] ***/
+/*** Right [55] ***/
+/*** SearchLastSubstring [55] ***/
+/*** SearchSubstring [56] ***/
+/*** Substitute [56] ***/
+/*** Substring [57] ***/
+MACRO SubstringTest()
+{
+  OpenTest("TestStringFunctions: SubstringTest");
+
+  TestEqualString(1, "Hare", Left("HareScript", 4));
+  TestEqualString(2, "HareScript", Left("HareScript", 20));
+  TestEqualString(3, "", Left("HareScript", 0));
+  TestEqualString(4, "", Left("HareScript", -1));
+
+  TestEqualString(5, "Script", Right("HareScript", 6));
+  TestEqualString(6, "HareScript", Right("HareScript", 20));
+  TestEqualString(7, "", Right("HareScript", 0));
+  TestEqualString(8, "", Right("HareScript", -1));
+
+  TestEqualInteger(9, 6, SearchLastSubstring("HareScript", "r"));
+  TestEqualInteger(10, 4, SearchLastSubstring("HareScript", "Scr"));
+  TestEqualInteger(11, -1, SearchLastSubstring("HareScript", "hare"));
+  TestEqualInteger(12, -1, SearchLastSubstring("HareScript", ""));
+
+  TestEqualInteger(13, 6, SearchLastSubstring("HareScript", "r", 6));
+  TestEqualInteger(14, 2, SearchLastSubstring("HareScript", "r", 5));
+  TestEqualInteger(15, 6, SearchLastSubstring("HareScript", "r", 1000));
+  TestEqualInteger(16, -1, SearchLastSubstring("HareScript", "r", -1000));
+  TestEqualInteger(17, 9, SearchLastSubstring("HareScript", "t", 9));
+  TestEqualInteger(18, 0, SearchLastSubstring("HareScript", "H", 0));
+  TestEqualInteger(19, 4, SearchLastSubstring("HareScript", "Scr", 6));
+  TestEqualInteger(20, -1, SearchLastSubstring("HareScript", "Scr", 5));
+  TestEqualInteger(21, -1, SearchLastSubstring("HareScript", "hare", -1000));
+  TestEqualInteger(22, -1, SearchLastSubstring("HareScript", "hare", 5));
+  TestEqualInteger(23, -1, SearchLastSubstring("HareScript", "hare", 1000));
+  TestEqualInteger(24, -1, SearchLastSubstring("HareScript", "", -1000));
+  TestEqualInteger(25, -1, SearchLastSubstring("HareScript", "", 5));
+  TestEqualInteger(26, -1, SearchLastSubstring("HareScript", "", 1000));
+
+  TestEqualInteger(27, 2, SearchSubstring("HareScript", "r"));
+  TestEqualInteger(28, 4, SearchSubstring("HareScript", "Scr"));
+  TestEqualInteger(29, -1, SearchSubstring("HareScript", "hare"));
+  TestEqualInteger(30, -1, SearchSubstring("HareScript", ""));
+
+  TestEqualInteger(31, 2, SearchSubstring("HareScript", "r", 2));
+  TestEqualInteger(32, 6, SearchSubstring("HareScript", "r", 3));
+  TestEqualInteger(33, -1, SearchSubstring("HareScript", "r", 1000));
+  TestEqualInteger(34, 2, SearchSubstring("HareScript", "r", -1000));
+  TestEqualInteger(35, 9, SearchSubstring("HareScript", "t", 9));
+  TestEqualInteger(36, 0, SearchSubstring("HareScript", "H", 0));
+  TestEqualInteger(37, 4, SearchSubstring("HareScript", "Scr", 4));
+  TestEqualInteger(38, -1, SearchSubstring("HareScript", "Scr", 5));
+  TestEqualInteger(39, -1, SearchSubstring("HareScript", "hare", -1000));
+  TestEqualInteger(40, -1, SearchSubstring("HareScript", "hare", 5));
+  TestEqualInteger(41, -1, SearchSubstring("HareScript", "hare", 1000));
+  TestEqualInteger(42, -1, SearchSubstring("HareScript", "", -1000));
+  TestEqualInteger(43, -1, SearchSubstring("HareScript", "", 5));
+  TestEqualInteger(44, -1, SearchSubstring("HareScript", "", 1000));
+
+  TestEqualString(45, "HaReScRipt", Substitute("HareScript", "r", "R"));
+  TestEqualString(46, "HaeScipt", Substitute("HareScript", "r", ""));
+  TestEqualString(47, "PHP-Script", Substitute("HareScript", "Hare", "PHP-"));
+  TestEqualString(48, "HareScript", Substitute("HareScript", "hare", "php-"));
+  TestEqualString(49, "HareScript", Substitute("HareScript", "", "R"));
+
+  TestEqualString(50, "reScr", Substring("HareScript", 2, 5));
+  TestEqualString(51, "reScript", Substring("HareScript", 2, 20));
+  TestEqualString(52, "HareS", Substring("HareScript", -1, 5));
+  TestEqualString(53, "HareScript", Substring("HareScript", -1, 20));
+  TestEqualString(54, "", Substring("HareScript", 2, -1));
+  TestEqualString(55, "", Substring("HareScript", -1, -1));
+  TestEqualString(56, "", Substring("HareScript", 20, 5));
+
+  TestEqualString(57, "HareScript", Substring("HareScript", -1));
+  TestEqualString(58, "areScript", Substring("HareScript", 1));
+  TestEqualString(59, "", Substring("HareScript", 20));
+  TestEqualString(60, "HareScript", Substring("HareScript", -2147483648));
+
+  CloseTest("TestStringFunctions: SubstringTest");
+}
+
+STRING FUNCTION MyTestTokenize(STRING tokenstring, STRING tokenseparator)
+{
+  STRING retval;
+  FOREVERY (STRING token FROM Tokenize(tokenstring,tokenseparator))
+    retval := retval || token || ", ";
+  RETURN retval;
+}
+
+/** @short Truncate a text if it's too long, adding an ellipsis ('…') if truncated
+    @param text Text to check
+    @param maxlen Maximum text length
+    @return Truncated text */
+
+
+/*** Length [54] ***/
+/*** Tokenize [57] ***/
+/*** ToLowercase [58] ***/
+/*** ToUppercase [58] ***/
+MACRO MiscTest()
+{
+  OpenTest("TestStringFunctions: MiscTest");
+
+  TestEqualInteger(1, 10, Length("HareScript"));
+  TestEqualInteger(2, 0, Length(""));
+  TestEqualInteger(3, 0, Length(DEFAULT BLOB));
+  TestEqualInteger(4, 0, Length(DEFAULT BLOB ARRAY));
+  TestEqualInteger(5, 0, Length(DEFAULT RECORD ARRAY));
+  //TestEqualInteger(6, 0, Length(DEFAULT RECORD)); //no longer accepted
+  //TestEqualInteger(7, 1, Length([a:="b"]));
+
+  TestEqualString(8, "Ha, re, Sc, ri, pt, ", MyTestTokenize("Ha-re-Sc-ri-pt", "-"));
+
+  TestEqualString(9, "Ha-, e-Sc-, i-pt, ", MyTestTokenize("Ha-re-Sc-ri-pt", "r"));
+
+  TestEqualString(10, "Ha-re-Sc-ri-pt, ", MyTestTokenize("Ha-re-Sc-ri-pt", "R"));
+
+  TestEq(DEFAULT STRING ARRAY, Tokenize("", ""));
+  TestEq([ "" ], Tokenize("", "-"));
+
+  TestEqualString(15, "harescript", ToLowercase("HareScript"));
+  TestEqualString(16, "'.h1a@r3e$s5c^r7i*p9t)", ToLowercase("'.H1a@r3e$S5c^r7i*p9t)"));
+
+  TestEqualString(17, "HARESCRIPT", ToUppercase("HareScript"));
+  TestEqualString(18, "'.H1A@R3E$S5C^R7I*P9T)", ToUppercase("'.H1a@r3e$S5c^r7i*p9t)"));
+
+  TestEqualString(19, 'abc  def', TrimWhitespace('  abc  def  '));
+  TestEqualString(20, 'Hello, World', TrimWhitespace('\r\n Hello, World\t\t \r \n '));
+  TestEqualString(21, 'abc  def', TrimWhitespace('abc  def'));
+  TestEqualString(22, '', TrimWhitespace(''));
+  TestEqualString(23, '', TrimWhitespace(' '));
+
+  TestEq('Doc!', UCTruncate('Doc!',4));
+  TestEq('Doc!', UCTruncate('Doc!',6));
+  TestEq('Do…', UCTruncate('Doc!',3));
+  TestEq('12€!', UCTruncate('12€!',4));
+  TestEq('12…', UCTruncate('12€!',3));
+  TestEq('12€!', UCTruncate('12€!',5));
+  TestEq('Doc i…', UCTruncate('Doc it!',6));
+  TestEq('Doc…', UCTruncate('Doc it!',5));
+  TestEq('Doc…', UCTruncate('Doc\nit!',5));
+  TestEq('Doc…', UCTruncate('Doc\rit!',5));
+  TestEq('Doc…', UCTruncate('Doc\tit!',5));
+  TestEq('Doc\u00a0…', UCTruncate('Doc\u00a0it!',5));
+  TestEq('Doc…', UCTruncate('Doc it!',4));
+  TestEq(' Do…', UCTruncate(' Doc it!',4));
+
+  //whitespace fixing
+  TestEq('    X', UCTruncate('    X',5));
+  TestEq('', UCTruncate('    X',4));
+  TestEq('', UCTruncate('     ',4));
+
+  //corner cases ... we really don't want to be too smart and fix double ellipsis and whitespacing, but at least stabilize the output
+  TestEq('Doc! ', UCTruncate('Doc! ',6));
+  TestEq('Doc!  ', UCTruncate('Doc!  ',6));
+  TestEq('Doc!…', UCTruncate('Doc!   ',6));
+  TestEq('Doc!…', UCTruncate('Doc!…',5));
+  TestEq('Doc!…', UCTruncate('Doc!……',5));
+  TestEq('Doc!……', UCTruncate('Doc!………',6));
+
+  TestEqualString(30, 'Hello,\xC2\xA0World', TrimWhitespace('\r\t\n Hello,\xC2\xA0World\t\t \r \n '));
+  TestEqual(31, DEFAULT STRING ARRAY, Tokenize("",""));
+  TestEqual(32, [""], Tokenize("",","));
+  TestEq([ "a" ], Tokenize("a", ""));
+  TestEqual(33, [ ",", " " ], Tokenize(", ",""));
+  TestEq([ "\u00eb", "\u00ef" ], Tokenize("\u00eb\u00ef", ""));
+
+  TestEqual(34, "AbcAbcAbc", RepeatText("Abc",3));
+  TestEqual(35, "", RepeatText("",3));
+  TestEqual(36, "", RepeatText("Abc",0));
+  TestEqual(37, "", RepeatText("Abc",-17));
+
+  CloseTest("TestStringFunctions: MiscTest");
+}
+
+MACRO CharsetTest()
+{
+  OpenTest("TestStringFunctions: CharsetTest");
+
+  TestEqualString(1, "US-ASCII", GetBestCharacterset("Something about a red fox..\t\r\n"));
+  TestEqualString(2, "US-ASCII", GetBestCharacterset(""));
+  TestEqualString(3, "ISO-8859-1", GetBestCharacterset("Ümlauts all over the place"));
+  TestEqualString(4, "Unicode",  GetBestCharacterset("€uro"));
+  TestEqualString(5, "Unicode",  GetBestCharacterset("Ümlauts and €uro's dont mix"));
+
+  TestEqualString(6, "Something about a red fox...\t\r\n", EncodeCharset("Something about a red fox...\t\r\n", "US-ASCII"));
+  TestEqualString(7, "Something about a red fox...\t\r\n", EncodeCharset("Something about a red fox...\t\r\n", "Us-aSCiI"));
+  TestEqualString(8, "Something about a red fox...\t\r\n", DecodeCharset("Something about a red fox...\t\r\n", "US-ASCII"));
+  TestEqualString(9, "Something about a red fox...\t\r\n", DecodeCharset("Something about a red fox...\t\r\n", "Us-aSCiI"));
+
+  TestEq(TRUE, IsValidUTF8("Hello, world!"));
+  TestEq(TRUE, IsValidUTF8(""));
+  TestEq(FALSE, IsValidUTF8("\0"));
+  TestEq(TRUE, IsValidUTF8("\a"));
+  TestEq(FALSE, IsValidUTF8("\xE0"));
+  TestEq(FALSE, IsValidUTF8("\xA0"));
+  TestEq(FALSE, IsValidUTF8("\x80"));
+  TestEq(TRUE, IsValidUTF8("\uD801\uDC37"));
+
+  TestThrows(PTR DecodeCharset("Something about a red fox...\t\r\n", ""));
+  TestThrows(PTR DecodeCharset("Something about a red fox...\t\r\n", "UTF-8")); //UTF-8 is NOT a character set
+  TestThrows(PTR EncodeCharset("Something about a red fox...\t\r\n", ""));
+  TestThrows(PTR EncodeCharset("Something about a red fox...\t\r\n", "UTF-8")); //UTF-8 is NOT a character set
+
+  TestEqualString(14, "mlauts all over the place", EncodeCharset("Ümlauts all over the place", "US-ASCII"));
+  TestEqualString(15, "uro", EncodeCharset("€uro", "US-ASCII"));
+  TestEqualString(16, "mlauts and uro's dont mix", EncodeCharset("Ümlauts and €uro's dont mix", "US-ASCII"));
+
+  TestEqualString(17, "\xDCmlauts all over the place", EncodeCharset("Ümlauts all over the place", "ISO-8859-1"));
+  TestEqualString(18, "uro", EncodeCharset("€uro", "ISO-8859-1"));
+  TestEqualString(19, "\xDCmlauts and uro's dont mix", EncodeCharset("Ümlauts and €uro's dont mix", "ISO-8859-1"));
+
+  TestEqualString(20, "\xDCmlauts all over the place", EncodeCharset("Ümlauts all over the place", "CP1252"));
+  TestEqualString(21, "\x80uro", EncodeCharset("€uro", "CP1252"));
+  TestEqualString(22, "\xDCmlauts and \x80uro's dont mix", EncodeCharset("Ümlauts and €uro's dont mix", "CP1252"));
+
+  TestEqualString(23, "Ümlauts all over the place", EncodeCharset("Ümlauts all over the place", "UNICODE"));
+  TestEqualString(24, "€uro", EncodeCharset("€uro", "UNICODE"));
+  TestEqualString(25, "Ümlauts and €uro's dont mix", EncodeCharset("Ümlauts and €uro's dont mix", "UNICODE"));
+
+  TestEqualString(26, "Ümlauts all over the place", DecodeCharset("Ümlauts all over the place", "UNICODE"));
+  TestEqualString(27, "€uro", DecodeCharset("€uro", "UNICODE"));
+  TestEqualString(28, "Ümlauts and €uro's dont mix", DecodeCharset("Ümlauts and €uro's dont mix", "UNICODE"));
+
+  TestEqualString(29, "Ümlauts all over the place", DecodeCharset("\xDCmlauts all over the place", "CP1252"));
+  TestEqualString(30, "€uro", DecodeCharset("\x80uro", "CP1252"));
+  TestEqualString(31, "Ümlauts and €uro's dont mix", DecodeCharset("\xDCmlauts and \x80uro's dont mix", "CP1252"));
+
+  TestEqualString(32, "Ümlauts all over the place", DecodeCharset("\xDCmlauts all over the place", "ISO-8859-1"));
+  TestEqualString(33, "?uro", DecodeCharset("\x80uro", "ISO-8859-1"));
+  TestEqualString(34, "Ümlauts and ?uro's dont mix", DecodeCharset("\xDCmlauts and \x80uro's dont mix", "ISO-8859-1"));
+
+  TestEqualString(35, "?mlauts all over the place", DecodeCharset("\xDCmlauts all over the place", "US-ASCII"));
+  TestEqualString(36, "?uro", DecodeCharset("\x80uro", "US-ASCII"));
+  TestEqualString(37, "?mlauts and ?uro's dont mix", DecodeCharset("\xDCmlauts and \x80uro's dont mix", "US-ASCII"));
+
+  TestEqualString(38, "\x9Amlauts all over the place", EncodeCharset("Ümlauts all over the place", "CP437"));
+  TestEqualString(39, "uro", EncodeCharset("€uro", "CP437"));
+  TestEqualString(40, "\x9Florins", EncodeCharset("ƒlorins", "CP437"));
+  TestEqualString(41, "\x9Amlauts and uro's dont mix", EncodeCharset("Ümlauts and €uro's dont mix", "CP437"));
+
+  TestEqualString(42, "Ümlauts all over the place", DecodeCharset("\x9Amlauts all over the place", "CP437"));
+  TestEqualString(43, "ƒlorins", DecodeCharset("\x9Florins", "CP437"));
+  TestEqualString(44, "Ümlauts and ƒlorins dont mix", DecodeCharset("\x9Amlauts and \x9Florins dont mix", "CP437"));
+
+  TestEqualBoolean(45, TRUE, IsPrintableASCII("Hallo"));
+  TestEqualBoolean(46, FALSE, IsPrintableASCII("\n"));
+  TestEqualBoolean(47, FALSE, IsPrintableASCII("Ümlaut"));
+  TestEqualBoolean(48, FALSE, IsPrintableASCII("\0"));
+  TestEqualBoolean(49, TRUE, IsPrintableASCII(""));
+  TestEqualBoolean(50, TRUE, IsPrintableASCII(" "));
+  TestEqualBoolean(51, FALSE, IsPrintableASCII("\x7F"));
+
+  CloseTest("TestStringFunctions: CharsetTest");
+}
+
+RECORD ARRAY packettypes :=
+    [ [ types := [ "b", "d" ] // int64_t, little + big
+      , outtype := TypeID(INTEGER64)
+      , vals := [ [ val := -9223372036854775808i64, reprs := [ "0000000000000080", "8000000000000000" ] ]
+                , [ val := 9223372036854775807i64, reprs := [ "FFFFFFFFFFFFFF7F", "7FFFFFFFFFFFFFFF" ] ]
+                , [ val := 72623859790382856i64, reprs := [ "0807060504030201", "0102030405060708" ] ]
+                , [ val := -1i64, reprs := [ "FFFFFFFFFFFFFFFF", "FFFFFFFFFFFFFFFF" ] ]
+                , [ val := 0i64, reprs := [ "0000000000000000", "0000000000000000" ] ]
+                , [ val := 15, reprs := [ "0F00000000000000", "000000000000000F" ] ]
+                , [ val := TRUE, reprs := [ "0100000000000000", "0000000000000001" ] ]
+                ]
+      ]
+    , [ types := [ "B", "D" ] // uint64_t, little + big (can't represent them, just handle has int64_t
+      , outtype := TypeID(INTEGER64)
+      , vals := [ [ val := -9223372036854775808i64, reprs := [ "0000000000000080", "8000000000000000" ] ]
+                , [ val := 9223372036854775807i64, reprs := [ "FFFFFFFFFFFFFF7F", "7FFFFFFFFFFFFFFF" ] ]
+                , [ val := 72623859790382856i64, reprs := [ "0807060504030201", "0102030405060708" ] ]
+                , [ val := -1i64, reprs := [ "FFFFFFFFFFFFFFFF", "FFFFFFFFFFFFFFFF" ] ]
+                , [ val := 0i64, reprs := [ "0000000000000000", "0000000000000000" ] ]
+                , [ val := 15, reprs := [ "0F00000000000000", "000000000000000F" ] ]
+                , [ val := TRUE, reprs := [ "0100000000000000", "0000000000000001" ] ]
+                ]
+      ]
+    , [ types := [ "c" ] // int8_t
+      , outtype := TypeID(INTEGER)
+      , vals := [ [ val := -128, reprs := [ "80" ] ]
+                , [ val := 127, reprs := [ "7F" ] ]
+                , [ val := 0, reprs := [ "00" ] ]
+                , [ val := -1, reprs := [ "FF" ] ]
+                ]
+      ]
+    , [ types := [ "C" ] // uint8_t
+      , outtype := TypeID(INTEGER)
+      , vals := [ [ val := 255, reprs := [ "FF" ] ]
+                , [ val := 0, reprs := [ "00" ] ]
+                ]
+      ]
+    , [ types := [ "s", "n" ] // int16_t, little + big
+      , outtype := TypeID(INTEGER)
+      , vals := [ [ val := -32768, reprs := [ "0080", "8000" ] ]
+                , [ val := 32767, reprs := [ "FF7F", "7FFF" ] ]
+                , [ val := 0, reprs := [ "0000", "0000" ] ]
+                , [ val := -1, reprs := [ "FFFF", "FFFF" ] ]
+                , [ val := 258, reprs := [ "0201", "0102" ] ]
+                , [ val := 258i64, reprs := [ "0201", "0102" ] ]
+                , [ val := TRUE, reprs := [ "0100", "0001" ] ]
+                ]
+      ]
+    , [ types := [ "S", "N" ] // uint16_t, little + big
+      , outtype := TypeID(INTEGER)
+      , vals := [ [ val := 65535, reprs := [ "FFFF", "FFFF" ] ]
+                , [ val := 0, reprs := [ "0000", "0000" ] ]
+                , [ val := 258, reprs := [ "0201", "0102" ] ]
+                , [ val := 258i64, reprs := [ "0201", "0102" ] ]
+                , [ val := TRUE, reprs := [ "0100", "0001" ] ]
+                ]
+      ]
+    , [ types := [ "l", "p" ] // int32_t, little + big
+      , outtype := TypeID(INTEGER)
+      , vals := [ [ val := -2147483648i64, reprs := [ "00000080", "80000000" ] ]
+                , [ val := 2147483647, reprs := [ "FFFFFF7F", "7FFFFFFF" ] ]
+                , [ val := 0, reprs := [ "00000000", "00000000" ] ]
+                , [ val := -1, reprs := [ "FFFFFFFF", "FFFFFFFF" ] ]
+                , [ val := 16909060, reprs := [ "04030201", "01020304" ] ]
+                , [ val := 16909060i64, reprs := [ "04030201", "01020304" ] ]
+                , [ val := TRUE, reprs := [ "01000000", "00000001" ] ]
+                ]
+      ]
+    , [ types := [ "L", "P" ] // uint32_t, little + big
+      , outtype := TypeID(INTEGER)
+      , vals := [ [ val := 4294967295i64, reprs := [ "FFFFFFFF", "FFFFFFFF" ] ]
+                , [ val := 0, reprs := [ "00000000", "00000000" ] ]
+                , [ val := 16909060, reprs := [ "04030201", "01020304" ] ]
+                , [ val := 16909060i64, reprs := [ "04030201", "01020304" ] ]
+                , [ val := TRUE, reprs := [ "01000000", "00000001" ] ]
+                ]
+      ]
+    , [ types := [ "f", "g" ] // float 32-bit, little + big
+      , outtype := TypeID(FLOAT)
+      , vals := [ [ val := -37f, reprs := [ "000014C2", "C2140000" ] ]
+                , [ val := 0, reprs := [ "00000000", "00000000" ] ]
+                , [ val := 0i64, reprs := [ "00000000", "00000000" ] ]
+                , [ val := 1, reprs := [ "0000803F", "3F800000" ] ]
+                , [ val := TRUE, reprs := [ "0000803F", "3F800000" ] ]
+                ]
+      ]
+    , [ types := [ "F", "G" ] // float 64-bit, little + big
+      , outtype := TypeID(FLOAT)
+      , vals := [ [ val := -37f, reprs := [ "00000000008042C0", "C042800000000000" ] ]
+                , [ val := 0, reprs := [ "0000000000000000", "0000000000000000" ] ]
+                , [ val := 0i64, reprs := [ "0000000000000000", "0000000000000000" ] ]
+                , [ val := 1, reprs := [ "000000000000F03F", "3FF0000000000000" ] ]
+                , [ val := TRUE, reprs := [ "000000000000F03F", "3FF0000000000000" ] ]
+                ]
+      ]
+    , [ types := [ "j" ] // boolean 8-bit,
+      , outtype := TypeID(BOOLEAN)
+      , vals := [ [ val := 37, reprs := [ "01" ] ]
+                , [ val := 0, reprs := [ "00" ] ]
+                , [ val := 0i64, reprs := [ "00" ] ]
+                , [ val := TRUE, reprs := [ "01" ] ]
+                , [ val := FALSE, reprs := [ "00" ] ]
+                ]
+      ]
+    , [ types := [ "h", "i" ] // DATETIME 64-bit native
+      , outtype := TypeID(BOOLEAN)
+      , vals := [ [ val := DEFAULT DATETIME, reprs := [ "0000000000000000", "0000000000000000" ] ]
+                , [ val := MAX_DATETIME, reprs := [ "FFFFFF7FFF5B2605", "7FFFFFFF05265BFF" ] ]
+                , [ val := AddTimeToDate(303, MakeDateTime(2011,11, 8,21,20,55)), reprs := [ "F1340B0007B89404", "000B34F10494B807" ] ]
+                ]
+      ]
+    ];
+
+
+MACRO EncodePackettest()
+{
+  OpenTest("TestStringFunctions: EncodePacketTest");
+
+  TestEq("\0", EncodePacket("numnull:x", [ numnull := 0 ]));
+  TestEq("\0\0\0\0", EncodePacket("numnull:x4", [ numnull := 0 ]));
+  TestEq("\0\0", EncodePacket("numnull:x?", [ numnull := 2 ]));
+  TestEq("\0", EncodePacket("numnull:x?", [ numnull := 1 ]));
+  TestThrows(PTR EncodePacket("numnull:x*", [ numnull := 1 ]));
+
+  TestEq("000102030405060708090A0B0C0D0E0F", EncodeBase16(EncodePacket(":x,sign8:c,sign16:n,sign32:p,sign64:d", [ sign8 := 1, sign16 := 0x203, sign32 := 0x4050607, sign64 := 0x08090A0B * (1i64 BITLSHIFT 32) + 0x0C0D0E0F ])));
+  TestEq("00010302070605040F0E0D0C0B0A0908", EncodeBase16(EncodePacket(":x,sign8:c,sign16:s,sign32:l,sign64:b", [ sign8 := 1, sign16 := 0x203, sign32 := 0x4050607, sign64 := 0x08090A0B * (1i64 BITLSHIFT 32) + 0x0C0D0E0F ])));
+
+  TestEq("01020304050607", EncodeBase16(EncodePacket("sign8:c*", [ sign8 := [ 1,2,3,4,5,6,7 ] ] )));
+  TestEq("01020304050607", EncodeBase16(EncodePacket("sign8:c7", [ sign8 := [ 1,2,3,4,5,6,7 ] ] )));
+  TestThrows(PTR EncodePacket("sign8:c6", [ sign8 := [ 1,2,3,4,5,6,7 ] ] ));
+  TestThrows(PTR EncodePacket("sign8:c8", [ sign8 := [ 1,2,3,4,5,6,7 ] ] ));
+
+  TestEq("0001020304050607", EncodeBase16(EncodePacket("sign8:D", [ sign8 := ToInteger64("01020304050607",0,16) ] )));
+  TestEq("0706050403020100", EncodeBase16(EncodePacket("sign8:b", [ sign8 := ToInteger64("01020304050607",0,16) ])));
+
+  TestEq("hallo!", (EncodePacket("test1:a", [ test1 := "hallo!" ] )));
+  TestEq( "hallo!", (EncodePacket("test1:A", [ test1 := "hallo!" ] )));
+  TestEq( "hall", (EncodePacket("test1:A4", [ test1 := "hallo!" ] )));
+  TestEq( "hallo!  ", (EncodePacket("test1:A8", [ test1 := "hallo!" ] )));
+  TestEq( "hallo!\0\0", (EncodePacket("test1:a8", [ test1 := "hallo!" ] )));
+  TestEq( "hallo! ", (EncodePacket("test1:A*", [ test1 := "hallo!" ] )));
+  TestEq( "hallo!\0", (EncodePacket("test1:a*", [ test1 := "hallo!" ] )));
+
+  TestEq( "hallo!", (EncodePacket("test1:r*", [ test1 := "hallo!" ] )));
+  TestEq( "hall", (EncodePacket("test1:r4", [ test1 := "hallo!" ] )));
+  TestEq( "hallo!", (EncodePacket("test1:r8", [ test1 := "hallo!" ] )));
+  TestThrows(PTR EncodePacket("test1:r", [ test1 := "hallo!" ] ));
+
+  TestEq( "tesgaaf", EncodePacket("test1:r*,:@3,test2:r*", [ test1 := "test", test2 := "gaaf" ]));
+  TestEq( "test\0\0\0gaaf", EncodePacket("test1:r*,:@7,test2:r*", [ test1 := "test", test2 := "gaaf" ]));
+
+  TestEq( "00000000008042C0", EncodeBase16(EncodePacket("test1:F", [ test1 := -37f ])));
+  TestEq( "0000000000804240", EncodeBase16(EncodePacket("test1:F", [ test1 := +37f ])));
+  TestEq( "000000000080424000000000008042C0", EncodeBase16(EncodePacket("test1:F*", [ test1 := [+37f,-37f] ])));
+  TestEq( "00000000008042C0", EncodeBase16(EncodePacket("v:F", [ v := -37 ])));
+  TestEq( "00000000008042C0", EncodeBase16(EncodePacket("v:F", [ v := -37i64 ])));
+
+  TestEq("0000000000000000FFFFFF7FFF5B2605F1340B0007B89404", EncodeBase16(EncodePacket("dt:h,dt2:h,dt3:h", [ dt := DEFAULT DATETIME, dt2 := MAX_DATETIME, dt3 := AddTimeToDate(303, MakeDateTime(2011,11, 8,21,20,55)) ])));
+  TestEq("00000000000000007FFFFFFF05265BFF000B34F10494B807", EncodeBase16(EncodePacket("dt:i,dt2:i,dt3:i", [ dt := DEFAULT DATETIME, dt2 := MAX_DATETIME, dt3 := AddTimeToDate(303, MakeDateTime(2011,11, 8,21,20,55)) ])));
+
+  TestEq("01", EncodeBase16(EncodePacket("v:j", [ v := 1 ])));
+  TestEq("01", EncodeBase16(EncodePacket("v:j", [ v := 1i64 ])));
+  TestEq("01", EncodeBase16(EncodePacket("v:j", [ v := TRUE ])));
+  TestEq("0100", EncodeBase16(EncodePacket("v:j2", [ v := [ 1, 0 ] ])));
+  TestEq("0100", EncodeBase16(EncodePacket("v:j2", [ v := [ 1i64, 0i64 ] ])));
+  TestEq("0100", EncodeBase16(EncodePacket("v:j2", [ v := [ TRUE, FALSE ] ])));
+
+  TestEq("01", EncodeBase16(EncodePacket("v:c", [ v := 1 ])));
+  TestEq("01", EncodeBase16(EncodePacket("v:c", [ v := 1i64 ])));
+  TestEq("01", EncodeBase16(EncodePacket("v:c", [ v := TRUE ])));
+
+  FOREVERY (RECORD rec FROM packettypes)
+    FOREVERY (RECORD val FROM rec.vals)
+      FOREVERY (STRING type FROM rec.types)
+      {
+        TestEQ(val.reprs[#type], EncodeBase16(EncodePacket("v:" || type, [ v := val.val ])));
+        TestEQ(val.reprs[#type] || val.reprs[#type] || "FF", EncodeBase16(EncodePacket("v:" || type || "*,e:C", [ v := MakeArrayFromValue(val.val, 2), e := 255 ])));
+      }
+
+  CloseTest("TestStringFunctions: EncodePacketTest");
+}
+
+MACRO DecodePackettest()
+{
+  OpenTest("TestStringFunctions: DecodePacketTest");
+
+  TestEqualRecord(1, DEFAULT RECORD, DecodePacket("numnull:x,test:c", "\0a"));
+  TestEqualRecord(2, [ test := 65 ], DecodePacket(":x,test:c", "\0A"));
+  TestEqualRecord(3, DEFAULT RECORD, DecodePacket("numnull:x4,test:c", "\0\0\0\0a"));
+  TestEqualRecord(4, [ test := 97 ], DecodePacket(":x4,test:c", "\0\0\0\0a"));
+  TestEqualRecord(5, [ numnull := 2, test := 65 ] , DecodePacket("numnull:x?,test:c", "\0\0A"));
+  TestEqualRecord(6, [ numnull := 2 ] , DecodePacket("numnull:x?", "\0\0a"));
+  TestEqualRecord(7, [ numnull := 1 ], DecodePacket("numnull:x?", "\0"));
+  TestEqualRecord(8, DEFAULT RECORD, DecodePacket("numnull:x*","\0\0\0"));
+  TestEqualRecord(9, [ numnull := 0 ], DecodePacket("numnull:x?", ""));
+
+  TestEqualRecord(10, [ sign8 := 1, sign16 := 0x203, sign32 := 0x4050607, sign64 := 0x08090A0B * (1i64 BITLSHIFT 32) + 0x0C0D0E0F ], DecodePacket(":x,sign8:c,sign16:n,sign32:p,sign64:d", DecodeBase16("000102030405060708090A0B0C0D0E0F")));
+  TestEqualRecord(11, [ sign8 := 1, sign16 := 0x203, sign32 := 0x4050607, sign64 := 0x08090A0B * (1i64 BITLSHIFT 32) + 0x0C0D0E0F ], DecodePacket(":x,sign8:c,sign16:s,sign32:l,sign64:b", DecodeBase16("00010302070605040F0E0D0C0B0A0908")));
+  TestEqualRecord(12, [ sign8 := -1], DecodePacket("sign8:c", DecodeBase16("FF")));
+  TestEqualRecord(13, [ sign8 := 255], DecodePacket("sign8:C", DecodeBase16("FF")));
+  TestEqualRecord(14, [ sign16 := -1], DecodePacket("sign16:s", DecodeBase16("FFFF")));
+  TestEqualRecord(15, [ sign16 := 65535], DecodePacket("sign16:S", DecodeBase16("FFFF")));
+  TestEqualRecord(16, DEFAULT RECORD, DecodePacket("sign16:S", DecodeBase16("FF")));
+  TestEqualRecord(17, [ sign16 := [1,2,3,4,5,6], testc := 65 ], DecodePacket("sign16:S6,testc:c", DecodeBase16("01000200030004000500060041")));
+  TestEqualRecord(18, [ sign16 := [1,2,3,4,5,6], testc := 65 ], DecodePacket("sign16:S*,testc:c", DecodeBase16("01000200030004000500060041")));
+  TestEqualRecord(19, DEFAULT RECORD, DecodePacket("sign16:S6", DecodeBase16("0100020003000400050006")));
+  TestEqualRecord(20, DEFAULT RECORD, DecodePacket("test:c", ""));
+
+  TestEqualRecord(21, [ a := "hal", b:= "lo" ], DecodePacket("a:a3,b:a2", "hallo"));
+  TestEqualRecord(22, [ a := "hal", b:= "lo" ], DecodePacket("a:a3,b:a*", "hallo\0"));
+  TestEqualRecord(23, [ a := "ha ", b:= "lo" ], DecodePacket("a:a3,b:a*", "ha lo\0"));
+  TestEqualRecord(24, [ a := "ha",  b:= "lo" ], DecodePacket("a:A3,b:a*", "ha lo\0"));
+  TestEqualRecord(25, [ a := "h",   b:= "lo" ], DecodePacket("a:A3,b:a*", "h  lo\0"));
+  TestEqualRecord(26, DEFAULT RECORD, DecodePacket("a:A3,b:a2", "hall"));
+  TestEqualRecord(27, [ a := "h",  b:= "lo" ], DecodePacket("a:A*,b:a*", "h lo\0"));
+  TestEqualRecord(28, [ a := "h",  b:= "lo\0" ], DecodePacket("a:A*,b:r*", "h lo\0"));
+  TestEqualRecord(29, [ a := "h",  b:= "lo" ],   DecodePacket("a:A*,b:r*", "h lo"));
+  TestEqualRecord(30, DEFAULT RECORD,            DecodePacket("a:A*,b:a*", "h lo"));
+  TestEqualRecord(31, [ a := "h",  b:= "l",  c:="o" ],   DecodePacket("a:A*,b:r1,c:r1", "h lo"));
+  TestEqualRecord(32, [ a := "h",  b:= "lo", c:= ""  ],   DecodePacket("a:A*,b:r2,c:r*", "h lo"));
+
+  TestEqualRecord(33, [ a := "hallo", b := "allo", c:= ""  ],   DecodePacket("a:r*,:@1,b:r*,:@100,c:r*", "hallo"));
+  TestEqualFloat (34, -37f,   DecodePacket("a:F", DecodeBase16("00000000008042C0")).a);
+  TestEqualFloat (35, 37f,   DecodePacket("a:F2", DecodeBase16("000000000080424000000000008042C0")).a[0]);
+  TestEqualFloat (36, -37f,   DecodePacket("a:F2", DecodeBase16("000000000080424000000000008042C0")).a[1]);
+
+  TestEq([ dt := DEFAULT DATETIME, dt2 := MAX_DATETIME, dt3 := AddTimeToDate(303, MakeDateTime(2011,11, 8,21,20,55)) ], DecodePacket("dt:h,dt2:h,dt3:h", DecodeBase16("0000000000000000FFFFFF7FFF5B2605F1340B0007B89404")));
+  TestEq([ dt := DEFAULT DATETIME, dt2 := MAX_DATETIME, dt3 := AddTimeToDate(303, MakeDateTime(2011,11, 8,21,20,55)) ], DecodePacket("dt:i,dt2:i,dt3:i", DecodeBase16("00000000000000007FFFFFFF05265BFF000B34F10494B807")));
+
+  TestEq(CELL[], DecodePacket(":r1", "A"));
+  TestEq([ a := ToInteger64("1020304050607",0,16)
+         , b := ToInteger64("1020304050607",0,16)
+         ], DecodePacket("a:D,b:b", DecodeBase16("00010203040506070706050403020100")));
+
+  FOREVERY (RECORD rec FROM packettypes)
+    FOREVERY (RECORD val FROM rec.vals)
+      IF (TypeID(val.val) = rec.outtype)
+        FOREVERY (STRING type FROM rec.types)
+        {
+          TestEQ([ v := val.val ], DecodePacket("v:" || type, DecodeBase16(val.reprs[#type])));
+          TestEQ([ v := MakeArrayFromValue(val.val, 2), e := 255 ], DecodePacket("v:" || type || "2,e:C", DecodeBase16(val.reprs[#type] || val.reprs[#type] || "FF")));
+          TestEQ([ v := MakeArrayFromValue(val.val, 6) ], DecodePacket("v:" || type || "*", DecodeBase16(RepeatText(val.reprs[#type], 6))));
+        }
+
+  CloseTest("TestStringFunctions: DecodePacketTest");
+}
+
+//in the past, we already reserved room for HSON-encoding, but just prefixed 'json:' and threw in JSON data.
+MACRO TestHson_LegacyPlaceholder(INTEGER testnum, STRING encoded, VARIANT toencode)
+{
+  STRING encval := EncodeJSON(toencode);
+  TestEqual(testnum, encoded, encval);
+  TestEqual(testnum+1, toencode, DecodeHSON("json:" || encval));
+}
+
+MACRO HsonLegacyPlaceholderTest()
+{
+  OpenTest("HsonLegacyPlaceholderTest");
+
+  TestHson_LegacyPlaceholder(1, '5', 5);
+  TestHson_LegacyPlaceholder(3, '"Ab\\"cd\'efgh"', "Ab\"cd\'efgh");
+  TestHson_LegacyPlaceholder(5, '[1,2,3]', [1,2,3]);
+  TestHson_LegacyPlaceholder(7, '{"feed":5,"feedtag":"test"}', [FEED:=5,feedtag:="test"]);
+
+  // Test for canonical form
+  RECORD x := [ feedtag := "test" ];
+  INSERT CELL feed := 5 INTO x;
+  TestHson_LegacyPlaceholder(8, '{"feed":5,"feedtag":"test"}', [FEED:=5,feedtag:="test"]);
+
+  TestHson_LegacyPlaceholder(9, '{}', CELL[]);
+  TestHson_LegacyPlaceholder(11, 'null', DEFAULT RECORD);
+
+  TestHson_LegacyPlaceholder(17, '0.582346', FLOAT(0.5823461));
+
+  TestEq([line:=0], DecodeJSON('{"line":0}'));
+
+  //Google adds superfluous spaces - outofspec, but we have to cope
+  TestEq([code:="nl",cities:=[[name:="Almere",lat:=52299999,lon:=4769999]]], DecodeJSON('{code: "nl",cities: [{name: "Almere",lat: 52299999,lon: 4769999}]} '));
+
+  TestHson_LegacyPlaceholder(21, '"\\"\\\\\\b\\f\\n\\r\\t\\u1234"', '\"\\\b\f\n\r\t\u1234');
+  TestEq("a/b", DecodeJSON('"a\\/b"'));
+
+  CloseTest("HsonLegacyPlaceholderTest");
+}
+
+
+MACRO TestHSONEnDeCode(STRING encoded, VARIANT toencode, BOOLEAN viablob)
+{
+  IF (NOT viablob)
+  {
+    STRING encval := EncodeHSON(toencode);
+    TestEq(encoded, encval);
+    VARIANT decoded := DecodeHSON(encval);
+    TestEq(toencode, decoded);
+  }
+  ELSE
+  {
+    BLOB encval := EncodeHSONBlob(toencode);
+    TestEq(StringToBlob(encoded), encval);
+    VARIANT decoded := DecodeHSONBlob(encval);
+    TestEq(toencode, decoded);
+  }
+}
+
+OBJECTTYPE tx < >;
+
+MACRO HsonTest(BOOLEAN viablob)
+{
+  OpenTest("TestStringFunctions: HsonTest");
+
+  /* HSON improvements:
+     - preserve array types (DEFAULT INTEGER ARRAY, etc)
+     - support datetime, blob, money
+  */
+  TestHSONEnDeCode('hson:-2147483648', -2147483648, viablob);
+  TestHSONEnDeCode('hson:5', 5, viablob);
+  TestHSONEnDeCode('hson:-5', -5, viablob);
+  TestHSONEnDeCode('hson:2147483647', 2147483647, viablob);
+  TestHSONEnDeCode('hson:i64 -9223372036854775808', -9223372036854775808i64, viablob);
+  TestHSONEnDeCode('hson:i64 -5', -5i64, viablob);
+  TestHSONEnDeCode('hson:i64 5', 5i64, viablob);
+  TestHSONEnDeCode('hson:i64 9223372036854775807', 9223372036854775807i64, viablob);
+  TestHSONEnDeCode('hson:"Ab\\"cd\'efgh"', "Ab\"cd\'efgh", viablob);
+  TestHSONEnDeCode('hson:d"20100101"', MakeDate(2010,1,1), viablob);
+  TestHSONEnDeCode('hson:d"20100101T151617"', MakeDateTime(2010,1,1,15,16,17), viablob);
+  TestHSONEnDeCode('hson:d"20100101T151617.123"', AddTimeToDate(123, MakeDateTime(2010,1,1,15,16,17)), viablob);
+  TestHSONEnDeCode('hson:d"201100415"', MakeDateFromParts(7344766,0), viablob);
+  TestHSONEnDeCode('hson:b"' || EncodeBase64("Ik ben een blob") || '"', StringToBlob("Ik ben een blob"), viablob);
+  TestHSONEnDeCode('hson:m -92233720368547.75808', -92233720368547.75808m, viablob);
+  TestHSONEnDeCode('hson:m -5', -5m, viablob);
+  TestHSONEnDeCode('hson:m -5.42', -5.42m, viablob);
+  TestHSONEnDeCode('hson:m 5', 5m, viablob);
+  TestHSONEnDeCode('hson:m 5.42', 5.42m, viablob);
+  TestHSONEnDeCode('hson:m 92233720368547.75807', 92233720368547.75807m, viablob);
+  TestHSONEnDeCode('hson:f -5', -5f, viablob);
+  TestHSONEnDeCode('hson:f -5.5', -5.5f, viablob);
+  TestHSONEnDeCode('hson:f 5', 5f, viablob);
+  TestHSONEnDeCode('hson:f 5.5', 5.5f, viablob);
+  TestHSONEnDeCode('hson:*', DEFAULT RECORD, viablob);
+  TestHSONEnDeCode('hson:{}', CELL[], viablob);
+  TestHSONEnDeCode('hson:va[]', DEFAULT VARIANT ARRAY, viablob);
+  TestHSONEnDeCode('hson:ia[]', DEFAULT INTEGER ARRAY, viablob);
+  TestHSONEnDeCode('hson:i64a[]', DEFAULT INTEGER64 ARRAY, viablob);
+  TestHSONEnDeCode('hson:ma[]', DEFAULT MONEY ARRAY, viablob);
+  TestHSONEnDeCode('hson:fa[]', DEFAULT FLOAT ARRAY, viablob);
+  TestHSONEnDeCode('hson:xa[]', DEFAULT BLOB ARRAY, viablob);
+  TestHSONEnDeCode('hson:ra[]', DEFAULT RECORD ARRAY, viablob);
+  TestHSONEnDeCode('hson:da[]', DEFAULT DATETIME ARRAY, viablob);
+  TestHSONEnDeCode('hson:ba[]', DEFAULT BOOLEAN ARRAY, viablob);
+  TestHSONEnDeCode('hson:sa[]', DEFAULT STRING ARRAY, viablob);
+  TestHSONEnDeCode('hson:ia[1,2,3]', [1,2,3], viablob);
+  TestHSONEnDeCode('hson:b""', DEFAULT BLOB, viablob);
+  TestHSONEnDeCode('hson:d""', DEFAULT DATETIME, viablob);
+  TestHSONEnDeCode('hson:d"T12345"', MakeDateFromParts(0,12345), viablob);
+  TestHSONEnDeCode('hson:d"MAX"', MAX_DATETIME, viablob);
+  TestHSONEnDeCode('hson:d"00010101T000000.001"', MakeDateFromParts(1, 1), viablob);
+  TestHSONEnDeCode('hson:d"58796110711T235959.998"', AddTimeToDate(-1, MAX_DATETIME), viablob);
+  TestHSONEnDeCode('hson:b"MQ=="', StringToBlob("1"), viablob);
+  TestHSONEnDeCode('hson:{"a":0,"b":1,"c":2}', [ c := 2, b := 1, a := 0 ], viablob); // test ordering
+  TestHSONEnDeCode('hson:fa[f 0,f 1]', [ 0f, 1f ], viablob);
+  TestHSONEnDeCode('hson:va[f 0,f 1,""]', VARIANT ARRAY([ 0f, 1f ]) CONCAT VARIANT ARRAY([ "" ]), viablob);
+  TestHSONEnDeCode('hson:va[1,2,3]', VARIANT ARRAY([ 1,2,3 ]), viablob);
+  TestHSONEnDeCode('hson:fa[f 13,f 11111111111111]', [ 13f, 11111111111111f ], viablob);
+
+  // Large blob, len not dividable by 3
+  STRING teststr := "1234567";
+  FOR (INTEGER i := 0; i < 8; i := i + 1)
+    teststr := teststr || teststr || teststr || teststr || teststr;
+
+  TestHSONEnDeCode('hson:b"'||EncodeBase64(teststr)||'"', StringToBlob(teststr), viablob);
+
+  //Explicit invalid syntax
+  TestThrows(PTR DecodeHSON("hson:[]"));
+
+  TestHSONEnDeCode('hson:o *', DEFAULT OBJECT, viablob);
+  TestHSONEnDeCode('hson:oa[]', DEFAULT OBJECT ARRAY, viablob);
+  TestHSONEnDeCode('hson:w *', DEFAULT WEAKOBJECT, viablob);
+  TestHSONEnDeCode('hson:wa[]', DEFAULT WEAKOBJECT ARRAY, viablob);
+  TestHSONEnDeCode('hson:p *', DEFAULT FUNCTION PTR, viablob);
+
+  FUNCTION PTR encoder := viablob ? PTR EncodeHSONBlob : PTR EncodeHSON;
+  OBJECT x := NEW tx;
+  TestThrowsLike("*encode*", PTR encoder(WEAKOBJECT(x))); // Test WEAKOBJECT first, so x still exists later.
+  TestThrowsLike("*encode*", PTR encoder([ WEAKOBJECT(x) ]));
+  TestThrowsLike("*encode*", PTR encoder(x));
+  TestThrowsLike("*encode*", PTR encoder([ x ]));
+  TestThrowsLike("*encode*", PTR encoder(PTR PRINT));
+  TestThrowsLike("*encode*", PTR encoder([ PTR PRINT ]));
+
+  CloseTest("TestStringFunctions: HsonTest");
+}
+
+
+PRINT("\n === Running TestStringFunctions\n");
+HsonLegacyPlaceholderTest();
+HsonTest(FALSE);
+HsonTest(TRUE);
+EncodePacketTest();
+DecodePacketTest();
+CharsetTest();
+DecodeEncodeTest();
+SubstringTest();
+MiscTest();
+CodingTest();
+UTF8Test();

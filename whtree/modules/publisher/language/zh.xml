@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="zh" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">请查看下方方框</text>
+      <text tid="title">接近完成</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">下一步</text>
+      <text tid="previouspage">上一步</text>
+      <text tid="selectfile">选择文件</text>
+      <text tid="starsrequired">* 由星号标注的问题是必须回答的</text>
+      <text tid="submit">提交</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">查无本地址</text>
+        <text tid="invalid_nr_detail">无效房间号</text>
+        <text tid="invalid_zip">无效邮政编码</text>
+        <text tid="zip_not_found">未知的房间号与邮政编码组合</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">请输入字母或数字</text>
+        <text tid="check">请选择 <param p="1"/> 到 <param p="2"/> 个选项</text>
+        <text tid="default">不正确的值</text>
+        <text tid="digits">请输入正确的号码</text>
+        <text tid="email">请输入一个有效的电子邮箱地址</text>
+        <text tid="email_baddomain">因为技术原因，我们无法发送邮件到<param p="1"/>邮箱，我们恳请您更换使用另外的邮箱地址</text>
+        <text tid="email_suggestion">你的意思是<param p="1"/>？</text>
+        <text tid="equalto">输入值应该相同</text>
+        <text tid="integer">请输入正确的整数</text>
+        <text tid="length">字符长度应该在 <param p="1"/> 到 <param p="2"/> 之间</text>
+        <text tid="max">输入值请小于或等于 <param p="1"/></text>
+        <text tid="maxcheck">请选择不超过 <param p="1"/> 个选项</text>
+        <text tid="maxlength">请输入至多 <param p="1"/> 个字符</text>
+        <text tid="min">输入值请大于或等于 <param p="1"/></text>
+        <text tid="mincheck">请至少选择 <param p="1"/> 个选项</text>
+        <text tid="minlength">请输入至少 <param p="1"/> 个字符</text>
+        <text tid="notblank">请输入值</text>
+        <text tid="number">请输入正确的数字</text>
+        <text tid="pattern">无效值</text>
+        <text tid="range">输入值应该在 <param p="1"/> 到 <param p="2"/> 之间</text>
+        <text tid="required">必填项</text>
+        <text tid="url">请输入一个有效的链接</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="forum">   <!-- site.forum -->
+      <textgroup gid="comments">   <!-- site.forum.comments -->
+        <text tid="email">电子邮件</text>
+        <text tid="email-placeholder-notshown">user@example.org (未显示)</text>
+        <text tid="message">发送消息</text>
+        <text tid="name">名称</text>
+        <text tid="respond-button">发送</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

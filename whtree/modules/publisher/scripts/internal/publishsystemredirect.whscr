@@ -1,0 +1,31 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/template-v2.whlib";
+LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
+
+
+/* This files emits the systemredirect for 'dynamicfoldercontents' and 'shtmlfile'
+   files (the latter only in a webdesign).
+*/
+
+IF(contentfile.type != 25)
+  RenamePage(1,"index.shtml");
+
+BOOLEAN capturesubpaths :=
+	SELECT AS BOOLEAN COLUMN capturesubpaths
+	  FROM system.fs_types
+	 WHERE id = contentfile.type;
+
+OBJECT applytester := GetApplyTesterForObject(file.id);
+RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+IF (RecordExists(webdesigninfo))
+  capturesubpaths := webdesigninfo.renderinfo.capturesubpaths;
+
+__SetCaptureSubPaths(capturesubpaths);
+
+OpenFile(1);
+PrintTrustedCode("<?wh (*SCRIPTPROPERTY'SYSTEMREDIRECT'*)?>");
+CloseFile();

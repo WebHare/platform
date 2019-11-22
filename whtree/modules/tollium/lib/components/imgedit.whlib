@@ -1,0 +1,438 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/filters.whlib";
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+// checkers board background
+RECORD imgeditbackground := [ src := checkered_background
+                            , position := [ "top", "left" ]
+                            ];
+
+/////////////////////////////////////////////////////////////////////
+// The image edit component
+
+PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD pvt_value;
+  STRING pvt_src;
+  BOOLEAN pvt_upload;
+  BOOLEAN pvt_publisher;
+  STRING pvt_medialibrary;
+  RECORD pvt_imgsize;
+  INTEGER ARRAY pvt_publisherroots;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  UPDATE PUBLIC PROPERTY value(pvt_value, SetValue);
+
+  // Called when value has changed
+  PUBLIC FUNCTION PTR onchange;
+
+  UPDATE PUBLIC PROPERTY title(this->preview->title, this->preview->title);
+  UPDATE PUBLIC PROPERTY width(this->preview->width, this->preview->width);
+  UPDATE PUBLIC PROPERTY height(this->preview->height, this->preview->height);
+  UPDATE PUBLIC PROPERTY hint(this->preview->hint, this->preview->hint);
+  UPDATE PUBLIC PROPERTY required(this->preview->required, this->preview->required);
+  UPDATE PUBLIC PROPERTY upload(pvt_upload, SetUpload);
+  UPDATE PUBLIC PROPERTY publisher(pvt_publisher, SetPublisher);
+  UPDATE PUBLIC PROPERTY medialibrary(pvt_medialibrary, SetMediaLibrary);
+  UPDATE PUBLIC PROPERTY publisherroots(pvt_publisherroots, pvt_publisherroots);
+
+  PUBLIC PROPERTY imgsize(pvt_imgsize, SetImgSize);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+    EXTEND this BY TolliumDownloadKeeper;
+
+    this->pvt_upload := TRUE;
+    this->pvt_publisher := TRUE;
+    this->pvt_medialibrary := "media";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    this->TolliumComponentBase_StaticInit(def);
+
+    this->title := def.title;
+    this->required := def.required;
+    this->errorlabel := def.errorlabel;
+    this->onchange := def.onchange;
+    this->upload := def.upload;
+    this->publisher := def.publisher;
+    this->medialibrary := def.medialibrary;
+    this->imgsize := def.imgsize;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    this->act_upload->mimetypes := [ "image/*" ];
+    this->value := this->value; // Initialize preview background images
+  }
+
+  UPDATE PUBLIC MACRO PostInitComponent()
+  {
+    this->UpdateButtonState();
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel!="" ? this->errorlabel : this->title;
+
+    //FIXME: handle when labels are not present!
+    IF(this->required AND NOT RecordExists(this->value))
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE PUBLIC MACRO CompositionMetadataIsUpdated()
+  {
+    this->medialibrary := this->medialibrary;
+  }
+
+  MACRO OnFileDrop(RECORD dragdata, STRING mode)
+  {
+    IF (RecordExists(dragdata.items))
+    {
+      RECORD item := dragdata.items[0];
+      RECORD image := WrapBlob(item.data, item.filename);
+      IF (CellExists(item, "extradata") AND CellExists(item.extradata, "imageeditor"))
+        INSERT CELL extradata := item.extradata INTO image;
+      this->OnUploadImage(image);
+    }
+  }
+
+  // 'upload' button action callback
+  MACRO OnUploadImage(RECORD newphoto)
+  {
+    IF (CellExists(newphoto, "extradata") AND CellExists(newphoto.extradata, "imageeditor"))
+    {
+      RECORD extradata := newphoto.extradata.imageeditor;
+      IF (CellExists(extradata, "SOURCE_FSOBJECT"))
+      {
+        // Check if the supplied object actually/still exists
+        INSERT CELL source_fsobject := (SELECT AS INTEGER id
+                                          FROM system.fs_objects
+                                         WHERE id = extradata.source_fsobject
+                                               AND isactive) INTO newphoto;
+      }
+      IF (CellExists(extradata, "REFPOINT"))
+        INSERT CELL refpoint := extradata.refpoint INTO newphoto;
+      DELETE CELL extradata FROM newphoto;
+    }
+
+    this->value := newphoto; //this picks up dominantcolor
+    IF (this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
+    this->SetDirty();
+  }
+
+  // 'select from publisher' button action callback
+  MACRO PublisherImage()
+  {
+    this->SelectFromPublisherRoots(this->pvt_publisherroots);
+  }
+
+  // 'select from media library' button action callback
+  MACRO MediaLibraryImage()
+  {
+    this->SelectFromPublisherRoots(this->GetMediaLibraryRoots());
+  }
+
+  MACRO ResetImage()
+  {
+    IF (RecordExists(this->value))
+    {
+      OBJECT imageobj := OpenWHFSObject(this->value.source_fsobject);
+      IF (ObjectExists(imageobj))
+      {
+        RECORD image := WrapBlob(imageobj->data, imageobj->name);
+        image.source_fsobject := imageobj->id;
+        this->editaction->Execute([ image := image ]);
+      }
+    }
+  }
+
+  // 'edit' button action callback
+  MACRO EditImage()
+  {
+    IF (RecordExists(this->value))
+    {
+      RECORD image := this->value;
+      INSERT CELL src := this->pvt_src INTO image;
+      this->editaction->Execute([ image := image ]);
+    }
+  }
+
+  // 'save' button action callback
+  MACRO DownloadImage(OBJECT downloadhandler)
+  {
+    IF (RecordExists(this->value))
+    {
+      STRING filename := this->value.filename;
+      IF (filename = "" AND this->value.extension != "")
+        filename := "image." || this->value.extension;
+      downloadhandler->SendFile(this->value.data, this->value.mimetype, filename);
+    }
+  }
+
+  // 'clear' button action callback
+  MACRO ClearImage()
+  {
+    IF (RecordExists(this->value) AND this->owner->RunMessageBox("tollium:commondialogs.remove_image_confirmation") = "yes")
+    {
+      this->value := DEFAULT RECORD;
+      IF (this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
+      this->SetDirty();
+    }
+  }
+
+  // Set button titles and enabled states (after value has changed)
+  MACRO UpdateButtonState()
+  {
+    BOOLEAN enabled := this->enabled AND NOT this->readonly;
+    BOOLEAN edit_enabled := enabled AND RecordExists(this->value);
+
+    this->act_upload->enabled         := enabled AND this->upload;
+    this->act_publisher->enabled      := enabled AND this->publisher;
+    this->act_medialibrary->enabled   := enabled AND Length(this->GetMediaLibraryRoots()) > 0;
+
+    this->edit->enabled               := edit_enabled;
+    this->clear->enabled              := edit_enabled;
+    this->editbutton->visible         := this->edit->enabled;
+    this->clearbutton->visible        := this->clear->enabled;
+
+    this->download->enabled           := RecordExists(this->value);
+    this->otherbutton->visible        := RecordExists(this->value);
+
+    this->uploadbutton->visible       := this->enabled AND this->act_upload->enabled AND NOT RecordExists(this->value);
+    this->publisherbutton->visible    := this->enabled AND this->act_publisher->enabled AND NOT RecordExists(this->value);
+    this->medialibrarybutton->visible := this->enabled AND this->act_medialibrary->enabled AND NOT RecordExists(this->value);
+  }
+
+  MACRO SelectFromPublisherRoots(INTEGER ARRAY roots)
+  {
+    OBJECT browse := CreateBrowseForWHFSObjectDialog(this->owner);
+    browse->acceptfiles := TRUE;
+    browse->acceptfolders := FALSE;
+    browse->acceptunpublished := TRUE;
+    browse->accepttypes := [ "http://www.webhare.net/xmlns/publisher/imagefile" ];
+    browse->type := "thumbnails";
+    browse->selectmode := "single";
+    IF (Length(roots) > 0)
+      browse->roots := roots;
+    IF (RecordExists(this->value) AND this->value.source_fsobject != 0)
+      browse->value := this->value.source_fsobject;
+
+    OBJECT imageobj := OpenWHFSObject(browse->RunSelectfileDialog());
+    IF (ObjectExists(imageobj))
+    {
+      RECORD image := WrapBlob(imageobj->data, imageobj->name);
+      IF (image.mimetype NOT IN [ "image/jpeg", "image/png" ])
+      {
+        // Convert non-jpeg/png images (like bmp, tiff) to jpeg or png, browser must support loading the image in an image element.
+        RECORD converted := GfxResizeImageBlobWithMethod(image.data, [ method := "none" ]);
+        STRING name := GetBasenameFromPath(imageobj->name);
+        IF (converted.mimetype = "image/jpeg")
+          name := name || ".jpg";
+        ELSE IF (converted.mimetype = "image/png")
+          name := name || ".png";
+        image := WrapBlob(converted.data, name);
+      }
+
+      image.source_fsobject := imageobj->id;
+      this->editaction->Execute([ image := image ]);
+    }
+  }
+
+  MACRO DoProperties()
+  {
+    RECORD newval := this->owner->RunScreen("mod::tollium/screens/components/imgedit.xml#properties", [ img := this->value, readonly := this->readonly OR NOT this->enabled ]);
+    IF(RecordExists(newval))
+      this->value := newval;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetValue(RECORD newval)
+  {
+    IF (RecordExists(newval))
+    {
+      RECORD value := WrapBlob(newval.data, newval.filename, [ extractdominantcolor := TRUE ]);
+
+      IF (CellExists(newval, "SOURCE_FSOBJECT"))
+        value.source_fsobject := newval.source_fsobject;
+      IF (CellExists(newval, "REFPOINT"))
+        value.refpoint := newval.refpoint;
+
+      IF (RecordExists(this->imgsize))
+      {
+        RECORD method := this->imgsize;
+        IF ((method.setwidth > 0 AND value.width > method.setwidth)
+            OR (method.setheight > 0 AND value.height > method.setheight)
+            OR (method.format != "" AND value.mimetype != method.format)
+            OR (method.fixorientation AND (value.rotation != 0 OR value.mirrored)))
+        {
+          DELETE CELL "allowedactions" FROM method;
+          DELETE CELL "allowedfilters" FROM method;
+          value := MakeUpdatedRecord(value, GfxResizeImageBlobWithMethod(value.data, method));
+        }
+      }
+
+      this->pvt_value := value;
+      this->pvt_src := this->AddInlineDownload(this->pvt_value.data, this->pvt_value.mimetype, this->pvt_value.filename);
+
+      // The fit|width|height value is a special value that is interpreted by the panel/inline component JavaScript code
+      this->preview->backgroundimages := [ [ src := this->pvt_src
+                                           , repeat := "no-repeat", size := "fit|" || value.width || "|" || value.height
+                                           ]
+                                         , imgeditbackground
+                                         ];
+      this->filename->value := newval.filename;
+      this->dimensions->value := this->pvt_value.width || "\u00d7" || this->pvt_value.height;
+    }
+    ELSE
+    {
+      this->pvt_value := DEFAULT RECORD;
+      this->RemoveDownload(this->pvt_src);
+      this->pvt_src := "";
+
+      this->preview->backgroundimages := [ imgeditbackground ];
+      this->filename->value := GetTid("tollium:components.imgedit.no_image");
+      this->dimensions->value := "";
+    }
+
+    this->UpdateButtonState();
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newstate)
+  {
+    TolliumFragmentBase::SetEnabled(newstate);
+    this->UpdateButtonState();
+  }
+
+  MACRO SetUpload(BOOLEAN upload)
+  {
+    IF (upload != this->pvt_upload)
+    {
+      this->pvt_upload := upload;
+      this->UpdateButtonState();
+    }
+  }
+
+  MACRO SetPublisher(BOOLEAN publisher)
+  {
+    IF (publisher != this->pvt_publisher)
+    {
+      this->pvt_publisher := publisher;
+      this->UpdateButtonState();
+    }
+  }
+
+  MACRO SetMediaLibrary(STRING medialibrary)
+  {
+    IF (medialibrary != this->pvt_medialibrary)
+    {
+      this->pvt_medialibrary := medialibrary;
+      this->UpdateButtonState();
+    }
+  }
+
+  INTEGER ARRAY FUNCTION GetMediaLibraryRoots()
+  {
+    IF(this->medialibrary="")
+      RETURN DEFAULT INTEGER ARRAY;
+
+    OBJECT applytester := this->contexts->applytester ?? this->GetAppContext("publisher:applytester");
+    IF(NOT ObjectExists(applytester))
+      RETURN DEFAULT INTEGER ARRAY;
+
+    RETURN applytester->GetLibrary(this->medialibrary);
+  }
+
+  MACRO SetImgSize(RECORD imgsize)
+  {
+    this->pvt_imgsize := FixImgSize(imgsize);
+    STRING ARRAY sizehints;
+    IF (RecordExists(this->imgsize) AND this->imgsize.method != "none")
+    {
+      IF (this->imgsize.setwidth > 0)
+        INSERT "\u2194 " || this->imgsize.setwidth INTO sizehints AT END;
+      IF (this->imgsize.setheight > 0)
+        INSERT "\u2195 " || this->imgsize.setheight INTO sizehints AT END;
+    }
+    this->sizehint->value := Detokenize(sizehints, " ");
+    this->act_upload->imgsize := this->imgsize;
+    this->editaction->imgsize := this->imgsize;
+    this->droptarget->acceptdrops.accepttypes :=
+        SELECT *, imgsize := this->imgsize
+          FROM this->droptarget->acceptdrops.accepttypes;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE Properties EXTEND TolliumScreenBase
+<
+  RECORD inputdata;
+
+  MACRO Init(RECORD data)
+  {
+    this->inputdata := data.img;
+    ^filename->value := data.img.filename;
+    ^dominantcolor->value := data.img.dominantcolor;
+
+    IF (data.readonly)
+    {
+      ^filename->enabled := FALSE;
+      ^dominantcolor->enabled := FALSE;
+      ^buttons->buttons := [ "close" ];
+    }
+  }
+  RECORD FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    IF(^filename->value NOT LIKE "*" || this->inputdata.extension)
+      work->AddErrorFor(^filename, GetTid("tollium:components.imgedit.invalidextension", this->inputdata.extension));
+
+    IF(NOT work->Finish())
+      RETURN DEFAULT RECORD;
+
+    RETURN CELL[ ...this->inputdata
+               , filename := ^filename->value
+               , dominantcolor := ^dominantcolor->value
+               ];
+  }
+>;

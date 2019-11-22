@@ -1,0 +1,39 @@
+﻿<?wh
+/** @topic rpc/server */
+
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+/** Use this object as base object for objects that can be remoted
+*/
+PUBLIC OBJECTTYPE RemotableObject EXTEND InternalRemotableBase
+< // ---------------------------------------------------------------------------
+  //
+  // (semi-)public API
+  //
+
+  /** Returns the type name of this object. Must be unique for every type of object on
+      a server. The object type name will normally suffice, but override this function
+      when you are doing manual extends, use a modulename:typename convetion then.
+  */
+  PUBLIC STRING FUNCTION __GetRemoterTypeName()
+  {
+    RETURN "oid:" || GetObjectTypeName(this);
+  }
+
+
+  /** Returns the list of all remotable methods (every public macro & function, with
+      a name that does not start with '__').
+  */
+  PUBLIC STRING ARRAY FUNCTION __GetRemotableMethods()
+  {
+    RETURN
+        SELECT AS STRING ARRAY name
+          FROM __INTERNAL_DescribeObjectStructure(this).methods
+         WHERE is_public
+           AND name NOT LIKE "__*";
+  }
+>;
+
+

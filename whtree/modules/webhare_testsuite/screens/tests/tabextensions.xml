@@ -1,0 +1,23 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/tests/tabextensions.whlib"
+         xmlns:blex_alpha="http://www.webhare.net/xmlns/beta/components"
+         gid="selftest">
+
+  <screen name="test">
+    <compositions>
+      <radiogroup name="mainradio" />
+    </compositions>
+    <body name="body">
+      <tabs name="tabs">
+        <tab name="firsttab" title="First tab">
+          <text value="The first tab" />
+          <radiobutton group="mainradio" label="Radio button sharedable with other tabs" rowkey="k1" value="true" />
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+</screens>

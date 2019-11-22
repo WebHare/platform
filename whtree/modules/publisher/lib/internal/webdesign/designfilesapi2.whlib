@@ -1,0 +1,459 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+RECORD basebundleconfig := [ extrarequires := DEFAULT STRING ARRAY
+                           , languages := DEFAULT STRING ARRAY
+                           , alwaysincludepolyfill := FALSE
+                           , webharepolyfills := TRUE
+                           , environment := "window"
+                           , babeltranspile := STRING[]
+                           , aftercompiletask := ""
+                           ];
+
+PUBLIC STRING FUNCTION GetBundleOutputPath(STRING outputtag)
+{
+  RETURN GetWebHareConfiguration().varroot || 'publisher.ap/' || Substitute(outputtag,':','.') || "/";
+}
+
+PUBLIC DATETIME FUNCTION GetBundleLastModDate(STRING outputtag)
+{
+  RECORD diskres := GetDiskFileProperties(GetWebHareConfiguration().varroot || 'publisher.ap/' || Substitute(outputtag,':','.') || "/assetpackstate.hson");
+  RETURN RecordExists(diskres) ? diskres.modified : DEFAULT DATETIME;
+}
+
+PUBLIC RECORD FUNCTION WaitForCompiledAssetpack(STRING outputtag)
+{
+  IF(outputtag = "")
+    THROW NEW Exception("Invalid asset pack name");
+
+  OBJECT service := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+  RECORD res := WaitForPromise(service->WaitForCompile(outputtag, TRUE));
+  service->CloseService();
+  RETURN res;
+}
+
+PUBLIC RECORD FUNCTION MakeEmptyBundle()
+{
+  RETURN [ moduledesignfolder := ""
+         , assetpack := ""
+         , basedependency := ""
+         , bundleconfig := basebundleconfig
+         , adhoc := FALSE
+         , devversion := FALSE
+         ];
+}
+
+PUBLIC STRING FUNCTION GetHashForBundle(RECORD requesteddesign)
+{
+  RECORD hashbase := [ moduledesignfolder := requesteddesign.moduledesignfolder
+                     , basedependency := requesteddesign.basedependency
+                     , extrarequires := (SELECT AS STRING ARRAY DISTINCT req FROM ToRecordArray(requesteddesign.bundleconfig.extrarequires,"req") ORDER BY req)
+                     , languages := (SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(requesteddesign.bundleconfig.languages,"lang") ORDER BY lang)
+                     , environment := requesteddesign.bundleconfig.environment
+                     , aftercompiletask := requesteddesign.bundleconfig.aftercompiletask //making this part of the hash so we refire the task if it changes
+                     ];
+  STRING designhash := ToLowercase(EncodeUFS(GetMD5Hash(EncodeHSON(hashbase))));
+  RETURN designhash;
+}
+
+STRING FUNCTION StripDevExtension(STRING bundlename)
+{
+  RETURN bundlename LIKE "*.dev" ? Left(bundlename,Length(bundlename)-4) : bundlename;
+}
+
+PUBLIC MACRO RemoveObsoleteCacheFolders()
+{
+  OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+  RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+  STRING ARRAY keeppackages := SELECT AS STRING ARRAY StripDevExtension(outputtag) FROM status.bundles;
+  STRING ARRAY validfolders := keeppackages CONCAT SELECT AS STRING ARRAY outputtag FROM system.assetpacks;
+  validfolders := SELECT AS STRING ARRAY Substitute(val,":",'.') FROM ToRecordArray(validfolders,'val');
+
+  RECORD ARRAY currentfolders := ReadDiskDirectory(GetWebHareConfiguration().varroot || "publisher.ap", "*");
+  FOREVERY(RECORD folder FROM currentfolders)
+  {
+    IF(StripDevExtension(folder.name) NOT IN validfolders)
+    {
+      LogInfo("publisher:assetpackcontrol", "Deleting obsolete assetpack " || folder.name, [ type := "publisher:deleteassetpack", name := folder.name ]);
+      DeleteDiskDirectoryRecursive(folder.path);
+    }
+  }
+}
+
+PUBLIC RECORD ARRAY FUNCTION ListUUIDMatches(RECORD ARRAY allbundles, STRING searchmask)
+{
+  BOOLEAN matchdev := searchmask LIKE "*.dev";
+  //strip '.dev' when searching for closest match
+  searchmask := matchdev ? Left(searchmask,Length(searchmask)-4) : searchmask;
+  RETURN SELECT *
+           FROM allbundles
+          WHERE allbundles.isdev = matchdev
+                AND Left(allbundles.outputtag, Length(searchmask)) = searchmask;
+}
+
+/** @short Call a function, and retry it if the connection failed */
+VARIANT FUNCTION CallAndRetryOnConnectionFailure(FUNCTION PTR fptr)
+{
+  TRY
+  {
+    RETURN fptr();
+  }
+  CATCH(OBJECT<ServiceDisconnectException> e)
+  {
+    RETURN fptr();
+  }
+}
+
+RECORD FUNCTION GetPackingInfo(RECORD requestedbundle, BOOLEAN wait)
+{
+  TRY
+  {
+    OBJECT service := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+    RECORD bundle := WaitForPromise(service->GetBundle(requestedbundle, [ nowait := NOT wait ]));
+    service->CloseService();
+    INSERT CELL stale := FALSE INTO bundle;
+    RETURN [ ttl := 15 * 60 * 1000
+           , value := bundle
+           , eventmasks := [ "publisher:assetpackcontrol.change.all"
+                           , "publisher:assetpackcontrol.change." || bundle.outputtag
+                           ]
+           ];
+  }
+  CATCH(OBJECT< ServiceUnavailableException > e)
+  {
+    //Do we have the bundle in the database ?
+    STRING hash := GetHashForBundle(requestedbundle);
+    RECORD bundleinfo := SELECT * FROM system.assetpacks WHERE outputtag = hash;
+    IF(NOT RecordExists(bundleinfo))
+      THROW NEW Exception("The assetpackmgr is unreachable and the bundle does not yet exist");
+
+    STRING bundleuuid := bundleinfo.outputtag || (requestedbundle.devversion ? ".dev" : "");
+    RETURN [ ttl := 1 * 60 * 1000
+           , value := [ id := bundleinfo.id
+                      , outputtag := bundleuuid
+                      , stale := TRUE
+                      ]
+           , eventmasks := [ "publisher:assetpackcontrol.change.all"
+                           , "publisher:assetpackcontrol.change." || bundleuuid
+                           ]
+           ];
+  }
+}
+
+
+STATIC OBJECTTYPE Resolver
+<
+  STRING baseurl;
+  RECORD packinginfo;
+  STRING ARRAY addedrequires;
+  STRING bundlebaseurl;
+  STRING polyfillbundlebaseurl;
+  RECORD requestedbundle;
+  STRING assetpack;
+  BOOLEAN devversion;
+
+  PUBLIC PROPERTY designroot(baseurl, -);
+
+  MACRO NEW(STRING assetpack, STRING moduledesignfolder, STRING basedependency, STRING ARRAY languages, BOOLEAN devversion)
+  {
+    this->assetpack := assetpack;
+    this->devversion := devversion OR moduledesignfolder = ""; //'adhoc' if moduledesignfolder is empty
+    IF(assetpack = "" AND basedependency != "")
+    {
+      this->requestedbundle := MakeEmptyBundle();
+      this->requestedbundle.moduledesignfolder := moduledesignfolder;
+      this->requestedbundle.basedependency := basedependency;
+      this->requestedbundle.adhoc := moduledesignfolder = "";
+      this->requestedbundle.bundleconfig.languages := languages;
+      this->requestedbundle.devversion := this->devversion;
+    }
+
+    IF(moduledesignfolder != "")
+    {
+      this->baseurl := GetModuleResourceURL(moduledesignfolder || 'web/');
+      IF(this->baseurl="")
+        THROW NEW Exception("Misunderstood design folder '" || moduledesignfolder || "'");
+    }
+  }
+
+  PUBLIC MACRO AddRequire(STRING require)
+  {
+    IF(this->assetpack != "")
+      THROW NEW Exception("AddRequire cannot be used with assetpacks. You need to update the asset bundle itself");
+
+    IF(RecordExists(this->packinginfo))
+      THROW NEW Exception("Headers have already been generated, AddRequire no longer available");
+    IF(require NOT IN this->requestedbundle.bundleconfig.extrarequires)
+      INSERT require INTO this->requestedbundle.bundleconfig.extrarequires AT END;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetRequires()
+  {
+    IF(this->assetpack!="")
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN ToRecordArray(this->requestedbundle.bundleconfig.extrarequires,"require");
+  }
+
+  PUBLIC STRING FUNCTION GetOutputTag(BOOLEAN wait)
+  {
+    RETURN GetPackingInfo(this->requestedbundle, wait).value.outputtag;
+  }
+
+  PUBLIC STRING FUNCTION GetOutputTagNoCompile()
+  {
+    RETURN GetHashForBundle(this->requestedbundle);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetAllAssets(STRING assetcachebuster DEFAULTSTO "")
+  {
+    this->EnsurePackingInfo();
+    BLOB statefile := GetDiskResource(GetBundleOutputPath(this->assetpack ?? this->packinginfo.outputtag) || "assetpackstate.hson");
+
+    RECORD ARRAY baseinfo := DecodeHSONBlob(statefile).generatedassets;
+    RETURN SELECT subpath
+                , rooturl := (assetcachebuster != "" AND subpath LIKE "ap.*" ? "/!" || assetcachebuster : "" ) || this->bundlebaseurl || subpath
+                , compressed := subpath LIKE "*.gz"
+                , sourcemap := subpath LIKE "*.map" OR subpath LIKE "*.map.gz"
+             FROM baseinfo;
+  }
+
+  MACRO EnsurePackingInfo()
+  {
+    IF(RecordExists(this->packinginfo))
+      RETURN;
+
+    IF(this->assetpack = "" AND RecordExists(this->requestedbundle))
+    {
+      //Request a link to the design. Adhoc cache the results, this causes
+      //lastuse not to be updated but that's actually just fine with us
+      RECORD torequest := this->requestedbundle;
+      torequest.bundleconfig.extrarequires := SELECT AS STRING ARRAY DISTINCT req FROM ToRecordArray(torequest.bundleconfig.extrarequires,'req') ORDER BY req;
+
+      STRING designhash := GetHashForBundle(this->requestedbundle);
+      FUNCTION PTR getter := /*PTR CallAndRetryOnConnectionFailure*/(PTR GetPackingInfo(this->requestedbundle, TRUE));
+      IF(torequest.adhoc)
+        this->packinginfo := getter().value;
+      ELSE
+        this->packinginfo := GetAdhocCached([ designhash := designhash], getter);
+
+      INSERT CELL designhash := designhash INTO this->packinginfo;
+
+      this->bundlebaseurl := "/.ap/" || this->packinginfo.designhash || (this->requestedbundle.devversion ? ".dev" : "") || "/";
+    }
+    ELSE
+    {
+      this->bundlebaseurl := "/.ap/" || Substitute(this->assetpack,':','.') || (this->devversion ? ".dev" : "") || "/";
+    }
+
+    this->polyfillbundlebaseurl := "/.ap/tollium.polyfills/";
+  }
+
+  PUBLIC MACRO PrintHeaders(OBJECT webdesign, STRING usedesignroot, STRING cachebuster DEFAULTSTO "", BOOLEAN lazyloadcss DEFAULTSTO FALSE, BOOLEAN esm DEFAULTSTO FALSE)
+  {
+    this->EnsurePackingInfo();
+
+    STRING jssettings;
+    IF(ObjectExists(webdesign) AND webdesign->asyncbundle AND NOT esm)
+      jssettings := jssettings || ' async';
+    IF(ObjectExists(webdesign) AND webdesign->designcdnrooturl != webdesign->designrooturl)
+      jssettings := jssettings || ' crossorigin="anonymous"';
+
+    IF (this->devversion AND NOT esm)
+    {
+      STRING polyfillbundlebaseurl := this->polyfillbundlebaseurl;
+      IF(cachebuster != "")
+        polyfillbundlebaseurl := "/!" || EncodeURL(cachebuster) || polyfillbundlebaseurl;
+      IF(usedesignroot != "")
+        polyfillbundlebaseurl := ResolveToAbsoluteURL(usedesignroot, polyfillbundlebaseurl);
+
+      Print(`<script src="${EncodeValue(polyfillbundlebaseurl)}ap.js"></script>`);
+    }
+
+    //FIXME have printbodyfinale and printheaders share this. should probably just merge us completely into webdesign.whlib
+    STRING bundlebaseurl := this->bundlebaseurl;
+    IF(cachebuster != "")
+      bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;
+    IF(usedesignroot != "")
+      bundlebaseurl := ResolveToAbsoluteURL(usedesignroot, bundlebaseurl);
+
+    IF(NOT lazyloadcss)
+    {
+      Print(`<link rel="stylesheet" href="${EncodeValue(bundlebaseurl)}ap.css">`);
+    }
+    IF(esm) //experimental ESM support. requiers external code to actually provide the ESM loader!
+      Print(`<script src="/.esm-experimental/!${EncodeValue(bundlebaseurl)}ap.js" type="module"${jssettings}></script>`);
+    ELSE
+      Print(`<script src="${EncodeValue(bundlebaseurl)}ap.js"${jssettings}></script>`);
+    IF(NOT ObjectExists(webdesign) OR webdesign->wittyencoding NOT LIKE "*-NI")
+      Print('\n');
+  }
+
+  PUBLIC MACRO PrintBodyFinale(OBJECT webdesign, STRING usedesignroot, STRING cachebuster DEFAULTSTO "", BOOLEAN lazyloadcss DEFAULTSTO FALSE)
+  {
+    //FIXME have printbodyfinale and printheaders share this. should probably just merge us completely into webdesign.whlib
+    STRING bundlebaseurl := this->bundlebaseurl;
+    IF(cachebuster != "")
+      bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;
+    IF(usedesignroot != "")
+      bundlebaseurl := ResolveToAbsoluteURL(usedesignroot, bundlebaseurl);
+
+    IF(lazyloadcss)
+    {
+      //generate the link element. append it after one frame or 50 msecs
+      Print('<script>(function(){'
+            || 'var f=function(){var l=document.createElement("link");l.rel="stylesheet";l.href="' || EncodeJava(bundlebaseurl || 'ap.css') || '";document.querySelector("head").appendChild(l)};'
+            || 'var r=window.requestAnimationFrame;r?r(f):setTimeout(f,50)'
+            || '})()</script>');
+      Print('<noscript><link rel="stylesheet" href="' || EncodeValue(bundlebaseurl || 'ap.css') || '"></noscript>');
+    }
+  }
+
+  PUBLIC MACRO Close()
+  {
+
+  }
+>;
+
+PUBLIC OBJECT FUNCTION CreateDependencyResolverForModuleDesign(RECORD webdesigninfo, BOOLEAN devversion)
+{
+  IF(webdesigninfo.designfolder="")
+    THROW NEW Exception("No module design folder specified");
+
+  OBJECT res := NEW Resolver(webdesigninfo.assetpack, webdesigninfo.designfolder, webdesigninfo.basedependency, webdesigninfo.supportedlanguages, devversion);
+  RETURN res;
+}
+
+PUBLIC OBJECT FUNCTION CreateDependencyResolverForJSFile(STRING jspath, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ supportedlanguages := STRING[]
+      ], options);
+
+  OBJECT res := NEW Resolver("", "", jspath, options.supportedlanguages, FALSE);
+  RETURN res;
+}
+
+/// Returns the outputtag for the URL-name of an assetpack
+PUBLIC STRING FUNCTION UnmapBundleUuid(STRING inuuid)
+{
+  IF(inuuid LIKE "*.*.dev" OR (inuuid LIKE "*.*" AND inuuid NOT LIKE "*.dev"))
+  {
+    INTEGER dotpos := SearchSubstring(inuuid, '.');
+    inuuid := Left(inuuid, dotpos) || ':' || Substring(inuuid, dotpos + 1);
+  }
+  RETURN inuuid;
+}
+
+PUBLIC RECORD FUNCTION GetAssetpacksBaseConfig()
+{
+  RECORD config := GetWebHareConfiguration();
+
+  RECORD baseconfig := [ babelcache :=        GetEnvironmentVariable("WEBHARE_BABELCACHE") ?? MergePath(config.varroot, "ephemeral/babelcache")
+                       , uglifycache :=       GetEnvironmentVariable("WEBHARE_UGLIFYCACHE") ?? MergePath(config.varroot, "ephemeral/uglifycache")
+                       , coreinstalledmodules := MergePath(config.installationroot, "node_modules")
+                       , nodemodulepaths :=   [ MergePath(config.varroot, "nodejs/node_modules")
+                                              , MergePath(config.installationroot, "node_modules")
+                                              ]
+                       , installedmodules :=  (SELECT name
+                                                    , root := GetModuleInstallationRoot(name)
+                                                 FROM ToRecordArray(GetInstalledModuleNames(), "name"))
+                       , configtoken := ""
+                       , settingstoken := ""
+                       ];
+
+  RECORD settingstokenconfig := baseconfig;
+  DELETE CELL installedmodules FROM settingstokenconfig;
+  baseconfig.settingstoken := EncodeBase64(GetSHA1Hash(EncodeHSON(settingstokenconfig)));
+  baseconfig.configtoken := EncodeBase64(GetSHA1Hash(EncodeHSON(baseconfig)));
+  RETURN baseconfig;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetPersistentBundles()
+{
+  //do not return bundles from uninstalled modules. scheduled compilations will fail and may race against (re)installation of modules
+  RECORD ARRAY dbbundles :=
+    (SELECT *
+          , bundleconfig :=   bundleconfig != "" ? DecodeHSON(bundleconfig) : DEFAULT RECORD
+          , adhoc :=          FALSE
+          , savedstate :=     DEFAULT RECORD
+          , origentrypoint := entrypoint
+       FROM system.assetpacks
+      WHERE (outputtag LIKE "*:*" ? IsModuleInstalled(Tokenize(outputtag,':')[0]) : TRUE)
+   ORDER BY outputtag LIKE "tollium:*" DESC, outputtag LIKE "*:*" DESC);
+  RETURN        (SELECT *
+             , outputtag :=     outputtag || ".dev"
+             , isdev :=         TRUE
+          FROM dbbundles) CONCAT
+       (SELECT *
+             , isdev := FALSE
+          FROM dbbundles);
+}
+PUBLIC RECORD FUNCTION PreFixupBundleconfig(RECORD bundle)
+{
+  bundle.bundleconfig := CELL[ ...basebundleconfig, ...bundle.bundleconfig];
+
+  //ADDME: Direct extrarequires is legacy, remove
+  IF (CellExists(bundle, "EXTRAREQUIRES") AND bundle.extrarequires != "")
+  {
+    bundle.bundleconfig.extrarequires := Tokenize(bundle.extrarequires, "\t");
+    DELETE CELL extrarequires FROM bundle;
+  }
+
+  // Omit polyfill for dev packages, unless alwaysincludepolyfill is true (eg. sharedworker scripts)
+  BOOLEAN omitpolyfills := bundle.isdev AND NOT bundle.bundleconfig.alwaysincludepolyfill;
+  INSERT CELL omitpolyfills := omitpolyfills INTO bundle.bundleconfig;
+
+  BOOLEAN fullsourcemap := NOT bundle.isdev;
+  INSERT CELL fullsourcemap := fullsourcemap INTO bundle.bundleconfig;
+
+  RETURN bundle;
+}
+
+PUBLIC RECORD FUNCTION JSBridge_GetAssetpacksBaseConfig()
+{
+  RETURN GetAssetpacksBaseConfig();
+}
+
+PUBLIC RECORD FUNCTION JSBridge_GetBundle(STRING byoutputtag)
+{
+  OpenPrimary();
+  RECORD bundle := SELECT * FROM GetPersistentBundles() WHERE outputtag = VAR byoutputtag;
+  IF(NOT RecordExists(bundle))
+    THROW NEW Exception(`No such bundle ${byoutputtag} registered`);
+
+  bundle := PreFixupBundleconfig(bundle);
+
+  TRY INSERT CELL diskpath := GetWebHareResourceDiskPath(bundle.designfolder) INTO bundle;
+  CATCH(OBJECT e) THROW NEW Exception("Design folder '" || bundle.designfolder || "' is invalid: " || e->what);
+
+  IF (bundle.origentrypoint != "_polyfills")
+  {
+    TRY bundle.entrypoint := GetWebHareResourceDiskPath(bundle.origentrypoint);
+    CATCH THROW NEW Exception("Entrypoint '" || bundle.origentrypoint || "' is invalid");
+  }
+
+    FOREVERY(STRING extrareq FROM bundle.bundleconfig.extrarequires)
+    {
+      IF(extrareq LIKE "*::*") //namespaced path
+      {
+        TRY extrareq := GetWebHareResourceDiskPath(extrareq);
+        CATCH THROW NEW Exception("Extra require '" || extrareq || "' is invalid");
+        bundle.bundleconfig.extrarequires[#extrareq] := extrareq;
+      }
+    }
+
+  INSERT CELL outputpath := GetBundleOutputPath(bundle.outputtag) INTO bundle;
+
+  RETURN bundle;
+}

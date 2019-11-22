@@ -1,0 +1,282 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+STRING testsiteprofile_versioned :=
+    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"'
+             || ' xmlns:t="http://www.webhare.net/xmlns/tollium/screens"'
+             || ' xmlns:p="http://www.webhare.net/xmlns/publisher/components">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/versionedctype">'
+      || '<member name="str" type="string" />'
+    || '</contenttype>'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/unversionedctype">'
+      || '<member name="str" type="string" />'
+    || '</contenttype>'
+    || '<propertyeditor name="versionedctype">'
+      || '<compositions>'
+        || '<p:whfsinstance name="versionedinstance" typedef="http://www.webhare.net/xmlns/beta/versionedctype"/>'
+        || '<p:whfsinstance name="unversionedinstance" typedef="http://www.webhare.net/xmlns/beta/unversionedctype"/>'
+      || '</compositions>'
+      || '<insert position="settings" where="atend">'
+        || '<t:textedit title="versionedinstance" composition="versionedinstance" cellname="str"/>'
+        || '<t:textedit title="unversionedinstance" composition="unversionedinstance" cellname="str"/>'
+      || '</insert>'
+    || '</propertyeditor>'
+    || '<apply>'
+      || '<to type="file" filetype="http://www.webhare.net/xmlns/publisher/htmlfile"/>'
+      || '<extendproperties name="versionedctype"/>'
+    || '</apply>'
+
+       // index files
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-contentlisting/*" />'
+      || '<folderindex indexfile="contentlisting" />'
+    || '</apply>'
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-newfile/*" />'
+      || '<folderindex indexfile="newfile" newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />'
+    || '</apply>'
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-copy/*" />'
+      || '<folderindex indexfile="copy_of_file" fullpath="/index.html" />'
+    || '</apply>'
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-contentlink/*" />'
+      || '<folderindex indexfile="contentlink" fullpath="/index.html" />'
+    || '</apply>'
+
+  || '</siteprofile>';
+
+
+PUBLIC OBJECT FUNCTION GetValidatePublicDraft(OBJECT fsobject)
+{
+  RECORD ARRAY drafts := GetDrafts(fsobject->id);
+  IF(Length(SELECT FROM drafts WHERE ispublic)>1)
+    THROW NEW Exception("Multiple public drafts");
+
+  RECORD currentdraft := SELECT * FROM drafts WHERE ispublic;
+  IF (NOT RecordExists(currentdraft))
+    THROW NEW Exception("File " || fsobject->whfspath || " doesn't have a public draft");
+
+  RETURN OpenDraft(fsobject->id, currentdraft.id);
+}
+
+PUBLIC OBJECT FUNCTION CreateDraftFromFile(OBJECT fsobject)
+{
+  OBJECT draftobject := CreateDraft(fsobject, TRUE);
+  RETURN draftobject;
+}
+
+PUBLIC MACRO SubmitApprovalRequestFor(OBJECT fsobject)
+{
+  OBJECT policy := GetVersioningPolicyForFileObject(fsobject);
+  TestEQ(FALSE, policy->HasVersionEvents(fsobject));
+
+  testfw->BeginWork();
+
+  OBJECT draftobject;
+  TRY
+    draftobject := GetValidatePublicDraft(fsobject);
+  CATCH
+    draftobject := CreateDraftFromFile(fsobject);
+
+  SubmitApprovalRequestForDraft(draftobject, [ userobject := testfw->GetUserObject("sysop"), message := "request approval to convert to versioned object" ]);
+  testfw->CommitWork();
+
+  fsobject->Refresh();
+  TestEQ(TRUE, policy->HasVersionEvents(fsobject));
+  TestEQ(TRUE, TestFlagFromPublished(fsobject->published, PublishedFlag_HasPublicDraft));
+}
+
+PUBLIC MACRO ConvertToVersionedContent(OBJECT fsobject)
+{
+  OBJECT policy := GetVersioningPolicyForFileObject(fsobject);
+  TestEQ(FALSE, policy->HasVersionEvents(fsobject));
+
+  testfw->BeginWork();
+
+  OBJECT draftobject;
+  TRY
+    draftobject := GetValidatePublicDraft(fsobject);
+  CATCH
+    draftobject := CreateDraftFromFile(fsobject);
+
+  SubmitApprovalRequestForDraft(draftobject, [ userobject := testfw->GetUserObject("sysop"), message := "request approval to convert to versioned object" ]);
+  AcceptApprovalRequestForDraft(draftobject, [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  fsobject->Refresh();
+  TestEQ(TRUE, policy->HasVersionEvents(fsobject));
+  TestThrows(PTR GetValidatePublicDraft(fsobject));
+  TestEQ(FALSE, TestFlagFromPublished(fsobject->published, PublishedFlag_HasPublicDraft));
+}
+
+/** Create a new unversioned object, returns its fsobject, returns with that file selected in the file tree
+    @param metadata
+    @cell metadata.isfolder
+    @cell(string) metadata.type
+    @cell(string) metadata.name
+    @cell metadata.publish
+    @return WHFSObject
+*/
+PUBLIC OBJECT ASYNC FUNCTION RunNewObjectDialogInPublisher(RECORD metadata)
+{
+  IF (metadata.isfolder AND CellExists(metadata,'publish') AND metadata.publish)
+    THROW NEW Exception("Cannot create published folders");
+
+  OBJECT folder := OpenWHFSObject(TT("foldertree")->value);
+  RECORD newdialog := AWAIT ExpectScreenChange(+1, metadata.isfolder ? PTR TTClick("newfolder") : PTR TTClick("newfile"));
+  TT("showalltypes")->value := TRUE;
+  TT("types")->value := metadata.type = "http://www.webhare.net/xmlns/publisher/normalfolder" ? "type:0" : "type:" || OpenWHFSType(metadata.type)->id;
+  IF (metadata.type != "http://www.webhare.net/xmlns/publisher/normalfolder")
+    TestEQ(TRUE, RecordExists(TT("types")->selection), "Could not select type " || metadata.type || " for " || (metadata.isfolder ? "folder " : "file ") || metadata.name);
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit()); // ok new file, immediately opens props
+  FOREVERY (RECORD rec FROM UnpackRecord(metadata))
+    IF (rec.name NOT IN [ "ISFOLDER", "TYPE", "ISVERSIONED" ])
+      TT(rec.name)->value := rec.value;
+
+  BOOLEAN replacingindex;
+  IF (CellExists(metadata, "MAKEINDEX") AND metadata.makeindex)
+    replacingindex := folder->indexdoc != 0;
+
+  IF (replacingindex)
+  {
+    // When replacing the index, expect a message to confirm that
+    AWAIT ExpectAndAnswerMessageBox(
+        "yes",
+        PTR topscreen->TolliumExecuteSubmit,
+        [ messagemask := "*replaceindexconfirm*"
+        ]);
+
+    AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  }
+  ELSE
+  {
+    BOOLEAN isversionedsite := folder->parentsite != 0 AND OpenSite(folder->parentsite)->isversioned;
+
+    // No warning for unpublished index documents in versioned sites
+    IF (isversionedsite AND CellExists(metadata,'publish') AND metadata.publish)
+    {
+      AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+      AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+    }
+    ELSE
+      AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  }
+
+  AWAIT newdialog.expectcallreturn();
+
+  OBJECT testfile := OpenWHFSObject(TT("filelist")->selection.id);
+  TestEQ(metadata.name, testfile->name);
+
+  IF (metadata.isversioned)
+    ConvertToVersionedContent(testfile);
+
+  RETURN testfile;
+}
+
+PUBLIC OBJECT ASYNC FUNCTION ExpectApprovalRequest(BOOLEAN sendrequest, FUNCTION PTR call)
+{
+  RECORD rec := AWAIT ExpectScreenChange(+1, call, [ namemask := "*#submitchangesforapproval*" ]);
+  TT("descriptiontext")->value := sendrequest ? "test" : "cancel";
+  AWAIT ExpectScreenChange(-1, sendrequest
+      ? PTR topscreen->TolliumExecuteSubmit()
+      : PTR topscreen->TolliumExecuteCancel());
+
+  RETURN rec;
+}
+
+PUBLIC OBJECT FUNCTION UpdateDraftPublish(OBJECT testfile, BOOLEAN newpublish)
+{
+  OBJECT testdraft := GetPublicDraft(testfile->id) ?? CreateDraft(testfile, TRUE);
+    // Want to publish the draft
+  RECORD testdraft_draftdata := testdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+  testdraft_draftdata.flags := newpublish
+      ? testdraft_draftdata.flags BITOR DraftFlag_Publish
+      : testdraft_draftdata.flags BITAND BITNEG DraftFlag_Publish;
+  testdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata);
+  RETURN testdraft;
+}
+
+PUBLIC MACRO CreateVersioningTestSite()
+{
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := TRUE ]);
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ]);
+
+  testfw->BeginWork();
+
+  EnableSiteVersionHistory(testfw->GetTestSite(), testfw->GetUserObject("sysop"), "publisher:default");
+
+  OBJECT siteprof := testfw->GetTestSite()->rootobject->CreateFile([name:="test_versioned.siteprl", data := StringToBlob(testsiteprofile_versioned)]);
+  TestEq(TRUE, testfw->GetTestSite()->AssignSiteProfile(siteprof->id));
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+
+  OBJECT root := testfw->GetTestSite()->rootobject;
+
+  INTEGER file_externallink := root->OpenByName("externallink.shtml")->id;
+  INTEGER file_index_html := root->OpenByName("index.html")->id;
+
+  // External links should not be initially versioned
+  TestEQ([ file_index_html ], policy->GetPossibleVersionedObjects([ file_index_html, file_externallink ]));
+
+  TestEq(TRUE, policy->HasVersionEvents(root->OpenByName("index.html")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("externallink.shtml")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("internallink-published.shtml")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("dynfolder")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("emptyfilefolder")));
+
+  testfw->CommitWork();
+}
+
+//A history-blasting FS object deleter. used to cleanup between tests
+PUBLIC MACRO DeleteFSObjects(OBJECT ARRAY fileobjs)
+{
+//  FOREVERY(INTEGER parentfolder FROM SELECT AS INTEGER ARRAY DISTINCT obj->parent FROM ToRecordArray(fileobjs,'obj'))
+//    testfw->WaitForPublishCompletion(parentfolder); //wait for any publishes to complete so eg. urlhistory INSERT does not collide
+
+  testfw->BeginWork();
+
+  INTEGER ARRAY worklist;
+  FOREVERY (OBJECT o FROM fileobjs)
+    INSERT o->id INTO worklist AT END;
+
+//  PRINT("Delete fs objects:\n" || AnyToString((SELECT id, whfspath FROM system.fs_objects WHERE id IN worklist ORDER BY whfspath), "boxed"));
+
+  // Get all children
+  INTEGER ARRAY recursive;
+  WHILE (LENGTH(worklist) != 0)
+  {
+    recursive := recursive CONCAT worklist;
+    worklist := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent IN worklist AND id NOT IN recursive;
+  }
+
+  INTEGER ARRAY versioning_drafts := SELECT AS INTEGER ARRAY draft_object FROM system.fs_versionevents WHERE live_object IN recursive;
+  INTEGER ARRAY drafts := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent IN [ 14, 15 ] AND filelink IN recursive;
+
+  recursive := recursive CONCAT versioning_drafts CONCAT drafts;
+
+//  PRINT(" recursive:\n" || AnyToString((SELECT id, whfspath FROM system.fs_objects WHERE id IN recursive ORDER BY whfspath), "boxed"));
+
+  DELETE FROM system.fs_versionevents WHERE live_object IN recursive;
+  FOREVERY(OBJECT tokill FROM fileobjs)
+    tokill->RecycleSelf();
+
+  testfw->CommitWork();
+}
+

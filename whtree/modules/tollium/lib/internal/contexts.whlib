@@ -1,0 +1,274 @@
+<?wh
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+/// Default contexts, to allow simple getters in TolliumContexts
+RECORD defaultcontext :=
+    [ applytester :=      DEFAULT OBJECT
+    , controller :=       DEFAULT OBJECT
+    , editdocumentapi :=  DEFAULT OBJECT
+    , formcomponentapi := DEFAULT OBJECT
+    , mergefields :=      DEFAULT OBJECT
+    , objectpropsapi :=   DEFAULT OBJECT
+    , screen :=           DEFAULT OBJECT
+    , webshop :=          DEFAULT OBJECT
+    , wrdschema :=        DEFAULT OBJECT
+    , fixed_wrdschema :=  FALSE
+    , fixed_webshop :=    FALSE
+    ];
+
+RECORD inheritupdates :=
+    [ fixed_wrdschema :=  FALSE
+    , fixed_webshop :=    FALSE
+    ];
+
+/** Container for context objects. Contexts are set on a screen/controller, and are inherited by
+    children screens (and can be overridden there). Use contexts->^mycontextname for private
+    contexts.
+    @topic tollium/appdev
+*/
+PUBLIC OBJECTTYPE TolliumContexts
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Stored contexts, with cellname the property name that publishes them
+      (eg .applytester, .editdocumentapi and .^custom)
+  */
+  RECORD pvt_data;
+
+  /* Names of legacy contexts stored as member */
+  STRING ARRAY pvt_legacynames;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Access contexts via contexts->^contextname
+  PUBLIC PROPERTY ^(GetContextByProperty, SetContextByProperty);
+
+  /// @type(object mod::publisher/lib/internal/siteprofiles/reader.whlib#ApplyRuleTester) Current relavant applytester (OBJECT of type ApplyRuleTester)
+  PUBLIC PROPERTY applytester(this->pvt_data.applytester, SetApplyTester);
+
+  /// Tollium controller
+  PUBLIC PROPERTY controller(this->pvt_data.controller, -);
+
+  /// Edit document API
+  PUBLIC PROPERTY editdocumentapi(this->pvt_data.editdocumentapi, SetEditDocumentApi);
+
+  /// formcomponentapi
+  PUBLIC PROPERTY formcomponentapi(this->pvt_data.formcomponentapi, SetFormComponentAPI);
+
+  /// merge fields api
+  PUBLIC PROPERTY mergefields(this->pvt_data.mergefields, SetMergeFields);
+
+  /// object properties api
+  PUBLIC PROPERTY objectpropsapi(this->pvt_data.objectpropsapi, SetObjectPropsAPI);
+
+  /// Current screen.
+  PUBLIC PROPERTY screen(this->pvt_data.screen, -);
+
+  /// @type(object %TolliumUser) Current user
+  PUBLIC PROPERTY user(this->pvt_data.controller->user, -);
+
+  /// Current user API
+  PUBLIC PROPERTY userapi(this->pvt_data.controller->userapi, -);
+
+  /// Webshop
+  PUBLIC PROPERTY webshop(GetWebShop, SetWebShop);
+
+  /// @type(object %WRDschema2017) WRD schema
+  PUBLIC PROPERTY wrdschema(GetWRDSchema, SetWRDSchema);
+
+  /// Current opener of screens (screen ?? controller) - use for ->RunScreen etc
+  PUBLIC PROPERTY opener(GetOpener, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT parent, OBJECT controller_or_screen)
+  {
+    IF (ObjectExists(parent))
+    {
+      RECORD parentdata := parent->__GetRawContexts();
+      this->pvt_data := CELL[ ...parentdata.pvt_data, screen := controller_or_screen, ...inheritupdates ];
+      this->pvt_legacynames := parentdata.pvt_legacynames;
+
+      FOREVERY (STRING name FROM this->pvt_legacynames)
+        MemberInsert(this, name, FALSE, GetCell(this->pvt_data, name));
+    }
+    ELSE
+      this->pvt_data := CELL[ ...defaultcontext, controller := controller_or_screen ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  OBJECT FUNCTION GetContextByProperty(STRING propname)
+  {
+    IF (CellExists(this->pvt_data, propname))
+      RETURN GetCell(this->pvt_data, propname);
+    RETURN DEFAULT OBJECT;
+  }
+
+  MACRO SetContextByProperty(STRING propname, OBJECT newcontext)
+  {
+    this->pvt_data := CELL[ ...this->pvt_data, ...CellInsert(DEFAULT RECORD, propname, newcontext) ];
+  }
+
+  MACRO SetApplyTester(OBJECT applytester)
+  {
+    IF (ObjectExists(applytester) AND NOT MemberExists(applytester,'getapplytesterforparent'))
+      THROW NEW Exception("The object passed to UpdateContext does not look like an applytester");
+    this->pvt_data.applytester := applytester;
+
+    IF (NOT this->pvt_data.fixed_wrdschema)
+      this->pvt_data.wrdschema := DEFAULT OBJECT;
+
+    IF (NOT this->pvt_data.fixed_webshop)
+      this->pvt_data.webshop := DEFAULT OBJECT;
+  }
+
+  MACRO SetEditDocumentApi(OBJECT editdocumentapi)
+  {
+    this->pvt_data.editdocumentapi := editdocumentapi;
+  }
+
+  MACRO SetFormComponentAPI(OBJECT formcomponentapi)
+  {
+    this->pvt_data.formcomponentapi := formcomponentapi;
+  }
+
+  MACRO SetMergeFields(OBJECT mergefields)
+  {
+    this->pvt_data.mergefields := mergefields;
+  }
+
+  MACRO SetObjectPropsAPI(OBJECT objectpropsapi)
+  {
+    this->pvt_data.objectpropsapi := objectpropsapi;
+  }
+
+  OBJECT FUNCTION GetWebShop()
+  {
+    IF (NOT ObjectExists(this->pvt_data.webshop) AND ObjectExists(this->pvt_data.applytester)) // INV: fixed_webshop = FALSE
+    {
+      RECORD config := this->pvt_data.applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/webshop", "webshop");
+      IF (RecordExists(config))
+      {
+        OBJECT wrdschema := this->wrdschema;
+        IF (ObjectExists(wrdschema))
+          this->pvt_data.webshop := MakeFunctionPTR("mod::webshop/lib/api.whlib#OpenWebShop")(wrdschema);
+      }
+    }
+    RETURN this->pvt_data.webshop;
+  }
+
+  MACRO SetWebShop(OBJECT webshop)
+  {
+    this->pvt_data.webshop := webshop;
+    this->pvt_data.fixed_webshop := ObjectExists(webshop);
+  }
+
+  OBJECT FUNCTION GetWRDSchema()
+  {
+    IF (NOT ObjectExists(this->pvt_data.wrdschema) AND ObjectExists(this->pvt_data.applytester)) // INV: fixed_wrdschema = FALSE
+    {
+      RECORD authplugin := this->pvt_data.applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/wrd", "wrdauth");
+      IF (RecordExists(authplugin))
+        this->pvt_data.wrdschema := OpenWRDSchema(authplugin.wrdschema);
+    }
+
+    RETURN this->pvt_data.wrdschema;
+  }
+
+  MACRO SetWRDSchema(OBJECT wrdschema)
+  {
+    IF (ObjectExists(wrdschema))
+    {
+      IF (NOT MemberExists(wrdschema,'accountpasswordtag'))
+        THROW NEW Exception("The object passed to UpdateContext does not look like a WRD Schema");
+      IF (NOT wrdschema->__iswrdapi2017)
+        wrdschema := OpenWRDSchemaById(wrdschema->id);
+    }
+
+    this->pvt_data.wrdschema := wrdschema;
+    this->pvt_data.fixed_wrdschema := ObjectExists(wrdschema);
+
+    IF (NOT this->pvt_data.fixed_webshop)
+      this->pvt_data.webshop := DEFAULT OBJECT;
+  }
+
+  OBJECT FUNCTION GetOpener()
+  {
+    RETURN this->pvt_data.screen ?? this->pvt_data.controller;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  PUBLIC RECORD FUNCTION __GetRawContexts()
+  {
+    RETURN CELL[ this->pvt_data,  this->pvt_legacynames ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Is the requested context set? FIXME: remove this API */
+  PUBLIC BOOLEAN FUNCTION IsSet(STRING contextname)
+  {
+    RETURN ObjectExists(this->GetContext(contextname));
+  }
+
+  /** Get the requested context, without an exception if it is not set. FIXME: remove this API */
+  PUBLIC OBJECT FUNCTION GetContext(STRING contextname)
+  {
+    IF (NOT CellExists(this->pvt_data, contextname))
+      RETURN DEFAULT OBJECT;
+    RETURN GetCell(this->pvt_data, contextname);
+  }
+
+  /// Set/update a context. FIXME: remove this API
+  PUBLIC MACRO UpdateContext(STRING contextname, OBJECT newcontext)
+  {
+    //ADDME we should probably allow external contexts to offer a validation function instead of analyzing members
+    SWITCH (contextname)
+    {
+      CASE "wrdschema"        { this->wrdschema := newcontext; }
+      CASE "applytester"      { this->applytester := newcontext; }
+      CASE "controller", "screen", "user"
+      {
+        THROW NEW Exception(`The '${contextname}' context cannot be manually updated`);
+      }
+      DEFAULT
+      {
+        IF (ToUppercase(contextname) NOT IN [ "APP", "STATE", "WEBSHOP" ])
+          THROW NEW Exception(`Don't use UpdateContext for context '${contextname}', just set and use contexts->^contextname`);
+
+        this->pvt_data := CELL[ ...this->pvt_data, ...CellInsert(DEFAULT RECORD, contextname, newcontext) ];
+
+        IF (ToUppercase(contextname) IN [ "APP", "STATE" ])
+        {
+          IF (NOT MemberExists(this, contextname))
+          {
+            INSERT ToUppercase(contextname) INTO this->pvt_legacynames AT END;
+            MemberInsert(this, contextname, FALSE, newcontext);
+          }
+          ELSE
+            MemberUpdate(this, contextname, newcontext);
+        }
+      }
+    }
+  }
+>;

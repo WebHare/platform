@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <g id="box_">
+      <path d="M29,7H5C4.4,7,4,7.4,4,8v5c0,0.6,0.4,1,1,1h1v13c0,0.6,0.6,1,1.1,1H27c0.6,0,1-0.4,1-1V14h1c0.6,0,1-0.4,1-1V8C30,7.4,29.6,7,29,7zM26,26H8V14h18V26zM28,12H6V9h22V12z"/>
+      <path d="M22,21h-4c-0.5,0-1-0.5-1-1v-1c0-0.5,0.5-1,1-1h4c0.5,0,1,0.5,1,1v1C23,20.5,22.5,21,22,21z"/>
+    </g>
+    <path id="arrow" d="M16.5,8.5c-0.1-0.2-0.3-0.3-0.5-0.3c-0.2,0-0.4,0.1-0.5,0.3l-4.3,6C11,14.7,11,15,11.1,15.2c0.1,0.2,0.3,0.4,0.6,0.4h2.8v7.9c0,0.8,0.7,1.5,1.5,1.5c0.8,0,1.5-0.7,1.5-1.5v-7.9h2.8c0.2,0,0.5-0.1,0.6-0.4c0.1-0.2,0.1-0.5-0.1-0.7L16.5,8.5z"/>
+  </defs>
+  <g>
+    <use xlink:href="#box_" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" transform="scale(0.9) translate(0 5)"/>
+    <use xlink:href="#arrow" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" transform="scale(0.9) rotate(90) translate(-12 0)" style="transform-origin:16px 16px;"/>
+  </g>
+</svg>

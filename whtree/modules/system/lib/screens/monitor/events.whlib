@@ -1,0 +1,307 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+
+// FIXME: handle messages which aren't decoded gracefully when entering decodemessage state later
+// FIXME: only update lists once every X seconds? (in case we actually have new messages ofcourse)
+
+
+PUBLIC OBJECTTYPE Events EXTEND MonitorPanelBase
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY keepevents;
+
+  INTEGER counter;
+
+  INTEGER eventregistration;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init()
+  {
+    this->OnEnableInterceptChange();
+  }
+
+  UPDATE PUBLIC MACRO OnEnableInterceptChange()
+  {
+    IF(this->enableintercept->value AND this->eventregistration = 0)
+    {
+      this->eventregistration := RegisterEventCallback("*", PTR this->OnEvent);
+    }
+    ELSE IF(this->enableintercept->value = FALSE AND this->eventregistration != 0)
+    {
+      UnregisterCallback(this->eventregistration);
+      this->eventregistration := 0;
+    }
+  }
+
+  MACRO OnEnableMessageDecodingChange()
+  {
+    this->messageinfo->visible := this->decodeknownmessages->value;
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  {
+    this->RefreshEvents();
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BOOLEAN FUNCTION Cancel()
+  {
+    UnregisterCallback(this->eventregistration);
+    RETURN TRUE;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // List refresh
+  //
+
+  MACRO RefreshEvents()
+  {
+    IF (this->eventfilter->value != "")
+      this->events->rows := SELECT * FROM this->keepevents WHERE event LIKE this->eventfilter->value;
+    ELSE
+      this->events->rows := this->keepevents;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnEvent(STRING event, RECORD data)
+  {
+    this->counter := this->counter + 1;
+
+    RECORD interpretation;
+    IF (this->decodeknownmessages->value)
+      interpretation := this->GetInterpretedData(event, data);
+
+    INSERT [ rowkey := this->counter
+           , when := GetCurrentDateTime()
+           , event := event
+           , description := RecordExists(interpretation) ? interpretation.description : ""
+           , data := data
+           , parsed := RecordExists(interpretation) ? interpretation.parsed : DEFAULT RECORD
+           //, datastr :=    EncodeHSON(data)
+           ] INTO this->keepevents AT 0;
+
+    IF (LENGTH(this->keepevents) > 500)
+      DELETE FROM this->keepevents AT 500; // FIXME: or is ArraySlice() faster?
+
+    this->RefreshEvents();
+  }
+
+  RECORD FUNCTION GetInterpretedData(STRING event, RECORD data)
+  {
+    STRING description;
+    RECORD parsed;
+
+    IF (event LIKE "wrd:schema.*.*")
+    {
+      // wrd:schema.<id>.change / wrd:schema.<id>.settingschange
+
+      // Types or Attributes have been added, editted or deleted in the specified schema
+      STRING ARRAY parts := Tokenize(event, ".");
+
+      IF (Length(parts) > 1)
+      {
+        INTEGER schemaid := ToInteger(parts[1], 0);
+        STRING schemaname := SELECT AS STRING name FROM wrd.schemas WHERE id = schemaid;
+        description := schemaname;
+        parsed := [ schemaid := schemaid
+                  , schemaname := schemaname
+                  ];
+      }
+    }
+    ELSE IF (event LIKE "wrd:type.*.*")
+    {
+      // Entities have been added, editted or deleted in the specified type
+      // (special: or the type has been deleted)
+      STRING ARRAY parts := Tokenize(event, ".");
+
+      IF (Length(parts) > 1)
+      {
+      // note: the mask will prevent us not having enough parts
+        INTEGER idoftype := ToInteger(parts[1], 0);
+        RECORD typerec := SELECT id, tag, wrd_schema FROM wrd.types WHERE id = idoftype;
+// wrd:type.*.change
+        IF (RecordExists(typerec))
+        {
+          RECORD schemarec := SELECT id, name FROM wrd.schemas WHERE id = typerec.wrd_schema;
+          description := schemarec.name || " / " || typerec.tag;
+
+          // Directly resolve this, because at the time the user chooses to inspect these, the entities might already have changed title or have been deleted
+          RECORD ARRAY changedentities;
+          IF (parts[2] = "change" AND CellExists(data, "created") AND CellExists(data, "updated") AND CellExists(data, "deleted"))
+          {
+            changedentities :=
+                SELECT id
+                     , title := "FIXME" // FIXME: get WRD_TITLE or WRD_TAG here?
+                     , action := ""
+                  FROM wrd.entities
+                 WHERE id IN (data.created CONCAT data.updated);
+
+            UPDATE changedentities SET action := "created" WHERE id IN data.created;
+            UPDATE changedentities SET action := "updated" WHERE id IN data.updated;
+
+            changedentities := changedentities CONCAT (SELECT id, title := "", action := "delete" FROM ToRecordArray(data.deleted, "id"));
+          }
+
+          parsed := [ schemaid := schemarec.id
+                    , schemaname := schemarec.name
+                    , wrdtype := idoftype
+                    , changedentities := changedentities
+                    ];
+        }
+        ELSE
+          description := "type #" || idoftype || " was deleted"; // FIXME: tid
+      }
+    }
+    ELSE IF (event LIKE "system:whfs.folder.*" OR event LIKE "publisher:publish.folder.*")
+    {
+      STRING ARRAY parts := Tokenize(event, ".");
+
+      RECORD folderrec := SELECT id, whfspath FROM system.fs_objects WHERE id = ToInteger(parts[2], 0);
+      IF (RecordExists(folderrec))
+      {
+        description := folderrec.whfspath;
+
+        parsed := [ whfsid := folderrec.id ];
+      }
+    }
+    ELSE IF (event LIKE "system:whfs.site.*")
+    {
+      STRING ARRAY parts := Tokenize(event, ".");
+
+      RECORD sitefolderrec := SELECT id, whfspath FROM system.fs_objects WHERE id = ToInteger(parts[2], 0);
+      IF (RecordExists(sitefolderrec))
+      {
+        description := sitefolderrec.whfspath;
+
+        parsed := [ whfsid := sitefolderrec.id ];
+      }
+    }
+    /*
+    ELSE IF (event LIKE "system:registry.*")
+    {
+      STRING ARRAY parts := Tokenize(event, ".");
+
+      ADDME: implement
+    }
+    */
+
+    RETURN [ description := description
+           , parsed := parsed
+           ];
+  }
+
+  MACRO OnSelectEvent()
+  {
+    RECORD sel := this->events->selection;
+
+    this->button_openinwrd->visible := FALSE;
+    this->button_openinpublisher->visible := FALSE;
+    this->wrdentities->visible := FALSE;
+
+    IF (NOT RecordExists(sel))
+    {
+      this->eventwhen->value := "";
+      this->eventname->value := "";
+      this->eventdata->value := DEFAULT RECORD;
+      RETURN;
+    }
+
+    this->eventwhen->value := FormatDateTime("%#d-%m-%Y %H:%M:%S.%Q", sel.when);
+    this->eventname->value := sel.event;
+    this->eventdata->value := sel.data;
+
+    IF (NOT RecordExists(sel.parsed))
+      RETURN;
+
+    STRING event := sel.event;
+    IF (event LIKE "wrd:schema.*.*")
+    {
+      this->button_openinwrd->visible := TRUE;
+      this->wrdentities->visible := TRUE;
+    }
+    ELSE IF (event LIKE "wrd:type.*.*")
+    {
+      this->button_openinwrd->visible := TRUE;
+      this->wrdentities->visible := TRUE;
+      this->wrdentities->rows := sel.parsed.changedentities;
+    }
+    ELSE IF (event LIKE "system:whfs.folder.*")
+    {
+      this->button_openinpublisher->visible := TRUE;
+    }
+    ELSE IF (event LIKE "system:whfs.site.*")
+    {
+      this->button_openinpublisher->visible := TRUE;
+    }
+  }
+
+  MACRO DoApplyFilter()
+  {
+    this->RefreshEvents();
+  }
+
+  MACRO DoClearList()
+  {
+    //this->events->rows := DEFAULT RECORD ARRAY;
+    this->keepevents := DEFAULT RECORD ARRAY;
+    this->RefreshEvents();
+  }
+
+  MACRO DoOpenWRDSchema()
+  {
+    RECORD sel := this->events->selection;
+    this->tolliumcontroller->SendApplicationMessage("wrd:browser", [ schemaid := sel.parsed.schemaid ], DEFAULT RECORD, FALSE);
+  }
+  MACRO DoOpenWRDEntity()
+  {
+    RECORD sel := this->wrdentities->selection;
+    this->tolliumcontroller->SendApplicationMessage("wrd:browser", [ entityid := sel.id ], DEFAULT RECORD, FALSE);
+  }
+
+  MACRO DoOpenInPublisher()
+  {
+    RECORD sel := this->events->selection;
+
+    STRING event := sel.event;
+    IF (event LIKE "system:whfs.folder.*")
+    {
+      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid := sel.parsed.whfsid ], DEFAULT RECORD, FALSE);
+    }
+    ELSE IF (event LIKE "system:whfs.site.*")
+    {
+      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid := sel.parsed.whfsid ], DEFAULT RECORD, FALSE);
+    }
+  }
+>;

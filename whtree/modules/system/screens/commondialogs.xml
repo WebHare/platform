@@ -1,0 +1,122 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/commondialogs.whlib"
+         xmlns:system="http://www.webhare.net/xmlns/system/components">
+
+  <messageboxes gid="commondialogs.messageboxes">
+    <messagebox name="notenoughrights"             icon="error"    buttons="ok" />
+    <messagebox name="notenoughrights_spec"        icon="error"    buttons="ok" />
+  </messageboxes>
+
+  <screen name="mailer" tid="mailer.title" width="850px" height="650px" allowresize="true" savestate="size">
+    <actions gid="mailer.actions">
+      <action name="send" onexecute="submit" />
+      <action name="abort" onexecute="cancel" tid="tollium:common.actions.cancel"/>
+      <uploadaction name="attach" onupload="doattach" multiple="true" />
+      <action name="deleteattachment" shortcut="del" onexecute="dodeleteattachment" tid="tollium:common.actions.delete">
+        <enableon source="attachments" min="1" max="1" />
+      </action>
+      <downloadaction name="downloadattachment" ondownload="dodownloadattachment" tid="tollium:common.actions.download">
+        <enableon source="attachments" min="1" max="1" />
+      </downloadaction>
+    </actions>
+
+    <menus>
+      <menu name="attachmentmenu" gid="mailer.actions">
+        <item action="downloadattachment"/>
+        <item action="deleteattachment"/>
+      </menu>
+    </menus>
+    <body>
+      <panel layout="form" gid="mailer" spacers="bottom">
+        <textedit name="mailerfrom" required="true" width="1pr" validationchecks="email-maysendfrom" />
+        <textedit name="mailerto" required="true" width="1pr" validationchecks="emails-maysendto" />
+        <textedit name="mailercc" width="1pr" validationchecks="emails-maysendto" />
+        <textedit name="mailerbcc" width="1pr" validationchecks="emails-maysendto" />
+        <textedit name="mailersubject" required="true" width="1pr" />
+      </panel>
+      <richarea type="email" name="textareahtml" height="1pr" />
+
+      <panel name="attachmentpanel" visible="false" spacers="top" >
+        <grid>
+          <cell width="1pr">
+            <list name="attachments"
+                  height="7x"
+                  selectmode="single"
+                  selectcontextmenu="attachmentmenu"
+                  openaction="downloadattachment"
+                  gid="mailer.columns">
+              <column name="filename" type="text" tid="~filename"/>
+              <column name="filetype" type="text" tid="~mimetype"/>
+              <column name="filesize" type="integer" tid="~filesize" align="right"/>
+            </list>
+          </cell>
+          <cell>
+            <button action="attach" width="1pr" tid="tollium:common.actions.add" name="addattachmentbutton" />
+            <button action="downloadattachment" width="1pr" />
+            <button action="deleteattachment" width="1pr" />
+          </cell>
+        </grid>
+      </panel>
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="send"/>
+        <button action="abort"/>
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="mailviewer" gid="commondialogs.mailviewer" width="110x" height="50x" allowresize="true">
+    <actions>
+      <action name="viewsource" onexecute="doviewsource" shortcut="ctrl+u" />
+    </actions>
+
+    <body gid="mailclient" name="body" spacers="bottom">
+      <emailcontents name="mailcontents" />
+    </body>
+    <footer>
+      <grid>
+        <cell width="1pr">
+          <button action="viewsource" />
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="close" />
+        </cell>
+      </grid>
+    </footer>
+  </screen>
+
+  <screen name="viewsource" gid="commondialogs.mailviewer" tid=".viewsource">
+    <body gid="mailclient" width="600px" height="500px">
+      <textarea name="text" title="" width="1pr" height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="mailqueuedialog"
+          gid="commondialogs.mailviewer"
+          tid=".screentitle"
+          allowresize="true"
+          width="130x"
+          height="40x"
+          icon="system:sysmgmt/monitoring"
+          >
+    <body>
+      <split type="vertical">
+        <part height="1pr" name="monitor" borders="all">
+        </part>
+      </split>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="rightsproblem" gid="commondialogs.rightsproblem" tid=".title" allowresize="true" >
+    <body>
+    </body>
+  </screen>
+
+</screens>

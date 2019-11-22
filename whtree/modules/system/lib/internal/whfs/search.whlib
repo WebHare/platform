@@ -1,0 +1,106 @@
+<?wh
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/control.whlib";
+
+/** @short Search for objects of types or referring to objects or instances of certain types
+    @long This function returns the objects with one of the requested types and the objects referring to one of the requested
+        types, either by direct referencing it through a whfsref reference or by having an instance value of the type.
+    @param searchoptions Search options
+    @cell searchoptions.fstypes ID of types we're looking for
+    @cell searchoptions.publishedonly Do not return unpublished files (may still return folders)
+    @return List of references
+    @cell(integer) return.fsobject The id of the referring object or the object with the requested type (the one you would need to republish)
+    @cell(string) return.whfspath The whfspath of the referring object or the object with the requested type
+    @cell(boolean) return.isfolder If the referring object is a folder
+    @cell(integer) return.referstofsobject The id of the object that is referred to (for whfsref references)
+    @cell(string) return.refersto The whfspath of the object that is referred to (for whfsref references)
+    @cell(string) return.membername The name of the type member that contains the references (for whfsref and instance references)
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+*/
+PUBLIC RECORD ARRAY FUNCTION FindWHFSObjectReferences(RECORD searchoptions)
+{
+  searchoptions := ValidateOptions([ fstypes := INTEGER[]
+                                   , publishedonly := FALSE
+                                   ], searchoptions, [ title := "searchoptions" ]);
+
+  RECORD ARRAY objectinstances := SELECT fsobject := id
+                                       , whfspath
+                                       , isfolder
+                                       , referstofsobject := 0
+                                       , refersto := ""
+                                       , membername := ""
+                                    FROM system.fs_objects
+                                   WHERE type IN searchoptions.fstypes
+                                         AND isactive;
+  INTEGER ARRAY objectinstanceids := SELECT AS INTEGER ARRAY DISTINCT fsobject FROM objectinstances;
+
+  //Find references to the file in instancedata - ADDME may need to slice 1024 ids
+  RECORD ARRAY filerefs := SELECT fsobject := fs_instances.fs_object
+                                , whfspath := fs_objects.whfspath
+                                , isfolder
+                                , referstofsobject := fs_settings.fs_object
+                                , fs_member
+                             FROM system.fs_settings
+                                , system.fs_instances
+                                , system.fs_objects
+                            WHERE fs_settings.fs_object IN objectinstanceids
+                                  AND fs_settings.fs_instance = fs_instances.id
+                                  AND fs_objects.id = fs_instances.fs_object
+                                  AND fs_objects.isactive;
+  filerefs := JoinArrays(filerefs, "REFERSTOFSOBJECT", (SELECT fsobject, refersto := whfspath FROM objectinstances), [ refersto := "" ], [ joinfield := "FSOBJECT" ]);
+
+  RECORD ARRAY typerefs := SELECT fsobject := fs_instances.fs_object
+                                , whfspath := fs_objects.whfspath
+                                , isfolder
+                                , referstofsobject := 0
+                                , refersto := ""
+                                , fs_member
+                             FROM system.fs_settings
+                                , system.fs_instances
+                                , system.fs_objects
+                            WHERE fs_settings.instancetype IN searchoptions.fstypes
+                                  AND fs_settings.fs_instance = fs_instances.id
+                                  AND fs_objects.id = fs_instances.fs_object
+                                  AND fs_objects.isactive;
+
+  RECORD ARRAY results := filerefs CONCAT typerefs;
+
+  //Update member info
+  INTEGER ARRAY memberids := SELECT AS INTEGER ARRAY DISTINCT fs_member FROM results;
+  //ADDME full path for 'deep's ettings
+  RECORD ARRAY memberinfos := SELECT fs_members.id, membername := fs_types.namespace || "#" || fs_members.name
+                                FROM system.fs_members, system.fs_types
+                               WHERE fs_members.fs_type = fs_types.id
+                                     AND fs_members.id IN memberids;
+  results := JoinArrays(results, "FS_MEMBER", memberinfos, [ membername := "" ], [ joinfield := "ID" ]);
+  results := SELECT *, DELETE fs_member FROM results;
+
+  //Find live stuff
+  results := objectinstances CONCAT results;
+
+  IF(searchoptions.publishedonly)
+  {
+    INTEGER ARRAY tocheck := SELECT AS INTEGER ARRAY DISTINCT fsobject FROM results WHERE NOT isfolder;
+    IF(Length(tocheck) > 0)
+    {
+      INTEGER ARRAY tokill := SELECT  AS INTEGER ARRAY id FROM system.fs_objects WHERE id IN tocheck AND NOT publish;
+      IF(Length(tokill) > 0)
+        DELETE FROM results WHERE fsobject IN tokill;
+    }
+  }
+
+  RETURN results;
+}
+
+
+/** Schedules the result of a %FindWHFSObjectReferences for publication
+    @param references References as returned by FindWHFSObjectReferences */
+PUBLIC MACRO RepublishWHFSObjectReferences(RECORD ARRAY references)
+{
+  //by not specifying the exact format, we hope to have future room for smarter sharedblock handling (eg stopping at the points where they get overwritten again)
+  //for now, keeping it simple
+  ScheduleRepublish(SELECT AS INTEGER ARRAY DISTINCT fsobject FROM references);
+}

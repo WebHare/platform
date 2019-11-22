@@ -1,0 +1,36 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+
+RECORD ARRAY FUNCTION Test4(STRING testmode, RECORD ARRAY throwtrace)
+{
+  SWITCH (testmode)
+  {
+    CASE "throw"  { THROW NEW Exception("e"); } // First throw on line 10 (fix test_traces if moved!)
+    CASE "throw2"
+    {
+      OBJECT e := NEW Exception("e");
+      e->trace := throwtrace;
+      THROW e;
+    }
+    CASE "trace"  { RETURN GetStackTrace(); }
+    CASE "abort"  { ABORT("a"); } // Last error on line 18 (fix test_traces if moved!)
+  }
+  ABORT("Illegal testmode " || testmode);
+}
+
+RECORD ARRAY FUNCTION Test3(STRING testmode, RECORD ARRAY throwtrace) { RETURN Test4(testmode, throwtrace); }
+RECORD ARRAY FUNCTION Test2(STRING testmode, RECORD ARRAY throwtrace) { RETURN Test3(testmode, throwtrace); }
+PUBLIC RECORD ARRAY FUNCTION Test1(STRING testmode, RECORD ARRAY throwtrace DEFAULTSTO DEFAULT RECORD ARRAY) { RETURN Test2(testmode, throwtrace); }
+
+OBJECT link := GetIPCLinkToParent();
+
+// No link? This is a loadlib for compile-reasons.
+IF (NOT ObjectExists(link))
+  RETURN;
+
+//RECORD message := link->ReceiveMessage(DEFAULT DATETIME); //FIXME why does this stop working with subjobs?
+RECORD message := link->ReceiveMessage(MAX_DATETIME);
+Test1(message.msg.type);
+

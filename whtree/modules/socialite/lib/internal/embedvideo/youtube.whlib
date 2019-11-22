@@ -1,0 +1,46 @@
+﻿<?wh
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/remoting/whservice.whlib";
+
+
+PUBLIC OBJECTTYPE YoutubeProvider EXTEND EmbedVideoProviderBase
+<
+  MACRO NEW()
+  {
+    OpenPrimary();
+  }
+  //ADDME implement describevideo using videolist - less api costs
+
+  /** @short Returns YouTube movies found by a custom query
+      @param query The query to use for YouTube. Can be keyword, or an entire YouTube URL
+      @return A list of YouTube movies. See GetMovieInfoByEntry in youtube.whlib for data
+  */
+  UPDATE PUBLIC RECORD ARRAY FUNCTION Search(STRING query, INTEGER maxresults)
+  {
+    IF(query = "")
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN this->EnrichVideos(SELECT *
+                                FROM InvokeHostedWHService("socialite/searchyoutube", query)
+                               LIMIT maxresults);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION DescribeVideo(STRING videoid)
+  {
+    RETURN RECORD(this->EnrichVideos([ RECORD(InvokeHostedWHService("socialite/describeyoutubevideo", videoid))]));
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetIFramePlayerURL(STRING videoid)
+  {
+    RETURN "//www.youtube-nocookie.com/embed/" || EncodeURL(videoid) || "?rel=0";
+  }
+  UPDATE PUBLIC STRING FUNCTION GetTitle()
+  {
+    RETURN "YouTube";
+  }
+  UPDATE PUBLIC STRING FUNCTION GetIcon()
+  {
+    RETURN "tollium:social_media/youtube";
+  }
+>;

@@ -1,0 +1,340 @@
+<?wh
+/** @topic harescript-utils/geo
+*/
+LOADLIB "wh::float.whlib";
+
+RECORD conversion_constants :=
+  // Rijksdriehoeksmeting
+  [ rd := [ x0 := 155000
+          , y0 := 463000
+          , k := 0.9999079
+          , bigr := 6382644.571
+          , m := 0.003773953832
+          , n := 1.00047585668
+          , lambda0 := PI * 0.029931327161111111
+          , phi0 := PI * 0.28975644753333335
+          , l0 := PI * 0.029931327161111111
+          , b0 := PI * 0.28956165138333334
+          , e := 0.08169683122
+          , a := 6377397.155
+          ]
+  // Google Maps pixels
+  , gm_pixels := [ o := 268435456 // Half the earth's circumference at zoom level 21 in pixels
+                 , r := 268435456 / PI
+                 ]
+  ];
+
+PUBLIC BOOLEAN FUNCTION IsValidLatLng(RECORD latlng)
+{
+  RETURN RecordExists(latlng)
+         AND CellExists(latlng,"LAT") AND CellExists(latlng,"LNG")
+         AND CanCastTypeTo(TypeId(latlng.lat), TypeID(FLOAT))
+         AND CanCastTypeTo(TypeId(latlng.lng), TypeID(FLOAT))
+         AND latlng.lat >= -180
+         AND latlng.lat <= 180
+         AND latlng.lng >= -180
+         AND latlng.lng <= 180;
+}
+
+PUBLIC STRING FUNCTION LatLngToString(RECORD latlng)
+{
+  IF(NOT RecordExists(latlng) OR NOT IsValidLatlng(latlng))
+    RETURN "";
+  RETURN FormatFloat(latlng.lat, 6) || "," || FormatFloat(latlng.lng, 6);
+}
+PUBLIC RECORD FUNCTION StringTolatLng(STRING coordinates)
+{
+  STRING ARRAY parts := Tokenize(coordinates, ',');
+  IF (Length(parts) != 2)
+    RETURN DEFAULT RECORD;
+
+  RECORD latlng := [ lat := ToFloat(TrimWhitespace(parts[0]),-999)
+                   , lng := ToFloat(TrimWhitespace(parts[1]),-999)
+                   ];
+  RETURN IsValidLatlng(latlng) ? latlng : DEFAULT RECORD;
+}
+
+/** @short Convert a coordinates record from another coordinates system to latitude/longitude
+    @long Currently only the "RD" (Dutch Rijksdriehoeksmeting) type is supported, requiring a [ INTEGER x, INTEGER y ]
+          coordinates record.
+    @param coordinates A coordinates record, in a format suitable for the given type
+    @param type The coordinate system name to convert from
+    @return A [ FLOAT lat, FLOAT lng ] record, or a default record if an invalid input record was given or an unsupported
+            coordinates system was specified
+*/
+PUBLIC RECORD FUNCTION ConvertToLatLng(RECORD coordinates, STRING type)
+{
+  IF (NOT RecordExists(coordinates))
+    RETURN DEFAULT RECORD;
+
+  SWITCH (ToUppercase(type))
+  {
+    CASE "RD"
+    {
+      IF (NOT CellExists(coordinates, "x") OR NOT CellExists(coordinates, "y"))
+        RETURN DEFAULT RECORD;
+      FLOAT x := coordinates.x;
+      FLOAT y := coordinates.y;
+
+      // Get relevant constants
+      RECORD c := conversion_constants.rd;
+
+      // Convert RD to Bessel
+      FLOAT d__1 := x - c.x0;
+      FLOAT d__2 := y - c.y0;
+      FLOAT r := Sqrt(d__1 * d__1 + d__2 * d__2);
+
+      FLOAT sa;
+      FLOAT ca;
+      IF (r != 0.0)
+      {
+        sa := (x - c.x0) / r;
+        ca := (y - c.y0) / r;
+      }
+      FLOAT psi := ATan2(r, c.k * 2.0 * c.bigr) * 2.0;
+      FLOAT cpsi := Cos(psi);
+      FLOAT spsi := Sin(psi);
+
+      FLOAT sb := ca * Cos(c.b0) * spsi + Sin(c.b0) * cpsi;
+      d__1 := sb;
+
+      FLOAT cb := Sqrt(1.0 - d__1 * d__1);
+      FLOAT b := ACos(cb);
+
+      FLOAT sdl := sa * spsi / cb;
+      FLOAT dl := ASin(sdl);
+
+      FLOAT lambda := dl / c.n + c.lambda0;
+      FLOAT w := Log(Tan(b / 2.0 + PI / 4.0));
+      FLOAT q := (w - c.m) / c.n;
+
+      FLOAT phiprime := ATan(Exp(q)) * 2. - PI / 2.0;
+
+      FOR (INTEGER i := 1; i <= 4; i := i + 1)
+      {
+        FLOAT dq := c.e / 2.0 * Log((c.e * Sin(phiprime) + 1.0) / (1.0 - c.e * Sin(phiprime)));
+        FLOAT phi := ATan(Exp(q + dq)) * 2.0 - PI / 2.0;
+        phiprime := phi;
+      }
+
+      FLOAT lambes := lambda / PI * 180.0;
+      FLOAT phibes := phiprime / PI * 180.0;
+
+      // Convert Bessel to WGS84
+      FLOAT dphi := phibes - 52.0;
+      FLOAT dlam := lambes - 5.0;
+      FLOAT phicor := (-96.862 - dphi * 11.714 - dlam * 0.125) * 0.00001;
+      FLOAT lamcor := (dphi * 0.329 - 37.902 - dlam * 14.667) * 0.00001;
+      FLOAT phiwgs := phibes + phicor;
+      FLOAT lamwgs := lambes + lamcor;
+
+      RETURN [ lat := phiwgs
+             , lng := lamwgs
+             ];
+    }
+  }
+  RETURN DEFAULT RECORD;
+}
+
+/** @short Convert a latitude/longitude coordinate to another coordinates system
+    @long Currently only the "RD" (Dutch Rijksdriehoeksmeting) type is supported, returning a [ INTEGER x, INTEGER y ]
+          coordinates record.
+    @param latlng A [FLOAT lat, FLOAT lng ] record
+    @param type The coordinate system name to convert to
+    @return A coordinates record in for requested coordinates system, or a default record if an invalid input record was
+            given or an unsupported coordinates system was specified
+*/
+PUBLIC RECORD FUNCTION ConvertFromLatLng(RECORD latlng, STRING type)
+{
+  IF (NOT RecordExists(latlng)
+    OR NOT CellExists(latlng, "lat")
+    OR NOT CellExists(latlng, "lng"))
+    RETURN DEFAULT RECORD;
+
+  SWITCH (ToUppercase(type))
+  {
+    CASE "RD"
+    {
+      // Get relevant constants
+      RECORD c := conversion_constants.rd;
+
+      FLOAT phiwgs := latlng.lat;
+      FLOAT lamwgs := latlng.lng;
+
+      // Convert WGS84 to Bessel
+      FLOAT dphi := phiwgs - 52.0;
+      FLOAT dlam := lamwgs - 5.0;
+      FLOAT phicor := (-96.862 - dphi * 11.714 - dlam * 0.125) * 0.00001;
+      FLOAT lamcor := (dphi * 0.329 - 37.902 - dlam * 14.667) * 0.00001;
+      FLOAT phibes := phiwgs - phicor;
+      FLOAT lambes := lamwgs - lamcor;
+
+      // Convert Bessel to RD
+      FLOAT phi := phibes / 180.0 * PI;
+      FLOAT lambda := lambes / 180.0 * PI;
+
+      FLOAT qprime := Log(Tan(phi / 2.0 + PI / 4.0));
+      FLOAT dq := c.e / 2.0 * Log((c.e * Sin(phi) + 1.0) / (1.0 - c.e * Sin(phi)));
+
+      FLOAT q := qprime - dq;
+      FLOAT w := c.n * q + c.m;
+
+      FLOAT b := ATan(Exp(w)) * 2.0 - PI / 2.0;
+
+      FLOAT dl := c.n * (lambda - c.lambda0);
+      FLOAT d__1 := Sin((b - c.b0) / 2.0);
+      FLOAT d__2 := Sin(dl / 2.0);
+
+      FLOAT s2psihalf := d__1 * d__1 + d__2 * d__2 * Cos(b) * Cos(c.b0);
+      FLOAT cpsihalf := Sqrt(1.0 - s2psihalf);
+      FLOAT spsihalf := Sqrt(s2psihalf);
+      FLOAT tpsihalf := spsihalf / cpsihalf;
+
+      FLOAT spsi := spsihalf * 2.0 * cpsihalf;
+      FLOAT cpsi := 1.0 - s2psihalf * 2.0;
+      FLOAT sa := Sin(dl) * Cos(b) / spsi;
+      FLOAT ca := (Sin(b) - Sin(c.b0) * cpsi) / (Cos(c.b0) * spsi);
+
+      FLOAT r := c.k * 2.0 * c.bigr * tpsihalf;
+
+      FLOAT x := r * sa + c.x0;
+      FLOAT y := r * ca + c.y0;
+
+      RETURN [ x := FloatToInteger(Floor(x + 0.5))
+             , y := FloatToInteger(Floor(y + 0.5))
+             ];
+    }
+
+    CASE "GM_PIXELS"
+    {
+      // Get relevant constants
+      RECORD c := conversion_constants.gm_pixels;
+
+      // Mercator projection of latitude (y) and longitude (x) on pixel map
+      FLOAT y := (1.0 + Sin(latlng.lat * PI / 180)) / (1.0 - Sin(latlng.lat * PI / 180));
+      RETURN [ x := FloatToInteger(Floor((c.o + PI * c.r * latlng.lng / 180) + 0.5))
+             , y := FloatToInteger(y > 0 ? Floor((c.o - c.r * Log(y) / 2) + 0.5) : 0f)
+             ];
+    }
+  }
+  RETURN DEFAULT RECORD;
+}
+
+/** Get the distance between two lat/long coordinates
+    @param latlng1 Coordinate 1
+    @cell(float) latlng1.lat Latitute
+    @cell(float) latlng1.lng Longitude
+    @param latlng2 Coordinate 2
+    @cell(float) latlng2.lat Latitute
+    @cell(float) latlng2.lng Longitude
+    @cell(float) options.radius Radius to use (defaults to 6378137 to return a distance on Earth in meters)
+    @return The distance between the two coordinates in meters (assuming the default radius)
+*/
+PUBLIC FLOAT FUNCTION GetLatLngDistance(RECORD latlng1, RECORD latlng2, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ radius := 6378137f ], options);
+  FLOAT distance := Cos(DegreesToRadians(latlng1.lat)) * Cos(DegreesToRadians(latlng2.lat)) * Cos(DegreesToRadians(latlng2.lng) - DegreesToRadians(latlng1.lng)) + Sin(DegreesToRadians(latlng1.lat)) * Sin(DegreesToRadians(latlng2.lat));
+  IF (distance <= -1 OR distance >= 1)
+    RETURN 0;
+  RETURN options.radius * ACos(distance);
+}
+
+/** Move a lat/long coordinate
+    @param latlng Coordinate to move
+    @cell(float) latlng.lat Latitute
+    @cell(float) latlng.lng Longitude
+    @param direction The direction to move the coordinate to, in rad, clockwise from north
+    @param distance The distance in meters
+    @param radius Radius to use (defaults to 6378137 to move on Earth in meters)
+    @return The moved coordinate
+    @cell(float) return.lat Latitute
+    @cell(float) return.lng Longitude
+*/
+PUBLIC RECORD FUNCTION MoveLatLng(RECORD latlng, FLOAT direction, FLOAT distance, FLOAT radius DEFAULTSTO 6378137)
+{
+  FLOAT lat1 := DegreesToRadians(latlng.lat);
+  direction := DegreesToRadians(direction);
+
+  /*
+  var φ2 = Math.asin( Math.sin(φ1)*Math.cos(d/R) + Math.cos(φ1)*Math.sin(d/R)*Math.cos(brng) );
+  var λ2 = λ1 + Math.atan2(Math.sin(brng)*Math.sin(d/R)*Math.cos(φ1), Math.cos(d/R)-Math.sin(φ1)*Math.sin(φ2));
+  */
+  FLOAT lat2 := Asin(Sin(lat1) * Cos(distance / radius) + Cos(lat1) * Sin(distance / radius) * Cos(direction));
+  FLOAT lng2 := ATan2(Sin(direction) * Sin(distance / radius) * Cos(lat1), Cos(distance / radius) - Sin(lat1) * Sin(lat2));
+
+  lat2  := RadiansToDegrees(lat2);
+  // Normalize into range -180 .. 180
+  lng2  := latlng.lng + RadiansToDegrees(lng2) + 540;
+  WHILE (lng2 > 360)
+    lng2 := lng2 - 360;
+  lng2 := lng2 - 180;
+
+  RETURN [ lat := lat2, lng := lng2 ];
+}
+
+
+/** Get bounding coordinates of a given distance box around a point
+    @long Computes the bounding coordinates of all points on the surface
+     of a sphere that have a great circle distance to the point represented
+     by this GeoLocation instance that is less or equal to the distance
+     argument. For more information about the formulae used in this method visit
+     [http://JanMatuschek.de/LatitudeLongitudeBoundingCoordinates].
+    @param centerpoint Centerpoint
+    @cell(float) centerpoint.lat Latitude
+    @cell(float) centerpoint.lng Longitude
+    @param distance the distance from the point measured in the same unit as the radius argument. (default: meters)
+    @cell(float) options.radius Radius in meters (default: 6378137 to return a distance on Earth in meters)
+    @return Bounding coordinates which should contain all coordinates within the given distance
+    @cell(float) return.minlat Minimum latitude
+    @cell(float) return.maxlat Minimum latitude
+    @cell(float) return.minlng Minimum longitude
+    @cell(float) return.maxlng Minimum longitude
+    */
+PUBLIC RECORD FUNCTION GetLatLngBoundingCoordinates(RECORD centerpoint, FLOAT distance, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  //Based on CC BY 3.0 licensed code from http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
+  CONSTANT FLOAT MIN_LAT := -PI/2;
+  CONSTANT FLOAT MAX_LAT := PI/2;
+  CONSTANT FLOAT MIN_LON := -PI;
+  CONSTANT FLOAT MAX_LON := PI;
+
+  options := ValidateOptions([ radius := 6378137f ], options);
+  IF(distance < 0)
+    THROW NEW Exception("Distance must be >= 0");
+  IF(options.radius <- 0)
+    THROW NEW Exception("Radius must be > 0");
+
+  FLOAT radlat := DegreesToRadians(centerpoint.lat);
+  FLOAT radlon := DegreesToRadians(centerpoint.lng);
+  // angular distance in radians on a great circle
+  FLOAT radDist := distance / options.radius;
+  FLOAT minlat := radLat - radDist;
+  FLOAT maxLat := radLat + radDist;
+
+  FLOAT minLon, maxLon;
+  IF (minLat > MIN_LAT AND maxLat < MAX_LAT)
+  {
+    FLOAT deltaLon := ASIN(SIN(radDist) / COS(radLat));
+    minLon := radLon - deltaLon;
+    if (minLon < MIN_LON)
+      minLon := minLon + 2 * PI;
+    maxLon := radLon + deltaLon;
+    if (maxLon > MAX_LON)
+      maxLon := maxlon - 2 * PI;
+  }
+  ELSE
+  {
+    // a pole is within the distance
+    minLat := MAX[]([minLat, MIN_LAT]);
+    maxLat := MIN[]([maxLat, MAX_LAT]);
+    minLon := MIN_LON;
+    maxLon := MAX_LON;
+  }
+
+  RETURN CELL [ minlat := RadiansToDegrees(minlat)
+              , maxlat := RadiansToDegrees(maxlat)
+              , minlng := RadiansToDegrees(minlon)
+              , maxlng := RadiansToDegrees(maxlon)
+              ];
+}
+

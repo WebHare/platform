@@ -1,0 +1,63 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+
+
+
+PUBLIC OBJECTTYPE UserRoleSearch EXTEND TolliumFragmentBase
+<
+  RECORD ARRAY results;
+  FUNCTION PTR pvt_onshow;
+
+  PUBLIC PROPERTY onshow(pvt_onshow, pvt_onshow);
+  PUBLIC PROPERTY selection(GetSelection, -);
+
+  MACRO DoSearch()
+  {
+    STRING term := this->searchfor->value;
+    IF(this->searchfor->value = "")
+    {
+      this->owner->RunMessageBox(".emptysearchvalue");
+      RETURN;
+    }
+
+    RECORD searchablefields := GetPolicyForUser(this->contexts, this->tolliumuser->entityid).searchablefields;
+
+    RECORD ARRAY filters := ConstructSearchFilters(term, "user", GetFieldsFor(searchablefields.person, "person", this->tolliumcontroller));
+    RECORD ARRAY filteredusers := GetUsersByFilter(this->owner->tolliumcontroller, filters, this->owner->tolliumuser);
+                 filters := ConstructSearchFilters(term, "role", GetFieldsFor(searchablefields.role, "role", this->tolliumcontroller));
+    RECORD ARRAY filteredroles := GetRolesByFilter(this->owner->tolliumcontroller, filters, this->owner->tolliumuser);
+                 filters := ConstructSearchFilters(term, "unit", GetFieldsFor(searchablefields.unit, "unit", this->tolliumcontroller));
+    RECORD ARRAY filteredunits := GetUnitsByFilter(this->owner->tolliumcontroller, filters, this->owner->tolliumuser);
+    this->results := EnrichWithUnitPath(filteredusers CONCAT filteredroles CONCAT filteredunits, this->owner->tolliumuser);
+
+    FOREVERY(RECORD result FROM this->results)
+    {
+      INSERT CELL description := (result.type = 1)? result.fullname : result.comment INTO this->results[#result];
+      IF(Length(Tokenize(result.unitpath, "/")) > 1)
+      {
+        STRING unitpath := PickLast(Tokenize(result.unitpath, "/"));
+        this->results[#result].unitpath := unitpath;
+      }
+    }
+
+    this->searchresults->ReloadList();
+  }
+
+  RECORD ARRAY FUNCTION ShowSearchResults(RECORD data)
+  {
+    RETURN this->results;
+  }
+
+  MACRO DoShowObject()
+  {
+    this->pvt_onshow();
+  }
+
+  RECORD FUNCTION GetSelection()
+  {
+    RETURN this->searchresults->selection;
+  }
+>;

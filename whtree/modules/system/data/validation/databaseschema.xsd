@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns="http://www.webhare.net/xmlns/whdb/databaseschema"
+  targetNamespace="http://www.webhare.net/xmlns/whdb/databaseschema"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:complexType name="DatabaseSchema">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="documentation" type="xs:string" />
+        <xs:element name="role" />
+        <xs:element name="obsoleterole" />
+        <xs:element name="grant" />
+        <xs:element name="obsoletegrant" />
+
+        <xs:element name="table">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="documentation" minOccurs="0" maxOccurs="1" />
+
+              <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element name="integer">
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType">
+                        <xs:attributeGroup ref="ReferenceAttributes" />
+                        <xs:attribute name="autonumberstart" type="xs:integer" />
+                      </xs:extension>
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="integer64">
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType" />
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="float">
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType" />
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="blob">
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType" />
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="boolean">
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType">
+                        <xs:attribute name="default" type="xs:boolean" />
+                      </xs:extension>
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="datetime">
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType" />
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="money">
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType" />
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="varchar">
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType">
+                        <xs:attribute name="maxlength" type="xs:integer" use="required" />
+                      </xs:extension>
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="bytea">
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType">
+                        <xs:attribute name="maxlength" type="xs:integer" use="required" />
+                      </xs:extension>
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="index" />
+
+                <xs:element name="obsoletecolumn">
+                  <xs:complexType>
+                    <xs:attribute name="name" use="required" />
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="obsoleteindex" />
+              </xs:choice>
+            </xs:sequence>
+            <xs:attribute name="name" use="required" />
+            <xs:attribute name="primarykey" />
+            <xs:attribute name="legacy_readaccessmgr"/>
+            <xs:attribute name="legacy_writeaccessmgr"/>
+            <xs:attribute name="parentlinkcolumn" />
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="obsoletetable"/>
+      </xs:choice>
+    </xs:sequence>
+
+    <xs:attribute name="authorization" />
+    <xs:attribute name="name">
+      <xs:annotation>
+        <xs:documentation>Schema name (defaults to module name)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:element name="documentation"  />
+
+  <xs:complexType name="BaseColumnType">
+    <xs:sequence>
+      <xs:element ref="documentation" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="name" use="required" />
+    <xs:attribute name="nullable" type="xs:boolean" />
+    <xs:attribute name="noupdate" type="xs:boolean" />
+    <xs:attribute name="unique" type="xs:boolean" />
+    <xs:attribute name="internalcolumnname" />
+  </xs:complexType>
+
+  <xs:attributeGroup name="ReferenceAttributes">
+    <xs:attribute name="references" />
+    <xs:attribute name="ondelete">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="cascade"/>
+          <xs:enumeration value="set default"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+</xs:schema>

@@ -1,0 +1,863 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+
+/** Base objecttype for a file containing a table (rows and columns) that can be exported to CSV
+*/
+STATIC OBJECTTYPE TableFile
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Base name of the file
+  STRING pvt_basename;
+
+  /// Exporter class
+  OBJECT pvt_exporter;
+
+  /// Row elements
+  RECORD ARRAY pvt_elements;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Base name of the file
+  PUBLIC PROPERTY basename(pvt_basename, -);
+
+  /// Filename this file must be exported to
+  PUBLIC PROPERTY name(GetName, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @param exporter Exporter object
+      @param basename Base name for this file
+  */
+  MACRO NEW(OBJECT exporter, STRING basename)
+  {
+    this->pvt_exporter := exporter;
+    this->pvt_basename := basename;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetName()
+  {
+    RETURN ToLowercase(this->basename || ".csv");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Encodes the rows in this object to a CSV (UTF-8 encoding)
+  */
+  BLOB FUNCTION GetElementsCSV()
+  {
+    RECORD ARRAY cols := this->GetColumns();
+    RECORD formatcelldata :=
+        [ yes :=  "Yes"
+        , no := "No"
+        , decimal := "."
+        ];
+
+    INTEGER output_csv := CreateStream();
+    STRING sep := ";";
+    BOOLEAN encode := TRUE;
+    STRING charset := "UTF-8";
+
+    RECORD ARRAY columns := this->GetColumns();
+
+    FOREVERY(RECORD col FROM columns)
+    {
+      IF(#col>0)
+        PrintTo(output_csv,sep);
+
+      STRING data := charset="UTF-8" ? col.title : EncodeCharset(col.title,charset);
+      PrintTo(output_csv, encode ? EncodeExcelCSV(data) : data);
+    }
+    PrintTo(output_csv, "\r\n");
+
+    FOREVERY(RECORD row FROM this->pvt_elements)
+    {
+      FOREVERY(RECORD col FROM columns)
+      {
+        IF(#col>0)
+          PrintTo(output_csv,sep);
+
+        //FIXME: Big error if you pass a boolean column to this export, but forget to set type := "boolean" in the 'columns' property
+        //       (headers := [ [ title := "My title", name="some_boolean_column", type := "text" ] ])
+        STRING data := this->FormatCell(col, row, formatcelldata);
+        IF(charset!="UTF-8")
+          data := EncodeCharset(data,charset);
+        data := Substitute(data, "\n", "\\n");
+        data := Substitute(data, "\t", "\\t");
+        PrintTo(output_csv, encode ? EncodeExcelCSV(data) : data);
+      }
+      PrintTo(output_csv, "\r\n");
+    }
+
+    RETURN MakeBlobFromStream(output_csv);
+  }
+
+  STRING FUNCTION FormatCell(RECORD coldef, RECORD listrow, RECORD formatcelldata) // Rough copy from tollium commondialogs, with storeutc removed
+  {
+    IF (NOT CellExists(coldef, "name"))
+      ABORT("No column 'name' in column definition (column title is '" || coldef.title || "'");
+
+    VARIANT mycell := GetCell(listrow, coldef.name);
+    SWITCH(coldef.type)
+    {
+      CASE "text"
+      {
+        IF (TypeID(mycell) != TypeID(STRING))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type STRING, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN mycell;
+      }
+      CASE "boolean"
+      {
+        IF (TypeID(mycell) != TypeID(BOOLEAN))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type BOOLEAN, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN BOOLEAN(mycell) ? formatcelldata.yes : formatcelldata.no;
+      }
+      CASE "date"
+      {
+        IF (TypeID(mycell) != TypeID(DATETIME))
+          THROW NEW Exception("Cell " || coldef.name || " should have type DATETIME, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        DATETIME date := mycell;
+        IF(date!=DEFAULT DATETIME AND date!=MAX_DATETIME)
+        {
+          //FIXME: The CellExists is a quick fix. Why isn't there a coldef.storeutc anyway?
+          //(test case: NBS module, "Export")
+          RETURN FormatDateTime("%d-%m-%Y", date);//CellExists(coldef, "storeutc") AND coldef.storeutc ? tolliumuser->UTCToLocal(date) : date, tolliumuser->language);
+        }
+        RETURN "";
+      }
+      CASE "integer"
+      {
+        IF (TypeID(mycell) != TypeID(INTEGER))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type INTEGER, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN ToString(mycell);
+      }
+      CASE "money"
+      {
+        IF (TypeID(mycell) != TypeID(MONEY))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type MONEY, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN FormatMoney(mycell, 0, formatcelldata.decimal, "", FALSE);
+      }
+      CASE "float"
+      {
+        IF (TypeID(mycell) != TypeID(FLOAT))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type FLOAT, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN FormatFloat(mycell, 12);
+      }
+      CASE "time"
+      {
+        IF (TypeID(mycell) != TypeID(DATETIME))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type DATETIME, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        DATETIME date := mycell;
+        IF(date!=DEFAULT DATETIME AND date!=MAX_DATETIME)
+          RETURN FormatDateTime("%#H:%M", date);//coldef.storeutc ? tolliumuser->UTCToLocal(date) : date, tolliumuser->language);
+
+        RETURN "";
+      }
+      CASE "datetime"
+      {
+        IF (TypeID(mycell) != TypeID(DATETIME))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type DATETIME, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+//        IF (NOT CellExists(coldef, "storeutc"))
+//          THROW NEW Exception("Cell '" || coldef.name || "' is missing a 'storeutc' (boolean) column");
+
+        DATETIME date := mycell;
+        IF(date!=DEFAULT DATETIME AND date!=MAX_DATETIME)
+          RETURN FormatDateTime("%d-%m-%Y %#H:%M", date);//coldef.storeutc ? tolliumuser->UTCToLocal(date) : date, tolliumuser->language);
+
+        RETURN "";
+      }
+      DEFAULT
+      {
+        ABORT("Unknown column type '" || coldef.type || "'");
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // To override
+  //
+
+  /** Returns all the CSV columns for this file
+      @return
+  */
+  RECORD ARRAY FUNCTION GetColumns()
+  {
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Add a new row to this table
+  */
+  PUBLIC MACRO WriteRecord(RECORD data)
+  {
+    INSERT data INTO this->pvt_elements AT END;
+  }
+
+  /** Describe the contents of this file (columns etc)
+      @param stream Stream to write the contents to
+  */
+  PUBLIC MACRO DescribeTo(INTEGER stream)
+  {
+  }
+
+  /** Creates the files (and sub-files) for this table
+      @return
+      @cell(string) return.folder Folder where the file must be placed
+      @cell(string) return.filename Name of the file
+      @cell(blob) return.data File data
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetFiles()
+  {
+    RETURN
+        [ [ folder := ""
+          , filename := this->name
+          , data := this->GetElementsCSV()
+          ]
+        ];
+  }
+>;
+
+/** A table file that contains WRD data. Arrays within these entities will be stored in files of the type WRDArrayValuesTableFile,
+    references from multipledomain attributes in a WRDRefsTableFile.
+*/
+STATIC OBJECTTYPE WRDTableFile EXTEND TableFile
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Type the data comes from
+  OBJECT pvt_wrdtype;
+
+  /// Attributes
+  RECORD ARRAY pvt_attrs;
+
+  /// Blob files (images and files)
+  RECORD ARRAY pvt_blobfiles;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT exporter, OBJECT wrdtype, RECORD parent_attr, STRING basename)
+  : TableFile(exporter, basename)
+  {
+    this->pvt_wrdtype := wrdtype;
+    this->pvt_attrs :=
+        SELECT AS RECORD ARRAY Any(x)
+          FROM wrdtype->ListAttributes(RecordExists(parent_attr) ? parent_attr.id : 0) AS x
+        WHERE tag NOT IN [ "WRD_GUID",  "WRD_ADDRESS_FORMAL" ]
+      GROUP BY tag;
+
+    FOREVERY (RECORD attr FROM this->pvt_attrs)
+    {
+      SWITCH (attr.attributetype)
+      {
+      CASE 8
+        {
+          INSERT CELL tablefile := NEW WRDRefsTableFile(this->pvt_exporter, this->pvt_wrdtype, parent_attr, attr, this->basename || "__" || attr.localtag) INTO this->pvt_attrs[#attr];
+        }
+      CASE 13
+        {
+          INSERT CELL tablefile := NEW WRDArrayValuesTableFile(this->pvt_exporter, wrdtype, parent_attr, attr, this->basename || "__" || attr.localtag) INTO this->pvt_attrs[#attr];
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO DescribeAttributesTo(INTEGER stream)
+  {
+    FOREVERY (RECORD attr FROM this->pvt_attrs)
+    {
+      IF (attr.tag = "WRD_GENDER")
+      {
+        PrintTo(stream, " INTEGER " || attr.localtag || ": Gender (0: unknown, 1: male, 2: female)\n");
+        CONTINUE;
+      }
+
+      SWITCH (attr.attributetype)
+      {
+        CASE 1  { PrintTo(stream, " INTEGER " || attr.localtag || ", references " || this->pvt_exporter->GetTypeTag(attr.domain) || ".WRD_ID"); }
+        CASE 8  { PrintTo(stream, " SET OF INTEGER " || attr.localtag || ", references " || this->pvt_exporter->GetTypeTag(attr.domain) || ".WRD_ID, see " || attr.tablefile->name || " for contents"); }
+        CASE 13 { PrintTo(stream, " ARRAY " || attr.localtag || ", see " || attr.tablefile->name || " for elements"); }
+        DEFAULT { PrintTo(stream, ` ${attr.attributetypename} ${attr.localtag}`); }
+      }
+      IF (attr.tag = "WRD_ID")
+        PrintTo(stream, ", primary key");
+      ELSE IF (attr.isunique)
+        PrintTo(stream, ", unique");
+
+      PrintTo(stream, ": " || attr.title || (attr.description = "" ? "" : ", " || attr.description) || "\n");
+    }
+
+    FOREVERY (RECORD attr FROM this->pvt_attrs)
+    {
+      IF (CellExists(attr, "TABLEFILE"))
+        attr.tablefile->DescribeTo(stream);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overridden functions
+  //
+
+  UPDATE PUBLIC MACRO WriteRecord(RECORD rec)
+  {
+    FOREVERY (RECORD attr FROM this->pvt_attrs)
+    {
+      SWITCH (attr.attributetype)
+      {
+        CASE 3
+        {
+          RECORD data := GetCell(rec, attr.localtag);
+          rec := CellDelete(rec, attr.localtag);
+          rec := CellInsert(rec, attr.localtag, EncodeJSON(data));
+        }
+        CASE 7
+        {
+          STRING data := GetCell(rec, attr.localtag);
+          rec := CellDelete(rec, attr.localtag);
+          rec := CellInsert(rec, attr.localtag, EncodeJSON(data));
+        }
+        CASE 8
+        {
+          INTEGER ARRAY data := GetCell(rec, attr.localtag);
+          rec := CellDelete(rec, attr.localtag);
+
+          STRING ARRAY vals;
+          FOREVERY (INTEGER v FROM data)
+          {
+            INSERT ToString(v) INTO vals AT END;
+
+            RECORD towrite := [ wrd_target := v ];
+            IF (CellExists(rec, "WRD_SETTINGID"))
+              INSERT CELL wrd_parent_setting := rec.wrd_settingid INTO towrite;
+            ELSE
+              INSERT CELL wrd_entity := rec.wrd_id INTO towrite;
+
+            attr.tablefile->WriteRecord(towrite);
+          }
+
+          rec := CellInsert(rec, attr.localtag, Detokenize(vals, ", "));
+        }
+        CASE 9, 10
+        {
+          RECORD data := GetCell(rec, attr.localtag);
+          rec := CellDelete(rec, attr.localtag);
+
+          STRING filename;
+          STRING fullpath;
+          IF (RecordExists(data))
+          {
+            filename := ToString(attr.attributetype = 9 ? data.imageid : data.fileid);
+            IF (data.filename != "")
+              filename := filename || "_" || data.filename;
+            ELSE IF (CellExists(rec, "WRD_TITLE"))
+              filename := filename || "_" || GetSafeFileName(rec.wrd_title) || "." || data.extension;
+            ELSE
+              filename := filename || "." || data.extension;
+
+            fullpath := "files_" || ToLowercase(this->basename) || "/" || filename;
+            INSERT
+                [ filename := filename
+                , fullpath := fullpath
+                , data := data.data
+                ] INTO this->pvt_blobfiles AT END;
+          }
+
+          rec := CellInsert(rec, attr.localtag, fullpath);
+
+          // FIXME: write out file to blob file
+//          ABORT("EXPORTING TYPE " || attr.attributetype || " NOT IMPLEMENTED");
+        }
+        CASE 13
+        {
+          RECORD ARRAY data := GetCell(rec, attr.localtag);
+          rec := CellDelete(rec, attr.localtag);
+
+          INTEGER ARRAY elements := SELECT AS INTEGER ARRAY wrd_settingid FROM data;
+          STRING ARRAY vals;
+
+          FOREVERY (RECORD elt FROM data)
+          {
+            IF (CellExists(rec, "WRD_SETTINGID"))
+              INSERT CELL wrd_parent_setting := rec.wrd_settingid INTO elt;
+            ELSE
+              INSERT CELL wrd_entity := rec.wrd_id INTO elt;
+            INSERT CELL wrd_ordering := #elt + 1 INTO elt;
+
+            INSERT ToString(elt.wrd_settingid) INTO vals AT END;
+            attr.tablefile->WriteRecord(elt);
+          }
+
+          rec := CellInsert(rec, attr.localtag, Detokenize(vals, ", "));
+        }
+        CASE 14 //money
+        {
+          MONEY data := GetCell(rec, attr.localtag);
+          rec := CellDelete(rec, attr.localtag);
+          rec := CellInsert(rec, attr.localtag, FormatMoney(data, 0, ".", "", FALSE));
+        }
+        CASE 17 //RICHDOCUMENT
+        {
+          RECORD data := GetCell(rec, attr.localtag);
+          rec := CellDelete(rec, attr.localtag);
+          rec := CellInsert(rec, attr.localtag, RecordExists(data) ? BlobToString(data.htmltext) : "");
+        }
+        CASE 24 //enumarray
+        {
+          STRING ARRAY data := GetCell(rec, attr.localtag);
+          rec := CellDelete(rec, attr.localtag);
+          rec := CellInsert(rec, attr.localtag, Detokenize(data,'; '));
+        }
+        DEFAULT
+        {
+          IF(TYpeID(Getcell(rec,attr.localtag))=TypeID(RECORD))
+          {
+            RECORD data := GetCell(rec, attr.localtag);
+            rec := CellDelete(rec, attr.localtag);
+            rec := CellInsert(rec, attr.localtag, RecordExists(data) ? EncodeJSON(data) : "");
+          }
+        }
+
+      }
+    }
+
+    INSERT rec INTO this->pvt_elements AT END;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetFiles()
+  {
+    RECORD ARRAY files := TableFile::GetFiles();
+
+    files := files CONCAT
+        SELECT folder := "files_" || ToLowercase(this->pvt_basename)
+             , filename := ToLowercase(filename)
+             , data
+          FROM this->pvt_blobfiles;
+
+    FOREVERY (RECORD attr FROM this->pvt_attrs)
+    {
+      IF (CellExists(attr, "TABLEFILE"))
+        files := files CONCAT attr.tablefile->GetFiles();
+    }
+
+    RETURN files;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions to override
+  //
+
+  /** Return the columns for the CSV
+  */
+  UPDATE RECORD ARRAY FUNCTION GetColumns()
+  {
+    RECORD ARRAY elts;
+
+    FOREVERY (RECORD attr FROM this->pvt_attrs)
+    {
+      STRING type := "integer";
+      SWITCH (attr.attributetype)
+      {
+      CASE 1, 11, 15 { type := "integer"; }
+      CASE 6, 12 { type := "datetime"; }
+      CASE 16 { type := "boolean"; }
+      DEFAULT { type := "text"; }
+      }
+      INSERT
+          [ title := attr.localtag
+          , name := attr.localtag
+          , type := type
+          ] INTO elts AT END;
+    }
+    RETURN elts;
+  }
+>;
+
+STATIC OBJECTTYPE WRDRefsTableFile EXTEND TableFile
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Type that contains the referencing attribute
+  OBJECT pvt_wrdtype;
+
+  /// Attribute that contains the multiple domain attribute this file contains the values for
+  RECORD pvt_parent_attr;
+
+  /// The multiple domain attribute this file contains the values for
+  RECORD pvt_attr;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+MACRO NEW(OBJECT exporter, OBJECT wrdtype, RECORD parent_attr, RECORD attr, STRING basename)
+  : TableFile(exporter, basename)
+  {
+    this->pvt_wrdtype := wrdtype;
+    this->pvt_parent_attr := parent_attr;
+    this->pvt_attr := attr;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overriden functions
+  //
+
+  UPDATE PUBLIC MACRO DescribeTo(INTEGER stream)
+  {
+    PrintTo(stream, "\nTable file " || this->name || "\n");
+    PrintTo(stream, "References for attribute " || this->pvt_wrdtype->tag || "." || this->pvt_attr.tag || " to " || this->pvt_exporter->GetTypeTag(this->pvt_attr.domain) || ".WRD_ID\n");
+    PrintTo(stream, "Attributes:\n");
+
+    IF (RecordExists(this->pvt_parent_attr))
+      PrintTo(stream, " INTEGER WRD_PARENT_SETTING, references " || this->pvt_wrdtype->tag || "." || this->pvt_parent_attr.tag || ".WRD_SETTINGID\n");
+    ELSE
+      PrintTo(stream, " INTEGER WRD_ENTITY, references " || this->pvt_wrdtype->tag || ".WRD_ID\n");
+    PrintTo(stream, " INTEGER WRD_TARGET, references " || this->pvt_exporter->GetTypeTag(this->pvt_attr.domain) || ".WRD_ID");
+  }
+
+  UPDATE RECORD ARRAY FUNCTION GetColumns()
+  {
+    RECORD ARRAY elts;
+    IF (RecordExists(this->pvt_parent_attr))
+      elts :=
+          [ [ title := "WRD_PARENT_SETTING"
+            , name := "WRD_PARENT_SETTING"
+            , type := "integer"
+            ]
+          ];
+    ELSE
+      elts :=
+          [ [ title := "WRD_ENTITY"
+            , name := "WRD_ENTITY"
+            , type := "integer"
+            ]
+          ];
+
+    elts := elts CONCAT
+      [ [ title := "WRD_TARGET"
+        , name := "WRD_TARGET"
+        , type := "integer"
+        ]
+      ];
+
+    RETURN elts;
+  }
+
+>;
+
+
+/** A table file that contains WRD entities. Arrays within these entities will be stored in files of the type WRDArrayValuesTableFile.
+*/
+STATIC OBJECTTYPE WRDEntitiesTableFile EXTEND WRDTableFile
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT exporter, OBJECT wrdtype, STRING basename)
+  : WRDTableFile(exporter, wrdtype, DEFAULT RECORD, basename)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overridden functions
+  //
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetFiles()
+  {
+    RECORD ARRAY files := TableFile::GetFiles();
+
+    files := files CONCAT
+        SELECT folder := "files_" || ToLowercase(this->pvt_basename)
+             , filename := ToLowercase(filename)
+             , data
+          FROM this->pvt_blobfiles;
+
+    FOREVERY (RECORD attr FROM this->pvt_attrs)
+    {
+      IF (CellExists(attr, "TABLEFILE"))
+        files := files CONCAT attr.tablefile->GetFiles();
+    }
+
+    RETURN files;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions to override
+  //
+
+  UPDATE PUBLIC MACRO DescribeTo(INTEGER stream)
+  {
+    PrintTo(stream, "\nTable file " || this->name || "\n");
+    PrintTo(stream, "Type " || this->pvt_wrdtype->id || " - " || this->pvt_wrdtype->tag || ": " || this->pvt_wrdtype->title || "\n");
+    PrintTo(stream, "Attributes:\n");
+    this->DescribeAttributesTo(stream);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO WriteType()
+  {
+    RECORD outputs;
+    FOREVERY (RECORD r FROM this->pvt_attrs)
+      outputs := CellInsert(outputs, r.tag, r.tag);
+
+    RECORD ARRAY alldata := this->pvt_wrdtype->RunQuery([ outputcolumns := outputs, historymode := "all" ]);
+    FOREVERY (RECORD rec FROM alldata)
+      this->WriteRecord(rec);
+  }
+
+>;
+
+
+/** A table file that contains WRD array values. Arrays within these values will be stored in files of the type WRDArrayValuesTableFile.
+*/
+STATIC OBJECTTYPE WRDArrayValuesTableFile EXTEND WRDTableFile
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Attribute that contains the array attribute this file contains the values for
+  RECORD pvt_parent_attr;
+
+  /// The array attribute this file contains the values for
+  RECORD pvt_attr;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Construct a new WRDArrayValuesTableFile
+      @param exporter
+      @param wrdtype
+      @param parent_attr (optional) attribute that contains the array from parent_attr.
+      @param attr Array attribute that contains the array this file describes
+      @param basename
+  */
+  MACRO NEW(OBJECT exporter, OBJECT wrdtype, RECORD parent_attr, RECORD attr, STRING basename)
+  : WRDTableFile(exporter, wrdtype, attr, basename)
+  {
+    this->pvt_attr := attr;
+    this->pvt_parent_attr := parent_attr;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overriden functions
+  //
+
+  UPDATE RECORD ARRAY FUNCTION GetColumns()
+  {
+    RECORD ARRAY elts :=
+      [ [ title := "WRD_SETTINGID"
+        , name := "WRD_SETTINGID"
+        , type := "integer"
+        ]
+      ];
+
+    IF (RecordExists(this->pvt_parent_attr))
+      elts :=
+          [ [ title := "WRD_PARENT_SETTING"
+            , name := "WRD_PARENT_SETTING"
+            , type := "integer"
+            ]
+          ];
+    ELSE
+      elts :=
+          [ [ title := "WRD_ENTITY"
+            , name := "WRD_ENTITY"
+            , type := "integer"
+            ]
+          ];
+
+    elts := elts CONCAT
+      [ [ title := "WRD_ORDERING"
+        , name := "WRD_ORDERING"
+        , type := "integer"
+        ]
+      ];
+
+    RETURN elts CONCAT WRDTableFile::GetColumns();
+  }
+
+  UPDATE PUBLIC MACRO DescribeTo(INTEGER stream)
+  {
+    PrintTo(stream, "\nTable file " || this->name || "\n");
+    PrintTo(stream, "Array elements for " || this->pvt_wrdtype->tag || "." || this->pvt_attr.tag || "\n");
+    PrintTo(stream, "Attributes:\n");
+    PrintTo(stream, " INTEGER WRD_SETTINGID, primary key\n");
+    IF (RecordExists(this->pvt_parent_attr))
+      PrintTo(stream, " INTEGER WRD_PARENT_SETTING, references " || this->pvt_wrdtype->tag || "." ||this->pvt_parent_attr.tag || ".WRD_SETTINGID\n");
+    ELSE
+      PrintTo(stream, " INTEGER WRD_ENTITY, references " || this->pvt_wrdtype->tag || ".WRD_ID\n");
+    PrintTo(stream, " INTEGER WRD_ORDERING: Ordering of element within array\n");
+
+    this->DescribeAttributesTo(stream);
+  }
+>;
+
+PUBLIC OBJECTTYPE WRDSchemaCSVExporter
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// List of types to export
+  RECORD ARRAY pvt_alltypes;
+
+  /// Files created in the last export
+  RECORD ARRAY pvt_files;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Don't export types that match any mask in this list
+  PUBLIC STRING ARRAY to_skip;
+
+  /// If not empty, only include types that match the masks in this list
+  PUBLIC STRING ARRAY to_include;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** Files created in the last export
+      @cell(string) folder
+      @cell(string) filename
+      @cell(string) data
+  */
+  PUBLIC PROPERTY files(pvt_files, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Returns the name of a type based on the type id
+  STRING FUNCTION GetTypeTag(INTEGER id)
+  {
+    RETURN
+        SELECT AS STRING tag
+          FROM this->pvt_alltypes
+         WHERE COLUMN id = VAR id;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC BLOB FUNCTION ExportSchema(OBJECT wrdschema, STRING archivetype)
+  {
+    RECORD ARRAY alltypes := wrdschema->ListTypes();
+    this->pvt_alltypes := DEFAULT RECORD ARRAY;
+
+    // Filter the types
+    FOREVERY (RECORD type FROM alltypes)
+    {
+      BOOLEAN include_type := LENGTH(this->to_include) = 0;
+
+      FOREVERY (STRING mask FROM this->to_include)
+        IF (type.tag LIKE ToUppercase(mask))
+          include_type := TRUE;
+      FOREVERY (STRING mask FROM this->to_skip)
+
+        IF (type.tag LIKE ToUppercase(mask))
+          include_type := FALSE;
+
+      IF (include_type)
+        INSERT type INTO this->pvt_alltypes AT END;
+    }
+
+    INTEGER dstream := CreateStream();
+
+    this->pvt_files := DEFAULT RECORD ARRAY;
+    FOREVERY (RECORD rec FROM this->pvt_alltypes)
+    {
+      OBJECT wrdtype := wrdschema->GetType(rec.tag);
+
+      OBJECT root := NEW WRDEntitiesTableFile(PRIVATE this, wrdtype, wrdtype->tag);
+      root->WriteType();
+      root->DescribeTo(dstream);
+
+      this->pvt_files := this->pvt_files CONCAT root->GetFiles();
+    }
+
+    INSERT
+        [ folder := ""
+        , filename := "structure.txt"
+        , data := MakeBlobFromStream(dstream)
+        ] INTO this->pvt_files AT 0;
+
+    OBJECT archive := CreateNewArchive(archivetype);
+    FOREVERY (STRING filepath FROM SELECT AS STRING ARRAY folder FROM this->pvt_files WHERE folder != "" GROUP BY folder)
+      archive->AddFolder(filepath, GetCurrentDateTime());
+    FOREVERY (RECORD rec FROM this->pvt_files)
+      archive->AddFile(rec.folder = "" ? rec.filename : rec.folder || "/" || rec.filename, rec.data, GetCurrentDateTime());
+
+    RETURN archive->MakeBlob();
+  }
+>;

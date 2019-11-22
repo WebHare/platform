@@ -1,0 +1,74 @@
+<?wh
+
+
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/forms/components.whlib" EXPORT FormHandlerBase;
+
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+PUBLIC OBJECT FUNCTION InstantiateFormhandler(OBJECT form, RECORD handler, INTEGER formid)
+{
+  RECORD save_formhandlerinit := __pvt_formhandlerinit;
+  OBJECT handlerobj;
+  TRY
+  {
+    __pvt_formhandlerinit := CELL[ handler, formid, form ];
+    STRING handlername := handler.handlertype = "http://www.webhare.net/xmlns/publisher/forms#customhandler" ? handler.settings.handlerobject : handler.handlerobject;
+    handlerobj := handlername != "" ? MakeObject(handlername) : NEW FormHandlerBase;
+    IF(handlerobj NOT EXTENDSFROM FormHandlerBase)
+      THROW NEW Exception(`Form submit handler '${handler.handlerobject}' doesn't derive from FormHandlerBase`);
+  }
+  FINALLY
+  {
+    __pvt_formhandlerinit := save_formhandlerinit;
+  }
+
+  RETURN handlerobj;
+}
+
+RECORD FUNCTION GetFormInstance(OBJECT formdefinitions, STRING id)
+{
+  RETURN ObjectExists(formdefinitions) ? formdefinitions->GetInstance(id) : DEFAULT RECORD;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ParseFormHandlers(OBJECT root, STRING module, STRING gid, OBJECT formdefinitions, BOOLEAN validatexmlonly)
+{
+  OBJECT handlerholder := root->GetChildElementsByTagNameNS(xmlns_forms, "handlers")->Item(0);
+  IF(NOT ObjectExists(handlerholder))
+    RETURN RECORD[];
+
+  RECORD ARRAY handlers;
+  FOREVERY(OBJECT handlernode FROM handlerholder->childnodes->GetCurrentElements())
+  {
+    RECORD match := GetFormHandlerDef(handlernode->namespaceuri, handlernode->localname, [ nofail := TRUE ]);
+
+    RECORD handler := CELL[ handlertype := `${match.namespace}#${match.name}`
+                          //ADDME introduce 'name' for handlers, but to find references to the old "name" we're not adding it yet
+                          , guid := handlernode->GetAttribute("guid")
+                          , condition := ObjectExists(formdefinitions) ? formdefinitions->GetConditionAttribute(handlernode, "conditionid") : DEFAULT RECORD
+                          , settings := CELL[]
+                          , match.handlertask
+                          , match.handlertaskfor
+                          , match.handlerobject
+                          ];
+
+    IF (match.parserfunc != "")
+    {
+      handler.settings := MakeFunctionPtr(match.parserfunc)(handler.settings, handlernode,
+          [ parsexmltidptr := PTR ParseXMLTidPtr(module, gid, #1, #2)
+          , getinstance := validatexmlonly ? DEFAULT MACRO PTR : PTR GetFormInstance(formdefinitions, #1)
+          ]);
+    }
+    INSERT handler INTO handlers AT END;
+  }
+  RETURN handlers;
+}
+
+PUBLIC RECORD FUNCTION ParseCustomHandler(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := CELL[ ...fielddef
+                  , handlerobject := node->GetAttribute("handlerobject")
+                  ];
+  RETURN fielddef;
+}

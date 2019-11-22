@@ -1,0 +1,60 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+PUBLIC MACRO FormApitest()
+{
+  RECORD res := BuildCustomWebtoolForm( [ addgtmdatalayer := "muhdata", addtslinecomp := TRUE, addtslinecompascustom := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE,checkboxes := TRUE, checkboxfieldconditions := FALSE, setmailresultsfields := TRUE, checkboxsubs := TRUE, addconditions := TRUE]);
+
+  OBJECT formdefs := OpenWHFSFormDefinitionsFile(res.formfile);
+  OBJECT formdef := formdefs->OpenFormDefinition("webtoolform");
+  OBJECT formpage := formdef->GetPage(0);
+
+  TestEq(DEFAULT OBJECT, formpage->LookupComponent("doesnotexist"), "requesting nonexisting component should not crash");
+
+  // Ensure duplicated questions are cleared from pins and name, and have a new guid
+  OBJECT firstname := formpage->LookupComponent("firstname");
+  TestEq(TRUE, ObjectExists(firstname));
+  TestEq(TRUE, firstname->GetAttribute("tid") != "");
+
+  OBJECT firstname2 := formpage->DuplicateComponent(firstname);
+  TestEq(TRUE, ObjectExists(firstname2));
+  TestEq(firstname->GetAttribute("tid"), firstname2->GetAttribute("tid"));
+  TestEq(TRUE, firstname2->IsSameNode(firstname->nextelementsibling), "component should be inserted right next to its source");
+  TestEq(firstname->GetAttribute("title"), firstname2->GetAttribute("title"), "title should be copied");
+  TestEq(FALSE, firstname2->HasAttribute("pins"));
+  TestEq(FALSE, firstname2->HasAttribute("name"));
+  TestEq(TRUE, firstname->GetAttribute("guid") != firstname2->GetAttribute("guid"));
+
+  // Ensure duplicated <option>s have their subquestions duplicated too, and properly reset
+  OBJECT checkboxes := formpage->LookupComponent("checkboxes");
+  OBJECT checkboxes_option0 := checkboxes->QuerySelector("option");
+  TestEq(DEFAULT OBJECT, formpage->LookupComponent(checkboxes_option0->GetAttribute("guid")), "LookupComponent should not match options");
+  TestEq(DEFAULT OBJECT, formpage->LookupComponent(checkboxes_option0->GetAttribute("rowkey")), "LookupComponent should not match options");
+
+  OBJECT checkboxes_option1_textedit := checkboxes->QuerySelectorAll("option")->Item(2)->QuerySelector("textedit");
+
+  OBJECT checkboxes2 := formpage->DuplicateComponent(checkboxes);
+  OBJECT checkboxes2_option0 := checkboxes2->QuerySelector("option");
+  TestEq(FALSE, checkboxes->GetAttribute("guid") = checkboxes2->GetAttribute("guid"));
+  TestEq(checkboxes->QuerySelectorAll("option")->length, checkboxes2->QuerySelectorAll("option")->length);
+
+  OBJECT checkboxes2_option1_textedit := checkboxes2->QuerySelectorAll("option")->Item(2)->QuerySelector("textedit");
+  TestEq(TRUE, ObjectExists(checkboxes2_option1_textedit));
+  TestEq(TRUE, checkboxes_option1_textedit->GetAttribute("guid") != checkboxes2_option1_textedit->GetAttribute("guid"));
+
+  // Ensure conditions are duplicated (their GUID must be new)
+  OBJECT checkboxes_option2 := checkboxes->QuerySelectorAll("option")->Item(2);
+  OBJECT checkboxes2_option2 := checkboxes2->QuerySelectorAll("option")->Item(2);
+
+  TestEq(TRUE, checkboxes_option2->GetAttribute("visibleconditionid") != checkboxes2_option2->GetAttribute("visibleconditionid"));
+  TestEq(formdefs->GetConditionAttribute(checkboxes_option2, "visibleconditionid"), formdefs->GetConditionAttribute(checkboxes2_option2, "visibleconditionid") );
+}
+
+RunTestframework([ PTR FormApitest
+                 ] ,[ canceltasks := ["publisher:mailfeedback","publisher:mailresults"]
+                    ]);

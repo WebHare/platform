@@ -1,0 +1,700 @@
+﻿<?wh
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/validation.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+RECORD ARRAY cache_componentdefs;
+RECORD ARRAY cache_singlecomponentdefs;
+
+RECORD FUNCTION GetNamespacedTarget(OBJECT element, STRING elementname)
+{
+  IF(NOT element->HasAttribute(elementname))
+    RETURN DEFAULT RECORD;
+
+  STRING type := element->GetAttribute(elementname);
+  STRING ns;
+  INTEGER colonpos := SearchSubstring(type,':');
+
+  IF(colonpos = -1)
+  {
+    RETURN [ namespaceuri := element->LookupNamespaceURI("")
+           , localname := type
+           ];
+  }
+  ELSE
+  {
+    RETURN [ namespaceuri := element->LookupNamespaceURI(Left(type,colonpos))
+           , localname := Substring(type, colonpos+1)
+           ];
+  }
+}
+
+INTEGER FUNCTION GetHSTypeId(STRING typename)
+{
+  SWITCH(typename)
+  {
+    CASE "boolean"     { RETURN TypeID(BOOLEAN); }
+    CASE "integer"     { RETURN TypeID(INTEGER); }
+    CASE "integer64"   { RETURN TypeID(INTEGER64); }
+    CASE "string"      { RETURN TypeID(STRING); }
+    CASE "object"      { RETURN TypeID(OBJECT); }
+    CASE "record"      { RETURN TypeID(RECORD); }
+    CASE "recordarray" { RETURN TypeID(RECORD ARRAY); }
+    CASE "stringarray" { RETURN TypeID(STRING ARRAY); }
+    CASE "integerarray" { RETURN TypeID(INTEGER ARRAY); }
+    CASE "integer64array" { RETURN TypeID(INTEGER64 ARRAY); }
+    CASE "variant"     { RETURN TypeID(VARIANT); }
+    CASE "datetime"     { RETURN TypeID(DATETIME); }
+    DEFAULT            { THROW NEW Exception("Unrecognized argument type '" || typename || "'"); }
+  }
+}
+
+RECORD FUNCTION GetAppinfoNodeWithSource(OBJECT ARRAY node_priority_list, STRING ns, STRING nodename)
+{
+  OBJECT comp;
+  OBJECT match;
+  RECORD comment;
+
+  FOREVERY(OBJECT node FROM node_priority_list)
+  {
+    FOREVERY(OBJECT annotation FROM node->annotations)
+      FOREVERY(OBJECT appinfo FROM annotation->application_information)
+      {
+        OBJECT ARRAY candidates := appinfo->ListElements(ns, nodename);
+        IF(ns = ns_tolliumcommon AND Length(candidates) = 0)
+          candidates := appinfo->ListElements(ns_screens, nodename); //if we're looking for ns_tolliumcommon, we also accept ns_screens
+
+        FOREVERY(OBJECT compinfo FROM candidates)
+        {
+          IF(ObjectExists(comp))
+            THROW NEW Exception("Duplicate {" || ns || "}" || nodename || " in element");
+          comp := compinfo;
+          match := node;
+          comment := GetAnnotiationUserDocumentation(node);
+        }
+      }
+
+    IF(ObjectExists(comp))
+      BREAK;
+  }
+  IF(ObjectExists(comp))
+    RETURN [ comp := comp
+           , source := match
+           , comment := comment
+           ];
+  ELSE
+    RETURN DEFAULT RECORD;
+}
+OBJECT FUNCTION GetAppinfoNode(OBJECT ARRAY node_priority_list, STRING ns, STRING nodename)
+{
+  RECORD res := GetAppInfoNodeWithSource(node_priority_list, ns, nodename);
+  RETURN RecordExists(res) ? res.comp : DEFAULT OBJECT;
+}
+RECORD ARRAY FUNCTION GetAppinfoNodesWithSources(OBJECT ARRAY node_priority_list, STRING ns, STRING nodename)
+{
+  RECORD ARRAY comps;
+  FOREVERY(OBJECT node FROM node_priority_list)
+    FOREVERY(OBJECT annotation FROM node->annotations)
+      FOREVERY(OBJECT appinfo FROM annotation->application_information)
+      {
+        OBJECT ARRAY candidates := appinfo->ListElements(ns, nodename);
+        IF(ns = ns_tolliumcommon AND Length(candidates) = 0)
+          candidates := appinfo->ListElements(ns_screens, nodename); //if we're looking for ns_tolliumcommon, we also accept ns_screens
+
+        FOREVERY(OBJECT comp FROM candidates)
+          INSERT [ comp := comp
+                 , match := node
+                 ] INTO comps AT END;
+      }
+
+  RETURN comps;
+}
+OBJECT ARRAY FUNCTION GetAppinfoNodes(OBJECT ARRAY node_priority_list, STRING ns, STRING nodename)
+{
+  RETURN SELECT AS OBJECT ARRAY comp FROM GetAppinfoNodesWithSources(node_priority_list, ns, nodename);
+}
+
+INTEGER ARRAY FUNCTION GetCallbackSignature(OBJECT el, STRING baseattr)
+{
+  INTEGER ARRAY callbacksig;
+  INSERT el->HasAttribute(baseattr ||"returntype") ? GetHSTypeId(el->GetAttribute(baseattr ||"returntype")) : 0 INTO callbacksig AT END;
+  FOREVERY(STRING argtype FROM ParseXSList(el->GetAttribute(baseattr || "arguments")))
+    INSERT GetHSTypeId(argtype) INTO callbacksig AT END;
+
+  RETURN callbacksig;
+}
+
+RECORD FUNCTION ParseAttributeType(OBJECT decl)
+{
+  OBJECT attrtype := decl->type_definition;
+
+  STRING defaultval;
+  IF(RecordExists(decl->value_constraint) AND decl->value_constraint.type='default')
+    defaultval := decl->value_constraint.value;
+
+  OBJECT callbacksignode := GetAppinfoNode([decl], ns_tolliumcommon, "callbacksignature");
+  IF(ObjectExists(callbacksignode))
+  {
+    IF((attrtype->target_namespace = ns_screens OR attrtype->target_namespace = ns_tolliumcommon)
+       AND (attrtype->name = "Handler" OR attrtype->name="NotimplementedOrHandler"))
+    {
+      RETURN [ defaultvalue := DEFAULT RECORD
+             , recordtype := "handler"
+             , callback_signature := GetCallbackSignature(callbacksignode, "")
+             ];
+    }
+    THROW NEW Exception("Attribute '" || decl->name || "' is not declared as a Handler but has a <callbacksignature>");
+  }
+
+  RETURN ParseAttributeTypeDef(attrtype, decl->name, defaultval, GetModuleNameFromResourcePath(decl->xsdfilename));
+}
+
+PUBLIC RECORD FUNCTION ParseBordersSpacers(STRING celldata)
+{
+  RECORD border := tolliumdefaultborderspacer;
+  BOOLEAN border_all := ParseXSBoolean(celldata);
+  STRING ARRAY borders := ParseXSList(celldata);
+
+  IF (border_all OR "all" IN borders)
+  {
+    border.top := TRUE;
+    border.right := TRUE;
+    border.bottom := TRUE;
+    border.left := TRUE;
+  }
+  ELSE
+  {
+    border.top := "top" IN borders;
+    border.right := "right" IN borders;
+    border.bottom := "bottom" IN borders;
+    border.left := "left" IN borders;
+    /* usedefault is used to mark the borders not having been explicitly set
+       in XML. we need that in two cases:
+       - ensuring all but the leftmost column of a grid have a left spacer by default
+       - ensuring individual tabs inside a tabs type=server get their spacers removed
+
+       moving the first one to parser time is hard, because you need to take rowspan
+       of higher rows into account, but doable. the second one is impossible, as tabs
+       are often switched from regular to server during Init. we just can't fix that
+       one at parse time
+    */
+    border.usedefault := "default" IN borders;
+  }
+  RETURN border;
+}
+
+RECORD FUNCTION ParseAttributeTypeDef(OBJECT attrtype, STRING attrname, STRING defaultval, STRING module)
+{
+  IF(attrtype->name = "")
+  {
+    //Deeper analysis...
+    IF(attrtype->variety="list")
+    {
+      RETURN [ defaultvalue := ParseXSList(defaultval) ];
+    }
+    IF(attrtype->variety="atomic")
+    {
+      RETURN [ defaultvalue := defaultval ];
+    }
+    RETURN [ defaultvalue := DEFAULT RECORD, recordtype := "UNRECOGNIZED" ];
+  }
+
+  //Analyze the attribute type
+  IF(attrtype->target_namespace = ns_screens OR attrtype->target_namespace = ns_systemcommon OR attrtype->target_namespace = ns_tolliumcommon)
+  {
+    IF(attrtype->name = "Handler" OR attrtype->name = "NotimplementedOrHandler")
+      THROW NEW Exception(`Attribute '${attrname}' is a Handler but lacks a <callbacksignature>`);
+
+    IF(attrtype->name IN ["StringList","CheckFlags","Flags","InputValidationCheckList","SizeList","NameList","ValidationChecks"])
+    {
+      RETURN [ defaultvalue := ParseXSList(defaultval) ];
+    }
+    IF(attrtype->name = "Money")
+    {
+      RETURN [ defaultvalue := ToMoney(defaultval,0.0) ];
+    }
+    IF(attrtype->name = "ImageSrc")
+    {
+      RECORD retval := [ defaultvalue := DEFAULT RECORD, recordtype := "iconpointer", defaulticon := "" ];
+      IF(defaultval!="")
+      {
+        IF(defaultval NOT LIKE "*:*")
+          defaultval := module || ":" || defaultval;
+
+        retval.defaulticon := defaultval;
+      }
+      RETURN retval;
+    }
+    IF(attrtype->name = "ComponentRef")
+    {
+      RETURN [ defaultvalue := DEFAULT RECORD, recordtype := "componentref" ];
+    }
+    IF(attrtype->name = "ComponentRefList")
+    {
+      RETURN [ defaultvalue := DEFAULT RECORD, recordtype := "componentreflist" ];
+    }
+    IF(attrtype->name = "Gid")
+    {
+      RETURN [ defaultvalue := DEFAULT RECORD, recordtype := "gid" ];
+    }
+    IF(attrtype->name = "OptionalGid")
+    {
+      RETURN [ defaultvalue := DEFAULT RECORD, recordtype := "optionalgid" ];
+    }
+    IF(attrtype->name = "Color")
+    {
+      RETURN [ defaultvalue := DEFAULT RECORD, recordtype := "color" ];
+    }
+    IF(attrtype->name = "BordersSpacers")
+    {
+      RETURN [ defaultvalue := ParseBordersSpacers(defaultval), recordtype := "bordersspacers" ];
+    }
+    IF(attrtype->name = "ScreenFragmentReference")
+    {
+      RETURN [ defaultvalue := DEFAULT RECORD, recordtype := "screenfragmentref" ];
+    }
+    IF(attrtype->name = "DataFileRef")
+    {
+      RETURN [ defaultvalue := DEFAULT RECORD, recordtype := "datafileref" ];
+    }
+    IF(attrtype->name = "DataFileRefs")
+    {
+      RETURN [ defaultvalue := DEFAULT RECORD, recordtype := "datafilerefs" ];
+    }
+    IF(attrtype->name = "DeprecatedAttribute")
+    {
+      RETURN [ defaultvalue := "", warning := `Attribute '${attrname}' has been deprecated` ];
+    }
+    RETURN [ defaultvalue := defaultval ];
+  }
+  IF(attrtype->target_namespace = ns_xmlschema)
+  {
+    IF(attrtype->name = "string")
+    {
+      RETURN [ defaultvalue := defaultval ];
+    }
+    IF(attrtype->name = "integer" OR attrtype->name="nonNegativeInteger")
+    {
+      RETURN [ defaultvalue := ParseXSInt(defaultval) ];
+    }
+    IF(attrtype->name = "integer64")
+    {
+      RETURN [ defaultvalue := ParseXSInt64(defaultval) ];
+    }
+    IF(attrtype->name = "boolean")
+    {
+      RETURN [ defaultvalue := ParseXSBoolean(defaultval) ];
+    }
+    IF (attrtype->name = "float")
+    {
+      RETURN [ defaultvalue := ToFloat(defaultval,0.0) ];
+    }
+    RETURN [ defaultvalue := defaultval ];
+  }
+  RETURN [ defaultvalue := defaultval ];
+}
+
+RECORD FUNCTION GetAnnotiationUserDocumentation(OBJECT node)
+{
+  RECORD comment := [ line := node->source_xml_node->linenum, col := 0, text := "" ];
+
+  FOREVERY (OBJECT annotation FROM node->annotations)
+    FOREVERY (OBJECT userinfo FROM annotation->user_information)
+      IF (TrimWhitespace(userinfo->textcontent) != "")
+        comment := [ line := userinfo->linenum, col := 0, text := TrimWhitespace(userinfo->textcontent) ];
+
+  RETURN comment;
+}
+
+
+PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECORD ARRAY files, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+        [ domimpl :=      DEFAULT OBJECT
+        , withcomments := FALSE
+        ], options);
+
+  RECORD retval := [ success := FALSE
+                   , errors := RECORD[]
+                   , warnings := RECORD[]
+                   , components := RECORD[]
+                   , files := files
+                   ];
+
+  STRING module := GetModuleNameFromResourcePath(resourcename);
+  STRING targetns := doc->documentelement->GetAttribute("targetNamespace");
+
+  OBJECT domimpl := options.domimpl ?? GetWebhareXMLDOMImplementation();
+  OBJECT parser := CreateXSD2001Parser(domimpl);
+  ParseXSDSchema(parser, doc->documentelement, resourcename);
+
+  IF (options.withcomments)
+    INSERT CELL comment := GetAnnotiationUserDocumentation(parser->schema_information) INTO retval;
+
+  FOREVERY(RECORD element FROM parser->elements)
+  {
+    IF(element.namespaceuri != targetns)
+      CONTINUE; //don't parse imported elements, as that's not what we're being asked to do right now
+
+    RECORD elrec:= [ name := element.name
+                   , namespaceuri := element.namespaceuri
+                   , xml_fields := DEFAULT RECORD ARRAY
+                   //, extraparsers := DEFAULT RECORD ARRAY
+                   , placement := ""
+                   , objtype := ""
+                   , fragment := ""
+                   , validator := ""
+                   , comment := DEFAULT RECORD
+                   ];
+
+    //Print(elrec.name||"\n");
+
+    OBJECT ARRAY node_priority_list := [ OBJECT(element.node) ];
+
+    //Process typedef and any extensions
+    OBJECT walkext := element.node->type_definition;
+    WHILE(ObjectExists(walkext))
+    {
+      INSERT walkext INTO node_priority_list AT END;
+      IF(walkext->type="SIMPLETYPE" OR walkext->derivation_method!='extension')
+        BREAK;
+
+      walkext := walkext->base_type_definition;
+    }
+
+    RECORD tolliumcompinfo := GetAppinfoNodeWithSource(node_priority_list, ns_screens, "tolliumcomponent");
+    IF(NOT RecordExists(tolliumcompinfo))
+      CONTINUE; //ignore elements without a <tolliumcomponent> declaration
+
+    IF (options.withcomments)
+      elrec.comment := tolliumcompinfo.comment;
+
+    OBJECT tolliumcomp := tolliumcompinfo.comp;
+    elrec.placement := tolliumcomp->GetAttribute("placement");
+    elrec.validator := MakeAbsoluteResourcePath(resourcename, tolliumcomp->GetAttribute("validator"));
+
+    IF(tolliumcomp->HasAttribute("placement"))
+      IF(elrec.placement NOT IN ["block","inline","composition","menu", "toolbar","fragment","screens","row","action","listcolumn","optionsource","tabsextension","rte","autosuggest","mapicon"])
+        INSERT CELL[ line := tolliumcomp->linenum, col := 0, resourcename, message := `Invalid placement '${elrec.placement}' for element '${element.name}'` ] INTO retval.errors AT END;
+
+    IF(tolliumcomp->HasAttribute("objecttype") AND NOT tolliumcomp->HasAttribute("lib"))
+    {
+      elrec.objtype := MakeAbsoluteResourcePath(resourcename, tolliumcomp->GetAttribute("objecttype"));
+    }
+    ELSE IF(tolliumcomp->HasAttribute("lib"))
+    {
+      STRING lib := tolliumcomp->GetAttribute("lib");
+    //  IF(tolliumcomp->HasAttribute("fragment"))
+    //    THROW NEW Exception("Component cannot set both fragment and lib/objtype: " || element.name || " in " || resourcename || ":" || element.node->source_xml_node->linenum);
+
+      IF(NOT IsAbsoluteResourcePath(lib))
+      {
+        //Discover the proper module. We can't just take 'module' as the library may have come from an imported schema
+        STRING libmodule := GetModuleNameFromResourcePath(tolliumcompinfo.source->xsdfilename);
+        lib := "module::" || libmodule || "/" || lib;
+      }
+      elrec.objtype := lib || "#" || tolliumcomp->GetAttribute("objecttype");
+    }
+
+    IF(tolliumcomp->HasAttribute("fragment"))
+    {
+      elrec.fragment := MakeAbsoluteScreenReference(resourcename, tolliumcomp->GetAttribute("fragment"));
+    }
+
+    //print(element.node->type||"\n");
+
+    //Tids need special processing
+    OBJECT ARRAY attrs := element.node->type_definition->attribute_uses;
+    RECORD ARRAY tids := ExtractTIDAttributes(attrs);
+
+    FOREVERY(RECORD tid FROM tids)
+      IF(tid.namespaceuri="")
+      {
+        RECORD fieldrec :=
+            [ name :=           tid.name
+            , basename :=       tid.basename
+            , defaultvalue :=   DEFAULT RECORD
+            , recordtype :=     tid.type // 'tid' or 'tidptr'
+            ];
+
+        IF(tid.defaulttid != '')
+        {
+          STRING thedefault := tid.defaulttid;
+          IF(thedefault NOT LIKE "*:*")
+            thedefault := module || ":" || thedefault;
+          INSERT CELL defaulttid := thedefault INTO fieldrec;
+        }
+
+        IF (options.withcomments)
+        {
+          INSERT CELL comment := GetAnnotiationUserDocumentation(tid.attr->attribute_declaration) INTO fieldrec;
+          INSERT CELL required := tid.attr->required INTO fieldrec;
+        }
+
+        INSERT fieldrec INTO elrec.xml_fields AT END;
+      }
+
+    FOREVERY(OBJECT attr FROM attrs)
+    {
+      //Hmmm  attr->name is leeg? what's the point? AttributeUses wanneer hebben ze nut?
+      //Print("Attribute " || attr->name || " type " || attr->type || "\n");
+      //dumpvalue(attr,'tree');
+
+      OBJECT decl := attr->attribute_declaration;
+      OBJECT attrtype := decl->type_definition;
+      BOOLEAN istid := (attrtype->name = "Tid" OR attrtype->name = "TidPtr") AND (attrtype->target_namespace = ns_screens OR attrtype->target_namespace = ns_systemcommon);
+
+      IF(decl->target_namespace!='')
+        THROW NEW Exception("Namespaced attributes not supported for tollium components - trying to create " || decl->target_namespace || ":" || decl->name || " in " || resourcename || ":" || decl->source_xml_node->linenum);
+
+      //dumpvalue(attrtype,'tree');
+
+      //Print("DECL " || decl->name || " " || attrtype->target_namespace || ":" || attrtype->name || "\n");
+
+      RECORD fieldrec := ParseAttributeType(decl);
+      IF(RecordExists(SELECT FROM tids WHERE namespaceuri = decl->target_namespace AND basename = decl->name))
+      {
+        //This one is not directly interesting, but it still shouldn't conflict
+        IF(istid)
+          THROW NEW Exception("Title counterpart of a tid is also declared as tid: " || decl->target_namespace || ":" || decl->name || " in " || resourcename || ":" || decl->source_xml_node->linenum);
+        IF(TypeId(fieldrec.defaultvalue) != TypeID(STRING))
+          THROW NEW Exception("Title counterpart of a tid with an improper type: " || decl->target_namespace || ":" || decl->name || " in " || resourcename || ":" || decl->source_xml_node->linenum);
+        IF(fieldrec.defaultvalue != "")
+          THROW NEW Exception("Title counterpart of a tid with a default value: " || decl->target_namespace || ":" || decl->name || " in " || resourcename || ":" || decl->source_xml_node->linenum);
+
+        CONTINUE; //already dealt with its tid counterpart.
+      }
+
+      IF(istid)
+        CONTINUE; //already dealt with tids
+
+      IF (options.withcomments)
+      {
+        INSERT CELL comment := GetAnnotiationUserDocumentation(decl) INTO fieldrec;
+        INSERT CELL required := attr->required INTO fieldrec;
+      }
+
+      INSERT CELL name := decl->name INTO fieldrec;
+
+      INSERT fieldrec INTO elrec.xml_fields AT END;
+    }
+
+    //FIXME simply iterate ALL info nodes and skip tolliumcomponent....
+    OBJECT ARRAY extraparsers := GetAppinfoNodes(node_priority_list, ns_screens, "extraparser");
+    FOREVERY(OBJECT extraparser FROM extraparsers)
+    {
+      INSERT [ name := extraparser->GetAttribute("field")
+             , defaultvalue := DEFAULT RECORD
+             , recordtype := "extraparser"
+             , parser := GetNamespacedTarget(extraparser,"type")
+             , target := extraparser->GetAttribute("target")
+             , target_namespaces := extraparser->GetVisibleNamespaces()
+             ] INTO elrec.xml_fields AT END;
+
+      //ADDME validate extra parser type
+    }
+
+    FOREVERY(RECORD field FROM GetAppinfoNodesWithSources(node_priority_list, ns_screens, "fixedfield"))
+    {
+      //FIXME should mark this as never-parse, not rely on the XSD preventing the attribute being added
+      RECORD typeinfo := GetNamespacedTarget(field.comp, "type");
+      RECORD datatype := SELECT * FROM parser->datatypes WHERE namespaceuri = typeinfo.namespaceuri AND name = typeinfo.localname;
+
+      STRING fieldname := field.comp->GetAttribute("field");
+      RECORD fieldrec := ParseAttributeTypeDef(datatype.node, fieldname, field.comp->GetAttribute("value"), GetModuleNameFromResourcePath(field.match->xsdfilename));
+      INSERT CELL name := fieldname INTO fieldrec;
+      INSERT fieldrec INTO elrec.xml_fields AT END;
+    }
+
+    OBJECT acceptdrops := GetAppinfoNode(node_priority_list, ns_screens, "acceptdrops");
+    IF(ObjectExists(acceptdrops))
+    {
+      INSERT [ name := acceptdrops->GetAttribute("field")
+             , defaultvalue := DEFAULT RECORD
+             , recordtype := "extraparser"
+             , parser := [ namespaceuri := ns_screens, localname := "acceptdrops" ]
+             , ondrop_signature := GetCallbackSignature(acceptdrops, "ondrop_")
+             , target := acceptdrops->GetAttribute("target")
+             , target_namespaces := acceptdrops->GetVisibleNamespaces()
+             ] INTO elrec.xml_fields AT END;
+    }
+
+    OBJECT listrows := GetAppinfoNode(node_priority_list, ns_screens, "listrows");
+    IF(ObjectExists(listrows))
+    {
+      INSERT [ name := listrows->GetAttribute("field")
+             , defaultvalue := DEFAULT RECORD
+             , recordtype := "extraparser"
+             , parser := [ namespaceuri := ns_screens, localname := "listrows" ]
+             , columnsfield := listrows->GetAttribute("columnsfield")
+             , rowkeytypefield := listrows->GetAttribute("rowkeytypefield")
+             , rowiconnamefield := listrows->GetAttribute("rowiconnamefield")
+             , flagsfield := listrows->GetAttribute("flagsfield")
+             , target := listrows->GetAttribute("target")
+             , target_namespaces := listrows->GetVisibleNamespaces()
+             ] INTO elrec.xml_fields AT END;
+    }
+
+    OBJECT optionsources := GetAppinfoNode(node_priority_list, ns_screens, "optionsources");
+    IF(ObjectExists(optionsources))
+    {
+      INSERT [ name := optionsources->GetAttribute("field")
+             , defaultvalue := DEFAULT RECORD
+             , recordtype := "extraparser"
+             , parser := [ namespaceuri := ns_screens, localname := "optionsources" ]
+             , rowkeytypefield := optionsources->GetAttribute("rowkeytypefield")
+             , flagsfield := optionsources->GetAttribute("flagsfield")
+             , target := optionsources->GetAttribute("target")
+             , target_namespaces := optionsources->GetVisibleNamespaces()
+             ] INTO elrec.xml_fields AT END;
+    }
+
+    FOREVERY(OBJECT childcomponents FROM GetAppinfoNodes(node_priority_list, ns_screens, "childcomponents"))
+    {
+      INSERT [ name := childcomponents->GetAttribute("field")
+             , defaultvalue := DEFAULT RECORD
+             , recordtype := "extraparser"
+             , parser := [ namespaceuri := ns_screens, localname := "childcomponents" ]
+             , target := childcomponents->GetAttribute("target")
+             , target_namespaces := childcomponents->GetVisibleNamespaces()
+             , adoptfields := ParseXSList(childcomponents->GetAttribute("adoptfields"))
+             ] INTO elrec.xml_fields AT END;
+    }
+
+    OBJECT dividedcomponents := GetAppinfoNode(node_priority_list, ns_screens, "dividedcomponents");
+    IF(ObjectExists(dividedcomponents))
+    {
+      INSERT [ name := dividedcomponents->GetAttribute("field")
+             , defaultvalue := DEFAULT RECORD
+             , recordtype := "extraparser"
+             , parser := [ namespaceuri := ns_screens, localname := "dividedcomponents" ]
+             , target := dividedcomponents->GetAttribute("target")
+             , target_namespaces := dividedcomponents->GetVisibleNamespaces()
+             , divider := GetNamespacedTarget(dividedcomponents, "divider")
+             ] INTO elrec.xml_fields AT END;
+    }
+
+    //FIXME check dupe fields
+
+    //dumpvalue(elrec.xml_fields,'boxed');
+    INSERT elrec INTO retval.components AT END;
+  }
+
+  retval.success := TRUE;
+  RETURN retval;
+}
+
+RECORD FUNCTION GetCachableComponents(STRING resourcename)
+{
+  RECORD retval := [ success := FALSE
+                   , error := ""
+                   , components := DEFAULT RECORD ARRAY
+                   , files := DEFAULT RECORD ARRAY
+                   ];
+
+  RECORD docinfo := __RetrieveCachedXMLSchema(resourcename);
+/*  IF(NOT RecordExists(docinfo) OR NOT ObjectExists(docinfo.doc))
+  {
+    retval.error := "Unable to parse XSD file";
+    IF (RecordExists(docinfo))
+      retval.files := docinfo.files;
+  }
+  ELSE*/
+    retval := ParseComponentsXSD(resourcename, docinfo.doc, docinfo.files);
+
+  RETURN [ ttl :=         ttl_components
+         , value :=       retval
+         , eventmasks :=  GetResourceEventMasks(SELECT AS STRING ARRAY path FROM retval.files)
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetComponents(STRING resourcename)
+{
+  RECORD cachekey := [ type := "components", resourcename := resourcename ];
+  RETURN GetAdhocCached(cachekey, PTR GetCachableComponents(resourcename));
+}
+
+RECORD ARRAY FUNCTION ExtractTIDAttributes(OBJECT ARRAY attruses)
+{
+  RECORD ARRAY tids;
+
+  FOREVERY(OBJECT attr FROM attruses)
+  {
+    OBJECT attrtype := attr->attribute_declaration->type_definition;
+    IF((attrtype->name = "Tid" OR attrtype->name="TidPtr") AND (attrtype->target_namespace = ns_screens OR attrtype->target_namespace = ns_systemcommon))
+    {
+      STRING name := attr->attribute_declaration->name;
+      STRING basename := name;
+
+      IF(basename LIKE "?*tid") //"emptytid", "hinttid"
+        basename := Left(basename,Length(basename)-3);
+      ELSE IF(basename="tid") //explicitly "tid"
+        basename := "title";
+
+      RECORD tid :=  [ name :=          attrtype->name = "Tid" ? basename : name
+                     , basename :=      basename
+                     , namespaceuri :=  attr->attribute_declaration->target_namespace
+                     , defaulttid :=    ''
+                     , type :=          attrtype->name = "Tid" ? "tid" : "tidptr"
+                     , attr :=          attr
+                     ];
+
+      IF(RecordExists(attr->attribute_declaration->value_constraint) AND attr->attribute_declaration->value_constraint.type='default')
+        tid.defaulttid := attr->attribute_declaration->value_constraint.value;
+
+      INSERT tid INTO tids AT END;
+    }
+  }
+  RETURN tids;
+}
+
+PUBLIC RECORD FUNCTION GetComponentsForNamespace(STRING ns)
+{
+  //FIXME use proper adhoc caching?
+  RECORD pos := RecordLowerBound(cache_componentdefs, [ namespaceuri := ns ], [ "NAMESPACEURI" ]);
+  IF (pos.found)
+    RETURN cache_componentdefs[pos.position];
+
+  STRING nsinfo := GetComponentDefinitions("tolliumcomponents", ns);
+  IF (nsinfo="")
+    RETURN DEFAULT RECORD;
+
+  RECORD compdefs := GetComponents(nsinfo);
+  INSERT CELL namespaceuri := ns INTO compdefs;
+  INSERT compdefs INTO cache_componentdefs AT pos.position;
+  RETURN compdefs;
+}
+
+PUBLIC RECORD FUNCTION GetComponentDefinition(STRING namespaceuri, STRING localname)
+{
+  RECORD rec := [ namespaceuri := namespaceuri, localname := localname, def := DEFAULT RECORD ];
+  RECORD pos := RecordLowerBound(cache_singlecomponentdefs, rec, [ "LOCALNAME", "NAMESPACEURI" ]);
+  IF (pos.found)
+    RETURN cache_singlecomponentdefs[pos.position].def;
+
+  RECORD nsinfo := GetComponentsForNamespace(namespaceuri);
+  IF(NOT RecordExists(nsinfo))
+    THROW NEW Exception("No such component namespace '" || namespaceuri || "' while looking up '" || localname || "'");
+
+  IF(NOT nsinfo.success)
+    THROW NEW Exception("Failed to process component namespace " || namespaceuri || ": " || nsinfo.error);
+
+  RECORD compinfo := SELECT * FROM nsinfo.components WHERE name = localname;
+  IF(NOT RecordExists(compinfo))
+    THROW NEW Exception("No such component <" || localname || "> in namespace " || namespaceuri);
+
+  INSERT CELL files := nsinfo.files INTO compinfo;
+
+  rec.def := compinfo;
+  INSERT rec INTO cache_singlecomponentdefs AT pos.position;
+
+  RETURN compinfo;
+}

@@ -1,0 +1,37 @@
+<?wh
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/errors.whlib";
+
+
+RECORD errorinfo := GetRequestErrorInfo();
+
+RECORD ARRAY allerrors := errorinfo.errors;
+IF(Length(errorinfo.errors)>1 AND allerrors[0].code=146) //Fix "When calling" appearing above the actual error
+{
+  allerrors[1].message := Left(allerrors[1].message, Length(allerrors[1].message)-1) || " w" || Substring(allerrors[0].message,1);
+  allerrors := RECORD[allerrors[1], ...ArraySlice(allerrors,2)];
+  //convert "Cannot.When" to "Cannot when"
+}
+
+RECORD result :=
+    [ endpoint := DEFAULT RECORD
+    , result := CELL
+          [ error :=
+                [ message :=    (SELECT AS STRING message FROM allerrors WHERE NOT istrace) ?? "Unknown error"
+                , trace :=      SELECT filename
+                                     , line
+                                     , col
+                                     , func :=    CellExists(allerrors, "FUNC") ? func : ""
+                                  FROM allerrors
+                                 WHERE istrace
+                              ORDER BY -code
+                ]
+          , errorinfo.groupid
+          ]
+    ];
+
+AddHTTPHeader("Status", "500", FALSE);
+AddHTTPHeader("Content-Type", "application/json", FALSE);
+
+SendWebFile(EncodeJSONBlob(result.result));

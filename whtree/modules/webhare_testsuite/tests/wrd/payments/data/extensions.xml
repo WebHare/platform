@@ -1,0 +1,12 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.payments.builtins">
+
+  <tabsextension name="paymentprovider">
+    <insert position="providertab" where="atend">
+      <textedit composition="providerentity" cellname="wrd_title" name="wrd_title" required="true" />
+    </insert>
+  </tabsextension>
+
+</screens>

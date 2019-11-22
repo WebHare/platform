@@ -1,0 +1,781 @@
+﻿<?xml version="1.0" ?>
+<!--
+# WebHare relation database (WRD) country listing.
+
+## Address format
+
+The `ordering` field contains the fields that make up an address format. Fields on the same line are separated by `+`, lines
+are separated by `,`.
+
+ZIP validation characters:
+
+- `#` = number
+- `$` = alphanumeric character
+
+
+## Address format lookup
+
+The default address format is used, unless a country has an address format. Field properties or complete fields definitions
+can be overwritten in a country's address format, or it can define new fields, which can be referenced in the address format
+ordering.
+
+
+## Resources
+
+No international telephone number prefix code is known of the following countries:
+
+- United States Minor Outlying Islands (information about this island group is in x:\development\countryinfo)
+
+Information about countries available at:
+
+- http://reference.allrefer.com/world/countries/
+- https://www.cia.gov/library/publications/the-world-factbook/
+
+Lots of information about telephone numbers available at:
+
+- http://www.numberingplans.com/
+
+Information about autocomplete attributes:
+
+- https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill
+-->
+<worldinfo xmlns="http://www.webhare.net/xmlns/wrd/worldinfo">
+  <countrylist>
+    <country code="AD" code3="AND" bumpercode="AND" phone="376" />
+    <country code="AE" code3="ARE" phone="971" />
+    <country code="AF" code3="AFG" bumpercode="AFG" phone="93" />
+    <country code="AG" code3="ATG" phone="1" />
+    <country code="AI" code3="AIA" phone="1" />
+    <country code="AL" code3="ALB" bumpercode="AL" phone="355" />
+    <country code="AM" code3="ARM" bumpercode="AM" phone="374" />
+    <country code="AN" code3="ANT" bumpercode="NA" phone="599">
+      <addressformat ordering="STREET+NR_DETAIL,CITY,ISLAND">
+        <!-- zip verwijderd want antillen hebben geen postcode //-->
+        <field tag="ISLAND" required="yes" />
+      </addressformat>
+    </country>
+    <country code="AO" code3="AGO" bumpercode="AN" phone="244" />
+    <country code="AQ" code3="ATA" phone="672" />
+    <country code="AR" code3="ARG" bumpercode="RA" phone="54" />
+    <country code="AS" code3="ASM" bumpercode="USA" phone="1">
+      <addressformat ordering="NR_DETAIL+STREET,POBOX,CITY+STATE+ZIP" zipvalidation="96799,96799-####">
+        <field tag="ZIP" required="yes" />
+        <field tag="STATE" required="yes" />
+      </addressformat>
+    </country>
+    <country code="AT" code3="AUT" bumpercode="A" phone="43">
+      <!-- NOTE:
+           no information on extra locational information like apartments
+        -->
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY" zipvalidation="####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="AU" code3="AUS" bumpercode="AUS" phone="61" />
+    <country code="AW" code3="ABW" phone="297" />
+    <country code="AX" code3="ALA" bumpercode="FIN" phone="358" />
+    <country code="AZ" code3="AZE" bumpercode="AZ" phone="994" />
+    <country code="BA" code3="BIH" bumpercode="BIH" phone="387" />
+    <country code="BB" code3="BRB" bumpercode="BDS" phone="1" />
+    <country code="BD" code3="BGD" bumpercode="BD" phone="880" />
+    <country code="BE" code3="BEL" bumpercode="B" phone="32">
+      <!-- NOTE:
+           no documentation on po-boxes or additional info like 'floor X of skyscraper Y'
+           province is optional if a proper postal code is used but nevertheless convenient
+
+           Box = boite (bte)/bus following the street number refers to a delivery box within a building
+        -->
+      <addressformat ordering="PROVINCE,STREET+NR_DETAIL,ZIP+CITY" zipvalidation="####">
+        <field tag="ZIP" required="yes" />
+        <!-- NOTE: Brussels is made up of several communes.
+             The title will sometimes follow Brussels in an address:  Brussel, Vorst. but is not needed.
+             appie: This only applies to Brussels
+          -->
+      </addressformat>
+    </country>
+    <country code="BF" code3="BFA" bumpercode="BF" phone="226" />
+    <country code="BG" code3="BGR" bumpercode="BG" phone="359" />
+    <country code="BH" code3="BHR" bumpercode="BRN" phone="973" />
+    <country code="BI" code3="BDI" bumpercode="RU" phone="257" />
+    <country code="BJ" code3="BEN" bumpercode="DY" phone="229" />
+    <country code="BL" code3="BLM" bumpercode="F" phone="590" />
+    <country code="BM" code3="BMU" phone="1" />
+    <country code="BN" code3="BRN" bumpercode="BRU" phone="673" />
+    <country code="BO" code3="BOL" bumpercode="BOL" phone="591" />
+    <country code="BQ" code3="BES" phone="599">
+      <!-- ADDME: use the Netherlands Antilles address format? -->
+    </country>
+    <country code="BR" code3="BRA" bumpercode="BR" phone="55" />
+    <country code="BS" code3="BHS" bumpercode="BS" phone="1" />
+    <country code="BT" code3="BTN" phone="975" />
+    <country code="BV" code3="BVT" />
+    <country code="BW" code3="BWA" bumpercode="BW" phone="267" />
+    <country code="BY" code3="BLR" bumpercode="BY" phone="375" />
+    <country code="BZ" code3="BLZ" bumpercode="BZ" phone="501" />
+    <country code="CA" code3="CAN" bumpercode="CDN" phone="1">
+      <addressformat ordering="NR_DETAIL+STREET,CITY+STATE+ZIP">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="CC" code3="CCK" bumpercode="AUS" phone="61" />
+    <country code="CD" code3="COD" bumpercode="ZRE" phone="243" />
+    <country code="CF" code3="CAF" bumpercode="RCA" phone="236">
+      <addressformat ordering="POBOX,CITY">
+        <field tag="POBOX" required="yes" />
+      </addressformat>
+    </country>
+    <country code="CG" code3="COG" bumpercode="RCB" phone="242" />
+    <country code="CH" code3="CHE" bumpercode="CH" phone="41">
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY" zipvalidation="####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="CI" code3="CIV" bumpercode="CI" phone="225" />
+    <country code="CK" code3="COK" bumpercode="NZ" phone="682" />
+    <country code="CL" code3="CHL" bumpercode="RCH" phone="56" />
+    <country code="CM" code3="CMR" bumpercode="CAM" phone="237" />
+    <country code="CN" code3="CHN" phone="86">
+      <addressformat ordering="LOCATIONDETAIL,BUILDING,NR_DETAIL+STREET,ZIP+CITY" zipvalidation="######">
+        <field tag="ZIP" required="yes" />
+        <field tag="CITY">
+          <title>City/Province</title>
+          <title xml:lang="nl">Stad/Provincie</title>
+          <title xml:lang="de">Stadt/Provinz</title>
+        </field>
+      </addressformat>
+    </country>
+    <country code="CO" code3="COL" bumpercode="CO" phone="57" />
+    <country code="CR" code3="CRI" bumpercode="CR" phone="506" />
+    <country code="CU" code3="CUB" bumpercode="C" phone="53" />
+    <country code="CV" code3="CPV" phone="238" />
+    <country code="CW" code3="CUW" phone="599">
+      <!-- ADDME: use the Netherlands Antilles address format? -->
+    </country>
+    <country code="CX" code3="CXR" bumpercode="AUS" phone="61" />
+    <country code="CY" code3="CYP" bumpercode="CY" phone="357">
+       <!-- NOTE:
+            format is NR_DETAIL <comma> STREET
+         -->
+      <addressformat ordering="NR_DETAIL+STREET,ZIP+CITY" zipvalidation="####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="CZ" code3="CZE" bumpercode="CZ" phone="420">
+      <!-- NOTE:
+           no information on po-box handling
+           no additional info on locationdetails like apartment number
+        -->
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY+POSTOFFICE" zipvalidation="### ##">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="DE" code3="DEU" bumpercode="D" phone="49">
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY" zipvalidation="#####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="DJ" code3="DJI" phone="253" />
+    <country code="DK" code3="DNK" bumpercode="DK" phone="45">
+       <!-- NOTE:
+            postal code should be separated from city by 2 spaces
+         -->
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY" zipvalidation="####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="DM" code3="DMA" bumpercode="WD" phone="1" />
+    <country code="DO" code3="DOM" bumpercode="DOM" phone="1" />
+    <country code="DZ" code3="DZA" bumpercode="DZ" phone="213" />
+    <country code="EC" code3="ECU" bumpercode="EC" phone="593" />
+    <country code="EE" code3="EST" bumpercode="EST" phone="372">
+      <addressformat ordering="LOCATIONDETAIL,STREET+NR_DETAIL,ZIP,CITY,DISTRICT" zipvalidation="#####">
+        <field tag="STREET" required="no" />
+        <field tag="NR_DETAIL" required="no" />
+        <field tag="ZIP" required="yes" />
+
+
+      <!-- NOTE: how are we gonna do this because estonia has 2 possible address-types:
+           large cities:
+             Mr Raul Tammek       [honorific title surname]
+             Talve 25-9           [streetname, housenumber, apartment number]
+             11617 Tallinn        [postal code, city]
+             ESTONIA
+
+           rural areas
+             Pr Aimee Salu              [honorific title surname]
+             Allika talu                [farm "Allika"]
+             Halliste alevik            [title of small town]
+             69501 Viljandi Maakond     [postal code, district]
+             ESTONIA
+        -->
+      </addressformat>
+    </country>
+    <country code="EG" code3="EGY" bumpercode="ET" phone="20" />
+    <country code="EH" code3="ESH" phone="212" />
+    <country code="ER" code3="ERI" phone="291" />
+    <country code="ES" code3="ESP" bumpercode="E" phone="34">
+      <!-- NOTE:
+           title of town in capitals
+           The province title, if used, comes after the town in parentheses
+           Street number follows street title separated by a comma
+
+           judging from the examples the locationdetail info (for apartments,etc)
+           are appended to the street+nr_detail row
+
+           no specific information about pobox data
+        -->
+      <addressformat ordering="STREET+NR_DETAIL+LOCATIONDETAIL,ZIP+CITY+PROVINCE" zipvalidation="#####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="ET" code3="ETH" bumpercode="ETH" phone="251" />
+    <country code="FI" code3="FIN" bumpercode="FIN" phone="358">
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY" zipvalidation="FI-#####">
+        <field tag="ZIP" required="yes" /> <!-- NOTE: city must be in uppercase, zipcodes are preceeded by 'FI-' -->
+      </addressformat>
+    </country>
+    <country code="FJ" code3="FJI" bumpercode="FJI" phone="679" />
+    <country code="FK" code3="FLK" phone="500" />
+    <country code="FM" code3="FSM" phone="691">
+      <addressformat ordering="NR_DETAIL+STREET,POBOX,CITY+STATE+ZIP" zipvalidation="9694#,9694#-####">
+        <field tag="ZIP" required="yes" />
+        <field tag="STATE" required="yes" />
+      </addressformat>
+    </country>
+    <country code="FO" code3="FRO" bumpercode="FO" phone="298" />
+    <country code="FR" code3="FRA" bumpercode="F" phone="33">
+      <!-- NOTE:
+           postalcode,city must be uppercase
+           streetindicators like 'rue', 'avenue' etc should be lowercase
+
+           when using a companies address the title of the company is enough. do
+           we save this businessname/abbreviation in the 'locationdetail' field
+           or use a separate field ?
+
+           postcode and postoffice can be either:
+           - postal code, postoffice title, CEDEX, arrondissement number
+           - postalcode, city
+
+           so it can be either:
+           - postal code, postoffice title, CEDEX
+           - postal code, city
+           so city/postoffice title share the same location
+        -->
+      <addressformat ordering="LOCATIONDETAIL,NR_DETAIL+STREET,ZIP+CITY+CEDEX" zipvalidation="#####">
+        <field tag="ZIP" required="yes" />
+        <field tag="CEDEX" required="no"> <!-- added CEDEX for france -->
+          <title>CEDEX</title>
+          <title xml:lang="nl">CEDEX</title>
+        </field>
+      </addressformat>
+    </country>
+    <country code="GA" code3="GAB" bumpercode="G" phone="241" />
+    <country code="GB" code3="GBR" bumpercode="GB" phone="44">
+      <!-- NOTE:
+           no info on poboxes but should be able to retrieve this
+           Mr Smith                                 [title]
+           45 St Bernards Road                      [number/title of street]
+           Hurn                                     [local area]
+           CHRISTCHURCH                             [posttown]
+           BH23 1HC                                 [postal code]
+           UNITED KINGDOM
+
+           Code Details:
+           - The first half of the postal code, the Outward Code, enables the accepting office to sort the item to the local
+             delivery area.  The second half, the Inward Code, is used to sort the mail at the delivery office.
+           - The second half of the code is always:  NAA.  The letters C, I, K, M, O, V are never used.
+           - Unique non-geographic postal codes are allotted to those who receive exceptionally large amounts of mail.
+           - In the code there are certain combinations that cannot be used:
+           The letter J is used only in either of the first two letter positions for Jersey, JE.
+           The letters Q, V, and X are not used in the first letter position.
+           The letter Z is not used in the second letter position.
+           The letters that appear in the third position are A, E, H, M, N, P, Q, R, T, V, X, Yand Z.
+           The letters that appear in the fourth position are A, B, E, H, L, M, N, P, Q, R, V, W, X, Y and Z.
+
+        -->
+      <addressformat ordering="NR_DETAIL+STREET,LOCALAREA,CITY,ZIP" zipvalidation="$# #$$,$## #$$,$$# #$$,$$## #$$,$#$ #$$,$$#$ #$$,$$$$ #$$">
+        <field tag="ZIP" required="yes" />
+        <field tag="LOCALAREA">
+          <title>Local area</title>
+          <title xml:lang="nl">Lokaal gebied</title>
+        </field>
+      </addressformat>
+    </country>
+    <country code="GD" code3="GRD" bumpercode="WG" phone="1" />
+    <country code="GE" code3="GEO" bumpercode="GE" phone="995" />
+    <country code="GF" code3="GUF" bumpercode="F" phone="594" />
+    <country code="GG" code3="GGY" bumpercode="GBG" phone="44">
+      <!-- NOTE: see UK -->
+      <addressformat ordering="NR_DETAIL+STREET,LOCALAREA,CITY,ZIP" zipvalidation="$# #$$,$## #$$,$$# #$$,$$## #$$,$#$ #$$,$$#$ #$$,$$$$ #$$">
+        <field tag="ZIP" required="yes" />
+        <field tag="LOCALAREA">
+          <title>Local area</title>
+          <title xml:lang="nl">Lokaal gebied</title>
+        </field>
+      </addressformat>
+    </country>
+    <country code="GH" code3="GHA" bumpercode="GH" phone="233" />
+    <country code="GI" code3="GIB" bumpercode="GBZ" phone="350" />
+    <country code="GL" code3="GRL" bumpercode="DK" phone="299" />
+    <country code="GM" code3="GMB" bumpercode="WAG" phone="220" />
+    <country code="GN" code3="GIN" bumpercode="RG" phone="224" />
+    <country code="GP" code3="GLP" bumpercode="F" phone="590" />
+    <country code="GQ" code3="GNQ" phone="240" />
+    <country code="GR" code3="GRC" bumpercode="GR" phone="30">
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY" zipvalidation="### ##">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="GS" code3="SGS" />
+    <country code="GT" code3="GTM" bumpercode="GCA" phone="502" />
+    <country code="GU" code3="GUM" bumpercode="USA" phone="1">
+      <addressformat ordering="NR_DETAIL+STREET,POBOX,CITY+STATE+ZIP" zipvalidation="969##,969##-####">
+        <field tag="ZIP" required="yes" />
+        <field tag="STATE" required="yes" />
+      </addressformat>
+    </country>
+    <country code="GW" code3="GNB" phone="245" />
+    <country code="GY" code3="GUY" bumpercode="GUY" phone="592" />
+    <country code="HK" code3="HKG" bumpercode="HK" phone="852" />
+    <country code="HM" code3="HMD" bumpercode="AUS" />
+    <country code="HN" code3="HND" phone="504" />
+    <country code="HR" code3="HRV" bumpercode="HR" phone="385" />
+    <country code="HT" code3="HTI" bumpercode="RH" phone="509" />
+    <country code="HU" code3="HUN" bumpercode="H" phone="36">
+      <!-- NOTE:
+           title of the city must be UPPERCASE
+        -->
+      <addressformat ordering="STREET+NR_DETAIL,CITY,ZIP" zipvalidation="####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="ID" code3="IDN" bumpercode="RI" phone="62" />
+    <country code="IE" code3="IRL" bumpercode="IRL" phone="353">
+      <!-- NOTE:
+           _very_ little information about ireland, the lines below are mostly guesswork
+           added 'locationdetail' field because apparantly you can also write down a 'housename'
+           postal code is NOT required in ireland
+        -->
+      <addressformat ordering="LOCATIONDETAIL,NR_DETAIL+STREET,COUNTY,CITY,ZIP">
+      </addressformat>
+    </country>
+    <country code="IL" code3="ISR" bumpercode="IL" phone="972" />
+    <country code="IM" code3="IMN" bumpercode="GBM" phone="44">
+      <!-- NOTE: see UK -->
+      <addressformat ordering="NR_DETAIL+STREET,LOCALAREA,CITY,ZIP" zipvalidation="$# #$$,$## #$$,$$# #$$,$$## #$$,$#$ #$$,$$#$ #$$,$$$$ #$$">
+        <field tag="ZIP" required="yes" />
+        <field tag="LOCALAREA">
+          <title>Local area</title>
+          <title xml:lang="nl">Lokaal gebied</title>
+        </field>
+      </addressformat>
+    </country>
+    <country code="IN" code3="IND" bumpercode="IND" phone="91" />
+    <country code="IO" code3="IOT" phone="246" />
+    <country code="IQ" code3="IRQ" bumpercode="IRQ" phone="964" />
+    <country code="IR" code3="IRN" bumpercode="IR" phone="98" />
+    <country code="IS" code3="ISL" bumpercode="IS" phone="354" />
+    <country code="IT" code3="ITA" bumpercode="I" phone="39">
+      <!-- NOTE:
+           no information on po-box formatting
+        -->
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY+PROVINCE" zipvalidation="#####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="JE" code3="JEY" bumpercode="GBJ" phone="44">
+      <!-- NOTE: see UK -->
+      <addressformat ordering="NR_DETAIL+STREET,LOCALAREA,CITY,ZIP" zipvalidation="$# #$$,$## #$$,$$# #$$,$$## #$$,$#$ #$$,$$#$ #$$,$$$$ #$$">
+        <field tag="ZIP" required="yes" />
+        <field tag="LOCALAREA">
+          <title>Local area</title>
+          <title xml:lang="nl">Lokaal gebied</title>
+        </field>
+      </addressformat>
+    </country>
+    <country code="JM" code3="JAM" bumpercode="JA" phone="1" />
+    <country code="JO" code3="JOR" bumpercode="HKJ" phone="962" />
+    <country code="JP" code3="JPN" bumpercode="J" phone="81">
+      <addressformat ordering="LOCATIONDETAIL,LOCATIONDETAIL2,CITY+DISTRICT,ZIP" zipvalidation="###-####">
+        <!--
+
+          Feedback voor japanse adressen gevraagd aan marcel, de inhoud van
+          zijn reply (email) staat in x:\development\countryinfo
+
+        //-->
+        <field tag="LOCATIONDETAIL" required="yes" />
+        <field tag="CITY" required="yes" />
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="KE" code3="KEN" bumpercode="EAK" phone="254" />
+    <country code="KG" code3="KGZ" bumpercode="KS" phone="996" />
+    <country code="KH" code3="KHM" bumpercode="K" phone="855" />
+    <country code="KI" code3="KIR" phone="686" />
+    <country code="KM" code3="COM" phone="269" />
+    <country code="KN" code3="KNA" phone="1" />
+    <country code="KP" code3="PRK" phone="850" />
+    <country code="KR" code3="KOR" bumpercode="ROK" phone="82" />
+    <country code="KW" code3="KWT" bumpercode="KWT" phone="965" />
+    <country code="KY" code3="CYM" phone="1" />
+    <country code="KZ" code3="KAZ" bumpercode="KZ" phone="7" />
+    <country code="LA" code3="LAO" bumpercode="LAO" phone="856" />
+    <country code="LB" code3="LBN" bumpercode="RL" phone="961" />
+    <country code="LC" code3="LCA" bumpercode="WL" phone="1" />
+    <country code="LI" code3="LIE" bumpercode="FL" phone="423" />
+    <country code="LK" code3="LKA" bumpercode="CL" phone="94" />
+    <country code="LR" code3="LBR" bumpercode="LB" phone="231" />
+    <country code="LS" code3="LSO" bumpercode="LS" phone="266" />
+    <country code="LT" code3="LTU" bumpercode="LT" phone="370">
+      <!-- NOTE:
+           lithuana does not use cities but post-offices instead which contain
+           approximately 20,000 addresses each
+        -->
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+POSTOFFICE" zipvalidation="#####">
+        <field tag="ZIP" required="yes" />
+        <field tag="CITY" required="no" />
+      </addressformat>
+    </country>
+    <country code="LU" code3="LUX" bumpercode="L" phone="352">
+      <!-- NOTE:
+           no information about extra locational info like apartment details
+        -->
+      <addressformat ordering="NR_DETAIL+STREET,ZIP+CITY" zipvalidation="####">
+        <field tag="ZIP" required="no" />
+      </addressformat>
+    </country>
+    <country code="LV" code3="LVA" bumpercode="LV" phone="371">
+      <!-- NOTE:
+           postal code is not mandatory
+
+           A comma separates the city title from the code.
+           Riga 39, LV-1039
+           39 indicated the postoffice here
+
+           Postal Code:
+           - 4 digits (NNNN) as the last line of the address or to the right of the locality
+
+           Locality Code:
+           - A city may have a code to the right of the city title.
+           - These identify the delivery Post Office, e.g.:  Rezekne 1, LV-4601
+
+        -->
+      <addressformat ordering="STREET+NR_DETAIL+LOCATIONDETAIL,REGION,CITY+POSTOFFICE+ZIP" zipvalidation="####">
+      </addressformat>
+    </country>
+    <country code="LY" code3="LBY" bumpercode="LAR" phone="218" />
+    <country code="MA" code3="MAR" bumpercode="MA" phone="212" />
+    <country code="MC" code3="MCO" bumpercode="MC" phone="377" />
+    <country code="MD" code3="MDA" bumpercode="MD" phone="373" />
+    <country code="ME" code3="MNE" bumpercode="MNE" phone="382" />
+    <country code="MF" code3="MAF" bumpercode="F" phone="590" />
+    <country code="MG" code3="MDG" bumpercode="RM" phone="261" />
+    <country code="MH" code3="MHL" phone="692">
+      <addressformat ordering="NR_DETAIL+STREET,POBOX,CITY+STATE+ZIP" zipvalidation="969##,969##-####">
+        <field tag="ZIP" required="yes" />
+        <field tag="STATE" required="yes" />
+      </addressformat>
+    </country>
+    <country code="MK" code3="MKD" bumpercode="MK" phone="389" />
+    <country code="ML" code3="MLI" bumpercode="RMM" phone="223" />
+    <country code="MM" code3="MMR" bumpercode="BUR" phone="95" />
+    <country code="MN" code3="MNG" bumpercode="MGL" phone="976" />
+    <country code="MO" code3="MAC" phone="853" />
+    <country code="MP" code3="MNP" bumpercode="USA" phone="1">
+      <addressformat ordering="NR_DETAIL+STREET,POBOX,CITY+STATE+ZIP" zipvalidation="9695#,9695#-####">
+        <field tag="ZIP" required="yes" />
+        <field tag="STATE" required="yes" />
+      </addressformat>
+    </country>
+    <country code="MQ" code3="MTQ" bumpercode="F" phone="596" />
+    <country code="MR" code3="MRT" bumpercode="RIM" phone="222" />
+    <country code="MS" code3="MSR" phone="1" />
+    <country code="MT" code3="MLT" bumpercode="M" phone="356">
+      <!-- NOTE:
+           no info on additional location info like apartments
+           no info on po-boxes
+           malta postal code: AAA NN (where A = alphabetical character and N = numeral)
+           gozo postal code: AAA NNN (where A = alphabetical character and N = numeral)
+           government departments and ministries: CMR 01
+        -->
+      <addressformat ordering="NR_DETAIL+STREET,CITY+ZIP" zipvalidation="$$$ ##,$$$ ###">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="MU" code3="MUS" bumpercode="MS" phone="230" />
+    <country code="MV" code3="MDV" phone="960" />
+    <country code="MW" code3="MWI" bumpercode="MW" phone="265" />
+    <country code="MX" code3="MEX" bumpercode="MEX" phone="52">
+      <addressformat ordering="STREET+NR_DETAIL+BUILDING_NR,POBOX,COLONY,ZIP+CITY+STATE" zipvalidation="#####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="MY" code3="MYS" bumpercode="MAL" phone="60" />
+    <country code="MZ" code3="MOZ" bumpercode="MOC" phone="258" />
+    <country code="NA" code3="NAM" bumpercode="NAM" phone="264" />
+    <country code="NC" code3="NCL" bumpercode="F" phone="687" />
+    <country code="NE" code3="NER" bumpercode="RN" phone="227" />
+    <country code="NF" code3="NFK" bumpercode="AUS" phone="672" />
+    <country code="NG" code3="NGA" bumpercode="NGR" phone="234" />
+    <country code="NI" code3="NIC" bumpercode="NIC" phone="505" />
+    <country code="NL" code3="NLD" bumpercode="NL" phone="31">
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY" zipvalidation="#### $$" addressformat="[street] [nr_detail]\n[zip]  [city]">
+        <field tag="NR_DETAIL" required="yes" />
+        <field tag="ZIP" required="yes" />
+        <field tag="PROVINCE" type="SELECT">
+          <fieldoptions>
+            <option value="">- Kies een provincie -</option>
+            <option value="GR">Groningen</option>
+            <option value="DR">Drenthe</option>
+            <option value="FL">Flevoland</option>
+            <option value="FR">Friesland</option>
+            <option value="GLD">Gelderland</option>
+            <option value="NH">Noord Holland</option>
+            <option value="ZH">Zuid Holland</option>
+            <option value="OV">Overijssel</option>
+            <option value="ZLD">Zeeland</option>
+            <option value="LB">Limburg</option>
+            <option value="UT">Utrecht</option>
+            <option value="NB">Noord Brabant</option>
+          </fieldoptions>
+        </field>
+      </addressformat>
+    </country>
+    <country code="NO" code3="NOR" bumpercode="N" phone="47" />
+    <country code="NP" code3="NPL" bumpercode="NEP" phone="977" />
+    <country code="NR" code3="NRU" bumpercode="NAU" phone="674" />
+    <country code="NU" code3="NIU" bumpercode="NZ" phone="683" />
+    <country code="NZ" code3="NZL" bumpercode="NZ" phone="64" />
+    <country code="OM" code3="OMN" phone="968" />
+    <country code="PA" code3="PAN" bumpercode="PA" phone="507" />
+    <country code="PE" code3="PER" bumpercode="PE" phone="51" />
+    <country code="PF" code3="PYF" bumpercode="F" phone="689" />
+    <country code="PG" code3="PNG" bumpercode="PNG" phone="675" />
+    <country code="PH" code3="PHL" bumpercode="RP" phone="63" />
+    <country code="PK" code3="PAK" bumpercode="PK" phone="92" />
+    <country code="PL" code3="POL" bumpercode="PL" phone="48">
+      <addressformat ordering="STREET+NR_DETAIL+LOCATIONDETAIL,ZIP+CITY" zipvalidation="##-###">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="PM" code3="SPM" bumpercode="F" phone="508" />
+    <country code="PN" code3="PCN" phone="872" />
+    <country code="PR" code3="PRI" bumpercode="USA" phone="1" />
+    <country code="PS" code3="PSE" phone="970" />
+    <country code="PT" code3="PRT" bumpercode="P" phone="351">
+      <!-- NOTE:
+           no conclusive information about the locationdetail field but from the examples
+           it seems like its attached at the end of the address
+           postalcode = NNNN-NNN (where N = numeric value)
+           no information on po-boxes
+        -->
+      <addressformat ordering="STREET+NR_DETAIL+LOCATIONDETAIL,ZIP+CITY" zipvalidation="####-###">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="PW" code3="PLW" phone="680">
+      <addressformat ordering="NR_DETAIL+STREET,POBOX,CITY+STATE+ZIP" zipvalidation="96940,96940-####">
+        <field tag="ZIP" required="yes" />
+        <field tag="STATE" required="yes" />
+      </addressformat>
+    </country>
+    <country code="PY" code3="PRY" bumpercode="PY" phone="595" />
+    <country code="QA" code3="QAT" bumpercode="Q" phone="974" />
+    <country code="RE" code3="REU" bumpercode="F" phone="262" />
+    <country code="RO" code3="ROU" bumpercode="RO" phone="40" />
+    <country code="RS" code3="SRB" bumpercode="SRB" phone="381" />
+    <country code="RU" code3="RUS" bumpercode="RUS" phone="7" />
+    <country code="RW" code3="RWA" bumpercode="RWA" phone="250" />
+    <country code="SA" code3="SAU" bumpercode="SA" phone="966" />
+    <country code="SB" code3="SLB" phone="677" />
+    <country code="SC" code3="SYC" bumpercode="SY" phone="248" />
+    <country code="SD" code3="SDN" bumpercode="SUD" phone="249" />
+    <country code="SE" code3="SWE" bumpercode="S" phone="46">
+      <!-- NOTE:
+           street and housenumber are not mandatory because all zipcodes are unique per address
+           pobox is present along with zip+city
+        -->
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY" zipvalidation="### ##">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="SG" code3="SGP" bumpercode="SGP" phone="65" />
+    <country code="SH" code3="SHN" phone="290" />
+    <country code="SI" code3="SVN" bumpercode="SLO" phone="386">
+      <!-- NOTE:
+           A blank line is placed prior to the postal code and 5 mm space is placed between the code
+           number and the locality title for automated sorting machines
+
+           there is no specific information about pobox handling
+        -->
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY" zipvalidation="SI-####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="SJ" code3="SJM" phone="47" />
+    <country code="SK" code3="SVK" bumpercode="SK" phone="421">
+      <!-- NOTE:
+           postoffice is optional, used only for big cities
+           when a pobox is used the street+housenumber are also used
+        -->
+      <addressformat ordering="STREET+NR_DETAIL,ZIP+CITY+POSTOFFICE" zipvalidation="### ##">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="SL" code3="SLE" bumpercode="WAL" phone="232" />
+    <country code="SM" code3="SMR" bumpercode="RSM" phone="378" />
+    <country code="SN" code3="SEN" bumpercode="SN" phone="221" />
+    <country code="SO" code3="SOM" bumpercode="SO" phone="252" />
+    <country code="SR" code3="SUR" bumpercode="SME" phone="597" />
+    <country code="SS" code3="SSD" phone="211" />
+    <country code="ST" code3="STP" phone="239" />
+    <country code="SV" code3="SLV" bumpercode="ES" phone="503" />
+    <country code="SX" code3="SXM" phone="599">
+      <!-- ADDME: use the Netherlands Antilles address format? -->
+    </country>
+    <country code="SY" code3="SYR" bumpercode="SYR" phone="963" />
+    <country code="SZ" code3="SWZ" bumpercode="SD" phone="268" />
+    <country code="TC" code3="TCA" phone="1" />
+    <country code="TD" code3="TCD" bumpercode="TCH" phone="235" />
+    <country code="TF" code3="ATF" bumpercode="F" phone="262" />
+    <country code="TG" code3="TGO" bumpercode="TG" phone="228" />
+    <country code="TH" code3="THA" bumpercode="T" phone="66" />
+    <country code="TJ" code3="TJK" bumpercode="TJ" phone="992" />
+    <country code="TK" code3="TKL" bumpercode="NZ" phone="690" />
+    <country code="TL" code3="TLS" phone="670" />
+    <country code="TM" code3="TKM" bumpercode="TM" phone="993" />
+    <country code="TN" code3="TUN" bumpercode="TN" phone="216" />
+    <country code="TO" code3="TON" phone="676" />
+    <country code="TR" code3="TUR" bumpercode="TR" phone="90">
+      <addressformat ordering="STREET+NR_DETAIL,LOCATIONDETAIL,ZIP+CITY" zipvalidation="#####">
+        <field tag="ZIP" required="yes" />
+      </addressformat>
+    </country>
+    <country code="TT" code3="TTO" bumpercode="TT" phone="1" />
+    <country code="TV" code3="TUV" phone="688" />
+    <country code="TW" code3="TWN" bumpercode="RC" phone="886" />
+    <country code="TZ" code3="TZA" bumpercode="EAT" phone="255" />
+    <country code="UA" code3="UKR" bumpercode="UA" phone="380" />
+    <country code="UG" code3="UGA" bumpercode="EAU" phone="256" />
+    <country code="UM" code3="UMI" bumpercode="USA" />
+    <country code="US" code3="USA" bumpercode="USA" phone="1">
+      <addressformat ordering="NR_DETAIL+STREET,POBOX,CITY+STATE+ZIP" zipvalidation="#####,#####-####">
+        <field tag="ZIP" required="yes" />
+        <field tag="STATE" required="yes" />
+      </addressformat>
+    </country>
+    <country code="UY" code3="URY" bumpercode="ROU" phone="598" />
+    <country code="UZ" code3="UZB" bumpercode="UZ" phone="998" />
+    <country code="VA" code3="VAT" bumpercode="V" phone="379" />
+    <country code="VC" code3="VCT" bumpercode="WV" phone="1" />
+    <country code="VE" code3="VEN" bumpercode="YV" phone="58" />
+    <country code="VG" code3="VGB" bumpercode="BVI" phone="1" />
+    <country code="VI" code3="VIR" bumpercode="USA" phone="1">
+      <addressformat ordering="NR_DETAIL+STREET,POBOX,CITY+STATE+ZIP" zipvalidation="008##,008##-####">
+        <field tag="ZIP" required="yes" />
+        <field tag="STATE" required="yes" />
+      </addressformat>
+    </country>
+    <country code="VN" code3="VNM" bumpercode="VN" phone="84" />
+    <country code="VU" code3="VUT" phone="678" />
+    <country code="WF" code3="WLF" bumpercode="F" phone="681" />
+    <country code="WS" code3="WSM" bumpercode="WS" phone="685" />
+    <country code="XK" code3="XKX" bumpercode="RKS" phone="383" />
+    <country code="YE" code3="YEM" bumpercode="YAR" phone="967" />
+    <country code="YT" code3="MYT" phone="269" />
+    <country code="ZA" code3="ZAF" bumpercode="ZA" phone="27" />
+    <country code="ZM" code3="ZMB" bumpercode="Z" phone="260" />
+    <country code="ZW" code3="ZWE" bumpercode="ZW" phone="263" />
+  </countrylist>
+
+  <!-- default address format must appear AFTER the country listing (otherwise it would override instead of being a default) -->
+  <defaultaddressformat ordering="LOCATIONDETAIL,LOCATIONDETAIL2,STREET+NR_DETAIL,ZIP+CITY,STATE">
+    <field tag="COUNTRY" required="yes" autocomplete="country">
+      <title>Country</title>
+      <title xml:lang="nl">Land</title>
+      <title xml:lang="de">Land</title>
+    </field>
+    <field tag="STREET" required="yes" autocomplete="address-line1">
+      <title>Street</title>
+      <title xml:lang="nl">Straat</title>
+      <title xml:lang="de">Straße</title>
+    </field>
+    <field tag="NR_DETAIL">
+      <title>Number</title>
+      <title xml:lang="nl">Huisnummer</title>
+      <title xml:lang="de">Hausnummer</title>
+    </field>
+    <field tag="STATE" autocomplete="address-level1">
+      <title>State</title>
+      <title xml:lang="nl">Staat</title>
+      <title xml:lang="de">Staat</title>
+    </field>
+    <field tag="REGION">
+      <title>Region</title>
+      <title xml:lang="nl">Regio</title>
+    </field>
+    <field tag="POBOX">
+      <title>PO-Box</title>
+      <title xml:lang="nl">Postbus</title>
+      <title xml:lang="de">Postfach</title>
+    </field>
+    <field tag="POSTOFFICE">
+      <title>Post Office</title>
+      <title xml:lang="nl">Postkantoor</title>
+      <title xml:lang="de">Post Filiale</title>
+    </field>
+    <field tag="CITY" required="yes" autocomplete="address-level2">
+      <title>City</title>
+      <title xml:lang="nl">Plaats</title>
+      <title xml:lang="de">Stadt</title>
+    </field>
+    <field tag="ZIP" required="no" autocomplete="postal-code">
+      <title>Zip code</title>
+      <title xml:lang="nl">Postcode</title>
+      <title xml:lang="de">PLZ</title>
+    </field>
+    <field tag="ISLAND">
+      <title>Island</title>
+      <title xml:lang="nl">Eiland</title>
+      <title xml:lang="de">Insel</title>
+    </field>
+    <field tag="LOCATIONDETAIL" required="no">
+      <title>Additional address info</title>
+      <title xml:lang="nl">Extra adresinformatie</title>
+      <title xml:lang="de">Zusätsliche Adressinformationen</title>
+    </field>
+    <field tag="LOCATIONDETAIL2" required="no">
+      <title>Additional address info #2</title>
+      <title xml:lang="nl">Extra adresinformatie #2</title>
+      <title xml:lang="de">Zusätsliche Adressinformationen #2</title>
+    </field>
+    <field tag="PROVINCE" autocomplete="address-level1">
+      <title>Province</title>
+      <title xml:lang="nl">Provincie</title>
+      <title xml:lang="de">Provinz</title>
+    </field>
+    <field tag="BUILDING_NR" required="no">
+      <title>Building number</title>
+      <title xml:lang="nl">Gebouwnummer</title>
+      <title xml:lang="de">Gebäudenummer</title>
+    </field>
+    <field tag="BUILDING" required="no">
+      <title>Building title</title>
+      <title xml:lang="nl">Gebouwnaam</title>
+      <title xml:lang="de">Gebäudename</title>
+    </field>
+    <field tag="DISTRICT" required="no">
+      <title>District</title>
+      <title xml:lang="nl">District</title>
+      <title xml:lang="de">Distrikt</title>
+    </field>
+    <field tag="COUNTY" required="no">
+      <title>County</title>
+      <title xml:lang="nl">Gemeente</title>
+    </field>
+    <field tag="COLONY" required="no">
+      <title>Colony</title>
+      <title xml:lang="nl">Kolonie</title>
+    </field>
+  </defaultaddressformat>
+</worldinfo>

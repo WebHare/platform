@@ -1,0 +1,19 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+PUBLIC OBJECTTYPE CaptchaIntegrationPlugin EXTEND WebDesignPluginBase
+<
+  PUBLIC STRING skipfunction;
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ skipfunction := siteprofile->ParseFSPath(node, "skipfunction")
+           ];
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration)
+  {
+    this->skipfunction := mergedconfiguration.skipfunction;
+  }
+>;

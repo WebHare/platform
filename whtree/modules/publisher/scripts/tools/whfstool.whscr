@@ -1,0 +1,86 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "recursive", type := "switch" ]
+                                                     , [ name := "pin", type := "switch" ]
+                                                     , [ name := "unpin", type := "switch" ]
+                                                     , [ name := "dryrun", type := "switch" ]
+                                                     , [ name := "paths", type := "paramlist" ]
+                                                     ]);
+IF (NOT RecordExists(args) OR Length(args.paths) = 0)
+{
+  Print("Usage: sitetool path [path ...]\n");
+  Print("       path         The whfs path(s) to process, wildcards are permitted\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+IF(args.pin AND args.unpin)
+{
+  Print("Cannot pin & unpin at the same time\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary();
+BOOLEAN listonly := NOT (args.pin OR args.unpin);
+INTEGER ARRAY startobjids;
+
+FOREVERY(STRING path FROM args.paths)
+{
+  OBJECT dest := OpenWHFSObjectByPath(path);
+  IF(NOT ObjectExists(dest))
+  {
+    Print("Invalid path: " || path || "\n");
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+
+  INSERT dest->id INTO startobjids AT END;
+}
+
+RECORD ARRAY FUNCTION GetInterestingStuff(INTEGER ARRAY objids, BOOLEAN matchparent)
+{
+  RETURN SELECT id, whfspath, isfolder, ispinned
+           FROM system.fs_objects
+          WHERE (matchparent ? (parent IN objids) : (id IN objids));
+}
+
+MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
+{
+  IF(listonly)
+  {
+    FOREVERY(RECORD path FROM objects)
+      Print(path.whfspath||"\n");
+  }
+  ELSE
+  {
+    IF(args.pin OR args.unpin)
+    {
+      FOREVERY(RECORD topin FROM SELECT id,whfspath FROM objects WHERE ispinned = args.unpin)
+      {
+        Print( (args.pin ? "Pin: " : "Unpin: ") || topin.whfspath || "\n");
+        OpenWHFSObject(topin.id)->UpdateMetadata( [ ispinned := args.pin ]);
+      }
+    }
+  }
+
+  IF(NOT recursive)
+    RETURN;
+
+  INTEGER ARRAY folderids := SELECT AS INTEGER ARRAY id FROM objects WHERE isfolder;
+  IF(Length(folderids)=0)
+    RETURN;
+
+  ExecuteAction(GetInterestingStuff(folderids, TRUE), recursive);
+}
+
+GetPrimary()->BeginWork();
+
+ExecuteAction(GetInterestingStuff(startobjids, FALSE), args.recursive);
+
+IF(args.dryrun)
+  GetPrimary()->RollbackWork();
+ELSE
+  GetPrimary()->CommitWork();

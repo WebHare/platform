@@ -1,0 +1,108 @@
+Return-Path: <a.hendriks@example.net>
+X-Original-To: <arnold@example.net>
+Delivered-To: arnold@example.net
+Received: from mgmt1.iw.example.net (mgmt1.iw.example.net [84.241.128.69])
+        by mgmt1.iw.example.net ([84.241.128.69]/Webhare MTP) with MTP id c2bc5225d34bfb57ef324b2c6a2b36f9
+        for <arnold@example.net>; Tue, 23 Nov 2010 15:29:16 -0000 (UTC)
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mgmt1.iw.example.net (Postfix) with ESMTP id EBC71181D486
+	for <arnold@example.net>; Tue, 23 Nov 2010 16:29:15 +0100 (CET)
+X-Virus-Scanned: amavisd-new at example.net
+Received: from mgmt1.iw.example.net ([127.0.0.1])
+	by localhost (mgmt1.iw.example.net [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 2nFexjIKVD1b for <arnold@example.net>;
+	Tue, 23 Nov 2010 16:29:15 +0100 (CET)
+Received: from [10.8.3.24] (unknown [84.241.128.76])
+	by mgmt1.iw.example.net (Postfix) with ESMTP id 53A7B181D241
+	for <a.hendriks@example.net>; Tue, 23 Nov 2010 16:29:15 +0100 (CET)
+Message-ID: <4CEBDDD2.3040401@example.net>
+Date: Tue, 23 Nov 2010 16:29:22 +0100
+From: Arnold Hendriks <a.hendriks@example.net>
+Organization: B-Lex IT B.V.
+User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.12) Gecko/20101027 Lightning/1.0b2 Thunderbird/3.1.6
+MIME-Version: 1.0
+To: "Hendriks, Arnold" <a.hendriks@example.net>
+Subject: Beste tester
+Content-Type: multipart/alternative;
+ boundary="------------080203090506020703030507"
+
+This is a multi-part message in MIME format.
+--------------080203090506020703030507
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Gegroet!
+
+A great Geoffrey once said:
+
+> Lorizzle ipsum dolizzle sit amizzle, consectetuer adipiscing hizzle.
+> Nullizzle sapizzle velizzle, mah nizzle volutpizzle, suscipizzle fo
+> shizzle, gravida vizzle, my shizz. Pellentesque bling bling tortizzle.
+> Sed own yo'. Fo shizzle izzle ghetto fo shizzle mah nizzle fo rizzle,
+> mah home g-dizzle turpizzle tempizzle fo.
+
+Dingen die goed zijn om te testen in deze applicatie:
+
+   1. Selecteer alles (CTRL+A), tik een simpel woord in, GEEN OPMAAK -
+      test de Rewrite knop
+   2. Test de Reply knop, zodra 'ie er is. Die komt er vast wel, toch?
+   3. Zet je cursor ergens in Geoffrey's citaat hierboven, ram op Enter,
+      en begin te tikken.
+
+Einde bericht. Signature hieronder
+
+--
+Arnold Hendriks<a.hendriks@example.net>
+Postbus 545, 7500 AM Enschede, The Netherlands
+
+B-Lex IT B.V.                     Web:    http://www.example.net/
+Phone: +31 (0)53 4836543          Mobile: +31 (0)6 12345678
+KvK:   08174333 (Oost-Nederland)  MSN:    a.hendriks@example.net
+
+
+--------------080203090506020703030507
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+
+    <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+  </head>
+  <body bgcolor="#ffffff" text="#000000">
+    <a name="test">Gegroet!</a><br>
+    <br>
+    A great Geoffrey once said:<br>
+    <br>
+    <blockquote type="cite">Lorizzle ipsum dolizzle sit amizzle,
+      consectetuer adipiscing hizzle. Nullizzle sapizzle velizzle, mah
+      nizzle volutpizzle, suscipizzle fo shizzle, gravida vizzle, my
+      shizz. Pellentesque bling bling tortizzle. Sed own yo&#8217;. Fo shizzle
+      izzle ghetto fo shizzle mah nizzle fo rizzle, mah home g-dizzle
+      turpizzle tempizzle fo.</blockquote>
+    <br>
+    Dingen die goed zijn om te testen in deze applicatie:<br>
+    <ol>
+      <li>Selecteer alles (CTRL+A), tik een simpel woord in, GEEN OPMAAK
+        - test de Rewrite knop</li>
+      <li>Test de Reply knop, zodra 'ie er is. Die komt er vast wel,
+        toch?</li>
+      <li>Zet je cursor ergens in Geoffrey's citaat hierboven, ram op
+        Enter, en begin te tikken.<br>
+      </li>
+    </ol>
+    Einde bericht. Signature hieronder<br>
+    <br>
+    <pre class="moz-signature" cols="72">--
+Arnold Hendriks <a class="moz-txt-link-rfc2396E" href="mailto:a.hendriks@example.net">&lt;a.hendriks@example.net&gt;</a>
+Postbus 545, 7500 AM Enschede, The Netherlands
+
+B-Lex IT B.V.                     Web:    <a class="moz-txt-link-freetext" href="http://www.example.net/">http://www.example.net/</a>
+Phone: +31 (0)53 4836543          Mobile: +31 (0)6 12345678
+KvK:   08174333 (Oost-Nederland)  MSN:    <a class="moz-txt-link-abbreviated" href="mailto:a.hendriks@example.net">a.hendriks@example.net</a>
+</pre>
+  </body>
+</html>
+
+--------------080203090506020703030507--

@@ -1,0 +1,22 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+PUBLIC OBJECTTYPE TolliumHR EXTEND TolliumComponentBase
+<
+  MACRO NEW()
+  {
+    this->pvt_blockelement := TRUE;
+    this->componenttype := "hr";
+  }
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+  }
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    RECORD compinfo := [ comptype := "hr"
+                       ];
+    this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    TolliumComponentBase::TolliumWebRender();
+  }
+>;

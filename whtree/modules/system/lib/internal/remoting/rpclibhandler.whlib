@@ -1,0 +1,109 @@
+﻿<?wh
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+
+/** Helper object for looking up RPC functions
+*/
+OBJECTTYPE RPCLib
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Library
+  STRING pvt_libname;
+
+  /// Sorted list of function names
+  STRING ARRAY functions;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY libname(pvt_libname, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(STRING libname, RECORD doc, BOOLEAN allow_getresource) //allow_getresource: show getresource. only permitted on raw transport
+  {
+    this->pvt_libname := libname;
+    this->functions := doc.functions;
+    IF (allow_getresource AND "GETRESOURCE" IN this->functions)
+      this->functions := ArrayDelete(this->functions, [ "GETRESOURCE" ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC FUNCTION PTR FUNCTION LookupFunction(STRING findname)
+  {
+    findname := ToUppercase(findname);
+    IF (findname NOT IN this->functions)
+      RETURN DEFAULT FUNCTION PTR;
+
+    RETURN MakeFunctionPtr(this->pvt_libname, findname);
+  }
+>;
+
+/** Read the list of functions of a library
+    @param libname
+    @param compileid Compilation id
+*/
+RECORD FUNCTION GetRPCLibraryRawInfo(STRING libname, DATETIME compile_id)
+{
+  BOOLEAN success;
+  STRING ARRAY functions;
+  IF (compile_id != DEFAULT DATETIME)
+  {
+    RECORD dump := __HS_LIBDUMP(libname);
+    IF (dump.success)
+    {
+      success := TRUE;
+      functions := SortArray(
+          SELECT AS STRING ARRAY __HS_INTERNAL_UnmangleFunctionName(name).functionname
+            FROM dump.funcs
+           WHERE ispublic);
+    }
+  }
+
+  RETURN
+      [ value :=        CELL[ success, functions ]
+      , ttl :=          success ? 60 * 60 * 1000 : 10 * 1000
+      , eventmasks :=   GetResourceEventMasks([libname])
+      ];
+}
+
+PUBLIC RECORD FUNCTION DescribeRPCLibrary(STRING libname)
+{
+  // Get the compile id, re-exported functions might change due to
+  RECORD info := GetHarescriptLibraryInfo(libname);
+  DATETIME compile_id := RecordExists(info) ? info.compile_id : DEFAULT DATETIME;
+
+  RECORD rawinfo := GetAdhocCached([type := "libdoc", libname := libname, compile_id := compile_id ], PTR GetRPCLibraryRawInfo(libname, compile_id) );
+  RETURN rawinfo;
+}
+
+/** Opens an accessor for an RPC library, to look up RPC functions
+    @param libname Library name
+    @param allow_getresource Whether the special `GetResource` call is allowed
+    @return(#RPCLib) RPC library access object
+*/
+PUBLIC OBJECT FUNCTION OpenCachedRPCLibrary(STRING libname, BOOLEAN allow_getresource)
+{
+  RECORD rawinfo := DescribeRPCLibrary(libname);
+  IF (NOT rawinfo.success)
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW RPCLib(libname, rawinfo, allow_getresource);
+}

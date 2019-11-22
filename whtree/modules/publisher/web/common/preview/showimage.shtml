@@ -1,0 +1,54 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+STRING lang := GetWebVariable("lang");
+STRING clienturl := GetWebVariable("clienturl");
+
+INTEGER width := ToInteger(GetWebVariable("width"), 0);
+INTEGER height := ToInteger(GetWebVariable("height"), 0);
+
+STRING mimetype := GetWebVariable("mimetype");
+
+IF (clienturl = "" OR (mimetype != "image/svg+xml" AND (width = 0 OR height = 0)))
+  AbortWithHttpError(404);
+?><!doctype html>
+<html>
+<head>
+<title>preview</title>
+<style>
+html, body
+{
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body
+{
+  background-color: #ffffff;
+  /* Show standard checkered background behind the previewed image */
+  background-image: url("<?wh Print(clienturl || "?random=" || FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE)); ?>")
+                  , url("<?wh Print(checkered_background); ?>");
+  background-position: center, top left;
+  background-repeat: no-repeat, repeat;
+  background-size: auto, auto;
+}
+
+/* If the viewport gets smaller than the image size, switch to background-size:
+   contain for the image so it gets scaled down to the viewport */
+@media (max-width: <?wh Print(ToString(width)); ?>px), (max-height: <?wh Print(ToString(height)); ?>px)
+{
+  body
+  {
+    background-size: contain, auto;
+  }
+}
+</style>
+</head>
+<body>
+</body>
+</html>

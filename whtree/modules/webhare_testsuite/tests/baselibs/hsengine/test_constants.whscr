@@ -1,0 +1,34 @@
+<?wh
+/// @short Extensive test of HareScript constants implementation
+
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+
+CONSTANT INTEGER globaltestval := 5;
+
+INTEGER FUNCTION DefFunc(INTEGER i DEFAULTSTO globaltestval + INTEGER(pi) + 1)
+{
+  RETURN i;
+}
+
+MACRO SwitchTest()
+{
+  OpenTest("TestSyntax: EmbeddingTest");
+
+  CONSTANT INTEGER testval := 2;
+
+  SWITCH (11)
+  {
+    CASE testval + INTEGER(pi) + 6 { }
+    DEFAULT
+    {
+      ABORT("CASE constant expression calculated wrong");
+    }
+  }
+
+  TestEQ(9, DefFunc());
+  TestEQ(9, (PTR DefFunc)());
+}
+
+PRINT("\n === Running TestConstants\n");
+SwitchTest();

@@ -1,0 +1,63 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support2.whlib";
+
+
+PUBLIC OBJECTTYPE DeleteTask EXTEND ManagedTaskBase
+<
+  UPDATE PUBLIC MACRO RunTask(RECORD taskdata)
+  {
+    RECORD wrdschema := SELECT * FROM wrd.schemas WHERE id = taskdata.id AND name LIKE "$wrd$deleted$*";
+    IF(NOT RecordExists(wrdschema))
+    {
+      this->ResolveByCompletion( [ result := "Looks like WRD schema is already gone" ]);
+      RETURN;
+    }
+
+    //We want to perform at most 10 seconds of work to the database. If we hit the deadline, continu later. 10secs may not seem like much, but on a busy system, WRD cascading will take a lot of time after our 10 secs though..
+    DATETIME deadline := AddTimeToDate(10000, GetCurrentdatetime());
+    IF(NOT this->RawDelete(taskdata.id, deadline))
+      this->ResolveByRestart(DEFAULT DATETIME);
+    ELSE
+      this->ResolveByCompletion(DEFAULT RECORD);
+    //ABORT(taskdata);
+  }
+
+  BOOLEAN FUNCTION RawDelete(INTEGER schemaid, DATETIME deadline)
+  {
+    IF(NOT KillEntities(SELECT AS INTEGER ARRAY id FROM wrd.types WHERE types.wrd_schema = schemaid, deadline, this->debug, TRUE))
+      RETURN FALSE; //deadline hit
+
+    DELETE FROM wrd.schemas WHERE id = schemaid;
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC MACRO CleanupAllWRDTemporaries()
+{
+  DELETE FROM wrd.entities WHERE creationdate = MAX_DATETIME AND limitdate < GetCurrentdatetime();
+}
+
+PUBLIC MACRO CleanupOutdatedChanges()
+{
+  DATETIME now := GetCurrentDateTime();
+
+  BOOLEAN historydebugging := IsDebugTagEnabled("wrd:forcehistory");
+  INTEGER debugdays := historydebugging ? 1 : 0;
+
+  // Delete outdated changes
+  FOREVERY (RECORD wrdtype FROM SELECT id, keephistorydays FROM wrd.types)
+  {
+    DELETE FROM wrd.changes
+     WHERE type = wrdtype.id
+           AND creationdate < AddDaysToDate(-(wrdtype.keephistorydays ?? debugdays), now);
+  }
+  // Delete empty changesets more than a day old, so we're not deleting changesets that have just been created, but not used
+  // for any actual changes yet. Empty changesets aren't returned by ListChangesets anyway, because they're already joined
+  // with changes.
+  DELETE FROM wrd.changesets
+   WHERE creationdate < AddDaysToDate(-1, now)
+         AND NOT RecordExists(SELECT FROM wrd.changes WHERE changeset = changesets.id);
+}

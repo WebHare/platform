@@ -1,0 +1,245 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/publisher/versioning.whlib";
+
+
+STRING testsiteprofile_versioned :=
+    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"'
+             || ' xmlns:t="http://www.webhare.net/xmlns/tollium/screens"'
+             || ' xmlns:p="http://www.webhare.net/xmlns/publisher/components">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/versionedctype">'
+      || '<member name="str" type="string" />'
+    || '</contenttype>'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/unversionedctype">'
+      || '<member name="str" type="string" />'
+    || '</contenttype>'
+    || '<propertyeditor name="versionedctype">'
+      || '<compositions>'
+        || '<p:whfsinstance name="versionedinstance" typedef="http://www.webhare.net/xmlns/beta/versionedctype"/>'
+        || '<p:whfsinstance name="unversionedinstance" typedef="http://www.webhare.net/xmlns/beta/unversionedctype"/>'
+      || '</compositions>'
+      || '<insert position="settings" where="atend">'
+        || '<t:textedit composition="versionedinstance" cellname="str"/>'
+        || '<t:textedit composition="unversionedinstance" cellname="str"/>'
+      || '</insert>'
+    || '</propertyeditor>'
+    || '<apply>'
+      || '<to type="file" filetype="http://www.webhare.net/xmlns/publisher/htmlfile"/>'
+      || '<extendproperties name="versionedctype"/>'
+    || '</apply>'
+
+       // index files
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-contentlisting/*" />'
+      || '<folderindex indexfile="contentlisting" />'
+    || '</apply>'
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-newfile/*" />'
+      || '<folderindex indexfile="newfile" newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />'
+    || '</apply>'
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-copy/*" />'
+      || '<folderindex indexfile="copy_of_file" fullpath="/index.html" />'
+    || '</apply>'
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-contentlink/*" />'
+      || '<folderindex indexfile="contentlink" fullpath="/index.html" />'
+    || '</apply>'
+
+  || '</siteprofile>';
+
+
+MACRO Create()
+{
+  SetTidLanguage("debug");
+  testfw->BeginWork();
+
+  EnableSiteVersionHistory(testfw->GetTestSite(), testfw->GetUserObject("sysop"), "publisher:default");
+
+  OBJECT siteprof := testfw->GetTestSite()->rootobject->CreateFile([name:="test_versioned.siteprl", data := StringToBlob(testsiteprofile_versioned)]);
+  TestEq(TRUE, testfw->GetTestSite()->AssignSiteProfile(siteprof->id));
+
+  testfw->CommitWork();
+}
+
+OBJECT ASYNC FUNCTION PublisherRecycleBinVersionedDelete()
+{
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  RECORD rec;
+
+  OBJECT testfolder, testfile;
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+
+  // ------
+  // Test: create, delete and restore a versioned file
+  // Expect: allowed and works via normal flow
+
+  // Create a new file
+  TT("foldertree")->value := root->id;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "versioned-delete1.html"
+      , isversioned := TRUE
+      , publish := TRUE
+      , makeindex := FALSE
+      ]);
+
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+
+  // Schedule for delete
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("delete")->ProcessInboundMessage("execute", [ rule := 1 ]), [ messagemask := "*.movetotrashconfirm*" ]); // rule 1: file tree
+
+  // Open properties screen and submit for approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file list
+  AWAIT ExpectApprovalRequest(TRUE, PTR TT("requestapproval")->ProcessInboundMessage("execute", [ rule := 0 ]));
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Approve delete
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "approve delete" ]);
+  testfw->CommitWork();
+
+  // Select trash folder
+  INTEGER trash_rowkey := SELECT AS INTEGER id FROM TT("foldertree")->rows WHERE name = "{publisher:terminology.trash}";
+  TestEQ(FALSE, trash_rowkey = 0, "Could not find trash folder by name");
+  TT("foldertree")->value := trash_rowkey;
+
+  // Search trash of testsite (set filter settings, then search)
+  OBJECT filterscreen := TT("filelist")->folderfilter->contents;
+  filterscreen->searchsiteon->value := TRUE;
+  filterscreen->searchsite->value := testfw->GetTestSite()->id;
+  AWAIT ExpectNoScreenChange(PTR TT("filelist")->filter->ProcessInboundMessage("execute", [ rule := 0 ]));
+
+  // Should show up in trash
+  TestEQ(1, LENGTH(TT("filelist")->rows));
+  TestEQ(testfile->id, TT("filelist")->rows[0].rowkey);
+  TestEQ("versioned-delete1.html", TT("filelist")->rows[0].name);
+
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+
+  // Run 'restore' action, expect location selection. When clicking ok, expect submit for approval, confirmation message
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("restore")->ProcessInboundMessage("execute", [ rule := 1 ]), [ namemask := "*browsewhfsobject" ]); // rule 1: filelist, versioned file
+  TT("folders")->value := root->id;
+  AWAIT ExpectScreenChange(-1, PTR TT("submitaction")->ProcessInboundMessage("execute", [ rule := 0 ])); // folder tree
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*undeletesubmitted*" ]);
+  AWAIT rec.expectcallreturn();
+
+  // Should update status in filelist
+  TestEqMembers(
+    [ [ rowkey :=                   testfile->id
+      , isversioned :=              TRUE
+      , issubmittedforapproval :=   TRUE
+      ]
+    ], TT("filelist")->selection, "*");
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "approve restore" ]);
+  testfw->CommitWork();
+
+  // Should be removed from list of deleted files, and be located at original location
+  TestEq(DEFAULT RECORD ARRAY, TT("filelist")->selection);
+  testfile->Refresh();
+  TestEQ(root->id, testfile->parent);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: request to restore, cancel request
+  // Expect: should leave a draft with a scheduled move
+
+  // Create a new file
+  TT("foldertree")->value := root->id;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "cancel-delete-req.html"
+      , isversioned := TRUE
+      , publish := TRUE
+      , makeindex := FALSE
+      ]);
+
+  // Schedule for delete
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("delete")->ProcessInboundMessage("execute", [ rule := 1 ]), [ messagemask := "*.movetotrashconfirm*", awaitcall := TRUE ]); // rule 1: file tree
+
+  // Submit and accept removal request
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "request delete" ]);
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "approve delete" ]);
+  testfw->CommitWork();
+
+  // Go to the trash, select our just deleted file
+  TT("foldertree")->value := trash_rowkey;
+  filterscreen := TT("filelist")->folderfilter->contents;
+  filterscreen->searchsiteon->value := TRUE;
+  filterscreen->searchsite->value := testfw->GetTestSite()->id;
+  AWAIT ExpectNoScreenChange(PTR TT("filelist")->filter->ProcessInboundMessage("execute", [ rule := 0 ]));
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+
+  // Open props, ensure 'is deleted' message is visible. Click the 'restore' action, answer the submit message
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file list
+  TestEq(TRUE, TT("versioningmessagepanel")->visible);
+  TestEq(TRUE, TT("restoreitem")->visible);
+
+  // Run 'restore' action, expect confirmation, then location selection. When clicking ok, expect submit for approval, confirmation message
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("restore")->ProcessInboundMessage("execute", [ rule := 1 ]), [ messagemask := "*confirmrestore*" ]);
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR, [ namemask := "*browsewhfsobject" ]); // rule 1: filelist, versioned file
+  TT("folders")->value := root->id;
+  AWAIT ExpectScreenChange(-1, PTR TT("submitaction")->ProcessInboundMessage("execute", [ rule := 0 ])); // folder tree
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*undeletesubmitted*" ]);
+
+  // Should close the props window automatically
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Cancel the request
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file list
+  TestEQ(TRUE, TT("withdrawrequest")->visible);
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("cancelrequest")->ProcessInboundMessage("execute", [ rule := 0 ]), [ messagemask := "*confirmcancelrequest*", awaitcall := TRUE ]);
+
+  // Must have 'scheduled for move' to root in draft data
+  TestEQLike(`*draftscheduledformove|${root->whfspath}}`, TT("versioningmovemessage")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT rec.expectcallreturn();
+
+  DeleteFSObjects([ testfile ]);
+
+  //close publisher
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  RETURN DEFAULT RECORD;
+}
+
+
+RunTestFramework(
+    [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := TRUE, withcontent := FALSE ])
+    , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ])
+    , PTR Create
+    , PTR PublisherRecycleBinVersionedDelete
+    ],
+    [ testusers :=
+            [ [ login := "sysop", grantrights := ["system:sysop"] ]
+            , [ login := "limited" ]
+            ]
+    , debug := TRUE
+    ]);

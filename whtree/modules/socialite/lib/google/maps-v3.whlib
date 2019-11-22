@@ -1,0 +1,860 @@
+<?wh
+/** @short HareScript implementation of the Google Maps API
+    @long The following Google Maps classes are implemented as HareScript objects:
+          * GLatLng
+          * GLatLngBounds
+          * GClientGeocoder
+          * GGeocodeCache
+          * GFactualGeocodeCache
+
+          The HareScript objects can be used in the same way the JavaScript classes would be used. The biggest differences are:
+          * In the HareScript objects, all coordinates are expressed as GLatLng objects, not records or strings.
+          * The GetLatLng and GetLocations don't use callbacks to return their results. GetLatLng returns a GLatLng object.
+            GetLocations accepts only a string (an address or coordinate) and returns a HareScript representation of the JSON
+            object returned by the JavaScript GClientGeocoder function, with Point member converted to GLatLng objects.
+
+          For more information about the Google Maps API, see the Google Maps API Reference at:
+          http://code.google.com/apis/maps/documentation/reference.html
+    @private This library should be rolled into system/webapi/google/maps.whlib (perhaps with a cleaned up API)
+*/
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+
+LOADLIB "mod::socialite/lib/internal/googlesupport.whlib" EXPORT GLatLng, GLatLngBounds;
+
+// Browser object to use for requests
+OBJECT browser;
+
+STRING FUNCTION FormatLatLng(RECORD point)
+{
+  RETURN FormatFLoat(point.lat, 6) || "," || FormatFloat(point.lng, 6);
+}
+
+RECORD ggeocoderbaseoptions := [ clientid := ""
+                               , privatekey:=""
+                               , secure := TRUE //should be currently unused, but may still be passed by callers
+                               , apikey := ""
+                               , requesturl := ""
+                               ];
+
+STATIC OBJECTTYPE GGeocoderBase
+<
+  STRING clientid;
+  STRING privatekey;
+  STRING pvt_basecountrycode;
+  STRING pvt_langcountrycode;
+
+  // Time to wait before retrying when G_GEO_TOO_MANY_QUERIES was returned
+  INTEGER overloaddelay;
+  // Number of subsequent successful requests
+  INTEGER luckystreaksize;
+
+  /** HareScript extension: The minimum number of successful lookups in a row before we'll try to reduce the overloaddelay
+      again
+  */
+  PUBLIC INTEGER speedupsuccesscount;
+
+  /** HareScript extension: Maximum overload delay - once we hit this, we'll return G_GEO_TOO_MANY_QUERIES to our callers
+      overloaddelay is in milliseconds, default is 1 second
+  */
+  PUBLIC INTEGER maxoverloaddelay;
+
+  /** HareScript extension: Set to true to print general lookup information
+  */
+  PUBLIC BOOLEAN debuginfo;
+  /** HareScript extension: Set to true to print web traffic information
+  */
+  PUBLIC BOOLEAN debugtraffic;
+
+  PUBLIC STRING apikey;
+
+  /** HareScript extension: Property shortcut for GetBaseLanguageCode/SetBaseLanguageCode
+  */
+  PUBLIC PROPERTY baselanguagecode(GetBaseLanguageCode, SetBaseLanguageCode);
+
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(ggeocoderbaseoptions, options, [ passthrough := TRUE ]); //ADDME passthrough prevents us from throwing on higher level params, but a passthroughin from our parents would be better
+
+    IF(options.apikey = "")
+    {
+      IF(options.requesturl = "" AND IsRequest())
+        options.requesturl := GetFormRequestURL();
+
+      IF(options.requesturl = "")
+        THROW NEW Exception("Google Maps now requires an API key. Please set one or provide a requesturl");
+
+      RECORD keylookup := LookupAPIKey("google", options.requesturl, [ scope := "server" ]);
+      options.apikey := keylookup.apikey;
+    }
+
+    this->clientid := options.clientid;
+    this->privatekey := this->clientid != "" ? DecodeUFS(options.privatekey) : "";
+    this->apikey := options.apikey;
+  }
+
+  STRING FUNCTION FormatLatLng(RECORD point)
+  {
+    RETURN FormatFLoat(point.lat, 6) || "," || FormatFloat(point.lng, 6);
+  }
+
+  STRING FUNCTION GetGoogleApisUrl(STRING service)
+  {
+    RETURN "https://maps.googleapis.com/maps/api/" || service || "/json";
+  }
+
+  RECORD FUNCTION GetGeocodingLocations(STRING address, STRING basecountrycode, STRING baselanguagecode, RECORD viewport)
+  {
+    IF(this->debuginfo)
+      Print("Geocoder: Mapgoogling [" || EncodeJava(address) || "], delay=" || this->overloaddelay || "\n");
+
+    //Correct zipcodes without spaces for dutch addresses: Google prefers 7421 LN to 7421LN (it will actually fail to decode sometimes, eg: corrie tendeloostraat 4,7421ln deventer,nederland)
+    IF(ToUppercase(address) LIKE "*,NEDERLAND" OR ToUppercase(address) LIKE "*,NL" OR ToUppercase(address) LIKE "*NETHERLANDS")
+    {
+      STRING ARRAY addresstoks := Tokenize(address, ",");
+      IF(Length(addresstoks) >= 3)
+      {
+        STRING ziptok := addresstoks[Length(addresstoks)-2];
+        IF(ToInteger(Substring(ziptok,0,4),-1) != -1
+           AND ToUppercase(Substring(ziptok,4,1)) >= "A" AND ToUppercase(Substring(ziptok,4,1)) <= "Z"
+           AND ToUppercase(Substring(ziptok,5,1)) >= "A" AND ToUppercase(Substring(ziptok,5,1)) <= "Z"
+           AND Substring(ziptok,6,1) = " ")
+        {
+          //Add a space to the zipcode
+          ziptok := Left(ziptok,4) || " " || Substring(ziptok,4);
+          addresstoks[Length(addresstoks)-2] := ziptok;
+          address := Detokenize(addresstoks, ",");
+        }
+      }
+    }
+
+    STRING url := this->GetGoogleApisUrl("geocode");
+    url := ReplaceVariableInUrl(url, "address", address);
+    url := ReplaceVariableInUrl(url, "region",  basecountrycode);
+    url := ReplaceVariableInUrl(url, "language", baselanguagecode);
+    IF (RecordExists(viewport))
+      url := ReplaceVariableInUrl(url, "bounds", FormatLatLng(viewport.sw) || "|" || FormatLatLng(viewport.ne));
+
+    RECORD result := this->DoGoogleMapsLookup(url);
+    RETURN result;
+  }
+
+
+  /** HareScript extension: Returns the current language code in use by the given geocoder. (If no language code is in
+      effect, this method returns an empty string.)
+  */
+  STRING FUNCTION GetBaseLanguageCode()
+  {
+    RETURN this->pvt_langcountrycode != "" ? this->pvt_langcountrycode : this->pvt_basecountrycode;
+  }
+  /** HareScript extension: Sets the geocoder language, which is used for localization of city and country names when
+      searching and for formatting search results.
+  */
+  MACRO SetBaseLanguageCode(STRING countrycode)
+  {
+    this->pvt_langcountrycode := ToUppercase(countrycode);
+  }
+
+  RECORD FUNCTION GetGeocodingReversed(RECORD point)
+  {
+    IF(this->debuginfo)
+      Print("Geocoder: Reversing " || EncodeJSON(point) || ", delay=" || this->overloaddelay || "\n");
+
+    STRING url := this->GetGoogleApisUrl("geocode");
+    url := ReplaceVariableInUrl(url, "latlng", FormatLatLng(point));
+
+    RECORD result := this->DoGoogleMapsLookup(url);
+    RETURN result;
+  }
+
+  RECORD FUNCTION GetDirectionsRoute(RECORD directionsrequest)
+  {
+    STRING origin := TypeID(directionsrequest.origin) = TypeID(RECORD) ? FormatLatLng(directionsrequest.origin) : directionsrequest.origin;
+    STRING destination := TypeID(directionsrequest.destination) = TypeID(RECORD) ? FormatLatLng(directionsrequest.destination) : directionsrequest.destination;
+
+    IF(this->debuginfo)
+      Print("GDirectionsService: Mapgoogling [" || EncodeJava(origin) || " - " || EncodeJava(destination) || "], delay=" || this->overloaddelay || "\n");
+
+    STRING url := this->GetGoogleApisUrl("directions");
+    url := ReplaceVariableInUrl(url, "origin", origin);
+    url := ReplaceVariableInUrl(url, "destination", destination);
+    IF (CellExists(directionsrequest, "waypoints"))
+    {
+      STRING ARRAY waypoints;
+      IF (CellExists(directionsrequest, "optimizewaypoints") AND directionsrequest.optimizewaypoints)
+        INSERT "optimize:true" INTO waypoints AT END;
+      FOREVERY (VARIANT waypoint FROM directionsrequest.waypoints)
+        INSERT TypeID(waypoint) = TypeID(RECORD) ? FormatLatLng(waypoint) : waypoint INTO waypoints AT END;
+      url := ReplaceVariableInUrl(url, "waypoints", Detokenize(waypoints, "|"));
+    }
+    IF (CellExists(directionsrequest, "travelmode"))
+      url := ReplaceVariableInUrl(url, "mode", directionsrequest.travelmode);
+    IF (CellExists(directionsrequest, "provideroutealternatives") AND directionsrequest.provideroutealternatives)
+      url := ReplaceVariableInUrl(url, "alternatives", "true");
+    IF (CellExists(directionsrequest, "avoidtolls") AND directionsrequest.avoidtolls)
+      url := ReplaceVariableInUrl(url, "avoid", "tolls");
+    IF (CellExists(directionsrequest, "avoidhighways") AND directionsrequest.avoidhighways)
+      url := ReplaceVariableInUrl(url, "avoid", "highways");
+    IF (CellExists(directionsrequest, "unitsystem"))
+      url := ReplaceVariableInUrl(url, "units", directionsrequest.unitsystem);
+    IF (CellExists(directionsrequest, "region"))
+      url := ReplaceVariableInUrl(url, "region",  directionsrequest.region);
+    IF (CellExists(directionsrequest, "language"))
+      url := ReplaceVariableInUrl(url, "language", directionsrequest.language);
+
+    RECORD result := this->DoGoogleMapsLookup(url);
+    RETURN result;
+  }
+
+  RECORD FUNCTION GetPlaces(STRING lat_lng, INTEGER radius, STRING ARRAY types, STRING name, STRING baselanguagecode)
+  {
+  //  IF(this->debuginfo)
+  //    Print("Geocoder: Mapgoogling [" || EncodeJava(address) || "], delay=" || overloaddelay || "\n");
+
+    STRING url := this->GetGoogleApisUrl("place/search");
+    url := ReplaceVariableInUrl(url, "radius", ToString(radius));
+    url := ReplaceVariableInUrl(url, "location", lat_lng);
+    url := ReplaceVariableInUrl(url, "language", baselanguagecode);
+    IF (name != "")
+      url := ReplaceVariableInUrl(url, "name", name);
+
+    RECORD result := this->DoGoogleMapsLookup(url);
+    RETURN result;
+  }
+
+  RECORD FUNCTION DoGoogleMapsLookup(STRING url)
+  {
+    RECORD result := [ reply := DEFAULT RECORD
+                     , cacheable := FALSE
+                     , error := ""
+                     ];
+
+    IF(url LIKE "*__GOOGLE_MAPS_TEST_RETURN_ERROR__*")
+    {
+      RETURN [ reply := DEFAULT RECORD
+             , cacheable := FALSE
+             , error := "Error forced by __GOOGLE_MAPS_TEST_RETURN_ERROR__"
+             ];
+    }
+
+    IF (NOT ObjectExists(browser))
+    {
+      browser := NEW WEBBrowser();
+      IF(IsRPCTrafficLogged("socialite:geocoder"))
+        LogRPCForWebbrowser("socialite:geocoder", "", browser);
+    }
+
+    url := ReplaceVariableInUrl(url, "sensor", "false");
+    url := this->SignUrl(url);
+
+    IF (this->debugtraffic)
+      Print("GoogleMapsLookup: Using url: " || EncodeJava(url) || "\n");
+
+    WHILE(TRUE)
+    {
+      IF(this->overloaddelay > 0)
+        Sleep(this->overloaddelay); //ADDME - actually record the last request time, we only need to sleep if not enough time has passed yet
+
+      IF (browser->GotoWebPage(url))
+      {
+        IF (Length(browser->content) > 0)
+        {
+          result.reply := DecodeJSONBlob(browser->content);
+          IF (this->debugtraffic)
+            Print("GoogleMapsLookup: Got reply:\n" || AnyToString(result.reply, "tree"));
+          IF (RecordExists(result.reply))
+          {
+            IF (CellExists(result.reply, "status"))
+            {
+              IF(result.reply.status IN ["OK","ZERO_RESULTS"])
+              {
+                this->luckystreaksize := this->luckystreaksize + 1;
+                IF (this->debuginfo)
+                  Print("GoogleMapsLookup: Status code " || result.reply.status || " streak size=" || this->luckystreaksize || "\n");
+                IF(this->luckystreaksize > this->speedupsuccesscount AND this->overloaddelay > 0)
+                {
+                  this->overloaddelay := this->overloaddelay - 100;
+                  this->luckystreaksize := 0;
+                  IF (this->debuginfo)
+                    Print("GoogleMapsLookup: Lucky streak! Reduced overloaddelay to " || this->overloaddelay || "\n");
+                }
+              }
+
+              IF (result.reply.status = "OK")
+              {
+                // Reply is cacheable
+                result.cacheable := TRUE;
+                RETURN result;
+              }
+              ELSE
+              {
+                IF(result.reply.status = "OVER_QUERY_LIMIT")
+                {
+                  IF (this->debuginfo)
+                    Print("GoogleMapsLookup: Too many queries. Current overloaddelay="|| this->overloaddelay || "\n");
+
+                  this->luckystreaksize := 0;
+                  IF(this->overloaddelay < this->maxoverloaddelay)
+                  {
+                    this->overloaddelay := this->overloaddelay + 100;
+                    IF (this->debuginfo)
+                      Print("GoogleMapsLookup: Increased overloaddelay to " || this->overloaddelay || "\n");
+                    CONTINUE;
+                  }
+                }
+                ELSE
+                {
+                  IF (this->debuginfo)
+                    Print("GoogleMapsLookup: Failed - status code " || result.reply.status || "\n");
+                }
+                RETURN result;
+              }
+            }
+            ELSE IF (this->debuginfo)
+            {
+              Print("GoogleMapsLookup: Unrecognized format\n");
+              result.error := "Unrecognized format";
+            }
+          }
+          ELSE IF (this->debuginfo)
+          {
+            Print("GoogleMapsLookup: Decoding error\n");
+            result.error := "Decoding error";
+          }
+
+          // Reply is cacheable
+          result.cacheable := TRUE;
+        }
+        ELSE IF (this->debuginfo)
+        {
+          Print("GoogleMapsLookup: No content received\n");
+          result.error := "No content received";
+        }
+      }
+      ELSE IF (this->debuginfo)
+      {
+
+        Print("GoogleMapsLookup: Browser error: " || browser->lasterror || "\n");
+        result.error := "Browser error: " || browser->lasterror;
+      }
+
+      BREAK;
+    }
+    RETURN result;
+  }
+
+  // Sign a URL with the given key
+  STRING FUNCTION SignUrl(STRING url)
+  {
+    IF(this->apikey != "")
+      url := UpdateURLVariables(url, [ "key" := this->apikey ]);
+
+    IF (this->clientid = "" OR this->privatekey = "")
+      RETURN url;
+
+    url := ReplaceVariableInUrl(url, "client", this->clientid);
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //ADDME: This can be restored if all servers are pushed to a new enough version of 3.02, which has HMAC support in crypto.whlib
+    //STRING signature := UrlSafeEncodeBase64(GetHashForString(GetPathFromUrl(url), "HMAC:SHA-1", privatekey));
+    STRING signature := EncodeUFS(GetHashForString(GetPathFromUrl(url), "HMAC:SHA-1", this->privatekey));
+
+    // We could use AddVariableToUrl, but that URL encodes '=' characters in the hash. This might not be a problem, but all
+    // example reference implementations in the Google documentation just appends the signature, so we'll just do that as well.
+    RETURN url || "&signature=" || signature;
+  }
+
+>;
+
+/** The Google GClientGeocoder object in HareScript.
+    See http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder
+    The constructor has one extra parameter, the Google
+    Maps Premier Authentication key to use for signing geocoding requests. This parameter is only necessary when using this
+    object for a Google Maps API Premier account, otherwise it can be left empty.
+*/
+PUBLIC STATIC OBJECTTYPE GGeocoder EXTEND GGeocoderBase
+< OBJECT pvt_cache;
+  OBJECT pvt_viewport;
+
+  /** HareScript extension: Property shortcut for GetCache/SetCache
+  */
+  PUBLIC PROPERTY cache(GetCache, SetCache);
+  /** HareScript extension: Property shortcut for GetViewport/SetViewport
+  */
+  PUBLIC PROPERTY viewport(GetViewport, SetViewport);
+  /** HareScript extension: Property shortcut for GetBaseCountryCode/SetBaseCountryCode
+  */
+  PUBLIC PROPERTY basecountrycode(GetBaseCountryCode, SetBaseCountryCode);
+
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder.GClientGeocoder
+  */
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD) : GGeocoderBase(options)
+  {
+    options := ValidateOptions( [ ...ggeocoderbaseoptions
+                                , cache := DEFAULT OBJECT
+                                , maxoverloaddelay := 1000
+                                , speedupsuccesscount := 100
+                                ], options);
+
+    this->cache := options.cache ?? NEW GFactualGeocodeCache();
+    this->maxoverloaddelay := options.maxoverloaddelay;
+    this->speedupsuccesscount := options.speedupsuccesscount;
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder.getLatLng
+      This function does not take a callback parameter, instead it returns a GLatLng object directly.
+  */
+  PUBLIC OBJECT FUNCTION GetLatLng(STRING address)
+  {
+    RECORD locations := this->GetLocations(address);
+    IF (RecordExists(locations) AND Length(locations.results)>0)
+      RETURN locations.results[0].geometry.location;
+
+    IF(locations.status="ZERO_RESULTS")
+      RETURN DEFAULT OBJECT;
+
+    THROW NEW Exception(`GetLatLng failed: ${locations.status}: ${locations.error_message}`);
+  }
+
+  PUBLIC RECORD FUNCTION ReverseGeocode(OBJECT latlng)
+  {
+    //ADDME cache?
+    RECORD gres := this->GetGeocodingReversed(latlng->ToRecord());
+
+    // If we didn't receive a valid reply, something went wrong and the error contains the error
+    IF(NOT RecordExists(gres.reply))
+      RETURN [ results := DEFAULT RECORD ARRAY
+             , status := "REQUEST_FAILED"
+             , error := gres.error
+             ];
+
+    IF (Length(gres.reply.results) > 0)
+      FOREVERY(RECORD result FROM gres.reply.results)
+      {
+        result.geometry := this->RewriteGeometry(result.geometry);
+        gres.reply.results[#result] := result;
+      }
+    ELSE
+      gres.reply := CellInsert(CellDelete(gres.reply, "results"), "results", DEFAULT RECORD ARRAY);
+
+    RETURN gres.reply;
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder.getLocations
+      This function does not take a callback parameter, instead it returns the locations result directly.
+      If something went wrong in receiving google results, this function returns a "REQUEST_FAILED" status code, and an 'error'
+      cell containing the error.
+  */
+  PUBLIC RECORD FUNCTION GetLocations(STRING address)
+  {
+    // Check if we can serve the reply from cache
+    IF (ObjectExists(this->pvt_cache))
+    {
+      RECORD reply := this->pvt_cache->Get(address);
+      IF (RecordExists(reply))
+        RETURN reply;
+    }
+
+    // Check if a viewport is specified which is not empty and does not span the entire world
+    RECORD viewport;
+    IF (ObjectExists(this->pvt_viewport) AND NOT this->pvt_viewport->IsEmpty())
+      viewport := this->pvt_viewport->ToRecord();
+
+    // Call the weblet function which handles the internet stuff (so we don't need TCPIP permissions)
+    RECORD gres := this->GetGeocodingLocations(address, this->pvt_basecountrycode, this->pvt_langcountrycode, viewport);
+
+    // If we didn't receive a valid reply, something went wrong and the error contains the error
+    IF (NOT RecordExists(gres.reply))
+      RETURN [ results := DEFAULT RECORD ARRAY
+             , status := "REQUEST_FAILED"
+             , error := gres.error
+             ];
+
+    // Rewrite coordinates from coordinate records to glatlng objects
+    IF (gres.reply.status ="OK")
+    {
+      IF (Length(gres.reply.results) > 0)
+        FOREVERY (RECORD result FROM gres.reply.results)
+        {
+          result.geometry := this->RewriteGeometry(result.geometry);
+          gres.reply.results[#result] := result;
+        }
+      ELSE
+        gres.reply := CellInsert(CellDelete(gres.reply, "results"), "results", DEFAULT RECORD ARRAY);
+    }
+
+    // Cache reply
+    IF (ObjectExists(this->pvt_cache) AND gres.cacheable)
+      this->pvt_cache->Put(address, gres.reply);
+
+    RETURN gres.reply;
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder.getCache
+  */
+  PUBLIC OBJECT FUNCTION GetCache()
+  {
+    RETURN this->pvt_cache;
+  }
+  /** http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder.setCache
+  */
+  PUBLIC MACRO SetCache(OBJECT cache)
+  {
+    this->pvt_cache := cache;
+    IF (ObjectExists(this->pvt_cache))
+      this->pvt_cache->Reset();
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder.getViewport
+  */
+  PUBLIC OBJECT FUNCTION GetViewport()
+  {
+    RETURN this->pvt_viewport;
+  }
+  /** http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder.setViewport
+  */
+  PUBLIC MACRO SetViewport(OBJECT bounds)
+  {
+    this->pvt_viewport := bounds;
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder.getBaseCountryCode
+  */
+  PUBLIC STRING FUNCTION GetBaseCountryCode()
+  {
+    RETURN this->pvt_basecountrycode;
+  }
+  /** http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder.setBaseCountryCode
+  */
+  PUBLIC MACRO SetBaseCountryCode(STRING countrycode)
+  {
+    this->pvt_basecountrycode := ToUppercase(countrycode);
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GClientGeocoder.reset
+  */
+  PUBLIC MACRO Reset()
+  {
+    IF (ObjectExists(this->pvt_cache))
+      this->pvt_cache->Reset();
+  }
+
+  RECORD FUNCTION RewriteGeometry(RECORD geometry)
+  {
+    OBJECT bounds;
+    IF(CellExists(geometry,'bounds'))
+      bounds := NEW GLatLngBounds(RecordToLatLng(geometry.bounds.southwest), RecordToLatLng(geometry.bounds.northeast));
+
+    OBJECT viewport;
+    IF(CellExists(geometry,'viewport'))
+      viewport := NEW GLatLngBounds(RecordToLatLng(geometry.viewport.southwest), RecordToLatLng(geometry.viewport.northeast));
+
+    RETURN [ location := RecordToLatLng(geometry.location)
+           , bounds := bounds
+           , viewport := viewport
+           , location_type := geometry.location_type
+           ];
+  }
+>;
+
+/** The Google GGeocodeCache object in HareScript.
+    See http://code.google.com/apis/maps/documentation/reference.html#GGeocodeCache
+*/
+PUBLIC STATIC OBJECTTYPE GGeocodeCache
+< RECORD ARRAY cache;
+
+  PUBLIC BOOLEAN debuginfo;
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GGeocodeCache.get
+  */
+  PUBLIC RECORD FUNCTION Get(STRING address)
+  {
+    STRING lookupaddress := this->ToCanonical(address);
+    RECORD reply := SELECT AS RECORD COLUMN reply FROM this->cache WHERE COLUMN address = lookupaddress;
+    IF (this->debuginfo AND RecordExists(reply))
+      Print("GGeocodeCache: Found cached reply for address '" || EncodeJava(lookupaddress) || "'\n");
+    RETURN reply;
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GGeocodeCache.isCachable
+  */
+  PUBLIC BOOLEAN FUNCTION IsCachable(RECORD reply)
+  {
+    BOOLEAN cachable := RecordExists(reply)
+      AND CellExists(reply, "name") AND reply.name != "";
+    IF (this->debuginfo)
+      Print("GGeocodeCache: Reply is " || (cachable ? "" : "not ") || "cachable\n");
+    RETURN cachable;
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GGeocodeCache.put
+  */
+  PUBLIC MACRO Put(STRING address, RECORD reply)
+  {
+    IF (NOT this->IsCachable(reply))
+      RETURN;
+
+    STRING lookupaddress := this->ToCanonical(address);
+    IF (RecordExists(this->Get(address)))
+    {
+      IF (this->debuginfo)
+        Print("GGeocodeCache: Updating existing address '" || EncodeJava(lookupaddress) || "'\n");
+      UPDATE this->cache SET reply := reply WHERE COLUMN address = lookupaddress;
+    }
+    ELSE
+    {
+      IF (this->debuginfo)
+        Print("GGeocodeCache: Adding address '" || EncodeJava(lookupaddress) || "'\n");
+      INSERT [ address := this->ToCanonical(address)
+             , reply := reply
+             ] INTO this->cache AT END;
+    }
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GGeocodeCache.reset
+  */
+  PUBLIC MACRO Reset()
+  {
+    IF (this->debuginfo)
+      Print("GGeocodeCache: Resetting cache\n");
+    this->cache := DEFAULT RECORD ARRAY;
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GGeocodeCache.toCanonical
+  */
+  PUBLIC STRING FUNCTION ToCanonical(STRING address)
+  {
+    address := ToLowercase(TrimWhitespace(address));
+    address := Substitute(address, ",", " ");
+    WHILE (SearchSubstring(address, "  ") >= 0)
+      address := Substitute(address, "  ", " ");
+    RETURN address;
+  }
+>;
+
+/** The Google GFactualGeocodeCache object in HareScript.
+    See http://code.google.com/apis/maps/documentation/reference.html#GFactualGeocodeCache
+*/
+PUBLIC STATIC OBJECTTYPE GFactualGeocodeCache EXTEND GGeocodeCache
+<
+  /** http://code.google.com/apis/maps/documentation/reference.html#GFactualGeocodeCache.isCachable
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION IsCachable(RECORD reply)
+  {
+    BOOLEAN cachable := GGeocodeCache::IsCachable(reply) AND CellExists(reply, "status") AND reply.status IN ["OK","ZERO_RESULTS"];
+    IF (this->debuginfo)
+      Print("GFactualGeocodeCache: Reply is " || (cachable ? "" : "not ") || "cachable\n");
+    RETURN cachable;
+  }
+>;
+
+/** An AdhocCached GeocodeCache object in HareScript.
+*/
+PUBLIC STATIC OBJECTTYPE AdhocGeocodeCache EXTEND GFactualGeocodeCache
+< INTEGER ttl;
+
+  MACRO NEW(INTEGER ttl DEFAULTSTO 0)
+  {
+    this->ttl := ttl > 0 ? ttl : 24 * 60 * 60 * 1000;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION Get(STRING address)
+  {
+    STRING lookupaddress := this->ToCanonical(address);
+    RECORD value := LookupAdhocCached([ address := lookupaddress ]);
+    IF (this->debuginfo AND RecordExists(value))
+      Print("AdhocGeocodeCache: Looking up cached reply for address '" || EncodeJava(lookupaddress) || "'\n");
+    RETURN RecordExists(value) ? value.reply : DEFAULT RECORD;
+  }
+
+  UPDATE PUBLIC MACRO Put(STRING address, RECORD reply)
+  {
+    IF (NOT this->IsCachable(reply))
+      RETURN;
+
+    STRING lookupaddress := this->ToCanonical(address);
+    IF (this->debuginfo)
+      Print("AdhocGeocodeCache: Storing address '" || EncodeJava(lookupaddress) || "'\n");
+    StoreAdhocCached([ address := lookupaddress ], [ ttl := this->ttl, value := reply, eventmasks := ["socialite:adhocgeocodedcache"] ]);
+  }
+
+  UPDATE PUBLIC MACRO Reset()
+  {
+    IF (this->debuginfo)
+      Print("AdhocGeocodeCache: Resetting cache\n");
+    BroadcastEvent("socialite:adhocgeocodedcache", DEFAULT RECORD);
+  }
+>;
+
+RECORD FUNCTION RewriteRoute(RECORD route, BOOLEAN convertlatlngs)
+{
+  RECORD rewritten_route := [ copyrights := route.copyrights
+                            , summary := route.summary
+                            , legs := DEFAULT RECORD ARRAY
+                            , overview_polyline := [ levels := CellExists(route.overview_polyline, "levels") ? DecodeLevels(route.overview_polyline.levels) : DEFAULT INTEGER ARRAY
+                                                   ]
+                            , warnings := DEFAULT STRING ARRAY
+                            , waypoint_order := DEFAULT INTEGER ARRAY
+                            ];
+
+  IF (CellExists(route, "bounds"))
+  {
+    IF (convertlatlngs)
+      INSERT CELL bounds := NEW GLatLngBounds(RecordToLatLng(route.bounds.southwest), RecordToLatLng(route.bounds.northeast)) INTO rewritten_route;
+    ELSE
+      INSERT CELL bounds := [ sw := route.bounds.southwest, ne := route.bounds.northeast ] INTO rewritten_route;
+  }
+
+  FOREVERY (RECORD leg FROM route.legs)
+  {
+    RECORD rewritten_leg := [ start_address := leg.start_address
+                            , end_address := leg.end_address
+                            , distance := leg.distance.value
+                            , duration := leg.duration.value
+                            , steps := DEFAULT RECORD ARRAY
+                            , via_waypoint := leg.via_waypoint //ADDME: What does this cell contain? (if empty, it's a VARIANT ARRAY)
+                            ];
+
+    IF (convertlatlngs)
+      INSERT CELL start_location := RecordToLatLng(leg.start_location) INTO rewritten_leg;
+    ELSE
+      INSERT CELL start_location := leg.start_location INTO rewritten_leg;
+
+    IF (convertlatlngs)
+      INSERT CELL end_location := RecordToLatLng(leg.end_location) INTO rewritten_leg;
+    ELSE
+      INSERT CELL end_location := leg.end_location INTO rewritten_leg;
+
+    FOREVERY (RECORD step FROM leg.steps)
+    {
+      RECORD rewritten_step := [ html_instructions := step.html_instructions
+                               , travel_mode := step.travel_mode
+                               , polyline := [ levels := CellExists(step.polyline, "levels") ? DecodeLevels(step.polyline.levels) : DEFAULT INTEGER ARRAY
+                                             ]
+                               , distance := step.distance.value
+                               , duration := step.duration.value
+                               ];
+
+      IF (convertlatlngs)
+        INSERT CELL start_location := RecordToLatLng(step.start_location) INTO rewritten_step;
+      ELSE
+        INSERT CELL start_location := step.start_location INTO rewritten_step;
+
+      IF (convertlatlngs)
+        INSERT CELL end_location := RecordToLatLng(step.end_location) INTO rewritten_step;
+      ELSE
+        INSERT CELL end_location := step.end_location INTO rewritten_step;
+
+      IF (convertlatlngs)
+        INSERT CELL points := DecodeLatLngs(step.polyline.points) INTO rewritten_step.polyline;
+      ELSE
+        INSERT CELL polyline_points := DecodeLatLngsToRecords(step.polyline.points) INTO rewritten_step.polyline;
+
+      INSERT rewritten_step INTO rewritten_leg.steps AT END;
+    }
+
+    INSERT rewritten_leg INTO rewritten_route.legs AT END;
+  }
+
+  IF (convertlatlngs)
+    INSERT CELL points := DecodeLatLngs(route.overview_polyline.points) INTO rewritten_route.overview_polyline;
+  ELSE
+    INSERT CELL points := DecodeLatLngsToRecords(route.overview_polyline.points) INTO rewritten_route.overview_polyline;
+
+  IF(CellExists(route,'warnings'))
+    FOREVERY (VARIANT warning FROM route.warnings)
+      INSERT STRING(warning) INTO rewritten_route.warnings AT END;
+
+  IF(CellExists(route,'waypoint_order'))
+    FOREVERY (VARIANT waypoint FROM route.waypoint_order)
+      INSERT INTEGER(waypoint) INTO rewritten_route.waypoint_order AT END;
+
+  RETURN rewritten_route;
+}
+
+PUBLIC STATIC OBJECTTYPE GDirectionsService EXTEND GGeocoderBase
+<
+  /** HareScript extension: Convert incoming [lat,lng] records to GLatLng objects
+  */
+  PUBLIC BOOLEAN convertlatlngs;
+
+  MACRO NEW(RECORD options) : GGeocoderBase(options)
+  {
+    this->maxoverloaddelay := CellExists(options, "maxoverloaddelay") ? options.maxoverloaddelay : 1000;
+    this->speedupsuccesscount := CellExists(options, "speedupsuccesscount") ? options.speedupsuccesscount : 100;
+  }
+
+  PUBLIC RECORD FUNCTION Route(RECORD directionsrequest)
+  {
+/*
+    // Check if we can serve the reply from cache
+    IF (ObjectExists(this->pvt_cache))
+    {
+      RECORD reply := this->pvt_cache->Get(address);
+      IF (RecordExists(reply))
+        RETURN reply;
+    }
+*/
+
+    // Convert request location objects to records (objects cannot be sent to weblet)
+    IF (CellExists(directionsrequest, "origin"))
+    {
+      IF (TypeID(directionsrequest.origin) = TypeID(OBJECT))
+      {
+        RECORD origin := directionsrequest.origin->ToRecord();
+        DELETE CELL origin FROM directionsrequest;
+        INSERT CELL origin := origin INTO directionsrequest;
+      }
+    }
+    ELSE
+      RETURN DEFAULT RECORD; //ADDME: Maybe throw?
+    IF (CellExists(directionsrequest, "destination"))
+    {
+      IF (TypeID(directionsrequest.destination) = TypeID(OBJECT))
+      {
+        RECORD destination := directionsrequest.destination->ToRecord();
+        DELETE CELL destination FROM directionsrequest;
+        INSERT CELL destination := destination INTO directionsrequest;
+      }
+    }
+    ELSE
+      RETURN DEFAULT RECORD; //ADDME: Maybe throw?
+
+    // Call the weblet function which handles the internet stuff (so we don't need TCPIP permissions)
+    RECORD gres := this->GetDirectionsRoute(directionsrequest);
+    IF (NOT RecordExists(gres) OR NOT RecordExists(gres.reply))
+      RETURN DEFAULT RECORD;
+
+    // Rewrite coordinates from coordinate records to glatlng objects
+    IF (gres.reply.status = "OK")
+    {
+      FOREVERY (RECORD route FROM gres.reply.routes)
+        gres.reply.routes[#route] := RewriteRoute(route, this->convertlatlngs);
+    }
+
+/*
+    // Cache reply
+    IF (ObjectExists(this->pvt_cache) AND gres.cacheable)
+      this->pvt_cache->Put(address, gres.reply);
+*/
+
+    RETURN gres.reply;
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION MakeGLatLngBoundsFromCoordinates(RECORD coordinates)
+{
+  RETURN RecordToBounds(coordinates);
+}

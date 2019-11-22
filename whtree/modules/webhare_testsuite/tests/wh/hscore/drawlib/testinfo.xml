@@ -1,0 +1,19 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+
+  <group name="canvasstate">
+    <test script="canvasstate.whscr">
+    </test>
+  </group>
+
+  <group name="pixeltest">
+    <test script="pixeltest.whscr">
+    </test>
+  </group>
+
+  <group name="fonts">
+    <test script="fonts.whscr">
+    </test>
+  </group>
+
+
+</group>

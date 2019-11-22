@@ -1,0 +1,112 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor/sites.whlib"
+         gid="monitor.sites"
+         >
+
+  <messageboxes gid=".messageboxes">
+    <messagebox name="suretoopenmultiple_newtab"    buttons="yes no" />
+    <messagebox name="suretoopenmultiple_publisher" buttons="yes no" />
+    <messagebox name="toomanytoopen_newtab"         buttons="ok" />
+    <messagebox name="toomanytoopen_publisher"      buttons="ok" />
+  </messageboxes>
+
+  <screen name="sites" title="" flags="issysop">
+    <actions gid=".actions">
+      <windowopenaction name="viewbrowser"
+                        shortcut="ctrl+b"
+                        onwindowopen="onviewbrowserlist"
+                        tid="filemanager.main.app.actions.viewbrowser"
+                        >
+        <enableon source="siteslist" min="1" checkflags="canview" />
+      </windowopenaction>
+
+      <!-- ctrl+p is specific to this application -->
+      <action name="showinnewpublishers"
+              shortcut="ctrl+p"
+              onexecute="doshowinnewpublishers"
+              >
+        <enableon source="siteslist" min="1" />
+      </action>
+
+      <!--  This is like the Publisher's "republish_recurse" action -->
+      <action name="republish"
+              shortcut="ctrl+e"
+              onexecute="dorepublish"
+              tid="filemanager.main.app.menus.republish"
+              >
+        <enableon source="siteslist" min="1" />
+      </action>
+
+      <!-- The publisher uses ctrl+i to activate the normal properties dialog,
+           but here we'll use it for the siteproperties.
+           If you want to edit more specific than that, use the view in publisher
+           option and go use the properties diaglog there...
+      -->
+      <action name="siteproperties"
+              onexecute="doopensiteproperties"
+              shortcut="ctrl+i"
+              tid="publisher:filemanager.main.app.actions.siteproperties"
+              frameflags="issysop"
+              >
+        <enableon source="siteslist" min="1" max="1" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="sitescontextmenu">
+        <item action="viewbrowser" />
+        <item action="showinnewpublishers" />
+        <divider />
+        <item action="siteproperties" />
+        <divider />
+        <item action="republish" />
+      </menu>
+    </menus>
+    <compositions>
+    </compositions>
+    <body>
+      <panel spacers="bottom">
+        <line>
+          <select name="linkedtotype" type="pulldown" onchange="onlinkedtotypechange">
+            <option rowkey="webdesign" tid="commondialogs.siteprops.sitedesign" />
+            <option rowkey="webfeature" />
+            <option rowkey="siteprofile" />
+            <!--
+            <option rowkey="designfolder" />
+            <option rowkey="basedon_templatev2" />
+            <option rowkey="basedon_dependencyresolver" />
+            <option rowkey="basedon_webdesign" />
+            <option rowkey="basedon_webdesign_in_module" />
+
+            <option rowkey="using_word" />
+            <option rowkey="using_rtdstructures" />
+            <option rowkey="using_rtdtypes" />
+            -->
+          </select>
+          <select name="webdesign"  type="pulldown" rowkeytype="string" onchange="refreshsiteslist" title="" />
+          <select name="webfeature" type="pulldown" rowkeytype="string" onchange="refreshsiteslist" title="" />
+          <select name="siteprofile" type="pulldown" rowkeytype="integer" onchange="refreshsiteslist" title="" />
+        </line>
+
+        <select name="weboutput" type="pulldown" rowkeytype="integer" onchange="refreshsiteslist" tid="commondialogs.siteprops.outputweb"></select>
+        <textedit name="query" trimwhitespace="true" onchange="refreshsiteslist" width="1pr" />
+      </panel>
+
+      <list name="siteslist"
+            selectmode="multiple"
+            selectcontextmenu="sitescontextmenu"
+            sortcolumn="name"
+            flags="canview"
+            gid=".sitecolumns"
+            height="1pr"
+            >
+        <column name="name"              type="text" width="1pr" />
+        <column name="webdesign"         type="text" width="25x" tid="commondialogs.siteprops.sitedesign" />
+        <column name="hasactivefeatures" type="icon" width="10x" align="center" hintname="activefeatures" />
+        <column name="haslinkedprofiles" type="icon" width="10x" align="center" hintname="linkedprofiles" />
+        <column name="url"               type="url" />
+      </list>
+      <text name="queryresultsinfo" title="" />
+    </body>
+  </screen>
+
+</screens>

@@ -1,0 +1,108 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+
+
+/* This scripts removes old module backups
+*/
+
+// Dirs
+STRING moduleroot, archiveroot;
+
+//moduleroot := GetWebHareConfiguration().varroot  || "installedmodules";
+archiveroot := GetWebHareConfiguration().varroot || "archivedmodules";
+
+/** This function moves modules that are (more than) 1 day older than the newest version
+    to the archive folder
+*/
+MACRO ArchiveOldModuleVersions()
+{
+//  PRINT("Archiving old module versions\n");
+
+  RECORD ARRAY modules := SELECT *
+                               , moduledata := GetModuleDataFromFolder(path, name, FALSE)
+                            FROM GetAllModulesAndVersionDirs();
+
+  DELETE FROM modules WHERE NOT RecordExists(moduledata);
+
+  modules := SELECT *, name := Tokenize(name,'.')[0] FROM modules;
+  modules :=
+      SELECT name
+           , versions := (SELECT * FROM GroupedValues(modules) ORDER BY moduledata.moduledate DESC)
+        FROM modules
+    GROUP BY name;
+
+  FOREVERY (RECORD module FROM modules)
+  {
+    // PRINT("- Processing module " || module.name || "\n");
+    FOREVERY (RECORD rec FROM module.versions)
+    {
+      IF (#rec < 1) // Always keep current version in the module directory
+      {
+        // PRINT("  - Keeping installed module version #" || #rec || " at " || rec.path || "\n");
+        CONTINUE;
+      }
+
+      RECORD dtdiff := GetDateTimeDifference(rec.moduledata.moduleorgdate, GetCurrentDateTime());
+      INTEGER agehours := dtdiff.days * 24 + dtdiff.msecs / 1000 / 60 / 60;;
+
+      // Move obsoleted modules to archive after 2 hours
+      IF (agehours >= 2)
+      {
+        // PRINT("  - Archiving installed module version #" || #rec || " at " || rec.path || ", age: " || agehours || " hours\n");
+
+        // Archive the module, obsoleted by the previous version
+        ArchiveModuleVersionByPath(rec.path, module.versions[#rec - 1].moduledata.moduleorgdate);
+      }
+    }
+  }
+}
+
+
+/** This function deletes all archived modules that have their obsoletiondate more than 180 days ago)
+*/
+MACRO RemoveObsoleteModules()
+{
+  INTEGER archivedays := ReadRegistryKey("system.modulemgr.archivedays");
+
+  // PRINT("Removing obsolete archived modules\n");
+  RECORD ARRAY modules :=
+      SELECT AS RECORD ARRAY GetModuleDataFromFolder(archiveroot || "/" || name, name, TRUE)
+        FROM ReadDiskDirectory(archiveroot, "*")
+       WHERE type = 1;
+
+  DELETE
+    FROM modules
+   WHERE NOT RecordExists(modules);
+
+  modules :=
+      SELECT *
+        FROM modules
+    ORDER BY name
+           , moduleorgdate;
+
+  FOREVERY (RECORD rec FROM modules)
+  {
+    RECORD dtdiff := GetDateTimeDifference(rec.obsoletiondate, GetCurrentDateTime());
+    IF (dtdiff.days >= archivedays)
+    {
+      PRINT("Deleting module archive " || rec.foldername || ", obsolete for " || dtdiff.days || " days\n");
+      IF (NOT DeleteDiskDirectoryRecursive(rec.path))
+      {
+        PrintTo(2, `Delete of '${rec.path}' failed\n`);
+        SetConsoleExitCode(1);
+      }
+    }
+  }
+}
+
+OBJECT trans := OpenPrimary();
+
+ArchiveOldModuleVersions();
+RemoveObsoleteModules();

@@ -1,0 +1,270 @@
+<?wh
+/* mollie api implementation
+
+*/
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+INTEGER wait_for_startpayment := 60*1000;
+OBJECT molliebrowser;
+
+RECORD FUNCTION DoMollieRequest(STRING apikey, STRING method, STRING endpoint, RECORD ARRAY variables DEFAULTSTO DEFAULT RECORD ARRAY, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([nofail := FALSE], options);
+  STRING apibase := "https://api.mollie.nl/";
+  IF(apikey = "test-mollie-apikey")
+    apibase := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.webhare_testsuite/tests/wrd/mollie/!/");
+
+  STRING url := apibase || endpoint;
+
+  IF (NOT ObjectExists(molliebrowser))
+  {
+    molliebrowser := NEW WebBrowser;
+    IF(IsRPCTrafficLogged("wrd:payments.mollie"))
+      LogRPCForWebbrowser("wrd:payments.mollie", "", molliebrowser);
+  }
+
+  RECORD ARRAY headers :=
+        [ [ field :=  "Authorization"
+          , value :=  "Bearer " || apikey
+          ]
+        ];
+
+  BLOB request_body;
+  SWITCH (method)
+  {
+    CASE "GET"
+    {
+      FOREVERY (RECORD repl FROM variables)
+      {
+        IF (repl.value="")
+          url := DeleteVariableFromURL(url, repl.name);
+        ELSE
+          url := ReplaceVariableInURL(url, repl.name, repl.value);
+      }
+    }
+    CASE "POST"
+    {
+      RECORD rec := CreateHTTPUrlencodedRequest(variables, "utf-8");
+      headers := headers CONCAT rec.headers;
+      request_body := rec.body;
+    }
+    CASE "DELETE"
+    {
+      IF (RecordExists(variables))
+        THROW NEW Exception("Variables not allowed with DELETE method");
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unsupported method " || method);
+    }
+  }
+
+  BOOLEAN result := molliebrowser->SendRawRequest(
+        method,
+        url,
+        headers,
+        request_body);
+
+  RECORD data := DecodeJSONBlob(molliebrowser->content);
+
+  IF (NOT result)
+  {
+    RECORD httpstatus := molliebrowser->GetHTTPStatus();
+    INTEGER code := molliebrowser->GetHTTPStatusCode();
+    IF (NOT RecordExists(httpstatus))
+      THROW NEW Exception("Could not connect to Mollie");
+
+    STRING error;
+    IF(httpstatus.code = 401)
+      error := "Mollie authorization failed - is your API key correct?";
+    ELSE IF(httpstatus.code = 422 AND CellExists(data, "ERROR") AND CellExists(data.error, "MESSAGE"))
+      error := data.error.message;
+    ELSE
+      error := "Request to the paymentprovider failed, HTTP code " || httpstatus.code || ", message: " || httpstatus.message;
+
+    IF(options.nofail)
+      RETURN CELL[ error ];
+    THROW NEW Exception(error);
+  }
+
+  RETURN data;
+}
+
+RECORD FUNCTION GetCacheableMethods(STRING apikey)
+{
+  RECORD methodsresponse := DoMollieRequest(apikey, "GET", "v2/methods?include=issuers", RECORD[], [ nofail := TRUE ]);
+  IF(CellExists(methodsresponse,'error'))
+    RETURN [ value := RECORD[], ttl := 5000 ];
+
+  RECORD ARRAY methods := SELECT rowkey := id
+                               , title := description
+                               , issuers := CellExists(method,'issuers') ? (SELECT rowkey := id, title := name FROM method.issuers) : RECORD[]
+                            FROM methodsresponse._embedded.methods AS method;
+  RETURN CELL[ value := methods
+             , ttl := 15*60*1000
+             ];
+}
+
+
+PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
+<
+  RECORD paymentdata;
+
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:mollie", "redirect", settings)
+  {
+    this->needspaymentref := TRUE;
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    //FIXME precache!
+    RECORD ARRAY methods := GetAdhocCached([ apikey := this->settings.apikey ], PTR GetCacheableMethods(this->settings.apikey));
+    DELETE FROM methods WHERE rowkey NOT IN (SELECT AS STRING ARRAY rowkey FROM this->settings.methods);
+
+    RETURN SELECT paymentoptiontag := rowkey
+                , title
+                , issuers
+                , islive := this->settings.apikey NOT LIKE "test*"
+             FROM methods;
+
+    RETURN methods;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN this->paymentdata;
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    this->paymentdata := payment.__paymentdata.m;
+  }
+
+  RECORD FUNCTION DoRequest(STRING method, STRING endpoint, RECORD ARRAY variables DEFAULTSTO DEFAULT RECORD ARRAY, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN DoMollieRequest(this->settings.apikey, method, endpoint, variables, options);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetPSPStatus()
+  {
+    RECORD methodsresponse := DoMollieRequest(this->settings.apikey, "GET", "v2/methods", RECORD[], [ nofail := TRUE ]);
+    IF(CellExists(methodsresponse,'error'))
+      RETURN [ success := FALSE, unknown := FALSE, message := EnforceStructure([error := ""],methodsresponse).error ];
+    IF(Length(methodsresponse._embedded.methods) = 0)
+      RETURN [ success := FALSE, unknown := FALSE, message := "No methods available" ];
+    RETURN [ success := TRUE, unknown := FALSE, message := "Available methods: " || Detokenize((SELECT AS STRING ARRAY id FROM methodsresponse._embedded.methods),", ") ];
+  }
+
+  PUBLIC UPDATE STRING FUNCTION GetPayRedirectUrl(STRING paymenttok)
+  {
+//    IF (this->paymentmetadata.issuer = "")
+//      THROW NEW Exception("No issuerid set!");
+
+    STRING returnurl := GetInternalReturnURL(paymenttok);
+    STRING webhookurl := GetInternalReturnURL(paymenttok, [ isnotification := TRUE ]);
+
+    RECORD ARRAY req :=
+        [ [ name := "amount[currency]",     value := "EUR" ]
+        , [ name := "amount[value]",        value := FormatMoney(this->amountpayable, 2, ".", "", TRUE) ]
+        , [ name := "description",          value := this->orderid ?? this->paymentref ]
+        , [ name := "redirectUrl",          value := returnurl ]
+        , [ name := "metadata[paymentref]", value := this->paymentref ]
+        , [ name := "metadata[paymenttok]", value := paymenttok ]
+        , [ name := "method",               value := this->paymentoptiontag ]
+        ];
+
+    IF(this->settings.webhooks)
+      INSERT [ name := "webhookUrl", value := webhookurl ] INTO req AT END;
+    IF(this->issuer != "")
+      INSERT [ name := "issuer", value := this->issuer ] INTO req AT END;
+
+    RECORD result := this->DoRequest("POST", "v2/payments", req);
+
+    GetPrimary()->BeginWork();
+    UpdatePaymentMetadata(paymenttok, [ order_id :=     result.id
+                                      , status :=       result.status
+                                      ]);
+    GetPrimary()->CommitWork();
+    RETURN result._links.checkout.href;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    IF(this->pvt_status = "pending")
+      this->RecheckPayment();
+
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    IF(NOT RecordExists(this->paymentdata)) //we don't have the payment ID yet
+    {
+      IF(this->creationdate != DEFAULT DATETIME AND AddTimeToDate(wait_for_startpayment, this->creationdate) > GetCurrentDatetime()) //payment request never sent? this requires a very specific crash...
+        RETURN;
+      this->pvt_status := "failed";
+      RETURN;
+    }
+
+    RECORD result := this->DoRequest("GET", "v2/payments/" || this->paymentdata.order_id);
+    BOOLEAN pvt_paymentdone     := result.status IN [ "canceled", "expired", "paid", "paidout", "refunded", "charged_back", "failed" ];
+    BOOLEAN pvt_paymentapproved := result.status IN [ "paid", "paidout", "refunded", "charged_back" ];
+    this->pvt_status := pvt_paymentdone ? pvt_paymentapproved ? "approved" : "failed" : "pending";
+  }
+>;
+
+PUBLIC RECORD FUNCTION CheckMollieMerchant(STRING apikey)
+{
+  IF(apikey = "")
+    RETURN DEFAULT RECORD;
+
+  RECORD methodsresponse := DoMollieRequest(apikey, "GET", "v2/methods", RECORD[], [ nofail := TRUE ]);
+  IF(CellExists(methodsresponse,'error'))
+    RETURN DEFAULT RECORD;
+
+  /*
+   +RECORD
+  +DESCRIPTION: 'iDEAL'
+  +ID: 'ideal'
+  +RESOURCE: 'method'
+  +ISSUERS: RECORD ARRAY
+     +RECORD
+      +ID: 'ideal_ABNANL2A'
+      +NAME: 'ABN AMRO'
+      +RESOURCE: 'issuer'
+      +IMAGE: RECORD
+       +SIZE1X: 'https://www.mollie.com/external/icons/ideal-issuers/ABNANL2A.png'
+       +SIZE2X: 'https://www.mollie.com/external/icons/ideal-issuers/ABNANL2A%402x.png'
+       +SVG: 'https://www.mollie.com/external/icons/ideal-issuers/ABNANL2A.svg'
+   +IMAGE: RECORD
+   +SIZE1X: 'https://www.mollie.com/external/icons/payment-methods/ideal.png'
+   +SIZE2X: 'https://www.mollie.com/external/icons/payment-methods/ideal%402x.png'
+   +SVG: 'https://www.mollie.com/external/icons/payment-methods/ideal.svg'
+  +MAXIMUMAMOUNT: RECORD
+   +CURRENCY: 'EUR'
+   +VALUE: '50000.00'
+  +MINIMUMAMOUNT: RECORD
+   +CURRENCY: 'EUR'
+   +VALUE: '0.01'
+  +_LINKS: RECORD
+   +SELF: RECORD[2]
+   */
+  RECORD ARRAY methods := SELECT rowkey := id
+                               , title := description
+                            FROM methodsresponse._embedded.methods;
+  RETURN CELL[methods];
+}

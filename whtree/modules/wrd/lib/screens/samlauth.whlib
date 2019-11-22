@@ -1,0 +1,763 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/pkcs.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::internal/saml.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
+
+PUBLIC OBJECTTYPE OpenAuthDomain EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public properties & variables
+  //
+
+  OBJECT wrdschema;
+  PUBLIC PROPERTY sitetag(GetSiteTag, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->wrdschema := data.wrdschema;
+    this->domains->wrdtype := data.wrdschema->GetType("WRD_AUTHDOMAIN");
+
+    IF (CellExists(data, "SITETAG"))
+      this->LoadSCreen(".main", [ wrdschema := this->wrdschema, sitetag := data.sitetag ])->RunModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  STRING FUNCTION GetSiteTag()
+  {
+    RETURN this->domains->wrdtype->GetEntity(this->domains->value)->GetField("WRD_TAG");
+  }
+
+  MACRO OpenSamlSettings()
+  {
+    this->RunScreen("#main", [ wrdschema := this->wrdschema, sitetag := this->sitetag ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT wrdschema;
+
+  OBJECT wrd_providerbase;
+  OBJECT wrd_sp;
+  OBJECT wrd_idp;
+
+  OBJECT wrd_connectedproviders;
+
+  OBJECT wrdauth;
+
+  INTEGER curprovider;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    RECORD connectparams;
+    this->wrdschema := data.wrdschema;
+    this->wrd_idp := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_IDP");
+    this->wrd_sp := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
+    this->wrd_providerbase := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAMLPROVIDERBASE");
+    this->wrd_connectedproviders := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY");
+    TRY
+    {
+      this->wrdauth := OpenWRDAuthDomain(this->wrdschema, data.sitetag);
+    }
+    CATCH (OBJECT e)
+    {
+      LogHarescriptException(e);
+      this->RunMessageBox(".authnotcorrectlyconfigured");
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    IF (NOT ObjectExists(this->wrd_providerbase) OR NOT ObjectExists(this->wrdauth))
+    {
+      this->RunMessageBox(".notconfiguredforsaml");
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    this->eventlistener->masks :=
+          this->wrd_providerbase->GetEventMasks() CONCAT
+          this->wrd_connectedproviders->GetEventMasks();
+
+    // Samlproviders need to refresh when connected providers refresh too
+    this->samlproviders->eventmasks := this->wrd_connectedproviders->GetEventMasks();
+
+    this->samlproviders->wrdtype := this->wrd_providerbase;
+    this->samlproviders->listfilters := [ [ field := "WRD_LEFTENTITY", value := this->wrdauth->id ] ];
+
+    this->connectedproviders->wrdtype := this->wrd_connectedproviders;
+
+    this->samlproviders->embeddedlist->rowkeytype := TypeID(INTEGER);
+    this->CalculateFrameFlags();
+    this->OnProviderSelect();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO CalculateFrameFlags()
+  {
+    this->frame->flags.haveidp := RecordExists(this->wrd_idp->RunQuery(
+        [ filters := [ [ field := "WRD_LEFTENTITY", value := this->wrdauth->id ] ]
+        ]));
+
+    IF (this->samlproviders->value = 0)
+      this->frame->flags.haveconnected := FALSE;
+    ELSE
+      this->frame->flags.haveconnected := RecordExists(this->wrd_connectedproviders->RunQuery(
+        [ filters := [ [ field := "WRD_LEFTENTITY", value := this->samlproviders->value ] ]
+        ]));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotEvents(RECORD ARRAY events)
+  {
+    this->CalculateFrameFlags();
+  }
+
+  RECORD ARRAY FUNCTION OnMapSAMLProvidersRows(RECORD ARRAY rows)
+  {
+    // Get list of all connected providers
+    RECORD ARRAY connected :=
+        SELECT *
+          FROM this->wrd_connectedproviders->RunQuery(
+                [ outputcolumns := [ "WRD_LEFTENTITY" ]
+                ])
+      ORDER BY wrd_leftentity;
+
+    rows :=
+        SELECT *
+             , sp :=              wrd_type = this->wrd_sp->id
+             , idp :=             wrd_type = this->wrd_idp->id
+             , type :=            wrd_type = this->wrd_sp->id ? this->GetTid(".sp") : this->GetTid(".idp")
+             , haveconnected :=   RecordLowerBound(connected, [ wrd_leftentity := rowkey ], [ "WRD_LEFTENTITY" ]).found
+          FROM rows;
+
+    RETURN rows;
+  }
+
+  RECORD ARRAY FUNCTION OnMapConnectedProvidersRows(RECORD ARRAY rows)
+  {
+    rows :=
+        SELECT *
+             , sp :=    this->frame->flags.selected_idp
+             , idp :=   this->frame->flags.selected_sp
+          FROM rows;
+
+    RETURN rows;
+  }
+
+  MACRO OnProviderSelect()
+  {
+    BOOLEAN selected_sp;
+    BOOLEAN selected_idp;
+    BOOLEAN haveconnected;
+
+    this->curprovider := this->samlproviders->value;
+
+    IF (this->samlproviders->value != 0)
+    {
+      RECORD data := this->wrd_providerbase->GetEntityFields(this->samlproviders->value, [ "WRD_TYPE" ]);
+      selected_sp := data.wrd_type = this->wrd_sp->id;
+      selected_idp := data.wrd_type = this->wrd_idp->id;
+
+      haveconnected := RecordExists(this->wrd_connectedproviders->RunQuery(
+            [ filters := [ [ field := "WRD_LEFTENTITY", value := this->samlproviders->value ] ] ]));
+    }
+
+    this->frame->flags.selected_sp := selected_sp;
+    this->frame->flags.selected_idp := selected_idp;
+    this->frame->flags.haveconnected := haveconnected;
+
+    // -1 is somewhat faster to generate no results
+    this->connectedproviders->listfilters :=
+        [ [ field := "WRD_LEFTENTITY", value := this->samlproviders->value ?? -1 ] ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAddSP()
+  {
+    INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_sp, id := 0, domainid := this->wrdauth->id ]);
+    IF (id != 0)
+      this->samlproviders->value := id;
+  }
+
+  MACRO DoAddIDP()
+  {
+    INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_idp, id := 0, domainid := this->wrdauth->id ]);
+    IF (id != 0)
+      this->samlproviders->value := id;
+  }
+
+  MACRO DoEditSP()
+  {
+    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_sp, id := this->samlproviders->value, domainid := this->wrdauth->id  ])->RunModal();
+  }
+
+  MACRO DoEditIDP()
+  {
+    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_idp, id := this->samlproviders->value, domainid := this->wrdauth->id  ])->RunModal();
+  }
+
+  MACRO DoDeleteSP()
+  {
+    IF (this->RunMessageBox(".suredeletesp") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      this->wrd_sp->GetEntity(this->samlproviders->value)->CloseOrDeleteEntity();
+      work->Finish();
+    }
+  }
+
+  MACRO DoDeleteIDP()
+  {
+    IF (this->RunMessageBox(".suredeleteidp") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      this->wrd_idp->GetEntity(this->samlproviders->value)->CloseOrDeleteEntity();
+      work->Finish();
+    }
+  }
+
+  MACRO DoAddConnectedIDP()
+  {
+    this->LoadScreen(".editconnectedprovider",
+        [ wrdtype :=  this->wrd_connectedproviders
+        , id :=       0
+        , type :=     "idp"
+        , parent :=   this->samlproviders->value
+        ])->RunModal();
+  }
+
+  MACRO DoAddConnectedSP()
+  {
+    this->LoadScreen(".editconnectedprovider",
+        [ wrdtype :=  this->wrd_connectedproviders
+        , id :=       0
+        , type :=     "sp"
+        , parent :=   this->samlproviders->value
+        ])->RunModal();
+  }
+
+  MACRO DoEditConnectedSP()
+  {
+    this->LoadScreen(".editconnectedprovider",
+        [ wrdtype :=  this->wrd_connectedproviders
+        , id :=       this->connectedproviders->value
+        , type :=     "sp"
+        , parent :=   this->samlproviders->value
+        ])->RunModal();
+  }
+
+  MACRO DoEditConnectedIDP()
+  {
+    this->LoadScreen(".editconnectedprovider",
+        [ wrdtype :=  this->wrd_connectedproviders
+        , id :=       this->connectedproviders->value
+        , type :=     "idp"
+        , parent :=   this->samlproviders->value
+        ])->RunModal();
+  }
+
+  MACRO DoDeleteConnectedIDP()
+  {
+    IF (this->RunMessageBox(".suredeleteconnectedidp") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      this->wrd_connectedproviders->GetEntity(this->connectedproviders->value)->CloseOrDeleteEntity();
+      work->Finish();
+    }
+  }
+
+  MACRO DoDeleteConnectedSP()
+  {
+    IF (this->RunMessageBox(".suredeleteconnectedsp") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      this->wrd_connectedproviders->GetEntity(this->connectedproviders->value)->CloseOrDeleteEntity();
+      work->Finish();
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE EditProvider EXTEND TolliumScreenBase
+< INTEGER domainid;
+
+  MACRO Init(RECORD data)
+  {
+    this->domainid := data.domainid;
+
+    this->keypair->options := [ [ rowkey := 0, title := this->GetTid(".chooseakeypair"), invalidselection := TRUE ] ] CONCAT
+        SELECT rowkey :=    id
+             , title :=     title = "" ? name : title || " (" || name || ")"
+          FROM ListKeyPairs();
+
+    BOOLEAN is_sp := data.wrdtype->tag = "WRD_AUTHDOMAIN_SAML_SP";
+    BOOLEAN is_idp := data.wrdtype->tag = "WRD_AUTHDOMAIN_SAML_IDP";
+
+    // also disable, to keep out of updates to record
+    this->nameidformatsheading->visible := is_idp;
+    this->supportednameidformats->visible := is_idp;
+    this->nameidpolicy->visible := is_sp;
+    IF (NOT is_idp)
+      this->supportednameidformats->composition := DEFAULT OBJECT;
+    ELSE
+      this->nameidpolicy->composition := DEFAULT OBJECT;
+
+    this->entity->LoadEntity(data.wrdtype, data.id);
+
+    IF (data.id != 0)
+    {
+      RECORD intextlink := this->entity->wrdentity->GetField("KEYPAIR");
+      IF (RecordExists(intextlink))
+        this->keypair->value := intextlink.internallink;
+
+      IF (is_sp)
+      {
+        // default policies
+        OBJECT wrd_connected := data.wrdtype->wrdschema->^wrd_authdomain_saml_connected_entity;
+        INTEGER connected_idp := wrd_connected->Search("WRD_LEFTENTITY", data.id);
+        IF (connected_idp != 0)
+        {
+          RECORD ARRAY formats := wrd_connected->GetEntityField(connected_idp, "SUPPORTEDNAMEIDFORMATS");
+          IF (LENGTH(formats) != 0)
+            this->nameidpolicy->options := SELECT title := nameidformat FROM formats;
+        }
+      }
+    }
+  }
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed() AND NOT work->Finish())
+      RETURN 0;
+
+    this->entity->StoreEntity(work,
+        [ keypair := MakeIntExtInternalLink(this->keypair->value, "")
+        , wrd_leftentity := this->domainid
+        ]);
+
+    RETURN work->Finish() ? this->entity->entityid : 0;
+  }
+>;
+
+PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER parent;
+
+  STRING type;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init & submit
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->type := data.type;
+    this->parent := data.parent;
+
+    BOOLEAN is_sp := this->type = "sp";
+    BOOLEAN is_idp := this->type = "idp";
+
+    this->nameidformatsheading->visible := is_idp;
+    this->supportednameidformats->visible := is_idp;
+
+    this->entity->LoadEntity(data.wrdtype, data.id);
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    this->entity->StoreEntity(work, [ wrd_leftentity := this->parent ]);
+
+    RETURN work->Finish();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION GetMetaDocEntityDescriptors(RECORD root)
+  {
+    IF (root.type = "EntityDescriptor")
+      RETURN [ root ];
+
+    RECORD ARRAY result := root.entitydescriptor;
+    FOREVERY (RECORD rec FROM root.entitiesdescriptor)
+      result := result CONCAT this->GetMetaDocEntityDescriptors(rec);
+
+    RETURN result;
+  }
+
+  RECORD ARRAY FUNCTION OnMapServiceEndpointRows(RECORD ARRAY rows)
+  {
+    // ADDME: binding -> use tid with 'HTTP-POST' / 'Redirect'
+    RETURN
+        SELECT TEMPORARY indexed := type IN [ "ArtifactResolutionService", "AssertionConsumerService" ]
+             , *
+             , "index" :=       indexed ? ToString(COLUMN "index") : ""
+             , isdefault :=     indexed AND isdefault ? this->GetTid(".default") : ""
+          FROM rows;
+  }
+
+  RECORD ARRAY FUNCTION OnMapCertificateRows(RECORD ARRAY rows)
+  {
+    FOREVERY (RECORD row FROM rows)
+    {
+      RECORD decoded := DecodePEMFile(BlobToString(row.data.data));
+
+      INSERT CELL commonname := (SELECT AS STRING value FROM decoded.subjectfields WHERE fieldname="CN") ?? this->GetTid(".na") INTO rows[#row];
+      INSERT CELL validuntil := decoded.valid_until INTO rows[#row];
+    }
+
+    RETURN rows;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ImportMetadataDocument(OBJECT feedback, OBJECT doc)
+  {
+    RECORD ARRAY errors := VerifySAMLMetadataDocument(doc);
+    IF (LENGTH(errors) != 0)
+    {
+      DumpValue(errors,'tree');
+      feedback->AddError(this->GetTid(".metadatadocumentdoesnotvalidate"));
+      RETURN;
+    }
+
+    OBJECT coder := NEW SAMLCoder;
+
+    RECORD mdoc := coder->ParseMetadataDocument(doc->documentelement);
+    RECORD ARRAY entitydescriptors := this->GetMetaDocEntityDescriptors(mdoc);
+    IF (LENGTH(entitydescriptors) = 0)
+      feedback->AddError(this->GetTid(".noentitydescriptors"));
+    ELSE IF (LENGTH(entitydescriptors) = 1)
+    {
+      IF (this->entity->value.samlentityid != "" AND entitydescriptors[0].entityid != this->entity->value.samlentityid)
+        feedback->AddError(this->GetTid(".samlentityiddiffers", this->entity->value.samlentityid, entitydescriptors[0].entityid));
+    }
+    ELSE
+    {
+      IF (this->entity->value.samlentityid = "")
+        feedback->AddError(this->GetTid(".multipledescriptorsnofilter"));
+      ELSE
+      {
+        entitydescriptors :=
+            SELECT *
+              FROM entitydescriptors
+             WHERE entityid = this->entity->value.samlentityid;
+
+        IF (LENGTH(entitydescriptors) != 1)
+          feedback->AddError(this->GetTid(".multipledescriptorsbutnotfound", this->entity->value.samlentityid));
+      }
+    }
+
+    RECORD ARRAY serviceendpoints;
+    RECORD ARRAY descriptors;
+    RECORD ARRAY contacts := entitydescriptors[0].contactperson;
+    RECORD ARRAY supportednameidformats;
+
+    BOOLEAN have_idp;
+    IF (this->type = "idp")
+    {
+      FOREVERY (RECORD idpssodesc FROM entitydescriptors[0].idpssodescriptor)
+      {
+        // Only SAML 2
+        IF ("urn:oasis:names:tc:SAML:2.0:protocol" NOT IN idpssodesc.protocolSupportEnumeration)
+          CONTINUE;
+
+        INSERT idpssodesc INTO descriptors AT END;
+
+        serviceendpoints := serviceendpoints CONCAT
+           (SELECT *
+                 , type :=    "SingleLogoutService"
+              FROM idpssodesc.singlelogoutservice) CONCAT
+           (SELECT *
+                 , type :=    "SingleSignOnService"
+              FROM idpssodesc.singlesignonservice) CONCAT
+           (SELECT *
+                 , type :=    "ArtifactResolutionService"
+              FROM idpssodesc.artifactresolutionservice);
+
+        contacts := contacts CONCAT idpssodesc.contactperson;
+        supportednameidformats := supportednameidformats CONCAT ToRecordArray(idpssodesc.nameidformat, "NAMEIDFORMAT");
+
+        have_idp := TRUE;
+      }
+    }
+
+    BOOLEAN have_sp;
+    IF (this->type = "sp")
+    {
+      FOREVERY (RECORD spssodesc FROM entitydescriptors[0].spssodescriptor)
+      {
+        // Only SAML 2
+        IF ("urn:oasis:names:tc:SAML:2.0:protocol" NOT IN spssodesc.protocolSupportEnumeration)
+          CONTINUE;
+
+        INSERT spssodesc INTO descriptors AT END;
+
+        serviceendpoints := serviceendpoints CONCAT
+           (SELECT *
+                 , type :=    "SingleLogoutService"
+              FROM spssodesc.singlelogoutservice) CONCAT
+           (SELECT *
+                 , type :=    "ArtifactResolutionService"
+              FROM spssodesc.artifactresolutionservice) CONCAT
+           (SELECT *
+                 , type :=    "AssertionConsumerService"
+              from spssodesc.assertionconsumerservice) CONCAT
+           (SELECT *
+                 , type :=    "AttributeConsumingService"
+              from spssodesc.attributeconsumingservice);
+
+        contacts := contacts CONCAT spssodesc.contactperson;
+        have_sp := TRUE;
+      }
+    }
+
+    IF (this->type = "sp" ? NOT have_sp : NOT have_idp)
+      feedback->AddError(this->GetTid(".norelevantservicesfound"));
+    ELSE IF (LENGTH(descriptors) > 1)
+      feedback->AddError(this->GetTid(".bothidpandspfoundindescriptor"));
+
+    IF (feedback->HasFailed())
+      RETURN;
+
+    RECORD ARRAY certs := this->entity->value.certificates;
+
+    IF (LENGTH(descriptors[0].keydescriptor) != 0)
+    {
+      // Ignore 2+ keydescriptors
+      RECORD keyinfo := descriptors[0].keydescriptor[0].keyinfo;
+
+      IF (keyinfo.type = "X509Certificate")
+      {
+        // Create certificate PEM
+        STRING cert := EncodeRawPEMFile("CERTIFICATE", DecodeBase64(keyinfo.value));
+
+        BOOLEAN found;
+        FOREVERY (RECORD rec FROM certs)
+          IF (BlobToString(rec.data.data) = cert)
+            found := TRUE;
+
+        IF (NOT found)
+        {
+          IF (LENGTH(certs) != 0)
+          {
+            OBJECT dialog := this->LoadScreen(".importchangedcertificate",
+                [ newcert :=    cert
+                ]);
+
+            IF (dialog->RunModal() != "ok")
+              RETURN;
+
+            IF (dialog->choice = "replace")
+              certs := DEFAULT RECORD ARRAY;
+            ELSE
+              UPDATE certs SET useuntil := dialog->useuntil WHERE useuntil > dialog->useuntil;
+          }
+
+          INSERT [ data := WrapBlob(StringToBlob(cert), "certificate.crt"), acceptuntil := MAX_DATETIME ] INTO certs AT END;
+
+          // Try longest accepted certificates first
+          certs := SELECT * FROM certs ORDER BY acceptuntil DESC;
+        }
+      }
+    }
+
+    RECORD defaultservicerec :=
+        [ type :=               ""
+        , binding :=            ""
+        , location :=           ""
+        , responselocation :=   ""
+        , "index" :=            0
+        , isdefault :=          FALSE
+        ];
+
+    serviceendpoints := SELECT AS RECORD ARRAY MakeReplacedRecord(defaultservicerec, serviceendpoints) FROM serviceendpoints;
+    contacts :=
+        SELECT type :=      contacttype
+             , company
+             , givenname
+             , surname
+             , email :=     (emailaddress CONCAT [ "" ])[0]
+             , telephone := (telephonenumber CONCAT [ "" ])[0]
+          FROM contacts;
+
+    RECORD org := entitydescriptors[0].organization ??
+        [ organizationname :=         ""
+        , organizationdisplayname :=  ""
+        , organizationurl :=          ""
+        ];
+
+    RECORD value :=
+        [ samlentityid :=               entitydescriptors[0].entityid
+        , organization_name :=          org.organizationname
+        , organization_displayname :=   org.organizationdisplayname
+        , organization_url :=           org.organizationurl
+        , contacts :=                   contacts
+        , serviceendpoints :=           (SELECT * FROM serviceendpoints ORDER BY type, COLUMN "index", NOT isdefault)
+        , certificates :=               certs
+        , supportednameidformats :=     supportednameidformats
+        ];
+
+    this->entity->value := MakeReplacedRecord(this->entity->value, value);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoDownloadMetadata()
+  {
+    OBJECT feedback := this->BeginUnvalidatedFeedback();
+    IF (this->metadataurl->value = "")
+      feedback->AddError(this->GetTid(".fieldmetadataurlisrequired"));
+    ELSE
+      this->metadataurl->ValidateValue(feedback);
+    IF (feedback->HasFailed())
+    {
+      feedback->Finish();
+      RETURN;
+    }
+
+    OBJECT browser := NEW WebBrowser;
+    IF (NOT browser->GotoWebpage(this->metadataurl->value) OR NOT ObjectExists(browser->document))
+    {
+      PRINT(AnyToString(browser->GetHTTPStatus(), "tree"));
+      feedback->AddError(this->GetTid(".cannotretrievemetadata"));
+      feedback->Finish();
+      RETURN;
+    }
+
+    OBJECT doc := browser->document;
+    browser->Close();
+
+    this->ImportMetadataDocument(feedback, doc);
+  }
+
+  MACRO DoEnterMetadata()
+  {
+    this->LoadScreen(".entermetadata", [ func := PTR this->ImportMetadataDocument ])->RunModal();
+  }
+>;
+
+PUBLIC OBJECTTYPE EnterMetadata EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  FUNCTION PTR func;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init & submit
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->func := data.func;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT feedback := this->BeginFeedback();
+    IF (feedback->HasFailed())
+      RETURN feedback->Finish();
+
+    this->metadata->value := TrimWhitespace(this->metadata->value);
+
+    OBJECT doc := MakeXMLDocument(StringToBlob(this->metadata->value));
+    IF (NOT ObjectExists(doc) OR NOT ObjectExists(doc->documentelement) OR LENGTH(doc->GetParseErrors()) != 0)
+    {
+      feedback->AddError(this->GetTid(".notvalidxmldocument"));
+      RETURN feedback->Finish();
+    }
+
+    this->func(feedback, doc);
+    RETURN feedback->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE ImportChangedCertificate EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties & variables
+  //
+
+  PUBLIC PROPERTY choice(this->certchoice->value, -);
+
+  PUBLIC PROPERTY useuntil(this->certuseuntil->value, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->certuseuntil->value := GetRoundedDateTime(AddDaysToDate(7, UTCToLocal(GetCurrentDateTime(), "CET")), 86400 * 1000);
+  }
+>;

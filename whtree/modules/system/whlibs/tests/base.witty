@@ -1,0 +1,8 @@
+﻿[component c1]c1-v1:[x][/component]
+[component c2]c2-v1:[x][/component]
+[component c3]c3-v1:[x][/component]
+[component c4]c4-v1:[x][/component]
+
+[component c7]v7-v1[/component]
+[component c7a][embed test.witty:c7a][/component]
+

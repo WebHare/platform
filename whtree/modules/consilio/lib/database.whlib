@@ -1,0 +1,4 @@
+﻿<?wh
+/** @private Catalog management should be done through api.whlib */
+
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib" EXPORT consilio;

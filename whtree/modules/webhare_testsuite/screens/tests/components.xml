@@ -1,0 +1,12 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/tests/components.whlib">
+
+  <fragment name="multilinecomponent">
+    <contents>
+      <text />
+      <text />
+    </contents>
+  </fragment>
+
+
+</screens>

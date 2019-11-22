@@ -1,0 +1,63 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/validateschema.whlib";
+
+// command: wrd:validate [schema...]
+// short: Check a WRD schema for internal consistency
+
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(),
+        [ [ name := "v", type := "switch" ]
+        , [ name := "schemanames", type := "paramlist" ]
+        ]);
+
+IF(NOT RecordExists(cmdargs))
+{
+  Print("Syntax: wh wrd:validate schemanamemask*\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+
+OBJECT trans := OpenPrimary();
+
+BOOLEAN have_any_match;
+BOOLEAN any_error;
+
+FOREVERY (RECORD schemarec FROM SELECT id, name FROM wrd.schemas)
+{
+  BOOLEAN ismatch;
+  FOREVERY (STRING name FROM cmdargs.schemanames)
+    IF (ToUppercase(schemarec.name) LIKE ToUppercase(name) OR schemarec.id = ToInteger(name, -1))
+      ismatch := TRUE;
+  IF (NOT ismatch)
+    CONTINUE;
+
+  IF (have_any_match)
+    PRINT("\n");
+  have_any_match := TRUE;
+
+  PRINT("Validate schema " || schemarec.name || "\n");
+
+  OBJECT wrdschema := OpenWRDSchemaById(schemarec.id);
+  RECORD result := ValidateWRDSchema(wrdschema);
+  IF (result.errors=0)
+  {
+    Print(" Schema appears ok\n");
+  }
+  ELSE
+  {
+    Print(" Schema is inconsistent ("|| result.errors || " errors)\n");
+    any_error := TRUE;
+    IF (cmdargs.v)
+      FOREVERY (STRING msg FROM result.messages)
+        PRINT(" " || msg || "\n");
+    SetConsoleExitCode(1);
+  }
+}
+IF (any_error AND NOT cmdargs.v)
+  PRINT("\nUse -v to see detailed error information\n");

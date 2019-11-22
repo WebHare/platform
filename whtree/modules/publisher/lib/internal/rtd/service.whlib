@@ -1,0 +1,1057 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+STRING FUNCTION EncryptNewLink(INTEGER linkref)
+{
+  RETURN "x-richdoclink-e:" || EncryptForThisServer("tollium:rtdlink", linkref);
+}
+INTEGER FUNCTION DecryptLink(STRING href)
+{
+  IF(href LIKE "x-richdoclink-e:*")
+    RETURN DecryptForThisServer("tollium:rtdlink", Substring(href,16), [ fallback := 0 ]);
+  RETURN -1;
+}
+
+STATIC OBJECTTYPE LinkDecryptor
+<
+  PUBLIC RECORD ARRAY decryptedlinks;
+>;
+
+
+/** Cache that tries to return blobs registered with the WebHare DB when provided with multiple copies of a blob
+    @long This class helps with stabilizing blobs for users that import a blob and regenerate that blob upon export.
+    If the imported is registered with this class, processing the generated blob with this class will return the
+    original blob. If that original blob came from the WebHare database, inserting the new value won't create a new
+    blob in the database (because the Blob IDs haven't changed). WRD history relies on the Blob ID to see if values
+    have been changed, so keeping them stable with this class can prevent unwanted history updates.
+*/
+PUBLIC STATIC OBJECTTYPE WebHareDBBlobStabilizer
+<
+  /** Blob cache
+      @cell hash SHA-256 hash of the blob
+      @cell data Blob data
+  */
+  RECORD ARRAY cache;
+
+  /** Returns the provided blob, or an earlier provided blob with identical content if that one is already
+      registered in the WebHare database
+      @param data Blob to cache
+      @return Blob with identical content, registered with the WebHare database
+  */
+  PUBLIC BLOB FUNCTION Process(BLOB data)
+  {
+    STRING hash := GetHashForBlob(data, "SHA-512");
+    RECORD pos := RecordLowerBound(this->cache, CELL[ hash ], [ "HASH" ]);
+    IF (NOT pos.found)
+    {
+      // Register the blob, it may be inserted into the database later on
+      INSERT CELL[ hash, data ] INTO this->cache AT pos.position;
+      RETURN data;
+    }
+
+    BLOB orgblob := this->cache[pos.position].data;
+    INTEGER orgblobid := __GetWHDBBlobInternalId(data);
+    INTEGER newblobid := __GetWHDBBlobInternalId(data);
+    IF (orgblobid != 0 OR newblobid = 0)
+      RETURN orgblob;
+
+    // The new blob is already registered, the old blob wasn't
+    this->cache[pos.position].data := data;
+    RETURN data;
+  }
+>;
+
+
+/** Helper class for frontend rich text editors
+*/
+PUBLIC STATIC OBJECTTYPE RichDocumentEditor
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// ???
+  RECORD ARRAY cachedlinkmapping;
+
+  /** Mapping from generated instanceref to original instanceid
+      @cell instanceref Instance reference (sorted)
+      @cell instanceid Instantce ID
+  */
+  RECORD ARRAY org_instance_mapping;
+
+  /// List of embedded objects
+  RECORD ARRAY embedded;
+
+  /// XML document DOM of html document
+  OBJECT htmldoc;
+
+  /// Last seen html text, used for dire
+  BLOB lastseenhtmltext;
+
+  /// Base URL for cache links
+  STRING baseurl;
+
+  /** Utility to keep blobs stable
+      @type(object #WebHareDBBlobStabilizer)
+  */
+  OBJECT blobstabilizer;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables and properties
+  //
+
+  /// List of allowed tags (use ["*"] to allow all tags)
+  PUBLIC STRING ARRAY tagfilter;
+
+  /// Basis FS object (used to determine embedded object editors and renderer)
+  PUBLIC OBJECT basefsobject;
+
+  //// Apply tester
+  PUBLIC OBJECT applytester;
+
+  /// Type of content in the editor ('html', 'html-inline', 'html-block')
+  PUBLIC STRING basetype;
+
+  /** Describes the rtd ???
+      @cell structure
+  */
+  PUBLIC RECORD rtdtype;
+
+  /// Language of the content
+  PUBLIC STRING language;
+
+  /// Whether to trim empty blocks from the start and end of the document
+  PUBLIC BOOLEAN trimwhitespace;
+
+  PUBLIC OBJECT mergefields;
+
+//  /// Callback called when the document becomes dirty
+//  PUBLIC MACRO PTR ondirty;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(STRING baseurl)
+  {
+    this->baseurl := baseurl;
+    this->language := "en";
+    this->basetype := "html";
+    this->tagfilter := ["*"];
+    this->blobstabilizer := NEW WebHareDBBlobStabilizer;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium stuff
+  //
+
+  PUBLIC MACRO ValidateSettings()
+  {
+    IF(RecordExists(this->rtdtype) AND this->basetype NOT IN ["html","richdocument","pageeditor"])
+      THROW NEW Exception("Structured documents require the 'html' type");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  STRING FUNCTION GetEncryptedLink(STRING url)
+  {
+    IF(url LIKE "x-richdoclink:*")
+    {
+      RECORD split := SplitIntLink(url);
+      RECORD match := SELECT * FROM this->cachedlinkmapping WHERE tag = Substring(split.link,14);
+      IF(RecordExists(match) AND match.linkref != 0)
+        RETURN match.encrypted || split.append;
+    }
+    RETURN url;
+  }
+
+  STRING FUNCTION GetDecryptedLink(OBJECT decryptstate, STRING url)
+  {
+    IF(url NOT LIKE "x-richdoclink-e:*")
+      RETURN url;
+
+    RECORD split := SplitIntLink(url);
+    RECORD match := SELECT * FROM this->cachedlinkmapping WHERE encrypted=split.link;
+    IF(NOT RecordExists(match))
+    {
+      INTEGER link := DecryptLink(split.link);
+      IF(link=-1)
+        RETURN url || split.append;
+      IF(link=0)
+        RETURN "";
+
+      //this must be a link from an external source. assign it a tag
+      STRING newlinktag := GenerateUFS128BitId();
+      INSERT INTO this->cachedlinkmapping(tag, linkref, encrypted)
+             VALUES(newlinktag, link, url)
+             AT END;
+      match := this->cachedlinkmapping[END-1];
+    }
+
+    IF(NOT RecordExists(SELECT FROM decryptstate->decryptedlinks WHERE tag=match.tag))
+      INSERT [ tag := match.tag, linkref := match.linkref ] INTO decryptstate->decryptedlinks AT END;
+
+    RETURN "x-richdoclink:" || match.tag || split.append;
+  }
+
+  STRING FUNCTION TruncateLongLinks(STRING url)
+  {
+    RETURN Left(url, 2000);
+  }
+
+  STRING FUNCTION GetTruncatedDecryptedLink(OBJECT decryptstate, STRING url)
+  {
+    RETURN this->TruncateLongLinks(this->GetDecryptedLink(decryptstate, url));
+  }
+
+  STRING FUNCTION GetImageURL(STRING insrc)
+  {
+    IF(insrc LIKE "cid:*")
+      RETURN SELECT AS STRING url FROM this->embedded WHERE contentid = Substring(insrc,4);
+    Print("Misunderstood url '" || insrc || "' in source\n");
+    RETURN insrc;
+  }
+
+  MACRO SelfValidate()
+  {
+    RECORD ARRAY parseerrors := this->htmldoc->GetParseErrors();
+    IF(Length(parseerrors)>0)
+    {
+      Print("Parse errors on HTML!\n");
+      SendBlobTo(0,this->lastseenhtmltext);
+      DumpValue(parseerrors,'boxed');
+    }
+
+    // Strip hyperlinks without clickable content (i.e. no text or images)
+    FOREVERY (OBJECT node FROM this->htmldoc->QuerySelectorAll("a")->GetCurrentElements())
+      IF (node->textcontent = "" AND NOT ObjectExists(node->QuerySelector("img")))
+        node->parentnode->RemoveChild(node);
+  }
+
+  PUBLIC RECORD FUNCTION GetRTDSingleObjectPreview(STRING instanceref)
+  {
+    RECORD instancerec := this->GetWidget(instanceref);
+    OBJECT basefsobject := this->basefsobject;
+    OBJECT applytester := this->applytester ?? ObjectExists(basefsobject) ? GetApplyTesterForObject(basefsobject->id) : DEFAULT OBJECT;
+    RECORD preview := GetRTDSingleObjectPreview(basefsobject, applytester, instanceref, this->rtdtype, instancerec, this->language, this->mergefields);
+    RETURN preview;
+  }
+
+  RECORD FUNCTION AddNewImage(STRING inurl)
+  {
+    RECORD wrapped := GetWrappedSourceFromURL(inurl);
+    IF(NOT RecordExists(wrapped))
+      RETURN DEFAULT RECORD;
+
+    INSERT CELL contentid := GenerateUFS128BitId()
+              , seen := TRUE
+              , url := inurl
+           INTO wrapped;
+    INSERT wrapped INTO this->embedded AT END;
+    RETURN wrapped;
+  }
+
+  STRING FUNCTION RewriteImageToCID(STRING inurl)
+  {
+    INTEGER match := (SELECT AS INTEGER #embedded+1 FROM this->embedded WHERE url = inurl)-1;
+    IF(match=-1)
+    {
+      IF(inurl LIKE "*/.uc/*")
+      {
+        //This may be a recently received image now being reflected through the image cache.
+        RECORD wrapped := this->AddNewImage(inurl);
+        IF(RecordExists(wrapped))
+          RETURN "cid:" || wrapped.contentid;
+      }
+
+      //Print("Unable to find incoming image url: " || inurl || "\n"); DumpValue(this->embedded,'tree');
+      RETURN inurl;
+    }
+
+    this->embedded[match].seen := TRUE;
+    RETURN "cid:" || this->embedded[match].contentid;
+  }
+
+  // Make sure the instances referred in the stored html document are stored on disk, convert to refs for the frontend
+  MACRO EnsureStoredEmbeddedObjects(RECORD ARRAY instances, RECORD options)
+  {
+    options := ValidateOptions(
+        [ forcecopy :=    FALSE
+        ], options);
+
+    RECORD ARRAY mapping;
+    FOREVERY(OBJECT embedobj FROM this->htmldoc->QuerySelectorAll(".wh-rtd-embeddedobject,.-wh-rtd-embeddedobject")->GetCurrentElements())
+    {
+      RECORD rec := [ instanceid := embedobj->GetAttribute("data-instanceid"), obj := embedobj ];
+      RECORD pos := RecordLowerBound(mapping, rec, [ "INSTANCEID" ]);
+      IF (pos.found)
+        embedobj->parentnode->RemoveChild(embedobj);
+      ELSE
+        INSERT rec INTO mapping AT pos.position;
+    }
+
+    FOREVERY (RECORD instance FROM instances)
+    {
+      RECORD pos := RecordLowerBound(mapping, instance, [ "INSTANCEID" ]);
+      IF (pos.found)
+      {
+        STRING instanceref := RunInSeparatePrimary(PTR StoreTemporaryEmbeddedObject(instance.data, [ forcecopy := options.forcecopy ]));
+        mapping[pos.position].obj->RemoveAttribute("data-instanceid");
+        mapping[pos.position].obj->SetAttribute("data-instanceref", instanceref);
+        DELETE FROM mapping AT pos.position;
+
+        RECORD rec :=
+             [ instanceid :=    instance.instanceid
+             , instanceref :=   instanceref
+             ];
+
+        INSERT rec INTO this->org_instance_mapping AT RecordUpperBound(this->org_instance_mapping, rec, [ "INSTANCEREF" ]);
+      }
+    }
+
+    FOREVERY (RECORD rec FROM mapping)
+      rec.obj->parentnode->RemoveChild(rec.obj);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @param contents RTD record
+      @param options
+      @cell options.forcecopyembeddedobjects Copy all emmbedded objects into temporary storage. Defaults to TRUE. Disable only when
+          the file with the origin RTE record won't change before ExportAsRecord is called.
+  */
+  PUBLIC MACRO ImportFromRecord(RECORD contents, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ forcecopyembeddedobjects :=   TRUE
+        ], options);
+
+    this->ValidateSettings();
+    this->lastseenhtmltext := RecordExists(contents) ? contents.htmltext : DEFAULT BLOB;
+    this->blobstabilizer->Process(this->lastseenhtmltext);
+    this->htmldoc := MakeXMLDocumentFromHTML(this->lastseenhtmltext ?? StringToBlob("<html><body></body></html>"),"UTF-8",FALSE,FALSE);
+
+    this->embedded := DEFAULT RECORD ARRAY;
+    this->org_instance_mapping := DEFAULT RECORD ARRAY;
+
+    this->EnsureStoredEmbeddedObjects(CellExists(contents, "INSTANCES") ? contents.instances : DEFAULT RECORD ARRAY,
+        [ forcecopy :=  options.forcecopyembeddedobjects
+        ]);
+
+    IF(CellExists(contents,'LINKS') AND Length(contents.links) > 0)
+    {
+      this->cachedlinkmapping := SELECT tag
+                                      , linkref
+                                      , encrypted := EncryptNewLink(linkref)
+                                   FROM contents.links
+                                  WHERE linkref != 0;
+
+      NEW HtmlRewriterContext->RewriteLinks(this->htmldoc, PTR this->GetEncryptedLink);
+    }
+
+    IF(CellExists(contents, "EMBEDDED") AND Length(contents.embeddeD) > 0)
+    {
+      FOREVERY(RECORD embed FROM contents.embedded)     // Fix any embedded links that do not have any backing store
+      {
+        TRY
+        {
+          IF(NOT CellExists(embed,"__BLOBSOURCE") OR embed.__blobsource="")
+          {
+            RECORD backedimg := CreateTempUploadedFile(embed)->GetWrapped();
+            INSERT CELL contentid := embed.contentid INTO backedimg;
+            embed := backedimg;
+          }
+
+          INSERT CELL url := GetCachedImageLink(embed, [ method := "none", baseurl := this->baseurl, fixorientation := TRUE ])
+                 INTO embed;
+          INSERT embed INTO this->embedded AT END;
+        }
+        CATCH(OBJECT e)
+        {
+          //ignore failing images
+        }
+      }
+      NEW HtmlRewriterContext->RewriteEmbeddedLinks(this->htmldoc, PTR this->GetImageURL);
+    }
+
+    this->SelfValidate();
+  }
+
+  //Get the value as the RTE component expects it
+  PUBLIC STRING FUNCTION GetHTMLForClientRTE(BOOLEAN innerbody DEFAULTSTO FALSE)
+  {
+    STRING retval := GetRTDValueWithRenderedEmbeddedObjects(this->htmldoc,
+                             [ instances := DEFAULT RECORD ARRAY
+                             , embedded := this->embedded
+                             , mergefields := this->mergefields
+                             ], this->language
+                              , this->rtdtype
+                              , this->basefsobject
+                              , this->applytester ?? ObjectExists(this->basefsobject) ? GetApplyTesterForObject(this->basefsobject->id) : DEFAULT OBJECT
+                              , innerbody
+                              );
+
+    //FOREVERY(RECORD embed FROM this->embedded)
+      //retval := Substitute(retval, "cid:" || embed.contentid, embed.url);
+
+    RETURN retval;
+  }
+
+  ///Does this richdocument have any content?
+  PUBLIC BOOLEAN FUNCTION HasContent()
+  {
+    RETURN ObjectExists(this->htmldoc);
+  }
+
+  PUBLIC MACRO SetHTMLFromClientRTE(STRING newvalue)
+  {
+/*    FOREVERY(RECORD embed FROM this->embedded)
+      IF(embed.contentid!="")
+        newvalue := Substitute(newvalue, embed.url, "cid:" || embed.contentid);
+*/
+    this->lastseenhtmltext := StringToBlob(newvalue);
+    this->htmldoc := MakeXMLDocumentFromHTML(this->lastseenhtmltext);
+    this->SelfValidate();
+    TrimRTDWhitespace(this->htmldoc->body);
+    IF(NOT ObjectExists(this->htmldoc->body->firstchild))
+      this->htmldoc := DEFAULT OBJECT;
+  }
+
+  PUBLIC RECORD FUNCTION InsertImage(BLOB data, STRING filename)
+  {
+    RECORD backedimg := CreateTempUploadedFile(WrapBlob(data,filename))->GetWrapped();
+    RECORD forserver := WrapCachedImage(backedimg, [ method := "none", baseurl := this->baseurl, fixorientation := TRUE ]);
+
+    INSERT CELL contentid := GenerateUFS128BitId()
+              , url := forserver.link
+           INTO backedimg;
+
+    INSERT backedimg INTO this->embedded AT END;
+    RETURN forserver;
+  }
+
+//*
+  PUBLIC RECORD FUNCTION GetWidget(STRING getid)
+  {
+    RETURN GetEmbeddedObjectDataFromRef(getid);
+/*
+    RECORD pos := RecordLowerBound(this->instances, [ instanceid := getid ], [ "INSTANCEID" ]);
+    RETURN pos.found ? this->instances[pos.position].data : DEFAULT RECORD;*/
+  }
+//*/
+
+  PUBLIC RECORD FUNCTION CreateWidget(RECORD instancerec)
+  {
+    IF (NOT CellExists(instancerec, "WHFSTYPE"))
+      THROW NEW Exception("Missing cell 'WHFSTYPE' in instance record");
+    IF(NOT RecordExists(this->rtdtype))
+      THROW NEW Exception("Trying to CreateWidget into an unstructred RTE");
+
+//    // Reget the instance data to get the reflected version after creation
+//    STRING instanceid := this->CreateInstance(instancerec);
+
+    STRING instanceid := StoreTemporaryEmbeddedObject(instancerec);
+    RECORD preview := this->GetRTDSingleObjectPreview(instanceid);
+    RETURN preview;
+  }
+
+  PUBLIC RECORD FUNCTION UpdateWidget(STRING instanceid, RECORD instancerec)
+  {
+    instanceid := StoreTemporaryEmbeddedObject(instancerec);
+//    this->SetInstance(instanceid, instancerec, FALSE);
+    instancerec := this->GetWidget(instanceid);
+
+    RECORD preview := this->GetRTDSingleObjectPreview(instanceid);
+    RETURN preview;
+  }
+
+  PUBLIC STRING ARRAY FUNCTION CalculateAllowedTags()
+  {
+    BOOLEAN havetagfilter := LENGTH(this->tagfilter) != 1 OR this->tagfilter[0]!="*";
+    STRING ARRAY tags;
+    IF(this->basetype="html-inline")
+    {
+      STRING ARRAY allowtags := [ "SUB", "SUP", "SPAN", "A-HREF", "IMG", "B", "I", "U", "STRIKE" ];
+      IF(havetagfilter)
+        allowtags := FilterAllowTags(allowtags, this->tagfilter);
+
+      tags := allowtags;
+    }
+    ELSE IF(havetagfilter)
+    {
+      tags := this->tagfilter;
+    }
+
+    IF(Length(tags)>0)
+    {
+      FOREVERY(STRING tag FROM tags)
+        tags[#tag] := ToLowercase(tag);
+
+      IF("a-href" IN tags)
+        INSERT "a" INTO tags AT END;
+      IF("ul" IN tags OR "ol" IN tags)
+        INSERT "li" INTO tags AT END;
+
+      tags := tags CONCAT ["html","body","br"];
+    }
+    RETURN tags;
+  }
+
+  PUBLIC RECORD FUNCTION GetImage(STRING src)
+  {
+    RECORD img := SELECT * FROM this->embedded WHERE url = VAR src;
+    IF(NOT RecordExists(img) AND src LIKE "*/.uc/*") //try without servername
+    {
+      img := SELECT * FROM this->embedded WHERE url = "/" || UnpackURL(src).urlpath;
+
+      IF(NOT RecordExists(img))
+        img := this->AddNewImage(src);
+    }
+
+    // ADDME  ?
+    // IF(NOT RecordExists(originalimg) AND data.src LIKE "*/.tollium/ui/filetransfer.shtml*")
+    //   originalimg := SELECT * FROM this->cidcache WHERE data.src LIKE "*" || url; //handle incomplete urls
+
+    IF(NOT recordexists(img))
+    {
+      print("not found " || src || "\n");
+      dumpvalue(this->embedded,'boxed');
+    }
+    RETURN img;
+  }
+
+  PUBLIC RECORD FUNCTION GetWHRTEStructure()
+  {
+    IF(NOT RecordExists(this->rtdtype))
+      RETURN DEFAULT RECORD;
+
+    RECORD def := this->rtdtype.structure;
+    IF (NOT RecordExists(def))
+      RETURN DEFAULT RECORD;
+
+    UPDATE def.blockstyles
+          SET title := GetTid("tollium:common.richstyles." || ToLowercase(tag))
+          WHERE title="" AND isbuiltin = TRUE;
+    RETURN def;
+  }
+
+  PUBLIC RECORD FUNCTION ExportAsRecord()
+  {
+    this->ValidateSettings();
+    IF(NOT ObjectExists(this->htmldoc)) //never imported anything
+      RETURN DEFAULT RECORD;
+
+    this->embedded := SELECT *, seen := FALSE FROM this->embedded;
+
+    RECORD settings := [ allowscript := FALSE
+                       , allowembed := FALSE
+                       ];
+    STRING ARRAY tags := this->CalculateAllowedTags();
+    IF(Length(tags)>0)
+      INSERT CELL limittags := tags INTO settings;
+
+    IF(this->basetype="html-inline")
+      INSERT CELL converttoinline := TRUE INTO settings;
+
+    //Create a copy we can manipulate safely
+    OBJECT finaldoc := MakeXMLDocumentFromHTML(DEFAULT BLOB);
+    finaldoc->documentelement->Empty();
+
+    OBJECT body := finaldoc->ImportNode(this->htmldoc->body,TRUE);
+    finaldoc->documentelement->AppendChild(body);
+
+    // Rewrite instanceref before cleaning the html
+    RECORD ARRAY org_instance_mapping := this->org_instance_mapping;
+    RECORD ARRAY instances;
+
+    IF(RecordExists(this->rtdtype)) //clean up embedded objects, and filter the instances that are actually used by an embedded object
+    {
+      STRING ARRAY instanceids;
+      RECORD ARRAY newmappings;
+
+      FOREVERY (OBJECT embobj FROM body->QuerySelectorAll(".wh-rtd-embeddedobject")->GetCurrentElements())
+      {
+        STRING instanceref := embobj->GetAttribute("data-instanceref");
+
+        FOREVERY(OBJECT attr FROM embobj->attributes->GetCurrentNodes())
+          IF (attr->nodename != "class")
+            attr->Remove();
+
+        embobj->Empty();
+
+        STRING instanceid;
+        RECORD instance;
+
+        IF (instanceref != "")
+        {
+          // Ref unchanged? If so, we can reuse the original instanceid
+          RECORD pos := RecordLowerBound(org_instance_mapping, [ instanceref := instanceref ], [ "INSTANCEREF" ]);
+          IF (pos.found)
+          {
+            instanceid := org_instance_mapping[pos.position].instanceid;
+            DELETE FROM org_instance_mapping AT pos.position;
+          }
+          ELSE
+          {
+            instanceid := GenerateUFS128BitId();
+            INSERT [ instanceref := instanceref, instanceid := instanceid ] INTO newmappings AT END;
+          }
+
+          instance := GetEmbeddedObjectDataFromRef(instanceref);
+        }
+
+        IF (RecordExists(instance))
+        {
+          instanceid := instanceid ?? GenerateUFS128BitId();
+          embobj->SetAttribute("data-instanceid", instanceid);
+          INSERT
+              [ instanceid :=     instanceid
+              , data :=           instance
+              ] INTO instances AT END;
+        }
+        ELSE
+          embobj->parentnode->RemoveChild(embobj);
+      }
+
+      // Insert new instance ref->id mappings into org_instance_mapping, to keep them stable in the future
+      FOREVERY (RECORD rec FROM newmappings)
+      {
+        RECORD pos := RecordLowerBound(this->org_instance_mapping, rec, [ "INSTANCEREF" ]);
+        IF (NOT pos.found)
+          INSERT rec INTO this->org_instance_mapping AT pos.position;
+      }
+    }
+
+    OBJECT rewriter := NEW HTMLRewriterContext;
+    rewriter->CleanupHTML(finaldoc, settings);
+//    WHILE(this->basetype="html-inline" AND ObjectExists(body->lastchild) AND ToUppercase(body->lastchild->nodename)="BR")
+  //    body->RemoveChild(body->lastchild)
+
+    rewriter->RewriteEmbeddedLinks(body, PTR this->RewriteImageToCID);
+
+    // Decrpt links and limit all links to 2000 characters
+    OBJECT decryptstate := NEW LinkDecryptor;
+    rewriter->RewriteLinks(body, PTR this->GetTruncatedDecryptedLink(decryptstate, #1));
+
+    IF(this->trimwhitespace)
+      TrimRTDWhitespace(body);
+
+    IF(NOT ObjectExists(body->firstchild))
+      RETURN DEFAULT RECORD;
+
+    BLOB value;
+    IF(this->basetype IN ["html-block", "html-inline"])
+      value := rewriter->GenerateHTML(body);
+    ELSE
+      value := rewriter->GenerateHTML(finaldoc);
+
+    IF(Length(value)=0)
+      RETURN DEFAULT RECORD;
+
+    value := this->blobstabilizer->Process(value);
+
+    /* The contentid can't be saved in blob settings, so the filename is overwritten with the contentid
+       within WHFS/WRD. Fill the filename with the contentid here so we match what's written to (and given
+       back from) the DB.
+    */
+
+    RECORD ARRAY embedded := SELECT data
+                                  , mimetype
+                                  , contentid// := cid
+                                  , width
+                                  , height
+                                  , filename := contentid
+                                  , extension
+                                  , rotation
+                                  , mirrored
+                                  , refpoint := DEFAULT RECORD
+                                  , source_fsobject
+                                  , __blobsource
+                               FROM this->embedded
+                              WHERE seen;
+
+    INTEGER ARRAY source_ids := SELECT AS INTEGER ARRAY source_fsobject FROM this->embedded WHERE source_fsobject != 0;
+    IF (LENGTH(source_ids) != 0)
+    {
+      INTEGER ARRAY valid_sources := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE id IN source_ids;
+      UPDATE embedded SET source_fsobject := 0 WHERE source_fsobject NOT IN valid_sources;
+    }
+
+    RETURN [ htmltext  := value
+           , embedded  := (SELECT * FROM embedded ORDER BY contentid)
+           , instances := (SELECT * FROM instances ORDER BY instanceid)
+           , links     := (SELECT * FROM decryptstate->decryptedlinks ORDER BY tag)
+           ];
+  }
+
+  PUBLIC INTEGER FUNCTION GetLinkRefHyperlink(STRING inlink)
+  {
+    IF(inlink NOT LIKE "x-richdoclink-e:*")
+      RETURN 0;
+    RETURN DecryptLink(inlink);
+  }
+
+  PUBLIC STRING FUNCTION CreateLinkRefHyperlink(INTEGER getlinkref)
+  {
+    RECORD match := SELECT * FROM this->cachedlinkmapping WHERE linkref = getlinkref;
+    IF(RecordExists(match))
+    {
+      //Then we can simply return it
+      RETURN match.encrypted;
+    }
+    STRING newlinktag := GenerateUFS128BitId();
+    STRING encrypted := EncryptNewLink(getlinkref);
+    INSERT INTO this->cachedlinkmapping(tag, linkref, encrypted)
+           VALUES(newlinktag, getlinkref, encrypted)
+           AT END;
+
+    RETURN encrypted;
+  }
+>;
+
+/// Returns storage path for temporary rte files.
+PUBLIC OBJECT FUNCTION GetRTETempDir()
+{
+  OBJECT path := OpenWHFSObjectByPath("/webhare-private/tollium/rte-temp");
+  IF (NOT ObjectExists(path))
+  {
+    GetPrimary()->BeginWork();
+    path := OpenWHFSObject(whconstant_whfsid_private)->EnsureFolder([name := "tollum"])->EnsureFolder([ name := "rte-temp" ]);
+    GetPrimary()->CommitWork();
+  }
+  RETURN path;
+}
+
+/* FIXMEs frmo rte.whlib
+    //FIXME we should probably keep the document inside a DOM and keep that DOM around, rather than parse-restructure-parse-structure ?
+    //We'll need to write out any embedded objects for rendering. Get the document ready for reparsing...
+    //FIXME we really ought to cache rendered versions of embedded objects
+*/
+
+PUBLIC RECORD FUNCTION GetRTDSingleObjectPreview(OBJECT fsobject, OBJECT applytester, STRING instanceref, RECORD rtdtypeinfo, RECORD data, STRING language, OBJECT mergefields)
+{
+  OBJECT context := NEW PreviewContext(fsobject, applytester, rtdtypeinfo);
+  context->__mergefields := mergefields;
+  RECORD widgetinfo := GetEmbeddedObjectRenderer(fsobject, applytester, rtdtypeinfo.namespace, data, context);
+  OBJECT renderer := widgetinfo.widget; //GetEmbeddedObjectRenderer never returns a default object
+
+  IF(NOT MemberExists(renderer, "__pvt_widgetsettings"))
+  {
+    renderer->languagecode := language;
+    RECORD preview := renderer->GetPreview();
+
+    IF(NOT RecordExists(preview))
+      RETURN DEFAULT RECORD;
+
+    RETURN [ instanceref := instanceref
+           , htmltext := preview.htmltext
+           , typetext := "Legacy widget" //TODO how to generate the title? highly tempted to make legacy widgets explicitly stand out as 'old'
+           , style := CellExists(preview, "STYLE") ? preview.style : ""
+           , title := CellExists(preview, "TITLE") ? preview.title : ""
+           , canedit := widgetinfo.canedit
+           , embedtype := widgetinfo.embedtype
+           , wide := FALSE
+           ];
+  }
+
+  STRING htmltext := BlobToString(GetPrintedAsBlob(PTR renderer->Render()));
+  RETURN [ instanceref := instanceref
+         , htmltext := htmltext
+         , typetext := renderer->GetWidgetType()
+         , style := ""
+         , title := ""
+         , canedit := widgetinfo.canedit
+         , embedtype := widgetinfo.embedtype
+         , wide := renderer->__pvt_renderwide
+         ];
+}
+
+PUBLIC STRING FUNCTION GetRTDValueWithRenderedEmbeddedObjects(OBJECT sourcedoc, RECORD rtd, STRING language, RECORD rtdtypeinfo, OBJECT fsobject, OBJECT applytester, BOOLEAN innerbody DEFAULTSTO FALSE)
+{
+  IF(NOT ObjectExists(sourcedoc))
+  {
+    IF(CellExists(rtd,'htmltext') AND Length(rtd.htmltext)>0)
+      sourcedoc := MakeXMLDocumentFromHTML(rtd.htmltext);
+    ELSE
+    {
+      sourcedoc := MakeXMLDocumentFromHTML(StringToBlob("<html><body></body></html>"), "UTF-8", FALSE, TRUE);
+    }
+  }
+
+  IF(RecordExists(rtdtypeinfo) AND ObjectExists(sourcedoc))
+  {
+    FOREVERY(OBJECT div FROM sourcedoc->GetElements("div,span"))
+    {
+      IF(NOT IsEmbeddedObject(div))
+        CONTINUE;
+
+      STRING instanceref := div->GetAttribute("data-instanceref");
+      RECORD instancerec := GetEmbeddedObjectDataFromRef(instanceref);
+      RECORD preview := GetRTDSingleObjectPreview(fsobject, applytester, instanceref, rtdtypeinfo, instancerec, language, CellExists(rtd, "mergefields") ? rtd.mergefields : DEFAULT OBJECT);
+      div->SetAttribute("data-innerhtml-contents", preview.htmltext);
+      div->SetAttribute("data-widget-typetext", preview.typetext);
+      IF(preview.wide)
+        div->SetAttribute("data-widget-wide", "");
+      div->Empty();
+      div->SetAttribute("class", "wh-rtd-embeddedobject"
+                                || (preview.canedit ? " wh-rtd-embeddedobject--editable" : "")
+                                || " wh-rtd-embeddedobject--" || preview.embedtype
+                                );
+    }
+  }
+  RETURN innerbody ? sourcedoc->body->innerhtml : sourcedoc->outerhtml;
+}
+
+/** Returns all allowed types of embedded object from a structure
+*/
+PUBLIC RECORD ARRAY FUNCTION GetEmbeddableObjectTypes(OBJECT structure)
+{
+  RECORD ARRAY contenttypes;
+//   RECORD ARRAY nodes := GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "allowembeddedobject", this->fsobjectid);
+
+  FOREVERY (RECORD rec FROM structure->GetAllowedObjects())
+  {
+    STRING lookuptype := rec.type;
+    RECORD ARRAY newtypes := LookupContentTypes(lookuptype);
+
+    IF (Length(newtypes) = 0)
+      CONTINUE;
+
+    FOREVERY (RECORD type FROM newtypes)
+    {
+      IF (NOT type.isembeddedobjecttype)
+        CONTINUE;
+
+      RECORD pos := RecordLowerBound(contenttypes, type, [ "NAMESPACE" ]);
+      IF (pos.found)
+        CONTINUE;
+
+      INSERT type INTO contenttypes AT pos.position;
+    }
+  }
+
+  RETURN
+      SELECT namespace
+        FROM contenttypes;
+}
+
+STRING embtemp_instance_packet := "file:L,instance:L,cc:L,md:L,ms:L";
+BOOLEAN use_dbg_instance_packet;
+INTEGER dbb_instance_packet_counter;
+
+STRING FUNCTION GenerateFileEmbeddedObjectRef(INTEGER fileid, INTEGER instanceid, DATETIME creationdate, DATETIME modificationdate)
+{
+  RECORD encodeddata :=
+      [ file :=       fileid
+      , instance :=   instanceid
+      , cc :=         GetDayCount(creationdate) BITXOR GetMsecondCount(creationdate)
+      , md :=         GetDayCount(modificationdate)
+      , ms :=         GetMsecondCount(modificationdate)
+      ];
+
+  INSERT CELL type := "i" INTO encodeddata;
+  IF (use_dbg_instance_packet AND GetDTAPStage() = "development")
+  {
+    // Add a unique id
+    dbb_instance_packet_counter := dbb_instance_packet_counter + 1;
+    INSERT CELL uid := GetCurrentGroupId() || ":" || dbb_instance_packet_counter INTO encodeddata;
+    RETURN EncodeHSON(encodeddata);
+  }
+
+  STRING data := "i" || EncodePacket(embtemp_instance_packet, encodeddata);
+  data := "embobj:" || EncryptForThisServer("tollium:embobj", data);
+  RETURN data;
+}
+
+STRING FUNCTION GenerateFileEmbeddedObjectRefFromSettingId(INTEGER settingid)
+{
+  RECORD whfsrec :=
+      SELECT fs_objects.id, fs_objects.creationdate, fs_objects.modificationdate
+        FROM system.fs_settings, system.fs_instances, system.fs_objects
+       WHERE fs_settings.id = settingid
+         AND fs_settings.fs_instance = fs_instances.id
+         AND fs_instances.fs_object = fs_objects.id;
+
+  RETURN GenerateFileEmbeddedObjectRef(whfsrec.id, settingid, whfsrec.creationdate, whfsrec.modificationdate);
+}
+
+/** Stores an embedded object instance
+    @param whfsinstance Instance data
+    @cell whfsinstance.whfstype
+    @param options
+    @cell options.forcecopy If FALSE, return a ref to the original instance data if it is unchanged
+*/
+PUBLIC STRING FUNCTION StoreTemporaryEmbeddedObject(RECORD whfsinstance, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ forcecopy :=    FALSE
+      ], options);
+
+  IF (NOT CellExists(whfsinstance, "WHFSTYPE") OR whfsinstance.whfstype = "")
+    THROW NEW Exception("Invalid embedded object data");
+
+  IF (CellExists(whfsinstance, "WHFSSETTINGID") AND NOT options.forcecopy AND whfsinstance.whfssettingid != 0)
+  {
+    RECORD existing := GetWHFSInstanceDirect(whfsinstance.whfssettingid);
+    IF (RecordExists(existing))
+    {
+      OBJECT whfstype_instance := OpenWHFSType(whfsinstance.whfstype);
+      RECORD changes := whfstype_instance->CompareInstanceDataUpdates(existing, whfsinstance);
+      IF (NOT RecordExists(changes))
+        RETURN GenerateFileEmbeddedObjectRefFromSettingId(whfsinstance.whfssettingid);
+    }
+  }
+
+  OBJECT trans := GetPrimary();
+  OBJECT path := GetRTETempDir();
+  trans->BeginWork();
+
+  OBJECT whfstype_instancefile := OpenWHFSType("http://www.webhare.net/xmlns/wrd/instancefile");
+
+  INTEGER destid := MakeAutonumber(system.fs_objects, "id");
+  OBJECT file := path->CreateFile(
+      [ id :=     destid
+      , name :=   ToString(destid)
+      , type :=   whfstype_instancefile->id
+      ]);
+
+  // No visible update don't want the modificationdate to change
+  whfstype_instancefile->SetInstanceData(file->id, [ instance := whfsinstance ], [ isvisibleedit := FALSE ]);
+  RECORD data := whfstype_instancefile->GetInstanceData(file->id);
+  trans->CommitWork();
+
+  STRING xref := GenerateFileEmbeddedObjectRef(file->id, data.instance.whfssettingid, file->creationdate, file->modificationdate);
+  IF (NOT RecordExists(GetEmbeddedObjectDataFromRef(xref)))
+    ABORT(xref);
+
+  RETURN xref;
+}
+
+RECORD FUNCTION GetEmbeddedObjectDataFromRef(STRING eref)
+{
+  TRY
+    {
+    STRING type;
+    STRING decrypted_eref;
+    RECORD decoded;
+
+    STRING proto := Tokenize(eref, ":")[0];
+    SWITCH (proto)
+    {
+      CASE "hson"
+      {
+        IF (GetDTAPStage() != "development")
+          THROW NEW Exception("HSON-encoded embedded object references only allowed in development DTAP stage");
+
+        decoded := DecodeHSON(eref);
+        type := decoded.type;
+      }
+      CASE "embobj" // embedded objs, format 1
+      {
+        decrypted_eref := DecryptForThisServer("tollium:embobj", SubString(eref, LENGTH(proto) + 1));
+        IF (decrypted_eref = "")
+          RETURN DEFAULT RECORD;
+
+        type := LEFT(decrypted_eref, 1);
+      }
+    }
+
+    SWITCH (type)
+    {
+      CASE "i" // link to whfs instance
+      {
+        IF (NOT RecordExists(decoded))
+          decoded := DecodePacket(embtemp_instance_packet, SubString(decrypted_eref, 1));
+        IF (NOT RecordExists(decoded))
+          RETURN DEFAULT RECORD;
+
+        RECORD whfsrec :=
+            SELECT fs_objects.id, fs_objects.creationdate, fs_objects.modificationdate
+              FROM system.fs_settings, system.fs_instances, system.fs_objects
+             WHERE fs_settings.id = decoded.instance
+               AND fs_settings.fs_instance = fs_instances.id
+               AND fs_instances.fs_object = fs_objects.id;
+
+        IF (NOT RecordExists(whfsrec)
+              OR GetDayCount(whfsrec.creationdate) BITXOR GetMsecondCount(whfsrec.creationdate) != decoded.cc
+              OR GetDayCount(whfsrec.modificationdate) != decoded.md
+              OR GetMsecondCount(whfsrec.modificationdate) != decoded.ms)
+          RETURN DEFAULT RECORD;
+
+        RETURN GetWHFSInstanceDirect(decoded.instance);
+      }
+    }
+  }
+  CATCH
+    RETURN DEFAULT RECORD;
+
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC BOOLEAN FUNCTION ValidateObjectDataRef(STRING eref)
+{
+  RETURN RecordExists(GetEmbeddedObjectDataFromRef(eref));
+}
+
+PUBLIC OBJECT FUNCTION CreateLiveInstanceBlockNode(OBJECT doc, STRING instanceref)
+{
+  IF(NOT Objectexists(doc))
+    THROW NEW Exception("Document is empty");
+
+  OBJECT myblock := doc->CreateElement("div");
+  myblock->SetAttribute("class", "wh-rtd-embeddedobject");
+  myblock->SetAttribute("data-instanceref", instanceref);
+  RETURN myblock;
+}
+
+PUBLIC OBJECT FUNCTION CreateTempUploadedFile(RECORD wrapped)
+{
+  //Odd data source, eg MIME mail. backwards compatibility probably requires us to deal with this
+  IF(NOT IsCompleteScanData(wrapped))
+    wrapped := WrapBlob(wrapped.data, CellExists(wrapped,'filename') ? wrapped.filename : CellExists(wrapped,'name') ? wrapped.name : "");
+
+  OBJECT tempdir := GetRTETempDir();
+  GetPrimary()->BeginWork();
+  INTEGER newfileid := tempdir->GetNewFSObjectId();
+  OBJECT newfile := tempdir->CreateFile( [ id := newfileid
+                                         , name := newfileid || GetExtensionForMimeType(wrapped.mimetype)
+                                         , title := wrapped.filename
+                                         , type := wrapped.mimetype LIKE "image/*" ? 12 : 0
+                                         , data := wrapped.data
+                                         ]);
+  GetPrimary()->CommitWork();
+  RETURN newfile;
+}

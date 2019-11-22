@@ -1,0 +1,113 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/fsctypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+
+LOADLIB "mod::tollium/lib/rtd/doc.whlib";
+
+
+VARIANT FUNCTION ConvertWHFSCell(OBJECT srctype, OBJECT desttype, RECORD srcmember, RECORD destmember, VARIANT srcdata)
+{
+  IF(srcmember.type = 12 AND destmember.type=12 /*array*/)
+    RETURN ConvertWHFSArray(srctype, desttype, srcmember, destmember, srcdata);
+
+  IF(srcmember.type=destmember.type)
+    RETURN srcdata;
+
+  IF(srcmember.type=2 AND destmember.type=15)
+  {
+    OBJECT doc := NEW RichDocument;
+    doc->ImportFromPlainText(srcdata);
+    RETURN doc->ExportAsRecord();
+  }
+
+  // If more conversions are added, remember to update beta/system/whfs_types.whscr test!
+
+  THROW NEW WHFSException("INVALIDARG", "Conversion between the specified types is not supported");
+}
+
+RECORD FUNCTION ConvertWHFSRecord(OBJECT srctype, OBJECT desttype, RECORD srcmember, RECORD destmember, RECORD inrec)
+{
+  RECORD ARRAY srcmembers := SELECT * FROM srctype->members WHERE parent=srcmember.id;
+  RECORD ARRAY destmembers := SELECT * FROM desttype->members WHERE parent=destmember.id;
+
+  RECORD outrec := CELL[];
+  FOREVERY(RECORD srcsubmember FROM srcmembers)
+  {
+    RECORD match := SELECT * FROM destmembers WHERE ToUppercase(name)=ToUppercase(srcsubmember.name);
+    IF(NOT RecordExists(match))
+      CONTINUE;
+
+    outrec := CellInsert(outrec, match.name, ConvertWHFSCell(srctype, desttype, srcsubmember, match, GetCell(inrec, srcsubmember.name)));
+  }
+  RETURN outrec;
+}
+
+RECORD ARRAY FUNCTION ConvertWHFSArray(OBJECT srctype, OBJECT desttype, RECORD srcmember, RECORD destmember, RECORD ARRAY inarray)
+{
+  RECORD ARRAY outdata;
+  FOREVERY(RECORD element FROM inarray)
+    INSERT ConvertWHFSRecord(srctype, desttype, srcmember, destmember, element) INTO outdata AT END;
+  RETURN outdata;
+}
+
+PUBLIC MACRO CopyAndConvertWHFSMembers(OBJECT srctype, STRING srcmember, OBJECT desttype, STRING destmember)
+{
+  RECORD srcmemberinfo := SELECT * FROM srctype->members WHERE ToUppercase(name) = ToUppercase(srcmember) AND parent=0 AND orphan=FALSE;
+  IF(NOT RecordExists(srcmemberinfo))
+    THROW NEW WHFSException("INVALIDARG","No such member '" || srcmember || "'");
+
+  //Support one-level array copies
+  RECORD destarraymember;
+  RECORD destfinalmember;
+  IF(destmember LIKE "*.*")
+  {
+    STRING ARRAY desttoks := Tokenize(destmember,'.');
+    IF(Length(desttoks)>2)
+      THROW NEW WHFSException("INVALIDARG","Member '" || destmember || "' is too deep, only one level of indirection currently supported");
+
+    destarraymember := SELECT * FROM desttype->members WHERE ToUppercase(name)=ToUppercase(desttoks[0]) AND parent=0 AND orphan=FALSE;
+    IF(NOT RecordExists(destarraymember))
+      THROW NEW WHFSException("INVALIDARG","No such member '" || desttoks[0] || "'");
+    IF(destarraymember.type != 12)
+      THROW NEW WHFSException("INVALIDARG","Member '" || desttoks[0] || "' is not of type array");
+
+    destfinalmember := SELECT * FROM desttype->members WHERE ToUppercase(name)=ToUppercase(desttoks[1]) AND parent = destarraymember.id AND orphan=FALSE;
+    IF(NOT RecordExists(destfinalmember))
+      THROW NEW WHFSException("INVALIDARG","No such member '" || destmember || "'");
+
+    IF(NOT IsArrayVersionOf(destfinalmember.type, srcmemberinfo.type))
+      THROW NEW WHFSException("INVALIDARG","Source '" || srcmember || "' is not an array of the type of destination '" || destmember || "'");
+  }
+  ELSE
+  {
+    destfinalmember := SELECT * FROM desttype->members WHERE ToUppercase(name) = ToUppercase(destmember) AND parent=0 AND orphan=FALSE;
+    IF(NOT RecordExists(destfinalmember))
+      THROW NEW WHFSException("INVALIDARG","No such member '" || destmember || "'");
+  }
+
+  RECORD ARRAY relevant_instances := SELECT DISTINCT fs_instances.fs_object
+                                       FROM system.fs_instances, system.fs_settings
+                                      WHERE fs_settings.fs_instance = fs_instances.id
+                                            AND fs_settings.fs_member = srcmemberinfo.id;
+  FOREVERY(RECORD relv FROM relevant_instances)
+  {
+    RECORD srcdata := srctype->GetInstanceData(relv.fs_object);
+    VARIANT indata := GetCell(srcdata, srcmember);
+
+    RECORD destdata;
+    IF(RecordExists(destarraymember)) //array conversion
+    {
+      RECORD ARRAY outrows;
+      FOR(INTEGER i:=0;i<Length(indata);i:=i+1)
+        INSERT CellInsert(DEFAULT RECORD, destfinalmember.name, indata[i]) INTO outrows AT END;
+      destdata := CellInsert(DEFAULT RECORD, destarraymember.name, outrows);
+    }
+    ELSE
+    {
+      destdata := CellInsert(DEFAULT RECORD, destmember, ConvertWHFSCell(srctype, desttype, srcmemberinfo, destfinalmember, indata));
+    }
+    desttype->SetInstanceData(relv.fs_object, destdata);
+  }
+}

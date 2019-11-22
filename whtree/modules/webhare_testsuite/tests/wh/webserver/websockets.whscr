@@ -1,0 +1,135 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO TestEchoAndPing()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING resbaseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/";
+
+  // Create a global port for the echo test to report to
+  STRING portname := "test:" || GenerateUFS128BitId();
+  OBJECT commport := CreateIPCPort(portname);
+  OBJECT whmanagerconn := ConnectToIPCPort("system:whmanager");
+  RECORD msg := whmanagerconn->DoRequest([ type := "register", port := commport->name ]);
+  RECORD ARRAY headers;
+  RECORD rec := testfw->browser->OpenWebSocket(resbaseurl || "/tests/websockets/echo.whsock", headers);
+  TestEQ(TRUE, rec.success);
+
+  rec.conn->SendData("message");
+  msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ("ok", msg.status);
+  TestEQ(1, msg.op);
+  TestEQ("Echo: message", msg.data);
+
+  rec.conn->SendData("message2");
+  msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ("ok", msg.status);
+  TestEQ(1, msg.op);
+  TestEQ("Echo: message2", msg.data);
+
+  DATETIME start := GetCurrentDateTime();
+  rec.conn->SendData("LOWIDLE");
+  msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ("ok", msg.status);
+  TestEQ(1, msg.op);
+  TestEQ("Echo: LOWIDLE", msg.data);
+
+  msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ([ status := "ok", op := 9, data := "" ], msg);
+  INTEGER diff := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
+  TestEQ(TRUE, diff >= 2000);
+  rec.conn->SendPong("");
+
+  rec.conn->SendData("CONNECT:" || portname);
+  msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ("ok", msg.status);
+  TestEQ(1, msg.op);
+  TestEQ("connect ok", msg.data);
+
+  OBJECT link := commport->Accept(MAX_DATETIME);
+
+  rec.conn->SendClose(1001, "byebye");
+  msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ([ status := "ok", op := 8, code := 1000, reason := "Close received, bye bye" ], CellDelete(msg, "DATA"));
+
+  msg := link->ReceiveMessage(MAX_DATETIME);
+  TestEQ([ type := "gotclose" ], msg.msg);
+  msg := link->ReceiveMessage(MAX_DATETIME);
+  TestEQ([ type := "terminating" ], msg.msg);
+
+  rec.conn->Close();
+}
+
+MACRO TestPongTimeout()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING resbaseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/";
+
+  // Create a global port for the echo test to report to
+  STRING portname := "test:" || GenerateUFS128BitId();
+  OBJECT commport := CreateIPCPort(portname);
+  OBJECT whmanagerconn := ConnectToIPCPort("system:whmanager");
+  RECORD msg := whmanagerconn->DoRequest([ type := "register", port := commport->name ]);
+  TestEQ(TRUE, msg.msg.success);
+
+  RECORD ARRAY headers;
+  RECORD rec := testfw->browser->OpenWebSocket(resbaseurl || "/tests/websockets/echo.whsock", headers);
+  TestEQ(TRUE, rec.success);
+
+  DATETIME start := GetCurrentDateTime();
+  rec.conn->SendData("LOWIDLE");
+  msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ("ok", msg.status);
+  TestEQ(1, msg.op);
+  TestEQ("Echo: LOWIDLE", msg.data);
+
+  msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ([ status := "ok", op := 9, data := "" ], msg);
+  INTEGER diff := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
+  TestEQ(TRUE, diff >= 2000);
+
+  msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ([ status := "ok", op := 8, code := 1002, reason := "Did not answer to ping" ], CellDelete(msg, "DATA"));
+  diff := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
+  TestEQ(TRUE, diff >= 4000);
+
+  rec.conn->Close();
+}
+
+MACRO TestLargeMessage()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING resbaseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/";
+
+  RECORD ARRAY headers;
+  RECORD rec := testfw->browser->OpenWebSocket(resbaseurl || "/tests/websockets/echo.whsock", headers);
+  TestEQ(TRUE, rec.success);
+
+  STRING smallmessage := RepeatText(" ", 60000);
+
+  rec.conn->SendData(smallmessage);
+  RECORD msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ("ok", msg.status);
+  TestEQ(1, msg.op);
+  TestEQ("Echo: " || smallmessage, msg.data);
+
+  STRING largemessage := RepeatText(" ", 65536*4);
+
+  rec.conn->SendData(largemessage);
+  msg := rec.conn->ReceivePacket(MAX_DATETIME);
+  TestEQ("ok", msg.status);
+  TestEQ(1, msg.op);
+  TestEQ("Echo: " || largemessage, msg.data);
+
+  rec.conn->Close();
+}
+
+RunTestFramework([ PTR TestEchoAndPing
+                 , PTR TestPongTimeout
+                 , PTR TestLargeMessage
+                 ]);

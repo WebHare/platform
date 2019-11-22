@@ -1,0 +1,52 @@
+<?wh
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE InstalledFonts EXTEND MonitorPanelBase
+<
+  MACRO Init()
+  {
+  }
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    this->RefreshFonts();
+  }
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0; //no auto refresh
+  }
+
+  MACRO RefreshFonts()
+  {
+    RECORD ARRAY fonts := SELECT family
+                               , filename
+                               , isbold
+                               , isitalic
+                               , istruetype
+                               , style
+                               , familystyle := family || "\t" || style
+                               , fontdata := fontdata
+                            FROM GfxGetAvailableFonts() AS fontdata;
+
+    ^fonts->rows := SELECT *
+                         , isboldicon := (isbold ? 1 : 0)
+                         , isitalicicon := (isitalic ? 1 : 0)
+                         , istruetypeicon := (istruetype ? 1 : 0)
+                      FROM fonts;
+  }
+
+  MACRO DoInspect()
+  {
+    this->RunScreen("#fontinfo", [ fontdata := ^fonts->selection.fontdata ]);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE FontInfo EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD css := GfxGetFontCSSCode(data.fontdata);
+    ^css->value := css.csstext;
+  }
+>;

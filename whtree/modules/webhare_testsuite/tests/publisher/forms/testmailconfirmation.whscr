@@ -1,0 +1,116 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+
+STRING emailfieldname;
+
+PUBLIC MACRO BuildForm()
+{
+  BuildCustomWebtoolForm(
+      [ mailconfirmation := TRUE
+      ]);
+}
+
+PUBLIC ASYNC MACRO MailConfirmationHandler()
+{
+  OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
+  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url));
+  OBJECT webtoolform := OpenFormFileDefinition(customformfile);
+  OBJECT webtoolresults := OpenFormFileResults(customformfile);
+  RECORD ARRAY fields := webtoolform->ListFields();
+
+  emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
+  TestEq(TRUE, emailfieldname != "", "Email field not found");
+
+  RECORD submitrec := [ firstname := "Pietje & Henkie" ];
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  // The result is still pending, so it's not visible yet
+  TestEq(0, webtoolresults->GetResultsCount());
+  TestEq(1, webtoolresults->GetResultsCount([ showpendingresults := TRUE ]));
+
+  // Check the result
+  RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  TestEq(FALSE, RecordExists(submitted)); // should explicitly ask for pending result
+  submitted := webtoolresults->GetSingleResult(res.result.resultsguid, [ allowpending := TRUE ]);
+  TestEQ("new", submitted.submittype);
+  TestEQ("pending", submitted.status);
+  TestEq("testfw+formtest@beta.webhare.net", GetCell(submitted.response, emailfieldname));
+
+  // Check if there is (only) a confirmation mail
+  testfw->FlushTasks([ "publisher:mailconfirmation", "publisher:mailfeedback", "publisher:mailresults" ], [ acceptcancel := TRUE ]);
+  RECORD ARRAY mails := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 1 ]);
+  RECORD simpleconfirmmail := SELECT * FROM mails WHERE subject="Confirm your email address";
+  OBJECT confirmmaildoc := MakeXMLDocumentFromHTML(StringToBlob(simpleconfirmmail.html));
+  STRING confirmurl := customformfile->url || "?confirm=?*";
+  TestEqLike("*Dear Pietje & Henkie*click here to confirm or copy this link*" || confirmurl, TrimWhitespace(confirmmaildoc->body->textcontent));
+  OBJECT confirmlink := confirmmaildoc->GetElement("a");
+  TestEqLike(confirmurl, confirmlink->GetAttribute("href"));
+
+  // Open the form editor to check the results (the result should only be visible if 'show pending results' is checked)
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ customformfile->whfspath ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Results"));
+  TestEq(0, Length(TT("results")->rows));
+  TT("showpendingresults")->value := TRUE;
+  TestEq(1, Length(TT("results")->rows));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // 'Click' the confirmation link to confirm the email address and
+  TestEq(TRUE, testfw->browser->GotoWebPage(confirmlink->GetAttribute("href")));
+
+  // Check if the feedback and result mails are sent now
+  testfw->FlushTasks([ "publisher:mailconfirmation", "publisher:mailfeedback", "publisher:mailresults" ], [ acceptcancel := TRUE ]);
+  mails := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 1 ]);
+  RECORD simplefeedbackmail := SELECT * FROM mails WHERE subject="About Your Submission";
+  OBJECT feedbackmaildoc := MakeXMLDocumentFromHTML(StringToBlob(simplefeedbackmail.html));
+  TestEqLike("*Hello Pietje & Henkie*Edit*", TrimWhitespace(feedbackmaildoc->body->textcontent));
+
+  // Open the form editor to check the results (the result is now confirmed and visible)
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ customformfile->whfspath ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Results"));
+  TestEq(1, Length(TT("results")->rows));
+  TT("showpendingresults")->value := TRUE;
+  TestEq(1, Length(TT("results")->rows));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // Check if a second confirmation handler cannot be added
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form handler", [menuitem := TRUE]));
+  TestEq(FALSE, RecordExists(SELECT FROM TT("builtincomponents")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // Delete the confirmation handler
+  TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE ishandler AND candelete AND compdef.qname = "http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler";
+  TestEq("Confirm email address",TT("doceditor->questions")->selection.title);
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Delete"), [ awaitcall := TRUE ]); //confirm deletion
+
+  // The confirmation handler is now available again
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form handler", [menuitem := TRUE]));
+  TestEq(TRUE, RecordExists(SELECT FROM TT("builtincomponents")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //close form editor
+}
+
+RunTestframework([ PTR BuildForm
+                 , PTR MailConfirmationHandler
+                 ], [ canceltasks := [ "publisher:mailconfirmation", "publisher:mailfeedback", "publisher:mailresults" ]
+                    , testusers := [ [ login := "sysop", grantrights := [ "system:sysop" ] ] ]
+                    ]);

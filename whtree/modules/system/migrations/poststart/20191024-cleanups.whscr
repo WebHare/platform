@@ -1,0 +1,7 @@
+<?wh
+//clean up the old /.system/dl/~ic (And ~ec, ~fc) caches
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "wh::files.whlib";
+
+STRING imgcache := GetWebHareConfiguration().ephemeralroot || "imgcache";
+DeleteDiskDirectoryRecursive(imgcache);

@@ -1,0 +1,371 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+/**
+*/
+
+/// Counter to generate task ids
+INTEGER64 idcounter;
+
+/// Ordering of stages of a queue item. No going back on stages!
+STRING ARRAY stageorder := [ "new", "scheduled", "running", "finished" ];
+
+/** An item that can be placed in the queues of the [QueueKeeper](#QueueKeeper).
+
+    An item can be in one of the following 4 stages: 'new', 'scheduled', 'running', 'finished'.
+    Based on the stage and the scheduledate, the queueing state is determined:
+    - unqueued: Not placed in the queue (for stages 'new' and 'finished')
+    - runnable: Stage is 'scheduled', and scheduledate is not in the future
+    - timedwait: Stage is 'scheduled', and scheduledate is in the future
+    - running: Stage is 'running'
+*/
+PUBLIC STATIC OBJECTTYPE QueueItem
+<
+  OBJECT pvt_queuekeeper;
+  RECORD pvt_curdata;
+
+  /// @type(integer64) Queue item id - allocated on construction
+  PUBLIC PROPERTY id(this->pvt_curdata.id, -);
+
+  /// @type(string) Current item stage ("new", "scheduled", "running", "finished")
+  PUBLIC PROPERTY stage(this->pvt_curdata.stage, SetStage);
+
+  /// @type(string) Current queue state ("unqueued", "runnable", "timedwait", "running")
+  PUBLIC PROPERTY queuestate(this->pvt_curdata.queuestate, -);
+
+  /// @type(string) Name of the queue this item must be queued in when scheduled
+  PUBLIC PROPERTY queuename(this->pvt_curdata.queuename, SetQueueName);
+
+  /// @type(datetime) Date when this item can start executing
+  PUBLIC PROPERTY scheduledate(this->pvt_curdata.scheduledate, SetScheduleDate);
+
+  /// @type(integer) Priority for this item (lower means earlier execution)
+  PUBLIC PROPERTY priority(this->pvt_curdata.priority, SetPriority);
+
+  //// Called when the queue item has been marked as finished. Signature: MACRO onfinished(OBJECT item)
+  PUBLIC PROPERTY onfinished(this->pvt_curdata.onfinished, this->pvt_curdata.onfinished);
+
+  /** Constructs a new item
+      @param(object #QueueKeeper) queuekeeper Queue keeper
+      @param initialdata Scheduling data
+      @cell initialdata.stage Initial item stage, one of 'new', 'scheduled', 'running', 'finished'
+      @cell initialdata.queuestate Queueing state: 'unqueued', 'runnable', 'timedwait', 'running'
+      @cell initialdata.queuename Queue to store this item in
+      @cell initialdata.scheduledate Date when this item becomes runnable
+      @cell initialdata.priority Priority (lower priority nr is executed first)
+  */
+  MACRO NEW(OBJECT queuekeeper, RECORD initialdata)
+  {
+    initialdata := ValidateOptions(
+        [ stage :=        "scheduled"
+        , queuename :=    ""
+        , scheduledate := DEFAULT DATETIME
+        , priority :=     0
+        , onfinished :=   DEFAULT FUNCTION PTR
+        ], initialdata);
+
+    idcounter := idcounter + 1;
+    this->pvt_queuekeeper := queuekeeper;
+    this->pvt_curdata :=
+        [ id :=             idcounter
+        , stage :=          ""
+        , queuestate :=     "unqueued"
+        , cluster :=        ""
+        , scheduledate :=   MAX_DATETIME
+        , priority :=       0
+        , onfinished :=     DEFAULT FUNCTION PTR
+        ];
+
+    this->pvt_queuekeeper->__UpdateItemData(PRIVATE this, initialdata);
+  }
+
+  MACRO SetStage(STRING stage)
+  {
+    IF (this->stage != stage)
+    {
+      IF (SearchElement(stageorder, stage) < SearchElement(stageorder, this->stage))
+        THROW NEW Exception(`Task queue item going back from stage ${this->stage} to stage ${stage}`);
+
+      this->pvt_queuekeeper->__UpdateItemData(PRIVATE this, CELL[ stage ]);
+    }
+  }
+
+  MACRO SetQueueName(STRING queuename)
+  {
+    IF (this->queuename != queuename)
+      this->pvt_queuekeeper->__UpdateItemData(PRIVATE this, CELL[ queuename ]);
+  }
+
+  MACRO SetScheduleDate(DATETIME scheduledate)
+  {
+    IF (this->scheduledate != scheduledate)
+      this->pvt_queuekeeper->__UpdateItemData(PRIVATE this, CELL[ scheduledate ]);
+  }
+
+  MACRO SetPriority(INTEGER priority)
+  {
+    IF (this->priority != priority)
+      this->pvt_queuekeeper->__UpdateItemData(PRIVATE this, CELL[ priority ]);
+  }
+
+>;
+
+/** Keep multiple prioritized queues for task items (which must derive from [QueueItem](#QueueItem))
+
+    Has support for items with a scheduling date, automatically transitions those
+    from itemstate 'runnable' when their scheduledate has arrived.
+*/
+PUBLIC STATIC OBJECTTYPE QueueKeeper
+<
+  /** Queue items currently executing
+      @cell(integer64) id Id of the item
+      @cell(object #QueueItem) item Queue item
+  */
+  RECORD ARRAY running;
+
+  /** Queues for scheduled items (with stage 'scheduled')
+      @cell(string) tag Queue tag
+      @cell(record array) runnable Priority queue, sorted on priority, datetime, id. Contains all items in queuestate 'runnable'
+      @cell(integer) runnable.priority Priority
+      @cell(datetime) runnable.datetime Datetime
+      @cell(integer64) runnable.id Id
+      @cell(object #QueueItem) runnable.item Queue item
+      @cell(record array) timedwait Items scheduled in the future, sorted on datetime, id. Contains all items in queuestate 'timedwait'
+      @cell(datetime) timedwait.datetime Datetime
+      @cell(integer64) timedwait.id Id
+      @cell(object #QueueItem) timedwait.item Queue item
+  */
+  RECORD ARRAY queues;
+
+  /// Callback id for check for timedwait items
+  INTEGER updatescheduled_cb;
+
+  /// Next check to check all timedwait items
+  DATETIME nextscheduled;
+
+  /// Whether the #FireCallbacks task has been scheduled
+  BOOLEAN callbacksscheduled;
+
+  /** List of scheduled callbacks
+      @cell type 'gotrunnable', 'itemfinished'
+      @cell item Task item
+  */
+  RECORD ARRAY callbacklist;
+
+  /// Called when a queue just got its first runnable item
+  PUBLIC FUNCTION PTR ongotrunnable;
+
+  /// Builds a new task queue
+  MACRO NEW()
+  {
+    this->nextscheduled := MAX_DATETIME;
+  }
+
+  /** Updates the base data of a queue item
+      @param(object #QueueItem) item Queue item
+      @param updates Updates to the item state. The cell queuestate will be recalculated
+      @param now If passed, use this date as current datetime for comparing with the scheduledate
+  */
+  PUBLIC MACRO __UpdateItemData(OBJECT item, RECORD updates, DATETIME now DEFAULTSTO DEFAULT DATETIME)
+  {
+    now := now ?? GetCurrentDateTime();
+
+    // Remove from queues
+    this->HandleItemUpdate(item, FALSE);
+
+    RECORD oldstate := item->pvt_curdata;
+    RECORD newstate := CELL[ ...oldstate, ...updates ];
+    SWITCH (newstate.stage)
+    {
+      CASE "new", "finished"    { newstate.queuestate := "unqueued"; }
+      CASE "running"            { newstate.queuestate := "running"; }
+      CASE "scheduled"          { newstate.queuestate := newstate.scheduledate <= now ? "runnable" : "timedwait"; }
+      DEFAULT                   { THROW NEW Exception(`Illegal item stage '${item->pvt_curdata.stage}'`); }
+    }
+    item->pvt_curdata := newstate;
+
+    // Insert into new position
+    this->HandleItemUpdate(item, TRUE);
+
+    // Schedule a callback when the item got finished
+    IF (newstate.stage = "finished" AND oldstate.stage != "finished")
+      this->ScheduleCallback("itemfinished", MakePublicObjectReference(item));
+
+    // Reschedule call to ProcessDueTasks if needed
+    IF (item->pvt_curdata.queuestate = "timedwait" AND item->pvt_curdata.scheduledate < this->nextscheduled)
+    {
+      IF (this->updatescheduled_cb != 0)
+        UnregisterCallback(this->updatescheduled_cb);
+      this->nextscheduled := item->pvt_curdata.scheduledate;
+      this->updatescheduled_cb := RegisterTimedCallback(this->nextscheduled, PTR this->ProcessDueTasks);
+    }
+  }
+
+  MACRO FireCallbacks()
+  {
+    this->callbacksscheduled := FALSE;
+    RECORD ARRAY tofire := this->callbacklist;
+    this->callbacklist := RECORD[];
+
+    FOREVERY (RECORD callback FROM tofire)
+    {
+      SWITCH (callback.type)
+      {
+        CASE "gotrunnable"
+        {
+          IF (this->ongotrunnable != DEFAULT FUNCTION PTR)
+            this->ongotrunnable();
+        }
+        CASE "itemfinished"
+        {
+          IF (callback.item->stage = "finished" AND callback.item->onfinished != DEFAULT FUNCTION PTR)
+            callback.item->onfinished(callback.item);
+        }
+        DEFAULT
+        {
+          ABORT(`Unknown callback type '${callback.type}'`);
+        }
+      }
+    }
+  }
+
+  MACRO ScheduleCallback(STRING type, OBJECT item)
+  {
+    IF (NOT this->callbacksscheduled)
+    {
+      this->callbacksscheduled := TRUE;
+      ScheduleMicrotask(PTR this->FireCallbacks);
+    }
+    INSERT CELL[ type, item ] INTO this->callbacklist AT END;
+  }
+
+  /** Place all timedwait items on the runnable queue when their time has come
+      @return Time when the next item will become runnable
+  */
+  DATETIME FUNCTION ProcessDueTasks()
+  {
+    this->updatescheduled_cb := 0;
+    this->nextscheduled := MAX_DATETIME;
+
+    DATETIME now := GetCurrentDateTime();
+    DATETIME nextwait := MAX_DATETIME;
+    FOREVERY (RECORD queue FROM this->queues)
+    {
+      FOREVERY (RECORD item FROM queue.timedwait)
+      {
+        IF (item.scheduledate <= now)
+          this->__UpdateItemData(item.item, DEFAULT RECORD, now);
+        ELSE
+        {
+          IF (nextwait > item.scheduledate)
+            nextwait := item.scheduledate;
+          BREAK;
+        }
+      }
+    }
+
+    IF (nextwait < this->nextscheduled)
+    {
+      IF (this->updatescheduled_cb != 0)
+        UnregisterCallback(this->updatescheduled_cb);
+      this->nextscheduled := nextwait;
+      this->updatescheduled_cb := RegisterTimedCallback(this->nextscheduled, PTR this->ProcessDueTasks);
+    }
+    RETURN nextwait;
+  }
+
+  /** Place/remove an item from the queue
+      @param(object #QueueItem) item Queue item
+      @param add TRUE to add, FALSE to remove from all queues
+  */
+  MACRO HandleItemUpdate(OBJECT item, BOOLEAN add)
+  {
+    RECORD data := item->pvt_curdata;
+    SWITCH (data.queuestate)
+    {
+      CASE "unqueued"
+      {
+        RETURN;
+      }
+      CASE "timedwait"
+      {
+        RECORD pos := RecordLowerBound(this->queues, data, [ "QUEUENAME" ]);
+        IF (add)
+        {
+          RECORD rec := CELL[ data.scheduledate, data.id, item ];
+          IF (NOT pos.found)
+            INSERT CELL[ data.queuename, runnable := RECORD[], timedwait := [ rec ] ] INTO this->queues AT pos.position;
+          ELSE
+            INSERT rec INTO this->queues[pos.position].timedwait AT RecordUpperBound(this->queues[pos.position].timedwait, rec, [ "SCHEDULEDATE", "ID" ]);
+        }
+        ELSE
+        {
+          DELETE
+            FROM this->queues[pos.position].timedwait
+              AT RecordLowerBound(this->queues[pos.position].timedwait, data, [ "SCHEDULEDATE", "ID" ]).position;
+
+          // Remove queue if empty
+          IF (LENGTH(this->queues[pos.position].runnable) = 0 AND LENGTH(this->queues[pos.position].timedwait) = 0)
+            DELETE FROM this->queues AT pos.position;
+        }
+      }
+      CASE "running"
+      {
+        RECORD pos := RecordLowerBound(this->running, data, [ "ID" ]);
+        IF (add)
+          INSERT CELL[ data.id, item ] INTO this->running AT pos.position;
+        ELSE
+          DELETE FROM this->running AT pos.position;
+      }
+      CASE "runnable"
+      {
+        RECORD pos := RecordLowerBound(this->queues, data, [ "QUEUENAME" ]);
+        IF (add)
+        {
+          RECORD rec := CELL[ data.priority, data.scheduledate, data.id, item ];
+          IF (NOT pos.found)
+            INSERT CELL[ data.queuename, runnable := [ rec ], timedwait := RECORD[] ] INTO this->queues AT pos.position;
+          ELSE
+            INSERT rec INTO this->queues[pos.position].runnable AT RecordUpperBound(this->queues[pos.position].runnable, rec, [ "PRIORITY", "SCHEDULEDATE", "ID" ]);
+
+          IF (LENGTH(this->queues[pos.position].runnable) = 1)
+            this->ScheduleCallback("gotrunnable", DEFAULT OBJECT);
+        }
+        ELSE
+        {
+          DELETE
+            FROM this->queues[pos.position].runnable
+              AT RecordLowerBound(this->queues[pos.position].runnable, data, [ "PRIORITY", "SCHEDULEDATE", "ID" ]).position;
+
+          // Remove queue if empty
+          IF (LENGTH(this->queues[pos.position].runnable) = 0 AND LENGTH(this->queues[pos.position].timedwait) = 0)
+            DELETE FROM this->queues AT pos.position;
+        }
+      }
+      DEFAULT
+      {
+        ABORT(`Illegal queuestate ${data.queuestate}`);
+      }
+    }
+  }
+
+  /** Returns the next runnable item in a queue
+      @param queuename Name of the queue
+      @return(object #QueueItem) Item, DEFAULT OBJECT if no runnable item was found
+  */
+  PUBLIC OBJECT FUNCTION GetNextRunnable(STRING queuename)
+  {
+    RECORD pos := RecordLowerBound(this->queues, CELL[ queuename ], [ "QUEUENAME" ]);
+    IF (NOT pos.found)
+      RETURN DEFAULT OBJECT;
+
+    IF (LENGTH(this->queues[pos.position].runnable) = 0)
+      RETURN DEFAULT OBJECT;
+
+    RETURN this->queues[pos.position].runnable[0].item;
+  }
+
+>;

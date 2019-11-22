@@ -1,0 +1,19 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/adhoccache_webserver.whlib";
+
+IF(GetWebVariable("cacheval")!="")
+  Print(GetData());
+ELSE IF(GetWebVariable("invalidate")!="")
+  InvalidateData();
+ELSE IF(GetWebVariable("broadcast")="1")
+{
+  BroadcastEvent("webhare_testsuite:localeventtest", DEFAULT RECORD);
+  BroadcastEvent("webhare_testsuite:didbroadcast", DEFAULT RECORD);
+}
+ELSE IF(GetWebVariable("broadcast")="2")
+{
+  BroadcastLocalEvent("webhare_testsuite:localeventtest", DEFAULT RECORD);
+  BroadcastEvent("webhare_testsuite:didbroadcast", DEFAULT RECORD);
+}

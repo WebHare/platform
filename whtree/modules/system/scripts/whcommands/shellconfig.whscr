@@ -1,0 +1,37 @@
+﻿<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "noexport", type := "switch" ]
+    ]);
+
+STRING prefix := args."noexport" ? "" : "export ";
+
+RECORD config := GetWebHareConfiguration();
+
+PRINT("# Use: source <(wh shellconfig)\n");
+
+FOREVERY (RECORD rec FROM UnpackRecord(config))
+{
+  VARIANT val := rec.value;
+  IF (TypeID(val) = TypeID(STRING ARRAY))
+    val := Detokenize(val, " ");
+  IF (TypeID(val) = TypeID(BOOLEAN))
+    val := val ? "1" : "";
+
+  PRINT(prefix || "WEBHARE_CFG_" || rec.name || "=\"" || val || "\"\n");
+}
+
+STRING ARRAY modules := __SYSTEM_GetInstalledModuleNames();
+
+PRINT(prefix || "WEBHARE_CFG_MODULES=\"" || Detokenize(modules, " ") || "\"\n");
+
+FOREVERY (STRING module FROM modules)
+{
+  PRINT(prefix || "WEBHARE_CFG_MODULEDIR_" || Substitute(module,'-','__dash__') || "=\"" || GetModuleInstallationRoot(module) || "\"\n");
+}

@@ -1,0 +1,110 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+STATIC OBJECTTYPE FormPageBase EXTEND FormComponentExtensionBase
+<
+  BOOLEAN showpagetitle;
+
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    RECORD formsettings := this->contexts->formcomponentapi->integrationsettings;
+    IF (RecordExists(formsettings) AND formsettings.enablepagetitles)
+      this->showpagetitle := TRUE;
+
+    ^pagetitle->visible := this->showpagetitle;
+    ^pagetitle->enabled := this->showpagetitle;
+
+    this->owner->HideField("enabledcondition");
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    IF (this->showpagetitle)
+      this->owner->ReadTidField(^pagetitle);
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (this->showpagetitle AND NOT work->HasFailed())
+      this->owner->WriteTidField(^pagetitle);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE FormPage EXTEND FormPageBase
+<
+>;
+
+PUBLIC STATIC OBJECTTYPE FormOverviewPage EXTEND FormPageBase
+<
+>;
+
+PUBLIC STATIC OBJECTTYPE FormThankYouPage EXTEND FormPageBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    FormPageBase::PostInitExtension();
+
+    STRING redirect := this->node->GetAttribute("redirect");
+    RECORD intextlink :=
+        [ internallink := 0
+        , externallink := ""
+        , append := ""
+        ];
+    IF (redirect LIKE "x-wh-internallink:*")
+    {
+      // Internal link
+      STRING ARRAY parts := Tokenize(redirect, "|");
+      INTEGER fileid := this->contexts->formcomponentapi->GetLinkRef(parts[0]);
+      OBJECT fileobj := OpenWHFSObject(fileid);
+      IF (ObjectExists(fileobj) AND fileobj->isactive)
+      {
+        intextlink.internallink := fileid;
+        IF (Length(parts) > 1)
+          intextlink.append := parts[1];
+      }
+    }
+    ELSE IF (redirect != "")
+    {
+      // External link
+      intextlink.externallink := redirect;
+    }
+    ^redirect->value := intextlink;
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    FormPageBase::SubmitExtension(work);
+
+    IF (NOT work->HasFailed())
+    {
+      STRING redirect;
+      RECORD intextlink := ^redirect->value;
+      IF (RecordExists(intextlink))
+      {
+        IF (intextlink.internallink != 0)
+        {
+          redirect := this->contexts->formcomponentapi->CreateLinkRef(intextlink.internallink);
+          IF (intextlink.append != "")
+            redirect := redirect || "|" || intextlink.append;
+          this->node->SetAttribute("redirect", redirect);
+        }
+        ELSE IF (intextlink.externallink != "")
+          redirect := intextlink.externallink;
+      }
+      IF (redirect != "")
+      {
+        this->node->SetAttribute("redirect", redirect);
+        IF (Length(this->node->childnodes->GetCurrentElements()) > 0)
+          work->AddWarning(GetTid("publisher:formcomponents.page.message-inactivefields"));
+      }
+      ELSE
+        this->node->RemoveAttribute("redirect");
+    }
+  }
+>;

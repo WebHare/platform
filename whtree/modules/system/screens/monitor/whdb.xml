@@ -1,0 +1,116 @@
+﻿<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor/whdb.whlib"
+         gid="monitor">
+
+  <screen name="whdb" gid=".whdb" title="">
+
+    <actions>
+      <action name="resetlog" onexecute="doresetlog" />
+      <action name="opentracerow" >
+        <enableon source="trace" min="1" onexecute="doopentracerow" />
+      </action>
+    </actions>
+
+    <body height="1pr">
+      <tabs name="tabs" height="1pr">
+        <tab name="transactionstab" spacers="top left right">
+          <panel height="1pr">
+            <list name="transactions"
+                  highlightname="isself"
+                  selectmode="single"
+                  >
+              <column name="transid" type="integer" width="14x" />
+              <column name="username" type="text" />
+              <column name="source" type="text" />
+              <column name="refcount" type="integer" align="right" width="8x"/>
+              <column name="starttime" type="datetime" precision="seconds" storeutc="true" width="20x" />
+              <column name="client" type="text" width="2pr" />
+              <column name="transstage" type="text" width="5x" />
+              <column name="waitsfor" type="integer" align="right" width="8x" />
+              <column name="currentrpc" type="text" />
+              <column name="rpcinfo" type="text" />
+            </list>
+          </panel>
+        </tab>
+        <tab name="querylogtab" spacers="right left">
+          <split type="vertical">
+            <part height="2pr">
+              <grid width="1pr">
+                <col width="1pr"/>
+                <col/>
+                <row>
+                  <cell>
+                    <checkbox name="enablegrouping" title="" labeltid=".enablegrouping" onchange="onchangegrouping" />
+                  </cell>
+                  <cell>
+                    <button action="resetlog" />
+                  </cell>
+                </row>
+              </grid>
+              <panel height="1pr">
+                <list name="querylog"
+                      selectmode="single"
+                      emptytid=".norpcinfo"
+                      borders="top left right"
+                      sortcolumn="time"
+                      sortascending="false"
+                      onselect="onquerylogselect"
+                      >
+                  <column name="id" type="integer64" width="14x" />
+                  <column name="transid" type="integer" width="14x" />
+                  <column name="starttime" type="datetime" precision="seconds" storeutc="true" width="20x" />
+                  <column name="plan" type="text" width="1pr" />
+                  <column name="origin" type="text" width="1pr" />
+                  <column name="sentrows" type="integer" width="10x" />
+                  <column name="time" type="integer" width="10x" />
+                </list>
+              </panel>
+            </part>
+            <part height="1pr">
+              <split type="horizontal">
+                <part width="1pr" borders="left bottom">
+                  <codeedit name="plan" minwidth="50x" height="1pr" />
+                </part>
+                <part width="2pr">
+                  <list name="trace"
+                        minwidth="80x" width="1pr"
+                        minheight="8x" height="1pr"
+                        emptytid=".nostacktrace"
+                        borders="right bottom"
+                        selectmode="single"
+                        openaction="opentracerow"
+                        sortable="false">
+                    <column name="filename" type="text" />
+                    <column name="line" type="integer" width="6x" />
+                    <column name="col" type="integer" width="6x" />
+                    <column name="func" type="text" />
+                  </list>
+                </part>
+              </split>
+            </part>
+          </split>
+        </tab>
+      </tabs>
+      <panel spacers="all">
+        <grid>
+          <col width="1pr" />
+          <col width="1pr" />
+          <row>
+            <cell>
+              <box tid=".janitor" height="1pr" hr="false">
+                <text name="waituntil" />
+                <text name="nexttask" />
+                <text name="numhints" />
+              </box>
+            </cell>
+            <cell>
+              <box tid=".settings" height="1pr" hr="false">
+                <checkbox name="rpcinfo" onchange="onrpcinfochange" title="" labeltid=".showrpcinfo"/>
+              </box>
+            </cell>
+          </row>
+        </grid>
+      </panel>
+    </body>
+  </screen>
+</screens>

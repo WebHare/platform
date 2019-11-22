@@ -1,0 +1,50 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/policybase.whlib" EXPORT VersioningPolicyBase, VersioningObjectPolicyBase;
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+LOADLIB "mod::publisher/tolliumapps/versioning/versioning.whlib";
+
+
+PUBLIC STRING FUNCTION CreateDraftPreviewLink(OBJECT draftobject)
+{
+  RETURN CreatePreviewLink(AddDaysToDate(1, GetCurrentDatetime()), "", draftobject->source, draftobject->id);
+}
+
+PUBLIC MACRO RunVersioningApplication(STRING site, OBJECT controller, RECORD appdata)
+{
+  INSERT CELL sitename := site INTO appdata;
+  controller->LoadScreen("moduleroot::publisher/tolliumapps/versioning/versioning.xml#main", appdata)->RunModal();
+}
+
+PUBLIC MACRO RunVersionedFileRestore(OBJECT controller, INTEGER deletedfileid)
+{
+  RECORD versionevent := GetLastVersionApplyEvent(deletedfileid);
+  IF (NOT RecordExists(versionevent))
+    THROW NEW Exception(`No such deleted file #${deletedfileid}`);
+
+  OBJECT policy := GetVersioningPolicyForSite(versionevent.fs_site);
+  OBJECT siteobj := OpenSite(versionevent.fs_site);
+
+  RECORD configdata := policy->GetReviewAppConfig(
+      [ controller := controller
+      , sitename :=   siteobj->name
+      ]);
+
+  OBJECT live_object := OpenWHFSObject(deletedfileid);
+  IF (live_object->parent != 18)
+    THROW NEW Exception(`Cannot restore file #${deletedfileid}, it is not in deleted items store`);
+
+
+  RECORD vdata := policy->EnrichWithVersionData([ [ id := deletedfileid ] ]);
+  IF (vdata.has_openrequest)
+    THROW NEW Exception(`Cannot restore this file #${deletedfileid}, it already has an open request`);
+
+  DoVersionedRestoreInternal(controller, siteobj->id, policy, configdata, live_object);
+}

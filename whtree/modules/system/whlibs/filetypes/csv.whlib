@@ -1,0 +1,518 @@
+﻿<?wh
+/** @short CSV im/export
+    @long This library allows you to support the Excel CSV file format
+    @topic file-formats/csv
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internal/columntools.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+/** @short Encode excel CSV value
+    @long This function encodes a string for excel CSV format, by adding double quotes around the text and escaping double quotes with double-double quotes
+    @param unquoted Unquoted string to quote
+    @return Quoted string */
+PUBLIC STRING FUNCTION EncodeExcelCSV(STRING unquoted)
+{
+  RETURN '"' || Substitute(unquoted, '"', '""') || '"';
+}
+
+//find the first double-quote that's not a double-double-quote
+INTEGER FUNCTION FindFinalQuote(INTEGER pos, STRING data)
+{
+  FOR(;pos<length(data);pos:=pos+1)
+  {
+    IF (substring(data,pos,1)='"')
+    {
+      IF (substring(data,pos,2)!='""')
+        RETURN pos;
+      pos:=pos+1;
+    }
+  }
+  RETURN length(data);
+}
+
+// @short quick nasty autodetect of separator
+STRING FUNCTION AutoSense(STRING data)
+{
+  INTEGER pos;
+  WHILE(pos < LENGTH(data))
+  {
+    IF (Substring(data,pos,1) = '"') //starts with a quote
+    {
+      INTEGER toklimit := FindFinalQuote(pos+1,data);
+      pos := toklimit + 1; // skip quote
+    }
+    ELSE
+    {
+      IF (Substring(data,pos,1) IN ["\t",";",","])
+        RETURN Substring(data,pos,1);
+      pos:=pos+1;
+    }
+  }
+  RETURN ";";
+}
+
+///@private Only one external user, Edudex, should move to new call
+PUBLIC STATIC OBJECTTYPE CSVFileParser
+<
+  PUBLIC MACRO PTR onrecord;
+  PUBLIC BOOLEAN expect_embedded_lfs;
+  PUBLIC BOOLEAN adaptive_utf8;
+  PUBLIC BOOLEAN firstline;
+  PUBLIC STRING encoding;
+  PUBLIC STRING separator;
+
+  STRING currenttoken;
+  STRING ARRAY linetokens;
+  BOOLEAN insidequote;
+  INTEGER inputoffset;
+  INTEGER inputsize;
+
+  MACRO NEW()
+  {
+    this->expect_embedded_lfs := TRUE; //default for Excel CSV format
+    this->encoding := "ISO-8859-1";
+    this->adaptive_utf8 := TRUE;
+    this->firstline := TRUE;
+  }
+  BOOLEAN FUNCTION FinalizeCurrentLine()
+  {
+    BOOLEAN result := this->onrecord(this->linetokens);
+    this->linetokens := DEFAULT STRING ARRAY;
+    RETURN result;
+  }
+  PUBLIC RECORD FUNCTION GetParseProgress()
+  {
+    RETURN [ cur := this->inputoffset
+           , total := this->inputsize
+           ];
+  }
+
+  /** @short Parse the offered file */
+  PUBLIC BOOLEAN FUNCTION ParseFile(INTEGER fileid)
+  {
+    IF(this->onrecord = DEFAULT MACRO PTR)
+      THROW NEW Exception("No 'onrecord' callback set");
+
+    OBJECT parser := NEW StringParser;
+    BOOLEAN eof;
+    this->inputoffset := INTEGER(GetFilePointer(fileid));
+    this->inputsize := INTEGER(GetFileLength(fileid));
+
+    STRING linebuffer;
+    WHILE(NOT eof)
+    {
+      STRING currentline;
+
+      WHILE(TRUE)
+      {
+        IF(linebuffer != "")
+        {
+          //Try to read some data out of our line buffer
+          INTEGER first_lf := SearchSubstring(linebuffer,"\n");
+          INTEGER first_cr := SearchSubstring(linebuffer,"\r");
+
+          IF(first_lf != -1 AND (first_cr = -1 OR first_lf < first_cr+2)) //we've got some data
+          {
+            BOOLEAN is_crlf := Substring(linebuffer, first_lf-1, 1)="\r"; //it's a CRLF
+            currentline := Left(linebuffer, first_lf - (is_crlf ? 1 : 0));
+            linebuffer := Substring(linebuffer, first_lf+1);
+            BREAK;
+          }
+          IF(first_cr != -1 AND first_cr != Length(linebuffer)-1) //shouldn't terminate with a cr...
+          {
+            //just a CR terminator, with a non-LF behind it
+            currentline := Left(linebuffer, first_cr);
+            linebuffer := Substring(linebuffer, first_cr+1);
+            BREAK;
+          }
+        }
+
+        STRING extratoks := ReadLineFrom(fileid, 32768, FALSE);
+        IF(extratoks="" AND IsAtEndOfStream(fileid)) //EOF
+        {
+          eof := TRUE;
+          currentline := linebuffer;
+          BREAK;
+        }
+
+        linebuffer := linebuffer || extratoks;
+      }
+
+      IF(this->firstline)
+      {
+        //Detect separators and UTF8 if needed
+        IF(this->separator = "")
+          this->separator := AutoSense(currentline);
+        IF(currentline LIKE "\xEF\xBB\xBF*")
+        {
+          this->encoding := "UNICODE";
+          currentline := Substring(currentline,3);
+        }
+        this->firstline := FALSE;
+      }
+
+      IF(currentline="" AND NOT this->insidequote) //insignificant empty line
+        CONTINUE;
+
+      //Parse the line
+      parser->Reset(currentline);
+
+      WHILE(TRUE)
+      {
+        IF(NOT this->insidequote)
+        {
+          IF(this->currenttoken = "" AND parser->TryParse('"')) //hit a quote - only accept quotes at start of a cell as an escape!
+          {
+            this->insidequote := TRUE;
+            CONTINUE;
+          }
+
+          this->currenttoken := this->currenttoken || parser->ParseWhileNotInSet(this->separator);
+
+          IF(NOT this->adaptive_utf8 OR NOT IsValidUTF8(this->currenttoken)) //blindly assume UTF-8
+            this->currenttoken := DecodeCharset(this->currenttoken, this->encoding);
+          INSERT this->currenttoken INTO this->linetokens AT END;
+          this->currenttoken := "";
+
+          IF(this->separator != "" AND parser->TryParse(this->separator))
+          {
+            CONTINUE;
+          }
+
+          //End of line
+          IF(NOT this->FinalizeCurrentLine())
+            RETURN FALSE;
+
+          this->inputoffset := INTEGER(GetFilePointer(fileid));
+          BREAK;
+        }
+        ELSE //inside a token, we look for " to end it, but "" is just a "
+        {
+          this->currenttoken := this->currenttoken || parser->ParseWhileNotInSet('"');
+
+          BOOLEAN got_quote := parser->TryParse('"');
+          BOOLEAN got_doublequote := got_quote AND parser->TryParse('"');
+          IF(got_doublequote)
+            this->currenttoken := this->currenttoken || '"';
+          ELSE IF(got_quote)
+            this->insidequote := FALSE;
+          ELSE IF(NOT eof) //end of line hit
+            this->currenttoken := this->currenttoken || "\n";
+
+          IF(eof) //we're already at EOF..
+            this->insidequote := FALSE;
+          ELSE IF(NOT got_quote) //it was a EOL
+            BREAK;
+        }
+      }
+    } //WHILE(NOT eof)
+    RETURN TRUE;
+  }
+  PUBLIC BOOLEAN FUNCTION ParseBlob(BLOB indata)
+  {
+    INTEGER fileid := OpenBlobAsFile(indata);
+    BOOLEAN result := this->ParseFile(fileid);
+    CloseBlobFile(fileid);
+    RETURN result;
+  }
+  PUBLIC BOOLEAN FUNCTION ParseString(STRING indata)
+  {
+    RETURN this->ParseBlob(StringToBlob(indata));
+  }
+>;
+
+RECORD ARRAY exceltoktemp;
+
+BOOLEAN FUNCTION AddToExcelTokTemp(STRING ARRAY toks)
+{
+  INSERT [ tokens := toks ] INTO exceltoktemp AT END;
+  RETURN TRUE;
+}
+
+/** @short Get the raw rows of an (Excel-compatible) CSV/TSV file
+    @param data Data to parse
+    @cell(string) options.separator The separator used (\t, ; or ,). If not set, guesses
+    @cell(string) options.param encoding Excel file encoding ("UNICODE" for UTF-8, "ISO-8859-1", etc). Defaults to ISO-8859-1
+    @cell(boolean) options.acceptutf8 If a string is already valid UTF-8, don't convert it. Defaults to TRUE.
+    @cell(boolean) options.astokenarray Ignore headers and return all row cells in a STRING ARRAY cell named 'tokens'
+    @cell(boolean) options.processheaders Process the first row as headers (defaults to TRUE)
+    @return A record array with a record for every item
+    @cell return.tokens A string array with all individual tokens */
+PUBLIC RECORD ARRAY FUNCTION ParseCSVRows(BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ separator := ""
+                             , encoding := "UNICODE"
+                             , acceptutf8 := TRUE
+                             , astokenarray := FALSE
+                             , processheaders := TRUE
+                             ], options);
+
+  OBJECT parser := NEW CSVFileParser;
+  exceltoktemp := DEFAULT RECORD ARRAY;
+  parser->onrecord := PTR AddToExcelTokTemp;
+
+  IF(options.separator!="")
+    parser->separator := options.separator;
+  IF(options.encoding!="")
+    parser->encoding := options.encoding;
+  parser->adaptive_utf8 := options.acceptutf8;
+  parser->ParseBlob(data);
+
+  RECORD ARRAY retval := exceltoktemp;
+  exceltoktemp := DEFAULT RECORD ARRAY;
+
+  IF(options.astokenarray)
+    RETURN retval; //then we're done!
+
+  OBJECT getter := NEW TokenRowReceiver(options);
+  FOREVERY(RECORD line FROM retval)
+    getter->ReceiveRow(line.tokens);
+  RETURN getter->Finalize();
+}
+
+(*IFVERSION >= 42400*)
+PUBLIC RECORD ARRAY FUNCTION ExcelTextParser(STRING data, STRING separator, STRING encoding, BOOLEAN adaptive_utf8 DEFAULTSTO FALSE) __ATTRIBUTES__(DEPRECATED "Switch to ParseCSVRows in WebHare 4.23+")
+{
+  RETURN ParseCSVRows(StringToBlob(data), CELL[separator, encoding, acceptutf8 := adaptive_utf8, astokenarray := TRUE]);
+}
+(*ELSE*)
+PUBLIC RECORD ARRAY FUNCTION ExcelTextParser(STRING data, STRING separator, STRING encoding, BOOLEAN adaptive_utf8 DEFAULTSTO FALSE)
+{
+  RETURN ParseCSVRows(StringToBlob(data), CELL[separator, encoding, acceptutf8 := adaptive_utf8, astokenarray := TRUE]);
+}
+(*END*)
+
+
+/** @short Creates a record array out of a record array with just tokens
+    @param cellnames A string array containing the cell names for all tokens
+    @param recarray The record array with tokens
+    @return A record array with only tokens */
+PUBLIC RECORD ARRAY FUNCTION TokenArrayParser(STRING ARRAY cellnames, RECORD ARRAY recarray)
+{
+  RECORD ARRAY results;
+  FOREVERY (RECORD rec FROM recarray)
+  {
+    RECORD thisrec;
+    FOREVERY(STRING cellname FROM cellnames)
+    {
+      IF (#cellname >= Length(rec.tokens))
+        thisrec := CellInsert(thisrec, cellname, "");
+      ELSE
+        thisrec := CellInsert(thisrec, cellname, rec.tokens[#cellname]);
+    }
+    INSERT thisrec INTO results AT END;
+  }
+  RETURN results;
+}
+
+PUBLIC OBJECTTYPE CSVColumnFileWriter EXTEND ColumnFileWriterBase
+<
+  ///Character to separate indidividual fields (defaults to ';', alternatives are ',' and '\t')
+  PUBLIC STRING fieldseparator;
+  ///Character set (defaulfts to UTF-8, suggested alternatives are ISO-8859-1 and ASCII)
+  PUBLIC STRING charset;
+  ///The decimal point (defaults to '.', alternative is ',')
+  PUBLIC STRING decimalpoint;
+  ///The line separator (defaults to '\r\n')
+  PUBLIC STRING lineseparator;
+
+  ///Encode the values in an excel-compatible way (wrap in quotes, escape quotes by doubling)
+  PUBLIC BOOLEAN encode_excel_values;
+  ///Language for booleand and date/time strings
+  PUBLIC STRING languagecode;
+  ///Map true/false to yes/no (language-dependent)
+  PUBLIC BOOLEAN booleans_to_yesno;
+
+  INTEGER outstream;
+
+  MACRO NEW()
+  {
+    this->fieldseparator := ";";
+    this->charset := "UTF-8";
+    this->decimalpoint := ".";
+    this->lineseparator := "\r\n";
+    this->encode_excel_values := TRUE;
+  }
+
+  STRING FUNCTION FormatCell(RECORD coldef, RECORD listrow)
+  {
+    IF (NOT CellExists(coldef, "name"))
+      THROW NEW Exception("No column 'name' in column definition (column title is '" || coldef.title || "'");
+
+    //VARIANT mycell := GetCell(listrow, coldef.name);
+    VARIANT mycell := this->GetCellByPath(listrow, coldef.namepath);
+    SWITCH(coldef.type)
+    {
+      CASE "text","string"
+      {
+        IF (TypeID(mycell) != TypeID(STRING))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type STRING, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN mycell;
+      }
+      CASE "boolean"
+      {
+        IF (TypeID(mycell) != TypeID(BOOLEAN))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type BOOLEAN, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        IF(ToUppercase(this->languagecode) = "NL")
+        {
+          IF(this->booleans_to_yesno)
+            RETURN BOOLEAN(mycell) ? "ja" : "nee";
+          ELSE
+            RETURN BOOLEAN(mycell) ? "waar" : "onwaar";
+        }
+        ELSE
+        {
+          IF(this->booleans_to_yesno)
+            RETURN BOOLEAN(mycell) ? "yes" : "no";
+          ELSE
+            RETURN BOOLEAN(mycell) ? "true" : "false";
+        }
+      }
+      CASE "image"
+      {
+        RETURN "";
+      }
+      CASE "date"
+      {
+        IF (TypeID(mycell) != TypeID(DATETIME))
+          THROW NEW Exception("Cell " || coldef.name || " should have type DATETIME, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        DATETIME date := mycell;
+        IF(date!=DEFAULT DATETIME AND date!=MAX_DATETIME)
+        {
+          IF(CellExists(coldef, "storeutc") AND coldef.storeutc AND this->timezone = "")
+            THROW NEW Exception("'storeutc' was enabled in ColumnFileWriter, but no timezone was set");
+
+          //FIXME: The CellExists is a quick fix. Why isn't there a coldef.storeutc anyway?
+          //(test case: NBS module, "Export")
+          RETURN FormatDateTime("%d-%m-%Y", CellExists(coldef, "storeutc") AND coldef.storeutc ? UTCToLocal(date, this->timezone) : date, this->languagecode);
+        }
+        RETURN "";
+      }
+      CASE "integer"
+      {
+        IF (TypeID(mycell) != TypeID(INTEGER))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type INTEGER, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN ToString(mycell);
+      }
+      CASE "integer64"
+      {
+        IF (TypeID(mycell) != TypeID(INTEGER64))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type INTEGER64, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN ToString(mycell);
+      }
+      CASE "money"
+      {
+        IF (TypeID(mycell) != TypeID(MONEY))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type MONEY, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN FormatMoney(mycell, 0, this->decimalpoint, "", FALSE);
+      }
+      CASE "float"
+      {
+        IF (TypeID(mycell) != TypeID(FLOAT))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type FLOAT, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN Substitute(FormatFloat(mycell, 12), '.', this->decimalpoint);
+      }
+      CASE "time"
+      {
+        IF (TypeID(mycell) != TypeID(DATETIME))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type DATETIME, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        BOOLEAN storeutc := CellExists(coldef, "storeutc") AND coldef.storeutc;
+        IF(storeutc AND this->timezone = "")
+          THROW NEW Exception("'storeutc' was enabled in ColumnFileWriter, but no timezone was set");
+
+        DATETIME date := mycell;
+        IF(date!=DEFAULT DATETIME AND date!=MAX_DATETIME)
+          RETURN FormatDateTime("%#H:%M:%S", storeutc ? UTCToLocal(date, this->timezone) : date, this->languagecode);
+
+        RETURN "";
+      }
+      CASE "timestamp"
+      {
+        IF (TypeID(mycell) != TypeID(INTEGER))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type INTEGER, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        RETURN FormatDateTime("%#H:%M:%S", MakeDateFromParts(1,mycell), this->languagecode);
+      }
+      CASE "datetime"
+      {
+        IF (TypeID(mycell) != TypeID(DATETIME))
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type DATETIME, but has type "||GetTypeName(TypeId(mycell))||"!");
+
+        BOOLEAN storeutc := CellExists(coldef, "storeutc") AND coldef.storeutc;
+        IF(storeutc AND this->timezone = "")
+          THROW NEW Exception("'storeutc' was enabled in ColumnFileWriter, but no timezone was set");
+
+        DATETIME date := mycell;
+        IF(date!=DEFAULT DATETIME AND date!=MAX_DATETIME)
+          RETURN FormatDateTime("%d-%m-%Y %#H:%M:%S", storeutc ? UTCToLocal(date, this->timezone) : date, this->languagecode);
+
+        RETURN "";
+      }
+      DEFAULT
+      {
+        ABORT("Unknown column type '" || coldef.type || "'");
+      }
+    }
+  }
+
+  UPDATE PUBLIC MACRO WriteRow(RECORD inrow)
+  {
+    IF(this->outstream = 0)
+    {
+      this->outstream := CreateStream();
+
+      IF(Length(this->columns) = 0)
+        this->columns := GuessHeadersFromRow(inrow);
+
+      //headers?
+      IF(this->headerrow)
+      {
+        FOREVERY(RECORD col FROM this->columns)
+        {
+          IF(#col>0)
+            PrintTo(this->outstream, this->fieldseparator);
+
+          STRING data := this->charset="UTF-8" ? col.title : EncodeCharset(col.title, this->charset);
+          PrintTo(this->outstream, this->encode_excel_values ? EncodeExcelCSV(data) : data);
+        }
+        PrintTo(this->outstream, this->lineseparator);
+      }
+    }
+
+    FOREVERY(RECORD col FROM this->columns)
+    {
+      IF(#col > 0)
+        PrintTo(this->outstream, this->fieldseparator);
+
+      //FIXME: Big error if you pass a boolean column to this export, but forget to set type := "boolean" in the 'columns' property
+      //       (headers := [ [ title := "My title", name="some_boolean_column", type := "text" ] ])
+      STRING data := this->FormatCell(col, inrow);
+      IF(this->charset != "UTF-8")
+        data := this->charset = "UTF-8" ? data : EncodeCharset(data, this->charset);
+      PrintTo(this->outstream, this->encode_excel_values ? EncodeExcelCSV(data) : data);
+    }
+    PrintTo(this->outstream, this->lineseparator);
+  }
+  UPDATE PUBLIC BLOB FUNCTION MakeOutputFile()
+  {
+    IF(this->outstream=0)
+      RETURN DEFAULT BLOB;
+
+    BLOB output := MakeBlobFromStream(this->outstream);
+    this->outstream := 0;
+    RETURN output;
+  }
+>;

@@ -1,0 +1,675 @@
+<?wh
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/queries.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+MACRO TestQueryParserBasics()
+{
+  OBJECT parser := NEW QueryParser();
+  RECORD query;
+
+  // Just one word
+  query := parser->Parse("transfer", "");
+  TestEq("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer)", __FormatQuery(0, query.query));
+  TestEq(1, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Just one word, with boost factor
+  query := parser->Parse("transfer^7", "");
+  TestEq("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer)^7", __FormatQuery(0, query.query));
+  TestEq(1, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Just one word, with boost factor
+  query := parser->Parse("transfer^7.7", "");
+  TestEq("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer)^7.7", __FormatQuery(0, query.query));
+  TestEq(1, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Multiple words
+  query := parser->Parse("transfer protocol", "");
+  TestEq("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer) (title:protocol^5 keywords:protocol^10 description:protocol^5 protocol)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Multiple words, with boost factor
+  query := parser->Parse("transfer^3 protocol^8", "");
+  TestEq("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer)^3 (title:protocol^5 keywords:protocol^10 description:protocol^5 protocol)^8", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Multiple words, with boost factor
+  query := parser->Parse("transfer^3.4 protocol^8.9", "");
+  TestEq("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer)^3.4 (title:protocol^5 keywords:protocol^10 description:protocol^5 protocol)^8.9", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Required/prohibited words
+  query := parser->Parse("+transfer -protocol", "");
+  TestEq("+(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer) -(title:protocol^5 keywords:protocol^10 description:protocol^5 protocol)", __FormatQuery(0, query.query));
+  TestEq(1, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Non-alphanumeric characters are used to create phrase
+  query := parser->Parse("http/1.0", "");
+  TestEq("(\"http 1 0\")", __FormatQuery(0, query.query));
+  TestEq(3, Length(query.words));
+  TestEq(TRUE, "http" IN query.words);
+  TestEq(TRUE, "1" IN query.words);
+  TestEq(TRUE, "0" IN query.words);
+
+  // Phrase searches
+  query := parser->Parse("\"transfer protocol\"", "");
+  TestEq("(\"transfer protocol\")", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Phrase searches, with boost factor
+  query := parser->Parse("\"transfer protocol\"^4.4", "");
+  TestEq("(\"transfer protocol\"^4.4)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Phrase searches, with slop factor
+  query := parser->Parse("\"transfer protocol\"~2", "");
+  TestEq("(\"transfer protocol\"~2)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Phrase searches, ignore non-alphanumeric characters
+  query := parser->Parse("\"http/1.0\"", "");
+  TestEq("(\"http 1 0\")", __FormatQuery(0, query.query));
+  TestEq(3, Length(query.words));
+  TestEq(TRUE, "http" IN query.words);
+  TestEq(TRUE, "1" IN query.words);
+  TestEq(TRUE, "0" IN query.words);
+
+  // 'Direct' phrase searches
+  query := parser->Parse("hypertext-transfer-protocol", "");
+  TestEq("(\"hypertext transfer protocol\")", __FormatQuery(0, query.query));
+  TestEq(3, Length(query.words));
+  TestEq(TRUE, "hypertext" IN query.words);
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // 'Direct' phrase searches, with boost factor
+  query := parser->Parse("transfer+protocol^4.4", "");
+  TestEq("(\"transfer protocol\"^4.4)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // 'Direct' phrase searches, with slop factor
+  query := parser->Parse("transfer-protocol~2", "");
+  TestEq("(\"transfer protocol\"~2)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+}
+
+MACRO TestQueryParserFields()
+{
+  OBJECT parser := NEW QueryParser();
+  RECORD query;
+
+  // Just one word
+  query := parser->Parse("title:transfer", "");
+  TestEq("(title:transfer)", __FormatQuery(0, query.query));
+  TestEq(1, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Just one word, with boost factor
+  query := parser->Parse("title:transfer^7", "");
+  TestEq("(title:transfer^7)", __FormatQuery(0, query.query));
+  TestEq(1, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Just one word, with boost factor
+  query := parser->Parse("title:transfer^7.7", "");
+  TestEq("(title:transfer^7.7)", __FormatQuery(0, query.query));
+  TestEq(1, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Multiple words
+  query := parser->Parse("title:transfer body:protocol", "");
+  TestEq("(title:transfer) (protocol)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Multiple words, with boost factor
+  query := parser->Parse("title:transfer^3 body:protocol^8", "");
+  TestEq("(title:transfer^3) (protocol^8)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Multiple words, with boost factor
+  query := parser->Parse("title:transfer^3.4 body:protocol^8.9", "");
+  TestEq("(title:transfer^3.4) (protocol^8.9)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Required/prohibited words
+  query := parser->Parse("+title:transfer -body:protocol", "");
+  TestEq("+(title:transfer) -(protocol)", __FormatQuery(0, query.query));
+  TestEq(1, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Ignore non-alphanumeric characters
+  query := parser->Parse("title:http/1.0", "");
+  TestEq("(title:\"http 1 0\")", __FormatQuery(0, query.query));
+  TestEq(3, Length(query.words));
+  TestEq(TRUE, "http" IN query.words);
+  TestEq(TRUE, "1" IN query.words);
+  TestEq(TRUE, "0" IN query.words);
+
+  // Phrase searches
+  query := parser->Parse("title:\"transfer protocol\"", "");
+  TestEq("(title:\"transfer protocol\")", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Phrase searches, with boost factor
+  query := parser->Parse("title:\"transfer protocol\"^4.4", "");
+  TestEq("(title:\"transfer protocol\"^4.4)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Phrase searches, with slop factor
+  query := parser->Parse("title:\"transfer protocol\"~2", "");
+  TestEq("(title:\"transfer protocol\"~2)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Phrase searches, ignore non-alphanumeric characters
+  query := parser->Parse("title:\"http/1.0\"", "");
+  TestEq("(title:\"http 1 0\")", __FormatQuery(0, query.query));
+  TestEq(3, Length(query.words));
+  TestEq(TRUE, "http" IN query.words);
+  TestEq(TRUE, "1" IN query.words);
+  TestEq(TRUE, "0" IN query.words);
+
+  // 'Direct' phrase searches
+  query := parser->Parse("title:hypertext-transfer-protocol", "");
+  TestEq("(title:\"hypertext transfer protocol\")", __FormatQuery(0, query.query));
+  TestEq(3, Length(query.words));
+  TestEq(TRUE, "hypertext" IN query.words);
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // 'Direct' phrase searches, with boost factor
+  query := parser->Parse("title:transfer+protocol^4.4", "");
+  TestEq("(title:\"transfer protocol\"^4.4)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // 'Direct' phrase searches, with slop factor
+  query := parser->Parse("title:transfer-protocol~2", "");
+  TestEq("(title:\"transfer protocol\"~2)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+
+  // Special field
+  query := parser->Parse("groupid:aap:noot:mies", "");
+  TestEq("(aap:noot:mies)", __FormatQuery(0, query.query, [ field := "groupid" ]));
+
+  query := parser->Parse("groupid:aap:noot:mies^6 veld:beeh", "");
+  TestEq("(aap:noot:mies^6) (veld:beeh)", __FormatQuery(0, query.query, [ field := "groupid" ]));
+  TestEq("(groupid:aap:noot:mies^6) (beeh)", __FormatQuery(0, query.query, [ field := "veld" ]));
+
+  query := parser->Parse("+(groupid:aap:noot:mies^6) veld:beeh", "");
+  TestEq("+((groupid:aap:noot:mies^6)) (veld:beeh)", __FormatQuery(0, query.query));
+
+  query := parser->Parse("+(+groupid:aap:noot:mies^6 +veld:beeh)", "");
+  TestEq("+(+(groupid:aap:noot:mies^6) +(veld:beeh))", __FormatQuery(0, query.query));
+
+  query := parser->Parse("groupid:\"\n\r\t()[]{}^$+-%!\\\"\"", "");
+  TestEq("(\n\r\t()[]{}^$+-%!\")", __FormatQuery(0, query.query, [ field := "groupid" ]));
+
+  // Module field
+  query := parser->Parse("field@module:aap", "");
+  TestEq("(field@module:aap)", __FormatQuery(0, query.query));
+  TestEq("(aap)", __FormatQuery(0, query.query, [ field := "field@module" ]));
+  query := parser->Parse("field@module:\"aap noot mies\"", "");
+  TestEq("(field@module:\"aap noot mies\")", __FormatQuery(0, query.query));
+  TestEq("(\"aap noot mies\")", __FormatQuery(0, query.query, [ field := "field@module" ]));
+  query := parser->Parse("field@module:aap+noot-mies", "");
+  TestEq("(field@module:\"aap noot mies\")", __FormatQuery(0, query.query));
+  TestEq(0, Length(query.words)); // only 'body' and 'title' fields have those
+  query := parser->Parse("field.member@module:aap", "");
+  TestEq("(field.member@module:aap)", __FormatQuery(0, query.query));
+  TestEq("(aap)", __FormatQuery(0, query.query, [ field := "field.member@module" ]));
+  query := parser->Parse("field@module", "");
+  TestEq("(title:field^5 keywords:field^10 description:field^5 field)", __FormatQuery(0, query.query));
+  TestEq("(title:field^5 keywords:field^10 description:field^5 body:field)", __FormatQuery(0, query.query, [ field := "field.member@module" ]));
+  query := parser->Parse("field.member@module", "");
+  TestEq("(title:field^5 keywords:field^10 description:field^5 field)", __FormatQuery(0, query.query));
+  TestEq("(title:field^5 keywords:field^10 description:field^5 body:field)", __FormatQuery(0, query.query, [ field := "field.member@module" ]));
+
+  // Exists query
+  query := parser->Parse("title:*", "");
+  TestEq("(title:*)", __FormatQuery(0, query.query));
+  query := parser->Parse("*", ""); // field is required for exists queries
+  TestEq("", __FormatQuery(0, query.query));
+  query := parser->Parse("title:**", "");
+  TestEq("(title:*)", __FormatQuery(0, query.query));
+  query := parser->Parse("title:*test*", ""); // test* is interpreted as (start of) a phrase query
+  TestEq("(title:*) (\"test\")", __FormatQuery(0, query.query));
+  query := parser->Parse("test title:* keywords:test", "");
+  TestEq("(title:test^5 keywords:test^10 description:test^5 test) (title:*) (keywords:test)", __FormatQuery(0, query.query));
+}
+
+MACRO TestStemmedQueryParser()
+{
+  OBJECT parser := NEW QueryParser();
+  RECORD query;
+
+  // Just one word, no language, so no stemming
+  query := parser->Parse("transfers", "");
+  TestEq("(title:transfers^5 keywords:transfers^10 description:transfers^5 transfers)", __FormatQuery(0, query.query));
+  TestEq(1, Length(query.words));
+  TestEq(TRUE, "transfers" IN query.words);
+
+  // Just one word
+  query := parser->Parse("transfers", "en");
+  TestEq("((title:transfers^5 keywords:transfers^10 description:transfers^5 transfers) (title:transfer^2.5 transfer^0.5))", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transfers" IN query.words);
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Just one word, with boost factor
+  query := parser->Parse("transferring^8", "en");
+  TestEq("(((title:transferring^5 keywords:transferring^10 description:transferring^5 transferring) (title:transfer^2.5 transfer^0.5))^8)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transferring" IN query.words);
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Just one word, with boost factor
+  query := parser->Parse("transferred^8.8", "en");
+  TestEq("(((title:transferred^5 keywords:transferred^10 description:transferred^5 transferred) (title:transfer^2.5 transfer^0.5))^8.8)", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "transferred" IN query.words);
+  TestEq(TRUE, "transfer" IN query.words);
+
+  // Phrases should not be stemmed
+  query := parser->Parse("\"transfers transferring transferred\"", "en");
+  TestEq("(\"transfers transferring transferred\")", __FormatQuery(0, query.query));
+  TestEq(3, Length(query.words));
+  TestEq(FALSE, "transfer" IN query.words);
+  TestEq(TRUE, "transfers" IN query.words);
+  TestEq(TRUE, "transferring" IN query.words);
+  TestEq(TRUE, "transferred" IN query.words);
+
+  // 'Direct' phrases should not be stemmed
+  query := parser->Parse("transfers-transferring+transferred", "en");
+  TestEq("(\"transfers transferring transferred\")", __FormatQuery(0, query.query));
+  TestEq(3, Length(query.words));
+  TestEq(FALSE, "transfer" IN query.words);
+  TestEq(TRUE, "transfers" IN query.words);
+  TestEq(TRUE, "transferring" IN query.words);
+  TestEq(TRUE, "transferred" IN query.words);
+
+  // Specific fields are stemmed
+  query := parser->Parse("titles:transferring", "en");
+  TestEq("((titles:transferring) (titles:transfer^0.5))", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+
+  // Just one word, Dutch
+  query := parser->Parse("protocollen", "nl");
+  TestEq("((title:protocollen^5 keywords:protocollen^10 description:protocollen^5 protocollen) (title:protocol^2.5 protocol^0.5))", __FormatQuery(0, query.query));
+  TestEq(2, Length(query.words));
+  TestEq(TRUE, "protocollen" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+}
+
+MACRO TestQueryParserFilters()
+{
+  OBJECT parser := NEW QueryParser();
+  RECORD query;
+
+  // One range filter, inclusive and exclusive limits
+  query := parser->Parse("field:[start,finish]", "");
+  TestEq(1, Length(query.filters));
+  TestEq("(field:[start,finish])", __FormatFilter(query.filters[0]));
+  query := parser->Parse("field:{start,finish}", "");
+  TestEq(1, Length(query.filters));
+  TestEq("(field:{start,finish})", __FormatFilter(query.filters[0]));
+
+  // Leaving out start or finish
+  query := parser->Parse("field:[,finish]", "");
+  TestEq(1, Length(query.filters));
+  TestEq("(field:[,finish])", __FormatFilter(query.filters[0]));
+  query := parser->Parse("field:[start,]", "");
+  TestEq(1, Length(query.filters));
+  TestEq("(field:[start,])", __FormatFilter(query.filters[0]));
+  query := parser->Parse("field:{,finish}", "");
+  TestEq(1, Length(query.filters));
+  TestEq("(field:{,finish})", __FormatFilter(query.filters[0]));
+  query := parser->Parse("field:{start,}", "");
+  TestEq(1, Length(query.filters));
+  TestEq("(field:{start,})", __FormatFilter(query.filters[0]));
+
+  // Leaving out field name: no filter
+  query := parser->Parse("[start,finish]", "");
+  TestEq(0, Length(query.filters));
+  TestEq("(\"start finish\")", __FormatQuery(0, query.query));
+
+  // Leaving out both start and finish: no filter
+  query := parser->Parse("field:[,]", "");
+  TestEq(0, Length(query.filters));
+  TestEq("", __FormatQuery(0, query.query));
+
+  // One range filter as subquery, ignore requirement
+  query := parser->Parse("+(field:test -field:[start,finish])", "");
+  TestEq(1, Length(query.filters));
+  TestEq("(field:[start,finish])", __FormatFilter(query.filters[0]));
+  TestEq("+((field:test))", __FormatQuery(0, query.query));
+
+  // The query:
+  //   field:{start finish} field:[start field:{start} field[start,finish]
+  // should be parsed as follows:
+  // 'field:{' starts a range query, which is interrupted by the space after 'start' and ignored
+  // 'finish}' starts a phrase query, which is ended by the space
+  // 'field:[' starts a range query, which is interrupted by the space after 'start' and ignored
+  // 'field:{' starts a range query, which is interrupted by the '}' after 'start' and ignored
+  // 'field[start,finish' is treated as a phrase query
+  // ']' is ingored
+  query := parser->Parse("field:{start finish} field:[start field:{start} field[start,finish]", "");
+  TestEq(0, Length(query.filters));
+  TestEq("(\"finish\") (\"field start finish\")", __FormatQuery(0, query.query));
+
+  // Range filter on untokenized fields
+  query := parser->Parse("indexid:[start,finish]", "");
+  TestEq(1, Length(query.filters));
+  query := parser->Parse("indexid:{start,finish}", "");
+  TestEq(1, Length(query.filters));
+  query := parser->Parse("date_field:[start,finish]", "");
+  TestEq(1, Length(query.filters));
+  query := parser->Parse("date_field:{start,finish}", "");
+  TestEq(1, Length(query.filters));
+
+  query := parser->Parse("date_field:[@000AF93B00000000,@000B259702B32C95}", "");
+  TestEq(1, Length(query.filters));
+  TestEq("", __FormatQuery(0, query.query));
+  TestEq("(date_field:[@000AF93B00000000,@000B259702B32C95})", __FormatFilter(query.filters[0]));
+
+  query := parser->Parse("arryfield.date_field@module:[@000AF93B00000000,@000B259702B32C95}", "");
+  TestEq(1, Length(query.filters));
+  TestEq("", __FormatQuery(0, query.query));
+  TestEq("(arryfield.date_field@module:[@000AF93B00000000,@000B259702B32C95})", __FormatFilter(query.filters[0]));
+}
+
+MACRO TestQueryParserCombinations()
+{
+  OBJECT parser := NEW QueryParser();
+  RECORD query;
+
+  query := parser->Parse("-hypertext +\"transfer protocol\"~2 http^15", "");
+  TestEq("-(title:hypertext^5 keywords:hypertext^10 description:hypertext^5 hypertext) +(\"transfer protocol\"~2) (title:http^5 keywords:http^10 description:http^5 http)^15", __FormatQuery(0, query.query));
+  TestEq(3, Length(query.words));
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+  TestEq(TRUE, "http" IN query.words);
+
+  query := parser->Parse("hypertext^2.0 +\"transfer protocol\"~2^0.5 http", "");
+  TestEq("(title:hypertext^5 keywords:hypertext^10 description:hypertext^5 hypertext)^2 +(\"transfer protocol\"~2^0.5) (title:http^5 keywords:http^10 description:http^5 http)", __FormatQuery(0, query.query));
+  TestEq(4, Length(query.words));
+  TestEq(TRUE, "hypertext" IN query.words);
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+  TestEq(TRUE, "http" IN query.words);
+
+  // The query:
+  //   - hypertext-transfer-^.4 +\"title:protocol\" ~3 http ^2 +rfc+ 2616^.5
+  // should be parsed as follows:
+  // The query '-' is ignored, nothing follows it
+  // 'hypertext' and 'transfer' form a direct phrase query
+  //   Because there is no word after the '-' after transfer, the query is ended
+  // '^.' is ignored (no words)
+  // '4' is a single term query
+  // 'title' and 'protocol' form a phrase query
+  //   'title' is no field here, because it included within the quotes
+  //   The ':' is treated as whitespace
+  //   The space after the closing quote ends the query
+  // '~' is ignored (no word)
+  // '3' is a single term query
+  // 'http' is a single term query
+  //   The space ends the query
+  // '^' is ignored (no word)
+  // '2' is a single term query
+  // '+' makes the next query required
+  // 'rfc' forms a direct phrase query, because of the following '+'
+  //   The space after the '+' ends the query
+  // '2616' is a single term query
+  //   A boost factor of 0.5 is set for the query (the query '0' may be ommitted)
+  query := parser->Parse("- hypertext-transfer-^.4 +\"title:protocol\" ~3 http ^2 +rfc+ 2616^.5", "");
+  TestEq("(\"hypertext transfer\") (title:4^5 keywords:4^10 description:4^5 4) +(\"title protocol\") (title:3^5 keywords:3^10 description:3^5 3) (title:http^5 keywords:http^10 description:http^5 http) (title:2^5 keywords:2^10 description:2^5 2) +(\"rfc\") (title:2616^5 keywords:2616^10 description:2616^5 2616)^0.5", __FormatQuery(0, query.query));
+  TestEq(10, Length(query.words));
+  TestEq(TRUE, "hypertext" IN query.words);
+  TestEq(TRUE, "transfer" IN query.words);
+  TestEq(TRUE, "4" IN query.words);
+  TestEq(TRUE, "title" IN query.words);
+  TestEq(TRUE, "protocol" IN query.words);
+  TestEq(TRUE, "3" IN query.words);
+  TestEq(TRUE, "http" IN query.words);
+  TestEq(TRUE, "2" IN query.words);
+  TestEq(TRUE, "rfc" IN query.words);
+  TestEq(TRUE, "2616" IN query.words);
+
+  query := parser->Parse("+newstype:\"news\" +lang:\"nl\" +(publocations:112491 publocations:232462 publocations:47744 publocations:47808 publocations:356877 publocations:47151 publocations:47152 publocations:47164 publocations:46053 publocations:164213 publocations:164214 publocations:46275 publocations:46283 publocations:46295 publocations:46308 publocations:46367 publocations:46397 publocations:46403 publocations:46522 publocations:46607 publocations:356130 publocations:46839 publocations:46844 publocations:269848 publocations:46881 publocations:134990 publocations:138149 publocations:341583 publocations:341584 publocations:46885 publocations:46890 publocations:345964 publocations:31255 publocations:85154 publocations:347802 publocations:347814 publocations:46142 publocations:46150 publocations:47624 publocations:46159 publocations:46161 publocations:46168 publocations:46193 publocations:46016 publocations:46028 publocations:46038 publocations:46039 publocations:47249 publocations:47289 publocations:47345 publocations:47594 publocations:47618 publocations:45734 publocations:45793 publocations:45589 publocations:45592 publocations:44518 publocations:44541 publocations:45724 publocations:45727 publocations:101391 publocations:106825 publocations:129780 publocations:449105 publocations:435638 publocations:435665 publocations:46110 publocations:368995 publocations:372552 publocations:109411 publocations:109423 publocations:109429 publocations:109430 publocations:109527 publocations:109528 publocations:109538 publocations:109551 publocations:109553 publocations:111050 publocations:111467 publocations:113877 publocations:114481 publocations:114512 publocations:181651 publocations:181654 publocations:105074 publocations:105084 publocations:409735 publocations:409736 publocations:344468 publocations:344478 publocations:344479 publocations:344480 publocations:442277 publocations:442278 publocations:329229 publocations:329232 publocations:329233 publocations:329237 publocations:452817 publocations:452818 publocations:259165 publocations:497125 publocations:497126 publocations:475646 publocations:488739 publocations:136806 publocations:72083 publocations:238505 publocations:238506 publocations:231662 publocations:127340 publocations:496914 publocations:402215 publocations:402216 publocations:47758 publocations:47761 publocations:506444 publocations:506596 publocations:498311 publocations:76575 publocations:76576 publocations:436789 publocations:436792 publocations:496277 publocations:410538 publocations:410539 publocations:496278 publocations:496336 publocations:496466 publocations:105193 publocations:105197 publocations:498312 publocations:498059 publocations:182158 publocations:182651 publocations:367778 publocations:367797 publocations:2034 publocations:256443 publocations:256446 publocations:105059 publocations:10570 publocations:10571 publocations:66683 publocations:509659 publocations:509766 publocations:106776 publocations:30953 publocations:76550 publocations:76556 publocations:76558 publocations:127409 publocations:30929 publocations:30945 publocations:76663 publocations:188219 publocations:252712 publocations:110218 publocations:510927 publocations:107198 publocations:510931 publocations:38738 publocations:497744 publocations:497750 publocations:510928 publocations:68162 publocations:104161 publocations:223967 publocations:68157 publocations:104237 publocations:68254 publocations:498842 publocations:498850 publocations:105060 publocations:208915 publocations:331952 publocations:331976 publocations:45152 publocations:510719 publocations:510720 publocations:506099 publocations:251379 publocations:498207 publocations:345735 publocations:368140 publocations:380504 publocations:425719 publocations:425720 publocations:425731 publocations:425732 publocations:439078 publocations:439079 publocations:232462 publocations:47744 publocations:47808 publocations:356877 publocations:47151 publocations:47152 publocations:47164 publocations:46053 publocations:164213 publocations:164214 publocations:46275 publocations:46283 publocations:46295 publocations:46308 publocations:46367 publocations:46397 publocations:46403 publocations:46522 publocations:46607 publocations:356130 publocations:46839 publocations:46844 publocations:269848 publocations:46881 publocations:134990 publocations:138149 publocations:341583 publocations:341584 publocations:46885 publocations:46890 publocations:345964 publocations:31255 publocations:85154 publocations:347802 publocations:347814 publocations:46142 publocations:46150 publocations:47624 publocations:46159 publocations:46161 publocations:46168 publocations:46193 publocations:46016 publocations:46028 publocations:46038 publocations:46039 publocations:47249 publocations:47289 publocations:47345 publocations:47594 publocations:47618 publocations:45734 publocations:45793 publocations:45589 publocations:45592 publocations:44518 publocations:44541 publocations:45724 publocations:45727 publocations:101391 publocations:106825 publocations:129780 publocations:449105 publocations:435638 publocations:435665 publocations:46110 publocations:368995 publocations:372552 publocations:109411 publocations:109423 publocations:109429 publocations:109430 publocations:109527 publocations:109528 publocations:109538 publocations:109551 publocations:109553 publocations:111050 publocations:111467 publocations:113877 publocations:114481 publocations:114512 publocations:181651 publocations:181654 publocations:105074 publocations:105084 publocations:409735 publocations:409736 publocations:344468 publocations:344478 publocations:344479 publocations:344480 publocations:442277 publocations:442278 publocations:329229 publocations:329232 publocations:329233 publocations:329237 publocations:452817 publocations:452818 publocations:259165 publocations:497125 publocations:497126 publocations:475646 publocations:488739 publocations:136806 publocations:72083 publocations:238505 publocations:238506 publocations:231662 publocations:127340 publocations:496914 publocations:402215 publocations:402216 publocations:47758 publocations:47761 publocations:506444 publocations:506596 publocations:498311 publocations:76575 publocations:76576 publocations:436789 publocations:436792 publocations:496277 publocations:410538 publocations:410539 publocations:496278 publocations:496336 publocations:496466 publocations:105193 publocations:105197 publocations:498312 publocations:498059 publocations:182158 publocations:182651 publocations:367778 publocations:367797 publocations:2034 publocations:256443 publocations:256446 publocations:105059 publocations:10570 publocations:10571 publocations:66683 publocations:509659 publocations:509766 publocations:106776 publocations:30953 publocations:76550 publocations:76556 publocations:76558 publocations:127409 publocations:30929 publocations:30945 publocations:76663 publocations:188219 publocations:252712 publocations:110218 publocations:510927 publocations:107198 publocations:510931 publocations:38738 publocations:497744 publocations:497750 publocations:510928 publocations:68162 publocations:104161 publocations:223967 publocations:68157 publocations:104237 publocations:68254 publocations:498842 publocations:498850 publocations:105060 publocations:208915 publocations:331952 publocations:331976 publocations:45152 publocations:510719 publocations:510720 publocations:506099 publocations:251379 publocations:498207 publocations:345735 publocations:368140 publocations:380504 publocations:425719 publocations:425720 publocations:425731 publocations:425732 publocations:439078 publocations:439079)", "");
+
+  // Should not crash (stack overflow)
+  query := parser->Parse("(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a", "en");
+
+  // Should return the text "ab"
+  query := parser->Parse(")ab", "en");
+  TestEq([ "ab" ], query.words);
+}
+
+MACRO TestNestedQueries()
+{
+  OBJECT parser := NEW QueryParser();
+  RECORD query;
+
+  // Normal nested query
+  query := parser->Parse("+(\"transfer\" +\"test\")^2 \"wow\" ", "");
+  TestEq("+(((\"transfer\") +(\"test\"))^2) (\"wow\")", __FormatQuery(0, query.query));
+
+  // Nested query, but not terminated
+  query := parser->Parse("\"wow\" +(\"transfer\" +\"test", "");
+  TestEq("(\"wow\") +((\"transfer\") +(\"test\"))", __FormatQuery(0, query.query));
+}
+
+MACRO TestUserQueryExtraction()
+{
+  OBJECT parser := NEW QueryParser();
+  STRING query;
+
+  // Just one word
+  query := parser->ExtractUserQuery("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer)");
+  TestEq("transfer", query);
+
+  // Just one word with explicit 'body' field
+  query := parser->ExtractUserQuery("(title:transfer^5 keywords:transfer^10 description:transfer^5 body:transfer)");
+  TestEq("transfer", query);
+
+  // Just one word, with boost factor which isn't extracted
+  query := parser->ExtractUserQuery("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer)^7");
+  TestEq("transfer", query);
+
+  // Just one word, with boost factor which isn't extracted
+  query := parser->ExtractUserQuery("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer)^7.7");
+  TestEq("transfer", query);
+
+  // Multiple words
+  query := parser->ExtractUserQuery("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer) (title:protocol^5 keywords:protocol^10 description:protocol^5 protocol)");
+  TestEq("transfer protocol", query);
+
+  // Multiple words, with boost factor which isn't extracted
+  query := parser->ExtractUserQuery("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer)^3 (title:protocol^5 keywords:protocol^10 description:protocol^5 protocol)^8");
+  TestEq("transfer protocol", query);
+
+  // Multiple words, with boost factor which isn't extracted
+  query := parser->ExtractUserQuery("(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer)^3.4 (title:protocol^5 keywords:protocol^10 description:protocol^5 protocol)^8.9");
+  TestEq("transfer protocol", query);
+
+  // Required/prohibited words
+  query := parser->ExtractUserQuery("+(title:transfer^5 keywords:transfer^10 description:transfer^5 transfer) -(title:protocol^5 keywords:protocol^10 description:protocol^5 protocol)");
+  TestEq("+transfer -protocol", query);
+
+  // Just one stemmed word
+  query := parser->ExtractUserQuery("((title:transfers^5 keywords:transfers^10 description:transfers^5 transfers) (title:transfer^2.5 transfer^0.5))");
+  TestEq("transfers", query);
+
+  // Just one stemmed word, with boost factor which isn't extracted
+  query := parser->ExtractUserQuery("(((title:transferring^5 keywords:transferring^10 description:transferring^5 transferring) (title:transfer^2.5 transfer^0.5))^8)");
+  TestEq("transferring", query);
+
+  // Just one stemmed word, with boost factor which isn't extracted
+  query := parser->ExtractUserQuery("(((title:transferred^5 keywords:transferred^10 description:transferred^5 transferred) (title:transfer^2.5 transfer^0.5))^8.8)");
+  TestEq("transferred", query);
+
+  // Raw user queries are returned as-is
+  query := parser->ExtractUserQuery("transfer protocol");
+  TestEq("transfer protocol", query);
+  query := parser->ExtractUserQuery("transfer   +protocol");
+  TestEq("transfer   +protocol", query);
+  query := parser->ExtractUserQuery("+transfer -protocol");
+  TestEq("+transfer -protocol", query);
+}
+
+MACRO TestCQAPI()
+{
+  // 'All' query
+  TestEq("+indexid:0", __FormatQuery(0, CQAll()));
+
+  // Match query
+  TestEq('field:"å"', __FormatQuery(0, CQMatch("field", "=", "å")));
+  TestEq('field:"€"', __FormatQuery(0, CQMatch("field", "=", "€")));
+  TestEq('field:"🍻"', __FormatQuery(0, CQMatch("field", "=", "🍻")));
+
+  // User query
+  TestEq('+(title:"transfers"^5 keywords:"transfers"^10 description:"transfers"^5 "transfers")', __FormatQuery(0, CQParseUserQuery("transfers")));
+  TestEq('(title:"transfers"^5 keywords:"transfers"^10 description:"transfers"^5 "transfers")', __FormatQuery(0, CQParseUserQuery("transfers", [ querymode := "OR"])));
+  // The old 'defaultrequire' is no longer recognized
+  TestEq('+(title:"transfers"^5 keywords:"transfers"^10 description:"transfers"^5 "transfers")', __FormatQuery(0, CQParseUserQuery("transfers", [ defaultrequire := require_required ])));
+  TestEq('+(title:"transfers"^5 keywords:"transfers"^10 description:"transfers"^5 "transfers")', __FormatQuery(0, CQParseUserQuery("transfers", [ defaultrequire := require_allowed ])));
+  // Default fields
+  TestEq('+(title:"transfers"^2 "transfers")', __FormatQuery(0, CQParseUserQuery("transfers",
+      [ defaultfields :=
+        [ [ field := "title", boost := 2f, stemmed_field := TRUE ]
+        , [ field := "body",  boost := 1f, stemmed_field := TRUE ]
+        ]
+      ])));
+  TestEq('+((title:"transfers"^2 "transfers") (title:"transfer" "transfer"^0.5))', __FormatQuery(0, CQParseUserQuery("transfers",
+      [ defaultfields :=
+        [ [ field := "title", boost := 2f, stemmed_field := TRUE ]
+        , [ field := "body",  boost := 1f, stemmed_field := TRUE ]
+        ]
+      ]), [ language := "en" ]));
+  TestEq('+((title:"transfers"^2 "transfers") ("transfer"^0.5))', __FormatQuery(0, CQParseUserQuery("transfers",
+      [ defaultfields :=
+        [ [ field := "title", boost := 2f, stemmed_field := FALSE ]
+        , [ field := "body",  boost := 1f, stemmed_field := TRUE ]
+        ]
+      ]), [ language := "en" ]));
+  // "AND" and "OR" clauses in the user query
+  TestEq('("a") ("b")', __FormatQuery(0, CQParseUserQuery("a OR b",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a OR b");
+  TestEq('("a") ("b")', __FormatQuery(0, CQParseUserQuery("+a OR +b",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "+a OR +b");
+  TestEq('+("a") +("b")', __FormatQuery(0, CQParseUserQuery("a AND b",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a AND b");
+  TestEq('+("a") +("b")', __FormatQuery(0, CQParseUserQuery("a AND b",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      , querymode := "OR"
+      ])), "a AND b (querymode OR)");
+  TestEq('("a") (+("b") +("c"))', __FormatQuery(0, CQParseUserQuery("a OR b AND c",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a OR b AND c");
+  TestEq('+("a") +(("b") ("c"))', __FormatQuery(0, CQParseUserQuery("a AND b OR c",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a AND b OR c");
+  TestEq('("a") ("b") ("c")', __FormatQuery(0, CQParseUserQuery("a OR b OR c",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a OR b OR c");
+  TestEq('+("a") +("b") +("c")', __FormatQuery(0, CQParseUserQuery("a AND b AND c",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a AND b AND c");
+  TestEq('("a") (+("b") +(("c") ("d")))', __FormatQuery(0, CQParseUserQuery("a OR b AND c OR d",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a OR b AND c OR d");
+  TestEq('+("a") +(("b") (+("c") +("d")))', __FormatQuery(0, CQParseUserQuery("a AND b OR c AND d",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a AND b OR c AND d");
+  TestEq('("a") ("b") (+("c") +("d"))', __FormatQuery(0, CQParseUserQuery("a OR b OR c AND d",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a OR b OR c AND d");
+  TestEq('("a") (+("b") +("c") +("d"))', __FormatQuery(0, CQParseUserQuery("a OR b AND c AND d",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a OR b AND c AND d");
+  TestEq('("a")', __FormatQuery(0, CQParseUserQuery("a OR",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a OR");
+  TestEq('("b")', __FormatQuery(0, CQParseUserQuery("OR b",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "OR b");
+  TestEq('+("a")', __FormatQuery(0, CQParseUserQuery("a AND",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a AND");
+  TestEq('+("b")', __FormatQuery(0, CQParseUserQuery("AND b",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "AND b");
+  // Test case sensitivity: "or" is interpreted as search term, querymode defaults to AND
+  TestEq('+("a") +("or") +("b")', __FormatQuery(0, CQParseUserQuery("a or b",
+      [ defaultfields := [ [ field := "body",  boost := 1f, stemmed_field := FALSE ] ]
+      ])), "a or b");
+  TestEq('+(title:"a"^5 keywords:"a"^10 description:"a"^5 "a")', __FormatQuery(0, CQParseUserQuery("å")));
+  //FIXME: '€' and '🍻' are treated as non-text characters and therefore not included in the user query
+  //TestEq('+(title:"€"^5 keywords:"€"^10 description:"€"^5 "€")', __FormatQuery(0, CQParseUserQuery("€")));
+  //TestEq('+(title:"🍻"^5 keywords:"🍻"^10 description:"🍻"^5 "🍻")', __FormatQuery(0, CQParseUserQuery("🍻")));
+  TestEq('+("a")', __FormatQuery(0, CQParseUserQuery("\"å\"")));
+  //FIXME: '€' and '🍻' are treated as non-text characters and therefore not included in the user query
+  //TestEq('+("€")', __FormatQuery(0, CQParseUserQuery("\"€\"")));
+  //TestEq('+("🍻")', __FormatQuery(0, CQParseUserQuery("\"🍻\"")));
+
+  // Range query
+  TestEq('title:[pho,php}', __FormatQuery(0, CQRange("title","pho",TRUE,"php",FALSE)));
+
+  //'poison' values - invalid queries, especially users doing funny stuff, shouldn't throw or return the whole index
+  TestEq("", __FormatQuery(0, CQParseUserQuery(" ")));
+  TestEq("+indexid:0", __FormatQuery(0, CQNot(CQParseUserQuery(" "))));
+  TestEq("", __FormatQuery(0, CQNot(CQNot(CQParseUserQuery(" ")))));
+  TestEq("", __FormatQuery(0, CQAnd([CQMatch("title","=","phone"), CQParseUserQuery(" ")])));
+  TestEq("(title:\"phone\")", __FormatQuery(0, CQOr([CQMatch("title","=","phone"), CQParseUserQuery(" ")])));
+
+}
+
+RunTestframework([ PTR TestQueryParserBasics
+                 , PTR TestQueryParserFields
+                 , PTR TestStemmedQueryParser
+                 , PTR TestQueryParserFilters
+                 , PTR TestQueryParserCombinations
+                 , PTR TestNestedQueries
+                 , PTR TestUserQueryExtraction
+                 , PTR TestCQAPI
+                 ]);

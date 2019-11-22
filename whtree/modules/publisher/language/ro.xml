@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="ro" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Te rugăm să verifici căsuța de mai jos</text>
+      <text tid="title">Aproape terminat</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">Următorul/ Următoarea ( if it's not followed by a noun the first version is fine; if it's followed by a noun the translation might change)</text>
+      <text tid="previouspage">Anterior</text>
+      <text tid="selectfile">Selectează fișier</text>
+      <text tid="starsrequired">* câmpuri obligatorii</text>
+      <text tid="submit">Trimite</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">Adresa nu a putut fi găsită.</text>
+        <text tid="invalid_nr_detail">Număr de casă invalid.</text>
+        <text tid="invalid_zip">Cod poștal invalid.</text>
+        <text tid="zip_not_found">Combinație de cod poștal și număr de casă invalidă.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">Trebuie să conțină doar cifre sau litere.</text>
+        <text tid="check">Trebuie să selectezi între variantele <param p="1"/> și <param p="2"/> .</text>
+        <text tid="default">Această valoare pare să fie incorectă.</text>
+        <text tid="digits">Această valoare ar trebui să fie numerică.</text>
+        <text tid="email">Această valoare ar trebui să fie o adresă de email validă.</text>
+        <text tid="email_baddomain">Datorită dificultăților cu trimiterea mesajelor la adresa de email <param p="1"/>  te rugăm să folosești o altă adresă de email.</text>
+        <text tid="email_suggestion">Voiai să scrii <param p="1"/>?</text>
+        <text tid="equalto">Această valoare ar trebui să fie la fel.</text>
+        <text tid="integer">Această valoare ar trebui să reprezinte un întreg.</text>
+        <text tid="length">Lungimea acestei valori este invalidă. Ar trebui să conțină un număr de caractere cuprins între <param p="1"/> și <param p="2"/>.</text>
+        <text tid="max">Această valoare ar trebui să fie mai mică sau egală cu <param p="1"/>.</text>
+        <text tid="maxcheck">Trebuie să selectezi minim <param p="1"/> variante sau mai puține.</text>
+        <text tid="maxlength">Această valoare este prea lungă. Ar trebui să conțină <param p="1"/> caractere sau mai puține.</text>
+        <text tid="min">Această valoare ar trebui să fie mai mare sau egală cu <param p="1"/>.</text>
+        <text tid="mincheck">Trebuie să selectezi cel puțin <param p="1"/> variante.</text>
+        <text tid="minlength">Această valoare este prea scurtă. Ar trebui să aibă <param p="1"/> caractere sau mai multe.</text>
+        <text tid="notblank">Această valoare nu ar trebui lăsată necompletată.</text>
+        <text tid="number">Trebuie să scrii un număr valid</text>
+        <text tid="pattern">Acest câmp nu este completat corect.</text>
+        <text tid="range">Valoarea trebuie să fie între <param p="1"/> și <param p="2"/>.</text>
+        <text tid="required">Această valoare trebuie completată.</text>
+        <text tid="url">Această valoare ar trebui să fie un URL valid.</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

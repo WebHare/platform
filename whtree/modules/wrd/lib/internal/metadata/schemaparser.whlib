@@ -1,0 +1,413 @@
+<?wh
+
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+
+//LOADLIB "mod::wrd/lib/internal/schemaupdate.whlib";
+STRING ns_schemadef := "http://www.webhare.net/xmlns/wrd/schemadefinition";
+
+RECORD ARRAY FUNCTION GetXMLAttributes(OBJECT parent)
+{
+  RECORD ARRAY attrs;
+  FOREVERY(OBJECT attrnode FROM parent->childnodes->GetCurrentElements())
+  {
+    RECORD attr := [ attributetype := 0
+                   , attributetypename := ""
+                   , tag := ToUppercase(attrnode->GetAttribute('tag'))
+                   , title := attrnode->GetAttribute('title')
+                   , description := attrnode->GetAttribute('description')
+                   , isrequired := ParseXSBoolean(attrnode->GetAttribute('required'))
+                   , isunique := ParseXSBoolean(attrnode->GetAttribute('unique'))
+                   ];
+
+    IF(attrnode->localname IN ["documentation"])
+      CONTINUE;
+    IF(attr.tag="")
+      THROW NEW Exception("Attribute #" || #attrnode || " of type " || attrnode->localname || " has no tag");
+
+    IF(attrnode->localname != "obsolete")
+    {
+      attr.attributetype := GetAttributeTypeIdByTypeName(attrnode->localname, FALSE);
+      IF (attr.attributetype <= 0)
+        THROW NEW Exception(`Unknown attribute type '${attrnode->localname}' for '${attr.tag}'`);
+      attr.attributetypename := GetAttributeTypeNameByTypeId(attr.attributetype);
+
+      RECORD descr := DescribeAttributeType(attr.attributetypename);
+
+      IF("domain" IN descr.options)
+      {
+        INSERT CELL domaintag := attrnode->GetAttribute("domain") INTO attr;
+        IF(attr.domaintag="")
+          THROW NEW Exception(`Attribute '${attr.tag}' has no domain`);
+      }
+
+      INSERT CELL attrs := GetXMLAttributes(attrnode) INTO attr;
+      INSERT CELL multiline := ParseXSBoolean(attrnode->GetAttribute("multiline")) INTO attr;
+      INSERT CELL allowedvalues := ParseXSList(attrnode->GetAttribute("allowedvalues")) INTO attr;
+
+      IF(attrnode->HasAttribute("checklinks"))
+        INSERT CELL checklinks := ParseXSBoolean(attrnode->GetAttribute("checklinks")) INTO attr;
+      ELSE
+        INSERT CELL checklinks := ("checklinks" IN descr.defaults) INTO attr;
+    }
+
+    INSERT attr INTO attrs AT END;
+  }
+  RETURN attrs;
+}
+
+OBJECTTYPE ParsedSchemaDef
+<
+  RECORD ARRAY types;
+  RECORD ARRAY queries;
+  RECORD keyvaluestore;
+  RECORD metadata;
+  STRING currentfile;
+  STRING ARRAY importedfiles;
+  BOOLEAN withoverride;
+  STRING schemaresource;
+  RECORD ARRAY resources;
+
+  MACRO AddQuery(OBJECT querynode)
+  {
+    STRING typetag := ToUppercase(querynode->GetAttribute("tag"));
+    IF(typetag="")
+      THROW NEW Exception("Query has no tag");
+
+    RECORD query := [ tag := ToUppercase(querynode->GetAttribute("tag"))
+                    , title := querynode->GetAttribute("title")
+                    , description := querynode->GetAttribute("description")
+                    , ispublic := ParseXSBoolean(querynode->GetAttribute("ispublic"))
+                    , querynode := querynode
+                    ];
+    INSERT query INTO this->queries AT END;
+  }
+
+  MACRO AddKeyValue(OBJECT keyvaluenode)
+  {
+    STRING name := ToUppercase(keyvaluenode->GetAttribute("name"));
+    IF (name = "")
+      THROW NEW Exception("Keyvalue has no name");
+
+    IF (CellExists(this->keyvaluestore, name))
+      THROW NEW Exception("Duplicate keyvalue '" || name || "'");
+
+    RECORD keyvalue := AnyTypeToBlobString(keyvaluenode->__INTERNAL_GetHSValue());
+    this->keyvaluestore := CellInsert(this->keyvaluestore, name, keyvalue);
+  }
+
+  MACRO AddType(OBJECT typenode)
+  {
+    STRING which := typenode->localname;
+    IF(which = "classification")
+      which := "attachment";
+
+    IF(which NOT IN ["object","attachment","link","domain"])
+      THROW NEW Exception("Unrecognized object type '" || which || "'");
+
+    STRING typetag := ToUppercase(typenode->GetAttribute("tag"));
+    IF(typetag="")
+      THROW NEW Exception("Type has no tag");
+
+    INTEGER existingtypepos := (SELECT AS INTEGER #types+1 FROM this->types WHERE ToUppercase(types.tag) = ToUppercase(VAR typetag))-1;
+    RECORD type;
+    IF(existingtypepos = -1) //ADDING
+    {
+      type := [ tag := ToUppercase(typenode->GetAttribute("tag"))
+              , type := ToUppercase(which)
+              , title := typenode->GetAttribute("title")
+              , parenttype_tag := ToUppercase(typenode->GetAttribute("parent"))
+              , description := typenode->GetAttribute("description")
+              , keephistorydays := ParseXSInt(typenode->GetAttribute("keephistorydays"))
+              , attrs := DEFAULT RECORD ARRAY
+              , allattrs := DEFAULT RECORD ARRAY
+              , hasvalues := FALSE
+              , vals :=  DEFAULT RECORD ARRAY
+              , valslinenum := -1
+              , linkfrom_tag := which IN ["attachment","link"] ? ToUppercase(typenode->GetAttribute("linkfrom")) : ""
+              , linkto_tag   := which = "link" ? ToUppercase(typenode->GetAttribute("linkto")) : ""
+              ];
+    }
+    ELSE
+    {
+      type := this->types[existingtypepos];
+
+      IF(type.type != ToUppercase(which))
+        THROW NEW Exception("Metatype '" || ToLowercase(this->types[existingtypepos].type) || "' cannot be changed to '" || which || "' at the second declaration of type '" || typetag || "'");
+
+      FOREVERY(STRING attrname FROM ["title","parent","description"])
+        IF(typenode->HasAttribute(attrname))
+          THROW NEW Exception("'" || attrname || "' cannot be redefined at the second declaration of type '" || typetag || "' at " || this->currentfile || ":" || typenode->linenum);
+    }
+
+    OBJECT attributesnode := typenode->GetChildElementsByTagNameNS(ns_schemadef, "attributes")->Item(0);
+    IF(ObjectExists(attributesnode))
+    {
+      type.attrs := type.attrs CONCAT GetXMLAttributes(attributesnode);
+      type.allattrs := type.attrs;
+      //FIXME scan for dupes
+
+      IF (type.parenttype_tag != "")
+      {
+        INTEGER parentpos := (SELECT AS INTEGER #types+1 FROM this->types WHERE ToUppercase(types.tag) = ToUppercase(type.parenttype_tag))-1;
+        IF (parentpos != -1)
+          type.allattrs := this->types[parentpos].allattrs CONCAT type.allattrs;
+      }
+    }
+
+    OBJECT valuesnode := typenode->GetChildElementsByTagNameNS(ns_schemadef, "values")->Item(0);
+    IF(ObjectExists(valuesnode))
+    {
+      IF(which NOT IN ["domain","object","attachment"])
+        THROW NEW Exception("Unexpected <values> node in " || type.tag);
+       IF(type.hasvalues)
+         THROW NEW Exception("<values> can currently only be defined once for a type (reading a second <values> for '" || typetag || "')");
+
+      type.hasvalues := TRUE;
+      type.valslinenum := valuesnode->linenum;
+
+      INSERT CELL domvalsyncattr := ToUppercase(valuesnode->GetAttribute("matchattribute")) INTO type;
+      INSERT CELL domvalsoverwritefields := ParseXSList(ToUppercase(valuesnode->GetAttribute("overwriteattributes"))) INTO type;
+
+      // Overwrite WRD_TAG if it is the match attribute - fixes case sensitivity differences
+      IF (type.domvalsyncattr = "WRD_TAG" AND "WRD_TAG" NOT IN type.domvalsoverwritefields)
+        INSERT "WRD_TAG" INTO type.domvalsoverwritefields AT END;
+      IF (which = "domain" AND "WRD_LEFTENTITY" NOT IN type.domvalsoverwritefields)
+        INSERT "WRD_LEFTENTITY" INTO type.domvalsoverwritefields AT END;
+
+      RECORD ARRAY vals;
+      FOREVERY(OBJECT valnode FROM valuesnode->childnodes->GetCurrentElements())
+      {
+        IF(valnode->localname != "value")
+          THROW NEW Exception("Expected <value> in <values> node");
+
+        RECORD val := this->ParseEntityValue(valnode, ToString(#valnode), type, type.allattrs);
+        INSERT val INTO vals AT END;
+      }
+
+      type.vals := vals;
+    }
+
+    IF(existingtypepos=-1)
+      INSERT type INTO this->types AT END;
+    ELSE
+      this->types[existingtypepos] := type;
+  }
+
+  MACRO ReadMetadata(OBJECT rootnode)
+  {
+    IF (rootnode->HasAttribute("accounttype"))
+      INSERT CELL accounttype := rootnode->GetAttribute("accounttype") INTO this->metadata;
+    IF (rootnode->HasAttribute("accountloginfield"))
+      INSERT CELL accountloginfield := rootnode->GetAttribute("accountloginfield") INTO this->metadata;
+    IF (rootnode->HasAttribute("accountemailfield"))
+      INSERT CELL accountemailfield := rootnode->GetAttribute("accountemailfield") INTO this->metadata;
+    IF (rootnode->HasAttribute("accountpasswordfield"))
+      INSERT CELL accountpasswordfield := rootnode->GetAttribute("accountpasswordfield") INTO this->metadata;
+  }
+
+  RECORD FUNCTION ParseEntityValue(OBJECT valnode, STRING nrvalnode, RECORD type, RECORD ARRAY attrs)
+  {
+    RECORD ARRAY subvalues;
+    RECORD val;
+    FOREVERY(OBJECT fieldnode FROM valnode->childnodes->GetCurrentElements())
+    {
+      IF (fieldnode->localname = "subvalues")
+      {
+        FOREVERY(OBJECT subvalnode FROM fieldnode->childnodes->GetCurrentElements())
+        {
+          IF(subvalnode->localname != "value")
+            THROW NEW Exception("Expected <value> in <values> node");
+
+          RECORD subval := this->ParseEntityValue(subvalnode, nrvalnode || "/" || #subvalnode, type, type.allattrs);
+          INSERT subval INTO subvalues AT END;
+        }
+        CONTINUE;
+      }
+      ELSE IF (fieldnode->localname NOT IN [ "arrayfield", "field" ])
+        THROW NEW Exception("Expected <field> or <arrayfield> in <value> node, got " || fieldnode->localname);
+
+      STRING cellname := ToUppercase(fieldnode->GetAttribute("tag"));
+      IF(CellExists(val, cellname))
+        THROW NEW Exception("Duplicate field '" || cellname || "' in value #" || nrvalnode || " for type " || type.tag);
+
+      RECORD attr := SELECT * FROM attrs WHERE ToUppercase(tag) = cellname; //FIXME delay parsing until we have all final attributes so we don't have to swtich on 'cellname'
+      STRING celltype := RecordExists(attr) ? attr.attributetypename : "";
+
+
+      IF ((fieldnode->localname = "arrayfield") != (celltype = "ARRAY"))
+        THROW NEW Exception(`Wrong field type for '${ cellname }', expected got <${ fieldnode->localname }> for ${ celltype }`);
+
+      IF(cellname IN ["WRD_TAG","WRD_TITLE","WRD_LEFTENTITY"] OR celltype IN ["FREE","DOMAIN","EMAIL","PASSWORD","TELEPHONE","ENUM"])
+      {
+        val := CellInsert(val, cellname, fieldnode->textcontent);
+        IF (cellname = "WRD_TAG" AND (fieldnode->childrentext LIKE "* *"))
+          THROW NEW Exception(`Found whitespace in the value for a WRD_TAG field for type ${ type.tag }: '${ fieldnode->childrentext }'`);
+        IF (cellname = "WRD_TAG" AND (ToUppercase(fieldnode->childrentext) != fieldnode->childrentext))
+          THROW NEW Exception(`Found a non-uppercase value for a WRD_TAG field for type ${ type.tag }: '${ fieldnode->childrentext }'`);
+      }
+      ELSE IF(celltype IN ["INTEGER"] OR cellname IN ["WRD_ORDERING"])
+      {
+        val := CellInsert(val, cellname, ToInteger(fieldnode->textcontent,0));
+      }
+      ELSE IF(celltype IN ["INTEGER64"])
+      {
+        val := CellInsert(val, cellname, ToInteger64(fieldnode->textcontent,0));
+      }
+      ELSE IF(celltype IN ["BOOLEAN"])
+      {
+        val := CellInsert(val, cellname, ToUppercase(fieldnode->textcontent) IN ["TRUE","1"]);
+      }
+      ELSE IF(celltype IN ["MONEY"])
+      {
+        val := CellInsert(val, cellname, ToMoney(fieldnode->textcontent, 0m));
+      }
+      ELSE IF(celltype IN ["DOMAINARRAY","ENUMARRAY"])
+      {
+        val := CellInsert(val, cellname, Tokenize(fieldnode->textcontent, " "));
+      }
+      ELSE IF (celltype = "ARRAY")
+      {
+        RECORD ARRAY vals;
+        FOREVERY(OBJECT subvalnode FROM fieldnode->childnodes->GetCurrentElements())
+        {
+          IF (subvalnode->localname != "element")
+            THROW NEW Exception("Expected <element> in <arrayfield> node");
+
+          INSERT this->ParseEntityValue(subvalnode, nrvalnode || "/" || #subvalnode, type, attr.attrs) INTO vals AT END;
+        }
+        val := CellInsert(val, cellname, vals);
+      }
+      ELSE IF(celltype="")
+      {
+        THROW NEW Exception("Undefined value cell '" || cellname || "'");
+      }
+      ELSE
+      {
+        THROW NEW Exception("Unimplemented value type '" || attr.attributetypename || "' for '" || cellname || "'");
+      }
+    }
+
+    IF (LENGTH(subvalues) != 0)
+      INSERT CELL __subvalues := subvalues INTO val;
+
+    RETURN val;
+  }
+
+  PUBLIC MACRO ReadSchemaDef(OBJECT el, STRING filename, BLOB overridedata, DATETIME modtime)
+  {
+    RECORD validateres;
+    IF(length(overridedata) > 0)
+    {
+      validateres := ValidateSingleFile(filename, [ overridedata := overridedata ]);
+    }
+    ELSE
+    {
+      validateres := ValidateSingleFile(filename);
+    }
+
+
+    IF (Length(overridedata) > 0 OR modtime = DEFAULT DATETIME)
+    {
+      this->withoverride := TRUE;
+      this->schemaresource := "";
+    }
+    ELSE
+    {
+      INSERT CELL[ resourcename := filename, modified := modtime ] INTO this->resources AT END;
+      IF (NOT this->withoverride AND this->schemaresource = "")
+        this->schemaresource := filename;
+    }
+
+    IF(Length(validateres.errors) > 0)
+      THROW NEW Exception(`Cannot apply schemadefinition: ${FormatValidationError(validateres.errors[0])}`);
+
+    STRING oldcurrent := this->currentfile;
+    this->currentfile := filename;
+
+    FOREVERY(OBJECT node FROM el->childnodes->GetCurrentElements())
+    {
+      IF(node->localname="import")
+      {
+        // Import a file only once
+        STRING filetoimport := node->GetAttribute("definitionfile");
+        filetoimport := MakeAbsoluteResourcePath(this->currentfile, filetoimport);
+        IF (filetoimport NOT IN this->importedfiles)
+        {
+          INSERT filetoimport INTO this->importedfiles AT END;
+
+          RECORD rec := RetrieveWebHareResource(filetoimport);
+          OBJECT xmldoc := MakeXMLDocument(rec.data);
+          this->ReadSchemaDef(xmldoc->documentelement, filetoimport, DEFAULT BLOB, rec.modified);
+        }
+      }
+      ELSE IF(node->localname="queries")
+      {
+        FOREVERY(OBJECT query FROM node->childnodes->GetCurrentElements())
+          this->AddQuery(query);
+      }
+      ELSE IF(node->localname="keyvalues")
+      {
+        FOREVERY(OBJECT keyvalue FROM node->childnodes->GetCurrentElements())
+          this->AddKeyValue(keyvalue);
+      }
+      ELSE
+        this->AddType(node);
+    }
+
+    this->ReadMetadata(el);
+    this->currentfile := oldcurrent;
+  }
+  PUBLIC RECORD FUNCTION GetResult()
+  {
+    RETURN
+        [ types := this->types
+        , queries := this->queries
+        , metadata := this->metadata
+        , keyvaluestore := this->keyvaluestore
+        , schemaresources :=  CELL[ this->withoverride, this->schemaresource, this->resources ]
+        ];
+  }
+>;
+
+PUBLIC RECORD FUNCTION ReadSchemaDefFromXML(OBJECT doc, STRING resourcename, BLOB overridedata, DATETIME modtime)
+{
+  OBJECT parser := NEW ParsedSchemaDef;
+  parser->ReadSchemaDef(doc, resourcename, overridedata, modtime);
+  RETURN parser->GetResult();
+}
+
+
+OBJECT schemadefxsd; //FIXME use eg. tollum's resource cache?
+
+PUBLIC OBJECT FUNCTION GetSchemadefXSD()
+{
+  IF (NOT ObjectExists(schemadefxsd))
+  {
+    BLOB schemadeffile := GetWebHareResource("mod::wrd/data/schemadefinition.xsd");
+    schemadefxsd := MakeXMLSchema(schemadeffile);
+    IF (NOT ObjectExists(schemadefxsd))
+      THROW NEW Exception("Unable to use schemadefinition.xsd, it has errors");
+  }
+  RETURN schemadefxsd;
+}
+
+PUBLIC RECORD FUNCTION OpenWRDSchemaDefFile(STRING resourcepath)
+{
+  DATETIME modtime;
+  OBJECT xmldoc;
+
+  RECORD rec := RetrieveWebHareResource(resourcepath);
+  xmldoc := MakeXMLDocument(rec.data);
+  modtime := rec.modified;
+
+  RETURN ReadSchemaDefFromXML(xmldoc->documentelement, resourcepath, DEFAULT BLOB, modtime);
+}

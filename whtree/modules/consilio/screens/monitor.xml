@@ -1,0 +1,32 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor.whlib"
+         gid="monitor">
+
+  <screen name="queries" gid=".queries" title="">
+    <actions>
+      <action name="openquery" onexecute="doopenquery" tid="~open">
+        <enableon source="queries" min="1" max="1" />
+      </action>
+      <action name="clearqueries" onexecute="doclearqueries" tid="~clear" />
+    </actions>
+    <compositions>
+      <eventlistener name="consiliolistener" onevents="onconsilioevents" />
+    </compositions>
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="queries" height="1pr" selectmode="single" openaction="openquery" borders="top">
+            <column name="when" type="datetime" storeutc="true" width="15x" />
+            <column name="catalog" type="text" width="20x" />
+            <column name="query" type="text" width="1pr" />
+          </list>
+        </cell>
+        <cell>
+          <button action="openquery" />
+          <button action="clearqueries" />
+        </cell>
+      </grid>
+    </body>
+  </screen>
+
+</screens>

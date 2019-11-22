@@ -1,0 +1,42 @@
+﻿<?wh
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/remoting/whservice.whlib";
+
+
+PUBLIC OBJECTTYPE YoukuProvider EXTEND EmbedVideoProviderBase
+<
+  MACRO NEW()
+  {
+    OpenPrimary();
+  }
+  UPDATE PUBLIC RECORD FUNCTION DescribeVideo(STRING videoid)
+  {
+    RECORD ARRAY videos := [RECORD(InvokeHostedWHService("socialite/describeyoukuvideo", videoid))];
+    videos := SELECT *, thumbnail := Record(thumbnails) FROM videos;
+    videos := this->EnrichVideos(videos);
+    RETURN videos;
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION Search(STRING searchfor, INTEGER maxresults)
+  {
+    IF(searchfor = "")
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY videos := InvokeHostedWHService("socialite/searchyouku", searchfor, maxresults);
+    videos := SELECT *, thumbnail := Record(thumbnails) FROM videos;
+    videos := this->EnrichVideos(videos);
+    RETURN videos;
+  }
+  UPDATE PUBLIC STRING FUNCTION GetIFramePlayerURL(STRING videoid)
+  {
+    RETURN "//player.youku.com/embed/" || EncodeURL(videoid);
+  }
+  UPDATE PUBLIC STRING FUNCTION GetTitle()
+  {
+    RETURN "Youku";
+  }
+  UPDATE PUBLIC STRING FUNCTION GetIcon()
+  {
+    RETURN "tollium:social_media/youku";
+  }
+>;

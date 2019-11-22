@@ -1,0 +1,39 @@
+<?wh
+LOADLIB "mod::publisher/lib/analytics.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/tasks/geoipdownload.whlib";
+
+PUBLIC RECORD FUNCTION GetGeoIPCapabilities() __ATTRIBUTES__(EXTERNAL "system_geoip");
+
+MACRO TestAnalytics()
+{
+  TestEq("12.214.31.0", AnonymizeIPForAnalytics("12.214.31.144"));
+  Testeq("2001:67c:2564::", AnonymizeIPForAnalytics("2001:67c:2564:a102::1:1"));
+}
+
+MACRO TestGEOIP()
+{
+  //dumpvalue(GetGeoIPCapabilities());
+  RECORD result := UpdateGEOIPDatabases();
+  DumpValue(result,'tree');
+  IF(NOT result.success)
+  {
+    ABORT("GEOIP download failed");
+  }
+  TestEq(TRUE, GetGeoIPCapabilities().have_city);
+  TestEq(TRUE, GetGeoIPCapabilities().have_country);
+  TestEq("NL", GetGeoIPCountryForIP("212.238.237.85")); //gateway.sf.webhare.nl
+  TestEq("NL", GetGeoIPInfoForIP("212.238.237.85").country_code);
+  TestEq("Netherlands", GetGeoIPInfoForIP("212.238.237.85").country_name);
+  TestEqStructure([ city := "", country_code := "", country_name := ""
+                  , latitude := 0f, longitude := 0f, postal_code := ""
+                  , region_code := "", region_name := ""], GetGeoIPInfoForIP("212.238.237.85"));
+
+  TestEq("", GetGeoIPCountryForIP("10.144.201.112")); //internal IPs should never return a match
+  TestEq(DEFAULT RECORD, GetGeoIPInfoForIP("10.144.201.112")); //internal IPs should never return a match
+
+}
+
+RunTestframework([ PTR TestAnalytics
+                 , PTR TestGEOIP
+                 ]);

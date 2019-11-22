@@ -1,0 +1,217 @@
+<?wh
+/** @short Import archives
+    @long This library offers the necessary functions to import the WebHare Publisher ".tar.gz" site archive format
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+STRING FUNCTION CleanPath(STRING inpath)
+{
+  WHILE(SearchSubstring(inpath,'//')!=-1)
+    inpath:=Substitute(inpath,'//','/');
+  IF(inpath LIKE "/*")
+    inpath := SubString(inpath, 1);
+  IF(inpath NOT LIKE "*/" AND inpath != "")
+    inpath := inpath || "/";
+  RETURN inpath;
+}
+
+STRING FUNCTION GetNextPathEntry(STRING curpath, STRING analyzepath)
+{
+  INTEGER startsearch := Length(curpath);
+  INTEGER nextslash := SearchSubstring(analyzepath, '/', startsearch);
+  STRING retval := Substring(analyzepath, startsearch, nextslash - startsearch);
+  //Print(curpath || ' ' || analyzepath || ' ' || nextslash || ' ' || retval || '\n');
+  RETURN retval;
+}
+
+RECORD ARRAY FUNCTION GenerateSourceObjs(STRING curpath, RECORD ARRAY allgroups)
+{
+  IF(debugmapping)
+  {
+    print("GSO:"||curpath||"\n");
+  }
+
+  STRING ARRAY childfolders := SELECT AS STRING ARRAY DISTINCT GetNextPathEntry(curpath, basepath)
+                                      FROM allgroups
+                                     WHERE basepath LIKE curpath||'*';
+
+
+  RECORD mygroup := SELECT * FROM allgroups WHERE basepath=curpath;
+  RECORD ARRAY mychildren;
+  IF(RecordExists(mygroup))
+    mychildren := SELECT id := 0
+                       , name
+                       , isfolder := FALSE
+                       , children := DEFAULT RECORD ARRAY FROM mygroup.entries;
+
+  FOREVERY(STRING child FROM childfolders)
+  {
+    //Print("CH:"||child||"\n");
+    IF(child="")
+      CONTINUE;
+    INSERT [ id := 0
+           , name := child
+           , isfolder := TRUE
+           , children := GenerateSourceObjs(curpath||child||"/", allgroups)
+           ] INTO mychildren AT END;
+  }
+  RETURN mychildren;
+}
+
+/** @short Import an archive into the database
+    @param archive Record array containing files and folders to import
+    @param folderid Folder in which to store the imported data
+    @param overwrite True if we should overwrite existing data
+    @param owner Owner of extracted files
+    @return Error and warning information (unresolved_ fields are warnings, all others are fatal errors)
+    @cell return.unresolved_links A list of (filepath,linkpath) records indicating internal/content links which could not be restored
+    @cell return.unresolved_content A list of (id,isfolder,namespace) records indicating content instances which could not be imported, because they did not exist on this system
+    @cell return.unresolved_types A list of (id,isfolder,namespace) records indicating types (currently only foldertypes) which could not be imported, because they did not exist on this system
+    @cell return.overwritten_foreign A list of (destfolder,importfolder) records indicating foreign folders which were attempted to be overwritten
+    @cell return.overwritten_hidden A list of (destfolder,importfolder) records indicating hidden folders which were attempted to be overwritten
+    @cell return.notincluded A list of (id,isfolder) records indicating the IDs of those files/folders which were NOT overwritten
+    @cell return.incompatible Set to true if this archive is incompatible with this version of WebHare
+    @cell return.incompatible_source Set to the generator of this incompatible archive - if empty, the archive is just corrupted
+*/
+PUBLIC RECORD FUNCTION __whpub_ImportArchive(RECORD ARRAY archive, INTEGER folderid, BOOLEAN overwrite, FUNCTION PTR statuscallback, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  FOREVERY (RECORD opt FROM UnpackRecord(options))
+    IF (opt.name NOT IN [ "PLANCALLBACK" ])
+      THROW NEW Exception("Unknown option '" || opt.name || "'");
+
+  FUNCTION PTR plancallback := CellExists(options, "PLANCALLBACK") ? options.plancallback : DEFAULT FUNCTION PTR;
+
+  RECORD retval :=
+      [ overwritten_foreign := DEFAULT RECORD ARRAY
+      , overwritten_hidden := DEFAULT RECORD ARRAY
+      , unresolved_content := DEFAULT RECORD ARRAY
+      , unresolved_links := DEFAULT RECORD ARRAY
+      , unresolved_types := DEFAULT RECORD ARRAY
+      , notincluded := DEFAULT RECORD ARRAY
+      , incompatible := FALSE
+      , incompatible_source := ""
+      , plan := DEFAULT RECORD ARRAY
+      ];
+
+  OBJECT import_rootfolderobj := folderid = 0 ? OpenWHFSRootObject() : OpenWHFSObject(folderid);
+
+  OBJECT myremapper := import_rootfolderobj->MakeBulkReceiver();
+  myremapper->SetImportBase();
+  myremapper->collect_remaining := TRUE;
+  myremapper->ignore_missing_members := TRUE;
+
+  //Sanitize all path names
+  IF(debugmapping)
+  {
+    print("archive\n");
+    Printrecordarrayto(0,archive,'boxed');
+  }
+
+  myremapper->xmldecoder->blobs :=
+      SELECT name
+           , data
+           , getdataptr := CellExists(archive,'getdataptr') ? archive.getdataptr : DEFAULT FUNCTION PTR
+        FROM archive
+       WHERE name LIKE "^^webhare_folder_metadata_*";
+
+  RECORD ARRAY import_entries := SELECT basepath := CleanPath(path)
+                                      , name := TrimWhitespace(name)
+                                      , data
+                                      , getdataptr := CellExists(archive,'getdataptr') ? archive.getdataptr : DEFAULT FUNCTION PTR
+                                      , modificationdate := modtime
+                                      , size := Length64(data)
+                                  FROM archive;
+
+  UPDATE import_entries SET name := GetSafeFileName(name) WHERE name!="" AND name NOT LIKE "^^webhare_*" AND NOT IsValidWHFSName(name,FALSE);
+
+  //ADDME: Guard against case-mixing (and declaring the same path twice that way) and otherwise confusing archives
+  import_entries := SELECT *, searchpath := basepath || name FROM import_entries;
+  IF(debugmapping)
+  {
+    print("import_entries\n");
+    Printrecordarrayto(0,import_entries,'boxed');
+  }
+
+  RECORD ARRAY import_groups := SELECT basepath
+                                     , entries := (SELECT * FROM GroupedValues(import_entries)
+                                                    WHERE name NOT LIKE "^^webhare_*"
+                                                      AND TrimWhitespace(name)!='')
+                                  FROM import_entries
+                              GROUP BY basepath
+                              ORDER BY basepath;
+  IF(debugmapping)
+  {
+    PRINT("importgroups\n");
+    Printrecordarrayto(0,import_groups,'tree');
+  }
+  RECORD ARRAY sourceobjs := GenerateSourceObjs("", import_groups);
+  IF(debugmapping)
+  {
+    print("sourceobjs\n");
+    Printrecordarrayto(0,sourceobjs,'tree');
+  }
+
+  myremapper->overwrite_files := overwrite;
+  myremapper->GenerateCopyPlan(0, sourceobjs, folderid);
+  IF(debugmapping)
+  {
+    print("plan\n");
+    PrintRecordArrayTo(0, myremapper->plan,'boxed');
+  }
+
+  IF (plancallback != DEFAULT FUNCTION PTR)
+  {
+    plancallback(myremapper);
+    IF(debugmapping)
+    {
+      print("plan after revisement\n");
+      PrintRecordArrayTo(0, myremapper->plan,'boxed');
+    }
+  }
+
+  //Now that we've found sourceobjs
+  retval.notincluded :=
+      SELECT id :=        destid
+           , isfolder :=  destisfolder
+        FROM myremapper->plan
+       WHERE kind = "remaining" AND depth != 0;
+
+  myremapper->onprogress := statuscallback;
+  myremapper->ExecuteImportPlan(import_entries);
+  retval.plan := myremapper->plan;
+
+//  IF (statuscallback != DEFAULT FUNCTION PTR)
+//    statuscallback([ progress := 100m, file := "" ]);
+
+  RETURN retval;
+}
+
+/** @short Import an archive into a folder
+    @param archive Archive to import
+    @cell options.overwrite True if we should overwrite existing data
+    @return Error and warning information (unresolved_ fields are warnings, all others are fatal errors)
+    @cell return.unresolved_links A list of (filepath,linkpath) records indicating internal/content links which could not be restored
+    @cell return.unresolved_content A list of (id,isfolder,namespace) records indicating content instances which could not be imported, because they did not exist on this system
+    @cell return.unresolved_types A list of (id,isfolder,namespace) records indicating types (currently only foldertypes) which could not be imported, because they did not exist on this system
+    @cell return.overwritten_foreign A list of (destfolder,importfolder) records indicating foreign folders which were attempted to be overwritten
+    @cell return.overwritten_hidden A list of (destfolder,importfolder) records indicating hidden folders which were attempted to be overwritten
+    @cell return.notincluded A list of (id,isfolder) records indicating the IDs of those files/folders which were NOT overwritten
+    @cell return.incompatible True if this archive is incompatible with this version of WebHare
+    @cell return.incompatible_source Set to the generator of this incompatible archive - if empty, the archive is just corrupted
+    */
+PUBLIC RECORD FUNCTION ImportWHFSArchive(OBJECT folder, BLOB archive, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ overwrite := TRUE
+                              , statuscallback := DEFAULT MACRO PTR
+                              ], options);
+
+  RECORD ARRAY files := SELECT *, size := Length(data) FROM UnpackArchive(archive);
+  RETURN __whpub_ImportArchive(files, folder->id, options.overwrite, options.statuscallback);
+}
+
+

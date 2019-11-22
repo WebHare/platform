@@ -1,0 +1,12 @@
+<?wh
+// command: consilio:updateindices
+// short: manually update the index definitions
+
+LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+OpenPrimary();
+UpdateConsilioIndices();
+UpdateModuleIndices();

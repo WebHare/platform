@@ -1,0 +1,408 @@
+﻿<?wh
+/** @short Graphics canvas filter functions
+    @long This library offers filters to apply to HareScript canvasses
+    @private Users should have switched to image cache or graphics/canvas.whlib */
+
+LOADLIB "wh::internal/graphics.whlib";
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "wh::files.whlib";
+
+/** @short Change colors in a canvas
+    @param canvas ID of canvas to grayscale
+    @param colormap A Record Array describing how to change colors
+    @cell colormap.from_color The color to change
+    @cell colormap.to_color The new color */
+PUBLIC MACRO GfxApplyColorMapping(INTEGER canvas, RECORD ARRAY colormap)
+{
+  ValidateDrawId(canvas);
+  __DRAWLIB_V2_APPLYCOLORMAPPING(canvas, colormap);
+}
+
+/** @short Convert a canvas to grayscale
+    @param canvas ID of canvas to grayscale */
+PUBLIC MACRO GfxGrayscaleCanvas(INTEGER canvas)
+{
+  ValidateDrawId(canvas);
+  __DRAWLIB_V2_GRAYSCALECANVAS(canvas);
+}
+
+/** @short Update the alpha channel on a canvas
+    @param canvas ID of canvas to grayscale
+    @param multiply Alpha multiplication factor (<1 increases transparancy) */
+PUBLIC MACRO GfxUpdateCanvasAlpha(INTEGER canvas, FLOAT multiply)
+{
+  ValidateDrawId(canvas);
+  __DRAWLIB_V2_ALPHACANVAS(canvas, multiply);
+}
+
+/** @short Blur canvas.
+    @param canvas CanvasID to blur.
+    @param hsize Horizontal blur size
+    @param vsize Vertical blur size
+*/
+PUBLIC MACRO GfxBlurCanvas(INTEGER Canvas, INTEGER hsize DEFAULTSTO 1, INTEGER vsize DEFAULTSTO 1)
+{
+  ValidateDrawID(canvas);
+  IF(hsize<1 AND vsize<1)
+    RETURN;//no-op
+  __DRAWLIB_V2_BLURCANVAS(canvas, hsize, vsize);
+}
+
+/**
+@short          Invert the colors of the canvast
+@long           Changes the color of every pixel to it's oposite colour
+@param CanvasID The ID of the canvas to invert
+*/
+PUBLIC MACRO   GfxInvertCanvas(INTEGER CanvasID)
+{
+        ValidateDrawID(CanvasId);
+        __DRAWLIB_V2_InvertCanvas(CanvasID);
+}
+
+/**
+@short          Multiply a canvas with another canvas
+@long           Multiplies every pixel of a canvas with the corresponding pixel of another canvas.
+@param CanvasID1 The ID of the canvas to change
+@param CanvasID2 The ID of the canvas to multiply to the other canvas
+*/
+PUBLIC MACRO   GfxMultiplyCanvas(INTEGER CanvasID1, INTEGER CanvasID2)
+{
+        ValidateDrawID(CanvasId1);
+        ValidateDrawID(CanvasId2);
+
+        __DRAWLIB_V2_MultiplyCanvas(CanvasID1, CanvasID2);
+}
+
+/** @short Reprocess and resize an image
+    @long This function takes an image and converts it to the requested output format, setting
+          both image format and dimensions. Width and height can be either maximized or forced
+          by using positive or negative pixel values. The image aspect ratio is maintained as
+          much as possible
+    @param inblob Input image blob
+    @param setwidth Width to set, in pixels. >0 to force, <0 to maximize, 0 to ignore
+    @param setheight Height to set, in pixels. >0 to force, <0 to maximize, 0 to ignore
+    @param format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or "image/png" will be used
+    @return Record describing the output image, or a non-existing record if the file was not recognized as an image
+    @cell return.data Image data (as a blob)
+    @cell return.width New image width
+    @cell return.height New image height
+    @cell return.mimetype New image mimetype
+*/
+PUBLIC RECORD FUNCTION GfxResizeImageBlob(BLOB inblob, INTEGER setwidth, INTEGER setheight, STRING format, INTEGER bgcolor DEFAULTSTO 0x00FFFFFF)
+{
+  STRING methodname;
+  IF(setwidth=0 AND setheight=0)
+    methodname := "none";
+  ELSE IF(setwidth<0 AND setheight<0)
+    methodname := "fit";
+  ELSE IF(setwidth<0 AND setheight>0)
+    methodname := "stretch-y";
+  ELSE IF(setwidth>0 AND setheight<0)
+    methodname := "stretch-x";
+  ELSE
+    methodname := "stretch";
+
+  RECORD resizemethod := [ method := methodname
+                         , setwidth := setwidth < 0 ? -setwidth : setwidth
+                         , setheight := setheight < 0 ? -setheight : setheight
+                         , format := format
+                         , bgcolor := bgcolor
+                         ];
+  RETURN GfxResizeImageBlobWithMethod(inblob, resizemethod);
+}
+
+/** @short Reprocess, resize and crop an image
+    @long This function takes an image and converts it to the requested output format, setting
+          both image format and dimensions. First the image is resized and the cropped in the
+          center to the requested dimensions.
+    @param inblob Input image blob
+    @param setwidth Width to set, in pixels.
+    @param setheight Height to set, in pixels.
+    @param format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or "image/png" will be used
+    @return Record describing the output image, or a non-existing record if the file was not recognized as an image
+    @cell return.data Image data (as a blob)
+    @cell return.width New image width
+    @cell return.height New image height
+    @cell return.mimetype New image mimetype
+*/
+PUBLIC RECORD FUNCTION GfxResizeCropImageBlob(BLOB inblob, INTEGER setwidth, INTEGER setheight, STRING format, INTEGER bgcolor DEFAULTSTO 0x00FFFFFF)
+{
+  RECORD resizemethod := [ method := "fill", setwidth := setwidth, setheight := setheight, format := format, bgcolor := bgcolor ];
+  RETURN GfxResizeImageBlobWithMethod(inblob, resizemethod);
+}
+
+//these functions are in filters.whlib to ensure they stay in sync
+STRING ARRAY packmethods := [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"];
+STRING methodnoneformat := "format:C";
+STRING methodsizeformat := "setwidth:S,setheight:S,format:C";
+STRING ARRAY packformats := [/*0*/"",/*1*/"image/jpeg",/*2*/"image/gif",/*3*/"image/png"];
+
+/** @short Pack any supported resize method into a small 8-bit string */
+PUBLIC STRING FUNCTION GfxPackImageResizeMethod(RECORD resizemethod)
+{
+  resizemethod := ValidateResizeMethod(resizemethod);
+
+  INTEGER method := SearchElement(packmethods, resizemethod.method);
+  RECORD packeddata := [ setwidth := CellExists(resizemethod,"setwidth") ? resizemethod.setwidth : 0
+                       , setheight := CellExists(resizemethod,"setheight") ? resizemethod.setheight : 0
+                       , format := SearchElement(packformats, resizemethod.format)
+                       , bgcolor := resizemethod.bgcolor
+                       , quality := resizemethod.quality
+                       ];
+
+  IF(packeddata.format < 0)
+    THROW NEW Exception("Unrecognized format '" || resizemethod.format || "'");
+  IF(resizemethod.fixorientation)
+    packeddata.format := packeddata.format + 0x80;
+
+  STRING packageformat := method=0 ? methodnoneformat : methodsizeformat;
+  BOOLEAN havequality := packeddata.quality != 85;
+  IF(havequality)
+  {
+    method := method + 0x20; //Set quality flag
+    packageformat := packageformat || ",quality:C";
+  }
+
+  IF(resizemethod.grayscale)
+  {
+    method := method + 0x10; //Set grayscale flag
+  }
+
+  BOOLEAN dropbgcolor := packeddata.bgcolor = 0x00FFFFFF;
+  IF(dropbgcolor)
+    method := method + 0x80; //Set 'no bgcolor flag'
+  ELSE
+    packageformat := packageformat || ",bgcolor:L";
+
+  IF(NOT CellExists(resizemethod,'noforce') OR resizemethod.noforce = TRUE)
+    method := method + 0x40;
+
+  // Add 'blur' header if needed
+  STRING blurdata;
+  INTEGER blur := ((resizemethod.hblur BITAND 0x7FFF) BITLSHIFT 15) + (resizemethod.vblur BITAND 0x7FFF);
+  IF (blur > 0)
+    blurdata := "\x02" || EncodePacket("blur:L", [ blur := blur ]);
+
+  RETURN blurdata || "\x01" || ByteToString(method) || EncodePacket(packageformat, packeddata);
+}
+
+/** @short Unpack any supported resize method from a small 8-bit string */
+PUBLIC RECORD FUNCTION GfxUnpackImageResizeMethod(STRING packedmethod)
+{
+  INTEGER version := GetByteValue(Left(packedmethod,1));
+
+  INTEGER blur;
+  IF (version = 2)
+  {
+    // This is the 'blur' header
+    blur := DecodePacket("blur:L", Substring(packedmethod, 1, 4)).blur;
+    packedmethod := Substring(packedmethod, 5);
+    version := GetByteValue(Left(packedmethod, 1));
+  }
+
+  INTEGER method := GetByteValue(Substring(packedmethod,1,1));
+
+  BOOLEAN dropbgcolor := (method BITAND 0x80) = 0x80;
+  BOOLEAN noforce := (method BITAND 0x40) = 0x40;
+  BOOLEAN havequality := (method BITAND 0x20) = 0x20;
+  BOOLEAN grayscale := (method BITAND 0x10) = 0x10;
+
+  method := method BITAND 0x0F;
+
+  IF(version != 1 OR method < 0 OR method >= Length(packmethods))
+    RETURN DEFAULT RECORD;
+
+  STRING packageformat := method = 0 ? methodnoneformat : methodsizeformat;
+  IF(havequality)
+    packageformat := packageformat || ",quality:C";
+  IF(NOT dropbgcolor)
+    packageformat := packageformat || ",bgcolor:L";
+
+  RECORD unpacked := DecodePacket(packageformat, Substring(packedmethod,2));
+  IF(NOT RecordExists(unpacked))
+    RETURN DEFAULT RECORD;
+
+  INTEGER packformat := unpacked.format BITAND 0x7F;
+  IF(packformat <0 OR packformat >= Length(packformats))
+    RETURN DEFAULT RECORD;
+
+  RETURN [ method := packmethods[method]
+         , setwidth := method = 0 ? 0 : unpacked.setwidth
+         , setheight := method = 0 ? 0 : unpacked.setheight
+         , fixorientation := unpacked.format BITAND 0x80 = 0x80
+         , format := packformats[packformat]
+         , bgcolor := dropbgcolor ? 0x00FFFFFF : unpacked.bgcolor
+         , noforce := noforce
+         , quality := havequality ? unpacked.quality : 85
+         , grayscale := grayscale
+         , hblur := (blur BITRSHIFT 15) BITAND 0x7FFF
+         , vblur := blur BITAND 0x7FFF
+         ];
+}
+
+/** @short Resize an image with a given resizing method
+    @param inblob Input image blob
+    @param resizemethod The resize method properties, all cells but the 'method' cell are optional
+    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" or "stretch"
+    @cell resizemethod.setwidth Width to set, in pixels.
+    @cell resizemethod.setheight Height to set, in pixels.
+    @cell resizemethod.format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or
+                              "image/png" will be used
+    @cell resizemethod.bgcolor The background color to use (an integer value as returned by GfxCreateColor or a CSS string
+                               color value). Default color is white.
+    @return Record describing the output image, or a non-existing record if the file was not recognized as an image
+    @cell return.data Image data (as a blob)
+    @cell return.width New image width
+    @cell return.height New image height
+    @cell return.mimetype New image mimetype
+*/
+PUBLIC RECORD FUNCTION GfxResizeImageBlobWithMethod(BLOB inblob, RECORD resizemethod)
+{
+  RECORD infile := CellInsert(ScanBlob(inblob), "data", inblob);
+  RETURN GfxResizeWrappedImageWithMethod(infile, resizemethod);
+}
+
+/** @short Resize an image with a given resizing method
+    @param infile Wrapped input image blob
+    @param resizemethod The resize method properties, all cells but the 'method' cell are optional
+    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" or "stretch"
+    @cell resizemethod.setwidth Width to set, in pixels.
+    @cell resizemethod.setheight Height to set, in pixels.
+    @cell resizemethod.format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or
+                              "image/png" will be used
+    @cell resizemethod.bgcolor The background color to use (an integer value as returned by GfxCreateColor or a CSS string
+                               color value). Default color is white.
+    @return Record describing the output image, or a non-existing record if the file was not recognized as an image
+    @cell return.data Image data (as a blob)
+    @cell return.width New image width
+    @cell return.height New image height
+    @cell return.mimetype New image mimetype
+*/
+PUBLIC RECORD FUNCTION GfxResizeWrappedImageWithMethod(RECORD infile, RECORD resizemethod)
+{
+  RECORD outinfo := __MyGfxResizeImageBlobWithMethod(infile, resizemethod);
+  IF(NOT RecordExists(outinfo))
+    RETURN DEFAULT RECORD;
+
+  BLOB result;
+  IF(outinfo.canvas = 0)
+  {
+    result := infile.data;
+  }
+  ELSE
+  {
+    SWITCH(outinfo.outtype)
+    {
+      CASE "image/jpeg" { result := GfxCreateJPGBlobFromCanvas(outinfo.canvas, outinfo.quality); }
+      CASE "image/png"  { result := GfxCreatePNGBlobFromCanvas(outinfo.canvas, FALSE, FALSE); }
+      CASE "image/gif"  { result := GfxCreateGIFBlobFromCanvas(outinfo.canvas); }
+      DEFAULT           { THROW NEW exception("Didn't understand output format " || outinfo.outtype); }
+    }
+    GfxDestroyCanvas(outinfo.canvas);
+  }
+  RECORD retval := [ data := result
+                   , width := outinfo.width
+                   , height := outinfo.height
+                   , mimetype := outinfo.outtype
+                   ];
+  RETURN retval;
+}
+
+
+/** @short Resize an image with a given resizing method
+    @param fileinfo Wrapped input image blob (i.e. WrapBlob, or ScanBlob with an added 'data' cell)
+    @param resizemethod The resize method properties, all cells but the 'method' cell are optional
+    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" or "stretch"
+    @cell resizemethod.setwidth Width to set, in pixels.
+    @cell resizemethod.setheight Height to set, in pixels.
+    @cell resizemethod.format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or
+                              "image/png" will be used
+    @cell resizemethod.bgcolor The background color to use (an integer value as returned by GfxCreateColor or a CSS string
+                               color value). Default color is white.
+*/
+PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD resizemethod)
+{
+  IF(fileinfo.height = 0)
+    RETURN DEFAULT RECORD;
+
+  RECORD instructions := ExplainImageProcessing(fileinfo, resizemethod);
+
+  //ADDME possible to detect untransparent PNG easily ?
+  BOOLEAN input_maybe_transparent := fileinfo.mimetype != "image/jpeg";
+
+  //Is the input exactly covering its output ?
+  BOOLEAN exactcover := instructions.renderx = 0 AND instructions.rendery = 0
+                        AND instructions.outwidth = fileinfo.width AND instructions.outheight = fileinfo.height
+                        AND instructions.rotate = 0
+                        AND NOT instructions.mirror;
+
+  //Get the input canvas
+  INTEGER inputcanvas;
+  IF((instructions.renderwidth = fileinfo.width AND instructions.renderheight = fileinfo.height) AND instructions.rotate = 0 AND instructions.mirror = FALSE) //change input?
+  {
+    IF(exactcover AND instructions.noforce AND instructions.outtype = fileinfo.mimetype AND NOT instructions.grayscale AND instructions.postprocessor = DEFAULT MACRO PTR) //don't open at all
+      RETURN [ canvas := 0, outtype := fileinfo.mimetype, width := instructions.outwidth, height := instructions.outheight ];
+
+    inputcanvas := __DRAWLIB_V2_CREATECANVASFROMFILE(fileinfo.data);
+  }
+  ELSE
+  {
+    INTEGER renderwidth  := instructions.rotate IN [90,270] ? instructions.renderheight : instructions.renderwidth;
+    INTEGER renderheight := instructions.rotate IN [90,270] ? instructions.renderwidth : instructions.renderheight;
+
+    inputcanvas := __DRAWLIB_V2_CREATERESIZEDCANVASFROMFILE(fileinfo.data, renderwidth, renderheight);
+  }
+
+  // Failed to open/resize the file?
+  IF (inputcanvas = 0)
+    RETURN DEFAULT RECORD;
+
+  INTEGER outputcanvas;
+  IF(exactcover AND (instructions.bgcolor = 0x00FFFFFF OR NOT input_maybe_transparent))
+  {
+    outputcanvas := inputcanvas;
+  }
+  ELSE
+  {
+    //ADDME jpeg has lossless transforms for rotation and mirroring. lookup jpegtran.c, might be worth it ?
+
+    // Rotation is either 0, 90, 180 or 270
+    FOR (INTEGER step := instructions.rotate; step > 0; step := step - 90)
+      GfxRotateRightCanvas(inputcanvas);
+
+    IF(instructions.mirror)
+      __DRAWLIB_V2_MIRRORCANVAS(inputcanvas);
+
+    //The canvas needs to be rendered.
+    outputcanvas := __DRAWLIB_V2_MAKECANVAS(instructions.outwidth, instructions.outheight, instructions.bgcolor);
+    IF (outputcanvas <= 0)
+    {
+      __DRAWLIB_V2_DESTROYCANVAS(inputcanvas);
+      RETURN DEFAULT RECORD;
+    }
+
+    __DRAWLIB_V2_SETALPHAMODE(outputcanvas, SearchElement(__alphamodes, "BLEND255"));
+    __DRAWLIB_V2_DRAWCANVAS(outputcanvas, inputcanvas, instructions.renderx, instructions.rendery);
+    __DRAWLIB_V2_DESTROYCANVAS(inputcanvas);
+  }
+  IF(instructions.grayscale)
+    __DRAWLIB_V2_GRAYSCALECANVAS(outputcanvas);
+  IF(instructions.postprocessor != DEFAULT MACRO PTR)
+  {
+    OBJECT canvas := MakeFunctionPtr("wh::graphics/canvas.whlib", "__CREATECANVASWITHCANVASID", TypeID(OBJECT), [TypeID(INTEGER)])(outputcanvas);
+    instructions.postprocessor(canvas);
+    instructions.outheight := canvas->height;
+    instructions.outwidth := canvas->width;
+    outputcanvas := canvas->__ReleaseAndClean();
+  }
+
+  IF (instructions.hblur > 0 OR instructions.vblur > 0)
+    GfxBlurCanvas(outputcanvas, instructions.hblur, instructions.vblur);
+
+  RETURN [ canvas := outputcanvas
+         , outtype := instructions.outtype
+         , width := instructions.outwidth
+         , height := instructions.outheight
+         , quality := instructions.quality
+         ];
+}

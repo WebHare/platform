@@ -1,0 +1,47 @@
+<?wh
+
+LOADLIB "wh::internet/soap.whlib";
+LOADLIB "wh::internal/soap/support.whlib" EXPORT WSDLModifications;
+
+/** @param soapconfig
+    @cell soapconfig.wsdl
+    @cell soapconfig.wsdl_modtime
+    @cell soapconfig.service_name
+    @cell soapconfig.service_namespace
+    @cell soapconfig.port_name
+    @cell soapconfig.port_namespace
+    @cell soapconfig.overrides
+    @param webbrowser Webbrowse to use for this soap connection
+*/
+PUBLIC OBJECT FUNCTION GetSOAPService(RECORD soapconfig, OBJECT webbrowser DEFAULTSTO DEFAULT OBJECT)
+{
+  OBJECT client := NEW SoapClient;
+  IF (ObjectExists(WebBrowser))
+    client->webbrowser := webbrowser;
+  client->LoadWSDLFromBlob(soapconfig.wsdl->GetDocumentBlob(TRUE), "");
+  client->overrides := soapconfig.overrides;
+
+  OBJECT service;
+
+  IF (CellExists(soapconfig, "SERVICE_NAME"))
+    service := client->GetServiceNS(soapconfig.service_namespace, soapconfig.service_name);
+  ELSE
+  {
+    RECORD ARRAY services := client->GetServices();
+    IF (LENGTH(services) != 1)
+      ABORT("Could not determine which service to choose");
+    service := client->GetServiceNS(services[0].namespace, services[0].name);
+  }
+  OBJECT port;
+  IF (CellExists(soapconfig, "SERVICE_NAME"))
+    port := service->GetPortNS(soapconfig.port_namespace, soapconfig.port_name);
+  ELSE
+  {
+    RECORD ARRAY ports := service->GetPorts();
+    IF (LENGTH(ports) != 1)
+      ABORT("Could not determine which port to choose");
+    port := service->GetPortNS(ports[0].namespace, ports[0].name);
+  }
+
+  RETURN __HS_GetPrivateMember(port, "spi");
+}

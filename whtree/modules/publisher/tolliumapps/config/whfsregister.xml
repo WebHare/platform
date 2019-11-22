@@ -1,0 +1,33 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="whfsregister.whlib"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.config.whfsregister"
+         >
+
+  <screen name="whfsregister" width="80x" height="16x" allowresize="true" savestate="size">
+    <body>
+      <listedit name="slots" ongetrows="ongetslots" buttons="edit" onrowedit="onslotedit" minwidth="50x" minheight="12x" height="1pr" editableflags="canedit" flags="canedit"
+                eventmasks="system:internal.whfsregisterchange">
+        <column name="name" type="text" />
+        <column name="title" type="text" tid="~title" />
+        <column name="currentpath" type="text" />
+      </listedit>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="editrow">
+    <body>
+      <text name="name" wordwrap="true" />
+      <text name="title" wordwrap="true" tid="~title" />
+      <text name="description" wordwrap="true" tid="~description" />
+      <publisher:browseforobject name="value" showclear="false" />
+      <combobox name="site" width="1pr" autocomplete="true"/>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+</screens>

@@ -1,0 +1,188 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+
+RECORD val;
+
+MACRO StoreValue(RECORD v)
+{
+  val := v;
+}
+
+ASYNC MACRO TestWaitableAction()
+{
+  INTEGER taskid;
+  OBJECT ephtask;
+  DATETIME teststart := GetCurrentDatetime();
+
+  TestThrows(PTR ScheduleManagedTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
+  TestThrows(PTR ScheduleEphemeralTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
+
+  TestEq(0, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart ])));
+
+  testfw->BeginWork();
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := 43 ]);
+  testfw->RollbackWork();
+  TestThrowsLike("*was queued did not commit*", PTR WaitForPromise(ephtask)); //this task can never run because the transaction rolled back
+
+  testfw->BeginWork();
+  taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 42 ]);
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := 43 ])->Then(PTR StoreValue);
+
+  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart ])));
+  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart, unfinished := TRUE ])));
+  testfw->CommitWork();
+
+  TestEq([pong := 42, managedtaskid := taskid ], RetrieveManagedTaskResult(taskid, MAX_DATETIME));
+  RECORD taskinfo := DescribeManagedTask(taskid);
+  TestEq(TRUE, taskinfo.finished <= GetCurrentDatetime(), 'task should be marked as finished');
+
+  testfw->BeginWork();
+  taskid := ScheduleManagedTask("webhare_testsuite:pingretry2", [ ping := "ABORT" ]);
+  testfw->CommitWork();
+
+  TestThrowsLike("*PING-TASK-Abort*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME)); //crashes because we told it to
+  TestEq(DEFAULT RECORD, RetrieveManagedTaskResult(taskid, DEFAULT DATETIME, [ accepttempfailure := TRUE, accepttimeout := TRUE ])); //if we probe for temporay failures we won't get a throw
+  taskinfo := DescribeManagedTask(taskid);
+  TestEq(1, taskinfo.failures);
+  TestEq(DEFAULT DATETIME, taskinfo.finished, 'task should still be marked as unfinished');
+  TestEq(TRUE, taskinfo.nextattempt > GetCurrentDatetime() AND taskinfo.nextattempt < AddDaySToDate(1,GetCurrentDatetime()),"Should still be queued");
+
+  testfw->BeginWork();
+  RetryPendingManagedTasksByIds([taskid]);
+  testfw->CommitWork();
+
+  TestThrowsLike("*PING-TASK-Abort*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME, [accepttempfailure := TRUE]));
+  taskinfo := DescribeManagedTask(taskid);
+  TestEq(2, taskinfo.failures);
+  TestEq(TRUE, taskinfo.finished < GetCurrentDatetime(), "task should now be ignored for further requeueing");
+
+  TestEq(TRUE, ObjectExists(ephtask));
+  TestEq(0, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart, unfinished := TRUE ])));
+  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart, unfinished := FALSE ])));
+  WaitForPromise(ephtask);
+  TestEq([ephpong := 43, managedtaskid := 0], val);
+
+  testfw->BeginWork();
+  taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 1 ], [ auxdata := [ ping := RepeatText("X",10000) ] ] );
+  testfw->CommitWork();
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := 1 ], [ auxdata := [ ping := RepeatText("Y",10000) ] ] )->Then(PTR StoreValue);
+
+  TestEq([pong := RepeatText("X",10000), managedtaskid := taskid ],RetrieveManagedTaskResult(taskid, MAX_DATETIME));
+  WaitForPromise(ephtask);
+  TestEq([ephpong := RepeatText("Y",10000), managedtaskid := 0 ],val);
+
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := "ABORT" ]);
+  TestThrowsLike('*PING-TASK-Abort*', PTR WaitForPromise(ephtask));
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := "THROW" ]);
+  TestThrowsLike('*PING-TASK-Throw*', PTR WaitForPromise(ephtask));
+
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:nodetask", [ nodeping := 42 ]);
+  val := WaitForPromise(ephtask);
+  TestEq([nodepong := 42],val);
+
+  OBJECT port := CreateGlobalIPCPort("webhare_testsuite:cancellable_connectport");
+
+  testfw->BeginWork();
+  taskid := ScheduleManagedTask("webhare_testsuite:cancellable", DEFAULT RECORD);
+  testfw->CommitWork();
+
+  // cancellable will connect to our global port
+  OBJECT link := port->Accept(AddTimeToDate(60 * 1000, GetCurrentDatetime()));
+  IF (NOT ObjectExists(link))
+    ABORT(`Expected managed task 'cancellable' to run within a minute`);
+
+  testfw->BeginWork();
+  OBJECT cancelpromise := CancelManagedTasks([ taskid ]);
+  testfw->CommitWork();
+
+  AWAIT cancelpromise;
+
+  RECORD msg := AWAIT link->AsyncReceiveMessage(AddTimeToDate(30 * 1000, GetCurrentDatetime()));
+  TestEQ("gone", msg.status, "Task should have been killed by the cancel");
+}
+
+RECORD FUNCTION WaitForError(INTEGER taskid)
+{
+  RECORD descr;
+
+  // Wait for first error to occur
+  FOR (INTEGER i := 0; i < (60 * 1000) / 100; i := i + 1)
+  {
+    descr := DescribeManagedTask(taskid);
+    IF (descr.lasterrors != "")
+      BREAK;
+    Sleep(100);
+  }
+
+  IF (descr.lasterrors = "")
+    THROW NEW Exception(`Timeout waiting for task #${taskid} to run`);
+
+  RETURN descr;
+}
+
+MACRO TestMarkAsTemporaryFailure()
+{
+  DATETIME taskstart, retryat;
+  INTEGER taskid;
+  RECORD descr;
+
+  FOR (INTEGER itr := 0; itr <= 7; itr := itr + 1)
+  {
+    testfw->BeginWork();
+    WriteRegistryKey("webhare_testsuite.tests.tempfailretryat", DEFAULT DATETIME);
+    taskstart := GetCurrentDateTime();
+    taskid := ScheduleManagedTask("webhare_testsuite:temporaryfailure", DEFAULT RECORD);
+
+    IF (itr != 0)
+    {
+      UPDATE system.managedtasks
+         SET iterations := itr
+       WHERE id = taskid;
+    }
+
+    testfw->CommitWork();
+
+    descr := WaitForError(taskid);
+
+    // Test the exponential backoff
+    INTEGER ARRAY exp_interval_mins := [ 15, 30, 60, 2 * 60, 4 * 60, 8 * 60, 24 * 60, 24 * 60 ];
+    DATETIME expected := exp_interval_mins[itr] >= 24 * 60
+        ? AddDaysToDate(exp_interval_mins[itr] / (24 * 60), taskstart)
+        : AddTimeToDate(exp_interval_mins[itr], taskstart);
+
+    TestEQ(TRUE, descr.nextattempt >= expected);
+
+    testfw->BeginWork();
+    CancelManagedTasks([ taskid ]);
+    testfw->CommitWork();
+  }
+
+  {
+    // Test honouring specifying retryat option
+    testfw->BeginWork();
+    retryat := AddTimeToDate(2 * 60 * 1000, GetCurrentDateTime());
+    WriteRegistryKey("webhare_testsuite.tests.tempfailretryat", retryat);
+    taskstart := GetCurrentDateTime();
+    taskid := ScheduleManagedTask("webhare_testsuite:temporaryfailure", DEFAULT RECORD);
+    testfw->CommitWork();
+
+    descr := WaitForError(taskid);
+
+    // Check if retryat is honoured
+    TestEQ(retryat, descr.nextattempt);
+
+    testfw->BeginWork();
+    CancelManagedTasks([ taskid ]);
+    testfw->CommitWork();
+  }
+}
+
+RunTestframework([ PTR TestWaitableAction
+                 , PTR TestMarkAsTemporaryFailure
+                 ], [ canceltasks := ["webhare_testsuite:*"]]);

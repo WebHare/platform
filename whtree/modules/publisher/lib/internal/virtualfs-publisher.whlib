@@ -1,0 +1,551 @@
+﻿<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/virtualfs/base.whlib";
+LOADLIB "mod::system/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+RECORD ARRAY FUNCTION GetRawSubItems(INTEGER parentid, INTEGER ARRAY specificitems)
+{
+  INTEGER ARRAY tohide := GetWHFSObjectsToHide(GetEffectiveUser());
+  RETURN SELECT id
+              , name
+              , webharetype := type
+              , type := isfolder ? 1 : 0
+              , size := isfolder ? 0i64 : Length64(data)
+              , modificationdate
+              , creationdate
+              , parentsite
+           FROM system.fs_objects
+          WHERE (Length(specificitems) > 0 ? id IN specificitems : parent = VAR parentid)
+                AND (parentid = 0 ? isfolder : TRUE)
+                AND id NOT IN tohide;
+}
+RECORD ARRAY FUNCTION EnrichItems(RECORD ARRAY base, BOOLEAN can_write_all, INTEGER ARRAY versioned_sites)
+{
+  base := SELECT *
+               , DELETE parentsite
+               , can_open := TRUE
+               , can_write := parentsite NOT IN versioned_sites AND (can_write_all OR GetEffectiveUser()->HasRightOn("system:fs_fullaccess", id))
+           FROM base;
+  RETURN base;
+}
+
+RECORD FUNCTION GetCacheableWHFSInfo(OBJECT user)
+{
+  BOOLEAN can_write_all := user->HasRightOn("system:fs_fullaccess", 0);
+  BOOLEAN can_read_all := can_write_all OR user->HasRightOn("system:fs_browse", 0);
+  BOOLEAN can_see_hidden := user->HasRight("system:supervisor");
+
+  RECORD ARRAY subfolders;
+
+  INTEGER ARRAY versioned_sites :=
+      SELECT AS INTEGER ARRAY id
+        FROM system.sites
+       WHERE versioningpolicy != "";
+
+  IF(can_read_all)
+  {
+    subfolders := GetRawSubItems(0, DEFAULT INTEGER ARRAY);
+  }
+  ELSE
+  {
+    INTEGER ARRAY subids := SELECT AS INTEGER ARRAY id
+                              FROM user->GetObjectsChildren("system:fs_objects", 0, FALSE);
+    IF(Length(subids) > 0)
+    {
+      subfolders := GetRawSubItems(0, subids);
+      subfolders := GetUniqueNamesForRoots(subfolders);
+    }
+  }
+
+  RETURN [ ttl := 5000 //ADDME longer cachetimes where possible but watch for rights & folder changes
+         , value := [ can_write_all := can_write_all
+                    , can_read_all := can_read_all
+                    , can_see_hidden := can_see_hidden
+                    , versioned_sites := versioned_sites
+                    , roots := subfolders
+                    ]
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetWHFSInfo()
+{
+  RETURN GetAdhocCached([ type:="toplevel", user := GetEffectiveUserId() ], PTR GetCacheableWHFSInfo(GetEffectiveUser()));
+}
+
+BOOLEAN FUNCTION ContainsVersionedSiteId(INTEGER ARRAY folderids)
+{
+  folderids := SortArray(folderids);
+  RECORD whfsinfo := GetWHFSInfo();
+  FOREVERY (INTEGER id FROM whfsinfo.versioned_sites)
+    IF (LowerBound(folderids, id).found)
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+RECORD ARRAY FUNCTION GetItems(OBJECT parentfolder)
+{
+  RECORD whfsinfo := GetWHFSInfo();
+  BOOLEAN canwriteall := whfsinfo.can_write_all;
+  RECORD ARRAY base;
+
+  IF(parentfolder->id = 0)
+  {
+    base := whfsinfo.roots;
+  }
+  ELSE
+  {
+    base := GetRawSubItems(parentfolder->id, DEFAULT INTEGER ARRAY);
+    IF(NOT canwriteall)
+      canwriteall := GetEffectiveUser()->HasRightOn("system:fs_fullaccess", parentfolder->id);
+  }
+
+  IF(NOT whfsinfo.can_see_hidden)
+    DELETE FROM base WHERE webharetype IN GetCachedSiteProfiles().hiddenfoldertypes;
+
+  base := EnrichItems(base, canwriteall, whfsinfo.versioned_sites);
+  RETURN base;
+}
+
+PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
+<
+  INTEGER baseobject;
+
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(CellExists(options,'baseobject'))
+      this->baseobject := options.baseobject;
+  }
+
+  RECORD FUNCTION TokenizePath(STRING path)
+  {
+    // Chop off the leading /
+    IF (path NOT LIKE "/*") ABORT("Incoming path must start with a '/'");
+    path := Substring(path,1);
+
+    // Chop off the trailing /
+    IF (path LIKE "*/")
+      path := Left(path, Length(path) - 1);
+
+    STRING ARRAY pathtoks;
+    IF(path!="")
+      pathtoks := Tokenize(path,'/');
+
+    DATETIME when;
+
+    OBJECT root := this->baseobject = 0 ? OpenWHFSRootObject() : OpenWHFSObject(this->baseobject);
+
+    IF(Length(pathtoks)=0)
+    {
+      RETURN [ final := root
+             , parent := DEFAULT OBJECT
+             , firstsub := root
+             , name := ""
+             , when := when
+             , ispinned := FALSE
+             , isreadonly := FALSE
+             ];
+    }
+
+    OBJECT yourroot;
+    IF(this->baseobject = 0)
+    {
+      // Grab the top-level folder listing to analyze the first level
+      RECORD whfsinfo := GetWHFSInfo();
+      RECORD selection := SELECT * FROM whfsinfo.roots WHERE ToUppercase(name) = ToUppercase(pathtoks[0]);
+
+      IF(NOT RecordExists(selection)) // a new object in the root
+      {
+        RETURN [ final := DEFAULT OBJECT
+               , parent := root
+               , firstsub := root
+               , name := pathtoks[0]
+               , when := when
+               , ispinned := FALSE
+               , isreadonly := FALSE
+               ];
+      }
+
+      //Interpret the path relative to the specified location
+      yourroot := OpenWHFSObject(selection.id);
+      IF(NOT ObjectExists(yourroot))
+        RETURN DEFAULT RECORD;
+
+      DELETE FROM pathtoks AT 0;
+    }
+    ELSE
+    {
+      yourroot := root;
+    }
+
+    STRING intermediatefolder;
+    STRING lasttok;
+    IF(Length(pathtoks)>0)
+    {
+      lasttok := pathtoks[END-1];
+      intermediatefolder := Detokenize(ArraySlice(pathtoks, 0, Length(pathtoks)-1),"/");
+    }
+
+    OBJECT intermediateobject := intermediatefolder = "" ? yourroot : yourroot->OpenByPath(intermediatefolder);
+    IF(NOT ObjectExists(intermediateobject) OR NOT intermediateobject->isfolder)
+      RETURN DEFAULT RECORD;
+
+    OBJECT finalobject := Length(pathtoks)=0 ? yourroot : ObjectExists(intermediateobject) ? intermediateobject->OpenByName(lasttok) : DEFAULT OBJECT;
+
+    BOOLEAN isreadonly := FALSE;
+
+    OBJECT testlockobject := ObjectExists(finalobject) ? finalobject : intermediateobject;
+    IF(testlockobject->parentsite != 0)
+    {
+      RECORD siteinfo := SELECT locked, versioningpolicy FROM system.sites WHERE id=testlockobject->parentsite;
+      IF (siteinfo.locked)
+        RETURN DEFAULT RECORD; //locked site
+
+      IF (siteinfo.versioningpolicy != "")
+        isreadonly := TRUE;
+    }
+
+    RETURN [ final := finalobject
+           , parent := intermediateobject
+           , firstsub := yourroot
+           , name := lasttok
+           , when := when
+           , ispinned := ObjectExists(finalobject) ? finalobject->ispinned : FALSE
+           , isreadonly := isreadonly
+           ];
+  }
+
+  PUBLIC UPDATE BLOB FUNCTION GetFile(STRING fullpath)
+  {
+    RECORD pathinfo := this->TokenizePath(fullpath);
+    IF (NOT RecordExists(pathinfo) OR NOT ObjectExists(pathinfo.final) OR pathinfo.final->isfolder)
+      THROW NEW VirtualFSException("BADPATH", "File does not exist");
+
+    RETURN pathinfo.final->data;
+  }
+
+  UPDATE PUBLIC MACRO DeletePath(STRING fullpath)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    trans->BeginWork();
+    TRY
+    {
+      RECORD pathinfo := this->TokenizePath(fullpath);
+      IF (NOT RecordExists(pathinfo) OR NOT ObjectExists(pathinfo.final))
+        THROW NEW VirtualFSException("BADPATH", "Path does not exist");
+      IF(pathinfo.ispinned)
+        THROW NEW VirtualFSException("XS", "Path is pinned");
+      IF(pathinfo.isreadonly)
+        THROW NEW VirtualFSException("XS", "No write access");
+
+      // Check if any child is a versioned site
+      IF (pathinfo.final->isfolder)
+      {
+        INTEGER ARRAY root_ids := [ INTEGER(pathinfo.final->id) ];
+        INTEGER ARRAY all_folders := root_ids CONCAT pathinfo.final->GetDescendantFolderids();
+
+        IF (ContainsVersionedSiteId(all_folders))
+          THROW NEW VirtualFSException("XS", "No write access");
+      }
+
+      RunAnyDelete([INTEGER(pathinfo.final->id)], "publisher:virtualfs");
+      trans->CommitWork(); //ADDME handle commit errors
+    }
+    CATCH(OBJECT<WHFSException> e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW NEW VirtualFSException("INTERNALERROR", "WHFS Exception: " || e->what);
+    }
+    CATCH(OBJECT e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW e;
+    }
+  }
+
+  UPDATE PUBLIC MACRO Copy(STRING srcpath, STRING dstpath, BOOLEAN overwrite)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    trans->BeginWork();
+    TRY
+    {
+      RECORD srcpathinfo := this->TokenizePath(srcpath);
+      IF (NOT RecordExists(srcpathinfo) OR NOT ObjectExists(srcpathinfo.final))
+        THROW NEW VirtualFSException("BADPATH", "Source path does not exist");
+
+      RECORD dstpathinfo := this->TokenizePath(dstpath);
+      IF (NOT RecordExists(dstpathinfo) OR NOT ObjectExists(dstpathinfo.parent))
+        THROW NEW VirtualFSException("BADPATH", "Destination path does not exist");
+
+      IF (ObjectExists(dstpathinfo.final) AND NOT overwrite)
+        THROW NEW VirtualFSException("BADPATH", "Destination already exists");
+
+      IF(dstpathinfo.isreadonly)
+        THROW NEW VirtualFSException("XS", "No write access at destination");
+
+      //FIXME Support webdav Overwrite
+      srcpathinfo.final->CopyTo(dstpathinfo.parent, dstpathinfo.name);
+      //FIXME hooks? more to repbulish?
+      ScheduleFolderRepublish(srcpathinfo.final->id, TRUE, TRUE);
+
+      trans->CommitWork();
+    }
+    CATCH(OBJECT<WHFSException> e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW NEW VirtualFSException("INTERNALERROR", "WHFS Exception: " || e->what);
+    }
+    CATCH(OBJECT e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW e;
+    }
+  }
+
+  UPDATE PUBLIC MACRO Move(STRING srcpath, STRING dstpath, BOOLEAN overwrite)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    trans->BeginWork();
+    TRY
+    {
+      RECORD srcpathinfo := this->TokenizePath(srcpath);
+      IF (NOT RecordExists(srcpathinfo) OR NOT ObjectExists(srcpathinfo.final))
+        THROW NEW VirtualFSException("BADPATH", "Source path does not exist");
+
+      RECORD dstpathinfo := this->TokenizePath(dstpath);
+      IF (NOT RecordExists(dstpathinfo) OR NOT ObjectExists(dstpathinfo.parent))
+        THROW NEW VirtualFSException("BADPATH", "Destination path does not exist");
+
+      IF (ObjectExists(dstpathinfo.final) AND NOT overwrite)
+        THROW NEW VirtualFSException("BADPATH", "Destination already exists");
+
+      IF(srcpathinfo.ispinned)
+        THROW NEW VirtualFSException("BADPATH", "Source path is pinned");
+
+      IF(srcpathinfo.isreadonly)
+        THROW NEW VirtualFSException("XS", "No write access at source");
+      IF(dstpathinfo.isreadonly)
+        THROW NEW VirtualFSException("XS", "No write access at destination");
+
+      //FIXME Support webdav Overwrite
+      srcpathinfo.final->MoveTo(dstpathinfo.parent, dstpathinfo.name);
+      //FIXME hooks? more to repbulish?
+      ScheduleFolderRepublish(srcpathinfo.final->id, TRUE, TRUE);
+
+      LogAuditEvent("publisher:virtualfs",[ objectid := srcpathinfo.final->id
+                                          , type := "MOVE"
+                                          , whfspath := srcpathinfo.final->whfspath
+                                          , destid := dstpathinfo.parent->id
+                                          , destpath := dstpathinfo.parent->whfspath
+                                          ]);
+
+      trans->CommitWork();
+    }
+    CATCH(OBJECT<WHFSException> e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW NEW VirtualFSException("INTERNALERROR", "WHFS Exception: " || e->what);
+    }
+    CATCH(OBJECT e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW e;
+    }
+  }
+
+  UPDATE PUBLIC MACRO PutFile(STRING fullpath, BLOB data, BOOLEAN overwrite)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    trans->BeginWork();
+    TRY
+    {
+      RECORD pathinfo := this->TokenizePath(fullpath);
+      IF (NOT RecordExists(pathinfo) OR NOT ObjectExists(pathinfo.parent))
+        THROW NEW VirtualFSException("BADPATH", "Path does not exist");
+
+      IF(pathinfo.isreadonly)
+        THROW NEW VirtualFSException("XS", "No write access");
+
+      IF(ObjectExists(pathinfo.final))
+      {
+        IF(pathinfo.final->isfolder)
+          THROW NEW VirtualFSException("BADPATH", "Cannot overwrite a folder with a file");
+        IF(overwrite = FALSE)
+          THROW NEW VirtualFSException("ALREADYEXISTS", "File already exist");
+
+        //FIXME UpdateMetadata should take care of republish marking and moddate itself!
+        //FIXME type remapping/siteprofile stuff/allow filetype?
+        pathinfo.final->UpdateData(data);
+      }
+      ELSE
+      {
+        //FIXME Log things like webdav details, IP, client, that it was webdav
+        OBJECT newfile := pathinfo.parent->CreateFile([name:= pathinfo.name, data := data, publish:=TRUE ]);
+        LogAuditEvent("publisher:virtualfs",[ objectid := newfile->id
+                                            , type := "PUT"
+                                            , whfspath := newfile->whfspath
+                                            ]);
+      }
+      trans->CommitWork(); //ADDME handle commit errors
+    }
+    CATCH(OBJECT<WHFSException> e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW NEW VirtualFSException("INTERNALERROR", "WHFS Exception: " || e->what);
+    }
+    CATCH(OBJECT e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW e;
+    }
+  }
+
+  UPDATE PUBLIC MACRO MakeDir(STRING fullpath)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    trans->BeginWork();
+    TRY
+    {
+      RECORD pathinfo := this->TokenizePath(fullpath);
+      IF (NOT RecordExists(pathinfo) OR NOT ObjectExists(pathinfo.parent))
+        THROW NEW VirtualFSException("BADPATH", "Path does not exist");
+      IF (ObjectExists(pathinfo.final))
+        THROW NEW VirtualFSException("ALREADYEXISTS", "Path already exists exist");
+      IF(pathinfo.isreadonly)
+        THROW NEW VirtualFSException("XS", "No write access");
+
+      OBJECT newfolder := pathinfo.parent->CreateFolder([ name := pathinfo.name ]);
+      RunAddFolderHooks(newfolder->id);
+      trans->CommitWork(); //ADDME handle commit errors
+    }
+    CATCH(OBJECT<WHFSException> e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+
+      IF(e->IsInvalidName())
+        THROW NEW VirtualFSException("BADNAME", "The specified name is not acceptable");
+      ELSE
+        THROW NEW VirtualFSException("INTERNALERROR", "WHFS Exception: " || e->what);
+    }
+    CATCH(OBJECT e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW e;
+    }
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetPathInfo(STRING path)
+  {
+    RECORD pathinfo := this->TokenizePath(path);
+    IF(NOT RecordExists(pathinfo) OR NOT ObjectExists(pathinfo.final))
+      RETURN DEFAULT RECORD;
+
+    BOOLEAN can_write := GetEffectiveUser()->HasRightOn("system:fs_fullaccess", pathinfo.final->id);
+    BOOLEAN can_read := can_write OR GetEffectiveUser()->HasRightOn("system:fs_browse", pathinfo.final->id);
+
+    RETURN [ name := pathinfo.final->name
+           , type := pathinfo.final->isfolder ? 1 : 0
+           , size := pathinfo.final->isfolder ? 0i64 : Length64(pathinfo.final->data)
+           , read := can_read
+           , write := can_write
+           , modificationdate := pathinfo.final->modificationdate
+           , creationdate := pathinfo.final->creationdate
+           ];
+  }
+
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetDirectoryListing(STRING path)
+  {
+    // Initialize the dirlisting
+    RECORD ARRAY dirlisting;
+    RECORD pathinfo := this->TokenizePath(path);
+
+    IF(NOT RecordExists(pathinfo) OR NOT ObjectExists(pathinfo.final))
+      THROW NEW VirtualFSException("BADPATH","Directory does not exist");
+
+    dirlisting := SELECT
+                       name
+                     , type
+                     , size
+                     , read := can_open
+                     , write := can_write
+                     , modificationdate
+                     , creationdate
+                  FROM GetItems(pathinfo.final);
+
+    RETURN dirlisting;
+
+  }
+
+  UPDATE PUBLIC MACRO SetMetadata(STRING fullpath, RECORD newmetadata)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+    trans->BeginWork();
+
+    TRY
+    {
+      RECORD pathinfo := this->TokenizePath(fullpath);
+      IF (NOT RecordExists(pathinfo) OR NOT ObjectExists(pathinfo.final))
+        THROW NEW VirtualFSException("BADPATH", "Path does not exist");
+      IF(pathinfo.isreadonly)
+        THROW NEW VirtualFSException("XS", "No write access");
+
+      RECORD updates;
+      IF(CellExists(newmetadata, "MODIFICATIONDATE"))
+        INSERT CELL modificationdate := newmetadata.modificationdate INTO updates;
+
+      IF(RecordExists(updates))
+      {
+        pathinfo.final->UpdateMetadata(updates);
+      }
+      trans->CommitWork(); //ADDME handle commit errors
+    }
+    CATCH(OBJECT<WHFSException> e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW NEW VirtualFSException("INTERNALERROR", "WHFS Exception: " || e->what);
+    }
+    CATCH(OBJECT e)
+    {
+      IF (trans->IsWorkOpen())
+        trans->RollbackWork();
+      THROW e;
+    }
+  }
+>;
+
+
+//separate entrypoint, MakeObject does not support the default
+PUBLIC OBJECTTYPE PublisherFSWithNoDefault EXTEND PublisherFS
+<
+  MACRO NEW()
+  : PublisherFS(DEFAULT RECORD)
+  {
+  }
+>;
+

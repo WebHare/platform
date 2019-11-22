@@ -1,0 +1,34 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE EditConfirmField EXTEND TolliumFragmentBase
+<
+>;
+
+PUBLIC OBJECTTYPE ConfirmFieldWidget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    IF (NOT ObjectExists(this->mergefields))
+      THROW NEW Exception("No merge fields context available");
+    Print(GetHTMLTid("publisher:webtools.confirmfield.widgetpreview", this->data.linktext));
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    IF (NOT ObjectExists(this->mergefields))
+      THROW NEW Exception("No merge fields context available");
+    IF (NOT CellExists(this->mergefields->extradata, "confirmationlink"))
+      RETURN;
+    STRING link := this->mergefields->extradata.confirmationlink;
+    IF (this->data.linktext != "")
+      Print(`<a href="${EncodeValue(link)}">${EncodeHTML(this->data.linktext)}</a>`);
+    ELSE
+      Print(EncodeHTML(link));
+  }
+>;

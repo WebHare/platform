@@ -1,0 +1,282 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/remoting/client.whlib";
+
+
+PUBLIC RECORD FUNCTION GetWebHareConnectability(STRING url, STRING currenttoken)
+{
+  TRY
+  {
+    STRING funcurl := ResolveToAbsoluteURL(url,"/wh_services/system/auth/GetConnectionState");
+    RECORD res := InvokeRemoteFunction(funcurl, currenttoken);
+    RETURN res;
+  }
+  CATCH(OBJECT<RemotingException> e)
+  {
+    IF(e->errorcode = "NOSUCHSERVICE")
+      RETURN DEFAULT RECORD;
+    THROW;
+  }
+}
+
+INTEGER FUNCTION StoreToken(OBJECT wrdentity, STRING url, RECORD tokenmsg)
+{
+  GetPrimary()->BeginWork([mutex := "system:remoteservertoken-" || wrdentity->id]);
+
+  RECORD currenttoken := [ scopes :=   tokenmsg.scopes
+                         , token :=    tokenmsg.token
+                         , version :=  tokenmsg.version
+                         , expires :=  tokenmsg.expires
+                         ];
+
+  OBJECT peerservertype := wrdentity->wrdtype->wrdschema->^whuser_peerserver;
+  RECORD peer := peerservertype->RunQuery( [ outputcolumns := [ "WRD_ID" ]
+                                           , filters := [[ field := "WRD_LEFTENTITY", value := wrdentity->id ]
+                                                        ,[ field := "SERVERURL", value := url, matchcase := FALSE ]
+                                                        ]
+                                           ]);
+
+  IF(RecordExists(peer))
+    peerservertype->UpdateEntity(peer.wrd_id, CELL[ currenttoken, lastuse := GetCurrentDatetime() ]);
+  ELSE
+    peerservertype->CreateEntity(CELL[ currenttoken
+                                     , lastuse := GetCurrentDatetime()
+                                     , wrd_leftentity := wrdentity->id
+                                     , serverurl := url
+                                     , wrd_title := UnpackURL(url).host
+                                     ]);
+
+  GetPrimary()->CommitWork();
+  RETURN 0;
+}
+
+STATIC OBJECTTYPE TokenPromise
+<
+  PUBLIC STRING requestid;
+  STRING url;
+  OBJECT wrdentity;
+  MACRO PTR resolve;
+  MACRO PTR reject;
+  INTEGER callback;
+
+  MACRO NEW(MACRO PTR resolve, MACRO PTR reject, STRING url, OBJECT wrdentity)
+  {
+    this->requestid := GenerateUFS128BitId();
+    this->resolve := resolve;
+    this->reject := reject;
+    this->url := url;
+    this->wrdentity := wrdentity;
+
+    this->callback := RegisterEventCallback("tollium:oauth_response", PTR this->GotOauthResponse);
+    RegisterTimedCallback(AddTimeToDate(15*60*1000, GetCurrentDatetime()), PTR this->GotTimeout);
+  }
+
+  MACRO GotOauthResponse(STRING event, RECORD msg)
+  {
+    IF(msg.responseid != this->requestid)
+      RETURN;
+
+    IF(this->callback != 0)
+      UnregisterCallback(this->callback);
+    this->callback := 0;
+
+    RunInSeparatePrimary(PTR StoreToken(this->wrdentity, this->url, msg));
+    this->resolve(msg.token);
+  }
+  MACRO GotTimeout()
+  {
+    IF(this->callback != 0)
+      UnregisterCallback(this->callback);
+    this->callback := 0;
+    this->reject(NEW Exception("Timeout on oauth response"));
+  }
+>;
+
+OBJECTTYPE RemoteWebHareConnection
+<
+  OBJECT __browser;
+  STRING __url;
+  RECORD __marshall;
+
+  PUBLIC PROPERTY browser(__browser,-);
+  PUBLIC PROPERTY url(__url,-);
+
+  MACRO NEW(STRING url, STRING username, STRING encpassword)
+  {
+    this->__marshall := CELL[ url, username, encpassword ];
+    this->__browser := NEW WebBrowser;
+    IF(IsRPCTrafficLogged("system:adminclient"))
+      LogRPCForWebbrowser("system:adminclient", "", this->__browser);
+
+    this->__url := ResolvetoAbsoluteURL(url,'/');
+
+    IF(encpassword LIKE "bearer:*")
+      this->__browser->SetAuthorization(this->__url, "Bearer " || Substring(encpassword,7));
+    ELSE
+      this->__browser->SetAuthorization(this->__url, "Basic " || EncodeBase64(username || ":" || DecodeBase64(encpassword)));
+
+  }
+
+  PUBLIC VARIANT FUNCTION InvokeAdminService(STRING method, VARIANT ARRAY ...args)
+  {
+    STRING adminservice := ResolveToAbsoluteURL(this->__url, "/wh_services/system/admin/");
+    RETURN CallAnyPtrVA(PTR InvokeRemoteFunctionWithBrowser, VARIANT[this->__browser, adminservice || method, ...args]);
+  }
+
+  PUBLIC VARIANT FUNCTION InvokeWRDSyncService(STRING method, VARIANT ARRAY ...args)
+  {
+    STRING syncservice := ResolveToAbsoluteURL(this->__url, "/wh_services.whsock/wrd/sync/");
+    RETURN CallAnyPtrVA(PTR InvokeRemoteFunctionWithBrowser, VARIANT[this->__browser, syncservice || method, ...args]);
+  }
+
+  PUBLIC RECORD FUNCTION GetMarshallableInfo()
+  {
+    RETURN [ __marshall__remotewebhareconnection := this->__marshall ];
+  }
+
+  PUBLIC MACRO Close()
+  {
+    this->browser->Close();
+  }
+>;
+
+PUBLIC OBJECT FUNCTION OpenMarshalledWebHarePeer(RECORD marshallinfo)
+{
+  RETURN NEW RemoteWebHareConnection(marshallinfo.__marshall__remotewebhareconnection.url
+                                    ,marshallinfo.__marshall__remotewebhareconnection.username
+                                    ,marshallinfo.__marshall__remotewebhareconnection.encpassword
+                                    );
+}
+
+PUBLIC OBJECT FUNCTION OpenWebHarePeer(OBJECT screen, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ scopes := STRING[]
+                             , validuntil := DEFAULT DATETIME
+                             ], options);
+
+  OBJECT wrdentity := screen->contexts->user->entity;
+  OBJECT peerservertype := wrdentity->wrdtype->wrdschema->^whuser_peerserver;
+
+  WHILE(TRUE)
+  {
+    RECORD peer := peerservertype->RunQuery( [ outputcolumns := [ "WRD_ID", "CURRENTTOKEN" ]
+                                             , filters := [[ field := "WRD_LEFTENTITY", value := wrdentity->id ]
+                                                          ,[ field := "SERVERURL", value := url, matchcase := FALSE ]
+                                                          ]
+                                             ]);
+
+    RECORD connectinfo;
+    IF(RecordExists(peer) AND RecordExists(peer.currenttoken))
+      connectinfo := GetWebHareConnectability(url, peer.currenttoken.token);
+
+    IF(NOT RecordExists(connectinfo) OR NOT connectinfo.isloggedin OR connectinfo.expires < options.validuntil)
+    {
+      IF(screen->contexts->screen->RunScreen("mod::system/tolliumapps/commondialogs/webharepeers.xml#reauthserver",
+                                              [ url := url
+                                              , scopes := options.scopes
+                                              ]) != "ok")
+        RETURN DEFAULT OBJECT; //cancelled
+
+      CONTINUE; //retry peer selection
+    }
+    //FIXME check our scopes are in that list
+    RETURN NEW RemoteWebHareConnection(url, "", "bearer:" || peer.currenttoken.token);
+  }
+}
+
+PUBLIC RECORD FUNCTION GetWebHareRequestTokenURL(OBJECT screen, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  url := ResolveToAbsoluteURL(url,"/");
+
+  options := ValidateOptions([ scopes := STRING[]
+                             ], options);
+  IF(Length(options.scopes) = 0)
+    THROW NEW Exception("Must request at last one scope");
+
+  STRING baseurl := screen->contexts->controller->baseurl;
+  RECORD defer := CreateDeferredPromise();
+  OBJECT tokprom := NEW TokenPromise(defer.resolve, defer.reject, url, screen->contexts->user->entity);
+
+  STRING redirecturl := UpdateURLVariables(baseurl,
+      [ oauth_responseid :=    tokprom->requestid
+      ]);
+
+  url := UpdateURLVariables(url,
+        [ app :=            "tollium:builtin.oauth"
+        , oauth_clientid := baseurl
+        , oauth_scopes :=   Detokenize(options.scopes, ",")
+        , oauth_redirect := redirecturl
+        ]);
+
+  RETURN [ requesturl := url
+         , tokenpromise := defer.promise
+         ];
+}
+
+/** Get the configured list of peers of a user
+    @param(object %TolliumUser) user User
+    @return List of peers
+    @cell return.serverurl Server URL of the peer
+*/
+PUBLIC RECORD ARRAY FUNCTION GetUserPeerList(OBJECT user)
+{
+  OBJECT wrdentity := user->entity;
+  OBJECT peerservertype := wrdentity->wrdtype->wrdschema->^whuser_peerserver;
+
+  RETURN peerservertype->RunQuery(
+      [ outputcolumns := [ "serverurl" ]
+      , filters := [ [ field := "wrd_leftentity", value := wrdentity->id ]
+                   ]
+      ]);
+}
+
+/** Open a specific peer of a user
+    @param(object %TolliumUser) user User
+    @param url Peer URL
+    @cell options.scopes Required scopes
+    @cell options.validuntil Required token validity until
+    @return Connection result
+    @cell return.status "ok"/"notconnected"
+    @cell(object #RemoteWebHareConnection) return.peer Peer
+*/
+PUBLIC RECORD FUNCTION OpenUserWebHarePeer(OBJECT user, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ scopes := STRING[]
+                             , validuntil := DEFAULT DATETIME
+                             ], options);
+
+  OBJECT wrdentity := user->entity;
+  OBJECT peerservertype := wrdentity->wrdtype->wrdschema->^whuser_peerserver;
+
+  RECORD peer := peerservertype->RunQuery(
+      [ outputcolumns := [ "WRD_ID", "CURRENTTOKEN" ]
+      , filters := [ [ field := "WRD_LEFTENTITY", value := wrdentity->id ]
+                                                 , [ field := "SERVERURL", value := url, matchcase := FALSE ]
+                                                 ]
+      ]);
+
+  IF (NOT RecordExists(peer))
+    THROW NEW Exception(`No such peer '${url}'`);
+
+  IF (NOT RecordExists(peer.currenttoken))
+    RETURN [ status := "notconnected", peer := DEFAULT OBJECT ];
+
+  RECORD connectinfo := GetWebHareConnectability(url, peer.currenttoken.token);
+  IF (NOT RecordExists(connectinfo) OR NOT connectinfo.isloggedin OR connectinfo.expires < options.validuntil)
+    RETURN [ status := "notconnected", peer := DEFAULT OBJECT ];
+
+  //FIXME check our scopes are in that list
+  RETURN
+      [ status :=   "ok"
+      , peer :=     NEW RemoteWebHareConnection(url, "", "bearer:" || peer.currenttoken.token)
+      ];
+}

@@ -1,0 +1,949 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE MenuTest EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    IF(NOT CellExists(data,'withburger'))
+      this->frame->forcemenubar := TRUE;
+    IF(CellExists(data,'withpopup'))
+      this->RunMessageBox(".mbox");
+
+    this->x0b1->visible := this->frame->forcemenubar;
+    this->x0b2->visible := NOT this->frame->forcemenubar;
+  }
+  MACRO onmessage(RECORD msg)
+  {
+    IF(msg.msg="removecustomaction")
+      this->customactionitem->action := DEFAULT OBJECT;
+    ELSE
+      ABORT(anytostring(msg,'tree'));
+  }
+  MACRO DoAction1()
+  {
+    this->action1count->value := ToString(ToInteger(this->action1count->value,0) + 1);
+  }
+  MACRO DoEnableX05()
+  {
+    this->x05->enabled := TRUE;
+  }
+  MACRO DoAddX04()
+  {
+    RECORD ARRAY setitems := this->menubar->items;
+    //remove existing x04 itms
+    OBJECT ARRAY x04items := SELECT AS OBJECT ARRAY menuitem FROM this->x04menu->items;
+    DELETE FROM setitems WHERE menuitem IN x04items;
+    //add the items
+    this->menubar->items := setitems CONCAT this->x04menu->items;
+  }
+  MACRO DoNothing()
+  {
+    Sleep(1000); //sleep for a second, triggering any eager ACK mechanisms
+  }
+  MACRO DoSwitchBar()
+  {
+    IF(this->frame->menubar = this->menubar)
+      this->frame->menubar := this->menubar2;
+    ELSE IF(this->frame->menubar = this->menubar2)
+      this->frame->menubar := DEFAULT OBJECT;
+    ELSE IF(this->frame->menubar = DEFAULT OBJECT)
+      this->frame->menubar := this->menubar;
+  }
+  MACRO dotogglecustomaction()
+  {
+    this->customaction->enabled := NOT this->customaction->enabled;
+  }
+  MACRO DoToggleBUttonBarButton()
+  {
+    this->b02_togglebutton->visible := NOT this->b02_togglebutton->visible;
+  }
+  MACRO DoToggleForceMenuBar()
+  {
+    this->frame->forcemenubar := NOT this->frame->forcemenubar;
+    this->x0b1->visible := this->frame->forcemenubar;
+    this->x0b2->visible := NOT this->frame->forcemenubar;
+  }
+  MACRO DoToggleB03()
+  {
+    this->b03_menubutton->enabled := NOT this->b03_menubutton->enabled;
+  }
+  MACRO DoToggleX16()
+  {
+    this->x16->checked := NOT this->X16->checked;
+  }
+  MACRO DoOpenWithInitialBurger()
+  {
+    this->LoadSCreen(".menutest", [ withburger := TRUE])->RunModal();
+  }
+  MACRO DoOpenWithInitialBurgerAndPopup()
+  {
+    this->LoadSCreen(".menutest", [ withburger := TRUE, withpopup := TRUE])->RunModal();
+  }
+  MACRO dotogglebodyvisibility()
+  {
+    this->body->visible := NOT this->body->visible;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE WindowTest EXTEND TolliumScreenBase
+<
+  OBJECT cache_embedwindow1;
+  OBJECT cache_embedwindow2;
+
+  MACRO Init(RECORD data)
+  {
+    IF(NOT ObjectExists(this->tolliumparent)) //we are the top level dialog
+      this->DoOpenSubwindow(); //challenge todd by opening two windows immediately
+  }
+
+  MACRO DoMboxWindow()
+  {
+    OBJECT wtest := this->LoadScreen (".subwindow", [ mboxclose := TRUE ]);
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenSubwindow()
+  {
+    OBJECT wtest := this->LoadScreen (".subwindow", [ mboxclose := FALSE ]);
+    wtest->RunModal();
+  }
+  MACRO DoEmbedWindow()
+  {
+    IF(NOT ObjectExists(this->cache_embedwindow1))
+    {
+      this->cache_embedwindow1 := this->LoadScreen (".embedwindow");
+      this->cache_embedwindow1->embedtitle->value := "#1";
+    }
+    this->body->contents := this->cache_embedwindow1;
+  }
+  MACRO DoEmbedWindow2()
+  {
+    IF(NOT ObjectExists(this->cache_embedwindow2))
+    {
+      this->cache_embedwindow2 := this->LoadScreen (".embedwindow");
+      this->cache_embedwindow2->embedtitle->value := "#2";
+    }
+    this->body->contents := this->cache_embedwindow2;
+  }
+  MACRO DoOpenMegaWindow()
+  {
+    OBJECT wtest := this->LoadScreen (".megawindow");
+    wtest->RunModal();
+  }
+>;
+PUBLIC OBJECTTYPE SubWindow EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data DEFAULTSTO DEFAULT RECORD) //even with a defaultsto, should still get my parameters
+  {
+    IF(data.mboxclose)
+    {
+      this->RunMessageBox(".mbox");
+      this->tolliumresult := "cancel";
+    }
+  }
+  MACRO OnShow() //delay visibility to ensure OnShow is executed for standard dialogs
+  {
+    this->vstretch->visible := TRUE;
+  }
+  MACRO DoOpenSubwindow()
+  {
+    OBJECT wtest := this->LoadScreen (".windowtest");
+    wtest->RunModal();
+  }
+  MACRO DoOpen2Subwindows()
+  {
+    this->LoadScreen (".windowtest")->RunModal();
+    this->LoadScreen (".subwindow", [ mboxclose := FALSE ])->RunModal();
+  }
+>;
+PUBLIC OBJECTTYPE EmbedWindow EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+  }
+  MACRO OnShow() //delay visibility to ensure OnShow is executed for embedded dialogs
+  {
+    this->addlinebutton->visible := TRUE;
+  }
+  MACRO DoAddLine()
+  {
+    OBJECT linecomp := this->CreateTolliumComponent("text");
+    linecomp->value := "A new line";
+    this->embedwindowbody->InsertComponentBefore(linecomp, DEFAULT OBJECT, TRUE);
+  }
+>;
+
+PUBLIC OBJECTTYPE TableTest EXTEND TolliumScreenBase
+<
+  PUBLIC MACRO Init()
+  {
+    INTEGER cols := 3;
+    INTEGER data_rows := 4;
+
+    this->mytable->defaultborder := TRUE;
+
+    this->mytable->SetupTable( [ data_rows ], [ cols ] );
+    this->mytable->SetColWidth(0, "20x");
+    this->mytable->SetColWidth(1, "8x");
+    this->mytable->SetColWidth(2, "12x");
+
+    // Build header row
+    OBJECT textobj := this->CreateTolliumComponent("text");
+    textobj->value := "Zaalinformatie";
+    textobj->bold := TRUE;
+    this->mytable->GetCell(0,0)->panel->InsertComponentAfter(textobj, DEFAULT OBJECT, FALSE);
+
+    textobj := this->CreateTolliumComponent("text");
+    textobj->value := "Status";
+    textobj->bold := TRUE;
+    this->mytable->GetCell(0,1)->panel->InsertComponentAfter(textobj, DEFAULT OBJECT, FALSE);
+    this->mytable->GetCell(0,1)->panel->layout := "center";
+
+    textobj := this->CreateTolliumComponent("text");
+    textobj->value := "Kosten";
+    textobj->bold := TRUE;
+    this->mytable->GetCell(0,2)->panel->InsertComponentAfter(textobj, DEFAULT OBJECT, FALSE);
+
+    FOR (INTEGER i := 0; i < data_rows; i := i + 1)
+    {
+      FOR (INTEGER j := 0; j < cols; j := j + 1)
+      {
+        OBJECT c := this->mytable->GetCell(i,j);
+
+        // Every cell: vertical align middle
+        c->valign := "middle";
+
+        IF (j = 1) // Second column: align center
+          this->mytable->GetCell(i, 1)->panel->layout := "center";
+
+        c->selectable := FALSE;
+      }
+
+      IF (i = 0)
+      {
+        this->mytable->SetRowHeight(i, "2x");
+      }
+      ELSE
+      {
+        this->mytable->SetRowHeight(i, "3x");
+
+        // Set columns
+        STRING ARRAY txts := [ "Beschikbaar", "Bezet", "In optie" ];
+        OBJECT textobj := this->CreateTolliumComponent("text");
+        textobj->value := "Zaal " || i || ": " || txts[i%LENGTH(txts)];
+        this->mytable->GetCell(i, 0)->panel->InsertComponentAfter(textobj, DEFAULT OBJECT, FALSE);
+
+        STRING ARRAY icons := [ "tollium:status/positive", "tollium:status/negative" ];
+        OBJECT imgobj := this->CreateTolliumComponent("image");
+        imgobj->width := "16px";
+        imgobj->height := "16px";
+        imgobj->SetImageSrc(icons[i%LENGTH(icons)]);
+        this->mytable->GetCell(i, 1)->panel->InsertComponentAfter(imgobj, DEFAULT OBJECT, FALSE);
+
+        textobj := this->CreateTolliumComponent("text");
+        textobj->value := (46+i*193)%100 || " EUR";
+        this->mytable->GetCell(i, 2)->panel->InsertComponentAfter(textobj, DEFAULT OBJECT, FALSE);
+      }
+    }
+
+    this->mytable->GetCell(3,2)->backgroundcolor:= "#eeeeee";
+    this->mytable->GetCell(3,2)->panel->backgroundcolor:= "#ff0000";
+  }
+>;
+
+PUBLIC OBJECTTYPE FocusTest EXTEND TolliumScreenBase
+<
+  MACRO DoOpeNSubWindow()
+  {
+    this->LoadScreen(".focustest")->RunModal();
+  }
+  MACRO Doopendialog()
+  {
+    this->LoadSCreen(".focustest_emptydialog")->RunModal();
+  }
+  MACRO DoopenRTEdialog()
+  {
+    this->LoadScreen(".focustest_rtedialog", [withtext := TRUE, withrtefocus := FALSE])->RunModal();
+  }
+  MACRO DoopenRTEOnlydialog()
+  {
+    this->LoadScreen(".focustest_rtedialog", [withtext := FALSE, withrtefocus := FALSE])->RunModal();
+  }
+  MACRO DoOpenRTEFocusdialog()
+  {
+    this->LoadScreen(".focustest_rtedialog", [withtext := TRUE, withrtefocus := TRUE])->RunModal();
+  }
+  MACRO DoFocusList()
+  {
+    this->frame->focused := this->list;
+  }
+  MACRO OnListselect()
+  {
+    this->frame->ExtUpdatedComponent(); //test if focus is preserved
+  }
+>;
+PUBLIC OBJECTTYPE FocusTest_RTEDialog EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->textedit->visible := data.withtext;
+    IF(data.withrtefocus)
+      this->frame->focused := this->rte;
+  }
+  MACRO DoopenRTEdialog()
+  {
+    this->LoadSCreen(".focustest_rtedialog", [withtext := TRUE,withrtefocus:=FALSE])->RunModal();
+  }
+>;
+
+PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
+<
+  INTEGER counter;
+
+  MACRO Init()
+  {
+  }
+
+  MACRO DoGrabLinks()
+  {
+    this->iframe->onclicklink := PTR this->OnClickLink;
+  }
+
+  MACRO OnClickLink(STRING href)
+  {
+    this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "click:" || href);
+    RETURN;
+  }
+
+  STRING FUNCTION GenerateContent(STRING source)
+  {
+    BLOB bobimage := GetWebhareResource("mod::webhare_testsuite/data//test/smallbob.jpg");
+    STRING link := this->iframe->AddEmbeddedObject(bobimage, "image/jpeg");
+
+    RETURN
+         "<html>\n"
+      || "  <head>\n"
+      || "    <script src='" || this->iframe->toddiframeurl || "'></script>\n"
+      || "    <script>\n"
+      || "\n"
+      || "      $toddIFrame = new $toddiframe();\n"
+      || "\n"
+      || "      function func1()\n"
+      || "      {\n"
+      || "        var calls = document.getElementById('calls');\n"
+      || "        var args = Array.prototype.slice.apply(arguments);\n"
+      || "        calls.value += 'func1 '+ args.join(' ') + '\\n';\n"
+      || "\n"
+      || "        $toddIFrame.doCallback({ type: 'receivedcall', args: args });\n"
+      || "      }\n"
+      || "\n"
+      || "    </script>\n"
+      || "  </head>\n"
+      || "  <body>\n"
+      || "    <span id='source' data-source='" || source || "'>" || source ||"</span>:<img id='image' src='" || link || "'><br>\n"
+      || "    <textarea id='calls' style='white-space: pre; height: 150px; width: 80%'></textarea><br>\n"
+      || "    <a id='link' href='http://www.webhare.net/'>A link!</a><br>\n"
+      || "  </body>\n"
+      || "</html>";
+  }
+
+  MACRO DoInit()
+  {
+    this->iframe->data := [ text := "data" ];
+    this->iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/tollium_todd.res/webhare_testsuite/tests/iframetest.html");
+    this->iframe->oncallback := PTR this->OnCallback;
+    this->DoCallJS();
+  }
+
+  MACRO OnCallback(RECORD data)
+  {
+    this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || EncodeJSON(data));
+  }
+
+  MACRO DoSetHTMLContent()
+  {
+    this->counter := this->counter + 1;
+    this->iframe->value := this->GenerateContent("htmlcontent" || this->counter);
+  }
+
+  MACRO DoSetHTMLBlobContent()
+  {
+    this->counter := this->counter + 1;
+    this->iframe->blobvalue := StringToBlob(this->GenerateContent("blobcontent" || this->counter));
+  }
+
+  MACRO DoCallJS()
+  {
+    this->counter := this->counter + 1;
+    this->iframe->CallJavascript("func1", this->counter, "test");
+  }
+
+  MACRO DoPrintUpdateData()
+  {
+    this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "data:" || this->iframe->data.text);
+    this->iframe->data.text := this->iframe->data.text || "b";
+  }
+  MACRO DoPostMessage()
+  {
+    this->iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/tollium_todd.res/webhare_testsuite/tests/iframetest-postmessage.html");
+    this->iframe->postmessage([ answer := 42 ], "*");
+  }
+  ASYNC MACRO DoPostRequest()
+  {
+    RECORD res := AWAIT this->iframe->postrequest([ request := 42 ], "*");
+    this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "response:" || EncodeJSON(res));
+  }
+  MACRO OnMessage(VARIANT message, STRING origin)
+  {
+    this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "message:" || EncodeJSON(message) || "\norigin:" || origin);
+  }
+>;
+
+PUBLIC OBJECTTYPE IframeTestInContents EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    //demonstrate embedded screens holding inline objects that receive the wrong url
+    OBJECT subscreen := this->LoadScreen(".iframetest");
+    //the test works when you set contents before tolliumclick.. because then the component has already been renamed
+    subscreen->sethtmlcontent->TolliumClick();
+    this->holder->contents := subscreen;
+  }
+>;
+
+PUBLIC OBJECTTYPE FormTest EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->richhtmlcomp->htmlvalue := "<b onclick='alert(\"hacked!\");'>Bold <a href='#link'>link</a>!</b><script>alert('hacked 2')</script>";
+  }
+  MACRO onshowpulldowchange()
+  {
+    this->thepulldown->visible := this->showpulldown->value;
+  }
+  MACRO OnC01Change()
+  {
+    this->v01->value := this->c01->value;
+  }
+  MACRO Onrichhtmlclick(STRING link)
+  {
+    this->richplaincomp->value := link;
+  }
+  MACRO DoSetTextValues()
+  {
+    this->richhtmlcomp->htmlvalue := "before » after";
+    this->richplaincomp->value := "before » after";
+  }
+>;
+
+PUBLIC OBJECTTYPE CodeEditTest EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->edit->value :=
+       "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15";
+    this->edit->GotoLine(12);
+  }
+
+  MACRO DoGotoFirst()
+  {
+    this->edit->GotoLine(1);
+  }
+
+  MACRO DoGotoLast()
+  {
+    this->edit->GotoLine(LENGTH(Tokenize(this->edit->value, "\n")));
+  }
+
+  MACRO DoResetContent()
+  {
+    this->edit->value := "";
+  }
+
+  MACRO DoBase64Text()
+  {
+    this->edit->value := EncodeBase64(this->edit->value);
+  }
+
+  MACRO DoToggleEnabled()
+  {
+    this->edit->enabled := NOT this->edit->enabled;
+  }
+
+  MACRO DoUpdateStatus()
+  {
+    this->status->value := `${this->edit->topline}${this->edit->selection = "" ? "" : `: '${EncodeJava(this->edit->selection)}'`}`;
+  }
+>;
+PUBLIC OBJECTTYPE ImageTest EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+  }
+
+  MACRO DoUpdatePlaceHolder()
+  {
+    this->image->placeholder := "tollium:drinks/beer";
+  }
+
+  MACRO DoUpdateImageData_Bob()
+  {
+    BLOB bobimage := GetWebhareResource("mod::webhare_testsuite/data//test/bob.jpg");
+    this->image->SetImage(bobimage, "bob.jpg");
+  }
+  MACRO DoUpdateImageUrl()
+  {
+    STRING url := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/tollium_todd.res/webhare_testsuite/tests/rangetestfile.jpg");
+    this->image->SetSrc(url, 1024, 768);
+  }
+
+  MACRO DoResetImage()
+  {
+    this->image->SetImage(DEFAULT BLOB, "test.jpg");
+  }
+
+  MACRO DoActionClick()
+  {
+    this->log->value := TrimWhitespace(TrimWhitespace(this->log->value) || "\n" || "action");
+  }
+
+  MACRO OnDirectClick(RECORD pos)
+  {
+    this->log->value := TrimWhitespace(TrimWhitespace(this->log->value) || "\n" || "callback " || pos.nativex || " " || pos.nativey);
+  }
+
+  MACRO DoActionClick2()
+  {
+    this->log->value := TrimWhitespace(TrimWhitespace(this->log->value) || "\n" || "action2");
+  }
+
+  MACRO OnDirectClick2(RECORD pos)
+  {
+    this->log->value := TrimWhitespace(TrimWhitespace(this->log->value) || "\n" || "callback2 " || pos.nativex || " " || pos.nativey);
+  }
+
+  MACRO DoUpdateActionAndDirectClick()
+  {
+    this->image->action := this->action2;
+    this->image->onclick := PTR this->OnDirectClick2;
+  }
+
+  MACRO DoClearAction()
+  {
+    this->image->action := DEFAULT OBJECT;
+  }
+
+  MACRO DoClearOnClick()
+  {
+    this->image->onclick := DEFAULT FUNCTION PTR;
+  }
+>;
+
+PUBLIC OBJECTTYPE DownloadActionTest EXTEND TolliumScreenBase
+< MACRO DoDownload(OBJECT stuff)
+  {
+    stuff->SendFile(StringToBlob("Text"), "text/plain", "file.txt");
+    stuff->onstarted := PTR this->OnStart(stuff->id);
+    stuff->onfailed := PTR this->OnFail(stuff->id);
+    this->log->value := TrimWhitespace(TrimWhitespace(this->log->value) || "\n" || "download " || stuff->id);
+  }
+
+MACRO DoCancelledDownload(OBJECT stuff)
+  {
+    stuff->Cancel();
+    this->log->value := TrimWhitespace(TrimWhitespace(this->log->value) || "\n" || "cancelled download " || stuff->id);
+  }
+
+  MACRO DoAction()
+  {
+  }
+
+  MACRO OnStart(STRING id)
+  {
+    this->log->value := TrimWhitespace(TrimWhitespace(this->log->value) || "\n" || "start " || id);
+  }
+
+  MACRO OnFail(STRING id)
+  {
+    this->log->value := TrimWhitespace(TrimWhitespace(this->log->value) || "\n" || "fail " || id);
+  }
+
+  MACRO DoWindowOpen(OBJECT stuff)
+  {
+    stuff->SendURL('http://sysop.skinner.btc.b-lex.com:8000/.tollium/ui/img/warning.png');
+  }
+
+>;
+
+
+PUBLIC OBJECTTYPE DateTimeTest EXTEND TolliumScreenBase
+< PUBLIC OBJECT da2;
+
+  MACRO Init(RECORD data)
+  {
+    this->da2 := this->CreateTolliumComponent("date");
+    this->da2->title := "date2";
+    this->da2->required := TRUE;
+    this->body->InsertComponentAfter(this->da2, this->cyc, TRUE);
+    this->midnight->value := 0;
+    this->maxdt->value := MAX_DATETIME;
+
+    this->SetDT(AddTimeToDate(189, MakeDateTime(2009,8,13,8,9,18))); //note, we use 8s and 9s a lot to trigger parseInteger octal issues (very likely when working with 0-prefixed numbers)
+  }
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    IF(this->BeginWork()->Finish())
+      this->RunMessageBox(".validationsuccess");
+    RETURN FALSE;
+  }
+
+  PUBLIC MACRO GoRandom()
+  {
+    this->SetDT(MakeDateFromParts(Random(0, 3652500), Random(0, 86400000)));
+  }
+  MACRO SetDt(DATETIME curr)
+  {
+    FOREVERY(OBJECT dt FROM [ OBJECT(this->da1), this->dt1, this->dt2, this->dt3
+                            , this->ti1, this->ti2, this->ti3, this->cyc
+                            , this->da2 ])
+      dt->value := curr;
+
+    FOREVERY(OBJECT dt FROM [ OBJECT(this->ti4), this->ti5, this->ti6 ])
+      dt->value := GetMsecondCount(curr);
+
+    this->now->value := FormatDateTime("%d-%m-%Y %H:%M:%S.%Q", curr);
+    this->ShowCurrent();
+  }
+
+  PUBLIC MACRO ShowCurrent()
+  {
+    STRING val;
+    FOREVERY(OBJECT dt FROM [ OBJECT(this->da1), this->dt1, this->dt2, this->dt3
+                            , this->ti1, this->ti2, this->ti3, this->cyc
+                            , this->da2, this->ti4, this->ti5, this->ti6, this->midnight, this->emptytime, this->bigdt, this->maxdt ])
+      val := val || this->GetRep(dt) || "\n";
+
+    this->dump->value := val;
+  }
+
+  PUBLIC MACRO DoToggleEnabled()
+  {
+    BOOLEAN nr := NOT OBJECT(this->da1)->enabled;
+    FOREVERY(OBJECT dt FROM [ OBJECT(this->da1), this->dt1, this->dt2, this->dt3
+                            , this->ti1, this->ti2, this->ti3, this->cyc
+                            , this->da2, this->ti4, this->ti5, this->ti6, this->midnight, this->emptytime, this->bigdt, this->maxdt ])
+      dt->enabled := nr;
+    this->ShowCurrent();
+  }
+
+  PUBLIC MACRO ToggleRequired()
+  {
+    BOOLEAN nr := NOT OBJECT(this->da1)->required;
+    FOREVERY(OBJECT dt FROM [ OBJECT(this->da1), this->dt1, this->dt2, this->dt3
+                            , this->ti1, this->ti2, this->ti3, this->cyc
+                            , this->da2, this->ti4, this->ti5, this->ti6, this->midnight, this->emptytime, this->bigdt, this->maxdt ])
+      dt->required := nr;
+    this->ShowCurrent();
+  }
+
+  PUBLIC MACRO ToggleUtc()
+  {
+    BOOLEAN nu := NOT OBJECT(this->da1)->storeutc;
+    FOREVERY(OBJECT dt FROM OBJECT [ this->dt1, this->dt2, this->dt3
+                                   , this->ti1, this->ti2, this->ti3
+                                   , this->da2, this->bigdt, this->maxdt  ])
+      dt->storeutc := nu;
+    this->ShowCurrent();
+  }
+
+  PUBLIC MACRO ToggleRo()
+  {
+    BOOLEAN nr := NOT OBJECT(this->da1)->readonly;
+    FOREVERY(OBJECT dt FROM [ OBJECT(this->da1), this->dt1, this->dt2, this->dt3
+                            , this->ti1, this->ti2, this->ti3, this->cyc
+                            , this->da2, this->ti4, this->ti5, this->ti6, this->midnight, this->emptytime, this->bigdt, this->maxdt ])
+      dt->readonly := nr;
+    this->ShowCurrent();
+  }
+
+  PUBLIC MACRO ToggleVisi()
+  {
+    BOOLEAN nr := NOT OBJECT(this->da1)->visible;
+    FOREVERY(OBJECT dt FROM [ OBJECT(this->da1), this->dt1, this->dt2, this->dt3
+                            , this->ti1, this->ti2, this->ti3, this->cyc
+                            , this->da2, this->ti4, this->ti5, this->ti6, this->midnight, this->emptytime, this->bigdt, this->maxdt ])
+      dt->visible := nr;
+    this->ShowCurrent();
+  }
+
+  PUBLIC MACRO Cycle()
+  {
+    IF (this->cyc->type = "date")
+    {
+      this->cyc->type := "datetime";
+      this->cyc->precision := "minutes";
+    }
+    ELSE IF (this->cyc->precision = "milliseconds")
+    {
+      IF (this->cyc->type = "datetime")
+        this->cyc->type := "time";
+      ELSE
+        this->cyc->type := "date";
+      this->cyc->precision := "minutes";
+    }
+    ELSE IF (this->cyc->precision = "minutes")
+      this->cyc->precision := "seconds";
+    ELSE
+      this->cyc->precision := "milliseconds";
+
+    this->ShowCurrent();
+  }
+
+  STRING FUNCTION GetRep(OBJECT dtc)
+  {
+    STRING precision :=  MemberExists(dtc, "PRECISION") ? dtc->precision : "n/a";
+    BOOLEAN storeutc :=  MemberExists(dtc, "STOREUTC") ? dtc->storeutc : FALSE;
+    BOOLEAN invaliddate :=  MemberExists(dtc, "INVALIDDATE") ? dtc->invaliddate : TRUE;
+    BOOLEAN invalidtime :=  MemberExists(dtc, "INVALIDTIME") ? dtc->invalidtime : TRUE;
+
+    VARIANT value := dtc->value;
+    STRING valuestring;
+    IF (TypeID(dtc->value) = TypeID(DATETIME))
+      valuestring := dtc->value = DEFAULT DATETIME ? "DEFAULT DATETIME" : dtc->value = MAX_DATETIME ? "MAX_DATETIME" : FormatISO8601Datetime(dtc->value,"day","milliseconds","UTC",TRUE);
+    ELSE
+      valuestring := ToString(dtc->value);
+
+    RETURN Tokenize(dtc->toddname,':')[1] || ": " || valuestring
+           || " p=" || precision
+           || " req=" || (dtc->required ? "1" : "0")
+           || " utc=" || (storeutc ? "1" : "0")
+           || " ro=" || (dtc->readonly ? "1" : "0")
+           || " invdate=" || (invaliddate? "1" : "0")
+           || " invtime=" || (invalidtime ? "1" : "0");
+  }
+
+  MACRO SetMaxDatetime()
+  {
+    this->dt3->value := MAX_DATETIME;
+    this->ShowCurrent();
+  }
+
+  MACRO CycleCutoffYear()
+  {
+    IF (this->cutoff->cutoffyear = 70)
+      this->cutoff->cutoffyear := 10;
+    ELSE IF (this->cutoff->cutoffyear = 10)
+      this->cutoff->cutoffyear := 90;
+    ELSE IF (this->cutoff->cutoffyear = 90)
+      this->cutoff->cutoffyear := 0;
+    ELSE IF (this->cutoff->cutoffyear = 0)
+      this->cutoff->cutoffyear := 100;
+    ELSE IF (this->cutoff->cutoffyear = 100)
+      this->cutoff->cutoffyear := -1;
+    ELSE IF (this->cutoff->cutoffyear = -1)
+      this->cutoff->cutoffyear := 70;
+
+    this->dump->value := this->GetRep(this->cutoff);
+  }
+>;
+
+PUBLIC OBJECTTYPE ArrayEditTest EXTEND TolliumScreenBase
+<
+  PUBLIC INTEGER changecount;
+
+  MACRO Init(RECORD data)
+  {
+    this->comp->value :=
+        [ [ title := "1" ]
+        , [ title := "2" ]
+        , [ title := "3a" ]
+        , [ title := "5" ]
+        ];
+  }
+  MACRO OnArrayEditChange()
+  {
+    this->changecount := this->changecount + 1;
+  }
+>;
+
+PUBLIC OBJECTTYPE ListEditTest EXTEND TolliumScreenBase
+<
+  RECORD ARRAY rows;
+
+  MACRO Init(RECORD data)
+  {
+    this->rows :=
+        [ [ rowkey := 1, title := "1" ]
+        , [ rowkey := 2, title := "2" ]
+        , [ rowkey := 3, title := "3a" ]
+        , [ rowkey := 4, title := "5" ]
+        ];
+  }
+
+  RECORD ARRAY FUNCTION OnGetChildren(RECORD parent)
+  {
+    RETURN this->rows;
+  }
+
+  MACRO OnChangeOrder(INTEGER ARRAY newordering)
+  {
+    this->rows :=
+        SELECT TEMPORARY pos := SearchElement(newordering, rowkey)
+             , *
+          FROM this->rows
+      ORDER BY pos < 0 ? LENGTH(this->rows) : pos;
+  }
+
+  MACRO OnRowDelete(RECORD todelete)
+  {
+    IF (this->RunMessageBox(".sure") != "yes")
+      RETURN;
+
+    DELETE
+      FROM this->rows
+     WHERE rowkey = todelete.rowkey;
+  }
+
+  MACRO OnRowEdit(RECORD row)
+  {
+    OBJECT dialog := this->LoadScreen(".listedittest_editscreen",
+        [ row := row
+        ]);
+
+    IF (dialog->RunModal() = "ok")
+    {
+      IF (NOT RecordExists(row))
+      {
+        INTEGER new_rowkey := (SELECT AS INTEGER Max(rowkey) FROM this->rows) + 1;
+        RECORD row := dialog->GetUpdatedRow();
+        INSERT CELL rowkey := new_rowkey INTO row;
+        INSERT row INTO this->rows AT END;
+      }
+      ELSE
+      {
+        RECORD pos := RecordLowerBound(this->rows, row, [ "ROWKEY"]);
+        IF (NOT pos.found)
+          THROW NEW Exception("Editing non-existing row");
+
+        RECORD newrow := dialog->GetUpdatedRow();
+        INSERT CELL rowkey := row.rowkey INTO newrow;
+
+        DELETE FROM this->rows AT pos.position;
+        INSERT newrow INTO this->rows AT pos.position;
+      }
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE ListEditTest_EditScreen EXTEND TolliumScreenBase
+< RECORD rowdata;
+
+  MACRO Init(RECORD data)
+  {
+    this->rowdata := data.row;
+    this->row->value := data.row;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN this->BeginWork()->Finish();
+  }
+
+  PUBLIC RECORD FUNCTION GetUpdatedRow()
+  {
+    RETURN this->row->value;
+  }
+>;
+
+PUBLIC OBJECTTYPE RadioGroupTest EXTEND TolliumScreenBase
+<
+
+  MACRO DoReadvalue()
+  {
+    this->value->value := EncodeHSON(this->radiogroup->value);
+  }
+
+  MACRO DoWriteValue()
+  {
+    OBJECT feedback := this->BeginFeedback();
+    TRY
+    {
+      VARIANT value := DecodeHSON(this->value->value);
+      TRY
+        this->radiogroup->value := value;
+      CATCH
+        feedback->AddError("Invalid radiobutton value");
+    }
+    CATCH
+      feedback->AddError("Invalid HSON value");
+  }
+
+  MACRO DoValidateValue()
+  {
+    OBJECT feedback := this->BeginFeedback();
+    TRY
+    {
+      VARIANT value := DecodeHSON(this->value->value);
+      this->validateresult->value := this->radiogroup->IsvalidValue(value) ? "yes" : "no";
+    }
+    CATCH
+      feedback->AddError("Invalid HSON value");
+  }
+
+  MACRO DoReadValueType()
+  {
+    this->valuetype->value := this->radiogroup->valuetype;
+  }
+
+  MACRO DoWriteValueType()
+  {
+    IF (this->valuetype->value = "")
+      RETURN;
+
+    this->radiogroup->valuetype := this->valuetype->value;
+
+    SWITCH (this->radiogroup->valuetype)
+    {
+      CASE "boolean"
+      {
+        this->button1->rowkey := "false";
+        this->button2->rowkey := "true";
+      }
+      CASE "string"
+      {
+        this->button1->rowkey := "str1";
+        this->button2->rowkey := "str2";
+      }
+      CASE "integer"
+      {
+        this->button1->rowkey := "1";
+        this->button2->rowkey := "2";
+      }
+    }
+    FOREVERY (OBJECT o FROM OBJECT[ this->button1, this->button2 ])
+      o->title := o->rowkey;
+  }
+
+  MACRO GotListenOnchangeChange()
+  {
+    this->radiogroup->onchange := this->listenonchange->value
+        ? PTR this->GotOnChange
+        : DEFAULT MACRO PTR;
+  }
+
+  MACRO GotOnChange()
+  {
+    this->onchangecount->value := ToString(ToInteger(this->onchangecount->value, 0) + 1);
+  }
+>;
+

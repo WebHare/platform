@@ -1,0 +1,124 @@
+<?wh
+LOADLIB "mod::publisher/lib/hooks.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC OBJECTTYPE NewsListHandler EXTEND ContentsListHandlerBase
+<
+  OBJECT adtnewstype;
+  OBJECT adtimagetype;
+  OBJECT adtvideotype;
+  OBJECT adtbannertype;
+
+  MACRO NEW()
+  {
+
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetAddedColumns()
+  {
+    RETURN [[ name := "custom_sticky", type := "icon", title := "", sorttitle := "Sorteer op sticky", sortkeyname := "custom_stickysort" ]
+           ,[ name := "custom_date",   type := "date", storeutc := TRUE, title := "Publicatie", sorttitle := "Sorteer op datum" ]
+           ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION OnMapItems(INTEGER parentfolder, RECORD ARRAY items)
+  {
+    INTEGER pinnedicon := this->GetListIcon("tollium:status/pinned");
+    INTEGER ARRAY getids := SELECT AS INTEGER ARRAY id FROM items;
+    items := SELECT items.id
+                  , items.type
+                  , custom_sticky := fs_objects.name IN ["b","d"] ? pinnedicon : 0
+                  , custom_stickysort := fs_objects.name IN ["b","d"] ? 1 : 0
+                  , custom_date := DEFAULT DATETIME
+               FROM system.fs_objects, items
+              WHERE fs_objects.id = items.id
+                    AND fs_objects.id IN getids;
+    RETURN items;
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetOneRowLayout()
+  {
+    RETURN [[ name := "name" ]
+           ,[ name := "title" ]
+           ,[ name := "custom_date" ]
+           ,[ name := "custom_sticky" ]
+           ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetMultiRowLayout()
+  {
+    RECORD layout := ContentsListHandlerBase::GetMultiRowLayout();
+    layout.headers[1].name := "custom_date";
+    INSERT [ name := "custom_sticky" ] INTO layout.headers AT END;
+    layout.rows := [[ cells := [[ name := "icon", rowspan := 2 ]
+                               ,[ name := "name_noicon" ]
+                               ,[ name := "custom_date" ]
+                               ,[ name := "custom_sticky" ]
+                               ]
+                    ]
+                   ,[ cells := [[ name := "title", colspan := 3 ]
+                               ]
+                    ]
+                   ];
+    RETURN layout;
+  }
+>;
+/*Ik kan hier sorteren op:
+- Sticky
+- Datum (ingestelde datum van nieuwsbericht)
+- Type
+- Titel
+- Dubbel (dat zijn 'tiles' die 2 kolom breed worden getoond)
+
+*/
+
+PUBLIC RECORD FUNCTION SearchFilteredFolder(INTEGER folder, BOOLEAN enabled)
+{
+  STRING ARRAY filters;
+  IF(enabled)
+    filters := [ "a", "b" ];
+  ELSE
+    filters := [ "a", "b", "c", "d", "e", "f" ];
+
+  RECORD ARRAY relevant_fsobjects := SELECT id
+                                          , parent
+                                       FROM system.fs_objects
+                                      WHERE parent = folder
+                                            AND name IN filters;
+
+  RETURN [ success := TRUE, recs := relevant_fsobjects ];
+}
+
+
+
+PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
+<
+  INTEGER maxresults;
+
+  UPDATE PUBLIC MACRO ResetFilter()
+  {
+    IF(this->maxresults = 0)
+      this->maxresults := 100;
+
+    this->ClearFilter();
+  }
+
+  PUBLIC MACRO ClearFilter()
+  {
+    this->filterit->value := FALSE;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RunFilter(RECORD options)
+  {
+    BOOLEAN enabled := this->filterit->value;
+    // Search the actual folder
+    RECORD res := SearchFilteredFolder(this->folder, enabled);
+
+    IF(NOT res.success)
+      THROW NEW Exception(res.error);
+
+    RETURN [ numresults := Length(res.recs)
+           , moreresults := Length(res.recs) > this->maxresults
+           , showresults := (SELECT id, parent FROM res.recs LIMIT this->maxresults)
+           ];
+  }
+>;

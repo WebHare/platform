@@ -1,0 +1,170 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+PUBLIC STRING ourgtmtestcontainer := "GTM-TN7QQM";
+OBJECT browser;
+
+PUBLIC MACRO ValidateGTMCode(STRING code)
+{
+  IF(code NOT LIKE "GTM-????*")
+    THROW NEW Exception(`Code '${code}' is not a valid Google Tag Manager code`);
+}
+
+MACRO Validate(STRING type, STRING code)
+{
+  SWITCH(type)
+  {
+    CASE "GTM"
+    {
+      ValidateGTMCode(code);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unsupported script type '${type}'`);
+    }
+  }
+}
+
+STRING FUNCTION GetSubPath(STRING type, STRING code)
+{
+  Validate(type,code);
+
+  STRING path;
+  SWITCH(type)
+  {
+    CASE "GTM"
+    {
+      path := ToLowercase(type || "." || Substring(code,4) || ".js");
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Don't know how to generate URLs for type '${type}'`);
+    }
+  }
+
+  IF(NOT IsValidWHFSName(path, FALSE))
+    THROW NEW Exception(`Invalid subpath '${path}' for '${type}:${code}`);
+
+  RETURN path;
+}
+
+STRING FUNCTION GetDiskPath(STRING type, STRING code)
+{
+  RETURN GetWebhareConfiguration().varroot || "socialite.se/" || GetSubPath(type, code);
+}
+
+PUBLIC STRING FUNCTION GetEmbeddableScriptURL(STRING type, STRING code)
+{
+  RETURN "/.se/" || GetSubPath(type, code);
+}
+
+PUBLIC MACRO DownloadEmbeddableScript(STRING type, STRING code)
+{
+  STRING diskpath := GetDiskPath(type,code);
+
+  IF(NOT ObjectExists(browser))
+    browser := NEW WebBrowser;
+
+  STRING dlurl := "https://www.googletagmanager.com/gtm.js?id=" || EncodeURL(code);
+  IF(NOT browser->GotoWebPage(dlurl))
+    THROW NEW Exception(`Unable to download GTM file for '${code}': ${browser->GetHTTPStatusText()}`);
+
+  //GTM doesn't give us etags or modificationdates... check it by hashing
+  BLOB currentcontent := GetDiskResource(diskpath, [ allowmissing := TRUE ]);
+  IF(GetHashForBlob(currentcontent, "SHA-1") = GetHashForBlob(browser->content, "SHA-1"))
+    RETURN; //nothing changed
+
+  IF(Length(currentcontent) = 0) //ensure our folder exists
+    CreateDiskDirectoryRecursive(GetDirectoryFromPath(diskpath), TRUE);
+
+  StoreDiskFile(diskpath, browser->content, [ overwrite := TRUE ]);
+  StoreDiskFile(diskpath || ".gz", MakeZlibCompressedFile(browser->content, "GZIP", 5), [ overwrite := TRUE ]);
+}
+
+PUBLIC MACRO DeleteEmbeddableScript(STRING type, STRING code)
+{
+  DeleteDiskFile(GetDiskPath(type,code));
+  DeleteDiskFile(GetDiskPath(type,code)||".gz");
+}
+
+//list current GTM codes we're intercepting
+STRING ARRAY FUNCTION GetCurrentEmbeddableScripts()
+{
+  RETURN ParseXSList(ReadRegistryKey("socialite.embedscripts.tagmanagers"));
+}
+
+//how do we store a code in the embeddable scripts list?
+STRING FUNCTION FormatCode(STRING type, STRING code)
+{
+  Validate(type,code);
+  RETURN type || "||" || code;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ListCurrentEmbeddedScripts()
+{
+  RECORD ARRAY retval;
+  FOREVERY(STRING entry FROM GetCurrentEmbeddableScripts())
+  {
+    STRING ARRAY toks := Tokenize(entry,'||');
+    IF(Length(toks) != 2)
+      CONTINUE;
+
+    INSERT [ type := toks[0], code := toks[1] ] INTO retval AT END;
+  }
+  RETURN retval;
+}
+
+///Are we intercepting the specified script
+PUBLIC BOOLEAN FUNCTION IsEmbeddableScriptIntercepted(STRING type, STRING code)
+{
+  RETURN FormatCode(type,code) IN GetCurrentEmbeddableScripts();
+}
+
+PUBLIC MACRO UpdateSocialiteEmbeddableScripts(STRING type, STRING code, BOOLEAN add)
+{
+  GetPrimary()->BeginWork([ mutex := "socialite:tagmanagers" ]);
+  TRY
+  {
+    STRING ARRAY currentscripts := GetCurrentEmbeddableScripts();
+    STRING tag := FormatCode(type, code);
+    IF(add != (tag IN currentscripts)) //something to do
+    {
+      IF(add)
+        INSERT tag INTO currentscripts AT END;
+      ELSE
+        currentscripts := ArrayDelete(currentscripts,[tag]);
+
+      WriteRegistryKey("socialite.embedscripts.tagmanagers", Detokenize(currentscripts,' '));
+    }
+  }
+  CATCH(OBJECT e)
+  {
+    GetPrimary()->RollbackWork();
+    THROW;
+  }
+  GetPrimary()->CommitWork();
+
+  IF(add)
+  { //always download when adding, even if we saw the script. you probably had a good reason...
+    TRY
+    {
+      DownloadEmbeddableScript(type,code);
+    }
+    CATCH(OBJECT e)
+    {
+      //Not much we can do about it
+      LogHarescriptException(e);
+    }
+  }
+}

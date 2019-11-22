@@ -1,0 +1,132 @@
+<?wh
+LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+OBJECTTYPE FakeContext < > ;
+
+MACRO TestParsing()
+{
+  RECORD res;
+
+  res := GetParsedSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/nosuchfile.siteprl.xml", "");
+  TestEq(1, Length(res.errors));
+
+  res := GetParsedSiteProfile("inline::", "");
+  TestEq(1, Length(res.errors));
+
+  STRING test1resname := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml";
+  res := GetParsedSiteProfile(test1resname, "");
+  TestEq(DEFAULT RECORD ARRAY, SELECT * FROM res.errors WHERE resourcename != test1resname); //nothing should sneak by....
+
+  dumpvalue((SELECT * FROM res.errors ORDER BY line),'boxed');
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*trying to match*")); //Apply <to> rule is trying to match a folder type, but is not set to apply to folders
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*Duplicate*webhare_testsuite/test1*")); //Duplicate key-sequence [\'http://www.webhare.net/xmlns/webhare_testsuite/test1\'] in key identity-constraint \'{http://www.webhare.net/xmlns/publisher/
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*validationerror*is not expected*"));
+  TestEq(2, Length(SELECT FROM res.errors WHERE message LIKE "*No such resource*"));
+  TestEq(2, Length(SELECT DISTINCT line FROM res.errors WHERE message LIKE "*No such resource*"));
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*webhare_testsuite/test1folder*is not defined*"));
+
+  TestEq(6, Length(res.errors));
+
+
+  STRING test3resname := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test3.siteprl.xml";
+  res := GetParsedSiteProfile(test3resname, "");
+
+  RECORD ARRAY sitesettings := SELECT * FROM res.rules WHERE ruletype = "sitesetting";
+  TestEq(2, Length(sitesettings));
+  TestEq(DEFAULT RECORD, sitesettings[0].sitefilter);
+  TestEq([ matchname := "SomeOtherSite", matchmask:="",matchregex:="",hasname:=TRUE,hasmask:=FALSE,hasregex:=FALSE], sitesettings[1].sitefilter);
+
+  TestEq(1,Length(SELECT FROM res.contenttypes WHERE namespace="http://www.webhare.net/xmlns/webhare_testsuite/test3")); //even though test3 is dupe, should see only one
+  RECORD test3type := SELECT * FROM res.contenttypes WHERE namespace="http://www.webhare.net/xmlns/webhare_testsuite/test3";
+  TestEq(test3resname, test3type.siteprofile);
+  Testeq(5, test3type.line);
+  TestEq(TRUE, RecordExists(test3type.foldertype));
+  TestEq(test3resname, test3type.foldertype.siteprofile);
+  TestEq(7, test3type.foldertype.line);
+  TestEq(FALSE, RecordExists(test3type.filetype));
+
+  res := GetParsedSiteProfile("mod::publisher/data/publisher.siteprl.xml", "");
+//DumpValue(res,'tree:2');
+//abort(1);
+// abort(1);
+}
+
+MACRO TestCompiler()
+{
+  INTEGER testsiteid := OpenTestsuiteSite()->id;
+
+  OBJECT compiler := NEW RecompileContext();
+  RECORD res := compiler->Compile( [ baseprofiles := [ "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml" ]
+                                   , siteactivatedprofiles := DEFAULT RECORD ARRAY
+                                   ] );
+
+  TestEqStructure([[ col := 0, resourcename := "", line := 0, message := ""]], compiler->GetErrors());
+
+
+  //First test test3 directly
+  compiler := NEW RecompileContext();
+  res := compiler->Compile( [ baseprofiles := DEFAULT STRING ARRAY
+                            , siteactivatedprofiles := [[ name := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test3.siteprl.xml"
+                                                        , siteid := testsiteid
+                                                        ]
+                                                       ]
+                            ]);
+
+  TestEq(1, Length(res.result.webrules));
+  TestEq([testsiteid], res.result.webrules[0].siteids);
+
+  //Test basesiteprofile against empty system
+  compiler := NEW RecompileContext();
+  res := compiler->Compile( [ baseprofiles := ["mod::publisher/data/publisher.siteprl.xml"]
+                            , siteactivatedprofiles := DEFAULT RECORD ARRAY
+                            ]);
+
+  RECORD ARRAY faked_db_contents := SELECT *
+                                      FROM system.fs_types
+                                     WHERE id < 20;
+
+  UPDATE faked_db_contents SET orphan := TRUE WHERE id = 5;
+  UPDATE faked_db_contents SET isfiletype := FALSE, ispublishable := FALSE WHERE id = 4;
+
+  RECORD ARRAY against_empty_db := compiler->PreprocessContentTypes(res.allcontenttypes, faked_db_contents);
+  TestEq(TRUE, Length(against_empty_db)>30, 'there should be over 30 contenttypes if basesiteprofile was parsed, we have ' || Length(against_empty_db));
+
+  RECORD mswordfile := SELECT * FROM against_empty_db WHERE namespace="http://www.webhare.net/xmlns/publisher/mswordfile";
+  //dumpvalue(mswordfile);
+  TestEq(TRUE, RecordExists(mswordfile), "MSWord should be there");
+  TestEq(4, mswordfile.id, "And picked up as type #4");
+  TestEq(TRUE, RecordExists(mswordfile.filetype), "Parsed as a filetype");
+  TestEq(TRUE, mswordfile.filetype.line > mswordfile.line, "<filetype> should be further away in file than <contenttype>");
+  TestEq(TRUE, mswordfile.filetype.blobiscontent, "blob is content");
+  TestEq([isfiletype := TRUE, ispublishable := TRUE ], mswordfile.toupdate, "Upgrade back to publishable filetype!");
+
+  RECORD htmlfile := SELECT * FROM against_empty_db WHERE namespace="http://www.webhare.net/xmlns/publisher/htmlfile";
+  TestEq(TRUE, RecordExists(htmlfile), "HTMLFILE should be there");
+  TestEq(5, htmlfile.id, "And picked up as type #5");
+  TestEq([orphan := FALSE ], htmlfile.toupdate, "Upgrade back to non-orphan type!");
+
+  compiler := NEW RecompileContext();
+  res := compiler->Compile( [ baseprofiles := ["mod::publisher/data/publisher.siteprl.xml"]
+                            , siteactivatedprofiles := [[ name := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml"
+                                                        , siteid := testsiteid
+                                                        ]
+                                                       ]
+                            ]);
+  res := compiler->ApplyStandardPostProcessing(res);
+  TestEq(TRUE, 1 IN res.hiddenfoldertypes);
+  TestEq(TRUE, 2 IN res.hiddenfoldertypes);
+  TestEq(FALSE, 0 IN res.hiddenfoldertypes);
+
+  TestEq(TRUE, Length(res.allcontenttypes)>30, 'there should be over 30 contenttypes if basesiteprofiel was parsed, we have ' || Length(res.result.contenttypes));
+  TestEq([id:=0], RECORD(SELECT id FROM res.allcontenttypes WHERE namespace="http://www.webhare.net/xmlns/publisher/normalfolder"));
+  TestEq([id:=4], RECORD(SELECT id FROM res.allcontenttypes WHERE namespace="http://www.webhare.net/xmlns/publisher/mswordfile"));
+}
+
+RunTestframework([ PTR TestParsing
+                 , PTR TestCompiler
+                 ]);

@@ -1,0 +1,130 @@
+<?wh
+
+LOADLIB "wh::internet/smtp.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/mail/routemgr.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+/* This library contains the validator for input fields
+*/
+
+BOOLEAN FUNCTION CheckURL(STRING input)
+{
+  RECORD url := UnpackURL(input);
+  IF(url.scheme="" OR url.schemespecificpart ="" OR (url.scheme IN ["http","https","ftp"] AND url.schemespecificpart NOT LIKE "//*"))
+    RETURN FALSE;
+  RETURN TRUE;
+}
+
+/** Run an input value through a range of checks
+    @param input Input value to check
+    @param fieldtitle Title of field that received the input value (used for feedback)
+    @param checks List of checks to perform.
+       Currently allowed checks:
+          'email'         Accepts a valid e-mail address
+          'emails'        Accepts a list of valid e-mail addresses (including
+          'http-url'      Accepts http:// and https:// urls
+          'secure-url'    Accepts only secure urls (currently https and imaps)
+          'insecure-url'  Accepts only insecure urls
+    @return Validation error in current gettid language, empty string when every checks passed.
+*/
+PUBLIC STRING FUNCTION ValidateInput(STRING input, STRING fieldtitle, STRING ARRAY checks)
+{
+  FOREVERY (STRING check FROM checks)
+  {
+    SWITCH (check)
+    {
+      CASE "email","email-maysendfrom","email-maysendto"
+      {
+        IF (NOT IsValidEmailAddress(input))
+          RETURN GetTid("tollium:validation.errors.invalid_email", fieldtitle);
+
+        IF(check = "email-maysendfrom")
+        {
+          STRING mail := SplitEmailName(input).email;
+          IF(NOT IsAllowedEmailSender(mail))
+            RETURN GetTid("tollium:validation.errors.sender_not_whitelisted", fieldtitle, mail);
+        }
+
+        IF(check = "email-maysendto")
+        {
+          STRING mail := SplitEmailName(input).email;
+          IF(NOT IsAllowedEmailReceiver(mail))
+            RETURN GetTid("tollium:validation.errors.receiver_not_whitelisted", fieldtitle, mail);
+        }
+      }
+
+      CASE "emails","emails-maysendto"
+      {
+        RECORD ARRAY data := TokenizeEmailAddressList(input, FALSE);
+        FOREVERY (RECORD rec FROM data)
+        {
+          IF(NOT IsValidEmailAddress(rec.original))
+            RETURN GetTid("tollium:validation.errors.invalid_emails", fieldtitle, rec.original);
+          IF(check = "emails-maysendto" AND NOT IsAllowedEmailReceiver(rec.email))
+            RETURN GetTid("tollium:validation.errors.receiver_not_whitelisted", fieldtitle, rec.email);
+        }
+      }
+
+      CASE "url"
+      {
+        RECORD url := UnpackURL(input);
+        IF(NOT CheckUrl(input))
+          RETURN GetTid("tollium:validation.errors.invalid_url", fieldtitle);
+      }
+
+      CASE "url-plus-relative"
+      {
+        IF(input LIKE "#*" OR input LIKE "./*" OR input LIKE "../*" OR (input LIKE "/*" AND input NOT LIKE "//*"))
+          RETURN "";
+
+        RECORD url := UnpackURL(input);
+        IF(NOT CheckUrl(input))
+          RETURN GetTid("tollium:validation.errors.invalid_url", fieldtitle);
+      }
+
+      CASE "http-url"
+      {
+        IF (NOT IsValidPlainHTTPURL(input))
+          RETURN GetTid("tollium:validation.errors.invalid_http_url", fieldtitle);
+      }
+
+      CASE "secure-url"
+      {
+        RECORD url := UnpackURL(input);
+        IF(url.schemespecificpart="" OR NOT url.secure)
+          RETURN GetTid("tollium:validation.errors.invalid_secure_url", fieldtitle);
+      }
+
+      CASE "insecure-url"
+      {
+        RECORD url := UnpackURL(input);
+        IF(url.schemespecificpart="" OR url.secure)
+          RETURN GetTid("tollium:validation.errors.invalid_insecure_url", fieldtitle);
+      }
+
+      CASE "hostname"
+      {
+        IF (NOT IsValidHostName(input))
+          RETURN GetTid("tollium:validation.errors.invalid_hostname", fieldtitle);
+      }
+
+      CASE "whfsname"
+      {
+        IF(Length(input) >= 256 OR NOT IsValidWHFSName(input, FALSE))
+          RETURN GetTid("tollium:validation.errors.invalid_whfsname", fieldtitle);
+      }
+
+      DEFAULT
+      {
+        THROW NEW Exception("Unrecognized validation check '" || check || "'");
+      }
+    }
+
+    IF (check LIKE "*url*" AND LENGTH(input) > 2000)
+      RETURN GetTid("tollium:validation.errors.too_long_url", fieldtitle);
+  }
+  RETURN "";
+}

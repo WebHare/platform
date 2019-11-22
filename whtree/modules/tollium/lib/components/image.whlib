@@ -1,0 +1,521 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/filters.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+
+/*  /////////////////////////////////////////////////////////////////////
+
+    The image component
+    - if given a blob, and fixed width/height:
+      - we will resize the image to the specified width/height before transmission
+    - if given a url
+      - we will transmit it as/is
+      */
+
+PUBLIC OBJECTTYPE TolliumImage EXTEND TolliumOverlaysComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Imageinfo of value
+  RECORD pvt_imginfo;
+
+  /// Placeholder image
+  STRING pvt_placeholder;
+
+  /// Imageinfo of shown omage
+  RECORD pvt_shownimage;
+
+  /// Download url of currently shown image
+  STRING pvt_downloadurl;
+
+  /// Onclick handler
+  FUNCTION PTR pvt_onclick;
+
+  /// Click action
+  OBJECT pvt_action;
+
+  STRING __objectfit;
+
+
+  /** @cell pvt_imginfo.data
+      @cell pvt_imginfo.mimetype
+      @cell pvt_imginfo.width
+      @cell pvt_imginfo.height
+      @cell pvt_imginfo.filename
+      @cell pvt_imginfo.extension
+      @cell pvt_imginfo.src raw <img> src, just display
+  */
+  PUBLIC PROPERTY value(pvt_imginfo, SetImgInfo);
+
+  /// Placeholder icon to use (default: tollium:placeholders/na)
+  PUBLIC PROPERTY placeholder(pvt_placeholder, SetPlaceholder);
+
+  /// Called when the user draws a new overlay
+  PUBLIC PROPERTY oncreateoverlay(pvt_oncreateoverlay, SetOnCreateOverlay);
+
+  PUBLIC PROPERTY onchangeoverlays(pvt_onchangeoverlays, SetOnChangeOverlays);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  /// Onclick. Signature macro func(record data) (data.nativex, data.nativey)
+  PUBLIC PROPERTY onclick(pvt_onclick, SetOnClick);
+
+  /// Action fired when image is clicked
+  PUBLIC PROPERTY action(pvt_action, SetAction);
+
+  /// Object fit (fill | contain | cover | none | scale-down) - not supported on IE11.
+  PUBLIC PROPERTY objectfit(__objectfit, SetObjectFit);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumDownloadKeeper;
+
+    this->pvt_placeholder := "tollium:placeholders/na";
+    this->componenttype := "image";
+    this->formfieldtype := "record";
+    this->objectfit := "scale-down";//"none";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumOverlaysComponentBase::StaticInit(def);
+
+    this->pvt_action := def.action;
+    this->placeholder := def.placeholder;
+    this->pvt_onclick := def.onclick;
+    this->__objectfit := def.objectfit;
+
+    // Overlays
+    this->flags := def.flags; // Also sets required_cells
+
+    IF (def.value != "")
+      this->SetImageSrc(def.value, def.filename);
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN MakeMergedRecord(TolliumOverlaysComponentBase::GetExtraDirtyFlags(),
+        [ image := FALSE
+        , eventmask := FALSE
+        , action := FALSE
+        , overlays_active := FALSE
+        ]);
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD img := this->GetShownImage();
+      RECORD compinfo := [ action := GetComponentName(this->pvt_action)
+                         , imgwidth := img.width
+                         , imgheight := img.height
+                         , src := CellExists(img, "src") ? img.src : ""
+                         , settings := CellExists(img, "settings") ? img.settings : DEFAULT RECORD
+                         , hint := this->hint
+                         , unmasked_events := GetUnmask(this,["click"])
+                         , overlays_allowcreate := this->pvt_oncreateoverlay != DEFAULT FUNCTION PTR
+                         , objectfit := this->__objectfit
+                         ];
+
+
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.image)
+      {
+        RECORD img := this->GetShownImage();
+        this->ToddUpdate([ type := "image"
+                         , src := CellExists(img, "src") ? img.src : ""
+                         , settings := CellExists(img, "settings") ? img.settings : DEFAULT RECORD
+                         , imgwidth := img.width
+                         , imgheight := img.height
+                         ]);
+      }
+
+      IF (this->dirtyflags.eventmask)
+        this->ToddUpdate([ type := "eventmask", unmasked_events := GetUnmask(this, ["click"]) ]);
+
+      IF (this->dirtyflags.action)
+        this->ToddUpdate([ type := "action", action := GetComponentName(this->pvt_action) ]);
+
+      IF (this->dirtyflags.overlays_active)
+        this->ToddUpdate([ type := "overlays_active"
+                         , overlays_allowcreate := this->pvt_oncreateoverlay != DEFAULT FUNCTION PTR
+                         ]);
+    }
+
+    TolliumOverlaysComponentBase::TolliumWebRender();
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    IF(type="click")
+    {
+      IF(this->pvt_onclick!=DEFAULT FUNCTION PTR)
+      {
+        this->pvt_onclick( [ nativex := FloatToInteger(msgdata.nativex+0.5)
+                           , nativey := FloatToInteger(msgdata.nativey+0.5)
+                           ] );
+      }
+      RETURN;
+    }
+    TolliumOverlaysComponentBase::ProcessInboundMessage(type,msgdata);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "100px";
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "100px";
+  }
+
+  MACRO SetPlaceholder(STRING placeholder)
+  {
+    IF(placeholder="")
+      placeholder := "tollium:placeholders/na";
+
+    IF (this->pvt_placeholder != placeholder)
+    {
+      this->pvt_placeholder := placeholder;
+      this->ResetShownImage();
+    }
+  }
+
+  UPDATE MACRO SetAction(OBJECT newaction)
+  {
+    this->pvt_action := newaction;
+    this->ExtUpdatedAction();
+  }
+
+  UPDATE MACRO SetObjectFit(STRING newobjectfit)
+  {
+    IF(this->__objectfit = newobjectfit)
+      RETURN;
+
+    IF(newobjectfit NOT IN ["fill", "contain", "cover", "none", "scale-down"])
+      THROW NEW Exception(`Invalid object-fit '${newobjectfit}`);
+
+    this->__objectfit := newobjectfit;
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE MACRO SetOnClick(FUNCTION PTR onclick)
+  {
+    IF (onclick != DEFAULT FUNCTION PTR AND NOT ValidateFunctionPtr(onclick, 0, [ TypeID(RECORD) ]))
+      THROW NEW Exception("The callback set in onclick has an invalid function signature. Expected: MACRO func(RECORD data), got " || ExplainFunctionPtrSignature(onclick));
+
+    this->pvt_onclick := onclick;
+    this->ExtUpdatedEventMask();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overlay functions
+  //
+
+  UPDATE RECORD ARRAY FUNCTION GetRequiredOverlayCells()
+  {
+    RETURN
+        [ [ name := "area",   type := TypeID(RECORD) ]
+        ];
+  }
+
+  UPDATE RECORD ARRAY FUNCTION CheckOverlays(RECORD ARRAY overlays)
+  {
+    FOREVERY (RECORD overlay FROM overlays)
+    {
+      IF (NOT CellExists(overlay, "AREA"))
+        THROW NEW TolliumException(this, `Overlay #${#overlay} has no 'area' cell`);
+      IF (TypeID(overlay.area) != TypeID(RECORD))
+        THROW NEW TolliumException(this, `The 'area' column of overlay #${#overlay} is not of type RECORD`);
+      IF (NOT CellExists(overlay.area, "TYPE") OR TypeID(overlay.area.type) != TypeID(STRING))
+        THROW NEW TolliumException(this, `The 'area' column of overlay #${#overlay} has no 'type' cell of type STRING`);
+
+      SWITCH (overlay.area.type)
+      {
+        CASE "rectangle"
+        {
+          ValidateOptions(
+              [ type :=   ""
+              , left :=   0
+              , top :=    0
+              , width :=  0
+              , height := 0
+              ], overlay.area,
+              [ required := [ "LEFT", "TOP", "WIDTH", "HEIGHT" ]
+              ]);
+        }
+      }
+    }
+    RETURN overlays;
+  }
+
+  UPDATE RECORD ARRAY FUNCTION RenderOverlays(RECORD ARRAY overlays)
+  {
+     // 1. Remove user cells, keeping only the cells needed client-side to identify and render the overlays
+     //    (to prevent sending a huge amount of unneeded data AND to prevent crashing on data types which we cannot encode to send to the client (pointers, objects etc))
+     // 2. enrich with a flags RECORD
+     overlays :=
+        SELECT rowkey
+             , area
+             , flags :=           StoredAttrsJSON(overlays, this->flags)
+             , title :=           CellExists(overlays, "title") ? overlays.title : ""
+             , hint  :=           CellExists(overlays, "hint")  ? overlays.hint  : ""
+             , tollium_newid :=   CellExists(overlays, "tollium_newid")  ? tollium_newid : 0
+          FROM overlays;
+
+     RETURN overlays;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    RECORD ARRAY sellist:=
+        SELECT *
+          FROM this->storage->rows
+         WHERE tolliumselected;
+
+    IF (CheckEnabledFlags(sellist, this->flags, flags, min, max, selectionmatch))
+      RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetImgInfo(RECORD newinfo)
+  {
+    // Check if newinfo is a valid image info record, if it exists
+    IF (RecordExists(newinfo))
+    {
+      IF (NOT CellExists(newinfo, "data")
+          OR NOT CellExists(newinfo, "mimetype")
+          OR NOT CellExists(newinfo, "width")
+          OR NOT CellExists(newinfo, "height")
+          OR NOT CellExists(newinfo, "filename")
+          OR NOT CellExists(newinfo, "extension"))
+      {
+        //FIXME: More feedback (exception)
+        Print('TolliumImage::SetImgInfo received invalid image record\n');
+        newinfo := DEFAULT RECORD;
+      }
+      ELSE
+      {
+        // Set fields for download.shtml
+        IF (NOT CellExists(newinfo, "lastmod"))
+          INSERT CELL lastmod := GetCurrentDateTime() INTO newinfo;
+        IF (NOT CellExists(newinfo, "disposition"))
+          INSERT CELL disposition := 'inline' INTO newinfo;
+        ELSE
+          newinfo.disposition := 'inline';
+      }
+    }
+
+    this->pvt_imginfo := newinfo;
+    this->ResetShownImage();
+  }
+
+  RECORD FUNCTION MakeImgInfo(BLOB img, STRING filename)
+  {
+    RECORD baseinfo := WrapBlob(img, filename);
+    IF(baseinfo.width=0)
+      RETURN DEFAULT RECORD;
+
+    // Generate a thumbnail, if our pixel size is known
+    STRING width := this->GetWidth();
+    STRING height := this->GetHeight();
+
+    INTEGER setwidth := width LIKE "*px" ? ToInteger(Left(width,Length(width)-2), 0) : 0;
+    INTEGER setheight := height LIKE "*px" ? ToInteger(Left(height,Length(height)-2), 0) : 0;
+    IF (setwidth != 0 AND setheight != 0 AND (setwidth != baseinfo.width OR setheight != baseinfo.height))
+    {
+      // FIXME: no need to force image/png anymore, since png's aren't forced to jpg's anymore??
+      RECORD resized := GfxResizeImageBlobWithMethod(img, [ method := "fitcanvas"
+                                                          , setwidth := setwidth
+                                                          , setheight := setheight
+                                                          //, bgcolor := GfxCreateColor(156, 156, 156, 175)
+                                                          , format := "image/png" // force png to enable transparency
+                                                          ]);
+      IF (RecordExists(resized))
+      {
+        INSERT CELL thumbnail := resized.data INTO baseinfo;
+        INSERT CELL twidth := resized.width INTO baseinfo;
+        INSERT CELL theight := resized.height INTO baseinfo;
+      }
+    }
+
+    INSERT CELL lastmod := GetCurrentDateTime() INTO baseinfo;
+    INSERT CELL disposition := 'inline' INTO baseinfo;
+    RETURN baseinfo;
+  }
+
+
+  MACRO ResetShownImage()
+  {
+    IF (this->pvt_downloadurl != "")
+      this->RemoveDownload(this->pvt_downloadurl);
+
+    this->pvt_downloadurl := "";
+    this->pvt_shownimage := DEFAULT RECORD;
+
+    this->ExtUpdatedImage();
+  }
+
+  RECORD FUNCTION GetShownImage()
+  {
+    IF (NOT RecordExists(this->pvt_shownimage))
+    {
+      IF (RecordExists(this->pvt_imginfo))
+      {
+        // If a raw img src was supplied, just return that
+        IF (CellExists(this->pvt_imginfo, "src") AND this->pvt_imginfo.src != "")
+          this->pvt_shownimage := this->pvt_imginfo;
+        ELSE IF (CellExists(this->pvt_imginfo, "thumbnail"))
+        {
+          // If a thumbnail was generated, return that instead of the actual image
+          this->pvt_shownimage := CellUpdate(this->pvt_imginfo, "data", this->pvt_imginfo.thumbnail);
+        }
+        ELSE
+          this->pvt_shownimage := this->pvt_imginfo;
+      }
+      ELSE
+      {
+        RETURN [ settings := [ imgname := this->pvt_placeholder, width := 100, height := 100, color := "b" ]
+               , width := 100
+               , height := 100
+               ];
+
+/*        //FIXME: Select best resolution
+        RECORD ARRAY img := GetAvailableModuleIcons(this->pvt_placeholder, 100,100,"b"); //FIXME: Parse width from image itself
+        IF(NOT RecordExists(img))
+          THROW NEW TolliumException(this, "The placeholder image '"||this->pvt_placeholder||"' does not exist");
+
+        this->pvt_shownimage := this->MakeImgInfo(GetModuleIcon(this->pvt_placeholder,img[0].width,img[0].height,FALSE,img[0].color).data, "");*/
+      }
+
+      IF ((NOT CellExists(this->pvt_shownimage, "SRC") OR this->pvt_shownimage.src = "") AND CellExists(this->pvt_shownimage, "DATA"))
+      {
+        this->pvt_downloadurl := this->AddInlineDownload(this->pvt_shownimage.data, this->pvt_shownimage.mimetype, this->pvt_shownimage.filename);
+        IF (CellExists(this->pvt_shownimage, "SRC"))
+          this->pvt_shownimage.src := this->pvt_downloadurl;
+        ELSE
+          INSERT CELL src := this->pvt_downloadurl INTO this->pvt_shownimage;
+      }
+    }
+    RETURN this->pvt_shownimage;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedImage()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.image := TRUE;
+  }
+
+  MACRO ExtUpdatedAction()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.action := TRUE;
+  }
+
+  MACRO ExtUpdatedEventMask()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.eventmask := TRUE;
+  }
+
+  MACRO ExtUpdatedOverlaysActive()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.overlays_active := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /// Set a new image, from data and filename
+  PUBLIC MACRO SetImage(BLOB img, STRING filename)
+  {
+    this->pvt_imginfo := this->MakeImgInfo(img, filename);
+
+    this->ResetShownImage();
+  }
+
+  /// Set a new image, from url and dimensions
+  PUBLIC MACRO SetSrc(STRING src, INTEGER width, INTEGER height)
+  {
+    this->pvt_imginfo := [ src := src
+                         , width := width
+                         , height := height
+                         ];
+
+    this->ResetShownImage();
+  }
+
+  /// Use an image from a module (format module ':' icon-dir '/' icon-name ). Icon name must be specified without size and extension.
+  PUBLIC MACRO SetImageSrc(STRING src, STRING filename DEFAULTSTO "", STRING color DEFAULTSTO "c,b")
+  {
+    //ADDME: If width and height are updated _after_ the image source is set, the wrong image is displayed... Should the
+    //       image src be updated if width and/or height are updated?
+
+    INTEGER setwidth := this->width LIKE "*px" ? ToInteger(Left(this->width,Length(this->width)-2),100) : 0;
+    INTEGER setheight := this->height LIKE "*px" ? ToInteger(Left(this->height,Length(this->height)-2),100) : 0;
+    this->pvt_imginfo := [ settings := [ imgname := src
+                                       , width := setwidth
+                                       , height := setheight
+                                       , color := color
+                                       ]
+                         , width := setwidth
+                         , height := setheight
+                         ];
+    this->ResetShownImage();
+  }
+
+  PUBLIC MACRO SaveImage()
+  {
+    IF (RecordExists(this->pvt_imginfo))
+    {
+      STRING filename := this->pvt_imginfo.filename;
+      IF(filename="" AND this->pvt_imginfo.extension!="")
+        filename := "image." || this->pvt_imginfo.extension;
+      this->owner->frame->SendFileToUser(this->pvt_imginfo.data, this->pvt_imginfo.mimetype, filename, this->pvt_imginfo.lastmod);
+    }
+  }
+>;

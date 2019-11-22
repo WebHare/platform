@@ -1,0 +1,14 @@
+/* Show the value of the 'data-placeholder' attribute as the input node's contents if it's empty. */
+/*ADDME: In IE 11, the blinking cursor is placed after the placeholder. */
+.wh-tagedit.disabled
+{
+  pointer-events:none;
+}
+.wh-tagedit-input:empty::after
+{
+  content: attr(data-placeholder);
+}
+.wh-tagedit-input:not(:empty)::after
+{
+  content: "";
+}

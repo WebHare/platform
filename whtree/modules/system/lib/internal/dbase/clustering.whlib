@@ -1,0 +1,861 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+/* This library contains functions to cluster a table. Must be called with the primary transaction
+   opened with OpenWebhareAutoTransaction("~cluster", "")
+*/
+
+/** Returns the name of a table referenced by a column
+    @param tablename Name of the referencing table (form: 'schema.table')
+    @param column_name Name of the referencing column
+    @return Name of the referenced table, empty if no such column of no reference
+*/
+PUBLIC STRING FUNCTION GetReferencedTable(STRING tablename, STRING column_name)
+{
+  STRING schema_name := Left(tablename, SearchSubString(tablename, "."));
+  STRING table_name := SubString(tablename, SearchSubString(tablename, ".") + 1);
+
+  RECORD rec :=
+      SELECT *
+        FROM information_schema.columns
+       WHERE COLUMN table_schema = VAR schema_name
+         AND COLUMN table_name = VAR table_name
+         AND COLUMN column_name = VAR column_name;
+
+  IF (NOT RecordExists(rec) OR rec.referenced_table_name = "")
+    RETURN "";
+
+  RETURN rec.referenced_table_schema || "." || rec.referenced_table_name;
+}
+
+/** Try to find an index
+    @param tablename Name of the referencing table (form: 'schema.table')
+    @param column_names Names of the columns to sort on
+    @return Index record of a compatible index, if found
+    @cell(integer) return.id Index id (use for SHOW INDEX id)
+    @cell(integer) return.uniqueentries Number of unique entries in this index (this index might index more columns though, or with not
+        enough precision, so don't rely in this number)
+*/
+RECORD FUNCTION FindIndex(STRING tablename, STRING ARRAY column_names)
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  INTEGER dotpos := SearchSubString(tablename, ".");
+  STRING table_schema := dotpos = -1 ? "PUBLIC" : Left(tablename, dotpos);
+  STRING table_name := SubString(tablename, dotpos + 1);
+
+  INTEGER ARRAY coldiskids;
+  FOREVERY (STRING colname FROM column_names)
+  {
+    RECORD def :=
+        SELECT *
+          FROM information_schema.columns
+         WHERE COLUMN table_schema = VAR table_schema
+           AND COLUMN table_name = VAR table_name
+           AND COLUMN column_name = VAR colname;
+
+    IF (NOT RecordExists(def))
+      THROW NEW Exception("Column '" || table_schema || "'.'" || table_name || "'('" || colname || "') does not exist");
+
+    INSERT def.on_disk_column_id INTO coldiskids AT END;
+  }
+
+  trans->BeginWork();
+  RECORD ARRAY indices := __SendWHDBCommand(trans->id, "SHOW INDICES");
+  trans->RollbackWork();
+
+  indices :=
+      SELECT *
+        FROM indices
+       WHERE COLUMN "TABLE" = ToUppercase(table_schema || "." || table_name);
+
+  RECORD matchingindex;
+  FOREVERY (RECORD rec FROM indices)
+  {
+    STRING name := rec.internalname;
+    name := SubString(name, SearchSubString(name, "{") + 1);
+
+    INTEGER cols;
+    IF (LENGTH(coldiskids) = 0)
+    {
+      matchingindex := rec;
+      BREAK;
+    }
+
+    WHILE (TRUE)
+    {
+      name := SubString(name, SearchSubString(name, ":") + 1);
+      INTEGER id := ToInteger(Left(name, SearchSubString(name, "[")), 0);
+      IF (coldiskids[cols] != id)
+        BREAK;
+      cols := cols + 1;
+      IF (cols = LENGTH(coldiskids))
+      {
+        matchingindex := rec;
+        BREAK;
+      }
+    }
+  }
+
+  IF (RecordExists(matchingindex))
+    INSERT CELL uniqueentries := matchingindex.totalrecords - matchingindex.duplicates INTO matchingindex;
+
+  RETURN matchingindex;
+}
+
+/** Get the sorted, distinct values in a specific column
+    @param tablename Name of the referencing table (form: 'schema.table')
+    @param column_name Name of the referencing column
+    @return
+    @cell return.gid values
+*/
+RECORD ARRAY FUNCTION GetDistinctValuesInColumn(STRING tablename, STRING colname)
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  RECORD indexrec := FindIndex(tablename, [ colname ]);
+  IF (NOT RecordExists(indexrec))
+    THROW NEW Exception("Referenced table '" || tablename || "' has no index for column '" || colname || "'");
+
+  PRINT("Retrieving and sorting top group list from '" || tablename || "', estimate " || indexrec.uniqueentries || " entries... ");
+  DATETIME start;
+  start := GetCurrentDateTime();
+
+  trans->BeginWork();
+  RECORD ARRAY contents := __SendWHDBCommand(trans->id, "SHOW INDEX " || indexrec.id);
+  trans->RollbackWork();
+
+  contents :=
+      SELECT DISTINCT gid :=   __col0
+        FROM contents
+    ORDER BY __col0;
+
+  PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+  RETURN contents;
+}
+
+/* Contains a faster way to select from index, not complete yet though, and does not contain multi-level gids
+MACRO ClusterTest(STRING tablename, STRING ARRAY colnames, BOOLEAN incremental)
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  RECORD idindex := FindIndex(tablename, [ "ID" ]); // Primary key!
+  IF (NOT RecordExists(idindex))
+    THROW NEW Exception("Table '" || tablename || "' has no index for ID column");
+
+  PRINT("Table '" || tablename || "' has " || idindex.uniqueentries || " entries\n");
+
+  RECORD ARRAY cols :=
+      SELECT columnlist := Tokenize(col, ".")
+           , id :=          #collist
+        FROM ToRecordArray(colnames, "COL") AS collist;
+
+  RECORD ARRAY tables := GenerateSelectTree("root", tablename, cols, "");
+  IF (LENGTH(tables) = 1)
+  {
+    IF (LENGTH(colnames) != 0)
+    {
+      RECORD sortindex := FindIndex(tablename, colnames);
+      IF (RecordExists(sortindex))
+      {
+        trans->BeginWork();
+
+        RECORD ARRAY groups;
+
+        DATETIME start;
+        PRINT("Getting sorted recordids from index... ");
+        start := GetCurrentDateTime();
+        RECORD ARRAY contents := __SendWHDBCommand(trans->id, "SHOW INDEX " || sortindex.id);
+        PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+        PRINT("Got contents: " || LENGTH(contents) || " records\n");
+
+        PRINT(AnyToString((SELECT * FROM contents LIMIT 10), "boxed"));
+
+        IF (LENGTH(contents) != 0)
+        {
+          INTEGER gid := 1;
+          RECORD ARRAY grec := [ contents[0] ];
+          STRING ARRAY icells;
+          FOR (INTEGER i := 0; i < LENGTH(colnames); i := i + 1)
+            INSERT "__COL" || i INTO icells AT END;
+
+          PRINT("Converting groups to gid... ");
+          start := GetCurrentDateTime();
+          FOR (INTEGER i := 0, e := LENGTH(contents); i != e; i := i + 1)
+          {
+            RECORD rec := contents[i];
+            IF (NOT RecordLowerBound(grec, rec, icells).found)
+            {
+              gid := gid + 1;
+              grec := [ rec ];
+            }
+            contents[i] := [ gid := gid, __recid := rec.__recid ];
+          }
+          PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+        }
+
+//        PRINT(AnyToString(contents, "boxed"));
+//        ABORT("X");
+
+        PRINT("Getting recordid->id mapping index... ");
+        start := GetCurrentDateTime();
+        RECORD ARRAY idmapping := __SendWHDBCommand(trans->id, "SHOW INDEX " || idindex.id);
+        PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+
+        start := GetCurrentDateTime();
+        PRINT("Sorting... ");
+        contents :=
+            SELECT *
+              FROM contents
+          ORDER BY __recid;
+
+        idmapping :=
+            SELECT id := __col0
+                 , __recid
+              FROM idmapping
+          ORDER BY __recid;
+        PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+
+        PRINT(AnyToString((SELECT * FROM contents LIMIT 100), "boxed"));
+
+        PRINT("Merging id column... ");
+        start := GetCurrentDateTime();
+        INTEGER w := 0;
+        FOR (INTEGER c := 0, i := 0, ce := LENGTH(contents), ie := LENGTH(idmapping); c != ce AND i != ie;)
+        {
+          INTEGER l := contents[c].__recid;
+          INTEGER r := idmapping[i].__recid;
+          IF (l = r)
+          {
+            INSERT CELL id := idmapping[i].id INTO contents[c];
+            contents[w] := contents[c];
+            w := w + 1;
+            c := c + 1;
+            i := i + 1;
+          }
+          ELSE IF (l < r)
+            c := c + 1;
+          ELSE
+            i := i + 1;
+        }
+
+        FOR (INTEGER i := LENGTH(contents); i != w;)
+        {
+          i := i - 1;
+          DELETE FROM contents AT i;
+        }
+
+        PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+
+        PRINT(AnyToString((SELECT * FROM idmapping LIMIT 100), "boxed"));
+        PRINT(AnyToString((SELECT * FROM contents LIMIT 100), "boxed"));
+
+
+        trans->RollbackWork();
+      }
+    }
+
+
+  }
+
+}
+*/
+
+/** Add __recid column to a record array with ID's, from the index.
+   @param tablename Table to which the ids refer
+   @param contents
+   @cell contents.id
+   @return
+   @cell return.__recid Not always accurate, may point to expired records.
+   @cell return.id
+*/
+RECORD ARRAY FUNCTION AugmentWithRecordId(STRING tablename, RECORD ARRAY contents)
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  RECORD idindex := FindIndex(tablename, [ "ID" ]); // FIXME: use real primary key?
+
+  IF (NOT RecordExists(idindex))
+    THROW NEW Exception("Table '" || tablename || "' has no index on ID.");
+
+  PRINT("Getting recordid->id mapping index... ");
+  DATETIME start := GetCurrentDateTime();
+  trans->BeginWork();
+  RECORD ARRAY idmapping := __SendWHDBCommand(trans->id, "SHOW INDEX " || idindex.id);
+  trans->RollbackWork();
+  PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+
+  PRINT("Sorting id mapping... ");
+  start := GetCurrentDateTime();
+  idmapping :=
+      SELECT __recid
+            , id := __col0
+        FROM idmapping
+    ORDER BY __col0;
+  PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+
+  RECORD ARRAY sorted;
+  PRINT("Augmenting with recordid... ");
+  INTEGER w := 0;
+  FOR (INTEGER i := 0, e := LENGTH(contents); i != e; i := i + 1)
+  {
+    RECORD rec := contents[i];
+    RECORD pos := RecordLowerBound(idmapping, rec, [ "ID" ]);
+    contents[i] := DEFAULT RECORD;
+    IF (pos.found)
+    {
+      INSERT CELL __recid := idmapping[pos.position].__recid INTO rec;
+      contents[w] := rec;
+      w := w + 1;
+    }
+  }
+  contents := ArraySlice(contents, 0, w);
+  PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+  RETURN contents;
+}
+
+
+/** Generate a list of tables needed to execute a cluster query
+    @param rename Dynquery rename of this table
+    @param tablename Name of this table (form: 'schema.table')
+    @param cols Columns to select (like 'ATTRIBUTE.TYPE' and 'ENTITY')
+    @cell(string array) cols.id Id of this column
+    @cell(string array) cols.columnlist Tokenized columns (eg ['ATTRIBUTE','TYPE'] and ['ENTITY']
+    @param refdby Optional name of referencing table
+    @return
+    @cell return.fulltablename Full table name (form: 'schema.table')
+    @cell return.table_schema
+    @cell return.table_name
+    @cell return.rename Dynquery rename
+    @cell return.parts Columns that are selected
+    @cell return.parts.id Id of the column
+    @cell return.parts.rename Rename of this table
+    @cell return.parts.columnname Column name in this table (eg 'TYPE' when generated from 'ATTRIBUTE.TYPE')
+    @cell return.columns Columns that need to be selected in this table
+    @cell return.refdby Table this table is referenced by
+*/
+RECORD ARRAY FUNCTION GenerateSelectTree(STRING rename, STRING tablename, RECORD ARRAY cols, STRING refdby)
+{
+  RECORD ARRAY grouped :=
+      SELECT lists :=       GroupedValues([ columnlist := ArraySlice(columnlist, 1), id := id ])
+           , columnname :=  Any(columnlist[0])
+        FROM cols
+       WHERE LENGTH(columnlist) > 1
+    GROUP BY columnlist[0];
+
+  STRING schema_name := Left(tablename, SearchSubString(tablename, "."));
+  STRING table_name := SubString(tablename, SearchSubString(tablename, ".") + 1);
+
+  RECORD ARRAY subtables;
+  FOREVERY (RECORD rec FROM grouped)
+  {
+    STRING refdtable := GetReferencedTable(tablename, rec.columnname);
+    IF (refdtable = "")
+      THROW NEW Exception("Column '" || tablename || "'('" || rec.columnname || "') does not exist or is not a reference column");
+
+    subtables := subtables CONCAT GenerateSelectTree(rename || "_" || #rec, refdtable, rec.lists, rename || "." || rec.columnname);
+  }
+
+  RETURN
+      [ [ fulltablename :=  tablename
+        , table_schema :=   schema_name
+        , table_name :=     table_name
+        , rename :=         rename
+        , parts :=
+             (SELECT id :=          id
+                   , rename :=      rename
+                   , columnname :=  columnlist[0]
+                FROM cols
+               WHERE LENGTH(columnlist) = 1)
+        , columns :=
+             (SELECT AS STRING ARRAY columnlist[0]
+                FROM cols
+               WHERE LENGTH(columnlist) = 1)
+        , refdby :=       refdby
+        ]
+      ] CONCAT subtables;
+}
+
+/** Use a dynamic query select to get the list of records in sort order
+    @param tables Output of GenerateSelectTree
+    @param addgids Whether to add gids for incremental clustering
+    @return
+    @cell(integer) return.__recid Probable record id of this row (might point to expired record, though)
+    @cell(integer) return.id Id of this row
+    @cell(integer array) return.gids Group ids, per sort level, only when addgids is TRUE.
+*/
+RECORD ARRAY FUNCTION GetSortedListFromSelect(RECORD ARRAY tables, BOOLEAN addgids)
+{
+  PRINT("Using table select for sorting\n");
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  OBJECT dynquery := NEW DynamicQuery;
+
+  INSERT "ID" INTO tables[0].columns AT END;
+
+  RECORD ARRAY allparts;
+  FOREVERY (RECORD rec FROM tables)
+  {
+    dynquery->AddTable(rec.rename, trans->id, rec.fulltablename, rec.columns);
+    allparts := allparts CONCAT rec.parts;
+  }
+  FOREVERY (RECORD rec FROM tables)
+    IF (rec.refdby != "")
+      dynquery->AddJoin(rec.refdby, "=", rec.rename || ".ID");
+
+  allparts :=
+      SELECT *
+           , sortname := ToString(id)
+        FROM allparts
+    ORDER BY id DESC;
+
+  STRING ARRAY sortcols := SELECT AS STRING ARRAY sortname FROM allparts;
+
+  DATETIME start;
+
+  PRINT("Executing query... ");
+  start := GetCurrentDateTime();
+  RECORD ARRAY rawdata := dynquery->Execute();
+  PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+
+  PRINT("Processing raw query data... ");
+  start := GetCurrentDateTime();
+  FOR (INTEGER i := 0, e := LENGTH(rawdata); i != e; i := i + 1)
+  {
+    RECORD rec := rawdata[i];
+
+    RECORD resrec := [ id := rec.root.id ];
+    FOREVERY (RECORD part FROM allparts)
+      resrec := CellInsert(resrec, part.sortname, GetCell(GetCell(rec, part.rename), part.columnname));
+
+    rawdata[i] := resrec;
+  }
+  PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+
+  rawdata := AugmentWithRecordId(tables[0].fulltablename, rawdata);
+
+  rawdata := SortList(rawdata, [ "ID" ] CONCAT (SELECT AS STRING ARRAY sortname FROM allparts), addgids);
+
+  RETURN rawdata;
+}
+
+/** Sort a list on columns, and optionally add group ids per sort level
+    @param tosort Rows to sort
+    @param colnames Reverse list of sort columns
+    @param addgids Whether to add multi-level group ids
+    @return Original record
+    @cell(integer array) gids Multilevel group ids, only when addgids = TRUE
+    @example When sorting on A, then B, this will yield
+    [A:=0,B:=0] -> gids = [ 1, 1 ]
+    [A:=0,B:=1] -> gids = [ 1, 2 ]
+    [A:=1,B:=0] -> gids = [ 2, 3 ]
+    [A:=1,B:=1] -> gids = [ 2, 4 ]
+*/
+RECORD ARRAY FUNCTION SortList(RECORD ARRAY tosort, STRING ARRAY colnames, BOOLEAN addgids)
+{
+  FOREVERY (STRING name FROM colnames)
+    colnames[#name] := ToUppercase(name);
+
+  DATETIME start := GetCurrentDateTime();
+  FOREVERY (STRING sortname FROM colnames)
+  {
+    PRINT("Sorting loop " || #sortname || "/" || LENGTH(colnames) || "\r");
+    tosort :=
+        SELECT *
+          FROM tosort
+      ORDER BY GetCell(tosort, sortname);
+  }
+  PRINT("Sorted in " || GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs     \n");
+
+  IF (addgids)
+  {
+    start := GetCurrentDateTime();
+    PRINT("Calculating gids... ");
+    IF (LENGTH(colnames) = 1) // Only ID column
+    {
+      INTEGER gid := 1;
+      FOR (INTEGER i := 0, e := LENGTH(tosort); i != e; i := i + 1)
+      {
+        INSERT CELL topgid := gid INTO tosort[i];
+        INSERT CELL gids := DEFAULT INTEGER ARRAY INTO tosort[i];
+      }
+    }
+    ELSE
+    {
+      RECORD ARRAY groups;
+      INTEGER groupcounter;
+
+      STRING ARRAY groupsort;
+      FOREVERY (STRING s FROM colnames)
+        IF (#s != 0)
+          INSERT s INTO groupsort AT 0;
+
+      FOR (INTEGER i := 0, e := LENGTH(tosort); i != e; i := i + 1)
+        INSERT CELL gids := DEFAULT INTEGER ARRAY INTO tosort[i];
+
+      FOR (INTEGER g := 0; g < LENGTH(groupsort); g := g + 1)
+      {
+        STRING ARRAY cols := ArraySlice(groupsort, 0, g + 1);
+        RECORD ARRAY list;
+        INTEGER counter := 0;
+
+        FOR (INTEGER i := 0, e := LENGTH(tosort); i != e; i := i + 1)
+        {
+          RECORD pos := RecordLowerBound(list, tosort[i], cols);
+          IF (NOT pos.found)
+          {
+            counter := counter + 1;
+            RECORD grec := tosort[i];
+            INSERT CELL gid := counter INTO grec;
+            INSERT grec INTO list AT pos.position;
+            INSERT counter INTO tosort[i].gids AT END;
+          }
+          ELSE
+            INSERT list[pos.position].gid INTO tosort[i].gids AT END;
+        }
+      }
+    }
+    PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs     \n");
+  }
+
+  RETURN tosort;
+}
+
+
+/** Try to use index to get list of sorted records
+    @param tablerec Tablerecord (first record from GenerateSelectTree)
+    @param addgids
+    @return Empty record if no index found
+    @cell return.sorted List of sorted records
+*/
+RECORD FUNCTION TryIndex(RECORD tablerec, BOOLEAN addgids)
+{
+  PRINT("Trying to find indexes for sorting\n");
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  RECORD matchindex := FindIndex(tablerec.table_schema || "."  || tablerec.table_name, tablerec.columns);
+  RECORD idindex := FindIndex(tablerec.table_schema || "."  || tablerec.table_name, [ "ID" ]);
+
+  IF (NOT RecordExists(idindex))
+    THROW NEW Exception("Table '" || tablerec.table_schema || "'.'" || tablerec.table_name || "' has no index on ID.");
+
+  IF (RecordExists(matchindex))
+  {
+    trans->BeginWork();
+
+    DATETIME start;
+    PRINT("Getting sorted recordids from index... ");
+    start := GetCurrentDateTime();
+    RECORD ARRAY contents := __SendWHDBCommand(trans->id, "SHOW INDEX " || matchindex.id);
+    PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+    PRINT("Got contents: " || LENGTH(contents) || " records\n");
+
+    PRINT("Getting recordid->id mapping index... ");
+    start := GetCurrentDateTime();
+    RECORD ARRAY idmapping := __SendWHDBCommand(trans->id, "SHOW INDEX " || idindex.id);
+    PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+
+    trans->RollbackWork();
+
+    PRINT("Sorting id mapping... ");
+    start := GetCurrentDateTime();
+    idmapping :=
+        SELECT *
+          FROM idmapping
+      ORDER BY __recid;
+    PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+
+    RECORD ARRAY sorted;
+    PRINT("Processing... ");
+    FOR (INTEGER i := 0, e := LENGTH(contents); i != e; i := i + 1)
+    {
+      RECORD rec := contents[i];
+      RECORD pos := RecordLowerBound(idmapping, rec, [ "__RECID" ]);
+      contents[i] := DEFAULT RECORD;
+      IF (pos.found)
+      {
+        INSERT CELL id := idmapping[pos.position].__col0 INTO rec;
+        INSERT rec INTO sorted AT END;
+      }
+    }
+    PRINT(GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs\n");
+
+    STRING ARRAY colnames := [ "ID" ];
+    FOR (INTEGER i := 0; i < LENGTH(tablerec.columns); i := i + 1)
+      INSERT "__COL" || i INTO colnames AT 1;
+
+    sorted := SortList(sorted, colnames, addgids);
+
+    RETURN
+        [ sorted := sorted
+        ];
+  }
+  ELSE
+  {
+    PRINT("No matching index found\n");
+  }
+
+  RETURN DEFAULT RECORD;
+}
+
+/** Get list of sorted records
+    @param tablename Name of table
+    @param cluster_columns Columns to cluster on (eg 'ATTRIBUTE.TYPE', 'FOLDER')
+    @param addgids Whether to add multi-level group ids for incremental clustering
+    @return List of sorted records
+*/
+RECORD ARRAY FUNCTION GetSortedTableIds(STRING tablename, STRING ARRAY cluster_columns, BOOLEAN addgids)
+{
+  RECORD ARRAY cols :=
+      SELECT columnlist := Tokenize(col, ".")
+           , id :=          #collist
+        FROM ToRecordArray(cluster_columns, "COL") AS collist;
+
+  RECORD ARRAY sorted;
+
+  RECORD ARRAY tables := GenerateSelectTree("root", tablename, cols, "");
+  BOOLEAN have_sorted;
+
+  IF (LENGTH(tables) = 1)
+  {
+    RECORD rec := TryIndex(tables[0], addgids);
+    IF (RecordExists(rec))
+      RETURN rec.sorted;
+  }
+
+  RETURN GetSortedListFromSelect(tables, addgids);
+}
+
+/** Do a scan of a table, to enable janitor to execute cleanup hints
+    @param tablename Table to scan
+    @param fullscan Whether to do a full scan
+    @param ids List of ids to select if no full scan is selected
+*/
+MACRO ScanTable(STRING tablename, BOOLEAN fullscan, INTEGER ARRAY ids)
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+  TABLE < INTEGER id > mytable := BindTransactionToTable(trans->id, tablename);
+  SELECT FROM mytable WHERE fullscan ? TRUE : id IN ids;
+}
+
+/** Make sure old expired records are deleted by the janitor - and wait for that
+    @param tablename Table to scan
+    @param fullscan Whether to do a full scan
+    @param ids List of ids to select if no full scan is selected
+*/
+MACRO DestroyOldRecords(STRING tablename, BOOLEAN fullscan, INTEGER ARRAY ids)
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  trans->BeginWork();
+  INTEGER ARRAY transactions :=
+        SELECT AS INTEGER ARRAY transid
+          FROM __SendWHDBCommand(trans->id, "SHOW TRANSACTIONS");
+  trans->RollbackWork();
+
+  WHILE (TRUE)
+  {
+    PRINT("Waiting for running transactions to finish... ");
+    Sleep(1000);
+    trans->BeginWork();
+    INTEGER ARRAY stillrunning :=
+        SELECT AS INTEGER ARRAY transid
+          FROM __SendWHDBCommand(trans->id, "SHOW TRANSACTIONS")
+          WHERE transid IN transactions;
+    trans->RollbackWork();
+    IF (LENGTH(stillrunning) = 0)
+    {
+      PRINT("all finished   \n");
+      BREAK;
+    }
+    PRINT(LENGTH(stillrunning) || " running\r");
+  }
+
+  PRINT("Touching moved records to start cleanups\n");
+  ScanTable(tablename, fullscan, ids);
+
+  WHILE (TRUE)
+  {
+    PRINT("Waiting for janitor... ");
+    trans->BeginWork();
+    RECORD data := __SendWHDBCommand(trans->id, "SHOW JANITOR");
+    trans->RollbackWork();
+    IF (data.numhints = 0)
+    {
+      PRINT("finished             \n");
+      BREAK;
+    }
+    PRINT(data.numhints || " sections left  \r");
+    Sleep(1000);
+  }
+}
+
+/** Filter list of sorted columns to determine which must be reclustered, and which are still ok
+    @param sorted
+    @cell(integer array) sorted.gid Multi-level group ids
+    @param colcount Nr of columns the set is sorted on
+    @return List of records with those that are still clustered filtered out
+*/
+RECORD ARRAY FUNCTION FilterForIncrementalUpdate(RECORD ARRAY sorted, INTEGER colcount)
+{
+  INTEGER ARRAY all_shared_sections;
+  DATETIME start;
+
+  /* If sorting on 1 column only, we find all groups that have more than 4 sections shared
+     with other groups - those sections will then all be reclustered
+
+     If sorting on multiple columns we do the same first for 1 column, then for 2 columns, etc.
+     If we would filter on the all columns only we would lose sight of the outer column
+     (eg, clustering wrd.entity_settings on wrdschema and entity would only keep entity clustered,
+     and lose sight of fragmentation on schema level
+  */
+
+  PRINT("Filtering for incremental update, initial " || LENGTH(sorted) || " records\n");
+
+  FOR (INTEGER i := 0; i < colcount; i := i + 1)
+  {
+    PRINT("Incremental filter round " || i || "/" || colcount || "\n");
+
+    PRINT("Calculating section data & groups ... ");
+    start := GetCurrentDateTime();
+    RECORD ARRAY sections :=
+        SELECT groups :=    (SELECT AS INTEGER ARRAY DISTINCT gids[i] FROM GroupedValues(sorted))
+             , section :=   Any(__recid / 512)
+          FROM sorted
+      GROUP BY __recid / 512;
+
+    RECORD ARRAY groups;
+    FOREVERY (RECORD rec FROM sections)
+    {
+      IF (LENGTH(rec.groups) = 1)
+        CONTINUE;
+
+      FOREVERY (INTEGER gid FROM rec.groups)
+      {
+        RECORD pos := RecordLowerBound(groups, [ gid := gid ], [ "GID" ]);
+        IF (NOT pos.found)
+          INSERT [ gid := gid, shared_sections := [ INTEGER(rec.section) ] ] INTO groups AT pos.position;
+        ELSE
+          INSERT rec.section INTO groups[pos.position].shared_sections AT END;
+      }
+    }
+    PRINT(LENGTH(sections) || " sections with " || LENGTH(groups) || " groups (" || GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs)\n");
+
+    PRINT("Finding groups that have more than 4 shared sections... ");
+    start := GetCurrentDateTime();
+
+    INTEGER w := 0;
+    FOR (INTEGER j := 0, e := LENGTH(groups); j != e; j := j + 1)
+    {
+      IF (LENGTH(groups[j].shared_sections) >= 4)
+      {
+        groups[w] := groups[j];
+        w := w + 1;
+      }
+    }
+    groups := ArraySlice(groups, 0, w);
+//    PRINT(AnyToString(groups, "tree"));
+/*
+    DELETE
+      FROM groups
+     WHERE LENGTH(shared_sections) < 4;
+*/
+    INTEGER ARRAY shared_sections;
+    FOREVERY (RECORD rec FROM groups)
+      shared_sections := shared_sections CONCAT rec.shared_sections;
+
+    shared_sections :=
+        SELECT AS INTEGER ARRAY DISTINCT id
+          FROM ToRecordArray(shared_sections, "ID");
+
+    PRINT(LENGTH(shared_sections) || " excessively shared sections for " || LENGTH(groups) || " groups (" || GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs)\n");
+
+    all_shared_sections := all_shared_sections CONCAT shared_sections;
+  }
+
+  all_shared_sections :=
+      SELECT AS INTEGER ARRAY DISTINCT id
+        FROM ToRecordArray(all_shared_sections, "ID")
+    ORDER BY id;
+
+  PRINT("Removing ids that are not in shared sections... ");
+  start := GetCurrentDateTime();
+
+  INTEGER w := 0;
+  FOR (INTEGER i := 0, e := LENGTH(sorted); i != e; i := i + 1)
+    IF (LowerBound(all_shared_sections, sorted[i].__recid / 512).found)
+    {
+      sorted[w] := sorted[i];
+      w := w + 1;
+    }
+  sorted := ArraySlice(sorted, 0, w);
+//  DELETE FROM sorted WHERE __recid / 512 NOT IN all_shared_sections;
+  PRINT(LENGTH(sorted) || " records to recluster in " || LENGTH(all_shared_sections) || " sections (" || GetDateTimeDifference(start, GetCurrentDateTime()).msecs || " msecs)\n");
+
+  RETURN sorted;
+}
+
+/** Cluster the records of a table
+    @param tablename Table to cluster
+    @param cluster_columns Columns to cluster on (eg 'ATTRIBUTE.TYPE' and 'ENTITY')
+    @param incremental Whether to do an incremental clustering (uses a lot more CPU)
+*/
+PUBLIC MACRO ClusterTable(STRING tablename, STRING ARRAY cluster_columns, BOOLEAN incremental)
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  PRINT("Touching all records to start cleanups\n");
+  ScanTable(tablename, TRUE, DEFAULT INTEGER ARRAY);
+
+  RECORD ARRAY sorted := GetSortedTableIds(tablename, cluster_columns, incremental);
+
+  IF (incremental)
+  {
+    sorted := FilterForIncrementalUpdate(sorted, LENGTH(cluster_columns));
+//    PRINT(AnyToString((SELECT * FROM sorted LIMIT 1000), "boxed"));
+  }
+
+  // Cluster max 100000 records at a time
+  RECORD ARRAY groups :=
+      SELECT ids := GroupedValues(id)
+        FROM sorted
+    GROUP BY #sorted / 100000;
+
+  TABLE < INTEGER id > mytable := BindTransactionToTable(trans->id, tablename);
+
+  INTEGER total;
+  FOREVERY (RECORD rec FROM groups)
+  {
+    PRINT("Group " || #rec || "/" || LENGTH(groups) || "            \n");
+    trans->BeginWork();
+
+    RECORD ARRAY subs :=
+        SELECT ids := GroupedValues(id)
+          FROM ToRecordArray(rec.ids, "ID") AS ids
+      GROUP BY #ids / 25; // Dividable by 1000, please
+
+    FOREVERY (RECORD sub FROM subs)
+    {
+      IF ((total % 1000) = 0)
+        PRINT(total || "/" || LENGTH(sorted) || "\r");
+
+      UPDATE mytable SET id := id WHERE id IN sub.ids;
+      total := total + LENGTH(sub.ids);
+    }
+
+    trans->CommitWork();
+
+    DestroyOldRecords(tablename, FALSE, rec.ids);
+  }
+
+
+//  PRINT(AnyToString((SELECT * FROM sorted LIMIT 100), "boxed"));
+
+//  PRINT("K love you byebye\n");
+}

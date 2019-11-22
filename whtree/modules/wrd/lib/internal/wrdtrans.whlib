@@ -1,0 +1,337 @@
+﻿<?wh
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/queries.whlib";
+
+LOADLIB "wh::dbase/loopback.whlib";
+
+STATIC OBJECTTYPE WRDCursor EXTEND LoopbackCursor
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Query for this cursor
+      @cell maxblockrows Max rows to return per RetrieveNextBlock
+      @cell query_limit
+      @cell joinconditions
+      @cell singleconditions
+      @cell tablesources
+      @cell tablesources.name Name of the type in wrd
+      @cell tablesources.columns List of relevant columns for this source (retrieved or updated)
+      @cell tablesources.columns.dbase_name WRD tag
+      @cell tablesources.columns.name Name to return this cell with
+      @cell tablesources.columns.fase Bitmask, 1: return at fase1, 2: return at fase2, 4: return at recheck, 8: update
+      @cell tablesources.columns.flags Bitmast, 1,2,4: don't use, 8: Is key, 0x10 null translation, 0x20 readonly, 0x40 unindexable
+      @cell tablesources.columns.nulldefault Harescript value for NULL values
+      @cell tablesources.columns.nulldefault_valid Whether the value in nulldefault is valid
+      @cell tablesources.columns.type Id of Harescript type
+  */
+  RECORD query;
+
+
+  /** List of table sources
+      @cell cols List of columns to retrieve for this source
+      @cell cols.source WRD tagname of column
+      @cell cols.name Name to return the column
+      @cell type For update/delete queries, WRD type of this source
+  */
+  RECORD ARRAY trans_sources;
+
+
+  /** Result of executed WRD query
+  */
+  RECORD ARRAY queryresult;
+
+
+  /** Index within @a queryresult of the first row in pvt_currentblock
+  */
+  INTEGER blockstart;
+
+
+  /** Index within @a queryresult of the first row of the next block
+  */
+  INTEGER nextblockstart;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT trans, RECORD query, STRING querytype)
+  {
+    OBJECT wrdschema := trans->wrdschema;
+    this->query := query;
+
+//    query.maxblockrows := 1; //FIXME shouldn't be needed (but if removed, fix all update code)
+
+    /* Build a wrd query that executes the database query
+    */
+    RECORD wrdquery :=
+        [ sources :=    DEFAULT RECORD ARRAY
+        , links :=      DEFAULT RECORD ARRAY
+        ];
+
+    // Process all table sources one by one
+    FOREVERY (RECORD source FROM query.tablesources)
+    {
+      // Get the type based on the name of the source, and check it
+      OBJECT type := wrdschema->GetType(source.name);
+      IF (NOT ObjectExists(type))
+        ABORT("Type '"||source.name||"' does not exist in WRD schema '" || trans->wrdschema->tag || "'");
+
+      RECORD cols;
+      RECORD ARRAY transcols;
+
+      // Gather all columns for the query
+      FOREVERY(RECORD col FROM source.columns)
+        IF ((col.fase BITAND 3) != 0)
+        {
+          STRING colname := #source || "_" || col.name;
+          cols := CellInsert(cols, colname, col.dbase_name);
+          INSERT [ source := colname, name := col.name ] INTO transcols AT END;
+        }
+
+      // For update/delete, get the wrdid column. Use a unique name (other name look like #source||'_'||name)
+      IF(querytype != "SELECT" AND #source = 0)
+        INSERT CELL __wrdid := "WRD_ID" INTO cols;
+
+      // Build the query source data for RunWRDQuery
+      RECORD querysource :=
+          [ name := "source#"||#source
+          , type := type
+          , outputcolumns := cols
+          , filters := DEFAULT RECORD ARRAY
+          ];
+
+      IF(trans->historymode!="")
+        INSERT CELL historymode := trans->historymode INTO querysource;
+
+      INSERT querysource INTO wrdquery.sources AT END;
+
+      // Store our own data in our local sources list
+      INSERT [ cols := transcols
+             , type := querytype != "SELECT" ? type : DEFAULT OBJECT
+             ] INTO this->trans_sources AT END;
+    }
+
+    BOOLEAN handled_all_conditions := TRUE;
+
+    // Convert and distribute single conditions (case sensitivity as the select specified!)
+    FOREVERY (RECORD single FROM query.singleconditions)
+    {
+      RECORD columninfo := query.tablesources[single.tableid].columns[single.columnid];
+
+      INSERT
+          [ field :=            columninfo.dbase_name
+          , match_type :=       single.condition
+          , value :=            single.value
+          , match_case :=       single.casesensitive
+          ] INTO wrdquery.sources[single.tableid].filters AT END;
+    }
+
+    // Convert and distribute join conditions (case sensitivity as the select specified!)
+    FOREVERY (RECORD joinc FROM query.joinconditions)
+    {
+      STRING match_type := joinc.condition;
+
+      // Can only handle joins with equality
+      IF (match_type != "=")
+      {
+        handled_all_conditions := FALSE;
+        CONTINUE;
+      }
+
+      RECORD column1_info := query.tablesources[joinc.table1_id].columns[joinc.t1_columnid];
+      RECORD column2_info := query.tablesources[joinc.table2_id].columns[joinc.t2_columnid];
+
+      INTEGER t1 := joinc.table1_id;
+      INTEGER t2 := joinc.table2_id;
+
+      IF (column1_info.dbase_name = "WRD_ID")
+      {
+        // If the left column is WRD_ID, it is referred from by right.field
+        // Can't represent that in WRD query links, so we must swap table1 and table2
+        RECORD i := column2_info;
+        column2_info := column1_info;
+        column1_info := i;
+        INTEGER t := t2;
+        t2 := t1;
+        t1 := t;
+      }
+      ELSE IF (column2_info.dbase_name != "WRD_ID") // can't handle...
+      {
+        handled_all_conditions := FALSE;
+        CONTINUE;
+      }
+
+      INSERT
+          [ left :=             "source#"||t1
+          , right :=            "source#"||t2
+          , field :=            column1_info.dbase_name
+          , match_type :=       match_type
+          ] INTO wrdquery.links AT END;
+    }
+
+    // Insert the query when afterfiltering isn't needed
+    if (query.query_limit != -1 AND handled_all_conditions)
+      INSERT CELL resultlimit := query.query_limit INTO wrdquery;
+
+    // Execute the query!
+    this->queryresult := RunWRDQuery(wrdquery);
+  }
+
+  UPDATE PUBLIC MACRO RetrieveNextBlock()
+  {
+    // Calculate the number of rows in the next block
+    INTEGER to_add := this->query.maxblockrows;
+    INTEGER left := LENGTH(this->queryresult) - this->nextblockstart;
+    IF (left < to_add)
+      to_add := left;
+
+    //
+    this->pvt_currentblock := DEFAULT RECORD ARRAY;
+    INTEGER nextrow := this->nextblockstart;
+    this->blockstart := nextrow;
+
+    FOR (INTEGER i := 0; i < to_add; i := i + 1)
+    {
+      RECORD data := this->queryresult[nextrow];
+      nextrow := nextrow + 1;
+
+      FOREVERY (RECORD t FROM this->trans_sources)
+      {
+        RECORD r;
+        FOREVERY (RECORD c FROM t.cols)
+          r := CellInsert(r, c.name, GetCell(data, c.source));
+
+        INSERT r INTO this->pvt_currentblock AT END;
+      }
+    }
+    this->nextblockstart := nextrow;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION LockRow(INTEGER row)
+  {
+    RETURN "UNCHANGED";
+  }
+
+  UPDATE PUBLIC MACRO UnlockRow(INTEGER row)
+  {
+  }
+
+  UPDATE PUBLIC MACRO DeleteRecord(INTEGER row)
+  {
+    INTEGER wrdid := this->queryresult[this->blockstart + row].__wrdid;
+    this->trans_sources[0].type->GetEntity(wrdid)->DeleteEntity();
+  }
+
+  UPDATE PUBLIC MACRO UpdateRecord(INTEGER row, RECORD newfields)
+  {
+    RECORD fields;
+    FOREVERY (RECORD rec FROM this->query.tablesources[0].columns)
+      IF ((rec.fase BITAND 8) != 0)
+        fields := CellInsert(fields, rec.dbase_name, GetCell(newfields, rec.name));
+
+    INTEGER wrdid := this->queryresult[this->blockstart + row].__wrdid;
+    this->trans_sources[0].type->UpdatetEntity(wrdid, fields);
+  }
+
+
+  UPDATE PUBLIC MACRO GetFase2Data(INTEGER ARRAY rows)
+  {
+    // Not needed
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    // Not needed
+  }
+>;
+
+
+STATIC OBJECTTYPE WRDTransaction EXTEND LoopbackTransaction
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// WRD schema
+  OBJECT pvt_wrdschema;
+
+
+  /// Global historymode override
+  STRING historymode;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY wrdschema(pvt_wrdschema, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT wrdschema)
+  {
+    this->pvt_wrdschema := wrdschema;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    IF(ToUppercase(columnname) != "WRD_ID")
+      THROW NEW Exception("Column '" || columnname || "' is not an autonumber column");
+    RETURN MakeAutonumber(wrd.entities,"id");
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION OpenCursor(RECORD query, STRING type)
+  {
+    RETURN NEW WRDCursor(PRIVATE this, query, type);
+  }
+
+  UPDATE PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
+  {
+    RECORD ts := query.tablesources[0];
+    STRING tablename := ts.name;
+
+    // Convert the HareScript names to WRD tags (HareScript may override the names)
+    RECORD fields;
+    FOREVERY (RECORD rec FROM ts.columns)
+      IF (CellExists(newfields, rec.name))
+        fields := CellInsert(fields, rec.dbase_name, GetCell(newfields, rec.name));
+
+    //ADDME fail transaction on createentity fialure, or throw?
+    this->wrdschema->GetType(tablename)->CreateEntity(fields);
+  }
+
+  UPDATE STRING FUNCTION GetType()
+  {
+    RETURN "WRD";
+  }
+
+  // WRD specific functions
+
+  PUBLIC MACRO SetGlobalHistoryModeToAll()
+  {
+    this->historymode := "all";
+  }
+>;
+
+PUBLIC OBJECT FUNCTION OpenWRDTransaction(OBJECT wrdschema)
+{
+  RETURN NEW WRDTransaction(wrdschema);
+}
+/*
+PUBLIC SCHEMA FUNCTION BindTransactionToWRDSchema(OBJECT wrdschema)
+{
+  OBJECT trans := NEW WRDTransaction(wrdschema); //ADDME store and reuse trans inside WRDSChema
+  OBJECT ltf := CreateForwardingLoopbackTransactionFromObject(trans, [ ldaptrans := trans ]);
+  RETURN BindTransactionToSchema(ltf->id, "");
+}*/

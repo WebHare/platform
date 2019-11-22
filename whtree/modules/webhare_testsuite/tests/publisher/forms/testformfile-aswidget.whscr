@@ -1,0 +1,70 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+//to open: form:        https://webhare.moe.sf.webhare.nl/?app=publisher:edit(/WebHare%20testsuite%20site/webtools/form)
+//         sharedblock: https://webhare.moe.sf.webhare.nl/?app=publisher(/WebHare%20testsuite%20site/tmp/rtdtype/sharedblocks)
+STRING emailfieldname;
+
+PUBLIC MACRO BuildForm()
+{
+  RECORD form := BuildWebtoolForm( [ iswidget := TRUE, checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs := TRUE ]);
+
+  testfw->BeginWork();
+
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT sharedblockstype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest");
+  OBJECT sharedblocksobj := testloc->CreateFile([ name := "sharedblocks", type := richdoctype->id, publish := TRUE ]);
+  sharedblockstype->SetInstanceData(sharedblocksobj->id,
+     [ blocks := [ whfstype := "http://www.webhare.net/xmlns/publisher/sharedblocks"
+                 , overridetype := 2
+                 , blocks := [[ block := form.id ]
+                              ]
+                 ]
+     ]);
+
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(sharedblocksobj->indexurl));
+
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT webtoolform := OpenFormFileDefinition(formfile);
+  OBJECT webtoolresults := OpenFormFileResults(formfile);
+  RECORD ARRAY fields := webtoolform->ListFields();
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
+
+  RECORD submitrec := [ firstname := "Widgettester"
+                      , "address.country" := "NL"
+                      , "address.street" := "Hengelosestraat"
+                      , "address.nr_detail" := "296"
+                      , "address.zip" := "7521 AM"
+                      , "address.city" := "Enschede"
+                      ];
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
+
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+  TestEq([[ field := "thankyou"
+          , value := '<h1 class="heading1">Thank you!<\/h1><p class="normal">We humbly thank you for completing our form, Widgettester.<\/p><div class="embedblock1result">Block1 Widget Rendered: <i>abcdefgh<\/i><\/div>'
+         ]], res.result.richvalues);
+
+  RECORD ARRAY directrows := webtoolresults->ListResults( [ outputcolumns := CELL[ "mail" := emailfieldname, fn := "firstname", "upload", "address" ] ]);
+  TestEq(1,Length(directrows));
+}
+
+RunTestframework([ PTR BuildForm
+                 ]
+                ,[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                ]
+                 ]);

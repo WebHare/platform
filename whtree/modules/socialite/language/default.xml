@@ -1,0 +1,259 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="common">   <!-- common -->
+    <textgroup gid="errors">   <!-- common.errors -->
+      <text tid="incorrectapp">The token does not appear to belong to this application, as it could not be decrypted using this application's secret</text>
+      <text tid="invalidtoken">The token does not appear to be a valid secured Socialite token</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="authorize">   <!-- commondialogs.authorize -->
+      <text tid="authorize">Authorize application</text>
+      <text tid="authorize_text">Please authorize this application in the popup. This dialog should close automatically after you have authorized it. If you receive a verification code instead, you will have to fill it in here to complete the authorization.</text>
+      <text tid="norighttoauthorize">You have not been given the right to authorize sessions for account "<param p="1"/>"</text>
+      <text tid="retrytext">Authentication has failed (did you deny?). Please try again.</text>
+      <text tid="verify">Verification code</text>
+    </textgroup>
+    <textgroup gid="location">   <!-- commondialogs.location -->
+      <text tid="mapbox">Location</text>
+      <text tid="noresults">There are no results</text>
+      <text tid="results">Results</text>
+      <text tid="searchbox">Search</text>
+      <text tid="searchbutton">Search</text>
+      <text tid="title">Choose location</text>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
+      <text tid="confirmclear">Are you sure you want to clear the location?</text>
+      <text tid="noresults">There are no results found.</text>
+      <text tid="queryfailed">Google API request failed - we received error code '<param p="1"/>' with description '<param p="2"/>'</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="components">   <!-- components -->
+    <textgroup gid="map">   <!-- components.map -->
+      <text tid="loading">Loading the Google map...</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="components_vimeo">   <!-- components_vimeo -->
+    <text tid="novideoselected">No Vimeo movie was selected.</text>
+    <text tid="vimeounavailable">Searching for videos failed. The system administrator may have to verify whether Vimeo permissions have been correctly set up.</text>
+    <textgroup gid="movieplayer">   <!-- components_vimeo.movieplayer -->
+      <text tid="screentitle">Vimeo media player</text>
+    </textgroup>
+    <textgroup gid="searchmovie">   <!-- components_vimeo.searchmovie -->
+      <text tid="creationdate">Creation date</text>
+      <text tid="description">Description</text>
+      <text tid="duration">Duration</text>
+      <text tid="error_maxresults">Your query returned more than <param p="1"/> results. Try narrowing your search.</text>
+      <text tid="error_noresults">Your query returned no results.</text>
+      <text tid="openinwindow">Play in new window</text>
+      <text tid="preview">Preview</text>
+      <text tid="screentitle">Vimeo media browser</text>
+      <text tid="search">Search</text>
+      <text tid="searchfirst">Enter some keywords to search for your movie</text>
+      <text tid="searchwords">Query</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="config">   <!-- config -->
+    <text tid="apptitle">Socialite Config</text>
+    <textgroup gid="account">   <!-- config.account -->
+      <text tid="tag">Tag</text>
+      <text tid="title">Title</text>
+      <text tid="windowtitle">Account</text>
+    </textgroup>
+    <textgroup gid="application">   <!-- config.application -->
+      <text tid="applicationtype">Application type</text>
+      <text tid="appsettingsbox">Application settings</text>
+      <text tid="authenticationcallbackhost">Host for authentication callbacks</text>
+      <text tid="developerkey">Developer key</text>
+      <text tid="emulationurl">Emulation URL</text>
+      <text tid="jsredirecturl">JS api redirect</text>
+      <text tid="logrpc">Log calls to RPC log</text>
+      <text tid="privatekey">Secret key</text>
+      <text tid="publickey">Consumer/API key</text>
+      <text tid="remarksbox">Remarks</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Title</text>
+      <text tid="windowtitle">Application</text>
+    </textgroup>
+    <textgroup gid="exportaccount">   <!-- config.exportaccount -->
+      <text tid="copyaccountinfo">Copy the account info below, and paste it on the destination server</text>
+      <text tid="exportaccount">Export account</text>
+    </textgroup>
+    <textgroup gid="importaccount">   <!-- config.importaccount -->
+      <text tid="accountexists">An account with tag '<param p="1"/>' already exists</text>
+      <text tid="importaccount">Import account</text>
+      <text tid="invalidxml">The XML supplied is not valid</text>
+      <text tid="notaccountxml">The XML supplied is not a Socialite account</text>
+      <text tid="pasteaccountinfo">Paste the exported account info below</text>
+    </textgroup>
+    <textgroup gid="importsecuretoken">   <!-- config.importsecuretoken -->
+      <text tid="import">Import</text>
+      <text tid="importsecuretoken">Import secure Socialite token</text>
+      <text tid="inputtoken">Input token</text>
+      <text tid="outputtoken">Output token</text>
+    </textgroup>
+    <textgroup gid="main">   <!-- config.main -->
+      <text tid="addaccount">Add account</text>
+      <text tid="addapplication">Add application</text>
+      <text tid="addpersistent">Add persistent session</text>
+      <text tid="addtostartmenu">Add to start menu</text>
+      <text tid="app">Socialite config</text>
+      <text tid="authorize">Authorize</text>
+      <text tid="authorized">Authorized</text>
+      <text tid="authorizedat">Authorized at</text>
+      <text tid="deauthorize">Remove authorization</text>
+      <text tid="delete">Delete</text>
+      <text tid="deletepersistent">Delete</text>
+      <text tid="documentation">Documentation</text>
+      <text tid="edit">Edit</text>
+      <text tid="editpersistent">Edit persistent session</text>
+      <text tid="exportaccount">Export account</text>
+      <text tid="importaccount">Import account</text>
+      <text tid="importsecuretoken">Import secure token</text>
+      <text tid="main">Socialite config</text>
+      <text tid="persistent">Persistent sessions</text>
+      <text tid="sessions">Sessions</text>
+      <text tid="setsecuretoken">Authorize using secure token</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Title</text>
+      <text tid="toomanysessions">Too many sessions to display (<param p="1"/>)</text>
+      <text tid="viewanonymousfeeds">View anonymous feeds</text>
+      <text tid="viewfeeds">View feeds</text>
+      <text tid="viewsession">View session data</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- config.messages -->
+      <text tid="delete_confirmation">Do you want to delete this item?</text>
+      <text tid="suredeauthorizesession">Are you sure you want to remove the authorization for this session?</text>
+      <text tid="verifyneeded">This dialog should close automatically or you have to provide a verification code.</text>
+    </textgroup>
+    <textgroup gid="persistent">   <!-- config.persistent -->
+      <text tid="authorizationremark">Authorization remark</text>
+      <text tid="expirationwarning">Expiration warning</text>
+      <text tid="requestpermissions">Permissions required</text>
+      <text tid="securetoken">Secure token</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Title</text>
+      <text tid="windowtitle">Persistent session</text>
+    </textgroup>
+    <textgroup gid="setsecuretoken">   <!-- config.setsecuretoken -->
+      <text tid="inputtoken">Input token</text>
+      <text tid="setsecuretoken">Authorize using a Socialite secure token</text>
+    </textgroup>
+    <textgroup gid="viewsession">   <!-- config.viewsession -->
+      <text tid="sessionkeys">Session keys</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Session</text>
+      <text tid="value">Value</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="embedvideo">   <!-- embedvideo -->
+    <textgroup gid="network">   <!-- embedvideo.network -->
+      <text tid="vimeo">Vimeo</text>
+      <text tid="youku">Youku</text>
+      <text tid="youtube">YouTube</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="feeds">   <!-- feeds -->
+    <text tid="confirmdeletefeed">Are you sure you want to delete the feed? Note that it will be automatically recreated if it is requested again.</text>
+    <textgroup gid="feed">   <!-- feeds.feed -->
+      <text tid="created">Creation date</text>
+      <text tid="hideitem">Hide</text>
+      <text tid="message">Message</text>
+      <text tid="messageid">Message id</text>
+      <text tid="screentitle">Feed overview</text>
+      <text tid="unhideitem">Unhide</text>
+    </textgroup>
+    <textgroup gid="feedentry">   <!-- feeds.feedentry -->
+      <text tid="publish">Publish this message</text>
+      <text tid="rawentry">Feed item</text>
+      <text tid="screentitle">Feed item</text>
+    </textgroup>
+    <textgroup gid="feeds">   <!-- feeds.feeds -->
+      <text tid="lastupdate">Last updated</text>
+      <text tid="numentries">Amount</text>
+      <text tid="query">Query</text>
+      <text tid="screentitle">Feeds</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="linkbuilder">   <!-- linkbuilder -->
+    <text tid="apptitle">Link builder</text>
+    <textgroup gid="main">   <!-- linkbuilder.main -->
+      <text tid="generatelinks">Generate links</text>
+      <text tid="main">Linkbuilder</text>
+      <text tid="taburl">URL to FB tab</text>
+      <text tid="utmtags">List of links with UTM tags</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="module">   <!-- module -->
+    <textgroup gid="forms">   <!-- module.forms -->
+      <text tid="gtmdatalayer">Submit to GTM Datalayer</text>
+      <text tid="gtmdatalayerdesc">Submit the form contents as an event to the GTM Datalayer</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="rights">   <!-- rights -->
+    <text tid="accounts">Socialite accounts</text>
+    <text tid="authorizesessions">Authorize sessions</text>
+    <text tid="authorizesessions-descr">Authorize preconfigured persistent Socialite sessions</text>
+    <text tid="fullaccess">Full access</text>
+    <text tid="fullaccess-descr">Full access to this Socialite account</text>
+  </textgroup>
+  <textgroup gid="screens">   <!-- screens -->
+    <textgroup gid="forms">   <!-- screens.forms -->
+      <textgroup gid="gtmdatalayer">   <!-- screens.forms.gtmdatalayer -->
+        <text tid="formname">Form name</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="plugins">   <!-- screens.plugins -->
+      <textgroup gid="seotab">   <!-- screens.plugins.seotab -->
+        <textgroup gid="seotab">   <!-- screens.plugins.seotab.seotab -->
+          <text tid="canonical">Canonical URL</text>
+          <text tid="indexing">Search engine indexing</text>
+          <text tid="noarchive">Do not archive/cache (noarchive)</text>
+          <text tid="nofollow">Don't follow links (nofollow)</text>
+          <text tid="noindex">Don't store in index (noindex)</text>
+          <text tid="noodp">Don't use the ODP description</text>
+          <text tid="noydir">Don't use the Yahoo! Directory description</text>
+          <text tid="tabtitle">SEO</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="sysmgmt">   <!-- sysmgmt -->
+    <textgroup gid="googleapikeys">   <!-- sysmgmt.googleapikeys -->
+      <text tid="aboutoverrides">You can override the identifier sent to google's analysis/tagging frameworks, to ensure that local/test versions of the site do not accidentally overwrite 'production' statistics.<br/><br/>Identifiers entered here will override identifiers configured in &lt;google:analytics&gt; sections in siteprofiles - it does not affect analytics snippets manually added to templates, or configured using the wh.google.analytics designfile.</text>
+      <text tid="apikey">API Key</text>
+      <text tid="apitab">API keys</text>
+      <text tid="confirmdeleteapikeys">Are you sure you want to delete the selected key(s) ?</text>
+      <text tid="description">A key defined for a certain domain is also valid for all subdomains, so it is best to use the second-level domain when requesting a key, e.g. use 'example.org' rather than 'www.example.org'.</text>
+      <text tid="domain">Domain</text>
+      <text tid="editapikey">API Key</text>
+      <text tid="googleapikeys">Manage Google API Keys</text>
+      <text tid="keytype">Keytype</text>
+      <text tid="keytype-google">Google cloud APIs</text>
+      <text tid="keytype-google-recaptcha">Google Recaptcha</text>
+      <text tid="nokeys">No keys have been added yet</text>
+      <text tid="overrides">Overrides</text>
+      <text tid="privatekey">Private key</text>
+      <text tid="recaptchatab">reCAPTCHA keys</text>
+      <text tid="requestkey">Request a new Google Maps API key</text>
+      <text tid="requestrecaptchakey">Request a recpatcha key</text>
+      <text tid="scopetype">Scope</text>
+      <text tid="scopetype-any">Any</text>
+      <text tid="scopetype-client">Client</text>
+      <text tid="scopetype-server">Server</text>
+      <text tid="title">Manage Google API Keys</text>
+      <text tid="title_edit">API Key</text>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- sysmgmt.messageboxes -->
+      <text tid="deletekeyconfirm">Are you sure you want to delete the API key for domain '<param p="1"/>'?</text>
+    </textgroup>
+    <textgroup gid="recaptchakey">   <!-- sysmgmt.recaptchakey -->
+      <text tid="apikey">Public key</text>
+      <text tid="description">A key defined for a certain domain is also valid for all subdomains, so it is best to use the second-level domain when requesting a key, e.g. use 'example.org' rather than 'www.example.org'.<br/><br/>If you requested a global key for reCAPTCHA, you can enter an asterisk '*' for the domain</text>
+      <text tid="domain">Domain</text>
+      <text tid="privatekey">Private key</text>
+      <text tid="requestkey">Request a new reCAPTCHA key</text>
+      <text tid="screentitle">reCAPTCHA keys</text>
+    </textgroup>
+  </textgroup>
+</language>

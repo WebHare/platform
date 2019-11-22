@@ -1,0 +1,93 @@
+<?wh
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/registry.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+MACRO DoKeyTests(STRING basename, STRING nodebasename)
+{
+  TestThrows(PTR ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue"));
+  TestEq(43, ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43 ]));
+  TestThrows(PTR WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 43));
+  WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 44, [createifneeded := TRUE]);
+  TestEq(44, ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43 ]));
+  WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 45, [createifneeded := TRUE]);
+  TestEq(45, ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43 ]));
+  WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 46, [initialcreate := TRUE]);
+  TestEq(45, ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43 ]));
+
+  WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.blobvalue", StringToBlob("Hello, World!"), [createifneeded:=TRUE]);
+  TestEq("Hello, World!", BlobToString(ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.blobvalue", [fallback:=DEFAULT BLOB])));
+  WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.blobvalue", StringToBlob(RepeatText("Hello, World!",1000)), [createifneeded:=TRUE]);
+  TestEq(RepeatText("Hello, World!",1000), BlobToString(ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.blobvalue", [fallback:=DEFAULT BLOB])));
+
+  TestEq([[ data := StringToBlob(RepeatText("Hello, World!",1000)), fullname := nodebasename || ".__webhare_testsuite_base_node__.blobvalue", subkey := "blobvalue" ]
+         ,[ data := 45, fullname := nodebasename || ".__webhare_testsuite_base_node__.stupidvalue", subkey := "stupidvalue" ]
+         ]
+         , SELECT * FROM ReadRegistryNode(basename || ".__webhare_testsuite_base_node__") ORDER BY subkey);
+
+  DeleteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue");
+  TestThrows(PTR ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue"));
+  TestEq([[ data := StringToBlob(RepeatText("Hello, World!",1000)), fullname := nodebasename || ".__webhare_testsuite_base_node__.blobvalue", subkey := "blobvalue" ]
+         ], ReadRegistryNode(basename || ".__webhare_testsuite_base_node__"));
+
+  WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 46, [initialcreate := TRUE]);
+  __DeleteRegistryNode(basename || ".__webhare_testsuite_base_node__");
+  TestEq(RECORD[], ReadRegistryNode(basename || ".__webhare_testsuite_base_node__"));
+}
+
+MACRO TestRegistry()
+{
+  testfw->BeginWork();
+
+  //cleanup. we'll use a special name so we can safely destroy it from the registry unseen
+  DELETE FROM system.flatregistry WHERE name LIKE "*__webhare_testsuite_base_node__*";
+
+  DoKeyTests("webhare_testsuite","webhare_testsuite");
+  DoKeyTests("<someuser>","<someuser>");
+  TestThrows(PTR DoKeyTests("modules.webhare_testsuite","webhare_testsuite"));
+  TestThrows(PTR DoKeyTests("system.modules.webhare_testsuite","webhare_testsuite"));
+
+  TestThrows(PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
+  WriteRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", 43, [createifneeded:=TRUE]);
+  TestEq(43, ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
+  TestEq(43, ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
+  TestEq(43, ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43 ]));
+  TestThrows(PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43m ]));
+
+
+  TestEq( [[ fullname := "webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", subkey := "stupidvalue", data := 43 ]]
+    , ReadRegistryNode("webhare_testsuite.__webhare_testsuite_base_node__"));
+  TestEq( [[ fullname := "webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", subkey := "stupidvalue", data := 43 ]]
+    , ReadRegistryNode("webhare_testsuite.__webhare_testsuite_base_node__"));
+
+  DeleteRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue");
+  TestThrows(PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
+
+
+  testfw->CommitWork();
+
+  testfw->MockRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", 45);
+  TestEq(45, ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
+  testfw->MockRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", 47);
+  TestEq(47, ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
+
+}
+
+MACRO TestAnonymousRegistry()
+{
+  testfw->BeginWork();
+
+  TestEq(0, Length(SELECT FROM system.flatregistry WHERE name LIKE "<anonymous>*"));
+  DoKeyTests("<anonymous>","<anonymous>");
+  TestEq(0, Length(SELECT FROM system.flatregistry WHERE name LIKE "<anonymous>*"));
+
+  testfw->RollbackWork();
+}
+
+RunTestFramework( [ PTR TestRegistry
+                  , PTR TestAnonymousRegistry
+                  ] );

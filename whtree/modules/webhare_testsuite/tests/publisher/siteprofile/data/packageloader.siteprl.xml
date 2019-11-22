@@ -1,0 +1,3 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition">
+  <loadpackage module="package" scopenamespace="http://www.webhare.net/xmnls/webhare_testsuite/package/" />
+</siteprofile>

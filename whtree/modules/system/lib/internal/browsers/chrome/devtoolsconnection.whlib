@@ -1,0 +1,391 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
+
+
+/** The DevToolsConnection interprets the protocol for chrome devTools, and returns an object-based api for it
+    Access by hat: this->^Page->^Navigate([ url := ... ])
+    Events are emitted using the eventemitter api
+*/
+PUBLIC STATIC OBJECTTYPE DevToolsConnection EXTEND EventEmitter
+<
+  INTEGER commandid;
+  RECORD ARRAY callbacks;
+  OBJECT conn;
+
+  RECORD translations;
+
+  RECORD ARRAY domains;
+
+  BOOLEAN debug;
+
+  // Dynamic instantiation of domains
+  PUBLIC PROPERTY ^(GetDomainByProp, -);
+
+  /** @param conn Websocket connection to devtools
+      @param protocol Protocol description
+  */
+  MACRO NEW(OBJECT conn, RECORD protocol, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([debug := FALSE], options);
+
+    this->debug := options.debug;
+    this->conn := conn;
+    this->domains := SELECT *, __propname := `^${ToUppercase(domain)}` FROM protocol.domains ORDER BY ToUppercase(domain);
+
+    this->ReceiverLoop(conn);
+  }
+
+  MACRO DebugPrint(STRING data)
+  {
+    LogDebug("system:devtoolsconnection", data);
+    Print(data||"\n");
+  }
+
+  OBJECT FUNCTION GetDomain(STRING domain)
+  {
+    RETURN GetMember(this, "^" || domain);
+  }
+
+  // Dynamic domain instantiation
+  OBJECT FUNCTION GetDomainByProp(STRING __propname)
+  {
+    RECORD pos := RecordLowerBound(this->domains, CELL[ __propname ], [ "__propname" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception(`No such domain ${SubString(__propname, 1)}`);
+    OBJECT retval := NEW DomainBase(PRIVATE this, this->domains[pos.position]);
+    MemberInsert(this, __propname, FALSE, retval);
+    RETURN retval;
+  }
+
+  // Receives command replies and events
+  ASYNC MACRO ReceiverLoop(OBJECT conn)
+  {
+    TRY
+    {
+      WHILE (TRUE)
+      {
+        RECORD rec := AWAIT conn->AsyncReceivePacket(MAX_DATETIME);
+        IF (rec.status != "ok")
+          RETURN;
+
+        RECORD message := DecodeJSON(rec.data);
+        //Dumpvalue(message, [ format := "tree", name := "received"]);
+        IF (CellExists(message, "id"))
+        {
+          RECORD pos := RecordLowerBound(this->callbacks, message, [ "ID" ]);
+          IF (pos.found)
+          {
+            RECORD cb := this->callbacks[pos.position];
+            DELETE FROM this->callbacks AT pos.position;
+            IF(this->debug)
+              this->DebugPrint(`Finished command ${message.id}\n` || AnyToString(message, "tree"));
+
+            IF (CellExists(message, "error"))
+              cb.reject(NEW Exception(message.error.message));
+            ELSE IF (CellExists(message, "result") AND RecordExists(cb.returns))
+            {
+              VARIANT result := this->ConvertTypes(message.result, [ type := "object", properties := RECORD[ cb.returns ] ], cb.types);
+              cb.resolve(result);
+            }
+            ELSE
+              cb.resolve(DEFAULT RECORD);
+          }
+        }
+        ELSE IF (CellExists(message, "method"))
+        {
+          // event
+          IF(this->debug)
+            this->DebugPrint(`Event ${message.method}` || `\n> ` || Substitute(TrimWhitespace(AnyToString(message, "tree")), "\n", "\n> ") || "\n");
+          this->EmitEvent(message.method, message.params);
+        }
+      }
+    }
+    CATCH (OBJECT e)
+    {
+      LogHareScriptException(e);
+      PRINT(`Error in the DevTools receiver loop: ${e->what}\n${AnyToString(e->trace, "boxed")}`);
+      TerminateScript();
+    }
+  }
+
+  RECORD FUNCTION LookupTypeByRef(RECORD ARRAY types, STRING reference)
+  {
+    IF (reference LIKE "*.*") // domain reference
+    {
+      STRING ARRAY parts := Tokenize(reference, ".");
+      OBJECT domain := this->GetDomain(parts[0]);
+      reference := parts[1];
+      types := domain->__types;
+    }
+
+    RECORD subtypepos := RecordLowerBound(types, [ id := reference ], [ "ID" ]);
+    IF (NOT subtypepos.found)
+      ABORT(CELL[ reference, types ]);
+    RETURN types[subtypepos.position];
+  }
+
+  /// Check if user provided data in right format
+  MACRO CheckUserData(VARIANT userdata, RECORD type, RECORD ARRAY types, STRING datapath)
+  {
+    INTEGER utype := TypeID(userdata);
+    SWITCH (type.type)
+    {
+      CASE "boolean"  {
+                        IF (utype != TypeID(BOOLEAN))
+                          THROW NEW Exception(`Wrong type for ${datapath}, expected BOOLEAN, got ${GetTypeName(utype)}`);
+                      }
+      CASE "integer"  {
+                        IF (utype != TypeID(INTEGER))
+                          THROW NEW Exception(`Wrong type for ${datapath}, expected INTEGER, got ${GetTypeName(utype)}`);
+                      }
+      CASE "number"   {
+                        IF (utype != TypeID(INTEGER) AND utype != TypeID(FLOAT) AND utype != TypeID(MONEY))
+                          THROW NEW Exception(`Wrong type for ${datapath}, expected a number type, got ${GetTypeName(utype)}`);
+                      }
+      CASE "string"   {
+                        IF (utype != TypeID(STRING))
+                          THROW NEW Exception(`Wrong type for ${datapath}, expected STRING, got ${GetTypeName(utype)}`);
+                      }
+      CASE "object"   {
+                        IF (utype != TypeID(RECORD))
+                          THROW NEW Exception(`Wrong type for ${datapath}, expected RECORD, got ${GetTypeName(utype)}`);
+
+                        STRING ARRAY visited;
+                        FOREVERY (RECORD prop FROM type.properties)
+                        {
+                          IF (ToLowercase(prop.name) != prop.name AND NOT CellExists(this->translations, prop.name))
+                            this->translations := CellInsert(this->translations, prop.name, prop.name);
+
+                          RECORD subtype := prop;
+                          IF (CellExists(subtype, "$ref"))
+                            subtype := this->LookupTypeByRef(types, subtype."$ref");
+                          IF (NOT CellExists(userdata, prop.name))
+                          {
+                            IF (CellExists(prop, "OPTIONAL") AND prop.optional)
+                              CONTINUE;
+                            THROW NEW Exception(`Missing required value for ${datapath}.${prop.name}`);
+                          }
+                          this->CheckUserData(GetCell(userdata, prop.name), subtype, types, `${datapath}.${prop.name}`);
+                          INSERT ToUppercase(prop.name) INTO visited AT END;
+                        }
+                        FOREVERY (RECORD rec FROM UnpackRecord(userdata))
+                          IF (rec.name NOT IN visited)
+                            THROW NEW Exception(`Found unknown cell ${datapath}.${rec.name}`);
+                      }
+      CASE "array"    {
+                        RECORD subtype := type.items;
+                        IF (CellExists(subtype, "$ref"))
+                          subtype := this->LookupTypeByRef(types, subtype."$ref");
+
+                        SWITCH (subtype.type)
+                        {
+                          CASE "boolean"  {
+                                            IF (utype != TypeID(BOOLEAN ARRAY))
+                                              THROW NEW Exception(`Wrong type for ${datapath}, expected BOOLEAN ARRAY, got ${GetTypeName(utype)}`);
+                                          }
+                          CASE "integer"  {
+                                            IF (utype != TypeID(INTEGER ARRAY))
+                                              THROW NEW Exception(`Wrong type for ${datapath}, expected INTEGER ARRAY, got ${GetTypeName(utype)}`);
+                                          }
+                          CASE "number"   {
+                                            IF (utype != TypeID(INTEGER ARRAY) AND utype != TypeID(FLOAT ARRAY) AND utype != TypeID(MONEY ARRAY))
+                                              THROW NEW Exception(`Wrong type for ${datapath}, expected a number type array, got ${GetTypeName(utype)}`);
+                                          }
+                          CASE "string"   {
+                                            IF (utype != TypeID(STRING ARRAY))
+                                              THROW NEW Exception(`Wrong type for ${datapath}, expected STRING, got ${GetTypeName(utype)}`);
+                                          }
+                          CASE "object"   {
+                                            IF (utype != TypeID(RECORD ARRAY))
+                                              THROW NEW Exception(`Wrong type for ${datapath}, expected RECORD ARRAY, got ${GetTypeName(utype)}`);
+                                          }
+                        }
+
+                        FOREVERY (VARIANT v FROM userdata)
+                          this->CheckUserData(v, subtype, types, `${datapath}[${#v}]`);
+                      }
+    }
+  }
+/*
+  RECORD FUNCTION PrepareTypesForArrayConvert(RECORD type, RECORD ARRAY types, STRING ARRAY path)
+  {
+    IF (CellExists(type, "$REF"))
+    {
+      IF (type."$ref" IN path)
+        ABORT("recursive!");
+      INSERT type."$ref" INTO path AT END;
+
+      RECORD typepos := RecordLowerBound(types, [ id := type."$ref" ], [ "ID" ]);
+      IF (NOT typepos.found)
+        THROW NEW Exception(`Missing typeref ${type."$ref"}`);
+      type := CELL[ ...type, ...types[typepos.position] ];
+    }
+
+    IF (type.type != "array" AND type.type != "object")
+      RETURN type;
+
+    IF (type.type = "array")
+      RETURN CELL[ ...type, items := this->PrepareTypesForArrayConvert(type.items, types, path) ];
+
+    RECORD ARRAY newprops;
+    FOREVERY (RECORD prop FROM type.properties)
+    {
+      prop := this->PrepareTypesForArrayConvert(type.items, types, path);
+      IF (prop.type = "object" OR prop.type = "array")
+        INSERT prop INTO newprops AT END;
+    }
+    type.properties := newprops;
+    RETURN type;
+  }*/
+
+  /// Convert empty arrays to right types
+  VARIANT FUNCTION ConvertTypes(VARIANT resultvar, RECORD type, RECORD ARRAY types)
+  {
+    IF (CellExists(type, "$REF"))
+      type := this->LookupTypeByRef(types, type."$ref");
+    IF (type.type = "array" AND LENGTH(resultvar) = 0)
+    {
+      IF (CellExists(type.items, "$REF"))
+        RETURN RECORD[];
+      SWITCH (type.items.type)
+      {
+        CASE "string"   { RETURN STRING[]; }
+        CASE "boolean"  { RETURN BOOLEAN[]; }
+        CASE "number"   { RETURN FLOAT[]; }
+        CASE "integer"  { RETURN INTEGER[]; }
+        CASE "object"   { RETURN RECORD[]; }
+      }
+      ABORT(`Cannot find default type for empty array (${AnyToString(type, "tree:2")})`);
+    }
+    IF (type.type = "array" AND CellExists(type.items, "$REF"))
+    {
+      RECORD subtype := this->LookupTypeByRef(types, type.items."$ref");
+      RECORD ARRAY result;
+      FOREVERY (RECORD res FROM resultvar)
+        INSERT this->ConvertTypes(res, subtype, types) INTO result AT END;
+      RETURN result;
+    }
+
+    IF (type.type != "object")
+      RETURN resultvar;
+
+    RECORD overrides;
+    FOREVERY (RECORD prop FROM type.properties)
+    {
+      IF (CellExists(resultvar, prop.name))
+      {
+        RECORD subtype := prop;
+        IF (CellExists(subtype, "$REF"))
+          subtype := this->LookupTypeByRef(types, subtype."$ref");
+        IF (subtype.type = "array" OR subtype.type = "object")
+          overrides := CellInsert(overrides, prop.name, this->ConvertTypes(GetCell(resultvar, prop.name), subtype, types));
+      }
+    }
+    RETURN CELL[ ...resultvar, ...overrides ];
+  }
+
+  ASYNC FUNCTION RunCommand(STRING method, RECORD returns, RECORD paramtype, RECORD ARRAY types, RECORD params)
+  {
+    this->commandid := this->commandid + 1;
+    IF(this->debug)
+      this->DebugPrint(`Run command ${method} (id: ${this->commandid})\n> ` || Substitute(TrimWhiteSpace(AnyToString(params, "tree")), "\n", "\n> "));
+
+    TRY
+    {
+      this->CheckUserData(params, paramtype, types, "param");
+    }
+    CATCH (OBJECT e)
+    {
+      PRINT(`Parameter validation failure for method '${method}', params:\n` || AnyToString(paramtype, "tree"));
+      THROW e;
+    }
+
+    RECORD message :=
+        [ id :=       this->commandid
+        , method :=   method
+        , params :=   params
+        ];
+
+
+    RECORD cbentry := CELL[ id := this->commandid, ...CreateDeferredPromise(), method, returns, types ];
+    INSERT cbentry INTO this->callbacks AT END;
+    STRING encodedmessage := EncodeJSON(message, this->translations);
+    IF(this->debug)
+      this->DebugPrint(`Encoded message: ${Left(encodedmessage,1024)}`);
+
+    this->conn->SendData(encodedmessage);
+    //Dumpvalue(message, [ format := "tree", name := "sent"]);
+    RETURN cbentry.promise;
+  }
+>;
+
+/// Base object for a domain (eg 'Page')
+STATIC OBJECTTYPE DomainBase
+<
+  OBJECT pvt_conn;
+  RECORD pvt_domain;
+  RECORD ARRAY pvt_types;
+  RECORD ARRAY pvt_commands;
+
+  PUBLIC BOOLEAN experimental;
+
+  PUBLIC PROPERTY ^(GetCommand, -);
+
+  PUBLIC PROPERTY __types(pvt_types, -);
+
+  MACRO NEW(OBJECT conn, RECORD domain)
+  {
+    this->pvt_domain := domain;
+    this->pvt_conn := conn;
+    this->pvt_types := SELECT * FROM (CellExists(domain, "TYPES") ? RECORD ARRAY(domain.types) : RECORD[]) ORDER BY id;
+    this->pvt_commands := SELECT *, __propname := `^${ToUppercase(name)}` FROM domain.commands ORDER BY ToUppercase(name);
+
+    this->experimental := CellExists(domain, "experimental") AND domain.experimental;
+  }
+
+  // Dynamic command instantiation
+  FUNCTION PTR FUNCTION GetCommand(STRING __propname)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_commands, CELL[ __propname ], [ "__propname" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception(`No such command ${SubString(__propname, 1)}`);
+
+    RECORD command := this->pvt_commands[pos.position];
+
+    RECORD returns := CellExists(command, "RETURNS") AND LENGTH(command.returns) > 0 ? command.returns : DEFAULT RECORD;
+    RECORD paramtype :=
+        [ type :=         "object"
+        , properties :=   CellExists(command, "PARAMETERS") ? command.parameters : RECORD[]
+        ];
+
+    // Bind first 4 params, 5th is options (optional)
+    RECORD ARRAY params :=
+        [ [ source :=       0
+          , value :=        `${this->pvt_domain.domain}.${command.name}`
+          ]
+        , [ source :=       0
+          , value :=        returns
+          ]
+        , [ source :=       0
+          , value :=        paramtype
+          ]
+        , [ source :=       0
+          , value :=        this->pvt_types
+          ]
+        , [ source :=       -1
+          , value :=        DEFAULT RECORD
+          ]
+        ];
+
+    FUNCTION PTR cmdptr := PTR this->pvt_conn->RunCommand;
+    FUNCTION PTR cmd := __HS_REBINDFUNCTIONPTR2(cmdptr, params, 2, FALSE);
+    MemberInsert(this, __propname, FALSE, cmd);
+    RETURN cmd;
+  }
+>;

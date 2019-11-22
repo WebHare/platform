@@ -1,0 +1,104 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/remoting/client.whlib";
+
+STRING longblobdata;
+FOR (INTEGER i := 0; i < 1000000; i := i + 1)
+  longblobdata := longblobdata || Right(" 000000000" || i, 10);
+
+
+RECORD expect_complexresults :=
+    [ i1 :=   17
+    , i2 :=   0
+    , i3 :=   2147483647
+    , i4 :=   -2147483648
+    , s1 :=   ""
+    , s2 :=   "ssasa"
+    , dt1 :=  MakeDateTime(2009, 10, 3, 15, 21, 55)
+    , dt3 :=  DEFAULT DATETIME
+    , bt :=   TRUE
+    , bf :=   FALSE
+    , blb1 := DEFAULT BLOB
+    , blb2 := StringToBlob("test")
+    , blb3 := StringToBlob(longblobdata)
+    , ia1 :=  [ 0, 1 ,2 ]
+    , ba1 :=  [ TRUE, FALSE ]
+    , sa :=   [ "", "a", "ss" ]
+    ];
+
+RECORD FUNCTION AuthHandler(STRING realm, STRING url)
+{
+  RETURN
+      [ username := testfw->GetUserLogin("sysop")
+      , password := testfw->GetUserPassword("sysop")
+      ];
+}
+
+MACRO TestLogin(BOOLEAN whsock)
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+
+  STRING serverurlwa := 'http://'||EncodeURL(testfw->GetUserLogin("sysop"))|| ":" || EncodeURL(testfw->GetUserPassword("sysop"))||'@localhost:'||port.portnumber||'/wh_services.whsock/webhare_testsuite/test/';
+  STRING serverurl := port.baseurl || 'wh_services' || (whsock?".whsock":"") || '/webhare_testsuite/test/';
+
+  RECORD res;
+
+  // Use to crash with 'requires authentication'.
+  OBJECT browser := NEW WebBrowser;
+  browser->onauth := PTR AuthHandler;
+  res := InvokeRemoteFunctionWithBrowser(browser, serverurl || "logintest");
+  TestEq([ user := testfw->GetUserObject("sysop")->entityid ], res);
+  browser->Close();
+
+  // Having an autotransaction causes fails with update of ip/lastlogin
+  browser := NEW WebBrowser;
+  res := InvokeRemoteFunctionWithBrowser(browser, serverurlwa || "logintest");
+  TestEq([ user := testfw->GetUserObject("sysop")->entityid ], res);
+  browser->Close();
+}
+
+
+MACRO TestWHRemoting(BOOLEAN whsock)
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING baseurl := "http://" || EncodeURL(testfw->GetUserLogin("sysop"))
+                                    || ":" || EncodeURL(testfw->GetUserPassword("sysop"))
+                                    || "@127.0.0.1:" || port.portnumber
+                                    || "/wh_services" || (whsock?".whsock":"") || "/webhare_testsuite/test/";
+  RECORD res;
+
+  res := InvokeRemoteFunction(baseurl || "complexresults", expect_complexresults);
+  TestEq(expect_complexresults, res);
+
+  OBJECT x := InvokeRemoteFunction(baseurl || "getobject");
+  TestEq(TRUE, ObjectExists(x));
+  TestEq("str1", x->GetStr1());
+
+  TestEq("1 1", x->CallTest(1, "1"));
+  TestThrows(PTR x->CallTest(10, "2"));
+  TestEq("1 3", x->CallTest(1, "3"));
+
+  TestThrowsLike("*crash requested*", PTR x->Crash);
+  TestThrows(PTR x->CallTest(1, "4"));
+
+  x := InvokeRemoteFunction(baseurl || "getobject");
+  TestEq("str1", x->GetStr1());
+  CloseRemotingSession(x);
+  TestThrows(PTR x->CallTest(1, "4"));
+}
+
+
+RunTestframework([ PTR TestLogin(FALSE)
+                 , PTR TestWHRemoting(FALSE)
+                 , PTR TestLogin(TRUE)
+                 , PTR TestWHRemoting(TRUE)
+                 ],
+                 [ testusers := [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
+                                ]
+                 ]);

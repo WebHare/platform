@@ -1,0 +1,48 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/dragdrop.whlib";
+
+
+PUBLIC OBJECTTYPE WHFSFileDrag EXTEND DragTypeDescriber
+<
+
+  UPDATE PUBLIC RECORD FUNCTION GetBaseRecord()
+  {
+    RETURN
+        [ filename :=   ""
+        , mimetype :=   ""
+        , canmove :=    FALSE
+        , candownload := FALSE
+        , isactive :=   FALSE
+        , id :=         0
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION HandleDownload(RECORD dragdata)
+  {
+    RETURN
+        SELECT filename := dragdata.filename
+             , mimetype := dragdata.mimetype
+             , data
+          FROM system.fs_objects
+         WHERE id = dragdata.id;
+  }
+
+>;
+
+PUBLIC OBJECTTYPE WHFSFolderDrag EXTEND DragTypeDescriber
+<
+
+  UPDATE PUBLIC RECORD FUNCTION GetBaseRecord()
+  {
+    RETURN
+        [ canmove :=    FALSE
+        , isactive :=   FALSE
+        , id :=         0
+        ];
+  }
+
+>;
+
+

@@ -1,0 +1,70 @@
+<?wh
+/** @private Local database support misses some important pieces (eg proper TABLE<> validation) and will be removed in the future
+*/
+
+LOADLIB "wh::internal/transbase.whlib";
+
+
+INTEGER FUNCTION __HS_SQL_RDB_NEWTRANSACTION() __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_SQL_RDB_CREATETABLE(INTEGER trans, STRING name) __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_SQL_RDB_SETTABLESORTORDER(INTEGER trans, STRING name, STRING columnname, BOOLEAN casesensitive) __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_SQL_RDB_FREEZETABLE(INTEGER trans, STRING name) __ATTRIBUTES__(EXTERNAL);
+
+OBJECTTYPE LocalTransaction EXTEND BuiltinTransactionBase
+< MACRO NEW(INTEGER transid)
+  {
+    this->RegisterTransaction(transid);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION __GetTableTypeInfoCols(TABLE tbl, STRING ARRAY cols)
+  {
+    RETURN
+       SELECT name
+            , dbase_name :=   name
+            , flags :=        0
+            , type :=         TypeID(VARIANT)
+            , fase :=         0
+         FROM ToRecordArray(cols, "NAME");
+  }
+
+>;
+
+/** @short Create a transaction to store temporary tables
+    @return An ID for the new transaction (always >0) */
+PUBLIC INTEGER FUNCTION OpenLocalTransaction()
+{
+  INTEGER trans :=__HS_SQL_RDB_NEWTRANSACTION();
+
+  NEW LocalTransaction(trans);
+  RETURN trans;
+}
+
+/** @short Create a new table inside the local transaction
+    @param trans ID of the local transaction
+    @param name Name for the new table */
+PUBLIC MACRO CreateLocalTable(INTEGER trans, STRING name)
+{
+  __HS_SQL_RDB_CREATETABLE(trans,name);
+}
+
+/** @short Create a new table inside the local transaction, sorted on a column. Queries using
+    equal constraints on the sorted column will be quicker.
+    @param trans ID of the local transaction
+    @param name Name for the new table
+    @param columname Name for the column
+    @param casesensitive True if names need to be case sensitive */
+PUBLIC MACRO CreateSortedLocalTable(INTEGER trans, STRING name, STRING columnname, BOOLEAN casesensitive)
+{
+  __HS_SQL_RDB_CREATETABLE(trans,name);
+  __HS_SQL_RDB_SETTABLESORTORDER(trans,name,columnname,casesensitive);
+}
+
+/** @short Make a table read-only
+    @long This function causes all future INSERTs, UPDATEs and DELETEs on this table
+          to fail.
+    @param trans ID of the local transaction
+    @param name Name for the new table */
+PUBLIC MACRO FreezeLocalTable(INTEGER trans, STRING name)
+{
+  __HS_SQL_RDB_FREEZETABLE(trans,name);
+}

@@ -1,0 +1,67 @@
+@mixin wh-datetime
+{
+  position: relative;
+  display: inline-flex;
+  flex-flow: row;
+  align-items: center;
+  border: 1px inset #cbcbcb;
+  padding: 1px 2px;
+
+  &--replaced
+  {
+    position: absolute !important;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    opacity: 0;
+  }
+
+  &__sep
+  {
+    display: inline-block;
+  }
+
+  &__part
+  {
+    background: transparent;
+    border: 0;
+    width: calc( 2ch + 10px );
+    text-align: center;
+    font: inherit;
+    padding: 0;
+    margin: 0;
+
+      &::-webkit-outer-spin-button
+    , &::-webkit-inner-spin-button
+    {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: textfield !important;
+  }
+  &__year
+  {
+    width: calc( 4ch + 8px );
+  }
+  &__msec
+  {
+    width: calc( 3ch + 8px );
+  }
+
+  &__togglepicker, &__reset
+  {
+    display: inline-block;
+    cursor: pointer;
+  }
+
+  &__picker
+  {
+    position: fixed;
+    background-color: #ffffff;
+  }
+}

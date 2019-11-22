@@ -1,0 +1,29 @@
+<?wh
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO CryptTest()
+{
+  //proper new encrypt functions
+  STRING scoped := EncryptForThisServer("mytest", "IsATest");
+  TestEq("IsATest", DecryptForThisServer("mytest",scoped));
+  TestThrows(PTR DecryptForThisServer("mytest","scoped2"));
+  TestEq("", DecryptForThisServer("mytest","scoped2", [fallback := ""]));
+
+  STRING hson := EncryptForThisServer("mytest", "hson:hson:hson");
+  TestEq("hson:hson:hson", DecryptForThisServer("mytest",hson));
+
+  hson := EncryptForThisServer("mytest", "hson:");
+  TestEq("hson:", DecryptForThisServer("mytest",hson));
+
+  hson := EncryptForThisServer("mytest", DEFAULT RECORD);
+  TestEq(DEFAULT RECORD, DecryptForThisServer("mytest",hson));
+
+  hson := EncryptForThisServer("mytest", "");
+  TestEq("", DecryptForThisServer("mytest",hson));
+
+  hson := EncryptForThisServer("mytest", EncodeHson(DEFAULT RECORD));
+  TestEq(EncodeHson(DEFAULT RECORD), DecryptForThisServer("mytest",hson));
+}
+
+RunTestframework([ PTR CryptTest ]);

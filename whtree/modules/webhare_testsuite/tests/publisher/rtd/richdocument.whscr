@@ -1,0 +1,686 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+LOADLIB "mod::publisher/lib/widgets.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+
+LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
+LOADLIB "mod::tollium/lib/rtd/doc.whlib";
+
+LOADLIB "mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib";
+
+
+OBJECT testsite;
+
+STRING testsiteprofile :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+  || '<apply>'
+    || '<to type="file" filetype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />'
+    || '<richdocumenteditor>'
+    || '  <structuredefinition fullpath="/custompage.structure.xml" />'
+    //       <css fullpath="mod::publisher/data/default.structure.css" />
+    || '</richdocumenteditor>'
+    || '</apply>'
+|| '</siteprofile>';
+
+
+
+MACRO DoSingleTest(OBJECT structure, STRING input_text, STRING expect_text, STRING title)
+{
+  OBJECT inputdoc := MakeXMLDocumentFromHTML(StringToBlob(input_text));
+  structure->RestructureRichDocument(inputdoc->body);
+
+  OBJECT expect := MakeXMLDocumentFromHTML(StringToBlob(expect_text));
+  TestEQ(BlobToString(expect->GetDocumentBlob(TRUE)), BlobToString(inputdoc->GetDocumentBlob(TRUE)), title);
+}
+
+
+MACRO StructureTest()
+{
+  FOREVERY (RECORD test FROM restructuringtests)
+  {
+    OBJECT structure := NEW RichDocumentStructure;
+
+    OBJECT doc;
+    IF (test.structure LIKE "<*")
+      doc := MakeXMLDocument(StringToBlob(test.structure));
+    ELSE
+      doc := MakeXMLDocument(GetWebhareResource(test.structure));
+
+    structure->LoadFROMXML(doc->documentelement, doc->documentelement->namespaceuri);
+
+    STRING expect_text := CellExists(test, "EXPECT_HS") ? test.expect_hs : test.expect;
+    DoSingleTest(structure, test.input, expect_text, test.title || " - input restructure");
+
+    // Double restructure should make no changes
+    DoSingleTest(structure, expect_text, expect_text, test.title || " - second restructure");
+
+    // Different expect for HS? test the identity conversion too for the js-version
+    IF (CellExists(test, "EXPECT_HS"))
+      DoSingleTest(structure, test.expect, test.expect, test.title || " - hs restructure of js restructure");
+  }
+
+
+  // Test LookupStyle
+
+  OBJECT structure := NEW RichDocumentStructure;
+  structure->LoadFromXML(MakeXMLDocument(GetWebhareResource("mod::webhare_testsuite/data//test/custompage.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
+  RECORD test := structure->LookupStyle("ol", "", TRUE);
+  TestEq("p", test.containertag);
+
+  structure->LoadFROMXML(MakeXMLDocument(StringToBlob(listtest_structure))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
+  test := structure->LookupStyle("ol", "", TRUE);
+  TestEq("ol", test.containertag);
+}
+
+MACRO RichDocumentTest()
+{
+  testfw->BeginWork();
+  OBJECT site := testfw->SetupTestWebdesignWebsite(testsiteprofile);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT siteroot := site->rootobject;
+  OBJECT workfolder := siteroot->CreateFolder([name:="richdocument"]);
+  OBJECT testfile := workfolder->CreateFile([name:="richtest",publish:=TRUE]);
+
+  OBJECT structurefile := siteroot->CreateFile([name:="custompage.structure.xml", data := GetHarescriptResource("mod::webhare_testsuite/data//test/custompage.structure.xml") ]);
+
+  OBJECT myrichdoc := NEW EditableRichDocument;
+  TestEq(TRUE, ObjectExists(myrichdoc->body));
+
+  myrichdoc->ImportFromHTML(DEFAULT BLOB);
+  TestEq(TRUE, ObjectExists(myrichdoc->body));
+  myrichdoc->ImportFromHTML(StringToBlob("   "));
+  TestEq(TRUE, ObjectExists(myrichdoc->body));
+
+  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+
+  OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test");
+  RECORD orgrec := myrichdoc->ExportAsRecord();
+  TestEq(0, orgrec.embedded[0].rotation);
+  TestEq("", orgrec.embedded[0].__blobsource);
+
+  betatype->SetInstanceData(testfile->id, [ richtest := orgrec ]);
+
+  // Rewrite the instance data, see if the ids are stable
+  RECORD rec := betatype->GetInstanceData(testfile->id);
+  betatype->SetInstanceData(testfile->id, rec);
+
+  RECORD rec2 := betatype->GetInstanceData(testfile->id);
+  TestEQ(rec, rec2);
+
+  // See if the stuff is stable
+  TestEQ( RecurseDeleteSettingIds(orgrec,DEFAULT STRING ARRAY),  RecurseDeleteSettingIds(rec2.richtest, ["HASH","LINK"]));
+
+//  RECORD testrec := betatype->GetInstanceData(testfile->id);
+//  sendblobto(0,testrec.richtest.htmltext);
+
+  testfw->CommitWork();
+}
+
+MACRO RichdocumentRenderRegressions()
+{
+  OBJECT doc := NEW PublishableRichDocument;
+  doc->ImportFromRecord([ htmltext := StringToBlob('<html><body><h1 class="heading1">Verwondering</h1>'
+                                                   || '<ul class="unordered"><li>Lij</li><li>st</li></ul>'
+                                                   || '</body></html')
+                        , embedded := DEFAULT RECORD ARRAY
+                       ]);
+
+  OBJECT structure := NEW RichDocumentStructure;
+  OBJECT structuredoc :=MakeXMLDocument(StringToBlob(
+                         '<richstructure xmlns="http://www.webhare.net/xmlns/tollium/richstructure" contentareawidth="570px"><blockstyles defaultstyle="NORMAL">'
+                         || '<textstyle tag="HEADING1"><formatting base="none"><allow textstyles="i u" /></formatting></textstyle>'
+                         || '<textstyle tag="NORMAL"><formatting base="none"><allow textstyles="b i u sub sup a-href strike img" /></formatting></textstyle>'
+                         || '<textstyle tag="UNORDERED" containertag="ul" /></blockstyles></richstructure>'));
+
+  structure->LoadFromXML(structuredoc->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
+  doc->ApplyStructureDefinition(structure);
+
+  OBJECT result := doc->RenderAllAsHTMLDocument();
+  TestEq("ul", result->body->childnodes->GetCurrentElements()[1]->nodename);
+  TestEq("li", result->body->childnodes->GetCurrentElements()[1]->firstelementchild->nodename);
+
+  BLOB resultblob := doc->RenderAllToBlob();
+  STRING resultstring := doc->RenderAllToString();
+  Testeq(resultstring, BlobToSTring(resultblob));
+  Testeq(resultstring, BlobToString(NEW HtmlRewriterContext()->GenerateHTML(result->body)));
+
+  Print("FIXME: proper P -> LI conversion, maar we doen nu alles op objectniveau dus vraag me af hoe uberhaupt de UL wrapping om meerdere LIs nu goed kan gaan...\n");
+/*
+
+  //Now remove the UL from the structure
+  structuredoc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/richstructure", "textstyle")->Item(2)->Dispose();
+  structure->LoadFromXML(structuredoc->documentelement);
+  doc->ApplyStructureDefinition(structure);
+
+  result := doc->RenderAllAsHTMLDocument();
+  print(result->outerxml||'\n');
+  TestEq("p", result->body->childnodes->GetCurrentElements()[1]->nodename);
+  TestEq("Lij", result->body->childnodes->GetCurrentElements()[1]->innerxml);
+
+  */
+}
+
+MACRO ParserApiTest()
+{
+  testfw->BeginWork();
+
+  OBJECT siteroot := testfw->GetTestsite()->rootobject;
+  OBJECT workfolder := siteroot->OpenByPath("richdocument");
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT parserapitestfile := workfolder->CreateFile([name := "parserapitest", type := richdoctype->id, publish:=FALSE]);
+
+  OBJECT myrichdoc := NEW EditableRichDocument;
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
+                                 || '<h1 class="heading1"><a href="">Ik</a> <a name="ben">ben</a>     \neen <b>heading 1&</b></h1>'
+                                 || '<p class="normal"><br/></p>'
+                                 || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br/>met\neen      soft-break en een afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /></p>'
+                                 || '<p class="normal">I\'m a merge field: <b><span data-merge="textContent:yourname"></span></b></p>'
+                                 || '<table><colgroup><col style="width:25px"/><col style="width:45px"/></colgroup><tbody>' //FIXME should have class="tabletag" but we lack tabletyping
+                                    || '<tr>'
+                                      || '<th scope="col"><p data-rtd-anchor="bob" class="normal">Cell 1 para 1</p><p class="normal">Cell 1 para 2</p></th>'
+                                      || '<th scope="col"><p class="normal">Cell 2 para 1</p></th>'
+                                    || '</tr><tr>'
+                                      || '<td><p class="normal">Cell 3</p></td>'
+                                      || '<td><br/></td>' //Word->RTD conversion generated lonely BRs, we need to ignore them even if we fix this, as existing docs may still do this
+                                    || '</tr>'
+                                 || '</tbody></table>'
+                                 || '<code class="language-harescript">&lt;?wh   Print("Hello, world")\n</code>'
+                                 || '</body></html>')
+                 , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
+                                 , contentid := "imagecid-81400"
+                                 ]
+                               ]
+                 ]);;
+
+  richdoctype->SetInstanceData(parserapitestfile->id, [data := myrichdoc->ExportAsRecord()]);
+
+  RECORD storeddata := richdoctype->GetInstanceData(parserapitestfile->id).data;
+  TestEq(1, Length(storeddata.embedded));
+  TestEQ(TRUE, CellExists(storeddata.embedded[0],"__blobsource"));
+  TestEQ(0, storeddata.embedded[0].rotation);
+  TestEQ(FALSE, storeddata.embedded[0].mirrored);
+  TestEQ(DEFAULT RECORD, storeddata.embedded[0].refpoint);
+  TestEQ("#6A6E4F", storeddata.embedded[0].dominantcolor);
+
+  OBJECT structure := NEW RichDocumentStructure;
+  structure->LoadFromXML(MakeXMLDocument(GetHarescriptResource("mod::webhare_testsuite/data//test/custompage.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
+  OBJECT parseddoc := MakeParsedRichDocument(storeddata);
+  parseddoc->ApplyStructureDefinition(structure);
+
+  RECORD ARRAY outline := parseddoc->GetOutline();
+  TestEq(6, Length(outline));
+  TestEq("h1", outline[0].tagname);
+  TestEq(0, Length(outline[0].rows));
+  TestEq("block", outline[0].type);
+  TestEq("normal", outline[1].classname);
+  TestEq("table", outline[4].tagname);
+  TestEq("table", outline[4].type);
+  TestEq("", outline[4].classname);
+  TestEq(2, Length(outline[4].rows));
+  TestEq(2, Length(outline[4].rows[1].cells));
+
+  OBJECT parserobject, mergedobject;
+  OBJECT myfilter := NEW RichDocumentFilter;
+  parserobject := outline[0].richobject;
+  //ADDME should probably export <a name=....
+  TestEq('<h1 class=\"heading1\">Ik ben een <b>heading 1&amp;</b></h1>', myfilter->GetFiltered(parserobject));
+  TestEq(TRUE, parserobject->HasContent());
+
+  parserobject := outline[5].richobject;
+  TestEq(TRUE, parserobject->HasContent());
+  TestEqLike('<code class="language-harescript">&lt;?wh   Print("Hello, world")\n</code>', myfilter->GetFiltered(parserobject)); //linefeeds inside code blocks should stay
+
+  parserobject := outline[1].richobject;
+  TestEq(FALSE, parserobject->HasContent());
+
+  parserobject := outline[2].richobject;
+  mergedobject := outline[3].richobject;
+
+  TestEq(TRUE, parserobject->HasContent());
+  TestEq(TRUE, mergedobject->HasContent());
+  TestEqLike('<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: <img class="wh-rtd__img wh-rtd-img" *&amp;*/></p>', myfilter->GetFiltered(parserobject));
+  TestEq('<p class="normal">I\'m a merge field: <b><span data-merge="textContent:yourname"></span></b></p>', myfilter->GetFiltered(mergedobject));
+
+  //note, <br> doesn't really affect tagfilter, we'll ouput it either way
+  myfilter->tagfilter := ["p","a-href","i"];
+  TestEq('<p class="normal">Ik ben een &lt;normale&gt; <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: I&amp;G</p>', myfilter->GetFiltered(parserobject));
+  TestEq('<p class="normal">I\'m a merge field: <span data-merge="textContent:yourname"></span></p>', myfilter->GetFiltered(mergedobject));
+
+  myfilter->tagfilter := ["a-href","b","i"];
+  TestEq('Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: I&amp;G', myfilter->GetFiltered(parserobject));
+  TestEq('I\'m a merge field: <b><span data-merge="textContent:yourname"></span></b>', myfilter->GetFiltered(mergedobject));
+
+  myfilter->tagfilter := ["p"];
+  TestEq('<p class="normal">Ik ben een &lt;normale&gt; b-lex paragraaf<br />met een soft-break en een afbeelding: I&amp;G</p>', myfilter->GetFiltered(parserobject));
+  TestEq('<p class="normal">I\'m a merge field: <span data-merge="textContent:yourname"></span></p>', myfilter->GetFiltered(mergedobject));
+
+  myfilter->tagfilter := DEFAULT STRING ARRAY;
+  TestEq('Ik ben een &lt;normale&gt; b-lex paragraaf<br />met een soft-break en een afbeelding: I&amp;G', myfilter->GetFiltered(parserobject));
+  TestEq('I\'m a merge field: <span data-merge="textContent:yourname"></span>', myfilter->GetFiltered(mergedobject));
+
+  TestEq('Ik ben een <normale> b-lex paragraaf\nmet een soft-break en een afbeelding: I&G', myfilter->GetRawText(parserobject));
+  TestEq('I\'m a merge field: ', myfilter->GetRawText(mergedobject));
+
+  OBJECT output := parseddoc->RenderAllAsHTMLDocument();
+
+  OBJECT tablenode := output->GetElementsByTagName("table")->Item(0);
+  OBJECT ARRAY tablerows := tablenode->GetElements("tr");
+  TestEq(TRUE, "wh-rtd--hascolheader" IN ParseXSList(tablerows[0]->GetAttribute("class")));
+  TestEq(FALSE, "wh-rtd--hascolheader" IN ParseXSList(tablerows[1]->GetAttribute("class")));
+
+  OBJECT ARRAY tablecells := tablenode->GetElements("th,td");
+  testEq(4, Length(tablecells));
+  TestEq("th", tablecells[0]->nodename);
+  TestEq(2, tablecells[0]->GetElementsByTagName("p")->length);
+  TestEq(2, tablecells[0]->GetElementsByTagName("p")->length);
+  TestEq(1, tablecells[1]->GetElementsByTagName("p")->length);
+
+  testfw->CommitWork();
+}
+
+MACRO RichDocInstanceTest()
+{
+  //FIXME test dat niet geallowede instances weggefilterd worden
+  OBJECT siteroot := testfw->GetTestsite()->rootobject;
+  OBJECT workfolder := siteroot->OpenByPath("richdocument");
+
+  testfw->BeginWork();
+  OBJECT rtdinstance := workfolder->CreateFile([ name := "bob", typens := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" ]);
+  rtdinstance->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest",
+                               [ img := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"),"bob.jpg")
+                               ]);
+  RECORD bobdata := rtdinstance->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest");
+  testfw->CommitWork();
+
+  TestEQLike("*preview*Stringdata*", BlobToString(GetPrintedAsBlob(PTR RenderAdhocWidget([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest", stringdata := "Stringdata", aref:=siteroot->id ], siteroot))));
+  TestEQLike("*preview*", BlobToString(GetPrintedAsBlob(PTR RenderAdhocWidget([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"  ], siteroot))));
+  TestEQLike("*<img*", BlobToString(GetPrintedAsBlob(PTR RenderAdhocWidget([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" , img := bobdata.img ], siteroot, [ webdesign := GetWebDesign(siteroot->id) ]))));
+
+  OBJECT myrichdoc := NEW EditableRichDocument;
+  myrichdoc->ImportFromHTML(StringToBlob('<html><head></head><body>'
+                                         || '<h1 class="heading1">Ik ben een <b>heading 1</b></h1>'
+                                         || '<h3 class="heading2">Ik ben een <b>heading 2</b></h3>' //this should be coerced into a H2, as CLASS takes precedence over TAG
+                                         || '</body></html>'));
+
+  STRING instanceid := myrichdoc->CreateInstance([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
+                                                 , ignored := "xyz" //should be removed by normalization
+                                                 , aref := siteroot->id
+                                                 , img := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"),"bob.jpg")
+                                                 ]);
+
+  TestEq([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
+         , stringdata := ""
+         , aref := siteroot->id
+         ], CellDelete(myrichdoc->GetInstance(instanceid),'img'));
+  TestEq(TRUE, RecordExists(myrichdoc->GetInstance(instanceid).img));
+
+  myrichdoc->SetInstance(instanceid, [ stringdata := "MyString"
+                                     ]);
+
+
+  TestThrows(PTR myrichdoc->SetInstance("xyz", [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" ]));
+
+  //Create a reference to the new block
+  myrichdoc->body->AppendChild(myrichdoc->CreateInstanceBlockNode(instanceid));
+
+  //Test serialization
+  testfw->BeginWork();
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT testfile := workfolder->CreateFile( [ name := "serialized.rtd", type := richdoctype->id, publish := FALSE ]);
+  myrichdoc->SaveToWHFS(testfile);
+  testfw->CommitWork();
+
+  OBJECT restoreddoc := NEW EditableRichDocument;
+  restoreddoc->LoadFromWHFS(testfile);
+
+  RECORD res := restoreddoc->GetInstance(instanceid);
+  TestEqMembers([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
+                , stringdata := "MyString"
+                , aref := siteroot->id
+                ], res, "*");
+  TestEq(TRUE, RecordExists(res.img));
+}
+
+
+MACRO PublishRichDocTest()
+{
+  testfw->BeginWork();
+
+  OBJECT siteroot := testfw->GetTestsite()->rootobject;
+  /* ADDME wanted to do this here, but we're triggering race conditions by the dual site profile compilation
+  OBJECT structurefile := siteroot->CreateFile([name:="custompage.structure.xml", data := testfw->GetModuleTestBlob("publisher","testdata/custompage.structure.xml") ]);
+  OBJECT siteprof      := siteroot->CreateFile([name:="richdoctest.siteprl", data := StringToBlob(testsiteprofile)]);
+  TestEq(TRUE, testfw->GetTestsite()->AssignSiteProfile(siteprof->id));
+  */
+
+  OBJECT workfolder := siteroot->OpenByPath("richdocument");
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT emptyfile := workfolder->CreateFile( [ name := "empty.rtd", type := richdoctype->id, publish := TRUE ]);
+  testfw->CommitWork();
+
+  RECORD publishres := RunFilePublish(emptyfile->id, FALSE);
+  IF(NOT publishres.success) dumpvalue(publishres,'tree');
+  TestEq(TRUE, publishres.success);
+
+  OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+  OBJECT content := doc->GetElementById("content");
+  //The content should be empty, as the document was empty
+  TestEq(0,content->GetElementsByTagName("*")->length);
+
+  /* Note: if we're supposed to have 'h2.heading2', but we encounter 'h3.heading2',
+     we assume we have to coerce the H3 into a H2. does not make sense content-wise,
+     but too many people think "Typography says H3 is 26px, so we'll make the
+     FAQ section header a H3, because that one is defined as 26px" which will
+     make it way too common for the ".faqsection" part to be more stable than "h2"
+
+     So when they later change the containertag in the structure for faqsection,
+     we want to follow the new tag, and not fall back to defaults */
+
+  //Load up a document
+  testfw->BeginWork();
+  OBJECT testfile := workfolder->OpenByPath("serialized.rtd");
+  testfile->UpdateMetadata([ publish := TRUE ]);
+  testfile->CopyTo(workfolder, "serialized-prepublished.rtd");
+
+  OBJECT serializedfile := workfolder->OpenByPath("serialized-prepublished.rtd");
+  testfw->CommitWork();
+
+  publishres := RunFilePublish(testfile->id, FALSE);
+
+  doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+  content := doc->GetElementById("content");
+
+  IF(NOT publishres.success) dumpvalue(publishres,'tree');
+  //sendblobto(0,publishres.files[0].data);  dumpvalue(publishres,'tree');
+
+  TestEq(TRUE, publishres.success);
+
+  content := doc->GetElementById("content");
+  TestEq(4,content->GetChildElementsByTagName("*")->length);
+
+  OBJECT h1 := content->GetChildElementsByTagName("*")->item(0);
+  TestEq("h1", h1->nodename);
+  TestEq("Ik ben een ", h1->firstchild->nodevalue);
+
+  //Bold should be stripped, as we don't  permit <b> in a H2
+  OBJECT h2 := content->GetChildElementsByTagName("*")->item(1);
+  TestEq("h2", h2->nodename);
+  TestEq("Ik ben een heading 2", h2->firstchild->nodevalue);
+
+  OBJECT blockcomponent := content->GetChildElementsByTagName("*")->item(2);
+  TestEq("blink", blockcomponent->nodename);
+  TestEq("MyString", blockcomponent->firstchild->nodevalue);
+
+  publishres := RunFilePublish(serializedfile->id, FALSE);
+  IF(NOT publishres.success) dumpvalue(publishres,'tree');
+  TestEq(TRUE, publishres.success);
+
+//  SendBlobTO(0,publishres.dbfiles[0].data.data);
+//  sendblobto(0,publishres.files[1].data);  dumpvalue(publishres,'tree');
+}
+
+MACRO PublishRichDocImageTest()
+{
+  testfw->BeginWork();
+
+  OBJECT siteroot := testfw->GetTestsite()->rootobject;
+  OBJECT workfolder := siteroot->OpenByPath("richdocument");
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  OBJECT richdoc := NEW EditableRichDocument;
+
+  RECORD publishres;
+
+  OBJECT testfile := workfolder->CreateFile( [ name := "imgtest.rtd", type := richdoctype->id, publish := TRUE ]);
+
+  richdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
+                                            || '<h1 class="heading1">Ik ben een <b>heading 1</b></h1>'
+                                            || '<p class="normal">Afbeelding: <img src="cid:imagecid-81400" width="160" height="120"/></p>'
+                                            || '<p class="normal">Grotere afbeelding: <img src="cid:imagecid-81400" width="320" height="240"/></p>'
+                                            || '<p class="normal">Opgerekte afbeelding: <img src="cid:imagecid-81400" width="320" height="280"/></p>'
+                                            || '<p class="normal">alleen verticaal, te groot: <img src="cid:imagecid-81400" height="280"/></p>'
+                                            || '<p class="normal">alleen verticaal, binnen grenzen: <img src="cid:imagecid-81400" height="140"/></p>'
+                                            || '<p class="normal">alleen horizontaal, te groot: <img src="cid:imagecid-81400" width="320"/></p>'
+                                            || '<p class="normal">alleen horizontaal, binnen grenzen: <img src="cid:imagecid-81400" width="160"/></p>'
+                                            || '<p class="normal">geen hints: <img src="cid:imagecid-81400" /></p>')
+                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 ]);;
+  richdoc->SaveToWHFS(testfile);
+  testfw->CommitWork();
+
+
+  richdoc->LoadFromWHFS(testfile);
+
+  RECORD embeddedfile := richdoc->GetEmbeddedFile("cid:imagecid-81400");
+  TestEq(TRUE, embeddedfile.__blobsource != "");
+  TestEq(0, embeddedfile.rotation);
+
+  publishres := RunFilePublish(testfile->id, FALSE);
+//  dumpvalue(publishres,'tree');
+//  sendblobto(0,publishres.files[0].data);
+
+  TestEq(2, Length(publishres.files));
+  OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+
+  OBJECT ARRAY imgtags := doc->GetElementsByTagName("img")->GetCurrentElements();
+  TestEq(8, Length(imgtags));
+
+  TestEq("160", imgtags[0]->GetAttribute("width"));
+  TestEq("120", imgtags[0]->GetAttribute("height"));
+  TestEq(TRUE, imgtags[0]->GetAttribute("src") LIKE "/*"); //site relative URL
+
+  OBJECT browser := NEW WebBrowser;
+  browser->GotoWebPage(ResolveToAbsoluteURL(siteroot->url, imgtags[0]->GetAttribute("src")));
+
+  TestEq("image/jpeg", browser->contenttype);
+  OBJECT imgcanvas := CreateCanvasFromBlob(browser->content);
+  TestEq(160, imgcanvas->width);
+  TestEq(120, imgcanvas->height);
+
+  OBJECT imgsrc := CreateResizedCanvasFromBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"), [ method := "scale", setwidth := 160, setheight := 120 ]);
+  imgsrc->SetImageSize(160,120);
+  TestEq(160, imgsrc->width);
+  TestEq(120, imgsrc->height);
+
+
+//  CreateDiskfileFromBlob("/tmp/imgcanvas.png", TRUE, FALSE, imgcanvas->ExportAsPNG(TRUE));
+//  CreateDiskfileFromBlob("/tmp/imgsrc.png", TRUE, FALSE, imgsrc->ExportAsPNG(TRUE));
+  FLOAT diff := imgsrc->CompareWithCanvas(imgcanvas);
+  TestEq(TRUE, diff < 93f, "Diff: " || FormatFloat(diff,7)); //ADDME why don't we simply get MSE 0 ?
+
+
+  //The second image should have bene reduced from 320x240 to 300x225
+  TestEq("300", imgtags[1]->GetAttribute("width"));
+  TestEq("225", imgtags[1]->GetAttribute("height"));
+
+  //The third image should have bene reduced from 320x260 to 300x244 (broken aspect ratio should have been preserved)
+  TestEq("300", imgtags[2]->GetAttribute("width"));
+  TestEq("263", imgtags[2]->GetAttribute("height"));
+
+  //The fourth image, had height 280. 373x280 is too big, so it should be reduced to 300x225
+  TestEq("300", imgtags[3]->GetAttribute("width"));
+  TestEq("225", imgtags[3]->GetAttribute("height"));
+  //This one had height 140, that's okay. It should become 187x140
+  TestEq("187", imgtags[4]->GetAttribute("width"));
+  TestEq("140", imgtags[4]->GetAttribute("height"));
+
+  //Width 320. 300x225 again
+  TestEq("300", imgtags[5]->GetAttribute("width"));
+  TestEq("225", imgtags[5]->GetAttribute("height"));
+  //Width 160. should work out
+  TestEq("160", imgtags[6]->GetAttribute("width"));
+  TestEq("120", imgtags[6]->GetAttribute("height"));
+
+  //Unspecified. Should reduced to 330x225
+  TestEq("300", imgtags[7]->GetAttribute("width"));
+  TestEq("225", imgtags[7]->GetAttribute("height"));
+}
+
+MACRO IntLinktest()
+{
+  testfw->BeginWork();
+
+  OBJECT siteroot := testfw->GetTestsite()->rootobject;
+  OBJECT workfolder := siteroot->OpenByPath("richdocument");
+  OBJECT testfile := workfolder->OpenByPath("richtest");
+  OBJECT testextralink := siteroot->CreateFile( [ name := "testextralink", publish := TRUE ]);
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT parserapitestfile := workfolder->OpenByPath("parserapitest");
+
+  TestEq(TRUE, ObjectExists(parserapitestfile));
+
+  //FIXME test whether links are removed when the matching x-richdoclink is gone (who's problem is it? <rte> can't do it though, as it is not supposed to be publisher specific)
+
+  //Create some simple links
+
+  OBJECT myrichdoc := NEW EditableRichDocument;
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
+                                 || '<p><a href="x-richdoclink:1234-5678-001">Link naar site</a> <a href="x-richdoclink:1234-5678-002">Link naar richtest</a>'
+                                 || ' afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /></p>'
+                                 || '<p><a id="boblink" href="x-richdoclink:EXT#goto-bob">Link naar Bob</a></p>'
+                                 || '</body></html>')
+                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 , links := [[ tag := "1234-5678-001", linkref := workfolder->id ]]
+                 ]);;
+
+  myrichdoc->SetLinkRef("x-richdoclink:1234-5678-002", testfile->id);
+  myrichdoc->SetLinkRef("x-richdoclink:1234-5678-003", testextralink->id);
+  myrichdoc->SetLinkRef("x-richdoclink:EXT", parserapitestfile->id);
+
+  TestEq(0,               myrichdoc->GetLinkRef("x-richdoclink:1234-5678-000"));
+  TestEq(workfolder->id,  myrichdoc->GetLinkRef("x-richdoclink:1234-5678-001"));
+  TestEq(testfile->id,    myrichdoc->GetLinkRef("x-richdoclink:1234-5678-002"));
+  TestEq(testextralink->id, myrichdoc->GetLinkRef("x-richdoclink:1234-5678-003"));
+  TestEq(parserapitestfile->id, myrichdoc->GetLinkRef("x-richdoclink:EXT"));
+
+  myrichdoc->SetLinkRef("x-richdoclink:1234-5678-002", 0);
+  TestEq(0,    myrichdoc->GetLinkRef("x-richdoclink:1234-5678-002"));
+
+  myrichdoc->SetLinkRef("x-richdoclink:1234-5678-002", testfile->id);
+  TestEq("x-richdoclink:1234-5678-002", myrichdoc->CreateLinkRef(testfile->id));
+  TestEq(testfile->id,    myrichdoc->GetLinkRef("x-richdoclink:1234-5678-002"));
+
+  //Test simple turnaround
+  RECORD exportrec := myrichdoc->ExportAsRecord();
+  myrichdoc := NEW EditableRichDocument;
+  myrichdoc->ImportFromRecord(exportrec);
+
+  TestEq(0,               myrichdoc->GetLinkRef("x-richdoclink:1234-5678-000"));
+  TestEq(workfolder->id,  myrichdoc->GetLinkRef("x-richdoclink:1234-5678-001"));
+  TestEq(testfile->id,    myrichdoc->GetLinkRef("x-richdoclink:1234-5678-002"));
+  TestEq(testextralink->id, myrichdoc->GetLinkRef("x-richdoclink:1234-5678-003"));
+  TestEq(parserapitestfile->id, myrichdoc->GetLinkRef("x-richdoclink:EXT"));
+
+  //Commit the document to the database  ADDME need a simpler api to manage richdocs
+  OBJECT testfile2 := workfolder->CreateFile([name := "richtest2", type := richdoctype->id ,publish:=FALSE]);
+  richdoctype->SetInstanceData(testfile2->id, [ data := exportrec ]);
+
+  //Commit the database
+  testfw->CommitWork();
+
+  TestEQ(0,Length(GetLinksForFSObject(testfile2->id)), "Should not pick up any links, they're all internal");
+
+  //Read it right back
+  RECORD thedoc := richdoctype->GetInstanceData(testfile2->id).data;
+  BLOB docblob := GetRichDocumentAsHtmlFragment(thedoc);
+  OBJECT docblobdom := MakeXMLDocumentFromHTML(docblob);
+  OBJECT ARRAY links := docblobdom->GetElementsByTagName("a")->GetCurrentElements();
+
+  TestEq(3,Length(links));
+  TestEq(workfolder->url,links[0]->GetAttribute("href"));
+  TestEq(testfile->url,links[1]->GetAttribute("href")); //ADDME or should the <a> be stripped?
+  TestEq(parserapitestfile->url || "#goto-bob",links[2]->GetATtribute("href")); //Note that it should be a link, even if the target file is unpublished!
+
+  OBJECT ARRAY images := docblobdom->GetElementsByTagName("img")->GetCurrentElements();
+  TestEq(1, Length(images));
+  TestEq(TRUE, images[0]->GetAttribute("src") LIKE "/.uc/*");
+
+  myrichdoc := NEW EditableRichDocument;
+  myrichdoc->ImportFromRecord(thedoc);
+
+  TestEq(0,               myrichdoc->GetLinkRef("x-richdoclink:1234-5678-000"));
+  TestEq(workfolder->id,  myrichdoc->GetLinkRef("x-richdoclink:1234-5678-001"));
+  TestEq(testfile->id,    myrichdoc->GetLinkRef("x-richdoclink:1234-5678-002"));
+  TestEq(testextralink->id, myrichdoc->GetLinkRef("x-richdoclink:1234-5678-003"));
+  TestEq(parserapitestfile->id, myrichdoc->GetLinkRef("x-richdoclink:EXT"));
+
+  //Archive the testsite
+  BLOB arc := workfolder->ExportFolder().files[0].data;
+
+  //Delete testfile to prove it was a WHFSREF in the database (ie, SET DEFAULT was triggered)
+  Sleep(100); // Wait a little for delayed publications
+  testfw->WaitForPublishCompletion(siteroot->id); //make sure publication doesn't block our delete
+
+  testfw->BeginWork();
+  testfile->DeleteSelf(); // file needs to be deleted, so links to it are deleted from instance data
+
+  myrichdoc := NEW EditableRichDocument;
+  myrichdoc->ImportFromRecord(richdoctype->GetInstanceData(testfile2->id).data);
+  TestEq(0, myrichdoc->GetLinkRef("x-richdoclink:1234-5678-002"));
+
+  workfolder->RecycleSelf();
+  testextralink->RecycleSelf();
+
+  testfw->CommitWork();
+  testfw->BeginWork();
+
+  testextralink := siteroot->CreateFile( [ name := "testextralink", publish := FALSE ]);
+
+  OBJECT imp := NEW ArchiveImporter;
+  imp->AddInput(arc);
+  imp->Import(siteroot->id);
+
+  workfolder := siteroot->OpenByPath("richdocument");
+  testfile := workfolder->OpenByPath("richtest");
+  parserapitestfile := workfolder->OpenByPath("parserapitest");
+
+  testfile2 := siteroot->OpenByPath("richdocument/richtest2");
+  myrichdoc := NEW PublishableRichDocument;
+  myrichdoc->ImportFromRecord(richdoctype->GetInstanceData(testfile2->id).data);
+
+  TestEq(0,                 myrichdoc->GetLinkRef("x-richdoclink:1234-5678-000"));
+  TestEq(workfolder->id,    myrichdoc->GetLinkRef("x-richdoclink:1234-5678-001"));
+  TestEq(testfile->id,      myrichdoc->GetLinkRef("x-richdoclink:1234-5678-002"));
+  TestEq(testextralink->id, myrichdoc->GetLinkRef("x-richdoclink:1234-5678-003"));
+  TestEq(parserapitestfile->id, myrichdoc->GetLinkRef("x-richdoclink:EXT"));
+
+  //Get a generated document
+  OBJECT structure := NEW RichDocumentStructure;
+  structure->LoadFromXML(MakeXMLDocument(GetWebHareResource("mod::publisher/data/default.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
+  myrichdoc->ApplyStructureDefinition(structure);
+
+  OBJECT result := myrichdoc->RenderAllAsHTMLDocument();
+ // print(result->outerxml||'\n');
+  OBJECT ARRAY as_in_p := result->QuerySelectorAll("p > a")->GetCurrentElements();
+  TestEq(3, Length(as_in_p));
+  testfw->CommitWork();
+}
+
+RunTestframework([ PTR StructureTest
+                 , PTR RichdocumentTest
+                 , PTR ParserApiTest
+                 , PTR RichDocInstanceTest
+                 , PTR PublishRichDocTest
+                 , PTR PublishRichDocImageTest
+                 , PTR IntLinktest
+                 , PTR RichdocumentRenderRegressions
+                 ]);

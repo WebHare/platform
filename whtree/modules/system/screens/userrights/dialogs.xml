@@ -1,0 +1,42 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
+         lib="screens/userrights/dialogs.whlib"
+         gid="userrights.dialog">
+
+  <messageboxes gid=".messages">
+    <messagebox name="suredelete" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="selectunit"
+          gid=".selectunit"
+          allowresize="true"
+          title=""
+          width="50x"
+          height="30x"
+          savestate="size">
+    <body>
+      <includefragment name="unittree" fragment="userrights/parts/unittree.unittree" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="selectuserrole"
+          gid=".selectuserrole"
+          allowresize="true"
+          title=""
+          width="50x"
+          height="30x"
+          savestate="size">
+    <body>
+      <includefragment name="selectuserrole" fragment="userrights/parts/selectuserrole.selectuserrole" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+
+</screens>

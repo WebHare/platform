@@ -1,0 +1,115 @@
+<?wh
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/tasks/execution.whlib";
+
+OBJECT trans;
+OBJECT managedqueuemgr;
+BOOLEAN debug, profile;
+
+RECORD interruptpromise := CreateDeferredPromise();
+
+MACRO Mainloop()
+{
+  RECORD lasttaskresult;
+
+  WHILE(TRUE)
+  {
+    //Ensure microtasks get a chance to run
+    RECORD taskinfo := WaitForPromise(CreatePromiseRace(OBJECT[ managedqueuemgr->GetTask(lasttaskresult), interruptpromise.promise ]));
+    IF(NOT RecordExists(taskinfo))
+    {
+      IF(debug)
+        Print("Connection lost, exiting\n");
+
+      RETURN; //lost connection
+    }
+    IF(IsScriptOutOfDate())
+    {
+      IF(debug)
+        Print("Out of date, exiting\n");
+      WaitForPromise(managedqueuemgr->AnnounceOutOfDate());
+      RETURN; //we're out of date, giving up
+    }
+
+    STRING ARRAY objecttoks := Tokenize(taskinfo.objectname,'#');
+    RECORD libstatus := GetHarescriptLibraryInfo(objecttoks[0]);
+    TRY
+    {
+      IF(NOT libstatus.valid)
+        THROW NEW Exception(`Library for tasks of type '${taskinfo.tasktype}' is unavailable (error: ${libstatus.errors[0].message})`);
+
+      IF(libstatus.outofdate)
+      {
+        IF(debug)
+          Print("Out of date, requesting restart\n");
+
+        // Anounce we're out of date, won't be processing the current item
+        WaitForPromise(managedqueuemgr->AnnounceOutOfDate());
+        RETURN; //we'll need to recompile to handle this task
+      }
+
+      IF(taskinfo.isephemeral)
+        lasttaskresult := ExecuteEphemeralTask(taskinfo, debug);
+      ELSE
+        lasttaskresult := CELL[...ExecuteManagedTask(taskinfo, debug), DELETE resolution ]; //we're sending resolution through the database
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      IF(trans->IsWorkOpen())
+        trans->RollbackWork();
+
+      Print("Task failed: " || e->what || "\n");
+      //our parent knows the fail timeouts etc, so let him handle the failed task
+      lasttaskresult := [ type := "taskfailed", error := e->what, trace := e->trace, isfatal := FALSE ];
+      WaitForPromise(managedqueuemgr->AnnounceTaskFail(lasttaskresult));
+      BREAK; //we do not trust all state to be perfect when an exception has occured
+    }
+    FINALLY
+    {
+      IF(profile)
+      {
+        ReportFunctionProfile("managedtaskworker", "Task " || taskinfo.queueid);
+        ResetFunctionProfile();
+      }
+    }
+  }
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "worker", type := "stringopt" ]
+                              , [ name := "cluster", type := "stringopt" ]
+                              , [ name := "debug", type := "switch" ]
+                              , [ name := "profile", type := "switch" ]
+                              ]);
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: managedtaskworker [--debug] [--profile] [--worker <num>]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+trans := OpenPrimary();
+debug := args.debug;
+
+IF(args.profile)
+{
+  profile := TRUE;
+  SetupFunctionProfiling("system:managedtaskworker", "Managed task worker #" || args.worker);
+}
+
+INTEGER workerid := ToInteger(args.worker,0);
+IF(workerid = 0)
+  ABORT("No worker id specified");
+
+IF(debug)
+  Print("HS worker #" || workerid || " starting\n");
+
+managedqueuemgr := WaitForPromise(OpenWebHareService("system:managedqueuemgr", workerid));
+AddInterruptCallback(PTR interruptpromise.resolve(DEFAULT RECORD));
+Mainloop();

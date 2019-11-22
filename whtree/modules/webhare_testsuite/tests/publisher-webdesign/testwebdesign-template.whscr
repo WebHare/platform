@@ -1,0 +1,39 @@
+<?wh
+/// This test tests setting up and the functionality of 'publisher:blank'
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+MACRO TestBasics()
+{
+  RECORD mydesign := SELECT * FROM GetAvailableWebDesigns(FALSE) WHERE rowkey = "webhare_testsuite_temp:testdesign";
+  TestEq(TRUE, RecordExists(mydesign), 'my test design not visible in GetAvailableWebDesigns (it broke? cache invalidations? siteprofile compilations missing it ?');
+
+  //Verify moduledef
+  OBJECT moduledef := MakeXMLDocument(GetWebhareResource("mod::webhare_testsuite_temp/moduledefinition.xml"));
+  OBJECT assetpack := moduledef->GetELementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition","assetpack")->Item(0);
+  TestEq("en", assetpack->GetAttribute("supportedlanguages"), "should not be 'default'");
+
+  STRING designbase := GetWebHareResourceDiskPath(mydesign.designroot);
+  STRING tryfile := designbase || "testdesign.siteprl.xml";
+  TestEq(TRUE, RecordExists(GetDiskFileProperties(tryfile)), "No such file " || tryfile);
+
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT loadlibdoc := siteroot->OpenByPath("loadlib.html");
+  OBJECT emptyfile := siteroot->OpenByPath("emptyfilefolder/index.html");
+
+  TestEq(0, GetErrorFromPublished(emptyfile->published), "Failed to publish " || emptyfile->url);
+  IF(testfw->debug)
+    Print(`Testing page: ${emptyfile->url}\n`);
+  TestEq(TRUE, testfw->browser->GotoWebPage(emptyfile->url));
+}
+
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [istemplate := TRUE])
+                 , PTR TestBasics
+                 , PTR EnsureValidTestModuleWebDesignWebsiteBUndle
+                 ]);

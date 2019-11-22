@@ -1,0 +1,165 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+RECORD FUNCTION OnRPCAuth(STRING realm, STRING url)
+{
+  RETURN
+      [ username :=     "sysop"
+      , password :=     "secret"
+      ];
+}
+
+VARIANT FUNCTION DoRPCCall(STRING commurl, STRING name, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  RECORD rec := testfw->browser->InvokeJSONRPC(commurl, name, args);
+
+  IF (CellExists(rec, "SUCCESS") AND rec.success)
+  {
+    IF (rec.haveresult)
+      RETURN rec.result;
+
+    IF (CellExists(rec, "fault"))
+    {
+      STRING msg := rec.fault.faultstring;
+
+      STRING ARRAY posses := Tokenize(msg, ", at ");
+      STRING ARRAY atlines;
+      FOR (INTEGER i := 1; i < LENGTH(posses); i := i + 1)
+      {
+        STRING ARRAY s := Tokenize(posses[i], " error: ");
+        IF (LENGTH(s) > 1)
+          INSERT s[1] INTO atlines AT END;
+        INSERT "At " || s[0] INTO atlines AT END;
+      }
+
+      PRINT("XML fault generated: " || posses[0] || "\n" || Detokenize(atlines, "\n") || (LENGTH(atlines) = 0?"":"\n"));
+      THROW NEW Exception("XML request failed");
+    }
+    ELSE
+      RETURN FALSE; // MACRO
+  }
+  ELSE
+  {
+    RECORD status := testfw->browser->GetHTTPStatus();
+    IF (RecordExists(status))
+    {
+      SWITCH (status.code)
+      {
+      CASE 401        { THROW NEW Exception("Remote service '"||commurl||"' requires authentication"); }
+      CASE 404        { THROW NEW Exception("Remote service '"||commurl||"' does not exist"); }
+      CASE 500        { THROW NEW Exception("Remote service '"||commurl||"' is currently not available due to server errors"); }
+      DEFAULT         { THROW NEW Exception("Connecting to remote service '"||commurl||"' failed, error code: " || status.code); }
+      }
+    }
+    ELSE
+    {
+      SWITCH (testfw->browser->GetSocketError())
+      {
+
+
+
+      DEFAULT         { THROW NEW Exception("Connecting to remote service '"||commurl||"' failed, socket error code: " || testfw->browser->GetSocketError()); }
+      }
+      THROW NEW Exception("Connecting to remote service '"||commurl||"' failed, socket error code: X " || testfw->browser->GetSocketError());
+    }
+  }
+  RETURN FALSE;
+}
+
+VARIANT FUNCTION ConvertToVAs(VARIANT x)
+{
+  IF(typeid(x)=TypeID(INTEGER ARRAY) OR typeid(x)=TypeID(RECORD ARRAY) OR typeid(x)=TypeID(STRING ARRAY))
+    RETURN x;
+
+  IF (IsTypeidArray(TypeID(x)))
+  {
+    VARIANT ARRAY res;
+    FOREVERY (VARIANT y FROM x)
+      INSERT y INTO res AT END;
+    RETURN res;
+  }
+  IF (TypeID(x) = TypeID(RECORD))
+  {
+    RECORD res;
+    FOREVERY (RECORD r FROM UnpackRecord(x))
+      res := CellInsert(res, r.name, ConvertToVAS(r.value));
+    RETURN res;
+  }
+  RETURN x;
+}
+
+RECORD data :=
+    [ i1 :=   17
+    , i2 :=   0    , i3 :=   2147483647
+    , i4 :=   -2147483648
+    , s1 :=   ""
+    , s2 :=   "ssasa"
+    , bt :=   TRUE
+    , bf :=   FALSE
+    , ia1 :=  [ 0, 1 ,2 ]
+    , ba1 :=  [ TRUE, FALSE ]
+    , sa :=   [ "", "a", "ss" ]
+    ];
+
+MACRO TestBadrequest()
+{
+  testfw->browser->onauth := PTR OnRPCAuth;
+
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING url := "http://" || EncodeURL(testfw->GetUserLogin("sysop")) || ":" || EncodeURL(testfw->GetUserPassword("sysop")) || "@127.0.0.1:" || port.portnumber || "/wh_services/webhare_testsuite/test";
+
+  //Send illformatted parameters (it requires an array, we'll send an object)
+  BLOB request := StringToBlob(EncodeJSON([method:="complexresults", params:=[x:=42], id:=5]));
+  RECORD ARRAY headers :=
+      [ [ field := "Content-Type", value := "application/json" ]
+      ];
+
+  TestEq(FALSE, testfw->browser->PostWebPageBlob(url, headers, request));
+  TestEq(400, testfw->browser->GetHTTPStatusCode());
+
+  //Send illformatted parameters (it requires a string as parameter, we'll send an integer
+  request := StringToBlob(EncodeJSON([method:="echo", params:=[42], id:=5]));
+
+  TestEq(FALSE, testfw->browser->PostWebPageBlob(url, headers, request));
+  TestEq(500, testfw->browser->GetHTTPStatusCode());
+}
+
+MACRO TestJSONRPC()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  RECORD res := DoRPCCall("http://" || EncodeURL(testfw->GetUserLogin("sysop"))
+                                    || ":" || EncodeURL(testfw->GetUserPassword("sysop"))
+                                    || "@127.0.0.1:" || port.portnumber
+                                    || "/wh_services/webhare_testsuite/test", "complexresults", data);
+
+  TestEq(ConvertToVAs(data), res);
+  TestEq("*", testfw->browser->GetResponseHeader("X-Test-Header"));
+}
+
+MACRO TestOrigin()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING baseurl := "http://127.0.0.1:" || port.portnumber || "/wh_services/webhare_testsuite/testnoauth";
+
+  TestEq(TRUE, testfw->browser->SendRawRequest("OPTIONS", baseurl, DEFAULT RECORD ARRAY, DEFAULT BLOB));
+  TestEq("", testfw->browser->GetResponseHeader("X-WebHare-CORS-Error"));
+  TestEq(TRUE, testfw->browser->SendRawRequest("OPTIONS", baseurl, [[ field := "Access-Control-Request-Method", value := "POST" ]
+                                                                   ,[field := "Origin", value := "http://127.0.0.1:" || port.portnumber ]
+                                                                   ], DEFAULT BLOB));
+  TestEq("", testfw->browser->GetResponseHeader("X-WebHare-CORS-Error"));
+  TestEq(TRUE, testfw->browser->SendRawRequest("OPTIONS", baseurl, [[ field := "Origin", value := "http://127.0.0.9:" || port.portnumber ]
+                                                                   ,[field := "Origin", value := "http://127.0.0.1:" || port.portnumber ]
+                                                                   ], DEFAULT BLOB));
+  TestEqLike("Cannot match origin 'http://*' with list of origins", testfw->browser->GetResponseHeader("X-WebHare-CORS-Error"));
+}
+
+RunTestFramework([ PTR TestBadRequest
+                 , PTR TestJSONRPC
+                 , PTR TestOrigin
+                 ], [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);
+

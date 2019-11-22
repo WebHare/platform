@@ -1,0 +1,1194 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/mail/mergefields.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+BOOLEAN debugrtddirty;
+
+STRING FUNCTION RewriteCSSURL(STRING cssurl, STRING url)
+{
+  STRING targeturl := ResolveToAbsoluteURL(cssurl, url);
+  IF(targeturl LIKE "http:*" AND UnpackURL(targeturl).host IN ["fonts.googleapis.com"])
+    targeturl := Substring(targeturl,5);  //fixup common failed hostnames
+  RETURN targeturl;
+}
+STRING FUNCTION RewriteCSSDataFileURL(STRING basefilename, STRING url)
+{
+  IF(url NOT LIKE "/*" AND NOT IsAbsoluteURL(url))
+  {
+    TRY
+    {
+      STRING tryurl := GetModuleResourceURL(MakeAbsoluteResourcePath(basefilename,url));
+      IF(tryurl!="")
+        RETURN tryurl;
+    }
+    CATCH(OBJECT ignore)
+    {
+      //just ignore CSS resources we can't get
+    }
+  }
+  RETURN url;
+}
+
+STRING FUNCTION GetStyleForSelector(STRING indata, STRING selector)
+{
+  //FIXME don't fall for ".wh-rtd h1.heading a" etc, only strictly accept the above selectors
+  INTEGER stylepos := SearchSubstring(indata,selector);
+  IF(stylepos=-1)
+    RETURN "";
+
+  INTEGER startstyle := SearchSubstring(indata, '{', stylepos);
+  INTEGER endstyle := SearchSubstring(indata, '}', stylepos);
+  IF(startstyle=-1 OR endstyle=-1 OR endstyle < startstyle)
+    RETURN "";
+  RETURN TrimWhitespace(NormalizeWhitespace(Substring(indata, startstyle + 1, endstyle - startstyle - 2)));
+}
+
+RECORD FUNCTION LoadToolbarStyling(BLOB cssfile, RECORD structure)
+{
+  //Quick, dirty and ugly CSS parser. With emphasis on the first, second and fourth words
+  STRING indata := BlobToSTring(cssfile,-1);
+  FOREVERY(RECORD style FROM structure.blockstyles)
+  {
+    STRING basestyle := GetStyleForSelector(indata, ".wh-rtd " || style.containertag || "." || ToLowercase(style.tag))
+                        ?? GetStyleForSelector(indata, ".-wh-rtd " || style.containertag || "." || ToLowercase(style.tag));
+    STRING toolbarstyle := GetStyleForSelector(indata, ".wh-rtd-toolbar ." || ToLowercase(style.tag))
+                           ?? GetStyleForSelector(indata, ".-wh-rtd-toolbar ." || ToLowercase(style.tag));
+
+    // Rewriting always correctly adds ';' to styles.
+    style.toolbarcss := basestyle || "padding:0;margin:0;" || toolbarstyle;
+
+    structure.blockstyles[#style] := style;
+  }
+  RETURN structure;
+}
+
+RECORD FUNCTION GetCacheableCSSFile(STRING path, BLOB data)
+{
+  OBJECT css := MakeCSSStyleSheet(data);
+
+  // Rewrite selectors to make sure they only apply to the RTE nodes
+  css->RewriteToScope(".wh-rtd__stylescope_REWRITEME", "wh-rtd__html", "wh-rtd__body");
+
+  IF(path LIKE "site::*")
+  {
+    // Get the URL to the file.
+    OBJECT cssobj := OpenWHFSObjectByPath(path);
+    IF(ObjectExists(cssobj) AND cssobj->url != "")
+      css->RewriteURLs(PTR RewriteCSSURL(cssobj->url, #1)); // Rewrite URLs in stylesheet files in a site:: namespace
+  }
+  ELSE //IF(path LIKE "moduledata::*")
+  {
+    // FIXME: If the developer didn't specify site::, we DON'T SUPPORT relative paths (for background-images and such things)
+    //        :(
+    //
+    css->RewriteURLs(PTR RewriteCSSDataFileURL(path, #1));
+  }
+
+  RETURN [ ttl := 60 * 60 * 1000
+         , value := BlobToString(css->GetDocumentBlob(FALSE))
+         ];
+}
+
+PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // HTML text
+  //PROPERTY htmlvalue(this->cleaner->htmlvalue, this->cleaner->htmlvalue);
+
+  STRING csslink;
+
+  OBJECT pvt_internallinkshandler;  //internallinkshandler, set up by <richdocument> (but not <rte>)
+  PUBLIC PROPERTY internallinkshandler(pvt_internallinkshandler,-);
+  OBJECT rtelinkhandlers; //rte <linkhandlers> object
+  OBJECT ARRAY addedlinkhandlers; //AddLinkHandler
+  OBJECT ARRAY rtdtypelinkhandlers; //rtdtype <linkhandlers>
+
+  BLOB finalcssblob;
+
+  BOOLEAN pvt_showcounter;
+  STRING pvt_countmethod;
+  INTEGER pvt_warnlength;
+  STRING pvt_toplaintextmethod;
+  STRING pvt_warnlengthexceededwarningtid;
+
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC STRING contentareawidth;
+  PUBLIC STRING ARRAY allowformatting;
+
+  PUBLIC MACRO PTR onplaceholderopen;
+  PUBLIC MACRO PTR onbuttonclick;
+
+  PUBLIC STRING ARRAY interceptbuttons;
+  PUBLIC BOOLEAN offercustomhyperlink;
+
+  /** Type of text the RTE handles. Possible values:
+      - html: entire html document
+      - html-block: only html inline and block tags
+      - html-inline: only html inline tags
+      - email: entire html document
+  */
+  PUBLIC PROPERTY type(this->editable->basetype, SetType);
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /** List of allowed tags
+  */
+  PUBLIC PROPERTY tagfilter(this->editable, SetTagFilter);
+
+  /// Whether whitespace must be trimmed
+  PUBLIC PROPERTY trimwhitespace(this->editable->trimwhitespace, this->editable->trimwhitespace);
+
+  PUBLIC PROPERTY linkhandlers(GetLinkHandlers, -);
+
+  //PUBLIC PROPERTY structuredef(this->cleaner->structuredef, this->cleaner->structuredef);
+
+  ///How often we sent a value to the client. The initial empty value is #0, the inital set value is #1
+  INTEGER valuegeneration;
+  ///How often have we received a dirty for this value
+  INTEGER valuedirtycount;
+  STRING pvt_htmlclass;
+  STRING pvt_bodyclass;
+  STRING css;
+
+  STRING cssinstance;
+  OBJECT cleaner;
+  BOOLEAN pvt_isdirty;
+  STRING __margins;
+
+  PUBLIC PROPERTY dirty(pvt_isdirty, SetDirtyProp); // SetDirty is already defined in TolliumIsDirtyable
+
+  PUBLIC FUNCTION PTR ondirty;
+
+  PUBLIC RECORD borders;
+
+  /** Current RTD type. Use SetupForRTDType to setup.
+  */
+  PUBLIC PROPERTY rtdtype(GetRTDType,-);
+
+  PUBLIC PROPERTY rtdtypeinfo(this->editable->rtdtype, -);
+
+  PUBLIC PROPERTY htmlclass(this->pvt_htmlclass, SetHTMLClass);
+  PUBLIC PROPERTY bodyclass(this->pvt_bodyclass, SetBodyClass);
+
+  OBJECT editable;
+
+  PUBLIC PROPERTY showcounter(pvt_showcounter, SetShowCounter);
+  PUBLIC PROPERTY countmethod(pvt_countmethod, SetCountMethod);
+  PUBLIC PROPERTY warnlength(pvt_warnlength, SetWarnLength);
+  PUBLIC PROPERTY toplaintextmethod(pvt_toplaintextmethod, SetToPlainTextMethod);
+
+  PUBLIC PROPERTY plaintext(GetPlainText, -);
+
+  PUBLIC PROPERTY warnlengthexceededwarningtid(GetWarnLengthExceededWarningTid, pvt_warnlengthexceededwarningtid);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+    EXTEND this BY TolliumDownloadKeeper;
+
+    this->editable := NEW RichDocumentEditor(this->owner->tolliumcontroller->baseurl);
+    this->__margins := "compact";
+    //this->editable->ondirty := PTR this->OnEditableDirty;
+    //this->cleaner := NEW RTDCleaner;
+    this->pvt_blockelement := TRUE;
+    this->componenttype := "rte";
+    this->formfieldtype := "string";
+    this->borders := [ top := TRUE, right := TRUE, bottom := TRUE, left := TRUE ];
+
+    this->pvt_toplaintextmethod := "converthtmltoplaintext";
+    this->pvt_countmethod := "plaintext:characters";
+
+    //ADDME generate hashes that allows RTDs to share their formatting
+    this->cssinstance := ToLowercase("wh-rtd__stylescope_" || GenerateUFS128BitId());
+  }
+
+  // we do stuff here that has to happen both via the XML and dynamic creation route
+  UPDATE PUBLIC MACRO PreinitComponent()
+  {
+    TolliumComponentBase::PreinitComponent();
+    this->editable->language := this->owner->tolliumuser->language;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->errorlabel := def.errorlabel;
+    this->borders := def.borders;
+    this->trimwhitespace := def.trimwhitespace;
+    this->pvt_showcounter := def.showcounter;
+    this->pvt_countmethod := def.countmethod;
+    this->pvt_warnlength := def.warnlength;
+    this->pvt_toplaintextmethod := def.toplaintextmethod;
+    this->pvt_warnlengthexceededwarningtid := def.warnlengthexceededwarningtid;
+  }
+
+  /** Set CSS files
+      @param files
+      @cell data Data of CSS (optional)
+      @cell path Resource path to CSS file. If DATA is not provided, used to get the data. If present, used to resolve and
+        host linked CSS images inline
+  */
+  MACRO SetCSSFiles(RECORD ARRAY files)
+  {
+    STRING finalcss;
+
+    //ADDME: Ideally we would generate a consistent hash per CSS file, and learn Tollium to share this CSS file in a client over multiple RTD instances
+    FOREVERY(RECORD file FROM files)
+    {
+      RECORD fileinfo := RetrieveWebHareResource(file.path);
+      STRING barecss := GetAdhocCached( [ path := fileinfo.path, modified := fileinfo.modified ]
+                                      , PTR GetCacheableCSSFile(fileinfo.path, fileinfo.data)
+                                      );
+      finalcss := finalcss || Substitute(barecss, "wh-rtd__stylescope_REWRITEME", this->cssinstance);
+    }
+
+    this->finalcssblob := StringToBlob(finalcss);
+  }
+
+  UPDATE MACRO PreShowComponent()
+  {
+    IF (Length(this->finalcssblob) = 0)
+      this->csslink := "";
+    ELSE
+      this->csslink := this->AddInlineDownload(this->finalcssblob, "text/css", "");
+  }
+
+  MACRO SetHTMLClass(STRING htmlclass)
+  {
+    this->pvt_htmlclass := htmlclass;
+    this->ExtUpdatedClasses();
+  }
+
+  MACRO SetBodyClass(STRING bodyclass)
+  {
+    this->pvt_bodyclass := bodyclass;
+    this->ExtUpdatedClasses();
+  }
+
+  PUBLIC RECORD FUNCTION __Debug_GetCSSState()
+  {
+    RETURN [ link := this->csslink
+           , instance := this->cssinstance
+           , cssdata := this->finalcssblob
+           ];
+  }
+
+  BOOLEAN FUNCTION GetDirty()
+  {
+    RETURN this->pvt_dirty;
+  }
+
+  MACRO SetDirtyProp(BOOLEAN newdirty)
+  {
+    IF(this->pvt_isdirty = newdirty)
+      RETURN;
+
+    IF (newdirty)
+    {
+      this->pvt_isdirty := TRUE;
+      this->SetDirty();
+
+      IF (this->ondirty != DEFAULT FUNCTION PTR)
+      {
+        IF(debugrtddirty)
+          dumpvalue("invoking ondirty");
+        this->ondirty();
+      }
+      RETURN;
+    }
+    this->DirtyCleared();
+  }
+
+  UPDATE PUBLIC MACRO DirtyCleared()
+  {
+    IF(NOT this->pvt_isdirty)
+      RETURN;
+
+    this->pvt_isdirty := FALSE;
+    IF(debugrtddirty)
+      DUmpValue(CELL[trace := GetStackTrace(),  this->valuegeneration, this->valuedirtycount ]);
+    this->QueueOutboundMessage("ClearDirty", CELL[ this->valuegeneration, this->valuedirtycount ]);
+    this->ClearDirty();
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetLinkHandlers()
+  {
+    OBJECT ARRAY handlers;
+    IF(ObjectExists(this->internallinkshandler))
+      INSERT this->internallinkshandler INTO handlers AT END;
+
+    IF(ObjectExists(this->rtelinkhandlers))
+      handlers := handlers CONCAT this->rtelinkhandlers->linkhandlers;
+    handlers := handlers CONCAT this->addedlinkhandlers CONCAT this->rtdtypelinkhandlers;
+    RETURN handlers;
+  }
+
+  PUBLIC MACRO AddLinkHandler(OBJECT handler)
+  {
+    INSERT handler INTO this->addedlinkhandlers AT END;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(RECORD);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel; // block elements don't have a this->title;
+    // This only makes sense if trimwhitespace is set, otherwise a value without any textual contents can still have html
+    // contents, like empty tags and <br>'s (fortunately, trimwhitespace is set to true by default)
+    IF(this->pvt_required AND (NOT RecordExists(this->value) OR Length(this->value.htmltext) = 0))
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+
+    IF (this->warnlength != 0)
+    {
+      SWITCH (this->countmethod)
+      {
+        CASE "plaintext:characters"
+        {
+          IF (UCLength(this->plaintext) > this->warnlength)
+            work->AddWarningFor(this, GetTid(this->warnlengthexceededwarningtid, fieldtitle, ToString(UCLength(this->plaintext)), ToString(this->warnlength)));
+        }
+        CASE "plaintext:bytes"
+        {
+          IF (Length(this->plaintext) > this->warnlength)
+            work->AddWarningFor(this, GetTid(this->warnlengthexceededwarningtid, fieldtitle, ToString(Length(this->plaintext)), ToString(this->warnlength)));
+        }
+      }
+    }
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "7gr";
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ text     := FALSE
+        , enabled  := FALSE
+        , required := FALSE
+        , type     := FALSE
+        , clearformatting := FALSE
+        , classes  := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      BOOLEAN allownewembeddedobjects := (RecordExists(this->rtdtypeinfo) AND RecordExists(SELECT FROM this->rtdtypeinfo.allowedobjects WHERE type != "http://www.webhare.net/xmlns/publisher/embedvideo"))
+                                         OR (Length(this->GetAddedWidgetTypes()) > 0);
+
+      BOOLEAN allowvideo := RecordExists(this->rtdtypeinfo) AND RecordExists(SELECT FROM this->rtdtypeinfo.allowedobjects WHERE type = "http://www.webhare.net/xmlns/publisher/embedvideo");
+      RECORD compinfo := [ areatype := this->type IN [ "html-block", "html-inline" ] ? "html" : this->type
+                         , value := this->GetRenderValue()
+                         , valuedirtycount := this->valuedirtycount
+                         , valuegeneration := this->valuegeneration
+                         , hint := this->hint
+                         , allowtags := this->editable->CalculateAllowedTags()
+                         , required := this->required
+                         , interceptbuttons := this->interceptbuttons
+                         , structure := this->GetWHRTEStructure()
+                         , cssurl := this->csslink
+                         , cssinstance := this->cssinstance
+                         , allownewembeddedobjects := allownewembeddedobjects
+                         , allowvideo := allowvideo
+                         , htmlclass := this->htmlclass
+                         , bodyclass := this->bodyclass
+                         , margins := this->__margins
+                         , csscode := this->css
+                         , readonly := this->readonly
+                         , borders := this->borders
+                         , showcounter := this->pvt_showcounter
+                         , countmethod := this->pvt_countmethod
+                         , warnlength := this->pvt_warnlength
+                         , toplaintextmethod := this->pvt_toplaintextmethod
+                         ];
+
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.text)
+        this->QueueOutboundMessage("UpdateValue", CELL[ value := this->GetRenderValue(), this->valuegeneration, this->valuedirtycount ]);
+
+      IF (this->dirtyflags.enabled)
+        this->QueueOutboundMessage("UpdateEnabled", [ value := this->enabled ]);
+
+      IF (this->dirtyflags.required)
+        this->ToddUpdate([type:="required", value := this->required]);
+
+      IF (this->dirtyflags.type)
+        this->ToddUpdate([type:="areatype", value := this->type IN [ "html-block", "html-inline" ] ? "html" : this->type]);
+
+      IF (this->dirtyflags.clearformatting)
+        this->ToddUpdate([type:="clearformatting"]);
+
+      IF (this->dirtyflags.classes)
+        this->QueueOutboundMessage("UpdateClasses", [ htmlclass := this->pvt_htmlclass, bodyclass := this->pvt_bodyclass ]);
+        //this->ToddUpdate([type:="classes"]);
+    }
+
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC STRING FUNCTION GetRenderValue() //FIXME: make private, but then the selftests need a way to capture the outbound messages to verify innerhtml
+  {
+    RETURN ObjectExists(this->editable) ? this->editable->GetHTMLForClientRTE() : "";
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(STRING indata)
+  {
+    this->editable->SetHTMLFromClientRTE(indata);
+  }
+
+  UPDATE PUBLIC MACRO TolliumWeb_ParseEvent(STRING action, STRING param)
+  {
+    IF(action="placeholderopen")
+      this->owner->tolliumscreenmanager->QueueEvent(this, "placeholderopen", [placeholder:=param]);
+    ELSE
+      TolliumComponentBase::TolliumWeb_ParseEvent(action, param);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  // don't regenerate this component upon changing required
+  UPDATE PUBLIC MACRO SetRequired(BOOLEAN new_required)
+  {
+    IF (this->pvt_required = new_required)
+      RETURN;
+
+    this->pvt_required := new_required;
+    this->ExtUpdatedRequired();
+  }
+
+  /** Get the current value as a rich document /
+  PUBLIC OBJECT FUNCTION GetRichDocumentValue()
+  {
+    OBJECT myrichdoc := NEW RichDocument;
+    RECORD value := this->value;
+    IF(RecordExists(value))
+      myrichdoc->ImportFromRecord(value);
+    RETURN myrichdoc;
+  }
+*/
+  PUBLIC RECORD FUNCTION GetWHRTEStructure()
+  {
+    RECORD structure := this->editable->GetWHRTEStructure();
+    IF(this->contentareawidth != "" AND RecordExists(structure))
+      structure.contentareawidth := this->contentareawidth;
+    RETURN structure;
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    RETURN this->editable->ExportAsRecord();
+  }
+  STRING FUNCTION GetRTDType()
+  {
+    RETURN RecordExists(this->editable->rtdtype) ? this->editable->rtdtype.namespace : "";
+  }
+  MACRO SetRTDTypeInfo(RECORD newrtdtypeinfo)
+  {
+    this->editable->rtdtype := newrtdtypeinfo;
+    //this->cleaner->rtdtypeinfo := newrtdtypeinfo;
+  }
+
+  MACRO SetValue(RECORD contents)
+  {
+    // Introduces an external value.
+    this->editable->ImportFromRecord(contents);
+
+    this->valuegeneration := this->valuegeneration + 1;
+    this->valuedirtycount := 0;
+    this->ExtUpdatedText();
+    this->pvt_isdirty := FALSE;
+    this->ClearDirty();
+  }
+
+  MACRO SetType(STRING type)
+  {
+    this->editable->basetype := type;
+    //this->cleaner->type := type;
+
+    this->ExtUpdatedType();
+  }
+
+  MACRO SetTagFilter(STRING ARRAY newtagfilter)
+  {
+    this->editable->tagfilter := newtagfilter;
+    //this->cleaner->tagfilter := newtagfilter;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetShowCounter(BOOLEAN newvalue)
+  {
+    IF (this->pvt_showcounter = newvalue)
+      RETURN;
+
+    this->pvt_showcounter := newvalue;
+    this->ExtUpdatedComponent();
+  }
+
+
+  MACRO SetCountMethod(STRING newvalue)
+  {
+    IF (this->pvt_countmethod = newvalue)
+      RETURN;
+
+    IF (newvalue NOT IN [ "plaintext:characters", "plaintext:bytes" ])
+      THROW NEW Exception("Illegal value for 'countmethod': '" || EncodeJava(newvalue) || "'. Allowed: 'plaintext:characters', 'plaintext:bytes'");
+
+    this->pvt_countmethod := newvalue;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetWarnLength(INTEGER newvalue)
+  {
+    IF (this->pvt_warnlength = newvalue)
+      RETURN;
+
+    this->pvt_warnlength := newvalue;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetToPlainTextMethod(STRING newvalue)
+  {
+    IF (this->pvt_toplaintextmethod = newvalue)
+      RETURN;
+    IF (newvalue NOT IN [ "converthtmltoplaintext" ])
+      THROW NEW Exception("Illegal value for 'ToPlainTextMethod': '" || EncodeJava(newvalue) || "'. Allowed: 'converthtmltoplaintext");
+
+    this->pvt_toplaintextmethod := newvalue;
+    this->ExtUpdatedComponent();
+  }
+
+  STRING FUNCTION GetPlainText()
+  {
+    RECORD value := this->value;
+    IF (NOT RecordExists(value))
+      RETURN "";
+    RETURN BlobToString(ConvertHtmlToPlainText(value.htmltext, 1, "utf-8", DEFAULT FUNCTION PTR));
+  }
+
+  STRING FUNCTION GetWarnLengthExceededWarningTid()
+  {
+    IF (this->pvt_warnlengthexceededwarningtid != "")
+      RETURN this->pvt_warnlengthexceededwarningtid;
+    SWITCH (this->countmethod)
+    {
+      CASE "plaintext:characters" { RETURN /*tid*/"tollium:components.rte.toomanyplaintextcharacters"; }
+      CASE "plaintext:bytes"      { RETURN /*tid*/"tollium:components.rte.toomanyplaintextbytes"; }
+    }
+    RETURN "";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+  RECORD ARRAY FUNCTION GetAddedWidgetTypes()
+  {
+    RETURN RECORD[];
+  }
+  OBJECT FUNCTION GetCurrentApplytester()
+  {
+    RETURN this->contexts->applytester ?? this->owner->GetAppContext("publisher:applytester");
+  }
+
+  PUBLIC MACRO HandleServersideButton(STRING buttonname, STRING ARRAY params)
+  {
+    // Check if application wants to handle this action
+    IF(buttonname IN this->interceptbuttons)
+    {
+      IF(this->onbuttonclick != DEFAULT MACRO PTR)
+        this->onbuttonclick(buttonname);
+      RETURN;
+    }
+    SWITCH (buttonname)
+    {
+      CASE "a-href"
+      {
+        this->HandleInsertHyperlink();
+      }
+      CASE "clear_formatting"
+      {
+        IF (this->owner->RunMessageBox("tollium:commondialogs.confirmclearformatting") = "yes")
+          this->ClearFormatting();
+      }
+      CASE "object-insert"
+      {
+        OBJECT screen := this->owner->LoadScreen("mod::publisher/screens/commondialogs/embeddedobjects.xml#choosetype", CELL[ this->rtdtypeinfo, addwidgets := this->GetAddedWidgetTypes() ]);
+        IF (screen->RunModal() = "ok")
+        {
+          RECORD insertvalue := DoEditWidget(this->owner, this, screen->value, DEFAULT RECORD, DEFAULT OBJECT, this->GetCurrentApplytester(), FALSE);
+          IF(RecordExists(insertvalue))
+            this->InsertEmbeddedObject(insertvalue);
+        }
+      }
+      CASE "object-video"
+      {
+        RECORD insertvalue := DoEditWidget(this->owner, this, "http://www.webhare.net/xmlns/publisher/embedvideo", DEFAULT RECORD, DEFAULT OBJECT, this->GetCurrentApplytester(), FALSE);
+        IF(RecordExists(insertvalue))
+          this->InsertEmbeddedObject(insertvalue);
+      }
+    }
+  }
+
+  PUBLIC MACRO InsertImage(BLOB data, STRING filename)
+  {
+    RECORD imageinfo := this->editable->InsertImage(data, filename);
+    this->QueueOutboundMessage("InsertImage", imageinfo);
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    IF(type = "properties")
+    {
+      RECORD answer := this->HandlePropertiesRequest(msgdata);
+      IF(RecordExists(answer))
+        this->QueueOutboundMessage("UpdateProps", [ targetid := msgdata.targetid, newdata := answer ]);
+
+      RETURN;
+    }
+    IF(type = "properties2")
+    {
+      RECORD settings := this->HandlePropertiesRequest2(msgdata.affectednodeinfo);
+      this->QueueOutboundMessage("UpdateProps2", [ actionid := msgdata.actionid, settings := settings ]);
+      RETURN;
+    }
+    IF(type="buttonclick")
+    {
+      this->HandleServersideButton(msgdata.button, CellExists(msgdata, "params") ? msgdata.params : DEFAULT STRING ARRAY);
+      RETURN;
+    }
+    IF(type="dirty")
+    {
+      //LogDebug("tollium", "message dirty", this->pvt_valueid, msgdata.valueid);
+      IF(debugrtddirty)
+        DumpValue( [ localgeneration := this->valuegeneration, localdirtycount := this->valuedirtycount
+                   , remotegeneration := msgdata.valuegeneration, remotedirtycount := msgdata.valuedirtycount
+                   ]);
+
+      IF(msgdata.valuegeneration = this->valuegeneration AND msgdata.valuedirtycount > this->valuedirtycount)
+      {
+        IF(debugrtddirty)
+          DumpValue("Setting dirty");
+        this->valuedirtycount := msgdata.valuedirtycount;
+        this->dirty := TRUE;
+      }
+      // Queue a response, so the test framework knows this message has been processed
+      this->QueueOutboundMessage("AckDirty", DEFAULT RECORD);
+      RETURN;
+    }
+    TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+  }
+
+  PUBLIC MACRO __debug_simulatedirty()
+  {
+    this->ProcessInboundMessage("dirty", [ valuegeneration := this->valuegeneration, valuedirtycount := this->valuedirtycount + 1]);
+  }
+
+  RECORD FUNCTION HandlePropertiesRequest2(RECORD data)
+  {
+    SWITCH (data.type)
+    {
+      CASE "hyperlink"
+      {
+        OBJECT scr := this->owner->LoadScreen("tollium:components/rte.hyperlink"
+                                              ,[ rte := this
+                                               , data := data
+                                               , offercustomhyperlink := this->offercustomhyperlink
+                                               ]);
+
+        IF(scr->RunModal()="ok")
+          RETURN scr->GetData();
+      }
+      DEFAULT
+      {
+        Print("Not sure how to handle props request for '" || data.type || "'\n");
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION HandlePropertiesRequest(RECORD data)
+  {
+    SWITCH (data.type)
+    {
+      CASE "img"
+      {
+        RECORD originalimg := this->editable->GetImage(data.src);
+        IF(NOT RecordExists(originalimg)) //The image is not in our cache. Perhaps it's a downloading image?
+        {
+          Print("Got a properties request for img with url " || data.src || ", but not found!\n");
+          RETURN DEFAULT RECORD;
+        }
+
+        OBJECT scr := this->owner->LoadScreen("tollium:components/rte.imageproperties"
+                                              ,[ rte := this
+                                               , data := data
+                                               , originalimg := originalimg
+                                               , offercustomhyperlink := this->offercustomhyperlink
+                                               ]);
+
+        IF(scr->RunModal()="ok") //return the new settings
+          RETURN scr->GetValue();
+      }
+      CASE "embeddedobject"
+      {
+        RETURN this->HandleEmbeddedObjectProperties(data);
+      }
+      CASE "table"
+      {
+        OBJECT scr := this->owner->LoadScreen("tollium:components/rte.tableproperties"
+                                              ,[ rte := this
+                                               , data := data
+                                               ]);
+
+        SWITCH (scr->RunModal())
+        {
+          CASE "remove" { RETURN [ type := "remove" ]; }
+          CASE "ok"     { RETURN scr->GetValue(); }
+        }
+      }
+      DEFAULT
+      {
+        Print("Not sure how to handle props request for '" || data.type || "'\n");
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC MACRO HandleInsertHyperlink()
+  {
+    OBJECT scr := this->owner->LoadScreen("tollium:components/rte.hyperlink"
+                                         ,[ rte := this
+                                          , data := DEFAULT RECORD
+                                          , offercustomhyperlink := this->offercustomhyperlink
+                                          ]);
+
+    IF(scr->RunModal() = "ok")
+    {
+      RECORD data := scr->GetData();
+      IF(RecordExists(data))
+        this->InsertHyperlink(data.link, data.target);
+    }
+  }
+
+  PUBLIC MACRO InsertHyperlink(STRING url, STRING target DEFAULTSTO "")
+  {
+    this->QueueOutboundMessage("InsertHyperlink", [ url := url, target := target ]);
+  }
+
+  PUBLIC INTEGER FUNCTION GetLinkRefHyperlink(STRING inlink)
+  {
+    RETURN this->editable->GetLinkRefHyperlink(inlink);
+  }
+
+  PUBLIC STRING FUNCTION CreateLinkRefHyperlink(INTEGER linkref)
+  {
+    RETURN this->editable->CreateLinkRefHyperlink(linkref);
+  }
+
+  //Updated by todd to implement call to javascript
+  PUBLIC MACRO ClearFormatting()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.clearformatting := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedText()
+  {
+    IF(this->readonly)
+    {
+      this->ExtUpdatedComponent();
+      RETURN;
+    }
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.text := TRUE;
+  }
+
+  MACRO ExtUpdatedClasses()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.classes := TRUE;
+  }
+
+  MACRO ExtUpdatedType()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.type := TRUE;
+  }
+
+  UPDATE MACRO ExtUpdatedEnabled()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.enabled := TRUE;
+  }
+
+  MACRO ExtUpdatedRequired()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.required := TRUE;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Setting up more complex structures
+  //
+  MACRO LoadStructureDefFile(BLOB structuredata)
+  {
+    OBJECT structuredoc := MakeXMLDocument(structuredata);
+    OBJECT schemadef := __RetrieveCachedXMLSchema("mod::tollium/data/richstructuredef.xsd").doc;
+
+    RECORD ARRAY errors := schemadef->ValidateDocument(structuredoc);
+    IF(Length(errors)>0)
+      THROW NEW Exception("Errors validating rich structure document\n" || anytostring(errors,'boxed'));
+
+    OBJECT structuredef := NEW RichDocumentStructure;
+    structuredef->LoadFromXML(structuredoc->documentelement,"http://www.webhare.net/xmlns/tollium/richstructure");
+    this->LoadRTDTypeInfo(GetRTDTypeFromClassicStructureDef(structuredef));
+  }
+  MACRO LoadRTDTypeInfo(RECORD rtdtypeinfo)
+  {
+    // FIXME: should we test for this or can rtdtypeinfo (if not retrieved using GetRTDSettingsFromType) exist without "rtdtype" cell ?
+
+    IF(Length(this->finalcssblob)>0)
+      rtdtypeinfo.structure := LoadToolbarStyling(this->finalcssblob, rtdtypeinfo.structure);
+
+    this->editable->rtdtype := rtdtypeinfo;
+    this->ExtUpdatedComponent();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Block component API
+  //
+  PUBLIC MACRO InsertEmbeddedObject(RECORD instancerec)
+  {
+    this->QueueOutboundMessage("InsertEmbeddedObject", this->editable->CreateWidget(instancerec));
+    this->SetDirty();
+//      IF (this->ondirty != DEFAULT FUNCTION PTR)
+  //      this->ondirty();
+  }
+
+  RECORD FUNCTION HandleEmbeddedObjectProperties(RECORD data)
+  {
+    STRING subaction := CellExists(data,"subaction") ? data.subaction : "edit";
+    RECORD instance := this->editable->GetWidget(data.instanceref);
+    IF (NOT RecordExists(instance)) // instance gone, remove it
+    {
+      Print("Instance not found - requesting immediate removal\n");
+      RETURN [ type := "remove" ];
+    }
+
+    IF(subaction="delete")
+    {
+      IF(this->owner->RunMessageBox("tollium:commondialogs.confirmdeleteembeddedobject") != "yes")
+        RETURN DEFAULT RECORD;
+      RETURN [ type := "remove" ];
+    }
+
+    instance := DoEditWidget(this->owner, this, instance.whfstype, instance, DEFAULT OBJECT, this->GetCurrentApplytester(), TRUE);
+    IF(NOT RecordExists(instance))
+      RETURN DEFAULT RECORD;
+
+    RECORD preview := this->editable->UpdateWidget(data.instanceref, instance);
+    RETURN
+        [ type := "replace"
+        , data := preview
+        ];
+  }
+
+  PUBLIC UPDATE MACRO __RemoveChildComponent(OBJECT comp)
+  {
+    //no-op,but we need this to convince tollium its safe to remove the linkshandler
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumRTE EXTEND RTEBase
+<
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    RTEBase::StaticInit(def);
+
+    this->allowformatting := def.allowformatting;
+    this->onbuttonclick := def.onbuttonclick;
+    //this->oninserthyperlink := def.oninserthyperlink;
+    this->interceptbuttons := def.interceptbuttons;
+    this->tagfilter := def.tagfilter;
+    this->offercustomhyperlink := def.offercustomhyperlink;
+    this->htmlclass := def.htmlclass;
+    this->bodyclass := def.bodyclass;
+    this->css := def.css;
+    this->type := def.type;
+
+    RECORD ARRAY cssfiles;
+    IF (def.cssfile != "")
+      cssfiles := [ [ path := def.cssfile ] ];
+
+    cssfiles := cssfiles CONCAT ToRecordArray(def.cssfiles, "PATH");
+    IF (LENGTH(cssfiles) != 0)
+      this->SetCSSFiles(cssfiles);
+
+    IF(def.structuredatafile!="")
+      this->LoadStructureDefFile(GetWebhareResource(def.structuredatafile));
+
+
+    this->rtelinkhandlers := def.linkhandlers;
+    this->editable->ValidateSettings();
+
+    OBJECT applytester := this->owner->contexts->applytester ?? this->owner->GetAppContext("publisher:applytester");
+    IF(ObjectExists(applytester))
+      this->editable->applytester := applytester;
+      //this->editable->basefsobject := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.id);
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumRichArea EXTEND RTEBase
+<
+  MACRO NEW()
+  {
+    this->type := "html";
+  }
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    RTEBase::StaticInit(def);
+
+    this->tagfilter := def.tagfilter;
+    this->type := def.type;
+
+    this->editable->ValidateSettings();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
+<
+  PUBLIC BOOLEAN __this_is_tolliumrichdocument; //our widget editor currently needs this
+  PUBLIC RECORD ARRAY allowwidgettypes;
+  STRING linkhandlerselement;
+  RECORD __appliedsettings;
+
+  //The current RTD settings as specified by the applytester. Only set if we're currently getting our settings from a `<rtddoc>`
+  PUBLIC PROPERTY appliedsettings(__appliedsettings, -);
+
+  PUBLIC PROPERTY mergefields(this->editable->mergefields, SetMergeFields);
+
+  PUBLIC PROPERTY margins(this->__margins, SetMargins);
+
+  MACRO NEW()
+  {
+    this->type := "richdocument";
+
+    this->mergefields := this->contexts->mergefields;
+
+    OBJECT applytester := this->contexts->applytester ?? this->owner->GetAppContext("publisher:applytester");
+    IF(ObjectExists(applytester))
+      this->editable->basefsobject := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.id);
+
+    OBJECT richdocumentcontext := this->owner->GetAppContext("tollium:richdocumentcontext");
+    //Print("Context? " || (ObjectExists(richdocumentcontext) ? "ja":"nee")||'\n');
+    IF(ObjectExists(richdocumentcontext))
+    {
+      this->LoadRTDSettings(richdocumentcontext->rtdtypeinfo);
+    }
+    ELSE IF(ObjectExists(applytester))
+    {
+      this->__appliedsettings := GetRTDSettingsForApplyTester(applytester);
+      this->LoadRTDSettings(this->__appliedsettings);
+    }
+
+    this->pvt_internallinkshandler := this->owner->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "internallinks");
+
+//    IF(ObjectExists(this->fsapplytester) AND NOT RecordExists(this->rtdtypeinfo))
+  //    this->rtdtypeinfo := GetRTDSettingsForApplyTester(this->fsapplytester);
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    RTEBase::StaticInit(def);
+    this->type := def.type;
+
+    this->contentareawidth := def.contentareawidth;
+    IF(def.rtdtype != "")
+      this->SetupForRTDType(def.rtdtype);
+    ELSE
+      this->editable->ValidateSettings();
+
+    this->allowwidgettypes := def.allowwidgettypes;
+    this->__margins := def.margins ?? "compact";
+  }
+
+  MACRO SetMargins(STRING newmargins)
+  {
+    IF(newmargins NOT IN whconstant_tollium_rtd_margins)
+      THROW NEW Exception(`Invalid margins '${newmargins}, must be one of '${Detokenize(whconstant_tollium_rtd_margins, "', '")}'`);
+
+    IF(this->__margins = newmargins)
+      RETURN;
+
+    this->__margins := newmargins;
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE PUBLIC MACRO PreinitComponent()
+  {
+    IF(NOT RecordExists(this->rtdtypeinfo))
+      this->SetupForRTDtype("http://www.webhare.net/xmlns/publisher/defaultrtdtype");
+    RTEBase::PreinitComponent();
+  }
+
+  UPDATE RECORD ARRAY FUNCTION GetAddedWidgetTypes()
+  {
+    RETURN this->allowwidgettypes; //using an updated function to prevent <rte> from supporting this feature
+  }
+
+  /** Setup the RTD for editing according to a specific RTD type */
+  PUBLIC MACRO SetupForRTDType(STRING newrtdtype)
+  {
+    RECORD rtdtypeinfo := GetRTDSettingsFromType(newrtdtype);
+    this->__appliedsettings := DEFAULT RECORD;
+    this->LoadRTDSettings(rtdtypeinfo);
+    this->editable->ValidateSettings();
+  }
+
+  /** Setup the RTD for editing the specified file (use it as basis for apply and rtd settings ) */
+  PUBLIC MACRO SetupForFSObject(INTEGER fsobjectid)
+  {
+    this->editable->basefsobject := OpenWHFSObject(fsobjectid);
+
+    this->__appliedsettings := GetRTDSettingsForFile(fsobjectid);
+    this->LoadRTDSettings(this->__appliedsettings);
+  }
+  MACRO LoadRTDSettings(RECORD settings)
+  {
+    this->SetCSSFiles(settings.cssfiles);
+    this->css := settings.css;
+    this->htmlclass := settings.htmlclass;
+    this->bodyclass := settings.bodyclass;
+
+    IF(Length(settings.structuredef)>0)
+    {
+      this->LoadStructureDefFile(settings.structuredef);
+    }
+    ELSE
+    {
+      this->LoadRTDTypeInfo(settings);
+    }
+
+    IF(RecordExists(this->rtdtypeinfo.structure) AND this->rtdtypeinfo.structure.contentareawidth = "" AND ObjectExists(settings.applytester)) //can we get it from a <webdesign> node ?
+    {
+      RECORD webdesigninfo := settings.applytester->GetWebDesignObjinfo();
+      IF(RecordExists(webdesigninfo))
+        this->editable->rtdtype.structure.contentareawidth := webdesigninfo.maxcontentwidth;
+    }
+
+    IF(Length(this->rtdtypelinkhandlers) > 0)
+    {
+      FOREVERY(OBJECT handler FROM this->rtdtypelinkhandlers)
+      {
+        handler->DeleteComponent();
+      }
+      this->owner->tolliumscreenmanager->GetComponent(this->linkhandlerselement)->DeleteComponent();
+      this->rtdtypelinkhandlers := OBJECT[];
+    }
+
+    IF(RecordExists(this->rtdtypeinfo.linkhandlers))
+    {
+      //NOTE: based on loadtolliumbodyfragment but skipping any steps we can get away with
+      //FIXME: load into an isolated scope
+      RECORD fragment := this->rtdtypeinfo.linkhandlers;
+
+      STRING fragprefix := this->name;
+      STRING savefragprefix := this->owner->tolliumscreenmanager->current_fragment_prefix;
+      this->owner->tolliumscreenmanager->current_fragment_prefix := fragprefix;
+
+      //All components will still have names like 'FRAGMENT!' something. Rename them to their unique scoeps
+      //FIXME dupe between screenbase.whlib and rte.whlib
+      FOREVERY(RECORD obj FROM fragment.formobjects)
+      {
+        obj.data.name := fragprefix || Substring(obj.fullname,8);
+        obj.fullname := fragprefix || Substring(obj.fullname,8);
+        obj.data.tolliumscope.scope := this->toddname || SubString(obj.data.tolliumscope.scope, SearchSubString(obj.data.tolliumscope.scope || "!", "!"));
+        fragment.formobjects[#obj] := obj;
+      }
+
+      RECORD ARRAY components := this->owner->DoLoadComponents(fragment.formobjects, this->owner->tolliumscreenbuilder);
+      this->linkhandlerselement := components[0].name;
+      this->owner->tolliumscreenmanager->DoInitComponents(components, this->owner->tolliumscreenbuilder);
+
+      RECORD rootnode := this->owner->tolliumscreenbuilder->ReprocessData(DEFAULT OBJECT, fragment.rootnode, fragment.rootnode.__xml_fields);
+      this->rtdtypelinkhandlers := rootnode.linkhandlers;
+      this->owner->tolliumscreenmanager->current_fragment_prefix := savefragprefix;
+    }
+  }
+
+  MACRO SetMergeFields(OBJECT mergefields)
+  {
+    IF (ObjectExists(mergefields) AND mergefields NOT EXTENDSFROM MergeFieldsContext)
+      THROW NEW TolliumException(this, "mergefields value should extend MergeFieldsContext");
+    this->editable->mergefields := mergefields;
+  }
+>;

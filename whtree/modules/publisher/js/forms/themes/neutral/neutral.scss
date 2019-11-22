@@ -1,0 +1,114 @@
+@import "~@mod-publisher/js/forms/fields/datetime.scss";
+
+// Imgedit styling
+
+.wh-form__imgedit
+{
+  &:not(.wh-form__imgedit--hasimage)
+  {
+    border:1px solid #acacac;
+
+    &:after
+    {
+      content:"";
+      position:absolute;
+      background:url(upload.svg) center no-repeat;
+      opacity:0.5;
+      width:100%;
+      height:100%;
+      top:0;
+      left:0;
+      cursor:pointer;
+    }
+  }
+}
+
+.wh-form__imgeditdelete
+{
+  position:absolute;
+  top:0;
+  right:0;
+  background:black;
+  color:white;
+  padding:4px;
+
+  &:before
+  {
+    content:"X";
+  }
+}
+
+
+// Fileedit styling
+
+.wh-form__uploadfielddelete
+{
+  position:absolute;
+  top:0;
+  right:0;
+  background:black;
+  color:white;
+  padding:3px;
+  font-size:70%;
+
+  &:before
+  {
+    content:"X";
+  }
+
+  .wh-form__uploadfield:not(.wh-form__uploadfield--hasfile) &
+  {
+    display:none;
+  }
+}
+
+// Array field styling
+
+.wh-form__arrayadd
+{
+  background:black;
+  color:white;
+  padding:3px;
+  font-size:70%;
+
+  &:before
+  {
+    content: "+";
+  }
+
+  .wh-form__fieldgroup--array.wh-form__array--maxrows &
+  {
+    display: none;
+  }
+}
+
+.wh-form__arraydelete
+{
+  background:black;
+  color:white;
+  padding:3px;
+  font-size:70%;
+
+  &:before
+  {
+    content: "X";
+  }
+}
+
+// Date and time styling
+.datetime
+{
+  @include wh-datetime;
+
+  &__togglepicker:before
+  {
+    content:"˅";
+  }
+  &__reset:before
+  {
+    content:"x";
+  }
+  &__picker
+  {
+  }
+}

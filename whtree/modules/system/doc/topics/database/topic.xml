@@ -1,0 +1,13 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="Database"
+       shortdescription="Database connections and transactions"
+       docorder="accessing-databases odbc oracle">
+  <section name="webharedb" title="Built-in WebHare database" />
+  <section name="dynquery" title="Dynamic queries" />
+  <section name="ldap" title="Accessing a LDAP server as a database" />
+  <section name="local" title="Accessing a local database" />
+  <section name="loopback" title="Loopback database connections" />
+  <section name="oci" title="Accessing an Oracle database" />
+  <section name="odbc" title="Accessing ODBC data sources" />
+  <section name="base" title="Low-level definitions" />
+</topic>

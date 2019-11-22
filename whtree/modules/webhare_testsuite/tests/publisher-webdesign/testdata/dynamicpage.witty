@@ -1,0 +1,20 @@
+[component testdyn]
+  Base: <span id="testdyn" data-baseurl="[baseurl]">[gethtmltid test.richtext] [gethtmltid test.richtext_params p1]</span><br>
+  Subpath: <span id="subpath">[subpath]</span><br>
+  Meaning of life: <span id="meaningoflife">[meaningoflife]</span><br>
+  Abort: <span id="boemmessage">[boemmessage]</span><br>
+  Throw: <span id="throwmessage">[throwmessage]</span><br>
+  WCS: <span id="wcsresult">[if wcsresult][targetobjectid][/if]</span><br>
+  WDS: <span id="wdsresult">[if wdsresult][siteroot][/if]</span><br>
+  <p>Assets:</p>
+  <table id="assets">
+    [forevery assets]
+      <tr>
+        <td>[subpath]</td>
+        <td>[rooturl]</td>
+        <td>[if compressed]true[else]false[/if]</td>
+        <td>[if sourcemap]true[else]false[/if]</td>
+      </tr>
+    [/forevery]
+  </table>
+[/component]

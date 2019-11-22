@@ -1,0 +1,680 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/richdocument.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/publisher/versioning.whlib";
+
+
+
+PUBLIC MACRO Create()
+{
+  testfw->BeginWork();
+  GetPrimary()->allowerrordelay := FALSE;
+
+  EnableSiteVersionHistory(testfw->GetTestSite(), testfw->GetUserObject("sysop"), "publisher:default");
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+
+  OBJECT root := testfw->GetTestSite()->rootobject;
+
+  INTEGER file_externallink := root->OpenByName("externallink.shtml")->id;
+  INTEGER file_index_html := root->OpenByName("index.html")->id;
+
+  // External links should not be initially versioned
+  TestEQ([ file_index_html ], policy->GetPossibleVersionedObjects([ file_index_html, file_externallink ]));
+
+  TestEq(TRUE, policy->HasVersionEvents(root->OpenByName("index.html")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("externallink.shtml")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("internallink-published.shtml")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("dynfolder")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("emptyfilefolder")));
+
+  testfw->CommitWork();
+}
+
+MACRO ModifyAllDraftFields(OBJECT destfolder, OBJECT testfiledraft, BOOLEAN publish)
+{
+  testfiledraft->fsobject->UpdateMetadata(
+      [ title :=          "modified"
+      , description :=    "modified"
+      , keywords :=       "modified"
+      , ispinned :=       TRUE
+      , data :=           StringToBlob("modified")
+      , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/pdffile")->id
+      ]);
+
+  testfiledraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata",
+        [ name :=         "modified.pdf"
+        , parent :=       destfolder->id
+        , flags :=        (publish ? DraftFlag_Publish : 0)
+        ]);
+
+  OBJECT rd := NEW RichDocument;
+  rd->ImportFromPlainText("modified");
+
+  testfiledraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+        [ data :=         rd->ExportAsRecord()
+        ]);
+}
+
+ASYNC MACRO TestAccept()
+{
+  OBJECT root := testfw->GetTestSite()->rootobject;
+
+  OBJECT folder := root->OpenByName("emptyfilefolder");
+
+  // ------
+  // Test: applying of fields from draft: publishing unversioned file
+
+  testfw->BeginWork();
+
+  OBJECT testfile := root->CreateFile(
+      [ name :=   "testaccept.txt"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
+      ]);
+
+  // Modify all possibly versioned fields in the draft
+  OBJECT testfiledraft := CreateDraft(testfile, TRUE);
+  ModifyAllDraftFields(folder, testfiledraft, TRUE);
+
+  testfw->CommitWork();
+
+  // Submit request and accept, see which files have changed. Only published should have changed, no public draft may be present anymore
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request publish" ]);
+  AcceptApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "approve publish" ]);
+  testfw->CommitWork();
+
+  testfile->Refresh();
+
+  // Only the published fields should have been applied
+  TestEQ(
+      [ [ parent :=         root->id
+        , name :=           "testaccept.txt"
+        , title :=          ""
+        , description :=    ""
+        , keywords :=       ""
+        , ispinned :=       FALSE
+        , data :=           DEFAULT BLOB
+        , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
+        ]
+      ], SELECT parent, name, title, description, keywords, ispinned, data, type FROM system.fs_objects WHERE id = testfile->id);
+
+  TestEQ(DEFAULT RECORD,
+      testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data);
+
+  TestEQ(TRUE, IsPublish(testfile->published));
+  TestEQ(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
+  TestEq(DEFAULT OBJECT, GetPublicDraft(testfile->id));
+
+  // ------
+  // Test: applying of fields from draft: modifying published file
+
+  testfw->BeginWork();
+
+  testfiledraft := CreateDraft(testfile, TRUE);
+  ModifyAllDraftFields(folder, testfiledraft, TRUE);
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request modify" ]);
+  AcceptApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "approve modify" ]);
+  testfw->CommitWork();
+
+  testfile->Refresh();
+
+  // all fields should have been updated
+  TestEQ(
+      [ [ parent :=         folder->id
+        , name :=           "modified.pdf"
+        , title :=          "modified"
+        , description :=    "modified"
+        , keywords :=       "modified"
+        , ispinned :=       TRUE
+        , data :=           StringToBlob("modified")
+        , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id // type is readonly!
+        ]
+      ], SELECT parent, name, title, description, keywords, ispinned, data, type FROM system.fs_objects WHERE id = testfile->id);
+
+  OBJECT rd := NEW RichDocument;
+  rd->ImportFromPlainText("modified");
+
+  TestEQ(rd->ExportAsRecord(),
+      testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data);
+
+  TestEQ(TRUE, IsPublish(testfile->published));
+  TestEQ(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
+  TestEq(DEFAULT OBJECT, GetPublicDraft(testfile->id));
+
+  // ------
+  // Test: applying of fields from draft: depublishing published file
+
+  testfw->BeginWork();
+
+  // Reset file
+  testfile->MoveTo(root, "testaccept.txt");
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", DEFAULT RECORD);
+  testfile->UpdateMetadata(
+      [ title :=          ""
+      , description :=    ""
+      , keywords :=       ""
+      , ispinned :=       FALSE
+      , data :=           DEFAULT BLOB
+      , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
+      ]);
+
+  testfiledraft := CreateDraft(testfile, TRUE);
+  ModifyAllDraftFields(folder, testfiledraft, FALSE);
+
+  testfw->CommitWork();
+
+  // Don't want running publish process to overwrite the changes to the published field
+  testfw->WaitForPublishCompletion(testfile->parent);
+
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request depublish" ]);
+  AcceptApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "approve depublish" ]);
+  testfw->CommitWork();
+
+  testfile->Refresh();
+
+  // all fields should have been updated
+  TestEQ(
+      [ [ parent :=         folder->id
+        , name :=           "modified.pdf"
+        , title :=          "modified"
+        , description :=    "modified"
+        , keywords :=       "modified"
+        , ispinned :=       TRUE
+        , data :=           StringToBlob("modified")
+        , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id // type is readonly!
+        ]
+      ], SELECT parent, name, title, description, keywords, ispinned, data, type FROM system.fs_objects WHERE id = testfile->id);
+
+  rd := NEW RichDocument;
+  rd->ImportFromPlainText("modified");
+
+  TestEQ(rd->ExportAsRecord(),
+      testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data);
+
+  TestEQ(FALSE, IsPublish(testfile->published));
+  TestEQ(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
+  TestEq(DEFAULT OBJECT, GetPublicDraft(testfile->id));
+
+  // ------
+  // Test: applying of fields from draft: modifying depublished file
+
+  testfw->BeginWork();
+
+  // Reset file
+  testfile->MoveTo(root, "testaccept.txt");
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",  [ data := DEFAULT RECORD ]);
+  testfile->UpdateMetadata(
+      [ title :=          ""
+      , description :=    ""
+      , keywords :=       ""
+      , ispinned :=       FALSE
+      , data :=           DEFAULT BLOB
+      , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
+      ]);
+
+  testfiledraft := CreateDraft(testfile, TRUE);
+  ModifyAllDraftFields(folder, testfiledraft, FALSE);
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request modify of depublish" ]);
+  AcceptApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "approve modify of depublish" ]);
+  testfw->CommitWork();
+
+  testfile->Refresh();
+
+  // only name and folder should be updated
+  TestEQ(
+      [ [ parent :=         folder->id
+        , name :=           "modified.pdf"
+        , title :=          ""
+        , description :=    ""
+        , keywords :=       ""
+        , ispinned :=       FALSE
+        , data :=           DEFAULT BLOB
+        , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
+        ]
+      ], SELECT parent, name, title, description, keywords, ispinned, data, type FROM system.fs_objects WHERE id = testfile->id);
+
+  TestEQ(DEFAULT RECORD,
+      testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data);
+
+  TestEQ(FALSE, IsPublish(testfile->published));
+  TestEQ(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
+  TestEq(DEFAULT OBJECT,  GetPublicDraft(testfile->id));
+
+  DeleteFSObjects([ testfile ]);
+}
+
+ASYNC MACRO TestDeny()
+{
+  OBJECT root := testfw->GetTestSite()->rootobject;
+
+  OBJECT folder := root->OpenByName("emptyfilefolder");
+
+  // ------
+  // Test: applying of fields from draft: publishing unversioned file
+
+  testfw->BeginWork();
+
+  OBJECT testfile := root->CreateFile(
+      [ name :=   "testdeny.txt"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
+      ]);
+
+  OBJECT testfiledraft := CreateDraft(testfile, TRUE);
+  testfiledraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata",
+        [ name :=         "testdeny.txt"
+        , parent :=       root->id
+        , flags :=        DraftFlag_Publish
+        ]);
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request modify" ]);
+  AcceptApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "approve modify" ]);
+  testfw->CommitWork();
+
+  testfile->Refresh();
+
+  testfw->BeginWork();
+
+  OBJECT testfiledraft2 := CreateDraft(testfile, TRUE);
+  ModifyAllDraftFields(folder, testfiledraft2, TRUE);
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(testfiledraft2, [ userobject := testfw->GetUserObject("sysop"), message := "request modify" ]);
+  DenyApprovalRequestForDraft(testfiledraft2, [ userobject := testfw->GetUserObject("sysop"), message := "deny modify" ]);
+  testfw->CommitWork();
+
+  // draft2 should be archived, current draft must be an exact copy
+  OBJECT testfiledraft3 := GetPublicDraft(testfile->id);
+  TestEQ(FALSE, testfiledraft2->id = testfiledraft3->id);
+
+  // Type is readonly, isn't preserved by draft
+  TestEQ(
+      [ [ title :=          "modified"
+        , description :=    "modified"
+        , keywords :=       "modified"
+        , ispinned :=       TRUE
+        , data :=           StringToBlob("modified")
+        , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
+        ]
+      ], SELECT title, description, keywords, ispinned, data, type FROM system.fs_objects WHERE id = testfiledraft3->fsobject->id);
+
+  OBJECT rd := NEW RichDocument;
+  rd->ImportFromPlainText("modified");
+
+  TestEQ(rd->ExportAsRecord(),
+      testfiledraft3->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data);
+
+  TestEQ(
+      [ name :=         "modified.pdf"
+      , parent :=       folder->id
+      , flags :=        DraftFlag_Publish
+      ], testfiledraft3->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata"));
+
+  DeleteFSObjects([ testfile ]);
+}
+
+ASYNC MACRO SystemWebservers()
+{
+  // ------
+  // Test: edit of URL of webserver with versioned sites is disallowed
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:webservers", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+
+  TT("webserverslist")->selection := SELECT * FROM TT("webserverslist")->rows WHERE rowkey = "w" || testfw->GetTestSite()->outputweb;
+  TestEq(TRUE, RecordExists(TT("webserverslist")->selection));
+  AWAIT ExpectScreenChange(+1, PTR topscreen->edit->ProcessInboundMessage("execute", [ rule := 0 ]));
+
+  TestEQ(TRUE, TT("servertype")->readonly, "Servertype field should be readonly");
+  TestEQ(TRUE, TT("boundto")->readonly, "Bound to field should be readonly");
+  TestEQ(TRUE, TT("url")->readonly, "URL field should be readonly");
+
+  //cancel props
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  //close webservers
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // ADDME: ** adding/deleting aliases of webserver with versioned sites is allowed
+}
+
+MACRO TestOrderingAndVersionNumbers()
+{
+  testfw->BeginWork();
+
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  OBJECT testfile := root->CreateFile(
+      [ name :=   "testversionnumbers.txt"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
+      ]);
+
+  OBJECT testfiledraft := CreateDraft(testfile, TRUE);
+
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "initial will-cancel request" ]);
+  TestEQ(
+      [ [ o := 1, c := TRUE, v := "0.1", e := VersionEventType_Request ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+  CancelApprovalRequestForDraft(testfiledraft);
+  TestEQ(DEFAULT RECORD ARRAY, SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+
+  testfiledraft := GetPublicDraft(testfile->id);
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "second denied request" ]);
+  TestEQ(
+      [ [ o := 1, c := TRUE, v := "0.1", e := VersionEventType_Request ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+  DenyApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "deny second request" ]);
+  TestEQ(
+      [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]
+      , [ o := 2, c := TRUE, v := "0.2", e := VersionEventType_FinalDenial ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+
+  testfiledraft := GetPublicDraft(testfile->id);
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "third approved request" ]);
+  TestEQ(
+      [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]
+      , [ o := 2, c := FALSE, v := "0.2", e := VersionEventType_FinalDenial ]
+      , [ o := 3, c := TRUE, v := "0.3", e := VersionEventType_Request ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+  AcceptApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "approve third request" ]);
+  TestEQ(
+      [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]
+      , [ o := 2, c := FALSE, v := "0.2", e := VersionEventType_FinalDenial ]
+      , [ o := 3, c := FALSE, v := "0.3", e := VersionEventType_Request ]
+      , [ o := 4, c := TRUE, v := "1.0", e := VersionEventType_AcceptApply ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+
+  testfiledraft := CreateDraft(testfile, TRUE);
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "fourth denied request" ]);
+  TestEQ(
+      [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]
+      , [ o := 2, c := FALSE, v := "0.2", e := VersionEventType_FinalDenial ]
+      , [ o := 3, c := FALSE, v := "0.3", e := VersionEventType_Request ]
+      , [ o := 4, c := TRUE, v := "1.0", e := VersionEventType_AcceptApply ]
+      , [ o := 5, c := TRUE, v := "1.1", e := VersionEventType_Request ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+  DenyApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "deny fourth request" ]);
+  TestEQ(
+      [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]
+      , [ o := 2, c := FALSE, v := "0.2", e := VersionEventType_FinalDenial ]
+      , [ o := 3, c := FALSE, v := "0.3", e := VersionEventType_Request ]
+      , [ o := 4, c := TRUE, v := "1.0", e := VersionEventType_AcceptApply ]
+      , [ o := 5, c := FALSE, v := "1.1", e := VersionEventType_Request ]
+      , [ o := 6, c := TRUE, v := "1.2", e := VersionEventType_FinalDenial ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+
+  testfiledraft := GetPublicDraft(testfile->id);
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "fifth will-cancel request" ]);
+  TestEQ(
+      [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]
+      , [ o := 2, c := FALSE, v := "0.2", e := VersionEventType_FinalDenial ]
+      , [ o := 3, c := FALSE, v := "0.3", e := VersionEventType_Request ]
+      , [ o := 4, c := TRUE, v := "1.0", e := VersionEventType_AcceptApply ]
+      , [ o := 5, c := FALSE, v := "1.1", e := VersionEventType_Request ]
+      , [ o := 6, c := FALSE, v := "1.2", e := VersionEventType_FinalDenial ]
+      , [ o := 7, c := TRUE, v := "1.3", e := VersionEventType_Request ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+  CancelApprovalRequestForDraft(testfiledraft);
+  TestEQ(
+      [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]
+      , [ o := 2, c := FALSE, v := "0.2", e := VersionEventType_FinalDenial ]
+      , [ o := 3, c := FALSE, v := "0.3", e := VersionEventType_Request ]
+      , [ o := 4, c := TRUE, v := "1.0", e := VersionEventType_AcceptApply ]
+      , [ o := 5, c := FALSE, v := "1.1", e := VersionEventType_Request ]
+      , [ o := 6, c := TRUE, v := "1.2", e := VersionEventType_FinalDenial ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+
+  testfiledraft := GetPublicDraft(testfile->id);
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "sixth approved request" ]);
+  TestEQ(
+      [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]
+      , [ o := 2, c := FALSE, v := "0.2", e := VersionEventType_FinalDenial ]
+      , [ o := 3, c := FALSE, v := "0.3", e := VersionEventType_Request ]
+      , [ o := 4, c := TRUE, v := "1.0", e := VersionEventType_AcceptApply ]
+      , [ o := 5, c := FALSE, v := "1.1", e := VersionEventType_Request ]
+      , [ o := 6, c := FALSE, v := "1.2", e := VersionEventType_FinalDenial ]
+      , [ o := 7, c := TRUE, v := "1.3", e := VersionEventType_Request ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+  AcceptApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "approve sixth request" ]);
+  TestEQ(
+      [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]
+      , [ o := 2, c := FALSE, v := "0.2", e := VersionEventType_FinalDenial ]
+      , [ o := 3, c := FALSE, v := "0.3", e := VersionEventType_Request ]
+      , [ o := 4, c := FALSE, v := "1.0", e := VersionEventType_AcceptApply ]
+      , [ o := 5, c := FALSE, v := "1.1", e := VersionEventType_Request ]
+      , [ o := 6, c := FALSE, v := "1.2", e := VersionEventType_FinalDenial ]
+      , [ o := 7, c := FALSE, v := "1.3", e := VersionEventType_Request ]
+      , [ o := 8, c := TRUE, v := "2.0", e := VersionEventType_AcceptApply ]
+      ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
+
+  testfw->CommitWork();
+
+  // Canceled requests are currently deleted
+  TestEQ(
+      [ [ eventtype :=    VersionEventType_Request,       versionnumber := "0.1", comment := "second denied request" ]
+      , [ eventtype :=    VersionEventType_FinalDenial,   versionnumber := "0.2", comment := "deny second request" ]
+      , [ eventtype :=    VersionEventType_Request,       versionnumber := "0.3", comment := "third approved request" ]
+      , [ eventtype :=    VersionEventType_AcceptApply,   versionnumber := "1.0", comment := "approve third request" ]
+      , [ eventtype :=    VersionEventType_Request,       versionnumber := "1.1", comment := "fourth denied request" ]
+      , [ eventtype :=    VersionEventType_FinalDenial,   versionnumber := "1.2", comment := "deny fourth request" ]
+      , [ eventtype :=    VersionEventType_Request,       versionnumber := "1.3", comment := "sixth approved request" ]
+      , [ eventtype :=    VersionEventType_AcceptApply,   versionnumber := "2.0", comment := "approve sixth request" ]
+      ], SELECT eventtype, versionnumber, comment FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY when);
+
+  DeleteFSObjects([ testfile ]);
+}
+
+MACRO TestStoredPaths()
+{
+  testfw->BeginWork();
+
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+  OBJECT testfile := root->CreateFile(
+      [ name :=   "testpaths.txt"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
+      ]);
+
+  STRING baseurl := root->url;
+
+  TestEQ(baseurl || "testpaths.txt", testfile->url);
+  TestEQ("/testpaths.txt", testfile->fullpath);
+
+  testfw->CommitWork();
+
+  // -- First publish
+
+  testfw->BeginWork();
+  // name testpaths2 is applied immediately
+  TestEQ("draft", UpdateMetadataForPolicy(policy, testfile, [ name := "testpaths2.txt" ],
+      [ modifypublished := PTR ConvertToWillPublish(#1, FALSE, TRUE, PubPrio_DirectEdit)
+      ]));
+
+  SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "req 1" ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ eventtype :=        VersionEventType_Request
+      , comment :=          "req 1"
+      , orgfullpath :=      "/testpaths2.txt"
+      , orgurl :=           baseurl || "testpaths2.txt"
+      , newfullpath :=      "/testpaths2.txt"
+      , newurl :=           baseurl || "testpaths2.txt"
+      ], RECORD(SELECT eventtype, comment, orgfullpath, orgurl, newfullpath, newurl FROM system.fs_versionevents WHERE live_object= testfile->id ORDER BY when DESC));
+
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "acc 1" ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ eventtype :=        VersionEventType_AcceptApply
+      , comment :=          "acc 1"
+      , orgfullpath :=      "/testpaths2.txt"
+      , orgurl :=           baseurl || "testpaths2.txt"
+      , newfullpath :=      "/testpaths2.txt"
+      , newurl :=           baseurl || "testpaths2.txt"
+      ], RECORD(SELECT eventtype, comment, orgfullpath, orgurl, newfullpath, newurl FROM system.fs_versionevents WHERE live_object= testfile->id ORDER BY when DESC));
+
+  // -- Rename
+
+  testfw->BeginWork();
+  // name testpaths2 is applied immediately
+  TestEQ("draft", UpdateMetadataForPolicy(policy, testfile, [ name := "testpaths3.txt" ], DEFAULT RECORD));
+  SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "req 2" ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ eventtype :=        VersionEventType_Request
+      , comment :=          "req 2"
+      , orgfullpath :=      "/testpaths2.txt"
+      , orgurl :=           baseurl || "testpaths2.txt"
+      , newfullpath :=      "/testpaths3.txt"
+      , newurl :=           baseurl || "testpaths3.txt"
+      ], RECORD(SELECT eventtype, comment, orgfullpath, orgurl, newfullpath, newurl FROM system.fs_versionevents WHERE live_object= testfile->id ORDER BY when DESC));
+
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "acc 2" ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ eventtype :=        VersionEventType_AcceptApply
+      , comment :=          "acc 2"
+      , orgfullpath :=      "/testpaths2.txt"
+      , orgurl :=           baseurl || "testpaths2.txt"
+      , newfullpath :=      "/testpaths3.txt"
+      , newurl :=           baseurl || "testpaths3.txt"
+      ], RECORD(SELECT eventtype, comment, orgfullpath, orgurl, newfullpath, newurl FROM system.fs_versionevents WHERE live_object= testfile->id ORDER BY when DESC));
+
+  // -- Move (with rename of target folder)
+
+  testfw->BeginWork();
+  OBJECT testfolder := root->CreateFolder([ name := "movetarget" ]);
+  TestEQ("draft", UpdateMetadataForPolicy(policy, testfile, [ parent := testfolder->id ], DEFAULT RECORD));
+  SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "req 3" ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ eventtype :=        VersionEventType_Request
+      , comment :=          "req 3"
+      , orgfullpath :=      "/testpaths3.txt"
+      , orgurl :=           baseurl || "testpaths3.txt"
+      , newfullpath :=      "/movetarget/testpaths3.txt"
+      , newurl :=           baseurl || "movetarget/testpaths3.txt"
+      ], RECORD(SELECT eventtype, comment, orgfullpath, orgurl, newfullpath, newurl FROM system.fs_versionevents WHERE live_object= testfile->id ORDER BY when DESC));
+
+  testfw->BeginWork();
+  testfolder->UpdateMetadata([ name := "movetarget2" ]);
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "acc 3" ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ eventtype :=        VersionEventType_AcceptApply
+      , comment :=          "acc 3"
+      , orgfullpath :=      "/testpaths3.txt"
+      , orgurl :=           baseurl || "testpaths3.txt"
+      , newfullpath :=      "/movetarget2/testpaths3.txt"
+      , newurl :=           baseurl || "movetarget2/testpaths3.txt"
+      ], RECORD(SELECT eventtype, comment, orgfullpath, orgurl, newfullpath, newurl FROM system.fs_versionevents WHERE live_object= testfile->id ORDER BY when DESC));
+
+  // -- Delete
+
+  testfw->BeginWork();
+  TestEQ("draft", UpdateMetadataForPolicy(policy, testfile, [ parent := 0 ], DEFAULT RECORD));
+  SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "req 4" ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ eventtype :=        VersionEventType_Request
+      , comment :=          "req 4"
+      , orgfullpath :=      "/movetarget2/testpaths3.txt"
+      , orgurl :=           baseurl || "movetarget2/testpaths3.txt"
+      , newfullpath :=      ""
+      , newurl :=           ""
+      ], RECORD(SELECT eventtype, comment, orgfullpath, orgurl, newfullpath, newurl FROM system.fs_versionevents WHERE live_object= testfile->id ORDER BY when DESC));
+
+  testfw->BeginWork();
+  testfolder->UpdateMetadata([ name := "movetarget2" ]);
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "acc 4" ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ eventtype :=        VersionEventType_AcceptApply
+      , comment :=          "acc 4"
+      , orgfullpath :=      "/movetarget2/testpaths3.txt"
+      , orgurl :=           baseurl || "movetarget2/testpaths3.txt"
+      , newfullpath :=      ""
+      , newurl :=           ""
+      ], RECORD(SELECT eventtype, comment, orgfullpath, orgurl, newfullpath, newurl FROM system.fs_versionevents WHERE live_object= testfile->id ORDER BY when DESC));
+
+  testfw->BeginWork();
+  TestEQ("draft", UpdateMetadataForPolicy(policy, testfile, [ parent := testfolder->id, name := "testpaths3.txt" ], DEFAULT RECORD));
+  SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "req 5" ]);
+  testfw->CommitWork();
+
+  // -- Restore from deleted
+
+  TestEQ(
+      [ eventtype :=        VersionEventType_Request
+      , comment :=          "req 5"
+      , orgfullpath :=      ""
+      , orgurl :=           ""
+      , newfullpath :=      "/movetarget2/testpaths3.txt"
+      , newurl :=           baseurl || "movetarget2/testpaths3.txt"
+      ], RECORD(SELECT eventtype, comment, orgfullpath, orgurl, newfullpath, newurl FROM system.fs_versionevents WHERE live_object= testfile->id ORDER BY when DESC));
+
+  testfw->BeginWork();
+  testfolder->UpdateMetadata([ name := "movetarget2" ]);
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "acc 5" ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ eventtype :=        VersionEventType_AcceptApply
+      , comment :=          "acc 5"
+      , orgfullpath :=      ""
+      , orgurl :=           ""
+      , newfullpath :=      "/movetarget2/testpaths3.txt"
+      , newurl :=           baseurl || "movetarget2/testpaths3.txt"
+      ], RECORD(SELECT eventtype, comment, orgfullpath, orgurl, newfullpath, newurl FROM system.fs_versionevents WHERE live_object= testfile->id ORDER BY when DESC));
+}
+
+
+RunTestFramework(
+    [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := TRUE ])
+    , PTR Create
+    , PTR TestAccept
+    , PTR TestDeny
+    , PTR SystemWebservers
+    , PTR TestOrderingAndVersionNumbers
+    , PTR TestStoredPaths
+    ],
+    [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ] ]
+    ]);

@@ -1,0 +1,368 @@
+﻿<?wh
+/** @short Check all data references in the database
+    @long This script checks all (normal) data references in a database, whether the key they reference
+      still exists (it doesn't check the metadata internal references though)
+*/
+
+LOADLIB "wh::dbase/dynquery.whlib";
+//LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::dbase/local.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+INTEGER FUNCTION __WHDBDCOpen(INTEGER trans, STRING tablename, STRING ARRAY columns, BOOLEAN allcolumns, BOOLEAN for_updating) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+BOOLEAN FUNCTION __WHDBDCNextRow(INTEGER qid) __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION __WHDBDCGetRow(INTEGER qid) __ATTRIBUTES__(EXTERNAL);
+MACRO __WHDBDCUpdate(INTEGER qid, RECORD rec) __ATTRIBUTES__(EXTERNAL);
+MACRO __WHDBDCDelete(INTEGER qid) __ATTRIBUTES__(EXTERNAL);
+MACRO __WHDBDCClose(INTEGER qid) __ATTRIBUTES__(EXTERNAL);
+MACRO __WHDBDCInsert(INTEGER trans, STRING tablename, RECORD rec) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+SCHEMA
+  < TABLE
+    < STRING "table_catalog"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_name"
+    , INTEGER "object_id"
+    , STRING "table_type"
+    , STRING "self_referencing_column_name"
+    , STRING "reference_generation"
+    , STRING "user_defined_type_catalog"
+    , STRING "user_defined_type_schema"
+    , STRING "user_defined_type_name"
+    , STRING "primary_key_name"
+    , INTEGER "primary_key_id"
+    , STRING "read_access_manager"
+    , STRING "write_access_manager"
+    , INTEGER "maximum_row_size"
+    > tables
+  , TABLE
+    < INTEGER "object_id"
+    , STRING "table_catalog"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_name"
+    , INTEGER "table_id"
+    , STRING "column_name"
+    , INTEGER "ordinal_position"
+    , STRING "column_default"
+    , STRING "is_nullable"
+    , STRING "data_type"
+    , INTEGER "character_maximum_length"
+    , INTEGER "character_octet_length"
+    , INTEGER "numeric_precision"
+    , INTEGER "numeric_precision_radix"
+    , INTEGER "numeric_precision_scale"
+    , INTEGER "datetime_precision"
+    , STRING "interval_type"
+    , STRING "interval_precision"
+    , STRING "character_set_catalog"
+    , STRING "character_set_schema"
+    , STRING "character_set_name"
+    , STRING "collation_set_catalog"
+    , STRING "collation_set_schema"
+    , STRING "collation_set_name"
+    , STRING "domain_catalog"
+    , STRING "domain_schema"
+    , STRING "domain_name"
+    , STRING "udt_catalog"
+    , STRING "udt_schema"
+    , STRING "udt_name"
+    , STRING "scope_catalog"
+    , STRING "scope_schema"
+    , STRING "scope_name"
+    , INTEGER "maximum_cardinality"
+    , STRING "dtd_identifier"
+    , STRING "is_self_referencing"
+    , BOOLEAN "is_primary"
+    , INTEGER "autonumber_start"
+    , STRING "internal_column_name"
+    , STRING "referenced_table_catalog"
+    , STRING "referenced_table_schema"
+    , INTEGER "referenced_table_schema_id"
+    , STRING "referenced_table_name"
+    , INTEGER "referenced_table_id"
+    , STRING "on_delete"
+    , BOOLEAN "unique"
+    , BOOLEAN "noupdate"
+    , BOOLEAN "not_null"
+    , INTEGER "on_disk_column_id"
+    , STRING "reference_by_column_name"
+    , INTEGER "reference_by_column_id"
+    > columns
+  > my_information_schema;
+
+BOOLEAN FUNCTION InMasks(STRING ARRAY masks, STRING tomatch)
+{
+  FOREVERY(STRING mask FROM masks)
+    IF(ToUppercase(tomatch) LIKE ToUppercase(mask))
+      RETURN TRUE;
+
+  RETURN FALSE;
+}
+
+RECORD info := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "deletebadreferences", type := "switch" ]
+                              , [ name := "mask", type := "paramlist" ]
+                              ]);
+
+IF(NOT RecordExists(info))
+{
+  Print("Syntax: refs-checker.whscr [--deletebadreferences] [mask...]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+BOOLEAN deletebadreferences := info.deletebadreferences;
+
+INTEGER cols := ToInteger(GetEnvironmentVariable("COLUMNS"),0);
+IF(cols=0)
+  cols:=79;
+
+SetOutputBuffering(TRUE);
+
+OBJECT primary := OpenPrimary([fallbacktorecoverymode := TRUE]);
+
+my_information_schema := BindTransactionToSchema(primary->id, "information_schema");
+
+primary->BeginWork();
+
+// Create a local table to do the searching for keys in. If we can use a sorted table, that is cool.
+INTEGER localtrans := OpenLocalTransaction();
+CreateSortedLocalTable(localtrans, "key_sorted", "id", TRUE);
+CreateLocalTable(localtrans, "key");
+
+// tablename, ids
+RECORD ARRAY tablelist;
+
+// Get the list of all tables in the database, and also retrieve the list of columns that reference them
+PRINT("Gathering list of tables, and their referencing columns\n");FlushOutputBuffer();
+RECORD ARRAY mytables := SELECT tables.object_id
+                              , tables.table_name
+                              , tables.table_schema
+                              , tables.primary_key_id
+                              , tables.primary_key_name
+                              , referencing_columns := (SELECT columns.column_name
+                                                             , columns.table_name
+                                                             , columns.table_schema
+                                                             , columns.table_id
+                                                             , columns.data_type
+                                                             , columns.not_null
+                                                             , columns.on_delete
+                                                          FROM my_information_schema.columns
+                                                         WHERE columns.referenced_table_id = tables.object_id)
+                           FROM my_information_schema.tables
+                          WHERE Length(info.mask) > 0 ? InMasks(info.mask, table_schema || "." || table_name) : TRUE;
+
+// Filter the list, remove tables that are not referenced
+DELETE FROM mytables WHERE LENGTH(referencing_columns) = 0;
+
+// Process each table
+FOREVERY (RECORD curtab FROM mytables)
+{
+  STRING tablename := '' || curtab.table_schema || '.' || curtab.table_name || '';
+  PRINT("Processing " || tablename || "... ");
+  FlushOutputBuffer();
+
+  RECORD ARRAY key_values;
+
+  // Retrieve the type of the primary key column
+  STRING key_type := SELECT AS STRING data_type
+                       FROM my_information_schema.columns
+                      WHERE columns.referenced_table_id = curtab.object_id;
+
+  // We know the defaults of integer, datetime, money and string types; these are probably the only ones used.
+  // (plus: they can be sorted in hs, so we can use a sorted local table for optimization)
+  VARIANT defaultvalue := FALSE; // Mandatory init of variant type
+  BOOLEAN has_default := FALSE;  // Is defaultvalue a valid value?
+  BOOLEAN dont_check_negative := FALSE; // May we skip negative integer values?
+
+  SWITCH (key_type)
+  {
+    CASE "INTEGER"
+        {
+          // Only integer keys supported in sorted local table
+          has_default := TRUE;
+          defaultvalue := DEFAULT INTEGER;
+        }
+    CASE "MONEY"
+        {
+          // Only integer keys supported in sorted local table
+          has_default := TRUE;
+          defaultvalue := DEFAULT MONEY;
+        }
+    CASE "DATETIME"
+        {
+          has_default := TRUE;
+          defaultvalue := DEFAULT DATETIME;
+        }
+    DEFAULT
+        {
+          IF (key_type LIKE "VARCHAR*")
+          {
+            has_default := TRUE;
+            defaultvalue := DEFAULT STRING;
+          }
+          ELSE
+          {
+            PRINT("Problem: Cannot check tables with unorderable keys\n");
+            FlushOutputBuffer();
+            CONTINUE;
+          }
+        }
+  }
+
+  RECORD ARRAY local_key_table;
+
+  // Fill key table with keys of referenced table
+  STRING key_column := curtab.primary_key_name;
+  INTEGER cursor := __WHDBDCOpen(primary->id, tablename, [ key_column ], FALSE, FALSE);
+  INTEGER c;
+  WHILE (__WHDBDCNextRow(cursor))
+  {
+    INSERT [ id := GetCell(__WHDBDCGetRow(cursor), key_column) ] INTO local_key_table AT END;
+    IF ((c % 1000) = 0)
+    {
+      Print(Left(c ||"          " , 10) || RepeatText("\b",10));
+      FlushOutputBuffer();
+    }
+    c := c + 1;
+  }
+  __WHDBDCClose(cursor);
+
+  Print(c || ", sorting...");
+  FlushOutputBuffer();
+  local_key_table := SELECT * FROM local_key_table ORDER BY id;
+  Print("\b\b\b\b\b\b\b\b\b\bdone      \n");
+  FlushOutputBuffer();
+
+  // Check all referencing columns one by one
+  FOREVERY (RECORD refcol FROM curtab.referencing_columns)
+  {
+    STRING ref_table := refcol.table_schema || "." || refcol.table_name;
+    STRING col_name := refcol.column_name;
+    STRING line := "Checking references of column " || ref_table || "(" || col_name || ") ";
+    PRINT(line);
+    FlushOutputBuffer();
+
+
+    //PrintRecordTo(0,refcol,'boxed');
+    // Get name of primary column (if it exists, empty string if not). Useful for finding the offending rows.
+    STRING ref_table_key := SELECT AS STRING primary_key_name
+                              FROM my_information_schema.tables
+                             WHERE object_id = refcol.table_id;
+
+    // Get the list of columns of the referencing table to retrieve from the database of
+    STRING ARRAY get_columns := [ col_name ];
+    IF (ref_table_key != "")
+      INSERT ref_table_key INTO get_columns AT 0; // if the primary key exists, get it as first column; looks nicer in the output.
+
+    // May the column have the default value?
+    BOOLEAN may_check_default := has_default AND NOT refcol.not_null;
+
+    // List of offending records
+    RECORD ARRAY problems;
+
+    // Process all the rows of the referencing table
+    //Print(AnyToString(get_columns,'tree') || "\n"); flushoutputbuffer();
+    RECORD ARRAY rows;
+
+    c := 0;
+    INTEGER subcursor := __WHDBDCOpen(primary->id, ref_table, get_columns, FALSE, FALSE);
+    WHILE (__WHDBDCNextRow(subcursor))
+    {
+      // Get the row and the reference
+      RECORD row := __WHDBDCGetRow(subcursor);
+      IF ((c % 1000) = 0)
+      {
+        Print(Left(c || "          " , 10) || RepeatText("\b",10));
+        FlushOutputBuffer();
+      }
+
+      c := c + 1;
+
+      VARIANT value := GetCell(row, col_name);
+
+      // If we may check for default values and this is a default value, break off.
+      IF (may_check_default AND value = defaultvalue)
+        CONTINUE;
+
+      // Check the reference
+      IF (NOT RecordLowerBound(local_key_table, [ id := value ], [ "ID" ]).found)
+      {
+        IF (NOT dont_check_negative OR value >= 0)
+          INSERT row INTO problems AT END;
+      }
+    }
+    Print(Left(c || "          " , 10));
+    __WHDBDCClose(subcursor);
+
+    // If any offending records: report them
+    IF (Length(problems) != 0)
+    {
+      PRINT("\nError: column " || ref_table || "(" || col_name || ") references key(s) of " || tablename || " that do not exist.\n");
+
+      PrintRecordArrayTo(0, problems, "boxed");
+      RECORD ARRAY missing_keys :=
+          SELECT DISTINCT id := GetCell(problems, col_name)
+            FROM problems
+        ORDER BY GetCell(problems, col_name);
+
+      RECORD pos := RecordLowerBound(tablelist, [ tablename := tablename ], [ "TABLENAME" ]);
+      IF (NOT pos.found)
+        INSERT [ tablename := tablename, ids := missing_keys ] INTO tablelist AT pos.position;
+      ELSE
+        tablelist[pos.position].ids := tablelist[pos.position].ids CONCAT missing_keys;
+
+      PRINT("Missing keys (" || LENGTH(missing_keys) || ")\n[ " || Detokenize( (SELECT AS STRING ARRAY ToString(id) FROM missing_keys),", ") || " ]\n");
+
+      Print("Rows referencing a missing key (" || Length(problems) || ")\n[ " || Detokenize( (SELECT AS STRING ARRAY ToString(Getcell(problems,ref_table_key)) FROM problems),", ") || " ]\n");
+
+      IF(deletebadreferences)
+      {
+        INTEGER ARRAY deleteids := SELECT AS INTEGER ARRAY Getcell(problems,ref_table_key) FROM problems WHERE Getcell(problems,ref_table_key) != 0;
+        IF(Length(deleteids)=0)
+          CONTINUE;
+
+        IF(ToUppercase(refcol.on_delete)="CASCADE")
+        {
+          Print("Delete " || Length(deleteids) || " records from " || ref_table || " on column " || ref_table_Key||"\n");
+          OBJECT q := NEW DynamicQuery;
+          q->AddTable("tokill", primary->id, ref_table, [ref_table_key]);
+          q->AddConstraint("tokill." || ref_table_key, "IN", deleteids);
+          q->ExecuteForDelete(DEFAULT FUNCTION PTR);
+          primary->CommitWork();
+          primary->BeginWork();
+        }
+        ELSE IF(ToUppercase(refcol.on_delete)="SET DEFAULT")
+        {
+          Print("Updating " || Length(deleteids) || " records in " || ref_table || " on column " || ref_table_Key|| " setting " || col_name || " to default\n");
+
+          OBJECT q := NEW DynamicQuery;
+          q->AddTable("tokill", primary->id, ref_table, [col_name]);
+          q->AddConstraint("tokill." || ref_table_key, "IN", deleteids);
+          q->ExecuteForUpdate(PTR CellUpdate(#1, col_name, 0), [col_name]);
+          primary->CommitWork();
+          primary->BeginWork();
+        }
+        ELSE
+        {
+          Print("Unable to deal with " || Length(deleteids) || " keys from " || ref_table || " on column " || ref_table_Key||" because of on_delete mode " || refcol.on_delete || "\n");
+        }
+      }
+    }
+    ELSE
+    {
+      Print("\r" || REpeatText(" ",LENGTH(line) + 10) || "\r");
+    }
+  }
+}
+
+PRINT("Final missing keys:\n");
+FOREVERY (RECORD rec FROM tablelist)
+{
+  STRING ARRAY data := SELECT AS STRING ARRAY DISTINCT ToString(id) FROM rec.ids ORDER BY id;
+  PRINT(rec.tablename || ":" || Detokenize(data, ",") || "\n");
+}

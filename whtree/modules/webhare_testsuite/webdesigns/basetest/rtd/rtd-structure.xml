@@ -1,0 +1,31 @@
+<richstructure xmlns="http://www.webhare.net/xmlns/tollium/richstructure">
+  <blockstyles defaultstyle="NORMAL">
+    <textstyle tag="HEADING1">
+      <formatting base="none">
+        <allow textstyles="i u" />
+      </formatting>
+    </textstyle>
+    <textstyle tag="HEADING2">
+      <formatting base="none">
+        <allow textstyles="i u" />
+      </formatting>
+    </textstyle>
+    <textstyle tag="HEADING3">
+      <formatting base="none">
+        <allow textstyles="i u" />
+      </formatting>
+    </textstyle>
+    <textstyle tag="NORMAL">
+      <formatting base="none">
+        <allow textstyles="b i u sub sup a-href strike img" />
+      </formatting>
+    </textstyle>
+    <textstyle tag="UNORDERED" containertag="ul">
+    </textstyle>
+    <textstyle tag="ORDERED" containertag="ol">
+    </textstyle>
+  </blockstyles>
+  <embeddedobjects>
+    <allowtype type="http://www.webhare.net/xmlns/publisher/embedvideo" />
+  </embeddedobjects>
+</richstructure>

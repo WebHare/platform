@@ -1,0 +1,77 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+MACRO InputValidations()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/basecomponents.inputvalidations");
+  OBJECT work;
+
+  FOREVERY(STRING check FROM ["url"])
+  {
+    scr->textedit->validationchecks := [ STRING (check) ];
+    FOREVERY(RECORD mask FROM [ [ value := ":www.b-lex.nl",               acceptin := DEFAULT STRING ARRAY ]
+                              , [ value := "http:www.b-lex.nl",           acceptin := DEFAULT STRING ARRAY ]
+                              , [ value := "http:/www.wilminktheater.nl", acceptin := DEFAULT STRING ARRAY ]
+                              , [ value := "//www.wilminktheater.nl",     acceptin := DEFAULT STRING ARRAY ]
+                              , [ value := "http://www.b-lex.nl/",        acceptin := ["url"  ] ]
+                              , [ value := "http://www.b-lex.nl/" || RepeatText("1", 2001-20), acceptin := DEFAULT STRING ARRAY ]
+                              ])
+    {
+      scr->textedit->value := mask.value;
+      work := scr->BeginFeedback();
+      TestEq(check NOT IN mask.acceptin, work->HasFailed());
+      work->Cancel();
+    }
+  }
+}
+
+MACRO SetValue(OBJECT prop, VARIANT toset)
+{
+  prop->value := toset;
+}
+
+MACRO DateTimeClamping() //test precision clamping
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/basecomponents.datetimetest");
+
+  TestEq(DEFAULT DATETIME, scr->bigdt->value, "bigdt = MAX_DATETIME"); //was never initted to max_datetime
+  SetValue(scr->bigdt, MakeDatetime(1234567,8,13,23,59,57));
+  TestEq(MakeDatetime(9999,8,13,23,59,57), scr->bigdt->value);
+
+  TestThrows(PTR SetValue(scr->bigdt, MAX_DATETIME)); //only acceptable if value = max_datetime
+
+  TestEq(MakeDate(2009,8,13), scr->da1->value);
+  TestEq(MakeDateTime(2009,8,13,8,9,0), scr->dt1->value);
+  TestEq(MakeDateTime(2009,8,13,8,9,18), scr->dt2->value);
+  TestEq(AddTimeToDate(189,MakeDateTime(2009,8,13,8,9,18)), scr->dt3->value);
+
+  TestEq(MakeDateTime(2009,8,13,8,9,0), scr->ti1->value);
+  TestEq(MakeDateTime(2009,8,13,8,9,18), scr->ti2->value);
+  TestEq(AddTimeToDate(189,MakeDateTime(2009,8,13,8,9,18)), scr->ti3->value);
+
+  TestEq( (8*60 + 9) * 60 * 1000, scr->ti4->value);
+  TestEq( ((8*60 + 9) * 60 + 18) * 1000, scr->ti5->value);
+  TestEq( ((8*60 + 9) * 60 + 18) * 1000 + 189, scr->ti6->value);
+
+  TestEq(MAX_DATETIME, scr->maxdt->value, "maxdt != MAX_DATETIME");
+}
+
+MACRO TestBasicFieldsRegressions()
+{
+  //detect textedit incorrectly parsing XML given value using user personal settings
+  GetTestController()->tolliumuser->decimalseparator:=",";
+  GetTestController()->tolliumuser->thousandseparator:=".";
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/regressions.basicfields");
+  TestEq(5.0m, scr->moneyeditpoint->value);
+  TestEq(5.0f, scr->floateditpoint->value);
+  TestEq(50m, scr->moneyeditcomma->value);
+  TestEq(50f, scr->floateditcomma->value);
+}
+
+Runtestframework( [ PTR InputValidations
+                  , PTR DateTimeClamping
+                  , PTR TestBasicFieldsRegressions
+                  ]);

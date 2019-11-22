@@ -1,0 +1,31 @@
+<?wh
+///@private
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/internal/addressverification/support.whlib";
+
+/** @short Split a NL housenumber into 'number' and 'detail' fields
+    @cell(string) return.nr House number (digits part)
+    @cell(string) return.detail Detail part (eg 'A', '-6')
+*/
+PUBLIC RECORD FUNCTION SplitNLNrDetail(STRING indata) //FIXME DEPRECATE POST WH .21 +
+{
+  RETURN SplitHousenumber(indata);
+}
+
+/** @short Recombines nr and detail into a NL housenumber
+    @param nr House number (digits)
+    @param detail Detail part (eg 'A', '-6', '3')
+    @return Combined house number, inserting a space between the parts when needed because of ambiguity
+*/
+PUBLIC STRING FUNCTION JoinNLNrDetail(STRING nr, STRING detail)  //FIXME DEPRECATE POST WH .21 +
+{
+  detail := TrimWhitespace(detail);
+  RETURN TrimWhitespace(nr) || (ToInteger(Left(detail,1),-1) != -1 ? " " : "") || detail;
+}
+
+/** Normalize a NL zipcode
+    @return Zipcode in "NNNN XX" form, with uppercase letters, or an empty string if this is not a valid NL zip code */
+PUBLIC STRING FUNCTION NormalizeNLZipCode(STRING incode)
+{
+  RETURN FixupZipCOdeNL(incode);
+}

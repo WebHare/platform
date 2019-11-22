@@ -1,0 +1,2729 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/debugger/compiledlibrary.whlib";
+LOADLIB "mod::system/lib/internal/debugger/connector.whlib";
+LOADLIB "mod::system/lib/internal/debugger/support.whlib";
+
+
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+VARIANT FUNCTION Id(VARIANT v)
+{
+  RETURN v;
+}
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Currently connected job (type: DebugJob from connector.whlib)
+  OBJECT job;
+
+  /// Currently connected job (type: Connection from connector.whlib)
+  OBJECT connector;
+
+  /** List of breakpoints
+      @cell(string) path Path of file
+      @cell(string) prettyfilename Filename to show
+      @cell(integer) line Line nr (1-based)
+  */
+  RECORD ARRAY pvt_breakpoints;
+
+  /** Current status of the job
+      FIXME: document
+  */
+  RECORD currstatus;
+
+  /// Path to currently shown file (either '/...' or 'whfs::/...')
+  STRING currfile;
+
+  /** Cache for parsed compiled libraries
+      @cell(string) name Path to file (either '/...' or 'whfs::/...')
+      @cell(datetime) compile_id
+      @cell(object) clib Compiled library (type: CompiledLibrary)
+  */
+  RECORD ARRAY clib_cache;
+
+  /// Promise with current request for variables
+  OBJECT variablerequest;
+
+  /// Action in progress ('', 'continue', 'pause', 'pausefordelayedactions', 'runningdelayedactions')
+  STRING pendingaction;
+
+  /** List of vms, and libraries per vm
+      @cell(integer) vm VM id
+      @cell(recordarray) libraries
+      @cell(string) libraries.liburi URI of the libary
+      @cell(integer) libraries.globalvarlocation Position of the global variable section of this library on the heap
+      @cell(datetime) libraries.sourcetime Source modificationdate of this library
+      @cell(datetime) libraries.compile_id Compile-id of the compiled library
+  */
+  RECORD ARRAY job_vms;
+
+  /** List of all libraries in all vms
+      @cell(integer) vm VM id
+      @cell(string) liburi URI of the libary
+      @cell(integer) globalvarlocation Position of the global variable section of this library on the heap
+      @cell(datetime) sourcetime Source modificationdate of this library
+      @cell(datetime) compile_id Compile-id of the compiled library
+      @cell(string) filename Full path of the library source (/... or whfsid::/...)
+      @cell(object) clib Compiled library (type: CompiledLibrary)
+  */
+  RECORD ARRAY loadedlibraries;
+
+  /** Configuration for current step operation
+      @cell(integer) minstacksize Stop when stacksize falls below this value (0 for don't stop). Relative to currstatus.stacksize
+      @cell(integer) maxstacksize Stop when stacksize gets above this value (-1 for don't stop). Relative to currstatus.stacksize
+      @cell(recordarray) breakpoints Extra breakpoints to add to user breakpoints
+      @cell(integer) breakpoints.vm VM id
+      @cell(string) breakpoints.liburi URI of the libary
+      @cell(string) breakpoints.compile_id Compile-id of the compiled library
+      @cell(integer) breakpoints.codeptr Codeptr in library where to stop
+      @cell(boolean) breakpoints.fixed Whether this is a fixed breakpoint (always FALSE in this array)
+  */
+  RECORD step_config;
+
+  /** List of currently opened files
+      @cell(string) path
+      @cell(integer) topline
+  */
+  RECORD ARRAY openfiles;
+
+  /// Can we already save the formstate (only after restoring it)
+  BOOLEAN cansaveformstate;
+
+  /** List of profiles
+      @cell(string) type
+      @cell(record) rawdata
+  */
+  RECORD ARRAY profiles;
+
+  /// Type of running profile ('', 'function, 'memory')
+  STRING runningprofile;
+
+  /// Deferred promise for delayed actions (which should be executed in paused state)
+  RECORD delayedactiondefer;
+
+  /** @cell defer
+      @cell asyncfunc
+  */
+  RECORD ARRAY delayedactions;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    // Connect to the debugmanager
+    this->connector := ConnectToDebugManager();
+    IF (NOT ObjectExists(this->connector))
+      this->GotConnectorDisconnect();
+
+    // No connection? Bail out (only happens when running debug manager manually)
+    IF (NOT ObjectExists(this->connector))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    // Make sure we hear when the debugmanager dies
+    this->connector->OnDisconnect := PTR this->GotConnectorDisconnect;
+
+    // Init display of status
+    this->GotStatusChange();
+
+    // If we don't want to restore the form state, save the current (empty state)
+    IF ("noformrestore" IN data.params)
+      this->SaveFormState();
+
+    // Restore the state, and enable autosaves
+    this->RestoreFormState();
+    this->cansaveformstate := TRUE;
+
+    this->frame->flags.have_catalog := IsModuleInstalled("dev");
+
+    // Check if we must immediately connect to a job
+    IF (RecordExists(data.message))
+    {
+      STRING ARRAY files;
+      IF (CellExists(data.message, "FILES"))
+        files := data.message.files;
+
+      IF (CellExists(data.message, "GROUPID") AND data.message.groupid != "")
+        WaitForPromise(this->SearchAndConnectByGroupId(data.message.groupid)->Then(PTR this->ResolveAndOpenFilesByPath(files)));
+      ELSE
+        this->ResolveAndOpenFilesByPath(files);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  /// Handle disappearing of debugmanager - shutdown now.
+  MACRO GotConnectorDisconnect()
+  {
+    this->tolliumresult := "cancel";
+    RETURN;
+  }
+
+  /// Handle disconnected job (called when host process terminated)
+  MACRO GotJobDisconnect()
+  {
+    // Job is already closed. Call CloseCurrentJob to reset state
+    this->job := DEFAULT OBJECT;
+    this->CloseCurrentJob();
+
+    IF (this->autoreconnect->pressed)
+      this->DoRuleConnect(TRUE);
+    ELSE
+      this->RunMessageBox(".disconnectedfromjob");
+  }
+
+  /// Handle status change of connected job
+  MACRO GotStatusChange()
+  {
+    BOOLEAN wasstopped := RecordExists(this->currstatus) AND this->currstatus.realstatus = "DebugStopped";
+    this->currstatus := ObjectExists(this->job) ? this->job->laststatus : DEFAULT RECORD;
+
+    //PRINT("Got status change, new status: " || (ObjectExists(this->job) ? this->job->laststatus.realstatus : "n/a") || "\n");
+    //PRINT("wasstopped: " || (wasstopped ? "yes" : "no") || "\n");
+
+    this->textarea->value := ObjectExists(this->job) ? AnyToString(this->currstatus, "tree") : "disconnected";
+
+//    IF (ObjectExists(this->job))
+//      LogDebug("debugger", "Status change", this->currstatus.realstatus, this->currstatus.status, this->pendingaction);
+
+    BOOLEAN nowstopped := ObjectExists(this->job) AND this->currstatus.realstatus = "DebugStopped";
+    BOOLEAN temppause := (ObjectExists(this->job) AND this->currstatus.pausereason = pausereason_newlibraries)
+        OR this->pendingaction IN [ "pausefordelayedactions", "runningdelayedactions" ];
+
+    this->frame->flags.candetach :=    ObjectExists(this->job);
+    this->frame->flags.canpause :=     ObjectExists(this->job) AND this->currstatus.realstatus != "DebugStopped" AND this->pendingaction != "pause" AND NOT temppause;
+    this->frame->flags.cancontinue :=  ObjectExists(this->job) AND this->currstatus.realstatus = "DebugStopped" AND this->currstatus.status != "Terminated" AND this->pendingaction != "continue" AND NOT temppause;
+    this->frame->flags.canviewvariables := ObjectExists(this->job) AND this->currstatus.realstatus = "DebugStopped" AND this->pendingaction != "continue" AND NOT temppause;
+    this->frame->flags.runningprofile := this->runningprofile != "";
+    this->frame->flags.havefile :=     this->currfile != "";
+    this->frame->flags.canrundelayedaction := this->frame->flags.canpause OR this->frame->flags.canviewvariables;
+
+    IF (ObjectExists(this->job))
+    {
+      //PRINT("Realstatus: " || this->currstatus.realstatus || ", pendingaction: " || this->pendingaction || ", pausereason: " || this->currstatus.pausereason || "\n" || AnyToString(this->frame->flags, "tree"));
+      IF (this->currstatus.status = "Terminated")
+      {
+        // Job is now terminated
+        this->status->value := this->GetTid(".status.terminated");
+        this->stoppedwitherror->visible := LENGTH(this->currstatus.errors) != 0;
+        this->UpdateFileStatusVisibility();
+
+        // Reset pending actions, step config isn't needed anymore
+        IF (this->pendingaction IN [ "continue", "pause" ])
+          this->pendingaction := "";
+        ELSE IF (this->pendingaction = "pausefordelayedactions")
+          this->delayedactiondefer.resolve(FALSE);
+
+        this->step_config := DEFAULT RECORD;
+
+        // Use stack trace if present, otherwise use errors
+        RECORD ARRAY trace := this->currstatus.stacktrace ?? this->currstatus.errors;
+
+        this->stacktrace->rows :=
+            SELECT rowkey :=    filename || "#" || line || "#" || col || "#" || #trace
+                 , *
+                 , codeptr :=   CellExists(trace, "CODEPTR") ? codeptr : -2
+                 , position :=  line || ":" || col
+              FROM trace;
+
+        // Select the top traceitem when we just stopped
+        IF (NOT wasstopped)
+          this->stacktrace->selection := RECORD(this->stacktrace->rows);
+      }
+      ELSE IF (this->currstatus.realstatus = "DebugStopped")
+      {
+        IF (this->pendingaction = "continue")
+        {
+          // Fake running status
+          this->status->value := this->GetTid(".status.running");
+
+          this->stacktrace->rows := DEFAULT RECORD ARRAY;
+          this->framevariables->rows := DEFAULT RECORD ARRAY;
+        }
+        ELSE
+        {
+          // Only reason to pause was for new libraries?
+          IF (this->currstatus.pausereason = pausereason_newlibraries)
+          {
+            //PRINT("Pausereason is newlibraries, reloading libs and resending breakpoints\n");
+            this->status->value := this->GetTid(".loadlinglibraries");
+            // Reload those, don't change status
+            WaitForPromise(this->ReloadLibraries());
+            //PRINT("Done reload, continuing job\n");
+            this->job->ContinueJob();
+            this->pendingaction := "continue";
+            RETURN;
+          }
+
+          IF (this->pendingaction IN [ "pausefordelayedactions", "runningdelayedactions" ])
+          {
+            // Fake running status
+            this->status->value := this->GetTid(".status.running");
+
+            this->stacktrace->rows := DEFAULT RECORD ARRAY;
+            this->framevariables->rows := DEFAULT RECORD ARRAY;
+
+            IF (this->pendingaction = "pausefordelayedactions")
+              this->delayedactiondefer.resolve(TRUE);
+            RETURN;
+          }
+
+          // Determine current status
+          STRING status := this->GetTid(".status.stopped");
+          STRING ARRAY pausereasons;
+          IF ((this->currstatus.pausereason BITAND pausereason_manualbreakpoint) != 0)
+            INSERT this->GetTid(".pausereason_breakpoint") INTO pausereasons AT END;
+          IF ((this->currstatus.pausereason BITAND pausereason_debuggertrap) != 0)
+            INSERT this->GetTid(".pausereason_debuggertrap") INTO pausereasons AT END;
+
+          IF (LENGTH(pausereasons) != 0)
+            status := status || " (" || Detokenize(pausereasons, ", ") || ")";
+          this->status->value := status;
+
+          // Clear pending actions, step config
+          IF (this->pendingaction = "pause")
+            this->pendingaction := "";
+
+          this->step_config := DEFAULT RECORD;
+
+          this->stacktrace->rows :=
+              SELECT rowkey := filename || "#" || line || "#" || col || "#" || #stacktrace
+                   , *
+                   , position :=    line || ":" || col
+                FROM this->currstatus.stacktrace;
+
+          // If we just stopped, go to the current code location
+          IF (NOT wasstopped)
+          {
+            RECORD sel := RECORD(this->stacktrace->rows);
+            IF (this->currstatus.status = "InitialRunnable" AND LENGTH(this->stacktrace->rows) != 0)
+            {
+              // Fake the start position. We want to go to the main script, but that is at the bottom of the stack trace
+              // (the current execution is always at the top of the list)
+              this->stacktrace->rows[END - 1].line := 1;
+              this->stacktrace->rows[END - 1].col := 1;
+              this->stacktrace->rows[END - 1].position := "1:1";
+
+              sel := this->stacktrace->rows[END - 1];
+            }
+
+//            // If paused in a trap, we want to see the caller of the DebuggerTrap function
+//            IF ((this->currstatus.pausereason BITAND pausereason_debuggertrap) != 0 AND LENGTH(this->stacktrace->rows) > 1)
+//              sel := this->stacktrace->rows[1];
+
+//            PRINT("New stacktrace selection " || this->currstatus.pausereason || " " || LENGTH(this->stacktrace->rows) || "\n");
+//            PRINT("Set stacktrace selection\n" || AnyToString(sel, "tree"));
+
+            this->stacktrace->selection := sel;
+          }
+          ELSE
+          {
+//            PRINT("Was already stopped\n");
+          }
+        }
+      }
+      ELSE
+      {
+        // Job is running
+        this->status->value := this->GetTid(".status.running");
+
+        IF (this->pendingaction = "continue")
+          this->pendingaction := "";
+
+        this->stacktrace->rows := DEFAULT RECORD ARRAY;
+        this->framevariables->rows := DEFAULT RECORD ARRAY;
+      }
+
+      IF (this->runningprofile = "")
+        this->profilestatus->value := "";
+      ELSE IF (this->runningprofile = "function")
+        this->profilestatus->value := this->GetTid(".profilestatus.function");
+      ELSE IF (this->runningprofile = "memory")
+        this->profilestatus->value := this->GetTid(".profilestatus.memory");
+    }
+    ELSE
+    {
+      this->status->value := this->GetTid(".status.notconnected");
+      this->stoppedwitherror->visible := FALSE;
+    }
+
+    // Update the markers in the current source file (breakpoints and position of currently selected stack trace item)
+    this->UpdateMarkers();
+  }
+
+  /// Handles tree file selection
+  MACRO GotSelectFile(BOOLEAN forced DEFAULTSTO FALSE)
+  {
+    IF (this->files->value = this->currfile AND NOT forced)
+      RETURN;
+
+    // Save the current topline in the list of open files
+    IF (this->currfile != "")
+    {
+      RECORD pos := RecordLowerBound(this->openfiles, [ path := this->currfile ], [ "PATH" ]);
+      IF (pos.found)
+        this->openfiles[pos.position].topline := this->filecontents->topline;
+    }
+
+    // Get the data for the file, and the saved topline
+    BLOB data;
+    DATETIME sourcetime;
+    INTEGER topline := 1;
+    DATETIME sourcetime_from_clib;
+    IF (this->files->value != "")
+    {
+      IF (this->files->value LIKE "whfs::*")
+      {
+        OBJECT obj := OpenWHFSObjectByPath(this->files->value);
+        IF (ObjectExists(obj) AND NOT obj->isfolder)
+        {
+          data := obj->data;
+          sourcetime := obj->modificationdate;
+        }
+      }
+      ELSE
+      {
+        data := GetDiskResource(this->files->value, [allowmissing := TRUE]);
+        sourcetime := GetBlobModTime(data);
+      }
+
+      RECORD pos := RecordLowerBound(this->openfiles, [ path := this->files->value ], [ "PATH" ]);
+      IF (pos.found)
+        topline := this->openfiles[pos.position].topline;
+
+      sourcetime_from_clib := this->GetSourceTimeFromLoadedClibs(this->files->value);
+    }
+
+    IF (sourcetime_from_clib = MAX_DATETIME) // multiple libs
+    {
+      this->multiplesourceversionsloaded->visible := TRUE;
+      this->filehasbeenchanged->visible := FALSE;
+    }
+    ELSE IF (sourcetime_from_clib != DEFAULT DATETIME AND sourcetime > sourcetime_from_clib) // source has changed
+    {
+      this->multiplesourceversionsloaded->visible := FALSE;
+      this->filehasbeenchanged->visible := TRUE;
+    }
+    ELSE // Not found, or same time/older than sourcetime from clib
+    {
+      this->multiplesourceversionsloaded->visible := FALSE;
+      this->filehasbeenchanged->visible := FALSE;
+    }
+    this->UpdateFileStatusVisibility();
+
+    this->filecontents->value := BlobToString(data);
+    this->filecontents->GotoTopLine(topline);
+
+    this->currfile := this->files->value;
+    this->frame->flags.havefile := this->currfile != "";
+
+    // Update the markers in the current source file (breakpoints and position of currently selected stack trace item)
+    this->UpdateMarkers();
+  }
+
+  /// Handle new selected stack trace item
+  MACRO GotStackTraceItemSelect()
+  {
+    this->UpdateLocalVariables();
+    IF (NOT RecordExists(this->stacktrace->selection))
+      RETURN;
+
+    // Get the file name for this item, and show it
+    STRING filename := this->ResolveFile(this->stacktrace->selection.filename);
+
+    IF (this->files->value != filename)
+      this->OpenFileByPath(filename);
+    ELSE
+      this->UpdateMarkers(); // Show position of currently selected stacktrace item
+
+    this->filecontents->GotoLine(this->stacktrace->selection.line);
+  }
+
+  /// Handle click in gutter, toggle breakpoint
+  MACRO GotGutterClick(INTEGER line)
+  {
+    IF (this->files->value = "")
+      RETURN;
+
+    RECORD rec :=
+        [ path :=             this->files->value
+        , prettyfilename :=   this->PrettifyFile(this->files->value)
+        , line :=             line
+        ];
+
+    RECORD pos := RecordLowerBound(this->pvt_breakpoints, rec, [ "PATH", "LINE" ]);
+    IF (pos.found)
+      DELETE FROM this->pvt_breakpoints AT pos.position;
+    ELSE
+      INSERT rec INTO this->pvt_breakpoints AT pos.position;
+
+    // Handle change breakpoint list (handles send to debugmgr)
+    this->RefreshBreakpointList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Save the list of files and the breakpoints to the registry
+  MACRO SaveFormState()
+  {
+    RECORD state :=
+        [ files :=          (SELECT path, topline FROM this->openfiles)
+        , breakpoints :=    (SELECT path, line FROM this->pvt_breakpoints)
+        ];
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->tolliumuser->SetRegistryKey("system.debugger.mainform.formstate", state);
+    work->Finish();
+  }
+
+  /// Restore the list of files and breakpoints from the registry
+  MACRO RestoreFormState()
+  {
+    RECORD oldstate := this->tolliumuser->GetRegistryKey("system.debugger.mainform.formstate", DEFAULT RECORD);
+    IF (NOT RecordExists(oldstate))
+      RETURN;
+
+    IF (CellExists(oldstate, "FILES"))
+    {
+      this->openfiles :=
+          SELECT path
+               , topline
+            FROM oldstate.files;
+    }
+
+    IF (CellExists(oldstate, "BREAKPOINTS"))
+    {
+      this->pvt_breakpoints :=
+          SELECT path
+               , prettyfilename :=    this->PrettifyFile(path)
+               , line
+            FROM oldstate.breakpoints;
+    }
+
+    this->RefreshFileList();
+    this->RefreshBreakpointList();
+  }
+
+  MACRO UpdateFileStatusVisibility()
+  {
+    this->filestatus->visible :=
+        this->stoppedwitherror->visible OR
+        this->filehasbeenchanged->visible OR
+        this->multiplesourceversionsloaded->visible;
+  }
+
+  RECORD ARRAY FUNCTION AddToFileTree(RECORD ARRAY nodes, RECORD rec, STRING basepath)
+  {
+    IF (basepath NOT LIKE "*/" AND basepath != "whfs::")
+    {
+      IF (basepath != "" OR rec.rowkey NOT LIKE "whfs::*")
+        basepath := basepath || "/";
+    }
+
+    STRING ARRAY path := Tokenize(rec.filename, "/");
+    RECORD pos := RecordLowerBound(nodes, [ filename := path[0] ], [ "FILENAME" ]);
+    IF (NOT pos.found)
+    {
+      IF (LENGTH(path) = 1)
+      {
+        INSERT rec INTO nodes AT pos.position;
+        RETURN nodes;
+      }
+      ELSE
+      {
+        rec.filename := Detokenize(ArraySlice(path, 1), "/");
+        basepath := basepath || (path[0] NOT IN [ "", "whfs::" ] ? path[0] || "/" : path[0]);
+        INSERT
+            [ rowkey :=     basepath
+            , filename :=   path[0]
+            , selectable := FALSE
+            , expanded :=   TRUE
+            , subnodes :=   this->AddToFileTree(DEFAULT RECORD ARRAY, rec, basepath)
+            ] INTO nodes AT pos.position;
+        RETURN nodes;
+      }
+    }
+    ELSE
+    {
+      rec.filename := Detokenize(ArraySlice(path, 1), "/");
+      basepath := basepath || path[0] || "/";
+      nodes[pos.position].subnodes := this->AddToFileTree(nodes[pos.position].subnodes, rec, basepath);
+    }
+
+    RETURN nodes;
+  }
+
+  RECORD FUNCTION CondenseFileTree(RECORD node)
+  {
+    RECORD orgnode := node;
+    WHILE (LENGTH(node.subnodes) = 1 AND NOT node.subnodes[0].selectable)
+    {
+      RECORD subnode := node.subnodes[0];
+      node.rowkey := subnode.rowkey;
+      node.filename := node.filename || "/" || subnode.filename;
+      node.subnodes := subnode.subnodes;
+    }
+
+    FOREVERY (RECORD rec FROM node.subnodes)
+      node.subnodes[#rec] := this->CondenseFileTree(rec);
+
+    RETURN node;
+  }
+
+  MACRO RefreshFileList()
+  {
+    RECORD ARRAY toplevel;
+
+    RECORD ARRAY modules :=
+        SELECT TEMPORARY path := GetModuleInstallationRoot(module)
+             , rowkey :=      path
+             , module
+             , path :=        path
+             , filename :=    "Module: " || module
+             , selectable :=  FALSE
+             , subnodes :=    DEFAULT RECORD ARRAY
+             , expanded :=    TRUE
+          FROM ToRecordArray(GetInstalledModuleNames(), "module")
+      ORDER BY path;
+
+    RECORD ARRAY outside_modules;
+
+    RECORD ARRAY filerows :=
+        SELECT rowkey :=      path
+             , filename :=    path
+             , selectable :=  TRUE
+             , expanded :=    TRUE
+             , subnodes :=    DEFAULT RECORD ARRAY
+          FROM this->openfiles;
+
+//    filerows := SELECT * FROM filerows WHERE filename LIKE "*jobtest.*";
+
+    FOREVERY (RECORD rec FROM filerows)
+    {
+      RECORD pos := RecordLowerBound(modules, [ path := rec.rowkey ], [ "PATH" ]);
+      IF (pos.found)
+      {
+        modules[pos.position].selectable := TRUE;
+        CONTINUE;
+      }
+
+      IF (pos.position = 0 OR rec.rowkey NOT LIKE modules[pos.position - 1].path || "*")
+      {
+        outside_modules := this->AddToFileTree(outside_modules, rec, "");
+        CONTINUE;
+      }
+
+      STRING modulepath := modules[pos.position - 1].path;
+      rec.filename := SubString(rec.filename, LENGTH(modulepath));
+      modules[pos.position - 1].subnodes := this->AddToFileTree(modules[pos.position - 1].subnodes, rec, modulepath);
+    }
+
+    DELETE FROM modules WHERE LENGTH(subnodes) = 0;
+
+    RECORD ARRAY allrows := modules CONCAT outside_modules;
+
+    this->files->rows :=
+        SELECT AS RECORD ARRAY this->CondenseFileTree(allrows)
+          FROM allrows;
+
+    IF (this->cansaveformstate)
+      this->SaveFormState();
+  }
+
+  MACRO RefreshBreakpointList()
+  {
+    this->breakpoints->rows :=
+        SELECT TEMPORARY resolvedname := this->ResolveFile(path)
+             , rowkey :=        path || "\t" || COLUMN line
+             , filename :=      prettyfilename
+             , resolvedname :=  resolvedname
+             , COLUMN line
+          FROM this->pvt_breakpoints
+      ORDER BY this->ResolveFile(path), COLUMN line;
+
+    IF (ObjectExists(this->job))
+      this->SendBreakpoints();
+
+    this->UpdateMarkers();
+
+    IF (this->cansaveformstate)
+      this->SaveFormState();
+  }
+
+  MACRO UpdateMarkers()
+  {
+    RECORD ARRAY markers;
+    IF (this->files->value != "")
+    {
+      RECORD st_item := this->stacktrace->selection;
+      IF (RecordExists(st_item))
+      {
+        STRING resolved := this->ResolveFile(st_item.filename);
+//        LogDebug("debugger", "resolved st item", resolved, this->files->value, st_item.line);
+        IF (resolved = this->files->value)
+          INSERT [ line := st_item.line, type := "line-current", color := "#CCCCFF" ] INTO markers AT END;
+      }
+//      ELSE LogDebug("debugger", "no st item selected");
+    }
+//    ELSE LogDebug("debugger", "no file selected");
+
+    markers := markers CONCAT
+        SELECT line
+             , type := "gutter"
+             , color := "#FF0000"
+          FROM this->pvt_breakpoints
+         WHERE path = this->files->value;
+
+    this->filecontents->markers := markers;
+  }
+
+  /** Return breakpoints for a specific line of code, without callstacksize requirement
+  */
+  RECORD ARRAY FUNCTION GetBreakpointsForFileLine(STRING filename, INTEGER line, BOOLEAN manual)
+  {
+    RECORD rec := [ filename := this->ResolveFile(filename), line := line ];
+
+    RECORD pos := RecordLowerBound(this->loadedlibraries, rec, [ "FILENAME" ]);
+    INTEGER epos := RecordUpperBound(this->loadedlibraries, rec, [ "FILENAME" ]);
+
+    RECORD ARRAY result;
+    FOR (INTEGER i := pos.position; i < epos; i := i + 1)
+    {
+      RECORD lib := this->loadedlibraries[i];
+
+      INTEGER ARRAY codeptrs := lib.clib->GetLineStarts(rec.line);
+
+      result := result CONCAT
+          SELECT vm :=          lib.vm
+               , liburi :=      lib.liburi
+               , compile_id :=  lib.compile_id
+               , codeptr
+               , stacksize :=   -1
+               , manual :=      manual
+            FROM ToRecordArray(codeptrs, "CODEPTR");
+    }
+
+    RETURN result;
+  }
+
+  /** Send current list breakpoints to job.
+      @return promise, fulfilled when breakpoints have been processed
+  */
+  OBJECT FUNCTION SendBreakpoints()
+  {
+    RECORD config :=
+        [ minstacksize :=   CellExists(this->step_config, "MINSTACKSIZE") ? this->step_config.minstacksize : 0
+        , maxstacksize :=   CellExists(this->step_config, "MAXSTACKSIZE") ? this->step_config.maxstacksize : -1
+        , breakpoints :=    CellExists(this->step_config, "BREAKPOINTS") ? this->step_config.breakpoints : DEFAULT RECORD ARRAY
+        ];
+
+    FOREVERY (RECORD bp FROM this->pvt_breakpoints)
+      config.breakpoints := config.breakpoints CONCAT this->GetBreakpointsForFileLine(bp.path, bp.line, TRUE);
+
+    RETURN this->job->SetBreakpoints(config);
+  }
+
+  STRING FUNCTION ResolveFile(STRING filename)
+  {
+    IF (filename LIKE "/*")
+      RETURN filename;
+    IF (filename LIKE "site::*" OR filename LIKE "whfs::*")
+    {
+      OBJECT obj := OpenWHFSObjectByPath(filename);
+      IF (ObjectExists(obj))
+        RETURN "whfs::" || obj->whfspath;
+    }
+    RETURN GetWebHareResourceDiskPath(filename);
+  }
+
+  STRING FUNCTION PrettifyFile(STRING filename)
+  {
+    IF (filename LIKE "whfs::*")
+      RETURN filename;
+
+    // ADDME: use a module cache (use it too in RefreshFileList)
+    FOREVERY (STRING module FROM GetInstalledModuleNames())
+    {
+      STRING moduleroot := GetModuleInstallationRoot(module);
+      IF (filename LIKE moduleroot || "*")
+      {
+        filename := SubString(filename, LENGTH(moduleroot));
+        RETURN "mod::" || module || "/" || filename;
+      }
+    }
+    RETURN filename;
+  }
+
+  MACRO OpenFileByPath(STRING filename)
+  {
+    RECORD pos := RecordLowerBound(this->openfiles, [ path := filename ], [ "PATH" ]);
+    IF (NOT pos.found)
+      INSERT [ path :=    filename
+             , topline := 1
+             ] INTO this->openfiles AT pos.position;
+
+    this->RefreshFileList();
+    this->files->value := filename;
+  }
+
+  MACRO ResolveAndOpenFilesByPath(STRING ARRAY filenames)
+  {
+    FOR (INTEGER i := LENGTH(filenames) - 1; i >= 0; i := i - 1)
+    {
+      STRING resolved := this->ResolveFile(filenames[i]);
+      this->OpenFileByPath(resolved);
+
+      FOREVERY (RECORD item FROM this->stacktrace->rows)
+      {
+        IF (this->ResolveFile(item.filename) = resolved)
+        {
+          this->stacktrace->selection := item;
+          BREAK;
+        }
+      }
+    }
+  }
+
+  OBJECT FUNCTION GetLibrary(STRING name, DATETIME compile_id)
+  {
+    STRING filename := this->ResolveFile(name);
+
+    RECORD pos := RecordLowerBound(this->clib_cache, [ filename := filename, compile_id := compile_id ], [ "FILENAME", "COMPILE_ID" ]);
+    IF (pos.found)
+      RETURN this->clib_cache[pos.position].clib;
+
+    OBJECT clib := NEW CompiledLibrary(name);
+
+    // We might not be giving back the right library (different compile id!)
+    // ADDME: request it from the debugged process!
+    INSERT
+        [ filename :=     filename
+        , compile_id :=   clib->compile_id
+        , sourcetime :=   clib->sourcetime
+        , clib :=         clib
+        ] INTO this->clib_cache AT pos.position;
+
+    RETURN clib;
+  }
+
+  /** Return the source times from the loaded clibs
+      @return DEFAULT DATETIME if not present, MAX_DATETIME if mixed
+  */
+  DATETIME FUNCTION GetSourceTimeFromLoadedClibs(STRING name)
+  {
+    STRING filename := this->ResolveFile(name);
+
+    RECORD pos := RecordLowerBound(this->loadedlibraries, [ filename := filename ], [ "FILENAME" ]);
+    IF (NOT pos.found)
+      RETURN DEFAULT DATETIME;
+
+    DATETIME sourcetime := this->loadedlibraries[pos.position].sourcetime;
+
+    INTEGER upos := RecordUpperBound(this->loadedlibraries, [ filename := filename ], [ "FILENAME" ]);
+    FOR (INTEGER i := pos.position + 1; i < upos; i := i + 1)
+    {
+      IF (this->loadedlibraries[i].sourcetime != sourcetime)
+        RETURN MAX_DATETIME; // Signals mix of libs (in different weblets)
+    }
+
+    RETURN sourcetime;
+  }
+
+  MACRO UpdateLocalVariables()
+  {
+    RECORD sel := this->stacktrace->selection;
+    IF (NOT RecordExists(sel) OR sel.codeptr < 0)
+    {
+      this->framevariables->rows := DEFAULT RECORD ARRAY;
+      this->framevariables->empty := RecordExists(sel)
+                                        ? sel.codeptr = -1
+                                              ? this->GetTid(".novarsexternalfunction")
+                                              : this->GetTid(".stackunwound")
+                                        : "";
+      RETURN;
+    }
+
+    // Locate the right clib for this filename&vm
+    STRING filename := this->ResolveFile(sel.filename);
+    RECORD pos := RecordLowerBound(this->loadedlibraries, [ filename := filename, vm := sel.vm ], [ "FILENAME", "VM" ]);
+    IF (NOT pos.found)
+    {
+      ABORT([sel := sel, ll := this->loadedlibraries ], "tree:3");
+      this->framevariables->empty := this->GetTid(".couldnotfindcompiledlibrary");
+      this->framevariables->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    this->framevariables->empty := "";
+
+    OBJECT clib := this->loadedlibraries[pos.position].clib;
+
+    RECORD ARRAY req := clib->GetFrameVariables(sel);
+
+    IF (ObjectExists(this->variablerequest))
+      this->variablerequest->Cancel();
+
+    IF (LENGTH(req) = 0)
+    {
+      this->framevariables->rows := DEFAULT RECORD ARRAY;
+      this->framevariables->empty := this->GetTid(".novariables");
+    }
+    ELSE
+    {
+      this->variablerequest := this->job->GetVariables(req);
+      //LogDebug("debug", "vr", req);
+      this->variablerequest->then(PTR this->HandleVariableResult(sel.rowkey, req, #1));
+    }
+
+    //LogDebug("debugger", "localvars",  vars);
+  }
+
+  MACRO HandleVariableResult(STRING baserowkey, RECORD ARRAY req, RECORD result)
+  {
+    IF (result.type != "job-variables")
+    {
+      this->framevariables->rows := DEFAULT RECORD ARRAY;
+      this->framevariables->empty := this->GetTid(".errorgettingframevariables");
+      RETURN;
+    }
+
+    RECORD ARRAY rows;
+    FOREVERY (RECORD request FROM req)
+    {
+      OBJECT extvar := NEW ExternVariable(DEFAULT OBJECT, request.name, request.name);
+      extvar->HandleValue(result.variables[#request], FALSE);
+      INSERT extvar->Render(baserowkey || "-" || #request).row INTO rows AT END;
+    }
+
+    this->framevariables->rows := rows;
+  }
+
+  OBJECT ASYNC FUNCTION ExecuteConnect(OBJECT job, BOOLEAN breakonconnect)
+  {
+    TRY
+    {
+      // Reset status
+      this->runningprofile := "";
+      this->pendingaction := "";
+      this->currstatus := DEFAULT RECORD;
+      this->variablerequest := DEFAULT OBJECT;
+      this->job_vms := DEFAULT RECORD ARRAY;
+      this->step_config := DEFAULT RECORD;
+
+      PRINT("Pausing job\n");
+      RECORD pausedstatus := AWAIT job->Pause();
+      PRINT("Pausing job: done, gettting libraries\n");
+      this->job_vms := (AWAIT job->GetLibraries()).vms;
+      PRINT("Starting library processing\n");
+      this->ProcessLibraries(job, pausedstatus);
+      PRINT("Libraries have been processed\n");
+
+      this->job := job;
+
+      this->job->ondisconnect := PTR this->GotJobDisconnect();
+      this->job->onstatuschange := PTR this->GotStatusChange();
+
+      AWAIT this->SendBreakpoints();
+
+      BOOLEAN cancontinue := this->job->laststatus.realstatus = "DebugStopped" AND this->job->laststatus.status != "Terminated";
+      IF (NOT breakonconnect AND cancontinue)
+      {
+        this->job->ContinueJob();
+        this->pendingaction := "continue";
+      }
+      this->GotStatusChange();
+/*
+      IF (RecordExists(this->currstatus) AND LENGTH(this->stacktrace->rows) != 0)
+      {
+        IF (this->currstatus.status = "InitialRunnable") // FIXME: should be Startup?
+        {
+          // When starting, the interesting lib is the last one stack trace item
+          this->stacktrace->selection := this->stacktrace->rows[END - 1];
+        }
+        ELSE
+          this->stacktrace->selection := this->stacktrace->rows[0];
+      }
+*/
+      RETURN TRUE;
+    }
+    CATCH (OBJECT e)
+    {
+      job->Close();
+      this->GotStatusChange();
+      this->RunMessageBox(".connectfailed", e->what);
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  OBJECT ASYNC FUNCTION ReloadLibraries()
+  {
+    this->job_vms := (AWAIT this->job->GetLibraries()).vms;
+    PRINT("Starting library processing\n");
+    this->ProcessLibraries(this->job, this->currstatus);
+    AWAIT this->SendBreakpoints();
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION ProcessLibraries(OBJECT job, RECORD pausedstatus)
+  {
+    BOOLEAN loaded_new;
+
+    FOREVERY (RECORD vm FROM this->job_vms)
+      FOREVERY (RECORD lib FROM vm.libraries)
+      {
+        STRING filename := this->ResolveFile(lib.liburi);
+
+        // Already loaded?
+        RECORD pos := RecordLowerBound(this->loadedlibraries, [ filename := filename, vm := vm.vm ], [ "FILENAME", "VM" ]);
+        IF (pos.found)
+          CONTINUE;
+
+        OBJECT clib := this->GetLibrary(lib.liburi, lib.compile_id);
+
+        RECORD rec :=
+            [ vm :=                 vm.vm
+            , compile_id :=         lib.compile_id
+            , globalvarlocation :=  lib.globalvarlocation
+            , liburi :=             lib.liburi
+            , sourcetime :=         lib.sourcetime
+            , filename :=           filename
+            , clib :=               clib
+            ];
+
+        INSERT rec INTO this->loadedlibraries AT pos.position;
+        loaded_new := TRUE;
+      }
+
+    IF (loaded_new)
+    {
+      // Reload the file, it may be out of date (or too new)
+      this->GotSelectFile(TRUE);
+    }
+
+    RETURN [ done := TRUE ];
+  }
+
+  OBJECT ASYNC FUNCTION SearchAndConnectByGroupId(STRING groupid)
+  {
+    OBJECT processlistener := this->connector->GetProcessListener();
+    TRY
+    {
+      RECORD ARRAY processlist := AWAIT processlistener->RequestUpdate();
+
+      FOREVERY (RECORD processrec FROM processlist)
+      {
+        OBJECT process := processrec.obj;
+
+        OBJECT listener := process->GetJobListener();
+        RECORD ARRAY joblist := AWAIT listener->RequestUpdate();
+        listener->Close();
+
+        FOREVERY (RECORD rec FROM joblist)
+          IF (rec.groupid = groupid)
+          {
+            OBJECT job := AWAIT process->ConnectToJob(groupid)->promise;
+            IF (NOT ObjectExists(job))
+            {
+              this->RunMessageBox(".connectfailed", "ConnectPromise failed to resolve");
+              RETURN DEFAULT RECORD;
+            }
+
+            // Got the job, execute the full connect
+            RETURN this->ExecuteConnect(job, TRUE);
+          }
+      }
+    }
+    FINALLY
+    {
+      processlistener->Close();
+    }
+    this->RunMessageBox(".jobnotfound");
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO CloseCurrentJob()
+  {
+    IF (ObjectExists(this->job))
+      this->job->Close();
+    this->job := DEFAULT OBJECT;
+    this->pendingaction := "";
+    this->step_config := DEFAULT RECORD;
+    this->stacktrace->rows := DEFAULT RECORD ARRAY;
+    this->stoppedwitherror->visible := FALSE;
+    this->loadedlibraries := DEFAULT RECORD ARRAY;
+
+    this->GotStatusChange();
+  }
+
+  ASYNC FUNCTION ScheduleDelayedAction(FUNCTION PTR asyncfunc)
+  {
+    // If we can continue, we are ok the immediately execute the action
+    IF (this->frame->flags.cancontinue OR this->currstatus.status = "Terminated")
+      RETURN CreateResolvedPromise(DEFAULT RECORD)->Then(asyncfunc);
+
+    RECORD defer := CreateDeferredPromise();
+    INSERT CELL[ defer, asyncfunc ] INTO this->delayedactions AT END;
+
+    IF (NOT RecordExists(this->delayedactiondefer))
+    {
+      RECORD donedefer := CreateDeferredPromise();
+      this->delayedactiondefer := CreateDeferredPromise();
+      INSERT CELL donedefer := donedefer INTO this->delayedactiondefer;
+      this->delayedactiondefer.promise->Then(PTR this->RunDelayedActions(donedefer, #1));
+
+      this->job->Pause();
+      this->pendingaction := "pausefordelayedactions";
+      this->GotStatusChange();
+    }
+
+    RETURN this->delayedactiondefer.donedefer.promise->Then(PTR Id(defer.promise));
+  }
+
+  ASYNC MACRO RunDelayedActions(RECORD donedefer, BOOLEAN shouldcontinue)
+  {
+    this->delayedactiondefer := DEFAULT RECORD;
+    this->pendingaction := "runningdelayedactions";
+
+    WHILE (LENGTH(this->delayedactions) != 0)
+    {
+      RECORD data := this->delayedactions[0];
+      DELETE FROM this->delayedactions AT 0;
+
+      OBJECT res := CreateResolvedPromise(TRUE)->Then(data.asyncfunc);
+      data.defer.resolve(res);
+      AWAIT res;
+    }
+
+    IF (shouldcontinue AND this->currstatus.status != "Terminated")
+    {
+      this->job->ContinueJob();
+      this->pendingaction := "continue";
+    }
+    ELSE
+    {
+      this->pendingaction := "";
+    }
+    this->GotStatusChange();
+
+    donedefer.resolve(DEFAULT RECORD);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoOpenFile()
+  {
+    OBJECT dialog := CreateBrowseServerPathDialog(this);
+    dialog->acceptfolders := FALSE;
+
+    IF (this->files->value LIKE "/*")
+      dialog->path := this->files->value;
+    ELSE
+      dialog->path := GetModuleInstallationRoot("tollium");
+
+    IF (dialog->RunModal() = "ok")
+    {
+      RECORD props := GetDiskFileProperties(dialog->path);
+      IF (RecordExists(props) AND props.type = 0)
+        this->OpenFileByPath(dialog->path);
+    }
+  }
+
+  MACRO DoOpenDBFile()
+  {
+    OBJECT dialog := CreateBrowseForWHFSObjectDialog(this);
+    dialog->acceptfolders := FALSE;
+    dialog->acceptunpublished := TRUE;
+    dialog->accepttypes :=
+        [ "http://www.webhare.net/xmlns/publisher/shtmlfile"
+        , "http://www.webhare.net/xmlns/publisher/semidynamicfile"
+        , "http://www.webhare.net/xmlns/publisher/libraryfile"
+        , "http://www.webhare.net/xmlns/publisher/standalonetemplatefile"
+        , "http://www.webhare.net/xmlns/publisher/templatefile"
+        ];
+
+    IF (this->files->value LIKE "whfs::*")
+    {
+      OBJECT obj := OpenWHFSObjectByPath(this->files->value);
+      IF (ObjectExists(obj))
+      {
+        IF (obj->isfolder)
+          dialog->folder := obj->id;
+        ELSE
+          dialog->value := obj->id;
+      }
+    }
+
+    IF (dialog->RunModal() = "ok" AND dialog->value != 0)
+    {
+      OBJECT obj := OpenWHFSObject(dialog->value);
+      IF (NOT obj->isfolder)
+        this->OpenFileByPath("whfs::" || obj->whfspath);
+    }
+  }
+
+
+  MACRO DoCloseFile()
+  {
+    DELETE FROM this->openfiles WHERE path LIKE this->files->value || "*";
+    this->RefreshFileList();
+  }
+
+  MACRO DoExit()
+  {
+    IF (NOT ObjectExists(this->job) OR this->RunMessageBox(".sureclosewhiledebugging") = "yes")
+      this->tolliumresult := "cancel";
+  }
+
+  MACRO DoDebugConfig()
+  {
+    this->LoadScreen(".debugconfig")->RunModal();
+  }
+
+  MACRO DoSelectJob()
+  {
+    OBJECT dialog := this->LoadScreen(".selectjob", [ connector := this->connector ]);
+    IF (dialog->RunModal() = "ok")
+    {
+      IF (dialog->job != this->job)
+      {
+        this->CloseCurrentJob();
+
+        WaitForPromise(this->ExecuteConnect(dialog->job, dialog->autobreak));
+      }
+    }
+  }
+
+  MACRO DoRuleConnect(BOOLEAN autoreconnect DEFAULTSTO FALSE)
+  {
+    OBJECT dialog := this->LoadScreen(".ruleconnector", [ connector := this->connector, autoreconnect := autoreconnect ]);
+    IF (dialog->RunModal() = "ok")
+    {
+      IF (dialog->job != this->job)
+      {
+        this->CloseCurrentJob();
+
+        WaitForPromise(this->ExecuteConnect(dialog->job, dialog->autobreak));
+      }
+    }
+    ELSE
+      this->autoreconnect->pressed := FALSE;
+  }
+
+  MACRO DoChangeAutoReconnect()
+  {
+    this->autoreconnect->pressed := NOT this->autoreconnect->pressed;
+    IF (NOT ObjectExists(this->job) AND this->autoreconnect->pressed)
+      this->DoRuleConnect(TRUE);
+  }
+
+  MACRO DoPauseJob()
+  {
+    this->job->Pause();
+
+    this->pendingaction := "pause";
+    this->GotStatusChange();
+  }
+
+  MACRO DoContinueJob()
+  {
+    this->SendBreakpoints();
+    this->job->ContinueJob();
+
+    this->pendingaction := "continue";
+    this->GotStatusChange();
+  }
+
+  MACRO DoOpenStackTraceItem()
+  {
+    this->GotStackTraceItemSelect();
+  }
+
+  MACRO DoOpenBreakpoint()
+  {
+    STRING filename := this->ResolveFile(this->breakpoints->selection[0].filename);
+
+    IF (this->files->value != filename)
+      this->OpenFileByPath(filename);
+    ELSE
+      this->UpdateMarkers();
+
+    this->filecontents->GotoLine(this->breakpoints->selection[0].line);
+  }
+
+  MACRO DoRemoveBreakpoint()
+  {
+    DELETE
+      FROM this->pvt_breakpoints
+     WHERE path || "\t" || line IN this->breakpoints->value;
+
+    this->RefreshBreakpointList();
+  }
+
+  MACRO DoRemoveAllBreakpoints()
+  {
+    this->pvt_breakpoints := DEFAULT RECORD ARRAY;
+    this->RefreshBreakpointList();
+  }
+
+  MACRO DoDetachJob()
+  {
+    this->CloseCurrentJob();
+
+    IF (this->autoreconnect->pressed)
+      this->DoRuleConnect(TRUE);
+  }
+
+  MACRO DoViewFrameVariable()
+  {
+    RECORD sel := this->framevariables->selection;
+    RECORD result := this->framevariables->selection.obj->result;
+
+    this->LoadScreen(".variableinspector",
+        [ job :=    this->job
+        , id :=     result.id
+        , vm :=     result.vm
+        , path :=   sel.name
+        ])->RunModal();
+  }
+
+  MACRO DoStepIntoJob()
+  {
+    this->DoStepJob(TRUE);
+  }
+
+  MACRO DoStepJob(BOOLEAN stepinto DEFAULTSTO FALSE)
+  {
+    RECORD item := RECORD(this->currstatus.stacktrace);
+    IF (NOT RecordExists(item))
+      RETURN;
+
+    this->step_config :=
+        [ maxstacksize :=     stepinto ? this->currstatus.stacksize : -1
+        , minstacksize :=     this->currstatus.stacksize
+        , breakpoints :=      DEFAULT RECORD ARRAY
+        ];
+
+    // Action 'Step' must go to first code line of top-level app. Manipulate config to achieve that
+    INTEGER breakpoint_stacksize := this->currstatus.stacksize;
+    IF (NOT stepinto AND this->currstatus.status = "InitialRunnable")
+    {
+      // Select stack trace item of toplevel script
+      item := this->currstatus.stacktrace[END - 1];
+
+      // Ignore returns from initfunctions of loadlibs
+      this->step_config.minstacksize := 0;
+
+      // No callstack requirement on breakpoint too
+      breakpoint_stacksize := -1;
+    }
+
+    STRING filename := this->ResolveFile(item.filename);
+
+    IF (item.codeptr != -1)
+    {
+      RECORD pos := RecordLowerBound(this->loadedlibraries, [ filename := filename, vm := item.vm ], [ "FILENAME", "VM" ]);
+      IF (pos.found)
+      {
+        RECORD lib := this->loadedlibraries[pos.position];
+        INTEGER ARRAY starts;
+
+        /* When stepping to initial function, set temp breakpoint to start of that function
+           Stepping into will go into library that is initialized first
+        */
+        IF (NOT stepinto AND this->currstatus.status = "InitialRunnable")
+          starts := [ INTEGER(item.codeptr) ];
+        ELSE
+          starts := lib.clib->GetNextLineStarts(item.codeptr);
+
+        this->step_config.breakpoints :=
+            SELECT vm :=          lib.vm
+                 , liburi :=      lib.liburi
+                 , compile_id :=  lib.compile_id
+                 , codeptr
+                 , stacksize :=   breakpoint_stacksize
+                 , manual :=      FALSE
+              FROM ToRecordArray(starts, "CODEPTR");
+      }
+    }
+
+    this->DoContinueJob();
+  }
+
+  MACRO DoRunToCursor()
+  {
+    this->step_config :=
+        [ minstacksize :=     0
+        , maxstacksize :=     -1
+        , breakpoints :=      this->GetBreakpointsForFileLine(this->currfile, this->filecontents->line, FALSE)
+        ];
+
+    this->DoContinueJob();
+  }
+
+  MACRO DoStepOutJob()
+  {
+    this->step_config :=
+        [ minstacksize :=     this->currstatus.stacksize
+        , maxstacksize :=     -1
+        , breakpoints :=      DEFAULT RECORD ARRAY
+        ];
+
+    this->DoContinueJob();
+  }
+
+  MACRO DoSymbolSearch()
+  {
+    RECORD data :=
+        [ searchfor :=    this->filecontents->selection
+        ];
+
+    IF (this->filecontents->selection = "")
+    {
+      STRING ARRAY lines := Tokenize(this->filecontents->value, "\n");
+      IF (LENGTH(lines) >= this->filecontents->line)
+      {
+        STRING line := lines[this->filecontents->line - 1];
+        OBJECT sp := NEW StringParser;
+        STRING charset := sp->set_alpha || sp->set_digit || "_";
+        INTEGER col := this->filecontents->col - 1;
+        WHILE (col > 0 AND SearchSubString(charset, SubString(line, col - 1, 1)) != -1)
+          col := col - 1;
+
+        sp->Reset(SubString(line, col));
+        data.searchfor := sp->ParseWhileInSet(charset);
+      }
+    }
+
+    OBJECT screen := this->LoadScreen(".symbolsearch", data);
+    IF (screen->RunModal() = "ok")
+    {
+      STRING filename := this->ResolveFile(screen->file.path);
+
+      IF (this->files->value != filename)
+        this->OpenFileByPath(filename);
+
+      this->filecontents->GotoLine(screen->file.line);
+    }
+  }
+
+  MACRO DoShowErrorText()
+  {
+    this->LoadScreen(".erroroutput",
+        [ message := (SELECT AS STRING message
+                        FROM this->currstatus.errors)
+        ])->RunModal();
+  }
+
+  ASYNC FUNCTION AsyncGetMemorySnapshot(BOOLEAN withunreferenced)
+  {
+    RETURN this->job->GetMemorySnapshot(withunreferenced);
+  }
+
+  MACRO DoGetMemorySnapshot()
+  {
+    RECORD data := WaitForPromise(this->ScheduleDelayedAction(PTR this->AsyncGetMemorySnapshot(FALSE)));
+
+    INSERT
+        [ when :=     GetCurrentDateTime()
+        , source :=   "debugger"
+        , command :=  "snapshot-" || LENGTH(this->profiles) + 1
+        , type :=     "memorysnapshot"
+        , rawdata :=  data.rawdata
+        ] INTO this->profiles AT END;
+
+    this->DoShowProfiles();
+  }
+
+  MACRO DoGetMemorySnapshotWithUnreferenced()
+  {
+    RECORD data := WaitForPromise(this->ScheduleDelayedAction(PTR this->AsyncGetMemorySnapshot(TRUE)));
+
+    INSERT
+        [ when :=     GetCurrentDateTime()
+        , source :=   "debugger"
+        , command :=  "snapshot-" || LENGTH(this->profiles) + 1
+        , type :=     "memorysnapshot"
+        , rawdata :=  data.rawdata
+        ] INTO this->profiles AT END;
+
+    this->DoShowProfiles();
+  }
+
+  MACRO DoGetObjectSnapshot()
+  {
+    RECORD data := WaitForPromise(this->ScheduleDelayedAction(PTR this->AsyncGetMemorySnapshot(FALSE)));
+
+    INSERT
+        [ when :=     GetCurrentDateTime()
+        , source :=   "debugger"
+        , command :=  "snapshot-" || LENGTH(this->profiles) + 1
+        , type :=     "objectsnapshot"
+        , rawdata :=  data.rawdata
+        ] INTO this->profiles AT END;
+
+    this->DoShowProfiles();
+  }
+
+  ASYNC FUNCTION AsyncGetBlobReferences(BOOLEAN withunreferenced)
+  {
+    RETURN this->job->GetBlobReferences(FALSE);
+  }
+
+  MACRO DoGetBlobReferencesWithUnreferenced()
+  {
+    RECORD data := WaitForPromise(this->ScheduleDelayedAction(PTR this->AsyncGetBlobReferences(TRUE)));
+
+    INSERT
+        [ when :=     GetCurrentDateTime()
+        , source :=   "debugger"
+        , command :=  "snapshot-" || LENGTH(this->profiles) + 1
+        , type :=     "blobreferences"
+        , rawdata :=  data.rawdata
+        ] INTO this->profiles AT END;
+
+    this->DoShowProfiles();
+  }
+
+  ASYNC MACRO AsyncStartProfiling(STRING type)
+  {
+    AWAIT this->job->SetProfiling(type, TRUE, TRUE);
+    this->runningprofile := type;
+    this->GotStatusChange();
+  }
+
+  MACRO DoStartFunctionProfiling()
+  {
+    this->ScheduleDelayedAction(PTR this->AsyncStartProfiling("function"));
+  }
+
+  MACRO DoStartMemoryProfiling()
+  {
+    this->ScheduleDelayedAction(PTR this->AsyncStartProfiling("memory"));
+  }
+
+  ASYNC MACRO AsyncStopProfiling()
+  {
+    SWITCH (this->runningprofile)
+    {
+      CASE "function", "memory"
+      {
+        AWAIT this->job->SetProfiling("all", FALSE, FALSE);
+        RECORD profile := AWAIT this->job->GetProfile(this->runningprofile);
+
+        INSERT
+            [ when :=     GetCurrentDateTime()
+            , source :=   "debugger"
+            , command :=  "snapshot-" || LENGTH(this->profiles) + 1
+            , type :=     this->runningprofile = "function" ? "functionprofile" : "memoryprofile"
+            , rawdata :=  profile.rawdata
+            ] INTO this->profiles AT END;
+      }
+    }
+
+    this->runningprofile := "";
+    this->GotStatusChange();
+  }
+
+  MACRO DoStopProfiling()
+  {
+    WaitForPromise(this->ScheduleDelayedAction(PTR this->AsyncStopProfiling()));
+    this->DoShowProfiles();
+  }
+
+  MACRO DoShowProfiles()
+  {
+    this->LoadScreen("debugger/profiles.main", [ fromdebugger := TRUE, profiles := this->profiles ])->RunModal();
+  }
+
+  MACRO DoOpenFileInEditor()
+  {
+    STRING resourcepath := GetResourceNameFromDiskPath(this->files->value, [ allowdiskpath := TRUE ]);
+    this->contexts->controller->ExecuteClientCall("OpenInEditor", resourcepath, DEFAULT RECORD);
+  }
+
+  MACRO DoOpenStackTraceItemInEditor()
+  {
+    RECORD sel := this->stacktrace->selection;
+    STRING resourcepath := GetResourceNameFromDiskPath(sel.filename, [ allowdiskpath := TRUE ]);
+    this->contexts->controller->ExecuteClientCall("OpenInEditor", resourcepath, [ line := sel.line, col := sel.col ]);
+  }
+
+  MACRO DoOpenBreakpointInEditor()
+  {
+    RECORD sel := this->breakpoints->selection;
+    STRING resourcepath := GetResourceNameFromDiskPath(sel.filename, [ allowdiskpath := TRUE ]);
+    this->contexts->controller->ExecuteClientCall("OpenInEditor", resourcepath, [ line := sel.line, col := 1 ]);
+  }
+
+>;
+
+PUBLIC OBJECTTYPE SelectJob EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT connector;
+
+  OBJECT processlistener;
+
+  OBJECT process;
+
+  OBJECT joblistener;
+
+  RECORD ARRAY raw_joblist;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public Variables
+  //
+
+  PUBLIC OBJECT job;
+
+  PUBLIC PROPERTY autobreak(this->autobreakjob->value, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->connector := data.connector;
+
+    this->processlistener := this->connector->GetProcessListener();
+    this->processlistener->onprocesslist := PTR this->GotProcessListChange;
+    this->processlistener->ondisconnect := PTR this->GotDisconnect;
+
+    this->processlistener->RequestUpdate();
+
+    this->displayerrorterminated->visible := GetDTAPStage() = "development";
+
+    this->RestoreFormState();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SaveFormState()
+  {
+    RECORD state :=
+        [ autobreakjob :=             this->autobreakjob->value
+        , displayerrorterminated :=   this->displayerrorterminated->value
+        ];
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->tolliumuser->SetRegistryKey("system.debugger.selectjob.state", EncodeHSONBlob(state));
+    work->Finish();
+  }
+
+  MACRO RestoreFormState()
+  {
+    BLOB data := this->tolliumuser->GetRegistryKey("system.debugger.selectjob.state", DEFAULT BLOB);
+    IF (LENGTH(data) = 0)
+      RETURN;
+
+    RECORD oldstate := DecodeHSONBlob(data);
+
+    IF (CellExists(oldstate, "AUTOBREAKJOB"))
+      this->autobreakjob->value := oldstate.autobreakjob;
+    IF (CellExists(oldstate, "DISPLAYERRORTERMINATED"))
+      this->displayerrorterminated->value := oldstate.displayerrorterminated AND GetDTAPStage() = "development";
+  }
+
+  BOOLEAN FUNCTION IsSafeToConnect(RECORD rec)
+  {
+    IF (rec.groupid = GetCurrentGroupId())
+      RETURN FALSE;
+    IF (rec.script LIKE "*/comm.whsock")
+      RETURN FALSE;
+    IF (rec.script LIKE "*/remoting.shtml")
+    {
+      IF (NOT RecordExists(rec.authenticationrecord))
+        RETURN FALSE;
+      IF (NOT CellExists(rec.authenticationrecord, "WEBSERVERREQUEST") OR TypeID(rec.authenticationrecord.webserverrequest) != TypeID(RECORD))
+        RETURN FALSE;
+
+      RECORD req := rec.authenticationrecord.webserverrequest;
+      IF (NOT CellExists(req, "URL") OR TypeID(req.url) != TypeID(STRING))
+        RETURN FALSE;
+
+      IF (req.url NOT LIKE "/wh_services/*" OR req.url LIKE "/wh_services/tollium/*")
+        RETURN FALSE;
+    }
+
+    RETURN TRUE;
+  }
+
+  MACRO RefreshJobList()
+  {
+    this->joblist->rows :=
+        SELECT TEMPORARY is_safe := this->IsSafeToConnect(raw_joblist)
+             , *
+             , rowkey :=      groupid
+             , scriptshow :=  GetScriptShow(authenticationrecord, script)
+             , canconnect :=  NOT connected AND is_safe
+             , candisconnect := connected
+             , canterminate := NOT connected AND is_safe AND status != "Terminated"
+          FROM this->raw_joblist
+         WHERE this->displayerrorterminated->value ? TRUE : status != "Terminated";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotInterval()
+  {
+    IF (ObjectExists(this->joblistener))
+      this->joblistener->RequestUpdate();
+  }
+
+  MACRO GotDisconnect()
+  {
+    this->GotUnload();
+    this->tolliumresult := "cancel";
+  }
+
+  MACRO GotUnload()
+  {
+    IF (ObjectExists(this->processlistener))
+      this->processlistener->Close();
+    this->processlistener := DEFAULT OBJECT;
+
+    IF (ObjectExists(this->joblistener))
+      this->joblistener->Close();
+    this->joblistener := DEFAULT OBJECT;
+
+    this->SaveFormState();
+  }
+
+  MACRO GotProcessListChange(RECORD ARRAY processlist)
+  {
+    this->processlist->rows :=
+        SELECT rowkey :=    processcode
+             , *
+          FROM processlist;
+  }
+
+  MACRO GotJobListChange(RECORD ARRAY joblist)
+  {
+    this->raw_joblist := joblist;
+    this->RefreshJobList();
+  }
+
+  MACRO GotSelectProcess()
+  {
+    OBJECT newproc := (this->processlist->selection ?? [ obj := DEFAULT OBJECT ]).obj;
+    IF (newproc != this->process)
+    {
+      IF (ObjectExists(this->process))
+      {
+        this->joblistener->Close();
+        this->joblistener := DEFAULT OBJECT;
+      }
+      this->process := newproc;
+      IF (ObjectExists(this->process))
+      {
+        this->joblistener := this->process->GetJobListener();
+        this->joblistener->onjoblist := PTR this->GotJobListChange;
+        this->joblistener->RequestUpdate();
+      }
+      ELSE
+        this->GotJobListChange(DEFAULT RECORD ARRAY);
+    }
+  }
+
+  MACRO GotSelectJob()
+  {
+    // Need this to force state transmission
+  }
+
+  MACRO GotConnectFailure(STRING reason)
+  {
+    this->RunMessageBox(".connectfailed", reason);
+    this->connector := DEFAULT OBJECT;
+  }
+
+  MACRO GotConnect(OBJECT job)
+  {
+    this->job := job;
+    this->connector := DEFAULT OBJECT;
+  }
+
+  MACRO GotDisplayErrorTerminatedChange()
+  {
+    this->RefreshJobList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Submit & actions
+  //
+
+  BOOLEAN FUNCTION Submit()
+  {
+    this->connector := this->process->ConnectToJob(this->joblist->value);
+    this->connector->onconnect := PTR this->GotConnect;
+    this->connector->onfailure := PTR this->GotConnectFailure;
+
+    WaitUntil([ promise := this->connector->promise ], AddTimeToDate(10000, GetCurrentDateTime()));
+    RETURN ObjectExists(this->job);
+  }
+
+  MACRO DoDisconnect()
+  {
+    this->process->DisconnectExternJob(this->joblist->value);
+  }
+
+  MACRO DoTerminate()
+  {
+    this->process->TerminateJob(this->joblist->value);
+  }
+>;
+
+STATIC OBJECTTYPE ExternVariable
+< OBJECT inspector;
+  STRING lastrowkey;
+  OBJECT ARRAY elts;
+  STRING pvt_encoding;
+
+  PUBLIC STRING name;
+  PUBLIC STRING sortkey;
+  PUBLIC RECORD result;
+  PUBLIC PROPERTY encoding(pvt_encoding, SetEncoding);
+
+  MACRO NEW(OBJECT inspector, STRING name, STRING sortkey)
+  {
+    this->inspector := inspector;
+    this->name := name;
+    this->sortkey := sortkey;
+  }
+
+  MACRO SetEncoding(STRING newencoding)
+  {
+    this->pvt_encoding := newencoding;
+    this->inspector->RenderTree(this->lastrowkey);
+  }
+
+  PUBLIC MACRO GetData(RECORD options)
+  {
+    IF (NOT ObjectExists(this->inspector))
+      THROW NEW Exception("Cannot get data without an inspector");
+
+    RECORD request :=
+        [ id := this->result.id
+        , vm := this->inspector->vm
+        ];
+
+    IF (CellExists(options, "GETALL") AND options.getall)
+    {
+      IF (CellExists(this->result, "LENGTH"))
+        INSERT CELL max := this->result.length INTO request;
+    }
+
+    OBJECT req := this->inspector->job->GetVariables([ request ]);
+    req->Then(PTR this->HandleGetResult);
+  }
+
+  MACRO HandleGetResult(RECORD data)
+  {
+    this->result := data.variables[0];
+    this->HandleValue(data.variables[0], TRUE);
+    this->inspector->RenderTree(this->lastrowkey);
+  }
+
+  PUBLIC MACRO HandleValue(RECORD value, BOOLEAN keeptree)
+  {
+    this->result := value;
+    IF (NOT keeptree)
+      RETURN;
+
+    IF (this->result.type IN [ TypeID(RECORD), TypeID(OBJECT), TypeID(WEAKOBJECT) ])
+    {
+      FOR (INTEGER i := 0; i < this->result.max; i := i + 1)
+      {
+        OBJECT elt;
+        IF (i < LENGTH(this->elts))
+          elt := this->elts[i];
+
+        IF (NOT ObjectExists(elt))
+          elt := NEW ExternVariable(this->inspector, "[" || i || "]", Right("0000000" || i, 8));
+
+        RECORD result;
+        IF (i >= this->result.min)
+        {
+          result := this->result.value[INTEGER(i - this->result.min)];
+          IF (RecordExists(result)) // Not always for object members!
+          {
+            elt->name := result.name;
+            elt->sortkey := result.name;
+            elt->HandleValue(result.value, TRUE);
+          }
+          ELSE
+            elt->HandleValue([ type := -3 ], TRUE);
+        }
+
+        IF (LENGTH(this->elts) <= i)
+          INSERT elt INTO this->elts AT END;
+        ELSE
+          this->elts[i] := elt;
+      }
+    }
+
+    IF (this->result.type >= 128)
+    {
+      FOR (INTEGER i := 0; i < this->result.max; i := i + 1)
+      {
+        OBJECT elt;
+        IF (i < LENGTH(this->elts))
+          elt := this->elts[i];
+
+        IF (NOT ObjectExists(elt))
+          elt := NEW ExternVariable(this->inspector, "[" || i || "]", Right("0000000" || i, 8));
+
+        RECORD result;
+        IF (i >= this->result.min)
+        {
+          result := this->result.value[INTEGER(i - this->result.min)];
+          elt->HandleValue(result, TRUE);
+        }
+
+        IF (LENGTH(this->elts) <= i)
+          INSERT elt INTO this->elts AT END;
+        ELSE
+          this->elts[i] := elt;
+      }
+    }
+  }
+
+  PUBLIC RECORD FUNCTION Render(STRING rowkey)
+  {
+    RECORD retval :=
+        [ row :=
+              [ rowkey :=   rowkey
+              , name :=     this->name
+              , sortkey :=  this->sortkey
+              , value :=    "(retrieving)"
+              , expanded := FALSE
+              , subnodes := DEFAULT RECORD ARRAY
+              , obj :=      this
+              , canretrievefull := FALSE
+              , cantoggleencoding := FALSE
+              , canshowtext := FALSE
+              , candownload := FALSE
+              ]
+        ];
+
+    this->lastrowkey := rowkey;
+
+    IF (NOT RecordExists(this->result))
+      RETURN retval;
+
+    SWITCH (this->result.type)
+    {
+      CASE -3
+      {
+        retval.row.value := "<object context>";
+      }
+      CASE -2
+      {
+        retval.row.value := "<requesting>";
+      }
+      CASE -1
+      {
+        retval.row.value := "<invalid request>";
+      }
+      CASE 0
+      {
+        retval.row.value := "<optimized away>";
+      }
+      CASE TypeID(BOOLEAN)
+      {
+        retval.row.value := this->result.value ? "TRUE" : "FALSE";
+      }
+      CASE TypeID(INTEGER), TypeID(INTEGER64)
+      {
+        retval.row.value := ToString(this->result.value);
+      }
+      CASE TypeID(STRING)
+      {
+        STRING encoded;
+        IF (this->pvt_encoding = "base16")
+          retval.row.value := "B16:" || EncodeBase16(this->result.value) || (this->result.max != this->result.length ? "..." : "");
+        ELSE
+          retval.row.value := '"' || EncodeJava(this->result.value) || (this->result.max != this->result.length ? "..." : "") || '"';
+        retval.row.cantoggleencoding := TRUE;
+        IF (this->result.length = this->result.max)
+          retval.row.canshowtext := TRUE;
+        ELSE
+          retval.row.canretrievefull := TRUE;
+      }
+      CASE TypeID(MONEY)
+      {
+        retval.row.value := FormatMoney(this->result.value, 1, ".", "", FALSE);
+      }
+      CASE TypeID(FLOAT)
+      {
+        retval.row.value := FormatFloat(this->result.value, 20);
+      }
+      CASE TypeID(BLOB)
+      {
+        IF (this->result.length = 0)
+          retval.row.value := "DEFAULT BLOB";
+        ELSE IF (this->result.length != this->result.max)
+        {
+          retval.row.canretrievefull := TRUE;
+          retval.row.value := "BLOB (length: " || this->result.length || " bytes)";
+        }
+        ELSE
+        {
+          STRING sha1hash := GetHashForString(this->result.value, "SHA-1");
+          IF (this->result.max != this->result.length)
+            retval.row.value := "BLOB (length: " || this->result.length || " bytes, got " || this->result.max || " bytes";
+          ELSE
+            retval.row.value := "BLOB (length: " || this->result.length || " bytes, SHA1: " || EncodeUFS(sha1hash) || " / " || EncodeBase16(sha1hash) || ")";
+          retval.row.candownload := TRUE;
+          retval.row.canshowtext := TRUE;
+        }
+      }
+      CASE TypeID(DATETIME)
+      {
+        retval.row.value := this->result.value = MAX_DATETIME
+            ? "MAX_DATETIME"
+            : FormatISO8601DateTime(this->result.value, "", "", "", TRUE) ?? (this->result.value = DEFAULT DATETIME
+                ? "DEFAULT DATETIME"
+                : GetDayCount(this->result.value) || "T" || FormatDateTime("%H:%M:%S.%Q", this->result.value));
+      }
+      CASE TypeID(RECORD)
+      {
+        IF (NOT this->result.exists)
+          retval.row.value := "DEFAULT RECORD";
+        ELSE IF (this->result.length = 0)
+          retval.row.value := "EMPTY RECORD";
+        ELSE
+        {
+          IF (this->result.length != this->result.max)
+          {
+            retval.row.value := "RECORD (" || this->result.length || " cells, " || this->result.max || " shown)";
+            retval.row.canretrievefull := TRUE;
+          }
+          ELSE
+            retval.row.value := "RECORD (" || this->result.length || " cells)";
+        }
+
+        FOREVERY (OBJECT o FROM this->elts)
+          INSERT o->Render(rowkey || "\t" || EncodeJava(o->name)).row INTO retval.row.subnodes AT END;
+      }
+      CASE TypeID(OBJECT), TypeID(WEAKOBJECT)
+      {
+        STRING name := GetTypeName(this->result.type);
+        IF (NOT this->result.exists)
+          retval.row.value := "DEFAULT " || name;
+        ELSE
+        {
+          name := name || " #" || this->result.objectid || " (" || Detokenize(this->result.objecttypes, ", ") || ")";
+          IF (this->result.length != this->result.max)
+          {
+            retval.row.value := name || " (" || this->result.length || " cells, " || this->result.max || " shown)";
+            retval.row.canretrievefull := TRUE;
+          }
+          ELSE
+            retval.row.value := name || " (" || this->result.length || " cells)";
+        }
+
+        FOREVERY (OBJECT o FROM this->elts)
+          INSERT o->Render(rowkey || "\t" || EncodeJava(o->name)).row INTO retval.row.subnodes AT END;
+      }
+
+      DEFAULT
+      {
+        retval.row.value := GetTypeName(this->result.type);
+
+        IF (this->result.type >= 128)
+        {
+          IF (this->result.length != this->result.max)
+          {
+            retval.row.value := retval.row.value || " (" || this->result.length || " items, " || this->result.max || " shown)";
+            retval.row.canretrievefull := TRUE;
+          }
+          ELSE
+            retval.row.value := retval.row.value || " (" || this->result.length || " items)";
+
+          FOREVERY (OBJECT o FROM this->elts)
+            INSERT o->Render(rowkey || "\t[" || #o || "]").row INTO retval.row.subnodes AT END;
+        }
+      }
+    }
+    RETURN retval;
+  }
+>;
+
+PUBLIC OBJECTTYPE VariableInspector EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT job;
+
+  INTEGER id;
+
+  INTEGER vm;
+
+  STRING path;
+
+  OBJECT tree;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->job := data.job;
+    this->id := data.id;
+    this->vm := data.vm;
+    this->path := data.path;
+
+    this->tree := NEW ExternVariable(PRIVATE this, this->path, this->path);
+    this->tree->HandleValue([ type := -2, id := data.id ], TRUE);
+    this->tree->GetData(DEFAULT RECORD);
+
+    this->frame->title := this->GetTid(".variables", this->path);
+
+    this->RenderTree();
+  }
+
+  MACRO RenderTree(STRING autoexpand DEFAULTSTO "")
+  {
+    RECORD render := RECORD(this->tree->Render("root"));
+
+    RECORD rootrow := render.row;
+    this->contents->rows := [ rootrow ];
+
+    STRING ARRAY expanded := this->contents->expanded;
+    INSERT rootrow.rowkey INTO expanded AT END;
+    IF (autoexpand != "")
+      INSERT autoexpand INTO expanded AT END;
+    this->contents->expanded := expanded;
+  }
+
+  MACRO DoRetrieveFull()
+  {
+    RECORD sel := this->contents->selection;
+    sel.obj->GetData([ getall := TRUE ]);
+  }
+
+  MACRO DoSwitchEncoding()
+  {
+    RECORD sel := this->contents->selection;
+    sel.obj->encoding := sel.obj->encoding = "" ? "base16" : "";
+  }
+
+  MACRO DoShowText()
+  {
+    RECORD sel := this->contents->selection;
+    this->LoadScreen(".variabletext", [ text := sel.obj->result.value, name := sel.name ])->RunModal();
+  }
+
+  MACRO DoDownload(OBJECT handler)
+  {
+    RECORD sel := this->contents->selection;
+
+    RECORD wrapped := WrapBlob(StringToBlob(sel.obj->result.value), sel.name || ".bin");
+    handler->SendWrappedFile(wrapped);
+  }
+
+>;
+
+PUBLIC OBJECTTYPE RuleConnector EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT connector;
+
+  OBJECT processlistener;
+
+  OBJECT rule;
+
+  BOOLEAN autoconnect;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public Variables
+  //
+
+  PUBLIC OBJECT job;
+
+  PUBLIC PROPERTY autobreak(this->autobreakjob->value, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->connector := data.connector;
+    this->processlistener := this->connector->GetProcessListener();
+    this->processlistener->RequestUpdate();
+    this->processlistener->ondisconnect := PTR this->GotDisconnect;
+
+    this->RestoreFormState();
+
+    IF (data.autoreconnect)
+      this->DoActivateAutoConnect();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ReloadList()
+  {
+    IF (NOT ObjectExists(this->rule))
+    {
+      this->matches->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    RECORD ARRAY rows :=
+        SELECT TEMPORARY status := job->laststatus
+             , rowkey :=        job->groupid
+             , groupid :=       job->groupid
+             , status :=        status.status
+             , scriptshow :=    GetScriptShow(status.authenticationrecord, status.script)
+             , creationdate :=  status.creationdate
+             , job
+             , script :=        status.script
+             , authenticationrecord := status.authenticationrecord
+          FROM this->rule->connectedjobs
+      ORDER BY job->groupid;
+
+    this->matches->rows := rows;
+
+    IF (this->autoconnect AND LENGTH(this->rule->connectedjobs) != 0)
+    {
+      this->autoconnect := FALSE;
+
+      this->matches->value := this->rule->connectedjobs[0].job->groupid;
+      this->DoConnect();
+    }
+
+    IF (this->matches->value = "" AND LENGTH(rows) > 0)
+      this->matches->value := rows[0].rowkey;
+  }
+
+  MACRO SaveFormState()
+  {
+    STRING ARRAY sites;
+    IF (this->site_start->value)
+      INSERT "start" INTO sites AT END;
+    IF (this->site_terminate->value)
+      INSERT "termination" INTO sites AT END;
+    IF (this->site_terminateerrors->value)
+      INSERT "errortermination" INTO sites AT END;
+    IF (this->site_authenticationrecord->value)
+      INSERT "authrecord" INTO sites AT END;
+    IF (this->site_debuggertrap->value)
+      INSERT "debuggertrap" INTO sites AT END;
+
+    RECORD state :=
+        [ scripttype :=           this->scripttype->value
+        , scriptmask :=           this->scriptmask->value
+        , scriptexcludemasks :=   this->scriptexcludemasks->value = "" ? DEFAULT STRING ARRAY : Tokenize(this->scriptexcludemasks->value, " ")
+        , appname :=              this->appname->value
+        , user :=                 this->user->value
+        , sites :=                sites
+        , autobreakjob :=         this->autobreakjob->value
+        ];
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->tolliumuser->SetRegistryKey("system.debugger.ruleconnector.state", EncodeHSONBlob(state));
+    work->Finish();
+  }
+
+  MACRO RestoreFormState()
+  {
+    BLOB data := this->tolliumuser->GetRegistryKey("system.debugger.ruleconnector.state", DEFAULT BLOB);
+    IF (LENGTH(data) = 0)
+      RETURN;
+
+    RECORD oldstate := DecodeHSONBlob(data);
+
+    IF (CellExists(oldstate, "SCRIPTTYPE") AND oldstate.scripttype IN [ "script", "tolliumapp" ])
+      this->scripttype->value := oldstate.scripttype;
+    ELSE
+      this->scripttype->value := "script";
+
+    IF (CellExists(oldstate, "SCRIPTMASK"))
+      this->scriptmask->value := oldstate.scriptmask;
+    IF (CellExists(oldstate, "SCRIPTEXCLUDEMASKS"))
+      this->scriptexcludemasks->value := Detokenize(oldstate.scriptexcludemasks, " ");
+    IF (CellExists(oldstate, "APPNAME"))
+      this->appname->value := oldstate.appname;
+    IF (CellExists(oldstate, "AUTOBREAKJOB"))
+      this->autobreakjob->value := oldstate.autobreakjob;
+    IF (CellExists(oldstate, "USER") AND oldstate.user IN [ "all", "me" ])
+      this->user->value := oldstate.user;
+    ELSE
+      this->user->value := "all";
+
+    IF (CellExists(oldstate, "SITES"))
+    {
+      this->site_start->value := "start" IN oldstate.sites;
+      this->site_terminate->value := "termination" IN oldstate.sites;
+      this->site_terminateerrors->value := "errortermination" IN oldstate.sites;
+      this->site_authenticationrecord->value := "authrecord" IN oldstate.sites;
+      this->site_debuggertrap->value := "debuggertrap" IN oldstate.sites;
+    }
+
+    this->OnScriptTypeSelect();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotDisconnect()
+  {
+    this->tolliumresult := "cancel";
+    this->GotUnload();
+  }
+
+  MACRO GotUnload()
+  {
+    IF (ObjectExists(this->rule))
+      this->rule->Close();
+    IF (ObjectExists(this->processlistener))
+      this->processlistener->Close();
+    this->rule := DEFAULT OBJECT;
+    this->processlistener := DEFAULT OBJECT;
+
+    this->SaveFormState();
+  }
+
+  MACRO GotJobMatch(OBJECT job)
+  {
+    this->ReloadList();
+  }
+
+  MACRO GotJobDisconnect(OBJECT job)
+  {
+    this->ReloadList();
+  }
+
+  MACRO OnJobSelect()
+  {
+    RECORD status := this->matches->selection ?? [ authenticationrecord := DEFAULT RECORD, script := "" ];
+
+    RECORD authrec := status.authenticationrecord;
+
+    this->script->value := status.script;
+    this->app->value := CellExists(authrec, "TOLLIUM") AND RecordExists(authrec.tollium.app)
+        ? authrec.tollium.app.name || " (" || authrec.tollium.user.login || ")"
+        : "";
+    this->url->value := CellExists(authrec, "WEBSERVERREQUEST")
+        ? BuildURL(authrec.webserverrequest)
+        : "";
+  }
+
+  MACRO OnScriptTypeSelect()
+  {
+    STRING type := this->scripttype->value;
+
+    this->scripttype_script->enabled := NOT ObjectExists(this->rule);
+    this->scripttype_tolliumapp->enabled := NOT ObjectExists(this->rule);
+
+    this->site_start->enabled := NOT ObjectExists(this->rule);
+    this->site_terminate->enabled := NOT ObjectExists(this->rule);
+    this->site_terminateerrors->enabled := NOT ObjectExists(this->rule);
+    this->site_authenticationrecord->enabled := NOT ObjectExists(this->rule);
+    this->site_debuggertrap->enabled := NOT ObjectExists(this->rule);
+
+    this->scriptmask->visible := type = "script";
+    this->scriptmask->enabled := NOT ObjectExists(this->rule);
+    this->scriptmask->enabled := type = "script" AND NOT ObjectExists(this->rule);
+    this->scriptexcludemasks->visible := type = "script";
+    this->appname->visible := type = "tolliumapp";
+    this->appname->enabled := type = "tolliumapp" AND NOT ObjectExists(this->rule);
+    this->user_all->visible := type = "tolliumapp";
+    this->user_all->enabled := NOT ObjectExists(this->rule);
+    this->user_me->visible := type = "tolliumapp";
+    this->user_me->enabled := NOT ObjectExists(this->rule);
+
+    this->activate->enabled := NOT ObjectExists(this->rule);
+    this->activateautoconnect->enabled := NOT ObjectExists(this->rule);
+    this->deactivate->enabled := ObjectExists(this->rule);
+  }
+
+  MACRO OnAutoBreakJobChange()
+  {
+    // Only used to force state transfer to tollium
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoActivate(BOOLEAN autoconnect DEFAULTSTO FALSE)
+  {
+    // Validate inputs
+    IF (NOT this->BeginWork()->Finish())
+      RETURN;
+
+    IF (ObjectExists(this->rule))
+      this->rule->Close();
+
+    STRING ARRAY sites;
+    IF (this->site_start->value)
+      INSERT "start" INTO sites AT END;
+    IF (this->site_terminate->value)
+      INSERT "termination" INTO sites AT END;
+    IF (this->site_terminateerrors->value)
+      INSERT "errortermination" INTO sites AT END;
+    IF (this->site_authenticationrecord->value)
+      INSERT "authrecord" INTO sites AT END;
+    IF (this->site_debuggertrap->value)
+      INSERT "debuggertrap" INTO sites AT END;
+
+    this->rule := this->connector->CreateRule();
+
+    RECORD ARRAY authrecordrules;
+    SWITCH (this->scripttype->value)
+    {
+      CASE "script"
+      {
+        this->rule->scriptmask := this->scriptmask->value;
+        this->rule->scriptexcludemasks := this->scriptexcludemasks->value = "" ? DEFAULT STRING ARRAY : Tokenize(this->scriptexcludemasks->value, " ");
+      }
+      CASE "tolliumapp"
+      {
+        this->rule->scriptmask := "mod::tollium/scripts/internal/applicationhost.whscr";
+        authrecordrules :=
+            [ [ path := [ "TOLLIUM", "APP", "NAME" ]
+              , mask := this->appname->value
+              ]
+            ];
+
+        IF (this->user->value = "me")
+        {
+          INSERT
+              [ path := [ "TOLLIUM", "USER", "WRDENTITYID" ]
+              , mask := ToString(this->tolliumuser->entityid)
+              ] INTO authrecordrules AT END;
+        }
+      }
+    }
+
+    this->rule->authrecordrules := authrecordrules;
+    this->rule->connectonmatch := TRUE;
+    this->rule->sites := sites;
+
+    this->rule->OnJobMatch := PTR this->GotJobMatch;
+    this->rule->OnJobDisconnect := PTR this->GotJobDisconnect;
+
+    this->rule->Connect();
+
+    this->ReloadList();
+    this->matches->empty := autoconnect ? this->GetTid(".autoconnecting") : this->GetTid(".listening");
+    this->autoconnect := autoconnect;
+
+    this->OnScriptTypeSelect();
+  }
+
+  MACRO DoActivateAutoConnect()
+  {
+    this->DoActivate(TRUE);
+  }
+
+  MACRO DoConnect()
+  {
+    OBJECT job := this->matches->selection.job;
+    IF (this->rule->ExtractJob(job))
+    {
+      this->job := job;
+      this->tolliumresult := "ok";
+    }
+  }
+
+  MACRO DoDeactivate()
+  {
+    IF (ObjectExists(this->rule))
+      this->rule->Close();
+    this->rule := DEFAULT OBJECT;
+    this->matches->empty := this->GetTid(".notactive");
+    this->OnScriptTypeSelect();
+  }
+>;
+
+PUBLIC OBJECTTYPE DebugConfig EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->zombietimeout->value := ReadRegistryKey("system.backend.development.zombietimeout") / 1000;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    WriteRegistryKey("system.backend.development.zombietimeout", this->zombietimeout->value * 1000);
+    GetPrimary()->BroadCastOnCommit("system:debugger.configchange", DEFAULT RECORD);
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE SymbolSearch EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY file(GetFile, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    IF (CellExists(data, "SEARCHFOR"))
+      this->searchfor->value := data.searchfor;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  RECORD FUNCTION GetFile()
+  {
+    RECORD sel := this->results->selection;
+    IF (NOT RecordExists(sel))
+      RETURN DEFAULT RECORD;
+
+    RETURN
+        [ path :=   sel.path
+        , line :=   ToInteger(Tokenize(sel.position, ":")[0], 1)
+        ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotSearchForChange()
+  {
+    RECORD res;
+    TRY
+    {
+      FUNCTION PTR executedocsearch := MakeFunctionPtr("mod::dev/lib/internal/api.whlib#ExecuteDocSearch");
+
+      IF (NOT ValidateFunctionPtr(executedocsearch, TypeID(RECORD), [ TypeID(STRING), TypeID(STRING) ]))
+        THROW NEW Exception("Cannot execute search, ExecuteDocSearch in the 'dev' module doesn't have the right signature");
+
+      res := executedocsearch("", this->searchfor->value);
+      res := EnforceStructure(
+          [ noquery :=    FALSE
+          , results :=    [ [ rowkey :=     ""
+                            , path :=       ""
+                            , type :=       ""
+                            , definition := ""
+                            , position :=   ""
+                            ]
+                          ]
+          ], res);
+    }
+    CATCH (OBJECT e)
+    {
+      RunExceptionReportDialog(this, e);
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    IF(res.noquery)
+    {
+      this->results->rows := DEFAULT RECORD ARRAY;
+      this->results->empty := this->GetTid(".emptysearchfor");
+      RETURN;
+    }
+
+    this->results->rows := SELECT rowkey :=    objectid
+                                , path
+                                , type
+                                , definition
+                                , position
+                          FROM res.results;
+
+    this->results->empty := this->GetTid(".noresults");
+    IF (LENGTH(this->results->rows) = 1)
+      this->results->selection := this->results->rows[0];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoOpen()
+  {
+    this->tolliumresult := "ok";
+  }
+>;
+
+PUBLIC OBJECTTYPE VariableText EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING rawdata;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->frame->title := this->GetTid(".variabletext", data.name);
+    this->rawdata := data.text;
+    this->len->value := this->GetTid(".stringlength", ToString(LENGTH(this->rawdata)), ToString(UCLength(this->rawdata)));
+
+    this->GotModeChange();
+  }
+
+  MACRO GotModeChange()
+  {
+    SWITCH (this->mode->value)
+    {
+      CASE "rawtext"  { this->text->value := this->rawdata; }
+      CASE "base16"
+      {
+        STRING ARRAY lines;
+        STRING b16 := EncodeBase16(this->rawdata);
+        FOR (INTEGER i := 0; i < LENGTH(b16); i := i + 64)
+          INSERT SubString(b16, i, 64) INTO lines AT END;
+        this->text->value := Detokenize(lines, "\n");
+      }
+      CASE "base64"
+      {
+        STRING ARRAY lines;
+        STRING b64 := EncodeBase64(this->rawdata);
+        FOR (INTEGER i := 0; i < LENGTH(b64); i := i + 60)
+          INSERT SubString(b64, i, 60) INTO lines AT END;
+        this->text->value := Detokenize(lines, "\n");
+      }
+      CASE "hexdump"
+      {
+        this->text->value := HexDump(this->rawdata);
+      }
+    }
+  }
+>;
+
+
+PUBLIC OBJECTTYPE ErrorOutput EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->errortext->value := data.message;
+  }
+>;
+
+STRING FUNCTION HexDump(STRING str)
+{
+  INTEGER idxlen := LENGTH(ToString(LENGTH(str), 16));
+  STRING hexfill := RepeatText(" ", 50);
+
+  IF (idxlen < 4)
+    idxlen := 4;
+
+  STRING ARRAY lines;
+  FOR (INTEGER i := 0, e := LENGTH(str); i < e; i := i + 16)
+  {
+    STRING hex;
+    STRING chars;
+
+    INTEGER maxa := i + 16 > e ? e - i : 16;
+    FOR (INTEGER a := 0; a < maxa; a := a + 1)
+    {
+      STRING char := SubString(str, i + a, 1);
+      INTEGER byteval := GetByteValue(char);
+      hex := hex || Right("0" || ToString(byteval, 16), 2);
+      IF (a = 7)
+        hex := hex || "  ";
+      ELSE
+        hex := hex || " ";
+      chars := chars || (byteval >= 32 AND byteval < 127 ? char : ".");
+    }
+
+    INSERT Right("00000000" || ToString(i, 16), idxlen) || " " || Left(hex || hexfill, 50) || chars || "\n" INTO lines AT END;
+  }
+
+  RETURN Detokenize(lines, "");
+}

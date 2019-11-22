@@ -1,0 +1,16 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/components/textedit.whlib";
+
+PUBLIC OBJECTTYPE TolliumComboBox EXTEND TolliumTextEdit
+<
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumTextEdit::StaticInit(CELL[ password := FALSE
+                                    , buttons := RECORD[]
+                                    , ...def
+                                    , autocomplete := STRING[]
+                                    , minimumsuggestlength := 0
+                                    ]);
+  }
+>;

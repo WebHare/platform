@@ -1,0 +1,6 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="restapi">
+  <test script="test_whremoting_encoding.whscr" />
+  <test script="test_jsonrpc.whscr" />
+  <test script="test_restapi.whscr" />
+  <test script="test_whremoting.whscr" />
+</group>

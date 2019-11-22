@@ -1,0 +1,387 @@
+﻿<?wh
+/** @topic database/base
+*/
+
+/* This library contains the base objecttypes for transactions and
+   low-level transactions (the latter can be used by the loopthrough
+   transactions for transparent access to another database)
+*/
+
+LOADLIB "wh::internal/transservices.whlib" EXPORT
+    GetPrimaryWebhareTransaction,
+    GetPrimaryWebhareTransactionObject,
+    SetPrimaryWebhareTransaction,
+    SetupPrimaryTransactionBinder;
+LOADLIB "wh::internal/transbase.whlib" EXPORT
+    TransactionFinishHandlerBase,
+    DatabaseException;
+
+
+/** The TransactionCursorBase objecttype defines an object which can used for cursoring through
+    a query.
+*/
+PUBLIC OBJECTTYPE TransactionCursorBase
+< /*  List of records in the current block of records
+      A record for every table, per row ([ r1_t1, r1_t2, r2_t1, r2_t2, r3_t1, ... ]
+  */
+  RECORD ARRAY pvt_currentblock;
+
+
+  /** Publicly accessible version of pvt_currentblock
+  */
+  PUBLIC PROPERTY currentblock(pvt_currentblock, -);
+
+
+  /** Fetches the next block of rows (fase 1 data only)
+      Must update pvt_currentblock; the number of rows is calculated from the length of pvt_currentblock.
+  */
+  PUBLIC MACRO RetrieveNextBlock()
+  {
+    this->pvt_currentblock := DEFAULT RECORD ARRAY;
+    THROW NEW Exception("LowLevelCursor::GetNextBlock not implemented");
+  }
+
+
+  /** Locks a specific row
+      @param row Row to lock
+      @return "UNCHANGED": Record is unchanged and locked
+              "CHANGED": Record is changed, fase1 data must be updated in pvt_currentblock
+              "REMOVED": Record is gone or does no longer meet requirements
+  */
+  PUBLIC STRING FUNCTION LockRow(INTEGER row)
+  {
+    THROW NEW Exception("LowLevelCursor::LockRow not implemented");
+  }
+
+
+  /** Unlocks a previously locked row
+      @param row Row to unlock
+  */
+  PUBLIC MACRO UnlockRow(INTEGER row)
+  {
+    THROW NEW Exception("LowLevelCursor::UnlockRow not implemented");
+  }
+
+
+  /** Retrieves the fase2 data for a set of rows
+      @param rows List of rows to get the fase2 data for
+  */
+  PUBLIC MACRO GetFase2Data(INTEGER ARRAY rows)
+  {
+    THROW NEW Exception("LowLevelCursor::GetFase2Data not implemented");
+  }
+
+
+  /** Deletes a specific row
+      @param row Row to delete
+  */
+  PUBLIC MACRO DeleteRecord(INTEGER row)
+  {
+    THROW NEW Exception("LowLevelCursor::DeleteRecord not implemented");
+  }
+
+
+  /** Updates a specific row
+      @param row Row to delete
+      @param newfields Record array with cells to update. The passed cells are marked as Updated in
+          the columninfo in the query passed to LowLevelTransaction::OpenCursor. A missing cell indicates
+          a NULL value.
+  */
+  PUBLIC MACRO UpdateRecord(INTEGER row, RECORD newfields)
+  {
+    THROW NEW Exception("LowLevelCursor::UpdateRecord not implemented");
+  }
+
+
+  /** Closes the cursor, can be used for cleanup.
+  */
+  PUBLIC MACRO Close()
+  {
+    THROW NEW Exception("LowLevelCursor::Close not implemented");
+  }
+>;
+
+
+/** A lowlevel transaction can be used for full low-level access to a database.
+    Primarily used for transparent access to other databases.
+*/
+PUBLIC OBJECTTYPE TransactionBase EXTEND BuiltinTransactionBase
+<
+  /** Opens a new cursor
+      @param query Database query
+      @param type Type of cursor ("UPDATE", "SELECT", "DELETE")
+      @param id Id of the cursor (for identification/debugging purposes only)
+  */
+  PUBLIC OBJECT/*< TransactionCursorBase >*/ FUNCTION OpenCursor(RECORD query, STRING type)
+  {
+    THROW NEW Exception("LowLevelTransaction::OpenCursor not implemented");
+  }
+
+
+  /** Inserts a new record in the database
+      @param query Database query, indicates which table must be inserted into and which cells must be inserted
+      @param newfields Cells to insert, missing cells indicate NULL.
+  */
+  PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
+  {
+    THROW NEW Exception("LowLevelTransaction::InsertRecord not implemented");
+  }
+>;
+
+
+
+/** Forwarding transaction, forwards all calls to another transaction
+*/
+PUBLIC OBJECTTYPE ForwardingTransactionCursor EXTEND TransactionCursorBase
+< /** Cursor calls are forwarded to
+  */
+  OBJECT forwardto;
+
+
+  MACRO NEW(OBJECT forwardto)
+  {
+    this->forwardto := forwardto;
+  }
+
+
+  UPDATE PUBLIC MACRO RetrieveNextBlock()
+  {
+    this->forwardto->RetrieveNextBlock();
+    this->pvt_currentblock := this->forwardto->currentblock;
+  }
+
+
+  UPDATE PUBLIC STRING FUNCTION LockRow(INTEGER row)
+  {
+    STRING result := this->forwardto->LockRow(row);
+    IF (result = "CHANGED")
+      this->pvt_currentblock := this->forwardto->currentblock;
+    RETURN result;
+  }
+
+
+  UPDATE PUBLIC MACRO UnlockRow(INTEGER row)
+  {
+    this->forwardto->UnlockRow(row);
+  }
+
+
+  UPDATE PUBLIC MACRO GetFase2Data(INTEGER ARRAY rows)
+  {
+    this->forwardto->GetFase2Data(rows);
+    this->pvt_currentblock := this->forwardto->currentblock;
+  }
+
+
+  UPDATE PUBLIC MACRO DeleteRecord(INTEGER row)
+  {
+    this->forwardto->DeleteRecord(row);
+  }
+
+
+  UPDATE PUBLIC MACRO UpdateRecord(INTEGER row, RECORD newfields)
+  {
+    this->forwardto->UpdateRecord(row, newfields);
+  }
+
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    this->forwardto->Close();
+  }
+>;
+
+
+/** Forwarding transaction, forwards all calls to another transaction
+*/
+PUBLIC OBJECTTYPE ForwardingTransaction EXTEND BuiltinTransactionBase
+< /** Transaction this transaction forwards to
+  */
+  OBJECT forwardto;
+
+  MACRO NEW(OBJECT forwardto)
+  {
+    this->forwardto := forwardto;
+  }
+
+  UPDATE STRING FUNCTION GetType()
+  {
+    RETURN this->forwardto->GetType();
+  }
+
+  PUBLIC OBJECT/*< LowLevelCursor >*/ FUNCTION OpenCursor(RECORD query, STRING type)
+  {
+    OBJECT cursor := this->forwardto->OpenCursor(query, type);
+    RETURN NEW ForwardingTransactionCursor(cursor);
+  }
+
+
+  PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
+  {
+    this->forwardto->InsertRecord(query, newfields);
+  }
+
+
+  PUBLIC UPDATE BOOLEAN FUNCTION HasWorkSupport()
+  {
+    RETURN this->forwardto->HasWorkSupport();
+  }
+
+
+  PUBLIC UPDATE MACRO PushWork()
+  {
+    this->forwardto->PushWork();
+  }
+
+
+  PUBLIC UPDATE RECORD ARRAY FUNCTION PopWork()
+  {
+    RETURN this->forwardto->PopWork();
+  }
+
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsWorkOpen()
+  {
+    RETURN this->forwardto->IsWorkOpen();
+  }
+
+
+  PUBLIC UPDATE MACRO BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->forwardto->BeginWork(options);
+  }
+
+
+  PUBLIC UPDATE RECORD ARRAY FUNCTION CommitWork()
+  {
+    RETURN this->forwardto->CommitWork();
+  }
+
+
+  PUBLIC UPDATE MACRO RollbackWork()
+  {
+    this->forwardto->RollbackWork();
+  }
+
+  PUBLIC UPDATE RECORD ARRAY FUNCTION GetSchemaListing()
+  {
+    RETURN this->forwardto->GetSchemaListing();
+  }
+
+  PUBLIC UPDATE RECORD ARRAY FUNCTION GetTableListing(STRING schemaname)
+  {
+    RETURN this->forwardto->GetTableListing(schemaname);
+  }
+
+
+  PUBLIC UPDATE RECORD ARRAY FUNCTION GetColumnListing(STRING s,STRING tablename)
+  {
+    RETURN this->forwardto->GetColumnListing(s,tablename);
+  }
+
+
+  PUBLIC UPDATE BOOLEAN FUNCTION ColumnExists(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    RETURN this->forwardto->ColumnExists(schemaname, tablename, columnname);
+  }
+
+
+  PUBLIC UPDATE BOOLEAN FUNCTION IndexExists(STRING schemaname, STRING tablename, STRING indexname)
+  {
+    RETURN this->forwardto->IndexExists(schemaname, tablename, indexname);
+  }
+
+
+  PUBLIC UPDATE INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    RETURN this->forwardto->MakeAutonumber(schemaname, tablename, columnname);
+  }
+
+
+  PUBLIC UPDATE RECORD ARRAY FUNCTION Commit()
+  {
+    RETURN this->forwardto->Commit();
+  }
+
+
+  PUBLIC UPDATE MACRO Rollback()
+  {
+    this->forwardto->Rollback();
+  }
+
+
+  PUBLIC UPDATE MACRO Close()
+  {
+    this->forwardto->Close();
+  }
+
+
+  PUBLIC UPDATE MACRO DropColumn(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    this->forwardto->DropColumn(schemaname, tablename, columnname);
+  }
+
+  PUBLIC UPDATE MACRO DropTable(STRING schemaname, STRING tablename)
+  {
+    this->forwardto->DropTable(schemaname, tablename);
+  }
+
+  PUBLIC UPDATE INTEGER FUNCTION GetRoleId(STRING rolename)
+  {
+    RETURN this->forwardto->GetRoleId(rolename);
+  }
+
+
+  PUBLIC UPDATE BOOLEAN FUNCTION RestrictRoles(INTEGER ARRAY roles)
+  {
+    RETURN this->forwardto->RestrictRoles(roles);
+  }
+
+
+  PUBLIC UPDATE BOOLEAN FUNCTION IsRoleEnabled(INTEGER roleid)
+  {
+    RETURN this->forwardto->IsRoleEnabled(roleid);
+  }
+
+
+  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetEnabledRoles()
+  {
+    RETURN this->forwardto->GetEnabledRoles();
+  }
+
+  PUBLIC UPDATE MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
+  {
+    this->forwardto->CreateSchema(schemaname, ownerschema, ownerrole);
+  }
+  PUBLIC UPDATE MACRO DropSchema(STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ cascade := FALSE ], options);
+    this->forwardto->DropSchema(schemaname, options);
+  }
+
+  UPDATE PUBLIC MACRO CreateTable(STRING schemaname, STRING tablename, RECORD tablestructure)
+  {
+    this->forwardto->CreateTable(schemaname, tablename, tablestructure);
+  }
+  UPDATE PUBLIC MACRO AlterTable(STRING schemaname, STRING tablename, RECORD tablemanips)
+  {
+    this->forwardto->AlterTable(schemaname, tablename, tablemanips);
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION GetTransactionObjectById(INTEGER transid)
+{
+  OBJECT trans := GetTransactionObjectByIdInternal(transid);
+  IF (NOT ObjectExists(trans))
+    THROW NEW Exception("Could not find transaction object for transaction "||transid||(transid = 0 ? "" : ", does it handle its registrations correctly?"));
+  RETURN MakePublicObjectReference(trans);
+}
+PUBLIC OBJECT FUNCTION GetTransactionObjectForTable(TABLE outtable)
+{
+  INTEGER transid := GetBindingFromTable(outtable).transaction;
+  OBJECT trans := GetTransactionObjectByIdInternal(transid);
+  IF (NOT ObjectExists(trans))
+    THROW NEW Exception("Could not find transaction object for transaction "||transid||(transid = 0 ? "" : ", does it handle its registrations correctly?"));
+  RETURN MakePublicObjectReference(trans);
+}

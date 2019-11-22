@@ -1,0 +1,664 @@
+﻿<?wh
+
+LOADLIB "wh::internal/soap/wsdlstructures.whlib";
+LOADLIB "wh::internal/soap/domwalker.whlib";
+
+/** This library contains the implementation for the WSDL SOAP binding
+*/
+
+STRING ns_wsdl := "http://schemas.xmlsoap.org/wsdl/";
+STRING ns_xsd2001 := "http://www.w3.org/2001/XMLSchema";
+STRING ns_xsd2001_instance := "http://www.w3.org/2001/XMLSchema-instance";
+STRING ns_xmlns := "http://www.w3.org/2000/xmlns/";
+STRING ns_soap11 := "http://schemas.xmlsoap.org/wsdl/soap/";
+STRING ns_soap12 := "http://schemas.xmlsoap.org/wsdl/soap12/";
+STRING ns_soap11enc := "http://schemas.xmlsoap.org/soap/encoding/";
+STRING ns_soap11env := "http://schemas.xmlsoap.org/soap/envelope/";
+STRING ns_soap11httptransport := "http://schemas.xmlsoap.org/soap/http";
+
+STRING trans_http := "http://schemas.xmlsoap.org/soap/http";
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLSOAPBinding
+//
+
+/** Soap binding
+
+    http://www.w3.org/TR/wsdl#_soap:binding
+*/
+OBJECTTYPE WSDLSOAPBinding EXTEND WSDLBindingBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Default style
+  PUBLIC STRING default_style;
+
+
+  /** Indicator which transport type is used. Valid values:
+      "http://schemas.xmlsoap.org/soap/http" (http transport)
+  */
+  PUBLIC STRING transport;
+
+
+  /// Soap version (1.1)
+  PUBLIC STRING soapversion;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT specification, STRING target_namespace, STRING name, OBJECT porttype, OBJECT interpreter)
+  : WSDLBindingBase(specification, target_namespace, name, porttype, interpreter)
+  {
+  }
+>;
+
+//------------------------------------------------------------------------------
+//
+// WSDLSOAPBindingBoundOperation
+//
+
+// http://www.w3.org/TR/wsdl#_soap:operation
+OBJECTTYPE WSDLSOAPBindingBoundOperation EXTEND WSDLBoundOperationBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Indicates whether rpc-style encoding is used or document-style. Valid values: "rpc"/"document"
+  PUBLIC STRING style;
+
+  /// Action attribute (for http-binding only)
+  PUBLIC STRING action;
+
+  /// Whether the SOAP-action is required (can be unset in SOAP 1.2)
+  PUBLIC BOOLEAN actionrequired;
+
+  /** Input description
+      @cell name Name
+      @cell message Message
+      @cell body Body of the sent message
+      @cell body.parts OBJECT ARRAY
+      @cell body.use "literal"/"encoded"
+      @cell body.encodingstyle
+      @cell body.namespace
+      @cell headers Headers
+      @cell headers.message WSDLMessage
+      @cell headers.part WSDLPart
+      @cell headers.use "literal"/"encoded"
+      @cell headers.encodingstyle
+      @cell headers.namespace
+      @cell headers.headerfaults
+      @cell headers.headerfaults.message WSDLMessage
+      @cell headers.headerfaults.part WSDLPart
+      @cell headers.headerfaults.use "literal"/"encoded"
+      @cell headers.headerfaults.encodingstyle
+      @cell headers.headerfaults.namespace
+  */
+  PUBLIC RECORD input;
+
+
+  /// Output description, see input for spec
+  PUBLIC RECORD output;
+
+
+  /** Fault description
+      @cell name Name
+      @cell message Message
+      @cell use "literal"/"encoded"
+      @cell encodingstyle
+      @cell namespace
+  */
+  PUBLIC RECORD ARRAY faults;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT binding, OBJECT operation)
+  : WSDLBoundOperationBase(binding, operation)
+  {
+    this->actionrequired := TRUE;
+  }
+
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLSOAPPort
+//
+
+/** Soap port
+*/
+OBJECTTYPE WSDLSOAPPort EXTEND WSDLPortBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Soap-address uri
+  PUBLIC STRING uri;
+
+  // <wsa10:EndpointRefrence>
+  PUBLIC STRING wsa10_address;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT specification, STRING target_namespace, STRING name, OBJECT binding)
+  : WSDLPortBase(specification, target_namespace, name, binding)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC OBJECT FUNCTION LocateSOAPOperation(STRING soapaction)
+  {
+    FOREVERY (OBJECT op FROM this->pvt_operations)
+      IF (op->bound_operation->action = soapaction)
+        RETURN op;
+
+    THROW NEW Exception("Could not locate an operation with SOAP action '"||soapaction||"'");
+  }
+
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLSOAPAddressedBoundOperation
+//
+
+/** Bound SOAP operation, with an address
+*/
+OBJECTTYPE WSDLSOAPAddressedBoundOperation EXTEND WSDLAddressedBoundOperationBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT port, OBJECT operation)
+  : WSDLAddressedBoundOperationBase(port, operation)
+  {
+  }
+
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLSOAPBindingInterpreter
+//
+
+/** Binding interpreter for SOAP binding
+*/
+PUBLIC OBJECTTYPE WSDLSOAPBindingInterpreter EXTEND WSDLBindingInterpreterBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Soap version ("1.1", "1.2")
+  //STRING pvt_soap_version;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  //PUBLIC PROPERTY soap_version(pvt_soap_version, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Creates a binding object
+      @param wsdlspec WSDLSpecification object this binding is created for
+      @param target_namespace Target namespace
+      @param name Name of the binding
+      @param porttype The porttype this binding binds
+      @param extensibility_elements List of extensibility elements provided with this binding
+      @param options Options as passed to ParseWSDL
+      @return A binding object, derived from WSDLBindingBase
+  */
+  UPDATE PUBLIC OBJECT FUNCTION CreateBinding(
+      OBJECT wsdlspec,
+      STRING target_namespace,
+      STRING name,
+      OBJECT porttype,
+      OBJECT documentation,
+      OBJECT ARRAY ext_elts,
+      RECORD options)
+  {
+    OBJECT binding := NEW WSDLSOAPBinding(wsdlspec, target_namespace, name, porttype, this);
+
+    OBJECT node;
+    FOREVERY (OBJECT ext_elt FROM ext_elts)
+      IF (ext_elt->namespaceuri IN [ ns_soap11, ns_soap12 ] AND ext_elt->localname = "binding")
+      {
+        IF (ObjectExists(node))
+          THROW NEW Exception("Multiple binding elements found");
+        node := ext_elt;
+      }
+
+    IF (NOT ObjectExists(node))
+      THROW NEW Exception("Could not find soap binding element");
+
+    binding->soapversion := node->namespaceuri = ns_soap11 ? "1.1" : "1.2";
+    binding->default_style := node->HasAttribute("style") ? node->GetAttribute("style") : "document";
+    binding->transport := node->GetAttribute("transport");
+
+    RETURN binding;
+  }
+
+  /** Creates a bound operation. Communicates all data in http://www.w3.org/TR/wsdl#_bindings to the
+      binding interpreter
+      @param wsdlspec WSDLSpecification object this binding is created for
+      @param Binding this operations is bound on (created earlier with @a CreateBinding)
+      @param operation Operation that is bound
+      @param extensibility_elements Extensibility elements provided with the operation itself
+      @param input Data about the input part of the operation (DEFAULT RECORD if not provided)
+      @cell input.name
+      @cell input.message (WSDLMessage)
+      @cell input.ext_elts OBJECT ARRAY operation_extensibility_elements, documentation := OBJECT ]
+      @cell input.documentation OBJECT
+      @param output Data about the output part of the operation (DEFAULT RECORD if not provided)
+      @cell output.name
+      @cell output.message (WSDLMessage)
+      @cell output.ext_elts OBJECT ARRAY operation_extensibility_elements, documentation := OBJECT ]
+      @cell output.documentation OBJECT
+      @param faults Data about the fault parts of the operation
+      @cell faults.name
+      @cell faults.message (WSDLMessage)
+      @cell faults.ext_elts OBJECT ARRAY operation_extensibility_elements, documentation := OBJECT ]
+      @cell faults.documentation OBJECT
+      @param mods Optional WSDLModifications object
+      @param options Options as passed to ParseWSDL
+      @return New bound operation, must extend WSDLBoundOperationBase
+  */
+  UPDATE PUBLIC OBJECT FUNCTION CreateBoundOperation(
+      OBJECT wsdlspec,
+      OBJECT binding,
+      OBJECT operation,
+      OBJECT documentation,
+      OBJECT ARRAY ext_elts,
+      RECORD input,
+      RECORD output,
+      RECORD ARRAY faults,
+      OBJECT mods,
+      RECORD options)
+  {
+    OBJECT bound_op := NEW WSDLSOAPBindingBoundOperation(binding, operation);
+
+    bound_op->style := binding->default_style;
+
+    BOOLEAN found_soap_operation;
+    FOREVERY (OBJECT ext_elt FROM ext_elts)
+    {
+      IF (ext_elt->namespaceuri != (binding->soapversion="1.1" ? ns_soap11 : ns_soap12) OR ext_elt->localname != "operation")
+        CONTINUE;
+
+      found_soap_operation := TRUE;
+
+      IF (ext_elt->HasAttribute("style"))
+        bound_op->style := ext_elt->GetAttribute("style");
+      bound_op->action := ext_elt->GetAttribute("soapAction");
+
+      // actionrequired is TRUE for SOAP 1.1, defaults to TRUE
+      bound_op->actionrequired := binding->soapversion = "1.1"
+          OR NOT ext_elt->HasAttribute("soapActionRequired")
+          OR ext_elt->GetAttribute("soapActionRequired") IN [ "1", "true" ];
+    }
+    IF (NOT found_soap_operation)
+      THROW NEW Exception("Could not find soap:operation node for operation");
+
+    IF (RecordExists(input))
+      bound_op->input := ParseSoapOperationInOutput(wsdlspec, input, "input", mods);
+
+    IF (RecordExists(output))
+      bound_op->output := ParseSoapOperationInOutput(wsdlspec, output, "output", mods);
+
+    FOREVERY (RECORD r FROM faults)
+      INSERT ParseSoapOperationFault(wsdlspec, r) INTO bound_op->faults AT END;
+
+    RETURN bound_op;
+  }
+
+
+  /** Creates new port
+      @param wsdlspec WSDLSpecification object this port is created for
+      @param target_namespace Target namespace
+      @param name Name of the port
+      @param binding Binding of this port, created by @a CreateBinding (WSDLBindingBase)
+      @param extensibility_elements List of extensibility elements provided with this port
+      @param options Options as passed to ParseWSDL
+      @return New port, must extend WSDLPortBase
+  */
+  UPDATE PUBLIC OBJECT FUNCTION CreatePort(
+      OBJECT wsdlspec,
+      STRING target_namespace,
+      STRING name,
+      OBJECT binding,
+      OBJECT ARRAY ext_elts,
+      RECORD options)
+  {
+    OBJECT port := NEW WSDLSoapPort(wsdlspec, target_namespace, name, binding);
+
+    BOOLEAN have_soap_address;
+    FOREVERY (OBJECT ext_elt FROM ext_elts)
+    {
+      IF (ext_elt->namespaceuri = (binding->soapversion="1.1" ? ns_soap11 : ns_soap12) AND ext_elt->localname = "address")
+      {
+        have_soap_address := TRUE;
+        STRING uri := ext_elts[0]->GetAttribute("location");
+
+        IF (options.urlrewrite != DEFAULT FUNCTION PTR)
+          uri := options.urlrewrite(uri);
+
+        port->uri := uri;
+      }
+
+      /* Handle this camel:
+         <wsa10:EndpointReference>
+           <wsa10:Address>https://serviceax.wst-hellendoorn.nl/test</wsa10:Address>
+         </wsa10:EndpointReference>
+      */
+      IF(ext_elt->namespaceuri = "http://www.w3.org/2005/08/addressing" AND ext_elt->localname = "EndpointReference")
+      {
+        OBJECT address := ext_elt->GetChildElementsByTagNameNS("http://www.w3.org/2005/08/addressing","Address")->Item(0);
+        IF(ObjectExists(address))
+        {
+          STRING uri := address->textcontent;
+
+          IF (options.urlrewrite != DEFAULT FUNCTION PTR)
+            uri := options.urlrewrite(uri);
+
+          port->wsa10_address := uri;
+        }
+      }
+    }
+
+    IF (NOT have_soap_address)
+      THROW NEW Exception("Could not locate soap:address element");
+
+    RETURN port;
+  }
+
+
+  /** Creates new addressed bound operation
+      @param wsdlspec WSDLSpecification object this operation is created for
+      @param bound_operation Bound operation, created by @a CreateBoundOperation (WSDLBoundOperationBase)
+      @param port Port object, created by @a CreatePort (WSDLPortBase)
+      @param options Options as passed to ParseWSDL
+      @return New addressed bound operation , must extend WSDLAddressedBoundOperation
+  */
+  UPDATE PUBLIC OBJECT FUNCTION CreateAddressedBoundOperation(
+      OBJECT wsdlspec,
+      OBJECT port,
+      OBJECT bound_operation,
+      RECORD options)
+  {
+    RETURN NEW WSDLSOAPAddressedBoundOperation(port, bound_operation);
+  }
+
+
+  /** Returns whether this interpreter can handle a specific type of extensions indiicated by an extensibility element
+      @param namespaceuri Namespaceuri of a binding extension element
+      @param name Name of a binding extension element
+      @return Whether this interpreter can handle this binding type
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION CanHandleBinding(STRING namespaceuri, STRING name)
+  {
+    BOOLEAN can_handle := (namespaceuri = ns_soap11 AND name = "binding")
+                          OR (namespaceuri = ns_soap12 AND name = "binding");
+    //PRINT("Testing for {"||namespaceuri||"}"||name||":"||(can_handle?"YES":"NO")||"\n");
+    //PRINT("Return value: "||(can_handle?"true":"false")||"\n");
+    RETURN can_handle;
+  }
+
+>;
+
+BOOLEAN FUNCTION IsMaskMatch(STRING ARRAY masks, STRING name)
+{
+  FOREVERY (STRING mask FROM masks)
+    IF (name LIKE mask)
+      RETURN TRUE;
+  RETURN FALSE;
+
+}
+
+/** Get list of modifications to an operation
+*/
+RECORD ARRAY FUNCTION GetOperationModifications(OBJECT mods, STRING name, STRING type)
+{
+  IF (NOT ObjectExists(mods))
+    RETURN DEFAULT RECORD ARRAY;
+
+  RETURN
+      SELECT *
+        FROM mods->soapopmods
+       WHERE IsMaskMatch(masks, name)
+         AND (type = "input" ? toinput : tooutput);
+}
+
+RECORD FUNCTION ParseOperationSubElement(OBJECT node)
+{
+  RECORD data :=
+    [ name :=           ""
+    , faultname :=      ""
+    , message :=        ""
+    , part :=           ""
+    , parts :=          DEFAULT STRING ARRAY
+    , use :=            ""
+    , encodingstyle :=  DEFAULT STRING ARRAY
+    , namespace :=      ""
+    , faults :=         DEFAULT STRING ARRAY
+    ];
+
+  data.faultname := node->GetAttribute("name");
+  data.message := node->GetAttribute("message");
+  data.part := node->GetAttribute("part");
+  data.parts := GetTokenListFromString(node->GetAttribute("parts"));
+  data.use := node->GetAttribute("use");
+  data.encodingstyle := GetTokenListFromString(node->GetAttribute("encodingStyle"));
+  data.namespace := node->GetAttribute("namespace");
+  RETURN data;
+}
+
+/** Parses soap:body element
+    http://www.w3.org/TR/wsdl#_soap:body
+
+    @param rec Input/output record
+    @cell rec.message
+    @cell rec.documentation
+    @param body Body node
+    @return
+    @cell use "literal"/"encoded"
+    @cell encodingstyle STRING ARRAY with encoding style uri-list
+    @cell namespace Namespace
+    @cell parts List of parts
+*/
+RECORD FUNCTION ParseSoapBody(RECORD rec, OBJECT node)
+{
+  RECORD data :=
+      [ use :=                  node->GetAttribute("use")
+      , encodingstyle :=        GetTokenListFromString(node->GetAttribute("encodingStyle"))
+      , namespace :=            node->GetAttribute("namespace")
+      , parts :=                DEFAULT OBJECT ARRAY
+      ];
+
+  IF (node->HasAttribute("parts"))
+  {
+    STRING ARRAY str_parts := GetTokenListFromString(node->GetAttribute("parts"));
+
+    FOREVERY (STRING partname FROM str_parts)
+    {
+      OBJECT part := rec.message->GetPartByName(partname);
+      INSERT part INTO data.parts AT END;
+    }
+  }
+  ELSE
+    data.parts := rec.message->parts;
+
+  RETURN data;
+}
+
+/** Parses soap:body element
+    http://www.w3.org/TR/wsdl#_soap:body
+
+    @param rec Fault record
+    @param body Fault node
+    @return
+    @cell use "literal"/"encoded"
+    @cell encodingstyle STRING ARRAY with encoding style uri-list
+    @cell namespace Namespace
+*/
+RECORD FUNCTION ParseSoapFault(OBJECT node)
+{
+  RECORD data :=
+      [ use :=                  node->GetAttribute("use")
+      , encodingstyle :=        GetTokenListFromString(node->GetAttribute("encodingStyle"))
+      , namespace :=            node->GetAttribute("namespace")
+      ];
+
+  RETURN data;
+}
+
+/** Parses soap:header element (and soap:headerfault too)
+    http://www.w3.org/TR/wsdl#_soap:header
+    @param wsdlspec WSDL Spec object, for message lookups.
+    @param node Header(fault) node
+    @param isfault
+    @return
+    @cell use "literal"/"encoded"
+    @cell encodingstyle STRING ARRAY with encoding style uri-list
+    @cell namespace Namespace
+    @cell message WSDLMessage
+    @cell part WSDLPart
+    @cell headerfaults List of headerfaults (only when isfault = FALSE)
+    @cell headerfaults.use "literal"/"encoded"
+    @cell headerfaults.encodingstyle STRING ARRAY with encoding style uri-list
+    @cell headerfaults.namespace Namespace
+    @cell headerfaults.message WSDLMessage
+    @cell headerfaults.part WSDLPart
+*/
+RECORD FUNCTION ParseSoapHeaderAndHeaderFaults(OBJECT wsdlspec, OBJECT node, BOOLEAN isfault)
+{
+  RECORD data :=
+      [ message :=              DEFAULT OBJECT
+      , part :=                 DEFAULT OBJECT
+      , use :=                  node->GetAttribute("use")
+      , encodingstyle :=        GetTokenListFromString(node->GetAttribute("encodingStyle"))
+      , namespace :=            node->GetAttribute("namespace")
+      ];
+
+  RECORD messagename := ResolveQNameFromXMLNode(node->GetAttribute("message"), node);
+  data.message := wsdlspec->GetMessageNS(messagename.namespaceuri, messagename.localname);
+  data.part := data.message->GetPartByName(node->GetAttribute("part"));
+
+  IF (NOT isfault)
+  {
+    RECORD ARRAY faults;
+
+    OBJECT gchild := GetFirstChildElement(node);
+    WHILE (IsSpecificElement(gchild, ns_soap11, "headerfault"))
+    {
+      INSERT ParseSoapHeaderAndHeaderFaults(wsdlspec, gchild, TRUE) INTO faults AT END;
+      gchild := GetNextSiblingElement(gchild);
+    }
+    EnsureXMLNodeNonExisting(gchild);
+
+    INSERT CELL headerfaults := faults INTO data;
+  }
+  RETURN data;
+}
+
+
+RECORD FUNCTION ParseSoapOperationInOutput(OBJECT wsdlspec, RECORD rec, STRING type, OBJECT mods)
+{
+  OBJECT ARRAY nodes := rec.ext_elts;
+  DELETE CELL ext_elts FROM rec;
+
+  RECORD body;
+  RECORD ARRAY headers;
+
+  FOREVERY (OBJECT child FROM nodes)
+  {
+    IF (IsSpecificElement(child, ns_soap11, "body") OR IsSpecificElement(child, ns_soap12, "body"))
+    {
+      IF (RecordExists(body))
+        THROW NEW Exception("Two body nodes found in operation");
+      body := ParseSoapBody(rec, child);
+    }
+    ELSE IF (IsSpecificElement(child, ns_soap11, "header"))
+    {
+      INSERT ParseSoapHeaderAndHeaderFaults(wsdlspec, child, FALSE) INTO headers AT END;
+    }
+  }
+
+  IF (NOT RecordExists(body))
+    THROW NEW Exception("Expected a soap:body element");
+
+  FOREVERY (RECORD mod FROM GetOperationModifications(mods, rec.name, type))
+  {
+    SWITCH (mod.type)
+    {
+      CASE "addheader"
+      {
+        OBJECT message := wsdlspec->GetMessageNS(mod.header.message.namespaceuri, mod.header.message.localname);
+        RECORD data :=
+            [ message :=              message
+            , part :=                 message->GetPartByName(mod.header.part)
+            , use :=                  mod.header.use
+            , encodingstyle :=        mod.header.encodingStyle
+            , namespace :=            mod.header.namespaceuri
+            , headerfaults :=         DEFAULT RECORD ARRAY
+            ];
+
+        INSERT data INTO headers AT END;
+      }
+
+      DEFAULT
+      {
+        THROW NEW Exception("Unknown modification type '" || mod.type || "'");
+      }
+    }
+  }
+
+  INSERT CELL body := body INTO rec;
+  INSERT CELL headers := headers INTO rec;
+
+  RETURN rec;
+}
+
+RECORD FUNCTION ParseSoapOperationFault(OBJECT wsdlspec, RECORD rec)
+{
+  OBJECT ARRAY nodes := rec.ext_elts;
+  DELETE CELL ext_elts FROM rec;
+
+  RECORD data := ParseSoapFault(nodes[0]);
+
+  INSERT CELL use := data.use INTO rec;
+  INSERT CELL encodingstyle := data.encodingstyle INTO rec;
+  INSERT CELL namespace := data.namespace INTO rec;
+
+  RETURN rec;
+}

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumapps.commondialogs.runscript"
+         library="runscript.whlib">
+
+  <screen name="runscriptdialog"
+          width="110x"
+          height="45x"
+          allowresize="true">
+    <actions>
+      <action name="saveoutput" onexecute="dosaveoutput" tid=".saveoutput" />
+      <action name="terminate" onexecute="doterminate" tid=".terminate" />
+      <action name="cancelaction" onexecute="cancel" tid="~close" />
+      <action name="sendline" onexecute="dosendline" tid=".sendline" />
+    </actions>
+
+    <body>
+      <panel height="1pr">
+        <iframe name="output" width="1pr" height="1pr" minheight="15x" />
+      </panel>
+      <panel name="input" visible="false">
+        <line>
+          <combobox name="line" width="1pr" defaultbutton="btn_sendline" title="" />
+          <button name="btn_sendline" action="sendline" tid=".sendline" />
+        </line>
+      </panel>
+    </body>
+
+    <footer>
+      <grid>
+        <col />
+        <col width="1pr" />
+        <col />
+        <row>
+          <cell>
+            <button action="saveoutput" />
+          </cell>
+          <cell />
+          <cell>
+            <button action="cancelaction" />
+          </cell>
+        </row>
+      </grid>
+    </footer>
+  </screen>
+
+</screens>

@@ -1,0 +1,124 @@
+<?wh // Testscript
+
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+TABLE <INTEGER intdata, STRING strdata, BOOLEAN booldata> beta_modifytests_a;
+TABLE <INTEGER intdata, STRING strdata, BOOLEAN booldata> beta_modifytests_b;
+INTEGER test_fp_trans_a;
+INTEGER test_fp_trans_b;
+
+//--------------------------------------------------------------------------------
+// Test 1: ForcedVisible and ForcedVisibleLocked record override tests
+
+OpenTest("ForcedVisible and ForcedVisibleLocked record override tests");
+test_fp_trans_a := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+__BindWHDBMetaTables(test_fp_trans_a);
+IF (NOT WHDBColumnExists("beta_modifytests","intdata"))
+  SendWHDBCommand(test_fp_trans_a, "CREATE TABLE beta_modifytests(intdata INTEGER, strdata VARCHAR(1024), booldata BOOLEAN) ");
+
+beta_modifytests_a := BindTransactionToTable (test_fp_trans_a, "beta_modifytests");
+DELETE FROM beta_modifytests_a;
+INSERT INTO beta_modifytests_a(intdata, strdata, booldata) VALUES (1, "abc", TRUE);
+
+IF (LENGTH(CommitWHDBTransaction(test_fp_trans_a))!=0)
+  Abort("Commit errors test 1");
+
+test_fp_trans_a := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+beta_modifytests_a := BindTransactionToTable (test_fp_trans_a, "beta_modifytests");
+
+test_fp_trans_b := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+beta_modifytests_b := BindTransactionToTable (test_fp_trans_b, "beta_modifytests");
+UPDATE beta_modifytests_b SET booldata := FALSE;
+IF (LENGTH(CommitWHDBTransaction(test_fp_trans_b))!=0)
+  Abort("Commit errors test 1");
+
+TestEqualRecordArray(1, [[intdata:=1,strdata:="abc",booldata:=TRUE]], (SELECT * FROM beta_modifytests_a));
+// Update that will do dummy update
+UPDATE beta_modifytests_a SET booldata := FALSE;
+
+// Updated record now has ForcedVisible status
+TestEqualRecordArray(2, [[intdata:=1,strdata:="abc",booldata:=FALSE]], (SELECT * FROM beta_modifytests_a));
+
+// Second lock that will do dummy update again
+UPDATE beta_modifytests_a SET booldata := FALSE WHERE booldata = FALSE;
+
+// Check again
+TestEqualRecordArray(3, [[intdata:=1,strdata:="abc",booldata:=FALSE]], (SELECT * FROM beta_modifytests_a));
+
+IF (LENGTH(CommitWHDBTransaction(test_fp_trans_a))!=0)
+  Abort("Commit errors test 1");
+CloseTest("ForcedVisible and ForcedVisibleLocked record override tests");
+
+//--------------------------------------------------------------------------------
+// Test 2: Expired-locked record override tests
+
+OpenTest("Expired-locked record override tests");
+// Test Expired stuffs
+BOOLEAN FUNCTION SneakUpdate(RECORD a)
+{
+  UPDATE beta_modifytests_a SET booldata := FALSE WHERE booldata = TRUE;
+  UPDATE beta_modifytests_a SET booldata := FALSE WHERE booldata = TRUE;
+  UPDATE beta_modifytests_a SET booldata := FALSE WHERE booldata = TRUE;
+  RETURN TRUE;
+}
+
+test_fp_trans_a := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+beta_modifytests_a := BindTransactionToTable (test_fp_trans_a, "beta_modifytests");
+DELETE FROM beta_modifytests_a;
+INSERT INTO beta_modifytests_a(intdata, strdata, booldata) VALUES (1, "abc", TRUE);
+IF (LENGTH(CommitWHDBTransaction(test_fp_trans_a))!=0)
+  Abort("Commit errors test 2");
+
+test_fp_trans_a := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+beta_modifytests_a := BindTransactionToTable (test_fp_trans_a, "beta_modifytests");
+TestEqualRecordArray(1, [[intdata:=1,strdata:="abc",booldata:=TRUE]], (SELECT * FROM beta_modifytests_a));
+
+UPDATE beta_modifytests_a SET strdata:="def" WHERE booldata = TRUE AND SneakUpdate(beta_modifytests_a);
+
+TestEqualRecordArray(2, [[intdata:=1,strdata:="abc",booldata:=FALSE]], (SELECT * FROM beta_modifytests_a));
+IF (LENGTH(CommitWHDBTransaction(test_fp_trans_a))!=0)
+  Abort("Commit errors test 2");
+
+CloseTest("Expired-locked record override tests");
+
+//--------------------------------------------------------------------------------
+// Test 3: Double lock crash test
+
+/* Can't catch the exception, so test is not viable
+
+BOOLEAN FUNCTION RetFalseWithSideEffectsF2(RECORD a)
+{
+  // Relocks record, must cause a InvalidArg exception from database (double lock)
+  UPDATE beta_modifytests_a SET booldata := FALSE;
+
+  RETURN FALSE;
+}
+
+BOOLEAN FUNCTION RetTrueWithSideEffectsF1(RECORD a)
+{
+  // Locks record, then executes RetFalseWithSideEffectsF2
+  UPDATE beta_modifytests_a SET booldata := RetFalseWithSideEffectsF2(beta_modifytests_a);
+
+  RETURN TRUE;
+}
+
+test_fp_trans_a := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+beta_modifytests_a := BindTransactionToTable (test_fp_trans_a, "beta_modifytests");
+DELETE FROM beta_modifytests_a;
+INSERT INTO beta_modifytests_a(intdata, strdata, booldata) VALUES (1, "abc", TRUE);
+IF (LENGTH(CommitWHDBTransaction(test_fp_trans_a))!=0)
+  Abort("Commit errors test 3");
+
+test_fp_trans_a := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+beta_modifytests_a := BindTransactionToTable (test_fp_trans_a, "beta_modifytests");
+TestEqualRecordArray(1, [[intdata:=1,strdata:="abc",booldata:=TRUE]], (SELECT * FROM beta_modifytests_a));
+
+UPDATE beta_modifytests_a SET booldata := TRUE WHERE RetTrueWithSideEffectsF1(beta_modifytests_a);
+
+TestEqualRecordArray(2, [[intdata:=1,strdata:="abc",booldata:=FALSE]], (SELECT * FROM beta_modifytests_a));
+IF (LENGTH(CommitWHDBTransaction(test_fp_trans_a))!=0)
+  Abort("Commit errors test 3"); */
+
+
+

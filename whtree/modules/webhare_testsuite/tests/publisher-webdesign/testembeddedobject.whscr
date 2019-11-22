@@ -1,0 +1,43 @@
+﻿<?wh
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
+
+
+MACRO Widget()
+{
+  testfw->BeginWork();
+
+  OBJECT newsite := testfw->SetupTestWebdesignWebsite("");
+  OBJECT siteroot := newsite->rootobject;
+
+  newsite->SetPrimaryOutput(SELECT AS INTEGER id FROM system.webservers WHERE id = testfw->GetTestOutputServer(), '/');
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT widgetrtd := siteroot->CreateFile([ name:="widget.rtd", type := richdoctype->id, publish := TRUE ]);
+  richdoctype->SetInstanceData(widgetrtd->id, [ data := GetTestRTD()
+                                              ]);
+
+  OBJECT widgetdoc := siteroot->CreateFile([ name:="widget.html", data := StringToBlob("widget testpage"), type := 5, publish := TRUE ]);
+  OBJECT widgetfile := siteroot->CreateFile([ name:="widgetfile", publish := TRUE, type := OpenWHFSType("http://www.webhare.net/xmlns/beta/embedblock1")->id
+                                            ]);
+
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(siteroot->id);
+
+  widgetdoc := OpenWHFSObject(widgetdoc->id);
+  TestEq(0, GetErrorFromPublished(widgetdoc->published), widgetdoc->url || " failed to publish");
+
+  TestEq(0,Length(GetLinksForFSObject(widgetrtd->id)));
+}
+
+RunTestframework( [ PTR Widget
+                  ]);

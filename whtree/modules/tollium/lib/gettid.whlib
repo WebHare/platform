@@ -1,0 +1,567 @@
+﻿<?wh
+/** @short The tollium gettid API
+    @long Pre-tollium applications can use this API to be able to switch to the GetTID function.
+          Tollium applications should use screenbase.whlib for GetTID
+    @topic localization/gettid
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib" EXPORT ParseXMLTIdPtr; //ParseXMLTIdPtr for external use is deprecated, but formsapi loader needs it
+
+STRING tidlang := "en";
+MACRO PTR missingtidcallback;
+
+STRING ARRAY FUNCTION __GetLanguageCodesForModule(STRING modulename)
+{
+  STRING moduledir := GetModuleInstallationRoot(modulename);
+  IF(moduledir="")
+  {
+    IF (NOT IsDTAPLive())
+      THROW NEW Exception("No such module '" || modulename || "'");
+    RETURN DEFAULT STRING ARRAY;
+  }
+
+  RECORD ARRAY langfiles := ReadDiskDirectory(moduledir || "/language","*.xml");
+  RETURN SELECT AS STRING ARRAY GetBasenameFromPath(name)
+           FROM langfiles
+          WHERE type=0
+                AND name LIKE "*.xml"
+                AND ToLowercase(name)=name  //verify lowercase
+       ORDER BY name="default.xml" DESC; //make sure default is first
+}
+
+OBJECTTYPE TolliumLanguageFileSystem EXTEND LanguageFileSystem
+<
+  RECORD ARRAY langfiles;
+  STRING module;
+
+  MACRO NEW(STRING module, BOOLEAN nofail)
+  : LanguageFileSystem("Module " || module)
+  {
+    this->module := module;
+    this->languagecodes := __GetLanguageCodesForModule(module);
+
+    IF(Length(this->languagecodes) = 0 AND NOT nofail AND NOT IsDTAPLive())
+      THROW NEW Exception("Module '" || module || "' has no language files");
+    IF("default" NOT IN this->languagecodes AND NOT nofail AND NOT IsDTAPLive())
+      THROW NEW Exception("Module '" || module || "' has no fallback language file (default.xml)");
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION OpenLanguageXMLFile(INTEGER langcodeidx)
+  {
+    BLOB diskfile := GetWebhareResource("moduleroot::" || this->module || "/language/" || this->languagecodes[langcodeidx] || ".xml");
+    RETURN MakeXMLDocument(diskfile);
+  }
+  UPDATE PUBLIC MACRO SaveLanguageXMLFile(INTEGER langcodeidx, BLOB filedata)
+  {
+    STRING diskpath := GetModuleInstallationRoot(this->module) || "language/" || this->languagecodes[langcodeidx] || ".xml";
+    StoreDiskFile(diskpath, filedata, [ overwrite := TRUE ]);
+  }
+
+  UPDATE OBJECT FUNCTION OpenLanguageTree(INTEGER langcodeidx)
+  {
+    //FIXME properly support locally registered modules (eg siteprofiles)
+    RECORD doc := RetrieveCachedXMLResource("moduleroot::" || this->module || "/language/" || this->languagecodes[langcodeidx] || ".xml");
+    RETURN doc.doc->documentelement;
+  }
+>;
+
+PUBLIC BOOLEAN __shortfailtid;
+
+PUBLIC OBJECT FUNCTION __MakeTolliumLanguageFileSystem(STRING module)
+{
+  RETURN NEW TolliumLanguageFileSystem(module, TRUE);
+}
+
+/** Returns the current language
+    @return The language code for the current language
+*/
+PUBLIC STRING FUNCTION GetTIDLanguage()
+{
+  RETURN tidlang;
+}
+
+/** Sets the current language
+    @param language The language code for the new current language
+*/
+PUBLIC MACRO SetTIDLanguage(STRING language)
+{
+  tidlang := ToLowercase(language);
+  __SETWITTYGETTIDFALLBACK(PTR GetTid, PTR GetHTMLTid);
+}
+
+/** Sets the callback called when a missing tid is encountered
+    @param callback Callback, signature: MACRO missingtidcallback(data)
+*/
+PUBLIC MACRO SetMissingTidCallback(MACRO PTR callback)
+{
+  missingtidcallback := callback;
+}
+
+STRING FUNCTION CalcTIDForLanguage(STRING langcode, STRING tid, STRING p1, STRING p2, STRING p3, STRING p4, BOOLEAN rich)
+{
+  RECORD retval;
+  TRY
+  {
+    retval := __GetTIDNodeForLanguage(langcode, tid, FALSE);
+  }
+  CATCH(OBJECT e)
+  {
+    retval := [ type := "missing"
+              , wantmodule := Left(tid, SearchLastSubstring(tid,':'))
+              , value := "Exception retrieving tid '" || EncodeJava(tid) || "': " || e->what
+              ];
+  }
+
+  SWITCH (retval.type)
+  {
+    CASE "text"   { RETURN rich ? EncodeHTML(retval.value) : retval.value; }
+    CASE "node"   { RETURN retval.langsystem->EvaluateNodePtr(retval.node, p1, p2, p3, p4, rich); }
+    CASE "missing"
+    {
+      IF(missingtidcallback != DEFAULT MACRO PTR)
+        missingtidcallback ( [ module := retval.wantmodule, langcode := langcode, tid := tid, p1 := p1, p2 := p2, p3 := p3, p4 := p4, stacktrace := ArraySlice(GetStackTrace(), 2) ]);
+      RETURN rich ? EncodeHTML(retval.value) : retval.value;
+    }
+    CASE "debug"
+    {
+      IF(__shortfailtid)
+        tid := Substring(tid,SearchLastSubstring(tid,'.'));
+      //Use {, as that mixes more safely with HTML than <s, which is useful with rich text...
+      STRING debugtid :=  "{" || tid
+                          || (p1||p2||p3||p4!="" ? "|" || p1 : "")
+                          || (p2||p3||p4!="" ? "|" || p2 : "")
+                          || (p3||p4!="" ? "|" || p3 : "")
+                          || (p4!="" ? "|" || p4 : "")
+                          || "}";
+      IF(rich)
+        debugtid := EncodeHTML(debugtid);
+      RETURN debugtid;
+    }
+  }
+  ABORT("Unknown type");
+}
+
+OBJECT FUNCTION GetLanguageSystem(STRING wantmodule)
+{
+  OBJECT langsystem;
+  IF(NOT CellExists(modulelangs, wantmodule))
+  {
+    IF(wantmodule LIKE "site::*" OR wantmodule LIKE "whfs::*")
+    {
+      langsystem := MakeFunctionPtr("module::publisher/siteprofiles.whlib", "OpenSiteProfile", TYPEID(OBJECT), [TYPEID(STRING)])(wantmodule)->GetLanguageSystem();
+      modulelangs := CellInsert(modulelangs, wantmodule, langsystem);
+    }
+    ELSE
+    {
+      langsystem := __GetTidLanguageSystemForModule(wantmodule);
+    }
+
+  }
+  ELSE
+  {
+    langsystem := GetCell(modulelangs, wantmodule);
+  }
+  RETURN langsystem;
+}
+
+PUBLIC RECORD FUNCTION __GetTIDNodeForLanguage(STRING langcode, STRING tid, BOOLEAN isvalidation)
+{
+  TRY
+  {
+    IF(tid="")
+      RETURN [ type := "text", value := "" ];
+    IF(tid LIKE ":*")
+      RETURN [ type := "text", value := Substring(tid,1) ];
+    IF(tid LIKE "tollium:common.buttons.*") //we merged these
+      tid := "tollium:common.actions." || Substring(tid,23);
+    IF(tid LIKE "~*") //we merged these
+      tid := "tollium:tilde." || Substring(tid,1);
+    IF(tid="tollium:tilde.locale.datetimestrings")
+      RETURN [ type := "text", value := GetLanguageDatetimeStrings(langcode) ];
+
+    INTEGER colon := SearchLastSubstring(tid,':');
+    IF(colon=-1)
+    {
+      THROW NEW Exception("Missing module name in call for tid '" || tid || "'");
+    }
+
+    IF(langcode="debug") //ADDME move this to the language system...
+      RETURN [ type := "debug" ];
+
+    STRING wantmodule := Left(tid,colon);
+    STRING tidpath := Substring(tid,colon+1,Length(tid));
+    IF(tidpath LIKE "* *") //spaces? map to underscore
+      tidpath := Substitute(tidpath,' ','_');
+
+
+    IF(langcode="")
+    {
+      STRING retval := "(no language selected:" || wantmodule || ":" || tidpath || ")";
+      RETURN [ type := "text", value := retval ];
+    }
+
+    OBJECT langsystem := GetLanguageSystem(wantmodule);
+    OBJECT nodeptr;
+    IF(ObjectExists(langsystem))
+      nodeptr := langsystem->GetNodePtr(langcode, tidpath, FALSE);
+
+    IF(isvalidation AND NOT ObjectExists(nodeptr) AND ObjectExists(langsystem))
+    {
+      //Try all the other languages, for validating, if just one matches it's fine with us. cross-reference checks of language files are not our problem
+      FOREVERY(STRING trylang FROM langsystem->GetLanguageCodes())
+      {
+        IF(trylang = langcode)
+          CONTINUE;
+        nodeptr := langsystem->GetNodePtr(trylang, tidpath, FALSE);
+        IF(ObjectExists(nodeptr))
+          BREAK;
+      }
+    }
+
+    IF(NOT ObjectExists(nodeptr))
+    {
+      STRING retval := __shortfailtid ? Substring(tidpath,SearchLastSubstring(tidpath,'.')) : "(cannot find text: " || wantmodule || ":" || tidpath || ")";
+      RETURN [ type := "missing", value := retval, wantmodule := wantmodule ];
+    }
+    RETURN
+        [ type := "node"
+        , langsystem := langsystem
+        , node := nodeptr
+        ];
+  }
+  CATCH(OBJECT e)
+  {
+    IF(IsDtapLive())
+      RETURN [ type := "text", value := e->what ];
+    ELSE
+      THROW;
+  }
+}
+
+/** Get the text for a tid in the current language
+    @param tid Tid to get
+    @param p1 Parameter 1
+    @param p2 Parameter 2
+    @param p3 Parameter 3
+    @param p4 Parameter 4
+    @return Language text
+*/
+PUBLIC STRING FUNCTION GetTID(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+{
+  RETURN CalcTIDForLanguage(tidlang, tid, p1, p2, p3, p4, FALSE);
+}
+
+/** Get the HTML text for a tid in the current language
+    @param tid Tid to get
+    @param p1 Parameter 1
+    @param p2 Parameter 2
+    @param p3 Parameter 3
+    @param p4 Parameter 4
+    @return Language HTML text
+*/
+PUBLIC STRING FUNCTION GetHTMLTID(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+{
+  RETURN CalcTIDForLanguage(tidlang, tid, p1, p2, p3, p4, TRUE);
+}
+
+/** Get the text for a tid for a specific language
+    @param langcode Language code
+    @param tid Tid to get
+    @param p1 Parameter 1
+    @param p2 Parameter 2
+    @param p3 Parameter 3
+    @param p4 Parameter 4
+    @return Language text
+*/
+PUBLIC STRING FUNCTION GetTIDForLanguage(STRING langcode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+{
+  RETURN CalcTIDForLanguage(langcode, tid, p1, p2, p3, p4, FALSE);
+}
+
+/** Get the HTML text for a tid in the current language
+    @param langcode Language code
+    @param tid Tid to get
+    @param p1 Parameter 1
+    @param p2 Parameter 2
+    @param p3 Parameter 3
+    @param p4 Parameter 4
+    @return Language HTML text
+*/
+PUBLIC STRING FUNCTION GetHTMLTIDForLanguage(STRING langcode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+{
+  RETURN CalcTIDForLanguage(langcode, tid, p1, p2, p3, p4, TRUE);
+}
+
+/** Returns the list of tids defined in a group in the current language
+    @param gid Language text group
+    @return List of tids in that group
+*/
+PUBLIC STRING ARRAY FUNCTION GetTIDList(STRING gid)
+{
+  RETURN GetTIDListForLanguage(tidlang, gid);
+}
+
+BOOLEAN inited_gettid_listen;
+
+MACRO GotLanguageFileChange(STRING event, RECORD ARRAY events)
+{
+  // ADDME: invalidate only modified module
+  modulelangs := DEFAULT RECORD;
+}
+
+PUBLIC OBJECT FUNCTION __GetTidLanguageSystemForModule(STRING module)
+{
+  IF(CellExists(modulelangs, module))
+    RETURN GetCell(modulelangs, module);
+
+  IF (NOT inited_gettid_listen)
+  {
+    RegisterMultiEventCallback("system:modulefolder.mod::*/language/", PTR GotLanguageFileChange);
+    RegisterMultiEventCallback("system:softreset", PTR GotLanguageFileChange);
+    RegisterMultiEventCallback("system:clearcaches", PTR GotLanguageFileChange);
+  }
+
+  TRY
+  {
+    OBJECT langsystem := NEW TolliumLanguageFileSystem(module, FALSE);
+    modulelangs := CellInsert(modulelangs, module, langsystem);
+    RETURN langsystem;
+  }
+  CATCH(OBJECT e)
+  {
+    RETURN DEFAULT OBJECT;
+  }
+}
+
+/** Returns the list of tids defined in a group
+    @param langcode Language code
+    @param gid Language text group
+    @return List of tids in that group
+*/
+PUBLIC STRING ARRAY FUNCTION GetTIDListForLanguage(STRING langcode, STRING gid)
+{
+  TRY
+  {
+    INTEGER colon := SearchLastSubstring(gid,':');
+    IF (colon = -1)
+      THROW NEW Exception("Missing module name in call for gid '" || gid || "'");
+
+    STRING wantmodule := Left(gid,colon);
+    STRING gidpath := Substring(gid,colon+1,Length(gid));
+
+    IF (langcode = "")
+      RETURN DEFAULT STRING ARRAY;
+
+    OBJECT langsystem := __GetTidLanguageSystemForModule(wantmodule);
+
+    OBJECT nodeptr;
+    IF (ObjectExists(langsystem))
+    {
+      STRING prefix := wantmodule || ":" || (gidpath = "" ? "" : gidpath || ".");
+      RETURN
+          SELECT AS STRING ARRAY prefix || tid
+            FROM ToRecordArray(langsystem->GetAllTidsWithinGID(langcode, gidpath), "TID");
+    }
+
+    RETURN DEFAULT STRING ARRAY;
+  }
+  CATCH(OBJECT e)
+  {
+    IF(IsDtapLive())
+      RETURN DEFAULT STRING ARRAY;
+    ELSE
+      THROW;
+  }
+
+}
+
+OBJECTTYPE TidNodeEncoder
+<
+  PUBLIC STRING outtext;
+  STRING curtext;
+  PUBLIC BOOLEAN isfunction;
+  PUBLIC INTEGER maxparam;
+
+  MACRO NEW(OBJECT node, BOOLEAN run_else DEFAULTSTO FALSE)
+  {
+    this->EncodeNode(node, run_else);
+    this->FlushText();
+  }
+
+  MACRO AddText(STRING text)
+  {
+    this->curtext := this->curtext || text;
+  }
+
+  MACRO FlushText()
+  {
+    IF (this->outtext != "")
+    {
+      IF (this->curtext = "")
+        RETURN;
+      this->outtext := this->outtext || "+";
+    }
+    IF (EncodeHTML(this->curtext) != this->curtext)
+    {
+      this->isfunction := TRUE;
+      this->outtext := this->outtext || " $wh.__condDecodeFromHTML(r," || EncodeJSON(EncodeHTML(this->curtext)) || ")";
+    }
+    ELSE
+      this->outtext := this->outtext || EncodeJSON(this->curtext);
+    this->curtext := "";
+    RETURN;
+  }
+
+  MACRO AppendRaw(STRING rawtext, BOOLEAN isvalue)
+  {
+    IF (this->outtext = "" AND this->curtext = "")
+      this->outtext := rawtext;
+    ELSE
+    {
+      this->FlushText();
+      IF (isvalue)
+        this->outtext := this->outtext || "+";
+      this->outtext := this->outtext || rawtext;
+    }
+    this->isfunction := TRUE;
+  }
+
+  STRING FUNCTION Subencode(OBJECT node, BOOLEAN run_else DEFAULTSTO FALSE)
+  {
+    OBJECT part := NEW TidNodeEncoder(node, run_else);
+    IF (part->maxparam > this->maxparam)
+      this->maxparam := part->maxparam;
+    RETURN part->outtext;
+  }
+
+  MACRO EncodeNode(OBJECT nodeptr, BOOLEAN run_else DEFAULTSTO FALSE)
+  {
+    FOR (OBJECT child := nodeptr->firstchild; ObjectExists(child); child:=child->nextsibling)
+    {
+      IF(run_else)
+      {
+        IF (child->localname = "else" AND child->namespaceuri="http://www.webhare.net/xmlns/tollium/screens")
+          run_else := FALSE; //we'll output after this node
+        CONTINUE; //skipping...
+      }
+
+      STRING text;
+      IF(child->nodetype = 3)//text
+        this->AddText(NormalizeWhitespace(child->nodevalue));
+      ELSE
+      {
+        IF (child->namespaceuri="http://www.webhare.net/xmlns/tollium/screens")
+        {
+          SWITCH (child->localname)
+          {
+            CASE "else"
+            {
+              // Stop on else
+              RETURN;
+            }
+            CASE "param"
+            {
+              INTEGER paramnum := ToInteger(child->GetAttribute("p"),0);
+              IF (paramnum > this->maxparam)
+                this->maxparam := paramnum;
+              this->AppendRaw('(p' || paramnum || '||"")', TRUE);
+            }
+            CASE "ifparam"
+            {
+              INTEGER paramnum := ToInteger(child->GetAttribute("p"),0);
+              IF (paramnum > this->maxparam)
+                this->maxparam := paramnum;
+              STRING rawtext := '((p' || paramnum || '||"").toLowerCase()==' || EncodeJSON(toLowercase(child->GetAttribute("value"))) || '?' ||
+                  this->Subencode(child) || ":" || this->Subencode(child, TRUE) || ")";
+
+              this->AppendRaw(rawtext, TRUE);
+            }
+            CASE "br"
+            {
+              this->AddText("\n");
+            }
+          }
+        }
+        ELSE IF (child->namespaceuri="http://www.w3.org/1999/xhtml")
+        {
+          STRING parttext := this->Subencode(child);
+
+          // FIXME: in the future we want to be able to specify in a language file which tags we want to allow
+          IF(child->localname IN ["b","i","u","ul","ol","li"])
+          {
+            this->AddRaw('(rich?"<' || child->localname || '>":"")');
+            IF (parttext != '""')
+              this->AddRaw(parttext);
+            this->AddRaw('(rich?"</' || child->localname || '>":"")');
+            CONTINUE;
+          }
+          ELSE IF(child->localname="br")
+          {
+            this->AddRaw('(rich?"<br/>":"+\n")');
+            CONTINUE;
+          }
+          IF (parttext != '""')
+            this->AddRaw(parttext);
+        }
+      }
+    }
+  }
+>;
+
+/** Encodes the definition of a tid for export to the JavaScript tid system
+    @param langcode Language code
+    @param tid Tid to export
+    @return Encoded data
+*/
+PUBLIC STRING FUNCTION EncodeTidToJavascriptForLanguage(STRING langcode, STRING tid)
+{
+  RECORD rec := __GetTIDNodeForLanguage(langcode, tid, FALSE);
+  SWITCH (rec.type)
+  {
+    CASE "text"
+    {
+      STRING encoded := EncodeHTML(rec.value);
+      RETURN (rec.value = encoded) ? EncodeJSON(encoded) : "function(r){return $wh.__condDecodeFromHTML(!r," || EncodeJSON(encoded) || ")";
+    }
+    CASE "node"
+    {
+      OBJECT encoder := NEW TidNodeEncoder(rec.node);
+      STRING res := encoder->outtext;
+      IF (encoder->isfunction)
+      {
+        res := "function(r";
+        FOR (INTEGER i := 1; i <= encoder->maxparam; i := i + 1)
+          res := res || ",p" || i;
+        res := res || "){return" || encoder->outtext || ";}";
+      }
+      RETURN res;
+    }
+    CASE "missing"
+    {
+      IF(missingtidcallback != DEFAULT MACRO PTR)
+        missingtidcallback([ module := rec.wantmodule, langcode := langcode, tid := tid, p1 := "", p2 := "", p3 := "", p4 := "", stacktrace := GetStackTrace() ]);
+
+      RETURN EncodeJSON(EncodeHTML(__shortfailtid ? Substring(tid,SearchLastSubstring(tid,'.')) : "(cannot find text: " || tid || ")"));
+    }
+    CASE "debug"
+    {
+      IF(__shortfailtid)
+        tid := Substring(tid,SearchLastSubstring(tid,'.'));
+
+      //Use {, as that mixes more safely with HTML than <s, which is useful with rich text...
+      RETURN 'function(r,p1,p2,p3,p4){ return "{' || EncodeHTML(tid) || '"+' ||
+                '(p1||p2||p3||p4?"|"+p1.encodeToHTML():"")+' ||
+                '(p2||p3||p4?"|"+p2.encodeToHTML():"")+' ||
+                '(p3||p4?"|"+p3.encodeToHTML():"")+' ||
+                '(p4?"|"+p4.encodeToHTML():"")' || ';}';
+    }
+  }
+  ABORT("Unknown type");
+}

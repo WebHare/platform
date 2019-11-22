@@ -1,0 +1,98 @@
+<?wh // Library for a client script
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "mod::webhare_testsuite/lib/db/test_funcs.whlib" EXPORT RecordArraysEqual;
+
+STRING ARRAY commandline := GetConsoleArguments();
+IF (LENGTH(commandline) < 1)
+  ABORT("Clients need a commandline argument for the client id");
+
+PUBLIC INTEGER clientid := ToInteger(CommandLine[0], 0);
+
+PUBLIC MACRO ClientStart(INTEGER clients_needed)
+{
+  PRINT (">TESTNEEDS " || clients_needed || "\n");
+}
+
+INTEGER current_section := 0;
+PUBLIC MACRO SectionStart(INTEGER id)
+{
+  if (id <= current_section)
+     ABORT("Section id numbering error (expected id > " || current_section || ", got " || id || ")");
+  PRINT (">SECTIONSTART " || id || "\n");
+
+  STRING line := ReadLineFrom(0, 4096, TRUE);
+  IF (Length(line) = 0) ABORT("Non-command received");
+  INTEGER pos := SearchSubString(line, " ");
+  if (pos = -1)
+      pos := Length(line);
+  STRING command := ToUppercase(Left(line, pos));
+  IF (command != ">GO") ABORT("GO expected");
+  STRING c2 := Right(line, Length(line) - pos - 1);
+  INTEGER sid := ToInteger(c2, 0);
+  IF (sid != id)
+    ABORT("Got GO for wrong section!");
+  current_section := id;
+  PRINT (">RUNNING " || id || "\n");
+}
+
+PUBLIC MACRO UpcomingHang(STRING trans_name)
+{
+  PRINT(">UPCOMINGHANG " || current_section || " " || trans_name || "\n");
+}
+
+PUBLIC MACRO SectionEnd(INTEGER id)
+{
+  if (id != current_section)
+     ABORT("Section id numbering error: section end != section start (expected " || current_section || ", got " || id || ")");
+  PRINT(">SECTIONEND " || id || "\n");
+  IF (ToUppercase(ReadLineFrom(0,4096,TRUE)) != ">ACK")
+    ABORT("Expected sectionend confirmation");
+}
+
+PUBLIC MACRO TestEnd(INTEGER id)
+{
+  PRINT(">TESTEND " || id || "\n");
+}
+
+PUBLIC MACRO Fail(STRING str)
+{
+  PRINT(">FAIL\n");
+  ABORT(str);
+}
+
+PUBLIC MACRO TestEqualRecordArrays(RECORD ARRAY expect, RECORD ARRAY got)
+{
+  IF (NOT RecordArraysEqual(expect, got))
+  {
+    PRINT("Record arrays not equal\nExpected:\n");
+    PrintRecordArrayTo(0, expect, "boxed");
+    PRINT("Got:\n");
+    PrintRecordArrayTo(0, got, "boxed");
+    Fail("Record arrays not equal");
+  }
+}
+
+PUBLIC MACRO TestEqualRecords(RECORD expect, RECORD got)
+{
+  IF (NOT RecordArraysEqual([expect], [got]))
+  {
+    PRINT("Records not equal\nExpected:\n");
+    PrintRecordTo(0, expect, "boxed");
+    PRINT("Got:\n");
+    PrintRecordTo(0, got, "boxed");
+    Fail("Record arrays not equal");
+  }
+}
+
+
+PUBLIC MACRO DebugMsg(STRING comment)
+{
+  PRINT(comment || "\n");
+}
+
+PUBLIC INTEGER FUNCTION OpenTransaction(STRING user, STRING passwd, STRING clientname)
+{
+  RETURN __avoiddepwarning_StartWHDBTransaction([user:=user, passwd:=passwd, auto:=false, clientname:=clientname]);
+}

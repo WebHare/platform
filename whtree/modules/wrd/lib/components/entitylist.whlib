@@ -1,0 +1,672 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/dialogs.whlib";
+
+
+PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Eventlistener component, used for listening to wrd change events
+  OBJECT eventlistener;
+
+  /// Additional event masks to invalidate on
+  STRING ARRAY pvt_eventmasks;
+
+  /// WRD type to select the entities from
+  OBJECT pvt_wrdtype;
+
+  /// Entity context (record with key/values, added to entity filters)
+  RECORD pvt_entitycontext;
+
+  STRING pvt_historymode;
+
+  /// Filters for the list query
+  RECORD ARRAY pvt_listfilters;
+
+  /// Whether the list has been initialized
+  BOOLEAN initialized_list;
+
+  FUNCTION PTR pvt_onselect;
+
+  /// wrd:entity from which we can take wrd_leftentity
+  PUBLIC OBJECT linkfrom; //TODO: dynamically update our list if this property, or the entity it's referring to, gets updated
+
+  /// Whether the list is orderable
+  PROPERTY orderable(GetFalse, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables / properties
+  //
+
+  /// List of columns
+  PUBLIC PROPERTY columns(^entities->columns, ^entities->columns);
+
+  /// List of icons
+  PUBLIC PROPERTY icons(^entities->icons, ^entities->icons);
+
+  /// List of styles
+  PUBLIC PROPERTY styles(^entities->styles, ^entities->styles);
+
+  /// Open action
+  PUBLIC PROPERTY openaction(^entities->openaction, ^entities->openaction);
+
+  PUBLIC PROPERTY rows(^entities->rows, -);
+
+  /// Rowselect option. No longer has any meaning
+  PUBLIC BOOLEAN rowselect;
+
+  /// Filters to apply to the list
+  PUBLIC PROPERTY listfilters(pvt_listfilters, SetListFilters);
+
+  /// Historymode to use
+  PUBLIC PROPERTY historymode(pvt_historymode, Sethistorymode);
+
+  /// List of fields to select. If empty, the selected columns are generated from the names of the columns
+  PUBLIC STRING ARRAY requestcolumns;
+
+  /// Filter that converts the stored rows to list rows (use requestcolumns when additional columns are needed)
+  PUBLIC FUNCTION PTR onmaprows;
+
+  PUBLIC PROPERTY onselect(^entities->onselect, ^entities->onselect);
+
+  /// Whether the list is user-sortable (ignored when list is not orderable)
+  PUBLIC PROPERTY sortable(^entities->sortable, ^entities->sortable);
+
+  /// If true, sort the list ascending
+  PUBLIC PROPERTY sortascending(^entities->sortascending, ^entities->sortascending);
+
+  /// Column to sort the rows on (ignored when orderable = true)
+  PUBLIC PROPERTY sortcolumn(^entities->sortcolumn, SetSortColumn);
+
+  /// WRD type to select the entities from
+  PUBLIC PROPERTY wrdtype(pvt_wrdtype, SetWRDType);
+
+  /// Entity context (record with key/values, added to entity filters)
+  PUBLIC PROPERTY entitycontext(pvt_entitycontext, SetEntityContext);
+
+  /// Additional event masks to invalidate the list on
+  PUBLIC PROPERTY eventmasks(pvt_eventmasks, SetEventMasks);
+
+  PUBLIC PROPERTY value(^entities->value, ^entities->value);
+  PUBLIC PROPERTY selection(^entities->selection, ^entities->selection);
+
+  //PUBLIC MACRO PTR onchange;
+  PUBLIC PROPERTY flags(^entities->flags, ^entities->flags);
+
+  PUBLIC PROPERTY savestate(^entities->savestate, ^entities->savestate);
+
+  PUBLIC PROPERTY empty(^entities->empty, ^entities->empty);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_historymode := "now";
+  }
+
+  UPDATE PUBLIC MACRO PreinitComponent()
+  {
+    TolliumFragmentBase::PreInitComponent();
+    ^embeddedlist->valuecontext := this;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumFragmentBase::StaticInit(definition);
+
+    this->requestcolumns := definition.requestcolumns;
+    this->onmaprows := definition.onmaprows;
+    this->pvt_historymode := definition.historymode;
+    this->linkfrom := definition.linkfrom;
+
+    ^entities->borders := definition.borders;
+    ^entities->columns := definition.columns;
+    ^entities->icons := definition.icons;
+    ^entities->styles := definition.styles;
+    ^entities->height := this->height;
+    ^entities->width := this->width;
+    ^entities->minheight := this->minheight;
+    ^entities->minwidth := this->minwidth;
+    ^entities->sortable := definition.sortable;
+    ^entities->sortascending := definition.sortascending;
+    ^entities->sortcolumn := definition.sortcolumn;
+    ^entities->selectcontextmenu := definition.selectcontextmenu;
+    ^entities->newcontextmenu := definition.newcontextmenu;
+    ^entities->debugactions := [[ type := "wrd:entity", cellname := "rowkey" ]];
+    ^entities->onselect := definition.onselect;
+    ^entities->onfocusin := definition.onfocusin;
+    ^entities->empty := definition.empty;
+
+    IF(definition.openaction != DEFAULT OBJECT)
+      ^entities->openaction := definition.openaction;
+    //^entities->onchange := definition.onchange;
+
+    this->eventlistener := this->CreateSubComponent("eventlistener");
+    this->eventlistener->onevent := PTR this->GotEvent;
+    this->flags := definition.flags;
+
+    IF(definition.wrdtype != "" AND NOT this->owner->tolliumcontroller->isvalidation) // skip when validating
+    {
+      OBJECT wrdschema;
+      IF(definition.wrdcontext="")
+      {
+        IF(NOT ObjectExists(this->contexts->wrdschema))
+          THROW NEW Exception(`Entitylists with wrdtype (here: '${definition.wrdtype}') but without wrdschema requires a contexts->wrdschema`);
+        wrdschema := this->contexts->wrdschema;
+      }
+      ELSE
+      {
+        wrdschema := this->GetAppContext(definition.wrdcontext); //FIXME this prevents this objecttype from going STATIC
+        IF(NOT ObjectExists(wrdschema))
+          THROW NEW TolliumException(this, `No WRD schema associated with context '${definition.wrdcontext}'`);
+      }
+
+      this->wrdtype := wrdschema->GetType(definition.wrdtype);
+      IF(NOT ObjectExists(this->wrdtype))
+      {
+        STRING bestmatch := GetBestMatch(definition.wrdtype, SELECT AS STRING ARRAY tag FROM wrdschema->ListTypes());
+        THROW NEW Exception("No such WRD type '" || definition.wrdtype || "' in schema '" || wrdschema->tag || "'"
+            || (bestmatch != "" ? ", did you mean type '" || bestmatch || "'?" : ""));
+      }
+    }
+  }
+
+  UPDATE PUBLIC MACRO PostInitComponent()
+  {
+    this->eventlistener->EnsurePostInit();
+  }
+
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    ^entities->ExecutePathAction(path);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  BOOLEAN FUNCTION GetFalse()
+  {
+    RETURN FALSE;
+  }
+
+  MACRO SetWRDType(OBJECT newwrdtype)
+  {
+    this->pvt_wrdtype := newwrdtype;
+    this->ProcessEventMasks();
+    this->Invalidate();
+  }
+
+  MACRO SetEventMasks(STRING ARRAY newmasks)
+  {
+    this->pvt_eventmasks := newmasks;
+    this->ProcessEventMasks();
+  }
+
+  MACRO SetEntityContext(RECORD newcontext)
+  {
+    this->pvt_entitycontext := newcontext;
+    this->Invalidate();
+  }
+
+  MACRO SetListFilters(RECORD ARRAY listfilters)
+  {
+    this->pvt_listfilters := listfilters;
+    this->Invalidate();
+  }
+  MACRO SetHistoryMode(STRING historymode)
+  {
+    this->pvt_historymode := historymode;
+    this->Invalidate();
+  }
+
+  MACRO SetSortColumn(STRING newsortcolumn)
+  {
+    STRING org_sortcolumn := ^entities->sortcolumn;
+    ^entities->sortcolumn := newsortcolumn;
+
+    // Refresh the list if the current contents aren't sorted correctly
+    IF (NOT this->orderable AND org_sortcolumn != "<ordered>" AND newsortcolumn = "<ordered>")
+      this->Invalidate();
+  }
+
+  /** Add an action to the the list (button and menu item)
+      @param title Title for the button and menu item
+      @param toexecute Callback handler
+      @cell options.requireselection Whether to require a selection for this action. Defaults to TRUE.
+      @return ID for the added action
+  */
+  UPDATE PUBLIC INTEGER FUNCTION AddAction(STRING title, MACRO PTR toexecute, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN ^entities->AddAction(title, toexecute, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium stuff
+  //
+
+  UPDATE PUBLIC OBJECT FUNCTION GetEnableOnComponent()
+  {
+    RETURN ^entities->GetEnableOnComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotEvent(STRING event, RECORD data)
+  {
+    this->Invalidate();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION GetFinalEntityContext(BOOLEAN forwrite)
+  {
+    RECORD context := this->entitycontext;
+
+    IF(ObjectExists(this->linkfrom))
+    {
+      IF(CellExists(context, "WRD_LEFTENTITY"))
+        THROW NEW TolliumException(this, "The entitycontext should not contain a WRD_LEFTENTITY if a 'linkfrom' has been assigned to an entity list");
+
+      //TODO delay temporary generation until we're actually writing to the database
+      context := CELL[ ...context
+                     , wrd_leftentity := forwrite ? this->linkfrom->EnsureReservedEntityId() : this->linkfrom->GetReservedEntityId()
+                     ];
+    }
+    RETURN context;
+  }
+
+  MACRO ProcessEventMasks()
+  {
+    this->eventlistener->masks := this->pvt_eventmasks CONCAT (ObjectExists(this->pvt_wrdtype) ? this->pvt_wrdtype->GetEventMasks() : DEFAULT STRING ARRAY);
+  }
+
+  RECORD ARRAY FUNCTION DoGetChildren(RECORD parentrow)
+  {
+    this->initialized_list := TRUE;
+
+    IF (RecordExists(parentrow) OR NOT ObjectExists(this->pvt_wrdtype))
+      RETURN RECORD[];
+
+    RECORD query := this->GetFullListQuery();
+    IF(NOT RecordExists(query))
+      RETURN RECORD[];
+
+    RECORD ARRAY myrows := this->pvt_wrdtype->RunQuery(query);
+    IF (this->orderable OR this->sortcolumn = "<ordered>")
+      myrows := SELECT * FROM myrows ORDER BY wrd_ordering;
+
+    IF (this->pvt_historymode != "now")
+    {
+      DATETIME now := GetCurrentDatetime();
+      myrows := SELECT *, listrowclasses := now < wrd_creationdate OR now > wrd_limitdate ? ["grayedout"] : STRING[] FROM myrows;
+    }
+
+    //flatten to get the user's requested columns (+rowkey)
+    myrows := SELECT AS RECORD ARRAY CELL[ rowkey := wrd_id
+                                         , listrowclasses := this->pvt_historymode != "now" ? myrows.listrowclasses : STRING[]
+                                         , ...myrows.requestedcolumns
+                                         ] FROM myrows;
+    IF (Length(myrows) > 0 AND this->onmaprows != DEFAULT FUNCTION PTR)
+      myrows := this->onmaprows(myrows);
+
+    RETURN myrows;
+  }
+
+  RECORD FUNCTION GetOutputColumns()
+  {
+    RECORD outputcols := CELL[];
+    IF(Length(this->requestcolumns) = 0)
+    {
+      FOREVERY(RECORD listcol FROM ^entities->columns)
+        outputcols := CellInsert(outputcols, listcol.name, listcol.name);
+      FOREVERY(STRING flag FROM ^entities->flags)
+        outputcols := CellInsert(outputcols, flag, flag);
+    }
+    ELSE IF(Length(this->requestcolumns) = 1 AND this->requestcolumns[0]="*")
+    {
+      FOREVERY(RECORD col FROM this->wrdtype->ListAttributes(0))
+        outputcols := CellInsert(outputcols, col.tag, col.tag);
+    }
+    ELSE
+    {
+      FOREVERY(STRING req FROM this->requestcolumns)
+        outputcols := CellInsert(outputcols, req, req);
+    }
+
+    RETURN outputcols;
+  }
+
+  RECORD FUNCTION GetFullListQuery() //Build a query gathering any list specified columns
+  {
+    RECORD listquery := [ outputcolumns := CELL[ "WRD_ID", "WRD_CREATIONDATE",  "WRD_LIMITDATE", requestedcolumns := this->GetOutputColumns() ]
+                        , filters := this->pvt_listfilters
+                        , historymode := this->pvt_historymode
+                        ];
+
+    IF(this->orderable OR this->sortcolumn = "<ordered>")
+      listquery.outputcolumns := CELL[...listquery.outputcolumns, "WRD_ORDERING"];
+    IF(this->pvt_historymode != "now")
+      listquery.outputcolumns := CELL[...listquery.outputcolumns, "WRD_CREATIONDATE", "WRD_LIMITDATE"];
+
+    RECORD context := this->GetFinalEntityContext(FALSE);
+
+    IF(RecordExists(context))
+    {
+      //Check for wrd_leftentity = 0 - a likely common no-op when dealing with linkfrom=
+      IF(ObjectExists(this->wrdtype) AND CellExists(context,"WRD_LEFTENTITY") AND context.wrd_leftentity = 0)
+        RETURN DEFAULT RECORD;
+
+      FOREVERY(RECORD criteria FROM UnpackRecord(context))
+        INSERT [ field := criteria.name
+               , value := criteria.value
+               ] INTO listquery.filters AT END;
+    }
+
+    RETURN listquery;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  UPDATE PUBLIC MACRO Invalidate()
+  {
+    IF (this->initialized_list)
+      ^entities->Invalidate();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EntityList EXTEND EntityListBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN pvt_orderable;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables / properties
+  //
+
+  /// Whether list is orderable by the user
+  UPDATE PUBLIC PROPERTY orderable(pvt_orderable, SetOrderable);
+
+  /** Give access to the list component embedded in this component.
+      This makes it possible to for example use entitylist->embeddedlist->GetIcon().
+  */
+  PUBLIC PROPERTY embeddedlist(^entities, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    EntityListBase::StaticInit(definition);
+
+    this->orderable := definition.orderable;
+    ^entities->selectmode := definition.selectmultiple ? "multiple" : "single";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetOrderable(BOOLEAN neworderable)
+  {
+    this->pvt_orderable := neworderable;
+    this->Invalidate();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ApplyNewOrdering(INTEGER ARRAY rowkeys)
+  {
+    OBJECT work := this->owner->BeginUnvalidatedWork();
+    FOREVERY (INTEGER rowkey FROM rowkeys)
+      this->pvt_wrdtype->UpdateEntity(rowkey, [ wrd_ordering := #rowkey + 1 ]);
+    work->Finish();
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  STRING pvt_deletemode;
+
+  MACRO PTR pvt_onentitydelete;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables / properties
+  //
+
+  /// Override for edit screen (signature: MACRO func(OBJECT wrdtype, RECORD context, INTEGER wrd_id) )
+  PUBLIC MACRO PTR onentityedit;
+
+  /// Override for standard entity delete (signature: MACRO func(OBJECT wrdtype, INTEGER wrd_id) ).
+  PUBLIC PROPERTY onentitydelete(pvt_onentitydelete, SetOnEntityDelete);
+
+  /// Screen used to edit the entity. Should extend WRDEntityEditScreenBase (or implement the same interface)
+  PUBLIC STRING entityeditscreen;
+
+  /// Showbuttons
+  PUBLIC PROPERTY showbuttons(^entities->showbuttons, ^entities->showbuttons);
+  /// Buttons to show ('add'/'edit'/'delete')
+  PUBLIC PROPERTY buttons(^entities->buttons, ^entities->buttons);
+
+  /// Delete mode (""/"delete"/"close"/"delete-closereferred"/"delete-denyreferred"/"close-denyreferred").
+  PUBLIC PROPERTY deletemode(pvt_deletemode, SetDeleteMode);
+
+  /// Whether list is orderable by the user
+  UPDATE PUBLIC PROPERTY orderable(GetOrderable, SetOrderable);
+
+  /** Give access to the list component embedded in this component.
+      This makes it possible to for example use entitiesedit->embeddedlist->GetIcon().
+  */
+  PUBLIC PROPERTY embeddedlist(^entities->embeddedlist, -);
+
+  /** Use to override the processing of a ordering change. Passes the rowkeys of the rows in the new order.
+
+      Signature: MACRO func(OBJECT wrdtype, INTEGER ARRAY wrd_ids).
+  */
+  PUBLIC MACRO PTR onchangeorder;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    EntityListBase::StaticInit(definition);
+
+    this->onentityedit := definition.onentityedit;
+    this->onentitydelete := definition.onentitydelete;
+    this->entityeditscreen := definition.entityeditscreen;
+    this->deletemode := definition.deletemode;
+    this->orderable := definition.orderable;
+    this->onchangeorder := definition.onchangeorder;
+
+    ^entities->buttons := definition.buttons;
+    ^entities->showbuttons := definition.showbuttons;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetDeleteMode(STRING deletemode)
+  {
+    IF(deletemode NOT IN [ "", "delete", "close", "delete-closereferred", "delete-denyreferred", "close-denyreferred" ])
+      THROW NEW Exception("Invalid delete mode '" || deletemode || "'");
+
+    this->pvt_deletemode := deletemode;
+    this->ReapplyDeleteHandler();
+  }
+
+  MACRO SetOnEntityDelete(MACRO PTR onentitydelete)
+  {
+    this->pvt_onentitydelete := onentitydelete;
+    this->ReapplyDeleteHandler();
+  }
+
+  BOOLEAN FUNCTION GetOrderable()
+  {
+    RETURN ^entities->onchangeorder != DEFAULT FUNCTION PTR;
+  }
+
+  MACRO SetOrderable(BOOLEAN neworderable)
+  {
+    ^entities->onchangeorder := neworderable ? PTR this->ApplyNewOrdering : DEFAULT FUNCTION PTR;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ReapplyDeleteHandler()
+  {
+    ^entities->onrowdelete := this->pvt_deletemode != "" OR this->pvt_onentitydelete != DEFAULT FUNCTION PTR
+        ? PTR this->dorowdelete
+        : DEFAULT MACRO PTR;
+  }
+
+  /** Run an entity add/edit screen  */
+  PUBLIC INTEGER FUNCTION RunEntityEditScreen(STRING roweditscreen, INTEGER entityid)
+  {
+    RECORD opts := CELL[ entitycontext :=  this->GetFinalEntityContext(TRUE)
+                       , component :=      this
+                       , initordering :=   this->orderable
+                       ];
+
+    IF(roweditscreen != "")
+      INSERT CELL screen := MakeAbsoluteScreenReference(this->owner->tolliumscreenmanager->resourcename, roweditscreen) INTO opts;
+
+    INTEGER newentityid := RunWRDEntityEditDialog(this->owner, this->pvt_wrdtype, entityid, opts);
+    IF (entityid = 0)
+      ^entities->value := newentityid;
+    RETURN entityid ?? newentityid;
+  }
+
+  MACRO DoRowEdit(RECORD inrow)
+  {
+    INTEGER toedit := RecordExists(inrow) ? inrow.rowkey : 0;
+    IF(this->onentityedit != DEFAULT MACRO PTR)
+    {
+      /* We'll assume that if you went to the trouble of enabling 'Add' and linkfrom= on a wrd entitieslist that might deal
+         with not-yet-existing entities, you're okay with the database hit of already creating that temporary when we invoke your editor */
+      IF (ValidateFunctionPTR(this->onentityedit, TypeID(INTEGER), [ TYPEID(OBJECT), TypeID(RECORD), TypeID(INTEGER) ]))
+      {
+        INTEGER newid := this->onentityedit(this->pvt_wrdtype, this->GetFinalEntityContext(TRUE), toedit);
+        IF (newid != 0)
+          ^entities->value := newid;
+      }
+      ELSE
+        this->onentityedit(this->pvt_wrdtype, this->GetFinalEntityContext(TRUE), toedit);
+    }
+    ELSE
+    {
+      STRING roweditscreen := this->entityeditscreen;
+      IF(roweditscreen="")
+        THROW NEW TolliumException(this, "No entity editor specified, use 'entityeditscreen' or 'onentityedit'");
+
+      this->RunEntityEditScreen(roweditscreen, toedit);
+    }
+  }
+
+  MACRO DoRowDelete(RECORD inrow)
+  {
+    OBJECT killentity := this->pvt_wrdtype->GetEntity(inrow.rowkey);
+    IF(NOT ObjectExists(killentity))
+      RETURN;
+
+    IF (this->onentitydelete != DEFAULT MACRO PTR)
+    {
+      this->onentitydelete(this->pvt_wrdtype, inrow.rowkey);
+      RETURN;
+    }
+
+    IF(this->owner->RunMessageBox("wrd:components.confirmdeleteentity") != "yes")
+      RETURN;
+
+    this->DeleteRowAccordingToMode(inrow.rowkey);
+  }
+
+  MACRO ApplyNewOrdering(INTEGER ARRAY rowkeys)
+  {
+    IF (this->onchangeorder != DEFAULT FUNCTION PTR)
+      this->onchangeorder(this->pvt_wrdtype, rowkeys);
+    ELSE
+    {
+      OBJECT work := this->owner->BeginUnvalidatedWork();
+      FOREVERY (INTEGER rowkey FROM rowkeys)
+        this->pvt_wrdtype->UpdateEntity(rowkey, [ wrd_ordering := #rowkey + 1 ]);
+      work->Finish();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /// Adds a new row and triggers the edit handling (usually, opening the entity edit dialog)
+  PUBLIC MACRO AddRow()
+  {
+    this->DoRowEdit(DEFAULT RECORD);
+  }
+
+  /** Delete the specified according to the current mode. Will popup up a 'cannotdeletereferredentity' dialog if the mode requires it!
+      @param rowkey WRD_ID of the entity to delete
+  */
+  PUBLIC MACRO DeleteRowAccordingToMode(INTEGER rowkey)
+  {
+    OBJECT work := this->owner->BeginUnvalidatedWork();
+    OBJECT killentity := this->pvt_wrdtype->GetEntity(rowkey);
+    IF(ObjectExists(killentity) AND NOT killentity->RemoveEntity(this->deletemode))
+    {
+      work->Cancel();
+      this->owner->RunMessageBox("wrd:components.cannotdeletereferredentity");
+      RETURN;
+    }
+    work->Finish();
+  }
+>;

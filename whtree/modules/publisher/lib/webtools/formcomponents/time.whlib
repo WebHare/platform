@@ -1,0 +1,166 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+
+
+PUBLIC OBJECTTYPE FormTime EXTEND FormComponentExtensionBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->precision->value := this->node->GetAttribute("precision");
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+      this->node->SetAttribute("precision", this->precision->value);
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormTime(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  INSERT CELL placeholder := parsecontext.parsexmltidptr(node, "placeholder")
+            , value := node->GetAttribute("value")
+            , precision := node->GetAttribute("precision") ?? "minutes"
+         INTO fielddef;
+  RETURN fielddef;
+}
+
+INTEGER FUNCTION CalcRealTime(STRING abstracttime, INTEGER ifempty)
+{
+  IF (abstracttime = "")
+    RETURN ifempty;
+  IF(abstracttime LIKE "??:??" OR abstracttime LIKE "??:??:??")
+  {
+    STRING ARRAY parts := Tokenize(abstracttime, ":");
+    IF (Length(parts) = 2 OR Length(parts) = 3)
+    {
+      INTEGER hours := ToInteger(parts[0], -1);
+      INTEGER minutes := ToInteger(parts[1], -1);
+      INTEGER seconds := Length(parts) = 3 ? ToInteger(parts[2], -1) : 0;
+      IF (hours >= 0 AND hours < 24 AND minutes >= 0 AND minutes < 60 AND seconds >= 0 AND seconds < 60)
+        RETURN ((((hours * 60) + minutes) * 60) + seconds) * 1000;
+    }
+  }
+  THROW NEW Exception("Unrecognized abstract time '" || abstracttime || "'");
+}
+STRING FUNCTION MakeSettableAbstractTime(STRING newtime, STRING precision)
+{
+  IF (newtime = "")
+    RETURN "";
+  RETURN MakeSettableRealTime(CalcRealTime(newtime, -1), precision);
+}
+STRING FUNCTION MakeSettableRealTime(INTEGER newtime, STRING precision)
+{
+  IF (newtime < -1 OR newtime >= 24 * 60 * 60 * 1000)
+    THROW NEW Exception("Time is out of range");
+  IF (newtime = -1)
+    RETURN "";
+  RETURN FormatTimestamp(precision = "seconds" ? "%H:%M:%S" : "%H:%M", newtime);
+}
+
+PUBLIC OBJECTTYPE TimeField EXTEND FormFieldBase
+<
+  STRING pvt_precision;
+  STRING pvt_abstractvalue;
+
+  PUBLIC PROPERTY value(GetValue,SetValue);
+
+  PUBLIC PROPERTY precision(pvt_precision,SetPrecision);
+  PUBLIC PROPERTY abstractvalue(pvt_abstractvalue,SetAbstractValue);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getter & setters
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+    this->pvt_precision := "minutes";
+    IF (field.isstatic)
+    {
+      this->pvt_precision := field.precision;
+      this->pvt_abstractvalue := MakeSettableAbstractTime(field.value, this->precision);
+    }
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetRenderData()
+  {
+    RECORD rec := this->GetBaseRenderData();
+    DELETE CELL value FROM rec;
+    INSERT CELL value := FormatTimestamp(this->precision = "seconds" ? "%H:%M:%S" : "%H:%M", this->value) INTO rec;
+    RETURN rec;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RECORD base := CELL[ ...this->GetBaseRenderData()
+                       , type := "time"
+                       , value := this->abstractvalue
+                       , precision := this->precision
+                       ];
+    RETURN base;
+  }
+
+  INTEGER FUNCTION GetValue()
+  {
+    RETURN CalcRealTime(this->pvt_abstractvalue, -1);
+  }
+
+  MACRO SetValue(INTEGER newvalue)
+  {
+    this->pvt_abstractvalue := MakeSettableRealTime(newvalue, this->precision);
+    this->form->__SendFormMessage(this->field.name, 'value', this->abstractvalue);
+  }
+
+  MACRO SetPrecision(STRING precision)
+  {
+    IF (precision IN [ "minutes", "seconds" ] AND precision != this->pvt_precision)
+    {
+      this->pvt_precision := precision;
+      this->SetAbstractValue(this->abstractvalue);
+    }
+  }
+
+  MACRO SetAbstractValue(STRING newvalue)
+  {
+    this->pvt_abstractvalue := MakeSettableAbstractTime(newvalue, this->precision);
+  }
+
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    this->pvt_abstractvalue := jsdata;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN this->value != -1;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    RETURN [[ title := this->title
+            , name := "value"
+            , type := "text"
+            , precision := this->precision
+           ]];
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    RETURN SELECT *, value := MakeSettableRealTime(value, this->precision)
+             FROM inputvalues;
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetComposableData()
+  {
+    RETURN CELL[ ...FormFieldBase::GetComposableData()
+               , text  := this->abstractvalue
+               ];
+  }
+>;

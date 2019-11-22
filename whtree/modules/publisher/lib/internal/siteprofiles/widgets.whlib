@@ -1,0 +1,213 @@
+<?wh
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+PUBLIC RECORD __pvt_widget_passthrough;
+
+RECORD FUNCTION GetContentTypePrimaryGroup(RECORD csp, STRING contenttypens)
+{
+  RECORD pos := RecordLowerBound(csp.contenttypes, [ namespace := contenttypens ], [ "NAMESPACE" ]);
+  IF (pos.found)
+  {
+    RECORD ct := csp.contenttypes[pos.position];
+    IF (LENGTH(ct.groupmemberships) != 0)
+    {
+      STRING grouptypens := ct.groupmemberships[0].grouptype;
+      pos := RecordLowerBound(csp.grouptypes, [ namespace := grouptypens ], [ "NAMESPACE" ]);
+      IF (NOT pos.found)
+        THROW NEW Exception("Internal contenttypes consistency errors - could not find referenced group " || grouptypens);
+      RETURN csp.grouptypes[pos.position];
+    }
+  }
+  RETURN DEFAULT RECORD;
+}
+
+/* Under the assumption that most hits will hit relatively few documents,
+   and seeing that we want to avoid Getcachedsiteprofiles in hot paths
+   cache for (more-or-less) combinations of widgettype + fileid. Saved me
+   30ms per dynamic page (where we now completely avoid GetCSP)
+
+   TODO This cache might not be worth it anymore if we can optimize Getcachedsiteprofiles in the future - keep verifying
+*/
+RECORD FUNCTION DescribeWidgetType(STRING widgettype, OBJECT applytester, STRING rtdtype)
+{
+  // Lookup embeddedobjecttype directly
+  RECORD ARRAY typedefs := LookupContentTypes(widgettype);
+  IF (LENGTH(typedefs) != 1 OR typedefs[0].namespace != widgettype OR NOT typedefs[0].isembeddedobjecttype)
+    THROW NEW Exception(`Type '${widgettype}' is not registered as an embedded object type`);
+
+  RECORD typeinfo := typedefs[0];
+
+  //Add missing base fields
+  OBJECT whfstype := OpenWHFSType(widgettype); //FIXME can't we combine our check above with data from here ?
+  IF(NOT ObjectExists(whfstype))
+    THROW NEW Exception(`Type '${widgettype}' can't be opened`);
+
+  IF(rtdtype != "")
+  {
+    IF(ObjectExists(applytester))
+    {
+      typeinfo := applytester->GetUpdatedWidget(typeinfo);
+    }
+    //workaround for legacy multimode widgets, we don't always have an applytester when rtdtype is involved.
+    ELSE IF(RecordExists(typeinfo) AND widgettype = "http://www.webhare.net/xmlns/publisher/embedhtml")
+    {
+      typeinfo.renderer := [ objectname := "mod::publisher/lib/widgets/htmlwidget.whlib#HTMLWidgetBase"
+                           ];
+    }
+    ELSE IF(RecordExists(typeinfo) AND widgettype = "http://www.webhare.net/xmlns/publisher/embedvideo")
+    {
+      typeinfo.renderer := [ objectname := "mod::publisher/lib/widgets/videowidget.whlib#VideoWidgetBase"
+                           ];
+    }
+  }
+
+
+  RETURN [ ttl := 30*60*1000
+         , eventmasks := [ "publisher:internal.siteprofiles.recompiled" ]
+         , value := [ structure := whfstype->structure
+                    , typeinfo := typeinfo
+                    ]
+         ];
+}
+
+/** @param fsobject Used for legacy objects. leave empty if rtdtype is known
+*/
+PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applytester, STRING rtdtype, RECORD instancedata, OBJECT widgetcontext)
+{
+  RECORD described;
+  IF(rtdtype != "")
+  {
+    described := GetAdhocCached(CELL[ instancedata.whfstype
+                                    , applytester :=  ObjectExists(applytester) ? applytester->__GetCacheKey() : ""
+                                    , rtdtype
+                                    ]
+                               ,PTR DescribeWidgetType(instancedata.whfstype, applytester, rtdtype)
+                               );
+  }
+  ELSE
+  {
+    //no rtdtype is old, don't bother caching
+    described := DescribeWidgetType(instancedata.whfstype, applytester, rtdtype).value;
+  }
+
+  //Add missing base fields
+  instancedata := EnforceStructure(described.structure, instancedata);
+
+  RECORD typeinfo := described.typeinfo;
+  STRING objectname := RecordExists(typeinfo.renderer) ? typeinfo.renderer.objectname : "";
+  STRING siteprof_fileref := typeinfo.siteprofile;
+
+  IF(ObjectExists(fsobject) AND rtdtype = "")
+  {
+    RECORD ARRAY nodes := applytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "setembeddedobjectrenderer");
+    FOREVERY (RECORD rec FROM nodes)
+      IF (rec.node->GetAttribute("contenttype") = instancedata.whfstype)
+      {
+        //FIXME why aren't we using parsefspath ?
+        objectname := MakeAbsoluteResourcePath(rec.siteprofile->name, rec.node->GetAttribute("library")) || "#" || rec.node->GetAttribute("objectname");
+        siteprof_fileref := rec.siteprofile->name;
+      }
+  }
+
+  OBJECT obj;
+  IF (objectname = "")
+    objectname  := "mod::publisher/lib/widgets.whlib#WidgetBase";
+
+  RECORD savedata := __pvt_widget_passthrough;
+  __pvt_widget_passthrough :=
+      CELL[ data := instancedata
+          , type := instancedata.whfstype
+          , rtdtype
+          , typeinfo.wittycomponent
+          , typeinfo.previewcomponent
+          , applytester
+          , whfssettingid := RecordExists(instancedata) ? instancedata.whfssettingid : 0
+          , whfsfileid := RecordExists(instancedata) ? instancedata.whfsfileid : 0
+          , context := widgetcontext
+          , typeinfo.requiremergefieldscontext
+          ];
+  TRY
+  {
+    obj := MakeObject(objectname);
+    IF(NOT MemberExists(obj, "__pvt_widgetsettings")) //not a widget
+    {
+      IF(rtdtype!="")
+      {
+        STRING matching;
+        IF(ObjectExists(applytester))
+          matching := " (matching for #" || applytester->__Deprecated_GetObjInfo().obj.id || ")";
+
+        THROW NEW Exception(`The renderer object '${objectname}' for a widget of type '${instancedata.whfstype}' does not derive from WidgetBase and not intended for RTD documents with a rtdtype${matching}`);
+      }
+
+      obj->basefsobject := fsobject;
+      obj->data := instancedata;
+
+      OBJECT siteprof := OpenSiteProfile(siteprof_fileref);
+      obj->__pvt_callbacks :=
+          [ gettid :=     PTR siteprof->GetTidForLanguage(#1, #2, #3, #4, #5, #6)
+          ];
+    }
+  }
+  FINALLY
+  {
+    __pvt_widget_passthrough := savedata;
+  }
+  RETURN [ widget := obj
+         , canedit := RecordExists(typeinfo.editor)
+         , embedtype := typeinfo.embedtype
+         ];
+
+}
+
+/** Returns the contenttype record of the namespace, or all the contenttypes that are member of the specified group
+    @param namespace Contenttype or grouptype
+    @return List of matching contenttypes
+    @cell(string) return.namespace
+    @cell(string) return.type
+    @cell(string) return.siteprofile
+    @cell(record array) return.groupmemberships
+    @cell(integer) return.groupmemberships.namespace
+*/
+PUBLIC RECORD ARRAY FUNCTION LookupContentTypes(STRING namespace)
+{
+  RECORD csp := GetCachedSiteProfiles();
+
+  RECORD ARRAY contenttypes;
+
+  RECORD pos := RecordLowerBound(csp.grouptypes, [ namespace := namespace ], [ "NAMESPACE" ]);
+  IF (pos.found)
+    contenttypes := csp.grouptypes[pos.position].members;
+  ELSE
+  {
+    pos := RecordLowerBound(csp.contenttypes, [ namespace := namespace ], [ "NAMESPACE" ]);
+    IF (pos.found)
+      contenttypes := [ RECORD(csp.contenttypes[pos.position]) ];
+  }
+
+  contenttypes :=
+      SELECT *
+           , primarygroup :=    GetContentTypePrimaryGroup(csp, COLUMN namespace)
+        FROM contenttypes;
+
+  RETURN contenttypes;
+}
+
+PUBLIC RECORD ARRAY FUNCTION __GetContentTypesByType(STRING type)
+{
+  RECORD csp := GetCachedSiteProfiles();
+
+  RECORD ARRAY contenttypes :=
+      SELECT *
+           , primarygroup :=    GetContentTypePrimaryGroup(csp, COLUMN namespace)
+        FROM csp.contenttypes
+       WHERE COLUMN type = VAR type;
+
+  RETURN contenttypes;
+}

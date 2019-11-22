@@ -1,0 +1,537 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/tolliumapps/config/deploy.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+STRING FUNCTION FormatWHVersion(INTEGER num)
+{
+  RETURN num / 10000 || "." || (num / 100 % 100) || "." || (num % 100);
+}
+
+STRING FUNCTION GetWebsiteForRepository(STRING type, STRING repository_url)
+{
+  IF(type = "git")
+  {
+    IF(repository_url LIKE "*@gitlab.*:*/*" OR repository_url LIKE "*@www.gitlab.*:*/*")
+    {
+      /* eg:
+           git@gitlab.webhare.com:webhare/blexdev_formsapi.git == https://gitlab.webhare.com/webhare/blexdev_formsapi.git (and it will redirect itself)
+           a@b:c/d == https://b/c/d/
+           */
+      repository_url := Tokenize(repository_url,'@')[1];
+      STRING ARRAY toks := Tokenize(repository_url,':');
+      RETURN `https://${toks[0]}/${toks[1]}`;
+    }
+  }
+  RETURN "";
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetModuleDetails(STRING langcode)
+{
+  //TODO yield statusses as they come in?
+  //TODO first return basic git info before we dive into the commits?
+  SetTidLanguage(langcode);
+  RECORD ARRAY enriched;
+
+  //Gather git statuses.
+  FOREVERY(RECORD mod FROM GetRevisionOfAllModules())
+  {
+    /* STRING BRANCH = 'master'
+       STRING LOCALREMOTEREVISION = 'fff497f48cad72d645a98aa1784a3ad1a51a8a0e'
+       STRING NAME = 'blexdev_formsapi'
+       STRING REMOTEREVISION = ''
+       STRING REPOSITORY_URL = 'git@gitlab.webhare.com:webhare/blexdev_formsapi.git'
+       STRING REVISION = 'fff497f48cad72d645a98aa1784a3ad1a51a8a0e'
+       STRING TYPE = 'git'
+       RECORD ARRAY COMMITS (length=220)
+    */
+    INSERT [ name := mod.name
+           , revision := mod.branch || " / " || Left(mod.revision, 7)
+           , gitinfo := mod
+           , website := GetWebsiteForRepository(mod.type, mod.repository_url)
+           ] INTO enriched AT END;
+  }
+
+  //Gather statusses from manifests
+  RECORD ARRAY modlist := EnrichInstalledModulesWithManifests(GetInstalledModulesOverview(FALSE)); //don't get deleted modules
+  FOREVERY(RECORD mod FROM modlist)
+  {
+    IF(RecordExists(SELECT FROM enriched WHERE name = mod.name))
+      CONTINUE; // already seen
+
+    IF(mod.source_revision != "")
+    {
+      INSERT [ name := mod.name
+             , revision := mod.source_revision || (mod.source_uncommittedchanges ? " " || GetTid("system:tolliumapps.config.main.uncommittedchanges") : "")
+             , gitinfo := DEFAULT RECORD
+             , website := ""
+             ] INTO enriched AT END;
+    }
+  }
+
+  RETURN enriched;
+}
+
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  RECORD ARRAY moduledetails;
+  RECORD peerconnectinfo;
+  RECORD ARRAY peermods;
+  RECORD ARRAY modulecolumns;
+
+  RECORD hookinguserdata;
+
+  OBJECT revisionupdatefifo;
+
+  MACRO Init(RECORD data)
+  {
+    this->revisionupdatefifo := NEW FIFO;
+    this->modulecolumns := ^modules->columns;
+    this->SetConnectedPeer(DEFAULT OBJECT);
+    this->frame->RegisterAppEventListener("system:softreset", PTR this->OnModuleUpdate);
+    this->frame->RegisterAppEventListener("system:modulesupdate", PTR this->OnModuleUpdate);
+    this->RefreshPermissions();
+    this->LoadRevisionInfo();
+
+    ^peertabs->insertpoints := [ [ name := "peermodulelist", component := ^peermodules ] ];
+
+    IF(RecordExists(data.message))
+    {
+      this->OnMessage(data.message);
+    }
+    ELSE IF(Length(data.params) > 0)
+    {
+      ^modules->SetValueIfValid(data.params[0]);
+      ^configuremodule->TolliumClick();
+    }
+  }
+
+  MACRO OnMessage(RECORD msg)
+  {
+    msg := EnforceStructure([ panel := "" , module := "", registrykey := "" ], msg);
+
+    IF(msg.panel = "registry") //used by dashboard warning about this regkey TODO remove by jumping straight to webserver tweaks
+    {
+      this->RunScreen("mod::system/screens/sysmgmt/registry.xml#editreg", [ selectkey := msg.registrykey ]);
+    }
+    ELSE IF(msg.module != "") //used by dashboard error list
+    {
+      ^modules->SetValueIfValid(msg.module);
+    }
+  }
+
+  MACRO GotUnload()
+  {
+    this->revisionupdatefifo->Close();
+  }
+
+  MACRO RefreshPermissions()
+  {
+    this->frame->flags.developer := GetDtapStage() = "development";
+
+    ^connectremotebutton->visible := this->frame->flags.developer;
+    ^deploymodulebutton->visible := this->frame->flags.developer;
+    //^disconnectremotebutton->visible := this->frame->flags.developer;
+
+    ^modules->Invalidate();
+  }
+
+  MACRO DoRefresh()
+  {
+    this->revisionupdatefifo->Push([ modules := [ "*" ] ]);
+    this->RefreshPeerModules();
+  }
+
+  MACRO DoClose()
+  {
+    this->tolliumresult:= "ok";
+  }
+
+  RECORD ARRAY FUNCTION GetModules()
+  {
+    RECORD ARRAY overview := GetInstalledModulesOverview(^showdeleted->value);
+    STRING ARRAY peermodules := SELECT AS STRING ARRAY name FROM this->peermods;
+
+    overview := SELECT *
+                     , details := (SELECT * FROM this->moduledetails WHERE moduledetails.name = overview.name)
+                     , isinstalledonpeer := name IN peermodules
+                  FROM overview;
+
+    RETURN SELECT name
+                , path
+                , version
+                , description
+                , lastmodified
+                , candownload
+                , typeicon := isdeleted ? 0 : isinstalled ? 3 : isbuiltin ? 2 : 4
+                //, revision := source_revision || (source_uncommittedchanges ? " " || this->GetTid(".uncommittedchanges") : "")
+                , details
+                , revision       := RecordExists(details) ? details.revision : ""
+                , havewebsite    := RecordExists(details) AND details.website != ""
+                , listrowclasses := isdeleted ? ["grayedout"] : STRING[]
+                , rowkey         := name
+                , isavailable    := NOT isdeleted
+                , configscreen
+                , isconfigurable := configscreen != ""
+                , configicon     := (configscreen != "") ? 5 : 0
+                , canmanage      := isinstalled AND packagingupgrade
+                , canseeversions := isinstalled OR isdeleted
+              FROM overview;
+  }
+
+  ASYNC MACRO LoadRevisionInfo()
+  {
+    STRING ARRAY modules := [ "*" ];
+    WHILE (LENGTH(modules) != 0)
+    {
+      // ADDME: update only the modules that need updating
+      this->moduledetails := AWAIT AsyncCallFunctionFromJob(Resolve("#GetModuleDetails"), GetTidLanguage());
+      ^modules->Invalidate();
+      ^peermodules->Invalidate();
+
+      // Get new list of modules to update - and batch them by reading synchronously until the fifo is empty
+      modules := STRING[];
+      RECORD rec := AWAIT this->revisionupdatefifo->AsyncShift();
+      AWAIT NEW WaitableTimer(100); // batch updates a bit better
+      WHILE (RecordExists(rec))
+      {
+        modules := modules CONCAT rec.modules;
+        rec := this->revisionupdatefifo->Shift();
+      }
+      modules := GetSortedSet(modules);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnModuleUpdate(RECORD info)
+  {
+    ^modules->Invalidate();
+  }
+
+  MACRO OnShowDeletedChange()
+  {
+    ^modules->Invalidate();
+  }
+
+  MACRO GotGitEvent(RECORD ARRAY events)
+  {
+    STRING ARRAY modules;
+    FOREVERY (RECORD event FROM events)
+      INSERT Tokenize(Tokenize(event.event, "/")[0] , "mod::")[1] INTO modules AT END;
+
+    this->revisionupdatefifo->Push([ modules := GetSortedSet(modules) ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoEditReg()
+  {
+    this->LoadScreen("sysmgmt/registry.editreg")->RunModal();
+  }
+
+  MACRO DoAdHocCache()
+  {
+    this->LoadScreen("sysmgmt/adhoccache.status")->RunModal();
+  }
+
+  MACRO DoRemoting()
+  {
+    this->LoadScreen("sysmgmt/remoting.main")->RunModal();
+  }
+
+  MACRO DoBackend()
+  {
+    this->RunScreen("settings.xml#settings");
+    this->RefreshPermissions(); //in case DTAP mode changed
+  }
+
+  MACRO DoMailRoutes()
+  {
+    this->RunScreen(Resolve("mailrouting.xml#mailroutes"));
+  }
+
+  MACRO DoWebdavData()
+  {
+    this->LoadScreen("sysmgmt/webdav.webdav_data")->RunModal();
+  }
+
+
+  MACRO DoScheduler()
+  {
+    this->LoadScreen("scheduler.main")->RunModal();
+  }
+
+  MACRO DoAppRunner()
+  {
+    this->LoadScreen("sysmgmt/apprunner.apprunner")->RunModal();
+  }
+
+  MACRO DoConfigModule()
+  {
+    OBJECT scr := this->LoadScreen(^modules->selection.configscreen);
+    IF(ObjectExists(scr))
+      scr->RunModal();
+  }
+
+  MACRO OnOpenWebsite(OBJECT receiver)
+  {
+    RECORD details := ^modules->selection.details;
+    IF(RecordExists(details) AND details.website != "")
+      receiver->SendURL(details.website);
+  }
+
+  MACRO DoLangEdit()
+  {
+    this->tolliumcontroller->SendApplicationMessage("tollium:langedit", [ module := ^modules->selection.name ], DEFAULT RECORD, TRUE);
+  }
+
+  MACRO DoUploadModule(RECORD upload_result)
+  {
+    OBJECT work := this->BeginFeedback();
+    RECORD result := ImportModule(upload_result.data);
+    FOREVERY(STRING error FROM result.errors)
+      work->AddError(error);
+    FOREVERY(STRING warning FROM result.warnings)
+      work->AddWarning(warning);
+
+    work->Finish();
+    IF(Length(result.errors) = 0)
+    {
+      ^modules->Invalidate(); //manually invalidate, it takes some time for the events to do it.
+      ^modules->SetValueIfValid(result.importmodulename);
+    }
+  }
+
+  MACRO DoDeleteModule()
+  {
+    STRING modulename := ^modules->selection.name;
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".deletemodule", modulename)) != "yes")
+      RETURN;
+
+    IF(NOT DeleteModule(modulename))
+      this->RunSimpleScreen("error", this->GetTid(".deletemodulefailed", modulename));
+  }
+
+
+  MACRO DoDownloadModule(OBJECT downloadhandler)
+  {
+    RECORD sel :=  ^modules->selection;
+    STRING module := sel.name;
+
+    OBJECT archiver := NEW ModuleArchiver;
+    archiver->SetUserData(this->tolliumuser->login, this->tolliumuser->realname);
+
+    RECORD moduledata := archiver->CreateArchive(module);
+
+    LogAuditEvent(
+        "system:modules",
+        [ action :=       "download"
+        , module :=       module
+        , version :=      moduledata.fullversion
+        , manifestdata := GetAuditLogDataFromManifest(moduledata.manifest)
+        ]);
+
+    STRING archivename := "whmodule-" || module || "-" || FormatDatetime("%Y-%m-%d", GetcurrentDatetime()) || ".tar.gz";
+    downloadhandler->SendFile(moduledata.data,"application/octet-stream", GetSafeFilename(archivename));
+  }
+
+  MACRO ShowInfoForModule(RECORD row)
+  {
+    this->RunScreen("moduleinfo.xml#moduleinfo", [ modulename := row.name, path := row.path ]);
+  }
+
+  MACRO DoShowModuleInfo()
+  {
+    this->ShowInfoForModule(^modules->selection);
+  }
+
+  MACRO DoVersions()
+  {
+    this->RunScreen("moduleinfo.xml#moduleversions", [ modulename := ^modules->value ]);
+  }
+
+
+  //////////////////////////////////////////////////////
+  //
+  // Peering/push
+  MACRO DoConnectRemote()
+  {
+    OBJECT peer := RunConnectRemoteWebHareDialog(this);
+    IF(ObjectExists(peer))
+      this->SetConnectedPeer(peer);
+  }
+
+  MACRO DoDisconnectRemote()
+  {
+    this->SetConnectedPeer(DEFAULT OBJECT);
+  }
+
+  MACRO SetConnectedPeer(OBJECT peer)
+  {
+    this->contexts->^peer := peer;
+    //^localheading->value := `${GetServerName()} (${GetWebhareVersionInfo().version})`; //TODO or make visible only when connected?
+    ^localheading->value := `${GetWebhareVersionInfo().version}`;
+
+    IF(ObjectExists(peer))
+    {
+      this->frame->flags.connected := TRUE;
+      this->peerconnectinfo := peer->InvokeAdminService("Connect");
+      ^remotemodules->visible := TRUE;
+      ^modules->columns := SELECT * FROM this->modulecolumns WHERE name != "description"; //doesn't fit!
+
+      //FIXME peers should be transmitting version strings, not require us to format it... so we can support suffixes eg version 4.21.0-ut
+      STRING servername := RecordExists(this->peerconnectinfo.applicability) ? this->peerconnectinfo.applicability.servername : peer->url;
+      ^peerheading->value := `${FormatWHVersion(this->peerconnectinfo.version)}`;
+      ^peerurl->value := `https://${servername}`;
+
+      this->RefreshPeerModules();
+    }
+    ELSE
+    {
+      this->peerconnectinfo := DEFAULT RECORD;
+      ^remotemodules->visible := FALSE;
+      this->frame->flags.connected := FALSE;
+      ^modules->columns := this->modulecolumns;
+      this->peermods := RECORD[];
+    }
+
+    RECORD hookresult := RunModuleHookTarget("system:moduleconfig_afterconnectchange", CELL
+        [ peer
+        , this->peerconnectinfo
+        , peertabs :=       ^peertabs
+        , userdata :=       this->hookinguserdata
+        ]);
+
+    this->hookinguserdata := hookresult.userdata;
+  }
+
+  MACRO RefreshPeerModules()
+  {
+    RECORD ARRAY modules := this->contexts->^peer->InvokeAdminService("ListInstalledModules");
+    modules :=
+        SELECT rowkey :=          name
+             , name
+             , version
+             , repository_url :=  source_repository_url
+             , revision :=        source_revision
+             , showrevision :=    source_repository_url LIKE "*\t*"  // Git: url\tbranch
+                                      ? Tokenize(source_repository_url, "\t")[1] || " / " || Left(source_revision,7)
+                                      : source_revision
+             , outofdate :=       FALSE
+             , differentbranch := FALSE
+             , description
+             , canupdate :=       packagingupgrade
+             , ispresentlocal :=  TRUE
+             , localmodule :=     DEFAULT RECORD
+          FROM modules;
+
+    this->peermods := modules;
+
+    ^peermodules->Invalidate();
+  }
+
+  RECORD ARRAY FUNCTION GetPeerModules()
+  {
+    RECORD ARRAY modules := this->peermods;
+    RECORD ARRAY local_modules := SELECT * FROM this->moduledetails ORDER BY name;
+    FOREVERY (RECORD module FROM modules)
+    {
+      RECORD pos := RecordLowerBound(local_modules, module, [ "NAME" ]);
+      IF (NOT pos.found)
+      {
+        modules[#module].canupdate := FALSE;
+        modules[#module].ispresentlocal := FALSE;
+        CONTINUE;
+      }
+
+      IF (module.revision = "")
+        CONTINUE;
+
+      RECORD localmodule := local_modules[pos.position];
+      IF (NOT RecordExists(localmodule.gitinfo))
+        CONTINUE;
+
+      modules[#module].localmodule := localmodule;
+      STRING remote_branch := Tokenize(module.repository_url || "\t", "\t")[1];
+
+      IF (localmodule.gitinfo.branch != remote_branch)
+      {
+        modules[#module].differentbranch := TRUE;
+      }
+      ELSE IF (module.revision != localmodule.gitinfo.revision AND RecordExists(SELECT FROM localmodule.gitinfo.commits WHERE id = module.revision))
+      {
+        modules[#module].outofdate := TRUE;
+      }
+    }
+
+    RETURN SELECT *
+                , outofdateicon := differentbranch ? 5 : outofdate ? 4 : 0
+                , outofdatehint := differentbranch ? GetTid("system:tolliumapps.config.main.differentbranch") : outofdate ? GetTid("system:tolliumapps.config.main.outofdate") : ""
+            FROM modules;
+  }
+
+  MACRO DoDeployModule()
+  {
+    STRING modulename := ^modules->value;
+    IF(NOT DoPushModule(this, modulename))
+      RETURN;
+
+    this->RefreshPeerModules();
+    this->RunSimpleScreen("info", this->GetTid(".modulepushed", modulename));
+  }
+
+  MACRO DoReviewModulePeerChanges()
+  {
+    RECORD ARRAY changedfiles;
+    RECORD changes := this->contexts->^peer->InvokeAdminService("GetModuleChangedFiles", ^peermodules->value);
+    IF (CellExists(changes, "CHANGEDFILES"))
+      changedfiles := changes.changedfiles;
+
+    this->RunScreen("deploy.xml#reviewmodulepeerchanges",
+        [ modulename :=     ^peermodules->value
+        , changedfiles :=   changedfiles //^peermodules->selection.changes.changedfiles
+        ]);
+  }
+
+  MACRO DoReviewRemoteToLocalDiff_Local()
+  {
+    this->RunScreen("deploy.xml#reviewremotetolocaldiff",
+        [ modulename :=     ^modules->value
+        ]);
+  }
+
+  MACRO DoReviewRemoteToLocalDiff_Peer()
+  {
+    this->RunScreen("deploy.xml#reviewremotetolocaldiff",
+        [ modulename :=     ^peermodules->value
+        ]);
+  }
+
+  MACRO DoReviewIncomingCommits()
+  {
+    this->RunScreen("deploy.xml#reviewincomingcommits", [ module := ^peermodules->value ]);
+  }
+
+  MACRO OnOpenRemoteInterface(OBJECT openhandler)
+  {
+    openhandler->SendURL(this->contexts->^peer->url);
+  }
+>;

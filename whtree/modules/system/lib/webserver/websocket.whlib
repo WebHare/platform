@@ -1,0 +1,338 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/websocket.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+
+INTEGER inputstream;
+
+/** Handles communication with webserver for a server-side websocket connection. Does not
+    manage script running status.
+*/
+PUBLIC STATIC OBJECTTYPE WebserverWebSocketConnection EXTEND WebSocketConnectionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  : WebSocketConnectionBase(FALSE)
+  {
+    SetOutputBuffering(TRUE);
+
+    // Make sure prints don't interfere with the stream. In the websocket format, they are quite deadly.
+    RedirectOutputTo(2);
+
+    IF (inputstream = 0)
+      this->AcceptWebSocketConnection();
+    ELSE
+      THROW NEW Exception("Already a websocket connection created");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Data getting & setting (to override)
+  //
+
+  UPDATE MACRO InternalSend(STRING data)
+  {
+    IF (__debugwebsockets)
+    {
+      IF (LENGTH(data) > 24)
+        this->Log("WS Send: " || Left(EncodeBase16(data), 24) || "..." || Right(EncodeBase16(data), 24) || " (" || LENGTH(data) || ")");
+      ELSE
+        this->Log("WS Send: " || EncodeBase16(data) || " (" || LENGTH(data) || ")");
+    }
+
+    PrintTo(1, data);
+  }
+
+  UPDATE VARIANT FUNCTION InternalWaitInputSignalled(DATETIME wait_until)
+  {
+    IF (__debugwebsockets)
+      this->Log("WS wait signalled");
+
+    RETURN this->WaitReadSignalledHelper(inputstream, wait_until);
+  }
+
+  UPDATE RECORD FUNCTION InternalReceive(INTEGER bytes)
+  {
+    IF (__debugwebsockets)
+      this->Log("WS Recv want " || bytes || " bytes");
+
+    // If this returns -13 (WOULDBLOCK) the handle will become signalled when NEW data is available!
+    RECORD rec := __HS_INTERNAL_ReceiveFrom(inputstream, -bytes, FALSE, FALSE, FALSE);
+
+    IF (__debugwebsockets)
+    {
+      IF (rec.status != 0)
+        this->Log("WS Recv status " || rec.status || "\n");
+      ELSE IF (LENGTH(rec.data) > 24)
+        this->Log("WS Recv: " || Left(EncodeBase16(rec.data), 24) || "..." || Right(EncodeBase16(rec.data), 24) || " (" || LENGTH(rec.data) || ")\n");
+      ELSE
+        this->Log("WS Recv: " || EncodeBase16(rec.data) || " (" || LENGTH(rec.data) || ")\n");
+    }
+
+    RETURN rec;
+  }
+
+  UPDATE MACRO InternalFlush()
+  {
+    FlushOutputBuffer();
+    FlushWebResponse(MAX_DATETIME);
+  }
+
+  UPDATE MACRO InternalReturnPacket()
+  {
+    __HS_SetRunningStatus(TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper stuff
+  //
+
+  MACRO AcceptWebSocketConnection()
+  {
+    // Getting the inputstream puts the connection into websocket mode - needed to set status to 101
+    inputstream := __WHS_SetupWebsocketInput();
+
+    STRING wskey := GetWebHeader("Sec-WebSocket-Key");
+    IF (wskey = ""
+        OR ToUppercase(GetWebHeader("Upgrade")) != "WEBSOCKET"
+        OR ToUppercase(GetWebHeader("Connection")) NOT LIKE "*UPGRADE*")
+      THROW NEW Exception("This is not a websocket request");
+    IF (GetWebHeader("Sec-WebSocket-Version") != "13")
+      THROW NEW Exception("This version ("||GetWebHeader("Sec-WebSocket-Version")||") of websockets is not supported");
+
+    // Connection must be set to websocket mode first!
+    AddHTTPHeader("Status", "101", FALSE);
+    AddHTTPHeader("Upgrade", "websocket", FALSE);
+    AddHTTPHeader("Connection", "Upgrade", FALSE);
+    AddHTTPHeader("Sec-WebSocket-Accept", EncodeBase64(GetSHA1Hash(wskey || "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")), FALSE);
+
+    FlushWebResponse(MAX_DATETIME);
+  }
+>;
+
+/** Alternative handler for webserver server-side websocket handlers, dispatches packets when they arrive
+    using callbacks. Also manages script running status & ping/pong.
+*/
+STATIC OBJECTTYPE WebserverWebSocketHandler EXTEND WebserverWebSocketConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  DATETIME lastincomingpacket;
+
+  DATETIME expectpong;
+
+  INTEGER pvt_pingtimeout;
+
+  INTEGER pvt_pingresponsetimeout;
+
+  INTEGER cb_timeout;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC FUNCTION PTR ondata;
+
+  PUBLIC FUNCTION PTR onbinary;
+
+  PUBLIC FUNCTION PTR onclose;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Max idle time in seconds
+  PUBLIC PROPERTY maxidle(pvt_pingtimeout, SetPingTimeout);
+
+  /// Max time from sent ping to received pong in seconds
+  PUBLIC PROPERTY pingresponsetimeout(pvt_pingresponsetimeout, pvt_pingresponsetimeout);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    __HS_SetRunningStatus(FALSE);
+
+    this->lastincomingpacket := GetCurrentDateTime();
+    this->expectpong := MAX_DATETIME;
+    this->pvt_pingresponsetimeout := 1 * 60; // Wait 1 minute for response
+
+    // 4 1/2 minutes should be enough to avoid 5 min TCP/NAT timeout)
+    this->SetPingTimeout(4 * 60 + 30);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetPingTimeout(INTEGER newtimeout)
+  {
+    this->pvt_pingtimeout := newtimeout;
+    IF (this->expectpong = MAX_DATETIME)
+    {
+      IF (this->cb_timeout != 0)
+        UnregisterCallback(this->cb_timeout);
+
+      DATETIME nextping := AddTimeToDate(1000 * this->pvt_pingtimeout, this->lastincomingpacket);
+      this->cb_timeout := RegisterTimedCallback(nextping, PTR this->OnTimeout);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO OnTimeout()
+  {
+    DATETIME now := GetCurrentDateTime();
+
+    IF (now > this->expectpong)
+    {
+      // No pong received within deadline.
+      this->SendClose(1002, "Did not answer to ping");
+      this->inclosed := TRUE;
+      this->cb_timeout := 0;
+      RETURN;
+    }
+    ELSE IF (this->expectpong != MAX_DATETIME)
+    {
+      this->cb_timeout := RegisterTimedCallback(this->expectpong, PTR this->OnTimeout);
+      RETURN;
+    }
+
+    DATETIME nextping := AddTimeToDate(1000 * this->pvt_pingtimeout, this->lastincomingpacket);
+    IF (now < nextping)
+    {
+      this->cb_timeout := RegisterTimedCallback(nextping, PTR this->OnTimeout);
+      RETURN;
+    }
+
+    this->SendPing("");
+    this->expectpong := AddTimeToDate(this->pvt_pingresponsetimeout * 1000, now);
+    this->cb_timeout := RegisterTimedCallback(this->expectpong, PTR this->OnTimeout);
+  }
+
+  OBJECT ASYNC FUNCTION ReceiveLoop()
+  {
+    WHILE (TRUE)
+    {
+      // Receive the next packet
+      RECORD rec := AWAIT this->AsyncReceivePacket(MAX_DATETIME);
+
+      /* Handle the packet. When no packet is sent (status = "gone") or a close packet (op 8)
+         is received, this->inclosed will now be true. Handle the packet anyway to make
+         sure the 'onclose' callback is called
+      */
+      __HS_SetRunningStatus(TRUE);
+      this->HandlePacket(rec);
+      __HS_SetRunningStatus(FALSE);
+
+      IF (this->inclosed)
+        BREAK;
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO HandlePacket(RECORD packet)
+  {
+    IF (packet.status = "gone")
+      packet := [ op := 8, data := "", code := 1006, reason := "" ];
+
+    this->lastincomingpacket := GetCurrentDateTime();
+
+    SWITCH (packet.op)
+    {
+    CASE 1 // text frame
+      {
+        IF (this->ondata != DEFAULT FUNCTION PTR)
+          this->ondata(packet.data);
+        ELSE
+        {
+          this->SendClose(1003, "Cannot handle text frames");
+          THROW NEW Exception("Received text frame, but no handler set");
+        }
+      }
+    CASE 2 // Binary frame
+      {
+        IF (this->onbinary != DEFAULT FUNCTION PTR)
+          this->onbinary(StringToBlob(packet.data));
+        ELSE
+        {
+          this->SendClose(1003, "Cannot handle binary frames");
+          THROW NEW Exception("Received binary frame, but no handler set");
+        }
+      }
+    CASE 8 // Connection close
+      {
+        // Receiveloop will auto-terminate due to inclose being set
+
+        IF (this->onclose != DEFAULT FUNCTION PTR)
+          this->onclose(packet.code, packet.reason);
+      }
+    CASE 9 // Ping
+      {
+        // Auto-respond
+        this->SendFrame(10, packet.data);
+      }
+    CASE 10 // Pong
+      {
+        // Ignore (for now)
+        this->expectpong := MAX_DATETIME;
+      }
+    DEFAULT
+      {
+        this->SendClose(1003, "Cannot handle this type of frame");
+        THROW NEW Exception("Unhandled frame type received (type: " || packet.op || ")");
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO Run()
+  {
+    WaitForPromise(this->ReceiveLoop());
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    WebSocketConnectionBase::Close();
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION CreateWebSocketHandler()
+{
+  RETURN NEW WebserverWebSocketHandler();
+}

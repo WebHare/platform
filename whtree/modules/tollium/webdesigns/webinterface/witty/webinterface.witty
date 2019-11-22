@@ -1,0 +1,77 @@
+[component htmlhead]
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/png" href="/.tollium/ui/img/favicon.ico" />
+[/component]
+
+[component htmlbody]
+  <div id="topbar"></div>
+  <main>
+    [contents]
+  </main>
+[/component]
+
+[component rootfailure] [! this must be a selfcontained page, no external dependencies !]
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      html
+      {
+        font: 18px Helvetica, Arial, sans-serif;
+        background:#3b3b3b;
+        color:#ffffff;
+      }
+      .text
+      {
+        position:absolute;
+        left:30%;
+        top:45%;
+        width:40%;
+        text-align:center;
+      }
+      .dot
+      {
+        visibility: hidden;
+      }
+      html.dots1 .firstdot
+      , html.dots2 .firstdot + .dot
+      , html.dots3 .firstdot + .dot + .dot
+      {
+        visibility: visible;
+      }
+      #errors li
+      {
+        font-size:15px;
+        background:rgba(59,59,59,.4);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="text">
+      WebHare is initializing, please wait<span class="firstdot dot">.</span><span class="dot">.</span><span class="dot">.</span>
+    </div>
+    [if errors]
+      <ul id="errors">
+        [forevery errors]<li>[message]</li>[/forevery]
+      </ul>
+    [/if]
+    <script>
+      var steps=0;
+      function showsteps()
+      {
+        if(++steps>5)
+        {
+          steps = 0;
+          document.documentElement.className='';
+        }
+        if(steps >= 1 && steps <= 3)
+        {
+          document.documentElement.className+= ' dots' + steps;
+        }
+      }
+      setInterval(showsteps,600);
+      setInterval(function() { location.reload(true) },10000);
+    </script>
+  </body>
+</html>
+[/component]

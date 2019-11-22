@@ -1,0 +1,2804 @@
+<?wh
+/** @short This library contains support functions for the MarkDown format.
+    @long The base parser implements the CommonMark specification from <https://github.com/commonmark/CommonMark/>.
+    @topic file-formats/markdown
+*/
+
+LOADLIB "wh::internet/smtp.whlib";
+LOADLIB "wh::util/localization.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+/* FIXME: known deviations from the spec:
+
+   - Whitespace characters handling. Currently only ' ', '\t' and '\n' are processed. The spec also names
+     line tabulations (\u000B), form feeds (\u000C) and carriage returns ('\r').
+*/
+
+/// Allowable tags for parsing of HTML blocks, kind 6
+CONSTANT STRING ARRAY html_kind6_tags :=
+    [ `address`, `article`, `aside`, `base`, `basefont`, `blockquote`, `body`
+    , `caption`, `center`, `col`, `colgroup`, `dd`, `details`, `dialog`, `dir`
+    , `div`, `dl`, `dt`, `fieldset`, `figcaption`, `figure`, `footer`, `form`
+    , `frame`, `frameset`, `h1`, `h2`, `h3`, `h4`, `h5`, `h6`, `head`, `header`
+    , `hr`, `html`, `iframe`, `legend`, `li`, `link`, `main`, `menu`, `menuitem`
+    , `nav`, `noframes`, `ol`, `optgroup`, `option`, `p`, `param`, `section`
+    , `source`, `summary`, `table`, `tbody`, `td`, `tfoot`, `th`, `thead`, `title`
+    , `tr`, `track`, `ul`
+    ];
+
+CONSTANT RECORD baseblocktyperetval :=
+    [ type :=     ""
+    , isleaf :=     FALSE
+    , data :=       DEFAULT RECORD
+    , listdata :=   DEFAULT RECORD
+    , islastline := FALSE
+    , ignoreline := FALSE
+    , line :=       ""
+    , relcolumn :=  0
+    ];
+
+/// Per type, cells from MDItem data to copy to the record tree
+CONSTANT RECORD markdownitemdatacells :=
+    [ atxheading :=         [ level := 0 ]
+    , autolink :=           [ link := "", title := "" ]
+    , codespan :=           [ code := "" ]
+    , document :=           [ linkreferencedefinitions := RECORD[] ]
+    , emphasis :=           DEFAULT RECORD
+    , fencedcode :=         [ code := "", syntax := "" ]
+    , hardenter :=          DEFAULT RECORD
+    , htmlblock :=          [ html := "", blocktype := "" ]
+    , htmltag :=            [ htmltag := "" ]
+    , image :=              [ link := "", title := "" ]
+    , indentedcode :=       [ code := "" ]
+    , link :=               [ link := "", title := "" ]
+    , list :=               [ ordered := FALSE, bullet := "", loose := FALSE, start := "" ]
+    , listitem :=           DEFAULT RECORD
+    , normaltext :=         [ text := "" ]
+    , setextheading :=      [ level := 0 ]
+    , strongemphasis :=     DEFAULT RECORD
+    , "table" :=            [ columns := RECORD[] ]
+    , tablecell :=          [ isheading := FALSE, align := "" ]
+    , webhare_symbolreference := [ reference := "", title := "" ]
+    ];
+
+/** Markdown block/inline object
+*/
+STATIC OBJECTTYPE MDItem
+<
+  /// Type of object
+  PUBLIC STRING type;
+
+  /// Custom data per type
+  PUBLIC RECORD data;
+
+  /// List of child nodes
+  PUBLIC OBJECT ARRAY children;
+
+  /// List of content lines (only kept for leaf blocks, not for container blocks or inline intems)
+  PUBLIC STRING ARRAY lines;
+
+  MACRO NEW(STRING type, RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    this->type := type;
+    this->data := data;
+  }
+
+  /// Convert to the record tree, removing all internal data-keeping information
+  PUBLIC RECORD FUNCTION ToRecord()
+  {
+    // Give back only relevant data
+    RECORD data;
+    IF (RecordExists(this->data))
+      data := MakeReplacedRecord(GetCell(markdownitemdatacells, this->type), this->data);
+
+    RETURN CELL
+        [ this->type
+        , ...data
+        , children := SELECT AS RECORD ARRAY obj->ToRecord() FROM ToRecordArray(this->children, "obj")
+        ];
+  }
+>;
+
+/// ASCII puncuation characters from the spec, needed to know which characters can be escaped
+CONSTANT STRING ascii_punctuation := `!"#$%&'()*+,-./:;<=>?@[\\]^_\`{|}~`;
+
+/// List of Unicode whitespace character as defined by the spec
+CONSTANT STRING ARRAY unicode_whitespace :=
+    [ "" // End/begin of line
+    , " ", "\u00A0", "\u1680", "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005", "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u202F", "\u205F", "\u3000" // Unicode Zs general category
+    , "\t", "\r", "\n", "\x0c" // Tab, carriage return, newline, form feed
+    ];
+
+/** Groups all code needed to parse MarkDown documents
+*/
+STATIC OBJECTTYPE MarkdownParser
+< /** Options
+      @cell tabwidth Nr of spaces to replace a tab with
+  */
+  RECORD options;
+
+  /** Case insensitive compare function.
+      Signature: `INTEGER FUNCTION func(STRING a, STRING b)`
+  */
+  FUNCTION PTR case_insensitive_compare;
+
+  MACRO NEW(RECORD options)
+  {
+    this->options := options;
+
+    /* Collator needed to get a string compare function that can do case-insensitive compares
+       for unicode strings. We're not implementing the case folding as used by the CommonMark
+       spec, this is more standard for this system.
+    */
+    OBJECT icu_collator := NEW Collator("en-US", [ sensitivity := "accent" ]);
+    this->case_insensitive_compare := icu_collator->compare;
+  }
+
+  /** Returns the text from a previously saved parser state until the current position.
+      @param parser StringParser object
+      @param state Previously saved state
+      @return Text until current position
+  */
+  STRING FUNCTION GetDataFromStateToCurrent(OBJECT parser, RECORD state)
+  {
+    INTEGER dist := parser->GetDistanceFromState(state);
+    IF (dist < 0)
+      THROW NEW Exception(`State does not lie before or at current state`);
+
+    RETURN parser->GetLastParsed(dist);
+  }
+
+  /** Tries to parse a code span from the current position
+      Precondition: parser->current = "`"
+      @param parser StringParser
+      @return MDItem if a codespan was parsed successfully
+  */
+  OBJECT FUNCTION TryParseCodeSpan(OBJECT parser)
+  {
+    RECORD state := parser->SaveState();
+
+    // code span can begin with an arbitrary nr of '`'
+    STRING prefix := parser->ParseN(1);
+    WHILE (parser->TryParse("`"))
+      prefix := prefix || "`";
+
+    STRING code;
+    BOOLEAN last_ws := TRUE;
+    WHILE (NOT parser->eof)
+    {
+      STRING part := parser->ParseWhileNotInSet("`");
+      code := code || part;
+
+      // End fence?
+      IF (parser->TryParse(prefix))
+      {
+        // May not be longer than start
+        IF (NOT parser->TryParse("`"))
+        {
+          // [Line endings] are treated like spaces:
+          code := Substitute(code, "\n", " ");
+
+          /* > If the resulting string both begins *and* ends with a [space]
+             > character, a single [space] character is removed from the
+             > front and back.  This allows you to include code that begins
+             > or ends with backtick characters, which must be separated by
+             > whitespace from the opening or closing backtick strings.
+          */
+          IF (code LIKE " * " OR code = " ")
+            code := SubString(code, 1, LENGTH(code) - 2);
+
+          STRING rawtext := this->GetDataFromStateToCurrent(parser, state);
+          RETURN NEW MDItem("codespan", CELL[ code, rawtext ]);
+        }
+
+        code := code || prefix || "`";
+      }
+
+      code := code || parser->ParseN(1);
+      last_ws := FALSE;
+    }
+
+    parser->RestoreState(state);
+    RETURN DEFAULT OBJECT;
+  }
+
+  /** Parse an escaped character
+      Precondition: parser->current = "\\"
+      @return MDItem if an item was parsed successfully
+  */
+  OBJECT FUNCTION TryParseEscape(OBJECT parser)
+  {
+    RECORD state := parser->SaveState();
+
+    IF (parser->PeekN(1) != "")
+    {
+      parser->ParseN(1);
+      STRING text := parser->ParseN(1);
+
+      // Backslash at the end of a line is a hard enter
+      IF (text = "\n")
+        RETURN NEW MDItem("hardenter", [ rawtext := "\\\n" ]);
+      ELSE IF (SearchSubstring(ascii_punctuation, text) != -1)
+        RETURN NEW MDItem("normaltext", CELL[ text, rawtext := "\\" || text ]);
+    }
+
+    parser->RestoreState(state);
+    RETURN DEFAULT OBJECT;
+  }
+
+  /** Parses an inline HTML tag
+      Precondition: parser->current = "<"
+      @return MDItem if an item was parsed successfully
+  */
+  OBJECT FUNCTION TryParseHTMLTag(OBJECT parser)
+  {
+    RECORD state := parser->SaveState();
+    IF (this->TryParseHTMLTagRaw(parser))
+    {
+      STRING htmltag := this->GetDataFromStateToCurrent(parser, state);
+      RETURN NEW MDItem("htmltag", CELL[ htmltag, rawtext := htmltag ]);
+    }
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  /** Parses an inline HTML tag.
+      @long Parses a HTML tag, from the current position of the parser. If TRUE is returned,
+      a valid HTML tag was parsed, and the parser now points after the tag.
+      Precondition: parser->current = "<"
+      @return TRUE if a valid HTML tag was parsed.
+  */
+  BOOLEAN FUNCTION TryParseHTMLTagRaw(OBJECT parser)
+  {
+    RECORD state := parser->SaveState();
+
+    // Eat '<''
+    parser->Next();
+
+    // > A [closing tag](@) consists of the string `</`, a [tag name], optional [whitespace], and the character `>`.
+    BOOLEAN isclose := parser->TryParse("/");
+
+    // > A [tag name](@) consists of an ASCII letter followed by zero or more ASCII letters, digits, or hyphens (`-`).
+    STRING tag := parser->ParseWhileInSet(parser->set_alpha);
+    IF (tag != "")
+      tag := tag || parser->ParseWhileInSet(parser->set_alpha || parser->set_digit || "-");
+
+    IF (tag != "") // open tag or closing tag
+    {
+      IF (isclose)
+      {
+        // closing tag. get the whitespace and the close
+        parser->ParseWhileInSet(" ");
+        IF (parser->TryParse(">"))
+          RETURN TRUE;
+      }
+      ELSE
+      {
+        // opening tag: zero or more [attributes], optional [whitespace]
+        WHILE (TRUE)
+        {
+          IF (parser->ParseWhileInSet(" \t\n") = "")
+            BREAK;
+
+          // > An [attribute](@) consists of [whitespace], an [attribute name], and an optional [attribute value specification].
+
+          /* > An [attribute name](@) consists of an ASCII letter, `_`, or `:`, followed by zero or more ASCII letters,
+             > digits, `_`, `.`, `:`, or `-`.  (Note:  This is the XML specification restricted to ASCII.  HTML5 is laxer.)
+          */
+          STRING attrtagstart :=parser->ParseWhileInSet(parser->set_alpha || "_:");
+          IF (attrtagstart = "")
+            BREAK;
+          parser->ParseWhileInSet(parser->set_alpha || parser->set_digit || "_:");
+
+          // > An [attribute value specification](@) consists of optional [whitespace], a `=` character, optional [whitespace], and an [attribute value].
+          RECORD preassignws := parser->SaveState();
+          parser->ParseWhileInSet(" \t\n");
+          IF (parser->TryParse("="))
+          {
+            parser->ParseWhileInSet(" \t\n");
+            STRING quote := parser->current;
+
+            // > A [single-quoted attribute value](@) consists of `'`, zero or more characters not including `'`, and a final `'`.
+            // > A [double-quoted attribute value](@) consists of `"`, zero or more characters not including `"`, and a final `"`.
+            IF (quote = "'" OR quote = '"')
+            {
+              parser->Next();
+              parser->ParseWhileNotInSet(quote); // ADDME: Extension, support escapes in attribute values?
+              IF (NOT parser->TryParse(quote))
+              {
+                parser->RestoreState(state);
+                RETURN FALSE;
+              }
+            }
+            ELSE
+            {
+              // > An [unquoted attribute value](@) is a nonempty string of characters not including [whitespace], `"`, `'`, `=`, `<`, `>`, or `` ` ``.
+              parser->ParseWhileNotInSet(`"'=<>\` \t\n`);
+            }
+          }
+          ELSE
+          {
+            // > The next attribute MUST begin with whitespace, but we just ate it all searching for the '='. Restore the state before eating it.
+            parser->RestoreState(preassignws);
+          }
+        }
+
+        // Optional closing tag, and mandatory closing tag
+        parser->TryParse("/");
+        IF (parser->TryParse(">"))
+          RETURN TRUE;
+      }
+    }
+    ELSE IF (parser->TryParse("!--"))
+    {
+      /* > An [HTML comment](@) consists of `<!--` + *text* + `-->`, where *text* does not start with `>` or `->`, does not end with `-`,
+         > and does not contain `--`.
+      */
+      IF (NOT parser->TryParse("->") AND NOT parser->TryParse(">"))
+      {
+        WHILE (NOT parser->eof)
+        {
+          parser->ParseWhileNotInSet("-");
+          IF (parser->TryParse("-->"))
+            RETURN TRUE;
+          IF (parser->TryParse("--")) // Also catches --->
+            BREAK;
+          parser->Next();
+        }
+      }
+    }
+    ELSE IF (parser->TryParse("?"))
+    {
+      // > A [processing instruction](@) consists of the string `<?`, a string of characters not including the string `?>`, and the string `?>`.
+      WHILE (NOT parser->eof)
+      {
+        parser->ParseWhileNotInset("?");
+        IF (parser->TryParse("?>"))
+          RETURN TRUE;
+      }
+    }
+    ELSE IF (parser->TryParse("![CDATA["))
+    {
+      // > A [CDATA section](@) consists of the string `<![CDATA[`, a string of characters not including the string `]]>`, and the string `]]>`.
+      WHILE (NOT parser->eof)
+      {
+        parser->ParseWhileNotInSet("]");
+        IF (parser->TryParse("]]>"))
+          RETURN TRUE;
+        parser->Next();
+      }
+    }
+    ELSE IF (parser->TryParse("!"))
+    {
+      /* > A [declaration](@) consists of the string `<!`, a name consisting of one or more uppercase ASCII letters, [whitespace], a string of characters not including the
+         > character `>`, and the character `>`.
+      */
+      IF (parser->ParseWhileInSet(ToUppercase(parser->set_alpha)) != ""
+          AND parser->ParseWhileInSet(" \t\n") != "")
+      {
+        parser->ParseWhileNotInset(">");
+        IF (parser->TryParse(">"))
+          RETURN TRUE;
+      }
+    }
+
+    parser->RestoreState(state);
+    RETURN FALSE;
+  }
+
+  /** Tries to parse an HTML entity from the current position
+      Precondition: parser->current = "&"
+      @param parser StringParser
+      @return MDItem if the a codespan was parsed successfully
+  */
+  OBJECT FUNCTION TryParseHTMLEntity(OBJECT parser)
+  {
+    RECORD state := parser->SaveState();
+    IF (parser->PeekN(1) = "#")
+    {
+      parser->TryParse("&#");
+      INTEGER codepoint;
+      IF (parser->TryParse("X") OR parser->TryParse("x"))
+      {
+        /*>  [Hexadecimal numeric character references](@) consist of `&#` + either `X` or `x` + a string of 1-6 hexadecimal digits + `;`.
+          > They too are parsed as the corresponding Unicode character (this time specified with a hexadecimal numeral instead of decimal).
+        */
+        STRING nr := parser->ParseWhileInset(parser->set_digit || "abcdefABCDEF");
+        IF (LENGTH(nr) < 1 OR LENGTH(nr) > 6 OR NOT parser->TryParse(";"))
+        {
+          parser->RestoreState(state);
+          RETURN DEFAULT OBJECT;
+        }
+
+        codepoint := ToInteger(nr, 0, 16) ?? 0xfffd;
+      }
+      ELSE
+      {
+        /* > [Decimal numeric character references](@) consist of `&#` + a string of 1--7 arabic digits + `;`. A
+           > numeric character reference is parsed as the corresponding Unicode character. Invalid Unicode code points will be replaced by
+           > the REPLACEMENT CHARACTER (`U+FFFD`).  For security reasons, the code point `U+0000` will also be replaced by `U+FFFD`.
+        */
+        STRING nr := parser->ParseWhileInset(parser->set_digit);
+        IF (LENGTH(nr) < 1 OR LENGTH(nr) > 7 OR NOT parser->TryParse(";"))
+        {
+          parser->RestoreState(state);
+          RETURN DEFAULT OBJECT;
+        }
+
+        codepoint := ToInteger(nr, 0, 10) ?? 0xfffd;
+      }
+      STRING text := UCToString(codepoint) ?? UCToString(0xfffd);
+      RETURN NEW MDItem("normaltext", CELL[ text, rawtext := this->GetDataFromStateToCurrent(parser, state) ]);
+    }
+
+    /* > [Entity references](@) consist of `&` + any of the valid HTML5 entity names + `;`. The
+       > document <https://html.spec.whatwg.org/multipage/entities.json> is used as an authoritative source for the valid entity
+       > references and their corresponding code points.
+    */
+    parser->Next(); // Eat '&'
+
+    STRING entity := "&" || parser->ParseWhileInSet(parser->set_alpha || parser->set_digit) || ";";
+    IF (NOT parser->TryParse(";"))
+    {
+      parser->RestoreState(state);
+      RETURN DEFAULT OBJECT;
+    }
+
+    // Decode the entity. DecodeHTML returns "" on invalid entities
+    STRING text := DecodeHTML(entity);
+    IF (text = "" OR text = entity) // Robust against future changes to DecodeHTML, might give back original entity
+    {
+      parser->RestoreState(state);
+      RETURN DEFAULT OBJECT;
+    }
+
+    RETURN NEW MDItem("normaltext", CELL[ text := text, rawtext := entity ]);
+  }
+
+  /** Tries to parse an autolink (URL or mailto) from the current position
+      Precondition: parser->current = "<"
+      @param parser StringParser
+      @return MDItem if the item was parsed successfully
+  */
+  OBJECT FUNCTION TryParseAutolink(OBJECT parser)
+  {
+    RECORD state := parser->SaveState();
+
+    // URI autolink: '<'' absolute-url '>'
+    // absolute-url: scheme ":" [^<> :controlcharacters:]*
+    // scheme: any sequence of 2--32 characters beginning with an ASCII letter and followed by any combination of ASCII letters, digits, or the symbols plus
+    //    ("+"), period ("."), or hyphen ("-").
+    parser->TryParse("<");
+
+    RECORD afteropen := parser->SaveState();
+
+    /* > For purposes of this spec, a [scheme](@) is any sequence of 2--32 characters beginning with an ASCII letter and followed
+       > by any combination of ASCII letters, digits, or the symbols plus ("+"), period ("."), or hyphen ("-").
+    */
+    STRING link := parser->ParseWhileInSet(parser->set_alpha);
+    IF (link != "")
+    {
+      // Rest of scheme
+      link := link || parser->ParseWhileInSet(parser->set_alpha || parser->set_digit || "+.-");
+
+      IF (LENGTH(link) >= 2 AND parser->TryParse(":"))
+      {
+        link := link || ":" || parser->ParseWhileNotInSet(" \t\n<>");
+        IF (parser->TryParse(">"))
+        {
+          STRING rawtext := this->GetDataFromStateToCurrent(parser, state);
+          RETURN NEW MDItem("autolink", CELL[ link := DecodeURL(link), title := link, rawtext ]);
+        }
+      }
+    }
+
+    parser->RestoreState(afteropen);
+
+    // CommonMark specifies a nice regex, ignoring that
+    STRING email := parser->ParseWhileNotInSet(" \n>");
+    IF (IsValidEmailAddress(email) AND parser->TryParse(">"))
+    {
+      STRING rawtext := this->GetDataFromStateToCurrent(parser, state);
+      RETURN NEW MDItem("autolink", CELL[ link := "mailto:" || email, title := email, rawtext ]);
+    }
+
+    parser->RestoreState(state);
+    RETURN DEFAULT OBJECT;
+  }
+
+  /** Tries to parse an emphasis delimiter run
+      Precondition: parser->current IN [ "*", "_" ]
+      @return MDItem if an item was parsed successfully
+  */
+  OBJECT FUNCTION TryParseEmphasisDelimiterRun(OBJECT parser, STRING precedingdata)
+  {
+    // This function follows the rules for delimiter runs. See [delimiter run](@) in the CommonMark spec for details
+    RECORD state := parser->SaveState();
+
+    STRING delimiterchar := parser->current;
+
+    STRING delimiter := parser->ParseN(1);
+    WHILE (parser->TryParse(delimiterchar))
+      delimiter := delimiter || delimiterchar;
+
+    STRING preceding := UCRight(precedingdata, 1);
+    STRING following := UCLeft(parser->remaining_data, 1);
+
+    BOOLEAN following_punc := SearchSubstring(ascii_punctuation, following) != -1;
+    BOOLEAN preceding_punc := SearchSubstring(ascii_punctuation, preceding) != -1;
+    BOOLEAN following_ws := following IN unicode_whitespace;
+    BOOLEAN preceding_ws := preceding IN unicode_whitespace;
+
+    BOOLEAN is_leftflanking :=
+        NOT following_ws AND // (1)
+        (NOT following_punc OR (following_punc AND (preceding_punc OR preceding_ws))); // (2a and 2b)
+
+    BOOLEAN is_rightflanking :=
+        NOT preceding_ws AND // (1)
+        (NOT preceding_punc OR (preceding_punc AND (following_punc OR following_ws))); // (2a and 2b)
+
+    BOOLEAN can_open_emphasis :=
+        (delimiterchar = "*" AND is_leftflanking) OR
+        (delimiterchar = "_" AND is_leftflanking AND (NOT is_rightflanking OR (is_rightflanking AND preceding_punc)));
+
+    BOOLEAN can_close_emphasis :=
+        (delimiterchar = "*" AND is_rightflanking) OR
+        (delimiterchar = "_" AND is_rightflanking AND (NOT is_leftflanking OR (is_leftflanking AND following_punc)));
+
+    BOOLEAN can_open_strong_emphasis :=
+        (delimiterchar = "*" AND LENGTH(delimiter) >= 2 AND is_leftflanking) OR
+        (delimiterchar = "_" AND LENGTH(delimiter) >= 2 AND is_leftflanking AND (NOT is_rightflanking OR (is_rightflanking AND preceding_punc)));
+
+    BOOLEAN can_close_strong_emphasis :=
+        (delimiterchar = "*" AND LENGTH(delimiter) >= 2 AND is_rightflanking) OR
+        (delimiterchar = "_" AND LENGTH(delimiter) >= 2 AND is_rightflanking AND (NOT is_leftflanking OR (is_leftflanking AND following_punc)));
+
+    BOOLEAN can_open := can_open_emphasis OR can_open_strong_emphasis;
+    BOOLEAN can_close := can_close_emphasis OR can_close_strong_emphasis;
+    BOOLEAN can_both := can_open AND can_close;
+
+    // If it cannot open and cannot close, just treat as normal text
+    IF (NOT can_open AND NOT can_close)
+    {
+      parser->RestoreState(state);
+      RETURN DEFAULT OBJECT;
+    }
+
+    RETURN NEW MDItem("emphasisdelimiter", CELL
+        [ text :=           delimiter
+        , delimiterchar
+        , can_open
+        , can_close
+        , can_both
+        , left :=           LENGTH(delimiter)
+        , rawtext :=        delimiter
+        ]);
+  }
+
+  /** Tries to parse a link start
+      Precondition: parser->current IN [ "[", "!" ]
+      @return MDItem if an item was parsed successfully
+  */
+  OBJECT FUNCTION TryParseLinkStart(OBJECT parser)
+  {
+    IF (parser->TryParse("["))
+    {
+      RETURN NEW MDItem("linkdelimiter", CELL
+          [ text :=       "["
+          , active :=     TRUE
+          ]);
+    }
+    IF (parser->TryParse("!["))
+    {
+      RETURN NEW MDItem("linkdelimiter", CELL
+          [ text :=       "!["
+          , active :=     TRUE
+          ]);
+    }
+    RETURN DEFAULT OBJECT;
+  }
+
+  /** Replaces all the items with type 'linkdelimiter' with their text representation
+      @param List of MDItems
+      @return Modified list
+  */
+  OBJECT ARRAY FUNCTION ReplaceLinkDelimiters(OBJECT ARRAY children)
+  {
+    OBJECT ARRAY newchildren;
+    FOREVERY (OBJECT obj FROM children)
+      IF (obj->type != "linkdelimiter")
+        INSERT obj INTO newchildren AT END;
+      ELSE
+        INSERT NEW MDItem("normaltext", CELL[ text := obj->data.text, rawtext := obj->data.text ]) INTO newchildren AT END;
+    RETURN newchildren;
+  }
+
+  /** Tries to parse a link destination
+      @param parser StringParser
+      @return Record with link if parse succeeded, DEFAULT RECORD if parsing failed
+      @cell return.link Parsed link
+  */
+  RECORD FUNCTION ParseLinkDestination(OBJECT parser)
+  {
+    RECORD state := parser->SaveState();
+
+    STRING link;
+    IF (parser->TryParse("<"))
+    {
+      /* > a sequence of zero or more characters between an opening `<` and a closing `>` that contains no line breaks or unescaped
+         > `<` or `>` characters
+      */
+      WHILE (NOT parser->eof)
+      {
+        link := link || parser->ParseWhileNotInset("\n\r<>\\");
+        IF (parser->TryParse("\\"))
+        {
+          // Note that a backslash before a non-escapable character is just a backslash
+          IF (SearchSubstring(ascii_punctuation, parser->current) != -1)
+            link := link || parser->ParseN(1);
+          ELSE
+            link := link || "\\";
+        }
+        ELSE IF (parser->TryParse(">"))
+          RETURN CELL[ link ];
+        ELSE
+          BREAK;
+      }
+      parser->RestoreState(state);
+      RETURN DEFAULT RECORD;
+    }
+
+    /* > a nonempty sequence of characters that does not include ASCII space or control characters, and includes parentheses
+       > only if (a) they are backslash-escaped or (b) they are part of a balanced pair of unescaped parentheses.  (Implementations
+       > may impose limits on parentheses nesting to avoid performance issues, but at least three levels of nesting should be supported.)
+    */
+
+    INTEGER lparencount;
+    WHILE (TRUE)
+    {
+      link := link || parser->ParseWhileNotInset(" ()\\\n");
+      IF (parser->TryParse("\\"))
+      {
+        // > Note that a backslash before a non-escapable character is just a backslash
+        IF (SearchSubstring(ascii_punctuation, parser->current) != -1)
+          link := link || parser->ParseN(1);
+        ELSE
+          link := link || "\\";
+      }
+      ELSE IF (parser->TryParse("("))
+      {
+        link := link || "(";
+        lparencount := lparencount + 1;
+      }
+      ELSE
+      {
+        IF (lparencount = 0 OR parser->current != ")")
+          RETURN link = "" ? DEFAULT RECORD : CELL[ link ];
+        lparencount := lparencount - 1;
+        link := link || parser->ParseN(1);
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Tries to parse a link title
+      @param parser StringParser
+      @return Record with title if parse succeeded, DEFAULT RECORD if parsing failed
+      @cell return.title Parsed title
+  */
+  RECORD FUNCTION ParseLinkTitle(OBJECT parser)
+  {
+    STRING initialchar := parser->current;
+    STRING title;
+    IF (initialchar IN [ `"`, `'` ])
+    {
+      /* > - a sequence of zero or more characters between straight double-quote
+         >   characters (`"`), including a `"` character only if it is
+         >   backslash-escaped, or
+         >
+         > - a sequence of zero or more characters between straight single-quote
+         >   characters (`'`), including a `'` character only if it is
+         >   backslash-escaped, or
+      */
+      parser->Next();
+      WHILE (NOT parser->eof)
+      {
+        title := title || parser->ParseWhileNotInSet("\\" || initialchar);
+        IF (parser->TryParse("\\"))
+        {
+          // Note that a backslash before a non-escapable character is just a backslash
+          IF (SearchSubstring(ascii_punctuation, parser->current) != -1)
+            title := title || parser->ParseN(1);
+          ELSE
+            title := title || "\\";
+        }
+        ELSE IF (parser->TryParse(initialchar))
+          RETURN CELL[ title ];
+        ELSE
+          BREAK;
+      }
+      RETURN DEFAULT RECORD;
+    }
+
+    /* > - a sequence of zero or more characters between matching parentheses
+       >   (`(...)`), including a `)` character only if it is backslash-escaped.
+    */
+    IF (initialchar != "(")
+      RETURN DEFAULT RECORD;
+
+    INTEGER lparencount;
+    WHILE (NOT parser->eof)
+    {
+      title := title || parser->ParseWhileNotInSet("()\\");
+      IF (parser->TryParse("\\"))
+      {
+        IF (SearchSubstring(ascii_punctuation, parser->current) != -1)
+          title := title || parser->ParseN(1);
+        ELSE
+          title := title || "\\";
+      }
+      ELSE IF (parser->TryParse("("))
+      {
+        title := title || "(";
+        lparencount := lparencount + 1;
+      }
+      ELSE
+      {
+        IF (lparencount = 0)
+          RETURN CELL[ title := SubString(title, 1, LENGTH(title) - 2) ];
+        title := title || parser->ParseN(1);
+        lparencount := lparencount - 1;
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Replaces all HTML entities in a string with their unicode text
+  */
+  STRING FUNCTION ReplaceEntities(STRING input)
+  {
+    OBJECT parser := NEW StringParser(input);
+
+    STRING text;
+    WHILE (NOT parser->eof)
+    {
+      text := text || parser->ParseWhileNotInSet("&");
+      IF (parser->TryParse("&"))
+      {
+        STRING entity := "&" || parser->ParseWhileInSet(parser->set_alpha || parser->set_digit);
+        IF (parser->current = ";")
+        {
+          entity := entity || parser->ParseN(1);
+          STRING decoded := DecodeHTML(entity);
+          IF (decoded != "" AND decoded != entity)
+          {
+            text := text || decoded;
+            CONTINUE;
+          }
+        }
+        text := text || entity;
+      }
+    }
+    RETURN text;
+  }
+
+  /** Returns whether a list of children contains an MDItem of type 'link' (recursive)
+  */
+  BOOLEAN FUNCTION ContainsLink(OBJECT ARRAY children)
+  {
+    FOREVERY (OBJECT c FROM children)
+    {
+      IF (c->type = "link")
+        RETURN TRUE;
+      IF (NOT IsDefaultValue(c->children) AND this->ContainsLink(c->children))
+        RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  /** Processes a link ending, converts links
+      @param block Block with the inline links to convert
+      @param parser StirngParsre
+      @return Whether the link ending was processed successfully
+  */
+  BOOLEAN FUNCTION TryProcessLinkEnding(OBJECT document, OBJECT block, OBJECT parser)
+  {
+    RECORD state := parser->SaveState();
+
+    // Implements the *look for link or image* parsing strategy
+
+    // Eat ']'
+    parser->Next();
+
+    RECORD afterclose := parser->SaveState();
+
+    FOR (INTEGER current_position := LENGTH(block->children) - 1; current_position >= 0; current_position := current_position - 1)
+    {
+      OBJECT child := block->children[current_position];
+      IF (child->type != "linkdelimiter" OR NOT child->data.active)
+        CONTINUE;
+
+      child->data.active := FALSE; // no re-use if link parsing failed
+
+      // child->data.text is either '[' (link) or '![' (image)
+      STRING type := child->data.text = "[" ? "link" : "image";
+
+      // We return a link or image node whose children are the inlines after the text node pointed to by the opening delimiter.
+      // We run *process emphasis* on these inlines, with the `[` opener as `stack_bottom`.
+      OBJECT ARRAY inline_text := ArraySlice(block->children, current_position + 1);
+
+      // Get the text of the inline_text as raw as possible, in case it is used as link reference label
+      STRING linktext;
+      FOREVERY (OBJECT obj FROM inline_text)
+      {
+        SWITCH (obj->type)
+        {
+          CASE "normaltext"         { linktext := linktext || obj->data.rawtext; }
+          CASE "linkdelimiter"      { linktext := linktext || obj->data.text; }
+          CASE "emphasisdelimiter"  { linktext := linktext || Left(obj->data.text, obj->data.left); }
+          CASE "codespan"           { linktext := linktext || obj->data.rawtext; }
+          CASE "hardenter"          { linktext := linktext || "\n"; }
+          CASE "htmltag"            { linktext := linktext || obj->data.htmltag; }
+          CASE "autolink"           { linktext := linktext || obj->data.rawtext; }
+          CASE "link"               { linktext := linktext || obj->data.rawtext; }
+          CASE "image"              { linktext := linktext || obj->data.rawtext; }
+          DEFAULT                   { THROW NEW Exception(`Unhandled type '${obj->type}' in link label text enumeration`); }
+        }
+      }
+
+      STRING rawtext := child->data.text || linktext;
+      OBJECT link;
+
+      // Parse ahead to see if we have an inline link/image, reference link/image, compact reference link/image, or shortcut reference link/image.
+      IF (parser->TryParse("(")) // inline link
+      {
+        /* > An [inline link](@) consists of a [link text] followed immediately by a left parenthesis `(`, optional [whitespace], an optional
+           > [link destination], an optional [link title] separated from the link destination by [whitespace], optional [whitespace], and a right
+           > parenthesis `)`. The link's text consists of the inlines contained in the [link text] (excluding the enclosing square brackets).
+           > The link's URI consists of the link destination, excluding enclosing `<...>` if present, with backslash-escapes in effect as described
+           > above.  The link's title consists of the link title, excluding its
+           > enclosing delimiters, with backslash-escapes in effect as described above.
+        */
+        parser->ParseWhileInSet(" \t\n");
+        RECORD linkdestination := [ link := "" ];
+        RECORD title := [ title := "" ];
+
+        IF (parser->current != ")")
+        {
+          linkdestination := this->ParseLinkDestination(parser);
+          IF (parser->ParseWhileInSet(" \t\n") != "")
+          {
+            title := this->ParseLinkTitle(parser);
+            parser->ParseWhileInSet(" \t\n");
+          }
+        }
+
+        IF (parser->TryParse(")") AND RecordExists(linkdestination) AND RecordExists(title))
+        {
+          rawtext := rawtext || this->GetDataFromStateToCurrent(parser, state);
+          link := NEW MDItem(type, CELL[ link := DecodeURL(this->ReplaceEntities(linkdestination.link)), title := this->ReplaceEntities(title.title), rawtext ]);
+        }
+        ELSE
+          parser->RestoreState(afterclose);
+      }
+
+      IF (NOT ObjectExists(link) AND ObjectExists(document)) // Also fallback for when inline link can't be parsed, might be a [shortcut]
+      {
+        /* > There are three kinds of [reference link](@)s: [full](#full-reference-link), [collapsed](#collapsed-reference-link),
+           > and [shortcut](#shortcut-reference-link).
+           >
+           > A [full reference link](@) consists of a [link text] immediately followed by a [link label] that [matches] a
+           > [link reference definition] elsewhere in the document.
+           >
+           > A [link label](@)  begins with a left bracket (`[`) and ends with the first right bracket (`]`) that is not backslash-escaped.
+           > Between these brackets there must be at least one [non-whitespace character]. Unescaped square bracket characters are not allowed
+           > inside the opening and closing square brackets of [link labels].  A link label can have at most 999 characters inside the square
+           > brackets
+        */
+
+        // We ignore the 999 character limit
+
+        // references
+        STRING searchlabel;
+        IF (parser->TryParse("[]") OR parser->current != "[")
+          searchlabel := linktext;
+        ELSE
+          searchlabel := this->TryParseLinkLabel(parser);
+
+        IF (searchlabel != "")
+        {
+          // See [matches](@), we'll use our own case-insensitive compare. Is compatible enough for the tests.
+          RECORD linkref;
+          searchlabel := TrimWhitespace(NormalizeWhitespace(searchlabel));
+          FOREVERY (RECORD rec FROM document->data.linkreferencedefinitions)
+            IF (this->case_insensitive_compare(rec.label, searchlabel) = 0)
+            {
+              linkref := rec;
+              BREAK;
+            }
+
+          IF (RecordExists(linkref))
+          {
+            rawtext := rawtext || this->GetDataFromStateToCurrent(parser, state);
+            link := NEW MDItem(type, CELL[ linkref.link, linkref.title, rawtext ]);
+          }
+        }
+      }
+
+      IF (ObjectExists(link))
+      {
+        // > However, links may not contain other links, at any level of nesting.
+        IF (type = "image" OR NOT this->ContainsLink(inline_text))
+        {
+          link->children := this->ProcessEmphasis(this->ReplaceLinkDelimiters(inline_text));
+          block->children := [ ...ArraySlice(block->children, 0, current_position), link ];
+          RETURN TRUE;
+        }
+      }
+
+      BREAK;
+    }
+
+    parser->RestoreState(state);
+    RETURN FALSE;
+  }
+
+  /** Replaces all the items with type 'linkdelimiter' with their text representation (minus used delimiters)
+      @param List of MDItems
+      @return Modified list
+  */
+  OBJECT ARRAY FUNCTION ReplaceEmphasisDelimiters(OBJECT ARRAY children)
+  {
+    OBJECT ARRAY newchildren;
+    FOREVERY (OBJECT obj FROM children)
+      IF (obj->type != "emphasisdelimiter")
+        INSERT obj INTO newchildren AT END;
+      ELSE IF (obj->data.left != 0)
+      {
+        // Only emit the unused characters
+        STRING text := Left(obj->data.text, obj->data.left);
+        INSERT NEW MDItem("normaltext", CELL[ text, rawtext := text ]) INTO newchildren AT END;
+      }
+    RETURN newchildren;
+  }
+
+  /** Processes emphasis in a list of items
+)      @param List of MDItems
+      @return Modified list
+  */
+  OBJECT ARRAY FUNCTION ProcessEmphasis(OBJECT ARRAY children)
+  {
+    /* Implements the 'process emphasis' process from the spec
+
+       We ignore the openers_bottom for now, can be used when processing time becomes a bottleneck
+    */
+    FOR (INTEGER current_position := 0; current_position < LENGTH(children);)
+    {
+      // Find first active emphasisdelimiter that can close emphasis
+      OBJECT closer := children[current_position];
+      IF (closer->type != "emphasisdelimiter" OR NOT closer->data.can_close OR closer->data.left = 0)
+      {
+        current_position := current_position + 1;
+        CONTINUE;
+      }
+
+      // Find the emphasisdelimiter closest to the opener that is compatible with the closer
+      INTEGER openeridx := current_position - 1;
+      OBJECT opener;
+      FOR (; openeridx >= 0; openeridx := openeridx - 1)
+      {
+        opener := children[openeridx];
+        IF (opener->type = "emphasisdelimiter" AND opener->data.can_open AND opener->data.delimiterchar = closer->data.delimiterchar AND opener->data.left > 0)
+        {
+          // > If one of the delimiters can both open and close emphasis, then the sum of the lengths of the delimiter runs containing the opening and closing delimiters
+          // > must not be a multiple of 3.
+          IF ((NOT opener->data.can_both AND NOT closer->data.can_both) OR ((LENGTH(opener->data.text || closer->data.text) % 3) != 0))
+            BREAK;
+        }
+      }
+
+      IF (openeridx < current_position AND openeridx >= 0)
+      {
+        // Found an opener. Strong emphasis needs 2 chars, at both ends
+        BOOLEAN strong := opener->data.left >= 2 AND closer->data.left >= 2;
+        INTEGER runlength := strong ? 2 : 1;
+
+        // Remove all inner (unused) emphasis delimiters in the wrapped item
+        OBJECT emph := NEW MDItem(strong ? "strongemphasis" : "emphasis", [ rawtext := "" ]);
+        emph->children := this->ReplaceEmphasisDelimiters(ArraySlice(children, openeridx + 1, current_position - openeridx - 1));
+        STRING rawtext := Left(opener->data.rawtext, runlength);
+        FOREVERY (OBJECT c FROM emph->children)
+          rawtext := rawtext || c->data.rawtext;
+        emph->data.rawtext := rawtext || Left(opener->data.rawtext, runlength);
+
+        // Replace the children, adjust current_position
+        children := OBJECT[ ...ArraySlice(children, 0, openeridx + 1), emph, ...ArraySlice(children, current_position) ];
+        current_position := openeridx + 2;
+
+        opener->data.left := opener->data.left - runlength;
+        IF (opener->data.left = 0)
+        {
+          // Remove the opener when the whole run has been used
+          DELETE FROM children AT openeridx;
+          current_position := current_position - 1;
+        }
+
+        closer->data.left := closer->data.left - runlength; // might be 0, but no need to remove it immediately
+      }
+      ELSE
+        current_position := current_position + 1;
+    }
+
+    // Remove all runs we didn't use, or weren't removed
+    children := this->ReplaceEmphasisDelimiters(children);
+
+    RETURN children;
+  }
+
+  /** Tries to parse Webhare public token reference
+      Precondition: parser->current = "%"
+      @param parser StringParser
+      @return MDItem if the item was token was parsed successfully
+  */
+  OBJECT FUNCTION TryParseWebhareSymbolReference(OBJECT parser)
+  {
+    RECORD state := parser->SaveState();
+
+    // Webhare symbol reference: '%' webharetoken [ ( ':' / '::' ) webharetoken ]
+    // webharetoken: [_a-zA-Z][a-zA-Z0-9_]*
+
+    parser->TryParse("%");
+
+    STRING token := parser->ParseWhileInSet(parser->set_alpha || "_");
+    IF (token != "")
+    {
+      token := token || parser->ParseWhileInSet(parser->set_alpha || parser->set_digit || "_");
+      STRING reference := token;
+
+      RECORD afterfirsttoken := parser->SaveState();
+      STRING separator := parser->ParseWhileInSet(":");
+      IF (separator IN [ ":", "::" ])
+      {
+        token := parser->ParseWhileInSet(parser->set_alpha || "_");
+        IF (token != "")
+        {
+          token := token || parser->ParseWhileInSet(parser->set_alpha || parser->set_digit || "_");
+          reference := reference || separator || token;
+        }
+        ELSE
+          parser->RestoreState(afterfirsttoken);
+      }
+      ELSE
+        parser->RestoreState(afterfirsttoken);
+
+      STRING rawtext := this->GetDataFromStateToCurrent(parser, state);
+      RETURN NEW MDItem("webhare_symbolreference", CELL[ reference, rawtext ]);
+    }
+
+    parser->RestoreState(state);
+    RETURN DEFAULT OBJECT;
+  }
+
+  /** Parses the inline text from a block with inline text (paragraph, setextheading or atxheading)
+      @param block Block to process
+      @param parser StringParser with processed text
+  */
+  MACRO ParseInline(OBJECT document, OBJECT block, OBJECT parser)
+  {
+    // Current parsed text
+    STRING current;
+
+    STRING specialcharacters := "*_~`![]\\<& ";
+    IF (this->options.flavor = "webhare")
+      specialcharacters := specialcharacters || "%";
+
+    WHILE (NOT parser->eof)
+    {
+      // Parse non-special characters
+      STRING part := parser->ParseWhileNotInSet(specialcharacters);
+      current := current || part;
+
+      // Space handling
+      IF (parser->current = " ")
+      {
+        STRING last := parser->GetLastParsed(1);
+
+        STRING spaces := parser->ParseWhileInSet(" ");
+        IF (Right(last, 1) IN [ "", "\n" ]) // ignore spaces after newline / paragraph start
+          CONTINUE;
+
+        IF (parser->current = "") // ignore all spaces at the end of a paragraph
+          BREAK;
+
+        IF (parser->current = "\n")
+        {
+          // Ignore spaces at the end of a line - except if ending in two spaces, add a hard enter
+          IF (LENGTH(spaces) >= 2)
+          {
+            // Flush the current text
+            IF (current != "")
+              INSERT NEW MDItem("normaltext", [ text := current, rawtext := current ]) INTO block->children AT END;
+            current := "";
+
+            parser->Next();
+            INSERT NEW MDItem("hardenter", [ rawtext := "  " ]) INTO block->children AT END;
+          }
+        }
+        ELSE
+          current := current || spaces;
+
+        CONTINUE;
+      }
+
+      // After now, we'll parse at least one ASCII character
+      RECORD nextstart := parser->SaveState();
+
+      // Special character. Flush the current text
+      IF (current != "")
+        INSERT NEW MDItem("normaltext", [ text := current, rawtext := current ]) INTO block->children AT END;
+      current := "";
+
+      OBJECT parseditem;
+      BOOLEAN parserun; // If parsing the item failed, parse a run of the current character instead
+      SWITCH (parser->current)
+      {
+        CASE "*", "_"   {
+                          // Get at least one unicode char of lookback
+                          parseditem := this->TryParseEmphasisDelimiterRun(parser, parser->GetLastParsed(4));
+                          parserun := TRUE;
+                        }
+        CASE "<"        { parseditem := this->TryParseHTMLTag(parser) ?? this->TryParseAutolink(parser); }
+        CASE "[", "!"   { parseditem := this->TryParseLinkStart(parser); }
+        CASE "]"        {
+                          IF (this->TryProcessLinkEnding(document, block, parser))
+                            CONTINUE;
+                        }
+        CASE "\\"       { parseditem := this->TryParseEscape(parser); }
+        CASE "&"        { parseditem := this->TryParseHTMLEntity(parser); }
+        CASE "`"        {
+                          parseditem := this->TryParseCodeSpan(parser);
+                          parserun := TRUE;
+                        }
+        CASE "%"        { parseditem := this->TryParseWebhareSymbolReference(parser); }
+      }
+
+      // Got an item, add it to the block
+      IF (ObjectExists(parseditem))
+        INSERT parseditem INTO block->children AT END;
+      ELSE
+      {
+        // No match, if parserun is true consume until the character changes
+        IF (parserun)
+          current := current || parser->ParseWhileInSet(parser->current);
+        ELSE
+          current := current || parser->ParseN(1);
+      }
+    }
+
+    IF (current != "")
+      INSERT NEW MDItem("normaltext", [ text := current, rawtext := current ]) INTO block->children AT END;
+
+    // Remove link delimiters, won't be used anymore
+    block->children := this->ReplaceLinkDelimiters(block->children);
+
+    // Process emphasis (spec says at block close time, so postprocessing is ok)
+    block->children := this->ProcessEmphasis(block->children);
+  }
+
+  /** Find all paragraphs with link reference definitions, extract them and store them in the document
+      object
+      @param root MarkDown object tree
+  */
+  PUBLIC MACRO HandleLinkReferenceDefinitionss(OBJECT root)
+  {
+    root->data.linkreferencedefinitions := this->ExtractLinkReferenceDefinitionss(root);
+  }
+
+  /** Tries to parse a link label
+      @return Empty string if none found (and unchanged parser state), otherwise raw content of link label
+  */
+  STRING FUNCTION TryParseLinkLabel(OBJECT parser)
+  {
+    /* > A [link label](@)  begins with a left bracket (`[`) and ends with the first right bracket (`]`) that is not backslash-escaped.
+       > Between these brackets there must be at least one [non-whitespace character]. Unescaped square bracket characters are not allowed inside the
+       > opening and closing square brackets of [link labels].  A link label can have at most 999 characters inside the square brackets.
+    */
+    RECORD state := parser->SaveState();
+    IF (parser->TryParse("["))
+    {
+      STRING linklabel;
+      WHILE (NOT parser->eof)
+      {
+        linklabel := linklabel || parser->ParseWhileNotInset("\\[]");
+        IF (LENGTH(linklabel) > 999)
+          BREAK;
+
+        IF (parser->TryParse("\\"))
+        {
+          // > Note that a backslash before a non-escapable character is just a backslash
+          IF (parser->current IN [ "[", "]", "\\" ])
+            linklabel := linklabel || "\\" || parser->ParseN(1); // labels are used in their raw form, so don't remove
+          ELSE
+            linklabel := linklabel || "\\";
+        }
+        ELSE IF (parser->TryParse("]"))
+        {
+          linklabel := TrimWhitespace(linklabel);
+          IF (linklabel = "")
+            BREAK;
+
+          RETURN linklabel;
+        }
+        ELSE
+          BREAK;
+      }
+    }
+
+    parser->RestoreState(state);
+    RETURN "";
+  }
+
+  /** @short Extract and return all link reference definitions
+      @long Recursively walks the object tree, and identifies all paragraphs that start with link reference definitions
+         These are removed from the paragraph, parsed and returned
+      @param root MDItem
+      @return List of link reference definitions
+      @cell return.label Label (parsed raw)
+      @cell return.link Link
+      @cell return.title Title
+  */
+  RECORD ARRAY FUNCTION ExtractLinkReferenceDefinitionss(OBJECT root)
+  {
+    RECORD ARRAY refs;
+
+    // Walk all children. We remove resulting empty paragraphs, so keep a counter
+    FOR (INTEGER idx := 0; idx < LENGTH(root->children); idx := idx + 1)
+    {
+      OBJECT child := root->children[idx];
+
+      IF (child->type = "paragraph")
+      {
+        OBJECT parser := NEW StringParser(Detokenize(child->lines, "\n"));
+
+        RECORD restorestate;
+        WHILE (TRUE)
+        {
+          // Save the state here. If we break out of the while, we can rollback to here to undo any parsing we did
+          restorestate := parser->SaveState();
+
+          /* A [link reference definition](@) consists of a [link label], indented up to three spaces, followed
+             by a colon (`:`), optional [whitespace] (including up to one [line ending]), a [link destination],
+            optional [whitespace] (including up to one [line ending]), and an optional [link title], which if
+            it is present must be separated from the [link destination] by [whitespace]. No further [non-whitespace characters]
+            may occur on the line.
+          */
+
+          // Up to 3 spaces
+          parser->TryParse("  ");
+          parser->TryParse(" ");
+
+          STRING label := this->TryParseLinkLabel(parser);
+          IF (label = "")
+            BREAK;
+
+          IF (NOT parser->TryParse(":"))
+            BREAK;
+
+          parser->ParseWhileInSet(" \t");
+          IF (parser->current = "\n")
+          {
+            parser->TryParse("\n");
+            parser->ParseWhileInSet(" \t");
+          }
+
+          RECORD linkdestination := this->ParseLinkDestination(parser);
+          IF (NOT RecordExists(linkdestination))
+            BREAK;
+
+          /* If this whitespace is followed by an newline and an invalid title, we won't parse
+             that next title. So, we need to save the state just before the newline.
+          */
+          STRING whitespace := parser->ParseWhileInSet(" \t");
+          RECORD prelineend;
+          IF (parser->current = "\n")
+          {
+            prelineend := parser->SaveState();
+            parser->TryParse("\n");
+            whitespace := "\n" || parser->ParseWhileInSet(" \t");
+          }
+
+          BOOLEAN valid_titlepart := TRUE;
+
+          RECORD linktitle := [ title := "" ];
+          IF (whitespace != "" AND parser->current NOT IN [ "", "\n"]) // end of paragraph / line
+          {
+            linktitle := this->ParseLinkTitle(parser);
+            IF (NOT RecordExists(linktitle))
+              valid_titlepart := FALSE;
+            parser->ParseWhileInSet(" \t");
+          }
+
+          IF (parser->current NOT IN [ "", "\n"])
+            valid_titlepart := FALSE;
+
+          IF (NOT valid_titlepart)
+          {
+            // If it was on the same line as the linkdefinition, the definition is invalid
+            IF (NOT RecordExists(prelineend))
+              BREAK;
+
+            // Title started on a new line, so we can just ignore it and pretend no title was present
+            linktitle := [ title := "" ];
+            parser->RestoreState(prelineend);
+          }
+
+          // Valid definition, no rollbakck needed from this point
+          restorestate := DEFAULT RECORD;
+
+          INSERT CELL
+              [ label :=    TrimWhitespace(NormalizeWhitespace(label))
+              , link :=     this->ReplaceEntities(linkdestination.link)
+              , title :=    this->ReplaceEntities(linktitle.title)
+              ] INTO refs AT END;
+
+          parser->TryParse("\n");
+        }
+
+        // Roll back if needed
+        IF (RecordExists(restorestate))
+          parser->RestoreState(restorestate);
+
+        // >  Any remainder becomes a normal paragraph.
+        IF (TrimWhitespace(parser->remaining_data) = "")
+        {
+          // Empty paragraphs don't contribute much, remove it
+          child->lines := STRING[];
+          DELETE FROM root->children AT idx;
+          idx := idx - 1;
+        }
+        ELSE
+          child->lines := Tokenize(parser->remaining_data, "\n");
+      }
+
+      refs := refs CONCAT this->ExtractLinkReferenceDefinitionss(child);
+    }
+
+    RETURN refs;
+  }
+
+  /** @short Processes the inline text (and some other stuff)
+      @long Implements phase 2 of the parsing (as set forth in the CommonMark spec), parses the inline structure of paragraphs.
+         Also determines whether lists are loose or strict
+      @param document Document object
+      @param parent Parent of current processed object
+      @param obj Current processed object
+  */
+  PUBLIC MACRO ProcessInlineTextRecursive(OBJECT document, OBJECT parent, OBJECT obj)
+  {
+    this->PreprocessObject(obj);
+    FOREVERY (OBJECT child FROM obj->children)
+      this->ProcessInlineTextRecursive(document, obj, child);
+    this->PostprocessObject(document, parent, obj);
+  }
+
+  /// Handles list loose/strict detection
+  MACRO PreprocessObject(OBJECT node)
+  {
+    // We need to determine wether a list is loose or strict before parsing the inline content
+    SWITCH (node->type)
+    {
+      CASE "list"
+      {
+        /* > A list is [loose](@) if any of its constituent list items are separated by blank lines, or if any of its constituent
+           > list items directly contain two block-level elements with a blank line between them.  Otherwise a list is [tight](@).
+
+           We need to ignore the trailing emptylines of the last listitem to determine looseness. Those emptylines must be
+           considered for a parent list, though!
+        */
+        FOR (INTEGER childidx := LENGTH(node->children) - 1; childidx >= 0; childidx := childidx - 1)
+        {
+          OBJECT listitem := node->children[childidx];
+          BOOLEAN found_non_emptyline := childidx != LENGTH(node->children) - 1;
+
+          IF (listitem->type = "emptyline")
+          {
+            node->data.loose := TRUE;
+            BREAK;
+          }
+
+          FOR (INTEGER subchildidx := LENGTH(listitem->children) - 1; subchildidx >= 0; subchildidx := subchildidx - 1)
+          {
+            OBJECT subchild := listitem->children[subchildidx];
+            IF (subchild->type != "emptyline")
+              found_non_emptyline := TRUE;
+            ELSE IF (found_non_emptyline)
+              node->data.loose := TRUE;
+
+            // If this item contains a list which ends in an emptyline (ignored for that list), this list is loose too
+            IF (subchild->type = "list" AND subchild->children[END-1]->children[END-1]->type = "emptyline")
+              node->data.loose := TRUE;
+          }
+        }
+      }
+      CASE "table"
+      {
+        FOREVERY (STRING line FROM STRING[ node->lines[0], ...ArraySlice(node->lines, 2) ])
+        {
+          OBJECT row := this->ParseTableLine(line, #line = 0, node->data.columns);
+          INSERT row INTO node->children AT END;
+        }
+      }
+    }
+  }
+
+  /** Parses lines for all the objects with inline content
+      @param document Document object
+      @param parent Parent of current processed object
+      @param obj Current processed object
+  */
+  MACRO PostprocessObject(OBJECT document, OBJECT parent, OBJECT node)
+  {
+    SWITCH (node->type)
+    {
+      CASE "paragraph", "setextheading", "atxheading", "tablecell"
+      {
+        STRING ARRAY lines := node->lines;
+
+        IF (node->type = "atxheading")
+        {
+          /* > An [ATX heading](@) consists of a string of characters, parsed as inline content, between an
+             > opening sequence of 1--6 unescaped `#` characters and an optional closing sequence of any number
+             > of unescaped `#` characters.
+          */
+
+          // Removing the closing sequence
+
+          // Ignore / #*$/ at the end of the line
+          STRING line := TrimWhitespace(lines[0]);
+
+          // Remove trailing '#'
+          WHILE (line LIKE "*#")
+            line := Left(line, LENGTH(line) - 1);
+
+          // > The optional closing sequence of `#`s must be preceded by a [space] and may be followed by spaces only.
+          IF (line LIKE "* " OR line = "")
+          {
+            // > The raw contents of the heading are stripped of leading and trailing spaces before being parsed as inline content.
+            lines[0] := TrimWhitespace(line);
+          }
+        }
+
+        // Run the parser for inline content on the lines
+        STRING content := TrimWhitespace(Detokenize(lines, "\n"));
+        OBJECT parser := NEW StringParser(content);
+
+        this->ParseInline(document, node, parser);
+      }
+      CASE "indentedcode"
+      {
+        STRING ARRAY lines := node->lines;
+
+        // > Blank lines preceding or following an indented code block are not included in it
+        WHILE (NOT IsDefaultValue(lines) AND IsDefaultValue(lines[0]))
+          DELETE FROM lines AT 0;
+        WHILE (NOT IsDefaultValue(lines) AND IsDefaultValue(lines[END-1]))
+          DELETE FROM lines AT END-1;
+
+        node->data :=
+            [ syntax :=   ""
+            , code :=     IsDefaultValue(lines) ? "" : Detokenize(lines, "\n") || "\n"
+            ];
+      }
+      CASE "listitem"
+      {
+        /* > (The difference in HTML output is that paragraphs in a loose list are
+           > wrapped in `<p>` tags, while paragraphs in a tight list are not.)
+        */
+        IF (NOT parent->data.loose)
+        {
+          OBJECT ARRAY newchildren;
+          FOREVERY (OBJECT child FROM node->children)
+            IF (child->type = "paragraph")
+              newchildren := newchildren CONCAT child->children;
+            ELSE
+              INSERT child INTO newchildren AT END;
+          node->children := newchildren;
+        }
+      }
+      CASE "fencedcode"
+      {
+        // Remove the fencing line
+        STRING ARRAY lines := ArraySlice(node->lines, 1);
+
+        // Parse the syntax, process the escapes
+        STRING syntax;
+        OBJECT parser := NEW StringParser(node->lines[0]);
+        parser->ParseWhileInset(" ");
+        WHILE (NOT parser->eof)
+        {
+          syntax := syntax || parser->ParseWhileNotInSet(" \n\t\\");
+          IF (parser->current = "\\")
+          {
+            parser->Next();
+            syntax := syntax || parser->ParseN(1);
+          }
+          ELSE
+            BREAK;
+        }
+
+        node->data := CELL
+            [ syntax :=   this->ReplaceEntities(syntax)
+            , code :=     IsDefaultValue(lines) ? "" : (Detokenize(lines, "\n") || "\n")
+            ];
+      }
+      CASE "htmlblock"
+      {
+        node->data := [ html := IsDefaultValue(node->lines) ? "" : Detokenize(node->lines, "\n") ];
+      }
+    }
+  }
+
+  /** Parses a table delimiter row. Line should contain at least 1 pipe character
+      @param line
+      @return List of columns
+      @cell return.align Alignment ('left', 'right' or 'center')
+  */
+  RECORD ARRAY FUNCTION ParseTableDelimiterRow(STRING line)
+  {
+    OBJECT parser := NEW StringParser(TrimWhitespace(line));
+    parser->TryParse("|");
+    parser->ParseWhileInSet(" \t");
+
+    RECORD ARRAY columns;
+    WHILE (NOT parser->eof)
+    {
+      BOOLEAN leadingcolon := parser->TryParse(":");
+      IF (parser->ParseWhileInSet("-") = "")
+        RETURN RECORD[];
+      BOOLEAN trailingcolon := parser->TryParse(":");
+      INSERT CELL[ align := trailingcolon ? leadingcolon ? "center" : "right" : "left" ] INTO columns AT END;
+      parser->ParseWhileInSet(" \t");
+      IF (NOT parser->TryParse("|"))
+        BREAK;
+      parser->ParseWhileInSet(" \t");
+    }
+    RETURN LENGTH(columns) >= 1 AND parser->eof ? columns : RECORD[];
+  }
+
+  /** Parses a table row
+      @param line Line to parse
+      @param isheading Whether this line is the table heading
+      @param columns Optional columns, for padding rows and setting alignment
+      @return A tablerow object. DEFAULT OBJECT if no separating pipe symbol was found.
+  */
+  OBJECT FUNCTION ParseTableLine(STRING line, BOOLEAN isheading, RECORD ARRAY columns)
+  {
+    OBJECT p := NEW MDItem("paragraph");
+    this->ParseInline(DEFAULT OBJECT, p, NEW StringParser(line));
+
+    RECORD celldata := CELL[ isheading, align := "" ];
+    BOOLEAN eatenpipe;
+    OBJECT ARRAY cells;
+    BOOLEAN havepipe;
+
+    STRING cellline;
+    FOREVERY (OBJECT c FROM p->children)
+    {
+      // Ignore normaltext with escaped pipe (with rawtext "\\|")
+      IF (c->type != "normaltext" OR c->data.text NOT LIKE "*|*" OR c->data.rawtext = "\\|")
+      {
+        cellline := cellline || c->data.rawtext;
+        CONTINUE;
+      }
+
+      STRING ARRAY parts := Tokenize(c->data.rawtext, "|");
+      WHILE (LENGTH(parts) > 1)
+      {
+        havepipe := TRUE;
+        cellline := cellline || parts[0];
+        OBJECT item := NEW MDItem("tablecell", celldata);
+        item->lines := [ cellline ];
+        IF (eatenpipe OR TrimWhitespace(cellline) != "")
+          INSERT item INTO cells AT END;
+        eatenpipe := TRUE;
+        DELETE FROM parts AT 0;
+        cellline := "";
+      }
+      cellline := cellline || parts[0];
+    }
+
+    IF (TrimWhitespace(cellline) != "")
+    {
+      OBJECT item := NEW MDItem("tablecell", celldata);
+      item->lines := [ cellline ];
+      INSERT item INTO cells AT END;
+    }
+
+    WHILE (LENGTH(cells) < LENGTH(columns))
+    {
+      OBJECT dummyitem := NEW MDItem("tablecell", celldata);
+      dummyitem->lines := [ "" ];
+      INSERT dummyitem INTO cells AT END;
+    }
+
+    IF (NOT isheading OR havepipe)
+    {
+      OBJECT row := NEW MDItem("tablerow");
+      IF (RecordExists(columns))
+      {
+        FOREVERY (RECORD rec FROM columns)
+        {
+          cells[#rec]->data.align := rec.align;
+          INSERT cells[#rec] INTO row->children AT END;
+        }
+      }
+      ELSE
+        row->children := cells;
+
+      RETURN row;
+    }
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  /** Tests if the current line contents is a valid continuation of an open block
+      @param openblock Open block to test against
+      @param line Current line
+      @param inlazycontinuation Whether the parent open block was matched lazily
+      @param relcolumn Nr of columns already consumed
+      @return
+      @cell return.line If a match, the new contents of the line
+      @cell return.startpos
+  */
+  RECORD FUNCTION TestContinuation(OBJECT openblock, STRING line, BOOLEAN inlazycontinuation, INTEGER relcolumn)
+  {
+    RECORD result := CELL
+        [ ignore := FALSE
+        , match := FALSE
+        , lazymatch := FALSE
+        , removelist := FALSE
+        , line
+        , relcolumn
+        , isleaf := FALSE
+        , allowlazy := FALSE
+        , islastline := FALSE
+        , ignoreline := FALSE
+        ];
+
+    SWITCH (openblock->type)
+    {
+      CASE "indentedcode"
+      {
+        IF (NOT inlazycontinuation)
+        {
+          RECORD spacesrec := this->ParseSpaces(line, 4, relcolumn);
+          IF (spacesrec.gotspaces = 4 OR spacesrec.eol)
+          {
+            result.match := TRUE;
+            result.line := spacesrec.line;
+            result.relcolumn := spacesrec.relcolumn;
+            result.isleaf := TRUE;
+          }
+        }
+      }
+      CASE "paragraph"
+      {
+        IF (this->options.flavor = "webhare" AND LENGTH(openblock->lines) = 1 AND line LIKE "*|*" AND openblock->lines[0] LIKE "*|*")
+        {
+          // Second line, is this a delmiter row?
+          RECORD ARRAY columns := this->ParseTableDelimiterRow(line);
+          IF (NOT IsDefaultValue(columns))
+          {
+            // Yep, is the first line a matching table row?
+            OBJECT heading := this->ParseTableLine(openblock->lines[0], TRUE, RECORD[]);
+            IF (ObjectExists(heading) AND LENGTH(columns) = LENGTH(heading->children))
+            {
+              openblock->type := "table";
+              openblock->data := CELL[ columns ];
+              result.match := TRUE;
+              result.isleaf := TRUE;
+              RETURN result;
+            }
+          }
+        }
+
+        RECORD rec := this->DetermineBlockType(line, TRUE, inlazycontinuation, FALSE, relcolumn);
+        IF (NOT RecordExists(rec))
+        {
+          result.match := TrimWhitespace(line) != "";
+          result.isleaf := TRUE;
+          result.allowlazy := TRUE;
+        }
+        ELSE IF (rec.type = "setextheading")
+        {
+          // We found a setext heading underline, convert the current paragraph into a setext heading
+          openblock->type := "setextheading";
+          openblock->data := rec.data;
+
+          result.match := TRUE;
+          result.islastline := TRUE;
+          result.isleaf := TRUE;
+          result.ignoreline := TRUE;
+        }
+      }
+      CASE "listitem"
+      {
+        // > A list item can begin with at most one blank line.
+        IF (TrimWhitespace(line) = "" AND openblock->data.emptylinestart)
+          RETURN result;
+
+        RECORD spacesrec := this->ParseSpaces(line, openblock->data.indent, relcolumn);
+        IF (spacesrec.gotspaces = openblock->data.indent OR TrimWhitespace(line) = "")
+        {
+          result.match := TRUE;
+          result.line := spacesrec.line;
+          result.relcolumn := spacesrec.relcolumn;
+        }
+        ELSE
+        {
+          // Test if this is a list delimiter (or another block illegal for paragraph continuation) - that would not be a lazy match
+          RECORD rec := this->DetermineBlockType(line, TRUE, inlazycontinuation, TRUE, relcolumn);
+          IF (NOT RecordExists(rec))
+            result.lazymatch := TRUE;
+        }
+      }
+      CASE "list"
+      {
+        // List blocks are an implementation detail here, ignore them for matching
+        result.ignore := TRUE;
+      }
+      CASE "blockquote"
+      {
+        // Eat 3 initial spaces
+        RECORD spacesrec := this->ParseSpaces(line, 3, relcolumn);
+
+        result.lazymatch := TRUE; // Always a lazy match
+        IF (spacesrec.line LIKE ">*")
+        {
+          result.match := TRUE;
+
+          relcolumn := relcolumn + 1;
+          spacesrec := this->ParseSpaces(SubString(spacesrec.line, 1), 1, relcolumn);
+
+          result.line := spacesrec.line;
+          result.relcolumn := spacesrec.relcolumn;
+        }
+      }
+      CASE "fencedcode"
+      {
+        // Fenced code ends at the start of lazy continuations
+        IF (NOT inlazycontinuation)
+        {
+          RECORD initialspacesrec := this->ParseSpaces(line, 3, relcolumn);
+
+          OBJECT parser := NEW StringParser(initialspacesrec.line);
+
+          STRING fence := parser->ParseWhileInset(Left(openblock->data.prefix, 1));
+          parser->ParseWhileInset(" \t");
+          BOOLEAN validclosingfence := LENGTH(fence) >= LENGTH(openblock->data.prefix) AND parser->eof;
+
+          result.match := TRUE;
+          result.islastline := validclosingfence;
+          result.ignoreline := result.islastline;
+          result.isleaf := TRUE;
+
+          IF (NOT validclosingfence)
+          {
+            RECORD codeindentspacesrec := this->ParseSpaces(line, openblock->data.initialspaces, relcolumn);
+            result.line := codeindentspacesrec.line;
+            result.relcolumn := codeindentspacesrec.relcolumn;
+          }
+        }
+      }
+      CASE "htmlblock"
+      {
+        result.match := TRUE;
+        result.isleaf := TRUE;
+
+        // Implement the different HTML ending modes
+        SWITCH (openblock->data.mode)
+        {
+          CASE "emptyline"
+          {
+            result.islastline := TrimWhitespace(line) = "";
+            result.ignoreline := result.islastline;
+          }
+          CASE "contains"
+          {
+            result.islastline := SearchSubString(line, openblock->data.endword) != -1;
+          }
+          CASE "blockclose"
+          {
+            result.islastline :=
+                line LIKE "*</script>*" OR
+                line LIKE "*</pre>*" OR
+                line LIKE "*</style>*";
+          }
+          DEFAULT { ABORT(` Illegal mode '${openblock->data.mode}'`); }
+        }
+      }
+      CASE "table"
+      {
+        // Parse as if this was a paragraph (but ignoreing setextheaders)
+        RECORD rec := this->DetermineBlockType(line, TRUE, inlazycontinuation, FALSE, relcolumn);
+        IF (NOT RecordExists(rec))
+        {
+          result.match := TrimWhitespace(line) != "";
+          result.isleaf := TRUE;
+          result.allowlazy := FALSE;
+        }
+      }
+    }
+
+    RETURN result;
+  }
+
+  RECORD FUNCTION ParseSpaces(STRING line, INTEGER maxcount, INTEGER relcolumn)
+  {
+    INTEGER gotspaces;
+    FOR (INTEGER i := 0; i < maxcount; i := i + 1)
+    {
+      IF (line LIKE " *")
+        line := SubString(line, 1);
+      ELSE IF (line NOT LIKE "\t*")
+        BREAK;
+      ELSE
+        line := RepeatText(" ", this->options.tabwidth - 1 - (relcolumn % this->options.tabwidth)) || SubString(line, 1);
+      gotspaces := gotspaces + 1;
+      relcolumn := relcolumn + 1;
+    }
+    RETURN CELL[ line, gotspaces, relcolumn, eol := IsDefaultValue(line) ];
+  }
+
+  /** Given a line, detects which type of block this line contains
+      @param line Line to analyse
+      @param forparagraphcontinuation If TRUE, ignore lines that parse as content within a paragraph continuations (eg indented code)
+      @param inlazycontinuation Whether in a lazy continuation
+      @param testlistcontinuation Whether to test for listitems within a listitem
+      @return DEFAULT RECORD if no type of block found (only when forparagraphcontinuation is `TRUE`)
+      @cell return.type Type of block
+      @cell return.eat Nr of characters to remove from the line (block begin marker, indent)
+      @cell return.isleaf Whether this is a leaf node (paragraph, fenced code, etc)
+      @cell return.data Data to use for construction of the block object
+      @cell return.listdata For listitems, data for construction of the parent list object
+      @cell return.islastline Whether this current line is the only line in the block
+      @cell return.ignoreline Whether the further contents of the line should be ignored
+  */
+  RECORD FUNCTION DetermineBlockType(STRING line, BOOLEAN forparagraphcontinuation, BOOLEAN inlazycontinuation, BOOLEAN testlistcontinuation, INTEGER relcolumn)
+  {
+    RECORD retvalbase := CELL[ ...baseblocktyperetval, line ];
+    INTEGER startrelcolumn := relcolumn;
+
+    // Parse up to 3 initial spaces (lots of blocks need that)
+    RECORD spacesrec := this->ParseSpaces(line, 3, relcolumn);
+    line := spacesrec.line;
+    INTEGER initialspaces := spacesrec.gotspaces;
+    relcolumn := spacesrec.relcolumn;
+
+    OBJECT parser := NEW StringParser(spacesrec.line);
+
+    // Save state just after the whitespace, we'll roll back quite often
+    RECORD beginstate := parser->SaveState();
+    STRING beginchar := parser->current;
+
+    // setext heading (precedence over thematic break). Only test for paragraph content, but ignore in lazy continuations
+    IF (beginchar IN [ "-", "=" ] AND forparagraphcontinuation AND NOT inlazycontinuation)
+    {
+      STRING matches := parser->ParseWhileInset(`${beginchar}`);
+      parser->ParseWhileInset(` \t`);
+      IF (parser->eof)
+        RETURN CELL[ ...retvalbase, type := "setextheading", data := [ level := beginchar = "-" ? 2 : 1 ] ];
+      parser->RestoreState(beginstate);
+    }
+
+    // Thematic break
+    IF (beginchar IN [ "-", "_", "*" ])
+    {
+      /* > A line consisting of 0-3 spaces of indentation, followed by a sequence of three or more matching `-`, `_`, or `*` characters, each followed
+         > optionally by any number of spaces or tabs, forms a [thematic break](@).
+      */
+      STRING matches := parser->ParseWhileInset(`${beginchar} \t`);
+      IF (parser->eof AND LENGTH(Substitute(NormalizeWhitespace(matches), " ", "")) >= 3)
+        RETURN CELL[ ...retvalbase, type := "thematicbreak", isleaf := TRUE, ignoreline := TRUE ];
+      parser->RestoreState(beginstate);
+    }
+
+    // ATX heading
+    IF (beginchar = "#")
+    {
+      INTEGER initialhashes := LENGTH(parser->ParseWhileInset(`#`));
+      IF (initialhashes <= 6)
+      {
+        /* > An [ATX heading](@) consists of a string of characters, parsed as inline content, between an
+           > opening sequence of 1--6 unescaped `#` characters and an optional closing sequence of any number of unescaped `#` characters.
+           > The opening sequence of `#` characters must be followed by a [space] or by the end of line.
+        */
+
+        IF (parser->current IN [ " ", "\t", "" ]) // whitespace or end of line
+        {
+          line := SubString(line, initialhashes);
+          relcolumn := relcolumn + initialhashes;
+          spacesrec := this->ParseSpaces(line, 1, relcolumn);
+          RETURN CELL[ ...retvalbase, type := "atxheading", spacesrec.line, spacesrec.relcolumn, data := [ level := initialhashes ], isleaf := TRUE ];
+        }
+      }
+      parser->RestoreState(beginstate);
+    }
+
+    // Indented code: 4+ initial spaces (we already ate 3 spaces, so testing if the current item is a space is enough)
+    IF ((parser->current = " " OR parser->current = "\t") AND NOT forparagraphcontinuation)
+    {
+      /* > An [indented code block](@) is composed of one or more [indented chunks] separated by blank lines.
+         > An [indented chunk](@) is a sequence of non-blank lines, each indented four or more spaces. The contents of the code block are
+         > the literal contents of the lines, including trailing [line endings], minus four spaces of indentation.
+      */
+      spacesrec := this->ParseSpaces(line, 1, relcolumn);
+      parser->ParseWhileInset(" \t");
+      IF (NOT parser->eof)
+        RETURN CELL[ ...retvalbase, type := "indentedcode", spacesrec.line, spacesrec.relcolumn, isleaf := TRUE ];
+
+      parser->RestoreState(beginstate);
+    }
+
+    parser->RestoreState(beginstate);
+
+    IF (beginchar IN [ "~", "`" ])
+    {
+      STRING prefix := TrimWhitespace(parser->ParseWhileInset(beginchar || " "));
+      IF (LENGTH(prefix) >= 3 AND prefix NOT LIKE "* *")
+      {
+        BOOLEAN islegal := TRUE;
+        IF (beginchar = "`")
+        {
+          // [Info strings] for backtick code blocks cannot contain backticks
+          parser->ParseWhileNotInset("`");
+          islegal := parser->eof;
+        }
+
+        IF (islegal)
+        {
+          line := SubString(line, LENGTH(prefix));
+          relcolumn := relcolumn + LENGTH(prefix);
+
+          RETURN CELL[ ...retvalbase, type := "fencedcode", line, relcolumn, isleaf := TRUE, data := CELL[ prefix, initialspaces ] ];
+        }
+      }
+
+      parser->RestoreState(beginstate);
+    }
+
+    /* > A [block quote marker](@) consists of 0-3 spaces of initial indent, plus (a) the character `>` together
+       > with a following space, or (b) a single character `>` not followed by a space.
+    */
+    IF (parser->TryParse(">"))
+    {
+      line := SubString(line, 1);
+      relcolumn := relcolumn + 1;
+
+      RECORD postspacesrec := this->ParseSpaces(line, 1, relcolumn);
+      RETURN CELL[ ...retvalbase, type := "blockquote", postspacesrec.line, postspacesrec.relcolumn ];
+    }
+
+    IF (beginchar IN [ "-", "+", "*" ] OR ToInteger(beginchar, -1) != -1) // unorderded list char or digit
+    {
+      BOOLEAN ordered := beginchar NOT IN [ "-", "+", "*" ];
+      STRING nr, postfix, start, bullet;
+      BOOLEAN isallowed := TRUE;
+      IF (ordered)
+      {
+        // > An ordered list marker is a sequence of 1–9 arabic digits (0-9), followed by either a . character or a ) character.
+        nr := parser->ParseWhileInSet(parser->set_digit);
+        postfix := parser->TryParse(".") ? "." : parser->TryParse(")") ? ")" : "";
+        start := ToString(ToInteger(nr, 0)); // normalize start nr
+        bullet := postfix;
+
+        isallowed := LENGTH(nr) < 10 AND bullet != "";
+
+        /* > In order to solve of unwanted lists in paragraphs with
+           > hard-wrapped numerals, we allow only lists starting with `1` to
+           > interrupt paragraphs.
+        */
+        IF (start != "1" AND forparagraphcontinuation AND NOT testlistcontinuation)
+          isallowed := FALSE;
+      }
+      ELSE
+      {
+        nr := parser->ParseN(1);
+        bullet := nr;
+      }
+
+      IF (parser->current NOT IN [ " ", "\t", ""]) // whitespace or end of line
+        isallowed := FALSE;
+
+      // > However, an empty list item cannot interrupt a paragraph
+      IF (parser->eof AND (forparagraphcontinuation AND NOT testlistcontinuation))
+        isallowed := FALSE;
+
+      IF (isallowed)
+      {
+        BOOLEAN isemptyline := TrimWhitespace(parser->remaining_data) = "";
+
+        line := SubString(line, LENGTH(nr || postfix));
+        relcolumn := relcolumn + LENGTH(nr || postfix);
+
+        RECORD pastspacesrec := this->ParseSpaces(line, 5, relcolumn);
+        IF (pastspacesrec.gotspaces > 4)
+          pastspacesrec := this->ParseSpaces(line, 1, relcolumn);
+
+        INTEGER indent := initialspaces + LENGTH(nr || postfix) + (isemptyline ? 1 : pastspacesrec.gotspaces);
+        RETURN CELL
+            [ ...retvalbase
+            , type := "listitem"
+            , pastspacesrec.line
+            , pastspacesrec.relcolumn
+            , isleaf := FALSE
+            , data := CELL[ indent
+                          , emptylinestart := parser->eof
+                          ]
+            , listdata := CELL[ ordered
+                              , start
+                              , bullet
+                              , flavor :=     `${ordered ? "ordered" : "unordered"}-${bullet}`
+                              , loose := FALSE
+                              ]
+            , ignoreline := isemptyline
+            ];
+      }
+      parser->RestoreState(beginstate);
+    }
+
+    // HTML block
+    IF (beginchar = "<")
+    {
+      RECORD rec := this->DetermineHTMLBlock(parser->remaining_data, forparagraphcontinuation);
+      IF (RecordExists(rec))
+        RETURN CELL[ ...retvalbase, ...rec ];
+    }
+
+    IF (forparagraphcontinuation)
+      RETURN DEFAULT RECORD;
+
+    // Ignore whitespace before a paragraph start
+    parser->ParseWhileInset(" ");
+    IF (parser->eof)
+      RETURN CELL[ ...retvalbase, type := "emptyline", isleaf := TRUE, islastline := TRUE ];
+
+    RETURN CELL[ ...retvalbase, type := "paragraph", isleaf := TRUE ];
+  }
+
+  /** Determines whether the current line contains an HTML block
+      @param line Line to analyse
+      @param forparagraphcontinuation Whether we're in a paragraph continuation
+      @return See DetermineBlockType#return
+  */
+  RECORD FUNCTION DetermineHTMLBlock(STRING line, BOOLEAN forparagraphcontinuation)
+  {
+    OBJECT parser := NEW StringParser(line);
+    RECORD startstate := parser->SaveState();
+
+    parser->TryParse("<");
+    BOOLEAN haveslash := parser->TryParse("/");
+
+    STRING word := parser->ParseWhileInSet(parser->set_alpha || parser->set_digit);
+
+    STRING mode;
+    STRING endword;
+    STRING blocktype;
+
+    IF (NOT haveslash AND ToLowercase(word) IN [ "script", "pre", "style" ]) // kind 1
+    {
+      // Unparsed block tag
+      IF (parser->current IN [ "", " ", ">", "\n"])
+      {
+        mode := "blockclose";
+        blocktype := "codeblock";
+      }
+    }
+    ELSE IF (word = "" AND NOT haveslash AND parser->TryParse("!--")) // mode 2
+    {
+      // HTML comment: <!--
+      mode := "contains";
+      endword := "-->";
+      blocktype := "comment";
+    }
+    ELSE IF (word = "" AND NOT haveslash AND parser->TryParse("?")) // kind 3
+    {
+      // <?
+      mode := "contains";
+      endword := "?>";
+      blocktype := "processinginstruction";
+    }
+    ELSE IF (word = "" AND NOT haveslash AND parser->current = "!" AND ToLowercase(parser->PeekN(1)) != parser->PeekN(1)) // kind 4 (perform tryparse last!)
+    {
+      // <!UPPERCASE
+      mode := "contains";
+      endword := ">";
+      blocktype := "declaration";
+    }
+    ELSE IF (word = "" AND NOT haveslash AND parser->TryParse("![CDATA[")) // kind 5
+    {
+      // <![CDATA[
+      mode := "contains";
+      endword := "]]";
+      blocktype := "cdata";
+    }
+    ELSE IF (ToLowercase(word) IN html_kind6_tags AND parser->current IN [ "", " ", ">", "\n", "/" ]) // kind 6, "/" should be "/>"
+    {
+      // html block tag
+      mode := "emptyline";
+      blocktype := "blocktag";
+    }
+
+    IF (mode = "" AND word != ""  AND parser->current IN [ "", " ", ">", "\n", "/" ] AND NOT forparagraphcontinuation) // kind 7, prevent within paragraph
+    {
+      IF (ToLowercase(word) IN [ "script", "pre", "style" ])
+        RETURN DEFAULT RECORD;
+
+      parser->RestoreState(startstate);
+      IF (NOT this->TryParseHTMLTagRaw(parser)) // See if this is a valid opening/closing tag
+        RETURN DEFAULT RECORD;
+
+      parser->ParseWhileInSet(" \t"); // followed by only whitespace or end of line
+      IF (parser->current NOT IN [ "", "\n" ]) // must be on its own line
+        RETURN DEFAULT RECORD;
+
+      mode := "emptyline";
+      blocktype := "inlinetag";
+    }
+
+    IF (mode = "")
+      RETURN DEFAULT RECORD;
+
+    STRING restline := parser->remaining_data;
+
+    BOOLEAN immediateclose;
+    IF (mode = "contains" AND SearchSubString(restline, endword) != -1)
+      immediateclose := TRUE;
+    ELSE IF (mode = "blockclose")
+    {
+      immediateclose :=
+          restline LIKE "*</script>*" OR
+          restline LIKE "*</pre>*" OR
+          restline LIKE "*</style>*";
+    }
+
+    RETURN
+        [ type :=         "htmlblock"
+        , data :=         CELL[ mode, endword ]
+        , isleaf :=       TRUE
+        , islastline :=   immediateclose
+        ];
+  }
+
+  /** Reads the block structure of a MarkDown document, returns a tree of MDItems
+      @long This function implements phase 1 (block parsing) of the parsing strategy described in the CommonMark specification.
+      It returns the tree as parsed. After this, phase 2 needs to be performed on the tree.
+      @param text MarkDown text
+      @return MDItem with type 'document'
+  */
+  PUBLIC OBJECT FUNCTION AnalyzeBlockStructure(STRING text)
+  {
+    // Create the document node
+    OBJECT root := NEW MDItem("document", [ linkreferencedefinitions := RECORD[] ]);
+
+    // Remove trailing empty lines, they won't be emitted
+    STRING ARRAY lines := Tokenize(text, "\n");
+    WHILE (NOT IsDefaultValue(lines) AND TrimWhitespace(lines[END - 1]) = "")
+      DELETE FROM lines AT END - 1;
+
+    // List of current open blocks. The document object won't be removed
+    OBJECT ARRAY openblocks := [ root ];
+
+    // Did we encouter the first nonempty line
+    BOOLEAN have_nonempty_line;
+
+    FOREVERY (STRING line FROM lines)
+    {
+      // Skip all leading whitespace in the document
+      IF (NOT have_nonempty_line)
+      {
+        IF (IsDefaultValue(TrimWhitespace(line)))
+          CONTINUE;
+        have_nonempty_line := TRUE;
+      }
+
+      // Nr of objects on the open blocks list have confirmed continuations
+      INTEGER matches := 1;
+
+      // Nr of objects on the open blocks list that might have a lazy continuation
+      INTEGER lazymatches := 1;
+
+      // Whether
+      BOOLEAN isleaf;
+
+      // Starting indent of line, in spaces
+      INTEGER relcolumn := 0;
+
+      // Test continuation for all current open blocks
+      FOR (INTEGER i := 1; i < LENGTH(openblocks); i := i + 1)
+      {
+        // Test for continuation
+        RECORD rec := this->TestContinuation(openblocks[i], line, matches != lazymatches, relcolumn);
+        IF (rec.ignore)
+        {
+          // We now ignore type 'list', they are present in our document tree, but aren't actually a block
+          CONTINUE;
+        }
+
+        // A non-lazy continuation match?
+        IF (rec.match)
+        {
+          // If we had any lazy continuation, but this match doesn't allow that, reject the match
+          IF (NOT rec.allowlazy AND lazymatches != matches)
+          {
+            // No need to restore the line
+            BREAK;
+          }
+
+          // Remove the continuation markers
+          //line := Substring(line, rec.eat);
+          line := rec.line;
+          relcolumn := rec.relcolumn;
+          matches := i + 1;
+          lazymatches := i + 1;
+          isleaf := rec.isleaf;
+
+          IF (rec.isleaf)
+          {
+            // This is a leaf open block, no new block opening here
+            // Add the line to the list of lines of that block (if not ignored)
+            IF (NOT rec.ignoreline)
+              INSERT line INTO openblocks[i]->lines AT END;
+
+            // If this was the last line of the block, remove it from the open blocks list
+            IF (rec.islastline)
+              matches := i;
+
+            // Remove all other non-matched blocks from the open list
+            openblocks := ArraySlice(openblocks, 0, matches);
+
+            BREAK;
+          }
+        }
+        ELSE IF (rec.lazymatch)
+        {
+          // A lazy match won't change the line, so no line modifications necessary
+          lazymatches := i + 1;
+        }
+        ELSE IF (rec.removelist)
+        {
+          // No (lazy) match. A parent list is present, and it must be popped from the open list
+          matches := matches - 1;
+
+          // Clear the rest of the openblocks list, so we won't try to add listitems to that list anymore
+          openblocks := ArraySlice(openblocks, 0, matches);
+          BREAK;
+        }
+        ELSE
+          BREAK;
+      }
+
+      // If we matched a leaf, we're done with this line
+      IF (isleaf)
+        CONTINUE;
+
+      // Not a leaf, we must open a new block
+
+      // Keep the next 'list' item if it is still on the openblocks list, so we'll add listitems to that list
+      IF (LENGTH(openblocks) > matches AND openblocks[matches]->type = "list")
+        matches := matches + 1;
+
+      // Remove all other non-matched blocks from the open list
+      openblocks := ArraySlice(openblocks, 0, matches);
+
+      // Parse new block start
+      WHILE (TRUE)
+      {
+        /// Determine the type of block
+        RECORD rec := this->DetermineBlockType(line, FALSE, FALSE, FALSE, relcolumn);
+        IF (NOT RecordExists(rec)) // INV: rec.isleaf
+          BREAK;
+
+        // Eat the block markers (weg '> ' or '  1) ')
+        //line := SubString(line, rec.eat);
+        line := rec.line;
+        relcolumn := rec.relcolumn;
+
+        // If we kept a list, see if it matches the one we want
+        IF (openblocks[matches-1]->type = "list")
+        {
+          // No list wanted for this block?
+          IF (rec.type NOT IN [ "listitem", "emptyline" ])
+            matches := matches - 1;
+          ELSE IF (rec.type = "listitem" AND rec.listdata.flavor != openblocks[matches - 1]->data.flavor)
+            matches := matches - 1; // list isn't the same flavor (ordered, list symbols)
+
+          openblocks := ArraySlice(openblocks, 0, matches);
+        }
+
+        // For listitems, add a new list container if the current top openblock isn't one
+        IF (rec.type = "listitem" AND openblocks[matches-1]->type != "list")
+        {
+          OBJECT obj := NEW MDItem("list", rec.listdata);
+          INSERT obj INTO openblocks[matches - 1]->children AT END;
+          INSERT obj INTO openblocks AT END;
+          matches := matches + 1;
+        }
+
+        // Add block to the open list
+        OBJECT obj := NEW MDItem(rec.type, rec.data);
+        INSERT obj INTO openblocks[matches - 1]->children AT END;
+        INSERT obj INTO openblocks AT END;
+        matches := matches + 1;
+
+        IF (rec.isleaf)
+        {
+          // It was a leaf block, so add the line (if not ignored)
+          IF (NOT rec.ignoreline)
+            INSERT line INTO obj->lines AT END;
+
+          // And immediately last line of the block, so remove it
+          IF (rec.islastline)
+            DELETE FROM openblocks AT END - 1;
+
+          // Was a leaf, so we can exit this loop
+          BREAK;
+        }
+        ELSE
+        {
+          // If the block is non-leaf, but wants to ignore this line, we're done
+          IF (rec.ignoreline)
+            BREAK;
+        }
+      }
+    }
+
+    RETURN root;
+  }
+>;
+
+/* Renders the children of a record, wrap them in a tag
+   @param rec Markdown node record
+   @param tag Tag (attributes are allowed, eg `a href="link"`
+   @param renderoptions Global rendering options, see RenderMarkdownToHTML
+   @param options
+   @cell options.isinline Whether the tag must be rendered as inline (no newlines between the tag nodes and text)
+   @cell options.concatempty Whether to concatenate that start end and end tag together without newline if the inner html is empty
+   @return Rendered HTML
+*/
+STRING FUNCTION WrapChildren(RECORD rec, STRING tag, RECORD renderoptions, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  // `renderoptions` has been validated by RenderMarkdownToHTML
+
+  options := CELL
+      [ isinline :=       FALSE
+      , concatempty :=    FALSE
+      , ...options
+      ];
+
+  STRING starttag := `<${tag}>`;
+  BOOLEAN lastinline := TRUE;
+  STRING text;
+  FOREVERY (RECORD c FROM rec.children)
+  {
+    RECORD render := RenderMarkdownToHTMLInternal(c, renderoptions);
+    IF (NOT RecordExists(render))
+      CONTINUE;
+    IF (NOT render.inline OR NOT lastinline)
+      text := text || "\n";
+    text := text || render.text;
+    lastinline := render.inline AND NOT render.postnl;
+  }
+  IF (text = "" AND NOT options.concatempty)
+    text := text || "\n";
+  ELSE IF (NOT lastinline AND NOT options.isinline)
+    text := text || "\n";
+  RETURN starttag || text || `</${Tokenize(tag, " ")[0]}>`;
+}
+
+STRING FUNCTION RenderInlineChildrenToText(RECORD rec, RECORD renderoptions)
+{
+  STRING childtext;
+  FOREVERY (RECORD child FROM rec.children)
+    childtext := childtext || RenderToTextInternal(child, renderoptions);
+  RETURN childtext;
+}
+
+STRING FUNCTION RenderToTextInternal(RECORD rec, RECORD renderoptions)
+{
+  SWITCH (rec.type)
+  {
+    // Inline
+    CASE "autolink"
+    {
+      RETURN rec.link;
+    }
+    CASE "codespan"
+    {
+      RETURN rec.code;
+    }
+    CASE "emphasis"
+    {
+      RETURN RenderInlineChildrenToText(rec, renderoptions);
+    }
+    CASE "emphasisdelimiter"
+    {
+      RETURN "";
+    }
+    CASE "hardenter"
+    {
+      RETURN renderoptions.newlines ? "\n" : " ";
+    }
+    CASE "htmltag"
+    {
+      RETURN rec.htmltag;
+    }
+    CASE "image"
+    {
+      RETURN RenderInlineChildrenToText(rec, renderoptions) ?? rec.title ?? rec.link;
+    }
+    CASE "link"
+    {
+      RETURN RenderInlineChildrenToText(rec, renderoptions) ?? rec.title ?? rec.link;
+    }
+    CASE "normaltext"
+    {
+      RETURN Substitute(rec.text, "\n", " ");
+    }
+    CASE "strongemphasis"
+    {
+      RETURN RenderInlineChildrenToText(rec, renderoptions);
+    }
+    CASE "webhare_symbolreference"
+    {
+      RETURN rec.reference;
+    }
+    // Blocks
+    CASE "document"
+    {
+      STRING childtext;
+      FOREVERY (RECORD child FROM rec.children)
+      {
+        childtext := childtext || RenderToTextInternal(child, renderoptions);
+        childtext := childtext || (renderoptions.newlines ? "\n" : " ");
+      }
+      RETURN TrimWhitespace(childtext);
+    }
+    CASE "list"
+    {
+      STRING childtext;
+      FOREVERY (RECORD listitem FROM rec.children)
+      {
+        STRING bullet := (rec.ordered ? ToString(ToInteger(rec.start, 1) + #listitem) : "") || rec.bullet || " ";
+        childtext := childtext || bullet;
+        STRING listitemtext := RenderToTextInternal(listitem, renderoptions);
+        IF (renderoptions.newlines)
+          listitemtext := Substitute(listitemtext, "\n", "\n" || RepeatText(" ", LENGTH(bullet)));
+        childtext := childtext || listitemtext;
+        childtext := childtext || (renderoptions.newlines ? "\n" : " ");
+      }
+      RETURN TrimWhitespace(childtext);
+    }
+    CASE "paragraph", "setextheading", "atxheading", "tablecell", "listitem"
+    {
+      RETURN RenderInlineChildrenToText(rec, renderoptions);
+    }
+    CASE "indentedcode", "fencedcode"
+    {
+      RETURN rec.code;
+    }
+    CASE "emptyline"
+    {
+      RETURN renderoptions.newlines ? "" : " ";
+    }
+    CASE "htmlblock"
+    {
+      RETURN rec.html;
+    }
+    CASE "table"
+    {
+      // ADDME: nice table rendering??
+      RETURN ""; // ignored for now
+    }
+    CASE "thematicbreak"
+    {
+      RETURN renderoptions.newlines ? "---" : "";
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Rendering to text not implemented for type '${rec.type}'`);
+    }
+  }
+}
+
+
+/** Renders inline text nodes to text, used for image alt text
+    @param rec Inline node to render
+    @return Rendered text
+*/
+STRING FUNCTION RenderInlineToTextForImageAltText(RECORD rec)
+{
+  SWITCH (rec.type)
+  {
+    CASE "normaltext"                 { RETURN rec.text; }
+    CASE "codespan"                   { RETURN rec.rawtext; }
+    CASE "htmltag"                    { RETURN rec.htmltag; }
+    CASE "hardenter"                  { RETURN " "; }
+    CASE "emphasisdelimiter"          { RETURN ""; }
+    CASE "autolink"                   { RETURN rec.link; }
+    CASE "emphasis", "strongemphasis", "image", "link"
+    {
+      STRING childtext;
+      FOREVERY (RECORD child FROM rec.children)
+        childtext := childtext || RenderInlineToTextForImageAltText(child);
+      RETURN childtext;
+    }
+    CASE "webhare_symbolreference"    { RETURN rec.reference; }
+    DEFAULT                           { THROW NEW Exception(`Rendering to text not implemented for type '${rec.type}'`); }
+  }
+}
+
+/** Renders a markdown node
+    @param node Node to render
+    @param renderoptions Render options, see RenderMarkdownToHTML
+    @return
+    @cell return.text Rendered html text
+    @cell return.inline Whether this is an inline node
+    @cell return.postnl Whether a newline after this node is required (eg <br />)
+*/
+RECORD FUNCTION RenderMarkdownToHTMLInternal(RECORD rec, RECORD renderoptions)
+{
+  BOOLEAN inline := rec.type IN [ "normaltext", "emphasis", "strongemphasis", "codespan", "htmltag", "hardenter", "emphasisdelimiter", "link", "image", "autolink", "webhare_symbolreference" ];
+  BOOLEAN postnl := rec.type IN [ "hardenter" ];
+  STRING text;
+
+  SWITCH (rec.type)
+  {
+    CASE "document"
+    {
+      BOOLEAN neednl;
+      FOREVERY (RECORD c FROM rec.children)
+      {
+        RECORD render := RenderMarkdownToHTMLInternal(c, renderoptions);
+        IF (NOT RecordExists(render))
+          CONTINUE;
+        IF (neednl)
+          text := text || "\n";
+        text := text || render.text;
+        neednl := TRUE;
+      }
+    }
+    CASE "list"
+    {
+      text := WrapChildren(rec, rec.ordered ? `ol${rec.start = "1" ? "" : ` start="${rec.start}"`}` : "ul", renderoptions);
+    }
+    CASE "listitem"
+    {
+      text := WrapChildren(rec, "li", renderoptions, [ concatempty := TRUE ]);
+    }
+    CASE "emptyline"
+    {
+      RETURN DEFAULT RECORD;
+    }
+    CASE "paragraph"
+    {
+      text := WrapChildren(rec, "p", renderoptions);
+    }
+    CASE "indentedcode"
+    {
+      text := `<pre><code>${MDEncodeHTML(rec.code, renderoptions)}</code></pre>`;
+    }
+    CASE "fencedcode"
+    {
+      text := `<pre><code${rec.syntax=""?"":` class="language-${MDEncodeValue(rec.syntax, renderoptions)}"`}>${MDEncodeHTML(rec.code, renderoptions)}</code></pre>`;
+    }
+    CASE "thematicbreak"
+    {
+      text := "<hr />";
+    }
+    CASE "setextheading", "atxheading"
+    {
+      text := WrapChildren(rec, `h${rec.level}`, renderoptions, [ concatempty := TRUE ]);
+    }
+    CASE "blockquote"
+    {
+      text := WrapChildren(rec, `blockquote`, renderoptions);
+    }
+    CASE "normaltext"
+    {
+      text := MDEncodeHTML(rec.text, renderoptions);
+    }
+    CASE "codespan"
+    {
+      text := `<code>${MDEncodeHTML(rec.code, renderoptions)}</code>`;
+    }
+    CASE "emphasis"
+    {
+      text := WrapChildren(rec, "em", renderoptions, [ isinline := TRUE ]);
+    }
+    CASE "strongemphasis"
+    {
+      text := WrapChildren(rec, "strong", renderoptions, [ isinline := TRUE ]);
+    }
+    CASE "htmltag"
+    {
+      text := rec.htmltag;
+    }
+    CASE "htmlblock"
+    {
+      text := rec.html;
+    }
+    CASE "hardenter"
+    {
+      text := "<br />";
+    }
+    CASE "link"
+    {
+      STRING link := IsDefaultValue(renderoptions.rewritelink) ? rec.link : renderoptions.rewritelink(rec.link);
+      STRING encodedurl := MDEncodeURL(link, renderoptions);
+      text := WrapChildren(rec, `a href="${encodedurl}"${rec.title = "" ? "" : ` title="${MDEncodeHTML(rec.title, renderoptions)}"`}`, renderoptions, [ isinline := TRUE ]);
+    }
+    CASE "image"
+    {
+      STRING link := IsDefaultValue(renderoptions.rewritelink) ? rec.link : renderoptions.rewritelink(rec.link);
+      STRING encodedurl := MDEncodeURL(link, renderoptions);
+      STRING alttext := TrimWhitespace(RenderInlineChildrenToText(rec, [ newlines := FALSE ]));
+      text := `<img src="${encodedurl}" alt="${MDEncodeHTML(alttext, renderoptions)}"${rec.title = "" ? "" : ` title="${MDEncodeHTML(rec.title, renderoptions)}"`} />`;
+    }
+    CASE "autolink"
+    {
+      STRING link := IsDefaultValue(renderoptions.rewritelink) ? rec.link : renderoptions.rewritelink(rec.link);
+      STRING encodedurl := MDEncodeURL(link, renderoptions);
+      text := `<a href="${encodedurl}">${MDEncodeHTML(rec.title, renderoptions)}</a>`;
+    }
+    CASE "webhare_symbolreference"
+    {
+      STRING link := "%" || rec.reference;
+      link := IsDefaultValue(renderoptions.rewritelink) ? link : renderoptions.rewritelink(link);
+      STRING encodedurl := MDEncodeURL(link, renderoptions);
+      text := `<a href="${encodedurl}">${MDEncodeHTML(rec.reference, renderoptions)}</a>`;
+    }
+    CASE "tablerow"
+    {
+      text := WrapChildren(rec, "tr", renderoptions);
+    }
+    CASE "tablecell"
+    {
+      STRING attrs := rec.align = "left" ? "" : ` align="${rec.align}"`;
+      text := WrapChildren(rec, (rec.isheading ? "th" : "td") || attrs, renderoptions, [ concatempty := TRUE ]);
+    }
+    CASE "table"
+    {
+      text := `<table>\n`;
+      text := text || WrapChildren([ children := RECORD[ rec.children[0] ] ], `thead`, renderoptions);
+      RECORD ARRAY body := ArraySlice(rec.children, 1);
+      IF (NOT IsDefaultValue(body))
+        text := text || "\n" || WrapChildren([ children := body ], `tbody`, renderoptions);
+      text := text || "\n</table>";
+    }
+    DEFAULT
+    {
+      ABORT(`Unhandled type ${rec.type}`);
+    }
+  }
+
+  RETURN CELL[ inline, text, postnl ];
+}
+
+/// MarkDown encoding for HTML. The spec use different rendering than WebHare does
+STRING FUNCTION MDEncodeHTML(STRING text, RECORD renderoptions)
+{
+  IF (renderoptions.encoding != "spec")
+  {
+    // Newlines are ignored in MarkDown, so we need to skip them
+    STRING ARRAY parts;
+    FOREVERY (STRING part FROM Tokenize(text, "\n"))
+      INSERT EncodeHTML(part) INTO parts AT END;
+    RETURN Detokenize(parts, "\n");
+  }
+
+  // This encoding rules make the CommonMark specification pass
+  text := Substitute(text, `&`, "&amp;");
+  text := Substitute(text, `<`, "&lt;");
+  text := Substitute(text, `>`, "&gt;");
+  text := Substitute(text, `"`, "&quot;");
+  RETURN text;
+}
+
+/// MarkDown encoding for URLs. The spec use different rendering than WebHare does
+STRING FUNCTION MDEncodeURL(STRING url, RECORD renderoptions)
+{
+  IF (renderoptions.encoding != "spec")
+    RETURN EncodeValue(url);
+
+   // This encoding rules make the CommonMark specification pass
+  url := EncodeURL(url);
+  url := Substitute(url, `%23`, "#");
+  url := Substitute(url, `%26`, "&amp;");
+  url := Substitute(url, `%2A`, "*");
+  url := Substitute(url, `%2B`, "+");
+  url := Substitute(url, `%2C`, ",");
+  url := Substitute(url, `%3A`, ":");
+  url := Substitute(url, `%3D`, "=");
+  url := Substitute(url, `%3F`, "?");
+  url := Substitute(url, `%40`, "@");
+  RETURN url;
+}
+
+/// MarkDown encoding for attribute values. The spec use different rendering than WebHare does
+STRING FUNCTION MDEncodeValue(STRING text, RECORD renderoptions)
+{
+  IF (renderoptions.encoding != "spec")
+    RETURN EncodeValue(text);
+
+  // This encoding rules make the CommonMark specification pass
+  text := Substitute(text, `&`, "&amp;");
+  text := Substitute(text, `<`, "&lt;");
+  text := Substitute(text, `>`, "&gt;");
+  text := Substitute(text, `"`, "&quot;");
+  RETURN text;
+}
+
+/** Parses a MarkDown document, returns the parsed document tree
+    @param text MarkDown document
+    @param options
+    @cell options.tabwith
+    @cell options.flavor Flavor to parse. Allowed: 'commonmark' (default), 'webhare'.
+    @return See `markdownitemdatacells` for which extra data cells are passed per type
+    @cell return.type 'document'
+    @cell return.children Child nodes
+*/
+PUBLIC RECORD FUNCTION ParseMarkDown(STRING text, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ tabwidth :=  4
+      , flavor :=     "commonmark"
+      ], options,
+      [ enums := [ flavor :=    [ "commonmark", "webhare" ]
+                 ]
+      ]);
+
+   OBJECT parser := NEW MarkdownParser(options);
+   OBJECT root := parser->AnalyzeBlockStructure(text);
+   parser->HandleLinkReferenceDefinitionss(root);
+   parser->ProcessInlineTextRecursive(root, DEFAULT OBJECT, root);
+   RETURN root->ToRecord();
+}
+
+/** Renders a parsed MarkDown document tree to HTML
+    @param tree Parsed markdown tree
+    @param options
+    @cell(string) options.encoding Either 'default' (follow WebHare html/URL encoding) or 'spec' (use CommonMark reference HTML encoding)
+    @cell(function ptr) options.rewritelink Link rewriter. Signature: STRING FUNCTION RewriteLink(STRING link)
+    @return Rendered HTML
+*/
+PUBLIC STRING FUNCTION RenderMarkdownToHTML(RECORD tree, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ encoding :=     "default"
+      , rewritelink :=  DEFAULT FUNCTION PTR
+      ], options,
+      [ enums := [ encoding :=  [ "default", "spec" ]
+                 ]
+      ]);
+
+  IF (NOT RecordExists(tree))
+    RETURN "";
+
+  RETURN RenderMarkdownToHTMLInternal(tree, options).text;
+}
+
+/** Renders a parsed MarkDown document tree to text
+    @param tree Parsed markdown tree
+    @param options
+    @return Rendered text
+*/
+PUBLIC STRING FUNCTION RenderMarkdownToText(RECORD tree, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(DEFAULT RECORD, options);
+
+  IF (NOT RecordExists(tree))
+    RETURN "";
+
+  RETURN TrimWhitespace(RenderToTextInternal(tree, [ newlines := TRUE ]));
+}

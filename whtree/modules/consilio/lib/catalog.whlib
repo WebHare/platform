@@ -1,0 +1,209 @@
+<?wh
+/** @short Catalog manipulation interface to the Search module
+    @private Catalog management should be done through api.whlib */
+
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+// Public error codes (returned by the public search functions)
+PUBLIC CONSTANT INTEGER
+/** @short Everything went fine, we have results */
+CatalogOk                       := 0,
+/** @short The index could not be found */
+CatalogIndexNotFound            := 2,
+/** @short The index could not be created */
+CatalogNotCreated               := 3,
+/** @short An index with the given name already exists */
+CatalogNameAlreadyExists        := 4,
+/** @short The folder is already indexed */
+CatalogFolderAlreadyIndexed     := 5,
+/** @short The folder could not be added to the index */
+CatalogFolderNotAdded           := 6,
+/** @short The given index manager was not found */
+CatalogInvalidIndexManager      := 7,
+/** @short The index was not created by the index manager */
+CatalogIndexNotCreated          := 8,
+/** @short The content source was not created by the index manager */
+CatalogContentSourceNotCreated  := 9,
+/** @short The index is not managed by the index manager */
+CatalogUnmanagedIndex           := 10;
+
+
+
+
+/** @short Create a new Consilio catalog.
+    @param catalog_name The name of the catalog (this name should be unique)
+    @param description An optional description for the catalog
+    @cell options.priority (-9 to 9, 0 is the default)
+    @cell options.indexmanager The id of the index manager to use (if not given, the 'Builtin Consilio' index manager is used
+        if available, otherwise an error is returned)
+    @return Result code */
+PUBLIC INTEGER FUNCTION CreateCatalog(STRING catalog_name, STRING description, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  // Index name should be unique
+  IF (Length(SELECT FROM consilio.indices WHERE ToUppercase(COLUMN name) = ToUppercase(catalog_name)) > 0)
+    RETURN CatalogNameAlreadyExists;
+
+  INTEGER loglevel := CellExists(options, 'loglevel') ? options.loglevel : 0;
+  INTEGER priority := CellExists(options, 'priority') ? options.priority : 0;
+  INTEGER indexmanager := CellExists(options, 'indexmanager') AND options.indexmanager != 0
+      ? (SELECT AS INTEGER id FROM consilio.indexmanagers WHERE id = options.indexmanager)
+      : GetDefaultIndexManager();
+  IF (indexmanager = 0)
+    RETURN CatalogInvalidIndexManager;
+
+  // Create index
+  INTEGER indexid := MakeAutoNumber(consilio.indices, "id");
+  INSERT INTO consilio.indices(id, name, description, loglevel, priority, indexmanager)
+         VALUES (indexid, catalog_name, description, loglevel, priority, indexmanager);
+
+  STRING result := EnsureIndexManagerIndex(indexid);
+  IF (result = SearchOk)
+  {
+    GetPrimary()->BroadcastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
+    RETURN CatalogOk;
+  }
+  RETURN CatalogIndexNotCreated;
+}
+
+
+/** @short Add a WebHare folder to an existing Consilio index.
+    @long This function adds a new search root to a Consilio catalog. If the folder
+          is already indexed in the catalog, an error is returned. If the folder
+          contains one of the existing search root folders for the catalog, it replaces
+          that search root.
+    @param folder WebHare folder to add to the catalog
+    @param catalog_name The catalog to add the folder to
+    @param http_user An optional HTTP user name to access the folder with
+    @param http_password An optional HTTP password to access the folder with
+    @return Result code */
+PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, STRING http_user, STRING http_password)
+{
+  RECORD indexrec :=
+      SELECT id
+           , type
+        FROM consilio.indices
+       WHERE ToUppercase(name) = ToUppercase(catalog_name)
+             AND type != 2
+             AND name NOT LIKE "$consilio$deleted$*";
+
+  IF (NOT RecordExists(indexrec))
+    RETURN CatalogIndexNotFound;
+  IF (indexrec.type != 0)
+    RETURN CatalogUnmanagedIndex;
+
+  INTEGER res := CheckFolderInIndex(indexrec.id, folder);
+  IF (res < 0)
+    RETURN CatalogFolderAlreadyIndexed;
+
+  STRING contentprovider := "publisher:webhare";
+  RECORD data := [ folder := folder
+                 , http_username := http_user
+                 , http_password := http_password
+                 ];
+  INTEGER srcid := MakeAutoNumber(consilio.contentsources, "id");
+  INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, data)
+         VALUES (srcid, indexrec.id, contentprovider, TRUE, EncodeHSON(data));
+
+  UpdateContentSourceFieldsById(srcid);
+  STRING result := EnsureIndexManagerContentSource(indexrec.id, srcid);
+  IF (result = SearchOk)
+  {
+    GetPrimary()->BroadcastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
+    RETURN CatalogOk;
+  }
+  RETURN CatalogContentSourceNotCreated;
+}
+
+/** Add a new custom content source to a index
+    @param catalog_name Name of the catalog
+    @param tag Tag of the new content source
+    @param options
+    @cell options.contentsourceobject Library and name of object that handles indexing (lib#name)
+    @cell options.maxgroupobjects
+    @cell options.discardsummaries
+    @cell options.definedby
+    @cell options.contentcheckinterval
+R    @return Id of the new content source
+*/
+PUBLIC INTEGER FUNCTION AddCustomContentSourceToCatalog(STRING catalog_name, STRING tag, RECORD options)
+{
+  options :=  ValidateOptions(
+      [ contentsourceobject :=  ""
+      , maxgroupobjects :=      0
+      , discardsummaries :=     FALSE
+      , definedby :=            ""
+      , contentcheckinterval := -1
+      ], options,
+      [ required :=  [ "contentsourceobject" ] ]);
+
+  RECORD indexrec :=
+      SELECT id
+           , type
+        FROM consilio.indices
+       WHERE ToUppercase(name) = ToUppercase(catalog_name)
+             AND type != 2
+             AND name NOT LIKE "$consilio$deleted$*";
+
+  IF (NOT RecordExists(indexrec))
+    THROW NEW Exception(`No such catalog '${catalog_name}'`);
+  IF (indexrec.type != 0)
+    THROW NEW Exception(`Catalog '${catalog_name}' is not managed by Consilio`);
+
+  IF (RecordExists(SELECT FROM consilio.contentsources WHERE ToUppercase(COLUMN tag) = ToUppercase(VAR tag)))
+    THROW NEW Exception(`A contentsource with tag '${tag}' already exists`);
+
+  STRING ARRAY parts := Tokenize(options.contentsourceobject, "#");
+  RECORD settings :=
+      [ library :=              parts[0]
+      , contentobject :=        parts[1]
+      , contentcheckinterval := options.contentcheckinterval
+      , lastcontentscheck :=    ""
+      ];
+
+  INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
+  INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries)
+          VALUES(srcid, indexrec.id, "consilio:custom", tag, EncodeHSON(settings), options.maxgroupobjects, options.discardsummaries);
+
+  UpdateContentSourceFieldsById(srcid);
+  RETURN srcid;
+}
+
+/** @short Check if a search path covers or is covered by existing paths. If it covers other paths, they are removed.
+    @param indexid The ID of the index the search path is to be placed in
+    @param folderid The ID of the search path folder
+    @param searchid ID of a search path record not to delete (when updating an existing record which should not be deleted)
+    @result Whether the path covers another path (>0), is covered by another path (<0) or 0 otherwise */
+INTEGER FUNCTION CheckFolderInIndex(INTEGER indexid, INTEGER folderid, INTEGER searchid DEFAULTSTO -1)
+{
+  INTEGER res;
+  FOREVERY (RECORD contentsource FROM (
+      SELECT id, data := DecodeHSON(data)
+        FROM consilio.contentsources
+       WHERE id != searchid
+             AND contentsources.indexid = VAR indexid
+             AND publishercontent
+             AND tag NOT LIKE "$consilio$deleted$*"))
+  {
+    IF (NOT RecordExists(contentsource.data))
+      CONTINUE; // Should not happen, but prevent crashes when it does
+
+    IF ((contentsource.data.folder = folderid) OR IsFolderAncestorOf(contentsource.data.folder, folderid)) // folderid is already covered by searchroot
+    {
+      res := -1;
+      BREAK;
+    }
+    ELSE IF (IsFolderAncestorOf(folderid, contentsource.data.folder)) // folderid contains searchroot
+    {
+      res := 1;
+      UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id || ":" || tag WHERE id = contentsource.data.id; // remove contained folder
+    }
+  }
+  RETURN res;
+}

@@ -1,0 +1,189 @@
+<?wh
+
+PUBLIC STRING FUNCTION GetNameForColumn(INTEGER col) //get name for column, 1-based
+{
+  STRING name;
+  col := col-1;
+  WHILE(TRUE)
+  {
+    name := ByteToString(65 + col%26) || name;
+    IF(col<26)
+      BREAK;
+    col := (col - 26) / 26;
+  }
+  RETURN name;
+}
+
+
+STRING FUNCTION GuessColumnType(VARIANT val)
+{
+  SWITCH(TypeID(val))
+  {
+    CASE TypeID(STRING)
+    {
+      RETURN "text";
+    }
+    CASE TypeID(BOOLEAN)
+    {
+      RETURN "boolean";
+    }
+    CASE TypeID(INTEGER)
+    {
+      RETURN "integer";
+    }
+    CASE TypeID(INTEGER64)
+    {
+      RETURN "integer64";
+    }
+    CASE TypeID(FLOAT)
+    {
+      RETURN "float";
+    }
+    CASE TypeID(MONEY)
+    {
+      RETURN "money";
+    }
+    CASE TypeID(DATETIME)
+    {
+      RETURN "datetime";
+    }
+    DEFAULT
+    {
+      RETURN "";
+    }
+  }
+}
+
+/** @short Set up headers by analyzing a record and choosing the most likely types */
+PUBLIC RECORD ARRAY FUNCTION GuessHeadersFromRow(RECORD analyzerow)
+{
+  RECORD ARRAY columns;
+  RECORD ARRAY structure := UnpackRecord(analyzerow);
+  FOREVERY(RECORD element FROM structure)
+  {
+    STRING t := GuessColumnType(element.value);
+    IF(t="")
+      THROW NEW Exception("Unrecognized type for cell " || element.name);
+
+    INSERT [ title := element.name
+           , name := element.name
+           , type := t
+           ] INTO columns AT END;
+  }
+  RETURN columns;
+}
+
+PUBLIC OBJECTTYPE TokenRowReceiver
+<
+  STRING ARRAY headers;
+  BOOLEAN seenheaders;
+
+  RECORD ARRAY result;
+  RECORD options;
+
+  MACRO NEW(RECORD options)
+  {
+    this->options := options;
+    IF(NOT options.processheaders)
+      this->seenheaders := TRUE; //skips the header parsing
+  }
+
+  PUBLIC BOOLEAN FUNCTION ReceiveRow(VARIANT ARRAY tokens)
+  {
+    IF(NOT this->seenheaders)
+    {
+      FOREVERY(STRING tok FROM STRING ARRAY(tokens))
+      {
+        tok := TrimWhitespace(ToUppercase(tok));
+        IF(tok LIKE "COL_*" OR tok="" OR tok IN this->headers)
+          tok := GetNameForColumn(#tok+1);
+        INSERT tok INTO this->headers AT END;
+      }
+      this->seenheaders := TRUE;
+      RETURN TRUE;
+    }
+
+    RECORD outrow;
+    BOOLEAN anycontent;
+    FOREVERY(VARIANT tok FROM VARIANT ARRAY(tokens))
+    {
+      IF(#tok >= Length(this->headers)) //generate an extra col
+        INSERT GetNameForColumn(#tok+1) INTO this->headers AT END;
+
+      IF(NOT IsDefaultValue(tok))
+        anycontent := TRUE;
+
+      outrow := CellInsert(outrow, this->headers[#tok], tok);
+    }
+
+    IF(anycontent)
+      INSERT outrow INTO this->result AT END;
+    RETURN TRUE;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION Finalize()
+  {
+    //make sure all rows have equal structure
+    RECORD baserow;
+    FOREVERY(STRING hdr FROM this->headers)
+      baserow := CellInsert(baserow, hdr, '');
+    RETURN SELECT AS RECORD ARRAY CELL[...baserow, ...result] FROM this->result;
+  }
+>;
+
+PUBLIC OBJECTTYPE ColumnFileWriterBase
+<
+  ///The columns to use when exporting
+  //PUBLIC RECORD ARRAY columns;
+  RECORD ARRAY pvt_columns;
+  PUBLIC PROPERTY columns(pvt_columns, SetColumns);
+
+  ///Whether to add a header row. Defaults to true
+  PUBLIC BOOLEAN headerrow;
+
+  ///Timezone for date/time conversions
+  PUBLIC STRING timezone;
+
+  MACRO NEW()
+  {
+    this->headerrow := TRUE;
+  }
+
+  MACRO SetColumns(RECORD ARRAY columns)
+  {
+    this->pvt_columns :=
+        SELECT *
+             , namepath := Tokenize(name, ".")
+          FROM columns;
+  }
+
+  VARIANT FUNCTION GetCellByPath(RECORD inrow, STRING ARRAY path)
+  {
+    VARIANT invalue := inrow;
+    FOR(INTEGER idx := 0; idx < Length(path); idx := idx + 1)
+     invalue := GetCell(invalue, path[idx]);
+
+    RETURN invalue;
+  }
+
+  PUBLIC MACRO WriteRows(RECORD ARRAY inrows)
+  {
+    FOREVERY(RECORD inrow FROM inrows)
+      this->writeRow(inrow);
+  }
+
+  /** @short Write an output row
+      @long Write a row to the output file. Will (re)open an output stream if needed, and will guess and write the headers if needed based on the input data
+  */
+  PUBLIC MACRO WriteRow(RECORD inrow)
+  {
+    THROW NEW Exception("Please override WriteRow()");
+  }
+
+  /** @short Close and return the generated file */
+  PUBLIC BLOB FUNCTION MakeOutputFile()
+  {
+    THROW NEW Exception("Please override MakeOutputFile()");
+  }
+>;
+

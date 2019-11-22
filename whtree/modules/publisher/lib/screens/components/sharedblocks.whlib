@@ -1,0 +1,226 @@
+<?wh
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+// overridetype: 0 = inherit from parent, 1 = don't show any blocks, 2 = set specific blocks
+PUBLIC OBJECTTYPE SharedBlocks EXTEND TolliumFragmentBase
+<
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  RECORD ARRAY sources;
+  RECORD csp;
+  RECORD ARRAY typenames;
+  BOOLEAN pvt_noinherit;
+//  RECORD ARRAY blocks;
+  MACRO PTR pvt_onchange;
+
+  PUBLIC PROPERTY noinherit(pvt_noinherit, SetNoInherit);
+  PUBLIC STRING widgetlibrary;
+
+  PUBLIC MACRO NEW()
+  {
+    this->widgetlibrary := "widgets";
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->sources := def.sources;
+    this->pvt_noinherit := def.noinherit;
+    this->pvt_onchange := def.onchange;
+    this->widgetlibrary := def.widgetlibrary;
+
+    OBJECT applytester := this->owner->contexts->applytester ?? this->GetAppContext("publisher:applytester");
+    IF (ObjectExists(applytester)) // FIXME: do we need to check?
+    {
+      RECORD parentfolderrec := SELECT id, whfspath FROM system.fs_objects WHERE id = applytester->objparent;
+      IF(RecordExists(parentfolderrec))
+        this->inheritfrom->value := GetTid("publisher:components.sharedblocks.overridetype-inheritfrom", parentfolderrec.whfspath);
+      ELSE
+        DELETE FROM this->overridetype->options WHERE rowkey = 0;
+    }
+  }
+
+  UPDATE PUBLIC MACRO PostInitComponent()
+  {
+    IF (this->noinherit)
+    {
+      this->overridetypebox->visible := FALSE;
+      this->overridetype->value := 2;
+    }
+    ELSE
+      this->OnOverrideTypeChange();
+  }
+
+  UPDATE PUBLIC MACRO SetEnabled(BOOLEAN enabled)
+  {
+    TolliumFragmentBase::SetEnabled(enabled);
+    this->overridetype->enabled := enabled;
+    this->sharedblocks->enabled := enabled;
+  }
+
+  MACRO OnOverrideTypeChange()
+  {
+    this->tabs->selectedtab := RecordExists(this->overridetype->selection) AND this->overridetype->selection.showblocks ? this->blockstab : this->emptytab;
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    RECORD value := [ overridetype := this->overridetype->value
+                    , blocks :=       this->sharedblocks->value
+                    , whfstype :=     "http://www.webhare.net/xmlns/publisher/sharedblocks"
+                    ];
+
+    IF (this->noinherit)
+      value.overridetype := 2; // "use the following blocks"
+
+    RETURN value;
+  }
+
+  MACRO SetValue(RECORD inval)
+  {
+    IF(NOT RecordExists(inval))
+    {
+      this->sharedblocks->value := DEFAULT RECORD ARRAY;
+    }
+    ELSE
+    {
+      IF(NOT this->noinherit)
+        this->overridetype->value := inval.overridetype;
+      this->sharedblocks->value := SELECT * FROM inval.blocks WHERE block!=0;
+    }
+  }
+
+  RECORD ARRAY FUNCTION OnMapRows(RECORD ARRAY rows)
+  {
+    RECORD ARRAY theblocks := SELECT id
+                                   , title
+                                   , name
+                                   , type
+                                   , isactive
+                                FROM system.fs_objects
+                               WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT block FROM rows);
+
+    this->csp := GetCachedSiteProfiles();
+
+    this->typenames := SELECT id
+                            , title := GetTidForLanguage(this->owner->tolliumuser->language, title)
+                         FROM this->csp.contenttypes
+                        WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT type FROM theblocks);
+
+    RECORD ARRAY sharedblocks;
+
+    FOREVERY(RECORD src FROM rows)
+    {
+      RECORD block := SELECT * FROM theblocks WHERE id = src.block;
+      IF(RecordExists(block))
+      {
+        INSERT [ title := block.isactive
+                              ? (block.title ?? block.name)
+                              : GetTidForLanguage(this->owner->tolliumuser->language, "publisher:components.sharedblocks.deleted", block.title ?? "#" || block.name)
+               , type := block.isactive
+                             ? (SELECT AS STRING title FROM this->typenames WHERE id = block.type)
+                             : ""
+               , rowkey := src.rowkey
+               ] INTO sharedblocks AT END;
+      }
+      ELSE
+      {
+        INSERT [ title := GetTidForLanguage(this->owner->tolliumuser->language, "publisher:components.sharedblocks.deleted", "#" || src.block)
+               , type := ""
+               , rowkey := src.rowkey
+               ] INTO sharedblocks AT END;
+      }
+    }
+    RETURN sharedblocks;
+  }
+
+  INTEGER ARRAY FUNCTION GetWidgetLibraryRoots()
+  {
+    IF(this->widgetlibrary="")
+      RETURN DEFAULT INTEGER ARRAY;
+
+    OBJECT applytester := this->owner->contexts->applytester ?? this->GetAppContext("publisher:applytester");
+    IF(NOT ObjectExists(applytester))
+      RETURN DEFAULT INTEGER ARRAY;
+
+    RETURN applytester->GetLibrary(this->widgetlibrary);
+  }
+
+  RECORD ARRAY FUNCTION OnRowEdit(RECORD row)
+  {
+    OBJECT browsedialog := CreateBrowseForWHFSObjectDialog(this->owner);
+    browsedialog->acceptfolders := FALSE;
+    browsedialog->roots := this->GetWidgetLibraryRoots();
+
+    FOREVERY(RECORD src FROM this->sources)
+    {
+      OBJECT base := LookupBaseFSObject(this, src.site, src.fullpath);
+      IF(NOT ObjectExists(base) OR NOT base->isfolder)
+        CONTINUE;
+      INSERT base->id INTO browsedialog->roots AT END;
+    }
+    IF(Length(browsedialog->roots)=0)
+    {
+      this->owner->RunMessageBox("publisher:components/sharedblocks.nosharedblocksources");
+      RETURN DEFAULT RECORD ARRAY;
+    }
+
+    BOOLEAN isedit := RecordExists(row);
+    IF(isedit)
+    {
+      browsedialog->value := row.block;
+    }
+    ELSE
+    {
+      browsedialog->selectmode := "multiple";
+    }
+
+    IF(browsedialog->RunModal()="ok")
+    {
+      //ADDME any validations to do?
+      IF(isedit)
+      {
+        row.block := browsedialog->value;
+        RETURN [row];
+      }
+      ELSE
+        RETURN ToRecordArray(browsedialog->value, "block");
+    }
+
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  MACRO DoDelete()
+  {
+    INTEGER ARRAY tokill := this->sharedblocks->value;
+    DELETE FROM this->blocks WHERE #blocks+1 IN tokill;
+    this->RefreshList();
+  }
+
+  MACRO OnChange()
+  {
+    IF (this->pvt_onchange != DEFAULT MACRO PTR)
+      this->pvt_onchange();
+  }
+
+  MACRO SetNoInherit(BOOLEAN noinherit)
+  {
+    IF (noinherit != this->noinherit)
+    {
+      this->pvt_noinherit := noinherit;
+      this->overridetype->visible := NOT this->noinherit;
+    }
+  }
+>;
+
+PUBLIC MACRO ValidateSharedBlocks(OBJECT pageparser, OBJECT node, RECORD val)
+{
+  IF(Length(val.sources) > 0)
+    pageparser->AddWarning(node->linenum, "<p:sources> on sharedblocks have been deprecated. You should switch to widgetlibrary= and <setlibrary>");
+}

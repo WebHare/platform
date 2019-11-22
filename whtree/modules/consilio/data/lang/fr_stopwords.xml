@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+French stop word list for WebHare Consilio
+
+In this file a list of common words is specified, which are considered less
+important for search queries. Accents are removed or rewritten by Consilio when
+necessary, but be sure to save this file as UTF-8 if you add accented
+characters.
+If you make changes to this file, be sure to put it in the etc/lang directory
+of your WebHare installation, otherwise it will be overwritten when upgrading or
+reinstalling WebHare.
+
+The words on this list are taken from
+http://snowball.tartarus.org/algorithms/french/stop.txt
+-->
+<stopwords xmlns="http://www.webhare.net/xmlns/consilio/stopwords" xml:lang="fr">
+  <word>ai</word>
+  <word>aie</word>
+  <word>aient</word>
+  <word>aies</word>
+  <word>ait</word>
+  <word>as</word>
+  <word>au<!--a + le--></word>
+  <word>aura</word>
+  <word>aurai</word>
+  <word>auraient</word>
+  <word>aurais</word>
+  <word>aurait</word>
+  <word>auras</word>
+  <word>aurez</word>
+  <word>auriez</word>
+  <word>aurions</word>
+  <word>aurons</word>
+  <word>auront</word>
+  <word>aux<!--a + les--></word>
+  <word>avaient</word>
+  <word>avais</word>
+  <word>avait</word>
+  <word>avec<!--with--></word>
+  <word>avez</word>
+  <word>aviez</word>
+  <word>avions</word>
+  <word>avons</word>
+  <word>ayant</word>
+  <word>ayez</word>
+  <word>ayons</word>
+  <word>c<!--c'--></word>
+  <word>ce<!--this--></word>
+  <word>ceci<!--this--></word>
+  <word>celà <!--that--></word>
+  <word>ces<!--these--></word>
+  <word>cet<!--this--></word>
+  <word>cette<!--this--></word>
+  <word>d<!--d'--></word>
+  <word>dans<!--with--></word>
+  <word>de<!--of--></word>
+  <word>des<!--de + les--></word>
+  <word>du<!--de + le--></word>
+  <word>elle<!--she--></word>
+  <word>en<!--`of them' etc--></word>
+  <word>es</word>
+  <word>est</word>
+  <word>et<!--and--></word>
+  <word>eu</word>
+  <word>eue</word>
+  <word>eues</word>
+  <word>eurent</word>
+  <word>eus</word>
+  <word>eusse</word>
+  <word>eussent</word>
+  <word>eusses</word>
+  <word>eussiez</word>
+  <word>eussions</word>
+  <word>eut</word>
+  <word>eux<!--them--></word>
+  <word>eûmes</word>
+  <word>eût</word>
+  <word>eûtes</word>
+  <word>furent</word>
+  <word>fus</word>
+  <word>fusse</word>
+  <word>fussent</word>
+  <word>fusses</word>
+  <word>fussiez</word>
+  <word>fussions</word>
+  <word>fut</word>
+  <word>fûmes</word>
+  <word>fût</word>
+  <word>fûtes</word>
+  <word>ici<!--here--></word>
+  <word>il<!--he--></word>
+  <word>ils<!--they--></word>
+  <word>j<!--j'--></word>
+  <word>je<!--I--></word>
+  <word>l<!--l'--></word>
+  <word>la<!--the--></word>
+  <word>le<!--the--></word>
+  <word>les<!--the (pl)--></word>
+  <word>leur<!--their--></word>
+  <word>leurs<!--their (pl)--></word>
+  <word>lui<!--him--></word>
+  <word>m<!--m'--></word>
+  <word>ma<!--my (fem)--></word>
+  <word>mais<!--but--></word>
+  <word>me<!--me--></word>
+  <word>mes<!--me (pl)--></word>
+  <word>moi<!--me--></word>
+  <word>mon<!--my (masc)--></word>
+  <word>même<!--same; as in moi-même (myself) etc--></word>
+  <word>n<!--n'--></word>
+  <word>ne<!--not--></word>
+  <word>nos<!--our (pl)--></word>
+  <word>notre<!--our--></word>
+  <word>nous<!--we--></word>
+  <word>on<!--one--></word>
+  <word>ont</word>
+  <word>ou<!--where--></word>
+  <word>par<!--by--></word>
+  <word>pas<!--not--></word>
+  <word>pour<!--for--></word>
+  <word>qu<!--que before vowel--></word>
+  <word>que<!--that--></word>
+  <word>quel<!--which--></word>
+  <word>quelle<!--which--></word>
+  <word>quelles<!--which--></word>
+  <word>quels<!--which--></word>
+  <word>qui<!--who--></word>
+  <word>s<!--s'--></word>
+  <word>sa<!--his, her (fem)--></word>
+  <word>sans<!--without--></word>
+  <word>se<!--oneself--></word>
+  <word>sera</word>
+  <word>serai</word>
+  <word>seraient</word>
+  <word>serais</word>
+  <word>serait</word>
+  <word>seras</word>
+  <word>serez</word>
+  <word>seriez</word>
+  <word>serions</word>
+  <word>serons</word>
+  <word>seront</word>
+  <word>ses<!--his (pl)--></word>
+  <word>soi<!--oneself--></word>
+  <word>soient</word>
+  <word>sois</word>
+  <word>soit</word>
+  <word>sommes</word>
+  <word>son<!--his, her (masc)--></word>
+  <word>sont</word>
+  <word>soyez</word>
+  <word>soyons</word>
+  <word>suis</word>
+  <word>sur<!--on--></word>
+  <word>t<!--t'--></word>
+  <word>ta<!--thy (fem)--></word>
+  <word>te<!--thee--></word>
+  <word>tes<!--thy (pl)--></word>
+  <word>toi<!--thee--></word>
+  <word>ton<!--thy (masc)--></word>
+  <word>tu<!--thou--></word>
+  <word>un<!--a--></word>
+  <word>une<!--a--></word>
+  <word>vos<!--your (pl)--></word>
+  <word>votre<!--your--></word>
+  <word>vous<!--you--></word>
+  <word>y<!--there--></word>
+  <word>à<!--to, at--></word>
+  <word>étaient</word>
+  <word>étais</word>
+  <word>était</word>
+  <word>étant</word>
+  <word>étiez</word>
+  <word>étions</word>
+  <word>été</word>
+  <word>étée</word>
+  <word>étées</word>
+  <word>étés</word>
+  <word>êtes</word>
+</stopwords>

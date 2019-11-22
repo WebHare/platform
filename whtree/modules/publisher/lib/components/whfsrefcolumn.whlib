@@ -1,0 +1,49 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// WHFSRef columns
+//
+PUBLIC OBJECTTYPE WHFSRefColumn EXTEND TolliumListColumnBase
+<
+  STRING display;
+
+  UPDATE PUBLIC MACRO StaticColumnInit(RECORD data)
+  {
+    IF(data.display IN ["name","title"])
+      this->display := data.display;
+  }
+
+  //ADDME Caching? But when to flush?
+  UPDATE PUBLIC VARIANT FUNCTION TranslateValue(VARIANT invalue)
+  {
+    INTEGER fsobjectid := invalue;
+    IF(fsobjectid=0)
+      RETURN "";
+
+    RECORD objinfo := SELECT isactive, parentsite, fullpath, whfspath, name, title FROM system.fs_objects WHERE id=fsobjectid;
+    IF(NOT RecordExists(objinfo))
+      RETURN "";
+    IF(this->display="title")
+      RETURN objinfo.title != "" ? objinfo.title : objinfo.name;
+    IF(this->display="name")
+      RETURN objinfo.name;
+    IF(IsRecycleOrHistoryWHFSPath(objinfo.whfspath))
+      RETURN objinfo.name || " (" || GetTid("publisher:components.whfsrefcolumn.deleted") || ")";
+
+    RECORD siteinfo;
+    IF(objinfo.parentsite!=0)
+      siteinfo := SELECT name FROM system.sites WHERE id=objinfo.parentsite;
+
+    RETURN RecordExists(siteinfo) ? siteinfo.name || ":" || objinfo.fullpath : objinfo.whfspath;
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetExpectedInputType()
+  {
+    RETURN TypeID(INTEGER);
+  }
+>;

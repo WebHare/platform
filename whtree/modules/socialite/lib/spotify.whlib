@@ -1,0 +1,47 @@
+<?wh
+
+/** @short parse a spotify URI or HTTP link
+    @return
+    @cell return.embedurl URI to use as source in an iframe (the one which also is part of the embed code Spotify can give)
+    @cell return.httpurl URL which can be shared and will be universally recognized as valid URL (same as Spotify gives using 'Copy HTTP Link')
+    @cell return.url Spotify URI (same as Spotify gives using 'Copy Spotify URI')
+    @cell return.type type of the embedded content. Known types are "album", "artist", "track", "trackset" and "user".
+*/
+PUBLIC RECORD FUNCTION ParseSpotifyURL(STRING uri)
+{
+  RECORD result :=
+     [ embedurl := ""
+     , httplink := ""
+     , url      := ""
+     , type     := ""
+     ];
+
+  STRING spotifyuri;
+  STRING resource;
+
+  IF (Left(uri, 8) = "spotify:")
+  {
+    resource := SubString(uri, 8, Length(uri)-8);
+  }
+  ELSE IF (Left(uri, 24) = "http://open.spotify.com/")
+  {
+    resource := Substitute(SubString(uri, 24, Length(uri)-24), "/", ":");
+  }
+  ELSE
+    RETURN DEFAULT RECORD;
+
+  STRING ARRAY rparts := Tokenize(resource, ":");
+  IF (Length(rparts) < 2) // we should have at least a type of resource and an ID
+    RETURN DEFAULT RECORD;
+
+  result.type := rparts[0];
+
+  IF (result.type = "user" AND (Length(rparts) > 2))
+    result.type := rparts[2]; // probably "playlist", but maybe there are other types or there will be others in the future?
+
+  result.httplink := "http://open.spotify.com/"||SubStitute(resource, ":", "/");
+  result.url := "spotify:"||resource;
+  result.embedurl := "https://embed.spotify.com/?uri=spotify:"||resource;
+
+  RETURN result;
+}

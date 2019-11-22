@@ -1,0 +1,68 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:g="http://www.webhare.net/xmlns/google/components"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/regressions.whlib">
+
+  <screen name="test_tab_enableoncrash" implementation="none">
+    <body>
+      <checkbox name="type" />
+      <tabs type="regular" height="1pr" xmlns="http://www.webhare.net/xmlns/tollium/screens">
+        <tab>
+          <visibleon source="type" min="1" />
+          <text value="should not see me" />
+        </tab>
+      </tabs>
+    </body>
+  </screen>
+
+  <screen name="select_in_select" implementation="none">
+    <body>
+      <select name="orglimit" type="pulldown" title="">
+        <option rowkey="allorgs" />
+        <option rowkey="specific">
+          <select name="orgunit_more" type="radio" title="">
+          </select>
+        </option>
+      </select>
+    </body>
+  </screen>
+
+  <screen name="test_fragment_visibility">
+    <actions>
+      <action name="toggle" onexecute="dotoggle" />
+      <action name="replace" onexecute="doreplace" />
+    </actions>
+    <body name="componentpanel">
+      <fileedit name="uploadfield" title="Upload" visible="false" />
+      <box name="boxcheck" title="Checkbox" checkbox="true" visible="false">
+        <text name="boxcontent" title="" value="Box content" />
+      </box>
+      <button name="togglebutton" title="Toggle" action="toggle" />
+      <button name="replacebutton" title="replace" action="replace" />
+    </body>
+  </screen>
+
+  <screen name="dummypanel" implementation="none">
+    <body>
+    </body>
+  </screen>
+
+  <screen name="panelswap">
+    <body>
+      <panel name="swapme">
+        <text name="becomesinvisible" />
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="basicfields" implementation="none">
+    <body>
+      <textedit name="moneyeditpoint" value="5.0" valuetype="money" />
+      <textedit name="floateditpoint" value="5.0" valuetype="float"  />
+      <textedit name="moneyeditcomma" value="5,0" valuetype="money" />
+      <textedit name="floateditcomma" value="5,0" valuetype="float"  />
+    </body>
+  </screen>
+
+</screens>

@@ -1,0 +1,1362 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns="http://www.webhare.net/xmlns/publisher/components"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/publisher/components"
+  xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
+
+  <xs:annotation>
+    <xs:documentation>
+      @topic publisher-components/tollium
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:element name="foldertree" type="FolderTree">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="components.foldertree" />
+        <s:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="filelist" type="FileList">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="components.filelist" />
+        <s:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="browseforobject" type="BrowseForObject">
+  </xs:element>
+  <xs:element name="thumbnailview" type="ThumbnailView">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="components.thumbnailview" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="whfsrefcolumn" type="WHFSRefColumn" />
+  <xs:element name="browseforobjectarray" type="BrowseForObjectArray">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" lib="components/browseforobjectarray.whlib" objecttype="PublisherBrowseForObjectArray" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:element>
+
+  <xs:element name="previewbrowser">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="components.previewbrowser" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+      <xs:attribute name="onurlchange" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature arguments="string"/>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="showversionactions" type="xs:boolean">
+        <xs:annotation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="sharedblocks">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="components/sharedblocks.sharedblocks" validator="mod::publisher/lib/screens/components/sharedblocks.whlib#ValidateSharedBlocks" />
+        <s:extraparser field="sources" type="s:array" target="./p:source" />  <!-- reference to namespace MUST be explicit, otherwise xpath will be evaluating using the xmlns of the target node -->
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence> <!-- FIXME: source is deprecated. use a library -->
+        <xs:element ref="source" minOccurs="0" maxOccurs="unbounded">
+        </xs:element>
+      </xs:sequence>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attribute name="widgetlibrary" type="xs:string" default="widgets" />
+      <xs:attribute name="noinherit" type="xs:boolean" />
+      <xs:attribute name="onchange" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature/>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="source"> <!-- ADDME can't we avoid having to declare this top level? we don't really want a p:source component -->
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="site" type="xs:string" />
+      <xs:attribute name="fullpath" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="whfsinstance" type="WHFSInstance">
+  </xs:element>
+  <xs:element name="whfsinstanceoptions" type="WHFSInstanceOptions">
+  </xs:element>
+  <xs:element name="fsobjects" type="FSObjects">
+  </xs:element>
+  <xs:element name="fslibrary" type="FSLibrary">
+  </xs:element>
+  <xs:element name="internallinks" type="InternalLinks">
+  </xs:element>
+
+  <xs:complexType name="WHFSInstance">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="composition" lib="components/whfsinstance.whlib" objecttype="WHFSInstance" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attributeGroup ref="tc:CompositionBase" />
+    <xs:attributeGroup ref="tc:IsComposable" />
+
+    <xs:attribute name="typedef" type="xs:string" />
+    <xs:attribute name="datastore" default="self">
+      <xs:annotation>
+        <xs:documentation>
+          Specify where to store the data in this instance, relative to the base object for this composition.<br />
+          This feature is included for backwards compatibility with earlier site profiles, it's use is no longer
+          recommended as it complicates change tracking.
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="self" />
+          <xs:enumeration value="parent" />
+          <xs:enumeration value="root" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+
+  <xs:complexType name="WHFSInstanceOptions">
+    <xs:annotation>
+      <xs:appinfo>
+        <xs:documentation>
+          This option source can be used to use an array member from an instance as options for a select.
+        </xs:documentation>
+        <s:tolliumcomponent placement="optionsource" lib="components/whfsinstanceoptions.whlib" objecttype="WHFSInstanceOptions" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attributeGroup ref="tc:ComponentBase" />
+    <xs:attributeGroup ref="tc:IsComposableListener" />
+    <xs:attribute name="site" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The site in which to find the fsobject from which to use the instance. Leave empty to look in the current site.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="fullpath" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The full path to the fsobject from which to use the instance. Leave empty to use the current object.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="typedef" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          The content type of the instance to use.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="arraycell" type="s:Name" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          The name of the array member.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="rowkeycell" type="s:Name" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          The name of the member within the array that holds the rowkey value for the option.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="titlecell" type="s:Name">
+      <xs:annotation>
+        <xs:documentation>
+          The name of the member within the array that holds the display value for the option. Leave empty to use rowkeycell as titlecell.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:attributeGroup name="ObjectSourceBase">
+    <xs:attribute name="rowkeycell" type="s:Name" default="id">
+      <xs:annotation>
+        <xs:documentation>
+          Defines which cell from the fsobject is used as option rowkey.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="titlecell" type="s:Name" default="title">
+      <xs:annotation>
+        <xs:documentation>
+          Defines which cell from the fsobject is used as option title.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="titlewhfstype" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Here you can specify the namespace of the contenttype which contains the title.
+          If left empty, the titlecell will be looked up in the file record instead.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="show" default="all">
+      <xs:annotation>
+        <xs:documentation>
+          To specify whether "files", "folder", or both ("all") must be used as option.
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="all" />
+          <xs:enumeration value="files" />
+          <xs:enumeration value="folders" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="mask" type="xs:string" default="*">
+      <xs:annotation>
+        <xs:documentation>
+          <p>
+            When mask is specified only files/folders with names matching the specified mask will be used as options.
+            The mask is case insensitive and its syntax is the same as the LIKE instruction in Harescript.
+          </p>
+
+          <p>
+            Examples:
+            <ul>
+              <li>*test* will match all files and folders which have test in their name</li>
+            </ul>
+          </p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="orderby" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The field by which to alphabetically sort the options.
+          (NOTE: you can only use fields which are of type STRING. Most commonly used are: "name", "title", "ordering")
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="publish" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If true, only show published files
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="showhidden" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If true, show hidden files too
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="skipindex" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If skipindex is set to true, the index file won't be used as option
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="type" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          To specify a namespace mask to only show files/folders of a certain type.
+          <ul>
+            <li>only a single namespace is allowed (there is no support for space separated masks)</li>
+            <li>since it's a mask you can use a LIKE match</li>
+          </ul>
+          (only a single namespace is allowed,
+          Examples:
+          <ul>
+            <li>http://www.mysite.nl/xlmns/widgets/*</li>
+          </ul>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:complexType name="FSObjects">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="optionsource" lib="components/fsobjects.whlib" objecttype="FSObjects" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attributeGroup ref="tc:ComponentBase" />
+    <xs:attributeGroup ref="tc:IsComposableListener" />
+    <xs:attributeGroup ref="ObjectSourceBase" />
+    <xs:attribute name="site" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The site in which the fullpath must be looked up.
+          If left empty the fullpath will be lookup up in the same site which contains the siteprofile (FIXME: is this correct?).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="fullpath" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Fullpath, from the current site root, where we should look for objects
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="FSLibrary">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="optionsource" lib="components/fsobjects.whlib" objecttype="FSLibrary" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attributeGroup ref="tc:ComponentBase" />
+    <xs:attributeGroup ref="tc:IsComposableListener" />
+    <xs:attributeGroup ref="ObjectSourceBase" />
+    <xs:attribute name="fslibrary" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          The library to read the objects from
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="InternalLinks">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="rte" lib="components/internallinks.whlib" objecttype="InternalLinks" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attributeGroup ref="tc:ComponentBase" />
+  </xs:complexType>
+
+  <!-- ADDME: Description of the attributes -->
+  <xs:complexType name="FolderTree">
+    <xs:sequence>
+      <xs:element ref="s:acceptdrops" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attributeGroup ref="tc:ComponentBase" />
+    <xs:attributeGroup ref="FSObjectOverviewOptions" />
+
+    <xs:attribute name="selectmode" type="s:SelectMode" default="none">
+      <xs:annotation>
+        <xs:documentation>
+          Indicates whether only single or multiple selections are allowed
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="rowselect" />
+    <xs:attribute name="emptytid" type="sc:Tid" default="publisher:components.foldertree.empty">
+      <xs:annotation>
+        <xs:documentation>
+          When the list is empty, the text with the given tid will be shown
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="empty" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          When the list is empty, the text defined here wil be shown
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="selectcontextmenu" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          The name of the menu to show when right-clicking on events (as defined in a &lt;menu>).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="newcontextmenu" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu>).</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="flags" type="s:Flags">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>If you define a flag, you can show or disable tabs. So if something is selected, you can show data and hide data</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="onselect" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature />
+        </xs:appinfo>
+        <xs:documentation>
+          <html:p>
+            The onselect event will fire when the selection changes.
+            Use list-&gt;selection to read the selection.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="oncontentupdate" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature arguments="integerarray" />
+        </xs:appinfo>
+        <xs:documentation>
+          Callback for external content updates
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="openaction" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          The openaction will be fired when a list item is doubleclicked.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="filteritems" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature returntype="recordarray" arguments="recordarray" />
+        </xs:appinfo>
+        <xs:documentation>
+          A callback function to filter out items or add extra fields (like user-defined flags)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="columnheaders" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            Specifies whether the headers with the column titles must be shown.
+            Default is TRUE, the headers will be hidden when set to FALSE.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="columntitle" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The title of the column
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="columntid" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The tid for the title of the column
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="showprotected" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          Show an overlay for 'protected' objects
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="showreadonly" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          Show an overlay for 'read-only' objects
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="savestate">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Save the selected list properties in the user's registry and restore them upon reopening the window. At the moment the only possible value is "expanded".</html:p>
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="expanded"/>
+              <xs:enumeration value="selection"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="forcewhfsroot" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          If set, force the specified WHFS path as the root folder for this foldertree. Initialization will fail if this folder does not exist
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attributeGroup ref="s:ListBorders" />
+  </xs:complexType>
+
+  <xs:complexType name="FileList">
+    <xs:sequence>
+      <xs:element ref="s:acceptdrops" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attributeGroup ref="tc:ComponentBase" />
+    <xs:attributeGroup ref="FSContentsOverviewOptions" />
+
+    <xs:attribute name="selectmode" type="s:SelectMode" default="none">
+      <xs:annotation>
+        <xs:documentation>
+          <!-- Fixme: doc -->
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="rowselect" />
+    <xs:attribute name="emptytid" type="sc:Tid" default="publisher:components.filelist.empty">
+      <xs:annotation>
+        <xs:documentation>
+          When the list is empty, the text with the given tid will be shown
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="empty" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          When the list is empty, the text defined here wil be shown
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="selectcontextmenu" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          The name of the menu to show when right-clicking on events (as defined in a &lt;menu>).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="newcontextmenu" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu>).</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="flags" type="s:Flags">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>If you define a flag, you can show or disable tabs. So if something is selected, you can show data and hide data</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="onselect" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature />
+        </xs:appinfo>
+        <xs:documentation>
+          <html:p>
+            The onselect event will fire when the selection changes.
+            Use list-&gt;selection to read the selection.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="oncontentupdate" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature arguments="integerarray" />
+        </xs:appinfo>
+        <xs:documentation>
+          Callback for external content updates
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="onstatusclick" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature arguments="record" />
+        </xs:appinfo>
+        <xs:documentation>
+          <!-- FIXME: Doc -->
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="onsortorderchange" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature arguments="" />
+        </xs:appinfo>
+        <xs:documentation>
+          <html:p>
+            Called when the user changes the sort column, or whether it is sorted in ascending or descenting order.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="openaction" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          <!-- FIXME: Doc -->
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="hidefolders" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          <!-- FIXME: Doc -->
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="hidefiles" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          <!-- FIXME: Doc -->
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="groupfolders" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          <!-- FIXME: Doc -->
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="showprotected" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          <!-- FIXME: Doc -->
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="filteritems" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature returntypes="recordarray" arguments="recordarray" />
+        </xs:appinfo>
+        <xs:documentation>
+          <!-- FIXME: Doc -->
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="columnheaders" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          <!-- FIXME: Doc -->
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="showcolumns">
+      <xs:annotation>
+        <xs:documentation>
+          No longer supported, will be removed in a future version
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list itemType="xs:string" />
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="rowlayout" default="onerow">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="onerow"/>
+          <xs:enumeration value="tworows"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="savestate">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Save the selected list properties in the user's registry and restore them upon reopening the window. At the moment the only possible value is "selected".</html:p>
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="expanded"/>
+              <xs:enumeration value="selection"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attributeGroup ref="s:ListBorders" />
+  </xs:complexType>
+
+  <xs:element name="intextlink">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="inline" fragment="components.intextlink" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="tc:IsDirtyable" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attributeGroup ref="sc:Errorlabel" />
+      <xs:attributeGroup ref="sc:Required" />
+      <xs:attribute name="valuetype" default="intextlink">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="intextlink"/>
+            <xs:enumeration value="string"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+
+  <xs:element name="intextlinkcolumn">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="listcolumn" lib="components/intextlinkcolumn.whlib" objecttype="IntExtLinkColumn" />
+          <s:fixedfield field="type" type="xs:string" value="text" />
+        </xs:appinfo>
+      </xs:annotation>
+
+      <xs:attributeGroup ref="tc:ListColumnBase" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:attributeGroup name="FSObjectOverviewOptions">
+    <xs:attribute name="virtualfilter" type="s:WHFSVirtualFilter" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="FSContentsOverviewOptions">
+    <xs:attribute name="foldertree" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          Link this filelist to a foldertree whos selection follow
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attributeGroup ref="FSObjectOverviewOptions" />
+  </xs:attributeGroup>
+
+
+  <!-- Common options for <browseforobject>, <browseforobjectarray>, <thumbnailview>
+       used to determine which file/folder objects to allow for selection
+  -->
+  <xs:attributeGroup name="BrowseFilterOptions">
+    <xs:attribute name="acceptfiles" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          Only accept files
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="acceptfolders" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          Only accept folders
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="accepttypes">
+      <xs:annotation>
+        <xs:documentation>
+          Only accept folders and files of the specified types
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list itemType="xs:string" />
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="acceptunpublished" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          If false, only show published files
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+  </xs:attributeGroup>
+
+
+
+  <xs:complexType name="BrowseForObject">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="components.browseforobject" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attributeGroup ref="tc:ComposableComponentBase" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+
+    <xs:attributeGroup ref="BrowseFilterOptions" />
+
+    <!--
+    Tids & titles for the <browseforobject component
+    -->
+    <xs:attribute name="descriptiontid" type="sc:Tid">
+      <xs:annotation>
+        <xs:documentation>
+          The tid for the description in the browse dialog
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="description" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The description in the browse dialog, leave empty for default text
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="errorlabeltid" type="sc:Tid">
+      <xs:annotation>
+        <xs:documentation>
+          The tid for the error label object
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="errorlabel" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The error label object
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="acceptrootfolder" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>If true, the root folder is a valid choice</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <!--
+    Behaviour
+    -->
+    <xs:attribute name="showclear" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          Whether to show the 'clear' button. Defaults to true
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attributeGroup ref="sc:Required" />
+
+    <xs:attribute name="onchange" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature />
+        </xs:appinfo>
+        <xs:documentation>
+          Function that needs to be executed when something changes in the component. The function you must give into your screen(xml)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <!--
+    Settings for the browse dialog
+    -->
+    <xs:attribute name="site" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The site to search the items that you want to show. Example: If your site is named ExampleSite but your design folder
+          is placed in the Repository site, you can add site="Repository" to the code, and the component will know what to search
+          for in the Repository site
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="fullpath" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Fullpath, from the current site root, where we should look for objects
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="browsetype" type="xs:string" default="list">
+      <xs:annotation>
+        <xs:documentation>
+          Type of display to use for the browse dialog ('list' or 'thumbnails')
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="thumbnailwhfstype" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Here you can specify the type of the WHFS where the system can spot the thumbnail images of the items (for in the browse dialog)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="thumbnailwhfsfield" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Here you can specify the name of the field which the WHFS type containers the thumbnail images (for in the browse dialog)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+
+
+  <xs:complexType name="ThumbnailView">
+    <xs:attributeGroup ref="tc:ComponentBase" />
+
+    <xs:attributeGroup ref="BrowseFilterOptions" />
+    <xs:attributeGroup ref="FSContentsOverviewOptions" />
+
+    <!-- FIXME: implement -->
+    <xs:attribute name="emptytid" type="sc:Tid">
+      <xs:annotation>
+        <xs:documentation>
+          When the list is empty, the text with the given tid will be shown (ADDME: implement)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="empty" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          When the list is empty, the text defined here wil be shown (ADDME: implement)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="selectmode" type="s:SelectMode" default="none">
+      <xs:annotation>
+        <xs:documentation>
+          Indicates whether only single or multiple selections are allowed
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="contextmenu" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          The name of the menu that must be shown when you do a right-mouse-click
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="sortby" type="xs:string" default="ordering">
+      <xs:annotation>
+        <xs:documentation>
+          Order in which thumbnails are presented. Valid values: 'name', 'ordering'
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="orderable" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            Allow the items to be reordered
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="onselect" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature />
+        </xs:appinfo>
+        <xs:documentation>
+          <html:p>
+            The onselect event will fire when the selection changes.
+            (use ->value or ->selection to read what was selected)
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="openaction" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          The action that must be executed when double-clicking on an item in the thumbnailview
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+  </xs:complexType>
+
+
+
+  <xs:complexType name="WHFSRefColumn">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="listcolumn" lib="components/whfsrefcolumn.whlib" objecttype="WHFSRefColumn" />
+        <s:fixedfield field="type" type="xs:string" value="text" />
+      </xs:appinfo>
+    </xs:annotation>
+
+    <xs:attributeGroup ref="tc:ListColumnBase" />
+
+    <xs:attribute name="display">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            Type of data of the whfs object to show
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="title"/>
+          <xs:enumeration value="name"/>
+          <xs:enumeration value="path"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+
+    <xs:attribute name="checkboxname" type="s:Name">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            Name of the column that contains the value of the column checkbox for a row. If empty, no checkbox is shown.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="checkboxvisible" type="s:Name">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            Name of the column that specifies whether the column checkbox is visible in that row. If empty, all checkboxes are shown.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="align" type="s:HorizontalAlignment" default="left">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            Horizontal alignment of the content within the column.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="style" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            Name of the style to use for this row.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+  </xs:complexType>
+
+
+
+  <xs:complexType name="BrowseForObjectArray">
+    <xs:attributeGroup ref="tc:ComposableComponentBase" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+
+    <xs:attributeGroup ref="sc:Gid" />
+    <xs:attribute name="emptytid" type="sc:Tid" />
+    <xs:attribute name="empty" type="xs:string" />
+
+    <xs:attributeGroup ref="BrowseFilterOptions" />
+
+    <xs:attribute name="browsetype" type="xs:string" default="list">
+      <xs:annotation>
+        <xs:documentation>
+          Type of display to use for the browse dialog ('list' or 'thumbnails')
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="sortable" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          Whether this list is sortable, can be set on true/false. Default is false.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="sortascending" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          Whether the list is sorting ascending or descending, can be set on true/false. Default ascending
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="sortcolumn" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Sort the array on specified column name
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="orderable" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            Allow the rows to be reordered
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <!--
+    <xs:attribute name="descriptiontid" type="sc:Tid" />
+    <xs:attribute name="description" type="xs:string" />
+    -->
+    <xs:attributeGroup ref="sc:Required" />
+
+    <xs:attribute name="errorlabeltid" type="sc:Tid">
+      <xs:annotation>
+        <xs:documentation>
+          The tid for the error label object
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="errorlabel" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The error label object
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="onchange" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <s:callbacksignature />
+        </xs:appinfo>
+        <xs:documentation>
+          Function that needs to be executed when something changes in the component. The function you must give into your screen(xml)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <!-- default selected site/path -->
+    <xs:attribute name="fullpath" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Fullpath, from the current site root, where we should initially open the browse dialog when 'Add' is selected
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="site" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The site containing the specified fullpath. If not set, use the current site
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="thumbnailwhfstype" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Here you can specify the type of the WHFS where the system can spot the thumbnail images of the items
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="thumbnailwhfsfield" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Here you can specify the name of the field which the WHFS type containers the thumbnail images
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+
+
+  <xs:element name="embedvideo">
+    <xs:annotation>
+      <xs:documentation>
+        <html:p>
+          Component to select video.
+          When the 'socialite' module is installed, you'll have support for 'youtube', 'vimeo' and 'youku' video's.
+        </html:p>
+        <html:p>
+          Extra videoproviders can be defined in modules.
+          For example Socialite does this:
+
+          &lt;embedvideoproviders xmlns="http://www.webhare.net/publisher/embedvideoproviders"&gt;
+            &lt;detector library="internal/embedvideo/support.whlib" functionname="guessfromcode" /&gt;
+            &lt;provider name="youtube" tid="embedvideo.network.youtube" localservice="youtubeprovider" /&gt;
+            &lt;provider name="vimeo" tid="embedvideo.network.vimeo" localservice="vimeoprovider" /&gt;
+            &lt;provider name="youku" tid="embedvideo.network.youku" localservice="youkuprovider" /&gt;
+          &lt;/embedvideoproviders>
+        </html:p>
+      </xs:documentation>
+
+      <!--
+           Please note, we are inline because, as soon as we stop caring about 3.10
+           we want this to be like imageedit - a preview thumbnail/image with an overlay of buttons
+      -->
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="components/embedvideo.embedvideocomponent" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="tc:IsDirtyable" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attributeGroup ref="sc:Errorlabel" />
+      <xs:attributeGroup ref="sc:Required" />
+      <xs:attribute name="limitnetworks">
+        <xs:annotation>
+          <xs:documentation>Space separated list of network masks to which we should limit our network selection</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+
+
+  <xs:element name="managedtagedit">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="inline" fragment="components.managedtagedit" />
+        </xs:appinfo>
+      </xs:annotation>
+
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="tc:IsDirtyable" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+
+      <xs:attribute name="onchange" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+
+      <xs:attribute name="autocreate" type="xs:boolean" />
+      <xs:attribute name="taglibrary" type="xs:string" />
+
+      <xs:attribute name="allowmultiple" type="xs:boolean" />
+
+      <xs:attribute name="placeholder" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            <html:p>The text to use as placeholder text, which is displayed when nothing is filled in yet, but will not be returned as the textedit's value.</html:p>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+
+      <xs:attribute name="placeholdertid" type="sc:Tid">
+        <xs:annotation>
+          <xs:documentation>
+            <html:p>The tid to use as the placeholder text.</html:p>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="formcondition">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="inline" fragment="components.formcondition" />
+        </xs:appinfo>
+      </xs:annotation>
+
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="tc:IsDirtyable" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attribute name="onchange" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature/>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="singleformcondition">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="inline" fragment="components.singleformcondition" />
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="formconditioncolumn">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="listcolumn" lib="components/formcondition.whlib" objecttype="FormConditionColumn" />
+          <s:fixedfield field="type" type="xs:string" value="text" />
+        </xs:appinfo>
+      </xs:annotation>
+
+      <!-- addme: extend tollium listcolumn complextype? -->
+      <xs:attributeGroup ref="tc:ListColumnBase" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="searchfilter">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>This is an internal component used by Publisher search</html:p>
+        </xs:documentation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="block" fragment="/tolliumapps/filemanager/search.xml#searchfilter" />
+        </xs:appinfo>
+      </xs:annotation>
+
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="tc:IsDirtyable" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+
+      <xs:attribute name="type" type="xs:string" />
+
+      <xs:attribute name="matchtype" type="xs:string" />
+      <xs:attribute name="textquery" type="xs:string" />
+      <xs:attribute name="datequeryperiod" type="xs:integer" default="999999" />
+      <xs:attribute name="datequeryunit" type="xs:string" />
+      <xs:attribute name="datequerydate" type="xs:date" />
+      <xs:attribute name="valuequery" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="forumpostings">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="block" fragment="mod::publisher/tolliumapps/forum/components.xml#postings" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="selectmailtemplate">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="mod::publisher/tolliumcomponents/siteprofcomps.xml#selectmailtemplate" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

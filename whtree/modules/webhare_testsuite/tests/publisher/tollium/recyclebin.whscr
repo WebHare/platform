@@ -1,0 +1,180 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+INTEGER recycleherid;
+
+MACRO PrepIt()
+{
+  testfw->BeginWork();
+  testfw->SetupTestWebdesignWebsite("");
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE, TRUE);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  testfw->SetTestUser("sysop");
+  testfw->GetTestSite()->rootobject->CreateFile([name := "recycleme"])->RecycleSelf();
+  testfw->GetTestSite()->rootobject->CreateFile([name := "recycleme3"])->RecycleSelf();
+  testfw->SetTestUser("lisa");
+
+  OBJECT recycleher := testfw->GetTestSite()->rootobject->CreateFile([name := "recycleher"]);
+  recycleherid := recycleher->id;
+  testfw->GetTestSite()->rootobject->CreateFile([name := "recycleher3"])->RecycleSelf();
+
+  //put a file in a folder for #1400
+  OBJECT recycledfolder := testfw->GetTestSite()->rootobject->CreateFolder([name := "recycledfolder"]);
+  OBJECT recycledsubfile := recycledfolder->CreateFile([name := "recycledsubfile"]);
+  recycledsubfile->RecycleSelf();
+  recycledfolder->RecycleSelf();
+
+
+  testfw->CommitWork();
+}
+
+OBJECT ASYNC FUNCTION TestCopyMoveDialogs()
+{
+  testfw->SetTestUser("lisa");
+
+  //Verify copy & move dialogs
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ToString(recycleherid)], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TT("copyto")->TolliumClick());
+
+  // There shouldn't be any virtual folders in copyto (or should there? but SEARCH and RECYCLEBIN at least shouldn't)
+  TestEq(DEFAULT RECORD ARRAY, SELECT FROM TT("folders")->rows WHERE id < 0);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  AWAIT ExpectScreenChange(+1, PTR TT("moveto")->TolliumClick());
+  // There shouldn't be any virtual folders in moveto except RECYCLEBIN
+  TestEq(DEFAULT RECORD ARRAY, SELECT FROM TT("folders")->rows WHERE id < 0 AND name != "Trash");
+  TT("folders")->selection := SELECT * FROM TT("folders")->rows WHERE name = "Trash";
+  topscreen->frame->focused := topscreen->folders;
+  AWAIT ExpectScreenChange(-1, PTR TT("submitaction")->TolliumClick());
+
+  TestEq(FALSE, OpenWHFSObject(recycleherid)->isactive);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel()); //close publisher
+
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION TestRecycleBin()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ToString(recycleherid)], target := DEFAULT RECORD ]));
+  TestEq(TRUE, RecordExists(TT("foldertree")->selection));
+  TestEq("Trash", TT("foldertree")->selection.name);
+
+  RECORD ARRAY rows := TT("filelist")->rows;
+  TestEq(["recycleher"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
+  TestEq(1, Length(TT("filelist")->selection));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+
+  testfw->SetTestUser("lisa");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Trash"], target := DEFAULT RECORD ]));
+
+  TestEq(TRUE, RecordExists(TT("foldertree")->selection));
+  TestEq("Trash", TT("foldertree")->selection.name);
+  TestEq(FALSE, ObjectExists(testfw->GetTestSite()->rootobject->OpenByPath("recycleher")));
+
+  //By default, we expect our own recent deletions
+  rows := TT("filelist")->rows;
+  TestEq(["recycledfolder","recycledsubfile","recycleher","recycleher3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
+
+  //Try to browse ALL deletions. we should see ours and sysop's
+  TT("filelist")->folderfilter->contents->searchuseron->value := FALSE;
+  TT("filelist")->filter->TolliumClick();
+
+  rows := TT("filelist")->rows;
+  TestEq(["recycledfolder","recycledsubfile","recycleher","recycleher3","recycleme","recycleme3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  testfw->SetTestUser("sysop");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Trash"], target := DEFAULT RECORD ]));
+
+  TestEq(TRUE, RecordExists(TT("foldertree")->selection));
+  TestEq("Trash", TT("foldertree")->selection.name);
+  TestEq(FALSE, ObjectExists(testfw->GetTestSite()->rootobject->OpenByPath("recycleher")));
+
+  //By default, we expect our own recent deletions
+  rows := TT("filelist")->rows;
+  TestEq(2, Length(rows));
+  TestEq(["recycleme","recycleme3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
+
+  //FIXME make the userselect control smarter so we can just control that one
+  TT("filelist")->folderfilter->contents->__SetSearch(testfw->GetUserAuthobjectId("lisa"), testfw->GetUserLogin("lisa"));
+  TT("filelist")->filter->TolliumClick();
+  rows := TT("filelist")->rows;
+
+  TestEq(["recycledfolder","recycledsubfile","recycleher","recycleher3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
+
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="recycleher";
+  topscreen->frame->focused := TT("filelist");
+
+  TestEq(TRUE, TT("restore")->TolliumClick());
+  TestEq(TRUE, ObjectExists(testfw->GetTestSite()->rootobject->OpenByPath("recycleher")));
+
+  rows := TT("filelist")->rows;
+  TestEq(["recycledfolder","recycledsubfile","recycleher3"], (SELECT AS STRING ARRAY name FROM rows ORDER BY name), "List did not update to reflect undeleted item");
+
+  //What if we restore the recycledsubfile? it should fail as it target folder is gone
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="recycledsubfile";
+
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("restore"), [ messagemask := "*original location*deleted*" ]);
+/*
+
+
+  RECORD ARRAY rows := TT("filelist")->rows;
+  TestEq(1, Length(rows));
+  TestEq("recycleme", rows[0].name, "Should have filename, not an id (courtesy of contentmode=recyclebin)");
+
+  TestEq(TRUE, TT("restore")->TolliumClick());
+  TestEq(TRUE, ObjectExists(testfw->GetTestSite()->rootobject->OpenByPath("recycleme")));
+
+  rows := TT("filelist")->rows;
+  TestEq(0, Length(rows), "List did not update to reflect undeleted item");
+*/
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  RETURN TRUE;
+}
+
+ASYNC MACRO TestDelete()
+{
+  testfw->SetTestUser("sysop");
+
+  testfw->BeginWork();
+  OBJECT container := testfw->GetTestSite()->rootobject->CreateFolder([name := "container"]);
+  OBJECT recycleme2 := container->CreateFolder([ name := "recycleme2" ]);
+  OBJECT recycleme3 := container->CreateFolder([ name := "recycleme3" ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ ToString(container->id)], target := DEFAULT RECORD ]));
+  TT("foldertree")->value := recycleme2->id;
+  TT("frame")->focused := TT("foldertree");
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("delete"), [ messagemask := "*sure*move*recycleme2*to*trash*"]);
+
+  // Parent should not be deleted
+  TestEq(TRUE, ObjectExists(testfw->GetTestSite()->rootobject->OpenByName("container")));
+  TestEq(FALSE, ObjectExists(container->OpenByName("recycleme2")));
+
+  TT("foldertree")->value := container->id;
+  TT("filelist")->value := INTEGER[ recycleme3->id ];
+  TT("frame")->focused := TT("filelist");
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("delete"), [ messagemask := "*sure*move*recycleme3*to*trash*"]);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  TestEq(TRUE, ObjectExists(testfw->GetTestSite()->rootobject->OpenByName("container")));
+  TestEq(FALSE, ObjectExists(container->OpenByName("recycleme3")));
+}
+
+RunTestframework([ PTR PrepIt
+                 , PTR TestCopyMoveDialogs
+                 , PTR TestRecycleBin
+                 , PTR TestDelete
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);

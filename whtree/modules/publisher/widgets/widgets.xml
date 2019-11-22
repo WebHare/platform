@@ -1,0 +1,50 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="widgets"
+         library="widgets.whlib">
+
+  <tabsextension name="anchorwidget" gid=".anchorwidget" implementation="lib">
+    <newtab>
+      <textedit name="anchorname" cellname="name" composition="contentdata" minwidth="40x" width="1pr" required="true" />
+    </newtab>
+  </tabsextension>
+
+  <tabsextension name="slideshowwidget" gid=".slideshowwidget" implementation="none" allowresize="true">
+    <newtab minwidth="50x" minheight="9x" height="1pr">
+      <heading tid=".slides" />
+      <arrayedit cellname="slides" composition="contentdata" height="1pr" orderable="true" roweditscreen="#editslide" minrows="1" errorlabeltid=".slides">
+        <column type="blobrecord" name="image" />
+        <column type="text" name="title" tid="~title"/>
+        <p:intextlinkcolumn name="link" />
+      </arrayedit>
+    </newtab>
+  </tabsextension>
+
+  <screen name="editslide" gid=".slideshowwidget" width="80x" height="35x" allowresize="true" savestate="size" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <imgedit composition="row" cellname="image" height="1pr" width="1pr" required="true" />
+      <textedit composition="row" cellname="title" tid="~title" width="1pr" />
+      <p:intextlink composition="row" cellname="link" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <tabsextension name="twocolumnswidget" gid=".twocolumnswidget" implementation="none" allowresize="true">
+    <newtab >
+      <grid height="1pr" minheight="400px" minwidth="600px" >
+        <cell width="1pr">
+          <richdocument composition="contentdata" name="rtdleft" cellname="rtdleft" errorlabeltid=".rtdleft" height="1pr" width="1pr" />
+        </cell>
+        <cell width="1pr">
+          <richdocument composition="contentdata" name="rtdright" cellname="rtdright" errorlabeltid=".rtdright" height="1pr" width="1pr" />
+        </cell>
+      </grid>
+    </newtab>
+  </tabsextension>
+
+</screens>

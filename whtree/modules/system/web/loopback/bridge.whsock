@@ -1,0 +1,237 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
+LOADLIB "mod::system/lib/webserver/websocket.whlib";
+
+
+RECORD ARRAY ports;
+RECORD ARRAY links;
+RECORD ARRAY eventcallbacks;
+
+INTEGER nextlinkid;
+
+OBJECT handler;
+
+IF (GetClientRemoteIP() != "127.0.0.1")
+  ABORT("Only accepting localhost connections");
+
+handler := CreateWebSocketHandler();
+handler->ondata := PTR OnData;
+
+//Greet it
+RECORD config := GetWebhareConfiguration();
+SendPacket([ version := GetWebhareVersionNumber()
+           , varroot := config.varroot
+           , installationroot := config.installationroot
+           ]);
+
+handler->Run();
+
+MACRO SendPacket(RECORD data)
+{
+  handler->SendData(EncodeJSON(data));
+}
+
+MACRO OnData(STRING datapacket)
+{
+  RECORD data := DecodeJSON(datapacket);
+  IF(NOT RecordExists(data))
+    THROW NEW Exception("Invalid packet received");
+
+  TRY
+  {
+    SWITCH (data.type)
+    {
+      CASE "createlistenport"
+      {
+        IF (data.id >= 0)
+          THROW NEW Exception('Client generated ids must be negative');
+
+        RECORD pos := RecordLowerBound(ports, data, [ "ID" ]);
+        IF (pos.found)
+          THROW NEW Exception("Already a port with id #" || data.id);
+
+        OBJECT port := data.global ? CreateGlobalIPCPort(data.name) : CreateIPCPort(data.name);
+        port->userdata :=
+            [ id := data.id
+            , cb := RegisterHandleReadCallback(port->handle, PTR HandleIncomingConnection(port))
+            ];
+        INSERT
+            [ id :=     data.id
+            , port :=   port
+            ] INTO ports AT pos.position;
+
+        SendPacket([ type := "response-ok", msgid := data.msgid, value := [ id := data.id ]  ]);
+      }
+
+      CASE "connectport"
+      {
+        IF (data.id >= 0)
+          THROW NEW Exception('Client generated ids must be negative');
+
+        RECORD pos := RecordLowerBound(links, data, [ "ID" ]);
+        IF (pos.found)
+          THROW NEW Exception("Already a link with id #" || data.id);
+
+        OBJECT link := data.managed
+            ? ConnectToManagedPort(data.name)
+            : data.global
+                ? ConnectToGlobalIPCPort(data.name)
+                : ConnectToIPCPort(data.name);
+
+        IF (NOT ObjectExists(link))
+        {
+          SendPacket([ type := "response-error", msgid := data.msgid, what := "Unable to connect to " || (data.managed?"managed ":data.global?"global ":"") || "port " || data.name ]);
+          RETURN;
+        }
+
+        link->userdata :=
+            [ id := data.id
+            , cb := RegisterHandleReadCallback(link->handle, PTR HandleIncomingData(link))
+            ];
+
+        INSERT
+            [ id :=   data.id
+            , link := link
+            ] INTO links AT pos.position;
+
+        SendPacket([ type := "response-ok", msgid := data.msgid, value := [ id := data.id ]  ]);
+      }
+
+      CASE "closeport"
+      {
+        RECORD pos := RecordLowerBound(ports, data, [ "ID" ]);
+        IF (NOT pos.found)
+          THROW NEW Exception("No such port with id #" || data.id);
+
+        UnregisterCallback(ports[pos.position].port->userdata.cb);
+        ports[pos.position].port->Close();
+        DELETE FROM ports AT pos.position;
+        SendPacket([ type := "response-ok", msgid := data.msgid, value := [ id := data.id ]  ]);
+      }
+
+      CASE "closelink"
+      {
+        RECORD pos := RecordLowerBound(links, data, [ "ID" ]);
+        IF (NOT pos.found)
+          THROW NEW Exception("No such link with id #" || data.id);
+
+        UnregisterCallback(links[pos.position].link->userdata.cb);
+        links[pos.position].link->Close();
+        DELETE FROM links AT pos.position;
+        SendPacket([ type := "response-ok", msgid := data.msgid, value := [ id := data.id ]  ]);
+      }
+
+      CASE "message"
+      {
+        RECORD pos := RecordLowerBound(links, data, [ "ID" ]);
+        IF (NOT pos.found)
+          THROW NEW Exception("No such link with id #" || data.id);
+
+        //FIXME how to deal with link full?
+        RECORD retval := links[pos.position].link->SendReply(data.message, data.replyto);
+        SendPacket([ type := "response-ok", msgid := data.msgid, value := retval ]);
+      }
+      CASE "invoke"
+      {
+        //FIXME desire an async implementation
+        VARIANT ARRAY args;
+
+        INSERT data.lib INTO args AT END;
+        INSERT "JSBridge_" || data.func INTO args AT END;
+        FOREVERY(VARIANT el FROM data.args)
+          INSERT el INTO args AT END;
+
+        VARIANT result := WaitForPromise(CallAnyPtrVA(PTR AsyncCallFunctionFromJob, args));
+        SendPacket([ type := "response-ok", msgid := data.msgid, value := result ]);
+      }
+
+      CASE "broadcast"
+      {
+        BroadcastEvent(data.event, data.data);
+        SendPacket([ type := "response-ok", value := DEFAULT RECORD ]);
+      }
+
+      CASE "registermultieventcallback"
+      {
+        RECORD pos := RecordLowerBound(eventcallbacks, data, [ "ID" ]);
+        IF (pos.found)
+          THROW NEW Exception("Already an event callback with  with id #" || data.id);
+
+        INSERT
+            [ id :=   data.id
+            , cbid := RegisterMultiEventCallback(data.event, PTR HandleIncomingEvent(data.id, #1, #2))
+            ] INTO eventcallbacks AT pos.position;
+
+        SendPacket([ type := "response-ok", msgid := data.msgid, value := [ id := data.id ] ]);
+      }
+
+      DEFAULT
+      {
+        THROW NEW Exception("Unrecognized type '" || data.type || "'");
+      }
+    }
+  }
+  CATCH (OBJECT e)
+  {
+    SendPacket(
+        [ type :=   "response-exception"
+        , msgid :=  data.msgid
+        , what :=   e->what
+        , trace :=  e->trace
+        ]);
+  }
+}
+
+MACRO HandleIncomingEvent(INTEGER id, STRING event, RECORD ARRAY data)
+{
+  RECORD pos := RecordLowerBound(eventcallbacks, [ id := id ], [ "ID" ]);
+  IF (pos.found)
+    SendPacket([ type := "eventcallback", id := id, event := event, data := data ]);
+}
+
+MACRO HandleIncomingConnection(OBJECT port)
+{
+  OBJECT link := port->Accept(DEFAULT DATETIME);
+  IF (ObjectExists(link))
+  {
+    nextlinkid := nextlinkid + 1;
+
+    link->userdata :=
+        [ id := nextlinkid
+        , cb := RegisterHandleReadCallback(link->handle, PTR HandleIncomingData(link))
+        ];
+
+    RECORD rec :=
+        [ id := nextlinkid
+        , link := link
+        ];
+
+    INSERT rec INTO links AT RecordUpperBound(links, rec, [ "ID"]);
+    SendPacket([ type := "port-accepted", id := port->userdata.id, link := nextlinkid ]);
+  }
+}
+
+MACRO HandleIncomingData(OBJECT link)
+{
+  RECORD res := link->ReceiveMessage(DEFAULT DATETIME);
+  IF (res.status="timeout") // spurious wakeup
+    RETURN;
+
+  IF (res.status != "ok")
+  {
+    RECORD pos := RecordLowerBound(links, link->userdata, [ "ID" ]);
+    UnregisterCallback(links[pos.position].link->userdata.cb);
+    links[pos.position].link->Close();
+    DELETE FROM links AT pos.position;
+
+    SendPacket([ type := "link-gone", id := link->userdata.id ]);
+  }
+  ELSE
+    SendPacket([ type := "link-message", id := link->userdata.id, message := res.msg, replyto := res.replyto, msgid := res.msgid ]);
+}

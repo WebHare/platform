@@ -1,0 +1,72 @@
+﻿<?wh
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+PUBLIC RECORD FUNCTION GetLogFiles()
+{
+  RECORD ARRAY errors;
+
+  RECORD ARRAY modules := GetWebHareModules();
+  RECORD ARRAY logfiles;
+  FOREVERY (RECORD module FROM modules)
+    logfiles := logfiles CONCAT module.logfiles;
+
+  RECORD whcoreparams := __SYSTEM_WHCOREPARAMETERS();
+
+  logfiles :=
+      SELECT tag :=                   ToLowercase(name)
+           , logroot :=               whcoreparams.logroot
+           , logname :=               filename
+           , logextension :=          ".log"
+           , autoflush :=             false
+           , rotates :=               rotates
+           , with_mseconds :=         with_mseconds
+        FROM logfiles;
+
+  // Filter out duplicated names & filenames
+  STRING ARRAY logtags, logfilenames;
+  RECORD ARRAY filtered;
+
+  FOREVERY (RECORD rec FROM logfiles)
+  {
+    IF (rec.tag IN logtags)
+      INSERT [ tag := rec.tag, msg := "Log '" || rec.tag || "' is defined more than once" ] INTO errors AT END;
+    ELSE IF (rec.logname IN logfilenames)
+      INSERT [ tag := rec.tag, msg := "Multiple logs use log file '" || rec.logname || "' ('" ||
+        Detokenize((SELECT AS STRING ARRAY tag FROM logfiles WHERE logname = rec.logname), "', '") || "')" ] INTO errors AT END;
+    ELSE
+    {
+      INSERT rec.tag INTO logtags AT END;
+      INSERT rec.logname INTO logfilenames AT END;
+      INSERT rec INTO filtered AT END;
+    }
+  }
+
+  RETURN
+      [ errors :=     errors
+      , logfiles :=   filtered
+      , unfiltered := logfiles
+      ];
+}
+
+/** Configure log files, requires SUPER, returns errors
+    @return List of errors
+    @cell(string) return.tag Relevant log tag (empty if global error)
+    @cell(string) return.msg Error message
+*/
+PUBLIC RECORD ARRAY FUNCTION ReconfigureLogFiles()
+{
+  RECORD logfiles := GetLogFiles();
+  RECORD ARRAY errors;
+
+  RECORD rec := __SYSTEM_CONFIGUREREMOTELOGS(logfiles.logfiles);
+  errors :=
+      SELECT tag
+           , msg
+        FROM logfiles.errors CONCAT rec.errors;
+
+  IF (LENGTH(errors) != 0)
+    PRINT("Errors configuring log files:\n" || AnyToString(errors, "boxed"));
+
+  RETURN errors;
+}

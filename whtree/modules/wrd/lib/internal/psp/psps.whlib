@@ -1,0 +1,171 @@
+<?wh
+PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
+{
+  //external -must- be the first payment method - it is used for builtin payments too
+  RETURN [[ tag := "wrd:external"
+          , title := "External"
+          , objectname := "mod::wrd/lib/internal/psp/external.whlib#ExternalPaymentProvider"
+          , configextensions := "mod::wrd/tolliumapps/payments/builtins.xml#configexternalpsp"
+          , payinfoscreen := ""
+          , metadataoptions := [ methodtitle := ""
+                               , title := "" //backwards compatibility, ignored if methodtitle is set
+                               ]
+          ]
+         ,[ tag := "wrd:ingenico"
+          , title := "Ingenico"
+          , objectname := "mod::wrd/lib/internal/psp/ingenico.whlib#IngenicoPaymentProvider"
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/ingenico.xml#payinfo"
+          , manual := "wrd:ogone"
+          , manuallanguages := ["en"]
+          , configextensions := "mod::wrd/tolliumapps/payments/ingenico.xml#configingenico"
+          , metadataoptions := [ sha1_in := ""
+                               , sha1_out := ""
+                               , sha1_in_directlink := ""
+                               , apiuser := ""
+                               , apipassword := ""
+                               , pspid := ""
+                               , mode := "test"
+                               , methods := DEFAULT STRING ARRAY
+                               , rebranded := ""
+                               , expiry_minutes := 7*1440  //expiry of incomplete payments in minutes
+                               ]
+          ]
+         ,[ tag := "wrd:ideal"
+          , title := "iDEAL"
+          , objectname := "mod::wrd/lib/internal/psp/ideal.whlib#IdealPaymentProvider"
+          , configextensions := "mod::wrd/tolliumapps/payments/ideal.xml#configideal"
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/ideal.xml#payinfo"
+          , metadataoptions := [ acquirer := ""
+                               , merchantid := 0
+                               , merchantsubid := 0
+                               , testmode := TRUE
+                               , privatekeypassword := ""
+                               ]
+          ]
+         ,[ tag := "wrd:mollie"
+          , title := "Mollie"
+          , objectname := "mod::wrd/lib/internal/psp/mollie.whlib#MolliePaymentProvider"
+          , configextensions := "mod::wrd/tolliumapps/payments/mollie.xml#configmollie"
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/mollie.xml#payinfo"
+          , metadataoptions := [ apikey := ""
+                               , methods := RECORD[]
+                               , webhooks := TRUE
+                               ]
+          ]
+         ,[ tag := "wrd:sisow"
+          , title := "sisow"
+          , objectname := "mod::wrd/lib/internal/psp/sisow.whlib#SisowPaymentProvider"
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/sisow.xml#payinfo"
+          , configextensions := "mod::wrd/tolliumapps/payments/sisow.xml#configsisow"
+          , metadataoptions := [ merchantid := ""
+                               , merchantsecret := ""
+                               , methods := DEFAULT STRING ARRAY
+                               , testmode := FALSE
+                               ]
+          ]
+         ,[ tag := "wrd:multisafepay"
+          , title := "multisafepay"
+          , objectname := "mod::wrd/lib/internal/psp/multisafepay.whlib#MultisafepayPaymentProvider"
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/multisafepay.xml#payinfo"
+          , configextensions := "mod::wrd/tolliumapps/payments/multisafepay.xml#configmultisafepay"
+          , metadataoptions := [ apikey := ""
+                               , methods := DEFAULT RECORD ARRAY
+                               , testmode := "test"
+                               ]
+          ]
+         ,[ tag := "wrd:stripe"
+          , title := "stripe"
+          , objectname := "mod::wrd/lib/internal/psp/stripe.whlib#stripePaymentProvider"
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/stripe.xml#payinfo"
+          , configextensions := "mod::wrd/tolliumapps/payments/stripe.xml#configstripe"
+          , metadataoptions := [ publickey := ""
+                               , secretkey := ""
+                               , methods := DEFAULT STRING ARRAY
+                               ]
+          ]
+         ,[ tag := "wrd:afterpay"
+          , title := "Afterpay"
+          , objectname := "mod::wrd/lib/internal/psp/afterpay.whlib#AfterpayPaymentProvider"
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/afterpay.xml#payinfo"
+          , configextensions := "mod::wrd/tolliumapps/payments/afterpay.xml#configafterpay"
+          , metadataoptions := [ methodtitle := ""
+                               , merchantid := ""
+                               , password := ""
+                               , portfolioid := 0
+                               , testmode := FALSE
+                               , afterpaytype := ""
+                               ]
+          ]
+         ,[ tag := "wrd:spraypay"
+          , title := "spraypay"
+          , objectname := "mod::wrd/lib/internal/psp/spraypay.whlib#SpraypayPaymentProvider"
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/spraypay.xml#payinfo"
+          , configextensions := "mod::wrd/tolliumapps/payments/spraypay.xml#configspraypay"
+          , metadataoptions := [ methodtitle := ""
+                               , webshopid := 0
+                               , apikey := ""
+                               , testmode := FALSE
+                               ]
+          ]
+/*         ,[ tag := "wrd:klarna"
+          , title := "Klarna"
+          , objectname := "mod::wrd/lib/internal/psp/klarna.whlib#KlarnaPaymentProvider"
+          , payinfoscreen := "paymentproviders:klarna.payinfo"
+          , metadataoptions := DEFAULT RECORD
+          ]
+         ,[ tag := "wrd:buckaroo"
+          , title := "Buckaroo"
+          , objectname := "mod::wrd/lib/internal/psp/buckaroo.whlib#BuckarooPaymentProvider"
+          , payinfoscreen := "paymentproviders:buckaroo.payinfo"
+          , metadataoptions := DEFAULT RECORD
+          ]
+*/
+         ,[ tag := "wrd:test"
+          , title := "Test"
+          , objectname := "mod::wrd/lib/internal/psp/test.whlib#TestPaymentProvider"
+          , payinfoscreen := ""//paymentproviders:test.payinfo"
+          , configextensions := "mod::wrd/tolliumapps/payments/builtins.xml#configtestpsp"
+          , metadataoptions := [ disablewithissuer := FALSE
+                               , disablenoissuer := FALSE
+                               , interactiontype := "redirect"
+                               , requirekeypair := FALSE
+                               , sleep := 0
+                               ]
+          ]
+         ];
+}
+
+STRING FUNCTION GetTruePSPName(STRING type) //supports aliassing/old names
+{
+  IF(type = "wrd:ogone")
+    type := "wrd:ingenico";
+  RETURN type;
+}
+
+PUBLIC RECORD FUNCTION GetPSPInfo(STRING createtype)
+{
+  STRING searchtype := GetTruePSPName(createtype);
+
+  RECORD methodinfo := SELECT * FROM GetAvailablePSPs() WHERE ToUppercase(tag) = ToUppercase(VAR searchtype);
+  IF(NOT RecordExists(methodinfo))
+    THROW NEW Exception("Unsupported payment type '" || createtype || "'");
+
+  RETURN CELL[ manual := ""
+             , manuallanguages := ["en"]
+             , manualaccesstoken := ""
+             , ...methodinfo
+             , metadataoptions := CELL[...methodinfo.metadataoptions, keypair := 0 ]
+             ];
+}
+
+PUBLIC OBJECT FUNCTION OpenPSPHandler(STRING createtype, RECORD metadata)
+{
+  RECORD methodinfo := GetPSPInfo(createtype);
+  IF(NOT RecordExists(methodinfo))
+    THROW NEW Exception(`Unsupported payment type '${createtype}'`);
+
+  RECORD pspoptions := ValidateOptions(methodinfo.metadataoptions, metadata, [ passthroughin := "__discard" ] );
+  DELETE CELL __discard FROM pspoptions;
+  RETURN MakeObject(methodinfo.objectname, pspoptions);
+}
+

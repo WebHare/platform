@@ -1,0 +1,220 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+
+LOADLIB "mod::wrd/lib/internal/authobjects.whlib";
+
+
+/** This common dialog adds a grant on a chosen object
+*/
+PUBLIC OBJECTTYPE AddGrantOnObject EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Right info
+  OBJECT rightsinfo;
+
+  /// Object
+  INTEGER pvt_objectid;
+
+
+  // Select right panel
+//  OBJECT selectrightpanel;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Selected right
+  PUBLIC PROPERTY rightname(GetSelectedRight, -);
+
+
+  /// Value of withgrantoption
+  PUBLIC PROPERTY withgrantoption(GetWithGrantOption, -);
+
+
+  /// Selected user/role
+  PUBLIC PROPERTY grantees(GetGrantees, SetGrantees);
+
+
+  /// Selected object
+  PUBLIC PROPERTY objectid(pvt_objectid, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  /** @param data One of @a rightname, @a rightsgroup, @a objecttypename must be present
+      @cell data.grantee Id of initially selected grantee (optional)
+      @cell data.rightname Right to determine which group to add (optional)
+      @cell data.rightsgroup Name of rightsgroup (show global rights of that group only, optional)
+      @cell data.objecttypename Name of objecttype (show rights of that objecttype only, optional)
+      @cell data.objectid
+  */
+  MACRO Init(RECORD data)
+  {
+    // Get right info
+    this->rightsinfo := GetRightsInfoObject(this->tolliumuser);
+    this->pvt_objectid := data.objectid;
+
+    STRING rightname := CellExists(data, "RIGHTNAME") ? data.rightname : "";
+    IF (rightname = "")
+    {
+      IF (CellExists(data, "RIGHTSGROUP") AND data.rightsgroup != "")
+      {
+        rightname :=
+            SELECT AS STRING name
+              FROM this->rightsinfo->rights
+             WHERE rightsgroup = data.rightsgroup
+               AND isglobal;
+
+        IF (rightname = "")
+        {
+          this->RunMessageBox("system:userrights.commondialogs.norightsonobject", "1", data.rightsgroup);
+          this->tolliumresult := "cancel";
+          RETURN;
+        }
+      }
+      ELSE
+      {
+        rightname :=
+            SELECT AS STRING name
+              FROM this->rightsinfo->rights
+             WHERE objecttypename = data.objecttypename;
+
+        IF (rightname = "")
+        {
+          this->RunMessageBox("system:userrights.commondialogs.norightsonobject", "2", data.objecttypename);
+          this->tolliumresult := "cancel";
+          RETURN;
+        }
+      }
+    }
+
+    this->selectright->Init(
+        [ rightname :=          rightname
+        , objectid :=           this->pvt_objectid
+        , withgrantoption :=    FALSE
+        , selectfirstright :=   TRUE
+        ]);
+
+    // Use the selectuserrolepanel to select the user/role
+    this->selectuserrole->InitForCommonDialog();
+    this->selectuserrole->selectmode := "multiple";
+    this->selectuserrole->onopen := PTR this->UserRoleClicked;
+
+    OBJECT ARRAY grantees := CellExists(data, "GRANTEES") ? data.grantees : DEFAULT OBJECT ARRAY;
+    IF (LENGTH(grantees) != 0)
+      this->selectuserrole->value := grantees;
+
+    RECORD rightdata := this->rightsinfo->GetRightByName(rightname);
+    IF (rightdata.isglobal)
+    {
+      IF (LENGTH(this->selectright->selectablerights) = 1)
+        this->frame->title := GetTid('system:userrights.commondialogs.granttitles.titleright', rightdata.title);
+      ELSE
+        this->frame->title := GetTid('system:userrights.commondialogs.granttitles.titlegroup', this->rightsinfo->GetRightsGroupByName(rightdata.rightsgroup).title);
+    }
+    ELSE
+    {
+      IF (this->pvt_objectid = 0)
+        this->frame->title := GetTid('system:userrights.commondialogs.granttitles.titleallobjects', this->rightsinfo->GetObjectTypeByName(rightdata.objecttypename).title);
+      ELSE
+        this->frame->title := GetTid('system:userrights.commondialogs.granttitles.titleobject', this->rightsinfo->GetObjectFullPath(rightdata.objecttypename, this->pvt_objectid, this->tolliumuser->authobject));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other tollium stuff
+  //
+
+  MACRO UserRoleClicked()
+  {
+    IF (this->Submit())
+      this->tolliumresult := "ok";
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    IF (work->HasFailed())
+      RETURN FALSE;
+
+    OBJECT ARRAY grantees := this->selectuserrole->value;
+    IF (LENGTH(grantees) = 0)
+    {
+      work->AddError(GetTid("system:userrights.commondialogs.errors.needselectuserorrole"));
+      RETURN work->Finish();
+    }
+
+    STRING right_name := this->selectright->rightname;
+    BOOLEAN withgrantoption := this->selectright->withgrantoption;
+
+    OBJECT ARRAY valid_grantees;
+
+    FOREVERY (OBJECT grantee FROM grantees)
+    {
+      BOOLEAN grantee_is_user := grantee EXTENDSFROM WRDAuthUser;
+
+      // See if there are existing grants (take grantoption into account)
+      RECORD ARRAY existing_grants :=
+          SELECT *
+            FROM ExplainRightGrantedToOn(right_name, grantee->authobject, this->pvt_objectid, TRUE)
+           WHERE VAR withgrantoption ? COLUMN withgrantoption : TRUE;
+
+      IF (RecordExists(existing_grants))
+      {
+        IF (grantee_is_user)
+          work->AddWarning(GetTid("system:userrights.errors.useralreadyhasgrantforright", grantee->GetUserRightsName(), this->rightsinfo->GetRightTitle(right_name)));
+        ELSE
+          work->AddWarning(GetTid("system:userrights.errors.rolealreadyhasgrantforright", grantee->GetUserRightsName(), this->rightsinfo->GetRightTitle(right_name)));
+      }
+      ELSE
+        INSERT grantee INTO valid_grantees AT END;
+    }
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    FOREVERY (OBJECT grantee FROM valid_grantees)
+    {
+      TolliumGrantRightTo(work, this->rightsinfo, this->tolliumuser, grantee, right_name, [ this->pvt_objectid ], withgrantoption, ^comment->value);
+    }
+    RETURN work->Finish();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  STRING FUNCTION GetSelectedRight()
+  {
+    RETURN this->selectright->rightname;
+  }
+
+  BOOLEAN FUNCTION GetWithGrantOption()
+  {
+    RETURN this->selectright->withgrantoption;
+  }
+
+  OBJECT ARRAY FUNCTION GetGrantees()
+  {
+    RETURN this->selectuserrole->value;
+  }
+
+  MACRO SetGrantees(OBJECT ARRAY newgrantees)
+  {
+    this->selectuserrole->value := newgrantees;
+  }
+>;

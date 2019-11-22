@@ -1,0 +1,33 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+
+OBJECT currentcompile;
+
+OBJECTTYPE CompileServiceClient
+<
+  PUBLIC ASYNC FUNCTION RequestRecompile()
+  {
+    //Wait for any previous compile to complete
+    IF(ObjectExists(currentcompile))
+      AWAIT currentcompile;
+
+    //Schedule a new compile
+    currentcompile := AsyncCallFunctionFromJob("mod::publisher/lib/internal/siteprofiles/compiler.whlib", "__DoRecompileSiteprofiles", TRUE, FALSE, FALSE);
+    TRY RETURN AWAIT currentcompile;
+    FINALLY currentcompile := DEFAULT OBJECT;
+  }
+>;
+
+/// Construct a new Control object to handle service calls
+OBJECT FUNCTION Constructor()
+{
+  RETURN NEW CompileServiceClient;
+}
+
+PUBLIC MACRO RunSPCompileService()
+{
+  RunWebHareService("system:spcompiler", PTR Constructor);
+}

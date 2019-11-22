@@ -1,0 +1,154 @@
+﻿<?wh
+/// @short Ports functions test
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+MACRO TestReadSignalledStatus(INTEGER testid, BOOLEAN expect_status, INTEGER handle)
+{
+  BOOLEAN is_signalled := WaitForMultiple([ handle ], DEFAULT INTEGER ARRAY, 0) = handle;
+
+  TestEqual(testid, expect_status, is_signalled);
+}
+
+MACRO BaseTest()
+{
+  OpenTest("TestJobs: Base");
+
+  SetExternalSessionData("test-1");
+
+  CONSTANT RECORD ARRAY env_override := [ [ name := "test", value := "job-env-override" ], [ name := "test2", value := "job-env-override2" ] ];
+
+  TestEQ("test-1", GetExternalSessionData());
+
+  RECORD authrec := GetAuthenticationRecord();
+  SetAuthenticationRecord([ jobtest := 1 ]);
+
+  RECORD res := CreateJob("test::testdata_jobs_a.whlib", "");
+  OBJECT job := res.job;
+  job->SetConsoleArguments(["test1","test2"]);
+  TestEQ([ jobtest := 1 ], job->GetAuthenticationRecord());
+  job->SetAuthenticationRecord([ jobtest := 2]);
+  TestEQ([ jobtest := 2 ], job->GetAuthenticationRecord());
+
+  TestEQ(GetEnvironment(), job->GetEnvironment());
+  job->SetEnvironment(env_override);
+  TestEQ(env_override, job->GetEnvironment());
+
+  TestEQ("test-1", job->GetExternalSessionData());
+  job->SetExternalSessionData("test-2");
+  TestEQ("test-2", job->GetExternalSessionData());
+
+  SetAuthenticationRecord(authrec);
+  TestEQ([ jobtest := 2 ], job->GetAuthenticationRecord());
+
+  TestEq(DEFAULT RECORD ARRAY, res.errors);
+  TestEq(TRUE, ObjectExists(job));
+
+  INTEGER outputhandle := job->CaptureOutput();
+  res := job->ipclink->SendMessage([ type := "testmessage" ]);
+
+  TestEq("ok", res.status);
+
+  job->Start();
+  job->Wait(MAX_DATETIME);
+  res := job->ipclink->ReceiveMessage(MAX_DATETIME);
+
+  TestEq("ok", res.status);
+  TestEq("ack", res.msg.type);
+  TestEq(["test1","test2"], res.msg.args);
+  TestEq([jobtest := 2 ], res.msg.authrec);
+  TestEQ(env_override, res.msg.env);
+  TestEQ("job-env-override", res.msg.env_test);
+  TestEQ("test:job-env-override", res.msg.env_first);
+
+  TestEq([jobtest := 3 ], job->GetAuthenticationRecord());
+
+
+  STRING output := ReadFrom(outputhandle, 4096);
+  TestEq("job output", output);
+
+  //FIXME might be racy, perhaps we should wait for the job to finish first?
+  TestEq(42, job->GetConsoleExitCode());
+
+  job->Close();
+  TestEq(0, job->handle);
+  TestEq(0, job->ipclink->handle);
+
+  res := CreateJob("test::testdata_jobs_a.whlib", "");
+  job := res.job;
+  job->CaptureOutput();
+  job->Start();
+  res := job->ipclink->DoRequest([ type := "testmessage" ]);
+  job->Close();
+
+  TestEQ(GetEnvironment(), res.msg.env);
+  TestEQ((SELECT AS STRING `${name}:${GetEnvironmentVariable(name)}` FROM GetEnvironment() WHERE value != ""), res.msg.env_first);
+
+  CloseTest("TestJobs: Base");
+}
+
+MACRO TestIPCLinkGoneAfterCrash()
+{
+  OpenTest("TestJobs: IPCLinkGoneAfterCrash");
+
+  // Tests whether the ipclink is gone after job crashes before getting it
+  OBJECT port := CreateIPCPort("jobcrashfast");
+
+  RECORD res := CreateJob("test::testdata_jobs_a.whlib", "");
+  OBJECT job := res.job;
+
+  job->Start();
+
+  OBJECT link := port->Accept(MAX_DATETIME);
+  WHILE (TRUE)
+  {
+    // wait for crash
+    IF (link->ReceiveMessage(MAX_DATETIME).status = "gone")
+      BREAK;
+  }
+
+  RECORD rec := job->ipclink->ReceiveMessage(AddTimeToDate(1000, GetCurrentDateTime()));
+  TestEQ("gone", rec.status);
+
+  port->Close();
+  link->Close();
+  job->Close();
+
+  CloseTest("TestJobs: IPCLinkGoneAfterCrash");
+}
+
+MACRO TestOverrideExecuteLibrary()
+{
+  OpenTest("TestJobs: OverrideExecuteLibrary");
+
+  OBJECT port := CreateIPCPort("testoverrideexecutelibrary");
+
+  RECORD res := CreateJob("test::testdata_jobs_a.whlib", "");
+  OBJECT job := res.job;
+
+  job->SetConsoleArguments(["overrideexecutelibrary"]);
+  job->Start();
+
+  DATETIME wait_until := AddTimeToDate(2000, GetCurrentDateTime());
+
+  OBJECT link := port->Accept(wait_until);
+  IF (NOT ObjectExists(link))
+    ABORT(AnyToString(job->GetErrors(), "boxed"));
+  RECORD msg := link->ReceiveMessage(wait_until);
+  TestEQ([ type := "foundme!" ], msg.msg);
+
+  port->Close();
+  link->Close();
+  job->Close();
+
+  CloseTest("TestJobs: OverrideExecuteLibrary");
+}
+
+
+PRINT("\n === Running TestJobs\n");
+BaseTest();
+TestIPCLinkGoneAfterCrash();
+TestOverrideExecuteLibrary();

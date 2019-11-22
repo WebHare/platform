@@ -1,0 +1,70 @@
+<?wh
+/* Hunt for obsolete metadata */
+
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+OBJECT trans := OpenPrimary();
+RECORD csp := GetCachedSiteProfiles();
+
+RECORD settings := ParseArguments(GetConsoleArguments(), [ [ name := "showuse", type := "switch" ]
+                                                         , [ name := "mask", type := "param" ]
+                                                         ]);
+IF (NOT RecordExists(settings))
+{
+  Print("Syntax: findwidgets.whscr [--showuse] [type mask]\n");
+  SetConsoleexitCode(1);
+  RETURN;
+}
+
+FOREVERY(RECORD contenttype FROM csp.contenttypes)
+{
+  IF(settings.mask != "" AND ToUppercase(contenttype.namespace) NOT LIKE ToUppercase(settings.mask))
+    CONTINUE;
+
+  IF(contenttype.isembeddedobjecttype)
+  {
+    Print(contenttype.namespace || " ");
+
+    RECORD ARRAY settinginstances := SELECT instanceid := fs_instance FROM system.fs_settings WHERE instancetype = contenttype.id;
+    RECORD ARRAY directinstances := SELECT instanceid := id FROM system.fs_instances WHERE fs_type = contenttype.id;
+
+    Print(Length(settinginstances) || " setting instancetypes ");
+    Print(Length(directinstances) || " instances ");
+
+    IF(settings.showuse)
+    {
+      Print("\n");
+      INTEGER ARRAY instanceids := SELECT AS INTEGER ARRAY DISTINCT instanceid FROM (settinginstances CONCAT directinstances);
+      RECORD ARRAY fsobjects := SELECT whfspath, indexurl
+                                  FROM system.fs_objects, system.fs_instances
+                                 WHERE fs_instances.id IN instanceids
+                                       AND fs_instances.fs_object = fs_objects.id
+                              ORDER BY ToUppercase(whfspath);
+      FOREVERY(RECORD fsobject FROM fsobjects)
+        Print("- " || fsobject.whfspath || " " || fsobject.indexurl || "\n");
+    }
+
+    RECORD ARRAY objs := SELECT id, whfspath, indexurl FROM system.fs_objects WHERE type = contenttype.id;
+    Print(Length(objs) || " files\n");
+    IF(settings.showuse)
+    {
+      FOREVERY(RECORD fsobject FROM objs)
+      {
+        Print("- " || fsobject.whfspath || " " || fsobject.indexurl || "\n");
+
+        //Now get anything referring to the widget
+        RECORD ARRAY referrals := SELECT whfspath, indexurl
+                                    FROM system.fs_objects, system.fs_settings, system.fs_instances
+                                   WHERE fs_settings.fs_object = fsobject.id
+                                         AND fs_settings.fs_instance = fs_instances.id
+                                         AND fs_instances.fs_object = fs_objects.id;
+        FOREVERY(RECORD referral FROM referrals)
+        {
+          Print("  - " || referral.whfspath || " " || referral.indexurl || "\n");
+        }
+      }
+    }
+  }
+}

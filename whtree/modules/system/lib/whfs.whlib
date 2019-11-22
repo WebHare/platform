@@ -1,0 +1,174 @@
+﻿<?wh
+/** @topic sitedev/whfs */
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib" EXPORT WHFSException, GetWHFSFileDirect;
+LOADLIB "mod::system/lib/internal/whfs/control.whlib" EXPORT ScheduleRepublish;
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib" EXPORT OpenWHFSDraft, GetPublicDraft;
+LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT LookupWHFSObject;
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib" EXPORT OpenWHFSType, OpenWHFSTypeById, GetWHFSInstanceDirect;
+LOADLIB "mod::system/lib/internal/whfs/import.whlib" EXPORT ImportWHFSArchive;
+LOADLIB "mod::system/lib/internal/whfs/search.whlib" EXPORT FindWHFSObjectReferences, RepublishWHFSObjectReferences;
+LOADLIB "mod::system/lib/internal/whfs/objects.whlib" EXPORT OpenWHFSObject, OpenWHFSRootObject, OpenWHFSObjectByPath;
+LOADLIB "mod::system/lib/internal/whfs/register.whlib" EXPORT LookupInWHFSRegister;
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib" EXPORT IsValidWHFSName;
+
+/* WHFS behaviour
+
+  Index documents:
+      When creating files in or copying/moving files into a folder, if any file with the standard index
+      names for the parentsite (eg index.html) is new in the folder, that file will become the index document.
+
+      Otherwise, if the folder already has an indexdoc, it won't be changed. If it hasn't, any new files that
+      originally were index document at their source location will become the new index document. If no such
+      file is present, any of the new files that can function as index will become the new index document.
+
+  Published status:
+      When copying, moving or importing (with metadata) the published status is kept.
+      When importing without metadata, all files are auto-published.
+      When creating a new file without published status, then the file won't be published. Setting the flag
+          publish to true will publish all publishable file types (ignored for non-publishable types)
+
+  Templates/profiles
+      The template/profile of new files will be overwritten when template/profiles are forced at a parent
+      folder.
+*/
+
+
+// -----------------------------------------------------------------------------
+//
+// Public global functions
+//
+
+
+/** Returns a selection of the recycle bin
+    @param options
+    @cell(integer) options.site If not 0, return only objects from this site
+    @cell(integer) options.owner If not 0, return only objects the user with this authobjectid deleted / requested to delete
+    @cell(string) options.namecontains Return only objects with this substring in their original name
+    @cell options.fromdate
+    @cell options.todate
+    @cell options.types If filled, return only objects with any of these types
+    @return
+    @cell return.id
+    @cell return.parent Current parent folder of the deleted file
+    @cell return.name
+    @cell return.isfolder
+    @cell return.type
+    @cell return.deletiondate Date the object was deleted (or the request to delete was accepted)
+    @cell return.deletionuserid Id of the user that deleted the file (requested the file to be deleted)
+    @cell return.origlocation Folder where the file came from (site root for versioned items)
+    @cell return.origsubpath Path within the original location where the object deleted from
+    @cell return.deletetype 'normal' / 'versioned'
+*/
+PUBLIC RECORD ARRAY FUNCTION SearchRecycleBin(RECORD options)
+{
+  options := ValidateOptions(
+      [ site :=           0
+      , owner :=          0
+      , namecontains :=   ""
+      , fromdate :=       DEFAULT DATETIME
+      , todate :=         DEFAULT DATETIME
+      , types :=          DEFAULT INTEGER ARRAY
+      , filteronrights := TRUE
+      ], options);
+
+  INTEGER ARRAY limitrecyclebins;
+  IF(options.site != 0)
+  {
+    limitrecyclebins := SELECT AS INTEGER ARRAY id
+                          FROM system.fs_objects
+                         WHERE parent = 11 AND filelink = options.site;
+  }
+
+  // The relevant deletions are all objects within a 'deletion' version. The user with userid must be the owner of the
+  // deleted object, or must have write access on the original location of the object.
+  RECORD ARRAY recyclebin_deletions :=
+      SELECT deletedobjects.id
+           , name :=              fs_history.currentname
+           , parent :=            deletedobjects.parent
+           , isfolder :=          deletedobjects.isfolder
+           , type :=              deletedobjects.type
+           , deletiondate :=      fs_history.when
+           , deletionuserid :=    fs_history.user
+           , origlocation :=      fs_history.currentparent
+           , origsubpath :=       ""
+           , deletetype :=        "normal"
+        FROM system.fs_objects AS deletedobjects
+           , system.fs_history
+       WHERE fs_history.type = 0 // deletion
+             AND fs_history.fs_object = deletedobjects.id
+             AND (options.site != 0 ? deletedobjects.parent IN limitrecyclebins : TRUE)
+             AND (options.owner != 0 ? fs_history.user = options.owner : TRUE)
+             AND (options.namecontains != "" ? ToUppercase(fs_history.currentname) LIKE ToUppercase("*" || options.namecontains || "*") : TRUE)
+             AND (options.fromdate != DEFAULT DATETIME ? fs_history.when >= options.fromdate : TRUE)
+             AND (LENGTH(options.types) != 0 ? deletedobjects.type IN options.types : TRUE)
+             AND (options.todate != DEFAULT DATETIME ? fs_history.when < options.todate : TRUE);
+
+  RECORD ARRAY versionarchive_deletions :=
+      SELECT id :=              fs_objects.id
+           , name :=            GetNameFromPath(request.orgfullpath)
+           , parent
+           , isfolder :=        isfolder
+           , type
+           , deletionuserid :=  request.user
+           , deletiondate :=    accept.when
+           , origlocation :=    accept.fs_site
+           , origsubpath :=     accept.orgfullpath
+           , deletetype :=      "versioned"
+        FROM system.fs_versionevents AS accept
+           , system.fs_versionevents AS request
+           , system.fs_objects
+       WHERE accept.iscurrent
+         AND accept.isdelete
+         AND accept.eventtype = 1
+         AND (options.site != 0 ? accept.fs_site = options.site : TRUE)
+         AND request.id = accept.previousrequest
+         AND fs_objects.id = request.live_object
+         AND (options.owner != 0 ? request.user = options.owner : TRUE)
+         AND (options.fromdate != DEFAULT DATETIME ? accept.when >= options.fromdate : TRUE)
+         AND (options.todate != DEFAULT DATETIME ? accept.when < options.todate : TRUE)
+         AND (LENGTH(options.types) != 0 ? fs_objects.type IN options.types : TRUE)
+         AND (options.namecontains != "" ? ToUppercase(GetNameFromPath(request.orgfullpath)) LIKE ToUppercase("*" || options.namecontains || "*") : TRUE);
+
+  RECORD ARRAY retval := recyclebin_deletions CONCAT versionarchive_deletions;
+
+  IF (options.filteronrights)
+  {
+    // Get all sources not from the current user (do as little as possible, the OR in the last query will include them)
+    INTEGER ARRAY sources :=
+        SELECT AS INTEGER ARRAY DISTINCT origlocation
+          FROM retval
+         WHERE deletionuserid != GetEffectiveUserId();
+
+    // Filter out anything this user does not have write access on
+    INTEGER ARRAY with_rights := GetEffectiveUser()->HasRightOnMultiple("system:fs_fullaccess", sources);
+
+    retval :=
+        SELECT *
+          FROM retval
+         WHERE deletionuserid = GetEffectiveUserId()
+               OR origlocation IN with_rights;
+  }
+
+  RETURN retval;
+}
+
+/** Open a module's private data folder
+    @param modulename Module for which you're requesting the private folder
+    @return The module's private folder in /webhare-private/ */
+PUBLIC OBJECT FUNCTION OpenWHFSPrivateFolder(STRING modulename)
+{
+  IF(GetModuleInstallationRoot(modulename) = "")
+    THROW NEW Exception(`No such module '${modulename}'`);
+
+  INTEGER folderid := SELECT AS INTEGER id FROM system.fs_objects WHERE parent = whconstant_whfsid_private AND ToUppercase(name) = ToUppercase(modulename);
+  OBJECT folder := OpenWHFSObject(folderid);
+  IF(NOT ObjectExists(folder) OR NOT folder->isfolder)
+    THROW NEW Exception(`No such folder '/webhare-private/${modulename}/'`);
+
+  RETURN folder;
+}

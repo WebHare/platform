@@ -1,0 +1,1274 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/taskqueue.whlib";
+LOADLIB "mod::system/lib/internal/tasks.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+
+INTEGER nextworkeruid := 0;
+BOOLEAN debug, profileworkers;
+BOOLEAN manualjs, manualhs;
+OBJECT controller;
+
+INTEGER waitonline := 60000; //time for process to start
+OBJECT ARRAY managedworkers;
+INTEGER nextephemeralid;
+
+/// Indicates whether shutdown of the managedqueue manager was requested
+BOOLEAN shuttingdown;
+
+/// List of all task types @includecelldef #GetAllTaskTypeInfo.return.tasktypes
+RECORD ARRAY tasktypes;
+
+STRING FUNCTION PrintOutputLine(STRING prefix, STRING data)
+{
+  STRING line := Left(data, SearchSubstring(data,'\n'));
+  data := Substring(data, Length(line)+1);
+
+  IF(line LIKE "*\r")
+    line := Left(line,Length(line)-1);
+
+  PRINT(prefix || line || "\n");
+  RETURN data;
+}
+
+RECORD FUNCTION ParseOutputForStackTrace(STRING output)
+{
+  RECORD retval :=
+      [ output :=   ""
+      , trace :=    RECORD[]
+      ];
+
+  OBJECT r := NEW RegEx("^((mod::|modulescript::|module::|wh::|direct::).*):([0-9]+):([0-9]+): Called from ([:A-Z0-9_#]+)$");
+
+  STRING ARRAY lines := Tokenize(output, "\n");
+  INTEGER currline := LENGTH(lines) - 1;
+  FOR (; currline > 0; currline := currline - 1)
+  {
+    IF (lines[currline] = "" AND currline = LENGTH(lines) - 1)
+      CONTINUE;
+
+    RECORD ARRAY matches := r->Exec(lines[currline]);
+    //ABORT(CELL [ matches, l := lines[currline] ]);
+    IF (NOT RecordExists(matches))
+      BREAK;
+
+    DELETE FROM lines AT currline;
+    RECORD item :=
+        [ filename :=   matches[1].value
+        , line :=       ToInteger(matches[3].value, 0)
+        , col :=        ToInteger(matches[4].value, 0)
+        , func :=       matches[5].value
+        ];
+
+    IF (item.filename LIKE "*internal/managedtaskworker.whscr" AND item.func IN [ ":INITFUNCTION", "MAINLOOP" ])
+      CONTINUE;
+
+    INSERT item INTO retval.trace AT 0;
+  }
+
+  retval.output := Detokenize(lines, "\n");
+  IF (retval.output LIKE "*\n\n")
+    retval.output := LEFT(retval.output, LENGTH(retval.output) - 1);
+  RETURN retval;
+}
+
+MACRO FailTask(OBJECT item, STRING error, RECORD ARRAY trace, BOOLEAN isfatal)
+{
+  // Log javascript exceptions here, javascript runner does not have access to logs
+  // Errors such as no-such-task do not have executeinfo
+  IF (CellExists(item->taskdata, "EXECUTEINFO") AND (item->taskdata.executeinfo.library LIKE "*.js" OR item->taskdata.executeinfo.library LIKE "*.es"))
+  {
+    STRING mainscript := GetModuleInstallationRoot("system") || "js/internal/runephemeraltask.es";
+
+    UPDATE trace SET filename := mainscript WHERE filename = "runephemeraltask.es";
+    UPDATE trace SET filename := item->taskdata.executeinfo.library WHERE filename = GetNameFromPath(item->taskdata.executeinfo.library);
+
+    RECORD details :=
+        [ script :=     mainscript
+        , trace :=     (SELECT filename
+                             , line :=          line
+                             , col :=           col
+                             , functionname :=  func
+                          FROM trace)
+        , error :=      error
+        , browser :=    [ name := "nodejs" ]
+        , type :=       "javascript-error"
+        ];
+
+    LogError("managedqueuemgr", "javascript-error", details);
+  }
+
+  Print("Task " || item->taskdata.queueid || " crashed, last errors: '" || EncodeJava(Left(error,1024)) || "'\n");
+  IF(item->isephemeral)
+  {
+    item->stage := "finished"; // not re-running this task anymore
+    OBJECT rejectexception := NEW Exception(error);
+    rejectexception->trace := trace;
+    item->taskdata.reject(rejectexception);
+  }
+  ELSE
+  {
+    controller->RegisterTaskError(item, error, trace, isfatal);
+  }
+}
+
+/** Describes a queue item with a managed/ephemeral task
+*/
+STATIC OBJECTTYPE TaskQueueItem EXTEND QueueItem
+< /** Task data
+      @cell(string) tasktype Task type tag
+      @cell(boolean) isephemeral Whether this is an ephemeral task
+      @cell(string) queueid Description of the task (eg id, type)
+      @cell(integer) id Id of the managed task  (managed tasks only)
+      @cell(boolean) removed Whether the managed task DB record was removed (managed tasks only)
+      @cell(record) taskdata Ephemeral task taskdata (ephemeral tasks only)
+      @cell(record) options Ephemeral task options (ephemeral tasks only)
+      @cell(function ptr) resolve Function called when the ephemeral task completes (ephemeral tasks only)
+      @cell(function ptr) reject Function called when the ephemeral task fails (ephemeral tasks only)
+  */
+  PUBLIC RECORD taskdata;
+
+  /// Is this an ephemeral task?
+  PUBLIC PROPERTY isephemeral(this->taskdata.isephemeral, -);
+
+  /// Identification string
+  PUBLIC PROPERTY identification(GetIdentification, -);
+
+  MACRO NEW(OBJECT queuekeeper, RECORD taskdata)
+  : QueueItem(queuekeeper, CELL[ taskdata.priority, taskdata.queuename, taskdata.scheduledate, taskdata.onfinished ])
+  {
+    this->taskdata := CELL[ ...taskdata, DELETE priority, DELETE queuename, DELETE scheduledate, DELETE onfinished ];
+  }
+
+  STRING FUNCTION GetIdentification()
+  {
+    RETURN `Task ${this->id} (${this->taskdata.queueid})`;
+  }
+>;
+
+STATIC OBJECTTYPE ManagedWorker
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Process
+  OBJECT proc;
+
+  /// Connection state ('starting'/'active'/'terminating')
+  STRING pvt_state;
+
+  /// Listener for process output
+  INTEGER listener;
+
+  /// @type(object #TaskQueueItem) Current task
+  OBJECT pvt_activetask;
+
+  /// Current output line
+  STRING outputline;
+
+  /// Full output
+  STRING fulloutput;
+
+  /// Deferred promise, will be resolved when connected
+  RECORD connectdefer;
+
+  /// Set when waiting for a task, call with task data
+  MACRO PTR taskresolve;
+
+  /// Sent an interrupt for terminating?
+  BOOLEAN sentinterrupt;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /** @type(string) Current state ('starting', 'active', 'terminating')
+  */
+  PUBLIC PROPERTY state(pvt_state, -);
+
+  /// Uid of this worker
+  PUBLIC INTEGER uid;
+
+  /// Tags for this worker (unused)
+  PUBLIC STRING ARRAY tags;
+
+  /// Cluster of this worker
+  PUBLIC STRING cluster;
+
+  /// Currently running task
+  PUBLIC PROPERTY activetask(pvt_activetask, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    nextworkeruid := nextworkeruid + 1;
+    this->uid := nextworkeruid;
+    this->pvt_state := "starting";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO FailedToRegister(OBJECT exc)
+  {
+    this->FailWorker(exc->what);
+  }
+
+  MACRO FailWorker(STRING error)
+  {
+    Print("Terminating " || this->GetType() || " worker #" || this->uid || ": " || error || "\n");
+    this->CloseProcess(FALSE);
+  }
+
+  /// Handle process events
+  MACRO GotOutput()
+  {
+    STRING outp := ReadFrom(this->proc->output_handle, -1024);
+    this->outputline := this->outputline || outp;
+    this->fulloutput := this->fulloutput || outp;
+
+    //FIXME flush errors too
+    IF(outp="" AND NOT this->proc->IsRunning() AND this->outputline!="")
+      this->outputline := this->outputline || "\n";
+
+    WHILE(this->outputline LIKE "*\n*")
+      this->outputline := PrintOutputLine("#" || this->uid || " (" || this->GetCurrentTaskLabel() || "): ", this->outputline);
+
+    IF(outp="" AND NOT this->proc->IsRunning())
+    {
+      IF(debug)
+        Print("Process for " || this->GetType() || " worker #" || this->uid || " ended with exitcode " || this->proc->exitcode||'\n');
+      IF(RecordExists(this->connectdefer))
+      {
+        this->connectdefer.reject(NEW Exception("Process exited before registering itself"));
+        RETURN;
+      }
+
+      this->CloseProcess(TRUE);
+
+      IF (ObjectExists(this->pvt_activetask))
+      {
+        RECORD out := ParseOutputForStackTrace(this->fulloutput);
+        FailTask(this->pvt_activetask, out.output, out.trace, FALSE);
+      }
+
+      //Rerun with a delay
+      RegisterTimedCallback(AddTimeToDate(1000, GetCurrentDatetime()), PTR CheckMoreWorkers);
+      RETURN;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /// Launches the worker process
+  PUBLIC MACRO Launch()
+  {
+    this->connectdefer := CreateDeferredPromise();
+    this->connectdefer.promise->then(DEFAULT MACRO PTR, PTR this->FailedToRegister);
+
+    RECORD processinfo := this->GetProcessInfo();
+    processinfo.args := processinfo.args CONCAT [ "--worker", ToString(nextworkeruid), "--cluster", this->cluster ];
+    IF(debug)
+      INSERT "--debug" INTO processinfo.args AT END;
+
+    IF (this->GetType() = "HareScript" AND profileworkers)
+        INSERT "--profile" INTO processinfo.args AT END;
+
+    IF ((manualjs AND this->GetType() = "JavaScript") OR (manualhs AND this->GetType() = "HareScript"))
+    {
+      Print("** Please launch " || this->GetType() || "worker:\n  " || processinfo.process || " " || Detokenize(processinfo.args,' ') || '\n');
+      RETURN;
+    }
+
+    this->proc := CreateProcess(processinfo.process, processinfo.args, FALSE, TRUE, TRUE, TRUE);
+    this->listener := RegisterHandleReadCallback(this->proc->output_handle, PTR this->GotOutput);
+    IF(NOT this->proc->Start())
+      this->connectdefer.reject(NEW Exception("Unable to start subworker"));
+
+    IF(debug)
+      Print(`Launched ${this->GetType()} worker #${this->uid}, cluster '${this->cluster}'\n`);
+
+    RegisterTimedCallback(AddTimeToDate(waitonline, GetCurrentDatetime()), PTR this->connectdefer.reject(NEW Exception("Timed out starting up")));
+  }
+
+  /** Closes the worker process
+      @param graceful Graceful close
+  */
+  PUBLIC MACRO CloseProcess(BOOLEAN graceful)
+  {
+    this->taskresolve := DEFAULT MACRO PTR;
+    this->pvt_state := "terminated";
+
+    DELETE FROM managedworkers AT SearchElement(managedworkers, this);
+    UnregisterCallback(this->listener);
+    IF (NOT graceful)
+      this->proc->Terminate();
+    this->proc->Close();
+    this->proc := DEFAULT OBJECT;
+    ScheduleMicroTask(PTR CheckMoreWorkers);
+  }
+
+  /** @return Worker type (0: harescript, 1: javascript)
+  */
+  PUBLIC INTEGER FUNCTION GetWorkerType()
+  {
+    THROW NEW Exception("Override me");
+  }
+
+  /** @return String describing the type of the worker
+  */
+  PUBLIC STRING FUNCTION GetType()
+  {
+    THROW NEW Exception("Override me");
+  }
+
+  /** Return info needed to start the workerptocess
+      @return Path to the executable and arguments
+      @cell return.process Path to executable
+      @cell return.args Arguments for the executable
+  */
+  PUBLIC RECORD FUNCTION GetProcessInfo()
+  {
+    THROW NEW Exception("Override me");
+  }
+
+  /// Called when the worker connects back to the manager
+  PUBLIC MACRO GotConnection()
+  {
+    IF(debug)
+      Print("Worker #" || this->uid || " reporting for duty\n");
+
+    IF (RecordExists(this->connectdefer))
+      this->connectdefer.resolve(TRUE);
+    this->connectdefer := DEFAULT RECORD;
+  }
+
+  /** Called when the worker wants a task
+      @return Promise that will be resolved with task data
+  */
+  PUBLIC OBJECT FUNCTION GetTask()
+  {
+    IF(debug)
+      Print("Worker #" || this->uid || " requesting task\n");
+
+    IF (this->pvt_state = "terminating")
+    {
+      // Kill process, return never-resolving promise
+      this->RequestShutdown();
+      RETURN CreateDeferredPromise().promise;
+    }
+    ELSE
+      this->pvt_state := "active";
+
+    RECORD taskwaitdefer := CreateDeferredPromise();
+    this->taskresolve := taskwaitdefer.resolve;
+    controller->ScheduleCheckForWork();
+
+    RETURN taskwaitdefer.promise;
+  }
+
+  /** @return True when the worker is waiting for work
+  */
+  PUBLIC BOOLEAN FUNCTION IsAvailableForWork()
+  {
+    RETURN this->taskresolve != DEFAULT MACRO PTR;
+  }
+
+  /** Assigns a task to the worker (the worker MUST be waiting for one!)
+      @param(object #TaskQueueItem) task Task to execute
+  */
+  PUBLIC MACRO AssignWorkerTask(OBJECT task)
+  {
+    IF(this->taskresolve = DEFAULT MACRO PTR)
+      THROW NEW Exception("We weren't expecting a task");
+
+    this->pvt_activetask := task;
+    this->taskresolve(task->taskdata.executeinfo);
+    this->taskresolve := DEFAULT MACRO PTR;
+  }
+
+  /** Processes the worker message that its scripts are out of date
+  */
+  PUBLIC MACRO ProcessWorkerOutOfDate()
+  {
+    IF (debug)
+      Print("Worker #" || this->uid || " is out of date and will restart\n");
+
+    IF (ObjectExists(this->pvt_activetask))
+    {
+      controller->RegisterOutOfDateUnprocessedTask(this->pvt_activetask);
+      this->pvt_activetask := DEFAULT OBJECT;
+    }
+
+    // Make sure no more requests are accepted
+    this->RequestShutdown();
+  }
+
+  /** Return the id of the current task
+      @return Task queue item id
+  */
+  PUBLIC INTEGER64 FUNCTION GetCurrentTaskId()
+  {
+    RETURN ObjectExists(this->pvt_activetask) ? this->pvt_activetask->id : 0i64;
+  }
+
+  /** Returns the label of the current task
+      @return Label of the curren task
+  */
+  PUBLIC STRING FUNCTION GetCurrentTaskLabel()
+  {
+    RETURN ObjectExists(this->pvt_activetask) ? this->pvt_activetask->identification : "no task";
+  }
+
+  /** Signals the current active task has been processed
+      @param status Status of the run
+      @cell status.type 'taskfailed' / 'taskdone'
+      @cell status.isfatal For taskfailed, whether the failure was a fatal one
+  */
+  PUBLIC MACRO SendTaskStatus(RECORD status)
+  {
+    IF (status.type = "taskfailed")
+    {
+      FailTask(this->activetask, status.error, status.trace, status.isfatal);
+    }
+    ELSE IF (status.type = "taskdone")
+    {
+      IF(debug)
+        Print("Worker #" || this->uid || " finished work on " || this->GetCurrentTaskLabel() || "\n");
+
+      // Mark the task item as finished (reschedule will create a new item)
+      this->activetask->stage := "finished";
+
+      IF (this->activetask->isephemeral)
+      {
+        TRY this->activetask->taskdata.resolve(status.result);
+        CATCH(OBJECT e) IF(debug) Print("Failed to inform tasksource about completion: " || e->what || "\n");
+      }
+    }
+    ELSE
+    {
+      ABORT(status,'tree');
+    }
+
+    this->pvt_activetask := DEFAULT OBJECT;
+    this->outputline := "";
+    this->fulloutput := "";
+
+    if (this->pvt_state = "terminating")
+      this->RequestShutdown();
+  }
+
+  /** Request the worker to shut down whenever the current task is done, sends an interrupt
+      to the worker if not handling a task.
+  */
+  PUBLIC MACRO RequestShutdown()
+  {
+    this->pvt_state := "terminating";
+    this->taskresolve := DEFAULT MACRO PTR;
+
+    IF (NOT ObjectExists(this->pvt_activetask) AND ObjectExists(this->proc) AND NOT this->sentinterrupt)
+    {
+      this->sentinterrupt := TRUE;
+      this->proc->SendInterrupt();
+    }
+  }
+>;
+
+STATIC OBJECTTYPE ManagedJSWorker EXTEND ManagedWorker
+<
+  /** @return Worker type (0: harescript, 1: javascript)
+  */
+  UPDATE PUBLIC INTEGER FUNCTION GetWorkerType()
+  {
+    RETURN 1;
+  }
+
+  /** @return String describing the type of the worker
+  */
+  UPDATE PUBLIC STRING FUNCTION GetType()
+  {
+    RETURN "JavaScript";
+  }
+
+  /** Return info needed to start the workerptocess
+      @return Path to the executable and arguments
+      @cell return.process Path to executable
+      @cell return.args Arguments for the executable
+  */
+  UPDATE PUBLIC RECORD FUNCTION GetProcessInfo()
+  {
+    RETURN [ process := GetInstallationRoot() || "bin/wh"
+           , args := [ "run", GetModuleInstallationRoot("system") || "js/internal/runephemeraltask.es" ]
+           ];
+  }
+>;
+
+STATIC OBJECTTYPE ManagedHSWorker EXTEND ManagedWorker
+<
+  /** @return Worker type (0: harescript, 1: javascript)
+  */
+  UPDATE PUBLIC INTEGER FUNCTION GetWorkerType()
+  {
+    RETURN 0;
+  }
+
+  /** @return String describing the type of the worker
+  */
+  UPDATE PUBLIC STRING FUNCTION GetType()
+  {
+    RETURN "HareScript";
+  }
+
+  /** Return info needed to start the workerptocess
+      @return Path to the executable and arguments
+      @cell return.process Path to executable
+      @cell return.args Arguments for the executable
+  */
+  UPDATE PUBLIC RECORD FUNCTION GetProcessInfo()
+  {
+    RETURN [ process := GetInstallationRoot() || "bin/runscript"
+           , args := [ "mod::system/scripts/internal/managedtaskworker.whscr" ]
+           ];
+  }
+>;
+
+
+MACRO CheckMoreWorkers()
+{
+  RECORD tasktypeinfo := GetAllTaskTypeInfo();
+  RECORD ARRAY clusters := tasktypeinfo.clusters;
+  tasktypes := tasktypeinfo.tasktypes;
+
+  // No workers needed when shutting down
+  IF (shuttingdown)
+  {
+    clusters := RECORD[];
+    IF (LENGTH(managedworkers) = 0)
+    {
+      IF (debug)
+        PRINT("CheckMoreWorkers: all workers terminated for shutdown\n");
+      TerminateScript();
+    }
+  }
+
+  IF (debug AND NOT shuttingdown)
+  {
+    PRINT(`Check more workers\n`);
+    DumpValue(clusters, "boxed");
+  }
+
+  FOREVERY (OBJECT worker FROM managedworkers)
+  {
+    RECORD pos := RecordLowerBound(clusters, CELL[ tag := worker->cluster ], [ "TAG" ]);
+    IF (NOT pos.found)
+    {
+      IF (worker->state != "terminating")
+      {
+        // Kill worker from removed cluster
+        IF (debug)
+          PRINT(`Close worker ${worker->uid} from deleted cluster ${worker->cluster}\n`);
+        worker->RequestShutdown();
+      }
+      CONTINUE;
+    }
+
+    IF (worker EXTENDSFROM ManagedHSWorker)
+    {
+      IF (clusters[pos.position].harescriptworkers > 0)
+        clusters[pos.position].harescriptworkers := clusters[pos.position].harescriptworkers - 1;
+      ELSE IF (worker->state != "terminating")
+      {
+        IF (debug)
+          PRINT(`Close superfluous harescript worker ${worker->uid} from cluster ${worker->cluster}\n`);
+        worker->RequestShutdown();
+      }
+    }
+
+    ELSE IF (worker EXTENDSFROM ManagedJSWorker)
+    {
+      IF (clusters[pos.position].javascriptworkers > 0)
+        clusters[pos.position].javascriptworkers := clusters[pos.position].javascriptworkers - 1;
+      ELSE IF (worker->state != "terminating")
+      {
+        IF (debug)
+          PRINT(`Close superfluous javascript worker ${worker->uid} from cluster ${worker->cluster}\n`);
+        worker->RequestShutdown();
+      }
+    }
+  }
+
+  // Add missing workers for every cluster
+  FOREVERY (RECORD cluster FROM clusters)
+  {
+    FOR (INTEGER i := 0; i < cluster.harescriptworkers; i := i + 1)
+    {
+      OBJECT worker := NEW ManagedHSWorker;
+      worker->tags := [ "default" ];
+      worker->cluster := cluster.tag;
+      INSERT worker INTO managedworkers AT END;
+      worker->Launch();
+      IF (debug)
+        PRINT(`Added harescript worker ${worker->uid} to cluster ${worker->cluster}\n`);
+    }
+    FOR (INTEGER i := 0; i < cluster.javascriptworkers; i := i + 1)
+    {
+      OBJECT worker := NEW ManagedJSWorker;
+      worker->tags := [ "default" ];
+      worker->cluster := cluster.tag;
+      INSERT worker INTO managedworkers AT END;
+      worker->Launch();
+      IF (debug)
+        PRINT(`Added javascript worker ${worker->uid} to cluster ${worker->cluster}\n`);
+    }
+  }
+
+  IF (debug)
+    PRINT(`Check more workers finished\n`);
+}
+
+MACRO ShutdownFailed()
+{
+  ABORT("A timely shutdown failed");
+}
+
+STATIC OBJECTTYPE QueueMgr
+<
+  /// Interval in mulliseconds when failed processes are rescheduled
+  PUBLIC INTEGER failreschedule;
+  BOOLEAN requestedworkcheck;
+
+  /// Queue
+  PUBLIC OBJECT queue;
+
+  /** Cache for the unfinished managed tasks in the database
+      @cell id Managed task id
+      @cell workertype Worker type
+      @cell tasktype Task type
+      @cell cluster Cluster
+      @cell priority Priority
+      @cell nextattempt Next execution attempt
+      @cell item Task queue item
+  */
+  RECORD ARRAY managedtasks;
+
+  MACRO NEW()
+  {
+    this->queue := NEW QueueKeeper;
+    this->queue->ongotrunnable := PTR this->ScheduleCheckForWork();
+
+    RegisterMultiEventCallback("system:softreset", PTR this->GotConfigUpdate);
+    RegisterMultiEventCallback("system:clearcaches", PTR this->GotConfigUpdate);
+    RegisterMultiEventCallback("system:modulesupdate", PTR this->GotConfigUpdate);
+    RegisterEventCallback("system:managedtasks.any.*", PTR this->OnTasksUpdate);
+
+    this->ReadManagedTasksFromDB(0);
+
+    this->failreschedule := 15 * 60 * 1000;
+  }
+
+  MACRO GotConfigUpdate(STRING event, RECORD ARRAY data)
+  {
+    CheckMoreWorkers();
+    this->ReadManagedTasksFromDB(0);
+    this->ScheduleCheckForWork();
+  }
+
+  MACRO OnTasksUpdate(STRING event, RECORD data)
+  {
+    INTEGER managedtaskid := ToInteger(Tokenize(event, ".")[END-1], 0);
+
+    this->ReadManagedTasksFromDB(managedtaskid);
+    this->ScheduleCheckForWork();
+  }
+
+  MACRO FinishedManagedTaskItem(OBJECT item)
+  {
+    RECORD pos := RecordLowerBound(this->managedtasks, item->taskdata, [ "ID" ]);
+    IF (NOT pos.found)
+    {
+      // No processing needed for an item that has already been deleted
+      RETURN;
+    }
+
+    // If the managed task has been rescheduled, build a new queue item for executing it
+    IF (this->managedtasks[pos.position].iterations != item->taskdata.iterations)
+    {
+      this->managedtasks[pos.position].item := this->BuildManagedTaskQueueItem(this->managedtasks[pos.position]);
+      IF (debug)
+        PRINT(`Rescheduled ${item->identification} as task ${this->managedtasks[pos.position].item->id}\n`);
+    }
+  }
+
+  /** Updates the local cache of the managedtasks table
+      @param updateid If not 0, update only the task with this id
+  */
+  MACRO ReadManagedTasksFromDB(INTEGER updateid)
+  {
+    // Ignore the managedtasks table when in readonly mode
+    IF (IsDatabaseReadOnly())
+      RETURN;
+
+    IF(debug)
+      PRINT(`Reading managed task updates from database: ${updateid=0?"ALL":"#"||updateid}\n`);
+    GetPrimary()->BeginWork();
+
+    RECORD ARRAY currenttasks :=
+        SELECT id
+             , workertype
+             , tasktype
+             , nextattempt
+             , priority
+             , iterations
+             , failures
+             , found :=       TRUE
+          FROM system_internal.managedtasks
+         WHERE finished = DEFAULT DATETIME
+               AND NOT iscancelled
+               AND (updateid = 0 ? TRUE: id = updateid)
+      ORDER BY id;
+
+    // Enrich with cluster
+    FOREVERY (RECORD rec FROM currenttasks)
+    {
+      RECORD pos := RecordLowerBound(tasktypes, rec, [ "TASKTYPE" ]);
+      RECORD tasktype := pos.found ? tasktypes[pos.position] : DEFAULT RECORD;
+
+      INSERT CELL cluster := RecordExists(tasktype) ? tasktype.cluster : "system:default"
+                , maxfailures := RecordExists(tasktype) ? tasktype.maxfailures : -1
+             INTO currenttasks[#rec];
+    }
+
+    IF (updateid = 0)
+      this->managedtasks := this->UpdateManagedTaskCache(this->managedtasks, currenttasks);
+    ELSE
+    {
+      RECORD pos := RecordLowerBound(this->managedtasks, CELL[ id := updateid ], [ "id" ]);
+
+      RECORD ARRAY localcache;
+      IF (pos.found)
+      {
+        localcache := RECORD[ this->managedtasks[pos.position] ];
+        DELETE FROM this->managedtasks AT pos.position;
+      }
+
+      localcache := this->UpdateManagedTaskCache(localcache, currenttasks);
+
+      this->managedtasks := ArraySlice(this->managedtasks, 0, pos.position) CONCAT localcache CONCAT ArraySlice(this->managedtasks, pos.position);
+    }
+
+    GetPrimary()->RollbackWork();
+  }
+
+  OBJECT FUNCTION BuildManagedTaskQueueItem(RECORD rec)
+  {
+    // new task
+    RECORD taskinfo := CELL
+        [ queuename :=      rec.cluster || ":" || rec.workertype
+        , rec.priority
+        , scheduledate :=   rec.nextattempt
+        , rec.tasktype
+        , isephemeral :=    FALSE
+        , id :=             rec.id
+        , rec.iterations
+        , removed :=        FALSE
+        , queueid :=        `managed task ${rec.id}, ${rec.tasktype}`
+        , maxfailures :=    rec.maxfailures
+        , failures :=       rec.failures
+        , onfinished :=     PTR this->FinishedManagedTaskItem
+        ];
+
+    RETURN NEW TaskQueueItem(this->queue, taskinfo);
+  }
+
+  /** Updates the current list of managed task items with the corresponding database records
+      @param currentitems Current items from this `this->managedtasks` array
+      @param dbcontents Contents of the items from the `system.managedtasks` table
+      @return Updated currentitems
+  */
+  RECORD ARRAY FUNCTION UpdateManagedTaskCache(RECORD ARRAY currentitems, RECORD ARRAY dbcontents)
+  {
+    // Zip them together with a FULL OUTER JOIN, only keeping the task queue item from the current list
+
+    // Handle simple cases without JoinArrays overhead
+    IF (LENGTH(currentitems) = 1 AND LENGTH(dbcontents) = 0)
+      dbcontents := [ CELL[ found := FALSE, currentitems[0].item ] ];
+    ELSE IF (LENGTH(currentitems) = 1 AND LENGTH(dbcontents) = 1 AND currentitems[0].id = dbcontents[0].id)
+      INSERT CELL item := currentitems[0].item INTO dbcontents[0];
+    ELSE
+      dbcontents := JoinArrays(dbcontents, "id", currentitems, [ item :=  DEFAULT OBJECT ], [ rightouterjoin := TRUE, leftouterjoin := [ found := FALSE ]]);
+
+    IF (debug)
+      DumpValue(dbcontents, [ format := "boxed", name := "joined tasks" ]);
+
+    RECORD ARRAY gonetasks, newtaskslist;
+    FOREVERY (RECORD rec FROM dbcontents)
+    {
+      IF (NOT rec.found) // finished/cancelled/deleted task
+      {
+        INSERT CELL[ ...rec.item->taskdata, rec.item ] INTO gonetasks AT END;
+      }
+      ELSE
+      {
+        IF (NOT ObjectExists(rec.item))
+        {
+          // new task
+          rec.item := this->BuildManagedTaskQueueItem(rec);
+          IF (debug)
+            PRINT(`Read managed task ${rec.id} from DB: item ${rec.item->id}\n`);
+        }
+        ELSE
+        {
+          // existing task
+          IF (debug)
+            PRINT(`Update managed task ${rec.id} from DB: item ${rec.item->id}\n`);
+          rec.item->priority := rec.priority;
+
+          BOOLEAN scheduledatechange := rec.item->scheduledate != rec.nextattempt;
+          rec.item->scheduledate := rec.nextattempt;
+
+          IF (rec.item->stage = "finished")
+          {
+            // item already completed, probably with error.
+            IF (rec.item->taskdata.iterations != rec.iterations OR scheduledatechange)
+            {
+              // new run has been scheduled already, create a new queue item
+              rec.item := this->BuildManagedTaskQueueItem(rec);
+            }
+          }
+          ELSE IF (rec.item->stage != "running")
+          {
+            // Probably modified iterations manually, just reflect it in the queue item
+            rec.item->taskdata.iterations := rec.iterations;
+          }
+        }
+
+        // Keep sorted
+        INSERT CELL[ ...rec, DELETE found ] INTO newtaskslist AT RecordUpperbound(newtaskslist, rec, [ "ID" ]);
+      }
+    }
+
+    RECORD ARRAY testcancel;
+    FOREVERY (RECORD task FROM gonetasks)
+    {
+      IF (debug)
+        PRINT(`Removed task ${task.item->taskdata.id} from DB\n`);
+
+      task.item->taskdata.removed := TRUE;
+      IF (task.item->stage != "running")
+        task.item->stage := "finished";
+      ELSE
+        INSERT task INTO testcancel AT END;
+    }
+
+    // Terminate cancelled tasks that are currently running
+    IF (LENGTH(testcancel) != 0)
+    {
+      // Get ids of cancelled tasks
+      INTEGER ARRAY cancelled :=
+          SELECT AS INTEGER ARRAY id
+            FROM system.managedtasks
+           WHERE id IN (SELECT AS INTEGER ARRAY id FROM testcancel)
+             AND iscancelled;
+
+      FOREVERY (RECORD task FROM testcancel)
+        IF (task.id IN cancelled)
+        {
+          // Terminate the worker of a cancelled item
+          FOREVERY (OBJECT worker FROM managedworkers)
+            IF (worker->GetCurrentTaskId() = task.item->id)
+            {
+              IF (debug)
+                PRINT(`Terminating worker ${worker->uid} for managed task ${task.item->taskdata.id}\n`);
+
+              worker->CloseProcess(FALSE);
+            }
+        }
+    }
+
+    RETURN newtaskslist;
+  }
+
+  /** Registers that a worker restarted because of out of date scripts when executing a task
+      @param item Item the task was handling
+  */
+  PUBLIC MACRO RegisterOutOfDateUnprocessedTask(OBJECT item)
+  {
+    IF (debug)
+      PRINT(`${item->identification} wasn't processed due to an out-of-date worker\n`);
+
+    // The task has finished, won't do any more processing
+    item->stage := "finished";
+
+    IF (item->isephemeral)
+    {
+      // This task item has finished, set its stage and schedule a new one
+      NEW TaskQueueItem(this->queue, CELL
+          [ ...item->taskdata
+          , item->priority
+          , item->queuename
+          , item->scheduledate
+          , item->onfinished
+          ]);
+    }
+    ELSE
+    {
+      // Up the iteration count for the managed task, let update handling do the rest
+      GetPrimary()->BeginWork();
+      DATETIME now := GetCurrentDatetime();
+      UPDATE system.managedtasks
+             SET nextattempt :=   now
+               , iterations :=    iterations + 1
+           WHERE id = item->taskdata.id;
+
+      GetPrimary()->BroadcastOnCommit("system:managedtasks.any." || item->taskdata.id, DEFAULT RECORD);
+      GetPrimary()->BroadcastOnCommit("system:managedtasks." || item->taskdata.tasktype || "." || item->taskdata.id, DEFAULT RECORD);
+      GetPrimary()->CommitWork();
+    }
+  }
+
+  /** Registers a task error for a managed task
+      @param item Task item
+      @param output Task output
+      @param stacktrace Error stacktrace
+      @param isfatal Whether the error is fatal
+  */
+  PUBLIC MACRO RegisterTaskError(OBJECT item, STRING output, RECORD ARRAY stacktrace, BOOLEAN isfatal)
+  {
+    STRING trace;
+    IF (LENGTH(stacktrace) != 0)
+    {
+      // Make sure trace fits in 4kb
+      WHILE (TRUE)
+      {
+        trace := EncodeHSON(stacktrace);
+        IF (LENGTH(trace) < 4096)
+          BREAK;
+        stacktrace := ArraySlice(stacktrace, 0, LENGTH(stacktrace) - 1);
+      }
+    }
+
+    GetPrimary()->BeginWork();
+    DATETIME now := GetCurrentDatetime();
+    IF(item->taskdata.maxfailures >= 0 AND item->taskdata.failures >= item->taskdata.maxfailures)
+      isfatal := TRUE;
+
+    DATETIME plannextattempt := isfatal ? DEFAULT DATETIME : AddTimeToDate(this->failreschedule, now);
+    UPDATE system_internal.managedtasks
+           SET nextattempt := plannextattempt
+             , finished := isfatal ? now : finished
+             , lasterrors := Left(output,4096)
+             , stacktrace := trace
+             , failures := failures + 1
+         WHERE id = item->taskdata.id;
+
+    item->stage := "finished";
+
+    GetPrimary()->BroadcastOnCommit("system:managedtasks.any." || item->taskdata.id, DEFAULT RECORD);
+    GetPrimary()->BroadcastOnCommit("system:managedtasks." || item->taskdata.tasktype || "." || item->taskdata.id, DEFAULT RECORD);
+    GetPrimary()->CommitWork();
+  }
+
+  /// Schedule a check if work is available for workers
+  PUBLIC MACRO ScheduleCheckForWork()
+  {
+    IF(NOT this->requestedworkcheck)
+    {
+      this->requestedworkcheck := TRUE;
+      ScheduleMicroTask(PTR this->AssignWork);
+    }
+  }
+
+  MACRO CheckShutdownState()
+  {
+    CheckMoreWorkers();
+
+    //We will wait for all workers to finish
+    BOOLEAN anyworkeractive;
+    FOREVERY(OBJECT worker FROM managedworkers)
+      IF(worker->GetCurrentTaskId() != 0i64)
+      {
+        IF(debug)
+          Print("AssignWork: shutdown - worker #" || worker->uid || " is still busy\n");
+        anyworkeractive := TRUE;
+        BREAK;
+      }
+  }
+
+  MACRO AssignWork()
+  {
+    this->requestedworkcheck := FALSE;
+    IF(debug)
+      Print("AssignWork: Checking for work\n");
+
+    IF(shuttingdown)
+    {
+      this->CheckShutdownState();
+      RETURN;
+    }
+
+    IF (IsScriptOutOfDate())
+    {
+      Print("Shutting down the managed queue manager, recompile needed\n");
+      shuttingdown := TRUE;
+      RegisterTimedCallback(AddTimeToDate(20000, GetCurrentDatetime()), PTR ShutdownFailed);
+      RETURN;
+    }
+
+    FOREVERY (OBJECT worker FROM managedworkers)
+    {
+      IF (NOT worker->IsAvailableForWork())
+        CONTINUE;
+
+      STRING queuename := `${worker->cluster}:${worker->GetWorkerType()}`;
+
+      OBJECT item := this->queue->GetNextRunnable(queuename);
+      IF (NOT ObjectExists(item))
+        CONTINUE;
+
+      item->stage := "running";
+      this->AssignTask(item, worker);
+    }
+  }
+
+  /** Assigns a task to a worker
+      @param item Task item to run
+      @param matchworker Worker to assign the task to
+  */
+  PUBLIC MACRO AssignTask(OBJECT item, OBJECT matchworker)
+  {
+    TRY
+    {
+      RECORD tasktypeinfo := GetTaskTypeSettings(item->taskdata.tasktype, item->isephemeral);
+      IF(NOT RecordExists(tasktypeinfo))
+        THROW NEW Exception(`No definition for tasks of type '${item->taskdata.tasktype}'`);
+      IF (tasktypeinfo.applyerror != "")
+        THROW NEW Exception(`Task type '${item->taskdata.tasktype}' is not enabled on this installation: ${tasktypeinfo.applyerror}`);
+
+      IF(debug)
+        Print(`AssignWork: Assign ${item->identification} to worker ${matchworker->uid}\n`);
+
+      RECORD executeinfo := GetTaskExecuteInfo(item->taskdata, tasktypeinfo);
+      DELETE CELL executeinfo FROM item->taskdata;
+      INSERT CELL executeinfo := executeinfo INTO item->taskdata;
+      matchworker->AssignWorkerTask(item);
+    }
+    CATCH(OBJECT e)
+    {
+      FailTask(item, e->what, e->trace, TRUE);
+    }
+  }
+
+  /// Called on interrupt
+  PUBLIC MACRO OnInterrupt()
+  {
+    IF (manualjs OR manualhs)
+      TerminateScript();
+
+    shuttingdown := TRUE;
+    this->ScheduleCheckForWork();
+  }
+
+  /// Make sure all cancelled tasks have been terminated
+  PUBLIC MACRO StopCancelledTasks()
+  {
+    // Can't rely on events to run before this call, so must do a (costly) resync
+    this->ReadManagedTasksFromDB(0);
+  }
+>;
+
+OBJECTTYPE QueueMgrClientConnection
+<
+  /** Schedules a new ephemeral task
+      @param tasktype Type of the task
+      @param taskdata Task data
+      @param workertype Worker type
+      @param priority Task priority
+      @param options Options
+      @cell(string) options.persistentcachekey Key for the persistent cache of the task (available via `taskcontext.persistentcache`)
+      @return Promise for task result
+  */
+  PUBLIC OBJECT FUNCTION RunEphemeralTask(STRING tasktype, RECORD taskdata, INTEGER workertype, INTEGER priority, RECORD options)
+  {
+    nextephemeralid := nextephemeralid + 1;
+    RECORD defer := CreateDeferredPromise();
+
+    DATETIME now := GetCurrentDatetime();
+
+    RECORD tasktypeinfo :=
+        SELECT *
+          FROM tasktypes
+         WHERE COLUMN tasktype = VAR tasktype
+           AND ephemeral;
+
+    IF (NOT RecordExists(tasktypeinfo))
+      THROW NEW Exception(`Nu such ephemeral task type ${tasktype}`);
+
+    RECORD taskinfo :=
+       [ queuename :=       tasktypeinfo.cluster || ":" || workertype
+       , scheduledate :=    now
+       , priority :=        priority
+       , tasktype :=        tasktype
+       , isephemeral :=     TRUE
+       , queueid :=         `ephemeral task ${nextephemeralid}, ${tasktype}`
+       , id :=              nextephemeralid
+       , taskdata :=        taskdata
+       , options :=         options
+       , resolve :=         defer.resolve
+       , reject :=          defer.reject
+       , onfinished :=      DEFAULT FUNCTION PTR
+       ];
+
+    NEW TaskQueueItem(controller->queue, taskinfo);
+    RETURN defer.promise;
+  }
+
+  /// Stops all managed tasks that are marked as cancelled
+  PUBLIC MACRO StopCancelledTasks()
+  {
+    controller->StopCancelledTasks();
+  }
+
+  /** Returns the list of running tasks
+      @return Task list
+      @cell return.isephemeral Whether this is an ephemeral task
+      @cell return.tasktype Task type
+      @cell return.id Database id of the task
+      @cell return.queueitemid Queue item id
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetRunningTasks()
+  {
+    RECORD ARRAY tasks;
+    FOREVERY (OBJECT worker FROM managedworkers)
+      IF (ObjectExists(worker->activetask))
+      {
+        INSERT CELL
+            [ queueitemid :=      worker->activetask->id
+            , worker->activetask->isephemeral
+            , worker->activetask->taskdata.tasktype
+            , worker->activetask->taskdata.id
+            ] INTO tasks AT END;
+      }
+    RETURN tasks;
+  }
+>;
+
+OBJECTTYPE QueueMgrWorkerConnection
+<
+  OBJECT associatedworker;
+
+  MACRO NEW(INTEGER workerid)
+  {
+    FOREVERY(OBJECT worker FROM managedworkers)
+      IF(worker->uid = workerid)
+      {
+        this->associatedworker := worker;
+        worker->GotConnection();
+        RETURN;
+      }
+    THROW NEW Exception("unknown worker #" || workerid);
+  }
+
+  /** Requests a new task, reports result of last task
+      @param lasttaskresult @includecell #ManagedWorker::SendTaskStatus.status
+      @return Promise for new task data
+  */
+  PUBLIC OBJECT FUNCTION GetTask(RECORD lasttaskresult)
+  {
+    IF(RecordExists(lasttaskresult))
+      this->associatedworker->SendTaskStatus(lasttaskresult);
+    RETURN this->associatedworker->GetTask();
+  }
+
+  /** Announces failure of a task
+      @param lasttaskresult @includecell #ManagedWorker::SendTaskStatus.status
+  */
+  PUBLIC MACRO AnnounceTaskFail(RECORD lasttaskresult)
+  {
+    IF(RecordExists(lasttaskresult))
+      this->associatedworker->SendTaskStatus(lasttaskresult);
+  }
+
+  /** Announces scripts are out of date, worker will terminate
+  */
+  PUBLIC MACRO AnnounceOutOfDate()
+  {
+    this->associatedworker->ProcessWorkerOutOfDate();
+  }
+>;
+
+OBJECT FUNCTION Constructor(INTEGER workerid)
+{
+  IF(workerid = -1)
+    RETURN NEW QueueMgrClientConnection;
+  RETURN NEW QueueMgrWorkerConnection(workerid);
+}
+
+MACRO ReportProfile()
+{
+  ReportFunctionProfile("managedqueuemgr", "managedqueuemgr");
+  ResetFunctionProfile();
+  RegisterTimedCallback(AddTimeToDate(30000, GetCurrentDatetime()), PTR ReportProfile);
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "failreschedule", type := "stringopt" ]
+                              , [ name := "debug", type := "switch" ]
+                              , [ name := "profile", type := "switch" ]
+                              , [ name := "profileworkers", type := "switch" ]
+                              , [ name := "manualjs", type := "switch" ]
+                              , [ name := "manualhs", type := "switch" ]
+                              ]);
+
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: managedqueuemgr [--failreschedule <failreschedule>] [--debug] [--profile] [--profileworkers] [--manualjs] [--manualhs]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+debug := args.debug OR IsRunningInEditor();
+manualjs := args.manualjs;
+manualhs := args.manualhs;
+profileworkers := args.profileworkers;
+
+IF(args.profile)
+{
+  SetupFunctionProfiling("managedqueuemgr", "managedqueuemgr");
+  RegisterTimedCallback(AddTimeToDate(30000, GetCurrentDatetime()), PTR ReportProfile);
+}
+
+OpenPrimary();
+controller := NEW QueueMgr;
+IF(ToInteger(args.failreschedule,-1)>=0)
+  controller->failreschedule := ToInteger(args.failreschedule,-1);
+
+IF(debug)
+  Print("starting service...\n");
+CheckMoreWorkers();
+AddInterruptCallback(PTR controller->OnInterrupt);
+RunWebHareService("system:managedqueuemgr", PTR Constructor, [ autorestart := FALSE ]);

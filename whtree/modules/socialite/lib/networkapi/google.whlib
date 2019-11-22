@@ -1,0 +1,485 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+
+
+PUBLIC OBJECTTYPE GoogleConnection EXTEND OauthV2NetworkConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+/*
+  /// Base url for API requests
+  STRING pvt_apiurl;
+*/
+
+  STRING pvt_analytics_startdate;
+  STRING pvt_analytics_enddate;
+  STRING pvt_refresh_token;
+
+
+ // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  //PUBLIC PROPERTY apiurl(pvt_apiurl, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW() : OauthV2NetworkConnection([ [ name := "https://www.googleapis.com/auth/siteverification" ]
+                                              , [ name := "https://www.googleapis.com/auth/siteverification.verify_only" ]
+                                              , [ name := "https://www.googleapis.com/auth/userinfo.profile" ]
+                                              , [ name := "https://www.googleapis.com/auth/userinfo.email" ]
+                                              , [ name := "https://www.googleapis.com/auth/analytics.readonly" ]
+                                              , [ name := "https://www.googleapis.com/auth/analytics" ]
+                                              , [ name := "https://www.googleapis.com/auth/analytics.edit" ]
+                                              , [ name := "https://www.googleapis.com/auth/analytics.manage.users" ]
+                                              , [ name := "offline" ]
+                                              ])
+  {
+    LogRPCForWebBrowser("socialite:google","",this->browser);
+    this->pvt_newpermissionmodel := TRUE;
+    this->SetMode("google");
+    this->pvt_accesstokenurl := "https://www.googleapis.com/oauth2/v4/token";
+
+    this->pvt_analytics_startdate := "28daysAgo";
+    this->pvt_analytics_enddate := "today";
+
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns an URI the client needs to be redirected to. The client can then authorize the
+      app, and will be redirected to the Google redirect page. The redirect url must
+      then be passed to FinishLogin
+      @param callbackurl Custom callback url, will be ignored when the callback host is set in the app settings
+      @param force_authorization Force authorization
+      @return URI
+  */
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY scopes, STRING state)
+  {
+    // "offline" is a fake permission we use to ask for offline access
+    BOOLEAN requestoffline := "offline" IN scopes;
+    IF(requestoffline)
+      DELETE FROM scopes AT SearchElement(scopes, "offline");
+
+    STRING authorizeuri := "https://accounts.google.com/o/oauth2/v2/auth";
+    RECORD result := this->GetV2AuthorizationCodeURI(authorizeuri, scopes, callbackurl, state);
+    IF (requestoffline)
+    {
+      result.authorize_uri := AddVariableToURL(result.authorize_uri, "access_type", "offline");
+      result.authorize_uri := AddVariableToURL(result.authorize_uri, "prompt", "consent");
+    }
+
+    RETURN result;
+  }
+
+
+
+  PUBLIC RECORD FUNCTION ValidateToken()
+  {
+    IF(NOT this->browser->GotoWebPage("https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=" || EncodeURL(this->browser->GetOauthAccessToken())))
+      THROW NEW Exception("Unable to validate the token");
+    RETURN DecodeJSONBlob(this->browser->content);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Google Analytics V2
+  //
+
+  PUBLIC RECORD FUNCTION GetUserInfo()
+  {
+    IF(NOT this->browser->GotoWebPage("https://www.googleapis.com/oauth2/v1/userinfo"))
+      THROW NEW Exception("Unable to retrieve user information");
+    RETURN DecodeJSONBlob(this->browser->content);
+  }
+
+
+  PUBLIC RECORD ARRAY FUNCTION GetAnalyticsAccounts_LegacyV2()
+  {
+    STRING body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.management.accounts.list","apiVersion":"v3"}]';
+    RECORD result := this->SendRawJSONRequest(body);
+
+    IF(NOT CellExists(result, "items"))
+    {
+      RETURN [result];
+    }
+
+    IF (RecordExists(result))
+      RETURN SELECT *
+                  , id
+               FROM result.items;
+    ELSE
+      RETURN DEFAULT RECORD ARRAY;
+  }
+
+  /** @short get the list of webproperties (sites)
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAnalyticsWebproperties(STRING accountid)
+  {
+    STRING body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.management.webproperties.list","params":{"accountId":'||accountid||'},"apiVersion":"v3"}]';
+    RECORD result := this->SendRawJSONRequest(body);
+    IF (RecordExists(result))
+      RETURN SELECT *
+                  , defaultprofileid
+               FROM result.items AS item;
+    ELSE
+      RETURN DEFAULT RECORD ARRAY;
+  }
+
+  /** @short get the inbuild and custom segments (like 'All Visits', 'New Visitors', 'Direct Traffic' etc)
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAnalyticsSegments()
+  {
+    STRING body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.management.segments.list","apiVersion":"v3"}]';
+    RECORD result := this->SendRawJSONRequest(body);
+    IF (RecordExists(result))
+      RETURN result.items;
+    ELSE
+      RETURN DEFAULT RECORD ARRAY;
+  }
+
+  /*
+  start-date
+  a start date formatted as
+  - YYYY-MM-DD
+  - or as a relative date (e.g., today, yesterday, or NdaysAgo where N is a positive integer).
+  */
+  PUBLIC MACRO SetAnalyticsDateRange(DATETIME startdate, DATETIME enddate)
+  {
+    this->pvt_analytics_startdate := FormatDateTime("%Y-%m-%d", startdate);
+    this->pvt_analytics_enddate := FormatDateTime("%Y-%m-%d", enddate);
+  }
+
+  PUBLIC MACRO SetAnalyticsDateRangeToLast(INTEGER amount, STRING type)
+  {
+    this->pvt_analytics_enddate := "today";
+    SWITCH(type)
+    {
+      CASE "days"
+      {
+        this->pvt_analytics_startdate := amount || "daysAgo";
+      }
+      CASE "weeks"
+      {
+        this->pvt_analytics_startdate := (amount * 7) || "daysAgo";
+      }
+    }
+  }
+
+  /** @short Returns a result object with data of google analytics api
+  */
+  PUBLIC RECORD FUNCTION GetDataFromGoogleAnalyticsApi(STRING propertyid,
+                                                       STRING dimensions,
+                                                       STRING metrics,
+                                                       STRING sort,
+                                                       STRING filter,
+                                                       STRING startdate,
+                                                       STRING enddate,
+                                                       INTEGER maxresults,
+                                                       INTEGER startIndex)
+  {
+    STRING body;
+
+    IF(filter != "")
+    {
+      IF(sort != "" )
+      {
+        body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.data.ga.get","params":{"ids":"ga:'||propertyid||'","dimensions":"'||dimensions||'","metrics":"'||metrics||'","filters":"'||filter||'","sort":"'||sort||'","start-date":"'||startdate||'","end-date":"'||enddate||'","max-results":'||maxresults||', "start-index":'||startIndex||'},"apiVersion":"v3"}]';
+      }
+      ELSE
+      {
+        body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.data.ga.get","params":{"ids":"ga:'||propertyid||'","dimensions":"'||dimensions||'","metrics":"'||metrics||'","filters":"'||filter||'","start-date":"'||startdate||'","end-date":"'||enddate||'","max-results":'||maxresults||', "start-index":'||startIndex||'},"apiVersion":"v3"}]';
+      }
+    }
+    ELSE
+    {
+      IF(sort != "")
+      {
+        body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.data.ga.get","params":{"ids":"ga:'||propertyid||'","dimensions":"'||dimensions||'","metrics":"'||metrics||'","sort":"'||sort||'","start-date":"'||startdate||'","end-date":"'||enddate||'","max-results":'||maxresults||', "start-index":'||startIndex||'},"apiVersion":"v3"}]';
+      }
+      ELSE
+      {
+        body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.data.ga.get","params":{"ids":"ga:'||propertyid||'","dimensions":"'||dimensions||'","metrics":"'||metrics||'","start-date":"'||startdate||'","end-date":"'||enddate||'","max-results":'||maxresults||', "start-index":'||startIndex||'},"apiVersion":"v3"}]';
+      }
+    }
+
+    RECORD result := this->SendRawJSONRequest(body);
+    RETURN result;
+  }
+
+  /** @short Returns a result object with data from google analytics multichannel api
+  */
+  PUBLIC RECORD FUNCTION GetDataFromMultiChannel(INTEGER propertyid, STRING dimensions, STRING metrics, STRING sort, STRING filter, STRING startdate, STRING enddate, INTEGER maxresults)
+  {
+    //This is the body you need.
+    STRING body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.data.mcf.get","params":{"ids":"ga:'||propertyid||'","dimensions":"'||dimensions||'","metrics":"'||metrics||'","start-date":"'||startdate||'","end-date":"'||enddate||'","max-results":'||maxresults||'},"apiVersion":"v3"}]';
+    RECORD result := this->SendRawJSONRequest(body);
+
+    IF(NOT RecordExists(result)){
+      RETURN DEFAULT RECORD;
+    }
+
+    RETURN result;
+  }
+
+
+  /** ///////////////////////////////////////////////////////////////////////////////////////////////
+  *  BEGIN part Goals
+  */
+  /** @short Get all the goals of the website
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAllGoals(STRING accountId, STRING webpropertyId, STRING profileId, INTEGER maxGoals)
+  {
+    STRING body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.management.goals.list","params":{"accountId":"'||accountId||'","webPropertyId":"'||webpropertyId||'","profileId":"'||profileId||'", "maxresults":'||maxGoals||'},"apiVersion":"v3"}]';
+    RECORD result := this->SendRawJSONRequest(body);
+
+    IF(NOT RecordExists(result))
+    {
+      RETURN DEFAULT RECORD ARRAY;
+    }
+
+    RECORD ARRAY goals;
+    IF(NOT CellExists(result,'items'))
+    {
+      RETURN DEFAULT RECORD ARRAY;
+    }
+    FOREVERY(RECORD goal FROM result.items)
+    {
+      STRING type := "";
+      RECORD goalExtras;
+
+      SWITCH(goal.type)
+      {
+        CASE "URL_DESTINATION"
+        {
+          type := "Destination";
+        }
+        CASE "VISIT_NUM_PAGES"
+        {
+          type := "Page";
+        }
+        CASE "VISIT_TIME_ON_SITE"
+        {
+          type := "Duration";
+        }
+        CASE "EVENT"
+        {
+          type := "Event";
+        }
+      }
+      INSERT [ goalId := goal.id
+             , accountId := goal.accountid
+             , webPropertyId := goal.webPropertyId
+             , profileId := goal.profileId
+             , goalName := goal.name
+             , goalType := type
+             ]
+        INTO goals AT END;
+    }
+
+    RETURN goals;
+  }
+
+  /** @short Update a goal
+  */
+  MACRO UpdateGoal(STRING goalId, STRING accountId, STRING webpropertyId, STRING profileId, RECORD content)
+  {
+
+  }
+
+  /** @short Create a goal
+  */
+  PUBLIC MACRO CreateGoal(STRING accountId, STRING webPropertyId, STRING profileId, RECORD goal)
+  {
+    STRING body;
+    SWITCH(goal.type)
+    {
+      CASE "duration"
+      {
+        body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.management.goals.insert", "params":{ "accountId":"'||accountid||'", "internalWebPropertyId":"'||goal.internalWebPropertyId||'", "kind":"'||goal.kind||'", "name":"'||goal.name||'", "parentLink":{"href":"'||goal.parentLink.href||'", "type":"analytics#profile"}, "profileId":"'||goal.profileId||'", "visitTimeOnSiteDetails":'||goal.visitTimeOnSiteDetails||', "webPropertyId":"'||goal.webPropertyId||'"}}]';
+      }
+      CASE "event"
+      {
+        body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.management.goals.insert", "params":{ "accountId":"'||accountid||'", "internalWebPropertyId":"'||goal.internalWebPropertyId||'", "kind":"'||goal.kind||'", "name":"'||goal.name||'", "parentLink":{"href":"'||goal.parentLink.href||'", "type":"analytics#profile"}, "profileId":"'||goal.profileId||'", "eventDetails":'||goal.eventDetails||', "webPropertyId":"'||goal.webPropertyId||'"}}]';
+      }
+      // DEZE en event moeten nog worden gedaan ;)
+      CASE "destination"
+      {
+        body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.management.goals.insert", "params":{ "accountId":"'||accountid||'", "internalWebPropertyId":"'||goal.internalWebPropertyId||'", "kind":"'||goal.kind||'", "name":"'||goal.name||'", "parentLink":{"href":"'||goal.parentLink.href||'", "type":"analytics#profile"}, "profileId":"'||goal.profileId||'", "urlDestinationDetails":'||goal.urlDestinationDetails||', "webPropertyId":"'||goal.webPropertyId||'"}}]';
+      }
+      CASE "page"
+      {
+        body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.management.goals.insert", "params":{ "accountId":"'||accountid||'", "internalWebPropertyId":"'||goal.internalWebPropertyId||'", "kind":"'||goal.kind||'", "name":"'||goal.name||'", "parentLink":{"href":"'||goal.parentLink.href||'", "type":"analytics#profile"}, "profileId":"'||goal.profileId||'", "visitNumPagesDetails":'||goal.visitNumPagesDetails||', "webPropertyId":"'||goal.webPropertyId||'"}}]';
+      }
+
+    }
+
+    /*RECORD result := this->SendRawJSONRequest(body);
+
+    IF(NOT RecordExists(result))
+    {
+      ABORT("ER IS IETS FOUT GEGAAN");
+    }*/
+  }
+
+  /** @short Get a single goal of the website
+  */
+  PUBLIC RECORD FUNCTION GetGoal(STRING goalId, STRING accountId, STRING webpropertyId, STRING profileId, INTEGER maxGoals)
+  {
+    STRING body := '[{"jsonrpc":"2.0","id":"gapiRpc","method":"analytics.management.goals.get","params":{"accountId":"'||accountId||'","webPropertyId":"'||webpropertyId||'","profileId":"'||profileId||'", "goalId":"'||goalId||'", "maxresults":'||maxGoals||'},"apiVersion":"v3"}]';
+    RECORD goal := this->SendRawJSONRequest(body);
+
+    STRING type := "";
+    RECORD goalExtras;
+    SWITCH(goal.type)
+      {
+        CASE "URL_DESTINATION"
+        {
+          type := "Destination";
+          goalExtras := goal.URLDESTINATIONDETAILS;
+        }
+        CASE "VISIT_NUM_PAGES"
+        {
+          type := "Page";
+          goalExtras := goal.VISITNUMPAGESDETAILS;
+        }
+        CASE "VISIT_TIME_ON_SITE"
+        {
+          type := "Duration";
+          goalExtras := goal.VISITTIMEONSITEDETAILS;
+        }
+        CASE "EVENT"
+        {
+          goalExtras := goal.EVENTDETAILS;
+          type := "Event";
+        }
+      }
+    IF(NOT RecordExists(goal))
+    {
+      RETURN DEFAULT RECORD;
+    }
+
+    RETURN [ goalId := goal.id
+           , accountId := goal.accountid
+           , webPropertyId := goal.webPropertyId
+           , profileId := goal.profileId
+           , goalName := goal.name
+           , goalValue := goal.value
+           , goalActive := goal.active
+           , goalType := type
+           , goalCreated := goal.created
+           , goalUpdated := goal.updated
+           , goalparentLink := goal.parentLink
+           , goalExtras := goalExtras
+       ];
+  }
+  /** ////////////
+  * END PART
+  */
+
+  /** @short Send a raw json request to the google analytics website
+  */
+  RECORD FUNCTION SendRawJSONRequest(STRING body)
+  {
+    RECORD ARRAY headers :=
+        [ [ field := "Content-Type", value := "application/json" ]
+        ];
+
+    INTEGER expires := this->accesstok.expires;
+
+    INTEGER now := GetUnixTimestamp(GetCurrentDateTime());
+
+    IF(this->pvt_refresh_token = "" AND CellExists(this->accesstok, "refresh_token")) //it looks like this isn't provided anyhmore?
+    {
+      this->pvt_refresh_token := this->accesstok.refresh_token;
+
+    }
+    //If the token is expired, create another one and use this as the token.
+    IF(expires <= now)
+    {
+      STRING client_secret := this->browser->client_secret;
+      STRING client_id := this->browser->client_id;
+
+      RECORD ARRAY postvars :=
+        [ [ name := "grant_type", value := "refresh_token" ]
+        , [ name := "client_secret", value := client_secret ]
+        , [ name := "refresh_token", value := this->pvt_refresh_token ]
+        , [ name := "client_id", value := client_id ]
+        ];
+        this->browser->PostWebPage("https://accounts.google.com/o/oauth2/token", postvars, "");
+
+        RECORD response2 := DecodeJSON(BlobToString(this->browser->content,-1));
+        this->browser->SetOauthAccessToken(response2);
+    }
+
+    STRING accesspoint := "https://content.googleapis.com/rpc?key="||this->accesstok.access_token;
+
+    this->browser->PostWebPageBlob(accesspoint, headers, StringToBlob(body));
+
+    RECORD response := DecodeJSON(BlobToString(this->browser->content,-1));
+
+    IF(NOT RecordExists(response))
+    {
+      RETURN DEFAULT RECORD;
+    }
+
+    IF (CellExists(response, "error"))
+    {
+      STRING error := AnyToString(response.error.code, "tree");
+      STRING errorCode := Tokenize(error, "\n")[0];
+
+      SWITCH(errorCode)
+      {
+        CASE "400"
+        {
+          DumpValue("Het ziet ernaar uit dat de query niet goed is. Neem contact op met B-Lex.", "tree");
+          THROW NEW Exception("Het ziet ernaar uit dat de query niet goed is. Neem contact op met B-Lex."||AnyToString(response, "tree"));
+          RETURN DEFAULT RECORD;
+        }
+        CASE "401"
+        {
+          RECORD relog := [error:= "401"];
+          DumpValue("Sessie van Google Analytics is verlopen, log opnieuw in op Google Analytics", "tree");
+          //THROW NEW Exception("Sessie van Google Analytics is verlopen, log opnieuw in op Google Analytics");
+          RETURN relog;
+        }
+        CASE "403"
+        {
+          DumpValue("Het ziet ernaar uit dat je teveel request hebt gedaan vandaag. Probeer morgen ff opnieuw dan", "tree");
+          DumpValue("Je hebt niet de juiste rechten om voor deze website de statistieken te bekijken.", "tree");
+          THROW NEW Exception("Google Analytics request error: "||AnyToString(response, "tree"));
+          RETURN DEFAULT RECORD;
+        }
+        CASE "503"
+        {
+          DumpValue("De server retourneert een error. Neem zo snel contact op met B-Lex en voer dit niet nog een keer uit", "tree");
+          THROW NEW Exception("Google Analytics request error: "||AnyToString(response, "tree"));
+          RETURN DEFAULT RECORD;
+        }
+        DEFAULT
+        {
+          ABORT(body);
+          THROW NEW Exception("Er is iets mis gegaan met Google Analytics"||AnyToString(response, "tree"));
+          RETURN DEFAULT RECORD;
+        }
+      }
+    }
+    //RETURN response;
+    //DumpValue(response.result, "tree");
+    RETURN response.result;
+  }
+>;

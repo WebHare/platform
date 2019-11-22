@@ -1,0 +1,208 @@
+﻿<?wh
+
+LOADLIB "wh::util/geo.whlib";
+
+LOADLIB "mod::socialite/lib/commondialogs.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// The location edit component
+
+PUBLIC OBJECTTYPE GoogleLocationEdit EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT textedit;
+
+  OBJECT replace;
+
+  OBJECT remove;
+
+  STRING pvt_value;
+
+  OBJECT addressfield;
+
+  BOOLEAN autozoom;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY value(pvt_value, SetValue);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    this->invisibletitle := TRUE;
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->addressfield := def.addressfield;
+    this->autozoom := def.zoom;
+  }
+
+  PUBLIC UPDATE MACRO PreInitComponent()
+  {
+    this->RegenerateComponents();
+  }
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+    STRING fieldtitle := this->errorlabel!="" ? this->errorlabel : this->title;
+
+    //FIXME: handle when labels are not present!
+    IF(this->enabled AND this->required AND this->value = "")
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RegenerateComponents()
+  {
+    IF (NOT ObjectExists(this->parent)) // We're not there yet
+      RETURN;
+
+    // Delete old objects
+    IF (ObjectExists(this->textedit))
+    {
+      this->textedit->DeleteComponent();
+    }
+    IF (ObjectExists(this->replace))
+    {
+      this->replace->DeleteComponent();
+    }
+
+    // Create a textedit
+    this->textedit := this->CreateSubComponent("textedit");
+    this->parent->InsertComponentAfter(this->textedit, this, FALSE);
+
+    this->textedit->title := this->title;
+    this->textedit->value := this->pvt_value;
+    this->textedit->enabled := FALSE;
+    this->textedit->width := "20x";
+
+    // Create an add/replace button
+    this->replace := this->CreateSubComponent("button");
+    this->parent->InsertComponentAfter(this->replace, this->textedit, FALSE);
+
+    this->replace->type := "icon";
+    this->replace->icon := "tollium:actions/edit";
+    this->replace->visible := NOT this->readonly;
+
+    // Create the button's action
+    OBJECT action := this->CreateSubComponent("action");
+    action->onexecute := PTR this->DoEdit;
+    this->replace->action := action;
+
+    // Create a remove button
+    this->remove := this->CreateSubComponent("button");
+    this->parent->InsertComponentAfter(this->remove, this->replace, FALSE);
+
+    this->remove->type := "icon";
+    this->remove->icon := "tollium:actions/delete";
+    this->remove->visible := NOT this->readonly;
+
+    // Create the button's action
+    action := this->CreateSubComponent("action");
+    action->onexecute := PTR this->DoClear;
+    this->remove->action := action;
+
+    this->UpdateButtonStates();
+  }
+
+  MACRO UpdateButtonStates()
+  {
+    IF (ObjectExists(this->replace))
+    {
+      //this->replace->icon := this->pvt_value != "" ? "tollium:actions/edit" : "tollium:actions/add";
+    }
+    IF (ObjectExists(this->remove))
+    {
+      this->remove->enabled := this->pvt_value != "";
+    }
+  }
+
+  MACRO DoEdit()
+  {
+    OBJECT dlg := CreateLocationDialog(this->owner);
+    dlg->autozoom := this->autozoom;
+    IF(this->value = "")
+    {
+      IF(ObjectExists(this->addressfield))
+      {
+        STRING addrline;
+
+        // Check for supported addressfield values
+        SWITCH (TypeID(this->addressfield->value))
+        {
+          CASE TypeID(STRING)
+          {
+            addrline := this->addressfield->value;
+          }
+          CASE TypeID(RECORD)
+          {
+            RECORD addr := this->addressfield->value;
+
+            //discover suitable formats
+            IF(CellExists(addr,"COUNTRY") AND CellExists(addr,"ZIP") AND CellExists(addr,"STREET"))
+            {
+              STRING nr_detail := CellExists(addr, "NR_DETAIL") ? " " || addr.nr_detail : "";
+              addrline := addr.street || nr_detail || ", " || addr.zip || ", " || addr.country;
+            }
+          }
+        }
+
+        IF(addrline!="")
+          dlg->SetInitialSearch(addrline);
+      }
+    }
+    ELSE
+    {
+      dlg->value := StringTolatLng(this->value);
+      dlg->zoom := 11;
+    }
+
+    IF (dlg->RunModal() = "ok")
+      this->value := LatLngToString(dlg->value);
+  }
+
+  MACRO DoClear()
+  {
+    this->value := "";
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetValue(STRING value)
+  {
+    IF (value != this->pvt_value)
+    {
+      this->pvt_value := value;
+      IF (ObjectExists(this->textedit))
+        this->textedit->value := this->pvt_value;
+      this->UpdateButtonStates();
+    }
+  }
+>;

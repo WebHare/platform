@@ -1,0 +1,1612 @@
+<?wh
+LOADLIB "mod::publisher/lib/search/searchproviders.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+PUBLIC RECORD FUNCTION ReadSiteFilter(OBJECT matchnode)
+{
+  BOOLEAN hasname := matchnode->HasAttribute("sitename");
+  BOOLEAN hasmask := matchnode->HasAttribute("sitemask");
+  BOOLEAN hasregex := matchnode->HasAttribute("siteregex");
+  IF(NOT hasname AND NOT hasmask AND NOT hasregex)
+    RETURN DEFAULT RECORD;
+
+  RETURN CELL[ matchname := matchnode->GetAttribute("sitename")
+             , matchmask := matchnode->GetAttribute("sitemask")
+             , matchregex := matchnode->GetAttribute("siteregex")
+             , hasname
+             , hasmask
+             , hasregex
+             ];
+}
+
+RECORD ARRAY FUNCTION ParseLoadPackages(OBJECT siteprof)
+{
+  RECORD ARRAY loadpackages;
+  FOREVERY(OBJECT resdep FROM siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile","loadpackage")->GetCurrentElements())
+  {
+    STRING name := ToLowercase(resdep->GetAttribute("module"));
+    IF(name="" OR name != ToLowercase(name))
+      THROW NEW Exception(`Invalid module name '${name}'`);
+
+    STRING basepath := MakeAbsoluteResourcePath(siteprof->name, `node_modules/${name}/`);
+    RECORD baseinfo := DecodeJSONBlob(GetWebhareResource(basepath || "package.json"));
+    IF(NOT CellExists(baseinfo,'webhare'))
+      THROW NEW Exception(`Module '${name}' is not a valid WebHare widget`);
+
+    IF(CellExists(baseinfo.webhare,'scopedsiteprofile'))
+    {
+      STRING scope := resdep->GetAttribute("scopenamespace");
+      IF(scope NOT LIKE "http://?*/")
+        THROW NEW Exception("Scope namespaces must be of the form http://*/"); //NOTE: might relax this in the future.. care mostly about the final slash
+
+      STRING toload := MakeAbsoluteResourcePath(basepath, baseinfo.webhare.scopedsiteprofile);
+      INSERT [ scope := scope
+             , toload := toload
+             ] INTO loadpackages AT END;
+    }
+  }
+  RETURN loadpackages;
+}
+
+STRING ARRAY FUNCTION GetHasList(OBJECT node, STRING ARRAY searchfor)
+{
+  STRING ARRAY haslist;
+  FOREVERY(STRING attr FROM searchfor)
+    IF(node->HasAttribute(attr))
+      INSERT ToUppercase(attr) INTO haslist AT END;
+  RETURN haslist;
+}
+
+BOOLEAN FUNCTION TestWebhareResource(STRING path)
+{
+  TRY { GetWebhareResource(path); RETURN TRUE; }
+  CATCH RETURN FALSE;
+}
+
+STATIC OBJECTTYPE SiteprofileCompilationContext
+<
+  RECORD ARRAY errormessages;
+  RECORD ARRAY warnings;
+  STRING filename;
+  OBJECT siteprof;
+  STRING scopenamespace;
+  PUBLIC BOOLEAN isscoped;
+  OBJECT parameters;
+  STRING toplevelgid;
+  STRING module;
+  PUBLIC RECORD ARRAY contenttypes;
+
+  PUBLIC PROPERTY siteprofile(siteprof, -);
+
+  MACRO NEW(STRING filename, OBJECT siteprof, STRING scopenamespace, OBJECT parameters)
+  {
+    this->parameters := parameters;
+    this->filename := filename;
+    this->siteprof := siteprof;
+    this->scopenamespace := scopenamespace;
+    this->isscoped := scopenamespace != "" OR ParseXSBoolean(this->siteprof->xmldoc->documentelement->GetAttribute("isscoped"));
+    //__GetModuleBaseFromResourceName fallback is needed to support texts in site-based siteprofiles
+    this->module := GetModuleNameFromResourcePath(filename) ?? __GetModuleBaseFromResourceName(this->filename);
+    this->toplevelgid := ParseXMLGid(this->module, "", this->siteprof->xmldoc->documentelement, "gid");
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetErrors()
+  {
+    RETURN this->errormessages;
+  }
+  PUBLIC RECORD ARRAY FUNCTION GetWarnings()
+  {
+    RETURN this->warnings;
+  }
+
+  PUBLIC MACRO AddWarning(OBJECT node, STRING warning)
+  {
+    INSERT [ resourcename := this->filename
+           , line  :=        node->linenum
+           , col :=          0
+           , message :=      warning
+           ] INTO this->warnings AT END;
+  }
+  PUBLIC MACRO AddError(OBJECT node, STRING error)
+  {
+    INSERT [ resourcename:= this->filename
+           , line  :=        node->linenum
+           , col :=          0
+           , message :=      error
+           ] INTO this->errormessages AT END;
+  }
+
+  PUBLIC MACRO AddErrorElsewhere(STRING filename, INTEGER line, STRING error)
+  {
+    INSERT [ resourcename := filename
+           , line :=         line
+           , col :=          0
+           , message :=      error
+           ] INTO this->errormessages AT END;
+  }
+
+  PUBLIC STRING FUNCTION ParseFSPath(OBJECT node, STRING attrname)
+  {
+    IF(NOT node->HasAttribute(attrname))
+      RETURN "";
+
+    STRING val := node->GetAttribute(attrname);
+    IF(val LIKE "site::*")
+      RETURN val;
+
+    IF(val LIKE "module::*" OR val LIKE "site::*" OR val LIKE "modulescript::*" OR val LIKE "moduledata::*" OR val LIKE "moduleroot::*" OR val LIKE "mod::*")
+      RETURN MakeAbsoluteResourcePath("",val);
+
+    IF(val LIKE "currentsite::*")
+    {
+      IF(this->filename NOT LIKE "site::*")
+      {
+        this->AddError(node, "Currentsite paths are not supported by siteprofiles not loaded from a site");
+        RETURN "";
+      }
+      RETURN Tokenize(this->filename,"/")[0] || "/" || Substring(val,13);
+    }
+    IF(val LIKE "/*")
+    {
+      IF(this->filename NOT LIKE "site::*")
+      {
+        this->AddError(node, "currentsite paths are not supported by siteprofiles not loaded from a site");
+        RETURN "";
+      }
+      RETURN Tokenize(this->filename,"/")[0] || val;
+    }
+    IF(val NOT LIKE "*::*") //its just a relative path
+    {
+      RETURN MakeAbsoluteResourcePath(this->filename, val);
+    }
+    this->AddError(node, "Did not recognize siteprofile path format");
+    RETURN "";
+  }
+
+  STRING FUNCTION ParseTolliumRef(OBJECT node, STRING attr)
+  {
+    IF(NOT node->HasAttribute(attr))
+      RETURN "";
+    STRING editfragment := node->GetAttribute(attr);
+    IF(editfragment != "" AND editfragment NOT LIKE ".*" AND editfragment NOT LIKE "*#*" AND editfragment NOT LIKE "*:*")
+    {
+      editfragment := "." || editfragment;
+
+      //we don't warn yet for legacy siteprofiles...
+      IF(this->filename NOT LIKE "site::*")
+        this->AddError(node, "A reference to a local tollium fragment should be prefixed with '.'");
+    }
+
+    STRING fragmentref := MakeAbsoluteScreenReference(this->filename, editfragment);
+    IF(fragmentref="")
+    {
+      this->AddError(node, "Failed to resolve the fragment reference to '" || node->GetAttribute("editfragment") || "' in '" || this->filename || "'");
+      RETURN "";
+    }
+    RETURN fragmentref;
+  }
+
+  PUBLIC RECORD FUNCTION GetWidgetEditor(OBJECT node)
+  {
+    BOOLEAN has_extension := node->HasAttribute("editextension");
+    BOOLEAN has_fragment := node->HasAttribute("editfragment");
+    BOOLEAN has_screen := node->HasAttribute("editscreen");
+    BOOLEAN has_function := node->HasAttribute("editfunctionname");
+
+    IF((has_extension ? 1 : 0) + (has_fragment ? 1 : 0) + (has_function ? 1 : 0) + (has_screen ? 1 : 0) > 1)
+    {
+      this->AddError(node, "Only one of the editextension, editfragment, editscreen or editfunctionname attributes can be specified");
+      RETURN DEFAULT RECORD;
+    }
+    IF (has_extension)
+    {
+      STRING extensionref := this->ParseTolliumRef(node,"editextension");
+      RETURN extensionref != "" ? [ type := "extension", extension := extensionref ] : DEFAULT RECORD;
+    }
+    IF(has_screen)
+    {
+      this->AddWarning(node, "editscreen= has been deprecated. Switch to editextension= (or editfunctionname=)");
+      STRING screenref := this->ParseTolliumRef(node,"editscreen");
+      RETURN screenref != "" ? [ type := "screen", screen := screenref ] : DEFAULT RECORD;
+    }
+    IF(has_fragment)
+    {
+      STRING fragmentref := this->ParseTolliumRef(node,"editfragment");
+      RETURN fragmentref != "" ? [ type := "fragment", fragment := fragmentref ] : DEFAULT RECORD;
+    }
+    IF(has_function)
+    {
+      STRING funcname := this->ParseFunctionRef(node, "editlibrary", "editfunctionname");
+      RETURN [ type := "function", functionname := funcname ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  STRING FUNCTION ParseFunctionRef(OBJECT node, STRING legacylibattr, STRING nameattr)
+  {
+    IF(node->HasAttribute(nameattr))
+    {
+      STRING objectname := node->GetAttribute(nameattr);
+      IF(objectname LIKE "*#*")
+      {
+        objectname := MakeAbsoluteResourcePath(this->filename, objectname);
+      }
+      ELSE
+      {
+        IF(NOT node->HasAttribute(legacylibattr))
+        {
+          this->AddError(node, `No library specified which would contain '${objectname}'`);
+          RETURN "";
+        }
+        objectname := this->ParseFSPath(node, legacylibattr) || "#" || objectname;
+      }
+      RETURN objectname;
+    }
+    RETURN "";
+  }
+
+  PUBLIC RECORD FUNCTION GetWidgetRenderer(OBJECT node)
+  {
+    STRING objectname := this->ParseFunctionRef(node, "renderlibrary", "renderobjectname");
+    RETURN objectname != "" ? [ objectname := objectname ] : DEFAULT RECORD;
+  }
+
+  STRING FUNCTION MapNamespace(STRING innamespace, BOOLEAN isdefinition)
+  {
+    IF(innamespace LIKE "scope:*")
+    {
+      IF(NOT this->isscoped)
+        THROW NEW Exception("Cannot use 'scope:' for namespace references in an unscoped site profile - did you mean to set isscoped=true on the <siteprofile> ?");
+      IF(innamespace LIKE "scope:/*")
+        THROW NEW Exception("Scope subnames may not start with a slash");
+      RETURN this->scopenamespace != "" ? this->scopenamespace || Substring(innamespace, 6) : innamespace;
+    }
+
+    IF(isdefinition AND this->isscoped)
+    {
+      THROW NEW Exception("A scoped siteprofile may not define namespaces outside 'scope:'");
+    }
+
+    IF(this->scopenamespace != "" AND Left(innamespace, Length(this->scopenamespace)) = this->scopenamespace)
+      THROW NEW Exception("A scoped siteprofile must use 'scope:' to refer to its own namespace");
+
+    RETURN innamespace;
+  }
+
+  PUBLIC MACRO ParseFolderTypes()
+  {
+    this->ParseFileFolderTypes("foldertype", PTR this->ReadFolderType);
+  }
+  PUBLIC MACRO ParseFileTypes()
+  {
+    this->ParseFileFolderTypes("filetype", PTR this->ReadFileType);
+  }
+
+  PUBLIC MACRO ParseFileFolderTypes(STRING whichtype, FUNCTION PTR parser)
+  {
+    FOREVERY(OBJECT ftype FROM this->siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, whichtype)->GetCurrentElements())
+    {
+      TRY
+      {
+        STRING ns := this->MapNamespace(ftype->GetAttribute("typedef"), TRUE);
+        RECORD insertpos := RecordLowerBound(this->contenttypes, [namespace:=ns], ["NAMESPACE"]);
+        IF(NOT insertpos.found)
+          THROW NEW Exception(`Content type ${ns} is not defined in this file`);
+
+        RECORD ctype := this->contenttypes[insertpos.position];
+        IF(RecordExists(ctype.foldertype) OR RecordExists(ctype.filetype))
+          THROW NEW Exception(`Content type ${ns} is already setup as a file or folder type`);
+
+        ctype := parser(ctype, ftype);
+        this->contenttypes[insertpos.position] := ctype;
+      }
+      CATCH(OBJECT e)
+      {
+        this->AddError(ftype, e->what);
+      }
+    }
+  }
+
+  RECORD FUNCTION ReadFileType(RECORD ctype, OBJECT ftype)
+  {
+    ctype.filetype := GetBaseFiletypeRecord();
+    IF(ftype->HasAttribute("icon"))
+      this->AddWarning(ftype, "The option 'icon' is obsolete");
+
+    ctype.filetype.tolliumicon := ftype->GetAttribute("tolliumicon");
+    ctype.filetype.title := ParseXMLTIDPtr(this->module, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
+    ctype.filetype.blobiscontent := ParseXSBoolean(ftype->GetAttribute("blobiscontent"));
+    ctype.filetype.pagelistprovider := this->ParseFSPath(ftype, "pagelistprovider");
+    ctype.fstype.needstemplate := ParseXSBoolean(ftype->GetAttribute("needstemplate"));
+    ctype.fstype.needsprofile := ParseXSBoolean(ftype->GetAttribute("needsprofile"));
+    ctype.filetype.requirescontent := ParseXSBoolean(ftype->GetAttribute("requirescontent"));
+    ctype.filetype.isdevelopertype := ParseXSBoolean(ftype->GetAttribute("isdevelopertype"));
+    ctype.filetype.siteprofile := this->filename;
+    ctype.filetype.line := ftype->linenum;
+    ctype.fstype.isacceptableindex := ParseXSBoolean(ftype->GetAttribute("isacceptableindex"));
+    ctype.fstype.ispublishedassubdir := ParseXSBoolean(ftype->GetAttribute("ispublishedassubdir"));
+    ctype.fstype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
+    ctype.fstype.previewlibrary := ftype->GetAttribute("previewlibrary");
+    ctype.fstype.previewobjectname := ftype->GetAttribute("previewobjectname");
+    ctype.fstype.searchprovider := this->ParseSearchProvider(ftype);
+    ctype.fstype.capturesubpaths := ParseXSBoolean(ftype->GetAttribute("capturesubpaths"));
+    ctype.fstype.isfiletype := TRUE;
+
+    OBJECT dyninfo := ftype->GetChildElementsByTagNameNS(namespace_sp, "dynamicexecution")->Item(0);
+
+    IF(ObjectExists(dyninfo))
+      ctype.filetype.dynamicexecution := this->ParseDynamicExecuteData(dyninfo);
+
+    IF (RecordExists(ctype.filetype.dynamicexecution))
+    {
+      ctype.fstype.ispublishedassubdir := TRUE;
+      ctype.fstype.ispublishable := TRUE;
+      ctype.fstype.isdynamicexecution := TRUE;
+    }
+
+    IF (ctype.fstype.capturesubpaths AND NOT ctype.fstype.ispublishedassubdir)
+    {
+      ctype.fstype.capturesubpaths := FALSE;
+      this->AddError(ftype, "The option 'capturesubpaths' can only be enabled when 'ispublishedassubdir' is also enabled.");
+    }
+
+/*    IF (ftype->HasAttribute("webhare_builtintypeid"))
+      typeinfo.ftypeid := ParseXSInt(ftype->GetAttribute("webhare_builtintypeid"));
+*/
+    IF(ftype->HasAttribute("extensions"))
+    {
+      ctype.filetype.extensions := Tokenize(TrimWhitespace(ftype->GetAttribute("extensions")), " ");
+      IF (Length(ctype.filetype.extensions) > 0 AND ctype.filetype.extensions[0] = "")
+        ctype.filetype.extensions := DEFAULT STRING ARRAY;
+    }
+    RETURN ctype;
+  }
+
+  RECORD FUNCTION ReadFolderType(RECORD ctype, OBJECT ftype)
+  {
+    STRING tolliumicon := ftype->GetAttribute("tolliumicon");
+    IF(tolliumicon NOT LIKE '*:*')
+      tolliumicon := "tollium:folders/normal";
+
+    //Now construct the final folder type information record
+    ctype.foldertype := [ tolliumicon := tolliumicon
+                        , title := ParseXMLTIDPtr(this->module, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace
+                        , isdevelopertype := ftype->GetAttribute("isdevelopertype") IN [ "true", "1" ]
+                        , indexfile := ""
+                        , protectindexfile := ftype->GetAttribute("protectindexfile") IN [ "true", "1" ]
+                        , requirescontent := FALSE
+                        , ishidden := ftype->GetAttribute("ishidden") IN [ "true", "1" ]
+                        , dynamicexecution := DEFAULT RECORD
+
+                        , siteprofile := this->filename
+                        , line := ftype->linenum
+                        ];
+
+
+    IF (ftype->HasAttribute('indextype'))
+    {
+      ctype.foldertype.indexfile := 'contentlisting:' || ftype->GetAttribute("indextype"); //NOTE: not really a contentlisting, but a workaround to share the codepath...
+    }
+    ELSE IF (ftype->HasAttribute('indexfile'))
+    {
+      IF (ftype->GetAttribute("indexfile") = "none")
+        ctype.foldertype.indexfile := "none";
+      IF (ftype->GetAttribute("indexfile") = "contentlisting")
+        ctype.foldertype.indexfile := "contentlisting:http://www.webhare.net/xmlns/publisher/contentlisting";
+    }
+
+    OBJECT dyninfo := ftype->GetChildElementsByTagNameNS(namespace_sp, "dynamicexecution")->Item(0);
+    IF(ObjectExists(dyninfo))
+      ctype.foldertype.dynamicexecution := this->ParseDynamicExecuteData(dyninfo);
+
+    IF (RecordExists(ctype.foldertype.dynamicexecution)
+        AND
+        (ctype.foldertype.dynamicexecution.webpageobjectname != "" OR ctype.foldertype.dynamicexecution.startmacro != "" OR ctype.foldertype.dynamicexecution.routerfunction != ""))
+    {
+      ctype.foldertype.indexfile := "contentlisting:http://www.webhare.net/xmlns/publisher/dynamicfoldercontents";
+      ctype.foldertype.protectindexfile := TRUE;
+      ctype.fstype.isdynamicexecution := TRUE;
+    }
+    ctype.fstype.isfoldertype := TRUE;
+    RETURN ctype;
+  }
+  PUBLIC STRING FUNCTION ExpandWittyComponent(OBJECT node, STRING attrname)
+  {
+    IF(NOT node->HasAttribute(attrname))
+      RETURN "";
+    RETURN MakeAbsoluteResourcePath(this->filename, node->GetAttribute(attrname));
+  }
+
+  PUBLIC MACRO  ReadContentTypes()
+  {
+    // All xml elements that contain contenttype definitions
+    RECORD ARRAY contenttypeelements :=
+        [ [ ns := namespace_sp,   name := "contenttype" ]
+        , [ ns := namespace_sp,   name := "embeddedobjecttype" ]
+        , [ ns := namespace_sp,   name := "widgettype" ]
+        , [ ns := newsletter_sp,  name := "maildesigntype" ]
+        , [ ns := namespace_sp,   name := "rtdtype" ]
+        ];
+
+    OBJECT ARRAY contenttypes;
+    FOREVERY (RECORD rec FROM contenttypeelements)
+      contenttypes := contenttypes CONCAT this->siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(rec.ns, rec.name)->GetCurrentElements();
+
+    FOREVERY(OBJECT ctype FROM contenttypes)
+    {
+      TRY
+      {
+        RECORD typeinfo := this->ReadContentType(ctype);
+        RECORD insertpos := RecordLowerBound(this->contenttypes, typeinfo, ["NAMESPACE"]);
+        IF(insertpos.found)
+          THROW NEW Exception(`Duplicate contenttype definition for ${typeinfo.namespace}`);
+
+        INSERT typeinfo INTO this->contenttypes AT insertpos.position;
+      }
+      CATCH(OBJECT e)
+      {
+        this->AddError(ctype, e->what);
+      }
+    }
+  }
+
+  RECORD FUNCTION ReadCTMembers(OBJECT memberparent, STRING namespace)
+  {
+    RECORD ARRAY members;
+    RECORD ARRAY groupmemberships;
+    FOR(OBJECT node := memberparent->firstchild;ObjectExists(node);node:=node->nextsibling)
+    {
+      IF (node->localname = "member")
+      {
+        RECORD memberinfo := [ name := node->GetAttribute('name')
+                             , type := GetFSMemberTypeID(node->GetAttribute('type'))
+                             , publish := node->GetAttribute("publish") IN ["1","true"]
+                             , children := DEFAULT RECORD ARRAY
+                             ];
+
+        IF(memberinfo.name="")
+          this->AddError(node, `Invalid member name '${memberinfo.name}'`);
+
+        IF(node->HasAttribute("publish") AND NOT memberinfo.publish)
+          this->AddError(node, `Member name '${memberinfo.name}' is using publish=false - should be removed`);
+        ELSE IF(memberinfo.publish)
+        {
+          IF(memberinfo.type IN [ 5,15 ])
+            this->AddWarning(node,`Member name '${memberinfo.name}' of type '${node->GetAttribute('type')}' is using publish=true, this will be removed in a future version`);
+          ELSE
+            this->AddError(node,`Member name '${memberinfo.name}' of type '${node->GetAttribute('type')}' is using publish=true, this was never supported for this type`);
+        }
+
+        IF(ToUppercase(memberinfo.name) LIKE "WHFS*")
+        {
+          //Some names are grandfathered in, hopefully they can go away at some point
+          IF(namespace||"#"||memberinfo.name NOT IN
+             ["http://www.wilminktheater.nl/xmlns/types/serie#whfsref"
+             ,"http://www.wilminktheater.nl/xmlns/types/performance#whfsref"
+             ,"http://www.pthu.nl/v2/mainmenu#whfsitem"
+             ])
+          {
+            this->AddWarning(node, `Member names starting with 'WHFS' are reserved and should not be used`);
+          }
+        }
+        IF(memberinfo.type<1)
+        {
+          this->AddError(node, `Invalid member type '${node->GetAttribute('type')}'`);
+          CONTINUE;
+        }
+
+        IF(memberinfo.type=12)
+        {
+          RECORD ctmembers := this->ReadCTMembers(node, namespace);
+          memberinfo.children := ctmembers.members;
+        }
+        INSERT memberinfo INTO members AT END;
+      }
+      ELSE IF (node->localname = "ingroup")
+      {
+        INSERT
+            [ grouptype :=    node->GetAttribute("type")
+            , line :=         node->linenum
+            , col :=          0
+            ] INTO groupmemberships AT END;
+      }
+    }
+    RETURN
+        [ members :=            members
+        , groupmemberships :=   groupmemberships
+        ];
+  }
+
+  RECORD FUNCTION ReadContentType(OBJECT ctype)
+  {
+    // Type of the contenttype is the localname (ignore the namespace)
+    STRING nodename := ctype->localname ?? ctype->nodename;
+    // Namespace filled in?
+    STRING namespace := ctype->GetAttribute("namespace");
+    STRING ns := this->MapNamespace(namespace, TRUE);
+    IF (ns = "")
+    {
+      THROW NEW Exception("No namespace specified for " || nodename);
+    }
+
+    BOOLEAN set_cloneoncopy := nodename != "contenttype" OR (ctype->HasAttribute("cloneoncopy") = FALSE OR ParseXSBoolean(ctype->GetAttribute("cloneoncopy")));
+    INTEGER typedefid;
+
+    OBJECT membersnode := ctype->GetChildElementsByTagNameNS(namespace_sp, "members")->Item(0);
+    RECORD newmembers := this->ReadCTMembers(membersnode ?? ctype, namespace);
+
+    RECORD typeinfo := nodename="rtdtype" ? ParseSiteprofXMLStructure(this, ctype) : MakeBasicTypeInfo(nodename);
+    typeinfo.id := typedefid;
+    typeinfo.namespace := ns;
+    typeinfo.siteprofile := this->filename;
+    typeinfo.line := ctype->linenum;
+    typeinfo.col := 0;
+    typeinfo.title := ParseXMLTIDPtr(this->module, this->toplevelgid, ctype, "title") ?? ":" || ns;
+    typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon");
+    typeinfo.groupmemberships := newmembers.groupmemberships;
+    typeinfo.fstype := [...GetFSTypeBase(), cloneoncopy := set_cloneoncopy ];
+    INSERT CELL members := newmembers.members INTO typeinfo;
+
+    IF (nodename IN [ "embeddedobjecttype", "maildesigntype", "widgettype" ])
+    {
+      INSERT CELL editor := this->GetWidgetEditor(ctype)
+                , renderer := this->GetWidgetRenderer(ctype)
+                , embedtype := ctype->GetAttribute("embedtype") ?? "block"
+                , requiremergefieldscontext := ParseXSBoolean(ctype->GetAttribute("requiremergefieldscontext"))
+             INTO typeinfo;
+
+      IF(ParseXSBoolean(ctype->GetAttribute("isfiletype")) OR nodename="widgettype")
+      {
+        RECORD filetypeinfo := GetBaseFiletypeRecord();
+        filetypeinfo.siteprofile := this->filename;
+        filetypeinfo.line := ctype->linenum;
+
+        filetypeinfo.isembeddedobjecttype := typeinfo.isembeddedobjecttype;
+        filetypeinfo.tolliumicon := typeinfo.tolliumicon;
+        IF(filetypeinfo.tolliumicon = "" AND filetypeinfo.isembeddedobjecttype)
+          filetypeinfo.tolliumicon := "tollium:files/widget";
+
+        filetypeinfo.title := typeinfo.title;
+        typeinfo.fstype.needstemplate := nodename!="widgettype";
+        typeinfo.fstype.isfiletype := TRUE;
+        typeinfo.fstype.ispublishedassubdir := nodename!="widgettype";
+        typeinfo.fstype.ispublishable := nodename!="widgettype" AND ParseXSBoolean(ctype->GetAttribute("ispublishable"));
+        typeinfo.fstype.generatepreview := nodename="widgettype" OR ParseXSBoolean(ctype->GetAttribute("generatepreview"));
+
+        typeinfo.wittycomponent := this->ExpandWittyComponent(ctype, "wittycomponent");
+        typeinfo.previewcomponent := this->ExpandWittyComponent(ctype, "previewcomponent");
+        typeinfo.filetype := filetypeinfo;
+      }
+
+      IF(nodename="widgettype" AND ctype->HasAttribute("ingroup"))
+        typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := this->MapNamespace(ctype->GetAttribute("ingroup"),FALSE) ]];
+      IF( (nodename="widgettype" OR nodename="embeddedobjecttype") AND Length(typeinfo.groupmemberships)=0)
+        typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := "http://www.webhare.net/xmlns/publisher/generalwidgets" ]];
+    }
+
+    RETURN typeinfo;
+  }
+
+  RECORD FUNCTION ParseWebDesign(OBJECT node)
+  {
+    RECORD webdesign := [ library                  := this->ParseFSPath(node, "library")
+                        , objectname               := node->GetAttribute("objectname")
+                        , witty                    := this->ParseFSPath(node, "witty")
+                        , assetpack                := ""
+                        , basedependency           := node->GetAttribute("basedependency")
+                        , wittyencoding            := node->GetAttribute("wittyencoding")
+                        , designfolder             := this->ParseFSPath(node, "designfolder")
+                        , maxcontentwidth          := node->GetAttribute("maxcontentwidth")
+                        , siteprofile              := this->siteprof->name
+                        , supportserrors           := ParseXSBoolean(node->GetAttribute("supportserrors"))
+                        , supportsaccessdenied     := ParseXSBoolean(node->GetAttribute("supportsaccessdenied"))
+                        , asyncbundle              := ParseXSBoolean(node->GetAttribute("async"))
+                        , lazyloadcss              := ParseXSBoolean(node->GetAttribute("lazyloadcss"))
+                        , supportedlanguages       := ParseXSList(node->GetAttribute("supportedlanguages"))
+                        , contentnavstops          := ParseXSList(node->GetAttribute("contentnavstops"))
+
+                        , has_assetpack          := node->HasAttribute("assetpack")
+                        , has_basedependency       := node->HasAttribute("basedependency")
+                        , has_supportserrors       := node->HasAttribute("supportserrors")
+                        , has_supportsaccessdenied := node->HasAttribute("supportsaccessdenied")
+                        , has_asyncbundle          := node->HasAttribute("async")
+                        , has_contentnavstops      := node->HasAttribute("contentnavstops")
+                        , has_lazyloadcss          := node->HasAttribute("lazyloadcss")
+                        ];
+
+    STRING assetpack := node->GetAttribute("assetpack");
+    IF(assetpack != "")
+    {
+      IF(this->filename NOT LIKE "mod::*")
+      {
+        this->AddError(node, "Assetpacks can only be specified for module-based siteprofiles");
+      }
+      ELSE
+      {
+        webdesign.assetpack := assetpack LIKE "*:*" ? assetpack : this->module || ":" || assetpack;
+      }
+    }
+
+    IF(webdesign.designfolder != "" AND webdesign.designfolder NOT LIKE "*/")
+      webdesign.designfolder := webdesign.designfolder || "/";
+
+    IF(node->HasAttribute("basedependency")
+       AND this->filename NOT LIKE "site::*"
+       AND this->filename NOT LIKE "mod::webhare_testsuite/*")  //is testing old APIs
+    {
+      this->AddError(node, "For WebHare 4.06 and up, you should move away from basedependency=, use assetpack= and add an <assetpack> to your moduledefinition");
+    }
+
+    IF(node->GetAttribute("basedependency") != "" AND webdesign.designfolder LIKE "mod::*")
+    {
+      STRING basedep := this->ParseFSPath(node, "basedependency");
+      IF(TestWebhareResource(basedep) OR TestWebhareResource(basedep || ".js") OR TestWebhareResource(basedep || ".es"))
+      {
+        webdesign.basedependency := basedep;
+      }
+      ELSE
+      {
+        //Try to resolve the base dependency versus the designfolder
+        STRING relativetodesign := MakeAbsoluteResourcePath(webdesign.designfolder, webdesign.basedependency);
+        this->AddError(node, "Unable to find the base dependency '" || webdesign.basedependency || "', tried '" || basedep || "' and '" || relativetodesign || "'");
+      }
+    }
+
+    RETURN webdesign;
+  }
+
+  RECORD FUNCTION ParseDynamicExecuteData(OBJECT node)
+  {
+    STRING library := node->GetAttribute("library");
+    STRING startmacro := node->GetAttribute("startmacro");
+    STRING webpageobjectname := node->GetAttribute("webpageobjectname");
+    STRING routerfunction := node->GetAttribute("routerfunction");
+
+    IF (startmacro = "" AND webpageobjectname = "" AND routerfunction="") //specifying both is acceptable, startmacro will take precedence but webpageobjectname will be used for RPCs
+    {
+      this->Adderror(node, "Either 'startmacro', 'webpageobjectname' or 'routerfunction' must be specified");
+      RETURN DEFAULT RECORD;
+    }
+
+    IF(routerfunction != "")
+    {
+      IF(routerfunction NOT LIKE "*#*")
+        this->AddError(node, "The attribute 'routerfunction' must contain a full path");
+      ELSE
+        routerfunction := this->ParseFSPath(node, "routerfunction");
+    }
+
+    IF(startmacro != "")
+    {
+      IF(startmacro LIKE "*#*")
+        startmacro := this->ParseFSPath(node, "startmacro");
+      ELSE IF(library = "")
+      {
+        this->AddError(node, "The attribute 'library' is required if the startmacro does not contain a library");
+        RETURN DEFAULT RECORD;
+      }
+      ELSE
+        startmacro := this->ParseFSPath(node, "library") || "#" || startmacro;
+    }
+
+    IF(webpageobjectname != "")
+    {
+      IF(webpageobjectname LIKE "*#*")
+        webpageobjectname := this->ParseFSPath(node, "webpageobjectname");
+      ELSE IF(library = "")
+      {
+        this->AddError(node, "The attribute 'library' is required if the webpageobjectname does not contain a library");
+        RETURN DEFAULT RECORD;
+      }
+      ELSE
+        webpageobjectname := this->ParseFSPath(node, "library") || "#" || webpageobjectname;
+    }
+
+    STRING ARRAY starttoks := startmacro != "" ? Tokenize(startmacro,'#') : STRING[];
+    STRING ARRAY objecttoks := webpageobjectname != "" ? Tokenize(webpageobjectname,'#') : STRING[];
+
+    RETURN
+        [ startlibrary            := startmacro != "" ? starttoks[0] : ""
+        , startmacro              := startmacro != "" ? starttoks[1] : ""
+        , webpagelibrary          := webpageobjectname != "" ? objecttoks[0] : ""
+        , webpageobjectname       := webpageobjectname != "" ? objecttoks[1] : ""
+        , routerfunction          := routerfunction
+
+        , cachettl                := ParseXSInt(node->GetAttribute("cachettl"))
+        , cachewebvariables       := ParseXSList(ToUppercase(node->GetAttribute("cachewebvariables")))
+        , cacheblacklistvariables := ParseXSList(ToUppercase(node->GetAttribute("cacheblacklistvariables")))
+        , cachewebcookies         := ParseXSList(ToUppercase(node->GetAttribute("cachewebcookies")))
+        , cacheblacklistcookies   := ParseXSList(ToUppercase(node->GetAttribute("cacheblacklistcookies")))
+        ];
+  }
+
+  STRING FUNCTION ParseSearchProvider(OBJECT node)
+  {
+    STRING provider := this->ParseFSPath(node, "searchprovider");
+    IF (provider = "")
+      RETURN "";
+
+    STRING ARRAY parts := Tokenize(provider, "#");
+    IF (Length(parts) != 2)
+    {
+      this->AddError(node, "Invalid search provider, expected '<library>#<object>'");
+      RETURN "";
+    }
+    TRY
+    {
+      OBJECT providerobj := MakeObject(parts[0], parts[1]);
+      IF (providerobj NOT EXTENDSFROM SearchProviderBase)
+      {
+        this->AddError(node, `Search provider '${provider}' does not derive from SearchProviderBase`);
+        RETURN "";
+      }
+    }
+    CATCH
+    {
+      this->AddError(node, `Could not find search provider '${provider}'`);
+      RETURN "";
+    }
+    RETURN provider;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ParseApplyTosRecurse(OBJECT basenode)
+  {
+    RECORD ARRAY applytos;
+
+    //ADDME: Instead of continueing, report the error during compilation
+    FOREVERY(OBJECT crit FROM basenode->childnodes->GetCurrentElements())
+      IF(crit->namespaceuri = namespace_sp)
+      {
+        RECORD applyto;
+        SWITCH(crit->localname)
+        {
+          CASE "and", "or", "not", "xor"
+          {
+            applyto := [ type := crit->localname
+                       , criteria := this->ParseApplyTosRecurse(crit)
+                       ];
+          }
+          CASE "to"
+          {
+            STRING type := crit->GetAttribute("type");
+
+            applyto := [ type         := "to"
+                       , match_all    := type="all"
+                       , match_file   := type="file" OR type="index"
+                       , match_index  := type="index"
+                       , match_folder := type="folder"
+                       , pathmask     := crit->GetAttribute("pathmask")
+                       , pathregex    := crit->GetAttribute("pathregex")
+                       , parentmask   := crit->GetAttribute("parentmask")
+                       , parentregex  := crit->GetAttribute("parentregex")
+                       , sitemask     := crit->GetAttribute("sitemask")
+                       , sitename     := crit->GetAttribute("sitename")
+                       , siteregex    := crit->GetAttribute("siteregex")
+                       , parenttype   := this->MapNamespace(crit->GetAttribute("parenttype"), FALSE)
+                       , sitetype     := this->MapNamespace(crit->GetAttribute("sitetype"), FALSE)
+                       , filetype     := this->MapNamespace(crit->GetAttribute("filetype"), FALSE)
+                       , contentfiletype := this->MapNamespace(crit->GetAttribute("contentfiletype"), FALSE)
+                       , foldertype   := this->MapNamespace(crit->GetAttribute("foldertype"), FALSE)
+                       , typeneedstemplate := ParseXSBoolean(crit->GetAttribute("typeneedstemplate"))
+                       , prebuiltmasks := ParseXSList(ToUppercase(crit->GetAttribute("prebuiltmasks")))
+                       , webfeatures  := ParseXSList(ToUppercase(crit->GetAttribute("webfeatures" )))
+                       ];
+
+            IF( (applyto.filetype!="" OR applyto.contentfiletype != "") AND NOT applyto.match_file)
+            {
+              this->AddError(crit, "Apply <to> rule is trying to match a file type, but is not set to apply to files");
+              CONTINUE;
+            }
+            IF(applyto.foldertype!="" AND NOT applyto.match_folder)
+            {
+              this->AddError(crit, "Apply <to> rule is trying to match a folder type, but is not set to apply to folders");
+              CONTINUE;
+            }
+          }
+          CASE "testdata"
+          {
+            applyto := [ type        := "testdata"
+                       , target      := crit->GetAttribute("target")
+                       , typedef     := this->MapNamespace(crit->GetAttribute("typedef"),FALSE)
+                       , membername  := crit->GetAttribute("member")
+                       , value       := crit->GetAttribute("value")
+                       ];
+          }
+          DEFAULT
+          {
+            CONTINUE;//ADDME: Log error?
+          }
+        }
+      INSERT applyto INTO applytos AT END;
+    }
+    RETURN applytos;
+  }
+
+  RECORD ARRAY FUNCTION ParseSources(OBJECT node)
+  {
+    RECORD ARRAY paths := SELECT path := sourcenode->GetAttribute("path")
+                               , relativeto := sourcenode->GetAttribute("relativeto") ?? "siteprofile"
+                            FROM ToRecordArray(node->childnodes->GetCurrentElements(), "sourcenode");
+    UPDATE paths SET relativeto := "siteprofile" WHERE path LIKE "*::*";
+    UPDATE paths SET path := MakeAbsoluteResourcePath(this->filename, path) WHERE relativeto="siteprofile";
+    RETURN paths;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ImportApplies()
+  {
+    /* Reenable this eg to cache addcontenttype e.a.
+
+       ALs deze code weer terugkomt, let er dan ook op dat hij per site wordt aangeroepen maar dit nog niet
+       wordt doorgegeven: toch moet zo'n apply slechts voor die site gelden. Houdt er dus rekening mee dat
+       je nog een lijst van siteids moet doorgeven wwaarvoor dit profiel geldt
+  */
+    BOOLEAN errorsarenowfatal;
+    OBJECT siteprof := this->siteprof;
+    OBJECT ARRAY applies := siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "apply")->GetCurrentElements();
+    RECORD ARRAY applyrules;
+    FOREVERY(OBJECT applyblock FROM applies)
+    {
+      RECORD apply := [ tos := this->ParseApplyTosRecurse(applyblock)
+                      , priority := ParseXSInt(applyblock->GetAttribute("priority"))
+                      , siteprofile := siteprof->name
+                      , line := applyblock->linenum
+                      , col := 0
+
+                      , allowprofiles := DEFAULT RECORD ARRAY
+                      , allowtemplates := DEFAULT RECORD ARRAY
+                      , applyindex := #applyblock
+                      , baseproperties := DEFAULT RECORD
+                      , bodyrenderer := DEFAULT RECORD
+                      , contentlisting := DEFAULT RECORD
+                      , customnodes := DEFAULT RECORD ARRAY
+                      , defaultsettings := DEFAULT RECORD ARRAY
+                      , disablelegacysitesettings := FALSE
+                      , disabletemplateprofile := FALSE
+                      , enabledrafts := FALSE
+                      , extendproperties := DEFAULT RECORD ARRAY
+                      , folderindex := DEFAULT RECORD
+                      , setlibrary := DEFAULT RECORD ARRAY
+                      , modifyfiletypes := DEFAULT RECORD ARRAY
+                      , modifyfoldertypes := DEFAULT RECORD ARRAY
+                      , plugins := DEFAULT RECORD ARRAY
+                      , republishes := DEFAULT RECORD ARRAY
+                      , scheduletasknows := DEFAULT RECORD ARRAY
+                      , setdynamictemplate := DEFAULT RECORD
+                      , setobjecteditor := DEFAULT RECORD
+                      , setwidget := DEFAULT RECORD ARRAY
+                      , sitelanguage := DEFAULT RECORD
+                      , tagsources := DEFAULT RECORD ARRAY
+                      , template := DEFAULT RECORD
+                      , typemappings := DEFAULT RECORD ARRAY
+                      , uploadtypemapping := DEFAULT RECORD ARRAY
+                      , urlevents := DEFAULT RECORD
+                      , urlhistory := DEFAULT RECORD
+                      , usepublishtemplate := DEFAULT RECORD
+                      , webdesign := DEFAULT RECORD
+                      , formdefinitions := DEFAULT RECORD ARRAY
+                      , prebuiltpages := DEFAULT RECORD ARRAY
+                      , mailtemplates := RECORD[]
+                      , foldersettings := DEFAULT RECORD
+                      , webtoolsformrules := DEFAULT RECORD ARRAY
+                      , rtddoc := DEFAULT RECORD
+                      ];
+
+      IF(NOT IsNodeApplicableToThisWebHare(applyblock))
+        CONTINUE;
+
+      STRING ARRAY seenuniques;
+
+      FOREVERY(OBJECT node FROM applyblock->childnodes->GetCurrentElements())
+      {
+        IF(node->localname IN ["bodyrenderer","sitelanguage","folderindex","template", "contentlisting", "setdynamictemplate", "rtddoc"
+                              ,"setobjecteditor"])
+        {
+          IF(node->localname IN seenuniques)
+          {
+            this->AddError(node, "Duplicate <" || node->localname || "> in a single apply block");
+            CONTINUE;
+          }
+          INSERT node->localname INTO seenuniques AT END;
+        }
+
+        TRY
+        {
+          IF(node->namespaceuri = namespace_sp)
+          {
+            SWITCH(node->localname)
+            {
+              CASE "to","not","and","or","xor","testtype","testdata"
+              {
+                CONTINUE; //make sure these do not get recorded as custom nodes
+              }
+              CASE "extendproperties", "undoextendproperties"
+              {
+                STRING extension := this->ParseTolliumRef(node,"extension");
+                STRING contenttype := this->MapNamespace(node->GetAttribute("contenttype"), FALSE);
+                IF(contenttype = "" AND extension != "")
+                  this->AddError(node, "An extendproperties with extension= requires a content type");
+
+                RECORD applynode := [ isundo := node->localname = "undoextendproperties"
+                                    , contenttype := contenttype
+                                    , requireright := node->GetAttribute("requireright")
+                                    , requirewebdesign := ParseXSBoolean(node->GetAttribute("requirewebdesign"))
+                                    , name := node->GetAttribute("name")
+                                    , extension := extension
+                                    , mask := node->GetAttribute("mask")
+                                    ];
+                INSERT applynode INTO apply.extendproperties AT END;
+                CONTINUE;
+              }
+              CASE "allowtemplate"
+              {
+                INSERT [ fullpath := node->GetAttribute("fullpath")
+                       , site := node->GetAttribute("site")
+                       ] INTO apply.allowtemplates AT END;
+                CONTINUE;
+              }
+              CASE "allowprofile"
+              {
+                INSERT [ fullpath := node->GetAttribute("fullpath")
+                       , site := node->GetAttribute("site")
+                       ] INTO apply.allowprofiles AT END;
+                CONTINUE;
+              }
+              CASE "formdefinitions"
+              {
+                INSERT [ path := MakeLegacyAbsoluteResourcePath(this->filename, node->GetAttribute("path"), "data")
+                       , name := node->GetAttribute("name")
+                       ] INTO apply.formdefinitions AT END;
+                CONTINUE;
+              }
+              CASE "webdesign"
+              {
+                apply.webdesign :=  this->ParseWebDesign(node);
+                CONTINUE;
+              }
+              CASE "baseproperties"
+              {
+                apply.baseproperties := [ haslist := GetHasList(node, ["title","description","keywords"])
+                                        , title := ParseXSBoolean(node->GetAttribute("title"))
+                                        , description := ParseXSBoolean(node->GetAttribute("description"))
+                                        , keywords := ParseXSBoolean(node->GetAttribute("keywords"))
+                                        ];
+                CONTINUE;
+              }
+              CASE "urlhistory"
+              {
+                apply.urlhistory := [ haslist := GetHasList(node, ["redirecton404","store","passthrough"])
+                                    , redirecton404 := ParseXSBoolean(node->GetAttribute("redirecton404"))
+                                    , store := ParseXSBoolean(node->GetAttribute("store"))
+                                    , passthrough := ParseXSList(node->GetAttribute("passthrough"))
+                                    ];
+                CONTINUE;
+              }
+              CASE "urlevents"
+              {
+                apply.urlevents := [ haslist := GetHasList(node, ["enabled"])
+                                   , enabled := ParseXSBoolean(node->GetAttribute("enabled"))
+                                   ];
+                CONTINUE;
+              }
+              CASE "bodyrenderer"
+              {
+                apply.bodyrenderer := [ library := this->ParseFSPath(node, "library")
+                                      , rendermacro := node->GetAttribute("rendermacro")
+                                      , preparemacro := node->GetAttribute("preparemacro")
+                                      , objectname  := node->GetAttribute("objectname")
+                                      ];
+                CONTINUE;
+              }
+              CASE "sitelanguage"
+              {
+                apply.sitelanguage := [ lang := node->GetAttribute("lang")
+                                      , getlanguagefunction := this->ParseFSPath(node, "getlanguagefunction")
+                                      , has_lang := node->HasAttribute("lang")
+                                      , has_getlanguagefunction := node->HasAttribute("getlanguagefunction")
+                                      ];
+                CONTINUE;
+              }
+              CASE "usepublishtemplate"
+              {
+                apply.usepublishtemplate := [ script := this->ParseFSPath(node, "script")
+                                            , skipnormalrepublish := ParseXSBoolean(node->GetAttribute("skipnormalrepublish"))
+                                            ];
+
+                IF(apply.usepublishtemplate.script = "")
+                {
+                  apply.usepublishtemplate.script := siteprof->ParseFSTwopartPathString(node->GetAttribute("site"), node->GetAttribute("fullpath"));
+                }
+                CONTINUE;
+              }
+              CASE "allowfoldertype", "denyfoldertype"
+              {
+                INSERT [ isallow := node->localname LIKE "allow*"
+                       , typedef := node->GetAttribute("typedef")
+                       ] INTO apply.modifyfoldertypes AT END;
+                CONTINUE;
+              }
+              CASE "allowfiletype", "denyfiletype"
+              {
+                INSERT [ isallow := node->localname LIKE "allow*"
+                       , typedef := node->GetAttribute("typedef")
+                       ] INTO apply.modifyfiletypes AT END;
+                CONTINUE;
+              }
+              CASE "uploadtypemapping"
+              {
+                INSERT [ filenamemask := node->GetAttribute("filenamemask")
+                       , mimetypemask := node->GetAttribute("mimetypemask")
+                       , filetype     := node->GetAttribute("filetype")
+                       ] INTO apply.uploadtypemapping AT END;
+                CONTINUE;
+              }
+              CASE "tagsource"
+              {
+                RECORD rec :=
+                    [ contenttype :=    node->GetAttribute("contenttype")
+                    , membername :=     node->GetAttribute("member")
+                    , tagfolder :=      this->ParseFSPath(node, "tagfolder")
+                    , repository :=     node->GetAttribute("repository")
+                    , allowcreate :=    ParseXSBoolean(node->GetAttribute("allowcreate"))
+                    ];
+                INSERT rec INTO apply.tagsources AT RecordUpperBound(apply.tagsources, rec, [ "CONTENTTYPE", "MEMBERNAME" ]);
+                CONTINUE;
+              }
+              CASE "republish"
+              {
+                INSERT [ onchange := node->GetAttribute("onchange")
+                       , sitemask := node->GetAttribute("sitemask")
+                       , folder   := node->GetAttribute("folder")
+                       , mask     := node->HasAttribute("mask") ? node->GetAttribute("mask") : "*"
+                       , recursive:= ParseXSBoolean(node->GetAttribute("recursive"))
+                       , indexonly:= ParseXSBoolean(node->GetAttribute("indexonly"))
+                       , scope    := node->GetAttribute("scope")
+                       ] INTO apply.republishes AT END;
+                CONTINUE;
+              }
+              CASE "scheduletimedtask"
+              {
+                INSERT [ task := node->GetAttribute("task")
+                       ] INTO apply.scheduletasknows AT END;
+                CONTINUE;
+              }
+              CASE "folderindex"
+              {
+                RECORD data := [ indexfile        := node->GetAttribute("indexfile")
+                               , protectindexfile := ParseXSBoolean(node->GetAttribute("protectindexfile"))
+                               , fullpath         := node->GetAttribute("fullpath")
+                               , site             := node->GetAttribute("site")
+                               , newfiletype      := node->GetAttribute("newfiletype")
+                               , newfilename      := node->GetAttribute("newfilename")
+                               ];
+
+                IF (data.indexfile = "copy_of_file" AND data.fullpath="")
+                {
+                  this->AddError(node, "Folder index definition selected copy_of_file, but does not specify fullpath");
+                  CONTINUE;
+                }
+                IF (data.indexfile = "newfile" AND data.newfiletype="")
+                {
+                  this->AddError(node, "Folder index definition selected newfile, but does not specify a newfiletype");
+                  CONTINUE;
+                }
+                apply.folderindex := data;
+                CONTINUE;
+              }
+              CASE "rtddoc"
+              {
+                RECORD data := [ margins := node->GetAttribute("margins")
+                               , rtdtype := node->GetAttribute("rtdtype")
+                               , htmlclass := node->GetAttribute("htmlclass")
+                               , bodyclass := node->GetAttribute("bodyclass")
+                               ];
+
+                IF(NOT node->HasAttribute("margins") OR data.margins NOT IN whconstant_tollium_rtd_margins)
+                  DELETE CELL margins FROM data;
+                IF(NOT node->HasAttribute("rtdtype"))
+                  DELETE CELL rtdtype FROM data;
+                IF(NOT node->HasAttribute("htmlclass"))
+                  DELETE CELL htmlclass FROM data;
+                IF(NOT node->HasAttribute("bodyclass"))
+                  DELETE CELL bodyclass FROM data;
+
+                apply.rtddoc := data;
+                CONTINUE;
+              }
+              CASE "template", "contentlisting", "setdynamictemplate"
+              {
+                RECORD data := [ fullpath := node->GetAttribute("fullpath")
+                               , site := node->GetAttribute("site")
+                               ];
+                IF(data.fullpath="")
+                {
+                  this->AddError(node, "<" || node->localname || "> definition does not specify fullpath");
+                  CONTINUE;
+                }
+
+                apply := CellUpdate(apply, node->localname, data);
+                CONTINUE;
+              }
+              CASE "defaultsettings"
+              {
+                RECORD settings := [ typedef := node->GetAttribute("typedef")
+                                   , members := DEFAULT RECORD ARRAY
+                                   ];
+                FOREVERY(OBJECT memberobj FROM node->GetChildElementsByTagNameNS(namespace_sp, "member")->GetCurrentElements())
+                {
+                  INSERT [ name := memberobj->GetAttribute("name")
+                         , content := memberobj->textcontent
+                         ] INTO settings.members AT END;
+                }
+                INSERT settings INTO apply.defaultsettings AT END;
+                CONTINUE;
+              }
+              CASE "setobjecteditor"
+              {
+                apply.setobjecteditor := [ name := node->GetAttribute("name")
+                                         , screen := MakeAbsoluteScreenReference(this->filename, node->GetAttribute("screen"))
+                                         , separateapp := ParseXSBoolean(node->GetAttribute("separateapp"))
+                                         , supportsversioning := ParseXSBoolean(node->GetAttribute("supportsversioning"))
+                                         ];
+
+                IF(apply.setobjecteditor.name = "" AND apply.setobjecteditor.screen = "")
+                  this->Adderror(node, "<setobjecteditor> lacks both name and screen");
+                ELSE IF(apply.setobjecteditor.name != "" AND apply.setobjecteditor.screen != "")
+                  this->Adderror(node, "<setobjecteditor> has both name and screen, only one is allowed");
+                CONTINUE;
+              }
+              CASE "setwidget"
+              {
+                apply.setwidget := apply.setwidget CONCAT
+                   [[ contenttype := node->GetAttribute("contenttype")
+                    , editor := this->GetWidgetEditor(node)
+                    , renderer := this->GetWidgetRenderer(node)
+                    , wittycomponent := this->ExpandWittyComponent(node, "wittycomponent")
+                    , previewcomponent := this->ExpandWittyComponent(node, "previewcomponent")
+                    , has_wittycomponent := node->HasAttribute("wittycomponent")
+                    , has_previewcomponent := node->HasAttribute("previewcomponent")
+                   ]];
+              }
+              CASE "disablelegacysitesettings"
+              {
+                apply.disablelegacysitesettings := TRUE;
+                apply.disabletemplateprofile := ParseXSBoolean(node->GetAttribute("notemplateprofile"));
+                CONTINUE;
+              }
+              CASE "customplugin"
+              {
+                RECORD plugin := MakePluginRecord(this->ParseFunctionRef(node, "library", "objectname"));
+                plugin := InstantiatePlugin(plugin);
+                plugin.combine := FALSE;
+
+                INSERT plugin INTO apply.plugins AT END;
+                CONTINUE;
+              }
+              CASE "enabledrafts"
+              {
+                apply.enabledrafts := TRUE;
+                CONTINUE;
+              }
+              CASE "setlibrary"
+              {
+                INSERT [ name := node->GetAttribute("name")
+                       , sources := this->ParseSources(node)
+                       ] INTO apply.setlibrary AT END;
+                CONTINUE;
+              }
+              CASE "foldersettings"
+              {
+                apply.foldersettings := [ filterscreen := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("filterscreen"))
+                                        , has_filterscreen := node->HasAttribute("filterscreen")
+                                        , ordering := node->GetAttribute("ordering")
+                                        , contentslisthandler := DEFAULT RECORD
+                                        ];
+
+                OBJECT contentslisthandler := node->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile","contentslisthandler")->Item(0);
+                IF(ObjectExists(contentslisthandler))
+                {
+                  apply.foldersettings.contentslisthandler := [ library := MakeAbsoluteResourcePath(this->filename, contentslisthandler->GetAttribute("library"))
+                                                              , objectname := contentslisthandler->GetAttribute("objectname")
+                                                              ];
+                }
+                CONTINUE;
+              }
+              CASE "prebuiltpage"
+              {
+                STRING ARRAY haslist := GetHasList(node, ["type","title","capturesubpaths"]) CONCAT ["dynexecute"];
+                IF("title" NOT IN haslist AND node->HasAttribute("tid"))
+                  INSERT "title" INTO haslist AT END;
+
+
+                INSERT CELL [ type := node->GetAttribute('type')
+                            , tag := node->GetAttribute('tag')
+                            , haslist := haslist
+                            , title := ParseXMLTidPtr(this->module, this->toplevelgid, node, "title")
+                            , dynexecute := this->ParseDynamicExecuteData(node)
+                            , capturesubpaths := ParseXSBoolean(node->GetAttribute("capturesubpaths"))
+                            ]
+                       INTO apply.prebuiltpages AT END;
+                CONTINUE;
+              }
+              CASE "mailtemplate"
+              {
+                INSERT CELL[ path := this->siteprof->ParseFSPath(node, "path")
+                           , title := ParseXMLTidPtr(this->module, this->toplevelgid, node, "title")
+                           , ordering := ParseXSInt(node->GetAttribute("ordering"))
+                           , sources := this->ParseSources(node)
+                           ] INTO apply.mailtemplates AT END;
+                CONTINUE;
+              }
+              CASE "allowformquestion","denyformquestion"
+              {
+                INSERT
+                    [ comp := "component"
+                    , type := node->GetAttribute("type")
+                    , allow := node->localname LIKE "allow*"
+                    ] INTO apply.webtoolsformrules AT END;
+                CONTINUE;
+              }
+              CASE "allowformhandler","denyformhandler"
+              {
+                INSERT
+                    [ comp := "handler"
+                    , type := node->GetAttribute("type")
+                    , allow := node->localname LIKE "allow*"
+                    ] INTO apply.webtoolsformrules AT END;
+                CONTINUE;
+              }
+              CASE "allowformrtdtype","denyformrtdtype"
+              {
+                INSERT
+                    [ comp := "rtdtype"
+                    , type := node->GetAttribute("type")
+                    , allow := node->localname LIKE "allow*"
+                    ] INTO apply.webtoolsformrules AT END;
+                CONTINUE;
+              }
+            }
+          }
+
+          //Verify it against the list of plugins
+          BOOLEAN matched;
+          FOREVERY(RECORD plugin FROM this->parameters->webdesignplugins)
+            IF(plugin.namespace = node->namespaceuri AND plugin.name = node->localname)
+            {
+              //Instantiate the plugin to let it parse its own settings
+              errorsarenowfatal := TRUE; //any error here should abort siteprofile compilation to avoid plugins silently disappearing due to out-of-date errors
+              OBJECT pluginobj := MakeObject(plugin.objectname);
+              plugin := InstantiatePlugin(plugin);
+              errorsarenowfatal := FALSE;
+
+              plugin.data := pluginobj->ParseConfigurationNode(this, node);
+              IF(RecordExists(plugin.data))
+              {
+                INSERT CELL __attributes := pluginobj->ListConfigurationNodeAttributes(node)
+                          , __location := this->filename || ":" || node->linenum
+                       INTO plugin.data;
+              }
+
+              INSERT plugin INTO apply.plugins AT END;
+              matched := TRUE;
+              BREAK;
+            }
+
+          IF(NOT matched)
+            FOREVERY(RECORD siteprofnode FROM this->parameters->customnodes)
+              IF(siteprofnode.namespace = node->namespaceuri  AND siteprofnode.name = node->localname)
+              {
+                matched := TRUE;
+                INSERT [ namespaceuri := node->namespaceuri, localname := node->localname ] INTO apply.customnodes AT END;
+                BREAK;
+              }
+
+          //Anything not processed, is a custom node requestable by GetCustomSiteProfileSettings
+          IF(NOT matched)
+          {
+            this->AddError(node, "Unrecognized or unsupported node " || node->namespaceuri || "#" || node->localname);
+          }
+        }
+        CATCH(OBJECT e)
+        {
+          IF(errorsarenowfatal)
+            THROW;
+
+          this->AddError(node, e->what);
+        }
+      }
+      INSERT apply INTO applyrules AT END;
+    }
+    RETURN applyrules;
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetSiteSettingNodes()
+  {
+    OBJECT ARRAY applicablenodes;
+    FOREVERY(OBJECT node FROM this->siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "sitesettings")->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(node))
+        CONTINUE;
+      INSERT node INTO applicablenodes AT END;
+    }
+    RETURN applicablenodes;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ImportSiteSettings()
+  {
+    // Get the module from the siteprofile path
+    STRING module;
+    IF (this->siteprof->name LIKE "mod*::*/*")
+      module := Tokenize(Tokenize(this->siteprof->name, ":")[2], "/")[0];
+
+    RECORD ARRAY sitesettings;
+    FOREVERY(OBJECT siteset FROM this->GetSiteSettingNodes())
+    {
+      RECORD sitesetting := [ sitefilter := ReadSiteFilter(siteset)
+                            , webrules := DEFAULT RECORD ARRAY
+                            , addtoindices := DEFAULT RECORD ARRAY
+                            , line := siteset->linenum
+                            ];
+
+      OBJECT ARRAY sitewebrules := siteset->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webruleset")->GetCurrentElements();
+      FOREVERY(OBJECT webruleset FROM sitewebrules)
+      {
+        INTEGER priority := ParseWebRulePriority(webruleset->GetAttribute("priority"));
+
+        FOREVERY(OBJECT webrule FROM GetWebRuleNodes(webruleset))
+        {
+          RECORD baserule := GetBaseWebRule(-9999999, webrule->GetAttribute("path"), priority, this->siteprof->name || ":" || webrule->linenum);
+          RECORD parsed := ParseWebRuleData(module, baserule, webrule, this->siteprof->name);
+          this->errormessages := this->errormessages CONCAT parsed.errors;
+          this->warnings := this->warnings CONCAT parsed.warnings;
+
+          IF(NOT RecordExists(parsed.rule))
+            CONTINUE;
+
+          RECORD therule := [ rule :=         parsed.rule
+                            , module :=       GetModuleNameFromResourcePath(this->siteprof->name)
+                            , siteprofile :=  this->siteprof->name
+                            , line :=         webrule->linenum
+                            , col :=          0
+                            ];
+
+          INSERT therule INTO sitesetting.webrules AT END;
+        }
+      }
+
+      OBJECT ARRAY addtoindices := siteset->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/consilio", "addtoindex")->GetCurrentElements();
+      FOREVERY(OBJECT addtoindex FROM addtoindices)
+      {
+        RECORD theindex := [ name := addtoindex->GetAttribute("name")
+                           , tag := addtoindex->GetAttribute("tag")
+                           , maxgroupobjects := ParseXSInt(addtoindex->GetAttribute("maxgroupobjects"))
+                           , discardsummaries := ParseXSBoolean(addtoindex->GetAttribute("discardsummaries"))
+                           , http_username := addtoindex->GetAttribute("http_username")
+                           , http_password := addtoindex->GetAttribute("http_password")
+                           , module := module
+                           , siteprofile := this->siteprof->name
+                           , line := addtoindex->linenum
+                           , col := 0
+                           ];
+
+        INSERT theindex INTO sitesetting.addtoindices AT END;
+      }
+      INSERT sitesetting INTO sitesettings AT END;
+    }
+    RETURN sitesettings;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ImportGroupTypes()
+  {
+    RECORD ARRAY types;
+    OBJECT ARRAY grouptypes := this->siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "grouptype")->GetCurrentElements();
+    FOREVERY(OBJECT gtype FROM grouptypes)
+    {
+      RECORD typeinfo :=
+          [ namespace :=          gtype->GetAttribute("namespace")
+          , title :=              ParseXMLTIDPtr(this->module, this->toplevelgid, gtype, "title") ?? ":" || gtype->GetAttribute("namespace")
+          , tolliumicon :=        gtype->GetAttribute("tolliumicon")
+          , members :=            DEFAULT RECORD ARRAY
+          ];
+
+      INSERT typeinfo INTO types AT END;
+  }
+    RETURN types;
+  }
+  PUBLIC RECORD ARRAY FUNCTION ImportGlobalSettings()
+  {
+    RECORD ARRAY globalsettings;
+    FOREVERY(OBJECT node FROM this->siteprof->xmldoc->documentelement->childnodes->GetCurrentElements())
+    {
+      //ADDME don't ignore namespaces completely, just ignore nodes that don't have an explicit definition
+      IF(node->namespaceuri = "http://www.webhare.net/xmlns/publisher/siteprofile"
+         OR node->namespaceuri = "http://www.webhare.net/xmlns/tollium/screens"
+         OR node->namespaceuri = "http://www.webhare.net/xmlns/system/moduledefinition")
+        CONTINUE;
+
+      INSERT [ siteprofile := this->siteprof->name
+//             , siteids := siteids
+//             , allsites := allsites
+             , idx := #node
+             , ns := node->namespaceuri
+             , localname := node->localname
+             ] INTO globalsettings AT END;
+    }
+    RETURN globalsettings;
+  }
+  PUBLIC STRING ARRAY FUNCTION ParseApplySiteProfiles()
+  {
+    STRING ARRAY loadprofiles;
+    FOREVERY(OBJECT resdep FROM this->siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile","applysiteprofile")->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(resdep))
+        CONTINUE;
+
+      STRING toload;
+      IF(resdep->HasAttribute("path"))
+      {
+        toload := this->siteprof->ParseFSPath(resdep, "path");
+      }
+      ELSE
+      {
+        toload := this->siteprof->ParseFSTwopartPathString(resdep->GetAttribute("site"), resdep->GetAttribute("fullpath"));
+        this->AddWarning(resdep, `<applysiteprofile/> should use path=, not site=/fullpath=`);
+      }
+      toload := MakeAbsoluteResourcePath("", toload);
+      TRY
+      {
+        GetWebhareResource(toload); //validate its existence
+        INSERT toload INTO loadprofiles AT END;
+      }
+      CATCH(OBJECT e)
+      {
+        this->AddError(resdep, e->what);
+      }
+    }
+    RETURN loadprofiles;
+  }
+>;
+
+//it should be save to persist this for the current job, as compilation/validation jobs generally dont run long, but a full siteprof recompiler can otherwise build this object 100s of times (341 for me)
+OBJECT parametersingleton;
+
+PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, STRING scopenamespace, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ xmldoc := DEFAULT OBJECT
+                              ], options);
+
+  RECORD siteprofdata := [ name := filename
+                         , isscoped := FALSE
+                         //, sites := siteids
+                         //, allsites := allsites
+                         , applysiteprofiles := DEFAULT STRING ARRAY
+                         , loadpackages := DEFAULT RECORD ARRAY
+                         , langinfo := DEFAULT RECORD
+                         , errors := DEFAULT RECORD ARRAY
+                         , warnings := RECORD[]
+                         , contenttypes := DEFAULT RECORD ARRAY
+                         // , applyrules := DEFAULT RECORD ARRAY
+                         // , sitesettings := DEFAULT RECORD ARRAY
+                         // , globalsettings := DEFAULT RECORD ARRAY
+                         , grouptypes := DEFAULT RECORD ARRAY
+                         , rules := RECORD[]
+                         ];
+
+  RECORD ARRAY errors, warnings;
+  OBJECT siteprof;
+  OBJECT siteprofcontext;
+  IF(NOT ObjectExists(parametersingleton))
+    parametersingleton := PrepareCompile();
+
+  TRY
+  {
+    siteprof := NEW SiteProfileObject(0, filename, [ xmldoc := options.xmldoc ]);
+    siteprofcontext := NEW SiteprofileCompilationContext(filename, siteprof, scopenamespace, parametersingleton);
+    OBJECT realdoc := siteprof->xmldoc;
+
+    IF(Length(realdoc->GetParseErrors()) > 0)
+      errors := errors CONCAT SELECT resourcename := filename, line, col := 0, message FROM realdoc->GetParseErrors();
+
+    IF(ObjectExists(parametersingleton->siteprofile_schemadef)) //no parse errors, schema available, validate!
+    {
+      RECORD ARRAY validateerrors := parametersingleton->siteprofile_schemadef->ValidateDocument(realdoc);
+      IF(Length(validateerrors)>0)
+        errors := errors CONCAT SELECT resourcename := filename, line, col := 0, message FROM validateerrors;
+    }
+
+    OBJECT siteprofroot := siteprof->xmldoc->documentelement;
+
+    siteprofcontext->ReadContentTypes();
+    siteprofcontext->ParseFolderTypes();
+    siteprofcontext->ParseFileTypes();
+
+    siteprofdata.isscoped := siteprofcontext->isscoped;
+    siteprofdata.rules := (SELECT *, ruletype := "apply" FROM siteprofcontext->ImportApplies())
+                          CONCAT
+                          (SELECT *, ruletype := "sitesetting" FROM siteprofcontext->ImportSiteSettings())
+                          CONCAT
+                          (SELECT *, ruletype := "globalsetting" FROM siteprofcontext->ImportGlobalSettings());
+
+    siteprofdata.applysiteprofiles := siteprofcontext->ParseApplySiteProfiles();
+    siteprofdata.loadpackages := ParseLoadPackages(siteprof);
+    siteprofdata.grouptypes := siteprofcontext->ImportGroupTypes();
+
+    IF(RecordExists(siteprofdata))
+    {
+      OBJECT langnode := siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "languagefolder")->Item(0);
+      IF(ObjectExists(langnode))
+      {
+        siteprofdata.langinfo := [ embedded := FALSE
+                                 , fullpath := siteprof->ParseFSPath(langnode, "fullpath")
+                                 ];
+      }
+      ELSE IF(siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "language")->Length > 0)
+      {
+        siteprofdata.langinfo := [ embedded := TRUE ];
+      }
+    }
+  }
+  CATCH(OBJECT e)
+  {
+    INSERT [ resourcename := filename, line := 0, col := 0, message := e->what ] INTO errors AT END;
+  }
+
+  IF(ObjectExists(siteprofcontext))
+  {
+    errors := siteprofcontext->GetErrors() CONCAT errors;
+    warnings := siteprofcontext->GetWarnings() CONCAT warnings;
+    siteprofdata.contenttypes := siteprofcontext->contenttypes;
+  }
+  siteprofdata.errors := errors;
+  siteprofdata.warnings := warnings;
+  RETURN [ value := siteprofdata
+         , ttl := 60*60*1000
+         , eventmasks := GetResourceEventMasks([filename])
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetParsedSiteProfile(STRING resourcename, STRING scopenamespace)
+{
+  RETURN GetAdhocCached( CELL [resourcename, scopenamespace], PTR ParseSiteProfile(resourcename, scopenamespace));
+}
+
+OBJECTTYPE RecompileParameters
+<
+  PUBLIC OBJECT siteprofile_schemadef;
+  PUBLIC RECORD ARRAY webdesignplugins;
+  PUBLIC RECORD ARRAY customnodes;
+  PUBLIC STRING ARRAY basesiteprofiles;
+
+  MACRO NEW()
+  {
+    RECORD sdef := __RetrieveCachedXMLSchema("mod::publisher/data/siteprofile.xsd");
+    this->siteprofile_schemadef := sdef.doc;
+  }
+>;
+PUBLIC OBJECT FUNCTION PrepareCompile()
+{
+  OBJECT parameters := NEW RecompileParameters;
+
+  //Figure out what we need to look out for
+  FOREVERY(RECORD mod FROM GetWebHareModules())
+  {
+    parameters->webdesignplugins := parameters->webdesignplugins CONCAT mod.webdesignplugins;
+    parameters->customnodes := parameters->customnodes CONCAT mod.customnodes;
+    parameters->basesiteprofiles := parameters->basesiteprofiles CONCAT mod.basesiteprofiles;
+  }
+  RETURN parameters;
+}
+
+

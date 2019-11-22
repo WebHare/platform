@@ -1,0 +1,67 @@
+.wh-menu
+{
+  padding: 0;
+  margin: 0;
+  list-style-type: none;
+  cursor: pointer;
+}
+.wh-menu:not(.wh-scrollableview):not(.wh-menubar)
+{
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+.wh-menu a
+{
+  cursor: inherit;
+  color: inherit;
+  text-decoration: inherit;
+}
+.wh-menu li
+{
+  position:relative;
+}
+.wh-menu li.hidden
+{
+  display:none;
+}
+  .wh-menu ul
+, .wh-menulist
+{
+  display:none;
+}
+.wh-menubar
+{
+  position:relative;
+}
+.wh-menubar li
+{
+  display:inline-block;
+}
+.wh-menulist.open
+{
+  display:block;
+  position: absolute;
+}
+.wh-menu li.divider:before
+{
+  display:inline;
+}
+
+  .wh-menu li.wh-menu-disabled
+, .wh-menu li.disabled
+{
+  cursor:default;
+  color:rgb(152, 152, 152);
+}
+
+.wh-submenu-noscroll
+{
+  overflow-x: hidden;
+}
+
+.wh-menu-expose-for-measurement
+{
+  display: block !important;
+  position: absolute !important;
+  visibility: hidden !important;
+}

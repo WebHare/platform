@@ -1,0 +1,100 @@
+﻿<?wh
+LOADLIB "wh::internet/tcpip.whlib";
+
+/** Receives a specified number of bytes from a socket connection, and sends them to function.
+    Data will be sent in chunks of max 32kb.
+    @return Whether the maximum number of bytes has been received.
+    @param connectionid Connection to read from
+    @param maxsize Maximum number of bytes to receive, or 0 to read until connection is closed
+    @param outputfunction Function to send the data to (signature: MACRO (STRING text)
+*/
+PUBLIC BOOLEAN FUNCTION ReceiveData(INTEGER connectionid, INTEGER maxsize, MACRO PTR outputfunction)
+{
+  RETURN RunGeneratorUntilReturn(ReceiveDataInternal(connectionid, maxsize, outputfunction, FALSE));
+}
+
+/** Asynchronously receives a specified number of bytes from a socket connection, and sends them to function.
+    Data will be sent in chunks of max 32kb.
+    @return Promise that will resolve to whether the maximum number of bytes have been received.
+    @param connectionid Connection to read from
+    @param maxsize Maximum number of bytes to receive, or 0 to read until connection is closed
+    @param outputfunction Function to send the data to (signature: MACRO (STRING text)
+*/
+PUBLIC OBJECT FUNCTION AsyncReceiveData(INTEGER connectionid, INTEGER maxsize, MACRO PTR outputfunction)
+{
+  RETURN GeneratorSpawn(ReceiveDataInternal(connectionid, maxsize, outputfunction, TRUE));
+}
+
+
+PUBLIC OBJECT FUNCTION* ReceiveDataInternal(INTEGER connectionid, INTEGER maxsize, MACRO PTR outputfunction, BOOLEAN isasync)
+{
+  BOOLEAN unlimited := maxsize = 0;
+  WHILE (unlimited OR maxsize>0)
+  {
+    INTEGER receive_now := 32768;
+    IF (NOT unlimited AND maxsize < receive_now)
+      receive_now := maxsize;
+
+    STRING received := isasync
+        ? YIELD AsyncReadFrom(connectionid, receive_now)
+        : ReadFrom(connectionid, receive_now);
+
+    IF (received="")
+    {
+      IF (NOT unlimited AND maxsize = 0)
+        BREAK;
+
+      INTEGER lasterror := GetLastSocketError(connectionid);
+      IF (lasterror <= 0) // No error and no data is end of stream (-13 wouldblock won't be given back)
+        BREAK;
+    }
+    ELSE
+    {
+      maxsize := maxsize - Length(received);
+      outputfunction(received);
+    }
+  }
+  RETURN maxsize = 0;
+}
+
+/** Receives a number of bytes from a socket connection, and sends them to a stream
+    @param connectionid Connection to receive bytes from
+    @param maxsize Number of bytes to read, or 0 to read until the connection is closed
+    @param streamid Stream to write to
+*/
+PUBLIC BOOLEAN FUNCTION ReceiveIntoStream(INTEGER connectionid, INTEGER maxsize, INTEGER streamid)
+{
+  RETURN RunGeneratorUntilReturn(ReceiveDataInternal(connectionid, maxsize, PTR PrintTo(streamid,#1), FALSE));
+}
+
+/** Receives a number of bytes from a socket connection, and sends them to a stream
+    @param connectionid Connection to receive bytes from
+    @param maxsize Number of bytes to read, or 0 to read until the connection is closed
+    @param streamid Stream to write to
+*/
+PUBLIC OBJECT FUNCTION AsyncReceiveIntoStream(INTEGER connectionid, INTEGER maxsize, INTEGER streamid)
+{
+  RETURN GeneratorSpawn(ReceiveDataInternal(connectionid, maxsize, PTR PrintTo(streamid,#1), TRUE));
+}
+
+OBJECTTYPE StringKeeper
+< PUBLIC STRING result;
+  PUBLIC MACRO AddToString(STRING toadd)
+  {
+    this->result := this->result || toadd;
+  }
+>;
+
+PUBLIC STRING FUNCTION ReceiveString(INTEGER connectionid, INTEGER maxsize)
+{
+  OBJECT keeper := NEW StringKeeper;
+  ReceiveData(connectionid, maxsize, PTR keeper->AddToString);
+  RETURN keeper->result;
+}
+
+PUBLIC OBJECT ASYNC FUNCTION AsyncReceiveString(INTEGER connectionid, INTEGER maxsize)
+{
+  OBJECT keeper := NEW StringKeeper;
+  AWAIT AsyncReceiveData(connectionid, maxsize, PTR keeper->AddToString);
+  RETURN keeper->result;
+}

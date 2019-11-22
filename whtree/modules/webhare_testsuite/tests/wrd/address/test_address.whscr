@@ -1,0 +1,371 @@
+<?wh
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
+LOADLIB "mod::wrd/lib/internal/addressverification/support.whlib";
+
+MACRO GenericCodes()
+{
+  TestEq([nr:="13", detail:="6"], SplitHousenumber("13 6"));
+  TestEq([nr:="13", detail:=""], SplitHousenumber("13"));
+  TestEq([nr:="13", detail:="-6"], SplitHousenumber("13-6"));
+
+  TestEq("13-6", JoinHousenumber("13","-6"));
+  TestEq("13 6", JoinHousenumber("13","6"));
+  TestEq("13a", JoinHousenumber("13","a"));
+  TestEq("13a", JoinHousenumber("13"," a"));
+
+  RECORD field := GetAddressField("COUNTRY");
+  TestEq("Country",field.title);
+  TestEq("country",field.autocomplete);
+
+  field := GetAddressField("country", [ language := "nl" ]);
+  TestEq("Land",field.title);
+  TestEq("country",field.autocomplete);
+  TestEq(TRUE, field.required);
+  TestEq(FALSE, CellExists(field,'break_after'));
+
+  field := GetAddressField("ZIP");
+  TestEq("postal-code",field.autocomplete);
+  TestEq(FALSE, field.required);
+  TestEq(FALSE, CellExists(field,'break_after'));
+
+  TestThrows(PTR GetAddressField("XXXX"));
+}
+
+MACRO NLCodes()
+{
+  TestEq("7522 MB", FixupZipCodeNL("7522mb"));
+  TestEq("7522 MB", FixupZipCodeNL("  7522    mb "));
+  TestEq("7522 MB", FixupZipCodeNL("7522MB"));
+  TestEq("7522 MB", FixupZipCodeNL("752 2MB"));
+  TestEq("", FixupZipCodeNL("0999MB"));
+  TestEq("", FixupZipCodeNL("752 2M"));
+  TestEq("", FixupZipCodeNL("752 23 M"));
+
+  TestEq("7522 MB", FixupZipCodeNL("N L-7522mb"));
+  TestEq("7522 MB", FixupZipCodeNL("NL-  7522    mb "));
+  TestEq("7522 MB", FixupZipCodeNL("NL-7522MB"));
+  TestEq("7522 MB", FixupZipCodeNL("NL-752 2MB"));
+  TestEq("", FixupZipCodeNL("NL-0999MB"));
+  TestEq("", FixupZipCodeNL("NL-752 2M"));
+  TestEq("", FixupZipCodeNL("NL-752 23 M"));
+
+  RECORD format := GetAddressFormat("nl");
+  TestEq(4, Length(format.fields));
+  TestEq('Number', format.fields[1].title);
+  TestEq((SELECT * FROM format.fields), format.fields, "Should be returned in proper order");
+
+  format := GetAddressFormat("NL", [ language := "nl" ]);
+  TestEq(4, Length(format.fields));
+  TestEq('Straat', format.fields[0].title);
+  TestEq(FALSE, format.fields[0].break_after);
+  TestEq('Huisnummer', format.fields[1].title);
+  TestEq(TRUE, format.fields[1].break_after);
+
+  TestEq(DEFAULT RECORD, FixupAddress(DEFAULT RECORD));
+  TestEq([ street := "", nr_detail := "", city := "", country := "NL", zip := "7512 AB" ], FixupAddress([ country := "nl", zip := "7512ab" ]));
+  TestEq([ street := "", nr_detail := "", city := "", country := "NL", zip := "7512 AB" ],  FixupAddress([ country := "NL", zip := "7512ab" ]));
+  TestEq([ street := "", nr_detail := "", city := "", country := "NL", zip := "7512 AB" ],  FixupAddress([ country := "NL", zip := "NL-7512 AB" ]));
+  TestEq([ street := "", nr_detail := "", city := "", country := "CY", zip := "7512ab" ],  FixupAddress([ country := "Cy", zip := "7512ab" ]));
+
+  //Now through a schema
+  TestEq([ street := "", nr_detail := "", city := "", country := "NL", zip := "7512 AB" ], FixupAddress([ country := "nl", zip := "7512ab" ]));
+}
+
+OBJECT ASYNC FUNCTION TolliumFieldsNew()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent", [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield" ]);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+
+  TestEq("", topscreen->comp->addressfield->value);
+  TestEq("<title:addressfield>", topscreen->comp->block->title);
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->comp->changeaction->TolliumClick());
+  TT("country")->value := "NL";
+  TestEq(4, Length(TT("countryfields")->currentfields));
+
+  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="STREET")->value := "Hengelosestraat";
+  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="NR_DETAIL")->value := "296";
+  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="ZIP")->value := "7521am";
+  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="CITY")->value := "Enschede";
+
+  TT("country")->value := "CF";
+  TestEq(2, Length(TT("countryfields")->currentfields));
+  TestEq("Enschede", (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="CITY")->value);
+
+  TT("country")->value := "NL"; //TODO restore nr_detail etc if we had them in the current session?
+  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="STREET")->value := "Hengelosestraat";
+  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="NR_DETAIL")->value := "296";
+  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="ZIP")->value := "7521am";
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq("Hengelosestraat 296\n7521 AM  Enschede\nNetherlands", topscreen->comp->addressfield->value);
+
+  topscreen->comp->wrdschema := testfw->GetWRDSchema(); //doesn't have effect yet. should eg. enable validation?
+  topscreen->comp->required := TRUE;
+  topscreen->validatevalue->TolliumClick();
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  RETURN TRUE;
+}
+
+MACRO TestAddressInfo()
+{
+  RECORD ARRAY expectnlfields :=
+      [ [ break_after := FALSE, ordering := 1, required := TRUE, tag := "STREET",    title := "Straat",     autocomplete := "address-line1"   ]
+      , [ break_after := TRUE,  ordering := 2, required := TRUE, tag := "NR_DETAIL", title := "Huisnummer", autocomplete := ""                ]
+      , [ break_after := FALSE, ordering := 4, required := TRUE, tag := "ZIP",       title := "Postcode",   autocomplete := "postal-code"     ]
+      , [ break_after := TRUE,  ordering := 5, required := TRUE, tag := "CITY",      title := "Plaats",     autocomplete := "address-level2"  ]
+      ];
+
+  TestEq(expectnlfields, GetWRDAddressInfo("nl", "nl")); //legacy api!
+  TestEq([ fields := SELECT *, DELETE ordering FROM expectnlfields ], GetAddressFormat("nl", [language:="nl"]));
+
+  RECORD format_us := GetAddressFormat("us", [language:="en"]);
+  TestEq(
+      [ [ break_after := FALSE, required := FALSE, tag := "NR_DETAIL", title := "Number",   autocomplete := ""                ]
+      , [ break_after := TRUE,  required := TRUE, tag := "STREET",     title := "Street",   autocomplete := "address-line1"   ]
+      , [ break_after := TRUE,  required := FALSE, tag := "POBOX",     title := "PO-Box",   autocomplete := ""                ]
+      , [ break_after := FALSE, required := TRUE, tag := "CITY",       title := "City",     autocomplete := "address-level2"  ]
+      , [ break_after := FALSE, required := TRUE, tag := "STATE",      title := "State",    autocomplete := "address-level1"  ]
+      , [ break_after := TRUE,  required := TRUE, tag := "ZIP",        title := "Zip code", autocomplete := "postal-code"     ]
+      ], format_us.fields);
+
+  TestEq("Hengelosestraat 296\n7521 AM  Enschede\nNetherlands", FormatAddress([ country := "NL", street := "Hengelosestraat", nr_detail := "296", city := "Enschede", zip := "7521AM" ], [ language := "EN"]));
+  TestEq("Hengelosestraat 296\n7521 AM  Enschede\nNederland", FormatAddress([ country := "NL", street := "Hengelosestraat", nr_detail := "296", city := "Enschede", zip := "7521AM" ], [ language := "NL"]));
+  TestEq("Hengelosestraat 296\n7521 AM  Enschede", FormatAddress([ country := "NL", street := "Hengelosestraat", nr_detail := "296", city := "Enschede", zip := "7521AM" ], [ language := "NL", showcountry := FALSE]));
+
+  TestEq("Unit A, 6870 Sellers Av\nBurnaby BC V5J 4R3\nCanada", FormatAddress([ country := "CA", street := "Sellers Av", nr_detail := "Unit A, 6870", city := "Burnaby", state := "BC", zip := "V5J 4R3" ], [ language := "en" ]));
+  TestEq("Unit A, 6870 Sellers Av\nBurnaby BC V5J 4R3\nCanada", FormatAddress([ country := "CA", street := "Unit A, 6870 Sellers Av", nr_detail := "", city := "Burnaby", state := "BC", zip := "V5J 4R3" ], [ language := "en" ]));
+}
+
+OBJECT ASYNC FUNCTION TolliumFieldsEdit()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+    [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield"
+    , settings := [ value := [ country := "NL", street := "Hengelosestraat", nr_Detail := "296", city := "Enschede", zip := "7521AM" ] ]
+    ]);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq("Hengelosestraat 296\n7521 AM  Enschede\nNetherlands", topscreen->comp->addressfield->value);
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->comp->changeaction->TolliumClick());
+  TestEq("NL", TT("country")->value);
+  TestEq("Hengelosestraat", (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="STREET")->value);
+
+//ADDME perhaps the first step in this test should have normalized already?
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TestEq("Hengelosestraat 296\n7521 AM  Enschede\nNetherlands", topscreen->comp->addressfield->value);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+    [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield"
+    , settings := [ required := TRUE, value := [ country := "ES", street := "La Rambla", nr_Detail := "32", city := "Barcelona", zip := "08002" ] ]
+    ]);
+
+  // Test for all fields required when initializing with a country with non-required fields
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(+1, PTR topscreen->comp->changeaction->TolliumClick());
+  TestEq("La Rambla", (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="STREET")->value);
+  TestEq([ required := FALSE ], SELECT AS RECORD CELL[ component->required ] FROM TT("countryfields")->currentfields WHERE tag="PROVINCE");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  testfw->BeginWork();
+  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "pdok" ]);
+  testfw->CommitWork();
+
+  scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+      [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield"
+      , settings := [ required := TRUE
+                    , value := [ country := "NL", street := "", nr_Detail := "296", city := "", zip := "7500 OO" ]
+                    , verification := TRUE
+                    , force_verification := TRUE
+                    , wrdschema := "wrdschema:" || testfw->GetWRDSchema()->tag
+                    ]
+      ]);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(+1, PTR TT(":Edit")->TolliumClick());
+  AWAIT ExpectNoScreenChange(PTR TT(":Verify address")->TolliumClick());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq("PDOK (Publieke Dienstverlening Op de Kaart) 296\n7500 OO  DO NOT SHIP - NIET VERZENDEN\nNetherlands", topscreen->comp->addressfield->value);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+      [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield"
+      , settings := [ required := TRUE
+                    , value := [ country := "NL", street := "", nr_Detail := "296", city := "", zip := "7521 AM" ]
+                    , verification := TRUE
+                    , force_verification := TRUE
+                    , wrdschema := "wrdschema:" || testfw->GetWRDSchema()->tag
+                    ]
+      ]);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(+1, PTR TT(":Edit")->TolliumClick());
+  AWAIT ExpectNoScreenChange(PTR TT(":Verify address")->TolliumClick());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq("Hengelosestraat 296\n7521 AM  Enschede\nNetherlands", topscreen->comp->addressfield->value);
+
+  TestEq(TRUE, TT(":edit")->enabled);
+  topscreen->comp->enabled := FALSE;
+  TestEq(FALSE, TT(":edit")->enabled);
+
+  topscreen->comp->enabled := TRUE;
+  TestEq(FALSE, topscreen->comp->addressfield->readonly);
+  topscreen->comp->readonly := TRUE;
+  TestEq(FALSE, TT(":edit")->enabled);
+  TestEq(TRUE, topscreen->comp->addressfield->readonly);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+      [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield"
+      , settings := [ required := TRUE
+                    , defaultcountry := "nl"
+                    ]
+      ]);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq("NL", TT(":Country")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  RETURN TRUE;
+}
+
+ASYNC MACRO TestTolliumFieldsAPI()
+{
+  STRING screenfile := `
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+  <screen name="testaddressfield" implementation="none">
+    <body>
+      <wrd:addressfield name="addressfield" enabled="false" />
+    </body>
+  </screen>
+</screens>`;
+
+  OBJECT testscreen := GetTestController()->LoadScreen(`inline-base64::${EncodeBase64(screenfile)}#testaddressfield`, DEFAULT RECORD);
+  TestEq(FALSE, testscreen->addressfield->enabled);
+  TestEq(FALSE, testscreen->addressfield->^changeaction->enabled);
+
+  screenfile := `
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+  <screen name="testaddressfield" implementation="none">
+    <body>
+      <wrd:addressfield name="addressfield" defaultcountry="nl" />
+    </body>
+  </screen>
+</screens>`;
+
+  testscreen := GetTestController()->LoadScreen(`inline-base64::${EncodeBase64(screenfile)}#testaddressfield`, DEFAULT RECORD);
+  TestEq(TRUE, testscreen->addressfield->enabled);
+
+  AWAIT ExpectScreenChange(+1, PTR testscreen->RunModal());
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq("NL", TT(":Country")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+}
+
+MACRO TestSiteprofileAddressVerify()
+{
+  testfw->BeginWork();
+  WriteRegistrykey("webhare_testsuite.tests.addressverification", DEFAULT RECORD);
+  testfw->CommitWork();
+
+  OBJECT api;
+
+  api := GetAddressLookupAPI(GetApplyTesterForObject(OpenTestsuiteSite()->id),"nl");
+  TestEq("PDOK (Publieke Dienstverlening Op de Kaart)", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500oo" ]).looked_up.street);
+
+  api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(),"nl"); //directly ask wrd
+  TestEq("PDOK (Publieke Dienstverlening Op de Kaart)", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500 oo" ]).looked_up.street);
+
+  api := GetAddressLookupAPI(GetApplyTesterForObject(OpenTestsuiteSite()->OpenBypath("testpages")->id),"nl"); //indirectly ask, /testschema/ is bound to wrd:testschema
+  TestEq("PDOK (Publieke Dienstverlening Op de Kaart)", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500oo" ]).looked_up.street);
+
+  api := GetAddressLookupAPI(GetApplyTesterForObject(OpenTestsuiteSite()->OpenBypath("testpages/staticpage")->id),"nl"); //through registry key
+  TestEq("PDOK (Publieke Dienstverlening Op de Kaart)", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500 OO" ]).looked_up.street);
+
+  //First set the WRD schema...
+  testfw->BeginWork();
+  SetupWRDAddressVerification(testfw->GetWRDSchema(),
+      [ type := "postcodeapi.nu"
+      , apikey := "loopback"
+      ]);
+  testfw->CommitWork();
+
+  api := GetAddressLookupAPI(GetApplyTesterForObject(OpenTestsuiteSite()->id),"nl");
+  TestEq("PDOK (Publieke Dienstverlening Op de Kaart)", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500oo" ]).looked_up.street);
+
+  api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(),"nl"); //directly ask wrd
+  TestEq("postcodeapi.nu", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500 oo" ]).looked_up.street);
+
+  api := GetAddressLookupAPI(GetApplyTesterForObject(OpenTestsuiteSite()->OpenBypath("testpages")->id),"nl"); //indirectly ask, /testschema/ is bound to wrd:testschema
+  TestEq("postcodeapi.nu", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500oo" ]).looked_up.street);
+
+  api := GetAddressLookupAPI(GetApplyTesterForObject(OpenTestsuiteSite()->OpenBypath("testpages/staticpage")->id),"nl"); //through registry key
+  TestEq("postcodeapi.nu", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500 OO" ]).looked_up.street);
+
+  //And now the regkey
+  testfw->BeginWork();
+  WriteRegistrykey("webhare_testsuite.tests.addressverification",
+      [ type := "postcode.nl"
+      , apikey := "loopback"
+      , secret := "loopback"
+      ]);
+  testfw->CommitWork();
+
+  api := GetAddressLookupAPI(GetApplyTesterForObject(OpenTestsuiteSite()->id),"nl");
+  TestEq("PDOK (Publieke Dienstverlening Op de Kaart)", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500oo" ]).looked_up.street);
+
+  api := GetAddressLookupAPI(GetApplyTesterForObject(OpenTestsuiteSite()->OpenBypath("testpages")->id),"nl"); //indirectly ask, /testschema/ is bound to wrd:testschema
+  TestEq("postcodeapi.nu", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500oo" ]).looked_up.street);
+
+  api := GetAddressLookupAPI(GetApplyTesterForObject(OpenTestsuiteSite()->OpenBypath("testpages/staticpage")->id),"nl"); //through registry key
+  TestEq("postcode.nl", api->CheckAddress([ country := "NL", nr_detail := "296", zip := "7500 OO" ]).looked_up.street);
+
+  testfw->BeginWork();
+  WriteRegistrykey("webhare_testsuite.tests.addressverification", DEFAULT RECORD); //reset it just in case
+  testfw->CommitWork();
+}
+
+MACRO TestFallbackAPI()
+{
+  testfw->BeginWork();
+  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "pdok" ]);
+
+  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(),"be"); //not offered by PDOK
+
+  RECORD checkres;
+
+  checkres := api->CheckAddress([ zip := "2018", nr_detail := "27", country := "BE", street := "Koningin Astridplein", city := "Antwerpen"], [ alwaysverify := TRUE ]);
+  TestEq('ok', checkres.status);
+  TestEq([ city := "Antwerpen", country := "BE", nr_detail := "27", zip := "2018", street := "Koningin Astridplein" ], checkres.data);
+
+  checkres := api->CheckAddress([ zip := "999", nr_detail := "27", country := "BE", street := "Koningin Astridplein", city := "Antwerpen"], [ alwaysverify := TRUE ]);
+  TestEq('invalid_zip', checkres.status);
+  testfw->RollbackWork();
+}
+
+
+Runtestframework([ PTR GenericCodes
+                 , PTR NLCodes
+                 , PTR TestAddressInfo
+                 , PTR TolliumFieldsNew
+                 , PTR TolliumFieldsEdit
+                 , PTR TestTolliumFieldsAPI
+                 , PTR TestSiteprofileAddressVerify
+                 , PTR TestFallbackAPI
+                 ]);

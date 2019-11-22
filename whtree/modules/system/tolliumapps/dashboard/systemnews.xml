@@ -1,0 +1,100 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         library="systemnews.whlib"
+         gid="tolliumapps.dashboard.systemnews">
+
+  <screen name="overview" width="120x" height="30x" allowresize="true" savestate="position size" icon="tollium:applications/systemnews" title="">
+    <actions>
+      <action name="add" onexecute="doadd" tid="tollium:common.actions.add" shortcut="ctrl+n"/>
+      <action name="edit" onexecute="doedit" tid="tollium:common.actions.edit" shortcut="enter">
+        <enableon source="newslist" min="1" max="1"/>
+      </action>
+      <action name="delete" onexecute="dodelete" tid="tollium:common.actions.delete" shortcut="del">
+        <enableon source="newslist" min="1" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="newslist_sel" gid="mailer.actions">
+        <item action="edit" disablemode="hidden"/>
+        <item action="delete" disablemode="hidden"/>
+      </menu>
+      <menu name="newslist_nosel" gid="mailer.actions">
+        <item action="add" disablemode="hidden"/>
+      </menu>
+    </menus>
+    <toolbar>
+      <button action="add" icon="tollium:actions/add" />
+      <button action="edit" icon="tollium:actions/edit"/>
+      <button action="delete" icon="tollium:actions/delete"/>
+    </toolbar>
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="newslist"
+                height="1pr"
+                selectcontextmenu="newslist_sel"
+                newcontextmenu="newslist_nosel"
+                openaction="edit"
+                selectmode="multiple"
+                sortascending="false"
+                sortcolumn="creationdate"
+                borders="right">
+            <column type="text" width="3pr" name="title" tid="~title" />
+            <column type="text" name="createdby_string" />
+            <column type="datetime" name="creationdate" storeutc="true" tid="~creationdate"/>
+            <style name="inactive" textcolor="#9a9a9a" />
+          </list>
+        </cell>
+        <cell spacers="all">
+          <button width="1pr" action="add" />
+          <button width="1pr" action="edit" />
+          <button width="1pr" action="delete" />
+        </cell>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="updatenewsitem" title="">
+    <compositions>
+      <wrd:entity name="newsitem" />
+    </compositions>
+    <body spacers="none">
+      <tabs type="regular">
+        <tab tid=".newsitem" height="1pr">
+          <textedit composition="newsitem" cellname="announcement_title" tid="~title" name="title" maxlength="250" required="true" minwidth="40x" width="1pr"/>
+          <datetime composition="newsitem" cellname="wrd_creationdate" tid="~creationdate" name="creationdate" type="datetime" storeutc="true" />
+          <richdocument composition="newsitem" cellname="announcement_text" name="message" minheight="13x" minwidth="85x" width="1pr" height="1pr" required="true" contentareawidth="300px" errorlabeltid=".message" />
+          <textedit composition="newsitem" cellname="announcement_author" name="userid" title="" visible="false" valuetype="integer" />
+        </tab>
+        <tab name="target">
+          <box checkbox="true" tid=".publishdate" enablecomponents="publish_date_from publish_date_until" value="false" name="usepublishdate" onchange="onpublishdatechange">
+            <line>
+              <datetime composition="newsitem" type="datetime" cellname="publish_from" tid=".publish_date_from" name="publish_date_from" enabled="false" storeutc="true" />
+              <datetime composition="newsitem" type="datetime" cellname="publish_until" tid=".publish_date_until" name="publish_date_until" enabled="false" storeutc="true" />
+            </line>
+          </box>
+          <heading tid=".audience" />
+          <listedit name="unitlist"
+                    height="1pr"
+                    columnheaders="false"
+                    ongetchildren="dogetunits"
+                    buttons="add delete"
+                    onrowedit="doaddunit"
+                    onrowdelete="dodeleteunit"
+                    emptytid=".allunits">
+            <column name="title" type="text" tid="~title" />
+          </listedit>
+          <select tid=".targetlang" composition="newsitem" cellname="target_language" type="pulldown" rowkeytype="integer" required="false">
+            <option rowkey="0" tid=".targetlang-nlen" />
+            <option rowkey="1" tid=".targetlang-en" />
+            <option rowkey="2" tid=".targetlang-nl" />
+          </select>
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

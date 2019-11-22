@@ -1,0 +1,18 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+INTEGER keepdays := 28;
+DATETIME cutoff := AddDaysToDate(-keepdays,GetCurrentDatetime());
+STRING basepath := GetWebhareConfiguration().varroot;
+RECORD ARRAY failedindices := SELECT name
+                                FROM ReadDiskDirectory(basepath,"oldindex-????????-*")
+                               WHERE MakeDateFromText(Substring(name,9,8)) < cutoff;
+FOREVERY(RECORD failedindex FROM failedindices)
+{
+  STRING fullpath := basepath || failedindex.name;
+  Print("Removing old Consilio index " || fullpath || "\n");
+  DeleteDiskDirectoryRecursive(fullpath);
+}

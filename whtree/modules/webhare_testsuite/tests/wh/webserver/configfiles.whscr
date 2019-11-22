@@ -1,0 +1,33 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+MACRO WebserverConfig()
+{
+  testfw->GetLocalhostWebinterface();
+  testfw->StartTrans("~webhare", TRUE);
+
+  RECORD config := DownloadWebserverConfig();
+  TestEq(1, config.version);
+
+  //Find an interface webserver
+  RECORD interface_webserver := SELECT * FROM config.hosts WHERE is_interface_webserver LIMIT 1;
+  TestEq(TRUE, RecordExists(interface_webserver));
+
+  //Find the applyruleset rule
+  RECORD appliedrule_xyz := SELECT * FROM config.rules WHERE path = "/betatesting/testset/xyz/" AND interface_webserver.id IN limitservers;
+  TestEq(TRUE, RecordExists(appliedrule_xyz));
+  TestEq(
+      [ [ resource :=       GetModuleInstallationRoot("webhare_testsuite") || "scripts/urls/xyz.whscr"
+        , method :=         "direct"
+        , isfolder :=       FALSE
+        ]
+      ], appliedrule_xyz.datastorage);
+
+  testfw->Endtrans();
+}
+
+RunTestframework([ PTR WebserverConfig
+                 ]);

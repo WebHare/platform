@@ -1,0 +1,405 @@
+<?wh
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+LOADLIB "mod::system/lib/commonxml.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+RECORD ARRAY FUNCTION GetFreeOutputUrls(INTEGER cursite, INTEGER currentoutputweb)
+{
+  // Generate a list of output URL's not already used by sites:
+  // - Output servers which are not claimed by sites
+  // - Foreign folders which do not serve as output folder for a site
+  // @param cursite Include the output URL for this site in the result
+  // @return A list of free and usable output URL's
+  // @cell return.url The output URL
+  // @cell return.serverurl The base URL of the output server
+  // @cell return.outputweb The output server id for this URL
+  // @cell return.outputfolder Output folder on the server (fullpath from the server's root)
+  // @cell return.outputroot The root folder of the output site which can be used to check for folder access (outputroot
+  //                         is 0 if the output location is not a foreign folder)
+  IF(cursite = whconstant_whfsid_webharebackend)
+  {
+    RETURN SELECT url := baseurl
+                , outputweb := id
+                , outputfolder := "/"
+                , serverurl := baseurl
+                , outputroot := 0
+            FROM system.webservers
+           WHERE type = whconstant_webservertype_interface OR id = currentoutputweb;
+  }
+
+  RECORD ARRAY outputservers := SELECT url := baseurl
+                                     , outputweb := id
+                                     , outputfolder := "/"
+                                     , serverurl := baseurl
+                                     , outputroot := 0
+                                  FROM system.webservers
+                                 WHERE (webservers.baseurl != ""
+                                        AND webservers.diskfolder != ""
+                                        AND type NOT IN [ whconstant_webservertype_interface
+                                                        , whconstant_webservertype_group
+                                                        ]
+                                            // Check for sites using this output server
+                                        AND NOT (RecordExists(SELECT FROM system.sites AS existing
+                                                                    WHERE existing.id != VAR cursite
+                                                                          AND existing.outputweb = webservers.id
+                                                                          AND existing.outputfolder = "/"))
+                                       )
+                                       OR id = currentoutputweb;
+
+  RECORD ARRAY foreignfolders := SELECT url
+                                      , outputweb := sites.outputweb
+                                      , outputfolder := Left(sites.outputfolder, Length(sites.outputfolder)-1) || folders.fullpath
+                                      , serverurl := webservers.baseurl
+                                      , outputroot := sites.root
+                                   FROM system.fs_objects AS folders
+                                      , system.sites
+                                      , system.webservers
+                                  WHERE webservers.baseurl != ""
+                                        AND folders.type = 1//Foreign folder
+                                        AND folders.isfolder = TRUE
+                                        AND folders.parentsite = sites.id
+                                        AND sites.outputweb = webservers.id
+                                            // Check for sites published in this foreign folder
+                                        AND NOT (RecordExists(SELECT FROM system.sites AS existing
+                                                                    WHERE existing.id != VAR cursite
+                                                                          AND existing.outputweb = sites.outputweb
+                                                                          AND existing.outputfolder = folders.fullpath))
+                                            // Check for external WebHare servers using this foreign folder
+                                        AND NOT (RecordExists(SELECT FROM system.webservers
+                                                                    WHERE webservers.baseurl = folders.url));
+
+  RETURN outputservers CONCAT foreignfolders;
+}
+
+/////////////////////////////////////////////////////////////////////
+//
+// Site settings dialog
+//
+
+PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
+<
+  OBJECT curitem;
+
+  OBJECT parentfolder;
+  RECORD cursite; // current site
+  INTEGER itemid;
+  BOOLEAN newsite;
+
+  PUBLIC PROPERTY objectid(itemid,-);
+
+  ///////////////////////////////////////////////////////////////////
+  //
+  //  Basic screen functions (init & submit)
+  //
+
+  MACRO Init(RECORD data)
+  {
+    IF(NOT this->contexts->user->HasRight("system:sysop"))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    RECORD ARRAY sitedesigns := SELECT rowkey
+                                     , title := GetTid(title)
+                                  FROM GetAvailableWebDesigns(FALSE);
+
+    ^sitedesign->options := ^sitedesign->options
+                                  CONCAT
+                                  SELECT * FROM sitedesigns ORDER BY ToUppercase(title);
+
+    ^sitesettings->Load(data.fsobj);
+
+    IF(data.why = "newsite")
+    {
+      this->newsite := TRUE;
+      this->parentfolder := data.parentfolder = 0 ? OpenWHFSRootObject() : OpenWHFSObject(data.parentfolder);
+
+      this->SetupSiteOptions();
+
+      this->frame->title := GetTid("publisher:commondialogs.objectprops.newsite-title");
+
+      IF (NOT ObjectExists(this->parentfolder) AND data.parentfolder != 0)
+        THROW NEW Exception("No such file/folder " || data.parentfolder);
+
+    }
+    ELSE IF(data.why = "edit")
+    {
+      this->itemid := data.fsobj;
+      this->curitem := OpenWHFSObject(this->itemid);
+      this->frame->flags.ispinned := this->curitem->ispinned;
+
+      ^name->enabled := NOT this->frame->flags.ispinned;
+      ^name->value := this->curitem->name;
+      this->cursite := SELECT * FROM system.sites WHERE root = this->itemid;
+
+      IF (NOT ObjectExists(this->curitem) OR NOT RecordExists(this->cursite))
+        THROW NEW Exception("No such file/folder " || data.fsobj);
+
+      IF(this->curitem->parent != 0)
+      {
+        this->parentfolder := OpenWHFSObject(this->curitem->parent);
+        IF (NOT ObjectExists(this->parentfolder))
+          THROW NEW Exception("No such file/folder " || this->curitem->parent || " which should have been a parent for " || data.fsobj);
+      }
+      ELSE
+        this->parentfolder := OpenWHFSRootObject();
+
+      this->SetupSiteOptions();
+      this->frame->title := GetTid("publisher:commondialogs.objectprops.sitesettings-title", this->curitem->name);
+
+      // Retrieve the site profiles
+      OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+      RECORD sitesettings := sitesettingstype->GetInstanceData(this->curitem->id);
+
+      IF (sitesettings.sitedesign != "" AND NOT RecordExists(SELECT FROM sitedesigns WHERE rowkey=sitesettings.sitedesign))
+        INSERT [ rowkey := sitesettings.sitedesign, title := sitesettings.sitedesign ] INTO ^sitedesign->options AT END;
+
+      ^sitedesign->value := sitesettings.sitedesign;
+
+      ^siteprofiles->rows :=
+          SELECT rowkey := id
+            FROM system.fs_objects
+           WHERE type = 27
+             AND id IN sitesettings.siteprofiles;
+
+      IF (this->cursite.versioningpolicy!="")
+      {
+        ^outputweb->enabled := FALSE;
+        ^outputfolder->enabled := FALSE;
+      }
+      UPDATE ^webfeatures->rows SET featurechecked := TRUE WHERE rowkey IN sitesettings.webfeatures;
+    }
+    ELSE
+    {
+      ABORT("Unknown 'why'");
+    }
+
+    ^sitesettings->^productionurl->visible := GetDtapStage() != "production";
+  }
+
+  MACRO OutputWebSelected()
+  {
+    RECORD sel := ^outputweb->selection;
+
+    ^outputfolder->enabled := RecordExists(sel) AND sel.rowkey != 0;
+    ^outputfolder->options := NOT RecordExists(sel) OR sel.rowkey = 0
+                              ? RECORD[]
+                              : SELECT title := folder
+                                     , rowkey := folder
+                                   FROM ToRecordArray(sel.subpaths, "folder")
+                                 ORDER BY ToUppercase(folder);
+  }
+
+  MACRO OnSiteDesignChange()
+  {
+    this->RefreshWebFeatures();
+  }
+
+  MACRO RefreshWebFeatures()
+  {
+    STRING ARRAY currentselection := SELECT AS STRING ARRAY rowkey FROM ^webfeatures->rows WHERE featurechecked;
+    ^webfeatures->rows := SELECT TEMPORARY feature := GetTid(title)
+                               , rowkey
+                               , feature := feature
+                               , featurechecked := rowkey IN currentselection
+                               , module := Tokenize(rowkey,':')[0]
+                            FROM GetAvailableWebFeatures()
+                           WHERE MatchCommonXMLWildcardMasks(^sitedesign->value, webdesignmasks)
+                        ORDER BY ToUppercase(feature);
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    OBJECT otherobject := this->parentfolder->OpenByName(^name->value);
+    IF (ObjectExists(otherobject) AND otherobject->id != this->itemid)
+      work->AddErrorFor(^name, GetTid("publisher:common.errors.fileorfolderexists", ^name->value, this->parentfolder->name));
+
+    // Check site name uniqueness - they need to be globally unique as site::<sitename> whfs paths are a thing
+    OBJECT othersite := OpenSiteByName(^name->value);
+    IF (ObjectExists(othersite) AND othersite->id != this->itemid)
+      work->AddErrorFor(^name, GetTid("publisher:commondialogs.errors.objectprops.sitealreadyexists", ^name->value));
+
+
+    RECORD metadata := [ name := ^name->value
+                       ];
+
+    INTEGER objid := ObjectExists(this->curitem) ? this->curitem->id : 0;
+    //NOTE: Should we really take siteprofile into account here? -- This breaks the 'ordering exists regardless of setting' philosophy, however it might add some unity to the codepaths.
+    IF(this->newsite AND this->parentfolder->id != 0 AND GetApplyTesterForObject(this->parentfolder->id)->GetFolderSettings().ordering = "orderable")
+    {
+      INTEGER newordering := Objectexists(this->curitem) AND this->curitem->ordering != 0 ? this->curitem->ordering : SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = this->parentfolder->id;
+      INSERT CELL ordering := newordering INTO metadata;
+    }
+
+    RECORD oldversion;
+    IF(NOT this->newsite)
+      oldversion := __FindFolder(this->curitem->id);
+
+    RECORD analyze_new_location := TestSiteOutputAvailability(this->itemid, ^outputweb->value, ^outputfolder->value);
+
+    IF(NOT analyze_new_location.success) //something is blocking us...
+    {
+      //ADDME consider autocreating everything needed if no actual conflict.
+
+      IF(analyze_new_location.siteonlocation != 0)
+      {
+        STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = analyze_new_location.siteonlocation;
+        work->AddErrorFor(^outputfolder, GetTid("publisher:commondialogs.errors.objectprops.outputfolderused", sitename));
+      }
+      ELSE IF(analyze_new_location.sitecontaininglocation != 0)
+      {
+        STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = analyze_new_location.sitecontaininglocation;
+        work->AddErrorFor(^outputfolder, GetTid("publisher:commondialogs.errors.objectprops.outputfolderused", sitename));
+      }
+      ELSE
+      {
+        FOREVERY(RECORD conflict FROM analyze_new_location.neededfolders)
+        {
+          IF(conflict.site=0)
+            CONTINUE;
+
+          STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = conflict.site;
+          STRING destfolder := SELECT AS STRING fullpath FROM system.fs_objects WHERE id = conflict.parent;
+
+          work->AddErrorFor(^outputfolder, GetTid("publisher:commondialogs.errors.objectprops.createoutputfolder", sitename, conflict.name, destfolder));
+        }
+      }
+    }
+
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    OBJECT siteobj;
+
+    IF(this->newsite)
+    {
+      objid := this->parentfolder->CreateFolder(metadata)->id;
+      siteobj := CreateSiteFromFolder(objid);
+    }
+    ELSE
+    {
+      this->curitem->UpdateMetadata(metadata); //FIXME: Avoid this if nothing really changed (ie need to check contenttypes)
+
+      // warn if either outputweb or outputfolder has changed
+      siteobj := OpenSite(this->cursite.id);
+      IF(siteobj->outputweb != 0 AND (siteobj->outputweb != ^outputweb->value OR siteobj->outputfolder != ^outputfolder->value))
+        GetPrimary()->ScheduleTask("publisher:archiveoutput", DEFAULT DATETIME);
+    }
+
+    // Apply siteprofile settings
+    siteobj->UpdateSiteMetadata( [ siteprofiles := (SELECT AS INTEGER ARRAY rowkey FROM ^siteprofiles->rows)
+                                 , sitedesign := ^sitedesign->value
+                                 , webfeatures := (SELECT AS STRING ARRAY rowkey FROM ^webfeatures->rows WHERE featurechecked)
+                                 , locked := ^locksite->value
+                                 , lockreason := ^lockreason->value
+                                 , cdnbaseurl := ^cdnbaseurl->value
+                                 , outputweb := ^outputweb->value
+                                 , outputfolder := ^outputfolder->value
+                                 ]);
+
+    // Keep the 'official' URL with the site
+    RECORD extradata;
+    IF(GetDtapStage() = "production")
+      INSERT CELL productionurl := siteobj->webroot INTO extradata;
+
+    ^sitesettings->Store(work, siteobj->id, [ extradata := extradata ]);
+
+    //Invoke any hooks
+    IF(this->newsite)
+      RunAddFolderHooks(objid);
+    ELSE
+      RunEditFolderHooks(oldversion, objid);
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    this->itemid := objid;
+    RETURN TRUE;
+  }
+  ///////////////////////////////////////////////////////////////////
+  //
+  //  Handler functions for the screen actions
+  //
+
+  MACRO DoAddSiteProfile()
+  {
+    OBJECT filedlg := CreateBrowseForWHFSObjectDialog(this);
+    filedlg->acceptfolders := FALSE;
+    filedlg->accepttypes := [ "http://www.webhare.net/xmlns/publisher/siteprofilefile" ];
+
+    // Site profiles can be selected from anywhere, preselect current site, else repository
+    IF (RecordExists(this->cursite))
+      filedlg->folder := this->itemid; // Select current site if available. ADDME: try to locate siteprofiles in the site, select that folder
+    ELSE
+      filedlg->folder := 1; // Repository
+
+    IF (filedlg->RunModal() = "ok")
+      INSERT [ rowkey := filedlg->value ] INTO ^siteprofiles->rows AT END;
+
+  }
+
+  MACRO DoDeleteSiteProfile()
+  {
+    DELETE FROM ^siteprofiles->rows WHERE rowkey = ^siteprofiles->value;
+  }
+
+  ///////////////////////////////////////////////////////////////////
+  //
+  //  Internal helper functions
+  //
+
+  /** Setup output web pulldown button (shared by site props) */
+  MACRO SetupSiteOptions()
+  {
+    INTEGER siteid := RecordExists(this->cursite) ? this->cursite.id : 0;
+    INTEGER currentoutputweb := RecordExists(this->cursite) ? this->cursite.outputweb : 0;
+    OBJECT user := GetEffectiveUser();
+
+    RECORD ARRAY outputurls := GetFreeoutputurls(siteid, currentoutputweb);
+    ^outputweb->options := [ [ title := "<" || GetTid("~none") || ">"
+                            , rowkey := 0
+                            , invalidselection := TRUE
+                            ]
+                          ]
+                          CONCAT
+                          SELECT title := Any(serverurl)
+                               , rowkey := outputurls.outputweb
+                               , subpaths := GroupedValues(outputurls.outputfolder)
+                            FROM outputurls
+                        GROUP BY outputurls.outputweb
+                        ORDER BY ToUppercase(Any(serverurl));
+
+    ^outputweb->value := currentoutputweb;
+    ^locksite->enabled := NOT ^outputweb->readonly;
+    ^lockreason->enabled := NOT ^outputweb->readonly;
+
+    IF (RecordExists(this->cursite))
+    {
+      ^outputfolder->value := this->cursite.outputfolder;
+      ^cdnbaseurl->value := this->cursite.cdnbaseurl;
+      ^locksite->value := this->cursite.locked;
+      ^lockreason->enabled := ^locksite->value = TRUE;
+      ^lockreason->value := this->cursite.lockreason;
+    }
+
+    IF(siteid = whconstant_whfsid_webharebackend) //lock down bad settings for the backend
+    {
+      ^outputweb->required := TRUE;
+      ^outputfolder->enabled := FALSE;
+      ^outputfolder->value := "/";
+    }
+  }
+>;

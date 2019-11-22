@@ -1,0 +1,11 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+
+OBJECT link := GetIPCLinkToParent();
+
+RECORD rec := link->ReceiveMessage(MAX_DATETIME);
+rec.msg.canvas->blendmode := "COPYALPHA";
+rec.msg.canvas->pixelmode := "XOR";
+link->SendReply(rec.msg, rec.msgid);

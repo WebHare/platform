@@ -1,0 +1,221 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/remoting/remotable.whlib";
+LOADLIB "mod::system/lib/internal/remoting/binary_encoding.whlib";
+LOADLIB "mod::system/lib/internal/remoting/objremoter.whlib";
+LOADLIB "mod::system/lib/internal/remoting/xml_encoding.whlib";
+
+
+VARIANT FUNCTION CallCodecObj(OBJECT localcodec, OBJECT remotecodec, OBJECT obj, STRING method, VARIANT ARRAY args)
+{
+  INTEGER id := localcodec->remoter->GetObjectId(obj).id;
+  BLOB encoded := localcodec->EncodeVariable(args);
+  VARIANT decoded := remotecodec->DecodeVariable(MakeXMLDocument(encoded)->documentelement);
+
+  OBJECT remote_obj := remotecodec->remoter->GetRemoteObject(id);
+  FUNCTION PTR func := GetObjectMethodPtr(remote_obj, method);
+  VARIANT result := CallAnyPtrVA(func, args);
+
+  encoded := remotecodec->EncodeVariable(result);
+  RETURN localcodec->DecodeVariable(MakeXMLDocument(encoded)->documentelement);
+}
+
+VARIANT FUNCTION CallBinaryCodecObj(OBJECT localcodec, OBJECT remotecodec, OBJECT obj, STRING method, VARIANT ARRAY args)
+{
+  INTEGER id := localcodec->remoter->GetObjectId(obj).id;
+
+  BLOB ARRAY packets := localcodec->EncodePackets(args);
+  RECORD analyzeresult := remotecodec->AnalyzeFirstPacket(packets[0]);
+  VARIANT decoded := remotecodec->DecodePackets(analyzeresult, packets);
+
+  OBJECT remote_obj := remotecodec->remoter->GetRemoteObject(id);
+  FUNCTION PTR func := GetObjectMethodPtr(remote_obj, method);
+  VARIANT result := CallAnyPtrVA(func, args);
+
+  packets := remotecodec->EncodePackets(result);
+  analyzeresult := localcodec->AnalyzeFirstPacket(packets[0]);
+  RETURN localcodec->DecodePackets(analyzeresult, packets);
+}
+
+OBJECTTYPE Side1Type EXTEND RemotableObject
+< //UPDATE PUBLIC STRING ARRAY FUNCTION __GetRemotableMethods() { RETURN [ "GetSide2", "GetStr1" ]; }
+
+  PUBLIC OBJECT FUNCTION GetSide2()
+  {
+    RETURN NEW Side2Type;
+  }
+
+  PUBLIC STRING FUNCTION GetStr1() { RETURN "string1"; }
+  PUBLIC STRING FUNCTION GetStr1VA(STRING a, STRING b DEFAULTSTO "b", VARIANT ARRAY c) __ATTRIBUTES__(VARARG)
+  {
+    INSERT b INTO c AT 0;
+    INSERT a INTO c AT 0;
+    RETURN Detokenize(STRING ARRAY(c), ",");
+  }
+>;
+
+OBJECTTYPE Side2Type EXTEND RemotableObject
+< //UPDATE PUBLIC STRING ARRAY FUNCTION __GetRemotableMethods() { RETURN [ "GetSide1", "GetStr2" ]; }
+
+  PUBLIC OBJECT FUNCTION GetSide1()
+  {
+    RETURN NEW Side1Type;
+  }
+
+  PUBLIC STRING FUNCTION GetStr2() { RETURN "string2"; }
+  PUBLIC STRING FUNCTION GetStr2VA(STRING a, STRING b DEFAULTSTO "b", VARIANT ARRAY c) __ATTRIBUTES__(VARARG)
+  {
+    INSERT b INTO c AT 0;
+    INSERT a INTO c AT 0;
+    RETURN Detokenize(STRING ARRAY(c), ",");
+  }
+>;
+
+RECORD FUNCTION GetRoundTripData()
+{
+  STRING longblobdata;
+  FOR (INTEGER i := 0; i < 1000000; i := i + 1)
+    longblobdata := longblobdata || Right(" 000000000" || i, 10);
+
+  RECORD data :=
+      [ s :=            "str"
+      , b1 :=           TRUE
+      , b2 :=           FALSE
+      , i :=            0
+      , i1 :=           1
+//      , ii :=           0i64
+//      , ii2 :=          1i64
+      , dt :=           AddTimeToDate(553, MakeDateTime(2001, 1, 4, 10, 11, 12))
+      , dt1 :=          DEFAULT DATETIME
+      , dt2 :=          MAX_DATETIME
+      , bl :=           DEFAULT BLOB
+      , bl2 :=          StringToBlob("test")
+      , bl3 :=          StringToBlob(longblobdata)
+      , mo :=           0.0m
+      , mo2 :=          1.0m
+      , r :=            DEFAULT RECORD
+      , r2 :=           CELL[]
+      , r3 :=           [ a := 4, b := 4 ]
+      , o1 :=           DEFAULT OBJECT
+      , o2 :=           NEW Side1Type
+      , sa :=           DEFAULT STRING ARRAY
+      , sa1 :=          [ "a", "b", "c" ]
+      , ba :=           [ TRUE, FALSE ]
+      , ia :=           [ 0, 1, 2, 3, 4 ]
+      , dta :=          [ DEFAULT DATETIME, MakeDate(2000, 1, 2), MAX_DATETIME ]
+      , bla :=          [ DEFAULT BLOB, StringToBlob("aa2") ]
+      , moa :=          [ 0.0m, 1.0m, 10m ]
+      , ra :=           [ DEFAULT RECORD, CELL[], [ a := 1, b := 2 ] ]
+      , oa :=           [ DEFAULT OBJECT ]
+      ];
+
+  RETURN data;
+}
+
+
+MACRO XMLRoundTripTest()
+{
+  RECORD data := GetRoundTripData();
+
+  OBJECT codec1 := CreateRemotingXMLCodec(CreateObjectRemoter(TRUE));
+  OBJECT codec2 := CreateRemotingXMLCodec(CreateObjectRemoter(FALSE));
+  codec1->remoter->remotecall := PTR CallCodecObj(codec1, codec2, #1, #2, #3);
+  codec2->remoter->remotecall := PTR CallCodecObj(codec2, codec1, #1, #2, #3);
+
+  BLOB encoded := codec1->EncodeVariable(data);
+//  PRINT(BlobToString(encoded, -1) || "\n");
+
+  VARIANT decoded := codec2->DecodeVariable(MakeXMLDocument(encoded)->documentelement);
+
+  TestEqual(1, CELL[ ...data, DELETE o2 ], CELL[ ...decoded, DELETE o2 ]);
+//  PRINT(AnyToString(decoded, "tree"));
+
+  TestEqual(2, "string1", decoded.o2->GetStr1());
+  TestEqual(3, "string2", decoded.o2->GetSide2()->GetStr2());
+  TestEqual(4, "string1", decoded.o2->GetSide2()->GetSide1()->GetStr1());
+
+  TestEq("A,b", decoded.o2->GetStr1VA("A"));
+  TestEq("A,B", decoded.o2->GetStr1VA("A", "B"));
+  TestEq("A,B,C", decoded.o2->GetStr1VA("A", "B", "C"));
+  TestEq("A,B,C,D", decoded.o2->GetStr1VA("A", "B", "C", "D"));
+
+  TestEq("A,b", decoded.o2->GetSide2()->GetStr2VA("A"));
+  TestEq("A,B", decoded.o2->GetSide2()->GetStr2VA("A", "B"));
+  TestEq("A,B,C", decoded.o2->GetSide2()->GetStr2VA("A", "B", "C"));
+  TestEq("A,B,C,D", decoded.o2->GetSide2()->GetStr2VA("A", "B", "C", "D"));
+
+  TestEq("A,b", decoded.o2->GetSide2()->GetSide1()->GetStr1VA("A"));
+  TestEq("A,B", decoded.o2->GetSide2()->GetSide1()->GetStr1VA("A", "B"));
+  TestEq("A,B,C", decoded.o2->GetSide2()->GetSide1()->GetStr1VA("A", "B", "C"));
+  TestEq("A,B,C,D", decoded.o2->GetSide2()->GetSide1()->GetStr1VA("A", "B", "C", "D"));
+}
+
+
+MACRO WSRoundTripTest()
+{
+  RECORD data := GetRoundTripData();
+
+  OBJECT codec1 := CreateRemotingBinaryCodec(CreateObjectRemoter(TRUE));
+  OBJECT codec2 := CreateRemotingBinaryCodec(CreateObjectRemoter(FALSE));
+  codec1->remoter->remotecall := PTR CallBinaryCodecObj(codec1, codec2, #1, #2, #3);
+  codec2->remoter->remotecall := PTR CallBinaryCodecObj(codec2, codec1, #1, #2, #3);
+
+  BLOB ARRAY packets := codec1->EncodePackets(data);
+  TestEQ(TRUE, LENGTH(packets) >= 1);
+
+  RECORD analyzeresult := codec2->AnalyzeFirstPacket(packets[0]);
+  TestEQ(LENGTH(packets), analyzeresult.packetcount);
+
+  VARIANT decoded := codec2->DecodePackets(analyzeresult, ArraySlice(packets, 0, analyzeresult.packetcount));
+
+  TestEqual(1, CELL[ ...data, DELETE o2 ], CELL[ ...decoded, DELETE o2 ]);
+//  PRINT(AnyToString(decoded, "tree"));
+
+  TestEqual(2, "string1", decoded.o2->GetStr1());
+  TestEqual(3, "string2", decoded.o2->GetSide2()->GetStr2());
+  TestEqual(4, "string1", decoded.o2->GetSide2()->GetSide1()->GetStr1());
+
+  TestEq("A,b", decoded.o2->GetStr1VA("A"));
+  TestEq("A,B", decoded.o2->GetStr1VA("A", "B"));
+  TestEq("A,B,C", decoded.o2->GetStr1VA("A", "B", "C"));
+  TestEq("A,B,C,D", decoded.o2->GetStr1VA("A", "B", "C", "D"));
+
+  TestEq("A,b", decoded.o2->GetSide2()->GetStr2VA("A"));
+  TestEq("A,B", decoded.o2->GetSide2()->GetStr2VA("A", "B"));
+  TestEq("A,B,C", decoded.o2->GetSide2()->GetStr2VA("A", "B", "C"));
+  TestEq("A,B,C,D", decoded.o2->GetSide2()->GetStr2VA("A", "B", "C", "D"));
+
+  TestEq("A,b", decoded.o2->GetSide2()->GetSide1()->GetStr1VA("A"));
+  TestEq("A,B", decoded.o2->GetSide2()->GetSide1()->GetStr1VA("A", "B"));
+  TestEq("A,B,C", decoded.o2->GetSide2()->GetSide1()->GetStr1VA("A", "B", "C"));
+  TestEq("A,B,C,D", decoded.o2->GetSide2()->GetSide1()->GetStr1VA("A", "B", "C", "D"));
+
+  // Blob test, 64mb of small blobs (max 32 may be inlined), and 65 MB of large blobs
+  RECORD smallblobtest :=
+      [ blobs :=      RepeatElement([ data := StringToBlob(RepeatText("123456789", 228)) ], 32 * 1024) // 9*228=2052, 2052*32*1024 > 64MB
+      , largeblob :=  StringToBlob(RepeatText("2", 65*1024*1024))
+      ];
+
+  packets := codec1->EncodePackets(smallblobtest);
+  TestEQ(TRUE, LENGTH64(packets[0]) < 36 * 1024 * 1024); // max 32 MB of inline blobs, so 36MB should be enough for first packet
+  analyzeresult := codec2->AnalyzeFirstPacket(packets[0]);
+  TestEQ(LENGTH(packets), analyzeresult.packetcount);
+  decoded := codec2->DecodePackets(analyzeresult, ArraySlice(packets, 0, analyzeresult.packetcount));
+
+  TestEQ(smallblobtest, decoded);
+}
+
+
+RunTestframework([ PTR XMLRoundTripTest
+                 , PTR WSRoundTripTest
+                 ],
+                 [ usedatabase :=   FALSE
+                 , wrdauth :=       FALSE
+                 ]);
+

@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="pl" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Zaznacz pole poniżej</text>
+      <text tid="title">Weryfikacja</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">Kolejny</text>
+      <text tid="previouspage">Poprzedni</text>
+      <text tid="selectfile">Wybierz plik</text>
+      <text tid="starsrequired">* wskazuje wymagane pole</text>
+      <text tid="submit">Zatwierdź</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">Adres nie został znaleziony.</text>
+        <text tid="invalid_nr_detail">Nieprawidłowy numer domu z dodatkiem.</text>
+        <text tid="invalid_zip">Nieprawidłowy kod pocztowy lub kod pocztowy.</text>
+        <text tid="zip_not_found">Nieznana kombinacja kodu pocztowego i numeru domu.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">Dozwolone są jedynie znaki alfanumeryczne.</text>
+        <text tid="check">Wybierz od <param p="1"/> do <param p="2"/> opcji.</text>
+        <text tid="default">Wartość wygląda na nieprawidłową</text>
+        <text tid="digits">Dozwolone są jedynie cyfry.</text>
+        <text tid="email">Wpisz poprawny adres e-mail.</text>
+        <text tid="email_baddomain">Ze względu na trudności z wysyłaniem wiadomości na adresy e-mail <param p="1"/> prosimy o skorzystanie z alternatywnego dostawcy poczty e-mail.</text>
+        <text tid="email_suggestion">Czy miałeś na myśli <param p="1"/>?</text>
+        <text tid="equalto">Wartości nie są identyczne.</text>
+        <text tid="integer">Dozwolone są jedynie liczby całkowite.</text>
+        <text tid="length">Ilość znaków wynosi od <param p="1"/> do <param p="2"/>.</text>
+        <text tid="max">Wartość nie może być większa od <param p="1"/>.</text>
+        <text tid="maxarray">Możesz dodać maksymalnie <ifparam p="1" value="1">1 przedmiot<else/><param p="1"/> elementów</ifparam></text>
+        <text tid="maxcheck">Wybierz maksymalnie <param p="1"/> opcji.</text>
+        <text tid="maxlength">Maksymalna ilość znaków wynosi <param p="1"/>.</text>
+        <text tid="min">Wartość nie może być mniejsza od <param p="1"/>.</text>
+        <text tid="minarray">Musisz dodać co najmniej <ifparam p="1" value="1">1 przedmiot<else/><param p="1"/> przedmiotów</ifparam></text>
+        <text tid="mincheck">Wybierz minimalnie <param p="1"/> opcji.</text>
+        <text tid="minlength">Minimalna ilość znaków wynosi <param p="1"/>.</text>
+        <text tid="notblank">Pole nie może być puste.</text>
+        <text tid="number">Wpisz poprawną liczbę.</text>
+        <text tid="pattern">Pole zawiera nieprawidłową wartość.</text>
+        <text tid="range">Wartość powinna zawierać się pomiędzy <param p="1"/> a <param p="2"/>.</text>
+        <text tid="required">Pole jest wymagane.</text>
+        <text tid="url">Wpisz poprawny adres URL.</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

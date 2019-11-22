@@ -1,0 +1,276 @@
+<?wh
+
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+
+/*
+GeoNames documentation:
+http://www.geonames.org/export/ws-overview.html
+http://www.geonames.org/export/web-services.html
+*/
+
+CONSTANT STRING geonames_url := "http://api.geonames.org/";
+
+
+PUBLIC STATIC OBJECTTYPE GeoNamesAPI
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT browser;
+
+  STRING username;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// The country to use as bias for searching
+  PUBLIC STRING country;
+
+  /// The language to use when searching and returning results
+  PUBLIC STRING language;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// If the GeoNames service is available (i.e. if an account name has been set in the registry)
+  PUBLIC PROPERTY available(GetAvailable, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Create a new GeoNames API object
+  */
+  MACRO NEW()
+  {
+    this->username := ReadRegistryKey("system.services.geonames.accountname");
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** @short Return the time zone active at the given location
+      @param lat The location latitude
+      @param lng The location longitude
+      @return A timezone identifier, for use with time display and conversion functions
+  */
+  PUBLIC STRING FUNCTION GetLatLngTimeZone(FLOAT lat, FLOAT lng)
+  {
+    RECORD arguments :=
+        [ lat := lat
+        , lng := lng
+        ];
+    RETURN this->CallGeoNamesService("timezone", arguments).timezoneid;
+  }
+
+  /** @short Search for places in the neighbourhood of a given location
+      @param lat The requested latitude
+      @param lng The requested longitude
+      @param radius (Optional) Radius to restrict the results to
+      @return A list of results
+      @cell(string) return.name The preferred name of the result in the requested language
+      @cell(string) return.toponomyname The main name of the result
+      @cell(float) return.lat The result's latitude
+      @cell(float) return.lng The result's longitude
+      @cell(string) return.geonameid GeoName id of the result
+      @cell(string) return.countrycode Two-letter code of the result's country
+      @cell(string) return.countryname Name of the result's country in the requested language
+      @cell(string) return.fcl Feature class of the result
+      @cell(string) return.fcode Feature code of the result
+  */
+  PUBLIC RECORD ARRAY FUNCTION FindNearby(FLOAT lat, FLOAT lng, INTEGER radius DEFAULTSTO 0)
+  {
+    RECORD arguments :=
+        [ lat := lat
+        , lng := lng
+        , cities := "cities15000"
+        ];
+    IF (radius > 0)
+      INSERT CELL radius := radius INTO arguments;
+
+    RETURN this->CallGeoNamesService("findNearby", arguments, "geoname");
+  }
+
+  /** @short Search for places
+      @param query What to search for
+      @return A list of results
+      @cell(string) return.name The preferred name of the result in the requested language
+      @cell(string) return.toponomyname The main name of the result
+      @cell(float) return.lat The result's latitude
+      @cell(float) return.lng The result's longitude
+      @cell(string) return.geonameid GeoName id of the result
+      @cell(string) return.countrycode Two-letter code of the result's country
+      @cell(string) return.countryname Name of the result's country in the requested language
+      @cell(string) return.fcl Feature class of the result
+      @cell(string) return.fcode Feature code of the result
+  */
+  PUBLIC RECORD ARRAY FUNCTION Search(STRING query)
+  {
+    RECORD arguments :=
+        [ q := query
+        ];
+    RETURN this->CallGeoNamesService("search", arguments, "geoname");
+  }
+
+  /** @short Search for cities
+      @param name Name to search for
+      @return A list of results
+      @cell(string) return.name The preferred name of the result in the requested language
+      @cell(string) return.toponomyname The main name of the result
+      @cell(float) return.lat The result's latitude
+      @cell(float) return.lng The result's longitude
+      @cell(string) return.geonameid GeoName id of the result
+      @cell(string) return.countrycode Two-letter code of the result's country
+      @cell(string) return.countryname Name of the result's country in the requested language
+      @cell(string) return.fcl Feature class of the result
+      @cell(string) return.fcode Feature code of the result
+  */
+  PUBLIC RECORD ARRAY FUNCTION SearchPlace(STRING name)
+  {
+    RECORD arguments :=
+        [ name := name
+        , cities := "cities15000"
+        ];
+    RETURN this->CallGeoNamesService("search", arguments, "geoname");
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  BOOLEAN FUNCTION GetAvailable()
+  {
+    RETURN this->username != "";
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION CallGeoNamesService(STRING service, RECORD arguments, STRING resulttag DEFAULTSTO "")
+  {
+    IF (NOT ObjectExists(this->browser))
+      this->browser := NEW WebBrowser();
+
+    arguments := CELL[ ...this->GetBaseArguments(), ...arguments ];
+
+    STRING url := geonames_url || service;
+    // Serialize the arguments
+    FOREVERY (RECORD arg FROM UnpackRecord(arguments))
+    {
+      SWITCH (TypeID(arg.value))
+      {
+        CASE TypeId(STRING)
+        {
+          url := AddVariableToUrl(url, this->GetGeoNamesParameterName(arg.name), arg.value);
+        }
+        CASE TypeID(INTEGER), TypeID(INTEGER64)
+        {
+          url := AddVariableToUrl(url, this->GetGeoNamesParameterName(arg.name), ToString(arg.value));
+        }
+        CASE TypeID(FLOAT)
+        {
+          url := AddVariableToUrl(url, this->GetGeoNamesParameterName(arg.name), FormatFloat(arg.value, 6));
+        }
+        CASE TypeID(BOOLEAN)
+        {
+          url := AddVariableToUrl(url, this->GetGeoNamesParameterName(arg.name), arg.value ? "true" : "false");
+        }
+        CASE TypeID(STRING ARRAY)
+        {
+          FOREVERY (STRING value FROM arg.value)
+            url := AddVariableToUrl(url, this->GetGeoNamesParameterName(arg.name), value);
+        }
+        DEFAULT
+        {
+          THROW NEW Exception("Don't know how to send arguments of type " || GetTypeName(TypeID(arg)));
+        }
+      }
+    }
+
+    IF (NOT this->browser->GotoWebPage(url))
+      THROW NEW Exception("Could not call GeoNames service: " || this->browser->lasterror);
+    IF (NOT ObjectExists(this->browser->document))
+      THROW NEW Exception("Could not read GeoNames service result");
+    IF (this->browser->document->documentelement->nodename != "geonames")
+      THROW NEW Exception("Unexpected node '" || this->browser->document->documentelement->tagname || "' in GeoNames service result");
+
+    // A <status> node is sent in case of an exception
+    // http://www.geonames.org/export/webservice-exception.html
+    OBJECT ARRAY statusnodes := this->browser->document->documentelement->GetChildElementsByTagName("status")->GetCurrentElements();
+    IF (Length(statusnodes) > 0)
+    {
+      THROW NEW Exception("Got error " || statusnodes[0]->GetAttribute("value") || " when calling GeoNames service: '" || statusnodes[0]->GetAttribute("message") || "'");
+    }
+
+    OBJECT ARRAY resultnodes := this->browser->document->documentelement->GetChildElementsByTagName(resulttag ?? service)->GetCurrentElements();
+    IF (Length(resultnodes) = 0 AND resulttag = "")
+      THROW NEW Exception("No '" || service || "' nodes received in GeoNames service result");
+
+    RECORD ARRAY results;
+    FOREVERY (OBJECT node FROM resultnodes)
+    {
+      RECORD result;
+      FOREVERY (OBJECT field FROM node->childnodes->GetCurrentElements())
+      {
+        IF (field->nodename IN [ "lat", "lng" ])
+          result := CellInsert(result, field->nodename, ToFloat(field->childrentext, 0));
+        ELSE
+          result := CellInsert(result, field->nodename, field->childrentext);
+      }
+      INSERT result INTO results AT END;
+    }
+    RETURN results;
+  }
+
+  RECORD FUNCTION GetBaseArguments()
+  {
+    RECORD arguments := [ username := this->username ];
+    IF (this->country != "")
+      INSERT CELL country := this->country INTO arguments;
+    IF (this->language != "")
+      INSERT CELL lang := this->language INTO arguments;
+    RETURN arguments;
+  }
+
+  /* @short Get the parameter name with correct case (parameter names are case sensitive) */
+  STRING FUNCTION GetGeoNamesParameterName(STRING name)
+  {
+    SWITCH (name)
+    {
+      CASE "ADMINCODE1"      { RETURN "adminCode1"; }
+      CASE "ADMINCODE2"      { RETURN "adminCode2"; }
+      CASE "ADMINCODE3"      { RETURN "adminCode3"; }
+      CASE "CONTINENTCODE"   { RETURN "continentCode"; }
+      CASE "COUNTRYBIAS"     { RETURN "countryBias"; }
+      CASE "FEATURECLASS"    { RETURN "featureClass"; }
+      CASE "FEATURECODE"     { RETURN "featureCode"; }
+      CASE "ISNAMEREQUIRED"  { RETURN "isNameRequired"; }
+      CASE "MAXROWS"         { RETURN "maxRows"; }
+      CASE "NAME_STARTSWITH" { RETURN "name_startsWith"; }
+      CASE "STARTROW"        { RETURN "startRow"; }
+      DEFAULT                { RETURN ToLowercase(name); }
+    }
+  }
+>;

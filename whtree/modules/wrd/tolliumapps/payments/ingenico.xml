@@ -1,0 +1,62 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         library="ingenico.whlib"
+         gid="tolliumapps.payments.ingenico">
+
+  <tabsextension name="configingenico" implementation="lib">
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <textedit composition="methodsettings" cellname="pspid" required="true" name="pspid"/>
+      <textedit composition="methodsettings" cellname="sha1_in" required="true" name="sha1_in" />
+      <textedit composition="methodsettings" cellname="sha1_out" required="true" name="sha1_out" />
+      <textedit composition="methodsettings" cellname="sha1_in_directlink" />
+      <textedit composition="methodsettings" cellname="apiuser" />
+      <textedit composition="methodsettings" cellname="apipassword" />
+      <select composition="methodsettings" cellname="rebranded" type="radio">
+        <option rowkey="" tid=".norebranding" />
+        <option rowkey="abnamro" title="ABN AMRO Internetkassa" />
+      </select>
+      <select composition="methodsettings" cellname="mode" type="radio">
+        <option rowkey="test" />
+        <option rowkey="prod" />
+      </select>
+      <select composition="methodsettings" cellname="methods" type="checkbox" height="1pr" name="methods">
+        <!--ADDME ?bancontact/mistercash
+         e-Commerce & DirectLink only (feedback parameter value: Bancontact/Mister Cash)
+       -->
+        <option rowkey="Bank transfer" title="Bank transfer"/>
+        <option rowkey="Bank transfer BE" title="Bank transfer BE"/>
+        <option rowkey="Bank transfer DE" title="Bank transfer DE"/>
+        <option rowkey="Bank transfer FR" title="Bank transfer FR"/>
+        <option rowkey="Bank transfer NL" title="Bank transfer NL"/>
+        <option rowkey="Belfius Direct Net" title="Belfius Direct Net" />
+        <option rowkey="CBC Online" title="CBC Online" />
+        <option rowkey="DirectEbankingDE" title="Sofortüberweisung (DE)" />
+        <option rowkey="giropay" title="Giropay" />
+        <option rowkey="ideal" title="iDEAL" />
+        <option rowkey="KBC Online" title="KBC Online" />
+        <option rowkey="ING HomePay" title="ING HomePay" />
+        <option rowkey="paypal" title="PayPal" />
+        <option rowkey="creditcard" title="Creditcard" />
+        <option rowkey="Amazon Checkout" title="Amazon Checkout" />
+        <option rowkey="TUNZ" title="TUNZ" />
+      </select>
+      <textedit enabled="false" width="1pr" name="directhttpurl" />
+    </insert>
+  </tabsextension>
+
+  <screen name="payinfo">
+    <body>
+      <text name="orderid" selectable="true" />
+      <text name="paymentid" selectable="true" />
+      <text name="result" />
+      <text name="paymentmethod" />
+      <text name="brand" />
+      <text name="status" />
+      <text name="ncerror" />
+    </body>
+  </screen>
+
+</screens>

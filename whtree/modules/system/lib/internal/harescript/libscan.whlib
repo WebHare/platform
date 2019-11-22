@@ -1,0 +1,58 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+STRING ARRAY autoloaded :=
+[ "wh::system.whlib"
+, "mod::system/lib/internal/harescript/preload.whlib"
+, "wh::internal/hsservices.whlib"
+];
+
+PUBLIC STRING ARRAY harescriptextensions := ["*.whlib","*.shtml","*.whscr","*.hslib","*.whsock","*.tpl"];
+
+PUBLIC RECORD ARRAY FUNCTION GatherFiles(STRING startdir, STRING basepath, STRING ARRAY masks)
+{
+  RECORD ARRAY entries := ReadDiskDirectory(startdir,"*");
+  RECORD ARRAY files;
+  FOREVERY(RECORD entry FROM entries)
+  {
+    IF(entry.name LIKE ".*")
+      CONTINUE;
+    IF(entry.type=1) //dir
+      files := files CONCAT GatherFiles(startdir || "/" || entry.name, basepath || entry.name || "/", masks);
+    ELSE
+    {
+      FOREVERY(STRING mask FROM masks)
+        IF(touppercase(entry.name) LIKE ToUppercase(mask))
+        {
+          INSERT [ name := basepath || entry.name, diskpath := startdir || "/" || entry.name ]  INTO files AT END;
+          BREAK;
+        }
+    }
+  }
+  RETURN files;
+}
+
+PUBLIC STRING ARRAY FUNCTION GetReferredLoadlibs(RECORD dump)
+{
+  STRING ARRAY reffed;
+
+  FOREVERY(RECORD varrec FROM (dump.vars CONCAT dump.funcs CONCAT dump.objs))
+  {
+    IF(varrec.importfrom != "" AND varrec.importfrom NOT IN reffed)
+      INSERT varrec.importfrom INTO reffed AT END;
+  }
+  RETURN reffed;
+}
+
+PUBLIC STRING ARRAY FUNCTION GetUnneededLoadlibs(RECORD dump)
+{
+  STRING ARRAY directlibs := SELECT AS STRING ARRAY name FROM dump.loadlibs WHERE NOT indirect AND name NOT IN autoloaded;
+
+  FOREVERY(STRING lib FROM GetReferredLoadlibs(dump))
+  {
+    INTEGER pos := SearchElement(directlibs, lib);
+    IF(pos!=-1)
+      DELETE FROM directlibs AT pos;
+  }
+  RETURN directlibs;
+}

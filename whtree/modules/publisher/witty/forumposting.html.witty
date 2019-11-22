@@ -1,0 +1,47 @@
+[component forumpostingmail]
+  <html>
+    <head>
+      <title>[gettid site.forum.email.forumposting.subject sourcetitle]</title>
+      <style>
+        table th
+        {
+          text-align: left;
+          padding-right: 6px;
+        }
+      </style>
+    </head>
+    <body>
+      [embed forumpostingmailbody]
+    </body>
+  </html>
+[/component]
+
+[component forumpostingmailbody]
+  <div class="wh-publisher-forum__forumpostingmail">
+    <p>
+      [gethtmltid site.forum.email.forumposting.receivedcomment]:
+    </p>
+    <table>
+      <tr>
+        <th scope="row">[gettid site.forum.comments.message]</th>
+        <td>[message]</td>
+      </tr>
+      <tr>
+        <th scope="row">[gettid site.forum.comments.name]</th>
+        <td>[name]</td>
+      </tr>
+      <tr>
+        <th scope="row">[gettid site.forum.comments.email]</th>
+        <td>[email]</td>
+      </tr>
+      <tr>
+        <th scope="row">[gettid site.forum.email.forumposting.source]</th>
+        <td>[sourceresource]</td>
+      </tr>
+      <tr>
+        <th scope="row">[gettid site.forum.email.forumposting.url]</th>
+        <td>[url]</td>
+      </tr>
+    </table>
+  </div>
+[/component]

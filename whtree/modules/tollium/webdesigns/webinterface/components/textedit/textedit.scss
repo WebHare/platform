@@ -1,0 +1,68 @@
+@import "../base/settings.scss";
+
+//Prefix and suffix
+$prefix_suffix_margin: 5px;  //Sync with textedit.es
+
+.t-textedit__prefix, .t-textedit__suffix
+{
+  margin-top: $linetext-top-margin - 2px; //FIXME probably 3px inside inline blocks?
+  white-space: nowrap;
+}
+
+.t-textedit__prefix
+{
+  display: inline-block;
+  vertical-align:top;
+  margin-right: $prefix_suffix_margin;
+}
+.t-textedit__suffix
+{
+  display: inline-block;
+  vertical-align:top;
+  margin-left: $prefix_suffix_margin;
+}
+
+//Positioning inside panel/bock
+t-panel > .panel-area > div.line > t-textedit
+{
+  margin-top: 2px;
+}
+t-inlineblock > .panel-area > div.line > t-textedit
+{
+  margin-top: 3px;
+}
+
+//Buttons
+t-textedit t-button
+{
+  height: 100%;
+  padding: 4px;
+  border-left: 1px solid transparent;
+}
+
+t-textedit > input ~ t-button.icon
+{
+  position: absolute;
+  right: 0;
+  top: calc(50% - 8px);
+  width: 16px;
+  height: 16px;
+
+  background: rgba(0,0,0,0);
+  transition: background 0.1s;
+}
+t-textedit > input ~ t-button.icon:hover
+{
+  background: rgba(0,0,0,0.1);
+}
+t-textedit > input ~ t-button.icon.button--active
+{
+  background: rgba(0,0,0,.2);
+}
+t-textedit > input ~ t-button.icon .button__img
+{
+  top: 0;
+  left: 0;
+  margin: 0;
+}
+

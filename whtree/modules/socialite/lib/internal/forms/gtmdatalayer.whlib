@@ -1,0 +1,36 @@
+<?wh
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+
+PUBLIC OBJECTTYPE GTMDataLayer EXTEND FormHandlerBase
+<
+  UPDATE PUBLIC MACRO PrepareRendering()
+  {
+    this->form->formdataset := CELL[...this->form->formdataset
+                                   , "gtm-submit" := EncodeJSON([ form := this->settings.formname ])
+                                   ];
+  }
+>;
+
+PUBLIC OBJECTTYPE Settings EXTEND FormComponentExtensionBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->formname->value := this->node->GetAttribute("formname");
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+      this->node->SetAttribute("formname", this->formname->value);
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseGTMDataLayer(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := CELL[ ...fielddef
+                  , formname := node->GetAttribute("formname")
+                  ];
+  RETURN fielddef;
+}
+

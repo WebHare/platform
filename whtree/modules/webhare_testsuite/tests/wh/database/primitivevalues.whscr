@@ -1,0 +1,148 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+
+MACRO TestReflectValue(VARIANT v, STRING encoding)
+{
+  IF (TypeID(v) = TypeID(BLOB) AND LENGTH(v) = 0)
+    RETURN;
+
+  TRY
+  {
+    VARIANT result := RECORD(GetPrimary()->__ExecSQL(`SELECT $1 AS value`, [ args := VARIANT[ v ], argencodings := [ encoding ] ])).value;
+    TestEQ(v, result, AnyToString(v, "tree"));
+  }
+  CATCH (OBJECT e)
+  {
+    PRINT(`While reflecting\n` || AnyToString(v, "tree"));
+    THROW;
+  }
+}
+
+
+MACRO TestPrimitiveValues()
+{
+  OBJECT trans := GetPrimary();
+
+  trans->BeginWork();
+
+  // Cleanup
+  IF (trans->SchemaExists("webhare_testsuite_testschema"))
+    trans->DropSchema("webhare_testsuite_testschema", [ cascade := TRUE ]);
+  trans->CreateSchema("webhare_testsuite_testschema", "", "");
+
+  __LegacyCreateTable(trans, "webhare_testsuite_testschema", "primitives",
+      [ primarykey :=   "id"
+      , cols :=         [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 111 ]
+                        , [ column_name := "normalint", data_type := "INTEGER" ]
+                        , [ column_name := "normalbool", data_type := "BOOLEAN" ]
+                        , [ column_name := "normalvarchar", data_type := "VARCHAR", character_octet_length := 16 ]
+                        , [ column_name := "normaldatetime", data_type := "DATETIME" ]
+                        , [ column_name := "normalint64", data_type := "INTEGER64" ]
+                        , [ column_name := "normalmoney", data_type := "MONEY" ]
+                        , [ column_name := "normalfloat", data_type := "FLOAT" ]
+                        , [ column_name := "normalblob", data_type := "BLOB" ]
+                        , [ column_name := "binaryvarchar", data_type := "BYTEA" ]
+                        ]
+      ]);
+
+  trans->CommitWork();
+
+  TABLE
+  < INTEGER id
+  , INTEGER normalint
+  , BOOLEAN normalbool
+  , STRING normalvarchar
+  , DATETIME normaldatetime
+  , INTEGER64 normalint64
+  , MONEY normalmoney
+  , FLOAT normalfloat
+  , BLOB normalblob
+  , STRING binaryvarchar __ATTRIBUTES__(BINARY)
+  > testtable := BindTransactionToTable(trans->id, "webhare_testsuite_testschema.primitives");
+
+  RECORD tests :=
+      [ normalint :=          [ 0, -2147483648, 2147483647 ]
+      , normalbool :=         [ FALSE, TRUE ]
+      , normalvarchar :=      [ "", "1234567812345678" ]
+      , normalint64 :=        [ 0i64, -1i64, 1i64, -2147483648i64, -2147483649i64, -2147483650i64, -9223372036854775807i64, -9223372036854775808i64, 9223372036854775807i64 ]
+      , normaldatetime :=     [ DEFAULT DATETIME, MakeDate(1,1,1), MakeDate(2000, 1, 1), MakeDateTime(2000, 1, 2, 3, 4, 5, 6), MAX_DATETIME ]
+      , normalmoney :=        [ 0m, -92233720368547.75808, 92233720368547.75807 ]
+      , normalfloat :=        [ 0f, -987654321.123456789, 1000 ]
+      , normalblob :=         [ DEFAULT BLOB, StringToBlob("testblob") ]
+      , binaryvarchar :=      [ "", DecodeBase16("D1BCA62CB288E511B156C2A9BE48DF44DB0A4104") ]
+      ];
+
+  RECORD defaultrec;
+  FOREVERY (RECORD rec FROM UnpackRecord(tests))
+    defaultrec := CellInsert(defaultrec, rec.name, rec.value[0]);
+
+  FOREVERY (RECORD rec FROM UnpackRecord(tests))
+  {
+    // These types must be sent to postgresql as parameter, for IN optimization support
+    IF (TypeID(rec.value) IN [ TYPEID(INTEGER ARRAY), TYPEID(INTEGER64 ARRAY), TYPEID(DATETIME ARRAY), TYPEID(STRING ARRAY) ])
+      TestReflectValue(rec.value, rec.name LIKE "NORMAL*" ? "normal" : "binary");
+
+    FOREVERY (VARIANT val FROM rec.value)
+    {
+      trans->BeginWork();
+
+      TestReflectValue(val, rec.name LIKE "NORMAL*" ? "normal" : "binary");
+
+      DELETE FROM testtable;
+
+      INTEGER id := MakeAutoNumber(testtable, "id");
+      RECORD toinsert := CellInsert(CELL[ id ], rec.name, val);
+      INSERT toinsert INTO testtable;
+
+      trans->CommitWork();
+
+      //DumpValue(toinsert, [ name := "toinsert" ]);
+      RECORD readvalue := SELECT * FROM testtable WHERE COLUMN id = toinsert.id;
+      //DumpValue(readvalue, [ name := "readvalue" ]);
+
+      // blob's aren't comparable
+      IF (rec.name LIKE "*BLOB")
+      {
+        IF (LENGTH(val) != 0)
+        {
+          STRING insertid := __GetPostgreSQLBlobRegistrationId(trans->id, GetCell(toinsert, rec.name));
+          STRING readid := __GetPostgreSQLBlobRegistrationId(trans->id, GetCell(readvalue, rec.name));
+          TestEQ(FALSE, insertid = "", "Original blob should have a registration");
+          TestEQ(insertid, readid);
+        }
+        CONTINUE;
+      }
+
+      TestEQ(CELL[ ...defaultrec, ...toinsert ], readvalue);
+
+      // Test exact search
+      INTEGER found :=
+          SELECT AS INTEGER COLUMN id
+            FROM testtable
+           WHERE (CellExists(toinsert, "normalint") ? normalint = toinsert.normalint : TRUE)
+             AND (CellExists(toinsert, "normalbool") ? normalbool = toinsert.normalbool : TRUE)
+             AND (CellExists(toinsert, "normalvarchar") ? normalvarchar = toinsert.normalvarchar : TRUE)
+             AND (CellExists(toinsert, "normaldatetime") ? normaldatetime = toinsert.normaldatetime : TRUE)
+             AND (CellExists(toinsert, "normalint64") ? normalint64 = toinsert.normalint64 : TRUE)
+             AND (CellExists(toinsert, "normalmoney") ? normalmoney = toinsert.normalmoney : TRUE)
+             AND (CellExists(toinsert, "normalfloat") ? normalfloat = toinsert.normalfloat : TRUE)
+             AND (CellExists(toinsert, "normalblob") ? normalblob = toinsert.normalblob : TRUE)
+             AND (CellExists(toinsert, "binaryvarchar") ? binaryvarchar = toinsert.binaryvarchar : TRUE);
+
+      TestEQ(id, found);
+
+      // ADDME: test dynquery!
+    }
+  }
+}
+
+
+RunTestframework([ PTR TestPrimitiveValues ]);

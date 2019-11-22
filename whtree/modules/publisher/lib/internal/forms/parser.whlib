@@ -1,0 +1,417 @@
+<?wh
+
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/formhandlers.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+
+PUBLIC STRING FUNCTION FieldNameFromGuid(STRING guid)
+{
+  IF (guid LIKE "formgroup:*")
+    RETURN "__formfield" || Substring(guid,10) || "_";
+  RETURN "__formfield" || Substring(guid,9) || "_";
+}
+
+RECORD FUNCTION GetGlobalSettings(STRING module, OBJECT doc)
+{
+  RETURN [ gid := ParseXMLGid(module, "", doc, "gid") //from <formsdefinition>
+         ];
+}
+
+PUBLIC RECORD basefieldstructure :=
+[ guid := ""
+, name := ""
+, title := ""
+, hidetitle := FALSE
+, type := "custom"
+, visible := TRUE
+, required := FALSE
+, enabled := TRUE
+, isstatic := FALSE
+, novalue := FALSE
+, dataset := DEFAULT RECORD
+, groupdataset := DEFAULT RECORD
+, groupclasses := DEFAULT STRING ARRAY
+, formorder := -1
+, autocomplete := DEFAULT STRING ARRAY
+, fieldobject := DEFAULT FUNCTION PTR
+, supportedvalues := DEFAULT STRING ARRAY
+, requiredcondition := DEFAULT RECORD
+, enabledcondition := DEFAULT RECORD
+, visiblecondition := DEFAULT RECORD
+, formgroup := ""
+, formpage := -1
+, isgroup := FALSE
+, infotext := DEFAULT RECORD
+, qname := ""
+];
+
+RECORD FUNCTION GetFormInstance(OBJECT formdefinitions, STRING id)
+{
+  RETURN ObjectExists(formdefinitions) ? formdefinitions->GetInstance(id) : DEFAULT RECORD;
+}
+
+
+OBJECTTYPE FormParser
+<
+  PUBLIC RECORD ARRAY warnings;
+  PUBLIC RECORD ARRAY errors;
+  STRING resourcename;
+  BOOLEAN validatexmlonly;
+  PUBLIC STRING module;
+
+  MACRO NEW(STRING resourcename, BOOLEAN validatexmlonly)
+  {
+    this->resourcename := resourcename;
+    this->validatexmlonly := validatexmlonly;
+    this->module := GetModuleNameFromResourcePath(resourcename);
+  }
+
+  PUBLIC MACRO AddError(OBJECT node, STRING message)
+  {
+    INSERT CELL[line := node->linenum, col := 0, resourcename := this->resourcename, message ] INTO this->errors AT END;
+  }
+
+  PUBLIC RECORD FUNCTION ParseSingleFormField(OBJECT fieldnode, OBJECT formdefinitions, BOOLEAN validatexmlonly, INTEGER formpage, STRING formgroup)
+  {
+    BOOLEAN trusted := this->module != ""; //only formdefinitions sourced from a module are trusted
+    RECORD globalsettings := GetGlobalSettings(this->module, fieldnode->ownerdocument->documentelement);
+    OBJECT formnode := fieldnode;
+    WHILE (ObjectExists(formnode) AND formnode->localname != "form")
+      formnode := formnode->parentnode;
+    STRING gid := ParseXMLGid(this->module, globalsettings.gid, formnode, "gid"); //from <form>
+    RETURN this->ParseSingleFormNode(formnode, fieldnode, gid, formdefinitions, formpage, formgroup).field;
+  }
+
+  RECORD FUNCTION ParseSingleFormNode(OBJECT root, OBJECT fld, STRING gid, OBJECT formdefinitions, INTEGER formpage, STRING formgroup)
+  {
+    RECORD result :=
+        [ handlers := DEFAULT RECORD ARRAY
+        , buttons := DEFAULT RECORD ARRAY
+        , field := DEFAULT RECORD
+        ];
+    IF(fld->localname = "defaultformbuttons")
+    {
+      FOREVERY(STRING button FROM ParseXSList(fld->GetAttribute("buttons")))
+      {
+        INSERT [ name := button
+               , title := GetTid("tollium:common.actions." || button)
+               , result := button
+               ] INTO result.buttons AT END;
+      }
+      RETURN result;
+    }
+    IF (fld->localname = "trash")
+    {
+      RETURN result;
+    }
+
+    RECORD addfield := basefieldstructure;
+    addfield.guid := fld->GetAttribute("guid");
+    addfield.name := fld->GetAttribute("name");
+    addfield.title := ParseXMLTidPtr(this->module, gid, fld, "title");
+    addfield.hidetitle := ParseXSBoolean(fld->GetAttribute("hidetitle"));
+    addfield.visible := fld->HasAttribute("visible") ? ParseXSBoolean(fld->GetAttribute("visible")) : TRUE;
+    addfield.required := ParseXSBoolean(fld->GetAttribute("required"));
+    addfield.enabled := fld->HasAttribute("enabled") ? ParseXSBoolean(fld->GetAttribute("enabled")) : TRUE;
+    addfield.groupclasses := ParseXSList(fld->GetAttribute("groupclasses"));
+    addfield.isstatic := TRUE;
+    addfield.autocomplete := ParseXSList(fld->GetAttribute("autocomplete"));
+    addfield.formgroup := formgroup;
+    addfield.formpage := formpage;
+    addfield.qname := fld->namespaceuri || "#" || fld->localname;
+
+    STRING infotextinstance := fld->GetAttribute("infotextid");
+    IF(infotextinstance != "")
+    {
+      //TODO ingesting RTDs including any blobs might suck once we start caching
+      RECORD instance := GetFormInstance(formdefinitions, infotextinstance);
+      addfield.infotext := RecordExists(instance) ? instance.data : DEFAULT RECORD;
+    }
+
+    IF(NOT this->validatexmlonly)
+    {
+      FOREVERY(STRING attr FROM ["requiredcondition","visiblecondition","enabledcondition"])
+      {
+        IF(ObjectExists(formdefinitions))
+          addfield := CellUpdate(addfield, attr, formdefinitions->GetConditionAttribute(fld, attr || "id"));
+        ELSE IF(fld->HasAttribute(attr||"id"))
+          this->AddError(fld, `Illegal use of '${attr}id' for a file without formdefinitions`);
+      }
+    }
+
+    IF(addfield.guid!="" AND addfield.guid NOT LIKE "formcomp:*" AND NOT (fld->localname = "group" AND addfield.guid LIKE "formgroup:*"))
+      this->AddError(fld, `Illegal field guid '${addfield.guid}'`);
+
+    IF(addfield.name = "" AND addfield.guid != "")
+      addfield.name := FieldNameFromGuid(addfield.guid);
+    ELSE IF(NOT IsValidFieldName(addfield.name))
+      this->AddError(fld, `Illegal field name '${addfield.name}' on line ${fld->linenum}`);
+
+    RECORD comptype := GetFormComponentDefByNode(fld);
+    IF (RecordExists(comptype))
+    {
+      BOOLEAN iscustomfield := comptype.namespace = "http://www.webhare.net/xmlns/publisher/forms" AND comptype.name = "customfield";
+      STRING fieldobject := iscustomfield ? MakeAbsoluteResourcePath(this->resourcename, fld->GetAttribute("fieldobject")) : comptype.fieldobject;
+
+      IF (fieldobject != "")
+        addfield.fieldobject := PTR MakeObject(fieldobject, #1, #2, #3);
+      IF (comptype.parserfunc != "")
+        addfield := MakeFunctionPtr(comptype.parserfunc)(addfield, fld,
+            [ parsexmltidptr := PTR ParseXMLTidPtr(this->module, gid, #1, #2)
+            , parsexmltiddirectly := PTR ParseXMLTidDirectly
+            , parsesubnode := PTR this->ParseFormContent(root, #1, gid, formdefinitions, formpage)
+            , getinstance := this->validatexmlonly ? DEFAULT MACRO PTR : PTR GetFormInstance(formdefinitions, #1)
+            ]);
+
+      IF(comptype.supportedvaluesfunc != "")
+        addfield.supportedvalues := MakeFunctionPtr(comptype.supportedvaluesfunc)(fld);
+      ELSE
+        addfield.supportedvalues := comptype.defaultvaluetypes;
+    }
+    ELSE
+    {
+      this->AddError(fld, `Unrecognized field type '${fld->namespaceuri}#${fld->localname}'`);
+    }
+    result.field := addfield;
+    RETURN result;
+  }
+
+  PUBLIC RECORD FUNCTION ParseFormContent(OBJECT root, OBJECT parent, STRING gid, OBJECT formdefinitions, INTEGER formpage)
+  {
+    RECORD ARRAY fields, buttons, handlers;
+    STRING ARRAY seenfieldnames;
+    OBJECT ARRAY includes;
+
+    FOREVERY(OBJECT fld FROM parent->childnodes->GetCurrentElements())
+    {
+      // Return components within a group as if the group level doesn't exist
+      IF (fld->namespaceuri = xmlns_forms AND fld->localname = "group")
+      {
+        RECORD groupresult := this->ParseSingleFormNode(root, fld, gid, formdefinitions, formpage, "");
+        groupresult.field.isgroup := TRUE;
+        INSERT groupresult.field INTO fields AT END;
+        INSERT ToUppercase(groupresult.field.name) INTO seenfieldnames AT END;
+
+        FOREVERY(fld FROM fld->childnodes->GetCurrentElements())
+        {
+          RECORD result := this->ParseSingleFormNode(root, fld, gid, formdefinitions, formpage, ToUppercase(groupresult.field.name));
+          handlers := result.handlers;
+          buttons := buttons CONCAT result.buttons;
+          IF (RecordExists(result.field))
+          {
+            INSERT result.field INTO fields AT END;
+            INSERT ToUppercase(result.field.name) INTO seenfieldnames AT END;
+          }
+        }
+      }
+      ELSE
+      {
+        RECORD result := this->ParseSingleFormNode(root, fld, gid, formdefinitions, formpage, "");
+        handlers := result.handlers;
+        buttons := buttons CONCAT result.buttons;
+        IF (RecordExists(result.field))
+        {
+          INSERT result.field INTO fields AT END;
+          INSERT ToUppercase(result.field.name) INTO seenfieldnames AT END;
+        }
+      }
+    }
+    RETURN CELL[ fields, buttons, handlers ];
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING resourcename, STRING lookupname, OBJECT formdefinitions, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ externalformname := ""
+                             , webtoolformid := 0
+                             , validatexmlonly := FALSE
+                             , accepterrors := FALSE
+                             ], options);
+
+  OBJECT parser := NEW FormParser(resourcename, options.validatexmlonly);
+  STRING module := GetModuleNameFromResourcePath(resourcename);
+  RECORD globalsettings := GetGlobalSettings(module, formnode->ownerdocument->documentelement);
+  STRING gid := ParseXMLGid(module, globalsettings.gid, formnode, "gid"); //from <form>
+
+  RECORD formdef := [ fields := RECORD[]
+                    , pages := RECORD[]
+                    , buttons := RECORD[]
+                    , handlers := RECORD[]
+                    , name := formname
+                    , externalformname := options.externalformname ?? formname
+                    , webtoolformid := options.webtoolformid
+                    , objectname := ""
+                    , idprefix := formnode->GetAttribute("idprefix") ?? (lookupname ?? formname) || "-"
+                    , defs := formdefinitions
+                    , legacymode := FALSE
+                    , jshandler := ""
+                    , prevlabel := ParseXMLTidPtr(module, gid, formnode, "prevlabel")
+                    , nextlabel := ParseXMLTidPtr(module, gid, formnode, "nextlabel")
+                    , submitlabel := ParseXMLTidPtr(module, gid, formnode, "submitlabel")
+                    , warnings := RECORD[]
+                    , errors := RECORD[]
+                    ];
+
+  STRING objectname := formnode->GetAttribute("objectname");
+  IF(module != "" AND objectname != "") //only formdefinitions sourced from a module are trusted
+  {
+    IF(objectname LIKE "*#*") //full reference!
+    {
+      formdef.objectname := MakeAbsoluteResourcePath(resourcename, objectname);
+    }
+    ELSE
+    {
+      STRING library := formnode->GetAttribute("library") ?? formnode->parentnode->GetAttribute("library");
+      formdef.objectname := MakeAbsoluteResourcePath(resourcename, library || "#" || objectname);
+    }
+  }
+
+  OBJECT ARRAY pages := formnode->GetChildElementsByTagNameNS(xmlns_forms, "page")->GetCurrentElements();
+  IF(Length(pages)=0)
+  {
+    //assume a legacy form definition
+    RECORD parseres := parser->ParseFormContent(formnode, formnode, gid, formdefinitions, 0);
+    formdef.fields := parseres.fields;
+    formdef.buttons := parseres.buttons;
+    formdef.legacymode := TRUE;
+
+    INSERT [ name := ""
+           , guid := ""
+           , role := ""
+           , title := ""
+           , redirect := ""
+           , fields := parseres.fields
+           , visiblecondition := DEFAULT RECORD
+           ] INTO formdef.pages AT END;
+
+    if(formnode->GetAttribute("jshandler") != "")
+      parser->AddError(formnode, "jshandlers are not allowed in 'legacy' forms. Convert to <pages> syntax");
+  }
+  ELSE
+  {
+    formdef.jshandler := formnode->GetAttribute("jshandler") ?? "publisher:rpc";
+
+    //FIXME reject defaultformbuttons in the 4.11 parser? do we need it?
+    //FIXME shouldn't we share formdef code and use its ListPages() ?
+
+    FOREVERY(OBJECT page FROM pages)
+    {
+      RECORD parseres := parser->ParseFormContent(page, page, gid, formdefinitions, #page);
+      formdef.fields := formdef.fields CONCAT parseres.fields;
+
+      RECORD addpage :=
+          [ name := page->GetAttribute("name")
+          , guid := page->GetAttribute("guid")
+          , role := page->GetAttribute("role")
+          , title := ParseXMLTidPtr(module, gid, page, "pagetitle")
+          , redirect := page->GetAttribute("redirect")
+          , fields := parseres.fields
+          , visiblecondition := DEFAULT RECORD
+          ];
+      IF(NOT options.validatexmlonly)
+      {
+        IF (ObjectExists(formdefinitions))
+          addpage.redirect := formdefinitions->ResolveLinkRefToUrl(addpage.redirect);
+        ELSE IF (addpage.redirect LIKE "x-wh-internallink:*")
+          parser->AddError(page, `Illegal use of internal redirect link for a file without formdefinitions`);
+        FOREVERY(STRING attr FROM ["requiredcondition","visiblecondition","enabledcondition"])
+        {
+          IF(ObjectExists(formdefinitions))
+            addpage := CellUpdate(addpage, "visiblecondition", formdefinitions->GetConditionAttribute(page, "visibleconditionid"));
+          ELSE IF(page->HasAttribute(attr||"id"))
+            parser->AddError(page, `Illegal use of 'visibleconditionid' for a file without formdefinitions`);
+        }
+      }
+
+      INSERT addpage INTO formdef.pages AT END;
+    }
+
+    formdef.handlers := ParseFormHandlers(formnode, module, gid, formdefinitions, options.validatexmlonly);
+  }
+
+  formdef.warnings := formdef.warnings CONCAT parser->warnings;
+  formdef.errors := formdef.errors CONCAT parser->errors;
+  IF(NOT options.accepterrors AND Length(formdef.errors)>0)
+    THROW NEW Exception(`Cannot load form: ${formdef.errors[0].message} at line ${formdef.errors[0].line}`);
+  RETURN formdef;
+}
+
+
+PUBLIC RECORD FUNCTION GetFormDef(STRING formdefinitionfile, STRING formname)
+{
+  STRING lookupname;
+
+  IF(formname LIKE "__builtin:*:*") //used by publisher form rtd field
+  {
+    STRING ARRAY formtoks := Tokenize(formname,':');
+    IF(Length(formtoks) != 3 OR NOT IsValidWHFSName(formtoks[1],FALSE))
+      THROW NEW Exception("Illegal builtin form name '" || formname || "'");
+
+    formdefinitionfile := "module::publisher/internal/forms/" || formtoks[1] || ".formdef.xml";
+    lookupname := formtoks[2];
+  }
+  ELSE
+  {
+    lookupname := formname LIKE "*#*" ? Tokenize(formname,'#')[1] : formname;
+  }
+
+  OBJECT xmldoc := MakeXMLDocument(GetWebhareResource(formdefinitionfile));
+  FOREVERY(OBJECT forminfo FROM xmldoc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "form")->GetCurrentElements())
+  {
+    IF(forminfo->GetAttribute("name") = lookupname)
+    {
+      RETURN ParseFormDef(forminfo, formname, formdefinitionfile, lookupname, DEFAULT OBJECT);
+    }
+  }
+  THROW NEW Exception("Did not find a form named '" || lookupname || "' in '" || formdefinitionfile || "'");
+}
+
+
+PUBLIC RECORD ARRAY FUNCTION GatherFormComponentsFromChildren(OBJECT startnode, RECORD options)
+{
+  RECORD ARRAY result;
+
+  FOREVERY(OBJECT node FROM startnode->childnodes->GetCurrentElements())
+    result := result CONCAT GatherFormComponentsFromComponent(node, options);
+
+  RETURN result;
+}
+
+OBJECT ARRAY FUNCTION FlattenChildren(OBJECT startnode)
+{
+  OBJECT ARRAY list:= [ startnode ];
+  FOREVERY(OBJECT node FROM startnode->childnodes->GetCurrentElements())
+    list := list CONCAT FlattenChildren(node);
+  RETURN list;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GatherFormComponentsFromComponent(OBJECT node, RECORD options)
+{
+  RECORD ARRAY result := [CELL[ node, type := "component", allchildren := OBJECT[] ]];
+  IF(node->localname = "group")
+    RETURN result CONCAT GatherFormComponentsFromChildren(node, options);
+
+  BOOLEAN isselect := node->localname = "select" AND node->namespaceuri = "http://www.webhare.net/xmlns/publisher/forms";
+  IF(NOT isselect AND NOT options.getallchildren)
+    RETURN result; //not interested in children
+
+  FOREVERY(OBJECT subnode FROM node->childnodes->GetCurrentElements())
+  {
+    IF(isselect AND subnode->localname = "option")
+    {
+      INSERT CELL[ node := subnode, type := "option", allchildren := OBJECT[] ] INTO result AT END;
+      result := result CONCAT GatherFormComponentsFromChildren(subnode, options);
+      CONTINUE; //this node is not considered a child of the component
+    }
+    result[0].allchildren := result[0].allchildren CONCAT FlattenChildren(subnode);
+  }
+  RETURN result;
+}

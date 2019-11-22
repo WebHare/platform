@@ -1,0 +1,127 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/restart_reset.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
+
+RECORD settings := ParseArguments(GetConsoleArguments()
+                                 , [ [ name := "debug", type := "switch" ]
+                                   , [ name := "profile", type := "switch" ]
+                                   ]);
+OBJECT trans;
+
+SetConsoleLineBuffered(FALSE);
+
+IF(NOT RecordExists(settings))
+{
+  Print("invalid syntax\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+BOOLEAN showinfo;
+IF(settings.debug OR GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "")
+  showinfo := TRUE;
+
+IF(showinfo)
+  Print("Waiting for the database to come online\n");
+
+WHILE(TRUE)
+{
+  TRY
+  {
+    trans := OpenPrimary([waituntil := AddTimeToDate(60*1000, GetCurrentDatetime())]);
+    IF(ObjectExists(trans))
+      BREAK;
+  }
+  CATCH(OBJECT e)
+  {
+    Print("Database server is unavailable: " || e->what || "\n");
+  }
+  Sleep(5000); //try again in 5 seconds
+}
+
+IF(showinfo)
+  Print("We have a database!\n");
+
+DATETIME start := GetCurrentDatetime();
+SetWHServiceState("startup", [ start := start ]);
+
+IF (GetDatabaseType() = "whdb" AND NOT IsDatabaseReadonly())
+{
+  GetPrimary()->BeginWork();
+  __SendWHDBCommand(GetPrimary()->id, "set global rpcinfo to on"); //allows stacktracing if the startup process gets stuck
+  GetPrimary()->CommitWOrk();
+}
+
+/* Eliminate old *.bak stuff in the ../modules folder. They should have been moved to installedmodules long ago */
+RECORD ARRAY eliminate := SELECT * FROM ReadDiskDirectory(GetInstallationRoot()||"modules","*.bak") WHERE type=1;
+FOREVERY(RECORD oldfolder FROM eliminate)
+  DeleteDiskDirectoryRecursive(GetInstallationRoot() || "modules/" || oldfolder.name);
+
+/* Unpack important stuff that shipped with us */
+RECORD shrinkwrapfile := RetrieveWebhareResource("mod::system/data/shrinkwrap-var.tgz", [ allowmissing := TRUE ]);
+IF(RecordExists(shrinkwrapfile))
+{
+  STRING basepath := GetWebhareConfiguration().varroot;
+  STRING guardpath := basepath || "system.last-shrinkwrap-var";
+  RECORD shrinkwrapguard := GetDiskFileProperties(guardpath);
+  STRING ARRAY seendirs;
+  BOOLEAN anyerror;
+
+  IF(NOT RecordExists(shrinkwrapguard) OR shrinkwrapguard.modified != shrinkwrapfile.modified)
+  {
+    IF(showinfo)
+      Print("Extracting the shrinkwrap file (last modified " || FormatISO8601Datetime(shrinkwrapfile.modified) || ")\n");
+    FOREVERY(RECORD entry FROM UnpackArchive(shrinkwrapfile.data, ""))
+    {
+      STRING dir := basepath || entry.path;
+
+      IF(dir NOT IN seendirs)
+      {
+        IF (NOT CreateDiskDirectoryRecursive(dir, TRUE) AND NOT RecordExists(GetDiskFileProperties(dir)))
+        {
+          anyerror := TRUE;
+          Print("Unable to create folder " || dir || "\n");
+        }
+
+        INSERT dir INTO seendirs AT END;
+      }
+
+      IF(entry.name != "") //A file
+      {
+        STRING fullpath := dir || "/" || entry.name;
+        DATETIME modtime;
+        StoreDiskFile(fullpath, entry.data, [ overwrite := TRUE]);
+      }
+    }
+    IF(NOT anyerror)
+    {
+      StoreDiskFile(guardpath, DEFAULT BLOB, [ overwrite := TRUE ]);
+      SetFileModificationDate(guardpath, shrinkwrapfile.modified);
+    }
+  }
+}
+
+__disable_compilable_lockmgr := TRUE;
+RunRestartReset(showinfo);
+
+IF (GetDatabaseType() = "whdb" AND NOT IsDatabaseReadonly())
+{
+  GetPrimary()->BeginWork();
+  __SendWHDBCommand(GetPrimary()->id, "set global rpcinfo to off");
+  GetPrimary()->CommitWOrk();
+}
+
+FOREVERY(STRING err FROM GetModuleDependencyIssues())
+  Print(err||"\n");
+
+SetWHServiceState("started", [ start := start, finished := GetCurrentDatetime() ]);

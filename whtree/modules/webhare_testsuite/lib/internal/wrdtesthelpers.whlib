@@ -1,0 +1,480 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
+
+LOADLIB "mod::wrd/lib/payments.whlib";
+
+
+/* Add a RTD with embedded objects */
+PUBLIC RECORD wrdtest_withembedded;
+/*PUBLIC RECORD domainattr1, domainattr2, domainattr3, domainattr4, domainattr5, domainattr6, domainattr7, domainattr8, domainattr9,
+              domainattr10, domainattr11, domainattr12, domainattr13, domainattr14, domainattr15, domainattr16,*/
+PUBLIC OBJECT domain1value1,domain1value2,domain1value3,domain2value1,domain2value2,domain2value3;
+PUBLIC RECORD addressrec := [ country := "NL", street := "Teststreet", number := "15", zip := "1234 AB", city := "Testcity", locationdetail := "", nr_detail := "" ];
+
+STRING tempstring := "0123456789ABCDEF";
+
+PUBLIC STRING FUNCTION GetStringOfLength(INTEGER l)
+{
+  WHILE (LENGTH(tempstring) < l)
+    tempstring := tempstring || tempstring;
+  RETURN Left(tempstring, l);
+}
+
+PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ withrichdoc := TRUE, keephistorydays := 0 ], options);
+
+  //testfw->SetupTestWebsite(DEFAULT BLOB);
+  wrdtest_withembedded := GetTestRTD();
+
+  // Initialize the schema, and test the attribute name function
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  IF (options.keephistorydays != 0)
+    persontype->UpdateMetadata(CELL[ options.keephistorydays ]);
+  persontype->UpdateAttribute("WRD_CONTACT_EMAIL", [ isrequired := FALSE ]); //for compatibility with all existing tests
+  persontype->CreateAttribute("WRD_CONTACT_PHONE_XX", "TELEPHONE", [ title := "Phone" ]);
+  persontype->CreateAttribute("PERSONLINK", "DOMAIN", [ title := "Person", domaintag := "WRD_PERSON" ]);
+  persontype->CreateAttribute("RELATIONLINK", "DOMAIN", [ title := "Relation", domaintag := "WRD_RELATION" ]);
+  persontype->CreateAttribute("WRD_CONTACT_PHONE", "TELEPHONE", [ title := "Testphone" ]);
+  persontype->CreateAttribute("TESTINSTANCE", "WHFSINSTANCE", [ title := "Testinstance" ]);
+  persontype->CreateAttribute("TESTINTEXTLINK", "WHFSINTEXTLINK", [ title := "Testintextlink" ]);
+  persontype->CreateAttribute("TESTINTEXTLINK_NOCHECK", "WHFSINTEXTLINK", [ title := "Testintextlink with checklinks=false", checklinks := FALSE ]);
+  persontype->CreateAttribute("URL", "URL", [ title := "URL" ]);
+
+  persontype->CreateEntity([ wrd_contact_email := "temp@beta.webhare.net"], [ temp := TRUE ]);
+
+  TestEq(TRUE, persontype->GetAttribute("TESTINTEXTLINK").checklinks); //should default to 'true'
+  TestEq(FALSE, persontype->GetAttribute("TESTINTEXTLINK_NOCHECK").checklinks); //explict false
+
+
+  // Create a person with some testdata
+  RECORD persondata := [ wrd_firstname     := "John"
+                       , wrd_lastname      := "Doe"
+                       , wrd_contact_email := "email@example.com"
+                       , wrd_contact_phone := "1234-5678"
+                       , url               := "http://example.com"
+                       ];
+
+  INTEGER testpersonid := persontype->CreateEntity(persondata)->id;
+  TestEq(TRUE, testpersonid > 0);
+
+
+  RECORD testpersonrec := persontype->GetEntityFields(testpersonid, [ "WRD_FIRSTNAME", "WRD_LASTNAME", "WRD_CONTACT_EMAIL", "WRD_CONTACT_PHONE", "WRD_TITLE", "WRD_FULLNAME" ]);
+  TestEq(TRUE, RecordExists(testpersonrec));
+  TestEq(testpersonrec.wrd_fullname, testpersonrec.wrd_title);
+  TestEq("email@example.com", testpersonrec.wrd_contact_email);
+
+  RECORD testpersonrec2 := persontype->GetEntityFields(testpersonid, [ "WRD_TITLE" ]);
+  TestEq(testpersonrec.wrd_fullname, testpersonrec2.wrd_title);
+
+  RECORD testpersonrec3 := persontype->RunQuery(
+      [ filters :=
+            [ [ field := "WRD_ID", value :=  testpersonid ]
+            ]
+      , outputcolumns :=
+            [ wrd_title := "WRD_TITLE"
+            , limitdate := "WRD_LIMITDATE"]
+      ]);
+  TestEq(testpersonrec.wrd_fullname, testpersonrec3.wrd_title);
+  TestEq(MAX_DATETIME, testpersonrec3.limitdate);
+
+  TestThrows(PTR persontype->RunQuery(
+              [ outputcolumns := [ "XXX*" ]
+              ]));
+
+  //Test wildcard queries. Your risk..
+  RECORD testpersonrec4 := persontype->RunQuery(
+      [ filters :=
+            [ [ field := "WRD_ID", value :=  testpersonid ]
+            ]
+      , outputcolumns := [ "*" ]
+      ]);
+  TestEq(testpersonrec.wrd_fullname, testpersonrec4.wrd_title);
+  TestEq(38,Length(UnpackRecord(testpersonrec4)));
+
+  //Verify the getentityfields counterpart
+  RECORD testpersonrec5 := persontype->GetEntityFields(testpersonid, [ "*" ]);
+  TestEq(testpersonrec4, testpersonrec5);
+
+  // Change the e-mail address
+  OBJECT testpersonobj := persontype->GetEntity(testpersonid);
+  testpersonobj->UpdateEntity( [ wrd_contact_email := "other@example.com" ] );
+
+  // Re-search for the person and check the new e-mail address
+  testpersonrec := persontype->GetEntityFields(testpersonid, [ "WRD_CONTACT_EMAIL" ]);
+  TestEq(testpersonrec.wrd_contact_email, "other@example.com");
+
+  TestThrows(PTR testpersonobj->UpdateEntity([ wrd_guid := "invalid" ]));
+  testpersonobj->UpdateEntity([ wrd_guid := "wrd:0123456789ABCDEF0123456789ABCDEF" ]);
+  TestEQ("wrd:0123456789ABCDEF0123456789ABCDEF", testpersonobj->GetField("WRD_GUID"));
+
+  TestThrows(PTR persontype->CreateEntity([ wrd_guid := "invalid" ]));
+  TestThrows(PTR persontype->CreateEntity([ wrd_guid := "wrd:0123456789ABCDEF0123456789ABCDEF" ]));
+
+  // Create a domain with some values
+  OBJECT domain1_obj := schemaobj->CreateDomain("TEST_DOMAIN_1", [ title := "Domain 1"]);
+  TestEq(TRUE, ObjectExists(domain1_obj));
+
+  domain1value1 := domain1_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_1_1", wrd_title := "Domain value 1.1", wrd_ordering := 1 ] );
+  domain1value2 := domain1_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_1_2", wrd_title := "Domain value 1.2", wrd_ordering := 2 ] );
+  domain1value3 := domain1_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_1_3", wrd_title := "Domain value 1.3", wrd_ordering := 3 ] );
+
+  // Create another domain with some values
+  OBJECT domain2_obj := schemaobj->CreateDomain("TEST_DOMAIN_2", [ title := "Domain 2"]);
+  TestEq(TRUE, ObjectExists(domain2_obj));
+
+  domain2value1 := domain2_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_2_1", wrd_title := "Domain value 2.1", wrd_guid := "wrd:00000000002010000002010000002010"  ] );
+  domain2value2 := domain2_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_2_2", wrd_title := "Domain value 2.2", wrd_guid := "wrd:00000000002020000002020000002020"  ] );
+  domain2value3 := domain2_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_2_3", wrd_title := "Domain value 2.3", wrd_guid := "wrd:00000000002030000002030000002030" ] );
+
+  // Add attributes of every type to the Person type
+  persontype->CreateAttribute("TEST_SINGLE_DOMAIN",   "DOMAIN",          [ title := "Single attribute", domaintag := domain1_obj->tag]);
+  persontype->CreateAttribute("TEST_SINGLE_DOMAIN2",  "DOMAIN",          [ title := "Single attribute", domaintag := domain1_obj->tag]); // for <wrd:selectentity> test
+  persontype->CreateAttribute("TEST_SINGLE_DOMAIN3",  "DOMAIN",          [ title := "Single attribute", domaintag := domain1_obj->tag]); // for <wrd:selectentity> test
+  persontype->CreateAttribute("TEST_FREE",            "FREE",            [ title := "Free attribute" ]);
+  persontype->CreateAttribute("TEST_ADDRESS",         "ADDRESS",         [ title := "Address attribute" ]);
+  persontype->CreateAttribute("TEST_EMAIL",           "EMAIL",           [ title := "E-mail attribute" ]);
+  persontype->CreateAttribute("TEST_PHONE",           "TELEPHONE",       [ title := "Phone attribute" ]);
+  persontype->CreateAttribute("TEST_DATE",            "DATE",            [ title := "Date attribute" ]);
+  persontype->CreateAttribute("TEST_PASSWORD",        "PASSWORD",        [ title := "Password attribute" ]);
+  persontype->CreateAttribute("TEST_MULTIPLE_DOMAIN", "DOMAINARRAY",     [ title := "Multiple attribute", domaintag := domain2_obj->tag]);
+  persontype->CreateAttribute("TEST_MULTIPLE_DOMAIN2", "DOMAINARRAY",     [ title := "Multiple attribute", domaintag := domain2_obj->tag]);
+  persontype->CreateAttribute("TEST_MULTIPLE_DOMAIN3", "DOMAINARRAY",     [ title := "Multiple attribute", domaintag := domain2_obj->tag]);
+  persontype->CreateAttribute("TEST_IMAGE",           "IMAGE",           [ title := "Image attribute" ]);
+  persontype->CreateAttribute("TEST_FILE",            "FILE",            [ title := "File attribute" ]);
+  persontype->CreateAttribute("TEST_TIME",            "TIME",            [ title := "Time attribute" ]);
+  persontype->CreateAttribute("TEST_DATETIME",        "DATETIME",        [ title := "Datetime attribute" ]);
+  persontype->CreateAttribute("TEST_ARRAY",           "ARRAY",           [ title := "Array attribute" ]);
+  persontype->CreateAttribute("TEST_MONEY",           "MONEY",           [ title := "Money attribute" ]);
+  persontype->CreateAttribute("TEST_INTEGER",         "INTEGER",         [ title := "Integer attribute" ]);
+  persontype->CreateAttribute("TEST_BOOLEAN",         "BOOLEAN",         [ title := "Boolean attribute" ]);
+  persontype->CreateAttribute("TEST_ENUM",            "ENUM",            [ title := "Emum attribute", allowedvalues := ["enum1","enum2"] ]);
+  persontype->CreateAttribute("TEST_ENUMARRAY",       "ENUMARRAY",       [ title := "Emum attribute", allowedvalues := ["enumarray1","enumarray2"] ]);
+  persontype->CreateAttribute("TEST_EMPTYENUM",       "ENUM",            [ title := "Emum attribute", allowedvalues := STRING[] ]);
+  persontype->CreateAttribute("TEST_EMPTYENUMARRAY",  "ENUMARRAY",       [ title := "Emum attribute", allowedvalues := STRING[] ]);
+  persontype->CreateAttribute("TEST_RECORD",          "RECORD",          [ title := "Record attribute", allowedvalues := STRING[] ]);
+  persontype->CreateAttribute("TEST_STATUSRECORD",    "STATUSRECORD",    [ title := "Status record", allowedvalues := ["warning","error","ok"] ]);
+  persontype->CreateAttribute("RICHIE",               "RICHDOCUMENT",    [ title := "Rich document" ]);
+
+  schemaobj->CreateType("PERSONATTACHMENT", CELL[ title := "Test person attachments", linkfrom := schemaobj->^wrd_person->id, options.keephistorydays ]);
+  schemaobj->^personattachment->CreateAttribute("ATTACHFREE",           "FREE",            [ title := "Free text attribute" ]);
+
+  schemaobj->CreateDomain("PAYPROV", CELL[ options.keephistorydays ]);
+  schemaobj->^payprov->CreateAttribute("METHOD", "PAYMENTPROVIDER", [ isrequired := TRUE ]);
+
+  schemaobj->CreateType("PAYDATA");
+  schemaobj->^paydata->CreateAttribute("DATA", "PAYMENT", [ domain := schemaobj->^payprov->id ]);
+  schemaobj->^paydata->CreateAttribute("LOG", "RECORD");
+
+  schemaobj->CreateType("PAYDATA2");
+  schemaobj->^paydata2->CreateAttribute("DATA", "PAYMENT", [ domain := schemaobj->^payprov->id ]);
+  schemaobj->^paydata2->CreateAttribute("LOG", "RECORD");
+
+  Testeq(FALSE, persontype->GetAttribute("TEST_ENUM").checklinks);
+  Testeq(TRUE, persontype->GetAttribute("RICHIE").checklinks); //should default to 'true'
+
+  persontype->CreateAttribute("TEST_ARRAY.TEST_INT",              "INTEGER",           [ title := "Array integer attribute" ]);
+  persontype->CreateAttribute("TEST_ARRAY.TEST_FREE",             "FREE",              [ title := "Array free attribute" ]);
+  persontype->CreateAttribute("TEST_ARRAY.TEST_ARRAY2",           "ARRAY",             [ title := "Array array attribute" ]);
+  persontype->CreateAttribute("TEST_ARRAY.TEST_ARRAY2.TEST_INT2", "INTEGER",           [ title := "Array array integer attribute" ]);
+  persontype->CreateAttribute("TEST_ARRAY.TEST_SINGLE",           "DOMAIN",            [ title := "Array domain attribute", domaintag := domain1_obj->tag ]);
+  persontype->CreateAttribute("TEST_ARRAY.TEST_IMAGE",            "IMAGE",             [ title := "Array image attribute" ]);
+  persontype->CreateAttribute("TEST_ARRAY.TEST_SINGLE_OTHER",     "DOMAIN",            [ title := "Array domain attribute", domaintag := domain1_obj->tag ]);
+  persontype->CreateAttribute("TEST_ARRAY.TEST_MULTIPLE",         "DOMAINARRAY",       [ title := "Array multiple domain attribute", domaintag := domain1_obj->tag ]);
+  persontype->CreateAttribute("TEST_ARRAY.TEST_EMAIL",            "EMAIL",             [ title := "Array email attribute" ]);
+
+  BLOB testimage_blob := GetWebhareResource("mod::webhare_testsuite/tests/wrd/testdata/goudvis.png");
+  RECORD testimage := WrapBlob(testimage_blob,"goudvis.png");
+
+  BLOB testfile_blob; //FIXME: Get from disk
+
+  RECORD testfile := [ data := testfile_blob
+                     , mimetype := "application/msword"
+                     , filename := "testfile.doc"
+                     , extension := "doc"
+                     ];
+
+  // Set all above attributes
+  RECORD newdata := [ test_single_domain := domain1value1->id
+                    , test_multiple_domain := [ INTEGER(domain2value3->id) ]
+                    , test_free          := "Free field"
+                    , test_address       := addressrec
+                    , test_email         := "email@example.com"
+                    , test_phone         := "012-3456789"
+                    , test_date          := MakeDate(2006, 1, 1)
+                    , test_password      := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO"
+                    , test_image         := testimage
+                    , test_file          := testfile
+                    , test_time          := MakeTime (15, 24, 34)
+                    , test_array         := [ [ test_int := 1, test_free := "Free", test_array2 := DEFAULT RECORD ARRAY ]
+                                            , [ test_int := 12, test_free := "Willy!", test_array2 := [ [ test_int2 := 6 ], [ test_int2 := 10 ] ] ]
+                                            ]
+                    , test_datetime      := MakeDateTime (2006, 1, 1, 15, 24, 34)
+                    , test_money         := 150.0
+                    , test_integer       := 5
+                    , test_boolean       := TRUE
+                    , test_enum          := "enum1"
+                    , test_enumarray     := [ "enumarray1" ]
+                    , test_record        := [ a := 1 ]
+                    ];
+
+  testpersonobj->UpdateEntity(newdata);
+
+  IF(options.withrichdoc)
+  {
+    OBJECT destlink := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink"]);
+    INTEGER richdocid := persontype->CreateEntity([wrd_contact_email:="richdocembedded@example.com"])->id;
+    OBJECT richdocobj := persontype->GetEntity(richdocid);
+    richdocobj->UpdateEntity([ richie := wrdtest_withembedded
+                              , testinstance := [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
+                                                , id := "TestInstance-1"
+                                                , fsref := destlink->id
+                                                ]
+                              , testintextlink := [ internallink := destlink->id, externallink := "", append := "#jantje" ]
+                              ] );
+  }
+  schemaobj->SetSchemaSetting("wrd:debug.answer", 42);
+}
+
+PUBLIC MACRO CreateWRDTestSchema(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ forcereload := FALSE, withrichdoc := TRUE, keephistorydays := 0 ], options);
+
+  testfw->BeginWork();
+
+  OBJECT schemaobj := testfw->GetWRDSchema(options.forcereload);
+  TestEq(TRUE, ObjectExists(schemaobj));
+  SetupTheWRDTestSchema(schemaobj, CELL[ options.withrichdoc, options.keephistorydays ]);
+
+  testfw->CommitWork();
+}
+
+PUBLIC MACRO TestRichieEmbedded(RECORD testrec1)
+{
+  TestEq(1, Length(testrec1.embedded));
+  TestEq(4157, Length(testrec1.embedded[0].data));
+  TestEq(2, Length(testrec1.instances));
+  TestEq("<b>BOLD<\/b> HTML", testrec1.instances[0].data.html);
+}
+
+PUBLIC MACRO TestTestInstance(RECORD instancerec)
+{
+  TestEq(TRUE, RecordExists(instancerec));
+  TestEq("http://www.webhare.net/xmlns/beta/embedblock1", instancerec.whfstype);
+  TestEq("TestInstance-1", instancerec.id);
+  TestEq(OpenTestsuitesite()->rootobject->whfspath || "tmp/destlink", (SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = instancerec.fsref));
+}
+
+PUBLIC MACRO TestWRDAttributeValuesEqual(VARIANT expect, VARIANT got)
+{
+  IF (TypeID(expect) = TypeID(INTEGER ARRAY))
+  {
+    // Integer arrays (select multiple) are unorderded, so order them before comparison
+    expect := SortArray(expect);
+    got := SortArray(got);
+  }
+
+  TestEq(expect, got);
+}
+
+PUBLIC MACRO TestCoreAddressAPI(OBJECT api, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  testfw->GetModuleLog();
+
+  options := ValidateOptions([ loopback := FALSE
+                             , uppercasenlcity := FALSE
+                             , postbus := TRUE
+                             , expectlookupcalls := 1
+                             ], options);
+
+  STRING enschede := options.uppercasenlcity ? "ENSCHEDE" : "Enschede";
+  STRING aalten := options.uppercasenlcity ? "AALTEN" : "Aalten";
+
+  TestEq(TRUE, ObjectExists(api), "API must exist");
+  RECORD checkres := api->CheckAddress([ zip := "12345", nr_detail:="296" ,country := "DE"]);
+  TestEq('ok', checkres.status); //cannot validate, so it just returns what it has
+  TestEq(RECORD[], SELECT * FROM testfw->GetModuleLog() WHERE log = "system:accounting"); //should have no entries yet
+
+  checkres := api->CheckAddress([ zip := "7500OO", nr_detail:="296",country := "NL"]);
+  TestEq('incomplete', checkres.status);
+  testEq(TRUE, checkres.looked_up.street != "");
+  TestEq([ city := "DO NOT SHIP - NIET VERZENDEN", country := "NL", nr_detail := "296", zip := "7500 OO" ], CellDelete(checkres.looked_up, 'street'));
+
+  checkres := api->CheckAddress([ zip := "7521AM", nr_detail:="296" ,country := "NL"]);
+  TestEq('incomplete', checkres.status);
+  TestEq([ city := enschede, country := "NL", nr_detail := "296", zip := "7521 AM", street := "Hengelosestraat" ], checkres.data);
+
+  checkres := api->CheckAddress([ zip := "7521 am", nr_detail:="296abc" ,country := "nl"]);
+  TestEq('incomplete', checkres.status);
+  TestEq([ city := enschede, country := "NL", nr_detail := "296abc", zip := "7521 AM", street := "Hengelosestraat" ], checkres.data);
+
+  TestEq(RECORD[], SELECT * FROM testfw->GetModuleLog() WHERE log = "system:accounting"); //should have no entries yet
+
+  checkres := api->CheckAddress([ zip := "7521 AM", nr_detail:="296abc", country := "NL", street := "HengeloseStraat", city := enschede]);
+  TestEq('ok', checkres.status);
+  TestEq([ city := enschede, country := "NL", nr_detail := "296abc", zip := "7521 AM", street := "HengeloseStraat" ], checkres.data);
+  TestEq(FALSE, RecordExists(checkres.looked_up));
+
+  TestEq(RECORD[], SELECT * FROM testfw->GetModuleLog() WHERE log = "system:accounting"); //should have no entries yet - this is a cached address
+
+  checkres := api->CheckAddress([ zip := "7521 AM", nr_detail:="296abc", country := "NL", street := "HengeloseStraat", city := enschede], [ alwaysverify := TRUE ]);
+  TestEq('ok', checkres.status);
+  TestEq([ city := enschede, country := "NL", nr_detail := "296abc", zip := "7521 AM", street := "Hengelosestraat" ], checkres.data);
+  TestEq(TRUE, RecordExists(checkres.looked_up));
+
+  //Station Antwerpen-Centraal
+  checkres := api->CheckAddress([ zip := "2018", nr_detail := "27", country := "BE", street := "Koningin Astridplein", city := "Antwerpen"], [ alwaysverify := TRUE ]);
+  TestEq('ok', checkres.status);
+  TestEq([ city := "Antwerpen", country := "BE", nr_detail := "27", zip := "2018", street := "Koningin Astridplein" ], checkres.data);
+  TestEq(FALSE, RecordExists(checkres.looked_up));
+
+  checkres := api->CheckAddress([ zip := "7521AM", nr_detail := "296" ,country := "NL"]);
+  TestEq('incomplete', checkres.status);
+  TestEq([ city := enschede, country := "NL", nr_detail := "296", zip := "7521 AM", street := "Hengelosestraat" ], checkres.data);
+
+  checkres := api->CheckAddress([ zip := "7521", nr_detail := "296", country := "NL"]);
+  TestEq('invalid_zip', checkres.status);
+  TestEq([ city := "", country := "NL", nr_detail := "296", zip := "7521", street := "" ], checkres.data);
+
+  IF(NOT options.loopback)
+  {
+    checkres := api->CheckAddress([ zip := "7522nb", nr_detail:="5" ,country := "NL"]);
+
+    TestEq([ city := enschede, country := "NL", nr_detail := "5", zip := "7522 NB", street := "Drienerlolaan" ], checkres.data);
+    TestEq(options.expectlookupcalls, Length(SELECT * FROM testfw->GetModuleLog() WHERE log = "system:accounting")); //should have logged a hit for this!
+
+    checkres := api->CheckAddress([ zip := "7522 Nb", nr_detail:="5 " ,country := "NL"]);
+
+    TestEq([ city := enschede, country := "NL", nr_detail := "5", zip := "7522 NB", street := "Drienerlolaan" ], checkres.data);
+    TestEq(RECORD[], SELECT * FROM testfw->GetModuleLog() WHERE log = "system:accounting"); //should have cached this
+
+    IF(options.postbus)
+    {
+      checkres := api->CheckAddress([ zip := "7120AB", nr_detail:="86" ,country := "NL"]);
+      TestEq('incomplete', checkres.status);
+      TestEq([ city := aalten, country := "NL", nr_detail := "86", zip := "7120 AB", street := "Postbus" ], checkres.data);
+    }
+  }
+}
+
+PUBLIC OBJECT FUNCTION GetWRDTestPaymentAPI(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ suppresspaymentfield := FALSE ], options);
+
+  RECORD apioptions := [ providerfield := "PAYPROV.METHOD"
+                       , firstchecktime := 1 //speed up the first time we can poll for status
+                       ];
+  IF(NOT options.suppresspaymentfield)
+    apioptions := CELL[...apioptions
+                      , paymentfield := "PAYDATA.DATA"
+                      , paymenthandler := "mod::webhare_testsuite/tests/wrd/payments/data/receiver.whlib#MyPaymentHandler"
+                      ];
+  RETURN GetPaymentAPI(OpenTestsuiteWRDSchema(), apioptions);
+
+}
+PUBLIC STRING FUNCTION GetWRDTestPaymentReturnURL(OBJECT paymentapi)
+{
+  RETURN UpdateURLVariables(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.webhare_testsuite/tests/wrd/paymentinfo.shtml")
+                                          , [ providerfield := paymentapi->providertype->tag || '.' || paymentapi->providerattribute
+                                            , paymentfield := paymentapi->paymenttype->tag || '.' || paymentapi->paymentattribute
+                                            , wrdschema := paymentapi->providertype->wrdschema->tag
+                                            ]);
+}
+
+PUBLIC STRING FUNCTION StartWRDTestPayment(OBJECT paymentapi, INTEGER paymentid, MONEY amount, RECORD options)
+{
+  STRING returnurl := GetWRDTestPaymentReturnURL(paymentapi);
+  RECORD paymentinstruction := paymentapi->StartPayment(paymentid, amount, CELL[...options, returnurl := returnurl ]);
+  TestEq(FALSE, paymentinstruction.complete);
+  TestEq(0, Length(paymentinstruction.errors));
+  STRING payurl := ResolveToAbsoluteURL(OpenTestsuiteSite()->webroot, paymentinstruction.submitinstruction.url);
+
+  RETURN payurl;
+}
+
+PUBLIC RECORD FUNCTION ExecuteWRDTestpayment(OBJECT paymentapi, INTEGER paymentid, MONEY amount, RECORD options, STRING approvetype)
+{
+  STRING payurl := StartWRDTestPayment(paymentapi, paymentid, amount, options);
+  IF(testfw->debug)
+    Print(`Payment url: ${payurl}\n`);
+
+  RECORD status := DecodeJSONBlob(testfw->browser->content);
+  TestEQ(TRUE, RecordExists(status), `payment page ${testfw->browser->href} failed`);
+  TestEq(approvetype, status.payinfo.status);
+  RETURN status;
+}
+
+PUBLIC MACRO RunStandardPaymentMethodTests()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  TestEq(TRUE, Length(methods)>0, "There must be some payment methods configured");
+
+  //Test against crash when setting up payment but not configuring it (ie test MakePaymentMethod)
+  testfw->BeginWork();
+  FOREVERY(RECORD method FROM methods)
+  {
+    OBJECT entity := paymentapi->paymenttype->CreateEntity([ data := paymentapi->MakePaymentMethod([ paymentprovider := method.paymentprovider
+                                                                                                   , paymentoptiontag := method.paymentoptiontag
+                                                                                                   ])
+                                                           ]);
+    TestEq("pending", paymentapi->ExplainPayment(entity->GetField("DATA")).status);
+
+    //Try with issuer, if any
+    IF(Length(method.issuers) > 0)
+    {
+      entity :=
+        paymentapi->paymenttype->CreateEntity([ data := paymentapi->MakePaymentMethod([ paymentprovider := method.paymentprovider
+                                                                                      , paymentoptiontag := method.paymentoptiontag
+                                                                                      , issuer := method.issuers[Random(0, Length(method.issuers)-1)].rowkey
+                                                                                      ])
+                                              ]);
+      TestEq("pending", paymentapi->ExplainPayment(entity->GetField("DATA")).status);
+    }
+  }
+
+  testfw->CommitWork();
+}
+
+PUBLIC ASYNC FUNCTION WaitForChromeElement(OBJECT conn, OBJECT pageobj, STRING query)
+{
+  DATETIME deadline := AddTimetoDate(30*1000, GetCurrentDatetime());
+
+  WHILE(GetCurrentDatetime() < deadline)
+  {
+    IF(ObjectExists(pageobj->mainframe))
+      BREAK;
+    Print(`waiting for frame...\n`);
+    Sleep(500);
+  }
+
+  WHILE(GetCurrentDatetime() < deadline)
+  {
+    IF(ObjectExists(pageobj->mainframe))
+    {
+      OBJECT element := AWAIT pageobj->mainFrame->"$"(query);
+      IF(ObjectExists(element))
+        RETURN element;
+    }
+    Print(`waiting for ${query}...\n`);
+    Sleep(500);
+  }
+
+  RECORD res := AWAIT conn->^page->^captureScreenshot([ format := "png" ]);
+  STRING screenshotfile := "/tmp/payments-screenshot.png";
+  StoreDiskFile(screenshotfile, StringToBlob(DecodeBase64(res.data)), [ overwrite := TRUE ]); //FIXME use testfw's name generator., we
+
+  THROW NEW Exception(`Expected element '${query}' did not appear in time - check ${screenshotfile}`);
+}
+

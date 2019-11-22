@@ -1,0 +1,101 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+
+PUBLIC OBJECTTYPE PingTask EXTEND ManagedTaskBase
+<
+  INTEGER preparedata;
+
+  UPDATE PUBLIC MACRO PrepareTask(RECORD data)
+  {
+    IF (GetPrimary()->IsWorkOpen())
+      ABORT("Work is open!");
+
+    this->preparedata := 42;
+  }
+
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    IF (this->preparedata != 42)
+      ABORT("Preparation failure");
+
+    IF(NOT CellExists(data,'x'))
+    {
+      //execute through restart
+      this->ResolveByRestart(DEFAULT DATETIME, [ newdata := [ x := 111 ], auxdata := data ]);
+      RETURN;
+    }
+
+    IF(TypeID(data.ping) = TypeID(STRING) AND data.ping="ABORT")
+      ABORT("PING-TASK-Abort");
+    IF(TypeID(data.ping) = TypeID(STRING) AND data.ping="THROW")
+      THROW NEW Exception("PING-TASK-Throw");
+
+    this->ResolveByCompletion([ pong := data.ping, managedtaskid := this->GetTaskMetadata().taskid ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE EphPingTask EXTEND ManagedTaskBase
+<
+  INTEGER preparedata;
+
+  UPDATE PUBLIC MACRO PrepareTask(RECORD data)
+  {
+    IF (GetPrimary()->IsWorkOpen())
+      ABORT("Work is open!");
+
+    this->preparedata := 42;
+  }
+
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    IF (this->preparedata != 42)
+      ABORT("Preparation failure");
+
+    IF(TypeID(data.ping) = TypeID(STRING) AND data.ping="ABORT")
+      ABORT("PING-TASK-Abort");
+    IF(TypeID(data.ping) = TypeID(STRING) AND data.ping="THROW")
+      THROW NEW Exception("PING-TASK-Throw");
+    this->ResolveByCompletion([ ephpong := data.ping, managedtaskid := this->GetTaskMetadata().taskid ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE CancellableTask EXTEND ManagedTaskBase
+<
+  INTEGER preparedata;
+
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    OBJECT link := ConnectToGlobalIPCPort("webhare_testsuite:cancellable_connectport");
+    IF (NOT ObjectExists(link))
+      this->ResolveByCompletion(DEFAULT RECORD);
+
+    Sleep(20 * 1000);
+    link->SendMessage([ msg := "I'm still alive" ]);
+
+    this->ResolveByCompletion(DEFAULT RECORD);
+  }
+>;
+
+PUBLIC OBJECTTYPE AfterCompileTask EXTEND ManagedTaskBase
+<
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    WriteRegistryKey("webhare_testsuite.tests.lastaftercompile", GetCurrentDatetime());
+    this->ResolveByCompletion(DEFAULT RECORD);
+  }
+>;
+
+PUBLIC OBJECTTYPE TemporaryFailingTask EXTEND ManagedTaskBase
+<
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    DATETIME nextretry := ReadRegistryKey("webhare_testsuite.tests.tempfailretryat", [ fallback := DEFAULT DATETIME ]);
+    this->ResolveByTemporaryFailure(data, "Temporary failure", nextretry = DEFAULT DATETIME ? DEFAULT RECORD : CELL[ nextretry ]);
+  }
+>;

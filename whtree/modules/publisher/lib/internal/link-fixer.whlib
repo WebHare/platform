@@ -1,0 +1,112 @@
+<?wh
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+PUBLIC RECORD FUNCTION TryLookupRelativeFile(RECORD datarecord, RECORD contentfile, RECORD contentsite, BOOLEAN first_index_page)
+{
+  // Remove and keep any '#' or '?' part;
+  STRING href := DecodeURL(datarecord.href), savedpart;
+  IF(NOT IsValidUTF8(href)) //work around iso-8859-15 relative links in Windows/Word...
+    href := DecodeCharset(href, "ISO-8859-15");
+
+  INTEGER firsthash := SearchSubstring(href,'#');
+  INTEGER firstquestion := SearchSubstring(href,'?');
+
+  IF (firsthash != -1 AND (firstquestion = -1 OR firstquestion > firsthash))
+  {
+    savedpart := Substring(href, firsthash, Length(href));
+    href := Left(href, firsthash);
+  }
+  ELSE IF (firstquestion != -1)
+  {
+    savedpart := Substring(href, firstquestion, Length(href));
+    href := Left(href, firstquestion);
+  }
+
+  RECORD result;
+
+  // If not the first index page, first assume the link was 'wrong' (NOTE: this check used to be limited to file.type=4)
+  IF (NOT first_index_page)
+    result := TryLookupFile(datarecord, '../' || href, contentfile, contentsite);
+
+  IF (NOT RecordExists(result))
+    result := TryLookupFile(datarecord, href, contentfile, contentsite);
+
+  IF (RecordExists(result))
+  {
+    result.href := result.href || savedpart;
+
+    RETURN result;
+  }
+
+  RETURN DEFAULT RECORD;
+}
+
+
+RECORD FUNCTION TryLookupFile(RECORD datarecord, STRING href, RECORD contentfile, RECORD contentsite)
+{
+  STRING absurl := ResolveToAbsoluteURL(contentfile.url, href);
+  STRING siteroot := Left(contentsite.webroot, length(contentsite.webroot) - 1);
+
+  // Link points inside this site
+  IF (siteroot = Left(absurl, length(siteroot)))
+  {
+    STRING fullpath := DecodeURL(right(absurl, length(absurl) - length(siteroot)));
+
+    // Strip trailing slashes
+    WHILE ((Length(fullpath) > 1) AND (Right(fullpath, 1) = '/'))
+      fullpath := Left(fullpath, Length(fullpath) - 1);
+
+    INTEGER match := LookupWHFSObject(contentsite.id, fullpath);
+    RECORD inforec;
+    IF(match != 0)
+      inforec := SELECT link FROM system.fs_objects WHERE id = match;
+
+    // The URL points to a folder, paste the index file at the end of the URL
+    IF (RecordExists(inforec))
+    {
+      IF(inforec.link = "")
+        RETURN DEFAULT RECORD;
+
+      datarecord.href := inforec.link;
+      datarecord.status := -4;
+      datarecord.corrected := TRUE;
+      RETURN datarecord;
+    }
+
+    // Check if the URL could point to a subpage
+    INTEGER parentpos := SearchLastSubstring(fullpath, "/");
+    IF (parentpos != -1)
+    {
+      STRING parentpath := Left(fullpath, parentpos);
+
+      match := LookupWHFSObject(contentsite.id, parentpath);
+      IF(match != 0)
+      {
+        inforec := SELECT isfolder FROM system.fs_objects WHERE id = match;
+        IF (RecordExists(inforec) AND NOT inforec.isfolder)
+        {
+          datarecord.href := absurl;
+          datarecord.status := -4;
+          datarecord.corrected := TRUE;
+          RETURN datarecord;
+        }
+      }
+    }
+  }
+  RETURN DEFAULT RECORD;
+}
+
+
+PUBLIC RECORD FUNCTION TryWHHyperlink(INTEGER siteid, STRING path)
+{
+  INTEGER match := LookupWHFSObject(siteid, path);
+  IF(match = 0)
+    RETURN DEFAULT RECORD;
+
+  RECORD info := SELECT link, objecturl, isfolder FROM system.fs_objects WHERE id = match;
+  IF(RecordExists(info))
+    RETURN [ href := info.isfolder ? info.objecturl : info.link, corrected := FALSE, status := 0 ];
+  RETURN DEFAULT RECORD;
+}

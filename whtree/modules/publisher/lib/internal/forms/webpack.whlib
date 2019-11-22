@@ -1,0 +1,8 @@
+<?wh
+LOADLIB "mod::system/lib/configure.whlib";
+
+PUBLIC MACRO CreateSurvey(STRING surveyname, STRING language)
+{
+  IF(IsModuleInstalled("webpack"))
+    MakeFunctionPtr("mod::webpack/lib/internal/formswebpack.whlib", "CreateSurvey", 0, [TYPEID(STRING),TYPEID(STRING)])(surveyname,language);
+}

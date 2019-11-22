@@ -1,0 +1,1774 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+
+
+// Timeout for first compilation requests
+INTEGER compile_timeout := 10 * 60 * 1000; //TODO would prefer not to need 10 minutes but 2 isn't enough for an UT sized bundle on a cold cache
+
+// Delay for checking file timestamps after first relevant change detection
+INTEGER file_change_check_delay := 50;
+
+
+BOOLEAN debug;
+BOOLEAN debugmods;
+
+OBJECT controller;
+
+
+/** Caches disk path timestamps
+*/
+STATIC OBJECTTYPE TimestampCache
+<
+  RECORD ARRAY timestamps;
+
+  PUBLIC RECORD FUNCTION GetAssetProperties(STRING path)
+  {
+    IF (path LIKE "*::*")
+    {
+      TRY path := GetWebHareResourceDiskPath(path);
+      CATCH RETURN DEFAULT RECORD;
+    }
+
+    RECORD pos := RecordLowerBound(this->timestamps, [ path := path ], [ "PATH" ]);
+    IF (NOT pos.found)
+      INSERT [ path := path, stat := GetDiskFileProperties(path) ] INTO this->timestamps AT pos.position;
+
+    RETURN this->timestamps[pos.position].stat;
+  }
+>;
+
+/** Translates paths to mod::, wh::, whres:: paths
+*/
+STATIC OBJECTTYPE FilePathTranslator
+<
+  RECORD ARRAY modules;
+
+  MACRO NEW()
+  {
+    RegisterEventCallback("system:softreset", PTR this->GotSoftReset);
+    this->FillModuleCache();
+  }
+
+  MACRO GotSoftReset(STRING event, RECORD data)
+  {
+    IF (debug)
+      PRINT("Got softreset, refilling module path cache\n");
+    this->FillModuleCache();
+  }
+
+  MACRO FillModuleCache()
+  {
+    RECORD ARRAY modules :=
+        SELECT module
+             , path :=        GetModuleInstallationRoot(module)
+             , assetpath :=   "mod::" || module || "/"
+             , eventmask :=   "system:modulefolder.mod::" || module || "/"
+          FROM ToRecordArray(__SYSTEM_GETINSTALLEDMODULENAMES(), "module");
+
+    STRING systemmodulepath := GetModuleInstallationRoot("system");
+
+    STRING data_nodejs := MergePath(GetWebHareConfiguration().varroot, "nodejs/node_modules") || "/";
+    STRING installed_nodejs := MergePath(GetWebHareConfiguration().installationroot, "node_modules") || "/";
+
+    modules := modules CONCAT
+        [ [ module :=     "__wh"
+          , path :=       MergePath(systemmodulepath, "whlibs") || "/"
+          , assetpath :=  "wh::"
+          , eventmask :=  "system:modulefolder.wh::"
+          ]
+        , [ module :=     "__whres"
+          , path :=       MergePath(systemmodulepath, "whres") || "/"
+          , assetpath :=  "whres::"
+          , eventmask :=  "system:modulefolder.whres::"
+          ]
+        , [ module :=     "__installed-nodejs"
+          , path :=       installed_nodejs
+          , assetpath :=  ""
+          , eventmask :=  "system:modulefolder." || installed_nodejs
+          ]
+        , [ module :=     "__data_nodejs"
+          , path :=       data_nodejs
+          , assetpath :=  ""
+          , eventmask :=  "system:modulefolder." || data_nodejs
+          ]
+        ];
+
+    this->modules :=
+        SELECT *
+          FROM modules
+      ORDER BY path;
+  }
+
+  PUBLIC RECORD FUNCTION LookupPath(STRING path)
+  {
+    IF (path LIKE "*::*") // webhare resource url, translate to path
+    {
+      TRY path := GetWebHareResourceDiskPath(path);
+      CATCH RETURN DEFAULT RECORD;
+    }
+
+    // Lookup path in the defined modules
+    RECORD pos := RecordLowerBound(this->modules, [ path := path ], [ "PATH" ]);
+    IF (pos.found OR pos.position != 0)
+    {
+      RECORD rec := this->modules[pos.position - (pos.found?0:1)];
+      IF (path LIKE rec.path || "*")
+      {
+        STRING eventmask := rec.eventmask || SubString(path, LENGTH(rec.path), SearchLastSubString(path, "/") + 1 - LENGTH(rec.path));
+        RETURN
+            [ module :=         rec.module
+            , moduleroot :=     rec.path
+            , diskpath :=       rec.path || SubString(path, LENGTH(rec.path))
+            , assetpath :=      rec.assetpath != "" ? rec.assetpath || SubString(path, LENGTH(rec.path)) : ""
+            , eventmask :=      eventmask
+            , eventmaskasdir := path LIKE "*/" ? eventmask : rec.eventmask || SubString(path, LENGTH(rec.path)) || "/"
+            ];
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC STRING FUNCTION GetDiskPath(STRING path)
+  {
+    RECORD rec := this->LookupPath(path);
+    IF (NOT RecordExists(rec))
+      THROW NEW Exception("Could not find path '" || path || "' in an installed module");
+    RETURN rec.diskpath;
+  }
+>;
+
+STATIC OBJECTTYPE AssetPackController
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** List of currently active bundles
+      @cell id Bundle DB id
+      @cell(datetime) created Creation time of the bundle
+      @cell(datetime) lastuse Last use (updated at most once every 15 mins)
+      @cell(string) designfolder Webhare resource path of the design folder
+      @cell(string) entrypoint Entry file, relative to resource root
+      @cell(string) extrarequires Tab-separated list of extra required
+      @cell(string) outputtag UUID of the output
+      @cell(boolean) hasstatus Whether a current status is known
+      @cell(boolean) iscompiling Whether this bundle is currently compiling
+      @cell(boolean) haserrors Whether any errors were returned in the last compilation
+      @cell stats Statistics of last compilation
+      @cell errors Errors of last compilation
+      @cell(string array) missingdependencies := STRING ARRAY(message.missingdependencies)
+      @cell info Info about last compilation
+      @cell(datetime) lastcompile Time of last compile
+      @cell(boolean) adhoc If true, this is an adhoc package (not watched)
+      @cell(object) task Current recompile task
+      @cell(boolean) requirecompile Whether recompilation is required
+  */
+  RECORD ARRAY bundles;
+
+  /* Registered adhoc bundles */
+  RECORD ARRAY adhocbundles;
+
+  // Last generated adhocbundle id
+  INTEGER lastadhocid;
+
+  /** List of waits for first compilations
+      @cell outputtag Unique id of the bundle
+      @cell resolve
+      @cell promise
+      @cell timeout
+  */
+  RECORD ARRAY compilewaits;
+
+  INTEGER compilewaits_cb;
+
+  /** Aggregated list of file change watch masks from all bundles
+  */
+  STRING ARRAY allwatchmasks;
+
+  /// List of file change events (stored until next check)
+  STRING ARRAY changeevents;
+
+  /// Timeout callback id for next file stamp check (set when changeevents is not empty)
+  INTEGER schedule_check;
+
+  /// File path translator
+  OBJECT fptranslator;
+
+  /** Counts for waiters for watched packages
+      @cell outputtag
+      @cell cnt
+  */
+  RECORD ARRAY watchcounts;
+
+  /// Dev assetpacks that are opting out of full sourcemaps
+  STRING ARRAY nofullsourcemapsassetpacks;
+
+  /// Suspend autocompile of production packages?
+  BOOLEAN suspendautocompile;
+
+  /// Browser targets for dev assetpacks
+  STRING devbrowsertargets;
+
+  /// Full check needed (after config reload)
+  BOOLEAN needfullrecheck;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    // Allocate this first, want its softreset handler to run first
+    this->fptranslator := NEW FilePathTranslator;
+
+    RegisterEventCallback("system:softreset", PTR this->GotSoftReset);
+    RegisterEventCallback("system:modulefolder.*", PTR this->GotChangedFile);
+    RegisterEventCallback("system:npmlinkroot.filechange", PTR this->GotChangedFile);
+    RegisterEventCallback("system:registry.publisher.bundledassets", PTR this->GotConfigChange);
+  }
+
+  PUBLIC MACRO Setup() //TODO why aren't we rolled/merged into GotSoftReset ?
+  {
+    this->ScanModulesForBundles();
+    this->LoadBundles();
+    this->UpdateAllWatchMasks();
+    this->LoadConfig();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Update the cv_requirecompile condition after update to this->bundles
+  */
+  MACRO ScheduleCompilationTasks()
+  {
+    FOREVERY (RECORD rec FROM this->bundles)
+    {
+      IF (rec.requirecompile AND NOT rec.iscompiling)
+      {
+        BOOLEAN runnow := rec.forcecompile OR (rec.isdev = FALSE AND this->suspendautocompile = FALSE);
+        IF (NOT runnow)
+        {
+          RECORD pos := RecordLowerBound(this->watchcounts, rec, [ "OUTPUTTAG" ]);
+          IF (pos.found AND this->watchcounts[pos.position].cnt != 0)
+            runnow := TRUE;
+        }
+
+        IF (runnow)
+          this->RecompileBundle(rec);
+      }
+    }
+  }
+
+  /** Update the global watch mask
+  */
+  MACRO UpdateAllWatchMasks()
+  {
+    STRING ARRAY masks;
+    FOREVERY (RECORD rec FROM this->bundles)
+      masks := masks CONCAT rec.masks;
+
+    this->allwatchmasks := SELECT AS STRING ARRAY DISTINCT mask FROM ToRecordArray(masks, "MASK") ORDER BY mask;
+
+    IF (debugmods)
+      PRINT("New global masks\n" || (Detokenize(this->allwatchmasks, "\n") ?? "<none>") || "\n");
+  }
+
+  /** Converts disk paths to assetpacks if possible, returns event list lists
+      @param diskpaths List of disk paths (from JSON, so accepts VARIANT ARRAY too)
+      @param masks Current list of event listen masks
+      @param missing If TRUE, also add file paths as directory event masks (could be a missing directory too)
+      @return
+      @cell return.paths Translated paths
+      @cell return.masks Augmented list of event listen masks
+  */
+  RECORD FUNCTION TranslateDiskPaths(VARIANT diskpaths, STRING ARRAY masks, BOOLEAN missing)
+  {
+    RECORD result :=
+        [ paths :=  DEFAULT STRING ARRAY
+        , masks :=  masks
+        ];
+
+    IF (LENGTH(diskpaths) != 0)
+    {
+      FOREVERY (STRING path FROM STRING ARRAY(diskpaths))
+      {
+        RECORD rec := this->fptranslator->LookupPath(path);
+        IF (RecordExists(rec))
+        {
+          INSERT rec.assetpath ?? rec.diskpath INTO result.paths AT END;
+          RECORD pos := LowerBound(result.masks, rec.eventmask);
+          IF (NOT pos.found)
+            INSERT rec.eventmask INTO result.masks AT pos.position;
+          IF (missing AND rec.eventmaskasdir != rec.eventmask)
+          {
+            RECORD pos2 := LowerBound(result.masks, rec.eventmaskasdir);
+            IF (NOT pos2.found)
+              INSERT rec.eventmaskasdir INTO result.masks AT pos2.position;
+          }
+        }
+        ELSE
+          INSERT path INTO result.paths AT END;
+      }
+    }
+    RETURN result;
+  }
+
+  /** Translate dependency lists to asset paths (mod::, survives module updates) and calculate watch masks)
+  */
+  RECORD FUNCTION ProcessDependencies(RECORD dependencies)
+  {
+    STRING ARRAY defaultmasks := [ "system:npmlinkroot.filechange" ];
+
+    RECORD file := this->TranslateDiskPaths(dependencies.filedependencies, defaultmasks, FALSE);
+    RECORD context := this->TranslateDiskPaths(dependencies.contextdependencies, file.masks, FALSE);
+    RECORD missing := this->TranslateDiskPaths(dependencies.missingdependencies, context.masks, TRUE);
+
+    dependencies := CELL[ ...dependencies
+                        , filedependencies := STRING ARRAY(file.paths)
+                        , contextdependencies := STRING ARRAY(context.paths)
+                        , missingdependencies := STRING ARRAY(missing.paths)
+                        ];
+
+    RETURN
+        [ dependencies :=   dependencies
+        , masks :=          missing.masks
+        ];
+  }
+
+  /** Get all timestamps for a bundle, determine whether a recompile is needed
+  */
+  RECORD FUNCTION GetTimeStamps(RECORD bundle, OBJECT cache)
+  {
+    STRING ARRAY deps :=
+          STRING ARRAY(bundle.dependencies.filedependencies) CONCAT
+          STRING ARRAY(bundle.dependencies.contextdependencies) CONCAT
+          STRING ARRAY(bundle.dependencies.missingdependencies);
+
+    IF (debug)
+      PRINT("Get timestamps for " || bundle.outputtag || " (" || Length(deps) || " deps)\n");
+
+    cache := cache ?? NEW TimestampCache;
+
+    RECORD timestamps :=
+        [ files :=            DEFAULT RECORD ARRAY
+        , dirs :=             DEFAULT RECORD ARRAY
+        , need_recompile :=   FALSE
+        , recompilereason :=  ""
+        , fullrecompile :=    FALSE
+        ];
+
+    STRING recompilereason;
+    IF (NOT RecordExists(bundle.savedstate))
+    {
+      timestamps.recompilereason := "no saved state available";
+      timestamps.need_recompile := TRUE;
+    }
+    ELSE IF(bundle.lastcompiletoken != this->GetBundleCompiletoken(bundle))
+    {
+      timestamps.recompilereason := "compilation settings have changed";
+      timestamps.need_recompile := TRUE;
+      timestamps.fullrecompile := TRUE;
+    }
+
+    FOREVERY (STRING file FROM deps)
+    {
+      RECORD stat := cache->GetAssetProperties(file);
+      IF (RecordExists(stat))
+      {
+        INTEGER64 modtime := GetUnixTimestampMsecs(stat.modified);
+        IF (modtime >= INTEGER64(bundle.dependencies.start))
+        {
+          IF (debug OR debugmods)
+            PRINT(" test " || file || " got " || modtime || " vs start " || FormatFloat(bundle.dependencies.start, 10) || "\n");
+
+          IF(NOT timestamps.need_recompile)
+          {
+            timestamps.need_recompile := TRUE;
+            timestamps.recompilereason := file || " is out of date";
+          }
+        }
+        ELSE IF (file IN bundle.dependencies.missingdependencies)
+        {
+          IF (stat.type = 1)
+          {
+            /* folders are expanded to the possible files (xxx/index.es, xxx/index.js, etc.) by webpack already,
+               so we should ignore assets that resolve to folders to avoid repeated recompiles
+            */
+            IF (debug OR debugmods)
+              PRINT(" found a folder for missing file " || file || ", ignoring\n");
+
+            CONTINUE;
+          }
+
+          IF (debug OR debugmods)
+            PRINT(" found missing file " || file || "\n");
+
+          IF(NOT timestamps.need_recompile)
+          {
+            timestamps.need_recompile := TRUE;
+            timestamps.recompilereason := "missing file " || file || " appeared";
+          }
+        }
+        ELSE IF (debugmods)
+          PRINT(" test " || file || " not changed\n");
+
+        RECORD rec :=
+            [ name := file
+            , value := modtime * 1000i64
+            ];
+
+        IF (file IN bundle.dependencies.contextdependencies)
+          INSERT rec INTO timestamps.dirs AT END;
+        ELSE
+          INSERT rec INTO timestamps.files AT END;
+      }
+      ELSE
+      {
+        IF (file NOT IN bundle.dependencies.missingdependencies)
+        {
+          IF (debug OR debugmods)
+            PRINT(" now missing  " || file || "\n");
+          IF(NOT timestamps.need_recompile)
+          {
+            timestamps.need_recompile := TRUE;
+            timestamps.recompilereason := file || " is missing";
+            timestamps.fullrecompile := TRUE; // Full recompile needed to clear dependency cache
+          }
+        }
+        ELSE IF (debugmods)
+          PRINT(" still missing  " || file || "\n");
+      }
+    }
+
+    IF ((debug OR debugmods) AND timestamps.need_recompile)
+      PRINT(`Need recompile: ${timestamps.recompilereason}\n`);
+
+    RETURN timestamps;
+  }
+
+  /** Check the timestamps for a bundle. Schedules compilation for that bundle if any file has changed
+  */
+  RECORD FUNCTION CheckTimeStamps(RECORD bundle, OBJECT cache)
+  {
+    RECORD timestamps := this->GetTimeStamps(bundle, cache);
+    IF (timestamps.need_recompile)
+      this->MarkBundleCompileNeeded(bundle, timestamps.recompilereason, timestamps.fullrecompile, FALSE);
+
+    RETURN timestamps;
+  }
+
+  /** Mark a bundle as needing a recompile
+  */
+  MACRO MarkBundleCompileNeeded(RECORD bundle, STRING recompilereason, BOOLEAN fullrecompile, BOOLEAN forcecompile)
+  {
+    IF(debug)
+      Print("Marking bundle " || bundle.outputtag || " for " || (forcecompile?"forced ":"") || " recompile because " || recompilereason || "\n");
+
+    UPDATE this->bundles
+       SET requirecompile :=  TRUE
+         , cachebreaker :=    fullrecompile ? GenerateUFS128BitId() : cachebreaker
+         , forcecompile :=    COLUMN forcecompile OR VAR forcecompile
+         , retries :=         iscompiling OR requirecompile ? retries : 0
+     WHERE outputtag = bundle.outputtag;
+
+    BroadcastEvent("publisher:assetpackcontrol.change." || bundle.outputtag, DEFAULT RECORD);
+
+    this->ScheduleCompilationTasks();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Bundle compilation
+  //
+
+  /** Pre-checks a bundle, converts paths to disk paths
+  */
+  RECORD FUNCTION CheckBundle(RECORD bundle)
+  {
+    DATETIME startcheck := GetCurrentDatetime();
+
+    TRY
+    {
+      IF (NOT RecordExists(bundle.bundleconfig))
+        THROW NEW Exception("Bundle has no bundle config (old bundle), please delete the bundle");
+
+      IF (bundle.designfolder != "")
+      {
+        TRY bundle.diskpath := GetWebHareResourceDiskPath(bundle.designfolder);
+        CATCH(OBJECT e) THROW NEW Exception("Design folder '" || bundle.designfolder || "' is invalid: " || e->what);
+      }
+
+      IF (bundle.origentrypoint != "_polyfills")
+      {
+        TRY bundle.entrypoint := this->fptranslator->GetDiskPath(bundle.origentrypoint);
+        CATCH THROW NEW Exception("Entrypoint '" || bundle.origentrypoint || "' is invalid");
+      }
+
+      FOREVERY(STRING extrareq FROM bundle.bundleconfig.extrarequires)
+      {
+        IF(extrareq LIKE "*::*") //namespaced path
+        {
+          TRY extrareq := this->fptranslator->GetDiskPath(extrareq);
+          CATCH THROW NEW Exception("Extra require '" || extrareq || "' is invalid");
+          bundle.bundleconfig.extrarequires[#extrareq] := extrareq;
+        }
+      }
+    }
+    CATCH (OBJECT e)
+    {
+      this->ProcessUncompilable(bundle, DEFAULT STRING ARRAY, DEFAULT STRING ARRAY, e->what, startcheck);
+      RETURN DEFAULT RECORD;
+    }
+
+    IF (bundle.diskpath != "")
+    {
+      BLOB package_json;
+      STRING packagejsonpath := MergePath(bundle.diskpath, "package.json");
+      TRY package_json := GetDiskResource(packagejsonpath); CATCH;
+      IF (LENGTH(package_json) != 0)
+      {
+        RECORD decoded := DecodeJSONBlob(package_json);
+        IF (NOT RecordExists(decoded))
+        {
+          this->ProcessUncompilable(bundle, [ packagejsonpath ], DEFAULT STRING ARRAY, "Package.json file in design folder is not valid JSON",startcheck);
+          RETURN DEFAULT RECORD;
+        }
+      }
+
+      UPDATE this->bundles
+         SET diskpath :=        bundle.diskpath
+       WHERE outputtag = bundle.outputtag;
+    }
+
+    bundle.hasstatus := FALSE;
+
+    RETURN bundle;
+  }
+
+  // Returns the bundle data to send to the compiler
+  RECORD FUNCTION GetBundleData(RECORD bundle)
+  {
+    // See https://github.com/browserslist/browserslist
+    STRING defaultbrowsertargets := "defaults, ie 11"; // Ensure Internet Explorer 11 is also present, even when defaults changes
+
+    RETURN
+        [ bundleconfig :=   bundle.bundleconfig
+        , entrypoint :=     bundle.entrypoint
+        , origentrypoint := bundle.origentrypoint
+        , diskpath :=       bundle.diskpath
+        , adhoc :=          bundle.adhoc
+        , outputpath :=     bundle.outputpath
+        , isdev :=          bundle.isdev
+        , outputtag :=      bundle.outputtag
+        , browsertargets := (bundle.isdev ? this->devbrowsertargets : "") ?? defaultbrowsertargets
+        ];
+  }
+
+  STRING FUNCTION GetBundleCompiletoken(RECORD bundle)
+  {
+    RECORD baseconfig := GetAssetpacksBaseConfig();
+    RECORD bundledata := this->GetBundleData(bundle);
+
+    // entrypoint and origentrypoint are rewritten but not stored
+    DELETE CELL entrypoint FROM bundledata;
+    DELETE CELL diskpath FROM bundledata;
+
+    RETURN EncodeBase64(GetSHA1Hash(baseconfig.settingstoken) || EncodeHSON(bundledata));
+  }
+
+  // FIXME: the part of an async function until the first await should be executed synchronously, but that doesn't happen
+  // as a workaround, mark as compiling in a normal function, that retrn the async function result
+  OBJECT ASYNC FUNCTION RecompileBundle(RECORD bundle)
+  {
+    IF (debug)
+      PRINT("Recompile bundle " || bundle.outputtag || "\n");
+
+    // Mark as compiling
+    STRING recompilehash := bundle.outputtag;
+
+    UPDATE this->bundles
+       SET iscompiling := TRUE
+         , requirecompile := FALSE
+     WHERE outputtag = recompilehash;
+
+    BroadcastEvent("publisher:assetpackcontrol.change." || recompilehash, DEFAULT RECORD);
+
+    // Run the rest asynchronously
+    AWAIT DEFAULT RECORD;
+
+    // Ensure output folder exists
+    STRING outdir := GetBundleOutputPath(bundle.outputtag);
+    IF(NOT RecordExists(GetDiskFileProperties(outdir)))
+      CreateDiskDirectoryRecursive(outdir, TRUE);
+
+    STRING compiletoken := this->GetBundleCompiletoken(bundle);
+
+    // Check the bundle, convert paths to disk paths
+    bundle := this->CheckBundle(bundle);
+    IF (RecordExists(bundle) AND NOT bundle.hasstatus)
+    {
+      RECORD baseconfig := GetAssetpacksBaseConfig();
+      DATETIME start := GetCurrentDatetime();
+
+      TRY
+      {
+        IF (debug)
+          PRINT("Schedule compile task for " || bundle.outputtag || "\n");
+
+        RECORD bundledata := this->GetBundleData(bundle);
+        STRING envkey := compiletoken || "-" || bundle.cachebreaker;
+
+        // Don't use persistent cache for adhoc bundles
+        OBJECT task := ScheduleEphemeralTask("publisher:assetpackcompile",
+            [ baseconfig :=   baseconfig
+            , envkey :=       envkey
+            , compiletoken := compiletoken
+            , bundle :=       bundledata
+            , timestamps :=   this->GetTimeStamps(bundle, DEFAULT OBJECT)
+            , getjsonstats := bundle.getjsonstats
+            ],
+            [ persistentcachekey :=   bundle.adhoc ? "" : bundle.outputtag
+            , priority :=             bundle.outputtag LIKE "*.dev" ? "updateinteractive" : "update"
+            ]);
+
+        // Store task
+        UPDATE this->bundles
+           SET task :=          task
+             , compilestart :=  start
+         WHERE outputtag = recompilehash;
+
+        IF (debug)
+          PRINT(" Task scheduled for " || bundle.outputtag || ", waiting for completion\n");
+
+        // Wait for task
+        RECORD taskresult := AWAIT task;
+        IF (debug)
+          PRINT("Schedule compile task for " || bundle.outputtag || " finished\n");
+
+        UPDATE this->bundles
+           SET task := DEFAULT OBJECT
+         WHERE outputtag = recompilehash;
+
+        this->ProcessCompileResult(taskresult, TRUE);
+      }
+      CATCH (OBJECT< ServiceDisconnectException > e)
+      {
+        IF (debug)
+          PRINT("Schedule compile task for " || bundle.outputtag || " lost connection to the cluster service\n");
+
+        UPDATE this->bundles
+           SET task :=            DEFAULT OBJECT
+             , retries :=         retries < 3 AND NOT requirecompile ? retries + 1 : retries
+             , requirecompile :=  retries < 3 AND NOT requirecompile ? TRUE : requirecompile
+         WHERE outputtag = recompilehash;
+
+        // task failed, what now?
+        this->ProcessUncompilable(bundle, DEFAULT STRING ARRAY, DEFAULT STRING ARRAY, e->what, start);
+      }
+      CATCH (OBJECT e)
+      {
+        IF (debug)
+          PRINT("Schedule compile task for " || bundle.outputtag || " crashed: " || e->what || "\n");
+
+        UPDATE this->bundles
+           SET task := DEFAULT OBJECT
+         WHERE outputtag = recompilehash;
+
+        // task failed, what now?
+        this->ProcessUncompilable(bundle, DEFAULT STRING ARRAY, DEFAULT STRING ARRAY, e->what, start);
+      }
+    }
+    ELSE
+    {
+      UPDATE this->bundles
+         SET task := DEFAULT OBJECT
+           , iscompiling := FALSE
+       WHERE outputtag = recompilehash;
+    }
+
+    // Compilation is done, broadcast that
+    BroadcastEvent("publisher:assetpackcontrol.change." || recompilehash, DEFAULT RECORD);
+
+    RETURN DEFAULT RECORD;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotSoftReset(STRING event, RECORD data)
+  {
+    IF (debug)
+      PRINT("Got softreset, rescanning\n");
+
+    // Trigger full recompilation on next invalidation
+    FOREVERY (RECORD rec FROM this->bundles)
+      this->bundles[#rec].cachebreaker := GenerateUFS128BitId();
+
+    // Scan modules for bundles we need
+    this->ScanModulesForBundles();
+
+    // Recheck all bundles for changed module paths
+    this->LoadBundles();
+
+    OBJECT cache := NEW TimestampCache;
+    FOREVERY (RECORD bundle FROM this->bundles)
+    {
+      IF (bundle.requirecompile)
+        CONTINUE;
+
+      IF (CellExists(bundle.info, "UNCOMPILABLE"))
+      {
+        this->MarkBundleCompileNeeded(bundle, "recheck uncompilables after softreset", TRUE, FALSE);
+        CONTINUE;
+      }
+
+      this->CheckTimeStamps(bundle, cache);
+    }
+
+    this->LoadConfig();
+  }
+
+  MACRO GotConfigChange(STRING event, RECORD data)
+  {
+    PRINT(`Got config change\n`);
+    this->LoadConfig();
+    IF (NOT this->ScheduleRecheck())
+      PRINT(`Recheck already scheduled\n`);
+  }
+
+  MACRO LoadConfig()
+  {
+    this->suspendautocompile := ReadRegistryKey("publisher.bundledassets.suspendautocompile");
+    this->devbrowsertargets := ReadRegistryKey("publisher.bundledassets.devbrowsertargets");
+    this->needfullrecheck := TRUE;
+  }
+
+  MACRO ScanModulesForBundles()
+  {
+    IF (IsDatabaseReadOnly())
+      RETURN;
+
+    RECORD ARRAY modulepacks;
+    RECORD ARRAY addtoassetpacks;
+    STRING ARRAY seenpacks;
+
+    FOREVERY(RECORD mod FROM GetWebHareModules())
+    {
+      modulepacks := modulepacks CONCAT SELECT *, extrarequires := STRING[] FROM mod.assetpacks;
+      addtoassetpacks := addtoassetpacks CONCAT mod.addtoassetpacks;
+    }
+
+    FOREVERY(RECORD toadd FROM addtoassetpacks) //inject extrarequires frmo the assetpacks
+      UPDATE modulepacks SET extrarequires := STRING[...extrarequires, toadd.entrypoint] WHERE modulepacks.name = toadd.assetpack;
+
+    //Are they all in the database?
+    GetPrimary()->BeginWork();
+    RECORD ARRAY dbpacks := SELECT * FROM system.assetpacks WHERE outputtag LIKE "*:*";
+    FOREVERY(RECORD modulepack FROM modulepacks)
+    {
+      RECORD bundleconfig := [ extrarequires := modulepack.extrarequires
+                             , languages := modulepack.supportedlanguages
+                             , alwaysincludepolyfill := modulepack.alwaysincludepolyfill
+                             , webharepolyfills := modulepack.webharepolyfills
+                             , environment := modulepack.environment
+                             , babeltranspile := modulepack.babeltranspile
+                             , aftercompiletask := modulepack.aftercompiletask
+                             ];
+
+      STRING encodedconfig := EncodeHSON(bundleconfig);
+
+      RECORD match := SELECT * FROM dbpacks WHERE outputtag = modulepack.name;
+      IF(NOT RecordExists(match))
+      {
+        INTEGER packid := MakeAutonumber(system.assetpacks, 'ID');
+        INSERT INTO system.assetpacks(id, created, entrypoint, outputtag)
+               VALUES(packid, GetCurrentDatetime(), modulepack.entrypoint, modulepack.name);
+        match := SELECT * FROM system.assetpacks WHERE id = packid;
+      }
+      ELSE
+      {
+        DELETE FROM dbpacks WHERE id = match.id;
+      }
+
+      IF(match.bundleconfig != encodedconfig
+         OR match.entrypoint != modulepack.entrypoint
+         OR match.designfolder != modulepack.designroot)
+      {
+        UPDATE system.assetpacks SET bundleconfig := encodedconfig
+                                   , designfolder := modulepack.designroot
+                                   , entrypoint := modulepack.entrypoint
+                               WHERE id = match.id;
+      }
+    }
+
+    IF(Length(dbpacks)>0)
+      DELETE FROM system.assetpacks WHERE id IN SELECT AS INTEGER ARRAY id FROM dbpacks;
+
+    GetPrimary()->CommitWork();
+  }
+
+  // Handle timeouts from compile waits
+  MACRO GotCompileWaitTimeout()
+  {
+    this->compilewaits_cb := 0;
+    DATETIME now := GetCurrentDatetime();
+
+    FOREVERY (RECORD rec FROM this->compilewaits)
+      IF (rec.timeout <= now)
+        rec.resolve(DEFAULT RECORD);
+
+    DELETE FROM this->compilewaits WHERE timeout < now;
+    IF (LENGTH(this->compilewaits) != 0)
+      this->compilewaits_cb := RegisterTimedCallback(this->compilewaits[0].timeout, PTR this->GotCompileWaitTimeout);
+  }
+
+  /// Handle incoming file change event from source watch
+  MACRO GotChangedFile(STRING event, RECORD data)
+  {
+    IF (debugmods)
+      PRINT("Got changed file " || event || "\n");
+
+    // Moduledefinition changed?
+    IF (event LIKE "system:modulefolder.mod::*" AND LENGTH(Tokenize(event, "/")) = 2) // single module
+    {
+      this->ScanModulesForBundles();
+      this->LoadBundles();
+    }
+
+    IF (NOT LowerBound(this->allwatchmasks, event).found)
+      RETURN;
+
+    // Aggregate events into changeevents for a small delay time (file_change_check_delay)
+    IF (event NOT IN this->changeevents)
+    {
+      INSERT event INTO this->changeevents AT END;
+      this->ScheduleRecheck();
+    }
+  }
+
+  BOOLEAN FUNCTION ScheduleRecheck()
+  {
+    IF (this->schedule_check = 0)
+    {
+      IF (debugmods)
+        PRINT(" schedule grand check\n");
+      this->schedule_check := RegisterTimedCallback(AddTimeToDate(file_change_check_delay, GetCurrentDatetime()), PTR this->GotRecheck);
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  /* Execute file timestamp recheck for all possibly affected bundles when file change events have arrived
+  */
+  MACRO GotRecheck()
+  {
+    this->schedule_check := 0;
+
+    OBJECT cache := NEW TimestampCache;
+
+    IF (debugmods)
+      PRINT("Checking bundles for relevant file changes\n");
+
+    // Prefer dev bundles first, then tollium, then the rest. The check order is order in which recompiles are scheduled.
+    FOREVERY (RECORD bundle FROM SELECT * FROM this->bundles ORDER BY NOT isdev, outputtag LIKE "tollium:*" DESC)
+    {
+      BOOLEAN have_match;
+      IF (LENGTH(ArrayIntersection(this->changeevents, bundle.masks)) != 0 OR this->needfullrecheck)
+      {
+        IF (debugmods)
+          PRINT(" from bundle " || bundle.outputtag || ", checking individual files\n");
+        this->CheckTimeStamps(bundle, cache);
+      }
+    }
+
+    this->changeevents := DEFAULT STRING ARRAY;
+    this->needfullrecheck := FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Add a dependency on a resource
+      @param deps Current dependencies record
+      @param path Path of resource
+      @param is_js_module Set to TRUE to auto-test for all javascript extensions
+      @return Dependencies with path added
+  */
+  RECORD FUNCTION AddPathToDeps(RECORD deps, STRING path, BOOLEAN is_js_module)
+  {
+    STRING ARRAY exts := is_js_module ? [ "", ".webpack.js", ".web.js", ".js", ".es" ] : [ "" ];
+
+    FOREVERY (STRING ext FROM exts)
+    {
+      TRY
+      {
+        STRING diskpath := GetWebHareResourceDiskPath(path || ext);
+        IF (RecordExists(GetDiskFileProperties(diskpath)))
+        {
+          // File exists
+          IF (diskpath NOT IN deps.filedependencies)
+            INSERT diskpath INTO deps.filedependencies AT END;
+          BREAK; // No need to test for other extensions anymore, this one will be found by webpack
+        }
+        ELSE
+        {
+          // File does not exist
+          IF (diskpath NOT IN deps.missingdependencies)
+            INSERT diskpath INTO deps.missingdependencies AT END;
+        }
+      }
+      CATCH(OBJECT e)
+      {
+        /// Illegal path, ignoring
+      }
+    }
+
+    RETURN deps;
+  }
+
+  /** Ensure the entrypoint and the webdesign package.json are included in the bundle dependencies.
+  */
+  RECORD FUNCTION AugmentDependencies(RECORD deps, RECORD bundle)
+  {
+    deps := deps ??
+        [ start :=                GetUnixTimestampMsecs(GetCurrentDatetime())
+        , filedependencies :=     DEFAULT STRING ARRAY
+        , contextdependencies :=  DEFAULT STRING ARRAY
+        , missingdependencies :=  DEFAULT STRING ARRAY
+        ];
+
+    // Uncompileable bundles have their dependencies already set
+    IF (NOT CellExists(bundle.info, "UNCOMPILABLE"))
+    {
+      deps := this->AddPathToDeps(deps, MergePath(bundle.designfolder, "package.json"), FALSE);
+      deps := this->AddPathToDeps(deps, bundle.entrypoint, TRUE);
+    }
+
+    RETURN deps;
+  }
+
+  RECORD ARRAY FUNCTION ListAssetsOnDisk(RECORD bundle)
+  {
+    RECORD ARRAY assets;
+
+    FOREVERY(STRING dir FROM ["","st/"])
+    {
+      RECORD ARRAY assetlist := ReadDiskDirectory(MergePath(bundle.outputpath,dir),'*');
+      DELETE FROM assetlist WHERE type != 0 OR name IN ["assetpackstate.hson"];
+      assets := assets CONCAT SELECT subpath := dir || name FROM assetlist;
+    }
+    RETURN assets;
+  }
+
+  /** Upon compile success, move all newly generated files to the output directory
+  */
+  MACRO MoveGeneratedFiles(RECORD bundle)
+  {
+    STRING builddir := MergePath(bundle.outputpath, "build");
+    CreateDiskDirectory(Mergepath(bundle.outputpath,"st"), TRUE);
+
+    //ADDME once in a while, clean up old assets in staticdir (but no need to do immediately, let'm linger a few days)
+
+    RECORD ARRAY infiles := ReadDiskDirectory(builddir, "*");
+
+    FOREVERY (RECORD rec FROM infiles)
+    {
+      IF (rec.name = "records.json")
+        CONTINUE;
+
+      STRING outpath := rec.name LIKE "ap.*" OR rec.name LIKE "apmanifest.json*" ? rec.name : "st/" || rec.name;
+      STRING destpath := MergePath(bundle.outputpath, outpath);
+      IF(NOT MoveDiskPath(rec.path, destpath))
+      {
+        IF (debug)
+          Print("Unable to move " || rec.path || " to " || destpath||"\n");
+        THROW NEW Exception("Unable to move " || rec.path || " to " || destpath);
+      }
+    }
+
+    // Make sure an ap.css exists in the output directory
+    STRING finalcsspath := MergePath(bundle.outputpath, "ap.css");
+    IF(NOT RecordExists(GetDiskFileProperties(finalcsspath)))
+    {
+      //Create a dummy to suppress 404s. It's usually only tests (adhoc) that manages to create a css-less bundle
+      StoreDiskFile(finalcsspath, StringToBlob("/* The bundle did not generate any CSS */\n"), [ overwrite := TRUE ]);
+    }
+  }
+
+  MACRO TryLogBuildError(STRING bundleid)
+  {
+    RECORD bundle := SELECT * FROM this->bundles WHERE outputtag = bundleid;
+
+    IF (CellExists(bundle.info, "ERRORS") AND TypeID(bundle.info.errors) = TypeID(RECORD ARRAY))
+    {
+      FOREVERY (RECORD rec FROM bundle.info.errors)
+      {
+        IF (CellExists(rec, "MESSAGE"))
+          CONTINUE;
+
+        RECORD details :=
+            [ script :=     rec.source
+            , error :=      rec.message
+            , browser :=    "nodejs"
+            , type :=       "javascript-error"
+            , bundle :=     bundle.outputtag
+            ];
+
+        LogError("assetpackcontrol", "javascript-error", details);
+      }
+    }
+  }
+
+  /** Mark a bundle as uncompileable (because pre-compile checks failed)
+  */
+  MACRO ProcessUncompilable(RECORD bundle, STRING ARRAY depfiles, STRING ARRAY missing, STRING error, DATETIME startofcompile)
+  {
+    this->ProcessCompileResult(
+        [ bundle :=     bundle.outputtag
+        , info :=       [ dependencies :=
+                              [ start :=                GetUnixTimestampMsecs(startofcompile)
+                              , filedependencies :=     depfiles
+                              , contextdependencies :=  DEFAULT STRING ARRAY
+                              , missingdependencies :=  missing
+                              ]
+                        , errors := DEFAULT RECORD ARRAY
+                        , uncompilable := TRUE // trigger for recheck on softreset
+                        ]
+        , stats :=      ""
+        , statsjson :=  ""
+        , errors :=     error
+        , haserrors :=  TRUE
+        , compiletoken := this->GetBundleCompiletoken(bundle)
+        ], FALSE);
+  }
+
+  /** Process a compilation result message
+  */
+  MACRO ProcessCompileResult(RECORD message, BOOLEAN augment)
+  {
+    DATETIME now := GetCurrentDatetime();
+    BOOLEAN haserrors := message.haserrors OR (RecordExists(message.info) AND Length(message.info.errors) > 0);
+
+    RECORD bundle := SELECT * FROM this->bundles WHERE outputtag = message.bundle;
+    IF(NOT RecordExists(bundle))
+      RETURN;
+
+    IF (debug)
+    {
+      PRINT("Got compile result for " || message.bundle || ", errors: " || (haserrors ? (CellExists(bundle.info, "UNCOMPILABLE") ? "at compile checks" : "during compile") : "no") || "\n");
+      IF(message.compiletoken != this->GetBundleCompiletoken(bundle))
+      {
+        //race against config setting ?
+        Print("** INVALID COMPILETOKEN, got " || message.compiletoken || " expected " || this->GetBundleCompiletoken(bundle) || "\n");
+      }
+    }
+
+    RECORD dependencies;
+
+    // Make sure all relevant files are present in the current dependencies file
+    IF (RecordExists(bundle) AND CellExists(message.info, "DEPENDENCIES"))
+      dependencies := message.info.dependencies;
+
+    // Add dependencies webpack doesn't add
+    dependencies := this->AugmentDependencies(dependencies, bundle);
+
+    // Convert to asset paths, calculate the event masks
+    RECORD rec := this->ProcessDependencies(dependencies);
+
+    RECORD ARRAY generatedassets;
+    IF (NOT haserrors)
+    {
+      this->MoveGeneratedFiles(bundle);
+      generatedassets := this->ListAssetsOnDisk(bundle);
+    }
+
+    // Apply the result to the bundles list.
+    RECORD changes :=
+        [ hasstatus :=     TRUE
+        , iscompiling :=   FALSE
+        , haserrors :=     haserrors
+        , stats :=         message.stats
+        , statsjson :=     message.statsjson
+        , errors :=        message.errors
+        , info :=          message.info
+        , lastcompile :=   now
+        , lastcompiletoken := message.compiletoken
+        , dependencies :=  rec.dependencies
+        , masks :=         rec.masks
+        , generatedassets := generatedassets
+        ];
+
+    UPDATE this->bundles
+       SET RECORD changes
+     WHERE outputtag = message.bundle;
+
+    // Disable forcecompile if we're not in for an immediate recompile
+    UPDATE this->bundles
+       SET forcecompile :=  FALSE
+     WHERE outputtag = message.bundle
+       AND NOT requirecompile;
+
+    this->TryLogBuildError(message.bundle);
+
+    // Just modified the event masks, so we need to update our global listening set
+    this->UpdateAllWatchMasks();
+
+    // Reschedule compilation in case requirecompile was TRUE
+    ScheduleMicroTask(PTR this->ScheduleCompilationTasks());
+
+    // Check if we just rescheduled the compile. If so, we're not going to notify the waiters just yet
+    bundle := SELECT * FROM this->bundles WHERE outputtag = message.bundle;
+    IF (NOT bundle.iscompiling AND NOT bundle.requirecompile)
+    {
+      // Notify compilation waiters
+      FOREVERY (RECORD waitrec FROM SELECT * FROM this->compilewaits WHERE outputtag = message.bundle)
+        waitrec.resolve([ haserrors := haserrors, lastcompile := now, lastcompiletoken := message.compiletoken, outputtag := message.bundle ]);
+      DELETE FROM this->compilewaits WHERE outputtag = message.bundle;
+    }
+
+    // Save state of the bundle
+    this->SaveBundleState(message.bundle);
+
+    // Broadcast if needed
+    IF(NOT haserrors AND bundle.bundleconfig.aftercompiletask != "")
+    {
+      GetPrimary()->BeginWork();
+      ScheduleManagedTask(bundle.bundleconfig.aftercompiletask, [ assetpack := message.bundle ]);
+      GetPrimary()->CommiTWork();
+    }
+
+    BroadcastEvent("publisher:assetpackcontrol.change." || message.bundle, DEFAULT RECORD);
+  }
+
+  //Reproces masks and timestamps for a module
+  MACRO ProcessBundleState(STRING outputtag)
+  {
+    RECORD bundle := SELECT * FROM this->bundles WHERE COLUMN outputtag = VAR outputtag;
+    IF (NOT RecordExists(bundle) OR bundle.adhoc)
+      RETURN;
+
+    this->CheckTimeStamps(bundle, DEFAULT OBJECT);
+  }
+
+  MACRO SaveBundleState(STRING outputtag)
+  {
+    RECORD bundle := SELECT * FROM this->bundles WHERE COLUMN outputtag = VAR outputtag;
+    IF (NOT RecordExists(bundle))
+      RETURN;
+
+    ScheduleMicroTask(PTR this->ProcessBundleState(bundle.outputtag));
+
+    RECORD savedstate :=
+        [ hasstatus :=        bundle.hasstatus
+        , haserrors :=        bundle.haserrors
+        , stats :=            bundle.stats
+        , statsjson :=        bundle.statsjson
+        , errors :=           bundle.errors
+        , info :=             bundle.info
+        , lastcompile :=      bundle.lastcompile
+        , lastcompiletoken := bundle.lastcompiletoken
+        , requirecompile :=   bundle.requirecompile
+        , dependencies :=     bundle.dependencies
+        , generatedassets :=  bundle.generatedassets
+        ];
+
+    IF (debug)
+      PRINT("Save state for bundle " || bundle.id || "\n");
+    STRING outputpath := GetBundleOutputPath(bundle.outputtag) || "assetpackstate.hson";
+    StoreDiskFile(outputpath,EncodeHSONBlob(savedstate), [ overwrite := TRUE ]);
+
+    UPDATE this->bundles SET savedstate := VAR savedstate WHERE bundles.outputtag = VAR outputtag;
+  }
+
+  /** Load bundles from the database
+  */
+  PUBLIC MACRO LoadBundles()
+  {
+    this->bundles :=
+        SELECT *
+             , found := FALSE
+          FROM this->bundles;
+
+    RECORD ARRAY bundles := GetPersistentBundles()
+       CONCAT
+       (SELECT *
+             , adhoc :=         TRUE
+             , savedstate :=    DEFAULT RECORD
+             , isdev :=         TRUE
+          FROM this->adhocbundles);
+
+    FOREVERY(RECORD bundle FROM bundles)
+    {
+      bundle := PreFixupBundleconfig(bundle);
+
+      IF(bundle.outputtag NOT IN this->nofullsourcemapsassetpacks)
+        bundle.bundleconfig.fullsourcemap := TRUE;
+
+      // Ensure the bundle exists in our list
+      RECORD lb := RecordLowerBound(this->bundles, [ outputtag := bundle.outputtag ], [ "outputtag" ]);
+      IF(NOT lb.found)
+      {
+        STRING outputpath := GetBundleOutputPath(bundle.outputtag);
+
+        // Only read saved state for new bundles, keep current
+        TRY bundle.savedstate := DecodeHSONBlob(GetDiskResource(GetBundleOutputPath(bundle.outputtag) || "assetpackstate.hson"));
+        CATCH ; //ignore errors
+
+        RECORD bundlerec := MakeMergedRecord(bundle,
+                 [ hasstatus :=           FALSE
+                 , haserrors :=           FALSE
+                 , diskpath :=            ""
+                 , stats :=               ""
+                 , statsjson :=           ""
+                 , errors :=              ""
+                 , info :=                DEFAULT RECORD
+                 , missingdependencies := DEFAULT STRING ARRAY
+                 , iscompiling :=         FALSE
+                 , lastcompile :=         DEFAULT DATETIME
+                 , lastcompiletoken :=    ""
+                 , outputpath :=          outputpath
+                 , found :=               FALSE
+                 , masks :=               DEFAULT STRING ARRAY
+                 , requirecompile :=      FALSE
+                 , forcecompile :=        FALSE
+                 , task :=                DEFAULT OBJECT
+                 , compilestart :=        DEFAULT DATETIME
+                 , dependencies :=        DEFAULT RECORD
+                 , cachebreaker :=        GenerateUFS128BitId()
+                 , getjsonstats :=        FALSE
+                 , generatedassets :=     DEFAULT RECORD ARRAY
+                 , retries :=             0
+                 ]);
+
+        // Overwrite with DB info if present
+        IF (RecordExists(bundlerec.savedstate))
+          bundlerec := MakeReplacedRecord(bundlerec, bundlerec.savedstate);
+
+        // Rebuild dependencies and event masks
+        RECORD deps := this->AugmentDependencies(bundlerec.dependencies, bundlerec);
+        RECORD rec := this->ProcessDependencies(deps);
+
+        bundlerec.dependencies := rec.dependencies;
+        bundlerec.masks := rec.masks;
+
+        INSERT bundlerec INTO this->bundles AT lb.position;
+        ScheduleMicroTask(PTR this->ProcessBundleState(bundlerec.outputtag));
+      }
+      ELSE IF (EncodeHSON(this->bundles[lb.position].bundleconfig) != EncodeHSON(bundle.bundleconfig)
+               OR this->bundles[lb.position].origentrypoint != bundle.entrypoint
+               OR this->bundles[lb.position].designfolder != bundle.designfolder)
+      {
+        this->bundles[lb.position] := MakeReplacedRecord(this->bundles[lb.position], bundle);
+
+        RECORD deps := this->AugmentDependencies(this->bundles[lb.position].dependencies, this->bundles[lb.position]);
+        RECORD rec := this->ProcessDependencies(deps);
+
+        this->bundles[lb.position].dependencies := rec.dependencies;
+        this->bundles[lb.position].masks := rec.masks;
+
+        ScheduleMicroTask(PTR this->ProcessBundleState(this->bundles[lb.position].outputtag));
+      }
+
+      this->bundles[lb.position].found := TRUE;
+    }
+
+    this->bundles :=
+        SELECT *
+          FROM this->bundles
+         WHERE found
+      ORDER BY outputtag;
+
+    this->ScheduleCompilationTasks();
+
+    // Resolve all compilewaits for non-existing bundles
+    STRING ARRAY valid_uuids := SELECT AS STRING ARRAY outputtag FROM this->bundles;
+    FOREVERY (RECORD rec FROM this->compilewaits)
+    {
+      IF (rec.outputtag NOT IN valid_uuids)
+      {
+        rec.resolve([ haserrors := TRUE
+                    , lastcompile := GetCurrentDatetime()
+                    , lastcompiletoken := ""
+                    , outputtag := rec.outputtag
+                    ]);
+        DELETE FROM this->compilewaits WHERE bundleid = rec.outputtag;
+      }
+    }
+
+    BroadcastEvent("publisher:assetpackcontrol.change.all", DEFAULT RECORD);
+  }
+
+  PUBLIC RECORD FUNCTION GetSpecificBundle(STRING outputtag)
+  {
+    RECORD ARRAY matches := ListUUIDMatches(this->bundles, outputtag);
+    IF(Length(matches) > 1 OR Length(matches)=0)
+      RETURN [ bundle := DEFAULT RECORD ];
+
+    RECORD bundle := this->CheckBundle(matches[0]);
+    IF(NOT RecordExists(bundle))
+      THROW NEW Exception("The bundle is not compilable");
+
+    IF (bundle.hasstatus)
+      THROW NEW Exception("Error: " || bundle.error);
+
+    RETURN [ bundle := bundle
+           , baseconfig := GetAssetpacksBaseConfig()
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION GetStatus()
+  {
+    RECORD status := [ bundles := (SELECT TEMPORARY watchcountpos := RecordLowerBound(this->watchcounts, bundles, [ "OUTPUTTAG" ])
+                                        , id
+                                        , designfolder
+                                        , hasstatus
+                                        , iscompiling
+                                        , haserrors
+                                        , outputtag
+                                        , lastcompile
+                                        , lastuse
+                                        , requirecompile
+                                        , isdev
+                                        , candelete :=      outputtag NOT LIKE "*.*"
+                                        , watchcount :=     watchcountpos.found ? this->watchcounts[watchcountpos.position].cnt : 0
+                                     FROM this->bundles)
+                     ];
+
+    RETURN status;
+  }
+
+  PUBLIC INTEGER FUNCTION LookupBundle(STRING uuid)
+  {
+    RETURN SELECT AS INTEGER id FROM this->bundles WHERE bundles.outputtag = uuid;
+  }
+
+  PUBLIC RECORD FUNCTION GetBundleStatus(STRING uuid)
+  {
+    RECORD bundle := SELECT * FROM this->bundles WHERE bundles.outputtag = uuid;
+    IF(RecordExists(bundle) AND NOT CellExists(bundle.info,'errors'))
+      INSERT CELL errors := DEFAULT RECORD ARRAY INTO bundle.info;
+
+    DELETE CELL task FROM bundle;
+    RETURN bundle;
+  }
+
+  OBJECT FUNCTION CreateCompilePromise(STRING outputtagd)
+  {
+    DATETIME now := GetCurrentDatetime();
+    DATETIME timeout := AddTimeToDate(compile_timeout, now);
+
+    RECORD defer := CreateDeferredPromise();
+    INSERT
+        [ timeout :=    timeout
+        , promise :=    defer.promise
+        , resolve :=    defer.resolve
+        , outputtag := outputtagd
+        ] INTO this->compilewaits AT END;
+
+    IF (this->compilewaits_cb = 0)
+      this->compilewaits_cb := RegisterTimedCallback(timeout, PTR this->GotCompileWaitTimeout);
+
+    // If we want to wait for something to compile, make sure it isn't deferred
+    UPDATE this->bundles
+       SET forcecompile :=  TRUE
+     WHERE COLUMN outputtag = VAR outputtagd
+       AND requirecompile;
+
+    ScheduleMicroTask(PTR this->ScheduleCompilationTasks());
+
+    RETURN defer.promise;
+  }
+
+  /** Returns a promise that is resolved when the first compile for a bundle has finished (with a timeout of 2 minutes)
+      @param acceptstale We accept stale versions
+  */
+  PUBLIC OBJECT FUNCTION WaitForCompile(STRING outputtag, BOOLEAN acceptstale)
+  {
+    // Need to reload the bundles, if assetpackmgr isn't online yet they haven't been reloaded
+    //this->LoadBundles();
+
+    RECORD bundle := SELECT * FROM this->bundles WHERE bundles.outputtag = VAR outputtag;
+    IF(NOT RecordExists(bundle))
+    {
+      /* Trying to fix
+         Exception EXCEPTION: Requested bundle webhare_testsuite_temp:testdesign is not in the bundle list.
+         infrequently hitting publisher-webdesign.moduledesigntest test
+
+         Are we racing against a module offering bundles? Try to load the bundles
+       */
+      this->ScanModulesForBundles();
+      this->LoadBundles();
+      bundle := SELECT * FROM this->bundles WHERE bundles.outputtag = VAR outputtag;
+    }
+
+    IF(NOT RecordExists(bundle))
+    {
+      THROW NEW Exception("Requested bundle " || outputtag || " is not in the bundle list");
+    }
+
+    RETURN this->DoWait(bundle, acceptstale);
+  }
+
+  OBJECT FUNCTION DoWait(RECORD bundle, BOOLEAN acceptstale)
+  {
+    IF (bundle.lastcompile != DEFAULT DATETIME AND (acceptstale OR (NOT bundle.iscompiling AND NOT bundle.requirecompile)))
+      RETURN CreateResolvedPromise([ haserrors := bundle.haserrors, lastcompile := bundle.lastcompile, lastcompiletoken := bundle.lastcompiletoken, outputtag := bundle.outputtag ]);
+
+    RETURN this->CreateCompilePromise(bundle.outputtag);
+  }
+
+  PUBLIC OBJECT ASYNC FUNCTION GetAdhocBundle(RECORD bundle)
+  {
+    STRING hash := GetHashForBundle(bundle) || ".dev";
+    RECORD match := SELECT * FROM this->adhocbundles WHERE adhocbundles.outputtag = VAR hash;
+
+    IF (NOT RecordExists(match))
+    {
+      this->lastadhocid := this->lastadhocid - 1;
+
+      INSERT [ id :=              this->lastadhocid
+             , created :=         RecordExists(match) ? match.created : GetCurrentDatetime()
+             , lastuse :=         GetCurrentDatetime()
+             , designfolder :=    ""
+             , entrypoint :=      bundle.basedependency
+             , origentrypoint :=  bundle.basedependency
+             , bundleconfig :=    bundle.bundleconfig
+             , outputtag :=       hash
+             ] INTO this->adhocbundles AT END;
+    }
+
+    this->LoadBundles();
+
+    UPDATE this->bundles
+       SET forcecompile :=    TRUE
+     WHERE outputtag = hash
+       AND requirecompile;
+
+    IF (RecordExists(match))
+    {
+      OBJECT promise := this->WaitForCompile(hash, FALSE);
+      this->ScheduleCompilationTasks();
+      RETURN promise;
+    }
+
+    OBJECT promise := this->CreateCompilePromise(hash);
+    this->RecompileBundleByoutputtag(hash);
+    RETURN promise;
+ }
+
+  PUBLIC MACRO OnInterrupt()
+  {
+    CancelEventLoop();
+  }
+
+  PUBLIC MACRO SetBundleJSONStats(STRING outputtag, BOOLEAN getstats)
+  {
+    UPDATE this->bundles
+       SET getjsonstats := getstats
+     WHERE COLUMN outputtag LIKE VAR outputtag;
+  }
+
+  PUBLIC MACRO RecompileBundleByoutputtag(STRING outputtag, BOOLEAN rebuild DEFAULTSTO FALSE)
+  {
+    RECORD ARRAY bundles := SELECT * FROM this->bundles WHERE COLUMN outputtag LIKE VAR outputtag;
+    FOREVERY(RECORD bundle FROM bundles)
+    {
+      //Delete records.json on rebuild, as that file sometimes fatally breaks webpack
+      DeleteDiskFile(MergePath(bundle.outputpath,"build/records.json"));
+      this->MarkBundleCompileNeeded(bundle, "user requested recompile", rebuild, TRUE);
+    }
+  }
+
+  PUBLIC MACRO ClearCaches()
+  {
+    // Trigger full recompilation on next invalidation
+    FOREVERY (RECORD rec FROM this->bundles)
+      this->bundles[#rec].cachebreaker := GenerateUFS128BitId();
+  }
+
+  PUBLIC MACRO UpdateAssetPackManager()
+  {
+    this->LoadBundles();
+  }
+
+  PUBLIC MACRO UpdateWatchCount(STRING outputtag, INTEGER change)
+  {
+    RECORD pos := RecordLowerBound(this->watchcounts, [ outputtag := outputtag ], [ "OUTPUTTAG" ]);
+    IF (NOT pos.found)
+      INSERT [ outputtag := outputtag, cnt := 0 ] INTO this->watchcounts AT pos.position;
+
+    IF (debug)
+      PRINT(`Update watch count for ${outputtag} from ${this->watchcounts[pos.position].cnt} to ${this->watchcounts[pos.position].cnt + change}\n`);
+
+    BOOLEAN need_schedule := this->watchcounts[pos.position].cnt = 0 AND change > 0;
+    this->watchcounts[pos.position].cnt := this->watchcounts[pos.position].cnt + change;
+    IF (this->watchcounts[pos.position].cnt = 0)
+      DELETE FROM this->watchcounts AT pos.position;
+
+    // Was the count zero to start with? If so, dirty assetpacks might become schedulable
+    IF (need_schedule)
+      ScheduleMicroTask(PTR this->ScheduleCompilationTasks());
+
+    BroadcastEvent("publisher:assetpackcontrol.watch." || outputtag, DEFAULT RECORD);
+  }
+
+  PUBLIC MACRO UpdateSourceMapType(STRING outputtag, BOOLEAN fullsourcemap)
+  {
+    RECORD pos := LowerBound(this->nofullsourcemapsassetpacks, outputtag);
+    IF (pos.found != fullsourcemap)
+      RETURN;
+
+    IF (fullsourcemap)
+      DELETE FROM this->nofullsourcemapsassetpacks AT pos.position;
+    ELSE
+      INSERT outputtag INTO this->nofullsourcemapsassetpacks AT pos.position;
+
+    this->LoadBundles();
+  }
+>;
+
+OBJECTTYPE AssetPackControl
+< /// List of watched bundles by this connection
+  STRING ARRAY watched_bundles;
+
+  /// Id of this connection
+  STRING id;
+
+  PUBLIC MACRO OnClose()
+  {
+    IF (debug AND this->id != "")
+      PRINT(`External link ${this->id} closed, unwatching ${Detokenize(this->watched_bundles, ",")}\n`);
+
+    // Called when link closes
+    FOREVERY (STRING bundleuuid FROM this->watched_bundles)
+      this->SetWatched(bundleuuid, FALSE);
+  }
+
+  PUBLIC MACRO Register(RECORD data)
+  {
+    this->id := data.id;
+  }
+
+  /** Create/update a bundle
+      @param requestedbundle Bundle description
+      @return
+      @cell return.id
+      @cell return.outputtag
+  */
+  PUBLIC OBJECT ASYNC FUNCTION GetBundle(RECORD requestedbundle, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(requestedbundle.adhoc)
+      RETURN this->GetAdhocBundle(requestedbundle);
+
+    BOOLEAN mustrefreshbundles;
+    STRING hash := GetHashForBundle(requestedbundle);
+    INTEGER bundleid;
+
+    RECORD bundleinfo := SELECT * FROM system.assetpacks WHERE outputtag = hash;
+
+    DATETIME now := GetRoundedDatetime(GetCurrentDatetime(), 60 * 60 * 1000);
+    IF(RecordExists(bundleinfo))
+    {
+      BOOLEAN updatebundlesettings;
+      bundleid := bundleinfo.id;
+      IF(bundleinfo.lastuse < now OR updatebundlesettings)
+      {
+        GetPrimary()->BeginWork(); //no need to lock, losing this update is fine
+        UPDATE system.assetpacks
+               SET lastuse := now
+               WHERE id = bundleid;
+        GetPrimary()->CommitWork();
+      }
+    }
+    ELSE
+    {
+      GetPrimary()->BeginLockedWork("publisher:assetpackcontrol");
+      bundleinfo := SELECT * FROM system.assetpacks WHERE outputtag = hash;
+
+      IF(RecordExists(bundleinfo))
+      {
+        bundleid := bundleinfo.id;
+      }
+      ELSE
+      {
+        mustrefreshbundles := TRUE;
+        bundleid := MakeAutonumber(system.assetpacks, "ID");
+
+        INSERT INTO system.assetpacks(id, created, lastuse, designfolder, entrypoint, outputtag, bundleconfig)
+               VALUES(bundleid, now, now, requestedbundle.moduledesignfolder, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
+      }
+
+      GetPrimary()->CommitWork();
+    }
+
+    IF(mustrefreshbundles)
+    {
+      controller->UpdateAssetPackManager();
+    }
+
+    STRING outputtag := hash || (requestedbundle.devversion ? ".dev" : "");
+    DATETIME lastcompile;
+    IF (NOT CellExists(options, "NOWAIT") OR NOT options.nowait)
+    {
+      //FIXME (AWAIT controller->WaitForCompile(outputtag, TRUE)) resolved to DEFAULT RECORD on ut live. bundle deletion during compilation? timeout?
+      lastcompile := (AWAIT controller->WaitForCompile(outputtag, TRUE)).lastcompile;
+    }
+
+    RETURN [ id := bundleid, outputtag := outputtag, lastcompile := lastcompile ];
+  }
+
+
+  PUBLIC OBJECT FUNCTION WaitForCompile(STRING outputtag, BOOLEAN acceptstale)
+  {
+    RETURN controller->WaitForCompile(outputtag, acceptstale);
+  }
+
+  OBJECT ASYNC FUNCTION GetAdhocBundle(RECORD bundle)
+  {
+    RETURN controller->GetAdhocBundle(bundle);
+  }
+
+  PUBLIC RECORD FUNCTION GetSpecificBundle(STRING outputtag)
+  {
+    RETURN controller->GetSpecificBundle(outputtag);
+  }
+
+  /** Returns the current status of the assetpack controller
+      @return
+      @cell return.bundles List of bundles
+   */
+  PUBLIC RECORD FUNCTION GetStatus()
+  {
+    RETURN controller->GetStatus();
+  }
+
+  /** Looks up a bundle by uuid
+      @return Id of the bundle, 0 if not found
+  */
+  PUBLIC INTEGER FUNCTION LookupBundle(STRING uuid)
+  {
+    RETURN controller->LookupBundle(uuid);
+  }
+
+  /** Returns the current status of a bundle
+      @param uuid Bundle id
+      @return
+  */
+  PUBLIC RECORD FUNCTION GetBundleStatus(STRING uuid)
+  {
+    RETURN controller->GetBundleStatus(uuid);
+  }
+
+  /** Update the asset pack manager with the new configuration
+  */
+  PUBLIC MACRO UpdateAssetPackManager()
+  {
+    controller->UpdateAssetPackManager();
+  }
+
+  PUBLIC MACRO ClearCaches()
+  {
+    controller->ClearCaches();
+  }
+
+  PUBLIC MACRO RecompileBundle(STRING outputtag, BOOLEAN rebuild DEFAULTSTO FALSE)
+  {
+    IF(debug)
+      Print("Recompile requested for '" || outputtag || "', rebuild=" || (rebuild?'true':'false')||'\n');
+    controller->RecompileBundleByoutputtag(outputtag, rebuild);
+  }
+
+  PUBLIC MACRO SetBundleJSONStats(STRING outputtag, BOOLEAN getstats)
+  {
+    controller->SetBundleJSONStats(outputtag, getstats);
+  }
+
+  PUBLIC MACRO SetWatched(STRING outputtag, BOOLEAN watched)
+  {
+    IF (debug)
+      PRINT(`External link ${this->id} setwatched ${outputtag} to ${watched?"TRUE":"FALSE"}\n`);
+
+    RECORD pos := LowerBound(this->watched_bundles, outputtag);
+    IF (pos.found = watched)
+      RETURN;
+    IF (watched)
+      INSERT outputtag INTO this->watched_bundles AT pos.position;
+    ELSE
+      DELETE FROM this->watched_bundles AT pos.position;
+    controller->UpdateWatchCount(outputtag, watched ? +1 : -1);
+  }
+
+  PUBLIC MACRO SetFullSourceMap(STRING outputtag, BOOLEAN fullsourcemap)
+  {
+    controller->UpdateSourceMapType(outputtag, fullsourcemap);
+    controller->RecompileBundleByoutputtag(outputtag, FALSE);
+
+  }
+
+  PUBLIC RECORD FUNCTION GetAssetpacksBaseConfig()
+  {
+    RETURN GetAssetpacksBaseConfig();
+  }
+>;
+
+OBJECT FUNCTION Constructor()
+{
+  RETURN NEW AssetPackControl;
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch" ]
+    , [ name := "debugmods", type := "switch" ]
+    , [ name := "profile", type := "switch" ]
+    ]);
+
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: runscript assetpackcontrol.hwscr [--debug] [--debugmods] [--profile]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+debug := args.debug OR args.debugmods;
+debugmods := args.debugmods;
+IF(args.profile OR debug)
+  SetupFunctionProfiling("assetpackcontrol","");
+
+// Ensure the managed queue manager is started before we start running
+OBJECT mqm := WaitForPromise(OpenWebHareService("system:managedqueuemgr", -1));
+IF (ObjectExists(mqm))
+  mqm->CloseService();
+
+OpenPrimary();
+controller := NEW AssetPackController;
+AddInterruptCallback(PTR controller->OnInterrupt);
+controller->Setup();
+RunWebHareService("publisher:assetpackcontrol", PTR Constructor, [ restartimmediately := TRUE ]);

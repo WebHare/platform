@@ -1,0 +1,1194 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/transservices.whlib";
+
+
+//helper for RenumberForeignKeys
+RECORD ARRAY updatedrows;
+RECORD FUNCTION GetUpdateRec(STRING colname, INTEGER renumberto, BOOLEAN recordrecs, BOOLEAN with_updated, RECORD inrec)
+{
+  RECORD upd := CellInsert(DEFAULT RECORD, colname, renumberto);
+
+  IF (recordrecs)
+  {
+    IF (with_updated)
+      INSERT CELL[ ...inrec, ...upd ] INTO updatedrows AT END;
+    ELSE
+      INSERT CellDelete(inrec, colname) INTO updatedrows AT END;
+  }
+
+  RETURN upd;
+}
+
+// Function to test if the WebHare database is in readonly mode
+PUBLIC FUNCTION PTR __TestDBReadOnlyMode;
+
+/** Returns whether WebHare is in database readonly mode
+    @return TRUE if in readonly mode. If so, BeginWork and CommitWork calls will throw an exception.
+*/
+PUBLIC BOOLEAN FUNCTION IsDatabaseReadonly()
+{
+  RETURN __TestDBReadOnlyMode != DEFAULT FUNCTION PTR AND __TestDBReadOnlyMode();
+}
+
+OBJECTTYPE TableColumn
+<
+  OBJECT tablestructure;
+  STRING pvt_name;
+
+  PUBLIC PROPERTY autonumber_start(GetAutonumberStart, SetAutonumberStart);
+  PUBLIC PROPERTY character_octet_length(GetCharacterOctetLength, SetCharacterOctetLength);
+  PUBLIC PROPERTY is_unique(GetIsUnique, SetIsUnique);
+  PUBLIC PROPERTY is_nullable(GetIsNullable, SetIsNullable);
+  PUBLIC PROPERTY referenced_table_schema(GetReferencedTableSchema, SetReferencedTableSchema);
+  PUBLIC PROPERTY referenced_table_name(GetReferencedTableName, SetReferencedTableName);
+  PUBLIC PROPERTY on_delete(GetOndelete, SetOnDelete);
+  PUBLIC PROPERTY name(pvt_name, -);
+
+  MACRO NEW(OBJECT tablestructure, STRING columnname)
+  {
+    this->tablestructure := tablestructure;
+    this->pvt_name := columnname;
+  }
+  INTEGER FUNCTION GetAutonumberStart()
+  {
+    RETURN SELECT AS INTEGER autonumber_start FROM this->tablestructure->pvt_columns WHERE column_name = this->pvt_name;
+  }
+  MACRO SetAutonumberStart(INTEGER newstart)
+  {
+    UPDATE this->tablestructure->pvt_columns SET autonumber_start := newstart WHERE column_name = this->pvt_name;
+  }
+  INTEGER FUNCTION GetCharacterOctetLength()
+  {
+    RETURN SELECT AS INTEGER character_octet_length FROM this->tablestructure->pvt_columns WHERE column_name = this->pvt_name;
+  }
+  MACRO SetCharacterOctetLength(INTEGER newlen)
+  {
+    UPDATE this->tablestructure->pvt_columns SET character_octet_length := newlen WHERE column_name = this->pvt_name;
+  }
+  BOOLEAN FUNCTION GetIsUnique()
+  {
+    RETURN SELECT AS BOOLEAN is_unique FROM this->tablestructure->pvt_columns WHERE column_name = this->pvt_name;
+  }
+  MACRO SetIsUnique(BOOLEAN newisunique)
+  {
+    UPDATE this->tablestructure->pvt_columns SET is_unique := newisunique WHERE column_name = this->pvt_name;
+  }
+  BOOLEAN FUNCTION GetIsNullable()
+  {
+    RETURN SELECT AS BOOLEAN is_nullable FROM this->tablestructure->pvt_columns WHERE column_name = this->pvt_name;
+  }
+  MACRO SetIsNullable(BOOLEAN newisnullable)
+  {
+    UPDATE this->tablestructure->pvt_columns SET is_nullable := newisnullable WHERE column_name = this->pvt_name;
+  }
+  STRING FUNCTION GetReferencedTableSchema()
+  {
+    RETURN SELECT AS STRING referenced_table_schema FROM this->tablestructure->pvt_columns WHERE column_name = this->pvt_name;
+  }
+  MACRO SetReferencedTableSchema(STRING newschema)
+  {
+    UPDATE this->tablestructure->pvt_columns SET referenced_table_schema := newschema WHERE column_name = this->pvt_name;
+  }
+  STRING FUNCTION GetReferencedTableName()
+  {
+    RETURN SELECT AS STRING referenced_table_name FROM this->tablestructure->pvt_columns WHERE column_name = this->pvt_name;
+  }
+  MACRO SetReferencedTableName(STRING newname)
+  {
+    UPDATE this->tablestructure->pvt_columns SET referenced_table_name := newname WHERE column_name = this->pvt_name;
+  }
+  STRING FUNCTION GetOnDelete()
+  {
+    RETURN SELECT AS STRING on_delete FROM this->tablestructure->pvt_columns WHERE column_name = this->pvt_name;
+  }
+  MACRO SetOnDelete(STRING newondelete)
+  {
+    newondelete := ToLowercase(newondelete);
+    IF(newondelete NOT IN ["","cascade","set default"])
+      THROW NEW Exception('Illegal on delete value, must be one of ["","cascade","set default"]');
+    UPDATE this->tablestructure->pvt_columns SET on_delete := newondelete WHERE column_name = this->pvt_name;
+  }
+>;
+
+/** A tablestructure helps to manage metadata that creates or modifies tables */
+OBJECTTYPE TableStructure
+<
+  PUBLIC STRING schemaname;
+  PUBLIC STRING tablename;
+  PUBLIC OBJECT primarykey; //ADDME make it a property that validates the column exists and is part of this TS
+
+  BOOLEAN isnew;
+  OBJECT trans;
+  RECORD ARRAY pvt_columns;
+  RECORD ARRAY pvt_origcolumns;
+  STRING ARRAY droppedcolumns;
+
+  PUBLIC PROPERTY columns(pvt_columns, -);
+  PUBLIC PROPERTY originalcolumns(pvt_origcolumns, -);
+
+  MACRO NEW(OBJECT trans, STRING s, STRING t, BOOLEAN isnew)
+  {
+    this->trans := trans;
+    this->schemaname := s;
+    this->tablename := t;
+    this->isnew := isnew;
+
+    IF(NOT isnew)
+    {
+      this->pvt_columns := SELECT orig_name := column_name, column_name, data_type, autonumber_start
+                                , column_default
+                                , is_nullable, is_unique, referenced_table_schema, referenced_table_name
+                                , character_octet_length, on_delete
+                             FROM trans->GetColumnListing(s,t);
+
+      this->pvt_origcolumns := this->pvt_columns;
+    }
+  }
+
+  RECORD FUNCTION GetBaseColumn(STRING colname, STRING datatype)
+  {
+    RECORD basecolumn := [ orig_name := ""
+                         , column_name := colname
+                         , data_type := datatype
+                         , autonumber_start := 0
+                         , column_default := "" //ADDME can't we use native harescript types for column_default and do translation inside drivers?
+                         , is_nullable := TRUE
+                         , is_unique := FALSE
+                         , referenced_table_schema := ""
+                         , referenced_table_name := ""
+                         , on_delete := ""
+                         , character_octet_length := 0
+                         ];
+    RETURN basecolumn;
+  }
+
+  RECORD FUNCTION ExplainStructure()
+  {
+    RETURN [ cols := this->columns
+           , primarykey := ObjectExists(this->primarykey) ? this->primarykey->name : ""
+           ];
+  }
+
+  RECORD FUNCTION ExplainMutations()
+  {
+    RECORD mutes := [ cols := this->columns
+                    , primarykey := ObjectExists(this->primarykey) ? this->primarykey->name : ""
+                    , changed := DEFAULT RECORD ARRAY
+                    , dropped := this->droppedcolumns
+                    ];
+
+    FOREVERY(RECORD newcol FROM this->pvt_columns)
+    {
+      RECORD oldver;
+      IF(newcol.orig_name != "")
+        oldver := SELECT * FROM this->pvt_origcolumns WHERE pvt_origcolumns.orig_name = newcol.orig_name;
+
+      //Report the changes
+      INSERT [ column_name := newcol.column_name
+             , oldversion :=  oldver
+             , newversion :=  newcol
+             , renamed :=     RecordExists(oldver) AND newcol.column_name != oldver.column_name
+             , foreignkey :=  RecordExists(oldver)
+                              AND (oldver.referenced_table_name != newcol.referenced_table_name
+                                   OR oldver.referenced_table_schema != newcol.referenced_table_schema
+                                   OR oldver.on_delete != newcol.on_delete)
+             ] INTO mutes.changed AT END;
+    }
+    RETURN mutes;
+  }
+
+  OBJECT FUNCTION AddColumn(STRING datatype, STRING newcolname)
+  {
+    IF(RecordExists(SELECT FROM this->pvt_columns WHERE ToUppercase(column_name) = ToUppercase(newcolname)))
+      THROW NEW Exception("A column by that name already exists");
+
+    INSERT this->GetBaseColumn(newcolname, datatype) INTO this->pvt_columns AT END;
+    RETURN NEW TableColumn(PRIVATE this, newcolname);
+  }
+  PUBLIC MACRO DropColumn(STRING colname)
+  {
+    RECORD col := SELECT orig_name FROM this->pvt_columns WHERE ToUppercase(column_name) = ToUppercase(VAR colname);
+    IF(NOT RecordExists(col))
+      RETURN; //doesn't exist
+
+    IF(col.orig_name!="") //only add columns that weren't created in this statemen titself
+      INSERT col.orig_name INTO this->droppedcolumns AT END;
+    DELETE FROM this->pvt_columns WHERE ToUppercase(column_name) = ToUppercase(VAR colname);
+  }
+  PUBLIC OBJECT FUNCTION GetColumn(STRING colname)
+  {
+    RECORD col := SELECT column_name FROM this->pvt_columns WHERE ToUppercase(column_name) = ToUppercase(VAR colname);
+    RETURN RecordExists(col) ? NEW TableColumn(PRIVATE this, col.column_name) : DEFAULT OBJECT;
+  }
+  PUBLIC OBJECT FUNCTION AddInteger64Column(STRING newcolname)
+  {
+    RETURN this->AddColumn("INTEGER64", newcolname);
+  }
+  PUBLIC OBJECT FUNCTION AddIntegerColumn(STRING newcolname)
+  {
+    RETURN this->AddColumn("INTEGER", newcolname);
+  }
+  PUBLIC OBJECT FUNCTION AddStringColumn(STRING newcolname, INTEGER maxlen)
+  {
+    OBJECT col := this->AddColumn("VARCHAR", newcolname);
+    col->character_octet_length := maxlen;
+    RETURN col;
+  }
+
+  PUBLIC OBJECT FUNCTION AddBlobColumn(STRING newcolname)
+  {
+    RETURN this->AddColumn("BLOB", newcolname);
+  }
+
+  PUBLIC MACRO Apply()
+  {
+    IF(this->isnew)
+      this->trans->CreateTable(this->schemaname, this->tablename, this->ExplainStructure());
+    ELSE
+      this->trans->AlterTable(this->schemaname, this->tablename, this->ExplainMutations());
+  }
+
+  PUBLIC MACRO SetAsTable(OBJECT inputtrans, STRING schemaname, STRING tablename)
+  {
+    FOREVERY (RECORD col FROM inputtrans->GetColumnListing(schemaname, tablename))
+    {
+      OBJECT newcol := this->AddColumn(col.data_type, col.column_name);
+      newcol->character_octet_length := col.character_octet_length;
+      newcol->is_nullable := col.is_nullable;
+      newcol->is_unique := col.is_unique;
+      newcol->autonumber_start := col.autonumber_start;
+      newcol->column_default := col.column_default;
+      newcol->referenced_table_schema := col.referenced_table_schema;
+      newcol->referenced_table_name := col.referenced_table_name;
+    }
+  }
+>;
+
+/** @topic database/base
+    @public
+    @loadlib wh::dbase/transaction.whlib
+    @short Base class for objects that will handle commit or rollback of a transaction. Used with SetFinishHandler */
+PUBLIC OBJECTTYPE TransactionFinishHandlerBase
+<
+
+  /** Called before the commit will be attempted
+  */
+  PUBLIC MACRO OnPreCommit(OBJECT transaction)
+  {
+
+  }
+
+  /** Called when the transaction has committed
+  */
+  PUBLIC MACRO OnCommit()
+  {
+  }
+
+  /** Called when the transaction has rolled back
+  */
+  PUBLIC MACRO OnRollback()
+  {
+  }
+>;
+
+
+/** @topic database/webharedb
+    @public
+    @loadlib mod::system/lib/database.whlib
+    @short Database exception, thrown on commit when 'throwoncommiterror' is set to TRUE in transaction.
+*/
+PUBLIC OBJECTTYPE DatabaseException EXTEND Exception
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY pvt_errors;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** List of errors
+      @cell code Error code
+      @cell(string) message Error message
+      @cell(string) tablename Relevant table
+      @cell(string) columnname Relevant column
+  */
+  PUBLIC PROPERTY errors(pvt_errors, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD ARRAY errors)
+  : Exception(errors[0].message)
+  {
+    this->pvt_errors := errors;
+  }
+>;
+
+/** A transaction object
+    Any derived object must handle registeration of the object (using RegisterTransaction and
+    UnregisterTransaction) themselves.
+
+    WARNING: The 'build your own' transaction api is subject to change in future versions
+*/
+PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC BOOLEAN __is_whdb; //temporary flag to detect straight WHDB transactions
+
+  /** Number of pushed works
+  */
+  INTEGER pvt_numworks;
+
+
+  /** Lock that has to be released when work iscommitted/rolled back
+  */
+  OBJECT ARRAY pvt_worklocks;
+
+
+  /** Commit handlers.
+      @cell tag
+      @cell handler Signature: MACRO handler(BOOLEAN iscommit)
+  */
+  RECORD ARRAY pvt_commithandlers;
+
+
+  /** Commit handler objects
+      @cell "0" name
+      @cell handler Signature: OBJECT of type __INTERNAL_CommitHandler
+  */
+  RECORD ARRAY pvt_commithandlerobjects;
+
+
+  /** Transaction id this transaction is registered with in sqllib
+  */
+  INTEGER pvt_sqllib_transid;
+
+  /** Events to call on a successful commit */
+  RECORD ARRAY pvt_commitevents;
+
+  /** List of names of simple commit events (without data) */
+  STRING ARRAY pvt_simplecommiteventset;
+
+  MACRO DoBeginWork()
+  {
+    THROW NEW Exception("This transaction type does not support work");
+  }
+  MACRO DoRollbackWork()
+  {
+    THROW NEW Exception("This transaction type does not support work");
+  }
+  RECORD ARRAY FUNCTION DoCommitWork()
+  {
+    THROW NEW Exception("This transaction type does not support work");
+  }
+  OBJECT FUNCTION __DoLockMutex(STRING mutexname)
+  {
+    THROW NEW Exception("Global mutex not supported in wh::, must be explicitly added in system module");
+  }
+  OBJECT FUNCTION __DoTryLockMutex(STRING mutexname, DATETIME max_wait)
+  {
+    THROW NEW Exception("Global mutex not supported in wh::, must be explicitly added in system module");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Transaction id for this transaction (may be 0)
+  */
+  PUBLIC PROPERTY id(pvt_sqllib_transid, -);
+
+
+  /** Type of this transaction (STRING, for example 'WHDB', 'ODBC', 'WHDB_EMUL')
+  */
+  PUBLIC PROPERTY type(GetType, -);
+
+
+  /** Throw if errors are returned on a commit / commitwork
+  */
+  PUBLIC BOOLEAN throwoncommiterror;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Registers the transaction object, so it can be found by MakeAutoNumber(TABLE)
+  */
+  MACRO RegisterTransaction(INTEGER id)
+  {
+    this->pvt_sqllib_transid := id;
+    RegisterTransaction(PRIVATE this);
+  }
+
+  PUBLIC MACRO __ResetTransactionId(INTEGER newid)
+  {
+    UnregisterTransaction(PRIVATE this);
+    this->pvt_sqllib_transid := newid;
+    RegisterTransaction(PRIVATE this);
+  }
+
+
+  /** Unregisters the transaction object.
+  */
+  MACRO UnregisterTransaction()
+  {
+    UnregisterTransaction(PRIVATE this);
+  }
+
+  /** @short Does this transction have any commit handlers/actions ? */
+  PUBLIC BOOLEAN FUNCTION AnyCommitHandlers()
+  {
+    RETURN Length(this->pvt_commitevents) > 0 OR Length(this->pvt_commithandlers) > 0 OR Length(this->pvt_commithandlerobjects) > 0;
+  }
+
+  /** Calls all precommit handlers before a commit or rollback. */
+  PUBLIC MACRO __CallPrecommitHandlers(BOOLEAN iscommitattempt)
+  {
+    RECORD ARRAY objhandlers := this->pvt_commithandlerobjects;
+    FOREVERY (RECORD rec FROM objhandlers)
+      IF (iscommitattempt)
+        rec.obj->OnPreCommit(this);
+  }
+
+  /** Calls all commit handlers after a commit or rollback. Call this function after every
+      commit or rollback!
+      @param iscommit TRUE for commit, FALSE for rollback
+  */
+  PUBLIC MACRO __CallCommitHandlers(BOOLEAN iscommit)
+  {
+    RECORD ARRAY handlers := this->pvt_commithandlers;
+    RECORD ARRAY objhandlers := this->pvt_commithandlerobjects;
+    RECORD ARRAY commitevents := this->pvt_commitevents;
+    this->pvt_commithandlers := DEFAULT RECORD ARRAY;
+    this->pvt_commithandlerobjects := DEFAULT RECORD ARRAY;
+    this->pvt_commitevents := DEFAULT RECORD ARRAY;
+    this->pvt_simplecommiteventset := DEFAULT STRING ARRAY;
+
+    OBJECT firstexception;
+
+    FOREVERY (RECORD rec FROM handlers)
+    {
+      TRY
+        rec.handler(iscommit);
+      CATCH (OBJECT e)
+        firstexception := firstexception ?? e;
+    }
+
+    FOREVERY (RECORD rec FROM objhandlers)
+    {
+      TRY
+      {
+        IF (iscommit)
+          rec.obj->OnCommit();
+        ELSE
+          rec.obj->OnRollback();
+      }
+      CATCH (OBJECT e)
+        firstexception := firstexception ?? e;
+    }
+
+    IF (iscommit)
+    {
+      FOREVERY(RECORD evt FROM commitevents)
+        BroadcastEvent(evt.name, evt.data);
+    }
+
+    IF (ObjectExists(firstexception))
+      THROW firstexception;
+  }
+
+
+  /** Returns the type of this transaction
+  */
+  STRING FUNCTION GetType()
+  {
+    THROW NEW Exception("GetType not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Returns whether this transaction has support for opening work
+  */
+  PUBLIC BOOLEAN FUNCTION HasWorkSupport()
+  {
+    RETURN FALSE;
+  }
+
+
+  /** Return whether work is open
+  */
+  PUBLIC BOOLEAN FUNCTION IsWorkOpen()
+  {
+    RETURN this->pvt_numworks != 0;
+  }
+
+
+  /** Pushes a new work; if no work has been opened, it will be opened.
+  */
+  PUBLIC MACRO PushWork()
+  {
+    IF(this->pvt_numworks >= 1)  //already open work? then just increase refcount
+    {
+      this->pvt_numworks := this->pvt_numworks + 1;
+      RETURN;
+    }
+    this->BeginWork();
+  }
+
+
+  /** Pops work; if no pushed work is left, the work is committed and returned
+      @return List of commit errors (FIXME: specify cells)
+  */
+  PUBLIC RECORD ARRAY FUNCTION PopWork()
+  {
+    IF(this->pvt_numworks>=2) //already multiple open works? then just increase refcount
+    {
+      this->pvt_numworks := this->pvt_numworks - 1;
+      RETURN DEFAULT RECORD ARRAY;
+    }
+    RETURN this->CommitWork();
+  }
+
+  /** Execute code inside work */
+  PUBLIC VARIANT FUNCTION ExecuteInWork(MACRO PTR todo)
+  {
+    this->BeginWork();
+    TRY
+    {
+      RETURN todo();
+    }
+    FINALLY(OBJECT e)
+    {
+      IF(ObjectExists(e)) //an exception was thrown
+        this->RollbackWork();
+      ELSE
+        this->CommitWork();
+    }
+  }
+
+  /** Execute code inside work */
+  PUBLIC VARIANT FUNCTION ExecuteInLockedWork(STRING mutexname, MACRO PTR todo)
+  {
+    this->BeginLockedWork(mutexname);
+    TRY
+    {
+      RETURN todo();
+    }
+    FINALLY(OBJECT e)
+    {
+      IF(ObjectExists(e)) //an exception was thrown
+        this->RollbackWork();
+      ELSE
+        this->CommitWork();
+    }
+  }
+
+  MACRO ReleaseAllLocks()
+  {
+    WHILE(Length(this->pvt_worklocks) > 0)
+    {
+      this->pvt_worklocks[END-1]->Close();
+      DELETE FROM this->pvt_worklocks AT END-1;
+    }
+  }
+
+  /** Begins work
+  */
+  PUBLIC MACRO BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ mutex := ""
+                               , mutexes := STRING[]
+                               ], options);
+    IF (this->pvt_numworks != 0)
+      THROW NEW Exception("Cannot begin work: work is already open");
+    IF (IsDatabaseReadonly())
+      THROW NEW Exception("Cannot begin work: the WebHare database is in readonly mode");
+
+    TRY
+    {
+      IF(options.mutex != "")
+        INSERT this->__DoLockMutex(options.mutex) INTO this->pvt_worklocks AT END;
+
+      FOREVERY(STRING mutex FROM options.mutexes)
+        INSERT this->__DoLockMutex(mutex) INTO this->pvt_worklocks AT END;
+
+      this->DoBeginWork();
+      this->pvt_numworks := 1;
+    }
+    CATCH(OBJECT e)
+    {
+      this->ReleaseAllLocks();
+      THROW;
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasMutex(STRING mutexname)
+  {
+    FOREVERY(OBJECT lock FROM this->pvt_worklocks)
+      IF(lock->name = mutexname)
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  /** Try to lock an additional mutex when we already have work open. If succesful,
+       this lock will be released at commit/rollback
+      @param mutename */
+  PUBLIC BOOLEAN FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
+  {
+    OBJECT result := this->__DoTryLockMutex(mutexname,  wait_until);
+    IF(ObjectExists(result))
+      INSERT result INTO this->pvt_worklocks AT END;
+    RETURN ObjectExists(result);
+  }
+
+  PUBLIC MACRO BeginLockedWork(STRING mutexname)
+  {
+    this->BeginWork([ mutexes := [mutexname] ]);
+  }
+
+
+  /** Commits work
+      @return List of commit errors (FIXME: specify cells)
+  */
+  PUBLIC RECORD ARRAY FUNCTION CommitWork()
+  {
+    IF (this->pvt_numworks = 0)
+      THROW NEW Exception("Cannot commit work: work is not open");
+    IF (this->pvt_numworks > 1)
+      THROW NEW Exception("Cannot commit work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
+    IF (IsDatabaseReadonly())
+      THROW NEW Exception("Cannot commit work: the WebHare database is in readonly mode");
+
+    TRY
+      this->__CallPreCommitHandlers(TRUE);
+    CATCH (OBJECT e)
+    {
+      // Throwing pre-commit handlers cause a rollback
+      this->RollbackWork();
+      THROW e;
+    }
+
+    RECORD ARRAY errors := this->DoCommitWork();
+    this->pvt_numworks := 0;
+    this->ReleaseAllLocks();
+
+    BOOLEAN have_errors := Length(errors) != 0;
+    TRY
+      this->__CallCommitHandlers(NOT have_errors);
+    FINALLY
+    {
+      // Ensure commit errors have priority over commit handler exceptions
+      IF (have_errors AND this->throwoncommiterror)
+        THROW NEW DatabaseException(errors);
+    }
+
+    RETURN errors;
+  }
+
+/** Rollbacks work
+  */
+  PUBLIC MACRO RollbackWork()
+  {
+    IF (this->pvt_numworks = 0)
+      THROW NEW Exception("Cannot rollback work: work is not open");
+    IF (this->pvt_numworks > 1)
+      THROW NEW Exception("Cannot rollback work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
+
+    TRY
+      this->__CallPreCommitHandlers(FALSE);
+    FINALLY
+    {
+      this->DoRollbackWork();
+      this->pvt_numworks := 0;
+      this->ReleaseAllLocks();
+
+      this->__CallCommitHandlers(FALSE);
+    }
+  }
+
+
+
+  /** Returns an autonumber for a column in the specified table
+      @param tablename Name of the table (in the form "schema.table")
+      @param columnname Name of the column (case insensitive)
+      @return New autonumber (number that is guaranteed to be unique in that column when inserted, while
+         this transaction exists)
+  */
+  PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    THROW NEW Exception("MakeAutonumber not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+
+  /** Commits and closes the entire transaction
+  */
+  PUBLIC RECORD ARRAY FUNCTION Commit()
+  {
+    this->__CallCommitHandlers(TRUE);
+    THROW NEW Exception("Commit not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+
+  /** Rollbacks and closes the entire transaction
+  */
+  PUBLIC MACRO Rollback()
+  {
+    // Don't call commit handlers, that will be done by Close
+    this->Close();
+  }
+
+
+  /** Closes the entire transaction
+  */
+  PUBLIC MACRO Close()
+  {
+    this->__CallPrecommitHandlers(FALSE);
+    this->UnregisterTransaction();
+    this->ReleaseAllLocks();
+
+    this->__CallCommitHandlers(FALSE);
+  }
+
+  /** @short Register a commit event, which is broadcasted if the transaction succesfully commits
+      @param eventname Name of the event to broadcast
+      @param eventdata Data to broadcast with the event. If non existing, events with the same name will be coalesced */
+  PUBLIC MACRO BroadcastOnCommit(STRING eventname, RECORD eventdata)
+  {
+    // Emit events without data only once
+    IF (NOT RecordExists(eventdata))
+    {
+      RECORD pos := LowerBound(this->pvt_simplecommiteventset, eventname);
+      IF (pos.found)
+        RETURN;
+      INSERT eventname INTO this->pvt_simplecommiteventset AT pos.position;
+    }
+
+    INSERT INTO this->pvt_commitevents(name, data) VALUES(eventname, eventdata) AT END;
+
+    IF(NOT this->IsWorkOpen())
+      this->__CallCommitHandlers(TRUE);
+  }
+
+  /** Registers a commit handler, which is called when the transaction
+      commits or rolls back
+      @param coalesce_tag If non-empty, the handler won't be registered if another handler with
+          the same tag is already registered.
+      @param handler Handler function. Signature: MACRO handler(BOOLEAN iscommit)
+  */
+  PUBLIC MACRO RegisterCommitHandler(STRING coalesce_tag, FUNCTION PTR handler)
+  {
+    IF (coalesce_tag != "")
+    {
+      RECORD earlier_handler :=
+          SELECT
+            FROM this->pvt_commithandlers
+           WHERE ToUppercase(tag) = ToUppercase(coalesce_tag);
+
+      IF (RecordExists(earlier_handler))
+        RETURN;
+    }
+
+    INSERT [ tag := coalesce_tag, handler := handler ] INTO this->pvt_commithandlers AT END;
+
+    IF(NOT this->IsWorkOpen())
+      this->__CallCommitHandlers(TRUE);
+  }
+
+
+  /** Returns a commit handler object
+      @param tag Tag of the object
+  */
+  PUBLIC OBJECT FUNCTION GetFinishHandler(STRING tag)
+  {
+    INTEGER pos := __HS_SQL_GetGroupPosition(this->pvt_commithandlerobjects, [ "0" := tag ]);
+    IF (pos < 0)
+      RETURN DEFAULT OBJECT;
+
+    RETURN this->pvt_commithandlerobjects[pos].obj;
+  }
+
+
+  /** Sets a commit handler object, throws if it already exists
+      @param name Name of the object
+  */
+  PUBLIC MACRO SetFinishHandler(STRING tag, OBJECT obj)
+  {
+    INTEGER pos := __HS_SQL_GetGroupPosition(this->pvt_commithandlerobjects, [ "0" := tag ]);
+    IF (pos >= 0)
+      THROW NEW Exception(`A finish handler object with tag '${tag}' already exists`);
+
+    IF (NOT (obj EXTENDSFROM TransactionFinishHandlerBase))
+      THROW NEW Exception("A finish handler must extend TransactionFinishHandlerBase");
+
+    INSERT [ "0" := tag, obj := obj ] INTO this->pvt_commithandlerobjects AT -pos-1;
+    IF(NOT this->IsWorkOpen())
+      this->__CallCommitHandlers(TRUE);
+  }
+
+
+  /** \defgroup Metadata Metadata querying and manipulation
+  */
+  /*@{*/
+
+  /** Returns a list of all schemas
+      @return All tables
+      @cell return.schema_name
+      @cell return.is_system_schema The schema is part of the database's metadata, not user created (it should not be migrated between databases)
+  */
+
+  PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
+  {
+    THROW NEW Exception("GetSchemaListing not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+  /** Returns whether a specific schema exists
+      @param schemaname
+      @param columnname Name of the column (case insensitive)
+      @return Whether the column exists
+  */
+  PUBLIC BOOLEAN FUNCTION SchemaExists(STRING schemaname)
+  {
+    // Slow but correct implementation, override and optimize when needed
+    RETURN RecordExists(
+        SELECT
+          FROM this->GetSchemaListing()
+         WHERE ToUppercase(schema_name) = ToUppercase(schemaname));
+  }
+
+  /** Returns a list of all tables in a schema
+      @return All tables
+      @cell return.schema_name
+      @cell return.table_name
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetTableListing(STRING schemaname)
+  {
+    THROW NEW Exception("GetTableListing not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+
+  /** Returns the list of columns in a table
+      @return
+      @cell return.column_name
+      @cell return.type
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetColumnListing(STRING schemaname, STRING tablename)
+  {
+    THROW NEW Exception("GetColumnListing not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+
+  /** Returns whether a specific column in a table exists
+      @param tablename Name of the table (in the form "schema.table")
+      @param columnname Name of the column (case insensitive)
+      @return Whether the column exists
+  */
+  PUBLIC BOOLEAN FUNCTION ColumnExists(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    // Slow but correct implementation, override and optimize when needed
+    RETURN RecordExists(
+        SELECT
+          FROM this->GetColumnListing(schemaname, tablename)
+         WHERE ToUppercase(column_name) = ToUppercase(columnname));
+  }
+
+
+  /** Returns whether a specific index exists for table
+      @param schemaname Name of the schema
+      @param tablename Name of the table
+      @param columnname Name of the index (case insensitive)
+      @return Whether the index exists
+  */
+  PUBLIC BOOLEAN FUNCTION IndexExists(STRING schemaname, STRING tablename, STRING indexname)
+  {
+    THROW NEW Exception("IndexExists not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+
+  /** Drop a table from the database schema
+  */
+  PUBLIC UPDATE MACRO DropTable(STRING schemaname, STRING tablename)
+  {
+    THROW NEW Exception("DropTable not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+  /** Drop a column from the database schema
+  */
+  PUBLIC UPDATE MACRO DropColumn(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    THROW NEW Exception("DropColumn not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+  /*@}*/
+
+  /** \defgroup Roles Role support.
+  */
+  /*@{*/
+
+  /** Returns the ID of a role (form: 'schemaname.rolename')
+      @param rolename Name of the role
+      @return Id of the role (-1 for _SYSTEM, -2 for PUBLIC)
+  */
+  PUBLIC INTEGER FUNCTION GetRoleId(STRING rolename)
+  {
+    IF(ToUppercase(rolename)="_SYSTEM")
+      RETURN -1;
+    IF(ToUppercase(rolename)="PUBLIC")
+      RETURN -2;
+
+    THROW NEW Exception("GetRoleId not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+
+  /** Restricts the list of current roles (FIXME: active/enabled???)
+      @param roles List of roles
+      @return Whether the setting of the roles succeeded
+  */
+  PUBLIC BOOLEAN FUNCTION RestrictRoles(INTEGER ARRAY roles)
+  {
+    THROW NEW Exception("RestrictRoles not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+
+  /** Returns whether a role is currently enabled
+      @param roleid Id of the role
+      @return Whether the role is enabled
+  */
+  PUBLIC BOOLEAN FUNCTION IsRoleEnabled(INTEGER roleid)
+  {
+    RETURN roleid IN this->GetEnabledRoles();
+  }
+
+  /** Returns whether a role by name is currently enabled
+      @param roleid Id of the role
+      @return Whether the role is enabled
+  */
+  PUBLIC BOOLEAN FUNCTION IsRoleNameEnabled(STRING rolename)
+  {
+    RETURN this->IsRoleEnabled(this->GetRoleId(rolename));
+  }
+
+  /** Throw if the specified role is missing */
+  PUBLIC MACRO EnsureRoleEnabled(STRING rolename)
+  {
+    IF(NOT this->IsRoleNameEnabled(rolename))
+      THROW NEW Exception("The required role '" || rolename || "' is not enabled");
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsPrivileged()
+  {
+    RETURN -1 IN  this->GetEnabledRoles();
+  }
+  PUBLIC MACRO EnsurePrivileged()
+  {
+    IF(-1 NOT IN this->GetEnabledRoles())
+      THROW NEW Exception("A privileged transaction is requred");
+  }
+
+
+  /** Returns the list of enabled roles
+      @return Ids of all enabled roles
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetEnabledRoles()
+  {
+    THROW NEW Exception("GetEnabledRoles not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION __GetTableTypeInfoCols(TABLE tbl, STRING ARRAY cols)
+  {
+    THROW NEW Exception("Dynamic queries not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+  /*@}*/
+
+  PUBLIC MACRO CreateTable(STRING schemaname, STRING tablename, RECORD tablestructure)
+  {
+    THROW NEW Exception("CreateTable not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+  PUBLIC MACRO AlterTable(STRING schemaname, STRING tablename, RECORD tablestructure)
+  {
+    THROW NEW Exception("AlterTable not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+  PUBLIC MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
+  {
+    THROW NEW Exception("CreateSchema not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+  PUBLIC MACRO DropSchema(STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    THROW NEW Exception("DropSchema not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+  /** Helper object to specify/manage table structures */
+  PUBLIC OBJECT FUNCTION PrepareCreateTable(STRING schemaname, STRING tablename)
+  {
+    RETURN NEW TableStructure(this, schemaname, tablename, TRUE);
+  }
+  PUBLIC OBJECT FUNCTION PrepareAlterTable(STRING schemaname, STRING tablename)
+  {
+    RETURN NEW TableStructure(this, schemaname, tablename, FALSE);
+  }
+
+  /** @short Renumbers all references (foreign keys) pointing to a specific id
+      @param schemaname Schema containing the table
+      @param tablename Table containing the database row which we're renumbering
+      @param renumberfrom Current id
+      @param renumberto ID to renumber to
+      @options Options Options
+      @cell options.exceptions List of columns to skip
+      @cell options.exceptions.schemaname Schema of the table with the column to skip
+      @cell options.exceptions.tablename Table with the column to skip
+      @cell options.exceptions.columnname Name of the column to skip
+      @cell(boolean) options.reportmodifiedrows
+      @cell options.reportmodifiedrows.schemaname Schema of the table to report modifications on
+      @cell options.reportmodifiedrows.tablename Table to report modifications on
+      @cell options.reportmodifiedrows.columns List of the columns to give back for modified rows
+      @cell return.modifications
+      @cell return.modifications.schemaname Schema of table with modified column
+      @cell return.modifications.tablename Table with the modified column
+      @cell return.modifications.columnname Modified column
+      @cell return.modifications.rows Modified rows
+  */
+  PUBLIC RECORD FUNCTION RenumberForeignKey(STRING schemaname, STRING tablename, INTEGER renumberfrom, INTEGER renumberto, RECORD options)
+  {
+    options := ValidateOptions(
+        [ exceptions :=           RECORD[]
+        , reportmodifications :=  RECORD[]
+        ], options);
+
+    RECORD ARRAY modifications;
+
+    FOREVERY(RECORD schemarec FROM this->GetSchemaListing())
+      FOREVERY(RECORD tablerec FROM this->GetTableListing(schemarec.schema_name))
+        FOREVERY(RECORD columnrec FROM this->GetColumnListing(schemarec.schema_name, tablerec.table_name))
+          IF(ToUppercase(columnrec.referenced_table_name) = ToUppercase(tablename) AND ToUppercase(columnrec.referenced_table_schema) = ToUppercase(schemaname))
+          {
+            IF(CellExists(options,"exceptions") AND RecordExists(SELECT FROM options.exceptions WHERE ToUppercase(exceptions.schemaname) = ToUppercase(schemarec.schema_name)
+                                                                                                      AND ToUppercase(exceptions.tablename) = ToUppercase(tablerec.table_name)
+                                                                                                      AND ToUppercase(exceptions.columnname) = ToUppercase(columnrec.column_name)))
+            {
+              CONTINUE;
+            }
+
+            // Need to report modifications?
+            RECORD report :=
+                SELECT *
+                  FROM options.reportmodifications
+                 WHERE ToUppercase(COLUMN schemaname) = ToUppercase(schemarec.schema_name)
+                       AND ToUppercase(COLUMN tablename) = ToUppercase(tablerec.table_name);
+
+            STRING ARRAY extracolumns;
+            BOOLEAN with_updated;
+            IF (RecordExists(report))
+            {
+              FOREVERY (STRING col FROM report.returncolumns)
+                IF (ToUppercase(col) != ToUppercase(columnrec.column_name))
+                  INSERT col INTO extracolumns AT END;
+                ELSE
+                  with_updated := TRUE;
+            }
+
+            updatedrows := RECORD[];
+
+            OBJECT updatequery := NEW DynamicQuery;
+            updatequery->AddTable("tab", this->id, schemarec.schema_name || "." || tablerec.table_name, STRING[ columnrec.column_name, ...extracolumns ]);
+            updatequery->AddConstraint("tab." || columnrec.column_name, "=", renumberfrom);
+
+            updatequery->ExecuteForUpdate(PTR GetUpdateRec(columnrec.column_name, renumberto, RecordExists(report), with_updated, #1), [STRING(columnrec.column_name)]);
+
+            IF (RecordExists(report) AND RecordExists(updatedrows))
+            {
+              INSERT CELL
+                  [ schemaname :=   schemarec.schema_name
+                  , tablename :=    tablerec.table_name
+                  , columnname :=   columnrec.column_name
+                  , rows :=         updatedrows
+                  ] INTO modifications AT END;
+            }
+            updatedrows := RECORD[];
+          }
+
+    RETURN CELL
+        [ modifications
+        ];
+  }
+
+  /// Disables timeouts for the current work
+  PUBLIC MACRO DisableWorkTimeout()
+  {
+    IF (NOT this->IsWorkOpen())
+      THROW NEW Exception(`Cannot disable work timeout, work is not open`);
+  }
+>;
+
+/** Validates a table structure
+    @param tabledef Table structure
+    @cell(string) tabledef.primarykey Name of the primary key column
+    @cell(record array) tabledef.cols Columns
+    @cell(string) tabledef.cols.column_name Name of the column
+    @cell(string) tabledef.cols.data_type Data type of the column. One of
+        "BLOB", "BOOLEAN", "BYTEA", "DATETIME", "FLOAT", "INTEGER", "INTEGER64", "MONEY", "STRING", "VARCHAR". BYTEA is a
+        binary string (in which data can be stored that is not valid UTF-8). VARCHAR is equivalent to STRING.
+    @cell(integer) tabledef.cols.character_octet_length Maximum length of column (only when data_type is VARCHAR)
+    @cell(integer) tabledef.cols.autonumber_start If not 0, autonumber column starting at this id
+    @cell(boolean) tabledef.cols.nullable Whether the value can be the default value for this type
+    @cell(boolean) tabledef.cols.isunique Whether the value for this type must be unique
+    @cell(boolean) tabledef.cols.noupdate Whether updates are allowed for this column (not supported by PostgreSQL)
+    @cell(string) tabledef.cols.referenced_table_name For foreign keys, refererenced table
+    @cell(string) tabledef.cols.referenced_table_schema For foreign keys, schema of refererenced table
+    @cell(string) tabledef.cols.on_delete Foreign key delete action. One of "cascade", "set default", "no action"
+    @return Validated table structure @includecelldef #ValidateTableStructure.tabledef
+*/
+PUBLIC RECORD FUNCTION ValidateTableStructure(RECORD tabledef)
+{
+  tabledef := ValidateOptions(
+      [ primarykey :=       ""
+      , cols :=             RECORD[]
+      ], tabledef,
+      [ required := [ "cols" ]
+      ]);
+
+  FOREVERY (RECORD col FROM tabledef.cols)
+  {
+    tabledef.cols[#col] := ValidateOptions(
+        [ column_name :=              ""
+        , data_type :=                ""
+        , character_octet_length :=   0
+        , autonumber_start :=         0
+        , nullable :=                 TRUE
+        , isunique :=                 FALSE
+        , noupdate :=                 FALSE
+        , referenced_table_name :=    ""
+        , referenced_table_schema :=  ""
+        , on_delete :=                "no action"
+        ], col,
+        [ required :=   [ "column_name", "data_type" ]
+        , enums :=      [ on_delete :=  [ "cascade", "set default", "no action" ] // 'no action'
+                        , data_type :=  [ "INTEGER", "BOOLEAN", "STRING", "VARCHAR", "INTEGER64", "FLOAT", "DATETIME", "BLOB", "BYTEA", "MONEY" ]
+                        ]
+        ]);
+  }
+
+  IF (tabledef.primarykey != "" AND tabledef.primarykey NOT IN SELECT AS STRING ARRAY column_name FROM tabledef.cols)
+    THROW NEW Exception(`Primary key '${tabledef.primarykey}' not found in the column list`);
+
+  RETURN tabledef;
+}

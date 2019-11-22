@@ -1,0 +1,1023 @@
+<?wh
+
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/publisher/versioning.whlib";
+
+
+
+// Test actions with indexes
+OBJECT ASYNC FUNCTION PublisherIndexActions()
+{
+  SetTidLanguage("debug");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+
+  testfw->BeginWork();
+  OBJECT testroot := testfw->GetTestSite()->rootobject->CreateFolder([ name := "indextests" ]);
+  OBJECT testmovedest := testroot->CreateFolder([ name := "movedest" ]);
+  testfw->CommitWork();
+
+  OBJECT testsite2 := testfw->GetTestSite("webhare_testsuite.site2");
+
+  OBJECT testfile, testfile2;
+  RECORD rec;
+
+  // ------
+  // Test: creating folders with different types of automatically generate index documents
+  // Expect: none of the indexes should be published
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index with contentlink
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , name := "index-contentlink"
+      , type := "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , isversioned := FALSE
+      ]);
+  testfile2 := OpenWHFSObject(testfile->indexdoc);
+  TestEq(20, testfile2->type);
+  TestEq(FALSE, testfile2->publish);
+  DeleteFSObjects([ testfile ]);
+
+  // Create index with contentlisting
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , name := "index-contentlisting"
+      , type := "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , isversioned := FALSE
+      ]);
+  testfile2 := OpenWHFSObject(testfile->indexdoc);
+  TestEq(24, testfile2->type);
+  TestEq(FALSE, testfile2->publish);
+  DeleteFSObjects([ testfile ]);
+
+  // Create index with copy of root index.html
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , name := "index-copy"
+      , type := "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , isversioned := FALSE
+      ]);
+  testfile2 := OpenWHFSObject(testfile->indexdoc);
+  TestEq(OpenWHFSType("http://www.webhare.net/xmlns/publisher/htmlfile")->id, testfile2->type);
+  TestEq(FALSE, testfile2->publish);
+  DeleteFSObjects([ testfile ]);
+
+  // Create index with copy of root index.html
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , name := "index-newfile"
+      , type := "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , isversioned := FALSE
+      ]);
+  testfile2 := OpenWHFSObject(testfile->indexdoc);
+  TestEq(OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id, testfile2->type);
+  TestEq(FALSE, testfile2->publish);
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: creating a new immediate published index file
+  // Expect: create an rtd file that is index, then publish immediately via objectprops
+
+  // (did crash because of setting indexdoc in submit loop, and not resetting it at subsequent loops)
+  TT("foldertree")->value := testroot->id;
+
+  rec := AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("showalltypes")->value := TRUE;
+  TT("types")->value := "type:"||OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id;
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit()); // ok new file, immediately opens props
+  TT("name")->value := "new-index.rtd";
+  TT("makeindex")->value := TRUE;
+  TT("publish")->value := TRUE;
+  AWAIT ExpectApprovalRequest(TRUE, PTR TT("requestapproval")->TolliumClick());
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  testfile := testroot->OpenByName("new-index.rtd");
+
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: make a published file index when another published file already is index
+  // Expect: when draft is approved new file becomes index
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  // Create index-to-be, published
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := TRUE, isversioned := TRUE
+      ]);
+
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  // Open properties screen, make index, send request for approval
+  TT("filelist")->value := [ INTEGER(testfile2->id) ];
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("makeindex")->value := TRUE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("requestapproval")->TolliumClick(),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // No change yet
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetValidatePublicDraft(testfile2), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  testroot->Refresh();
+  testfile->Refresh();
+  testfile2->Refresh();
+
+  // Test index change, files not deleted
+  TestEQ(testfile2->id, testroot->indexdoc);
+  TestEQ(testroot->id, testfile->parent);
+  TestEQ(testroot->id, testfile2->parent);
+  TestEQ(TRUE, testfile->publish);
+  TestEQ(TRUE, testfile2->publish);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // Test: make a published file index when another non-published file already is index
+  // Expect: when draft is approved new file becomes index
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := TRUE, publish := FALSE, makeindex := TRUE
+      ]);
+
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := TRUE, isversioned := TRUE
+      ]);
+
+  // Open properties screen, make index, send request for approval
+  TT("filelist")->value := [ INTEGER(testfile2->id) ];
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("makeindex")->value := TRUE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("requestapproval")->TolliumClick(),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // No change yet
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetValidatePublicDraft(testfile2), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  testroot->Refresh();
+  testfile->Refresh();
+  testfile2->Refresh();
+
+  // Test index change, files not deleted
+  TestEQ(testfile2->id, testroot->indexdoc);
+  TestEQ(testroot->id, testfile->parent);
+  TestEQ(testroot->id, testfile2->parent);
+  TestEQ(FALSE, testfile->publish);
+  TestEQ(TRUE, testfile2->publish);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // Test: make a published file index when another non-published file with approval request already is index
+  // Expect: when draft is approved new file becomes index
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index, with request for publication
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := FALSE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  SubmitApprovalRequestFor(testfile);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := TRUE, isversioned := TRUE
+      ]);
+
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  // Open properties screen, make index, send request for approval
+  TT("filelist")->value := [ INTEGER(testfile2->id) ];
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("makeindex")->value := TRUE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("requestapproval")->TolliumClick(),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // No change yet
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetValidatePublicDraft(testfile2), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  testroot->Refresh();
+  testfile->Refresh();
+  testfile2->Refresh();
+
+  // Test index change, files not deleted
+  TestEQ(testfile2->id, testroot->indexdoc);
+  TestEQ(testroot->id, testfile->parent);
+  TestEQ(testroot->id, testfile2->parent);
+  TestEQ(FALSE, testfile->publish);
+  TestEQ(TRUE, testfile2->publish);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: make a non-published file index when another published file already is index
+  // Expect: must be denied
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := FALSE, isversioned := FALSE
+      ]);
+
+  // Open properties screen, make index, approve request
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("makeindex")->value := TRUE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->TolliumExecuteSubmit(),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  // Expect a denial, won't close
+  AWAIT ExpectWorkErrors(DEFAULT FUNCTION PTR,
+      [ messagemask := "*cannotstealindexfromversionedfile*"
+      ]);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT rec.expectcallreturn();
+
+  // May not have changed the index
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: make a non-published file index when another non-published file already is index
+  // Expect: allowed
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := FALSE, publish := FALSE, makeindex := TRUE
+      ]);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := FALSE, isversioned := FALSE
+      ]);
+
+  // Open properties screen, make index, approve request
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("makeindex")->value := TRUE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->TolliumExecuteSubmit(),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT rec.expectcallreturn();
+
+  // Index has changed
+  testroot->Refresh();
+  TestEQ(testfile2->id, testroot->indexdoc);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: make a non-published file index when another non-published file with approval request already is index
+  // Expect: must be denied
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := FALSE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  SubmitApprovalRequestFor(testfile);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := FALSE, isversioned := FALSE
+      ]);
+
+  // Open properties screen, make index, approve request
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("makeindex")->value := TRUE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->TolliumExecuteSubmit(),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  // Expect a denial, won't close
+
+  AWAIT ExpectWorkErrors(DEFAULT FUNCTION PTR,
+      [ messagemask := "*cannotstealindexfromversionedfile*"
+      ]);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT rec.expectcallreturn();
+
+  // Index has not changed
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: create a non-published file with default index name while another published file already is index
+  // Expect: must be denied
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  rec := AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("showalltypes")->value := TRUE;
+  TT("types")->value := "type:"||OpenWHFSType("http://www.webhare.net/xmlns/publisher/htmlfile")->id;
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit()); // ok new file, immediately opens props
+  TT("name")->value := "index.html";
+  TT("publish")->value := TRUE;
+
+  // Expect a denial, won't close
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->TolliumExecuteSubmit,
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  AWAIT ExpectWorkErrors(DEFAULT FUNCTION PTR,
+      [ messagemask := "*cannotstealindexfromversionedfile*"
+      ]);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT rec.expectcallreturn();
+
+  // Index has not changed
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: create a non-published file with default index name while another non-published file with approval request already is index
+  // Expect: must be denied
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := FALSE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  SubmitApprovalRequestFor(testfile);
+
+  rec := AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("showalltypes")->value := TRUE;
+  TT("types")->value := "type:"||OpenWHFSType("http://www.webhare.net/xmlns/publisher/htmlfile")->id;
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit()); // ok new file, immediately opens props
+  TT("name")->value := "index.html";
+  TT("publish")->value := TRUE;
+
+  // Expect a denial, won't close
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->TolliumExecuteSubmit(),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  // Expect a denial, won't close
+  AWAIT ExpectWorkErrors(DEFAULT FUNCTION PTR,
+      [ messagemask := "*cannotstealindexfromversionedfile*"
+      ]);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT rec.expectcallreturn();
+
+  // Index has not changed
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: rename a to-be-published file with default index name while another published file already is index
+  // Expect: denied, rename would be applied immediately
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := TRUE, isversioned := FALSE
+      ]);
+
+  // Open properties screen, rename, ok
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("name")->value := "index.html";
+  // must be denied (name field is not versioned now)
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->TolliumExecuteSubmit(),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  // Expect a denial, won't close
+  AWAIT ExpectWorkErrors(DEFAULT FUNCTION PTR,
+      [ messagemask := "*cannotstealindexfromversionedfile*"
+      ]);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT rec.expectcallreturn();
+
+  // Index has not changed
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: rename an already published file to default index name while another published file already is index
+  // Expect: allowed with draft.
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := TRUE, isversioned := TRUE
+      ]);
+
+  // Open properties screen, rename, request approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("name")->value := "index.html";
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("requestapproval")->ProcessInboundMessage("execute", [ rule := 0 ]),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Index has not changed
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetValidatePublicDraft(testfile2), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  testroot->Refresh();
+  testfile->Refresh();
+  testfile2->Refresh();
+
+  // Test index change, testfile 1 is deleted, testfile2 is now index
+  TestEQ(testfile2->id, testroot->indexdoc);
+  TestEQ(testroot->id, testfile->parent);
+  TestEQ(testroot->id, testfile2->parent);
+  TestEQ(TRUE, testfile->publish);
+  TestEQ(TRUE, testfile2->publish);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: rename and depublish an already published file and to default index name while another published file already is index
+  // Expect: allowed with draft.
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "current-index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := TRUE, isversioned := TRUE
+      ]);
+
+  // Open properties screen, rename, request approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("name")->value := "index.html";
+  TT("publish")->value := FALSE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("requestapproval")->ProcessInboundMessage("execute", [ rule := 0 ]),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Index has not changed
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetValidatePublicDraft(testfile2), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  testroot->Refresh();
+  testfile->Refresh();
+  testfile2->Refresh();
+
+  // Test index change, testfile 1 is deleted, testfile2 is now index
+  TestEQ(testfile2->id, testroot->indexdoc);
+  TestEQ(testroot->id, testfile->parent);
+  TestEQ(testroot->id, testfile2->parent);
+  TestEQ(TRUE, testfile->publish);
+  TestEQ(FALSE, testfile2->publish);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: make a unpublished file index while the current index is a published file with default index name
+  // Expect: disallowed
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := FALSE, isversioned := FALSE
+      ]);
+
+  TestEQ([ INTEGER(testfile2->id) ], TT("filelist")->value);
+
+  // Open properties screen, make index, ok
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("makeindex")->value := TRUE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->TolliumExecuteSubmit(),
+      [ messagemask := "*deleteoldindexconfirm*"
+      ]);
+  AWAIT ExpectWorkErrors(DEFAULT FUNCTION PTR,
+      [ messagemask := "*cannotstealindexfromversionedfile*"
+      ]);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  AWAIT rec.expectcallreturn();
+
+  // Index has not changed
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: make a unpublished file index while the current index is a non-versioned file with default index name, with request for approval
+  // Expect: disallowed
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "index.html", isversioned := FALSE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  SubmitApprovalRequestFor(testfile);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := FALSE, isversioned := FALSE
+      ]);
+
+  // Open properties screen, make index, ok
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("makeindex")->value := TRUE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->TolliumExecuteSubmit,
+      [ messagemask := "*deleteoldindexconfirm*"
+      ]);
+  AWAIT ExpectWorkErrors(DEFAULT FUNCTION PTR,
+      [ messagemask := "*cannotstealindexfromversionedfile*"
+      ]);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  AWAIT rec.expectcallreturn();
+
+  // Index has not changed
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: make a published file index while the current index is a published file with default index name
+  // Expect: allowed, apply draft deletes current index
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := TRUE, isversioned := TRUE
+      ]);
+
+  // Open properties screen, make index, ok
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("makeindex")->value := TRUE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("requestapproval")->ProcessInboundMessage("execute", [ rule := 0 ]),
+      [ messagemask := "*deleteoldindexconfirm*"
+      ]);
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Index has not changed
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetValidatePublicDraft(testfile2), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  testroot->Refresh();
+  testfile->Refresh();
+  testfile2->Refresh();
+
+  // Test index change, testfile 1 is deleted, testfile2 is now index
+  TestEQ(testfile2->id, testroot->indexdoc);
+  TestEQ(FALSE, testfile->isactive);
+  TestEQ(testroot->id, testfile2->parent);
+  TestEQ(TRUE, testfile2->publish);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: make a published file index and depublish while the current index is a published file with default index name
+  // Expect: allowed, apply draft deletes current index
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  // Create index-to-be
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replace-index.html", publish := TRUE, isversioned := TRUE
+      ]);
+
+  // Open properties screen, make index, ok
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("makeindex")->value := TRUE;
+  TT("publish")->value := FALSE;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("requestapproval")->ProcessInboundMessage("execute", [ rule := 0 ]),
+      [ messagemask := "*deleteoldindexconfirm*"
+      ]);
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Index has not changed
+  testroot->Refresh();
+  TestEQ(testfile->id, testroot->indexdoc);
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetValidatePublicDraft(testfile2), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  testroot->Refresh();
+  testfile->Refresh();
+  testfile2->Refresh();
+
+  // Test index change, testfile 1 is deleted, testfile2 is now index
+  TestEQ(testfile2->id, testroot->indexdoc);
+  TestEQ(FALSE, testfile->isactive);
+  TestEQ(testroot->id, testfile2->parent);
+  TestEQ(FALSE, testfile2->publish);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: move a non-published file with default index name to another folder with published index
+  // Expect: denied
+
+  TT("foldertree")->value := testmovedest->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "currentindex.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index, with default index name
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "index.html", isversioned := FALSE, publish := FALSE, makeindex := TRUE
+      ]);
+
+  TT("filelist")->value := [ INTEGER(testfile2->id) ];
+  AWAIT ExpectAndAnswerMessageBox("yes",
+      PTR ExecuteListDragDrop(
+            TT("filelist")->mylist, testfile2->id, TT("foldertree")->thelist,
+            [ droplocation := "ontarget"
+            , dropeffect := "move"
+            , target := testmovedest->id
+            ]),
+      [ messagemask := "*confirmmove*"
+      ]);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: move a published file with default index name to another folder with published index
+  // Expect: allowed with draft. Apply make the new file automatically index
+
+  TT("foldertree")->value := testmovedest->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "currentindex.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index, with default index name
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(TT("filelist")->mylist, testfile2->id, TT("foldertree")->thelist,
+            [ droplocation := "ontarget"
+            , dropeffect := "move"
+            , target := testmovedest->id
+            ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  AWAIT rec.expectcallreturn();
+
+  TT("filelist")->value := [ INTEGER(testfile2->id) ];
+  AWAIT ExpectApprovalRequest(TRUE, PTR TT("previewbrowser")->submitdraft->TolliumClick());
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetValidatePublicDraft(testfile2), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  testroot->Refresh();
+  testfile->Refresh();
+  testfile2->Refresh();
+  testmovedest->Refresh();
+
+  // Test index change, testfile 1 is published, testfile2 is now index
+  TestEQ(0, testroot->indexdoc);
+  TestEQ(testfile2->id, testmovedest->indexdoc);
+  TestEQ(testmovedest->id, testfile->parent);
+  TestEQ(testmovedest->id, testfile2->parent);
+  TestEQ(TRUE, testfile->publish);
+  TestEQ(TRUE, testfile2->publish);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: move a non-versioned published file with default index name from outside site to another folder with published index
+  // Expect: disallowed
+
+  TT("foldertree")->value := testmovedest->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "currentindex.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  TT("foldertree")->value := testsite2->id;
+
+  // Create index, with default index name
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "index.html", isversioned := FALSE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(TT("filelist")->mylist, testfile2->id, TT("foldertree")->thelist,
+            [ droplocation := "ontarget"
+            , dropeffect := "move"
+            , target := testmovedest->id
+            ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  AWAIT ExpectWorkErrors(DEFAULT FUNCTION PTR, [ messagemask := "*noindexhtmlinversionedfolderwithindex*" ]);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: move a published index file to another folder with published index with default index name
+  // Expect: with draft, props has index to off
+
+  TT("foldertree")->value := testmovedest->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "currentindex.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index, with default index name
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(TT("filelist")->mylist, testfile2->id, TT("foldertree")->thelist,
+            [ droplocation := "ontarget"
+            , dropeffect := "move"
+            , target := testmovedest->id
+            ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  // Open props dialog, test makeindex, should be off
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TestEQ(TRUE, TT("makeindex")->value);
+  // Should give a message about replacing the old index
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("requestapproval")->ProcessInboundMessage("execute", [ rule := 0 ]),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetValidatePublicDraft(testfile2), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  testroot->Refresh();
+  testfile->Refresh();
+  testfile2->Refresh();
+  testmovedest->Refresh();
+
+  // Test if new file is index, and old index still exists
+  TestEQ(testfile2->id, testmovedest->indexdoc);
+  TestEQ(testmovedest->id, testfile->parent);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: move a published index file with default index name to another folder with published index
+  // Expect: with draft, props has index to on, apply deletes old index
+
+  TT("foldertree")->value := testmovedest->id;
+
+  // Create index
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "index.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  TT("foldertree")->value := testroot->id;
+
+  // Create index, with default index name
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE, type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "replaceindex.html", isversioned := TRUE, publish := TRUE, makeindex := TRUE
+      ]);
+
+  AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(TT("filelist")->mylist, testfile2->id, TT("foldertree")->thelist,
+            [ droplocation := "ontarget"
+            , dropeffect := "move"
+            , target := testmovedest->id
+            ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  // Open props dialog, test makeindex, should be off
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TestEQ(FALSE, TT("makeindex")->value);
+  TT("makeindex")->value := TRUE;
+
+  // Should give a message about replacing the old index
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("requestapproval")->ProcessInboundMessage("execute", [ rule := 0 ]),
+      [ messagemask := "*deleteoldindexconfirm*"
+      ]);
+  AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Accept the draft
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetValidatePublicDraft(testfile2), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  testroot->Refresh();
+  testfile->Refresh();
+  testfile2->Refresh();
+  testmovedest->Refresh();
+
+  // Test if new file is index, and old index has been deleted
+  TestEQ(testfile2->id, testmovedest->indexdoc);
+  TestEQ(FALSE, testfile->isactive);
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // that was it
+
+  //close publisher
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  DeleteFSObjects([ testroot ]);
+
+  RETURN DEFAULT RECORD;
+}
+
+RunTestFramework(
+    [ PTR CreateVersioningTestSite()
+    , PTR PublisherIndexActions
+    ],
+    [ testusers :=
+            [ [ login := "sysop", grantrights := ["system:sysop"] ]
+            , [ login := "limited" ]
+            ]
+    ]);

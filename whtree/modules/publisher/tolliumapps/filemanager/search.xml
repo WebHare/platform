@@ -1,0 +1,84 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="search.whlib"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="filemanager.search"
+         >
+
+  <screen name="filterpanel" gid=".filterpanel" title="">
+    <body name="filters" layout="left">
+      <!-- searchfilter components are added dynamically -->
+    </body>
+  </screen>
+
+  <fragment name="searchfilter">
+    <actions>
+      <action name="selectqueryselect" onexecute="doselectqueryselect" title="" />
+      <action name="selectqueryclear" onexecute="doselectqueryclear" title="" />
+      <action name="addfilter" onexecute="doaddfilter" title="" />
+      <action name="deletefilter" onexecute="dodeletefilter" title="" />
+    </actions>
+    <contents>
+      <inlineblock name="comp" title="" width="1pr" layout="left">
+        <line>
+          <select name="filtertype" type="pulldown" title="" onchange="onselecttype" />
+
+          <text name="matchlabel" title="" visible="false" />
+          <select name="matchtype" type="pulldown" title="" visible="false" onchange="onselectmatchtype" />
+
+          <textedit name="textquery" width="1pr" title="" />
+          <textedit name="datequeryperiod" title="" valuetype="integer" emptyvalue="0" visible="false" width="5x" onchange="onchangedatequery" />
+          <select name="datequeryunit" title="" type="pulldown" visible="false" onchange="onchangedatequery">
+            <option rowkey="days" tid=".filtertypes.period-days" />
+            <option rowkey="weeks" tid=".filtertypes.period-weeks" />
+            <option rowkey="months" tid=".filtertypes.period-months" />
+            <option rowkey="years" tid=".filtertypes.period-years" />
+          </select>
+          <date name="datequerydate" title="" visible="false" onselect="onchangedatequery" />
+          <select name="valuequery" type="pulldown" orientation="horizontal" title="" visible="false" />
+          <textedit name="selectquery" width="1pr" title="" enabled="false" visible="false" />
+          <button name="selectqueryselectbutton" action="selectqueryselect" type="icon" icon="tollium:actions/edit" title="" visible="false"/>
+          <button name="selectqueryclearbutton" action="selectqueryclear" type="icon" icon="tollium:actions/delete" title="" visible="false"/>
+          <inlineblock name="customquery" title="" visible="false" />
+
+          <spacer name="buttonspacer" width="1pr" visible="false" />
+          <button action="deletefilter" name="deletefilterbutton" title="" type="icon" icon="tollium:buttonbar/minus" />
+          <button action="addfilter" name="addfilterbutton" title="" type="icon" icon="tollium:buttonbar/plus" />
+        </line>
+      </inlineblock>
+    </contents>
+  </fragment>
+
+  <screen name="selecttype" gid=".filterpanel.types"
+          width="40x" height="20x" allowresize="true" savestate="size">
+    <body>
+      <line>
+        <spacer width="1pr" />
+        <textedit name="filter" onchange="onfilterchange" visible="false" />
+      </line>
+      <list name="typeslist" width="1pr" height="1pr" selectmode="multiple" rowselect="true">
+        <column name="title" iconname="icon" type="text" />
+        <column name="namespace" type="text" />
+      </list>
+    </body>
+    <footer>
+      <line>
+        <checkbox name="showall" title="" labeltid=".showall" onchange="onshowallchange" />
+        <spacer width="1pr" />
+        <button tid="~ok" tolliumresult="ok" isdefault="true" />
+        <button tid="~cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="searchpublisher" gid=".searchpublisher" icon="tollium:actions/search" width="75x">
+    <actions>
+      <action name="open" title="" onexecute="doopen" />
+    </actions>
+    <body>
+      <textedit name="query" title="" placeholdertid=".query" width="1pr" minimumsuggestlength="1">
+        <autosuggest name="autosuggest" suggestobjectname="mod::publisher/tolliumapps/filemanager/search.whlib#searchpublisherautocomplete" />
+      </textedit>
+    </body>
+  </screen>
+
+</screens>

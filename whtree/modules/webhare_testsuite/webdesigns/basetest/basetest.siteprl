@@ -1,0 +1,605 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+             xmlns:w="http://www.webhare.net/xmlns/wrd/components"
+             xmlns:webhare_testsuite="http://www.webhare.net/xmlns/webhare_testsuite"
+             xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+             xmlns:xyz="urn:xyz">
+
+  <!-- RTD default settings -->
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+    <richdocumenteditor>
+      <structuredefinition fullpath="rtd/rtd-structure.xml" />
+      <css fullpath="css/rtd.css" />
+      <limitinternallinks root="/" />
+    </richdocumenteditor>
+  </apply>
+
+  <!-- Global site settings -->
+  <apply>
+    <to type="all" />
+
+    <!-- Setup default webdesign -->
+    <webdesign designfolder="."
+               witty="witty/basetest.witty"
+               library="lib/basetest.whlib"
+               objectname="BaseTestDesign"
+               assetpack="webhare_testsuite:basetest"
+               maxcontentwidth="960px"
+               contentnavstops="h1"
+               wittyencoding="HTML-NI"/>
+
+    <!-- Set site language -->
+    <sitelanguage getlanguagefunction="lib/basetest.whlib#GetBasetestLanguage" />
+
+    <!-- Republish all files upon every change
+    <republish folder="/" indexonly="false" recursive="true" />
+    -->
+
+    <!-- Allow RTD documents -->
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+
+    <!-- Disable the legacy site settings -->
+    <disablelegacysitesettings notemplateprofile="true" />
+
+    <!-- Enable forms -->
+    <formintegration />
+
+    <!-- disable keywords field -->
+    <baseproperties keywords="false" />
+
+    <mswordconversion webharecss="false">
+      <deletetextstyles>
+        <deletetextstyle mask="font-size:*" />
+      </deletetextstyles>
+      <profile emptydocobjects="false" >
+        <style tag="h2" fontfamily="&quot;LinotypeUniversW02-Cn&quot;,Arial" fontsize="27px" fgcolor="#333333" bold="false" italic="false" underline="false" smallcaps="allcaps" mswordstyleid="1"/>
+        <style tag="h3" fontfamily="&quot;LinotypeUniversW02-Cn&quot;,Arial" fontsize="19px" fgcolor="#333333" bold="false" italic="false" underline="false" smallcaps="allcaps" mswordstyleid="2"/>
+        <style tag="h4" fontfamily="&quot;LinotypeUniversW02-Cn&quot;,Arial" fontsize="15px" fgcolor="#333333" bold="false" italic="false" underline="false" smallcaps="allcaps" mswordstyleid="3"/>
+        <style tag="h5" fontfamily="univers_lt_std_57_cnregular, Arial" fontsize="12px" fgcolor="#333333" bold="false" italic="false" underline="false" mswordstyleid="4"/>
+        <style fontfamily="&quot;LinotypeUniversW02-Cn&quot;,Arial" fontsize="12px" fgcolor="#333333" />
+        <style toclevel="99" mswordcustomstyle="HTML Sourcecode" embedtype="rawhtml"/>
+      </profile>
+    </mswordconversion>
+
+    <customplugin library="lib/basetest.whlib" objectname="customplugin" />
+    <webhare_testsuite:test />
+
+    <!-- Default types -->
+    <denyfiletype typedef="*" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/mswordfile" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/imagefile" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/pdffile" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/externallink" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/internallink" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/contentlink" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+
+    <!-- Test pages etc -->
+    <prebuiltpage tag="formtest" type="dynamic" library="pages/formtest/formtest.whlib" webpageobjectname="FormTestPage" />
+    <formdefinitions path="pages/formtest/formtest.formdef.xml" />
+    <formdefinitions name="webhare_testsuite:global" path="pages/formtest/global.formdef.xml" />
+
+    <prebuiltpage tag="requiresysoptest" type="dynamic" library="module::webhare_testsuite/internal/testsite.whlib" webpageobjectname="TestRequireSysopPage" />
+    <prebuiltpage tag="listtest" type="static" library="pages/listtest/listtest.whlib" webpageobjectname="ListTestPage" />
+    <prebuiltpage tag="wrdauthtest" type="dynamic" library="pages/wrdauthtest/wrdauthtest.whlib" webpageobjectname="wrdauthtestPage" />
+    <prebuiltpage tag="wrdauthtest-static" type="static" library="pages/wrdauthtest/wrdauthtest.whlib" webpageobjectname="wrdauthStaticPage" />
+    <prebuiltpage tag="wrdauthtest-router" type="dynamic" routerfunction="pages/wrdauthtest/wrdauthtest.whlib#WRDauthRouter" />
+    <prebuiltpage tag="dynamicpage" type="dynamic" webpageobjectname="pages/basetestpages.whlib#DynamicPage" />
+
+    <!-- Special pages -->
+    <prebuiltpage tag="prebuiltshtml" type="dynamic" library="pages/basetestpages.whlib" webpageobjectname="PrebuiltSHTML" />
+    <prebuiltpage tag="prebuilthtml" type="static" library="pages/xxx.whlib" webpageobjectname="XXXPage" />
+    <prebuiltpage tag="prebuiltshtml_csp" type="dynamic" library="pages/basetestpages.whlib" webpageobjectname="PrebuiltSHTML" capturesubpaths="true" />
+    <prebuiltpage tag="prebuilthtml_csp" type="static" library="pages/xxx.whlib" webpageobjectname="XXXPage" capturesubpaths="true" />
+
+    <!-- Disable urlhistory storage for most of the testsite -->
+    <urlhistory store="false" redirecton404="1" />
+  </apply>
+
+  <!-- Basic property tests -->
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/basetestprops">
+    <member name="anyfield" type="string" />
+    <member name="taxonomy" type="whfsrefarray"/>
+    <member name="folksonomy" type="whfsrefarray"/>
+  </contenttype>
+  <tabsextension name="basetestprops" implementation="lib" library="lib/basetest.whlib" xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <newtab title="BaseTestProps">
+      <textedit title="anyfield" composition="contentdata" cellname="anyfield" />
+      <p:managedtagedit taglibrary="temp" composition="contentdata" cellname="taxonomy" title="Taxonomy" />
+      <p:managedtagedit taglibrary="temp" composition="contentdata" cellname="folksonomy" autocreate="true" title="Folksonomy" />
+      <select type="pulldown" title="LibraryObjects">
+        <p:fslibrary name="librarysource" fslibrary="test" />
+      </select>
+      <select type="pulldown" name="objectlibrary" title="ObjectLibrary" onchange="onobjectlibrarychange">
+        <option rowkey="test" title="test" />
+        <option rowkey="testparent" title="testparent" />
+        <option rowkey="testparent2" title="testparent2" />
+        <option rowkey="testparent3" title="testparent3" />
+      </select>
+    </newtab>
+  </tabsextension>
+  <apply>
+    <to type="all" />
+    <setlibrary name="temp">
+      <source path="site::webhare testsuite site/tmp/" />
+    </setlibrary>
+    <setlibrary name="test">
+      <source path="/" relativeto="siteprofile" />
+      <source path="site::webhare testsuite site/tmp/somefolder/" />
+      <source path="other" relativeto="targetobject" />
+    </setlibrary>
+    <setlibrary name="testparent">
+      <source path="../other" relativeto="targetobject" />
+    </setlibrary>
+    <setlibrary name="testparent2">
+      <source path="../tmp/other" relativeto="targetobject" />
+    </setlibrary>
+    <setlibrary name="testparent3">
+      <source path="../../../tmp/other" relativeto="targetobject" />
+    </setlibrary>
+    <setlibrary name="publisher:mailfeedbacktemplates">
+      <source path="site::webhare testsuite site/webtools/" />
+    </setlibrary>
+    <setlibrary name="publisher:mailfeedbacktemplates">
+      <source path="site::webhare testsuite site/webtools/" />
+    </setlibrary>
+    <setlibrary name="publisher:fsobjecttemplates">
+      <source path="site::webhare testsuite site" />
+      <source path="site::webhare testsuite site/testpages/" />
+    </setlibrary>
+    <extendproperties extension="#basetestprops" contenttype="http://www.webhare.net/xmlns/webhare_testsuite/basetestprops" />
+  </apply>
+
+  <!-- Capture subpath tests -->
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/staticcontent" />
+  <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/staticcontent"
+            title="Capture subpath static content"
+            blobiscontent="false"
+            ispublishable="true"
+            capturesubpaths="true"
+            ispublishedassubdir="true"
+            />
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/staticcontent_webdesign" />
+  <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/staticcontent_webdesign"
+            title="Capture subpath static content"
+            blobiscontent="false"
+            ispublishable="true"
+            capturesubpaths="true"
+            ispublishedassubdir="true"
+            needstemplate="true"
+            />
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/dynamiccontent" />
+  <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/dynamiccontent"
+            title="Capture subpath dynamic content"
+            extensions=".shtml"
+            blobiscontent="true"
+            needstemplate="false"
+            needsprofile="false"
+            isdevelopertype="true"
+            ispublishable="true"
+            isacceptableindex="true"
+            capturesubpaths="true"
+            >
+    <dynamicexecution library="lib/basetest.whlib" webpageobjectname="WebPage" />
+  </filetype>
+
+  <!-- enable texteditors -->
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/staticcontent" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/staticcontent_webdesign" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/dynamiccontent" />
+    <setobjecteditor name="publisher:texteditor" />
+  </apply>
+
+
+  <apply>
+    <to type="all" />
+    <mailtemplate path="../../tests/system/testdata/mailtemplate/template.html.witty" title="Mailtemplate" />
+    <mailtemplate>
+      <source path="site::webhare testsuite site/tmp/templates/" />
+    </mailtemplate>
+    <!-- below should not fail any parser but not cause any duplicates either -->
+    <mailtemplate path="mod::webhare_testsuite/tests/system/testdata/mailtemplate/template.html.witty" ordering="-1"> <!-- being ordered -1 this dedupes the earlier html.witty. and causes its autogenerated title to win -->
+      <source path="site::webhare testsuite site/tmp/templates/" />
+      <source path="site::webhare testsuite site/tmp/templates2/" />
+    </mailtemplate>
+  </apply>
+
+  <apply>
+    <to type="file" prebuiltmasks="prebuilthtml" />
+    <to type="file" prebuiltmasks="prebuilthtml_csp" />
+    <prebuiltpage tag="prebuilthtml" type="static" library="pages/basetestpages.whlib" webpageobjectname="WebStaticPage" />
+    <prebuiltpage tag="prebuilthtml_csp" type="static" library="pages/basetestpages.whlib" webpageobjectname="WebStaticPage" />
+  </apply>
+
+  <apply>
+    <to type="file" prebuiltmasks="prebuiltSHTM? xxx" /> <!-- odd mask to test like-ing and casesensitive -->
+    <sitelanguage lang="nl" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="/testpages/wrdauthtest*" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
+             wrdschema="wrd:testschema"
+             sitetag="MYBACKEND"
+             supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthSupport"
+             cookiename="webharelogin-wrdauth"
+             api2017="true"  />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="/testpages/wrdauthtest-domainless*" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" sitetag="" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*formcaptcha*" />
+    <captchaintegration skipfunction="lib/basetest.whlib#SkipCaptcha" />
+    <formintegration usecaptcha="1" allowsubmittype="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*pagetitle*" />
+    <formintegration enablepagetitles="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*infotext*" />
+    <formintegration enableinfotexts="true" />
+  </apply>
+
+  <!-- RTDType and widget testing -->
+  <embeddedobjecttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1"
+                      editscreen="#editlevel1"
+                      renderlibrary="lib/basetest.whlib"
+                      renderobjectname="Level1Widget"
+                      isfiletype="true"
+                      ispublishable="true"
+                      >
+    <member name="richdoc" type="richdocument" />
+    <member name="fileref" type="whfsref" />
+  </embeddedobjecttype>
+
+  <screen name="editlevel1" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="p:widgetedit">
+    <compositions>
+      <record name="contentdata" />
+    </compositions>
+    <body>
+      <richdocument composition="contentdata" cellname="richdoc" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2" name="richdoc" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"
+              editfragment=".editlevel2"
+              renderobjectname="lib/basetest.whlib#Level2Widget"
+              wittycomponent="witty/basetest.witty:level2widget">
+    <members>
+      <member name="richdoc" type="richdocument" />
+      <member name="fileref" type="whfsref" />
+      <member name="testrenderinstance_array" type="array">
+        <member name="membera" type="string" />
+        <member name="memberb" type="string" />
+      </member>
+    </members>
+  </widgettype>
+
+  <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" wittycomponent="witty/basetest.witty:emptywidget">
+  </widgettype>
+
+  <fragment name="editlevel2" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="none">
+    <contents>
+      <richdocument composition="fsinstance" cellname="richdoc" contentareawidth="920px" />
+    </contents>
+  </fragment>
+
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" htmlclass="gohtml">
+    <css path="css/rtd.css" />
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="HEADING1" containertag="h1" textstyles="" />
+      <textstyle tag="HEADING2" containertag="h2" textstyles="" />
+      <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
+    </blockstyles>
+    <widgets>
+      <!-- <allowtype type="http://www.webhare.net/xmlns/publisher/embedhtml" /> -->
+      <allowtype type="http://www.webhare.net/xmlns/publisher/embedvideo" />
+      <allowtype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1" inherit="false" />
+    </widgets>
+    <t:linkhandlers>
+      <test:customlinkhandler />
+    </t:linkhandlers>
+  </rtdtype>
+
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
+    </blockstyles>
+    <widgets>
+      <allowtype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1" />
+      <allowtype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" inherit="false" />
+    </widgets>
+  </rtdtype>
+
+  <propertyeditor name="rtdtypeprops">
+    <compositions>
+      <p:whfsinstance name="fsinstance1" typedef="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1" />
+      <p:whfsinstance name="fsinstance2" typedef="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" />
+    </compositions>
+    <newtab title="TestsuiteTab">
+      <t:richdocument composition="fsinstance1" cellname="richdoc" />
+      <t:richdocument composition="fsinstance2" cellname="richdoc" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2" />
+    </newtab>
+  </propertyeditor>
+
+  <apply>
+    <to type="all" pathmask="*/rtdtype/*"/>
+    <to type="all" pathmask="*/webtools/*"/>
+    <to type="all" pathmask="*/tmp/linktoform"/>
+    <to type="file" pathmask="/testpages/wrdauthtest-form"/>
+    <to type="file" pathmask="/testpages/formtest"/>
+    <to type="file" pathmask="/testpages/v2videotest.rtd"/>
+    <to type="file" pathmask="/testpages/consenttest.rtd"/>
+    <to type="folder" pathmask="/" /> <!-- needed to test testpage -->
+    <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
+    <extendproperties name="rtdtypeprops" />
+    <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
+    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
+    <setwidget contenttype="http://www.webhare.net/xmlns/beta/embedblock1" renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedBlock1Widget" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="*/rtdtype/override"/>
+    <rtddoc htmlclass="other" />
+    <extendproperties name="rtdtypeprops" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*/rtdtype/lvl1.rtd"/>
+    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/embedhtml" />
+    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/inlinehtml" />
+    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*/v2videotest.rtd"/>
+    <to type="all" pathmask="*/consenttest.rtd"/>
+    <videowidget breakpoints="200 400" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*/consenttest.rtd"/>
+    <videowidget requireconsent="remarketing" />
+    <gtm account="GTM-TN7QQM" launch="manual"/>
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="/testpages/dynamicpage" />
+    <to type="file" pathmask="/testpages/staticpage" />
+    <gtm xmlns="http://www.webhare.net/xmlns/socialite" account="GTM-TN7QQM" integration="selfhosted" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="/testpages/formtest" />
+    <sitelanguage lang="nl" /> <!-- change it away from the default so we can ensure it is set and not just defaulting to 'en' -->
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="/portal1/*" />
+    <to type="all" pathmask="/staticlogin/*" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true"/>
+    <wrdauth cookiename="webharelogin-testsuite-portal1" xmlns="http://www.webhare.net/xmlns/wrd" wrdschema="wrd:testschema" sitetag="MYBACKEND" loginpage="currentsite::/portal1/" api2017="true" supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthMyBackend" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="/portal1-domainless/*" />
+    <to type="all" pathmask="/staticlogin-domainless/*" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true"/>
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" wrdschema="wrd:testschema" loginpage="currentsite::/portal1-domainless/" api2017="true" supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthMyBackend" />
+  </apply>
+
+  <!-- override login page for staticlogin -->
+  <apply>
+    <to type="all" pathmask="/staticlogin/*" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" loginpage="currentsite::/staticlogin/" />
+  </apply>
+
+
+  <apply>
+    <to type="all" pathmask="/portal2/*" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true"/>
+    <wrdauth cookiename="webharelogin-testsuite-portal2" xmlns="http://www.webhare.net/xmlns/wrd" wrdschema="webhare_testsuite:backend2" sitetag="MYBACKEND2" loginpage="currentsite::/portal2/" api2017="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="/testsuiteportal/*" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="/test-saml/portal-idp/*" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true"/>
+    <wrdauth cookiename="webharelogin-testsuite-saml-idp" xmlns="http://www.webhare.net/xmlns/wrd" wrdschema="webhare_testsuite:saml-idp" sitetag="WEBHAREBACKEND" loginpage="currentsite::/test-saml/portal-idp/" api2017="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="/testpages/wrdauthtest-*router-extended" />
+    <to type="all" pathmask="/testpages/wrdauthtest-*router-broken" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" routerfeatures="emailchange passwordchange" authpageswitty="witty/basetest-authpages.witty" />
+  </apply>
+
+ <apply>
+    <to type="all" pathmask="/testpages/wrdauthtest-*router-broken" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" passwordresetlifetime="0" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="/test-saml/portal-sp/*" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true">
+      <loginmethod type="password" />
+      <loginmethod type="saml"
+                   tag="test-sp"
+                   autologin="false"
+                   title="SAML login"
+                   icon="tollium:tollium/webhare"
+                   />
+    </portal>
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
+             cookiename="webharelogin-testsuite-portal1-sp"
+             wrdschema="webhare_testsuite:saml-sp"
+             sitetag="WEBHAREBACKEND"
+             loginpage="currentsite::/test-saml/portal-sp/"
+             spautocreate="true"
+             api2017="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="/test-saml/portal-sp/*-nologout" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium">
+      <loginmethod type="saml"
+                   tag="test-sp"
+                   autologin="false"
+                   allowlogout="false"
+                   title="SAML login"
+                   icon="tollium:tollium/webhare"
+                   />
+    </portal>
+  </apply>
+
+  <!-- Sharedblocks -->
+  <apply>
+    <to type="all" />
+    <setlibrary name="widgets_testsuite">
+      <source path="site::webhare testsuite site/tmp/widgets1" />
+      <source path="/tmp/widgets2/" relativeto="targetobject" />
+    </setlibrary>
+  </apply>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest">
+    <member name="blocks" type="instance" />
+  </contenttype>
+  <tabsextension name="neofilters" xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <newtab title="Sharedblocks">
+      <p:sharedblocks name="blocks" composition="contentdata" cellname="blocks" widgetlibrary="widgets_testsuite" />
+    </newtab>
+  </tabsextension>
+  <apply>
+    <to type="file" pathmask="*/sharedblocks" />
+    <extendproperties extension=".neofilters" contenttype="http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest" />
+  </apply>
+
+  <!-- apply rule tests -->
+  <apply>
+    <to type="folder" pathmask="/tmp/applytest1/" />
+    <xyz:test data="pathmask-applytest1" />
+  </apply>
+  <apply>
+    <to type="folder" parentmask="/tmp/" />
+    <xyz:test data="parentmask-tmp" />
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder" />
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynrouter" />
+  </apply>
+  <apply>
+    <to type="folder" parentregex="^/[T][m][p]/$" />
+    <xyz:test data="parentregex-tmp" />
+  </apply>
+  <apply>
+    <to type="folder" parentregex="^/tmp/[A][p][p]l?[y]test1?/$" />
+    <xyz:test data="parentregex-tmp-applytest1" />
+  </apply>
+  <apply>
+    <to type="folder" parentregex="/tmp/[S][u]][b]" />
+    <to type="folder" pathregex="xxxx" />
+    <xyz:test data="parentregex-tmp-sub" />
+  </apply>
+  <apply>
+    <to type="folder" pathregex="/applytest1/$" />
+    <xyz:test data="pathregex-applytest1" />
+  </apply>
+  <apply>
+    <to type="folder" pathmask="/tmp/applytest1/sub/" siteregex="^Some other site$" />
+    <xyz:test data="siteregex-othersite" />
+  </apply>
+  <apply>
+    <to type="folder" pathmask="/tmp/applytest1/sub/" siteregex="^WEBHARE TESTSUITE SITE$" />
+    <xyz:test data="siteregex-webharetestsuitesuite" />
+  </apply>
+
+  <!-- forums -->
+  <apply>
+    <to type="file" pathmask="/*/forumcomments*" />
+    <forumplugin type="comments" usecaptcha="0" mailpostingsto="forumcomments@beta.webhare.net">
+      <imagedisplaymethod method="fit" setwidth="240" setheight="320" format="image/jpeg" />
+    </forumplugin>
+  </apply>
+  <apply>
+    <to type="file" pathmask="/*/forumcomments-recaptcha" />
+    <forumplugin usecaptcha="1" />
+  </apply>
+  <apply>
+    <to type="file" pathmask="/*/forumcomments-closedate" />
+    <forumplugin autoclose="1" />
+  </apply>
+
+  <!-- URLHistory -->
+  <apply>
+    <to type="all" pathmask="/tmp/*follow*" />
+    <urlhistory store="true" />
+  </apply>
+
+  <!-- address validation -->
+  <apply>
+    <to type="all" pathmask="/testpages/staticpage" /> <!-- note: registrykey has precedence, so this rule should win, even though /testpages/ comes later -->
+    <formintegration addressvalidationkey="webhare_testsuite.tests.addressverification" />
+  </apply>
+  <apply>
+    <to type="all" pathmask="/testpages/*" />
+    <formintegration addressvalidationschema="wrd:testschema" />
+  </apply>
+
+
+  <applysiteprofile path="pages/customform/customform.siteprl.xml" />
+
+  <sitesettings>
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+      <webrule path="/" match="initial" applyruleset="system:webdav" wrdschema="wrd:testschema" />
+      <webrule path="/portal1/requiresysop/" match="initial" authmode="ipandaccess">
+        <accesscheck>
+          <requireright right="system:sysop" />
+        </accesscheck>
+      </webrule>
+      <webrule path="/portal1/requiresysop-or-consilio/" match="initial" authmode="iporaccess" allowips="consilio:fetcher">
+        <accesscheck>
+          <requireright right="system:sysop" />
+        </accesscheck>
+      </webrule>
+      <webrule path="/portal1-domainless/requiresysop/" match="initial" authmode="ipandaccess">
+        <accesscheck>
+          <requireright right="system:sysop" />
+        </accesscheck>
+      </webrule>
+      <webrule path="/portal1-domainless/requiresysop-or-consilio/" match="initial" authmode="iporaccess" allowips="consilio:fetcher">
+        <accesscheck>
+          <requireright right="system:sysop" />
+        </accesscheck>
+      </webrule>
+      <webrule path="/redirecttowebdir/" match="initial" redirecttodir="web:/resources/tests/" />
+      <webrule path="/datastorage/" match="initial">
+        <tryfolder path="whdata::tmp/webhare_testsuite.datastorage/folderdirect/" />
+        <tryfolder resolver="sha256b16" path="whdata::tmp/webhare_testsuite.datastorage/foldersha/" />
+        <tryfolder resolver="sha256b16_directory" path="whdata::tmp/webhare_testsuite.datastorage/foldersha_dir/" />
+        <tryfile path="whdata::tmp/webhare_testsuite.datastorage/[siteslug]/file.shtml" />
+        <tryfile path="mod::[modulename]/web/resources/tests/static.html" />
+      </webrule>
+
+    </webruleset>
+  </sitesettings>
+
+</siteprofile>

@@ -1,0 +1,892 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/hooks.whlib";
+LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+INTEGER showaspublishingdelay := 300; // nr of milliseconds to show stuff as publisher
+INTEGER showaspublishingrecheck := 100; // nr of milliseconds to recheck the publishing delay
+
+
+PUBLIC OBJECTTYPE DefaultContentsListHandler EXTEND ContentsListHandlerBase
+<
+>;
+
+RECORD ARRAY FUNCTION EnrichFilesWithStatus(OBJECT list, RECORD ARRAY files, BOOLEAN canpublish, RECORD commontexts)
+{
+  FOREVERY (RECORD file FROM files)
+  {
+    STRING publicationstatus_icon;
+    STRING statushint;
+
+    BOOLEAN have_draft;
+    BOOLEAN have_tasks;
+    BOOLEAN have_submittedforapproval;
+
+    IF (file.isactive AND NOT file.isfolder AND file.ispublishable)
+    {
+      RECORD status := GetFileStatusFromPublished(file.published, canpublish AND file.ispublishable, "", commontexts);
+
+      publicationstatus_icon := status.icon;
+      statushint := status.text;
+
+      have_tasks := status.scheduled;
+    }
+    ELSE
+      have_tasks := GetScheduledFromPublished(file.published);
+
+    have_draft := TestFlagFromPublished(file.published, PublishedFlag_HasPublicDraft);
+    have_submittedforapproval := TestFlagFromPublished(file.published, PublishedFlag_SubmittedForApproval);
+
+    INTEGER ARRAY statusicons;
+
+    IF (file.ispinned)
+      INSERT list->GetIcon("tollium:status/pinned") INTO statusicons AT END;
+
+    IF (have_tasks)
+      INSERT list->GetIcon("tollium:status/schedule") INTO statusicons AT END;
+
+    IF (have_submittedforapproval)
+      INSERT list->GetIcon("tollium:status/wait") INTO statusicons AT END;
+    ELSE IF (have_draft)
+      INSERT list->GetIcon("tollium:status/draft_edit") INTO statusicons AT END;
+
+    IF (publicationstatus_icon != "")
+      INSERT list->GetIcon(publicationstatus_icon) INTO statusicons AT END;
+
+    INSERT CELL statusicons := statusicons INTO files[#file];
+    INSERT CELL pvt_statushint := statushint INTO files[#file];
+    INSERT CELL islinktype := file.type IN [ 18, 19 ] INTO files[#file];
+    INSERT CELL issubmittedforapproval := have_submittedforapproval  INTO files[#file];
+  }
+
+  RETURN files;
+}
+
+
+PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Current set sorting column
+  STRING pvt_sortcolumn;
+  /// The contents should be ordered according to the ordering in this column
+  STRING pvt_ordered_column;
+
+  INTEGER curfolder;
+  PUBLIC FUNCTION PTR filteritems; // A callback function to filter out items or add extra fields (like user-defined flags)
+  BOOLEAN pvt_hidefolders; // Don't show folders
+  BOOLEAN pvt_hideexternal; // Don't show external folders
+  BOOLEAN pvt_hidefiles; // Don't show files
+  BOOLEAN pvt_groupfolders; // Group folders in view (otherwise files and folders are mixed)
+  BOOLEAN pvt_showprotected; // Show an overlay for 'protected' objects
+  FUNCTION PTR oncontentupdate; // Callback for external content updates
+  FUNCTION PTR onstatusclick; // Callback for clicks on status icon
+  STRING emptytext; // Default empty text
+  INTEGER ARRAY customcontents; // List of arbitrary file id's to show
+  BOOLEAN hasfilter; //filtering enabled, use the currentfilterresults
+  OBJECT contentslisthandler; //handler overrwiting contentslist
+
+  ///TRUE if we need to reconfigure the list: rowlayout or contentslisthandler changed
+  BOOLEAN listsetupdirty;
+  ///TRUE if we need to pass the rows through the contentslisthandler remap function
+  BOOLEAN listcontentsremap;
+
+  /// List of items that are currently shown as publishing
+  INTEGER ARRAY showaspublishing;
+
+  /// Timer callbacks to correct 'shown as publishing' entries
+  INTEGER pbtimercb;
+
+  STRING pvt_selectmode;
+  STRING pvt_rowlayout;
+
+  RECORD commontexts;
+
+  ///How to show current content
+  STRING pvt_contentmode;
+
+  RECORD ARRAY currentfilterresults;
+
+  RECORD ARRAY filterscreencache;
+  RECORD ARRAY listshandlercache;
+  RECORD ARRAY origcolumns;
+  RECORD ARRAY sortheaders;
+
+  STRING filterbuttontitle;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY hidefolders(pvt_hidefolders, SetHideFolders);
+  PUBLIC PROPERTY hideexternal(pvt_hideexternal, SetHideExternalFolders);
+  PUBLIC PROPERTY hidefiles(pvt_hidefiles, SetHideFiles);
+  PUBLIC PROPERTY groupfolders(pvt_groupfolders, SetGroupFolders);
+  PUBLIC PROPERTY showprotected(pvt_showprotected, SetShowProtected);
+  PUBLIC PROPERTY sortcolumn(GetSortColumn, SetSortColumn);
+  PUBLIC PROPERTY sortascending(this->mylist->sortascending, this->mylist->sortascending);
+
+  PUBLIC PROPERTY selection(GetSelection, SetSelection);
+  PUBLIC PROPERTY columns(this->mylist->columns, -);
+  PUBLIC PROPERTY rows(this->mylist->rows, -);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY contentmode(pvt_contentmode, SetContentMode);
+  PUBLIC PROPERTY openaction(this->mylist->openaction, this->mylist->openaction);
+  PUBLIC PROPERTY columnheaders(this->mylist->columheaders, this->mylist->columnheaders);
+  PUBLIC PROPERTY acceptdrops(this->mylist->acceptdrops, this->mylist->acceptdrops);
+
+
+  /** Space-separated list of file/folder type namespaces of accepted files/folders, leave empty to accept all types
+  */
+  STRING ARRAY pvt_accepttypes;
+  PUBLIC PROPERTY accepttypes(pvt_accepttypes, SetAcceptTypes);
+
+  /** If TRUE, non-published files will also be shown
+  */
+//  PUBLIC BOOLEAN acceptunpublished;
+
+  /** Indicates whether only single or multiple selections are allowed
+  */
+  PUBLIC PROPERTY selectmode(pvt_selectmode, SetSelectMode);
+
+  /** Current rowlayout. Valid values: 'onerow', 'tworows'
+  */
+  PUBLIC PROPERTY rowlayout(this->pvt_rowlayout, SetRowLayout);
+
+  /** Called when the sort order changes (only when caused by the user list header clicks)
+  */
+  PUBLIC FUNCTION PTR onsortorderchange;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+  MACRO NEW()
+  {
+    this->pvt_rowlayout := "onerow";
+    this->pvt_ordered_column := "ordering";
+  }
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    FSContentsOverviewBase::StaticInit(def);
+    this->pvt_rowlayout := def.rowlayout;
+    this->origcolumns := this->mylist->columns;
+
+    //FIXME original code also set storage->selectmode ??
+    this->mylist->selectmode := def.selectmode;
+    this->mylist->acceptdrops := def.acceptdrops;
+    this->mylist->sortable := TRUE;
+
+    this->mylist->onselect := def.onselect;
+    this->mylist->openaction := def.openaction;
+    this->mylist->newcontextmenu := def.newcontextmenu;
+    this->mylist->selectcontextmenu := def.selectcontextmenu;
+    this->mylist->columnheaders := def.columnheaders;
+    this->mylist->savestate := def.savestate;
+    this->mylist->borders := def.borders;
+    this->onstatusclick := def.onstatusclick;
+
+    this->SetFlags(def.flags);
+    IF (this->onstatusclick != DEFAULT FUNCTION PTR)
+    {
+      this->mylist->oniconclick := PTR this->OnClickedIcon;
+    }
+
+    this->oncontentupdate := def.oncontentupdate;
+    this->filteritems := def.filteritems;
+    this->emptytext := def.empty;
+    this->pvt_hidefolders := def.hidefolders;
+    this->pvt_hidefiles := def.hidefiles;
+    this->pvt_groupfolders := def.groupfolders;
+    this->pvt_showprotected := def.showprotected;
+    this->onsortorderchange := def.onsortorderchange;
+
+    this->mylist->empty := this->emptytext;//Updated by RefreshList
+    this->mylist->width := def.width;
+    this->mylist->minwidth := def.minwidth;
+    this->mylist->height := def.height;
+    this->mylist->minheight := def.minheight;
+
+    // if accepttypes is set we make files which aren't of an acceptable type unselectable
+    this->mylist->styles :=
+      [ [ name := "unselectable"
+        , textcolor := "#999999"
+        ]
+      ];
+    this->mylist->selectableflags := ["selectable"];
+
+    this->commontexts := GetFileStatusCommonTexts();
+    this->contentslisthandler := NEW DefaultContentsListHandler;
+    RECORD sel := ObjectExists(this->foldertree) ? this->foldertree->selection : DEFAULT RECORD;
+    this->curfolder := RecordExists(sel) ? sel.rowkey : -2; //mark as unloaded
+
+    this->filterbuttontitle := this->filterbutton->title;
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    FSContentsOverviewBase::PostInitComponent();
+    this->folderlistener->EnsurePostInit();
+  }
+
+  MACRO SetContentMode(STRING contentmode)
+  {
+    IF(contentmode = this->pvt_contentmode)
+      RETURN;
+    IF(contentmode NOT IN ["","recyclebin","webhareroot","searchresults"])
+      THROW NEW Exception("Unsupported content mode '" || contentmode || "'");
+
+    this->pvt_contentmode := contentmode;
+    this->RefreshList();
+  }
+
+  UPDATE PUBLIC MACRO ShowFSObjects(INTEGER ARRAY fsids)
+  {
+    this->customcontents := fsids;
+    this->curfolder := -2;
+    this->RefreshList();
+  }
+
+  UPDATE MACRO __SetFolder(INTEGER folderid, RECORD foldersettings)
+  {
+    this->currentfilterresults := DEFAULT RECORD ARRAY;
+    this->resultslimitedpanel->visible := FALSE;
+
+    STRING filterscreen := foldersettings.filterscreen;
+    IF(filterscreen != "")
+    {
+      this->hasfilter := TRUE;
+
+      OBJECT cachedscreen := SELECT AS OBJECT obj FROM this->filterscreencache WHERE id=folderid;
+      IF(NOT ObjectExists(cachedscreen))
+      {
+        cachedscreen := this->owner->LoadScreen(filterscreen, [ folder := folderid ]);
+        IF(NOT cachedscreen EXTENDSFROM WHFSFilterScreenBase)
+          THROW NEW Exception(`Screen '${filterscreen}' should derive from WHFSFilterScreenBase`);
+        INSERT [ id := folderid, obj := cachedscreen ] INTO this->filterscreencache AT END;
+      }
+      this->folderfilter->contents := cachedscreen;
+      this->filterbutton->title := cachedscreen->filterbuttontitle ?? this->filterbuttontitle;
+      this->filterpanel->visible := TRUE;
+      cachedscreen->ResetFilter();
+      this->RunTheFilter(FALSE, FALSE);
+    }
+    ELSE
+    {
+      this->hasfilter := FALSE;
+      this->filterpanel->visible := FALSE;
+      this->folderfilter->contents := DEFAULT OBJECT;
+    }
+
+    OBJECT cachedlisthandler := SELECT AS OBJECT handler FROM this->listshandlercache WHERE library = foldersettings.contentslisthandler.library AND objectname = foldersettings.contentslisthandler.objectname;
+    IF(NOT ObjectExists(cachedlisthandler))
+    {
+      cachedlisthandler := MakeObject(foldersettings.contentslisthandler.library, foldersettings.contentslisthandler.objectname);
+      cachedlisthandler->__ongeticon := PTR this->mylist->GetIcon; //we don't want to give away access to the full list object
+      cachedlisthandler->tolliumuser := this->owner->tolliumuser;
+      INSERT [ library := foldersettings.contentslisthandler.library
+             , objectname := foldersettings.contentslisthandler.objectname
+             , handler := cachedlisthandler
+             ] INTO this->listshandlercache AT END;
+    }
+    IF(this->contentslisthandler != cachedlisthandler)
+    {
+      this->contentslisthandler := cachedlisthandler;
+      this->listsetupdirty := TRUE;
+    }
+
+
+    STRING ARRAY eventmasks;
+    IF (folderid >= 0)
+      eventmasks := [ "system:whfs.folder." || folderid, "publisher:publish.folder." || folderid ];
+
+    this->folderlistener->masks := eventmasks;
+
+/* FIXME contentmode
+    IF (folderid = -1)
+    {
+      // Change column names when switching to trash view
+      //UPDATE this->mylist->columns SET title := GetTid("publisher:components.filelist.trash-site") WHERE name = "title";
+      //UPDATE this->mylist->columns SET title := GetTid("publisher:components.filelist.trash-user") WHERE name = "description";
+      UPDATE this->mylist->columns SET title := GetTid("publisher:components.filelist.trash-deleted") WHERE name = "modified";
+    }
+    ELSE IF (this->curfolder = -1)
+    {
+      // Change column names when switching from trash view
+      //UPDATE this->mylist->columns SET title := GetTid("publisher:components.filelist.title") WHERE name = "title";
+      //UPDATE this->mylist->columns SET title := GetTid("publisher:components.filelist.description") WHERE name = "description";
+      UPDATE this->mylist->columns SET title := GetTid("publisher:components.filelist.modified") WHERE name = "modified";
+    }
+*/
+    this->curfolder := folderid;
+    this->RefreshList();
+  }
+
+  UPDATE PUBLIC MACRO SetFilterResult(RECORD ARRAY filterresult)
+  {
+    this->currentfilterresults := filterresult;
+
+    // don't have isfolder here, get it from the system tables
+    INTEGER ARRAY ids := SELECT AS INTEGER ARRAY DISTINCT id FROM filterresult WHERE id > 0;
+    RECORD ARRAY parents := SELECT DISTINCT id := isfolder ? id : parent FROM system.fs_objects WHERE id IN ids;
+
+    this->folderlistener->masks :=
+        (SELECT AS STRING ARRAY "system:whfs.folder." || id FROM parents) CONCAT
+        (SELECT AS STRING ARRAY "publisher:publish.folder." || id FROM parents);
+
+    this->RefreshList();
+  }
+
+  MACRO SetHideFolders(BOOLEAN hidefolders)
+  {
+    IF (hidefolders != this->pvt_hidefolders)
+    {
+      this->pvt_hidefolders := hidefolders;
+      this->RefreshList();
+    }
+  }
+
+  MACRO SetHideFiles(BOOLEAN hidefiles)
+  {
+    IF (hidefiles != this->pvt_hidefiles)
+    {
+      this->pvt_hidefiles := hidefiles;
+      this->RefreshList();
+    }
+  }
+
+  MACRO SetHideExternalFolders(BOOLEAN hideexternal)
+  {
+    IF(hideexternal != this->pvt_hideexternal)
+    {
+      this->pvt_hideexternal := hideexternal;
+      this->RefreshList();
+    }
+  }
+
+  MACRO SetGroupFolders(BOOLEAN groupfolders)
+  {
+    IF (groupfolders != this->pvt_groupfolders)
+    {
+      this->pvt_groupfolders := groupfolders;
+      this->RefreshList();
+    }
+  }
+
+  MACRO SetShowProtected(BOOLEAN showprotected)
+  {
+    IF (showprotected != this->pvt_showprotected)
+    {
+      this->pvt_showprotected := showprotected;
+      this->RefreshList();
+    }
+  }
+
+  MACRO SetSelectMode(STRING selectmode)
+  {
+    this->pvt_selectmode := selectmode;
+    this->mylist->selectmode := selectmode;
+  }
+
+  MACRO SetRowLayout(STRING newrowlayout)
+  {
+    IF(this->pvt_rowlayout = newrowlayout)
+      RETURN;
+
+    this->pvt_rowlayout := newrowlayout;
+    this->listsetupdirty := TRUE;
+    this->RefreshList();
+  }
+
+  MACRO SetAcceptTypes(STRING ARRAY accepttypes)
+  {
+    this->pvt_accepttypes := accepttypes;
+    this->RefreshList();
+  }
+
+  MACRO GotSortOrderChange()
+  {
+    STRING newsortcolumn := this->mylist->sortcolumn;
+    SWITCH (this->mylist->sortcolumn)
+    {
+      CASE "icon"         { newsortcolumn := "name"; }
+      CASE "name_noicon"  { newsortcolumn := "name"; }
+      CASE "<ordered>"    { newsortcolumn := this->pvt_ordered_column; }
+    }
+
+    this->pvt_sortcolumn := newsortcolumn;
+    IF (this->onsortorderchange != DEFAULT FUNCTION PTR)
+      this->onsortorderchange();
+  }
+
+  MACRO OnShownAsPublishingTimer()
+  {
+    this->pbtimercb := 0;
+    IF (LENGTH(this->showaspublishing) != 0)
+      this->OnFolderSignals(DEFAULT RECORD ARRAY);
+  }
+
+  MACRO OnFolderSignals(RECORD ARRAY events)
+  {
+    this->RefreshList();
+  }
+
+  MACRO OnClickedIcon(RECORD obj, STRING col)
+  {
+    IF (col = "statusicons")
+      this->onstatusclick(obj);
+  }
+
+  MACRO SetupListLayout()
+  {
+    RECORD ARRAY addedcolumns := this->contentslisthandler->GetAddedColumns();
+    IF(RecordExists(SELECT FROM addedcolumns WHERE name NOT LIKE 'custom_*'))
+      THROW NEW Exception("All columns added by a custom contents list handler must have their name start with 'custom_'");
+
+    this->listcontentsremap := Length(addedcolumns) > 0;
+
+    RECORD ARRAY columns := this->origcolumns CONCAT addedcolumns;
+    columns := SELECT *, width := CellExists(columns,'width') ? columns.width : '' FROM columns;
+
+    RECORD rowlayout := [ name := "rowlayout"
+                        , columns := DEFAULT RECORD ARRAY
+                        , rows := DEFAULT RECORD ARRAY
+                        ];
+
+    STRING ARRAY validcolumnnames := ['name', 'title', 'modified', 'statusicons'];
+    IF(this->rowlayout = "onerow")
+    {
+      RECORD layoutrow := [ cells := DEFAULT RECORD ARRAY ];
+      FOREVERY(RECORD header FROM this->contentslisthandler->GetOneRowLayout())
+      {
+        IF(CellExists(header,'width'))
+          UPDATE columns SET width := header.width WHERE name = header.name;
+
+        INSERT [ coldef := header.name
+               , combinewithnext := FALSE
+               ] INTO rowlayout.columns AT END;
+        INSERT [ coldef := header.name
+               , colspan := 1
+               , rowspan := 1
+               ] INTO layoutrow.cells AT END;
+      }
+      INSERT layoutrow INTO rowlayout.rows AT END;
+    }
+    ELSE
+    {
+      RECORD settings := this->contentslisthandler->GetMultiRowLayout();
+      FOREVERY(RECORD header FROM settings.headers)
+      {
+        IF(CellExists(header,'width'))
+          UPDATE columns SET width := header.width WHERE name = header.name;
+
+        INSERT [ coldef := header.name
+               , combinewithnext := CellExists(header, "combinewithnext") AND header.combinewithnext
+               ] INTO rowlayout.columns AT END;
+      }
+      FOREVERY(RECORD row FROM settings.rows)
+      {
+        RECORD layoutrow := [ cells := DEFAULT RECORD ARRAY
+                            ];
+        FOREVERY(RECORD cellrec FROM row.cells)
+        {
+          INSERT [ coldef := cellrec.name
+                 , colspan := CellExists(cellrec,'colspan') ? cellrec.colspan : 1
+                 , rowspan := CellExists(cellrec,'rowspan') ? cellrec.rowspan : 1
+                 ] INTO layoutrow.cells AT END;
+        }
+        INSERT layoutrow INTO rowlayout.rows AT END;
+      }
+
+      validcolumnnames := validcolumnnames CONCAT ['icon','name_noicon'];
+    }
+
+    this->sortheaders := DEFAULT RECORD ARRAY;
+    STRING ordered_column := this->contentslisthandler->GetOrderedColumn() ?? "ordering";
+    INSERT [ rowkey := ordered_column
+           , title := this->GetColumnSortTitle(columns, ordered_column)
+           , ordered := TRUE
+           ] INTO this->sortheaders AT END;
+
+    FOREVERY(RECORD header FROM rowlayout.columns)
+    {
+      IF((header.coldef NOT LIKE 'custom_*' AND header.coldef NOT IN validcolumnnames) OR header.coldef = ordered_column)
+        THROW NEW Exception("The layout requested illegal header '" || header.coldef ||"'");
+
+      STRING sorttitle := this->GetColumnSortTitle(columns, header.coldef);
+      IF(NOT header.combinewithnext)
+      {
+        INSERT [ rowkey := header.coldef
+               , title := sorttitle
+               , ordered := FALSE
+               ] INTO this->sortheaders AT END;
+      }
+    }
+
+    //validate the names to protect against namespace intrusions
+    STRING hasname, hastitle;
+    FOREVERY(RECORD row FROM rowlayout.rows)
+    {
+      FOREVERY(RECORD cellrec FROM row.cells)
+      {
+        IF(cellrec.coldef NOT LIKE 'custom_*' AND cellrec.coldef NOT IN validcolumnnames)
+          THROW NEW Exception("The layout requested illegal column '" || cellrec.coldef ||"'");
+
+        IF(cellrec.coldef = "name")
+          hasname := "name";
+        ELSE IF(cellrec.coldef = "name_noicon" AND hasname="") //name has priority over noicon
+          hasname := "name_noicon";
+        ELSE IF(cellrec.coldef = "title")
+          hastitle := "title";
+
+        RECORD toadd := SELECT * FROM columns WHERE name=cellrec.coldef;
+        IF(NOT RecordExists(toadd))
+          THROW NEW Exception("The layout requested nonexisting column '" || cellrec.coldef ||"'");
+      }
+    }
+
+    IF(hasname="" AND hastitle="")
+      THROW NEW Exception("A contents list must contain one of 'name','name_icon' and 'title' in its columns");
+
+    this->mylist->columns := columns;
+    this->mylist->rowlayouts := [rowlayout];
+    this->mylist->rowlayout := "rowlayout";
+    this->pvt_ordered_column := ordered_column;
+  }
+
+  STRING FUNCTION GetColumnSortTitle(RECORD ARRAY columns, STRING colname)
+  {
+    IF(colname LIKE 'custom_*')
+    {
+      RECORD toadd := SELECT * FROM columns WHERE name=colname;
+      IF(NOT RecordExists(toadd))
+        THROW NEW Exception("The layout requested nonexisting header '" || colname ||"'");
+
+      RETURN CellExists(toadd, 'sorttitle') ? toadd.sorttitle : toadd.name;
+    }
+    ELSE
+    {
+      SWITCH(colname)
+      {
+        CASE 'name', 'name_noicon'
+        {
+          RETURN GetTid("publisher:filemanager.main.app.sortorderselect-name");
+        }
+        CASE 'title'
+        {
+          RETURN GetTid("publisher:filemanager.main.app.sortorderselect-title");
+        }
+        CASE 'modified'
+        {
+          RETURN GetTid("publisher:filemanager.main.app.sortorderselect-modified");
+        }
+        CASE 'statusicons'
+        {
+          RETURN GetTid("publisher:filemanager.main.app.sortorderselect-statusicons");
+        }
+        CASE "ordering"
+        {
+          RETURN GetTid("publisher:filemanager.main.app.sortorderselect-ordering");
+        }
+        DEFAULT
+        {
+          RETURN colname;
+        }
+      }
+    }
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetSortOptions()
+  {
+    IF(Length(this->sortheaders) = 0)
+      this->SetupListLayout();
+
+    RETURN this->sortheaders;
+  }
+
+  MACRO RefreshList()
+  {
+    VARIANT currentselection := this->mylist->value;
+    IF(this->listsetupdirty AND ObjectExists(this->contentslisthandler))
+    {
+      this->listsetupdirty := FALSE;
+      this->SetupListLayout();
+    }
+
+    BOOLEAN canpublish;
+    RECORD folder := SELECT * FROM system.fs_objects WHERE id = this->curfolder AND isfolder;
+
+    IF(RecordExists(folder))
+    {
+      RECORD site := RecordExists(folder) ? RECORD(SELECT outputweb, locked, lockreason FROM system.sites WHERE id = folder.parentsite) : DEFAULT RECORD;
+      IF (RecordExists(site) AND site.locked)
+      {
+        IF (site.lockreason != "")
+          this->mylist->empty := GetTid("publisher:components.filelist.sitelocked-reason", site.lockreason);
+        ELSE
+          this->mylist->empty := GetTid("publisher:components.filelist.sitelocked");
+        this->mylist->rows := DEFAULT RECORD ARRAY;
+        RETURN;
+      }
+      canpublish := RecordExists(site) AND site.outputweb != 0;
+    }
+
+    this->mylist->empty := this->emptytext;
+
+    BOOLEAN showhidden := this->owner->tolliumuser->HasRight("system:supervisor");
+
+    //Print("refreshlist " || this->Curfolder || " " || (ObjecTExists(this->curextension) ? " have ext" : " no ext") || "\n");
+
+    RECORD ARRAY files;
+    IF(this->hasfilter)
+    {
+      IF(Length(this->currentfilterresults) > 0)
+      {
+        INTEGER ARRAY fileids := SELECT AS INTEGER ARRAY id FROM this->currentfilterresults;
+        files := GetInnerObjectListing(this->owner->tolliumuser, 0, NOT this->hidefolders, NOT this->hideexternal, NOT this->hidefiles, TRUE, fileids, this->contentmode);
+
+        FOREVERY(RECORD file FROM files)
+          IF(NOT RecordExists(SELECT FROM this->currentfilterresults WHERE currentfilterresults.id = file.id AND currentfilterresults.parent = file.parent))
+          {
+            DELETE FROM files WHERE id=file.id;
+            //it's never ever ever coming back. until you refilter.
+            DELETE FROM this->currentfilterresults WHERE id=file.id;
+          }
+
+        //FIXME move contentmode to the extension object.
+        files := SELECT *, contentmode := "" FROM files;
+        files := EnrichObjectListing(this->owner->tolliumuser, files, TRUE, this->contentmode);
+      }
+    }
+    ELSE
+    {
+      IF(this->curfolder >= 0) //getobjectlisting includes extensionobjects
+        files := files CONCAT this->GetObjectListing(this->curfolder, NOT this->hidefolders, NOT this->hideexternal, NOT this->hidefiles, showhidden, this->contentmode,FALSE, DEFAULT INTEGER ARRAY);
+      ELSE IF(Length(this->customcontents) > 0)
+      {
+        RECORD ARRAY fileslist := SELECT *
+                                       , tag := ""
+                                       , canwrite := FALSE
+                                       , candelete := FALSE
+                                       , canrestore := FALSE
+                                    FROM system.fs_objects
+                                   WHERE id IN this->customcontents;
+        files := EnrichObjectListing(DEFAULT OBJECT, fileslist, FALSE, "");
+      }
+    }
+
+    STRING tz := this->owner->tolliumuser->timezone;
+    OBJECT user := this->owner->tolliumuser;
+    DATETIME now_local := UTCToLocal(GetCurrentDateTime(), tz);
+
+    files := SELECT *
+                  , rowkey := id
+                  , name_noicon := name
+                  //, modified := modificationdate
+                  , modified := GetDisplayModDate(user, modificationdate, now_local, tz)
+                  //, filesize := isfolder OR NOT pvt_blobiscontent ? "" : this->owner->tolliumuser->FormatFileSize(pvt_length_data, 0, FALSE)
+                  , pvt_highlight := RecordExists(folder) AND id = folder.indexdoc
+                  //, pvt_marker := RecordExists(folder) AND id = folder.indexdoc ? this->mylist->GetIcon("tollium:status/marker") : 0
+                  , pvt_name_sort := (this->groupfolders ? (isfolder ? "0" : "1") : "") || name
+                  , pvt_title_sort := (this->groupfolders ? (isfolder ? "0" : "1") : "") || title || "/" || name
+                  //, pvt_description_sort := (this->groupfolders ? (isfolder ? "0" : "1") : "") || description || "/" || name
+                  // ,pvt_filesize_sort := (this->groupfolders ? (isfolder ? "0" : "1") : "") || (isfolder OR NOT pvt_blobiscontent ? "" : Right("000000000"||ToString(pvt_length_data),10)) || name
+                  , pvt_modified_sort := (this->groupfolders ? (isfolder ? "0" : "1") : "") || FormatDateTime("%Y%m%d%H%M%S", modificationdate) || name
+                  , pvt_ordering_sort := Right("000000000" || ordering, 10) || name
+                  , icon := this->mylist->GetIcon(pvt_iconname)
+                  , pvt_namehint := ""
+                  //                  , pvt_filesize := isfolder OR NOT pvt_blobiscontent ? 0 : e
+                  , style := this->pvt_showprotected AND ispinned ? "protected" : ""
+                  , ordering_first := FALSE
+                  , ordering_last := FALSE
+                  , isroot := FALSE
+               FROM files;
+
+    files := EnrichFilesWithStatus(this->mylist, files, canpublish, this->commontexts);
+
+    // make types we don't want to accept unselectable and greyed out
+    IF (Length(this->pvt_accepttypes) > 0)
+    {
+      INTEGER ARRAY acceptable_type_ids :=
+            SELECT AS INTEGER ARRAY id
+              FROM system.fs_types
+             WHERE namespace IN this->pvt_accepttypes;
+
+      files := SELECT *
+                    , selectable := type IN acceptable_type_ids
+                 FROM files;
+
+      UPDATE files
+         SET style := "unselectable"
+       WHERE NOT selectable;
+    }
+    ELSE
+      files := SELECT *, selectable := TRUE FROM files;
+
+    IF (Length(files) > 0 AND this->filteritems != DEFAULT FUNCTION PTR)
+    {
+      // Check for extended filteritems signature
+      IF (ValidateFunctionPtr(this->filteritems, TypeID(RECORD ARRAY), [ TypeID(RECORD ARRAY), TypeID(OBJECT) ]))
+        files := this->filteritems(files, this->mylist);
+      ELSE
+        files := this->filteritems(files);
+
+      // Just in case, reset the name
+      UPDATE files SET name_noicon := name;
+    }
+
+    IF(this->listcontentsremap AND Length(files)>0)
+    {
+      RECORD ARRAY remapdata := SELECT id, type FROM files; //the other fields should not be relied on
+      remapdata := this->contentslisthandler->OnMapItems(this->curfolder, remapdata);
+
+      IF(Length(remapdata) != Length(files))
+        THROW NEW Exception("The OnMapItems handler changed the number of items (in: " || Length(files) || ", out " || Length(remapdata) || " - perhaps no outer join was used?");
+
+      FOREVERY(RECORD row FROM files)
+      {
+        RECORD mergewith := remapdata[#row];
+        IF(row.id != files[#row].id)
+          THROW NEW Exception("The OnMapItems handler has changed the position of items - it may not reorder the data!");
+
+        FOREVERY(RECORD cellrec FROM UnpackRecord(mergewith))
+          IF(cellrec.name LIKE "CUSTOM_*")
+            files[#row] := CellInsert(files[#row], cellrec.name, cellrec.value);
+      }
+    }
+
+    files := SELECT * FROM files ORDER BY GetCell(files, this->pvt_ordered_column), NormalizeText(name, this->owner->tolliumuser->language);
+
+    INTEGER files_last := LENGTH(files) - 1;
+    files :=
+        SELECT *
+             , ordering_first :=  #files = 0
+             , ordering_last :=   #files = files_last
+          FROM files;
+
+/*
+RECORD ARRAY bad := SELECT * FROM files AS row WHERE NOT CellExists(files[#row],"selectable");
+IF (Length(bad) > 0)
+  ABORT(anytostring(bad,"tree"));
+*/
+    this->mylist->rows := files;
+    this->mylist->SetValueIfValid(currentselection);
+  }
+
+  PUBLIC UPDATE MACRO ReloadOverview()
+  {
+    this->RefreshList();
+  }
+
+  UPDATE MACRO SetFlags(STRING ARRAY flags)
+  {
+    FOREVERY (STRING flag FROM this->defaultflags)
+      IF (flag NOT IN flags)
+        INSERT flag INTO flags AT END;
+    this->mylist->flags := flags;
+  }
+
+  STRING FUNCTION GetSortColumn()
+  {
+    RETURN this->mylist->sortcolumn = "<ordered>" ? this->pvt_ordered_column : this->mylist->sortcolumn;
+  }
+  MACRO SetSortColumn(STRING newvalue)
+  {
+    this->pvt_sortcolumn := newvalue ?? "name";
+    this->mylist->sortcolumn := this->pvt_sortcolumn = this->pvt_ordered_column ? "<ordered>" : this->pvt_sortcolumn;
+  }
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN this->mylist->value;
+  }
+  MACRO SetValue(VARIANT newvalue)
+  {
+    this->mylist->value := newvalue;
+  }
+  VARIANT FUNCTION GetSelection()
+  {
+    RETURN this->mylist->selection;
+  }
+  MACRO SetSelection(VARIANT newselection)
+  {
+    this->mylist->selection:=newselection;
+  }
+
+  PUBLIC MACRO __SetRowsDeprecated(RECORD ARRAY newrows)
+  {
+    this->mylist->rows := newrows;
+  }
+
+  PUBLIC UPDATE OBJECT FUNCTION GetEnableOnComponent()
+  {
+    RETURN this->mylist->GetEnableOnComponent();
+  }
+
+  PUBLIC UPDATE MACRO SaveComponentState()
+  {
+    this->mylist->SaveComponentState();
+  }
+  PUBLIC UPDATE MACRO RestoreComponentState()
+  {
+    this->mylist->RestoreComponentState();
+  }
+
+  MACRO DoFilter()
+  {
+    this->RunTheFilter(TRUE, FALSE);
+   //  this->ReloadFileList();
+  }
+  PUBLIC MACRO ResetAnyFilter()
+  {
+    IF(ObjectExists(this->folderfilter->contents))
+    {
+      OBJECT cachedscreen := SELECT AS OBJECT obj FROM this->filterscreencache WHERE id=this->curfolder;
+      IF(ObjectExists(cachedscreen))
+        cachedscreen->ResetFilter();
+      this->RunTheFilter(FALSE, FALSE);
+    }
+  }
+  MACRO RunTheFilter(BOOLEAN interactive, BOOLEAN allresults)
+  {
+    this->resultslimitedpanel->visible := FALSE;
+    RECORD filterresult := this->folderfilter->contents->RunFilter(CELL[allresults]);
+    IF(NOT RecordExists(filterresult) OR filterresult.numresults=0) //no matches
+    {
+      IF(interactive)
+      {
+        this->resultslimited->htmlvalue := GetTid("publisher:components.filelist.filternoresults");
+        this->resultslimitedpanel->visible := TRUE;
+        this->SetFilterResult(DEFAULT RECORD ARRAY);
+      }
+      RETURN;
+    }
+
+    IF (NOT allresults AND filterresult.moreresults)
+    {
+      STRING htmlvalue;
+      // Only sysops have the option to show all results
+      IF (this->folderfilter->contents->allowsallresults AND this->owner->tolliumuser->HasRight("system:sysop"))
+        htmlvalue := `${GetTid("publisher:components.filelist.toomanyresults", ToString(Length(filterresult.showresults)))} <a href="filelist:showallresults">${GetTid("publisher:components.filelist.clickallresults", ToString(filterresult.numresults))}</a>`;
+      ELSE
+        htmlvalue := GetTid("publisher:components.filelist.toomanyresults", ToString(Length(filterresult.showresults)), ToString(filterresult.numresults));
+      this->resultslimited->htmlvalue := htmlvalue;
+      this->resultslimitedpanel->visible := TRUE;
+    }
+
+    this->SetFilterResult(filterresult.showresults);
+  }
+
+  MACRO OnShowAllResults(STRING link)
+  {
+    IF (link = "filelist:showallresults")
+      this->RunTheFilter(TRUE, TRUE);
+  }
+>;

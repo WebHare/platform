@@ -1,0 +1,111 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::internet/soap.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+/* Hardcoded test values (only work on TEST and DEVELOPMENT dtap stages!)
+   NL999996514B01 - always throws with temporary unavailable
+   NL999996514B02 - always succeeds
+   NL999996514B03 - always fails
+
+   BE9999999901 - always throws with temporary unavailable
+   BE9999999902 - always succeeds
+   BE9999999903 - always fails
+*/
+
+RECORD FUNCTION DoViesVatLookup(STRING vatnumber, RECORD retval)
+{
+  //LogRPCForSoapClient("system:taxservices.vies", "", sc);
+  IF((vatnumber LIKE "NL999996514B0?" OR vatnumber LIKE "BE999999990?") AND NOT IsDtapLive())
+  {
+    IF(Right(vatnumber,1)="1")
+      THROW NEW Exception("Temporary unavailable");
+
+    IF(Right(vatnumber,1)="2")
+    {
+      retval.valid := TRUE;
+      retval.address := vatnumber LIKE "NL*" ? "\nHENGELOSESTRAAT 00296\n7521AM ENSCHEDE" : "Brusselstraat 12345\n12345 Brussel";
+      retval.name :=  vatnumber LIKE "NL*" ? "TEST COMPANY BV" : "Happy VZW";
+      RETURN retval;
+    }
+
+    IF(Right(vatnumber,1)="32")
+    {
+      retval.valid := FALSE;
+      retval.error := "Invalid VAT number";
+      RETURN retval;
+    }
+  }
+
+  OBJECT sc := NEW SoapClient;
+  sc->LoadWSDLFromURL("http://ec.europa.eu/taxation_customs/vies/checkVatService.wsdl");
+
+  OBJECT viesinterface := sc->GetInterface();
+  STRING countrycode := Left(vatnumber,2);
+  vatnumber := Substring(vatnumber,2);
+
+  RECORD vatinfo := viesinterface->checkVat([body:=[parameters:=CELL[countrycode,vatnumber]]]);
+  retval.rawresponse := vatinfo;
+
+  IF(NOT vatinfo.body.parameters.valid)
+  {
+    retval.valid := FALSE;
+    retval.error := "Invalid VAT number";
+  }
+  ELSE
+  {
+    retval.valid := TRUE;
+    retval.address := vatinfo.body.parameters.address;
+    retval.name := vatinfo.body.parameters.name;
+  }
+  RETURN retval;
+}
+
+RECORD FUNCTION GetCacheableViesCheck(STRING vatnumber)
+{
+  RECORD retval := [ valid := FALSE
+                   , serviceunavailable := FALSE
+                   , vatnumber := vatnumber
+                   , address := ""
+                   , name := ""
+                   , error := ""
+                   , rawresponse := DEFAULT RECORD
+                   ];
+
+  TRY
+  {
+    retval := DoViesVatLookup(vatnumber, retval);
+  }
+  CATCH(OBJECT e)
+  {
+    //For exception code explanation, see http://ec.europa.eu/taxation_customs/vies/checkVatService.wsdl
+    LogHarescriptException(e);
+    retval.error := "Exception: " || e->what;
+    retval.serviceunavailable := TRUE;
+  }
+
+  RECORD hitinfo := [ extra := CELL[ vatnumber, retval.rawresponse ] ];
+  LogAccountingHit("system:taxservices", CELL[...hitinfo, error := retval.error ]);
+  DELETE CELL rawresponse FROM retval;
+
+  RETURN CELL[ ttl := retval.serviceunavailable ? 5000 : 15 * 60 * 1000
+             , value := retval
+             ];
+}
+
+/** Verify a vat number with the VIES service
+*/
+PUBLIC RECORD FUNCTION CheckViesVATCode(STRING vatnumber, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  //sanitize first
+  vatnumber := ToUppercase(vatnumber);
+  vatnumber := Substitute(vatnumber,' ','');
+  vatnumber := Substitute(vatnumber,'.','');
+
+  //don't hammer the service, auto-cache
+  RETURN GetAdhocCached([vatnumber := vatnumber], PTR GetCacheableViesCheck(vatnumber));
+}

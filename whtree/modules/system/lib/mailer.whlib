@@ -1,0 +1,1679 @@
+﻿<?wh
+/** @short WebHare mailer
+    @long This library controls the built-in mailer and the formatted email generator
+    @topic witty/api
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::formatter/html.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/smtp.whlib" EXPORT IsValidEmailAddress, TokenizeEmailAddresses;
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::parser/msword.whlib";
+LOADLIB "wh::parser/objects.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/rtd.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/composer.whlib" EXPORT RestructureEmailForCompatibility;
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/mail/routemgr.whlib" EXPORT GetEmailAutocorrection;
+
+
+RECORD ARRAY unpacked_files;
+RECORD ARRAY embedded_files;
+
+/** Returns the attachments in a body
+    @param bodystruct Body structure
+    @param skip_first_text If true, the first text/html* or text/plain* part is skipped
+        If that part is placed in a multipart/alternative or multipart/related part,
+        that part is skipped too.
+    @return
+    @cell return.attachments List of found attachments
+    @cell return.skipped_part Whether a text, html or multipart was skipped
+*/
+
+RECORD ARRAY FUNCTION CalcAttachments(RECORD part)
+{
+  /* Attachments are all objects in the squashed tree except
+     - structural stuff (multipart/alternative|mixed|related parts)
+     - non-multipart-children of a multipart/related (they are suppoed to be embeds for the HTML version)
+     */
+
+  STRING mimetype := ToUppercase(part.mimetype);
+
+  IF (mimetype NOT LIKE "MULTIPART/*")
+  {
+    RETURN [ part ];
+  }
+
+  RECORD ARRAY attachments;
+  IF (mimetype LIKE "MULTIPART/RELATED*")
+  {
+    FOREVERY (RECORD subpart FROM part.subparts)
+    {
+      STRING umimetype := ToUppercase(subpart.mimetype);
+      IF (umimetype LIKE "MULTIPART/*")
+        attachments := attachments CONCAT CalcAttachments(subpart);
+    }
+  }
+  ELSE
+  {
+    // Normal multipart
+    FOREVERY (RECORD subpart FROM part.subparts)
+    {
+      // Only the first part is considered for text, so the other parts can't be skipped.
+      attachments := attachments CONCAT CalcAttachments(subpart);
+    }
+  }
+  RETURN attachments;
+}
+
+RECORD ARRAY FUNCTION GetAttachments2(RECORD bodystruct)
+{
+  /* This function returns top-level parts that are not displayed
+     in the mail window of the email client.
+
+     Algo of display functions:
+     Display the first part returned by invocation of
+     GetFirstPart(bodystruct.data, "text/html") and
+     GetFirstPart(bodystruct.data, "text/plain").
+  */
+
+  RECORD firsthtml := GetEmailPrimaryMIMEPart(bodystruct, "text/html");
+  RECORD firstplain := GetEmailPrimaryMIMEPart(bodystruct, "text/plain");
+  INTEGER ARRAY skip;
+  IF(RecordExists(firsthtml))
+    INSERT firsthtml.id INTO skip AT END;
+  IF(RecordExists(firstplain))
+    INSERT firstplain.id INTO skip AT END;
+
+  RECORD ARRAY squashed := CalcAttachments(bodystruct);
+  DELETE FROM squashed WHERE id IN skip;
+
+  RECORD ARRAY attachments :=
+         (SELECT id
+               , name := GetFilenameForMIMEPart(squashed)
+               , size
+               , encoding
+               , mimetype := ToLowercase(mimetype)
+               , link := section
+               , submessage := ToUpperCase(mimetype) LIKE "MESSAGE/RFC822*"
+               , partdata := squashed
+               , data
+            FROM squashed);
+
+  RETURN attachments;
+}
+
+OBJECTTYPE ContentTypeDecoder EXTEND StringParser
+  < PUBLIC MACRO NEW(STRING data)
+    : StringParser(data){
+    }
+
+    // Skip all whitespace (' ' and '\t')
+    PUBLIC BOOLEAN FUNCTION SkipWhitespace()
+    {
+      BOOLEAN any_whitespace := FALSE;
+      IF (NOT this->eof)
+        WHILE (this->current IN [ " ", "\t" ])
+          IF (NOT this->Next())
+            BREAK;
+          ELSE
+            any_whitespace := TRUE;
+      RETURN any_whitespace;
+    }
+
+    // Parses and decodes a quoted string, returns decoded string
+    PUBLIC STRING FUNCTION ParseQuotedString()
+    {
+      STRING str;
+      this->TryParse('"');
+      WHILE (NOT this->eof AND this->current != '"')
+      {
+        IF (this->current = "\\")
+          this->Next();
+
+        str := str || this->current;
+        this->Next();
+      }
+      IF (NOT this->eof)
+        this->TryParse('"');
+      RETURN str;
+    }
+
+    // Parses a field delimited by ':' or '='. Coalesces whitespace, trims whitespace at beginning/end
+    PUBLIC STRING FUNCTION ParseField()
+    {
+      STRING field;
+      BOOLEAN need_ws := FALSE;
+      WHILE (NOT this->eof AND this->current NOT IN [ ";", "=" ])
+      {
+        IF (this->current IN [" ", "\t","("])
+        {
+          need_ws := TRUE;
+          IF (this->current = "(")
+            this->ParseUntilCharacter(")");
+          this->Next();
+        }
+        ELSE
+        {
+          IF (need_ws)
+          {
+            field := field || " ";
+            need_ws := FALSE;
+          }
+          IF (this->current = '"')
+            field := field || this->ParseQuotedString();
+          ELSE
+          {
+            field := field || this->current;
+            this->Next();
+          }
+        }
+      }
+
+      RETURN TrimWhitespace(field);
+    }
+
+    // Parses a contenttype
+    PUBLIC RECORD FUNCTION Parse()
+    {
+      STRING contenttype := this->ParseField();
+      RECORD ARRAY params;
+
+      WHILE (this->TryParse(";"))
+      {
+        STRING field := this->ParseField();
+        IF (this->TryParse("="))
+        {
+          STRING value := this->ParseField();
+          INSERT [ field := TrimWhitespace(field), value := TrimWhitespace(value) ] INTO params AT END;
+        }
+      }
+
+      RETURN [ contenttype := contenttype, parameters := params ];
+    }
+  >;
+
+RECORD FUNCTION DecodeContentType(STRING data)
+{
+//  PRINT("DECODING: " || data);
+
+  // FIXME: does something like wh::internet/mime.whlib GetMIMEHeaderParameter(STRING data, STRING keyword), but better
+  RETURN (NEW ContentTypeDecoder(data))->Parse();
+}
+
+// Extracts parameters from contenttype, sets sectionid and sizes
+RECORD FUNCTION ProcessPartDataRecursive(RECORD data, INTEGER sectionid)
+{
+  RECORD cdata := DecodeContentType(data.mimetype);
+  data.mimetype := cdata.contenttype;
+  INSERT CELL parameters := cdata.parameters INTO data;
+  INSERT CELL section := sectionid INTO data;
+  INSERT CELL size := data.ofs_bodyend - data.ofs_bodystart INTO data;
+
+  sectionid := sectionid + 1;
+
+  IF (CellExists(data, "SUBPARTS"))
+    FOREVERY (RECORD subpart FROM data.subparts)
+    {
+      RECORD res := ProcessPartDataRecursive(subpart, sectionid);
+      sectionid := res.sectionid;
+
+      data.subparts[#subpart] := res.part;
+    }
+  IF (CellExists(data, "TOPPART") AND RecordExists(data.toppart))
+  {
+    RECORD res := ProcessPartDataRecursive(data.toppart, sectionid);
+    sectionid := res.sectionid;
+
+    data.toppart := res.part;
+  }
+
+  IF (NOT CellExists(data, "DISPOSITION"))
+    INSERT CELL disposition := "" INTO data;
+  IF (NOT CellExists(data, "DESCRIPTION"))
+    INSERT CELL description := "" INTO data;
+  IF (NOT CellExists(data, "CONTENTID"))
+    INSERT CELL contentid := "" INTO data;
+
+  RETURN [part := data, sectionid := sectionid ];
+}
+
+
+/* Helper function for CreateEmailMailing. Look whether a referred image exists in the archive.
+   If it does, give it a content id and add it to the embed list for this mailing */
+STRING FUNCTION RewriteHTMLImage(STRING imgname)
+{
+  RECORD already_embedded := SELECT * FROM embedded_files WHERE ToUppercase(embedded_files.filename) = ToUppercase(imgname);
+  IF(RecordExists(already_embedded))
+    RETURN 'cid:' || Substring(already_embedded.contentid, 1, Length(already_embedded.contentid) - 2);
+
+  RECORD ARRAY image := SELECT * FROM unpacked_files WHERE ToUppercase(name) = ToUppercase(imgname);
+  IF (Length(image)!=1)
+    RETURN imgname;
+
+  RECORD filetype := ScanBlob(image[0].data, imgname);
+
+  STRING cid := GenerateMIMEContentId();
+  INSERT INTO embedded_files(contentid, contenttype, data, filename, href)
+         VALUES('<' || cid || '>', filetype.mimetype, image[0].data, imgname, 'cid:' || cid)
+         AT END;
+
+  DELETE FROM unpacked_files WHERE ToUppercase(name) = ToUppercase(imgname);
+
+  RETURN 'cid:' || cid;
+}
+
+/** @short Create an email message based on a source document
+    @param doc Document to convert (of a supported type)
+    @param wittydata Witty data to use in mailing. If a default record is passed, no witty interpreter is run over the document
+    @return A record describing the conversion results
+    @cell return.success True if the conversion was successful
+    @cell return.toppart Top part of the email message */
+PUBLIC RECORD FUNCTION GenerateHTMLEmail(BLOB doc, RECORD wittydata)
+{
+  RECORD fileinfo := ScanBlob(doc, "");
+  STRING doctype := fileinfo.mimetype;
+
+  SWITCH(doctype)
+  {
+    CASE "application/zip", "application/x-gzip"
+    {
+      unpacked_files := SELECT * FROM UnpackArchive(doc) WHERE name != ""; //Skip folders...
+
+      BLOB htmlversion;
+
+      embedded_files := DEFAULT RECORD ARRAY;
+
+      RECORD ARRAY wordmailing := SELECT * FROM unpacked_files WHERE ToUppercase(name) = "MAILING.DOC";
+      RECORD ARRAY htmlmailing := SELECT * FROM unpacked_files WHERE ToUppercase(name) = "MAILING.HTML";
+      RECORD ARRAY txtmailing := SELECT * FROM unpacked_files WHERE ToUppercase(name) = "MAILING.TXT";
+
+      DELETE FROM unpacked_files WHERE ToUppercase(name) = "MAILING.DOC";
+      DELETE FROM unpacked_files WHERE ToUppercase(name) = "MAILING.HTML";
+      DELETE FROM unpacked_files WHERE ToUppercase(name) = "MAILING.TXT";
+      unpacked_files := FilterMacOSForksFromArchive(unpacked_files);
+
+      IF (Length(wordmailing) = 1)
+      {
+        //Convert word file to html
+        htmlversion := WordToHtml(wordmailing[0].data);
+
+        TRY
+        {
+          IF (RecordExists(wittydata) AND Length(htmlversion) != 0)
+            htmlversion := ApplyWittyToBlob(htmlversion, wittydata, "HTML", "");
+        }
+        CATCH(OBJECT <WittyException> e)
+        {
+          e := __HS_INTERNAL_MakeObjectReferencePrivileged(e);
+          INSERT PUBLIC MEMBER __original_data := htmlversion INTO e;
+          THROW e;
+        }
+      }
+      ELSE IF (Length(htmlmailing) = 1)
+      {
+        IF (RecordExists(wittydata) AND Length(htmlmailing[0].data) != 0)
+          htmlversion := ApplyWittyToBlob(htmlmailing[0].data, wittydata, "HTML", "");
+        ELSE
+          htmlversion := htmlmailing[0].data;
+
+        //Rewrite the HTML document to convert images in the archive to embedded images
+        INTEGER htmldoc := CreateStream();
+        INTEGER oldredirect := RedirectOutputTo(htmldoc);
+        RewriteHTMLDocumentTo(0, htmlversion, [ imageurlrewrite := PTR RewriteHTMLImage(#1) ], "UTF-8");
+        RedirectOutputTo(oldredirect);
+        htmlversion := MakeBlobFromStream(htmldoc);
+      }
+      ELSE IF (Length(txtmailing) != 1)
+      {
+        //If there is not even a textfile in the archive we cannot send a message
+        RETURN [success := false, toppart:=default record, error := "Badly constructed archive file", errorcode := "BADARCHIVE" ];
+      }
+
+      //Generate a TEXT counterpart of the HTML data, if mailing.txt is present in the archive, use that one instead) - ADDME support witty for the .txt part?!
+      BLOB textversion;
+
+      IF (Length(txtmailing) = 1)
+        textversion := txtmailing[0].data;
+      ELSE
+        textversion := ConvertHTMLToPlainText(htmlversion, 0, "UTF-8", DEFAULT MACRO PTR);
+
+      //Generate the mailing itself!
+      RECORD toppart := CreateMIMEMailingTopPart(textversion, htmlversion, embedded_files);
+      IF (NOT RecordExists(toppart))
+        RETURN [success := FALSE, toppart := default record, error := "The mailing data was invalid", errorcode := "BADMAILING" ];
+
+      //Attach the remaining files in the zip as attachments
+      RECORD ARRAY contenttypes;
+
+      FOREVERY (RECORD unpacked_file FROM unpacked_files)
+      {
+        RECORD filetype := ScanBlob(unpacked_file.data, unpacked_file.name);
+        INSERT CELL contenttype := filetype.mimetype INTO unpacked_files[#unpacked_file];
+      }
+
+      toppart := AddAttachmentsToMail(toppart, unpacked_files);
+
+      RETURN [success := true, toppart:=toppart, error := "", errorcode:=""];
+    }
+    CASE "text/html"
+    {
+      //Run the HTML through a Witty
+      IF (RecordExists(wittydata))
+        doc := ApplyWittyToBlob(doc, wittydata, "HTML", "");
+
+      //Generate a TEXT counterpart of the HTML data
+      BLOB textversion := ConvertHtmlToPlainText(doc, 0, "UTF-8", DEFAULT MACRO PTR);
+
+      //Generate the mailing itself!
+      RECORD toppart := CreateMIMEMailingTopPart(textversion, doc, DEFAULT RECORD ARRAY);
+      IF (NOT RecordExists(toppart))
+        RETURN [success := FALSE, toppart := default record, error := "The mailing data was invalid", errorcode := "BADMAILING" ];
+
+      RETURN [success := true, toppart := toppart, error := "", errorcode:=""];
+    }
+    CASE "text/plain"
+    {
+      //Run the file through a Witty
+      IF (RecordExists(wittydata))
+        doc := ApplyWittyToBlob(doc, wittydata, "TEXT", "");
+
+      //Generate the mailing itself!
+      RECORD toppart := CreateMIMEMailingTopPart(doc, DEFAULT BLOB, DEFAULT RECORD ARRAY);
+      IF (NOT RecordExists(toppart))
+        RETURN [success := FALSE, toppart := default record, error := "The mailing data was invalid", errorcode := "BADMAILING" ];
+
+      RETURN [success := true, toppart := toppart, error := "", errorcode:=""];
+    }
+    CASE "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    {
+      embedded_files := DEFAULT RECORD ARRAY;
+
+      doc := WordToHtml(doc);
+
+      IF (RecordExists(wittydata))
+      {
+        TRY
+        {
+          doc := ApplyWittyToBlob(doc, wittydata, "HTML", "");
+        }
+        CATCH(OBJECT <WittyException> e)
+        {
+          e := __HS_INTERNAL_MakeObjectReferencePrivileged(e);
+          INSERT PUBLIC MEMBER __original_data := doc INTO e;
+          THROW e;
+        }
+      }
+
+      //Generate a TEXT counterpart of the HTML data
+      BLOB textversion := ConvertHtmlToPlainText(doc, 0, "UTF-8", DEFAULT MACRO PTR);
+
+      //Generate the mailing itself!
+      RECORD toppart := CreateMIMEMailingTopPart(textversion, doc, embedded_files);
+
+      IF (NOT RecordExists(toppart))
+        RETURN [success := FALSE, toppart := default record, error := "The mailing data was invalid", errorcode := "BADMAILING" ];
+
+      RETURN [success := true, toppart := toppart, error := "", errorcode:=""];
+    }
+    DEFAULT
+    {
+      RETURN [success := false, toppart := default record, error := "Unsupported mailing type: " || doctype, errorcode := "BADTYPE" ];
+    }
+  }
+}
+
+BLOB FUNCTION WordToHtml(BLOB worddoc)
+{
+  INTEGER docid := OpenMSWordDocument(worddoc);
+  RECORD parser := ScanMSWordDocument(docid, TRUE, DEFAULT RECORD ARRAY);
+
+  INTEGER output := CreateStream();
+  INTEGER htmldoc := CreateHTMLDoc("XHTML1.0", TRUE /* strict */, FALSE /* stylesheets */);
+
+  SetHTMLDocEmbeddingCallback(htmldoc, PTR EmbedCallback);
+
+  INTEGER pageid := CreateHTMLPage(htmldoc, output);
+
+  FOREVERY (RECORD obj FROM parser.parserobjects)
+    PrintParserObject(htmldoc, obj.id);
+
+  CloseHTMLPage(pageid);
+  CloseHTMLDoc(htmldoc);
+  CloseMSWordDocument(docid);
+
+  RETURN MakeBlobFromStream(output);
+}
+
+STRING FUNCTION EmbedCallback(STRING filename, STRING mimetype, BOOLEAN storedata, BLOB data)
+{
+  /* Do we have this file yet? */
+  RECORD already_embedded := SELECT * FROM embedded_files WHERE embedded_files.filename = VAR filename;
+  IF(RecordExists(already_embedded))
+  {
+    IF(storedata)
+      UPDATE embedded_files SET data := VAR data WHERE embedded_files.filename = VAR filename;
+
+    RETURN 'cid:' || Substring(already_embedded.contentid, 1, Length(already_embedded.contentid) - 2);
+  }
+  ELSE
+  {
+    STRING cid := GenerateMIMEContentId();
+    INSERT INTO embedded_files(contentid, contenttype, data, filename, href)
+         VALUES('<' || cid || '>', mimetype , data, filename, 'cid:' || cid)
+         AT END;
+    RETURN 'cid:' || cid;
+  }
+}
+
+/** @short Checks if the type of mailing is supported by GenerateHTMLMail
+    @param mimetype The mime type that you want to check
+    @return false if mime type is not supported
+*/
+PUBLIC BOOLEAN FUNCTION IsSupportedMailingType(STRING mimetype)
+{
+  RETURN mimetype IN [ "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword", "text/html", "application/zip", "text/plain" ];
+}
+
+/** @short Simple mail send function
+    @param origin Originating module
+    @param mailfrom The e-mail address of the message sender
+    @param mailto A string array of recipients to put in the To header
+    @param mailcc A string array of recipients to put in the Cc header
+    @param mailbcc A string array of recipients which will not be mentioned in the header
+    @param subject The message subject
+    @param messagetext The message raw text (separating individual lines with \r\n is recommended)
+    @param attachments Record array of attachments of (name, contenttype, data)
+    @param text_is_html True if the text we're sending should be interpreted as HTML mail (a plain text alternative will be generated)
+    @return false if queueing failed (either database server unreachable or an i/o error in database)
+*/
+PUBLIC BOOLEAN FUNCTION QueueSimpleMail(STRING origin, STRING mailfrom, STRING ARRAY mailto, STRING ARRAY mailcc, STRING ARRAY mailbcc, STRING subject, STRING messagetext, RECORD ARRAY attachments, BOOLEAN text_is_html)
+{
+  OBJECT mail := MakeEmailComposer();
+  mail->origin := origin;
+  mail->mailfrom := mailfrom;
+  mail->mailto := mailto;
+  mail->mailcc := mailcc;
+  mail->mailbcc := mailbcc;
+  mail->subject := subject;
+  FOREVERY(RECORD attach FROM attachments)
+    mail->AddAttachment(attach.data, CellExists(attach,'name') ? attach.name : "", CellExists(attach,"contenttype") ? attach.contenttype : "application/octet-stream");
+
+  mail->SetRichBody(StringToBlob(messagetext), text_is_html ? "text/html" : "text/plain");
+  RETURN mail->QueueMail();
+}
+
+/** @short This function puts a message in the WebHare mail queue, and send it to the standard mail server
+    @param origin Originating module
+    @param receivers Array of email addresses of the receivers (all To, Cc and Bcc recipients)
+    @param sender Email address of the sender
+    @param mimeheaders Headers to send with the message (including From, To, etc headers, but without any Bcc headers)
+    @param toppart Top-level part of the MIME message to send
+    @return false if queueing failed (either database server unreachable or an i/o error in database)
+*/
+PUBLIC BOOLEAN FUNCTION QueueMail(STRING origin, STRING ARRAY receivers, STRING sender, RECORD ARRAY mimeheaders, RECORD toppart)
+{
+  INTEGER savetrans := GetPrimaryWebhareTransaction();
+  TRY
+  {
+    SetPrimaryWebhareTransaction(0);
+    OBJECT trans := OpenPrimary();
+    trans->BeginWork();
+    QueueMailInWork(origin, receivers, sender, mimeheaders, toppart);
+    trans->CommitWork();
+    trans->Close();
+  }
+  FINALLY
+  {
+    SetPrimaryWebhareTransaction(savetrans);
+  }
+  RETURN TRUE;
+}
+
+/** @short This function puts a message in the WebHare mail queue in the current work, and send it to the standard mail server
+    @param origin Originating module
+    @param receivers Array of email addresses of the receivers (all To, Cc and Bcc recipients)
+    @param sender Email address of the sender
+    @param mimeheaders Headers to send with the message (including From, To, etc headers, but without any Bcc headers)
+    @param toppart Top-level part of the MIME message to send
+    @cell options.statuscallback Callback function to invoke when receiving status updates for this mail (eg bounce, delivery, complaint)
+    @cell options.statusdata Informational string passed to the status callback
+    @cell options.rawheaders No postprocessing of headers like To, Subject
+    @return IDs of the generated task, one per receiver
+*/
+PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receivers, STRING sender, RECORD ARRAY mimeheaders, RECORD toppart, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ statuscallback := ""
+                             , statusdata := ""
+                             , rawheaders := FALSE
+                             ], options);
+
+  IF (NOT GetPrimary()->IsWorkOpen())
+    THROW NEW Exception("This function requires open work");
+
+  IF(sender="")
+    sender := SplitEmailName(GetMIMEHeader(mimeheaders,"FROM") ?? ReadRegistryKey("system.services.smtp.mailfrom")).email;
+
+  IF(NOT IsValidEmailAddress(sender))
+    THROW NEW Exception("Invalid sender '" || sender || "' for queued mail");
+
+  RECORD ARRAY tasks;
+  INTEGER ARRAY taskids;
+  FOREVERY(STRING rec FROM receivers)
+  {
+    STRING email := ToLowercase(SplitEmailName(rec).email);
+    IF(email="")
+      CONTINUE;
+
+    INTEGER taskid := MakeAutonumber(system.managedtasks,"id");
+    INSERT taskid INTO taskids AT END;
+
+    STRING subjectheader := GetMIMEHeader(mimeheaders,"SUBJECT");
+    IF(options.rawheaders)
+      subjectheader := DecodeMimeEncodedWords(subjectheader); //for presentation purposes
+
+    RECORD task := [ origin := origin
+                   , senderemail := SplitEmailName(sender).email
+                   , subject := UCTruncate(subjectheader,300)
+                   , receiver := email
+                   ];
+    IF(options.statuscallback != "")
+      INSERT CELL callback := [ func := options.statuscallback, data := options.statusdata ] INTO task;
+    INSERT task INTO tasks AT END;
+  }
+  IF(Length(tasks) = 0)
+    THROW NEW Exception("No receivers for queued mail");
+
+  //Verify mail size  (TODO more realistic header sizes?)
+  INTEGER maxsize := ReadRegistryKey("system.services.smtp.maxsize");
+  INTEGER msgsize := Length(EncodeMIMEMessage(RECORD[], toppart));
+  IF(msgsize > maxsize)
+    THROW NEW Exception(`Message is ${msgsize} bytes long which exceeds the maximum message size of ${maxsize} bytes`);
+
+  RECORD auxdata := [ mimeheaders := mimeheaders
+                    , toppart := toppart
+                    , receivers := receivers
+                    , sender := sender
+                    , rawheaders := options.rawheaders
+                    ];
+
+  RETURN ScheduleManagedTasks("system:outgoingmail", tasks, [ auxdata := auxdata, taskids := taskids ]);
+}
+
+
+
+STATIC OBJECTTYPE LegacyEmailComposer EXTEND ComposerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING ARRAY pvt_mailto;
+  STRING ARRAY pvt_mailcc;
+  STRING ARRAY pvt_mailbcc;
+
+  RECORD ARRAY attachments;
+  RECORD ARRAY alternatives;
+  RECORD metainfo;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC STRING mailfrom;
+  PUBLIC STRING origin;
+  PUBLIC STRING errorsto;
+  PUBLIC STRING replyto;
+
+  PUBLIC PROPERTY mailto(pvt_mailto, SetMailTo);
+  PUBLIC PROPERTY mailcc(pvt_mailcc, SetMailCc);
+  PUBLIC PROPERTY mailbcc(pvt_mailbcc, SetMailBcc);
+
+  PUBLIC STRING subject;
+  PUBLIC STRING subjectprefix;
+  PUBLIC FUNCTION PTR onhyperlinkhref;
+  /// Apply CSS as inline styles
+  PUBLIC BOOLEAN applystylesinline;
+
+  MACRO NEW()
+  {
+    this->ResetMetadata();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  /// Accepts STRING and STRING ARRAY
+  MACRO SetMailTo(VARIANT newvalue)
+  {
+    IF (TypeID(newvalue) = TypeID(STRING))
+      newvalue := TokenizeEmailAddresses(newvalue);
+    this->pvt_mailto := newvalue;
+  }
+
+  /// Accepts STRING and STRING ARRAY
+  MACRO SetMailCc(VARIANT newvalue)
+  {
+    IF (TypeID(newvalue) = TypeID(STRING))
+      newvalue := TokenizeEmailAddresses(newvalue);
+    this->pvt_mailcc := newvalue;
+  }
+
+  /// Accepts STRING and STRING ARRAY
+  MACRO SetMailBcc(VARIANT newvalue)
+  {
+    IF (TypeID(newvalue) = TypeID(STRING))
+      newvalue := TokenizeEmailAddresses(newvalue);
+    this->pvt_mailbcc := newvalue;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION FindByCid(RECORD part, STRING cid)
+  {
+    IF( Substring(part.contentid, 1, Length(part.contentid)-2) = Substring(cid,4)) //compare "<ID>" versus "cid:ID"
+      RETURN part;
+
+    FOREVERY(RECORD subpart FROM part.subparts)
+    {
+      RECORD match := this->FindByCid(subpart,cid);
+      IF(RecordExists(match))
+        RETURN match;
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION CreateMailing()
+  {
+    RECORD ARRAY headers;
+    RECORD toppart;
+
+    STRING usesubject := this->subject;
+    BLOB textversion := this->contents_text;
+
+    IF(this->contents_type = 4) //text plain
+    {
+      IF (Length(textversion) = 0)
+      {
+        textversion := this->contents_original;
+        IF (RecordExists(this->mergerecord))
+        {
+          RECORD mergedata := this->GetMergableData();
+          textversion := ApplyWittyToBlob(textversion, mergedata, "TEXT", this->contents_originalpath);
+        }
+      }
+
+      toppart := CreateMIMEMailingTopPart(textversion, DEFAULT BLOB, DEFAULT RECORD ARRAY);
+    }
+    ELSE
+    {
+      //ADDME Cache converted body if only headers change but CreateMailing is called twice?
+      RECORD final := this->GenerateHTML();
+      BLOB htmlversion := final.htmlversion;
+
+      //Generate a TEXT counterpart of the HTML data, if mailing.txt is present in the archive, use that one instead) - ADDME support witty for the .txt part?!
+      IF (Length(textversion) = 0)
+        textversion := ConvertHTMLToPlainText(htmlversion, 0, "UTF-8", DEFAULT MACRO PTR);
+
+      //Set up the headers
+      IF(usesubject=""  //grab <title>!
+         OR this->applystylesinline)
+      {
+        OBJECT maildoc := MakeXMLDocumentFromHTML(htmlversion, "UTF-8");
+
+        IF(usesubject="")
+        {
+          OBJECT title := ObjectExists(maildoc) ? maildoc->GetElementsByTagName("title")->Item(0) : DEFAULT OBJECT;
+          IF(ObjectExists(title))
+            usesubject := TrimWhitespace(title->textcontent);
+        }
+        IF(this->applystylesinline)
+        {
+          FOREVERY(OBJECT style FROM maildoc->QuerySelectorAll("style")->GetCurrentElements())
+            MakeCSSStyleSheet(StringToBlob(style->textcontent))->RewriteDomStyles(maildoc);
+
+          htmlversion := NEW HtmlRewriterContext->GenerateHTML(maildoc);
+        }
+      }
+
+      toppart := CreateMIMEMailingTopPart(textversion, htmlversion, final.embedded);
+
+    }
+
+    headers := [ [ field := "MIME-Version",   value := "1.0" ]
+               , [ field := "Date",           value := FormatDatetime("%a, %d %b %Y %H:%M:%S +0000", GetCurrentDatetime()) ]
+               ];
+
+    IF(usesubject!="")
+      INSERT INTO headers(field,value) VALUES("Subject", usesubject) AT END;
+
+    RECORD mailinfo := this->GetFinalMailinfo();
+    IF(mailinfo.mailfrom != "")
+      INSERT INTO headers(field,value) VALUES("From", mailinfo.mailfrom) AT END;
+    IF(mailinfo.replyto != "")
+      INSERT INTO headers(field,value) VALUES("Reply-To", mailinfo.replyto) AT END;
+
+    //ADDME Sanitize to and cc for obviously incorrect values (eg 'undisclosed')
+    IF(Length(mailinfo.mailto)>0)
+      INSERT INTO headers(field,value) VALUES("To", GetMailRecipients(mailinfo.mailto)) AT END;
+    IF(Length(mailinfo.mailcc)>0)
+      INSERT INTO headers(field,value) VALUES("Cc", GetMailRecipients(mailinfo.mailcc)) AT END;
+
+    //IF(this->errorsto != "")
+    //  INSERT INTO headers(field,value) VALUES("Errors-To", this->errorsto) AT END;
+
+    //Generate the mailing itself!
+    toppart := AddAttachmentsToMail(toppart, this->attachments);
+    toppart := __AddAlternativesToMail(toppart, this->alternatives);
+
+    RETURN [ headers := headers, toppart := toppart ];
+  }
+
+  RECORD FUNCTION GetFinalMailinfo()
+  {
+    RETURN [ mailfrom := this->mailfrom ?? this->metainfo.mailfrom
+           , replyto := this->replyto ?? this->metainfo.replyto
+           , mailto := this->mailto CONCAT this->metainfo.mailto
+           , mailcc := this->mailcc CONCAT this->metainfo.mailcc
+           , mailbcc := this->mailbcc CONCAT this->metainfo.mailbcc
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION PrepareMailForSending()
+  {
+    RECORD mailing := this->CreateMailing();
+    STRING origin := this->origin;
+    IF(origin="")
+      origin := this->contents_originalpath;
+
+    // Retokenize the mailto & mailcc
+    RECORD mailinfo := this->GetFinalMailinfo();
+    RECORD ARRAY specified_recvs :=
+        SELECT AS RECORD ARRAY SplitEmailName(email)
+          FROM ToRecordArray(RetokenizeEmailAddresses(mailinfo.mailto CONCAT mailinfo.mailcc CONCAT mailinfo.mailbcc), "email")
+      GROUP BY email;
+
+    STRING ARRAY receivers := SELECT AS STRING ARRAY email FROM specified_recvs WHERE email != "";
+
+    STRING envelopefrom := this->errorsto;
+    IF(envelopefrom = "")
+      envelopefrom := SplitEmailName(mailinfo.mailfrom).email;
+
+    RETURN
+        [ origin :=       origin
+        , receivers :=    receivers
+        , envelopefrom := envelopefrom
+        , mailing :=      mailing
+        ];
+  }
+
+  MACRO ResetMetadata()
+  {
+    this->metainfo := [ mailfrom := ""
+                      , replyto := ""
+                      , mailto := DEFAULT STRING ARRAY
+                      , mailcc := DEFAULT STRING ARRAY
+                      , mailbcc := DEFAULT STRING ARRAY
+                      ];
+  }
+
+  //extract meta tags from the document which can be used to supplant/overwrite mailfrom,to etc
+  UPDATE MACRO ExtractMetadata(OBJECT htmldoc)
+  {
+    this->ResetMetadata();
+    FOREVERY(OBJECT metatag FROM htmldoc->GetElementsByTagName("meta")->GetCurrentElements())
+    {
+      STRING metaname := ToLowercase(metatag->GetAttribute("name"));
+      IF(metaname NOT LIKE "wh-mailcomposer-*")
+        CONTINUE;
+
+      IF(IsNodeApplicableToThisWebHare(metatag, [ prefix := "data-" ]))
+      {
+        SWITCH(metaname)
+        {
+          CASE "wh-mailcomposer-from"
+          {
+            this->metainfo.mailfrom := metatag->GetAttribute("value");
+          }
+          CASE "wh-mailcomposer-replyto"
+          {
+            this->metainfo.replyto := metatag->GetAttribute("value");
+          }
+          CASE "wh-mailcomposer-to"
+          {
+            this->metainfo.mailto := TokenizeEmailAddresses(metatag->GetAttribute("value"));
+          }
+          CASE "wh-mailcomposer-cc"
+          {
+            this->metainfo.mailcc := TokenizeEmailAddresses(metatag->GetAttribute("value"));
+          }
+          CASE "wh-mailcomposer-bcc"
+          {
+            this->metainfo.mailbcc := TokenizeEmailAddresses(metatag->GetAttribute("value"));
+          }
+          CASE "wh-mailcomposer-applystylesinline"
+          {
+            this->applystylesinline := ParseXSBoolean(metatag->GetAttribute("value"));
+          }
+          DEFAULT
+          {
+            THROW NEW Exception(`Unrecognized composer meta attribute '${metaname}'`);
+          }
+        }
+        //ADDME attachment, inlinestyles ?
+      }
+
+      metatag->parentnode->removechild(metatag);
+    }
+  }
+
+  UPDATE STRING FUNCTION DoAddEmbeddedObject(BLOB data, STRING mimetype, STRING filename, BOOLEAN external)
+  {
+    STRING cid := GenerateMIMEContentId();
+    STRING href := 'cid:' || cid;
+    INSERT INTO this->embedded_files(contentid, contenttype, data, filename, external, href)
+           VALUES('<' || cid || '>', mimetype, data, filename, external, href)
+           AT END;
+    RETURN href;
+  }
+
+  UPDATE BLOB FUNCTION LoadEML(BLOB inputdoc)
+  {
+    BLOB htmldata := ComposerBase::LoadEML(inputdoc);
+
+    RECORD ARRAY attachments := GetAttachments2(ProcessPartDataRecursive(this->decodedeml.data, 1).part);
+    this->attachments := this->attachments CONCAT SELECT name, contenttype := mimetype, external := FALSE, data FROM attachments;
+
+    this->mailfrom := this->decodedeml.sender;
+    this->mailto := TokenizeEmailAddresses(this->decodedeml.tos);
+    this->mailcc := TokenizeEmailAddresses(this->decodedeml.ccs);
+    this->mailbcc := this->mailbcc CONCAT TokenizeEmailAddresses(this->decodedeml.bccs);
+    this->subject := (this->subjectprefix != "" ? TrimWhitespace(this->subjectprefix) || " " : "") || this->decodedeml.subject;
+
+    RETURN htmldata;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  UPDATE STRING FUNCTION EmbedCallback(STRING filename, STRING mimetype, BOOLEAN storedata, BLOB data)
+  {
+    /* Do we have this file yet? */
+    RECORD already_embedded := SELECT * FROM this->embedmap WHERE wordfilename = filename;
+    IF(RecordExists(already_embedded))
+    {
+      IF(storedata)
+        this->UpdateEmbeddedObjectData(already_embedded.cid, data);
+
+      RETURN already_embedded.cid;
+    }
+    ELSE
+    {
+      STRING cid := this->DoAddEmbeddedObject(data, mimetype, filename, FALSE);
+      INSERT [ cid := cid, wordfilename := filename ] INTO this->embedmap AT END;
+      RETURN cid;
+    }
+  }
+
+  UPDATE MACRO HyperlinkCallback(RECORD hlink, FUNCTION PTR oldcallback)
+  {
+    IF(this->onhyperlinkhref != DEFAULT FUNCTION PTR)
+      hlink.href := this->onhyperlinkhref(hlink.href);
+    oldcallback(hlink);
+  }
+
+  UPDATE STRING FUNCTION OnImage(RECORD rootpart, STRING url)
+  {
+    RECORD embedded_version := this->FindByCid(rootpart, url);
+    IF(RecordExists(embedded_version))
+    {
+      IF(NOT RecordExists(SELECT FROM this->embedded_files WHERE contentid = embedded_version.contentid))
+      {
+        INSERT [ contentid := embedded_version.contentid
+               , contenttype := GetMIMEHeaderParameter(embedded_version.mimetype,"")
+               , data := embedded_version.data
+               , filename := GetMIMEHeaderParameter(embedded_version.mimetype,"name")
+               , external := FALSE
+               ] INTO this->embedded_files AT END;
+      }
+    }
+    RETURN url;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Set the rich body using a rich document */
+  PUBLIC MACRO SetBodyFromRichdoc(OBJECT richdocument)
+  {
+    RECORD exp := richdocument->ExportAsRecord();
+    this->contents_type := 1;
+    this->contents_original := exp.htmltext;
+
+    DELETE FROM this->embedded_files WHERE external=TRUE;
+    DELETE FROM this->attachments WHERE external=TRUE;
+
+    FOREVERY(RECORD emb FROM exp.embedded)
+      INSERT [ contentid := "<" || emb.contentid || ">"
+             , contenttype := emb.mimetype
+             , data := emb.data
+             , filename := emb.filename
+             , external := TRUE
+             ] INTO this->embedded_files AT END;
+  }
+
+  /** @short Add an attachment to the mailing
+      @param attachmentpath Path to attachment, interpreted relative to LoadRichBody path
+      @param mimetype Mimetype. If empty, we'll try to autodect it */
+  PUBLIC MACRO AddAttachment(BLOB attachment, STRING filename, STRING mimetype)
+  {
+    IF(mimetype="")
+      mimetype := ScanBlob(attachment, filename).mimetype;
+
+    INSERT [ name := filename, data := attachment, contenttype := mimetype, external := TRUE ]
+           INTO this->attachments AT END;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetAttachments()
+  {
+    RETURN SELECT filename := name, data, mimetype := contenttype FROM this->attachments;
+  }
+
+  /** @short Add an alternative to the mailing
+      @param attachmentpath Path to attachment, interpreted relative to LoadRichBody path
+      @param mimetype Mimetype. If empty, we'll try to autodect it */
+  PUBLIC MACRO AddAlternative(BLOB attachment, STRING filename, STRING mimetype)
+  {
+    IF(mimetype="")
+      mimetype := ScanBlob(attachment, filename).mimetype;
+
+    INSERT [ name := filename, data := attachment, contenttype := mimetype, external := TRUE ]
+           INTO this->alternatives AT END;
+  }
+
+  /** @short Add an attachment relative to the mailing we uplodaded
+      @param attachmentpath Path to attachment, interpreted relative to LoadRichBody path
+      @param mimetype Mimetype. If empty, we'll try to autodect it */
+  PUBLIC MACRO AddAttachmentRelative(STRING attachmentpath, STRING mimetype)
+  {
+    BLOB attachment := this->OpenRelativePath(attachmentpath);
+    this->AddAttachment(attachment, GetNameFromPath(attachmentpath), mimetype);
+  }
+
+  /** @short Embed data for use in HTML mailings
+      @param data Data to add
+      @param mimetype Mime-type of the data
+      @param filename Optional filename associated with this object. If specified, this filename can be referred to in the generated content
+      @return An URL to the embedded data (eg cid:m-1234-abcdef123456789) */
+  PUBLIC STRING FUNCTION AddEmbeddedObject(BLOB data, STRING mimetype, STRING filename)
+  {
+    RETURN this->DoAddEmbeddedObject(data, mimetype, filename,  TRUE);
+  }
+
+  MACRO UpdateEmbeddedObjectData(STRING updatecid, BLOB newdata)
+  {
+    UPDATE this->embedded_files SET data := newdata WHERE 'cid:' || contentid = updatecid;
+  }
+
+  PUBLIC BOOLEAN FUNCTION QueueMail()
+  {
+    RECORD prepared := this->PrepareMailForSending();
+    RETURN QueueMail(prepared.origin, prepared.receivers, prepared.envelopefrom, prepared.mailing.headers, prepared.mailing.toppart);
+  }
+
+  /** Queue the email in the current transaction
+      @return IDs of the generated task, one per receiver
+  */
+  PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD prepared := this->PrepareMailForSending();
+    RETURN QueueMailInWork(prepared.origin, prepared.receivers, prepared.envelopefrom, prepared.mailing.headers, prepared.mailing.toppart, options);
+  }
+
+  PUBLIC BLOB FUNCTION ExportAsEML()
+  {
+    RECORD mailing := this->CreateMailing();
+    RETURN EncodeMIMEMessage(mailing.headers, mailing.toppart);
+  }
+
+  PUBLIC RECORD FUNCTION ExportAsMimeMail()
+  {
+    RETURN DecodeMIMEMessage(this->ExportAsEML());
+  }
+>;
+
+/** @private deprecated, use %PrepareMailWitty
+    @return(object #LegacyEmailComposer) E-mail composer
+*/
+PUBLIC OBJECT FUNCTION MakeEmailComposer()
+{
+  RETURN NEW LegacyEmailComposer;
+}
+
+/** @short Email composer returned by %PrepareMailWitty
+    @public */
+STATIC OBJECTTYPE WittyMailComposer
+<
+  ///Mail subject. If not set it will be extraced from the `<title>` of the mail message
+  PUBLIC STRING subject;
+  STRING mailwittyresource;
+  STRING mailwittycomponent;
+  STRING mailtemplateresource;
+  RECORD ARRAY embeddedassets;
+  RECORD ARRAY __attachments;
+  RECORD ARRAY alternatives;
+  STRING ARRAY __mailto;
+  STRING ARRAY __mailcc;
+  STRING ARRAY __mailbcc;
+  STRING __mailtemplatepath;
+  STRING ARRAY seenfiles;
+  OBJECT __webcontext;
+  RECORD __mergerecordextensions;
+
+  ///Merge data for the witty
+  PUBLIC RECORD mergerecord;
+  ///Sender name to use. If set, this overwrite the name part of the mailfrom
+  PUBLIC STRING mailsendername;
+  ///Mail sender. If not set it will use the `wh-mailcomposer-from` META tag and if that's unset, the server's default sender address
+  PUBLIC STRING mailfrom;
+  ///Origin to locate this mail in the mailqueue. Is added as the `X-WebHare-Origin` header in the outgoing mail. Defaults to the witty path
+  PUBLIC STRING origin;
+  ///Error-To address that should receive any bounce messages. Falls back to the mailform if not set.
+  PUBLIC STRING errorsto;
+  ///Reply-To to use. Replies will go to this email address
+  PUBLIC STRING replyto;
+
+  ///Mail recipients.
+  PUBLIC PROPERTY mailto(__mailto, SetMailTo);
+  PUBLIC PROPERTY mailcc(__mailcc, SetMailCc);
+  PUBLIC PROPERTY mailbcc(__mailbcc, SetMailBcc);
+  PUBLIC PROPERTY mailtemplatepath(__mailtemplatepath, -);
+  ///Attachments added to the mail
+  PUBLIC PROPERTY attachments(__attachments, -);
+  /// Extensions for the merge record supplied by webcontext plugins (see %WebDesignPluginBase::HookPrepareMail)
+  PUBLIC PROPERTY mergerecordextensions(__mergerecordextensions, -);
+  PUBLIC BOOLEAN restructure;
+  ///Witty encoding to use for reading the mail template. Defaults to "HTML"
+  PUBLIC STRING wittyencoding;
+
+  MACRO NEW(STRING mailwitty, OBJECT webcontext, STRING mailtemplate)
+  {
+    this->wittyencoding := "HTML";
+    this->restructure := TRUE;
+    this->__webcontext := webcontext;
+    this->__mailtemplatepath := mailwitty;
+
+    IF(NOT IsAbsoluteResourcePath(mailwitty))
+      THROW NEW Exception("The witty path must be an absolute resource");
+
+    IF(mailwitty LIKE "?*::?*:*") //refers to a component
+    {
+      this->mailwittycomponent := Tokenize(mailwitty,':')[3];
+      mailwitty := Left(mailwitty, Length(mailwitty) - Length(this->mailwittycomponent) - 1);
+    }
+    this->mailwittyresource := mailwitty;
+
+    IF(mailtemplate != "")
+      this->mailtemplateresource := mailtemplate;
+
+    IF (ObjectExists(this->__webcontext))
+    {
+      FOREVERY (OBJECT plugin FROM this->__webcontext->GetPluginsByFeature("preparemail"))
+        this->__mergerecordextensions := CELL[ ...plugin->HookPrepareMail(), ...this->__mergerecordextensions ];
+    }
+  }
+
+  STRING FUNCTION RewriteLink(STRING respath, STRING url)
+  {
+    IF(NOT IsAbsoluteResourcePath(url) AND IsAbsoluteURL(url, FALSE))
+      RETURN url;
+
+    BLOB asset;
+    STRING filename;
+
+    RECORD cached := GetCachedDataFromURL(url);
+    IF(RecordExists(cached))
+      RETURN this->AddEmbeddedObject(cached.data, CELL[ cached.filename ]);
+
+    url := MakeAbsoluteResourcePath(respath,url);
+    INSERT url INTO this->seenfiles AT END;
+    RETURN this->AddEmbeddedObject(GetWebhareResource(url), CELL[ filename := GetNameFromPath(url) ]);
+  }
+
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN GetResourceEventMasks(this->seenfiles);
+  }
+
+  PUBLIC STRING FUNCTION AddEmbeddedObject(BLOB asset, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([filename := ""], options);
+    STRING hash := GetHashForBlob(asset,"SHA-1");
+
+    RECORD existingmatch := SELECT * FROM this->embeddedassets WHERE embeddedassets.hash = hash;
+    IF(RecordExists(existingmatch))
+      RETURN existingmatch.mailurl;
+
+    RECORD fileinfo := ScanBlob(asset, options.filename);
+    IF(options.filename = "")
+      options.filename := "embed" || (Length(this->embeddedassets) + 1) || fileinfo.extension;
+
+    STRING contentid := GenerateMIMEContentId();
+    INSERT [ contentid := "<" || contentid || ">"
+           , contenttype := fileinfo.mimetype
+           , data := asset
+           , filename := options.filename
+           , external := TRUE
+           , mailurl := "cid:" || contentid
+           , hash := hash
+           ] INTO this->embeddedassets AT END;
+    RETURN "cid:" || contentid;
+  }
+
+  OBJECT FUNCTION GenerateHTML(OBJECT witty, STRING respath, RECORD mergedata, STRING component)
+  {
+    BLOB result := witty->RunComponentToBlob(component, mergedata);
+    OBJECT htmldoc := MakeXMLDocumentFromHTML(result);
+
+    NEW HtmlRewriterContext->RewriteEmbeddedLinks(htmldoc, PTR this->RewriteLink(respath, #1));
+
+    RETURN htmldoc;
+  }
+
+  OBJECT FUNCTION ApplyMailTemplate(OBJECT maildoc, OBJECT template, STRING resource, RECORD mergerecord)
+  {
+    OBJECT mailtemplatedoc := this->GenerateHTML(template, resource, mergerecord, "");
+
+    OBJECT mailtemplatehead := mailtemplatedoc->GetElementsByTagName("head")->Item(0);
+    IF(NOT ObjectExists(mailtemplatehead))
+    {
+      mailtemplatehead := mailtemplatedoc->CreateElement("head");
+      mailtemplatedoc->documentelement->AppendChild(mailtemplatehead);
+    }
+
+    OBJECT maildochead := maildoc->GetElementsByTagName("head")->Item(0);
+    IF(ObjectExists(maildochead))
+    {
+      FOREVERY(OBJECT stylenode FROM maildochead->GetElements("style, meta"))
+      {
+        mailtemplatehead->AppendChild(mailtemplatedoc->ImportNode(stylenode,true));
+      }
+
+      OBJECT title := maildochead->GetElement("title");
+      IF(ObjectExists(title))
+      {
+        FOREVERY(OBJECT existingtitle FROM mailtemplatehead->GetElements("title"))
+          existingtitle->Dispose();
+        mailtemplatehead->AppendChild(mailtemplatedoc->ImportNode(title,true));
+      }
+    }
+
+    OBJECT ARRAY slots := mailtemplatedoc->GetElementsByTagName("slot")->GetCurrentElements();
+    IF(Length(slots) != 1 OR slots[0]->GetAttribute("name") != "mailbody")
+      THROW NEW Exception(`Mailtemplate '${this->mailtemplateresource} must contain exactly one <slot></slot> element with name="mailbody"`);
+
+    FOREVERY(OBJECT toinsert FROM maildoc->GetElementsByTagName("body")->item(0)->childnodes->GetCurrentNodes())
+      slots[0]->parentnode->InsertBefore(mailtemplatedoc->ImportNode(toinsert, TRUE), slots[0]);
+    slots[0]->Dispose();
+
+    RETURN mailtemplatedoc;
+  }
+
+  PUBLIC RECORD FUNCTION __PrepareContent()
+  {
+    this->embeddedassets := RECORD[];
+    this->seenfiles := STRING[];
+
+    RECORD mergerecord := CELL[ ...this->mergerecord, ...this->__mergerecordextensions ];
+
+    OBJECT mailwitty := LoadWittyLibrary(this->mailwittyresource,this->wittyencoding);
+    OBJECT maildoc := this->GenerateHTML(mailwitty, this->mailwittyresource, mergerecord, this->mailwittycomponent);
+
+    //Apply any additional templates given by the first witty
+    INTEGER numapplied := 0;
+    WHILE(TRUE)
+    {
+      IF(numapplied>=8)
+        THROW NEW Exception("Too many templates are being applied");
+
+      BOOLEAN applied;
+      OBJECT ARRAY applytemplates := maildoc->GetElements("meta[name=wh-mailcomposer-applytemplate]");
+      FOREVERY(OBJECT templ FROM applytemplates)
+      {
+        templ->Dispose();
+
+        IF(IsNodeApplicableToThisWebHare(templ, [ prefix := "data-" ]))
+        {
+          //We've found one to apply
+          STRING toapply := MakeAbsoluteResourcePath(this->mailwittyresource, templ->GetAttribute("value"));
+          numapplied := numapplied + 1;
+          INSERT toapply INTO this->seenfiles AT END;
+
+          OBJECT witty := LoadWittyLibrary(toapply,this->wittyencoding);
+          maildoc := this->ApplyMailTemplate(maildoc, witty, toapply, mergerecord);
+
+          applied := TRUE;
+          BREAK;
+        }
+      }
+
+     IF(NOT applied) //nothing to do
+       BREAK;
+    }
+
+    //Apply official templates
+    IF(this->mailtemplateresource != "")
+    {
+      INSERT this->mailtemplateresource INTO this->seenfiles AT END;
+      OBJECT mailtemplate := LoadWittyLibrary(this->mailtemplateresource, this->wittyencoding);
+      maildoc := this->ApplyMailTemplate(maildoc, mailtemplate, this->mailtemplateresource, mergerecord);
+    }
+
+    IF(this->restructure)
+      RestructureEmailForCompatibility(maildoc);
+
+    //Apply style cleanups
+    FOREVERY(OBJECT style FROM maildoc->GetElementsByTagName("style")->GetCurrentElements())
+      MakeCSSStyleSheet(StringToBlob(style->textcontent))->RewriteDomStyles(maildoc);
+
+    RECORD metainfo := this->ExtractMetatags(maildoc); //extract before creating the HTML version!
+    BLOB htmlversion := NEW HtmlRewriterContext->GenerateHTML(maildoc);
+
+    //Setup to's, etc.
+    STRING subject := this->subject;
+    IF(subject = "") //extract from <title>
+    {
+      OBJECT title := maildoc->GetElementsByTagName("title")->Item(0);
+      IF(ObjectExists(title))
+        subject := TrimWhitespace(title->textcontent);
+    }
+
+    STRING mailfrom := this->mailfrom ?? metainfo.mailfrom ?? ReadRegistryKey("system.services.smtp.mailfrom");
+    IF(this->mailsendername != "")
+    {
+      RECORD split := SplitEmailName(mailfrom);
+      mailfrom := MakeEmailAddress(this->mailsendername, split.email, FALSE);
+    }
+    STRING ARRAY mailto := this->mailto CONCAT metainfo.mailto;
+    STRING ARRAY mailcc := this->mailcc CONCAT metainfo.mailcc;
+
+    RETURN CELL[ mailfrom
+               , mailto
+               , mailcc
+               , mailbcc := this->mailbcc CONCAT metainfo.mailbcc
+               , subject
+               , replyto := this->replyto ?? metainfo.replyto
+               , htmlversion
+               , attachments := this->__attachments
+               , embeddedassets := this->embeddedassets
+               ];
+  }
+
+  RECORD FUNCTION CreateMailing()
+  {
+    RECORD prep := this->__PrepareContent();
+    RECORD ARRAY headers :=
+      [ [ field := "MIME-Version",   value := "1.0" ]
+      , [ field := "Date",           value := FormatDatetime("%a, %d %b %Y %H:%M:%S +0000", GetCurrentDatetime()) ]
+      , [ field := "Subject",        value := EncodeMIMEWords(prep.subject) ]
+      ];
+
+    //Generate a TEXT counterpart of the HTML data - ADDME optimize by directly using the DOM
+    BLOB textversion := ConvertHTMLToPlainText(prep.htmlversion, 0, "UTF-8", DEFAULT MACRO PTR);
+    RECORD toppart := CreateMIMEMailingTopPart(textversion, prep.htmlversion, this->embeddedassets);
+
+    IF(prep.mailfrom != "")
+      INSERT [ field := "From", value := PrettyFormatEmailAddress(prep.mailfrom) ] INTO headers AT END;
+
+    IF(prep.replyto != "")
+      INSERT [ field := "Reply-To", value := PrettyFormatEmailAddress(prep.replyto) ] INTO headers AT END;
+
+    IF(Length(prep.mailto)>0)
+      INSERT [ field := "To", value := GetMailRecipients(prep.mailto) ] INTO headers AT END;
+
+    IF(Length(prep.mailcc)>0)
+      INSERT [ field := "Cc", value := GetMailRecipients(prep.mailcc) ] INTO headers AT END;
+
+    STRING ARRAY mailrecipients := prep.mailto CONCAT prep.mailcc CONCAT prep.mailbcc;
+
+    toppart := AddAttachmentsToMail(toppart, prep.attachments);
+    toppart := __AddAlternativesToMail(toppart, this->alternatives);
+
+    this->embeddedassets := RECORD[];
+
+    STRING returnpath := this->errorsto ?? prep.mailfrom;
+    IF(returnpath != "")
+      INSERT [ field := "Return-Path", value := PrettyFormatEmailAddress(returnpath) ] INTO headers AT END;
+
+    RETURN CELL [ headers
+                , toppart
+                , envelopefrom := this->errorsto ?? prep.mailfrom
+                , recipients := mailrecipients
+                ];
+  }
+
+  //extract meta tags from the document which can be used to supplant/overwrite mailfrom,to etc
+  RECORD FUNCTION ExtractMetatags(OBJECT htmldoc)
+  {
+    RECORD metainfo := [ mailfrom := ""
+                       , replyto := ""
+                       , mailto := DEFAULT STRING ARRAY
+                       , mailcc := DEFAULT STRING ARRAY
+                       , mailbcc := DEFAULT STRING ARRAY
+                       , applytemplate := ""
+                       ];
+
+    FOREVERY(OBJECT metatag FROM htmldoc->GetElementsByTagName("meta")->GetCurrentElements())
+    {
+      STRING metaname := ToLowercase(metatag->GetAttribute("name"));
+      IF(metaname NOT LIKE "wh-mailcomposer-*")
+        CONTINUE;
+
+      metatag->Dispose(); //remove it from the dom, whether or not we apply it
+      IF(IsNodeApplicableToThisWebHare(metatag, [ prefix := "data-" ]))
+      {
+        SWITCH(metaname)
+        {
+          CASE "wh-mailcomposer-from"
+          {
+            metainfo.mailfrom := metatag->GetAttribute("value");
+          }
+          CASE "wh-mailcomposer-replyto"
+          {
+            metainfo.replyto := metatag->GetAttribute("value");
+          }
+          CASE "wh-mailcomposer-to"
+          {
+            metainfo.mailto := TokenizeEmailAddresses(metatag->GetAttribute("value"));
+          }
+          CASE "wh-mailcomposer-cc"
+          {
+            metainfo.mailcc := TokenizeEmailAddresses(metatag->GetAttribute("value"));
+          }
+          CASE "wh-mailcomposer-bcc"
+          {
+            metainfo.mailbcc := TokenizeEmailAddresses(metatag->GetAttribute("value"));
+          }
+          DEFAULT
+          {
+            THROW NEW Exception(`Unrecognized composer meta attribute '${metaname}'`);
+          }
+        }
+      }
+    }
+
+    RETURN metainfo;
+  }
+
+  STRING FUNCTION RewriteRTDEmbeddedLink(RECORD rtd, STRING url)
+  {
+    IF(url LIKE "cid:*") //we should be able to resolve this one to the RTD images
+    {
+      RECORD match;
+      IF(CellExists(rtd,"embedded"))
+        match := SELECT * FROM rtd.embedded WHERE "cid:" || contentid = url;
+
+      IF(RecordExists(match))
+        RETURN this->AddEmbeddedObject(match.data);
+    }
+    RETURN url;
+  }
+
+  STRING FUNCTION RewriteRTDLink(RECORD rtd, STRING url)
+  {
+    IF(url LIKE "x-richdoclink:*")
+      RETURN ResolveRichDocLink(rtd.links, url);
+
+    RETURN url;
+  }
+
+  /** @short Print a RTD for embedding into a mail, with support for images and raw HTML objects
+      @param rtdtext Rich document to embed
+      @cell(boolean) options.rawwittytags Interpret and merge any witty tags found anywhere in HTML, inside embedhtml and content, accepting potential crashes
+      @cell(boolean) options.wittyhyperlinks Support witty tags in hyperlinks if they're prefixed with x-witty:
+      @cell(macro ptr) options.htmlpostprocessor Callback which will receive a DOM to rewrite after the rest of the RTD has been prepared
+      */
+  PUBLIC MACRO RenderRTD(RECORD rtdtext, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ rawwittytags := FALSE
+                               , wittyhyperlinks := FALSE
+                               , htmlpostprocessor := DEFAULT MACRO PTR
+                               , __mergecontext := DEFAULT RECORD
+                               ], options);
+    IF(NOT RecordExists(rtdtext))
+      RETURN; //easy!
+
+    rtdtext := ValidateRichDocument(rtdtext);
+
+    //ADDME more sophisticated processing... but we probably need separate widget implementations, still nicer to use more from publishable.whlib
+    RECORD ARRAY substitutions;
+    OBJECT content := MakeXMLDocumentFromHTML(rtdtext.htmltext);
+    FOREVERY(OBJECT embeddedobj FROM content->GetElements(".wh-rtd-embeddedobject"))
+    {
+      RECORD instance := SELECT * FROM rtdtext.instances WHERE instanceid = embeddedobj->GetAttribute("data-instanceid");
+      IF (RecordExists(options.__mergecontext))
+      {
+        IF (RecordExists(instance))
+        {
+          OBJECT embeddedobject := GetEmbeddedObjectRenderer(DEFAULT OBJECT, options.__mergecontext.applytester, options.__mergecontext.rtdtype.namespace, instance.data, options.__mergecontext.context).widget;
+          STRING substid := GenerateUFS128Bitid();
+          INSERT CELL [ substid, render := PTR embeddedobject->RenderLive() ] INTO substitutions AT END;
+          embeddedobj->parentnode->insertbefore(embeddedobj->ownerdocument->CreateTextNode(substid), embeddedobj);
+        }
+      }
+      ELSE IF (embeddedobj->nodename = "div") // Old behaviour, content->GetElements("div.wh-rtd-embeddedobject")
+      {
+        IF(RecordExists(instance) AND instance.data.whfstype = "http://www.webhare.net/xmlns/publisher/embedhtml")
+        {
+          STRING substid := GenerateUFS128Bitid();
+          INSERT CELL [ substid, html := instance.data.html ] INTO substitutions AT END;
+          embeddedobj->parentnode->insertbefore(embeddedobj->ownerdocument->CreateTextNode(substid), embeddedobj);
+        }
+      }
+      embeddedobj->parentnode->removechild(embeddedobj);
+    }
+    IF(options.wittyhyperlinks)
+    {
+      FOREVERY(OBJECT link FROM content->GetElements("a"))
+      {
+        STRING href := link->GetAttribute("href");
+        IF(href LIKE "x-witty:*")
+        {
+          OBJECT hrefwitty := NEW WittyTemplate("TEXT");
+          hrefwitty->LoadCodeDirect(Substring(href, 8));
+          link->SetAttribute("href", hrefwitty->RunToString(this->mergerecord));
+        }
+      }
+    }
+
+    NEW HtmlRewriterContext->RewriteEmbeddedLinks(content, PTR this->RewriteRTDEmbeddedLink(rtdtext, #1));
+    NEW HtmlRewriterContext->RewriteLinks(content, PTR this->RewriteRTDLink(rtdtext, #1));
+    IF(options.htmlpostprocessor != DEFAULT MACRO PTR)
+      options.htmlpostprocessor(content);
+
+    STRING text := NormalizeWhitespace(content->body->innerhtml);
+    FOREVERY(RECORD subst FROM substitutions)
+    {
+      IF (CellExists(subst, "render"))
+      {
+        INTEGER widgettext := CreateStream();
+        INTEGER oldredirect := RedirectOutputTo(widgettext);
+        subst.render();
+        RedirectOutputTo(oldredirect);
+        text := Substitute(text, subst.substid, BlobToString(MakeBlobFromStream(widgettext)));
+      }
+      ELSE
+        text := Substitute(text, subst.substid, subst.html);
+    }
+
+    IF(options.rawwittytags)
+    {
+      OBJECT rtdwitty := NEW WittyTemplate(this->wittyencoding);
+      rtdwitty->LoadCodeDirect(text);
+      text := rtdwitty->RunToString(this->mergerecord);
+    }
+    Print(text);
+  }
+
+  /** @short Get a renderer for embedding a RTD into a mail, with support for images and raw HTML objects
+      @param richdoc Rich document to embed
+      @param options includecelldef #RenderRTD.options
+      @return A Function PTR rendering the RTD, or a DEFAULT MACRO PTR if the RTD was empty */
+  PUBLIC MACRO PTR FUNCTION GetRTDBody(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT RecordExists(richdoc))
+      RETURN DEFAULT MACRO PTR;
+
+    RETURN PTR this->RenderRTD(richdoc, options);
+  }
+
+
+  /** @short Render the email and export as an EML document */
+  PUBLIC BLOB FUNCTION ExportAsEML()
+  {
+    RECORD mailing := this->CreateMailing();
+    RETURN EncodeMIMEMessage(mailing.headers, mailing.toppart, [ rawheaders := TRUE ]);
+  }
+
+  /** @short Queue the mail into the current work
+      @cell options See the QueueMailInWork global function
+      @return Task ids */
+  PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD prepared := this->CreateMailing();
+    STRING origin := this->origin ?? this->mailwittyresource;
+    RETURN QueueMailInWork(origin, prepared.recipients, prepared.envelopefrom, prepared.headers, prepared.toppart, CELL[...options, rawheaders := TRUE]);
+  }
+
+  /// Accepts STRING and STRING ARRAY
+  MACRO SetMailTo(VARIANT newvalue)
+  {
+    IF (TypeID(newvalue) = TypeID(STRING))
+      newvalue := TokenizeEmailAddresses(newvalue);
+    this->__mailto := newvalue;
+  }
+
+  /// Accepts STRING and STRING ARRAY
+  MACRO SetMailCc(VARIANT newvalue)
+  {
+    IF (TypeID(newvalue) = TypeID(STRING))
+      newvalue := TokenizeEmailAddresses(newvalue);
+    this->__mailcc := newvalue;
+  }
+
+  /// Accepts STRING and STRING ARRAY
+  MACRO SetMailBcc(VARIANT newvalue)
+  {
+    IF (TypeID(newvalue) = TypeID(STRING))
+      newvalue := TokenizeEmailAddresses(newvalue);
+    this->__mailbcc := newvalue;
+  }
+
+  /** @short Add a wrapped blob to the mailing
+      @param wrappedblob File to attach */
+  PUBLIC MACRO AddWrappedAttachment(RECORD wrappedblob)
+  {
+    this->AddAttachment(wrappedblob.data, [ mimetype := wrappedblob.mimetype, filename := wrappedblob.filename ]);
+  }
+  /** @short Add a wrapped blob to the mailing as an alternative
+      @param wrappedblob File to attach as alternative */
+  PUBLIC MACRO AddWrappedAlternative(RECORD wrappedblob)
+  {
+    this->AddAlternative(wrappedblob.data, [ mimetype := wrappedblob.mimetype, filename := wrappedblob.filename ]);
+  }
+
+  /** @short Add an attachment to the mailing.
+      @long Adds a blob and autodetects any missing properties. Use [AddWrappedAttachment](#AddWrappedAttachment) if you have a wrapped blob record
+      @param attachment Data of attachment
+      @cell(string) options.mimetype Mimetype. Autodetected by %ScanBlob if not set
+      @cell(string) options.filename Filename. Autogenerated if unset */
+  PUBLIC MACRO AddAttachment(BLOB attachment, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ mimetype := ""
+                                , filename := ""
+                                ], options);
+
+    IF(options.mimetype = "" OR options.filename = "")
+    {
+      RECORD filedata := ScanBlob(attachment, options.filename);
+      IF(options.mimetype = "")
+        options.mimetype := filedata.mimetype;
+      IF(options.filename = "")
+        options.filename := "attachment" || Length(this->attachments) + 1 || filedata.extension;
+    }
+
+    INSERT [ name := options.filename, data := attachment, contenttype := options.mimetype, external := TRUE ]
+           INTO this->__attachments AT END;
+  }
+
+  /** @short Add an alternative to the mailing (eg ICS attachment)
+      @long Adds a blob as an alternative part (and requires all metadata to be set!). Use [AddWrappedAlternative](#AddWrappedAlternative) if you have a wrapped blob record
+      @param attachment Data of attachment
+      @cell(string) options.mimetype Mimetype. Required
+      @cell(string) options.filename Filename. Required.
+      */
+  PUBLIC MACRO AddAlternative(BLOB attachment, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ mimetype := ""
+                                , filename := ""
+                                ], options, [ required := ["mimetype","filename"]]);
+
+    INSERT [ name := options.filename, data := attachment, contenttype := options.mimetype, external := TRUE ]
+           INTO this->alternatives AT END;
+  }
+
+  /** @short Add an attachment relative to the mailing we uplodaded
+      @param resourcepath Path to attachment
+      @cell(string) options.mimetype Mimetype. Autodetected by %ScanBlob if not set
+      @cell(string) options.filename Filename. Autogenerated if unset */
+  PUBLIC MACRO AddResourceAsAttachment(STRING resourcepath, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    BLOB resource := GetWebhareResource(resourcepath);
+
+    options := ValidateOptions( [ mimetype := "" ], options);
+    this->AddAttachment(resource, [ filename := GetNameFromPath(resourcepath)
+                                  , mimetype := options.mimetype
+                                  ]);
+  }
+>;
+
+/** @short Set up a witty for mailing
+    @param mailwitty Mail witty to use, optionally append a ":component" to use a specific component
+    @cell(string) options.mailtemplate Path to optional mailtemplate to use. Should contain `<slot name="mailbody"></slot>` for the mail insertion point`
+    @cell(object) options.webcontext Webcontext (or webdesign) to use to resolve plugins that can supply mergerecord extensions.
+    @return(object #WittyMailComposer) A composable mail */
+PUBLIC OBJECT FUNCTION PrepareMailWitty(STRING mailwitty, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ mailtemplate := "", webcontext := DEFAULT OBJECT ], options);
+
+  OBJECT composer := NEW WittyMailComposer(mailwitty, options.webcontext, options.mailtemplate);
+  RETURN composer;
+}

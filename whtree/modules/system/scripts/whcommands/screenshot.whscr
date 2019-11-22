@@ -1,0 +1,107 @@
+<?wh
+/*
+wh screenshot --debug https://www.webhare.nl/
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/printer.whlib";
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "withalpha", type := "switch" ]
+    , [ name := "debug", type := "switch" ]
+    , [ name := "abortonlogerrors", type := "switch" ]
+    , [ name := "cutout", type := "stringlist" ]
+    , [ name := "width", type := "stringopt" ]
+    , [ name := "height", type := "stringopt" ]
+    , [ name := "delay", type := "stringopt" ]
+    , [ name := "o", type := "stringopt" ]
+    , [ name := "url", type := "param", required := TRUE ]
+    ]);
+
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: wh screenshot [ --withalpha ] [ --cutout '<css selector>' ]* [ --width <screenwidth> ] [ --height <screenwidth> ]\n"  ||
+                      "[ --delay <delay (ms)> ] [ -o outputfile ] url\n");
+  PRINT("  -s Save cutouts too\n");
+  TerminateScript();
+}
+
+RECORD options :=
+    [ withalpha :=    args.withalpha
+    , cutouts :=      (SELECT strategy := "css selector", selector FROM ToRecordArray(args.cutout, "SELECTOR"))
+    , getlog :=       TRUE
+    , delay :=        ToInteger(args.delay, 0)
+    , debug :=        args.debug
+    ];
+
+IF (args.width != "")
+  INSERT CELL screenwidth := ToInteger(args.width, 0) INTO options;
+IF (args.height != "")
+  INSERT CELL screenheight := ToInteger(args.width, 0) INTO options;
+
+RECORD data := GenerateBrowserScreenshot(args.url, options);
+
+BOOLEAN have_logerrors;
+IF (LENGTH(data.log) != 0)
+{
+  PRINT("Log:\n");
+  FOREVERY (RECORD rec FROM data.log)
+  {
+    INTEGER linepos := SearchLastSubString(rec.message, " (");
+    PRINT(FormatDateTime("%H:%M:%S.%Q:", UTCToLocal(rec.timestamp, "CET")) || " ");
+    SWITCH (rec.level)
+    {
+      CASE "WARNING"  { PRINT(AnsiCmd("bold,red")); have_logerrors := TRUE; }
+      DEFAULT         { PRINT(AnsiCmd("bold,white")); }
+    }
+    IF (linepos = -1)
+      linepos := LENGTH(rec.message);
+    PRINT(Left(rec.message, linepos) || AnsiCmd("reset") || SubString(rec.message, linepos) || "\n");
+  }
+}
+ELSE
+  PRINT("Log: empty\n");
+
+IF (have_logerrors AND args.abortonlogerrors)
+{
+  PRINT("Found log errors, exiting\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+IF (LENGTH(args.cutout) != 0)
+{
+  PRINT("\nCutouts\n");
+  DumpValue(
+        (SELECT nr :=           "#" || #cutouts + 1
+              , strategy
+              , selector
+              , coordinates :=  "(" || FormatMoney(MONEY(x), 0, ".", "", FALSE) || ", " || FormatMoney(MONEY(y), 0, ".", "", FALSE) || ")-" ||
+                                "(" || FormatMoney(MONEY(x + width), 0, ".", "", FALSE) || ", " || FormatMoney(MONEY(y + height), 0, ".", "", FALSE) || ")"
+              , found
+              , gotimage :=     RecordExists(image)
+           FROM data.cutouts), "boxed");
+}
+
+STRING outputfile := args.o ?? "screenshot.png";
+
+StoreDiskFile(outputfile, data.screenshot.data);
+PRINT("Screenshot saved at " || outputfile || "\n");
+
+STRING ext := GetExtensionFromPath(outputfile);
+STRING outputfilebase := Left(outputfile, LENGTH(outputfile) - LENGTH(ext));
+
+FOREVERY (RECORD cutout FROM data.cutouts)
+{
+  IF (NOT RecordExists(cutout.image))
+    CONTINUE;
+
+  STRING cutoutoutputfile := outputfilebase || "-cutout-" || #cutout + 1 || ext;
+  StoreDiskFile(cutoutoutputfile, cutout.image.data);
+  PRINT("Cutout #" || #cutout + 1 || " saved at " || cutoutoutputfile || "\n");
+}

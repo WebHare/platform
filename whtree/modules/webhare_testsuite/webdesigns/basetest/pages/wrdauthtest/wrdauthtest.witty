@@ -1,0 +1,95 @@
+[component error]
+  <span id="errormessage">[error]</span><br/>
+  <a id="back" href="[back]">back</a>
+[/component]
+
+[component pwdreset]
+  <form method="post" action="[verifiedlink]" autocomplete="off">
+    New password: <input name="password" id="password" />
+    <input type="submit" id="setpassword" value="set password" />
+  </form>
+[/component]
+
+[component pwdresetdone]
+  <span id="result">[if success]Success[/if]</span>
+  <a id="back" href="[back]">back</a>
+  <a id="static" href="../wrdauthtest-static/">static</a>
+[/component]
+
+[component wrdauthtest]
+  <h1>wrd.auth tests</h1>
+  [pwdresetresult]
+  <div class="wrdauthtest">
+    <fieldset>
+      <legend>WRD Auth witty status</legend>
+      isloggedin: <input disabled id="isloggedin" type="checkbox" [if wrdauthplugin.isloggedin]checked[/if] autocomplete="off"><br>
+      logoutlink: <input readonly id="logoutlink" value="[wrdauthplugin.logoutlink]" style="width:300px" autocomplete="off"><button id="logout" type="button">Logout</button><br/>
+    </fieldset>
+
+    <fieldset>
+      <legend>WRD Auth JavaScript status</legend>
+      isloggedin: <input disabled id="js_isloggedin" type="checkbox" autocomplete="off"><br>
+      fullname: <input readonly id="js_fullname" data-wrdauth-value="wrd_fullname" autocomplete="off"/><br>
+      <button id="logout" type="button">JS Logout</button><br/>
+    </fieldset>
+
+    <fieldset>
+      <legend>Login form</legend>
+      <form id="loginform" class="wh-wrdauth__loginform" autocomplete="off" method="POST">
+        <input name="login" id="login" placeholder="login"><br>
+        <input name="password" id="password" placeholder="password" type="password"><br>
+        <input type="submit" id="loginbutton" value="Login">
+      </form>
+    </fieldset>
+
+    <fieldset>
+      <legend>Password reset form</legend>
+      <form id="passwordresetform" method="post" action="[feedbackurl]" autocomplete="off">
+        <input name="resetlogin" id="resetlogin" placeholder="login"><br>
+        <input type="submit" name="passwordresetbutton" id="passwordresetbutton" value="Password rset">
+      </form>
+    </fieldset>
+
+    <fieldset>
+      <legend>User details form</legend>
+      <form id="detailsform" method="post" action="[feedbackurl]" autocomplete="off">
+        <input name="firstname" id="firstname" placeholder="first name" value="[firstname]"><br>
+        <input name="lastname"  id="lastname"  placeholder="last name"  value="[lastname]"><br>
+        <input name="detailsbutton" type="submit" id="detailsbutton" value="Update details">
+      </form>
+    </fieldset>
+
+    <div id="status">statusdiv</div>
+  </div>
+[/component]
+
+[component statictest]
+  <div class="wrdauthtest">
+    <fieldset>
+      <legend>WRD Auth JavaScript status</legend>
+      isloggedin: <input disabled id="js_isloggedin" type="checkbox"><br>
+      fullname: <input readonly id="js_fullname" data-wrdauth-value="wrd_fullname" /><br>
+      <button class="wh-wrdauth__logout" type="button">JS Logout</button><br/>
+    </fieldset>
+
+    <fieldset>
+      <legend>Static login form</legend>
+      <!-- in alternative format  div.whauth__loginform format -->
+      <div id="loginform" class="wh-wrdauth__loginform" method="POST">
+        <input name="login" id="login" placeholder="login"><br>
+        <input name="password" id="password" placeholder="password" type="password"><br>
+        <button type="button" class="wh-wrdauth__loginbutton">Login</button>
+      </div>
+    </fieldset>
+  </div>
+[/component]
+
+[component wrdauthrouter]
+  <div class="wrdauthrouter">
+    <p>
+      Logged in: <input disabled id="isloggedin" type="checkbox" [if wrdauthplugin.isloggedin]checked[/if] /><br/>
+      [if wrdauthrouter.passwordchangelink]<a href="[wrdauthrouter.passwordchangelink]" id="passwordchangelink">Change password</a>[/if]
+      [if wrdauthrouter.emailchangelink]<a href="[wrdauthrouter.emailchangelink]" id="emailchangelink">Change email</a>[/if]
+    </p>
+  </div>
+[/component]

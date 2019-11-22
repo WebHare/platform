@@ -1,0 +1,1118 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+LOADLIB "mod::socialite/lib/internal/support.whlib";
+
+RECORD ARRAY twitter_permission_map :=
+  [ [ id := 1  ] // GetOwnRecentStatuses
+  , [ id := 14 ] // UpdateTwitterStatus
+  ];
+
+
+STRING FUNCTION SafeGetStr(RECORD inrec, STRING cellname)
+{
+  IF(CellExists(inrec,cellname) AND TypeID(GetCell(inrec,cellname))=TypeID(STRING))
+    RETURN GetCell(inrec,cellname);
+  ELSE
+    RETURN "";
+}
+
+DATETIME FUNCTION ParseTwitterTime(STRING str)
+{
+  // Twitter: 'weekday monthname monthday time timezone year'
+  // Convert to 'weekday, year monthname monthday time timezone'
+
+  STRING ARRAY tokens := Tokenize(str, " ");
+  IF (LENGTH(tokens) = 6)
+  {
+    STRING nstr := tokens[0] || ", " || tokens[2] || " " || tokens[1] || " " || tokens[5] ||
+        " " || tokens[3] || " " || tokens[4];
+
+    RETURN MakeDateFromText(nstr);
+  }
+  RETURN DEFAULT DATETIME;
+}
+
+PUBLIC STRING FUNCTION MakeTwitterHtmlText(STRING text, RECORD entities)
+{
+  RECORD decoded := DecodeTwitterTextWithEntities(text, CombineTwitterEntities(entities));
+  text := decoded.text;
+  RECORD ARRAY wrappings;
+
+  //print(text||'\n');dumpvalue(entities,'tree');
+
+  //FIXME cleanup data as read from twitter, not after the fact. be robust against format errors
+  FOREVERY (RECORD entity FROM decoded.entities)
+  {
+    SWITCH (entity.type)
+    {
+      CASE "hashtag"
+      {
+        INSERT [ tag := "span"
+               , classname := "twitter-hashtag"
+               , href := ""
+               , data := [ [ field := "hashtag", value := entity.hashtag ] ]
+               , start := entity.indices[0]
+               , len := entity.indices[1] - entity.indices[0]
+               ] INTO wrappings AT END;
+      }
+      CASE "media"
+      {
+        INSERT [ tag := "a"
+               , classname := "twitter-media"
+               , href := entity.url
+               , data := DEFAULT RECORD ARRAY
+               , start := entity.indices[0]
+               , len := entity.indices[1] - entity.indices[0]
+               ] INTO wrappings AT END;
+      }
+      CASE "url"
+      {
+        INSERT [ tag := "a"
+               , classname := "twitter-url"
+               , href := entity.url
+               , data := DEFAULT RECORD ARRAY
+               , start := entity.indices[0]
+               , len := entity.indices[1] - entity.indices[0]
+               ] INTO wrappings AT END;
+      }
+      CASE "user_mention"
+      {
+        INSERT [ tag := "span"
+               , classname := "twitter-user"
+               , href := ""
+               , data := [ [ field := "screenname", value := entity.screenname ]
+                         , [ field := "name", value := entity.name ]
+                         ]
+               , start := entity.indices[0]
+               , len := entity.indices[1] - entity.indices[0]
+               ] INTO wrappings AT END;
+      }
+    }
+  }
+
+  IF(Length(wrappings)=0)
+    RETURN EncodeHTML(text);
+
+  wrappings := SELECT * FROM wrappings ORDER BY start;
+
+  STRING output;
+  INTEGER lastpos := 0;
+  FOREVERY(RECORD wrap FROM wrappings)
+  {
+    output := output || EncodeHTML(UCSubstring(text, lastpos, wrap.start-lastpos));
+    output := output || '<' || wrap.tag || ' class="' || EncodeValue(wrap.classname) || '"';
+    IF(wrap.href != "")
+      output := output || ' href="' || EncodeValue(wrap.href) || '"';
+    FOREVERY(RECORD data FROM wrap.data)
+      output := output || ' data-' || EncodeValue(data.field) || '="' || encodeValue(data.value) || '"';
+    output := output || '>' || EncodeHTML(UCSubstring(text, wrap.start, wrap.len)) || '</' || wrap.tag || '>';
+
+    lastpos := wrap.start + wrap.len;
+  }
+  output := output || EncodeHTML(UCSubstring(text, lastpos));
+
+  RETURN output;
+}
+
+PUBLIC RECORD ARRAY FUNCTION CombineTwitterEntities(RECORD entities)
+{
+  RECORD ARRAY combined;
+  IF (CellExists(entities, "HASHTAGS"))
+    FOREVERY (RECORD hashtag FROM RECORD ARRAY(entities.hashtags))
+    {
+      INSERT [ type := "hashtag"
+             , hashtag := hashtag.text
+             , indices := hashtag.indices
+             ] INTO combined AT END;
+    }
+  IF (CellExists(entities, "MEDIA"))
+    FOREVERY (RECORD media FROM RECORD ARRAY(entities.media))
+    {
+      INSERT [ type := "media"
+             , url := media.url
+             , display_url := media.display_url
+             , indices := media.indices
+             , image := media.media_url
+             ] INTO combined AT END;
+    }
+  IF (CellExists(entities, "URLS"))
+    FOREVERY (RECORD url FROM RECORD ARRAY(entities.urls))
+    {
+      INSERT [ type := "url"
+             , url := url.url
+             , display_url := url.display_url
+             , indices := url.indices
+             ] INTO combined AT END;
+    }
+  IF (CellExists(entities, "USER_MENTIONS"))
+    FOREVERY (RECORD mention FROM RECORD ARRAY(entities.user_mentions))
+    {
+      INSERT [ type := "user_mention"
+             , screenname := mention.screen_name
+             , name := mention.name
+             , indices := mention.indices
+             ] INTO combined AT END;
+    }
+  RETURN SELECT * FROM combined ORDER BY indices[0], indices[1];
+}
+
+OBJECT twitterparser;
+
+/** @short Decodes HTML entities within tweet texts, updating entity indices accordingly
+    @long Twitter encodes '<', '>' and '&' on write to prevent scripting attacks on sites that do not properly encode these
+          themselves. This function decodes those encoded HTML entities. Entity indices are calculated for the encoded text,
+          so they'll have to be updated if the text is decoded. This function will update the indices for the given entites.
+    @param text The text to decode
+    @param entities The entities to update, if any
+    @cell(integer array) entities.indices The entity indices
+    @return The decoded text and updated entities
+    @cell(string) return.text The decoded text
+    @cell(record array) return.entities The updated entities
+*/
+PUBLIC RECORD FUNCTION DecodeTwitterTextWithEntities(STRING text, RECORD ARRAY entities DEFAULTSTO DEFAULT RECORD ARRAY)
+{
+  // Use cached parser or create a new one
+  twitterparser := twitterparser ?? NEW StringParser();
+  twitterparser->Reset(text);
+
+  STRING decoded;
+  WHILE (TRUE)
+  {
+    // We're looking for HTML entities starting with '&'
+    decoded := decoded || twitterparser->ParseUntilCharacter("&");
+    // Check if we're done
+    IF (twitterparser->eof)
+      BREAK;
+
+    // If we can parse a known entity, replace it and update all following entity indices
+    IF (twitterparser->TryParse("&lt;"))
+    {
+      decoded := decoded || "<";
+      entities := UpdateEntityIndices(entities, UCLength(decoded), -3);
+    }
+    ELSE IF (twitterparser->TryParse("&gt;"))
+    {
+      decoded := decoded || ">";
+      entities := UpdateEntityIndices(entities, UCLength(decoded), -3);
+    }
+    ELSE IF (twitterparser->TryParse("&amp;"))
+    {
+      decoded := decoded || "&";
+      entities := UpdateEntityIndices(entities, UCLength(decoded), -4);
+    }
+    ELSE
+    {
+      // We're not interested in this '&', just add it and continue
+      decoded := decoded || twitterparser->ParseN(1);
+    }
+  }
+  RETURN [ text := decoded
+         , entities := entities
+         ];
+}
+
+RECORD ARRAY FUNCTION UpdateEntityIndices(RECORD ARRAY entities, INTEGER frompos, INTEGER offset_)
+{
+  FOREVERY (RECORD entity FROM entities)
+  {
+    IF (NOT CellExists(entity, "indices"))
+      BREAK; // Probably won't happen, but better safe than sorry
+
+    // Add the offset to each index at frompos or later
+    entities[#entity].indices := SELECT AS INTEGER ARRAY i < frompos ? i : i + offset_
+                                   FROM ToRecordArray(entity.indices, "i");
+  }
+  RETURN entities;
+}
+
+PUBLIC OBJECTTYPE TwitterConnection EXTEND OauthNetworkConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  : OauthNetworkConnection("1.0", twitter_permission_map)
+  {
+    this->browser->request_use_oauth_urlencode := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION ParseTweet(RECORD data)
+  {
+    STRING reply_to_id := SafeGetStr(data, "IN_REPLY_TO_STATUS_ID_STR");
+    STRING reply_to_user_id := SafeGetStr(data, "IN_REPLY_TO_USER_ID_STR");
+    STRING reply_to_screen_name := SafeGetStr(data, "IN_REPLY_TO_SCREEN_NAME");
+
+    RECORD user := CellExists(data, "USER") ? data.user : DEFAULT RECORD;
+    RECORD retweeted_status := CellExists(data, "RETWEETED_STATUS") ? data.retweeted_status : DEFAULT RECORD;
+
+    STRING retweeted_id;
+    STRING retweeted_text;
+    STRING retweeted_user_name;
+    STRING retweeted_user_screen_name;
+    STRING retweeted_user_profile_image_url;
+
+    IF (RecordExists(retweeted_status))
+    {
+      RECORD retweeted_user := CellExists(retweeted_status, "USER") ? retweeted_status.user : DEFAULT RECORD;
+
+      retweeted_id := SafeGetStr(retweeted_status, "id");
+      retweeted_text := SafeGetStr(retweeted_status, "text");
+      retweeted_user_name := SafeGetStr(retweeted_user, "name");
+      retweeted_user_screen_name := SafeGetStr(retweeted_user, "screen_name");
+      retweeted_user_profile_image_url := SafeGetStr(retweeted_user, "profile_image_url");
+    }
+
+    RETURN
+        [ date :=                               ParseTwitterTime(SafeGetStr(data, "CREATED_AT"))
+        , id :=                                 data.id_str
+        , is_reply :=                           reply_to_id != ""
+        , reply_to_id :=                        reply_to_id
+        , reply_to_user_id :=                   reply_to_user_id
+        , reply_to_screen_name :=               reply_to_screen_name
+        , text :=                               DecodeTwitterTextWithEntities(SafeGetStr(data, "text"))
+        , source :=                             DecodeTwitterTextWithEntities(SafeGetStr(data, "source"))
+        , is_retweet :=                         retweeted_text != ""
+        , retweeted_id :=                       retweeted_id
+        , retweeted_text :=                     DecodeTwitterTextWithEntities(retweeted_text)
+        , retweeted_user_name :=                DecodeTwitterTextWithEntities(retweeted_user_name)
+        , retweeted_user_screen_name :=         DecodeTwitterTextWithEntities(retweeted_user_screen_name)
+        , retweeted_user_profile_image_url :=   retweeted_user_profile_image_url
+        , user_id :=                            SafeGetStr(user, "id_str")
+        , screen_name :=                        DecodeTwitterTextWithEntities(SafeGetStr(user, "screen_name"))
+        , name :=                               DecodeTwitterTextWithEntities(SafeGetStr(user, "name"))
+        , profile_image_url :=                  SafeGetStr(user, "profile_image_url")
+        ];
+  }
+
+  RECORD FUNCTION ParseUser(RECORD data)
+  {
+    RETURN
+        [ id :=                 SafeGetStr(data, "ID_STR")
+        , name :=               SafeGetStr(data, "NAME")
+        , screen_name :=        SafeGetStr(data, "SCREEN_NAME")
+        , profile_image_url :=  SafeGetStr(data, "PROFILE_IMAGE_URL")
+        ];
+  }
+
+  RECORD FUNCTION GetUserData(STRING url)
+  {
+    IF(NOT this->browser->GotoWebPage(url))
+      RETURN DEFAULT RECORD;
+
+    RECORD data := DecodeJSONBlob(this->browser->content);
+    RETURN this->ParseUser(data);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION SupportsValidityCheck()
+  {
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsAccessTokenValid()
+  {
+    TRY
+    {
+      this->GetTwitterUserTimeline(1);
+      RETURN TRUE;
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN FALSE;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC STRING FUNCTION GetConsumerKey()
+  {
+    RETURN this->pvt_publickey;
+  }
+
+  RECORD FUNCTION ParsePermissions(STRING ARRAY requested_permissions)
+  {
+    //BOOLEAN readwrite := "UpdateTwitterStatus" IN requested_permissions;
+    RECORD ARRAY accessvars;
+    IF ("UpdateTwitterStatus" IN requested_permissions)
+      INSERT [ name := "x_auth_access_type", value := "write" ] INTO accessvars AT END;
+    ELSE IF ("GetOwnRecentStatuses" IN requested_permissions)
+      INSERT [ name := "x_auth_access_type", value := "read" ] INTO accessvars AT END;
+
+    /* FIXME Deal with requested_permissions.
+       suggestion: assume readwrite
+                   store with the App in the backend whether readonly or readwrite access was requested
+                   set it on us (in networkapi.whlib)
+                   validate requested_permissions against that privilege */
+
+    INTEGER ARRAY perms;
+    FOREVERY(STRING api FROM requested_permissions)
+    {
+      INTEGER lookupid := SELECT AS INTEGER id FROM globalpermissionmap WHERE ToUppercase(userapi) = ToUppercase(api);
+      RECORD mapped := SELECT * FROM twitter_permission_map WHERE id=lookupid;
+      IF(NOT RecordExists(mapped))
+        THROW NEW SocialiteException("INVALIDARG","The API '" || api || "' is not supported by this network");
+      INSERT mapped.id INTO perms AT END;
+    }
+
+    RETURN [ permissions := perms
+           , accessvars := accessvars
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY requested_permissions, STRING state)
+  {
+    RECORD parsed := this->ParsePermissions(requested_permissions);
+    STRING requesttokenuri := "https://api.twitter.com/oauth/request_token";
+    RETURN this->StartOauthLogin(callbackurl, requesttokenuri, "https://api.twitter.com/oauth/authorize?", parsed.permissions, TRUE/*oauth 1.0a apparently*/, parsed.accessvars);
+  }
+
+  PUBLIC MACRO FinishLogin(STRING sessiontoken, STRING verifier)
+  {
+    STRING accesstokenuri := "https://api.twitter.com/oauth/access_token";
+    RECORD finish := this->FinishOauthLogin(accesstokenuri, sessiontoken, verifier);
+    INSERT CELL userid := SELECT AS STRING value FROM finish.extra_fields WHERE field = "user_id" INTO this->accesstok;
+    INSERT CELL screen_name := SELECT AS STRING value FROM finish.extra_fields WHERE field = "screen_name" INTO this->accesstok;
+  }
+
+  PUBLIC RECORD FUNCTION StartReverseAuth(STRING ARRAY requested_permissions)
+  {
+    RECORD parsed := this->ParsePermissions(requested_permissions);
+    STRING requesttokenuri := "https://api.twitter.com/oauth/request_token";
+    RETURN this->StartOauthReverseAuth(requesttokenuri, parsed.permissions, parsed.accessvars);
+  }
+
+  PUBLIC MACRO FinishReverseAuth(STRING sessiontoken, STRING verifier)
+  {
+    RECORD finish := this->FinishOauthReverseAuth(sessiontoken, verifier);
+    INSERT CELL userid := SELECT AS STRING value FROM finish.extra_fields WHERE field = "user_id" INTO this->accesstok;
+    INSERT CELL screen_name := SELECT AS STRING value FROM finish.extra_fields WHERE field = "screen_name" INTO this->accesstok;
+  }
+
+  PUBLIC RECORD FUNCTION VerifyCredentials()
+  {
+    STRING verifyurl := "https://api.twitter.com/1.1/account/verify_credentials.json";
+    verifyurl := AddVariableToURL(verifyurl, "include_entities", "false");
+    verifyurl := AddVariableToURL(verifyurl, "skip_status", "true");
+
+    IF (NOT this->browser->GotoWebPage(verifyurl))
+    {
+      VARIANT data := DecodeJSONBlob(this->browser->content);
+      IF (TypeID(data) = TypeID(RECORD) AND CellExists(data, "ERRORS"))
+        THROW NEW SocialiteException("TRANSPORT","Query failed - " || data.errors[0].message);
+
+      THROW NEW SocialiteException("TRANSPORT","Query failed - Twitter over capacity?");
+    }
+
+    VARIANT data := DecodeJSONBlob(this->browser->content);
+
+    RETURN
+        [ userid := data.id
+        , screen_name := data.screen_name
+        ];
+  }
+
+  PUBLIC STRING FUNCTION GetUserId()
+  {
+    IF (CellExists(this->accesstok, "userid"))
+      RETURN this->accesstok.userid;
+
+    RETURN "";
+  }
+
+  PUBLIC STRING FUNCTION GetScreenName()
+  {
+    IF (CellExists(this->accesstok, "screen_name"))
+      RETURN this->accesstok.screen_name;
+
+    RETURN "";
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetOwnRecentStatuses(INTEGER downloadmax)
+  {
+    this->ValidateAPIAccess("GetOwnRecentStatuses", FALSE);
+    RECORD timeline := this->GetTwitterUserTimeline(downloadmax);
+    RETURN SELECT *
+                , plaintext := text
+                , creationdate := date
+             FROM timeline.own_tweets
+            LIMIT downloadmax;
+  }
+
+  PUBLIC RECORD FUNCTION UpdateTwitterStatus(STRING status, INTEGER64 inreplyto)
+  {
+    this->ValidateAPIAccess("UpdateTwitterStatus", FALSE);
+
+    STRING statusurl := "https://api.twitter.com/1.1/statuses/update.json";
+    RECORD ARRAY vars := [[ name := "status", value := status ]
+                         ];
+    IF(inreplyto!=0)
+    {
+      INSERT [ name := "in_reply_to_status_id", value := ToString(inreplyto) ] INTO vars AT END;
+      IF (status NOT LIKE "*@*")
+        THROW NEW SocialiteException("TRANSPORT","Reply field is ignored unless '@targetuser' is present");
+    }
+
+    IF (NOT this->browser->PostWebPage(statusurl, vars, ""))
+    {
+      VARIANT data := DecodeJSONBlob(this->browser->content);
+      IF (TypeID(data) = TypeID(RECORD) AND CellExists(data, "ERRORS"))
+        THROW NEW SocialiteException("TRANSPORT","Query failed - " || data.errors[0].message);
+
+      THROW NEW SocialiteException("TRANSPORT","Query failed - Twitter over capacity?");
+    }
+
+    RETURN this->ParseTweet(DecodeJSONBlob(this->browser->content));
+  }
+
+  PUBLIC RECORD FUNCTION DestroyTwitterStatus(STRING messageid)
+  {
+    //this->ValidateAPIAccess("UpdateTwitterStatus", FALSE);
+
+    STRING destroyurl := "https://api.twitter.com/1.1/statuses/destroy/" || messageid || ".json";
+    RECORD ARRAY vars;
+
+    IF (NOT this->browser->PostWebPage(destroyurl, vars, ""))
+    {
+      VARIANT data := DecodeJSONBlob(this->browser->content);
+      IF (TypeID(data) = TypeID(RECORD) AND CellExists(data, "ERRORS"))
+        THROW NEW SocialiteException("TRANSPORT","Query failed - " || data.errors[0].message);
+
+      THROW NEW SocialiteException("TRANSPORT","Query failed - Twitter over capacity?");
+    }
+
+    RETURN this->ParseTweet(DecodeJSONBlob(this->browser->content));
+  }
+
+  RECORD FUNCTION GetTwitterUserTimeline(INTEGER downloadmax)
+  {
+    RECORD userinfo;
+
+    RECORD ARRAY own_tweets;
+
+    STRING usertimelineurl := "https://api.twitter.com/1.1/statuses/user_timeline.json?count=" || downloadmax;
+
+    // Get last 200 tweets, ignore 30+ days old
+    //GetBrowserPage("twitter", "usertimeline", browser, usertimelineurl, "Twitter user timeline");
+    IF(NOT this->browser->GotoWebPage(usertimelineurl))
+    {
+      VARIANT data := DecodeJSONBlob(this->browser->content);
+      IF(RecordExists(data) AND CellExists(data,'errors') AND Length(data.errors)>0)
+        THROW NEW SocialiteException("TRANSPORT","Query failed - " || data.errors[0].message);
+      ELSE
+        THROW NEW SocialiteException("TRANSPORT","Query failed - " || this->browser->GetHTTPStatusCode());
+    }
+
+    VARIANT data := DecodeJSONBlob(this->browser->content);
+    IF (TypeID(data) = TypeID(RECORD ARRAY))
+      FOREVERY (RECORD rec FROM data)
+        INSERT this->ParseTweet(rec) INTO own_tweets AT END;
+
+    RETURN
+        [ userinfo :=     userinfo
+        , own_tweets :=   own_tweets
+        ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetHomeTimeline(INTEGER downloadmax)
+  {
+    RECORD ARRAY tweets;
+
+    STRING usertimelineurl := "https://api.twitter.com/1.1/statuses/home_timeline.json?count=" || downloadmax;
+
+    // Get last 200 tweets, ignore 30+ days old
+    //GetBrowserPage("twitter", "usertimeline", browser, usertimelineurl, "Twitter user timeline");
+    //this->browser->debug := TRUE;
+    this->browser->GotoWebPage(usertimelineurl);
+
+    VARIANT data := DecodeJSONBlob(this->browser->content);
+    IF (TypeID(data) = TypeID(RECORD ARRAY))
+      FOREVERY (RECORD rec FROM data)
+        INSERT this->ParseTweet(rec) INTO tweets AT END;
+
+    RETURN tweets;
+  }
+
+  PUBLIC RECORD FUNCTION GetUserDataByUserID(STRING userid)
+  {
+    RETURN this->GetUserData("https://api.twitter.com/1.1/users/show.json?user_id=" || EncodeURL(userid));
+  }
+
+  PUBLIC RECORD FUNCTION GetUserDataByScreenName(STRING screenname)
+  {
+    RETURN this->GetUserData("https://api.twitter.com/1.1/users/show.json?screen_name=" || EncodeURL(screenname));
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetFriends()
+  {
+    STRING userid := this->GetUserId();
+    this->browser->GotoWebPage("https://api.twitter.com/1.1/friends/ids.json?user_id=" || userid || "&stringify_ids=1");
+
+    VARIANT data := DecodeJSONBlob(this->browser->content);
+
+    STRING ARRAY friendids;
+    IF (TypeID(data) = TypeID(RECORD) AND CellExists(data, "IDS"))
+      FOREVERY (VARIANT id FROM data.ids)
+        IF (TypeID(id) = TypeID(STRING))
+          INSERT id INTO friendids AT END;
+
+    // Group the ids, since the users lookup function states "up to 100 are allowed in a single request"
+    STRING ARRAY grouped_ids := SELECT AS STRING ARRAY DeTokenize(GroupedValues(friendid),",")
+                                  FROM ToRecordArray(friendids, "friendid") AS friends_ra
+                              GROUP BY #friends_ra/100;
+
+    RECORD ARRAY allfriends;
+    FOREVERY (STRING grouped FROM grouped_ids)
+    {
+      this->browser->GotoWebPage("https://api.twitter.com/1.1/users/lookup.json?user_id=" || grouped);
+
+      data := DecodeJSONBlob(this->browser->content);
+
+      RECORD ARRAY friends;
+      IF (TypeID(data) = TypeID(RECORD ARRAY))
+        FOREVERY (RECORD rec FROM data)
+          INSERT this->ParseUser(rec) INTO friends AT END;
+
+      allfriends := allfriends CONCAT friends;
+    }
+
+    RETURN allfriends;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION LookupUsersByScreenName(STRING ARRAY screennames)
+  {
+    STRING ARRAY grouped_names := SELECT AS STRING ARRAY DeTokenize(GroupedValues(name),",")
+                                    FROM ToRecordArray(screennames, "NAME") AS row
+                                GROUP BY #row/100;
+
+    RECORD ARRAY allusers;
+    FOREVERY (STRING namelist FROM grouped_names)
+    {
+      this->browser->GotoWebPage("https://api.twitter.com/1.1/users/lookup.json?screen_name=" || namelist);
+
+      VARIANT data := DecodeJSONBlob(this->browser->content);
+
+      RECORD ARRAY friends;
+      IF (TypeID(data) = TypeID(RECORD ARRAY))
+        FOREVERY (RECORD rec FROM data)
+          INSERT this->ParseUser(rec) INTO friends AT END;
+
+      allusers := allusers CONCAT friends;
+    }
+
+    RETURN allusers;
+  }
+
+  PUBLIC RECORD FUNCTION SendDirectMessage(STRING userid, STRING message)
+  {
+    IF (Length(message) > 140)
+      Abort("Cannot send a message with more than 140 characters (message contained " || Length(message) || " characters");
+
+    RECORD ARRAY vars := [[ name := "user_id", value := userid ]
+                         ,[ name := "text", value := message ]
+                         ];
+
+    this->browser->PostWebPage("https://api.twitter.com/1.1/direct_messages/new.json", vars, "");
+
+    RECORD data := DecodeJSONBlob(this->browser->content);
+
+    STRING error;
+    IF (CellExists(data, "ERRORS"))
+      error := data.errors[0].message;
+
+    IF (error = "")
+    {
+      RETURN [ success := TRUE, errormessage := "" ];
+    }
+
+    RETURN [ success := FALSE, errormessage := error ];
+  }
+
+  /** Get user statuses
+      @param options
+      @cell(string) options.screen_name
+      @cell(string) options.user_id
+      @cell(string) options.max_id
+      @cell(integer) options.count
+      @cell(integer) options.page
+      @cell(boolean) options.trim_user
+      @cell(boolean) options.include_rts
+      @cell(boolean) options.include_entities
+      @return
+      @cell(record array) statuses
+  */
+  PUBLIC RECORD FUNCTION GetRecentUserStatuses(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING url := "https://api.twitter.com/1.1/statuses/user_timeline.json";
+    IF (CellExists(options, "SCREEN_NAME"))
+      url := AddVariableToURL(url, "screen_name", options.screen_name);
+    ELSE IF (CellExists(options, "USER_ID"))
+      url := AddVariableToURL(url, "user_id", options.user_id);
+    IF (CellExists(options, "MAX_ID"))
+      url := AddVariableToURL(url, "max_id", options.max_id);
+    IF (CellExists(options, "COUNT"))
+      url := AddVariableToURL(url, "count", ToString(options.count));
+    IF (CellExists(options, "PAGE"))
+      url := AddVariableToURL(url, "page", ToString(options.page));
+    IF (CellExists(options, "TRIM_USER") AND options.trim_user)
+      url := AddVariableToURL(url, "trim_user", "1");
+    IF (CellExists(options, "INCLUDE_RTS") AND options.include_rts)
+      url := AddVariableToURL(url, "include_rts", "1");
+    IF (CellExists(options, "INCLUDE_ENTITIES") AND options.include_entities)
+      url := AddVariableToURL(url, "include_entities", "1");
+
+    this->browser->GotoWebPage(url);
+
+    RECORD result :=
+        [ tweets :=   DEFAULT RECORD ARRAY
+        ];
+
+    VARIANT data := DecodeJSONBlob(this->browser->content);
+    IF (TypeID(data) = TypeID(RECORD ARRAY))
+      FOREVERY (RECORD rec FROM data)
+        INSERT this->ParseTweet(rec) INTO result.tweets AT END;
+
+    RETURN result;
+  }
+
+  PUBLIC RECORD FUNCTION GetTweetById(STRING tweetid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING url := "https://api.twitter.com/1.1/statuses/show/" || tweetid || ".json";
+    IF (CellExists(options, "TRIM_USER") AND options.trim_user)
+      url := AddVariableToURL(url, "trim_user", "1");
+    IF (CellExists(options, "INCLUDE_ENTITIES") AND options.include_entities)
+      url := AddVariableToURL(url, "include_entities", "1");
+
+    this->browser->GotoWebPage(url);
+
+    RETURN this->ParseTweet(DecodeJSONBlob(this->browser->content));
+  }
+
+  PUBLIC RECORD FUNCTION RetweetMessage(STRING status)
+  {
+    this->ValidateAPIAccess("UpdateTwitterStatus", FALSE);
+
+    STRING retweeturl := "https://api.twitter.com/1.1/statuses/retweet/" || status || ".json";
+    RECORD ARRAY vars;
+
+    IF (NOT this->browser->PostWebPage(retweeturl, vars, ""))
+    {
+      VARIANT data := DecodeJSONBlob(this->browser->content);
+      IF (TypeID(data) = TypeID(RECORD) AND CellExists(data, "ERRORS"))
+        THROW NEW SocialiteException("TRANSPORT","Query failed - " || data.errors[0].message);
+
+      THROW NEW SocialiteException("TRANSPORT","Query failed - Twitter over capacity?");
+    }
+
+    RETURN this->ParseTweet(DecodeJSONBlob(this->browser->content));
+    /* ADDME?
+       SendBlobTo(0,this->browser->content);
+       je krijgt onder andere: <id>23248162514</id> terug, datk an best leuk zijn voor traceren van retweets?
+    */
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION SearchUsingJSON(STRING query)
+  {
+    IF(NOT this->browser->GotoWebPage("https://api.twitter.com/1.1/search/tweets.json?result_type=recent&rpp=100&q=" || EncodeURL(query)))
+      THROW NEW SocialiteException("TRANSPORT","Query failed");
+
+    RECORD rec := DecodeJSONBlob(this->browser->content);
+
+    IF (NOT RecordExists(rec))
+      THROW NEW SocialiteException("TRANSPORT","Query failed");
+
+    IF (CellExists(rec, "STATUSES") AND LENGTH(rec.statuses) != 0)
+    {
+      rec.statuses :=
+          SELECT *
+               , user :=              CellExists(statuses, "USER") AND TypeID(user) = TypeID(RECORD) ? user : DEFAULT RECORD
+            FROM rec.statuses;
+
+      RECORD ARRAY items :=
+          SELECT created_at :=        MakeDateFromText(created_at)
+               , from_user :=         user
+               , from_user_id :=      SafeGetStr(user, "ID_STR")
+               , from_user_name :=    SafeGetStr(user, "SCREEN_NAME")
+               , id :=                id_str
+               , profile_image_url := SafeGetStr(user, "PROFILE_IMAGE_URL")
+               , text :=              SafeGetStr(res, "TEXT")
+               , source :=            SafeGetStr(res, "SOURCE")
+               , to_user_id :=        (CellExists(res, "ENTITIES")
+                                       AND CellExists(res.entities, "USER_MENTIONS")
+                                       AND IsTypeidArray(TypeID(res.entities.user_mentions))
+                                       AND LENGTH(res.entities.user_mentions) != 0
+                                       AND TypeID(res.entities.user_mentions[0]) = TypeID(RECORD)) ? SafeGetStr(res.entities.user_mentions[0], "ID_STR") : ""
+               , in_reply_to_status_id_str := SafeGetStr(res, "IN_REPLY_TO_STATUS_ID_STR")
+            FROM rec.statuses AS res;
+
+      RETURN items;
+    }
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  RECORD  FUNCTION GetFeedByUsername(STRING username)
+  {
+    //ADDME should do this on a separate, longer term check
+    IF(NOT this->browser->GotoWebPage("https://api.twitter.com/1.1/users/show.json?screen_name=" || EncodeURL(username)))
+      THROW NEW SocialiteException("TRANSPORT","Query failed");
+
+    RECORD result := DecodeJSONBlob(this->browser->content);
+    RECORD baseinfo := [ title := result.name
+                , username := result.screen_name
+                , url :=    SafeGetStr(result,"url")
+                , avatar := SafeGetStr(result,"profile_image_url_https")
+                ];
+
+    //redirect from queries straight to the search that goes further back
+    IF(NOT this->browser->GotoWebPage("https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=" || EncodeURL(username) || "&include_entities=true&count=15&include_rts=1" ))
+      THROW NEW SocialiteException("TRANSPORT","Query failed");
+
+    RECORD ARRAY statuses := RECORD ARRAY(DecodeJSONBlob(this->browser->content));
+    RETURN [ statuses := statuses, baseinfo := baseinfo ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __ExecuteFeedQuery(STRING query, INTEGER maxnum)
+  {
+    RECORD ARRAY statuses;
+    RECORD baseinfo;
+
+    //Can we short-circuit to GetFeedByUsername ?
+    IF (query NOT LIKE "from:*" OR query LIKE "* *") //FIXME better/nicer parsing?)
+    {
+      STRING searchurl := "https://api.twitter.com/1.1/search/tweets.json?q=" || EncodeURL(query) || "&include_entities=true";
+
+      IF(NOT this->browser->GotoWebPage(searchurl))
+        THROW NEW SocialiteException("TRANSPORT","Query failed");
+
+      statuses := RECORD ARRAY(DecodeJSONBlob(this->browser->content).statuses);
+    }
+
+    //complex queries go back only a week. can we convert to from: ?
+    IF (Length(statuses) < maxnum)
+    {
+      FOREVERY (STRING subquery FROM Tokenize(query, " OR "))
+      {
+        subquery := TrimWhitespace(subquery);
+
+        IF (subquery LIKE "from:*")
+        {
+          STRING username := TrimWhitespace(Substring(subquery,5));
+          username := Tokenize(username, ' ')[0];
+          IF(username!="")
+          {
+            RECORD res := this->GetFeedByUsername(username);
+            baseinfo := res.baseinfo;
+            statuses := statuses CONCAT res.statuses;
+          }
+        }
+      }
+    }
+
+    // Remove doubles, sort on creation date
+    RECORD ARRAY results;
+    results := SELECT TEMPORARY status :=     Any(statuses)
+                    , TEMPORARY created :=    ParseTwitterTime(status.created_at)
+                    , data := [ entities :=           status.entities
+                              , fromuser :=           SafeGetStr(status.user,"screen_name")
+                              , fromuserid :=         SafeGetStr(status.user,"id_str")
+                              , fromusername :=       SafeGetStr(status.user,"name")
+                              , geo :=                status.geo
+                              , source :=             status.source
+                              , text :=               status.text
+                              , touser :=             SafeGetStr(status,"in_reply_to_screen_name")
+                              , touserid :=           SafeGetStr(status,"in_reply_to_user_id_str")
+                              , inreplytostatusid :=  SafeGetStr(status,"in_reply_to_status_id_str")
+                              , lang :=    status.lang
+                              , profile := SafeGetStr(status.user,"profile_image_url_https")
+                              ]
+                    , created :=              created
+                    , messageid :=            id_str
+                 FROM statuses
+             GROUP BY id_str
+             ORDER BY created;
+
+    RETURN [ format := "twitter"
+           , entries := results
+           , baseinfo := baseinfo
+           ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION DecodeFeedItems(STRING format, RECORD ARRAY initems)
+  {
+    RETURN SELECT *
+                , text := initems.data.text
+                , richtext := MakeTwitterHtmlText(data.text, data.entities)
+                , fromuser := initems.data.fromuser
+                , fromuserid := initems.data.fromuserid
+                , fromusername:= initems.data.fromusername
+                , touser := initems.data.touser
+                , touserid := initems.data.touserid
+                , inreplytostatusid:= CellExists(initems.data, "inreplytostatusid") ? initems.data.inreplytostatusid : ""
+                , fromavatar := initems.data.profile
+                , link := "https://twitter.com/" || EncodeURL(initems.data.fromuser) || "/status/" || EncodeURL(messageid)
+             FROM initems;
+  }
+
+  /** @param options At least one of track/follow is required.
+      @cell(string) options.track Keywords to track, optional (separate with space for AND, with ',' for OR)
+      @cell(string array) options.follow Ids of users to track. options
+  */
+  PUBLIC OBJECT FUNCTION StreamStatuses(RECORD options)
+  {
+    RECORD ARRAY variables;
+    IF (CellExists(options, "TRACK") AND options.track != "")
+      INSERT [ name := "track", value := options.track ] INTO variables AT END;
+    IF (CellExists(options, "FOLLOW") AND LENGTH(options.follow) != 0)
+      INSERT [ name := "follow", value := Detokenize(options.follow, ",") ] INTO variables AT END;
+    IF (LENGTH(variables) = 0)
+      THROW NEW Exception("At least one of 'track' and 'follow' must be present");
+
+    variables := variables CONCAT
+        [ [ name := "delimited", value :="length" ]
+        ];
+
+    STRING url := "https://stream.twitter.com/1.1/statuses/filter.json";
+
+    RECORD query := CreateHTTPUrlencodedRequest(variables);
+
+    RECORD ARRAY extraheaders :=
+        [ [ field := "Host",          value := "stream.twitter.com" ]
+        , [ field := "User-Agent",    value := "HareScript/2 (HareScript HTTP library)" ]
+        , [ field := "Content-Length",value := ToString(LENGTH(query.body)) ]
+        , [ field := "Connection",    value := "Keep-Alive" ]
+        ];
+
+    query :=
+        [ url :=      url
+        , body :=     query.body
+        , headers :=  query.headers CONCAT extraheaders
+        , method :=   "POST"
+        ];
+
+    query := this->browser->RequestFilter(query);
+    RECORD queryurl := UnpackURL(query.url);
+
+    INTEGER connid := OpenSecureHTTPServer(queryurl.host, queryurl.port);
+    IF (connid = -1)
+      THROW NEW Exception("Cannot connect to twitter stream server");
+
+    // Set a socket timeout, in case Twitter isn't responding
+    SetSocketTimeout(connid, 5*60*1000);
+
+    RECORD response := __SendRawHTTPRequest(connid, query.method || " /" || queryurl.urlpath || " HTTP/1.1", query.headers, query.body, FALSE, FALSE);
+    IF (response.code != 200)
+    {
+      CloseHTTPServer(connid);
+      THROW NEW Exception("Error connecting to twitter, code " || response.code || ": " || response.message);
+    }
+
+    RETURN NEW TwitterStreamDecoder(response, connid);
+  }
+
+  PUBLIC RECORD FUNCTION GetConfiguration()
+  {
+    RETURN GetAdhocCached([ help := "configuration" ], PTR this->GetUncachedConfiguration);
+  }
+
+  RECORD FUNCTION GetUncachedConfiguration()
+  {
+    STRING url := "https://api.twitter.com/1.1/help/configuration.json";
+
+    this->browser->GotoWebPage(url);
+
+    // From the API documentation:
+    // "It is recommended applications request this endpoint when they are loaded, but no more than once a day."
+    // https://dev.twitter.com/docs/api/1.1/get/help/configuration
+    RETURN [ ttl := 24 * 60 * 60 * 1000
+           , value := DecodeJSONBlob(this->browser->content)
+           ];
+  }
+
+>;
+
+STATIC OBJECTTYPE TwitterStreamDecoder
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER connid;
+
+  // Connection state (for decoding chunked encoding)
+  STRING connstate;
+  STRING chunkbuf;
+  INTEGER chunklen;
+
+  // Stream state
+  STRING streamstate;
+  STRING streambuf;
+  INTEGER msglen;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY handle(connid, -);
+
+  PUBLIC FUNCTION PTR onrawmessage;
+
+  PUBLIC FUNCTION PTR onclosed;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD response, INTEGER connid)
+  {
+    this->connid := connid;
+
+    STRING transferencoding := SELECT AS STRING value FROM response.headers WHERE ToUppercase(field) = "TRANSFER-ENCODING";
+    this->connstate := ToUppercase(transferencoding) LIKE "CHUNKED" ? "chunkheader" : "direct";
+    this->streamstate := "messagelength";
+  }
+
+  MACRO ProcessMessage(STRING data)
+  {
+    data := TrimWhitespace(data);
+    IF (data != "")
+    {
+      RECORD decoded := DecodeJSON(data);
+      this->onrawmessage(decoded);
+    }
+  }
+
+  MACRO ProcessStreamData(STRING data)
+  {
+    this->streambuf := this->streambuf || data;
+
+    WHILE (LENGTH(this->streambuf) != 0 AND this->connid != 0)
+    {
+      SWITCH (this->streamstate)
+      {
+      CASE "messagelength"
+        {
+          INTEGER pos := SearchSubString(this->streambuf, "\r\n");
+          IF (pos = -1)
+            RETURN;
+
+          STRING line := Left(this->streambuf, pos);
+          this->msglen := ToInteger(line, 0);
+          this->streambuf := SubString(this->streambuf, pos + 2);
+          IF (line != "")
+            this->streamstate := "message";
+        }
+      CASE "message"
+        {
+          IF (LENGTH(this->streambuf) < this->msglen)
+            RETURN;
+
+          this->ProcessMessage(Left(this->streambuf, this->msglen));
+          this->streambuf := SubString(this->streambuf, this->msglen);
+          this->streamstate := "messagelength";
+        }
+      DEFAULT
+        {
+          ABORT("Illegal streamstate: " || this->streamstate);
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  // Process incoming data, call only when handle is signalled
+  PUBLIC MACRO ProcessData()
+  {
+    // Read as much as possible (try to reduce callbacks, though twitter sends everything in small packets anyway...)
+    STRING read := ReadLineFrom(this->connid, -16384, FALSE);
+    IF (read = "" AND IsAtEndOfStream(this->connid))
+    {
+      this->onclosed();
+      RETURN;
+    }
+
+    this->chunkbuf := this->chunkbuf || read;
+    WHILE (this->chunkbuf != "")
+    {
+      SWITCH (this->connstate)
+      {
+      CASE "chunkheader"
+        {
+          INTEGER pos := SearchSubString(this->chunkbuf, "\r\n");
+          IF (pos = -1)
+            RETURN;
+
+          STRING line := Left(this->chunkbuf, pos);
+
+          this->chunklen := ToInteger(Left(this->chunkbuf, pos), 0, 16);
+          this->chunkbuf := SubString(this->chunkbuf, pos + 2);
+          this->connstate := "chunk";
+        }
+      CASE "chunk"
+        {
+          STRING data := Left(this->chunkbuf, this->chunklen);
+          INTEGER datalen := LENGTH(data);
+
+          this->ProcessStreamData(data);
+
+          this->chunklen := this->chunklen - datalen;
+          this->chunkbuf := SubString(this->chunkbuf, datalen);
+
+          IF (this->chunklen = 0)
+          {
+            this->chunklen := 2;
+            this->connstate := "chunkspacer";
+          }
+        }
+      CASE "chunkspacer"
+        {
+          STRING data := Left(this->chunkbuf, this->chunklen);
+          INTEGER datalen := LENGTH(data);
+
+          this->chunklen := this->chunklen - datalen;
+          this->chunkbuf := SubString(this->chunkbuf, datalen);
+
+          IF (this->chunklen = 0)
+            this->connstate := "chunkheader";
+        }
+      CASE "direct"
+        {
+          this->ProcessStreamData(this->chunkbuf);
+          this->chunkbuf := "";
+        }
+      }
+    }
+  }
+
+  PUBLIC MACRO Close()
+  {
+    IF (this->connid != 0)
+      CloseHTTPServer(this->connid);
+    this->connid := 0;
+  }
+>;

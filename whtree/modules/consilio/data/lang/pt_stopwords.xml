@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Portuguese stop word list for WebHare Consilio
+
+In this file a list of common words is specified, which are considered less
+important for search queries. Accents are removed or rewritten by Consilio when
+necessary, but be sure to save this file as UTF-8 if you add accented
+characters.
+If you make changes to this file, be sure to put it in the etc/lang directory
+of your WebHare installation, otherwise it will be overwritten when upgrading or
+reinstalling WebHare.
+
+The words on this list are taken from
+http://snowball.tartarus.org/algorithms/portuguese/stop.txt
+-->
+<stopwords xmlns="http://www.webhare.net/xmlns/consilio/stopwords" xml:lang="pt">
+  <word>a<!--the; to, at; her--></word>
+  <word>ao<!--a + o--></word>
+  <word>aos<!--a + os--></word>
+  <word>aquela<!--that--></word>
+  <word>aquelas<!--those--></word>
+  <word>aquele<!--that--></word>
+  <word>aqueles<!--those--></word>
+  <word>aquilo<!--that--></word>
+  <word>as<!--the; them--></word>
+  <word>até<!--up to--></word>
+  <word>com<!--with--></word>
+  <word>como<!--as, like--></word>
+  <word>da<!--de + a--></word>
+  <word>das<!--de + as--></word>
+  <word>de<!--of, from--></word>
+  <word>dela<!--of her--></word>
+  <word>delas<!--of them--></word>
+  <word>dele<!--of him--></word>
+  <word>deles<!--of them--></word>
+  <word>depois<!--after--></word>
+  <word>do<!--de + o--></word>
+  <word>dos<!--de + os--></word>
+  <word>e<!--and--></word>
+  <word>ela<!--he--></word>
+  <word>elas<!--they--></word>
+  <word>ele<!--he--></word>
+  <word>eles<!--they--></word>
+  <word>em<!--in--></word>
+  <word>entre<!--between--></word>
+  <word>era</word>
+  <word>eram</word>
+  <word>essa<!--that--></word>
+  <word>essas<!--those--></word>
+  <word>esse<!--that--></word>
+  <word>esses<!--those--></word>
+  <word>esta<!--this--></word>
+  <word>estamos</word>
+  <word>estas<!--these--></word>
+  <word>estava</word>
+  <word>estavam</word>
+  <word>este<!--this--></word>
+  <word>esteja</word>
+  <word>estejam</word>
+  <word>estejamos</word>
+  <word>estes<!--these--></word>
+  <word>esteve</word>
+  <word>estive</word>
+  <word>estivemos</word>
+  <word>estiver</word>
+  <word>estivera</word>
+  <word>estiveram</word>
+  <word>estiverem</word>
+  <word>estivermos</word>
+  <word>estivesse</word>
+  <word>estivessem</word>
+  <word>estivéramos</word>
+  <word>estivéssemos</word>
+  <word>estou</word>
+  <word>está</word>
+  <word>estávamos</word>
+  <word>estão</word>
+  <word>eu<!--I--></word>
+  <word>foi</word>
+  <word>fomos</word>
+  <word>for</word>
+  <word>fora</word>
+  <word>foram</word>
+  <word>forem</word>
+  <word>formos</word>
+  <word>fosse</word>
+  <word>fossem</word>
+  <word>fui</word>
+  <word>fôramos</word>
+  <word>fôssemos</word>
+  <word>haja</word>
+  <word>hajam</word>
+  <word>hajamos</word>
+  <word>havemos</word>
+  <word>hei</word>
+  <word>houve</word>
+  <word>houvemos</word>
+  <word>houver</word>
+  <word>houvera</word>
+  <word>houveram</word>
+  <word>houverei</word>
+  <word>houverem</word>
+  <word>houveremos</word>
+  <word>houveria</word>
+  <word>houveriam</word>
+  <word>houvermos</word>
+  <word>houverá</word>
+  <word>houverão</word>
+  <word>houveríamos</word>
+  <word>houvesse</word>
+  <word>houvessem</word>
+  <word>houvéramos</word>
+  <word>houvéssemos</word>
+  <word>há</word>
+  <word>hão</word>
+  <word>isso<!--that--></word>
+  <word>isto<!--this--></word>
+  <word>já<!--already, now--></word>
+  <word>lhe<!--to him, her--></word>
+  <word>lhes<!--to them--></word>
+  <word>mais<!--more--></word>
+  <word>mas<!--but--></word>
+  <word>me<!--me--></word>
+  <word>mesmo<!--same--></word>
+  <word>meu<!--my--></word>
+  <word>meus<!--my--></word>
+  <word>minha<!--my--></word>
+  <word>minhas</word>
+  <word>muito<!--much--></word>
+  <word>na<!--em + a--></word>
+  <word>nas<!--em + as--></word>
+  <word>nem<!--nor--></word>
+  <word>no<!--em + o--></word>
+  <word>nos<!--em + os; us--></word>
+  <word>nossa</word>
+  <word>nossas</word>
+  <word>nosso<!--our--></word>
+  <word>nossos</word>
+  <word>num<!--em + um--></word>
+  <word>numa<!--em + uma--></word>
+  <word>não<!--not, no--></word>
+  <word>nós<!--we--></word>
+  <word>o<!--the; him--></word>
+  <word>os<!--the; them--></word>
+  <word>ou<!--or--></word>
+  <word>para<!--for--></word>
+  <word>pela<!--per + a--></word>
+  <word>pelas<!--per + as--></word>
+  <word>pelo<!--per + o--></word>
+  <word>pelos<!--per + os--></word>
+  <word>por<!--for--></word>
+  <word>qual<!--which--></word>
+  <word>quando<!--when--></word>
+  <word>que<!--who, that--></word>
+  <word>quem<!--whom--></word>
+  <word>se<!--himself etc--></word>
+  <word>seja</word>
+  <word>sejam</word>
+  <word>sejamos</word>
+  <word>sem<!--without--></word>
+  <word>serei</word>
+  <word>seremos</word>
+  <word>seria</word>
+  <word>seriam</word>
+  <word>será</word>
+  <word>serão</word>
+  <word>seríamos</word>
+  <word>seu<!--his--></word>
+  <word>seus<!--his--></word>
+  <word>somos</word>
+  <word>sou</word>
+  <word>sua<!--her--></word>
+  <word>suas<!--her--></word>
+  <word>são</word>
+  <word>só<!--only, just--></word>
+  <word>também<!--also--></word>
+  <word>te<!--thee--></word>
+  <word>tem</word>
+  <word>temos</word>
+  <word>tenha</word>
+  <word>tenham</word>
+  <word>tenhamos</word>
+  <word>tenho</word>
+  <word>terei</word>
+  <word>teremos</word>
+  <word>teria</word>
+  <word>teriam</word>
+  <word>terá</word>
+  <word>terão</word>
+  <word>teríamos</word>
+  <word>teu<!--thy--></word>
+  <word>teus</word>
+  <word>teve</word>
+  <word>tinha</word>
+  <word>tinham</word>
+  <word>tive</word>
+  <word>tivemos</word>
+  <word>tiver</word>
+  <word>tivera</word>
+  <word>tiveram</word>
+  <word>tiverem</word>
+  <word>tivermos</word>
+  <word>tivesse</word>
+  <word>tivessem</word>
+  <word>tivéramos</word>
+  <word>tivéssemos</word>
+  <word>tu<!--thou--></word>
+  <word>tua</word>
+  <word>tuas</word>
+  <word>tém</word>
+  <word>tínhamos</word>
+  <word>um<!--a--></word>
+  <word>uma<!--a--></word>
+  <word>você<!--you--></word>
+  <word>vocês<!--you (plural)--></word>
+  <word>vos<!--you--></word>
+  <word>à<!--a + a--></word>
+  <word>às<!--a + as--></word>
+  <word>éramos</word>
+</stopwords>

@@ -1,0 +1,30 @@
+<siteprofile
+   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+   xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+   xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+
+  <contenttype namespace="http://www.webhare.net/xmlns/tollium/applicationportal">
+  </contenttype>
+
+  <!-- NOTE: we define both webpageobjectname and startmacro, as webpageobjectname receives RPCs -->
+  <filetype typedef="http://www.webhare.net/xmlns/tollium/applicationportal" blobiscontent="false" ispublishedassubdir="true" isacceptableindex="true" webhare_builtintypeid="36">
+    <dynamicexecution library="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib" webpageobjectname="TolliumInterfacePage" startmacro="RunApplicationPortal" />
+  </filetype>
+
+  <apply priority="50">
+    <to type="file" filetype="http://www.webhare.net/xmlns/tollium/applicationportal" />
+
+    <!-- Setup default webdesign. Sync with webinterface.siteprl -->
+    <webdesign designfolder="mod::tollium/webdesigns/webinterface"
+               witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty"
+               library="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib"
+               objectname="WebinterfaceDesign"
+               maxcontentwidth="960px"
+               assetpack="tollium:webinterface"
+               supportserrors="true"
+               supportsaccessdenied="true"
+               async="false" />
+  </apply>
+
+</siteprofile>

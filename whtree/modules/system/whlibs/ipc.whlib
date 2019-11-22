@@ -1,0 +1,960 @@
+﻿<?wh (* ISSYSTEMLIBRARY *)
+/** @short IPC communication and job management
+    @long To communicate with other scripts and jobs, and start/stop them
+    @topic harescript-core/ipc
+*/
+
+LOADLIB "wh::system.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/callbacks.whlib" EXPORT
+    __INTERNAL_HandleEventCallbackEvents,
+    __INTERNAL_GetEventCallBackTimeout,
+    __INTERNAL_GetEventCallBackHandles,
+    __INTERNAL_GetEventCallBackWriteHandles,
+    RegisterEventCallback,
+    RegisterHandleReadCallback,
+    RegisterHandleWriteCallback,
+    RegisterMultiEventCallback,
+    RegisterTimedCallback,
+    BroadcastEvent,
+    BroadcastLocalEvent,
+    ScheduleMicroTask,
+    UnregisterCallback,
+    __HS_ProcessCurrentBroadcasts;
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/jobs.whlib" EXPORT RegisterReceivedExceptionType, EventManager;
+LOADLIB "wh::internal/hsservices.whlib";
+LOADLIB "wh::promise.whlib";
+
+///Resolve when events are over
+BOOLEAN eventscancelled;
+
+///Resolve when events are over
+RECORD eventscancelleddefer := CreateDeferredPromise();
+
+// ---------------------------------------------------------------------------
+//
+// Variables
+//
+
+/// Parent ipc link object (link to parent job)
+OBJECT parentlink;
+
+/// Whether the @a parentlink variable is valid.
+BOOLEAN got_parentlink;
+
+/// Local lock manger
+OBJECT lockmgr;
+
+// ---------------------------------------------------------------------------
+//
+// Object types
+//
+
+/** An IPC port is used as an address to create IPC links to.
+    Only one port with a given name may exist in a system.
+
+    If you need to wait on a incoming link request, you can use the @a handle property
+    as a parameter to WaitForMultiple. The handle is signalled when a link request is
+    in queue.
+*/
+STATIC OBJECTTYPE IPCPort EXTEND __HS_INTERNAL_OutputObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Name of the port
+  STRING pvt_name;
+
+  /// Port to close if we get closed (used to manage global ports and whmanager connections)
+  PUBLIC OBJECT __boundlink;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Global name of the port.
+  */
+  PUBLIC PROPERTY name(pvt_name, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER handle, STRING name)
+  : __HS_INTERNAL_OutputObject(handle, FALSE)
+  {
+    this->pvt_handle := handle;
+    this->pvt_name := name;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Accepts an incoming connection on the port
+      @return New endpoint if an incoming connection was present
+  */
+  PUBLIC OBJECT FUNCTION Accept(DATETIME wait_until)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot accept connections on IPC port '" || this->pvt_name || "', it has been closed");
+
+    WHILE (TRUE)
+    {
+      INTEGER endpoint := __HS_ACCEPTIPCCONNECTION(this->pvt_handle);
+      IF (endpoint != 0)
+        RETURN NEW IPCLinkEndPoint(endpoint);
+
+      IF (NOT this->Wait(wait_until))
+        RETURN DEFAULT OBJECT;
+    }
+  }
+
+
+  /** Returns whether this object is signalled.
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSignalled()
+  {
+    RETURN this->IsReadSignalled();
+  }
+
+
+  /** Closes the port
+  */
+  UPDATE PUBLIC MACRO Close()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot close IPC port '" || this->pvt_name || "', it has been closed already");
+
+    __HS_CLOSENAMEDIPCPORT(this->pvt_handle);
+    this->pvt_handle := 0;
+
+    IF(this->__boundlink != DEFAULT OBJECT)
+    {
+      this->__boundlink->Close();
+      this->__boundlink := DEFAULT OBJECT;
+    }
+  }
+>;
+
+// ---------------------------------------------------------------------------
+//
+// Public interface, global functions
+//
+
+//create a random, free port name, that will not be affected by future namespaces
+
+PUBLIC STRING FUNCTION GenerateTemporaryIPCPortName()
+{
+  RETURN "tempport_" || GenerateUFS128BitId();
+}
+
+/** Creates a new named IPC port
+    @param name
+    @return New port, throws when a port with that name already exists
+*/
+PUBLIC OBJECT FUNCTION CreateIPCPort(STRING name)
+{
+  INTEGER handle := __HS_CREATENAMEDIPCPORT(name);
+
+  IF (handle = 0)
+    THROW NEW Exception("Cannot create port '" || name || "', a port with that name already exists");
+
+  RETURN NEW IPCPort(handle, name);
+}
+
+
+/** Tries to register a port as global, and updates registrations if whmanager dies. Does not report any errors though. Requires
+    a continuous processing of callback events.
+    @param port Port to register as global.
+*/
+PUBLIC MACRO __INTERNAL_KeepPortGlobal(OBJECT port)
+{
+  // If data is not present yet, insert it
+  IF (NOT CellExists(port->userdata, "__WHMGMT_GLOBAL_REG"))
+  {
+    INSERT CELL __whmgmt_global_reg :=
+        [ link :=   DEFAULT OBJECT
+        , cbid :=   0
+        ] INTO port->userdata;
+  }
+
+  // Destroy old whmanager link & registration if present
+  IF (ObjectExists(port->userdata.__whmgmt_global_reg.link))
+  {
+    UnregisterCallback(port->userdata.__whmgmt_global_reg.cbid);
+    port->userdata.__whmgmt_global_reg.link->Close();
+
+    port->userdata.__whmgmt_global_reg := [ link := DEFAULT OBJECT, cbid := 0 ];
+  }
+
+  // Connect to whmanager & register as global
+  OBJECT link := ConnectToIPCPort("system:whmanager");
+  IF (ObjectExists(link))
+  {
+    RECORD global_res := link->DoRequest([ type := "register", port := port->name ]);
+    IF (global_res.status != "ok" OR NOT global_res.msg.success)
+    {
+      // Registration failed...
+      link->Close();
+      link := DEFAULT OBJECT;
+    }
+  }
+
+  IF (ObjectExists(link))
+  {
+    // Registration ok. Register a callback for notification when whmanager dies.
+    port->userdata.__whmgmt_global_reg :=
+        [ link :=   link
+        , cbid :=   RegisterHandleReadCallback(link->handle, PTR __INTERNAL_KeepPortGlobal(port))
+        ];
+  }
+  ELSE // Registration failed. Try again in 5 seconds
+    RegisterTimedCallback(AddTimeToDate(5000, GetCurrentDateTime()), PTR __INTERNAL_KeepPortGlobal(port));
+}
+
+
+
+PUBLIC OBJECT FUNCTION CreateGlobalIPCPort(STRING name)
+{
+  OBJECT port := CreateIPCPort(name);
+  __INTERNAL_KeepPortGlobal(port);
+  RETURN port;
+}
+
+/** Connects to an IPC port. If the port exists, a link is established immediately.
+    @return New link endpoint, DEFAULT OBJECT when port does not exist
+*/
+PUBLIC OBJECT FUNCTION ConnectToIPCPort(STRING name)
+{
+  INTEGER endpointid := __HS_CONNECTTOIPCPORT(name);
+  IF (endpointid = 0)
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW IPCLinkEndpoint(endpointid);
+}
+
+/** Connects to a global IPC port. If the port exists, a link is established immediately.
+    @return New link endpoint, DEFAULT OBJECT when port does not exist
+*/
+PUBLIC OBJECT FUNCTION ConnectToGlobalIPCPort(STRING name)
+{
+  OBJECT mgrport := ConnectToIPCPort("system:whmanager");
+  IF(NOT ObjectExists(mgrport))
+    RETURN DEFAULT OBJECT;
+
+  RECORD res := mgrport->DoRequest([ type := "connect", port := name ]);
+  IF (NOT RecordExists(res) OR res.status != "ok" OR res.msg.status="nosuchport")
+  {
+    mgrport->Close();
+    RETURN DEFAULT OBJECT;
+  }
+  RETURN mgrport;
+}
+
+/** @short Returns the endpoint of the link to the parent
+*/
+PUBLIC OBJECT FUNCTION GetIPCLinkToParent()
+{
+  IF (NOT got_parentlink)
+  {
+    // __HS_GETIPCLINKTOPARENT works only once.
+    INTEGER parentlinkid := __HS_GETIPCLINKTOPARENT();
+    parentlink := parentlinkid = 0 ? DEFAULT OBJECT : NEW IPCLinkEndPoint(parentlinkid);
+
+    got_parentlink := TRUE;
+  }
+  RETURN parentlink;
+}
+
+/** Formats a message id
+*/
+PUBLIC STRING FUNCTION FormatIPCMessageId(INTEGER64 messageid)
+{
+  RETURN messageid||"";
+}
+
+
+/// Returns Harescript group ID of current script
+PUBLIC STRING FUNCTION GetCurrentGroupId()
+{
+  RETURN __HS_GetCurrentGroupID();
+}
+
+/** This objecttype is meant as a base for a message-handling script, and tries to
+    abstract away the waiting on, receiving of and sending of messages as much as
+    possible.
+
+    How to use it:
+
+    Open a listening port (eg using CreateIPCPort).
+    Create an object based on the porthandlerbase, and give the port as argument.
+    Call the Run member.
+
+    Messages will be dispatched to the OnMessage member. When processing just one
+    message at a time, the reply can be sent by just returning the appropriate return
+    value.
+
+    If you waiting loop needs to wait on other handles, or you need timeouts, you
+    can override some other functions, to implement those.
+
+    In flat_responses mode, exceptions are given back as cell __exception
+    Cells: what (string), trace (record array)
+*/
+PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Port to wait on
+  OBJECT pvt_port;
+
+  /// Current active links
+  OBJECT ARRAY pvt_links;
+
+  /// If TRUE, no extra level [ success := TRUE, reply := ... ], and exceptions are integrated in messages (in cell __exception)
+  BOOLEAN pvt_flat_responses;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** IPC Port this handler listens on
+  */
+  PUBLIC PROPERTY listenport(pvt_port, -);
+
+  /** If TRUE, no extra level [ success := TRUE, reply := ... ] is set in returned messages, and
+      exceptions are integrated in messages (in cell __exception)
+  */
+  PUBLIC PROPERTY flat_responses(pvt_flat_responses, pvt_flat_responses);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT port)
+  {
+    this->pvt_port := port;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Returns whether a record contains a specific cell, and wither that cell has a specific type
+  BOOLEAN FUNCTION IsCellOk(RECORD rec, STRING cellname, INTEGER type)
+  {
+    RETURN CellExists(rec, cellname) AND TypeID(GetCell(rec, cellname)) = type;
+  }
+
+  /// Encodes an exception
+  RECORD FUNCTION EncodeExceptionInternal(OBJECT e)
+  {
+    IF (this->flat_responses)
+    {
+      RETURN
+          [ __exception := e->EncodeForIPC()
+          ];
+    }
+    ELSE
+    {
+      RETURN
+          [ success :=  FALSE
+          , error :=    e->what
+          , reply :=    DEFAULT RECORD
+          ];
+    }
+  }
+
+  /// Encodes an error
+  RECORD FUNCTION EncodeError(STRING what)
+  {
+    IF (this->flat_responses)
+    {
+      RETURN
+          [ __exception := (NEW Exception(what))->EncodeForIPC()
+          ];
+    }
+    ELSE
+    {
+      RETURN
+          [ success := FALSE
+          , error := what
+          , reply := DEFAULT RECORD
+          ];
+    }
+  }
+
+  /** Close a faulted link
+  */
+  MACRO CloseLink(OBJECT link)
+  {
+    INTEGER pos := SearchElement(this->pvt_links, link);
+    DELETE FROM this->pvt_links AT pos;
+
+    this->OnLinkClosed(link);
+    link->Close();
+  }
+
+  /** Do we want to do work when idle? */
+  BOOLEAN FUNCTION HaveIdleWork()
+  {
+    RETURN FALSE;
+  }
+
+  /** Handle an idle state */
+  MACRO HandleIdleWork()
+  {
+  }
+
+  /** Handles an incoming connection
+  */
+  MACRO HandleIncomingConnection(OBJECT port)
+  {
+    OBJECT link := port->Accept(DEFAULT DATETIME);
+    IF (ObjectExists(link))
+    {
+      INSERT link INTO this->pvt_links AT END;
+      this->OnLinkAccepted(link);
+    }
+  }
+
+
+  /** Handles an incoming message
+  */
+  MACRO HandleIncomingMessage(INTEGER handle)
+  {
+    OBJECT link;
+    INTEGER pos;
+    FOREVERY (OBJECT test_link FROM this->pvt_links)
+      IF (test_link->handle = handle)
+      {
+        link := test_link;
+        pos := #test_link;
+      }
+
+    IF (NOT ObjectExists(link))
+      RETURN;
+
+    // Try to receive the message from our port
+    RECORD res;
+    TRY
+    {
+      res := link->ReceiveMessage(DEFAULT DATETIME);
+    }
+    CATCH (OBJECT e)
+    {
+      // Protect against sent exceptions when autothrow is on
+      RETURN;
+    }
+
+    // Message disappeared? No problem.
+    IF (res.status = "timeout")
+      RETURN;
+
+    // Link got error: close the link and delete it
+    IF (res.status != "ok")
+    {
+      this->CloseLink(link);
+      RETURN;
+    }
+
+    // Check message format
+    IF (TypeID(res.msg) != TypeID(RECORD))
+    {
+      // Send reply. No need to check result; link will be signalled when closed, there might be some messages left.
+      link->SendReply(this->EncodeError("Wrong message format"), res.msgid);
+      RETURN;
+    }
+
+    TRY
+    {
+      // Call the onmessage handler
+      RECORD result := this->OnMessage(link, res.msg, res.msgid);
+
+      // Check result of the onmessage
+      IF (NOT this->IsCellOk(result, "RESULT", TypeID(STRING))
+          OR (result.result NOT IN [ "message", "defer", "releaselink" ]))
+      {
+        // No need to check result; link will be signalled when closed, there might be some messages left.
+        link->SendReply(this->EncodeError("Handler function returned malformed result: result cell missing, wrong type or wrong value"), res.msgid);
+      }
+
+      SWITCH (result.result)
+      {
+      CASE "defer"
+        {
+          // DEFER: onmessage took responsability for returning the right answer
+        }
+      CASE "message"
+        {
+          IF (NOT this->IsCellOk(result, "MSG", TypeID(RECORD)))
+          {
+            // Wrong format! No need to check result; link will be signalled when closed, there might be some messages left.
+            link->SendReply(this->EncodeError("Handler function returned malformed result: msg cell missing/wrong type"), res.msgid);
+          }
+          ELSE
+          {
+            // Everything is ok, send the message. No need to check result; link will be signalled when closed, there might be some messages left.
+            this->SendPorthandlerReply(link, result.msg, res.msgid);
+          }
+        }
+      CASE "releaselink"
+        {
+          INTEGER linkpos := SearchElement(this->pvt_links, link);
+          IF (linkpos != -1)
+            DELETE FROM this->pvt_links AT linkpos;
+        }
+      }
+    }
+    CATCH (OBJECT< Exception > e)
+    {
+      // Exception of type exception, return all info
+      // No need to check result; link will be signalled when closed, there might be some messages left.
+      link->SendExceptionReply(e, res.msgid);
+    }
+    CATCH (VARIANT e)
+    {
+      // Exception on unknown variable: return
+      // No need to check result; link will be signalled when closed, there might be some messages left.
+      link->SendReply(this->EncodeError("A variable that wasn't an exception object was thrown"), res.msgid);
+    }
+  }
+
+
+  /** Returns list of internal handles the porthandler needs to wait on. Do NOT override to wait
+      on more handles, override WaitForEvent instead.
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetDefaultWaitHandles()
+  {
+    INTEGER ARRAY handles;
+    IF (ObjectExists(this->pvt_port))
+      handles := [ INTEGER(this->pvt_port->handle) ];
+
+    FOREVERY (OBJECT link FROM this->pvt_links)
+      INSERT link->handle INTO handles AT END;
+
+    RETURN handles;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions to override
+  //
+
+  /** Calculates the next time a timeout action must be undertaken. This function is called
+      every time before WaitForEvent is called.
+  */
+  DATETIME FUNCTION GetNextTimeout()
+  {
+    RETURN MAX_DATETIME;
+  }
+
+
+  /** Called after the last timeout returned by GetNextTimeout has expired.
+  */
+  MACRO OnTimeout()
+  {
+  }
+
+
+  /** Handle a message
+      @return
+      @cell result.result "message" / "defer"
+      @cell result.msg Message to return (only if result = 'message')
+  */
+  RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    THROW NEW Exception("OnMessage not implemented");
+  }
+
+
+  /** Called when a new link is accepted
+  */
+  MACRO OnLinkAccepted(OBJECT link)
+  {
+  }
+
+
+  /** Called when a link has closed
+  */
+  MACRO OnLinkClosed(OBJECT link)
+  {
+  }
+
+
+  /** Called when another handle than the listenport or one of the links was returned by WaitForEvent
+  */
+  MACRO OnHandleSignalled(INTEGER handle)
+  {
+  }
+
+
+  /** Waits for the next message (or event)
+      Override if you want to wait for other handles too.
+  */
+  INTEGER FUNCTION WaitForEvent(INTEGER ARRAY default_handles, DATETIME wait_until)
+  {
+    // We must return when a callback has been run, because our set of listen links might have changed
+    RECORD rec := WaitUntil([ read := default_handles, callbacks := TRUE ], wait_until);
+    RETURN rec.type = "handle-read" ? rec.handle : -1;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other functions
+  //
+
+  /** Send a reply on a link, in the form the OnMessage return would have sent
+  */
+  RECORD FUNCTION SendPorthandlerReply(OBJECT link, VARIANT message, INTEGER64 orgmessageid)
+  {
+    IF (this->flat_responses)
+      RETURN link->SendReply(message, orgmessageid);
+    ELSE
+      RETURN link->SendReply(
+          [ success :=        TRUE
+          , message :=        ""
+          , reply :=          message
+          ], orgmessageid);
+  }
+
+  /** Send an exception over the wire
+  */
+  MACRO SendExceptionReply(OBJECT link, INTEGER64 orgmessageid, OBJECT e)
+  {
+    // Check if the link hasn't been closed yet
+    IF (link->handle != 0)
+      link->SendExceptionReply(e, orgmessageid);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Runs the handling loop. Will not return.
+  */
+  PUBLIC MACRO Run()
+  {
+    WHILE (NOT eventscancelled)
+    {
+      DATETIME next_timeout := this->GetNextTimeout();
+
+      BOOLEAN have_idle_work := this->HaveIdleWork();
+
+      INTEGER ARRAY default_handles := this->GetDefaultWaitHandles();
+
+      INTEGER handle := this->WaitForEvent(default_handles, have_idle_work ? DEFAULT DATETIME : next_timeout);
+      DATETIME now := GetCurrentDateTime();
+
+      IF (ObjectExists(this->pvt_port) AND handle = this->pvt_port->handle)
+        this->HandleIncomingConnection(this->pvt_port);
+      ELSE IF (handle IN default_handles)
+        this->HandleIncomingMessage(handle);
+      ELSE IF (handle != -1)
+        this->OnHandleSignalled(handle);
+
+      IF (now >= next_timeout)
+        this->OnTimeout();
+      ELSE IF(handle = -1 AND have_idle_work) //we had a timeout, but not really
+        this->HandleIdleWork();
+    }
+  }
+
+  PUBLIC MACRO AddListeningPort(OBJECT port)
+  {
+    RegisterHandleReadCallback(port->handle, PTR this->HandleIncomingConnection(port));
+  }
+>;
+
+/** Creates a new job. SUPER rights are required.
+    @param script Script to run
+    @param environment Environment. No longer used
+    @return
+    @cell return.job Job object, if it doesn't exist some errors have occurred.
+    @cell return.errors List of errors.
+    @cell return.warnings List of warnings.
+*/
+PUBLIC RECORD FUNCTION CreateJob(STRING script, STRING environment DEFAULTSTO "") //FIXME remove evironment parameter
+{
+  RECORD res := __HS_CreateJob(script);
+  RECORD ARRAY warnings := SELECT iserror, iswarning, istrace, filename, line, col, code, param1, param2, func, message
+                             FROM res.errors
+                            WHERE iswarning;
+
+  res.errors := SELECT * FROM res.errors WHERE NOT iswarning;
+
+  INTEGER jobid := res.jobid;
+  DELETE CELL jobid FROM res;
+
+  OBJECT job;
+  IF (jobid != 0)
+    job := NEW Job(jobid, res.groupid);
+  ELSE
+    res.errors := SELECT * FROM __HS_EnsureTraceItemForFirstError(res.errors);
+
+  INSERT CELL warnings := warnings INTO res;
+  INSERT CELL job := job INTO res;
+  RETURN res;
+}
+
+PUBLIC MACRO CloseJobPipe(INTEGER handle)
+{
+  ClosePipe(handle);
+}
+
+STATIC OBJECTTYPE LocalLock EXTEND __HS_INTERNAL_OutputObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Name of the port
+  STRING pvt_name;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Global name of the port.
+  */
+  PUBLIC PROPERTY name(pvt_name, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER handle, STRING name)
+  : __HS_INTERNAL_OutputObject(handle, FALSE)
+  {
+    this->pvt_handle := handle;
+    this->pvt_name := name;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Returns whether this object is signalled.
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSignalled()
+  {
+    RETURN this->IsReadSignalled();
+  }
+
+  /** Closes the port
+  */
+  UPDATE PUBLIC MACRO Close()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot close lock '" || this->pvt_name || "', it has been closed already");
+
+    __HS_CLOSELOCALLOCK(this->pvt_handle);
+    this->pvt_handle := 0;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION OpenLocalLockManager()
+{
+  IF (NOT ObjectExists(lockmgr))
+    lockmgr := NEW LocalLockManager;
+
+  RETURN lockmgr;
+}
+
+
+STATIC OBJECTTYPE LocalLockManager
+< // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION CreateLock(STRING name, INTEGER maxconcurrent, DATETIME waituntil)
+  {
+    RECORD res := __HS_OPENLOCALLOCK(name, maxconcurrent, waituntil = DEFAULT DATETIME);
+    IF (res.lockid = 0)
+      RETURN DEFAULT OBJECT;
+
+    OBJECT obj := NEW LocalLock(res.lockid, name);
+    IF (NOT res.locked)
+    {
+//      PRINTTO(1, "Lock " || name || ", " || res.lockid || " starting wait\n");
+      IF (NOT obj->Wait(waituntil))
+      {
+//        PRINTTO(1, "Lock " || name || " not signalled, timeout\n");
+        obj->Close();
+        RETURN DEFAULT OBJECT;
+      }
+//      ELSE
+//        PRINTTO(1, "Lock " || name || " signalled\n");
+    }
+    RETURN obj;
+  }
+
+  /** Create a semaphore lock and put it into the lock queue
+      @param name Name of the semaphore to lock
+      @param maxconcurrent Max nr. of concurrent lock-keepers during the requested lock
+      @return
+      @cell return.locked Whether the lock is active (if not, wait for the lock to become signalled)
+      @cell return.lock Lock object
+  */
+  PUBLIC RECORD FUNCTION __ScheduleLocalSemaphoreLock(STRING name, INTEGER maxconcurrent)
+  {
+    RECORD res := __HS_OPENLOCALLOCK(name, maxconcurrent, FALSE);
+    IF (res.lockid = 0)
+      THROW NEW Exception("Expected lock id");
+    RETURN CELL[ res.locked, lock := NEW LocalLock(res.lockid, name) ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Lock a process-local mutex by name
+      @param name Name of the mutex to lock
+      @return Mutex-lock object
+  */
+  PUBLIC OBJECT FUNCTION LockLocalMutex(STRING name)
+  {
+    RETURN this->TryLockLocalMutex(name, MAX_DATETIME);
+  }
+
+  /** Try to lock a process-local mutex by name
+      @param name Name of the mutex to lock
+      @param waituntil Wait until this time to lock.
+      @return Mutex-lock object (or DEFAULT OBJECT if not able to lock in time)
+  */
+  PUBLIC OBJECT FUNCTION TryLockLocalMutex(STRING name, DATETIME waituntil)
+  {
+    RETURN this->CreateLock("mutex:" || name, 1, waituntil);
+  }
+
+  /** Lock a process-local semaphore by name
+      @param name Name of the semaphore to lock
+      @param maxconcurrent Max nr. of concurrent lock-keepers during the requested lock
+      @return Semaphore-lock object
+  */
+  PUBLIC OBJECT FUNCTION LockLocalSemaphore(STRING name, INTEGER maxconcurrent)
+  {
+    RETURN this->TryLockLocalSemaphore(name, maxconcurrent, MAX_DATETIME);
+  }
+
+  /** Try to lock a process-local semaphore by name
+      @param name Name of the mutex to lock
+      @param maxconcurrent Max nr. of concurrent lock-keepers during the requested lock
+      @param waituntil Wait until this time to lock.
+      @return Semaphore-lock object (or DEFAULT OBJECT if not able to lock in time)
+  */
+  PUBLIC OBJECT FUNCTION TryLockLocalSemaphore(STRING name, INTEGER maxconcurrent, DATETIME waituntil)
+  {
+    RETURN this->CreateLock("sema:" || name, maxconcurrent, waituntil);
+  }
+>;
+
+PUBLIC OBJECT ASYNC FUNCTION AsyncCallFunctionFromJob(STRING func, VARIANT ARRAY args DEFAULTSTO DEFAULT VARIANT ARRAY) __ATTRIBUTES__(VARARG)
+{
+  IF(func NOT LIKE "*#*") //backwards-compatible syntax
+  {
+    IF(Length(args) = 0)
+      THROW NEW Exception(`Illegal function name '${func}'`);
+
+    func := func || "#" || args[0];
+    DELETE FROM args AT 0;
+  }
+
+  RECORD res := CreateJob("wh::internal/asyncrunner.whscr", "");
+  IF (NOT ObjectExists(res.job))
+    THROW NEW HarescriptErrorException(res.errors);
+
+  // Auto-close job on cancel
+  (AWAIT GetAsyncControl())->autolinkcancel := TRUE;
+
+  TRY
+  {
+    RECORD sent := res.job->ipclink->SendMessage(CELL[ task := "runfunction", func, args ]);
+    res.job->Start();
+
+    RECORD reply := AWAIT res.job->ipclink->AsyncReceiveMessage(MAX_DATETIME);
+    IF (reply.status = "gone")
+      THROW NEW HarescriptErrorException(res.job->GetErrors());
+
+    IF (reply.msg.task != "reply" OR sent.msgid != reply.replyto)
+      THROW NEW Exception("Got message that wasn't reply to request");
+
+    RETURN reply.msg.value;
+  }
+  FINALLY
+  {
+    IF (IsDebugTagEnabled("apr") OR IsDebugTagEnabled("system-apr") OR IsDebugTagEnabled("cov") OR IsDebugTagEnabled("system-cov"))
+      res.job->Release(); // allow reporting to run
+    ELSE
+      res.job->Close();
+  }
+}
+PUBLIC VARIANT FUNCTION CallFunctionFromJob(STRING func, VARIANT ARRAY args DEFAULTSTO DEFAULT VARIANT ARRAY) __ATTRIBUTES__(VARARG)
+{
+  VARIANT ARRAY xargs;
+
+  /* FIXME would be nicer if callanyptrva just appended arguments ?*/
+  INSERT func INTO xargs AT END;
+  FOREVERY(VARIANT el FROM args)
+    INSERT el INTO xargs AT END;
+
+  RETURN WaitForPromise(CallAnyPtrVA(PTR AsyncCallFunctionFromJob, xargs));
+}
+
+MACRO DummyTask()
+{
+
+}
+
+/** Cancel any running event loop, even future ones */
+PUBLIC MACRO CancelEventLoop()
+{
+  eventscancelled := TRUE;
+  eventscancelleddefer.resolve(TRUE);
+  //schedule a dummy task to abort any running waits
+  ScheduleMicroTask(PTR DummyTask);
+}
+
+/** Loop on all messages until CancelEventLoop is invoked */
+PUBLIC MACRO RunEventLoop()
+{
+  WaitUntil([ promise := eventscancelleddefer.promise ], MAX_DATETIME);
+}
+
+/** Returns whether a handle is read signalled in within a specific period. If immediately signalled, returns TRUE, else
+    a promise. That promise that resolves to TRUE when the handle becomes signalled before waituntil, and to FALSE on timeout
+    @param handle handle to wait become read signalled
+    @param waituntil Timeout time
+    @return TRUE on immediately signalled, promise otherwise
+*/
+PUBLIC VARIANT FUNCTION AsyncWaitHandleReadSignalled(INTEGER handle, DATETIME waituntil)
+{
+  RETURN __INTERNAL_AsyncWaitHandleReadSignalled(handle, waituntil);
+}
+
+/** Returns whether a handle is read signalled in within a specific period. If immediately signalled, returns TRUE, else
+    a promise. That promise that resolves to TRUE when the handle becomes signalled before waituntil, and to FALSE on timeout
+    @param handle handle to wait become read signalled
+    @param waituntil Timeout time
+    @return TRUE on immediately signalled, promise otherwise
+*/
+PUBLIC VARIANT FUNCTION AsyncWaitHandleWriteSignalled(INTEGER handle, DATETIME waituntil)
+{
+  RETURN __INTERNAL_AsyncWaitHandleWriteSignalled(handle, waituntil);
+}

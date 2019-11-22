@@ -1,0 +1,161 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
+
+//to open: https://webhare.moe.sf.webhare.nl/?app=publisher:edit(/WebHare%20testsuite%20site/webtools/form)
+STRING emailfieldname;
+
+MACRO BuildForm()
+{
+  BuildWebtoolForm( [ filename := "form" ]);
+  BuildWebtoolForm( [ filename := "form-pagetitles-infotexts" ]);
+}
+
+ASYNC MACRO TestFormApp()
+{
+  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "form" ], target := DEFAULT RECORD ]));
+  TestEq("Page 1", TT("doceditor->questions")->rows[0].title);
+  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[0];
+
+  //Open title properties. title should be invisible, and infotext has got nothing to do here at all!
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [ menuitem := TRUE ]));
+  TestEq(FALSE, TT("title", [ findinvisible := TRUE ])->visible);
+  TestEq(FALSE, TT("infotext", [ findinvisible := TRUE ])->visible);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //Open first question. infotext should not be visible
+  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[1];
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [ menuitem := TRUE ]));
+  TestEq(FALSE, TT("infotext", [ findinvisible := TRUE ])->visible);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //now with the doc that actually supports pagetitles!
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "form-pagetitles-infotexts" ], target := DEFAULT RECORD ]));
+  TestEq("Page 1", TT("doceditor->questions")->rows[0].title);
+  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[0];
+
+  //edit the page
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [ menuitem := TRUE ]));
+  TestEq(TRUE, TT(":Page title", [ findinvisible := TRUE ])->visible);
+  TestEq(FALSE, TT("infotext", [ findinvisible := TRUE ])->visible);
+  TestEq("Page title", TT(":Page title")->title);
+  TestEq("", TT(":Page title")->value);
+  TT(":Page title")->value := "my page title";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //check title is in question list
+  TestEq("Page 1: my page title", TT("doceditor->questions")->rows[0].title);
+
+  //edit the page again
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [ menuitem := TRUE ]));
+  TestEq("my page title", TT(":Page title")->value);
+  TT(":Page title")->value := "my new page title";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //now edit the first question
+  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[1];
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [ menuitem := TRUE ]));
+  TT("infotext")->value := GetTestRTD();
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //verify changes were saved
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [ menuitem := TRUE ]));
+  TestEq(TRUE, RecordExists(TT("infotext")->value));
+  TestEqLike("*This docs opens*", BlobToString(TT("infotext")->value.htmltext));
+  TT("infotext")->value := DEFAULT RECORD;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //verify field was properly cleared
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [ menuitem := TRUE ]));
+  TestEq(FALSE, RecordExists(TT("infotext")->value));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //set it again
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [ menuitem := TRUE ]));
+  TT("infotext")->value := GetTestRTD();
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  //edit the radio
+  TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Radio";
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [ menuitem := TRUE ]));
+  TestEq(TRUE, TT("tabs")->isnowvisible);
+  TestEq(TRUE, TT("tabs")->selectedtab->isnowvisible);
+
+  //Set the rtd for the existing answer
+  TT("{arrayedit}:Answers")->SetSelectedRows([0]);
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{arrayedit}:Answers->edit"));
+  TestEq(FALSE, RecordExists(TT("infotext")->value));
+  TT("infotext")->value := GetTestRTD();
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //Add an extra option with infotext
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{arrayedit}:Answers->add"));
+  TT("{textedit}:Answer")->value := "Opt2";
+  TT("infotext")->value := GetTestRTD();
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //Add an extra option  without infotext
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{arrayedit}:Answers->add"));
+  TT("{textedit}:Answer")->value := "Opt3";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+MACRO TestTitleInfotextRendered()
+{
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form-pagetitles-infotexts");
+
+  // Wait for the file to be published (just edited and republished in the previous test)
+  testfw->WaitForPublishCompletion(formfile->parent);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+
+  OBJECT pagenode := testfw->browser->document->GetElement('.wh-form__page');
+  TestEq(TRUE, ObjectExists(pagenode));
+  TestEq("my new page title", pagenode->GetAttribute("data-wh-form-pagetitle"));
+
+  OBJECT firstnamegroupline := testfw->browser->document->GetElement('div[data-wh-form-group-for="firstname"] .wh-form__fieldline');
+  TestEq(TRUE, ObjectExists(firstnamegroupline));
+  TestEq(TRUE, "wh-form__fieldline--hasinfotext" IN ParseXSList(firstnamegroupline->GetAttribute("class")));
+
+  OBJECT firstname_infotext := firstnamegroupline->GetElement('.wh-form__fieldline--infotext');
+
+  OBJECT textareagroupline := testfw->browser->document->GetElement('div[data-wh-form-group-for="textarea"] .wh-form__fieldline');
+  TestEq(TRUE, ObjectExists(textareagroupline));
+  TestEq(FALSE, "wh-form__fieldline--hasinfotext" IN ParseXSList(textareagroupline->GetAttribute("class")));
+
+  OBJECT ARRAY optionlines := testfw->browser->document->GetElements('div[data-wh-form-group-for="radio"] .wh-form__fieldline');
+  TestEq(3, Length(optionlines));
+  TestEq(TRUE, "wh-form__fieldline--hasinfotext" IN ParseXSList(optionlines[0]->GetAttribute("class")));
+  TestEq(TRUE, "wh-form__fieldline--hasinfotext" IN ParseXSList(optionlines[1]->GetAttribute("class")));
+  TestEq(FALSE, "wh-form__fieldline--hasinfotext" IN ParseXSList(optionlines[2]->GetAttribute("class")));
+}
+
+RunTestframework([ PTR BuildForm
+                 , PTR TestFormApp
+                 , PTR TestTitleInfotextRendered
+                 ]
+                ,[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                ]
+                 ]);

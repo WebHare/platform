@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+  <meta>
+    <description>Tollium user interface</description>
+    <packaging>
+      <dependency module="system"/>
+      <dependency module="wrd"/>
+    </packaging>
+    <validation options="nowarnings" />
+  </meta>
+
+  <servicemanager>
+    <task runat="4 6 * * *" runtz="maintenance" tag="cleanrtetemporaries" script="scripts/internal/cleanrtetemporaries.whscr" />
+  </servicemanager>
+
+  <backend>
+    <webrule path="root:/.tollium/integrations/" match="initial" redirecttodir="web:integrations/" />
+    <!-- We'll host the /ui/ on all paths. Nothing harmful there, only static assets -->
+    <webrule path="allroots:/.tollium/ui/" match="initial" redirecttodir="web:ui/" priority="after" />
+    <!-- FIXME is it dangerous to host this everywhere ? it was limited.. . -->
+    <webrule path="allroots:/.tollium/ui/filetransfer.shtml" match="initial" redirecttoscript="internal/filetransfer.shtml" priority="after" />
+
+  </backend>
+
+  <portal>
+    <application name="langedit" tid="tolliumapps.langedit.langedit.main" screen="tolliumapps/langedit/langedit.xml#main">
+      <accesscheck>
+        <requireright right="system:sysop"/>
+      </accesscheck>
+    </application>
+
+    <notification name="notifications.testnotification" tid="notifications.testnotification" descriptiontid="notifications.testnotification-desc"/>
+  </portal>
+
+  <tollium>
+    <components namespace="http://www.webhare.net/xmlns/tollium/screens" xmlschema="screens.xsd"/>
+    <components namespace="http://www.webhare.net/xmlns/tollium/portal/components" xmlschema="portal.xsd"/>
+  </tollium>
+
+  <publisher>
+    <siteprofile path="data/tollium.siteprl.xml"/>
+    <webdesign name="webinterface" title="WebHare interface" siteprofile="webdesigns/webinterface/webinterface.siteprl.xml">
+      <assetpack entrypoint="mod::tollium/webdesigns/webinterface/webinterface" supportedlanguages="en nl"  />
+      <assetpack name="sharedworker" entrypoint="mod::tollium/webdesigns/webinterface/js/sharedworker.es" webharepolyfills="false" alwaysincludepolyfill="true" supportedlanguages="" environment="sharedworker" />
+      <assetpack name="polyfills" entrypoint="_polyfills" supportedlanguages="" webharepolyfills="false" />
+    </webdesign>
+    <customnode namespace="http://www.webhare.net/xmlns/tollium" name="portal"/>
+  </publisher>
+
+  <services>
+    <webservice name="todd" transports="whremoting jsonrpc" library="todd/internal/service.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+
+    <localservice name="rteservice" library="internal/rteservice_internal.whlib" objectname="RTEService" reuse="true" withtransaction="false"/>
+    <localservice name="towlservice" library="internal/towl.whlib" objectname="TowlService" reuse="true" withtransaction="false"/>
+
+    <internalservice tag="tolliumapplicationstarter" library="internal/applicationstarter.whscr" tid="todd.misc.applicationstarter" portname="tollium:appstarter" mode="ondemand" screen="" releaseonsoftreset="true" environment="WEBHARE" where="webserver" />
+  </services>
+
+  <documentation>
+    <xmlschemas>
+      <xmlschema path="portal.xsd" title="portal components"/>
+      <xmlschema path="screens.xsd" title="base tollium components"/>
+      <xmlschema path="icons.xsd" title="tollium icons" />
+    </xmlschemas>
+  </documentation>
+
+  <validation>
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/screens" rootnodes="screens" schemalocation="x-webhare-builtin-xsd:components.xsd?type=tolliumcomponents" validator="lib/internal/validation.whlib#ScreensFileValidator"/>
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/screens" rootnodes="language" schemalocation="data/screens.xsd" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/icons" rootnodes="icon" schemalocation="data/icons.xsd" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/richstructure" rootnodes="richstructure" schemalocation="data/richstructuredef.xsd" />
+  </validation>
+
+  <hooking>
+    <target name="appmenu" />
+  </hooking>
+
+</module>

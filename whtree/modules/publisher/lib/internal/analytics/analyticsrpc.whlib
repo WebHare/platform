@@ -1,0 +1,23 @@
+<?wh
+
+LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "mod::publisher/lib/analytics.whlib";
+
+PUBLIC RECORD FUNCTION RPC_GetIPInfo(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([countrylang := ""], options);
+
+  STRING country := GetClientGeoIPCountry();
+  IF(country = "")
+    RETURN DEFAULT RECORD;
+
+  RECORD retval := [ country := country ];
+  IF(options.countrylang != "")
+  {
+    RECORD countryinfo := SELECT * FROM GetCountryList(options.countrylang) WHERE COLUMN code = ToUppercase(country);
+    IF(RecordExists(countryinfo))
+      INSERT CELL countryname := GetCell(countryinfo, options.countrylang) INTO retval;
+  }
+  RETURN retval;
+}

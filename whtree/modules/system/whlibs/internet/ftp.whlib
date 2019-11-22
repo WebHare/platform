@@ -1,0 +1,1050 @@
+﻿<?wh
+/** @short File transfer (FTP)
+    @long These functions allow access to FTP sites.
+    @topic internet/filetransfer
+*/
+
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+BOOLEAN debug;
+RECORD ARRAY connectionsessions;
+
+RECORD ftp_protocol_error := [
+        code := -1,
+        message := "FTP protocol failure",
+        istimeout := FALSE ];
+
+RECORD ftp_data_connection_error := [
+        code := 426,
+        message := "Data connection could not be established",
+        istimeout := TRUE ];
+
+RECORD ftp_timeout_error := [
+        code := 0,
+        message := "Connection time-out",
+        istimeout := TRUE ];
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// FTP Error Handling
+//
+
+/** @short This function will check and clear the last error that occured (if any)
+    @param connectionid Integer of the connectionid
+    @return Record with the error (if exists)
+    @return.code Integer of the error code
+    @return.message String with the error message (can be a multiline message separated by \n's) */
+PUBLIC RECORD FUNCTION GetFTPError(INTEGER connectionid)
+{
+  // Read the error
+  RECORD connectionsession := GetFTPSession(connectionid);
+  RECORD lasterror := connectionsession.lasterror;
+
+  // Clear the error
+  RECORD emptyerror;
+  connectionsession.lasterror := emptyerror;
+  SaveFTPSession(connectionid, connectionsession);
+
+  IF (NOT RecordExists(lasterror))
+    lasterror := [code := 0, message := "No error", istimeout := FALSE];
+
+  RETURN lasterror;
+}
+
+
+/** @short This function will set the last error message */
+MACRO SetFTPError(INTEGER connectionid, RECORD errorrec)
+{
+  RECORD connectionsession := GetFTPSession(connectionid);
+  connectionsession.lasterror := errorrec;
+  SaveFTPSession(connectionid, connectionsession);
+}
+
+BOOLEAN FUNCTION HasFTPErrors(INTEGER connectionid)
+{
+  RETURN RecordExists(GetFTPSession(connectionid).lasterror);
+}
+
+PUBLIC BOOLEAN FUNCTION FTPResultSuccessfull(INTEGER code)
+{
+  return code >= 100 AND code < 400;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// FTP Session Management
+//
+
+/** @short This function will find the connectionsession record
+    @param connectionid Integer id of the connection */
+RECORD FUNCTION GetFTPSession(INTEGER connectionid)
+{
+  // Search in the array of connections for this connection
+  RETURN SELECT * FROM connectionsessions WHERE id = connectionid;
+}
+
+/** @short This function will find the connectionsessions record
+    @param connectionid Integer id of the connection */
+MACRO SaveFTPSession(INTEGER connectionid, RECORD sessionrec)
+{
+  DELETE FROM connectionsessions WHERE id = connectionid;
+  INSERT sessionrec INTO connectionsessions AT END;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// FTP Connection Management
+//
+
+MACRO SEndCommand(INTEGER connectionid, STRING cmd)
+{
+  IF(debug)
+    Print("FTP OUT: " || cmd || "\n");
+  PrintTo(connectionid, cmd || "\r\n");
+}
+
+/** @short This function will decode an ftp response (it will handle multi-line responses and return codes/messages)
+    @param connectionid Integer of the connectionid
+    @return Record with the response
+    @return.code Integer of the return code
+    @return.message String with the returned message (can be a multiline message separated by \n's) */
+RECORD FUNCTION GetFTPResponse(INTEGER connectionid)
+{
+  RECORD response;
+  STRING received := ReadLineFrom(connectionid, 4096, TRUE);
+  IF (received="")
+  {
+    INTEGER errorcode := GetLastSocketError(connectionid);
+    RECORD retval;
+    IF (errorcode<0)
+      retval := [code := errorcode, message := GeTSocketErrorText(errorcode), istimeout := errorcode = -9];
+    ELSE
+      retval := ftp_protocol_error;
+
+    IF(debug)
+    {
+      Print("FTP ERROR:\n" || AnyToString(retval,'tree') || '\n');
+    }
+    RETURN retval;
+  }
+
+  STRING message := Right(received, Length(received) - 4);
+  INTEGER code := ToInteger(Left(received, 3), 0);
+  INTEGER codeclass := ToInteger(Left(received, 1), 0);
+
+  // Check if we receive a single/multi line response
+  IF ((code > 0) AND (SubString(received, 3, 1) = "-"))
+  {
+    // Multi-line
+    received := ReadLineFrom(connectionid, 4096, TRUE);
+    INTEGER newcode := ToInteger(Left(received, 3), 0);
+    // Now wait for the code plus a space
+    WHILE (NOT (newcode = code AND SubString(received, 3, 1) = " "))
+    {
+      message := message || "\n" || received;
+      received := ReadLineFrom(connectionid, 4096, TRUE);
+      newcode := ToInteger(Left(received, 3), 0);
+    }
+    message := message || "\n" || Right(received, Length(received) - 4);
+  }
+
+  response := [code := code, message := message, istimeout := FALSE ];
+  IF(debug)
+    PRINT("FTP RESPONSE: " || code || " " || message ||"\n");
+  RETURN response;
+}
+
+/** @short This function will try to login to an ftp server
+    @param serverip String containing the ip of the ftp server
+    @param serverport Integer of the port of the ftp server
+    @param username String of the username to connect with
+    @param passwd String of the password to use
+    @param passive Data connection type
+    @param securitylevel Security level (0: no secure connection, 1: secure command channel if available, 2: secure command channel only)
+    @return
+        Integer with the connectionid (if < 0 an error occurred)
+        Return value -1 = Failed to create a socket
+        Return value -2 = Failed to connect to the server
+        Return value -3 = Failed to receive welcome message
+        Return value -4 = Wrong username
+        Return value -5 = Wrong password */
+PUBLIC INTEGER FUNCTION CreateFTPConnection(STRING serverip, INTEGER serverport, STRING username, STRING passwd, BOOLEAN passive, INTEGER securitylevel DEFAULTSTO 1)
+{
+  // Open the connection
+  INTEGER connectionid := CreateTCPSocket();
+  IF (connectionid = 0)
+  {
+    // Failed to create a socket
+    RETURN -1;
+  }
+
+  SetSocketTimeout(connectionid, 60000);
+
+  IF(NOT ConnectSocket(connectionid,serverip,serverport))
+  {
+    // Failed to connect to the server
+    CloseSocket(connectionid);
+    RETURN -2;
+  }
+
+  RETURN CreateFTPConnectionOnSocket(connectionid, username, passwd, passive, 60000, securitylevel);
+}
+
+PUBLIC INTEGER FUNCTION CreateFTPConnectionOnSocket(INTEGER connectionid, STRING username, STRING passwd, BOOLEAN passive, INTEGER timeout, INTEGER securitylevel DEFAULTSTO 1)
+{
+  //ADDME: Support security level 3: secure command and data channel
+  IF(securitylevel>=3)
+    RETURN -3;
+
+  RECORD connectionrec := [id := connectionid, passive := passive, lasterror := DEFAULT RECORD, timeout := timeout, securedata := securitylevel>=3];
+  INSERT connectionrec INTO connectionsessions AT 0;
+
+  RECORD response := GetFTPResponse(connectionid);
+
+  // Check if we can proceed to login
+  IF (response.code != 220)
+  {
+    // Failed to receive welcome message
+    CloseFTPConnection(connectionid);
+    RETURN -3;
+  }
+
+  IF(securitylevel>=1)
+  {
+    SendCommand(connectionid, "AUTH TLS");
+    response := GetFTPResponse(connectionid);
+    IF(response.code != 234)
+    {
+      IF(securitylevel>=2) //It's required
+      {
+        CloseFTPConnection(connectionid);
+        RETURN -3;
+      }
+    }
+    ELSE
+    {
+      IF(NOT SetSecureConnection(connectionid,TRUE))
+      {
+        CloseFTPConnection(connectionid);
+        RETURN -3;
+      }
+      SendCommand(connectionid, "PBSZ 0");
+      response := GetFTPResponse(connectionid); //ADDME:Handleerrors
+      SendCommand(connectionid, connectionrec.securedata ? "PROT P" : "PROT C");
+      response := GetFTPResponse(connectionid);//ADDME:Handleerrors
+    }
+  }
+
+  // Send username
+  SendCommand(connectionid, "USER " || username || "");
+  response := GetFTPResponse(connectionid);
+
+  IF (response.code != 230)
+  {
+    IF (response.code = 331)
+    {
+      // We need a password
+      SendCommand(connectionid, "PASS " || passwd || "");
+      response := GetFTPResponse(connectionid);
+
+      IF (response.code != 230)
+      {
+        // Wrong password
+        CloseFTPConnection(connectionid);
+        RETURN -5;
+      }
+    }
+    ELSE
+    {
+      // Wrong username
+      CloseFTPConnection(connectionid);
+      RETURN -4;
+    }
+  }
+
+  // Set the transfer type to binary
+  SendCommand(connectionid, "TYPE I");
+  response := GetFTPResponse(connectionid);
+  IF(response.code < 200 OR response.code >= 299) // For buggy FTP servers
+  {
+    CloseFTPConnection(connectionid);
+    RETURN -2;
+  }
+
+  // We are now logged in
+  RETURN connectionid;
+}
+
+/** @short Close the connection to the ftp server
+    @long This function performs a graceful shutdown and close of the FTP connection
+    @param connectionid Integer id of the connection (opened by OpenFTPSite) */
+PUBLIC MACRO CloseFTPConnection(INTEGER connectionid)
+{
+  SendCommand(connectionid, "QUIT");
+  GetFTPResponse(connectionid);
+  DestroyFTPConnection(connectionid);
+}
+
+/** @short Destroy the connection to the ftp server
+    @long This function forces an immediate disconnect of the FTP connection
+    @param connectionid Integer id of the connection (opened by OpenFTPSite) */
+PUBLIC MACRO DestroyFTPConnection(INTEGER connectionid)
+{
+  // Close the connection to the ftp server
+  CloseSocket(connectionid);
+}
+
+/** @short This function will initiate an active data connection to the ftp server to send data over (for normal use)
+    @param connectionid Integer with the connectionid
+    @return Integer of the data connectionid */
+INTEGER FUNCTION GetDataConnection(INTEGER connectionid)
+{
+  INTEGER dataconnectionid := CreateTCPSocket();
+  SetSocketTimeout(dataconnectionid, 3000);
+
+  // Try to bind to a socket on this machine (for use as data connection)
+  IF (BindSocket(dataconnectionid, "", 0))
+  {
+    IF (NOT ListenOnTCPSocket(dataconnectionid))
+    {
+      CloseSocket(dataconnectionid);
+      RETURN 0;
+    }
+
+    // Yes, binding was successful
+
+    // Now send the ip and port to the ftp server so we can connect to it
+    STRING ARRAY a := Tokenize(GetLocalSocketIp(connectionid), ".");
+    INTEGER port := GetLocalSocketPort(dataconnectionid);
+
+    IF (Length(a) = 4 AND port > 0)
+    {
+      INTEGER hport := port / 256;
+      INTEGER lport := port - hport * 256;
+      SendCommand(connectionid, "PORT " || a[0]||","||a[1]||","||a[2]||","||a[3]||","||hport||","||lport);
+      RECORD response := GetFTPResponse(connectionid);
+      IF (response.code>=200 AND response.code<=299)
+      {
+        // Yes, we can initiate the connection
+        RETURN dataconnectionid;
+      }
+    }
+    // No, we cannot initiate the connection, close the socket
+    CloseSocket(dataconnectionid);
+  }
+
+  RETURN 0;
+}
+
+/** @short This function will initiate a data connection to the ftp server to send data over (for use behind firewalls)
+    @param connectionid Integer with the connectionid
+    @return Integer of the data connectionid */
+INTEGER FUNCTION GetPassiveDataConnection(INTEGER connectionid)
+{
+  // Send the passive command to the ftp server
+  SendCommand(connectionid, "PASV");
+  RECORD response := GetFTPResponse(connectionid);
+
+  // The server should respond with code 227 (Indicating that it's entering passive mode)
+  IF (response.code = 227)
+  {
+    // Now extract the ip and port number to connect to
+    INTEGER infostart := SearchSubString(response.message, "(");
+    INTEGER infostop := SearchSubString(response.message, ")");
+    STRING connectinfo := SubString(response.message, infostart + 1, infostop - infostart - 1);
+    connectinfo := Substitute(connectinfo, " ", "");
+    STRING ARRAY parts := Tokenize(connectinfo, ",");
+
+    // This is the remoteip
+    STRING remoteip := parts[0]||"."||parts[1]||"."||parts[2]||"."||parts[3];
+    // This is the remoteport
+    INTEGER remoteport := ToInteger(parts[4], 0) * 256 + ToInteger(parts[5], 0);
+
+
+    // Now try to connect to the remoteip and remoteport
+    INTEGER dataconnectionid := CreateTCPSocket();
+    IF (dataconnectionid = 0)
+        RETURN 0;
+    SetSocketTimeout(dataconnectionid, 3000);
+
+    IF (NOT ConnectSocket(dataconnectionid, remoteip, remoteport))
+    {
+      CloseSocket(dataconnectionid);
+      RETURN 0;
+    }
+
+    IF(GetFTPSession(connectionid).securedata AND NOT SetSecureConnection(dataconnectionid,TRUE))
+    {
+      CloseSocket(dataconnectionid);
+      RETURN 0;
+    }
+
+    // Yes, we are connected
+    RETURN dataconnectionid;
+  }
+  ELSE
+  {
+    // No passive mode possible
+    RETURN 0;
+  }
+}
+
+/** @short This function will close the data connection to the ftp server
+    @param connectionid Integer id of the connection */
+MACRO ClosePassiveDataConnection(INTEGER connectionid)
+{
+  // Close the connection to the ftp server
+  CloseSocket(connectionid);
+}
+
+/** @short This function will close the data connection to the ftp server
+    @param connectionid Integer id of the connection */
+MACRO CloseDataConnection(INTEGER connectionid)
+{
+  // Close the connection to the ftp server
+  CloseSocket(connectionid);
+}
+
+/** @short This function will accept an incoming data connection (prepared by GetDataConnection)
+    @param connectionid Integer id of the data connection
+    @return New data connection, <=0 on failure */
+INTEGER FUNCTION AcceptDataConnection(INTEGER connectionid, INTEGER startupid)
+{
+  INTEGER newid := AcceptOnTCPSocket(startupid);
+  IF (newid >= 0 AND GetFTPSession(connectionid).securedata AND NOT SetSecureConnection(newid, FALSE))
+  {
+    CloseSocket(newid);
+    newid := 0;
+  }
+  CloseSocket(startupid);
+  RETURN newid;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// FTP Commands (when connection is established)
+//
+
+/** @short This function will change the working directory on the ftp server
+    @param connectionid Integer id of the connection (opened by OpenFTPSite)
+    @param directory Path of the directory to go to
+    @return boolean indicating if the command was succesfull */
+PUBLIC BOOLEAN FUNCTION ChangeFTPDirectory(INTEGER connectionid, STRING directory)
+{
+  // Only process commands when no errors are pending
+  IF (HasFTPErrors(connectionid))
+    RETURN FALSE;
+
+  directory := Substitute(directory, "//", "/");
+  directory := Substitute(directory, "\\\\", "\\");
+
+  SendCommand(connectionid, "CWD " || directory);
+  RECORD response := GetFTPResponse(connectionid);
+  IF (response.code != 250)
+  {
+    SetFTPError(connectionid, response);
+    RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+/** @short This function will rename a file
+    @param connectionid Integer id of the connection (opened by OpenFTPSite)
+    @param oldpathname Old name of the file
+    @param newpathname New name of the file
+    @return boolean indicating if the command was succesfull */
+PUBLIC BOOLEAN FUNCTION RenameFTPFile(INTEGER connectionid, STRING oldpathname, STRING newpathname)
+{
+  // Only process commands when no errors are pending
+  IF (HasFTPErrors(connectionid))
+    RETURN FALSE;
+
+  SendCommand(connectionid, "RNFR " || oldpathname);
+  RECORD response := GetFTPResponse(connectionid);
+  IF (response.code = 350)
+  {
+    // Ok, file exists, now send the file to rename to
+    SendCommand(connectionid, "RNTO " || newpathname);
+    response := GetFTPResponse(connectionid);
+    IF (response.code = 250)
+      // Renaming successfull
+      RETURN TRUE;
+  }
+
+  SetFTPError(connectionid, response);
+  RETURN FALSE;
+}
+
+/** @short This function will delete a file
+    @param connectionid Integer id of the connection (opened by OpenFTPSite)
+    @param filename Name of the file
+    @return boolean indicating if the command was succesfull */
+PUBLIC BOOLEAN FUNCTION DeleteFTPFile(INTEGER connectionid, STRING filename)
+{
+  // Only process commands when no errors are pending
+  IF (HasFTPErrors(connectionid))
+    RETURN FALSE;
+
+  SendCommand(connectionid, "DELE " || filename);
+  RECORD response := GetFTPResponse(connectionid);
+  IF(FTPResultSuccessfull(response.code))
+    // Deletion was successfull
+    RETURN TRUE;
+
+  SetFTPError(connectionid, response);
+  RETURN FALSE;
+}
+
+/** @short This function will create a new directory
+    @param connectionid Integer id of the connection (opened by OpenFTPSite)
+    @param dirname Name of the new directory
+    @return boolean indicating if the command was succesfull */
+PUBLIC BOOLEAN FUNCTION CreateFTPDirectory(INTEGER connectionid, STRING dirname)
+{
+  // Only process commands when no errors are pending
+  IF (HasFTPErrors(connectionid))
+    RETURN FALSE;
+
+  SendCommand(connectionid, "MKD " || dirname);
+  RECORD response := GetFTPResponse(connectionid);
+  IF(FTPResultSuccessfull(response.code))
+    // Command was successful
+    RETURN TRUE;
+
+  SetFTPError(connectionid, response);
+  RETURN FALSE;
+}
+
+/** @short This function will change the working directory on the ftp server
+    @param connectionid Integer id of the connection (opened by OpenFTPSite)
+    @return string with the current directory */
+PUBLIC STRING FUNCTION GetCurrentFTPDirectory(INTEGER connectionid)
+{
+  // Only process commands when no errors are pending
+  IF (HasFTPErrors(connectionid))
+    RETURN "";
+
+  // Send the passive command to the ftp server
+  SendCommand(connectionid, "PWD");
+  RECORD response := GetFTPResponse(connectionid);
+  IF(FTPResultSuccessfull(response.code))
+  {
+    INTEGER dirstart := SearchSubString(response.message, '"');
+    INTEGER dirend := SearchLastSubString(response.message, '"');
+    STRING directory := SubString(response.message, dirstart + 1, dirend - 1);
+    RETURN directory;
+  }
+
+  SetFTPError(connectionid, response);
+  RETURN "";
+}
+
+/** @short This function will delete a directory. When the directory is not recursively deleted, it should be empty.
+    @param connectionid Integer id of the connection (opened by OpenFTPSite)
+    @param dirname Name of the file
+    @param recursive Delete all subfiles and subfolders as well
+    @return boolean indicating if the command was succesfull */
+PUBLIC BOOLEAN FUNCTION DeleteFTPDirectory(INTEGER connectionid, STRING dirname, BOOLEAN recursive)
+{
+  // Only process commands when no errors are pending
+  IF (HasFTPErrors(connectionid))
+    RETURN FALSE;
+
+  RECORD response;
+
+  // Check if the directory is empty
+  STRING currentdir := GetCurrentFTPDirectory(connectionid);
+  ChangeFTPDirectory(connectionid, dirname);
+  RECORD ARRAY dirlisting := ReadFTPDirectory(connectionid);
+  ChangeFTPDirectory(connectionid, currentdir);
+
+  IF (NOT recursive)
+  {
+    // When there are files in this directory, do not delete it
+    IF (Length(dirlisting) > 0)
+    {
+      response := [ code := -1, message := "DeleteFTPDirectory: Directory is not empty" ];
+      SetFTPError(connectionid, response);
+      RETURN FALSE;
+    }
+
+    SendCommand(connectionid, "RMD " || dirname);
+  }
+  ELSE
+  {
+    FOREVERY (RECORD filerec FROM dirlisting)
+    {
+        IF (filerec.name IN [ ".", ".." ]) //skip current and parent dir
+          CONTINUE;
+
+      IF (filerec.type = 1)
+      {
+        IF (NOT DeleteFTPDirectory(connectionid, dirname || "/" || filerec.name, recursive))
+          RETURN FALSE;
+      }
+      ELSE
+      {
+        IF (NOT DeleteFTPFile(connectionid, dirname || "/" || filerec.name))
+          RETURN FALSE;
+      }
+    }
+    SendCommand(connectionid, "RMD " || dirname);
+  }
+
+  response := GetFTPResponse(connectionid);
+  IF(FTPResultSuccessfull(response.code))
+    RETURN TRUE;
+
+  SetFTPError(connectionid, response);
+
+  RETURN FALSE;
+}
+
+RECORD ARRAY FUNCTION TokenizeDirEntry(STRING line)
+{
+  RECORD ARRAY parts;
+  STRING thispart;
+  BOOLEAN inspaces := TRUE;
+  INTEGER startpos;
+
+  FOR (INTEGER i := 0; i < Length(line); i := i + 1)
+  {
+    IF (SubString(line,i,1) = " ")
+    {
+      IF (inspaces)
+        CONTINUE;
+
+      //Save the current piece...
+      INSERT INTO parts(startpos,text) VALUES(startpos,thispart) AT END;
+      inspaces := TRUE;
+      CONTINUE;
+    }
+    //Parsing a piece?
+    IF (inspaces)
+    {
+      inspaces := FALSE;
+      startpos := i;
+      thispart := "";
+    }
+    thispart := thispart || SubString(line,i,1);
+  }
+
+  IF (NOT inspaces)
+  {
+    INSERT INTO parts(startpos,text) VALUES(startpos,thispart) AT END;
+  }
+  RETURN parts;
+}
+
+DATETIME FUNCTION DecodeFTPDate(STRING month, INTEGER day, STRING rest)
+{
+  STRING ARRAY months := Tokenize("jan;feb;mar;apr;may;jun;jul;aug;sep;oct;nov;dec", ";");
+
+  // Get the month
+  INTEGER monthnr := 0;
+  FOREVERY (STRING month_ FROM months)
+  {
+    monthnr := monthnr + 1;
+    IF (ToLowerCase(month_) = ToLowerCase(month))
+    {
+      BREAK;
+    }
+  }
+
+  INTEGER hour := 0;
+  INTEGER min := 0;
+  INTEGER sec := 0;
+  RECORD curdate := UnpackDateTime(GetCurrentDateTime());
+  INTEGER year := curdate.year;
+
+  IF (SearchSubString(rest, ":") > 0)
+  {
+    STRING ARRAY parts := Tokenize(rest, ":");
+    IF (Length(parts) = 2)
+    {
+      hour := ToInteger(parts[0], 0);
+      min := ToInteger(parts[1], 0);
+    }
+  }
+  ELSE
+  {
+    year := ToInteger(rest, 1900);
+  }
+
+  RETURN MakeDateTime(year, monthnr, day, hour, min, sec);
+}
+
+//ADDME: Merge FTP date formats with our generic dating code
+RECORD FUNCTION DecodeDirEntry(STRING origline)
+{
+  IF (origline = "")
+    RETURN DEFAULT RECORD; //decode failed
+
+  RECORD ARRAY parts := TokenizeDirEntry(origline);
+  IF (length(parts) <= 2) //not interesting? (linux: "total 5120" line)
+    RETURN DEFAULT RECORD;
+
+  //Test for the Linux format: permissions linkcount user group size month day year filename
+  //eg: -rw------- 1 523 6673 774 Sep 15 2003 my long filename
+  IF (Length(parts) > 8
+      AND Length(parts[0].text) = 10 //test that it is a real permission bitmap
+      AND ToInteger(parts[1].text,-1) >= 1 //test for linkcount
+      )
+  {
+    //This appears to be a linux entry
+    STRING filename := Substring(origline,parts[8].startpos,length(origline));
+    INTEGER type;
+
+    SWITCH (Left(parts[0].text,1))
+    {
+      CASE "l" //symbolic link.
+      {
+        type := 2;
+        //remove the 'link' destination
+        INTEGER linkpointer := SearchLastSubstring(filename," ->");
+        IF (linkpointer != 0)
+          filename := Left(filename,linkpointer);
+      }
+      CASE "d" // dir
+      {
+        type := 1;
+      }
+      DEFAULT
+      {
+        type := 0;
+      }
+    }
+
+    RETURN [ size := ToInteger(parts[4].text,-1)
+           , ownergroup := parts[3].text
+           , owneruser := parts[2].text
+           , modified := DecodeFTPDate(parts[5].text, ToInteger(parts[6].text, 1), parts[7].text)
+           , name := filename
+           , type := type
+           ];
+  }
+
+  //Test for the IIS format: date time size filename
+  //eg: 11-22-02 09:33PM <DIR> _vti_log
+  //eg: 09-20-03 03:52PM 213 hosting.txt
+  IF (Length(parts) >= 4
+      AND parts[0].text LIKE "??-??-??*"
+      AND parts[1].text LIKE "??:??*"
+      AND (parts[2].text = "<DIR>" OR ToInteger(parts[2].text,-1) >= 0))
+  {
+    INTEGER day := ToInteger(Tokenize(parts[0].text,"-")[1],0);
+    INTEGER month := ToInteger(Tokenize(parts[0].text,"-")[0],0);
+    INTEGER year := ToInteger(Tokenize(parts[0].text,"-")[2],0);
+    IF (year<100)
+      year := year + (year<80 ? 2000 : 1900);
+    INTEGER hour := ToInteger(Substring(parts[1].text,0,2),0);
+    INTEGER min := ToInteger(Substring(parts[1].text,3,2),0);
+    IF (ToUppercase(Substring(parts[1].text,5,2))="AM")
+    {
+      IF (hour = 12)
+        hour := 0; //12 AM = 00:00 military
+    }
+    ELSE IF (ToUppercase(Substring(parts[1].text,5,2))="PM")
+    {
+      IF (hour < 12)
+        hour := hour + 12;
+    }
+
+    RETURN [ size := ToInteger(parts[2].text,0)
+           , ownergroup := ""
+           , owneruser := ""
+           , modified := MakeDateTime(year,month,day,hour,min,0)
+           , name := Substring(origline,parts[3].startpos,length(origline))
+           , type := parts[2].text = "<DIR>" ? 1 : 0
+           ];
+  }
+
+  RETURN DEFAULT RECORD;
+
+
+  /*
+
+
+  RECORD file;
+
+  IF (parts[1] = "<DIR>")
+  {
+    //Microsoft
+  }
+
+
+  abort('parts:' || length(parts));
+
+  IF (Length(parts) = 9)
+  {
+    file := [ size := ToInteger(parts[4], 0)
+            , "group" := parts[2]
+            , user := parts[3]
+            , modified := DecodFTPeDate(parts[5], ToInteger(parts[6], 1), parts[7])
+            , name := parts[8]
+            , type := Left(parts[0],1) = "d" ? 1 : 0
+            ];
+  }
+  // FIXME: This should work
+/*  RECORD file := [ size := ToInteger(parts[4], 0)
+                 , group := parts[2]
+                 , user := parts[3]
+                 , modified := DecodeFTPDate(parts[5], ToInteger(parts[6], 1), parts[7])
+                 , name := parts[8]
+                 , type := Left(parts[0],1) = "d" ? 1 : 0 ];
+
+  RETURN file;
+  */
+}
+
+/** @short This function will return a record array of the directory listing
+    @param connectionid Integer id of the control connection
+    @return Record Array containing:
+    @cell return.name Name of the entry
+    @cell return.type Type of the entry (0=file, 1=directory, 2=link)
+    @cell return.ownergroup Group owning this file
+    @cell return.owneruser User owning this file
+    @cell return.modified Last modification time*/
+PUBLIC RECORD ARRAY FUNCTION ReadFTPDirectory(INTEGER connectionid)
+{
+  // Only process commands when no errors are pending
+  IF(HasFTPErrors(connectionid))
+    RETURN DEFAULT RECORD ARRAY;
+
+  // Get data transfer mode
+  BOOLEAN passive := GetFTPSession(connectionid).passive;
+
+  // Open a data connection
+  INTEGER dataconnectionid;
+  IF (passive)
+    dataconnectionid := GetPassiveDataConnection(connectionid);
+  ELSE
+    dataconnectionid := GetDataConnection(connectionid);
+
+  // Check if we have a connection
+  IF(dataconnectionid = 0)
+  {
+    SetFTPError(connectionid, ftp_data_connection_error);
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  // Send command to retrieve filelist
+  SendCommand(connectionid, "LIST -a");
+
+  RECORD response := GetFTPResponse(connectionid);
+  IF(response.code != 150 AND response.code != 125)
+  {
+    SetFTPError(connectionid, response);
+    return DEFAULT RECORD ARRAY;
+  }
+
+  // When we are not in passive mode, try to catch the incoming connection from the socket
+  IF(NOT passive)
+  {
+    dataconnectionid := AcceptDataConnection(connectionid, dataconnectionid);
+
+    // No, we did not catch the incoming connection
+    IF (dataconnectionid <= 0)
+    {
+      SetFTPError(connectionid, ftp_data_connection_error);
+      RETURN DEFAULT RECORD ARRAY;
+    }
+  }
+
+  RECORD ARRAY files;
+
+  // Now we are ready to get the filelisting
+  WHILE(TRUE)
+  {
+    STRING entry := ReadLineFrom(dataconnectionid, 4096, TRUE);
+
+    RECORD file := DecodeDirEntry(entry);
+    IF(RecordExists(file))
+      INSERT file INTO files AT END;
+
+    // Keep reading until the data connection is closed
+    INTEGER socket_error := GetLastSocketError(dataconnectionid);
+    IF(socket_error = -2)
+      BREAK;
+
+    IF(socket_error < 0)
+    {
+      SetFTPError(connectionid, ftp_timeout_error);
+      RETURN DEFAULT RECORD ARRAY;
+    }
+  }
+
+  // Close the connection and read the response of the ftp server
+  CloseDataConnection(dataconnectionid);
+
+  response := GetFTPResponse(connectionid);
+  IF (response.code != 226)
+  {
+    SetFTPError(connectionid, response);
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  RETURN files;
+}
+
+/** @short This function will retrieve a file from the ftp site
+    @param connectionid Integer id of the control connection
+    @param filename Name of the file to retrieve
+    @return A record describing the file, a non-existing record on failure
+    @cell return.size Size of the file
+    @cell return.data Blob with the data of the file */
+PUBLIC RECORD FUNCTION GetFTPFile(INTEGER connectionid, STRING filename)
+{
+  // Only process commands when no errors are pending
+  IF (HasFTPErrors(connectionid))
+    RETURN DEFAULT RECORD;
+
+  // Get data transfer mode
+  BOOLEAN passive := GetFTPSession(connectionid).passive;
+
+  // Open a data connection
+  INTEGER dataconnectionid;
+  IF (passive)
+    dataconnectionid := GetPassiveDataConnection(connectionid);
+  ELSE
+    dataconnectionid := GetDataConnection(connectionid);
+
+  // Check if we have a connection
+  IF(dataconnectionid = 0)
+  {
+    SetFTPError(connectionid, ftp_data_connection_error);
+    RETURN DEFAULT RECORD;
+  }
+
+  // Send command to retrieve file
+  SendCommand(connectionid, "RETR " || filename);
+
+  RECORD response := GetFTPResponse(connectionid);
+  IF(response.code != 150 AND response.code != 125)
+  {
+    SetFTPError(connectionid, response);
+    RETURN DEFAULT RECORD;
+  }
+
+  // When we are not in passive mode, try to catch the incoming connection from the socket
+  IF(NOT passive)
+  {
+    dataconnectionid := AcceptDataConnection(connectionid, dataconnectionid);
+
+    // No, we did not catch the incoming connection
+    IF (dataconnectionid = 0)
+    {
+      SetFTPError(connectionid, ftp_data_connection_error);
+      RETURN DEFAULT RECORD;
+    }
+  }
+
+  INTEGER streamid := CreateStream();
+  WHILE(TRUE)
+  {
+    PrintTo(streamid, ReadFromSocket(dataconnectionid));
+
+    // Keep reading until the data connection is closed
+    INTEGER socket_error := GetLastSocketError(dataconnectionid);
+    IF(socket_error = -13)//would block (WHY?)
+      CONTINUE;
+
+    IF(socket_error = -2)
+      BREAK;
+
+    IF(socket_error < 0)
+    {
+      SetFTPError(connectionid, ftp_timeout_error);
+      RETURN DEFAULT RECORD;
+    }
+  }
+
+  // Close the connection and read the response of the ftp server
+  CloseDataConnection(dataconnectionid);
+
+  response := GetFTPResponse(connectionid);
+  IF (response.code != 226)
+  {
+    SetFTPError(connectionid, response);
+    RETURN DEFAULT RECORD;
+  }
+
+  BLOB blob_data := MakeBlobFromStream(streamid);
+  RETURN [ data := blob_data, size := Length(blob_data) ];
+}
+
+/** @short This function will store a file to the ftp server
+    @param connectionid Integer id of the control connection
+    @param filename Name of the file to store
+    @param filedata BLOB with the filedata
+    @return Record Array containing:
+    @return.code Response code (200 is OK)
+    @return.message Response message */
+PUBLIC BOOLEAN FUNCTION StoreFTPFile(INTEGER connectionid, STRING filename, BLOB filedata)
+{
+  // Only process commands when no errors are pending
+  IF (HasFTPErrors(connectionid))
+    RETURN FALSE;
+
+  // Get data transfer mode
+  BOOLEAN passive := GetFTPSession(connectionid).passive;
+
+  // Open a data connection
+  INTEGER dataconnectionid;
+  IF (passive)
+    dataconnectionid := GetPassiveDataConnection(connectionid);
+  ELSE
+    dataconnectionid := GetDataConnection(connectionid);
+
+  // Check if we have a connection
+  IF(dataconnectionid = 0)
+  {
+    SetFTPError(connectionid, ftp_data_connection_error);
+    RETURN FALSE;
+  }
+
+  // Send command to store file
+  SendCommand(connectionid, "STOR " || filename);
+
+  RECORD response := GetFTPResponse(connectionid);
+  IF(response.code != 150 AND response.code != 125)
+  {
+    SetFTPError(connectionid, response);
+    return FALSE;
+  }
+
+  // When we are not in passive mode, try to catch the incoming connection from the socket
+  IF(NOT passive)
+  {
+    dataconnectionid := AcceptDataConnection(connectionid, dataconnectionid);
+
+    // No, we did not catch the incoming connection
+    IF (dataconnectionid <= 0)
+    {
+       SetFTPError(connectionid, ftp_data_connection_error);
+       RETURN FALSE;
+    }
+  }
+
+  // Start sending the blob (ADDME: Better error reporting)
+  IF (NOT SendBlobTo(dataconnectionid, filedata)
+      OR GetLastSocketError(dataconnectionid) < 0)
+  {
+    SetFTPError(connectionid, ftp_timeout_error);
+    RETURN FALSE;
+  }
+
+  // Close the connection and read the response of the ftp server
+  CloseDataConnection(dataconnectionid);
+
+  response := GetFTPResponse(connectionid);
+  IF(response.code != 226)
+  {
+    SetFTPError(connectionid, response);
+    RETURN FALSE;
+  }
+
+  RETURN TRUE;
+}

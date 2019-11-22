@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema targetNamespace="urn:oasis:names:tc:SAML:metadata:ext:query"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+        xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+        xmlns:query="urn:oasis:names:tc:SAML:metadata:ext:query"
+        xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+        elementFormDefault="unqualified"
+        attributeFormDefault="unqualified"
+        blockDefault="substitution"
+        version="2.0">
+
+  <!-- This schema contains the XML Schema definitions for the Metadata Extension for
+       SAML V2.0 and V1.x Query Requesters
+       Extracted from http://docs.oasis-open.org/security/saml/Post2.0/sstc-saml-metadata-ext-query-cs-01.html
+  -->
+
+  <import namespace="urn:oasis:names:tc:SAML:2.0:metadata"
+          schemaLocation="saml-schema-metadata-2.0.xsd" />
+
+  <complexType name="QueryDescriptorType" abstract="true">
+    <complexContent>
+      <extension base="md:RoleDescriptorType">
+        <sequence>
+          <element ref="md:NameIDFormat" minOccurs="0" maxOccurs="unbounded"/>
+        </sequence>
+        <attribute name="WantAssertionsSigned" type="boolean" use="optional"/>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <complexType name="AuthnQueryDescriptorType">
+    <complexContent>
+      <extension base="query:QueryDescriptorType"/>
+    </complexContent>
+  </complexType>
+
+  <complexType name="AttributeQueryDescriptorType">
+    <complexContent>
+      <extension base="query:QueryDescriptorType">
+        <sequence>
+          <element ref="md:AttributeConsumingService" minOccurs="0" maxOccurs="unbounded"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <complexType name="AuthzDecisionQueryDescriptorType">
+    <complexContent>
+      <extension base="query:QueryDescriptorType">
+        <sequence>
+          <element ref="query:ActionNamespace" minOccurs="0" maxOccurs="unbounded"/>
+        </sequence>
+        </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="ActionNamespace" type="anyURI"/>
+</schema>

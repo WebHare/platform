@@ -1,0 +1,118 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/addons.whlib">
+
+  <screen name="optiongid_in_select" implementation="none">
+    <body gid="gid_on_body">
+        <!--
+        - Absolute optiongid
+        - NO gid
+
+        tid's used should be optiongid+"."+rowkey
+        -->
+        <select name="instructionmodes1"
+                type="checkbox"
+                optiongid="webhare_testsuite:optiongid_test.instructionmodes"
+                width="40x"
+                public="true"
+                >
+          <option rowkey="practicum"/>
+          <option rowkey="project"/>
+        </select>
+
+        <!--
+        - Relative optiongid
+        - NO gid
+
+        tid's used should be optiongid+"."+rowkey
+        -->
+        <select name="instructionmodes2"
+                type="checkbox"
+                optiongid=".optiongid_test.instructionmodes"
+                width="40x"
+                public="true"
+                >
+          <option rowkey="practicum"/>
+          <option rowkey="project"/>
+        </select>
+
+        <!--
+        - Absolute optiongid
+        - Absolute gid
+
+        tid's used should be optiongid+"."+rowkey
+        -->
+        <select name="instructionmodes3"
+                type="checkbox"
+                gid="hodex_pthu:instructionmodes"
+                optiongid="webhare_testsuite:optiongid_test.instructionmodes"
+                width="40x"
+                public="true"
+                >
+          <option rowkey="practicum"/>
+          <option rowkey="project"/>
+        </select>
+
+        <!--
+        - Relative optiongid
+        - Absolute gid
+
+        tid's used should be optiongid+"."+rowkey
+        -->
+        <select name="instructionmodes4"
+                type="checkbox"
+                gid="hodex_pthu:instructionmodes"
+                optiongid="optiongid_test.instructionmodes"
+                width="40x"
+                public="true"
+                >
+          <option rowkey="practicum"/>
+          <option rowkey="project"/>
+        </select>
+
+        <!--
+        - Relative optiongid
+        - Relative gid
+
+        tid's used should be optiongid+"."+rowkey
+        -->
+        <select name="instructionmodes5"
+                type="checkbox"
+                gid=".relative"
+                optiongid="optiongid_test.instructionmodes"
+                width="40x"
+                public="true"
+                >
+          <option rowkey="practicum"/>
+          <option rowkey="project"/>
+        </select>
+
+    </body>
+  </screen>
+
+
+  <screen name="optiongid_in_listcolumn" implementation="none">
+    <body gid="optiongid_test">
+
+      <list name="programstarts"
+            selectmode="single"
+            gid=".columns"
+            public="true"
+            >
+        <column name="applicationnoneudeadline" type="text" width="16x" optiongid="webhare_testsuite:optiongid_test.month" />
+        <column name="applicationdeadline"      type="text" width="16x" optiongid=".month" />
+        <column name="startingmonth"            type="text" width="16x" titlefromrowkey="true" gid=".bla" />
+
+        <!--
+        <row rowkey="1">
+          <element name="applicationnoneudeadline" data="1" />
+          <element name="applicationdeadline" data="2" />
+          <element name="startingmonth" data="3" />
+        </row>
+        -->
+      </list>
+
+    </body>
+  </screen>
+
+</screens>

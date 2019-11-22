@@ -1,0 +1,50 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+INTEGER testrtdfileid, testrtd2fileid;
+
+MACRO PrepIt()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  testfw->BeginWork();
+
+  OBJECT testloc := testfw->GetTestSite()->rootobject->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT testrtd := testloc->CreateFile( [ name := "lvl1.rtd", type := richdoctype->id ]);
+  OBJECT testrtd2 := testloc->CreateFile( [ name := "other.rtd", type := richdoctype->id ]);
+  testrtdfileid := testrtd->id;
+  testrtd2fileid := testrtd2->id;
+
+  testfw->CommitWork();
+}
+
+OBJECT ASYNC FUNCTION EmptyFileTest()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+  GetTestController()->GrabInstructions(); //flush
+
+  OBJECT rte := TT("doceditor")->contents->rte;
+  TestEq(TRUE,rte->trimwhitespace); //is the default
+  rte->TolliumWeb_FormUpdate('<p class="normal"><br data-wh-rte="bogus"></p>');
+  TestEq(DEFAULT RECORD ARRAY, GetTestController()->GrabInstructions()); //no sudden rewrites returning please...
+  TestEq(DEFAULT RECORD, rte->value);
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  RECORD richvalue := richdoctype->GetInstanceData(testrtdfileid).data;
+  TestEq(DEFAULT RECORD, richvalue);
+  RETURN TRUE;
+}
+
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, waitpublish := FALSE])
+                 , PTR PrepIt
+                 , PTR EmptyFileTest
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

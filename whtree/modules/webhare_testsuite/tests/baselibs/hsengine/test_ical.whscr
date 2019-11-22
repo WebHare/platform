@@ -1,0 +1,67 @@
+<?wh
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/icalendar.whlib";
+
+MACRO TestIcal_Parser()
+{
+  OpenTest("TestIcal_Parser");
+
+  RECORD ARRAY events := DecodeICalCalendar(BlobToString(OpenTestFile("calendar.ics"),-1));
+  //DumpValue(events,'tree');
+
+  TestEq(3, Length(events));
+  TestEq("Van 6 okt t/m 10 okt, 11.00 - 14.00, zonder locatie", events[0].summary);
+  TestEq("Beschrijvinkje", events[0].description);
+  TestEq(FALSE, events[0].allday);
+  TestEq(MakeDateTime(2011,10,6,11,0,0), events[0].dtstart);
+  TestEq(MakeDateTime(2011,10,10,14,0,0), events[0].dtend);
+
+  TestEq("Dit is de omschrijving. beschikbaarbeid is \'beschikbaar\'", events[1].description);
+  TestEq("Testje (all day)", events[1].summary);
+  TestEq("1fa8b30f-5f66-48c8-9cc4-a38ad805719c", events[1].uid);
+  TestEq(TRUE, events[1].allday);
+  TestEq(MakeDate(2011,9,30), events[1].dtstart);
+  TestEq(MakeDate(2011,10,1), events[1].dtend);
+  TestEq("Locatie", events[1].location);
+
+  TestEq("Beschrijving. Beschikbaarheid is \'bezet\'", events[2].description);
+  TestEq("Onderwerp op zondag", events[2].summary);
+  TestEq("52a68867-cc98-420a-bd45-e370098e4bdc", events[2].uid);
+  TestEq(FALSE, events[2].allday);
+
+  CloseTest("TestIcal_Parser");
+}
+
+MACRO TestIcal_Regression()
+{
+  OpenTest("TestIcal_Regression");
+
+  TestEq(FALSE, RecordExists(DecodeICALEvent(""))); //crashed earlier..
+
+  CloseTest("TestIcal_Regression");
+}
+
+MACRO TestIcal_Dogfood()
+{
+  OpenTest("TestIcal_Dogfood");
+
+  STRING locationevent := EncodeICalEvent([dtstart := MakeDate(2013,1,1), location:="xyz", description := RepeatText("\u20AC", 500) ]);
+  /* RFC 5545 allows us to split UTF8 lines (and thus create invalid UTF-8)
+     although it does refer to us as a 'simple implementation' if we do that.
+     We can't have that, and Thunderbird crashes on it anyway, so lets ensure
+     proper UTF8 after splitting */
+  TestEq(TRUE, IsValidUTF8(locationevent)); //no truncated utf-8 sequences
+  RECORD decoded := DecodeICALEvent(locationevent);
+  TestEq("xyz", decoded.location);
+  TestEq(RepeatText("\u20AC", 500), decoded.description);
+
+  CloseTest("TestIcal_Dogfood");
+}
+
+Print("\n === Running TestIcal\n");
+
+TestIcal_Parser();
+TestIcal_Dogfood();
+TestIcal_Regression();

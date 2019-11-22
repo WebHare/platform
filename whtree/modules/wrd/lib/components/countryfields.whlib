@@ -1,0 +1,226 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/country/nl.whlib";
+
+
+PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_wrdschema;
+
+
+  RECORD ARRAY country_fields;
+
+
+  STRING currentcountry;
+  STRING pvt_country;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC BOOLEAN have_nl_validation; //FIXME cleanup
+
+
+  PUBLIC STRING defaultcountry;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY country(pvt_country, SetCountry);
+
+  PUBLIC PROPERTY currentfields(country_fields,-);
+
+
+  PUBLIC OBJECT wrdschema;
+
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->invisibletitle := TRUE;
+  }
+
+
+  PUBLIC UPDATE MACRO CompositionMetadataIsUpdated()
+  {
+    this->wrdschema := ObjectExists(this->composition->wrdtype) ? this->composition->wrdtype->wrdschema : DEFAULT OBJECT;
+  }
+
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD description)
+  {
+    TolliumComponentBase::StaticInit(description);
+    this->defaultcountry := description.defaultcountry;
+    this->pvt_country := this->defaultcountry;
+    this->required := description.required;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  MACRO SetWRDSchema(OBJECT wrdschema)
+  {
+    this->pvt_wrdschema := wrdschema;
+    this->UpdateFields();
+  }
+
+
+  MACRO SetCountry(STRING countrycode)
+  {
+    this->pvt_country := countrycode;
+    this->UpdateFields();
+  }
+
+
+  RECORD FUNCTION GetValue()
+  {
+    IF(this->pvt_country = "")
+      RETURN DEFAULT RECORD;
+
+    RECORD address := [ country := this->pvt_country ];
+    FOREVERY(RECORD field FROM this->country_fields)
+      IF(field.tag!="")
+        address := CellInsert(address, field.tag, field.component->value);
+
+    RETURN address;
+  }
+
+  MACRO SetValue(RECORD address)
+  {
+    STRING newcountry := RecordExists(address) AND CellExists(address,"COUNTRY") ? address.country : this->defaultcountry;
+    IF(newcountry != this->pvt_country)
+      this->SetCountry(newcountry);
+    this->SetSubFields(address);
+  }
+
+  MACRO SetSubFields(RECORD address)
+  {
+    FOREVERY(RECORD cellrec FROM UnpackRecord(address))
+    {
+      RECORD field := SELECT * FROM this->country_fields WHERE tag = cellrec.name;
+      IF(RecordExists(field))
+        field.component->value := cellrec.value;
+    }
+
+    FOREVERY(RECORD field FROM this->country_fields)
+      IF(NOT CellExists(address, field.tag))
+        field.component->value := "";
+  }
+
+  UPDATE MACRO SetReadonly(BOOLEAN newstate)
+  {
+    TolliumComponentBase::SetReadonly(newstate);
+
+    FOREVERY(RECORD field FROM this->country_fields)
+      field.component->readonly := newstate;
+  }
+
+
+  UPDATE MACRO SetRequired(BOOLEAN newrequired)
+  {
+    TolliumComponentBase::SetRequired(newrequired);
+
+    // Base behaviour of subcomponents is to inherit requiredness from parent, so
+    // change them back to the value we want
+    FOREVERY (RECORD rec FROM this->country_fields)
+      rec.component->required := rec.required AND this->required;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RegenerateFields()
+  {
+    this->currentcountry := this->pvt_country;
+
+    //FIXME Skip deletion if there is no change in fields
+    FOREVERY(RECORD field FROM this->country_fields)
+      field.component->DeleteComponent();
+
+    DELETE FROM this->country_fields ALL;
+
+    RECORD ARRAY fields;
+    IF(this->pvt_country!='')
+      fields := GetAddressFormat(this->pvt_country, [ language := GetTidLanguage() ]).fields;
+
+//FIXME use wrdschema for validation data
+    IF(this->have_nl_validation AND TOUppercase(this->pvt_country)="NL")
+    {
+      // We're rearranging the fields when we can verify the address
+      //ADDME: hard-coded voor Nederland op het moment...
+      fields := [ (SELECT * FROM fields WHERE ToUppercase(tag) = "ZIP")[0]
+                , (SELECT * FROM fields WHERE ToUppercase(tag) = "NR_DETAIL")[0]
+                , (SELECT * FROM fields WHERE ToUppercase(tag) = "STREET")[0]
+                , (SELECT * FROM fields WHERE ToUppercase(tag) = "CITY")[0]
+                ];
+    }
+
+    OBJECT lastfield := this;
+    FOREVERY(RECORD field FROM fields)
+    {
+      OBJECT extracell := this->CreateSubComponent("textedit");
+      extracell->maxlength := 512; // 512 bytes should be enough for every address line :-)
+      extracell->title := field.title;
+      extracell->required := field.required AND this->required;
+      extracell->readonly := this->readonly;
+      INSERT [ tag := ToUppercase(field.tag)
+             , component := extracell
+             , required := field.required
+             ]  INTO this->country_fields AT END;
+
+      this->parent->InsertComponentAfter(extracell, lastfield, #field > 0);
+      lastfield := extracell;
+    }
+
+  }
+
+  MACRO UpdateFields()
+  {
+    IF(this->currentcountry = this->pvt_country)
+      RETURN; //fields are already in sync
+
+    RECORD saveaddress := this->value;
+    this->RegenerateFields();
+    this->SetSubFields(saveaddress);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF (ToUppercase(this->pvt_country) = "NL")
+    {
+      // Get 'postcode' field, validate it
+      RECORD zipfield := (SELECT * FROM this->country_fields WHERE ToUppercase(tag) = "ZIP");
+      IF (zipfield.component->value != "")
+      {
+        STRING normalized := NormalizeNLZipCode(zipfield.component->value);
+        IF (normalized = "")
+          work->AddError(GetTid("wrd:commondialogs.messages.addressverify_invalid_zip"));
+      }
+    }
+
+    FOREVERY (RECORD field FROM this->country_fields)
+      field.component->ValidateValue(work);
+  }
+>;
+

@@ -1,0 +1,22 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/tests/inlineblock.whlib">
+
+
+  <screen name="inlineblocktest">
+    <actions>
+    </actions>
+
+    <compositions>
+    </compositions>
+    <body name="componentpanel">
+      <inlineblock title="Inline Block" borders="all" backgroundcolor="#ffffee">
+        <button title="Button" />
+        <text title="Text" value="Value" />
+        <textedit title="Textedit" value="Value" />
+      </inlineblock>
+    </body>
+  </screen>
+
+</screens>

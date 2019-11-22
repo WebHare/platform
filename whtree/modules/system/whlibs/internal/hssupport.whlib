@@ -1,0 +1,68 @@
+<?wh (* ISSYSTEMLIBRARY *)
+
+LOADLIB "wh::system.whlib";
+
+
+/** Encodes an harescript exception for logging to the notice log. It logs the exception text, stack trace and the error context info set by SetErrorContextInfo.
+    @param e Exception to log
+    @param options
+    @cell(boolean) options.addcurrentstack If present and FALSE, skip appending the stack trace to the logging function
+    @cell(string) options.script If set, log this as the name of the script
+    @cell options.info Extra info to log (will be hson encoded)
+    @cell options.contextinfo If present, overrides the contextinfo set by SetErrorContextInfo.
+*/
+PUBLIC STRING FUNCTION EncodeHarescriptException(OBJECT e, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD ARRAY errors;
+  IF (e EXTENDSFROM HarescriptErrorException)
+    errors := e->errors;
+  ELSE IF (LENGTH(e->trace) > 0)
+  {
+    errors := [ MakeOverwrittenRecord(e->trace[0],
+                               [ code := 251
+                               , param1 := e->what
+                               , param2 := ""
+                               , message := "Exception: " || e->what
+                               ])
+              ];
+  }
+
+  // Augment trace with a trace to this function (nice to know where this was reported)
+  RECORD ARRAY trace := e->trace;
+  IF (NOT CellExists(options, "ADDCURRENTSTACK") OR NOT options.addcurrentstack)
+    trace := trace CONCAT ArraySlice(GetStackTrace(), 1);
+
+  RECORD data :=
+      [ warnings :=   DEFAULT RECORD ARRAY
+      , errors :=     SELECT filename, line, col, message FROM errors where code >= 0
+      , trace :=      SELECT filename, line, col, func FROM trace LIMIT 100
+      ];
+
+  IF (CellExists(options, "SCRIPT") AND options.script != "")
+    INSERT CELL script := options.script INTO data;
+  IF (CellExists(options, "INFO"))
+    INSERT CELL info := options.info INTO data;
+
+  STRING contextinfo;
+  IF (NOT CellExists(options, "CONTEXTINFO"))
+    contextinfo := CellExists(GetAuthenticationRecord(), "CONTEXTINFO") ? GetAuthenticationRecord().contextinfo : "";
+  ELSE
+    contextinfo := EncodeHSON(options.contextinfo);
+  IF (contextinfo != "")
+    INSERT CELL contextinfo := contextinfo INTO data;
+
+  // Keep error notices a bit small
+  INTEGER budget := 100*1024 - LENGTH(EncodeHSON(data));
+  FOREVERY (RECORD rec FROM data.errors)
+  {
+    IF (LENGTH(data.errors[#rec].message) > budget)
+      data.errors[#rec].message := Left(data.errors[#rec].message, budget) || "...";
+    budget := budget - LENGTH(data.errors[#rec].message);
+  }
+
+  STRING encodeddata := EncodeHSON(data);
+  IF(Length(encodeddata)>126*1024)
+    encodeddata := "-";
+
+  RETURN encodeddata;
+}

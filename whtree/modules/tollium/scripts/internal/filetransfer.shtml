@@ -1,0 +1,247 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
+
+STRING portid := GetWebVariable("l");
+STRING type := GetWebVariable("t");
+IF (portid LIKE "*/*")
+  ABORT("Can only connect to normal applications!");
+
+IF(debug_logcontroller)
+  LogDebug("filetransfer", `Incoming request of type '${type}' for application ${portid}'`);
+
+OBJECT ipclink := ConnectToIPCPort("tollium:link." || portid);
+IF(NOT ObjectExists(ipclink))
+  ipclink := ConnectToGlobalIPCPort("tollium:link." || portid);
+
+IF(NOT ObjectExists(ipclink))
+{
+  IF(debug_logcontroller)
+    LogDebug("filetransfer", `IPC port ${portid}' not found`);
+
+  AddHTTPHeader("Status", "404 Not found", FALSE);
+  IF(type="asyncwindowopen")
+    Print('<script>window.close();</script>');
+  RETURN;
+}
+
+SWITCH (type)
+{
+  CASE "urlupload"
+  {
+    //FIXME verify that this request actually came from a RTE or test. Is checking objectexists(ipclink) enough?
+    //FIXME evaluate security issues with allowing even identified users to do requests (we could be made a DoS proxy! we could be abused to avoid IP security checks - perhaps we should add a Requesting-For header with IP?)
+    //ADDME huge data urls are probably better decoded piece-wise
+    RECORD uploadreq := DecodeJSONBlob(GetRequestBody());
+    BLOB indata;
+
+    IF(uploadreq.url LIKE "http:*" OR uploadreq.url LIKE "https:*")
+    {
+      OBJECT browser := NEW WebBrowser;
+      browser->timeout := 30000;
+      IF(NOT browser->GotoWebPage(uploadreq.url))
+      {
+        AddHTTPHeader("Content-Type","application/json",FALSE);
+        Print(EncodeJSON([status := "DOWNLOADFAILED"]));
+        RETURN;
+      }
+
+      indata := browser->content;
+      browser->Close();
+    }
+    ELSE IF(uploadreq.url LIKE "data:*")
+    {
+      RECORD parsed := ParseDataURL(uploadreq.url);
+      IF(RecordExists(parsed))
+        indata := parsed.data;
+    }
+    ELSE
+    {
+      AddHTTPHeader("Content-Type","application/json",FALSE);
+      Print(EncodeJSON([status := "DOWNLOADFAILED"]));
+      RETURN;
+    }
+
+    RECORD fileinfo := ScanBlob(indata,"");
+    IF(fileinfo.width <= 0 OR fileinfo.height <= 0)
+    {
+      AddHTTPHeader("Content-Type","application/json",FALSE);
+      Print(EncodeJSON([status := "DOWNLOADFAILED"]));
+      RETURN;
+    }
+
+    RECORD rec := ipclink->DoRequest(
+        [ type := "upload"
+        , window := GetWebVariable("w")
+        , component := GetWebVariable("n")
+        , data := DecodeJSON(GetWebVariable("d"))
+        , incoming := [ data := indata
+                      , filename := uploadreq.filename
+                      , uploadtype := "urlupload"
+                      ]
+        ]);
+
+    IF (rec.status != "ok" OR NOT RecordExists(rec.msg))
+    {
+      AddHTTPHeader("Status", "404 Not found", FALSE);
+      RETURN;
+    }
+
+    AddHTTPHeader("Content-Type","application/json",FALSE);
+    Print(EncodeJSON([status := "OK", url := rec.msg.tokens[0] ]));
+    RETURN;
+
+  }
+  CASE "upload", "upload-xhr"
+  {
+    RECORD incoming := ProcessUploadEndpointData();
+    IF(NOT RecordExists(incoming))
+      ABORT("Upload endpoint did not understand received data");
+
+    RECORD rec := ipclink->DoRequest(
+        [ type := "upload"
+        , window := GetWebVariable("w")
+        , component := GetWebVariable("n")
+        , data := DecodeJSON(GetWebVariable("d"))
+        , incoming := incoming
+        ]);
+
+    IF (rec.status != "ok" OR NOT RecordExists(rec.msg))
+    {
+      AddHTTPHeader("Status", "404 Not found", FALSE);
+      RETURN;
+    }
+    IF(type="upload")
+      SendUploadEndpointResponse(incoming, rec.msg.tokens);
+    ELSE
+    {
+      AddHTTPHeader("Content-Type","application/json",FALSE);
+      Print(EncodeJSON([status := "OK", url := rec.msg.tokens[0] ]));
+    }
+  }
+  CASE "download"
+  {
+    RECORD rec := ipclink->DoRequest(
+        [ type := GetWebVariable("t")
+        , window := GetWebVariable("w")
+        , component := GetWebVariable("n")
+        , data := DecodeJSON(GetWebVariable("d"))
+        ]);
+
+    IF (rec.status != "ok" OR NOT RecordExists(rec.msg))
+    {
+      IF(debug_logcontroller)
+       LogDebug("filetransfer", `Download request failed`, rec);
+
+      AddHTTPHeader("Status", "404 Not found", FALSE);
+      RETURN;
+    }
+
+    RECORD data := MakeUpdatedRecord(
+        [ filename :=     ""
+        , mimetype :=     "application/octet-stream"
+        , data :=         DEFAULT BLOB
+        , disposition :=  ""
+        ], rec.msg);
+
+    IF (data.disposition = "")
+      data.disposition := "attachment";
+
+    IF (data.filename!="")
+      data.disposition := data.disposition || '; filename="' || EncodeJava(data.filename) || '"';
+
+    AddHTTPHeader("Content-Type", data.mimetype,false);
+    AddHTTPHeader("Content-Disposition", data.disposition,FALSE);
+    SendWebFile(data.data);
+  }
+  CASE "asyncdownload"
+  {
+    RECORD rec := ipclink->DoRequest(
+        [ type := GetWebVariable("t")
+        , window := GetWebVariable("w")
+        , component := GetWebVariable("n")
+        , data := DecodeJSON(GetWebVariable("d"))
+        , id := GetWebVariable("s")
+        ]);
+
+    IF (rec.status != "ok" OR NOT RecordExists(rec.msg))
+    {
+      AddHTTPHeader("Status", "404 Not found", FALSE);
+      RETURN;
+    }
+
+    IF (rec.msg.type = "cancel")
+      SendDownloadError([ error := "Download cancelled" ]);
+    ELSE
+      SendDownloadFile(rec.msg.data, rec.msg.filename, rec.msg.mimetype);
+  }
+  CASE "asyncwindowopen"
+  {
+    RECORD rec := ipclink->DoRequest(
+        [ type := GetWebVariable("t")
+        , window := GetWebVariable("w")
+        , component := GetWebVariable("n")
+        , data := DecodeJSON(GetWebVariable("d"))
+        , id := GetWebVariable("s")
+        ]);
+
+    IF (rec.status != "ok" OR NOT RecordExists(rec.msg))
+    {
+      AddHTTPHeader("Status", "404 Not found", FALSE);
+      Print('<script>window.close();</script>');
+      RETURN;
+    }
+
+    IF (rec.msg.type = "cancel")
+    {
+      AddHTTPHeader("Content-Type", "text/html", FALSE);
+      Print('<script>window.close();</script>');
+      RETURN;
+    }
+    IF (rec.msg.type = "file")
+    {
+      AddHTTPHeader("Content-Type", rec.msg.mimetype, FALSE);
+      SendWebFile(rec.msg.data);
+    }
+    ELSE IF (rec.msg.type = "url")
+      Redirect(rec.msg.url);
+  }
+  CASE "asynccallback"
+  {
+    RECORD rec := ipclink->DoRequest(
+        [ type := GetWebVariable("t")
+        , window := GetWebVariable("w")
+        , component := GetWebVariable("n")
+        , data := DecodeJSON(GetWebVariable("d"))
+        , id := GetWebVariable("s")
+        ]);
+
+    IF (rec.status != "ok" OR NOT RecordExists(rec.msg) OR rec.msg.type = "cancel")
+    {
+      AddHTTPHeader("Status", "410 Gone", FALSE);
+      Print('This URL is no longer available');
+      RETURN;
+    }
+
+    IF (rec.msg.type = "file")
+    {
+      AddHTTPHeader("Content-Type", rec.msg.mimetype, FALSE);
+      SendWebFile(rec.msg.data);
+    }
+    ELSE IF (rec.msg.type = "url")
+      Redirect(rec.msg.url);
+  }
+  DEFAULT
+  {
+    ABORT("Illegal request type");
+  }
+}

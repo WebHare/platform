@@ -1,0 +1,70 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor/locks.whlib"
+         gid="monitor.locks">
+
+  <screen name="locks" title="">
+    <actions>
+      <action name="opentracerow" >
+        <enableon source="trace" min="1" onexecute="doopentracerow" />
+      </action>
+    </actions>
+
+    <body height="1pr">
+      <split type="vertical">
+        <part height="3pr">
+          <split type="horizontal">
+            <part width="1pr">
+              <list name="locks"
+                    selectmode="single"
+                    onselect="onlockselect"
+                    borders="none"
+                    >
+                <column name="name" type="text" />
+<!--                <column name="maxwaittime" type="text" width="12x" align="right" />
+                <column name="maxlocktime" type="text" width="12x" align="right" /> -->
+                <column name="locked" type="integer" width="8x" />
+                <column name="waiting" type="integer" width="8x" />
+              </list>
+            </part>
+            <part borders="none" width="1pr">
+              <list name="lockslist"
+                    borders="none"
+                    selectmode="multiple"
+                    onselect="onlinkselect"
+                    >
+    <!--                openaction="viewprocess" -->
+    <!--                selectcontextmenu="jobscontext" -->
+                <column name="position" type="integer" width="8x" />
+                <column name="clientname" type="text" width="1pr" />
+                <column name="groupid" type="text" width="24x" />
+<!--                <column name="script_show" tid=".script" type="text" />
+                <column name="waittime" type="text" width="12x" align="right" />
+                <column name="locktime" type="text" width="12x" align="right" /> -->
+                <column name="locked" type="text" width="12x"/>
+<!--                <column name="maxconcurrent" type="integer" width="8x"/> -->
+              </list>
+            </part>
+          </split>
+        </part>
+        <part height="1pr">
+          <heading checkbox="true" name="stacktrace" onchange="onstacktracechange" />
+          <list name="trace"
+                minwidth="80x" width="1pr"
+                minheight="10x" height="1pr"
+                emptytid=".nostacktrace"
+                selectmode="single"
+                sortable="false"
+                borders="top bottom"
+                openaction="opentracerow"
+                >
+            <column name="filename" type="text" />
+            <column name="line" type="integer" width="6x" />
+            <column name="col" type="integer" width="6x" />
+            <column name="func" type="text" />
+          </list>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+</screens>

@@ -1,0 +1,278 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::webhare_testsuite/lib/publisher/versioning.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+OBJECT FUNCTION Rte()
+{
+  RETURN TT("doceditor")->contents->rte;
+}
+
+
+MACRO Create()
+{
+  SetTidLanguage("debug");
+  testfw->BeginWork();
+
+  EnableSiteVersionHistory(testfw->GetTestSite(), testfw->GetUserObject("sysop"), "publisher:default");
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+
+  testfw->CommitWork();
+}
+
+OBJECT ASYNC FUNCTION TestVersioned()
+{
+  RECORD rec;
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+
+  testfw->BeginWork();
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  OBJECT testfile := root->CreateFile(
+      [ name :=   "unpublished.rtd"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
+  testfw->CommitWork();
+
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+  // Open rich document editor
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is new content saved as draft</p>');
+  RTE()->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
+
+  // Save as draft
+  AWAIT ExpectNoScreenChange(PTR TT("save")->TolliumClick());
+
+  // Test: unversioned file saved as draft must be saved directly to the existing file
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is new content proposed as published</p>');
+  RTE()->__debug_simulatedirty();
+
+  // Publish, but cancel submit for approval. Should not create a draft
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick()); // submit for approval?
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  AWAIT rec.expectcallreturn();
+
+  // No draft?
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+  // Publish, and submit for approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick());
+  topscreen->descriptiontext->value := "test";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  // See if the rte is now readonly and a request for approval has been sent
+  TestEQ(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+  TestEQ(TRUE, RTE()->readonly);
+  TestEQ(TRUE, policy->HasApprovalRequest(testfile));
+
+  //close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := GetEffectiveUser(), message := "Accepted" ]);
+  testfw->CommitWork();
+
+  // Open editdocument again.
+  // Now, the file is versioned and published, so save should go to a draft immediately
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This change should trigger a second draft</p>');
+  RTE()->__debug_simulatedirty();
+
+  // Save, should go to draft
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TT("save")->TolliumClick(), [ messagemask := "*publishversionedfiletoapplychanges*" ]);
+  TestEQ(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+
+  // Publish, and submit for approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick());
+  topscreen->descriptiontext->value := "test";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectAndAnswerMessageBox("no", DEFAULT FUNCTION PTR, [ messagemask := "*closeeditorafterversionedpublish*" ]);
+  AWAIT rec.expectcallreturn();
+
+  AWAIT ExpectNoScreenChange(DEFAULT FUNCTION PTR); // shouldn't close the app
+
+  // See if the rte is now readonly and a request for approval has been sent
+  TestEQ(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+  TestEQ(TRUE, RTE()->readonly);
+  TestEQ(TRUE, policy->HasApprovalRequest(testfile));
+
+  //close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  testfw->BeginWork();
+  // Update the draft to not-published
+  RECORD idata := GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+  idata.flags := 0;
+  GetPublicDraft(testfile->id)->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", idata);
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := GetEffectiveUser(), message := "Accepted" ]);
+  testfw->CommitWork();
+
+  // Open editdocument again.
+  // Now, the file is versioned but not published, so save should go to live version
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This change should go to the live version</p>');
+  RTE()->__debug_simulatedirty();
+
+    // Save, should go to live (no draft created)
+  AWAIT ExpectNoScreenChange(PTR TT("save")->TolliumClick());
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+  // After accept, should contain right data
+  RECORD rtd := testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  TestEQLike("*to the live version*", BlobToString(rtd.data.htmltext));
+
+
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This change should go to the live version, and then be published</p>');
+  RTE()->__debug_simulatedirty();
+
+  // Publish, and submit for approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick());
+  topscreen->descriptiontext->value := "test";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  // Content should be saved to live version first
+  rtd := testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  TestEQLike("*and then be published*", BlobToString(rtd.data.htmltext));
+
+  //close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := GetEffectiveUser(), message := "Accepted" ]);
+  testfw->CommitWork();
+
+  // After accept, should contain right data
+  rtd := testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  TestEQLike("*and then be published*", BlobToString(rtd.data.htmltext));
+
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION TestVersionedDraft()
+{
+  RECORD rec;
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+
+  testfw->BeginWork();
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  OBJECT testfile := root->CreateFile(
+      [ name :=   "draftdocument.rtd"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
+  testfw->CommitWork();
+
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+  // Open rich document editor
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is new content saved to live</p>');
+  RTE()->__debug_simulatedirty();
+
+  // Save to live
+  AWAIT ExpectNoScreenChange(PTR TT("save")->TolliumClick());
+
+  // Test: unversioned file saved as draft must be saved directly to the existing file
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+  // Publish, and submit for approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick());
+  topscreen->descriptiontext->value := "test";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  // See if the rte is now readonly and a request for approval has been sent
+  TestEQ(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+  INTEGER draftid := GetPublicDraft(testfile->id)->id;
+  TestEQ(TRUE, RTE()->readonly);
+  TestEQ(TRUE, policy->HasApprovalRequest(testfile));
+
+  //close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  // Deny the request
+  testfw->BeginWork();
+  DenyApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := GetEffectiveUser(), message := "Denied" ]);
+  testfw->CommitWork();
+
+  // No public draft anymore, the draft was denied
+  TestEq(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+
+  // Open editdocument again.
+  // Now, the file is versioned but not published, so save should go to live version
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is new content saved again to live</p>');
+  RTE()->__debug_simulatedirty();
+
+  // Save to live version
+  AWAIT ExpectNoScreenChange(PTR TT("save")->TolliumClick());
+
+  // Test: unversioned file saved as draft must be saved directly to the existing file must leave the draft alone
+  TestEq(TRUE, OBjectExists(GetPublicDraft(testfile->id)));
+  RECORD rtd := GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  TestEQLike("*saved to live*", BlobToString(rtd.data.htmltext)); // draft should not be updated
+  rtd := testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  TestEQLike("*saved again to live*", BlobToString(rtd.data.htmltext)); // live version should be
+
+  // Publish, and submit for approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick());
+  topscreen->descriptiontext->value := "test";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  // See if the rte is now readonly and a request for approval has been sent
+  TestEQ(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+  // The new draft object should be different from the old draft object
+  TestEq(FALSE, draftid = GetPublicDraft(testfile->id)->id);
+  TestEQ(TRUE, RTE()->readonly);
+  TestEQ(TRUE, policy->HasApprovalRequest(testfile));
+
+  //close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := GetEffectiveUser(), message := "Accepted" ]);
+  testfw->CommitWork();
+
+  RETURN DEFAULT RECORD;
+}
+
+
+
+RunTestFramework(
+    [ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [ istemplate := FALSE, witherrors := TRUE, withcontent := FALSE ])
+    , PTR Create
+    , PTR TestVersioned
+    , PTR TestVersionedDraft
+    ],
+    [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ] ]
+    , debug := TRUE
+    ]);

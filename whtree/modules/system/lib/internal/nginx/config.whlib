@@ -1,0 +1,183 @@
+<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/pkcs.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+
+/** Generate a Nginx proxy configuration
+    @param data Current webserver configuration
+*/
+PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING reverseaddress, STRING verificationurl, STRING hostswhitelist, INTEGER proxyid)
+{
+  STRING ARRAY whitelistmasks := ParseXSList(hostswhitelist);
+  IF(reverseaddress LIKE "*/")
+    reverseaddress := Left(reverseaddress, Length(reverseaddress)-1); //ningx doesn't like a terminating slash (ADDME we should completely strip the urlpath)
+
+  //BTW: looks like all the proxy_set_headers _must_ be inside a location block, can't seem to combine identical headesr outside
+
+  /* AVOID ADDING ANY MORE SETTINGS HERE.
+
+     But if you have to, also specify the parameter to 'request' so future nginxes can decide to
+     take over generation of this parameter */
+  STRING local_settings := ""
+      || '    proxy_http_version    1.1;\n'
+      || '    proxy_request_buffering off;\n'
+      || '    proxy_buffering off;\n'
+      || '    proxy_read_timeout    600s;\n'
+      || '    client_max_body_size  700m;\n' //html5 uploads only require 10m, but module pushes need more. we'll settle for this for webdav too then
+      || '    \n'
+      || '    location /\n'
+      || '    {\n'
+      || '      proxy_set_header      Connection "";\n'
+      || '      proxy_pass            ' || reverseaddress || ';\n'
+      || '      proxy_set_header      Host $http_host;\n'
+      || '      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;\n'
+      || '      proxy_set_header      X-Forwarded-Proto $scheme;\n'
+      || '      proxy_set_header      X-WebHare-Proxy "' || proxyid || '";\n'
+      || '    }\n'
+      || '    location ~* \.whsock$ \n'
+      || '    {\n'
+      || '      proxy_http_version    1.1;\n'
+      || '      proxy_set_header      Upgrade $http_upgrade;\n'
+      || '      proxy_set_header      Connection "upgrade";\n'
+      || '      proxy_pass            ' || reverseaddress || ';\n'
+      || '      proxy_set_header      Host $http_host;\n'
+      || '      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;\n'
+      || '      proxy_set_header      X-Forwarded-Proto $scheme;\n'
+      || '      proxy_set_header      X-WebHare-Proxy "' || proxyid || '";\n'
+      || '    }\n';
+
+  RECORD request :=
+      [ id :=                       GetServerName()
+      , version :=                  1
+      , hosts :=                    DEFAULT RECORD ARRAY
+      , certificates :=             DEFAULT RECORD ARRAY
+      , ssl_ciphers :=              ReadRegistryKey("system.webserver.security.ciphersuite") ?? default_ciphersuites
+      , default_server_settings :=  local_settings
+      , reverseaddress :=           reverseaddress
+      , verificationurl :=          verificationurl
+      , proxyid :=                  proxyid
+      ];
+
+  // Get all the usable certificates on the system
+  RECORD ARRAY certificates;
+
+  //PRINT("Reading all certificates\n");
+
+  FOREVERY (RECORD keypair_rec FROM ListKeyPairs())
+  {
+    OBJECT keypair := OpenKeyPair(keypair_rec.id);
+    IF(Length(keypair->certificate)=0)
+      CONTINUE;
+
+    RECORD certdata;
+
+    TRY
+    {
+      certdata := DecodePEMFile(BlobToString(keypair->certificate));
+      IF (NOT RecordExists(certdata))
+        CONTINUE;
+    }
+    CATCH(OBJECT e)
+    {
+      Print("Exception on keypair " || keypair->name || ": " || e->what || "\n");
+      CONTINUE;
+    }
+
+    INSERT
+        [ name :=         keypair_rec.name
+        , chainfile :=    BlobToString(keypair->certificatechain)
+        , keyfile :=      BlobToString(keypair->privatekey)
+        , valid_until :=  certdata.valid_until
+        , servernames :=  [ (SELECT AS STRING value FROM certdata.subjectfields WHERE fieldname="CN") ] CONCAT certdata.dns_altnames
+        ] INTO certificates AT END;
+  }
+
+  RECORD ARRAY nonsecureportlist := [ [ port := 80 ], [ port := 80, ipv6 := TRUE ]];
+  RECORD ARRAY secureportlist :=    [ [ port := 443, ssl := TRUE ], [ port := 443, ipv6 := TRUE, ssl := TRUE ]];
+
+  RECORD ARRAY listenhosts;
+
+  //PRINT("Aggregating hosts\n");
+  FOREVERY (RECORD host FROM data.hosts)
+  {
+    // exclude listenhosts with port specification
+    host.listenhosts :=
+        SELECT AS STRING ARRAY listenhost
+          FROM ToRecordArray(host.listenhosts, "listenhost")
+         WHERE listenhost NOT LIKE "*:*";
+
+    // Ignore  servers that are not virtual hosted
+    IF (LENGTH(host.listenhosts) = 0 OR "_proxy" IN host.listenhosts)
+      CONTINUE;
+
+    STRING ARRAY nginx_servernames;
+    FOREVERY (STRING name FROM host.listenhosts)
+    {
+      IF (name LIKE "*.")
+        CONTINUE;
+
+      IF(Length(whitelistmasks) > 0)
+      {
+        BOOLEAN isdeny := TRUE;
+        FOREVERY(STRING mask FROM whitelistmasks)
+          IF(ToUppercase(name) LIKE ToUppercase(mask))
+            isdeny := FALSE;
+        IF(isdeny)
+          CONTINUE;
+      }
+
+      RECORD best_cert;
+      name := ToLowercase(name);
+      FOREVERY (RECORD cert FROM certificates)
+      {
+        BOOLEAN is_match := IsCertificateForHostname(cert, name);
+        IF (is_match)
+        {
+          IF (NOT RecordExists(best_cert) OR best_cert.valid_until < cert.valid_until)
+            best_cert := cert;
+        }
+      }
+
+      //convert everything with a wildcard, except "*.server", to a regex.
+      IF (SearchSubstring(name, "*" , 1) >= 0 OR (Substring(name,0,1)='*' AND Substring(name,0,2)!='*.'))
+      {
+        name := Substitute(name,'.','\\.');
+        name := Substitute(name,'*','.*');
+        name := "~^" || name || '$';
+      }
+
+      INSERT
+          [ servername :=     name
+          , ssl_keypair :=    RecordExists(best_cert) ? best_cert.name : "fallback"
+          , orghost :=        host.listenhosts[0]
+          ] INTO listenhosts AT END;
+    }
+  }
+
+  request.hosts :=
+      SELECT server_settings := ""
+           , ssl_keypair
+           , ports :=           nonsecureportlist CONCAT secureportlist
+           , servernames :=     Groupedvalues(servername)
+        FROM listenhosts
+    GROUP BY orghost, ssl_keypair;
+
+  STRING ARRAY used_keypairs := SELECT AS STRING ARRAY ssl_keypair FROM request.hosts;
+
+  // Filter the certificates
+  request.certificates :=
+      SELECT name
+           , keyfile
+           , chainfile
+        FROM certificates
+       WHERE name IN used_keypairs;
+
+  RETURN request;
+}

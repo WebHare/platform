@@ -1,0 +1,273 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
+
+MACRO EnsureTasksExecuted(DATETIME when)
+{
+  DATETIME waitlimit := AddTimeToDate(60000,GetCurrentDatetime());
+  //Print("Waiting until " || formatdatetime("%H:%M:%S", waitlimit) || "\n");
+  WHILE (TRUE)
+  {
+    RECORD ARRAY tasks_to_execute :=
+        SELECT * FROM publisher.schedule
+         WHERE COLUMN when <= VAR when;
+
+    IF (NOT RecordExists(tasks_to_execute))
+      BREAK;
+
+    Sleep(100);
+    IF(GetCurrentDatetime() >= waitlimit)
+      ABORT("Task isn't completing");
+  }
+
+  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+  //PRINT("Tasks & publisher finished\n");
+}
+
+MACRO PrepareTasks()
+{
+  testfw->BeginWork();
+  testfw->SetupTestWebdesignWebsite("");
+  testfw->CommitWork();
+}
+
+MACRO PublicationMoveFile()
+{
+
+
+  testfw->BeginWork();
+
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT tomovefile := testsite->rootobject->CreateFile(
+      [ name:=        "tomove.html"
+      , type :=       24
+      , publish :=    TRUE
+      ]);
+  OBJECT destfolder := testsite->rootobject->CreateFolder([name := "destfolder"]);
+  OBJECT deletedfolder := testsite->rootobject->CreateFolder([name := "deletedfolder"]);
+
+  DATETIME now := GetCurrentDateTime();
+  AddFileTask(tomovefile->id, now, 3, destfolder->id); // move
+
+  testfw->CommitWork();
+  EnsureTasksExecuted(now);
+
+  tomovefile := OpenWHFSObject(tomovefile->id);
+  TestEq(destfolder->id, tomovefile->parent);
+
+  testfw->BeginWork();
+  now := GetCurrentDateTime();
+  AddFileTask(tomovefile->id, now, 3, deletedfolder->id); //move file into a delted folder
+  deletedfolder->RecycleSelf();
+  testfw->CommitWork();
+  EnsureTasksExecuted(now);
+
+  tomovefile := OpenWHFSObject(tomovefile->id);
+  TestEq(deletedfolder->id, tomovefile->parent);
+
+
+}
+
+MACRO PublicationDeleteFile()
+{
+  testfw->BeginWork();
+
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT tokillfile := testsite->rootobject->CreateFile(
+      [ name:=        "todelete.html"
+      , type :=       24
+      , publish :=    TRUE
+      ]);
+
+  DATETIME now := GetCurrentDateTime();
+  AddFileTask(tokillfile->id, now, 4, 0); // delete
+  testfw->CommitWork();
+  EnsureTasksExecuted(now);
+
+  tokillfile := OpenWHFSObject(tokillfile->id);
+  TestEq(FALSE, tokillfile->isactive);
+
+}
+
+MACRO PublicationDeleteFolder()
+{
+  testfw->BeginWork();
+
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT tokillfolder := testsite->rootobject->CreateFolder(
+      [ name:=        "todelete"
+      ]);
+  OBJECT tokillfile := tokillfolder->CreateFile(
+      [ name:=        "todelete.html"
+      , type :=       24
+      , publish :=    TRUE
+      ]);
+
+  DATETIME now := GetCurrentDateTime();
+  AddFileTask(tokillfolder->id, now, 4, 0); // delete
+  testfw->CommitWork();
+  EnsureTasksExecuted(now);
+
+  tokillfolder := OpenWHFSObject(tokillfolder->id);
+  TestEq(FALSE, tokillfolder->isactive);
+
+}
+
+MACRO PublicationStartStopTest()
+{
+
+
+  testfw->BeginWork();
+
+  OBJECT testsite := testfw->GetTestSite();
+
+  OBJECT indexfile := testsite->rootobject->CreateFile(
+      [ name:=        "index.html"
+      , type :=       24
+      , publish :=    TRUE
+      ]);
+
+  OBJECT testfile := testsite->rootobject->CreateFile(
+      [ name:=        "test.html"
+      , data :=       StringToBlob("Dit is tekst")
+      , publish :=    FALSE
+      ]);
+
+  testfw->CommitWork();
+
+  testfw->RefreshWebserverConfig(); //fixme combine this all into setuptestwebsite?
+  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+
+  testfw->BeginWork();
+  DATETIME now := GetCurrentDateTime();
+  AddFileTask(testfile->id, now, 1, 0); // Start publish NOW -> sets published to true, must republish all
+  testfw->CommitWork();
+
+  EnsureTasksExecuted(now);
+
+  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
+
+  //this tests that both testfile and indexfile have been (re)queued for republication since the last 'now'
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
+  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
+
+  testfw->BeginWork();
+  now := GetCurrentDateTime();
+  AddFileTask(testfile->id, now, 1, 0); // Republish only testfile, now
+  testfw->CommitWork();
+
+  EnsureTasksExecuted(now);
+
+  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
+
+  //this tests that testfile has been (re)queued for republication since the last 'now', but not indexfile
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
+  TestEQ(FALSE, IsBeingPublishedSince(indexfile->id, now));
+
+  testfw->BeginWork();
+  now := GetCurrentDateTime();
+  AddFileTask(testfile->id, now, 2, 0); // Unpublish file
+  testfw->CommitWork();
+
+  EnsureTasksExecuted(now);
+
+  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
+
+  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
+  testfile->Refresh();
+  TestEQ(FALSE, testfile->publish);
+
+  testfw->BeginWork();
+  now := GetCurrentDateTime();
+  AddFileTask(testfile->parent, now, 1, 0); // Publish folder
+  testfw->CommitWork();
+
+  EnsureTasksExecuted(now);
+
+  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
+
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
+  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
+
+  testfw->BeginWork();
+  now := GetCurrentDateTime();
+  AddFileTask(testfile->parent, now, 1, 0); // Republish folder
+  testfw->CommitWork();
+
+  EnsureTasksExecuted(now);
+
+  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
+
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
+  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
+
+  testfw->BeginWork();
+  now := GetCurrentDateTime();
+  AddFileTask(testfile->parent, now, 2, 0); // Unpublish folder
+  testfw->CommitWork();
+
+  EnsureTasksExecuted(now);
+
+  indexfile->Refresh();
+  TestEQ(FALSE, indexfile->publish);
+  testfile->Refresh();
+  TestEQ(FALSE, testfile->publish);
+
+  // Publish everything
+  testfw->BeginWork();
+  now := GetCurrentDateTime();
+  AddFileTask(testfile->parent, now, 1, 0); // Publish folder
+  testfw->CommitWork();
+
+  EnsureTasksExecuted(now);
+}
+
+MACRO SetIndexDocTest()
+{
+  OBJECT testsite := testfw->GetTestSite();
+
+  OBJECT indexfile := testsite->rootobject->OpenByPath("index.html");
+  OBJECT testfile := testsite->rootobject->OpenByPath("test.html");
+
+  testfw->BeginWork();
+  indexfile->UpdateMetadata([ name := "test2.html" ]);
+  testfw->CommitWork();
+
+  TestEQ(indexfile->id, testsite->rootobject->indexdoc);
+
+  // Make sure any republication is done
+  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+
+  testfw->BeginWork();
+  DATETIME now := GetCurrentDateTime();
+  AddFileTask(testfile->id, now, 5, 0);
+  testfw->CommitWork();
+
+  EnsureTasksExecuted(now);
+
+  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
+
+  testsite->rootobject->Refresh();
+  TestEQ(testfile->id, testsite->rootobject->indexdoc);
+
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
+  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
+
+
+}
+
+RunTestFramework([ PTR PrepareTasks
+                 , PTR PublicationDeleteFile
+                 , PTR PublicationDeleteFolder
+                 , PTR PublicationMoveFile
+                 , PTR PublicationStartStopTest
+                 , PTR SetIndexDocTest
+                 ]);

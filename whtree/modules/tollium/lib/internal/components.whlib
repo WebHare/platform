@@ -1,0 +1,236 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+/* FIXME got this one from validatescreen, but system resourcemanager uses a
+   different one. tollium should just offer an initialized domimpl in its
+   resourcemanager, or perhaps domipl should allow a list of entity loaders? */
+RECORD FUNCTION GetSchema(OBJECT resmgr, STRING uri, STRING schemaid)
+{
+  IF (ToLowercase(uri) NOT LIKE "moduledata::*")
+    RETURN DEFAULT RECORD;
+
+
+  INTEGER cpos := SearchSubString(uri, "::");
+  uri := SubString(uri, cpos + 2);
+
+  INTEGER spos := SearchSubString(uri, "/");
+  IF (spos = -1)
+    RETURN DEFAULT RECORD;
+
+  STRING module := Left(uri, spos);
+  STRING subcode := SubString(uri, spos + 1);
+
+  //ADDME verify succesful open
+  RETURN [ success := TRUE
+         , data := GetHarescriptResource("moduledata::" || module || "/" || subcode)
+         ];
+}
+
+// attrs.name, attrs.data
+PUBLIC RECORD FUNCTION StoredAttrsJSON(RECORD element, STRING ARRAY flags)
+{
+  IF (CellExists(element, "isdivider") AND element.isdivider)
+    RETURN DEFAULT RECORD;
+
+  RECORD flagsrec := CELL[];
+  FOREVERY (STRING flag FROM flags)
+    flagsrec:=CellInsert(flagsrec, flag, GetCell(element,flag));
+  RETURN flagsrec;
+}
+
+PUBLIC RECORD FUNCTION ReadSize(STRING sizeval) //matches toddReadSize, ADDME perhaps remove from todd and move to webforms/todd shared?
+{
+  IF(sizeval="")
+    RETURN DEFAULT RECORD;
+  IF(sizeval LIKE "*gr")
+    RETURN [type:=5, size:= ToInteger(Left(sizeval, Length(sizeval)-2),0) ];
+  IF(sizeval LIKE "*px")
+    RETURN [type:=2, size:= ToInteger(Left(sizeval, Length(sizeval)-2),0) ];
+  IF(sizeval LIKE "*pr")
+    RETURN [type:=1, size:= ToInteger(Left(sizeval, Length(sizeval)-2),0) ];
+  IF(sizeval LIKE "*x")
+    RETURN [type:=3, size:= ToInteger(Left(sizeval, Length(sizeval)-1),0) ];
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ExplainLines(OBJECT parent, RECORD ARRAY lines)
+{
+  RECORD ARRAY outlines;
+
+  FOREVERY(RECORD line FROM lines)
+  {
+    OBJECT ARRAY items := line.items;
+    OBJECT firstblock;
+    INTEGER numblocks := 0;
+    INTEGER numreplaceditems;
+
+    FOR(INTEGER numitem := Length(items)-1; numitem>=0; numitem:=numitem-1)
+    {
+      IF(items[numitem]->componenttype="component") //Suppress references to serverside components
+      {
+        DELETE FROM items AT numitem;
+        CONTINUE;
+      }
+
+      IF(items[numitem]->blockelement)
+      {
+        IF(numblocks=0)
+          firstblock:=items[numitem];
+        numblocks := numblocks + 1;
+      }
+
+      //ADDME: Just assuming that items with invisibletitle set are replaced elements, which will not be rendered (and can
+      //       thus safely coexist with a blockitem on a single line)
+      IF (items[numitem]->invisibletitle)
+        numreplaceditems := numreplaceditems + 1;
+      IF(NOT items[numitem]->isnowvisible)
+        DELETE FROM items AT numitem;
+    }
+
+    //ADDME: Still render the line if it had a bottom padding?
+    IF(Length(items)=0)
+      CONTINUE;
+    IF(numblocks>1)
+    {
+      THROW NEW TolliumException(parent, "Panel " || parent->name || ": Multiple block items on single line #" || #line);
+    }
+
+    IF(numblocks=1) //This line consists of a block item
+    {
+      IF (numblocks=1 AND (Length(items)-numreplaceditems)>1)
+      {
+        OBJECT first_non_block;
+        FOR(INTEGER i:=0;i<Length(items);i:=i+1)
+          IF(items[i]->blockelement = FALSE)
+          {
+            first_non_block := items[i];
+            BREAK;
+          }
+
+        THROW NEW TolliumException(parent, "Panel " || parent->name || ": Block (" || firstblock->componenttype || ") and non-block items (" || first_non_block->componenttype || ") on single line #" || #line);
+      }
+      INSERT
+          [ isblock :=            TRUE
+          , layout :=             "block"
+          , linetitle :=          ""
+          , linelabelfor :=       DEFAULT OBJECT
+          , linelabelrequired :=  FALSE
+          , items :=              [[title:="",obj:=firstblock]]
+          , height :=             firstblock->GetHeight()
+          ] INTO outlines AT END;
+
+      CONTINUE;
+    }
+
+    OBJECT labelobject;
+    IF(line.linesettings.layout="form")
+    {
+      //Lookup the first title (selftest: 'alignment test: componenten')
+      FOREVERY(OBJECT item FROM items)
+        IF (NOT item->invisibletitle AND MemberExists(item, 'title'))
+        {
+          IF (item->title != "")
+            labelobject := item;
+          BREAK;
+        }
+    }
+
+    RECORD ARRAY outitems;
+    OBJECT previtem;
+    FOREVERY(OBJECT item FROM items)
+    {
+      RECORD iteminfo := [ title := ""
+                         , obj := item
+                         , required := item->required
+                         ];
+
+      IF(item != labelobject AND NOT item->invisibletitle AND MemberExists(item, 'title') AND item->title!='')
+        iteminfo.title := item->renderedtitle;
+
+      INSERT iteminfo INTO outitems at END;
+      previtem := item;
+    }
+
+    OBJECT labelforobject := ObjectExists(labelobject) ? labelobject->GetTitleForComponent() : DEFAULT OBJECT;
+    STRING lineheight;
+    IF(Length(items)=1) //copy only item lineheight to the line: this fixes <textarea height="1pr"> (FIXME what to do if a line a has multiple, conflicting heights?)
+      lineheight := items[0]->height;
+
+    INSERT
+        [ isblock :=            FALSE
+        , layout :=             line.linesettings.layout
+        , linetitle :=          ObjectExists(labelobject) ? labelobject->renderedtitle : ""
+        , linelabelfor :=       labelforobject
+        , linelabelrequired :=  ObjectExists(labelobject) AND labelobject->required
+        , items :=              outitems
+        , height :=             lineheight
+        ] INTO outlines AT END;
+  }
+  RETURN outlines;
+}
+
+///return which of the known handlers have an actual handler installed
+PUBLIC STRING ARRAY FUNCTION GetUnmask(OBJECT obj, STRING ARRAY handlers)
+{
+  STRING ARRAY unmasked;
+  FOREVERY(STRING handler FROM handlers)
+    IF(GetMember(obj,"on"||handler) != DEFAULT FUNCTION PTR AND ("on"||handler) NOT IN obj->delay_events)
+      INSERT handler INTO unmasked AT END;
+  RETURN unmasked;
+}
+
+PUBLIC STRING FUNCTION GetVisibleComponentName(OBJECT comp)
+{
+  RETURN ObjectExists(comp) AND comp->IsVisible() ? comp->toddname : "";
+}
+
+PUBLIC STRING ARRAY FUNCTION GetVisibleComponentNames(OBJECT ARRAY comps)
+{
+  STRING ARRAY names;
+  FOREVERY(OBJECT comp FROM comps)
+    IF(comp->IsVisible())
+      INSERT comp->toddname INTO names AT END;
+  RETURN names;
+}
+
+PUBLIC STRING FUNCTION GetComponentName(OBJECT comp)
+{
+  RETURN ObjectExists(comp) ? comp->toddname : "";
+}
+
+PUBLIC STRING ARRAY FUNCTION GetComponentNames(OBJECT ARRAY comps)
+{
+  STRING ARRAY names;
+  FOREVERY(OBJECT comp FROM comps)
+    INSERT comp->toddname INTO names AT END;
+  RETURN names;
+}
+
+PUBLIC MACRO ExecuteDebugAction(OBJECT screen, RECORD action, VARIANT data)
+{
+  STRING ARRAY acttoks := Tokenize(action.type,':');
+  IF(Length(acttoks)!=2)
+    THROW NEW Exception(`Invalid debug action '${action.type}'`);
+
+  OBJECT modxml := GetModuleDefinitionXML(acttoks[0]);
+  IF(NOT ObjectExists(modxml))
+    THROW NEW Exception(`Invalid debug action '${action.type}'`);
+
+  OBJECT tolliumnode := modxml->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","tollium")->Item(0);
+  IF(ObjectExists(tolliumnode))
+    FOREVERY(OBJECT debugactionnode FROM tolliumnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","debugaction")->GetCurrentElements())
+    {
+      IF(debugactionnode->GetAttribute("name") = acttoks[1])
+      {
+        STRING lib := MakeAbsoluteResourcePath(GetModuleDefinitionXMLResourceName(acttoks[0]), debugactionnode->GetAttribute("library"));
+        MACRO PTR startmacro := MakeFunctionPtr(lib, debugactionnode->GetAttribute("startmacro"), 0, [TYPEID(OBJECT), TYPEID(VARIANT)]);
+        startmacro(screen, data);
+        RETURN;
+      }
+    }
+  THROW NEW Exception(`Cannot find debug action handler for '${action.type}'`);
+}

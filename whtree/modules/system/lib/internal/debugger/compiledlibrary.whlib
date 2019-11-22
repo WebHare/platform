@@ -1,0 +1,236 @@
+﻿<?wh
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE CompiledLibrary
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD pvt_dump;
+
+  RECORD pvt_debuginfo;
+
+  RECORD ARRAY cached_linestarts;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** Non-debug information from library
+  */
+  PUBLIC PROPERTY libdump(pvt_dump, -);
+
+  /* Raw debug information from libary
+  */
+  PUBLIC PROPERTY debuginfo(pvt_debuginfo, -);
+
+  /// Compile ID of the compiled library (DATETIME)
+  PUBLIC PROPERTY compile_id(this->pvt_dump.compile_id, -);
+
+  /// Modification time of the original source
+  PUBLIC PROPERTY sourcetime(this->pvt_dump.sourcetime, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(STRING name)
+  {
+    this->pvt_dump := __HS_LIBDUMP(name);
+    IF (NOT this->pvt_dump.success)
+      THROW NEW Exception("Error loading compiled library");
+
+    this->pvt_debuginfo := DecodeJSONBlob(MakeZlibDecompressedFile(this->pvt_dump.debuginfo_compressed, "GZIP"));
+  }
+
+  RECORD ARRAY FUNCTION RemoveSuperflousLoadsFromRanges(RECORD ARRAY ranges)
+  {
+    // Remove all ranges (but the last) that contain only loads
+    RECORD ARRAY code := this->pvt_dump.code;
+
+    RECORD ARRAY retval;
+    FOREVERY (RECORD range FROM ranges)
+    {
+      INTEGER pos := RecordLowerBound(code, [ codeptr := range.start ], [ "CODEPTR" ]).position;
+      INTEGER until := RecordLowerBound(code, [ codeptr := range.until ], [ "CODEPTR" ]).position;
+
+      INTEGER idx;
+      FOR (idx := pos; idx < until; idx := idx + 1)
+        IF (code[idx].code NOT IN [ "LOADS", "LOADSD", "LOADG", "LOADGD", "COPYS", "LOADC", "STORES" ])
+          BREAK;
+
+      IF (idx = until)
+      {
+        // Range only contains loads, stores and copies, not that important
+        INTEGER bb_startpos := LowerBound(this->pvt_debuginfo.basicblockpositions, range.start).position;
+
+        // No basic block start in the middle of the range? Then we'll ignore this one
+        IF (bb_startpos = LowerBound(this->pvt_debuginfo.basicblockpositions, range.until).position)
+          CONTINUE;
+      }
+
+      INSERT range INTO retval AT END;
+    }
+
+    // Keep last range if all are eliminated
+    IF (LENGTH(retval) = 0)
+      retval := [ ranges[END - 1] ];
+
+    RETURN retval;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD ARRAY FUNCTION GetFrameVariables(RECORD st_item)
+  {
+    RECORD pos := LowerBound(this->pvt_debuginfo.basicblockpositions, st_item.codeptr);
+
+    // Start of basic block
+    INTEGER bb := this->pvt_debuginfo.basicblockpositions[pos.position - (pos.found?0:1)];
+
+    pos := RecordLowerBound(RECORD ARRAY(this->pvt_debuginfo.variablepositions), [ codeptr := bb ], [ "CODEPTR" ]);
+    INTEGER epos := RecordUpperBound(RECORD ARRAY(this->pvt_debuginfo.variablepositions), [ codeptr := st_item.codeptr ], [ "CODEPTR" ]);
+
+    RECORD vars;
+    FOR (INTEGER i := pos.position; i < epos; i := i + 1)
+    {
+      RECORD rec := this->pvt_debuginfo.variablepositions[i];
+      INSERT CELL name := this->pvt_debuginfo.variables[rec.variable].name INTO rec;
+      vars := CellDelete(vars, this->pvt_debuginfo.variables[rec.variable].name);
+      IF ((rec.flags BITAND 0x01) = 0)
+        vars := CellInsert(vars, this->pvt_debuginfo.variables[rec.variable].name, rec);
+    }
+
+    RETURN
+        SELECT name
+             , id :=      st_item.baseptr + value.position
+             , vm :=      st_item.vm
+          FROM UnpackRecord(vars);
+  }
+
+  PUBLIC INTEGER ARRAY FUNCTION GetLineStarts(INTEGER linenr)
+  {
+    INTEGER ARRAY result;
+
+    RECORD cachepos := RecordLowerBound(this->cached_linestarts, [ linenr := linenr ], [ "LINENR" ]);
+    IF (cachepos.found)
+      RETURN this->cached_linestarts[cachepos.position].positions;
+
+    INTEGER ARRAY bb_pos := this->pvt_debuginfo.basicblockpositions;
+
+    // Calculate de codeptr ranges that contain code for this line
+    RECORD ARRAY ranges;
+    RECORD lastpos;
+    FOREVERY (RECORD pos FROM this->pvt_dump.sourcemap)
+    {
+      IF (RecordExists(lastpos))
+      {
+        IF (pos.line = lastpos.line)
+          CONTINUE;
+
+        IF (lastpos.line = linenr)
+          INSERT [ start := lastpos.codeptr, until := pos.codeptr ] INTO ranges AT END;
+      }
+      lastpos := pos;
+    }
+
+    IF (RecordExists(lastpos) AND lastpos.line = linenr)
+      INSERT [ start := lastpos.codeptr, until := this->pvt_debuginfo.codesize ] INTO ranges AT END;
+
+    IF (LENGTH(ranges) > 1)
+      ranges := this->RemoveSuperflousLoadsFromRanges(ranges);
+
+    FOREVERY (RECORD range FROM ranges)
+    {
+      INTEGER bb_startpos := UpperBound(bb_pos, range.start);
+      INTEGER bb_endpos := LowerBound(bb_pos, range.until).position;
+
+      INSERT range.start INTO result AT END;
+      FOR (INTEGER i := bb_startpos; i < bb_endpos; i := i + 1)
+        INSERT bb_pos[i] INTO result AT END;
+    }
+
+    INSERT
+        [ linenr :=     linenr
+        , positions :=  result
+        ] INTO this->cached_linestarts AT cachepos.position;
+
+    RETURN result;
+  }
+
+  PUBLIC INTEGER ARRAY FUNCTION GetNextLineStarts(INTEGER codeptr)
+  {
+    RECORD ARRAY code := this->pvt_dump.code;
+    INTEGER ARRAY result;
+
+    INTEGER ARRAY basicblocks := [ codeptr ];
+    INTEGER ARRAY worklist := [ codeptr ];
+
+    RECORD linepos := RecordLowerBound(this->pvt_dump.sourcemap, [ codeptr := codeptr ], [ "CODEPTR" ]);
+    INTEGER line := this->pvt_dump.sourcemap[linepos.position - (linepos.found?0:1)].line;
+
+    WHILE (LENGTH(worklist) != 0)
+    {
+      INTEGER start := worklist[0];
+      DELETE FROM worklist AT 0;
+
+      INTEGER idx := RecordLowerBound(code, [ codeptr := start ], [ "CODEPTR" ]).position;
+
+      FOR (; idx < LENGTH(code);)
+      {
+        INTEGER ARRAY targets;
+
+        linepos := RecordLowerBound(this->pvt_dump.sourcemap, [ codeptr := code[idx].codeptr ], [ "CODEPTR" ]);
+        INTEGER codeline := this->pvt_dump.sourcemap[linepos.position - (linepos.found?0:1)].line;
+
+        IF (codeline != line)
+        {
+          INTEGER ARRAY linestarts := this->GetLineStarts(codeline);
+          IF (code[idx].codeptr IN linestarts)
+          {
+            INSERT code[idx].codeptr INTO result AT END;
+            BREAK;
+          }
+        }
+
+        IF (CellExists(code[idx], "ONEXCEPTION"))
+          INSERT code[idx].onexception.target INTO targets AT END;
+
+        IF (code[idx].code IN [ "JUMPC2F", "JUMP" ])
+          INSERT code[idx].position INTO targets AT END;
+
+        FOREVERY (INTEGER target FROM targets)
+        {
+          RECORD pos := LowerBound(basicblocks, target);
+          IF (NOT pos.found)
+          {
+            INSERT target INTO basicblocks AT pos.position;
+            INSERT target INTO worklist AT END;
+          }
+        }
+
+        IF (code[idx].code IN [ "JUMP", "RET" ])
+          BREAK;
+
+        idx := idx + 1;
+        IF (code[idx].codeptr IN basicblocks)
+          BREAK;
+      }
+    }
+
+    RETURN result;
+
+    ABORT(this->pvt_dump, "tree");
+    //RECORD pos := RecordLowerBound(
+  }
+>;

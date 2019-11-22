@@ -1,0 +1,146 @@
+<?wh
+// this library is for RPC services and not meant to directly include using LOADLIB
+// Please instead use LOADLIB "mod::publisher/lib/webtools/poll.whlib";
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/webtools/poll.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+
+
+/** @short get statistics for the poll
+*/
+PUBLIC RECORD FUNCTION RPC_GetResultsForPoll(STRING toolid)
+{
+  OBJECT trans := OpenPrimary();
+
+  OBJECT poll := OpenPollByToolid(toolid);
+  IF (NOT ObjectExists(poll))
+    THROW NEW Exception("Unknown poll toolid" || toolid);
+
+  RETURN poll->GetResults();
+}
+
+
+/** @short get statistics for multiple polls
+    @long  for polls which don't exist (anymore), no results are returned
+           (they silently fail to prevent deletion of a poll
+           killing all polls in a statically published page)
+*/
+PUBLIC RECORD ARRAY FUNCTION RPC_GetResultsForPolls(STRING ARRAY toolids)
+{
+  OBJECT trans := OpenPrimary();
+
+  RECORD ARRAY polls;
+
+  FOREVERY(STRING toolid FROM toolids)
+  {
+    OBJECT poll := __OpenPollByToolid_nocheck(toolid);
+    IF (NOT ObjectExists(poll))
+      INSERT DEFAULT RECORD INTO polls AT END;  // for multiple polls we want to keep the ones who do still exist working
+    ELSE
+      INSERT poll->GetResults() INTO polls AT END;
+  }
+  RETURN polls;
+}
+
+
+/** @short cast a vote
+*/
+PUBLIC RECORD FUNCTION RPC_CastVote(STRING toolid, STRING ARRAY optionguids)
+{
+  OBJECT trans := OpenPrimary();
+
+  OBJECT poll := OpenPollByToolid(toolid);
+  IF (NOT ObjectExists(poll))
+    THROW NEW Exception("Unknown poll");
+
+  RETURN __CastVote(poll, optionguids);
+}
+
+
+/** @short cast a vote and get the results back
+*/
+PUBLIC RECORD FUNCTION RPC_CastVoteAndReturnResults(STRING toolid, STRING ARRAY optionguids)
+{
+  OBJECT trans := OpenPrimary();
+
+  OBJECT poll := OpenPollByToolid(toolid);
+  IF (NOT ObjectExists(poll))
+    THROW NEW Exception("Unknown poll");
+
+  RECORD result := __CastVote(poll, optionguids);
+  IF (result.success)
+  {
+    RETURN [ success     := TRUE
+           , pollresults := poll->GetResults()
+           ];
+  }
+  ELSE
+  {
+    RETURN result; // FIXME
+  }
+}
+
+
+// for internal use (to be able to reuse a transaction and poll object)
+RECORD FUNCTION __CastVote(OBJECT poll, STRING ARRAY optionguids)
+{
+  IF (Length(optionguids) = 0)
+  {
+    THROW NEW Exception("(we don't allow blank votes)");
+  }
+
+  // ADDME: test whether voting is allowed
+  //        (poll active, voting open, voting closedate not reached yet, ...)
+
+  IF (NOT poll->ismultiplechoice AND Length(optionguids) > 1)
+  {
+    THROW NEW Exception("Casting multiple votes is only allow for multiple choice polls.");
+    // ADDME: log so we can find in the log from which ipaddress someone might be messing around?
+  }
+
+  // Make sure the selected options are unique (to prevent )
+  STRING ARRAY uniqueoptionguids := SELECT AS STRING ARRAY DISTINCT(guid) FROM ToRecordArray(optionguids, "guid");
+  IF (Length(optionguids) != Length(uniqueoptionguids))
+  {
+    THROW NEW Exception("Duplicate optionguids specified to CastVote().");
+    // ADDME: log so we can find in the log from which ipaddress someone might be messing around?
+  }
+
+
+  DATETIME when := GetCurrentDateTime();
+  STRING ipaddress := GetClientRemoteIp();
+  STRING useragent := GetWebHeader("User-agent");
+
+  //INTEGER ARRAY polloptionsids := SELECT AS INTEGER ARRAY id FROM publisher.polloptions WHERE poll_fsobject = poll->id;
+  //BOOLEAN voted_by_ip := SELECT FROM publisher.pollvotes WHERE id IN polloptionsids AND COLUMN ipaddress = VAR ipaddress;
+
+
+  GetPrimary()->BeginLockedWork("webtools_poll"||poll->id);
+
+  INTEGER pollvoterid  := MakeAutoNumber(publisher.pollvoters, "id");
+
+  INSERT INTO publisher.pollvoters
+              ("id",        "poll_fsobject", "when", "ipaddress", "useragent")
+       VALUES (pollvoterid, poll->id,        when,   ipaddress, useragent);
+
+  FOREVERY(STRING optionguid FROM optionguids)
+  {
+    INTEGER polloptionid := poll->__IncrementPollOptionVoteCount(optionguid);
+
+    INSERT INTO publisher.pollvotes
+                ("voter",     "option")
+         VALUES (pollvoterid, polloptionid);
+  }
+
+  GetPrimary()->CommitWork();
+
+
+  // NOTE: the return RECORD could later be used to return a token to revoke/change a vote
+  RETURN [ success := TRUE ];
+}

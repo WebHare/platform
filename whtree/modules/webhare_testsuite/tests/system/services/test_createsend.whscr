@@ -1,0 +1,73 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webapi/createsend.whlib";
+
+MACRO Test_CreateSendAPI()
+{
+  DATETIME teststart := GetRoundedDatetime(GetCurrentDatetime(), 1000); //round down to second as that's the precision we expect
+
+  OBJECT csapi := NEW CreateSendAPI(GetEnvironmentVariable("TESTFW_CREATESEND_APIKEY"));
+  //csapi->debug:=true;
+
+  //Just a simple call to verify we work
+  RECORD client_webharebv := SELECT * FROM csapi->ListClients()  WHERE name = "WebHare bv";
+  TestEq(TRUE, RecordExists(client_webharebv));
+
+  //Let's get the lists
+  RECORD ARRAY client_lists := csapi->ListMailingLists(client_webharebv.clientid);
+  RECORD testlist := SELECT * FROM client_lists WHERE name = "Testlist";
+  TestEq(TRUE, RecordExists(testlist));
+
+  STRING randomuser := "test_createsend+" || GenerateUFS128BitId() || "@example.net";
+
+  //User shouldn't be subscribed yet
+  RECORD describeuser := csapi->GetSubscriber(testlist.listid, randomuser);
+  Testeq(DEFAULT RECORD, describeuser);
+
+  //Subscribe a random user
+  TestThrowsLike("*Invalid email*", PTR csapi->AddSubscriber(testlist.listid, "testfw subscriber", "bestaatniet@example"));
+  TestEq(TRUE, csapi->AddSubscriber(testlist.listid, "testfw subscriber", randomuser, [ customfields := [[ field := "test", value := "42" ]]]).success);
+
+  //Check the user. CreateSend can apparently be slow to add us
+  FOR(INTEGER i := 0; i < 10; i := i + 1)
+  {
+    describeuser := csapi->GetSubscriber(testlist.listid, randomuser);
+    IF(RecordExists(describeuser))
+      BREAK;
+
+    Sleep(250);
+  }
+
+  TestEq(TRUE, RecordExists(describeuser));
+  TestEq("Active", describeuser.state);
+  TestEq("42", SELECT AS STRING value FROM describeuser.customfields WHERE field = "test");
+  TestEq(TRUE, describeuser.date >= teststart);
+  TestEq(FALSE, describeuser.consenttotrack); //is apparently the default
+
+  //Unsubscribe
+  TestEQ(TRUE, csapi->RemoveSubscriber(testlist.listid, randomuser));
+
+  //Recheck status
+  describeuser := csapi->GetSubscriber(testlist.listid, randomuser);
+
+  FOR(INTEGER i := 0; i < 10; i := i + 1)
+  {
+    describeuser := csapi->GetSubscriber(testlist.listid, randomuser);
+    IF(describeuser.state != "Active")
+      BREAK;
+
+    Sleep(250);
+  }
+  TestEq("Unsubscribed", describeuser.state);
+
+  //Unsubscribe shouldn't fail I think..
+  TestEq(FALSE, csapi->RemoveSubscriber(testlist.listid, randomuser));
+}
+
+RunTestframework([ PTR Test_CreateSendAPI
+                 ]);

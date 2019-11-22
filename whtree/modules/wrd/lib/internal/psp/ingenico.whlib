@@ -1,0 +1,489 @@
+<?wh
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+//ADDME generate-knopje op de configpagina voor SHA1 hashes?
+
+/* Wat men bij ogone.be moet instellen
+   Hash: SHA-1
+   Karaktercodering: UTF-8
+   SHA-1-IN versleuteling: SharedSecretIN
+   HTTP redirect is prima.
+   SHA1-OUT versleuiteling: SharedSecretOUT
+   Ik wil de feedbackparameters van de transacties op de redirectie-URL's ontvangen.: AAN
+
+   Wat men bij ons moet instellen
+   PSPID JobaOnline
+   Mode (test/productie - bepaalt de submiturl)
+   SHA1-IN
+   SHA1OUT
+
+
+https://payment-services.ingenico.com/int/en/ogone/support/guides/integration%20guides/e-commerce
+*/
+
+//List of parameters to has, get from: https://payment-services.ingenico.com/ogone/support/~/media/kdb/integration%20guides/sha-in_params.ashx?la=en
+STRING ARRAY shain_params :=
+  [ "ACCEPTANCE", "ACCEPTURL", "ADDMATCH", "ADDRMATCH", "AIACTIONNUMBER", "AIAGIATA", "AIAIRNAME", "AIAIRTAX", "AIBOOKIND*XX*", "AICARRIER*XX*", "AICHDET", "AICLASS*XX*", "AICONJTI", "AIDEPTCODE", "AIDESTCITY*XX*", "AIDESTCITYL*XX*", "AIEXTRAPASNAME*XX*", "AIEYCD", "AIFLDATE*XX*", "AIFLNUM*XX*", "AIGLNUM", "AIINVOICE", "AIIRST", "AIORCITY*XX*", "AIORCITYL*XX*", "AIPASNAME", "AIPROJNUM", "AISTOPOV*XX*", "AITIDATE", "AITINUM", "AITINUML*XX*", "AITYPCH", "AIVATAMNT", "AIVATAPPL", "ALIAS", "ALIASOPERATION", "ALIASPERSISTEDAFTERUSE", "ALIASUSAGE", "ALLOWCORRECTION", "AMOUNT", "AMOUNT*XX*", "AMOUNTHTVA", "AMOUNTTVA", "ARP_TRN", "BACKURL", "BATCHID", "BGCOLOR", "BLVERNUM", "BIC", "BIN", "BRAND", "BRANDVISUAL", "BUTTONBGCOLOR", "BUTTONTXTCOLOR", "CANCELURL", "CARDNO", "CATALOGURL", "CAVV_3D", "CAVVALGORITHM_3D", "CERTID", "CHECK_AAV", "CIVILITY", "CN", "COM", "COMPLUS", "CONVCCY", "COSTCENTER", "COSTCODE", "CREDITCODE", "CREDITDEBIT", "CUID", "CURRENCY", "CVC", "CVCFLAG", "DATA", "DATATYPE", "DATEIN", "DATEOUT", "DBXML", "DCC_COMMPERC", "DCC_CONVAMOUNT", "DCC_CONVCCY", "DCC_EXCHRATE", "DCC_EXCHRATETS", "DCC_INDICATOR", "DCC_MARGINPERC", "DCC_REF", "DCC_SOURCE", "DCC_VALID", "DECLINEURL", "DELIVERYDATE", "DEVICE", "DISCOUNTRATE", "DISPLAYMODE", "ECI", "ECI_3D", "ECOM_BILLTO_COMPANY", "ECOM_BILLTO_POSTAL_CITY", "ECOM_BILLTO_POSTAL_COUNTRYCODE", "ECOM_BILLTO_POSTAL_COUNTY", "ECOM_BILLTO_POSTAL_NAME_FIRST", "ECOM_BILLTO_POSTAL_NAME_LAST", "ECOM_BILLTO_POSTAL_NAME_PREFIX", "ECOM_BILLTO_POSTAL_POSTALCODE", "ECOM_BILLTO_POSTAL_STREET_LINE1", "ECOM_BILLTO_POSTAL_STREET_LINE2", "ECOM_BILLTO_POSTAL_STREET_LINE3", "ECOM_BILLTO_POSTAL_STREET_NUMBER", "ECOM_BILLTO_TELECOM_MOBILE_NUMBER", "ECOM_BILLTO_TELECOM_PHONE_NUMBER", "ECOM_CONSUMERID", "ECOM_CONSUMER_GENDER", "ECOM_CONSUMEROGID", "ECOM_CONSUMERORDERID", "ECOM_CONSUMERUSERALIAS", "ECOM_CONSUMERUSERPWD", "ECOM_CONSUMERUSERID", "ECOM_ESTIMATEDDELIVERYDATE", "ECOM_ESTIMATEDELIVERYDATE", "ECOM_PAYMENT_CARD_EXPDATE_MONTH", "ECOM_PAYMENT_CARD_EXPDATE_YEAR", "ECOM_PAYMENT_CARD_NAME", "ECOM_PAYMENT_CARD_VERIFICATION", "ECOM_SHIPMETHOD", "ECOM_SHIPMETHODDETAILS", "ECOM_SHIPMETHODSPEED", "ECOM_SHIPMETHODTYPE", "ECOM_SHIPTO_COMPANY", "ECOM_SHIPTO_DOB", "ECOM_SHIPTO_ONLINE_EMAIL", "ECOM_SHIPTO_POSTAL_CITY", "ECOM_SHIPTO_POSTAL_COUNTRYCODE", "ECOM_SHIPTO_POSTAL_COUNTY", "ECOM_SHIPTO_POSTAL_NAME_FIRST", "ECOM_SHIPTO_POSTAL_NAME_LAST", "ECOM_SHIPTO_POSTAL_NAME_PREFIX", "ECOM_SHIPTO_POSTAL_POSTALCODE", "ECOM_SHIPTO_POSTAL_STATE", "ECOM_SHIPTO_POSTAL_STREET_LINE1", "ECOM_SHIPTO_POSTAL_STREET_LINE2", "ECOM_SHIPTO_POSTAL_STREET_NUMBER", "ECOM_SHIPTO_TELECOM_FAX_NUMBER", "ECOM_SHIPTO_TELECOM_MOBILE_NUMBER", "ECOM_SHIPTO_TELECOM_PHONE_NUMBER", "ECOM_SHIPTO_TVA", "ED", "EMAIL", "EXCEPTIONURL", "EXCLPMLIST", "EXECUTIONDATE*XX*", "FACEXCL*XX*", "FACTOTAL*XX*", "FIRSTCALL", "FLAG3D", "FONTTYPE", "FORCECODE1", "FORCECODE2", "FORCECODEHASH", "FORCEPROCESS", "FORCETP", "FP_ACTIV", "GENERIC_BL", "GIROPAY_ACCOUNT_NUMBER", "GIROPAY_BLZ", "GIROPAY_OWNER_NAME", "GLOBORDERID", "GUID", "HDFONTTYPE", "HDTBLBGCOLOR", "HDTBLTXTCOLOR", "HEIGHTFRAME", "HOMEURL", "HTTP_ACCEPT", "HTTP_USER_AGENT", "INCLUDE_BIN", "INCLUDE_COUNTRIES", "INITIAL_REC_TRN", "INVDATE", "INVDISCOUNT", "INVLEVEL", "INVORDERID", "IP", "ISSUERID", "IST_MOBILE", "ITEM_COUNT", "ITEMATTRIBUTES*XX*", "ITEMCATEGORY*XX*", "ITEMCOMMENTS*XX*", "ITEMDESC*XX*", "ITEMDISCOUNT*XX*", "ITEMFDMPRODUCTCATEG*XX*", "ITEMID*XX*", "ITEMNAME*XX*", "ITEMPRICE*XX*", "ITEMQUANT*XX*", "ITEMQUANTORIG*XX*", "ITEMUNITOFMEASURE*XX*", "ITEMVAT*XX*", "ITEMVATCODE*XX*", "ITEMWEIGHT*XX*", "LANGUAGE", "LEVEL1AUTHCPC", "LIDEXCL*XX*", "LIMITCLIENTSCRIPTUSAGE", "LINE_REF", "LINE_REF1", "LINE_REF2", "LINE_REF3", "LINE_REF4", "LINE_REF5", "LINE_REF6", "LIST_BIN", "LIST_COUNTRIES", "LOGO", "MANDATEID", "MAXITEMQUANT*XX*", "MERCHANTID", "MODE", "MTIME", "MVER", "NETAMOUNT", "OPERATION", "ORDERID", "ORDERSHIPCOST", "ORDERSHIPMETH", "ORDERSHIPTAX", "ORDERSHIPTAXCODE", "ORIG", "OR_INVORDERID", "OR_ORDERID", "OWNERADDRESS", "OWNERADDRESS2", "OWNERCTY", "OWNERTELNO", "OWNERTELNO2", "OWNERTOWN", "OWNERZIP", "PAIDAMOUNT", "PARAMPLUS", "PARAMVAR", "PAYID", "PAYMETHOD", "PM", "PMLIST", "PMLISTPMLISTTYPE", "PMLISTTYPE", "PMLISTTYPEPMLIST", "PMTYPE", "POPUP", "POST", "PSPID", "PSWD", "RECIPIENTACCOUNTNUMBER", "RECIPIENTDOB", "RECIPIENTLASTNAME", "RECIPIENTZIP", "REF", "REFER", "REFID", "REFKIND", "REF_CUSTOMERID", "REF_CUSTOMERREF", "REGISTRED", "REMOTE_ADDR", "REQGENFIELDS", "RNPOFFERT", "RTIMEOUT", "RTIMEOUTREQUESTEDTIMEOUT", "SCORINGCLIENT", "SEQUENCETYPE", "SETT_BATCH", "SID", "SIGNDATE", "STATUS_3D", "SUBSCRIPTION_ID", "SUB_AM", "SUB_AMOUNT", "SUB_COM", "SUB_COMMENT", "SUB_CUR", "SUB_ENDDATE", "SUB_ORDERID", "SUB_PERIOD_MOMENT", "SUB_PERIOD_MOMENT_M", "SUB_PERIOD_MOMENT_WW", "SUB_PERIOD_NUMBER", "SUB_PERIOD_NUMBER_D", "SUB_PERIOD_NUMBER_M", "SUB_PERIOD_NUMBER_WW", "SUB_PERIOD_UNIT", "SUB_STARTDATE", "SUB_STATUS", "TAAL", "TAXINCLUDED*XX*", "TBLBGCOLOR", "TBLTXTCOLOR", "TID", "TITLE", "TOTALAMOUNT", "TP", "TRACK2", "TXTBADDR2", "TXTCOLOR", "TXTOKEN", "TXTOKENTXTOKENPAYPAL", "TXSHIPPING", "TXSHIPPINGLOCATIONPROFILE", "TXURL", "TXVERIFIER", "TYPE_COUNTRY", "UCAF_AUTHENTICATION_DATA", "UCAF_PAYMENT_CARD_CVC2", "UCAF_PAYMENT_CARD_EXPDATE_MONTH", "UCAF_PAYMENT_CARD_EXPDATE_YEAR", "UCAF_PAYMENT_CARD_NUMBER", "USERID", "USERTYPE", "VERSION", "WBTU_MSISDN", "WBTU_ORDERID", "WEIGHTUNIT", "WIN3DS", "WITHROOT", "XDL" ];
+
+//And the output version: https://payment-services.ingenico.com/ogone/support/~/media/kdb/integration%20guides/sha-out_params.ashx?la=en
+STRING ARRAY shaout_params :=
+  [ "AAVADDRESS", "AAVCHECK", "AAVMAIL", "AAVNAME", "AAVPHONE", "AAVZIP", "ACCEPTANCE", "ALIAS", "AMOUNT", "BIC", "BIN", "BRAND", "CARDNO", "CCCTY", "CN", "COLLECTOR_BIC", "COLLECTOR_IBAN", "COMPLUS", "CREATION_STATUS", "CREDITDEBIT", "CURRENCY", "CVCCHECK", "DCC_COMMPERCENTAGE", "DCC_CONVAMOUNT", "DCC_CONVCCY", "DCC_EXCHRATE", "DCC_EXCHRATESOURCE", "DCC_EXCHRATETS", "DCC_INDICATOR", "DCC_MARGINPERCENTAGE", "DCC_VALIDHOURS", "DEVICEID", "DIGESTCARDNO", "ECI", "ED", "EMAIL", "ENCCARDNO", "FXAMOUNT", "FXCURRENCY", "IP", "IPCTY", "MANDATEID", "MOBILEMODE", "NBREMAILUSAGE", "NBRIPUSAGE", "NBRIPUSAGE_ALLTX", "NBRUSAGE", "NCERROR", "ORDERID", "PAYID", "PAYIDSUB", "PAYMENT_REFERENCE", "PM", "SCO_CATEGORY", "SCORING", "SEQUENCETYPE", "SIGNDATE", "STATUS", "SUBBRAND", "SUBSCRIPTION_ID", "TRXDATE", "VC" ];
+
+PUBLIC STRING FUNCTION CalculateIngenicoSHA1Hash(RECORD ARRAY webvars, STRING hash, BOOLEAN is_input)
+{
+  DELETE FROM webvars WHERE value=""; //ogone slikt geen lege waardes
+  STRING ARRAY hashtoks := SELECT AS STRING ARRAY ToUppercase(name) || "=" || value
+                             FROM webvars
+                            WHERE value != ""
+                                  AND BinaryFind(is_input ? shain_params : shaout_params, ToUppercase(name)) != -1
+                            ORDER BY ToUppercase(name);
+
+  STRING hashbase := Detokenize(hashtoks, hash) || hash;
+  RETURN ToUppercase(EncodeBase16(GetSHA1Hash(hashbase)));
+}
+PUBLIC BOOLEAN FUNCTION VerifyIngenicoURL(RECORD ARRAY ogonevars, STRING hash, BOOLEAN is_input)
+{
+  STRING ogonehash := SELECT AS STRING value FROM ogonevars WHERE ToUppercase(name) = "SHASIGN";
+  RETURN CalculateIngenicoSHA1Hash(ogonevars, hash, is_input) = ogonehash;
+}
+
+PUBLIC RECORD ARRAY paymentsubmethods :=
+    [ [ rowkey := "Bank transfer", title := "Bank transfer" ]
+    , [ rowkey := "Bank transfer BE", title := "Bank transfer BE" ]
+    , [ rowkey := "Bank transfer DE", title := "Bank transfer DE" ]
+    , [ rowkey := "Bank transfer FR", title := "Bank transfer FR" ]
+    , [ rowkey := "Bank transfer NL", title := "Bank transfer NL" ]
+    , [ rowkey := "Belfius Direct Net", title := "Belfius Direct Net" ]
+    , [ rowkey := "CBC Online", title := "CBC Online" ]
+    , [ rowkey := "Sofort Überweisung (DE)", title := "Sofortüberweisung (DE)" ]
+    , [ rowkey := "DirectEbankingDE", title := "Sofortüberweisung (DE)" ]
+    , [ rowkey := "giropay", title := "Giropay" ]
+    , [ rowkey := "ideal", title := "iDEAL" ]
+    , [ rowkey := "KBC Online", title := "KBC Online" ]
+    , [ rowkey := "ING HomePay", title := "ING HomePay" ]
+    , [ rowkey := "paypal", title := "PayPal" ]
+    , [ rowkey := "creditcard", title := "Credit card" ]
+    , [ rowkey := "Amazon Checkout", title := "Amazon Checkout" ]
+    , [ rowkey := "TUNZ", title := "TUNZ" ]
+    ];
+
+
+RECORD defaultpaymentdata := [ issuer := ""
+                             , cardno := ""
+                             , result := ""
+                             , template := ""
+                             , url := ""
+                             , payid := ""
+                             , pm := ""
+                             , brand := ""
+                             , status := ""
+                             , orderid := ""
+                             , amount := 0m
+                             , ncerror := ""
+                             , returntype := -1
+                             , vars := [ language := "en_US" ]
+                             , created := DEFAULT DATETIME
+                             ];
+
+PUBLIC STATIC OBJECTTYPE IngenicoPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  RECORD paymentmetadata;
+  PUBLIC PROPERTY template(GetTemplate,SetTemplate);
+
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:ingenico", "form", settings)
+  {
+    this->settings := settings;
+    IF(this->settings.rebranded NOT IN [ "", "abnamro", "webhare_testsuite"])
+      THROW NEW Exception(`Unsupported rebranding '${this->settings.rebranded}'`);
+    this->paymentmetadata := defaultpaymentdata;
+    this->needspaymentref := TRUE;
+  }
+
+  PUBLIC MACRO SetSubmethod(STRING submethod)
+  {
+    IF(this->paymentmetadata.pm != "")
+      THROW NEW Exception("The submethod cannot be changed after it has been set");
+    this->paymentmetadata.pm := submethod;
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RECORD ARRAY methods;
+    FOREVERY(RECORD method FROM paymentsubmethods)
+    {
+      IF(method.rowkey NOT IN this->settings.methods)
+        CONTINUE;
+
+      INSERT [[ paymentoptiontag := method.rowkey
+              , title := method.title //FIXME lookup proper name
+              , issuers := method.rowkey = "ideal" AND options.getissuers ? this->GetIdealIssuers() : RECORD[]
+             ]] INTO methods AT END;
+    }
+    RETURN methods;
+  }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    paymentmethod := ValidateOptions(CELL[ ingenicotemplate := ""], paymentmethod, [ passthroughin := "baseoptions"]);
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod.baseoptions);
+
+    RECORD baseoptions := paymentmethod.baseoptions;
+
+    IF(paymentmethod.ingenicotemplate != "")
+    {
+      IF(NOT IsAbsoluteUrl(paymentmethod.ingenicotemplate,FALSE))
+        THROW NEW Exception("The URL specified as ingenicotemplate must be an absolute URL");
+      INSERT CELL tp := paymentmethod.ingenicotemplate INTO this->paymentmetadata.vars;
+    }
+
+    //Handle any vars (ADDME move this to share dcode?)
+    IF(ObjectExists(baseoptions.wrdpersonentity))
+    {
+      STRING ARRAY toget := ["WRD_FULLNAME"];
+      IF(RecordExists(baseoptions.wrdpersonentity->wrdtype->GetAttribute("WRD_CONTACT_EMAIL")))
+        INSERT "WRD_CONTACT_EMAIL" INTO toget AT END;
+
+      RECORD personfields := baseoptions.wrdpersonentity->GetFields(toget);
+      INSERT CELL cn := personfields.wrd_fullname INTO this->paymentmetadata.vars;
+      IF("WRD_CONTACT_EMAIL" IN toget)
+        INSERT CELL email := personfields.wrd_contact_email INTO this->paymentmetadata.vars;
+    }
+    IF(RecordExists(baseoptions.billingaddress))
+    {
+      IF(CellExists(baseoptions.billingaddress,'street'))
+      {
+        STRING address := baseoptions.billingaddress.street;
+        IF(CellExists(baseoptions.billingaddress,'nr_detail'))
+          address := address || " " || baseoptions.billingaddress.nr_detail;
+        INSERT CELL orderaddress := address INTO this->paymentmetadata.vars;
+      }
+      IF(CellExists(baseoptions.billingaddress,'zip'))
+        INSERT CELL orderzip := baseoptions.billingaddress.zip INTO this->paymentmetadata.vars;
+      IF(CellExists(baseoptions.billingaddress,'city'))
+        INSERT CELL ordertown := baseoptions.billingaddress.city INTO this->paymentmetadata.vars;
+      IF(CellExists(baseoptions.billingaddress,'country'))
+        INSERT CELL ordercty := ToUppercase(baseoptions.billingaddress.country) INTO this->paymentmetadata.vars;
+    }
+
+    IF(ToUppercase(baseoptions.language)="NL")
+      this->paymentmetadata.vars.language := "nl_NL";
+    ELSE IF(ToUppercase(baseoptions.language)="DE")
+      this->paymentmetadata.vars.language := "de_DE";
+  }
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    this->paymentmetadata := CELL[ ...defaultpaymentdata, ...payment.__paymentdata.m ];
+    IF(RecordExists(this->paymentmetadata))
+      this->cardnumber := this->paymentmetadata.cardno;
+  }
+
+
+  /** Does this method have issuers ? */
+  UPDATE PUBLIC BOOLEAN FUNCTION HasIssuers()
+  {
+    //if selected ideal, reply just for that. otherwise, give the 'general' answer for backwards compatibility
+    RETURN this->paymentmetadata.pm != "" ? this->paymentmetadata.pm="ideal" : "ideal" IN this->settings.method;
+  }
+
+  STRING FUNCTION GetTemplate()
+  {
+    RETURN this->paymentmetadata.template;
+  }
+  MACRO SetTemplate(STRING template)
+  {
+    this->paymentmetadata.template := template;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN this->paymentmetadata;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetIssuers()
+  {
+    IF("ideal" NOT IN this->settings.method)
+      RETURN DEFAULT RECORD ARRAY;
+    RETURN this->GetIdealIssuers();
+  }
+
+  RECORD ARRAY FUNCTION GetIdealIssuers()
+  {
+    //Note: these are now just the BIC codes!
+    // https://payment-services.ingenico.com/int/en/ogone/support/guides/integration%20guides/ideal
+    IF(this->settings.mode="test")
+      RETURN [[ rowkey := "9999%2BTST", title := "iDEAL simulator" ]]; //suspect. %2B = +, and + = space
+
+    RETURN [[ rowkey := "ABNANL2A", title := "ABN AMRO" ]
+           ,[ rowkey := "RABONL2U", title := "Rabobank" ]
+           ,[ rowkey := "INGBNL2A", title := "ING" ]
+           ,[ rowkey := "SNSBNL2A", title := "SNS Bank" ]
+           ,[ rowkey := "ASNBNL21", title := "ASN BANK" ]
+           ,[ rowkey := "RBRBNL21", title := "Regio Bank" ]
+           ,[ rowkey := "TRIONL2U", title := "Triodos bank" ]
+           ,[ rowkey := "FVLBNL22", title := "Van Landschot Bankiers" ]
+           ,[ rowkey := "KNABNL2H", title := "KNAB Bank" ]
+           ,[ rowkey := "BUNQNL2A", title := "Bunq" ]
+           ];
+    /* ADDME want a dynamic list
+
+    //We need to get the list from buckaroo. we'll assume it's merchantkey specific and not related to the test flag (though that's all unspecified)
+    RETURN SELECT value := issuercode
+                , title := name
+             FROM GetAdhocCached([type:="issuers", merchantkey := this->settings.merchantkey], PTR this->GetcacheableIssuers);
+          */
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetMetadata()
+  {
+    RETURN this->settings;
+  }
+
+  STRING FUNCTION GetURLbase()
+  {
+    STRING submiturl;
+    IF(this->settings.rebranded = "abnamro")
+      submiturl := "https://internetkassa.abnamro.nl/ncol/";
+    ELSE IF(this->settings.rebranded = "webhare_testsuite")
+      submiturl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.webhare_testsuite/tests/wrd/ingenico/!/");
+    ELSE
+      submiturl := "https://secure.ogone.com/ncol/";
+
+    IF(this->settings.mode = "prod")
+      submiturl := submiturl  || "prod/";
+    ELSE
+      submiturl := submiturl  || "test/";
+    RETURN submiturl;
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION GetPayFormData(STRING paymenttok)
+  {
+    STRING returnurl := GetInternalReturnURL(paymenttok);
+    STRING submiturl := this->GetURLBase() || "orderstandard_utf8.asp";
+
+    STRING lastname;
+    RECORD billing;
+
+    STRING pm := this->paymentoptiontag;
+    SWITCH(pm)
+    {
+      CASE "ideal"
+      {
+        pm :="iDEAL";
+      }
+      CASE "paypal"
+      {
+        pm := "PAYPAL";
+      }
+      CASE "creditcard"
+      {
+        pm:="CreditCard";
+      }
+    }
+
+    RECORD invars := ValidateOptions([ cn := "", email := "", orderaddress := "", ordertown := "", orderzip :="", ordercty := ""
+                                     , tp := "", language := ""
+                                     ], this->paymentmetadata.vars);
+    RECORD ARRAY vars :=
+      [ [ name := "PSPID" , value := this->settings.pspid ]
+      , [ name := "ORDERID" , value := this->paymentref ]
+      , [ name := "AMOUNT" , value := ToString(MoneyToInteger(this->amountpayable*100)) ]
+      , [ name := "CURRENCY" , value := "EUR" ]
+      , [ name := "OWNERTELNO"    , value := "" ]
+      , [ name := "TITLE" , value := "" ]
+      , [ name := "BGCOLOR" , value := "" ]
+      , [ name := "TXTCOLOR" , value := "" ]
+      , [ name := "TBLBGCOLOR" , value := "" ]
+      , [ name := "TBLTXTCOLOR" , value := "" ]
+      , [ name := "BUTTONBGCOLOR" , value := "" ]
+      , [ name := "BUTTONTXTCOLOR" , value := "" ]
+      , [ name := "LOGO" , value := "" ]
+      , [ name := "FONTTYPE" , value := "" ]
+      , [ name := "ACCEPTURL" , value := returnurl || "&returntype=1"]
+      , [ name := "DECLINEURL" , value := returnurl || "&returntype=2" ]
+      , [ name := "EXCEPTIONURL" , value := returnurl || "&returntype=3" ]
+      , [ name := "CANCELURL" , value := returnurl || "&returntype=4" ]
+      , [ name := "BACKURL" , value := returnurl || "&returntype=5" ]
+      , [ name := "PARAMPLUS", value := "_ps=" || EncodeURL(paymenttok) ]
+
+
+      , [ name := "PM" , value := pm ]
+      , [ name := "ISSUERID" , value := this->issuer ]
+      ]
+      CONCAT UnpackRecord(invars);
+
+    IF(RecordExists(this->paymentmetadata) AND this->paymentmetadata.template != "")
+      INSERT [ name := "TP", value := this->paymentmetadata.template ] INTO vars AT END;
+
+    INSERT [ name := "SHASIGN", value := CalculateIngenicoSHA1Hash(vars, this->settings.sha1_in, TRUE) ] INTO vars AT END;
+
+    IF(IsRPCTrafficLogged("wrd:payments.ingenico"))
+      LogRPCTraffic("wrd:payments.ingenico", "CLIENT-JS-POST " || submiturl, TRUE, /*ADDME IP?*/"", this->paymentref, [ postvars := vars ]);
+
+    RETURN [ method := "POST"
+           , action := submiturl
+           , vars := vars
+           ];
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    RETURN this->ProcessIngenicoReturnURL(returnurl, "CLIENT-JS-REDIRECTED", IsRequest() ? GetClientRemoteIP() : "");
+  }
+
+  PUBLIC BOOLEAN FUNCTION VerifyIngenicoURL(STRING inurl)
+  {
+    RECORD ARRAY ogonevars := GetAllVariablesFromURL(inurl);
+    RETURN VerifyIngenicoURL(ogonevars, this->settings.sha1_out, FALSE);
+  }
+
+  PUBLIC BOOLEAN FUNCTION ProcessIngenicoReturnURL(STRING returnurl, STRING method, STRING ip)
+  {
+    //FIXME use the full list of ogone hashed return variables so we can survive local-added variables
+    //Note: not receiving any information may imply that Ogone wasn't configured to return us any transaction info on the return URL
+    RECORD ARRAY vars := GetAllVariablesFromURL(returnurl);
+    STRING shasign := SELECT AS STRING value FROM vars WHERE ToUppercase(name)="SHASIGN";
+    STRING payid := SELECT AS STRING value FROM vars WHERE ToUppercase(name)="PAYID";
+    STRING pm := SELECT AS STRING value FROM vars WHERE ToUppercase(name)="PM";
+    STRING brand := SELECT AS STRING value FROM vars WHERE ToUppercase(name)="BRAND";
+    STRING status := SELECT AS STRING value FROM vars WHERE ToUppercase(name)="STATUS";
+    STRING orderid := SELECT AS STRING value FROM vars WHERE ToUppercase(name)="ORDERID";
+    STRING ncerror := SELECT AS STRING value FROM vars WHERE ToUppercase(name)="NCERROR";
+    MONEY amount := ToMoney((SELECT AS STRING value FROM vars WHERE ToUppercase(name)="AMOUNT"),0);
+    STRING rettype := SELECT AS STRING value FROM vars WHERE ToUppercase(name)="RETURNTYPE";
+    STRING cardno := SELECT AS STRING value FROM vars WHERE ToUppercase(name)="CARDNO";
+
+    BOOLEAN success;
+    IF(NOT this->VerifyIngenicoURL(returnurl))
+    {
+      this->UpdatePayment([ result := "HASHFAIL" ]);
+      success := FALSE;
+    }
+    ELSE
+    {
+      RECORD upd := [ result := ""
+                    , url := Left(returnurl,3000) || (Length(returnurl)>3000 ? "...&..." : "")
+                    , payid := payid //Ogone-assigend
+                    , pm := pm
+                    , brand := brand
+                    , status := status
+                    , orderid := orderid //We assigned this (paymentref)
+                    , amount := amount
+                    , ncerror := ncerror
+                    , returntype := ToInteger(rettype,-1)
+                    , cardno := cardno
+                    ];
+      IF(this->paymentmetadata.returntype IN [4,5])
+      {
+        upd.result := "REJECT";
+      }
+      this->UpdatePayment(upd);
+      success := TRUE;
+    }
+    LogRPCTraffic("wrd:psp.ingenico", method || " " || returnurl, FALSE, ip, this->paymentref, [ newmetadata := this->paymentmetadata, postvars := vars ]);
+    RETURN success;
+  }
+
+  MACRO UpdatePayment(RECORD payupdates)
+  {
+    RECORD newpaymentmeta := MakeUpdatedRecord(this->paymentmetadata, payupdates);
+
+    //If orderid or amount mismatch, we might be IP blocked or talking to the wrong ogone account. consider such errors transient (we'll not set a permanent status)
+    IF(newpaymentmeta.result="" AND newpaymentmeta.orderid = this->paymentref AND newpaymentmeta.amount = this->amountpayable)
+    {
+      //status codes: https://payment-services.ingenico.com/int/en/ogone/support/guides/user%20guides/statuses-and-errors
+      IF(newpaymentmeta.status IN ["5","9"])
+      {
+        newpaymentmeta.result := "OK";
+      }
+      ELSE IF(newpaymentmeta.status IN ["1","2"])
+      {
+        newpaymentmeta.result := "REJECT";
+      }
+    }
+
+    IF(newpaymentmeta.result = "" AND GetCurrentDatetime() > AddTimeToDate(this->settings.expiry_minutes*60000i64, this->creationdate))
+    {
+      newpaymentmeta.result := "EXPIRED";
+    }
+
+    this->paymentmetadata := newpaymentmeta;
+    this->pvt_status := this->paymentmetadata.result IN ["OK"] ? "approved" : this->paymentmetadata.result IN ["REJECT","EXPIRED","CANCELLED-IN-WEBHARE"] ? "failed" : "pending";
+  }
+
+  PUBLIC RECORD FUNCTION TestPaymentStatus()
+  {
+    OBJECT browser := NEW WebBrowser;
+    IF(IsRPCTrafficLogged("wrd:payments.ingenico"))
+      LogRPCForWebbrowser("wrd:payments.ingenico", "RecheckPayment", browser);
+
+    STRING url := this->GetURLBase() || "querydirect.asp?PSPID=" || EncodeURL(this->settings.pspid)
+                                     || "&USERID=" || EncodeURL(this->settings.apiuser)
+                                     || "&PSWD=" || EncodeURL(this->settings.apipassword)
+                                     || "&ORDERID=" || EncodeURL(this->paymentref);
+
+    IF(NOT browser->GotoWebPage(url) OR NOT OBjectExists(browser->document))
+      THROW NEW Exception("Failed to retrieve payment info");
+
+    RECORD payupdates := [ result := ""
+                         , payid := browser->document->documentelement->GetAttribute("PAYID")
+                         , pm := browser->document->documentelement->GetAttribute("PM")
+                         , brand := browser->document->documentelement->GetAttribute("BRAND")
+                         , status := browser->document->documentelement->GetAttribute("STATUS")
+                         , orderid := browser->document->documentelement->GetAttribute("orderID")
+                         , amount := ToMoney(browser->document->documentelement->GetAttribute("amount"),0)
+                         , ncerror := browser->document->documentelement->GetAttribute("NCERROR")
+                         , cardno := browser->document->documentelement->GetAttribute("CARDNO")
+                         ];
+    RETURN payupdates;
+
+    /* ADDME more fields?  '<?xml version="1.0"?>
+<ncresponse
+orderID="CU201506180000001"
+PAYID="42785313"
+PAYIDSUB=""
+NCSTATUS="0"
+NCERROR="0"
+NCERRORPLUS="!"
+ACCEPTANCE="0000000000"
+STATUS="9"
+IPCTY="NL"
+CCCTY="NL"
+ECI="5"
+CVCCheck="NO"
+AAVCheck="NO"
+VC=""
+amount="750"
+currency="EUR"
+PM="iDEAL"
+BRAND="iDEAL"
+CARDNO="1111111111"
+IP="212.238.237.85">
+</ncresponse>'.*/
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    RECORD payupdates := this->TestPaymentStatus();
+    this->UpdatePayment(payupdates);
+  }
+
+  UPDATE PUBLIC MACRO CancelPayment()
+  {
+    this->UpdatePayment([ result := "CANCELLED-IN-WEBHARE"
+                        ]);
+  }
+>;

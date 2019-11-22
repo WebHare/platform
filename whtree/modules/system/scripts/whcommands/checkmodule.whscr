@@ -1,0 +1,117 @@
+<?wh
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "debug", type := "switch" ]
+                              , [ name := "nowarnings", type := "switch" ]
+                              , [ name := "color", type := "switch" ]
+                              , [ name := "doc", type := "switch" ]
+                              , [ name := "onlytids", type := "switch" ]
+                              , [ name := "async", type := "switch" ]
+                              , [ name := "filemask", type := "stringopt" ]
+                              , [ name := "modules", type := "paramlist", required := TRUE ]
+                              ]);
+
+INTEGER numerrors, numwarnings;
+
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: wh checkmodule [ coremodules / <modulename mask...> ] \n");
+  TerminateScriptWithError("Invalid syntax");
+}
+SetupFunctionProfiling("checkmodule", Detokenize(args.modules,','));
+
+IF (args.color)
+  SetAnsiCmdMode("enabled");
+
+STRING ARRAY checklist;
+IF(Length(args.modules) = 0)
+{
+  STRING currentpath := GetCurrentPath() || "/";
+  FOREVERY(STRING mod FROM __SYSTEM_GetInstalledModuleNames())
+  {
+    STRING root := GetModuleInstallationRoot(mod);
+    IF (currentpath LIKE root || "*")
+      INSERT mod INTO checklist AT END;
+  }
+
+  IF (LENGTH(checklist) = 0)
+  {
+    PRINT(`Could not find the installed module from the current path\n`);
+    SetConsoleExitCode(1);
+  }
+}
+ELSE
+{
+  FOREVERY(STRING module FROM args.modules)
+    FOREVERY(STRING mask FROM module = "coremodules" ? whconstant_builtinmodules : [module])
+  {
+    BOOLEAN have_match;
+    FOREVERY(STRING mod FROM __SYSTEM_GetInstalledModuleNames())
+      IF(mod NOT IN checklist AND ToUppercase(mod) LIKE ToUppercase(mask))
+      {
+        have_match := TRUE;
+        INSERT mod INTO checklist AT END;
+      }
+    IF (NOT have_match)
+    {
+      numerrors := numerrors + 1;
+      PRINT(`No module matches the mask '${mask}'\n`);
+    }
+  }
+}
+
+OBJECT ARRAY promises;
+FOREVERY(STRING modname FROM checklist)
+{
+  Print(`Checking module ${modname}...\n`);
+  OBJECT promise := AsyncCallFunctionFromJob(
+              "mod::system/lib/internal/devtools/checkmodule.whlib#CheckModule",
+              modname, CELL
+              [ printissues := TRUE
+              , args.debug
+              , args.onlytids
+              , args.filemask
+              , args.color
+              , args.nowarnings
+              , documentation := args.doc
+              ]);
+  INSERT promise INTO promises AT END;
+
+  IF (NOT args."async")
+  {
+    WaitForPromise(promise);
+    Print("\n");
+  }
+}
+
+RECORD ARRAY allissues;
+FOREVERY (OBJECT p FROM promises)
+{
+  RECORD ARRAY issues := WaitForPromise(p);
+  numwarnings := numwarnings + Length(SELECT FROM issues WHERE iserror = FALSE);
+  numerrors := numerrors + Length(SELECT FROM issues WHERE iserror);
+  allissues := allissues CONCAT issues;
+}
+
+IF(numerrors>0)
+{
+  Print(`${AnsiCmd("red")}Checkmodule done: ${numerrors} errors, ${numwarnings} warnings${AnsiCmd("reset")}\n`);
+  SetConsoleExitCode(1);
+
+  //ADDME types for error messages might make this a bit more robust
+  RECORD ARRAY langedits := SELECT module := Tokenize(Tokenize(message,"'")[1],':')[0] FROM allissues WHERE iserror AND message LIKE "Missing tid: '*:*";
+  langedits := SELECT module, num := Count(*) FROM langedits GROUP BY module;
+  FOREVERY(RECORD openlangedit FROM langedits)
+    Print(`To fix ${openlangedit.num} language errors: https://my.webhare.dev/?app=tollium:langedit(${openlangedit.module})\n`);
+}
+ELSE
+{
+  Print(`Checkmodule done: ${numwarnings} warnings\n`);
+}

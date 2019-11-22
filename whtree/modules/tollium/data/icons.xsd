@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:i="http://www.webhare.net/xmlns/tollium/icons"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns="http://www.webhare.net/xmlns/tollium/icons"
+  targetNamespace="http://www.webhare.net/xmlns/tollium/icons"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:annotation>
+    <xs:documentation>
+      Tollium composite icons
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
+
+  <xs:simpleType name="PixelSize">
+    <xs:annotation>
+      <xs:documentation>
+        <html:p>Positive or negative number of pixels, or 0</html:p>
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value='(-?\d+px)|0'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="icon">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice minOccurs="1" maxOccurs="unbounded">
+          <xs:element name="backgroundlayer" type="i:Layer" />
+          <xs:element name="layer" type="i:Layer" />
+        </xs:choice>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="Layer">
+    <xs:attribute name="src" type="s:ImageSrc" use="required" />
+    <xs:attribute name="invertable" type="xs:boolean" default="true" />
+    <xs:attribute name="color">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="b"/>
+          <xs:enumeration value="c"/>
+          <xs:enumeration value="w"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="size" type="i:PixelSize" default="0" />
+    <xs:attribute name="translatex" type="i:PixelSize" default="0" />
+    <xs:attribute name="translatey" type="i:PixelSize" default="0" />
+  </xs:complexType>
+
+</xs:schema>

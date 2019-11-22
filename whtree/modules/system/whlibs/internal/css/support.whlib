@@ -1,0 +1,605 @@
+﻿<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/css/tokenizer.whlib";
+
+
+PUBLIC RECORD ARRAY FUNCTION SplitPrelude(RECORD ARRAY prelude)
+{
+  RECORD ARRAY selectors;
+  RECORD ARRAY tokssofar;
+
+  FOREVERY(RECORD tok FROM prelude)
+  {
+    IF (tok.type = ",")
+    {
+      IF (Length(tokssofar) > 0)
+        INSERT [ prelude := tokssofar ] INTO selectors AT END;
+      tokssofar := DEFAULT RECORD ARRAY;
+      CONTINUE;
+    }
+    INSERT tok INTO tokssofar AT END;
+  }
+
+  IF (Length(tokssofar) > 0)
+    INSERT [ prelude := tokssofar ] INTO selectors AT END;
+
+  RETURN selectors;
+}
+
+PUBLIC RECORD FUNCTION GetPreludeSpecificity(BOOLEAN followspec, RECORD ARRAY prelude)
+{
+  // http://www.w3.org/TR/css3-selectors/#specificity
+  INTEGER a := SELECT AS INTEGER COUNT(*) FROM prelude WHERE type = "#";// The number of ID-selectors;
+  INTEGER b := SELECT AS INTEGER COUNT(*) FROM prelude WHERE (type = "delim" AND value = ".") OR type = "[" OR type = ":" OR (type = "parsed-simpleblock" AND associatedtoken = "[");// The number of class selectors, attribute selectors and pseudoclasses;
+  // Fix the NOT operator:
+  b := b - SELECT AS INTEGER COUNT(*) FROM prelude WHERE type = "ident" AND value = "not";
+  // FIXME: The value for c is currently not entirely reliable: element selectors within simple blocks must als be counted, if the simple block is part of a psuedoclass.
+  INTEGER c := SELECT AS INTEGER COUNT(*) FROM prelude WHERE (type = "ident" AND ToLowercase(value) IN
+    [ "html", "head", "title", "base", "link", "meta", "style", "script", "noscript", "template", "body", "section", "nav", "article", "aside",
+    "h1", "h2", "h3", "h4", "h5", "h6", "header", "footer", "address", "main", "p", "hr", "pre", "blockquote", "ol", "ul", "li", "dl", "dt", "dd",
+    "figure", "figcaption", "div", "a", "em", "strong", "small", "s", "cite", "q", "dfn", "abbr", "data", "time", "code", "var", "samp", "kbd",
+    "sub", "sup", "i", "b", "u", "mark", "ruby", "rt", "rp", "bdi", "bdo", "span", "br", "wbr", "ins", "del", "img", "iframe", "embed", "object",
+    "param", "video", "audio", "source", "track", "canvas", "map", "area", "svg", "math", "table", "caption", "colgroup", "col", "tbody", "thead",
+    "tfoot", "tr", "td", "th", "form", "fieldset", "legend", "label", "input", "button", "select", "datalist", "optgroup", "option", "textarea",
+    "keygen", "output", "progress", "meter", "details", "summary", "menuitem", "menu",
+    /* OBSOLETE ELEMENTS */
+    "acronym", "applet", "basefont", "bgsound", "big", "blink", "center", "dir", "font", "frame", "frameset", "hgroup", "isindex", "listing",
+    "marquee", "nobr", "noframes", "plaintext", "spacer", "strike", "tt", "xmp" ]) OR type = ":";// The number of element selectors and pseudoclasses;
+  IF(followspec)
+    RETURN [ specificity := ToInteger(ToString(a) || ToString(b) || ToString(c), 0) ];
+
+  RETURN [ a := a, b := b, c := c ];
+}
+
+PUBLIC STRING FUNCTION GetXpathForPrelude(RECORD ARRAY prelude)
+{
+  IF(Length(prelude) = 0)
+    RETURN DEFAULT STRING;
+
+  STRING ARRAY query;
+  STRING ARRAY queries;
+  BOOLEAN appendAsName := FALSE;
+  BOOLEAN appendAsString := FALSE;
+  BOOLEAN parseAsPseudo := FALSE;
+  BOOLEAN ignoreNextIfWhiteSpace := FALSE;
+  BOOLEAN atStartOfRule := TRUE;
+  BOOLEAN ignoreCurrentRule := FALSE;
+  BOOLEAN nextIsClassName := FALSE;
+  BOOLEAN inFutureCompatMode := FALSE;
+  STRING appendToNextCodePoint;
+  STRING lastIdentValue;
+  STRING lastIdentType;
+
+  //dumpvalue(prelude,'tree');
+
+  // Let's parse the prelude:
+  FOREVERY(RECORD token FROM prelude)
+  {
+    // CSS syntax p9: 'The tokenizer described in this specification does not produce tokens for comments'
+    // So, for selector purposes we must ignore them
+    IF (token.type = "ws-comment")
+      CONTINUE;
+
+    IF (token.type = "ws")
+    {
+      // Ignore whitespace at start of rule
+      IF (atStartOfRule)
+        CONTINUE;
+
+      // Ignore whitespace at end of prelude
+      IF (token.startpos = prelude[END-1].startpos)
+        BREAK;
+    }
+
+    IF(atStartOfRule)// If the previous rule was ignored, let's not assume we have to ignore this one as well.
+      ignoreCurrentRule := FALSE;
+
+    // Handle special cases:
+    IF(ignoreNextIfWhiteSpace AND token.type = "ws")// Ignore whitespace if we're so told...
+    {
+      ignoreNextIfWhiteSpace := FALSE;
+      CONTINUE;
+    }
+    ELSE IF(ignoreNextIfWhiteSpace AND Length(appendToNextCodePoint) = 0)// Nothing to do, reset the flag:
+      ignoreNextIfWhiteSpace := FALSE;
+
+    IF(appendAsName AND token.type != "ws")// Append an ident token literally
+    {
+      appendAsName := FALSE;
+      IF(Length(appendToNextCodePoint) > 0)// A string needs to be appended:
+      {
+        INSERT token.value || appendToNextCodePoint INTO query AT END;
+        appendToNextCodePoint := DEFAULT STRING;
+      }
+      ELSE// Just append the literal token
+        INSERT token.value INTO query AT END;
+
+      lastIdentValue := token.value;
+
+      IF(nextIsClassName)
+        nextIsClassName := FALSE;
+
+      CONTINUE;
+    }
+    // Append a string token with quotes:
+    IF(appendAsString)// Here for forward compatibility, never called wihtin this implementation, but may be needed in the near future.
+    {
+      appendAsString := FALSE;
+      IF(Length(appendToNextCodePoint) > 0)// A string needs to be appended:
+      {
+        INSERT "'" || token.value || "'" || appendToNextCodePoint INTO query AT END;
+        appendToNextCodePoint := DEFAULT STRING;
+      }
+      ELSE
+        INSERT "'" || token.value || "'" INTO query AT END;
+
+      CONTINUE;
+    }
+    // Handle pseudo-classes:
+    IF(parseAsPseudo)
+    {
+      parseAsPseudo := FALSE;// Reset the flag
+
+      SWITCH (token.type)
+      {
+        CASE "ident"
+        {
+          // Let's do some transliteration :)
+          SWITCH(token.value)
+          {
+            CASE "first-child"
+            {
+              INSERT "[1]" INTO query AT END;
+            }
+            CASE "last-child"
+            {
+              INSERT "[last()]" INTO query AT END;
+            }
+            CASE "first-of-type"
+            {
+              INSERT "[1]" INTO query AT END;
+            }
+            CASE "last-of-type"
+            {
+              INSERT "[last()]" INTO query AT END;
+            }
+            CASE "empty"
+            {
+              INSERT "[count(*)=0]" INTO query AT END;
+            }
+            CASE "only-child"
+            {
+              INSERT "[count(preceding-sibling::*)+count(following-sibling::*)=0]" INTO query AT END;
+            }
+            CASE "only-of-type"
+            {
+              INSERT "[count(../" || lastIdentValue || ") = 1]" INTO query AT END;
+            }
+            CASE "disabled"
+            {
+              INSERT "[@disabled]" INTO query AT END;
+            }
+            CASE "checked"
+            {
+              INSERT "[@checked]" INTO query AT END;
+            }
+            CASE "not"
+            {
+              INSERT "[not(" INTO query AT END;
+              appendToNextCodePoint := ")]";
+            }
+            DEFAULT
+            {
+              // Ignore it; we don't support :hover, :focus, :link, :visited & :active at the moment.
+              IF(token.value IN [ "hover", "focus", "link", "visited", "active" ])
+                ignoreCurrentRule := TRUE;
+              // @NOTE: Some pseudo-classes that exist in spec 4 draft ARE implicitly supported here; the test has a case for :scope for instance.
+              IF(token.value IN [ "scope" ])
+                inFutureCompatMode := TRUE;
+            }
+          }
+        }
+        CASE "parsed-function"
+        {
+          STRING subQuery;
+          // First, we construct the subquery:
+          SWITCH(lastIdentType)
+          {
+            CASE "class"
+            {
+              subQuery := "[contains(concat(' ',@class,' '),' " || lastIdentValue || " ')]";
+            }
+            CASE "id"
+            {
+              subQuery := "[@id='" || lastIdentValue || "']";
+            }
+            CASE "ident"
+            {
+              subQuery := "[local-name()='" || lastIdentValue || "']";
+            }
+          }
+
+          STRING argument := SerializeTokenListLine(token.value, FALSE);
+          IF (argument = "")
+            ignoreCurrentRule := TRUE;
+          ELSE
+          {
+            // Next, we build the actual XPath query:
+            SWITCH(token.name)
+            {
+              CASE "nth-of-type"
+              {
+                INSERT "[" || argument || "]" INTO query AT END;
+              }
+              CASE "nth-child"
+              {
+                // Invalidate the current query first (different type of selector):
+                query := DEFAULT STRING ARRAY;
+                INSERT "//*[" || argument || "]" || subQuery INTO query AT END;
+              }
+              CASE "nth-last-of-type"
+              {
+                INSERT "[last()-" || (ToInteger(argument, 2) - 1) || "]" INTO query AT END;
+              }
+              CASE "nth-last-child"
+              {
+                // Invalidate the current query first (different type of selector):
+                query := DEFAULT STRING ARRAY;
+                INSERT "//*[last()-" || (ToInteger(argument, 2) - 1) || "]" || subQuery INTO query AT END;
+              }
+            }
+          }
+        }
+        DEFAULT
+        {
+          // Syntax error
+          ignoreCurrentRule := TRUE;
+        }
+      }
+      CONTINUE;
+    } //IF(parseAsPseudo)
+
+    // Handle simple blocks:
+    IF(token.type = "parsed-simpleblock")
+    {
+      // Handle a simple block
+      IF(Length(token.value) = 1)// Somehting in the shape of *[...]
+      {
+        // Handle it:
+        //DumpValue(token, 'tree');
+        IF(atStartOfRule)
+        {
+          atStartOfRule := FALSE;
+          INSERT "//*" INTO query AT END;
+        }
+        /// Allow for one level deeper (edgecase where a pseudoclass contains another block):
+        IF(TypeID(token.value[0].value) = TypeID(RECORD ARRAY))
+        {
+          /// We implement this specifically for the situation where a :not psuedoclass checks for the presence of an attribute
+          /// using the `xxx:not([attr-name])` syntax. In this case, all we would need is the CSSTEXT property.
+          /// ASSUMPTION: We assume that we are checking for attribute presence or value. Other assessment types WILL NOT work!
+          STRING argument;
+          IF(Length(token.value[0].value) > 1)
+          {
+            /// Note: This is the most naive approach that could be used here, but it will do the trick.
+            BOOLEAN quotenext;
+            FOREVERY(RECORD subtok FROM token.value[0].value)
+            {
+              IF(quotenext)
+              {
+                argument := argument || "'" || subtok.value || "'";
+                quotenext := FALSE;
+              }
+              ELSE
+                argument := argument || subtok.value;
+
+              IF(subtok.value = "=")/// Assessment; next part MUST be quoted
+                quotenext := TRUE;
+            }
+          }
+          ELSE
+            argument := token.value[0].value[0].csstext;
+
+          INSERT "@" || argument || appendToNextCodePoint INTO query AT END;
+        }
+        ELSE
+          INSERT "[@" || token.value[0].value || "]" INTO query AT END;
+      }
+      ELSE
+      {
+        SWITCH(token.value[1].value)// Correctly transliterate the match operators from CSS to XPath:
+        {
+          CASE "="
+          {
+            INSERT "[@" || token.value[0].value || "='" || token.value[2].value || "']" INTO query AT END;
+          }
+          CASE "~="
+          {
+            INSERT "[contains(concat(' ',@" || token.value[0].value || ",' '),'" || token.value[2].value || "')]" INTO query AT END;
+          }
+          CASE "$="
+          {
+            INSERT "[ends-with(@" || token.value[0].value || ",'" || token.value[2].value || "')]" INTO query AT END;
+          }
+          CASE "^="
+          {
+            INSERT "[starts-with(@" || token.value[0].value || ",'" || token.value[2].value || "')]" INTO query AT END;
+          }
+          CASE "*="
+          {
+            INSERT "[contains(@" || token.value[0].value || ",'" || token.value[2].value || "')]" INTO query AT END;
+          }
+        }
+      }
+    }
+    ELSE// Handle delimiters and identities:
+    {
+      SWITCH(token.type)
+      {
+        CASE "delim"
+        {
+          SWITCH(token.value)
+          {
+            CASE "."
+            {
+              // Concatenate "[contains(@class'" with next ident token value with "')]" and push it
+              IF(atStartOfRule)
+              {
+                atStartOfRule := FALSE;
+                INSERT "//*[contains(concat(' ',@class,' '),' " INTO query AT END;
+              }
+              ELSE
+                IF((lastIdentType IN [ "ws" ] OR lastIdentValue IN [ "*" ]) AND NOT inFutureCompatMode)
+                  INSERT "*[contains(concat(' ',@class,' '),' " INTO query AT END;
+                ELSE
+                {
+                  INSERT "[contains(concat(' ',@class,' '),' " INTO query AT END;
+                }
+
+              appendAsName := TRUE;
+              appendToNextCodePoint := " ')]";
+              lastIdentType := "class";
+              nextIsClassName := TRUE;
+              IF(inFutureCompatMode)
+                inFutureCompatMode := FALSE;
+
+              CONTINUE;
+            }
+            CASE ">"
+            {
+              // Account for the :scope and lexically identical NULL previous token in the IF statement; this is spec 4.0 behaviour.
+              ignoreNextIfWhiteSpace := TRUE;
+              IF(atStartOfRule)
+              {
+                INSERT "//*" INTO query AT END;
+                appendAsName := TRUE;
+                atStartOfRule := FALSE;
+              }
+              ELSE
+              {
+                IF(Length(query) > 0)
+                {
+                  query[END-1] := "";
+                  atStartOfRule := FALSE;
+                }
+                ELSE
+                  INSERT "//*" INTO query AT END;
+              }
+
+              INSERT "/" INTO query AT END;
+
+              CONTINUE;
+            }
+            CASE "+"
+            {
+              IF(Length(query) > 0)
+              {
+                query[END-1] := "";
+                atStartOfRule := FALSE;
+              }
+              INSERT "/following-sibling::*[1][local-name()='" INTO query AT END;
+              appendToNextCodePoint := "']";
+              ignoreNextIfWhiteSpace := TRUE;
+              appendAsName := TRUE;
+
+              CONTINUE;
+            }
+            CASE '~'
+            {
+              IF(Length(query) > 0)
+              {
+                query[END-1] := "";
+                atStartOfRule := FALSE;
+              }
+              INSERT "/following-sibling::" INTO query AT END;
+              appendAsName := TRUE;
+              ignoreNextIfWhiteSpace := TRUE;
+            }
+            CASE "*"
+            {
+              lastIdentType := "wc";
+              IF(atStartOfRule)
+                atStartOfRule := FALSE;
+
+              INSERT "//*" INTO query AT END;
+              CONTINUE;
+            }
+            CASE "|"
+            {
+              IF(atStartOfRule OR lastIdentType = "wc")
+              {
+                //IF(NOT atStartOfRule)
+                //  query[END-1] := "";
+
+                atStartOfRule := FALSE;
+                INSERT "[local-name()='" INTO query AT END;
+                appendAsName := TRUE;
+                appendToNextCodePoint := "']";
+              }
+              ELSE IF(lastIdentType = "ws")
+              {
+                INSERT "*[local-name()='" INTO query AT END;
+                appendAsName := TRUE;
+                appendToNextCodePoint := "']";
+              }
+              ELSE
+              {
+                INSERT ":" INTO query AT END;
+                appendAsName := TRUE;
+              }
+              lastIdentType := "delim";
+            }
+          }
+        }
+        CASE "#"
+        {
+          // Concatenate "[@id='" with next ident token value with "']" and push it
+          STRING rulebase := "[@id='" || token.value || "']";
+          IF(atStartOfRule)
+          {
+            atStartOfRule := FALSE;
+            INSERT "//*" || rulebase INTO query AT END;
+          }
+          ELSE
+            IF(lastIdentType = "ws")
+              INSERT "*" || rulebase INTO query AT END;
+            ELSE
+              INSERT rulebase INTO query AT END;
+
+          appendAsName := FALSE;
+          appendToNextCodePoint := "";
+          lastIdentType := "id";
+
+          CONTINUE;
+        }
+        CASE ","
+        {
+          IF(ignoreCurrentRule)
+          {
+            ignoreCurrentRule := FALSE;
+          }
+          ELSE
+          {
+            IF(query[END-1] = "//")
+              query[END-1] := "";
+
+            INSERT Detokenize(query, "") INTO queries AT END;
+          }
+          query := DEFAULT STRING ARRAY;
+          ignoreNextIfWhiteSpace := TRUE;
+          atStartOfRule := TRUE;
+        }
+        CASE "ws"
+        {
+          IF(Length(query) > 0 AND query[END-1] NOT IN [ "/", "//" ])
+            INSERT "//" INTO query AT END;
+
+          ignoreNextIfWhiteSpace := TRUE;
+          lastIdentType := "ws";
+        }
+        CASE ":"
+        {
+          // Get the pseudo:
+          parseAsPseudo := TRUE;
+          CONTINUE;
+        }
+        CASE "@"
+        {
+          RETURN "";
+        }
+        CASE "ident"
+        {
+          // Assume literal, just add it:
+          IF(atStartOfRule)
+          {
+            STRING prepend;
+            IF(token.value = "html")// The HTML element is a special case: It can only exist as the root element.
+              prepend := "/";
+            ELSE
+              prepend := "//";
+
+            INSERT prepend || "*[local-name()='" || token.value || "']" INTO query AT END;
+            atStartOfRule := FALSE;
+          }
+          ELSE
+            INSERT "*[local-name()='" || token.value || "']" INTO query AT END;
+
+          lastIdentValue := token.value;
+          lastIdentType := "ident";
+
+        }
+        DEFAULT
+        {
+          CONTINUE;
+        }
+      }
+    }
+  }
+  IF(NOT ignoreCurrentRule)// Add the parsed selector query to the list of queries
+    INSERT Detokenize(query, "") INTO queries AT END;
+
+  // Combine all XPath queries, concatenating the with a query separator "|" and return the resulting string:
+  RETURN Detokenize(queries, "|");
+}
+
+PUBLIC OBJECTTYPE CSSException EXTEND Exception
+< STRING pvt_code;
+  PUBLIC PROPERTY code(pvt_code, -);
+
+  MACRO NEW(STRING code, STRING message)
+  : Exception(code || ": " || message)
+  {
+    this->pvt_code := code;
+  }
+>;
+
+PUBLIC STRING ARRAY FUNCTION ExtractURLsFromTokens(RECORD ARRAY tokens)
+{
+  STRING ARRAY urls;
+  FOREVERY (RECORD token FROM tokens)
+  {
+    SWITCH (token.type)
+    {
+      CASE "url"                  { INSERT token.value INTO urls AT END; }
+      CASE "parsed-simpleblock"   { urls := urls CONCAT ExtractURLSFromTokens(token.value); }
+    }
+  }
+  RETURN urls;
+}
+
+PUBLIC RECORD ARRAY FUNCTION RewriteURLsInTokens(RECORD ARRAY tokens, FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  STRING baseurl;
+  IF(CellExists(options, "BASEURL"))
+    baseurl := options.baseurl;
+
+  FOREVERY (RECORD token FROM tokens)
+  {
+    SWITCH (token.type)
+    {
+      CASE "url"
+      {
+        STRING url := token.value;
+
+        IF (CellExists(options, "BASEURL"))
+          url := ResolveToAbsoluteURL(options.baseurl, url);
+
+        // Apply the rewriter, if any:
+        IF (rewriter != DEFAULT FUNCTION PTR)
+          url := rewriter(url);
+
+        token.value := url;
+        token.csstext := token.type || '("' || EncodeCSSString(url) || '")';
+
+        tokens[#token] := token;
+      }
+      CASE "parsed-simpleblock"
+      {
+        tokens[#token].value := RewriteURLsInTokens(token.value, rewriter, options);
+      }
+    }
+  }
+
+  RETURN tokens;
+}

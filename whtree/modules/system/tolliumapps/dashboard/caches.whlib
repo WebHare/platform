@@ -1,0 +1,38 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE PrecalculatedCache EXTEND MonitorPanelBase
+<
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    ^cacheentries->Invalidate();
+  }
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 15;
+  }
+  RECORD ARRAY FUNCTION OnGetCacheEntries()
+  {
+    RETURN SELECT rowkey := id
+                , func
+                , hash
+                , lastuse
+                , state
+             FROM system.precalccache;
+  }
+  MACRO OnDelete()
+  {
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmdeleteentries")) != "yes")
+      RETURN;
+
+    OBJECT link := WaitForPromise(OpenWebHareService("system:precalc"));
+    FOREVERY(RECORD tokill FROM ^cacheentries->selection)
+      link->DeleteCacheItem(tokill.hash);
+    link->CloseService();
+  }
+>;

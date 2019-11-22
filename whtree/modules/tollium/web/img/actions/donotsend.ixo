@@ -1,0 +1,5 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <layer src="tollium:status/sending"/>
+  <layer src="tollium:overlays/strike" size="16px" translatex="1px"/>  
+  <layer src="tollium:overlays/strike" size="24px" translatex="5px"/>    
+</icon>

@@ -1,0 +1,53 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/exchange.whlib";
+
+// command: wrd:import <schema> <path>
+// short: Import WRD schema from file
+
+MACRO PrintRef(STRING source, INTEGER dest)
+{
+  Print(`${source} -> #${dest}\n`);
+}
+
+MACRO OnStatusUpdate(FLOAT curpos, FLOAT total)
+{
+  PRINT(RIGHT("    " || FormatFloat((curpos*1m/total) * 100, 1), 6) || "% " || FormatFloat(curpos/1024/1024, 1) || "MB \r");
+}
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(),
+    [ [ name := "ignoremissingreferences", type := "switch" ]
+    , [ name := "showrefs", type := "switch" ]
+    , [ name := "dryrun", type := "switch" ]
+    , [ name := "filename", type := "param", required := TRUE ]
+    ]);
+
+IF(NOT RecordExists(cmdargs))
+{
+  Print("Syntax: wh wrd:import [ --showrefs ] [ --ignoremissingreferences ] filename\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+
+BLOB file := GetDiskResource(cmdargs.filename);
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+OBJECT importer := NEW WRDImExport(DEFAULT OBJECT, DEFAULT RECORD);
+importer->onprogresscallback := PTR OnStatusUpdate;
+importer->ignoremissingreferences := cmdargs.ignoremissingreferences;
+IF(cmdargs.showrefs)
+  importer->onimportedreference := PTR PrintRef;
+importer->RunImport(file);
+
+INTEGER imp := importer->GetImportedSchemaID();
+IF(NOT cmdargs.dryrun)
+  trans->CommitWork();
+
+Print(`Imported schema '${OpenWRDSchemaById(imp)->tag}'${cmdargs.dryrun ? " (but not committed)!" : ""}\n`);

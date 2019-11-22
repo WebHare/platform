@@ -1,0 +1,36 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         library="multisafepay.whlib"
+         gid="tolliumapps.payments.multisafepay">
+
+  <tabsextension name="configmultisafepay" implementation="lib">
+    <actions>
+      <action name="connect" onexecute="doconnect" />
+    </actions>
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <textedit composition="methodsettings" name="apikey" cellname="apikey" required="true" />
+      <button action="connect" />
+      <select composition="methodsettings" cellname="testmode" name="testmode" type="radio">
+        <option rowkey="test" />
+        <option rowkey="live" />
+      </select>
+      <select type="checkbox" height="1pr" name="methods" gid="tolliumapps.payments.common" rowkeytype="string" />
+    </insert>
+  </tabsextension>
+
+  <screen name="payinfo"  title="">
+    <body>
+      <text name="rawstatus" />
+<!--       <text name="orderid" selectable="true" />
+      <text name="paymentid" selectable="true" />
+      <text name="paymentmethod" />
+      <text name="brand" />
+      <text name="status" />
+      <text name="ncerror" />
+ -->    </body>
+  </screen>
+
+</screens>

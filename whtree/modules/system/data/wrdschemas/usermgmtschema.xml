@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <!-- wrapper introduced in 4.27 until dependents can rename their dependency -->
+  <import definitionfile="mod::system/data/wrdschemas/usermgmt.wrdschema.xml" />
+</schemadefinition>

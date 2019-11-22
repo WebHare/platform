@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <g id="rssobjects">
+      <path d="M5,14.081v1.838c1-0.008,2.203,0.741,3.116,1.67C9.035,18.509,9.506,20,9.5,21h1.837C11.267,17,8,14.153,5,14.081z"/>
+      <path d="M5,10.7v1.837C9,12.544,12.904,16,12.912,21h1.839C14.751,15,10,10.7,5,10.7z"/>
+      <circle cx="5.692" cy="19.346" r="1.316"/>
+    </g>
+  </defs>
+  <g>
+    <path d="M27,4H5C4,4,4,5,4,5v22c0,0,0,1,1,1h22c1,0,1-1,1-1V5C28,5,28,4,27,4zM26,26H6V6h20V26z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#rssobjects" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" transform="scale(1.5) translate(1 -5)"/>
+  </g>
+</svg>

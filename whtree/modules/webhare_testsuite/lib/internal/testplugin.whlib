@@ -1,0 +1,12 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+
+PUBLIC OBJECTTYPE TestPlugin EXTEND WebDesignPluginBase
+<
+  UPDATE PUBLIC RECORD FUNCTION HookPrepareMail()
+  {
+    RETURN [ hookedpreparemail := "hooked-custom" ];
+  }
+>;

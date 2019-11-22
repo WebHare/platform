@@ -1,0 +1,11 @@
+<?wh
+INTEGER counter := 42;
+
+PUBLIC INTEGER FUNCTION GetCounter()
+{
+  RETURN counter;
+}
+PUBLIC MACRO IncCounter()
+{
+  counter := counter + 1;
+}

@@ -1,0 +1,59 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE OrderBasedOn EXTEND TolliumScreenBase
+<
+  RECORD inputdata;
+
+  MACRO Init(RECORD data)
+  {
+    this->inputdata := data;
+  }
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    INTEGER ARRAY files;
+    SWITCH(this->base_on->value)
+    {
+      CASE 'filename'
+      {
+        IF(this->ordering->value = "up")
+          files := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = this->inputdata.parent ORDER BY name;
+        ELSE
+          files := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = this->inputdata.parent ORDER BY name DESC;
+      }
+      CASE 'filetitle'
+      {
+        IF(this->ordering->value = "up")
+          files := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = this->inputdata.parent ORDER BY title;
+        ELSE
+          files := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = this->inputdata.parent ORDER BY title DESC;
+      }
+      CASE 'modified'
+      {
+        IF(this->ordering->value = "up")
+          files := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = this->inputdata.parent ORDER BY modificationdate;
+        ELSE
+          files := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = this->inputdata.parent ORDER BY modificationdate DESC;
+      }
+      CASE 'publishdate'
+      {
+        IF(this->ordering->value = "up")
+          files := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = this->inputdata.parent ORDER BY lastpublishdate;
+        ELSE
+          files := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = this->inputdata.parent ORDER BY lastpublishdate DESC;
+      }
+    }
+
+    GetPrimary()->BeginWork();
+    FOREVERY(INTEGER file FROM files)
+      UPDATE system.fs_objects SET ordering := #file + 1 WHERE id = file;
+    GetPrimary()->CommitWork();
+
+    RETURN TRUE;
+  }
+>;

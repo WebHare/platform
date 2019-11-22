@@ -1,0 +1,169 @@
+<?wh
+LOADLIB "wh::internal/hsselftests.whlib";
+
+PRIVATE OBJECTTYPE pvtobject
+<
+>;
+
+
+PUBLIC OBJECTTYPE test1
+< PUBLIC STRING FUNCTION abc(STRING str)
+  {
+    RETURN str || "!";
+  }
+
+  PUBLIC OBJECT FUNCTION GetMe()
+  {
+    RETURN this;
+  }
+
+  PUBLIC MACRO Print(INTEGER i)
+  {
+  }
+
+  PUBLIC STRING stringmember;
+  PUBLIC OBJECT self;
+  PUBLIC RECORD recordmember;
+  PUBLIC PROPERTY prop1(stringmember, stringmember);
+  PUBLIC PROPERTY throws(getthrow, setthrow);
+
+  PUBLIC INTEGER FUNCTION getter()
+  {
+    RETURN this->prop2_storage-1;
+  }
+  PUBLIC MACRO setter(INTEGER value)
+  {
+    this->prop2_storage := value+1;
+  }
+  INTEGER FUNCTION getter3()
+  {
+    RETURN this->prop2_storage-3;
+  }
+  MACRO setter3(INTEGER value)
+  {
+    this->prop2_storage := value+3;
+  }
+
+  PUBLIC INTEGER prop2_storage;
+  PUBLIC PROPERTY prop2(getter, setter);
+  PUBLIC STRING FUNCTION def1(INTEGER x, STRING k DEFAULTSTO "default")
+  {
+    RETURN x || k;
+  }
+
+  PUBLIC PROPERTY prop2r(getter, -);
+  PUBLIC PROPERTY prop2w(-, setter);
+
+  PUBLIC PROPERTY prop3(getter, setter);
+
+  RECORD ARRAY prop4_storage;
+  PUBLIC STRING prop4_ops;
+  PUBLIC PROPERTY prop4(prop4_storage, prop4_storage);
+  PUBLIC PROPERTY prop4g(GetProp4, prop4_storage);
+  PUBLIC PROPERTY prop4s(prop4_storage, SetProp4);
+  PUBLIC PROPERTY prop4gs(GetProp4, SetProp4);
+  PUBLIC RECORD ARRAY memb1;
+
+  MACRO SetProp4(RECORD ARRAY newdata) { this->prop4_ops := this->prop4_ops || "s"; this->prop4_storage := newdata; }
+  RECORD ARRAY FUNCTION GetProp4() { this->prop4_ops := this->prop4_ops || "g"; RETURN this->prop4_storage; }
+
+  PUBLIC OBJECT obj;
+
+  PUBLIC STRING FUNCTION VAfunc(STRING a, INTEGER b, VARIANT ARRAY va) __ATTRIBUTES__(VARARG)
+  {
+    STRING s := a || b || "-";
+    FOREVERY (VARIANT v FROM va)
+      s := s || v;
+    RETURN s;
+  }
+
+  STRING FUNCTION Detok(STRING a, VARIANT ARRAY b) __ATTRIBUTES__(VARARG)
+  {
+    RETURN Detokenize([a] CONCAT STRING ARRAY(b), ",");
+  }
+
+  PUBLIC MACRO TestVarargCalls()
+  {
+    TestEQ("a", this->Detok("a"));
+    TestEQ("a,b", this->Detok("a","b"));
+    TestEQ("a,b,c", this->Detok("a","b","c"));
+  }
+
+  PUBLIC MACRO TestThisDeepOps()
+  {
+    this->prop4_ops := "";
+    this->prop4_storage := DEFAULT RECORD ARRAY;
+    INSERT [ a := 3 ] INTO this->prop4 AT 0;
+    INSERT [ a := 2 ] INTO this->prop4 AT END;
+    INSERT [ a := 4 ] INTO this->prop4 AT END;
+
+    TestEq([ [ a := 3 ], [ a := 2 ], [ a := 4 ] ], this->prop4);
+    DELETE FROM this->prop4 AT 2;
+    this->prop4[0].a := 1;
+
+    TestEq([ [ a := 1 ], [ a := 2 ] ], this->prop4);
+    TestEq("", this->prop4_ops);
+
+    this->prop4_ops := "";
+    this->prop4_storage := DEFAULT RECORD ARRAY;
+    INSERT [ a := 3 ] INTO this->prop4g AT 0;
+    INSERT [ a := 2 ] INTO this->prop4g AT END;
+    INSERT [ a := 4 ] INTO this->prop4g AT END;
+    TestEq([ [ a := 3 ], [ a := 2 ], [ a := 4 ] ], this->prop4g);
+
+    DELETE FROM this->prop4g AT 2;
+    this->prop4g[0].a := 1;
+
+    TestEq("gggggg", this->prop4_ops);
+    TestEq([ [ a := 1 ], [ a := 2 ] ], this->prop4g);
+
+    this->prop4_ops := "";
+    this->prop4_storage := DEFAULT RECORD ARRAY;
+    INSERT [ a := 3 ] INTO this->prop4s AT 0;
+    INSERT [ a := 2 ] INTO this->prop4s AT END;
+    INSERT [ a := 4 ] INTO this->prop4s AT END;
+    TestEq([ [ a := 3 ], [ a := 2 ], [ a := 4 ] ], this->prop4s);
+    DELETE FROM this->prop4s AT 2;
+    this->prop4s[0].a := 1;
+
+    TestEq("sssss", this->prop4_ops);
+    TestEq([ [ a := 1 ], [ a := 2 ] ], this->prop4s);
+
+    this->prop4_ops := "";
+    this->prop4_storage := DEFAULT RECORD ARRAY;
+    INSERT [ a := 3 ] INTO this->prop4gs AT 0;
+    INSERT [ a := 2 ] INTO this->prop4gs AT END;
+    INSERT [ a := 4 ] INTO this->prop4gs AT END;
+    TestEq([ [ a := 3 ], [ a := 2 ], [ a := 4 ] ], this->prop4gs);
+    DELETE FROM this->prop4gs AT 2;
+    this->prop4gs[0].a := 1;
+
+    TestEq("gsgsgsggsgs", this->prop4_ops);
+    TestEq([ [ a := 1 ], [ a := 2 ] ], this->prop4gs);
+
+    this->prop4_storage := DEFAULT RECORD ARRAY;
+    INSERT [ a := 3 ] INTO this->memb1 AT 0;
+    INSERT [ a := 2 ] INTO this->memb1 AT END;
+    INSERT [ a := 4 ] INTO this->memb1 AT END;
+
+    TestEq([ [ a := 3 ], [ a := 2 ], [ a := 4 ] ], this->memb1);
+    DELETE FROM this->memb1 AT 2;
+    this->memb1[0].a := 1;
+    TestEq([ [ a := 1 ], [ a := 2 ] ], this->memb1);
+  }
+
+  INTEGER FUNCTION GetThrow() { THROW NEW Exception("get"); }
+  MACRO SetThrow(INTEGER i) { THROW NEW Exception("set"); }
+
+  PUBLIC MACRO AddTestingMember()
+  {
+    INSERT PUBLIC MEMBER testing := 5 INTO this;
+  }
+>;
+
+PUBLIC OBJECTTYPE basetest
+<
+  MACRO MyMacro()
+  {
+  }
+>;

@@ -1,0 +1,166 @@
+<?wh
+/** @short Accessing an Oracle database
+    @long This library provides access to an Oracle database through OCI (Oracle Call Interface).
+          An Oracle Client installation is required to actually use this library.
+    @topic database/oci
+*/
+
+RECORD FUNCTION __OCI_StartTransaction(RECORD connectinfo) __ATTRIBUTES__(EXTERNAL "wh_oci");
+
+/** @short Open an Oracle transaction
+    @long Open an Oracle tranasction through OCI (Oracle Call Interface)
+    @param database Database name
+    @param username Username to use for the connection
+    @param password Password to use with the above username
+    @return The transaction id. A value <= 0 on error
+*/
+PUBLIC INTEGER FUNCTION OpenOCITransaction(STRING database, STRING username, STRING password)
+{
+  RECORD retval := StartOCITransaction([database:=database,username:=username,password:=password]);
+  RETURN retval.transid;
+}
+
+/** @short Start an Oracle transaction
+    @long Open an Oracle tranasction through OCI (Oracle Call Interface), with extra options to control transaction opening and failure
+    @param connectinfo Connection infio
+    @cell connectinfo.database Database name
+    @cell connectinfo.username Username to use for the connection
+    @cell connectinfo.password Password to use with the above username
+    @return A record detailing the transaction settings
+    @cell return.transid The transaction id. A value <= 0 on error
+    @cell return.errors A list of connection errors
+*/
+PUBLIC RECORD FUNCTION StartOCITransaction(RECORD connectinfo)
+{
+  IF(CellExists(connectinfo,"database") AND SearchSubstring(connectinfo.database,'@')!=-1)
+  {
+    STRING ARRAY toks := Tokenize(connectinfo.database,'@');
+    connectinfo.database := "(DESCRIPTION = (ADDRESS = (PROTOCOL= TCP)(Host= "||EncodeOCI(toks[1])||")(Port= 1521))(CONNECT_DATA = (SID = '" || EncodeOCI(toks[0]) || "')))";
+  }
+  RETURN __OCI_StartTransaction(connectinfo);
+}
+/** @short Sends a query to an Oracle database
+    @long Sends a single, raw SQL query to the Oracle database, without any further processing
+    @param transaction OCI transaction
+    @param query Query to send
+    @return Returned records, if exist
+*/
+PUBLIC RECORD ARRAY FUNCTION SendOCICommand(INTEGER transaction, STRING query) __ATTRIBUTES__(EXTERNAL "wh_oci");
+
+/** @short Sends a query to an Oracle database, and requested specific return types
+    @long Sends a single, raw SQL query to the Oracle database, without any further processing
+    @param transaction OCI transaction
+    @param query Query to send
+    @param types An integer array, containing a TypeId for every returned column indicating the requested type
+    @return Returned records, if exist
+*/
+PUBLIC RECORD ARRAY FUNCTION SendOCITypedCommand(INTEGER transaction, STRING query, INTEGER ARRAY types) __ATTRIBUTES__(EXTERNAL "wh_oci");
+
+/** @short Get and clear list with OCI Errors
+    @long The error list must be empty, in order to commit a transaction
+    @param transaction OCI transaction
+    @return Returned errors, if any
+    @return.code Code of the error
+    @return.message Description of the error
+    @see ClearOCIErrors
+*/
+PUBLIC RECORD ARRAY FUNCTION GetOCIErrors(INTEGER transaction) __ATTRIBUTES__(EXTERNAL "wh_oci");
+
+/** @short Clear list with OCI Errors
+    @long The error list must be empty, in order to commit a transaction
+    @param transaction OCI transaction
+    @see GetOCIErrors
+*/
+PUBLIC MACRO ClearOCIErrors(INTEGER transaction) __ATTRIBUTES__(EXTERNAL "wh_oci");
+
+/** @short Commits an OCI transaction
+    @long When there are uncleared errors, the transaction will not be committed but rolled back instead.
+          The list with uncleared errors will be returned as a RECORD ARRAY
+    @param transaction OCI transaction
+    @return Returned errors, if any
+    @return.code Code of the error
+    @return.message Description of the error
+    @see RollbackOCITransaction ClearOCIErrors GetOCIErrors
+*/
+PUBLIC RECORD ARRAY FUNCTION CommitOCITransaction(INTEGER transaction) __ATTRIBUTES__(EXTERNAL "wh_oci");
+
+/** @short Rolls back an OCI transaction
+    @param transaction OCI transaction
+    @see CommitOCITransaction ClearOCIErrors GetOCIErrors
+*/
+PUBLIC MACRO RollbackOCITransaction(INTEGER transaction) __ATTRIBUTES__(EXTERNAL "wh_oci");
+
+/** @short Lists colums in an OCI table
+    @param transaction OCI transaction
+    @param tablename Table to list columns of
+    @return record array of column descriptions
+    @see GetOCITables
+*/
+PUBLIC RECORD ARRAY FUNCTION GetOCIColumns(INTEGER transaction, STRING tablename) __ATTRIBUTES__(EXTERNAL "wh_oci");
+
+/** @short Lists tables in an OCI table
+    @param transaction OCI transaction
+    @return record array of table descriptions
+    @cell return.name Name of the table
+    @see GetOCIColumns
+*/
+PUBLIC RECORD ARRAY FUNCTION GetOCITables(INTEGER transaction)
+{
+  RETURN SendOCICommand(transaction, "SELECT TNAME AS NAME FROM TAB WHERE TABTYPE = 'TABLE'");
+}
+
+/** @short Tweak the piece sizes for transfer of strings and blobs
+    @param transaction OCI transaction
+    @param stringpiecesize Length of the piece to use for string transfers
+    @param blobpiecesize Length of the piece to use for blob transfers */
+PUBLIC MACRO __OCI_TRANSHACK(INTEGER transaction, INTEGER stringpiecesize, INTEGER blobpiecesize) __ATTRIBUTES__(EXTERNAL "wh_oci");
+
+/** @short Get the binding parameters required to execute a command
+    @param transid OCI transaction
+    @param command Command to parse
+    @return Bind parameters */
+PUBLIC RECORD ARRAY FUNCTION GetOCIBindInfo(INTEGER transid, STRING command) __ATTRIBUTES__(EXTERNAL "wh_oci");
+/** @short Execute a OCI/Oracle command
+    @param transid OCI transaction
+    @param command Command to parse
+    @param indata Input/output parameters
+    @return A record with the modified output parameters */
+PUBLIC RECORD FUNCTION CallOCICommand(INTEGER transid, STRING command, RECORD indata) __ATTRIBUTES__(EXTERNAL "wh_oci");
+
+/** @short Encode a string for OCI commands (replace all ' with '' characters)
+    @param indata String to encode
+    @return Encoded string */
+PUBLIC STRING FUNCTION EncodeOCI(STRING indata)
+{
+  RETURN Substitute(indata,"'","''");
+}
+
+
+/* For later use:
+
+   typeid mapping for GetOCIColumns
+
+     SWITCH (type)
+  {
+    CASE 1 { RETURN "STRING"; } // VARCHAR
+    CASE 2                      // NUMBER
+    {
+      IF (precision <= 10 AND scale = 0)
+        RETURN "INTEGER";
+
+      IF (precision <= 19 AND scale <= 5)
+        RETURN "MONEY";
+
+      RETURN "FLOAT";
+    }
+    CASE 8 { RETURN "STRING"; } // LONG
+    CASE 12 { RETURN "DATETIME"; } // DATE
+    CASE 23 { RETURN "BLOB"; } // RAW
+    CASE 24 { RETURN "BLOB"; } // LONG RAW
+    CASE 96 { RETURN "STRING"; } // STRING
+    CASE 112 { RETURN "STRING"; } // CLOB
+    CASE 113 { RETURN "BLOB"; } // BLOB
+    CASE 114 { RETURN "BLOB"; } // BFILE
+
+    DEFAULT { RETURN "UNKNOWN"; }
+*/

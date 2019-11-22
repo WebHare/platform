@@ -1,0 +1,10 @@
+<?wh
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/remoting/client.whlib";
+
+STRING servicebase := "https://cms1.webhare.com/wh_services/webhare_services/certbot/";
+STRING torequest := Tokenize(GetRequestURL(),".well-known/acme-challenge/")[1];
+BLOB response := InvokeRemoteFunction(servicebase || "GetChallenge", torequest);
+IF(Length(response)=0)
+  AbortWithHTTPError(404);
+SendWebFile(response);

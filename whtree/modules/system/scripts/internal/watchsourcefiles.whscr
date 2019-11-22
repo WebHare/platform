@@ -1,0 +1,402 @@
+﻿<?wh
+
+LOADLIB "wh::async.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+
+
+/** Returns whether a file exists. ADDME: test for executable?
+*/
+PUBLIC BOOLEAN FUNCTION FileExists(STRING path)
+{
+  RECORD rec := GetDiskFileProperties(path);
+  RETURN RecordExists(rec) AND rec.type = 0;
+}
+
+/** Lookup up an executable in the PATH (when no slashes are present in the executable path)
+    @return Path to executable (or empty string if not found)
+*/
+STRING FUNCTION LookupExecutable(STRING executable)
+{
+  IF (SearchSubString(executable, "/") = -1)
+  {
+    FOREVERY (STRING path FROM Tokenize(GetEnvironmentVariable("PATH"), ":"))
+      IF (path != "" AND FileExists(MergePath(path, executable)))
+      {
+        RETURN MergePath(path, executable);
+        BREAK;
+      }
+  }
+  ELSE IF (FileExists(executable))
+    RETURN executable;
+  RETURN "";
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "v", type := "switch" ]
+    , [ name := "o", type := "switch" ]
+    , [ name := "fswatch", type := "stringopt" ]
+    , [ name := "inotifywait", type := "stringopt" ]
+    ]);
+
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: runscript watchsourcefiles.whscr [ -v ] [ --fswatch fswatch-executable ] [ --inotifywait inotifywait-executable ]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary();
+
+/** List of global actions, triggered by specific files changing
+    @cell name Description
+    @cell(string array) masks List of masks (possible prefix used: mod::, module::, wh::)
+    @cell(string array) skipmasks Exclusion masks (executed after inclusion masks)
+    @cell(function ptr) execute Function to execute
+    @cell(integer) cb Callback id, internal use
+    @cell(integer) delay Delay for action after file change (reset after every change)
+    @cell(string) coalescetag Tag for coalescing calls for multiple actions (omit to serialize only this action)
+*/
+RECORD ARRAY actions :=
+    [ [ name :=       "Regenerate compiled module siteprofiles"
+      , masks :=      [ "mod::*.siteprl", "mod::*.siteprl.xml", "mod::*/moduledefinition.xml" ]
+      , skipmasks :=  DEFAULT STRING ARRAY
+      , execute :=    PTR DoSiteProfileRecompile()
+      , cb :=         0
+      , delay :=      300
+      ]
+    , [ name :=       "Check for hotfixes"
+      , masks :=      [ "*" ]
+      , skipmasks :=  DEFAULT STRING ARRAY
+      , execute :=    PTR ScheduleHotfixCheck()
+      , cb :=         0
+      , delay :=      60 * 1000
+      ]
+    ];
+
+ASYNC MACRO DoSiteProfileRecompile()
+{
+  GetPrimary()->BeginWork();
+  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+  GetPrimary()->CommitWork();
+}
+
+ASYNC MACRO ScheduleHotfixCheck()
+{
+  // check for hotfixes 5 minutes after change
+  GetPrimary()->BeginWork();
+  TRY
+  {
+    GetPrimary()->ScheduleTask("system:check_hotfixes", AddTimeToDate(4 * 60 * 1000, GetCurrentDateTime()));
+    GetPrimary()->CommitWork();
+  }
+  CATCH
+  {
+    IF (GetPrimary()->IsWorkOpen())
+      GetPrimary()->RollbackWork();
+    THROW;
+  }
+}
+
+OBJECT serializer := MakeCallSerializer();
+
+MACRO ScheduleAction(INTEGER actionnr)
+{
+  // clear the callback for the delay before running the action, so new events trigger a new call to RunAction
+  actions[actionnr].cb := 0;
+
+  RECORD action := actions[actionnr];
+  STRING coalescetag := CellExists(action, "coalescetag") AND action.coalescetag != ""
+      ? action.coalescetag
+      : "__generated_" || actionnr;
+
+  FUNCTION PTR serialized := serializer->wrap(PTR RunAction(actionnr), CELL[ coalescetag ]);
+  serialized();
+}
+
+ASYNC MACRO RunAction(INTEGER actionnr)
+{
+  IF (args.v)
+    PRINT(`Action '${actions[actionnr].name}' starting run\n`);
+
+  TRY
+    AWAIT actions[actionnr].execute();
+  CATCH (OBJECT< LibraryVersionConflictException > e)
+  {
+    PRINT(`Exception executing action '${actions[actionnr].name}': ${e->what}\n`);
+    LogHarescriptException(e);
+    PRINT(`Terminating for auto-reload\n`);
+    TerminateScript();
+  }
+  CATCH (OBJECT e)
+  {
+    PRINT(`Exception executing action '${actions[actionnr].name}': ${e->what}\n`);
+    LogHarescriptException(e);
+  }
+
+  IF (args.v)
+    PRINT(`Action '${actions[actionnr].name}' finished\n`);
+}
+
+// Get all directories with modules
+STRING ARRAY moduledirs :=
+    SELECT AS STRING ARRAY dir
+      FROM ToRecordArray(GetWebHareConfiguration().moduledirs, "DIR")
+  ORDER BY dir;
+
+STRING ARRAY watchdirs := moduledirs;
+
+// Also watch all nodejs dirs
+INSERT MergePath(GetWebHareConfiguration().basedataroot, "nodejs") INTO watchdirs AT END;
+INSERT MergePath(GetWebHareConfiguration().installationroot, "node_modules") INTO watchdirs AT END;
+
+// Ensure the set begins with ""
+STRING ARRAY npmlinkroots :=
+    SELECT AS STRING ARRAY TEMPORARY trimmedpath := TrimWhitespace(path)
+         , trimmedpath LIKE "*/" ? trimmedpath : trimmedpath || "/"
+      FROM ToRecordArray(Tokenize(ReadRegistryKey("system.backend.development.npmlinkroots"), ","), "PATH")
+     WHERE TrimWhitespace(path) != "";
+
+watchdirs := watchdirs CONCAT npmlinkroots;
+
+// Omit dirs that have another dir as prefix
+FOR (INTEGER i := 1; i < LENGTH(watchdirs);)
+{
+  IF (watchdirs[i] LIKE watchdirs[i-1] || "*")
+    DELETE FROM watchdirs AT i;
+  ELSE
+    i := i + 1;
+}
+
+// Lookup which filesystem watch utility to use
+STRING fswatch, inotifywait;
+IF (args.fswatch != "")
+{
+  fswatch := LookupExecutable(args.fswatch);
+  IF (fswatch = "")
+  {
+    PRINT("Could not find executable '"||args.fswatch||"' in path\n");
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+}
+ELSE IF (args.inotifywait != "")
+{
+  inotifywait := LookupExecutable(args.inotifywait);
+  IF (inotifywait = "")
+  {
+    PRINT("Could not find executable '"||args.inotifywait||"' in path\n");
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+}
+ELSE
+{
+  inotifywait := LookupExecutable("inotifywait");
+  IF (inotifywait = "")
+  {
+    fswatch := LookupExecutable("fswatch");
+    IF (fswatch = "")
+    {
+      PRINT("Could not find executable 'inotifywait' or 'fswatch' in path\n");
+      SetConsoleExitCode(1);
+      RETURN;
+    }
+  }
+}
+
+OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
+{
+  INTEGER output_handle;
+  STRING buffer;
+
+  WHILE (TRUE)
+  {
+    AWAIT proc->AsyncWaitRead(MAX_DATETIME);
+
+    STRING output := ReadProcessOutput(proc->handle);
+    STRING errors := ReadProcessErrors(proc->handle);
+    IF (output = "" AND errors = "")
+    {
+      IF (NOT proc->IsRunning())
+        BREAK;
+
+      // ADDME: Sleep a bit
+      CONTINUE;
+    }
+
+    IF (errors != "")
+      PRINT(errors || "\n");
+
+    IF (args.o)
+      PRINT(output);
+
+    buffer := buffer || output;
+    STRING ARRAY lines := Tokenize(buffer, "\n");
+    buffer := lines[END - 1];
+    DELETE FROM lines AT END-1;
+
+    DATETIME schedule_time := AddTimeToDate(1000, GetCurrentDateTime());
+    FOREVERY (STRING line FROM lines)
+    {
+      STRING ARRAY parts := Tokenize(line || "  ", " ");
+      STRING path := parts[0];
+      IF (is_inotifywait)
+        path := path || parts[2];
+
+      STRING codestr := parts[1];
+      INTEGER code := ToInteger(codestr, 0);
+
+      // Skip temporary files, invisible files, git lock files
+      IF (path LIKE "*.kate-swp"
+          OR path LIKE "*.new"
+          OR (path LIKE "*/.*" AND (path NOT LIKE "*/.git/*" OR path LIKE "*/.git/.*"))
+          OR path LIKE "*/.git/*.lock"
+          OR path LIKE "*~"
+          OR ToInteger(GetNameFromPath(path), 0) != 0) // integer files (pid, make by vi)
+        CONTINUE;
+
+      IF ((code BITAND (2+4+8+16+128)) != 0 OR codestr IN [ "CREATE", "DELETE", "MOVED_FROM", "MOVED_TO", "MODIFY" ] OR codestr LIKE "*CLOSE_WRITE*") // Any change?
+      {
+        BOOLEAN is_module;
+
+        FOREVERY (STRING linkroot FROM npmlinkroots)
+          IF (path LIKE linkroot || "*")
+          {
+            IF (args.v)
+              PRINT(`Changed (npm link root): ${path}\n`);
+
+            BroadcastEvent("system:npmlinkroot.filechange", DEFAULT RECORD);
+          }
+
+        FOREVERY (STRING moduledir FROM moduledirs)
+        {
+          IF (path NOT LIKE moduledir || "*")
+            CONTINUE;
+          is_module := TRUE;
+
+          STRING subdir := SubString(path, LENGTH(moduledir));
+          STRING ARRAY toks := Tokenize(subdir, "/");
+          IF (LENGTH(toks) < 2)
+            CONTINUE;
+
+          IF (NOT RecordExists(GetDiskFileProperties(MergePath(moduledir, toks[0] || "/moduledefinition.xml"))))
+          {
+            IF (NOT RecordExists(GetDiskFileProperties(MergePath(moduledir, toks[0] || "/" || toks[1] || "/moduledefinition.xml"))))
+              CONTINUE;
+
+            DELETE FROM toks AT 0;
+            IF (LENGTH(toks) < 2)
+              CONTINUE;
+          }
+          //toks[0] is now the module name, including .2010... timestamp
+          IF (toks[0] LIKE "*.tmp" OR toks[0] LIKE "*.bak") //Don't process temporary modules
+            CONTINUE;
+
+          IF (args.v)
+            PRINT("Changed: " || MergePath(moduledir, Detokenize(toks, "/")) || "\n");
+
+          // Remove the .datestamp part of the module name
+          toks[0] := Tokenize(toks[0], ".")[0];
+
+          // Calcaultate
+          STRING consiliogroupname := "mod::" || toks[0] || "/" || Detokenize(ArraySlice(toks, 1), "/");
+          IF (toks[0] = "system" AND toks[1] IN [ "whlibs", "whres"])
+          {
+            IF (toks[1] = "whlibs")
+              consiliogroupname := "wh::" || Detokenize(ArraySlice(toks, 2), "/");
+            ELSE
+              consiliogroupname := "whres::" || Detokenize(ArraySlice(toks, 2), "/");
+          }
+
+          IF (args.o)
+            PRINT("Add " || consiliogroupname || " due to > " || line || "\n");
+
+          RECORD rec :=
+              [ consiliogroupname :=  consiliogroupname
+              , schedule_time :=      schedule_time
+              ];
+
+          STRING changedfolder := "mod::" || toks[0] || "/" || Detokenize(ArraySlice(toks, 1, LENGTH(toks) - 2), "/");
+          IF (changedfolder NOT LIKE "*/")
+            changedfolder := changedfolder || "/";
+          BroadcastEvent("system:modulefolder." || changedfolder, [ resourcename := consiliogroupname ]);
+
+          IF(path LIKE "*/moduledefinition.xml")
+            BroadcastEvent("system:modulesupdate", DEFAULT RECORD);
+
+          // Trigger global actions
+          FOREVERY (RECORD action FROM actions)
+          {
+            BOOLEAN ismatch;
+            FOREVERY (STRING mask FROM action.masks)
+              IF (consiliogroupname LIKE mask)
+                ismatch := TRUE;
+            FOREVERY (STRING mask FROM action.skipmasks)
+              IF (consiliogroupname LIKE mask)
+                ismatch := FALSE;
+
+            IF (ismatch)
+            {
+              IF (action.cb != 0)
+                UnregisterCallback(action.cb);
+              actions[#action].cb := RegisterTimedCallback(AddTimeToDate(action.delay, GetCurrentDateTime()), PTR ScheduleAction(#action));
+            }
+          }
+        }
+
+        IF (NOT is_module)
+        {
+          path := Left(path, SearchLastSubString(path, "/") + 1);
+          IF (args.v)
+            PRINT(`Other file changed: ${path}\n`);
+          BroadcastEvent("system:modulefolder." || path, DEFAULT RECORD);
+        }
+      }
+    }
+
+    CollectGarbage();
+  }
+  RETURN DEFAULT RECORD;
+}
+
+
+IF (args.v)
+  PRINT("Watching: " || Detokenize(watchdirs, " ") || "\n");
+
+//ADDME why multiple processes? i think both inotifywait and fswatch handle mulitple paths...
+FOREVERY (STRING dir FROM watchdirs)
+{
+  OBJECT proc;
+  IF (inotifywait != "")
+  {
+    STRING ARRAY proc_args := [ "-qrm", "-ecreate", "-edelete", "-emoved_from", "-emoved_to", "-emodify", "-eclose_write" ] CONCAT [ dir ];
+    proc := CreateProcess(inotifywait, proc_args, FALSE, TRUE, TRUE, FALSE);
+  }
+  ELSE
+  {
+    STRING ARRAY proc_args := [ "-rn", "-l", ".1" ] CONCAT [ dir ];
+    proc := CreateProcess(fswatch, proc_args, FALSE, TRUE, TRUE, FALSE);
+  }
+
+  proc->userdata := [ title := dir ];
+  HandleWatchProcess(proc, inotifywait != "");
+  proc->Start();
+}
+
+MACRO RestartForConfigChange(STRING event, RECORD ARRAY events)
+{
+  PRINT("Restart for config change\n");
+  TerminateScript();
+}
+
+RegisterMultiEventCallback("system:registry.backend.development", PTR RestartForConfigChange);
+AddInterruptCallback(PTR CancelEventLoop);
+RunEventLoop();

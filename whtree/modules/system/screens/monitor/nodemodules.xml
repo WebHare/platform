@@ -1,0 +1,77 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor/nodemodules.whlib"
+         gid="monitor.nodemodules"
+         >
+
+  <messageboxes gid=".messageboxes">
+  </messageboxes>
+
+  <!--
+  ADDME:
+  - select one or more folders where to put global modules
+  - read versions of modules
+  - only read info for modules which are expanded in the list
+
+  wh softreset
+  wh fixmodules
+  -->
+
+  <screen name="panel" title="">
+    <actions gid=".actions">
+      <action name="revealinfinder">
+        <enableon source="modules" min="1" checkflags="isnodemodule" onexecute="@notimplemented" />
+      </action>
+
+      <action name="link">
+        <enableon source="modules" min="1" checkflags="isnodemodule" onexecute="@notimplemented" />
+      </action>
+
+      <action name="unlink">
+        <enableon source="modules" min="1" checkflags="isnodemodule" onexecute="@notimplemented" />
+      </action>
+
+      <action name="prune">
+        <enableon source="modules" min="1" checkflags="isnodemodule" onexecute="@notimplemented" />
+      </action>
+
+      <action name="fetchnewcopy"><!-- force yarn/node to re-download the selected modules -->
+        <enableon source="modules" min="1" onexecute="@notimplemented" />
+      </action>
+
+      <!-- run 'fixmodules' for the selected module -->
+      <action name="fixmodules">
+        <enableon source="modules" min="1" checkflags="ismodule" onexecute="@notimplemented" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="modulescontextmenu">
+        <item action="link" />
+        <item action="unlink" />
+        <divider />
+        <item action="prune" />
+        <item action="fetchnewcopy" />
+        <divider />
+        <item action="revealinfinder" />
+      </menu>
+    </menus>
+    <compositions>
+    </compositions>
+    <body>
+      <text title="" value="work in progress - can for now only view the list of found node modules" />
+      <list name="modules"
+            selectmode="multiple"
+            selectcontextmenu="modulescontextmenu"
+            sortcolumn="name"
+            flags="ismodule isnodemodule"
+            gid=".columns"
+            height="1pr"
+            >
+        <column name="name"              type="text" width="1pr" tree="true" />
+        <column name="linksto"           type="text" width="1pr" iconname="links" />
+
+        <!-- style name="module" bold="true" -->
+      </list>
+    </body>
+  </screen>
+
+</screens>

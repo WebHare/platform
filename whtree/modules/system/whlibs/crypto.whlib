@@ -1,0 +1,661 @@
+﻿<?wh
+/** @topic harescript-core/crypto */
+
+LOADLIB "wh::internal/ber.whlib";
+LOADLIB "wh::internal/interface.whlib" EXPORT GenerateUFS128BitId;
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::files.whlib";
+
+/** @short Cryptography APIs
+    @long Functions to calculate hashes and perform other cryptographic operations */
+
+// Implementation of HMAC in HareScript is based on the pseudocode in http://en.wikipedia.org/wiki/HMAC#Implementation
+
+/** @short Create a streaming hasher
+    @param algorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512")
+    @param key_salt Optional key or salt for the specified algorithm
+    @return Hasher stream id */
+PUBLIC INTEGER FUNCTION CreateStreamingHasher(STRING algorithm, STRING key_salt DEFAULTSTO "")
+{
+  IF (algorithm LIKE "HMAC:*")
+    THROW NEW Exception("HMAC algorithms are not supported in streaming mode"); //ADDME?
+
+  INTEGER hasher := CreateHasher(algorithm);
+  IF (hasher = 0)
+    THROW NEW Exception("Unrecognized hash algorithm '" || algorithm || "'");
+  RETURN hasher;
+}
+/** @short Close a streaming hasher
+    @return The final hash */
+PUBLIC STRING FUNCTION MakeHashFromStreamer(INTEGER streamerid)
+{
+  RETURN FinalizeHasher(streamerid);
+}
+
+/** @short Return the hash for a string
+    @param text Text to hash
+    @param algorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512", "HMAC:MD5", "HMAC:SHA-1",
+        "HMAC:SHA-256", "HMAC:SHA-384", "HMAC:SHA-512")
+    @param key_salt Optional key or salt for the specified algorithm
+    @return The hash, as binary data (you probably want to use EncodeBase16 on the result) */
+PUBLIC STRING FUNCTION GetHashForString(STRING text, STRING algorithm, STRING key_salt DEFAULTSTO "")
+{
+  //ADDME: Move to EXTERNAL hasher for better performance
+  IF (algorithm LIKE "HMAC:*")
+  {
+    // Strip "HMAC:" header
+    algorithm := Substring(algorithm, 5);
+
+    STRING ARRAY pads := GetHMACKeyPaddings(key_salt, algorithm);
+
+    // Create the hash
+    RETURN GetHashForString(pads[0] || GetHashForString(pads[1] || text, algorithm), algorithm);
+  }
+
+  INTEGER hasher := CreateStreamingHasher(algorithm, key_salt);
+  PrintTo(hasher, text);
+  RETURN FinalizeHasher(hasher);
+}
+
+/** @short Return the hash for a blob
+    @param data Data to hash
+    @param algorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512", "HMAC:MD5", "HMAC:SHA-1",
+        "HMAC:SHA-256", "HMAC:SHA-384", "HMAC:SHA-512")
+    @param key_salt Optional key or salt for the specified algorithm
+    @return The hash, as binary data (you probably want to use EncodeBase16 on the result) */
+PUBLIC STRING FUNCTION GetHashForBlob(BLOB data, STRING algorithm, STRING key_salt DEFAULTSTO "")
+{
+  //ADDME: Move to EXTERNAL hasher for better performance
+  IF (algorithm LIKE "HMAC:*")
+  {
+    // Strip "HMAC:" header
+    algorithm := Substring(algorithm, 5);
+
+    STRING ARRAY pads := GetHMACKeyPaddings(key_salt, algorithm);
+
+    // Create the hash
+    INTEGER hasher := CreateHasher(algorithm);
+    IF (hasher = 0)
+      THROW NEW Exception("Unrecognized hash algorithm '" || algorithm || "'");
+    PrintTo(hasher, pads[1]);
+    SendBlobTo(hasher, data);
+    RETURN GetHashForString(pads[0] || FinalizeHasher(hasher), algorithm);
+  }
+
+  INTEGER hasher := CreateStreamingHasher(algorithm, key_salt);
+  SendBlobTo(hasher, data);
+  RETURN FinalizeHasher(hasher);
+}
+
+// Generate outer and inner key paddings, respectively
+STRING ARRAY FUNCTION GetHMACKeyPaddings(STRING hmac_key, STRING algorithm)
+{
+  // Initialize algorithm block size
+  // 512 bits (64 bytes) for MD5, SHA-1 and SHA-256
+  // 1024 bits (128 bytes) for SHA-384 and SHA-512
+  INTEGER blocksize := algorithm IN [ "SHA-384", "SHA-512" ] ? 128 : 64;
+
+  // Make sure the key length is blocksize, by hashing it if it's too long, and pad it if it's too short
+  IF (Length(hmac_key) > blocksize)
+    hmac_key := GetHashForString(hmac_key, algorithm);
+  IF (Length(hmac_key) < blocksize)
+    hmac_key := hmac_key || RepeatText("\x00", blocksize - Length(hmac_key));
+
+  // Generate outer and inner key padding
+  RETURN [ StringXOR(RepeatText("\x5C", blocksize), hmac_key)
+         , StringXOR(RepeatText("\x36", blocksize), hmac_key)
+         ];
+}
+
+/** @short Hash a password
+    @long This hashes using the current recommended algorithm and can be stored anywhere 8-bit data is accepted. It currently uses 10-iteration crypt_blowfish algorithm.
+    @param pwd Password to hash
+    @return The hashed password string. Note that this string may contain binary bytes and thus may not be valid UTF8 */
+PUBLIC STRING FUNCTION CreateWebHarePasswordHash(STRING pwd) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short Verify a password against a stored hash
+    @param pwd Password to verify
+    @param hash Hash against which the password should match
+    @return True if the password matches the specified hash
+*/
+PUBLIC BOOLEAN FUNCTION VerifyWebHarePasswordHash(STRING pwd, STRING hash)
+{
+  IF(hash LIKE "XSHA1:*" AND Length(hash) = 46) //UTF8-safe SSHA1 password
+    hash := "SSHA1:" || DecodeBase64(Substring(hash,6));
+  RETURN __HS_VERIFYWEBHAREPASSWORDHASH(pwd,hash);
+}
+
+/** @short Is the specified password hash still secure?
+    @long This function can be used to detect whether the password should be rehashed. It only verifies the hash, not the strength of the actual password.
+    @param hash Hash to verify
+    @return True if the hash is still considered sufficiently strong, and on par with the hash CreateWebHarePasswordHash will return */
+PUBLIC BOOLEAN FUNCTION IsWebHarePasswordHashStillSecure(STRING hash) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short Return the MD5 hash for a text
+    @long This function calculates a standard 128-bit MD5 file hash for the specified text
+    @param text Text to hash
+    @return The MD5 hash, as binary data (you probably want to use EncodeBase16 on the result) */
+PUBLIC STRING FUNCTION GetMD5Hash(STRING text)
+{
+  RETURN GetHashForString(text, "MD5");
+}
+
+/** @short Return the SHA1 hash for a text
+    @long This function calculates a standard 160-bit SHA-1 file hash for the specified text
+    @param text Text to hash
+    @return The SHA1 hash, as binary data (you probably want to use EncodeBase16 on the result) */
+PUBLIC STRING FUNCTION GetSHA1Hash(STRING text)
+{
+  RETURN GetHashForString(text, "SHA-1");
+}
+
+
+/** @short Verify a RSA signature on SHA1 hashed data. Throws when an invalid hash or key is supplied.
+    @param hash Hash to verify
+    @param sig Signature for the data
+    @param keyfile PEM encoded public keyfile with which the data should have been signed
+    @return True if the signature was succesfully verified*/
+PUBLIC BOOLEAN FUNCTION Verify_RSA_SHA1(STRING hash, STRING sig, STRING keyfile)
+{
+  RETURN Verify_RSA_Hash(hash, "SHA-1", sig, keyfile);
+}
+
+/** @short Create a RSA signature on SHA1 hashed data. Throws when an invalid hash or key is supplied, or when the key is encrypted and the wrong passphrase is supplied.
+    @param hash Hash to sign
+    @param keyfile PEM encoded private keyfile with which the data will be signed
+    @param passphrase Passphrase for the key (may be left empty)
+    @return Signature */
+PUBLIC STRING FUNCTION Create_RSA_SHA1(STRING hash, STRING keyfile, STRING passphrase)
+{
+  RETURN Create_RSA_Hash(hash, "SHA-1", keyfile, passphrase);
+}
+
+/** @short Verify a RSA signature on hashed data. Throws when an invalid hash or key is supplied.
+    @param hashalgorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512")
+    @param hash Hash to verify
+    @param sig Signature for the data
+    @param keyfile PEM encoded public keyfile with which the data should have been signed
+    @return True if the signature was succesfully verified*/
+PUBLIC BOOLEAN FUNCTION Verify_RSA_Hash(STRING hash, STRING hashalgorithm, STRING sig, STRING keyfile) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short Create a RSA signature on SHA1 hashed data. Throws when an invalid hash or key is supplied, or when the key is encrypted and the wrong passphrase is supplied.
+    @param hashalgorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512")
+    @param hash Hash to sign
+    @param keyfile PEM encoded private keyfile with which the data will be signed
+    @param passphrase Passphrase for the key (may be left empty)
+    @return Signature */
+PUBLIC STRING FUNCTION Create_RSA_Hash(STRING hash, STRING hashalgorithm, STRING keyfile, STRING passphrase) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short Returns components of a certificate
+    @param certificate PEM encoded certificate
+    @return Certificate components
+    @cell publickey PEM encoded public key
+*/
+PUBLIC RECORD FUNCTION GetCertificateData(STRING certificate) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short Generate a password
+    @param base Initial characters  in the password
+    @param len Number of random characters to add
+    @return A encrypted password in STRING format
+*/
+PUBLIC STRING FUNCTION GeneratePassword(STRING base, INTEGER len, BOOLEAN mixed_case DEFAULTSTO TRUE)
+{
+  STRING allowed_chars :=
+        mixed_case ? "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz"
+                   : "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+  RETURN base || GenerateRandomText(len, allowed_chars);
+}
+
+
+/** @short Generate a random text
+    @param len Number of random characters
+    @param allowed_chars String with the allowed characters
+    @return A random text with the given length and allowed_chars
+*/
+PUBLIC STRING FUNCTION GenerateRandomText(INTEGER len, STRING allowed_chars)
+{
+  IF (allowed_chars = "")
+    RETURN "";
+
+  //FIXME: Use cryptographic random
+  STRING result;
+  INTEGER charmax := LENGTH(allowed_chars) - 1;
+
+  FOR (INTEGER i := 0; i < len; i := i + 1)
+    result := result || SubString(allowed_chars, Random(0, charmax), 1);
+
+  RETURN result;
+}
+
+PUBLIC STRING FUNCTION Encrypt_Blowfish(STRING bf_key, STRING data) __ATTRIBUTES__(DEPRECATED "These functions give php-incompatible results with short keys. Please use Encrypt() instead")
+{
+  RETURN __HS_Encrypt_Blowfish(bf_key,data);
+}
+
+PUBLIC STRING FUNCTION Decrypt_Blowfish(STRING bf_key, STRING data) __ATTRIBUTES__(DEPRECATED "These functions give php-incompatible results with short keys. Please use Decrypt() instead")
+{
+  RETURN __HS_Decrypt_Blowfish(bf_key,data);
+}
+
+// Byte-for-byte XOR of two strings of equal length
+STRING FUNCTION StringXOR(STRING value1, STRING value2)
+{
+  STRING result;
+  FOR (INTEGER i := 0; i < Length(value1); i := i + 1)
+    result := result || ByteToString(GetByteValue(Substring(value1, i, 1)) BITXOR GetByteValue(Substring(value2, i, 1)));
+  RETURN result;
+}
+
+//note, the key is set up as follows: hashalgorithm,encryptionalgorithm,# of salt words (multiplied by 2 to determine # of bytes)
+RECORD FUNCTION DecodeAlgorithm(STRING algorithm)
+{
+  STRING ARRAY algorithmtoks := Tokenize(algorithm,',');
+  IF(Length(algorithmtoks)<3)
+    THROW NEW Exception("Algorithm not understoond");
+
+  RECORD result := [ hash := algorithmtoks[0]
+                   , crypt := algorithmtoks[1]
+                   , saltlength := ToInteger(algorithmtoks[2],-1)*2 //we historically got the ",8" wrong, so we'll just decide it's in words
+                   , zlib := FALSE
+                   , ivlength := 0
+                   ];
+  IF(result.hash NOT IN ["MD5","SHA-1","SHA-256"])
+    THROW NEW Exception("Unsupported hash '" || result.hash || "'");
+  //rename our names to openssl compatibility
+  IF(result.crypt = "BLOWFISH+ECB")
+    result.crypt := "bf-ecb";
+  ELSE IF(result.crypt = "BLOWFISH+CBC")
+  {
+    result.crypt := "bf-cbc";
+    result.ivlength := 8;
+  }
+
+  IF(result.crypt NOT IN ["bf-ecb","bf-cbc"])
+    THROW NEW Exception("Unsupported encryption '" || result.crypt || "'");
+  IF(result.saltlength < 0 OR result.saltlength>16)
+    THROW NEW Exception("Unsupported salt length '" || result.saltlength || "'");
+
+  STRING ARRAY options := ArraySlice(algorithmtoks, 3);
+  FOREVERY(STRING opt FROM options)
+  {
+    IF(opt="ZLIB")
+    {
+      result.zlib := TRUE;
+    }
+    ELSE
+    {
+      THROW NEW Exception("Option '" || opt || "' not understood");
+    }
+  }
+  RETURN result;
+}
+
+/** Calculate a suitable IV for an algorithm, the salt */
+STRING FUNCTION CalculateIV(RECORD decodealg, STRING salt)
+{
+  RETURN Left(GetMD5Hash(salt), decodealg.ivlength);
+}
+
+/** @short Salt, eencrypt and sign a string
+    @param data Data to sign
+    @param algorithm Algorithm to use. <SHA-1|SHA-256>,BLOWFISH+<CBC|ECB>,<hashwords>[,ZLIB] eg SHA-256,BLOWFISH+<CBC|ECB>,8
+    @param key Key to use with the algorithm
+    @return UFS encoded encrypted data */
+PUBLIC STRING FUNCTION EncryptAndSignData(STRING data, STRING algorithm, STRING encryptkey)
+{
+  IF(data="")
+    THROW NEW Exception("Cannot encrypt an empty string"); //when receiving an empty string from DecryptSignedData, we won't know if the decryption failed or the string was really empty
+
+  RECORD decodealg := DecodeAlgorithm(algorithm);
+  STRING salt := decodealg.saltlength > 0 ? Left(DecodeUFS(GenerateUFS128BitId()),decodealg.saltlength) : "";
+
+  IF(decodealg.zlib)
+  {
+    INTEGER out := CreateStream();
+    INTEGER compressor := CreateZlibCompressor(out, "ZLIBRAW", 9);
+    PrintTo(compressor, data);
+    CloseZlibCompressor(compressor);
+    data := BlobToString(MakeBlobFromStream(out));
+  }
+
+  STRING result;
+  STRING hash := GetHashForString(salt || data || encryptkey, decodealg.hash);
+  IF(decodealg.crypt="bf-ecb")
+    result := EncodeUFS(Encrypt("bf-ecb", encryptkey, salt || data || hash));
+  ELSE //keep the salt OUTSIDE the encrypted data. put the hash in front of data so it kinda functions as a IV if we have no proper salt/iv (but just don't use CBC for that)
+  {
+    STRING iv := CalculateIV(decodealg, salt);
+    result := EncodeUFS(salt || Encrypt(decodealg.crypt, encryptkey, hash || data, CELL[ iv ]));
+  }
+  RETURN result;
+}
+/** @short Decrypt a string encrypted by EncryptAndSignData
+    @param data Signed data (generated by EncryptAndSignData)
+    @param algorithm Algorithm to use (currently only supported: SHA-1,BLOWFISH+ECB,8). Must be the same as used to sign the data.
+    @param key Key to use with the algorithm. Must be the same as the key used to sign the data.
+    @return The original data, or an empty string if hash verification failed */
+PUBLIC STRING FUNCTION DecryptSignedData(STRING data, STRING algorithm, STRING encryptkey)
+{
+  RECORD decodealg := DecodeAlgorithm(algorithm);
+  INTEGER hashlen;
+
+  SWITCH (decodealg.hash)
+  {
+    CASE "MD5"      { hashlen := 16; }
+    CASE "SHA-1"    { hashlen := 20; }
+    CASE "SHA-256"  { hashlen := 32; }
+    DEFAULT         { THROW NEW Exception(`Hash algorithm '${decodealg.hash}' not yet supported`); }
+  }
+  IF(data="")
+    RETURN "";
+
+  STRING decodeddata := DecodeUFS(data);
+
+  STRING trydecode, givenhash, givensalt;
+  IF(decodealg.crypt="bf-ecb")
+  {
+    IF(Length(data) != (Length(decodeddata)*4+2)/3)
+      RETURN ""; //This is not proper blowfish data (blowfish is always a multiple of 8 bytes so easy to match) - stuff got appended?
+
+    trydecode := Decrypt(decodealg.crypt, encryptkey, decodeddata);
+
+    IF(trydecode = "" AND Length(encryptkey)<16) //might be the broken Encrypt_blowfish - use broken decrypt_blowfish to compensate
+      trydecode := Decrypt_Blowfish(encryptkey, decodeddata);
+
+    givensalt := Left(trydecode, decodealg.saltlength);
+    givenhash := Right(trydecode, hashlen);
+    trydecode := Substring(trydecode, decodealg.saltlength, Length(trydecode) - decodealg.saltlength - hashlen);
+  }
+  ELSE
+  {
+    givensalt := Left(decodeddata, decodealg.saltlength);
+    decodeddata := Substring(decodeddata, decodealg.saltlength);
+
+    STRING iv := CalculateIV(decodealg, givensalt);
+    trydecode := Decrypt(decodealg.crypt, encryptkey, decodeddata, CELL[ iv ]);
+    givenhash := Left(trydecode, hashlen);
+    trydecode := Substring(trydecode, hashlen);
+  }
+
+  IF(givenhash != GetHashForString(givensalt || trydecode || encryptkey, decodealg.hash))
+    RETURN "";
+
+  IF(decodealg.zlib)
+    trydecode := BlobToString(MakeZlibDecompressedFile(StringToBlob(trydecode), "ZLIBRAW:" || Length(trydecode)));
+
+  RETURN trydecode;
+}
+
+/** @short Decode a BER-encoded EC signature into its `r` and `s` components
+    @param signature The signature to decode
+    @return The decoded EC signature, or a default record if it could not be decoded
+    @cell(string) return.r The EC signature's base16-encoded `r` component
+    @cell(string) return.s The EC signature's base16-encoded `s` component
+*/
+PUBLIC RECORD FUNCTION DecodeECSignature(STRING signature)
+{
+  TRY
+  {
+    OBJECT ber := NEW StaticBERDecoder(signature);
+    OBJECT seq := ber->ReadConstruction();
+    STRING r := seq->ReadBigInteger();
+    STRING s := seq->ReadBigInteger();
+    RETURN CELL[ r, s ];
+  }
+  CATCH;
+  RETURN DEFAULT RECORD;
+}
+
+/** @short Encode an EC signature with `r` and `s` components into a verifiable BER-encoded signature
+    @param signature The decoded EC signature
+    @cell(string) signature.r The EC signature's base16-encoded `r` component
+    @cell(string) signature.s The EC signature's base16-encoded `s` component
+    @return The encoded signature, or an empty string if it could not be encoded
+*/
+PUBLIC STRING FUNCTION EncodeECSignature(RECORD signature)
+{
+  IF (RecordExists(signature) AND CellExists(signature, "r") AND CellExists(signature, "s"))
+  {
+    TRY
+    {
+      OBJECT ber := NEW BEREncoder();
+      ber->StartConstruction(BER_Class_Universal, BER_Universal_Sequence);
+      ber->AddBigInteger(PrepareBigIntegerValue(signature.r));
+      ber->AddBigInteger(PrepareBigIntegerValue(signature.s));
+      ber->EndConstruction();
+      RETURN ber->GetRequest();
+    }
+    CATCH;
+  }
+  RETURN "";
+}
+
+STRING FUNCTION PrepareBigIntegerValue(STRING value)
+{
+  // We're dealing with unsigned integers, so they have to be prepended with "00" if the highest bit is set (otherwise they
+  // would be interpreted as negative values)
+  IF (Length(value) > 0 AND ToInteger(Left(value, 2), 0, 16) BITAND 0x80 > 0)
+    value := "00" || value;
+  // Unneeded leading zeroes are removed by AddBigInteger
+  RETURN value;
+}
+
+
+/** @short EVP key (high-level cryptograpic key)
+    @public
+*/
+OBJECTTYPE EVPKey
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER handle;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// If this key only has a public key (public keys can only be used for decryption and signature verification)
+  PUBLIC PROPERTY publiconly(GetPublicOnly, -);
+
+  /// Get the key length in bits
+  PUBLIC PROPERTY keylength(GetKeyLength,-);
+
+  /// Get the key type, one of "RSA" or "EC"
+  PUBLIC PROPERTY keytype(GetKeyType,-);
+
+  /// Get the private key, empty for public-only keys
+  PUBLIC PROPERTY privatekey(GetPrivateKey,-);
+
+  /// Get the public key
+  PUBLIC PROPERTY publickey(GetPublicKey,-);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  /** @private Don't instantiate directly */
+  MACRO NEW(INTEGER keyhandle, BOOLEAN publiconly)
+  {
+    this->handle := keyhandle;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Generate a PEM-encoded certificate request
+      @param nameparts The identification properties
+      @cell(string) nameparts.field The property name (e.g. "C", "ST", "L", "O", "CN" or "OU")
+      @cell(string) nameparts.value The property value
+      @param altnames Alternative hostnames (e.g. "DNS:www.example.com, DNS:www.example.net, DNS:www.example.org")
+      @return The PEM-encoded certificate request
+  */
+  PUBLIC STRING FUNCTION GenerateCSR(RECORD ARRAY nameparts, STRING altnames)
+  {
+    IF (this->publiconly)
+      THROW NEW Exception("Cannot generate certificate request with a public key");
+    RETURN __EVP_GENERATECSR(this->handle, (SELECT field, value FROM nameparts WHERE value != ""), altnames);
+  }
+
+/* Not exposing these yet, we should think about how to encrypt/decrypt large amounts of data, which padding to use etc.
+  PUBLIC STRING FUNCTION Encrypt(STRING data)
+  {
+    IF (this->publiconly)
+      THROW NEW Exception("Cannot encrypt data with a public key");
+    //ADDME: Check for max data size for encryption?
+    RETURN __EVP_ENCRYPT(this->handle, data);
+  }
+
+  PUBLIC STRING FUNCTION Decrypt(STRING data)
+  {
+    RETURN __EVP_DECRYPT(this->handle, data);
+  }
+*/
+
+  /** @short Sign data
+      @long This function creates a signature for the given data, using the private key and the given hashing algorithm.
+          For EC keys, the return value is a BER-encoded ASN.1 sequence containing the `r` and `s` signature values. You can
+          use %DecodeECSignature to get a record with the separate `r` and `s` values.
+          Note: This function cannot be used on public-only keys!
+      @param data The data to sign
+      @param alg The hashing algorithm to use ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512")
+      @return The raw signature value
+  */
+  PUBLIC STRING FUNCTION Sign(STRING data, STRING alg)
+  {
+    IF (this->publiconly)
+      THROW NEW Exception("Cannot sign data with a public key");
+    RETURN __EVP_SIGN(this->handle, data, alg);
+  }
+
+  /** @short Verify a signature
+      @long This function verifies a signature for the given data, using the public key and the given hashing algorithm.
+          For EC keys, this function expects the signature to be a BER-encoded ASN.1 sequence containing the `r` and `s`
+          signature values. You can use %EncodeECSignature to create a verifiable signature.
+      @param data The data to verify the signature for
+      @param signature The signature to verify
+      @param alg The hashing algorithm to use ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512")
+      @return If the signature is valid for the given data
+  */
+  PUBLIC BOOLEAN FUNCTION Verify(STRING data, STRING signature, STRING alg)
+  {
+    RETURN __EVP_VERIFY(this->handle, data, signature, alg);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  BOOLEAN FUNCTION GetPublicOnly()
+  {
+    RETURN __EVP_ISKEYPUBLICONLY(this->handle);
+  }
+
+  INTEGER FUNCTION GetKeyLength()
+  {
+    RETURN __EVP_GETKEYLENGTH(this->handle);
+  }
+
+  STRING FUNCTION GetKeyType()
+  {
+    RETURN __EVP_GETKEYTYPE(this->handle);
+  }
+
+  STRING FUNCTION GetPrivateKey()
+  {
+    IF (this->publiconly)
+      RETURN "";
+    RETURN __EVP_GETPRIVATEKEY(this->handle);
+  }
+
+  STRING FUNCTION GetPublicKey()
+  {
+    RETURN __EVP_GETPUBLICKEY(this->handle);
+  }
+>;
+
+/** @short Create a cryptograpic key
+    @param type The type of key to create ("RSA", "EC")
+    @param options Options for key verification
+    @cell(integer) options.numbits For RSA keys, the key length (1024 - 4096)
+    @cell(string) options.curve For EC keys, the curve to use ("prime256v1", "secp384r1", "secp521r1")
+    @return(object evpkey) The generated key
+*/
+PUBLIC OBJECT FUNCTION GenerateCryptoKey(STRING type, VARIANT options)
+{
+  IF(type NOT IN [ "RSA", "EC" ])
+    THROW NEW Exception("Only keys of type RSA or EC supported");
+
+  // Backwards compatibility: this function used to take just a 'numbits' parameter
+  IF (TypeID(options) = TypeID(INTEGER))
+    options := [ numbits := options ];
+
+  options := ValidateOptions(
+      [ numbits := 0
+      , curve := ""
+      ], options,
+      [ enums := [ curve := [ "", "prime256v1", "secp384r1", "secp521r1" ] ]
+      , required := type = "EC" ? [ "curve" ] : [ "numbits" ]
+      ]);
+
+  IF(type IN [ "RSA" ] AND (options.numbits < 1024 OR options.numbits > 4096))
+    THROW NEW Exception("The number of bits must be in the range 1024-4096 for RSA key");
+
+  INTEGER keyhandle := __EVP_GENERATEKEY(type, options.numbits, options.curve);
+  IF(keyhandle = 0)
+    RETURN DEFAULT OBJECT;
+  RETURN NEW EVPKey(keyhandle, FALSE);
+}
+
+/** @short Read a cryptograpic key from private or public key data
+    @param keydata PEM-encoded private or public key
+    @return(object evpkey) The key, or a default object if it could not be read
+*/
+PUBLIC OBJECT FUNCTION MakeCryptoKey(STRING keydata)
+{
+  INTEGER keyhandle := __EVP_LOADPRVKEY(keydata);
+  IF(keyhandle != 0)
+    RETURN NEW EVPKey(keyhandle, FALSE);
+  keyhandle := __EVP_LOADPUBKEY(keydata);
+  IF(keyhandle != 0)
+    RETURN NEW EVPKey(keyhandle, TRUE);
+  RETURN DEFAULT OBJECT;
+}
+
+PUBLIC STRING FUNCTION GetVariableHash(VARIANT variable)
+{
+  RETURN __HS_INTERNAL_CalculateVariableHash(variable);
+}
+
+PUBLIC STRING FUNCTION Encrypt(STRING algorithm, STRING keydata, STRING data, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(algorithm NOT IN ["bf-ecb","bf-cbc","des-ecb"])
+    THROW NEW Exception(`Unsupported algorithm '${algorithm}'`); //ADDME open up more values, but first add verification tests to test_crypto
+  options := ValidateOptions([ iv := "" ], options);
+  RETURN __DoEvpCrypt(algorithm, TRUE, keydata, data, options.iv);
+}
+PUBLIC STRING FUNCTION Decrypt(STRING algorithm, STRING keydata, STRING data, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(algorithm NOT IN ["bf-ecb","bf-cbc"])
+    THROW NEW Exception(`Unsupported algorithm '${algorithm}'`); //ADDME open up more values, but first add verification tests to test_crypto
+  options := ValidateOptions([ iv := "" ], options);
+  TRY
+  {
+    RETURN __DoEvpCrypt(algorithm, FALSE, keydata, data, options.iv);
+  }
+  CATCH(OBJECT ignore)
+  {
+    RETURN "";
+  }
+}

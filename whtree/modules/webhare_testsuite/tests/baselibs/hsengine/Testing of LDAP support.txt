@@ -1,0 +1,6 @@
+To test LDAP support:
+
+* Start the LDAP test server with "X:\development\Harescript\ldap\openldap\start_slapd.bat"
+* Start the test using the command "runtest ldap" in the Q:\Harescript\tests directory
+
+The contents of the LDAP directory is listed in var\test_ldap.ldif.txt

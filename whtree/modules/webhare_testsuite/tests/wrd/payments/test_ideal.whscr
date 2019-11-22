@@ -1,0 +1,143 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/poller.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/ideal.whlib";
+
+ASYNC MACRO SetupIdeal()
+{
+  testfw->BeginWork();
+  //TODO shouldn't need 'skipvalidation' but our decoder breaks on lack of password
+  BLOB idealkey := StringToBlob(DecodeBase64(GetEnvironmentVariable("TESTFW_IDEAL_PRIVATEKEY")));
+  BLOB idealcrt := StringToBlob(DecodeBase64(GetEnvironmentVariable("TESTFW_IDEAL_CERTIFICATE")));
+  RECORD keypair := testfw->CreateKeyPair("idealkey", idealkey, idealcrt, [skipvalidation := TRUE]);
+  testfw->CommitWork();
+
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("addprovider"));
+  topscreen->methods->value := "wrd:ideal";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+
+  //https://www.ideal-checkout.nl/support/ideal-simulator
+  TT("paymentextension->keypair")->value := keypair.id;
+  TT("paymentextension->merchantid")->value := ToInteger(GetEnvironmentVariable("TESTFW_IDEAL_MERCHANTID"),0);
+  TT("paymentextension->acquirer")->value := GetEnvironmentVariable("TESTFW_IDEAL_ACQUIRER");
+  TT("paymentextension->testmode")->value := TRUE;
+  TT("paymentextension->privatekeypassword")->value := GetEnvironmentVariable("TESTFW_IDEAL_PRIVATEKEYPASSWORD"); //FIXME this should move to the certificate store
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("editprovider"));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+}
+
+MACRO TestLowLevelIdeal()
+{
+  //direct test so we can more easily see XML issues
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  OBJECT idealhandler := paymentapi->__InstantiatePSP(methods[0].paymentprovider);
+  OBJECT dirreq := NEW IdealDirectoryRequest(idealhandler->__GetIdealConfigRecord());
+  RECORD ARRAY issuers := dirreq->GetIssuers().issuers;
+  TestEq(2,Length(issuers));
+}
+
+
+ASYNC MACRO TestIdealAPI()
+{
+  RunStandardPaymentMethodTests();
+
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  TestEq(1,Length(methods));
+  TestEq("iDEAL", methods[0].title);
+
+  RECORD test_ing := SELECT * FROM methods[0].issuers WHERE title lIKE "*ING*";
+  RECORD test_rabo := SELECT * FROM methods[0].issuers WHERE title lIKE "*RABO*";
+  TestEq(TRUE, RecordExists(test_ing));
+  TestEq(TRUE, RecordExists(test_rabo));
+
+  FOREVERY(RECORD testloop FROM [[ amount := 1.00, delaypage := FALSE, expectstatus := "approved" ]
+                                ,[ amount := 1.00, delaypage := TRUE, expectstatus := "approved" ]
+                                ,[ amount := 2.00, delaypage := FALSE, expectstatus := "failed" ]
+                                ,[ amount := 2.00, delaypage := TRUE, expectstatus := "failed" ]
+                                ])
+  {
+    testfw->BeginWork();
+    OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+    testfw->CommitWork();
+
+    RECORD paymentinstruction := paymentapi->StartPayment(entity->id, testloop.amount,
+      [ paymentprovider := methods[0].paymentprovider
+      , paymentoptiontag := methods[0].paymentoptiontag
+      , issuer := test_rabo.rowkey
+      , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+      , orderdescription := "TEST-IDEAL-PAYMENT"
+      ]);
+    TestEq(FALSE, paymentinstruction.complete);
+
+    STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
+    IF(testfw->debug)
+      Print(`Payment url: ${payurl}\n`);
+
+    TestEq(TRUE, testfw->browser->GotoWebPage(payurl), "Failed to navigate to payment URL " || payurl);
+    TestEqLike("*Please check your merchant return*", testfw->browser->document->body->innerhtml);
+
+    TestEq("pending", entity->GetField("DATA").status);
+    PollPaymentStatuses(TRUE, FALSE); //cant delete yet, it'll break the page
+
+    testfw->browser->autofollow := testloop.delaypage = FALSE;
+    ConfirmIdeal();
+
+    IF(testloop.delaypage)
+    {
+      PollPaymentStatuses(TRUE, FALSE); //cant delete yet, it'll break the page
+      TestEq(testloop.expectstatus, entity->GetField("DATA").status);
+
+      testfw->browser->autofollow := TRUE;
+      STRING redirectedto := testfw->browser->GetResponseHeader("Location");
+      TestEq(TRUE, testfw->browser->GotoWebPage(redirectedto), `Cannot goto ${redirectedto}`);
+    }
+
+    RECORD status := DecodeJSONBlob(testfw->browser->content);
+    TestEQ(TRUE, RecordExists(status), `Payment page '${testfw->browser->href}' failed`);
+    TestEq(testloop.expectstatus, status.payinfo.status);
+
+    //Check the payment in the dialog FIXME find a way to always run this dialog, not only offline
+    AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+        ( GetTestController()
+        , entity->id));
+    AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  }
+}
+
+PUBLIC MACRO ConfirmIdeal()
+{
+  OBJECT button := testfw->browser->QS(`input[type="submit"]`);
+  TestEq(TRUE, ObjectExists(button), `Cant find  button`);
+  TestEq(TRUE, testfw->browser->SubmitForm(button), `Cant click  button`);
+
+  IF(testfw->debug)
+    Print("Return url: " || testfw->browser->href||'\n');
+}
+
+
+RunTestframework([ PTR CreateWRDTestSchema( [ withrichdoc := FALSE ])//richdoc causes a testsite dependency, and we want to run without
+                 , PTR SetupIdeal
+                 , PTR TestLowLevelIdeal
+                 , PTR TestIdealAPI
+                 ]);

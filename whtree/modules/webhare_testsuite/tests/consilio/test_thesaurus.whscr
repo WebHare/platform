@@ -1,0 +1,116 @@
+<?wh
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/catalog.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+
+
+INTEGER indexid;
+INTEGER contentsource;
+
+OBJECT search_obj;
+
+MACRO TestThesaurus()
+{
+  testfw->StartTrans("sysop", TRUE);
+
+  search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+
+  // Prefix for object/group ids, just to stress the itf
+  STRING idprefix := "\n\r\t()[]{}^$+-%!\"";//" \n\r\t()[]{}^$+-%!\"";
+
+  testfw->BeginWork();
+
+  // Clear the current contents
+  DELETE FROM webhare_testsuite.consilio_index;
+
+  indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
+  contentsource := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
+      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
+      , maxgroupobjects :=      1000
+      , discardsummaries :=     TRUE
+      ]);
+
+  testfw->CommitWork();
+
+  // Clear the index
+  CheckConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  testfw->BeginWork();
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, text)
+      VALUES(idprefix||"a", idprefix||"a1", "a");
+  testfw->CommitWork();
+
+  // Rebuild the index
+  CheckConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  // Search
+  RECORD res := search_obj->Search("+contentsource:"||contentsource||" +a", 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->Search("+contentsource:"||contentsource||" +b", 0, 1000);
+  TestEq(0, Length(res.results));
+  res := search_obj->Search("+contentsource:"||contentsource||" +body:a", 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->Search("+contentsource:"||contentsource||" +body:b", 0, 1000);
+  TestEq(0, Length(res.results));
+
+
+  // Add some thesaurus words
+  testfw->BeginWork();
+  INTEGER wordgroupid := (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
+  INSERT INTO consilio.thesaurus(indexid, wordgroup, word)
+       VALUES(indexid, wordgroupid, "a");
+  INSERT INTO consilio.thesaurus(indexid, wordgroup, word)
+       VALUES(indexid, wordgroupid, "b");
+  testfw->CommitWork();
+
+  // Search again
+  res := search_obj->Search("+contentsource:"||contentsource||" +a", 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->Search("+contentsource:"||contentsource||" +b", 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->Search("+contentsource:"||contentsource||" +body:a", 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->Search("+contentsource:"||contentsource||" +body:b", 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->Search("+contentsource:"||contentsource||" +body:\"a\"", 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->Search("+contentsource:"||contentsource||" +body:\"b\"", 0, 1000);
+  TestEq(0, Length(res.results)); // Phrase queries are treated as exact match queries
+
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource), CQParseUserQuery("a") ]), 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource), CQParseUserQuery("b") ]), 0, 1000);
+  TestEq(0, Length(res.results));
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource), CQParseUserQuery("b", [ thesaurusid := indexid ]) ]), 0, 1000);
+  TestEq(1, Length(res.results));
+
+  //Ensure toplevel CQParseUserQuery doesn't crash
+  res := search_obj->SearchQuery(CQParseUserQuery("a"), 0, 1000);
+
+  testfw->BeginWork();
+  DELETE FROM webhare_testsuite.consilio_index;
+  testfw->CommitWork();
+
+  UpdateConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  testfw->EndTrans();
+}
+
+
+RunTestframework(
+    [ PTR TestThesaurus ],
+    [ consilio := TRUE
+    , testusers :=
+        [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
+        ]
+    ]);

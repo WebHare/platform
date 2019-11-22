@@ -1,0 +1,1478 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/components/table.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// The calendar
+
+/* The calendar is basically a TolliumTable with a fixed layout. It holds
+ events, which are represented by overlays in the table.
+*/
+
+OBJECTTYPE CalendarEvent
+<
+  OBJECT calendarptr;
+
+  PUBLIC PROPERTY dtstart(GetDTStart, SetDTStart);
+  PUBLIC PROPERTY dtend(GetDTEnd, SetDTEnd);
+
+  STRING pvt_uid;
+  PUBLIC PROPERTY uid(pvt_uid, -);
+
+  PUBLIC PROPERTY readonly_duration(GetReadOnlyDuration, SetReadOnlyDuration);
+  PUBLIC PROPERTY flags(GetFlags, SetFlags);
+
+  PUBLIC PROPERTY summary(GetSummary, SetSummary);
+  PUBLIC PROPERTY categories(GetCategories, SetCategories);
+  PUBLIC PROPERTY readonly_time(GetReadOnlyTime, SetReadOnlyTime);
+  PUBLIC PROPERTY hint(pvt_hint, SetHint);
+
+  STRING pvt_hint;
+
+  MACRO NEW(OBJECT calendarptr, STRING uid)
+  {
+    this->calendarptr := calendarptr;
+    this->pvt_uid := uid;
+    this->CheckExists();
+  }
+/* Rob: Disabled, because an event does not have a selection, or flags. Maybe this should be in the calender component?
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    IF (CheckEnabledFlags([RECORD(this->selection.flags)], this->pvt_flags, flags, min, max, selectionmatch))
+      RETURN TRUE;
+
+    RETURN FALSE;
+  }
+*/
+  RECORD FUNCTION CheckExists()
+  {
+    RECORD event := SELECT *, tolliumidx := #events FROM this->calendarptr->events AS events WHERE ToUppercase(uid) = ToUppercase(this->uid);
+    IF (NOT RecordExists(event))
+      Abort("Trying to access non-existing calendar event '"||this->uid||"'");
+    RETURN event;
+  }
+
+
+  RECORD FUNCTION GetFlags()
+  {
+    RETURN this->CheckExists().flags;
+  }
+
+  MACRO SetFlags(RECORD flags)
+  {
+    RECORD event := this->CheckExists();
+    BOOLEAN anychanges;
+    FOREVERY (RECORD flag FROM UnpackRecord(event.flags))
+      IF (CellExists(flags, flag.name) AND GetCell(flags, flag.name) != flag.value)
+      {
+        event.flags := CellUpdate(event.flags, flag.name, GetCell(flags, flag.name));
+        anychanges := TRUE;
+      }
+    IF (anychanges)
+    {
+      this->calendarptr->events[event.tolliumidx].flags := event.flags;
+      this->UpdateEvent();
+    }
+  }
+  DATETIME FUNCTION GetDTStart()
+  {
+    RETURN this->CheckExists().dtstart;
+  }
+
+  MACRO SetDTStart(DATETIME dt)
+  {
+    RECORD event := this->CheckExists();
+    IF (event.dtstart != dt)
+    {
+      this->calendarptr->events[event.tolliumidx].dtstart := dt;
+      IF (event.dtend < dt)
+        this->calendarptr->events[event.tolliumidx].dtend := dt;
+      this->UpdateEvent();
+    }
+  }
+
+  DATETIME FUNCTION GetDTEnd()
+  {
+    RETURN this->CheckExists().dtend;
+  }
+
+  MACRO SetDTEnd(DATETIME dt)
+  {
+    RECORD event := this->CheckExists();
+    IF (event.dtend != dt)
+    {
+      this->calendarptr->events[event.tolliumidx].dtend := dt;
+      IF (event.dtstart > dt)
+        this->calendarptr->events[event.tolliumidx].dtstart := dt;
+      this->UpdateEvent();
+    }
+  }
+
+  // Set both start and end without checks
+  /*FIXME: PRIVATE?*/PUBLIC MACRO SetTimes(DATETIME eventstart, DATETIME eventend)
+  {
+    RECORD event := this->CheckExists();
+    IF (event.dtstart != eventstart OR event.dtend != eventend)
+    {
+      this->calendarptr->events[event.tolliumidx].dtstart := eventstart;
+      this->calendarptr->events[event.tolliumidx].dtend   := eventend;
+      this->UpdateEvent();
+    }
+  }
+
+  STRING FUNCTION GetSummary()
+  {
+    RETURN this->CheckExists().summary;
+  }
+
+  MACRO SetSummary(STRING summary)
+  {
+    RECORD event := this->CheckExists();
+    IF (event.summary != summary)
+    {
+      this->calendarptr->events[event.tolliumidx].summary := summary;
+      this->UpdateEvent();
+    }
+  }
+
+  STRING ARRAY FUNCTION GetCategories()
+  {
+    RETURN this->CheckExists().categories;
+  }
+
+  MACRO SetCategories(STRING ARRAY categories)
+  {
+    RECORD event := this->CheckExists();
+    this->calendarptr->events[event.tolliumidx].categories := categories;
+    this->UpdateEvent();
+  }
+
+  PUBLIC MACRO SetCategory(STRING category)
+  {
+    RECORD event := this->CheckExists();
+    IF (Length(event.categories) != 1 OR event.categories[0] != category)
+    {
+      this->calendarptr->events[event.tolliumidx].categories := [ category ];
+      this->UpdateEvent();
+    }
+  }
+
+  BOOLEAN FUNCTION GetReadOnlyTime()
+  {
+    RETURN this->CheckExists().readonly_time;
+  }
+
+  MACRO SetReadOnlyTime(BOOLEAN readonly)
+  {
+    RECORD event := this->CheckExists();
+    IF (readonly != event.readonly_time)
+    {
+      this->calendarptr->events[event.tolliumidx].readonly_time := readonly;
+      this->UpdateEvent();
+    }
+  }
+
+  BOOLEAN FUNCTION GetReadOnlyDuration()
+  {
+    RETURN this->CheckExists().readonly_duration;
+  }
+
+  MACRO SetReadOnlyDuration(BOOLEAN readonly)
+  {
+    RECORD event := this->CheckExists();
+    IF (readonly != event.readonly_duration)
+    {
+      this->calendarptr->events[event.tolliumidx].readonly_duration := readonly;
+      this->UpdateEvent();
+    }
+  }
+
+  MACRO SetHint(STRING hint)
+  {
+    this->pvt_hint := hint;
+    this->UpdateEvent();
+  }
+
+  PUBLIC MACRO UpdateEvent()
+  {
+    RECORD event := this->CheckExists();
+
+    OBJECT userfunc := this->calendarptr->owner->tolliumuser;
+
+    DATETIME dtstart := this->calendarptr->storeutc ? userfunc->UTCToLocal(event.dtstart) : event.dtstart;
+    DATETIME dtend := this->calendarptr->storeutc ? userfunc->UTCToLocal(event.dtend) : event.dtend;
+
+    //ADDME: For now, we don't support multi-day events
+    IF (GetDayCount(dtend) > GetDayCount(dtstart) AND GetMsecondCount(dtend) > 0)
+      event.dtend := MakeDateFromDayCount(GetDayCount(dtstart)+1);
+
+    // Delete old overlays
+    this->calendarptr->DeleteOverlays(event.tolliumoverlays);
+
+    // Don't add new overlays if the event is not in view
+    IF (NOT this->calendarptr->InRange(event.dtstart, event.dtend))
+      RETURN;
+
+    STRING overlayid := event.uid;
+    OBJECT overlay := this->calendarptr->CreateOverlay(overlayid);
+    overlay->flags := this->flags;
+
+    overlay->rowgroup := 1;
+    RECORD startcell := this->calendarptr->DateTimeToCell(event.dtstart, FALSE);
+    RECORD endcell := this->calendarptr->DateTimeToCell(event.dtend, TRUE);
+    IF (endcell.row < startcell.row)
+      endcell.row := startcell.row;
+    // Make rowcount relative to second rowgroup (overlays are restricted to rowgroups)
+    IF(Length(this->calendarptr->rowgroupsizes)=0) //nothing to layout yet
+      this->calendarptr->RegenerateLayout(); //ensure layout
+
+    startcell.row := startcell.row - this->calendarptr->rowgroupsizes[0];
+    endcell.row := endcell.row - this->calendarptr->rowgroupsizes[0];
+
+    overlay->startcell := startcell;
+    overlay->endcell := endcell;
+
+    STRING cellcontents := '<b style="white-space: nowrap;">' || userfunc->FormatTime(event.dtstart, "minutes", this->calendarptr->storeutc);
+    IF (event.dtend != event.dtstart)
+      cellcontents := cellcontents || '-' || userfunc->FormatTime(event.dtend, "minutes", this->calendarptr->storeutc);
+    cellcontents := cellcontents || '</b><br/>' || event.summary;
+    overlay->htmlvalue := cellcontents;
+    overlay->hint := this->hint != "" ? this->hint : cellcontents;
+
+    IF (Length(event.categories) > 0)
+      overlay->backgroundcolor:= SELECT AS STRING color FROM this->calendarptr->categories WHERE name = event.categories[0];
+
+    IF (this->calendarptr->daysview)
+    {
+      overlay->movable := NOT event.readonly_time;
+      overlay->resizable := NOT event.readonly_duration;
+    }
+    ELSE
+    {
+      overlay->movable := NOT event.readonly_time;
+      overlay->resizable := FALSE;              // we don't support resizing in 'MONTH' view yet
+    }
+    IF (overlay->movable)
+    {
+      overlay->draginfo := [ type := this->calendarptr->overlaydragtype, data := event.flags ];
+    }
+
+    this->calendarptr->events[event.tolliumidx].tolliumoverlays := [ STRING(overlayid) ];
+    this->calendarptr->CalculateSharedOverlays();
+  }
+
+  PUBLIC MACRO DestroyEvent()
+  {
+    this->calendarptr->DeleteOverlays(this->CheckExists().tolliumoverlays);
+    DELETE FROM this->calendarptr->events WHERE ToUppercase(uid) = ToUppercase(this->uid);
+  }
+>;
+
+
+PUBLIC OBJECTTYPE TolliumCalendar EXTEND TolliumTable
+< STRING caltype;
+
+  PUBLIC PROPERTY type(caltype, SetCalType);
+
+  BOOLEAN showallday;
+
+  INTEGER daystoshow; // how many days are visible in the calendar (to determine if a event is visible on the calendar)
+  BOOLEAN daysview;   // each column is for a full day
+
+  INTEGER pvt_startday;
+  PUBLIC PROPERTY startday(GetStartDay,SetStartDay);
+
+  DATETIME caldate;   // always the day in the first column (used to scroll to the time and calculate the event datetime)
+                      // caldate is the UTC representation of 0:00 local time of the first displayed date if storeutc = TRUE
+
+  DATETIME focusdate; // chosen date. in weekmode it's in the list, but not the first column,
+                      // when going to daymode it will be used as first column
+                      // focusdate is UTC when storeutc = TRUE, local time otherwise
+
+  DATETIME firstthursdayoncal; // date of thursday in first visible week (for determining week numbers in month view)
+
+
+
+  INTEGER weeksinview; // in MONTH view 4,5 or 6 weeks are displayed
+
+  UPDATE PUBLIC PROPERTY selection(GetCalendarSelection, -);
+  PUBLIC FUNCTION PTR onchange;
+
+  PUBLIC FUNCTION PTR ondrop; // For re-routing an existing ondrop handler
+
+  PUBLIC BOOLEAN storeutc;
+
+  RECORD ARRAY pvt_categories;
+
+  RECORD ARRAY events;
+  /* RECORD ARRAY FUNCTION getevents(DATETIME fromdate, DATETIME todate)
+     Should return all events within the range [fromdate, todate>
+     For a definition of event record, see wh::filetypes/icalendar.whlib
+     and use MakeDefaultICalEvent from that library
+  */
+  FUNCTION PTR getevents;
+
+  PUBLIC PROPERTY categories(pvt_categories, -);
+  BOOLEAN initialized;
+
+  // If storeutc = TRUE, it's in UTC, otherwise it's local time
+  PUBLIC PROPERTY date(GetCalDate, SetCalDate);
+
+  STRING pvt_workcolor;
+  STRING pvt_freecolor;
+  STRING pvt_weekendcolor;
+  STRING pvt_todaycolor;
+  INTEGER ARRAY pvt_workdays;
+  INTEGER pvt_workstarttime;
+  INTEGER pvt_workendtime;
+  INTEGER ARRAY pvt_holidays;
+
+  PUBLIC STRING weekdayformat;
+  PUBLIC STRING monthdayformat;
+
+  // Cell color of working hours
+  PUBLIC PROPERTY workcolor(pvt_workcolor, SetWorkColor);
+  // Cell color of off hours
+  PUBLIC PROPERTY freecolor(pvt_freecolor, SetFreeColor);
+  // Cell color of non-working days
+  PUBLIC PROPERTY weekendcolor(pvt_weekendcolor, SetWeekendColor);
+  // Cell color of today
+  PUBLIC PROPERTY todaycolor(pvt_todaycolor, SetTodayColor);
+  // Day numbers (see dayofweek of UnpackDateTime) which are working days
+  PUBLIC PROPERTY workdays(pvt_workdays, SetWorkDays);
+  // Msecond count of work start time
+  PUBLIC PROPERTY workstarttime(pvt_workstarttime, SetWorkStartTime);
+  // Msecond count of work end time
+  PUBLIC PROPERTY workendtime(pvt_workendtime, SetWorkEndTime);
+  // Daycounts of holidays
+  PUBLIC PROPERTY holidays(pvt_holidays, SetHolidays);
+
+  PUBLIC PROPERTY overlaydragtype(GetOverlayDragType, -);
+
+  MACRO NEW()
+  {
+    this->workstarttime := -1;
+    this->workendtime := -1;
+    this->weekdayformat := "%A";
+    this->monthdayformat := "%#d %b";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    this->TolliumComponentBase_StaticInit(def);
+    this->type := def.type;
+    this->showallday := def.showallday;
+    this->pvt_categories := def.categories;
+    this->selectmode := def.selectmode;
+    this->storeutc := def.storeutc;
+    this->pvt_startday := def.startday;
+    this->weekdayformat := def.weekdayformat;
+    this->monthdayformat := def.monthdayformat;
+
+    // Initialize event handlers
+    this->getevents := def.onloaditems;
+    this->onchange := def.onchange;
+    this->openaction := def.openaction;
+    this->cellcontextmenu := def.newcontextmenu;
+    this->overlaycontextmenu := def.selectcontextmenu;
+
+    // Add internal flags
+    this->flags := def.flags CONCAT [ "tolliumtime"     // time cell (event drop target)
+                                    , "tolliumevent"    // event overlay (can be dragged)
+                                    ];
+
+    // Add internal drop target (events)
+    this->pvt_acceptdrops :=
+        [ [ ondrop := PTR this->OnDropEvent
+          , accepttypes := [ [ type :=              this->overlaydragtype
+                             , sourceflags :=       ["tolliumevent"]
+                             , targetflags :=       ["tolliumtime"]
+                             , appendchildflags :=  DEFAULT STRING ARRAY
+                             , insertbeforeflags := DEFAULT STRING ARRAY
+                             , frameflags :=        DEFAULT STRING ARRAY
+                             , dropeffects :=       ["copy", "move"]
+                             , locations :=         ["ontarget"]
+                             , requiretarget :=     TRUE
+                             , noloops :=           FALSE
+                             ] ]
+          ]
+        ];
+    IF (RecordExists(def.acceptdrops))
+    {
+      this->ondrop := def.acceptdrops.ondrop;
+      this->pvt_acceptdrops.accepttypes := this->pvt_acceptdrops.accepttypes CONCAT def.acceptdrops.accepttypes;
+    }
+
+    this->workcolor := def.workcolor;
+    this->freecolor := def.freecolor;
+    this->weekendcolor := def.weekendcolor;
+    this->todaycolor := def.todaycolor;
+    this->workstarttime := this->ParseTimeString(def.workstarttime);
+    this->workendtime := this->ParseTimeString(def.workendtime);
+    this->workdays := this->ParseDays(def.workdays);
+
+    this->date := GetCurrentDateTime();
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    // Register our local drag type
+    this->owner->RegisterLocalDragType(this->overlaydragtype, DEFAULT STRING ARRAY);
+  }
+
+
+  MACRO SetWorkColor(STRING color)
+  {
+    IF (color != "")
+    {
+      color := GetValidColor(color);
+      IF (color = "")
+        RETURN;
+    }
+    IF (this->pvt_workcolor != color)
+    {
+      this->pvt_workcolor := color;
+      this->UpdateLayout();
+    }
+  }
+  MACRO SetFreeColor(STRING color)
+  {
+    IF (color != "")
+    {
+      color := GetValidColor(color);
+      IF (color = "")
+        RETURN;
+    }
+    IF (this->pvt_freecolor != color)
+    {
+      this->pvt_freecolor := color;
+      this->UpdateLayout();
+    }
+  }
+  MACRO SetWeekendColor(STRING color)
+  {
+    IF (color != "")
+    {
+      color := GetValidColor(color);
+      IF (color = "")
+        RETURN;
+    }
+    IF (this->pvt_weekendcolor != color)
+    {
+      this->pvt_weekendcolor := color;
+      this->UpdateLayout();
+    }
+  }
+  MACRO SetTodayColor(STRING color)
+  {
+    IF (color != "")
+    {
+      color := GetValidColor(color);
+      IF (color = "")
+        RETURN;
+    }
+    IF (this->pvt_todaycolor != color)
+    {
+      this->pvt_todaycolor := color;
+      this->UpdateLayout();
+    }
+  }
+  MACRO SetWorkDays(INTEGER ARRAY days)
+  {
+    this->pvt_workdays := DEFAULT INTEGER ARRAY;
+    FOREVERY (INTEGER day FROM [ 1, 2, 3, 4, 5, 6, 7 ])
+      IF (day IN days)
+        INSERT day INTO this->pvt_workdays AT END;
+      this->UpdateLayout();
+  }
+  MACRO SetWorkStartTime(INTEGER mseconds)
+  {
+    IF (mseconds >= -1 AND mseconds < 86400000 AND this->pvt_workstarttime != mseconds)
+    {
+      IF (mseconds >= 0 AND this->pvt_workendtime >= 0 AND mseconds >= this->pvt_workendtime)
+        RETURN;
+      this->pvt_workstarttime := mseconds;
+      this->UpdateLayout();
+    }
+  }
+  MACRO SetWorkEndTime(INTEGER mseconds)
+  {
+    IF (mseconds >= -1 AND mseconds < 86400000 AND this->pvt_workendtime != mseconds)
+    {
+      IF (mseconds >= 0 AND this->pvt_workstarttime >= 0 AND mseconds <= this->pvt_workstarttime)
+        RETURN;
+      this->pvt_workendtime := mseconds;
+      this->UpdateLayout();
+    }
+  }
+  MACRO SetHolidays(INTEGER ARRAY daycounts)
+  {
+    this->pvt_holidays := daycounts;
+    this->UpdateLayout();
+  }
+
+  STRING FUNCTION GetOverlayDragType()
+  {
+    RETURN "local:tollium.calendar." || this->name || ".event";
+  }
+
+  INTEGER FUNCTION GetFirstCalendarRow()
+  {
+    RETURN this->showallday ? 3 : 1;
+  }
+
+  // apply coloring
+  MACRO UpdateLayout()
+  {
+    IF (NOT this->initialized OR this->caldate = DEFAULT DATETIME)
+      RETURN;
+
+    DATETIME fromdate := this->GetFromDateInLocalTime();
+
+    INTEGER firstrow := this->GetFirstCalendarRow();
+    INTEGER lastrow := firstrow + 47;                   // 48 rows, each stands for 30 minutes
+
+    IF (this->daysview AND this->workstarttime >= 0 AND this->workendtime >= 0 AND this->workcolor != "" AND this->freecolor != "")
+    {
+      // Color working hours
+      DATETIME workstarttime := AddTimeToDate(this->workstarttime, fromdate);
+      DATETIME workendtime := AddTimeToDate(this->workendtime, fromdate);
+      IF (this->storeutc)
+      {
+        // Work start and end time are in local time while DateTimeToCell expects UTC if this->storeutc
+        workstarttime := this->owner->tolliumuser->LocalToUTC(workstarttime);
+        workendtime := this->owner->tolliumuser->LocalToUTC(workendtime);
+      }
+      RECORD workstart := this->DateTimeToCell(workstarttime, FALSE);
+      RECORD workend := this->DateTimeToCell(workendtime, TRUE);
+
+      // first day is at col 1
+      FOR (INTEGER col := 1; col <= this->daystoshow; col := col + 1)
+      {
+        FOR (INTEGER row := firstrow; row <= lastrow; row := row + 1)
+        {
+          IF (row >= workstart.row AND row <= workend.row)
+            this->GetCell(row, col)->backgroundcolor := this->workcolor;
+          ELSE
+            this->GetCell(row, col)->backgroundcolor := this->freecolor;
+        }
+
+        // Color all-day as free
+        this->GetCell(1, col)->backgroundcolor := this->freecolor;
+      }
+    }
+
+    IF (Length(this->workdays) > 0 AND this->weekendcolor != "")
+    {
+      IF (this->daysview)
+      {
+        INTEGER firstday := GetDayCount(fromdate);
+        INTEGER weekday := this->pvt_startday;
+
+        // first day is at col 1
+        FOR (INTEGER col := 1; col <= this->daystoshow; col := col + 1)
+        {
+          IF (NOT (weekday IN this->workdays) OR (firstday + col - 1) IN this->holidays)
+          {
+            FOR (INTEGER row := firstrow; row <= lastrow; row := row + 1)
+              this->GetCell(row, col)->backgroundcolor := this->weekendcolor;
+
+            // Color all-day as free
+            this->GetCell(1, col)->backgroundcolor := this->weekendcolor;
+          }
+
+          weekday := weekday=7 ? 1 : weekday+1;
+        }
+      }
+      ELSE
+      {
+        // Color weekend and holiday hours
+        this->CalcFirstColumnDateTime(); // FIXME
+
+        INTEGER firstday := GetDayCount(this->caldate);
+        INTEGER currentday := firstday;
+
+        INTEGER col := 1;
+        INTEGER row := this->GetFirstCalendarRow();
+
+        INTEGER weekday;
+        INTEGER lastweekday := this->pvt_startday+6;
+        lastweekday := lastweekday > 6 ? lastweekday-7 : lastweekday;
+
+        // Color non work days
+        IF (this->showallday)
+        {
+          weekday := this->pvt_startday;
+          FOR (INTEGER day := 1; day <= 7; day := day + 1)
+          {
+            IF (NOT (weekday IN this->workdays))
+              this->GetCell(1, day)->backgroundcolor := this->weekendcolor;
+
+            weekday := weekday=7 ? 1 : weekday+1;
+          }
+        }
+
+        weekday := this->pvt_startday;
+
+        FOR (INTEGER day := 1; day <= this->daystoshow; day := day + 1)
+        {
+          IF (NOT (weekday IN this->workdays) OR currentday IN this->holidays)
+            this->GetCell(row, col)->backgroundcolor := this->weekendcolor;
+
+          col := col + 1;
+          IF (col > 7)
+          {
+            col := 1;
+            row := row + 1;
+          }
+
+          weekday := weekday + 1;
+          currentday := currentday + 1;
+
+          IF (weekday > 7)
+            weekday := 1;
+        }
+      }
+    }
+
+    IF (this->todaycolor != "" AND this->type != "DAY")
+    {
+      // Color today's hours
+      DATETIME now := GetCurrentDateTime();
+      IF (NOT this->storeutc)
+        now := this->owner->tolliumuser->UTCToLocal(now);
+
+      IF (this->InRange(this->owner->tolliumuser->LocalToUTC(now)))
+      {
+        RECORD today := this->DateTimeToCell(now, FALSE);
+
+        IF (this->daysview)
+        {
+          FOR (INTEGER row := firstrow; row <= lastrow; row := row + 1)
+            this->GetCell(row, today.col)->backgroundcolor := this->todaycolor;
+        }
+        ELSE
+        {
+          this->GetCell(today.row, today.col)->backgroundcolor := this->todaycolor;
+        }
+
+        // Color all-day as today
+        IF (this->showallday)
+          this->GetCell(1, today.col)->backgroundcolor := this->todaycolor;
+      }
+    }
+  }
+
+  PUBLIC MACRO SetCalType(STRING newtype)
+  {
+    newtype := ToUppercase(newtype);
+    IF (newtype IN [ "DAY", "WEEK", "MONTH" ])
+    {
+      IF(this->caltype != newtype)
+      {
+        this->caltype := newtype;
+
+        IF (newtype = "DAY")
+        {
+          this->daystoshow := 1;
+//          this->orientation_overlays := 'vertical';
+          this->overlay_overlap := FALSE;
+        }
+        ELSE
+        {
+          // overlap overlays for both WEEK and MONTH view
+          this->overlay_overlap := TRUE;
+        }
+
+        IF (newtype = "WEEK")
+          this->daystoshow := 7;
+
+        this->daysview := this->caltype IN ['DAY','WEEK'];
+
+        IF (this->initialized)
+        {
+          this->RegenerateLayout();         // Generates the table structure
+//          this->ReloadCalendar();           // Update daynumbering, hours, event-overlays and calls UpdateLayout() for coloring
+        }
+      }
+    }
+    ELSE
+      ABORT('Unknown calender type.');
+  }
+
+
+  INTEGER FUNCTION GetStartDay()
+  {
+    RETURN this->startday;
+  }
+
+  MACRO SetStartDay(INTEGER day)
+  {
+    IF (day != this->startday)
+    {
+      this->startday := day;
+      // FIXME
+      this->RegenerateLayout();
+    }
+  }
+
+  DATETIME FUNCTION GetCalDate()
+  {
+    RETURN this->focusdate; // return the specific date and time
+  }
+
+  MACRO CalcFirstColumnDateTime()
+  {
+    IF (this->focusdate = DEFAULT DATETIME)
+      RETURN;
+
+    this->caldate := this->GetFromDate(this->focusdate);
+    IF (this->storeutc)
+      this->caldate := this->owner->tolliumuser->LocalToUTC(this->caldate);
+  }
+
+  MACRO ScrollToCurrentTime()
+  {
+    this->ScrollTo(1, GetMsecondCount((this->storeutc ? this->owner->tolliumuser->UTCToLocal(this->focusdate) : this->focusdate))/(30*60*1000));
+  }
+
+  MACRO SetCalDate(DATETIME newdate)
+  {
+    // caldate will be set as date of the first column (first weekday in 'week' mode)
+    // focusdate is the requested date
+
+    IF (newdate = DEFAULT DATETIME)
+      RETURN;
+
+    IF (newdate = this->focusdate)
+    {
+      IF (this->daysview)
+        this->ScrollToCurrentTime();
+      RETURN;
+    }
+
+    // focusdate is UTC if storeutc=true, otherwise it's local time
+    this->focusdate := newdate;
+
+    this->CalcFirstColumnDateTime();
+
+    IF (NOT this->initialized)
+      RETURN;
+
+    // FIXME: day/week/month test if startdate will change.. if not don't regenerate layout.
+
+    // FIXME: if month changed remove/add rows if nessecary (but don't do total regeneration of the layout)
+
+    IF (this->daysview)
+    {
+      this->ReloadCalendar();
+      this->ScrollToCurrentTime();
+    }
+    ELSE
+    {
+      this->RegenerateLayout();
+    }
+
+  }
+
+  PUBLIC BOOLEAN FUNCTION InRange(DATETIME dtstart, DATETIME dtend DEFAULTSTO DEFAULT DATETIME)
+  {
+    // Convert all internal UTC datetimes to local datetimes: they have to be
+    // in local view, starting at 0:00 local time.
+    dtstart := this->storeutc ? this->owner->tolliumuser->UTCToLocal(dtstart) : dtstart;
+    DATETIME fromdate := this->storeutc ? this->owner->tolliumuser->UTCToLocal(this->caldate) : this->caldate;
+
+    fromdate := GetRoundedDateTime(fromdate, 24*60*60*1000);
+    IF (dtend != DEFAULT DATETIME)
+    {
+      dtend := this->storeutc ? this->owner->tolliumuser->UTCToLocal(dtend) : dtend;
+      RETURN dtend > fromdate AND dtstart < AddDaysToDate(this->daystoshow, fromdate);
+    }
+    ELSE
+      RETURN dtstart > fromdate AND dtstart < AddDaysToDate(this->daystoshow, fromdate);
+  }
+
+  // Get the DATETIME of the day (00:00AM) the calender starts on
+  DATETIME FUNCTION GetFromDateInLocalTime()
+  {
+    DATETIME localdate := this->owner->tolliumuser->UTCToLocal(this->caldate);
+    RETURN this->GetFromDate(localdate);
+  }
+
+  DATETIME FUNCTION GetFromDate(DATETIME localdate)
+  {
+    IF(localdate = DEFAULT DATETIME)
+      RETURN DEFAULT DATETIME;
+
+    INTEGER fromday;
+
+    SWITCH(this->type)
+    {
+        CASE "DAY"
+        {
+          fromday := GetDayCount(localdate); // get the same day
+        }
+
+        CASE "WEEK"
+        {
+          fromday := GetDayCount(localdate) - UnpackDateTime(localdate).dayofweek + this->pvt_startday; // get the first day of the week
+        }
+
+        CASE "MONTH"
+        {
+          INTEGER startday := this->pvt_startday;
+          INTEGER lastweekday := startday+6;
+          lastweekday := lastweekday > 6 ? lastweekday-7 : lastweekday;
+
+          DATETIME firstdayoncal, lastdayoncal;
+
+          RECORD   dtinfo := UnpackDateTime(localdate);
+          DATETIME firstdayofmonth := MakeDate(dtinfo.year, dtinfo.month, 1);
+          DATETIME lastdayinmonth  := AddDaysToDate(GetMonthLength(dtinfo.month, dtinfo.year)-1, firstdayofmonth);
+
+          INTEGER  dayoffset;
+          INTEGER  weeksinview := 4;
+          INTEGER  thuday := 4;
+
+          /* Now determine the first and last day that need to be visible in the calender.
+             (the first day of the first week that contains the first day of the month and
+             last day of the last week that contains the last day of the month */
+
+          // compensate when we don't start our week with Sunday
+          IF (startday = 0)
+          {
+            // Make Tollium determine the first and last day
+            RECORD firstdayinfo := UnpackDateTime(firstdayofmonth);
+            firstdayoncal := MakeDateFromDayCount(GetDayCount(firstdayofmonth) - firstdayinfo.dayofweek);
+            lastdayoncal  := AddDaysToDate(7 - UnpackDateTime(lastdayinmonth).dayofweek, lastdayinmonth);
+            this->firstthursdayoncal := MakeDateTimeFromWeek(firstdayinfo.year, firstdayinfo.week, thuday, 0, 0, 0);
+          }
+          ELSE
+          {
+            // Calculate a few days back to fill up the first week
+            RECORD firstdayinfo   := UnpackDateTime(firstdayofmonth);
+
+            IF (firstdayinfo.dayofweek = startday)
+              firstdayoncal := firstdayofmonth;
+            ELSE
+            {
+              dayoffset     := (startday > firstdayinfo.dayofweek? -7 : 0)  -firstdayinfo.dayofweek+startday;
+              firstdayoncal := AddDaysToDate( dayoffset, firstdayofmonth);
+            }
+
+            IF (startday = thuday)
+              this->firstthursdayoncal := firstdayofmonth;
+            ELSE
+            {
+              dayoffset     := -startday+thuday;
+              IF (dayoffset < 0) dayoffset := dayoffset + 7; // find the first *next* thurday
+              this->firstthursdayoncal := AddDaysToDate( dayoffset, firstdayoncal);
+            }
+
+            RECORD dtinfo2  := UnpackDateTime(lastdayinmonth);
+
+            IF (dtinfo2.dayofweek = lastweekday)
+              lastdayoncal := lastdayinmonth;
+            ELSE
+            {
+              dayoffset     := (lastweekday > dtinfo2.dayofweek? -7 : 0)  -dtinfo2.dayofweek+lastweekday;
+              lastdayoncal  := AddDaysToDate( 7+dayoffset, lastdayinmonth);
+            }
+          }
+
+          this->daystoshow  := GetDayCount(lastdayoncal)-GetDayCount(firstdayoncal)+1;
+          this->weeksinview := this->daystoshow / 7;
+
+          RETURN firstdayoncal;
+        }
+    }
+
+    RETURN MakeDateFromDayCount(fromday);
+  }
+
+  // Redo all labels (days,time), apply coloring, draw events
+  PUBLIC MACRO ReloadCalendar()
+  {
+    IF (NOT this->initialized OR this->caldate = DEFAULT DATETIME)
+      RETURN;
+
+    // cur is the first (mon)day of the week which contains this->caldate
+//    DATETIME fromdate := this->GetFromDate();
+    DATETIME fromdate := this->storeutc ? this->owner->tolliumuser->UTCToLocal(this->caldate) : this->caldate;
+    DATETIME todate := fromdate;
+    // fromdate and todate are in shown time
+
+    // generate labels for the 'showalldays' row
+    SWITCH(this->type)
+    {
+      CASE 'DAY'
+      {
+        // show full date for the day
+        this->GetCell(0, 1)->htmlvalue := '<b>' || FormatDateTime('%A %#d %B %Y', todate, this->owner->tolliumuser->language) || '</b>';
+        todate := AddDaysToDate(1, todate);
+      }
+      CASE 'WEEK'
+      {
+        // show the date for each day in the week
+        FOR (INTEGER day := 1; day <= this->daystoshow; day := day + 1)
+        {
+          this->GetCell(0, day)->htmlvalue := '<b>' || FormatDateTime('%a %#d-%#m', todate, this->owner->tolliumuser->language) || '</b>';
+          todate := AddDaysToDate(1, todate);
+        }
+      }
+      CASE 'MONTH'
+      {
+        // show name of each day
+        // FIXME: this should go in RegenerateLayout()
+        //FIXME Remove this row if this->weekdayformat == ""
+        DATETIME daydt := fromdate;
+        FOR (INTEGER day := 1; day <= 7; day := day + 1)
+        {
+          STRING nametoshow := FormatDateTime(this->weekdayformat, daydt, this->owner->tolliumuser->language);
+
+          this->GetCell(0, day)->htmlvalue := '<b>' || EncodeHTML(nametoshow) || '</b>';
+          daydt := AddDaysToDate(1, daydt);
+        }
+
+        // update weeknumbers
+        INTEGER firstrow := this->GetFirstCalendarRow();
+        INTEGER rowcount := Length(this->tablerows);
+        INTEGER colcount := this->daysview ? this->daystoshow+1 : 7+1;
+
+        // thursdays are allways used to determine weeknumbers
+        DATETIME weekdate := this->firstthursdayoncal;
+
+        FOR (INTEGER row := firstrow; row < rowcount; row := row + 1)
+        {
+          this->SetRowHeight(row, "1pr");
+
+          // show the weeknumber
+          OBJECT weekcell := this->GetCell(row, 0);
+          weekcell->htmlvalue := 'week ' || UnpackDateTime(weekdate).week; // FIXME: translation
+          weekcell->selectable := FALSE;
+
+          weekdate := AddDaysToDate(7, weekdate);
+
+          // FIXME: light gray?
+          FOR (INTEGER col := 1; col < colcount; col := col + 1)
+          {
+            STRING dayname := FormatDateTime(this->monthdayformat, todate, this->owner->tolliumuser->language);
+            this->GetCell(row, col)->htmlvalue := EncodeHTML(dayname);
+            todate := AddDaysToDate(1, todate);
+          }
+        }
+
+//      todate := AddDaysToDate(35, todate);
+      }
+    }
+
+    this->UpdateLayout();
+
+    IF (this->getevents != DEFAULT FUNCTION PTR)
+    {
+      // Delete all current events
+      FOREVERY (RECORD event FROM this->events)
+        this->DeleteEvent(event.uid);
+
+      // Add all new events
+      FOREVERY (RECORD event FROM this->getevents(this->owner->tolliumuser->LocalToUTC(fromdate), this->owner->tolliumuser->LocalToUTC(todate)))
+      {
+        OBJECT newevent := this->AddEvent(event);
+        IF (ObjectExists(newevent) AND CellExists(event, "hint"))
+          newevent->hint := event.hint;
+      }
+    }
+  }
+
+  PUBLIC OBJECT FUNCTION GetEvent(STRING uid)
+  {
+    RETURN NEW CalendarEvent(PRIVATE this, uid);
+  }
+
+  PUBLIC OBJECT FUNCTION AddEvent(RECORD event)
+  {
+    IF (NOT CellExists(event, "uid") OR event.uid = "")
+      Abort('A calendar event must have a uid');
+    IF (RecordExists(SELECT FROM this->events WHERE ToUppercase(uid) = ToUppercase(event.uid)))
+      Abort('An event with uid "' || event.uid || '" already exists');
+
+    //ADDME: For now, we don't support all-day or multi-day events
+    DATETIME dtstart := this->storeutc ? this->owner->tolliumuser->UTCToLocal(event.dtstart) : event.dtstart;
+    DATETIME dtend := this->storeutc ? this->owner->tolliumuser->UTCToLocal(event.dtend) : event.dtend;
+    INTEGER day_difference := GetDayCount(dtend) - GetDayCount(dtstart);
+    IF (event.allday OR day_difference > 1 OR (day_difference = 1 AND GetMsecondCount(dtend) > 0))
+      Abort('all-day and multi-day events not yet supported');
+
+    // Don't add event if it is not in the displayed range
+    IF (NOT this->InRange(event.dtstart, event.dtend))
+      RETURN DEFAULT OBJECT;
+
+    INSERT CELL tolliumoverlays := DEFAULT STRING ARRAY INTO event;
+    INSERT CELL tolliumtype := 'event' INTO event;
+
+    IF (NOT CellExists(event, "readonly_time"))
+      INSERT CELL readonly_time := FALSE INTO event;
+    IF (NOT CellExists(event, "readonly_duration"))
+      INSERT CELL readonly_duration := FALSE INTO event;
+
+    IF (NOT CellExists(event, 'flags'))
+      INSERT CELL flags := DEFAULT RECORD INTO event;
+    FOREVERY (STRING flag FROM this->flags)
+    {
+      IF (NOT CellExists(event.flags, flag))
+        event.flags := CellInsert(event.flags, flag, FALSE);
+    }
+    event.flags.tolliumtime := FALSE;
+    event.flags.tolliumevent := TRUE;
+
+    INSERT event INTO this->events AT END;
+    OBJECT newevent := this->GetEvent(event.uid);
+    IF (CellExists(event, "hint"))
+      newevent->hint := event.hint;
+    newevent->UpdateEvent();
+    RETURN newevent;
+  }
+
+  PUBLIC MACRO DeleteEvent(STRING uid)
+  {
+    OBJECT eventobj := this->GetEvent(uid);
+    eventobj->DestroyEvent();
+  }
+
+  PUBLIC MACRO UpdateEvent(RECORD event)
+  {
+    IF (NOT CellExists(event, "uid") OR event.uid = "")
+      Abort('A calendar event must have a uid');
+
+    OBJECT eventobj := this->GetEvent(event.uid);
+    eventobj->dtstart := event.dtstart;
+    eventobj->dtend := event.dtend;
+    eventobj->summary := event.summary;
+    FOREVERY (STRING flag FROM this->flags)
+    {
+      IF (flag IN [ "tolliumtime", "tolliumevent" ])
+        CONTINUE;
+
+      IF (CellExists(event.flags, flag))
+        eventobj->flags := CellUpdate(eventobj->flags, flag, GetCell(event.flags, flag));
+    }
+    IF (CellExists(event, "hint"))
+      eventobj->hint := event.hint;
+    eventobj->UpdateEvent();
+  }
+
+  PUBLIC MACRO OnDropEvent(RECORD dragdata, DATETIME newstart, DATETIME newend, STRING mode)
+  {
+    FOREVERY (RECORD item FROM dragdata.items)
+    {
+      // Event overlay was moved, update start and end datetimes
+      IF (item.type = this->overlaydragtype)
+      {
+        OBJECT eventobj := this->GetEvent(item.id);
+        BOOLEAN changed := FALSE;
+        IF (this->daysview)
+        {
+          IF (newstart != eventobj->dtstart)
+          {
+            RECORD duration := GetDateTimeDifference(eventobj->dtstart, eventobj->dtend);
+            eventobj->dtstart := newstart;
+            eventobj->dtend := AddTimeToDate(duration.msecs, AddDaysToDate(duration.days, newstart));
+            changed := TRUE;
+          }
+        }
+        ELSE
+        {
+          INTEGER dayoffset := GetDayCount(this->owner->tolliumuser->UTCToLocal(newstart))-GetDayCount(this->owner->tolliumuser->UTCToLocal(eventobj->dtstart));
+          // Setting start and end seaerately won't work,
+          // because they will be validated and rejected and messed up. (end before start, start after end)
+          eventobj->SetTimes( AddDaysToDate(dayoffset,eventobj->dtstart) , AddDaysToDate(dayoffset,eventobj->dtend) );
+          changed := TRUE;
+        }
+        IF (changed AND this->onchange != DEFAULT FUNCTION PTR)
+          this->onchange(SELECT * FROM this->events WHERE uid = item.id);
+      }
+    }
+
+    // Call the custom drop handler
+    IF (this->ondrop != DEFAULT FUNCTION PTR)
+    {
+      this->ondrop(dragdata, newstart, newend, mode);
+    }
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetDraggedItems(RECORD ARRAY rawitems)
+  {
+    RECORD ARRAY result;
+    FOREVERY (RECORD rawitem FROM rawitems)
+    {
+      OBJECT overlay := this->GetOverlay(rawitem.id);
+      IF (CellExists(overlay->draginfo, "TYPE") AND overlay->draginfo.type != "")
+      {
+        INSERT
+            [ id := overlay->id
+            , type := overlay->draginfo.type
+            , data := overlay->draginfo.data
+            ] INTO result AT END;
+      }
+    }
+    RETURN result;
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    // Override ProcessInboundMessage to use dates and times instead of cols and rows
+    SWITCH(type)
+    {
+      CASE "acceptdrop"
+      {
+        // msgdata:
+        // STRING source ("local", "external")
+        // STRING sourcecomp (name)
+        // RECORD ARRAY items
+        //   STRING type (item draginfo)
+        //   STRING data (item draginfo)
+        // STRING droplocation ("oncell")
+        // STRING dropeffect ("move", "copy", "link")
+        // STRING target (only when droplocation = "oncell": "<row>:<col>")
+        RECORD droptarget;
+        IF (CellExists(msgdata, "target"))
+        {
+          IF (msgdata.droplocation = "oncell")
+          {
+            STRING ARRAY parts := Tokenize(msgdata.target, ":");
+            OBJECT dropcell := this->GetCell(ToInteger(parts[0], -1), ToInteger(parts[1], -1));
+            IF (ObjectExists(dropcell))
+            {
+              droptarget := [ row := dropcell->row
+                            , col := dropcell->col
+                            ];
+              droptarget := MakeMergedRecord(droptarget, dropcell->flags);
+            }
+          }
+        }
+
+        RECORD dropdata := this->VerifyDrop(this->pvt_acceptdrops, msgdata, droptarget, this->pvt_flags);
+        IF (RecordExists(dropdata) AND this->pvt_acceptdrops.ondrop != DEFAULT FUNCTION PTR)
+        {
+          this->pvt_acceptdrops.ondrop([ items := dropdata.items ], this->CellToDateTime(droptarget.row, droptarget.col, FALSE), this->CellToDateTime(droptarget.row, droptarget.col, TRUE), msgdata.dropeffect);
+        }
+
+        RETURN;
+      }
+      CASE "resizeoverlay"
+      {
+        // msgdata:
+        // STRING overlay (id)
+        // STRING target ("<row>:<col>")
+        // STRING direction ("[n][e][s][w]")
+        OBJECT eventobj := this->GetEvent(msgdata.overlay);
+        STRING ARRAY parts := Tokenize(msgdata.target, ":");
+        DATETIME droptime := this->CellToDateTime(ToInteger(parts[0], -1), ToInteger(parts[1], -1), msgdata.direction IN [ "s", "e" ]);
+        IF (ObjectExists(eventobj) AND droptime != DEFAULT DATETIME)
+        {
+          BOOLEAN changed := FALSE;
+          IF (this->daysview)
+          {
+            IF (droptime != eventobj->dtstart)
+            {
+              IF (msgdata.direction = "n")
+              {
+                // changing start time
+                eventobj->dtstart := droptime;
+                changed := TRUE;
+              }
+              ELSE IF (msgdata.direction = "s")
+              {
+                // changing end time
+                eventobj->dtend := droptime;
+                changed := TRUE;
+              }
+            }
+          }
+          IF (changed AND this->onchange != DEFAULT FUNCTION PTR)
+            this->onchange(SELECT * FROM this->events WHERE uid = eventobj->uid);
+
+          IF (this->onoverlayresize != DEFAULT FUNCTION PTR)
+          {
+            RECORD pos := this->DateTimeToCell(droptime, FALSE);
+            this->onoverlayresize(this->GetOverlay(msgdata.overlay), [ row := pos.row, col := pos.col ], msgdata.direction);
+          }
+        }
+      }
+      DEFAULT
+      {
+        TolliumTable::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+  // Override the selection property to be able to return selected events
+  // instead of selected overlays
+  VARIANT FUNCTION GetCalendarSelection()
+  {
+    RECORD ARRAY selection;
+    // If a cell is selected, return a record with start and end DATETIME of the
+    // selected cell, instead of the cell coordinates
+    // If an overlay is selected, return the event to which the overlay belongs
+    // instead of the overlay itself
+    FOREVERY (OBJECT sel FROM this->pvt_selection)
+    {
+      IF(sel EXTENDSFROM TableCell)
+      {
+        INSERT [ tolliumtype := 'datetime'
+               , dtstart := this->CellToDateTime(sel->row, sel->col, FALSE)
+               , dtend := this->CellToDateTime(sel->row, sel->col, TRUE)
+               , flags := sel->flags
+               ] INTO selection AT END;
+      }
+      ELSE IF(sel EXTENDSFROM TableOverlay)
+      {
+        STRING uid := SELECT AS STRING events.uid
+                        FROM this->events AS events
+                       WHERE sel->id IN tolliumoverlays;
+        INSERT RECORD(SELECT *
+                           //FIXME ? tolliumdragging no longer exists ...  , tolliumdragging := sel->tolliumdragging
+                        FROM this->events
+                       WHERE COLUMN uid = VAR uid) INTO selection AT END;
+      }
+      ELSE
+        THROW NEW TolliumException(this, 'Unknown extenddtype found');
+    }
+    IF (this->selectmode = "single")
+      RETURN RECORD(selection);
+    RETURN selection;
+  }
+
+  PUBLIC RECORD FUNCTION GetCategory(STRING name)
+  {
+    RETURN SELECT * FROM this->pvt_categories WHERE COLUMN name = VAR name;
+  }
+
+  PUBLIC MACRO AddCategory(STRING name, STRING color)
+  {
+    color := GetValidColor(color);
+    IF (color = "")
+      RETURN; // Illegal color value
+
+    this->DeleteCategory(name);
+    INSERT [ name := name
+           , color := color
+           ] INTO this->pvt_categories AT END;
+    //ADDME: Update events
+  }
+
+  PUBLIC MACRO DeleteCategory(STRING name)
+  {
+    DELETE FROM this->pvt_categories WHERE COLUMN name = VAR name;
+    //ADDME: Update events
+  }
+
+  //ADDME: These can be private (as they should be) if the ondrop handler for the calendar supports datetime and overlay targets
+  PUBLIC RECORD FUNCTION DateTimeToCell(DATETIME dt, BOOLEAN cellbottom)
+  {
+    RECORD cellrec := [ row := 0
+                      , col := 0
+                      ];
+
+    IF (this->storeutc)
+      dt := this->owner->tolliumuser->UTCToLocal(dt);
+
+    // If bottom is true, we need the cell with the last included millisecond of the event
+    // So, just subtract a single millisecond
+    IF (cellbottom)
+      dt := AddTimeToDate(-1, dt);
+
+    IF (this->daysview)
+    {
+
+      // first day is at col 1
+      cellrec.col := GetDayCount(dt) - GetDayCount(this->owner->tolliumuser->UTCToLocal(this->caldate)) + 1;
+      cellrec.row := GetMSecondCount(dt) / (30*60*1000) + this->GetFirstCalendarRow();
+    }
+    ELSE // month view
+    {
+      INTEGER dayinview := GetDayCount(dt) - GetDayCount(this->owner->tolliumuser->UTCToLocal(this->caldate));
+
+//      cellrec.row := FloatToInteger(Floor(dayinview / 7)); -1 ???
+      cellrec.row := dayinview / 7 + this->GetFirstCalendarRow();
+      cellrec.col := dayinview % 7 + 1;
+    }
+
+    RETURN cellrec;
+  }
+
+  PUBLIC DATETIME FUNCTION CellToDateTime(INTEGER row, INTEGER col, BOOLEAN cellbottom)
+  {
+    INTEGER firstrow := this->GetFirstCalendarRow();
+    DATETIME dt;
+
+    INTEGER startdaynr := GetDayCount(this->owner->tolliumuser->UTCToLocal(this->caldate));
+
+    IF (this->daysview)
+    {
+      dt := MakeDateFromParts(startdaynr+col-1 // first day is at col 1
+                             ,(row-firstrow) * 30*60*1000
+                             );
+      IF (cellbottom)
+        dt := AddTimeToDate(30*60*1000, dt);
+    }
+    ELSE // month view
+    {
+//      dt := AddDaysToDate((row-firstrow)*7 + col-1 + (cellbottom?1:0), this->caldate);
+        dt := MakeDateFromDayCount(startdaynr + (row-firstrow)*7 + col-1 + (cellbottom?1:0));
+
+//      IF (cellbottom)
+//        dt := AddTimeToDate(1000*60*60*24, dt); // add a full day
+    }
+
+      // Calendar time is local time (user time), internal time is UTC
+      IF (this->storeutc)
+        dt := this->owner->tolliumuser->LocalToUTC(dt);
+
+    RETURN dt;
+  }
+
+  INTEGER FUNCTION ParseTimeString(STRING time)
+  {
+    STRING ARRAY timeparts := Tokenize(time, ":");
+    IF (Length(timeparts) != 2)
+      RETURN -1;
+
+    INTEGER hours := ToInteger(timeparts[0], -1);
+    INTEGER mins := ToInteger(timeparts[1], -1);
+    IF (hours < 0 OR hours > 23 OR mins < 0 OR mins > 59)
+      RETURN -1;
+
+    RETURN (hours * 60 + mins) * 60 * 1000;
+  }
+
+  INTEGER ARRAY FUNCTION ParseDays(STRING ARRAY days)
+  {
+    INTEGER ARRAY daynums;
+    IF ("monday" IN days)
+      INSERT 1 INTO daynums AT END;
+    IF ("tuesday" IN days)
+      INSERT 2 INTO daynums AT END;
+    IF ("wednesday" IN days)
+      INSERT 3 INTO daynums AT END;
+    IF ("thursday" IN days)
+      INSERT 4 INTO daynums AT END;
+    IF ("friday" IN days)
+      INSERT 5 INTO daynums AT END;
+    IF ("saturday" IN days)
+      INSERT 6 INTO daynums AT END;
+    IF ("sunday" IN days)
+      INSERT 7 INTO daynums AT END;
+    RETURN daynums;
+  }
+
+  MACRO RegenerateLayout()
+  {
+    this->CalcFirstColumnDateTime();
+
+    // Restrict overlays to columns
+    this->overlay_restriction := 1;
+
+    INTEGER colcount := this->daysview ? this->daystoshow+1 : 7+1;
+
+    // the <table> component currently ignores relative sizes in combination with scrollable rowgroups.
+    // so we prefer scroll for day/week view and stretch-to-fit for month view
+
+    IF (this->daysview)
+    {
+      this->SetupTable([ this->showallday ? 3 : 1, 48 ], [ colcount ]); // row for each half hour (2*24 hours=48)
+      this->overlay_orientation := 'horizontal';
+      this->SetRowGroupScrollable(1, TRUE);
+    }
+
+    IF (this->caltype='MONTH')
+    {
+      this->SetupTable([ this->showallday ? 3 : 1, this->weeksinview ], [ colcount ]); // FIXME: 4 or 5 weeks
+      this->overlay_orientation := 'vertical';
+      this->SetRowGroupHeight(1, "1pr");
+    }
+
+    this->initialized := TRUE;
+
+    this->SetColWidth(0, "8x");         // width for column that contains either the time or week numbers
+    this->SetRowHeight(0, "1x");        // height for the 'showalldays' row
+
+    // make the row listing the days unselectable
+    FOR (INTEGER col := 0; col < colcount; col := col + 1)
+      this->GetCell(0, col)->selectable := FALSE;
+
+    // scroll to given time
+    IF (this->caldate != DEFAULT DATETIME AND this->daysview)
+      this->ScrollToCurrentTime();
+
+    INTEGER firstrow := this->GetFirstCalendarRow();
+    INTEGER rowcount := Length(this->tablerows);
+
+    FOR (INTEGER row := 0; row < rowcount; row := row + 1)
+    {
+      IF (row < firstrow)
+      {
+        // handle the 'showalldays' header
+        this->GetCell(row, 0)->selectable := FALSE;
+        CONTINUE;
+      }
+
+      IF(this->daysview)
+      {
+        this->SetRowHeight(row, "2x");
+        IF ((row - firstrow) % 2 = 0)
+        {
+          // show the hour in each even row
+          OBJECT hourcell := this->GetCell(row, 0);
+          INTEGER span := rowcount - row;
+          hourcell->rowspan := span > 2 ? 2 : span;
+          hourcell->htmlvalue := this->owner->tolliumuser->FormatTime(MakeDateTime(1,1,1,(row - firstrow) / 2,0,0), "minutes", FALSE/*This is local time*/);
+          hourcell->selectable := FALSE;
+        }
+      }
+
+      FOR (INTEGER col := 1; col <= colcount; col := col + 1)
+      {
+        this->SetVerticalBorder(row, col, TRUE);
+
+        IF (col < colcount)
+        {
+          this->SetHorizontalBorder(row, col, row = firstrow OR (row - firstrow) % 1 = 0);
+          OBJECT tcell := this->GetCell(row, col);
+          tcell->backgroundcolor := "#ffffff";
+          tcell->flags.tolliumtime := TRUE;
+        }
+      }
+    }
+
+    IF (this->showallday)
+    {
+      FOR (INTEGER col := 1; col < colcount; col := col + 1)
+      {
+        this->SetColWidth(col, "1pr");
+        this->SetHorizontalBorder(1, col, TRUE);
+        this->SetVerticalBorder(1, col, TRUE);
+        this->GetCell(1, col)->backgroundcolor := "#ffffff";
+//ADDME: Enable when supporting all-day events:        this->GetCell(1, col)->flags.tolliumtime := TRUE;
+
+        this->SetHorizontalBorder(2, col, TRUE);
+        this->SetHorizontalBorder(rowcount, col, TRUE);
+        this->GetCell(2, col)->selectable := FALSE;
+      }
+      this->SetVerticalBorder(1, colcount, TRUE);
+      this->SetRowHeight(1, "2x");
+      this->SetRowHeight(2, "8px");
+    }
+
+    IF (this->caldate != DEFAULT DATETIME)
+      this->ReloadCalendar();
+  }
+
+  UPDATE PUBLIC MACRO PostInitComponent()
+  {
+    this->RegenerateLayout();         // Generates the table structure
+  }
+>;

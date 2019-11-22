@@ -1,0 +1,51 @@
+[component hostingpage]<!DOCTYPE html>
+<html data-testsiteroot="[testsiteroot]">
+  <head>
+     <link rel="shortcut icon" href="favicon.ico" />
+    <title>[forevery mask][if first][else],[/if][mask][/forevery] (JSTests)</title>
+    [printheaders]
+    <script src="testdata.shtml?type=js"></script>
+  </head>
+  <body data-seleniumref="[seleniumref]"
+        data-testslist="[testlisturl]"
+        >
+    <div id="testheader">
+      <button id="starttests">Start</button>
+      <button id="skiptest" disabled>Skip</button>
+      <button id="toggleautostart">Toggle autostart</button>
+      <button id="opentestframe">Open testframe in tab</button>
+      <span id="teststatus"></span>
+    </div>
+    <div id="testinfo">
+      <ul id="tests">
+      </ul>
+      <div id="logholder"></div>
+      <div id="logmoreinfo">(more info)...</div>
+      <div id="fullerror"></div>
+    </div>
+    <div id="testframeholder">
+    </div>
+    <div id="testscriptpart">
+      testscripts:
+      <span id="testscriptholder">
+      </span>
+    </div>
+    <div id="righttopinfo">
+      <div id="currentwait"></div>
+      <button id="stoptests" disabled="disabled">Stop</button>
+    </div>
+  </body>
+</html>[/component]
+
+[component emptytestpage]<!DOCTYPE html>
+<html data-exclusive="[exclusive]">
+  <head>
+    <script type="application/json" id="wh-config">[whconfig:json]</script>
+    [printheaders]
+    [if harescripttestdata]<script src="/.webhare_testsuite/jstests/testdata.shtml"></script>[/if]
+    [if testjsscript]<script src="[testjsscript]"></script>[/if]
+  </head>
+  <body>
+  </body>
+</html>
+[/component]

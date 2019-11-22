@@ -1,0 +1,193 @@
+<?wh
+/* wh run mod::system/scripts/debug/analyze_coverage.whscr /tmp/coverage/
+*/
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+OBJECT coveragewitty := LoadWittyLibrary("mod::system/lib/internal/harescript/analyze_coverage.witty", 'HTML-NI');
+BOOLEAN showprogress := IsConsoleATerminal();
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "deleteprofiles", type := "switch" ]
+    , [ name := "session", type := "param" ]
+    ]);
+
+STRING path;
+args.session := args.session ?? (RecordExists(__debugconfig) ? __debugconfig.outputsession : "") ?? "default";
+IF (args.session LIKE "/*")
+  path := args.session;
+ELSE
+  path := GetWebHareConfiguration().ephemeralroot || "profiles/" || args.session;
+
+IF (args.deleteprofiles)
+{
+  RECORD ARRAY files := ReadDiskDirectory(path,"*.hscov") CONCAT ReadDiskDirectory(path,"*.html");
+  FOREVERY(RECORD file FROM files)
+    DeleteDiskFile(file.path);
+  RETURN;
+}
+
+RECORD coverage := AnalyzeCoverage(path);
+RECORD ARRAY perfile := coverage.perfile;
+
+Print(`Processed ${coverage.numcoveragefiles} coverage logs, detailing ${Length(perfile)} files\n`);
+RECORD ARRAY outfiles;
+
+
+RECORD ARRAY FUNCTION MergePositions(RECORD ARRAY currentpositions, INTEGER ARRAY addpositions)
+{
+  FOREVERY(INTEGER line FROM addpositions)
+  {
+    RECORD linepos := RecordLowerBound(currentpositions, [ position := line ], ["POSITION"]);
+    IF(NOT linepos.found)
+      INSERT [ position := line, count := 1 ] INTO currentpositions AT linepos.position;
+    ELSE
+      currentpositions[linepos.position].count := currentpositions[linepos.position].count + 1;
+  }
+  RETURN currentpositions;
+}
+
+PUBLIC RECORD FUNCTION AnalyzeCoverage(STRING datapath)
+{
+  RECORD ARRAY dataperfile;
+  RECORD ARRAY files := ReadDiskDirectory(datapath,"*.hscov");
+
+  FOREVERY(RECORD file FROM files)
+  {
+    BLOB data := GetDiskResource(file.path);
+    IF(length(data)=0) //corrupt or truncated
+      CONTINUE;
+
+    STRING firstline := BlobToString(data, 4 * 65536);
+    INTEGER nlpos := SearchSubString(firstline, "\n");
+
+    //RECORD scriptdata := DecodeJSON(Left(firstline, nlpos));
+    BLOB profiledatablob := MakeComposedBlob([ CELL[ data, start := nlpos + 1 ] ]);
+
+    RECORD covdata;
+    TRY
+    {
+      covdata := DecodeHSONBlob(profiledatablob);
+    }
+    CATCH(OBJECT e)
+    {
+      PrintTo(2,`Could not read coverage data from ${file.path}\n`);
+      CONTINUE;
+    }
+    FOREVERY(RECORD lib FROM covdata.libraries)
+    {
+      STRING filename := lib.liburi;
+      RECORD pos := RecordLowerBound(dataperfile, [filename := filename], ["FILENAME"]);
+
+      RECORD entry := pos.found ? dataperfile[pos.position] : [ filename := filename, lines := DEFAULT RECORD ARRAY, visitedcode := DEFAULT RECORD ARRAY ];
+      entry.lines := MergePositions(entry.lines, lib.lines);
+      entry.visitedcode := MergePositions(entry.visitedcode, lib.visitedcode);
+
+      IF(pos.found)
+        dataperfile[pos.position] := entry;
+      ELSE
+        INSERT entry INTO dataperfile AT pos.position;
+    }
+
+    IF(showprogress)
+      Print(#file || "/" || length(files) || "\r");
+  }
+  RETURN [ numcoveragefiles := Length(files)
+         , perfile := dataperfile
+         ];
+}
+
+//FIXME process all files, even those that coverage never hit!
+FOREVERY(RECORD file FROM perfile)
+{
+  IF(showprogress)
+    Print(RepeatText(' ',60) || '\r' || Right(file.filename,60) || '\r');
+
+  TRY
+  {
+    STRING outfile := "file-" || ToLowercase(EncodeBase16(GetSHA1Hash(file.filename))||'.html');
+    BLOB input := GetWebhareResource(file.filename); //open the file first, might be gone already
+    RECORD libdump := __HS_LIBDUMP(file.filename);
+
+    INTEGER ARRAY lineswithcode;
+    IF(NOT CellExists(libdump, 'sourcemap'))
+      THROW NEW Exception(`No sourcemap!`);
+
+    lineswithcode := SELECT AS INTEGER ARRAY DISTINCT line FROM libdump.sourcemap WHERE line != 1 ORDER BY line;
+    INTEGER hitlinescount;
+
+    STRING output := "<pre>";
+    STRING ARRAY lines := Tokenize(BlobToString(input),'\n');
+    FOREVERY(STRING line FROM lines)
+    {
+      INTEGER linenum := #line+1;
+      INTEGER numhits;
+      IF (#line != 0)
+      {
+        RECORD linepos := RecordLowerBound(file.lines, [ position := linenum ], ["POSITION"]);
+        numhits := linepos.found ? file.lines[linepos.position].count : 0;
+        IF (numhits != 0)
+          hitlinescount := hitlinescount + 1;
+      }
+
+      output := output || (BinaryFind(lineswithcode,linenum)=-1 ? "     " : Right("     " || numhits,5)) || " ";
+      output := output || Right("    " || (linenum),5);
+      output := output || ": " || EncodeValue(line) || "\n";
+    }
+    output := output || "</pre>";
+    STRING hitlines := LENGTH(lineswithcode) = 0
+        ? "n/a"
+        : `${hitlinescount} / ${LENGTH(lineswithcode)} (${FormatMoney(100m * hitlinescount / LENGTH(lineswithcode), 1, ".", "", TRUE)} %)`;
+
+    STRING prefix :=
+`<h1>File: ${file.filename}</h1>
+Hit lines: ${hitlines}<br>
+Code density: ${LENGTH(lineswithcode)} / ${LENGTH(lines)} (${FormatMoney(100m * LENGTH(lineswithcode) / LENGTH(lines), 1, ".", "", TRUE)} %)<br>
+`;
+
+    StoreDiskFile(MergePath(path, outfile), StringToBlob(prefix || output), [ overwrite := TRUE ]);
+
+    RECORD ARRAY functions := SELECT codeptr, name, hit := FALSE, ispublic FROM libdump.funcs WHERE importfrom="" AND NOT external ORDER BY codeptr;
+    FOREVERY(RECORD visitedcode FROM file.visitedcode)
+    {
+      INTEGER pos := RecordUpperBound(functions, [ codeptr := visitedcode.position ], ["CODEPTR"]);
+      IF(pos>0)
+        functions[pos-1].hit := TRUE;
+    }
+
+    INSERT CELL outfile :=    outfile
+              , functions :=  functions
+              , hitlines :=   hitlines
+           INTO file;
+    INSERT file INTO outfiles AT END;
+  }
+  CATCH(OBJECT e)
+  {
+    Print(`Error processing ${file.filename}: ${e->what}\n`);
+  }
+}
+IF(showprogress)
+  Print("\n");
+
+outfiles := SELECT *
+                 , nohits := (SELECT *
+                                   , name := Tokenize(name,':')[0]
+                                FROM outfiles.functions WHERE NOT functions.hit)
+              FROM outfiles;
+
+BLOB finalout := coveragewitty->RunComponentToBlob("indexpage", [ files := outfiles ]);
+
+STRING final := MergePath(path,'index.html');
+StoreDiskFile(final, finalout, [ overwrite := TRUE ]);
+IF(showprogress)
+  Print(`Final index: ${final}\n`);

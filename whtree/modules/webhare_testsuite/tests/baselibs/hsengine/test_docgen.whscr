@@ -1,0 +1,887 @@
+﻿<?wh
+/// @short Docgen tests
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::filetypes/harescript.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+
+RECORD ARRAY functions := [ [ name := "PublicMacro"
+                            , short := "Dit is een leuke functie"
+                            , long := "Long test description"
+                            , deprecated := "Information about deprecation"
+                            , example := "Test example"
+                            , result := ""
+                            , ispublic := TRUE
+                            , isfunction := FALSE
+                            , isasync := FALSE
+                            , isgenerator := FALSE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1/// Deprecated with the introduction of the new format
+//                            , id := 1/// Deprecated with the introduction of the new format
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := ""// "UNINITIALIZED"
+                            , isupdate := FALSE
+                            , line := 46
+                            , col := 14
+                            , commenttext := "/** @short Dit is een leuke functie\n    @long Long test description\n    @param param1 Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1\n    @param param2 Description of @bold param2\n    @param param3 Description of @link url tekst\n    @param param4 Description of @italic record\n    @cell(integer) param4.id   Id of record\n    @cell(string) param4.name Name of record\n    @deprecated   Information about deprecation\n    @example\nTest example\n*/"
+                            , arguments := [ [ name := "param1"
+                                             , short := "Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1"
+                                             , type := "STRING"
+                                             , cells := DEFAULT RECORD ARRAY
+                                             , defaultvalue := ""
+                                             ]
+                                           , [ name := "param2"
+                                             , short:= "Description of <b>param2</b>"
+                                             , type := "INTEGER"
+                                             , cells := DEFAULT RECORD ARRAY
+                                             , defaultvalue := ""
+                                             ]
+                                           , [ name := "param3"
+                                             , short:= "Description of @link url tekst"
+                                             , type := "BOOLEAN"
+                                             , cells := DEFAULT RECORD ARRAY
+                                             , defaultvalue := ""
+                                             ]
+                                           , [ name := "param4"
+                                             , short:= "Description of <i>record</i>"
+                                             , type := "RECORD ARRAY"
+                                             , cells := [ [ name := "id"
+                                                          , short := "Id of record"
+                                                          , cells := DEFAULT RECORD ARRAY
+                                                          , type := "INTEGER"
+                                                          ]
+                                                        , [ name := "name"
+                                                          , short := "Name of record"
+                                                          , cells := DEFAULT RECORD ARRAY
+                                                          , type := "STRING"
+                                                          ] ]
+                                             , defaultvalue := "[[ a := ([ b := 1, c := 2 ]), d := 1 ]]"
+                                             ]
+                                           ]
+                            ]
+                          , [ name := "PrivateMacro"
+                            , short := "Short test description"
+                            , long := "Long test description"
+                            , deprecated := ""
+                            , example := ""
+                            , result := ""
+                            , ispublic := FALSE
+                            , isfunction := FALSE
+                            , isasync := FALSE
+                            , isgenerator := FALSE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1
+//                            , id := 2
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := ""// "UNINITIALIZED"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 54
+                            , col := 7
+                            , commenttext := "/** @short Short test description\n    @long Long test description\n*/"
+                            ]
+                          , [ name := "PublicFunction"
+                            , short := "Short test description"
+                            , long := "Long test description"
+                            , deprecated := ""
+                            , example := ""
+                            , result := "This function returns something"
+                            , ispublic := TRUE
+                            , isfunction := TRUE
+                            , isasync := FALSE
+                            , isgenerator := FALSE
+                            , isvararg := FALSE
+                            , returncells := [[ name := "id", short := "Return id", cells:= DEFAULT RECORD ARRAY, type := "" ]]
+//                            , script := 1
+//                            , id := 3
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := "RECORD"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 64
+                            , col := 24
+                            , commenttext := "/** @short Short test description\n    @long Long test description\n    @cell return.id   Return id\n    @return This function returns something\n*/"
+                            ]
+                          , [ name := "PrivateFunction"
+                            , short := "Short test description"
+                            , long := "Long test description"
+                            , deprecated := ""
+                            , example := ""
+                            , result := "This function returns something"
+                            , ispublic := FALSE
+                            , isfunction := TRUE
+                            , isasync := FALSE
+                            , isgenerator := FALSE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1
+//                            , id := 4
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := "INTEGER"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 72
+                            , col := 18
+                            , commenttext := "/** @short Short test description\n    @long Long test description\n    @return This function returns something\n*/"
+                            ]
+                          , [ name := "UndocumentedMacro"
+                            , short := ""
+                            , long := ""
+                            , deprecated := ""
+                            , example := ""
+                            , result := ""
+                            , ispublic := TRUE
+                            , isfunction := FALSE
+                            , isasync := FALSE
+                            , isgenerator := FALSE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1
+//                            , id := 5
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := ""// "UNINITIALIZED"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 76
+                            , col := 14
+                            , commenttext := ""
+                            ]
+                          , [ name := "UndocumentedFunction"
+                            , short := ""
+                            , long := ""
+                            , deprecated := ""
+                            , example := ""
+                            , result := ""
+                            , ispublic := TRUE
+                            , isfunction := TRUE
+                            , isasync := FALSE
+                            , isgenerator := FALSE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1
+//                            , id := 6
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := "INTEGER"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 77
+                            , col := 25
+                            , commenttext := ""
+                            ]
+                          , [ name := "TestGenerator"
+                            , short := ""
+                            , long := ""
+                            , deprecated := ""
+                            , example := ""
+                            , result := ""
+                            , ispublic := TRUE
+                            , isfunction := TRUE
+                            , isasync := FALSE
+                            , isgenerator := TRUE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1
+//                            , id := 7
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := "OBJECT"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 80
+                            , col := 25
+                            , commenttext := ""
+                            ]
+                          , [ name := "TestAsyncFunction"
+                            , short := ""
+                            , long := ""
+                            , deprecated := ""
+                            , example := ""
+                            , result := ""
+                            , ispublic := TRUE
+                            , isfunction := TRUE
+                            , isasync := TRUE
+                            , isgenerator := FALSE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1
+//                            , id := 8
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := "OBJECT"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 85
+                            , col := 30
+                            , commenttext := ""
+                            ]
+                          , [ name := "TestAsyncGenerator"
+                            , short := ""
+                            , long := ""
+                            , deprecated := ""
+                            , example := ""
+                            , result := ""
+                            , ispublic := TRUE
+                            , isfunction := TRUE
+                            , isasync := TRUE
+                            , isgenerator := TRUE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1
+//                            , id := 8
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := "OBJECT"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 90
+                            , col := 31
+                            , commenttext := ""
+                            ]
+                          , [ name := "TestAsyncMacro"
+                            , short := ""
+                            , long := ""
+                            , deprecated := ""
+                            , example := ""
+                            , result := ""
+                            , ispublic := TRUE
+                            , isfunction := TRUE
+                            , isasync := TRUE
+                            , isgenerator := FALSE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1
+//                            , id := 8
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := "OBJECT"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 95
+                            , col := 20
+                            , commenttext := ""
+                            ]
+                          , [ name := "TestAsyncFunction2"
+                            , short := ""
+                            , long := ""
+                            , deprecated := ""
+                            , example := ""
+                            , result := ""
+                            , ispublic := TRUE
+                            , isfunction := TRUE
+                            , isasync := TRUE
+                            , isgenerator := FALSE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1
+//                            , id := 8
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := "OBJECT"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 99
+                            , col := 23
+                            , commenttext := ""
+                            ]
+                          , [ name := "TestAsyncGenerator2"
+                            , short := ""
+                            , long := ""
+                            , deprecated := ""
+                            , example := ""
+                            , result := ""
+                            , ispublic := TRUE
+                            , isfunction := TRUE
+                            , isasync := TRUE
+                            , isgenerator := TRUE
+                            , isvararg := FALSE
+                            , returncells := DEFAULT RECORD ARRAY
+//                            , script := 1
+//                            , id := 8
+                            , include := DEFAULT STRING ARRAY
+                            , exclude := DEFAULT STRING ARRAY
+                            , see := DEFAULT STRING ARRAY
+                            , doc := DEFAULT STRING ARRAY
+                            , author := ""
+                            , version := ""
+                            , copyright := ""
+                            , type := "OBJECT"
+                            , arguments := DEFAULT RECORD ARRAY
+                            , isupdate := FALSE
+                            , line := 104
+                            , col := 24
+                            , commenttext := ""
+                            ]
+
+                          ];
+
+RECORD ARRAY objecttypes :=
+    [ [ name :=         "DocumentedObjectType"
+      , short :=        "Objecttype"
+      , long :=         ""
+      , deprecated :=   ""
+      , example :=      ""
+      , result :=       ""
+      , line :=         112
+      , col :=          12
+      , linestart :=    112
+      , lineend :=      163
+      , include :=     DEFAULT STRING ARRAY
+      , exclude :=     DEFAULT STRING ARRAY
+      , see :=          DEFAULT STRING ARRAY
+      , doc :=          DEFAULT STRING ARRAY
+      , author :=       ""
+      , version :=      ""
+      , copyright :=    ""
+      , arguments :=    DEFAULT RECORD ARRAY
+      , returncells :=  DEFAULT RECORD ARRAY
+      , ispublic :=     FALSE
+      , isstatic :=     FALSE
+      , base :=         "Exception"
+      , commenttext :=  "/** Objecttype\n*/"
+
+      , properties := DEFAULT RECORD ARRAY
+      , variables :=
+            [ [ name :=       "obj_member"
+              , short :=      "Member"
+              , long :=       ""
+              , deprecated := ""
+              , example :=    ""
+              , result :=     ""
+              , ispublic :=   FALSE
+              , isconstant := FALSE
+              , isconstref := FALSE
+              , include :=     DEFAULT STRING ARRAY
+              , exclude :=     DEFAULT STRING ARRAY
+              , see :=        DEFAULT STRING ARRAY
+              , doc :=        DEFAULT STRING ARRAY
+              , type :=       "INTEGER"
+              , author :=     ""
+              , version :=    ""
+              , copyright :=  ""
+              , line :=       114
+              , col :=        11
+              , arguments :=  DEFAULT RECORD ARRAY
+              , returncells := DEFAULT RECORD ARRAY
+              , objectname := "DocumentedObjectType"
+              , commenttext := "/// Member"
+              ]
+            ]
+      , functions :=
+            [ [ name :=       "OBJ_DocMacro"
+              , short :=      "Macro"
+              , long :=       ""
+              , deprecated := ""
+              , example :=    ""
+              , result :=     ""
+              , ispublic :=   FALSE
+              , isupdate :=   FALSE
+              , isfunction := FALSE
+              , isasync :=    FALSE
+              , isgenerator := FALSE
+              , isvararg :=   FALSE
+              , include :=     DEFAULT STRING ARRAY
+              , exclude :=     DEFAULT STRING ARRAY
+              , see :=        DEFAULT STRING ARRAY
+              , doc :=        DEFAULT STRING ARRAY
+              , type :=       ""
+              , author :=     ""
+              , version :=    ""
+              , copyright :=  ""
+              , line :=       119
+              , col :=        9
+              , arguments :=  [ [ name := "param1"
+                                , short := "Param1"
+                                , type := "INTEGER"
+                                , cells := DEFAULT RECORD ARRAY
+                                , defaultvalue := ""
+                                ]
+                              ]
+              , returncells := DEFAULT RECORD ARRAY
+              , objectname := "DocumentedObjectType"
+              , commenttext := "/** Macro\n      @param param1 Param1\n  */"
+              ]
+            , [ name :=       "OBJ_DocFunction"
+              , short :=      "Function"
+              , long :=       ""
+              , deprecated := ""
+              , example :=    ""
+              , result :=     "Retval"
+              , ispublic :=   FALSE
+              , isupdate :=   FALSE
+              , isfunction := TRUE
+              , isasync :=    FALSE
+              , isgenerator := FALSE
+              , isvararg :=   FALSE
+              , include :=    DEFAULT STRING ARRAY
+              , exclude :=    DEFAULT STRING ARRAY
+              , see :=        DEFAULT STRING ARRAY
+              , doc :=        DEFAULT STRING ARRAY
+              , type :=       "RECORD"
+              , author :=     ""
+              , version :=    ""
+              , copyright :=  ""
+              , line :=       127
+              , col :=        19
+              , arguments :=  [ [ name := "param1"
+                                , short := "Param1"
+                                , type := "INTEGER"
+                                , cells := DEFAULT RECORD ARRAY
+                                , defaultvalue := ""
+                                ]
+                              ]
+              , returncells := DEFAULT RECORD ARRAY
+              , objectname := "DocumentedObjectType"
+              , commenttext := "/** Function\n      @param param1 Param1\n      @return Retval\n  */"
+              ]
+            , [ name :=       "OBJ_DocAsyncFunction"
+              , short :=      "Asyncfunction"
+              , long :=       ""
+              , deprecated := ""
+              , example :=    ""
+              , result :=     "retval"
+              , ispublic :=   FALSE
+              , isupdate :=   FALSE
+              , isfunction := TRUE
+              , isasync :=    TRUE
+              , isgenerator := FALSE
+              , isvararg :=   FALSE
+              , include :=    DEFAULT STRING ARRAY
+              , exclude :=    DEFAULT STRING ARRAY
+              , see :=        DEFAULT STRING ARRAY
+              , doc :=        DEFAULT STRING ARRAY
+              , type :=       "OBJECT"
+              , author :=     ""
+              , version :=    ""
+              , copyright :=  ""
+              , line :=       135
+              , col :=        25
+              , arguments :=  DEFAULT RECORD ARRAY
+              , returncells := DEFAULT RECORD ARRAY
+              , objectname := "DocumentedObjectType"
+              , commenttext := "/** Asyncfunction\n      @return retval\n  */"
+              ]
+            , [ name :=       "OBJ_DocAsyncGenerator"
+              , short :=      ""
+              , long :=       ""
+              , deprecated := ""
+              , example :=    ""
+              , result :=     ""
+              , ispublic :=   FALSE
+              , isupdate :=   FALSE
+              , isfunction := TRUE
+              , isasync :=    TRUE
+              , isgenerator := TRUE
+              , isvararg :=   FALSE
+              , include :=    DEFAULT STRING ARRAY
+              , exclude :=    DEFAULT STRING ARRAY
+              , see :=        DEFAULT STRING ARRAY
+              , doc :=        DEFAULT STRING ARRAY
+              , type :=       "OBJECT"
+              , author :=     ""
+              , version :=    ""
+              , copyright :=  ""
+              , line :=       140
+              , col :=        26
+              , arguments :=  DEFAULT RECORD ARRAY
+              , returncells := DEFAULT RECORD ARRAY
+              , objectname := "DocumentedObjectType"
+              , commenttext := ""
+              ]
+            , [ name :=       "OBJ_DocAsyncMacro"
+              , short :=      ""
+              , long :=       ""
+              , deprecated := ""
+              , example :=    ""
+              , result :=     ""
+              , ispublic :=   FALSE
+              , isupdate :=   FALSE
+              , isfunction := TRUE
+              , isasync :=    TRUE
+              , isgenerator := FALSE
+              , isvararg :=   FALSE
+              , include :=    DEFAULT STRING ARRAY
+              , exclude :=    DEFAULT STRING ARRAY
+              , see :=        DEFAULT STRING ARRAY
+              , doc :=        DEFAULT STRING ARRAY
+              , type :=       "OBJECT"
+              , author :=     ""
+              , version :=    ""
+              , copyright :=  ""
+              , line :=       145
+              , col :=        15
+              , arguments :=  DEFAULT RECORD ARRAY
+              , returncells := DEFAULT RECORD ARRAY
+              , objectname := "DocumentedObjectType"
+              , commenttext := ""
+              ]
+            , [ name :=       "OBJ_DocAsyncAsyncFunction2"
+              , short :=      ""
+              , long :=       ""
+              , deprecated := ""
+              , example :=    ""
+              , result :=     ""
+              , ispublic :=   FALSE
+              , isupdate :=   FALSE
+              , isfunction := TRUE
+              , isasync :=    TRUE
+              , isgenerator := FALSE
+              , isvararg :=   FALSE
+              , include :=    DEFAULT STRING ARRAY
+              , exclude :=    DEFAULT STRING ARRAY
+              , see :=        DEFAULT STRING ARRAY
+              , doc :=        DEFAULT STRING ARRAY
+              , type :=       "OBJECT"
+              , author :=     ""
+              , version :=    ""
+              , copyright :=  ""
+              , line :=       149
+              , col :=        18
+              , arguments :=  DEFAULT RECORD ARRAY
+              , returncells := DEFAULT RECORD ARRAY
+              , objectname := "DocumentedObjectType"
+              , commenttext := ""
+              ]
+            , [ name :=       "OBJ_DocAsyncAsyncGenerator2"
+              , short :=      ""
+              , long :=       ""
+              , deprecated := ""
+              , example :=    ""
+              , result :=     ""
+              , ispublic :=   FALSE
+              , isupdate :=   FALSE
+              , isfunction := TRUE
+              , isasync :=    TRUE
+              , isgenerator := TRUE
+              , isvararg :=   FALSE
+              , include :=    DEFAULT STRING ARRAY
+              , exclude :=    DEFAULT STRING ARRAY
+              , see :=        DEFAULT STRING ARRAY
+              , doc :=        DEFAULT STRING ARRAY
+              , type :=       "OBJECT"
+              , author :=     ""
+              , version :=    ""
+              , copyright :=  ""
+              , line :=       154
+              , col :=        19
+              , arguments :=  DEFAULT RECORD ARRAY
+              , returncells := DEFAULT RECORD ARRAY
+              , objectname := "DocumentedObjectType"
+              , commenttext := ""
+              ]
+            , [ name :=       "OBJ_UpPubMacro"
+              , short :=      ""
+              , long :=       ""
+              , deprecated := ""
+              , example :=    ""
+              , result :=     ""
+              , ispublic :=   TRUE
+              , isupdate :=   TRUE
+              , isfunction := FALSE
+              , isasync :=    FALSE
+              , isgenerator := FALSE
+              , isvararg :=   FALSE
+              , include :=    DEFAULT STRING ARRAY
+              , exclude :=    DEFAULT STRING ARRAY
+              , see :=        DEFAULT STRING ARRAY
+              , doc :=        DEFAULT STRING ARRAY
+              , type :=       ""
+              , author :=     ""
+              , version :=    ""
+              , copyright :=  ""
+              , line :=       159
+              , col :=        23
+              , arguments :=  DEFAULT RECORD ARRAY
+              , returncells := DEFAULT RECORD ARRAY
+              , objectname := "DocumentedObjectType"
+              , commenttext := ""
+              ]
+            ]
+      ]
+
+    , [ name :=         "ObjectTypeWithAttr"
+      , short :=        ""
+      , long :=         ""
+      , deprecated :=   "This is deprecated outer"
+      , example :=      ""
+      , result :=       ""
+      , line :=         165
+      , col :=          19
+      , linestart :=    165
+      , lineend :=      167
+      , include :=     DEFAULT STRING ARRAY
+      , exclude :=     DEFAULT STRING ARRAY
+      , see :=          DEFAULT STRING ARRAY
+      , doc :=          DEFAULT STRING ARRAY
+      , author :=       ""
+      , version :=      ""
+      , copyright :=    ""
+      , arguments :=    DEFAULT RECORD ARRAY
+      , returncells :=  DEFAULT RECORD ARRAY
+      , ispublic :=     FALSE
+      , isstatic :=     TRUE
+      , base :=         ""
+      , commenttext := ""
+
+      , properties :=   DEFAULT RECORD ARRAY
+      , variables :=    DEFAULT RECORD ARRAY
+      , functions :=
+            [ [ name :=       "Test"
+              , short :=      ""
+              , long :=       ""
+              , deprecated := "This is deprecated"
+              , example :=    ""
+              , result :=     ""
+              , ispublic :=   FALSE
+              , isupdate :=   FALSE
+              , isfunction := TRUE
+              , isasync :=    FALSE
+              , isgenerator := FALSE
+              , isvararg :=   FALSE
+              , include :=    DEFAULT STRING ARRAY
+              , exclude :=    DEFAULT STRING ARRAY
+              , see :=        DEFAULT STRING ARRAY
+              , doc :=        DEFAULT STRING ARRAY
+              , type :=       "INTEGER"
+              , author :=     ""
+              , version :=    ""
+              , copyright :=  ""
+              , line :=       166
+              , col :=        20
+              , arguments :=  DEFAULT RECORD ARRAY
+              , returncells := DEFAULT RECORD ARRAY
+              , objectname := "ObjectTypeWithAttr"
+              , commenttext := ""
+              ]
+            ]
+      ]
+
+    , [ name :=         "StaticObjectType"
+      , short :=        ""
+      , long :=         ""
+      , deprecated :=   ""
+      , example :=      ""
+      , result :=       ""
+      , line :=         169
+      , col :=          19
+      , linestart :=    169
+      , lineend :=      169
+      , include :=     DEFAULT STRING ARRAY
+      , exclude :=     DEFAULT STRING ARRAY
+      , see :=          DEFAULT STRING ARRAY
+      , doc :=          DEFAULT STRING ARRAY
+      , author :=       ""
+      , version :=      ""
+      , copyright :=    ""
+      , arguments :=    DEFAULT RECORD ARRAY
+      , returncells :=  DEFAULT RECORD ARRAY
+      , ispublic :=     FALSE
+      , isstatic :=     TRUE
+      , base :=         ""
+      , commenttext :=  ""
+
+      , properties :=   DEFAULT RECORD ARRAY
+      , variables :=    DEFAULT RECORD ARRAY
+      , functions :=    DEFAULT RECORD ARRAY
+      ]
+    , [ name :=         "PublicStaticObjectType"
+      , short :=        ""
+      , long :=         ""
+      , deprecated :=   ""
+      , example :=      ""
+      , result :=       ""
+      , line :=         170
+      , col :=          26
+      , linestart :=    170
+      , lineend :=      170
+      , include :=     DEFAULT STRING ARRAY
+      , exclude :=     DEFAULT STRING ARRAY
+      , see :=          DEFAULT STRING ARRAY
+      , doc :=          DEFAULT STRING ARRAY
+      , author :=       ""
+      , version :=      ""
+      , copyright :=    ""
+      , arguments :=    DEFAULT RECORD ARRAY
+      , returncells :=  DEFAULT RECORD ARRAY
+      , ispublic :=     TRUE
+      , isstatic :=     TRUE
+      , base :=         ""
+      , commenttext :=  ""
+
+      , properties :=   DEFAULT RECORD ARRAY
+      , variables :=    DEFAULT RECORD ARRAY
+      , functions :=    DEFAULT RECORD ARRAY
+      ]
+
+    ];
+
+STRING FUNCTION IdTest(BLOB testfile)
+{
+  // Test hs-parser
+  INTEGER hsfile := OpenHareScriptFile(testfile);
+
+  STRING processed_file;
+  WHILE (TRUE)
+  {
+    RECORD token := GetHareScriptFileToken(hsfile);
+    IF (NOT RecordExists(token))
+      BREAK;
+    processed_file := processed_file || token.rawtoken;
+  }
+  CloseHarescriptFile(hsfile);
+  RETURN processed_file;
+}
+
+MACRO BasicTest()
+{
+  OpenTest("DocgenTest: BasicTest");
+
+  BLOB testfile := GetHareScriptResource("test::testdata_docgen_lib.whlib");
+
+  // Parse the test script individually
+  RECORD script := ParseHarescriptFileDocumentation(testfile);//,"test_docgen_lib.whlib");
+  //TestEq(1, script.id);
+  //DumpValue(script.libinfo, 'tree');
+
+  // Check Loadlib
+  TestEq(1, Length(script.loadlibs));
+  TestEq("wh::devsupport.whlib", script.loadlibs[0].name);
+  TestEq(3, Length(script.loadlibs[0].exports));
+  TestEq("EnableFunctionProfile", script.loadlibs[0].exports[0].name);
+  TestEq(9, script.loadlibs[0].exports[0].line);
+  TestEq(5, script.loadlibs[0].exports[0].col);
+  TestEq("", script.loadlibs[0].exports[0].deprecated);
+  TestEq("DisableFunctionProfile", script.loadlibs[0].exports[1].name);
+  TestEq("Deprecated", script.loadlibs[0].exports[1].deprecated);
+  TestEq(10, script.loadlibs[0].exports[1].line);
+  TestEq(5, script.loadlibs[0].exports[1].col);
+  TestEq("EnableMemoryProfile", script.loadlibs[0].exports[2].name);
+  TestEq("DeprecationText", script.loadlibs[0].exports[2].deprecated);
+  TestEq(11, script.loadlibs[0].exports[2].line);
+  TestEq(5, script.loadlibs[0].exports[2].col);
+
+  // Get library data..
+  TestEq("B-Lex I.T.", script.libinfo.author);
+  TestEq("1.0", script.libinfo.version);
+  TestEq("Helper script for docgenerator to generate help files based on comments", script.libinfo.short);
+  TestEq("This is the long description for this file", script.libinfo.long);
+
+  // Check functions
+  TestEq(LENGTH(functions), LENGTH(script.functions));
+  TestEq(functions, script.functions);
+
+  // Test objecttypes
+  TestEq(objecttypes, script.objecttypes);
+
+  //ADDME actually index schema/table
+  TestEq(5, Length(script.variables));
+  TestEq("", script.variables[0].commenttext);
+  TestEq("table1", script.variables[0].name);
+  TestEq("s", script.variables[1].name);
+  TestEq("xx", script.variables[2].name);
+  TestEq(FALSE, script.variables[2].isconstant);
+  TestEq("constint", script.variables[3].name);
+  TestEq(TRUE, script.variables[3].isconstant);
+  TestEq(TRUE, script.variables[3].isconstref);
+  TestEq("constrefint", script.variables[4].name);
+  TestEq(FALSE, script.variables[4].isconstant);
+  TestEq(TRUE, script.variables[4].isconstref);
+
+  TestEq(BlobToString(testfile, -1), IdTest(testfile));
+
+  BLOB file2 := StringToBlob("<?wh??"||">External1<?wh\nMACRO doom5()\n{\n??"||">External2<?wh\n}\n??"||">External3<?wh");
+  TestEq(BlobToString(file2, -1), IdTest(file2));
+
+  BLOB file3 := StringToBlob("<?wh\n?"||">External1<?wh\nMACRO doom5()\n{\n??"||">External2<?wh\n}\n??"||">External3<?wh");
+  TestEq(BlobToString(file3, -1), IdTest(file3));
+
+  BLOB file4 := StringToBlob("<?wh\n//a");
+  TestEq(BlobToString(file4, -1), IdTest(file4));
+
+  BLOB file5 := StringToBlob("<?wh\n/*b");
+  TestEq(BlobToString(file5, -1), IdTest(file5));
+
+  BLOB file6 := StringToBlob("<?wh\nthrow new Error(`Missing '${prop}' in dispatchCustomEvent parameter`);\n");
+  TestEq(BlobToString(file6, -1), IdTest(file6));
+
+  CloseTest("DocgenTest: BasicTest");
+}
+
+MACRO LibdumpTest()
+{
+  OpenTest("DocgenTest::LibdumpTest");
+  TestEq(DEFAULT RECORD, DescribeCompiledLibrary("wh::bestaatniet.whlib"));
+
+  RECORD dump := DescribeCompiledLibrary("test::testdata_docgen_lib.whlib");
+  TestEq(46, SELECT AS INTEGER line FROM dump.functions WHERE name = "PUBLICMACRO");
+  TestEq(1, SELECT AS INTEGER line FROM dump.functions WHERE name = "Main HareScript code");
+
+  CloseTest("DocgenTest::LibdumpTest");
+}
+
+PRINT("\n === Running DocGenTest\n");
+BasicTest();
+LibdumpTest();

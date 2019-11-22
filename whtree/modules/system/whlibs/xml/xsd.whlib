@@ -1,0 +1,72 @@
+<?wh
+/** @short XML Schema (XSD) parsing and validation
+    @topic xml/schema
+*/
+
+LOADLIB "wh::xml/dom.whlib";
+
+/** @short Parse a xs:list (string array)
+    @loadlib wh::xml/xsd.whlib
+    @param val List to parse
+    @return Parsed string array, `STRING[]` if val was empty or only whitespace */
+PUBLIC STRING ARRAY FUNCTION ParseXSList(STRING val)
+{
+  val := NormalizeWhitespace(val);
+  val := TrimWhitespace(val);
+  IF(val="")
+    RETURN DEFAULT STRING ARRAY;
+  RETURN Tokenize(val, ' ');
+}
+/** @short Parse a xs:boolean
+    @loadlib wh::xml/xsd.whlib
+    @param val Value to parse
+    @return TRUE if val was 'true' or '1' */
+PUBLIC BOOLEAN FUNCTION ParseXSBoolean(STRING val)
+{
+  RETURN val="1" OR val="true";
+}
+/** @short Parse a 32-bit xs:integer
+    @loadlib wh::xml/xsd.whlib
+    @param val Value to parse
+    @return Parsed value, or 0 if it was not a valid integer */
+PUBLIC INTEGER FUNCTION ParseXSInt(STRING val)
+{
+  RETURN ToInteger(val, 0);
+}
+/** @short Parse a 64-bit xs:integer
+    @loadlib wh::xml/xsd.whlib
+    @param val Value to parse
+    @return Parsed value, or 0 if it was not a valid integer */
+PUBLIC INTEGER64 FUNCTION ParseXSInt64(STRING val)
+{
+  RETURN ToInteger64(val, 0);
+}
+
+
+
+/** @short Creates an XML Schema out of the specified blob
+    @param xmlfile XSD file to parse
+    @param encoding XSD file encoding, if known
+    @param readonly If true, create a read-only XML document
+    @return A new schema object. use GetParseErrors() to check for syntax errors */
+PUBLIC OBJECT FUNCTION MakeXMLSchema(BLOB xmlfile, STRING encoding DEFAULTSTO "", BOOLEAN readonly DEFAULTSTO FALSE)
+{
+  RETURN (NEW XmlDOMImplementation)->MakeXMLSchema(xmlfile, encoding, readonly);
+}
+
+/** @short Simplify a validation error list
+    @long Clean up a validation error list by reading the namespace declarations of a specific node (usually the document element) and rewriting namespace references in the error list to prefixes
+    @param errorlist Error list as returned by ValidateDocument
+    @param node Namespace declaring node
+    @return Cleaned error list */
+PUBLIC RECORD ARRAY FUNCTION SimplifyXMLValidationErrors(RECORD ARRAY errorlist, OBJECT node)
+{
+  FOREVERY(OBJECT attr FROM node->attributes->GetCurrentNodes())
+  {
+    IF(attr->nodename="xmlns") //Rewrites the main namespace
+      UPDATE errorlist SET message := Substitute(message, "{" || attr->nodevalue || "}", "");
+    ELSE IF(attr->prefix="xmlns") //Rewrites a prefix
+      UPDATE errorlist SET message := Substitute(message, "{" || attr->nodevalue || "}", attr->localname || ":");
+  }
+  RETURN errorlist;
+}

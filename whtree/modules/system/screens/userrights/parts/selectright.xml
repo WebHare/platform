@@ -1,0 +1,23 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components">
+
+  <!-- select right -->
+  <fragment name="selectright" lib="screens/userrights/parts/selectright.whlib" gid="userrights.commondialogs.rights">
+
+    <contents>
+      <box name="grantbox" tid=".grant" hr="false">
+        <text name="grantcreationdate" visible="false" tid=".grantdatetime" />
+        <text name="grantgrantor" visible="false" tid=".grantor" />
+        <text name="rightsgroup" visible="false" />
+        <text name="objectpath" visible="false" />
+        <text name="singleright" visible="false" />
+        <select name="rightslist" type="pulldown" onchange="onrightselect" />
+        <line layout="left">
+          <checkbox name="grantwithgrantoption" title="" labeltid=".withgrantoption"/>
+        </line>
+      </box>
+    </contents>
+  </fragment>
+
+</screens>

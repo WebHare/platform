@@ -1,0 +1,124 @@
+﻿<?wh
+LOADLIB "wh::ipc.whlib";
+
+
+LOADLIB "mod::system/lib/internal/backend/users.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/todd/internal/controller.whlib";
+LOADLIB "mod::tollium/lib/users.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+
+OBJECT parentlink;
+BOOLEAN sent_initial_message;
+
+// Callback for initial message (will be sent with response of app start service)
+MACRO SendInitialMessage(RECORD data)
+{
+  parentlink->SendMessage([ type := "appstart", data := data ]);
+  sent_initial_message := TRUE;
+}
+
+MACRO GotUserActivity()
+{
+  IF (sent_initial_message)
+    parentlink->SendMessage([ type := "useractivity" ]);
+}
+
+parentlink := GetIPCLinkToParent();
+IF(NOT ObjectExists(parentlink))
+  ABORT("The application host cannot be directly invoked, it must run as a job");
+
+OpenPrimary();
+// Receive configuration
+RECORD firstmsg := parentlink->ReceiveMessage(DEFAULT DATETIME);
+
+/* Startup message
+   @cell(string) frontendid
+   @cell(boolean) highpriority
+   @cell(record) appparams
+   @cell(string) app
+   @cell parameters
+   @cell target
+*/
+RECORD appinfo := firstmsg.msg;
+
+OBJECT wrdauthplugin, userapi;
+TRY
+{
+  OBJECT currentuser;
+  IF(appinfo.launchuserinfo.forceprimaryuserapi)
+  {
+    wrdauthplugin := GetPrimaryWebhareAuthPlugin();
+  }
+  ELSE
+  {
+    wrdauthplugin := GetWRDAuthPlugin(appinfo.url, [ clientwebserver := appinfo.requestdata.webserver ]);
+  }
+
+  IF(wrdauthplugin->HasFailed())
+  {
+    IF(appinfo.launchuserinfo.loggedin != -1)
+      ABORT("WRDAuthPlugin is broken: " || wrdauthplugin->GetFailReason());
+    currentuser := GetMagicSysopObject("<overrideuser>");
+  }
+  ELSE
+  {
+    userapi := wrdauthplugin->userapi;
+
+    IF(RecordExists(appinfo.launchuserinfo))
+    {
+      RECORD res := userapi->GetTolliumUserByIdAndImpersonation(appinfo.launchuserinfo.loggedin, appinfo.launchuserinfo.openas);
+      currentuser := ObjectExists(res.userobject) ? res.userobject : userapi->GetAnonymousUser();
+    }
+    ELSE
+    {
+      currentuser := userapi->GetAnonymousUser();
+    }
+  }
+
+  __SetEffectiveUser(currentuser);
+
+  LogAuditEvent(
+            "tollium:applicationstart",
+            [ user :=         currentuser->GetUserEventIdentifier()
+            , app :=          appinfo.app
+            , appparams :=    [ calltype := "direct"
+                              , params :=   appinfo.parameters
+                              , target :=   appinfo.target
+                              , message :=  appinfo.message
+                              ]
+            , browsertriplet :=  appinfo.browsertriplet
+            ]);
+
+}
+CATCH
+{
+  IF(appinfo.launchuserinfo.loggedin = -1)
+    __SetEffectiveUser(GetMagicSysopObject("<overrideuser>"));
+  ELSE //We don't really need the plugin, so let it go..
+    __SetEffectiveUser(NEW TolliumUser(DEFAULT OBJECT, DEFAULT OBJECT, 0, "<anonymous>"));
+}
+
+OBJECT webcontroller := NEW TolliumWebController(appinfo, userapi, wrdauthplugin);
+SetTidLanguage(appinfo.lang);
+
+//IF(NOT launcher->SetupForUser(appinfo.app))
+ // ABORT("No longer authorized"); //FIXME what to do, really?
+
+webcontroller->pvt_sendinitialmessage := PTR SendInitialMessage;
+webcontroller->onuseractivity := PTR GotUserActivity;
+webcontroller->ActivateWebController();
+webcontroller->pvt_inapppath := appinfo.inapppath;
+
+webcontroller->LaunchApplication(appinfo.app, [ calltype := "direct"
+                                              , params := appinfo.parameters
+                                              , target := appinfo.target
+                                              , message := appinfo.message
+                                              , webvars := appinfo.webvars
+                                              , goparam := appinfo.goparam
+                                              ]);

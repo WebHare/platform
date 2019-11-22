@@ -1,0 +1,31 @@
+<?wh
+
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/remoting/restserver.whlib";
+
+PUBLIC STATIC OBJECTTYPE TestRestAPI EXTEND RestAPIBase
+<
+  PUBLIC RECORD FUNCTION TestTypes(DATETIME dt, INTEGER64 i64, BLOB bob)
+  {
+    RETURN CELL[ dt, i64, bob, incomingcontenttype := GetWebheader("Content-Type") ];
+  }
+  PUBLIC RECORD FUNCTION TestRecord(RECORD rec)
+  {
+    BOOLEAN norequire := CellExists(rec, 'norequire') AND rec.norequire;
+    rec := ValidateOptions([ dt := DEFAULT DATETIME,i64 := 0i64, bob := DEFAULT BLOB, intarray := INTEGER[] ], rec, [ required := norequire ? STRING[] : ["dt","i64","bob"], passthrough := norequire ]);
+    IF(CellExists(rec,'ping'))
+      rec := CELL[...rec, pong := rec.ping, DELETE ping ];
+    IF(CellExists(rec,'only_in'))
+      rec := CELL[...rec, only_out := rec.only_in, DELETE only_in ];
+    RETURN rec;
+  }
+  PUBLIC RECORD FUNCTION TestRecords(RECORD ARRAY rec)
+  {
+    RETURN [ recs := (SELECT AS RECORD ARRAY this->TestRecord(rec) FROM rec) ];
+  }
+  PUBLIC RECORD FUNCTION TestEmptyRecord()
+  {
+    RETURN [ answer := 42 ];
+  }
+>;

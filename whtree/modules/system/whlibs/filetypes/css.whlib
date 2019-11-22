@@ -1,0 +1,2082 @@
+﻿<?wh
+/** @short CSS (Cascading style sheets)
+    @topic file-formats/css
+*/
+
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/css/parser.whlib";
+LOADLIB "wh::internal/css/support.whlib";
+LOADLIB "wh::internal/css/tokenizer.whlib";
+
+/** CSS specific functions
+
+    Please note an API has already been partly defined which we may be able to use:
+    http://dev.w3.org/csswg/cssom/
+    And a CSS3 parser algorithm is here:
+    http://www.w3.org/TR/css3-syntax
+
+    This may be interesting for tests:
+    https://github.com/ChromiumWebApps/blink/tree/master/LayoutTests/cssom
+
+*/
+
+RECORD csstext_formatting :=
+    [ with_comments :=          FALSE
+    , indent :=                 FALSE
+    , block_begin_prespacer :=  " "
+    , block_begin_postspacer := " "
+    , block_end_prespacer :=    " "
+    , block_end_postspacer :=   ""
+    , after_colon :=            " "
+    , after_semicolon :=        ""
+    , declaration_separator :=  " "
+    , rule_separator :=         " "
+    , selector_lineend :=       ""
+    ];
+
+MACRO RewriteAsStyleAttribute(OBJECT rule, OBJECT node)
+{
+  IF (NOT node->hasAttribute("style"))
+    node->SetAttribute("style", rule->style->cssText);
+  ELSE
+  {
+    OBJECT obj := NEW CSSStyleDeclaration(DEFAULT OBJECT);
+
+    OBJECT parser := NEW CSSParser2;
+    parser->InitializeForTextParse("a {" || node->GetAttribute("style") || "}");
+    RECORD rulerec := parser->ParseRule();
+    IF (RecordExists(rulerec))
+      obj->__SetFromParsed(rulerec.block);
+
+    RECORD ARRAY new_rules := rule->style->__GetDeclarations();
+    RECORD ARRAY existing_rules := obj->__GetDeclarations();
+
+    // Important rules from the new definition always override the existing rules - if they are not important.
+    DELETE
+      FROM existing_rules
+     WHERE name IN (SELECT AS STRING ARRAY name FROM new_rules WHERE important) AND NOT important;
+
+    // Then, existing rules always override the new rules.
+    DELETE
+      FROM new_rules
+     WHERE name IN (SELECT AS STRING ARRAY name FROM existing_rules);
+
+    node->SetAttribute("style", Detokenize((
+        SELECT AS STRING ARRAY name || ": " || value || (important ? " !important" : "") || ";"
+          FROM new_rules CONCAT existing_rules), " "));
+  }
+}
+
+PUBLIC STRING FUNCTION __QuickParseRuleList(STRING rulelist)
+{
+  OBJECT css := MakeCSSStyleSheet(StringToBlob("* { " || rulelist || " ;}"));
+  RETURN css->cssrules->item(0)->__DeclarationString;
+}
+
+STRING FUNCTION NormalizeSelector(STRING inselector)
+{
+  OBJECT cssom := MakeCSSStyleSheet(StringToBlob(inselector || " { margin: 0; }"));
+  IF(cssom->cssrules->length !=1)
+    THROW NEW Exception("The selector must contain exactly one rule"); //FIXME proper terminology... is it a selector or ar ule or ?
+  RETURN cssom->cssrules->item(0)->selectortext;
+}
+
+/// List of at-rule types for which we have a specific CSS object type
+STRING ARRAY supported_atrules := [ "media", "import" ];
+
+/** Given a rule record returned by the parser, return a CSS Object initialized from that parse result
+*/
+OBJECT FUNCTION ConstructCSSRule(RECORD rule)
+{
+  OBJECT obj;
+  IF (rule.type = "parsed-atrule")
+  {
+    SWITCH (rule.name)
+    {
+      CASE "media"    { obj := NEW CSSMediaRule; }
+      CASE "import"   { obj := NEW CSSImportRule; }
+      DEFAULT
+      {
+        IF (rule.name IN supported_atrules)
+          THROW NEW Exception("mismatch");
+        obj := NEW CSSUnknownAtRule;
+      }
+    }
+    IF (obj NOT EXTENDSFROM CSSUnknownAtRule AND rule.name NOT IN supported_atrules)
+      THROW NEW Exception("mismatch");
+  }
+  ELSE
+    obj := NEW CSSStyleRule;
+
+  // Initialize from the parsed rule
+  obj->__SetFromParsed(rule);
+  RETURN obj;
+}
+
+/** Pretty-prints the prelude
+    @param formatting
+    @param is_selector. If true, use ',' to place selectors on separate lines in indenting mode
+    @param indent
+*/
+STRING FUNCTION FormatTokenList(RECORD ARRAY tokens, RECORD formatting, BOOLEAN is_selector, INTEGER indent)
+{
+  BOOLEAN have_noncomment;
+  RECORD ARRAY pre_comments;
+
+  RECORD ARRAY lines := [ [ type := "tokens", tokens := DEFAULT RECORD ARRAY ] ];
+
+  STRING indent_str := formatting.indent ? RepeatText("  ", indent) : "";
+
+  FOREVERY (RECORD token FROM tokens)
+  {
+    IF (token.type IN [ "ws", "ws-comment" ] AND NOT have_noncomment)
+    {
+      IF (token.type = "ws-comment" AND formatting.with_comments)
+        INSERT token INTO pre_comments AT END;
+      CONTINUE;
+    }
+    ELSE
+      have_noncomment := TRUE;
+
+    // Correctly format blocks
+    IF (token.type = "parsed-simpleblock" AND token.associatedtoken = "{")
+    {
+      STRING block_start :=
+          formatting.block_begin_prespacer ||
+          indent_str ||
+          "{" || formatting.block_begin_postspacer;
+
+      STRING content := FormatTokenList(token.value, formatting, FALSE, indent + 1);
+
+      STRING block_end :=
+          (content != "" ? formatting.block_end_prespacer : "") ||
+          indent_str ||
+          "}" || formatting.block_end_postspacer;
+
+      INSERT [ type := "raw", data := block_start || content || block_end ] INTO lines AT END;
+      INSERT [ type := "tokens", tokens := DEFAULT RECORD ARRAY ] INTO lines AT END;
+      CONTINUE;
+    }
+
+    IF (token.type = "," AND is_selector)
+      INSERT [ type := "tokens", tokens := DEFAULT RECORD ARRAY ] INTO lines AT END;
+    INSERT token INTO lines[END-1].tokens AT END;
+
+    IF (token.type = ";" AND formatting.after_semicolon LIKE "*\n*")
+      INSERT [ type := "tokens", tokens := DEFAULT RECORD ARRAY ] INTO lines AT END;
+  }
+
+  STRING result;
+  FOREVERY (RECORD comment FROM pre_comments)
+    result := result || indent_str || comment.value || formatting.selector_lineend;
+
+  FOREVERY (RECORD line FROM lines)
+  {
+    IF (line.type = "raw")
+    {
+      result := result || line.data;
+      CONTINUE;
+    }
+
+    IF (LENGTH(line.tokens) = 0)
+      CONTINUE;
+
+    STRING rawline := SerializeTokenListLine(line.tokens, formatting.with_comments);
+    IF (rawline = "")
+      CONTINUE;
+
+    STRING add_indent := formatting.indent AND is_selector AND #line = 0 AND LENGTH(lines) > 1 ? "  " : "";
+    result := result || indent_str || add_indent || rawline || formatting.selector_lineend;
+  }
+
+  RETURN result;
+}
+
+/** Contains a single CSS style declaration,
+
+    Spec: https://www.w3.org/TR/2013/WD-cssom-20131205/#the-cssstyledeclaration-interface
+*/
+PUBLIC STATIC OBJECTTYPE CSSStyleDeclaration
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /** List of declarations
+      @param name
+      @param tokens
+      @param value List of tokens
+      @param important
+  */
+  RECORD ARRAY pvt_declarations;
+
+  OBJECT pvt_parentrule;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties (spec)
+  //
+
+  // readonly attribute unsigned long length;
+
+  /// List of the declarations
+  PUBLIC PROPERTY rulelist(pvt_declarations, -); //
+
+  /// Returns the result of serializing the declarations.
+  PUBLIC PROPERTY csstext(GetCSSText,-); // attribute DOMString cssText;
+
+  // readonly attribute CSSRule? parentRule;
+  PUBLIC PROPERTY parentrule(pvt_parentrule, -);
+
+  // [TreatNullAs=EmptyString] attribute DOMString cssFloat;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  STRING FUNCTION GetCSSText()
+  {
+    RETURN Detokenize(this->__PrettyPrint(csstext_formatting, 0), "");
+  }
+/*
+    //should be http://dev.w3.org/csswg/cssom/#serialize-a-css-declaration-block
+    STRING ARRAY serializeddecls;
+    FOREVERY (RECORD decl FROM this->pvt_declarations)
+    {
+      // Ignore dummy declarations for white-space purposes
+      IF (decl.only_whitespace)
+        CONTINUE;
+
+      STRING adddecl := decl.name || ": " || SerializeValue(decl.tokens, FALSE);
+      IF (decl.important)
+        adddecl := adddecl || " !important";
+      adddecl := adddecl || ";";
+
+      INSERT adddecl INTO serializeddecls AT END;
+    }
+    RETURN Detokenize(serializeddecls, " ");
+  }
+*/
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO __SetPropertyInternal(STRING name, RECORD ARRAY tokens, STRING priority DEFAULTSTO "")
+  {
+    BOOLEAN important := FALSE;
+    IF(priority != "")
+    {
+      IF(ToUppercase(priority) != "IMPORTANT")
+        RETURN;
+      important := TRUE;
+    }
+
+    name := ToLowercase(name);
+
+    RECORD existing := SELECT *, pos := #pvt_declarations FROM this->pvt_declarations WHERE COLUMN name = VAR name;
+    IF (RecordExists(existing))
+    {
+      IF (existing.important AND NOT important)
+        RETURN;
+      ELSE
+        DELETE FROM this->pvt_declarations AT existing.pos;
+    }
+
+    IF (LENGTH(tokens) = 0)
+      RETURN;
+
+    tokens := [ [ type := "ident", value := name ], [ type := ":" ], [ type := "ws" ] ] CONCAT tokens;
+    IF (important)
+      tokens := tokens CONCAT [ [ type := "ws", value := name ], [ type := "!" ], [ type := "ident", value := "important" ] ];
+
+    INSERT
+        [ name :=           name
+        , tokens :=         tokens
+        , name_idx :=       0
+        , value_idx :=      3
+        , important_idx :=  important ? LENGTH(tokens) - 2 : -1
+        , important :=      important
+        , only_whitespace := FALSE
+        ] INTO this->pvt_declarations AT END;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+/*
+  PUBLIC RECORD ARRAY FUNCTION __GetRecords()
+  {
+    RETURN this->pvt_declarations;
+  }
+*/
+  PUBLIC RECORD ARRAY FUNCTION __GetDeclarations()
+  {
+    RETURN
+        SELECT TEMPORARY value_end_idx := important_idx = -1 ? LENGTH(tokens) : important_idx
+             , name
+             , value :=   SerializeTokenListLine(ArraySlice(tokens, value_idx, value_end_idx - value_idx), FALSE)
+             , important
+          FROM this->pvt_declarations
+         WHERE value_idx != 0;
+  }
+
+  PUBLIC MACRO __SetFromParsed(RECORD block)
+  {
+    OBJECT parser := NEW CSSParser2;
+    IF (NOT CellExists(block, "VALUE"))
+      ABORT(block);
+    parser->InitializeForReparse(block.value);
+
+    RECORD ARRAY declarations := parser->ParseListOfDeclarations();
+
+    // Ignore at-rules
+    this->pvt_declarations :=
+        SELECT *
+          FROM declarations
+         WHERE type = "parsed-declaration";
+
+    // Delete the non-important props for which important props are
+    STRING ARRAY importants := SELECT AS STRING ARRAY name FROM this->pvt_declarations WHERE important;
+    DELETE FROM this->pvt_declarations WHERE name IN importants AND NOT important;
+  }
+
+  PUBLIC STRING ARRAY FUNCTION __PrettyPrint(RECORD formatting, INTEGER indent)
+  {
+    STRING ARRAY result;
+    STRING indent_str := formatting.indent ? RepeatText("  ", indent) : "";
+
+    FOREVERY (RECORD decl FROM this->pvt_declarations)
+    {
+      RECORD ARRAY tokens := decl.tokens;
+
+      // Add comments
+      IF (decl.name_idx > 0)
+        INSERT FormatTokenList(ArraySlice(tokens, 0, decl.name_idx), formatting, FALSE, indent) INTO result AT END;
+      ELSE IF (decl.name_idx = -1)
+      {
+        // whitespace-only?
+        INSERT FormatTokenList(tokens, formatting, FALSE, indent) INTO result AT END;
+        CONTINUE;
+      }
+
+      STRING line := #decl != 0 ? formatting.declaration_separator : ""; "";
+
+      line := line || indent_str || decl.name || ":" || formatting.after_colon;
+
+      IF (LENGTH(tokens) = 0)
+        CONTINUE;
+
+      STRING append;
+      IF (decl.important_idx != -1)
+      {
+        append := " !important";
+        tokens := ArraySlice(tokens, 0, decl.important_idx);
+      }
+
+      line := line || SerializeTokenListLine(ArraySlice(tokens, decl.value_idx), formatting.with_comments) || append || ";" || formatting.after_semicolon;
+
+      INSERT line INTO result AT END;
+    }
+
+    RETURN result;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (spec)
+  //
+
+  // getter DOMString item(unsigned long index);
+  // DOMString getPropertyValue(DOMString property);
+  PUBLIC STRING FUNCTION GetPropertyValue(STRING name)
+  {
+    RECORD bestresult := SELECT * FROM this->GetAllProperties(name) AS vals ORDER BY important DESC, #vals DESC;
+    RETURN RecordExists(bestresult) ? bestresult.value : "";
+  }
+
+  // DOMString getPropertyPriority(DOMString property);
+  PUBLIC STRING FUNCTION GetPropertyPriority(STRING name)
+  {
+    RECORD bestresult := SELECT * FROM this->GetAllProperties(name) AS vals ORDER BY important DESC, #vals DESC;
+    RETURN RecordExists(bestresult) AND bestresult.important ? "important" : "";
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetAllProperties(STRING name)
+  {
+    name := ToLowercase(name);
+    RECORD ARRAY results;
+    FOREVERY(RECORD rec FROM SELECT * FROM this->pvt_declarations WHERE COLUMN name = VAR name)
+    {
+      RECORD ARRAY value_tokens := rec.important_idx = -1
+          ? ArraySlice(rec.tokens, rec.value_idx)
+          : ArraySlice(rec.tokens, rec.important_idx - rec.value_idx);
+
+      INSERT [ value := SerializeTokenListLine(value_tokens, FALSE)
+             , important := rec.important
+             ] INTO results AT END;
+    }
+    RETURN results;
+  }
+
+  // void setProperty(DOMString property, [TreatNullAs=EmptyString] DOMString value, [TreatNullAs=EmptyString] optional DOMString priority = "");
+  // void setPropertyValue(DOMString property, [TreatNullAs=EmptyString] DOMString value);
+  // void setPropertyPriority(DOMString property, [TreatNullAs=EmptyString] DOMString priority);
+  // DOMString removeProperty(DOMString property);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (custom)
+  //
+
+  PUBLIC STRING ARRAY FUNCTION ExtractURLs()
+  {
+    STRING ARRAY urls;
+
+    FOREVERY (RECORD rule FROM this->pvt_declarations)
+      urls := urls CONCAT ExtractURLsFromTokens(rule.tokens);
+
+    RETURN urls;
+  }
+
+  PUBLIC MACRO RewriteURLs(FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+      IF(cellrec.name NOT IN [ "BASEURL", "BASECONTEXT" ])
+        THROW NEW Exception("Unrecognized option '" || cellrec.name || "'");
+
+    STRING baseurl;
+    IF(CellExists(options, "BASEURL"))
+      baseurl := options.baseurl;
+
+    FOREVERY (RECORD rule FROM this->pvt_declarations)
+      this->pvt_declarations[#rule].tokens := RewriteURLsInTokens(rule.tokens, rewriter, options);
+  }
+
+  PUBLIC MACRO SetProperty(STRING name, STRING value, STRING priority DEFAULTSTO "")
+  {
+    OBJECT parser := NEW CSSParser2;
+    RECORD ARRAY tokens := parser->ParseDeclarationValue(value);
+
+    this->__SetPropertyInternal(name, tokens, priority);
+  }
+
+  MACRO NEW(OBJECT parentrule)
+  {
+    this->pvt_parentrule := parentrule;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE CSSRule
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables & number functions
+  //
+
+  INTEGER FUNCTION GetThrow() { THROW NEW Exception("Getting the type of an abstract class"); }
+  INTEGER FUNCTION Get1() { RETURN 1; }
+  INTEGER FUNCTION Get2() { RETURN 2; }
+  INTEGER FUNCTION Get3() { RETURN 3; }
+  INTEGER FUNCTION Get4() { RETURN 4; }
+  INTEGER FUNCTION Get5() { RETURN 5; }
+  INTEGER FUNCTION Get6() { RETURN 6; }
+  INTEGER FUNCTION Get9() { RETURN 9; }
+  INTEGER FUNCTION Get10() { RETURN 10; }
+
+  /// List of the prelude tokens
+  RECORD ARRAY pvt_prelude;
+
+  /// Most deriving rules are at-rules, so the storage is placed here
+  STRING pvt_atname;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  // const unsigned short STYLE_RULE = 1;
+  PUBLIC PROPERTY STYLE_RULE(Get1, -);
+  // const unsigned short CHARSET_RULE = 2;
+  PUBLIC PROPERTY CHARSET_RULE(Get2, -);
+  // const unsigned short IMPORT_RULE = 3;
+  PUBLIC PROPERTY IMPORT_RULE(Get3, -);
+  // const unsigned short MEDIA_RULE = 4;
+  PUBLIC PROPERTY MEDIA_RULE(Get4, -);
+  // const unsigned short FONT_FACE_RULE = 5;
+  PUBLIC PROPERTY FONT_FACE_RULE(Get5, -);
+  // const unsigned short PAGE_RULE = 6;
+  PUBLIC PROPERTY PAGE_RULE(Get6, -);
+  // const unsigned short MARGIN_RULE = 9;
+  PUBLIC PROPERTY MARGIN_RULE(Get9, -);
+  // const unsigned short NAMESPACE_RULE = 10;
+  PUBLIC PROPERTY NAMESPACE_RULE(Get10, -);
+
+  // readonly attribute unsigned short type;
+  PUBLIC PROPERTY type(GetThrow,-); // abstract class
+
+  // attribute DOMString cssText;
+  PUBLIC PROPERTY csstext(GetCSSText, -);
+
+  // readonly attribute CSSRule? parentRule;
+  // readonly attribute CSSStyleSheet? parentStyleSheet;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  STRING FUNCTION GetCSSText()
+  {
+    RETURN Detokenize(this->__PrettyPrint(csstext_formatting, 0), "");
+  }
+
+  MACRO SetCSSText(STRING text)
+  {
+    OBJECT parser := NEW CSSParser2;
+    parser->InitializeForTextParse(text);
+    RECORD rule := parser->ParseRule();
+    IF (NOT this->TestParsedType(rule))
+      THROW NEW Exception("Cannot change the type of a CSS node");
+    this->__SetFromParsed(rule);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BOOLEAN FUNCTION TestParsedType(RECORD rule)
+  {
+    THROW NEW Exception("'TestParsedType' should be overridden in " || GetObjectTypeName(this));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  /** Pretty print the CSS
+      @param formatting
+      @param indent
+  */
+  PUBLIC STRING ARRAY FUNCTION __PrettyPrint(RECORD formatting, INTEGER indent)
+  {
+    THROW NEW Exception("'__PrettyPrint' should be overridden in " || GetObjectTypeName(this));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (custom)
+  //
+
+  /** Initialize the rule from parsed data
+      @param parsed Takes parsed rule data from the CSS parser (type is 'rule' or 'at-rule')
+  */
+  PUBLIC MACRO __SetFromParsed(RECORD parsed)
+  {
+    THROW NEW Exception("'__SetFromParsed' should be overridden in " || GetObjectTypeName(this));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (custom)
+  //
+
+  /** Rewrite all urls in this rule, recursively
+      @param rewriter If set, rewrite URLs by this function. Resolving to absolute urls is done first. Signature: STRING FUNCTION func(STRING)
+      @param options
+      @cell(string) options.baseurl IF set, all relative urls are resolved to absolute urls, computed relative to this url.
+  */
+  PUBLIC MACRO RewriteURLs(FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+  }
+
+  /// Extract all the used urls from the rule
+  PUBLIC STRING ARRAY FUNCTION ExtractURLs()
+  {
+    RETURN DEFAULT STRING ARRAY;
+  }
+
+  /** Rewrites all selectors. Prepends all css style selectors with scope. If the first token in a selector is html or body,
+      replace those with '.htmlclass' or '.bodyclass', respectivly (can't handle both html and body present!)
+  */
+  PUBLIC MACRO RewriteToScope(STRING scope, STRING htmlclass, STRING bodyclass)
+  {
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE CSSUnknownAtRule EXTEND CSSRule
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  RECORD pvt_block;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+/*  UPDATE STRING FUNCTION GetCSSText()
+  {
+    STRING text := "@" || this->pvt_atname || " " || SerializeTokenOrValue(this->pvt_prelude, FALSE);
+    IF (RecordExists(this->pvt_block))
+      RETURN text || "{" || SerializeTokenOrValue(this->pvt_block.value, FALSE) || "}";
+    ELSE
+      RETURN text || ";";
+  }
+*/
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE BOOLEAN FUNCTION TestParsedType(RECORD rule)
+  {
+    RETURN rule.type = "at-rule" AND rule.name NOT IN supported_atrules;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  UPDATE PUBLIC MACRO __SetFromParsed(RECORD rule)
+  {
+    this->pvt_atname := rule.name;
+    this->pvt_prelude := rule.prelude;
+    this->pvt_block := rule.block;
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION __PrettyPrint(RECORD formatting, INTEGER indent)
+  {
+    STRING indent_str:= (formatting.indent ? RepeatText("  ", indent) : "");
+
+    STRING selector := FormatTokenList(this->pvt_prelude, formatting, FALSE, indent);
+    IF (NOT RecordExists(this->pvt_block))
+      RETURN [ selector || ";" ];
+    ELSE
+      RETURN [ selector, FormatTokenList([ this->pvt_block ], formatting, FALSE, indent) ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (custom)
+  //
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION ExtractURLs()
+  {
+    STRING ARRAY urls := ExtractURLsFromTokens(this->pvt_prelude);
+    IF (RecordExists(this->pvt_block))
+      urls := urls CONCAT ExtractURLsFromTokens([ this->pvt_block ]);
+    RETURN urls;
+  }
+
+  UPDATE PUBLIC MACRO RewriteURLs(FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+      IF(cellrec.name NOT IN [ "BASEURL", "BASECONTEXT" ])
+        THROW NEW Exception("Unrecognized option '" || cellrec.name || "'");
+
+    this->pvt_prelude := RewriteURLsInTokens(this->pvt_prelude, rewriter, options);
+    IF (RecordExists(this->pvt_block))
+      this->pvt_block := RewriteURLsInTokens([ this->pvt_block ], rewriter, options)[0];
+  }
+>;
+
+
+/** The CSSStyleRule interface represents a style rule. Spec: https://www.w3.org/TR/cssom/#the-cssstylerule-interface
+*/
+PUBLIC OBJECTTYPE CSSStyleRule EXTEND CSSRule // http://dev.w3.org/csswg/cssom/#cssstylerule
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Storage for style, a CSSStyleDeclaration object
+  OBJECT pvt_style;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties (spec)
+  //
+
+  /// Type: 1 (STYLE_RULE)
+  UPDATE PUBLIC PROPERTY type(Get1,-);
+
+  /// The style attribute returns a CSSStyleDeclaration object for the style rule
+  PUBLIC PROPERTY style(pvt_style, -); // [SameObject, PutForwards=cssText] readonly attribute CSSStyleDeclaration style;
+
+  /** The selectorText attribute, on getting, must return the result of serializing the associated group of selectors.
+      Upon setting, parse the selector
+  */
+  PUBLIC PROPERTY selectorText(GetSelectorText, -); // attribute DOMString selectorText;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties (custom)
+  //
+
+  ///
+  PUBLIC PROPERTY selectorTextWithComments(GetSelectorTextWithComments, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_style := NEW CSSStyleDeclaration(this);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  STRING FUNCTION GetSelectorText()
+  {
+    RETURN SerializeTokenOrValue(this->pvt_prelude, FALSE);
+  }
+
+  STRING FUNCTION GetSelectorTextWithComments()
+  {
+    RETURN SerializeTokenOrValue(this->pvt_prelude, TRUE);
+  }
+
+/*
+  UPDATE STRING FUNCTION GetCSStext()
+  {
+    STRING retval := this->selectorText;
+    IF(retval = "__IMPORT__")
+      RETURN this->style->csstext;
+    ELSE IF(retval LIKE "/*") // starts with comment (might be comment-only rule preceding a @-rule)
+    {
+      // Only whitespace and comments in the prelude? Don't output a block.
+      IF (NOT RecordExists(SELECT FROM this->pvt_prelude WHERE type != "token" OR token.token NOT IN [ "ws", "comment" ]))
+        RETURN this->selectorText;
+    }
+
+    retval := retval || " { ";
+    retval := retval || this->style->csstext;
+    retval := retval || "}";
+    return retval;
+  }
+  RECORD ARRAY FUNCTION GetStyleRecords()
+  {
+    RETURN this->pvt_style->__GetRecords();
+  }
+*/
+
+  /**
+  *  Harescript extension: Parses the CSS prelude (the selector text) into an XPath query which can then be run on a DOM object.
+  *  Note: This parser is completely self-contained, but it DOES rely on the existence of a prelude (which is CSSTokenizer output);
+  *        keep that in mind if you plan to port it to another library: IT WILL BREAK!
+  */
+  STRING FUNCTION GetXPathQuery()
+  {
+    RETURN GetXpathForPrelude(this->pvt_prelude);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE BOOLEAN FUNCTION TestParsedType(RECORD rule)
+  {
+    RETURN rule.type = "rule";
+  }
+
+  UPDATE PUBLIC MACRO __SetFromParsed(RECORD rule)
+  {
+    //DumpValue((SELECT *, token := EncodeJSON(token) FROM rule.prelude),'boxed');
+
+    //We already have the prelude. We desparately need canonicalization of the selectors, but for now we'll just dump
+    //the whole prelude into 'selectors'
+    //DumpValue(rule, 'tree');
+
+    /*Canonicalization rules (only the ones relevant to us): // http://www.damowmow.com/playground/canon.txt
+    - when a length equals zero, any specified units should be removed
+    ? where whitespace may be removed without changing the meaning of the value, it should be removed
+    ? <specific-voice> and <family-name> values should be quoted
+    - double quotes (") rather than single quotes (') should be used for string quotation. Pre-existing double quotes in the string should be escaped.
+    - The quotes in the <uri> form should be removed; any values that are illegal when not quoted should be escaped (parenthesis, comma's, etc.)
+    ? A single space should be added after each comma that is not part of a string, except where that would change the meaning of the value
+    ? Any unnecessary or double escapes should be removed (i.e.: "\[\]" should just be "[]", and \\ should simply be removed)
+    See also: http://dev.w3.org/csswg/cssom/#serializing-css-values
+    This is the *real* spec, and the only authorative document I've been able to find on the subject. It may be useful to implement the whole
+      thing someday, but I'd recommend NOT following it here, but creating a C14N method that will do it when called explicitly. Simply following
+      this spec here would most definitely NOT be what end users expect, and will also make maintenance that much harder (as the CSS after C14N is
+      significantly different from the input CSS in almost every conceivable scenario).
+    */
+
+    this->pvt_prelude := rule.prelude;
+    this->pvt_style->__SetFromParsed(rule.block);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION __PrettyPrint(RECORD formatting, INTEGER indent)
+  {
+    STRING indent_str:= (formatting.indent ? RepeatText("  ", indent) : "");
+
+    //STRING selector := indent_str || SerializeTokenOrValue(this->pvt_prelude, formatting.with_comments);
+    STRING selector := FormatTokenList(this->pvt_prelude, formatting, TRUE, indent);
+
+    STRING block_start :=
+        formatting.block_begin_prespacer ||
+        indent_str ||
+        "{" || formatting.block_begin_postspacer;
+
+    STRING ARRAY decls := this->pvt_style->__PrettyPrint(formatting, indent + 1);
+
+    STRING block_end :=
+        (LENGTH(decls) != 0 ? formatting.block_end_prespacer : "") ||
+        indent_str ||
+        "}" || formatting.block_end_postspacer;
+
+    RETURN [ selector, block_start ] CONCAT decls CONCAT [ block_end ];
+  }
+
+  /// Returns an XPath query that matches the same nodes as the selector of this rule
+  PUBLIC PROPERTY __XPathQuery(GetXPathQuery, -);
+  PUBLIC PROPERTY __DeclarationString(this->pvt_style->csstext, -);
+
+  PUBLIC RECORD ARRAY FUNCTION __GetSelectors()
+  {
+    IF(Substring(this->selectortext, 0, 6) = "@media" OR Substring(this->selectortext, 0, 5) = "@page" OR Substring(this->selectortext, 0, 7) = "@device")
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY selectors := SplitPrelude(this->pvt_prelude);
+    selectors := SELECT prelude
+                      , specificity := GetPreludeSpecificity(TRUE, prelude).specificity
+                   FROM selectors;
+    RETURN selectors;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Obsolete
+  //
+
+/*  /// Returns the type of at-rule this is, empty for normal qualified rule. FIXME: hack, should use the real CSSOM types
+  STRING FUNCTION __GetAtRuleType()
+  {
+    FOREVERY (RECORD token FROM this->pvt_prelude)
+      IF (token.token.token = "at-rule")
+        RETURN token.token.value;
+      ELSE IF (token.token.token != "ws")
+        BREAK;
+    RETURN "";
+  }
+*/
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (spec)
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (custom)
+  //
+
+  UPDATE PUBLIC MACRO RewriteURLs(FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+/*
+    IF (this->__GetAtRuleType() = "media")
+    {
+      OBJECT inner_css := MakeCSSStyleSheet(StringToBlob(this->style->csstext));
+      inner_css->RewriteURLs(rewriter, options);
+      STRING new_inner := BlobToString(inner_css->GetDocumentBlob(FALSE));
+      inner_css := MakeCSSStyleSheet(StringToBlob("@media all { \n" || new_inner || "\n}"));
+      this->pvt_style := inner_css->cssrules->Item(0)->style;
+      RETURN;
+    }
+*/
+    this->pvt_style->RewriteURLs(rewriter, options);
+  }
+
+  /// Extract all the used urls from the rule
+  UPDATE PUBLIC STRING ARRAY FUNCTION ExtractURLs()
+  {
+/*    IF (this->__GetAtRuleType() = "media")
+    {
+      OBJECT inner_css := MakeCSSStyleSheet(StringToBlob(this->style->csstext));
+      RETURN inner_css->ExtractURLs(FALSE);
+    }
+*/
+    RETURN this->pvt_style->ExtractURLs();
+  }
+
+  UPDATE PUBLIC MACRO RewriteToScope(STRING scope, STRING htmlclass, STRING bodyclass)
+  {
+    // @import rules
+    IF(this->selectortext = "__IMPORT__" OR this->csstext NOT LIKE "*{*")
+      RETURN;
+
+    // Tokenize the scope. Add a whitespace after the scope to separate it from the current separator
+    RECORD ARRAY scopetokens;
+    OBJECT tokenizer := NEW CSSTokenizer(scope || " ");
+    WHILE (TRUE)
+    {
+      tokenizer->ConsumeToken();
+      RECORD token := tokenizer->GetToken();
+      IF (token.type = "eof")
+        BREAK;
+      INSERT token INTO scopetokens AT END;
+    }
+
+    // Walk over all prelude tokens
+    BOOLEAN atselectorstart := TRUE;
+    STRING atruletype;
+
+    FOR (INTEGER i := 0; i < LENGTH(this->pvt_prelude); i := i + 1)
+    {
+      RECORD token := this->pvt_prelude[i];
+
+      IF (token.type IN [ "ws", "ws-comment" ])
+        CONTINUE;
+
+      // Is a new selector found?
+      IF (token.type = ",")
+      {
+        atselectorstart := TRUE;
+        CONTINUE;
+      }
+
+      // Ignore whitespace
+      IF (token.type = "ws")
+        CONTINUE;
+
+      // Only rewrite at first token of a selector
+      IF (NOT atselectorstart)
+        CONTINUE;
+
+      // Got the first token
+      atselectorstart := FALSE;
+
+      STRING rewritetoclass;
+      IF (token.type = "ident")
+      {
+        // Schedule rewrite of 'html' and 'body' to .htmlclass resp. .bodyclass
+        IF (ToUppercase(token.csstext) = "HTML")
+          rewritetoclass := htmlclass;
+        ELSE IF (ToUppercase(token.csstext) = "BODY")
+          rewritetoclass := bodyclass;
+      }
+
+      // Insert the scope tokens, correct i for inserted tokens
+      FOREVERY (RECORD scopetoken FROM scopetokens)
+        INSERT scopetoken INTO this->pvt_prelude AT i + #scopetoken;
+      i := i + LENGTH(scopetokens);
+
+      // Need to rewrite html/body to class?
+      IF (rewritetoclass != "")
+      {
+        this->pvt_prelude[i].value := rewritetoclass;
+        this->pvt_prelude[i].csstext := rewritetoclass;
+
+        // Insert a '.' delim token to convert the tag-select to a class-select
+        INSERT
+            [ type :=         "delim"
+            , csstext :=      "."
+            , length :=       1
+            , numbervalue :=  0.0m
+            , startpos :=     token.startpos
+            , unit :=         ""
+            , value :=        "."
+            , valuetype :=    ""
+            , arguments :=    DEFAULT STRING ARRAY
+            ] INTO this->pvt_prelude AT i;
+
+        i := i + 1;
+      }
+    }
+/*
+    //this->pvt_selectorText := SerializeTokenOrValue(this->pvt_prelude, FALSE);
+
+    IF (atruletype = "media")
+    {
+      OBJECT inner_css := MakeCSSStyleSheet(StringToBlob(this->style->csstext));
+      inner_css->RewriteToScope(scope, htmlclass, bodyclass);
+      STRING new_inner := BlobToString(inner_css->GetDocumentBlob(FALSE));
+      inner_css := MakeCSSStyleSheet(StringToBlob("@media all { \n" || new_inner || "\n}"));
+      this->pvt_style := inner_css->cssrules->Item(0)->style;
+    }
+*/
+  }
+>;
+
+/** describs an @import rule. Spec: https://www.w3.org/TR/2013/WD-cssom-20131205/#the-cssimportrule-interface
+*/
+PUBLIC OBJECTTYPE CSSImportRule EXTEND CSSRule
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT pvt_media;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties (spec)
+  //
+
+  UPDATE PUBLIC PROPERTY type(Get3, -);
+
+  UPDATE PUBLIC PROPERTY href(GetHref, -); // readonly attribute DOMString href;
+
+  /** The media attribute must return a MediaList object for the list of media queries specified with the @media rule.
+  */
+  PUBLIC PROPERTY media(pvt_media, -);
+
+  // [SameObject] readonly attribute CSSStyleSheet styleSheet;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    // FIXME: should be coupled to our prelude!
+    this->pvt_media := NEW MediaList(PRIVATE this);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetHref()
+  {
+    ABORT(this->pvt_prelude); // Not implemented yet
+  }
+
+/*
+  UPDATE STRING FUNCTION GetCSSText()
+  {
+    RETURN "@import " || SerializeTokenOrValue(this->pvt_prelude, FALSE) || ";";
+  }
+*/
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE BOOLEAN FUNCTION TestParsedType(RECORD rule)
+  {
+    RETURN rule.type = "at-rule" AND rule.name = "media";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  UPDATE PUBLIC MACRO __SetFromParsed(RECORD rule)
+  {
+    this->pvt_atname := rule.name;
+    this->pvt_prelude := rule.prelude;
+    // Ignoring block here.
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION __PrettyPrint(RECORD formatting, INTEGER indent)
+  {
+    STRING indent_str:= (formatting.indent ? RepeatText("  ", indent) : "");
+
+    STRING selector := indent_str || SerializeTokenOrValue(this->pvt_prelude, formatting.with_comments) || ";";
+    RETURN [ indent_str || selector || formatting.after_semicolon ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (custom)
+  //
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION ExtractURLs()
+  {
+    RETURN ExtractURLsFromTokens(this->pvt_prelude);
+  }
+
+  UPDATE PUBLIC MACRO RewriteURLs(FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+      IF(cellrec.name NOT IN [ "BASEURL", "BASECONTEXT" ])
+        THROW NEW Exception("Unrecognized option '" || cellrec.name || "'");
+
+    STRING baseurl;
+    IF(CellExists(options, "BASEURL"))
+      baseurl := options.baseurl;
+
+    this->pvt_prelude := RewriteURLsInTokens(this->pvt_prelude, rewriter, options);
+  }
+>;
+
+/* https://drafts.csswg.org/css-conditional-3/#cssgroupingrule0
+interface CSSGroupingRule : CSSRule {
+  [SameObject] readonly attribute CSSRuleList cssRules;
+  unsigned long insertRule(DOMString rule, unsigned long index);
+  void deleteRule(unsigned long index);
+}
+*/
+PUBLIC OBJECTTYPE CSSGroupingRule EXTEND CSSRule
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT pvt_cssrules;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties (spec)
+  //
+
+  // readonly attribute CSSRuleList cssRules;
+  PUBLIC PROPERTY cssRules(pvt_cssrules, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_cssrules := NEW CSSRuleList;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+/*
+  UPDATE STRING FUNCTION GetCSSText()
+  {
+    // FIXME: add @<name> as token into the list to serialize
+    STRING text := "@" || this->pvt_atname || " " || SerializeTokenOrValue(this->pvt_prelude, FALSE);
+    text := text || " { ";
+    FOREVERY (OBJECT rule FROM this->pvt_cssrules->GetCurrentRules())
+      text := text || rule->csstext;
+    RETURN text || "}";
+  }
+*/
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  UPDATE PUBLIC MACRO __SetFromParsed(RECORD rule)
+  {
+    /* Roughly, this should follow https://drafts.csswg.org/css-conditional-3/#contents-of
+
+      We use the recommendation from https://www.w3.org/TR/2014/CR-css-syntax-3-20140220/#parser-entry-points
+      to use 'Parse a list of rules'.
+
+      We're not filtering out 'forbidden' rules here, though. Nested @media should be forbidden.
+    */
+    this->pvt_atname := rule.name;
+    this->pvt_prelude := rule.prelude;
+
+    OBJECT parser := NEW CSSParser2;
+    parser->InitializeForReparse(rule.block.value);
+
+    OBJECT ARRAY newrules;
+    RECORD ARRAY rules := parser->ParseListOfRules();
+    FOREVERY (RECORD subrule FROM rules)
+    {
+      OBJECT obj := ConstructCSSRule(subrule);
+      IF (ObjectExists(obj))
+        INSERT obj INTO newrules AT END;
+    }
+
+    this->pvt_cssrules->__setrules(newrules);
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION __PrettyPrint(RECORD formatting, INTEGER indent)
+  {
+    STRING indent_str := formatting.indent ? RepeatText("  ", indent) : "";
+
+    STRING prelude := FormatTokenList(this->pvt_prelude, formatting, FALSE, indent);
+
+    STRING block_start :=
+        formatting.block_begin_prespacer ||
+        indent_str ||
+        "{" || formatting.block_begin_postspacer;
+
+    STRING ARRAY rules := this->pvt_cssrules->__PrettyPrint(formatting, indent + 1);
+
+    STRING block_end :=
+        (LENGTH(rules) != 0 ? formatting.block_end_prespacer : "") ||
+        indent_str ||
+        "}" || formatting.block_end_postspacer;
+
+    RETURN [ prelude, block_start ] CONCAT rules CONCAT [ block_end ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (spec)
+  //
+
+  /// Insert a rule at the specified index
+  PUBLIC MACRO InsertRule(OBJECT rule, INTEGER idx)
+  {
+    IF (idx < 0 OR idx >= LENGTH(this->pvt_cssrules))
+      THROW NEW CSSException("INDEX_SIZE_ERR", "Invalid index for CSS rule insertion");
+
+    // addme: remove from the old location.
+    INSERT rule INTO this->pvt_cssrules AT idx;
+  }
+
+  /// Delete a rule at the specified index
+  PUBLIC MACRO DeleteRule(INTEGER idx)
+  {
+    IF (idx < 0 OR idx >= LENGTH(this->pvt_cssrules) - 1)
+      THROW NEW CSSException("INDEX_SIZE_ERR", "Invalid index for CSS rule deletion");
+
+    DELETE FROM this->pvt_cssrules AT idx;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (custom)
+  //
+
+  UPDATE PUBLIC MACRO RewriteURLs(FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->pvt_cssrules->RewriteURLs(rewriter, options);
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION ExtractURLs()
+  {
+    RETURN this->pvt_cssrules->ExtractURLs();
+  }
+
+  UPDATE PUBLIC MACRO RewriteToScope(STRING scope, STRING htmlclass, STRING bodyclass)
+  {
+    this->pvt_cssrules->RewriteToScope(scope, htmlclass, bodyclass);
+  }
+>;
+
+/** CSSConditionRule: abstract class. See: https://drafts.csswg.org/css-conditional-3/#cssconditionrule
+*/
+PUBLIC OBJECTTYPE CSSConditionRule EXTEND CSSGroupingRule
+< // ---------------------------------------------------------------------------
+  //
+  // Public properties (spec)
+  //
+
+  /** The conditionText attribute represents the condition of the rule. Since what this condition does
+      varies between the derived interfaces of CSSConditionRule, those derived interfaces may specify different
+      behavior for this attribute (see, for example, CSSMediaRule below).
+  */
+  PUBLIC PROPERTY conditionText(GetConditionText, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  STRING FUNCTION GetConditionText()
+  {
+    THROW NEW Exception("Not implemented yet");
+  }
+>;
+
+/*
+interface CSSMediaRule : CSSGroupingRule {
+  [SameObject, PutForwards=mediaText] readonly attribute MediaList media;
+}
+*/
+PUBLIC OBJECTTYPE CSSMediaRule EXTEND CSSGroupingRule
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Offset within prelude where media declaration begins
+  INTEGER pvt_prelude_media_idx;
+
+  OBJECT pvt_media;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties (spec)
+  //
+
+  UPDATE PUBLIC PROPERTY type(Get4, -);
+
+  /** The media attribute must return a MediaList object for the list of media queries specified with the @media rule.
+  */
+  PUBLIC PROPERTY media(pvt_media, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    // FIXME: should be coupled to our prelude!
+    this->pvt_media := NEW MediaList(PRIVATE this);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE BOOLEAN FUNCTION TestParsedType(RECORD rule)
+  {
+    RETURN rule.type = "at-rule" AND rule.name = "media";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  UPDATE PUBLIC MACRO __SetFromParsed(RECORD rule)
+  {
+    CSSGroupingRule::__SetFromParsed(rule);
+
+    BOOLEAN found_prelude;
+    INTEGER i;
+    FOR (; i < LENGTH(this->pvt_prelude); i := i + 1)
+    {
+      RECORD token := this->pvt_prelude[i];
+      IF (token.type = "at-rule")
+        found_prelude := TRUE;
+      ELSE IF (found_prelude AND token.type != "ws")
+        BREAK;
+    }
+    this->pvt_prelude_media_idx := i;
+
+    this->pvt_media->__SetFromParsed(ArraySlice(this->pvt_prelude, this->pvt_prelude_media_idx));
+  }
+
+>;
+
+/*
+[ArrayClass]
+interface MediaList {
+  [TreatNullAs=EmptyString] stringifier attribute DOMString mediaText;
+  readonly attribute unsigned long length;
+  getter DOMString? item(unsigned long index);
+  void appendMedium(DOMString medium);
+  void deleteMedium(DOMString medium);
+}
+*/
+PUBLIC STATIC OBJECTTYPE MediaList
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Used to store token list updates
+  OBJECT pvt_parentrule;
+
+  /// List of tokens
+  RECORD ARRAY pvt_tokens;
+
+  OBJECT ARRAY pvt_mediaqueries;
+  // valid media: [ 'all', 'print', 'screen', 'speech', 'tty', 'tv', 'projection', 'handheld', 'braille', 'embossed', 'aural' ];
+  // note that the 'aural' media type is already deprecated, but needs to be implemented anyway because all major browsers still
+  // support it and some vendors actually use it (or so W3C claims).
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties (spec)
+  //
+
+  PUBLIC PROPERTY mediaText(GetMediaText, -); // stringifier attribute DOMString mediaText;
+
+  // readonly attribute unsigned long length;
+  PUBLIC PROPERTY Length(GetLength, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT parentrule)
+  {
+    this->pvt_parentrule := parentrule;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  INTEGER FUNCTION GetLength()
+  {
+    RETURN Length(this->pvt_mediaqueries);
+  }
+
+  STRING FUNCTION GetMediaText()
+  {
+    RETURN SerializeTokenOrValue(this->pvt_tokens, FALSE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  PUBLIC MACRO __SetFromParsed(RECORD ARRAY tokens)
+  {
+    this->pvt_tokens := tokens;
+    // ADDME: Should parse mediaqueries here (and store tokens in them, instead of here)
+  }
+
+/*
+
+  PUBLIC OBJECT FUNCTION Init(STRING text)
+  {
+    this->mediaText := text;
+    FOREVERY(STRING querytext FROM Tokenize(this->mediaText, ','))
+    {
+      OBJECT newmediaquery := NEW MediaQuery();
+      querytext := TrimWhitespace(querytext);
+      newmediaquery -> queryText := querytext;
+      STRING ARRAY parts := Tokenize(querytext, '[^\A-Za-z]');
+      IF(Length(parts) = 1)
+      {
+        newmediaquery -> type := querytext;
+        newmediaquery -> negated := querytext NOT IN [ 'all', 'print', 'screen', 'speech', 'tty', 'tv', 'projection', 'handheld', 'braille', 'embossed', 'aural' ];
+      }
+      ELSE
+      {
+        // parse the rest of the query...
+        INTEGER typeident := 0;
+        IF(ToLowerCase(TrimWhitespace(parts[0])) = 'not')
+        {
+          // An explicitly negated media query:
+          newmediaquery -> type := TrimWhitespace(parts[1]);
+          newmediaquery -> negated := TRUE;
+        }
+        ELSE
+        {
+          // Not explicitly negated, may still be invalid though:
+          newmediaquery -> type := TrimWhitespace(parts[0]);
+          newmediaquery -> negated := TrimWhitespace(parts[0]) NOT IN [ 'all', 'print', 'screen', 'speech', 'tty', 'tv', 'projection', 'handheld', 'braille', 'embossed', 'aural' ];
+        }
+        STRING ARRAY features := Tokenize(querytext, 'and');
+        FOREVERY(STRING feature FROM features)
+        {
+          //Skip the first part, which is just the media type declaration:
+          IF(feature = features[0])
+            CONTINUE;
+
+          STRING ARRAY featureparts := Tokenize(feature, ':');
+          IF(Length(featureparts) = 1)
+          {
+            // Evaluate in boolean context?
+            featureparts := Tokenize(feature, ' ');
+            IF(Length(featureparts) = 1)
+            {
+              // Boolean context
+              INSERT [ name := featureparts[0], compare := DEFAULT STRING, value := DEFAULT STRING, context := "BOOLEAN" ] INTO newmediaquery -> features AT END;
+            }
+            ELSE
+            {
+              // Range context
+              INSERT [ name := featureparts[0], compare := featureparts[1], value := featureparts[2], context := "RANGE" ] INTO newmediaquery -> features AT END;
+            }
+          }
+          ELSE
+          {
+            // Discrete context
+            INSERT [ name := featureparts[0], compare := ":", value := featureparts[1], context := "DISCRETE" ] INTO newmediaquery -> features AT END;
+          }
+        }
+      }
+      INSERT newmediaquery INTO this -> pvt_mediaqueries AT END;
+    }
+    RETURN this;
+  }
+*/
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (spec)
+  //
+
+  // getter DOMString? item(unsigned long index);
+  PUBLIC OBJECT FUNCTION Item(INTEGER idx)
+  {
+    IF(idx<0 OR idx>=Length(this->pvt_mediaqueries))
+      RETURN DEFAULT OBJECT;
+    RETURN this->pvt_mediaqueries[idx];
+  }
+
+  // void appendMedium(DOMString medium);
+  PUBLIC MACRO appendMedium(STRING medium)
+  {
+    //stub
+  }
+  // void deleteMedium(DOMString medium);
+  PUBLIC MACRO deleteMedium(STRING medium)
+  {
+    //stub
+  }
+>;
+
+/*
+No "real" spec exists for this one, so I wrote it from scratch piecing together the bits of info from the surrounding specs.
+*/
+PUBLIC STATIC OBJECTTYPE MediaQuery
+<
+  PUBLIC STRING queryText;
+  PUBLIC BOOLEAN negated;
+  PUBLIC STRING type;
+  PUBLIC RECORD ARRAY features;// [ STRING name, STRING compare, STRING value, STRING context ]
+
+  PUBLIC STRING FUNCTION Serialize()
+  {
+    //Check if the given type is valid at all:
+    IF(this->type NOT IN [ 'all', 'print', 'screen', 'speech', 'tty', 'tv', 'projection', 'handheld', 'braille', 'embossed', 'aural' ])
+      this->negated := TRUE;// Still return it, as per spec; it will be ignored anyway.
+    STRING s;
+    IF(this->negated) s := s || "not ";
+    s := s || ToLowerCase(EncodeCSSString(this->type));
+    IF(Length(this->features) = 0)
+      RETURN s;
+    IF(ToLowerCase(this->type) != "all" OR this->negated)
+      s := s || " and ";
+    //Some sort of lexical ordering is going to be needed here...
+    IF(Length(this->features) > 1)
+      this->features := SELECT * FROM this->features ORDER BY value;
+    //TODO: Check if our parser may already be able to do that!
+    //SELECT * FROM this->features ORDER BY features.nothing;
+    INTEGER i := 0;
+    FOREVERY(RECORD feature FROM this->features)
+    {
+      s := s || "(" || ToLowerCase(EncodeCSSString(feature.name));
+      IF(feature.value != "")
+        s := s || feature.compare || ToLowerCase(EncodeCSSString(feature.value));
+      s := s || ")";
+      IF(i < Length(this->features))
+        s := s || " and ";
+      i := i + 1;
+    }
+    RETURN s;
+  }
+>;
+
+/** Contains a list of rules
+
+    Spec: https://www.w3.org/TR/2013/WD-cssom-20131205/#the-cssrulelist-interface
+*/
+PUBLIC STATIC OBJECTTYPE CSSRuleList
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT ARRAY pvt_rules;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties (spec)
+  //
+
+  //readonly attribute unsigned long length;
+  PUBLIC PROPERTY length(GetLength, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  INTEGER FUNCTION GetLength()
+  {
+    RETURN Length(this->pvt_rules);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  /** obsolete? */
+  PUBLIC MACRO __setrules(OBJECT ARRAY rules)
+  {
+    this->pvt_rules := rules;
+  }
+
+  PUBLIC STRING ARRAY FUNCTION __PrettyPrint(RECORD formatting, INTEGER indent)
+  {
+    STRING ARRAY result;
+    FOREVERY (OBJECT rule FROM this->pvt_rules)
+    {
+      IF (#rule != 0)
+        INSERT formatting.rule_separator INTO result AT END;
+      result := result CONCAT rule->__PrettyPrint(formatting, indent);
+    }
+
+    RETURN result;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (spec)
+  //
+
+  //getter CSSRule? item(unsigned long index);
+  PUBLIC OBJECT FUNCTION Item(INTEGER idx)
+  {
+    IF (idx < 0 OR idx >= Length(this->pvt_rules))
+      RETURN DEFAULT OBJECT;
+
+    RETURN this->pvt_rules[idx];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (custom)
+  //
+
+  PUBLIC MACRO RewriteURLs(FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    FOREVERY(OBJECT rule FROM this->pvt_rules)
+      rule->RewriteURLs(rewriter, options);
+  }
+
+  PUBLIC STRING ARRAY FUNCTION ExtractURLs()
+  {
+    STRING ARRAY allurls;
+    FOREVERY(OBJECT rule FROM this->pvt_rules)
+      allurls := allurls CONCAT rule->ExtractURLs();
+    RETURN allurls;
+  }
+
+  PUBLIC MACRO RewriteToScope(STRING scope, STRING htmlclass, STRING bodyclass)
+  {
+    FOREVERY(OBJECT rule FROM this->pvt_rules)
+     rule->RewriteToScope(scope, htmlclass, bodyclass);
+  }
+
+  PUBLIC MACRO DeleteRule(INTEGER idx)
+  {
+    DELETE FROM this->pvt_rules AT idx;
+  }
+
+  /** @short Get an array of all rules
+      @spec HareScript extension
+  */
+  PUBLIC OBJECT ARRAY FUNCTION GetCurrentRules()
+  {
+    RETURN this->pvt_rules;
+  }
+
+  /** @short Look up rules applied to the selector
+      @spec HareScript extension
+  */
+  PUBLIC OBJECT ARRAY FUNCTION GetRulesForSelector(STRING findselector)
+  {
+    findselector := NormalizeSelector(findselector);
+
+    OBJECT ARRAY matches;
+    FOREVERY(OBJECT rule FROM this->pvt_rules)
+    {
+      IF (rule NOT EXTENDSFROM CSSStyleRule)
+        CONTINUE;
+      FOREVERY(RECORD selector FROM rule->__GetSelectors())
+      {
+        STRING finalselector := SerializeTokenOrValue(selector.prelude, FALSE);
+        IF(finalselector = findselector)
+          INSERT rule INTO matches AT END;
+      }
+    }
+
+    RETURN matches;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE StyleSheet
+<
+  // readonly attribute DOMString type;
+  // readonly attribute DOMString? href;
+  // readonly attribute (Element or ProcessingInstruction)? ownerNode;
+  // readonly attribute StyleSheet? parentStyleSheet;
+  // readonly attribute DOMString? title;
+  // [SameObject, PutForwards=mediaText] readonly attribute MediaList media;
+  // attribute boolean disabled;
+>;
+
+PUBLIC OBJECTTYPE CSSStyleSheet EXTEND StyleSheet
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT pvt_cssrules;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties (spec)
+  //
+
+//  readonly attribute CSSRule? ownerRule;
+//  [SameObject] readonly attribute CSSRuleList cssRules;
+  PUBLIC PROPERTY cssrules(pvt_cssrules, -);
+//  unsigned long insertRule(DOMString rule, unsigned long index);
+//  void deleteRule(unsigned long index);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_cssrules := NEW CSSRuleList;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API (custom)
+  //
+
+  PUBLIC STRING ARRAY FUNCTION ExtractURLs(BOOLEAN uniqueonly)
+  {
+    STRING ARRAY allurls := this->pvt_cssrules->ExtractURLs();
+    IF(NOT uniqueonly)
+      RETURN allurls;
+
+    STRING ARRAY uniques;
+    FOREVERY(STRING url FROM allurls)
+    {
+      IF(NOT (url IN uniques))
+        INSERT url INTO uniques AT END;
+    }
+    RETURN uniques;
+  }
+
+  PUBLIC MACRO RewriteURLs(FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->pvt_cssrules->RewriteURLs(rewriter, options);
+  }
+
+  /** @param options.onrewrite Custom rewriter
+      @param options.mostspecificfirst Execute most specific rewrites first */
+  PUBLIC OBJECT FUNCTION RewriteDomStyles(OBJECT dom, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+//    BOOLEAN destructive := CellExists(options,'destructive') AND options.destructive;
+//    BOOLEAN aggressive := CellExists(options,'aggressive') AND options.aggressive;
+    MACRO PTR onrewrite := CellExists(options,'onrewrite') AND options.onrewrite != DEFAULT MACRO PTR ? options.onrewrite : DEFAULT MACRO PTR;
+    //our own rewriter expects the ordering to be reversed
+    BOOLEAN mostspecificfirst := onrewrite = DEFAULT MACRO PTR OR (CellExists(options,'mostspecificfirst') AND options.mostspecificfirst);
+    OBJECT query := dom->CreateXPathQuery();
+    INTEGER ARRAY removeafter;
+
+    //Figure out the rules to apply. We'll need to split them by selector and determine each's selectivity
+    RECORD ARRAY splitapplyrules;
+
+    FOREVERY(OBJECT rule FROM this->cssrules->GetCurrentRules())
+    {
+      // We'll ignore document and media rules, don't have info about which media we have
+      IF (rule NOT EXTENDSFROM CSSStyleRule)
+        CONTINUE;
+
+      FOREVERY(RECORD selector FROM rule->__GetSelectors())
+      {
+        INSERT [ rule := rule
+               , selector := selector
+               ] INTO splitapplyrules AT END;
+      }
+    }
+
+//    DumpValue(splitapplyrules, "tree:5");
+
+    IF(mostspecificfirst)
+      splitapplyrules := SELECT * FROM splitapplyrules ORDER BY selector.specificity DESC;
+    ELSE
+      splitapplyrules := SELECT * FROM splitapplyrules ORDER BY selector.specificity;
+
+    FOREVERY(RECORD rule FROM splitapplyrules)
+    {
+      STRING XPath := GetXpathForPrelude(rule.selector.prelude);
+      OBJECT nodelist;
+      TRY
+      {
+        nodelist := query->ExecuteQuery(Xpath);
+      }
+      CATCH(OBJECT e)
+      {
+        //THROW NEW Exception(`Failed to execute selector '${SerializeTokenOrValue(rule.selector.prelude, FALSE)}' translated to '${xpath}': ${e->what}`);\
+        CONTINUE; //ignore rules we can't parse
+      }
+      //Print(xpath || " " || nodelist->length || "\n");
+      INTEGER highest;
+
+      FOR(INTEGER i := 0; i < nodelist->Length; i := i + 1)
+      {
+        IF(onrewrite != DEFAULT MACRO PTR)
+          onrewrite(rule.rule, nodelist->item(i));
+        ELSE
+          RewriteAsStyleAttribute(rule.rule, nodelist->item(i));
+
+        //PRINT(nodelist->item(0)->getAttribute('style') || "\n");
+        IF(#rule NOT IN removeafter)
+          INSERT #rule INTO removeafter AT END;
+      }
+    }
+
+    RETURN dom;
+  }
+
+
+  /** HareScript extension: rewrite this CSS file to be scoped to the specific classes */
+  PUBLIC MACRO RewriteToScope(STRING scope, STRING htmlclass, STRING bodyclass, STRING baseurl DEFAULTSTO "")
+  {
+    FOREVERY(OBJECT rule FROM this->cssrules->GetCurrentRules())
+      rule->RewriteToScope(scope, htmlclass, bodyclass);
+
+    IF(NOT IsDefaultValue(baseurl))
+      this->RewriteURLs(PTR this->MakeAbsoluteURL, [ baseurl := baseurl ]);
+
+    //ADDME iterate through @media blocks and friends
+  }
+
+  STRING FUNCTION MakeAbsoluteURL(STRING url)
+  {
+    IF(Substring(url, 0, 2) = '..')
+      RETURN Substring(url, 2, Length(url));
+    ELSE IF(Substring(url, 0, 1) = '.')
+      RETURN Substring(url, 1, Length(url));
+    RETURN url;
+  }
+
+  PUBLIC BLOB FUNCTION GetDocumentBlob(BOOLEAN formatted)
+  {
+    RECORD formatting :=
+        [ with_comments :=          TRUE
+        , indent :=                 formatted
+        , block_begin_prespacer :=  formatted ? "" : " "
+        , block_begin_postspacer := formatted ? "\n" : " "
+        , block_end_prespacer :=    formatted ? "" : " "
+        , block_end_postspacer :=   formatted ? "\n" : ""
+        , after_colon :=            formatted ? " " : " "
+        , after_semicolon :=        formatted ? "\n" : ""
+        , declaration_separator :=  ""
+        , rule_separator :=         formatted ? "\n" : " "
+        , selector_lineend :=       formatted ? "\n" : ""
+        ];
+
+    INTEGER stream := CreateStream();
+
+    STRING ARRAY parts := this->pvt_cssrules->__PrettyPrint(formatting, 0);
+    FOREVERY (STRING str FROM parts)
+      PrintTo(stream, str);
+
+    RETURN MakeBlobFromStream(stream);
+/*
+    IF(formatted)
+    {
+      INTEGER numrules := Length(this->cssrules->GetCurrentRules());
+      FOREVERY(OBJECT rule FROM this->cssrules->GetCurrentRules())
+      {
+        PrintTo(str, rule->csstext || "\n");
+      }
+    }
+    ELSE
+    {
+      FOREVERY(OBJECT rule FROM this->cssrules->GetCurrentRules())
+      {
+        PrintTo(str, rule->csstext);
+      }
+    }
+    //DumpValue(this->cssrules, 'tree');
+    RETURN MakeBlobFromStream(str);
+*/
+  }
+
+  PUBLIC MACRO PrintTo(INTEGER stream, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING postrule, prerule, postdecl, predecl, preacc, postacc;
+    BOOLEAN newlines, indent := FALSE;
+    IF(CellExists(options, 'newlines'))
+    {
+      postrule := "\n";
+      postdecl := "\n";
+      postacc := "\n";
+      preacc := "\n";
+      newlines := TRUE;
+    }
+    IF(CellExists(options, 'indent'))
+    {
+      //preacc := " ";
+      predecl := "  ";
+      indent := TRUE;
+    }
+
+    FOREVERY(OBJECT rule FROM this->cssrules->GetCurrentRules())
+    {
+      STRING last;
+      BOOLEAN start := TRUE;
+
+      IF(NOT RecordExists(SELECT * FROM rule->pvt_prelude WHERE type != "token") OR RecordExists(SELECT * FROM rule->pvt_prelude WHERE type = "simpleblock" AND associatedtoken = "["))
+      {
+        last := "ws";
+        FOREVERY(RECORD part FROM rule->prelude)
+        {
+          // Need to emit deferred whitespace?
+          IF (last = "deferred-ws" AND (part.type != "token" OR part.token.token NOT IN [ "ws", "," ]))
+            PrintTo(stream, " ");
+
+          IF(part.type = "simpleblock")
+          {
+            // Probably an '['
+            PrintTo(stream, "[");
+            FOREVERY(RECORD subpart FROM part.value)
+              IF(CellExists(subpart, "token"))
+                PrintTo(stream, subpart.token.value);
+
+            PrintTo(stream, "]");
+            CONTINUE;
+          }
+
+          STRING nextlast := part.token.token;
+          SWITCH(part.token.token)
+          {
+            CASE "ws"
+            {
+              IF(part.token.type = "comment")
+              {
+                IF (last = "deferred-ws")
+                  PrintTo(stream, " ");
+
+                PrintTo(stream, TrimWhitespace(part.token.value) || "\n");
+              }
+              ELSE IF (last NOT IN [ "ws", "," ])
+              {
+                // Schedule deferred whitespace to emit at next token that doesn't start with whitespace
+                nextlast := "deferred-ws";
+              }
+            }
+            CASE "ident", "delim"
+            {
+              IF(start AND rule->selectortext LIKE "*,*")
+                PrintTo(stream, "  ");
+
+              PrintTo(stream, TrimWhitespace(part.token.value));
+              start := FALSE;
+            }
+            CASE ","
+            {
+              PrintTo(stream, "\n, ");
+            }
+            CASE "#"
+            {
+              PrintTo(stream, part.token.token || part.token.value);
+            }
+            CASE "function"
+            {
+              PrintTo(stream, part.token.token || "(" || Detokenize(part.token.arguments, ", ") || ")");
+            }
+            DEFAULT
+            {
+              IF(start AND rule->selectortext LIKE "*,*")
+                PrintTo(stream, "  ");
+
+              PrintTo(stream, TrimWhitespace(part.token.token));
+            }
+          }
+          last := nextlast;
+        }
+      }
+      ELSE
+      {
+        IF(RecordExists(SELECT * FROM rule->prelude WHERE token.token = "at-rule"))
+        {
+          //got one, print it:
+          PrintTo(stream, Substitute(Substitute(rule->selectortextwithcomments, "*/ ", "*/"), "*/", "*/\n") || "\n{\n  ");
+          // FIXME: Create a nice pretty-print method for media query rule blocks; you're probably going to need the existing parser again, or at the very least use the string parser.
+          //STRING decl := rule->__Declarationstring;
+          //decl := Substitute(decl, "\n", "\n  ");
+          //decl := Substitute(decl, ";", ";\n  ");
+          //decl := Substitute(decl, "}", "}\n\n  ");
+          //decl := Substitute(decl, "{ ", "\n  {\n    ");
+          PrintTo(stream, TrimWhitespace(rule->__Declarationstring) || "\n");
+          PrintTo(stream, "}\n\n");
+          last := "ws";
+          CONTINUE;
+        }
+      }
+
+      PrintTo(stream, preacc || "{" || postacc);
+      STRING ARRAY declarations := Tokenize(rule->__Declarationstring, ";");
+      DELETE FROM declarations AT END-1;
+      FOREVERY(STRING declaration FROM declarations)
+      {
+        PrintTo(stream, predecl || TrimWhitespace(declaration) || ";" || postdecl);
+      }
+      PrintTo(stream, "}" || postacc || postacc);
+
+      IF (postacc != "")
+        last := "ws";
+    }
+  }
+>;
+
+PUBLIC OBJECT FUNCTION MakeCSSStyleSheet(BLOB stylesheet, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  BOOLEAN verbose := CellExists(options,'verbose') AND options.verbose;
+  OBJECT parser := NEW CSSParser2;
+  parser->InitializeForTextParse(BlobToString(stylesheet), verbose);
+  RECORD ARRAY rules := parser->ParseStylesheet();
+
+  OBJECT outsheet := NEW CSSStyleSheet;
+  OBJECT ARRAY outrules;
+
+  FOREVERY(RECORD rule FROM rules)
+  {
+    OBJECT ruleobj := ConstructCSSRule(rule);
+    INSERT ruleobj INTO outrules AT END;
+  }
+
+  outsheet->cssrules->__setrules(outrules);
+  RETURN outsheet;
+}
+
+PUBLIC STRING FUNCTION RewriteCSSSelectorToXpath(STRING inselector)
+{
+  OBJECT cssom := MakeCSSStyleSheet(StringToBlob(inselector || " { test:1; }"));
+  RETURN cssom->cssrules->item(0)->__XPathQuery;
+}
+
+PUBLIC OBJECT FUNCTION ParseInlineStyleAttribute(STRING style)
+{
+  OBJECT obj := NEW CSSStyleDeclaration(DEFAULT OBJECT);
+
+  OBJECT parser := NEW CSSParser2;
+  parser->InitializeForTextParse(`a { ${style} }`);
+  RECORD rulerec := parser->ParseRule();
+  IF (RecordExists(rulerec))
+    obj->__SetFromParsed(rulerec.block);
+
+  RETURN obj;
+}
+
+///Direct hooks for RTE and friends. These could be realigned to proper parsers/rewrites as they're done (or perhaphs the calls moved out of css.whlib again once we have a beautiful CSSOM API)

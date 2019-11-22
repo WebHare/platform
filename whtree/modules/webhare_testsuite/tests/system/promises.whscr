@@ -1,0 +1,1162 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
+
+
+BOOLEAN print_testname := FALSE;
+
+RECORD keeper;
+INTEGER curtest;
+INTEGER highestdone;
+
+BOOLEAN FUNCTION Wait(INTEGER delay, BOOLEAN require_done DEFAULTSTO FALSE)
+{
+  DATETIME now := GetCurrentDateTime();
+  DATETIME until := AddTimeToDate(delay, now);
+
+  WHILE (now <= until AND highestdone < curtest)
+  {
+    WaitUntil([ callbacks := TRUE ], until);
+    now := GetCurrentDateTime();
+  }
+
+  IF (require_done)
+  {
+    IF (highestdone < curtest)
+      ABORT("test timeout");
+    // Wait 50 msecs to catch delayed stuff
+    Wait(200, FALSE);
+  }
+
+  RETURN now < until;
+}
+
+MACRO WaitUntilDone()
+{
+  IF (NOT Wait(2000, TRUE))
+    ABORT("Test timeout\n");
+}
+
+MACRO SetValue(VARIANT _value, STRING name DEFAULTSTO "VALUE") { keeper := CellInsert(CellDelete(keeper, name), name, _value); }
+VARIANT FUNCTION GetValue(STRING name DEFAULTSTO "VALUE") { RETURN GetCell(keeper, name); }
+MACRO IncrementValue(STRING name DEFAULTSTO "VALUE")
+{ keeper := CellInsert(CellDelete(keeper, name), name, GetCell(keeper, name) + 1);
+//PRINT(AnyToString(keeper, "tree"));
+}
+MACRO AssertValue(VARIANT _value, STRING name DEFAULTSTO "VALUE", STRING why DEFAULTSTO "")
+{ IF (AnyToString(GetCell(keeper, name), "tree") != AnyToString(_value, "tree")) ABORT("Assertion failed: value = " || (AnyToString(_value, "tree")) || "\ngot: " || AnyToString(GetCell(keeper, name), "tree")); }
+MACRO AssertParam(VARIANT param, VARIANT _value, STRING why DEFAULTSTO "")
+{
+  IF (TypeID(_value) = TypeID(OBJECT) ? param != _value : EncodeHSON(param) != EncodeHSON(_value))
+    ABORT("Assertion failed: param = " || (AnyToString(_value, "tree")) || "\ngot: " || AnyToString(param, "tree"));
+}
+MACRO PushValue(VARIANT _value, STRING name DEFAULTSTO "VALUE") { VARIANT arr := GetCell(keeper, name); INSERT _value INTO arr AT END; keeper := CellUpdate(keeper, name, arr); }
+
+MACRO DoNothing(VARIANT d) { }
+MACRO CallThreeCasesStuff(RECORD d, STRING name, INTEGER msecs)
+{
+  IF (msecs != 0)
+    Delay(msecs, PTR CallThreeCasesStuff(d, name, 0));
+  ELSE
+    GetCell(d, name)(d.value);
+}
+RECORD FUNCTION GetTestPromise(STRING type, VARIANT value DEFAULTSTO FALSE)
+{
+  IF (type = "resolved") RETURN [ promise := CreateResolvedPromise(value) ];
+  IF (type = "rejected") RETURN [ promise := CreateRejectedPromise(value) ];
+  IF (type = "deferred") RETURN CellInsert(CreateDeferredPromise(), "VALUE", value);
+  ABORT(type);
+}
+
+RECORD ARRAY testFulFilled :=
+    [ [ test :=         "already-fulfilled"
+      , GetPromise :=   PTR GetTestPromise("resolved", #1)
+      , BeforeWait :=   PTR DoNothing
+      ]
+    , [ test :=         "immediately-fulfilled"
+      , GetPromise :=   PTR GetTestPromise("deferred", #1)
+      , BeforeWait :=   PTR CallThreeCasesStuff(#1, "resolve", 0)
+      ]
+    , [ test :=         "eventually-fulfilled"
+      , GetPromise :=   PTR GetTestPromise("deferred", #1)
+      , BeforeWait :=   PTR CallThreeCasesStuff(#1, "resolve", 50)
+      ]
+    ];
+
+RECORD ARRAY testRejected :=
+    [ [ test :=         "already-rejected"
+      , GetPromise :=   PTR GetTestPromise("rejected", #1)
+      , BeforeWait :=   PTR DoNothing
+      ]
+    , [ test :=         "immediately-rejected"
+      , GetPromise :=   PTR GetTestPromise("deferred", #1)
+      , BeforeWait :=   PTR CallThreeCasesStuff(#1, "reject", 0)
+      ]
+    , [ test :=         "eventually-rejected"
+      , GetPromise :=   PTR GetTestPromise("deferred", #1)
+      , BeforeWait :=   PTR CallThreeCasesStuff(#1, "reject", 50)
+      ]
+    ];
+
+OBJECT sentinel_exception, sentinel2_exception, other_exception;
+
+RECORD dummy := [ dummy := "dummy" ];
+OBJECT dummy_e := NEW Exception("dummy_e");
+RECORD other := [ other := "other" ];
+RECORD sentinel := [ sentinel := "sentinel" ];
+RECORD sentinel2 := [ sentinel2 := "sentinel2" ];
+RECORD sentinel3 := [ sentinel3 := "sentinel3" ];
+sentinel_exception := NEW Exception("sentinel");
+sentinel2_exception := NEW Exception("sentinel2");
+other_exception := NEW Exception("other");
+
+MACRO Delay(INTEGER delay, FUNCTION PTR func)
+{
+  RegisterTimedCallback(AddTimeToDate(delay, GetCurrentDateTime()), func);
+}
+
+MACRO ResolveAndReject(RECORD d) { d.resolve(dummy); d.reject(dummy_e); }
+MACRO RejectAndResolve(RECORD d) { d.reject(dummy_e); d.resolve(dummy); }
+
+MACRO Specify(INTEGER indent, STRING test)
+{
+  curtest := curtest + 1;
+  IF (print_testname)
+    PRINT(RepeatText(" ", indent) || test || "\n");
+}
+
+MACRO SetDoneInternal(INTEGER nowdone, STRING name, VARIANT value)
+{
+  IF (name != "" AND GetCell(keeper, name) != value)
+    RETURN;
+
+  IF (highestdone < nowdone)
+    highestdone := nowdone;
+}
+
+MACRO CallComposedFunc(INTEGER withargs, VARIANT ARRAY funcs, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  //PRINT("Compose MACRO " || withargs || " (funcs: " || LENGTH(funcs) || ")\n");
+  RECORD keeper;
+  FOREVERY (VARIANT func FROM funcs)
+  {
+    //PRINT(" " || ExplainFunctionPtrSignature(func) || "\n");
+    IF (#func = withargs)
+      CallMacroPTRVA(func, args);
+    ELSE
+      func();
+  }
+}
+
+VARIANT FUNCTION CallComposedFuncWithReturn(INTEGER withargs, INTEGER retval, VARIANT ARRAY funcs, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  //PRINT("Compose FUNCTION " || withargs || " " || retval || " (funcs: " || LENGTH(funcs) || ")\n");
+  RECORD keeper;
+  FOREVERY (VARIANT func FROM funcs)
+  {
+    //PRINT(" " || ExplainFunctionPtrSignature(func) || "\n");
+    IF (#func = retval)
+    {
+      IF (#func = withargs)
+        keeper := [ value := CallFunctionPTRVA(func, args) ];
+      ELSE
+        keeper := [ value := func() ];
+    }
+    ELSE
+    {
+      IF (#func = withargs)
+        CallMacroPTRVA(func, args);
+      ELSE
+        func();
+    }
+  }
+  RETURN keeper.value;
+}
+
+FUNCTION PTR FUNCTION Compose(VARIANT ARRAY funcs) __ATTRIBUTES__(VARARG)
+{
+  INTEGER withargs := -1;
+  INTEGER retval := -1;
+  IF (LENGTH(funcs) > 0 AND TypeID(funcs[0]) = TypeID(INTEGER))
+  {
+    withargs := funcs[0];
+    DELETE FROM funcs AT 0;
+
+    IF (LENGTH(funcs) > 0 AND TypeID(funcs[0]) = TypeID(INTEGER))
+    {
+      retval := funcs[0];
+      DELETE FROM funcs AT 0;
+    }
+  }
+
+  IF (retval = -1)
+  {
+    RETURN __HS_REBINDFUNCTIONPTR2(PTR CallComposedFunc,
+        [ [ source := 0, value := INTEGER(withargs) ]
+        , [ source := 0, value := funcs ]
+        ], 0, TRUE);
+  }
+  ELSE
+  {
+    RETURN __HS_REBINDFUNCTIONPTR2(PTR CallComposedFuncWithReturn,
+        [ [ source := 0, value := INTEGER(withargs) ]
+        , [ source := 0, value := INTEGER(retval) ]
+        , [ source := 0, value := funcs ]
+        ], 0, TRUE);
+  }
+}
+
+FUNCTION PTR FUNCTION Absorb(FUNCTION PTR func)
+{
+  RETURN Compose(-1, func);
+}
+
+FUNCTION PTR FUNCTION GetSetDone()
+{
+  RETURN PTR SetDoneInternal(curtest, "", 0);
+}
+
+FUNCTION PTR FUNCTION GetSetDoneIfValueEq(VARIANT value, STRING name DEFAULTSTO "VALUE")
+{
+  RETURN PTR SetDoneInternal(curtest, name, value);
+}
+
+
+MACRO SetDone() // Don't PTR this one
+{
+  SetDoneInternal(curtest, "", 0);
+}
+
+FUNCTION PTR FUNCTION AddSetDone(FUNCTION PTR func)
+{
+  RETURN Compose(0, func, GetSetDone());
+}
+
+MACRO DelayedSetDone(INTEGER msecs)
+{
+  Delay(msecs, GetSetDone());
+}
+
+VARIANT FUNCTION ReturnValue(VARIANT value)
+{
+  RETURN value;
+}
+
+VARIANT FUNCTION ThrowValue(VARIANT value)
+{
+  THROW value;
+}
+
+
+MACRO Test_2_1_2()
+{
+  Specify(0, "2.1.2.1: When fulfilled, a promise: must not transition to any other state.");
+  FOREVERY (RECORD test FROM testFulFilled)
+  {
+    RECORD d := test.GetPromise(dummy);
+    Specify(1, test.test);
+
+    SetValue(FALSE);
+
+    d.promise->Then(Absorb(PTR SetValue(TRUE)), Compose(PTR AssertValue(FALSE), GetSetDone()));
+
+    test.BeforeWait(d);
+
+    DelayedSetDone(100);
+    WaitUntilDone();
+  }
+
+  {
+    Specify(1, "trying to reject then immediately fulfill");
+    RECORD d := CreateDeferredPromise();
+
+    SetValue(FALSE);
+
+    d.promise->Then(Absorb(PTR SetValue(TRUE)), Compose(PTR AssertValue(FALSE), GetSetDone()));
+
+    d.reject(dummy_e);
+    d.resolve(dummy);
+
+    DelayedSetDone(100);
+    WaitUntilDone();
+  }
+
+  {
+    Specify(1, "trying to reject then fulfill, delayed");
+    RECORD d := CreateDeferredPromise();
+
+    SetValue(FALSE);
+
+    d.promise->Then(Absorb(PTR SetValue(TRUE)), Compose(PTR AssertValue(FALSE), GetSetDone()));
+
+    Delay(50, PTR ResolveAndReject(d));
+
+    DelayedSetDone(100);
+    WaitUntilDone();
+  }
+
+  {
+    Specify(1, "trying to reject immediately then fulfill delayed");
+    RECORD d := CreateDeferredPromise();
+
+    SetValue(FALSE);
+
+    d.promise->Then(Absorb(PTR SetValue(TRUE)), Compose(PTR AssertValue(FALSE), GetSetDone()));
+
+    d.reject(dummy_e);
+    Delay(50, PTR d.resolve(dummy));
+
+    DelayedSetDone(100);
+    WaitUntilDone();
+  }
+}
+
+MACRO Test_2_1_3()
+{
+  Specify(0, "2.1.3.1: When rejected, a promise: must not transition to any other state.");
+  FOREVERY (RECORD test FROM testFulFilled)
+  {
+    RECORD d := test.GetPromise(dummy);
+    Specify(1, test.test);
+
+    SetValue(FALSE);
+
+    d.promise->Then(Compose(PTR AssertValue(FALSE), GetSetDone()), Absorb(PTR SetValue(TRUE)));
+
+    test.BeforeWait(d);
+
+    DelayedSetDone(100);
+    WaitUntilDone();
+  }
+
+  {
+    Specify(1, "trying to fulfill then immediately reject");
+    RECORD d := CreateDeferredPromise();
+
+    SetValue(FALSE);
+
+    d.promise->Then(Compose(PTR AssertValue(FALSE), GetSetDone()), Absorb(PTR SetValue(TRUE)));
+
+    d.resolve(dummy);
+    d.reject(dummy_e);
+
+    DelayedSetDone(100);
+    WaitUntilDone();
+  }
+
+  {
+    Specify(1, "trying to fulfill then reject, delayed");
+    RECORD d := CreateDeferredPromise();
+
+    SetValue(FALSE);
+
+    d.promise->Then(Compose(PTR AssertValue(FALSE), GetSetDone()), Absorb(PTR SetValue(TRUE)));
+
+    Delay(50, PTR ResolveAndReject(d));
+
+    DelayedSetDone(100);
+    WaitUntilDone();
+  }
+
+  {
+    Specify(1, "trying to fulfill immediately then reject delayed");
+    RECORD d := CreateDeferredPromise();
+
+    SetValue(FALSE);
+
+    d.promise->Then(Compose(PTR AssertValue(FALSE), GetSetDone()), Absorb(PTR SetValue(TRUE)));
+
+    d.resolve(dummy);
+    Delay(50, PTR d.reject(dummy_e));
+
+    DelayedSetDone(100);
+    WaitUntilDone();
+  }
+}
+
+MACRO CallCellAndSetValue(RECORD d, STRING cellname, VARIANT callparam, VARIANT value)
+{
+  GetCell(d, cellname)(callparam);
+  SetValue(value);
+}
+
+MACRO Test_2_2_2()
+{
+  Specify(0, "2.2.2: If `onFulfilled` is a function");
+
+  {
+    Specify(1, "2.2.2.1: it must be called after `promise` is fulfilled, with `promise`’s fulfillment value as its " ||
+              "first argument.");
+
+    FOREVERY (RECORD test FROM testFulFilled)
+    {
+      RECORD d := test.GetPromise(sentinel);
+      Specify(2, test.test);
+
+      d.promise->Then(Compose(0, PTR AssertParam(#1, sentinel), GetSetDone()));
+
+      test.BeforeWait(d);
+
+      WaitUntilDone();
+    }
+  }
+
+  {
+    Specify(1, "2.2.2.2: it must not be called before `promise` is fulfilled");
+    {
+      Specify(2, "fulfilled after a delay");
+      RECORD d := CreateDeferredPromise();
+      SetValue(FALSE);
+
+      d.promise->Then(Compose(PTR AssertValue(TRUE), GetSetDone()));
+
+      Delay(50, Compose(PTR d.resolve(dummy), PTR SetValue(TRUE)));
+
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "never fulfilled");
+      RECORD d := CreateDeferredPromise();
+      SetValue(FALSE);
+
+      d.promise->Then(Compose(PTR SetValue(TRUE), GetSetDone()));
+
+      Delay(150, Compose(PTR AssertValue(FALSE), GetSetDone()));
+      WaitUntilDone();
+    }
+  }
+
+  {
+    Specify(1, "2.2.2.3: it must not be called more than once.");
+    {
+      Specify(2, "already-fulfilled");
+
+      SetValue(0);
+      CreateResolvedPromise(dummy)->Then(Compose(PTR IncrementValue, PTR AssertValue(1), GetSetDone()));
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "trying to fulfill a pending promise more than once, immediately");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(0);
+      d.promise->Then(Compose(PTR IncrementValue, PTR AssertValue(1), GetSetDone()));
+
+      d.resolve(dummy);
+      d.resolve(dummy);
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "trying to fulfill a pending promise more than once, delayed");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(0);
+      d.promise->Then(Compose(PTR IncrementValue, PTR AssertValue(1), GetSetDone()));
+
+      Delay(50, Compose(PTR d.resolve(dummy), PTR d.resolve(dummy)));
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "trying to fulfill a pending promise more than once, immediately then delayed");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(0);
+      d.promise->Then(Compose(PTR IncrementValue, PTR AssertValue(1), GetSetDone()));
+
+      d.resolve(dummy);
+      Delay(50, PTR d.resolve(dummy));
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when multiple `then` calls are made, spaced apart in time");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(0, "a");
+      SetValue(0, "b");
+      SetValue(0, "c");
+
+      d.promise->Then(Compose(PTR IncrementValue("a"), PTR AssertValue(1, "a")));
+
+      Delay(50, PTR d.promise->Then(Compose(PTR IncrementValue("b"), PTR AssertValue(1, "b"))));
+      Delay(100, PTR d.promise->Then(Compose(PTR IncrementValue("c"), PTR AssertValue(1, "c"), GetSetDone())));
+
+      Delay(150, PTR d.resolve(dummy));
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when `then` is interleaved with fulfillment");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(0, "a");
+      SetValue(0, "b");
+
+      d.promise->Then(Compose(PTR IncrementValue("a"), PTR AssertValue(1, "a")));
+
+      d.resolve(dummy);
+
+      d.promise->Then(Compose(PTR IncrementValue("b"), PTR AssertValue(1, "b"), GetSetDone()));
+
+      WaitUntilDone();
+    }
+  }
+}
+
+MACRO Test_2_2_3()
+{
+  Specify(0, "2.2.3: If `onRejected` is a function");
+
+  {
+    Specify(1, "2.2.3.1: it must be called after `promise` is rejected, with `promise`’s rejection reason as its " ||
+              "first argument.");
+
+    FOREVERY (RECORD test FROM testRejected)
+    {
+      RECORD d := test.GetPromise(sentinel_exception);
+      Specify(2, test.test);
+
+      d.promise->Then(DEFAULT FUNCTION PTR, Compose(0, PTR AssertParam(#1, sentinel_exception), GetSetDone()));
+
+      test.BeforeWait(d);
+
+      WaitUntilDone();
+    }
+  }
+
+  {
+    Specify(1, "2.2.3.2: it must not be called before `promise` is rejected");
+    {
+      Specify(2, "rejected after a delay");
+      RECORD d := CreateDeferredPromise();
+      SetValue(FALSE);
+
+      d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR AssertValue(TRUE), GetSetDone()));
+
+      Delay(50, Compose(PTR d.reject(dummy_e), PTR SetValue(TRUE)));
+
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "never rejected");
+      RECORD d := CreateDeferredPromise();
+      SetValue(FALSE);
+
+      d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR SetValue(TRUE)));
+
+      Delay(150, Compose(PTR AssertValue(FALSE), GetSetDone()));
+      WaitUntilDone();
+    }
+  }
+
+  {
+    Specify(1, "2.2.3.3: it must not be called more than once.");
+    {
+      Specify(2, "already-rejected");
+
+      SetValue(0);
+      CreateRejectedPromise(dummy_e)->Then(DEFAULT FUNCTION PTR, Compose(PTR IncrementValue, PTR AssertValue(1), GetSetDone()));
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "trying to reject a pending promise more than once, immediately");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(0);
+      d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR IncrementValue, PTR AssertValue(1), GetSetDone()));
+
+      d.reject(dummy_e);
+      d.reject(dummy_e);
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "trying to reject a pending promise more than once, delayed");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(0);
+      d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR IncrementValue, PTR AssertValue(1), GetSetDone()));
+
+      Delay(50, Compose(PTR d.reject(dummy_e), PTR d.reject(dummy_e)));
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "trying to reject a pending promise more than once, immediately then delayed");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(0);
+      d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR IncrementValue, PTR AssertValue(1), GetSetDone()));
+
+      d.reject(dummy_e);
+      Delay(50, PTR d.reject(dummy_e));
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when multiple `then` calls are made, spaced apart in time");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(0, "a");
+      SetValue(0, "b");
+      SetValue(0, "c");
+
+      d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR IncrementValue("a"), PTR AssertValue(1, "a")));
+
+      Delay(50, PTR d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR IncrementValue("b"), PTR AssertValue(1, "b"))));
+      Delay(100, PTR d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR IncrementValue("c"), PTR AssertValue(1, "c"), GetSetDone())));
+
+      Delay(150, PTR d.reject(dummy_e));
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when `then` is interleaved with fulfillment");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(0, "a");
+      SetValue(0, "b");
+
+      d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR IncrementValue("a"), PTR AssertValue(1, "a")));
+
+      d.reject(dummy_e);
+
+      d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR IncrementValue("b"), PTR AssertValue(1, "b"), GetSetDone()));
+
+      WaitUntilDone();
+    }
+  }
+}
+MACRO Test_2_2_4()
+{
+  Specify(0, "2.2.4: `onFulfilled` or `onRejected` must not be called until the execution context stack contains only " ||
+         "platform code.");
+
+  {
+    Specify(1, "`then` returns before the promise becomes fulfilled or rejected");
+
+    FOREVERY (RECORD test FROM testFulFilled)
+    {
+      RECORD d := test.GetPromise(sentinel);
+      Specify(2, test.test);
+
+      SetValue(FALSE);
+
+      d.promise->Then(Compose(PTR AssertValue(TRUE), GetSetDone()));
+
+      SetValue(TRUE);
+
+      test.BeforeWait(d);
+
+      WaitUntilDone();
+    }
+
+    FOREVERY (RECORD test FROM testRejected)
+    {
+      RECORD d := test.GetPromise(sentinel_exception);
+      Specify(2, test.test);
+
+      SetValue(FALSE);
+
+      d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR AssertValue(TRUE), GetSetDone()));
+
+      SetValue(TRUE);
+
+      test.BeforeWait(d);
+
+      WaitUntilDone();
+    }
+  }
+
+  {
+    Specify(1, "Clean-stack execution ordering tests (fulfillment case)");
+    {
+      Specify(2, "when `onFulfilled` is added immediately before the promise is fulfilled");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(FALSE);
+
+      d.promise->Then(Absorb(PTR SetValue(TRUE)));
+
+      d.resolve(dummy);
+
+      AssertValue(FALSE);
+
+      SetDone();
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when `onFulfilled` is added immediately after the promise is fulfilled");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(FALSE);
+
+      d.resolve(dummy);
+
+      d.promise->Then(Absorb(PTR SetValue(TRUE)));
+
+      AssertValue(FALSE);
+
+      SetDone();
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when `onFulfilled` is added inside another `onFulfilled`");
+
+      OBJECT promise := CreateResolvedPromise(dummy);
+
+      SetValue(FALSE);
+      promise->Then(Compose(PTR promise->Then(Compose(PTR AssertValue(TRUE), GetSetDone())), PTR SetValue(TRUE)));
+
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when `onFulfilled` is added inside an `onRejected`");
+
+      OBJECT promise := CreateRejectedPromise(dummy_e);
+      OBJECT promise2 := CreateResolvedPromise(dummy);
+
+      SetValue(FALSE);
+      promise->Then(DEFAULT FUNCTION PTR, Compose(PTR promise2->Then(Compose(PTR AssertValue(TRUE), GetSetDone())), PTR SetValue(TRUE)));
+
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when the promise is fulfilled asynchronously");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(FALSE);
+
+      Delay(0, Compose(PTR d.resolve(dummy), PTR SetValue(TRUE)));
+
+      d.promise->then(Compose(PTR AssertValue(TRUE), GetSetDone()));
+
+      WaitUntilDone();
+    }
+  }
+
+  {
+    Specify(1, "Clean-stack execution ordering tests (rejection case)");
+
+    {
+      Specify(2, "when `onRejected` is added immediately before the promise is rejected");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(FALSE);
+
+      d.promise->Then(DEFAULT FUNCTION PTR, Absorb(PTR SetValue(TRUE)));
+
+      d.reject(dummy_e);
+
+      AssertValue(FALSE);
+
+      SetDone();
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when `onRejected` is added immediately after the promise is rejected");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(FALSE);
+
+      d.reject(dummy_e);
+
+      d.promise->Then(DEFAULT FUNCTION PTR, Absorb(PTR SetValue(TRUE)));
+
+      AssertValue(FALSE);
+
+      SetDone();
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when `onRejected` is added inside an `onFulfilled`");
+
+      OBJECT promise := CreateResolvedPromise(dummy);
+      OBJECT promise2 := CreateRejectedPromise(dummy_e);
+
+      SetValue(FALSE);
+      promise->Then(Compose(PTR promise2->Then(DEFAULT FUNCTION PTR, Compose(PTR AssertValue(TRUE), GetSetDone())), PTR SetValue(TRUE)));
+
+      WaitUntilDone();
+    }
+
+    {
+      Specify(2, "when `onRejected` is added inside another `onRejected`");
+
+      OBJECT promise := CreateRejectedPromise(dummy_e);
+
+      SetValue(FALSE);
+      promise->Then(DEFAULT FUNCTION PTR, Compose(PTR promise->Then(DEFAULT FUNCTION PTR, Compose(PTR AssertValue(TRUE), GetSetDone())), PTR SetValue(TRUE)));
+
+      WaitUntilDone();
+    }
+
+
+    {
+      Specify(2, "when the promise is rejected asynchronously");
+
+      RECORD d := CreateDeferredPromise();
+      SetValue(FALSE);
+
+      Delay(0, Compose(PTR d.reject(dummy_e), PTR SetValue(TRUE)));
+
+      d.promise->then(DEFAULT FUNCTION PTR, Compose(PTR AssertValue(TRUE), GetSetDone()));
+
+      WaitUntilDone();
+    }
+  }
+}
+
+MACRO Test_2_2_6()
+{
+  Specify(0, "2.2.6: `then` may be called multiple times on the same promise.");
+  {
+    Specify(1, "2.2.6.1: If/when `promise` is fulfilled, all respective `onFulfilled` callbacks must execute in the " ||
+             "order of their originating calls to `then`.");
+    {
+      Specify(2, "multiple boring fulfillment handlers");
+
+      FOREVERY (RECORD test FROM testFulFilled)
+      {
+        RECORD d := test.GetPromise(sentinel);
+        Specify(3, test.test);
+
+        SetValue(FALSE, "reject");
+        SetValue(DEFAULT RECORD ARRAY, "resolve");
+
+        d.promise->Then(Compose(0, 1, PTR PushValue(#1, "resolve"), PTR ReturnValue(other)), PTR SetValue(TRUE, "reject"));
+        d.promise->Then(Compose(0, 1, PTR PushValue(#1, "resolve"), PTR ReturnValue(other)), PTR SetValue(TRUE, "reject"));
+        d.promise->Then(Compose(0, 1, PTR PushValue(#1, "resolve"), PTR ReturnValue(other)), PTR SetValue(TRUE, "reject"));
+
+        d.promise->Then(Compose(0, PTR AssertParam(#1, sentinel)
+                                 , PTR AssertValue([ sentinel, sentinel, sentinel ], "resolve")
+                                 , PTR AssertValue(FALSE, "reject")
+                                 , GetSetDone()));
+
+        test.BeforeWait(d);
+        WaitUntilDone();
+      }
+    }
+
+    {
+      Specify(2, "multiple fulfillment handlers, one of which throws");
+
+      FOREVERY (RECORD test FROM testFulFilled)
+      {
+        RECORD d := test.GetPromise(sentinel);
+        Specify(3, test.test);
+
+        SetValue(FALSE, "reject");
+        SetValue(DEFAULT RECORD ARRAY, "resolve");
+
+        d.promise->Then(Compose(0, 1, PTR PushValue(#1, "resolve"), PTR ReturnValue(other)), PTR SetValue(TRUE, "reject"));
+        d.promise->Then(Compose(0, 1, PTR PushValue(#1, "resolve"), PTR ThrowValue(other_exception)), PTR SetValue(TRUE, "reject"))->OnError(PTR DoNothing); // don't let unhandled rejections go unhandled
+        d.promise->Then(Compose(0, 1, PTR PushValue(#1, "resolve"), PTR ReturnValue(other)), PTR SetValue(TRUE, "reject"));
+
+        d.promise->Then(Compose(0, PTR AssertParam(#1, sentinel)
+                                 , PTR AssertValue([ sentinel, sentinel, sentinel ], "resolve")
+                                 , PTR AssertValue(FALSE, "reject")
+                                 , GetSetDone()));
+
+        test.BeforeWait(d);
+        WaitUntilDone();
+      }
+    }
+
+    {
+      Specify(2, "results in multiple branching chains with their own fulfillment values");
+
+      FOREVERY (RECORD test FROM testFulFilled)
+      {
+        RECORD d := test.GetPromise(sentinel);
+        Specify(3, test.test);
+
+        keeper := DEFAULT RECORD;
+        SetValue(0);
+
+        d.promise->Then(Compose(-1, 0, PTR ReturnValue(sentinel)))->Then(Compose(0, PTR AssertParam(#1, sentinel), PTR IncrementValue, GetSetDoneIfValueEq(3)));
+        d.promise->Then(Absorb(PTR ThrowValue(sentinel2_exception)))->Then(DEFAULT FUNCTION PTR, Compose(0, PTR AssertParam(#1, sentinel2_exception), PTR IncrementValue, GetSetDoneIfValueEq(3)));
+        d.promise->Then(Compose(-1, 0, PTR ReturnValue(sentinel3)))->Then(Compose(0, PTR AssertParam(#1, sentinel3), PTR IncrementValue, GetSetDoneIfValueEq(3)));
+
+        test.BeforeWait(d);
+        WaitUntilDone();
+      }
+    }
+
+    {
+      Specify(2, "`onFulfilled` handlers are called in the original order");
+
+      FOREVERY (RECORD test FROM testFulFilled)
+      {
+        RECORD d := test.GetPromise(sentinel);
+        Specify(3, test.test);
+
+        SetValue(DEFAULT INTEGER ARRAY);
+
+        d.promise->Then(Absorb(PTR PushValue(1)));
+        d.promise->Then(Absorb(PTR PushValue(2)));
+        d.promise->Then(Absorb(PTR PushValue(3)));
+
+        d.promise->Then(Compose(PTR AssertValue([1,2,3]), GetSetDone()));
+
+        test.BeforeWait(d);
+        WaitUntilDone();
+      }
+    }
+
+    {
+      Specify(2, "even when one handler is added inside another handler");
+
+      FOREVERY (RECORD test FROM testFulFilled)
+      {
+        RECORD d := test.GetPromise(sentinel);
+        Specify(3, test.test);
+
+        SetValue(DEFAULT INTEGER ARRAY);
+
+        d.promise->Then(Compose(PTR PushValue(1), PTR d.promise->Then(Absorb(PTR PushValue(3)))));;
+        d.promise->Then(Absorb(PTR PushValue(2)));
+
+        d.promise->Then(Absorb(PTR Delay(15, Compose(PTR AssertValue([1,2,3]), GetSetDone()))));
+
+        test.BeforeWait(d);
+        WaitUntilDone();
+      }
+    }
+  }
+
+  {
+    Specify(1, "2.2.6.2: If/when `promise` is rejected, all respective `onRejected` callbacks must execute in the " ||
+             "order of their originating calls to `then`.");
+    {
+      Specify(2, "multiple boring rejection handlers");
+
+      FOREVERY (RECORD test FROM testRejected)
+      {
+        RECORD d := test.GetPromise(sentinel_exception);
+        Specify(3, test.test);
+
+        SetValue(FALSE, "resolve");
+        SetValue(DEFAULT OBJECT ARRAY, "reject");
+
+        d.promise->Then(PTR SetValue(TRUE, "resolve"), Compose(0, 1, PTR PushValue(#1, "reject"), PTR ReturnValue(other)));
+        d.promise->Then(PTR SetValue(TRUE, "resolve"), Compose(0, 1, PTR PushValue(#1, "reject"), PTR ReturnValue(other)));
+        d.promise->Then(PTR SetValue(TRUE, "resolve"), Compose(0, 1, PTR PushValue(#1, "reject"), PTR ReturnValue(other)));
+
+        d.promise->Then(DEFAULT FUNCTION PTR, Compose(0, PTR AssertParam(#1, sentinel_exception)
+                                 , PTR AssertValue([ sentinel_exception, sentinel_exception, sentinel_exception ], "reject")
+                                 , PTR AssertValue(FALSE, "resolve")
+                                 , GetSetDone()));
+
+        test.BeforeWait(d);
+        WaitUntilDone();
+      }
+    }
+
+    {
+      Specify(2, "multiple rejection handlers, one of which throws");
+
+      FOREVERY (RECORD test FROM testRejected)
+      {
+        RECORD d := test.GetPromise(sentinel_exception);
+        Specify(3, test.test);
+
+        SetValue(FALSE, "resolve");
+        SetValue(DEFAULT OBJECT ARRAY, "reject");
+
+        d.promise->Then(PTR SetValue(TRUE, "resolve"), Compose(0, 1, PTR PushValue(#1, "reject"), PTR ReturnValue(other)));
+        d.promise->Then(PTR SetValue(TRUE, "resolve"), Compose(0, 1, PTR PushValue(#1, "reject"), PTR ThrowValue(other_exception)))->OnError(PTR DoNothing); // don't let unhandled rejections go unhandled
+        d.promise->Then(PTR SetValue(TRUE, "resolve"), Compose(0, 1, PTR PushValue(#1, "reject"), PTR ReturnValue(other)));
+
+        d.promise->Then(DEFAULT FUNCTION PTR, Compose(0, PTR AssertParam(#1, sentinel_exception)
+                                 , PTR AssertValue([ sentinel_exception, sentinel_exception, sentinel_exception ], "reject")
+                                 , PTR AssertValue(FALSE, "resolve")
+                                 , GetSetDone()));
+
+        test.BeforeWait(d);
+        WaitUntilDone();
+      }
+    }
+
+    {
+      Specify(2, "results in multiple branching chains with their own rejection values");
+
+      FOREVERY (RECORD test FROM testRejected)
+      {
+        RECORD d := test.GetPromise(sentinel_exception);
+        Specify(3, test.test);
+
+        keeper := DEFAULT RECORD;
+        SetValue(0);
+
+        d.promise->Then(DEFAULT FUNCTION PTR, Compose(-1, 0, PTR ReturnValue(sentinel_exception)))->Then(Compose(0, PTR AssertParam(#1, sentinel_exception), PTR IncrementValue, GetSetDoneIfValueEq(3)));
+        d.promise->Then(DEFAULT FUNCTION PTR, Absorb(PTR ThrowValue(sentinel2_exception)))->Then(DEFAULT FUNCTION PTR, Compose(0, PTR AssertParam(#1, sentinel2_exception), PTR IncrementValue, GetSetDoneIfValueEq(3)));
+        d.promise->Then(DEFAULT FUNCTION PTR, Compose(-1, 0, PTR ReturnValue(sentinel3)))->Then(Compose(0, PTR AssertParam(#1, sentinel3), PTR IncrementValue, GetSetDoneIfValueEq(3)));
+
+        test.BeforeWait(d);
+        WaitUntilDone();
+      }
+    }
+
+    {
+      Specify(2, "`onRejected` handlers are called in the original order");
+
+      FOREVERY (RECORD test FROM testRejected)
+      {
+        RECORD d := test.GetPromise(sentinel_exception);
+        Specify(3, test.test);
+
+        SetValue(DEFAULT INTEGER ARRAY);
+
+        d.promise->Then(DEFAULT FUNCTION PTR, Absorb(PTR PushValue(1)));
+        d.promise->Then(DEFAULT FUNCTION PTR, Absorb(PTR PushValue(2)));
+        d.promise->Then(DEFAULT FUNCTION PTR, Absorb(PTR PushValue(3)));
+
+        d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR AssertValue([1,2,3]), GetSetDone()));
+
+        test.BeforeWait(d);
+        WaitUntilDone();
+      }
+    }
+
+    {
+      Specify(2, "even when one handler is added inside another handler");
+
+      FOREVERY (RECORD test FROM testRejected)
+      {
+        RECORD d := test.GetPromise(sentinel_exception);
+        Specify(3, test.test);
+
+        SetValue(DEFAULT INTEGER ARRAY);
+
+        d.promise->Then(DEFAULT FUNCTION PTR, Compose(PTR PushValue(1), PTR d.promise->Then(DEFAULT FUNCTION PTR, Absorb(PTR PushValue(3)))));;
+        d.promise->Then(DEFAULT FUNCTION PTR, Absorb(PTR PushValue(2)));
+
+        d.promise->Then(DEFAULT FUNCTION PTR, Absorb(PTR Delay(15, Compose(PTR AssertValue([1,2,3]), GetSetDone()))));
+
+        test.BeforeWait(d);
+        WaitUntilDone();
+      }
+    }
+  }
+}
+
+MACRO Test_2_2_7()
+{
+  Specify(0, "2.2.7: `then` must return a promise: `promise2 = promise1.then(onFulfilled, onRejected)`");
+  {
+    Specify(1, "is a promise");
+
+    RECORD d := CreateDeferredPromise();
+    AssertParam(MemberExists(d.promise->Then(), "THEN"), TRUE);
+  }
+
+  //{
+  //  Specify(1, "2.2.7.1: If either `onFulfilled` or `onRejected` returns a value `x`, run the Promise Resolution " ||
+  //           "Procedure `[[Resolve]](promise2, x)`");
+  //  empty test
+  //}
+
+  {
+    Specify(1, "2.2.7.2: If either `onFulfilled` or `onRejected` throws an exception `e`, `promise2` must be rejected " ||
+               "with `e` as the reason.");
+
+    FOREVERY (RECORD test FROM testFulFilled)
+    {
+      RECORD d := test.GetPromise(sentinel);
+      Specify(2, test.test);
+
+      OBJECT promise2 := d.promise->Then(PTR ThrowValue(other_exception));
+      promise2->Then(DEFAULT FUNCTION PTR, Compose(0, PTR AssertParam(#1, other_exception), GetSetDone()));
+
+      test.BeforeWait(d);
+      WaitUntilDone();
+    }
+
+    FOREVERY (RECORD test FROM testRejected)
+    {
+      RECORD d := test.GetPromise(sentinel_exception);
+      Specify(2, test.test);
+
+      OBJECT promise2 := d.promise->Then(DEFAULT FUNCTION PTR, PTR ThrowValue(other_exception));
+      promise2->Then(DEFAULT FUNCTION PTR, Compose(0, PTR AssertParam(#1, other_exception), GetSetDone()));
+
+      test.BeforeWait(d);
+      WaitUntilDone();
+    }
+  }
+
+  //{
+  //  Specify(1, "2.2.7.3: If `onFulfilled` is not a function and `promise1` is fulfilled, `promise2` must be fulfilled " ||
+  //             "with the same value.");
+  //  Only possible in this implementation is DEFAULT FUNCTION PTR, and that behaviour is tested enough
+  //}
+
+  //{
+  //  Specify(1, "2.2.7.4: If `onRejected` is not a function and `promise1` is rejected, `promise2` must be rejected " ||
+  //             "with the same reason.");
+  //  Only possible in this implementation is DEFAULT FUNCTION PTR, and that behaviour is tested enough
+  //}
+}
+
+MACRO Test_2_3_1()
+{
+  Specify(0, "2.3.1: If `promise` and `x` refer to the same object, reject `promise` with a `TypeError' as the reason.");
+  {
+    Specify(1, "via return from a fulfilled promise");
+
+    OBJECT promise := CreateResolvedPromise(dummy)->Then(Compose(-1, 0, PTR GetValue));
+    SetValue(promise);
+
+    // We'll believe it's an exception
+    promise->Then(DEFAULT FUNCTION PTR, Absorb(GetSetDone()));
+
+    WaitUntilDone();
+  }
+
+  {
+    Specify(1, "via return from a rejected promise");
+
+    OBJECT promise := CreateRejectedPromise(dummy_e)->Then(DEFAULT FUNCTION PTR, Compose(-1, 0, PTR GetValue));
+    SetValue(promise);
+
+    // We'll believe it's an exception
+    promise->Then(DEFAULT FUNCTION PTR, Absorb(GetSetDone()));
+
+    WaitUntilDone();
+  }
+}
+
+//MACRO Test_2_3_2() { ABORT("2.3.2 TODO"); }
+//MACRO Test_2_3_3() { ABORT("2.3.3 TODO"); }
+//MACRO Test_2_3_4() { ABORT("2.3.4 TODO"); }
+
+
+
+Test_2_1_2();
+Test_2_1_3();
+// We'll believe 2.2.1 works, because we enforce the FUNCTION PTR signature on ->then and ->onerror
+Test_2_2_2();
+Test_2_2_3();
+Test_2_2_4();
+// 2.2.5 is not relevant in harescript
+Test_2_2_6();
+Test_2_2_7();
+Test_2_3_1();
+//Test_2_3_2(); // TODO
+//Test_2_3_3(); // TODO
+//Test_2_3_4(); // TODO

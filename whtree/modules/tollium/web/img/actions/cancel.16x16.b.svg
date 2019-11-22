@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <path id="cancel_circle" d="M15.5,30.5c-7.7,0-14-6.3-14-14s6.3-14,14-14s14,6.3,14,14S23.2,30.5,15.5,30.5zM15.5,5.5c-6.1,0-11,4.9-11,11s4.9,11,11,11s11-4.9,11-11S21.6,5.5,15.5,5.5z"/>
+    <rect id="cancel_line" x="4.2" y="15.5" transform="matrix(0.6622 -0.7493 0.7493 0.6622 -7.3232 17.6977)" width="23.5" height="3"/>
+  </defs>
+  <g>
+    <use xlink:href="#cancel_circle" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#cancel_line" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+  </g>
+</svg>

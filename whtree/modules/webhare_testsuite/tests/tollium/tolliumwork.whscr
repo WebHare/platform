@@ -1,0 +1,24 @@
+﻿<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+
+MACRO TestWork()
+{
+  testfw->StartTrans("~webhare", TRUE);
+
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/tolliumwork.worktest");
+  TestEq(TRUE, ObjectExists(scr));
+  scr->Test();
+  TestEq(FALSE, GetPrimary()->IsWorkOpen());
+  TestEq(FALSE, scr->didwork, "make sure change didn't fire yet");
+  scr->tolliumscreenmanager->QueueEvent(scr->radiobutton, "change", DEFAULT RECORD); //trigger an event
+  scr->tolliumscreenmanager->DoEvents();
+  TestEq(TRUE, scr->didwork, "ensure change handler fired");
+  TestEq(FALSE, GetPrimary()->IsWorkOpen());
+
+  testfw->EndTrans();
+}
+RunTestFramework([ PTR TestWork ]);

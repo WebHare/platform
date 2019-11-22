@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <linearGradient id="file-paper-gradient" gradientUnits="userSpaceOnUse" x1="5.9205" y1="6.643" x2="29.3585" y2="30.081">
+      <stop offset="0" style="stop-color:#ffffff"/>
+      <stop offset="1" style="stop-color:#f2f2f2"/>
+    </linearGradient>
+    <g id="file-fill" style="fill:url(&quot;#file-paper-gradient&quot;);">
+      <path d="M30,12l0,17c0,1-1,1-1,1H11c-1,0-1-1-1-1V3c0,0,0-1,1-1h9"/>
+    </g>
+    <path id="file-corner" d="M32,1c0-1-1-1-1-1h-6.2c-0.3,0-0.6,0-0.7,0.3c-0.1,0.3-0.1,0.6,0.2,0.8l6.5,6.1c0.2,0.2,0.6,0.3,0.8,0.2C31.8,7.2,32,6.9,32,6.6"/>
+    <path id="file-outline" d="M21,0H10C8,0,8,2,8,2v28c0,0,0,2,2,2h20c2,0,2-2,2-2V11L21,0zM30,29c0,0,0,1-1,1H11c-1,0-1-0.6-1-0.9V3c0,0,0-1,1-1h9l10,10L30,29z"/>
+  </defs>
+  <g>
+    <use xlink:href="#file-fill" fill="#ffffff"/>
+    <use xlink:href="#file-outline" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#file-corner" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <linearGradient id="skygradient" gradientUnits="userSpaceOnUse" x1="20" y1="30" x2="20" y2="2.0005">
+      <stop offset="0" style="stop-color:#DAF4FF"/>
+      <stop offset="1" style="stop-color:#C6E5FF"/>
+    </linearGradient>
+    <linearGradient id="mountainsgradient" gradientUnits="userSpaceOnUse" x1="10" y1="21.1436" x2="30" y2="21.1436">
+      <stop offset="0" style="stop-color:#81CE2E"/>
+      <stop offset="1" style="stop-color:#73B670"/>
+    </linearGradient>
+    <path fill="url(#skygradient)" d="M20,2h-9.1C10.4,2,10,2.3,10,2.8v25.3c0,0.8,0.1,1.8,1,1.8h18c0.6,0,1-0.4,1-1l0-17L20,2z"/>
+    <path fill="url(#mountainsgradient)" d="M20.135,20.375C11.325,19.69,10,12.287,10,12.287V27.93c0,0.6,0,2.054,1.01,2.07h18.013C29.797,30,30,29.625,30,29C30,29,24.543,20.718,20.135,20.375z"/>
+    <path d="M14.714,30.069h14.24c0.58,0,1.046-0.483,1.046-1.083V17.599" fill="#ffffff"/>
+  </g>
+</svg>

@@ -1,0 +1,5 @@
+﻿<?wh
+/** @private WRD database definitions, should never be directly accessed as that's what the WRD API is for
+*/
+
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib" EXPORT wrd;

@@ -1,0 +1,321 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+LOADLIB "mod::system/lib/internal/checks/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+
+
+RECORD ARRAY buckets;
+INTEGER maxbatchsize := 500000; //ADDME configurable, maximum batch size. Gives 'older' servers some time to catchup
+
+INTEGER flushdelay := 10;
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "d", type := "switch" ]
+    , [ name := "dryrun", type := "switch" ]
+    , [ name := "rewriteall", type := "switch" ]
+    , [ name := "from", type := "stringopt" ]
+    , [ name := "until", type := "stringopt" ]
+    ]);
+
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: runscript webserverusage.whscr [ -d ]\n");
+  PRINT(" -d             Show debug output\n");
+  PRINT(" --dryrun       Show inserted/deleted records without committing anything\n");
+  PRINT(" --rewriteall   Rewrite for all available logs\n");
+  PRINT(" --from <date>  Rewrite from specified date\n");
+  PRINT(" --until <date> Analyze until specified date\n");
+  RETURN;
+}
+
+DATETIME mintime, maxtime := MAX_DATETIME;
+BOOLEAN rewrite_skip;
+IF (args."from" != "")
+{
+  IF (args.rewriteall)
+    THROW NEW Exception("--rewriteall and --from are mutually exclusive");
+
+  mintime := MakeDateFromText(args."from");
+  rewrite_skip := TRUE;
+  IF (mintime = DEFAULT DATETIME)
+    THROW NEW Exception("Could not read datetime '" || args."from");
+}
+IF (args.until != "")
+{
+  maxtime := MakeDateFromText(args.until);
+  IF (maxtime = DEFAULT DATETIME)
+    THROW NEW Exception("Could not read datetime '" || args.until);
+}
+
+BOOLEAN FUNCTION IsBlameableClientError(STRING ARRAY localnames, RECORD rec)
+{
+  IF(rec.httpcode IN [401,403,407,410]) //permission errors or 410 GONE
+    RETURN FALSE;
+  IF(rec.httpcode = 404 AND rec.referrer = "") //we don't count clientfails caused by direct lands on a 404. those are generally from linkchecks or search robots
+    RETURN FALSE;
+
+  //URLs clients love to request this without being explictly referred
+  IF(IsRobotURLPath(Substring(rec.url,1))) //IsRobotURLPath expects .urlpath, so strip initial /
+    RETURN FALSE;
+
+  //If it looks like you're linking an image...
+  IF(rec.url LIKE "*.png" OR rec.url LIKE "*.jpg" OR rec.url LIKE "*.gif")
+  {
+    STRING referrerhost := ToUppercase(UnpackURL(rec.referrer).host);
+    IF(BinaryFind(localnames, referrerhost) = -1)
+      RETURN FALSE; //non local referrer hotlinking local images - not our problem!
+  }
+
+  RETURN TRUE; //okay, this might be ani ssue
+}
+
+INTEGER FUNCTION GetBucketFor(RECORD hostedsites, STRING host, INTEGER port, DATETIME time)
+{
+  RECORD lws := LookupWebserver(hostedsites, host, port);
+  IF(NOT RecordExists(lws))
+    RETURN -1;
+
+  DATETIME timebucket := GetRoundedDatetime(time, bucketsize); //bucket per minute
+  RECORD pos := RecordLowerBound(buckets, [ webserver := lws.id, time := timebucket ], [ "TIME", "WEBSERVER" ]);
+  IF(NOT pos.found)
+  {
+    INSERT [ webserver := lws.id
+           , time := timebucket
+           , hits := 0
+           , serverfails := 0
+           , clientfails := 0
+           , download := 0i64
+           , upload := 0i64
+           , sumpagetime := 0i64
+           , maxpagetime := 0i64
+           , highpagetime := 0
+           , failips := DEFAULT STRING ARRAY
+           ] INTO buckets AT pos.position;
+  }
+  RETURN pos.position;
+}
+
+MACRO Main()
+{
+  OBJECT trans := OpenPrimary();
+
+  RECORD hostedsites := GetHostedSites();
+  STRING ARRAY localnames := SELECT AS STRING ARRAY hostname FROM (SELECT DISTINCT hostname := ToUppercase(UnpackURL(baseurl).host) FROM hostedsites.hosts) ORDER BY hostname;
+
+  // Limit maxtime to max time in log (with little room because access log is flushed every 5 secs)
+  DATETIME maxlogtime := GetRoundedDatetime(AddTimeToDate(-flushdelay * 1000, GetCurrentDatetime()), bucketsize);
+  IF (maxtime > maxlogtime)
+    maxtime := maxlogtime;
+
+  maxtime := GetRoundedDatetime(maxtime, bucketsize);
+  DATETIME nextread := AddTimeToDate(bucketsize + flushdelay * 1000, maxtime);
+
+  IF (args.rewriteall)
+  {
+    OBJECT reader := OpenWebHareLogStream("access", DEFAULT DATETIME, maxtime);
+    RECORD rec := reader->ReadRecord();
+    IF (RecordExists(rec))
+      mintime := GetRoundedDatetime(rec.time, 86400 * 1000); // Start of day
+
+    PRINT("Rewrite all starting from " || FormatISO8601DateTime(mintime) || "\n");
+    reader->Close();
+  }
+
+  IF (mintime != DEFAULT DATETIME)
+    mintime := GetRoundedDatetime(AddTimeToDate(bucketsize - 1, mintime), bucketsize);
+
+  STRING reader_checkpoint;
+  IF (mintime = DEFAULT DATETIME)
+  {
+    // No mintime provided, restart where we left off the last time
+    STRING checkpoint := ReadRegistryKey("system.webserver.measure.accesslogcheckpoint");
+
+    IF (checkpoint LIKE "v2:*")
+    {
+      RECORD data := DecodeHSON(SubString(checkpoint, 3));
+      mintime := data.time;
+      reader_checkpoint := data.reader;
+    }
+    ELSE
+    {
+      reader_checkpoint := checkpoint;
+    }
+  }
+
+  IF (args.d)
+    PRINT("Reading from log range " || FormatISO8601DateTime(mintime) || " - " || FormatISO8601DateTime(maxtime) || "\n");
+
+  OBJECT reader := OpenWebHareLogStream("access", mintime, maxtime);
+  IF (reader_checkpoint != "")
+  {
+    IF (args.d)
+      PRINT("Restoring checkpoint '" || reader_checkpoint || "' at " || FormatISO8601DateTime(mintime) || "\n");
+
+    reader->checkpoint := reader_checkpoint;
+  }
+
+  // Don't allow advancing beyond the log, don't allow saving checkpoint before current mintime
+  IF (mintime > maxlogtime)
+    mintime := maxlogtime;
+  IF (maxtime < mintime)
+    maxtime := mintime;
+
+  INTEGER numrecs_digits := LENGTH(ToString(maxbatchsize));
+  STRING numrecs_prefix := RepeatText(" ", numrecs_digits);
+
+  INTEGER numrecs;
+
+  DATETIME last_rectime := mintime;
+  DATETIME second_bucket_start := AddTimeToDate(bucketsize, mintime);
+  WHILE (TRUE)
+  {
+    //ADDME configurable, maximum batch size. Gives 'older' servers some time to catchup
+    IF (numrecs >= maxbatchsize)
+    {
+      // But break only if we have progressed into a new bucket, or else we'll be stuck on this bucket
+      IF (last_rectime >= second_bucket_start)
+        BREAK;
+    }
+
+    numrecs := numrecs + 1;
+
+    RECORD rec := reader->ReadRecord();
+    IF(NOT RecordExists(rec))
+      BREAK;
+
+    last_rectime := rec.time;
+
+    IF (rec.time < mintime)
+    {
+      IF (rewrite_skip)
+      {
+        IF (args.d AND (numrecs % 1000) = 0)
+          PRINT(Left(Right(numrecs_prefix || numrecs, numrecs_digits) || " " || FormatISO8601DateTime(rec.time) || " skipped" || RepeatText(" ", 70), 70) || "\r");
+
+        CONTINUE;
+      }
+
+      // Make sure we don't see time before the mintime (can happen when time skips back), we will destroy
+      // the previous buckets if that happens
+
+      PRINT("Skip before mintime!\n");
+      rec.time := mintime;
+    }
+    rewrite_skip := FALSE;
+
+    IF (rec.time >= maxtime)
+      BREAK;
+
+    INTEGER bucket := GetBucketFor(hostedsites, rec.host, rec.port, rec.time);
+
+    IF (args.d)
+      PRINT(Left(Right(numrecs_prefix || numrecs, numrecs_digits) || " " || FormatISO8601DateTime(rec.time) || ": " || rec.host || ":" || rec.port || RepeatText(" ", 70), 70) || "\r");
+
+    IF(bucket=-1)
+      CONTINUE;
+
+    buckets[bucket].hits := buckets[bucket].hits + 1;
+    buckets[bucket].download := buckets[bucket].download + rec.download;
+    buckets[bucket].upload := buckets[bucket].upload + rec.upload;
+
+    BOOLEAN skipmeasure;
+    IF(rec.url LIKE "/wh_events/*"
+       OR rec.url = "/wh_services/tollium/todd/RunToddComm"
+       OR rec.url = "/.tollium/ui/comm.whsock"
+       OR rec.url LIKE "/tollium_todd/comm.shtml*"
+       )
+    {
+      skipmeasure := TRUE;
+    }
+
+    BOOLEAN isfail;
+    IF(NOT skipmeasure)
+    {
+      buckets[bucket].sumpagetime := buckets[bucket].sumpagetime + rec.pagetime;
+      IF(rec.pagetime > 5000000) //should be configurable
+      {
+        buckets[bucket].highpagetime := buckets[bucket].highpagetime + 1;
+        isfail := TRUE;
+      }
+    }
+
+    IF(rec.httpcode >= 500)
+    {
+      buckets[bucket].serverfails := buckets[bucket].serverfails + 1;
+      isfail := TRUE;
+    }
+    ELSE IF(rec.httpcode >= 400 AND IsBlameableClientError(localnames, rec))
+    {
+      buckets[bucket].clientfails := buckets[bucket].clientfails + 1;
+      isfail := TRUE;
+    }
+
+    IF(isfail AND rec.remoteip NOT IN buckets[bucket].failips)
+      INSERT rec.remoteip INTO buckets[bucket].failips AT END;
+  }
+
+  IF (args.d)
+    PRINT(RepeatText(" ", 70) || "\r");
+
+  BOOLEAN save_reader_checkpoint := TRUE;
+  IF (numrecs >= maxbatchsize)
+  {
+    // Make sure we restart at the location of the first record in the bucket the last record was seen in
+    // because we need to redo the current bucket (delete will take care of the partially filled last bucket)
+    // Can't use the reader checkpoint, it will point halfway the bucket that needs to be redone
+    save_reader_checkpoint := FALSE;
+    maxtime := GetRoundedDatetime(last_rectime, bucketsize);
+
+    // And reschedule after 10 secs
+    nextread := AddTimeToDate(10 * 1000, GetCurrentDatetime());
+  }
+
+  IF (args.dryrun OR args.d)
+  {
+    PRINT("Run done\nDeleting\n" || AnyToString((SELECT * FROM system.webservers_usage WHERE time >= mintime ORDER BY time, webserver), "boxed"));
+    PRINT("New buckets:\n" || AnyToString(buckets, "boxed"));
+  }
+
+  IF (args.dryrun)
+  {
+    trans->RollbackWork();
+    RETURN;
+  }
+
+  trans->BeginLockedWork("system:webservers");
+  trans->ScheduleTask("system:webserverusage", nextread);
+
+  DELETE FROM system.webservers_usage WHERE time >= mintime;
+  FOREVERY(RECORD bucket FROM buckets)
+    INSERT INTO system.webservers_usage(webserver,time,hits,serverfails,clientfails,highpagetime,failips,download,upload,sumpagetime)
+           VALUES(bucket.webserver, bucket.time, bucket.hits, bucket.serverfails, bucket.clientfails, bucket.highpagetime, Length(bucket.failips), bucket.download, bucket.upload, bucket.sumpagetime);
+
+  STRING checkpoint := "v2:" || EncodeHSON(
+        [ reader := save_reader_checkpoint ? reader->checkpoint : ""
+        , time :=   maxtime
+        ]);
+
+  IF (args.d)
+    PRINT("Saving checkpoint '" || checkpoint || "'\n");
+
+  WriteRegistryKey("system.webserver.measure.accesslogcheckpoint", checkpoint);
+  trans->CommitWork();
+}
+
+OBJECT lock := OpenLockManager()->TryLockMutex("system:webserverusage", DEFAULT DATETIME);
+IF (NOT ObjectExists(lock))
+{
+  PRINT("Another instance of this script is already running\n");
+  RETURN;
+}
+
+Main();

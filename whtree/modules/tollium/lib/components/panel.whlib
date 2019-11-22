@@ -1,0 +1,457 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/components/tabs.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// An updateable panel
+
+PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumExtendableLinesContainerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD pvt_borders;
+  RECORD pvt_spacers;
+
+  STRING pvt_backgroundcolor;
+
+  RECORD ARRAY pvt_backgroundimages;
+
+  OBJECT panelcontents;
+
+  RECORD ARRAY lines;
+
+  RECORD ARRAY saved_lines;
+
+  /// Accept drops spec
+  RECORD pvt_acceptdrops;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY borders(pvt_borders, pvt_borders);
+
+  ///A list of spacers. Setting a panel's spacers clears any context-sensitive default!
+  PUBLIC PROPERTY spacers(pvt_spacers, SetSpacers);
+
+  PUBLIC PROPERTY backgroundcolor(pvt_backgroundcolor, SetBackgroundColor);
+
+  PUBLIC PROPERTY backgroundimages(pvt_backgroundimages, SetBackgroundImages);
+
+  PUBLIC BOOLEAN vscroll;
+
+  PUBLIC RECORD ARRAY visibleon;
+
+  PUBLIC PROPERTY contents(panelcontents, SetContents);
+
+  PUBLIC STRING layout;
+
+  PUBLIC BOOLEAN isfooter;
+
+  PUBLIC PROPERTY acceptdrops(pvt_acceptdrops, SetAcceptDrops);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumFileDropAccepter;
+
+    this->pvt_blockelement := TRUE;
+    this->componenttype := "panel";
+    this->layout := "form";
+    this->pvt_borders := tolliumdefaultborderspacer;
+    this->pvt_spacers := tolliumdefaultborderspacer;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->layout := def.layout;
+    this->pvt_borders := def.borders;
+    this->pvt_spacers := def.spacers;
+    this->pvt_backgroundcolor := def.backgroundcolor;
+    this->pvt_backgroundimages := def.backgroundimages;
+    this->vscroll := def.vscroll;
+    this->visibleon := def.visibleon;
+    this->lines := def.lines;
+    this->pvt_acceptdrops := def.acceptdrops;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsNowDisplayed()
+  {
+    IF(NOT this->visible)
+      RETURN FALSE;
+
+    IF(ObjectExists(this->parent) AND this->parent EXTENDSFROM TolliumTabs AND this->parent->selectedtab != this)
+      RETURN FALSE;
+
+    RETURN NOT ObjectExists(this->parent) OR this->parent->IsNowDisplayed();
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN ObjectExists(this->parent) AND this->parent->componenttype="split" ? "" : "1pr";
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    OBJECT ARRAY retval;
+    FOREVERY(RECORD line FROM this->lines)
+      retval := retval CONCAT line.items;
+
+    IF (ObjectExists(this->panelcontents)) //recursion shouldn't return the frame (as we really don't want to make that visible to Todd) but todd still needs to see the specials
+      retval := retval CONCAT this->panelcontents->tolliumscreenmanager->frame->bodynode->GetChildComponents() CONCAT this->panelcontents->tolliumscreenmanager->GetSpecialComponents();
+
+    RETURN retval;
+  }
+
+  //Are any components on this panel visible (even client-side conditionally?)
+  PUBLIC BOOLEAN FUNCTION HasAnyVisibleComponents()
+  {
+    FOREVERY (OBJECT comp FROM this->GetChildComponents())
+    {
+      IF (comp->isnowvisible
+          AND (NOT MemberExists(comp, "labelfor")
+              OR NOT ObjectExists(comp->labelfor)
+              OR comp->labelfor->visible)) // This label isn't visible if the component that it's a label for isn't visible
+      {
+        RETURN TRUE;
+      }
+    }
+    RETURN FALSE;
+  }
+
+  UPDATE MACRO PreInitComponent() //FIXME ROB: shouldn't be needed, but without this imageedit breaks
+  {
+    TolliumComponentBase::PreInitComponent();
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN flag) //FIXME ROB: shouldn't be needed, but without this imageedit breaks
+  {
+    TolliumComponentBase::SetEnabled(flag);
+  }
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
+  {
+    RECORD pos := this->GetComponentPosition(oldcomponent);
+    IF(NOT RecordExists(pos))
+      RETURN; //TolliumWizard sometimes removes nonadded components
+
+    DELETE FROM this->lines[pos.line].items AT pos.pos;
+    IF(Length(this->lines[pos.line].items)=0)
+      DELETE FROM this->lines AT pos.line;
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    this->TolliumBoxPanelRender(FALSE);
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ contents  := FALSE
+        , title     := FALSE
+        , backgroundcolor := FALSE
+        , backgroundimages := FALSE
+        ];
+  }
+
+  BOOLEAN FUNCTION ShouldAlwaysRequireFocus()
+  {
+    FOREVERY (RECORD visibleon FROM this->visibleon)
+      IF (#visibleon > 0 AND visibleon.source != this->visibleon[0].source)
+        RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+  MACRO TolliumBoxPanelRender(BOOLEAN designmode)
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD ARRAY lines;
+      IF(ObjectExists(this->panelcontents))
+      {
+        IF(ObjectExists(this->panelcontents->frame->bodynode))
+          lines := this->panelcontents->frame->bodynode->TolliumWebDoLines(); //FIXME test embeddable screen recursion (it might do yet ANOTHER embedded panel?)
+      }
+      ELSE
+      {
+        lines := this->TolliumWebDoLines();
+      }
+
+      BOOLEAN alwaysrequirefocus := this->ShouldAlwaysRequireFocus();
+
+      RECORD panelinfo := [ title := this->title
+                          , borders := this->pvt_borders
+                          , spacers := this->pvt_spacers
+                          , backgroundcolor := this->backgroundcolor
+                          , backgroundimages := this->backgroundimages
+                          , vscroll := this->vscroll
+                          , frame := "" //let's try to just remap everything instead of sending fake middle frames.. ObjectExists(this->panelcontents) ? this->panelcontents->tolliumscreenmanager->frame->name : ""
+                          , lines := lines
+                          , visibleons := ( SELECT source := GetComponentName(visibleon.source->GetEnableOnComponent())
+                                                 , checkflags := visibleon.checkflags
+                                                 , min := visibleon.min
+                                                 , max := visibleon.max
+                                                 , requirefocus := visibleon.requirefocus OR alwaysrequirefocus
+                                                 , requirevisible := visibleon.requirevisible
+                                                 , frameflags := visibleon.frameflags
+                                                 , selectionmatch := visibleon.selectionmatch
+                                             FROM this->visibleon)
+                          , designmode := designmode
+                          , isfooter := this->isfooter
+                          , acceptdrops := this->Web_PrintAcceptDrops(this->pvt_acceptdrops)
+                          ];
+
+      IF(designmode)
+      {
+        INSERT CELL selection := this->selection INTO panelinfo;
+        INSERT CELL selectable := this->selectable INTO panelinfo;
+        INSERT CELL unmasked_events := GetUnmask(this,["select"]) INTO panelinfo;
+        INSERT CELL droptarget := this->Web_PrintDropTarget(this->droptarget) INTO panelinfo;
+      }
+      this->owner->tolliumcontroller->SendComponent(this, panelinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.contents)
+      {
+        ABORT("Can't update panel contents!");
+      }
+      IF (this->dirtyflags.backgroundcolor)
+      {
+        this->ToddUpdate([type := "backgroundcolor", backgroundcolor := this->backgroundcolor ]);
+      }
+      IF (this->dirtyflags.backgroundimages)
+      {
+        this->ToddUpdate([type := "backgroundimages", backgroundimages := this->backgroundimages ]);
+      }
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH(type)
+    {
+      CASE "acceptdrop"
+      {
+        msgdata := this->ProcessUpload(msgdata);
+
+        RECORD droptarget;
+
+        RECORD dropdata := this->VerifyDrop(this->pvt_acceptdrops, msgdata, droptarget, default string array/*this->pvt_flags*/);
+        IF (RecordExists(dropdata) AND this->pvt_acceptdrops.ondrop != DEFAULT FUNCTION PTR)
+          this->pvt_acceptdrops.ondrop([ items := dropdata.items ], msgdata.dropeffect);
+      }
+
+      DEFAULT
+      {
+        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetSpacers(RECORD spacers)
+  {
+    //prevent crashes due to 'usedefault' missing, but any chance to spacers resets any autodetection
+    this->pvt_spacers := CELL[...spacers, usedefault := FALSE];
+  }
+
+  MACRO SetBackgroundColor(STRING color)
+  {
+    IF (color != this->pvt_backgroundcolor)
+    {
+      this->pvt_backgroundcolor := GetValidColor(color);
+      this->ExtUpdatedBackgroundColor();
+    }
+  }
+
+  MACRO SetBackgroundImages(RECORD ARRAY images)
+  {
+    FOREVERY (RECORD image FROM images)
+    {
+      IF (NOT CellExists(image, "src"))
+        THROW NEW TolliumException(this, "Image src attribute must be specified for backgroundimage");
+      images[#image] := MakeUpdatedRecord([ src := ""
+                                          , position := [ "center" ]
+                                          , repeat := "repeat"
+                                          , size := "auto"
+                                          ], image);
+    }
+    this->pvt_backgroundimages := images;
+    this->ExtUpdatedBackgroundImages();
+  }
+
+  MACRO SetBackgroundPosition(STRING position)
+  {
+    STRING ARRAY inpos := Tokenize(position, " ");
+    position := "";
+    FOREVERY (STRING pos FROM inpos)
+      IF (pos IN [ "center", "left", "right", "top", "bottom" ])
+        position := position || (Length(position) > 0 ? " " : "") || pos;
+    IF (position != this->pvt_backgroundposition)
+    {
+      this->pvt_backgroundposition := position;
+      this->ExtUpdatedBackgroundPosition();
+    }
+  }
+
+  MACRO SetBackgroundRepeat(STRING repeat)
+  {
+    IF (repeat IN [ "repeat", "repeat-x", "repeat-y", "no-repeat" ] AND repeat != this->pvt_backgroundrepeat)
+    {
+      this->pvt_backgroundrepeat := repeat;
+      this->ExtUpdatedBackgroundRepeat();
+    }
+  }
+
+  /* ADDME: The code below should be fixed
+     - Why pvt_savedname ?
+     - Shouldn't we prevent a frame to be used both modal and in a frame? or in two panels?
+  */
+  MACRO SetContents(OBJECT contents)
+  {
+    IF(this->panelcontents = contents)
+      RETURN; //nothing new there
+
+    OBJECT ARRAY updatevisibility;
+//    BOOLEAN changed_contents;
+    IF(ObjectExists(this->panelcontents)) //Remove the existing panel
+    {
+      GetTopLevelScreen(this->owner)->tolliumscreenmanager->DeregisterSubscreen(this->panelcontents);
+      this->panelcontents->frame->__PVT_RemoveFromPanel();
+      IF(NOT ObjectExists(contents))
+      {
+        this->lines := this->saved_lines; //restore saved original lines
+        FOREVERY(RECORD line FROM this->lines)
+          updatevisibility := updatevisibility CONCAT line.items;
+      }
+    }
+
+    IF(ObjectExists(contents)) //prepare the new panel
+    {
+      IF(NOT ObjectExists(this->panelcontents))
+      {
+        this->saved_lines := this->lines; //save original lines
+        FOREVERY(RECORD line FROM this->lines)
+          updatevisibility := updatevisibility CONCAT line.items;
+      }
+
+      contents->frame->__PVT_IntegrateIntoPanel(this);
+      this->lines := DEFAULT RECORD ARRAY; //ExtendPanel will provide the frame->bodynode child lines directly
+      GetTopLevelScreen(this->owner)->tolliumscreenmanager->RegisterSubscreen(contents);
+    }
+
+    this->panelcontents := contents;
+
+    FOREVERY(OBJECT obj FROM updatevisibility)
+      obj->RecursiveUpdateIsNowVisible();
+
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsShowingOwnContents()
+  {
+    RETURN NOT ObjectExists(this->panelcontents);
+  }
+
+  MACRO SetAcceptDrops(RECORD newacceptdrops)
+  {
+    this->pvt_acceptdrops := FixAcceptDrops(newacceptdrops);
+    this->ExtDropTargetUpdate();
+  }
+
+  /** @short Extend the panel
+      @long Extend the panel using a specified XML document.
+      @param extensionselement The extension node to load (must be a t:tabsextension)
+      @param uniquename Unique name for the screens file (used for caching)
+      @param modtime Modification date of the screen
+  */
+  PUBLIC RECORD FUNCTION LoadFragment(STRING resourcename, STRING fragmentname)
+  {
+    RECORD retval := [ components := DEFAULT OBJECT ARRAY
+                     ];
+
+    RECORD ARRAY offered_comps := this->extendcomponents;
+    RECORD ARRAY offered_handlers := this->extendhandlers;
+
+    RECORD result := this->owner->LoadTolliumBodyFragment(offered_comps, offered_handlers, resourcename, fragmentname, FALSE);
+    IF(Length(result.errors)>0) //then just throw the first..
+      THROW NEW TolliumException(this, result.errors[0].line || ": " || result.errors[0].message);
+
+    retval.components := result.components;
+    this->InsertComponentAfter(result.fragment, DEFAULT OBJECT, TRUE);
+    RETURN retval;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  UPDATE PUBLIC MACRO ExtUpdatedComponent()
+  {
+    IF(ObjectExists(this->owner) AND this->owner->frame->bodynode = this AND ObjectExists(this->owner->frame->containingpanel))
+      this->owner->frame->containingpanel->ExtUpdatedComponent(); //forward the update, as we will be ignored when handling 'dirty' bits
+
+    this->EnsureFilledDirtyFlags();
+
+    this->dirtyflags.fully := TRUE;
+  }
+
+  UPDATE MACRO ExtUpdatedTitle()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.title := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedBackgroundColor()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.backgroundcolor := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedBackgroundImages()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.backgroundimages := TRUE;
+    */
+  }
+
+  /** Called when the droptarget has been changes */
+  MACRO ExtDropTargetUpdate()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.droptarget := TRUE;
+    */
+  }
+
+>;

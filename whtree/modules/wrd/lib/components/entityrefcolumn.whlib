@@ -1,0 +1,130 @@
+﻿<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/components/listedit.whlib";
+
+LOADLIB "mod::wrd/lib/components/entity.whlib";
+LOADLIB "mod::wrd/lib/components/entitylist.whlib";
+LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// WHFSRef columns
+//
+PUBLIC OBJECTTYPE EntityRefColumn EXTEND TolliumListColumnBase
+<
+  STRING pvt_field;
+  STRING type;
+  STRING name;
+  STRING pvt_inputkind;
+  OBJECT wrdschema;
+  OBJECT wrdtype;
+
+  PUBLIC PROPERTY field(pvt_field, SetField);
+  PUBLIC PROPERTY inputkind(pvt_inputkind, SetInputKind);
+
+  MACRO NEW()
+  {
+    this->pvt_field := "WRD_TITLE";
+    this->pvt_inputkind := "WRD_ID";
+  }
+
+  UPDATE PUBLIC MACRO StaticColumnInit(RECORD data)
+  {
+    this->pvt_field := data.field ?? this->pvt_field;
+    this->type := data.type;
+    this->name := data.name;
+    this->inputkind := ToUppercase(data.inputkind);
+
+    IF(data.wrdtype != "" AND HavePrimaryTransaction()) // skip when validating
+    {
+      this->wrdtype := GetTypeFromData(this->list, this->list->owner, data);
+    }
+  }
+
+  OBJECT FUNCTION GetCurrentWRDType()
+  {
+    IF(ObjecTexists(this->wrdtype))
+      RETURN this->wrdtype;
+
+    IF(NOT ObjectExists(this->list->valuecontext) OR
+        (this->list->valuecontext NOT EXTENDSFROM ArrayEdit AND NOT this->list->valuecontext EXTENDSFROM EntityListBase))
+      THROW NEW TolliumException(this->list, "<wrd:entityrefcolumn> currently only supports <arrayedit>, <wrd:entitylist> and <wrd:entitiesedit>"); //ADDME figure out how to support other types too
+
+    OBJECT wrdtype;
+    STRING fullattrname;
+
+    IF (this->list->valuecontext EXTENDSFROM ArrayEdit)
+    {
+      OBJECT wrdcomp := GetWRDEntityComposition(this->list->valuecontext->composition);
+      IF(NOT ObjectExists(wrdcomp))
+        THROW NEW TolliumException(this->list, "The arrayedit has no wrd:entity composition");
+
+      wrdtype := wrdcomp->wrdtype;
+      fullattrname := this->list->valuecontext->cellname || "." || this->name; //note: blindly assumes arrayedit
+    }
+    ELSE IF (this->list->valuecontext EXTENDSFROM EntityListBase)
+    {
+      wrdtype := this->list->valuecontext->wrdtype;
+      fullattrname := this->name;
+    }
+
+    //ADDME use domvalcache if querying WRD_TITLE from a proper type
+    RECORD attr := wrdtype->GetAttribute(fullattrname);
+    IF(NOT RecordExists(attr))
+      THROW NEW TolliumException(this->list, "Type '" || wrdtype->tag || "' has no attribute '" || fullattrname || "'");
+    IF(attr.domain = 0)
+      THROW NEW TolliumException(this->list, "Type '" || wrdtype->tag || "' attribute '" || fullattrname || "' has no domain");
+
+    OBJECT referredtype := wrdtype->wrdschema->GetTypeById(attr.domain);
+    IF(NOT ObjectExists(referredtype))
+      THROW NEW TolliumException(this->list, "Type '" || wrdtype->tag || "' attribute '" || fullattrname || "' refers to non-existing domain #" || attr.domain);
+
+    RETURN referredtype;
+  }
+
+  //ADDME Caching? But when to flush?
+  //ADDME Bulk querying...
+  UPDATE PUBLIC VARIANT FUNCTION TranslateValue(VARIANT invalue)
+  {
+    OBJECT referredtype := this->GetCurrentWRDType();
+//    IF(NOT ObjectExists(this->list->composition))
+  //    THROW NEW TolliumException(this->list, "The list has no composition");
+    IF(NOT ObjectExists(referredtype))
+      RETURN this->list->GetDefaultValueForColumnType(this->type);
+
+    INTEGER entityid;
+    IF(this->inputkind = "WRD_ID")
+      entityid := invalue;
+    ELSE IF(this->inputkind="WRD_GUID" AND invalue != "")
+      entityid := referredtype->Search("WRD_GUID", invalue);
+
+    IF(entityid=0)
+      RETURN this->list->GetDefaultValueForColumnType(this->type);
+
+    RECORD referred := referredtype->GetEntityFields(entityid, [ STRING(this->pvt_field) ]);
+    RETURN RecordExists(referred) ? GetCell(referred, this->pvt_field) : this->list->GetDefaultValueForColumnType(this->type);
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetExpectedInputType()
+  {
+    RETURN this->inputkind = "WRD_GUID" ? TypeID(STRING) : TypeID(INTEGER);
+  }
+
+  MACRO SetField(STRING field)
+  {
+    field := ToUppercase(field);
+    OBJECT referredtype := this->GetCurrentWRDType();
+    IF (ObjectExists(referredtype) AND NOT RecordExists(referredtype->GetAttribute(field)))
+      THROW NEW TolliumException(this, "Invalid field '" || field || "'");
+    this->pvt_field := field;
+  }
+
+  MACRO SetInputKind(STRING inputkind)
+  {
+    inputkind := ToUppercase(inputkind);
+    IF(inputkind NOT IN ["WRD_ID","WRD_GUID"])
+      THROW NEW TolliumException(this, "Invalid input kind '" || inputkind || "'");
+    this->pvt_inputkind := inputkind;
+  }
+>;

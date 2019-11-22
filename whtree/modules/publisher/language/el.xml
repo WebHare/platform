@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="el" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Παρακαλώ ελέγξτε το παρακάτω πλαίσιο</text>
+      <text tid="title">Σχεδόν έτοιμο</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">Επόμενο</text>
+      <text tid="previouspage">Προηγούμενο</text>
+      <text tid="selectfile">Επιλέξτε αρχείο</text>
+      <text tid="starsrequired">* υποδηλώνει πεδίο που απαιτείται να συμπληρωθεί</text>
+      <text tid="submit">Υποβάλλετε</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">Δεν ήταν δυνατή η εύρεση της διεύθυνσης.</text>
+        <text tid="invalid_nr_detail">Μη έγκυρος αριθμός σπιτιού.</text>
+        <text tid="invalid_zip">Μη έγκυρος ταχυδρομικός κώδικας.</text>
+        <text tid="zip_not_found">Άγνωστος συνδυασμός ταχυδρομικού κώδικα και αριθμού κατοικίας.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">Η τιμή πρέπει να είναι αλφαριθμητικό.</text>
+        <text tid="check">Πρέπει να επιλέξετε μεταξύ <param p="1"/> και <param p="2"/> επίλογων.</text>
+        <text tid="default">Η τιμή φαίνεται να είναι μη έγκυρη.</text>
+        <text tid="digits">Η τιμή πρέπει να είναι ψηφία.</text>
+        <text tid="email">Η τιμή πρέπει να είναι ένα έγκυρο email.</text>
+        <text tid="email_baddomain">Λόγω δυσκολιών με την αποστολή e-mail σε <param p="1"/> διευθύνσεις ηλεκτρονικού ταχυδρομείου, σας παρακαλούμε να χρησιμοποιήσετε έναν εναλλακτικό πάροχο ηλεκτρονικού ταχυδρομείου.</text>
+        <text tid="email_suggestion">Μήπως εννοείτε <param p="1"/>;</text>
+        <text tid="equalto">Η τιμή πρέπει να είναι η ίδια.</text>
+        <text tid="integer">Η τιμή πρέπει να είναι ένας έγκυρος ακέραιος.</text>
+        <text tid="length">Το μήκος του κειμένου είναι μη έγκυρο. Πρέπει να είναι μεταξύ <param p="1"/> και <param p="2"/> χαρακτήρων.</text>
+        <text tid="max">Η τιμή πρέπει να είναι μικρότερη ή ίση με <param p="1"/>.</text>
+        <text tid="maxcheck">Πρέπει να επιλέξετε <param p="1"/> ή λιγότερες επιλογές.</text>
+        <text tid="maxlength">Η κείμενο είναι πολύ μεγάλο. Πρέπει να είναι <param p="1"/> ή και λιγότεροι χαρακτήρες.</text>
+        <text tid="min">Η τιμή πρέπει να είναι μεγαλύτερη ή ίση με <param p="1"/>.</text>
+        <text tid="mincheck">Πρέπει να επιλέξετε τουλάχιστον <param p="1"/> επιλογές.</text>
+        <text tid="minlength">Το κείμενο είναι πολύ μικρό. Πρέπει να είναι <param p="1"/> ή και περισσότεροι χαρακτήρες.</text>
+        <text tid="notblank">Η τιμή δεν πρέπει να είναι κενή.</text>
+        <text tid="number">Η τιμή πρέπει να είναι ένας έγκυρος αριθμός.</text>
+        <text tid="pattern">Η τιμή φαίνεται να είναι μη έγκυρη.</text>
+        <text tid="range">Η τιμή πρέπει να είναι μεταξύ <param p="1"/> και <param p="2"/>.</text>
+        <text tid="required">Η τιμή αυτή απαιτείται.</text>
+        <text tid="url">Η τιμή πρέπει να είναι ένα έγκυρο url.</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

@@ -1,0 +1,10 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC BOOLEAN FUNCTION Test(BOOLEAN expectprimary)
+{
+  IF(HavePrimaryTransaction() != expectprimary)
+    ABORT(HavePrimaryTransaction() ? "Unexpected primary transaction" : "Missing primary transaction");
+
+  RETURN TRUE;
+}

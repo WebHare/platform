@@ -1,0 +1,557 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+RECORD defaultemptysearchrecord;
+RECORD ARRAY defaultmapping;
+
+/** @short A custom content provider base object
+    @long Extend this object to provide a custom content provider indexing object.
+    @topic consilio/api
+*/
+PUBLIC OBJECTTYPE CustomContentBase
+<
+  INTEGER contentsourceid;
+
+  PROPERTY defaultemptysearchrecord(GetDefaultEmptySearchRecord, -);
+  PROPERTY defaultmapping(GetDefaultMapping, -);
+
+  /** Constructs a new CustomContentBase object
+      @param data Initialization data
+  */
+  MACRO NEW(RECORD data)
+  {
+    this->contentsourceid := data.contentsourceid;
+  }
+
+  ///Force cached data to be reread
+  PUBLIC BOOLEAN force;
+
+
+  /** @short Get a title for this index
+      @return Title
+  */
+  PUBLIC STRING FUNCTION GetContentSourceTitle()
+  {
+    RETURN "";
+  }
+
+  /** @short Get an empty result record. Deprecated, please override GetMapping instead.
+      @return Empty result record
+  */
+  PUBLIC RECORD FUNCTION GetEmptySearchRecord()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Return the mapping for all return fields
+      @return Mapping
+      @cell(string) return.name Name of the field
+      @cell return.value Default value if this field isn't return (also used to determine the type of the field)
+      @cell return.tokenized Whether the field should be tokenized
+      @cell return.suggested If the content should be used for autocomplete suggestions
+
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetMapping()
+  {
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  /** @short List of fields to provide in ListObjects2 for current_objects
+      @return List of field names
+  */
+  PUBLIC STRING ARRAY FUNCTION GetObjectListFields()
+  {
+    RETURN DEFAULT STRING ARRAY;
+  }
+
+
+  /** @short Prepare for indexing */
+  PUBLIC MACRO PrepareForIndexing()
+  {
+  }
+
+  /** @short Get a list of all groups
+      @param commanddate Date when this command (or its oldest ancestor) was issued
+      @return The result
+      @cell return.status "result" if call succeeded, "error" if an error ocurred
+      @cell return.error Return a record with an 'error' cell of type string if an error occurred
+      @cell return.groups The list of groups
+      @cell return.groups.id The id of the group
+  */
+  PUBLIC RECORD FUNCTION ListGroups(DATETIME commanddate)
+  {
+    THROW NEW Exception("ListGroups not implemented");
+  }
+
+  /** @short Get a list of all objects within a group
+      @param commanddate Date when this command (or its oldest ancestor) was issued
+      @param groupid The group the get the list of objects of
+      @param current_objects List of currently present objects. Fields can be specified with GetListObjectFields (only filled in update mode, not in rebuild mode)
+      @return The result
+      @cell return.status "result" if call succeeded, "error" if an error ocurred
+      @cell return.error Return a record with an 'error' cell of type string if an error occurred
+      @cell return.objects The list of objects
+      @cell return.objects.id The id of the object
+      @cell return.requiredindexdate If the indexdate of the version of the object currently stored in the index
+               is at least this value, it is kept as-is and not re-fetched. (warning: don't use this if FetchObject returns
+               other objects not returned by this ListObjects, because those objects will not be discovered, and subsequently removed).
+  */
+  PUBLIC RECORD FUNCTION ListObjects2(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects)
+  {
+    RETURN this->ListObjects(commanddate, groupid);
+  }
+
+  /** @short Get a list of all objects within a group
+      @param commanddate Date when this command (or its oldest ancestor) was issued
+      @param groupid The group the get the list of objects of
+      @return The result
+      @cell return.status "result" if call succeeded, "error" if an error ocurred
+      @cell return.error Return a record with an 'error' cell of type string if an error occurred
+      @cell return.objects The list of objects
+      @cell return.objects.id The id of the object
+      @cell return.objects.data Optional data for the object (see FetchObject return value, without status and error)
+      @cell return.requiredindexdate If the indexdate of the version of the object currently stored in the index
+               is at least this value, it is kept as-is and not re-fetched. (warning: don't use this if FetchObject returns
+               other objects not returned by this ListObjects, because those objects will not be discovered, and subsequently removed).
+  */
+  PUBLIC RECORD FUNCTION ListObjects(DATETIME commanddate, STRING groupid)
+  {
+    RETURN [ status := "result"
+           , objects := [ [ id := groupid ] ]
+           ];
+  }
+
+  /** @short Get a single object
+      @param commanddate Date when this command (or its oldest ancestor) was issued
+      @param groupid The group the get the list of objects of
+      @param objectid If of the object
+      @return The result
+      @cell(string) return.status "result" if call succeeded, "error" if an error ocurred, "notfound" if not found
+      @cell(string) return.error If the call did not succeed, this cell may contain an error message
+      @cell return.document_body The document's body text
+      @cell(record) return.document_fields List of fields and values to index (prefix DATETIME fields with "date_")
+      @cell return.objects New objects found within the group
+      @cell return.objects.id Id of the object
+      @cell return.objects.data Optional data of the object (if not provided, FetchObject will be called with the object id)
+      @cell return.links All links found in the object
+      @cell return.links.link Link URL
+      @cell return.links.text Link text
+      @cell return.links.type Link type
+      @cell return.indexdate Date of last modification of this object (optional). If not present, the document will always
+               be replaced in the index.
+      @cell return.requiredindexdate If the indexdate of the version of the object currently stored in the index
+               is at least this value, it is kept as-is and not re-fetched. (warning: don't use this if FetchObject returns
+               other objects not returned by this ListObjects, because those objects will not be discovered, and subsequently removed).
+  */
+  PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid)
+  {
+    THROW NEW Exception("FetchObject not implemented");
+  }
+
+  // Don't override this one
+  RECORD FUNCTION GetDefaultEmptySearchRecord()
+  {
+    RETURN defaultemptysearchrecord;
+  }
+
+  // Don't override this one
+  RECORD ARRAY FUNCTION GetDefaultMapping()
+  {
+    RETURN defaultmapping;
+  }
+
+  /** Helper function to implement the FetchObject function if ListObjects(2) already gives back the data for
+      all existing objects (needed to ensure CheckConsilioObject which call FetchObject directly still
+      functions)
+      @param commanddate
+      @param groupid
+      @param objectid
+      @return Return value for FetchObject
+      @example
+      UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid)
+      {
+        RETURN this->FetchObjectFromObjectList(commanddate, groupid, objectid);
+      }
+  */
+  RECORD FUNCTION FetchObjectFromObjectList(DATETIME commanddate, STRING groupid, STRING objectid)
+  {
+    RECORD result := this->ListObjects2(commanddate, groupid, RECORD[]);
+    IF (result.status != "result")
+      RETURN result;
+
+    RECORD obj := SELECT * FROM result.objects WHERE id = objectid;
+    IF (NOT RecordExists(obj))
+      RETURN [ status := "notfound" ];
+
+    IF (NOT CellExists(obj, "DATA") OR IsDefaultValue(obj.data))
+      RETURN [ status := "error", error := `FetchObjectFromList got no object data from ListObjects2 for object '${EncodeJava(objectid)}'` ];
+
+    RETURN CELL[ status := "result", ...obj.data, DELETE id ];
+  }
+>;
+
+/** Constructs a Consilio custom content object
+    @private For internal use only
+    @param data Invocation data
+    @return Custom content object
+*/
+PUBLIC OBJECT FUNCTION MakeCustomContentObject(RECORD data)
+{
+  STRING library := CellExists(data, "library") ? data.library : "";
+  STRING contentobjectname := library != "" AND CellExists(data, "contentobject") ? data.contentobject : "";
+  OBJECT contentobject;
+  STRING describe := `object ${library}#${contentobjectname} for index '${data.contentsourcetag}'`; //don't need to list catalog as long as contentsource tags are global
+  TRY
+  {
+    contentobject := MakeObject(library, contentobjectname, [ contentsourceid := data.contentsourceid
+                                                            , contentsourcetag := data.contentsourcetag
+                                                            , catalogtag := data.catalogtag
+                                                            ]);
+  }
+  CATCH (OBJECT e)
+  {
+    LogHarescriptException(e, [ info := [ context := "consilio:makecustomcontentobject" ] ]);
+    THROW NEW Exception(`Could not initialize content ${describe}: ${e->what}`);
+  }
+
+  IF (NOT contentobject EXTENDSFROM CustomContentBase)
+    THROW NEW Exception(`Content ${describe} is not a ContentObjectBase object`);
+
+  RETURN contentobject;
+}
+
+/** Content provider for custom content (database contents)
+    @private For Consilio internal use only
+*/
+PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
+< OBJECT job;
+  INTEGER job_handle;
+  INTEGER job_outputstream;
+  STRING job_linebuffer; // Store incomplete read lines
+  STRING identifier;
+  RECORD initdata;
+  RECORD emptysearchrecord;
+  RECORD ARRAY mapping;
+  STRING ARRAY objectlistfields;
+  BOOLEAN gotmetainfo;
+
+  /** Initializes the content provider
+      @param contentsource The content source record which contains the configuration for the content provider
+      @cell(record) contentsource.data Initialization data
+      @cell(string) contentsource.data.library WebHare library file containing the content object
+      @cell(string) contentsource.data.contentobject Name of the content object (extension of CustomContentBase)
+  */
+  UPDATE PUBLIC MACRO Init(RECORD contentsource) //FIXME deze functie staat hier vreemd, want de andere operaties moeten StartJob/DoRequest doen en deze zou dus eigenlijk la in de job zelf moeten zitten ?
+  {
+    ConsilioContentProvider::Init(contentsource);
+
+    this->initdata := contentsource.data;
+    INSERT CELL contentsourceid := this->contentsourceid INTO this->initdata;
+    STRING library := CellExists(this->initdata, "library") ? this->initdata.library : "";
+    STRING contentobjectname := library != "" AND CellExists(this->initdata, "contentobject") ? this->initdata.contentobject : "";
+    this->identifier := contentobjectname != "" ? library || ":" || contentobjectname : "";
+
+    this->initdata := CELL[ ...this->initdata
+                          , contentsourcetag := contentsource.tag
+                          , contentsource.catalogtag
+                          ];
+
+    // Initialize the defaultemptysearchrecord
+    defaultemptysearchrecord := this->defaultemptysearchrecord;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetContentSourceTitle()
+  {
+    RECORD res := this->DoJobRequest([ command := "gettitle"
+                                     ]);
+    RETURN res.msg.title;
+  }
+
+  MACRO EnsureSearchMetaInfo()
+  {
+    IF(this->gotmetainfo)
+      RETURN;
+
+    this->gotmetainfo := TRUE;
+    RECORD res := this->DoJobRequest([ command :=     "describesource"
+                                     ]);
+    this->emptysearchrecord := res.msg.emptysearchrecord;
+    this->mapping := res.msg.mapping;
+    this->objectlistfields := res.msg.objectlistfields;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetIdentifier()
+  {
+    RETURN this->identifier != "" ? this->identifier : "custom:" || this->contentsourceid;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
+  {
+    this->EnsureSearchMetaInfo();
+    RETURN Length(this->mapping) > 0 ? this->mapping : this->GetDefaultMapping(this->emptysearchrecord);
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetObjectListFields()
+  {
+    this->EnsureSearchMetaInfo();
+    RETURN this->objectlistfields;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION ListGroups(DATETIME commanddate)
+  {
+    RECORD res := this->DoJobRequest([ command :=     "listgroups"
+                                     , commanddate := commanddate
+                                     ]);
+
+    IF (res.status = "ok" AND res.msg.status = "result")
+      RETURN res.msg.groups;
+    ELSE IF (res.status = "ok" AND res.msg.status = "error")
+      THROW NEW Exception(res.msg.error);
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION ListObjects2(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects)
+  {
+    RECORD res := this->DoJobRequest([ command :=     "listobjects2"
+                                     , commanddate := commanddate
+                                     , groupid :=     groupid
+                                     , current_objects := current_objects
+                                     ]);
+
+    IF (res.status = "ok" AND res.msg.status = "result")
+      RETURN res.msg.objects;
+    ELSE IF (res.status = "ok" AND res.msg.status = "error")
+      THROW NEW Exception(res.msg.error);
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid, RECORD options)
+  {
+    RECORD res := this->DoJobRequest([ command := "fetchobject"
+                                     , commanddate := commanddate
+                                     , groupid := groupid
+                                     , objectid := objectid
+                                     , options := options
+                                     ]);
+
+    // No need to check for validity of the returned object; that's already done by customcontent.whscr
+    IF (res.status = "ok" AND res.msg.status = "result")
+      RETURN CellDelete(res.msg, "status");
+    ELSE IF (res.status = "ok" AND res.msg.status = "error")
+      THROW NEW Exception(res.msg.error);
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO StartJob()
+  {
+    IF (ObjectExists(this->job))
+      RETURN;
+
+    RECORD jobdata := CreateJob("mod::consilio/scripts/internal/customcontent.whscr");
+    IF(NOT ObjectExists(jobdata.job))
+      THROW NEW Exception("Could not create job");
+
+    OBJECT job := jobdata.job;
+    this->job := job;
+    this->job->ipclink->autothrow := TRUE;
+
+    this->job_outputstream := job->CaptureOutput();
+
+    RECORD res := job->ipclink->SendMessage(this->initdata);
+    IF (res.status != "ok")
+    {
+      this->CloseJob();
+      THROW NEW Exception("Cannot send message to starting job");
+    }
+
+    job->Start();
+
+    res := this->DoJobRequest(DEFAULT RECORD);
+    IF (res.status = "ok" AND res.msg.status = "started")
+      RETURN;
+
+    RECORD ARRAY errors;
+    STRING errormsg;
+    IF (res.status = "ok" AND res.msg.status = "error")
+      errormsg := "Job returned error: " || res.msg.error;
+    ELSE IF(res.status = "gone")
+    {
+      errors := job->GetErrors();
+    }
+    ELSE
+      errormsg := "Did not receive a message";
+
+    this->CloseJob();
+    IF(Length(errors)>0)
+      THROW NEW HareScriptErrorException(errors);
+    ELSE
+      THROW NEW Exception(errormsg);
+  }
+
+  RECORD FUNCTION DoJobRequest(RECORD request)
+  {
+    // If no request was given, this function was called from within StartJob, no need to start it again :-)
+    IF (RecordExists(request))
+    {
+      this->StartJob();
+
+      RECORD res := this->job->ipclink->SendMessage(request);
+      IF (res.status != "ok")
+      {
+        this->CloseJob();
+        THROW NEW Exception("Could not send job command");
+      }
+    }
+
+    RECORD res;
+    BOOLEAN signalled;
+    WHILE (TRUE)
+    {
+      INTEGER joblink := this->job->ipclink->handle;
+
+      // Wait for job output
+      INTEGER ARRAY waithandles := [ INTEGER(this->job_outputstream) ];
+      // Wait for job link signal only if is was not signalled before
+      IF (NOT signalled)
+        INSERT joblink INTO waithandles AT 0;
+      // If job link was signalled, wait for remaining output with no timeout
+      INTEGER timeout := signalled ? 0 : -1;
+
+      this->DebugLog(ConsilioDebugAll, "Waiting for job handle");
+      INTEGER handle := WaitForMultiple(waithandles, DEFAULT INTEGER ARRAY, timeout);
+      this->DebugLog(ConsilioDebugAll, "Job handle " || handle || " was signalled");
+
+      // Did we receive a message?
+      IF (handle = joblink)
+      {
+        //this->DebugLog(ConsilioDebugAll, "Job link was signalled");
+        res := this->job->ipclink->ReceiveMessage(MAX_DATETIME);
+        //this->DebugLog(ConsilioDebugAll, "Job link status: " || res.status);
+        IF (res.status != "timeout")
+        {
+          // The job link was signalled, wait for remaining job output
+          signalled := TRUE;
+          CONTINUE;
+        }
+      }
+
+      IF (handle < 0)
+      {
+        //this->DebugLog(ConsilioDebugAll, "Timeout while waiting");
+        IF (signalled)
+        {
+          // No remaining job output, handle the link response
+          BREAK;
+        }
+        // This should not happen (we're waiting indefinitely if we weren't signalled)
+        this->CloseJob();
+        THROW NEW Exception("Timeout while waiting for job response");
+      }
+
+      // Process normal job output as debug output
+      //this->DebugLog(ConsilioDebugAll, "Process job output");
+      STRING output := ReadLineFrom(this->job_outputstream, -4096, FALSE);
+      //this->DebugLog(ConsilioDebugAll, "Got output: '" || EncodeJava(output) || "'");
+      IF (this->job_linebuffer != "")
+      {
+        // We have a buffered incomplete line, prepend the received output with it
+        output := this->job_linebuffer || output;
+        this->job_linebuffer := "";
+      }
+      IF (output = "")
+      {
+        BREAK;
+      }
+      IF (Right(output, 1) NOT IN [ "\n", "\r" ])
+      {
+        // Did not receive a complete line, buffer the received output until a line end was read
+        this->job_linebuffer := output;
+        CONTINUE;
+      }
+
+      // Use the received line as debug output
+      this->DebugLog(ConsilioDebugInfo, "Got job output: " || output);
+    }
+
+    // Check if the job is still running
+    IF (RecordExists(res) AND res.status = "gone")
+    {
+      RECORD ARRAY errors := this->job->GetErrors();
+      this->CloseJob();
+      THROW NEW HareScriptErrorException(errors);
+    }
+
+    // Return the received message
+    RETURN res;
+  }
+
+  MACRO CloseJob()
+  {
+    IF (ObjectExists(this->job))
+      this->job->Close();
+    this->job_outputstream := 0;
+    this->job := DEFAULT OBJECT;
+  }
+>;
+
+/// @private internal screen
+PUBLIC OBJECTTYPE Custom EXTEND TolliumScreenBase
+<
+  /// Settings
+  PUBLIC PROPERTY settings(GetSettings, SetSettings);
+
+  RECORD FUNCTION GetSettings()
+  {
+    RETURN this->mysettings->value;
+  }
+
+  MACRO SetSettings(RECORD settings)
+  {
+    // Insert contentcheckinterval if it does not exist yet
+    IF (NOT CellExists(settings, "contentcheckinterval"))
+      INSERT CELL contentcheckinterval := 0 INTO settings;
+
+    // Insert lastcontentscheck if it does not exist yet
+    IF (NOT CellExists(settings, "lastcontentscheck"))
+      INSERT CELL lastcontentscheck := "" INTO settings;
+
+    // Convert saved DATETIME value
+    DATETIME lastcontentscheck := StringToDateTime(settings.lastcontentscheck);
+    this->lastcontentscheck->value := lastcontentscheck != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(lastcontentscheck, "minutes", TRUE, FALSE) : GetTid("consilio:contentproviders.custom.never");
+
+    this->mysettings->value := settings;
+  }
+
+  /// Validate
+  PUBLIC MACRO Validate(OBJECT work)
+  {
+    /* Provider should be offering direct validation functions,ie follow <tabsextension>?
+       We shouldn't at least be doing our own custom opening, but OpenProvider() is not available until we've written to the database
+    // Try to initialize a custom content provider with the current settings
+    BOOLEAN success;
+    OBJECT cp := NEW CustomContentProvider();
+    RECORD cs := [ id := 0
+                 , data := [ library := this->library->value
+                           , contentobject := this->contentobject->value
+                           ]
+                 ];
+    TRY
+    {
+      cp->Init(cs);
+    }
+    CATCH (OBJECT e)
+    {
+      work->AddError(GetTid("consilio:contentproviders.custom.messages.invalidobject", this->library->value, this->contentobject->value));
+    }
+    */
+  }
+>;

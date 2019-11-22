@@ -1,0 +1,12 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+MACRO TestPanelSwap()
+{
+  /* test for issue 366 - monitor original panel contents never reappearing if we load a replacing panel immediately */
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/regressions.panelswap");
+}
+
+RunTestframework([ PTR TestPanelSwap
+                 ]);

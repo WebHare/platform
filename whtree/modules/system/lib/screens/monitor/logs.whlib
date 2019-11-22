@@ -1,0 +1,291 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC RECORD ARRAY FUNCTION GetWebHareLogFile(STRING filename, INTEGER nrbytes)
+{
+  //filename: servicemanager.log, errors.log, access.log, servicemanager.1.log, etc.
+
+  DATETIME now := GetCurrentDateTime();
+
+  STRING logfolderroot := GetWebHareConfiguration().logroot;
+  INTEGER logfileid := OpenDiskFile(logfolderroot || filename, /*writeaccess=*/FALSE);
+  IF (logfileid = 0)
+  {
+    THROW NEW Exception("Could not find file " || logfolderroot || filename);
+  }
+
+  // Move the file pointer to the correct position (nrbytes from the end). If the file is smaller, don't move the file pointer.
+  INTEGER64 filelength := GetFilelength(logfileid);
+  IF (filelength > nrbytes)
+    SetFilePointer(logfileid, (filelength - nrbytes));
+
+  STRING logcontents := ReadFromFile(logfileid, nrbytes);
+
+  // This file is formatted as follows: "[datetime] category:message"
+  RECORD ARRAY logitems;
+  STRING ARRAY logitems_tokenized := Tokenize(logcontents, "\n");
+
+  // We only want full lines - so move the file pointer to the next line
+  IF (filelength > nrbytes)
+    DELETE FROM logitems_tokenized AT 0;
+
+  FOREVERY (STRING log FROM logitems_tokenized)
+  {
+    IF (log = "")
+      CONTINUE;
+
+    INTEGER ordering := #log;
+    INTEGER start_date_pos := SearchSubString(log, "[", 0);
+    INTEGER end_date_pos := SearchSubString(log, "]", start_date_pos);
+    IF (start_date_pos = 0)
+    {
+      STRING dt := SubString(log, 1, end_date_pos - 1);
+      STRING message := SubString(log, end_date_pos + 2, LENGTH(log));
+
+      INSERT [ ordering := #log, logdate := dt, message := message ] INTO logitems AT END;
+    }
+    ELSE
+    {
+      STRING dt := SubString(log, start_date_pos + 1, end_date_pos - start_date_pos - 1);
+      STRING message := Left(log, start_date_pos) || SubString(log, end_date_pos + 2);
+
+      INSERT [ ordering := #log, logdate := dt, message := message ] INTO logitems AT END;
+    }
+  }
+
+  CloseDiskFile(logfileid);
+
+  RETURN logitems;
+}
+
+PUBLIC OBJECTTYPE Logs EXTEND MonitorPanelBase
+<
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+      // Read the errors.log and servicemanager.log files
+      RECORD errorlog := this->GetLog("errors", 10000); //FIXME: Reg key for nr bytes?
+      RECORD servicemanagerlog := this->GetLog("servicemanager", 10000); //FIXME: Reg key for nr bytes?
+
+      this->errorlogbox->title := errorlog.name;
+      this->errorlog->rows := SELECT date := logdate
+                                   , message
+                                FROM errorlog.items;
+
+      this->servicemanagerlogbox->title := servicemanagerlog.name;
+      this->servicemanagerlog->rows := SELECT date := logdate
+                                            , message
+                                         FROM servicemanagerlog.items;
+  }
+
+  MACRO DoRunLogsScreen()
+  {
+    this->LoadScreen("system:monitor/logs.overview")->RunModal();
+  }
+
+  RECORD FUNCTION GetLog(STRING logbasename, INTEGER maxbytes)
+  {
+    TRY
+    {
+      STRING name := logbasename || "." || FormatDateTime("%Y%m%d", GetCurrentDateTime()) || ".log";
+      RETURN
+          [ name :=     name
+          , items :=    GetWebHareLogFile(name, maxbytes)
+          ];
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN
+          [ name :=     ""
+          , items :=    DEFAULT RECORD ARRAY
+          ];
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE Overview EXTEND TolliumScreenBase
+< RECORD ARRAY all_log_files;
+
+  RECORD decodedhson;
+
+  MACRO Init()
+  {
+    STRING logfolderroot := GetWebHareConfiguration().logroot;
+    this->all_log_files  := ReadDiskDirectory(logfolderroot, "*.log");
+
+    this->nr_kb->value := this->tolliumuser->GetRegistryKey("system.sysmgmt.logs.nr_kb", 20);
+
+    this->logtype->options :=
+        SELECT *
+          FROM this->logtype->options
+         WHERE RecordExists(
+                   SELECT FROM this->all_log_files
+                    WHERE ToUpperCase(name) LIKE ToUpperCase(options.rowkey) || "*");
+
+    this->SetDateOptions();
+    this->RefreshLogList();
+
+    this->frame->flags.havewhconnect := this->tolliumcontroller->IsConnectEnabled();
+  }
+
+  MACRO DoApplySettingsAction()
+  {
+    this->tolliumuser->SetRegistryKey("system.sysmgmt.logs.nr_kb", this->nr_kb->value);
+    this->RefreshLogList();
+  }
+
+  MACRO OnLogTypeChange()
+  {
+    this->SetDateOptions();
+    this->RefreshLogList();
+  }
+
+  MACRO SetDateOptions()
+  {
+    PRINT(AnyToString(this->all_log_files, "boxed"));
+    this->dateoption->options := SELECT title := this->tolliumuser->FormatDate(modified, TRUE, FALSE) || " (" || name || ")"
+                                      , rowkey := name
+                                   FROM this->all_log_files
+                                  WHERE ToUpperCase(name) LIKE ToUpperCase(this->logtype->value) || "*"
+                               ORDER BY modified DESC;
+  }
+
+  MACRO RefreshLogList()
+  {
+    STRING logfilename := this->dateoption->value;
+    INTEGER nr_kb := this->nr_kb->value;
+
+    RECORD ARRAY logitems := GetWebHareLogFile(logfilename, (nr_kb * 1000));
+    IF (this->filter->value != "")
+      logitems := SELECT * FROM logitems WHERE ToUpperCase(message) LIKE "*" || ToUpperCase(this->filter->value) || "*";
+
+    this->loglist->rows := SELECT date := logdate
+                                , message
+                                , message_part := message
+                             FROM logitems
+                         ORDER BY ordering DESC;
+  }
+
+  MACRO DoDownloadFile()
+  {
+    STRING filename := SELECT AS STRING name FROM this->all_log_files WHERE name = this->dateoption->value;
+    INTEGER logfileid := OpenDiskFile(GetWebHareConfiguration().logroot || filename, /*writeaccess=*/FALSE);
+    INTEGER stream := CreateStream();
+    WHILE (TRUE)
+    {
+      STRING data := ReadFromFile(logfileid, 65536);
+      IF (LENGTH(data) = 0)
+        BREAK;
+      PrintTo(stream, data);
+    }
+    BLOB data := MakeBlobFromStream(stream);
+    this->frame->SendFileToUser(data, "text/plain", filename, DEFAULT DATETIME);
+    CloseDiskFile(logfileid);
+  }
+
+  MACRO RefreshDataviewTab()
+  {
+    RECORD sel := this->loglist->selection;
+    IF (NOT RecordExists(sel))
+      RETURN;
+
+    STRING message := this->loglist->selection.message;
+
+    IF (this->dataviewtabs->selectedtab = this->tab_raw)
+    {
+      this->fullmessage->value := this->loglist->selection.message;
+    }
+    ELSE IF (this->dataviewtabs->selectedtab = this->tab_htmltree)
+    {
+      IF (RecordExists(this->decodedhson))
+      {
+        //this->hsvalue->forceshowraw := TRUE;
+        //this->hsvalue->showprivate := TRUE;
+        this->hsvalue->expandlevel := 4;
+        this->hsvalue->value := this->decodedhson.value;
+      }
+      ELSE
+      {
+        this->hsvalue->visible := FALSE;
+      }
+    }
+    ELSE IF (this->dataviewtabs->selectedtab = this->tab_stacktrace)
+    {
+      IF (RecordExists(this->decodedhson))
+      {
+        // TYPE: 'exeption' or 'harescripterrorexception'
+
+        // ADDME: maybe we should have a <stacktrace> component,
+        //        which shows the tracktrace and offers 'Open in Sublime', 'Show in Publisher' context options where applicable.
+        //IF (CellExists(this->decodedhson.value, "trace")) // ADDME: more sanity checks
+        RECORD ARRAY trace;
+        IF ((CellExists(this->decodedhson.value, "trace") AND TypeID(this->decodedhson.value.trace) = TypeID(RECORD ARRAY)))
+          trace := this->decodedhson.value.trace;
+
+        IF (CellExists(this->decodedhson.value, "type") AND this->decodedhson.value.type = "harescripterrorexception" AND CellExists(this->decodedhson.value, "list") AND TypeID(this->decodedhson.value.list) = TypeID(RECORD ARRAY))
+          trace := this->decodedhson.value.list;
+
+        this->stacktrace->rows :=
+            SELECT rowkey :=    filename || "#" || line || "#" || col || "#" || #trace
+                 , *
+                 , func :=      CellExists(trace, "FUNC") ? func : ""
+                 , codeptr :=   CellExists(trace, "CODEPTR") ? codeptr : -2
+                 , position :=  line || ":" || col
+              FROM trace;
+      }
+    }
+  }
+
+
+  MACRO OnLogListClick()
+  {
+    RECORD sel := this->loglist->selection;
+
+    this->decodedhson := DEFAULT RECORD;
+
+    IF (NOT RecordExists(sel))
+    {
+      this->fullmessage->value := "";
+    }
+    ELSE
+    {
+      INTEGER hsonstart := SearchSubstring(sel.message, "\thson:");
+      IF (hsonstart > -1)
+      {
+        STRING hson := Substring(sel.message, hsonstart);
+
+        TRY { this->decodedhson := [ value := DecodeHSON(hson) ]; }
+        CATCH (OBJECT error) { } // in case the HSON is corrupt or we mistook some other text as HSON: indicator
+      }
+    }
+
+    this->tab_htmltree->visible := RecordExists(this->decodedhson);
+    this->tab_stacktrace->visible := RecordExists(this->decodedhson)
+         AND TypeID(this->decodedhson.value) = TypeID(RECORD)
+         AND (   (CellExists(this->decodedhson.value, "trace") AND TypeID(this->decodedhson.value.trace) = TypeID(RECORD ARRAY)) // type = 'exception'
+              OR (CellExists(this->decodedhson.value, "type") AND this->decodedhson.value.type = "harescripterrorexception" AND CellExists(this->decodedhson.value, "list") AND TypeID(this->decodedhson.value.list) = TypeID(RECORD ARRAY))
+             );
+
+    this->RefreshDataviewTab();
+  }
+
+  MACRO DoOpenStackTrace()
+  {
+    this->LoadScreen("system:monitor/processlist.codeview",
+        [ rows :=   this->stacktrace->rows
+        , value :=  this->stacktrace->value
+        ])->RunModal();
+  }
+
+  MACRO DoOpenInEditor()
+  {
+    RECORD sel := this->trace->selection;
+    this->contexts->controller->ExecuteClientCall("OpenInEditor", sel.filename, [ line := sel.line, col := sel.col ]);
+  }
+>;

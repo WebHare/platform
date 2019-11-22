@@ -1,0 +1,215 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+/*
+GuessFromCode() is a replacement for:
+  - GetVimeoMovieIdByText()
+  - GetYouTubeMovieCodeFromURL()
+  - GetYouTubeMovieCodeFromText()
+*/
+
+
+// NOTE: we ignore the fact not all YouTube url types support both start or t, or which takes precedence
+INTEGER FUNCTION ParseYoutubeStarttime(STRING text)
+{
+  STRING start1 := GetVariableFromURL(text, "start");
+  STRING start2 := GetVariableFromURL(text, "t");
+  STRING timestr := start1 ?? start2;
+
+  INTEGER seconds;
+
+  STRING unit := Right(timestr, 1);
+  BOOLEAN no_unit := unit IN ["0","1","2","3","4","5","6","7","8","9"];
+
+  IF (NOT no_unit)
+  {
+    IF (unit NOT IN ["s","m"])
+      RETURN 0;
+
+    // remove unit from timestring
+    timestr := Left(timestr, Length(timestr)-1);
+  }
+
+  seconds := ToInteger(timestr, 0);
+
+  IF (unit = "m")
+    seconds := seconds * 60;
+
+  RETURN seconds;
+}
+
+
+
+/** @short remove arguments and hash from the urlpath
+           (just as in Javascript/DOM window.location.pathname)
+*/
+STRING FUNCTION __GetPathName(STRING urlpath)
+{
+  INTEGER hashstart := SearchSubstring(urlpath,'#');
+  IF(hashstart!=-1)
+    urlpath := Left(urlpath,hashstart);
+
+  INTEGER paramstart := SearchSubstring(urlpath,'?');
+  IF(paramstart!=-1)
+    urlpath := Left(urlpath,paramstart);
+  ELSE
+  {
+    // This is but of a weird URL, but let's clean it up anyway
+    paramstart := SearchSubstring(urlpath,'&');
+    IF(paramstart!=-1)
+      urlpath := Left(urlpath,paramstart);
+  }
+
+  RETURN urlpath;
+}
+
+/** @short Tries to determine network and videoid from the specified URL
+           (currently supports YouTube, Vimeo and Youku)
+    @param url A valid URL (either http or https)
+    @return Information on the movie (or DEFAULT RECORD if parsing failed)
+    @return.network The network on which the video resides
+    @return.id The id of the video
+*/
+PUBLIC RECORD FUNCTION GuessFromCode(STRING text)
+{
+  text := TrimWhiteSpace(text);
+  IF (text = "")
+    RETURN DEFAULT RECORD;
+
+  // hack in case we get an iframe embed code
+  IF (text LIKE "<iframe*")
+  {
+    //add div around incase there is extra html after the iframe
+    OBJECT iframe := MakeXMLDocumentFromHTML(StringToBlob('<div>' || text || '</div>'))->GetElementsByTagName("iframe");
+    IF (iframe->Length > 0)
+      text := iframe->Item(0)->GetAttribute('src');
+  }
+  ELSE IF (text LIKE "<embed*") // Youku also offer code with <embed>
+  {
+    //add div around incase there is extra html after the iframe
+    OBJECT iframe := MakeXMLDocumentFromHTML(StringToBlob('<div>' || text || '</div>'))->GetElementsByTagName("embed");
+    IF (iframe->Length > 0)
+      text := iframe->Item(0)->GetAttribute('src');
+  }
+
+  // no protocol specified?
+  // then assume https:// so unpackURL gets a valid URL
+  IF (text LIKE '//*')
+    text := 'https:' || text;
+  ELSE IF (SearchSubstring(text, "://") = -1)
+    text := "https://" || text;
+
+  RECORD unpacked := UnpackURL(text);
+
+  /*
+  DumpValue(unpacked, "tree");
+  PRINT("\n");
+  */
+  IF (unpacked.scheme NOT IN ["http","https"])
+    RETURN DEFAULT RECORD;
+
+  STRING host_lc := ToLowerCase(unpacked.host);
+  //RECORD urlparts = SplitURLForVars(text); // [ baseurl := "", vars := "", hash := "" ]
+  STRING pathname := __GetPathname(unpacked.urlpath); // like JS pathname (without searchquery and hash part)
+
+  IF(host_lc LIKE '*.vimeo.com' OR host_lc = 'vimeo.com')
+  {
+    STRING ARRAY parts := Tokenize(pathname, '/');
+
+    //last part contains the video identifier (if no end slash)
+    //just loop backwards through parts incase there is a trailing slash
+    FOR(INTEGER i := Length(parts) - 1; i >= 0 ; i := i - 1)
+    {
+
+      IF(parts[i] != '' AND ToInteger(parts[i],-1) > 0)
+        RETURN [ network := "vimeo"
+               , videoid      := parts[i]
+               , starttime := 0 // ADDME: parse starttime from the hash -> #t=2m10s
+               ];
+    }
+
+    RETURN DEFAULT RECORD; // failed to find the video id
+  }
+  ELSE IF (host_lc = 'youtu.be')
+  {
+    STRING ARRAY parts := Tokenize(pathname, '/');
+    RETURN [ network   := "youtube"
+           , videoid   := parts[0]
+           , starttime := ParseYoutubeStarttime(text)
+           ];
+  }
+  ELSE IF ((host_lc LIKE '*.youtube-nocookie.com' OR host_lc LIKE '*.youtube.com') AND (unpacked.urlpath LIKE 'embed/*' OR unpacked.urlpath LIKE "v/*"))
+  {
+    STRING ARRAY parts := Tokenize(pathname, '/');
+    RETURN [ network   := "youtube"
+           , videoid   := parts[1]
+           , starttime := ParseYoutubeStarttime(text)
+           ];
+  }
+  ELSE IF (host_lc LIKE '*.youtube.com' OR host_lc LIKE '*.youtube-nocookie.com')
+  {
+    STRING videoid := GetVariableFromURL(text, "v");
+    RETURN [ network   := "youtube"
+           , videoid   := videoid
+           , starttime := ParseYoutubeStarttime(text)
+           ];
+  }
+  ELSE IF (host_lc = 'v.youku.com')
+  {
+    //ABORT(AnyToString(unpacked,"tree"));
+
+    // http://v.youku.com/v_show/id_XNzk4MTkwNDI0.html
+    STRING ARRAY parts := Tokenize(pathname, '/');
+
+    STRING lastpart := parts[end-1];
+    IF (lastpart LIKE "id_*.html")
+    {
+      RETURN [ network := "youku"
+             , videoid      := SubString(lastpart, 3, Length(lastpart) - 8)
+             , starttime := 0
+             ];
+    }
+    ELSE
+      RETURN DEFAULT RECORD; // invalid format
+
+  }
+  ELSE IF (host_lc = 'player.youku.com')
+  {
+    // Parse URL's we (or the user) grabbed from iframe/embed codes
+
+    // <embed> code  - http://player.youku.com/player.php/sid/XNzk4MTkwNDI0/v.swf
+    // <iframe> code - http://player.youku.com/embed/XNzk4MTkwNDI0
+    STRING ARRAY parts := Tokenize(pathname, '/');
+
+    IF (parts[0] = "embed") // URL from iframe embed
+    {
+      // ['embed', 'XNzk4MTkwNDI0']
+
+      //abort(anytostring(parts,"tree"));
+
+      IF (Length(parts) != 2)
+        RETURN DEFAULT RECORD;
+
+      RETURN [ network := "youku"
+             , videoid      := parts[end-1]
+             , starttime := 0
+             ];
+    }
+    ELSE IF (parts[0] = "player.php")
+    {
+      // ['player.php', 'sid', 'XNzk4MTkwNDI0', 'v.swf']
+
+      IF (Length(parts) != 4)
+        RETURN DEFAULT RECORD;
+
+      RETURN [ network := "youku"
+             , videoid      := parts[end-2]
+             , starttime := 0
+             ];
+    }
+  }
+
+  RETURN DEFAULT RECORD;
+}

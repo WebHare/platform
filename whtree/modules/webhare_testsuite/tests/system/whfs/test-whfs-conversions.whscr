@@ -1,0 +1,183 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/conversion.whlib";
+LOADLIB "mod::system/lib/migrations.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/publisher/siteprofiles.whlib";
+
+OBJECT testsite;
+
+MACRO Prepare()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  testsite := CreateSiteFromFolder(firstfolder->id);
+  testfw->CommitWork();
+}
+
+
+MACRO TestConversions()
+{
+  testfw->BeginWork();
+
+  OBJECT siteroot := testsite->rootobject;
+  OBJECT siteprof := siteroot->CreateFile([name:="testconversions.siteprl", data := StringToBlob(testconversionssiteprofile)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT cvtesttype := OpenWHFSType("http://www.webhare.net/xmlns/beta/conversionstest");
+  TestEq(TRUE, ObjectExists(cvtesttype));
+
+  RECORD srcdata := [ str := "Dit is een <test>\nmet een line feed"
+                    , arr := [ [ data1 := "1&1", data2 := "1&2", data3 := "1&3" ]
+                             , [ data1 := "2&1", data2 := "2&2", data3 := "2&3" ]
+                             ]
+                    , photos := [ INTEGER(siteprof->id), INTEGER(siteroot->id) ]
+                    ];
+  cvtesttype->SetInstanceData(siteroot->id, srcdata);
+
+  //test simple field copy within a type
+  CopyAndConvertWHFSMembers(cvtesttype, "str", cvtesttype, "rich");
+  RECORD data := cvtesttype->GetInstanceData(siteroot->id);
+  TestEq("Dit is een <test>\nmet een line feed", data.str);
+
+  OBJECT para := MakeXMLDocumentFromHTML(data.rich.htmltext)->GetElement("p");
+  TestEq("Dit is een <test>", para->firstchild->nodevalue);
+  TEstEq(1,Length(para->GetElementsByTagName("br")->GetCurrentElements()));
+  TestEq("met een line feed", para->lastchild->nodevalue);
+
+  //test array copy accross types
+  OBJECT cvdesttype := OpenWHFSType("http://www.webhare.net/xmlns/beta/conversionsdest");
+  CopyAndConvertWHFSMembers(cvtesttype, "arr", cvdesttype, "arrdest");
+  data := cvdesttype->GetInstanceData(siteroot->id);
+  TestEq(2,Length(data.arrdest));
+  TestEq("2&1", data.arrdest[1].data1);
+
+  para := MakeXMLDocumentFromHTML(data.arrdest[0].data2.htmltext)->GetElement("p");
+  TestEq("1&2", para->firstchild->nodevalue);
+
+  //test whfsrefarray => array conversion
+  CopyAndConvertWHFSMembers(cvtesttype, "photos", cvdesttype, "slidephotos.image");
+  data := cvdesttype->GetInstanceData(siteroot->id);
+  TestEq(2,Length(data.slidephotos));
+  TestEq(srcdata.photos[0], data.slidephotos[0].image);
+  TestEq(srcdata.photos[1], data.slidephotos[1].image);
+
+  testfw->RollbackWork();
+}
+
+RECORD FUNCTION Add42ToStr(RECORD indata, RECORD context)
+{
+  RETURN CELL[ ...indata, str := indata.str || "|42" ];
+}
+
+RECORD FUNCTION ConvertForDest(RECORD indata, RECORD context)
+{
+  RETURN CELL[ ...indata
+             , DELETE str
+             , DELETE rich
+             , DELETE arr
+             , DELETE photos
+             , arrdest := [[ data1 := indata.str || "|43", data2 := indata.rich ]]
+             ];
+}
+
+MACRO TestContentTypeConversions()
+{
+  testfw->BeginWork();
+
+  RegisterWHFSType([ namespace := "http://www.webhare.net/xmlns/beta/conversionstest"
+                   , members := [[ name := "legacy", type := 2/*string*/ ]]
+                   ]);
+
+  OBJECT legacytype := OpenWHFSType("http://www.webhare.net/xmlns/beta/conversionstest");
+  legacytype->SetInstanceData(testsite->id, [ legacy := "ThisIsMyLegacy", str := "Level0"], [ orphans := TRUE ]);
+
+  RECORD deepobject := [ htmltext := StringToBlob('<html><body><div class="wh-rtd-embeddedobject" data-instanceid="_1ra7ve1TrCw-usGy9kO-g"></div><div class="wh-rtd-embeddedobject" data-instanceid="_1ra7ve1TrCw-usGy9kO-h"></div></body></html>')
+                       , instances := [[ instanceid := "_1ra7ve1TrCw-usGy9kO-g"
+                                       , data := [ whfstype := "http://www.webhare.net/xmlns/beta/conversionstest"
+                                                 , str := "Level1"
+                                                 , rich := [ htmltext := StringToBlob('<html><body><div class="wh-rtd-embeddedobject" data-instanceid="X1ra7ve1TrCw-usGy9kOX2"><div class="wh-rtd-embeddedobject" data-instanceid="X1ra7ve1TrCw-usGy9kOX3"></div></div></body></html>')
+                                                           , instances := [[ instanceid := "X1ra7ve1TrCw-usGy9kOX2"
+                                                                           , data := [ whfstype := "http://www.webhare.net/xmlns/beta/conversionstest"
+                                                                                     , str := "Level2"
+                                                                                     ]
+                                                                           ]
+                                                                          ,[ instanceid := "X1ra7ve1TrCw-usGy9kOX3"
+                                                                           , data := [ whfstype := "http://www.webhare.net/xmlns/beta/conversionstest"
+                                                                                     , str := "Level2b"
+                                                                                     ]
+                                                                           ]
+                                                                          ]
+                                                           ]
+                                                 ]
+                                       ]
+                                      ,[ instanceid := "_1ra7ve1TrCw-usGy9kO-h"
+                                       , data := [ whfstype := "http://www.webhare.net/xmlns/beta/conversionstest"
+                                                 , str := "Level1b"
+                                                 ]
+                                                                           ]
+                                      ]
+                       ];
+
+  OBJECT convertdoc := testsite->rootobject->CreateFile([name := "convertme", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile" ]);
+  convertdoc->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [ data := deepobject ]);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+
+  OBJECT officialtype := OpenWHFSType("http://www.webhare.net/xmlns/beta/conversionstest");
+  TestEq(FALSE, CellExists(officialtype->GetInstanceData(testsite->id),"ThisIsMyLegacy"), "Field is a proper orphan");
+
+  RECORD ARRAY res := ConvertContentType("http://www.webhare.net/xmlns/beta/conversionstest"); //basically a no-op, but a way to get existing users
+  TestEq(TRUE, RecordExists(SELECT FROM res WHERE fsobject = testsite->id));
+  TestEq(TRUE, RecordExists(SELECT FROM res WHERE fsobject = convertdoc->id));
+
+  RepublishWHFSObjectReferences(res); //we expect the ConvertContentType result to be compatible with us
+
+  TestEq("Level0", officialtype->GetInstanceData(testsite->id).str); //nothing changed
+
+  ConvertContentType("http://www.webhare.net/xmlns/beta/conversionstest", [ mapcallback := PTR Add42ToStr ]); //basically a no-op, but a way to get existing users
+
+  deepobject := convertdoc->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data;
+  TestEq("Level0|42", officialtype->GetInstanceData(testsite->id).str); //nothing changed
+  TestEq("Level1|42", deepobject.instances[0].data.str);
+  TestEq("Level1b|42", deepobject.instances[1].data.str);
+  TestEq("Level2|42", deepobject.instances[0].data.rich.instances[0].data.str);
+  TestEq("Level2b|42", deepobject.instances[0].data.rich.instances[1].data.str);
+
+  OBJECT cvdesttype := OpenWHFSType("http://www.webhare.net/xmlns/beta/conversionsdest");
+  ConvertContentType("http://www.webhare.net/xmlns/beta/conversionstest", [ mapcallback := PTR ConvertForDest
+                                                                          , desttype := "http://www.webhare.net/xmlns/beta/conversionsdest"
+                                                                          ]); //basically a no-op, but a way to get existing users
+
+  TestEq("Level0|42|43", cvdesttype->GetInstanceData(testsite->id).arrdest[0].data1);
+  TestEq("", officialtype->GetInstanceData(testsite->id).str);
+
+  deepobject := convertdoc->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data;
+  TestEq("http://www.webhare.net/xmlns/beta/conversionsdest" , deepobject.instances[0].data.whfstype);
+  TestEq("Level1|42|43", deepobject.instances[0].data.arrdest[0].data1);
+  TestEq("Level1b|42|43", deepobject.instances[1].data.arrdest[0].data1);
+  TestEq("http://www.webhare.net/xmlns/beta/conversionsdest" , deepobject.instances[0].data.arrdest[0].data2.instances[0].data.whfstype);
+  TestEq("Level2|42|43", deepobject.instances[0].data.arrdest[0].data2.instances[0].data.arrdest[0].data1);
+  TestEq("Level2b|42|43", deepobject.instances[0].data.arrdest[0].data2.instances[1].data.arrdest[0].data1);
+
+  testfw->CommitWork();
+}
+
+
+RunTestframework([ PTR Prepare
+                 , PTR TestConversions
+                 , PTR TestContentTypeConversions
+                 ]);

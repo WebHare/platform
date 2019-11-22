@@ -1,0 +1,49 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="components.emailcontents">
+
+  <fragment name="emailcontents" lib="components/emailcontents.whlib">
+    <actions>
+      <downloadaction name="downloadattachment" ondownload="dodownloadattachment" tid="~download">
+        <enableon source="attachmentrows" min="1" max="1" />
+      </downloadaction>
+    </actions>
+    <contents>
+      <panel width="1pr" backgroundcolor="#f5f5f5" vscroll="true" spacers="top left right bottom">
+        <text name="mailfrom" width="1pr" wordwrap="true" tid="~mailfrom" />
+        <text name="replyto" width="1pr" wordwrap="true" />
+        <text name="mailto" width="1pr" wordwrap="true" tid="~mailto" />
+        <text name="mailcc" width="1pr" wordwrap="true" tid="~mailcc" />
+        <text name="mailbcc" width="1pr" wordwrap="true" tid="~mailbcc" />
+        <text name="mailsubject" width="1pr" wordwrap="true" tid="~subject" />
+        <text name="errorsto" width="1pr" wordwrap="true" />
+      </panel>
+      <split type="vertical" height="1pr">
+        <part height="4pr" spacers="top bottom left right">
+          <iframe name="preview" height="1pr" width="1pr" enablesandbox="true" sandbox="allow-popups allow-popups-to-escape-sandbox" />
+        </part>
+        <part height="1pr" name="attachmentpart" spacers="left right top">
+          <list selectmode="single"
+                name="attachmentrows"
+                height="1pr"
+                visible="true"
+                openaction="downloadattachment">
+            <column type="text" name="name" tid="~filename" />
+            <column type="text" name="type" tid="~mimetype" />
+            <column type="integer" name="size" align="right" width="10x" tid="~filesize" />
+          </list>
+        </part>
+      </split>
+    </contents>
+  </fragment>
+
+  <fragment name="heading" lib="components/heading.whlib">
+    <contents>
+      <panel>
+        <line layout="left">
+          <checkbox name="cbox" title="" visible="false" />
+          <text name="headingtitle" title="" />
+        </line>
+      </panel>
+    </contents>
+  </fragment>
+
+</screens>

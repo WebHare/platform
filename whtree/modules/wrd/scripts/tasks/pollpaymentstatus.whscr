@@ -1,0 +1,6 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/poller.whlib";
+
+OBJECT trans := OpenPrimary();
+PollPaymentStatuses(FALSE, TRUE); //running for live wrd scheams

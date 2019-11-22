@@ -1,0 +1,269 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/signature.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+RECORD FUNCTION GetCanonicalizeOptions(STRING query)
+{
+  RETURN [ nodelist :=
+           [ namespaces := [[ prefix := "ietf", namespaceuri:= "http://www.ietf.org"]
+                           ]
+           , query := query
+           ]
+         ];
+}
+
+MACRO TestXMLDSigCases() //https://www.w3.org/TR/xmldsig2ed-tests/#TestCases-C14n11
+{
+  OBJECT indoc ;
+
+  indoc := MakeXMLDocument(StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<ietf:c14n11Xmllang xmlns:ietf="http://www.ietf.org"
+xmlns:w3c="http://www.w3.org">
+   <ietf:e1 xml:lang="EN">
+      <ietf:e11>
+         <ietf:e111 />
+      </ietf:e11>
+      <ietf:e12 at="2">
+         <ietf:e121 />
+      </ietf:e12>
+   </ietf:e1>
+   <ietf:e2 >
+      <ietf:e21 />
+   </ietf:e2>
+</ietf:c14n11Xmllang>`));
+
+  //Test case c14n11/xmllang-1
+  TestEq(`<ietf:e1 xmlns:ietf="http://www.ietf.org" xmlns:w3c="http://www.w3.org" xml:lang="EN">
+      <ietf:e11>
+         <ietf:e111></ietf:e111>
+      </ietf:e11>
+      <ietf:e12 at="2">
+         <ietf:e121></ietf:e121>
+      </ietf:e12>
+   </ietf:e1>`, BlobToString(indoc->GetCanonicalizedDocument("C14N 1.1", GetCanonicalizeOptions('(//. | //@* | //namespace::*)[ancestor-or-self::ietf:e1]'))));
+
+  // Test case c14n11/xmllang-2
+  TestEq(`<ietf:e2 xmlns:ietf="http://www.ietf.org" xmlns:w3c="http://www.w3.org">
+      <ietf:e21></ietf:e21>
+   </ietf:e2>`, BlobToString(indoc->GetCanonicalizedDocument("C14N 1.1", GetCanonicalizeOptions('(//. | //@* | //namespace::*)[ancestor-or-self::ietf:e2]'))));
+
+  //  Test case c14n11/xmllang-3
+  TestEq(`<ietf:e11 xmlns:ietf="http://www.ietf.org" xmlns:w3c="http://www.w3.org" xml:lang="EN">
+         <ietf:e111></ietf:e111>
+      </ietf:e11>`, BlobToString(indoc->GetCanonicalizedDocument("C14N 1.1", GetCanonicalizeOptions('(//. | //@* | //namespace::*)[ancestor-or-self::ietf:e11]'))));
+
+  // Test case c14n11/xmllang-4
+  TestEq(`<ietf:e11 xmlns:ietf="http://www.ietf.org" xmlns:w3c="http://www.w3.org" xml:lang="EN">
+         <ietf:e111></ietf:e111>
+      </ietf:e11><ietf:e12 xmlns:ietf="http://www.ietf.org" xmlns:w3c="http://www.w3.org" at="2" xml:lang="EN">
+         <ietf:e121></ietf:e121>
+      </ietf:e12>`, BlobToString(indoc->GetCanonicalizedDocument("C14N 1.1", GetCanonicalizeOptions('(//. | //@* | //namespace::*)[ancestor-or-self::ietf:e11 or ancestor-or-self::ietf:e12]'))));
+
+  //Test case xmldsig/defCan-1
+
+
+  indoc := MakeXMLDocument(StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<ietf:c14n11XmlIdDoc1 xmlns:ietf="http://www.ietf.org"
+xmlns:w3c="http://www.w3.org">
+   <ietf:e1 xml:id="IdInterop">
+      <ietf:e11>
+         <ietf:e111 />
+      </ietf:e11>
+      <ietf:e12 at="2">
+         <ietf:e121 />
+      </ietf:e12>
+   </ietf:e1>
+   <ietf:e2 >
+      <ietf:e21 />
+   </ietf:e2>
+</ietf:c14n11XmlIdDoc1>`));
+
+ //Test case c14n11/xmlid-1
+
+  TestEq(`<ietf:e1 xmlns:ietf="http://www.ietf.org" xmlns:w3c="http://www.w3.org" xml:id="IdInterop">
+      <ietf:e11>
+         <ietf:e111></ietf:e111>
+      </ietf:e11>
+      <ietf:e12 at="2">
+         <ietf:e121></ietf:e121>
+      </ietf:e12>
+   </ietf:e1>`, BlobToString(indoc->GetCanonicalizedDocument("C14N 1.1", GetCanonicalizeOptions('(//. | //@* | //namespace::*) [ancestor-or-self::ietf:e1]'))));
+
+  TestEq(`<ietf:e11 xmlns:ietf="http://www.ietf.org" xmlns:w3c="http://www.w3.org">
+         <ietf:e111></ietf:e111>
+      </ietf:e11><ietf:e12 xmlns:ietf="http://www.ietf.org" xmlns:w3c="http://www.w3.org" at="2">
+         <ietf:e121></ietf:e121>
+      </ietf:e12>`, BlobToString(indoc->GetCanonicalizedDocument("C14N 1.1", GetCanonicalizeOptions('(//. | //@* | //namespace::*) [ancestor-or-self::ietf:e11 or ancestor-or-self::ietf:e12]'))));
+  //TestEq(``, BlobToString(indoc->GetCanonicalizedDocument("C14N 1.1", GetCanonicalizeOptions(''))));
+}
+
+
+STRING ns_saml20_assertion := "urn:oasis:names:tc:SAML:2.0:assertion";
+//STRING ns_saml20_metadata := "urn:oasis:names:tc:SAML:2.0:metadata";
+//STRING ns_xmldsig := "http://www.w3.org/2000/09/xmldsig#";
+
+RECORD ARRAY docs :=
+    [ // Random response from https://support.signicat.com/display/SUP/SAML
+      // Disabled because we don't support DSA yet
+/*      [ assertion_ns := "urn:oasis:names:tc:SAML:1.0:assertion"
+      , doc :=
+          '<?xml version="1.0" ?>\n' ||
+          '<Response xmlns="urn:oasis:names:tc:SAML:1.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:1.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:1.0:protocol" IssueInstant="2007-02-08T07:17:28.707Z" MajorVersion="1" MinorVersion="1" Recipient="https://www.myhost.no" ResponseID="c3d4a4bd903dcd9d901baf22d2ae9a8a"><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">\n' ||
+          '<ds:SignedInfo>\n' ||
+          '<ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"></ds:CanonicalizationMethod>\n' ||
+          '<ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#dsa-sha1"></ds:SignatureMethod>\n' ||
+          '<ds:Reference URI="#c3d4a4bd903dcd9d901baf22d2ae9a8a">\n' ||
+          '<ds:Transforms>\n' ||
+          '<ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"></ds:Transform>\n' ||
+          '<ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"><ec:InclusiveNamespaces xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#" PrefixList="#default code ds kind rw saml samlp typens"></ec:InclusiveNamespaces></ds:Transform>\n' ||
+          '</ds:Transforms>\n' ||
+          '<ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"></ds:DigestMethod>\n' ||
+          '<ds:DigestValue>pzySGqjY3lnRDQCwp1C50/AGwR4=</ds:DigestValue>\n' ||
+          '</ds:Reference>\n' ||
+          '</ds:SignedInfo>\n' ||
+          '<ds:SignatureValue>JPSjJTr5DCjSeAvK1ythhrz+XK90GoSz/a1i8hMn5ziqoOr9LhVjxw==</ds:SignatureValue>\n' ||
+          '<ds:KeyInfo>\n' ||
+          '<ds:X509Data>\n' ||
+          '<ds:X509Certificate>\n' ||
+          'MIIDLTCCAusCBEQ0FXgwCwYHKoZIzjgEAwUAMHwxCzAJBgNVBAYTAk5PMQ8wDQYDVQQIEwZOb3J3\n' ||
+          'YXkxEjAQBgNVBAcTCVRyb25kaGVpbTETMBEGA1UEChMKS2FudGVnYSBBUzETMBEGA1UECxMKS2Fu\n' ||
+          'dGVnYSBBUzEeMBwGA1UEAxMVaWQua2FudGVnYS5uby9wcmVwcm9kMB4XDTA2MDQwNTE5MDczNloX\n' ||
+          'DTA3MDQwNTE5MDczNlowfDELMAkGA1UEBhMCTk8xDzANBgNVBAgTBk5vcndheTESMBAGA1UEBxMJ\n' ||
+          'VHJvbmRoZWltMRMwEQYDVQQKEwpLYW50ZWdhIEFTMRMwEQYDVQQLEwpLYW50ZWdhIEFTMR4wHAYD\n' ||
+          'VQQDExVpZC5rYW50ZWdhLm5vL3ByZXByb2QwggG4MIIBLAYHKoZIzjgEATCCAR8CgYEA/X9TgR11\n' ||
+          'EilS30qcLuzk5/YRt1I870QAwx4/gLZRJmlFXUAiUftZPY1Y+r/F9bow9subVWzXgTuAHTRv8mZg\n' ||
+          't2uZUKWkn5/oBHsQIsJPu6nX/rfGG/g7V+fGqKYVDwT7g/bTxR7DAjVUE1oWkTL2dfOuK2HXKu/y\n' ||
+          'IgMZndFIAccCFQCXYFCPFSMLzLKSuYKi64QL8Fgc9QKBgQD34aCF1ps93su8q1w2uFe5eZSvu/o6\n' ||
+          '6oL5V0wLPQeCZ1FZV4661FlP5nEHEIGAtEkWcSPoTCgWE7fPCTKMyKbhPBZ6i1R8jSjgo64eK7Om\n' ||
+          'dZFuo38L+iE1YvH7YnoBJDvMpPG+qFGQiaiD3+Fa5Z8GkotmXoB7VSVkAUw7/s9JKgOBhQACgYEA\n' ||
+          'wTsCn5RYunZA+0mzh7pEJLKE11o4nHfVccE8zO1oXBDLGeap4pr155XJ0Dcsyu5aN6gvn8ZPav2s\n' ||
+          'i3mZn+CuRt1o9+tMJhPKExtM1uetGGCQHHoOUA44E0As2E7PaxQHGlhrcxE0eoILSNYCSl/WOIn5\n' ||
+          '1dn1K3Q9W1EdiuxQr70wCwYHKoZIzjgEAwUAAy8AMCwCFGY4syTuHDUBkwLpNnD+cUpornEYAhRa\n' ||
+          'gtA/LTUSX7q25nFYyF8cYiO6bA==\n' ||
+          '</ds:X509Certificate>\n' ||
+          '</ds:X509Data>\n' ||
+          '</ds:KeyInfo></ds:Signature><Status><StatusCode Value="samlp:Success"></StatusCode></Status><Assertion xmlns="urn:oasis:names:tc:SAML:1.0:assertion" AssertionID="a6b8fbd33189cca292f99b475d6eea6c" IssueInstant="2007-02-08T07:17:28.707Z" Issuer="https://test.kantega.no/id" MajorVersion="1" MinorVersion="1"><Conditions NotBefore="2007-02-08T07:17:28.706Z" NotOnOrAfter="2007-02-08T07:17:58.706Z"></Conditions><AuthenticationStatement AuthenticationInstant="2007-02-08T07:17:28.475Z" AuthenticationMethod="urn:ksi:names:SAML:2.0:ac:BankID-NO"><Subject><NameIdentifier Format="urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName">CN=TINKY-WINKY TELETUBBIE,serialNumber=9578-6000-4-2592,O=BankID - TestBank1,C=NO</NameIdentifier><SubjectConfirmation><ConfirmationMethod>urn:oasis:names:tc:SAML:1.0:cm:bearer</ConfirmationMethod></SubjectConfirmation></Subject></AuthenticationStatement><AttributeStatement><Subject><NameIdentifier Format="urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName">CN=TINKY-WINKY TELETUBBIE,serialNumber=9578-6000-4-2592,O=BankID - TestBank1,C=NO</NameIdentifier><SubjectConfirmation><ConfirmationMethod>urn:oasis:names:tc:SAML:1.0:cm:bearer</ConfirmationMethod></SubjectConfirmation></Subject><Attribute AttributeName="firstname" AttributeNamespace="bankid.certificate"><AttributeValue>TINKY-WINKY</AttributeValue></Attribute><Attribute AttributeName="lastname" AttributeNamespace="bankid.certificate"><AttributeValue>TELETUBBIE</AttributeValue></Attribute><Attribute AttributeName="issuer-dn" AttributeNamespace="bankid.certificate"><AttributeValue>CN=BankID TestBank1 Bank CA 1,OU=123456789,O=TestBank1 AS,C=NO</AttributeValue></Attribute><Attribute AttributeName="plain-name" AttributeNamespace="bankid.certificate"><AttributeValue>TINKY-WINKY TELETUBBIE</AttributeValue></Attribute><Attribute AttributeName="serialnumber" AttributeNamespace="bankid.certificate"><AttributeValue>272838</AttributeValue></Attribute><Attribute AttributeName="unique-id" AttributeNamespace="bankid.certificate"><AttributeValue>9578-6000-4-2592</AttributeValue></Attribute><Attribute AttributeName="valid-from" AttributeNamespace="bankid.certificate"><AttributeValue>2005-07-05</AttributeValue></Attribute><Attribute AttributeName="valid-to" AttributeNamespace="bankid.certificate"><AttributeValue>2007-07-05</AttributeValue></Attribute><Attribute AttributeName="date-of-birth" AttributeNamespace="bankid.certificate"><AttributeValue>1974-05-17</AttributeValue></Attribute><Attribute AttributeName="fnr" AttributeNamespace="bankid.va"><AttributeValue>17057401192</AttributeValue></Attribute></AttributeStatement></Assertion></Response>\n' ||
+          '\n'
+      , cert :=
+          'MIIDLTCCAusCBEQ0FXgwCwYHKoZIzjgEAwUAMHwxCzAJBgNVBAYTAk5PMQ8wDQYDVQQIEwZOb3J3 YXkxEjAQBgNVBAcTCVRyb25kaGVpbTETMBEGA1UEChMKS2FudGVnYSBBUzETMBEGA1UECxMKS2Fu dGVnYSBBUzEeMBwGA1UEAxMVaWQua2FudGVnYS5uby9wcmVwcm9kMB4XDTA2MDQwNTE5MDczNloX DTA3MDQwNTE5MDczNlowfDELMAkGA1UEBhMCTk8xDzANBgNVBAgTBk5vcndheTESMBAGA1UEBxMJ VHJvbmRoZWltMRMwEQYDVQQKEwpLYW50ZWdhIEFTMRMwEQYDVQQLEwpLYW50ZWdhIEFTMR4wHAYD VQQDExVpZC5rYW50ZWdhLm5vL3ByZXByb2QwggG4MIIBLAYHKoZIzjgEATCCAR8CgYEA/X9TgR11 EilS30qcLuzk5/YRt1I870QAwx4/gLZRJmlFXUAiUftZPY1Y+r/F9bow9subVWzXgTuAHTRv8mZg t2uZUKWkn5/oBHsQIsJPu6nX/rfGG/g7V+fGqKYVDwT7g/bTxR7DAjVUE1oWkTL2dfOuK2HXKu/y IgMZndFIAccCFQCXYFCPFSMLzLKSuYKi64QL8Fgc9QKBgQD34aCF1ps93su8q1w2uFe5eZSvu/o6 6oL5V0wLPQeCZ1FZV4661FlP5nEHEIGAtEkWcSPoTCgWE7fPCTKMyKbhPBZ6i1R8jSjgo64eK7Om dZFuo38L+iE1YvH7YnoBJDvMpPG+qFGQiaiD3+Fa5Z8GkotmXoB7VSVkAUw7/s9JKgOBhQACgYEA wTsCn5RYunZA+0mzh7pEJLKE11o4nHfVccE8zO1oXBDLGeap4pr155XJ0Dcsyu5aN6gvn8ZPav2s i3mZn+CuRt1o9+tMJhPKExtM1uetGGCQHHoOUA44E0As2E7PaxQHGlhrcxE0eoILSNYCSl/WOIn5 1dn1K3Q9W1EdiuxQr70wCwYHKoZIzjgEAwUAAy8AMCwCFGY4syTuHDUBkwLpNnD+cUpornEYAhRa gtA/LTUSX7q25nFYyF8cYiO6bA=='
+      ]
+
+      // SAML response from SURFconext
+    ,*/
+      [ assertion_ns := "urn:oasis:names:tc:SAML:2.0:assertion"
+      , doc := "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<samlp:Response xmlns:samlp=\"urn:oasis:names:tc:SAML:2.0:protocol\" xmlns:saml=\"urn:oasis:names:tc:SAML:2.0:assertion\" ID=\"CORTOdc1ac87d8bdc5f393e92e325843cb912f7206c0f\" Version=\"2.0\" IssueInstant=\"2013-04-04T10:17:18Z\" InResponseTo=\"identifier_1\"><saml:Issuer>https://engine.surfconext.nl/authentication/idp/metadata</saml:Issuer><samlp:Status xmlns:samlp=\"urn:oasis:names:tc:SAML:2.0:protocol\"><samlp:StatusCode xmlns:samlp=\"urn:oasis:names:tc:SAML:2.0:protocol\" Value=\"urn:oasis:names:tc:SAML:2.0:status:Success\"/></samlp:Status><saml:Assertion xmlns:saml=\"urn:oasis:names:tc:SAML:2.0:assertion\" ID=\"CORTOe8f7fb89bdffde90a6ae95e6e3d6d672c76ff500\" IssueInstant=\"2013-04-04T10:17:18Z\" Version=\"2.0\"><saml:Issuer>https://engine.surfconext.nl/authentication/idp/metadata</saml:Issuer><ds:Signature xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"><ds:SignedInfo xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"><ds:CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><ds:SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><ds:Reference URI=\"#CORTOe8f7fb89bdffde90a6ae95e6e3d6d672c76ff500\"><ds:Transforms><ds:Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><ds:Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></ds:Transforms><ds:DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><ds:DigestValue>LvSikpsyl7l2xCvSf6hNI+PdtBk=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>Rqzx4lp40dzZ5Iug+24jJlN3DzCs6bKCxjtXKEqUoiz97Mvu1JpkNT9xgEQ3YmluR9/xnMUmqqgySrpeupDUFmzzouhvttGrfgEkxPS1FA4x9N72ode6/CDmgpS49VhkvEwEYm9zuNnt5qt9zcDaGnF0PuGOMDCbR44fGoead8xiMVI2xpstGnpI6EZGLODHTTXbHhh0MXAtlSD0hZvwui0tRWtm31O3FLOGnh0GgfnUKvQ5sWLrM2Aiu++vQKMXKhU3rm1kVG8UgJWx8PArF7gCrg0iHYUGTtKwGlPSB/QVIQpxPdBtQLD/QmBZlteVtExGGoRrPf9p5cSollFODQ==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIDyzCCArOgAwIBAgIJAMzixtXMUH1NMA0GCSqGSIb3DQEBBQUAMHwxCzAJBgNV\nBAYTAk5MMRAwDgYDVQQIDAdVdHJlY2h0MRAwDgYDVQQHDAdVdHJlY2h0MRUwEwYD\nVQQKDAxTVVJGbmV0IEIuVi4xEzARBgNVBAsMClNVUkZjb25leHQxHTAbBgNVBAMM\nFGVuZ2luZS5zdXJmY29uZXh0Lm5sMB4XDTExMDEyNDEwMTg1N1oXDTIxMDEyMzEw\nMTg1N1owfDELMAkGA1UEBhMCTkwxEDAOBgNVBAgMB1V0cmVjaHQxEDAOBgNVBAcM\nB1V0cmVjaHQxFTATBgNVBAoMDFNVUkZuZXQgQi5WLjETMBEGA1UECwwKU1VSRmNv\nbmV4dDEdMBsGA1UEAwwUZW5naW5lLnN1cmZjb25leHQubmwwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDMJ6v+f3owS3KR5IXSil+3XFwGvCVeYx3jDOFK\nAnwvXlDpTu+t730b8/spHtlopyJVAlb6qBIPN7R4TGTLqiu0zebYsYx/PtqCk5cb\nu9qs3h+p2BBoTXVwXA/ZYi0tqtxp04hcNrRj1TAgLyC0S+KASTF+zzccAcjTBid5\nEMioo+YllgSEobWJ4X33XVRqNrikAPDsNmDrdKUi257JSO2xhVIG5lbtmDaL5ORC\nD56oRmVdp7VQTEQ3Yass8J5Rn+Ub6WmRBYeG+KzFBvtyBput2o0/gvtJn9L+NWeD\nB0LyUPaUYG/X4GF14FcmFQfz7I5jBCNHtPcLJbPYbZKQNhz/AgMBAAGjUDBOMB0G\nA1UdDgQWBBS9QqP8gtMM6nm4oYzNbgqhEDP1aDAfBgNVHSMEGDAWgBS9QqP8gtMM\n6nm4oYzNbgqhEDP1aDAMBgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4IBAQBH\n2qyYwLwesIOxUTj+NJ0VXRBDH8VecNLiUUs9Np4x8A0pxLvlNnv5TdJAruEg1LSV\nmAqqPUdAB2m7CKDeUVM9cwOB7vqelV2GNgOfevXi+DZRMffyyE8qyIcnTqvDOgcR\n8qGTPSVT+SIsOkV9bYrjltrbnal7cJermsA8SC5w/pjLaOHI1xIZHquZzymWoN3Z\nfz2CQg2r5o+AURYd74GrHhHqVa9VrdWtcimB+vTQQihoLt8YciehpJjOMpx2D66e\nFfpC8ix31RRdjAVIo1y33h1yU3gEHePDbOthZE+lpXi2WJqO85H85LqJOtgn2WPI\n3P2Tx32Cq1WXCYkxLaPI\n</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature><saml:Subject><saml:NameID Format=\"urn:oasis:names:tc:SAML:2.0:nameid-format:transient\">dbb484a4ade9b4e92d957a6aa970e90d9358389e</saml:NameID><saml:SubjectConfirmation Method=\"urn:oasis:names:tc:SAML:2.0:cm:bearer\"><saml:SubjectConfirmationData NotOnOrAfter=\"2013-04-04T10:22:18Z\" InResponseTo=\"identifier_1\" Recipient=\"https://secure.muziekkwartier.nl/saml-landing.shtml\"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore=\"2013-04-04T10:17:18Z\" NotOnOrAfter=\"2013-04-04T10:22:18Z\"><saml:AudienceRestriction><saml:Audience>urn:sme.muziekkwartier.nl</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant=\"2013-04-04T10:17:18Z\" SessionIndex=\"ada2e426f1d5cb2579e56cc1ddd65bcf\"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:Password</saml:AuthnContextClassRef><saml:AuthenticatingAuthority>utwente.nl</saml:AuthenticatingAuthority></saml:AuthnContext></saml:AuthnStatement><saml:AttributeStatement><saml:Attribute Name=\"urn:mace:dir:attribute-def:mail\" NameFormat=\"urn:oasis:names:tc:SAML:2.0:attrname-format:uri\"><saml:AttributeValue>d.c.g.hendriks@utwente.nl</saml:AttributeValue></saml:Attribute><saml:Attribute Name=\"urn:oid:0.9.2342.19200300.100.1.3\" NameFormat=\"urn:oasis:names:tc:SAML:2.0:attrname-format:uri\"><saml:AttributeValue>d.c.g.hendriks@utwente.nl</saml:AttributeValue></saml:Attribute><saml:Attribute Name=\"urn:mace:dir:attribute-def:eduPersonAffiliation\" NameFormat=\"urn:oasis:names:tc:SAML:2.0:attrname-format:uri\"><saml:AttributeValue>employee</saml:AttributeValue></saml:Attribute><saml:Attribute Name=\"urn:oid:1.3.6.1.4.1.5923.1.1.1.1\" NameFormat=\"urn:oasis:names:tc:SAML:2.0:attrname-format:uri\"><saml:AttributeValue>employee</saml:AttributeValue></saml:Attribute></saml:AttributeStatement></saml:Assertion></samlp:Response>\n"
+      , cert := 'MIIDyzCCArOgAwIBAgIJAMzixtXMUH1NMA0GCSqGSIb3DQEBBQUAMHwxCzAJBgNV BAYTAk5MMRAwDgYDVQQIDAdVdHJlY2h0MRAwDgYDVQQHDAdVdHJlY2h0MRUwEwYD VQQKDAxTVVJGbmV0IEIuVi4xEzARBgNVBAsMClNVUkZjb25leHQxHTAbBgNVBAMM FGVuZ2luZS5zdXJmY29uZXh0Lm5sMB4XDTExMDEyNDEwMTg1N1oXDTIxMDEyMzEw MTg1N1owfDELMAkGA1UEBhMCTkwxEDAOBgNVBAgMB1V0cmVjaHQxEDAOBgNVBAcM B1V0cmVjaHQxFTATBgNVBAoMDFNVUkZuZXQgQi5WLjETMBEGA1UECwwKU1VSRmNv bmV4dDEdMBsGA1UEAwwUZW5naW5lLnN1cmZjb25leHQubmwwggEiMA0GCSqGSIb3 DQEBAQUAA4IBDwAwggEKAoIBAQDMJ6v+f3owS3KR5IXSil+3XFwGvCVeYx3jDOFK AnwvXlDpTu+t730b8/spHtlopyJVAlb6qBIPN7R4TGTLqiu0zebYsYx/PtqCk5cb u9qs3h+p2BBoTXVwXA/ZYi0tqtxp04hcNrRj1TAgLyC0S+KASTF+zzccAcjTBid5 EMioo+YllgSEobWJ4X33XVRqNrikAPDsNmDrdKUi257JSO2xhVIG5lbtmDaL5ORC D56oRmVdp7VQTEQ3Yass8J5Rn+Ub6WmRBYeG+KzFBvtyBput2o0/gvtJn9L+NWeD B0LyUPaUYG/X4GF14FcmFQfz7I5jBCNHtPcLJbPYbZKQNhz/AgMBAAGjUDBOMB0G A1UdDgQWBBS9QqP8gtMM6nm4oYzNbgqhEDP1aDAfBgNVHSMEGDAWgBS9QqP8gtMM 6nm4oYzNbgqhEDP1aDAMBgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4IBAQBH 2qyYwLwesIOxUTj+NJ0VXRBDH8VecNLiUUs9Np4x8A0pxLvlNnv5TdJAruEg1LSV mAqqPUdAB2m7CKDeUVM9cwOB7vqelV2GNgOfevXi+DZRMffyyE8qyIcnTqvDOgcR 8qGTPSVT+SIsOkV9bYrjltrbnal7cJermsA8SC5w/pjLaOHI1xIZHquZzymWoN3Z fz2CQg2r5o+AURYd74GrHhHqVa9VrdWtcimB+vTQQihoLt8YciehpJjOMpx2D66e FfpC8ix31RRdjAVIo1y33h1yU3gEHePDbOthZE+lpXi2WJqO85H85LqJOtgn2WPI 3P2Tx32Cq1WXCYkxLaPI'
+      ]
+
+      // phaos-xmldsig-one set - signature-rsa-enveloped.xml
+    , [ doc := '<player bats="left" id="10012" throws="right">\r\n'
+            || '\t<!-- Here\'s a comment -->\r\n'
+            || '\t<name>Alfonso Soriano</name>\r\n'
+            || '\t<position>2B</position>\r\n'
+            || '\t<team>New York Yankees</team>\r\n'
+            || '<dsig:Signature xmlns="http://www.w3.org/2000/09/xmldsig#" xmlns:dsig="http://www.w3.org/2000/09/xmldsig#"><dsig:SignedInfo><dsig:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><dsig:Reference URI=""><dsig:Transforms><dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></dsig:Transforms><dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><dsig:DigestValue>nDF2V/bzRd0VE3EwShWtsBzTEDc=</dsig:DigestValue></dsig:Reference></dsig:SignedInfo><dsig:SignatureValue>fbye4Xm//RPUTsLd1dwJPo0gPZYX6gVYCEB/gz2348EARNk/nCCch1fFfpuqAGMKg4ayVC0yWkUyE5V4QB33jaGlh9wuNQSjxs6TIvFwSsT+0ioDgVgFv0gVeasbyNL4rFEHuAWL8QKwDT9L6b2wUvJC90DmpBs9GMR2jTZIWlM=</dsig:SignatureValue><dsig:KeyInfo><dsig:X509Data><dsig:X509Certificate>MIIC0DCCAjmgAwIBAgIDD0JBMA0GCSqGSIb3DQEBBAUAMHwxCzAJBgNVBAYTAlVTMREwDwYDVQQIEwhOZXcgWW9yazERMA8GA1UEBxMITmV3IFlvcmsxGTAXBgNVBAoTEFBoYW9zIFRlY2hub2xvZ3kxFDASBgNVBAsTC0VuZ2luZWVyaW5nMRYwFAYDVQQDEw1UZXN0IENBIChSU0EpMB4XDTAyMDQyOTE5MTY0MFoXDTEyMDQyNjE5MTY0MFowgYAxCzAJBgNVBAYTAlVTMREwDwYDVQQIEwhOZXcgWW9yazERMA8GA1UEBxMITmV3IFlvcmsxGTAXBgNVBAoTEFBoYW9zIFRlY2hub2xvZ3kxFDASBgNVBAsTC0VuZ2luZWVyaW5nMRowGAYDVQQDExFUZXN0IENsaWVudCAoUlNBKTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAgIb6nAB9oS/AI5jIj6WymvQhRxiMlE07G4abmMliYi5zWzvaFE2tnU+RZIBgtoXcgDEIU/vsLQut7nzCn9mHxC8JEaV4D4U91j64AyZakShqJw7qjJfqUxxPL0yJv2oFiouPDjGuJ9JPi0NrsZq+yfWfM54s4b9SNkcOIVMybZUCAwEAAaNbMFkwDAYDVR0TAQH/BAIwADAPBgNVHQ8BAf8EBQMDB9gAMBkGA1UdEQQSMBCBDnRlY2hAcGhhb3MuY29tMB0GA1UdDgQWBBQT58rBCxPmVLeZaYGRqVROnQlFbzANBgkqhkiG9w0BAQQFAAOBgQCxbCovFST25t+ryN1RipqozxJQcguKfeCwbfgBNobzcRvoW0kSIf7zi4mtQajDM0NfslFF51/dex5Rn64HmFFshSwSvQQMyf5Cfaqv2XQ60OXq6nAFG6WbHoge6RqfIez2MWDLoSB6plsjKtMmL3mcybBhROtX5GGuLx1NtfhNFQ==</dsig:X509Certificate><dsig:X509IssuerSerial><dsig:X509IssuerName>CN=Test CA (RSA),OU=Engineering,O=Phaos Technology,L=New York,ST=New York,C=US</dsig:X509IssuerName><dsig:X509SerialNumber>1000001</dsig:X509SerialNumber></dsig:X509IssuerSerial><dsig:X509SubjectName>CN=Test Client (RSA),OU=Engineering,O=Phaos Technology,L=New York,ST=New York,C=US</dsig:X509SubjectName><dsig:X509SKI>E+fKwQsT5lS3mWmBkalUTp0JRW8=</dsig:X509SKI></dsig:X509Data></dsig:KeyInfo></dsig:Signature></player>'
+      , cert := 'MIIC0DCCAjmgAwIBAgIDD0JBMA0GCSqGSIb3DQEBBAUAMHwxCzAJBgNVBAYTAlVTMREwDwYDVQQIEwhOZXcgWW9yazERMA8GA1UEBxMITmV3IFlvcmsxGTAXBgNVBAoTEFBoYW9zIFRlY2hub2xvZ3kxFDASBgNVBAsTC0VuZ2luZWVyaW5nMRYwFAYDVQQDEw1UZXN0IENBIChSU0EpMB4XDTAyMDQyOTE5MTY0MFoXDTEyMDQyNjE5MTY0MFowgYAxCzAJBgNVBAYTAlVTMREwDwYDVQQIEwhOZXcgWW9yazERMA8GA1UEBxMITmV3IFlvcmsxGTAXBgNVBAoTEFBoYW9zIFRlY2hub2xvZ3kxFDASBgNVBAsTC0VuZ2luZWVyaW5nMRowGAYDVQQDExFUZXN0IENsaWVudCAoUlNBKTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAgIb6nAB9oS/AI5jIj6WymvQhRxiMlE07G4abmMliYi5zWzvaFE2tnU+RZIBgtoXcgDEIU/vsLQut7nzCn9mHxC8JEaV4D4U91j64AyZakShqJw7qjJfqUxxPL0yJv2oFiouPDjGuJ9JPi0NrsZq+yfWfM54s4b9SNkcOIVMybZUCAwEAAaNbMFkwDAYDVR0TAQH/BAIwADAPBgNVHQ8BAf8EBQMDB9gAMBkGA1UdEQQSMBCBDnRlY2hAcGhhb3MuY29tMB0GA1UdDgQWBBQT58rBCxPmVLeZaYGRqVROnQlFbzANBgkqhkiG9w0BAQQFAAOBgQCxbCovFST25t+ryN1RipqozxJQcguKfeCwbfgBNobzcRvoW0kSIf7zi4mtQajDM0NfslFF51/dex5Rn64HmFFshSwSvQQMyf5Cfaqv2XQ60OXq6nAFG6WbHoge6RqfIez2MWDLoSB6plsjKtMmL3mcybBhROtX5GGuLx1NtfhNFQ=='
+      ]
+
+    , [ doc := `<DirectoryReq xmlns="http://www.idealdesk.com/ideal/messages/mer-acq/3.3.1" version="3.3.1"><createDateTimestamp>2019-04-08T04:19:25.454Z</createDateTimestamp><Merchant><merchantID>003069727</merchantID><subID>0</subID></Merchant><Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><DigestValue>Aqh2U9qwEh/9QiEMKV3m/IaVqOnd2h1A4L4jDS5G9wk=</DigestValue></Reference></SignedInfo><SignatureValue>iUm6JzJRKfVsXZSf5Mwge7h79UFZYNl3v8vCmzPFtxH+6mBVWuPP35VDX39TeKf8wfvpljUXcR8eEzuGxY9aAOx2mp4fZWRFsLTFuXmudU0qwVSjELNY5HemDdrc7L42NEZxkOADVcpETRbYpP0cVkTnW0EkgSbSwxnbD0z+HSX4HBiKYwjaEvWTajjvkuGHcrA10SHkFVub8gT4PCCjPU5vdrGKpPhZaiwFE42WUN+/DfZYZKGWoZniZFaKNft28xhleH3OTFh0Rzb01FE+PQYGLdxHvAQfjQsa56NkBP+dyH5vshalFugkP/0LOovzQGeDy9Mtdzww5m1SDalntQ==</SignatureValue><KeyInfo><KeyName>1EC8349CA5DBA1E47E6902B5F5532AB1A87BEC10</KeyName></KeyInfo></Signature></DirectoryReq>`
+      , cert := `-----BEGIN CERTIFICATE-----
+MIIDtTCCAp2gAwIBAgIJANJOtQSOupsiMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
+BAYTAk5MMRMwEQYDVQQIEwpPdmVyaWpzc2VsMSEwHwYDVQQKExhJbnRlcm5ldCBX
+aWRnaXRzIFB0eSBMdGQwHhcNMTYxMjA3MDkzNzA2WhcNMjExMjA2MDkzNzA2WjBF
+MQswCQYDVQQGEwJOTDETMBEGA1UECBMKT3Zlcmlqc3NlbDEhMB8GA1UEChMYSW50
+ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+CgKCAQEAyTWoFvETOWbeWOm7FePT1LB2PmCPAZvfflI/O+ow1UAsj5qOYSyakqr9
+z13H0NdGLddhpyUMRhqT0Hls7l5if9gFI2fJMGNVaVPG2l1WoWletw8Q6y3aYpUN
+GQuFkkucPY5NRqEajDTUZP0clA1dDUiOOkoi+RFykMOmIivgxlQkQQsx2Nu/VRV3
+LPaIF/QiLK2k5e6NETnKP4dNVZWK1CDfk1TIoW4rYSfooSrDiJ31FpzK6kQEPHgf
+6c8YzM6uaKtl0xxbmOgj4djgu2eqV2BcVT+kmHLREmnogr0Nc3WQFR8R+1GmwtAI
+zFZxQaBpDa5u3AFTAGiOo8mWrhWTmQIDAQABo4GnMIGkMB0GA1UdDgQWBBRiF7l+
+0Z4RvHybovfZSnCUeVijujB1BgNVHSMEbjBsgBRiF7l+0Z4RvHybovfZSnCUeVij
+uqFJpEcwRTELMAkGA1UEBhMCTkwxEzARBgNVBAgTCk92ZXJpanNzZWwxITAfBgNV
+BAoTGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZIIJANJOtQSOupsiMAwGA1UdEwQF
+MAMBAf8wDQYJKoZIhvcNAQELBQADggEBAL/TV2uq7oHCc9DCZxitMWHC4TPSTgoC
+mfJwQgSq9EOMmoCIOrp6b5PzyM6K1StT2dHo4ZkFjqLdyZi2+H8Xdg994wt9rIuo
+Wm7EsubkfFSZDfVWpd1h98uUfzG2xhjsl/zJvZbEsUIimdUavaQrJP/KtAvrHKcP
+G2XUSjZ8J4xTgTHM+WSBMYVsgbmIL3u6eQdCOKsbb4I/QehJI6lFKj+u1yPtcWF2
+RmE44rTZj55a+pKGKjrxcSYvXmv0ioN2OFXyZFlYpuVE6cYzVcN3gney8K8FCVbp
+XVmrNpuOl3Ke7NIzjdlEELvC/GuskCIc7EeZi+TTRbqCIvHnxXq63WY=
+-----END CERTIFICATE-----
+`
+      ]
+
+    , [ doc := `<DirectoryReq xmlns="http://www.idealdesk.com/ideal/messages/mer-acq/3.3.1" version="3.3.1"><createDateTimestamp>2019-04-08T21:46:25.510Z</createDateTimestamp><Merchant><merchantID>123456789</merchantID><subID>0</subID></Merchant><Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><DigestValue>lIKStyHuuKEf7VmR7glhtaxiCoBst5snJ0QSIGn2HuE=</DigestValue></Reference></SignedInfo><SignatureValue>oNQvZZD24kK5ZGRADCf70w3aYryhiXAUuqe1BfHpldlaTtoWOe/bQkBfx3bNAqSOIHLB6F0hGsrBtNxC0xG3jeTTYPgKlETfyHkl2vr5yXLqLqLBJQPYx/B+NgycQ/m7oxpxxrzMmYE+suH0l7BORK+2q/oYuGzM8qZ6OElDHJP48G44rOGS8KU9FJScMaZgpIaFHe7NLgAugmMoClg0Xg/FiSjvoV9G7UYZtugfK+2ankuN8fBxIu0h9nDj/XiPnuPJTKA12NS7TwomHbGHVOQRp5ciUlLhJQWbTM/46RWW80kC6xottf6jerAT1/oOVz1uekXTf+ZLhWXf8VNoSw==</SignatureValue><KeyInfo><KeyName>B4845CB5CBCEE3E1E0AFEF2662552A2365960E72</KeyName></KeyInfo></Signature></DirectoryReq>`
+      , cert := `-----BEGIN CERTIFICATE-----
+MIID+zCCAuOgAwIBAgIBADANBgkqhkiG9w0BAQsFADCBsjELMAkGA1UEBhMCTkwx
+EDAOBgNVBAgMB0RyZW50aGUxDzANBgNVBAcMBk1lcHBlbDEVMBMGA1UECgwMQ29k
+ZUJyYWluIEJWMRcwFQYDVQQLDA5pREVBTCBDaGVja291dDEmMCQGA1UEAwwdaHR0
+cHM6Ly93d3cuaWRlYWwtY2hlY2tvdXQubmwxKDAmBgkqhkiG9w0BCQEWGXN1cHBv
+cnRAaWRlYWwtY2hlY2tvdXQubmwwHhcNMTkwMjI3MTI1MDM2WhcNMjQwMjI2MTI1
+MDM2WjCBsjELMAkGA1UEBhMCTkwxEDAOBgNVBAgMB0RyZW50aGUxDzANBgNVBAcM
+Bk1lcHBlbDEVMBMGA1UECgwMQ29kZUJyYWluIEJWMRcwFQYDVQQLDA5pREVBTCBD
+aGVja291dDEmMCQGA1UEAwwdaHR0cHM6Ly93d3cuaWRlYWwtY2hlY2tvdXQubmwx
+KDAmBgkqhkiG9w0BCQEWGXN1cHBvcnRAaWRlYWwtY2hlY2tvdXQubmwwggEiMA0G
+CSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDnhW0IUhvN3lv1EyActGXWqL6gVD9d
+ZYTtRLvTGEFXJw3XZjUGGPtyOFP1zt67+Bl+uqO7s0UiqOMuq/jq4bWEOlwX6gi5
+1pNVFTUEsKerULoqLqFrBTL0XbhI5pAiTuzHrvgCGB7ebMQTj4SodABMetnmugCN
+iJ/mu70RFk+PswsplE8KOWihhTZtjuMpLD59DUlAJn0efYw4n2zJInU6gEP3n8go
+Z6O1pkdi9De28+zVD2XPSBFtwunVXKDKY4mltFUy5PDFvU86JyWWZcP6PLzAR937
+8FpFnWivyIXxCWvBWhQpvKvzga0uHf8fblfdR115bxxKEV65ePIgChgTAgMBAAGj
+GjAYMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgXgMA0GCSqGSIb3DQEBCwUAA4IBAQCP
+IU2Q23W36lGCVJg/l3GRpzF5JxQ7UdCb2SlC6dsp6HAkqKAQJyHR303qE6CXvsaC
+7u8wFWeEDa29kRijWBODWt+WFHd4tUjS0cS/6HljYQZww0I3ILOzgLH4cWHPxQmV
+UcKPXd7KXCtZnuZ9NDfRu1CchLQ7IdWBWWG/3h8yIC6fDBrTnPVxznUOjWjj8l11
+z0t/URz+vhMEq0tLiQUsFEX+UPj9nInpFnPERLpsQgaw9uowx42Aa5uIHUoa+z7O
+KWZvUn8LV2UFDOozJHfTcI4Bh6h+rX1xq5zwPDiiRv5grArspZuZI6c3IxvjOOP2
+v6JOi66TCdG+rAbQzegK
+-----END CERTIFICATE-----`
+      ]
+    ];
+
+MACRO TestMultipleDocs()
+{
+  FOREVERY (RECORD rec FROM docs)
+  {
+    OBJECT response := MakeXMLDocument(StringToBlob(rec.doc));
+
+    //PRINT("Testing " || #rec || ":\n" || BlobToString(response->GetDocumentBlob(TRUE), -1));
+
+    OBJECT signcontext;
+    IF (CellExists(rec, "assertion_ns"))
+    {
+      OBJECT assertion := response->GetElementsByTagNameNS(rec.assertion_ns, "Assertion")->Item(0);
+      IF(NOT ObjectExists(assertion))
+        THROW NEW Exception("No assertion");
+
+      signcontext := GetXMLSignatureContextByNodes([ OBJECT(assertion) ]);
+    }
+    ELSE
+    {
+      signcontext := GetXMLSignatureContextByNodes([ OBJECT(response->documentelement) ]);
+    }
+
+
+    signcontext->SetX509Certificate(rec.cert);
+    signcontext->ValidateSignature();
+
+    OBJECT signed_doc := signcontext->GetSignedXMLDocument();
+    IF (CellExists(rec, "assertion_ns"))
+    {
+      OBJECT assertion := signed_doc->GetElementsByTagNameNS(rec.assertion_ns, "Assertion")->Item(0);
+
+      IF(NOT ObjectExists(assertion))
+        THROW NEW Exception("No assertion in signed doc");
+    }
+  }
+}
+
+/* ADDME: test if signing works correctly
+   ADDME: test if GetSignedXMLDocument works correctly
+*/
+
+PRINT("\n === Running TestXML_Signature\n");
+TestXMLDSigCases();
+TestMultipleDocs();
+

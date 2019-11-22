@@ -1,0 +1,16 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+
+OpenPrimary();
+OBJECT wrdschema := OpenWRDSchema(GetWebVariable("wrdschema"));
+OBJECT paymentapi := GetPaymentAPI(wrdschema, [ providerfield := GetWebVariable("providerfield"), paymentfield := GetWebVariable("paymentfield") ]);
+RECORD result := paymentapi->GetReturnInfo(GetRequestURL());
+RECORD described := DescribeWRDEntity(result.paymentid);
+RECORD payinfo := paymentapi->GetPaymentData(result.paymentid);
+
+AddHTTPHeader("Content-Type","application/json",FALSE);
+Print(EncodeJSON([returninfo:=result,payinfo:=payinfo]));

@@ -1,0 +1,130 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/support.whlib";
+
+PUBLIC MACRO SendDownloadFile(BLOB data, STRING filename, STRING contenttype)
+{
+  AddHTTPHeader("Content-Type", contenttype, FALSE);
+  AddHTTPHeader("Content-Disposition", "attachment; filename=\"" || EncodeJava(Filename) || "\"", FALSE);
+
+  STRING uploadid := GetWebVariable("wh-download");
+  IF(uploadid!="")
+    UpdateWebCookie("wh-download-" || uploadid, "done", [ httponly := FALSE ]);
+  SendWebFile(data);
+}
+PUBLIC MACRO SendDownloadError(RECORD errorinfo)
+{
+  Print('<!DOCTYPE html><script type="text/javascript">\n');
+  Print('var f=window.frameElement;var d=f.ownerDocument;(d.defaultView).__wh_downloadfailurecallback(f,' || EncodeJSON(errorinfo) || ');\n');
+  Print('</script>');
+  RETURN;
+}
+
+PUBLIC RECORD ARRAY FUNCTION PeekUploadedFiles(STRING ARRAY filetokens)
+{
+  RETURN GrabUploadedFiles(filetokens, FALSE);
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetUploadedFiles(STRING ARRAY filetokens)
+{
+  RETURN GrabUploadedFiles(filetokens, TRUE);
+}
+
+RECORD ARRAY FUNCTION GrabUploadedFiles(STRING ARRAY filetokens, BOOLEAN deletethem)
+{
+  RECORD ARRAY result;
+  RECORD ARRAY sessions;
+
+  FOREVERY (STRING filetoken FROM filetokens)
+  {
+    STRING ARRAY parts := Tokenize(filetoken || "/", "/");
+    STRING sessionid := Tokenize(filetoken, "/")[0];
+
+    RECORD session;
+    RECORD pos := RecordLowerBound(sessions, [ sessionid := parts[0] ], [ "SESSIONID" ]);
+    IF (NOT pos.found)
+    {
+      session := GetWebSessionData(parts[0], "system_filetransfer");
+      IF (NOT RecordExists(session))
+        THROW NEW Exception("File upload session expired");
+
+      INSERT [ sessionid := parts[0], data := session ] INTO sessions AT pos.position;
+    }
+    ELSE
+      session := sessions[pos.position].data;
+
+    RECORD fpos := RecordLowerBound(session.files, [ fileid := ToInteger(parts[1], 0) ], [ "FILEID" ]);
+    IF (NOT fpos.found)
+      THROW NEW Exception("File upload for this file has not succeeded");
+
+    RECORD file := session.files[fpos.position];
+    IF (NOT file.complete)
+      THROW NEW Exception("File upload for this file has not succeeded");
+
+    INSERT
+        [ filename :=     file.filename
+        , contenttype :=  file.contenttype
+        , data :=         MakeComposedBlob(file.chunks)
+        ] INTO result AT END;
+
+    IF (deletethem)
+      DELETE FROM sessions[pos.position].data.files AT fpos.position;
+  }
+
+  IF (deletethem)
+  {
+    FOREVERY (RECORD rec FROM sessions)
+    {
+      IF (LENGTH(rec.data.files) = 0)
+        CloseWebSession(rec.sessionid, "system_filetransfer");
+      ELSE
+        StoreWebSessionData(rec.sessionid, "system_filetransfer", rec.data);
+    }
+  }
+
+  RETURN result;
+}
+
+PUBLIC RECORD FUNCTION ProcessUploadEndpointData()
+{
+  //First figure out what is uploaded
+  IF(IsRequestPost() AND GetWebHeader("Content-Type") LIKE "multipart/form-data*")
+  {
+    //We received a file
+    RETURN [ data := GetWebBlobVariable("file")
+           , filename := GetWebVariableFilename("file")
+           , uploadtype := "form"
+           ];
+  }
+  RETURN DEFAULT RECORD;
+}
+PUBLIC MACRO SendUploadEndpointResponse(RECORD incoming, STRING ARRAY tokens)
+{
+  RECORD completioninfo := [ size := Length64(incoming.data), filename := incoming.filename, token := tokens[0] ];
+
+  Print('<!DOCTYPE html><script type="text/javascript">\n');
+  Print('var f=window.frameElement;var d=f.ownerDocument;(d.defaultView).$wh.UploadManager.__completioncallback(f,' || EncodeJSON(completioninfo) || ');\n');
+  Print('</script>');
+  RETURN;
+}
+
+PUBLIC STRING FUNCTION MakeDownloadURL(RECORD wrappedblob)
+{
+  RECORD session :=
+      [ partcounter :=    0
+      , files :=          [[ fileid :=       -1
+                          , filename :=     wrappedblob.filename
+                          , fullsize :=     Length(wrappedblob.data)
+                          , contenttype :=  wrappedblob.mimetype
+                          , tolliumdata :=  DEFAULT BLOB
+                          , chunks :=       [[ chunk_offset := 0, start := 0, size := Length(wrappedblob.data), data := wrappedblob.data ]]
+                          , complete :=     TRUE
+                          ]]
+      ];
+  STRING sessionid := CreateWebSession("system_filetransfer", session, ttl_updownsession, FALSE);
+  RETURN "/.system/filetransfer/filetransfer.shtml?type=download&file=" || sessionid || "/-1";
+}

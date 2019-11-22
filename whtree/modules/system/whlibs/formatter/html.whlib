@@ -1,0 +1,671 @@
+<?wh
+/** @short HTML rendering
+    @long Internal library providing access to the HTML renderer */
+
+LOADLIB "wh::formatter/output.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+
+RECORD ARRAY docs;
+
+INTEGER FUNCTION __PUBLISHER_OUTPUT_HTML_CREATE(INTEGER level, BOOLEAN strict, BOOLEAN stylesheet, BOOLEAN cssclasses) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+MACRO __PUBLISHER_OUTPUT_HTML_CLOSE(INTEGER writerid) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+
+INTEGER FUNCTION __PUBLISHER_OUTPUT_HTML_CREATEFORMATTER(INTEGER writerid, INTEGER outputid) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+MACRO __PUBLISHER_OUTPUT_HTML_CLOSEFORMATTER(INTEGER writerid, INTEGER formatterid) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+
+OBJECT FUNCTION GetFormattingOutput(INTEGER outputid)
+{
+  RECORD match := SELECT * FROM docs WHERE id=outputid;
+  IF(NOT RecordExists(match))
+    THROW NEW Exception("No such formatting output #" || outputid);
+  RETURN match.output;
+}
+
+
+/** @short Print the document stylesheet
+    @param htmldocid ID of the HTML document
+*/
+MACRO PrintHTMLDocStylesheet(INTEGER htmldocid, INTEGER outputid) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+
+/////////////////////////////////////////////////////////////////////
+//
+// Hyperlink and hyperlink callback support
+//
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// Image support
+//
+
+
+/** @short Get a rendered image, from the cache if possible
+    @param htmldocid ID of the HTML document
+    @param lenx Output length
+    @param leny Output width
+    @param bgcolor Canvas background color
+    @param imginfo Image information (as received by the image callback)
+    @return A record describing the image, or a non-existing record if the image was empty
+    @cell return.uniqueid Image unique id (from imginfo)
+    @cell return.lenx Output width
+    @cell return.leny Output height
+    @cell return.bgcolor Selected background color
+    @cell return.filename Image filename
+    @cell return.gotfromcache True if the image we returned came from the cache, false if we just rendered it
+    @cell return.mimetype Image output mimetype
+*/
+PUBLIC RECORD FUNCTION GetHTMLDocRenderedImage(INTEGER htmldocid, INTEGER lenx, INTEGER leny, INTEGER bgcolor, RECORD imginfo)
+{
+  RETURN GetFormattingOutput(htmldocid)->GetRenderedImage(lenx, leny, bgcolor, imginfo);
+}
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// The HTML DOC objectified api
+//
+
+STATIC OBJECTTYPE HTMLPublicationPage EXTEND FormattingPageBase
+<
+  MACRO NEW(OBJECT publicationoutput, INTEGER outputid)
+  : FormattingPageBase(publicationoutput, outputid, __PUBLISHER_OUTPUT_HTML_CREATEFORMATTER(publicationoutput->id, outputid))
+  {
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    __PUBLISHER_OUTPUT_HTML_CLOSEFORMATTER(this->formattingoutput->id,this->id);
+    FormattingPageBase::Close();
+  }
+>;
+
+STATIC OBJECTTYPE HTMLPublicationOutput EXTEND FormattingOutputBase
+<
+  INTEGER pvt_id;
+  PUBLIC PROPERTY id(pvt_id,-);
+
+  INTEGER imagecounter;
+  BOOLEAN stylesheets;
+  BOOLEAN strict;
+
+  BOOLEAN xhtml;
+  STRING imgformat;
+
+  PUBLIC MACRO PTR hyperlinkcallback;
+  PUBLIC MACRO PTR embedcallback;
+  PUBLIC MACRO PTR formtagcallback;
+
+  PUBLIC BOOLEAN suppressimagealign;
+  PUBLIC STRING imagebasename;
+  PUBLIC INTEGER imagemaxwidth;
+  PUBLIC INTEGER jpegquality;
+
+  PUBLIC PROPERTY imageformat(imgformat, SetImageFormat);
+
+  BOOLEAN __D_HC_link_is_opened;
+  RECORD ARRAY imagecache;
+  RECORD ARRAY animatedgifcache;
+  MACRO PTR ARRAY imgcallbacks;
+
+  MACRO NEW(INTEGER levelid, BOOLEAN strict, BOOLEAN stylesheets, INTEGER puboutid)
+  {
+    this->pvt_id := puboutid;
+    this->jpegquality := 85;
+    this->imagebasename := "webhare";
+    this->imagecounter := 1;
+
+    //FIXME rewrite the callbacks in such a way that we can support subclassing to overwrite these without killing legacy apis
+    this->hyperlinkcallback := PTR this->StandardHyperlinkCallback;
+    this->imagecallback := PTR this->StandardImageCallback;
+    this->formtagcallback := PTR this->StandardFormTagCallback;
+    this->stylesheets := stylesheets;
+    this->strict := strict;
+    this->xhtml := levelid=2;
+
+    IF(levelid=0)
+    {
+      this->SetRelativeFonts(12);
+      this->SetTableBorders(1, FALSE, TRUE, -1);
+    }
+
+    INSERT INTO docs(id, output)
+           VALUES(this->id, PRIVATE this)
+           AT END;
+  }
+
+  MACRO SetRelativeFonts(INTEGER basesize)
+  {
+    SetHTMLDocRelativeFonts(this->id, basesize);
+  }
+
+  MACRO SetTableBorders(INTEGER borderwidth, BOOLEAN forcewidth, BOOLEAN htmlborders, INTEGER bordercolor)
+  {
+    SetHTMLDocTableBorders(this->id, borderwidth, forcewidth, htmlborders, bordercolor);
+  }
+
+  PUBLIC OBJECT FUNCTION CreatePage(INTEGER outputid)
+  {
+    RETURN NEW HTMLPublicationPage(PRIVATE this, outputid);
+  }
+
+  UPDATE PUBLIC MACRO ClosePage(INTEGER pageid)
+  {
+    FormattingOutputBase::ClosePage(pageid);
+  }
+
+  UPDATE PUBLIC MACRO CloseOutput()
+  {
+    IF(this->embedcallback != DEFAULT MACRO PTR AND this->stylesheets)
+    {
+      INTEGER css_stream := CreateStream();
+      //ADDME: If we only had a version number getter, we could throw it in here :-)  (can't do that currently for WHLite/WHAP compatibility reasons)
+      PrintTo(css_stream,"/* WebHare CSS: style information for converted/published HTML paragraphs */\n");
+      PrintHTMLDocStylesheet(this->id, css_stream);
+      BLOB css_blob := MakeBlobFromStream(css_stream);
+
+      this->embedcallback("webhare.css", "text/css", TRUE, css_blob);
+    }
+    FormattingOutputBase::CloseOutput();
+    __PUBLISHER_OUTPUT_HTML_CLOSE(this->id);
+    DELETE FROM docs WHERE id = this->id;
+  }
+
+  MACRO StandardHyperlinkCallback(RECORD hyperlinkinfo)
+  {
+    //ADDME: Stacked hyperlink support?
+    IF (NOT hyperlinkinfo.opened)
+    {
+      IF (this->__D_HC_link_is_opened)
+        PRINT("</a>");
+      this->__D_HC_link_is_opened := FALSE;
+      RETURN;
+    }
+
+    STRING href;
+
+    PRINT('<a href="' || EncodeValue(hyperlinkinfo.href));
+    IF (hyperlinkinfo.target != "")
+      PRINT('" target="' || EncodeValue(hyperlinkinfo.target));
+    IF (hyperlinkinfo.title != "")
+      PRINT('" title="' || EncodeValue(hyperlinkinfo.title));
+    PRINT('">');
+    this->__D_HC_link_is_opened := TRUE;
+  }
+
+  MACRO StandardFormtagCallback(STRING tagname, RECORD tag)
+  {
+  }
+
+  /* @short Default callback for image functions
+     @param paintinfo Description of image to paint
+     @cell paintinfo.docobject ID of the docobject to paint
+     @cell paintinfo.maxwidth Current maximum image width (as forced by tables and SetHTMLImageMaxWidth functions), 0 if there is no current maximum */
+  MACRO StandardImageCallback(RECORD imginfo)
+  {
+    IF(this->embedcallback = DEFAULT MACRO PTR)
+      RETURN;
+
+    //Animated GIF?
+    IF (Length(imginfo.animated_gif) != 0)
+    {
+      this->AnimatedGifHandler(imginfo);
+      RETURN;
+    }
+
+    INTEGER lenx := imginfo.lenx;
+    INTEGER leny := imginfo.leny;
+
+    //Get the true image maximum
+    INTEGER this_img_maxwidth := this->imagemaxwidth;
+
+    //Is there a 'local' maximums? (to avoid exceeding table cell size limits, etc)
+    IF (imginfo.cellsize > 0 AND (this_img_maxwidth = 0 OR imginfo.cellsize < this_img_maxwidth))
+      this_img_maxwidth := imginfo.cellsize; //local maximum is smaller than global..
+
+    //Rescale image?
+    IF (this_img_maxwidth != 0) //there is a maximum
+    {
+      INTEGER maxlen := this_img_maxwidth;
+      IF (maxlen < 25)
+        maxlen := 25; //minimum size is 25 pixels
+
+      IF (lenx > maxlen)
+      {
+        //Rescale the image, rounding up
+        leny := (leny * maxlen + lenx/2) / lenx;
+        IF (leny = 0)
+          leny := 1;
+
+        lenx := maxlen;
+      }
+    }
+
+    //Image caching! (for printable versions etc)
+    RECORD cached_entry := this->GetRenderedImage(lenx,leny,imginfo.bgcolor,imginfo);
+    IF (RecordExists(cached_entry)) //dead picture
+    {
+      STRING filelink := this->embedcallback(cached_entry.filename, cached_entry.mimetype, FALSE, DEFAULT BLOB);
+      this->DoFinalImg(imginfo, filelink, cached_entry.gotfromcache, lenx, leny);
+    } //if we got a rendered image (from cache or just generated)
+  }
+
+  PUBLIC RECORD FUNCTION GetRenderedImage(INTEGER lenx, INTEGER leny, INTEGER bgcolor, RECORD imginfo)
+  {
+    RECORD cacheentry;
+    IF (imginfo.uniqueid!="")
+      cacheentry := SELECT * FROM this->imagecache AS imagecache
+                            WHERE imagecache.uniqueid = imginfo.uniqueid
+                                  AND imagecache.lenx = lenx
+                                  AND imagecache.leny = leny
+                                  AND imagecache.bgcolor = bgcolor;
+
+    IF (RecordExists(cacheentry))
+    {
+      cacheentry.gotfromcache := true;
+      RETURN cacheentry;
+    }
+
+    //Not in cache, so create the image
+
+    //create the bitmap itself
+    OBJECT imgcanvas := CreateEmptyCanvas(lenx,leny,bgcolor);
+    imginfo.renderimage(imgcanvas->canvasid, 0, 0, lenx, leny);
+
+    //Figure out HOW this bitmap should be output (JPG, paletted PNG, raw PNG?)
+    BLOB fileoutput;
+    RECORD colorinfo := imginfo.is_known_photo ? [ alphas := 0, colors := 1000000 ]
+                                                 : imgcanvas->CountColors(1);
+
+    IF (colorinfo.colors = 0 //Got only transparancy?
+        OR (colorinfo.colors=1 AND imgcanvas->GetPixel(0,0) = bgcolor)) //Only background color
+    {
+      RETURN DEFAULT RECORD; //refuse to create picture
+    }
+
+    STRING filename := this->GetPictureBasename();
+    STRING filetype := this->imgformat;
+    IF(filetype="") //nothing was forced
+    {
+      IF (colorinfo.colors > 10000)
+      {
+        //Many many colors: JPG
+        filename := filename || ".jpg";
+        filetype := "image/jpeg";
+      }
+      ELSE
+      {
+        filename := filename || ".png";
+        filetype := "image/png";
+      }
+    }
+
+    SWITCH(filetype)
+    {
+      CASE "image/gif"  { fileoutput := imgcanvas->ExportAsGIF(); } //We'll leave this here, only for if we ever allow users of the rendering engine to explicitly choose outputformats
+      CASE "image/jpeg" { fileoutput := imgcanvas->ExportAsJPEG(this->jpegquality); }
+      CASE "image/png"  { fileoutput := imgcanvas->ExportAsPNG(FALSE); }
+    }
+    imgcanvas->Close();
+
+    //write the created image file to the output
+    this->embedcallback(filename, filetype, TRUE, fileoutput);
+
+    //insert it into the cache and return the cache entry
+    INSERT INTO this->imagecache(uniqueid,lenx,leny,bgcolor,filename,gotfromcache,mimetype)
+                VALUES(imginfo.uniqueid,lenx,leny,bgcolor,filename,false,filetype)
+                AT 0;
+    RETURN this->imagecache[0];
+  }
+
+  STRING FUNCTION GetPictureBasename()
+  {
+    //Create a filename for the picture
+    STRING filename := this->imagebasename;
+    filename := filename || "-" || this->imagecounter;
+    this->imagecounter := this->imagecounter + 1;
+    RETURN filename;
+  }
+
+  MACRO AnimatedGifHandler(RECORD imginfo)
+  {
+    BOOLEAN got_from_cache;
+
+    //Did we already write this image to disk?
+    RECORD cacheentry;
+    IF (imginfo.uniqueid != "")
+      cacheentry := SELECT * FROM this->animatedgifcache WHERE uniqueid = imginfo.uniqueid;
+
+    //Nope, so do so and store it into the cache
+    STRING filelink;
+    IF (NOT RecordExists(cacheentry)) //no, so write it now..
+    {
+      STRING filename := this->GetPictureBasename() || ".gif";
+
+      //Read lenx and leny from the animated image GIF file
+      RECORD fileinfo := ScanBlob(imginfo.animated_gif, "");
+      INSERT INTO this->animatedgifcache(uniqueid,filename,lenx,leny)
+             VALUES(imginfo.uniqueid,filename,fileinfo.width,fileinfo.height)
+             AT 0;
+      cacheentry := this->animatedgifcache[0];
+
+      filelink := this->embedcallback(filename, "image/gif", TRUE, imginfo.animated_gif);
+    }
+    ELSE
+    {
+      got_from_cache := TRUE;
+      filelink := this->embedcallback(cacheentry.filename, "image/gif", FALSE, DEFAULT BLOB);
+    }
+
+    //ADDME: width height
+    this->DoFinalImg(imginfo, filelink, got_from_cache, cacheentry.lenx, cacheentry.leny);
+  }
+
+  MACRO DoFinalImg(RECORD imginfo, STRING filelink, BOOLEAN got_from_cache, INTEGER finallenx, INTEGER finalleny)
+  {
+    //Create the IMG tag
+    Print('<img width="' || finallenx || '" height="' || finalleny || '" alt="' || EncodeValue(imginfo.alttag) || '"');
+    Print(' style="');
+    IF (this->strict)//strict html
+      Print('border:0px;');
+    IF (imginfo.margintop>0 OR imginfo.marginleft>0 OR imginfo.marginright>0 OR imginfo.marginbottom>0)
+      Print('margin:' || imginfo.margintop || 'px ' || imginfo.marginright || 'px ' || imginfo.marginbottom || 'px ' || imginfo.marginleft || 'px;');
+
+    INTEGER align := this->suppressimagealign ? 0 : imginfo.align;
+    IF(NOT imginfo.isrtdimage) //'old' code
+    {
+      IF (align IN [1,2])
+      {
+        STRING side := imginfo.align=1 ? "left":"right";
+        Print('float:' || side || ';clear:' || side);
+      }
+      ELSE
+      {
+        Print('clear:both');
+      }
+    }
+
+    //ADDME should we clear:both  in RTD too?
+
+    Print ('"'); //close style block
+    IF (imginfo.title!="")
+      Print(' title="' || EncodeValue(imginfo.title) || '"');
+    IF(NOT this->strict)
+      Print(' border="0"');
+    Print(' src="' || EncodeValue(filelink) || '"');
+    IF(imginfo.isrtdimage AND align IN [1,2])
+      Print(' class="' || (align=1 ? "wh-rtd-floatleft -wh-rtd-floatleft" : "wh-rtd-floatright -wh-rtd-floatright") || '"');
+
+    Print(this->xhtml ? " />" : ">"); //XML or HTML close..
+
+    RECORD callbackinfo :=  [ rendered := true, reused := got_from_cache
+                            , lenx := imginfo.lenx, leny := imginfo.leny
+                            , finallenx := finallenx, finalleny := finalleny
+                            , alttag := imginfo.alttag
+                            , title := imginfo.title
+                            ];
+
+    FOREVERY(MACRO PTR callback FROM this->imgcallbacks)
+      callback(callbackinfo);
+  }
+
+  PUBLIC MACRO AddImageCompletionCallback(MACRO PTR newcallback)
+  {
+    INSERT newcallback INTO this->imgcallbacks AT END;
+  }
+
+  MACRO SetImageFormat(STRING newformat)
+  {
+    IF (newformat NOT IN ["image/gif","image/jpeg","image/png",""])
+      THROW NEW Exception("Unrecognized image format '" || newformat || "'");
+
+    this->imgformat := newformat;
+  }
+>;
+
+/** @short Create HTML document output
+    @param spec HTML compliance level "HTML3.02", "HTML4.01", "XHTML1.0"
+    @param strict Strict conformance to the requested HTML level?
+    @param stylesheets Stylesheets?
+    @param cssclasses Insert CSS classes like "wh-heading1" anyway, even when not using external stylesheets
+    @return New HTML document id
+*/
+PUBLIC OBJECT FUNCTION MakeHTMLPublicationOutput(STRING spec, BOOLEAN strict, BOOLEAN stylesheets, BOOLEAN cssclasses DEFAULTSTO FALSE)
+{
+  INTEGER levelid := SearchElement(["HTML3.02","HTML4.01","XHTML1.0"], spec);
+  IF(levelid=-1)
+    THROW NEW Exception("Specification '" || spec || "' not supported");
+
+  IF (levelid=0 AND stylesheets)
+    THROW NEW Exception("HTML 3.02 does not support stylesheets");
+
+  RETURN NEW HTMLPublicationOutput(levelid, strict, stylesheets, __PUBLISHER_OUTPUT_HTML_CREATE(levelid, strict, stylesheets, stylesheets OR cssclasses));
+}
+/////////////////////////////////////////////////////////////////////
+//
+// The HTML DOC api
+//
+
+
+/** @short Create HTML document
+    @param level HTML compliance level "HTML3.02", "HTML4.01", "XHTML1.0"
+    @param strict Strict conformance to the requested HTML level?
+    @param stylesheets Stylesheets?
+    @return New HTML document id
+*/
+PUBLIC INTEGER FUNCTION CreateHTMLDoc(STRING level, BOOLEAN strict, BOOLEAN stylesheets)
+{
+  OBJECT newoutput := MakeHTMLPublicationOutput(level, strict, stylesheets);
+  RETURN newoutput->id;
+}
+
+/** @short Close HTML document
+    @param htmldocid ID of the HTML document
+*/
+PUBLIC MACRO CloseHTMLDoc(INTEGER htmldocid)
+{
+  GetFormattingOutput(htmldocid)->CloseOutput();
+}
+
+PUBLIC INTEGER FUNCTION CreateHTMLPage(INTEGER htmldocid, INTEGER outputid)
+{
+  OBJECT newpage := GetFormattingOutput(htmldocid)->CreatePage(outputid);
+  RETURN newpage->id;
+}
+PUBLIC MACRO CloseHTMLPage(INTEGER pageid)
+{
+  GetFormattingPage(pageid)->formattingoutput->ClosePage(pageid);
+}
+
+/** @short Set HTML table sizing
+    @long    SetHTMLTableSize allows you to limit or override the size of tables. This function only affects tables that are created by WebHare, but does not effect any of the tables you create in your own templates.
+
+             SetHTMLTableSize also affects all images and tables that are embedded into the cells of an overridden table.
+             Images and tables may be rescaled to the size of their containing cell, as they would otherwise cause the tablecell to grow outside its allocated space.
+    @param htmldocid ID of the HTML document
+    @param   maxwidth -1 = no limit, or the maximum table width, in HTML pixels (must always be at leat 100 pixels)
+    @param   forcewidth Force every table to be the maximum width, enlarging the table if necessary
+    @example
+// Limit all tables to 400 pixels in size
+SetHTMLTableSize (400,false);
+// Resize all tables to a size of 350 pixels
+SetHTMLTableSize (350,true);
+// Restore the default table border settings
+SetHTMLTableSize (-1, false);
+    @see     SetHTMLTableBorders – configure or override HTML table bordersSetHTMLImageMaxWidth */
+PUBLIC MACRO SetHTMLDocTableSize(INTEGER htmldocid, INTEGER maxwidth, BOOLEAN forcewidth) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+
+/** @short Set HTML language code
+    @long This enables the coding of language information in 'lang' attributes. The specified language code is assumed to be the default and should be set on the HTML tag
+    @param htmldocid ID of the HTML document
+    @param languagecode Language code (eg 'nl' or 'en-us')
+*/
+PUBLIC MACRO SetHTMLDocLanguageCode(INTEGER htmldocid, STRING languagecode) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+
+/** @short Configure or override HTML table borders
+    @long  SetHTMLTableBorders allows you to limit or override the borders that are used in tables.
+           This function only affects tables that are created by WebHare, and none of the tables that you create in your own templates.
+
+           The parameter htmlborders must be set to true if you want plain HTML borders.
+           If this option is set to false (the default), WebHare will paint all table borders by itself.
+           This allows full control over border visibility, thickness and coloring, even on older browers.
+    @param htmldocid ID of the HTML document
+    @param borderwidth -1 = no limit, 0 = no borders, 1 and higher = maximum size for HTML borders
+    @param forcewidth Force every table border to be this width, enlarging borders if necessary
+    @param htmlborders True to create standard html borders (<table border="">), false for WebHare colored borders
+    @param bordercolor -1 = no override, otherwise RRGGBB ordered colour override (ToInteger can convert hexadecimal color values to integer values)
+    @example
+// Force all tables to have a 1 pixel wide, light blue border
+INTEGER bordercolor := ToInteger("0000FF",-1,16);
+SetHTMLTableBorders (1, true, false, bordercolor);
+// Force plain HTML borders, never more than one pixel wide
+SetHTMLTableBorders (1, false, true, -1);
+// Restore the default table border settings
+SetHTMLTableBorders (-1, false, false, -1);
+    @see     SetHTMLTableSize Tointeger */
+PUBLIC MACRO SetHTMLDocTableBorders(INTEGER htmldocid, INTEGER borderwidth, BOOLEAN forcewidth, BOOLEAN htmlborders, INTEGER bordercolor) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+
+/** @short Set HTML image background color
+    @long    SetHTMLImageBGColor tries to set the background colour of all images to value bgcolor.
+             When converting images embedded in a Word document, WebHare analyses the images and creates a PNG or JPEG image based on the number of colors, and possible transparency in the image. If a transparent image is embedded, a transparent PNG image will be created by default.
+             You can use the SetImageBgColor function to override this default behaviour, for example if your site design requires the use of a single background color for all images.
+
+             There is no guarantee all images converted from the Word document will have the specified background colour. This depends largely on the type of image inserted in the document, and how Word internally converts the image.
+
+             This function sets the default background colour for a page. This
+             background color is also used during Word conversions to set the proper font color for text marked as 'automatic', and it is interpreted
+             as the 'default' color for images (it will not override the background color of images inside table cells). This change should be transparent
+             to most users and improves image quality by reducing the need for transparent pixels.
+    @param htmldocid ID of the HTML document
+    @param bgcolor The colour override (use GfxCreateColor(255,255,255,0,0) for a transparent (white) background)
+    @example
+
+// Set the background color to bright red
+SetImageBGColor(GfxCreateColor(255,0,0,0));
+    @see     Tointeger SetHTMLImageMaxWidth SetHTMLImageMaxWidth */
+PUBLIC MACRO SetHTMLDocImageBGColor(INTEGER htmldocid, INTEGER bgcolor) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+
+/** @short Set up font size for relative fontsize stylesheets
+    @param htmldocid ID of the HTML document
+    @param basesize 0 to disable relative fontsizes, or the pointsize which should be considered to be 100% */
+PUBLIC MACRO SetHTMLDocRelativeFonts(INTEGER htmldocid, INTEGER basesize) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+
+/** @short Get the image callback
+    @long This function returns the last set callback function. If no callback has been set yet, it wil return html.whlib's default image callback
+    @param htmldocid ID of the HTML document
+    @return The current image callback*/
+PUBLIC MACRO PTR FUNCTION GetHTMLDocImageCallback(INTEGER htmldocid)
+{
+  RETURN GetFormattingOutput(htmldocid)->imagecallback;
+}
+
+/** @short Set the image callback
+    @long This function sets a new hyperlink callback.
+    @param htmldocid ID of the HTML document
+    @param newcallback The new image callback */
+PUBLIC MACRO SetHTMLDocImageCallback(INTEGER htmldocid, MACRO PTR newcallback)
+{
+  GetFormattingOutput(htmldocid)->imagecallback := newcallback;
+}
+
+/** @short   Sets the quality for generated JPEG files.
+    @long    SetHTMLDocJpegQuality configures a different quality level for JPEG images. quality should be in the range of 0 to 100. The default quality level is 85. Setting a lower quality will degrade image quality but will create smaller JPEG files.
+             Using this function will not force all pictures to be output as JPEG. Remember that JPEG uses a 'lossy' compression, which means that even setting the highest possible quality level will still result in a slight, but often hardly noticeable, image quality loss.
+             For more information about JPEG files, quality settings and lossy compression, you should consult the {@link http://www.faqs.org/faqs/jpeg-faq/ JPEG Frequently Asked Questions}
+    @param htmldocid ID of the HTML document
+    @param   quality Quality setting, 0 to 100 (default is 85)
+    @example
+// Set JPEG files to 50 percent quality
+SetHTMLJpegQuality (50);
+    @see     SetHTMLDocImageMaxWidth */
+PUBLIC MACRO SetHTMLDocJpegQuality(INTEGER htmldocid, INTEGER quality)
+{
+  GetFormattingOutput(htmldocid)->jpegquality := 85;
+}
+
+/** @short Set HTML maximum image width
+    @long    SetHTMLDocImageMaxWidth sets the maximum width of all converted images in the Word documents to maxwidth pixels. The image's height is scaled accordingly, using an aspect ratio of 1 :1.
+             The function can be useful if your page design has strict rules about the maximum width of the content area, or if you want to decrease the filesize of the generated images.
+    @param htmldocid ID of the HTML document
+    @param width Maximum image width, or 0 for no override
+    @example
+// Sets the maximum image width to 100 pixels
+SetHTMLImageMaxWidth (100);
+    @see     SetHTMLDocImageBgcolor SetHTMLJPEGQuality SetHTMLTableSize */
+PUBLIC MACRO SetHTMLDocImageMaxWidth(INTEGER htmldocid, INTEGER width)
+{
+  GetFormattingOutput(htmldocid)->imagemaxwidth := width;
+}
+
+/** @short Set HTML output image format
+    @long    SetHTMLDocImageFormat allows you to override generated images to have a specific format
+    @param htmldocid ID of the HTML document
+    @param format Format to force ("image/gif","image/jpeg" or "image/png"). Leave empty to disable a forced format
+    */
+PUBLIC MACRO SetHTMLDocImageFormat(INTEGER htmldocid, STRING format)
+{
+  GetFormattingOutput(htmldocid)->imageformat := format;
+}
+
+/** @short Get the current embedding callback
+    @long This function returns the last set callback function
+    @return The current embedding callback, or a default macro ptr if none was set yet */
+PUBLIC MACRO PTR FUNCTION GetHTMLDocEmbeddingCallback(INTEGER htmldocid)
+{
+  RETURN GetFormattingOutput(htmldocid)->embedcallback;
+}
+
+/** @short Set the embedding callback
+    @long This function sets a new embedding callback. The embedding callback allows the
+          conversion engine to create embeddable objects (such as images and webhare.css).
+          Without the embedding callback, no such external objects can be generated
+    @param newcallback The new embedding callback */
+PUBLIC MACRO SetHTMLDocEmbeddingCallback(INTEGER htmldocid, MACRO PTR newcallback)
+{
+  GetFormattingOutput(htmldocid)->embedcallback := newcallback;
+}
+
+/** @short Get the hyperlink callback
+    @long This function returns the last set callback function. If no callback has been set yet, it wil return html.whlib's default hyperlink callback
+    @return The current hyperlink callback*/
+PUBLIC MACRO PTR FUNCTION GetHTMLDocHyperlinkCallback(INTEGER htmldocid)
+{
+  RETURN GetFormattingOutput(htmldocid)->hyperlinkcallback;
+}
+
+/** @short Set the hyperlink callback
+    @long This function sets a new hyperlink callback.
+    @param htmldocid ID of the HTML document
+    @param newcallback The new hyperlink callback */
+PUBLIC MACRO SetHTMLDocHyperlinkCallback(INTEGER htmldocid, MACRO PTR newcallback)
+{
+  GetFormattingOutput(htmldocid)->hyperlinkcallback := newcallback;
+}
+
+PUBLIC MACRO AddHtmlDocImageCompletionCallback(INTEGER htmldocid, MACRO PTR newcallback)
+{
+  GetFormattingOutput(htmldocid)->AddImageCompletionCallback(newcallback);
+}
+
+/** @short Set the base file name for generated objects
+    @long This function sets a base filename for generated embedded objects. In other words,
+          this function currently sets the starting name of image filenames
+    @param htmldocid ID of the HTML document
+    @param newbasename The new basename
+*/
+PUBLIC MACRO SetHTMLDocEmbeddingBasename(INTEGER htmldocid, STRING newbasename)
+{
+  GetFormattingOutput(htmldocid)->imagebasename := newbasename;
+}
+
+PUBLIC MACRO SetHTMLDocSuppressImgAlign(INTEGER htmldocid, BOOLEAN suppress)
+{
+  GetFormattingOutput(htmldocid)->suppressimagealign := suppress;
+}
+
+PUBLIC MACRO SetHTMLDocSuppressLinkMarkup(INTEGER htmldocid, BOOLEAN suppress) __ATTRIBUTES__(EXTERNAL "parser_format_html");
+
+PUBLIC BOOLEAN FUNCTION __ishtmloutput(OBJECT page)
+{
+  RETURN page EXTENDSFROM HTMLPublicationPage;
+}

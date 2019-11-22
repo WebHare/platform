@@ -1,0 +1,24 @@
+<?wh
+LOADLIB "mod::publisher/lib/widgets.whlib";
+LOADLIB "mod::publisher/lib/webtools/poll.whlib";
+
+PUBLIC OBJECTTYPE PollWidget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    IF (this->widgettype != "http://www.webhare.net/xmlns/publisher/pollwebtool")
+      THROW NEW Exception("Please don't point to the internal renderpoll.whlib for your custom poll widgettype.");
+
+    OBJECT pollobj := OpenPoll(this->whfsfileid);
+    IF(NOT ObjectExists(pollobj))
+      RETURN;
+
+    /*
+    RECORD wittyfields := pollobj->GetWittyFields(context);
+    INSERT CELL debugdata := PTR DumpValue(wittyfields, "htmltree") INTO wittyfields;
+    this->EmbedComponent(wittyfields);
+    */
+
+    pollobj->Render(this);
+  }
+>;

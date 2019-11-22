@@ -1,0 +1,232 @@
+<?wh
+/** @short Helper code for building facebook applications */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::socialite/lib/networkapi/facebookv2.whlib";
+LOADLIB "mod::socialite/lib/api.whlib";
+LOADLIB "mod::socialite/lib/internal/feeds.whlib";
+
+PUBLIC MACRO SendJavascriptTopRedirect(STRING url)
+{
+  STRING redirectcode := "<!DOCTYPE html><script>top.location='" || EncodeJava(url) || "';</script>";
+  AddHTTPHeader("Content-Type","text/html",FALSE);
+  SendWebFile(StringToBlob(redirectcode));
+}
+
+/** @short Ensure this app is authorized, redirect if needed */
+PUBLIC RECORD FUNCTION AuthorizeAppByRedirect(OBJECT netapp, STRING ARRAY permissions, STRING canvaspage, STRING ARRAY retainwebvars)
+{
+  IF(canvaspage NOT LIKE "https://apps.facebook.com/?*/*" AND canvaspage NOT LIKE "https://www.facebook.com/*")
+    THROW NEW Exception("The application canvas page must start with 'https://apps.facebook.com/', followed by your application's namespace and a slash. You specified: " || canvaspage);
+
+  RECORD ARRAY webvars := GetAllWebVariables();
+  RECORD rec := netapp->ParseCanvasPageWebVariables(webvars);
+  IF(NOT RecordExists(rec))
+    RETURN DEFAULT RECORD; //app is being invoked directly
+
+  STRING ARRAY request_ids;
+
+  IF(rec.accesstoken = "") //ADDME also check permission list
+  {
+    retainwebvars := retainwebvars CONCAT ["fb_source","request_ids","app_request_type","notif_t"];
+    FOREVERY(RECORD webvar FROM webvars)
+    {
+      BOOLEAN keep := FALSE;
+      FOREVERY(STRING mask FROM retainwebvars)
+        IF(ToUppercase(webvar.name) LIKE ToUppercase(mask))
+          keep := TRUE;
+
+      IF(keep)
+        canvaspage := AddVariableToUrl(canvaspage, webvar.name, webvar.value);
+    }
+
+    SendJavascriptTopRedirect(netapp->GetRedirectAuthURL(canvaspage, permissions));
+  }
+
+  IF(GetWebVariable("remove_fb_chrome")="yes")
+  {
+    //This user doesn't like the facebook environment. Destroy it
+    STRING url := UpdateURLVariables (GetRequestURL(), [ signed_request := GetWebVariable("signed_request")
+                                                       , remove_fb_chrome := ""
+                                                       , code := ""
+                                                       ]);
+    SendJavascriptTopRedirect(url);
+  }
+
+  IF(GetWebVariable("request_ids") != "")
+  {
+    FOREVERY(STRING reqid FROM Tokenize(GetWebVariable("request_ids"),","))
+      INSERT reqid INTO request_ids AT END;
+  }
+
+  //FIXME deal with auth denied etc
+  RETURN [ authorized := TRUE
+         , request_ids := request_ids
+         ];
+}
+
+PUBLIC OBJECTTYPE FacebookTabPage
+<
+  RECORD signedreq;
+  OBJECT pvt_netapp;
+
+  PUBLIC BOOLEAN allow_fb_escape;
+  PUBLIC STRING ARRAY forward_varmasks;
+  PUBLIC PROPERTY netapp(pvt_netapp,-);
+  PUBLIC STRING taburl;
+  PUBLIC STRING applicationid;
+  PUBLIC STRING app_data;
+  PUBLIC STRING pageid;
+
+  PUBLIC PROPERTY isliked(GetIsLiked,-);
+
+  MACRO NEW(STRING accounttag, STRING apptag)
+  {
+    AddHTTPHeader('P3P', 'CP="HONK"', FALSE);
+    this->signedreq := ParseSignedRequest(GetWebVariable("signed_request"));
+    this->pvt_netapp := OpenSocialiteConnection(accounttag, apptag);
+    this->applicationid := this->pvt_netapp->applicationid;
+    IF (RecordExists(this->signedreq))
+    {
+      this->app_data := this->signedreq.app_data;
+      IF (this->signedreq.have_login)
+        this->pvt_netapp->accesstoken := this->signedreq.accesstoken;
+
+      this->pageid := this->signedreq.pageid;
+    }
+
+    this->allow_fb_escape := TRUE;
+  }
+
+  BOOLEAN FUNCTION GetIsLiked()
+  {
+    RETURN RecordExists(this->signedreq) AND this->signedreq.liked;
+  }
+
+  /** @short Are we invoked as a tab ? */
+  PUBLIC BOOLEAN FUNCTION IsInvokedAsTab()
+  {
+    RETURN RecordExists(this->signedreq);
+  }
+
+  PUBLIC MACRO EnsureInvokedAsTab()
+  {
+    IF(RecordExists(this->signedreq))
+    {
+      IF(this->allow_fb_escape AND IsRequestPost() AND (this->signedreq.app_data = "escape_fb" OR this->signedreq.app_data LIKE "*:escape_fb") AND GetWebVariable("escaped_fb") != "1")
+      {
+        //This user doesn't like the facebook environment. Destroy it
+        STRING url := UpdateURLVariables (GetRequestURL(), [ signed_request := GetWebVariable("signed_request")
+                                                           , escaped_fb := "1"
+                                                           ]);
+        SendJavascriptTopRedirect(url);
+      }
+
+      //we still may have appdata forward vars to deal with
+      IF(IsRequestPost() AND this->signedreq.app_data LIKE "xRt*") //xRt is just a random marker to recognize the format
+      {
+        RECORD indata := DecodeJSON(DecodeUFS(Substring(this->signedreq.app_data,3)));
+        IF(CellExists(indata,'f') AND Length(indata.f)>0)
+        {
+          //construct a new URL with the forward variables, and redirect to that
+          STRING desturl := UpdateURLVariables(GetRequestUrl(), [ signed_request := GetWebVariable("signed_request") ]);
+
+          FOREVERY(RECORD varrec FROM indata.f)
+            desturl := AddVariableToURL(desturl, varrec.name, varrec.value);
+
+          Redirect(desturl);
+        }
+      }
+      RETURN; //we're okay
+    }
+
+    RECORD ARRAY forwardvars;
+    IF(Length(this->forward_varmasks) > 0)
+    {
+      FOREVERY(RECORD varrec FROM GetAllWebVariables())
+        FOREVERY(STRING mask FROM this->forward_varmasks)
+          IF(ToUppercase(varrec.name) LIKE ToUppercase(mask))
+          {
+            INSERT [ name := varrec.name, value := varrec.value ] INTO forwardvars AT END;
+            BREAK; //no need to match against remaining masks
+          }
+    }
+
+    RECORD appdata;
+    IF(LEngth(forwardvars)>0)
+      appdata := [ f := forwardvars ];
+
+    STRING gotourl := this->taburl;
+    //ADDME might as well delete all variables we know facebook won't like anyway from the TAB url
+    IF(RecordExists(appdata))
+      gotourl := UpdateURLVariables(gotourl, [ "app_data" := "xRt" || EncodeUFS(EncodeJSON(appdata)) ]);
+
+    Redirect(gotourl);
+  }
+>;
+
+PUBLIC OBJECT FUNCTION PrepareFacebookAppTab(STRING accounttag, STRING apptag)
+{
+  RETURN NEW FacebookTabPage(accounttag, apptag);
+}
+
+/** @short Get information about the tab being loaded */
+PUBLIC RECORD FUNCTION GetFacebookinfoForTab()
+{
+  RECORD req := ParseSignedRequest(GetWebVariable("signed_request"));
+  IF(NOT RecordExists(req))
+    RETURN DEFAULT RECORD; //not on a tab
+
+  IF(req.app_data="remove_fb_chrome" AND GetWebVariable("fbgone") != "1")
+  {
+    //This user doesn't like the facebook environment. Destroy it
+    STRING url := UpdateURLVariables (GetRequestURL(), [ signed_request := GetWebVariable("signed_request")
+                                                       , fbgone := "1"
+                                                       ]);
+    SendJavascriptTopRedirect(url);
+  }
+
+  RETURN req;
+}
+
+PUBLIC RECORD FUNCTION GetFacebookFeed(STRING sessionname, STRING fbobject, INTEGER maxnum)
+{
+  RETURN RequestFeed("SOCIALITE_FEEDS", "FACEBOOK", sessionname, fbobject, maxnum, FALSE);
+}
+PUBLIC RECORD FUNCTION GetFacebookPhotoFeed(STRING sessionname, STRING fbobject, INTEGER maxnum)
+{
+  RETURN RequestFeed("SOCIALITE_FEEDS", "FACEBOOK", sessionname, "photos:" || fbobject, maxnum, FALSe);
+}
+
+// Function to trigger re-scraping Open Graph data (https://developers.facebook.com/tools/debug/og/object/)
+// Returns true if successful
+PUBLIC BOOLEAN FUNCTION ReloadOpenGraphData(STRING url)
+{
+  IF (NOT IsValidPlainHTTPURL(url))
+    RETURN FALSE;
+
+  RECORD response;
+  TRY
+  {
+    OBJECT browser := NEW WebBrowser;
+    browser->PostWebPage("https://graph.facebook.com"
+                       , [[ name := "id", value := url ]
+                         ,[ name := "scrape", value := "TRUE" ]
+                         ]
+                       , "");
+
+    response := DecodeJSON(BlobToString(browser->content,-1));
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN FALSE;
+  }
+
+  RETURN RecordExists(response)
+         AND CellExists(response, "updated_time")
+         AND MakeDateFromText(response.updated_time) != DEFAULT DATETIME;
+}

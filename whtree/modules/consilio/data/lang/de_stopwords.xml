@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+German stop word list for WebHare Consilio
+
+In this file a list of common words is specified, which are considered less
+important for search queries. Accents are removed or rewritten by Consilio when
+necessary, but be sure to save this file as UTF-8 if you add accented
+characters.
+If you make changes to this file, be sure to put it in the etc/lang directory
+of your WebHare installation, otherwise it will be overwritten when upgrading or
+reinstalling WebHare.
+
+The words on this list are taken from
+http://snowball.tartarus.org/algorithms/german/stop.txt
+-->
+<stopwords xmlns="http://www.webhare.net/xmlns/consilio/stopwords" xml:lang="de">
+  <word>aber<!--but--></word>
+  <word>alle<!--all--></word>
+  <word>allem</word>
+  <word>allen</word>
+  <word>aller</word>
+  <word>alles</word>
+  <word>als<!--than, as--></word>
+  <word>also<!--so--></word>
+  <word>am<!--an + dem--></word>
+  <word>an<!--at--></word>
+  <word>ander<!--other--></word>
+  <word>andere</word>
+  <word>anderem</word>
+  <word>anderen</word>
+  <word>anderer</word>
+  <word>anderes</word>
+  <word>anderm</word>
+  <word>andern</word>
+  <word>anderr</word>
+  <word>anders</word>
+  <word>auch<!--also--></word>
+  <word>auf<!--on--></word>
+  <word>aus<!--out of--></word>
+  <word>bei<!--by--></word>
+  <word>bin<!--am--></word>
+  <word>bis<!--until--></word>
+  <word>bist<!--art--></word>
+  <word>da<!--there--></word>
+  <word>damit<!--with it--></word>
+  <word>dann<!--then--></word>
+  <word>das</word>
+  <word>dasselbe</word>
+  <word>dazu<!--to that--></word>
+  <word>daß<!--that--></word>
+  <word>dein<!--thy--></word>
+  <word>deine</word>
+  <word>deinem</word>
+  <word>deinen</word>
+  <word>deiner</word>
+  <word>deines</word>
+  <word>dem</word>
+  <word>demselben</word>
+  <word>den</word>
+  <word>denn<!--because--></word>
+  <word>denselben</word>
+  <word>der<!--the--></word>
+  <word>derer<!--of those--></word>
+  <word>derselbe<!--the same--></word>
+  <word>derselben</word>
+  <word>des</word>
+  <word>desselben</word>
+  <word>dessen<!--of him--></word>
+  <word>dich<!--thee--></word>
+  <word>die</word>
+  <word>dies<!--this--></word>
+  <word>diese</word>
+  <word>dieselbe</word>
+  <word>dieselben</word>
+  <word>diesem</word>
+  <word>diesen</word>
+  <word>dieser</word>
+  <word>dieses</word>
+  <word>dir<!--to thee--></word>
+  <word>doch<!--(several meanings)--></word>
+  <word>dort<!--(over) there--></word>
+  <word>du<!--thou--></word>
+  <word>durch<!--through--></word>
+  <word>ein<!--a--></word>
+  <word>eine</word>
+  <word>einem</word>
+  <word>einen</word>
+  <word>einer</word>
+  <word>eines</word>
+  <word>einig<!--some--></word>
+  <word>einige</word>
+  <word>einigem</word>
+  <word>einigen</word>
+  <word>einiger</word>
+  <word>einiges</word>
+  <word>einmal<!--once--></word>
+  <word>er<!--he--></word>
+  <word>es<!--it--></word>
+  <word>etwas<!--something--></word>
+  <word>euch<!--to you--></word>
+  <word>euer<!--your--></word>
+  <word>eure</word>
+  <word>eurem</word>
+  <word>euren</word>
+  <word>eurer</word>
+  <word>eures</word>
+  <word>für<!--for--></word>
+  <word>gegen<!--towards--></word>
+  <word>gewesen<!--p.p. of sein--></word>
+  <word>hab<!--have--></word>
+  <word>habe<!--have--></word>
+  <word>haben<!--have--></word>
+  <word>hat<!--has--></word>
+  <word>hatte<!--had--></word>
+  <word>hatten<!--had--></word>
+  <word>hier<!--here--></word>
+  <word>hin<!--there--></word>
+  <word>hinter<!--behind--></word>
+  <word>ich<!--I--></word>
+  <word>ihm<!--to him--></word>
+  <word>ihn<!--him--></word>
+  <word>ihnen<!--to them--></word>
+  <word>ihr<!--you, to her--></word>
+  <word>ihre</word>
+  <word>ihrem</word>
+  <word>ihren</word>
+  <word>ihrer</word>
+  <word>ihres</word>
+  <word>im<!--in + dem--></word>
+  <word>in<!--in--></word>
+  <word>indem<!--while--></word>
+  <word>ins<!--in + das--></word>
+  <word>ist<!--is--></word>
+  <word>jede<!--each, every--></word>
+  <word>jedem</word>
+  <word>jeden</word>
+  <word>jeder</word>
+  <word>jedes</word>
+  <word>jene<!--that--></word>
+  <word>jenem</word>
+  <word>jenen</word>
+  <word>jener</word>
+  <word>jenes</word>
+  <word>jetzt<!--now--></word>
+  <word>kann<!--can--></word>
+  <word>kein<!--no--></word>
+  <word>keine</word>
+  <word>keinem</word>
+  <word>keinen</word>
+  <word>keiner</word>
+  <word>keines</word>
+  <word>können<!--can--></word>
+  <word>könnte<!--could--></word>
+  <word>machen<!--do--></word>
+  <word>man<!--one--></word>
+  <word>manche<!--some, many a--></word>
+  <word>manchem</word>
+  <word>manchen</word>
+  <word>mancher</word>
+  <word>manches</word>
+  <word>mein<!--my--></word>
+  <word>meine</word>
+  <word>meinem</word>
+  <word>meinen</word>
+  <word>meiner</word>
+  <word>meines</word>
+  <word>mich<!--me--></word>
+  <word>mir<!--to me--></word>
+  <word>mit<!--with--></word>
+  <word>muss<!--must--></word>
+  <word>musste<!--had to--></word>
+  <word>nach<!--to(wards)--></word>
+  <word>nicht<!--not--></word>
+  <word>nichts<!--nothing--></word>
+  <word>noch<!--still, yet--></word>
+  <word>nun<!--now--></word>
+  <word>nur<!--only--></word>
+  <word>ob<!--whether--></word>
+  <word>oder<!--or--></word>
+  <word>ohne<!--without--></word>
+  <word>sehr<!--very--></word>
+  <word>sein<!--his--></word>
+  <word>seine</word>
+  <word>seinem</word>
+  <word>seinen</word>
+  <word>seiner</word>
+  <word>seines</word>
+  <word>selbst<!--self--></word>
+  <word>sich<!--herself--></word>
+  <word>sie<!--they, she--></word>
+  <word>sind<!--are--></word>
+  <word>so<!--so--></word>
+  <word>solche<!--such--></word>
+  <word>solchem</word>
+  <word>solchen</word>
+  <word>solcher</word>
+  <word>solches</word>
+  <word>soll<!--shall--></word>
+  <word>sollte<!--should--></word>
+  <word>sondern<!--but--></word>
+  <word>sonst<!--else--></word>
+  <word>um<!--about, around--></word>
+  <word>und<!--and--></word>
+  <word>uns<!--us--></word>
+  <word>unse</word>
+  <word>unsem</word>
+  <word>unsen</word>
+  <word>unser</word>
+  <word>unses</word>
+  <word>unter<!--under--></word>
+  <word>viel<!--much--></word>
+  <word>vom<!--von + dem--></word>
+  <word>von<!--from--></word>
+  <word>vor<!--before--></word>
+  <word>war<!--was--></word>
+  <word>waren<!--were--></word>
+  <word>warst<!--wast--></word>
+  <word>was<!--what--></word>
+  <word>weg<!--away, off--></word>
+  <word>weil<!--because--></word>
+  <word>weiter<!--further--></word>
+  <word>welche<!--which--></word>
+  <word>welchem</word>
+  <word>welchen</word>
+  <word>welcher</word>
+  <word>welches</word>
+  <word>wenn<!--when--></word>
+  <word>werde<!--will--></word>
+  <word>werden<!--will--></word>
+  <word>wie<!--how--></word>
+  <word>wieder<!--again--></word>
+  <word>will<!--want--></word>
+  <word>wir<!--we--></word>
+  <word>wird<!--will--></word>
+  <word>wirst<!--willst--></word>
+  <word>wo<!--where--></word>
+  <word>wollen<!--want--></word>
+  <word>wollte<!--wanted--></word>
+  <word>während<!--while--></word>
+  <word>würde<!--would--></word>
+  <word>würden<!--would--></word>
+  <word>zu<!--to--></word>
+  <word>zum<!--zu + dem--></word>
+  <word>zur<!--zu + der--></word>
+  <word>zwar<!--indeed--></word>
+  <word>zwischen<!--between--></word>
+  <word>über<!--over--></word>
+</stopwords>

@@ -1,0 +1,47 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         library="consilio.whlib"
+         gid="filemanager.inspect.consilio">
+
+  <fragment name="consiliotab">
+    <actions>
+      <action name="reindex" onexecute="doreindex" />
+      <action name="inspectconsilio" onexecute="doinspectconsilio" />
+      <action name="refreshpagelist" tid="~refresh" onexecute="dorefreshpagelist" />
+    </actions>
+    <contents>
+      <split type="vertical" splitter="transparent">
+        <part height="1pr">
+          <heading tid=".pagelist" />
+          <grid height="1pr">
+            <cell width="1pr">
+              <list height="1pr" name="pagelist">
+                <column name="url" type="url" width="1pr"/>
+                <column name="title" type="text" width="1pr" tid="~title"/>
+                <column name="modificationdate" type="datetime" storeutc="true" width="20x" tid="~modificationdate" />
+              </list>
+            </cell>
+            <cell>
+              <button action="refreshpagelist" />
+            </cell>
+          </grid>
+        </part>
+        <part height="1pr">
+          <heading tid=".consilio_subfiles" />
+          <grid height="1pr">
+            <cell width="1pr">
+              <select name="subfile" type="pulldown" onchange="onsubfilechange" />
+              <panel borders="top bottom left right" width="1pr" height="1pr">
+                <iframe height="1pr" width="1pr" name="subfilecontent"></iframe>
+              </panel>
+            </cell>
+            <cell>
+              <button width="1pr" action="reindex" />
+              <button width="1pr" action="inspectconsilio" />
+            </cell>
+          </grid>
+        </part>
+      </split>
+    </contents>
+  </fragment>
+</screens>

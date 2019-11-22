@@ -1,0 +1,228 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+MACRO TestWHFSType()
+{
+  RECORD wordtype := DescribeContentTypeById(4);
+  TestEq(TRUE, wordtype.needstemplate);
+  TestEq(TRUE, wordtype.needsprofile);
+  TestEq(TRUE, wordtype.ispublishable);
+  TestEq("publisher:filetypes.msword", wordtype.title);
+  TestEQ(TRUE, wordtype.isacceptableindex);
+  TestEq(4,wordtype.id);
+  TestEq("http://www.webhare.net/xmlns/publisher/mswordfile", wordtype.namespace);
+  Testeq([".doc"], wordtype.extensions);
+  TestEq(wordtype, DescribeContentTypeById(4, [isfolder := FALSE]));
+  TestEQ(TRUE, wordtype.blobiscontent);
+  TestEq("tollium:files/application_msword", wordtype.tolliumicon);
+  TestEQ(FALSE, wordtype.ishidden);
+  TestEq(DEFAULT RECORD, wordtype.dynamicexecution);
+  TestEq(DEFAULT RECORD, DescribeContentTypeById(4, [isfolder := TRUE]));
+
+  TestEq("mod::publisher/data/publisher.siteprl.xml", wordtype.siteprofile);
+  TestEq(TRUE, wordtype.line > 20);
+
+  TestEq(DEFAULT RECORD, DescribeContentTypeById(0));
+
+  RECORD normalfolder := DescribeContentTypeById(0, [isfolder := TRUE]);
+  TestEq(0, normalfolder.id);
+  TestEQ(FALSE, normalfolder.blobiscontent);
+  TestEq("http://www.webhare.net/xmlns/publisher/normalfolder", normalfolder.namespace);
+  TestEq("tollium:folders/normal", normalfolder.tolliumicon);
+
+  RECORD systemfolder := DescribeContentTypeById(2, [isfolder := TRUE]);
+  TestEq(2, systemfolder.id);
+  TestEQ(TRUE, systemfolder.ishidden);
+  TestEq("http://www.webhare.net/xmlns/publisher/systemfolder", systemfolder.namespace);
+
+  RECORD unknownfile := DescribeContentTypeById(0, [isfolder := FALSE]);
+  TestEq(0, unknownfile.id);
+  TestEQ(TRUE, unknownfile.blobiscontent);
+  TestEq("http://www.webhare.net/xmlns/publisher/unknownfile", unknownfile.namespace);
+  TestEq("tollium:files/application_x-webhare-unknown", unknownfile.tolliumicon);
+
+  RECORD unrecognized := DescribeContentTypeById(999999999);
+  TestEq(DEFAULT RECORD, unrecognized);
+
+  TestThrows(PTR DescribeContentTypeById(4, [ mockifmissing := TRUE]));
+  TestThrows(PTR DescribeContentTypeById(999999999, [ mockifmissing := TRUE ]));
+
+  unrecognized := DescribeContentTypeById(999999999, [ isfolder := TRUE, mockifmissing := TRUE ]);
+  TestEq(999999999, unrecognized.id);
+  TestEq(":#999999999", unrecognized.title);
+  TestEq("tollium:folders/normal", unrecognized.tolliumicon);
+  TestEQ(FALSE, unrecognized.ishidden);
+  TestEq("", unrecognized.siteprofile);
+  TestEq(0, unrecognized.line);
+
+  unrecognized := DescribeContentTypeById(999999999, [ isfolder := FALSE, mockifmissing := TRUE ]);
+  TestEq(999999999, unrecognized.id);
+  TestEq(":#999999999", unrecognized.title);
+  TestEq("tollium:files/application_x-webhare-unknown", unrecognized.tolliumicon);
+
+  RECORD appportaltype := DescribeContentTypeById(LookupContentTypeByName("http://www.webhare.net/xmlns/tollium/applicationportal").id);
+  TestEQ(TRUE, RecordExists(appportaltype.dynamicexecution));
+  TestEq("tollium:files/application_x-webhare-unknown", appportaltype.tolliumicon); //no icon is (yet?) set
+  //ADDME test title being set to namespace with orphan type
+
+  RECORD photoalbum := DescribeContentTypeById(3);
+  TestEq("tollium:folders/photoalbum", photoalbum.tolliumicon); //no icon is (yet?) set
+  TestEq("contentlisting:http://www.webhare.net/xmlns/publisher/contentlisting", photoalbum.indexfile);
+  TestEq(TRUE, photoalbum.protectindexfile);
+}
+
+MACRO TestApplyRuleTester()
+{
+  testfw->BeginWork();
+
+  OBJECT tester := GetApplyTesterForFakeObject(OpenTestsuiteSite()->id, TRUE, 20); //contentlink
+  TestEq(FALSE, tester->IsTypeNeedsTemplate()); //this crashed with fake objects at one point
+  TestEq(TRUE, tester->IsNew());
+  TestEq(FALSE, tester->IsSiteRoot());
+  TestEq(FALSE, tester->IsIndexDoc());
+  TestEq("http://www.webhare.net/xmlns/publisher/contentlink", tester->objtypens);
+
+  OBJECT prebuiltshtml := GetTestsuiteTempFolder()->CreateFile([name:="prebuiltshtml", type := 39, publish := TRUE ]);
+  prebuiltshtml->SetInstanceData("http://www.webhare.net/xmlns/publisher/prebuiltpage", [ prebuilttag := "prebuiltshtml" ]);
+  OBJECT prebuilthtml := GetTestsuiteTempFolder()->CreateFile([name:="prebuilthtml", type := 39, publish := TRUE ]);
+  prebuilthtml->SetInstanceData("http://www.webhare.net/xmlns/publisher/prebuiltpage", [ prebuilttag := "prebuilthtml" ]);
+
+  //Test apply rules that apply to only specific prebuilts
+  TestEq('en', GetSiteLanguage(prebuilthtml->id));
+  TestEq('nl', GetSiteLanguage(prebuiltshtml->id));
+
+  tester := GetApplyTesterForObject(prebuiltshtml->id);
+  TestEq(FALSE, tester->IsNew());
+  TestEq(FALSE, tester->IsIndexDoc());
+  TestEq(FALSE, tester->IsSiteRoot());
+  TestEq(TRUE, tester->MatchPrebuiltMasks(["prebuiltshtml"]));
+  TestEq(TRUE, tester->MatchPrebuiltMasks(["prebuiltshtm*"]));
+  TestEq(FALSE, tester->MatchPrebuiltMasks(["prebuiltshtml?"]));
+  TestEq("http://www.webhare.net/xmlns/publisher/prebuiltpage", tester->objtypens);
+
+  OBJECT testindexfolder := GetTestsuiteTempFolder()->CreateFolder([name:="testindexfolder" ]);
+  OBJECT testindex := testindexfolder->CreateFile([name := "index.html"]);
+
+  tester := GetApplyTesterForObject(testindex->id);
+  TestEq(FALSE, tester->IsNew());
+  TestEq(TRUE, tester->IsIndexDoc());
+
+  OBJECT siteroottester := GetApplyTesterForObject(OpenTestsuiteSite()->id);
+  TestEq(TRUE, siteroottester->IsSiteRoot());
+  TestEq("http://www.webhare.net/xmlns/publisher/normalfolder", siteroottester->objtypens);
+
+  tester := GetApplyTesterForFakeObject(OpenTestsuiteSite()->id, TRUE, 0);
+  TestEq("http://www.webhare.net/xmlns/publisher/unknownfile", tester->objtypens);
+
+  tester := GetApplyTesterForFakeObject(OpenTestsuiteSite()->id, FALSE, 0);
+  TestEq("http://www.webhare.net/xmlns/publisher/normalfolder", tester->objtypens);
+
+  testfw->RollbackWork();
+}
+
+MACRO SiteSettingsTester()
+{
+  STRING webdir := OpenTestsuiteSite()->webroot || "redirecttowebdir/";
+  TestEq(TRUE, testfw->browser->GotoWebPage(webdir), webdir);
+  TestEq("index.shtml", BlobToString(testfw->browser->content));
+
+  // datastorage tryfile/tryfolder
+  STRING datastorage_base := OpenTestsuiteSite()->webroot || "datastorage/";
+  STRING basedatadir := GetWebHareConfiguration().basedataroot;
+
+  // Delete the files we'll generate in this test
+  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/blue.html"));
+  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/72a/9b1ded08c2b7413bf64e2608e8cea03d5f8ff6b7c61382b11eb04a290d611.html"));
+  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha_dir/9f8/6d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.html"));
+  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/webhare-testsuite-site/file.shtml"));
+
+  TestEQ(TRUE, testfw->browser->GotoWebPage(datastorage_base || "test/blue.html"));
+  TestEQLike("*I'm just a static page*", BlobToString(testfw->browser->content));
+
+  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/webhare-testsuite-site/"), TRUE);
+  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/webhare-testsuite-site/file.shtml"), StringToBlob(`<?wh PRINT("I'm a"); PRINT(" dynamic page");`));
+  TestEQ(TRUE, testfw->browser->GotoWebPage(datastorage_base || "test/blue.html"));
+  TestEQLike("I'm a dynamic page*", BlobToString(testfw->browser->content));
+
+  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha_dir/9f8/"), TRUE);
+  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha_dir/9f8/6d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.html"), StringToBlob(`I'm a dir hash page`));
+  TestEQ(TRUE, testfw->browser->GotoWebPage(datastorage_base || "test/blue.html"));
+  TestEQLike("*I'm a dir hash page*", BlobToString(testfw->browser->content));
+
+  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/72a/"), TRUE);
+  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/72a/9b1ded08c2b7413bf64e2608e8cea03d5f8ff6b7c61382b11eb04a290d611.html"), StringToBlob(`I'm a hash page`));
+  TestEQ(TRUE, testfw->browser->GotoWebPage(datastorage_base || "test/blue.html"));
+  TestEQLike("*I'm a hash page*", BlobToString(testfw->browser->content));
+
+  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/"), TRUE);
+  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/blue.html"), StringToBlob(`<body><body>I'm a blue page</body></html>");`));
+  TestEQ(TRUE, testfw->browser->GotoWebPage(datastorage_base || "test/blue.html"));
+  TestEQLike("*I'm a blue page*", BlobToString(testfw->browser->content));
+}
+
+MACRO GlobalDataTester()
+{
+  TestEq(FALSE, LookupContentTypeByName("http://www.webhare.net/xmlns/tollium/applicationportal").id IN GetDynamicExecuteFolderTypes());
+  TestEq(TRUE, LookupContentTypeByName("http://www.webhare.net/xmlns/beta/dynfolder").id IN GetDynamicExecuteFolderTypes());
+
+  TestEQ(FALSE, 4 IN GetDynamicExecuteFolderTypes()); //word doc
+
+  RECORD ARRAY allcontenttypes := ListFSContentTypes();
+  TestEqStructure([[ id := 0, namespace := "", candelete := FALSE, isfoldertype := FALSE, tolliumicon := ""]], allcontenttypes);
+  TestEQ(FALSE, RecordExists(SELECT FROM allcontenttypes WHERE id=0));
+  TestEQ([id := 4
+         , candelete := FALSE
+         , isfoldertype := FALSE
+         , tolliumicon := "tollium:files/application_msword"
+         , namespace := "http://www.webhare.net/xmlns/publisher/mswordfile"
+         ], RECORD(SELECT * FROM allcontenttypes WHERE id=4));
+
+  RECORD ARRAY limitedcontenttypes := ListFSContentTypes([ mask := "*msword*"]);
+  TestEQ(TRUE, LengtH(limitedcontenttypes) < Length(allcontenttypes));
+  TestEq(TRUE, RecordExists(SELECT FROM limitedcontenttypes WHERE id=4));
+
+  //FIXME test one with 'candelete TRUE'. see our earlier orphan ADDME
+}
+
+MACRO TestMailTemplates()
+{
+  RECORD ARRAY nowtemplates := GetApplyTesterForObject(GetTestsuiteTempFolder()->id)->GetMailTemplates();
+  TestEq(1, Length(nowtemplates));
+  TestEq(":mod::webhare_testsuite/tests/system/testdata/mailtemplate/template.html.witty", nowtemplates[0].title); //defaulted title
+
+  testfw->BeginWork();
+  OBJECT templatefolder := GetTestsuiteTempFolder()->CreateFolder([name:="templates"]);
+  OBJECT templatefolder2 := GetTestsuiteTempFolder()->CreateFolder([name:="templates2"]);
+  OBJECT templatehtml := templatefolder->CreateFile([name := "template.html", title := "Cool template", typens := "http://www.webhare.net/xmlns/publisher/htmlfile", ordering := 4 ]);
+  OBJECT templatehtmlwitty := templatefolder2->CreateFile([name := "template.html.witty", title := "template.html", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", ordering := 2 ]);
+  OBJECT untitledhtml := templatefolder->CreateFile([name := "untitled.html", typens := "http://www.webhare.net/xmlns/publisher/wittyfile" ]);
+  OBJECT plaintexthtml := templatefolder->CreateFile([name := "plaintext.html", title := "plaintext", typens := "http://www.webhare.net/xmlns/publisher/plaintextfile", ordering := 1]);
+  OBJECT plaintexttxt := templatefolder->CreateFile([name := "plaintext.txt", title := "plaintext.txt", typens := "http://www.webhare.net/xmlns/publisher/plaintextfile" ]);
+  testfw->CommitWork();
+
+  nowtemplates := GetApplyTesterForObject(GetTestsuiteTempFolder()->id)->GetMailTemplates();
+  //plaintexttxt should not exist, 1untitled templates should not be shown (easy hiding)
+  TestEq([ "mod::webhare_testsuite/tests/system/testdata/mailtemplate/template.html.witty"
+         , "site::webhare testsuite site/tmp/templates/plaintext.html"
+         , "site::webhare testsuite site/tmp/templates2/template.html.witty"
+         , "site::webhare testsuite site/tmp/templates/template.html"
+         ], SELECT AS STRING ARRAY path FROM nowtemplates);
+
+  TestEq(":Cool template", nowtemplates[3].title, "templatehtml should be named Cool template");
+}
+
+RunTestframework([ PTR TestWHFSType
+                 , PTR TestApplyRuleTester
+                 , PTR SiteSettingsTester
+                 , PTR GlobalDataTester
+                 , PTR TestMailTemplates
+                 ]);

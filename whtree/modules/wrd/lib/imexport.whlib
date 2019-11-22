@@ -1,0 +1,148 @@
+<?wh
+/** @short Import/export of WRD schemas and metadata management
+    @topic wrd/imexport
+*/
+
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/import.whlib";
+LOADLIB "mod::wrd/lib/internal/exchange.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/queries.whlib";
+LOADLIB "mod::wrd/lib/internal/support2.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/updateschema.whlib";
+LOADLIB "mod::wrd/lib/internal/schemadef.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+
+
+PUBLIC RECORD ARRAY FUNCTION MakeGuidToWRDIdMapping(INTEGER schemaid, STRING ARRAY inguids)
+{
+  FOREVERY(STRING guid FROM inguids)
+    inguids[#guid] := DecodeWRDGUID(guid);
+
+  RETURN SELECT inval := EncodeWRDGuid(entities.guid), outval := entities.id
+           FROM wrd.entities, wrd.types
+          WHERE entities.guid IN inguids
+                AND entities.type = types.id
+                AND types.wrd_schema = schemaid;
+}
+
+PUBLIC RECORD ARRAY FUNCTION MakeWRDIdToGuidMapping(INTEGER ARRAY inids)
+{
+  RETURN SELECT inval := id, outval := EncodeWRDGuid(guid) FROM wrd.entities WHERE entities.id IN inids;
+}
+
+/** Applies XML metadata to this schema. Creates types and dom values.
+    @param metadata Node with xml metadata (or document with xml metadata in documentelement)
+    @return Result
+    @cell(boolean) return.success True if no errors occurred during the update (updates may be half-applied)
+    @cell(record array) return.errors Errors that occurred
+    @cell(string) return.errors.message Readable error message
+    @cell(record array) return.updates Updates that occurred
+    @cell(string) return.updates.message Readable update info
+*/
+PUBLIC RECORD FUNCTION ApplyWRDSchemaDefinition(OBJECT wrdschema, OBJECT metadata) __ATTRIBUTES__(DEPRECATED "ApplyWRDSchemaDefinition should no longer be used - use wrdschema->ApplySchemaDefinition at 4.19, and for now, switch to ApplyWRDSchemaDefinitionForFile")
+{
+  IF(metadata->nodetype!=1)
+    THROW NEW Exception("Expected a XML node");
+  IF(NOT ObjectExists(metadata))
+    THROW NEW Exception("Invalid schema document");
+
+  RECORD schemadef := ReadSchemaDefFromXML(metadata, "mod::wrd/dummyresource.xml", metadata->ownerdocument->GetDocumentBlob(), DEFAULT DATETIME);
+  disablewrdcache := TRUE;
+
+  UpdateSchema(wrdschema, schemadef);
+  RETURN [ success := TRUE, errors := RECORD[], updates := RECORD[], warnings := RECORD[] ];
+}
+
+/** @private
+    @cell options.fromexternal Set to true if the source is an external server
+    @cell options.applysettings Apply schema settings (defaults to TRUE)
+*/
+PUBLIC RECORD FUNCTION ApplyWRDSchemaDefinitionFile(OBJECT wrdschema, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD) //FIXME DEPRECATE IN 4.20 __ATTRIBUTES__(DEPRECATED "ApplyWRDSchemaDefinition should no longer be used - use wrdschema->ApplySchemaDefinition")
+{
+  options := ValidateOptions(
+      [ fromexternal :=   FALSE
+      , applysettings :=  TRUE
+      ], options);
+
+  OBJECT doc := MakeXMLDocument(data);
+  IF(Length(doc->GetParseErrors())>0)
+  {
+    RECORD err := PickFirst(doc->GetParseErrors());
+    THROW NEW Exception(`The data is not valid XML: at line ${err.line}: ${err.message}`);
+  }
+  RECORD schemadef := ReadSchemaDefFromXML(doc->documentelement, "mod::wrd/dummyresource.xml", data, DEFAULT DATETIME);
+  disablewrdcache := TRUE;
+
+  IF (NOT options.applysettings)
+    schemadef.keyvaluestore := RECORD[];
+
+  UpdateSchema(wrdschema, schemadef, CELL[ options.fromexternal ]);
+  RETURN [ success := TRUE, errors := RECORD[], updates := RECORD[], warnings := RECORD[] ];
+}
+
+/** Get a XML export of this schema */
+PUBLIC OBJECT FUNCTION ExportWRDSchemaDefinition(OBJECT wrdschema, OBJECT doc)
+{
+  OBJECT root := doc->CreateElementNS(ns_schemadef, "schemadefinition");
+  CreateWRDSchemaDefinitionNodes(wrdschema, root);
+  RETURN root;
+}
+
+PUBLIC OBJECT FUNCTION ExportWRDQueryDefinition(OBJECT wrdschema, RECORD query, OBJECT doc)
+{
+  OBJECT queryholder := doc->CreateElementNS("http://www.webhare.net/xmlns/wrd/query", "query");
+  DELETE CELL wrdschema FROM query;
+  INSERT CELL wrdschema := wrdschema INTO query;
+  MakeWRDQuery(query)->SerializeToXML(queryholder);
+  RETURN queryholder;
+}
+
+PUBLIC RECORD FUNCTION ImportWRDQueryDefinition(OBJECT wrdschema, OBJECT node)
+{
+  IF(node->namespaceuri != "http://www.webhare.net/xmlns/wrd/query" OR node->localname != "query")
+    THROW NEW Exception("Not a valid WRD Query node");
+  RETURN ImportQueryFromXML(wrdschema, node);
+}
+
+PUBLIC BLOB FUNCTION CreateWRDSchemaDefinitionFile(OBJECT wrdschema)
+{
+  OBJECT newdoc := NEW XMLDomImplementation->CreateDocument(ns_schemadef, "schemadefinition", DEFAULT OBJECT);
+  CreateWRDSchemaDefinitionNodes(wrdschema, newdoc->documentelement);
+  newdoc->NormalizeDocument();
+
+  //Selfcheck
+  RECORD ARRAY errors := GetSchemadefXSD()->ValidateDocument(newdoc);
+  IF(Length(errors)>0)
+  {
+    THROW NEW Exception(`Errors in generated WRD schemadefinition (${errors[0].message}`);
+  }
+
+  RETURN newdoc->GetDocumentBlob(TRUE);
+}
+
+PUBLIC OBJECT FUNCTION MakeWRDSchemaExporter(OBJECT wrdschema)
+{
+  OBJECT exporter := NEW WRDImExport(wrdschema, DEFAULT RECORD);
+  exporter->usemarshalformat:=TRUE;
+  RETURN exporter;
+}
+
+PUBLIC OBJECT FUNCTION MakeWRDDataImporter(OBJECT wrdtype)
+{
+  RETURN NEW WRDImporter(wrdtype);
+}
+
+PUBLIC OBJECT FUNCTION CreateWRDSchemaFromImport(BLOB importarchive, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OBJECT importer := NEW WRDImExport(DEFAULT OBJECT, options);
+  importer->RunImport(importarchive);
+
+  INTEGER schemaid := importer->GetImportedSchemaID();
+  IF(schemaid=0)
+    THROW NEW Exception("WRD Import did not contain any schema");
+
+  RETURN OpenWRDSchemaById(schemaid);
+}

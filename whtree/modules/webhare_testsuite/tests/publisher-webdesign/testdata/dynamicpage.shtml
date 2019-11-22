@@ -1,0 +1,16 @@
+<?wh
+LOADLIB "mod::webhare_testsuite/lib/publisher/testsitedesign.whlib";
+
+PUBLIC OBJECTTYPE DynamicPage EXTEND WebPage
+<
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    WebPage::PrepareForRendering(webdesign);
+
+    webdesign->jsobjconfig := CELL
+        [ ...webdesign->jsobjconfig
+        , webdesign->pageconfig.dynamicpageparameters
+        ];
+  }
+
+>;

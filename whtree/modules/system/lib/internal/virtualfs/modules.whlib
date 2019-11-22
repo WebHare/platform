@@ -1,0 +1,178 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/virtualfs/base.whlib";
+LOADLIB "mod::system/lib/virtualfs/modular.whlib";
+LOADLIB "mod::system/lib/virtualfs/diskfolder.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+PUBLIC OBJECTTYPE ModuleFS EXTEND VirtualModularFSBase
+<
+  STRING systemmoduleroot;
+
+  MACRO NEW()
+  {
+    this->systemmoduleroot := GetInstallationRoot() || "modules/";
+  }
+
+  UPDATE OBJECT FUNCTION GetSubfolder(STRING subfolder)
+  {
+    STRING root := GetModuleInstallationRoot(subfolder);
+    IF (root = "" OR NOT GetEffectiveUser()->HasRight("system:sysop"))
+      THROW NEW VirtualFSException("BADPATH", "No such data path");
+
+    OBJECT fs := NEW DiskFolderFS(root, root NOT LIKE this->systemmoduleroot || "*", FALSE);
+    fs->readonlymasks := [ '/history', '/history/*' ];
+    RETURN fs;
+  }
+
+  UPDATE RECORD ARRAY FUNCTION GetSubfolderListing()
+  {
+    BOOLEAN has_sysop := GetEffectiveUser()->HasRight("system:sysop");
+    IF (NOT has_sysop)
+      THROW NEW VirtualFSException("BADPATH","No data paths");
+
+    RECORD ARRAY modules :=
+        SELECT foldername
+             , modificationdate :=    DEFAULT DATETIME
+             , root :=                GetModuleInstallationRoot(foldername)
+          FROM ToRecordArray(GetInstalledModuleNames(), "FOLDERNAME")
+      ORDER BY foldername;
+
+    RECORD ARRAY dbdata :=
+        SELECT *
+          FROM system.modules;
+
+    FOREVERY (RECORD rec FROM dbdata)
+    {
+      RECORD lookup := RecordLowerBound(modules, [ foldername := rec.name ] , [ "FOLDERNAME" ]);
+      IF (lookup.found)
+        modules[lookup.position].modificationdate := rec.modificationdate;
+    }
+
+    RECORD ARRAY result :=
+        SELECT name := foldername
+             , type := 1
+             , size := 0
+             , read := TRUE
+             , write := has_sysop AND root NOT LIKE this->systemmoduleroot || "*"
+             , modificationdate
+             , creationdate := modificationdate
+          FROM modules;
+
+    RETURN result;
+  }
+
+>;
+
+PUBLIC OBJECTTYPE ModuleArchiveFS EXTEND VirtualModularFSBase
+<
+  RECORD ARRAY FUNCTION GetModuleDirs()
+  {
+    RECORD ARRAY list :=
+       (SELECT path
+             , is_archive := FALSE
+          FROM ToRecordArray(GetWebHareConfiguration().moduledirs, "PATH"))
+       CONCAT
+           [ [ path := GetWebHareConfiguration().varroot || "archivedmodules/"
+             , is_archive := TRUE
+             ]
+           ];
+    RETURN list;
+  }
+
+  UPDATE OBJECT FUNCTION GetSubfolder(STRING subfolder)
+  {
+    IF (NOT GetEffectiveUser()->HasRight("system:sysop"))
+      THROW NEW VirtualFSException("BADPATH", "No such data path");
+
+    FOREVERY (RECORD dir FROM this->GetModuleDirs())
+    {
+      STRING root := dir.path || subfolder;
+      RECORD rec := GetDiskFileProperties(root);
+      IF (RecordExists(rec) AND rec.type = 1)
+        RETURN NEW DiskFolderFS(root, FALSE, FALSE);
+      ELSE IF (dir.is_archive)
+      {
+        RECORD ARRAY candidates := ReadDiskDirectory(dir.path, subfolder || ".*");
+        IF (LENGTH(candidates) != 0)
+        {
+          root := dir.path || candidates[0].name;
+          RETURN NEW DiskFolderFS(root, FALSE, FALSE);
+        }
+      }
+    }
+    THROW NEW VirtualFSException("BADPATH","No data path");
+  }
+
+  UPDATE RECORD ARRAY FUNCTION GetSubfolderListing()
+  {
+    BOOLEAN has_sysop := GetEffectiveUser()->HasRight("system:sysop");
+    IF (NOT has_sysop)
+      THROW NEW VirtualFSException("BADPATH","No data paths");
+
+    RECORD ARRAY modules;
+
+    FOREVERY (RECORD rec FROM this->GetModuleDirs())
+    {
+      FOREVERY(RECORD entries FROM ReadDiskDirectory(rec.path,"*"))
+      {
+        STRING name := entries.name;
+        DATETIME moddate := MakeDate(1970, 1, 1);
+
+        IF (rec.is_archive)
+        {
+          IF (name NOT LIKE "*.2???????T??????Z")
+            CONTINUE;
+          name := Left(name, LENGTH(name) - 17);
+        }
+
+        IF (name LIKE "*.*" AND name NOT LIKE "*.bak")
+        {
+          IF (name NOT LIKE "*.20??????T??????Z" OR name LIKE "*.*.*")
+            CONTINUE;
+
+          STRING datestr := Right(name, 16);
+
+          datestr := SubString(datestr, 0, 4)||"-"||SubString(datestr, 4, 2)||"-"||SubString(datestr, 6, 2)||"T"||
+              SubString(datestr, 9, 2)||":"||SubString(datestr, 11, 2)||":"||SubString(datestr, 13, 2) || "Z";
+
+          moddate := MakeDateFromText(datestr);
+
+          IF (moddate = DEFAULT DATETIME)
+            CONTINUE;
+        }
+
+        INSERT
+            [ name :=     name
+            , moddate :=  moddate
+            , root :=     rec.path || name
+            ] INTO modules AT END;
+      }
+    }
+
+    modules :=
+        SELECT name
+             , moddate :=   Any(moddate)
+             , root :=      Any(root)
+          FROM modules
+      GROUP BY name;
+
+    RECORD ARRAY result :=
+        SELECT name
+             , type :=              1
+             , size :=              0
+             , read :=              TRUE
+             , write :=             root NOT LIKE GetInstallationRoot() || "modules/*"
+             , modificationdate :=  moddate
+             , creationdate :=      moddate
+             , root
+          FROM modules;
+
+    RETURN result;
+  }
+>;

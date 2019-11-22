@@ -1,0 +1,97 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
+<
+  PUBLIC PROPERTY checkbox(GetCheckBox, SetCheckBox);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY onchange(GetOnChange, SetOnChange);
+  PUBLIC PROPERTY enablecomponents(GetEnableComponents, SetEnableComponents);
+  UPDATE PUBLIC PROPERTY title(GetSubTitle, SetSubTitle);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+
+    this->checkbox := def.checkbox;
+    this->value := def.value;
+    this->enablecomponents := def.enablecomponents;
+    this->onchange := def.onchange;
+    this->title := def.title;
+    this->headingtitle->isheading := TRUE;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->cbox->dirtylistener := this->dirtylistener;
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    this->headingtitle->isheading := TRUE;
+  }
+
+  BOOLEAN FUNCTION GetCheckbox()
+  {
+    RETURN this->cbox->visible;
+  }
+  MACRO SetCheckBox(BOOLEAN newvalue)
+  {
+    this->cbox->visible := newvalue;
+    this->headingtitle->labelfor := newvalue ? this->cbox : DEFAULT OBJECT;
+  }
+
+  BOOLEAN FUNCTION GetValue()
+  {
+    RETURN this->cbox->value;
+  }
+  MACRO SetValue(BOOLEAN newvalue)
+  {
+    this->cbox->value:=newvalue;
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newstate)
+  {
+    TolliumFragmentBase::SetEnabled(newstate);
+    this->cbox->enabled := newstate;
+  }
+
+  MACRO PTR FUNCTION GetOnChange()
+  {
+    RETURN this->cbox->onchange;
+  }
+  MACRO SetOnChange(MACRO PTR onchange)
+  {
+    this->cbox->onchange := onchange;
+  }
+
+  OBJECT ARRAY FUNCTION GetEnableComponents()
+  {
+    RETURN this->cbox->enablecomponents;
+  }
+  MACRO SetEnableComponents(OBJECT ARRAY comps)
+  {
+    this->cbox->enablecomponents := comps;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN this->cbox->IsValidValue(value);
+  }
+
+  STRING FUNCTION GetSubTitle()
+  {
+    RETURN this->headingtitle->value;
+  }
+  MACRO SetSubTitle(STRING newtitle)
+  {
+    this->headingtitle->value := newtitle;
+  }
+>;

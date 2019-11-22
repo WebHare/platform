@@ -1,0 +1,20 @@
+<screens
+    xmlns="http://www.webhare.net/xmlns/tollium/screens"
+    xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+    library="editsource.whlib"
+    gid="tolliumapps.formedit">
+
+  <screen
+      name="editsource"
+      gid=".editsource"
+      width="120x" height="12gr"
+      allowresize="true"
+      savestate="size">
+    <body spacers="none">
+      <codeedit name="source" type="xml" ongutterclick="onshowerror" width="1pr" height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+</screens>

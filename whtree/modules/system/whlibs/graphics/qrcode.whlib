@@ -1,0 +1,1462 @@
+<?wh
+/** @short Bar and QR codes
+    @topic graphics/scancodes
+*/
+
+/*
+This is a HareScript port of the QR Code Generator JavaScript library
+  https://github.com/kazuhikoarase/qrcode-generator
+with GetTypeNumber and RSBlock data from the qrcode.js JavaScript library
+  https://github.com/davidshimjs/qrcodejs
+both licensed under the MIT license, included below.
+The word 'QR Code' is registered trademark of DENSO WAVE INCORPORATED
+  http://www.denso-wave.com/qrcode/faqpatent-e.html
+*/
+/*
+The MIT License (MIT)
+
+Copyright (c) 2009 Kazuhiko Arase
+Copyright (c) 2012 davidshimjs
+Copyright (c) 2014 WebHare bv
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+LOADLIB "wh::graphics/canvas.whlib";
+
+STRING UTF8_BOM := "\xEF\xBB\xBF";
+INTEGER ARRAY UTF8_BOM_ARRAY := [ 0xEF, 0xBB, 0xBF ];
+
+
+// -----------------------------------------------------------------------------
+//
+// QRMode
+//
+
+RECORD QRMode :=
+  [ MODE_NUMBER :=    1 BITLSHIFT 0
+  , MODE_ALPHA_NUM := 1 BITLSHIFT 1
+  , MODE_8BIT_BYTE := 1 BITLSHIFT 2
+  , MODE_KANJI :=     1 BITLSHIFT 3
+  ];
+
+
+// -----------------------------------------------------------------------------
+//
+// QRErrorCorrectLevel
+//
+
+RECORD QRErrorCorrectLevel :=
+  [ L := 1
+  , M := 0
+  , Q := 3
+  , H := 2
+  ];
+
+
+// -----------------------------------------------------------------------------
+//
+// QRMaskPattern
+//
+
+RECORD QRMaskPattern :=
+  [ PATTERN000 := 0
+  , PATTERN001 := 1
+  , PATTERN010 := 2
+  , PATTERN011 := 3
+  , PATTERN100 := 4
+  , PATTERN101 := 5
+  , PATTERN110 := 6
+  , PATTERN111 := 7
+  ];
+
+
+// -----------------------------------------------------------------------------
+//
+// QRUtil
+//
+
+RECORD QRUtil :=
+  [ PATTERN_POSITION_TABLE :=
+    [ [ data := DEFAULT INTEGER ARRAY ]
+    , [ data := [ 6, 18 ] ]
+    , [ data := [ 6, 22 ] ]
+    , [ data := [ 6, 26 ] ]
+    , [ data := [ 6, 30 ] ]
+    , [ data := [ 6, 34 ] ]
+    , [ data := [ 6, 22, 38 ] ]
+    , [ data := [ 6, 24, 42 ] ]
+    , [ data := [ 6, 26, 46 ] ]
+    , [ data := [ 6, 28, 50 ] ]
+    , [ data := [ 6, 30, 54 ] ]
+    , [ data := [ 6, 32, 58 ] ]
+    , [ data := [ 6, 34, 62 ] ]
+    , [ data := [ 6, 26, 46, 66 ] ]
+    , [ data := [ 6, 26, 48, 70 ] ]
+    , [ data := [ 6, 26, 50, 74 ] ]
+    , [ data := [ 6, 30, 54, 78 ] ]
+    , [ data := [ 6, 30, 56, 82 ] ]
+    , [ data := [ 6, 30, 58, 86 ] ]
+    , [ data := [ 6, 34, 62, 90 ] ]
+    , [ data := [ 6, 28, 50, 72, 94 ] ]
+    , [ data := [ 6, 26, 50, 74, 98 ] ]
+    , [ data := [ 6, 30, 54, 78, 102 ] ]
+    , [ data := [ 6, 28, 54, 80, 106 ] ]
+    , [ data := [ 6, 32, 58, 84, 110 ] ]
+    , [ data := [ 6, 30, 58, 86, 114 ] ]
+    , [ data := [ 6, 34, 62, 90, 118 ] ]
+    , [ data := [ 6, 26, 50, 74, 98, 122 ] ]
+    , [ data := [ 6, 30, 54, 78, 102, 126 ] ]
+    , [ data := [ 6, 26, 52, 78, 104, 130 ] ]
+    , [ data := [ 6, 30, 56, 82, 108, 134 ] ]
+    , [ data := [ 6, 34, 60, 86, 112, 138 ] ]
+    , [ data := [ 6, 30, 58, 86, 114, 142 ] ]
+    , [ data := [ 6, 34, 62, 90, 118, 146 ] ]
+    , [ data := [ 6, 30, 54, 78, 102, 126, 150 ] ]
+    , [ data := [ 6, 24, 50, 76, 102, 128, 154 ] ]
+    , [ data := [ 6, 28, 54, 80, 106, 132, 158 ] ]
+    , [ data := [ 6, 32, 58, 84, 110, 136, 162 ] ]
+    , [ data := [ 6, 26, 54, 82, 110, 138, 166 ] ]
+    , [ data := [ 6, 30, 58, 86, 114, 142, 170 ] ]
+    ]
+
+  , CODE_LIMIT_LENGTH :=
+    [ [ data := [ 17, 14, 11, 7] ]
+    , [ data := [ 32, 26, 20, 14] ]
+    , [ data := [ 53, 42, 32, 24] ]
+    , [ data := [ 78, 62, 46, 34] ]
+    , [ data := [ 106, 84, 60, 44] ]
+    , [ data := [ 134, 106, 74, 58] ]
+    , [ data := [ 154, 122, 86, 64] ]
+    , [ data := [ 192, 152, 108, 84] ]
+    , [ data := [ 230, 180, 130, 98] ]
+    , [ data := [ 271, 213, 151, 119] ]
+    , [ data := [ 321, 251, 177, 137] ]
+    , [ data := [ 367, 287, 203, 155] ]
+    , [ data := [ 425, 331, 241, 177] ]
+    , [ data := [ 458, 362, 258, 194] ]
+    , [ data := [ 520, 412, 292, 220] ]
+    , [ data := [ 586, 450, 322, 250] ]
+    , [ data := [ 644, 504, 364, 280] ]
+    , [ data := [ 718, 560, 394, 310] ]
+    , [ data := [ 792, 624, 442, 338] ]
+    , [ data := [ 858, 666, 482, 382] ]
+    , [ data := [ 929, 711, 509, 403] ]
+    , [ data := [ 1003, 779, 565, 439] ]
+    , [ data := [ 1091, 857, 611, 461] ]
+    , [ data := [ 1171, 911, 661, 511] ]
+    , [ data := [ 1273, 997, 715, 535] ]
+    , [ data := [ 1367, 1059, 751, 593] ]
+    , [ data := [ 1465, 1125, 805, 625] ]
+    , [ data := [ 1528, 1190, 868, 658] ]
+    , [ data := [ 1628, 1264, 908, 698] ]
+    , [ data := [ 1732, 1370, 982, 742] ]
+    , [ data := [ 1840, 1452, 1030, 790] ]
+    , [ data := [ 1952, 1538, 1112, 842] ]
+    , [ data := [ 2068, 1628, 1168, 898] ]
+    , [ data := [ 2188, 1722, 1228, 958] ]
+    , [ data := [ 2303, 1809, 1283, 983] ]
+    , [ data := [ 2431, 1911, 1351, 1051] ]
+    , [ data := [ 2563, 1989, 1423, 1093] ]
+    , [ data := [ 2699, 2099, 1499, 1139] ]
+    , [ data := [ 2809, 2213, 1579, 1219] ]
+    , [ data := [ 2953, 2331, 1663, 1273] ]
+    ]
+
+  , G15 := (1 BITLSHIFT 10) BITOR (1 BITLSHIFT 8) BITOR (1 BITLSHIFT 5) BITOR (1 BITLSHIFT 4) BITOR (1 BITLSHIFT 2) BITOR (1 BITLSHIFT 1) BITOR (1 BITLSHIFT 0)
+  , G18 := (1 BITLSHIFT 12) BITOR (1 BITLSHIFT 11) BITOR (1 BITLSHIFT 10) BITOR (1 BITLSHIFT 9) BITOR (1 BITLSHIFT 8) BITOR (1 BITLSHIFT 5) BITOR (1 BITLSHIFT 2) BITOR (1 BITLSHIFT 0)
+  , G15_MASK := (1 BITLSHIFT 14) BITOR (1 BITLSHIFT 12) BITOR (1 BITLSHIFT 10) BITOR (1 BITLSHIFT 4) BITOR (1 BITLSHIFT 1)
+  ];
+
+INTEGER FUNCTION QRUtil_GetBCHDigit(INTEGER data)
+{
+  INTEGER digit := 0;
+  WHILE (data != 0)
+  {
+    digit := digit + 1;
+    data := data BITRSHIFT 1;
+  }
+  RETURN digit;
+}
+
+INTEGER FUNCTION QRUtil_GetBCHTypeInfo(INTEGER data)
+{
+  INTEGER d := data BITLSHIFT 10;
+  WHILE (QRUtil_GetBCHDigit(d) - QRUtil_GetBCHDigit(QRUtil.G15) >= 0)
+    d := d BITXOR (QRUtil.G15 BITLSHIFT (QRUtil_GetBCHDigit(d) - QRUtil_GetBCHDigit(QRUtil.G15)));
+  RETURN ((data BITLSHIFT 10) BITOR d) BITXOR QRUtil.G15_MASK;
+}
+
+INTEGER FUNCTION QRUTil_GetBCHTypeNumber(INTEGER data)
+{
+  INTEGER d := data BITLSHIFT 12;
+  WHILE (QRUtil_GetBCHDigit(d) - QRUtil_GetBCHDigit(QRUtil.G18) >= 0)
+    d := d BITXOR (QRUtil.G18 BITLSHIFT (QRUtil_GetBCHDigit(d) - QRUtil_GetBCHDigit(QRUtil.G18)));
+  RETURN (data BITLSHIFT 12) BITOR d;
+}
+
+INTEGER ARRAY FUNCTION QRUtil_GetPatternPosition(INTEGER typenumber)
+{
+  RETURN QRUtil.PATTERN_POSITION_TABLE[typenumber - 1].data;
+}
+
+BOOLEAN FUNCTION QRUtil_GetMask(INTEGER maskpattern, INTEGER i, INTEGER j)
+{
+  IF (maskpattern = QRMaskPattern.PATTERN000)
+    RETURN (i + j) % 2 = 0;
+  ELSE IF (maskpattern = QRMaskPattern.PATTERN001)
+    RETURN i % 2 = 0;
+  ELSE IF (maskpattern = QRMaskPattern.PATTERN010)
+    RETURN j % 3 = 0;
+  ELSE IF (maskpattern = QRMaskPattern.PATTERN011)
+    RETURN (i + j) % 3 = 0;
+  ELSE IF (maskpattern = QRMaskPattern.PATTERN100)
+    RETURN ((i / 2) + (j / 3)) % 2 = 0;
+  ELSE IF (maskpattern = QRMaskPattern.PATTERN101)
+    RETURN (i * j) % 2 + (i * j) % 3 = 0;
+  ELSE IF (maskpattern = QRMaskPattern.PATTERN110)
+    RETURN ((i * j) % 2 + (i * j) % 3) % 2 = 0;
+  ELSE IF (maskpattern = QRMaskPattern.PATTERN111)
+    RETURN ((i * j) % 3 + (i + j) % 2) % 2 = 0;
+  ELSE
+    THROW NEW Exception("Unknown maskpattern: " || maskpattern);
+}
+
+OBJECT FUNCTION QRUtil_GetErrorCorrectPolynomial(INTEGER errorcorrectlength)
+{
+  OBJECT a := NEW QRPolynomial([ 1 ], 0);
+  FOR (INTEGER i := 0; i < errorcorrectlength; i := i + 1)
+    a := a->Multiply(NEW QRPolynomial([ 1, QRMath_GExp(i) ], 0));
+  RETURN a;
+}
+
+INTEGER FUNCTION QRUtil_GetLengthInBits(INTEGER mode, INTEGER type)
+{
+  IF (1 <= type AND type < 10)
+  {
+    // 1 - 9
+
+    IF (mode = QRMode.MODE_NUMBER)
+      RETURN 10;
+    ELSE IF (mode = QRMode.MODE_ALPHA_NUM)
+      RETURN 9;
+    ELSE IF (mode = QRMode.MODE_8BIT_BYTE)
+      RETURN 8;
+    ELSE IF (mode = QRMode.MODE_KANJI)
+      RETURN 8;
+    ELSE
+      THROW NEW Exception("Unknown mode: " || mode);
+  }
+  ELSE IF (type < 27)
+  {
+    // 10 - 26
+
+    IF (mode = QRMode.MODE_NUMBER)
+      RETURN 12;
+    ELSE IF (mode = QRMode.MODE_ALPHA_NUM)
+      RETURN 11;
+    ELSE IF (mode = QRMode.MODE_8BIT_BYTE)
+      RETURN 16;
+    ELSE IF (mode = QRMode.MODE_KANJI)
+      RETURN 10;
+    ELSE
+      THROW NEW Exception("Unknown mode: " || mode);
+  }
+  ELSE IF (type < 41)
+  {
+    // 27 - 40
+
+    IF (mode = QRMode.MODE_NUMBER)
+      RETURN 14;
+    ELSE IF (mode = QRMode.MODE_ALPHA_NUM)
+      RETURN 13;
+    ELSE IF (mode = QRMode.MODE_8BIT_BYTE)
+      RETURN 16;
+    ELSE IF (mode = QRMode.MODE_KANJI)
+      RETURN 12;
+    ELSE
+      THROW NEW Exception("Unknown mode: " || mode);
+  }
+  ELSE
+  {
+    THROW NEW Exception("Unknown type: " || type);
+  }
+}
+
+INTEGER FUNCTION QRUtil_GetUTF8Length(STRING text)
+{
+  RETURN Length(text) + (Length(text) != UCLength(text) AND text NOT LIKE UTF8_BOM || "*" ? Length(UTF8_BOM) : 0);
+}
+
+INTEGER FUNCTION QRUtil_GetTypeNumber(STRING text, STRING correctlevel)
+{
+  INTEGER type := 1;
+  INTEGER length_ := QRUtil_GetUTF8Length(text);
+
+  FOREVERY (RECORD limit_length FROM QRUtil.CODE_LIMIT_LENGTH)
+  {
+    INTEGER limit_ := 0;
+
+    IF (correctlevel = "L")
+      limit_ := limit_length.data[0];
+    ELSE IF (correctlevel = "M")
+      limit_ := limit_length.data[1];
+    ELSE IF (correctlevel = "Q")
+      limit_ := limit_length.data[2];
+    ELSE IF (correctlevel = "H")
+      limit_ := limit_length.data[3];
+
+    IF (length_ <= limit_)
+      BREAK;
+    ELSE
+      type := type + 1;
+  }
+
+  IF (type > Length(QRUtil.CODE_LIMIT_LENGTH))
+    THROW NEW Exception("Too much data to encode: " || length_);
+
+  RETURN type;
+}
+
+
+// -----------------------------------------------------------------------------
+//
+// QRMath
+//
+
+RECORD QRMath :=
+  [ EXP_TABLE := DEFAULT INTEGER ARRAY
+  , LOG_TABLE := DEFAULT INTEGER ARRAY
+  ];
+
+// initialize tables
+FOR (INTEGER i := 0; i < 8; i := i + 1)
+{
+  INSERT 1 BITLSHIFT i INTO QRMath.EXP_TABLE AT END;
+  INSERT 0 INTO QRMath.LOG_TABLE AT END;
+}
+FOR (INTEGER i := 8; i < 256; i := i + 1)
+{
+  INSERT QRMath.EXP_TABLE[i - 4]
+    BITXOR QRMath.EXP_TABLE[i - 5]
+    BITXOR QRMath.EXP_TABLE[i - 6]
+    BITXOR QRMath.EXP_TABLE[i - 8] INTO QRMath.EXP_TABLE AT END;
+  INSERT 0 INTO QRMath.LOG_TABLE AT END;
+}
+FOR (INTEGER i := 0; i < 255; i := i + 1)
+{
+  QRMath.LOG_TABLE[QRMath.EXP_TABLE[i]] := i;
+}
+
+INTEGER FUNCTION QRMath_GLog(INTEGER n)
+{
+  IF (n < 1)
+    THROW NEW Exception("Invalid value for GLog: " || n);
+
+  RETURN QRMath.LOG_TABLE[n];
+}
+
+INTEGER FUNCTION QRMath_GExp(INTEGER n)
+{
+  WHILE (n < 0)
+    n := n + 255;
+
+  WHILE (n >= 256)
+    n := n - 255;
+
+  RETURN QRMath.EXP_TABLE[n];
+}
+
+
+// -----------------------------------------------------------------------------
+//
+// QRPolynomial
+//
+
+OBJECTTYPE QRPolynomial
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER ARRAY num;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW(INTEGER ARRAY num, INTEGER shift)
+  {
+    INTEGER offset_ := 0;
+    WHILE (offset_ < Length(num) AND num[offset_] = 0)
+      offset_ := offset_ + 1;
+    FOR (INTEGER i := 0, len := Length(num) - offset_; i < len; i := i + 1)
+      INSERT num[i + offset_] INTO this->num AT END;
+    WHILE (Length(this->num) < Length(num) - offset_ + shift)
+      INSERT 0 INTO this->num AT END;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC INTEGER FUNCTION GetAt(INTEGER index_)
+  {
+    RETURN this->num[index_];
+  }
+
+  PUBLIC INTEGER FUNCTION GetLength()
+  {
+    RETURN Length(this->num);
+  }
+
+  PUBLIC OBJECT FUNCTION Multiply(OBJECT e)
+  {
+    INTEGER ARRAY num;
+    FOR (INTEGER i := 0, len := this->GetLength() + e->GetLength() - 1; i < len; i := i + 1)
+      INSERT 0 INTO num AT END;
+
+    FOR (INTEGER i := 0, len_i := this->GetLength(); i < len_i; i := i + 1)
+      FOR (INTEGER j := 0, len_j := e->GetLength(); j < len_j; j := j + 1)
+      {
+        num[i + j] := num[i + j] BITXOR QRMath_GExp(QRMath_GLog(this->GetAt(i)) + QRMath_GLog(e->GetAt(j)));
+      }
+
+    RETURN NEW QRPolynomial(num, 0);
+  }
+
+  PUBLIC OBJECT FUNCTION Mod(OBJECT e)
+  {
+    IF (this->GetLength() - e->GetLength() < 0)
+      RETURN this;
+
+    INTEGER ratio := QRMath_GLog(this->GetAt(0)) - QRMath_GLog(e->GetAt(0));
+
+    INTEGER ARRAY num;
+    FOR (INTEGER i := 0, len := this->GetLength(); i < len; i := i + 1)
+      INSERT this->GetAt(i) INTO num AT END;
+
+    FOR (INTEGER i := 0, len := e->GetLength(); i < len; i := i + 1)
+      num[i] := num[i] BITXOR QRMath_GExp(QRMath_GLog(e->GetAt(i)) + ratio);
+
+    // recursive call
+    RETURN NEW QRPolynomial(num, 0)->Mod(e);
+  }
+>;
+
+
+// -----------------------------------------------------------------------------
+//
+// QRRSBlock
+//
+
+RECORD QRRSBlock :=
+  [ RS_BLOCK_TABLE :=
+      // L
+      // M
+      // Q
+      // H
+
+      // 1
+    [ [ data := [ 1, 26, 19 ] ]
+    , [ data := [ 1, 26, 16 ] ]
+    , [ data := [ 1, 26, 13 ] ]
+    , [ data := [ 1, 26, 9 ] ]
+      // 2
+    , [ data := [ 1, 44, 34 ] ]
+    , [ data := [ 1, 44, 28 ] ]
+    , [ data := [ 1, 44, 22 ] ]
+    , [ data := [ 1, 44, 16 ] ]
+      // 3
+    , [ data := [ 1, 70, 55 ] ]
+    , [ data := [ 1, 70, 44 ] ]
+    , [ data := [ 2, 35, 17 ] ]
+    , [ data := [ 2, 35, 13 ] ]
+      // 4
+    , [ data := [ 1, 100, 80 ] ]
+    , [ data := [ 2, 50, 32 ] ]
+    , [ data := [ 2, 50, 24 ] ]
+    , [ data := [ 4, 25, 9 ] ]
+      // 5
+    , [ data := [ 1, 134, 108 ] ]
+    , [ data := [ 2, 67, 43 ] ]
+    , [ data := [ 2, 33, 15, 2, 34, 16 ] ]
+    , [ data := [ 2, 33, 11, 2, 34, 12 ] ]
+      // 6
+    , [ data := [ 2, 86, 68 ] ]
+    , [ data := [ 4, 43, 27 ] ]
+    , [ data := [ 4, 43, 19 ] ]
+    , [ data := [ 4, 43, 15 ] ]
+      // 7
+    , [ data := [ 2, 98, 78 ] ]
+    , [ data := [ 4, 49, 31 ] ]
+    , [ data := [ 2, 32, 14, 4, 33, 15 ] ]
+    , [ data := [ 4, 39, 13, 1, 40, 14 ] ]
+      // 8
+    , [ data := [ 2, 121, 97 ] ]
+    , [ data := [ 2, 60, 38, 2, 61, 39 ] ]
+    , [ data := [ 4, 40, 18, 2, 41, 19 ] ]
+    , [ data := [ 4, 40, 14, 2, 41, 15 ] ]
+      // 9
+    , [ data := [ 2, 146, 116 ] ]
+    , [ data := [ 3, 58, 36, 2, 59, 37 ] ]
+    , [ data := [ 4, 36, 16, 4, 37, 17 ] ]
+    , [ data := [ 4, 36, 12, 4, 37, 13 ] ]
+      // 10
+    , [ data := [ 2, 86, 68, 2, 87, 69 ] ]
+    , [ data := [ 4, 69, 43, 1, 70, 44 ] ]
+    , [ data := [ 6, 43, 19, 2, 44, 20 ] ]
+    , [ data := [ 6, 43, 15, 2, 44, 16 ] ]
+      // 11
+    , [ data := [ 4, 101, 81] ]
+    , [ data := [ 1, 80, 50, 4, 81, 51] ]
+    , [ data := [ 4, 50, 22, 4, 51, 23] ]
+    , [ data := [ 3, 36, 12, 8, 37, 13] ]
+      // 12
+    , [ data := [ 2, 116, 92, 2, 117, 93] ]
+    , [ data := [ 6, 58, 36, 2, 59, 37] ]
+    , [ data := [ 4, 46, 20, 6, 47, 21] ]
+    , [ data := [ 7, 42, 14, 4, 43, 15] ]
+      // 13
+    , [ data := [ 4, 133, 107] ]
+    , [ data := [ 8, 59, 37, 1, 60, 38] ]
+    , [ data := [ 8, 44, 20, 4, 45, 21] ]
+    , [ data := [ 12, 33, 11, 4, 34, 12] ]
+      // 14
+    , [ data := [ 3, 145, 115, 1, 146, 116] ]
+    , [ data := [ 4, 64, 40, 5, 65, 41] ]
+    , [ data := [ 11, 36, 16, 5, 37, 17] ]
+    , [ data := [ 11, 36, 12, 5, 37, 13] ]
+      // 15
+    , [ data := [ 5, 109, 87, 1, 110, 88] ]
+    , [ data := [ 5, 65, 41, 5, 66, 42] ]
+    , [ data := [ 5, 54, 24, 7, 55, 25] ]
+    , [ data := [ 11, 36, 12] ]
+      // 16
+    , [ data := [ 5, 122, 98, 1, 123, 99] ]
+    , [ data := [ 7, 73, 45, 3, 74, 46] ]
+    , [ data := [ 15, 43, 19, 2, 44, 20] ]
+    , [ data := [ 3, 45, 15, 13, 46, 16] ]
+      // 17
+    , [ data := [ 1, 135, 107, 5, 136, 108] ]
+    , [ data := [ 10, 74, 46, 1, 75, 47] ]
+    , [ data := [ 1, 50, 22, 15, 51, 23] ]
+    , [ data := [ 2, 42, 14, 17, 43, 15] ]
+      // 18
+    , [ data := [ 5, 150, 120, 1, 151, 121] ]
+    , [ data := [ 9, 69, 43, 4, 70, 44] ]
+    , [ data := [ 17, 50, 22, 1, 51, 23] ]
+    , [ data := [ 2, 42, 14, 19, 43, 15] ]
+      // 19
+    , [ data := [ 3, 141, 113, 4, 142, 114] ]
+    , [ data := [ 3, 70, 44, 11, 71, 45] ]
+    , [ data := [ 17, 47, 21, 4, 48, 22] ]
+    , [ data := [ 9, 39, 13, 16, 40, 14] ]
+      // 20
+    , [ data := [ 3, 135, 107, 5, 136, 108] ]
+    , [ data := [ 3, 67, 41, 13, 68, 42] ]
+    , [ data := [ 15, 54, 24, 5, 55, 25] ]
+    , [ data := [ 15, 43, 15, 10, 44, 16] ]
+      // 21
+    , [ data := [ 4, 144, 116, 4, 145, 117] ]
+    , [ data := [ 17, 68, 42] ]
+    , [ data := [ 17, 50, 22, 6, 51, 23] ]
+    , [ data := [ 19, 46, 16, 6, 47, 17] ]
+      // 22
+    , [ data := [ 2, 139, 111, 7, 140, 112] ]
+    , [ data := [ 17, 74, 46] ]
+    , [ data := [ 7, 54, 24, 16, 55, 25] ]
+    , [ data := [ 34, 37, 13] ]
+      // 23
+    , [ data := [ 4, 151, 121, 5, 152, 122] ]
+    , [ data := [ 4, 75, 47, 14, 76, 48] ]
+    , [ data := [ 11, 54, 24, 14, 55, 25] ]
+    , [ data := [ 16, 45, 15, 14, 46, 16] ]
+      // 24
+    , [ data := [ 6, 147, 117, 4, 148, 118] ]
+    , [ data := [ 6, 73, 45, 14, 74, 46] ]
+    , [ data := [ 11, 54, 24, 16, 55, 25] ]
+    , [ data := [ 30, 46, 16, 2, 47, 17] ]
+      // 25
+    , [ data := [ 8, 132, 106, 4, 133, 107] ]
+    , [ data := [ 8, 75, 47, 13, 76, 48] ]
+    , [ data := [ 7, 54, 24, 22, 55, 25] ]
+    , [ data := [ 22, 45, 15, 13, 46, 16] ]
+      // 26
+    , [ data := [ 10, 142, 114, 2, 143, 115] ]
+    , [ data := [ 19, 74, 46, 4, 75, 47] ]
+    , [ data := [ 28, 50, 22, 6, 51, 23] ]
+    , [ data := [ 33, 46, 16, 4, 47, 17] ]
+      // 27
+    , [ data := [ 8, 152, 122, 4, 153, 123] ]
+    , [ data := [ 22, 73, 45, 3, 74, 46] ]
+    , [ data := [ 8, 53, 23, 26, 54, 24] ]
+    , [ data := [ 12, 45, 15, 28, 46, 16] ]
+      // 28
+    , [ data := [ 3, 147, 117, 10, 148, 118] ]
+    , [ data := [ 3, 73, 45, 23, 74, 46] ]
+    , [ data := [ 4, 54, 24, 31, 55, 25] ]
+    , [ data := [ 11, 45, 15, 31, 46, 16] ]
+      // 29
+    , [ data := [ 7, 146, 116, 7, 147, 117] ]
+    , [ data := [ 21, 73, 45, 7, 74, 46] ]
+    , [ data := [ 1, 53, 23, 37, 54, 24] ]
+    , [ data := [ 19, 45, 15, 26, 46, 16] ]
+      // 30
+    , [ data := [ 5, 145, 115, 10, 146, 116] ]
+    , [ data := [ 19, 75, 47, 10, 76, 48] ]
+    , [ data := [ 15, 54, 24, 25, 55, 25] ]
+    , [ data := [ 23, 45, 15, 25, 46, 16] ]
+      // 31
+    , [ data := [ 13, 145, 115, 3, 146, 116] ]
+    , [ data := [ 2, 74, 46, 29, 75, 47] ]
+    , [ data := [ 42, 54, 24, 1, 55, 25] ]
+    , [ data := [ 23, 45, 15, 28, 46, 16] ]
+      // 32
+    , [ data := [ 17, 145, 115] ]
+    , [ data := [ 10, 74, 46, 23, 75, 47] ]
+    , [ data := [ 10, 54, 24, 35, 55, 25] ]
+    , [ data := [ 19, 45, 15, 35, 46, 16] ]
+      // 33
+    , [ data := [ 17, 145, 115, 1, 146, 116] ]
+    , [ data := [ 14, 74, 46, 21, 75, 47] ]
+    , [ data := [ 29, 54, 24, 19, 55, 25] ]
+    , [ data := [ 11, 45, 15, 46, 46, 16] ]
+      // 34
+    , [ data := [ 13, 145, 115, 6, 146, 116] ]
+    , [ data := [ 14, 74, 46, 23, 75, 47] ]
+    , [ data := [ 44, 54, 24, 7, 55, 25] ]
+    , [ data := [ 59, 46, 16, 1, 47, 17] ]
+      // 35
+    , [ data := [ 12, 151, 121, 7, 152, 122] ]
+    , [ data := [ 12, 75, 47, 26, 76, 48] ]
+    , [ data := [ 39, 54, 24, 14, 55, 25] ]
+    , [ data := [ 22, 45, 15, 41, 46, 16] ]
+      // 36
+    , [ data := [ 6, 151, 121, 14, 152, 122] ]
+    , [ data := [ 6, 75, 47, 34, 76, 48] ]
+    , [ data := [ 46, 54, 24, 10, 55, 25] ]
+    , [ data := [ 2, 45, 15, 64, 46, 16] ]
+      // 37
+    , [ data := [ 17, 152, 122, 4, 153, 123] ]
+    , [ data := [ 29, 74, 46, 14, 75, 47] ]
+    , [ data := [ 49, 54, 24, 10, 55, 25] ]
+    , [ data := [ 24, 45, 15, 46, 46, 16] ]
+      // 38
+    , [ data := [ 4, 152, 122, 18, 153, 123] ]
+    , [ data := [ 13, 74, 46, 32, 75, 47] ]
+    , [ data := [ 48, 54, 24, 14, 55, 25] ]
+    , [ data := [ 42, 45, 15, 32, 46, 16] ]
+      // 39
+    , [ data := [ 20, 147, 117, 4, 148, 118] ]
+    , [ data := [ 40, 75, 47, 7, 76, 48] ]
+    , [ data := [ 43, 54, 24, 22, 55, 25] ]
+    , [ data := [ 10, 45, 15, 67, 46, 16] ]
+      // 40
+    , [ data := [ 19, 148, 118, 6, 149, 119] ]
+    , [ data := [ 18, 75, 47, 31, 76, 48] ]
+    , [ data := [ 34, 54, 24, 34, 55, 25] ]
+    , [ data := [ 20, 45, 15, 61, 46, 16] ]
+    ]
+  ];
+
+INTEGER ARRAY FUNCTION QRRSBlock_GetRsBlockTable(INTEGER typenumber, INTEGER errorcorrectlevel)
+{
+  IF (errorcorrectlevel = QRErrorCorrectLevel.L)
+    RETURN QRRSBlock.RS_BLOCK_TABLE[(typenumber - 1) * 4 + 0].data;
+  IF (errorcorrectlevel = QRErrorCorrectLevel.M)
+    RETURN QRRSBlock.RS_BLOCK_TABLE[(typenumber - 1) * 4 + 1].data;
+  IF (errorcorrectlevel = QRErrorCorrectLevel.Q)
+    RETURN QRRSBlock.RS_BLOCK_TABLE[(typenumber - 1) * 4 + 2].data;
+  IF (errorcorrectlevel = QRErrorCorrectLevel.H)
+    RETURN QRRSBlock.RS_BLOCK_TABLE[(typenumber - 1) * 4 + 3].data;
+  THROW NEW Exception("No RSBlock for error correction level: " || errorcorrectlevel);
+}
+
+RECORD ARRAY FUNCTION QRRSBlock_GetRSBlocks(INTEGER typenumber, INTEGER errorcorrectlevel)
+{
+  INTEGER ARRAY rsblock := QRRSBlock_GetRsBlockTable(typenumber, errorcorrectlevel);
+
+  INTEGER length_ := Length(rsblock) / 3;
+
+  RECORD ARRAY list;
+
+  FOR (INTEGER i := 0; i < length_; i := i + 1)
+  {
+    INTEGER count_ := rsblock[i * 3 + 0];
+    INTEGER totalcount := rsblock[i * 3 + 1];
+    INTEGER datacount := rsblock[i * 3 + 2];
+
+    FOR (INTEGER j := 0; j < count_; j := j + 1)
+      INSERT [ totalcount := totalcount
+             , datacount := datacount
+             ] INTO list AT END;
+  }
+
+  RETURN list;
+}
+
+
+// -----------------------------------------------------------------------------
+//
+// QRBitBuffer
+//
+
+OBJECTTYPE QRBitBuffer
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER ARRAY buffer;
+  INTEGER length;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW()
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC INTEGER ARRAY FUNCTION GetBuffer()
+  {
+    RETURN this->buffer;
+  }
+
+  PUBLIC BOOLEAN FUNCTION GetAt(INTEGER index_)
+  {
+    INTEGER bufindex := index_ / 8;
+    RETURN ((this->buffer[bufindex] BITRSHIFT (7 - index_ % 8)) BITAND 1) = 1;
+  }
+
+  PUBLIC MACRO Put(INTEGER num, INTEGER length_)
+  {
+    FOR (INTEGER i := 0; i < length_; i := i + 1)
+      this->PutBit(((num BITRSHIFT (length_ - i - 1)) BITAND 1) = 1);
+  }
+
+  PUBLIC INTEGER FUNCTION GetLengthInBits()
+  {
+    RETURN this->length;
+  }
+
+  PUBLIC MACRO PutBit(BOOLEAN bit)
+  {
+    INTEGER bufindex := this->length / 8;
+    IF (Length(this->buffer) <= bufindex)
+      INSERT 0 INTO this->buffer AT END;
+
+    IF (bit)
+      this->buffer[bufindex] := this->buffer[bufindex] BITOR (0x80 BITRSHIFT (this->length % 8));
+
+    this->length := this->length + 1;
+  }
+>;
+
+
+// -----------------------------------------------------------------------------
+//
+// QR8BitByte
+//
+
+OBJECTTYPE QR8BitByte
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER mode;
+  INTEGER ARRAY bytes;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW(STRING data)
+  {
+    this->mode := QRMode.MODE_8BIT_BYTE;
+    FOR (INTEGER i := 0, len := Length(data); i < len; i := i + 1)
+      INSERT GetByteValue(SubString(data, i, 1)) INTO this->bytes AT END;
+
+    // If UTF-8 data was supplied, prepend with UTF-8 BOM if necessary
+    IF (Length(data) != UCLength(data) AND Left(data, 3) != UTF8_BOM)
+      this->bytes := UTF8_BOM_ARRAY CONCAT this->bytes;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC INTEGER FUNCTION GetMode()
+  {
+    RETURN this->mode;
+  }
+
+  PUBLIC INTEGER FUNCTION GetLength()
+  {
+    RETURN Length(this->bytes);
+  }
+
+  PUBLIC MACRO Write(OBJECT buffer)
+  {
+    FOREVERY (INTEGER byte FROM this->bytes)
+      buffer->Put(byte, 8);
+  }
+>;
+
+
+// -----------------------------------------------------------------------------
+//
+// QRCode
+//
+
+INTEGER PAD0 := 0xEC;
+INTEGER PAD1 := 0x11;
+
+/** @short Low-level QR code generator
+*/
+PUBLIC OBJECTTYPE QRCode
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER _typenumber;
+  INTEGER _errorcorrectlevel;
+  RECORD ARRAY _modules;
+  INTEGER _modulecount;
+  INTEGER ARRAY _datacache;
+  OBJECT ARRAY _datalist;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  /** @short Initialize the QR code
+      @param typenumber QR code type (a number between 1 and 40)
+      @param correctlevel Error correction level, one of "L", "M", "Q" or "H", defaults to "H"
+  */
+  MACRO NEW(INTEGER typenumber, STRING errorcorrectlevel)
+  {
+    this->_typenumber := typenumber;
+    this->_errorcorrectlevel := GetCell(QRErrorCorrectLevel, errorcorrectlevel);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Add data to encode
+      @param data The data to add
+  */
+  PUBLIC MACRO AddData(STRING data)
+  {
+    OBJECT newdata := NEW QR8BitByte(data);
+    INSERT newdata INTO this->_dataList AT END;
+    this->_dataCache := DEFAULT INTEGER ARRAY;
+  }
+
+  /** @short Check if the requested module is dark
+      @param row Row to check (0-based, less than GetModuleCount())
+      @param col Column to check (0-based, less than GetModuleCount())
+      @return If the requested module is dark (dot should be colored)
+  */
+  PUBLIC BOOLEAN FUNCTION IsDark(INTEGER row, INTEGER col)
+  {
+    RETURN this->_modules[row].data[col] = 1;
+  }
+
+  /** @short Get the dark status of all modules
+      @return An array with for each row for each column the dark status
+  */
+  PUBLIC BOOLEAN ARRAY FUNCTION GetDark()
+  {
+    BOOLEAN ARRAY dark;
+    FOREVERY (RECORD row FROM this->_modules)
+      FOREVERY (INTEGER col FROM row.data)
+        INSERT col = 1 INTO dark AT END;
+    RETURN dark;
+  }
+
+  /** @short Get the number of modules (horizontal or vertical dots)
+      @return The number of modules
+  */
+  PUBLIC INTEGER FUNCTION GetModuleCount()
+  {
+    RETURN this->_modulecount;
+  }
+
+  /** @short Generate the QR code for the currently added data
+  */
+  PUBLIC MACRO Make()
+  {
+    this->MakeImpl(FALSE, this->GetBestMaskPattern());
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO MakeImpl(BOOLEAN test, INTEGER maskpattern)
+  {
+    this->_modulecount := this->_typeNumber * 4 + 17;
+    this->_modules := DEFAULT RECORD ARRAY;
+    FOR (INTEGER row := 0; row < this->_modulecount; row := row + 1)
+    {
+      INTEGER ARRAY data;
+      FOR (INTEGER col := 0; col < this->_modulecount; col := col + 1)
+      {
+        INSERT 0 INTO data AT END;
+      }
+      INSERT [ data := data ] INTO this->_modules AT END;
+    }
+
+    this->SetupPositionProbePattern(0, 0);
+    this->SetupPositionProbePattern(this->_modulecount - 7, 0);
+    this->SetupPositionProbePattern(0, this->_modulecount - 7);
+    this->SetupPositionAdjustPattern();
+    this->SetupTimingPattern();
+    this->SetupTypeInfo(test, maskpattern);
+
+    IF (this->_typenumber >= 7)
+      this->SetupTypeNumber(test);
+
+    IF (Length(this->_datacache) = 0)
+      this->_datacache := this->CreateData(this->_typenumber, this->_errorcorrectlevel, this->_datalist);
+
+    this->MapData(this->_datacache, maskpattern);
+  }
+
+  INTEGER FUNCTION GetBestMaskPattern()
+  {
+    INTEGER minlostpoint := 0;
+    INTEGER pattern := 0;
+
+    FOR (INTEGER i := 0; i < 8; i := i + 1)
+    {
+      this->MakeImpl(TRUE, i);
+
+      INTEGER lostpoint := this->GetLostPoint();
+
+      IF (i = 0 OR minlostpoint > lostpoint)
+      {
+        minlostpoint := lostpoint;
+        pattern := i;
+      }
+    }
+
+    RETURN pattern;
+  }
+
+  MACRO SetupPositionProbePattern(INTEGER row, INTEGER col)
+  {
+    FOR (INTEGER r := -1; r <= 7; r := r + 1)
+    {
+      IF (row + r <= -1 OR this->_modulecount <= row + r)
+        CONTINUE;
+
+      FOR (INTEGER c := -1; c <= 7; c := c + 1)
+      {
+        IF (col + c <= -1 OR this->_modulecount <= col + c)
+          CONTINUE;
+
+        IF ((0 <= r AND r <= 6 AND (c = 0 OR c = 6))
+          OR (0 <= c AND c <= 6 AND (r = 0 OR r = 6))
+          OR (2 <= r AND r <= 4 AND 2 <= c AND c <= 4))
+        {
+          this->_modules[row + r].data[col + c] := 1;
+        }
+        ELSE
+        {
+          this->_modules[row + r].data[col + c] := -1;
+        }
+      }
+    }
+  }
+
+  MACRO SetupTimingPattern()
+  {
+    FOR (INTEGER r := 8; r < this->_modulecount - 8; r := r + 1)
+    {
+      IF (this->_modules[r].data[6] != 0)
+        CONTINUE;
+      this->_modules[r].data[6] := (r % 2 = 0) ? 1 : -1;
+    }
+
+    FOR (INTEGER c := 8; c < this->_modulecount - 8; c := c + 1)
+    {
+      IF (this->_modules[6].data[c] != 0)
+        CONTINUE;
+      this->_modules[6].data[c] := (c % 2 = 0) ? 1 : -1;
+    }
+  }
+
+  MACRO SetupPositionAdjustPattern()
+  {
+    INTEGER ARRAY pos := QRUtil_GetPatternPosition(this->_typenumber);
+
+    FOREVERY (INTEGER row FROM pos)
+    {
+      FOREVERY (INTEGER col FROM pos)
+      {
+        IF (this->_modules[row].data[col] != 0)
+          CONTINUE;
+
+        FOR (INTEGER r := -2; r <= 2; r := r + 1)
+        {
+          FOR (INTEGER c := -2; c <= 2; c := c + 1)
+          {
+            IF (r = -2 OR r = 2 OR c = -2 OR c = 2
+              OR (r = 0 AND c = 0))
+            {
+              this->_modules[row + r].data[col + c] := 1;
+            }
+            ELSE
+            {
+              this->_modules[row + r].data[col + c] := -1;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  MACRO SetupTypeNumber(BOOLEAN test)
+  {
+    INTEGER bits := QRUtil_GetBCHTypeNumber(this->_typenumber);
+
+    FOR (INTEGER i := 0; i < 18; i := i + 1)
+    {
+      INTEGER mod := (NOT test AND ((bits BITRSHIFT i) BITAND 1) = 1) ? 1 : -1;
+      this->_modules[i / 3].data[i % 3 + this->_modulecount - 8 - 3] := mod;
+    }
+
+    FOR (INTEGER i := 0; i < 18; i := i + 1)
+    {
+      INTEGER mod := (NOT test AND ((bits BITRSHIFT i) BITAND 1) = 1) ? 1 : -1;
+      this->_modules[i % 3 + this->_modulecount - 8 - 3].data[i / 3] := mod;
+    }
+  }
+
+  MACRO SetupTypeInfo(BOOLEAN test, INTEGER maskpattern)
+  {
+    INTEGER data := (this->_errorcorrectlevel BITLSHIFT 3) BITOR maskpattern;
+    INTEGER bits := QRUtil_GetBCHTypeInfo(data);
+
+    // vertical
+    FOR (INTEGER i := 0; i < 15; i := i + 1)
+    {
+      INTEGER mod := (NOT test AND ((bits BITRSHIFT i) BITAND 1) = 1) ? 1 : -1;
+
+      IF (i < 6)
+        this->_modules[i].data[8] := mod;
+      ELSE IF (i < 8)
+        this->_modules[i + 1].data[8] := mod;
+      ELSE
+        this->_modules[this->_modulecount - 15 + i].data[8] := mod;
+    }
+
+    // horizontal
+    FOR (INTEGER i := 0; i < 15; i := i + 1)
+    {
+      INTEGER mod := (NOT test AND ((bits BITRSHIFT i) BITAND 1) = 1) ? 1 : -1;
+
+      IF (i < 8)
+        this->_modules[8].data[this->_modulecount - i - 1] := mod;
+      ELSE IF (i < 9)
+        this->_modules[8].data[15 - i - 1 + 1] := mod;
+      ELSE
+        this->_modules[8].data[15 - i - 1] := mod;
+    }
+
+    // fixed module
+    this->_modules[this->_modulecount - 8].data[8] := (NOT test) ? 1 : -1;
+  }
+
+  MACRO MapData(INTEGER ARRAY data, INTEGER maskpattern)
+  {
+    INTEGER inc := -1;
+    INTEGER row := this->_modulecount - 1;
+    INTEGER bitindex := 7;
+    INTEGER byteindex := 0;
+
+    FOR (INTEGER col := this->_modulecount - 1; col > 0; col := col - 2)
+    {
+      IF (col = 6)
+        col := col - 1;
+
+      WHILE (TRUE)
+      {
+        FOR (INTEGER c := 0; c < 2; c := c + 1)
+        {
+          IF (this->_modules[row].data[col - c] = 0)
+          {
+            INTEGER dark := 0;
+
+            IF (byteindex < Length(data))
+              dark := (((data[byteindex] BITRSHIFT bitindex) BITAND 1) = 1) ? 1 : -1;
+
+            BOOLEAN mask := QRUtil_GetMask(maskpattern, row, col - c);
+
+            IF (mask)
+              dark := -dark;
+
+            this->_modules[row].data[col - c] := dark;
+            bitindex := bitindex - 1;
+
+            IF (bitindex = -1)
+            {
+              byteindex := byteindex + 1;
+              bitindex := 7;
+            }
+          }
+        }
+
+        row := row + inc;
+
+        IF (row < 0 OR this->_modulecount <= row)
+        {
+          row := row - inc;
+          inc := -inc;
+          BREAK;
+        }
+      }
+    }
+  }
+
+  INTEGER ARRAY FUNCTION CreateBytes(OBJECT buffer, RECORD ARRAY rsblocks)
+  {
+    INTEGER offset_ := 0;
+
+    INTEGER maxdccount := 0;
+    INTEGER maxeccount := 0;
+
+    RECORD ARRAY dcdata;
+    RECORD ARRAY ecdata;
+
+    FOREVERY (RECORD rsblock FROM rsblocks)
+    {
+      INTEGER dccount := rsblock.datacount;
+      INTEGER eccount := rsblock.totalcount - dccount;
+
+      IF (dccount > maxdccount)
+        maxdccount := dccount;
+      IF (eccount > maxeccount)
+        maxeccount := eccount;
+
+      INSERT [ data := DEFAULT INTEGER ARRAY ] INTO dcdata AT END;
+
+      FOR (INTEGER i := 0; i < dccount; i := i + 1)
+        INSERT 0xFF BITAND buffer->GetBuffer()[i + offset_] INTO dcdata[#rsblock].data AT END;
+
+      offset_ := offset_ + dccount;
+
+      OBJECT rspoly := QRUtil_GetErrorCorrectPolynomial(eccount);
+      OBJECT rawpoly := NEW QRPolynomial(dcdata[#rsblock].data, rspoly->GetLength() - 1);
+
+      OBJECT modpoly := rawpoly->Mod(rspoly);
+      INSERT [ data := DEFAULT INTEGER ARRAY ] INTO ecdata AT END;
+      FOR (INTEGER i := 0, len := rspoly->GetLength() - 1; i < len; i := i + 1)
+      {
+        INTEGER modindex := i + modpoly->GetLength() - len;
+        INSERT (modindex >= 0) ? modpoly->GetAt(modindex) : 0 INTO ecdata[#rsblock].data AT END;
+      }
+    }
+
+    INTEGER totalcodecount := 0;
+    FOREVERY (RECORD rsblock FROM rsblocks)
+      totalcodecount := totalcodecount + rsblock.totalcount;
+
+    INTEGER ARRAY data;
+    INTEGER index_ := 0;
+
+    FOR (INTEGER i := 0; i < maxdccount; i := i + 1)
+    {
+      FOR (INTEGER r := 0, len := Length(rsblocks); r < len; r := r + 1)
+      {
+        IF (i < Length(dcdata[r].data))
+        {
+          INSERT dcdata[r].data[i] INTO data AT END;
+          index_ := index_ + 1;
+        }
+      }
+    }
+
+    FOR (INTEGER i := 0; i < maxeccount; i := i + 1)
+    {
+      FOR (INTEGER r := 0, len := Length(rsblocks); r < len; r := r + 1)
+      {
+        IF (i < Length(ecdata[r].data))
+        {
+          INSERT ecdata[r].data[i] INTO data AT END;
+          index_ := index_ + 1;
+        }
+      }
+    }
+
+    WHILE (Length(data) < totalcodecount)
+      INSERT 0 INTO data AT END;
+
+    RETURN data;
+  }
+
+  INTEGER ARRAY FUNCTION CreateData(INTEGER typenumber, INTEGER errorcorrectlevel, OBJECT ARRAY datalist)
+  {
+    RECORD ARRAY rsblocks := QRRSBlock_GetRSBlocks(typenumber, errorcorrectlevel);
+
+    OBJECT buffer := NEW QRBitBuffer();
+
+    FOREVERY (OBJECT data FROM datalist)
+    {
+      buffer->Put(data->GetMode(), 4);
+      buffer->Put(data->GetLength(), QRUtil_GetLengthInBits(data->GetMode(), typenumber));
+      data->Write(buffer);
+    }
+
+    // calc num max data.
+    INTEGER totaldatacount := 0;
+    FOREVERY (RECORD rsblock FROM rsblocks)
+      totaldatacount := totaldatacount + rsblock.datacount;
+
+    IF (buffer->GetLengthInBits() > totaldatacount * 8)
+      THROW NEW Exception("Code length overflow: " || buffer->GetLengthInBits() || ">" || (totaldatacount * 8));
+
+    // end code
+    IF (buffer->GetLengthInBits() + 4 <= totaldatacount * 8)
+      buffer->Put(0, 4);
+
+    // padding
+    WHILE (buffer->GetLengthInBits() % 8 != 0)
+      buffer->PutBit(FALSE);
+
+    // padding
+    WHILE (TRUE)
+    {
+      IF (buffer->GetLengthInBits() >= totaldatacount * 8)
+        BREAK;
+      buffer->Put(PAD0, 8);
+
+      IF (buffer->GetLengthInBits() >= totaldatacount * 8)
+        BREAK;
+      buffer->Put(PAD1, 8);
+    }
+
+    RETURN this->CreateBytes(buffer, rsblocks);
+  }
+
+  INTEGER FUNCTION GetLostPoint()
+  {
+    INTEGER lostpoint := 0;
+
+    // LEVEL1
+
+    FOREVERY (RECORD row FROM this->_modules)
+      FOREVERY (INTEGER col FROM row.data)
+      {
+        INTEGER samecount := 0;
+        BOOLEAN dark := col = 1;
+
+        FOR (INTEGER r := -1; r <= 1; r := r + 1)
+        {
+          IF (#row + r < 0 OR this->_modulecount <= #row + r)
+            CONTINUE;
+
+          FOR (INTEGER c := -1; c <= 1; c := c + 1)
+          {
+            IF (#col + c < 0 OR this->_modulecount <= #col + c)
+              CONTINUE;
+
+            IF (r = 0 AND c = 0)
+              CONTINUE;
+
+            IF (dark = this->IsDark(#row + r, #col + c))
+              samecount := samecount + 1;
+          }
+        }
+
+        IF (samecount > 5)
+          lostpoint := lostpoint + (3 + samecount - 5);
+      }
+
+    // LEVEL2
+
+    FOREVERY (RECORD row FROM this->_modules)
+    {
+      IF (#row = this->_modulecount - 1)
+        BREAK;
+      FOREVERY (INTEGER col FROM row.data)
+      {
+        IF (#col = this->_modulecount - 1)
+          BREAK;
+        INTEGER count_ := 0;
+        IF (col = 1)
+          count_ := count_ + 1;
+        IF (this->IsDark(#row + 1, #col))
+          count_ := count_ + 1;
+        IF (this->IsDark(#row, #col + 1))
+          count_ := count_ + 1;
+        IF (this->IsDark(#row + 1, #col + 1))
+          count_ := count_ + 1;
+        IF (count_ = 0 OR count_ = 4)
+          lostpoint := lostpoint + 3;
+      }
+    }
+
+    // LEVEL3
+
+    FOREVERY (RECORD row FROM this->_modules)
+      FOREVERY (INTEGER col FROM row.data)
+      {
+        IF (#col = this->_modulecount - 6)
+          BREAK;
+        IF (col = 1
+          AND NOT this->IsDark(#row, #col + 1)
+          AND this->IsDark(#row, #col + 2)
+          AND this->IsDark(#row, #col + 3)
+          AND this->IsDark(#row, #col + 4)
+          AND NOT this->IsDark(#row, #col + 5)
+          AND this->IsDark(#row, #col + 6))
+        {
+          lostpoint := lostpoint + 40;
+        }
+      }
+
+    FOREVERY (RECORD row FROM this->_modules)
+    {
+      IF (#row >= this->_modulecount - 6)
+        BREAK;
+      FOREVERY (INTEGER col FROM row.data)
+      {
+        IF (col = 1
+          AND NOT this->IsDark(#row + 1, #col)
+          AND this->IsDark(#row + 2, #col)
+          AND this->IsDark(#row + 3, #col)
+          AND this->IsDark(#row + 4, #col)
+          AND NOT this->IsDark(#row + 5, #col)
+          AND this->IsDark(#row + 6, #col))
+        {
+          lostpoint := lostpoint + 40;
+        }
+      }
+    }
+
+    // LEVEL4
+
+    INTEGER darkcount := 0;
+
+    FOREVERY (RECORD row FROM this->_modules)
+      FOREVERY (INTEGER col FROM row.data)
+        IF (col = 1)
+          darkcount := darkcount + 1;
+
+    FLOAT ratio := Abs(100f * darkcount / this->_modulecount / this->_modulecount - 50) / 5;
+    lostpoint := lostpoint + INTEGER(ratio * 10);
+
+    RETURN lostpoint;
+  }
+>;
+
+
+// -----------------------------------------------------------------------------
+//
+// API
+//
+
+/** @short Create a QR code
+    @param intext The text to encode
+    @param options
+    @cell(integer) options.size Max output size, defaults to 256 (=256x256 pixels)
+    @cell(integer) options.margin QR code margin, defaults to 4 modules
+    @cell(integer) options.colordark Draw color, defaults to black
+    @cell(integer) options.colorlight Background color, defaults to white
+    @cell(string) options.correctlevel Error correction level, one of "L", "M", "Q" or "H", defaults to "H" (=highest)
+    @return A drawlib canvas object containing the QR code
+*/
+PUBLIC OBJECT FUNCTION CreateQRCode(STRING intext, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := MakeUpdatedRecord([ size := 256
+                               , margin := 4
+                               , colordark := ColorBlack
+                               , colorlight := ColorWhite
+                               , correctlevel := "H"
+                               ], options);
+
+  // Initialize and generate the QR code data
+  OBJECT code := NEW QRCode(QRUtil_GetTypeNumber(intext, options.correctlevel), options.correctlevel);
+  code->AddData(intext);
+  code->Make();
+
+  // Calculate the QR module size
+  INTEGER count_ := code->GetModuleCount();
+  INTEGER size := options.size / (count_ + 2 * options.margin);
+  IF (size = 0)
+    size := 1;
+
+  // Create a path with squares for each module
+  OBJECT path := Create2DPath();
+  path->fillcolor := options.colordark;
+  path->outlinewidth := 0;
+  INTEGER row, col;
+  INTEGER margin := options.margin * size;
+  FOREVERY (BOOLEAN isdark FROM code->GetDark())
+  {
+    IF (isdark)
+    {
+      // Draw a square if the module is dark
+      INTEGER left := size * col + margin;
+      INTEGER top := size * row + margin;
+      path->MoveTo(left, top);
+      path->LineTo(left + size, top);
+      path->LineTo(left + size, top + size);
+      path->LineTo(left, top + size);
+      path->LineTo(left, top);
+      path->ClosePath();
+    }
+    col := col + 1;
+    IF (col >= count_)
+    {
+      col := 0;
+      row := row + 1;
+    }
+  }
+
+  // Create a canvas which fits the QR code
+  OBJECT canvas := CreateEmptyCanvas(count_ * size + 2 * margin, count_ * size + 2 * margin, options.colorlight);
+  // Draw the path onto the canvas
+  path->Draw(canvas);
+
+  RETURN canvas;
+}

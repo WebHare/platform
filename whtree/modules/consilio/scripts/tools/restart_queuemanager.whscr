@@ -1,0 +1,10 @@
+<?wh
+
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+
+
+Print("Restarting queue manager...");
+IF (__ConsilioRestartQueueManager())
+  Print("ok\n");
+ELSE
+  Print("error\n");

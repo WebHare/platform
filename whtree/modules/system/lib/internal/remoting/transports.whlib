@@ -1,0 +1,176 @@
+﻿<?wh
+
+LOADLIB "wh::devsupport.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+LOADLIB "mod::system/lib/internal/remoting/transportbase.whlib";
+LOADLIB "mod::system/lib/internal/remoting/whremotingtransport.whlib";
+LOADLIB "mod::system/lib/internal/remoting/whwsremotingtransport.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+
+STATIC OBJECTTYPE ResourceTransport EXTEND Transport
+<
+  MACRO NEW()
+  : Transport("")
+  {
+
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION DecodeRequest(BLOB body, STRING functionname)
+  {
+    RECORD param1 := CELL[];
+    FOREVERY(RECORD webvar FROM GetAllWebvariables())
+    {
+      IF(NOT CellExists(param1,webvar.name))
+        param1 := CellInsert(param1, webvar.name, webvar.value);
+    }
+
+    RETURN
+        [ functionname :=       "GetResource"
+        , args :=               [param1]
+        , requesttoken :=       DEFAULT RECORD
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeResponse(BOOLEAN is_macro, VARIANT response, STRING srhid, RECORD requesttoken)
+  {
+    IF (NOT RecordExists(response))
+    {
+        [ headers :=    [ [ field := "Status", value := "404" ] ]
+        , data :=       DEFAULT BLOB
+        , keeprunning :=FALSE
+        ];
+    }
+
+    STRING contenttype;
+    IF (CellExists(response, "MIMETYPE"))
+      contenttype := response.mimetype;
+    ELSE
+      contenttype := response.contenttype; // Contenttype fallback
+
+    RETURN
+        [ headers :=    [ [ field := "Content-Type", value := contenttype ] ]
+        , data :=       response.data
+        , keeprunning :=FALSE
+        ];
+  }
+>;
+
+STATIC OBJECTTYPE JSONRPCTransport EXTEND Transport
+<
+  MACRO NEW() : Transport("jsonrpc")
+  {
+  }
+
+  RECORD FUNCTION DecodeJSONRPCReq(RECORD request, STRING callback)
+  {
+    IF (NOT CellExists(request, "METHOD") OR NOT CellExists(request, "ID"))
+      THROW NEW RPCBadRequestException("Malformed JSONPRC request - expected 'METHOD' and 'ID'");
+    IF(CellExists(request,"PARAMS") AND NOT IsTypeidArray(TypeID(request.params)))
+      THROW NEW RPCBadRequestException("Malformed JSONPRC request - parameters must be an Array");
+
+    VARIANT id;
+    IF(CellExists(request,"id"))
+      id := request.id;
+    ELSE
+      id := DEFAULT RECORD;
+
+    RETURN
+        [ functionname :=       request.method
+        , args :=               CellExists(request,"PARAMS") ? request.params : DEFAULT VARIANT ARRAY
+        , requesttoken :=       [ id := id, callback := callback ]
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeResponse(BOOLEAN is_macro, VARIANT response, STRING srhid, RECORD requesttoken)
+  {
+    IF(is_macro)
+      response := DEFAULT RECORD;
+
+    RECORD responsedata := [ result := response
+                           , id := requesttoken.id
+                           , error := DEFAULT RECORD
+                           ];
+
+    RETURN this->EncodeJSONReponse(responsedata, requesttoken, "");
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeException(OBJECT e, RECORD requesttoken)
+  {
+    STRING typename := GetObjectTypeName(e);
+    RECORD error := [ code :=     -32000
+                    , message :=  ""
+                    , data :=     CellInsert(e->EncodeForIPC(), "__FORMAT", "webhare-exception")
+                    ];
+
+    error.message := e->what;
+    IF(e EXTENDSFROM RPCInvalidArgsException)
+      error.data := DEFAULT RECORD; // Hide trace, this is a normal error
+
+    RECORD responsedata := [ id := requesttoken.id
+                           , error := error
+                           ];
+
+    RETURN this->EncodeJSONReponse(responsedata, requesttoken, error.message);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeErrors(RECORD ARRAY errors, RECORD requesttoken)
+  {
+    RECORD info := this->GetNiceError(errors);
+    RECORD error := [ code :=     -32000
+                    , message :=  info.message
+                    , data :=     CellInsert(NEW HarescriptErrorException(errors)->EncodeForIPC(), "__FORMAT", "webhare-exception")
+                    ];
+
+    RECORD responsedata :=
+        [ error :=    error
+//        result :=   DEFAULT RECORD
+//        , id :=       DEFAULT RECORD
+        ];
+
+    RETURN this->EncodeJSONReponse(responsedata, requesttoken, error.message);
+  }
+
+  RECORD FUNCTION EncodeJSONReponse(RECORD responsedata, RECORD requesttoken, STRING error)
+  {
+    RECORD ARRAY headers := [ [ field := "Content-Type", value := "application/json" ] ];
+    IF(error!="")
+      INSERT [ field := "Status", value := "500 " || EncodeJava(UCTruncate(error,120)) ] INTO headers AT END;
+
+    RETURN
+        [ headers :=    headers
+        , data :=       EncodeJSONBlob(responsedata)
+        , keeprunning :=FALSE
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION DecodeRequest(BLOB body, STRING functionname)
+  {
+    RETURN this->DecodeJSONRPCReq(DecodeJSONBlob(body),"");
+  }
+>;
+PUBLIC OBJECT FUNCTION GetResourceTransport()
+{
+  RETURN NEW ResourceTransport();
+}
+
+PUBLIC OBJECT FUNCTION GetTransportFromRequest(BLOB request, STRING contenttype, BOOLEAN iswebsocket)
+{
+  IF (iswebsocket)
+    RETURN InitiateServerWebsocketConnection();
+
+  IF (contenttype != "text/xml" AND contenttype != "application/xml") //FIXME Permit charset (and pass it to XML parser?)
+  {
+    IF(contenttype = "application/json" OR contenttype = "text/json" OR contenttype = "text/plain")
+    {
+      RETURN NEW JSONRPCTransport;
+    }
+    RETURN DEFAULT OBJECT;
+  }
+
+  OBJECT trans := NEW WHRemotingTransport(FALSE);
+  trans->get_session_errors := PTR GetSRHErrors;
+  RETURN trans;
+}

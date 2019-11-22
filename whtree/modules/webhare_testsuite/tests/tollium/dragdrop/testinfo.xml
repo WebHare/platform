@@ -1,0 +1,6 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <jstest file="testframe.es" tags="movable" />
+  <jstest file="testlist.es" tags="list" />
+  <jstest file="testmulti.es" tags="list" />
+  <jstest file="testsubscreen.es" />
+</group>

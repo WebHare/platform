@@ -1,0 +1,9 @@
+<?wh
+/** @private This should be replaced with a printer.whlib (Chrome) API */
+
+LOADLIB "mod::system/lib/printer.whlib";
+
+PUBLIC OBJECT ASYNC FUNCTION GetScreenshot(STRING url, RECORD options)
+{
+  RETURN GenerateBrowserScreenshot(url,options);
+}

@@ -1,0 +1,1380 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/dbase/support.whlib";
+
+
+/** Varchars longer than this length are stored with a LEFT(...) expression
+    Keep in sync with query generation in hsvm_pgsqlprovider.cpp!
+    (rationale: a index record is max about 2100 bytes long.
+    256 chars are max 1024 bytes (utf-8), so room for 2 max length strings
+    in the index record)
+*/
+CONSTANT INTEGER max_varchar_indexcolsize := 256;
+
+STATIC OBJECTTYPE ChangeContext
+< /// Transaction
+  PUBLIC OBJECT trans;
+
+  /// List of current commands
+  RECORD ARRAY commands;
+
+  /// List of errors
+  STRING ARRAY errors;
+
+  MACRO NEW(OBJECT trans)
+  {
+    this->trans := trans;
+  }
+
+  /** Add a function ptr to execute
+      @param cmd Function ptr to execute
+  */
+  PUBLIC MACRO AddTransOp(FUNCTION PTR cmd)
+  {
+    INSERT CELL[ type := "transop", cmd ] INTO this->commands AT END;
+  }
+
+  /** Add an SQL command to execute
+      @param cmd SQL command
+  */
+  PUBLIC MACRO AddCommand(STRING cmd)
+  {
+    INSERT [ type := "transop", cmd := PTR this->trans->__ExecSQL(cmd) ] INTO this->commands AT END;
+  }
+
+  /** Add an error
+      @param err Error text
+  */
+  PUBLIC MACRO AddError(STRING err)
+  {
+    INSERT err INTO this->errors AT END;
+  }
+
+  /** Return results
+      @return Modification commands/errors
+      @cell(record array) return.commands Commands
+      @cell(string) return.commands.type transop
+      @cell(string) return.commands.cmd Command (function ptr/sql)
+      @cell(string array) return.errors List of errors
+  */
+  PUBLIC RECORD FUNCTION ResultsSoFar()
+  {
+    RETURN CELL[ this->commands, this->errors ];
+  }
+>;
+
+
+/** Quick and dirty parser for expression lists, with support for quoted
+    strings and parentheses
+*/
+PUBLIC STRING ARRAY FUNCTION ParsePostgreSQLExpressionList(STRING exprs)
+{
+  STRING ARRAY result;
+  OBJECT p := NEW StringParser(exprs);
+
+  STRING curexpr;
+  INTEGER slashes;
+  WHILE (NOT p->eof)
+  {
+    curexpr := curexpr || p->ParseWhileNotInSet(`()[],"'`);
+    SWITCH (p->current)
+    {
+      CASE `(`, '['   { curexpr := curexpr || p->ParseN(1); slashes := slashes + 1; }
+      CASE `)`, ']'   { curexpr := curexpr || p->ParseN(1); slashes := slashes - 1; }
+      CASE `"`, `'`
+      {
+        STRING quote := p->current;
+        curexpr := curexpr || p->ParseN(1);
+        WHILE (NOT p->eof)
+        {
+          curexpr := curexpr || p->ParseWhileNotInSet(quote || `\\`);
+          if (p->current = "\\")
+            curexpr := curexpr || p->ParseN(2);
+          ELSE IF (p->current = quote)
+          {
+            curexpr := curexpr || p->ParseN(1);
+            BREAK;
+          }
+        }
+      }
+      CASE `,`
+      {
+        IF (slashes = 0)
+        {
+          INSERT curexpr INTO result AT END;
+          curexpr := "";
+          p->Next();
+        }
+        ELSE
+          curexpr := curexpr || p->ParseN(1);
+      }
+    }
+  }
+
+  IF (exprs != "")
+    INSERT curexpr INTO result AT END;
+  RETURN result;
+}
+
+BOOLEAN have_schemata, have_indices, have_triggers;
+RECORD ARRAY schemata, allindices, alltriggers;
+
+RECORD ARRAY FUNCTION GetSchemata(OBJECT trans)
+{
+  IF(NOT have_schemata)
+  {
+    SCHEMA is LIKE postgresql_information_schema;
+    is := BindTransactionToSchema(trans->id, "information_schema");
+
+    schemata :=
+        SELECT *
+             , have_tables :=   FALSE
+             , tables :=        RECORD[]
+          FROM is.schemata
+      ORDER BY schema_name;
+    have_schemata := TRUE;
+  }
+  RETURN schemata;
+}
+
+RECORD ARRAY FUNCTION GetTables(OBJECT trans, STRING schema_name)
+{
+  GetSchemata(trans);
+  RECORD spos := RecordLowerBound(schemata, CELL[ schema_name ], [ "SCHEMA_NAME" ]);
+  IF (NOT spos.found)
+    RETURN RECORD[];
+
+  IF (NOT schemata[spos.position].have_tables)
+  {
+    schemata[spos.position].have_tables := TRUE;
+    schemata[spos.position].tables :=
+          SELECT *
+               , table_schema :=  schema_name
+               , have_columns :=  FALSE
+               , columns :=       RECORD[]
+            FROM trans->GetTableListing(schema_name)
+        ORDER BY table_name;
+  }
+  RETURN schemata[spos.position].tables;
+}
+
+STRING FUNCTION MapAction(STRING indata)
+{
+  SWITCH (indata)
+  {
+    CASE "a"  { RETURN "no action"; }
+    CASE "r"  { RETURN "restrict"; }
+    CASE "c"  { RETURN "cascade"; }
+    CASE "n"  { RETURN "set null"; }
+    CASE "d"  { RETURN "set default"; }
+  }
+  RETURN "";
+}
+
+
+RECORD ARRAY FUNCTION GetCachableColumns(OBJECT trans, STRING schemaname, STRING tablename, INTEGER table_oid)
+{
+  SCHEMA catalog LIKE postgresql_pg_catalog;
+  catalog := BindTransactionToSchema(trans->id, "pg_catalog");
+  SCHEMA is LIKE postgresql_information_schema;
+  is := BindTransactionToSchema(trans->id, "information_schema");
+
+  RECORD ARRAY constraints := trans->__ExecSQL(
+      `SELECT conrelid
+            , contype
+            , confrelid
+            , conkey
+            , conname
+            , confdeltype
+            , pg_get_constraintdef(oid) AS check_expression
+         FROM pg_catalog.pg_constraint
+        WHERE conrelid = $1
+          AND array_length(conkey, 1) = 1`, [ args := VARIANT[ table_oid ] ]);
+
+  RECORD ARRAY refdtables :=
+      SELECT confrelid :=                 pg_class.oid
+           , referenced_table_name :=     relname
+           , referenced_table_schema :=   nspname
+        FROM catalog.pg_class
+           , catalog.pg_namespace
+       WHERE relnamespace = pg_namespace.oid
+         AND pg_class.oid IN (SELECT AS INTEGER ARRAY DISTINCT confrelid FROM constraints WHERE confrelid != 0);
+
+  constraints := JoinArrays(constraints, "confrelid", refdtables,
+      [ referenced_table_name := ""
+      , referenced_table_schema := ""
+      ],
+      [ rightouterjoin := TRUE
+      ]);
+
+  OBJECT sequence_generator := NEW Regex("^nextval\\((.*)\\)$");
+
+  RECORD ARRAY columns :=
+      SELECT TEMPORARY attr_constraints := (SELECT * FROM constraints WHERE constraints.conkey[0] = pg_attribute.attnum)
+           , TEMPORARY foreignkey := (SELECT * FROM attr_constraints WHERE contype = "f")
+           , column_name :=               attname
+           , character_octet_length :=    attlen
+           , character_maximum_length :=  atttypid IN [ 1042, 1043 ] ? atttypmod - 4 : atttypid IN [ 1560, 1562 ] ? atttypmod : 0 // https://stackoverflow.com/questions/52376045/why-does-atttypmod-differ-from-character-maximum-length
+           , is_nullable :=               attnotnull = FALSE
+           , data_type :=                 typname || (atttypid IN [ 1042, 1043 ] ? `(${atttypmod - 4})` : atttypid IN [ 1560, 1562 ] ? `(${atttypmod})` : "")
+           , on_delete :=                 RecordExists(foreignkey) ? MapAction(foreignkey.confdeltype) : ""
+           , is_unique :=                 RecordExists(SELECT FROM attr_constraints WHERE contype = "u" OR contype = "p")
+           , referenced_table_name :=     RecordExists(foreignkey) ? foreignkey.referenced_table_name : ""
+           , referenced_table_schema :=   RecordExists(foreignkey) ? foreignkey.referenced_table_schema : ""
+           , check_expression :=          (SELECT AS STRING COLUMN check_expression FROM attr_constraints WHERE contype = "c")
+           , check_constraint_name :=     (SELECT AS STRING COLUMN conname FROM attr_constraints WHERE contype = "c")
+           , foreignkey_constraint_name := (SELECT AS STRING COLUMN conname FROM attr_constraints WHERE contype = "f")
+        FROM catalog.pg_attribute
+           , catalog.pg_type
+       WHERE attrelid = table_oid
+         AND pg_type.oid = atttypid
+         AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ]; // hide system columns
+
+  RECORD ARRAY is_cols :=
+      SELECT column_name
+           , autonumber_start :=          ToInteger64(identity_minimum, 0)
+           , column_default
+           , sequencename :=              ""
+        FROM is.columns
+       WHERE table_schema = schemaname
+         AND table_name = tablename;
+
+  FOREVERY (RECORD col FROM is_cols)
+  {
+    RECORD ARRAY match := sequence_generator->Exec(col.column_default);
+    IF (RecordExists(match))
+    {
+      RECORD seq := trans->__ExecSQL(
+          `SELECT seqrelid::text AS sequence_name
+                , seqstart
+             FROM pg_catalog.pg_sequence
+            WHERE seqrelid = ${match[1].value}`);
+      is_cols[#col].autonumber_start := RecordExists(seq) ? INTEGER(seq.seqstart) : 0;
+      is_cols[#col].sequencename := seq.sequence_name;
+    }
+  }
+
+  RETURN JoinArrays(columns, "column_name", is_cols, [ autonumber_start := 0i64, column_default := "", sequencename := "" ]);
+}
+
+RECORD ARRAY FUNCTION GetColumns(OBJECT trans, STRING table_schema, STRING table_name)
+{
+  GetTables(trans, table_schema);
+  RECORD spos := RecordLowerBound(schemata, CELL[ schema_name := table_schema ], [ "SCHEMA_NAME" ]);
+  IF (NOT spos.found)
+    RETURN RECORD[];
+  RECORD tpos := RecordLowerBound(schemata[spos.position].tables, CELL[ table_name ], [ "TABLE_NAME" ]);
+  IF (NOT tpos.found)
+    RETURN RECORD[];
+
+  IF (NOT schemata[spos.position].tables[tpos.position].have_columns)
+  {
+    RECORD tablerec := schemata[spos.position].tables[tpos.position];
+    schemata[spos.position].tables[tpos.position].have_columns := TRUE;
+    schemata[spos.position].tables[tpos.position].columns :=
+        SELECT *
+             , table_id :=      tablerec.object_id
+             , table_schema :=  table_schema
+             , table_name :=    table_name
+          FROM GetCachableColumns(trans, table_schema, table_name, schemata[spos.position].tables[tpos.position].object_id);
+  }
+  RETURN schemata[spos.position].tables[tpos.position].columns;
+}
+
+RECORD ARRAY FUNCTION GetIndices(OBJECT trans)
+{
+  IF(NOT have_indices)
+  {
+    SCHEMA catalog LIKE postgresql_pg_catalog;
+    catalog := BindTransactionToSchema(trans->id, "pg_catalog");
+
+    allindices := trans->__ExecSQL(`
+SELECT n.nspname AS table_schema
+     , rc.relname AS table_name
+     , ic.relname AS index_name
+     , i.indrelid
+     , i.indisunique
+     , i.indisprimary
+     , i.indkey
+     , i.indclass
+     , i.indoption
+     , pg_get_expr(i.indexprs, i.indrelid) as indexprs
+     , pg_get_expr(i.indpred, i.indrelid) as indpred
+  FROM pg_catalog.pg_index i
+       JOIN pg_catalog.pg_class ic ON indexrelid = ic.oid
+       JOIN pg_catalog.pg_class rc ON indrelid = rc.oid
+       JOIN pg_catalog.pg_namespace n ON rc.relnamespace = n.oid
+`);
+
+    RECORD ARRAY allrefdcols := trans->__ExecSQL(`
+        SELECT a.attrelid
+             , a.attname
+             , a.attnum
+             , a.atttypid
+          FROM pg_catalog.pg_index i
+               JOIN pg_catalog.pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+      ORDER BY a.attrelid, a.attnum`);
+
+    INTEGER ARRAY indclass_ids;
+    FOREVERY (RECORD rec FROM allindices)
+      indclass_ids := indclass_ids CONCAT rec.indclass;
+
+    RECORD ARRAY indclasses :=
+        SELECT oid
+             , opcmethod
+             , opcname
+          FROM catalog.pg_opclass
+         WHERE oid IN GetSortedSet(indclass_ids)
+      ORDER BY oid;
+
+    FOREVERY (RECORD rec FROM allindices)
+    {
+      STRING ARRAY exprs := ParsePostgreSQLExpressionList(rec.indexprs) CONCAT RepeatElement("", LENGTH(rec.indkey));
+      STRING ARRAY preds := ParsePostgreSQLExpressionList(rec.indpred) CONCAT RepeatElement("", LENGTH(rec.indkey));
+
+      RECORD ARRAY cols;
+      INTEGER curexpr;
+      FOREVERY (INTEGER k FROM rec.indkey)
+      {
+        RECORD cpos := RecordLowerBound(indclasses, [ oid := rec.indclass[#k] ], [ "OID" ]);
+        IF (NOT cpos.found)
+          THROW NEW Exception(`Could not find pg_opclass record #${rec.indclass[#k]}`);
+        RECORD apos := RecordLowerBound(allrefdcols, [ attrelid := rec.indrelid, attnum := k ], [ "ATTRELID", "ATTNUM" ]);
+        RECORD attr;
+        IF (apos.found)
+          attr := allrefdcols[apos.position];
+        ELSE IF (k != 0)
+          THROW NEW Exception(`Could not find pg_attribute record (${rec.indrelid}#${k})`);
+        ELSE
+        {
+          curexpr := curexpr + 1;
+        }
+
+        INSERT CELL
+            [ attnum :=         RecordExists(attr) ? attr.attnum : 0
+            , attname :=        RecordExists(attr) ? attr.attname : ""
+            , atttypid :=       RecordExists(attr) ? attr.atttypid : 0
+            , indclass :=       rec.indclass[#k]
+            , indclasses[cpos.position].opcname
+            , indoption :=      rec.indoption[#k]
+            , indexpr :=        k = 0 ? exprs[curexpr - 1] : ""
+            , indpred :=        preds[#k]
+            ] INTO cols AT END;
+      }
+
+      INSERT CELL cols := cols INTO allindices[#rec];
+      DELETE CELL indkey, indoption, indclass FROM allindices[#rec];
+    }
+
+    have_indices := TRUE;
+  }
+  RETURN allindices;
+}
+
+RECORD ARRAY FUNCTION GetTriggers(OBJECT trans)
+{
+  IF(NOT have_triggers)
+  {
+    alltriggers := trans->__ExecSQL(`
+        SELECT n.nspname AS table_schema
+             , rc.relname AS table_name
+             , t.tgname AS triggername
+          FROM pg_catalog.pg_trigger t
+               JOIN pg_catalog.pg_class rc ON tgrelid = rc.oid
+               JOIN pg_catalog.pg_namespace n ON rc.relnamespace = n.oid
+         WHERE t.tgname LIKE 'webhare_%'
+      ORDER BY n.nspname, rc.relname`);
+
+    have_triggers := TRUE;
+  }
+  RETURN alltriggers;
+}
+
+PUBLIC MACRO ClearAllPostgreSQLSchemaCaches()
+{
+  have_schemata := FALSE;
+  have_indices:= FALSE;
+}
+
+STRING FUNCTION EscapeName(STRING name)
+{
+  RETURN `"${EncodeJava(name)}"`;
+}
+
+PUBLIC RECORD FUNCTION GeneratePostgreSQLIndependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
+{
+  OBJECT context := NEW ChangeContext(trans);
+
+  FOREVERY(RECORD schemaspec FROM schemaspecs)
+  {
+    RECORD schemadef := SELECT * FROM GetSchemata(trans) WHERE ToUppercase(schema_name)=ToUppercase(schemaspec.name);
+    IF (NOT RecordExists(schemadef))
+      context->AddTransOp(PTR trans->CreateSchema(schemaspec.name, "", ""));
+  }
+
+  RETURN context->ResultsSoFar();
+}
+
+PUBLIC RECORD FUNCTION GeneratePostgreSQLPostupdateSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
+{
+  OBJECT context := NEW ChangeContext(trans);
+
+  /* Kill obsoleted tables */
+  FOREVERY(RECORD schemaspec FROM schemaspecs)
+  {
+    RECORD ARRAY current_tables := GetTables(trans, schemaspec.name);
+
+    FOREVERY(RECORD tablerec FROM schemaspec.obsoletetables)
+      IF(RecordExists(SELECT FROM current_tables WHERE ToUppercase(table_name) = ToUppercase(tablerec.name)))
+        context->AddTransOp(PTR trans->DropTable(schemaspec.name, tablerec.name));
+  }
+  RETURN context->ResultsSoFar();
+}
+
+/** Transforms a WebHare column definition into PostgreSQL column attrs
+    @param context Change context
+    @param table_schema Table schema
+    @param table_name Table name
+    @param colrec WebHare column record
+    @param primarykey Name of the primary key
+    @return PostgreSQL Column record
+*/
+RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING table_name, RECORD colrec, STRING primarykey)
+{
+  colrec := ValidateOptions(
+      [ autonumberstart :=          0i64
+      , dbtype :=                   ""
+      , defval :=                   ""
+      , isunique :=                 FALSE
+      , maxlength :=                0
+      , name :=                     ""
+      , nullable :=                 FALSE
+      , ondelete :=                 ""
+      , references_schema :=        ""
+      , references_table :=         ""
+      , check :=                    ""
+      ], colrec,
+      [ required := [ "name", "dbtype" ]
+      , discard := [ "internalcolumnname", "noupdate", "documentation", "location" ]
+      ]);
+
+  colrec.dbtype := ToLowercase(colrec.dbtype);
+
+  IF (colrec.name = primarykey)
+    colrec.isunique := TRUE;
+
+  INSERT CELL sequencename := "" INTO colrec;
+  INSERT CELL autonumbersfuncname := "" INTO colrec;
+
+  // Type-specific conversions
+  BOOLEAN validated_defval;
+  SWITCH (colrec.dbtype)
+  {
+    CASE "integer"
+    {
+      IF (colrec.autonumberstart > 0)
+      {
+        IF (colrec.defval != "")
+          context->AddError(`Column ${table_schema}.${table_name}(${colrec.name}) cannot have an autonumber and a default value`);
+        ELSE
+        {
+          colrec.sequencename := `${table_schema}.webhare_seq_${table_name}_${colrec.name}`;
+
+          // Lowercasing the column name because MakeAutoNumber is called with uppercase column names
+          colrec.autonumbersfuncname := `${EscapeName(table_schema)}.${EscapeName(`webhare_autonrs_${table_name}_${ToLowercase(colrec.name)}`)}`;
+          colrec.defval := `(${colrec.autonumbersfuncname}(1))[1]`;
+          validated_defval := TRUE;
+        }
+      }
+    }
+    CASE "datetime"     { colrec.dbtype := "timestamp"; }
+    CASE "string"       { colrec.dbtype := "varchar"; }
+    CASE "integer64"    { colrec.dbtype := "int8"; }
+    CASE "money"        { colrec.dbtype := "numeric"; }
+    CASE "blob"
+    {
+      colrec.dbtype := "webhare_blob";
+
+      // No foreign key for webhare_internal.webhare_blob table
+      IF (table_schema != "webhare_internal" OR table_name != "blob")
+      {
+        colrec.references_schema := "webhare_internal";
+        colrec.references_table := "blob";
+        colrec.ondelete := "no action";
+      }
+      ELSE
+      {
+        colrec.references_schema := "";
+        colrec.references_table := "";
+        colrec.ondelete := "";
+      }
+    }
+  }
+
+  IF (colrec.isunique)
+    colrec.nullable := FALSE;
+
+  // Default/references handling
+  STRING defaultvalue;
+  STRING nullcheck;
+  IF (colrec.references_table = "") // non-referencing column
+  {
+    SWITCH (colrec.dbtype)
+    {
+      CASE "serial"
+         , "bigserial"  { defaultvalue := ``; nullcheck := `((${EscapeName(colrec.name)} <> 0))`; } // already has default by type
+      CASE "integer"
+         , "int8"
+         , "float"
+         , "numeric"    { defaultvalue := `0`; nullcheck := `((${EscapeName(colrec.name)} <> 0))`; }
+      CASE "varchar"    { defaultvalue := `''::text`; nullcheck := `(((${EscapeName(colrec.name)})::text <> ''::text))`; }
+      CASE "boolean"    { defaultvalue := `false`; nullcheck := `((${EscapeName(colrec.name)} <> false))`; }
+      CASE "bytea"      { defaultvalue := `'\\x'::bytea`; nullcheck := `((${EscapeName(colrec.name)} <> '\\x'::bytea))`; }
+      CASE "timestamp"  { defaultvalue := `'-infinity'::timestamp without time zone`; nullcheck := `((${EscapeName(colrec.name)} <> '-infinity'::timestamp without time zone))`; }
+      CASE "webhare_blob" { defaultvalue := ``; }
+      DEFAULT   { ABORT(`No default value for type '${colrec.dbtype}'`); }
+    }
+
+    IF (colrec.defval = "")
+    {
+      colrec.defval := defaultvalue;
+      validated_defval := TRUE;
+    }
+
+    IF (NOT colrec.nullable)
+      colrec.check := nullcheck;
+
+    colrec.nullable := FALSE;
+  }
+  ELSE // reference to other table
+  {
+    // colrec.nullable can be used directly
+    // Default value is NULL, standard insert behaviour
+  }
+
+  IF (colrec.defval != "" AND NOT validated_defval)
+  {
+    IF (colrec.defval != defaultvalue)
+    {
+      STRING accepted_defval;
+      IF (colrec.dbtype IN [ "boolean", "integer", "varchar" ])
+      {
+        SWITCH (colrec.dbtype)
+        {
+          CASE "boolean"
+          {
+            IF (ToLowercase(colrec.defval) IN [ "true", "false" ])
+              accepted_defval := ToLowercase(colrec.defval);
+            ELSE
+              context->AddError(`Invalid default value ${colrec.defval} for column ${table_schema}.${table_name}.${colrec.name}`);
+          }
+          CASE "integer", "int8"
+          {
+            VARIANT decoded := DecodeJSON(colrec.defval);
+            IF (TypeID(decoded) IN [ TypeID(INTEGER), TypeID(INTEGER64) ])
+              accepted_defval := ToString(decoded);
+            ELSE
+              context->AddError(`Invalid default value ${colrec.defval} for column ${table_schema}.${table_name}.${colrec.name}`);
+          }
+          CASE "varchar"
+          {
+            VARIANT decoded := DecodeJSON(colrec.defval);
+            IF (TypeID(decoded) = TypeID(STRING))
+              accepted_defval := `'${SubString(decoded, 1, LENGTH(decoded) - 1)}'`;
+            ELSE
+              context->AddError(`Invalid default value ${colrec.defval} for column ${table_schema}.${table_name}.${colrec.name}`);
+          }
+          DEFAULT
+          {
+            context->AddError(`Cannot validate default values of database type ${colrec.dbtype} for column ${table_schema}.${table_name}.${colrec.name}`);
+          }
+        }
+      }
+      colrec.defval := accepted_defval;
+    }
+  }
+
+  RETURN colrec;
+}
+
+
+STRING FUNCTION GetColumnBaseDef(RECORD colrec)
+{
+  STRING def := `${EscapeName(colrec.name)} ${colrec.dbtype}`;
+  IF (colrec.dbtype = "varchar")
+    def := def || "(" || colrec.maxlength || ")";
+  IF (colrec.isunique)
+    def := def || " UNIQUE";
+  IF (NOT colrec.nullable)
+    def := def || " NOT NULL";
+  IF (colrec.defval != "" AND colrec.sequencename = "") // don't set a nextval() expression immediately
+    def := def || ` DEFAULT ${colrec.defval}`;
+  IF (colrec.check != "")
+    def := def || ` CHECK${colrec.check}`;
+  RETURN def;
+}
+
+MACRO DropColumnFkey(OBJECT context, STRING tableschema, STRING tablename, RECORD colrec)
+{
+  STRING def := `ALTER TABLE ${EscapeName(tableschema)}.${EscapeName(tablename)} DROP CONSTRAINT ${EscapeName(colrec.foreignkey_constraint_name)}`;
+  context->AddCommand(def);
+}
+
+MACRO SetColumnFkey(OBJECT context, STRING tableschema, STRING tablename, RECORD colrec)
+{
+  IF(colrec.references_table="")
+    RETURN;
+
+  STRING def := `ALTER TABLE ${EscapeName(tableschema)}.${EscapeName(tablename)} ADD FOREIGN KEY (${EscapeName(colrec.name)})`;
+  def := def || ` REFERENCES ${EscapeName(colrec.references_schema)}.${EscapeName(colrec.references_table)}`;
+  def := def || ` ON DELETE ${ToUppercase(colrec.ondelete) ?? "NO ACTION"}`;
+  def := def || ` ON UPDATE CASCADE`;
+  def := def || ` INITIALLY DEFERRED`;
+  context->AddCommand(def);
+}
+
+BOOLEAN FUNCTION AreExpressionsEquivalent(STRING frompostgresql, STRING canonical)
+{
+  IF (frompostgresql = canonical)
+    RETURN TRUE;
+
+  // Postgresql quotes only when necessesary. For now, the same expression minus some quotes is good enough.
+  STRING ARRAY parts := Tokenize(canonical, `"`);
+  FOREVERY (STRING part FROM parts)
+  {
+    INTEGER partlen := LENGTH(part);
+    IF (Left(frompostgresql, partlen) = part)
+      frompostgresql := Substring(frompostgresql, partlen);
+    ELSE IF (Left(frompostgresql, partlen + 1) = `"${part}`)
+      frompostgresql := Substring(frompostgresql, partlen + 1);
+    ELSE IF (Left(frompostgresql, partlen + 1) = `"public"."${part}`)
+      frompostgresql := Substring(frompostgresql, partlen + 1);
+    ELSE
+      RETURN FALSE;
+  }
+
+  RETURN frompostgresql = "";
+}
+
+STRING FUNCTION GenerateCreateIndexCommandFromSpec(RECORD schemaspec, RECORD tablerec, RECORD ind, STRING name)
+{
+  // Create the new index
+  STRING cmd := "CREATE ";
+  IF (ind.is_unique)
+    cmd := cmd || "UNIQUE ";
+  cmd := cmd || `INDEX ${EscapeName(name)} ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`;
+  cmd := cmd || "(";
+
+  FOREVERY (RECORD col FROM ind.columns)
+  {
+    IF (#col != 0)
+      cmd := cmd || ", ";
+
+    RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
+    IF (NOT RecordExists(colrec))
+      THROW NEW Exception(`Column '${col.name}'' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
+
+    IF (ind.is_uppercase)
+    {
+      IF (colrec.dbtype = "varchar")
+        IF (colrec.maxlength >= max_varchar_indexcolsize)
+          cmd := cmd || `upper(left((${EscapeName(col.name)})::text, ${max_varchar_indexcolsize}))`;
+        ELSE
+          cmd := cmd || `upper((${EscapeName(col.name)})::text)`;
+      ELSE
+        cmd := cmd || EscapeName(col.name);
+    }
+    ELSE
+    {
+      IF (colrec.dbtype = "varchar" AND colrec.maxlength >= max_varchar_indexcolsize)
+        cmd := cmd || `left(${EscapeName(col.name)}::text, ${max_varchar_indexcolsize})`;
+      ELSE
+        cmd := cmd || EscapeName(col.name);
+    }
+  }
+  cmd := cmd || ")";
+
+  IF (ind.nonullstores)
+  {
+    cmd := cmd || " WHERE ";
+    FOREVERY (RECORD col FROM ind.columns)
+    {
+      IF (#col != 0)
+        cmd := cmd || " AND ";
+      RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
+      IF (NOT RecordExists(colrec))
+        THROW NEW Exception(`Column '${col.name}'' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
+
+      IF (colrec.dbtype = "webhare_blob" OR colrec.references_table != "")
+        cmd := cmd || `(${EscapeName(col.name)} IS NOT NULL)`;
+      ELSE
+        cmd := cmd || `${EscapeName(col.name)} <> ${colrec.defval}`;
+    }
+  }
+
+  RETURN cmd;
+}
+
+PUBLIC MACRO RebuildColumnAutonumberConfig(OBJECT context, STRING schemaname, STRING tablename, RECORD col)
+{
+  // Easier to re-create the sequence, our autonr function will skip over existing ids anyway (rebuild should not happen nilly-will anyway)
+  IF (context->trans->__ExecSQL(`SELECT to_regclass($1)::oid`, [ args := VARIANT[ col.sequencename ] ]).to_regclass != 0)
+    context->AddCommand(`DROP SEQUENCE IF EXISTS ${col.sequencename}`);
+
+  // Wrap at max_integer, but not if the column type is int8
+  context->AddCommand(`CREATE SEQUENCE ${col.sequencename} MINVALUE ${col.autonumberstart}${col.dbtype = "int8" ? "" : " MAXVALUE 2147483647"} START WITH ${col.autonumberstart} CYCLE OWNED BY ${EscapeName(schemaname)}.${EscapeName(tablename)}.${EscapeName(col.name)}`);
+
+  context->AddCommand(`CREATE OR REPLACE FUNCTION ${col.autonumbersfuncname}(count integer) RETURNS ${col.dbtype}[] VOLATILE LANGUAGE plpgsql AS $$
+DECLARE
+  retval ${col.dbtype}[] := '{}';
+  sel ${col.dbtype}[];
+BEGIN
+  WHILE coalesce(array_length(retval, 1), 0) < count LOOP
+    SELECT array_agg(newkey) INTO sel
+      FROM (SELECT nextval('${col.sequencename}'::regclass) AS newkey FROM generate_series(1, count - coalesce(array_length(retval, 1), 0))) AS keys
+ LEFT JOIN ${EscapeName(schemaname)}.${EscapeName(tablename)} tbl ON tbl.${EscapeName(col.name)} = keys.newkey
+     WHERE tbl.${EscapeName(col.name)} IS NULL;
+    retval := retval || sel;
+  END LOOP;
+  RETURN retval;
+END;$$`);
+
+  context->AddCommand(`ALTER TABLE ${EscapeName(schemaname)}.${EscapeName(tablename)} ALTER COLUMN ${EscapeName(col.name)} SET DEFAULT ${col.defval}`);
+}
+
+PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ skipcreateforeignkeys :=  FALSE
+      , skipcreateindices :=      FALSE
+      ], options);
+
+  OBJECT context := NEW ChangeContext(trans);
+
+  RECORD ARRAY fkeys_to_update;
+
+  /* CREATE and ALTER tables (but do NOT set foreign keys) */
+  FOREVERY(RECORD schemaspec FROM schemaspecs)
+  {
+    RECORD ARRAY current_tables := SELECT table_name, object_id FROM GetTables(trans, schemaspec.name);
+
+    FOREVERY(RECORD tablerec FROM schemaspec.tables)
+    {
+      RECORD curtab := SELECT * FROM current_tables WHERE table_name = tablerec.name;
+
+      // Internal columns aren't stored in PostgreSQL
+      DELETE FROM tablerec.cols WHERE internalcolumnname != "";
+
+      // Convert to stuff we can update
+      tablerec.cols :=
+          SELECT AS RECORD ARRAY TransformColumnDef(context, schemaspec.name, tablerec.name, cols, tablerec.primarykey)
+            FROM tablerec.cols;
+
+      IF (RecordExists(curtab))
+      {
+        //FIXME: Verify that columns have the proper properties
+        RECORD ARRAY curcols := GetColumns(trans, schemaspec.name, tablerec.name);
+
+        FOREVERY(RECORD coldef FROM tablerec.cols)
+        {
+          RECORD curcol := SELECT * FROM curcols WHERE column_name = coldef.name;
+          IF(RecordExists(curcol))
+          {
+            //foreign key mismatch?
+            IF (curcol.referenced_table_schema != coldef.references_schema
+                OR curcol.referenced_table_name != coldef.references_table
+                OR (ToUppercase(curcol.on_delete) ?? "NO ACTION") != (ToUppercase(coldef.ondelete) ?? "NO ACTION"))
+            {
+              IF (curcol.referenced_table_name != "")
+                DropColumnFkey(context, schemaspec.name, tablerec.name, curcol);
+              IF(coldef.references_table != "")
+                INSERT INTO fkeys_to_update(schemaname, tablename, colrec) VALUES(schemaspec.name, tablerec.name, coldef) AT END;
+            }
+
+            IF(coldef.nullable != curcol.is_nullable)
+              context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ALTER COLUMN ${EscapeName(coldef.name)}${coldef.nullable ? " DROP NOT NULL" : " SET NOT NULL"}`);
+            IF(coldef.isunique != curcol.is_unique)
+              context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ALTER COLUMN ${EscapeName(coldef.name)}${coldef.isunique ? " SET UNIQUE" : " DROP UNIQUE"}`);
+
+            IF (NOT AreExpressionsEquivalent(curcol.check_expression, coldef.check = "" ? "" : `CHECK ${coldef.check}`))
+            {
+              IF (curcol.check_expression != "")
+                context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} DROP CONSTRAINT ${curcol.check_constraint_name}`);
+              IF (coldef.check != "")
+                context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ADD CHECK ${coldef.check}`);
+            }
+
+            IF (NOT AreExpressionsEquivalent(curcol.column_default, coldef.defval))
+            {
+              PRINT(`Non eq defaults: '${curcol.column_default}' vs '${coldef.defval}'\n`);
+              IF (curcol.column_default != "")
+                context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ALTER COLUMN ${EscapeName(coldef.name)} DROP DEFAULT`);
+              IF (coldef.defval != "")
+              {
+                IF (coldef.autonumbersfuncname != "")
+                  RebuildColumnAutonumberConfig(context, schemaspec.name, tablerec.name, coldef);
+                ELSE
+                  context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ALTER COLUMN ${EscapeName(coldef.name)} SET DEFAULT ${coldef.defval}`);
+              }
+            }
+
+            IF(coldef.dbtype = "varchar" AND coldef.maxlength > curcol.character_maximum_length)
+              context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ALTER COLUMN ${EscapeName(coldef.name)} SET DATA TYPE VARCHAR(${coldef.maxlength})`);
+          }
+          ELSE
+          {
+            IF(coldef.name = tablerec.primarykey)
+            {
+              context->AddError(`Cannot change the primary column of table ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`);
+              CONTINUE;
+            }
+
+            STRING cmd := `ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ADD COLUMN `;
+            cmd := cmd || GetColumnBaseDef(coldef);
+            IF(coldef.references_table != "")
+              INSERT INTO fkeys_to_update(schemaname, tablename,colrec) VALUES(schemaspec.name, tablerec.name, coldef) AT END;
+            context->AddCommand(cmd);
+          }
+        }
+
+        RECORD ARRAY kill_columns := SELECT obsoletecols.*
+                                       FROM tablerec.obsoletecols AS obsoletecols, curcols
+                                      WHERE ToUppercase(obsoletecols.name) = ToUppercase(curcols.column_name);
+        FOREVERY(RECORD coldef FROM kill_columns)
+        {
+          STRING cmd := `ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} DROP COLUMN ${EscapeName(coldef.name)}`;
+          context->AddCommand(cmd);
+        }
+
+        RECORD ARRAY triggers := SELECT * FROM GetTriggers(trans) WHERE table_schema = schemaspec.name AND table_name = tablerec.name;
+        IF (tablerec.legacy_writeaccessmgr != "")
+        {
+          STRING name := `webhare_${tablerec.name}_writeaccess`;
+          IF (NOT RecordExists(SELECT FROM triggers WHERE triggername = name))
+          {
+            context->AddCommand(`
+                CREATE TRIGGER ${EscapeName("webhare_" || tablerec.name || "_writeaccess")}
+                BEFORE INSERT OR UPDATE OR DELETE ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}
+                   FOR EACH ROW
+               EXECUTE FUNCTION ${EscapeName(`webhare_trigger_${schemaspec.name}_${tablerec.name}_writeaccess`)}()`);
+          }
+          DELETE FROM triggers WHERE triggername = name;
+        }
+
+        FOREVERY (RECORD trigger FROM triggers)
+          context->AddCommand(`DROP TRIGGER ${EscapeName(trigger.triggername)} ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`);
+      }
+      ELSE
+      {
+        //Create a table creation command
+        STRING cmd := `CREATE TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`;
+        STRING coldefs;
+        FOREVERY(RECORD col FROM tablerec.cols)
+        {
+          coldefs := coldefs || (coldefs != "" ? "\n, " : "") || GetColumnBaseDef(col);
+          IF (col.name = tablerec.primarykey)
+            coldefs := coldefs || " PRIMARY KEY";
+        }
+        cmd := cmd || "\n( " || coldefs || ")";
+
+        context->AddCommand(cmd);
+
+        // Create/update sequences
+        FOREVERY(RECORD col FROM tablerec.cols)
+        {
+          IF (col.sequencename != "")
+            RebuildColumnAutonumberConfig(context, schemaspec.name, tablerec.name, col);
+
+          IF(col.references_table != "")
+            INSERT INTO fkeys_to_update(schemaname, tablename,colrec) VALUES(schemaspec.name, tablerec.name, col) AT END;
+        }
+
+        FOREVERY(RECORD col FROM tablerec.cols)
+          IF (col.dbtype = "INTEGER" AND col.autonumberstart > 0) // autonumberstart must be handled elsewhere
+            context->AddCommand(`ALTER SEQUENCE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name || "_" || col.name || "_seq")} START WITH ${col.autonumberstart} RESTART`);
+
+        IF (tablerec.legacy_writeaccessmgr != "")
+        {
+          context->AddCommand(`
+              CREATE TRIGGER ${EscapeName("webhare_" || tablerec.name || "_writeaccess")}
+              BEFORE INSERT OR UPDATE OR DELETE ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}
+                 FOR EACH ROW
+             EXECUTE FUNCTION ${EscapeName(`webhare_trigger_${schemaspec.name}_${tablerec.name}_writeaccess`)}()`);
+        }
+      }
+
+      {
+        // Get current indices for the current table
+        RECORD ARRAY current_indices :=
+                                SELECT *
+                                  FROM GetIndices(trans) AS indices
+                                 WHERE table_schema = schemaspec.name
+                                       AND table_name = tablerec.name;
+
+        tablerec.indices :=
+            SELECT *
+                 , useindexname :=    `${tablerec.name}_wh_${name}`
+              FROM tablerec.indices;
+
+        // Add indices for all non-unique foreign keys
+        FOREVERY (RECORD col FROM SELECT * FROM tablerec.cols WHERE references_table != '' AND NOT isunique ORDER BY name)
+        {
+          RECORD declared :=
+              SELECT *
+                FROM tablerec.indices
+               WHERE NOT nonullstores
+                 AND columns[0].name = col.name;
+
+          IF (NOT RecordExists(declared))
+          {
+            INSERT
+                [ useindexname :=     `${tablerec.name}_whfk_${col.name}`
+                , is_unique :=        FALSE
+                , is_uppercase :=     FALSE
+                , nonullstores :=     FALSE
+                , columns :=          [ CELL[ col.name, len := 0 ] ]
+                ] INTO tablerec.indices AT END;
+          }
+        }
+
+        FOREVERY (RECORD ind FROM tablerec.indices)
+        {
+          // Name used for the index in PostgreSQL
+          STRING name := ind.useindexname;
+
+          RECORD old_index := SELECT * FROM current_indices WHERE index_name = name;
+
+          IF (RecordExists(old_index))
+          {
+            // Check if the indexdefinition is identical; if not delete the old index
+            BOOLEAN is_identical := old_index.indisunique = ind.is_unique;
+
+            IF (is_identical AND LENGTH(old_index.cols) != LENGTH(ind.columns))
+              is_identical := FALSE;
+            ELSE
+            {
+              FOREVERY (RECORD col FROM ind.columns)
+              {
+                STRING expr := old_index.cols[#col].indexpr ?? old_index.cols[#col].attname;
+
+                RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
+                IF (NOT RecordExists(colrec))
+                  THROW NEW Exception(`Column '${col.name}'' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
+
+                STRING expect := `${EscapeName(col.name)}`;
+                IF (colrec.dbtype = "varchar" AND colrec.maxlength >= max_varchar_indexcolsize)
+                  expect := `"left"((${expect})::text, ${max_varchar_indexcolsize})`;
+                IF (colrec.dbtype = "varchar" AND ind.is_uppercase)
+                  expect := `upper(${expect LIKE "*::text*"?expect:`(${expect})::text`})`;
+
+                IF (NOT AreExpressionsEquivalent(expr, expect))
+                  is_identical := FALSE;
+              }
+            }
+            IF (NOT is_identical)
+            {
+              STRING cmd := `DROP INDEX ${EscapeName(schemaspec.name)}.${EscapeName(name)}`;
+              context->AddCommand(cmd);
+            }
+            ELSE
+              CONTINUE; // Skip creation step, the old index is identical.
+          }
+
+          IF (options.skipcreateindices)
+            CONTINUE;
+
+          // Create the new index
+          STRING cmd := GenerateCreateIndexCommandFromSpec(schemaspec, tablerec, ind, name);
+          context->AddCommand(cmd);
+        }
+
+        RECORD ARRAY kill_indices := SELECT obsoleteindices.*
+                                       FROM tablerec.obsoleteindices, current_indices
+                                      WHERE ToUppercase(obsoleteindices.name) = ToUppercase(current_indices.index_name);
+        FOREVERY(RECORD indexdef FROM kill_indices)
+        {
+          STRING cmd := `DROP INDEX ${EscapeName(indexdef.name)} ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`;
+          context->AddCommand(cmd);
+        }
+      }
+    }
+
+    /* Reduce impact of obsoleted tables (but physical drop will wait till the real end) */
+    FOREVERY(RECORD tablerec FROM schemaspec.obsoletetables)
+      IF(RecordExists(SELECT FROM current_tables WHERE table_name = tablerec.name))
+      {
+        RECORD ARRAY refercolumns := SELECT column_name
+                                       FROM GetColumns(trans, schemaspec.name, tablerec.name)
+                                      WHERE referenced_table_name!="";
+        FOREVERY(RECORD refcol FROM refercolumns)
+          DropColumnFkey(context, schemaspec.name, tablerec.name, refcol);
+
+        // Get current indices for the current table
+        RECORD ARRAY referindices := SELECT index_name
+                                       FROM GetIndices(trans)
+                                      WHERE table_schema = schemaspec.name
+                                            AND table_name = tablerec.name
+                              GROUP BY index_name;
+        FOREVERY(RECORD ind FROM referindices)
+        {
+          STRING cmd := `DROP INDEX ${EscapeName(ind.index_name)} ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`;
+          context->AddCommand(cmd);
+        }
+      }
+  }
+
+  IF (NOT options.skipcreateforeignkeys)
+  {
+    /* Apply all foreign key contraints */
+    FOREVERY(RECORD fkey FROM fkeys_to_update)
+      SetColumnFkey(context, fkey.schemaname, fkey.tablename, fkey.colrec);
+  }
+
+  RETURN context->ResultsSoFar();
+}
+
+PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ withimplicitindices := FALSE ], options);
+
+  ClearAllPostgreSQLSchemaCaches();
+
+  OBJECT sequence_generator := NEW Regex("^nextval\\((.*)\\)|\\(([^.]*\\.webhare_autonrs_.*)\\(1\\)\\)\\[1\\]$");
+
+  RECORD schemainfo := SELECT * FROM GetSchemata(trans) WHERE ToUppercase(schema_name) = ToUppercase(schemaname);
+  IF (NOT RecordExists(schemainfo))
+    RETURN DEFAULT RECORD;
+
+  RECORD schemadef :=
+      [ name :=               schemainfo.schema_name
+      , tables :=             RECORD[]
+      , obsoletetables :=     RECORD[]
+      ];
+
+  FOREVERY(RECORD tablerec FROM (SELECT * FROM GetTables(trans, schemaname) ORDER BY table_name))
+  {
+    RECORD tabledef :=
+        [ name :=                   tablerec.table_name
+        , primarykey :=             tablerec.primary_key_name
+        , cols :=                   RECORD[]
+        , obsoletecols :=           RECORD[]
+        , indices :=                RECORD[]
+        , obsoleteindices :=        RECORD[]
+        , legacy_readaccessmgr :=   ""
+        , legacy_writeaccessmgr :=  ""
+        , parentlinkcolumn :=       ""
+        ];
+
+    IF (schemainfo.schema_name = "system" AND tablerec.table_name IN [ "fs_objects", "sites" ])
+      tabledef.legacy_writeaccessmgr := "WEBHARE";
+
+    RECORD ARRAY columns :=
+        SELECT *
+          FROM GetColumns(trans, schemaname, tablerec.table_name)
+      ORDER BY column_name = tablerec.primary_key_name DESC, column_name;
+
+    FOREVERY(RECORD col FROM columns)
+    {
+      RECORD coldef :=
+          [ name :=                     col.column_name
+          , dbtype :=                   ToUppercase(col.data_type)
+          , defval :=                   ""
+          , internalcolumnname :=       ""
+          , isunique :=                 col.is_unique
+          , nullable :=                 FALSE
+          , noupdate :=                 FALSE
+          , ondelete :=                 ""
+          , references_schema :=        ""
+          , references_table :=         ""
+          ];
+
+      SWITCH (ToLowercase(coldef.dbtype))
+      {
+        CASE "bool"           { coldef.dbtype := "BOOLEAN"; }
+        CASE "int4"           { coldef.dbtype := "INTEGER"; }
+        CASE "int8"           { coldef.dbtype := "INTEGER64"; }
+        CASE "float8"         { coldef.dbtype := "FLOAT"; }
+        CASE "timestamp"      { coldef.dbtype := "DATETIME"; }
+        CASE "numeric"        { coldef.dbtype := "MONEY"; }
+        CASE "webhare_blob"   { coldef.dbtype := "BLOB"; }
+        DEFAULT
+        {
+          IF (ToLowercase(coldef.dbtype) LIKE "varchar(*")
+          {
+            coldef.dbtype := "VARCHAR";
+            col.data_type := "varchar";
+          }
+        }
+      }
+
+      IF (col.referenced_table_name!="" AND col.data_type != "webhare_blob")
+      {
+        coldef.references_schema := col.referenced_table_schema;
+        coldef.references_table := col.referenced_table_name;
+        coldef.ondelete := col.on_delete = "no action" ? "" : col.on_delete;
+      }
+
+      IF (col.column_name != tablerec.primary_key_name)
+      {
+        coldef.isunique := col.is_unique;
+        coldef.nullable := (col.referenced_table_schema != "" ? col.is_nullable : col.check_expression = "") AND NOT col.is_unique;
+      }
+
+      INTEGER autonumberstart;
+      IF (col.column_default != "")
+      {
+        STRING encoded_defval;
+        BOOLEAN is_null_default;
+        SWITCH (col.data_type)
+        {
+          CASE "bool"
+          {
+            IF (ToLowercase(col.column_default) = "true")
+              encoded_defval := ToUppercase(col.column_default);
+            ELSE
+              is_null_default := ToLowercase(col.column_default) = "false";
+          }
+          CASE "int4", "int8", "float8", "numeric"
+          {
+            IF (ToInteger64(col.column_default, 0) != 0)
+              encoded_defval := col.column_default;
+            ELSE
+            {
+              is_null_default := col.column_default = "0" OR col.column_default LIKE "nextval(*" OR col.column_default LIKE "*.webhare_autonrs_*";
+
+              RECORD ARRAY match := sequence_generator->Exec(col.column_default);
+              IF (RecordExists(match))
+              {
+                STRING sequencename := match[1].value;
+                IF (sequencename = "")
+                  sequencename := `'${Substitute(match[2].value, ".webhare_autonrs_", ".webhare_seq_")}'::regclass`;
+
+                RECORD seq := trans->__ExecSQL(`SELECT seqrelid, seqstart FROM pg_catalog.pg_sequence WHERE seqrelid = ${sequencename}`);
+                autonumberstart := RecordExists(seq) ? INTEGER(seq.seqstart) : 0;
+              }
+            }
+          }
+          CASE "varchar"
+          {
+            IF (col.column_default = `''::text`)
+              is_null_default := TRUE;
+            ELSE IF (col.column_default LIKE `'*'::text`)
+              encoded_defval := Left(col.column_default, LENGTH(col.column_default) - 6);
+          }
+          CASE "bytea"
+          {
+            IF (col.column_default = `'\\x'::bytea`)
+              is_null_default := TRUE;
+            ELSE IF (col.column_default LIKE `'*'::bytea`)
+              encoded_defval := Left(col.column_default, LENGTH(col.column_default) - 7);
+          }
+          CASE "timestamp"
+          {
+            IF (col.column_default = `'-infinity'::timestamp without time zone`)
+              is_null_default := TRUE;
+          }
+        }
+
+        IF (encoded_defval != "")
+          coldef.defval := encoded_defval;
+        ELSE IF (NOT is_null_default)
+          ABORT(`Do not support default value '${EncodeValue(col.column_default)}' for type '${col.data_type}'`);
+      }
+
+      IF (coldef.dbtype = "VARCHAR")
+        INSERT CELL maxlength := col.character_maximum_length INTO coldef;
+      IF (coldef.dbtype = "INTEGER")
+        INSERT CELL autonumberstart := autonumberstart INTO coldef;
+
+      INSERT coldef INTO tabledef.cols AT END;
+    }
+
+    RECORD ARRAY current_indices :=
+        SELECT *
+             , is_implicit :=   index_name NOT LIKE `${tabledef.name}_wh_*`
+          FROM GetIndices(trans) AS indices
+         WHERE table_schema = schemadef.name
+           AND table_name = tabledef.name
+           AND (options.withimplicitindices ? TRUE : index_name LIKE `${tabledef.name}_wh_*`)
+           ;
+
+    FOREVERY (RECORD ind FROM current_indices)
+    {
+      RECORD indexdef :=
+          [ name :=           ind.is_implicit ? ind.index_name : SubString(ind.index_name, LENGTH(`${tabledef.name}_wh_`))
+          , is_implicit :=    ind.is_implicit
+          , is_unique :=      ind.indisunique
+          , is_uppercase :=   FALSE
+          , cols :=           RECORD[]
+          ];
+
+      INTEGER exprpos;
+
+      FOREVERY (RECORD col FROM ind.cols)
+      {
+        IF (col.attnum != 0)
+          INSERT [ name := col.attname, len := 0 ] INTO indexdef.cols AT END;
+        ELSE
+        {
+          STRING expr := ParsePostgreSQLExpressionList(ind.indexprs)[exprpos];
+          exprpos := exprpos + 1;
+          IF (expr NOT LIKE `upper((*)::text)` AND expr NOT LIKE `upper("left"((*)::text, *))` AND expr NOT LIKE `"left"((*)::text, *)`)
+            THROW NEW Exception(`Could not parse index expression '${expr}'`);
+          INSERT [ name := SubString(expr, 7, LENGTH(expr) - 15), len := 0 ] INTO indexdef.cols AT END;
+          indexdef.is_uppercase := expr LIKE "upper(*)";
+        }
+      }
+
+      INSERT indexdef INTO tabledef.indices AT END;
+    }
+
+    INSERT tabledef INTO schemadef.tables AT END;
+  }
+
+  RETURN schemadef;
+}
+
+/** Calculate the path of a blob parent folder
+    @param blobroot Root of the blob folder
+    @param blobid Id of the blob
+    @return Path to the blob storage location
+*/
+PUBLIC STRING FUNCTION GetBlobDir(STRING blobroot, INTEGER blobid)
+{
+  INTEGER mainfolder := blobid BITRSHIFT 24;
+  INTEGER subfolder := (blobid BITRSHIFT 12) BITAND 4095;
+
+  RETURN `${blobroot}/${mainfolder = 0 ? "blob" : `blob-${mainfolder}`}/${subfolder}/`;
+}
+
+/** Creates a new writable blob file in a blob root
+    @return
+    @cell return.fileid File handle of the newly created blob file. Write the blob contents to this handle.
+    @cell return.blobid Id of the blob
+    @cell return.trypath Path of the blob file
+*/
+PUBLIC RECORD FUNCTION AllocateBlobFile(STRING blobroot)
+{
+  /* Lock within this process, nothing to win by running concurrently
+     This will block the job thread when invoked from C++ code (which is
+     usually the case, called by the postgresql driver)
+  */
+  OBJECT lock := OpenLocalLockManager()->LockLocalMutex("system:blobfileallocation");
+
+  RECORD cached := LookupAdhocCached(CELL[ "nextblobidstate", blobroot ]);
+  RECORD state := RecordExists(cached) ? cached.value :
+      [ nextid :=     1
+      , freerange :=  0
+      ];
+
+  TRY
+  {
+    WHILE (TRUE)
+    {
+      INTEGER tryid;
+
+      // Shortcut!
+      IF (state.freerange > 0)
+      {
+        state.freerange := state.freerange - 1;
+        state.nextid := state.nextid + 1;
+        tryid := state.nextid - 1;
+      }
+      ELSE
+      {
+        // Go scan blob directories
+        WHILE (TRUE)
+        {
+          STRING blobdir := GetBlobDir(blobroot, state.nextid);
+          INTEGER ARRAY files :=
+              SELECT AS INTEGER ARRAY TEMPORARY id := ToInteger(name, 0)
+                   , id
+                FROM ReadDiskDirectory(blobdir, "*")
+               WHERE ToInteger(name, -1) >= state.nextid
+            ORDER BY id;
+
+          RECORD pos := LowerBound(files, state.nextid);
+          IF (NOT pos.found OR LENGTH(files) - pos.position != 4096 - (state.nextid BITAND 4095))
+          {
+            // There is a gap in the list of files! Find it, use the first element and save the rest
+            RECORD gaprange := __FindFirstGapInSet(files, state.nextid, (state.nextid BITOR 4095) + 1);
+
+            state :=
+                [ nextid :=     gaprange.rangestart + 1
+                , freerange :=  gaprange.rangelimit - gaprange.rangestart - 1
+                ];
+
+            tryid := gaprange.rangestart;
+            BREAK;
+          }
+          ELSE
+          {
+            // Advance to next directory
+            state.nextid := (state.nextid BITOR 4095) + 1;
+          }
+        }
+      }
+
+
+      STRING blobdir := GetBlobDir(blobroot, tryid);
+      IF ((tryid BITAND 4095) = 0 OR tryid = 1) // check if the directory actually exists
+      {
+        IF (NOT CreateDiskDirectoryRecursive(blobdir, TRUE))
+        {
+          RECORD props := GetDiskFileProperties(blobdir);
+          IF (NOT RecordExists(props) OR props.type != 1)
+            ABORT(`Could not create/open blob directory ${blobdir}\n`);
+        }
+      }
+
+      // Open file with create-only, so only 1 of concurrent creates will succeed
+      STRING trypath := MergePath(blobdir, ToString(tryid));
+      INTEGER fileid := CreateDiskFile(trypath, TRUE, TRUE);
+      IF (fileid != 0)
+        RETURN CELL[ fileid, blobid := tryid, trypath ];
+
+      // This id didn't work. Current state is already setup to try the next one, so try again.
+    }
+  }
+  FINALLY
+  {
+    StoreAdhocCached(CELL[ "nextblobidstate", blobroot ], [ ttl := 60 * 60 * 1000, value := state, eventmasks := [ "system:blobstore.idstate" ] ]);
+    lock->Close();
+  }
+}
+
+MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+
+/** Places a new blob into blob storage, annotates the blob with the location
+    @param transaction PostgreSQL transaction
+    @param blobfolder Blob folder
+    @param data Blob to store
+    @private This function is only called by C++ code, should not be used by user code
+*/
+PUBLIC MACRO __StoreNewWebharePostgreSQLBlob(INTEGER transaction, STRING blobfolder, BLOB data)
+{
+  RECORD allocres := AllocateBlobFile(blobfolder);
+  SendBlobTo(allocres.fileid, data);
+  CloseBlobFile(allocres.fileid);
+
+  __PGSQL_SETUPLOADEDBLOBINTERNALID(transaction, data, ToString(allocres.blobid));
+}
+
+/** Called when a blob isn't found by the builtin folder resolution, must return a registered blob
+*/
+PUBLIC BLOB FUNCTION __LookupWebharePostgreSQLBlob(INTEGER transaction, STRING blobfolder, STRING blobid, INTEGER64 bloblength)
+{
+  // For now, no alternative lookup has been defined
+  THROW NEW Exception(`Could not locate blob '${EncodeValue(blobid)}' with length ${bloblength} in the PostgreSQL blob folder`);
+}
+

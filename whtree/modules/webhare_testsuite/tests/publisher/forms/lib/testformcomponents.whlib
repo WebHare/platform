@@ -1,0 +1,258 @@
+<?wh
+
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/conditions.whlib";
+LOADLIB "mod::publisher/lib/webtools/formcomponents/textedit.whlib";
+
+
+
+PUBLIC OBJECTTYPE TestSuiteHandler EXTEND FormHandlerBase
+<
+  UPDATE PUBLIC MACRO PrepareRendering()
+  {
+    FOREVERY(RECORD field FROM this->form->ListFields())
+      IF(field.obj->title="Email" AND field.obj->value="")
+        field.obj->value := "test@beta.webhare.net";
+  }
+  UPDATE PUBLIC MACRO ValidateForm(OBJECT work)
+  {
+    INSERT CELL testsuitehandler := "TSHANDLER-42" INTO this->form->pagedata;
+  }
+  PUBLIC STRING FUNCTION GetSettingX()
+  {
+    RETURN this->settings.x;
+  }
+>;
+
+PUBLIC RECORD FUNCTION parsetestsuitehandler(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := CELL[ ...fielddef
+                  , x := node->GetAttribute("x")
+                  ];
+  RETURN fielddef;
+}
+
+PUBLIC OBJECTTYPE TSLineCompField EXTEND ComposedFormFieldBase
+<
+  OBJECT field1;
+  OBJECT field2;
+  OBJECT customselect;
+
+  PUBLIC PROPERTY value(GetValue,SetValue);
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : ComposedFormFieldBase(form, parent, field)
+  {
+    this->field1 := this->CreateSubField("textedit", "field1");
+    this->field1->title := "TS Field1";
+    this->field2 := this->CreateSubField("textedit", "field2");
+    this->field2->title := "TS Field2";
+    this->customselect := this->CreateSubField("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#customselect", "customselect");
+    this->customselect->title := "TS CustomSelect";
+    this->SetupComposition( [ this->field1, this->field2, this->customselect ]);
+  }
+
+  UPDATE PUBLIC MACRO PreinitComponent()
+  {
+    //Prove we can access the testsuite handler
+    OBJECT ARRAY testsuitehandler := this->form->GetHandlers("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#testsuitehandler");
+    IF(Length(testsuitehandler) = 1)
+      this->field1->value := testsuitehandler[0]->GetSettingX();
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    RETURN [[ title := this->title || " (1)"
+            , name := "value_1"
+            , type := "text"
+            ]
+           ,[ title := this->title || " (2)"
+            , name := "value_2"
+            , type := "text"
+            ]
+           ,[ title := this->title || " (CS)"
+            , name := "value_cs"
+            , type := "text"
+            ]
+           ];
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    //delegate the customselect values to there
+    RECORD ARRAY inputvalues_for_customselect := SELECT *, value := value.customselect FROM inputvalues;
+    inputvalues_for_customselect := this->customselect->EnrichWithFormattedResults(exportoptions, inputvalues_for_customselect);
+
+    //merge into our results
+    RETURN SELECT formresult, value_1 := value.field1, value_2 := value.field2, value_cs := inputvalues_for_customselect[#inputvalues].value FROM inputvalues;
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetComposableData()
+  {
+    RECORD base := ComposedFormFieldBase::GetComposableData();
+    INSERT CELL tslang := this->form->formlanguagecode INTO base;
+    INSERT CELL customselect_witty := this->customselect->GetComposableData() INTO base;
+    RETURN base;
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    RETURN CELL [ field1 := this->field1->value, field2 := this->field2->value, customselect := this->customselect->value ];
+  }
+  MACRO SetValue(RECORD val)
+  {
+    val := ValidateOptions([field1 := "", field2 := "", customselect := ""],val);
+    this->field1->value := val.field1;
+    this->field2->value := val.field2;
+    this->customselect->value := val.customselect;
+  }
+
+>;
+
+PUBLIC OBJECTTYPE TSCustomCompField EXTEND FormFieldBase
+<
+  PUBLIC PROPERTY value(GetValue,SetValue);
+  OBJECT sub;
+  BOOLEAN c1;
+  BOOLEAN c2;
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+    this->sub := this->CreateSubField("textedit", "sub");
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    RETURN CELL [ this->c1, this->c2, subvalue := this->sub->value ];
+  }
+  MACRO SetValue(RECORD val)
+  {
+    val := ValidateOptions([c1 := FALSE, c2 := FALSE, subvalue := ""], val);
+    this->c1 := val.c1;
+    this->c2 := val.c2;
+    this->sub->value := val.subvalue;
+  }
+
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    this->c1 := "val1" IN jsdata;
+    this->c2 := "val2" IN jsdata;
+  }
+  UPDATE PUBLIC MACRO RenderFieldContent()
+  {
+    RECORD renderdata := CELL[ ...this->GetBaseRenderData()
+                             , ...this->value
+                             ];
+
+    EmbedWittyComponent(Resolve("testformcomponents.witty:tscustomcompfield"), renderdata);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->c2)
+      work->AddErrorFor(this, "Kies de 2e optie. Sub: " || this->sub->value);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE CustomSelectField EXTEND SelectFormFieldBase
+<
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : SelectFormFieldBase(form, parent, field)
+  {
+    this->groupclasses := ["wh-testsuite-customselect-groupclasses"];
+    this->selectfield->options := this->GetCountryOptions();
+  }
+  RECORD ARRAY FUNCTION GetCountryOptions()
+  {
+    RETURN [[ title := "", rowkey := "", selected := FALSE, enabled := FALSE ]
+           ,[ htmltitle := "A<b>b</b>c", title := "Abc", rowkey := "abc", selected := FALSE, enabled := TRUE ]
+           ,[ htmltitle := "Language = <b>" || EncodeValue(this->form->formlanguagecode) || "</b>", rowkey := "lang-" || this->form->formlanguagecode, selected := FALSE, enabled := TRUE ]
+           ];
+  }
+>;
+
+PUBLIC OBJECTTYPE TwoLevelField EXTEND ComposedFormFieldBase
+<
+  PUBLIC OBJECT field1;
+  PUBLIC OBJECT field2;
+
+  PUBLIC PROPERTY value(GetValue,SetValue);
+  BOOLEAN throwsomething;
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : ComposedFormFieldBase(form, parent, field)
+  {
+    this->field1 := this->CreateSubField("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#customselect", "customselect");
+    this->field1->title := "TW Customselect";
+    this->field2 := this->CreateSubField("textedit", "textedit");
+    this->field2->title := "TS Textedit";
+    this->field2->visiblecondition := FCIsSet(this->field1);
+    this->SetupComposition( [ this->field1, this->field2 ]);
+  }
+  RECORD FUNCTION GetValue()
+  {
+    RETURN CELL [ field1 := this->field1->value
+                , field2 := this->field2->value
+                , throwsomething := this->throwsomething
+                ];
+  }
+  MACRO SetValue(RECORD inval)
+  {
+    inval := CELL[...this->GetValue(), ...inval];
+    this->field1->value := inval.field1;
+    this->field2->value := inval.field2;
+    this->throwsomething := inval.throwsomething;
+  }
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    ABORT("The arraytests expect this field to remain 'transparent' - it should never send or receive JS data itself (as arraytest had trouble picking up subfields of a field that didn't get submitted itself");
+  }
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(RecordExists(this->value) AND this->value.throwsomething)
+      THROW NEW Exception("throwsomething was present in the value record");
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MatchAttributes_Type1 EXTEND TextEditFieldBase
+<
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : TextEditFieldBase(form, parent, field)
+  {
+    this->groupclasses := ["wh-testsuite-matchattributes-type1"];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MatchAttributes_Type2_True EXTEND TextEditFieldBase
+<
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : TextEditFieldBase(form, parent, field)
+  {
+    this->groupclasses := ["wh-testsuite-matchattributes-type2-true"];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MatchAttributes_Type2_False EXTEND TextEditFieldBase
+<
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : TextEditFieldBase(form, parent, field)
+  {
+    this->groupclasses := ["wh-testsuite-matchattributes-type2-false"];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ExtraDataField EXTEND SelectFormFieldBase
+<
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : SelectFormFieldBase(form, parent, field)
+  {
+    this->selectfield->rowkeytype := "integer";
+    this->selectfield->options :=
+        [ [ rowkey := -1, title := "First group",   isoptgroup := TRUE ]
+        , [ rowkey := 1,  title := "First option",  extrafields := [ optgroup := 1 ] ]
+        , [ rowkey := 2,  title := "Second option", extrafields := [ optgroup := 1 ] ]
+        , [ rowkey := -2, title := "Second group",  isoptgroup := TRUE ]
+        , [ rowkey := 3,  title := "Third option",  extrafields := [ optgroup := 2 ] ]
+        ];
+  }
+>;

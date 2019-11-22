@@ -1,0 +1,82 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components">
+
+  <!-- unit tree -->
+  <fragment name="unittree" lib="screens/userrights/parts/unittree.whlib" gid="userrights.unittree">
+    <actions gid="userrights.actions">
+      <action name="newrole" tid=".newrole" hinttid=".newrole-hint" onexecute="doaddrole" ellipsis="true">
+        <enableon source="unitlist" min="1" max="1" checkflags="canmanageroles !isroot" />
+      </action>
+
+      <action name="newunit" tid=".newunit" hinttid=".newunit-hint" onexecute="doaddunit" ellipsis="true">
+        <enableon source="unitlist" min="1" max="1" checkflags="canmanageunit" />
+      </action>
+
+      <action name="newuser" hinttid=".newuser-hint" onexecute="doadduser" ellipsis="true">
+        <enableon source="unitlist" min="1" max="1" checkflags="canmanageunit" />
+      </action>
+
+      <action name="exportusersinunit" onexecute="doexportusersinunit"  ellipsis="true">
+        <enableon source="unitlist" min="1" max="1" checkflags="canmanageunit" />
+      </action>
+
+      <action name="move" hinttid=".move-hint" ellipsis="true">
+        <enableon source="unitlist" min="1" max="1" checkflags="candelete" onexecute="domoveunitfromunitlist" />
+      </action>
+
+      <action name="delete" hinttid=".delete-hint" shortcut="del">
+        <enableon source="unitlist" min="1" max="1" checkflags="candelete" onexecute="dodeleteunit" requirefocus="true" />
+      </action>
+
+      <action name="edit" hinttid=".edit-hint">
+        <enableon source="unitlist" min="1" max="1" checkflags="canmanageunit !isroot" onexecute="doeditunit" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="selectcontextmenu">
+        <item action="newunit" disablemode="hidden" />
+        <item action="newuser" disablemode="hidden" />
+        <item action="newrole" disablemode="hidden" />
+        <divider />
+        <item action="exportusersinunit" disablemode="hidden" />
+        <divider />
+        <item action="move" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
+        <divider/>
+        <item action="edit" disablemode="hidden" />
+      </menu>
+
+    </menus>
+
+    <contents>
+      <list name="unitlist"
+            onselect="onselecthandler"
+            selectmode="single"
+            columnheaders="true"
+            openaction="edit"
+            flags="canmanageunit canmanageroles candelete isroot"
+            icons="tollium:users/user tollium:users/users tollium:users/mask tollium:actions/search"
+            selectcontextmenu="selectcontextmenu"
+            rowkeytype="integer"
+            borders="all"
+            >
+
+        <acceptdrops ondrop="ontypeddrop">
+          <accepttype type="system:unit" targetflags="canmanageunit" sourceflags="candelete" dropeffects="move" noloops="true" />
+          <accepttype type="system:role" targetflags="canmanageroles" sourceflags="candelete" dropeffects="move" requiretarget="true" />
+          <accepttype type="system:user" targetflags="canmanageunit" sourceflags="candelete" dropeffects="move" requiretarget="true" />
+        </acceptdrops>
+
+        <column name="title"
+                tid=".units"
+                type="text"
+                tree="true"
+                iconname="icon" />
+
+      </list>
+    </contents>
+  </fragment>
+
+</screens>

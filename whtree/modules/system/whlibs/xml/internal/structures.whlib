@@ -1,0 +1,1276 @@
+﻿<?wh
+
+/* this library contains the structures from the xmlschema specification
+
+http://www.w3.org/TR/xmlschema-1/
+*/
+
+/** @topic xml/schema
+    @public
+    @loadlib wh::xml/validation.whlib
+    @short Value that is used to indicate an unbounded nr of elements (value 'unbounded' in minOccurs/maxOccurs)
+*/
+PUBLIC CONSTANT INTEGER unbounded_max_int := 2147483647;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDComponent
+//
+//------------------------------------------------------------------------------
+
+/** This objecttype is the base for XML components
+*/
+OBJECTTYPE XSDComponent
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// ID with which this component has been registered in the XSD parser
+  INTEGER pvt_id;
+
+
+  /// Local name
+  STRING pvt_name;
+
+
+  /// Target namespace
+  STRING pvt_namespaceuri;
+
+
+  /// Filename of the XSD schema that introduced this component
+  STRING pvt_xsdfilename;
+
+
+  /// Type of this component
+  STRING pvt_type;
+
+
+  /// Annotations for the this schema element (immediate). Type: OBJECT< XSDAnnotation > ARRAY
+  OBJECT ARRAY pvt_annotations;
+
+
+  /// relevant XML node from which this compont was parsed
+  PUBLIC OBJECT pvt_xmlnode;
+
+
+  /// Registered in toplevel
+  BOOLEAN pvt_registered_toplevel;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public (but still internal) variables
+  //
+
+  /** Data that is used by the parser to store data internally
+      @cell dependencies List of dependent objects (OBJECT ARRAY)
+      @cell dependencies_checked Indicates whether this node's properties have been fully constructed (and won't change anymore) (BOOLEAN)
+      @cell order_deps FIXME: describe (OBJECT ARRAY)
+      @cell order_rdeps FIXME: describe (OBJECT ARRAY)
+      @cell any_dep_processed FIXME: describe (BOOLEAN)
+      @cell place_in_path FIXME: describe (BOOLEAN)
+      @cell is_root Set when this node has to be handled as root (true for all starting nodes + all nodes within a cycle) (BOOLEAN)
+      @cell is_finished FIXME: describe (BOOLEAN)
+      @cell unresolved Whether this component is unresolved (BOOLEAN, optional)
+  */
+  PUBLIC RECORD parser_control;
+
+
+  /** Data that is used by the structures to build property data in the property construction phase
+      FIXME: describe content
+  */
+  PUBLIC RECORD local_data;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Name of the component (not present in all component types, but lots of them have it)
+  PUBLIC PROPERTY name(pvt_name, -);
+
+  /// Namespace of the component (not present in all component types, but lots of them have it)
+  PUBLIC PROPERTY target_namespace(pvt_namespaceuri, -);
+
+  /// Filename of the XSD schema that introduced this component
+  PUBLIC PROPERTY xsdfilename(pvt_xsdfilename, -);
+
+  /// Type of the component (name of component, prefixed with "XSD_" (examples: XSD_SIMPLETYPE, XSD_COMPLEXTYPE, XSD_ELEMENT))
+  PUBLIC PROPERTY type(pvt_type, -);
+
+
+  /// Annotations for the this schema element (immediate). Type: OBJECT< XSDAnnotation > ARRAY
+  PUBLIC PROPERTY annotations(pvt_annotations, pvt_annotations);
+
+
+  /// XML node from which this component was derived
+  PUBLIC PROPERTY source_xml_node(pvt_xmlnode, -);
+
+
+  /// Component node id (unique id for every component within a parser)
+  PUBLIC PROPERTY id(pvt_id, -);
+
+
+  /// Whether this is a toplevel node (and registered by name/namespace)
+  PUBLIC PROPERTY registered_toplevel(pvt_registered_toplevel, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, STRING type, OBJECT sourcenode, STRING xsd_filename)
+  {
+    this->pvt_id := xsdparser->RegisterXSDComponentObject(PRIVATE this);
+    this->pvt_namespaceuri := namespaceuri;
+    this->pvt_name := name;
+    this->pvt_type := type;
+    this->pvt_xmlnode := sourcenode;
+    this->pvt_xsdfilename := xsd_filename;
+    this->parser_control :=
+      [ /// List of references objects
+        dependencies := DEFAULT OBJECT ARRAY
+
+        /// Indicates whether this node's properties have been fully constructed (and won't change anymore)
+      , dependencies_checked := FALSE
+
+      , order_deps := DEFAULT OBJECT ARRAY
+      , order_rdeps := DEFAULT OBJECT ARRAY
+      , any_dep_processed := FALSE
+
+      , place_in_path := -1
+
+        // Set when this node has to be handled as root (true for all starting nodes + all nodes within a cycle)
+      , is_root := FALSE
+
+      , is_finished := FALSE
+      ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Internal interface
+  //
+
+  /** Called when the parsing phase has ended, the structure must resolve ALL its xsdcomponent-derived object
+      references by using xsdparser->ResolveObject(this, node). This will auto-register dependencies in the parser_control
+      structure. Will only be called once per structure. Do not forget to do the registration too.
+      @param xsdparser XSD parser
+  */
+  PUBLIC MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+  }
+
+
+  /** Called when parsing phase has ended, and all xml schema elements have been created. In this step,
+      the element must first set as much of the local properties as possible, then resolve all
+      referred objects (using xsdparser->ResolveObject(OBJECT obj)) and then calculate the final
+      property values.
+      The parser will take care of making sure that multiple passes are run when needed.
+      Make sure that the local parts of the properties are STABLE, and occur at the start of property arrays/strings.
+      @param xsdparser XSD parser
+  */
+  PUBLIC MACRO BuildProperties(OBJECT xsdparser)
+  {
+  }
+
+>;
+
+
+/** An schema object contains the information in a XML schema document, and
+    the schemas it has imported.
+
+    Parser fixup mode: parse-pass only, no references are present.
+
+    See https://www.w3.org/TR/xmlschema-1/#declare-schema
+*/
+PUBLIC OBJECTTYPE XSDSchema EXTEND XSDComponent
+<
+  /// XSD parser (private reference)
+  OBJECT xsdparser;
+
+  MACRO NEW(OBJECT xsdparser, OBJECT sourcenode, STRING xsd_filename)
+  : XSDComponent(xsdparser, "", "", "XSD_SCHEMA_INFORMATION_ELEMENT", sourcenode, xsd_filename)
+  {
+    this->xsdparser := xsdparser;
+  }
+
+  /** The simple and complex type definitions corresponding to all the
+      `<simpleType>` and `<complexType>` element information items in the
+      children, if any, plus any included or imported definitions.
+  */
+  PUBLIC PROPERTY type_definitions(GetTypeDefinitions, -);
+
+  /** The (top-level) attribute declarations corresponding to all the
+      `<attribute>` element information items in the children, if any, plus
+      any included or imported declarations.
+  */
+  PUBLIC PROPERTY attribute_declarations(GetAttributeDeclarations, -);
+
+  /** The (top-level) element declarations corresponding to all the `<element>`
+      element information items in the children, if any, plus any included or
+      imported declarations.
+  */
+  PUBLIC PROPERTY element_declarations(GetElementDeclarations, -);
+
+  /** The attribute group definitions corresponding to all the `<attributeGroup>`
+      element information items in the children, if any, plus any included or
+      imported definitions.
+  */
+  PUBLIC PROPERTY attribute_group_definitions(GetAttributeGroupDefinitions, -);
+
+  /** The model group definitions corresponding to all the `<group>` element
+      information items in the children, if any, plus any included or imported
+      definitions.
+  */
+  PUBLIC PROPERTY model_group_definitions(GetModelGroupDefinitions, -);
+
+  /** The notation declarations corresponding to all the `<notation>` element
+      information items in the children, if any, plus any included or imported
+      declarations.
+  */
+  //PUBLIC OBJECT ARRAY notation_declarations; // notations are not implemented yet
+
+  // Returns all nodes of a specific type
+  OBJECT ARRAY FUNCTION GetNodesOfType(STRING ARRAY types)
+  {
+    RETURN
+        SELECT AS OBJECT ARRAY node
+          FROM this->xsd_parser->pvt_registered_nodes
+         WHERE type IN types
+      ORDER BY node->id;
+  }
+
+  OBJECT ARRAY FUNCTION GetTypeDefinitions()
+  {
+    RETURN this->GetNodesOfType([ "DATATYPE", "COMPLEXTYPE" ]);
+  }
+
+  OBJECT ARRAY FUNCTION GetAttributeDeclarations()
+  {
+    RETURN this->GetNodesOfType([ "ATTRIBUTE" ]);
+  }
+
+  OBJECT ARRAY FUNCTION GetElementDeclarations()
+  {
+    RETURN this->GetNodesOfType([ "ELEMENT" ]);
+  }
+
+  OBJECT ARRAY FUNCTION GetAttributeGroupDefinitions()
+  {
+    RETURN this->GetNodesOfType([ "ATTRIBUTEGROUP" ]);
+  }
+
+  OBJECT ARRAY FUNCTION GetModelGroupDefinitions()
+  {
+    RETURN this->GetNodesOfType([ "MODELGROUP" ]);
+  }
+>;
+
+
+/** An annotation object containts the annotation for a specific component
+
+    Parser fixup mode: parse-pass only, no references are present.
+*/
+PUBLIC OBJECTTYPE XSDAnnotation
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// List of appinfo xml elements (immediate)
+  PUBLIC OBJECT ARRAY application_information;
+
+
+  /// List of appinfo document elements (immediate)
+  PUBLIC OBJECT ARRAY user_information;
+
+
+  /** List of attributes (immediate) (not supported yet)
+      @cell namespace
+      @cell name
+      @cell value
+  */
+  PUBLIC RECORD ARRAY attributes;
+
+
+  /// XML node from which this annotation was derived
+  PUBLIC OBJECT xmlnode;
+>;
+
+//------------------------------------------------------------------------------
+//
+// XSDUnresolvedComponentReference
+//
+//------------------------------------------------------------------------------
+
+/** During parsing, some elements cannot be resolved because they haven't been parsed yet
+  This object reference is used instead
+*/
+PUBLIC OBJECTTYPE XSDUnresolvedComponentReference EXTEND XSDComponent
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Lookup type for this reference (FIXME: document)
+  PUBLIC STRING lookuptype;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, STRING lookuptype, OBJECT sourcenode, STRING xsd_filename)
+  : XSDComponent(xsdparser, namespaceuri, name, "XSD_UNRESOLVED_REFERENCE", sourcenode, xsd_filename)
+  {
+    this->lookuptype := lookuptype;
+    INSERT CELL unresolved := TRUE INTO this->parser_control;
+  }
+
+>;
+
+
+
+//------------------------------------------------------------------------------
+//
+// XSDType
+//
+//------------------------------------------------------------------------------
+
+/** This is the base component for both SimpleType and ComplexType
+*/
+PUBLIC OBJECTTYPE XSDType EXTEND XSDComponent
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, STRING type, OBJECT sourcenode, STRING xsd_filename)
+  : XSDComponent(xsdparser, namespaceuri, name, type, sourcenode, xsd_filename)
+  {
+  }
+>;
+
+
+
+//------------------------------------------------------------------------------
+//
+// XSDSimpleType
+//
+//------------------------------------------------------------------------------
+
+/**
+
+http://www.w3.org/TR/xmlschema-2/#dc-defn
+*/
+PUBLIC OBJECTTYPE XSDSimpleType EXTEND XSDType
+<
+  // {variety}: one of "atomic", "list", "union" (built)
+  PUBLIC STRING variety;
+
+  // {primitive type definition}, only when {variety} = "atomic" (built)
+  PUBLIC OBJECT primitive_type_definition;
+
+  // {item type definition}, only when {variety} = "list" (built)
+  PUBLIC OBJECT item_type_definition;
+
+  // {member type definitions}, only when {variety} = "union" (built)
+  PUBLIC OBJECT ARRAY member_type_definitions;
+
+  // {facets} (built)
+  PUBLIC RECORD ARRAY facets;
+
+//, ??? fundamental_facets (built)
+
+// {base type definition} (built)
+  PUBLIC OBJECT base_type_definition;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  //, STRING ARRAY final // subset of "atomic", "list", "union"
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, OBJECT sourcenode, STRING xsd_Filename)
+  : XSDType(xsdparser, namespaceuri, name, "SIMPLETYPE", sourcenode, xsd_filename)
+  {
+  }
+
+  PUBLIC UPDATE MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+    RECORD local_data := this->local_data;
+    IF (RecordExists(local_data))
+      SWITCH (local_data.type)
+      {
+      CASE "restriction"
+        {
+          this->base_type_definition := xsdparser->ResolveObject(this, local_data.basetype);
+        }
+      CASE "list"
+        {
+          this->item_type_definition := xsdparser->ResolveObject(this, local_data.itemtype);
+        }
+      CASE "union"
+        {
+          FOREVERY (OBJECT o FROM this->local_data.membertypes)
+            this->local_data.membertypes[#o] := xsdparser->ResolveObject(this, o);
+        }
+      }
+  }
+
+  PUBLIC UPDATE MACRO BuildProperties(OBJECT xsdparser)
+  {
+    // Atomic simple types have their properties set on creation.
+    RECORD local_data := this->local_data;
+    IF (RecordExists(local_data))
+    {
+      SWITCH (local_data.type)
+      {
+      CASE "restriction"
+        {
+          IF (this->base_type_definition->type = "XSD_COMPLEXTYPE")
+          {
+            // This is a simple type created in the context of complexType.simpleContent.restriction
+            this->base_type_definition := this->base_type_definition->content_type.content;
+          }
+
+          // Complete properties.
+          this->variety := this->base_type_definition->variety;
+          this->facets := local_data.local_facets CONCAT this->base_type_definition->facets;
+          this->primitive_type_definition := this->base_type_definition->primitive_type_definition;
+        }
+      CASE "union"
+        {
+          OBJECT ARRAY memberlist;
+          FOREVERY (OBJECT o FROM this->local_data.membertypes)
+          {
+            IF (o->variety = "union")
+              memberlist := memberlist CONCAT o->member_type_definitions;
+            ELSE
+              INSERT o INTO memberlist AT END;
+          }
+          this->member_type_definitions := memberlist;
+        }
+      }
+    }
+  }
+
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDComplexType
+//
+//------------------------------------------------------------------------------
+
+/**
+
+// http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Complex_Type_Definitions
+*/
+PUBLIC OBJECTTYPE XSDComplexType EXTEND XSDType
+< PUBLIC OBJECT base_type_definition;
+  PUBLIC STRING derivation_method;
+//, STRING ARRAY final
+  PUBLIC BOOLEAN abstract;
+  PUBLIC OBJECT ARRAY attribute_uses;
+  PUBLIC OBJECT attribute_wildcard;
+
+  /** {content type}: empty (as DEFAULT RECORD)
+                    | [ type := "simple"
+                      , content := OBJECT (of XSDSimpleType)
+                      ]
+                    | [ type := "complex"
+                      , content := optional OBJECT (of XSDParticle)
+                      , mixed := "mixed"/"element-only"
+                      ]
+  */
+  PUBLIC RECORD content_type;
+
+  //, STRING ARRAY prohibited_substitutions
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, OBJECT sourcenode, STRING xsd_Filename)
+  : XSDType(xsdparser, namespaceuri, name, "XSD_COMPLEXTYPE", sourcenode, xsd_filename)
+  {
+  }
+
+  PUBLIC UPDATE MACRO BuildProperties(OBJECT xsdparser)
+  {
+    RECORD local_data := this->local_data;
+    IF (NOT RecordExists(local_data))
+      RETURN;
+
+    SWITCH (local_data.type)
+    {
+    CASE "simpleContent.extension", "simpleContent.restriction"
+      {
+        IF (this->derivation_method = "extension")
+        {
+          // http://www.w3.org/TR/xmlschema-1/#element-simpleContent
+
+          // Calc content type
+          // 1: only for restriction
+          // 2: only for restriction
+          // 3
+
+          SWITCH (this->base_type_definition->type)
+          {
+          CASE "SIMPLETYPE"
+            {
+              this->content_type :=
+                  [ type := "simple"
+                  , content := this->base_type_definition
+                  ];
+            }
+          CASE "XSD_COMPLEXTYPE"
+            {
+              // {content type} 3 & 4
+              this->content_type := this->base_type_definition->content_type;
+            }
+          DEFAULT
+            {
+              THROW NEW Exception("Unexpected base type " || this->base_type_definition->type);
+            }
+          }
+        }
+        ELSE
+        {
+          this->content_type :=
+              [ type := "simple"
+              , content := local_data.new_simpletype
+              ];
+        }
+      }
+
+    CASE "complexContent.restriction", "complexContent.extension",
+         "complexContent.all", "complexContent.choice", "complexContent.sequence", "complexContent.group",
+         "complexContent.attribute", "complexContent.attributeGroup", "complexContent.anyAttribute"
+      {
+        // http://www.w3.org/TR/xmlschema-1/#element-complexContent
+
+  //      PrintRecordTo(0, local_data.modelgroupandattrs, "tree");
+
+        // Calculate effective content
+        // 2.2
+        OBJECT effective_content := local_data.modelgroupandattrs.particle;
+
+        // 2.1
+        // is_empty describes whether either of 2.1.1, 2.1.2, 2.1.3 is true.
+        BOOLEAN is_empty := NOT ObjectExists(effective_content); // 2.1.1
+        IF (NOT is_empty)
+        {
+          OBJECT term := effective_content->term; // Term is of type modelgroup
+          IF (term->compositor IN [ "all", "sequence" ] AND LENGTH(term->particles) = 0) // 2.1.2
+            is_empty := TRUE;
+          ELSE
+            IF (term->compositor = "choice" AND LENGTH(term->particles) = 0 AND effective_content->min_occurs = 0) // 2.1.3
+              is_empty := TRUE;
+        }
+
+//        PRINT("BuildProperties: {" || this->target_namespace || "}" || this->name || ", type: " || local_data.type || "\n");
+//        PRINT(" is_empty: " || (is_empty ? "y" : "n") || "\n");
+//        PRINT(" effective_mixed: " || (local_data.effective_mixed?"y":"n") || "\n");
+//        PRINT(" derivation_method: " || this->derivation_method || "\n");
+
+        IF (is_empty) // 2 (calculate effective content
+        {
+          IF (local_data.effective_mixed) // 2.1.4
+          {
+            OBJECT p := NEW XSDParticle(xsdparser, DEFAULT OBJECT);
+            p->min_occurs := 1;
+            p->max_occurs := 1;
+            p->term := NEW XSDModelGroup(xsdparser, "", "", "sequence", DEFAULT OBJECT, "");
+
+            effective_content := p;
+          }
+          ELSE
+            effective_content := DEFAULT OBJECT;
+        }
+        ELSE
+        {
+          // 2.2 (effective_content already contains right particle)
+        }
+
+        // 3
+        IF (this->derivation_method = "restriction") // 3.1 (restriction)
+        {
+          IF (NOT ObjectExists(effective_content)) // 3.1.1
+            this->content_type := DEFAULT RECORD;
+          ELSE
+          {
+            this->content_type :=
+                [ type := "complex"
+                , content := effective_content // 3.1.2.2
+                , mixed := local_data.effective_mixed ? "mixed" : "element-only" // 3.1.2.1
+                ];
+          }
+        }
+        ELSE // 3.2 (extension)
+        {
+          RECORD basetype_content_type := this->base_type_definition->content_type;
+
+          IF (NOT ObjectExists(effective_content)) // 3.2.1
+          {
+            this->content_type := basetype_content_type;
+          }
+          ELSE IF (NOT RecordExists(basetype_content_type)) // 3.2.2
+          {
+            this->content_type :=
+              [ type := "complex"
+              , content := effective_content
+              , mixed := local_data.effective_mixed ? "mixed" : "element-only"
+              ];
+          }
+          ELSE
+          {
+            // 3.2.3
+            OBJECT p := NEW XSDParticle(xsdparser, DEFAULT OBJECT);
+            p->min_occurs := 1;
+            p->max_occurs := 1;
+            p->term := NEW XSDModelGroup(xsdparser, "", "", "sequence", DEFAULT OBJECT, "");
+
+            INSERT basetype_content_type.content INTO p->term->particles AT END;
+            INSERT effective_content INTO p->term->particles AT END;
+
+            this->content_type :=
+                [ type := "complex"
+                , content := p
+                , mixed := local_data.effective_mixed ? "mixed" : "element-only"
+                ];
+          }
+        }
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Unhandled type " || local_data.type || " in {"||this->target_namespace||"}"||this->name);
+      }
+    }
+
+    RECORD new_attr := BuildAttrs(xsdparser, local_data.modelgroupandattrs);
+    IF (this->base_type_definition->type = "XSD_COMPLEXTYPE")
+    {
+      OBJECT base := this->base_type_definition;
+      RECORD old_attr := [ attribute_uses := base->attribute_uses
+                         , attribute_groups := DEFAULT OBJECT ARRAY
+                         , any_attribute := base->attribute_wildcard
+                         , prohibited := DEFAULT OBJECT ARRAY
+                         ];
+      IF (this->derivation_method = "extension")
+        new_attr := ExtendAttrs(xsdparser, old_attr, new_attr);
+      ELSE
+        new_attr := RestrictAttrs(xsdparser, old_attr, new_attr);
+    }
+
+    // FIXME: process attribute groups too.
+
+    this->attribute_uses := new_attr.attribute_uses;
+    this->attribute_wildcard := new_attr.any_attribute;
+  }
+
+  PUBLIC UPDATE MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+    RECORD local_data := this->local_data;
+    IF (NOT RecordExists(local_data))
+      RETURN;
+
+    this->base_type_definition := xsdparser->ResolveObject(this, this->base_type_definition);
+
+    IF (local_data.type = "simpleContent.restriction")
+    {
+      IF (ObjectExists(this->local_data.new_simpletype))
+        this->local_data.new_simpletype := xsdparser->ResolveObject(this, this->local_data.new_simpletype);
+    }
+
+    this->local_data.modelgroupandattrs := ResolveModelGroupAndAttrs(xsdparser, local_data.modelgroupandattrs, this);
+  }
+
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDModelGroup
+//
+//------------------------------------------------------------------------------
+
+/**
+
+// http://www.w3.org/TR/xmlschema-1/#Model_Group_details
+*/
+PUBLIC OBJECTTYPE XSDModelGroup EXTEND XSDComponent
+<
+  // {compositor}: One of "all", "choice", "sequence" (immediate)
+  PUBLIC STRING compositor;
+
+  // {particles}: List of particles in this model group (immediate)
+  PUBLIC OBJECT ARRAY particles;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  // compositor: one of "all", "choice", "sequence"
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, STRING compositor, OBJECT sourcenode, STRING xsd_filename)
+  : XSDComponent(xsdparser, namespaceuri, name, "XSD_MODELGROUP", sourcenode, xsd_filename)
+  {
+    this->compositor := compositor;
+  }
+
+  PUBLIC UPDATE MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+    FOREVERY (OBJECT o FROM this->particles)
+      this->particles[#o] := xsdparser->ResolveObject(this, o);
+  }
+
+>;
+
+
+
+//------------------------------------------------------------------------------
+//
+// XSDParticle
+//
+//------------------------------------------------------------------------------
+
+/**
+
+http://www.w3.org/TR/xmlschema-1/#Particle_details
+*/
+PUBLIC OBJECTTYPE XSDParticle EXTEND XSDType // FIXME: is XSDParticle an XSDType? Don't think so...
+<
+  // {min occurs}: a nonnegative integer (immediate)
+  PUBLIC INTEGER min_occurs;
+
+  // {max occurs}: a nonnegative integer or unbounded (immediate)
+  PUBLIC INTEGER max_occurs;
+
+  // {term}: one of model group, wildcard or element declaration (build)
+  PUBLIC OBJECT term;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, OBJECT sourcenode)
+  : XSDType(xsdparser, "", "", "XSD_PARTICLE", sourcenode, "") // FIXME: is type ok?
+  {
+  }
+
+  PUBLIC UPDATE MACRO BuildProperties(OBJECT xsdparser)
+  {
+  }
+
+  PUBLIC UPDATE MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+    IF (CellExists(this->local_data, "term"))
+      this->term := this->local_data.term;
+    ELSE IF (CellExists(this->local_data, "model_group_def"))
+    {
+      // model_group of model group definition is always valid
+      this->term := xsdparser->ResolveObject(this, this->local_data.model_group_def)->model_group;
+    }
+    this->term := xsdparser->ResolveObject(this, this->term);
+  }
+
+>;
+
+//------------------------------------------------------------------------------
+//
+// XSDElement
+//
+//------------------------------------------------------------------------------
+
+/**
+
+// http://www.w3.org/TR/xmlschema-1/#Element_Declaration_details
+*/
+PUBLIC OBJECTTYPE XSDElement EXTEND XSDType  // FIXME: is XSDElement an XSDType? Don't think so...
+< // STRING scope
+  PUBLIC OBJECT type_definition;
+  PUBLIC BOOLEAN nillable;
+  //, ??? value constraint
+
+  // {identity constraint definitions}
+  PUBLIC OBJECT ARRAY identity_constraint_definitions;
+
+  //, ??? substitution group affiliation
+  //, ??? disallowed substitutions
+  //, ??? substitution group exclusions
+  //, BOOLEAN abstract
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, OBJECT sourcenode, STRING xsd_Filename)
+  : XSDType(xsdparser, namespaceuri, name, "ELEMENT", sourcenode, xsd_filename) // FIXME: is type ok?
+  {
+  }
+
+  PUBLIC UPDATE MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+    this->type_definition := xsdparser->ResolveObject(this, this->type_definition);
+    FOREVERY (OBJECT o FROM this->identity_constraint_definitions)
+      this->identity_constraint_definitions[#o] := xsdparser->ResolveObject(this, o);
+  }
+>;
+
+//------------------------------------------------------------------------------
+//
+// XSDAttributeDeclaration
+//
+//------------------------------------------------------------------------------
+
+/**
+
+//http://www.w3.org/TR/xmlschema-1/#Attribute_Declaration_details
+*/
+PUBLIC OBJECTTYPE XSDAttributeDeclaration EXTEND XSDComponent
+< PUBLIC OBJECT type_definition;
+  //OBJECT scope
+
+  // {value constraint} : absent (EMPTY RECORD) / [ value := string, type := "default"/"fixed" ]
+  PUBLIC RECORD value_constraint;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, OBJECT sourcenode, STRING xsd_filename)
+  : XSDComponent(xsdparser, namespaceuri, name, "XSD_ATTRIBUTE_DECLARATION", sourcenode, xsd_filename)
+  {
+  }
+
+  PUBLIC UPDATE MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+    this->type_definition := xsdparser->ResolveObject(this, this->type_definition);
+  }
+>;
+
+//------------------------------------------------------------------------------
+//
+// XSDAttributeUse
+//
+//------------------------------------------------------------------------------
+
+/**
+
+//http://www.w3.org/TR/xmlschema-1/#AU_details
+*/
+PUBLIC OBJECTTYPE XSDAttributeUse EXTEND XSDComponent
+< PUBLIC BOOLEAN required;
+  PUBLIC OBJECT attribute_declaration;
+  // {value constraint} : absent (EMPTY RECORD) / [ value := string, type := "default"/"fixed" ]
+  PUBLIC RECORD value_constraint;
+
+  /** @cell namespace
+      @cell name
+      @cell value
+  */
+  PUBLIC RECORD ARRAY other_attributes;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, OBJECT sourcenode)
+  : XSDComponent(xsdparser, "", "", "XSD_ATTRIBUTE_USE", sourcenode, "")
+  {
+  }
+
+  PUBLIC UPDATE MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+    this->attribute_declaration := xsdparser->ResolveObject(this, this->attribute_declaration);
+  }
+
+>;
+
+//------------------------------------------------------------------------------
+//
+// XSDModelGroupDefinition
+//
+//------------------------------------------------------------------------------
+
+/**
+
+http://www.w3.org/TR/xmlschema-1/#Model_Group_Definition_details
+*/
+PUBLIC OBJECTTYPE XSDModelGroupDefinition EXTEND XSDComponent
+< PUBLIC OBJECT model_group;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, OBJECT sourcenode, STRING xsd_Filename)
+  : XSDComponent(xsdparser, namespaceuri, name, "XSD_MODELGROUP_DEFINITION", sourcenode, xsd_filename)
+  {
+  }
+
+  PUBLIC UPDATE MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+    this->model_group := xsdparser->ResolveObject(this, this->model_group);
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDWildcard
+//
+//------------------------------------------------------------------------------
+
+/**
+
+http://www.w3.org/TR/xmlschema-1/#Wildcard_details
+*/
+PUBLIC OBJECTTYPE XSDWildcard EXTEND XSDComponent
+<
+  // {namespace constraint} [ type := any/not/set, namespaces := STRING ARRAY ]
+  PUBLIC RECORD namespace_constraint;
+
+  // {process contents} one of "skip", "lax", "strict"
+  PUBLIC STRING process_contents;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, OBJECT sourcenode)
+  : XSDComponent(xsdparser, "", "", "XSD_WILDCARD", sourcenode, "")
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDAttributeGroupDefinition
+//
+//------------------------------------------------------------------------------
+
+/**
+
+http://www.w3.org/TR/xmlschema-1/#Wildcard_details
+*/
+PUBLIC OBJECTTYPE XSDAttributeGroupDefinition EXTEND XSDComponent
+<
+  // {attribute uses}
+  PUBLIC OBJECT ARRAY attribute_uses;
+
+  // {attribute wildcard}
+  PUBLIC OBJECT attribute_wildcard;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, OBJECT sourcenode, STRING xsd_Filename)
+  : XSDComponent(xsdparser, namespaceuri, name, "XSD_ATTRIBUTEGROUP_DEFINITION", sourcenode, xsd_filename)
+  {
+  }
+
+  PUBLIC UPDATE MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+    this->local_data := ResolveModelGroupAndAttrs(xsdparser, this->local_data, this);
+  }
+
+  PUBLIC UPDATE MACRO BuildProperties(OBJECT xsdparser)
+  {
+    RECORD local_data := this->local_data;
+    RECORD data := BuildAttrs(xsdparser, local_data);
+
+    this->attribute_uses := data.attribute_uses;
+    this->attribute_wildcard := data.any_attribute;
+  }
+
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDIdentityConstraintDefinition
+//
+//------------------------------------------------------------------------------
+
+/**
+
+http://www.w3.org/TR/xmlschema-1/#Identity-constraint_Definition_details
+*/
+PUBLIC OBJECTTYPE XSDIdentityConstraintDefinition EXTEND XSDComponent
+<
+  // {identity-constraint category}
+  PUBLIC STRING identity_constraint_category;
+
+  // {selector}
+  PUBLIC STRING selector;
+
+  // {fields}
+  PUBLIC STRING ARRAY fields;
+
+  // {referenced key}
+  PUBLIC OBJECT referenced_key;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, OBJECT sourcenode, STRING xsd_filename)
+  : XSDComponent(xsdparser, namespaceuri, name, "XSD_IDENTITYCONSTRAINT_DEFINITION", sourcenode, xsd_filename)
+  {
+  }
+
+  PUBLIC UPDATE MACRO ResolveAllObjects(OBJECT xsdparser)
+  {
+    this->referenced_key := xsdparser->ResolveObject(this, this->referenced_key);
+  }
+
+>;
+
+// Returns a string array which is the union of ar and br
+STRING ARRAY FUNCTION UnionStringArrays(STRING ARRAY ar, STRING ARRAY br)
+{
+  INTEGER bpos := 0, blen := LENGTH(br);
+  STRING ARRAY rr;
+  FOREVERY (STRING a FROM ar)
+  {
+    FOR (; bpos < blen AND br[bpos] <= a; bpos := bpos + 1)
+      IF (a != br[bpos])
+        INSERT br[bpos] INTO rr AT END;
+    INSERT a INTO rr AT END;
+  }
+  FOR (; bpos < blen; bpos := bpos + 1)
+    INSERT br[bpos] INTO rr AT END;
+  RETURN rr;
+}
+
+// Returns a string array which is the intersection of ar and br
+STRING ARRAY FUNCTION IntersectStringArrays(STRING ARRAY ar, STRING ARRAY br)
+{
+  INTEGER bpos := 0, blen := LENGTH(br);
+  STRING ARRAY rr;
+  FOREVERY (STRING a FROM ar)
+  {
+    FOR (; bpos < blen AND br[bpos] <= a; bpos := bpos + 1)
+      IF (a = br[bpos])
+        INSERT a INTO rr AT END;
+  }
+  RETURN rr;
+}
+
+// Returns a string array which containts all strings from bases that are not in ar
+STRING ARRAY FUNCTION NegateStringArray(STRING ARRAY bases, STRING ARRAY ar)
+{
+  INTEGER apos := 0, alen := LENGTH(ar);
+  STRING ARRAY rr;
+  FOREVERY (STRING base FROM bases)
+  {
+    BOOLEAN found := FALSE;
+    FOR (; apos < alen AND ar[apos] <= base; apos := apos + 1)
+      IF (base = ar[apos])
+        found := TRUE;
+    IF (NOT found)
+      INSERT base INTO rr AT END;
+  }
+  RETURN rr;
+}
+
+// Calculate attribute wildcard intersection http://www.w3.org/TR/xmlschema-1/#cos-aw-intersect
+RECORD FUNCTION IntersectWildcardsNamespaceConstraints(RECORD left, RECORD right)
+{
+  // case 2
+  IF (left.type = "any")
+    RETURN right;
+  IF (right.type = "any")
+    RETURN left;
+  //case 3
+  IF (left.type = "not" AND right.type = "set") RETURN [ type := "set", namespaces := NegateStringArray(right.namespaces, left.namespaces) ];
+  IF (left.type = "set" AND right.type = "not") RETURN [ type := "set", namespaces := NegateStringArray(left.namespaces, right.namespaces) ];
+  //case 4 (+partly 1)
+  IF (left.type = "set" AND right.type = "set") RETURN [ type := "set", namespaces := IntersectStringArrays(left.namespaces, right.namespaces) ];
+  //case 5 (+partly 1) // We stray from the specification here, by making two different not's expressible.
+  //IF (left.type = "not" AND right.type = "not") always true.
+  RETURN [ type := "not", namespaces := UnionStringArrays(left.namespaces, right.namespaces) ];
+  //case 6: We strayed in case 5 already.
+}
+
+RECORD FUNCTION BuildAttrs(OBJECT xsdparser, RECORD data)
+{
+  OBJECT ARRAY all_uses := data.attribute_uses;
+  FOREVERY (OBJECT o FROM data.attribute_groups)
+  {
+    IF (NOT MemberExists(o, "ATTRIBUTE_USES"))
+      PRINT(AnyToString(o, "tree"));
+    all_uses := all_uses CONCAT o->attribute_uses;
+  }
+
+  OBJECT wildcard;
+  // Calculate wildcard. http://www.w3.org/TR/xmlschema-1/#key-eaw
+  OBJECT ARRAY other_wildcards;
+  FOREVERY (OBJECT o FROM data.attribute_groups)
+    IF (ObjectExists(o->attribute_wildcard))
+      INSERT o INTO other_wildcards AT END;
+  IF (LENGTH(other_wildcards) = 0) // 2.1
+    wildcard := data.any_attribute;
+  ELSE
+  {
+    wildcard := NEW XSDWildcard(xsdparser, DEFAULT OBJECT);
+    RECORD intersected_constraints := other_wildcards[0]->namespace_constraint;
+    IF (ObjectExists(data.any_attribute))
+    {
+      wildcard->annotation := data.wildcard->annotation;
+      wildcard->process_contents := data.wildcard->process_contents;
+      intersected_constraints := IntersectWildcardsNamespaceConstraints(intersected_constraints, data.wildcard->namespace_constraint);
+    }
+    ELSE
+      wildcard->process_contents := other_wildcards[0]->process_contents;
+
+    FOREVERY (OBJECT o FROM other_wildcards)
+      IF (#o != 0)
+        intersected_constraints := IntersectWildcardsNamespaceConstraints(intersected_constraints, o->namespace_constraint);
+    wildcard->namespace_constraint := intersected_constraints;
+  }
+
+  RETURN [ attribute_uses := all_uses, attribute_groups := DEFAULT OBJECT ARRAY, any_attribute := wildcard, prohibits := data.prohibits ];
+}
+
+RECORD FUNCTION ExtendAttrs(OBJECT xsdparser, RECORD orig_attrs, RECORD new_attrs)
+{
+  // http://www.w3.org/TR/xmlschema-1/#element-simpleContent
+  // follow rules for Pattribute wildcard}
+  OBJECT local_wildcard := new_attrs.any_attribute; //1
+  OBJECT orig_wildcard := orig_attrs.any_attribute;
+
+  OBJECT wildcard;
+  IF (ObjectExists(orig_wildcard))
+  {
+    wildcard := NEW XSDWildcard(xsdparser, DEFAULT OBJECT);
+    IF (ObjectExists(local_wildcard))
+    {
+      wildcard->annotation := local_wildcard->annotation;
+      wildcard->process_contents := local_wildcard->process_contents;
+      wildcard->namespace_constraint := IntersectWildcardsNamespaceConstraints(orig_wildcard->namespace_constraint, local_wildcard->namespace_constraint);
+    }
+    ELSE
+    {
+      wildcard->process_contents := orig_wildcard->process_contents;
+      wildcard->namespace_constraint := orig_wildcard->namespace_constraint;
+    }
+  }
+  ELSE
+    wildcard := local_wildcard;
+
+  RETURN
+    [ attribute_uses := orig_attrs.attribute_uses CONCAT new_attrs.attribute_uses
+    , attribute_groups := DEFAULT OBJECT ARRAY
+    , any_attribute := wildcard
+    , prohibits := DEFAULT OBJECT ARRAY
+    ];
+}
+
+RECORD FUNCTION RestrictAttrs(OBJECT xsdparser, RECORD orig_attrs, RECORD new_attrs)
+{
+  // http://www.w3.org/TR/xmlschema-1/#element-simpleContent
+  // follow rules for Pattribute wildcard}
+  OBJECT local_wildcard := new_attrs.any_attribute; //1
+  OBJECT orig_wildcard := orig_attrs.any_attribute;
+
+  OBJECT wildcard;
+  IF (ObjectExists(orig_wildcard))
+  {
+    wildcard := NEW XSDWildcard(xsdparser, DEFAULT OBJECT);
+    IF (ObjectExists(local_wildcard))
+    {
+      wildcard->annotation := local_wildcard->annotation;
+      wildcard->process_contents := local_wildcard->process_contents;
+      wildcard->namespace_constraint := IntersectWildcardsNamespaceConstraints(orig_wildcard->namespace_constraint, local_wildcard->namespace_constraint);
+    }
+    ELSE
+    {
+      wildcard->process_contents := orig_wildcard->process_contents;
+      wildcard->namespace_constraint := orig_wildcard->namespace_constraint;
+    }
+  }
+  ELSE
+    wildcard := local_wildcard;
+
+  // New attribute uses
+  OBJECT ARRAY result_attr_uses;
+
+  // http://www.w3.org/TR/xmlschema-1/#element-complexContent
+  // {attribute_uses}, 3
+  FOREVERY (OBJECT old_attr FROM orig_attrs.attribute_uses)
+  {
+    BOOLEAN found_local := FALSE;
+    FOREVERY (OBJECT new_attr FROM new_attrs.attribute_uses)
+    {
+      IF (old_attr->attribute_declaration->name = new_attr->attribute_declaration->name
+          AND old_attr->attribute_declaration->target_namespace = new_attr->attribute_declaration->target_namespace)
+      {
+        found_local := TRUE;
+        BREAK;
+      }
+    }
+    IF (NOT found_local)
+      FOREVERY (OBJECT prohibit_attr FROM new_attrs.prohibits)
+      {
+        IF (old_attr->attribute_declaration->name = prohibit_attr->attribute_declaration->name
+            AND old_attr->attribute_declaration->target_namespace = prohibit_attr->attribute_declaration->target_namespace)
+        {
+          found_local := TRUE;
+          BREAK;
+        }
+      }
+
+    IF (NOT found_local)
+      INSERT old_attr INTO result_attr_uses AT END;
+  }
+
+  result_attr_uses := result_attr_uses CONCAT new_attrs.attribute_uses;
+
+  RETURN
+    [ attribute_uses := result_attr_uses
+    , attribute_groups := DEFAULT OBJECT ARRAY
+    , any_attribute := wildcard
+    , prohibits := DEFAULT OBJECT ARRAY
+    ];
+}
+
+//------------------------------------------------------------------------------
+//
+// Generic stuff
+//
+//------------------------------------------------------------------------------
+
+RECORD FUNCTION ResolveModelGroupAndAttrs(OBJECT xsdparser, RECORD mg, OBJECT owner)
+{
+  IF (CellExists(mg, "PARTICLE") AND ObjectExists(mg.particle))
+    mg.particle := xsdparser->ResolveObject(owner, mg.particle);
+
+  FOREVERY (OBJECT o FROM mg.attribute_uses)
+    mg.attribute_uses[#o] := xsdparser->ResolveObject(owner, o);
+
+  FOREVERY (OBJECT o FROM mg.attribute_groups)
+    mg.attribute_groups[#o] := xsdparser->ResolveObject(owner, o);
+
+  IF (ObjectExists(mg.any_attribute))
+    mg.any_attribute := xsdparser->ResolveObject(owner, mg.any_attribute);
+
+  RETURN mg;
+}

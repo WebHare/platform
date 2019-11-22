@@ -1,0 +1,21 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="dymo.whlib" gid="tolliumapps.demo.dymo">
+
+  <screen name="main" title="DymoTest" allowresize="true">
+    <actions>
+      <action name="render" onexecute="dorender" />
+      <action name="print" onexecute="doprint" />
+      <action name="save" onexecute="dosave" />
+    </actions>
+    <toolbar>
+    </toolbar>
+    <body>
+      <select name="printers" type="pulldown" visible="false"></select>
+      <textarea name="labeltext" value="tekst"/>
+      <button action="render" />
+      <button action="print" />
+      <button action="save" />
+      <iframe name="dymoiframe" onmessage="ondymomessage"></iframe>
+      <image name="renderedresult" width="1pr" height="300px"/>
+    </body>
+  </screen>
+</screens>

@@ -1,0 +1,134 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "module::system/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "module::tollium/gettid.whlib";
+LOADLIB "module::tollium/internal/langedit/tidscan.whlib";
+
+LOADLIB "mod::tollium/lib/internal/langedit/langeditor.whlib";
+
+MACRO LimitLanguageTest()
+{
+  SetTidLanguage("en");
+  TestEQ("One", GetTid("webhare_testsuite:aaa.limitlanguage_en.one"));
+  //TODO actually ignore sections not marked as translateable
+}
+
+MACRO SetupTestModule_LanguageFiles()
+{
+  testfw->SetupTestModule();
+
+  OBJECT srcwitty := LoadWittyLibrary("module::webhare_testsuite/system/testmodule.witty", "TEXT");
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/default.xml", srcwitty->RunComponentToBlob("language_default", RECORD[]), [ overwrite := TRUE ]);
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/nl.xml", srcwitty->RunComponentToBlob("language_nl", RECORD[]), [ overwrite := TRUE ]);
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/xx.xml", srcwitty->RunComponentToBlob("language_xx", RECORD[]), [ overwrite := TRUE ]);
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/xy.xml", srcwitty->RunComponentToBlob("language_xy", RECORD[]), [ overwrite := TRUE ]);
+}
+
+MACRO GetTidTest()
+{
+  SetTidLanguage("en");
+  TestEq('Exception retrieving tid \'notifications.messagefromthefuture\': Missing module name in call for tid \'notifications.messagefromthefuture\'', GetTid("notifications.messagefromthefuture"));
+  TestEq('Exception retrieving tid \'notifications.messagefromthefuture\': Missing module name in call for tid \'notifications.messagefromthefuture\'', GetHTMLTid("notifications.messagefromthefuture"));
+  TestEq("A message with underscores", GetTid("webhare_testsuite_temp:notifications.message_from_the_future"));
+  TestEq("A message with underscores", GetTid("webhare_testsuite_temp:notifications.message from the future"));
+  TestEq('(cannot find text: webhare testsuite temp:notifications.message_from_the_future)', GetTid("webhare testsuite temp:notifications.message from the future"));
+
+  TestEq("A message", GetTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
+  TestEq("A <i>message</i>", GetHTMLTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
+  TestEq("An <a href=\"http://www.example.org/\">example</a> link", GetHTMLTid("webhare_testsuite_temp:notifications.linkfromthefuture"));
+  TestEq("A <a href=\"https://www.webhare.com/\">parametered</a> link", GetHTMLTid("webhare_testsuite_temp:notifications.linkparameter","https://www.webhare.com/"));
+}
+
+MACRO FallbackLanguageTest()
+{
+  //Create a temporary module
+  TestEq("A message", GetTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
+  TestEq("A text", GetTid("webhare_testsuite_temp:testfallback.sub.text"));
+  TestEq("Another text", GetTid("webhare_testsuite_temp:testfallback.anothertext"));
+  TestEq("(cannot find text: webhare_testsuite_temp:testfallbackrecursion.text)", GetTid("webhare_testsuite_temp:testfallbackrecursion.text")); // should fail, loop
+  TestEq("(cannot find text: webhare_testsuite_temp:testfallbacklocalrecursion.text)", GetTid("webhare_testsuite_temp:testfallbacklocalrecursion.text")); // should fail, loop
+  TestEq("Can't find me from NL", GetTid("webhare_testsuite_temp:testfallbackdefaultrecursion.text"));
+  SetTidLanguage("xxx");
+  TestEq("A message", GetTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
+  TestEq("A text", GetTid("webhare_testsuite_temp:testfallback.sub.text"));
+  TestEq("Another text", GetTid("webhare_testsuite_temp:testfallback.anothertext"));
+  SetTidLanguage("nl");
+  TestEq("(cannot find text: webhare_testsuite_temp:notifications.messagefromthefuture)", GetTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
+  TestEq("A text", GetTid("webhare_testsuite_temp:testfallback.sub.text"));
+  TestEq("Another text", GetTid("webhare_testsuite_temp:testfallback.anothertext"));
+  TestEq("(cannot find text: webhare_testsuite_temp:testfallbackrecursion.text)", GetTid("webhare_testsuite_temp:testfallbackrecursion.text")); // should fail, loop
+  TestEq("Can't find me from NL", GetTid("webhare_testsuite_temp:testfallbackdefaultrecursion.text"));
+
+  SetTidLanguage("XY");
+  TestEq("Changed this text!", GetTid("webhare_testsuite_temp:testfallback.anothertext"));
+  SetTidLanguage("xy");
+  TestEq("Changed this text!", GetTid("webhare_testsuite_temp:testfallback.anothertext"));
+  TestEq("A message", GetTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
+
+  SetTidLanguage("en");
+}
+
+MACRO CommonTidTest()
+{
+  TestEq("Add", GetTidForLanguage("en","~add"));
+  TestEq("Toevoegen", GetTidForLanguage("nl","~add"));
+  TestEq("Nederlands", GetTidForLanguage("nl","tollium:common.languages.nl")); //make sure we're not suddenly requiring nl_NL once these are bound to i18n libraries...
+}
+
+ASYNC MACRO TestLangEditingApi()
+{
+  OBJECT api  := NEW LangEditAPI("webhare_testsuite_temp");
+  OBJECT api2 := NEW LangEditAPI("webhare_testsuite_temp");
+
+  TestEq(FALSE, api->IsOutOfDate());
+  TestEq(FALSE, api2->IsOutOfDate());
+  TestEq(FALSE, api->IsDirty());
+  TestEq(FALSE, api2->IsDirty());
+  Sleep(100);
+  api->SaveChanges([force := TRUE]);
+  Sleep(100);
+
+  TestEq(FALSE, api->IsDirty());
+  TestEq(FALSE, api2->IsDirty());
+  TestEq(FALSE, api->IsOutOfDate());
+  TestEq(TRUE, api2->IsOutOfDate());
+  api2 := NEW LangEditAPI("webhare_testsuite_temp"); //reload
+
+  api->LookupTextGroup("notifications")->SetRawText("messagefromthefuture", 0, "Yet Another Message");
+  TestEq(TRUE, api->IsDirty());
+  TestEq(FALSE, api2->IsOutOfDate());
+  api->SaveChanges([force := TRUE]);
+  TestEq(FALSE, api->IsDirty());
+  TestEq(FALSE, api->IsOutOfDate());
+  TestEq(TRUE, api2->IsOutOfDate());
+}
+
+ASYNC MACRO ScreenTidTest()
+{
+  SetTidLanguage("debug");
+  RECORD rec := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/tolliumtids.xml#screen"));
+
+  TestEQ("{webhare_testsuite:testtids.screen.screen}", topscreen->Test());
+  TestEQ("{webhare_testsuite:testtids.fragment.fragment}", TT("fragmentcomp")->Test());
+  TestEQ("{webhare_testsuite:testtids.fragment.fragment}", topscreen->dynfrag->Test());
+
+  RECORD ext := TT("tabs")->LoadTabsExtension("mod::webhare_testsuite/screens/tests/tolliumtids.xml#tabsextension");
+  TestEQ("{webhare_testsuite:testtids.tabsextension.tabsextension}", ext.extension->Test());
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT rec.expectcallreturn();
+}
+RunTestFramework([ PTR LimitLanguageTest
+                 , PTR SetupTestModule_LanguageFiles
+                 , PTR GetTidTest
+                 , PTR FallbackLanguageTest
+                 , PTR CommonTidTest
+                 , PTR TestLangEditingApi
+                 , PTR ScreenTidTest
+                 ]);

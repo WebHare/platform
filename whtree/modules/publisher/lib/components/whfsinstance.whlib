@@ -1,0 +1,291 @@
+﻿<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// Instance data container
+//
+PUBLIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PRIVATE OBJECT pvt_type;
+  PRIVATE OBJECT pvt_basefsobject;
+  PRIVATE OBJECT pvt_applytester;
+  PRIVATE INTEGER pvt_saved_parent;
+  PRIVATE RECORD base_defaultvalues;
+
+  RECORD savedvalue;
+  STRING ARRAY pvt_extracells;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY type(GetType, SetType);
+  PUBLIC PROPERTY typens(GetTypeNS, -);
+
+  PUBLIC BOOLEAN pvt_publisher_iswhfsinstance; //bit of a hack to detect whfsinstance in commondialogs.whlib
+
+  PUBLIC PROPERTY basefsobject(pvt_basefsobject, SetBaseFSObject);
+  PUBLIC PROPERTY applytester(pvt_applytester, -);
+  PUBLIC STRING datastore;
+  PRIVATE STRING delayed_type_init;
+
+  PUBLIC PROPERTY extracells(pvt_extracells, SetExtraCells);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions
+  //
+
+  MACRO NEW()
+  {
+    this->datastore := "self";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumCompositionBase::StaticInit(def);
+
+    this->delayed_type_init := def.typedef; //delay it, as we may not have DB connectivity yet
+    this->datastore := def.datastore;
+  }
+
+  STRING FUNCTION GetTypeNS()
+  {
+    IF(this->delayed_type_init != "")
+      RETURN this->delayed_type_init;
+    RETURN ObjectExists(this->type) ? this->type->namespace : "";
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    // Set rowkeytypes for select components (which do not have a rowkeytype if they don't have options)
+    FOREVERY (OBJECT subcell FROM this->cells)
+    {
+      IF (subcell->cellname != "" AND MemberExists(subcell, "rowkeytype"))
+      {
+        RECORD typerec := SELECT type FROM this->type->members WHERE ToUppercase(name) = ToUppercase(subcell->cellname);
+        IF (NOT RecordExists(typerec))
+          THROW NEW Exception('Cellname "'|| subcell->cellname || '" doesn\'t exist as member of "' || this->type->namespace || '".');
+
+        TRY
+        {
+          subcell->rowkeytype := GetHareScriptTypeForMember(typerec);
+        }
+        CATCH (OBJECT e)
+        {
+          Print("Cell '" || subcell->cellname || "' caused error: " || e->what || "\n");
+        }
+      }
+    }
+  }
+
+
+  PUBLIC OBJECT FUNCTION GetStorageObject()
+  {
+    IF(NOT ObjectExists(this->pvt_basefsobject))
+      RETURN DEFAULT OBJECT;
+    IF(this->datastore="self")
+      RETURN this->pvt_basefsobject;
+    IF(this->datastore="parent")
+      RETURN this->pvt_basefsobject->parentobject;
+    IF(this->datastore="root")
+      RETURN OpenWHFSObject(this->pvt_basefsobject->highestparent);
+    THROW NEW Exception("Unrecognized datastore '" || this->datastore || "'");
+  }
+
+  PUBLIC MACRO ReadInstanceFromFSObject()
+  {
+    OBJECT loc := this->GetStorageObject();
+    IF(ObjectExists(this->type))
+    {
+      this->value := ObjectExists(loc) ? loc->GetInstanceDataByType(this->type) : this->type->defaultinstance;
+    }
+  }
+
+  PUBLIC INTEGER FUNCTION GetBaseForObjectLists()
+  {
+    IF(ObjectExists(this->pvt_basefsobject))
+      RETURN this->pvt_basefsobject->id;
+    RETURN this->pvt_saved_parent;
+  }
+
+  PUBLIC MACRO SetDefaultInstanceDataForParent(INTEGER parentfolderid, BOOLEAN isfolder, INTEGER newtype)
+  {
+    this->pvt_saved_parent := parentfolderid;
+    this->base_defaultvalues := GetDefaultSettingsForType(this->type->namespace, parentfolderid, 0, isfolder);
+    this->pvt_applytester := GetApplyTesterForFakeObject(parentfolderid, NOT isfolder, newtype);
+    this->SignalUpdatedCompositionMetadata();
+    this->value := MakeUpdatedRecord(this->value, this->base_defaultvalues);
+  }
+
+  PUBLIC MACRO WriteInstanceToFSObject()
+  {
+    OBJECT loc := this->GetStorageObject();
+    IF(ObjectExists(this->type) AND ObjectExists(loc))
+    {
+      RECORD setvalue := this->value;
+      IF(RecordExists(this->base_defaultvalues)) //restore missing values (if users forgot to add these cells to their composition)
+      {
+        FOREVERY (RECORD field FROM UnpackRecord(this->base_defaultvalues))
+        {
+          IF (NOT CellExists(setvalue, field.name))
+            setvalue := CellInsert(setvalue, field.name, field.value);
+        }
+      }
+
+      loc->SetInstanceDataByType(this->type, setvalue);
+    }
+  }
+
+  MACRO SetBaseFSObject(OBJECT obj)
+  {
+    this->pvt_basefsobject := obj;
+    IF(ObjectExists(obj))
+      this->pvt_applytester := GetApplyTesterForObject(obj->id);
+    this->SignalUpdatedCompositionMetadata();
+  }
+
+  OBJECT FUNCTION GetType()
+  {
+    IF(this->delayed_type_init!="")
+    {
+      this->pvt_type := OpenWHFSType(this->delayed_type_init);
+      IF(NOT ObjectExists(this->pvt_type))
+      {
+        DumpValue(select * from system.fs_types where namespace=this->delayed_type_init);
+        THROW NEW TolliumException(this, `The contenttype '${this->delayed_type_init}' does not exist`);
+      }
+
+      this->delayed_type_init:="";
+    }
+    RETURN this->pvt_type;
+  }
+
+  MACRO SetType(OBJECT whfstype)
+  {
+    this->delayed_type_init := ""; //overwrites any static type definition
+    this->pvt_type := whfstype;
+    this->SignalUpdatedCompositionMetadata();
+  }
+
+  UPDATE MACRO SetValue(RECORD value)
+  {
+    this->savedvalue := value;
+    TolliumCompositionBase::SetValue(value);
+  }
+
+  UPDATE RECORD FUNCTION GetValue()
+  {
+    IF(NOT ObjectExists(this->pvt_type))
+      THROW NEW Exception("No type set, so no record available");
+
+    RECORD base := TolliumCompositionBase::GetValue();
+    FOREVERY (STRING name FROM this->pvt_extracells)
+      base := CellInsert(base, name, GetCell(this->savedvalue, name));
+
+    IF(RecordExists(base))
+      INSERT CELL whfstype := this->pvt_type->namespace INTO base;
+
+    RETURN base;
+  }
+
+  MACRO SetExtraCells(STRING ARRAY cellnames)
+  {
+    // Uppercase, deduplicate, sort list.
+    STRING ARRAY list;
+    FOREVERY (STRING s FROM cellnames)
+    {
+      s := ToUppercase(s);
+      RECORD pos := LowerBound(list, s);
+      IF (NOT pos.found)
+        INSERT s INTO list AT pos.position;
+      IF (s = "")
+        THROW NEW Exception("Empty cellname not allowed");
+    }
+
+    STRING ARRAY existing;
+    FOREVERY (OBJECT obj FROM this->cells)
+      IF (LowerBound(list, ToUppercase(obj->cellname)).found)
+        THROW NEW Exception("Cell '" || ToUppercase(obj->cellname) || "' is already used by a component");
+
+    this->pvt_extracells := list;
+  }
+
+  ///Simplified load/store APIs
+  PUBLIC MACRO Load(INTEGER id)
+  {
+    this->basefsobject := id != 0 ? OpenWHFSObject(id) : DEFAULT OBJECT;
+    IF(id != 0)
+    {
+      IF(this->datastore != "self")
+        THROW NEW TolliumException(this, `Load and Store only support 'self' data storage`);
+
+      this->value := this->basefsobject->GetInstanceDataByType(this->type);
+    }
+  }
+
+  PUBLIC MACRO Store(OBJECT work, INTEGER id, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(this->datastore != "self")
+      THROW NEW TolliumException(this, `Load and Store only support 'self' data storage`);
+
+    options := ValidateOptions(
+        [ extradata := DEFAULT RECORD
+        ], options);
+
+    this->type->SetInstanceData(id, CELL[...this->value, ...options.extradata]);
+  }
+
+>;
+
+
+//Follow the list of compositions until a WHFSInstance is found
+PUBLIC OBJECT FUNCTION GetWHFSInstanceComposition(OBJECT startobj)
+{
+  FOR(OBJECT composition := startobj; ObjectExists(composition); composition := MemberExists(composition,"composition") ? composition->composition : DEFAULT OBJECT)
+    IF(composition EXTENDSFROM WHFSInstance)
+      RETURN composition;
+  RETURN DEFAULT OBJECT;
+}
+PUBLIC OBJECT FUNCTION LookupBaseFSObject(OBJECT composition, STRING sitename, STRING fullpath)
+{
+  INTEGER siteroot;
+  IF (sitename="")
+  {
+    IF(NOT ObjectExists(composition))
+      RETURN DEFAULT OBJECT; //no chance to find a useful base
+
+    OBJECT whfsinstance := GetWHFSInstanceComposition(composition);
+    OBJECT baseobject;
+
+    IF(ObjectExists(whfsinstance))
+      baseobject := OpenWHFSObject(whfsinstance->GetBaseForObjectLists());
+    IF(NOT ObjectExists(baseobject) OR fullpath="")
+      RETURN baseobject;
+
+    siteroot := baseobject->highestparent;
+  }
+  ELSE
+  {
+    siteroot := SELECT AS INTEGER root FROM system.sites WHERE ToUppercase(name)=ToUppercase(sitename);
+  }
+  IF(siteroot=0)
+    RETURN DEFAULT OBJECT;
+
+  IF(fullpath LIKE "/*")
+    fullpath := Substring(fullpath,1);
+
+  RETURN OpenWHFSObject(siteroot)->OpenByPath(fullpath);
+}

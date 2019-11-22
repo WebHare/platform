@@ -1,0 +1,155 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/codegrep.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/icons.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE IconViewer EXTEND TolliumScreenBase
+<
+
+  INTEGER refreshcntr;
+
+  ASYNC MACRO GotFileChange(RECORD ARRAY events)
+  {
+    AWAIT this->contexts->controller->ExecuteClientCall("ClearIconCache");
+    this->GotIconSelection();
+  }
+
+  MACRO GotIconSelection()
+  {
+    STRING iconname := this->^iconname->value;
+
+    RECORD ARRAY matches := GetIconMatches(iconname);
+    RECORD display := (SELECT * FROM matches WHERE name = iconname) ?? matches;
+
+    IF (NOT RecordExists(display))
+      RETURN;
+
+    STRING todisplay := display.name;
+    STRING ARRAY eventmasks;
+
+    IF (todisplay LIKE "*:*")
+    {
+      STRING modulename := Tokenize(todisplay, ":")[0];
+      STRING subpath := Left(Tokenize(todisplay, ":")[1], SearchLastSubstring(Tokenize(todisplay, ":")[1], "/") + 1);
+      INSERT  `system:modulefolder.mod::${modulename}/web/img/${subpath}` INTO eventmasks AT END;
+    }
+
+    FOREVERY (RECORD rec FROM 
+        [ [ x := 16, color := "b" ]
+        , [ x := 24, color := "b" ]
+        , [ x := 16, color := "c" ]
+        , [ x := 24, color := "c" ]
+        , [ x := 16, color := "w" ]
+        , [ x := 24, color := "w" ]
+        ])
+    {
+      RECORD ARRAY imgs := GetImage(todisplay, rec.x, rec.x, "", rec.color, [ nocache := TRUE ]);
+      FOREVERY (RECORD img FROM imgs)
+        eventmasks := eventmasks CONCAT img.eventmasks;
+    }
+
+    this->^eventlistener->masks := GetSortedSet(eventmasks);
+
+    this->refreshcntr := this->refreshcntr + 1;
+    this->^counter->value := ToString(this->refreshcntr);
+
+    this->^displayed->value := todisplay;
+    this->^b16->SetImageSrc(todisplay, "", "b");
+    this->^b24->SetImageSrc(todisplay, "", "b");
+    this->^c16->SetImageSrc(todisplay, "", "c");
+    this->^c24->SetImageSrc(todisplay, "", "c");
+    this->^bs16->SetImageSrc(todisplay, "", "b");
+    this->^bs24->SetImageSrc(todisplay, "", "b");
+    this->^cs16->SetImageSrc(todisplay, "", "c");
+    this->^cs24->SetImageSrc(todisplay, "", "c");
+    this->^w16->SetImageSrc(todisplay, "", "w");
+    this->^w24->SetImageSrc(todisplay, "", "w");
+  }
+
+  ASYNC MACRO DoRefresh()
+  {
+    AWAIT this->contexts->controller->ExecuteClientCall("ClearIconCache");
+    this->GotIconSelection();
+  }
+>;
+
+RECORD ARRAY FUNCTION GetIconMatches(STRING curtext)
+{
+  RECORD ARRAY icons;
+  FOREVERY (STRING modulename FROM GetInstalledModuleNames())
+  {
+    STRING path := GetModuleInstallationRoot(modulename);
+    IF (path NOT LIKE "*/")
+      path := path || "/";
+
+    path := path || "web/img/";
+    icons := icons CONCAT ScanDirectory(modulename, path, "", [ ".png", ".svg", ".ixo" ]);
+  }
+
+  /// FIXME: In tollium/web/ui/js/images.es use e.g. `icon: toddImages.createImage("tollium:actions/crop", 24, 24, "b")` instead of throwing data over the line!
+
+  /// Format the data into the fields we want
+  icons := SELECT module := source.module
+                , localname := Tokenize(Tokenize(source.localpath, ".")[0], "/")[END-1]
+                , name := source.module || ":" || Substring(source.localpath, 0, SearchSubstring(source.localpath, ".", 0))
+/*                  , variants := [ base64 := EncodeBase64(BlobToString(data))
+                              , pathcomponents := Tokenize(Tokenize(source.localpath, ".")[0], "/")
+                              , size := source.localpath LIKE "*.png" ? ArraySlice(Tokenize(source.localpath, "."), 1, 1)[0] : "24"
+                              , path := Tokenize(source.localpath, ".")[0]
+                              , title := source.module || ":" || Substring(source.localpath, 0, SearchSubstring(source.localpath, ".", 0))
+                              , color := source.localpath LIKE "*.png" ? ToColor(ArraySlice(Tokenize(source.localpath, "."), 2, 1)) : "b,w"
+                              , fullpath := source.fullpath
+                              , htmlid := Substitute("goto-" || source.module || "-" || Substitute(Substitute(source.localpath || "$", ".", "-"), "/", "-"), "-png$", "")
+                              , mimetype := source.localpath LIKE "*.png" ? "image/png" : "image/svg+xml"
+                              , isixo := source.localpath LIKE "*.ixo"
+                              , issvg := source.localpath LIKE "*.svg"
+                              ]
+*/
+             FROM icons;
+
+  /// Group the icons per module, icon and add the variants (sorted)
+  icons := SELECT module
+                , name
+                , localname
+//                  , variants := SortedGroupedValues(variants)
+             FROM icons
+         GROUP BY module
+                , name
+                , localname
+         ORDER BY module DESC
+                , name;
+
+
+    icons :=
+        SELECT *
+          FROM icons
+         WHERE ToUppercase(name) LIKE "*" || Touppercase(curtext) || "*";
+
+  RETURN icons;
+
+
+}
+
+
+PUBLIC STATIC OBJECTTYPE AutocompleteIcon EXTEND TolliumAutoSuggestBase
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION Lookup(STRING curtext)
+  {
+    RECORD ARRAY icons := GetIconMatches(curtext);
+
+    icons :=
+        SELECT value :=   name
+             , title :=   name
+          FROM icons;
+
+    RETURN icons;
+  }
+>;
+

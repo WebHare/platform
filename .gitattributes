@@ -1,0 +1,4 @@
+.gitattributes export-ignore
+.gitignore export-ignore
+**/changelogs/?.??.md merge=union
+**/installation/?.??.md merge=union

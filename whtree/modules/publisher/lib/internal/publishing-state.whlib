@@ -1,0 +1,44 @@
+<?wh
+LOADLIB "mod::system/lib/whfs.whlib";
+
+/* Shared state library for stuff running under publishjob.whscr */
+PUBLIC OBJECT publishingbackendlink;
+
+PUBLIC RECORD cached_publish_info;
+PUBLIC RECORD contentfile;
+PUBLIC RECORD contentfolder, contentsite;
+PUBLIC RECORD contentfiletypeprops;
+PUBLIC RECORD ARRAY dbfiles;
+
+/** Whether the source file is a scriptable file (only editable by sysops)
+*/
+PUBLIC BOOLEAN publishsourceisscriptable;
+
+
+//Automatic file id extensions
+PUBLIC STRING ARRAY autofileidextensions;
+
+PUBLIC RECORD ARRAY preppedonpublish;
+
+PUBLIC MACRO SetInstanceDataOnPublish(STRING typens, RECORD data)
+{
+  INTEGER pos := SELECT AS INTEGER #preppedonpublish + 1 FROM preppedonpublish WHERE ns = typens;
+  IF(pos = 0)
+  {
+    OBJECT type := OpenWHFSType(typens);
+    IF(NOT ObjectExists(type))
+      THROW NEW Exception("No such type '" || typens || "'");
+
+    INSERT [ type := type, ns := typens, data := DEFAULT RECORD ] INTO preppedonpublish AT END;
+    pos := Length(preppedonpublish);
+  }
+
+  RECORD newdata := preppedonpublish[pos-1].data;
+  FOREVERY(RECORD cellrec FROM UnpackRecord(data))
+  {
+    newdata := CellDelete(newdata, cellrec.name);
+    newdata := CellInsert(newdata, cellrec.name, cellrec.value);
+  }
+  preppedonpublish[pos-1].data := newdata;
+}
+

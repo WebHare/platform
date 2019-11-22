@@ -1,0 +1,586 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/dialogs.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+
+/*******************************************************************************
+ *
+ * Test WRD authentication using the webdesign plugin API
+ */
+//ADDME: Using the plugin seems to always make the login persistent
+
+STRING baseurl;
+RECORD thirdpartytest;
+STRING thirdpartyurl;
+INTEGER entityid;
+DATETIME lastcheck;
+
+RECORD FUNCTION DoReq(RECORD vars, BOOLEAN thirdparty DEFAULTSTO FALSE)
+{
+  IF(NOT testfw->browser->GotoWebPage(UpdateURLVariables(thirdparty ? thirdpartyurl : baseurl, vars)) OR testfw->browser->contenttype!="application/x-hson")
+  {
+    SendBlobTo(0,testfw->browser->content);
+    Abort("get failure on " || testfw->browser->url);
+  }
+  RETURN DecodeHSON(BlobToString(testfw->browser->content,-1));
+}
+
+MACRO TestAuditEvent(RECORD expected)
+{
+  RECORD ARRAY auditevents := SELECT *, DELETE id, DELETE creationdate, DELETE wrdschema
+                                FROM wrd.auditevents
+                               WHERE auditevents.wrdschema = testfw->GetWRDSchema()->id
+                                     AND creationdate > lastcheck;
+
+  IF(NOT CellExists(expected,'IP')) //some tests do not care about IP address (prevent connecting to webhareinterface from causing issues)
+    auditevents := SELECT *, DELETE ip FROM auditevents;
+  TestEq(RecordExists(expected) ? [ expected ] : RECORD[], auditevents);
+  lastcheck := GetCurrentDatetime();
+  Sleep(1);
+}
+
+MACRO PrepareServer()
+{
+  RECORD testport := testfw->GetLocalhostWebinterface();
+  thirdpartytest  := testfw->CreateWebserverPort([ outputserver := TRUE, virtualhosts := ["localhost.beta.webhare.net"]]); //note: localhost.webhare.com maps to 127.0.0.1
+
+  testfw->BeginWork();
+
+  baseurl := testport.baseurl || "wrd/authtest/webhare_testsuite.shtml?";
+  thirdpartyurl := thirdpartytest.webservers[0].url || "wrd/authtest/webhare_testsuite.shtml?";
+
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "tests/wrd/authplugin.shtml");
+
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
+         VALUES(thirdpartytest.webservers[0].id, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "tests/wrd/authplugin.shtml");
+
+  testfw->CommitWork();
+
+  testfw->RefreshWebserverConfig();
+}
+
+MACRO CreateMyTestSchema()
+{
+  RECORD result;
+
+  testfw->BeginWork();
+
+  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  TestEq(TRUE, ObjectExists(schemaobj));
+
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  OBJECT auditlogtype := schemaobj->GetType("WRD_AUDITLOG");
+//  persontype->CreateAttribute("EMAIL", "Email address", "", "WRD_CONTACT_EMAIL", "");
+//  persontype->CreateAttribute("PASSWORD", "Password", "", "PASSWORD", "");
+
+//  OBJECT domain := CreateWRDAuthDomain(persontype, "TESTDOMAIN", "WRD_CONTACT_EMAIL", "PASSWORD");
+
+  OBJECT entity := persontype->CreateEntity([ wrd_contact_email := "testaccount@test.invalid", whuser_password := testfw->hashedpasswords.secret ]);
+  entityid := entity->id;
+
+  testfw->CommitWork();
+
+  //ADDME some sort of automatic backing off/delays/even captcha? to prevent excessive login attempts ?
+
+  result := DoReq( [ action := "login", username := "testaccount@test.invali", pwd := "wrongpassword"]);
+  TestEq(FALSE, result.success);
+  TestEq("UNKNOWNLOGIN", result.code);
+  TestAuditEvent(
+      [ entity := 0
+      , type := "wrd:login:failed"
+      , ip := "127.0.0.1"
+      , login := "testaccount@test.invali"
+      , impersonated := FALSE
+      , data := EncodeHSON([failurecode := "UNKNOWNLOGIN"])
+      ]);
+
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword"]);
+  TestEq(FALSE, result.success);
+  TestEq("INCORRECTPASSWORD", result.code);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:failed"
+      , ip := "127.0.0.1"
+      , login := "testaccount@test.invalid"
+      , impersonated := FALSE
+      , data := EncodeHSON([failurecode := "INCORRECTPASSWORD"])
+      ]);
+
+  result := DoReq( [ action := "checkstatus" ]);
+  TestEq(FALSE, result.isloggedin);
+  TestEq("", result.loginname);
+  TestEq(0, result.entityid);
+
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret"]);
+  TestEq(TRUE, result.success);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:ok"
+      , ip := "127.0.0.1"
+      , login := "testaccount@test.invalid"
+      , impersonated := FALSE
+      , data := ""
+      ]);
+
+  result := DoReq( [ action := "checkstatus" ]);
+  TestEq(TRUE, result.isloggedin);
+  TestEq("testaccount@test.invalid", result.loginname);
+  TestEq(entity->id, result.entityid);
+
+  //regression test. issue #5989, early use of GetLoggedinEntity() or GetLoginName() causes a re-login
+  result := DoReq( [ action := "logout-checkstatus" ]);
+  TestEq(TRUE, result.oldstatus.isloggedin);
+  TestEq(FALSE, result.isloggedin);
+  TestEq("", result.loginname);
+  TestEq(0, result.entityid);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:logout"
+      , ip := "127.0.0.1"
+      , login := ""
+      , impersonated := FALSE
+      , data := ""
+      ]);
+
+  //set up last login and last ip fields
+  testfw->BeginWork();
+  persontype->CreateAttribute("LASTLOGIN",  "DATETIME");
+  persontype->CreateAttribute("LASTIP",     "FREE");
+  OBJECT domaintype := testfw->GetWRDSchema()->GetType("WRD_AUTHDOMAIN");
+  domaintype->GetEntity(domaintype->Search("WRD_TAG","MYBACKEND"))->UpdateEntity(
+    [ WRDAUTH_LASTLOGINFIELD := "LASTLOGIN"
+    , WRDAUTH_LASTIPFIELD := "LASTIP"
+    ]);
+  testfw->CommitWork();
+
+  //failed login shouldn't set these fields
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword"]);
+  TestEq(FALSE, result.success);
+  TestEq("INCORRECTPASSWORD", result.code);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:failed"
+      , ip := "127.0.0.1"
+      , login := "testaccount@test.invalid"
+      , impersonated := FALSE
+      , data := EncodeHSON([failurecode := "INCORRECTPASSWORD"])
+      ]);
+
+  TestEq(DEFAULT DATETIME, entity->GetField("LASTLOGIN"));
+  TestEq("", entity->GetField("LASTIP"));
+
+  //neither should a 'master' (impersonated) login
+  result := DoReq( [ action := "loginid", userid := ToString(entityid), impersonation := "1" ]);
+  TestEq(TRUE, result.success);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:loginbyid:ok"
+      , ip := "127.0.0.1"
+      , login := ""
+      , impersonated := TRUE
+      , data := ""
+      ]);
+
+  TestEq(DEFAULT DATETIME, entity->GetField("LASTLOGIN"));
+  TestEq("", entity->GetField("LASTIP"));
+
+  result := DoReq( [ action := "logout-checkstatus" ]);
+  TestEq(TRUE, result.oldstatus.isloggedin);
+  TestEq(FALSE, result.isloggedin);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:logout"
+      , ip := "127.0.0.1"
+      , login := ""
+      , impersonated := FALSE
+      , data := ""
+      ]);
+
+  DATETIME now := GetCurrentDatetime();
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret"]);
+  TestEq(TRUE, result.success);
+
+  TestEq(TRUE, entity->GetField("LASTLOGIN") >= now);
+  TestEq(TRUE, entity->GetField("LASTIP") LIKE "*.*.*.*" OR entity->GetField("LASTIP") LIKE "*::*");
+
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:ok"
+      , ip := "127.0.0.1"
+      , login := "testaccount@test.invalid"
+      , impersonated := FALSE
+      , data := ""
+      ]);
+}
+
+MACRO TestModuleDefIPRules()
+{
+  //testfw->browser->debug := TRUE;
+  TestEq(FALSE, testfw->browser->GotoWebPage( OpenTestsuiteSite()->webroot || "portal1/requiresysop/"));
+  TestEq(403, testfw->browser->GetHTTPStatusCode(),"should receive 403 as our current user is unprivileged");
+
+  TestEq(FALSE, testfw->browser->GotoWebPage( OpenTestsuiteSite()->webroot || "portal1/requiresysop-or-consilio/"));
+  TestEq(403, testfw->browser->GetHTTPStatusCode());
+
+  OBJECT trustedbrowser := NEW WebBrowser;
+  //trustedbrowser->debug := TRUE;
+  trustedbrowser->autofollow := FALSE;
+  trustedbrowser->SetupWebHareTrustedPort(GetWebhareConfiguration().trustedhost, GetWebhareConfiguration().trustedport, fetcher_trusted_ip);
+
+  TestEq(TRUE, trustedbrowser->GotoWebPage( OpenTestsuiteSite()->webroot || "portal1/requiresysop/"));
+  TestEq(303, trustedbrowser->GetHTTPStatusCode(), "should be redirect to login page as we have no session");
+
+  TestEq(TRUE, trustedbrowser->GotoWebPage( OpenTestsuiteSite()->webroot || "portal1/requiresysop-or-consilio/"));
+  TestEq(200, trustedbrowser->GetHTTPStatusCode());
+}
+
+MACRO TestPersistentLogin()
+{
+  OBJECT auditlogtype := testfw->GetWRDSchema()->GetType("WRD_AUDITLOG");
+
+  RECORD result;
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret"]);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:ok"
+      , ip := "127.0.0.1"
+      , login := "testaccount@test.invalid"
+      , impersonated := FALSE
+      , data := ""
+      ]);
+
+  RECORD logincookie := SELECT * FROM testfw->browser->GetAllCookies() WHERE ToUppercase(name)="WEBHARELOGIN-TESTSUITE-PORTAL1";
+  TEstEq(TRUE, RecordExists(logincookie));
+  TestEQ(DEFAULT DATETIME, logincookie.expires);
+
+  //Invalidate the sessionid stored in the webhare login cookie
+  TestEq(TRUE, testfw->browser->GetCookie("webharelogin-testsuite-portal1") != "");
+  testfw->browser->SetSessionCookie("webharelogin-testsuite-portal1", "d_VFv-saZMPc0TyZ7Wi1Gg " || Tokenize(testfw->browser->GetCookie("webharelogin-testsuite-portal1"),' ')[1]);
+
+  //Should autorestore because of the data in the cookie
+  result := DoReq( [ action := "checkstatus" ]);
+  TestEq(TRUE, result.isloggedin);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:logincookie"
+      , login := ""
+      , impersonated := FALSE
+      , data := ""
+      ]);
+
+  //Completely clear the session
+  testfw->browser->DeleteCookie("webharelogin-testsuite-portal1");
+
+  //Should not recover
+  result := DoReq( [ action := "checkstatus" ]);
+  TestEq(FALSE, result.isloggedin);
+
+//testfw->browser->debug:=TRUE;
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", persistent := "1" ]);
+  TestEq(TRUE, testfw->browser->GetCookie("webharelogin-testsuite-portal1") != "");
+  testfw->browser->SetSessionCookie("webharelogin-testsuite-portal1", "d_VFv-saZMPc0TyZ7Wi2Gg " || Tokenize(testfw->browser->GetCookie("webharelogin-testsuite-portal1"),' ')[1]);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:ok"
+      , ip := "127.0.0.1"
+      , login := "testaccount@test.invalid"
+      , impersonated := FALSE
+      , data := ""
+      ]);
+
+  //Should still recover from this (from the persistent cookie)
+  result := DoReq( [ action := "checkstatus" ]);
+  TestEq(TRUE, result.isloggedin);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:logincookie"
+      , login := ""
+      , impersonated := FALSE
+      , data := ""
+      ]);
+
+  //Completely clear the session
+  testfw->browser->DeleteCookie("webharelogin-testsuite-portal1");
+
+  //Should now also recover from this
+  result := DoReq( [ action := "checkstatus" ]);
+  TestEq(TRUE, result.isloggedin);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:logincookie"
+      , login := ""
+      , impersonated := FALSE
+      , data := ""
+      ]);
+}
+
+VARIANT ARRAY FUNCTION MakeVA(VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  RETURN args;
+}
+
+MACRO TestCrossDomainLogin()
+{
+  OBJECT auditlogtype := testfw->GetWRDSchema()->GetType("WRD_AUDITLOG");
+  testfw->browser->DeleteAllCookies();
+
+  STRING loginrequiringurl := thirdpartyurl || "action=requirelogin";
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(loginrequiringurl), loginrequiringurl);
+  TesteqLike("*wh-tollium--app*", testfw->browser->document->documentelement->GetAttribute("class")); //ensure we're talking to some sort of tollium
+
+  //We should be seeing the tollium page above. Do a WRD login
+//  testfw->browser->debug:=TRUE;
+  STRING loginpage := testfw->browser->href;
+  RECORD rec := testfw->browser->InvokeJSONRPC("/wh_services/wrd/auth", "Login",
+                  MakeVA(testfw->browser->href, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE));
+
+  TestEq(TRUE, rec.success);
+  TestEq('reload', rec.result.submitinstruction.type);
+  TestAuditEvent(
+      [ entity := testfw->GetUserWRDId("mysysop")
+      , type := "wrd:login:ok"
+      , login := "mysysop@beta.webhare.net"
+      , impersonated := FALSE
+      , data := ""
+      ]);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(loginpage));
+  TestEq(200, testfw->browser->GetHTTPStatusCode()); // another redirect to clean the location
+  TEstEq(loginrequiringurl, testfw->browser->href);
+
+  //Find the _e cookie
+  STRING e_cookiename := SELECT AS STRING name FROM testfw->browser->GetAllCookies() WHERE name LIKE 'webharelogin*_e';
+  TestEq(TRUE, e_cookiename != "", "Cannot locate the webhare external access cookie");
+  //change the sessionid, simulating a lost _e session
+  testfw->browser->SetSessionCookie(e_cookiename, "V_DFv-saZMPa5TyZ7Wi2Gg " || Tokenize(testfw->browser->GetCookie(e_cookiename),' ')[1]);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(loginrequiringurl)); //should still work
+  TestEq(200, testfw->browser->GetHTTPStatusCode());
+
+  TestEq(TRUE, testfw->browser->GotoWebPage( OpenTestsuiteSite()->webroot || "portal1/requiresysop"));
+  TestEq(200, testfw->browser->GetHTTPStatusCode());
+
+  TestEq(TRUE, testfw->browser->GotoWebPage( OpenTestsuiteSite()->webroot || "portal1/requiresysop-or-consilio"));
+  TestEq(200, testfw->browser->GetHTTPStatusCode());
+
+  // Log the user out on the main page (TODO can we invalidate the external thirdparty logins to?)
+  TestAuditEvent(DEFAULT RECORD); //check log is still empty
+  testEq(TRUE, testfw->browser->GotoWebPage(GetTestsuiteWRDauthPlugin()->GetLogoutLink()));
+  TestAuditEvent(
+      [ entity := testfw->GetUserWRDId("mysysop")
+      , type := "wrd:logout"
+      , login := ""
+      , impersonated := FALSE
+      , data := ""
+      ]);
+}
+
+RECORD onshowdata;
+MACRO RecordOnShowData(RECORD data)
+{
+  onshowdata := data;
+}
+
+OBJECT ASYNC FUNCTION TestAuditDialog()
+{
+  AWAIT ExpectScreenChange(+1, PTR RunWRDAuditLogDialog(GetTestController(),
+    [ wrdschema := testfw->GetWRDSchema()
+    , accountid := testfw->GetUserWRDId("mysysop")
+    , onshow := PTR RecordOnShowData
+    ]));
+  TestEq(2, Length(topscreen->events->rows));
+
+  topscreen->events->selection := (SELECT * FROM topscreen->events->rows ORDER BY wrd_creationdate)[0];
+  TestEq(FALSE, RecordExists(onshowdata));
+  topscreen->events->openaction->TolliumClick();
+  TestEq(TRUE, RecordExists(onshowdata));
+
+  //dumpvalue(onshowdata);
+  TestEq(testfw->GetUserWRDId("mysysop"), onshowdata.entity);
+  TestEq("wrd:login:ok", onshowdata.type);
+
+  topscreen->events->selection := (SELECT * FROM topscreen->events->rows ORDER BY wrd_creationdate)[1];
+  topscreen->events->openaction->TolliumClick();
+  TestEq(TRUE, RecordExists(onshowdata));
+
+  //dumpvalue(onshowdata);
+  TestEq(testfw->GetUserWRDId("mysysop"), onshowdata.entity);
+  TestEq("wrd:logout", onshowdata.type);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  RETURN TRUE;
+}
+
+MACRO TestLoginDenied()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  TestEq(TRUE, ObjectExists(schemaobj));
+
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  OBJECT auditlogtype := schemaobj->GetType("WRD_AUDITLOG");
+
+  OBJECT entity := persontype->CreateEntity([ wrd_contact_email := "logindenied@test.invalid", whuser_password := testfw->hashedpasswords.secret ]);
+  entityid := entity->id;
+
+  testfw->CommitWork();
+
+  // Make sure the current user is logged out
+  RECORD result := DoReq( [ action := "checkstatus" ]);
+  TestEq(FALSE, result.isloggedin);
+  TestEq("", result.loginname);
+  TestEq(0, result.entityid);
+
+  // Login is denied when logging in by username and password
+  result := DoReq( [ action := "login", username := "logindenied@test.invalid", pwd := "secret"]);
+  TestEq(FALSE, result.success);
+  TestEq("NOACCESS", result.code);
+  TestEq(TRUE, CellExists(result, "USERINFO"));
+  TestEq(FALSE, CellExists(result, "_INTERNAL"));
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:failed"
+      , ip := "127.0.0.1"
+      , login := "logindenied@test.invalid"
+      , impersonated := FALSE
+      , data :=
+          EncodeHSON([ userinfo := [ wrd_contact_email := "logindenied@test.invalid" ]
+                     , failurecode := "NOACCESS"
+                     ])
+      ]);
+
+  // User still not logged in
+  result := DoReq( [ action := "checkstatus" ]);
+  TestEq(FALSE, result.isloggedin);
+  TestEq("", result.loginname);
+  TestEq(0, result.entityid);
+
+  // Login is denied when logging in by id
+  result := DoReq( [ action := "loginid", userid := ToString(entityid) ]);
+  TestEq(FALSE, result.success);
+  TestEq("NOACCESS", result.code);
+  TestEq(TRUE, CellExists(result, "USERINFO"));
+  TestEq(FALSE, CellExists(result, "_INTERNAL"));
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:loginbyid:failed"
+      , ip := "127.0.0.1"
+      , login := ""//"logindenied@test.invalid"
+      , impersonated := FALSE
+      , data :=
+          EncodeHSON([ userinfo := [ wrd_contact_email := "logindenied@test.invalid" ]
+                     , failurecode := "NOACCESS"
+                     ])
+      ]);
+
+  // User still not logged in
+  result := DoReq( [ action := "checkstatus" ]);
+  TestEq(FALSE, result.isloggedin);
+  TestEq("", result.loginname);
+  TestEq(0, result.entityid);
+
+  // Login is not denied when impersonating login
+  result := DoReq( [ action := "loginid", userid := ToString(entityid), impersonation := "1" ]);
+  TestEq(TRUE, result.success);
+  TestEq(FALSE, RecordExists(result.submitinstruction));
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:loginbyid:ok"
+      , login := ""
+      , impersonated := TRUE
+      , data := ""
+      ]);
+}
+
+MACRO TestWRDAuthRouter()
+{
+  DoSetupWRDAuth();
+
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->CreateEntity([ wrd_contact_email := "testwrdauthrouter@beta.webhare.net"
+                                                    , password := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO"  //secret
+                                                    ]);
+  testfw->CommitWork();
+
+  //just login first
+  STRING testbaseurl := OpenTestsuiteSite()->webroot || "testpages/";
+  RECORD loginres := testfw->browser->CallJSONRPC("/wh_services/wrd/auth", "Login", testbaseurl || "wrdauthtest-router"
+                                                 , "testwrdauthrouter@beta.webhare.net", "secret", FALSE);
+  TestEq(TRUE, loginres.success);
+
+  OBJECT wrdplugin := GetWRDAuthPlugin(testbaseurl || "wrdauthtest-router/");
+  RECORD wittydata := wrdplugin->GetWRDAuthRouterWittyData(testbaseurl || "wrdauthtest-router/");
+  TestEqLike("http*", wittydata.forgotpasswordlink);
+  TestEq("", wittydata.emailchangelink);
+
+  wrdplugin := GetWRDAuthPlugin(testbaseurl || "wrdauthtest-router-extended/");
+  wittydata := wrdplugin->GetWRDAuthRouterWittyData(testbaseurl || "wrdauthtest-router-extended/");
+  TestEqLike("http*", wittydata.forgotpasswordlink);
+  TestEqLike("http*", wittydata.emailchangelink);
+
+  testfw->browser->autofollow := FALSE;
+  TestEq(TRUE, testfw->browser->GotoWebPage(wittydata.emailchangelink));
+  TestEq(200, testfw->browser->GetHTTPStatusCode());
+
+  TestEq(FALSE, testfw->browser->GotoWebPage(Substitute(wittydata.emailchangelink, "wrdauthtest-router-extended", "wrdauthtest-router")));
+  TestEq(403, testfw->browser->GetHTTPStatusCode(), "should explicitly show emailchange as forbidden");
+
+  testfw->browser->DeleteAllCookies(); //force logout otherwise can't access the reset
+
+  //Let's get to the password reset. -broken truncates password lifetime to 0 minutes, giving us an invalid link to test
+  TestEq(TRUE, testfw->browser->GotoWebPage(Substitute(wittydata.forgotpasswordlink, "wrdauthtest-router-extended", "wrdauthtest-router-broken")));
+
+  //Submit it for our test user
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  RECORD submitrec := CELL[ email := "testwrdauthrouter@beta.webhare.net" ];
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE,res.success);
+
+  RECORD ARRAY emails := testfw->ExtractAllMailFor("testwrdauthrouter@beta.webhare.net");
+  TestEq(1,length(emails));
+  TestEq(1,Length(emails[0].links));
+
+  STRING fixedlink := Substitute(emails[0].links[0].href, "wrdauthtest-router-broken", "wrdauthtest-router-extended"); //otherwise it'll just break again
+  TestEq(TRUE, testfw->browser->GotoWebPage(fixedlink));
+
+  TestEq(TRUE, ObjectExists(testfw->browser->document->GetElement(".wh-wrdauth-linkexpired")));
+  //TODO the page should offer a way to re-request the password
+
+  //Let's get to the password set.
+  INTEGEr user := testfw->wrdschema->^wrd_person->Search("WRD_CONTACT_EMAIL", "testwrdauthrouter@beta.webhare.net");
+  RECORD passwordsetter := wrdplugin->CreatePasswordResetLink(wittydata.forgotpasswordlink, user, [ routerpage := "setpassword" ]);
+  TestEq(TRUE, testfw->browser->GotoWebPage(passwordsetter.verifiedlink));
+  TestEq(TRUE, ObjectExists(testfw->browser->document->GetElement(".wh-wrdauth-setpassword")));
+}
+
+Runtestframework( [ PTR PrepareServer
+                  , PTR CreateMyTestSchema
+                  , PTR TestModuleDefIPRules
+                  , PTR TestPersistentLogin
+                  , PTR TestCrossDomainLogin
+                  , PTR TestAuditDialog
+                  , PTR TestLoginDenied
+                  , PTR TestWRDAuthRouter
+                  ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]
+                                    ]
+                     ]);

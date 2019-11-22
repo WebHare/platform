@@ -1,0 +1,326 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/listtreehelper.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+PUBLIC OBJECTTYPE TolliumPulldown EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Storage for options (ListTreeHelper)
+  */
+  OBJECT storage;
+
+
+  /** Flags
+  */
+  STRING ARRAY pvt_flags;
+
+
+  /** Function called when selection changes
+  */
+  PUBLIC FUNCTION PTR onselect;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Rowkey of currently selected value
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+
+  /** Currently selected option
+  */
+  PUBLIC PROPERTY selection(GetSelection, SetSelection);
+
+
+  /** List of all options
+  */
+  PUBLIC PROPERTY options(GetRows, SetRows);
+
+
+  /** The list of flags available in the options
+  */
+  PUBLIC PROPERTY flags(pvt_flags, SetFlags);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->componenttype := "pulldown";
+    this->formfieldtype := "string";
+
+    // Get new storage object (no tree, no dynamic)
+    this->storage := NEW ListTreeHelper;
+    this->storage->callback := PRIVATE this;
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    IF(this->required)
+    {
+      RECORD curselection := this->selection;
+      IF(NOT RecordExists(curselection) OR (CellExists(curselection,'invalidselection') AND curselection.invalidselection))
+      {
+        work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", this->errorlabel??this->title));
+      }
+    }
+  }
+
+
+  UPDATE MACRO PreInitComponent()
+  {
+//    this->UpdateComponentsEnabled();
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ selection := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD ARRAY rows := this->storage->rows;
+
+      //ADDME: Should be validated by internal/components, not web (ADDME: ANd i think we changed the component to always autsoelect the first option now?)
+      INTEGER numselections := Length(SELECT FROM rows WHERE tolliumselected);
+      IF(numselections!=1 AND LENGTH(rows) != 0)
+        THROW NEW TolliumException(this,"Exactly one item should be selected for select field '" || this->name || "' (" || this->title || "), currently selected: " || numselections || " items");
+
+      IF(this->readonly)
+      {
+        STRING newselection := Detokenize((SELECT AS STRING ARRAY title FROM rows WHERE tolliumselected),", ");
+        this->TolliumWebReadOnly(newselection, FALSE);
+        RETURN;
+      }
+
+      RECORD compinfo := [ unmasked_events := GetUnmask(this,["select"])
+                         , required := this->required
+                         , options := this->TolliumWebPrintOptions()
+                         , hint := this->hint
+                         ];
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.selection)
+      {
+        IF(this->readonly)
+        {
+          STRING newselection := Detokenize((SELECT AS STRING ARRAY title FROM this->storage->rows WHERE tolliumselected),", ");
+          this->owner->frame->TolliumWeb_UpdateField(GetComponentName(this), newselection);
+          TolliumComponentBase::TolliumWebRender();
+          RETURN;
+        }
+
+        STRING newselection := SELECT AS STRING TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey))
+                                 FROM this->storage->rows
+                                WHERE tolliumselected;
+        this->ToddUpdate([type:="newselection", newselection := newselection]);
+      }
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(STRING inp)
+  //NOTE: Dupe of ExtendList
+  {
+    RECORD ARRAY newvals := SELECT * FROM this->storage->rows WHERE TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey)) = inp;
+//    this->UpdateSelection(newvals, FALSE);
+    this->storage->SetSelectionByRecords(newvals, FALSE);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION TolliumWebPrintOptions()
+  {
+    RETURN SELECT flags := StoredAttrsJSON(currentrows, this->flags)
+                , value := TypeToString(rowkey, TypeId(rowkey))
+                , enablecomponents := CelLExists(currentrows, "enablecomponents") ? GetVisibleComponentNames(currentrows.enablecomponents) : DEFAULT STRING ARRAY
+                , selected := tolliumselected
+                , enabled
+                , title
+                , hint := CellExists(currentrows, "hint") ? hint : ""
+                , icon := CellExists(currentrows, "icon") ? icon : ""
+                , isdivider := CellExists(currentrows, "isdivider") AND isdivider
+                , indent := CellExists(currentrows, "indent") ? indent : 0
+             FROM this->storage->rows AS currentrows;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks from the storage
+  //
+
+  /** Called when all rows have been invalidated
+  */
+  MACRO LTH_UpdatedAllRows()
+  {
+    this->ExtUpdatedComponent();
+    this->UpdateComponentsEnabled();
+  }
+
+
+  /** Called when a single row has been updated
+      @param row Row that has been updated
+      @cell rowkey Rowkey of the row
+  */
+  MACRO LTH_UpdatedRow(RECORD row)
+  {
+    this->ExtUpdatedComponent();
+  }
+
+
+  /** Called when the selection changes
+  */
+  MACRO LTH_UpdatedSelection(BOOLEAN frontend_change, BOOLEAN auto_change)
+  {
+    IF (frontend_change) // ADDME: see how todd copes with (partially deleted) selection after row change
+      this->ExtUpdatedSelection();
+    IF (this->onselect != DEFAULT FUNCTION PTR)
+    {
+      IF (frontend_change)
+        this->onselect();
+      ELSE
+        this->owner->tolliumscreenmanager->QueueEvent(this, "select", DEFAULT RECORD);
+    }
+    this->UpdateComponentsEnabled();
+  }
+
+
+  /** Called when the list of child nodes of a row has been replaced.
+      @param parent Parent row
+      @param children Children rows
+  */
+  MACRO LTH_UpdatedChildnodes(RECORD parentrow, RECORD ARRAY children)
+  {
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN this->storage->value;
+  }
+
+
+  MACRO SetValue(VARIANT keys)
+  {
+    this->storage->value := keys;
+  }
+
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN this->storage->IsValidValue(value) AND (Length(this->storage->rows) = 0 OR RecordExists(SELECT FROM this->storage->rows WHERE rowkey = value));
+  }
+
+  RECORD ARRAY FUNCTION GetRows()
+  {
+    RETURN this->storage->rows;
+  }
+
+
+  MACRO SetRows(RECORD ARRAY newrows)
+  {
+    this->storage->SetStaticRows(newrows);
+    IF (NOT RecordExists(this->storage->selection) AND Length(this->storage->rows)>0)
+    {
+      // Must have at least one selection, please.
+      this->storage->SetSelectionByRecords([ RECORD(this->storage->rows[0]) ], TRUE);
+      RETURN;
+    }
+  }
+
+
+  RECORD FUNCTION GetSelection()
+  {
+    RETURN this->storage->selection;
+  }
+
+
+  MACRO SetSelection(RECORD row)
+  {
+    this->storage->SetSelectionByRecords(RecordExists(row) ? [ row ] : DEFAULT RECORD ARRAY, TRUE);
+  }
+
+
+  MACRO SetFlags(STRING ARRAY newflags)
+  {
+    this->pvt_flags := newflags;
+
+    this->storage->required_cells :=
+      [ [ name := "TITLE"
+        , type := TypeID(STRING)
+        ]
+      ] CONCAT SELECT name := ToUppercase(name)
+                    , type := TypeID(BOOLEAN)
+                 FROM ToRecordArray(this->pvt_flags, "NAME");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE MACRO UpdateComponentsEnabled()
+  {
+    // First disable all components from unselected rows
+    FOREVERY (RECORD unselected_option FROM (SELECT * FROM this->storage->rows WHERE NOT tolliumselected))
+      IF (CellExists(unselected_option, "enablecomponents"))
+        FOREVERY (OBJECT comp FROM unselected_option.enablecomponents)
+          comp->enabled := FALSE;
+    // Then enable all components from the selected row
+    FOREVERY (RECORD selected_option FROM (SELECT * FROM this->storage->rows WHERE tolliumselected))
+      IF (CellExists(selected_option, "enablecomponents"))
+        FOREVERY (OBJECT comp FROM selected_option.enablecomponents)
+          comp->enabled := this->pvt_enabled;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedSelection()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.selection := TRUE;
+    */
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    RECORD ARRAY sellist := RecordExists(this->selection) ? [ RECORD(this->selection) ] : DEFAULT RECORD ARRAY;
+
+    RETURN CheckEnabledFlags(sellist, this->pvt_flags, flags, min, max, selectionmatch);
+  }
+
+>;

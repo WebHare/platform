@@ -1,0 +1,9 @@
+.wh-form__arrayinput
+{
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+}

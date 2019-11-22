@@ -1,0 +1,486 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>University of Twente.</title>
+<style>
+body, p, span, a
+{
+  margin: 0;
+  padding: 0;
+  font-size: 15px;
+  line-height: 22px;
+  font-family: Arial, Helvetica, Sans-Serif;
+}
+body, p, span, a, td, th
+{
+  color: #000000;
+}
+body
+{
+  background-color: #ebf0f5;
+}
+
+body.scheme1 .schemebgcolor { background-color: #c60c30 !important; }
+body.scheme2 .schemebgcolor { background-color: #ec7a08 !important; }
+body.scheme3 .schemebgcolor { background-color: #3f9c35 !important; }
+body.scheme4 .schemebgcolor { background-color: #0094b3 !important; }
+body.scheme5 .schemebgcolor { background-color: #4f2d7f !important; }
+
+body.scheme1 .schemecolor { color: #c60c30 !important; }
+body.scheme2 .schemecolor { color: #ec7a08 !important; }
+body.scheme3 .schemecolor { color: #3f9c35 !important; }
+body.scheme4 .schemecolor { color: #0094b3 !important; }
+body.scheme5 .schemecolor { color: #4f2d7f !important; }
+
+body.scheme1 .schemectacolor { color: #63b1e5 !important; }
+body.scheme2 .schemectacolor { color: #63b1e5 !important; }
+body.scheme3 .schemectacolor { color: #63b1e5 !important; }
+body.scheme4 .schemectacolor { color: #cf0072 !important; }
+body.scheme5 .schemectacolor { color: #cf0072 !important; }
+
+/* RTD (partly synced with corporate.css, as far as the font size and margins go) */
+.wh-rtd h1
+{
+  font-size: 25px;
+  line-height: 22px;
+  font-weight: bold;
+  margin: 2px 0 5px 0;
+
+  color: #ffffff; /* newsletter-specific */
+}
+.wh-rtd h2
+{
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: bold;
+  margin: 2px 0 5px 0;
+
+  color: #222222; /* newsletter-specific */
+}
+.wh-rtd p
+{
+  margin: 0 0 3px 0;
+
+  color: #ffffff; /* newsletter-specific */
+}
+  .wh-rtd ul
+, .wh-rtd li
+{
+  color: #ffffff; /* newsletter-specific */
+}
+
+table
+{
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin: 0 auto;
+  border: 0;
+}
+td,th
+{
+  padding:0;
+}
+img
+{
+  border: 0;
+}
+img.imageblock
+{
+  display: block;
+}
+.imgitem
+{
+  border: 2px solid #dce1e6;
+}
+a
+{
+  color: #0094b3;
+  text-decoration: underline;
+}
+  .onlinelink
+  , .unsubscribelink
+{
+  font-size: 12px;
+}
+.introduction
+{
+  width: 620px;
+  height: 50px;
+  vertical-align: middle;
+}
+.introduction td td
+{
+  padding: 20px 25px;
+}
+.maintable
+{
+  width: 620px;
+}
+.item
+{
+  width: 620px;
+  background-color: #f5faff;
+}
+
+.agenda
+{
+  width: 620px;
+  background-color: #ffffff;
+  border-top: 3px solid #3d92b6;
+}
+.agenda td
+{
+  border-bottom: 1px solid #dce1e6;
+}
+.agenda h3 a
+{
+  font-weight: bold;
+  text-decoration: none;
+  color: #000000;
+}
+.agenda p a
+{
+  font-weight: normal;
+  text-decoration: none;
+  color: #000000;
+}
+.footertable p
+{
+  padding: 0 0 10px 0;
+  color: #777777;
+  font-size: 12px;
+  line-height: 16px;
+}
+.footertable td
+{
+  padding: 30px 25px 50px 25px;
+  color: #000000;
+}
+.footertable a
+{
+  text-decoration: none;
+  color: #777777;
+  font-size: 12px;
+  line-height: 16px;
+}
+.footertable a.unsubscribelink
+{
+  text-decoration: underline;
+}
+h3
+{
+  font-weight: bold;
+  margin: 0 0 2px 0;
+  font-size: 15px;
+}
+.white
+{
+  color: #ffffff;
+}
+.introtext
+{
+  font-size: 12px;
+  margin: 0;
+}
+.logocell
+{
+  padding: 20px 25px;
+  background-color: #222222;
+}
+.logocell a
+{
+  text-decoration: none !important;
+}
+.logosubtitle
+{
+  color: #ffffff;
+  text-decoration: none;
+  font-family: "Arial Narrow", Arial, Helvetica, Sans-Serif;
+  font-size: 18px;
+  line-height: 18px;
+  text-transform: uppercase;
+}
+
+  .type-news
+, .type-news_noimage
+{
+  width: 620px;
+  background-color: #f5faff;
+}
+
+.type-news h1
+{
+  margin: 0 0 5px 0;
+  font-size: 20px;
+  font-weight: bold;
+}
+.type-news a
+{
+  font-size: 15px;
+  line-height: 22px;
+  text-decoration: underline;
+}
+.type-news .contentscell
+{
+  font-size: 15px;
+  line-height: 22px;
+  color: #333333;
+  padding: 40px 25px 40px 25px;
+  vertical-align: top;
+}
+.type-news .imagecell
+{
+  padding: 40px 0 40px 25px;
+  vertical-align: top;
+}
+
+@media only screen and (max-device-width: 619px)
+, screen and (max-width: 619px)
+{
+  .maintable
+  , .introduction
+  , .button
+  , .button td
+  , .item
+  , .agenda
+  , .footertable
+  , .itemimagetable
+  , .itemtexttable
+  {
+    width: 320px !important;
+  }
+
+  .introduction td table
+  {
+    text-align: left;
+  }
+
+  .introduction td td
+  {
+    padding: 0 0 0 25px !important;
+    text-align: left !important;
+  }
+
+  .type-news .imagecell
+  {
+    text-align: center;
+    padding: 40px 0 30px 0 !important;
+  }
+  .type-news .contentscell
+  {
+    padding: 0 25px 30px 25px !important;
+    border: none !important;
+  }
+  .imgitem
+  {
+    margin: 0 auto !important;
+  }
+  .headerimage
+  {
+    width: 100% !important;
+    height: auto !important;
+  }
+  .displayblock
+  {
+    display: block !important;
+  }
+  .onlinelink
+  {
+    text-align: left !important;
+  }
+  .mobalignleft
+  {
+    text-align: left !important;
+  }
+  .mobnowrap
+  {
+    white-space: nowrap !important;
+  }
+  h1
+  {
+    line-height: 30px !important;
+  }
+}
+
+td:not([class])
+{
+  display: inline-block;
+}
+
+td:not([align=left])
+{
+  display: inline-block;
+}
+
+</style>
+</head>
+<body class="scheme1">
+<table width="620" class="introduction" style="border-collapse: collapse;border-spacing: 0;margin: 0 auto;border: 0;width: 620px;height: 50px;vertical-align: middle;" cellpadding="0" cellspacing="0">
+<tr>
+<td width="620">
+<!-- [if gte mso 9]><table width="100%" cellpadding="10" cellspacing="10" border="0"><tr><td><![endif]-->
+<table width="300" align="left" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td width="300" align="left" valign="middle" class="displayblock mobnowrap" style="color: #000000;padding: 20px 25px;">
+<span class="introtext" style="margin: 0;padding: 0;font-size: 12px;line-height: 22px;font-family: Arial, Helvetica, Sans-Serif;color: #000000;">Editie: december 2014</span>
+</td>
+</tr>
+</table>
+<!-- [if gte mso 9]></td><td><![endif]-->
+
+
+<table width="300" align="left" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td width="300" align="right" valign="middle" class="displayblock mobalignleft mobnowrap" style="color: #000000;padding: 20px 25px;">
+<a href="http://pstest1.pronuntio.com/l0-100-DEF2975C" class="onlinelink" style="margin: 0;padding: 0;font-size: 12px;line-height: 22px;font-family: Arial, Helvetica, Sans-Serif;color: #0094b3;text-decoration: underline;" target="_blank">Bekijk de online versie</a>
+</td>
+</tr>
+</table>
+
+
+<!-- [if gte mso 9]></td></tr></table><![endif]-->
+</td>
+</tr>
+</table>
+<table width="620" class="maintable" style="border-collapse: collapse;border-spacing: 0;margin: 0 auto;border: 0;width: 620px;background-color: #3d92b6;">
+<tr>
+<td width="100%" align="left" style="padding: 20px 25px;background-color: #222222;color: #000000;">
+<a href="http://www.utwente.nl/" target="_blank" style="margin: 0;padding: 0;font-size: 15px;line-height: 22px;font-family: Arial, Helvetica, Sans-Serif;color: #0094b3;text-decoration: underline;"><img alt="utwente.nl" src="http://pstest1.pronuntio.com/i-51-0-B8631B88" class="white imageblock" style="border: 0;display: block;color: #ffffff;"/></a>
+</td>
+</tr>
+<tr>
+<td align="center" valign="middle" style="color: #000000;padding: 0;">
+<img alt="" src="http://pstest1.pronuntio.com/i-52-0-D0F131CA" class="headerimage imageblock" style="border: 0;display: block;"/>
+</td>
+</tr>
+</table>
+
+
+<table width="620" class="maintable" style="border-collapse: collapse;border-spacing: 0;margin: 0 auto;border: 0;width: 620px;background-color: #3d92b6;">
+<tr>
+<td width="100%" align="left" style="padding: 50px 25px 35px 25px;color: #000000;" valign="top">
+
+<h1 class="heading1">Kop 1</h1>
+<p class="normal">Normale tekst</p>
+<p class="normal">Nog meer normale tekst</p>
+
+</td>
+</tr>
+</table>
+
+
+
+<table class="item" style="border-collapse: collapse;border-spacing: 0;margin: 0 auto;border: 0;width: 620px;background-color: #f5faff;">
+
+<tr>
+<td width="100%" style="border-top: 1px solid #dce1e6;">
+<!-- [if gte mso 9]><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table align="left" width="140" class="itemimagetable" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td class="displayblock tdalign itemimg" style="color: #000000;padding: 40px 0 40px 25px;vertical-align: top;">
+<img src="http://pstest1.pronuntio.com/i-53-0-D4F75451" alt="2e nieuwsbericht" class="imgitem imageblock" style="border: 2px solid #dce1e6;display: block;"/>
+</td>
+</tr>
+</table>
+<!-- [if gte mso 9]></td><td><![endif]-->
+<table align="left" width="405" class="itemtexttable" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td class="displayblock tdalign itemtext" style="color: #000000;padding: 40px 25px 40px 25px;vertical-align: top;">
+<h2 style="margin: 0 0 5px 0;padding: 0 0 10px 0;font-size: 20px;font-weight: bold;color: #0094b3;">2e nieuwsbericht</h2>
+               Lala geld
+<br/><br/>
+<a href="http://www.b-lex.nl/" style="margin: 0;padding: 0;font-size: 15px;line-height: 22px;font-family: Arial, Helvetica, Sans-Serif;color: #0094b3;text-decoration: underline;" target="_blank">Lees verder</a>
+</td>
+</tr>
+</table>
+<!-- [if gte mso 9]></td></tr></table><![endif]-->
+</td>
+</tr>
+
+<tr>
+<td width="100%" style="border-top: 1px solid #dce1e6;">
+<!-- [if gte mso 9]><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table align="left" width="140" class="itemimagetable" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td class="displayblock tdalign itemimg" style="color: #000000;padding: 40px 0 40px 25px;vertical-align: top;">
+<img src="http://pstest1.pronuntio.com/i-54-0-38922A6B" alt="x" class="imgitem imageblock" style="border: 2px solid #dce1e6;display: block;"/>
+</td>
+</tr>
+</table>
+<!-- [if gte mso 9]></td><td><![endif]-->
+<table align="left" width="405" class="itemtexttable" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td class="displayblock tdalign itemtext" style="color: #000000;padding: 40px 25px 40px 25px;vertical-align: top;">
+<h2 style="margin: 0 0 5px 0;padding: 0 0 10px 0;font-size: 20px;font-weight: bold;color: #0094b3;">x</h2>
+<p>asdasd</p>
+<br/><br/>
+<a href="https://test1.b-lex.com/webhare/?app=newsletter(UT%20M%26C,4)x" style="margin: 0;padding: 0;font-size: 15px;line-height: 22px;font-family: Arial, Helvetica, Sans-Serif;color: #0094b3;text-decoration: underline;" target="_blank">Lees verder</a>
+</td>
+</tr>
+</table>
+<!-- [if gte mso 9]></td></tr></table><![endif]-->
+</td>
+</tr>
+
+</table>
+
+
+
+<table width="620" class="maintable" style="border-collapse: collapse;border-spacing: 0;margin: 0 auto;border: 0;width: 620px;background-color: #3d92b6;">
+<tr>
+<td width="100%" align="left" style="padding: 20px 25px 20px 25px;color: #000000;" valign="top">
+<h1 style="margin: 0;font-size: 25px; line-height: 28px;font-weight: bold;color: #ffffff;margin-bottom: 0;">Save the date</h1>
+</td>
+</tr>
+</table>
+
+<table class="agenda" style="border-collapse: collapse;border-spacing: 0;margin: 0 auto;border: 0;width: 620px;background-color: #ffffff;border-top: 3px solid #3d92b6;">
+
+<tr>
+<td width="60" valign="top" style="border-right: 1px solid #dce1e6;color: #000000;padding: 0;border-bottom: 1px solid #dce1e6;">
+<a href="" style="margin: 0;padding: 0;font-size: 15px;line-height: 22px;font-family: Arial, Helvetica, Sans-Serif;color: #0094b3;text-decoration: underline;" target="_blank"><img src="http://pstest1.pronuntio.com/i-55-0-4BD5B8D7" alt="" class="imageblock" style="border: 0;display: block;"/></a>
+</td>
+<td style="padding: 10px 10px 10px 15px;color: #000000;border-bottom: 1px solid #dce1e6;">
+<h3 style="margin: 0 0 2px 0;font-weight: bold;font-size: 15px;"><a href="" style="margin: 0;padding: 0;font-size: 15px;line-height: 22px;font-family: Arial, Helvetica, Sans-Serif;color: #000000;text-decoration: none;font-weight: bold;" target="_blank">asd</a></h3>
+<p style="margin: 0;padding: 0;font-size: 15px;line-height: 22px;font-family: Arial, Helvetica, Sans-Serif;color: #000000;"><a href="http://www.utwente.nl/nieuwsevents/2014/11/371059/hoeveel-betalen-we-voor-dure-kanker-geneesmiddelen-en-personalized-medicine" style="margin: 0;padding: 0;font-size: 15px;line-height: 22px;font-family: Arial, Helvetica, Sans-Serif;color: #000000;text-decoration: none;font-weight: normal;" target="_blank">13 november 2014</a></p>
+<a id="testlink" class="schemecolor" href="about:blank">test</a>
+</td>
+</tr>
+
+</table>
+
+
+
+
+<table width="620" class="maintable" style="border-collapse: collapse;border-spacing: 0;margin: 0 auto;border: 0;width: 620px;background-color: #3d92b6;">
+<tr>
+<td width="100%" align="left" style="padding: 50px 25px 35px 25px;color: #000000;" valign="top">
+
+<h1 class="heading1">Overig nieuws</h1>
+<p class="normal"><a href="http://www.b-lex.nl/">Link 1</a></p>
+<p class="normal"><a href="http://atak.testsites1.b-lex.com/">Link 2</a></p>
+<p class="normal"><a href="http://www.nu.nl/">Link3</a></p>
+
+</td>
+</tr>
+</table>
+
+
+
+
+<table width="620" class="footertable" style="border-collapse: collapse;border-spacing: 0;margin: 0 auto;border: 0;">
+<tr>
+<td width="100%" style="padding: 30px 25px 50px 25px;color: #000000;">
+<p style="margin: 0;padding: 0 0 10px 0;font-size: 12px;line-height: 16px;font-family: Arial, Helvetica, Sans-Serif;color: #777777;"><b>Universiteit Twente</b>, Drienerlolaan 5, 7522 NB Enschede, 053 489 2104, <a href="mailto:alumni@utwente.nl" style="text-decoration: none;color: #777777;font-size: 12px;line-height: 16px;margin: 0;padding: 0;font-family: Arial, Helvetica, Sans-Serif;">alumni@utwente.nl</a>
+<br/>&#160;<br/>
+<span style="font-style: italic;margin: 0;padding: 0;font-size: 12px;line-height: 16px;font-family: Arial, Helvetica, Sans-Serif;color: #777777;">(c)opyright, Development Office Universiteit Twente</span>
+<br/>&#160;<br/>
+<span style="margin: 0;padding: 0 0 10px 0;font-size: 12px;line-height: 16px;font-family: Arial, Helvetica, Sans-Serif;color: #777777;">Afmelden voor deze nieuwsbrief kan door op deze e-mail te antwoorden.</span>
+</p>
+</td>
+</tr>
+</table>
+</body>
+</html>

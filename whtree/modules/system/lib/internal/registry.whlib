@@ -1,0 +1,243 @@
+﻿<?wh
+
+/** @topic modules/config
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+
+RECORD ARRAY anonymousregistry;
+INTEGER nextanonymousid;
+RECORD ARRAY mockedregistry;
+
+BOOLEAN FUNCTION IsAnonymousConfKey(STRING confkey)
+{
+  RETURN confkey="<anonymous>" OR confkey LIKE "<anonymous>.*";
+}
+
+PUBLIC STRING FUNCTION FixupRegKey(STRING confkey)
+{
+  confkey := ToLowercase(confkey);
+  IF(confkey NOT LIKE "system.modules.*" AND confkey NOT LIKE "modules.*")
+    RETURN confkey;
+
+  STRING dtapstage := MakeFunctionPtr("mod::system/lib/internal/whconfig.whlib#GetDTAPStage")();
+  IF(dtapstage = "development") //2019-10-04: time to deprecate these old names
+    THROW NEW Exception(`Invalid registry key name '${confkey}' - you should no longer prefix registry keys with 'system.modules.' or 'modules.'`);
+
+  IF(confkey LIKE "system.modules.*")
+    confkey := Substring(confkey,15);
+  ELSE IF(confkey LIKE "modules.*")
+    confkey := Substring(confkey,8);
+
+  RETURN confkey;
+}
+
+STRING FUNCTION GetNodeFromKey(STRING name)
+{
+  RETURN Left(name,SearchLastSubstring(name,'.'));
+}
+
+PUBLIC MACRO __MockRegistryKey(STRING confkey, VARIANT value) //used by the test framework
+{
+  RECORD keyinfo := __GetRegistryKey(confkey, FALSE);
+  STRING newvalue := EncodeHSON(value);
+  STRING newdata := Length(newvalue) <= 4096 ? newvalue : "";
+  BLOB newblob := Length(newvalue) <= 4096 ? DEFAULT BLOB : StringToBlob(newvalue);
+
+  DELETE FROM mockedregistry WHERE name = keyinfo.name;
+  nextanonymousid := nextanonymousid - 1;
+  INSERT INTO mockedregistry(id, data, blobdata, name, namehash, nodehash, modificationdate)
+         VALUES(nextanonymousid, newdata, newblob, keyinfo.name, keyinfo.namehash, keyinfo.nodehash, GetCurrentDatetime())
+         AT END;
+}
+
+/** @short Get the event masks to use to listen to specific registry keys in adhoc caches
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @param keys List of registry keys
+    @return A list of event mask(s) */
+PUBLIC STRING ARRAY FUNCTION GetRegistryKeyEventMasks(STRING ARRAY keys)
+{
+  RETURN SELECT AS STRING ARRAY DISTINCT "system:registry." || GetNodeFromKey(keyname)
+           FROM ToRecordArray(keys, "keyname");
+}
+
+PUBLIC RECORD FUNCTION __GetRegistryKey(STRING confkey, BOOLEAN loadkey)
+{
+  confkey := FixupRegKey(confkey);
+
+  STRING nodename := GetNodeFromKey(confkey);
+  STRING hash := GetSHA1Hash(confkey);
+
+  RECORD curkey;
+  IF(IsAnonymousConfKey(confkey)) //we simulate the <anonymous> registry
+    curkey := SELECT * FROM anonymousregistry WHERE namehash=hash;
+  ELSE
+  {
+    IF(Length(mockedregistry) > 0)
+      curkey := SELECT * FROM mockedregistry WHERE namehash=hash;
+    IF(NOT RecordExists(curkey))
+      curkey := SELECT * FROM system.flatregistry WHERE namehash=hash;
+  }
+
+
+  RECORD result := [ id := RecordExists(curkey) ? curkey.id : 0
+                   , eventname := "system:registry." || nodename
+                   , name := confkey
+                   , nodehash := GetSHA1Hash(nodename)
+                   , namehash := hash
+                   ];
+
+  IF(RecordExists(curkey) AND loadkey)
+  {
+    INSERT CELL value := ReadAnyFromDatabase(curkey.data, curkey.blobdata)
+           INTO result;
+  }
+  RETURN result;
+}
+PUBLIC MACRO __SetRegistryKey(RECORD keyinfo, VARIANT value)
+{
+  STRING newvalue := EncodeHSON(value);
+  STRING newdata := Length(newvalue) <= 4096 ? newvalue : "";
+  BLOB newblob := Length(newvalue) <= 4096 ? DEFAULT BLOB : StringToBlob(newvalue);
+
+  IF(IsAnonymousConfKey(keyinfo.name))
+  {
+    IF(keyinfo.id != 0)
+      UPDATE anonymousregistry SET data := newdata, blobdata := newblob, modificationdate := GetCurrentDatetime() WHERE id = keyinfo.id;
+    ELSE
+    {
+      nextanonymousid := nextanonymousid - 1;
+      INSERT INTO anonymousregistry(id, data, blobdata, name, namehash, nodehash, modificationdate)
+             VALUES(nextanonymousid, newdata, newblob, keyinfo.name, keyinfo.namehash, keyinfo.nodehash, GetCurrentDatetime())
+             AT END;
+    }
+  }
+  ELSE
+  {
+    IF(keyinfo.id != 0)
+      UPDATE system.flatregistry SET data := newdata, blobdata := newblob, modificationdate := GetCurrentDatetime() WHERE id = keyinfo.id;
+    ELSE
+      INSERT INTO system.flatregistry(data, blobdata, name, namehash, nodehash, modificationdate)
+             VALUES(newdata, newblob, keyinfo.name, keyinfo.namehash, keyinfo.nodehash, GetCurrentDatetime());
+  }
+  GetPrimary()->BroadcastOnCommit(keyinfo.eventname, DEFAULT RECORD);
+}
+
+/** @short Get a registry key. Module registry keys can be read using the key "modulename.registrykey...".
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @param confkey Key name
+    @cell options.fallback Fallback value (returned when key does not exist, and used for type validation)
+    @return Value of registry key. Throws if the key does not exist and no fallback has been provided.
+    @see %WriteRegistryKey %DeleteRegistryKey %ReadRegistryNode
+*/
+PUBLIC VARIANT FUNCTION ReadRegistryKey(STRING confkey, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ fallback := "" ], options, [ optional := ["fallback"], notypecheck := ["fallback" ]]);
+  IF(confkey LIKE "<*" AND NOT CellExists(options,'fallback'))
+    THROW NEW Exception(`Reading a user registry requires you to set a fallback value`); // as you can't initialize it
+
+  RECORD keyinfo := __GetRegistryKey(confkey, TRUE);
+
+  IF(keyinfo.id = 0)
+    IF(CellExists(options, 'fallback'))
+      RETURN options.fallback;
+    ELSE
+      THROW NEW Exception(`No such key ${confkey}`);
+
+  IF(CellExists(options, 'fallback') AND TYPEID(options.fallback) != TYPEID(keyinfo.value))
+    THROW NEW Exception(`Invalid type in registry for registry key '${confkey}', got ${GetTypeName(TYPEID(keyinfo.value))} but expected ${GetTypeName(TYPEID(options.fallback))}`);
+
+  RETURN keyinfo.value;
+}
+
+/** @short Deletes a registry key. Module registry keys can be read using the key "modulename.registrykey...".
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @param confkey Key to delete
+    @see %ReadRegistryKey %WriteRegistryKey %ReadRegistryNode
+*/
+PUBLIC MACRO DeleteRegistryKey(STRING confkey)
+{
+  RECORD keyinfo := __GetRegistryKey(confkey, FALSE);
+  IF(keyinfo.id != 0)
+  {
+    IF(IsAnonymousConfKey(keyinfo.name))
+      DELETE FROM anonymousregistry WHERE id=keyinfo.id;
+    ELSE
+      DELETE FROM system.flatregistry WHERE id=keyinfo.id;
+  }
+
+  GetPrimary()->BroadcastOnCommit(keyinfo.eventname, DEFAULT RECORD);
+}
+
+PUBLIC MACRO __DeleteRegistryNode(STRING confkey)
+{
+  confkey := FixupRegKey(confkey);
+  IF(IsAnonymousConfKey(confkey))
+    DELETE FROM anonymousregistry WHERE name LIKE confkey || ".*";
+  ELSE
+    DELETE FROM system.flatregistry WHERE name LIKE confkey || ".*";
+}
+
+PUBLIC RECORD FUNCTION SplitConfKey(STRING parts)
+{
+  INTEGER lastdot := SearchLastSubstring(parts,'.');
+  RETURN [ node := Left(parts,lastdot), keyname := Substring(parts,lastdot+1) ];
+}
+
+PUBLIC MACRO __RegistryFastInsert(RECORD ARRAY registry)
+{
+  STRING ARRAY seenkeys;
+  DATETIME now := GetCurrentDatetime();
+  FOREVERY(RECORD reg FROM registry)
+  {
+    reg.name := ToLowercase(reg.name);
+    STRING hash := GetSHA1Hash(ToLowercase(reg.name));
+    IF(hash IN seenkeys)
+      CONTINUE;
+
+    INSERT hash INTO seenkeys AT END;
+    RECORD parts := PrepareAnyForDatabase(reg.data);
+    INSERT INTO system.flatregistry(name, namehash, nodehash, data, blobdata, modificationdate)
+           VALUES(ToLowercase(reg.name), hash, GetSHA1Hash(Left(reg.name,SearchLastSubstring(reg.name,'.'))), parts.stringpart, parts.blobpart, now);
+  }
+}
+
+/** @short Get all keys in a node
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @param confkey Registry node name
+    @return List of registry keys
+    @cell return.fullname Full name of the key
+    @cell return.subkey Local name of the key within the node
+    @cell return.data Value stored in this key
+*/
+PUBLIC RECORD ARRAY FUNCTION ReadRegistryNode(STRING confkey)
+{
+  confkey := FixupRegKey(confkey);
+  STRING gethash := GetSHA1Hash(confkey);
+
+  IF(IsAnonymousConfKey(confkey))
+  {
+    RETURN SELECT fullname := name
+                , subkey := Substring(name, Length(confkey)+1)
+                , data := data != "" ? DecodeHSON(data) : DecodeHSONBlob(blobdata)
+             FROM anonymousregistry
+            WHERE nodehash = gethash;
+  }
+  ELSE
+  {
+    RETURN SELECT fullname := name
+                , subkey := Substring(name, Length(confkey)+1)
+                , data := data != "" ? DecodeHSON(data) : DecodeHSONBlob(blobdata)
+             FROM system.flatregistry
+            WHERE nodehash = gethash;
+  }
+}
+

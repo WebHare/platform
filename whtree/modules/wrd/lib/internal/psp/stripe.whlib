@@ -1,0 +1,215 @@
+<?wh
+
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+OBJECT stripebrowser;
+
+OBJECT FUNCTION GetBrowser()
+{
+  IF(ObjectExists(stripebrowser))
+    RETURN stripebrowser;
+
+  stripebrowser := NEW WebBrowser;
+  stripebrowser->debug := TRUE;
+  IF(IsRPCTrafficLogged("wrd:payments.stripe"))
+    LogRPCForWebbrowser("wrd:payments.stripe", "", stripebrowser);
+
+  RETURN stripebrowser;
+}
+
+PUBLIC STATIC OBJECTTYPE StripePaymentProvider EXTEND WRDPaymentProviderBase
+<
+  STRING transactionid;
+  STRING client_secret;
+  STRING chargeid;
+
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:stripe", "redirect", settings)
+  {
+    this->needspaymentref := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
+    //this->msporderdata := [ ...defaultpaymentdata
+    //                      , language := paymentmethod.language
+                          //];
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+
+    RECORD meta := EnforceStructure([ transactionid := "", chargeid := "", client_secret := "" ], payment.__paymentdata.m);
+    this->transactionid := meta.transactionid;
+    this->client_secret := meta.client_secret;
+    this->chargeid := meta.chargeid;
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RECORD ARRAY methods;
+    IF("alipay" IN this->settings.methods)
+      INSERT [[ paymentoptiontag := "ALIPAY", title := "Alipay", issuers := RECORD[] ]] INTO methods AT END;
+    IF("ideal" IN this->settings.methods)
+      INSERT [[ paymentoptiontag := "IDEAL", title := "iDEAL", issuers := RECORD[] ]] INTO methods AT END;
+    IF("wechat" IN this->settings.methods)
+      INSERT [[ paymentoptiontag := "WECHAT", title := "WeChat Pay", issuers := RECORD[] ]] INTO methods AT END;
+
+    RETURN methods;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN CELL[ this->transactionid
+               , this->chargeid
+               , this->client_secret
+               ];
+  }
+
+  PUBLIC UPDATE STRING FUNCTION GetPayRedirectUrl(STRING paymenttok)
+  {
+    STRING returnurl := GetInternalReturnURL(paymenttok);
+    OBJECT browser := GetBrowser();
+
+    RECORD request := CreateHTTPUrlencodedRequest(
+      [[ name := "type", value := ToLowercase(this->paymentoptiontag) ]
+      ,[ name := "amount", value := ToString(INTEGER(this->amountpayable*100)) ]
+      ,[ name := "currency", value := "eur" ]
+      ,[ name := "redirect[return_url]", value := returnurl ]
+      ,[ name := "statement_descriptor", value := Left(this->orderid ?? this->paymentref, 200) ]
+      ]);
+
+    IF(NOT browser->PostWebPageBlob("https://api.stripe.com/v1/sources",
+        [ ...request.headers
+        , [ field := "Authorization", value := "Bearer " || this->settings.secretkey ]
+        , [ field := "Stripe-Version", value := "2019-03-14" ]
+        ], request.body))
+      THROW NEW Exception("Unable to create source - request failure");
+
+    RECORD result := DecodeJSONBlob(browser->content);
+    this->transactionid := result.id;
+    this->client_secret := result.client_secret;
+
+    GetPrimary()->BeginWork();
+    UpdatePaymentMetadata(paymenttok, [ transactionid := this->transactionid
+                                      , client_secret := this->client_secret
+                                      ]);
+
+    GetPrimary()->CommitWork();
+
+    RETURN result.redirect.url;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    IF(this->client_secret != GetVariableFromUrl(returnurl, "client_secret"))
+      RETURN FALSE;
+
+    //TODO we could avoid this PollStatus if we hash and verify the status on the url
+    this->PollStatus();
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    this->PollStatus();
+  }
+
+  RECORD FUNCTION GetCurrentSource()
+  {
+    OBJECT browser := GetBrowser();
+    IF(NOT browser->GotoWebPage("https://api.stripe.com/v1/sources/" || EncodeURL(this->transactionid), [ headers :=
+      [[ field := "Authorization", value := "Bearer " || this->settings.secretkey ]
+      ,[ field := "Stripe-Version", value := "2019-03-14" ]
+      ]]))
+      RETURN DEFAULT RECORD;
+
+    RETURN DecodeJSONBlob(browser->content);
+  }
+
+  MACRO PollStatus()
+  {
+    RECORD charge;
+    IF(this->pvt_status = "pending") //still pending
+    {
+      //Then we should probably initiate a charge
+      RECORD source := this->GetCurrentSource();
+
+      IF(source.status = "canceled")
+      {
+        this->pvt_status := "failed";
+      }
+      ELSE IF(source.status = "chargeable")
+      {
+        //Looks good! Let's try to make the charge.
+        RECORD request := CreateHTTPUrlencodedRequest(
+          [[ name := "amount", value := ToString(INTEGER(this->amountpayable*100)) ]
+          ,[ name := "currency", value := "eur" ]
+          ,[ name := "source", value := this->transactionid ]
+          ]);
+
+        IF(NOT GetBrowser()->PostWebPageBlob("https://api.stripe.com/v1/charges",
+            [ ...request.headers
+            , [ field := "Idempotency-Key", value := "CHARGE:" || this->transactionid ] //prevent double processing if 2 PolStatus requests hit
+            , [ field := "Authorization", value := "Bearer " || this->settings.secretkey ]
+            , [ field := "Stripe-Version", value := "2019-03-14" ]
+            ], request.body))
+          THROW NEW Exception("Charge request failed");
+
+        charge := DecodeJSONBlob(GetBrowser()->content);
+        this->chargeid := charge.id;
+      }
+    }
+
+    IF(this->chargeid != "" AND NOT RecordExists(charge))
+    {
+      IF(NOT GetBrowser()->GotoWebPage("https://api.stripe.com/v1/charges/" || EncodeURL(this->chargeid), [ headers :=
+        [[ field := "Authorization", value := "Bearer " || this->settings.secretkey ]
+        ,[ field := "Stripe-Version", value := "2019-03-14" ]
+        ]]))
+
+      charge := DecodeJSONBlob(GetBrowser()->content);
+    }
+
+    IF(RecordExists(charge) AND charge.status = "succeeded")
+      this->pvt_status := "approved";
+    ELSE IF(RecordExists(charge) AND charge.status = "failed")
+      this->pvt_status := "failed";
+  }
+
+>;
+
+
+
+/*
+curl https://api.stripe.com/v1/charges \
+  -u sk_test_V3ZNSkkvGdBAREIQZGYWiYve: \
+  -H "Stripe-Version: 2019-03-14"
+of Authorization: Bearer
+*/
+
+PUBLIC RECORD FUNCTION CheckStripeMerchant(STRING publickey, STRING secretkey)
+{
+  IF(publickey = "" OR secretkey = "")
+    RETURN DEFAULT RECORD;
+
+  RECORD vars := [ publickey := publickey
+                 ];
+  OBJECT browser := GetBrowser();
+  IF(NOT browser->GotoWebPage("https://api.stripe.com/v1/accounts", [ headers :=
+    [[ field := "Authorization", value := "Bearer " || secretkey ]
+    ,[ field := "Stripe-Version", value := "2019-03-14" ]
+    ]]))
+    RETURN DEFAULT RECORD;
+
+  RETURN CELL[ success := TRUE ];
+}

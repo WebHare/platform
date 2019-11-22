@@ -1,0 +1,13 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "wh::graphics/barcode.whlib";
+
+MACRO BarcodeTest()
+{
+  TestThrows(PTR CreateCode128BBarcode("\u20AC", 100));
+  CreateCode128BBarcode("1234", 100)->Close();
+  CreateCode128BBarcode("Hatseflats", 100)->Close();
+}
+
+RuNTestFramework([ PTR BarcodeTest ]);
+

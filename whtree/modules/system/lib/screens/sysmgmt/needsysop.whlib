@@ -1,0 +1,62 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    IF(NOT ReadRegistryKey("system.backend.security.needsysop"))
+    {
+      //FIXME only if userapi reports no users or at least no sysops yet ?
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    ^servername->value := GetServerName();
+    ^servertype->value := GetDTAPStage();
+  }
+  BOOLEAN FUNCTION OnCredentialsNext()
+  {
+    OBJECT work := this->BeginUnvalidatedFeedback();
+    work->Validate(^credentialspage);
+    IF(^password->value != ^passwordrepeat->value AND ^passwordrepeat->value != "")
+      work->AddErrorFor(^passwordrepeat, GetTid("tollium:common.errors.passwordmismatch"));
+    RETURN work->Finish();
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(NOT work->HasFailed())
+    {
+      WriteRegistryKey("system.global.servertype", ^servertype->value);
+      WriteRegistryKey("system.global.servername", ^servername->value);
+    }
+
+    OBJECT sysop := this->contexts->userapi->wrdschema->^wrd_person->CreateEntity(
+      [ whuser_password := CreateWebharePasswordHash(^password->value)
+      , wrd_contact_email := ^email->value
+      //using french as Hello Opérateur, works better than Hello System,
+      , wrd_firstname := "Opérateur"
+      , wrd_lastname := "du Système"
+      ]);
+    this->contexts->userapi->ResyncToSystemTables();
+
+    OBJECT sysopobj := this->contexts->userapi->GetUser(sysop->id);
+    sysopobj->GrantRightTo("system:sysop", sysopobj, TRUE, TRUE, "Granted by WebHare during initial setup");
+    WriteRegistryKey("system.backend.security.needsysop", FALSE);
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    UpdateSystemConfigurationRecord();
+    BroadcastEvent("system:internal.configdata", DEFAULT RECORD);
+    BroadcastEvent("system:config.servertype", DEFAULT RECORD);
+
+    RETURN TRUE;
+  }
+>;

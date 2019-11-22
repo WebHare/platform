@@ -1,0 +1,13 @@
+<?wh
+LOADLIB "mod::system/lib/webserver.whlib";
+
+SWITCH(GetWebVariable("do"))
+{
+  CASE "delcookie"
+  {
+    UpdateWebCookie("webharelogin", "",DEFAULT RECORD);
+  }
+}
+
+RECORD res := [ webharelogin := GEtWebCookie("webharelogin") ];
+Print(EncodeJSON(res));

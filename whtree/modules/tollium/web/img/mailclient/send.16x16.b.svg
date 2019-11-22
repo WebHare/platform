@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <g id="envelop">
+      <path d="M29,8H11.3C10,8,10,9,10,9v14c0,0,0,1,1,1h18c1,0,1-1,1-1V9C30,9,30,8.1,29,8zM28,22H12V10h16V22z"/>
+      <path d="M26.7,12.9c-0.3-0.4-1-0.5-1.4-0.2L20,16.5l-5.3-3.8c-0.4-0.3-1.1-0.2-1.4,0.2s-0.2,1.1,0.2,1.4l5.8,4.2c0.1,0.1,0.3,0.1,0.4,0.2c0.1,0,0.1,0,0.2,0c0.1,0,0.1,0,0.2,0c0.2,0,0.3-0.1,0.4-0.2l5.8-4.2C26.9,14,27,13.3,26.7,12.9z"/>
+    </g>
+  </defs>
+  <g>
+    <path d="M8,13H1c-0.5,0-1-0.4-1-1v0c0-0.5,0.4-1,1-1h7c0.5,0,1,0.4,1,1v0C9,12.6,8.6,13,8,13z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M8,17H4c-0.5,0-1-0.4-1-1v0c0-0.5,0.4-1,1-1h4c0.5,0,1,0.4,1,1v0C9,16.6,8.6,17,8,17z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M8,21H6c-0.5,0-1-0.4-1-1v0c0-0.5,0.4-1,1-1h2c0.5,0,1,0.4,1,1v0C9,20.6,8.6,21,8,21z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#envelop" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+  </g>
+</svg>

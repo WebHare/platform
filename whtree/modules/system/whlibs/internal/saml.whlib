@@ -1,0 +1,1474 @@
+﻿<?wh
+
+/** This library contains code to parse and create SAML documents
+
+
+*/
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+
+
+STRING ns_saml := "urn:oasis:names:tc:SAML:2.0:assertion";
+STRING ns_samlp := "urn:oasis:names:tc:SAML:2.0:protocol";
+STRING ns_md := "urn:oasis:names:tc:SAML:2.0:metadata";
+STRING ns_ds := "http://www.w3.org/2000/09/xmldsig#";
+STRING ns_xsi := "http://www.w3.org/2001/XMLSchemainstance";
+STRING ns_query := "urn:oasis:names:tc:SAML:metadata:ext:query";
+
+/// Get the standard prefix to use for the xml namespaces
+STRING FUNCTION GetPrefix(STRING ns)
+{
+  SWITCH (ns)
+  {
+  CASE "urn:oasis:names:tc:SAML:2.0:assertion"      { RETURN "saml:"; }
+  CASE "urn:oasis:names:tc:SAML:2.0:protocol"       { RETURN "samlp:"; }
+  CASE "urn:oasis:names:tc:SAML:2.0:metadata"       { RETURN "md:"; }
+  CASE "http://www.w3.org/2000/09/xmldsig#"         { RETURN "ds:"; }
+  CASE "http://www.w3.org/2001/XMLSchemainstance"   { RETURN "xsi:"; }
+  }
+  RETURN "";
+}
+
+INTEGER FUNCTION RecordBinaryFindNodeType(RECORD ARRAY sorted_nodetypes, RECORD reference)
+{
+  RECORD pos := RecordLowerBound(sorted_nodetypes, reference, [ "NAMESPACE", "NODENAME" ]);
+  IF (NOT pos.found)
+    THROW NEW Exception("Cannot find definition for node {" || reference.namespace || "}" || reference.nodename);
+  RETURN pos.position;
+}
+
+PUBLIC OBJECTTYPE SAMLCoder
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY nodetypes;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Node structure declarations
+  //
+
+  RECORD ARRAY FUNCTION GetNodeTypeRawData()
+  {
+    RETURN
+        [ // 2 SAML Assertions
+
+          // 2.2.2 Complex Type NameIDType
+          [ namespace :=      ""
+          , nodename :=       "NameIDType"
+          , attributes :=
+                [ [ name := "NameQualifier",  type := "string" ]
+                , [ name := "SPNameQualifier",type := "string" ]
+                , [ name := "Format",         type := "string", defaultvalue := "urn:oasis:names:tc:SAML:1.0:nameid-format:unspecified" ]
+                , [ name := "SPProvidedID",   type := "string" ]
+                ]
+          , value :=  "string"
+          ]
+
+          // 2.2.3 Element <NameID>
+        , [ namespace :=      ns_saml
+          , nodename :=       "NameID"
+          , base :=           [ namespace := "", nodename := "NameIDType" ]
+          ]
+
+          // 2.2.4 Element <EncryptedID>: ignored
+
+          // 2.2.5 Element <Issuer>
+          // Not using NameIDType, because of the different default value for Format
+        , [ namespace :=      ns_saml
+          , nodename :=       "Issuer"
+          , attributes :=
+                [ [ name := "NameQualifier",  type := "string" ]
+                , [ name := "SPNameQualifier",type := "string" ]
+                , [ name := "Format",         type := "string", defaultvalue := "urn:oasis:names:tc:SAML:1.0:nameid-format:entity" ]
+                , [ name := "SPProvidedID",   type := "string" ]
+                ]
+          , value :=  "string"
+          ]
+
+          // 2.3.1 Element <AssertionIDRef>
+          // Not included, only used as string-array
+          // 2.3.2 Element <AssertionURIRef>
+          // Not included, only used as string-array
+
+          // 2.3.3 Element <Assertion>
+        , [ namespace :=      ns_saml
+          , nodename :=       "Assertion"
+          , attributes :=
+                [ [ name := "ID",             type := "string", required := TRUE ]
+                , [ name := "Version",        type := "string", required := TRUE ]
+                , [ name := "IssueInstant",   type := "datetime", required := TRUE ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Issuer",         type := "entity", required := TRUE ]
+                , [ namespace := ns_ds,       nodename := "Signature",      type := "entity" ]
+                , [ namespace := ns_saml,     nodename := "Subject",        type := "entity" ]
+                , [ namespace := ns_saml,     nodename := "Conditions",     type := "entity" ]
+                , [ namespace := ns_saml,     nodename := "Advice",         type := "entity" ]
+                , [ namespace := ns_saml,     nodename := "Statement",      type := "unsupported" ]
+                , [ namespace := ns_saml,     nodename := "AuthnStatement", type := "entity-array" ]
+                , [ namespace := ns_saml,     nodename := "AuthzDecisionStatement", type := "unsupported" ]
+                , [ namespace := ns_saml,     nodename := "AttributeStatement", type := "entity-array" ]
+                ]
+          ]
+
+          // 2.3.3 Element <EncryptedAssertion>
+          // Not supported yet
+
+          // 2.4.1 Element <Subject>
+        , [ namespace :=      ns_saml
+          , nodename :=       "Subject"
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "BaseId",         type := "unsupported" ]
+                , [ namespace := ns_saml,     nodename := "NameID",         type := "entity" ]
+                , [ namespace := ns_saml,     nodename := "EncryptedID",    type := "unsupported" ]
+                , [ namespace := ns_saml,     nodename := "SubjectConfirmation", type := "entity" ]
+                ]
+          ]
+
+          // 2.4.1.1 Element <SubjectConfirmation>
+        , [ namespace :=      ns_saml
+          , nodename :=       "SubjectConfirmation"
+          , attributes :=
+                [ [ name := "Method",         type := "string", required := TRUE ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "BaseId",         type := "unsupported" ]
+                , [ namespace := ns_saml,     nodename := "NameID",         type := "entity" ]
+                , [ namespace := ns_saml,     nodename := "EncryptedID",    type := "unsupported" ]
+                , [ namespace := ns_saml,     nodename := "SubjectConfirmationData", type := "entity" ]
+                ]
+          ]
+
+          // EncryptionMethod (follows 'XML Encryption Syntax and Processing' standard (3.2) for the type of the element)
+        , [ namespace :=      ns_md
+          , nodename :=       "EncryptionMethod"
+          , attributes :=
+                [ [ name := "Algorithm",      type := "string", required := TRUE ]
+                ]
+            // ignoring subnodes for now
+          ]
+
+          // 2.4.1.2 Element <SubjectConfirmationData> (fixme: arbitrary attrs/elements)
+        , [ namespace :=      ns_saml
+          , nodename :=       "SubjectConfirmationData"
+          , attributes :=
+                [ [ name := "NotBefore",      type := "datetime" ]
+                , [ name := "NotOnOrAfter",   type := "datetime", defaultvalue := MAX_DATETIME ]
+                , [ name := "Recipient",      type := "string" ]
+                , [ name := "InResponseTo",   type := "string" ]
+                , [ name := "Address",        type := "string" ]
+                ]
+          ]
+
+          // 2.5.1 Element <Conditions>
+        , [ namespace :=      ns_saml
+          , nodename :=       "Conditions"
+          , attributes :=
+                [ [ name := "NotBefore",      type := "datetime" ]
+                , [ name := "NotOnOrAfter",   type := "datetime", defaultvalue := MAX_DATETIME  ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Condition",            type := "unsupported" ]
+                , [ namespace := ns_saml,     nodename := "AudienceRestriction",  type := "entity-array" ]
+                , [ namespace := ns_saml,     nodename := "OneTimeUse",           type := "boolean" ]
+                , [ namespace := ns_saml,     nodename := "ProxyRestriction",     type := "entity" ]
+                ]
+          ]
+
+          // 2.5.1.4 Elements <AudienceRestriction> and <Audience>
+        , [ namespace :=      ns_saml
+          , nodename :=       "AudienceRestriction"
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Audience",             type := "string-array" ]
+                ]
+          ]
+
+          // 2.5.1.5 Element <OneTimeUse>
+          // Declared as boolean in <Conditions>
+
+          // 2.5.1.6 Element <ProxyRestriction>
+        , [ namespace :=      ns_saml
+          , nodename :=       "ProxyRestriction"
+          , attributes :=
+                [ [ name := "Count",          type := "integer" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Audience",             type := "string-array" ]
+                ]
+          ]
+
+          // 2.6.1 Element <Advice>
+        , [ namespace :=      ns_saml
+          , nodename :=       "Advice"
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "AssertionIDRef",       type := "string-array" ]
+                , [ namespace := ns_saml,     nodename := "AssertionURIRef",      type := "string-array" ]
+                , [ namespace := ns_saml,     nodename := "Assertion",            type := "entity-array" ]
+                , [ namespace := ns_saml,     nodename := "EncryptedAssertion",   type := "unsupported" ]
+                ]
+          ]
+
+          // 2.7.2 Element <AuthnStatement>
+        , [ namespace :=      ns_saml
+          , nodename :=       "AuthnStatement"
+          , attributes :=
+                [ [ name := "AuthnInstant",       type := "datetime", required := TRUE ]
+                , [ name := "SessionIndex",       type := "string" ]
+                , [ name := "SessionNotOnOrAfter",type := "datetime", defaultvalue := MAX_DATETIME ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "SubjectLocality",      type := "entity" ]
+                , [ namespace := ns_saml,     nodename := "AuthnContext",         type := "entity", required := TRUE ]
+                ]
+          ]
+
+          // 2.7.2.1 Element <SubjectLocality>
+        , [ namespace :=      ns_saml
+          , nodename :=       "SubjectLocality"
+          , attributes :=
+                [ [ name := "Address",            type := "string" ]
+                , [ name := "DNSName",            type := "string" ]
+                ]
+          ]
+
+          // 2.7.2.2 Element <AuthnContext>
+        , [ namespace :=      ns_saml
+          , nodename :=       "AuthnContext"
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "AuthnContextClassRef", type := "string" ]
+                , [ namespace := ns_saml,     nodename := "AuthnContextDeclRef",  type := "string" ]
+                , [ namespace := ns_saml,     nodename := "AuthnContextDecl",     type := "unsupported" ]
+                , [ namespace := ns_saml,     nodename := "AuthenticatingAuthority", type := "string-array" ]
+                ]
+          ]
+
+          // 2.7.3 Element <AttributeStatement>
+        , [ namespace :=      ns_saml
+          , nodename :=       "AttributeStatement"
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Attribute",            type := "entity-array" ]
+                , [ namespace := ns_saml,     nodename := "EncryptedAttribute",   type := "unsupported" ]
+                ]
+          ]
+
+          // 2.7.3.1 Element <Attribute> // Fixme: arbitrary attributes
+        , [ namespace :=      ns_saml
+          , nodename :=       "Attribute"
+          , attributes :=
+                [ [ name := "Name",               type := "string", required := TRUE ]
+                , [ name := "NameFormat",         type := "string", defaultvalue := "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified" ]
+                , [ name := "FriendlyName",       type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "AttributeValue",       type := "entity-array" ]
+                ]
+          ]
+
+          // 2.7.3.1.1 Element <AttributeValue>
+        , [ namespace :=      ns_saml
+          , nodename :=       "AttributeValue"
+          , attributes :=
+                [ [ name := "type",               type := "string", namespace := ns_xsi ]
+                , [ name := "nil",                type := "boolean", namespace := ns_xsi ]
+                ]
+          , value :=          "string"
+          ]
+
+          // 2.7.3.1.1 Element <EncryptedAttribute>
+          // Not implemented
+
+          // 2.7.4  Element <AuthzDecisionStatement>
+          // 2.7.4.1 Simple Type DecisionType
+          // 2.7.4.2 Element <Action>
+          // 2.7.4.3 Element <Evidence>
+          // Not implemented
+
+          // 3 SAML Protocols
+
+          // 3.2.1 Complex Type RequestAbstractType
+        , [ namespace :=      ""
+          , nodename :=       "RequestAbstractType"
+          , attributes :=
+                [ [ name := "ID",             type := "string", required := TRUE ]
+                , [ name := "Version",        type := "string", required := TRUE ]
+                , [ name := "IssueInstant",   type := "datetime", required := TRUE ]
+                , [ name := "Destination",    type := "string" ]
+                , [ name := "Consent",        type := "string", defaultval := "urn:oasis:names:tc:SAML:2.0:consent:unspecified" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Issuer",     type := "entity" ]
+                , [ namespace := ns_ds,       nodename := "Signature",  type := "entity" ]
+                , [ namespace := ns_samlp,    nodename := "Extensions", type := "ignore" ]
+                ]
+          ]
+
+          // 3.2.2 Complex Type StatusResponseType
+        , [ namespace :=      ""
+          , nodename :=       "StatusResponseType"
+          , attributes :=
+                [ [ name := "ID",             type := "string", required := TRUE ]
+                , [ name := "InResponseTo",   type := "string" ]
+                , [ name := "Version",        type := "string", required := TRUE ]
+                , [ name := "IssueInstant",   type := "datetime", required := TRUE ]
+                , [ name := "Destination",    type := "string" ]
+                , [ name := "Consent",        type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Issuer",     type := "entity" ]
+                , [ namespace := ns_ds,       nodename := "Signature",  type := "entity" ]
+                , [ namespace := ns_samlp,    nodename := "Status",     type := "entity" ]
+                ]
+          ]
+
+          // 3.2.2.1 Element <Status>
+        , [ namespace :=     ns_samlp
+          , nodename :=       "Status"
+          , entities :=
+                [ [ namespace := ns_samlp,    nodename := "StatusCode",     type := "entity",   required := TRUE ]
+                , [ namespace := ns_samlp,    nodename := "StatusMessage",  type := "string-array" ]
+                , [ namespace := ns_samlp,    nodename := "StatusDetail",   type := "ignore" ]
+                ]
+          ]
+
+          // 3.2.2.2 Element <StatusCode>
+        , [ namespace :=     ns_samlp
+          , nodename :=       "StatusCode"
+          , attributes :=
+                [ [ name := "Value",          type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_samlp,    nodename := "StatusCode",     type := "entity" ]
+                ]
+          ]
+
+          // 3.3.2.1 Element <SubjectQuery>
+        , [ namespace :=     ns_samlp
+          , nodename :=       "SubjectQuery"
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Subject",     type := "entity",  required := TRUE ]
+                ]
+          ]
+
+          // 3.3.2.2 Element <AuthnQuery>
+        , [ namespace :=     ns_samlp
+          , nodename :=      "AuthnQuery"
+          , base :=          [ namespace := ns_samlp, nodename := "SubjectQuery" ]
+          , attributes :=
+                [ [ name := "SessionIndex",   type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_samlp,    nodename := "RequestedAuthnContext",  type := "entity"]
+                ]
+          ]
+
+          // 3.3.2.2 Element <RequestedAuthnContext>
+        , [ namespace :=     ns_samlp
+          , nodename :=      "RequestedAuthnContext"
+          , base :=          [ namespace := ns_samlp, nodename := "SubjectQuery" ]
+          , attributes :=
+                [ [ name := "Comparison",     type := "string", defaultvalue := "exact" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "AuthnContextClassRef",   type := "string-array"]
+                , [ namespace := ns_saml,     nodename := "AuthnContextDeclRef",    type := "string-array"]
+                ]
+          ]
+
+          // 3.3.2.2 Element <AttributeQuery>
+        , [ namespace :=     ns_samlp
+          , nodename :=      "AttributeQuery"
+          , base :=          [ namespace := ns_samlp, nodename := "SubjectQuery" ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Attribute",              type := "entity-array"]
+                ]
+          ]
+
+          // 3.3.2.4 Element <AuthzDecisionQuery>
+          // Not implemented
+
+          // 3.3.3 Element <Response>
+        , [ namespace :=     ns_samlp
+          , nodename :=      "Response"
+          , base :=          [ namespace := "", nodename := "StatusResponseType" ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Assertion",              type := "entity-array"]
+                , [ namespace := ns_saml,     nodename := "EncryptedAssertion",     type := "unsupported"]
+                ]
+          ]
+
+          // 3.4.1 Element <AuthnRequest>
+        , [ namespace :=     ns_samlp
+          , nodename :=      "AuthnRequest"
+          , base :=          [ namespace := "", nodename := "RequestAbstractType" ]
+          , attributes :=
+                [ [ name := "ForceAuthn",     type := "boolean" ]
+                , [ name := "IsPassive",      type := "boolean" ]
+                , [ name := "AssertionConsumerServiceIndex", type := "integer" ]
+                , [ name := "AssertionConsumerServiceURL", type := "string" ]
+                , [ name := "ProtocolBinding", type := "string" ]
+                , [ name := "AttributeConsumingServiceIndex", type := "integer" ]
+                , [ name := "ProviderName",   type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "Subject",                type := "entity"]
+                , [ namespace := ns_samlp,    nodename := "NameIDPolicy",           type := "entity"]
+                , [ namespace := ns_saml,     nodename := "Conditions",             type := "entity"]
+                , [ namespace := ns_samlp,    nodename := "RequestedAuthnContext",  type := "entity"]
+                , [ namespace := ns_samlp,    nodename := "Scoping",                type := "entity"]
+                ]
+          ]
+
+          // 3.4.1.1  Element <NameIDPolicy>
+        , [ namespace :=     ns_samlp
+          , nodename :=      "NameIDPolicy"
+          , attributes :=
+                [ [ name := "Format",         type := "string" ]
+                , [ name := "SPNameQualifier", type := "string" ]
+                , [ name := "AllowCreate",    type := "boolean" ]
+                ]
+          ]
+
+          // 3.4.1.2 Element <Scoping>
+        , [ namespace :=     ns_samlp
+          , nodename :=      "Scoping"
+          , attributes :=
+                [ [ name := "ProxyCount",     type := "integer" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_samlp,    nodename := "IDPList",                type := "entity"]
+                , [ namespace := ns_samlp,    nodename := "RequesterId",            type := "string-array"]
+                ]
+          ]
+
+          // 3.4.1.3  Element <IDPList>
+        , [ namespace :=      ns_samlp
+          , nodename :=       "IDPList"
+          , entities :=
+                [ [ namespace := ns_samlp,    nodename := "IDPEntry",               type := "entity-array" ]
+                , [ namespace := ns_samlp,    nodename := "GetComplete",            type := "string" ]
+                ]
+          ]
+
+          // 3.4.1.3.1  Element <IDPEntry>
+        , [ namespace :=      ns_samlp
+          , nodename :=       "IDPEntry"
+          , attributes :=
+                [ [ name := "ProviderID",     type := "string", required := TRUE ]
+                , [ name := "Name",           type := "string" ]
+                , [ name := "Loc",            type := "string" ]
+                ]
+          ]
+
+          // 3.5.1  Element <ArtifactResolve>
+          // Not implemented
+
+          // 3.5.2  Element <ArtifactResponse>
+          // Not implemented
+
+          // 3.6.1  Element <ManageNameIDRequest>
+          // Not implemented
+
+          // 3.6.2  Element <ManageNameIDResponse>
+          // Not implemented
+
+          // 3.7.1  Element <LogoutRequest>
+        , [ namespace :=      ns_samlp
+          , nodename :=       "LogoutRequest"
+          , attributes :=
+                [ [ name := "NotOnOrAfter",   type := "datetime", defaultvalue := MAX_DATETIME ]
+                , [ name := "Reason",         type := "string" ]
+                , [ name := "Loc",            type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_saml,     nodename := "BaseId",         type := "unsupported" ]
+                , [ namespace := ns_saml,     nodename := "NameID",         type := "entity" ]
+                , [ namespace := ns_saml,     nodename := "EncryptedID",    type := "unsupported" ]
+                , [ namespace := ns_samlp,    nodename := "SessionIndex",   type := "string" ]
+                ]
+          ]
+
+          // 3.7.2  Element <LogoutResponse>
+        , [ namespace :=      ns_samlp
+          , nodename :=       "LogoutResponse"
+          , base :=           [ namespace := "", nodename := "StatusResponseType" ]
+          ]
+
+          // 3.8.1 Element <NameIDMappingRequest>
+          // Not supported
+
+          // 3.8.2 Element <NameIDMappingResponse>
+          // Not supported
+
+          // SAML Metadata
+
+          // 2.2.2 Complex Type EndpointType
+        , [ namespace :=      ""
+          , nodename :=       "EndpointType"
+          , attributes :=
+                [ [ name := "Binding",        type := "string", required := TRUE ]
+                , [ name := "Location",       type := "string", required := TRUE ]
+                , [ name := "ResponseLocation", type := "string" ]
+                ]
+          ]
+
+          // 2.2.3 Complex Type IndexedEndpointType
+        , [ namespace :=      ""
+          , nodename :=       "IndexedEndpointType"
+          , base :=           [ namespace := "", nodename := "EndpointType" ]
+          , attributes :=
+                [ [ name := "index",          type := "integer", required := TRUE ]
+                , [ name := "isDefault",      type := "string" ] // Boolean, but tri-state
+                ]
+          ]
+
+          // 2.3.1 Element <EntitiesDescriptor>
+        , [ namespace :=      ns_md
+          , nodename :=       "EntitiesDescriptor"
+          , attributes :=
+                [ [ name := "ID",             type := "string" ]
+                , [ name := "validUntil",     type := "datetime" ]
+                , [ name := "cacheDuration",  type := "string" ]
+                , [ name := "name",           type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_ds,       nodename := "Signature",      type := "entity" ]
+                , [ namespace := ns_md,       nodename := "Extensions",     type := "ignore" ]
+                , [ namespace := ns_md,       nodename := "EntitiesDescriptor", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "EntityDescriptor", type := "entity-array" ]
+                ]
+          ]
+
+          // 2.3.1 Element <EntityDescriptor>
+        , [ namespace :=      ns_md
+          , nodename :=       "EntityDescriptor"
+          , attributes :=
+                [ [ name := "entityID",       type := "string", required := TRUE ]
+                , [ name := "ID",             type := "string" ]
+                , [ name := "validUntil",     type := "datetime" ]
+                , [ name := "cacheDuration",  type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_ds,       nodename := "Signature",      type := "entity" ]
+                , [ namespace := ns_md,       nodename := "Extensions",     type := "ignore" ]
+                , [ namespace := ns_md,       nodename := "RoleDescriptor", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "IDPSSODescriptor", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "SPSSODescriptor", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "AuthnAuthorityDescriptor", type := "unsupported" ]
+                , [ namespace := ns_md,       nodename := "AttributeAuthorityDescriptor", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "PDPDescriptor", type := "unsupported" ]
+                , [ namespace := ns_md,       nodename := "AffiliationDescriptor", type := "unsupported" ]
+                , [ namespace := ns_md,       nodename := "Organization", type := "entity" ]
+                , [ namespace := ns_md,       nodename := "ContactPerson", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "AdditionalMetadataLocation", type := "unsupported" ]
+                ]
+          ]
+
+          // 2.3.2.1 Element <Organization>
+        , [ namespace :=      ns_md
+          , nodename :=       "Organization"
+          , entities :=
+                [ [ namespace := ns_md,       nodename := "Extensions",     type := "ignore" ]
+                , [ namespace := ns_md,       nodename := "OrganizationName", type := "lang-string" ] // FIXME: localized!
+                , [ namespace := ns_md,       nodename := "OrganizationDisplayName", type := "lang-string" ] // FIXME: localized!
+                , [ namespace := ns_md,       nodename := "OrganizationURL", type := "lang-string" ] // FIXME: localized!
+                ]
+          ]
+
+          // 2.3.2.1 Element <ContactPerson>
+        , [ namespace :=      ns_md
+          , nodename :=       "ContactPerson"
+          , attributes :=
+                [ [ name := "contactType",    type := "string", required := TRUE ]
+                ]
+          , entities :=
+                [ [ namespace := ns_md,       nodename := "Extensions",     type := "ignore" ]
+                , [ namespace := ns_md,       nodename := "Company",        type := "string" ]
+                , [ namespace := ns_md,       nodename := "GivenName",      type := "string" ]
+                , [ namespace := ns_md,       nodename := "SurName",        type := "string" ]
+                , [ namespace := ns_md,       nodename := "EmailAddress",   type := "string-array" ]
+                , [ namespace := ns_md,       nodename := "TelephoneNumber", type := "string-array" ]
+                ]
+          ]
+
+          // 2.4.1 Element <RoleDescriptor>
+        , [ namespace :=      ns_md
+          , nodename :=       "RoleDescriptor"
+          , allowtypeoverload := TRUE
+          , attributes :=
+                [ [ name := "ID",             type := "string" ]
+                , [ name := "validUntil",     type := "datetime" ]
+                , [ name := "cacheDuration",  type := "string" ]
+                , [ name := "protocolSupportEnumeration",  type := "string-array", required := TRUE ]
+                , [ name := "errorURL",       type := "string-array" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_ds,       nodename := "Signature",      type := "entity" ]
+                , [ namespace := ns_md,       nodename := "Extensions",     type := "ignore" ]
+                , [ namespace := ns_md,       nodename := "KeyDescriptor",  type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "Organization",   type := "entity" ]
+                , [ namespace := ns_md,       nodename := "ContactPerson",  type := "entity-array" ]
+                ]
+          ]
+
+          // 2.4.1.1 Element <KeyDescriptor>
+        , [ namespace :=      ns_md
+          , nodename :=       "KeyDescriptor"
+          , attributes :=
+                [ [ name := "use",            type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_ds,       nodename := "KeyInfo",        type := "entity", required := TRUE ]
+                , [ namespace := ns_md,       nodename := "EncryptionMethod", type := "entity-array" ]
+                ]
+          ]
+
+          // 2.4.2 Complex Type SSODescriptorType
+        , [ namespace :=      ""
+          , nodename :=       "SSODescriptorType"
+          , base :=           [ namespace := ns_md, nodename := "RoleDescriptor" ]
+          , entities :=
+                [ [ namespace := ns_md,       nodename := "ArtifactResolutionService", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "SingleLogoutService", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "ManageNameIDService", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "NameIDFormat", type := "string-array" ]
+                ]
+          ]
+
+        , [ namespace :=      ns_md
+          , nodename :=       "ArtifactResolutionService"
+          , base :=           [ namespace := "", nodename := "IndexedEndpointType" ]
+          ]
+        , [ namespace :=      ns_md
+          , nodename :=       "SingleLogoutService"
+          , base :=           [ namespace := "", nodename := "EndpointType" ]
+          ]
+        , [ namespace :=      ns_md
+          , nodename :=       "ManageNameIDService"
+          , base :=           [ namespace := "", nodename := "EndpointType" ]
+          ]
+
+          // 2.4.3 Element <IDPSSODescriptor>
+        , [ namespace :=      ns_md
+          , nodename :=       "IDPSSODescriptor"
+          , base :=           [ namespace := "", nodename := "SSODescriptorType" ]
+          , attributes :=
+                [ [ name := "WantAuthnRequestsSigned", type := "boolean" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_md,       nodename := "SingleSignOnService", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "NameIDMappingService", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "AssertionIDRequestService", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "AttributeProfile", type := "string-array" ]
+                , [ namespace := ns_saml,     nodename := "Attribute", type := "entity-array" ]
+                ]
+          ]
+
+        , [ namespace :=      ns_md
+          , nodename :=       "SingleSignOnService"
+          , base :=           [ namespace := "", nodename := "EndpointType" ]
+          ]
+        , [ namespace :=      ns_md
+          , nodename :=       "NameIDMappingService"
+          , base :=           [ namespace := "", nodename := "EndpointType" ]
+          ]
+        , [ namespace :=      ns_md
+          , nodename :=       "AssertionIDRequestService"
+          , base :=           [ namespace := "", nodename := "EndpointType" ]
+          ]
+
+          // 2.4.4 Element <SPSSODescriptor>
+        , [ namespace :=      ns_md
+          , nodename :=       "SPSSODescriptor"
+          , base :=           [ namespace := "", nodename := "SSODescriptorType" ]
+          , attributes :=
+                [ [ name := "AuthnRequestsSigned", type := "boolean" ]
+                , [ name := "WantAssertionsSigned", type := "boolean" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_md,       nodename := "AssertionConsumerService", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "AttributeConsumingService", type := "entity-array" ]
+                ]
+          ]
+
+        , [ namespace :=      ns_md
+          , nodename :=       "AssertionConsumerService"
+          , base :=           [ namespace := "", nodename := "IndexedEndpointType" ]
+          ]
+
+          // 2.4.4.1 Element <AttributeConsumingService>
+        , [ namespace :=      ns_md
+          , nodename :=       "AttributeConsumingService"
+          , attributes :=
+                [ [ name := "index",          type := "integer", required := TRUE ]
+                , [ name := "isDefault",      type := "string" ] // Tri-state
+                ]
+          , entities :=
+                [ [ namespace := ns_md,       nodename := "ServiceName",        type := "string" ] // FIXME: localized!
+                , [ namespace := ns_md,       nodename := "ServiceDescription", type := "string" ] // FIXME: localized!
+                , [ namespace := ns_md,       nodename := "RequestedAttribute", type := "entity" ] // FIXME: localized!
+                ]
+          ]
+
+          // 2.4.4.2 Element <RequestedAttribute>
+        , [ namespace :=      ns_md
+          , nodename :=       "RequestedAttribute"
+          , base :=           [ namespace := ns_saml, nodename := "Attribute" ]
+          , attributes :=
+                [ [ name := "isRequired",     type := "boolean" ]
+                ]
+          ]
+
+
+          // 2.4.7 Element <AttributeAuthorityDescriptor>
+        , [ namespace :=      ns_md
+          , nodename :=       "AttributeAuthorityDescriptor"
+          , base :=           [ namespace := ns_md, nodename := "RoleDescriptor" ]
+          , entities :=
+                [ [ namespace := ns_md,       nodename := "AttributeService", type := "ignore" ]
+                , [ namespace := ns_md,       nodename := "AssertionIDRequestService", type := "entity-array" ]
+                , [ namespace := ns_md,       nodename := "NameIDFormat", type := "string-array" ]
+                , [ namespace := ns_md,       nodename := "AttributeProfile", type := "string-array" ]
+                ]
+          ]
+
+          // SAML Metadata Extension for SAML V2.0 and V1.x Query Requesters
+
+          // 2.4 Abstract Complex Type QueryDescriptorType
+
+        , [ namespace :=      ns_query
+          , nodename :=       "QueryDescriptorType"
+          , base :=           [ namespace := ns_md, nodename := "RoleDescriptor" ]
+          , attributes :=
+                [ [ name := "WantAssertionsSigned", type := "boolean" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_md,       nodename := "NameIDFormat", type := "string-array" ]
+                ]
+          ]
+
+          // 2.5 Complex Type AuthnQueryDescriptorType
+
+        , [ namespace :=      ns_query
+          , nodename :=       "AuthnQueryDescriptorType"
+          , base :=           [ namespace := ns_query, nodename := "QueryDescriptorType" ]
+          ]
+
+          // 2.6 Complex Type AttributeQueryDescriptorType
+
+        , [ namespace :=      ns_query
+          , nodename :=       "AttributeQueryDescriptorType"
+          , base :=           [ namespace := ns_query, nodename := "QueryDescriptorType" ]
+          , entities :=
+                [ [ namespace := ns_md,       nodename := "AttributeConsumingService", type := "entity-array" ]
+                ]
+          ]
+
+          // 2.7 Complex Type AuthzDecisionQueryDescriptorType
+
+        , [ namespace :=      ns_query
+          , nodename :=       "AuthzDecisionQueryDescriptorType"
+          , base :=           [ namespace := ns_query, nodename := "QueryDescriptorType" ]
+          , entities :=
+                [ [ namespace := ns_md,       nodename := "ActionNamespace", type := "string-array" ]
+                ]
+          ]
+
+          // XML Signature
+
+          // 4.1 The Signature Element
+        , [ namespace :=      ns_ds
+          , nodename :=       "Signature"
+          , attributes :=
+                [ [ name := "Id",             type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_ds,       nodename := "SignedInfo",     type := "entity" ]
+                , [ namespace := ns_ds,       nodename := "SignatureValue", type := "entity" ]
+                , [ namespace := ns_ds,       nodename := "KeyInfo",        type := "entity" ]
+                , [ namespace := ns_ds,       nodename := "Object",         type := "ignore" ]
+                ]
+          ]
+
+          // 4.2 The SignatureValue Element
+        , [ namespace :=      ns_ds
+          , nodename :=       "SignatureValue"
+          , attributes :=
+                [ [ name := "Id",             type := "string" ]
+                ]
+          , value :=  "string" // FIXME: base64!
+          ]
+
+          // 4.3 The SignedInfo Element
+        , [ namespace :=      ns_ds
+          , nodename :=       "SignedInfo"
+          , attributes :=
+                [ [ name := "Id",             type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_ds,       nodename := "CanonicalizationMethod", type := "entity" ]
+                , [ namespace := ns_ds,       nodename := "SignatureMethod", type := "entity" ]
+                , [ namespace := ns_ds,       nodename := "Reference",      type := "entity-array" ]
+                ]
+          ]
+
+          // 4.3.1 The CanonicalizationMethod Element // FIXME: any element content!
+        , [ namespace :=      ns_ds
+          , nodename :=       "CanonicalizationMethod"
+          , attributes :=
+                [ [ name := "Algorithm",      type := "string", required := TRUE ]
+                ]
+          ]
+
+          // 4.3.2 The SignatureMethod Element // FIXME: HMACOutputLength && any element content!
+        , [ namespace :=      ns_ds
+          , nodename :=       "SignatureMethod"
+          , attributes :=
+                [ [ name := "Algorithm",      type := "string", required := TRUE ]
+                ]
+          ]
+
+          // 4.3.3 The Reference Element
+        , [ namespace :=      ns_ds
+          , nodename :=       "Reference"
+          , attributes :=
+                [ [ name := "Id",             type := "string"]
+                , [ name := "URI",            type := "string" ]
+                , [ name := "Type",           type := "string" ]
+                ]
+          , entities :=
+                [ [ namespace := ns_ds,       nodename := "Transforms",     type := "entity" ]
+                , [ namespace := ns_ds,       nodename := "DigestMethod",   type := "entity" ]
+                , [ namespace := ns_ds,       nodename := "DigestValue",    type := "string" ]
+                ]
+          ]
+
+          // 4.3.3 The Transforms Element
+        , [ namespace :=      ns_ds
+          , nodename :=       "Transforms"
+          , entities :=
+                [ [ namespace := ns_ds,       nodename := "Transform",      type := "entity-array" ]
+                ]
+          ]
+
+           // Transform node: FIXME: any element content!
+        , [ namespace :=      ns_ds
+          , nodename :=       "Transform"
+          , attributes :=
+                [ [ name := "Algorithm",      type := "string", required := TRUE ]
+                ]
+          , entities :=
+                [ [ namespace := ns_ds,       nodename := "XPath",          type := "string" ]
+                ]
+          ]
+
+          // 4.3.3 The DigestMethod Element // FIXME: any element content!
+        , [ namespace :=      ns_ds
+          , nodename :=       "DigestMethod"
+          , attributes :=
+                [ [ name := "Algorithm",      type := "string", required := TRUE ]
+                ]
+          ]
+
+          // 4.4 The KeyInfo Element
+        , [ namespace :=      ns_ds
+          , nodename :=       "KeyInfo"
+          , attributes :=
+                [ [ name := "Id",             type := "string" ]
+                ]
+          , parsefunc :=      PTR this->ParseKeyInfo
+          , codefunc :=       PTR this->CodeKeyInfo
+          ]
+        ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Build & parse helper stuff
+  //
+
+  OBJECT FUNCTION BuildNode(OBJECT doc, RECORD descr)
+  {
+    RETURN doc->CreateElementNS(descr.namespace, GetPrefix(descr.namespace) || descr.nodename);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Specialized parsers
+  //
+
+  RECORD FUNCTION ParseKeyInfo(OBJECT keyinfonode)
+  {
+    OBJECT query := keyinfonode->ownerdocument->CreateXPathQuery();
+    query->RegisterNamespace("ds", ns_ds);
+
+    OBJECT x509cert := query->ExecuteQuery("./ds:X509Data/ds:X509Certificate", keyinfonode)->Item(0);
+    IF (ObjectExists(x509cert))
+    {
+      RETURN
+          [ type :=   "X509Certificate"
+          , id :=     keyinfonode->GetAttribute("Id")
+          , value :=  TrimWhitespace(x509cert->childrentext)
+          ];
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  OBJECT FUNCTION CodeKeyInfo(OBJECT doc, OBJECT node_keyinfo, RECORD rec)
+  {
+    IF (CellExists(rec, "TYPE") AND rec.type = "X509Certificate")
+    {
+      IF (NOT ObjectExists(node_keyinfo))
+        node_keyinfo := doc->CreateElementNS(ns_ds, "ds:KeyInfo");
+
+      IF (CellExists(rec, "ID") AND rec.id != "")
+        node_keyinfo->SetAttribute("Id", rec.id);
+
+      OBJECT node_x509data := doc->CreateElementNS(ns_ds, "ds:X509Data");
+      node_keyinfo->AppendChild(node_x509data);
+
+      OBJECT node_x509certificate := doc->CreateElementNS(ns_ds, "ds:X509Certificate");
+      node_x509data->AppendChild(node_x509certificate);
+
+      node_x509certificate->AppendChild(doc->CreateTextNode(rec.value));
+
+      RETURN node_keyinfo;
+    }
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper stuff
+  //
+
+  RECORD ARRAY FUNCTION GatherBaseRA(RECORD ARRAY rawdata, INTEGER basepos, STRING cellname)
+  {
+    RECORD descr := rawdata[basepos];
+    RETURN (descr.basepos != -1 ? this->GatherBaseRA(rawdata, descr.basepos, cellname) : DEFAULT RECORD ARRAY) CONCAT GetCell(rawdata[basepos], cellname);
+  }
+
+  STRING FUNCTION GatherBaseValue(RECORD ARRAY rawdata, INTEGER basepos)
+  {
+    RECORD descr := rawdata[basepos];
+    IF (descr.value != "" OR descr.basepos = -1)
+      RETURN descr.value;
+    RETURN this->GatherBaseValue(rawdata, descr.basepos);
+  }
+
+  STRING FUNCTION GetPluralForm(STRING name)
+  {
+    IF (name LIKE "*y")
+      RETURN Left(name, LENGTH(name)-1) || "ies";
+    IF (name LIKE "*ss")
+      RETURN name || "es";
+    RETURN name || "s";
+  }
+
+
+  MACRO InitNodeTypes()
+  {
+    IF (LENGTH(this->nodetypes) != 0)
+      RETURN;
+
+    RECORD ARRAY rawdata := this->GetNodeTypeRawData();
+
+    rawdata :=
+       SELECT *
+            , attributes := CellExists(rawdata, "ATTRIBUTES") ? attributes : DEFAULT RECORD ARRAY
+            , entities := CellExists(rawdata, "ENTITIES") ? entities : DEFAULT RECORD ARRAY
+            , value := CellExists(rawdata, "VALUE") ? value : ""
+            , allowtypeoverload := CellExists(rawdata, "ALLOWTYPEOVERLOAD") ? allowtypeoverload : FALSE
+         FROM rawdata
+     ORDER BY namespace, nodename;
+
+    rawdata :=
+        SELECT *
+             , basepos :=   CellExists(nodetype, "BASE") ? RecordBinaryFindNodeType(rawdata, base) : -1
+             , attributes :=
+                 (SELECT *
+                       , cellname :=  name
+                    FROM attributes)
+             , entities :=
+                 (SELECT *
+                       , cellname :=  nodename
+                       , pos:=        type IN [ "entity", "entity-array" ] ? RecordBinaryFindNodeType(rawdata, entities) : -1
+                    FROM entities)
+          FROM rawdata AS nodetype;
+
+    UPDATE rawdata AS nodetype
+       SET attributes :=  this->GatherBaseRA(rawdata, basepos, "ATTRIBUTES") CONCAT attributes
+         , entities :=    this->GatherBaseRA(rawdata, basepos, "ENTITIES") CONCAT entities
+         , value :=       value = "" ? this->GatherBaseValue(rawdata, basepos) : value
+     WHERE basepos != -1;
+
+    this->nodetypes :=
+        SELECT *
+             , sorted_entities := SELECT * FROM entities ORDER BY namespace, nodename
+          FROM rawdata AS nodetype;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Parser
+  //
+
+  RECORD FUNCTION ParseByDescription(OBJECT node)
+  {
+    RETURN this->ParseByDescriptionPos(node, RecordBinaryFindNodeType(this->nodetypes, [ namespace := node->namespaceuri, nodename := node->localname ]));
+  }
+
+  RECORD FUNCTION ParseByDescriptionPos(OBJECT node, INTEGER pos, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ checkxsitype := TRUE
+        ], options);
+
+    RECORD descr := this->nodetypes[pos];
+    IF (descr.namespace = "")
+      THROW NEW Exception("Cannot parse abstract nodes");
+
+    RECORD res;
+    IF (descr.allowtypeoverload AND options.checkxsitype)
+    {
+      STRING xsitype := node->GetAttributeNS("http://www.w3.org/2001/XMLSchema-instance", "type");
+      IF (xsitype != "")
+      {
+        RECORD xsityperes := node->LookupQualifiedName(xsitype);
+        res := this->ParseByDescriptionPos(node, RecordBinaryFindNodeType(this->nodetypes, [ namespace := xsityperes.namespaceuri, nodename := xsityperes.localname ]), [ checkxsitype := FALSE ]);
+        RETURN
+            [ xsitype := `{${xsityperes.namespaceuri}}${xsityperes.localname}`
+            , ...res
+            ];
+      }
+
+      INSERT CELL xsitype := "" INTO res;
+    }
+
+    IF (CellExists(descr, "PARSEFUNC") AND descr.parsefunc != DEFAULT FUNCTION PTR)
+      RETURN descr.parsefunc(node);
+
+    FOREVERY (RECORD attr FROM descr.attributes)
+    {
+      STRING val;
+      IF (CellExists(attr, "NAMESPACE"))
+        val := node->GetAttributeNS(attr.namespace, attr.name);
+      ELSE
+        val := node->GetAttribute(attr.name);
+      BOOLEAN hasdefault := CellExists(attr, "DEFAULTVALUE");
+
+      SWITCH (attr.type)
+      {
+        CASE "string"       { res := CellInsert(res, attr.cellname, val = "" AND hasdefault ? attr.defaultvalue : val); }
+        CASE "boolean"      { res := CellInsert(res, attr.cellname, val IN [ "1", "true" ]); }
+        CASE "datetime"     { res := CellInsert(res, attr.cellname, val = "" AND hasdefault ? attr.defaultvalue : MakeDateFromText(val)); }
+        CASE "integer"      { res := CellInsert(res, attr.cellname, ToInteger(val, hasdefault ? attr.defaultvalue : 0)); }
+        CASE "string-array"
+            { res := CellInsert(res, attr.cellname, val = ""
+                  ? hasdefault
+                        ? attr.defaultval
+                        : DEFAULT STRING ARRAY
+                  : Tokenize(TrimWhitespace(NormalizeWhitespace(val)), " "));
+            }
+        DEFAULT             { THROW NEW Exception("Unknown attribute type " || attr.type); }
+      }
+    }
+
+    FOREVERY (RECORD ent FROM descr.entities)
+    {
+      SWITCH (ent.type)
+      {
+        CASE "boolean"      { res := CellInsert(res, ent.cellname, FALSE); }
+        CASE "entity"       { res := CellInsert(res, ent.cellname, DEFAULT RECORD); }
+        CASE "entity-array" { res := CellInsert(res, ent.cellname, DEFAULT RECORD ARRAY); }
+        CASE "string", "lang-string" { res := CellInsert(res, ent.cellname, ""); }
+        CASE "string-array" { res := CellInsert(res, ent.cellname, DEFAULT STRING ARRAY); }
+        CASE "unsupported", "ignore" { }
+        DEFAULT             { THROW NEW Exception("Unknown entity type " || ent.type); }
+      }
+    }
+
+    OBJECT current := node->firstchild;
+    WHILE (ObjectExists(current))
+    {
+      RECORD entitypos := RecordLowerBound(
+          descr.sorted_entities,
+          [ namespace := current->namespaceuri, nodename := current->localname ],
+          [ "NAMESPACE", "NODENAME" ]);
+
+      IF (NOT entitypos.found AND current->namespaceuri IN [ ns_saml, ns_samlp, ns_md, ns_ds ])
+      {
+        PRINT(">>\n" || node->outerxml ||"\n");
+        THROW NEW Exception("Unknown node {" || current->namespaceuri || "}" || current->localname || " is not allowed here");
+      }
+
+      IF (entitypos.found)
+      {
+        RECORD ent := descr.sorted_entities[entitypos.position];
+
+        SWITCH (ent.type)
+        {
+          CASE "boolean"      { res := CellUpdate(res, ent.cellname, TRUE); }
+          CASE "entity"       { res := CellUpdate(res, ent.cellname, this->ParseByDescriptionPos(current, ent.pos)); }
+          CASE "entity-array"
+            {
+              RECORD ARRAY arr := GetCell(res, ent.cellname);
+              INSERT this->ParseByDescriptionPos(current, ent.pos) INTO arr AT END;
+              res := CellUpdate(res, ent.cellname, arr);
+            }
+          CASE "string", "lang-string" { res := CellUpdate(res, ent.nodename, TrimWhitespace(current->childrentext)); }
+          CASE "string-array"
+            {
+              STRING ARRAY arr := GetCell(res, ent.cellname);
+              INSERT TrimWhitespace(current->childrentext) INTO arr AT END;
+              res := CellUpdate(res, ent.cellname, arr);
+            }
+          CASE "unsupported"  { THROW NEW Exception("Encountered unsupported node {" || current->namespaceuri || "}" || current->localname); }
+          CASE "ignore"       { }
+          DEFAULT             { THROW NEW Exception("Unknown entity type " || ent.type); }
+        }
+      }
+
+      current := current->nextsibling;
+    }
+
+    IF (descr.value != "")
+      INSERT CELL value := TrimWhitespace(node->childrentext) INTO res;
+
+    RETURN res;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Encoder
+  //
+
+  OBJECT FUNCTION BuildNodeByDescriptionPos(OBJECT doc, OBJECT node, INTEGER pos, RECORD data, STRING pathbase)
+  {
+    RECORD descr := this->nodetypes[pos];
+    IF (descr.namespace = "")
+      THROW NEW Exception("Cannot parse abstract nodes");
+
+    IF (CellExists(descr, "CODEFUNC") AND descr.codefunc != DEFAULT FUNCTION PTR)
+      RETURN descr.codefunc(doc, node, data);
+
+    FOREVERY (RECORD attr FROM descr.attributes)
+    {
+      STRING val;
+      IF (NOT CellExists(data, attr.cellname))
+      {
+        IF (CellExists(attr, "REQUIRED") AND attr.required)
+        {
+          ABORT("Missing " || pathbase || attr.cellname || "\n" || AnyToString(data, "tree"));
+          THROW NEW Exception("Missing cell '" || pathbase || attr.cellname || "'");
+        }
+      }
+      ELSE
+      {
+        VARIANT value := GetCell(data, attr.cellname);
+        STRING strval;
+        BOOLEAN hd := CellExists(attr, "DEFAULTVALUE");
+
+        SWITCH (attr.type)
+        {
+        CASE "string"       { IF (value != (hd ? attr.defaultvalue : "")) strval := value; }
+        CASE "boolean"      { IF (value != (hd ? attr.defaultvalue : FALSE)) strval := "true"; }
+        CASE "datetime"     { IF (value != (hd ? attr.defaultvalue : DEFAULT DATETIME)) strval := FormatISO8601DateTime(value); }
+        CASE "integer"      { IF (value != (hd ? attr.defaultvalue : -1)) strval := ToString(value); }
+        CASE "string-array" { strval := Detokenize(value, " "); }
+        }
+
+        IF (strval != "")
+        {
+          IF (NOT ObjectExists(node))
+            node := this->BuildNode(doc, descr);
+
+          IF (CellExists(attr, "NAMESPACE"))
+            node->SetAttributeNS(attr.namespace, attr.name, strval);
+          ELSE
+            node->SetAttribute(attr.name, strval);
+        }
+
+        // Delete the cell for detecting wrong-spelled and extra stuff
+        data := CellDelete(data, attr.cellname);
+      }
+    }
+
+    FOREVERY (RECORD ent FROM descr.entities)
+    {
+      IF (NOT CellExists(data, ent.cellname))
+      {
+        IF (CellExists(ent, "REQUIRED") AND ent.required)
+          THROW NEW Exception("Missing cell '" || pathbase || ent.cellname|| "'");
+      }
+      ELSE
+      {
+        STRING localpath := pathbase || ent.cellname;
+        VARIANT value := GetCell(data, ent.cellname);
+        OBJECT ARRAY nodes;
+
+        data := CellDelete(data, ent.cellname);
+
+        SWITCH (ent.type)
+        {
+        CASE "boolean"
+          {
+            IF (TypeID(value) != TypeID(BOOLEAN))
+              THROW NEW Exception("Cell '" || pathbase || ent.cellname || "' has type " || GetTypeName(TypeID(value)) || ", expected BOOLEAN");
+
+            IF (value)
+              nodes := [ this->BuildNode(doc, ent) ];
+          }
+        CASE "entity"
+          {
+            IF (TypeID(value) != TypeID(RECORD))
+              THROW NEW Exception("Cell '" || pathbase || ent.cellname || "' has type " || GetTypeName(TypeID(value)) || ", expected RECORD");
+
+            OBJECT subnode;
+            IF (CellExists(ent, "REQUIRED") AND ent.required)
+              subnode := this->BuildNode(doc, ent);
+            nodes := [ this->BuildNodeByDescriptionPos(doc, subnode, ent.pos, value, localpath || ".") ];
+          }
+        CASE "entity-array"
+          {
+            IF (TypeID(value) != TypeID(RECORD ARRAY))
+              THROW NEW Exception("Cell '" || pathbase || ent.cellname || "' has type " || GetTypeName(TypeID(value)) || ", expected RECORD ARRAY");
+
+            FOREVERY (RECORD rec FROM value)
+            {
+              OBJECT subnode := this->BuildNodeByDescriptionPos(doc, DEFAULT OBJECT, ent.pos, rec, localpath || "[" || #rec || "].");
+              IF (ObjectExists(subnode))
+                INSERT subnode INTO nodes AT END;
+            }
+          }
+        CASE "string", "lang-string"
+          {
+            IF (TypeID(value) != TypeID(STRING))
+              THROW NEW Exception("Cell '" || pathbase || ent.cellname || "' has type " || GetTypeName(TypeID(value)) || ", expected STRING");
+
+            IF ((CellExists(ent, "REQUIRED") AND ent.required) OR value != "")
+            {
+              nodes := [ this->BuildNode(doc, ent) ];
+              nodes[0]->AppendChild(doc->CreateTextNode(value));
+              IF (ent.type = "lang-string")
+                nodes[0]->SetAttributeNS("http://www.w3.org/XML/1998/namespace", "xml:lang", "en");
+            }
+          }
+        CASE "string-array"
+          {
+            // Allow string
+            IF (TypeID(value) = TypeID(STRING))
+              value := value = "" ? DEFAULT STRING ARRAY : [ STRING(value) ];
+
+            IF (TypeID(value) != TypeID(STRING ARRAY))
+              THROW NEW Exception("Cell '" || pathbase || ent.cellname || "' has type " || GetTypeName(TypeID(value)) || ", expected STRING ARRAY");
+
+            FOREVERY (STRING s FROM value)
+            {
+              IF (s != "")
+              {
+                OBJECT subnode :=this->BuildNode(doc, ent);
+                subnode->AppendChild(doc->CreateTextNode(s));
+                INSERT subnode INTO nodes AT END;
+              }
+            }
+          }
+        CASE "ignore", "unsupported"
+          {
+            THROW NEW Exception("Cannot encode node {" || ent.namespace || "}" || ent.nodename ||" at " || localpath);
+          }
+        }
+
+        IF (LENGTH(nodes) != 0)
+        {
+          IF (NOT ObjectExists(node))
+            node := this->BuildNode(doc, descr);
+
+          FOREVERY (OBJECT subnode FROM nodes)
+            node->AppendChild(subnode);
+        }
+      }
+    }
+
+    IF (descr.value != "" AND CellExists(data, "VALUE"))
+    {
+      IF (data.value != "")
+      {
+        IF (NOT ObjectExists(node))
+          node := this->BuildNode(doc, descr);
+
+        node->AppendChild(doc->CreateTextNode(data.value));
+      }
+      DELETE CELL value FROM data;
+    }
+
+    RECORD ARRAY unusedcells := UnpackRecord(data);
+    IF (LENGTH(unusedcells) != 0)
+    {
+      STRING ARRAY candidate_names :=
+          (SELECT AS STRING ARRAY cellname FROM descr.attributes) CONCAT
+          (SELECT AS STRING ARRAY cellname FROM descr.entities) CONCAT
+          (descr.value = "" ? DEFAULT STRING ARRAY : [ "VALUE" ]);
+
+      STRING firstcellname := unusedcells[0].name;
+
+      STRING bestmatch := GetBestMatch(unusedcells[0].name, candidate_names);
+
+      THROW NEW Exception("Found unused cell " || pathbase || firstcellname ||
+          (bestmatch != "" ? ", did you mean '" || bestmatch || "'?" : ""));
+    }
+
+    RETURN node;
+  }
+
+  OBJECT FUNCTION CodeDocument(STRING rootns, RECORD rec)
+  {
+    this->InitNodeTypes();
+
+    OBJECT domimpl := NEW XMLDomImplementation;
+    OBJECT doc := domimpl->CreateDocument(rootns, GetPrefix(rootns) || rec.type, DEFAULT OBJECT);
+
+    doc->documentelement->SetAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns", ns_samlp);
+    doc->documentelement->SetAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:saml", ns_saml);
+    IF (rootns = ns_samlp)
+      doc->documentelement->SetAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:samlp", ns_samlp);
+    IF (rootns = ns_md)
+      doc->documentelement->SetAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:md", ns_md);
+    doc->documentelement->SetAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:ds", ns_ds);
+    doc->documentelement->SetAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:xsi", ns_xsi);
+
+    INTEGER pos := RecordBinaryFindNodeType(this->nodetypes, [ namespace := rootns, nodename := rec.type ]);
+    DELETE CELL type FROM rec;
+
+    this->BuildNodeByDescriptionPos(doc, doc->documentelement, pos, rec, "");
+
+    doc->documentelement->NormalizeNamespaces();
+
+    RETURN doc;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD FUNCTION ParseProtocolDocument(OBJECT node)
+  {
+    this->InitNodeTypes();
+
+    IF (node->namespaceuri != ns_samlp)
+      THROW NEW Exception("This is not a SAML protocol document");
+
+    RECORD rec := this->ParseByDescription(node);
+    INSERT CELL type := node->localname INTO rec;
+
+    RETURN rec;
+  }
+
+  PUBLIC RECORD FUNCTION ParseMetadataDocument(OBJECT node)
+  {
+    this->InitNodeTypes();
+
+    IF (node->namespaceuri != ns_md)
+      THROW NEW Exception("This is not a SAML metadata document, root namespace is '" || node->namespaceuri || "'");
+
+    RECORD rec := this->ParseByDescription(node);
+    INSERT CELL type := node->localname INTO rec;
+
+    RETURN rec;
+  }
+
+  PUBLIC OBJECT FUNCTION CodeProtocolDocument(RECORD rec)
+  {
+    RETURN this->CodeDocument(ns_samlp, rec);
+  }
+
+  PUBLIC OBJECT FUNCTION CodeMetadataDocument(RECORD rec)
+  {
+    RETURN this->CodeDocument(ns_md, rec);
+  }
+>;
+
+RECORD FUNCTION SAMLXSDLoader(STRING url, STRING id)
+{
+  IF (url = "http://www.w3.org/TR/2002/REC-xmldsig-core-20020212/xmldsig-core-schema.xsd")
+    url := "xmldsig-core-schema.xsd";
+  IF (url = "http://www.w3.org/TR/2002/REC-xmlenc-core-20021210/xenc-schema.xsd")
+    url := "xenc-schema.xsd";
+
+  IF (url NOT LIKE "*/*" AND url LIKE "*.xsd")
+  {
+    BLOB data  := GetHarescriptResource("whres::xml/" || url);
+    IF (LENGTH(data) != 0)
+      RETURN [ success := TRUE, data := data ];
+  }
+
+  RETURN DEFAULT RECORD;
+}
+
+/** Validates if a SAML protocol document is valid according to the SAML schemas
+    @param doc Document to valudate
+    @return Validation errors. Empty array means no errors.
+*/
+PUBLIC RECORD ARRAY FUNCTION VerifySAMLProtocolDocument(OBJECT doc)
+{
+  OBJECT domimpl := NEW XmlDOMImplementation;
+  domimpl->RegisterEntityLoader(PTR SAMLXSDLoader);
+
+  BLOB protocol_xsd := GetHarescriptResource("whres::xml/saml-schema-protocol-2.0.xsd");
+  OBJECT protocol_schema := domimpl->MakeXMLSchema(protocol_xsd);
+  RETURN protocol_schema->ValidateDocument(doc);
+}
+
+/** Validates if a SAML protocol document is valid according to the SAML schemas
+    @param doc Document to valudate
+    @return Validation errors. Empty array means no errors.
+*/
+PUBLIC RECORD ARRAY FUNCTION VerifySAMLMetadataDocument(OBJECT doc)
+{
+  OBJECT domimpl := NEW XmlDOMImplementation;
+  domimpl->RegisterEntityLoader(PTR SAMLXSDLoader);
+
+  BLOB metadata_xsd := GetHarescriptResource("whres::xml/saml-schema-metadata-collection.xsd");
+  OBJECT metadata_schema := domimpl->MakeXMLSchema(metadata_xsd);
+  RETURN metadata_schema->ValidateDocument(doc);
+}
+
+/** Takes a certificate and generates a key descriptor (for use in SAML document generation)
+    @param certificate PEM-encoded certificate
+    @return KeyDescriptor array.
+*/
+PUBLIC RECORD ARRAY FUNCTION EncodeCertificateToSAMLKeyDescriptor(BLOB certificate)
+{
+  STRING ctext := BlobToString(certificate, -1);
+  STRING btext := "-----BEGIN CERTIFICATE-----";
+  STRING etext := "-----END CERTIFICATE-----";
+  INTEGER bpos := SearchSubString(ctext, btext);
+  IF (bpos != -1)
+  {
+    ctext := Substring(ctext, bpos + LENGTH(btext));
+    ctext := TrimWhitespace(Left(ctext, SearchSubString(ctext, etext)));
+  }
+
+  ctext := SubStitute(NormalizeWhitespace(ctext), " ", "");
+
+  STRING retval;
+  FOR (INTEGER i := 0; i < LENGTH(ctext); i := i + 64)
+    retval := retval || SubString(ctext, i, 64) || "\n";
+
+  RETURN
+      [ [ keyinfo :=
+              [ type := "X509Certificate"
+              , value := TrimWhitespace(retval)
+              ]
+        ]
+      ];
+}
+

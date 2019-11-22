@@ -1,0 +1,739 @@
+﻿<?wh
+/** @short Witty API
+    @topic witty/api
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+MACRO PTR current_witty_callback;
+MACRO PTR ARRAY invocationhooks;
+INTEGER FUNCTION __ParseWittyBlob(BLOB data, STRING encoding, STRING gettidmodule) __ATTRIBUTES__(EXTERNAL "wh_witty");
+INTEGER FUNCTION __ParseWitty(STRING data, STRING encoding, STRING gettidmodule) __ATTRIBUTES__(EXTERNAL "wh_witty");
+BOOLEAN FUNCTION __HasWittyComponent(INTEGER scriptid, STRING compname) __ATTRIBUTES__(EXTERNAL "wh_witty");
+RECORD FUNCTION GetWittyLibraryBlob(STRING name) __ATTRIBUTES__(EXTERNAL "wh_witty");
+RECORD ARRAY FUNCTION __GetWittyParseErrors() __ATTRIBUTES__(EXTERNAL "wh_witty");
+VARIANT FUNCTION __CallWithWittyContext(INTEGER scriptid, FUNCTION PTR func, RECORD data) __ATTRIBUTES__(EXTERNAL "wh_witty", EXECUTESHARESCRIPT);
+PUBLIC MACRO __SETWITTYGETTIDFALLBACK(FUNCTION PTR gettid, FUNCTION PTR gethtmltid) __ATTRIBUTES__(EXTERNAL "wh_witty", EXECUTESHARESCRIPT);
+MACRO __RunWittyComponent(INTEGER script, STRING component, RECORD data, BOOLEAN newwitty) __ATTRIBUTES__(EXTERNAL "wh_witty", EXECUTESHARESCRIPT);
+
+/// Ultimpate parent of currently running witty (private this)
+OBJECT rootwitty;
+
+/// Currently running witty (private this)
+OBJECT currentwitty;
+
+/* Witty state storage:
+
+   rootwitty is the currently executing root witty in the user's perspective (which the user
+   last invoked a Run* function on). currentwitty is the currently running witty template (if
+   an override is found in another witty than rootwitty, that witty is set as currentwitty)
+
+   Within a witty template, the basescriptid is the handle the script the user loaded into the
+   template. The currentscriptid is the handle of the currently running script. If the witty
+   embeds another file via [embed file:component], the currentscriptid is set to the handle
+   of the loaded file.
+*/
+
+// l_ prefix for legacy support stuff
+OBJECT ARRAY l_witties;
+RECORD ARRAY l_lastparseerrors;
+
+/// Base class for Witty exceptions
+PUBLIC OBJECTTYPE WittyException EXTEND Exception
+<
+  /** Creates a new Witty exception
+      @param text Error message
+      @param options @includecelldef wh::system.whlib#Exception::NEW.options
+   */
+  MACRO NEW(STRING text, RECORD options DEFAULTSTO DEFAULT RECORD)
+  : Exception(text, options)
+  {
+  }
+>;
+
+/// Exception throw when a Witty runtime exception occurs
+PUBLIC OBJECTTYPE WittyRuntimeException EXTEND WittyException
+<
+  /** Error description @includecelldef #new.error
+  */
+  PUBLIC RECORD error;
+
+  /// Witty library where the error occurred
+  PUBLIC OBJECT script;
+
+  /// Resource name of the witty library where the error occurred
+  PUBLIC STRING library;
+
+  /** Create a new Witty runtime exception
+      @param script Witty library where the error occurred
+      @param library Resource name of the witty library where the error
+      @param error Error description
+      @cell error.line Line number for the error
+      @cell error.col Column number for the error
+      @cell error.text Error message
+      @cell error.code Error code
+  */
+  MACRO NEW(OBJECT script, STRING library, RECORD error)
+  : WittyException("Witty runtime error"
+                   || (library != "" ? " in library " || library : "")
+                   || ((error.line > 0 AND error.col > 0) ? " at " || error.line || ":" || error.col : "")
+                   || ": " || error.text,
+                   library != ""
+                      ? [ trace := [ [ filename := library, col := error.col ?? 1, line := error.line ?? 1, func := ""  ] ] ]
+                      : DEFAULT RECORD)
+  {
+    this->script := script;
+    this->library := library;
+    this->error := error;
+  }
+>;
+
+/// Exception throw when Witty parsing errors are found
+PUBLIC OBJECTTYPE WittyParseException EXTEND WittyException
+<
+  /// List of errors @includecelldef #new.error
+  PUBLIC RECORD ARRAY errors;
+
+  /// Resource name of the witty library where the error occurred
+  PUBLIC STRING library;
+
+  /// Witty library where the error occurred
+  PUBLIC OBJECT script;
+
+  /** Create a new Witty parsing exception
+      @param script Witty library where the error occurred
+      @param library Resource name of the witty library where the error
+      @param errors Error description
+      @cell(integer) errors.line Line number for the error
+      @cell(integer) errors.col Column number for the error
+      @cell(string) errors.text Error message
+  */
+  MACRO NEW(OBJECT script, STRING library, RECORD ARRAY errors)
+  : WittyException("Witty parse error"
+                   || (library != "" ? " on library " || library : "")
+                   || ((errors[0].line > 0 AND errors[0].col > 0) ? " at " || errors[0].line || ":" || errors[0].col : "")
+                   || ": " || errors[0].text,
+                   library != ""
+                      ? [ trace := [ [ filename := library, col := errors[0].col ?? 1, line := errors[0].line ?? 1, func := ""  ] ] ]
+                      : DEFAULT RECORD)
+  {
+    this->script := script;
+    this->library := library;
+    this->errors := errors;
+  }
+>;
+
+/// Contains a Witty template
+PUBLIC STATIC OBJECTTYPE WittyTemplate
+<
+  PUBLIC PROPERTY encoding(pvt_encoding, -);
+  STRING pvt_encoding;
+
+  INTEGER basescriptid;
+  INTEGER currentscriptid;
+  RECORD ARRAY scriptinfo;
+
+  /** Builds a new Witty template
+      @param encoding @includecelldef #ParseWittyBlob.encoding
+  */
+  MACRO NEW(STRING encoding)
+  {
+    //FIXME validate 'encoding' immediately
+    this->pvt_encoding := encoding;
+  }
+
+  //FIXME have path resolving be handled by the preloader, which can simply invoke resources.whlib
+  STRING FUNCTION ResolveLibPath(STRING baselibname, STRING referred, STRING component)
+  {
+    IF(referred LIKE "*::*") //absolute path
+      RETURN referred;
+    IF(baselibname = "")
+      THROW NEW WittyRuntimeException(this, "", [ line := 0, col := 0, code := 0/*FIXME*/, text := "Cannot resolve component '" || component || "' because the current template has no associated load path"]);
+
+    STRING ns_base := Tokenize(baselibname,"::")[0];
+    IF(ns_base = "")
+      THROW NEW WittyParseException(this, baselibname, [[ text := "Cannot find '" || referred || "' as the current library '" || ns_base || "' has no namespace information", line := 0, col := 0, code:=0]]); //FIXME Code
+
+    STRING basepath := CollapsePath( GetDirectoryFromPath(Substring(baselibname, Length(ns_base)+2)) || referred);
+    RETURN ns_base || "::" || basepath;
+  }
+
+  MACRO HandleLoadError(STRING libname)
+  {
+    RECORD ARRAY errors;
+    INSERT INTO errors(text, line, col, code) VALUES("Cannot load library " || libname, 0, 0, 0) AT END; //FIXME proper code
+    THROW NEW WittyParseException(this, libname, errors);
+  }
+
+  MACRO HandleParseErrors(STRING libname)
+  {
+    RECORD ARRAY errors := __GetWittyParseErrors();
+    IF(Length(errors)=0)
+      this->HandleLoadError(libname);
+
+    THROW NEW WittyParseException(this, libname, errors);
+  }
+
+  INTEGER FUNCTION DoLoadLibrary(STRING name)
+  {
+    IF(__LibraryLoadRemapper != DEFAULT FUNCTION PTR)
+      name := __LibraryLoadRemapper(name);
+
+    BLOB data;
+    TRY
+    {
+      data := GetHareScriptResource(name);
+    }
+    CATCH(OBJECT e)
+    {
+      this->HandleLoaderror(name); //throws
+    }
+
+    RETURN this->DoLoadBlob(name, data);
+  }
+
+  INTEGER FUNCTION DoLoadBlob(STRING name, BLOB indata)
+  {
+    STRING gettidmodule;
+    IF(name LIKE "mod::*" OR name LIKE "module::*" OR name LIKE "moduleroot::*" OR name LIKE "moduledata::*")
+    {
+      gettidmodule := Tokenize(Tokenize(name,'::')[1],'/')[0]; //get the part between :: and /
+    }
+
+    INTEGER scriptid := __ParseWittyBlob(indata, this->encoding, gettidmodule);
+    IF(scriptid <= 0)
+      this->HandleParseErrors(name); //throws!
+
+    INSERT INTO this->scriptinfo(id, name) VALUES(scriptid, name) AT END;
+    RETURN scriptid;
+  }
+
+  INTEGER FUNCTION DoLoadCode(STRING code)
+  {
+    INTEGER scriptid := __ParseWitty(code, this->encoding,"");
+    IF(scriptid <= 0)
+      this->HandleParseErrors(""); //throws!
+
+    INSERT INTO this->scriptinfo(id, name) VALUES(scriptid, "") AT END;
+    RETURN scriptid;
+  }
+
+  PUBLIC MACRO LoadBlob(BLOB code, STRING name)
+  {
+    IF(this->basescriptid != 0)
+      THROW NEW WittyParseException(this, name, [[ text := "Trying to load multiple libraries into a WittyTemplate", line:=0,col:=0,code:=0]]); //FIXME Code
+
+    this->basescriptid := this->DoLoadBlob(name, code);
+    this->currentscriptid := this->basescriptid;
+  }
+
+  PUBLIC MACRO LoadCodeDirect(STRING code)
+  {
+    IF(this->basescriptid != 0)
+      THROW NEW WittyParseException(this, "", [[ text := "Trying to load multiple libraries into a WittyTemplate", line:=0,col:=0,code:=0]]); //FIXME Code
+
+    this->basescriptid := this->DoLoadCode(code);
+    this->currentscriptid := this->basescriptid;
+  }
+
+  PUBLIC MACRO LoadLibrary(STRING name)
+  {
+    IF(this->basescriptid != 0)
+      THROW NEW WittyParseException(this, name, [[ text := "Trying to load multiple libraries into a WittyTemplate", line:=0,col:=0,code:=0]]); //FIXME Code
+
+    this->basescriptid := this->DoLoadLibrary(name);
+    this->currentscriptid := this->basescriptid;
+  }
+
+  /** @short Run a specific component to a specific output
+      @param output Output stream
+      @param componentname Name of the component (leave empty to run the main witty)
+      @param data Data for the component */
+  PUBLIC MACRO RunComponentTo(INTEGER output, STRING componentname, RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(this->basescriptid = 0)
+      THROW NEW WittyRuntimeException(this, "", [ line := 0, col := 0, code := 0/*FIXME*/, text := "No Witty template loaded yet"]);
+
+    //FIXME modify witty engine to support redirection directly..
+    INTEGER savedoutput;
+    IF(output != 0)
+      savedoutput := RedirectOutputTo(output);
+
+    // Set the rootwitty to this script. Find the override that contains our component, and run the component there
+    // (in its basescriptid, so also save & restore its currentscriptid)
+
+    OBJECT save_rootwitty := rootwitty;
+    OBJECT save_currentwitty := currentwitty;
+
+    rootwitty := PRIVATE this;
+    currentwitty := PRIVATE this;
+
+    INTEGER save_currentscriptid := currentwitty->currentscriptid;
+    currentwitty->currentscriptid := currentwitty->basescriptid;
+
+    TRY
+    {
+      this->__CallWittyComponent(componentname, data);
+    }
+    CATCH (OBJECT e)
+    {
+      currentwitty->currentscriptid := save_currentscriptid;
+      currentwitty := save_currentwitty;
+      rootwitty := save_rootwitty;
+
+      IF(output != 0)
+        RedirectOutputTo(savedoutput);
+
+      THROW e;
+    }
+
+    currentwitty->currentscriptid := save_currentscriptid;
+    currentwitty := save_currentwitty;
+    rootwitty := save_rootwitty;
+
+    IF(output != 0)
+      RedirectOutputTo(savedoutput);
+  }
+
+  /** @short Run a specific component, printing its output
+      @param componentname Name of the component (leave empty to run the main witty)
+      @param data Data for the component */
+  PUBLIC MACRO RunComponent(STRING componentname, RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    this->RunComponentTo(0, componentname, data);
+  }
+
+  /** @short Run a witty to a specific output
+      @param output Output stream
+      @param data Data for the witty */
+  PUBLIC MACRO RunTo(INTEGER output, RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    this->RunComponentTo(output, "", data);
+  }
+
+  /** @short Run a witty, printing its output
+      @param data Data for the witty */
+  PUBLIC MACRO Run(RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    this->RunComponentTo(0, "", data);
+  }
+
+  /** @short Get the results of a witty execution as a blob
+      @param data Data for the component
+      @return The output of the witty run as a blob */
+  PUBLIC BLOB FUNCTION RunToBlob(RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->RunComponentToBlob("", data);
+  }
+
+  /** @short Get the results of a witty execution of a specific component as a blob
+      @param componentname Name of the component (leave empty to run the main witty)
+      @param data Data for the component
+      @return The output of the witty run as a blob */
+  PUBLIC BLOB FUNCTION RunComponentToBlob(STRING componentname, RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    INTEGER stream := CreateStream();
+    TRY
+    {
+      this->RunComponentTo(stream, componentname, data);
+      RETURN MakeBlobFromStream(stream);
+    }
+    CATCH(OBJECT e)
+    {
+      MakeBlobFromStream(stream);
+      THROW e;
+    }
+  }
+
+  /** @short Get the results of a witty execution as a string
+      @param data Data for the component
+      @return The output of the witty run */
+  PUBLIC STRING FUNCTION RunToString(RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->RunComponentToString("", data);
+  }
+
+  /** @short Get the results of a witty execution of a specific component as a string
+      @param componentname Name of the component (leave empty to run the main witty)
+      @param data Data for the component
+      @return The output of the witty run */
+  PUBLIC STRING FUNCTION RunComponentToString(STRING componentname, RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    //ADDME witty engine could optimize for this case and avoid a blob
+    RETURN BlobToString(this->RunComponentToBlob(componentname,data),-1);
+  }
+
+  /** @short Does this witty have the specified component?
+      @param componentname Component name*/
+  PUBLIC BOOLEAN FUNCTION HasComponent(STRING componentname)
+  {
+    RETURN __HasWittyComponent(this->basescriptid, ToUppercase(componentname));
+  }
+
+  PUBLIC STRING FUNCTION __GetScriptNameById(INTEGER scriptid)
+  {
+    RECORD curscript := SELECT * FROM this->scriptinfo WHERE id = scriptid;
+    RETURN RecordExists(curscript) ? curscript.name : "";
+  }
+
+  MACRO __ErrorCallback(RECORD error)
+  {
+    THROW NEW WittyRuntimeException(this, this->__GetScriptNameById(this->currentscriptid), error);
+  }
+
+  MACRO __CallWittyComponent(STRING component, RECORD data)
+  {
+    IF (currentwitty != this)
+      ABORT("currentwitty administration has gone wrong!");
+
+    INTEGER lastcolon := SearchLastSubstring(component, ':');
+    IF(lastcolon = -1)
+    {
+      IF (this->currentscriptid != this->basescriptid)
+      {
+        // We're running a direct embed within another file (no overrides), so just run the component
+        RunWittyInvocationHooks(this, this->currentscriptid, component, data, TRUE);
+        __RunWittyComponent(this->currentscriptid, component, data, FALSE);
+        RunWittyInvocationHooks(this, this->currentscriptid, component, data, FALSE);
+      }
+      ELSE
+      {
+        // (Save and) lookup the witty that holds the final override of the component
+        OBJECT save_currentwitty := currentwitty;
+
+        // Save its current script id, we need to run from the basescriptid
+        INTEGER save_currentscriptid := currentwitty->currentscriptid;
+        currentwitty->currentscriptid := currentwitty->basescriptid;
+
+        TRY
+        {
+          RunWittyInvocationHooks(currentwitty, currentwitty->currentscriptid, component, data, TRUE);
+          __RunWittyComponent(currentwitty->currentscriptid, component, data, FALSE);
+          RunWittyInvocationHooks(currentwitty, currentwitty->currentscriptid, component, data, FALSE);
+        }
+        CATCH (OBJECT e)
+        {
+          STRING curscriptname := this->__GetScriptNameById(this->currentscriptid);
+
+          currentwitty->currentscriptid := save_currentscriptid;
+          currentwitty := save_currentwitty;
+
+          e->trace[END-1].func := e->trace[END-1].func || " [" || curscriptname || (component != "" ? ":" || component : "") || "]";
+          THROW e;
+        }
+
+        currentwitty->currentscriptid := save_currentscriptid;
+        currentwitty := save_currentwitty;
+      }
+    }
+    ELSE
+    {
+      STRING curscriptname := this->__GetScriptNameById(this->currentscriptid);
+
+      //Make sure we don't confuse a '::' for a component indicator
+      IF(Substring(component, lastcolon-1, 1) = ':')
+        THROW NEW WittyRuntimeException(this, curscriptname, [ line := 0, col := 0, code := 0/*FIXME*/, text := `Missing component name in embedcomponent request for '${component}'`]);
+
+      STRING requestedpath := Left(component, lastcolon);
+      STRING requestedcomponent := Substring(component, lastcolon+1);
+
+      STRING newlibname := this->ResolveLibPath(curscriptname, requestedpath, component);
+      RECORD newscript := SELECT * FROM this->scriptinfo WHERE name = newlibname;
+
+      IF(NOT RecordExists(newscript))
+      {
+        TRY
+        {
+          INTEGER loadid := this->DoLoadLibrary(newlibname);
+          newscript := SELECT * FROM this->scriptinfo WHERE id = loadid;
+        }
+        CATCH (OBJECT e)
+        {
+          e->trace[END-1].func := e->trace[END-1].func || " [" || component || "]";
+          THROW e;
+        }
+      }
+
+      IF(requestedcomponent!="" AND NOT __HasWittyComponent(newscript.id, ToUppercase(requestedcomponent))) //ADDME grab line and col too
+        THROW NEW WittyRuntimeException(this, curscriptname, [ line := 0, col := 0, code := 0/*FIXME*/, text := "No such component '" || requestedcomponent || "' in witty template '" || newlibname || "'"]);
+
+      INTEGER savescript := this->currentscriptid;
+      this->currentscriptid := newscript.id;
+
+      TRY
+      {
+        RunWittyInvocationHooks(currentwitty, currentwitty->currentscriptid, component, data, TRUE);
+        __RunWittyComponent(this->currentscriptid, requestedcomponent, data, FALSE);
+        RunWittyInvocationHooks(currentwitty, currentwitty->currentscriptid, component, data, FALSE);
+      }
+      CATCH(OBJECT e)
+      {
+        this->currentscriptid := savescript;
+        e->trace[END-1].func := e->trace[END-1].func || " [" || component || "]";
+        THROW e;
+      }
+      this->currentscriptid := savescript;
+    }
+  }
+
+  PUBLIC VARIANT FUNCTION CallWithScope(FUNCTION PTR func, RECORD scope)
+  {
+    OBJECT save_currentwitty := currentwitty;
+    OBJECT save_rootwitty := rootwitty;
+    INTEGER save_currentscriptid := this->currentscriptid;
+
+    TRY
+    {
+      currentwitty := PRIVATE this;
+      rootwitty := PRIVATE this;
+      this->currentscriptid := this->basescriptid;
+
+      RETURN __CallWithWittyContext(this->currentscriptid, func, scope);
+    }
+    FINALLY
+    {
+      this->currentscriptid := save_currentscriptid;
+      currentwitty := save_currentwitty;
+      rootwitty := save_rootwitty;
+    }
+  }
+
+  /** Returns a raw list to parse the tids from
+      @return
+      @cell return.type tid/htmltid/content
+      @cell return.data
+      @cell return.line
+      @cell return.col
+  */
+  PUBLIC RECORD ARRAY FUNCTION __GetTidsRawData()
+  {
+    RETURN __GetWittyTidsRawData(this->basescriptid);
+  }
+>;
+
+PUBLIC OBJECT FUNCTION LoadWittyLibrary(STRING name, STRING encoding)
+{
+  OBJECT templ := NEW WittyTemplate(encoding);
+  templ->LoadLibrary(name);
+  RETURN templ;
+}
+
+/** @short Return the errors detected by a previously failed witty parse
+    @return a Record array of errors, if any
+    @cell return.line Line number
+    @cell return.col Column number
+    @cell return.text Plain text description of the error
+    @cell return.code Error code
+    @cell return.arg Error data
+    @private
+*/
+PUBLIC RECORD ARRAY FUNCTION GetWittyParseErrors() __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
+{
+  RETURN l_lastparseerrors;
+}
+
+INTEGER FUNCTION LegacyLoader(OBJECT templ, FUNCTION PTR loadfunc)
+{
+  l_lastparseerrors := DEFAULT RECORD ARRAY;
+  TRY
+  {
+    loadfunc();
+    INSERT templ INTO l_witties AT END;
+    RETURN Length(l_witties);
+  }
+  CATCH(OBJECT<WittyParseException> e)
+  {
+    l_lastparseerrors := e->errors;
+    RETURN 0;
+  }
+}
+
+/** @short Parses a WITTY blob with the given encoding
+    @long This function parses a WITTY blob with a specified encoding. The encoding can be
+     HTML, XML or TEXT.
+     HTML: Uses XHTML encoding outside tags, value-encoding inside tags. Recognizes < and > as tag start and end chararacters
+     XML: Always uses value-encoding, unless specified otherwise
+     TEXT: Does not use any encoding unless specified
+    @param data a BLOB that contains WITTY code
+    @param encoding HTML, XML or TEXT
+    @return An integer refering to the parsed WITTY blob
+    @see ParseWitty, ParseWittyLibrary, RunWitty
+    @private
+*/
+PUBLIC INTEGER FUNCTION ParseWittyBlob(BLOB data, STRING encoding) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
+{
+  OBJECT temp := NEW WittyTemplate(encoding);
+  RETURN LegacyLoader(temp, PTR temp->LoadBlob(data, ""));
+}
+
+/** @short Parses a WITTY string with the given encoding
+    @long This function parses a WITTY string with a specified encoding. The encoding can be
+     HTML, XML or TEXT.
+     HTML: Uses XHTML encoding outside tags, value-encoding inside tags. Recognizes < and > as tag start and end chararacters
+     XML: Always uses value-encoding, unless specified otherwise
+     TEXT: Does not use any encoding unless specified
+    @param data a STRING that contains WITTY code
+    @param encoding HTML, XML or TEXT
+    @return An integer refering to the parsed WITTY string
+    @see ParseWittyBlob, ParseWittyLibrary, RunWitty
+    @private
+*/
+PUBLIC INTEGER FUNCTION ParseWitty(STRING data, STRING encoding) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
+{
+  OBJECT temp := NEW WittyTemplate(encoding);
+  RETURN LegacyLoader(temp, PTR temp->LoadCodeDirect(data));
+}
+
+/** @short Runs the WITTY code with the data record
+    @long This macro runs the WITTY code and fills the data fields with the data from the specified record
+    @param script The integer of parsed WITTY code
+    @param data The record containing the data needed by the WITTY code
+    @see ParseWitty, ParseWittyBlob, ParseWittyLibrary
+    @return Error status
+    @cell return.success True if the witty completed succesfully
+    @cell return.error Error record if an error occured (@link GetWittyParseErrors)
+    @private
+*/
+PUBLIC RECORD FUNCTION RunWitty(INTEGER script, RECORD data) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
+{
+  RETURN RunWittyComponent(script, "", data);
+}
+
+
+/** @short Runs just a component from a specified WITTY
+    @long This macro runs a WITTY component and fills the data fields with the data from the specified record
+    @param script The integer of parsed WITTY code
+    @param component The component to run
+    @param data The record containing the data needed by the WITTY code
+    @see ParseWitty, ParseWittyBlob, ParseWittyLibrary
+    @return Error status
+    @cell return.success True if the witty completed succesfully
+    @cell return.error Error record if an error occured (@link GetWittyParseErrors)
+    @private
+*/
+PUBLIC RECORD FUNCTION RunWittyComponent(INTEGER script, STRING component, RECORD data) __ATTRIBUTES__(EXECUTESHARESCRIPT, DEPRECATED "Switch to the Witty object API in WebHare v3")
+{
+  IF(script<=0 OR script>Length(l_witties) OR l_witties[script-1] = DEFAULT OBJECT)
+    ABORT("Invalid Witty handle (parse errors?)");
+
+  TRY
+  {
+    l_witties[script-1]->RunComponent(component, data);
+    RETURN [ success := TRUE, error := DEFAULT RECORD ];
+  }
+  CATCH(OBJECT<WittyRuntimeException> e)
+  {
+    IF(current_witty_callback != DEFAULT FUNCTION PTR)
+      current_witty_callback([ success := FALSE, error := e->error ]);
+    RETURN [ success := FALSE, error := e->error ];
+  }
+}
+
+/** @short Get a variable using the witty's lookup rules
+    @long This function takes a variable from the context of the currently running witty
+    @param variablename Name of the variable or cell to look up
+    @return The requested variable
+*/
+PUBLIC VARIANT FUNCTION GetWittyVariable(STRING variablename) __ATTRIBUTES__(EXTERNAL "wh_witty");
+
+/** @short Runs an embedded component
+    @long This macro runs a component, similar to the [embed ..] instruction, but allows you to add additional data to the witty's record stack
+    @param component The component to run
+    @param data The record containing additional data for the witty template. Optional.
+*/
+PUBLIC MACRO EmbedWittyComponent(STRING component, RECORD data DEFAULTSTO DEFAULT RECORD)
+{
+  //pointless to use a WittyRuntimeException here, as we have too little state
+  IF(NOT ObjectExists(currentwitty))
+    THROW NEW Exception("EmbedWittyComponent invoked without having a running witty");
+
+  currentwitty->__CallWittyComponent(component, data);
+}
+
+///@private
+PUBLIC RECORD FUNCTION CallWittyComponent(STRING component, RECORD data) __ATTRIBUTES__(DEPRECATED "Switch to the EmbedWittyComponent in WebHare v3")
+{
+  IF(NOT ObjectExists(currentwitty))
+    ABORT("CallWittyComponent invoked without having a running witty");
+  IF(component LIKE "*:*")
+    ABORT("CallWittyComponent does not support external components");
+
+  TRY
+  {
+    currentwitty->__CallWittyComponent(component, data);
+  }
+  CATCH(OBJECT<WittyRuntimeException> e)
+  {
+    IF(current_witty_callback != DEFAULT FUNCTION PTR)
+      current_witty_callback([ success := FALSE, error := e->error ]);
+    RETURN [ success := FALSE, error := e->error ];
+  }
+  RETURN [ success := TRUE, error := DEFAULT RECORD ];
+}
+
+/** @short Parses a WITTY library with the given encoding
+    @long This function parses a WITTY library with a specified encoding. The encoding can be
+     HTML, XML or TEXT.
+     HTML: Uses XHTML encoding outside tags, value-encoding inside tags. Recognizes < and > as tag start and end chararacters
+     XML: Always uses value-encoding, unless specified otherwise
+     TEXT: Does not use any encoding unless specified
+    @param name the name of a WITTY library
+    @param encoding HTML, XML or TEXT
+    @return An integer refering to the parsed WITTY library
+    @see ParseWittyBlob, ParseWitty. RunWitty
+    @private
+*/
+PUBLIC INTEGER FUNCTION ParseWittyLibrary(STRING name, STRING encoding) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
+{
+  OBJECT temp := NEW WittyTemplate(encoding);
+  RETURN LegacyLoader(temp, PTR temp->LoadLibrary(name));
+}
+
+/** @short Handle a possible error response from a Witty function call
+    @param witty_retval Return value of a Call/RunWitty statement
+    @private */
+PUBLIC MACRO AbortOnWittyRunError(RECORD witty_retval) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
+{
+  IF(NOT witty_retval.success)
+    ABORT(witty_retval.error.text || " (at line " || witty_retval.error.line || ":" || witty_retval.error.col || ")");
+}
+
+/** @short Set a callback function for witty errors
+    @long If the error callback is set to the default function ptr, the Run/Call functions will simply return the error record. AbortOnWittyRunError is the default error callback
+    @param callback Error callback function.
+    @see AbortOnWittyRunError, GetWittyErrorCallback
+    @private */
+PUBLIC MACRO SetWittyErrorCallback(FUNCTION PTR callback) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
+{
+  current_witty_callback := callback;
+}
+
+/** @short Get the current callback function for witty errors
+    @see SetWittyErrorCallback
+    @private */
+PUBLIC MACRO PTR FUNCTION GetWittyErrorCallback() __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
+{
+  RETURN current_witty_callback;
+}
+
+
+PUBLIC MACRO __WITTY_ERRORCALLBACK(RECORD error)
+{
+  currentwitty->__ErrorCallback(error);
+}
+
+PUBLIC MACRO __AddWittyInvocationHook(MACRO PTR hooktoadd) //experimental
+{
+  INSERT hooktoadd INTO invocationhooks AT END;
+}
+MACRO RunWittyInvocationHooks(OBJECT witty, INTEGER scriptid, STRING component, RECORD data, BOOLEAN before)
+{
+  FOREVERY(MACRO PTR hook FROM invocationhooks)
+    hook(witty, scriptid, component, data, before);
+}
+
+RECORD ARRAY FUNCTION __GetWittyTidsRawData(INTEGER scriptid) __ATTRIBUTES__(EXTERNAL "wh_witty");
+
+//default to AbortOnWittyRunError. error api only applies to legacy callbacks
+current_witty_callback := PTR AbortOnWittyRunError;

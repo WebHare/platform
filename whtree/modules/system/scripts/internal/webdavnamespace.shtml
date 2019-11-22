@@ -1,0 +1,704 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/virtualfs/api.whlib";
+LOADLIB "mod::system/lib/internal/devtools/webdavinfo.whlib";
+LOADLIB "mod::system/lib/internal/webserver/webdav.whlib";
+LOADLIB "mod::system/lib/internal/webserver/webdav-diversionfs.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+LOADLIB "mod::tollium/lib/towl.whlib";
+
+//SetupFunctionProfiling("webserver", GetRequestMethod() || " " || GetRequestUrl());
+
+STRING vfssessionid;
+RECORD vfssession;
+
+/* ADDME:
+   incompatibiiteiten die ik gezien heb tijdens testen die een mooie basis
+   kunnen vormen van regressietests
+   - PROPFIND
+     - href moet gecheckt worden dat het verwachte pad erin staat
+     - een Depth:1 moet het directoryobject zelf geven, en zijn children
+
+  Please note:
+  - authentication is handled by scripts/internal/auth/webdav.whscr
+*/
+
+STRING call_method;
+STRING scriptnamespaceroot;
+STRING scripturl;
+
+BOOLEAN prop_displayname,      prop_name,            prop_ishidden,     prop_isreadonly,
+        prop_creationdate,     prop_getlastmodified, prop_resourcetype, prop_getcontenttype,
+        prop_getcontentlength, prop_getlock;
+
+BOOLEAN debugwebdav := IsRPCTrafficLogged("system:webdav", [ autoenable := FALSE ]);
+
+call_method := ToUppercase(GetWebVariable("method")) ?? GetRequestMethod();
+
+PUBLIC RECORD ARRAY FUNCTION GetDirList(OBJECT vfs, STRING basepath, BOOLEAN recurse)
+{
+  RECORD ARRAY initems := vfs->GetDirectoryListing(basepath);
+  IF(GetWebHeader("User-Agent") LIKE "*davfs*")
+  { //linux wants .wh.webdavinfo- to be there to request it
+    DATETIME now := GetCurrentDateTime();
+    INSERT [ creationdate := now
+           , modificationdate := now
+           , name := ".wh.webdavinfo-" || FormatISO8601DateTime(now)
+           , read := TRUE
+           , size := 1 //davfs2 doesn't return contents when the length is 0
+           , type := 0
+           , write := FALSE
+           ] INTO initems AT END;
+  }
+
+  RECORD ARRAY outitems;
+  FOREVERY (RECORD info FROM initems)
+  {
+    STRING itempath := basepath || info.name;
+
+    RECORD wdproperty := [ href := scripturl || EncodeURL(itempath)
+                         , iscollection := (info.type = 1)
+                         , getlock := prop_getlock// AND info.write
+                         , getcontenttype := prop_getcontenttype
+                         , resourcetype := prop_resourcetype
+                         ];
+    IF (prop_name)
+      INSERT CELL name := info.name INTO wdproperty;
+    IF (prop_ishidden)
+      INSERT CELL ishidden := FALSE/*info.hidden*/ INTO wdproperty;
+    IF (prop_isreadonly)
+      INSERT CELL isreadonly := NOT info.write INTO wdproperty;
+    IF (prop_getcontentlength)
+      INSERT CELL length := info.size INTO wdproperty;
+    IF (prop_getlastmodified)
+      INSERT CELL lastmodifieddate := info.modificationdate INTO wdproperty;
+    IF (prop_creationdate)
+      INSERT CELL creationdate := info.creationdate INTO wdproperty;
+
+    IF (NOT CellExists(wdproperty, "lastmodifieddate"))
+      INSERT CELL lastmodifieddate := GetCurrentDateTime() INTO wdproperty;
+    ELSE IF (wdproperty.lastmodifieddate = DEFAULT DATETIME)
+      wdproperty.lastmodifieddate := GetCurrentDateTime();
+
+    INSERT wdproperty INTO outitems AT END;
+  }
+
+  IF(recurse)
+    FOREVERY(RECORD item FROM outitems)
+      IF(item.iscollection)
+      {
+        outitems := outitems CONCAT GetDirList(vfs, basepath || item.name || "/", TRUE);
+      }
+
+  RETURN outitems;
+}
+
+
+MACRO PrintComment(STRING text)
+{
+  Print("<!-- " || EncodeHTML(text) || " -->");
+}
+
+
+
+/**
+ * Split up an url for use in webdav
+ * @param   URL The url to split up
+ * @result  A record containing:
+ *          - modulename  Name of the module that is supposed to handle the request
+ *          - filename    The filename for the module
+ */
+RECORD FUNCTION TokenizeUrl(STRING URL)
+{
+  url := Substring(url,1,Length(url)); //remove the initial slash
+  IF (url="") //no module name
+    RETURN [ path := "/", modulename := "", moduleurl := scripturl ];
+
+  INTEGER first_slash := SearchSubstring(url,"/");
+  IF (first_slash=-1) //URL = module name
+  {
+    RETURN [ path := "/", modulename := url, moduleurl := scripturl || "/" || EncodeURL(url) ];
+  }
+
+  STRING module := Substring(url, 0, first_slash);
+  RETURN [ path := Substring(url, first_slash, Length(url))
+         , modulename := module
+         , moduleurl := scripturl || "/" || EncodeURL(module)
+         ];
+}
+
+STRING FUNCTION StripTrailingSlash(STRING filename)
+{
+  WHILE(Length(filename)>1 AND filename LIKE "*/")
+    filename:=Left(filename,Length(filename)-1);
+
+  RETURN filename;
+}
+
+//Get the URL part inside the namespace
+STRING FUNCTION GetLocalPath(STRING url)
+{
+  STRING localpath := DecodeUrl(GetPathFromUrl(Tokenize(url,'?')[0]));
+  IF (ToUppercase(localpath) NOT LIKE ToUppercase(scriptnamespaceroot||'*'))
+    Abort("Invalid URL received: " || url);
+
+  localpath := Substring(localpath,length(scriptnamespaceroot),length(localpath)); //strip the namespcae root
+  localpath := CollapsePath(localpath); // Explorer can add superflous slashes, do away with them
+
+  RETURN localpath;
+}
+
+RECORD FUNCTION GetCacheableWebDavConfig()
+{
+  RECORD settings := [ simulatesharepoint := ReadRegistryKey("system.webserver.webdav.simulatesharepoint")
+                     , divertmacfileforks := ReadRegistryKey("system.webserver.webdav.divertmacfileforks")
+                     , divertdsstore := ReadRegistryKey("system.webserver.webdav.divertdsstore")
+                     , divertthumbsdb := ReadRegistryKey("system.webserver.webdav.divertthumbsdb")
+                     ];
+  RETURN [ value := settings
+         , ttl := 15*1000 //15 seconds
+        ];
+}
+
+RECORD FUNCTION GetWebdavConfig()
+{
+  RETURN GetAdhocCached( [ type := "webdavconfig" ], PTR GetCacheableWebdavConfig);
+}
+
+/* ******************************************************************
+
+   WebDav main code
+
+****************************************************************** */
+
+IF(debugwebdav)
+  LogRPCTraffic("system:webdav", call_method || " " || GetRequestURL(), FALSE, GetClientRemoteIP(), "", [ headers := GetAllWebHeaders(), body := MakeSlicedBlob(GetRequestBody(), 0, 2000), bodylength := Length(GetRequestBody())]);
+
+MACRO SendResponse(RECORD ARRAY headers, BLOB response)
+{
+  IF(debugwebdav)
+    LogRPCTraffic("system:webdav", call_method || " " || GetRequestURL(), TRUE, GetClientRemoteIP(), "", [ headers := headers, body := MakeSlicedBlob(response, 0, 2000), bodylength := Length(response)]);
+
+  FOREVERY(RECORD hdr FROM headers)
+    AddHTTPHeader(hdr.field, hdr.value, hdr.field in ["DAV"]);
+  SendWebFile(response);
+
+}
+
+MACRO InitCurrentUser()
+{
+  INTEGER currententityid := GetAuthenticatedWebhareUserEntityId();
+  IF(currententityid = 0)
+    THROW NEW Exception("User did not authenticate (Access rules did not run?)");
+
+  OBJECT userapi := GetCurrentUserAPI();
+  __SetEffectiveUser(userapi->GetTolliumUserFromEntityId(currententityid));
+}
+
+OBJECT FUNCTION CreateVirtualFS()
+{
+  InitCurrentUser(); //delayed until VFS is needed, as setting up userapis is relatively expensive and wastes too much time when sending diverted files
+  RETURN OpenVirtualFS();
+}
+
+MACRO HandleWebdavRequest()
+{
+  RECORD ARRAY headers;
+  INTEGER currentuserid := GetAuthenticatedWebhareUser();
+
+  //OPTIONS must be handled before the first GetMOduleAndPath call, because some APIs won't initialize without a transaction
+  IF(call_method="OPTIONS")
+  {
+    /* According to mod_dav, this tells MSFT products to skip looking for FrontPage extensions */
+    headers := headers CONCAT [[ field := "DAV", value := "1,2" ]
+                              ,[ field := "DAV", value := "<http://apache.org/dav/propset/fs/1>" ]
+                              ,[ field := "MS-Author-Via", value := "DAV" ]
+                              ,[ field := "Status", value := "200" ]
+                              ,[ field := "Allow", value := "OPTIONS,GET,HEAD,POST,DELETE,TRACE,PROPFIND,PROPPATCH,COPY,MOVE,LOCK,UNLOCK" ]
+                              ];
+
+    SendResponse(headers, DEFAULT BLOB);
+    RETURN;
+  }
+
+  //Analyze the URL
+  RECORD webdavstart := SELECT * FROM Getwebhareaccessrules() AS rule WHERE data.ruleset='system:webdav' ORDER BY #rule DESC LIMIT 1; //get LAST access rule
+  IF(NOT RecordExists(webdavstart))
+    THROW NEW Exception("WebDav namespace invoked but did not find an applied system:webdav");
+
+  scriptnamespaceroot := webdavstart.data.path;
+
+  STRING sourcepath := GetLocalPath(GetRequestUrl());
+  IF(sourcepath="") //root request
+  {
+    IF (call_method="PROPFIND") //WebDav request
+    {
+      scripturl := ResolveToAbsoluteUrl(GetRequestUrl(), scriptnamespaceroot);
+
+      INTEGER capture := CreateStream();
+      RedirectOutputTo(capture);
+      WebDavBeginMultistatus();
+      WebDavDoProperties([name:="", href:=scripturl, iscollection:=true,length:=0, creationdate:=default datetime, lastmodifieddate:=default datetime,ishidden:=false,isreadonly:=true,getlock:=true,getcontenttype:=true,resourcetype:=true]);
+      WebDavDoProperties([name:="webdav", href:=scripturl || "webdav/", iscollection:=true,length:=0, creationdate:=default datetime, lastmodifieddate:=default datetime,ishidden:=false,isreadonly:=true,getlock:=true,getcontenttype:=true,resourcetype:=true]);
+      WebDavEndMultistatus();
+      SendResponse(headers, MakeBlobFromStream(capture));
+      RETURN;
+    }
+  }
+  scripturl := ResolveToAbsoluteUrl(GetRequestUrl(), scriptnamespaceroot) || "webdav";
+
+  IF(sourcepath != "webdav" AND sourcepath NOT LIKE "webdav/*")
+    THROW NEW Exception("Source path '" || sourcepath || "' is outside our webdav scope");
+  sourcepath := Substring(sourcepath,6);
+
+  OBJECT trans := OpenPrimary();
+
+  RECORD config := GetWebdavConfig();
+
+  //Mac mount
+  OBJECT vfs;
+  IF(GetNameFromPath(sourcepath) LIKE ".wh.webdavinfo-*")
+  {
+    InitCurrentUser();
+    vfs := NEW VirtualWebdavInfoFS;
+  }
+  ELSE IF(currentuserid != 0 AND (config.divertmacfileforks OR config.divertthumbsdb OR config.divertdsstore))
+  {
+    //discard any attempt to store file forks
+    vfs := NEW VirtualDiversionFS(currentuserid, PTR CreateVirtualFS);
+    IF(config.divertmacfileforks)
+      vfs->divertmasks := vfs->divertmasks CONCAT [ "*/._*" ];
+    IF(config.divertdsstore)
+      vfs->divertmasks := vfs->divertmasks CONCAT [ "*/.DS_Store" ];
+    IF(config.divertthumbsdb)
+      vfs->divertmasks := vfs->divertmasks CONCAT [ "*/Thumbs.db" ];
+  }
+  ELSE
+  {
+    vfs := CreateVirtualFS();
+  }
+
+  /* Get the affected source resource */
+  STRING destpath;
+
+  STRING destinationheader := GetWebHeader("Destination");
+  IF (destinationheader != "")
+  {
+    destinationheader := ResolveToAbsoluteURL(GetRequestURL(), destinationheader);
+    destpath := GetLocalPath(destinationheader);
+    IF(destpath != "" AND destpath NOT LIKE "webdav/*")
+      THROW NEW Exception("Destination path '" || destpath || "' is outside our webdav scope");
+    destpath := Substring(destpath,6);
+  }
+
+  /* Do some method specific stuff */
+  SWITCH(call_method)
+  {
+    CASE "COPY"
+    {
+      BOOLEAN overwrite := GetWebHeader("Overwrite") != "F";
+      TRY
+      {
+        vfs->Copy(sourcepath, destpath, overwrite);
+        INSERT [ field := "Status", value := "201 Created" ] INTO headers AT END;
+        AddHTTPHeader("Location", scripturl || EncodeUrl(destpath),false); // Is in RFC example, not mentioned in text.
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        //403 if access denide
+        //412 if precondition fialed?
+        INSERT [ field := "Status", value := "403" ] INTO headers AT END;
+        //AddHTTPHeader("Status", "412 Precondition failed",false);
+      }
+
+      /* ADDME per file status, will we ever need it ?
+      IF (Length(SELECT * FROM file_status WHERE success = FALSE) > 0)
+      {
+        WebDavBeginMultiStatus();
+        FOREVERY (RECORD status FROM file_status)
+        {
+          print("<d:response>");
+          print(" <d:href>" || source.moduleurl || EncodeUrl(status.filename) || "</d:href>");
+          print(" <d:status>HTTP/1.1 412 Precondition Failed</d:status>");
+          print("</d:response>");
+        }
+        WebDavEndMultiStatus();
+      } ELSE
+          AddHTTPHeader("Status", "201",false);
+      */
+    }
+
+
+    CASE "DELETE"
+    {
+      TRY
+      {
+        vfs->DeletePath(sourcepath);
+        INSERT [ field := "Status", value := "204" ] INTO headers AT END;
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        //403 if access denide
+        //412 if precondtiion fialed?
+        INSERT [ field := "Status", value := "400" ] INTO headers AT END;
+        //AddHTTPHeader("Status", "412 Precondition failed",false);
+      }
+    }
+
+    CASE "LOCK"
+    {
+      INTEGER capture := CreateStream();
+      RedirectOutputTo(capture);
+
+      OBJECT doc := MakeXMLDocument(GetRequestBody());
+//      IF(doc->GetElementsByTagNameNS("")
+
+      INSERT [ field := "Lock-Token", value := "<opaquelocktoken:e71d4fae-5dec-22d6-fea5-00a0c91e6be4>" ] INTO headers AT END;
+
+      Print('<?xml version="1.0" encoding="utf-8" ?>'
+      || '<D:prop xmlns:D="DAV:">'
+      || '  <D:lockdiscovery>'
+      || '    <D:activelock>'
+//      || ' <D:lockscope><D:exclusive/></D:lockscope><D:locktype><D:write/></D:locktype><D:owner><D:href>arnold</D:href></D:owner>'
+      || '      <D:locktype><D:write/></D:locktype>'
+      || '      <D:lockscope><D:exclusive/></D:lockscope>'
+      || '      <D:depth>infinity</D:depth>'
+      || '      <D:owner><D:href>Someone</D:href></D:owner>'
+      || '      <D:timeout>Second-604800</D:timeout>'
+      || '      <D:locktoken>'
+      || '        <D:href>opaquelocktoken:e71d4fae-5dec-22d6-fea5-00a0c91e6be4</D:href>'
+      || '      </D:locktoken>'
+      || '    </D:activelock>'
+      || '  </D:lockdiscovery>'
+      || '</D:prop>');
+      //WebDavExecLock(source, trans);
+
+/*
+<?xml version="1.0" encoding="utf-8"?>
+<D:prop xmlns:D="DAV:">
+<D:lockdiscovery>
+<D:activelock>
+<D:locktype><D:write/></D:locktype>
+<D:lockscope><D:exclusive/></D:lockscope>
+<D:depth>infinity</D:depth>
+<ns0:owner xmlns:ns0="DAV:"><ns0:href>arnold</ns0:href></ns0:owner><D:timeout>Second-3600</D:timeout>
+<D:locktoken>
+<D:href>opaquelocktoken:ce8f9d5a-8dc3-45b5-be37-52b63c78292a</D:href>
+</D:locktoken>
+</D:activelock>
+
+</D:lockdiscovery>
+</D:prop>
+*/
+      SendResponse(headers, MakeBlobFromStream(capture));
+    }
+
+    CASE "UNLOCK"
+    {
+      INSERT [ field := "Status", value := "204" ] INTO headers AT END;
+      SendResponse(headers, DEFAULT BLOB);
+      RETURN;
+    }
+
+    CASE "MOVE"
+    {
+      BOOLEAN overwrite := GetWebHeader("Overwrite") != "F";
+      TRY
+      {
+        vfs->Move(sourcepath, destpath, overwrite);
+        INSERT [ field := "Status", value := "201 Created" ] INTO headers AT END;
+        INSERT [ field := "Location", value := scripturl || EncodeUrl(destpath) ] INTO headers AT END; // Is in RFC example, not mentioned in text.
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        //403 if access denide
+        //412 if precondtiion fialed?
+      INSERT [ field := "Status", value := "403" ] INTO headers AT END;
+        //AddHTTPHeader("Status", "412 Precondition failed",false);
+      }
+    }
+
+    CASE "PROPPATCH"
+    {
+      BLOB body := GetrequestBody();
+      RECORD metadata;
+
+      IF (length(body) > 0)
+      {
+        INTEGER xmldoc := ParseXML(body);
+        AddXPathNamespace(xmldoc, 'D', 'DAV:');
+        AddXPathNamespace(xmldoc, 'B', 'urn:schemas-microsoft-com:');
+
+        RECORD modification := SelectXML(xmldoc,'//D:getlastmodified');
+        OBJECT realxmldoc := __RetrieveParsedXMLDoc(xmldoc);
+
+        IF (RecordExists(modification))
+           INSERT cell modificationdate := MakeDateFromText(modification.xml_content) INTO metadata;
+
+        BOOLEAN success;
+        TRY
+        {
+          IF(RecordExists(metadata))
+          {
+            vfs->SetMetadata(sourcepath, metadata);
+          }
+          success := TRUE;
+        }
+        CATCH(OBJECT e)
+        {
+          LogHarescriptException(e);
+        }
+
+        // Confirm patching of all attributes; example in RFC does it and Word2000 over
+        // XP redirector depends on it (although it is not required in the spec, sigh).
+        STRING response := '<?xml version="1.0"?>';
+        response := response || '<a:multistatus xmlns:a="DAV:" xmlns:b="urn:schemas-microsoft-com:">';
+        response := response || '<a:response><a:href>' || EncodeVAlue(GetRequestURL()) || '</a:href>';
+        response := response || '<a:propstat>';
+        response := response || '<a:prop>';
+
+        /* FIXME actually store as dead properties where possible...
+                 this would require us to properly serialize them as xml fragments and record their namespaces in that fragment */
+
+        FOREVERY(OBJECT propnode FROM realxmldoc->GetElementsByTagNameNS("DAV:", "prop")->GetCurrentElements())
+          FOREVERY(OBJECT prop FROM propnode->childnodes->GetCurrentElements())
+        {
+          response := response || '<' || EncodeValue(prop->localname) || ' xmlns="' || EncodeValue(prop->namespaceuri) || '" />';
+
+        }
+        response := response || '</a:prop>';
+        response := response || '<a:status>HTTP/1.1 ' || (success ? '200 OK' : '403 Forbidden') || '</a:status>';
+
+        response := response || '</a:propstat>';
+        response := response || '</a:response>';
+        response := response || '</a:multistatus>';
+
+        INSERT [ field := "Status", value := "207" ] INTO headers AT END;
+        SendResponse(headers, StringToBlob(response));
+        RETURN;
+      }
+      ELSE
+      {
+        INSERT [ field := "Status", value := "200" ] INTO headers AT END;
+      }
+    }
+
+    CASE "GET", "HEAD"
+    {
+      RECORD file := vfs->GetPathInfo(sourcepath);
+      IF(RecordExists(file) AND file.type=0 /*is file*/)
+      {
+        DATETIME ims := MakeDateFromText(GetWebHeader("If-Modified-Since"));
+        IF(ims != DEFAULT DATETIME AND file.modificationdate != DEFAULT DATETIME AND GetRoundedDatetime(file.modificationdate,1000) <= ims)
+        {
+          INSERT [ field := "Status", value := "304" ] INTO headers AT END;
+          SendResponse(headers, DEFAULT BLOB);
+          RETURN;
+        }
+
+        INSERT [ field := "Content-Type", value := "application/octet-stream" ] INTO headers AT END;
+        INSERT [ field := "Content-Disposition", value := 'attachment; filename="' || GetSafeFilename(GetNameFromPath(sourcepath)) || '"' ] INTO headers AT END;
+        INSERT [ field := "Last-Modified", value := FormatHttpDateTime(file.modificationdate) ] INTO headers AT END;
+        SendResponse(headers, vfs->GetFile(sourcepath));
+        RETURN;
+      }
+      ELSE
+      {
+        INSERT [ field := "Status", value := "404" ] INTO headers AT END;
+        SendResponse(headers, GetWebhareResource("mod::system/web/errors/webdav.html"));
+      }
+    }
+
+    CASE "PUT"
+    {
+      TRY
+      {
+        vfs->PutFile(sourcepath, GetRequestBody(), TRUE);
+        INSERT [ field := "Status", value := "201" ] INTO headers AT END;
+      }
+      CATCH(OBJECT exc)
+      {
+        LogHarescriptException(exc);
+        INSERT [ field := "Status", value := "403" ] INTO headers AT END;
+
+        // Show towl notification
+        ShowTowlNotification("system:notifications.webdav.putexception",
+                             [ webhare_users := [ GetEffectiveUserId() ] ],
+                             [ descriptionparams := [ sourcepath, exc->what ]
+                             , icon := "tollium:filemgr/mydocuments"
+                             , persistent := TRUE
+                             , priority := TowlPriorityHigh
+                             ]);
+      }
+    }
+
+    CASE "MKCOL"
+    {
+      TRY
+      {
+        vfs->MakeDir(sourcepath);
+        INSERT [ field := "Status", value := "201" ] INTO headers AT END;
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        INSERT [ field := "Status", value := "409" ] INTO headers AT END; //ADDME: More detailed status codes
+      }
+    }
+    CASE "PROPFIND"
+    {
+      BLOB body := GetrequestBody();
+
+      /*IF (length(body) > 0)
+      {
+          INTEGER xmldoc := ParseXML(body);
+          AddXPathNamespace(xmldoc, 'D', 'DAV:');
+
+          IF (RecordExists(SelectXML(xmldoc,'//D:allprop')))
+          {
+            prop_displayname := TRUE;
+            prop_name := TRUE;
+            prop_ishidden := TRUE;
+            prop_isreadonly := TRUE;
+            prop_creationdate := TRUE;
+            prop_getlastmodified := TRUE;
+            prop_resourcetype := TRUE;
+            prop_getcontenttype := TRUE;
+            prop_getcontentlength := TRUE;
+            prop_getlock := TRUE;
+          }
+          ELSE
+          {
+            IF (RecordExists(SelectXML(xmldoc,'//D:displayname')))
+              prop_displayname := TRUE;
+            IF (RecordExists(SelectXML(xmldoc,'//D:name')))
+              prop_name := TRUE;
+            IF (RecordExists(SelectXML(xmldoc,'//D:ishidden')))
+              prop_ishidden := TRUE;
+            IF (RecordExists(SelectXML(xmldoc,'//D:isreadonly')))
+              prop_isreadonly := TRUE;
+            IF (RecordExists(SelectXML(xmldoc,'//D:creationdate')))
+              prop_creationdate := TRUE;
+            IF (RecordExists(SelectXML(xmldoc,'//D:getlastmodified')))
+              prop_getlastmodified := TRUE;
+            IF (RecordExists(SelectXML(xmldoc,'//D:resourcetype')))
+              prop_resourcetype := TRUE;
+            IF (RecordExists(SelectXML(xmldoc,'//D:getcontenttype')))
+              prop_getcontenttype := TRUE;
+            IF (RecordExists(SelectXML(xmldoc,'//D:getcontentlength')))
+              prop_getcontentlength := TRUE;
+            IF (RecordExists(SelectXML(xmldoc,'//D:supportedlock')))
+              prop_getlock := TRUE;
+          }
+      }
+      ELSE*/
+      {
+        prop_displayname := TRUE;
+        prop_name := TRUE;
+        prop_ishidden := TRUE;
+        prop_isreadonly := TRUE;
+        prop_creationdate := TRUE;
+        prop_getlastmodified := TRUE;
+        prop_resourcetype := TRUE;
+        prop_getcontenttype := TRUE;
+        prop_getcontentlength := TRUE;
+        prop_getlock := TRUE;
+      }
+
+      //ADDME: Reject Infinity on root (with 403?)
+
+      //Must also insert ourselves...
+      RECORD rootinfo;
+
+      /* True root code needed?
+      IF (sourcepath="/")
+      {
+        rootinfo := [ path := "", type := 1, hidden := FALSE, read := TRUE, write := FALSE, size := 0, lastmodified := DEFAULT DATETIME, created := DEFAULT DATETIME ];
+      } */
+
+      IF(sourcepath="")
+      {
+        //This is a request for /webdav3, without a trailing slash. translate it to /
+        sourcepath:="/";
+      }
+
+      rootinfo := vfs->GetPathInfo(sourcepath);
+      IF (NOT RecordExists(rootinfo)) //this element doesn't exist
+      {
+        INSERT [ field := "Status", value := "404" ] INTO headers AT END;
+        SendResponse(headers, DEFAULT BLOB);
+        RETURN;
+      }
+
+      INTEGER capture := CreateStream();
+      RedirectOutputTo(capture);
+
+      WebDavBeginMultiStatus();
+      RECORD wdproperty := [ href := scripturl || EncodeURL(sourcepath) // Eliminates double slashes sent by XP redirector
+                           , iscollection := (rootinfo.type = 1)
+                           , getlock := prop_getlock// AND rootinfo.write
+                           , getcontenttype := prop_getcontenttype
+                           , resourcetype := prop_resourcetype
+                           ];
+
+      IF (prop_name)
+        INSERT CELL name := rootinfo.name INTO wdproperty;
+      IF (prop_ishidden)
+        INSERT CELL ishidden := FALSE/*rootinfo.hidden*/ INTO wdproperty;
+      IF (prop_isreadonly)
+        INSERT CELL isreadonly := NOT rootinfo.write INTO wdproperty;
+      IF (prop_getcontentlength)
+        INSERT CELL length := rootinfo.size INTO wdproperty;
+      IF (prop_getlastmodified)
+        INSERT CELL lastmodifieddate := rootinfo.modificationdate INTO wdproperty;
+      IF (prop_creationdate)
+        INSERT CELL creationdate := rootinfo.creationdate INTO wdproperty;
+
+      //getlastmodified is mandatory for WinNT dir
+      IF (NOT CellExists(wdproperty, "lastmodifieddate"))
+        INSERT CELL lastmodifieddate := GetCurrentDateTime() INTO wdproperty;
+      ELSE IF (wdproperty.lastmodifieddate = DEFAULT DATETIME)
+        wdproperty.lastmodifieddate := GetCurrentDateTime();
+
+      WebDavDoProperties(wdproperty); //ADDME isn't the code above until this point almost equivalent to the next webdavdoprops call?
+
+      //Do a directory list, if requested
+      IF (GetWebHeader("Depth") != "0")
+      {
+        BOOLEAN depth_infinity := GetWebHeader("Depth") != "1";
+        IF(depth_infinity)
+          AbortWithHTTPError(403,"Depth: infinity is not allowed on this server");
+
+  //      RECORD ARRAY entries := GetWebdavDirectoryListing(source, depth_infinity);
+
+        //FIXME infinity?!
+        STRING basepath := sourcepath LIKE "*/" ? sourcepath : sourcepath || "/";
+        RECORD ARRAY entries := GetDirList(vfs, basepath, depth_infinity);
+
+        FOREVERY (RECORD info FROM entries)
+          WebDavDoProperties(info);
+      }
+
+      WebDavEndMultiStatus();
+      SendResponse(headers, MakeBlobFromStream(capture));
+    }
+  }
+  SendResponse(headers, DEFAULT BLOB);
+}
+
+HandleWebdavrequest();

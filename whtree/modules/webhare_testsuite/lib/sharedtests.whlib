@@ -1,0 +1,34 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::tollium/lib/rtd/doc.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib";
+
+
+PUBLIC RECORD ARRAY FUNCTION GetRestructuringTests()
+{
+  RECORD ARRAY result;
+
+  FOREVERY (RECORD test FROM restructuringtests)
+  {
+    OBJECT structure := NEW RichDocumentStructure;
+    OBJECT doc;
+    IF (test.structure LIKE "<*")
+      doc := MakeXMLDocument(StringToBlob(test.structure));
+    ELSE
+      doc := MakeXMLDocument(GetWebhareResource(test.structure));
+
+    structure->LoadFROMXML(doc->documentelement, doc->documentelement->namespaceuri);
+    INSERT
+        [ ...test
+        , structure :=    structure->structure
+        ] INTO result AT END;
+  }
+
+  RETURN result;
+}

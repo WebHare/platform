@@ -1,0 +1,261 @@
+﻿<?wh
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+
+PUBLIC OBJECTTYPE WRDQueryBase EXTEND TolliumOptionSourceBase
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING pvt_rowkeytag;
+
+  STRING pvt_titletag;
+
+  STRING pvt_orderingtag;
+
+  OBJECT titlewitty;
+
+  OBJECT eventlistener;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+  PUBLIC PROPERTY rowkeytag(pvt_rowkeytag, SetRowkeyTag);
+
+  PUBLIC PROPERTY titletag(pvt_titletag, SetTitleTag);
+
+  PUBLIC PROPERTY orderingtag(pvt_orderingtag, SetOrderingTag);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposableListener;
+
+    this->pvt_rowkeytag := "WRD_TAG";
+    this->pvt_titletag := "WRD_TITLE";
+    this->pvt_orderingtag := "";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumOptionSourceBase::StaticInit(def);
+
+    // Read and validate attributes
+    this->SetRowkeyTag(def.rowkeytag ?? this->pvt_rowkeytag, FALSE);
+    this->SetTitleTag(def.titletag ?? this->pvt_titletag, FALSE);
+    this->SetOrderingTag(def.orderingtag, FALSE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetRowkeyTag(STRING tag, BOOLEAN regenerate DEFAULTSTO TRUE)
+  {
+    //ADDME: Check if tag is one of the output columns
+    this->pvt_rowkeytag := tag;
+
+    IF (regenerate)
+      this->InvalidateCurrentOptions();
+  }
+
+  MACRO SetTitleTag(STRING tag, BOOLEAN regenerate DEFAULTSTO TRUE)
+  {
+    this->titlewitty := this->ParseTitleTag(tag);
+    IF (NOT ObjectExists(this->titlewitty))
+      THROW NEW TolliumException(this, "Could not parse title tag '" || tag || "'");
+    //ADDME: Check if witty tags are in the output columns
+
+    this->pvt_titletag := tag;
+
+    IF (regenerate)
+      this->InvalidateCurrentOptions();
+  }
+
+  MACRO SetOrderingTag(STRING tag, BOOLEAN regenerate DEFAULTSTO TRUE)
+  {
+    //ADDME: Check if tag is one of the output columns
+    this->pvt_orderingtag := tag;
+
+    IF (regenerate)
+      this->InvalidateCurrentOptions();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnUpdateEvents(RECORD ARRAY events)
+  {
+    this->InvalidateCurrentOptions();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE MACRO RegenerateOptions()
+  {
+    IF (NOT ObjectExists(this->eventlistener))
+    {
+      // Max 1 update per second
+      this->eventlistener := this->CreateSubComponent("eventlistener");
+      this->eventlistener->groupinterval := 1000;
+      this->eventlistener->onevents := PTR this->OnUpdateEvents;
+    }
+
+    RECORD ARRAY results := SELECT rowkey :=    GetCell(input, this->rowkeytag)
+                                 , title :=     this->titlewitty->RunToString(input)
+                                 , orginput :=  input
+                              FROM this->ExecuteWRDQUery() AS input;
+
+
+    IF (this->pvt_orderingtag = "")
+      results := SELECT * FROM results ORDER BY ToUppercase(title), rowkey;
+    ELSE
+      results := SELECT * FROM results ORDER BY GetCell(results.orginput, this->pvt_orderingtag), ToUppercase(title), rowkey;
+
+    this->SetOptions(results);
+  }
+
+  RECORD ARRAY FUNCTION ExecuteWRDQuery()
+  {
+    THROW NEW Exception("WRDQuery descendents must overwrite ExecuteWRDQuery");
+  }
+
+  OBJECT FUNCTION ParseTitleTag(STRING tag)
+  {
+    // If the tag doesn't contain Witty tags or spaces, treat it as a single Witty tag
+    IF (tag != "" AND tag NOT LIKE "*[?*]*" AND tag NOT LIKE "* *")
+      tag := "[" || tag || "]";
+
+    OBJECT witty := NEW WittyTemplate("TEXT");
+    TRY
+    {
+      witty->LoadCodeDirect(tag);
+    }
+    CATCH (OBJECT e)
+    {
+      THROW NEW TolliumException(this, "Could not parse title tag '" || tag || "': " || e->what);
+    }
+    RETURN witty;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE RunQuery EXTEND WRDQueryBase
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+  RECORD ARRAY pvt_filters;
+  OBJECT querytype;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY filters(pvt_filters, SetFilters);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    WRDQueryBase::StaticInit(def);
+    OBJECT targetschema;
+
+    IF(def.wrdschema != "")
+    {
+      targetschema := OpenWRDSchema(def.wrdschema);
+      IF(NOT ObjectExists(targetschema))
+        THROW NEW TolliumException(this, `No such schema '${def.wrdschema}'`);
+    }
+    ELSE
+    {
+      targetschema := this->contexts->wrdschema;
+      IF(NOT ObjectExists(targetschema))
+        THROW NEW Exception('<wrd:runquery> requires a contexts->wrdschema if wrdschema= is not set');
+    }
+
+    this->querytype := targetschema->GetType(def.wrdtype);
+    IF(NOT ObjectExists(this->querytype))
+      THROW NEW TolliumException(this, `No such WRD type '${def.wrdtype}' in schema '${targetschema->tag}'`);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+  MACRO SetFilters(RECORD ARRAY newfilters)
+  {
+    this->pvt_filters := newfilters;
+    this->InvalidateCurrentOptions();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Set the WRD schema and read the query for the given entity
+      @param wrdschema The name of the WRD schema to open
+      @param entityid Owner of the stored query, of 0 for global queries
+      @param querytag The tag of the (globally) stored WRD query within the schema
+  PUBLIC MACRO SetStoredQuery(STRING wrdschema, INTEGER entityid, STRING querytag)
+  {
+    // Try to open the WRD schema
+    TRY
+    {
+      this->pvt_wrdschema := OpenWRDSchemaByName(wrdschema, this->owner->tolliumuser->language);
+    }
+    CATCH (OBJECT e)
+    {
+      THROW NEW TolliumException(this, "Could not open WRD schema '" || wrdschema || "': " || e->what);
+    }
+    IF (NOT ObjectExists(this->pvt_wrdschema))
+      THROW NEW TolliumException(this, "Could not open WRD schema '" || wrdschema || "'");
+
+    // Try to load the stored query
+    this->pvt_wrdquery := this->pvt_wrdschema->GetStoredQueryByTag(entityid, querytag);
+    IF (NOT ObjectExists(this->pvt_wrdquery))
+      THROW NEW TolliumException(this, "Could not find stored query '" || querytag || "' in WRD schema '" || wrdschema || "'");
+  }
+  */
+
+  UPDATE RECORD ARRAY FUNCTION ExecuteWRDQuery()
+  {
+    this->eventlistener->masks := this->querytype->GetEventMasks();
+    STRING ARRAY reqcolumns := [ "WRD_ID", "WRD_TITLE" ];
+    IF(ToUppercase(this->rowkeytag) NOT IN reqcolumns)
+      INSERT this->rowkeytag INTO reqcolumns AT END;
+    IF(ToUppercase(this->titletag) NOT IN reqcolumns)
+      INSERT this->titletag INTO reqcolumns AT END;
+
+    RETURN this->querytype->RunQuery ( [ outputcolumns := reqcolumns
+                                       , filters := this->filters
+                                       ]);
+  }
+
+  UPDATE PUBLIC MACRO CompositionMetadataIsUpdated()
+  {
+    this->InvalidateCurrentOptions();
+  }
+>;

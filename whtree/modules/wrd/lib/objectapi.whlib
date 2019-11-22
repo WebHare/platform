@@ -1,0 +1,41 @@
+﻿<?wh
+/** @private This is the legacy WRD API. Please use mod::wrd/lib/api.whlib from now on */
+
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "mod::wrd/lib/internal/exchange.whlib" EXPORT OverwritingProtectedWRDSchemaException;
+LOADLIB "mod::wrd/lib/internal/objectapi-helpers.whlib" EXPORT DescribeWRDAttribute, DescribeWRDEntity, IsValidWRDGuid;
+
+LOADLIB "mod::wrd/lib/internal/support2.whlib" EXPORT GetCachedWRDImageURL, GetCachedWRDFileURL;
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/queries.whlib" EXPORT MakeWRDQuery, RunWRDQuery, WRDQueryInterface;
+LOADLIB "mod::wrd/lib/internal/legacy-wrdschema.whlib" EXPORT OpenWRDSchemaByName;
+LOADLIB "mod::wrd/lib/internal/wrdschema.whlib";
+
+/* ------------------------------------------------------------------
+   Non-object functions
+   ------------------------------------------------------------------ */
+PUBLIC OBJECT FUNCTION OpenWRDSchema(INTEGER schemaid, STRING currentlanguage DEFAULTSTO "")
+{
+  RECORD schemarec := disablewrdcache ? GetCacheableSchemaRec(schemaid).value : GetAdhocCached([ type := "wrdschema", id := schemaid ], PTR GetCacheableSchemaRec(schemaid));
+  IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
+    RETURN DEFAULT OBJECT;
+
+  OBJECT theschema := NEW LegacyWRDSchema(schemarec, currentlanguage);
+  RETURN theschema;
+}
+
+PUBLIC OBJECT FUNCTION OpenWRDType(INTEGER wrdtypeid, STRING currentlanguage DEFAULTSTO "")
+{
+  INTEGER parentschema := SELECT AS INTEGER wrd_schema FROM wrd.types WHERE id=wrdtypeid;
+  IF(parentschema=0)
+    RETURN DEFAULT OBJECT;
+
+  OBJECT theschema := OpenWRDSchema(parentschema, currentlanguage);
+  RETURN ObjectExists(theschema) ? theschema->GetType(wrdtypeid) : DEFAULT OBJECT;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetAccessibleWRDSchemas(OBJECT user)
+{
+  RETURN SELECT *,name := tag FROM ListWRDSchemas([user := user ]);
+}

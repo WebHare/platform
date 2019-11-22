@@ -1,0 +1,19 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/linkbuilder.whlib"
+         gid="linkbuilder">
+
+  <screen name="main" gid=".main" allowresize="true">
+    <actions>
+      <action name="generatelinks" onexecute="dogeneratelinks" />
+    </actions>
+    <body>
+      <textedit name="taburl" validationchecks="http-url secure-url" required="true" width="1pr" value="" />
+      <textarea name="utmtags" width="1pr" height="1pr" required="true" />
+      <button action="generatelinks" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+</screens>

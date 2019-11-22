@@ -1,0 +1,35 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         library="afterpay.whlib"
+         gid="tolliumapps.payments.afterpay">
+
+  <tabsextension name="configafterpay" implementation="lib">
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <textedit composition="methodsettings" name="methodtitle" cellname="methodtitle" tid="~title" />
+      <textedit composition="methodsettings" name="merchantid" cellname="merchantid" required="true" />
+      <textedit composition="methodsettings" name="portefeuilleid" cellname="portfolioid" tid=".portefeuilleid" required="true" valuetype="integer" />
+      <textedit composition="methodsettings" name="password" cellname="password" required="true" tid="~password" />
+      <select composition="methodsettings" name="afterpaytype" cellname="afterpaytype" type="radio">
+        <option rowkey="" title="B2C invoice NL"/>
+        <option rowkey="BE" title="B2C invoice BE" />
+      </select>
+      <checkbox composition="methodsettings" cellname="testmode" title="" labeltid="tolliumapps.payments.common.testmode" name="testmode" />
+    </insert>
+  </tabsextension>
+
+  <screen name="payinfo" title="">
+    <body>
+      <!-- <text name="transactionid" /> -->
+<!--       <text name="orderid" selectable="true" />
+      <text name="paymentid" selectable="true" />
+      <text name="paymentmethod" />
+      <text name="brand" />
+      <text name="status" />
+      <text name="ncerror" />
+ -->    </body>
+  </screen>
+
+</screens>

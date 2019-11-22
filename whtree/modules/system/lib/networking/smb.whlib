@@ -1,0 +1,185 @@
+<?wh
+/** @topic internet/filetransfer */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+
+/** Regenerate a blob from a disk file. This function makes a real copy, so the original file can be deleted
+    @param path Path of the disk file
+    @return Blob with the content of the disk file
+*/
+BLOB FUNCTION RegenerateBlobFromDiskfile(STRING path)
+{
+  INTEGER outstream := CreateStream();
+  TRY SendBlobTo(outstream, GetDiskResource(path));
+  CATCH ;
+  RETURN MakeBlobFromStream(outstream);
+}
+
+/** SMB connection object
+    @public
+*/
+STATIC OBJECTTYPE SmbConnection
+<
+  STRING pvt_password;
+
+  /// Debug mode
+  PUBLIC BOOLEAN debug;
+
+  /// Server hostname
+  PUBLIC STRING server;
+
+  /// Server port
+  PUBLIC INTEGER port;
+
+  /// Username
+  PUBLIC STRING username;
+
+  ///@type(string) Password, can only be set
+  PUBLIC PROPERTY password(-, pvt_password);
+
+  /// Extra arguments for the `smbclient` executable
+  PUBLIC STRING ARRAY smbclientarguments;
+
+  MACRO NEW(STRING server, STRING username, STRING password)
+  {
+    this->server := server;
+    STRING ARRAY parts := Tokenize(this->server, ":");
+    IF (Length(parts) = 2)
+    {
+      this->server := parts[0];
+      this->port := ToInteger(parts[1], 0);
+    }
+    this->username := username;
+    this->pvt_password := password;
+  }
+
+  INTEGER FUNCTION RunSmbclient(STRING share, STRING smbclientcmd)
+  {
+    // smbclient //SERVER/SHARE$ -U "USERNAME%PASSWORD" -I IPADDRESS -p PORT -c "get PATH/TO/REMOTE/FILE /PATH/TO/LOCAL/FILE"
+    STRING server := this->server;
+    STRING ip;
+    IF (IsValidIPAddress(server))
+    {
+      ip := server;
+      server := "smbserver"; // Bogus name, we're connecting using IP address
+    }
+    // Arguments for smbclient - FIXME do more secure password transfer
+    STRING ARRAY args := [ `//${server}/${share}`
+                         , "-U", `${this->username}%${this->pvt_password}`
+                         , ...this->smbclientarguments
+                         ];
+    IF (ip != "")
+      args := args CONCAT [ "-I", ip ];
+    IF (this->port != 0)
+      args := args CONCAT [ "-p", ToString(this->port) ];
+
+    //add command last, so we can easily cut off part of the commandline when debugging (the -c part is first to go, generally)
+    args := args CONCAT ["-c", smbclientcmd];
+
+    // Create and start the smbclient process
+    STRING cmd;
+    FOREVERY (STRING trycmd FROM [ "/usr/bin/smbclient", "/usr/local/bin/smbclient" ])
+      IF (RecordExists(GetDiskFileProperties(trycmd)))
+      {
+        cmd := trycmd;
+        BREAK;
+      }
+    IF (cmd = "")
+      THROW NEW Exception("Could not find smbclient");
+
+    IF (this->debug)
+      DumpValue([cmd,...args], "tree");
+    OBJECT proc := CreateProcess(cmd, args, FALSE, TRUE, TRUE, TRUE);
+    proc->Start();
+    STRING output;
+    WHILE (proc->IsRunning())
+    {
+      IF (NOT proc->Wait(MAX_DATETIME))
+        BREAK;
+
+      // Capture output, print if debugging is switched on
+      WHILE (TRUE)
+      {
+        STRING text := ReadFrom(proc->output_handle, -1024);
+        IF (text="")
+          BREAK;
+        output := output || text;
+        IF (this->debug)
+          Print(text);
+      }
+    }
+    proc->Wait(MAX_DATETIME);
+
+    INTEGER exitcode := proc->exitcode;
+    proc->Close();
+    RETURN exitcode;
+  }
+
+  /** Retrieves a file
+      @param share Share name
+      @param path Path of the file within the share
+      @return File contents
+  */
+  PUBLIC BLOB FUNCTION GetFile(STRING share, STRING path)
+  {
+    STRING downloadtemp := GenerateTemporaryPathname();
+    IF (path LIKE "/*")
+      path := Substring(path, 1);
+    path := Substitute(path, '/', '\\');
+
+    TRY
+    {
+      INTEGER retval := this->RunSmbclient(share, `get "${path}" "${downloadtemp}"`);
+      IF(retval > 0 OR NOT RecordExists(GetDiskFileProperties(downloadtemp)))
+        THROW NEW Exception(`Could not retrieve file`); //don't leak external paths!
+
+      RETURN RegenerateBlobFromDiskfile(downloadtemp);
+    }
+    FINALLY
+    {
+      DeleteDiskFile(downloadtemp);
+    }
+  }
+
+  /** Stores a file
+      @param share Share name
+      @param path Path of the file within the share
+      @param data File contents
+  */
+  PUBLIC MACRO PutFile(STRING share, STRING path, BLOB data)
+  {
+    STRING uploadtemp := GenerateTemporaryPathname();
+    IF (path LIKE "/*")
+      path := Substring(path, 1);
+    path := Substitute(path, '/', '\\');
+
+    TRY
+    {
+      StoreDiskFile(uploadtemp, data, [ overwrite := FALSE, publicfile := FALSE ]);
+      INTEGER retval := this->RunSmbclient(share, `put "${uploadtemp}" "${path}"`);
+      IF(retval>0)
+        THROW NEW Exception(`Could not store file`); //don't leak external paths!
+    }
+    FINALLY
+    {
+      DeleteDiskFile(uploadtemp);
+    }
+  }
+
+>;
+
+/** Connects to a SMB service
+    @param server Server hostname
+    @param username User name
+    @param password Password
+    @param options Options (no options allowed yet)
+    @return(object #SmbConnection) SMB connection object
+*/
+PUBLIC OBJECT FUNCTION MakeSmbConnection(STRING server, STRING username, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(DEFAULT RECORD, options);
+  RETURN NEW SmbConnection(server, username, password);
+}

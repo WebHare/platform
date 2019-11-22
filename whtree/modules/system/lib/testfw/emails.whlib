@@ -1,0 +1,161 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
+LOADLIB "mod::system/lib/internal/mail/tasks.whlib";
+
+PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonly)
+{
+  IF(emailaddress NOT LIKE "*@beta.webhare.net" AND emailaddress NOT LIKE "*@*.beta.webhare.net")
+    THROW NEW Exception("For security reasons, only email directed to any *@[*.]beta.webhare.net email address may be retrieved");
+
+  GetPrimary()->PushWork();
+
+  RECORD ARRAY emails := SELECT *
+                              , maildata := DescribeManagedTask(id)
+                           FROM system.managedtasks
+                          WHERE tasktype = "system:outgoingmail"
+                                AND NOT iscancelled
+                                AND DecodeHSON(taskdata).receiver LIKE emailaddress
+                       ORDER BY creationdate, id;
+
+  IF(NOT peekonly)
+    CancelManagedTasks(SELECT AS INTEGER ARRAY id FROM emails);
+
+  emails := SELECT taskid := id, ...CreateMailFromTask(maildata.data), origin := maildata.data.origin FROM emails ORDER BY creationdate;
+
+  RECORD ARRAY outmails;
+  FOREVERY(RECORD email FROM emails)
+  {
+//    RECORD email := DecodeHSONBlob(maildata);
+    RECORD outmail := [ envelope_sender := email.sender
+                      , headers := email.mimeheaders
+                      , html := ""
+                      , links := DEFAULT RECORD ARRAY
+                      , linkbyid := DEFAULT RECORD
+                      , plaintext := ""
+                      , origin := email.origin
+                      , subject := SELECT AS STRING value FROM email.mimeheaders WHERE field="Subject"
+                      , taskid := email.taskid
+                      , toppart := email.toppart
+                      , receiver := email.receiver
+                      ];
+
+    RECORD htmlpart := GetEmailPrimaryMIMEPart(email.toppart, "text/html");
+    RECORD plaintextpart := GetEmailPrimaryMIMEPart(email.toppart, "text/plain");
+
+    IF(RecordExists(htmlpart))
+    {
+      OBJECT htmldoc := MakeXMLDocumentFromHTML(htmlpart.data);
+      outmail.html := BlobToString(htmlpart.data,-1);
+
+      FOREVERY(OBJECT link FROM htmldoc->GetElementsByTagName("a")->GetCurrentElements())
+      {
+        RECORD l := [ tagname := link->tagname
+                    , id := link->GetAttribute("id")
+                    , classname := link->GetAttribute("class")
+                    , href := link->GetAttribute("href")
+                    , textcontent := link->textcontent
+                    ];
+        IF(l.id != "" AND NOT CellExists(outmail.linkbyid, l.id))
+          outmail.linkbyid := CellInsert(outmail.linkbyid, l.id, l);
+
+        INSERT l INTO outmail.links AT END;
+      }
+    }
+
+    IF(RecordExists(plaintextpart))
+    {
+      outmail.plaintext := BlobToString(plaintextpart.data,-1);
+    }
+
+    INSERT outmail INTO outmails AT END;
+  }
+
+  GetPrimary()->PopWork();
+  RETURN outmails;
+}
+
+PUBLIC RECORD ARRAY FUNCTION DoRetrieveEmails(STRING emailaddress, INTEGER timeout, INTEGER count, BOOLEAN peekonly)
+{
+  IF(timeout < 0 OR timeout > 60000)
+    THROW NEW Exception("Illegal timeout");
+  DATETIME waituntil := AddTimeToDate(timeout, GetCurrentDatetime());
+
+  RECORD ARRAY outmails;
+  WHILE(TRUE)
+  {
+    outmails := outmails CONCAT __TryGetEmails(emailaddress, peekonly);
+    IF(Length(outmails) >= count)
+      RETURN outmails;
+
+    IF(waituntil <= GetCurrentDatetime())
+      RETURN RECORD[];
+
+    Sleep(100);
+  }
+}
+
+STRING FUNCTION GenerateSNSMessageNotification(STRING messageid, STRING type, STRING recipient)
+{
+  STRING submessage;
+  SWITCH(type)
+  {
+    CASE "Delivery"
+    {
+      submessage := `"delivery":{"timestamp":"2017-10-07T10:34:42.233Z","processingTimeMillis":5699,"recipients":["${recipient}"],"smtpResponse":"250 2.0.0 Ok: queued as 123456789","remoteMtaIp":"200.218.208.85","reportingMTA":"a7-23.smtp-out.eu-west-1.amazonses.com"}`;
+    }
+    CASE "Bounce"
+    {
+      submessage := `"bounce":{"bounceType":"Permanent","bounceSubType":"General","bouncedRecipients":[{"emailAddress":"${recipient}","action":"failed","status":"5.1.1","diagnosticCode":"smtp; 550 5.1.1  User unknown"}],"timestamp":"2017-09-25T11:07:47.170Z","feedbackId":"1111111111111111-22222-33333","remoteMtaIp":"123.45.67.123","reportingMTA":"dsn; a7-23.smtp-out.eu-west-1.amazonses.com"}`;
+    }
+    CASE "Complaint"
+    {
+      submessage := `"complaint":{
+           "userAgent":"AnyCompany Feedback Loop (V0.01)",
+           "complainedRecipients":[
+              {
+                 "emailAddress":"richard@example.com"
+              }
+           ],
+           "complaintFeedbackType":"abuse",
+           "arrivalDate":"2016-01-27T14:59:38.237Z",
+           "timestamp":"2016-01-27T14:59:38.237Z",
+           "feedbackId":"000001378603177f-18c07c78-fa81-4a58-9dd1-fedc3cb8f49a-000000"
+        }`;
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Invalid type");
+    }
+  }
+
+  STRING innermessage := `{"notificationType":"${type}","mail":{"timestamp":"2017-10-07T10:34:36.534Z","source":"noreply@example.org","sourceArn":"arn:aws:ses:eu-west-1:000000000000:identity/example.org","sourceIp":"123.45.67.123","sendingAccountId":"00000000","messageId":"00000000000000000-11111111111-2222222222222222","destination":["${recipient}"],"headersTruncated":false,"headers":[{"name":"Received","value":"from webhare.docker (example.net [123.45.67.123]) by email-smtp.amazonaws.com with SMTP (SimpleEmailService-2370111153) id 123456789 for ${recipient}; Sat, 07 Oct 2017 10:34:36 +0000 (UTC)"},{"name":"X-Mailer","value":"HareScript SMTP 2.0"},{"name":"MIME-Version","value":"1.0"},{"name":"Date","value":"Sat, 07 Oct 2017 10:34:29 +0000"},{"name":"Subject","value":"E-Mail"},{"name":"From","value":"\\"Secretariat\\" <noreply@example.org>"},{"name":"To","value":"<joe@example.org>"},{"name":"Cc","value":"<jane@example.org>"},{"name":"X-WebHare-Origin","value":"mod::example/mail.html.witty"},{"name":"Message-Id","value":"${messageid}"},{"name":"Content-Type","value":"multipart/alternative; boundary=\\"=_-_TWVzc2FnZS1Cb3VuZGFyeS0tNzM2NjA5LTM4MDc2NDM4LTU-b_\\""}],"commonHeaders":{"from":["Secretariat <noreply@example.org>"],"date":"Sat, 07 Oct 2017 10:34:29 +0000","to":["${recipient}"],"cc":["jane@example.org"],"messageId":"${messageid}","subject":"Test"}},${submessage}}`;
+
+  RETURN
+  `{
+  "Type" : "Notification",
+  "MessageId" : "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "TopicArn" : "arn:aws:sns:eu-west-1:000000000000:testin-email",
+  "Message" : "${EncodeJava(innermessage)}",
+  "Timestamp" : "2017-10-07T10:34:42.625Z",
+  "SignatureVersion" : "1",
+  "Signature" : "ZkdKSk1U7MuF",
+  "SigningCertURL" : "https://sns.eu-west-1.amazonaws.com/SimpleNotificationService-433026a4050d206028891664da859041.pem",
+  "UnsubscribeURL" : "https://sns.eu-west-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:eu-west-1:00000000:minfin-email:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+  }`;
+}
+
+PUBLIC MACRO SendBounceToSNSEndpoint(STRING messageid, STRING type, STRING recipient)
+{
+  OBJECT browser := NEW WebBrowser;
+  IF(NOT browser->PostWebPageBlob(GetSNSEndpoint(), [[ field := "Content-Type", value := "text/plain; charset=UTF-8" ]], StringToBlob(GenerateSNSMessageNotification(messageid, type, recipient))))
+    THROW NEW Exception("Failed to post SNS error");
+}

@@ -1,0 +1,54 @@
+.wh-rtd h1.heading1
+{
+  font:bold 16px Verdana;
+  margin:10px 0;
+  color:#111111;
+}
+.wh-rtd-toolbar .heading1
+{
+  color:#000000;
+}
+
+.wh-rtd h2.heading2
+{
+  font:bold 16px Verdana;
+  margin:10px 0;
+  color:#111111;
+}
+.wh-rtd-toolbar .heading2
+{
+  color:#000000;
+}
+
+.wh-rtd p.normal
+{
+  font-weight:normal;
+}
+
+.wh-rtd div.mycustomstyle
+{
+  color:#ff0000;
+  font-weight:bold;
+}
+
+/* Booby trap to detect un-rewritten inclusions in tollium */
+.t-screen:before
+{
+  box-sizing:border-box;
+  text-align:center;
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:999999;
+  background:#ffdddd;
+  color:#000000;
+  padding:30px;
+  content:"The CSS included by the RTD was not rewritten and managed to overwrite Tollium's CSS";
+}
+t-panel
+{
+  content:"NOTE! If this rule is hit, the RTD CSS was not rewritten";
+  display:none;
+}

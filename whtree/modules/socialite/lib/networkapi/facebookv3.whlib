@@ -1,0 +1,720 @@
+<?wh
+/*
+
+Facebook support V3
+
+- We use API V2.9 (available until 18 july 2019)
+
+- When using Graph API v3.0 or it's AFTER 8-jan-2019:
+  - Requesting the 'link' field for a user required the 'user_link' permission (which requires an app review)
+
+- REVIEW: without app review you can only access the user's name, email addrtess and profile picture
+
+
+Important notes on Facebook's oauth API:
+
+- Facebook has two types of App Access Tokens
+  (https://developers.facebook.com/docs/facebook-login/access-tokens/#apptokens)
+    - access token requested using the app id and app secret
+    - access token you can create serverside: app_id|app_secret
+
+
+
+
+Tech choices for this network app
+
+- Consequent use of SocialiteException for easyer handling of network related errors
+
+- KISS - keep it simple and stupid
+  - no recursive smart fixing of fields, it's hard to follow and debug.
+    (making it hard to fix to work with new API versions)
+
+- More generic functions will translate fields into Harescript
+  and try to give you the most useable field
+  - date strings to DATETIME)
+  - "full_picture" as imagelink, because "picture" is only 130x130
+    and creationdate instead of created_time)
+  - not having to guess/lookup names of fields which are regularl
+
+- Access to more debugging features
+  - this->apiversion (could for example be "v2.9")
+  - GetAccessTokenInfo()
+
+- Access to the RAW JSON
+
+
+
+Tech notes on current Facebook API versions
+
+- https://developers.facebook.com/docs/graph-api
+
+- See which versions will be deprecated
+  https://developers.facebook.com/docs/graph-api/changelog/
+
+- POSTen: In Graph API v3.0 the publish_groups right is required to post (which requires you app to be reviewed)
+
+
+
+
+Ideas:
+- scrape some public pages and private walls to create a library of records per feed item "type" for comparison
+- build tests (at least for the generalized functions)
+
+
+To see which API versions are available:
+https://developers.facebook.com/docs/apps/changelog?locale=nl_NL
+
+Get info on which calls you have
+https://developers.facebook.com/tools/api_versioning/<appid>/
+
+Available permissions:
+https://developers.facebook.com/docs/facebook-login/permissions/
+
+Debug accesstoken:
+https://developers.facebook.com/tools/debug/accesstoken/
+
+
+
+EXPIRATION OF TOKENS
+https://stackoverflow.com/questions/10149065/find-expire-time-for-an-access-token
+
+Get a new token for a page: https://graph.facebook.com/PAGEID?fields=access_token&access_token=USER_ACCESS_TOKEN
+
+https://graph.facebook.com/debug_token?input_token=INPUT_TOKEN&access_token=ACCESS_TOKEN
+(access token is APP_ID|APP_SECRET)
+
+
+*/
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::socialite/lib/internal/support.whlib";
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+
+
+INTEGER cachettl_constants := 15*60*1000; //cache things that never change for 15 minutes (ie a userid associated with a secure session)
+
+
+
+// https://developers.facebook.com/docs/facebook-login/permissions/
+RECORD ARRAY facebook_permissions :=
+    [ 
+    // Instagram platform
+
+    // Live Video API
+
+    // Messenger Platform
+
+    // Pages and Business Assets
+      [ name :=   "manage_pages" ]
+    , [ name :=   "read_insights" ]
+    // addme: incomplete list
+
+    // User Data (all permissions require an app review)
+    , [ name :=   "email" ]
+    , [ name :=   "groups_access_member_info" ]
+    , [ name :=   "publish_to_groups" ]
+    , [ name :=   "user_age_range" ]
+    , [ name :=   "user_birthday" ]
+    , [ name :=   "user_events" ]
+    , [ name :=   "user_friends" ]
+    , [ name :=   "user_gender" ]
+    , [ name :=   "user_hometown" ]
+    , [ name :=   "user_likes" ]
+    , [ name :=   "user_link" ] // Required to get an user 'link' field since 8-jan-2019
+    , [ name :=   "user_location" ]
+    , [ name :=   "user_photos" ]
+    , [ name :=   "user_posts" ] // needed to get posts from the wall of a user (replaced "read_stream" from V2.3 and before)
+    , [ name :=   "user_tagged_places"]
+    , [ name :=   "user_videos" ]
+    ];
+
+
+
+PUBLIC OBJECTTYPE FacebookV3Connection EXTEND OauthNetworkConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC PROPERTY applicationid(GetApplicationId, -);
+
+  STRING pvt_apiversion;
+
+  /// After communication the api version can be read here, for example "v2.9"
+  PUBLIC PROPERTY apiversion(this->pvt_apiversion, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+   MACRO NEW()
+  : OauthNetworkConnection("2.0", facebook_permissions)
+  {
+    this->pvt_newpermissionmodel := TRUE;
+    this->SetMode("facebook");
+  }
+
+  STRING FUNCTION GetApplicationId()
+  {
+    RETURN this->pvt_publickey;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION SupportsValidityCheck()
+  {
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsAccessTokenValid()
+  {
+    /*
+    TRY
+    {
+      this->Graph_Get("me", "");
+      RETURN TRUE;
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN FALSE;
+    }
+    */
+    RETURN this->GetAccessTokenInfo().is_valid;
+  }
+
+  /** @short get information on the current access token such as expirency and it's permissions
+
+      NOTE:  no documented changes of this API call between v2.9 and v3.2
+      FIXME: app, client and user token are recognized, but page token isn't yet
+      FIXME: add detection for long-lived token?
+  */
+  PUBLIC RECORD FUNCTION GetAccessTokenInfo(STRING accesstoken DEFAULTSTO "")
+  {
+    // https://developers.facebook.com/docs/facebook-login/access-tokens/debugging-and-error-handling
+    // https://developers.facebook.com/docs/graph-api/reference/v2.9/debug_token
+
+    IF (accesstoken = "")
+      accesstoken := this->browser->GetOauthAccessToken();
+
+    this->browser->GotoWebPage(   "https://graph.facebook.com/debug_token"
+                               || "?input_token=" || accesstoken)
+                               || ";access_token=" || this->GetApplicationId() || "|" || this->secret;
+
+    RECORD response := DecodeJSONBlob(this->browser->content);
+
+    /*
+    NOTES:
+    - field "TYPE" isn't documented, but is returned for App Tokens
+    - field "ISSUED_AT" and "EXPIRED_AT" isn't returned for App Tokens
+    - "ISSUED_AT" is not returned for short-lived access tokens. (not in the docs for the call, but specified on the 'Access Tokens: Debugging and Error Handling' page)
+      (https://developers.facebook.com/docs/facebook-login/access-tokens/debugging-and-error-handling)
+    - "ISSUED_AT" does not seem to be returned for expired tokens(??)
+    - fields which Facebook doesn't deem relevant (but do appear in the documentation) seem te be left out
+
+    Example of a response for a user token:
+
+    +RECORD
+     +DATA: RECORD
+      +APPLICATION: 'Spellcoder'
+      +APP_ID: '511673615542352'
+      +DATA_ACCESS_EXPIRES_AT: 1555250256
+      +EXPIRES_AT: 1552658256
+      +ISSUED_AT: 1547474256
+      +IS_VALID: TRUE
+      +USER_ID: '10207269304611228'
+      +SCOPES: ['user_posts', 'public_profile']
+
+
+    Example of a response for a app token: (app_id|app_secret)
+
+    +RECORD
+      +DATA: RECORD
+       +APPLICATION: 'Spellcoder'
+       +APP_ID: '511673615542352'
+       +IS_VALID: TRUE
+       +TYPE: 'APP'
+       +SCOPES: VARIANT ARRAY[0]
+
+    Example of an expired user token:
+
+    +RECORD
+      +ERROR: RECORD
+        +CODE: 190
+        +ERROR_SUBCODE: 463
+        +FBTRACE_ID: 'FWUCuHUTrMa'
+        +MESSAGE: 'Error validating access token: Session has expired on Wednesday, 05-Jul-17 07:00:00 PDT. The current time is Friday, 07-Jul-17 02:28:49 PDT.'
+        +TYPE: 'OAuthException'
+
+    For more information on errors see:
+
+    - https://developers.facebook.com/docs/messenger-platform/send-api-reference/errors
+    - http://fbdevwiki.com/wiki/Error_codes
+    */
+    IF (CellExists(response, "ERROR"))
+    {
+      IF (response.error.code = 190) // "Invalid OAuth access token"
+      {
+        /*
+        In case of an bad/expired token we want to know the token is invalid,
+        not get an EXCEPTION.
+        */
+        RETURN [ is_valid := FALSE
+               ];
+      }
+      ELSE
+      {
+        // Other errors should be handled in the normal manner
+        this->HandleLastResponse();
+      }
+    }
+
+    /*
+    DumpValue([ response := response
+              , content := this->browser->content
+              ]);
+    */
+
+    IF (CellExists(response.data, "type") AND response.data.type = "APP")
+    {
+      // App Tokens don't have an issued_at and expires_at field
+      RETURN [ type := "APP"
+             , application := response.data.application
+             , app_id := response.data.app_id
+             , is_valid := response.data.is_valid
+             , scopes := Length(response.data.scopes) > 0 ? response.data.scopes : DEFAULT STRING ARRAY // the permissions the user has, fix empty array's being read as VARIANT ARRAY
+             , raw := response // debug
+             //, httpheader_apiversion := this->pvt_apiversion
+             ];
+    }
+
+    //https://graph.facebook.com/debug_token?input_token=INPUT_TOKEN&access_token=ACCESS_TOKEN
+    RETURN [ type := "" // ADDME: return whether it is an user, page or client token (but the documentation doesn't tell how to distinguish them)
+           , application := response.data.application
+           , app_id := response.data.app_id
+
+           , expires_at := MakeDatetimeFromUnixTimestamp(response.data.expires_at)
+           , expiry_dataaccess := CellExists(response.data, "data_access_expires_at") ? MakeDatetimeFromUnixTimestamp(response.data.data_access_expires_at) : DEFAULT DATETIME
+           , issued_at := CellExists(response.data, "issued_at") ? MakeDatetimeFromUnixTimestamp(response.data.issued_at) : DEFAULT DATETIME // only exists if the token is valid (hasn't expired yet)
+
+           , is_valid := response.data.is_valid
+           , user_id := response.data.user_id
+           , scopes := Length(response.data.scopes) > 0 ? response.data.scopes : DEFAULT STRING ARRAY // the permissions the user has, fix empty array's being read as VARIANT ARRAY
+           // user_id
+           , raw := response // debug
+           //, httpheader_apiversion := this->pvt_apiversion
+           ];
+  }
+
+
+  /** @short get an access token with a duration of about 60 days (meant to be used server side only!)
+      @long by default web apps get an access token which lasts 2 hours, but it's possible to request/exchange this for a long-lived token which lasts about 60 days
+  */
+  PUBLIC RECORD FUNCTION GetLongLivedAccessTokenForServer()
+  {
+    // Expiration and Extension of Access Tokens:
+    // See chapter "Generating Long-Lived User Tokens from Server-Side Long-Lived Tokens" at
+    // https://developers.facebook.com/docs/facebook-login/access-tokens/expiration-and-extension
+
+    this->browser->GotoWebPage(   "https://graph.facebook.com/oauth/access_token"
+                               || "?grant_type=fb_exchange_token"
+                               || "&client_id=" || this->GetApplicationId()
+                               || "&client_secret=" || this->secret
+                               || "&fb_exchange_token=" || this->browser->GetOauthAccessToken() // current short-lived-token
+                              );
+
+    RECORD response := this->HandleLastResponse();
+
+    RETURN [ access_token := response.access_token
+           , token_type   := response.token_type
+           , expires := AddTimeToDate(response.expires_in * 1000, GetCurrentDateTime())
+           ];
+  }
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** @short remember the API version, decode the response and handle errors
+  */
+  RECORD FUNCTION HandleLastResponse()
+  {
+    STRING browsercontent := BlobToString(this->browser->content, -1);
+
+    STRING apiversion := (SELECT AS STRING value FROM this->browser->responseheaders WHERE field = "facebook-api-version");
+    IF (apiversion != "")
+      this->pvt_apiversion := apiversion;
+
+    RECORD data := DecodeJSONBlob(this->browser->content);
+    IF (TypeID(data) != TypeID(RECORD))
+      THROW NEW SocialiteException("TRANSPORT", "Response from Facebook isn't a JSON object");
+
+    // Error lists
+    // - official: https://developers.facebook.com/docs/messenger-platform/send-api-reference/errors
+    // - unofficial more complete list: http://fbdevwiki.com/wiki/Error_codes
+    IF (CellExists(data, "ERROR"))
+    {
+      /*
+      Some errors that you might receive:
+      - "Error validating access token: Session has expired on Tuesday, 27-Jun-17 04:00:00 PDT. The current time is Thursday, 29-Jun-17 01:04:24 PDT."
+      - "(#803) Cannot query users by their username (spellcoder)"
+      */
+      THROW NEW SocialiteException("TRANSPORT", data.error.message);
+    }
+
+    RETURN data;
+  }
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns an URI the client needs to be redirected to. The client can then authorize the
+      app, and will be redirected to the Facebook redirect page. The redirect url must
+      then be passed to FinishLogin
+      @param callbackurl Custom callback url, will be ignored when the callback host is set in the app settings
+      @param force_authorization Force authorization
+      @return Login data
+      @cell(string) sessiontoken Session token (must be given to FinishLogin)
+      @cell(string) authorize_uri URI to show to the user
+  */
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY permissions, STRING state)
+  {
+    STRING url := UpdateURLVariables("https://www.facebook.com/dialog/oauth", [ state := state ]);
+    RETURN this->GetV2AuthorizationCodeURI(url, permissions, callbackurl);
+  }
+
+  /** Finish the login sequence, using the uri that facebook redirected to after login
+      @param sessiontoken Sessiontoken returned by StartLogin
+      @param returned_uri URI that facebook redirected the user to
+      @return Undef
+  */
+  PUBLIC RECORD FUNCTION FinishLogin(STRING sessiontoken, STRING returned_uri)
+  {
+    STRING code := GetVariableFromURL(returned_uri, "code");
+    RECORD res := this->DoV2AccessTokenRequest("https://graph.facebook.com/v2.9/oauth/access_token", sessiontoken, code);
+    RETURN res;
+  }
+
+  /** Set a socialite token as returned by the FacebookSDK APIs*/
+  UPDATE PUBLIC MACRO SetSocialiteToken(STRING token)
+  {
+    IF(token NOT LIKE "tradein:*")
+    {
+      OauthNetworkConnection::SetSocialiteToken(token);
+      RETURN;
+    }
+
+    STRING ARRAY parts := Tokenize(token,":");
+    this->accesstoken := EncodeJSON(
+                          [ access_token :=   parts[1]
+                          , expires :=        0 //FIXME it should be in parts[2] and we should start supporting it in socialite
+                          , v :=              1
+                          ]);
+  }
+
+  /** @short use the app access token meant for use on the server, when the secret isn't exposed
+
+      See https://developers.facebook.com/docs/facebook-login/access-tokens/#apptokens
+  */
+  PUBLIC MACRO UseAppAccessToken()
+  {
+    this->browser->SetOauthAccessToken([ access_token := this->GetApplicationId() || "|" || this->secret ]);
+  }
+
+
+
+  /** @}*/
+
+  /** \defgroup REST_api REST api calls
+      @{
+  */
+
+  RECORD FUNCTION GetCachedUserId()
+  {
+    RECORD me := this->GetLoggedinUserFields(["id"]);
+    IF (NOT RecordExists(me))
+      THROW NEW Exception("Unable to retrieve the user id");
+
+    RETURN [ value := me.id
+           , ttl := cachettl_constants
+           ];
+  }
+
+  /** Returns the UID of the currently logged in user
+  */
+  PUBLIC STRING FUNCTION GetLoggedInUser()
+  {
+    STRING tok := this->accesstoken;
+    IF(tok="")
+      RETURN "";
+
+    TRY
+    {
+      RETURN GetAdhocCached([tok:=tok], PTR this->GetCachedUserId);
+    }
+    CATCH(OBJECT e)
+    {
+      RETURN "";
+    }
+  }
+
+
+
+  /** @short get posts from the user himself on his wall
+      @param id "me" (requires "user_posts" permission) or the id of a public page
+      @param type "feed"(all posts), "posts"(posts by the current user) or "tagged"(current user is tagged in this post)
+
+      @long Public pages can be read without 'user_posts' right (so an 'App Access Token', either generated or constructed using app_id|app_secret can be used)
+
+      @cell(string)   id                ID of the message on Facebook
+      @cell(datetime) creationdate      When the message was posted
+      @cell(string)   imagelink         Link to the main image of the post
+      @cell(string)   link              Link to view the message on Facebook
+      @cell(string)   postedby_userid
+      @cell(String)   postedby_username
+      @cell(string)   message           The text posted by the user
+      @cell(string    type              Type of post ("link", "photo", "status", "video")
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetPublicWallPosts(STRING id, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN SELECT *
+             FROM this->GetPrivateWallPosts(id, options)
+            WHERE privacy IN ["EVERYONE", ""]; // explicit "EVERYONE" in case of a user, or "" if a public page??
+  }
+
+
+  /** @short get all recent posts, including private ones
+      @param id "me" (requires "user_posts" permission) or the id of a public page
+      @param type "feed"(all posts), "posts"(posts by the current user) or "tagged"(current user is tagged in this post)
+
+      @long Public pages can be read without 'user_posts' right (so an 'App Access Token', either generated or constructed using app_id|app_secret can be used)
+
+      @cell(string)   id                ID of the message on Facebook
+      @cell(datetime) creationdate      When the message was posted
+      @cell(string)   imagelink         Link to the main image of the post
+      @cell(string)   link              Link to view the message on Facebook
+      @cell(string)   postedby_userid
+      @cell(String)   postedby_username
+      @cell(string)   message           The text posted by the user
+      @cell(string    type              Type of post ("link", "photo", "status", "video")
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetPrivateWallPosts(STRING id, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    /*
+    Posts on a user's wall (feed)
+    https://developers.facebook.com/docs/graph-api/reference/v2.5/user/feed
+
+    /{user-id}/feed all posts on a user's wall
+    /{user-id}/posts shows only the posts that were published by this person.
+    /{user-id}/tagged shows only the posts that this person was tagged in.
+
+    See for which fields may exist in a post:
+    https://developers.facebook.com/docs/graph-api/reference/v2.11/post
+    */
+
+    options := ValidateOptions(
+        [ type := "feed"
+        ], options);
+
+    IF (options.type NOT IN ["feed","posts","tagged"])
+      THROW NEW Exception("Unsupported type");
+
+    RECORD posts := this->Graph_Get(id, options.type
+       , [ fields := [ "created_time","id"
+                     , "full_picture" // the "picture" field is only a meagere 130x130 so we use full_picture instead (which at the moment is 630 x 473)
+                     , "message", "link"
+                     , "type" // "link", "status", "photo", "video"
+                     , "from"
+                     , "attachments"
+                     , "privacy"
+                     , "feed_targeting" // info on which audience is targetted in this post (making it more or less likely to see it on Facebook)
+
+                     //,"story"                // Kind of "teaser" (such as "<name> shared a link.")
+                     //, "name", "description" // These are shortcuts to the attachment (the linked link/album/etc) and won't be returned for types which don't have them
+                     ] ]);
+
+    //LogDebug("socialite:facebookv3/GetFacebookRecentWallPosts", "", posts);
+
+    // posts.data[].privacy.value - enum{'EVERYONE', 'ALL_FRIENDS', 'FRIENDS_OF_FRIENDS', 'CUSTOM', 'SELF'}
+
+    RETURN SELECT COLUMN id
+                , creationdate := MakeDateFromText(created_time)
+                , imagelink := CellExists(row, "full_picture") ? full_picture : ""
+                , link := CellExists(row, "link") ? link : ""
+                , postedby_userid   := CellExists(row, "FROM") ? COLUMN "from".id : ""
+                , postedby_username := CellExists(row, "FROM") ? COLUMN "from".name : ""
+                , message := CellExists(row, "message") ? message : "" // an empty message won't be returned as field (happens with type 'link')
+                , COLUMN type
+                , raw := posts.data[#row]
+                , privacy := privacy.value
+                , feed_targeting := CellExists(row, "feed_targeting") ? row.feed_targeting : DEFAULT RECORD
+             FROM posts.data AS row;
+  }
+
+
+  /** @short get information on the logged in user
+      @param wantfields which fields you want ("id" and "name" are are returned if no fields were specified)
+
+                Free fields:
+                "id", "first_name", "installed", "last_name", "name", "name_format", "security_settings", "video_upload_limits"
+
+                "link" - Link to the profile, only usable by friends of the user (requires "user_link" permission and review)
+                
+      @return
+      @cell(string) name
+      @cell(string) picture
+      @cell(string) id (app-scoped ID)
+
+      https://developers.facebook.com/docs/graph-api/reference/v2.9/user
+  */
+  PUBLIC RECORD FUNCTION GetLoggedInUserFields(STRING ARRAY wantfields)
+  {
+    RECORD me := this->Graph_Get("me", "", [ fields := wantfields ]);
+    RETURN me;
+  }
+
+
+  /** @short get information on an image
+      @param id
+      @return
+      @cell(id)
+      @cell(datetime) return.creationdate
+      @cell(record array) return.images the image in several sizes
+      @cell(integer)      return.images.width
+      @cell(integer)      return.images.height
+      @cell(string)       return.images.source URL of the image
+  */
+  PUBLIC RECORD FUNCTION GetImageInfo(STRING id)
+  {
+    // https://developers.facebook.com/docs/graph-api/reference/v2.9/photo
+    // test id: 10201055811477783
+    RECORD image := this->Graph_Get(id, "", [ fields := ["created_time,id,images"] ]);
+    RETURN [ id := image.id
+           , creationdate := MakeDateFromText(image.created_time)
+           , images := image.images
+           ];
+  }
+
+
+
+  /** @short GET a graph object. If connection_type = "picture", returns an (image) blob
+      @param id  Id of graph object to get (required, use 'me' for current user)
+      @param options
+      @cell(string array) params.fields Optional list of fields
+
+      @cell(string) params.connection_type Optional type of connection to get (eg friends, likes, feed, photos, albums, etc. )
+      @cell(integer) params.limit
+      @cell(integer) params.offset
+      @cell(datetime) params.until Filter on date
+      @cell(datetime) params.since
+      @cell(string) params.type For pictures, set this to 'large' to return a large image (about 200 pixels wide, variable height)
+      @cell(boolean) params.withmetadata
+  */
+  PUBLIC VARIANT FUNCTION Graph_Get(STRING id, STRING connection_type DEFAULTSTO "", RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING ARRAY fields := CellExists(options, "FIELDS") ? options.fields : DEFAULT STRING ARRAY;
+
+    // Fields we send to facebook
+    STRING ARRAY fbfields := fields;
+
+    //fields := SELECT AS STRING ARRAY Tokenize(field, ".")[0] FROM ToRecordArray(fields, "field");
+
+//ABORT(want_metadata);
+/*
+    IF (LENGTH(fbfields) != 0)
+    {
+      // Field ID is required to make metadata=1 work
+      IF (want_metadata AND "id" NOT IN fbfields)
+        INSERT "id" INTO fbfields AT 0;
+
+      // Type field must be given back if requested
+      IF (want_metadata AND "type" NOT IN fields)
+        INSERT "type" INTO fields AT 0;
+
+      // type field must be specified for some connections
+      IF (connection_type IN [ "home", "feed", "tagged" ] AND "type" NOT IN fbfields)
+        INSERT "type" INTO fbfields AT END;
+    }
+
+    STRING uri := "https://graph.facebook.com/";
+    uri := uri || id;
+    IF (connection_type != "")
+      uri := uri || "/" || connection_type;
+    IF (CellExists(params, "LIMIT"))
+      uri := AddVariableToURL(uri, "limit", params."LIMIT");
+    IF (CellExists(params, "OFFSET"))
+      uri := AddVariableToURL(uri, "offset", params."OFFSET");
+    IF (CellExists(params, "UNTIL"))
+      uri := AddVariableToURL(uri, "until", FormatISO8601DateTime(params.until));
+    IF (CellExists(params, "SINCE"))
+      uri := AddVariableToURL(uri, "since", FormatISO8601DateTime(params.since));
+    IF (CellExists(params, "WITH"))
+      uri := AddVariableToURL(uri, "with", params.with);
+    IF (Length(fbfields)>0)
+      uri := AddVariableToURL(uri, "fields", Detokenize(fbfields, ","));
+    IF (id = "search")//FIXME: Use Graph_Search then?
+    {
+      uri := AddVariableToURL(uri, "q", params.q);
+      uri := AddVariableToURL(uri, "type", params.type);
+    }
+    ELSE IF (CellExists(params, "TYPE"))
+    {
+      uri := AddVariableToURL(uri, "type", params.type);
+    }
+    //uri := AddVariableToURL(uri, "metadata", "1");
+
+    //PRINT("Request uri: " || uri || "\n");
+*/
+
+    STRING uri := "https://graph.facebook.com/";
+    uri := uri || id;
+    IF (connection_type != "")
+      uri := uri || "/" || connection_type;
+
+    IF (Length(fbfields) > 0)
+      uri := AddVariableToURL(uri, "fields", Detokenize(fbfields, ","));
+
+    this->browser->GotoWebPage(uri);
+
+    RECORD data := this->HandleLastResponse();
+    RETURN data;
+  }
+
+
+
+
+
+
+
+
+  PUBLIC STRING FUNCTION GetAvatarURL(STRING type)
+  {
+    RETURN GetFacebookAvatarURL(this->GetLoggedInUser(), type);
+  }
+>;
+
+/** @param userid User id from which to get the avatar
+    @param type Avatar type to get (square (50x50), small (50px wide), normal (100 px wide), large (200 px wide) */
+PUBLIC STRING FUNCTION GetFacebookAvatarURL(STRING userid, STRING type)
+{
+  IF(type NOT IN ["square","small","normal","large"])
+    THROW NEW Exception("Invalid avatar picture type '" || type || "'");
+  IF(ToInteger64(userid,-1) = -1)
+    RETURN "";
+
+  RETURN "https://graph.facebook.com/" || EncodeURL(userid) || "/picture?type=" || EncodeURL(type);
+}

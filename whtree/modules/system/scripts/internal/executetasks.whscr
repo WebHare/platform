@@ -1,0 +1,762 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/logging.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+
+///Which startup scripts do we still need to run?
+INTEGER default_tasks_timeout;
+STRING ARRAY uncompleted_startup_scripts;
+DATETIME forced_shutdown := MAX_DATETIME;
+DATETIME nexttask := MAX_DATETIME;
+RECORD ARRAY processes;
+RECORD ARRAY module_startup_scripts;
+INTEGER resetcount;
+FUNCTION PTR module_init_resolve;
+OBJECT module_init_promise;
+OBJECT port;
+RECORD args;
+
+RECORD ARRAY cachedtaskmetadata;
+
+/// Soft reset id's to broadcast when done with startup scripts
+STRING ARRAY softresetfinishids;
+
+OBJECT trans;
+INTEGER maximum_process_count;
+
+MACRO IndicatePostStartBusy()
+{
+  RECORD defer := CreateDeferredPromise();
+  module_init_promise := defer.promise;
+  module_init_resolve := defer.resolve;
+}
+
+MACRO Debug(STRING text)
+{
+  IF(args.debug)
+    FOREVERY(STRING line FROM Tokenize(text,"\n"))
+      PrintTo(2, line||"\n");
+}
+MACRO Log(STRING text)
+{
+  FOREVERY(STRING line FROM Tokenize(text,"\n"))
+    Print(line||"\n");
+}
+
+/// Reset start times of tasks that haven't been marked as finished
+MACRO ResetCurrentStarts()
+{
+  trans->BeginWork();
+
+  UPDATE system_internal.tasks
+     SET currentstart := DEFAULT DATETIME
+   WHERE currentstart != DEFAULT DATETIME;
+
+  trans->CommitWork();
+}
+
+DATETIME FUNCTION GetTaskNextExecution(RECORD task)
+{
+  RECORD cacheinfo := SELECT * FROM cachedtaskmetadata WHERE cachedtaskmetadata.tag = task.tag;
+  IF(RecordExists(cacheinfo) AND cacheinfo.runat != "")
+  {
+    TRY
+    {
+      IF(cacheinfo.runtz IN ["","maintenance"])
+      {
+        INTEGER64 timeoffset;
+        IF(cacheinfo.runtz = "maintenance")
+          timeoffset := ToInteger64(GetEnvironmentVariable("WEBHARE_MAINTENANCE_OFFSET"),0) * 60000;
+
+        RETURN AddTimeToDate(timeoffset, GetNextCronTime(AddTimeToDate(-timeoffset,GetCurrentDatetime()), cacheinfo.runat));
+      }
+      ELSE
+      {
+        RETURN LocalToUTC(GetNextCronTime(UTCToLocal(GetCurrentDatetime(), cacheinfo.runtz), cacheinfo.runat), cacheinfo.runtz);
+      }
+    }
+    CATCH(OBJECT e)
+    {
+      PrintTo(2, `Cannot calculate next time for task '${task.tag}': ${e->what}\n`);
+      RETURN DEFAULT DATETIME;
+    }
+  }
+
+  IF (task.repeatcount = 1 //it was a 'only once' task (or the last repetition)
+      OR task.repeatcount < 0
+      OR task.repeatinterval <= 0
+      OR task.repeatintervaltype NOT IN [0,1,2,3])
+    RETURN DEFAULT DATETIME;
+
+  IF (task.repeatcount = 0) //endless repeating task
+  {
+    DATETIME newnexttime := task.nexttime, now := GetCurrentDatetime();
+    WHILE (newnexttime < now) //ADDME: we could just 'calculate' the next time without a while loop..
+      newnexttime := AddInterval(newnexttime,task.repeatinterval, task.repeatintervaltype);
+    RETURN newnexttime;
+  }
+  RETURN AddInterval(task.nexttime, task.repeatinterval, task.repeatintervaltype);
+}
+
+// Check if module init is complete (call only when a module init/startup task has finished)
+MACRO CheckModuleInitComplete()
+{
+  IF (LENGTH(module_startup_scripts) = 0 AND LENGTH(uncompleted_startup_scripts) = 0)
+  {
+    IF (LENGTH(softresetfinishids) != 0)
+      BroadcastEvent("system:internal.executetasks.softresetdone", [ softresetids := softresetfinishids ]);
+    softresetfinishids := DEFAULT STRING ARRAY;
+
+    IF (module_init_resolve != DEFAULT FUNCTION PTR)
+    {
+      module_init_resolve(DEFAULT RECORD);
+
+      module_init_promise := DEFAULT OBJECT;
+      module_init_resolve := DEFAULT FUNCTION PTR;
+    }
+  }
+}
+
+
+MACRO HandleTaskCompletion(RECORD task, STRING allerrors, DATETIME starttime)
+{
+  Debug("Task '" || task.tag || "' has finished, id: " || task.id || (allerrors!=""?", " || allerrors:""));
+  LogDebug("system:executetasks", "taskfinished", [ tag := task.tag, id := task.id, allerrors := allerrors, runtime := GetMsecsDifference(starttime, GetCurrentDatetime()) ]);
+
+  IF(task.id=0)
+  {
+    DELETE
+      FROM module_startup_scripts
+     WHERE tag = task.tag
+       AND iteration = task.iteration;
+
+    CheckModuleInitComplete();
+  }
+  ELSE
+  {
+    //Update next run time and other database information
+    DATETIME next_execution;
+    IF(task.nexttime != DEFAULT DATETIME) //it was a scheduled task
+      next_execution := GetTaskNextExecution(task);
+
+    trans->Beginwork();
+    //ADDME: SELECT FOR UPDATE could have been nice here, so we could simplify the checking here (ie, use the locked versions and DON'T UPDATE if someone else touched it....)
+    UPDATE system_internal.tasks
+           SET currentstart := DEFAULT DATETIME
+             , error := Left(allerrors,4096)
+             , lastrun := starttime
+           WHERE id=task.id;
+    trans->CommitWork();
+
+    INTEGER onexecutelist := Searchelement(uncompleted_startup_scripts, task.tag);
+    IF(onexecutelist>=0)
+      DELETE FROM uncompleted_startup_scripts AT onexecutelist;
+
+    CheckModuleInitComplete();
+  }
+}
+
+MACRO LaunchTask(RECORD task)
+{
+  DATETIME start := GetcurrentDatetime();
+
+  IF(task.id!=0)
+  {
+    trans->BeginWork();
+    RECORD taskinfo := SELECT * FROM system_internal.tasks WHERE id=task.id;
+    IF(RecordExists(taskinfo))
+    {
+      IF(task.nexttime != DEFAULT DATETIME)
+      {
+        DATETIME next_execution := GetTaskNextExecution(task);
+        UPDATE system_internal.tasks SET currentstart := start
+                              , nexttime := next_execution
+                              , repeatcount := repeatinterval > 0 AND repeatcount != 1 ? (repeatcount >= 2 ? repeatcount - 1 : 0) : repeatcount
+                            WHERE id = task.id AND nexttime = task.nexttime; /*don't change if modified externally */
+      }
+    }
+    //FIXME: Check for errors
+    trans->CommitWork();
+  }
+
+  Debug("Starting task " || task.tag);
+
+  STRING runscriptname := GetInstallationRoot()
+                           || "bin/runscript";
+
+  STRING ARRAY cmdlineargs;
+  IF(task.workerthreads > 1)
+    cmdlineargs := cmdlineargs CONCAT ["--workerthreads", ToString(task.workerthreads) ];
+  INSERT task.script INTO cmdlineargs AT END;
+
+  //HACK for quick paramter parsing
+  STRING params := Substitute(task.parameters,"\\ ","<<<<<ESCAPED_SPACE>>>>>");
+  IF (params != "")
+  {
+    FOREVERY(STRING param FROM Tokenize(params,' '))
+      INSERT DecodeJava(Substitute(param,"<<<<<ESCAPED_SPACE>>>>>","\\ ")) INTO cmdlineargs AT END;
+  }
+
+  INTEGER pid := StartProcess( runscriptname
+                             , cmdlineargs
+                             , /*take_input=*/TRUE, /*take_output=*/TRUE
+                             , /*take_errors=*/TRUE, /*merge_errors=*/FALSE
+                             );
+  IF(pid<0)
+  {
+    HandleTaskCompletion(task, "Task could not be started", start);
+    RETURN;
+  }
+
+  INTEGER execute_tasks_timeout := (task.timeout <= 0 ? default_tasks_timeout : task.timeout) * 60 * 1000;
+  INSERT INTO processes(procid, output, errors, task, starttime, killtime, lastoutput, allerrors, timeout)
+              VALUES(pid, "", "", task, start, AddTimeToDate(execute_tasks_timeout, start), "\n", "", execute_tasks_timeout)
+              AT END;
+
+  Debug("Successfully started task " || task.tag || " with process id " || pid);
+  LogDebug("system:executetasks", "starttask", [ tag := task.tag, pid := pid ]);
+}
+
+MACRO RunStartupScripts(STRING modulename)
+{
+  //FIXME use ids instead of tags...
+  uncompleted_startup_scripts := SELECT AS STRING ARRAY tag
+                                   FROM system_internal.tasks
+                                  WHERE enabled
+                                        AND runatstartup;
+
+  // If there are still pending scripts from a previous softreset, ignore the modulename for the new updates
+  IF (LENGTH(module_startup_scripts) != 0)
+    modulename := "";
+
+  // Remove all queued module scripts, but keep the ones that are running (FIXME limit to selected module ?)
+  DELETE
+    FROM module_startup_scripts
+   WHERE NOT started;
+
+  // Start a new module_startup_scripts iteration
+  resetcount := resetcount + 1;
+
+  FOREVERY(RECORD mod FROM GetWebHareModules())
+  {
+    module_startup_scripts := module_startup_scripts CONCAT
+         (SELECT id := 0
+               , script
+               , tag := mod.name || " " || script
+               , parameters := "" //we used to pass the module which we're reloading, but none of the current <runatstartup> tasks understand those anyway
+               , started := FALSE
+               , workerthreads := 1
+               , timeout := 0 //ADDME allow them to specify a timeout too
+               , iteration := resetcount
+            FROM mod.startupscripts WHERE when="afterlaunch");
+  }
+  IF(args.debug)
+  {
+    Print("Scheduled startup scripts\n");
+    DumpValue(module_startup_scripts,'boxed');
+  }
+ IF (LENGTH(module_startup_scripts) != 0 AND NOT ObjectExists(module_init_promise))
+    IndicatePostStartBusy();
+
+  LogDebug("system", "executetasks-rescan", module_startup_scripts);
+}
+
+MACRO ReadConfiguration()
+{
+  maximum_process_count := ReadRegistryKey("system.tasks.maxprocesses");
+  default_tasks_timeout := ReadRegistryKey("system.tasks.defaulttimeout");
+  UpdateScheduler();
+}
+
+/** The post-start script handles system startup tasks that should be
+    executed every time WebHare is started, but that do not need to
+    be completed before the service can go live. */
+
+MACRO UpdateScheduler()
+{
+  trans->BeginWork();
+
+  RECORD ARRAY alltasks;
+  FOREVERY(RECORD mod FROM GetWebHareModules())
+    alltasks := alltasks CONCAT mod.tasks;
+
+  cachedtaskmetadata := alltasks;
+
+  //Add/update tasks
+  RECORD ARRAY curtasks := SELECT * FROM system_internal.tasks;
+  FOREVERY(RECORD task FROM alltasks)
+  {
+    INTEGER interval := ToInteger(task.runinterval,0);
+    INTEGER repeatcount := interval=0 ? 1 : 0;
+
+    DATETIME nextrun;
+    IF(task.runat != "")
+      nextrun := GetTaskNextExecution(task);
+
+    RECORD match := SELECT * FROM curtasks WHERE tag=task.tag;
+    IF(NOT RecordExists(match))
+    {
+      //Create the task
+      IF(interval>0)
+      {
+        IF(task.runat != "")
+        {
+        }
+        ELSE IF(task.runtime LIKE "??:??")
+        {
+          INTEGER hour := ToInteger(Substring(task.runtime,0,2),0);
+          INTEGER min := ToInteger(Substring(task.runtime,3,2),0);
+          nextrun := MakeDateFromParts( GetDayCount(GetCurrentDatetime()), ((hour*60)+min)*60000);
+        }
+        ELSE
+        {
+          nextrun := GetCurrentDatetime();
+        }
+      }
+
+      INSERT INTO system_internal.tasks(enabled, tag, autoadded, script, nexttime, timeout)
+             VALUES(TRUE, task.tag, TRUE, task.script, nextrun, task.timeout);
+      match := SELECT * FROM system_internal.tasks WHERE tag=task.tag;
+    }
+
+    RECORD upd;
+    IF(match.autoadded = FALSE)
+      INSERT CELL autoadded := TRUE INTO upd;
+    IF(match.runatstartup != task.runatstartup)
+      INSERT CELL runatstartup := task.runatstartup INTO upd;
+    IF(match.script != task.script)
+      INSERT CELL script := task.script INTO upd;
+    IF(match.description != task.description)
+      INSERT CELL description := task.description INTO upd;
+    IF(match.workerthreads != task.workerthreads)
+      INSERT CELL workerthreads := task.workerthreads INTO upd;
+    IF(match.timeout != task.timeout)
+      INSERT CELL timeout := task.timeout INTO upd;
+    IF(match.inapplicable != task.inapplicable)
+      INSERT CELL inapplicable := task.inapplicable INTO upd;
+    IF(task.inapplicable != "")
+      INSERT CELL enabled := FALSE INTO upd;
+
+    IF(task.runat != "")
+    {
+      IF(nextrun < match.nexttime OR match.nexttime = DEFAULT DATETIME)
+        INSERT CELL nexttime := nextrun INTO upd;
+    }
+    ELSE IF(match.repeatinterval != interval OR match.repeatintervaltype != 0 OR match.repeatcount != repeatcount OR (interval>0 AND match.nexttime=DEFAULT DATETIME))
+    {
+      INSERT CELL repeatinterval := interval INTO upd;
+      INSERT CELL repeatintervaltype := 0 INTO upd;
+      INSERT CELL repeatcount := repeatcount INTO upd;
+      IF(interval > 0 AND match.nexttime = DEFAULT DATETIME)
+        INSERT CELL nexttime := GetCurrentDatetime() INTO upd;
+    }
+
+    //ADDME: More to update/sync?
+
+    IF(RecordExists(upd))
+      UPDATE system_internal.tasks SET RECORD upd WHERE tag=task.tag;
+  }
+
+  //Remove obsolete ones
+  STRING ARRAY keeptags := SELECT AS STRING ARRAY ToUppercase(tag) FROM alltasks;
+  DELETE FROM system_internal.tasks WHERE autoadded = TRUE AND ToUppercase(tag) NOT IN keeptags;
+
+  trans->CommitWork();
+}
+
+MACRO OnScanTasks(STRING p1, RECORD p2)
+{
+  IF(args.debug)
+    Print("Received scan tasks\n");
+  //nothing to do. this will break the wait loop and scan tasks that way
+}
+
+MACRO OnSoftReset(STRING event, RECORD data)
+{
+  IF(args.debug)
+  {
+    Print("Received soft reset event\n");
+    DumpValue(CELL[event,data]);
+  }
+
+  ReadConfiguration();
+
+  // Register the id
+  IF (CellExists(data, "ID") AND TypeID(data.id) = TypeID(STRING))
+    INSERT data.id INTO softresetfinishids AT END;
+
+  IF(CellExists(data,"isdelete") AND data.isdelete)
+    RETURN; //no need to run scripts in response to a deletion
+
+  IF (CellExists(data, "toreload") AND TypeID(data.toreload) = TypeID(STRING ARRAY) AND ("ALL" IN data.toreload OR "MODULEINIT" IN data.toreload))
+    RunStartupScripts("");
+}
+
+MACRO OnWHManagerRetransected(STRING event, RECORD data)
+{
+  // Configure logfiles when retransected to whmanager
+  ReadConfiguration();
+  ReconfigureLogFiles();
+}
+
+STRING FUNCTION HandleOutput(BOOLEAN iserror, STRING input, RECORD task)
+{
+  IF(input NOT LIKE "*\n*")
+    RETURN input; //no full line yet
+
+  STRING ARRAY lines := Tokenize(input,"\n");
+  input := lines[Length(lines)-1];
+  DELETE FROM lines AT Length(lines)-1;
+
+  FOREVERY(STRING line FROM lines)
+  {
+    line:=Substitute(line,"\r","");
+    Log((iserror ? "Error" : "Message") || " from task " || task.tag || ":" || line);
+    IF(#line = Length(lines)-1) //last line
+      BREAK;
+  }
+  RETURN input;
+}
+
+MACRO ProcessHandleInput(INTEGER whichproc)
+{
+  RECORD proc := processes[whichproc];
+
+  STRING output := ReadProcessOutput(proc.procid);
+  STRING errors := ReadProcessErrors(proc.procid);
+
+  proc.output := HandleOutput(FALSE, proc.output || output, proc.task);
+  proc.errors := HandleOutput(TRUE,  proc.errors || errors, proc.task);
+  proc.lastoutput := SubString(proc.lastoutput || output, LENGTH(proc.lastoutput || output) - 3072); // Keep last 3KB of output
+  proc.allerrors := proc.allerrors || errors;
+
+  IF (output="" AND errors="")
+  {
+    IF(NOT IsProcessRunning(proc.procid))
+    {
+      IF (proc.output != "")
+        HandleOutput(FALSE, proc.output || "\n", proc.task);
+      IF (proc.errors != "")
+        HandleOutput(TRUE,  proc.errors || "\n", proc.task);
+
+      INTEGER errorcode := GetProcessExitCode(proc.procid);
+      CloseProcess(proc.procid);
+      DELETE FROM processes WHERE procid=proc.procid;
+
+      IF(errorcode != 0)
+        proc.allerrors := proc.allerrors || "\nProcess exited with error code: " || errorcode;
+      HandleTaskCompletion(proc.task, proc.allerrors, proc.starttime);
+      RETURN;
+    }
+    ELSE
+    {
+      Debug("SPURIOUS WAKEUP - process #" || proc.procid || " (whichproc=" || whichproc || ") closed I/O but is still running");
+      Sleep(100);
+    }
+  }
+  //ADDME: Handle completed strings, flush them to log immediately
+  processes[whichproc]:=proc;
+}
+
+MACRO CheckNextTask()
+{
+  STRING ARRAY runningtasks := SELECT AS STRING ARRAY task.tag FROM processes;
+//  Debug("Check execute tasks: process list:");
+//  Debug(AnyToString(processes, "tree"));
+
+  nexttask := SELECT AS DATETIME nexttime
+                FROM system_internal.tasks
+               WHERE enabled
+                     AND nexttime != DEFAULT DATETIME
+                     AND tag NOT IN runningtasks
+            ORDER BY nexttime;
+
+  IF(nexttask = DEFAULT DATETIME)
+  {
+    Debug("No task is currently pending");
+    nexttask := MAX_DATETIME;
+  }
+  ELSE IF (RecordExists(module_startup_scripts))
+  {
+    Debug("Module startup scripts are currently running");
+    nexttask := MAX_DATETIME;
+  }
+  ELSE
+    Debug("Run next task at " || FormatDatetime("%Y-%m-%d %H:%M:%S", nexttask) || " GMT (" || GetMsecsDifference(GetCurrentDatetime(), nexttask)/1000 || " seconds from now)");
+}
+
+MACRO TryExecuteTasks()
+{
+  //Find processes that need to be executed
+  DATETIME now := GetCurrentDatetime();
+
+  INTEGER openslots := maximum_process_count - Length(processes);
+  STRING ARRAY runningtasks := SELECT AS STRING ARRAY task.tag FROM processes;
+//  Debug("Try execute tasks: process list:");
+//  Debug(AnyToString(processes, "tree"));
+  RECORD ARRAY to_execute := SELECT *
+                               FROM system_internal.tasks
+                              WHERE enabled
+                                    AND tag NOT IN runningtasks
+                                    AND ( (tag IN uncompleted_startup_scripts)
+                                          OR (nexttime != DEFAULT DATETIME AND nexttime < now)
+                                        )
+                           ORDER BY /*ADDME: priority , */
+                                    nexttime
+                              LIMIT openslots;
+
+  IF (RecordExists(module_startup_scripts))
+  {
+    INTEGER iteration := SELECT AS INTEGER Min(COLUMN iteration) FROM module_startup_scripts;
+
+    // Still module_startup_scripts lingering: start all that aren't started yet, ignore system_internal.tasks.
+    to_execute :=
+        SELECT *
+          FROM module_startup_scripts
+         WHERE COLUMN iteration = VAR iteration
+           AND started = FALSE;
+
+    UPDATE module_startup_scripts
+       SET started := TRUE
+     WHERE COLUMN iteration = VAR iteration;
+  }
+
+  Debug("Number of tasks to execute: " || length(to_execute));
+
+  FOREVERY(RECORD task FROM to_execute)
+    LaunchTask(task);
+  CheckNextTask();
+}
+
+MACRO KillObsoleteProcesses(DATETIME now)
+{
+  INTEGER ARRAY disabled_tasks_ids :=
+      SELECT AS INTEGER ARRAY id
+        FROM system_internal.tasks
+       WHERE NOT enabled;
+
+  FOREVERY(RECORD tokill FROM SELECT * FROM processes WHERE killtime <= now OR task.id IN disabled_tasks_ids)
+  {
+    IF (tokill.task.id IN disabled_tasks_ids)
+      Log("Killing task '" || tokill.task.tag || "' because it was disabled");
+    ELSE
+      Log("Killing task '" || tokill.task.tag || "' because it has been running too long");
+    TerminateProcess(tokill.procid);
+    CloseProcess(tokill.procid);
+    DELETE FROM processes WHERE procid=tokill.procid;
+    IF (tokill.task.id=0)
+      DELETE FROM module_startup_scripts WHERE tag=tokill.task.tag;
+    ELSE
+    {
+      trans->BeginWork();
+      UPDATE system_internal.tasks
+         SET currentstart := DEFAULT DATETIME
+       WHERE id = tokill.task.id;
+
+      IF (tokill.task.id NOT IN disabled_tasks_ids)
+      {
+        // Add all last full lines from lastoutput (max 3kb, so no db field overflow)
+        STRING error_txt := "Script timed out after " || tokill.timeout / 60000 || " minutes. Last output:\n\n" || SubString(tokill.lastoutput, SearchSubString(tokill.lastoutput, "\n") + 1);
+        UPDATE system_internal.tasks
+           SET error := error_txt
+         WHERE id = tokill.task.id;
+      }
+
+      trans->CommitWork();
+    }
+  }
+}
+
+MACRO InnerLoop()
+{
+  BOOLEAN console_dead := FALSE;
+
+  WHILE(TRUE)
+  {
+    // Cache the now
+    DATETIME now := GetCurrentDatetime();
+
+    // Any scripts to murder?
+    KillObsoleteProcesses(now);
+
+    // May we execute some more processes right now?
+    BOOLEAN may_execute_more := Length(processes) < maximum_process_count;
+    DATETIME wait_until := MAX_DATETIME;
+
+    // Are we trying to shut down?
+    IF (forced_shutdown != MAX_DATETIME)
+    {
+      // If all processes are gone we may exit
+      IF (Length(processes)=0)
+        BREAK;
+    }
+    ELSE
+    {
+      // Try to execute some more tasks (if we have some headroom)
+      IF (may_execute_more)
+      {
+        // Execute some tasks
+        TryExecuteTasks();
+
+        // We don't need to wait for a task timeout if we can't execute that task anyway
+        IF (nexttask < wait_until)
+          wait_until := nexttask;
+      }
+    }
+
+    // Get the list of handles we need to wait on
+    INTEGER ARRAY waitread;
+    IF(NOT console_dead)
+      INSERT __HS_GetSignalIntPipe() INTO waitread AT END;
+    waitread := waitread CONCAT SELECT AS INTEGER ARRAY procid FROM processes;
+
+    DATETIME nextkill := SELECT AS DATETIME killtime FROM processes ORDER BY killtime;
+
+    // Are we trying to shutdown
+    IF(forced_shutdown != MAX_DATETIME)
+    {
+      // If we have exceeded the max shutdown time, exit immediately
+      IF(now > forced_shutdown)
+        BREAK;
+
+      // Ignore nexttask: only the shutdown is important now
+      IF (forced_shutdown < wait_until)
+        wait_until := forced_shutdown;
+    }
+
+    // Speed up killing if needed
+    IF(nextkill != DEFAULT DATETIME AND wait_until > nextkill)
+      wait_until := nextkill;
+
+    Debug("Waiting until " || FormatDateTime("%d-%m-%Y %H:%M:%S.%Q", wait_until));
+
+    RECORD waitres := WaitUntil([ read := waitread, callbacks := TRUE ], wait_until);
+
+    Debug("Waitresult: " || waitres.type || (waitres.type LIKE "handle-*" ? ", handle: " || waitres.handle : ""));
+    IF (waitres.type = "timeout" OR waitres.type = "func") // timeout or disconnected from the database?
+    {
+      // A timeout: was it for shutting down?
+      IF (GetCurrentDatetime() >= forced_shutdown)
+      {
+        Debug("A shutdown of the executetasks script has been demanded");
+        BREAK;
+      }
+    }
+
+    IF (waitres.type = "handle-read")
+    {
+      IF(waitres.handle = __HS_GetSignalIntPipe())    //Console talking?
+      {
+        console_dead := TRUE;
+        forced_shutdown := AddTimeToDate(3000, GetCurrentDatetime()); //3 seconds timeout
+        //Signal all processes to shutdown'
+        FOREVERY(RECORD proc FROM processes)
+          CloseProcessInput(proc.procid); //let's hope they get the hint :)
+        Debug("Shutdown requested, signalled all processes to go away");
+      }
+      ELSE
+      {
+        INTEGER whichproc := SELECT AS INTEGER #processes FROM processes WHERE procid = waitres.handle;
+  //        Debug("Process #" || whichproc || " has spoken");
+        ProcessHandleInput(whichproc);
+      }
+    }
+  }
+}
+
+
+DATETIME FUNCTION AddInterval(DATETIME date, INTEGER interval, INTEGER intervaltype)
+{
+  SWITCH (intervaltype)
+  {
+    //minutes
+    CASE 0 { RETURN AddDaysToDate(interval/(60*24), AddTimeToDate((interval%(60*24))*60*1000,date)); }
+    //hours
+    CASE 1 { RETURN AddDaysToDate(interval/(24), AddTimeToDate((interval%(24))*60*60*1000,date)); }
+    //days
+    CASE 2 { RETURN AddDaysToDate(interval, date); }
+    //seconds
+    CASE 3 { RETURN AddTimeToDate(interval * 1000, date); }
+  }
+  ABORT("Illegal interval type " || intervaltype);
+}
+
+OBJECT ASYNC FUNCTION GotIncomingLink()
+{
+  OBJECT link := port->Accept(DEFAULT DATETIME);
+  IF (NOT ObjectExists(link))
+    RETURN DEFAULT RECORD;
+
+  WHILE (TRUE)
+  {
+    RECORD rec := AWAIT link->AsyncReceiveMessage(MAX_DATETIME);
+    IF (rec.status = "timeout")
+      CONTINUE;
+    IF (rec.status = "gone")
+      BREAK;
+
+    SWITCH (rec.msg.task)
+    {
+      CASE "poststartmodule"
+      {
+        IF(args.debug)
+        {
+          Print("poststartmodule event, runstartup scripts for: " || (rec.msg.modulename ?? "*") || "\n");
+        }
+        RunStartupScripts(rec.msg.modulename);
+        link->SendReply([ status := "ok" ], rec.msgid);
+      }
+    }
+  }
+
+  link->Close();
+  RETURN DEFAULT RECORD;
+}
+
+RECORD ARRAY options :=
+  [ [ name := "debug", type := "switch" ]
+  ];
+
+args := ParseArguments(GetConsoleArguments(), options);
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: wh run executetasks.whscr [--debug]\n");
+  RETURN;
+}
+
+trans := OpenPrimary();
+IndicatePostStartBusy();
+
+port := CreateIPCPort("system:executetasks");
+__INTERNAL_KeepPortGlobal(port);
+RegisterHandleReadCallback(port->handle, PTR GotIncomingLink);
+
+RegisterEventCallback("system:softreset", PTR OnSoftReset);
+RegisterEventCallback("system:whmanager.transected", PTR OnWHManagerRetransected);
+RegisterEventCallback("system:internal.scantasks", PTR OnScanTasks);
+ReadConfiguration();
+
+ResetCurrentStarts();
+RunStartupScripts("");
+
+Debug("Starting main loop");
+InnerLoop();
+Debug("Leaving main loop");
+
+//Signal all processes to DIE
+FOREVERY(RECORD proc FROM processes)
+{
+  Debug("Terminating task '" || proc.task.tag || "' that did not terminate");
+  TerminateProcess(proc.procid);
+}
+RETURN;
+

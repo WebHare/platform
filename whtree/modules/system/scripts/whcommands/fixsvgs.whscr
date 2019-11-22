@@ -1,0 +1,5 @@
+<?wh
+LOADLIB "mod::system/lib/internal/validation/svg.whlib";
+
+FOREVERY (STRING path FROM FixSVGlayers())
+  Print("Fixed " || path || "\n");

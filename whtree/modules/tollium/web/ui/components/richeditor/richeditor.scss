@@ -1,0 +1,439 @@
+@import './internal/rtdcss.scss';
+
+.wh-forminput-rte
+{
+  position:relative;
+}
+.wh-forminput-rte > .wh-rtd__editor
+{
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+}
+
+/* Root node for our RTD
+   As wh-rtd is regularly used to denote 'this content comes from a WebHare RTD'
+   we can't use it for the editor itself.*/
+.wh-rtd__editor
+{
+  border:1px solid #acacac;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+}
+.wh-rtd__undoholder
+{
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  width: 0px;
+  height: 0px;
+}
+.wh-rtd-toolbar
+{
+  background: #eeeeee;
+  margin: 0;
+  border-bottom:1px solid #acacac;
+  padding: 2px 5px 2px 0;
+  white-space: normal;
+}
+.wh-rtd-toolbar > *
+{
+  display:inline-block;
+  vertical-align:middle;
+
+  height:22px;
+  margin-left:5px;
+}
+.wh-rtd-toolgroup
+{
+  border:1px solid #aaaaaa;
+  background: linear-gradient(to bottom, #ffffff, #d5d5d5);
+  margin: 2px 0 2px 5px;
+}
+
+.wh-rtd__toolbarstyle
+{
+  vertical-align:top;
+  min-width:120px;
+}
+.wh-rtd__toolbaroption--unavailable
+{
+  display:none;
+}
+
+/* A single button on the button bar */
+.wh-rtd-toolbar .wh-rtd-button
+{
+  cursor: pointer;
+  display:inline-block;
+  padding:2px 2px 2px 2px;
+  height:20px;
+  width:20px;
+
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+.wh-rtd-toolbar .wh-rtd-button img
+{
+  display:block;
+}
+/* A single button in an 'active' state */
+.wh-rtd-toolbar .wh-rtd-button.active
+{
+  background-color: #bdd6f9;
+}
+/* A single disabled button */
+.wh-rtd-toolbar .wh-rtd-button.disabled
+{
+  cursor: default;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/*insert table toolbar menu*/
+.wh-rtd-tablemenu .wh-rtd-tablemenuitem
+{
+  border-color: #acacac;
+  border-style: solid;
+  border-width: 0 1px 1px 0;
+  display: inline-block;
+  float: left;
+  font-size: 0;
+  line-height: 0;
+  height: 16px;
+  padding: 0;
+  width: 16px;
+}
+.wh-rtd-tablemenu .wh-rtd-tablemenuitem-newrow
+{
+  border-left-width: 1px;
+  clear: both;
+}
+.wh-rtd-tablemenu .wh-rtd-tablemenuitem-newcol
+{
+  border-top-width: 1px;
+}
+.wh-rtd-tablemenu .wh-rtd-tablemenustatus
+{
+  clear: both;
+  text-align: center;
+}
+
+/*
+
+    RTE editor configuration
+
+*/
+
+.wh-rtd__stylescope
+{
+  flex-grow:1;
+  display:flex;
+  flex-direction: column;
+
+  min-height:1px; // IE11 needs this to properly listen to flex. without it, it doesn't actually limit the height of this element. See testtableedit-free scrolling tests
+}
+
+/* Note: we need to be more specific than '.wh-rtd-hash-levpnrdpmyuoibemvydnzw .wh-rtd-editor-htmlnode', so 2 classes + 1 type */
+div.wh-rtd__stylescope .wh-rtd__html
+{
+  overflow: auto;
+  overflow-y: scroll;
+  position: relative;
+
+  flex-grow:1;
+  background: transparent !important;
+
+  &.wh-rtd--margins-active
+  {
+    background: #b6b2b2 !important;
+  }
+}
+
+// Note: we need to be more specific than '.wh-rtd-hash-levpnrdpmyuoibemvydnzw .wh-rtd__body', so 2 classes + 1 type
+div.wh-rtd__editor .wh-rtd__body
+{
+  position:relative;
+
+  /*ensure conflicting properties from styling are killed */
+  overflow: visible;
+  height: auto;
+
+  /*prevent leakage of content margins (i.e. the margin-top of the first element). this is needed by the tableeditor to
+    correctly position the resizers.*/
+  border-color: transparent;
+  border-style: solid;
+  border-width: 1px 0 0 0;
+  margin-top: -1px;
+
+  box-sizing: content-box;
+}
+
+
+//Note: we need to be more specific than '.wh-rtd-hash-levpnrdpmyuoibemvydnzw .wh-rtd__body', so 2 classes + 1 type
+div.wh-rtd--margins-none
+{
+  margin:5px; //even with no margins, a very small margin is needed for readability..
+}
+
+div.wh-rtd--margins-active //active = either -compact or -wide (or other future not -none margins)
+{
+  .wh-rtd__body--contentarea
+  {
+    margin: 10px 9px;
+    padding: $body-verticalmargin $body-standardmargin;
+    border:1px solid #aaaaaa;
+    box-shadow: 2px 3px 2px rgba(0,0,0,.3);
+    background: #ffffff;
+    color: #000000;
+
+    /* Safari resets scroll positions when the contenteditable has a vertical margin (or doesn't fill the
+       entire height of its scroll container when refocusing. Setting the margin to 0 fixes.
+    */
+    &.wh-rtd__body--safariscrollfix
+    {
+      margin: 0px 9px;
+      padding: 2*$body-verticalmargin $body-standardmargin;
+    }
+  }
+}
+
+div.wh-rtd--margins-wide
+{
+  .wh-rtd__body--contentarea
+  {
+    padding: $body-verticalmargin $body-widemargin;
+  }
+}
+
+.wh-rtd__body:focus
+{
+  outline:none;
+}
+  html.wh-rtd--enabled *[data-wh-rtd-editable]      //self-edit editable portions
+, .wh-rtd__stylescope.wh-rtd--enabled *[data-wh-rtd-editable]  //page-edit editable portions
+, .wh-rtd__stylescope.wh-rtd--enabled .wh-rtd__img
+{
+  cursor:pointer;
+}
+
+.wh-rtd__editor .wh-rtd__html.wh-rtd-withcontentarea
+{
+}
+.wh-rtd__editor .wh-rtd__html.wh-rtd-withcontentarea > .wh-rtd__body:after
+{
+  content:"";
+  clear:both;
+  display:block;
+}
+.wh-rtd__stylescope
+{
+  position:relative;
+}
+.wh-rtd__stylescope:not(.wh-rtd--enabled):after
+{
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0);
+  pointer-events: none;
+}
+.wh-rtd__stylescope.wh-rtd--disabled:after
+{
+  background: rgba(0,0,0,.1);
+}
+
+.wh-rtd-editor-htmlnode.wh-rtd-withcontentarea .wh-rtd__body.wh-rtd-editor.wh-rtd-formatting
+{
+  margin-left:88px;
+}
+.wh-rtd-editor-htmlnode.wh-rtd-withcontentarea .wh-rtd__body.wh-rtd-editor.wh-rtd-formatting > *:not(.wh-rtd-embeddedobject):not(.wh-rtd__table):before
+{
+  position:absolute;
+  content:attr(class);
+  left:-80px;
+  color:#000000;
+  margin:5px 0 0 0;
+  font:12px Arial, Helvetica;
+}
+.wh-rtd-editor-htmlnode.wh-rtd-withcontentarea .wh-rtd__body.wh-rtd-editor.wh-rtd-formatting > *:after
+{
+  /* Add bogus content, otherwise IE 10 won't display the block because the
+     :before line apparently applies position: absolute to all block content,
+     causing the block to disappear or something... */
+  content: "";
+}
+
+.wh-tableeditor-resize-holder table:focus
+{
+  outline: none;
+}
+
+.wh-tableeditor-resize-placeholder
+{
+  background: #000000;
+  opacity: .3;
+}
+
+.wh-tableeditor-resize-col
+{
+  position:absolute;
+/* DEBUGGING STYLES
+  background: rgba(220, 244, 255, .7);*/
+}
+.wh-tableeditor-resize-row
+{
+  position:absolute;
+/* DEBUGGING STYLES
+  background: rgba(255, 240, 224, .7);*/
+}
+.wh-tableeditor-resize-table
+{
+  position:absolute;
+/* DEBUGGING STYLES
+  background: rgba(224, 255, 240, .7);*/
+}
+
+.wh-rtd-editor .wh-rtd__table
+{
+  border-collapse: collapse;
+}
+.wh-rtd--structured .wh-rtd__table
+{
+  table-layout: fixed; //unsafe for free rtd, as it doesn't have its <col>s sanitized
+}
+
+.wh-rtd-editor .wh-rtd__table > tbody > tr > th,
+.wh-rtd-editor .wh-rtd__table > tbody > tr > td
+{
+  border: 1px dotted #999999;
+}
+
+.wh-rtd__stylescope:not(.wh-rtd--enabled) .wh-rtd-objectbuttons
+{
+  display:none;
+}
+
+
+/* Workaround for Lync inserting Skype icons. See
+   http://stackoverflow.com/questions/6728521/disable-lync-click-to-call-detecting-numbers-in-a-web-page
+*/
+span.baec5a81-e4d6-4674-97f3-e9220f0136c1 > a
+{
+  display: none !important;
+}
+
+.wh-rtd__preview
+{
+  padding-top: 20px;
+  padding-bottom: 20px;
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  font: 15px 'Roboto', Arial, Helvetica, sans-serif;
+}
+
+.wh-rtd__preview__imageholder
+{
+  flex-grow: 0;
+  padding-right: 15px;
+}
+
+.wh-rtd__preview__image
+{
+  vertical-align: bottom;
+}
+
+.wh-rtd__preview__columntable
+{
+  table-layout: fixed;
+  width: 100%;
+}
+
+.wh-rtd__preview__columntd
+{
+  overflow: hidden;
+}
+
+.wh-rtd__preview__columntd--1
+{
+  width: 100%;
+}
+
+.wh-rtd__preview__columntd--2
+{
+  width: 50%;
+}
+
+.wh-rtd__preview__columntd--3
+{
+  width: 33%;
+}
+
+.wh-rtd__preview__columntd--4
+{
+  width: 25%;
+}
+
+.wh-rtd__preview__box
+{
+  background: #f0f0f0;
+  flex-grow: 1;
+}
+
+.wh-rtd__preview__box--images
+{
+}
+
+  .wh-rtd__preview__titletd
+, .wh-rtd__preview__descriptiontd
+, .wh-rtd__preview__combinedtd
+{
+  vertical-align: top;
+}
+
+.wh-rtd__preview__box--fieldset
+{
+  width: 100%;
+}
+
+.wh-rtd__preview__fieldsettable
+{
+  width: 100%;
+  padding: 10px;
+}
+
+.wh-rtd__preview__icontd
+{
+  width: 30px;
+  vertical-align: bottom;
+}
+
+  .wh-rtd__preview__title
+, .wh-rtd__preview__fieldsettitle
+{
+  font-weight: bold;
+}
+
+.wh-rtd__preview__hr
+{
+  width: 100%;
+  height: 1px;
+  background-color: #c8c8c8;
+}
+
+.wh-rtd__preview__htmlcode
+{
+  min-height:60px;
+  font-size:80%;
+}

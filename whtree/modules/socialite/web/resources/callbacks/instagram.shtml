@@ -1,0 +1,56 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+
+RECORD response := DecodeJSON(GetWebVariable("session"));
+
+
+//FIXME need better uid parsers nowadays :(
+
+STRING srhid := GetWebVariable("srhid");
+
+BOOLEAN is_denied :=
+    (ToUpperCase(GetWebVariable("denied")) NOT IN [ "", "0", "FALSE" ]) OR
+    (ToUpperCase(GetWebVariable("error_reason")) = "USER_DENIED");
+
+RECORD data :=
+    [ srhid :=          srhid
+    , href :=           GetRequestURL()
+    , is_denied :=      is_denied
+    ];
+
+IF (srhid = "")
+{
+  PRINT('<html>\n');
+  PRINT('  <body>\n');
+  PRINT('    <script language="javascript">\n');
+  IF (RecordExists(data) AND NOT is_denied)
+  {
+    PRINT('      if (window.opener && window.opener.authenticated_instagram)\n');
+    PRINT('        window.opener.authenticated_instagram(window.location.href);\n');
+  }
+  ELSE
+  {
+    PRINT('      if (window.opener && window.opener.cancelled_instagram)\n');
+    PRINT('        window.opener.cancelled_instagram();\n');
+  }
+  PRINT('      window.close();\n');
+  PRINT('    </script>\n');
+  PRINT('  </body>\n');
+  PRINT('</html>\n');
+  RETURN;
+}
+
+BroadcastEvent("socialite:config.authorize", data);
+
+PRINT('<html>\n');
+PRINT('  <body>\n');
+PRINT('    Authentication completed, thank you.\n');
+PRINT('    <script language="javascript">\n');
+PRINT('      window.close();\n');
+PRINT('    </script>\n');
+PRINT('  </body>\n');
+PRINT('</html>\n');

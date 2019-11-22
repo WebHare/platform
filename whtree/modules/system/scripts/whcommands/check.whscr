@@ -1,0 +1,63 @@
+﻿<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/checks/checker.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+RECORD vinfo := GetWebhareVersionInfo();
+STRING ARRAY versiontokens;
+IF(vinfo.branch != "" AND vinfo.branch NOT LIKE "release/*")
+  INSERT vinfo.branch INTO versiontokens AT END;
+INSERT vinfo.version INTO versiontokens AT END;
+IF(vinfo.buildid != 0)
+  INSERT "(" || vinfo.buildid || ")" INTO versiontokens AT END;
+
+Print(`WebHare ${Detokenize(versiontokens,' ')}`);
+
+RECORD ARRAY messages;
+
+OBJECT db;
+TRY db := OpenPrimary();
+CATCH(OBJECT e)
+{
+  Print(" - The database is unavailable: " || e->what||"\n");
+  SetConsoleExitCode(2);
+  RETURN;
+}
+
+IF(ObjectExists(db))
+  messages := messages CONCAT RunChecks();
+
+INTEGER num_snoozed := LENGTH(SELECT FROM messages WHERE snoozed);
+DELETE FROM messages WHERE snoozed;
+
+IF(Length(messages)>0)
+  SetConsoleExitCode(1);
+
+IF(Length(messages)>1)
+{
+  Print(" - " || Length(messages) || " issues!");
+  IF (num_snoozed != 0)
+    PRINT(` (and ${num_snoozed} snoozed ${num_snoozed=1?"message":"messages"})\n`);
+  ELSE
+    PRINT("\n");
+  FOREVERY(RECORD msg FROM messages)
+    Print(GetTid(msg.msg) || "\n");
+}
+ELSE IF(Length(messages)=1)
+{
+  Print(" - " || GetTid(messages[0].msg));
+  IF (num_snoozed != 0)
+    PRINT(` (and ${num_snoozed} snoozed ${num_snoozed=1?"message":"messages"})\n`);
+  ELSE
+    PRINT("\n");
+}
+ELSE
+{
+  Print(" - all ok!");
+  IF (num_snoozed != 0)
+    PRINT(` (${num_snoozed} snoozed ${num_snoozed=1?"message":"messages"})\n`);
+  ELSE
+    PRINT("\n");
+}

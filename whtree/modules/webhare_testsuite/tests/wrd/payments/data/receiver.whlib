@@ -1,0 +1,22 @@
+<?wh
+LOADLIB "mod::wrd/lib/payments.whlib";
+
+PUBLIC OBJECTTYPE MyPaymentHandler EXTEND WRDPaymentHandlerBase
+<
+  UPDATE PUBLIC MACRO OnPaymentStarted(RECORD payment) //Invoked whenever the payment is started
+  {
+    RECORD log := this->paymententity->GetField("LOG");
+    IF(NOT RecordExists(log))
+      log := [ entries := RECORD[] ];
+    log.entries := log.entries CONCAT [CELL[...payment, type := "onpaymentstarted" ]];
+    this->paymententity->UpdateEntity(CELL[log]);
+  }
+  UPDATE PUBLIC MACRO OnPaymentFinalized(RECORD payment)
+  {
+    RECORD log := this->paymententity->GetField("LOG");
+    IF(NOT RecordExists(log))
+      log := [ entries := RECORD[] ];
+    log.entries := log.entries CONCAT [CELL[...payment, type := "onpaymentfinalized" ]];
+    this->paymententity->UpdateEntity(CELL[log]);
+  }
+>;

@@ -1,0 +1,154 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+// ---------------------------------------------------------------------------
+//
+// Remoting management
+//
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  PUBLIC MACRO Init()
+  {
+    this->RefreshList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List refresh
+  //
+
+  MACRO RefreshList()
+  {
+    this->services->rows :=
+        SELECT module
+             , service
+             , rowkey :=                     module || "." || service
+             , log_raw_requests_icon :=      (debugrecord.log_raw_requests ? 1 : 0)
+             , log_decoded_requests_icon :=  (debugrecord.log_decoded_requests ? 1 : 0)
+             , log_decoded_responses_icon := (debugrecord.log_decoded_responses ? 1 : 0)
+             , log_raw_responses_icon :=     (debugrecord.log_raw_responses ? 1 : 0)
+             , profile_icon :=               (debugrecord.profile ? 1 : 0)
+             , rpcloglevel :=                (debugrecord.loglevel > 0 ? ToString(debugrecord.loglevel) : "")
+          FROM this->GetServices();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION GetServices()
+  {
+    RECORD ARRAY services;
+    RECORD ARRAY modules := GetWebHareModules();
+
+    FOREVERY (RECORD module FROM modules)
+    {
+      OBJECT moduledefinition;
+      TRY
+        moduledefinition := GetModuleDefinitionXML(module.name);
+      CATCH
+        CONTINUE;
+      IF(NOT ObjectExists(moduledefinition) OR NOT ObjectExists(moduledefinition->documentelement))
+        CONTINUE;
+
+      OBJECT servicesnode := moduledefinition->documentelement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")->Item(0);
+      IF(NOT ObjectExists(servicesnode))
+        CONTINUE;
+
+      FOREVERY (OBJECT service FROM servicesnode->childnodes->GetCurrentElements())
+      {
+        STRING servicename := service->GetAttribute("name");
+        INSERT
+            [ module :=         module.name
+            , service :=        servicename
+            , debugrecord :=    GetServiceDebugRecord(module.name, servicename)
+            ] INTO services AT END;
+      }
+    }
+
+    RETURN services;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoEdit()
+  {
+    RECORD sel := this->services->selection;
+    OBJECT dialog := this->LoadScreen(".editservice", [ module := sel.module, service := sel.service ]);
+    IF (ObjectExists(dialog) AND dialog->RunModal() = "ok")
+      this->RefreshList();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE EditService EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING module;
+
+
+  STRING service;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->module := data.module;
+    this->service := data.service;
+
+    this->config->value := GetServiceDebugRecord(this->module, this->service);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Submit
+  //
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    RECORD rec := this->config->value;
+    WriteRegistryKey("system.remoting.services." || this->module || ":" || this->service
+                    , [ log_raw_requests := rec.log_raw_requests
+                      , log_raw_responses := rec.log_raw_responses
+                      , log_decoded_requests := rec.log_decoded_requests
+                      , log_decoded_responses := rec.log_decoded_responses
+                      , loglevel := rec.rpcloglevel
+                      , profile := rec.profile
+                      ], [ createifneeded := TRUE ]);
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    BroadcastEvent("system:remoting.servicedefinition." || this->module || "." || this->service || ".refresh", DEFAULT RECORD);
+    RETURN TRUE;
+  }
+>;

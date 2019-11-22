@@ -1,0 +1,14 @@
+<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+
+PUBLIC RECORD FUNCTION OnMailCallback(STRING data, STRING type, RECORD status)
+{
+  IF(NOT GetPrimary()->IsWorkopen())
+    ABORT("Expecting work to be open when receiving a callback");
+
+  WriteRegistryKey("webhare_testsuite.tests.response", type);
+  RETURN CELL[type,status];
+}

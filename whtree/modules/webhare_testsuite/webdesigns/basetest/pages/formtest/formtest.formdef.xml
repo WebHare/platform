@@ -1,0 +1,300 @@
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms" xmlns:wt="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents" gid="site">
+  <form name="coretest" gid='.coretest' objectname="formtest.whlib#CoreTestForm" jshandler="coretest">
+    <page>
+      <textedit validationchecks="email" name="email" title="Email" enabled="false" />
+      <textedit name="text" title="Text" />
+      <textedit name="setvalidator" title="SetValidator" />
+      <select name="radiotest" rowkeytype="integer" type="radio" required="1">
+        <option rowkey="1" title="Option 1">
+          <textedit name="radiotestnamelijk" value="15" tid=".namelijk" valuetype="integer" required="true" />
+        </option>
+        <option rowkey="2" selected="true" />
+      </select>
+      <select name="radioboolean" rowkeytype="boolean" title="Radioboolean" type="radio">
+        <option rowkey="true" title="Truth" />
+        <option rowkey="false" title="Lie" />
+      </select>
+      <checkbox name="showradioy" title="Radio" label="Show requiredradio Y" value="true"/>
+      <select name="requiredradio" title="Required&amp;;Radio" type="radio" required="true">
+        <option rowkey="x" title="X" />
+        <option rowkey="y" title="Y" />
+        <option rowkey="z" title="Z" enabled="false"/>
+      </select>
+      <select name="horizontalradio" title="Horizontal Radio" type="radio" horizontal="true">
+        <option rowkey="x" title="X" />
+        <option rowkey="y" title="Y" />
+      </select>
+      <select name="pulldowntest" rowkeytype="integer" placeholdertid=".make_a_selection" title="Pulldowntest" type="pulldown" required="true">
+        <!-- <option rowkey="0" title="Make a selection" /> via placeholdertid -->
+        <optgroup title="Below five">
+          <option rowkey="1" title="One" />
+          <option rowkey="2" title="Two" />
+          <option rowkey="3" title="Three" enabled="false" />
+        </optgroup>
+        <optgroup title="Five and above">
+          <option rowkey="5" title="Five" />
+          <option rowkey="8" title="Eight" />
+        </optgroup>
+      </select>
+      <select name="pulldown2test" title="Pulldown2test" type="pulldown">
+        <option rowkey="red" title="Red" />
+        <option rowkey="green" title="Green" selected="true">
+          <textedit name="shade" title="Shade of green" />
+        </option>
+        <option rowkey="blue" title="Blue" />
+      </select>
+      <select name="disabledpulldowntest" tid=".disabledpulldown" type="pulldown" enabled="false">
+        <option rowkey="cant" title="Can't" />
+        <option rowkey="touch" title="Touch" selected="true" />
+        <option rowkey="this" title="This" />
+      </select>
+      <checkbox name="checkboxesvisible" title="Show checkboxes" value="true" />
+      <select name="checkboxes" rowkeytype="integer" title="Checkboxes" type="checkbox" min="1" max="2">
+        <option rowkey="0" title="Disabled" enabled="false" />
+        <option rowkey="1" title="Eins" selected="true" />
+        <option rowkey="2" tid=".zwei" />
+        <option rowkey="3" title="Polizei" selected="true"/>
+      </select>
+      <upload name="upload" tid="tollium:common.actions.upload" />
+      <date name="dateofbirth" min="1900-02-03" max="now+1d" title="DateOfBirth" value="now" groupclasses="ut-dateofbirth" required="true" />
+      <password name="password" title="Wachtwoord?" placeholder="secret" />
+      <textedit name="number" title="NumberPlease" valuetype="integer" min="-2" max="2"/>
+      <textedit name="numberemptyvalue" title="NumberEmpty" valuetype="integer" min="-2" max="2" emptyvalue="0" value="0" />
+      <textedit name="nevervisible" title="I AM INVISIBLE" value="InvisValue" visible="false"/><!-- static invisible -->
+      <textedit name="invisible" title="I AM INVISIBLE" value="InvisValue"/><!-- dynamic invisible -->
+      <address name="address" title="Address" countrylist="NL BE" />
+      <wt:twolevel name="twolevel" title="" groupclasses="wh-testsuite-twolevel-groupclasses"/>
+      <textarea name="textarea" title="Textarea" placeholder="Type a text in this area" />
+      <checkbox name="agree" title="Agree?" required="true" labeltid=".terms"/>
+
+      <checkbox name="condition_or_1" title="OR 1" />
+      <checkbox name="condition_or_2" title="OR 2" />
+      <textedit name="condition_or_visible" title="OR visible" />
+      <checkbox name="condition_and_1" title="AND 1" />
+      <checkbox name="condition_and_2" title="AND 2" />
+      <textedit name="condition_and_visible" title="AND visible" />
+      <checkbox name="condition_not" title="NOT" />
+      <textedit name="condition_not_enabled" title="NOT enabled" />
+      <textedit name="condition_not_required" title="NOT required" />
+
+      <wt:matchattributes name="matchattributes_type1" title="type1" attr1="type1" />
+      <wt:matchattributes name="matchattributes_type2_true" title="type2_true" attr1="type2" attr2="true" />
+      <wt:matchattributes name="matchattributes_type2_false" title="type2_false" attr1="type2" attr2="false" />
+
+      <group name="richtextgroup" title="">
+        <richtext name="richtexttid" title="">
+          <body xmlns="http://www.w3.org/1999/xhtml">
+            <h2>before <span data-wh-gettid=".richtext-tid">This text is replaced by the 'site.coretest.richtext-tid' tid value</span> after</h2>
+          </body>
+        </richtext>
+      </group>
+    </page>
+  </form>
+
+  <form name="dynamictest" objectname="formtest.whlib#DynamicTestForm">
+    <select name="day" rowkeytype="integer" title="Day" type="pulldown" required="true">
+      <option rowkey="1" title="Monday" />
+      <option rowkey="2" title="Tuesday" />
+    </select>
+    <select name="timeslot" rowkeytype="datetime" title="Timeslot" type="radio" required="true">
+      <option rowkey="2012-05-05T17:00:00" title="5 o'clock" />
+      <option rowkey="2012-05-05T21:00:00.005" title="9 o'clock and 5 ms" />
+    </select>
+  </form>
+
+  <form name="rtdtest" objectname="formtest.whlib#RTDForm" jshandler="rtdform">
+    <page>
+      <checkbox name="enablefields" title="" label="EnableFields" value="true" />
+      <checkbox name="requirefields" title="" label="RequireFields" value="false" />
+      <rtd name="rtd" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" title="RTD" />
+      <imgedit name="img" title="Image" />
+      <upload name="file" title="File" />
+      <checkbox name="showfile2" title="Show file #2" />
+      <upload name="file2" title="File #2" required="true" />
+    </page>
+  </form>
+
+  <form name="multipagetest" gid=".multipagetest" objectname="formtest.whlib#MultipageTestForm" prevlabel="&lt;--" nextlabeltid=".nextlabeltid">
+    <page pagetitle="firstpage">
+      <richtext name="text1">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <h2>Page 1</h2>
+        </body>
+      </richtext>
+      <textedit name="firstname" title="First name" required="true" />
+      <textedit validationchecks="email" name="email" title="Email" required="true" />
+      <checkbox name="skipform" title="" label="Skip the entire form" /><!-- Skip form, 'next' button should change to 'submit' -->
+      <checkbox name="fillmaybe" title="" label="Maybe fill an extra page" /><!-- Show the 'conditional' page -->
+      <checkbox name="vertspace" title="" label="I need more vertical space" /><!-- Show the 'vertical space' RTD -->
+      <richtext name="vertspacetext">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+        </body>
+      </richtext>
+    </page>
+    <page name="conditional" pagetid=".nextpage">
+      <richtext name="maybetext">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <h2>Maybe Page</h2>
+        </body>
+      </richtext>
+      <textedit name="maybe" title="Maybe fill this in?" required="true" />
+      <textedit name="never" title="Never fill this in" enabled="false" />
+      <group name="hiddengroup" title="">
+        <textedit name="hidden" title="Cannot fill this in" />
+      </group>
+      <select name="fillextra" title="" type="checkbox" rowkeytype="integer">
+        <option rowkey="1" title="Fill an extra field" />
+      </select>
+      <textedit name="extra" title="Fill an extra field?" required="true" />
+      <select name="fillother" title="" type="checkbox">
+        <option rowkey="yep" title="Fill another field?">
+          <textedit name="other" title="" required="true" />
+        </option>
+      </select>
+      <imgedit name="img" title="Image" />
+    </page>
+    <page name="lastpage">
+      <richtext name="text2">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <h2>Page 2</h2>
+          <p>Come on <span data-merge="textContent:form.firstname" />, just one more page!</p>
+        </body>
+      </richtext>
+      <textedit name="text" title="Text" required="true" />
+      <richtext name="vertspacetext2">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+        </body>
+      </richtext>
+    </page>
+    <page role="thankyou">
+      <richtext name="text3">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <h2>Done!</h2>
+          <p>Thank you for filling this form, we will contact you at <span data-merge="textContent:form.email" /></p>
+        </body>
+      </richtext>
+      <richtext name="vertspacetext3">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+          <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
+        </body>
+      </richtext>
+      <richtext name="text4">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <p>We will <span data-merge="textContent:form.maybe" /> contact you</p>
+        </body>
+      </richtext>
+    </page>
+  </form>
+
+  <form name="addressform" objectname="formtest.whlib#AddressForm" gid=".addressform">
+    <page>
+      <checkbox name="visiblegroup" title="" label="VisibleGroup" value="true" />
+      <checkbox name="enablegroup" title="" label="EnableGroup" value="true" />
+      <group name="addressgroup" title="Address group">
+        <checkbox name="visiblefields" title="" label="VisibleFields" value="true" />
+        <checkbox name="enablefields" title="" label="EnableFields" value="true" />
+        <address name="address" countrylist="NL BE" options="nl-zip-force">
+          <fieldtitle tag="nr_detail" title="Number and Addition" />
+          <fieldtitle tag="zip" /><!-- Use tid derived from field tid and fieldtitle tag, i.e. "site.addressform.address-zip" -->
+        </address>
+        <richtext name="address2heading"><body xmlns="http://www.w3.org/1999/xhtml"><h2>Adddress 2</h2></body></richtext>
+        <address name="address2" countrylist="NL BE DE" options="nl-zip-suggest">
+          <fieldtitle tag="country" title="Address2" />
+          <fieldtitle tag="nr_detail" title="Number and Addition2" />
+        </address>
+      </group>
+      <group title="Address 3" name="address3group">
+        <address name="address3" options="!nl-zip-suggest" />
+      </group>
+    </page>
+  </form>
+
+  <form name="redirectform" objectname="formtest.whlib#RedirectForm">
+    <page>
+      <richtext name="intro" title="">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <p>This form will redirect in 10 seconds</p>
+        </body>
+      </richtext>
+    </page>
+    <page role="thankyou" redirect="about:blank">
+    </page>
+  </form>
+
+  <form name="emailform" objectname="formtest.whlib#EmailForm">
+    <page>
+      <textedit validationchecks="email" name="email" title="Email" required="true" />
+      <textedit validationchecks="email-maysendfrom" name="email_sendfrom" title="May send from"  />
+    </page>
+    <page role="thankyou">
+      <richtext name="thankyoutext" title="">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <h2>Done!</h2>
+        </body>
+      </richtext>
+    </page>
+  </form>
+
+  <form name="workhandlingerrorsform" objectname="formtest.whlib#WorkHandlingErrorsForm">
+    <page>
+      <textedit name="mode" title="Mode" required="true" />
+      <wt:twolevel name="twolevel" title="" />
+    </page>
+  </form>
+
+  <form name="arrayform" objectname="formtest.whlib#ArrayForm" jshandler="arrayform">
+    <page>
+      <textedit name="text" title="A text"/>
+      <array name="contacts" min="1" max="2" title="Contacts">
+        <textedit name="name" title="Name"/>
+        <upload name="photo" title="Photo" />
+        <select name="gender" rowkeytype="integer" type="pulldown" title="Gender"/>
+        <date name="wrd_dateofbirth" title="DOB" />
+      </array>
+      <array name="contacts2" min="0" max="1">
+        <textedit name="name" />  <!-- shouldn't conflict with array above us -->
+        <wt:tscustomcomp name="customcomp" title="customcomp" />
+      </array>
+      <array name="customarray" title="Custom components">
+        <textedit name="name" title="Name"/>
+        <wt:tscustomcomp name="customcomp" title="customcomp" />
+        <wt:twolevel name="twolevel" title="twolevel" />
+      </array>
+    </page>
+  </form>
+
+  <form name="datetimeform" objectname="formtest.whlib#DateTimeTestForm" jshandler="anyformhandler">
+    <page>
+      <checkbox name="enable_fields" title="" label="Enable fields" value="true"/>
+      <checkbox name="require_fields" title="" label="Require fields" value="true"/>
+      <checkbox name="show_fields" title="" label="Show fields" value="true"/>
+      <date name="dateofbirth" min="1900-02-03" max="now+1d" title="DateOfBirth" value="now" groupclasses="ut-dateofbirth" />
+      <time name="time" title="SomeTime" />
+      <time name="time_sec" title="SomeTime_sec" precision="seconds" />
+      <select name="choice" type="checkbox" title="Choice">
+        <option rowkey="date" title="a date">
+          <date name="choice_date" min="1900-02-03" max="now+1d" title="" value="now" groupclasses="ut-dateofbirth" required="true" />
+        </option>
+        <option rowkey="time" title="a time">
+          <time name="choice_time" title="" />
+        </option>
+      </select>
+      <date name="weeknumbers" title="Weeknumbers" value="2019-07-08" />
+    </page>
+  </form>
+
+</formdefinitions>

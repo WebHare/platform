@@ -1,0 +1,60 @@
+<?wh
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+INTEGER testrtdfileid;
+
+MACRO PrepIt()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  testfw->BeginWork();
+
+  OBJECT testloc := testfw->GetTestSite()->rootobject->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT testrtd := testloc->CreateFile( [ name := "links.rtd", type := richdoctype->id, publish := TRUE ]);
+//  OBJECT testrtd2 := testloc->CreateFile( [ name := "other.rtd", type := richdoctype->id, publish := TRUE ]);
+  testrtdfileid := testrtd->id;
+  //testrtd2fileid := testrtd2->id;
+
+  testfw->CommitWork();
+}
+
+
+OBJECT ASYNC FUNCTION InsertLink()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+
+  OBJECT myrte := TT("doceditor")->contents->rte;
+  myrte->TolliumWeb_FormUpdate('<html><body><p class="normal">This is the text <i>entered</i> into a level 2 rtd</p></body></html>');
+
+  AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("buttonclick", [ button := "a-href" ]));
+
+  RECORD customlink := SELECT * FROM topscreen->linktype->options WHERE title = "custom link handler";
+  TestEq(TRUE, RecordExists(customlink));
+
+  topscreen->linktype->value := customlink.rowkey;
+  topscreen->linktype->selection.enablecomponents[0]->value := 15;
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  RECORD insertedlinkinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertHyperlink";
+  TestEq(TRUE, RecordExists(insertedlinkinstr), "Unable to find the InsertHyperlink instruction in the outgoing instruction stream");
+
+  TestEq("x-webharetestsuite-customlink:15", insertedlinkinstr.messages[0].data.url);
+
+  myrte := TT("doceditor")->contents->rte;
+  AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := "x-webharetestsuite-customlink:15" ]]));
+  TestEq("custom link handler", topscreen->linktype->selection.title);
+  TestEq(15, topscreen->linktype->selection.enablecomponents[0]->value);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  RETURN TRUE;
+}
+
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, waitpublish := FALSE])
+                 , PTR PrepIt
+                 , PTR InsertLink
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

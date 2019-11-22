@@ -1,0 +1,80 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/helpers.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+MACRO TestReorder(STRING expect, STRING org, STRING whereto, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD ARRAY rows;
+  STRING ARRAY rowkeys;
+
+  FOREVERY (STRING s FROM Tokenize(org, " "))
+  {
+    BOOLEAN selected := Right(s, 1) = "*";
+    STRING rowkey := selected ? Left(s, LENGTH(s) - 1) : s;
+    INSERT CELL[ rowkey ] INTO rows AT END;
+    IF (selected)
+      INSERT rowkey INTO rowkeys AT END;
+  }
+
+  RECORD ARRAY newrows :=
+      SELECT *
+        FROM ReorderRows(rows, rowkeys, whereto, options)
+    ORDER BY ordering;
+
+  STRING got := Detokenize((SELECT AS STRING ARRAY rowkey FROM newrows), " ");
+  TestEQ(expect, got, `Reorder ${org}, mode ${whereto}, options: ${EncodeJSON(options)}`);
+}
+
+MACRO TestReorderRows()
+{
+  TestReorder("b a c", "a* b c", "down");
+  TestReorder("c a b", "a* b* c", "down");
+  TestReorder("a b c", "a b* c*", "down");
+  TestReorder("b a c d", "a* b c* d", "down");
+  TestReorder("a c b d", "a b* c d*", "down");
+  TestReorder("b a d c", "a* b c* d", "down", [ coalesce := FALSE ]);
+  TestReorder("a b c d", "a b* c d*", "down", [ coalesce := FALSE ]);
+
+  TestReorder("a b c", "a* b c", "up");
+  TestReorder("b a c", "a b* c", "up");
+  TestReorder("a c b", "a b c*", "up");
+  TestReorder("b c a", "a b* c*", "up");
+  TestReorder("a b c", "a* b* c", "up");
+  TestReorder("a c b", "a* b c*", "up");
+  TestReorder("a b c", "a* b c*", "up", [ coalesce := FALSE ]);
+  TestReorder("a c b d", "a* b c* d", "up");
+  TestReorder("b d a c", "a b* c d*", "up");
+  TestReorder("a b c d", "a* b c* d", "up", [ coalesce := FALSE ]);
+  TestReorder("b a d c", "a b* c d*", "up", [ coalesce := FALSE ]);
+
+  TestReorder("a b c", "a* b c", "begin");
+  TestReorder("b d a c", "a b* c d*", "begin");
+  TestReorder("b a d c", "a b* c d*", "begin", [ coalesce := FALSE ]);
+  TestReorder("a b c d", "a* b c* d", "begin", [ coalesce := FALSE ]);
+
+  TestReorder("b c a", "a* b c", "end");
+  TestReorder("a c b d", "a b* c d*", "end");
+  TestReorder("a b c d", "a b* c d*", "end", [ coalesce := FALSE ]);
+  TestReorder("b a d c", "a* b c* d", "end", [ coalesce := FALSE ]);
+
+  TestReorder("a b c", "a* b c", "position", [ positionkey := "a" ]);
+  TestReorder("a b c", "a* b c", "position", [ positionkey := "b" ]);
+  TestReorder("b c a", "a* b c", "position", [ positionkey := "" ]);
+  TestReorder("b a d c", "a* b c d*", "position", [ positionkey := "c" ]);
+  TestReorder("b c a d", "a* b c d*", "position", [ positionkey := "" ]);
+  TestReorder("a b c d", "a* b c* d", "position", [ positionkey := "a", coalesce := FALSE ]);
+  TestReorder("b a d c", "a* b c* d", "position", [ positionkey := "c", coalesce := FALSE ]);
+  TestReorder("b a d c", "a* b c* d", "position", [ positionkey := "d", coalesce := FALSE ]);
+  TestReorder("b a d c", "a* b c* d", "position", [ positionkey := "", coalesce := FALSE ]);
+  TestReorder("b a d c", "a b* c d*", "position", [ positionkey := "a", coalesce := FALSE ]);
+  TestReorder("a b c d", "a b* c d*", "position", [ positionkey := "b", coalesce := FALSE ]);
+  TestReorder("a b c d", "a b* c d*", "position", [ positionkey := "c", coalesce := FALSE ]);
+  TestReorder("a b c d", "a b* c d*", "position", [ positionkey := "d", coalesce := FALSE ]);
+  TestReorder("a b c d", "a b* c d*", "position", [ positionkey := "", coalesce := FALSE ]);
+}
+
+RunTestFramework([ PTR TestReorderRows
+                 ]);

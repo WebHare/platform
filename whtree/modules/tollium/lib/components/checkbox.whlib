@@ -1,0 +1,204 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+
+/////////////////////////////////////////////////////////////////////
+// The checkbox field
+
+PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Current checked state
+  BOOLEAN pvt_checked;
+
+  /// List of enable components
+  OBJECT ARRAY pvt_enablecomponents;
+
+  /// Onchange handler
+  MACRO PTR pvt_onchange;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties & variables
+  //
+
+  /// Current checked state
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// Callback, called when checked state changes
+  PUBLIC PROPERTY onchange(pvt_onchange, SetOnChange);
+
+  /// List of components that only will be enabled when this checkbox is checked
+  PUBLIC PROPERTY enablecomponents(pvt_enablecomponents, SetEnabling);
+
+  // Flags, used when the checkbox is an option within a select
+  PUBLIC RECORD pvt_flags;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & init
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->componenttype := "checkbox";
+    this->formfieldtype := "boolean";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComposableComponentWithLabelBase::StaticInit(def);
+    this->onchange := def.onchange;
+    this->pvt_checked := def.value;
+    this->pvt_enablecomponents := def.enablecomponents;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    TolliumComposableComponentWithLabelBase::PreInitComponent();
+    this->UpdateComponentsEnabled();
+  }
+
+  UPDATE MACRO UpdateComponentsEnabled()
+  {
+    FOREVERY (OBJECT comp FROM this->pvt_enablecomponents)
+      comp->enabled := this->pvt_checked AND this->pvt_enabled;
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ value :=            FALSE
+        , enablecomponents := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(BOOLEAN);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    IF(this->required AND NOT this->value)
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", this->errorlabel??this->title));
+    }
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    RETURN this->value;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  BOOLEAN FUNCTION GetValue()
+  {
+    RETURN this->pvt_checked;
+  }
+
+  BOOLEAN inside_onchange;
+
+  MACRO SetValue(BOOLEAN newval)
+  {
+    IF (this->pvt_checked = newval)
+      RETURN;
+
+    this->pvt_checked := newval;
+    this->UpdateComponentsEnabled();
+    this->SetDirtyFlags([ value := TRUE ]);
+
+    IF(this->onchange = DEFAULT MACRO PTR)
+      RETURN;
+
+    IF(this->inside_onchange) //historically we didn't invoke onchange, but that's inconsistent. trying to get rid of that bug
+    {
+      IF(IsDtapLive()) //ADDME remove this escape but not before april 2019.
+      {
+        LogError("tollium:checkbox","Checkbox::SetValue loop detected", [ stacktrace := GetStackTrace(), name := this->name ]);
+        RETURN;
+      }
+      THROW NEW TolliumException(this, "Checkbox::SetValue loop detected - it now invokes any onchange handler directly, this application requires fixing");
+    }
+
+    TRY
+    {
+      this->inside_onchange := TRUE;
+      this->onchange();
+    }
+    FINALLY
+    {
+      this->inside_onchange := FALSE;
+    }
+  }
+
+  MACRO SetEnabling(OBJECT ARRAY enabling)
+  {
+    this->pvt_enablecomponents := enabling;
+    this->UpdateComponentsEnabled();
+
+    this->SetDirtyFlags([ enablecomponents := TRUE ]);
+  }
+
+  MACRO SetOnChange(MACRO PTR onchange)
+  {
+    this->pvt_onchange := onchange;
+    this->ExtUpdatedComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Communication
+  //
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD compinfo := [ enablecomponents := GetVisibleComponentNames(this->enablecomponents)
+                         , value := this->value
+                         , hint := this->hint
+                         , unmasked_events := GetUnmask(this,["change"])
+                         , readonly := this->readonly
+                         , flags := this->pvt_flags
+                         ];
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.value)
+        this->ToddUpdate([ type := "value", value := this->pvt_checked ]);
+
+      IF (this->dirtyflags.enablecomponents)
+        this->ToddUpdate([ type := "enablecomponents", value := GetVisibleComponentNames(this->enablecomponents) ]);
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(BOOLEAN newvalue)
+  {
+    IF (this->pvt_checked != newvalue)
+    {
+      this->pvt_checked := newvalue;
+      this->UpdateComponentsEnabled();
+      this->owner->tolliumscreenmanager->QueueEvent(this, "change", DEFAULT RECORD);
+    }
+  }
+>;

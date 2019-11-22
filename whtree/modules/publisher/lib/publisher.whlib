@@ -1,0 +1,881 @@
+﻿<?wh
+
+/** @short Functions for publisher database
+    @long This library exports the publisher.sites, files and folder tables, and offers
+          functions to browse and search through these tables.
+    @topic sitedev/whfs
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/conversionprofiles.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
+
+LOADLIB "mod::publisher/lib/preview.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+
+BOOLEAN debugurllookup := FALSE;
+
+/** @short Create a link to a published file's subpage
+    @param fileid ID of file to link to
+    @param pagename Page name as passed to CreateFile. Pass an empty pagename to receive the base directory for subfiles
+    @return A link to the requested page, or an empty string if the file was not online */
+
+PUBLIC STRING FUNCTION GetFileSubpageURL(INTEGER fileid, STRING pagename)
+{
+  RECORD fileinfo := SELECT url := files.objecturl
+                          , files.name
+                          , files.type
+                          , files.published
+                          , isindexdoc := folders.indexdoc=files.id
+                          , sites.outputweb
+                       FROM system.fs_objects AS files
+                          , system.fs_objects AS folders
+                          , system.sites
+                      WHERE files.id = fileid
+                            AND files.objecturl != ""
+                            AND files.parent = folders.id
+                            AND folders.parentsite = sites.id
+                            AND files.isfolder = FALSE
+                            AND folders.isfolder = TRUE;
+
+  IF(NOT RecordExists(fileinfo))
+    RETURN "";
+
+  RECORD props := GetFileTypeProps(fileinfo.type);
+  IF(NOT RecordExists(props))
+    RETURN "";
+
+  IF(fileinfo.type IN [18,19]) //internal and external links have no subpages, so just link directly
+    RETURN fileinfo.url;
+
+  BOOLEAN isdefaultpage := ToLowercase(pagename) IN whconstant_webserver_indexpages;
+  STRING usefilename := fileinfo.name;
+  IF(TestFlagFromPublished(fileinfo.published, PublishedFlag_StripExtension))
+    usefilename := GetBasenameFromPath(usefilename);
+
+  IF(props.ispublishedassubdir)
+  {
+    //An indexlink goes to file.url, others to a file.name/subpage
+    IF(isdefaultpage)
+      RETURN fileinfo.url;
+    ELSE IF(fileinfo.isindexdoc)
+    {
+      IF(ToLowercase(usefilename) = GetWebserverDefaultPage(fileinfo.outputweb)) //the file IS the default...
+        usefilename := "^" || usefilename;
+      RETURN ResolveToAbsoluteURL(fileinfo.url, EncodeURL(usefilename) || "/" || EncodeURL(pagename));
+    }
+    ELSE
+      RETURN ResolveToAbsoluteURL(fileinfo.url, EncodeURL(pagename));
+  }
+  ELSE
+  {
+    //A link to file.name goes to file.url, others to ^file.name/subpage
+    IF(isdefaultpage AND fileinfo.isindexdoc)
+      RETURN fileinfo.url;
+    ELSE IF(ToUppercase(pagename)=ToUppercase(fileinfo.name))
+      RETURN fileinfo.url;
+    ELSE
+      RETURN ResolveToAbsoluteURL(fileinfo.url, "^" || EncodeURL(usefilename) || "/" || EncodeURL(pagename));
+  }
+}
+
+/** @short   Find a site by its ID
+    @long    Retrieve a site record from the SITES table, based on its ID.
+    @param   siteid Site ID to look for
+    @return  The requested site record, or a non-existing record if the site does not exist
+*/
+PUBLIC RECORD FUNCTION FindSite(INTEGER siteid) __ATTRIBUTES__(DEPRECATED "Use publisher/siteapi.whlib")
+{
+  RETURN __FindSite(siteid);
+}
+
+
+/** @short   Find a site by its name
+    @long    Retrieve a site record from the SITES table, based on its name.
+    @param   sitename Name (case-insensitive) of the site to look for
+    @return  The requested site record, or a non-existing record if the site does not exist
+*/
+PUBLIC RECORD FUNCTION FindSiteByName(STRING sitename) __ATTRIBUTES__(DEPRECATED "Use publisher/siteapi.whlib")
+{
+  RETURN SELECT * FROM system.sites WHERE ToUppercase(sites.name) = ToUppercase(sitename);
+}
+
+
+
+
+/** @short   Find a file by its ID
+    @long    Retrieve a file record from the FILES table, based on its ID.
+    @param   fileid File ID to look for
+    @return  The requested file record, or a non-existing record if the file does not exist
+*/
+PUBLIC RECORD FUNCTION FindFile(INTEGER fileid) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+{
+  RETURN __FindFile(fileid);
+}
+
+
+
+
+/** @short   Find a folder by its ID
+    @long    Retrieve a folder record from the FOLDERS table, based on its ID.
+    @param   folderid Folder ID to look for
+    @return  The requested folder record, or a non-existing record if the folder does not exist
+*/
+PUBLIC RECORD FUNCTION FindFolder(INTEGER folderid) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+{
+  RETURN __FindFolder(folderid);
+}
+
+
+
+
+/** @short   Find a file by its name
+    @long    Retrieve a file record from the FILES table, based on the ID of its parent folder and its name.
+    @param   parentid ID of the folder to look in
+    @param   filename Name (case-insensitive) of the file to look for
+    @return  The requested file record, or a non-existing record if the file does not exist
+*/
+PUBLIC RECORD FUNCTION FindFileByName(INTEGER parentid, STRING filename) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+{
+  RETURN SELECT *
+              , DELETE objecturl
+              , DELETE link
+           FROM system.fs_objects
+          WHERE parent = VAR parentid AND ToUppercase(name)=ToUppercase(filename) AND NOT isfolder;
+}
+
+
+
+
+/** @short   Find a file by its full path
+    @long    Retrieve a file record from the FILES table, based on its site ID and full path
+    @param   siteid ID of the site to look in
+    @param   fullpath Path (case-insensitive) of the file to look for
+    @return  The requested file record, or a non-existing record if the file does not exist
+*/
+PUBLIC RECORD FUNCTION FindFileByFullPath(INTEGER siteid, STRING fullpath) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+{
+  IF(fullpath lIKE "*/../*" OR fullpath LIKE "../*") //contains double dots
+    RETURN DEFAULT RECORD;
+
+  INTEGER value := LookupWHFSObject(siteid, fullpath);
+  RETURN value = -1 ? DEFAULT RECORD : FindFile(value);
+}
+
+
+
+
+/** @short   Find a folder by its name
+    @long    Retrieve a folder record from the FOLDERS table, based on its parent folder ID and name
+    @param   parentid ID of the parent folder
+    @param   foldername Name (case-insensitive) of the folder to look for
+    @return  The requested folder record, or a non-existing record if the folder does not exist
+*/
+PUBLIC RECORD FUNCTION FindFolderByName(INTEGER parentid, STRING foldername) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+{
+  RETURN SELECT *
+              , DELETE objecturl
+              , DELETE link
+           FROM system.fs_objects WHERE parent = VAR parentid AND ToUppercase(name) = ToUppercase(foldername) AND isfolder;
+}
+
+
+
+
+/** @short   Find a folder by its full path
+    @long    Retrieve a folder record from the FOLDERS table, based on its site ID and full path
+    @param   siteid ID of the site to look in
+    @param   fullpath Path (case-insensitive) of the folder to look for,
+    @return  The requested folder record, or a non-existing record if the folder does not exist
+*/
+PUBLIC RECORD FUNCTION FindFolderByFullPath(INTEGER siteid, STRING fullpath) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+{
+  IF(fullpath lIKE "*/../*" OR fullpath LIKE "../*") //contains double dots
+    RETURN DEFAULT RECORD;
+
+  INTEGER value := LookupWHFSObject(siteid, fullpath);
+  RETURN value = -1 ? DEFAULT RECORD : FindFolder(value);
+}
+
+
+
+
+/** @short   Returns an array of folder IDs from the root to the specified folder
+    @long    This function returns a path of folder IDs, starting with the root folder of the site, and ending with
+             the specified folder.
+             The function can be used to create navigation trees.
+    @param   folderid ID of the folder towards which a tree should be created
+    @return  An integer array of folder IDs representing every folder in the path.
+    @see     IsFolderAncestorOf GetFolderTree
+    @example
+// Uses an array of folder IDs and prints the complete path up
+// to folder with ID=30
+INTEGER ARRAY AllFolders := GetFolderTreeIDs(30);
+FOREVERY (INTEGER ThisFolder FROM AllFolders)
+{
+  RECORD FolderRecord := GetFolder (ThisFolder);
+  PRINT(FolderRecord.NAME || "<br>");
+}
+*/
+PUBLIC INTEGER ARRAY FUNCTION GetFolderTreeIDS(INTEGER folderid)
+{
+  INTEGER ARRAY folderids;
+
+  //Walk from folder to root, store the IDs of each folder in reversed order
+  FOR(RECORD curfolder := (SELECT id, parent, highestparent FROM system.fs_objects WHERE id=folderid AND isfolder);
+      RecordExists(curfolder);
+      curfolder := (SELECT id, parent, highestparent FROM system.fs_objects WHERE id=curfolder.parent AND isfolder))
+  {
+    INSERT curfolder.id INTO folderids AT 0;
+    IF(curfolder.highestparent = curfolder.id)
+      BREAK; //at site root
+  }
+
+  RETURN folderids;
+}
+
+/** @short   Returns an array of folder records from the root to the specified folder
+    @long    This function returns a path of folder records, starting with the root folder of the site, and ending with the
+             specified folder
+             The function can be used to create navigation trees. It is a bit less efficient but often more convenient than
+             GetFolderTreeIDs
+    @param   folderid ID of the folder towards which a tree should be created
+    @return  A record array of folders representing every folder in the path.
+    @see     IsFolderAncestorOf GetFolderTreeIDS
+*/
+PUBLIC RECORD ARRAY FUNCTION GetFolderTree(INTEGER folderid) __ATTRIBUTES__(DEPRECATED "Use GetFolderTreeIDs and WHFS api to access the actual sites")
+{
+  RECORD ARRAY treefolders;
+
+  //Walk from folder to root, store the IDs of each folder in reversed order
+  FOR(RECORD curfolder := FindFolder(folderid);
+      RecordExists(curfolder);
+      curfolder := FindFolder(curfolder.parent))
+  {
+    INSERT curfolder INTO treefolders AT 0;
+  }
+
+  RETURN treefolders;
+}
+
+
+/** @short   Check if a folder is a parent or ancestor of another folder
+    @param   parentid ID of the folder which might contain the child folder
+    @param   childid ID of the folder which is suspect to be a child of the parent folder.
+    @return  True if the folder with ID 'parentid' is an ancestor or parent of folder with ID 'childid', or is the same folder. Both folders must be in the same site
+    @see     GetFolderTreeIDs GetFolderTree
+    @example
+// Checks if folder with ID=2 is an ancestor of folder with ID=89
+BOOLEAN example1 := IsFolderAncestorOf(2,89);
+*/
+PUBLIC BOOLEAN FUNCTION IsFolderAncestorOf(INTEGER parentid, INTEGER childid)
+{
+   forevery (INTEGER id from GetFolderTreeIds(childid))
+   {
+     if (id = parentid)
+       return TRUE;
+   }
+   return FALSE;
+}
+
+STRING ARRAY FUNCTION GetTypeExtension (INTEGER type)
+{
+  SWITCH(type)
+  {
+    CASE 29       { RETURN [ ".prl" ]; }
+    CASE 28       { RETURN [ ".tpl" ]; }
+    CASE  4       { RETURN [ ".doc" ]; }
+    CASE  5,24    { RETURN [ ".html", ".htm" ]; }
+    CASE  6       { RETURN [ ".js" ]; }
+    CASE  7       { RETURN [ ".html", ".htm", ".shtml" ]; }
+    CASE  9       { RETURN [ ".css" ]; }
+    CASE 10       { RETURN [ ".tar.gz" ]; }
+    CASE 11       { RETURN [ ".pdf" ]; }
+    CASE 14       { RETURN [ ".zip" ]; }
+    CASE 16       { RETURN [ ".whlib" ]; }
+    CASE 18,19,20 { RETURN [ ".whlink" ]; }
+    CASE 21       { RETURN [ ".txt" ]; }
+    CASE 23       { RETURN [ ".xml" ]; }
+    CASE 25       { RETURN [ ".shtml" ]; }
+    CASE 26       { RETURN [ ".witty" ]; }
+    CASE 27       { RETURN [ ".siteprl" ]; }
+    DEFAULT       { RETURN DEFAULT STRING ARRAY; }
+  }
+}
+
+/** @short Check file type properties
+    @long Check file type properties, based on the file type
+    @param gettype File type to check
+    @return A record describing the requested type, or a non-existing record if this type does not exist
+    @cell return.isPublishable Is the file publishable
+    @cell return.isBaseable Can be used with based on
+    @cell return.isWithRealContent File has real (sensible) content
+    @cell return.isPublishedAsSubdir Will this document be published into a subdirectory?
+    @cell return.isAcceptableIndex Is this file acceptable as an index document?
+    @cell return.needsTemplate Files of this type must be associated with a template
+    @cell return.needsprofile Files of this type must be associated with a coversion profile
+    @cell return.publishintosubdir Files of this type are always published into a subdirectory
+    @cell return.extensions A string array of common extensions for this file type
+*/
+PUBLIC RECORD FUNCTION GetFileTypeProps(INTEGER gettype)
+{
+  RECORD fsinfo := SELECT namespace, id, isacceptableindex, needstemplate, needsprofile, ispublishedassubdir, ispublishable
+                     FROM system.fs_types
+                    WHERE id = gettype AND isfiletype;
+  IF(RecordExists(fsinfo))
+  {
+    //FIXME Get from siteprofiles
+    INSERT CELL isbaseable := gettype IN [5,7,16,21,22,23,25,26,27,28,29,30,31] INTO fsinfo;
+    INSERT CELL islinkable := gettype NOT IN [16,18,19,26,27,28,29] INTO fsinfo;
+    INSERT CELL iswithrealcontent := gettype NOT IN[18,19,20,24] INTO fsinfo;
+    INSERT CELL extensions := Gettypeextension(gettype) INTO fsinfo;
+  }
+  ELSE
+  {
+    fsinfo := [ id := gettype
+              , namespace := "http://www.webhare.net/xmlns/publisher/unknownfile"
+              , isacceptableindex := FALSE
+              , needstemplate := FALSE
+              , needsprofile := FALSE
+              , ispublishedassubdir := FALSE
+              , ispublishable := TRUE
+              , isbaseable := FALSE
+              , islinkable:=TRUE
+              , iswithrealcontent:=TRUE
+              , extensions := DEFAULT STRING ARRAY
+              ];
+  }
+  RETURN fsinfo;
+
+}
+
+
+/** @short Check file type properties, following linked files if necessary
+    @long Check the file type poperties. If the filetype is a link, and the
+          id of the linked file is supplied, the function will check for the
+          file type properties of the linked file.
+    @param filetype The filetype of which you want to check the poperties
+    @param filelinkid An optional id of a linked file.
+    @return File type info record, as returned by GetFiletypeProps */
+PUBLIC RECORD FUNCTION GetContentFileTypeProps(INTEGER filetype, INTEGER filelinkid )
+{
+  IF (filetype = 20 /*content link*/ AND filelinkid > 0 /* valid linked file specified */)
+  {
+    //chase the link!
+    RECORD linkedfile := SELECT type FROM system.fs_objects WHERE id=filelinkid AND NOT isfolder;
+    IF (RecordExists(linkedfile))
+      filetype := linkedfile.type;
+  }
+  RETURN GetFiletypeProps(filetype);
+}
+
+/** @short Read and parse a conversion profile
+    @param profileid ID of the profile to parse
+    @return The parsed profile record (both data and styles) */
+PUBLIC RECORD FUNCTION ReadConversionProfile(INTEGER profileid)
+{
+  RETURN ParseXMLProfile(SELECT AS BLOB data FROM system.fs_objects WHERE id=profileid);
+}
+
+/** @short Find the (closest) file associated with a URL on this server
+    @long LookupPublisherURL finds the associated URL and is the implementation between the Publisher's "Goto URL" function.
+          Preview and imagecache URLs are resolved back to the original file or folder.
+    @param url URL to look up
+    @param clientwebserver Optional ID of a specific webserver on which we should resolve this url
+    @return A record describing our guess at the URL's location
+    @cell(integer) return.webserver ID of the webserver associated with the URL (table system.webservers). 0 if the URL is not hosted here
+    @cell(integer) return.site Site ID. 0 if no site's webroot starts with this URL (not even through aliases)
+    @cell(integer) return.folder Folder ID containing the URL. 0 if no site was hosting this folder
+    @cell(integer) return.file File ID.
+*/
+PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, INTEGER clientwebserver DEFAULTSTO -1)
+{
+  RECORD result := [ webserver := 0
+                   , site := 0
+                   , folder := 0
+                   , file := 0
+                   , ispreview := FALSE
+                   , __directfile := 0
+                   ];
+
+  //Find the matching webserver
+  RECORD up := UnpackURL(url);
+  RECORD webserver;
+  IF(clientwebserver = -1)
+    webserver := LookupWebserver(GetHostedSites(), up.host, up.port);
+  ELSE
+    webserver := SELECT id, baseurl, isinterface := type=1 FROM system.webservers WHERE id = clientwebserver;
+
+  IF(NOT RecordExists(webserver))
+    RETURN result; //probably not even hosted here
+
+  result.webserver := webserver.id;
+  IF(up.urlpath LIKE ".publisher/preview/*")
+  {
+    STRING baseurl := Tokenize(Tokenize(Tokenize(Tokenize(up.urlpath, '/')[2],'?')[0],'#')[0],'&')[0];
+    RECORD data := DecryptForThisServer("publisher:preview", baseurl);
+    IF(RecordExists(data))
+    {
+      RECORD info := SELECT parent, parentsite, isfolder FROM system.fs_objects WHERE id = VAR data.id;
+      IF(RecordExists(info))
+      {
+        result.site := info.parentsite;
+        result.folder := info.isfolder ? data.id : info.parent;
+        result.file := info.isfolder ? (SELECT AS INTEGER indexdoc FROM system.fs_objects WHERE id = result.folder) : data.id;
+        result.__directfile := info.isfolder ? 0 : data.id;
+        result.ispreview  := TRUE;
+        RETURN result;
+      }
+    }
+  }
+
+  IF(up.urlpath LIKE ".uc/*")
+  {
+    TRY
+    {
+      RECORD src := GetCachedDataSourceMetadataFromURL(url);
+      RECORD objinfo;
+      IF(RecordExists(src) AND src.type = 2)
+      {
+        objinfo := SELECT fs_objects.id, fs_objects.isfolder, fs_objects.parent, fs_objects.parentsite
+                     FROM system.fs_settings, system.fs_instances, system.fs_objects
+                    WHERE fs_settings.id = src.id
+                          AND fs_settings.fs_instance = fs_instances.id
+                          AND fs_instances.fs_object = fs_objects.id
+                          AND fs_objects.isactive;
+      }
+      ELSE IF(RecordExists(src) AND src.type = 1)
+      {
+        objinfo := SELECT fs_objects.id, fs_objects.isfolder, fs_objects.parent, fs_objects.parentsite
+                     FROM system.fs_objects
+                    WHERE fs_objects.id=src.id
+                          AND fs_objects.isactive;
+
+      }
+      IF(RecordExists(objinfo))
+      {
+        RETURN [ webserver := webserver.id
+               , site := objinfo.parentsite
+               , folder := objinfo.isfolder ? objinfo.id : objinfo.parent
+               , file := objinfo.isfolder ? 0 : objinfo.id
+               , ispreview := FALSE
+               , __directfile := objinfo.isfolder ? 0 : objinfo.id
+               ];
+      }
+    }
+    CATCH(OBJECT e)
+    {
+      //ignore errors
+    }
+  }
+
+  RECORD best_match;
+  INTEGER findwebserver := webserver.id;
+  IF(webserver.isinterface) //all interface websites are actually aliases for the webserver hosting the webhare backend
+    findwebserver := SELECT AS INTEGER outputweb FROM system.sites WHERE id=16;
+
+  STRINg lookup := DecodeURL("/" || up.urlpath);
+  IF(debugurllookup) Print("lookup [" || lookup || "] on webserver #" || webserver.id || "\n");
+
+  best_match := SELECT *
+                  FROM system.sites
+                 WHERE outputweb = VAR findwebserver
+                       AND ToUppercase(lookup) LIKE ToUppercase(outputfolder || "*")
+                 ORDER BY Length(outputfolder) DESC LIMIT 1;
+  IF(NOT RecordExists(best_match))
+    RETURN result;
+
+  // Ignore host parts, they may differ (ports, http vs https)
+  url := up.urlpath;
+  best_match.webroot := UnpackURL(best_match.webroot).urlpath;
+
+  result.site := best_match.id;
+  url := DecodeURL(Substring(url, Length(best_match.webroot)));
+  WHILE(SearchSubstring(url,'//')!=-1)
+    url := Substitute(url,'//','/');
+
+  STRING baseurl := Tokenize(Tokenize(Tokenize(url,'?')[0],'#')[0],'&')[0];
+  STRING ARRAY urlparts := Tokenize(baseurl,'/');
+
+  RECORD cur := SELECT * FROM system.fs_objects WHERE id = best_match.root;
+  IF(debugurllookup) Print("best match: " || cur.whfspath || "\n");
+  RECORD foundfile;
+
+  FOREVERY (STRING part FROM urlparts)
+  {
+    IF(part="!")
+      BREAK;
+    IF(part="" OR part LIKE "!*")
+      CONTINUE;
+
+    BOOLEAN iscaretpart := part LIKE "^*";
+    STRING searchpart := iscaretpart ? Substring(part,1) : part;
+    IF(debugurllookup) Print("search part: " || searchpart || " at folder " || cur.id || "\n");
+    RECORD ARRAY candidates := SELECT id,name,published,isfolder,indexdoc
+                                 FROM system.fs_objects
+                                WHERE parent = cur.id
+                                      AND ToUppercase(name) LIKE ToUppercase(part || "*")
+                             ORDER BY Length(name);
+    IF(debugurllookup) { Print("candidates\n");dumpvalue(candidates,'boxed'); }
+    IF(Length(candidates)=0)
+      BREAK;
+
+    IF(ToUppercase(candidates[0].name) = ToUppercase(searchpart)) //exact name match
+    {
+      IF(Length(candidates)>=1 AND candidates[0].isfolder AND NOT iscaretpart)
+      {
+        IF(debugurllookup) Print("candidate is a match and a folder, go deeper\n");
+        //folder names must match exactly, and they did.
+        cur := candidates[0];
+        CONTINUE;
+      }
+      IF(NOT candidates[0].isfolder)
+        result.__directfile := candidates[0].id;
+      BREAK;
+    }
+    //not an exact match. second chance, match after extension stripping?
+    RECORD match := SELECT *
+                     FROM candidates
+                    WHERE TestFlagFromPublished(published, PublishedFlag_StripExtension)
+                          AND ToUppercase(GetBasenameFromPath(name)) = ToUppercase(searchpart);
+
+    IF(RecordExists(match))
+      result.__directfile := match.id;
+
+//    ABORT("not matching at " || searchpart);
+    BREAK;
+  }
+
+  result.folder := cur.id;
+
+  // If no exact file match was found, check if the folder's index url was requested and return the index
+  IF (result.__directfile = 0)
+  {
+    IF (up.urlpath = ""
+        OR up.urlpath LIKE "*/"
+        OR GetNameFromPath(up.urlpath) IN whconstant_webserver_indexpages)
+    {
+      IF(debugurllookup) Print("no candidate, select index doc for folder's index url\n");
+      result.__directfile := cur.indexdoc;
+    }
+  }
+  result.file := result.__directfile;
+  IF(result.file = 0) // Fallback to the index for this folder
+    result.file := cur.indexdoc;
+
+  RETURN result;
+}
+
+/** @short Gets the photo album properties a photo album folder
+    @param folderid Folder to query
+    @return A record describing the folder's photo album properties
+    @cell return.rows Number of thumbnail rows
+    @cell return.columns Number of thumbnail columns
+    @cell return.picturesize Maximum width/height in pixels for the individual pictures
+    @cell return.thumbnailsize Maximum width/height in pixels for the thumbnails
+*/
+
+PUBLIC RECORD FUNCTION GetPhotoalbumProps(INTEGER folderid)
+{
+  RECORD photoalbuminstance := OpenWHFSType("http://www.webhare.net/xmlns/publisher/photoalbum")->GetInstanceData(folderid);
+
+  RETURN [ rows := ToInteger(photoalbuminstance.rows,5)
+         , columns := ToInteger(photoalbuminstance.columns,5)
+         , photowidth      := photoalbuminstance.picturewidth != 0    ? photoalbuminstance.picturewidth    : ToInteger(photoalbuminstance.picturesize,800)
+         , photoheight     := photoalbuminstance.pictureheight != 0   ? photoalbuminstance.pictureheight   : ToInteger(photoalbuminstance.picturesize,800)
+         , thumbnailwidth  := photoalbuminstance.thumbnailwidth != 0  ? photoalbuminstance.thumbnailwidth  : ToInteger(photoalbuminstance.thumbnailsize,100)
+         , thumbnailheight := photoalbuminstance.thumbnailheight != 0 ? photoalbuminstance.thumbnailheight : ToInteger(photoalbuminstance.thumbnailsize,100)
+         , publishoriginals := photoalbuminstance.publishoriginals
+         ];
+}
+
+//limit a picture's size to specific dimensions
+RECORD FUNCTION CalcOutputPicSize(INTEGER picturewidth, INTEGER pictureheight, INTEGER maxwidth, INTEGER maxheight)
+{
+  IF(picturewidth<1 OR pictureheight<1)
+    RETURN DEFAULT RECORD;
+
+  //Calculate required horizonal compression
+  INTEGER x_compression_factor := maxwidth * 100000 / picturewidth;
+  INTEGER y_compression_factor := maxheight * 100000 / pictureheight;
+
+  //Get the smallest compression factor (this will guarantee both height and width fall inside their max)
+  INTEGER image_compression_factor;
+  IF (y_compression_factor < x_compression_factor)
+    image_compression_factor := y_compression_factor;
+  ELSE
+    image_compression_factor := x_compression_factor;
+
+  RECORD retval;
+  IF (image_compression_factor < 100000)
+  {
+    retval := [resize_width  := picturewidth * image_compression_factor / 100000,
+               resize_height := pictureheight * image_compression_factor / 100000,
+               resize := TRUE];
+  }
+  ELSE
+  {
+    retval := [resize_width  := picturewidth,
+              resize_height := pictureheight,
+              resize := FALSE];
+  }
+  IF(retval.resize_width<=0)
+    retval.resize_width := 1;
+  IF(retval.resize_height<=0)
+    retval.resize_height := 1;
+  RETURN retval;
+}
+
+/** @short Get information about a photoalbum folder
+    @long This function described a photoalbum, allowing you to create custom links to the folders. All returned links are absolute
+    @param folderid Folder id of the photoalbum
+    @return A record array describing the photos
+    @cell return.originallink A link to the original version of the photo. Empty if publication of original versions is disabled
+    @cell return.photolink A link to the resized photo
+    @cell return.thumbnaillink A link to the resized thumbnail
+    @cell return.photoid A 1-based sequence number of the photo
+    @cell return.id Photo file id (system.fs_objects)
+    @cell return.name Photo file name
+    @cell return.data Raw original photo data
+    @cell return.title Photo title
+    @cell return.description Photo description
+    @cell return.originalwidth Original width
+    @cell return.originalheight Original height
+    @cell return.photowidth Picture width on the link page
+    @cell return.photoheight Picture height on the link page
+    @cell return.thumbnailwidth Picture width on the link page
+    @cell return.thumbnailheight Picture height on the link page
+    */
+PUBLIC RECORD ARRAY FUNCTION GetPhotoalbumContents(INTEGER folderid)
+{
+  RECORD props := GetPhotoalbumProps(folderid);
+
+  //The photos are in the current folder and no SetPhotoSet was tried.
+  //This is the new v2.3 photoalbum code, so just use the files in this folder as the photoset
+  //ADDME: Use GetFileSubpageUrl ?
+  RECORD folderinfo := SELECT objecturl, type FROM system.fs_objects WHERE id=folderid;
+  IF(NOT RecordExists(folderinfo) OR folderinfo.type!=3)
+    RETURN DEFAULT RECORD ARRAY;
+
+  RECORD ARRAY photofiles := SELECT name
+                     , data
+                     , title
+                     , description
+                     , __filetoplink := objecturl
+                     , __filesubfolder := folderinfo.objecturl || "^" || encodeurl(name) || "/"
+                     , id
+                  FROM system.fs_objects AS files
+                 WHERE files.parent=folderid
+                       AND files.type = 12 //http://www.webhare.net/xmlns/publisher/imagefile
+                       AND files.publish = TRUE
+               ORDER BY ordering, ToUppercase(title), ToUppercase(name);
+
+  RECORD ARRAY outputphotos;
+  FOREVERY(RECORD photo FROM photofiles)
+  {
+    //Failed autodetect? Try it manually
+    RECORD imginfo := ScanBlob(photo.data, photo.name);
+    IF(imginfo.width = 0)
+      CONTINUE; //broken picture, ignore
+
+    RECORD resizephoto := ExplainImageProcessing(imginfo, [ method := "fit", setwidth := props.photowidth, setheight := props.photoheight ]);
+    RECORD resizethumb := ExplainImageProcessing(imginfo, [ method := "fit", setwidth := props.thumbnailwidth, setheight := props.thumbnailheight ]);
+
+    STRING basename := Left(GetBasenameFromPath(photo.name),200);
+    IF (ToUppercase(photo.name) LIKE "*.JPG")
+    {
+      INSERT CELL photolink := photo.__filetoplink INTO photo;
+      INSERT CELL originallink := props.publishoriginals ? photo.__filesubfolder || "full-" || EncodeURL(basename) || ".jpg" : ""INTO photo;
+    }
+    ELSE
+    {
+      INSERT CELL photolink := photo.__filesubfolder || "resized-" || EncodeURL(basename) || ".jpg" INTO photo;
+      INSERT CELL originallink := props.publishoriginals ? photo.__filetoplink : "" INTO photo;
+    }
+    INSERT CELL thumbnaillink := photo.__filesubfolder || "thumbnail-" || EncodeURL(basename) || ".jpg" INTO photo;
+    INSERT CELL photoid := #photo + 1 INTO photo;
+    DELETE CELL __filetoplink FROM photo;
+    DELETE CELL __filesubfolder FROM photo;
+    INSERT CELL photowidth := resizephoto.outwidth INTO photo;
+    INSERT CELL photoheight := resizephoto.outheight INTO photo;
+    INSERT CELL originalwidth := imginfo.width INTO photo;
+    INSERT CELL originalheight := imginfo.height INTO photo;
+    INSERT CELL thumbnailwidth := resizethumb.outwidth INTO photo;
+    INSERT CELL thumbnailheight := resizethumb.outheight INTO photo;
+    INSERT photo INTO outputphotos AT END;
+  }
+  RETURN outputphotos;
+}
+
+/** Get a file stored by CreateDBFile
+    @param objectid File id that created the file
+    @param findfilename Filename to lookup
+    @return The created blob, or a default blob if the file was not found or empty */
+PUBLIC BLOB FUNCTION GetPublishedDBFile(INTEGER objectid, STRING findfilename)
+{
+  OBJECT dbpub := OpenWHFSType("http://www.webhare.net/xmlns/publisher/dbpublication");
+  RECORD dbdata := dbpub->GetInstanceData(objectid);
+  RECORD outfile := SELECT AS RECORD data FROM dbdata.dbfiles WHERE ToUppercase(filename) = ToUppercase(findfilename);
+  RETURN Recordexists(outfile) ? outfile.data : DEFAULT BLOB;
+}
+
+/** Get multiple database-published files
+    @param objectids List of file ids for which to lookup the created file
+    @param filenamemask Filename to lookup
+    @return A list of found files
+    @cell(integer) return.whfsobject The fsobject that published this file
+    @cell(string) return.filename Filename used for published file
+    @cell(blob) return.data File contents */
+PUBLIC RECORD ARRAY FUNCTION GetPublishedDBFiles(INTEGER ARRAY objectids, STRING filenamemask)
+{
+  OBJECT dbpub := OpenWHFSType("http://www.webhare.net/xmlns/publisher/dbpublication");
+  RECORD ARRAY allobjs := dbpub->GetBulkData(objectids, ["DBFILES"]);
+
+  RECORD ARRAY retval;
+  FOREVERY(RECORD obj FROM allobjs)
+    FOREVERY(RECORD file FROM obj.dbfiles)
+      IF(ToUppercase(file.filename) LIKE ToUppercase(filenamemask))
+        INSERT [ whfsobject := objectids[#obj]
+               , filename := file.filename
+               , data := RecordExists(file.data) ? file.data.data : DEFAULT BLOB
+               ] INTo retval AT END;
+
+  RETURN retval;
+}
+
+/** @short Format a whfs instance rich document
+    @long Get a richdocument from contenttype data and format it with embedded links. This function does not supported
+          embedded objects
+    @param indata Richdocument to format
+    @return HTML code for the document */
+PUBLIC BLOB FUNCTION GetRichDocumentAsHtmlFragment(RECORD indata)
+{
+  IF(NOT RecordExists(indata))
+    RETURN DEFAULT BLOB;
+  IF(Length(indata.embedded)=0 AND Length(indata.links)=0)
+    RETURN indata.htmltext;
+
+  //ADDME More robust approach? (global search replace might be dangerous, then again, who would ever manualle generate something that looks like a CID)
+  STRING input := BlobToString(indata.htmltext, Length(indata.htmltext));
+  FOREVERY(RECORD embed FROM indata.embedded)
+  {
+    STRING url := GetCachedImageLink(embed, [ method := "none", fixorientation := TRUE ]);
+    input := Substitute(input, "cid:" || embed.contentid, url);
+  }
+
+  IF(Length(indata.links)>0)
+  {
+    INTEGER ARRAY linkids := SELECT AS INTEGER ARRAY DISTINCT linkref FROM indata.links WHERE linkref != 0;
+    RECORD ARRAY mappedlinks;
+    IF(Length(linkids)>0)
+      mappedlinks := SELECT id, url := objecturl FROM system.fs_objects WHERE id IN linkids;
+
+    FOREVERY(RECORD link FROM indata.links)
+    {
+      STRING useurl := SELECT AS STRING url FROM mappedlinks WHERE id = link.linkref;
+      input := Substitute(input, "x-richdoclink:" || link.tag, useurl);
+    }
+  }
+
+  RETURN StringToBlob(input);
+}
+
+/** @short Get the destination of an internal/external link field
+    @param intextlink The intext link
+    @return The link or an empty string if the link was not set or referred to a nonexisting internal file */
+PUBLIC STRING FUNCTION GetIntextlinkTarget(RECORD intextlink)
+{
+  IF(NOT RecordExists(intextlink))
+    RETURN "";
+  IF(intextlink.externallink!="")
+    RETURN intextlink.externallink;
+  IF(intextlink.internallink=0)
+    RETURN "";
+  STRING url := SELECT AS STRING indexurl FROM system.fs_objects WHERE id = intextlink.internallink AND isactive;
+  IF (url != "")
+    RETURN url || intextlink.append;
+  RETURN "";
+}
+
+/** @short Get the destination of an internal/external link field stored as a string
+    @param intextlinkstring String representation of the intext link
+    @return The link or an empty string if the link was not set or referred to a nonexisting internal file */
+PUBLIC STRING FUNCTION GetStringIntExtLinkTarget(STRING intextlinkstring)
+{
+  RETURN GetIntExtlinkTarget(ParseIntExtLinkString(intextlinkstring));
+}
+
+/** @short Create an intextlink record for an internal link
+    @param fsref Filesystem object we're referring to
+    @param append What to append to the URL (emtpy, ?..., #... or !...)
+    @return An intextlink record */
+PUBLIC RECORD FUNCTION MakeIntExtInternalLink(INTEGER fsref, STRING append)
+{
+  //enforcing this leaves the option open to support getsubpageurl in the future
+  IF(Left(append,1) NOT IN ["","?","#","!"])
+    THROW NEW Exception("The append must start with either '?', '#' or '!'");
+  RETURN [ internallink := fsref, externallink := "", append := append ];
+}
+
+/** @short Create an intextlink record for an external link
+    @param href Full URL to link to
+    @return An intextlink record */
+PUBLIC RECORD FUNCTION MakeIntExtExternalLink(STRING href)
+{
+  RETURN [ internallink := 0, externallink := href, append := "" ];
+}
+
+/** @short Get a preview link for a page
+    @param fsobject FS object to show (live version)
+    @cell options.validuntil Validity of the link. Defaults to 1 day
+    @cell options.password Password to protect the preview with
+    @cell options.version Exact version to view (eg a draft).
+    @return Preview url. An empty URL if this object cannot be previewed (the site has no output URL) */
+PUBLIC STRING FUNCTION GetPreviewLink(INTEGER fsobject, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ validuntil := DEFAULT DATETIME
+                              , password := ""
+                              , version := 0
+                              ], options);
+
+  IF(options.validuntil = DEFAULT DATETIME)
+    options.validuntil := AddDaysToDate(1, GetCurrentDatetime());
+
+  INTEGER showversion := options.version ?? fsobject;
+  RECORD typedata := SELECT generatepreview
+                         , previewlibrary
+                         , previewobjectname
+                      FROM system.fs_types
+                     WHERE id = (SELECT AS INTEGER type FROM system.fs_objects WHERE id = showversion);
+
+  BOOLEAN has_custom_preview := RecordExists(typedata) AND typedata.previewlibrary != "" AND typedata.previewobjectname != "";
+  IF (has_custom_preview)
+  {
+    OBJECT previewobject := MakeObject(typedata.previewlibrary, typedata.previewobjectname);
+    IF (NOT (previewobject EXTENDSFROM PreviewObjectBase))
+      THROW NEW Exception(`Previewobject ${typedata.previewobjectname} does not extend from PreviewObjectBase`);
+
+    STRING url := previewobject->GetPreviewUrl(showversion);
+    IF(url != "")
+      RETURN url;
+  }
+
+  STRING baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = fsobject;
+  IF(baseurl = "")
+    RETURN "";
+
+  RECORD viewdata := [ id := showversion, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = showversion), v := options.validuntil, p := options.password ];
+  STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
+  RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
+}

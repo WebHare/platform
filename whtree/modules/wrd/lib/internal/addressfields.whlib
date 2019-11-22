@@ -1,0 +1,118 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/localization.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
+LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
+
+
+/** @short Parse a rawdata address
+    @long The address is stored in java-encoded, linefeed separated, value=data pairs */
+PUBLIC RECORD FUNCTION ParseAddressRawdata(STRING data)
+{
+  STRING ARRAY curaddresstoks:=Tokenize(data,'\n');
+  RECORD retdata := CELL[];
+  FOREVERY(STRING tok FROM curaddresstoks)
+  {
+    INTEGER equals := SearchSubstring(tok,'=');
+    IF(equals<1)
+      CONTINUE;
+
+    STRING fieldname := Left(tok,equals);
+    STRING fielddata := Substring(tok,equals+1,Length(tok));
+    IF (NOT CellExists(retdata, fieldname))
+      retdata := CellInsert(retdata,DecodeJava(fieldname),DecodeJava(fielddata));
+  }
+  RETURN retdata;
+}
+
+PUBLIC STRING FUNCTION GetDisplayValueForParsedAddress(RECORD rawaddress, STRING language, BOOLEAN showcountry)
+{
+  STRING countrycode := CellExists(rawaddress,"country") ? rawaddress.country : "";
+  /* Look up address information for this country */
+  RECORD info := __GetWRDAddressInfo(countrycode,language);
+  RECORD ARRAY fields := info.fields;
+
+  STRING displayvalue;
+  IF(info.addressformat != "")
+  {
+     //TODO Cache the witty!
+    OBJECT addresswitty := NEW WittyTemplate("TEXT");
+    addresswitty->LoadCodeDirect(DecodeJava(info.addressformat));
+    displayvalue := addresswitty->RunToString(rawaddress);
+  }
+  ELSE
+  {
+    FOREVERY(RECORD subfield FROM fields)
+    {
+      STRING cellvalue;
+      IF(CellExists(rawaddress,subfield.tag))
+        cellvalue:=GetCell(rawaddress,subfield.tag);
+
+      INSERT CELL value := cellvalue INTO fields[#subfield];
+
+      displayvalue := displayvalue || cellvalue;
+
+      //Append a break if requested, but only if this is not the first line and the preceding line was not empty.
+      IF (displayvalue != "" AND Right(displayvalue,1)!="\n")
+        displayvalue := displayvalue || (subfield.break_after ? '\n' : ' ');
+    }
+  }
+
+  // Add the country
+  IF(showcountry)
+  {
+    // Add an break (if needed)
+    IF (displayvalue!="" AND Right(displayvalue,1)!="\n")
+      displayvalue := displayvalue || '\n';
+
+    displayvalue := displayvalue ||
+        (SELECT AS STRING title
+           FROM GetWRDCountryList(language, countrycode)
+          WHERE code = ToUppercase(countrycode));
+  }
+  RETURN TrimWhitespace(displayvalue);
+}
+
+PUBLIC STRING FUNCTION ParseAddressForList (STRING data, STRING language, INTEGER schema_id)
+{
+  RECORD rawaddress := ParseAddressRawdata(data);
+
+  RETURN GetDisplayValueForParsedAddress(rawaddress, language, TRUE);
+}
+
+RECORD FUNCTION GetCachableCountryNameList(STRING language)
+{
+  RETURN
+      [ value :=      (SELECT code, title := GetCell(row, language) FROM GetCountryList(language) AS row ORDER BY code)
+      , ttl :=        60 * 60 * 1000
+      ];
+}
+
+PUBLIC RECORD FUNCTION GenerateAddress(STRING rawvalue, STRING currentlanguage, INTEGER wrd_schema, BOOLEAN with_country_full)
+{
+  // These fields always exist; other fields may also appear, depending on the country.
+  STRING ARRAY guaranteed_fields := with_country_full
+      ? [ "COUNTRY", "STREET", "LOCATIONDETAIL", "NR_DETAIL", "ZIP", "CITY", "COUNTRY_FULL" ]
+      : [ "COUNTRY", "STREET", "LOCATIONDETAIL", "NR_DETAIL", "ZIP", "CITY" ];
+
+  RECORD address := ParseAddressRawdata(rawvalue);
+
+  FOREVERY (STRING field FROM guaranteed_fields)
+    IF (NOT CellExists(address, field))
+      address := CellInsert(address, field, "");
+
+  IF (with_country_full AND address.country != "")
+  {
+    RECORD ARRAY countries := GetAdhocCached([ lang := currentlanguage ], PTR GetCachableCountryNameList(currentlanguage));
+    STRING code := ToUppercase(address.country);
+    RECORD pos := RecordLowerBound(countries, [ code := code ], [ "CODE" ]);
+    IF (pos.found)
+      address.country_full := countries[pos.position].title;
+  }
+
+  RETURN address;
+}

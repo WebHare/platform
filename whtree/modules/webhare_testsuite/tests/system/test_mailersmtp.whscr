@@ -1,0 +1,314 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/testfw/emails.whlib";
+LOADLIB "mod::system/lib/testfw/smtpsimulator.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
+
+
+OBJECT mailserverobject;
+
+MACRO Prepare()
+{
+  INTEGER mailserverport := testfw->GetServerPort();
+  STRING testmailserver := "smtp://127.0.0.1:" || mailserverport;
+  mailserverobject := GetSMTPReceiver("127.0.0.1", mailserverport, [ directbouncemasks := ["bounce.*"], bouncehandling := "SES"]);
+
+  testfw->BeginWork();
+  INSERT [ tag         := "webhare_testsuite:testmailersmtp"
+         , mask        := "*@smtp.beta.webhare.net"
+         , serverurl   := testmailserver
+         , sendermask  := "*@bounce.beta.webhare.net *@sender.beta.webhare.net"
+         , ordering    := -99999
+         , description := "Created by test_mailsersmtp"
+         ] INTO system.mailqueue_route;
+
+  testfw->CommitWork();
+}
+
+MACRO MailSendTest()
+{
+  testfw->StartTrans("~webhare",TRUE);
+
+  RECORD ARRAY mails;
+
+  QueueSimpleMail("webhare_testsuite:system.mailertest", "info@sender.beta.webhare.net", ["to@beta.webhare.net"], DEFAULT STRING ARRAY, DEFAULT STRING ARRAY, "A test of the mail€r service™", "This is the test: &euro; € ümlaut ßß", DEFAULT RECORD ARRAY, TRUE);
+
+  mails := testfw->extractallmailfor("to@beta.webhare.net");
+  TestEq(1,Length(mails));
+
+  OBJECT htmlbody := MakeXMLDocumentFromHTML(mails[0].toppart.subparts[1].data);
+  OBJECT para := htmlbody->GetElementsByTagName("p")->Item(0);
+  TestEq("This is the test: \u20AC \u20AC \u00FCmlaut \u00DF\u00DF" , para->textcontent);
+
+  QueueSimpleMail("webhare_testsuite:system.mailertest", "info@sender.beta.webhare.net", ["to@beta.webhare.net"], DEFAULT STRING ARRAY, DEFAULT STRING ARRAY, "A test of the mail€r service™", "This is the test: &euro; € ümlaut ßß", [[ data := StringToBlob("test") ]], FALSE);
+
+  mails := testfw->extractallmailfor("to@beta.webhare.net");
+  TestEq(1,Length(mails));
+
+  STRING text := BlobToString(mails[0].toppart.subparts[0].data, -1);
+  TestEq("This is the test: &euro; \u20AC \u00FCmlaut \u00DF\u00DF" , text); //as it's TEXT, the &euro; should be untouched
+  TestEq(4, Length(mails[0].toppart.subparts[1].data));
+
+  QueueSimpleMail("webhare_testsuite:system.mailertest", "info@sender.beta.webhare.net",
+    ["to+1@beta.webhare.net,to+2@beta.webhare.net"],
+    ["to+3@beta.webhare.net,to+4@beta.webhare.net"],
+    ["to+5@beta.webhare.net,to+6@beta.webhare.net"],
+    "Multiple receiver", "Multiple receiver test", DEFAULT RECORD ARRAY, TRUE);
+
+  mails := testfw->extractallmailfor("to+1@beta.webhare.net");
+  TestEq(1,Length(mails));
+  mails := testfw->extractallmailfor("to+5@beta.webhare.net");
+  TestEq(1,Length(mails));
+
+  Sleep(1); //ensure time between the mails
+
+  RECORD toppart := CreateMIMEMailingTopPart(DEFAULT BLOB, DEFAULT BLOB, DEFAULT RECORD ARRAY);
+  RECORD ARRAY headers := [ [ field := "Subject", value := "subject" ], [ field := "To", value := "to+2@beta.webhare.net" ] ];
+  QueueMail("webhare_testsuite:system.mailertest", ["to+2@beta.webhare.net"], "info@sender.beta.webhare.net", headers, toppart);
+
+  mails := testfw->extractallmailfor("to+2@beta.webhare.net");
+  TestEq(2,Length(mails));
+  //DumpValue(mails,'tree'); //for debugging of test failure
+
+  RECORD ARRAY fromheaders := SELECT * FROM mails[0].headers WHERE ToUppercase(field)="FROM";
+  TestEq(1,Length(fromheaders));
+
+  testfw->BeginWork();
+
+  WriteRegistryKey("system.services.smtp.mailfrom", "tempsender@webhare.net");
+
+  QueueMailInWork("webhare_testsuite:system.mailertest", ["to+2@beta.webhare.net"], "", headers, toppart);
+  mails := testfw->extractallmailfor("to+2@beta.webhare.net");
+  TestEq(1,Length(mails));
+  //DumpValue(mails,'tree'); //got a Expected: 1, got: 0 on the belwo test, let's dump it to see....
+
+  fromheaders := SELECT * FROM mails[0].headers WHERE ToUppercase(field)="FROM";
+  TestEq(1,Length(fromheaders)); //should have received a fallback
+  TestEq("tempsender@webhare.net", fromheaders[0].value);
+  testfw->RollbackWork(); //undo registry change
+
+  testfw->EndTrans();
+}
+
+MACRO MailSendInWorkTest()
+{
+  TestEq(0, Length(mailserverobject->messages), 'mailqueue should be empty at start of test');
+
+  OBJECT composer := MakeEmailComposer();
+  composer->mailfrom := "info@sender.beta.webhare.net";
+  composer->mailto := "to@smtp.beta.webhare.net";
+  composer->subject := "A test of the mail€r service™";
+  composer->SetRichBody(StringToBlob("This is the test: &euro; € ümlaut ßß"), "text/plain");
+
+  TestThrows(PTR composer->QueueMailInWork());
+
+  testfw->BeginWork();
+  composer->QueueMailInWork();
+  testfw->RollbackWork();
+
+  RECORD ARRAY mails;
+  mails := mailserverobject->messages;
+  TestEq(0, Length(mails));
+
+  testfw->BeginWork();
+  INTEGER mailid := composer->QueueMailInWork()[0];
+  testfw->CommitWork();
+
+  RetrieveManagedTaskResult(mailid,MAX_DATETIME);
+  mails := mailserverobject->messages;
+
+//  mails := testfw->ExtractAllMailFor("to@beta.webhare.net", [ peekonly := TRUE ]);
+  TestEq(1, Length(mails));
+
+  RECORD mimemessage := DecodeMIMEMessage(mails[0].data);
+  //dumpvalue(mimemessage);
+
+  STRING messageid := SELECT AS STRING value FROM mimemessage.headers WHERE ToUppercase(field)="MESSAGE-ID";
+  TestEq(TRUE, messageid != "", 'Message should have a messageid');
+  DATETIME maxwait := AddTimeToDate(60*1000, GetCurrentDatetime()); //timeout after one minute
+  SendBounceToSNSEndpoint(messageid, "Delivery", "to@smtp.beta.webhare.net");
+
+  RECORD describe := DescribeManagedTask(mailid);
+  //DumpValue(describe);
+  TestEQ(TRUE, CellExists(describe.metadata, 'delivery'));
+  TestEQ(FALSE, CellExists(describe.metadata, 'complaint'));
+
+  SendBounceToSNSEndpoint(messageid, "Bounce", "to@smtp.beta.webhare.net");
+  //dupe post shouldn't crash
+  SendBounceToSNSEndpoint(messageid, "Bounce", "to@smtp.beta.webhare.net");
+
+  describe := DescribeManagedTask(mailid);
+  TestEQ(TRUE, CellExists(describe.metadata, 'bounce'));
+  TestEq("failed", describe.metadata.bounce.bounceaction);
+  TestEq(TRUE, describe.metadata.bounce.ispermanent);
+
+  SendBounceToSNSEndpoint(messageid, "Complaint", "to@smtp.beta.webhare.net");
+  describe := DescribeManagedTask(mailid);
+  TestEQ(TRUE, CellExists(describe.metadata, 'complaint'));
+}
+
+MACRO MailSendWithCallbackTest()
+{
+  mailserverobject->DeleteAllMessages();
+
+  OBJECT composer := MakeEmailComposer();
+  composer->mailfrom := "info@sender.beta.webhare.net";
+  composer->mailto := "to@smtp.beta.webhare.net";
+  composer->subject := "A test of the bounce handlers";
+  composer->SetRichBody(StringToBlob("This is the test: &euro; € ümlaut ßß"), "text/plain");
+
+  testfw->BeginWork();
+  DeleteManagedTasks(SELECT AS INTEGER ARRAY id FROM LookupManagedTasks("system:mailstatuscallback"));
+  WriteRegistryKey("webhare_testsuite.tests.response", "");
+  INTEGER mailid := composer->QueueMailInWork( [ statuscallback := "mod::webhare_testsuite/lib/system/callbacks.whlib#OnMailCallback", statusdata := "42" ])[0];
+  testfw->CommitWork();
+
+  RetrieveManagedTaskResult(mailid, MAX_DATETIME);
+
+  RECORD mimemessage := DecodeMIMEMessage(mailserverobject->messages[0].data);
+  STRING messageid := SELECT AS STRING value FROM mimemessage.headers WHERE ToUppercase(field)="MESSAGE-ID";
+
+  SendBounceToSNSEndpoint(messageid, "Bounce", "to@smtp.beta.webhare.net");
+  //Wait for all notification tasks to be done
+  FOREVERY(RECORD task FROM LookupManagedTasks("system:mailstatuscallback"))
+    RetrieveManagedTaskResult(task.id, MAX_DATETIME);
+
+  TestEq("bounce", ReadRegistryKey("webhare_testsuite.tests.response"));
+}
+
+MACRO MailNewComposerSendTest()
+{
+  mailserverobject->DeleteAllMessages();
+
+  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/simplemail.html.witty"));
+  outmail->mergerecord := [ firstname := "Pietje"
+                          , thelink := "http://example.net/"
+                          , extra := ""
+                          ];
+  outmail->mailfrom := "info@sender.beta.webhare.net";
+  outmail->mailto := "to@smtp.beta.webhare.net";
+  outmail->replyto := "replyto@beta.webhare.net";
+  outmail->errorsto := "errorsto@sender.beta.webhare.net";
+  outmail->AddAttachment(StringToBlob("Hi Everybody!"), [ filename := "drnick.txt", mimetype := "text/x-doctorsnote" ]);
+  outmail->AddAttachment(outmail->ExportAsEML());
+
+  BLOB agendaitem := StringToBlob("FIXME TRUE ICS FILE");
+  outmail->AddAlternative(agendaitem, [ filename := "afspraak.ics", mimetype := "text/calendar; charset=\"utf-8\"; method=REQUEST" ]);
+
+  testfw->BeginWork();
+  INTEGER mailid := outmail->QueueMailInWork()[0];
+  TestEq("Mail subjéct", DescribeManagedTask(mailid).data.subject, "Should see unencoded subject in task data (so mailpanel shows it correctly)");
+  testfw->CommitWork();
+
+  RetrieveManagedTaskResult(mailid, MAX_DATETIME);
+  STRING ARRAY rawoutput := Tokenize(Substitute(BlobToString(mailserverobject->messages[0].data),"\r",""),"\n");
+  STRING subject := SELECT AS STRING line FROM ToRecordArray(rawoutput,"line") WHERE ToUppercase(line) LIKE "SUBJECT:*";
+  //ensure no double encoding
+  TestEq("Subject: =?ISO-8859-1?Q?Mail_subj=E9ct?=", subject);
+}
+
+ASYNC MACRO TestInspectMailqueue()
+{
+  AWAIT ExpectScreenChange(+1, PTR RunMailQueueDialog(GetTestController(), "*simplemail*"));
+  RECORD ARRAY mails := SELECT * FROM tt("monitor")->contents->mailqueue->rows WHERE NOT iscancelled;
+  TestEq(2,Length(mails));
+
+  TT("monitor")->contents->mailqueue->selection := SELECT * FROM mails WHERE receiver = "to@smtp.beta.webhare.net";
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":View"));
+  TestEq("<info@sender.beta.webhare.net>", TT(":From")->value);
+  TestEq("<replyto@beta.webhare.net>", TT(":Reply-To")->value);
+  TestEq("<errorsto@sender.beta.webhare.net>", TT(":Errors-To")->value);
+
+  STRING contenturl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), TT("mailcontents->preview")->__GetContentURL());
+
+  BOOLEAN success := AWAIT testfw->browser->AsyncGotoWebPage(contenturl);
+  OBJECT ARRAY imgs := testfw->browser->document->GetElements("img");
+  TestEq(3, Length(imgs));
+
+  TestEq(TRUE, AWAIT testfw->browser->AsyncGotoWebPage(imgs[0]->GetAttribute("src")));
+  TestEq("image/png", testfw->browser->contenttype);
+  TestEqLike("https:*webhare.com*", imgs[1]->GetAttribute("src"));
+  TT("mailcontents->attachmentrows")->selection := TT("mailcontents->attachmentrows")->rows[0];
+
+  RECORD download := AWAIT ExpectSentWebFile(PTR TTClick("mailcontents->downloadattachment"));
+  TestEq("Hi Everybody!", BlobToString(download.file.data));
+  TestEq("drnick.txt", download.file.filename);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+MACRO SMTPManagerTest()
+{
+  /* On macOS this test requires:
+     sudo ifconfig lo0 alias 127.0.0.2
+     sudo ifconfig lo0 alias 127.0.0.3 */
+
+  // Open receiver on a fresh port
+  INTEGER mgr_mailserverport := testfw->GetServerPort();
+  OBJECT mgr_mailserverobject := GetSMTPReceiver("0.0.0.0", mgr_mailserverport, [ directbouncemasks := ["bounce.*"], bouncehandling := "SES" ]);
+
+  OBJECT mgr := NEW WebHareSMTPManager();
+
+  mgr->maxconnectionidle := 500; // keep for .5 sec
+
+  // See if no connections are opened for all 127.0.0.X addresses that localhosts.beta.webhare.net returns
+  mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`);
+  TestEQ(1, mgr_mailserverobject->connectioncount);
+
+  mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`);
+  TestEQ(1, mgr_mailserverobject->connectioncount);
+
+  // wait beyond the max idle time of 500ms
+  DATETIME now := GetCurrentDatetime();
+  WaitUntil(DEFAULT RECORD, AddTimeToDate(510, now));
+
+  // over max connection age, should open new connection
+  mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`);
+  TestEQ(2, mgr_mailserverobject->connectioncount);
+
+  // Make sure the connection is somewhat longer alive
+  mgr->maxconnectionidle := 10000; // keep for 10 seconds
+  mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`);
+  TestEQ(2, mgr_mailserverobject->connectioncount);
+
+  // Kill the smtp server and its connections, start a new one
+  mgr_mailserverobject->Close();
+  mgr_mailserverobject := GetSMTPReceiver("0.0.0.0", mgr_mailserverport, [ directbouncemasks := ["bounce.*"], bouncehandling := "SES"]);
+
+  // Should detect that the connection is broken
+  mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`);
+  TestEQ(1, mgr_mailserverobject->connectioncount);
+
+  // kill the connection again. Should detect broken connection, fail to open a new one
+  mgr_mailserverobject->Close();
+  TestEQ(DEFAULT OBJECT, mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`).conn);
+
+  // Open a new SMTP server, connection failure should not be cached
+  mgr_mailserverobject := GetSMTPReceiver("0.0.0.0", mgr_mailserverport, [ directbouncemasks := ["bounce.*"], bouncehandling := "SES"]);
+  TestEQ(TRUE, ObjectExists(mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`).conn));
+  TestEQ(1, mgr_mailserverobject->connectioncount);
+}
+
+RunTestframework([ PTR Prepare
+                 , PTR MailSendTest
+                 , PTR MailSendInWorkTest
+                 , PTR MailSendWithCallbackTest
+                 , PTR MailNewComposerSendTest
+                 , PTR TestInspectMailqueue
+                 , PTR SMTPManagerTest()
+                 ]);

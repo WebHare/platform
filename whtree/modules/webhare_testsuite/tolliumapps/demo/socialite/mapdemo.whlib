@@ -1,0 +1,560 @@
+<?wh
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::util/geo.whlib";
+
+LOADLIB "mod::socialite/lib/commondialogs.whlib";
+//LOADLIB "mod::socialite/lib/google/apikey.whlib";
+LOADLIB "mod::socialite/lib/google/gpx.whlib";
+LOADLIB "mod::socialite/lib/google/maps-v3.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+/*
+Content:
+- points
+- routes
+- tracks
+- images (a special point)
+*/
+
+PUBLIC OBJECTTYPE Maps EXTEND TolliumScreenBase
+< OBJECT geocoder;
+  STRING lastaddedmarker;
+  INTEGER counter;
+  RECORD directions;
+
+  MACRO Init(RECORD data)
+  {
+    this->geocoder := NEW GGeocoder([ requesturl := this->tolliumcontroller->baseurl ]);
+    //this->geocoder->printdebugginginfo := TRUE;
+    //this->geocoder->cache->printdebugginginfo := TRUE;
+    this->geocoder->baselanguagecode := this->tolliumuser->language;
+
+    this->clusteroverlays->value := this->map->clusteroverlays;
+    this->zoom->value := this->map->zoom;
+    this->lat->value := FormatFloat(this->map->center.lat, 6);
+    this->lng->value := FormatFloat(this->map->center.lng, 6);
+    this->type->value := this->map->maptype;
+
+    this->map->directionsoptions := [ overlay_icon := "directions"
+                                    , overlay_outlinecolor := "#990000"
+                                    , overlay_outlineopacity := 80
+                                    , overlay_outlinewidth := 1
+                                    ];
+    this->directions := [ waypoints := [ [ lat := 52.238311, lng := 6.847014 ]
+                                       , [ lat := 52.288754, lng := 6.768709 ]
+                                       ]
+                        ];
+
+  /*
+  FIXME: how to determine a icon for an item on the map?
+
+  categories
+    point / regular
+    point / image
+    point / waypoint
+    group/polyline / track
+    group/points   / route
+
+  RECORD ARRAY types :=
+    [ [ type := "marker",   icon := this->mapcontents->GetIcon("") ]
+    , [ type := "polyline", icon := this->mapcontents->GetIcon("tollium:networking/nethood") ]
+    , [ type := "polygon",  icon := this->mapcontents->GetIcon("tollium:system/module") ]
+    ];
+  */
+
+ INSERT [ rowkey := this->GetRowkey()
+               , type := "marker"
+               , lat := 51.4719 //latlng->lat
+               , lng := 6.1841 //latlng->lng
+               , icon := "added"
+               , hint := ""
+               , moveable := FALSE
+               , selectable := TRUE
+               , ismarker := TRUE
+               , isshape := FALSE
+               , canfindaddress := TRUE
+               , canshowforecast := FALSE
+               ] INTO this->map->overlays AT END;
+
+/* Example polygon: Relative coordinates
+    INSERT [ rowkey := this->GetRowkey()
+           , type := "polyline"
+           , ismarker := FALSE
+           , isshape := TRUE
+           , clickable := TRUE
+           , moveable := TRUE
+           , reflat := 52.244416
+           , reflng := 6.849619
+           , latlngs := [ [ lat := -.001, lng := .001 ]
+                        , [ lat := .001, lng := .001 ]
+                        , [ lat := .001, lng := -.001 ]
+                        , [ lat := -.001, lng := -.001 ]
+                        , [ lat := -.001, lng := .001 ]
+                        ]
+           , outlinecolor := "#990000"
+           , outlineopacity := 80
+           , outlinewidth := 1
+           , fillcolor := "#990000"
+           , fillopacity := 20
+           , selectable := TRUE
+           , canfindaddress := FALSE
+           , canshowforecast := FALSE
+           ] INTO this->map->overlays AT END;
+*/
+    this->RefreshMapContentsList();
+  }
+
+  MACRO DoShowItem()
+  {
+  }
+
+  MACRO DoCenterOnItem()
+  {
+    RECORD sel := this->mapcontents->selection;
+    IF (NOT RecordExists(sel))
+      RETURN;
+
+    this->map->center := sel.position;
+  }
+
+  STRING FUNCTION GetRowkey()
+  {
+    this->counter := this->counter + 1;
+    RETURN "marker_" || this->counter;
+  }
+
+  MACRO DoSearch()
+  {
+    IF (this->query->value != "")
+    {
+      RECORD placemark := this->GetLocation(this->query->value);
+      IF (NOT RecordExists(placemark))
+        this->RunMessageBox("tollium:commondialogs.showmessage", "Geen resultaten gevonden");
+      ELSE
+      {
+        INSERT [ rowkey := this->GetRowkey()
+               , type := "marker"
+               , lat := placemark.geometry.location->lat
+               , lng := placemark.geometry.location->lng
+               , icon := "result"
+               , hint := placemark.formatted_address
+               , moveable := FALSE
+               , selectable := FALSE
+               , ismarker := TRUE
+               , isshape := FALSE
+               , canfindaddress := FALSE
+               , canshowforecast := FALSE
+               ] INTO this->map->overlays AT END;
+        /*
+        IF (ObjectExists(placemark.geometry.bounds))
+        {
+          this->map->restrictto := DEFAULT RECORD;
+          this->map->zoom := 1;
+          RECORD bounds := [ sw := [ lat := placemark.geometry.bounds->GetSouthWest()->lat
+                                   , lng := placemark.geometry.bounds->GetSouthWest()->lng
+                                   ]
+                           , ne := [ lat := placemark.geometry.bounds->GetNorthEast()->lat
+                                   , lng := placemark.geometry.bounds->GetNorthEast()->lng
+                                   ]
+                           ];
+          this->map->restrictto := bounds;
+        }
+        ELSE
+        {
+          //ADDME: There is no accuracy returned in v3?
+          this->map->zoom := GetZoomForAccuracy(placemark.addressdetails.accuracy);
+        }
+        */
+        this->map->center := placemark.geometry.location->ToRecord();
+      }
+    }
+    ELSE
+      this->map->restrictto := DEFAULT RECORD;
+  }
+
+  MACRO DoSearchRoute()
+  {
+    this->map->directionsoptions := [ avoidhighways := "highways" IN this->avoid->value
+                                    , avoidtolls := "tolls" IN this->avoid->value
+                                    , travelmode := this->travelmode->value
+                                    ];
+    IF (this->routeorigin->value != "" AND this->routedestination->value != "")
+      this->map->LoadDirections(this->routeorigin->value, this->routedestination->value);
+  }
+
+  MACRO DoShowRoute()
+  {
+    this->map->directionsoptions := [ avoidhighways := "highways" IN this->avoid->value
+                                    , avoidtolls := "tolls" IN this->avoid->value
+                                    , travelmode := this->travelmode->value
+                                    ];
+    this->map->directions := this->directions;
+  }
+
+  MACRO DoEditRoute()
+  {
+    this->map->directions := DEFAULT RECORD;
+  }
+
+  MACRO DoClear()
+  {
+    OBJECT dlg := this->LoadScreen(".clear");
+    IF (dlg->RunModal() = "ok")
+      DELETE FROM this->map->overlays WHERE icon IN dlg->toclear->value;
+  }
+
+  MACRO DoAddMarker()
+  {
+    OBJECT dlg := CreateLocationDialog(this);
+    dlg->center := this->map->center;
+    dlg->zoom := this->map->zoom;
+    dlg->value := this->lastaddedmarker;
+    dlg->autozoom := TRUE;
+    IF (dlg->RunModal() = "ok")
+    {
+      this->lastaddedmarker := dlg->value;
+      RECORD latlng := dlg->value;
+      IF (RecordExists(latlng))
+      {
+        INSERT [ rowkey := this->GetRowkey()
+               , type := "marker"
+               , lat := latlng.lat
+               , lng := latlng.lng
+               , icon := "added"
+               , hint := dlg->value
+               , moveable := FALSE
+               , selectable := TRUE
+               , ismarker := TRUE
+               , isshape := FALSE
+               , canfindaddress := TRUE
+               , canshowforecast := FALSE
+               ] INTO this->map->overlays AT END;
+        this->map->center := latlng;
+
+        this->RefreshMapContentsList();
+      }
+    }
+  }
+
+  MACRO DoZoomOut()
+  {
+    this->zoom->value := this->zoom->value - 1;
+  }
+
+  MACRO DoZoomIn()
+  {
+    this->zoom->value := this->zoom->value + 1;
+  }
+
+  MACRO DoAddMarkerContext()
+  {
+    this->OnMapClick(this->map->clickcoordinates);
+  }
+
+  MACRO DoDeleteMarkerContext()
+  {
+    IF (RecordExists(this->map->selection))
+      DELETE FROM this->map->overlays WHERE rowkey = this->map->selection.rowkey;
+  }
+
+  MACRO DoFindAddressContext()
+  {
+    IF (RecordExists(this->map->selection))
+      this->OnMapSelect(FALSE);
+  }
+
+  MACRO OnTypeChange()
+  {
+    this->map->maptype := this->type->value;
+  }
+
+  MACRO OnClusterOverlaysChange()
+  {
+    this->map->clusteroverlays := this->clusteroverlays->value;
+  }
+
+  MACRO OnMapClick(RECORD pos)
+  {
+    IF (RecordExists(pos))
+    {
+      INSERT [ rowkey := this->GetRowkey()
+             , type := "marker"
+             , lat := pos.lat
+             , lng := pos.lng
+             , icon := "unknown"
+             , hint := FormatFloat(pos.lat, 6) || ", " || FormatFloat(pos.lng, 6)
+             , moveable := TRUE
+             , selectable := TRUE
+             , ismarker := TRUE
+             , isshape := FALSE
+             , canfindaddress := TRUE
+             , weatherdata := DEFAULT RECORD
+             ] INTO this->map->overlays AT END;
+      this->RefreshMapContentsList();
+    }
+  }
+
+  MACRO OnMapMove()
+  {
+    this->lat->value := FormatFloat(this->map->center.lat, 6);
+    this->lng->value := FormatFloat(this->map->center.lng, 6);
+  }
+
+  MACRO OnMapZoom()
+  {
+    this->zoom->value := this->map->zoom;
+  }
+
+  MACRO OnZoomChange()
+  {
+    this->map->zoom := MoneyToInteger(this->zoom->value);
+  }
+
+  MACRO OnMapSelect(BOOLEAN center DEFAULTSTO TRUE)
+  {
+    FOREVERY (RECORD overlay FROM this->map->selection)
+    {
+      SWITCH (overlay.type)
+      {
+        CASE "marker"
+        {
+          RECORD pos := [ lat := overlay.lat
+                        , lng := overlay.lng
+                        ];
+          RECORD placemark := this->GetLocation(FormatFloat(pos.lat, 6) || "," || FormatFloat(pos.lng, 6));
+          IF (RecordExists(placemark))
+          {
+            Print("placemark:\n" || AnyToString(placemark, "tree"));
+            //throw new exception(anytostring(placemark.address_components,'tree'));
+
+            STRING country;
+            STRING city;
+            IF (CellExists(placemark, "address_components"))
+            {
+              country := SELECT AS STRING short_name FROM placemark.address_components WHERE "country" IN types;
+              IF (country != "")
+              {
+                city := SELECT AS STRING long_name FROM placemark.address_components WHERE "locality" IN types;
+                IF (city = "")
+                  city := SELECT AS STRING long_name FROM placemark.address_components WHERE "administrative_area_level_2" IN types;
+                IF (city = "")
+                  city := SELECT AS STRING long_name FROM placemark.address_components WHERE "administrative_area_level_1" IN types;
+                IF (city = "")
+                  country := "";
+              }
+            }
+            STRING hint := placemark.formatted_address;
+            overlay.lat := placemark.geometry.location->lat;
+            overlay.lng := placemark.geometry.location->lng;
+            overlay.icon := "address";
+            overlay.hint := hint;
+            overlay.selectable := FALSE;
+            overlay.canfindaddress := FALSE;
+            overlay.weatherdata := [ countrycode := country, city := city, unit := "c" ];
+            this->map->UpdateOverlay(overlay);
+            pos := [ lat := placemark.geometry.location->lat
+                   , lng := placemark.geometry.location->lng
+                   ];
+          }
+          ELSE
+          {
+            overlay.icon := "";
+            overlay.selectable := FALSE;
+            overlay.canfindaddress := FALSE;
+            this->map->UpdateOverlay(overlay);
+          }
+          IF (center)
+            this->map->center := pos;
+        }
+      }
+    }
+  }
+
+
+  MACRO RefreshMapContentsList()
+  {
+    this->mapcontents->rows :=
+       SELECT rowkey
+            , type := 0 // FIXME
+            , title := "FIXME"
+            , points := isshape ? ToString(Length(latlngs)) : ""
+            , position := isshape ? [ lat := latlngs[0].lat, lng := latlngs[0].lng ] : [ lat := lat, lng := lng ]
+         FROM this->map->overlays;
+  }
+  MACRO DoDeleteItem()
+  {
+    STRING ARRAY rowkeys := this->mapcontents->value;
+    DELETE FROM this->map->overlays WHERE rowkey IN rowkeys;
+    DELETE FROM this->mapcontents->rows WHERE tolliumselected;
+  }
+
+
+  MACRO DoImportGPX()
+  {
+    RECORD file := this->frame->GetUserFile(0, DEFAULT STRING ARRAY);
+    IF (NOT RecordExists(file))
+      RETURN;
+
+    OBJECT dialog := this->LoadScreen(".import_gpx", [ gpxdocument := file.data ]);
+    dialog->RunModal();
+
+    RECORD mapdata := dialog->importme;
+    // ADDME: reduce complexity/amount of points (deuglas pecker ...?)
+
+    FOREVERY(RECORD track FROM mapdata.tracks)
+    {
+      RECORD ARRAY allpoints;
+      FOREVERY(RECORD segment FROM track.segments)
+        allpoints := allpoints CONCAT segment.points;
+
+      RECORD trackrec := [ rowkey := this->GetRowkey()
+             , type := "polyline"
+             , ismarker := FALSE
+             , isshape := TRUE
+             , latlngs := (SELECT lat := latitude, lng := longitude FROM allpoints)
+             , outlinecolor := "#990000"
+             , outlineopacity := 80
+             , outlinewidth := 1
+             , fillcolor := "#990000"
+             , fillopacity := 20
+             , selectable := TRUE
+             , canfindaddress := FALSE
+             , canshowforecast := FALSE
+             ];
+
+      INSERT trackrec INTO this->map->overlays AT END;
+    }
+
+    this->RefreshMapContentsList();
+  }
+
+
+  MACRO OnMapDragOverlay(RECORD overlay, RECORD pos)
+  {
+    SWITCH (overlay.type)
+    {
+      CASE "marker"
+      {
+        overlay.lat := pos.lat;
+        overlay.lng := pos.lng;
+        overlay.icon := "unknown";
+        overlay.hint := FormatFloat(pos.lat, 6) || ", " || FormatFloat(pos.lng, 6);
+        overlay.selectable := TRUE;
+        overlay.canfindaddress := TRUE;
+        overlay.weatherdata := DEFAULT RECORD;
+        this->map->UpdateOverlay(overlay);
+      }
+    }
+  }
+
+  MACRO OnDirections(STRING status)
+  {
+    this->directions := this->map->directions;
+    this->showroute->enabled := RecordExists(this->directions);
+    this->editroute->enabled := RecordExists(this->directions);
+
+    IF (RecordExists(this->directions))
+      this->RunMessageBox("tollium:commondialogs.showmessage", "Er is een route gevonden van " || (this->directions.distance / 1000) || "." || ((this->directions.distance % 1000) / 100) || " km (" || this->tolliumuser->FormatTimespan(0, this->directions.duration * 1000) || ").");
+    ELSE
+      this->RunMessageBox("tollium:commondialogs.showmessage", "Er is geen route gevonden: " || status);
+  }
+
+  RECORD FUNCTION GetLocation(STRING query)
+  {
+    // Only set viewport if not doing a reverse geocode
+    IF (NOT RecordExists(StringToLatLng(query)))
+      this->geocoder->viewport := MakeGLatLngBoundsFromCoordinates(this->map->bounds);
+    ELSE
+      this->geocoder->viewport := DEFAULT OBJECT;
+
+    RECORD reply := this->geocoder->GetLocations(query);
+
+    IF (reply.status != "OK")
+      THROW NEW Exception("Error while retrieving results: " || reply.error);
+
+    RETURN reply.results;
+  }
+
+  MACRO DoPrintMap()
+  {
+    this->map->PrintMap();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE Import_GPX EXTEND TolliumScreenBase
+< RECORD mapdata;
+  PUBLIC RECORD importme;
+
+  MACRO Init(RECORD data)
+  {
+
+    OBJECT gpxparser := NEW GPX_Parser(data.gpxdocument);
+
+    RECORD mapdata := gpxparser->GetData();
+    this->mapdata := mapdata;
+/*
+    FOREVERY(RECORD track FROM mapdata.tracks)
+    {
+      INSERT CELL allpoints := DEFAULT RECORD ARRAY INTO mapdata.tracks[#track];
+      FOREVERY(RECORD segment FROM track.segments)
+        mapdata.tracks[#track].allpoints := mapdata.tracks[#track].allpoints CONCAT segment.points;
+    }
+*/
+    IF (Length(mapdata.tracks) = 0)
+      this->trackspanel->visible := FALSE;
+    ELSE
+    {
+      this->tracks->options :=
+          SELECT rowkey := #row
+               , title  := name
+             //, points := Length(allpoints)
+            FROM mapdata.tracks AS row;
+
+      this->tracks->value := SELECT AS INTEGER ARRAY #row FROM mapdata.tracks AS row;
+    }
+
+    IF (Length(mapdata.routes) = 0)
+      this->routespanel->visible := FALSE;
+    ELSE
+    {
+      this->routes->options :=
+          SELECT rowkey := #row
+               , title := name
+            FROM mapdata.routes AS row;
+
+      this->routes->value := SELECT AS INTEGER ARRAY #row FROM mapdata.routes AS row;
+    }
+
+    IF (Length(mapdata.waypoints) = 0)
+      this->waypointspanel->visible := FALSE;
+    ELSE
+    {
+      this->waypoints->options :=
+          SELECT rowkey := #row
+               , title  := name
+            FROM mapdata.waypoints AS row;
+
+      this->waypoints->value := SELECT AS INTEGER ARRAY #row FROM mapdata.waypoints AS row;
+    }
+
+/*
+    // ADDME: reduce complexity/amount of points (deuglas pecker ...?)
+    this->tracks2->rows :=
+        [ [ title := "test", points := 5, selected := TRUE ]
+        , [ title := "test2", points := 250, selected := TRUE ]
+        ];
+*/
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    this->importme :=
+        [ tracks := (SELECT * FROM this->mapdata.tracks AS row WHERE #row IN this->tracks->value)
+        , routes := (SELECT * FROM this->mapdata.routes AS row WHERE #row IN this->routes->value)
+        , waypoints := (SELECT * FROM this->mapdata.waypoints AS row WHERE #row IN this->waypoints->value)
+        ];
+    RETURN TRUE;
+  }
+>;

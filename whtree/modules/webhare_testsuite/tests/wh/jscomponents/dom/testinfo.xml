@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <jstest file="testfocuszones.es" />
+  <jstest file="testtemplate.es" />
+</group>

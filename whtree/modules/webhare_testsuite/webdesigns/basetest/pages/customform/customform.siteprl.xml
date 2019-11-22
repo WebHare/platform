@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+             >
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/customform">
+    <member name="somedata" type="string" />
+  </contenttype>
+  <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/customform"
+            extensions=".customform"
+            title="WebHare testsuite customform type"
+            tolliumicon="tollium:files/application_x-webhare-survey"
+            blobiscontent="false"
+            needstemplate="true"
+            needsprofile="false"
+            isacceptableindex="true"
+            ispublishable="true"
+            ispublishedassubdir="true">
+    <dynamicexecution routerfunction="customform.whlib#CustomFormRouter" />
+  </filetype>
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/customform" />
+    <setobjecteditor name="publisher:webtoolform" separateapp="true" />
+    <extendformeditor settingsextension="customform.xml#props" />
+    <formintegration allowsubmittype="true" mailrtdtype="http://www.webhare.net/xmlns/webhare_testsuite/custommailrtdtype" />
+    <allowformquestion type="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#multimergefield" />
+    <allowformquestion type="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#matchattributes?attr1=type2&amp;attr2=true" />
+    <allowformhandler type="http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler" />
+  </apply>
+
+  <apply>
+    <to type="file" parentmask="/webtools/" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/customform" />
+  </apply>
+
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/custommailrtdtype">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="NORMAL" textstyles="b i a-href img sup sub strike" />
+    </blockstyles>
+    <widgets ignoresiteprofilewidgets="true">
+      <allowtype type="http://www.webhare.net/xmlns/webhare_testsuite/customformwidget" />
+    </widgets>
+  </rtdtype>
+
+  <widgettype
+      namespace="http://www.webhare.net/xmlns/webhare_testsuite/customformwidget"
+      ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
+      editfragment="#editcustomformwidget"
+      renderobjectname="customform.whlib#customformwidget"
+      title="Custom Form Widget"
+      requiremergefieldscontext="true">
+    <members>
+      <member name="fieldname" type="string" />
+    </members>
+  </widgettype>
+
+  <fragment
+      name="editcustomformwidget"
+      implementation="lib"
+      library="customform.whlib"
+      xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <contents>
+      <select composition="fsinstance" cellname="fieldname" name="fieldname" type="pulldown" required="true" />
+    </contents>
+  </fragment>
+
+</siteprofile>

@@ -1,0 +1,13 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
+
+OpenPrimary();
+FOREVERY(RECORD compsource FROM GetComponentSources("tolliumcomponents"))
+{
+  Print("Component namespace " || compsource.namespace || "\n");
+  RECORD nsinfo := GetComponentsForNamespace(compsource.namespace);
+  dumpvalue(nsinfo.components,'boxed');
+}

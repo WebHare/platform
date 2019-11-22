@@ -1,0 +1,173 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/webtools/forum.whlib";
+
+PUBLIC OBJECTTYPE Postings EXTEND TolliumFragmentBase
+<
+  OBJECT forum;
+  RECORD currentsubforum;
+  RECORD currenttopic;
+  RECORD ARRAY originalcolumns;
+  INTEGER fsobjectid;
+
+  PUBLIC PROPERTY __forum(forum,-); //needed for closedate integration - we can probably do this cleaner
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    this->originalcolumns := this->postinglist->columns;
+  }
+
+  MACRO DoAddPosting()
+  {
+    this->owner->LoadScreen("mod::publisher/tolliumapps/forum/components.xml#posting", [ forum := this->forum, id := 0 ])->RunModal();
+    this->RefreshList();
+  }
+  MACRO DoEditPosting()
+  {
+    this->owner->LoadScreen("mod::publisher/tolliumapps/forum/components.xml#posting", [ forum := this->forum, id := this->postinglist->value ])->RunModal();
+    this->RefreshList();
+  }
+  MACRO DoReplyPosting()
+  {
+
+  }
+  MACRO DoDeletePosting()
+  {
+    IF(this->owner->RunSimpleScreen("verify", GetTid("publisher:tolliumapps.forum.components.verifydeleteposting"))!="yes")
+      RETURN;
+
+    OBJECT work := this->owner->BeginUnvalidatedWork();
+    UPDATE publisher.forumpostings SET deleted := TRUE WHERE id = this->postinglist->value;
+    work->Finish();
+    this->RefreshList();
+  }
+
+  MACRO OnPostingLIstSelect()
+  {
+    RECORD selection := this->postinglist->selection;
+    IF(RecordExists(selection))
+    {
+      RECORD posting := SELECT * FROM publisher.forumpostings WHERE id = selection.rowkey;
+      this->message->value := posting.content;
+    }
+    ELSE
+    {
+      this->message->value := "";
+    }
+  }
+
+  MACRO RefreshList()
+  {
+    RECORD ARRAY postings;
+    IF(RecordExists(this->currenttopic))
+    {
+      postings := SELECT rowkey := id
+                       , posttime := creationdate
+                       , postername
+                       , subject
+                       , canreply := FALSE
+                    FROM publisher.forumpostings
+                   WHERE topic = this->currenttopic.id
+                         AND NOT deleted;
+    }
+    this->postinglist->rows := postings;
+    this->OnPostingLIstSelect();
+  }
+
+  PUBLIC MACRO SetupForComments(INTEGER fsobjectid)
+  {
+    IF (fsobjectid = 0)
+      THROW NEW Exception("A fsobjectid is required for SetupForComments");
+
+    TRY
+    {
+      this->forum := OpenForum(fsobjectid);
+      this->fsobjectid := fsobjectid;
+
+      RECORD ARRAY usecolumns := this->originalcolumns;
+      IF(NOT this->forum->config.subjects)
+        DELETE FROM usecolumns WHERE name="subject";
+
+      this->postinglist->columns := usecolumns;
+
+      this->currentsubforum := this->forum->SelectOnlySubforum();
+      this->currenttopic := this->forum->SelectOnlyTopic(fsobjectid);
+
+      this->RefreshList();
+    }
+    CATCH(OBJECT e)
+    {
+      //FIXME report the error
+      Print(e->what||"\n");
+      this->forum := DEFAULT OBJECT;
+    }
+  }
+
+  PUBLIC DATETIME FUNCTION GetCurrentCloseDate()
+  {
+    RETURN RecordExists(this->currenttopic) ? this->currenttopic.closedate : this->forum->GetInitialTopicCloseDate(this->fsobjectid);
+  }
+
+  PUBLIC MACRO HandleSubmission(OBJECT work)
+  {
+    IF(NOT ObjectExists(this->forum) OR this->fsobjectid = 0)
+      RETURN;
+
+  }
+>;
+
+PUBLIC OBJECTTYPE Posting EXTEND TolliumScreenBase
+<
+  OBJECT forum;
+  INTEGER id;
+
+  MACRO Init(RECORD data)
+  {
+    this->forum := data.forum;
+    this->id := data.id;
+
+    IF(data.id!=0)
+    {
+      RECORD posting := SELECT * FROM publisher.forumpostings WHERE id = this->id;
+      IF(NOT RecordExists(posting))
+      {
+        this->tolliumresult:="ok";
+        RETURN;
+      }
+      this->postername->value := posting.postername;
+      this->posteremail->value := posting.posteremail;
+      this->message->value := posting.content;
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    IF(NOT work->HasFailed())
+    {
+      IF(this->id = 0)
+      {
+        this->forum->AddPost( [ messagetype := "text/plain"
+                              , message := this->message->value
+                              , source := ""
+                              , sourceurl := ""
+                              , name := this->postername->value
+                              , email := this->posteremail->value
+                              ]);
+      }
+      ELSE
+      {
+        work->Finish();
+        work := this->BeginWork();
+        //ADDME: use api, support >4K messages
+        UPDATE publisher.forumpostings
+               SET postername := this->postername->value
+                 , posteremail := this->posteremail->value
+                 , content := this->message->value
+               WHERE id = this->id;
+      }
+    }
+    RETURN work->Finish();
+  }
+>;

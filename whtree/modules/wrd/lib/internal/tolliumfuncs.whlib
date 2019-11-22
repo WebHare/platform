@@ -1,0 +1,199 @@
+﻿<?wh
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/legacy-wrdschema.whlib";
+
+
+////////////////////
+//
+// WRD result lists
+//
+
+STRING FUNCTION MyConvertToNiceType(OBJECT tolliumuser, OBJECT wrdtype, RECORD attributeinfo, VARIANT value)
+{
+  SWITCH (attributeinfo.attributetype)
+  {
+    CASE 0 /* generated type, string */
+    { RETURN STRING(value); }
+
+    CASE 1
+    {
+      RETURN wrdtype->GetDomValTitle(attributeinfo.tag, value);
+    }
+
+  CASE 2 /* free text */
+     , 4 /* Email */
+     , 5 /* Telephone  */
+     , 7 /* Password */
+    { RETURN value; }
+
+  CASE 6 /* Date and/or time types */
+    { RETURN tolliumuser->FormatDate(value, TRUE, TRUE); }
+
+  CASE 11 /* Time */
+    { RETURN tolliumuser->FormatTimestamp(value, "milliseconds"); }
+
+  CASE 12 /* datetime */
+    { RETURN tolliumuser->FormatDateTime(value, "milliseconds", TRUE, TRUE); }
+
+  CASE 9 /* Image */
+    { RETURN "IMAGE"; }
+
+  CASE 15 /* Integer */, 18 /* Integer64 */
+    { RETURN ToString(value, 10); }
+
+  CASE 16 /* Boolean */
+    { RETURN value ? "TRUE" : "FALSE"; }
+
+  CASE 14 /* Money */
+    { RETURN FormatMoney(value, 1, ".", ",", TRUE); }
+
+  CASE 3 /* Address */
+    { RETURN FormatAddress(value); }
+  CASE 10 /* File */
+    { RETURN "FILE"; }
+  CASE 13 /* Array */
+    { RETURN "ARRAY"; }
+
+  DEFAULT { ABORT("Cannot print these kinds of types yet (" || attributeinfo.attributetype || ")"); }
+  }
+}
+
+PUBLIC MACRO FillWRDList(OBJECT wrdlist, RECORD ARRAY examplerows, RECORD ARRAY typeinfo)
+{
+  IF(Length(examplerows)=0)
+  {
+    wrdlist->columns := DEFAULT RECORD ARRAY;
+    RETURN;
+  }
+
+  RECORD ARRAY outputcolumns, outputrows;
+
+  //Set up headers using the first row (ADDME how to get proper orderings?)
+  FOREVERY(RECORD type FROM typeinfo)
+  {
+    RECORD matchingrow := GetCell(examplerows[0], type.tag);
+    FOREVERY(RECORD cellrec FROM UnpackRecord(matchingrow))
+    {
+      RECORD attrinfo := type.type->GetAttribute(cellrec.name);
+      RECORD columndescr := [ title := attrinfo.title
+                            , type := "text"
+                            , name := "fld" || Length(outputcolumns)
+                            , __wrdlist_rowtag := type.tag
+                            , __wrdlist_wrdtype := type.type
+                            , __wrdlist_cellname := cellrec.name
+                            , __wrdlist_attribute := attrinfo
+                            ];
+      INSERT columndescr INTO outputcolumns AT END;
+    }
+  }
+
+  FOREVERY(RECORD row FROM examplerows)
+  {
+    RECORD outrow := [ rowkey := #row+1 ];
+    FOREVERY(RECORD col FROM outputcolumns)
+    {
+      RECORD inrow := GetCell(row, col.__wrdlist_rowtag);
+      STRING outcell;
+
+      IF(CellExists(inrow, col.__wrdlist_cellname))
+      {
+        VARIANT inval := GetCell(inrow, col.__wrdlist_cellname);
+        outcell := MyConvertToNiceType(wrdlist->owner->tolliumuser, col.__wrdlist_wrdtype, col.__wrdlist_attribute, inval);
+      }
+      outrow := CellInsert(outrow, col.name, outcell);
+    }
+    INSERT outrow INTO outputrows AT END;
+  }
+
+  wrdlist->columns := outputcolumns;
+  wrdlist->rows := outputrows;
+}
+
+PUBLIC STRING FUNCTION RegSafeName(STRING inname)
+{
+  inname:=Substitute(inname,' ','_');
+  inname:=Substitute(inname,'.','_');
+  inname:=ToLowercase(inname);
+  RETURN inname;
+}
+PUBLIC STRING FUNCTION GetSchemaBaseKey(OBJECT wrdschema)
+{
+  RETURN "wrd.interface." || RegSafeName(wrdschema->tag) || '.';
+}
+
+
+PUBLIC OBJECTTYPE WRDAppContextSupport
+<
+  PUBLIC RECORD FUNCTION ParseNode(OBJECT node)
+  {
+    RETURN
+        [ wrdschema := node->GetAttribute ("schema")
+        , api2017 := ParseXSBoolean(node->GetAttribute("api2017"))
+        ];
+  }
+  PUBLIC OBJECT FUNCTION ConstructAppContext(RECORD data, RECORD context)
+  {
+    IF (data.api2017)
+      RETURN OpenWRDSchema(data.wrdschema);
+    RETURN OpenWRDSchemaByName(data.wrdschema, context.language);
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetTypeFromData(OBJECT component, OBJECT screen, RECORD indata)
+{
+  IF(indata.wrdtype = "" OR NOT HavePrimaryTransaction()) // skip when validating
+    RETURN DEFAULT OBJECT;
+
+  OBJECT wrdschema;
+  IF(ObjectExists(component->contexts->wrdschema))
+  {
+    wrdschema := component->contexts->wrdschema;
+  }
+  ELSE IF(indata.wrdcontext != "")
+  {
+    wrdschema := screen->GetAppContext(indata.wrdcontext);
+    IF(NOT ObjectExists(wrdschema))
+      THROW NEW TolliumException(component, "No WRD schema associated with context '" || indata.wrdcontext || "'");
+  }
+  ELSE IF(indata.wrdschema != "")
+  {
+    wrdschema := OpenWRDSchemaByName(indata.wrdschema, screen->tolliumuser->language);
+    IF(NOT ObjectExists(wrdschema))
+      THROW NEW TolliumException(component, "No WRD schema named '" || indata.wrdschema || "' found");
+  }
+  ELSE
+  {
+    THROW NEW TolliumException(component, "Must specify wrdcontext or wrdschema if a wrdtype is specified");
+  }
+
+  OBJECT wrdtype := wrdschema->GetType(indata.wrdtype);
+  IF(NOT ObjectExists(wrdtype))
+  {
+    STRING bestmatch := GetBestMatch(indata.wrdtype, SELECT AS STRING ARRAY tag FROM wrdschema->ListTypes());
+    THROW NEW TolliumException(component, "No such WRD type '" || indata.wrdtype || "' in schema '" || wrdschema->tag || "'"
+        || (bestmatch != "" ? ", did you mean type '" || bestmatch || "'?" : ""));
+  }
+  RETURN wrdtype;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetSuitableAccountAttributes(OBJECT wrdtype)
+{
+  RECORD ARRAY candidates:=
+         SELECT *
+              , allowforlogin    := attributetype IN [ 2, 4 ] AND isunique
+              , allowforemail    := attributetype = 4
+              , allowforpassword := attributetype = 7
+           FROM wrdtype->ListAttributes(0)
+          WHERE attributetype IN [2,4,7];
+
+  RETURN SELECT * FROM candidates WHERE allowforlogin OR allowforemail OR allowforpassword;
+}
+

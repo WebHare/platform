@@ -1,0 +1,310 @@
+﻿<?wh
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+PUBLIC INTEGER maxservicedefinitionage := 5 * 60; //caching for 5 mins should be safe, the only external change is module replace
+
+//PUBLIC OBJECT defaultvararg := NEW VarArgsDefaultParam;
+
+PUBLIC INTEGER maxvarargparameters := 16;
+
+PUBLIC STRING servicebaseurl; //shared to remoting/server.whlib for GetRPCResourceURL
+
+/** Debug configuration
+    @cell log_raw_requests
+    @cell log_raw_responses
+*/
+PUBLIC RECORD debugconfig :=
+    [ log_raw_requests :=           FALSE
+    , log_raw_responses :=          FALSE
+    , log_decoded_requests :=       FALSE
+    , log_decoded_responses :=      FALSE
+    , profile :=                    FALSE
+    ];
+
+/** Remotable object base, with registrations
+*/
+PUBLIC OBJECTTYPE InternalRemotableBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /** Registration of this object in a remoter
+      @cell(integer) remoterid Id of the remoter object
+      @cell(integer) objectid Local id of this object for that remoter
+  */
+  PUBLIC RECORD ARRAY __remoter_registrations;
+>;
+
+
+/** Remoting exception
+    @topic rpc/client
+    @public
+    @loadlib mod::system/lib/remoting/client.whlib
+*/
+PUBLIC OBJECTTYPE RemotingException EXTEND Exception
+<
+  STRING pvt_code;
+
+  /// @type(string) Remoting error code
+  PUBLIC PROPERTY errorcode(pvt_code,-);
+
+  /** @private Shouldn't be constructed by the user
+      @param errorcode Error code
+      @param text Error message
+  */
+  MACRO NEW(STRING errorcode, STRING text) : Exception(text)
+  {
+    this->pvt_code := errorcode;
+  }
+>;
+
+/** Remoting exception signalling invalid arguments
+    @topic rpc/server
+    @public
+    @loadlib mod::system/lib/remoting/server.whlib
+*/
+PUBLIC OBJECTTYPE RPCInvalidArgsException EXTEND Exception
+< /** @private Shouldn't be constructed by the user
+      @param what Error message
+  */
+  MACRO NEW(STRING what)
+  : Exception(what)
+  {
+  }
+>;
+
+/** Remoting exception signalling a bad request
+    @topic rpc/server
+    @public
+    @loadlib mod::system/lib/remoting/server.whlib
+*/
+PUBLIC OBJECTTYPE RPCBadRequestException EXTEND Exception
+< /** @private Shouldn't be constructed by the user
+      @param what Error message
+  */
+  MACRO NEW(STRING what)
+  : Exception(what)
+  {
+  }
+>;
+
+PUBLIC OBJECTTYPE CommunicationControl
+< // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC BOOLEAN FUNCTION HandleRightsAndPermissions()
+  {
+    THROW NEW Exception("Override!");
+  }
+>;
+
+
+VARIANT FUNCTION ExecuteArrayCast(VARIANT ARRAY arr, INTEGER desttype, FUNCTION PTR v, STRING callname, STRING paramname)
+{
+  VARIANT target := GetTypeDefaultValue(desttype);
+  INTEGER elttype := desttype BITAND 127;
+
+  FOREVERY (VARIANT value FROM arr)
+  {
+    IF (NOT CanCastTypeTo(TypeID(value), elttype))
+      THROW NEW Exception("Cannot cast '" || paramname || "[" || #value || "]' from " || GetTypeName(TypeID(value)) || " to " || GetTypeName(elttype) || ", when calling " || GetFunctionPtrSignatureString(v, callname));
+    INSERT value INTO target AT END;
+  }
+  RETURN target;
+}
+
+
+PUBLIC RECORD FUNCTION DoCheckedVarArgsCall(FUNCTION PTR v, VARIANT ARRAY args, STRING callname) //__ATTRIBUTES__(SKIPTRACE)
+{
+  RECORD x := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(v);
+
+  FOREVERY (RECORD param FROM x.parameters)
+  {
+    IF (param.source = 0)
+      CONTINUE;
+
+    INTEGER abssource := param.source < 0 ? -param.source-1 : param.source-1;
+
+    IF (LENGTH(args) <= abssource)
+    {
+      IF (param.source > 0)
+        THROW NEW Exception("Not enough parameters specified when calling " || GetFunctionPtrSignatureString(v, callname));
+    }
+    ELSE IF (NOT CanCastTypeTo(TypeID(args[abssource]), param.type))
+    {
+      IF(TypeID(args[abssource]) = TypeID(VARIANT ARRAY) AND IsTypeIdArray(param.type))
+        args[abssource] := ExecuteArrayCast(args[abssource], param.type, v, callname, "param" || abssource + 1);
+      ELSE IF(TypeID(args[abssource]) = TypeID(RECORD) AND param.type=TypeID(BOOLEAN)) //null to false
+        args[abssource] := FALSE;
+      ELSE
+        THROW NEW Exception("Cannot cast 'param" || abssource + 1 || "' from " || GetTypeName(TypeID(args[abssource])) || " to " || GetTypeName(param.type) || ", when calling " || GetFunctionPtrSignatureString(v, callname));
+    }
+  }
+
+  BOOLEAN is_macro := __INTERNAL_DEBUGGETFUNCTIONPTRRETURNTYPE(v) IN [0,2];
+  IF (is_macro)
+  {
+    CallMacroPtrVA(v, args);
+    RETURN
+        [ is_macro := TRUE
+        , result :=   TRUE
+        ];
+  }
+  ELSE
+  {
+    RECORD retval :=
+        [ is_macro := FALSE
+        , result :=   CallFunctionPtrVA(v, args)
+        ];
+    RETURN retval;
+  }
+}
+
+
+MACRO LogPrint(INTEGER loglevel, STRING line)
+{
+  PrintTo(1, line || "\n");
+}
+
+PUBLIC RECORD FUNCTION GetServiceDebugRecord(STRING modulename, STRING servicename)
+{
+  STRING confkey := "system.remoting.services." || modulename || ":" || servicename;
+  RETURN  ValidateOptions ([ log_raw_requests :=           FALSE
+                           , log_raw_responses :=          FALSE
+                           , log_decoded_requests :=       FALSE
+                           , log_decoded_responses :=      FALSE
+                           , profile :=                    FALSE
+                           , loglevel :=                   0
+                           ], ReadRegistryKey(confkey, [ fallback := DEFAULT RECORD]));
+}
+
+OBJECT FUNCTION GetServiceDefinitionNode(STRING modulename, STRING functionname)
+{
+  IF(modulename="" OR functionname= "")
+    RETURN DEFAULT OBJECT;
+
+  OBJECT moduledefinition := GetModuleDefinitionXML(modulename);
+  IF(NOT ObjectExists(moduledefinition) OR NOT ObjectExists(moduledefinition->documentelement))
+    RETURN DEFAULT OBJECT;
+
+  OBJECT servicesnode := moduledefinition->documentelement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")->Item(0);
+  IF(NOT ObjectExists(servicesnode))
+    RETURN DEFAULT OBJECT;
+
+  FOREVERY(OBJECT servicechild FROM servicesnode->childnodes->GetCurrentNodes())
+    IF(servicechild->namespaceuri = "http://www.webhare.net/xmlns/system/moduledefinition"
+       AND servicechild->localname = "webservice"
+       AND ToUppercase(servicechild->GetAttribute("name")) = ToUppercase(functionname))
+  {
+    IF (IsNodeApplicableToThisWebHare(servicechild))
+      RETURN servicechild;
+  }
+
+  RETURN DEFAULT OBJECT;
+}
+
+PUBLIC RECORD FUNCTION ParseWebServiceDefinitionNode(STRING modulename, OBJECT servicenode)
+{
+  STRING servicename := servicenode->GetAttribute("name");
+
+  RECORD checkandvm := ParseChecks(modulename, servicenode, TRUE);
+
+  BOOLEAN makeautotrans := servicenode->GetAttribute("primarytrans")="auto";
+  BOOLEAN keeptrans := makeautotrans OR servicenode->GetAttribute("primarytrans")="normal";
+
+  BOOLEAN require_whauth := ParseXSBoolean(servicenode->GetAttribute("requirewhaccount"));
+
+  STRING crossdomainorigins := servicenode->GetAttribute("crossdomainorigins");
+
+  STRING prefix := servicenode->GetAttribute("prefix");
+
+  STRING libpath := MakeAbsoluteResourcePath("mod::" || modulename || "/", servicenode->GetAttribute("library"));
+  IF(NOT RecordExists(RetrieveWebHareResource(libpath, [ allowmissing := TRUE])))
+  {
+    //TODO warn about legacy path
+    STRING altlibpath := (modulename != "" ? "module::" || modulename || "/" : "") || servicenode->GetAttribute("library");
+    IF(RecordExists(RetrieveWebHareResource(altlibpath, [ allowmissing := TRUE])))
+    {
+      libpath := altlibpath;
+    }
+  }
+
+  RECORD servicedef :=
+      [ name :=               servicename
+      , debugsettings :=      GetServiceDebugRecord(modulename, servicename)
+      , makeautotrans :=      makeautotrans
+      , keeptrans :=          keeptrans
+      , require_whauth :=     require_whauth
+      , transports :=         ParseXSList(servicenode->GetAttribute("transports"))
+      , library :=            libpath
+      , crossdomainorigins := crossdomainorigins != "" ? Tokenize(crossdomainorigins, " ") : DEFAULT STRING ARRAY
+      , addheaders :=         DEFAULT RECORD ARRAY
+      , checkandvm :=         checkandvm
+      , prefix :=             prefix
+      ];
+
+  FOREVERY(OBJECT addheader FROM servicenode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","addheader")->GetCUrrentElements())
+  {
+    STRING name := TrimWhitespace(addheader->GetAttribute("header"));
+    STRING value := TrimWhitespace(addheader->GetAttribute("value"));
+    IF(value="")
+    {
+      INTEGER colon := SearchSubstring(name,':');
+      IF(colon!=-1)
+      {
+        value := TrimWhitespace(Substring(name,colon+1));
+        name := TrimWhitespace(Left(name,colon));
+      }
+    }
+    IF(name="" OR value="")
+      CONTINUE;
+    INSERT INTO servicedef.addheaders(field,value) VALUES(name, value) AT END;
+  }
+
+  RETURN servicedef;
+
+}
+
+
+RECORD FUNCTION GetCacheableServiceDefinition(STRING modulename, STRING servicename)
+{
+  OBJECT localtrans;
+  IF(NOT HavePrimaryTransaction())
+    localtrans := OpenPrimary();
+
+  TRY
+  {
+    RECORD servicedef;
+    OBJECT servicenode := GetServiceDefinitionNode(modulename, servicename);
+    IF(ObjectExists(servicenode))
+      servicedef := ParseWebServiceDefinitionNode(modulename, servicenode);
+
+    RETURN [ ttl := maxservicedefinitionage * 1000
+           , value := servicedef
+           , eventmasks := [ "system:remoting.servicedefinition." || modulename || "." || servicename || ".refresh", "publisher:internal.siteprofiles.recompiled" ]
+           ];
+  }
+  FINALLY
+  {
+    IF(ObjectExists(localtrans))
+      localtrans->Close();
+  }
+}
+
+PUBLIC RECORD FUNCTION GetServiceDefinition(STRING modulename, STRING servicename)
+{
+  RETURN GetAdhocCached( [ type := "servicedef"
+                         , modulename := modulename
+                         , servicename := servicename
+                         ], PTR GetCacheableServiceDefinition(modulename, servicename));
+}

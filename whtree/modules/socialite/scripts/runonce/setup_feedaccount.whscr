@@ -1,0 +1,36 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::socialite/lib/database.whlib";
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+INTEGER feedsaccountid := SELECT AS INTEGER id FROM socialite.accounts WHERE tag = "SOCIALITE_FEEDS";
+IF(feedsaccountid=0)
+{
+  feedsaccountid := MakeAutonumber(socialite.accounts,"ID");
+  INSERT INTO socialite.accounts(id, title, tag) VALUES (feedsaccountid, "Socialite social feeds", "SOCIALITE_FEEDS");
+}
+
+INTEGER fbapp := SELECT AS INTEGER id FROM socialite.applications WHERE tag = "FACEBOOK" AND account = feedsaccountid;
+IF(fbapp=0)
+{
+  INSERT INTO socialite.applications(account, title, tag, type)
+         VALUES(feedsaccountid, "Facebook", "FACEBOOK", "FACEBOOKV2");
+}
+INTEGER twitterapp := SELECT AS INTEGER id FROM socialite.applications WHERE tag = "TWITTER" AND account = feedsaccountid;
+IF(twitterapp=0)
+{
+  INSERT INTO socialite.applications(account, title, tag, type)
+         VALUES(feedsaccountid, "Twitter", "TWITTER", "TWITTER");
+}
+DELETE FROM socialite.applications WHERE tag = "HYVES" AND account = feedsaccountid;
+INTEGER lastfmapp := SELECT AS INTEGER id FROM socialite.applications WHERE tag = "LASTFM" AND account = feedsaccountid;
+IF(lastfmapp=0)
+{
+  INSERT INTO socialite.applications(account, title, tag, type)
+         VALUES(feedsaccountid, "Last FM", "LASTFM", "LASTFM");
+}
+
+trans->CommitWork();

@@ -1,0 +1,83 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+RECORD ARRAY FUNCTION GetAccessLogEntries(DATETIME rangestart)
+{
+  // Wait for access log to catch up
+  DATETIME deadline := AddTimeToDate(60*1000,GetCurrentDateTime());
+  RECORD ARRAY rows;
+  WHILE (GetCurrentDateTime() < deadline)
+  {
+    Sleep(1000);
+
+    OBJECT accesslog := OpenWebHareLogStream("access", rangestart, GetCurrentDateTime());
+    rows := RECORD[];
+    WHILE (TRUE)
+    {
+      RECORD row := accesslog->ReadRecord();
+      IF (NOT RecordExists(row))
+        BREAK;
+
+      //DumpValue(row);
+
+      IF (row.url NOT LIKE "*__test*")
+        CONTINUE;
+
+      INSERT row INTO rows AT END;
+    }
+    IF(Length(rows) >= 5)
+      BREAK;
+
+    accesslog->Close();
+  }
+  RETURN rows;
+}
+
+MACRO RunQueries()
+{
+  RECORD testport := testfw->GetLocalhostWebinterface();
+  RECORD testvport := testfw->CreateWebserverPort([ virtualhost := TRUE ]);
+
+  STRING longurlpath := Left("/.__test/longurl-" || RepeatText("abcdefg", 32768), 8192);
+  DATETIME teststart := GetCurrentDateTime();
+  testfw->browser->GotoWebPage(testport.baseurl || SubString(longurlpath, 1));
+  testfw->browser->GotoWebPage(testvport.baseurl || ".__test/legalhost", [ headers := [ [ field := "Host", value := "example.com" ] ] ]);
+  testfw->browser->GotoWebPage(testvport.baseurl || ".__test/illegalhost", [ headers := [ [ field := "Host", value := "example \" .com " ] ] ]);
+  testfw->browser->GotoWebPage(testvport.baseurl || ".__test/illegalhost2", [ headers := [ [ field := "Host", value := "example\r.com" ] ] ]);
+  testfw->browser->GotoWebPage(testvport.baseurl || ".__test/illegalhost3", [ headers := [ [ field := "Host", value := "example\n.com" ] ] ]);
+
+  RECORD ARRAY data := GetAccessLogEntries(teststart);
+  TestEQMembers(
+      [ [ host :=       "127.0.0.1"
+        , method :=     "GET"
+        , port :=       testport.portnumber
+        , url :=        longurlpath
+        , useragent :=  'HareScript/2 (HareScript HTTP library)'
+        ]
+      , [ host :=       "example.com"
+        , method :=     "GET"
+        , port :=       testvport.portnumber
+        , url :=        "/.__test/legalhost"
+        , useragent :=  'HareScript/2 (HareScript HTTP library)'
+        ]
+      , [ host :=       "example%32%34%32.com%32"
+        , url :=        "/.__test/illegalhost"
+        ]
+      , [ host :=       "example"
+        , url :=        "/.__test/illegalhost2"
+        ]
+      , [ host :=       "example"
+        , url :=        "/.__test/illegalhost3"
+        ]
+      ], data, "*");
+}
+
+
+RunTestFramework(
+        [ PTR RunQueries
+        ]);

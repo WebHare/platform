@@ -1,0 +1,466 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+
+OBJECT assetpackcontrol;
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "color", type := "switch" ]
+                              , [ name := "command", type := "param", required := TRUE ]
+                              , [ name := "params", type := "paramlist" ]
+                              ]);
+
+MACRO Syntax(STRING errormsg DEFAULTSTO "")
+{
+  IF (errormsg != "")
+    PRINT(errormsg || "\n");
+  Print("Syntax: wh assetpacks <instruction>\n");
+  Print("  list                   List all asset packs\n");
+  Print("  check [assetpack]      Check if assetpacks are okay. List any errors. Omit or use '*' to check all\n");
+  Print("  delete <assetpack>     Delete an asset pack\n");
+  Print("  recompile <assetpack>  Recompile an asset pack. Use '*' to compile all\n");
+  Print("  rebuild <assetpack>    Completely rebuild an asset pack. Use '*' to rebuild all\n");
+  Print("  info <assetpack>       Detailed info about an assetpack\n");
+  Print("  dumpstats              Dump JSON stats for assetpack\n");
+  Print("  wait [assetpack]       Wait for the assetpacks to be compiled. Omit or use '*' to wait for all\n");
+  Print("  autocompile            Configure autocompilation of production packages\n");
+  Print(`  devbrowsertargets      Set the browser targets for dev packages (use the 'browserslist' format, use 'default' for production settings)\n`);
+
+  TerminateScriptWithError("Invalid syntax");
+}
+
+MACRO PrintBundleErrors(INTEGER output, STRING tag)
+{
+  RECORD data := WaitForPromise(assetpackcontrol->GetBundleStatus(tag));
+  PrintTo(output, "\nBundle " || tag || " has the following errors:\n\n");
+
+  IF (data.errors != "")
+    PrintTo(output, "Errors: " || data.errors || "\n");
+
+  IF (CellExists(data.info, "ERRORS") AND LENGTH(data.info.errors) != 0)
+  {
+    PrintTo(output, "Structured errors:\n");
+    PrintTo(output, AnyToString(data.info.errors, "tree"));
+  }
+}
+
+BOOLEAN FUNCTION WaitForCompilation(STRING mask, BOOLEAN verbose)
+{
+  STRING ARRAY lastcompiling;
+
+  OBJECT condition := NEW ManualCondition;
+  RegisterEventCallback("publisher:assetpackcontrol.change.*", PTR SetSignalledUponEvent(condition, #1, #2));
+
+  WHILE (TRUE)
+  {
+    RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+
+    STRING ARRAY compiling :=
+        SELECT AS STRING ARRAY outputtag
+          FROM status.bundles
+         WHERE iscompiling AND outputtag LIKE mask;
+
+    STRING ARRAY newcompiling := ArrayDelete(compiling, lastcompiling);
+    IF (verbose AND LENGTH(newcompiling) != 0)
+      PRINT(`Now compiling: ${Detokenize(newcompiling, ", ")}\n`);
+
+    STRING ARRAY finished := ArrayDelete(lastcompiling, compiling);
+    IF (verbose AND LENGTH(finished) != 0)
+      PRINT(`Finished: ${Detokenize(finished, ", ")}\n`);
+
+    lastcompiling := compiling;
+    IF (LENGTH(lastcompiling) = 0)
+    {
+      STRING ARRAY failedassetpacks := SELECT AS STRING ARRAY outputtag
+                                         FROM status.bundles
+                                        WHERE haserrors AND outputtag LIKE (mask ?? "*");
+
+      IF(verbose AND Length(failedassetpacks) > 0)
+        PRINT(`FAILED: ${Detokenize(failedassetpacks, ", ")}\n`);
+      RETURN Length(failedassetpacks) = 0;
+    }
+
+    WaitForPromise(condition->WaitSignalled());
+    condition->signalled := FALSE;
+  }
+}
+
+IF (NOT RecordExists(args) OR args.command NOT IN [ "list", "delete", "recompile", "rebuild", "info", "dumpstats", "wait", "check", "autocompile", "devbrowsertargets","__getassetpacksbaseconfig" ])
+  Syntax();
+
+IF (args.color OR IsConsoleATerminal())
+  SetAnsiCmdMode("enabled");
+
+OpenPrimary();
+
+TRY
+{
+  assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+}
+CATCH
+{
+  PRINT("Could not connect to the assetpackcontrol\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+STRING ARRAY FUNCTION MatchUUIDs(RECORD ARRAY bundles, STRING mask)
+{
+  //If mask ends with '.', do not match .dev bundles
+  BOOLEAN nodev := Right(mask,1)='.';
+  IF(nodev)
+    mask := Left(mask, Length(mask)-1); //strip the dot
+
+  RETURN SELECT AS STRING ARRAY outputtag
+              FROM bundles
+             WHERE ToUppercase(outputtag) LIKE ToUppercase(mask)
+                   AND (nodev ? outputtag NOT LIKE "*.dev" : TRUE);
+}
+
+STRING FUNCTION GetBundleStatusString(RECORD bundle)
+{
+  RETURN (bundle.hasstatus ? bundle.haserrors ? AnsiCmd("bold,red") || "errors" : "ok" : AnsiCmd("reset") || "n/a") || AnsiCmd("reset");
+}
+
+MACRO ListBundles(RECORD status, STRING ARRAY masks, BOOLEAN withwatchcounts)
+{
+  RECORD ARRAY matches;
+  INTEGER blen := 26;
+  FOREVERY (RECORD bundle FROM status.bundles)
+  {
+    BOOLEAN any_match;
+    FOREVERY (STRING mask FROM masks)
+      IF (bundle.outputtag LIKE mask)
+        any_match := TRUE;
+    IF (NOT any_match)
+      CONTINUE;
+    INSERT bundle INTO matches AT END;
+    IF (LENGTH(bundle.outputtag) > blen)
+      blen := LENGTH(bundle.outputtag);
+  }
+
+  FOREVERY (RECORD bundle FROM matches)
+  {
+    STRING bundlestatus := GetBundleStatusString(bundle);
+    STRING compiling := bundle.iscompiling ? AnsiCmd("bold,magenta") || "build" || AnsiCmd("reset") : bundle.requirecompile ? "dirty" : "-";
+    PRINT(Left(bundle.outputtag || RepeatText(" ", blen), blen)
+        || "\t" || bundlestatus
+        || (withwatchcounts ? "\t" || (bundle.watchcount = 0 ? "-" : (bundle.watchcount || "")) : "")
+        || "\t" || compiling
+        || "\t" || bundle.designfolder || "\n");
+  }
+}
+
+MACRO SetSignalledUponEvent(OBJECT cv, STRING event, RECORD data)
+{
+  cv->signalled := TRUE;
+}
+
+MACRO DoRecompile(INTEGER output, STRING mask, BOOLEAN rebuild)
+{
+  RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+
+  STRING ARRAY matches := MatchUUIDs(status.bundles, mask);
+
+  OBJECT condition := NEW ManualCondition;
+  RegisterEventCallback("publisher:assetpackcontrol.change.*", PTR SetSignalledUponEvent(condition, #1, #2));
+
+  FOREVERY (STRING match FROM matches)
+  {
+    WaitForPromise(assetpackcontrol->SetWatched(match, TRUE));
+    WaitForPromise(assetpackcontrol->RecompileBundle(match, rebuild));
+  }
+
+  PrintTo(output, (rebuild?"Rebuild":"Recompile") || " scheduled, waiting to finish\n");
+
+  STRING ARRAY compiling;
+  STRING ARRAY done;
+
+  WHILE (TRUE)
+  {
+    status := WaitForPromise(assetpackcontrol->GetStatus());
+
+    BOOLEAN any_not_done;
+
+    // For display ordering, first print 'done' messages
+    FOREVERY (RECORD bundle FROM status.bundles)
+    {
+      IF (bundle.outputtag NOT IN matches OR bundle.iscompiling)
+        CONTINUE;
+      IF (NOT bundle.requirecompile)
+      {
+        IF (bundle.outputtag NOT IN done)
+        {
+          IF (LENGTH(matches) > 1)
+            PrintTo(output, "Bundle " || bundle.outputtag || " now done, status: " || GetBundleStatusString(bundle) || "\n");
+          INSERT bundle.outputtag INTO done AT END;
+        }
+      }
+      ELSE // Scheduled
+        any_not_done := TRUE;
+    }
+
+    // And then 'compiling' messages
+    FOREVERY (RECORD bundle FROM status.bundles)
+    {
+      IF (bundle.outputtag NOT IN matches OR NOT bundle.iscompiling)
+        CONTINUE;
+      IF (bundle.outputtag NOT IN compiling)
+      {
+        PrintTo(output, "Bundle " || bundle.outputtag || " now compiling\n");
+        INSERT bundle.outputtag INTO compiling AT END;
+      }
+      any_not_done := TRUE;
+    }
+
+    IF (NOT any_not_done)
+      BREAK;
+
+    WaitForPromise(condition->WaitSignalled());
+    condition->signalled := FALSE;
+  }
+
+  PrintTo(output, "\nStatus of recompiled bundles:\n");
+  ListBundles(status, matches, FALSE);
+
+  IF (LENGTH(matches) = 1)
+  {
+    RECORD bundle := SELECT * FROM status.bundles WHERE outputtag IN matches;
+    IF (bundle.haserrors)
+      PrintBundleErrors(output, bundle.outputtag);
+  }
+}
+
+SWITCH (args.command)
+{
+  CASE "list"
+  {
+    RECORD subargs := ParseArguments(args.params,
+                                  [ [ name := "withwatchcounts", type := "switch" ]
+                                  , [ name := "watch", type := "switch" ]
+                                  ]);
+    IF (NOT RecordExists(subargs))
+      Syntax();
+
+    IF (NOT subargs.watch)
+    {
+      RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+      ListBundles(status, [ "*" ], subargs.withwatchcounts);
+    }
+    ELSE
+    {
+      // Need ansi to be enabled in watch mode
+      SetAnsiCmdMode("enabled");
+
+      OBJECT condition := NEW ManualCondition;
+      RegisterEventCallback("publisher:assetpackcontrol.change.*", PTR SetSignalledUponEvent(condition, #1, #2));
+
+      WHILE (TRUE)
+      {
+        RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+
+        PRINT(AnsiCmd("erasedisplay,pos:0:0") || "Watching assetpacks, last update: " || FormatISO8601DateTime(GetCurrentDateTime()) || "\n\n");
+        ListBundles(status, [ "*" ], subargs.withwatchcounts);
+
+        WaitForPromise(condition->WaitSignalled());
+        condition->signalled := FALSE;
+      }
+    }
+  }
+  CASE "delete"
+  {
+    RECORD subargs := ParseArguments(args.params,
+                                  [ [ name := "mask", type := "param", required := TRUE ]
+                                  ]);
+    IF (NOT RecordExists(subargs))
+      Syntax();
+
+    RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+
+    STRING ARRAY matches := MatchUUIDs(status.bundles, subargs.mask);
+
+    GetPrimary()->BeginWork();
+    DELETE FROM system.assetpacks WHERE outputtag IN matches;
+    GetPrimary()->CommitWork();
+
+    WaitForPromise(assetpackcontrol->UpdateAssetPackManager());
+  }
+  CASE "recompile"
+  {
+    RECORD subargs := ParseArguments(args.params,
+                                  [ [ name := "mask", type := "param", required := TRUE ]
+                                  ]);
+    IF (NOT RecordExists(subargs))
+      Syntax();
+
+    DoRecompile(0, subargs.mask, FALSE);
+  }
+  CASE "rebuild"
+  {
+    RECORD subargs := ParseArguments(args.params,
+                                  [ [ name := "mask", type := "param", required := TRUE ]
+                                  ]);
+    IF (NOT RecordExists(subargs))
+      Syntax();
+
+    DoRecompile(0, subargs.mask, TRUE);
+  }
+  CASE "info"
+  {
+    RECORD subargs := ParseArguments(args.params,
+                                  [ [ name := "mask", type := "param", required := TRUE ]
+                                  ]);
+    IF (NOT RecordExists(subargs))
+      Syntax();
+
+    RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+
+    STRING ARRAY matches := MatchUUIDs(status.bundles, subargs.mask);
+    FOREVERY (STRING match FROM matches)
+    {
+      RECORD bundle := SELECT * FROM status.bundles WHERE outputtag = match;
+      RECORD data := WaitForPromise(assetpackcontrol->GetBundleStatus(bundle.outputtag));
+
+      PRINT("Config:\n");
+      PRINT(" Output UUID: " || data.outputtag || "\n");
+      PRINT(" Designfolder: " || data.designfolder || "\n");
+      PRINT(" Output path: " || data.outputpath || "\n");
+      PRINT(" Sourcemap type: " || (data.bundleconfig.fullsourcemap ? "full" : "cheap") || "\n");
+      PRINT("Status:\n");
+      PRINT(" Status: " || GetBundleStatusString(data) || "\n");
+      PRINT(" Compiler: " || (data.iscompiling ? AnsiCmd("bold,yellow") || "compiling" || AnsiCmd("reset") : data.requirecompile ? "scheduled" : "idle") || "\n");
+      PRINT(" Last compile: " || FormatISO8601DateTime(data.lastcompile) || "\n");
+      PRINT(" Compile duration: " || (data.lastcompile < data.compilestart
+            ? GetDateTimeDifference(data.compilestart, GetCurrentDateTime()).msecs / 1000 || " seconds (still busy)"
+            : data.compilestart = DEFAULT DATETIME
+                  ? "n/a"
+                  : GetDateTimeDifference(data.compilestart, data.lastcompile).msecs / 1000 || " seconds") || "\n");
+      IF (data.errors != "")
+        PRINT(" Errors: " || data.errors || "\n");
+
+      IF (CellExists(data.info, "ERRORS") AND LENGTH(data.info.errors) != 0)
+      {
+        PRINT(" Structured errors:\n");
+        DumpValue(data.info.errors, "tree");
+      }
+    }
+  }
+  CASE "dumpstats"
+  {
+    RECORD subargs := ParseArguments(args.params,
+                                  [ [ name := "json", type := "switch" ]
+                                  , [ name := "mask", type := "param", required := TRUE ]
+                                  ]);
+    IF (NOT RecordExists(subargs))
+      Syntax();
+
+    RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+
+    STRING ARRAY matches := MatchUUIDs(status.bundles, subargs.mask);
+    IF (LENGTH(matches) = 0)
+      PrintTo(1, "No matching asset packs");
+    ELSE IF (LENGTH(matches) > 1)
+      PrintTo(1, "Multiple matching assetpacks, eg. " || Detokenize(ArraySlice(matches, 0, 3), ", ") || "\n");
+    ELSE
+    {
+      RECORD bundle := SELECT * FROM status.bundles WHERE outputtag = matches[0];
+      RECORD data := WaitForPromise(assetpackcontrol->GetBundleStatus(bundle.outputtag));
+      IF (subargs.json)
+      {
+        IF (data.statsjson = "")
+        {
+          WaitForPromise(assetpackcontrol->SetBundleJSONStats(bundle.outputtag, TRUE));
+          DoRecompile(1, bundle.outputtag, FALSE);
+          data := WaitForPromise(assetpackcontrol->GetBundleStatus(bundle.outputtag));
+          WaitForPromise(assetpackcontrol->SetBundleJSONStats(bundle.outputtag, FALSE));
+        }
+        Print(data.statsjson || "\n");
+      }
+      ELSE
+        PRINT(data.stats || "\n");
+    }
+  }
+  CASE "check", "wait"
+  {
+    RECORD subargs := ParseArguments(args.params,
+                                  [ [ name := "mask", type := "param" ]
+                                  ]);
+
+    IF (NOT RecordExists(subargs))
+      Syntax();
+
+    BOOLEAN iswait := args.command = "wait";
+    STRING mask := subargs.mask ?? "*";
+    BOOLEAN success := WaitForCompilation(mask, iswait OR IsConsoleATerminal());
+
+    IF(NOT iswait)
+    {
+      RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+      FOREVERY(RECORD uncompiled FROM SELECT * FROM status.bundles WHERE outputtag LIKE mask AND (iscompiling OR haserrors))
+        PrintBundleErrors(2,uncompiled.outputtag);
+    }
+
+    IF(NOT success)
+      SetConsoleExitCode(1);
+  }
+  CASE "autocompile"
+  {
+    RECORD subargs := ParseArguments(args.params,
+                                  [ [ name := "state", type := "param" ]
+                                  ]);
+    IF (NOT RecordExists(subargs))
+      Syntax();
+
+    IF (subargs.state = "")
+    {
+      PRINT(`Production assetpacks autocompilation is ${ReadRegistryKey("publisher.bundledassets.suspendautocompile") ? "off" : "on"}\n`);
+    }
+    ELSE
+    {
+      BOOLEAN newsuspend;
+      IF (subargs.state IN [ "0", "off", "disabled" ])
+        newsuspend := TRUE;
+      ELSE IF (subargs.state NOT IN [ "1", "on", "enabled" ])
+        Syntax(`Allowed autocompilation values: on/off\n`);
+
+      GetPrimary()->BeginWork();
+      WriteRegistryKey("publisher.bundledassets.suspendautocompile", newsuspend);
+      GetPrimary()->CommitWork();
+    }
+  }
+  CASE "devbrowsertargets"
+  {
+    RECORD subargs := ParseArguments(args.params,
+                                  [ [ name := "browsertargets", type := "param" ]
+                                  ]);
+    IF (NOT RecordExists(subargs))
+      Syntax();
+
+    IF (subargs.browsertargets = "")
+    {
+      PRINT(`Current browser targets for dev assetpacks: ${ReadRegistryKey("publisher.bundledassets.devbrowsertargets") ?? "same as production assetpacks"}\n`);
+    }
+    ELSE
+    {
+      IF (subargs.browsertargets = "default")
+        subargs.browsertargets := "";
+
+      GetPrimary()->BeginWork();
+      WriteRegistryKey("publisher.bundledassets.devbrowsertargets", subargs.browsertargets);
+      GetPrimary()->CommitWork();
+    }
+  }
+  CASE "__getassetpacksbaseconfig"
+  {
+    RECORD config := WaitForPromise(assetpackcontrol->GetAssetPacksBaseConfig());
+    DumpValue(config,'tree');
+  }
+}

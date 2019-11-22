@@ -1,0 +1,2018 @@
+﻿<?wh
+/** @short XML Schema (XSD) parsing and validation
+    @topic xml/schema
+*/
+
+/* the validation api is currently tricky, as we use
+   - libxml to do actual validation (this is the only thing we had in the past)
+   - our own code for much more advanced operations
+
+   */
+
+/*  This library contains a generic parser for xsd components, extensible
+    with user-defined parsers for other nodes.
+
+This version implements the following W3C recommendations (XML Schema Second Sdition)
+  http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/
+  http://www.w3.org/TR/2004/REC-xmlschema-2-20041028/
+
+Currently, no support is present for older versions of the xml schema specification
+(also not for the XML Schema First Edition)
+
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "wh::xml/internal/structures.whlib" EXPORT unbounded_max_int; //FIXME really export?
+LOADLIB "wh::xml/internal/datatypes.whlib";
+LOADLIB "wh::xml/internal/domwalker.whlib";
+
+//------------------------------------------------------------------------------
+//
+// XSDParserFrameWork
+//
+//------------------------------------------------------------------------------
+
+STATIC OBJECTTYPE XSDParserFrameWork
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** List of all registered root nodes
+      @cell "0" name
+      @cell "1" namespaceuri
+      @cell "2" Type
+      @cell node Node
+  */
+  RECORD ARRAY pvt_registered_nodes;
+
+
+  /// FIXME: document
+  STRING pvt_xsdnamespace;
+
+
+  OBJECT pvt_xmldomimpl;
+
+
+  BOOLEAN pvt_permissive_mode;
+
+
+  /** All XSD component nodes, registered by id
+      @cell(integer) id Node id (equal to node->id)
+      @cell(object) node
+  */
+  RECORD ARRAY pvt_idnode_mapping;
+
+  /// Schema information item
+  OBJECT pvt_schemainformation;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// List of parsed xsds
+  PUBLIC STRING ARRAY parsed_xsds;
+
+
+  /// List of unchecked nodes
+  PUBLIC OBJECT ARRAY unchecked_nodes;
+
+
+  /// List of all nodes
+  PUBLIC OBJECT ARRAY all_nodes;
+
+
+  /// Extra root nodes FIXME: WHAT DOES THIS MEAN?
+  PUBLIC OBJECT ARRAY extra_root_nodes;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Namespace of the XSD version this framework is checking
+      Possible values: http://www.w3.org/2001/XMLSchema Work in progress
+  */
+  PUBLIC PROPERTY xsdnamespace(pvt_xsdnamespace, -);
+
+
+  /** Contains the list of default and parsed datatypes
+      @cell name Name of the datatype
+      @cell namespaceuri Namespace uri of the datatype
+  */
+  PUBLIC PROPERTY datatypes(GetDataTypes, -);
+
+
+  /** Contains the list of parsed complex types
+      @cell name Name of the complex type
+      @cell namespaceuri Namespace uri of the complex type
+  */
+  PUBLIC PROPERTY complextypes(GetComplexTypes, -);
+
+
+  /** Contains the list of parsed elements types
+      @cell name Name of the complex type
+      @cell namespaceuri Namespace uri of the complex type
+  */
+  PUBLIC PROPERTY elements(GetElements, -);
+
+
+  /** Contains the list of parsed modelgroups
+      @cell name Name of the complex type
+      @cell namespaceuri Namespace uri of the complex type
+  */
+  PUBLIC PROPERTY modelgroups(GetModelGroups, -);
+
+  /** Contains the schema element information item
+  */
+  PUBLIC PROPERTY schema_information(pvt_schemainformation, -);
+
+  PUBLIC PROPERTY dbg_allcomponents(GetRegisteredNodes, -);
+
+  PUBLIC PROPERTY xmldomimpl(pvt_xmldomimpl, -);
+
+
+  PUBLIC PROPERTY permissive_mode(pvt_permissive_mode, pvt_permissive_mode);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xmldompiml, STRING xsdnamespace)
+  {
+    this->pvt_xmldomimpl := xmldompiml;
+    this->pvt_xsdnamespace := xsdnamespace;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  RECORD ARRAY FUNCTION GetDataTypes()
+  {
+    RETURN SELECT namespaceuri := nodes."1"
+                , name         := nodes."0"
+                , node
+             FROM this->pvt_registered_nodes AS nodes
+            WHERE nodes."2" = "DATATYPE";
+  }
+
+
+  RECORD ARRAY FUNCTION GetComplexTypes()
+  {
+    RETURN SELECT namespaceuri := nodes."1"
+                , name         := nodes."0"
+                , node
+             FROM this->pvt_registered_nodes AS nodes
+            WHERE nodes."2" = "COMPLEXTYPE";
+  }
+
+
+  RECORD ARRAY FUNCTION GetElements()
+  {
+    RETURN SELECT namespaceuri := nodes."1"
+                , name         := nodes."0"
+                , node
+             FROM this->pvt_registered_nodes AS nodes
+            WHERE nodes."2" = "ELEMENT";
+  }
+
+
+  RECORD ARRAY FUNCTION GetModelGroups()
+  {
+    RETURN SELECT namespaceuri := nodes."1"
+                , name         := nodes."0"
+                , node
+             FROM this->pvt_registered_nodes AS nodes
+            WHERE nodes."2" = "MODELGROUP";
+  }
+
+
+  RECORD ARRAY FUNCTION GetRegisteredNodes()
+  {
+    RETURN SELECT namespaceuri := nodes."1"
+                , name         := nodes."0"
+                , type         := nodes."2"
+                , node
+             FROM this->pvt_registered_nodes AS nodes;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Returns TRUE when called for the first time (when starting with parse)
+  PUBLIC BOOLEAN FUNCTION __InitializeSchemaParse(OBJECT node, STRING xsd_filename)
+  {
+    IF (ObjectExists(this->pvt_schemainformation))
+      RETURN FALSE;
+
+    this->pvt_schemainformation := NEW XSDSchema(PRIVATE this, node, xsd_filename);
+    RETURN TRUE;
+  }
+
+  /** Looks up a node of a specified type
+      @param namespaceuri Namespace uri of the node
+      @param name (Local) name of the node
+      @param type Type of the node (accepted:
+              "DATATYPE"      // Registered datatypes (builtins are also registered)
+              "PARSER"        // Parser for a specific entity type
+              "COMPLEXTYPE"   // Registered complex types
+              "ELEMENT"       // Elements
+              "MODELGROUP"    // Modelgroups
+      @return Returns the node, if registered. Otherwise a XSDUnresolvedComponentReference object is
+              registered under this namespace, name and type and returned (recognizable by the cell unresolved:=true
+              in parser_control)
+  */
+  PUBLIC OBJECT FUNCTION TryLookupNode(STRING namespaceuri, STRING name, STRING type)
+  {
+    RECORD groupdata := [ "0" := name, "1" := namespaceuri, "2" := type ];
+    INTEGER grouppos := __HS_SQL_GetGroupPosition(this->pvt_registered_nodes, groupdata);
+    IF (grouppos < 0)
+    {
+      //PRINT("Search for {"||namespaceuri||"}"||name||" (of type " ||type ||") failed\n");
+      RETURN DEFAULT OBJECT;
+    }
+    RETURN this->pvt_registered_nodes[grouppos].node;
+  }
+
+
+  // Looks up a node, aborts when not found
+  PUBLIC OBJECT FUNCTION LookupNode(STRING namespaceuri, STRING name, STRING type)
+  {
+    OBJECT o := this->TryLookupNode(namespaceuri, name, type);
+    IF (NOT ObjectExists(o))
+      THROW NEW Exception("No node with name {"||namespaceuri||"}"||name||" (of type " ||type ||") exists\n");
+    RETURN o;
+  }
+
+
+  PUBLIC OBJECT FUNCTION ParserLookupNode(STRING namespaceuri, STRING name, STRING type, OBJECT source_xml_node DEFAULTSTO DEFAULT OBJECT)
+  {
+    OBJECT node := this->TryLookupNode(namespaceuri, name, type);
+    IF (NOT ObjectExists(node))
+    {
+      node := NEW XSDUnresolvedComponentReference(PRIVATE this, namespaceuri, name, type, source_xml_node, "");
+    }
+
+    RETURN node;
+  }
+
+
+  /** Given an qualified name and a node to search the prefixes from, find the specified node
+      @param qname Qualified name (of the form prefix:name)
+      @param xmlnode Node that can be used to resolve the prefix
+      @param type Type of the node (accepted:
+              "DATATYPE"      // Registered datatypes (builtins are also registered)
+              "PARSER"        // Parser for a specific entity type
+              "COMPLEXTYPE"   // Registered complex types
+      @return If qname=="", returns an default object.
+              Returns the node, if registered. Otherwise a XSDUnresolvedComponentReference object is
+              registered under this namespace, name and type and returned (recognizable by the cell unresolved:=true
+              in parser_control)
+  */
+  PUBLIC OBJECT FUNCTION ParserLookupNodeFromQName(STRING qname, OBJECT xmlnode, STRING type)
+  {
+    IF (qname = "")
+      RETURN DEFAULT OBJECT;
+    RECORD data := ResolveQNameFromXMLNode(qname, xmlnode);
+    RETURN this->ParserLookupNode(data.namespaceuri, data.localname, type, xmlnode);
+  }
+
+
+  // Looks up a node by qname, aborts when not found
+  PUBLIC OBJECT FUNCTION LookupNodeFromQName(STRING qname, OBJECT xmlnode, STRING type)
+  {
+    IF (qname = "")
+      RETURN DEFAULT OBJECT;
+    RECORD data := ResolveQNameFromXMLNode(qname, xmlnode);
+    RETURN this->LookupNode(data.namespaceuri, data.localname, type);
+  }
+
+
+  /** Registeres a node of a specified type
+      @param namespaceuri Namespace uri of the node
+      @param name (Local) name of the node
+      @param type Type of the node (accepted:
+              "DATATYPE"      // Registered datatypes (builtins are also registered)
+              "PARSER"        // Parser for a specific entity type
+              "COMPLEXTYPE"   // Registered complex types
+      @param node Node to register (must be private ptr)
+  */
+  PUBLIC MACRO RegisterNode(STRING namespaceuri, STRING name, STRING type, OBJECT node)
+  {
+    RECORD idpos := RecordLowerBound(this->pvt_idnode_mapping, [ id := node->id ], [ "ID" ]);
+    IF (NOT idpos.found)
+      THROW NEW Exception("Registering node {" || node->target_namespace || "}" || node->name || ", which has not applied for an id yet");
+
+    // Get the private node ptr
+    node := this->pvt_idnode_mapping[idpos.position].node;
+
+    //PRINT("Registering node {" || namespaceuri || "}" || name || " (" || type || ")\n");
+
+    RECORD groupdata := [ "0" := name, "1" := namespaceuri, "2" := type ];
+
+    INTEGER grouppos := __HS_SQL_GetGroupPosition(this->pvt_registered_nodes, groupdata);
+    IF (grouppos >= 0)
+      THROW NEW Exception('Element {'||namespaceuri||'}'||name||' of type '||type||' already exists'); // FIXME: use signalling, not abort
+    INSERT CELL node := node INTO groupdata;
+    INSERT groupdata INTO this->pvt_registered_nodes AT (-grouppos)-1;
+
+    node->pvt_registered_toplevel := TRUE;
+  }
+
+  PUBLIC OBJECT FUNCTION RegisterDataType(OBJECT node)
+  {
+    this->RegisterNode(node->target_namespace, node->name, "DATATYPE", node);
+    RETURN node;
+  }
+
+  //  , OBJECT ARRAY visit_order
+  PUBLIC OBJECT FUNCTION ResolveObject(OBJECT node, OBJECT toresolve)
+  {
+    IF (NOT ObjectExists(toresolve))
+      RETURN toresolve;
+
+    IF (CellExists(toresolve->parser_control, "UNRESOLVED"))
+    {
+      OBJECT newnode := this->TryLookupNode(toresolve->target_namespace, toresolve->name, toresolve->lookuptype);
+      IF (NOT ObjectExists(newnode))
+      {
+        THROW NEW Exception("Node " || GetXSDNodePrettyName(toresolve) || " (type: " || toresolve->type || ") has not been defined");
+      }
+      toresolve := newnode;
+    }
+    INSERT toresolve INTO node->parser_control.dependencies AT END;
+    IF (NOT toresolve->parser_control.dependencies_checked)
+      INSERT toresolve INTO this->unchecked_nodes AT END;
+    RETURN toresolve;
+  }
+
+
+  PUBLIC MACRO BuildProperties()
+  {
+  //  PRINT("Building properties\n");
+    this->unchecked_nodes :=
+        SELECT AS OBJECT ARRAY node
+          FROM this->pvt_registered_nodes
+         WHERE NOT node->parser_control.is_finished;
+
+  //  PRINT("- Getting object dependencies\n");
+    INTEGER len := LENGTH(this->unchecked_nodes);
+
+    WHILE (len > 0)
+    {
+      // Get object
+      OBJECT node := this->unchecked_nodes[len - 1];
+      DELETE FROM this->unchecked_nodes AT len - 1;
+
+      IF (NOT node->parser_control.dependencies_checked)
+      {
+        node->parser_control.dependencies_checked := TRUE;
+        node->ResolveAllObjects(PRIVATE this);
+
+        INSERT node INTO this->all_nodes AT END;
+      }
+      len := LENGTH(this->unchecked_nodes);
+    }
+
+  //  PRINT("- Calculating processing order\n");
+    // Get all_nodes, in reverse order
+    OBJECT ARRAY ordered_nodes := this->BuildProcessingOrder();//this->GetOrderedList2(this->all_nodes);
+
+//      PRINT("Ordering\n");
+//      FOREVERY (OBJECT o FROM ordered_nodes)
+//        PRINT(" Object of type " || GetObjectTypeName(o) || ": " || GetXSDNodePrettyName(o) || "\n");
+
+  //  PRINT("- Constructing all properties\n");
+    FOREVERY (OBJECT o FROM ordered_nodes)
+    {
+//        PRINT("Visiting object of type " || GetObjectTypeName(o) || ": " || GetXSDNodePrettyName(o) || "\n");
+      IF (NOT o->parser_control.is_finished)
+        o->BuildProperties(this);
+    }
+
+  //  PRINT("- Cleaning up unneeded data\n");
+    FOREVERY (OBJECT o FROM ordered_nodes)
+    {
+      o->parser_control.is_finished := TRUE;
+      o->parser_control.dependencies := DEFAULT OBJECT ARRAY;
+      o->local_data := DEFAULT RECORD; //[ data := AnyToString(o->local_data, "boxed") ];
+    }
+  //  PRINT("Done\n");
+  }
+
+
+  /** Build the processing order. A node may be processed before all of its dependencies, and may be
+      processed multiple times. Every node must be processed, and the last time a node is processed
+      its dependencies must have been processed at least once.
+  */
+  OBJECT ARRAY FUNCTION BuildProcessingOrder()
+  {
+    /* The algorithm works by first identifying nodes without dependencies, and puts them in the processing
+       list. It removes dependencies on nodes on the list, and repeats the process until no nodes are left,
+       or the only remaining nodes are in a cycle, or depend on one. If so, a node is chosen (quite randomly)
+       and put into the processing list. Dependencies on it are removed and the show is run again.
+    */
+
+    OBJECT ARRAY root_nodes, ordered_nodes;
+
+    // Clear the reverse dependencies
+    FOREVERY (OBJECT elt FROM this->all_nodes)
+      elt->parser_control.order_rdeps := DEFAULT OBJECT ARRAY;
+
+    // Copy dependencies to order_deps, construct reverse into rdeps. Collect nodes without deps.
+    FOREVERY (OBJECT elt FROM this->all_nodes)
+    {
+      OBJECT ARRAY deps := elt->parser_control.dependencies;
+      elt->parser_control.order_deps := deps;
+
+      IF (LENGTH(deps) = 0)
+        INSERT elt INTO root_nodes AT END;
+      ELSE
+      {
+        FOREVERY (OBJECT dep FROM deps)
+          INSERT elt INTO dep->parser_control.order_rdeps AT END;
+      }
+    }
+
+    // Left nodes is the count of nodes that haven't had their final processing
+    INTEGER left_nodes := LENGTH(this->all_nodes);
+
+    WHILE (left_nodes != 0)
+    {
+      OBJECT ARRAY work_now := root_nodes;
+      root_nodes := DEFAULT OBJECT ARRAY;
+
+      // No nodes left without dependencies; just pick one with a reverse dependency (we hope it'll break the cycle)
+      IF (LENGTH(work_now) = 0)
+      {
+        // First try to get one
+        FOREVERY (OBJECT o FROM this->all_nodes)
+        {
+          IF (LENGTH(o->parser_control.order_rdeps) != 0)
+          {
+            work_now := [ o ];
+            BREAK;
+          }
+        }
+        IF (LENGTH(work_now) = 0)
+          THROW NEW Exception("Internal error in xsd parser: could not determine xsd elements processing order");
+
+        // The cycle breaker will be emitted twice, so don't lower left_nodes
+      }
+      ELSE
+      {
+        // All elements in work_now don't have any unprocessed dependencies, so won't be processed again
+        left_nodes := left_nodes - LENGTH(work_now);
+      }
+
+      FOREVERY (OBJECT o FROM work_now)
+      {
+        INSERT o INTO ordered_nodes AT END;
+
+        // The element is processed now, so remove all dependencies on it. Walk through rdeps to find them
+        FOREVERY (OBJECT rdep FROM o->parser_control.order_rdeps)
+        {
+          INTEGER pos := SearchElement(rdep->parser_control.order_deps, o);
+          IF (pos = -1)
+            THROW NEW Exception("Desync between deps/rdeps");
+
+          DELETE FROM rdep->parser_control.order_deps AT pos;
+
+          // No dependencies left in this node, it may be processed in the next round
+          IF (LENGTH(rdep->parser_control.order_deps) = 0)
+            INSERT rdep INTO root_nodes AT END;
+
+          // All deps were removed, update rdeps to reflect that
+          o->parser_control.order_rdeps := DEFAULT OBJECT ARRAY;
+        }
+      }
+    }
+
+    RETURN ordered_nodes;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private callback functions
+  //
+
+  PUBLIC INTEGER FUNCTION RegisterXSDComponentObject(OBJECT node)
+  {
+    INTEGER id := LENGTH(this->pvt_idnode_mapping) + 1;
+    INSERT [ id := id, node := node ] INTO this->pvt_idnode_mapping AT END;
+    RETURN id;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC OBJECT FUNCTION GetComponentNodeByID(INTEGER id)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_idnode_mapping, [ id := id ], [ "ID" ]);
+    IF (pos.found)
+      RETURN this->pvt_idnode_mapping[pos.position].node;
+    RETURN DEFAULT OBJECT;
+  }
+
+>;
+
+//------------------------------------------------------------------------------
+//
+// Other functions
+//
+//------------------------------------------------------------------------------
+
+RECORD ARRAY FUNCTION IntegrateFacets(RECORD ARRAY _new, RECORD ARRAY _old)
+{
+  _new := SELECT * FROM _new ORDER BY type;
+  _old := SELECT * FROM _old ORDER BY type;
+
+  INTEGER n_pos := 0
+        , n_len := LENGTH(_new)
+        , o_pos := 0
+        , o_len := LENGTH(_old);
+
+  RECORD ARRAY results;
+  WHILE (o_pos != o_len)
+  {
+    STRING o_type := _old[o_pos].type;
+
+    WHILE (n_pos != n_len AND _new[n_pos].type < o_type)
+    {
+      INSERT _new[n_pos] INTO results AT END;
+      n_pos := n_pos + 1;
+    }
+    IF (n_pos != n_len AND _new[n_pos].type = o_type)
+    {
+      IF (_old[o_pos].fixed)
+        THROW NEW Exception("May not overwrite a fixed facet!");
+      INSERT _new[n_pos] INTO results AT END;
+      n_pos := n_pos + 1;
+    }
+    ELSE
+      INSERT _old[o_pos] INTO results AT END;
+    o_pos := o_pos + 1;
+  }
+  FOR (; n_pos != n_len; n_pos := n_pos + 1)
+    INSERT _new[n_pos] INTO results AT END;
+
+  RETURN results;
+}
+
+
+OBJECT FUNCTION CreateSimpleTypeDefinitionFromPrimitive(OBJECT xsdparser, OBJECT primitive, OBJECT anysimpletype, OBJECT xmlnode)
+{
+  OBJECT def := NEW XSDSimpleType(xsdparser, primitive->target_namespace, primitive->name, xmlnode, "");
+  def->variety := "atomic";
+  def->primitive_type_definition := primitive;
+  def->base_type_definition := anysimpletype;
+  RETURN def;
+}
+
+
+OBJECT FUNCTION CreateDerivedType(OBJECT xsdparser, OBJECT base, STRING namespace, STRING name, RECORD ARRAY facets, OBJECT xmlnode)
+{
+  // Fix the annotations in the facets
+  FOREVERY (RECORD facet FROM facets)
+    IF (NOT CellExists(facet, "ANNOTATIONS"))
+      INSERT CELL annotations := DEFAULT OBJECT ARRAY INTO facets[#facet];
+
+  OBJECT def := NEW XSDSimpleType(xsdparser, namespace, name, xmlnode, "");
+  def->variety := base->variety;
+  def->primitive_type_definition := base->primitive_type_definition;
+  def->facets := IntegrateFacets(facets, base->facets);
+  def->base_type_definition := base;
+  RETURN def;
+}
+
+
+OBJECT FUNCTION CreateDerivedTypeByList(OBJECT xsdparser, OBJECT base, STRING namespace, STRING name, RECORD ARRAY facets, OBJECT xmlnode)
+{
+  OBJECT def := NEW XSDSimpleType(xsdparser, namespace, name, xmlnode, "");
+  def->variety := "list";
+  def->facets := facets;
+  def->item_type_definition := base;
+  RETURN def;
+}
+
+
+STRING FUNCTION GetXSDNodePrettyName(OBJECT node)
+{
+  IF (ObjectExists(node))
+    RETURN "{" || node->target_namespace || "}" || node->name;
+  ELSE
+    RETURN "NULL";
+}
+
+STRING base_indent_string := "                ";
+STRING FUNCTION GetIndent(INTEGER i)
+{
+  WHILE (LENGTH(base_indent_string) < i)
+    base_indent_string := base_indent_string || base_indent_string;
+  RETURN LEFT(base_indent_string, i);
+}
+
+
+PUBLIC MACRO __XSD_PARSER_PrintXMLTree(OBJECT node, INTEGER i DEFAULTSTO 0)
+{
+  PrintXMLTree(node, i);
+}
+
+
+MACRO PrintXMLTree(OBJECT node, INTEGER indent DEFAULTSTO 0)
+{
+  IF (NOT ObjectExists(node))
+  {
+    PRINT("EMPTY\n");
+    RETURN;
+  }
+  PRINT(GetIndent(indent) || "<" || node->nodeName);
+  OBJECT attr_map := node->attributes;
+  IF (ObjectExists(attr_map))
+  {
+    FOR (INTEGER i := 0, e := attr_map->length; i < e; i := i + 1)
+    {
+      OBJECT attr := attr_map->Item(i);
+      PRINT(" " || attr->name || "=\"" || attr->value || "\"");
+    }
+  }
+  OBJECT child := node->firstchild;
+  IF (ObjectExists(child))
+  {
+    BOOLEAN any_print := FALSE;
+    WHILE (ObjectExists(child))
+    {
+      IF (child->nodeName != "#text")
+      {
+        IF (NOT any_print)
+        {
+          PRINT(">\n");
+          any_print := TRUE;
+        }
+        PrintXMLTree(child, indent + 2);
+      }
+      ELSE
+      {
+        IF (CleanWhitespace(child->data) != "")
+        {
+          IF (NOT any_print)
+          {
+            PRINT(">\n");
+            any_print := TRUE;
+          }
+          PRINT(child->data);
+        }
+      }
+      child := child->nextsibling;
+    }
+    IF (any_print)
+      PRINT(GetIndent(indent) || "</" || node->nodeName || ">\n");
+    ELSE
+      PRINT("/>\n");
+  }
+  ELSE
+    PRINT("/>\n");
+}
+
+
+BOOLEAN FUNCTION GetBooleanAttribute(OBJECT node, STRING attrname, BOOLEAN defaultval)
+{
+  RETURN node->HasAttribute(attrname) ? CleanWhitespace(node->GetAttribute(attrname)) IN [ "true", "1" ] : defaultval;
+}
+
+//------------------------------------------------------------------------------
+//
+// XSD Parser
+//
+//------------------------------------------------------------------------------
+
+
+/** Creates a parser which is built using the http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/
+    XML schema specification.
+    Warning: This implementation isn't complete, by far!
+*/
+PUBLIC OBJECT FUNCTION CreateXSD2001Parser(OBJECT xmldomimpl)
+{
+  RETURN CreateXSDParser(xmldomimpl, "http://www.w3.org/2001/XMLSchema");
+}
+
+
+OBJECT FUNCTION CreateXSDParser(OBJECT xmldomimpl, STRING baseuri)
+{
+  STRING xsd := baseuri;
+
+  OBJECT parser := NEW XSDParserFrameWork(xmldomimpl, xsd);
+
+  OBJECT xsd_anySimpleType := NEW XSDAnySimpleType  (parser, xsd, "anySimpleType", DEFAULT RECORD ARRAY);
+
+  OBJECT xsd_string     := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveString(parser, xsd, "string"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_boolean    := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveBoolean(parser, xsd, "boolean"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_decimal    := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveDecimal(parser, xsd, "decimal"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_anyuri     := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveString(parser, xsd, "anyURI"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_qname      := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveString(parser, xsd, "QName"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_base64Binary := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveBase64Binary(parser, xsd, "base64Binary"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_hexBinary  := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveHexBinary(parser, xsd, "hexBinary"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_dateTime   := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveDateTime(parser, xsd, "dateTime"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_date       := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveDate(parser, xsd, "date"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_float      := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveFloat(parser, xsd, "float"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_double     := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveDouble(parser, xsd, "double"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_time       := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveTime(parser, xsd, "time"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_gyearmonth := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveGYearMonth(parser, xsd, "gYearMonth"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_gyear      := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveGYear(parser, xsd, "gYear"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_gmonthday  := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveGMonthDay(parser, xsd, "gMonthDay"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_gday       := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveGDay(parser, xsd, "gDay"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_gmonth     := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveGMonth(parser, xsd, "gMonth"), xsd_anySimpleType, DEFAULT OBJECT);
+  OBJECT xsd_duration   := CreateSimpleTypeDefinitionFromPrimitive(parser, NEW XSDPrimitiveDuration(parser, xsd, "duration"), xsd_anySimpleType, DEFAULT OBJECT);
+
+  // Primitive types
+  parser->RegisterDataType(xsd_anySimpleType);
+  parser->RegisterDataType(xsd_string);
+  parser->RegisterDataType(xsd_boolean);
+  parser->RegisterDataType(xsd_decimal);
+  parser->RegisterDataType(xsd_anyuri);
+  parser->RegisterDataType(xsd_qname);
+  parser->RegisterDataType(xsd_base64Binary);
+  parser->RegisterDataType(xsd_hexBinary);
+  parser->RegisterDataType(xsd_dateTime);
+  parser->RegisterDataType(xsd_date);
+  parser->RegisterDataType(xsd_float);
+  parser->RegisterDataType(xsd_double);
+  parser->RegisterDataType(xsd_time);
+  parser->RegisterDataType(xsd_gyearmonth);
+  parser->RegisterDataType(xsd_gyear);
+  parser->RegisterDataType(xsd_gmonthday);
+  parser->RegisterDataType(xsd_gday);
+  parser->RegisterDataType(xsd_gmonth);
+  parser->RegisterDataType(xsd_duration);
+
+
+  // FIXME: set patterns on primitive data types, and do inheritance of integer-derived types better
+
+  // Primitive types
+  OBJECT xsd_integer :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_decimal, xsd, "integer",
+          [ [ type := "pattern"        , value := "[\+\-]?\d*", fixed := FALSE ]
+          , [ type := "fractionDigits" , value := 0, fixed := TRUE ] ], DEFAULT OBJECT));
+
+  // Can't represent the limits in HS.
+  OBJECT xsd_long :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_integer, xsd, "long", DEFAULT RECORD ARRAY, DEFAULT OBJECT));
+
+  OBJECT xsd_int :=
+    parser->RegisterDataType(CreateDerivedType(parser, xsd_long, xsd, "int",
+        [ [ type := "minInclusive", value := -2147483648, fixed := FALSE ]
+        , [ type := "maxInclusive", value := 2147483647, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  OBJECT xsd_short :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_int, xsd, "short",
+          [ [ type := "minInclusive", value := -32768, fixed := FALSE ]
+          , [ type := "maxInclusive", value := 32767, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  OBJECT xsd_byte :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_short, xsd, "byte",
+          [ [ type := "minInclusive", value := -128, fixed := FALSE ]
+          , [ type := "maxInclusive", value := 127, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  OBJECT xsd_nonNegativeInteger :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_integer, xsd, "nonNegativeInteger",
+          [ [ type := "minInclusive", value := 0, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  parser->RegisterDataType(CreateDerivedType(parser, xsd_nonNegativeInteger, xsd, "positiveInteger",
+      [ [ type := "minInclusive", value := 1, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // Can't represent upper limit in HS.
+  OBJECT xsd_unsignedlong :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_nonNegativeInteger, xsd, "unsignedLong",
+          [ [ type := "minInclusive", value := 0, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // Can't represent upper limit in HS.
+  OBJECT xsd_unsignedint :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_unsignedlong, xsd, "unsignedInt",
+          [ [ type := "minInclusive", value := 0, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  OBJECT xsd_unsignedshort :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_unsignedint, xsd, "unsignedShort",
+          [ [ type := "minInclusive", value := 0, fixed := FALSE ]
+          , [ type := "maxInclusive", value := 65535, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  parser->RegisterDataType(CreateDerivedType(parser, xsd_unsignedshort, xsd, "unsignedByte",
+      [ [ type := "minInclusive", value := 0, fixed := FALSE ]
+      , [ type := "maxInclusive", value := 255, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // Can't represent lowerlimit in HS.
+  OBJECT xsd_nonpositiveinteger :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_integer, xsd, "nonPositiveInteger",
+          [ [ type := "maxInclusive", value := 0, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // Can't represent lower limit in HS.
+  parser->RegisterDataType(CreateDerivedType(parser, xsd_decimal, xsd, "negativeInteger",
+      [ [ type := "maxInclusive", value := -1, fixed := FALSE ] ], DEFAULT OBJECT));
+
+//  parser->RegisterDataType(CreateDerivedType(xsd_anySimpleType, xsd, "gYear",
+//      [ [ type := "whiteSpace", value := "collapse", fixed := TRUE ] ]));
+
+  // FIXME The following patterns should really be checked for correctness; they haven't been checked at all
+
+  /* XML spec names production http://www.w3.org/TR/2000/WD-xml-2e-20000814#NT-Names
+        NameChar   ::= Letter | Digit  | '.' | '-' | '_' | ':' | CombiningChar | Extender
+        Name       ::= (Letter | '_' | ':') ( NameChar)*
+        Names      ::= Name (#x20 Name)*
+        Nmtoken    ::= (NameChar)+
+        Nmtokens   ::= Nmtoken (#x20 Nmtoken)*
+    NCName production http://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-NCName
+        NCNameChar ::=     Letter | Digit | '.' | '-' | '_' | CombiningChar | Extender
+        NCName     ::=    (Letter | '_') (NCNameChar)*     // An XML Name, minus the ":"
+  */
+
+  // translated (FIXME: check!)
+  STRING re_namechar := "\\c";
+  STRING re_name     := "[\\p{L}_:]\\c*";
+  STRING re_names    := "([\\p{L}_:]\\c*(&#20;[\\p{L}_:]\c*)*)?";
+  STRING re_nmtoken  := "\\c+";
+  STRING re_nmtokens := "(\\c+(&#20;\\c*)*)?";
+  STRING re_ncname   := "[\\p{L}:]([\\c]-[:])*";
+  STRING re_ncnames  := "(([\\c]-[:])*(&#20;([\\c]-[:])*))?";
+
+  // built self (FIXME: check!)
+  STRING re_token    := "([^\\S]+(&#20;[^\\S]+)?";
+  STRING re_normalizedstring := "[^\\S]*";
+
+  // from standard
+  STRING re_language := "[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*";
+
+  // http://www.w3.org/TR/xmlschema-2/#normalizedString
+  OBJECT xsd_normalizedstring :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_string, xsd, "normalizedString",
+          [ [ type := "pattern", value := re_normalizedstring, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#token
+  OBJECT xsd_token :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_normalizedstring, xsd, "token",
+          [ [ type := "pattern", value := re_token, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#language
+  parser->RegisterDataType(CreateDerivedType(parser, xsd_token, xsd, "language",
+      [ [ type := "pattern", value := re_language, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#Name
+  OBJECT xsd_name :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_token, xsd, "Name",
+          [ [ type := "pattern", value := re_name, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#NCName
+  OBJECT xsd_ncname :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_name, xsd, "NCName",
+          [ [ type := "pattern", value := re_ncname, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#ID
+  parser->RegisterDataType(CreateDerivedType(parser, xsd_ncname, xsd, "ID",
+      [ [ type := "pattern", value := re_ncname, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#IDREF
+  OBJECT xsd_idref :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_ncname, xsd, "IDREF",
+          [ [ type := "pattern", value := re_ncname, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#IDREFS
+  parser->RegisterDataType(CreateDerivedTypeByList(parser, xsd_idref, xsd, "IDREFS",
+      [ [ type := "pattern", value := re_ncnames, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#ENTITY
+  OBJECT xsd_entity :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_ncname, xsd, "ENTITY",
+          [ [ type := "pattern", value := re_ncname, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#ENTITIES
+  parser->RegisterDataType(CreateDerivedTypeByList(parser, xsd_entity, xsd, "ENTITIES",
+      [ [ type := "pattern", value := re_ncnames, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#NMTOKEN
+  OBJECT xsd_nmtoken :=
+      parser->RegisterDataType(CreateDerivedType(parser, xsd_token, xsd, "NMTOKEN",
+          [ [ type := "pattern", value := re_nmtoken, fixed := FALSE ] ], DEFAULT OBJECT));
+
+  // http://www.w3.org/TR/xmlschema-2/#NMTOKENS
+  parser->RegisterDataType(CreateDerivedTypeByList(parser, xsd_nmtoken, xsd, "NMTOKENS",
+      [ [ type := "pattern", value := re_nmtokens, fixed := FALSE ] ], DEFAULT OBJECT));
+
+
+  OBJECT anytype := NEW XSDComplexType(parser, xsd, "anyType", DEFAULT OBJECT, "");
+  anytype->base_type_definition := anytype;
+  anytype->derivation_method := "restriction";
+  anytype->abstract := FALSE;
+  OBJECT wildcard := NEW XSDWildcard(parser, DEFAULT OBJECT);
+  wildcard->namespace_constraint := [ type := "any", namespaces := DEFAULT STRING ARRAY ];
+  wildcard->process_contents := "lax";
+  OBJECT particle2 := NEW XSDParticle(parser, DEFAULT OBJECT);
+  particle2->min_occurs := 0;
+  particle2->max_occurs := unbounded_max_int;
+  particle2->term := wildcard;
+  OBJECT mg := NEW XSDModelGroup(parser, "", "", "sequence", DEFAULT OBJECT,"");
+  mg->particles := [ particle2 ];
+  OBJECT particle1 := NEW XSDParticle(parser, DEFAULT OBJECT);
+  particle1->min_occurs := 1;
+  particle1->max_occurs := 1;
+  particle1->term := mg;
+  OBJECT attr_wildcard := NEW XSDWildcard(parser, DEFAULT OBJECT);
+  attr_wildcard->namespace_constraint := [ type := "any", namespaces := DEFAULT STRING ARRAY ];
+  attr_wildcard->process_contents := "lax";
+
+  anytype->attribute_wildcard := attr_wildcard;
+  anytype->content_type :=
+    [ type := "complex"
+    , mixed := "mixed"
+    , content := particle1
+    ];
+
+  parser->RegisterDataType(anytype);
+
+  // Make sure an empty xsdparser is also usable
+  parser->BuildProperties();
+
+  RETURN parser;
+}
+
+// node is first sibling, may be default object
+RECORD FUNCTION ParseXSDModelGroupAndAttrsFromSiblings(OBJECT xsdparser, OBJECT node, RECORD schema_data)
+{
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+
+  OBJECT particle;
+  IF (ObjectExists(node) AND node->namespaceuri = xsdnamespace AND node->localname IN [ "group", "all", "sequence", "choice" ])
+  {
+    // Parse particle
+    particle := ParseXSDModelGroup(xsdparser, node, schema_data);
+    node := SkipTextNodes(node->nextsibling);
+  }
+
+  RECORD result := ParseXSDAttrsFromSiblings(xsdparser, node, schema_data);
+  INSERT CELL particle := particle INTO result;
+
+  RETURN result;
+}
+
+RECORD FUNCTION GetDefaultXSDModelGroupAndAttrs()
+{
+  RETURN
+     [ particle :=              DEFAULT OBJECT
+     , attribute_uses :=        DEFAULT OBJECT ARRAY
+     , attribute_groups :=      DEFAULT OBJECT ARRAY
+     , any_attribute :=         DEFAULT OBJECT
+     , prohibits :=             DEFAULT OBJECT ARRAY
+     ];
+}
+
+/** @return Parsed <attribute> uses
+    @cell return.attribute_uses List of attribute uses for <attribute> elements
+    @cell return.attribute_groups List of attribute groups for <attributeGroup> elements
+    @cell return.any_attribute List of any_attributes
+    @cell return.prohibits List of prohibited attributes
+*/
+
+RECORD FUNCTION ParseXSDAttrsFromSiblings(OBJECT xsdparser, OBJECT node, RECORD schema_data)
+{
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+  RECORD results := [ attribute_uses := DEFAULT OBJECT ARRAY, attribute_groups := DEFAULT OBJECT ARRAY, any_attribute := DEFAULT OBJECT, prohibits := DEFAULT OBJECT ARRAY ];
+
+  WHILE (ObjectExists(node))
+  {
+    IF (node->namespaceuri != xsdnamespace)
+      THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(node) || " in ParseXSDAttrsFromSiblings");
+
+    SWITCH (node->localname)
+    {
+    CASE "attribute"
+      {
+         OBJECT attruse := ParseXSDAttribute(xsdparser, node, schema_data, false);
+         IF (attruse->local_data.prohibited)
+           INSERT attruse INTO results.prohibits AT END;
+         ELSE
+           INSERT attruse INTO results.attribute_uses AT END;
+
+         node := GetNextSiblingElement(node);
+      }
+    CASE "attributeGroup"
+      {
+        INSERT ParseXSDAttributeGroup(xsdparser, node, schema_data, FALSE) INTO results.attribute_groups AT END;
+
+        node := GetNextSiblingElement(node);
+      }
+    CASE "anyAttribute"
+      {
+         // FIXME: parse anyattribute
+         node := GetNextSiblingElement(node);
+         IF (ObjectExists(node))
+           THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(node) || " in ParseXSDAttrsFromSiblings");
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(node) || " in ParseXSDAttrsFromSiblings");
+      }
+    }
+  }
+  RETURN results;
+}
+
+
+
+
+//OBJECT ARRAY FUNCTION ParseXSDModelGroupCompositor(OBJECT xsdparser, OBJECT node, RECORD schema_data)
+
+OBJECT FUNCTION ParseXSDModelGroup(OBJECT xsdparser, OBJECT node, RECORD schema_data)
+{
+  STRING name := CleanWhitespace(node->GetAttribute("name"));
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+
+  OBJECT particle := NEW XSDParticle(xsdparser, DEFAULT OBJECT);
+  OBJECT modelgroup := NEW XSDModelGroup(xsdparser, "", "", node->localname, node, "");
+
+  // http://www.w3.org/TR/xmlschema-1/#element-group
+  // http://www.w3.org/TR/xmlschema-1/#element-all
+  particle->min_occurs := node->HasAttribute("minOccurs")
+      ? ToInteger(CleanWhitespace(node->GetAttribute("minOccurs")), 1)
+      : 1;
+  particle->max_occurs := node->HasAttribute("maxOccurs")
+      ? CleanWhitespace(node->GetAttribute("maxOccurs")) = "unbounded"
+          ? unbounded_max_int
+          : ToInteger(CleanWhitespace(node->GetAttribute("maxOccurs")), unbounded_max_int)
+      : 1;
+  particle->term := modelgroup;
+
+  OBJECT child := GetFirstChildElement(node);
+
+  RECORD p_annotation := ParseXSDAnnotationOpt(xsdparser, child);
+  child := p_annotation.nextnode;
+  modelgroup->annotations := p_annotation.annotations;
+
+  SWITCH (node->localname)
+  {
+    CASE "all"
+      {
+        modelgroup->compositor := "all";
+
+        WHILE (ObjectExists(child))
+        {
+          IF (NOT ObjectExists(child) OR child->namespaceuri != xsdnamespace OR child->localname != "element")
+            THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDModelGroup");
+
+          INSERT ParseXSDElement(xsdparser, child, schema_data, FALSE) INTO modelgroup->particles AT END;
+
+          child := GetNextSiblingElement(child);
+        }
+      }
+    CASE "choice", "sequence"
+      {
+        modelgroup->compositor := node->localname;
+        WHILE (ObjectExists(child))
+        {
+          IF (NOT ObjectExists(child) OR child->namespaceuri != xsdnamespace)
+            THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDModelGroup");
+
+          OBJECT subparticle;
+          SWITCH (child->localname)
+          {
+          CASE "element"
+            {
+              subparticle := ParseXSDElement(xsdparser, child, schema_data, FALSE);
+            }
+          CASE "group", "choice", "sequence"
+            {
+              subparticle := ParseXSDModelGroup(xsdparser, child, schema_data);
+            }
+          CASE "any"
+            {
+              subparticle := ParseXSDAny(xsdparser, child, schema_data);
+            }
+          DEFAULT
+            {
+              THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDModelGroup");
+            }
+          }
+          INSERT subparticle INTO modelgroup->particles AT END;
+
+          child := GetNextSiblingElement(child);
+        }
+      }
+    CASE "group"
+      {
+        // http://www.w3.org/TR/xmlschema-1/#element-group
+        IF (name != "")
+        {
+          OBJECT mgdef := NEW XSDModelGroupDefinition(xsdparser, schema_data.target_namespace, name, node, schema_data.xsd_filename);
+
+          IF (NOT ObjectExists(child) OR child->namespaceuri != xsdnamespace OR child->localname NOT IN [ "all", "choice", "sequence" ])
+            THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDModelGroup");
+
+          mgdef->model_group := ParseXSDModelGroup(xsdparser, child, schema_data)->term;
+
+          child := GetNextSiblingElement(child);
+
+          xsdparser->RegisterNode(schema_data.target_namespace, name, "MODELGROUP", mgdef);
+        }
+        ELSE
+        {
+          STRING group_ref := CleanWhitespace(node->GetAttribute("ref"));
+          INSERT CELL model_group_def := xsdparser->ParserLookupNodeFromQName(group_ref, node, "MODELGROUP") INTO particle->local_data;
+        }
+      }
+    DEFAULT
+      {
+      }
+  }
+
+  IF (ObjectExists(child))
+    THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in XSDParseModelGroup");
+  RETURN particle;
+}
+
+OBJECT FUNCTION ParseXSDElement(OBJECT xsdparser, OBJECT node, RECORD schema_data, BOOLEAN toplevel)
+{
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+
+  OBJECT particle := NEW XSDParticle(xsdparser, DEFAULT OBJECT);
+  STRING name := CleanWhitespace(node->GetAttribute("name"));
+
+  // http://www.w3.org/TR/xmlschema-1/#element-element
+  particle->min_occurs := node->HasAttribute("minOccurs")
+      ? ToInteger(CleanWhitespace(node->GetAttribute("minOccurs")), 1)
+      : 1;
+  particle->max_occurs := node->HasAttribute("maxOccurs")
+      ? ToInteger(CleanWhitespace(node->GetAttribute("maxOccurs")), unbounded_max_int)
+      : 1;
+
+  IF (node->HasAttribute("ref"))
+  {
+    STRING elt_ref := CleanWhitespace(node->GetAttribute("ref"));
+    particle->term :=xsdparser->ParserLookupNodeFromQName(elt_ref, node, "ELEMENT");
+    RETURN particle;
+  }
+
+  // If not toplevel, qualification is dependent on 'form' and schema_data.element_form_default
+  STRING namespace := schema_data.target_namespace;
+  IF (NOT toplevel)
+  {
+    IF (node->HasAttribute("form"))
+    {
+      IF (CleanWhitespace(node->GetAttribute("form")) != "qualified")
+        namespace := "";
+    }
+    ELSE
+      IF (schema_data.element_form_default != "qualified")
+        namespace := "";
+  }
+
+  OBJECT element := NEW XSDElement(xsdparser, namespace, name, node, schema_data.xsd_filename);
+  particle->term := element;
+
+  element->nillable :=GetBooleanAttribute(node, "nillable", FALSE);
+
+  OBJECT child := GetFirstChildElement(node);
+
+  RECORD ann := ParseXSDAnnotationOpt(xsdparser, child);
+  element->annotations := ann.annotations;
+  child := ann.nextnode;
+
+  IF (ObjectExists(child) AND child->namespaceuri != xsdnamespace)
+    THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDElement");
+
+  IF (ObjectExists(child) AND child->localname = "simpleType")
+  {
+    element->type_definition := ParseXSDSimpleType(xsdparser, child, schema_data);
+
+    child := SkipTextNodes(child->nextsibling);
+  }
+  ELSE IF (ObjectExists(child) AND child->localname = "complexType")
+  {
+    element->type_definition := ParseXSDComplexType(xsdparser, child, schema_data);
+
+    child := SkipTextNodes(child->nextsibling);
+  }
+  ELSE
+  {
+    IF (node->HasAttribute("type"))
+    {
+      STRING typename := CleanWhitespace(node->GetAttribute("type"));
+      element->type_definition := xsdparser->ParserLookupNodeFromQName(typename, node, "DATATYPE");
+    }
+    ELSE IF (node->HasAttribute("substitutionGroup"))
+    {
+      THROW NEW Exception("FIXME: substitutionGroup not implemented yet");
+    }
+    ELSE
+    {
+      element->type_definition := xsdparser->ParserLookupNode(xsdnamespace, "anyType", "DATATYPE");
+    }
+  }
+
+  WHILE (ObjectExists(child))
+  {
+    IF (child->namespaceuri != xsdnamespace OR child->localname NOT IN [ "unique", "key", "keyref" ])
+      THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDElement");
+
+    INSERT ParseXSDIdentityConstraints(xsdparser, child, schema_data) INTO element->identity_constraint_definitions AT END;
+    child := GetNextSiblingElement(child);
+  }
+
+  IF (toplevel AND name != "")
+    xsdparser->RegisterNode(schema_data.target_namespace, name, "ELEMENT", element);
+  RETURN particle;
+}
+
+RECORD FUNCTION ParseXSDFacets(OBJECT xsdparser, OBJECT node, RECORD schema_data)
+{
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+  RECORD result :=
+      [ facets := DEFAULT RECORD ARRAY
+      , limitnode := node
+      ];
+
+  RECORD ARRAY enumerations;
+
+  WHILE (ObjectExists(node) AND (node->namespaceuri = xsdnamespace))
+  {
+    BOOLEAN fixed := GetBooleanAttribute(node, "fixed", FALSE);
+
+    RECORD p_annotation := ParseXSDAnnotationOpt(xsdparser, GetFirstChildElement(node));
+    OBJECT ARRAY annotations := p_annotation.annotations;
+
+    BOOLEAN handled := FALSE;
+    SWITCH (node->localname)
+    {
+    CASE "length", "minLength", "maxLength", "whiteSpace", "maxInclusive"
+       , "maxExclusive", "minExclusive", "minInclusive", "totalDigits", "fractionDigits"
+      {
+      }
+    CASE "pattern"
+      {
+        fixed := FALSE;
+      }
+    CASE "enumeration"
+      {
+        INSERT
+            [ value :=        node->GetAttribute("value")
+            , annotations :=  annotations
+            ] INTO enumerations AT END;
+        handled := TRUE;
+      }
+    DEFAULT
+      {
+        BREAK;
+      }
+    }
+    IF (NOT handled)
+    {
+      INSERT
+          [ type :=         node->localname
+          , fixed :=        fixed
+          , value :=        node->GetAttribute("value")
+          , annotations :=  annotations
+          ] INTO result.facets AT END;
+    }
+    node := SkipTextNodes(node->nextsibling);
+  }
+  IF (LENGTH(enumerations) != 0)
+  {
+    INSERT
+        [ type :=         "enumeration"
+        , fixed :=        FALSE
+        , value :=        enumerations
+        , annotations :=  DEFAULT OBJECT ARRAY
+        ] INTO result.facets AT END;
+  }
+  result.limitnode := node;
+  RETURN result;
+}
+
+OBJECT FUNCTION ParseXSDAny(OBJECT xsdparser, OBJECT node, RECORD schema_data)
+{
+  // http://www.w3.org/TR/xmlschema-1/#element-any
+  // FIXME: handle minoccurs=maxoccurs=0
+
+  OBJECT particle := NEW XSDParticle(xsdparser, DEFAULT OBJECT);
+  OBJECT wildcard := NEW XSDWildcard(xsdparser, node);
+
+  particle->min_occurs := node->HasAttribute("minOccurs")
+      ? ToInteger(CleanWhitespace(node->GetAttribute("minOccurs")), 1)
+      : 1;
+  particle->max_occurs := node->HasAttribute("maxOccurs")
+      ? CleanWhitespace(node->GetAttribute("maxOccurs")) = "unbounded"
+          ? unbounded_max_int
+          : ToInteger(CleanWhitespace(node->GetAttribute("maxOccurs")), unbounded_max_int)
+      : 1;
+  particle->term := wildcard;
+
+  OBJECT child := GetFirstChildElement(node);
+
+  // Parse 'annotation?'
+  RECORD p_annotation := ParseXSDAnnotationOpt(xsdparser, child);
+  child := p_annotation.nextnode;
+  wildcard->annotations := p_annotation.annotations;
+
+  IF (ObjectExists(child))
+    THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDAny");
+
+  wildcard->process_contents := node->HasAttribute("processContents") ?
+      CleanWhitespace(node->GetAttribute("processContents")) : "strict";
+
+  STRING nsconstraint := node->HasAttribute("namespace") ? CleanWhitespace(node->GetAttribute("namespace")) : "##any";
+  // ((##any | ##other) | List of (anyURI | (##targetNamespace | ##local)) )  : ##any
+  IF (nsconstraint = "##any")
+    wildcard->namespace_constraint := [ type := "any", namespaces := DEFAULT STRING ARRAY ];
+  ELSE IF (nsconstraint = "##other")
+    wildcard->namespace_constraint := [ type := "not", namespaces := [ STRING(schema_data.target_namespace) ] ];
+  ELSE
+  {
+    STRING ARRAY namespaces;
+    STRING ARRAY nsconstraints := GetTokenListFromString(nsconstraint);
+    FOREVERY (STRING s FROM nsconstraints)
+    {
+      IF (s = "##local")
+        INSERT "" INTO namespaces AT END;
+      ELSE IF (s = "##targetNamespace")
+        INSERT schema_data.target_namespace INTO namespaces AT END;
+      ELSE
+        INSERT s INTO namespaces AT END;
+    }
+    wildcard->namespace_constraint := [ type := "set", namespaces := namespaces ];
+  }
+  RETURN particle;
+}
+
+PUBLIC MACRO __ParseXSDSchemaNoBuildProps(OBJECT xsdparser, OBJECT node, STRING xsd_filename)
+{
+  //PRINTXMLTree(node);
+
+  BOOLEAN is_first := xsdparser->__InitializeSchemaParse(node, xsd_filename);
+
+  // See if this is a document, then start at its documentelement
+  IF (node->nodetype = XmlDocumentNode)
+    node := node->documentelement;
+
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+
+  RECORD data :=
+    [ attribute_form_default := node->HasAttribute("attributeFormDefault") ? CleanWhitespace(node->GetAttribute("attributeFormDefault")) : "unqualified"
+    , element_form_default := node->HasAttribute("elementFormDefault") ? CleanWhitespace(node->GetAttribute("elementFormDefault")) : "unqualified"
+    , target_namespace := CleanWhitespace(node->GetAttribute("targetNamespace"))
+    , xsd_filename := xsd_filename
+    ];
+
+  OBJECT child := SkipTextNodes(node->firstchild);
+  WHILE (ObjectExists(child))
+  {
+    IF (child->namespaceuri = xsdnamespace)
+    {
+      SWITCH (child->localname)
+      {
+      CASE "annotation"
+        {
+          // Ignore
+          IF (is_first)
+          {
+            RECORD p_annotation := ParseXSDAnnotationOpt(xsdparser, child);
+            xsdparser->schema_information->annotations := xsdparser->schema_information->annotations CONCAT p_annotation.annotations;
+          }
+        }
+      CASE "import"
+        {
+          STRING schemalocation := CleanWhitespace(child->GetAttribute("schemaLocation"));
+          STRING id := CleanWhitespace(child->GetAttribute("id"));
+
+          STRING namespace := CleanWhitespace(child->GetAttribute("namespace"));
+          IF (namespace != "")
+            schemalocation := xsdparser->xmldomimpl->LookupSchemaForNamespace(namespace) ?? schemalocation;
+
+          // When no schemalocation is given, we just ignore the import (might be for documentation purposes only)
+          IF (schemalocation != "")
+          {
+            IF (schemalocation NOT LIKE "/*" AND NOT IsAbsoluteURL(schemalocation) AND xsd_filename != "")
+            {
+              IF (xsd_filename LIKE "/*")
+                schemalocation := MergePath(GetDirectoryFromPath(xsd_filename), schemalocation);
+              ELSE IF (xsd_filename LIKE "moduledata::*/*" OR xsd_filename LIKE "site::*/*" OR xsd_filename LIKE "moduleroot::*/*" OR xsd_filename LIKE "whres::*/*")
+              {
+                INTEGER spos := SearchSubString(xsd_filename, "/");
+                schemalocation := Left(xsd_filename, spos) || MergePath(GetDirectoryFromPath(SubString(xsd_filename, spos)), schemalocation);
+              }
+              ELSE
+              {
+                IF (IsAbsoluteURL(xsd_filename))
+                  schemalocation := ResolveToAbsoluteURL(xsd_filename, schemalocation);
+                ELSE IF (xsd_filename LIKE "*/*")
+                  schemalocation := MergePath(GetDirectoryFromPath(xsd_filename), schemalocation);
+              }
+            }
+
+            RECORD schemainfo := xsdparser->xmldomimpl->LoadExternalEntity(schemalocation, id);
+            IF(NOT schemainfo.success)
+            {
+              schemalocation := CleanWhitespace(child->GetAttribute("schemaLocation"));
+
+              THROW NEW Exception("Cannot locate import for xsd " ||
+                  (namespace = "" ? "" : "for namespace " || namespace || " ") ||
+                  " (schemalocation: '" || schemalocation || "', id: '" || id || "')");
+            }
+
+            schemalocation := schemainfo.filename ?? schemalocation;
+
+            IF (SearchElement(xsdparser->parsed_xsds, schemalocation) = -1)
+            {
+              INSERT schemalocation INTO xsdparser->parsed_xsds AT END;
+
+              OBJECT import_xsd := MakeXMLSchema(schemainfo.data);
+              __ParseXSDSchemaNoBuildProps(xsdparser, import_xsd->documentelement, schemainfo.filename);
+            }
+          }
+        }
+      CASE "include", "redefine"
+        {
+          //PrintTo(1,"FIXME: Ignoring unsupported xml schema element " || child->localname || "\n");
+        }
+      CASE "group"
+        {
+          ParseXSDModelGroup(xsdparser, child, data);
+        }
+      CASE "attribute"
+        {
+          ParseXSDAttribute(xsdparser, child, data, TRUE);
+        }
+      CASE "attributeGroup"
+        {
+          ParseXSDAttributeGroup(xsdparser, child, data, TRUE);
+        }
+      CASE "complexType"
+        {
+          ParseXSDComplexType(xsdparser, child, data);
+        }
+      CASE "simpleType"
+        {
+          ParseXSDSimpleType(xsdparser, child, data);
+        }
+      CASE "element"
+        {
+          ParseXSDElement(xsdparser, child, data, TRUE);
+        }
+      CASE "notation"
+        {
+          // Ignoring
+        }
+      DEFAULT
+        {
+          THROW NEW Exception("Unknown xml schema element '" || child->localname || "'");
+        }
+      }
+    }
+    child := SkipTextNodes(child->nextsibling);
+  }
+}
+
+PUBLIC MACRO ParseXSDSchema(OBJECT xsdparser, OBJECT node, STRING xsd_filename)
+{
+  __ParseXSDSchemaNoBuildProps(xsdparser, node, xsd_filename);
+  xsdparser->BuildProperties();
+}
+
+//------------------------------------------------------------------------------
+//
+// XSD elements parser
+//
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+// annotation
+
+/** Parses an annotation in a given node.
+    @return Annotation object and location of next sibling
+    @cell return.nextnode Next sibling to annotation node (skipping text and comment nodes)
+    @cell return.annotations Annotation node (DEFAULT OBJECT ARRAY if not present)
+
+*/
+RECORD FUNCTION ParseXSDAnnotationOpt(OBJECT xsdparser, OBJECT node)
+{
+  // http://www.w3.org/TR/xmlschema-1/#cAnnotations
+  OBJECT ARRAY annotations;
+
+  // Parse annotation node if present
+  IF (ObjectExists(node) AND node->namespaceuri = xsdparser->xsdnamespace AND node->localname = "annotation")
+  {
+    OBJECT annotation := NEW XSDAnnotation;
+    annotation->xmlnode := node;
+
+    OBJECT child := GetFirstChildElement(node);
+    WHILE (ObjectExists(child))
+    {
+      // Parse appinfo and document nodes, skip the rest
+      IF (child->namespaceuri = xsdparser->xsdnamespace)
+      {
+        IF (child->localname = "appinfo")
+          INSERT child INTO annotation->application_information AT END;
+        ELSE IF (child->localname = "documentation")
+          INSERT child INTO annotation->user_information AT END;
+      }
+      child := GetNextSiblingElement(child);
+    }
+
+    INSERT annotation INTO annotations AT END;
+
+    // Return next element sibling of annotation node
+    node := GetNextSiblingElement(node);
+  }
+  RETURN  [ nextnode := node, annotations := annotations ];
+}
+
+
+/** Parses XSD simple types
+
+http://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dc-defn
+*/
+OBJECT FUNCTION ParseXSDSimpleType(OBJECT xsdparser, OBJECT node, RECORD schema_data)
+{
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+
+  // Create new type
+  STRING name := CleanWhitespace(node->GetAttribute("name"));
+  OBJECT simpletype := NEW XSDSimpleType(xsdparser, schema_data.target_namespace, name, node, schema_data.xsd_filename);
+
+  OBJECT child := GetFirstChildElement(node);
+
+  // Parse 'annotation?'
+  RECORD p_annotation := ParseXSDAnnotationOpt(xsdparser, child);
+  child := p_annotation.nextnode;
+  simpletype->annotations := p_annotation.annotations;
+
+  // Parse '(restriction | list | union)'
+  IF (NOT ObjectExists(child) OR child->namespaceuri != xsdnamespace)
+    THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDSimpleType");
+
+  OBJECT gchild := GetFirstChildElement(child);
+
+  // Skip the annotation node if present, no place to put it. ADDME: maybe put it in simpletype when it has no annotation?
+  gchild := ParseXSDAnnotationOpt(xsdparser, gchild).nextnode;
+
+  INSERT CELL type := child->localname INTO simpletype->local_data;
+
+  SWITCH (child->localname)
+  {
+  CASE "restriction"
+    {
+      // Get the base type (either by 'base' attribute or by simpleType declaration in [children])
+      OBJECT basetype;
+      STRING basetype_name := CleanWhitespace(child->GetAttribute("base"));
+      IF (basetype_name != "")
+        basetype := xsdparser->ParserLookupNodeFromQName(basetype_name, child, "DATATYPE");
+      ELSE
+      {
+        IF (NOT ObjectExists(gchild) OR gchild->localname != "simpleType" OR gchild->namespaceuri != xsdnamespace)
+          THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDSimpleType");
+
+        basetype := ParseXSDSimpleType(xsdparser, gchild, schema_data);
+        gchild := GetNextSiblingElement(gchild);
+      }
+
+      RECORD fparse := ParseXSDFacets(xsdparser, gchild, schema_data);
+      gchild := fparse.limitnode;
+
+      INSERT CELL basetype := basetype INTO simpletype->local_data;
+      INSERT CELL local_facets := fparse.facets INTO simpletype->local_data;
+
+      // Set properties as far as known
+      //simpletype->variety depends on {base type definition}
+      simpletype->facets := fparse.facets;
+    }
+  CASE "list"
+    {
+      // Get the base type (either by 'base' attribute or by simpleType declaration in [children])
+      OBJECT itemtype;
+      STRING itemtype_name := CleanWhitespace(child->GetAttribute("itemType"));
+      IF (itemtype_name != "")
+        itemtype := xsdparser->ParserLookupNodeFromQName(itemtype_name, child, "DATATYPE");
+      ELSE
+      {
+        IF (NOT ObjectExists(gchild) OR gchild->localname != "simpleType" OR gchild->namespaceuri != xsdnamespace)
+          THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(gchild) || " in ParseXSDSimpleType");
+
+        itemtype := ParseXSDSimpleType(xsdparser, gchild, schema_data);
+        gchild := GetNextSiblingElement(gchild);
+      }
+
+      INSERT CELL itemtype := itemtype INTO simpletype->local_data;
+
+      // Set properties as far as known
+      simpletype->variety := "list";
+    }
+  CASE "union"
+    {
+      OBJECT ARRAY membertypes;
+
+      STRING ARRAY membertypenames := GetTokenListFromString(CleanWhitespace(child->GetAttribute("memberTypes")));
+      FOREVERY (STRING membername FROM membertypenames)
+        INSERT xsdparser->ParserLookupNodeFromQName(membername, child, "DATATYPE") INTO membertypes AT END;
+
+      WHILE (ObjectExists(gchild))
+      {
+        IF (gchild->localname != "simpleType" OR gchild->namespaceuri != xsdnamespace)
+          THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(gchild) || " in ParseXSDSimpleType");
+
+        INSERT ParseXSDSimpleType(xsdparser, gchild, schema_data) INTO membertypes AT END;
+        gchild := GetNextSiblingElement(gchild);
+      }
+
+      INSERT CELL membertypes := membertypes INTO simpletype->local_data;
+
+      // Set properties as far as known
+      simpletype->variety := "union";
+    }
+  DEFAULT
+    {
+      THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDSimpleType." || child->localname);
+    }
+  }
+  // Skip restriction/list/union node
+  child := GetNextSiblingElement(child);
+
+  // Check for extra nodes
+  IF (ObjectExists(gchild))
+    THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(gchild) || " in ParseXSDSimpleType." || child->localname);
+  IF (ObjectExists(child))
+    THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDSimpleType." || child->localname);
+
+  IF (name != "")
+    xsdparser->RegisterNode(schema_data.target_namespace, name, "DATATYPE", simpletype);
+  RETURN simpletype;
+}
+
+OBJECT FUNCTION ParseXSDComplexType(OBJECT xsdparser, OBJECT node, RECORD schema_data)
+{
+  STRING name := CleanWhitespace(node->GetAttribute("name"));
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+
+  OBJECT complextype := NEW XSDComplexType(xsdparser, schema_data.target_namespace, name, node, schema_data.xsd_filename);
+
+  // Calculate effective_mixed (1.1)
+  INSERT CELL effective_mixed := GetBooleanAttribute(node, "mixed", FALSE) INTO complextype->local_data;
+
+  // Go parsing children
+  OBJECT child := GetFirstChildElement(node);
+
+  // Parse 'annotation?'
+  RECORD p_annotation := ParseXSDAnnotationOpt(xsdparser, child);
+  child := p_annotation.nextnode;
+  complextype->annotations := p_annotation.annotations;
+
+  IF (NOT ObjectExists(child) OR child->namespaceuri != xsdnamespace)
+  {
+    IF (ObjectExists(child) AND NOT xsdparser->permissive_mode)
+      THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDComplexType '"||name||"'");
+
+    INSERT CELL type := "complexContent.restriction" INTO complextype->local_data;
+    complextype->derivation_method := "restriction";
+
+    complextype->base_type_definition := xsdparser->ParserLookupNode(xsdnamespace, "anyType", "DATATYPE");
+
+    INSERT CELL modelgroupandattrs := GetDefaultXSDModelGroupAndAttrs() INTO complextype->local_data;
+  }
+  ELSE
+  {
+    // Get the first child of this child, eat the annotation
+    OBJECT gchild := GetFirstChildElement(child);
+
+    // Skip the annotation node if present, no place to put it. ADDME: maybe put it in complextype when it has no annotation?
+    gchild := ParseXSDAnnotationOpt(xsdparser, gchild).nextnode;
+
+    complextype->abstract := GetBooleanAttribute(node, "abstract", FALSE);
+
+    SWITCH (child->localname)
+    {
+      CASE "simpleContent"
+        {
+          IF (NOT ObjectExists(gchild) OR gchild->namespaceuri != xsdnamespace OR gchild->localname NOT IN [ "extension", "restriction" ])
+            THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(gchild) || " in ParseXSDComplexType");
+
+          INSERT CELL type := child->localname || "." || gchild->localname INTO complextype->local_data;
+          complextype->derivation_method := gchild->localname;
+
+          SWITCH (gchild->localname)
+          {
+          CASE "restriction"
+            {
+              STRING basetype := CleanWhitespace(gchild->GetAttribute("base"));
+              OBJECT basetype_obj := xsdparser->ParserLookupNodeFromQName(basetype, gchild, "DATATYPE");
+
+              OBJECT ggchild := GetFirstChildElement(gchild);
+
+              // Skip the annotation node if present, no place to put it. ADDME: maybe put it in complextype when it has no annotation?
+              ggchild := ParseXSDAnnotationOpt(xsdparser, ggchild).nextnode;
+
+              OBJECT simpletype_obj := basetype_obj;
+              OBJECT new_simpletype := NEW XSDSimpleType(xsdparser, "", "", DEFAULT OBJECT, "");
+
+              INSERT CELL type := "restriction" INTO new_simpletype->local_data;
+
+              // See if there is a simpleType node present
+              IF (ObjectExists(ggchild) AND ggchild->localname = "simpleType")
+              {
+                simpletype_obj := ParseXSDSimpleType(xsdparser, ggchild, schema_data);
+                ggchild := GetNextSiblingElement(ggchild);
+              }
+
+              RECORD fparse := ParseXSDFacets(xsdparser, ggchild, schema_data);
+              ggchild := fparse.limitnode;
+
+              INSERT CELL local_facets := fparse.facets INTO new_simpletype->local_data;
+
+              INSERT CELL modelgroupandattrs :=
+                      ParseXSDModelGroupAndAttrsFromSiblings(xsdparser, ggchild, schema_data) INTO complextype->local_data;
+
+              new_simpletype->base_type_definition := simpletype_obj;
+              INSERT CELL basetype := simpletype_obj INTO new_simpletype->local_data;
+              new_simpletype->facets := fparse.facets;
+
+              // Set known properties
+              complextype->base_type_definition := basetype_obj;
+
+              // Set known properties
+              INSERT CELL new_simpletype := new_simpletype INTO complextype->local_data;
+
+              gchild := GetNextSiblingElement(gchild);
+            }
+          CASE "extension"
+            {
+              STRING basetype := CleanWhitespace(gchild->GetAttribute("base"));
+              OBJECT basetype_obj := xsdparser->ParserLookupNodeFromQName(basetype, gchild, "DATATYPE");
+
+              OBJECT ggchild := GetFirstChildElement(gchild);
+
+              // Skip the annotation node if present, no place to put it. ADDME: maybe put it in complextype when it has no annotation?
+              ggchild := ParseXSDAnnotationOpt(xsdparser, ggchild).nextnode;
+
+              INSERT CELL modelgroupandattrs :=
+                      ParseXSDModelGroupAndAttrsFromSiblings(xsdparser, ggchild, schema_data) INTO complextype->local_data;
+
+              // Set known properties
+              complextype->base_type_definition := basetype_obj;
+
+              gchild := GetNextSiblingElement(gchild);
+            }
+          DEFAULT
+            {
+              THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(gchild) || " in ParseXSDComplexType");
+            }
+          }
+
+          IF (ObjectExists(gchild))
+            THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(gchild) || " in ParseXSDComplexType");
+
+          child := GetNextSiblingElement(child);
+        }
+      CASE "complexContent"
+        {
+          // http://www.w3.org/TR/xmlschema-1/#element-complexContent
+
+          IF (NOT ObjectExists(gchild) OR gchild->namespaceuri != xsdnamespace OR gchild->localname NOT IN [ "extension", "restriction" ])
+            THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(gchild) || " in ParseXSDComplexType");
+
+          INSERT CELL type := child->localname || "." || gchild->localname INTO complextype->local_data;
+          complextype->derivation_method := gchild->localname;
+
+          IF (child->HasAttribute("mixed") AND NOT node->HasAttribute("mixed")) // 1, 1.2
+            complextype->local_data.effective_mixed := GetBooleanAttribute(child, "mixed", FALSE);
+
+          STRING basetype := CleanWhitespace(gchild->GetAttribute("base"));
+          OBJECT basetype_obj := xsdparser->ParserLookupNodeFromQName(basetype, gchild, "DATATYPE");
+
+          OBJECT ggchild := GetFirstChildElement(gchild);
+
+          // Skip the annotation node if present, no place to put it. ADDME: maybe put it in complextype when it has no annotation?
+          ggchild := ParseXSDAnnotationOpt(xsdparser, ggchild).nextnode;
+
+          INSERT CELL modelgroupandattrs :=
+              ParseXSDModelGroupAndAttrsFromSiblings(xsdparser, ggchild, schema_data) INTO complextype->local_data;
+
+          // Set known properties
+          complextype->base_type_definition := basetype_obj;
+          // FIXME: Set known attribute uses
+
+          child := GetNextSiblingElement(child);
+        }
+      CASE "group", "all", "sequence", "choice", "attribute", "attributeGroup", "anyAttribute"
+        {
+  //        PRINT("Found " || child->localname || " for {" || schema_data.target_namespace||"}"|| name||"\n");
+          INSERT CELL type := "complexContent." || child->localname INTO complextype->local_data;
+          complextype->derivation_method := "restriction";
+
+          OBJECT basetype_obj := xsdparser->ParserLookupNode(xsdnamespace, "anyType", "DATATYPE");
+          INSERT CELL modelgroupandattrs :=
+                  ParseXSDModelGroupAndAttrsFromSiblings(xsdparser, child, schema_data) INTO complextype->local_data;
+
+          // Set known properties
+          complextype->base_type_definition := basetype_obj;
+          // Set known attribute uses
+
+          child := DEFAULT OBJECT;
+        }
+      DEFAULT
+        {
+          THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDComplexType");
+        }
+    }
+  }
+
+  IF (ObjectExists(child))
+    THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDComplexType");
+
+  IF (name != "")
+    xsdparser->RegisterNode(schema_data.target_namespace, name, "DATATYPE", complextype);
+
+  RETURN complextype;
+}
+
+OBJECT FUNCTION ParseXSDAttribute(OBJECT xsdparser, OBJECT node, RECORD schema_data, BOOLEAN toplevel)
+{
+  STRING name := CleanWhitespace(node->GetAttribute("name"));
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+
+  RECORD value_constraint;
+
+  STRING use := CleanWhitespace(node->GetAttribute("use"));
+
+  OBJECT attruse;
+
+  IF (node->HasAttribute("fixed"))
+    value_constraint := [ type := "fixed", value := node->GetAttribute("fixed") ];
+  ELSE IF (node->HasAttribute("default"))
+    value_constraint := [ type := "default", value := node->GetAttribute("default") ];
+
+  OBJECT child := GetFirstChildElement(node);
+  RECORD p_annotation := ParseXSDAnnotationOpt(xsdparser, child);
+  child := p_annotation.nextnode;
+  OBJECT ARRAY annotations := p_annotation.annotations;
+
+  IF (NOT node->HasAttribute("ref"))
+  {
+
+    // If not toplevel, qualification is dependent on 'form' and schema_data.element_form_default
+    STRING namespace := schema_data.target_namespace;
+    IF (NOT toplevel)
+    {
+      IF (node->HasAttribute("form"))
+      {
+        IF (CleanWhitespace(node->GetAttribute("form")) != "qualified")
+          namespace := "";
+      }
+      ELSE
+        IF (schema_data.attribute_form_default != "qualified")
+          namespace := "";
+    }
+
+    OBJECT attr := NEW XSDAttributeDeclaration(xsdparser, namespace, name, node, schema_data.xsd_filename);
+    attr->value_constraint := value_constraint;
+    attr->annotations := annotations;
+
+    OBJECT type;
+    STRING type_name := CleanWhitespace(node->GetAttribute("type"));
+    IF (type_name != "")
+      type := xsdparser->ParserLookupNodeFromQName(type_name, node, "DATATYPE");
+    ELSE
+    {
+      IF (ObjectExists(child))
+      {
+        IF (child->localname != "simpleType" OR child->namespaceuri != xsdnamespace)
+          THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDAttribute");
+
+        type := ParseXSDSimpleType(xsdparser, child, schema_data);
+        child := GetNextSiblingElement(child);
+      }
+      ELSE
+        type := xsdparser->ParserLookupNode(xsdnamespace, "anySimpleType", "DATATYPE");
+    }
+
+    attr->type_definition := type;
+
+    IF (toplevel)
+    {
+      IF (name != "")
+        xsdparser->RegisterNode(schema_data.target_namespace, name, "ATTRIBUTE", attr);
+    }
+    ELSE
+    {
+      attruse := NEW XSDAttributeUse(xsdparser, node);
+      attruse->required := use = "required";
+      attruse->attribute_declaration := attr;
+      attruse->value_constraint := value_constraint;
+    }
+  }
+  ELSE
+  {
+    STRING refname := CleanWhitespace(node->GetAttribute("ref"));
+
+    attruse := NEW XSDAttributeUse(xsdparser, node);
+    attruse->required := use = "required";
+    attruse->attribute_declaration := xsdparser->ParserLookupNodeFromQName(refname, node, "ATTRIBUTE");
+    attruse->value_constraint := value_constraint;
+  }
+
+  IF (ObjectExists(attruse))
+    INSERT CELL prohibited := use = "prohibited" INTO attruse->local_data;
+
+  RETURN attruse;
+}
+
+// http://www.w3.org/TR/xmlschema-1/#element-attributeGroup
+OBJECT FUNCTION ParseXSDAttributeGroup(OBJECT xsdparser, OBJECT node, RECORD schema_data, BOOLEAN toplevel)
+{
+  STRING name := CleanWhitespace(node->GetAttribute("name"));
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+
+  IF (node->HasAttribute("ref"))
+  {
+    STRING refname := CleanWhitespace(node->GetAttribute("ref"));
+    RETURN xsdparser->ParserLookupNodeFromQName(refname, node, "ATTRIBUTEGROUP");
+  }
+
+  OBJECT attrgroup := NEW XSDAttributeGroupDefinition(xsdparser, schema_data.target_namespace, name, node, schema_data.xsd_filename);
+
+  OBJECT child := GetFirstChildElement(node);
+
+  RECORD p_annotation := ParseXSDAnnotationOpt(xsdparser, child);
+  child := p_annotation.nextnode;
+  attrgroup->annotations := p_annotation.annotations;
+
+  attrgroup->local_data := ParseXSDAttrsFromSiblings(xsdparser, child, schema_data);
+  attrgroup->local_data.prohibits := DEFAULT OBJECT ARRAY; // Don't want the prohibits.
+
+  IF (toplevel AND name != "")
+    xsdparser->RegisterNode(schema_data.target_namespace, name, "ATTRIBUTEGROUP", attrgroup);
+
+  RETURN attrgroup;
+}
+
+// http://www.w3.org/TR/xmlschema-1/#element-selector
+OBJECT FUNCTION ParseXSDIdentityConstraints(OBJECT xsdparser, OBJECT node, RECORD schema_data)
+{
+  STRING name := CleanWhitespace(node->GetAttribute("name"));
+  STRING xsdnamespace := xsdparser->xsdnamespace;
+
+  OBJECT constraint := NEW XSDIdentityConstraintDefinition(xsdparser, schema_data.target_namespace, name, node, schema_data.xsd_filename);
+
+  OBJECT child := GetFirstChildElement(node);
+
+  RECORD p_annotation := ParseXSDAnnotationOpt(xsdparser, child);
+  child := p_annotation.nextnode;
+  constraint->annotations := p_annotation.annotations;
+
+  constraint->identity_constraint_category := node->localname;
+  IF (child->localname = "keyref")
+    constraint->referenced_key := xsdparser->ParserLookupNodeFromQName(CleanWhitespace(node->GetAttribute("refer")), node, "IDENTITY_CONSTRAINT");
+
+  // Parse 'selector' element
+
+  IF (NOT ObjectExists(child) OR child->namespaceuri != xsdnamespace OR child->localname != "selector")
+    THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDIdentityConstraints");
+
+  OBJECT gchild := GetFirstChildElement(child);
+  p_annotation := ParseXSDAnnotationOpt(xsdparser, gchild);
+  gchild := p_annotation.nextnode;
+  constraint->annotations := constraint->annotations CONCAT p_annotation.annotations;
+
+  IF (ObjectExists(gchild))
+    THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(gchild) || " in ParseXSDIdentityConstraints");
+
+  constraint->selector := CleanWhitespace(child->GetAttribute("xpath"));
+  child := GetNextSiblingElement(child);
+
+  // Parse 'field' elements
+  WHILE (ObjectExists(child))
+  {
+    IF (child->namespaceuri != xsdnamespace OR child->localname != "field")
+      THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(child) || " in ParseXSDIdentityConstraints");
+
+    gchild := GetFirstChildElement(child);
+    p_annotation := ParseXSDAnnotationOpt(xsdparser, gchild);
+    gchild := p_annotation.nextnode;
+    constraint->annotations := constraint->annotations CONCAT p_annotation.annotations;
+
+    IF (ObjectExists(gchild))
+      THROW NEW Exception("Got an unexpected element " || GetXMLNodePrettyName(gchild) || " in ParseXSDIdentityConstraints");
+
+    INSERT CleanWhitespace(child->GetAttribute("xpath")) INTO constraint->fields AT END;
+
+    child := GetNextSiblingElement(child);
+  }
+
+  IF (name != "")
+    xsdparser->RegisterNode(schema_data.target_namespace, name, "IDENTITYCONSTRAINT", constraint);
+
+  RETURN constraint;
+}

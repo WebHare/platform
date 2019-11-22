@@ -1,0 +1,615 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+
+/** Keep the last 16 messages for a script
+*/
+INTEGER keep_messages := 16;
+
+
+/** Nr of milliseconds to wait between crashes before restarting an alwayson script
+*/
+INTEGER crash_retry_space := 2000;
+
+
+
+PUBLIC STATIC OBJECTTYPE ManagementPortHandler EXTEND IPCPortHandlerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Currently running scripts
+      @cell id ID of script (index into scripts array)
+      @cell tag Tag of script
+      @cell library Library
+      @cell mode Mode the script runs in, possible values: 'ondemand', 'alwayson'
+      @cell portname Optional name of the port that the script opens
+      @cell(boolean) globalport Whether the port must be registered globally
+      @cell screen Optional name of the screen that controls the script
+      @cell job Job object, DEFAULT OBJECT when not running
+      @cell status Status of the script ('none', 'running', 'terminated', 'crashed', 'shutdown')
+      @cell since Time of last status change
+      @cell started Time when the script was last started
+      @cell next_restart Time when the script will be restarted (for crashed scripts in alwayson mode
+      @cell messages List of messages
+      @cell messages.message Error message
+      @cell messages.errors List of job errors
+      @cell tid Tid
+      @cell title Title
+      @cell environment Environment to start the script in
+      @cell persistonreset Whether the script may outlive a system:softreset event
+      @cell releaseonreset Whether the current script is released on system:softreset event
+  */
+  RECORD ARRAY scripts;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Server type (like 'webserver', 'appserver')
+  PUBLIC STRING servertype;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT port, STRING servertype)
+  : IPCPortHandlerBase(port)
+  {
+    RegisterEventCallback("system:softreset", PTR this->OnSoftReset);
+    this->servertype := servertype;
+
+    this->UpdateScriptList();
+    this->SetAdhocCacheParameters();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnSoftReset(STRING event, RECORD data)
+  {
+    IF (CellExists(data, "toreload") AND TypeID(data.toreload) = TypeID(STRING ARRAY) AND ("ALL" IN data.toreload OR "MODULES" IN data.toreload))
+    {
+      this->UpdateScriptList();
+      this->SetAdhocCacheParameters();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO UpdateScriptList()
+  {
+    RECORD ARRAY newscripts;
+    STRING ARRAY existing_tags;
+
+    FOREVERY(STRING modname FROM GetInstalledModuleNames())
+    {
+      OBJECT xmlfile;
+      TRY
+        xmlfile := GetModuleDefinitionXML(modname);
+      CATCH
+        CONTINUE;
+
+      IF (NOT ObjectExists(xmlfile) OR NOT ObjectExists(xmlfile->documentelement))
+        CONTINUE;
+
+      RECORD ARRAY scripts;
+      OBJECT services := xmlfile->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")->Item(0);
+      IF (ObjectExists(services))
+      {
+        scripts := SELECT node
+              FROM ToRecordArray(services->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "internalservice")->GetCurrentElements(), "node");
+      }
+
+      FOREVERY (RECORD rec FROM scripts)
+      {
+        OBJECT script := rec.node;
+
+        STRING tag := script->GetAttribute("tag");
+        IF (tag = "")
+          CONTINUE;
+
+        tag := modname || ":" || tag;
+        IF (tag IN existing_tags)
+          CONTINUE;
+
+        STRING library := script->GetAttribute("library");
+        STRING tid := script->GetAttribute("tid");
+        STRING title := script->GetAttribute("title");
+        STRING portname := script->GetAttribute("portname");
+        STRING portobjectname := script->GetAttribute("objectname");
+        BOOLEAN globalport := (script->GetAttribute("globalport") IN [ "1", "true" ]);
+        STRING mode := script->GetAttribute("mode");
+        STRING screen := script->GetAttribute("screen");
+        STRING environment := script->GetAttribute("environment");
+        BOOLEAN persistonreset := script->GetAttribute("persistonsoftreset") IN [ "true", "1" ];
+        BOOLEAN releaseonreset := script->GetAttribute("releaseonsoftreset") IN [ "true", "1" ];
+        STRING ARRAY servertypes := Tokenize(NormalizeWhitespace(TrimWhitespace(script->GetAttribute("where"))), " ");
+        IF (servertypes[0] = "")
+          servertypes := DEFAULT STRING ARRAY;
+
+        // Only allow scripts for this server type
+        IF (this->servertype NOT IN servertypes)
+          CONTINUE;
+
+        INSERT tag INTO existing_tags AT END;
+
+        RECORD scriptrec :=
+            [ id :=             LENGTH(newscripts) + 1
+            , tag :=            tag
+            , library :=        "mod::" || modname || "/scripts/" || library
+            , mode :=           mode
+            , portname :=       portname
+            , portobjectname := portobjectname
+            , globalport :=     globalport
+            , screen :=         screen
+            , job :=            DEFAULT OBJECT
+            , status :=         "none"
+            , since :=          DEFAULT DATETIME
+            , started :=        DEFAULT DATETIME
+            , next_restart :=   mode="alwayson" ? DEFAULT DATETIME : MAX_DATETIME
+            , messages :=       DEFAULT RECORD ARRAY
+            , tid :=            (tid!="" AND tid NOT LIKE "*:*" ? modname || ":" || tid : tid)
+            , title :=          title
+            , environment :=    environment != "" ? environment : "WEBHARE"
+            , persistonreset := persistonreset
+            , releaseonreset := releaseonreset
+            ];
+
+        INSERT scriptrec INTO newscripts AT END;
+      }
+    }
+
+    FOREVERY (RECORD rec FROM this->scripts)
+    {
+      IF (ObjectExists(rec.job))
+      {
+        BOOLEAN terminateanyway;
+        STRING terminatemessage := "Script terminated due to module upgrade";
+
+        IF (rec.releaseonreset)
+        {
+          LogDebug("scriptmanager", "Try release " || rec.tag);
+
+          // Ask the script to release. Wait 250ms, if no (positive) result, close script.
+          this->scripts[#rec].job->ipclink->SendMessage([ task := "tryrelease" ]);
+          RECORD res := this->scripts[#rec].job->ipclink->ReceiveMessage(AddTimeToDate(250, GetCurrentDateTime()));
+          LogDebug("scriptmanager", "Response", res);
+          IF (res.status = "ok" AND CellExists(res.msg, "TYPE") AND TypeID(res.msg.type) = TypeID(STRING))
+          {
+            IF (res.msg.type = "tryrelease-ok")
+            {
+              this->scripts[#rec].job->Release();
+              this->scripts[#rec].job := DEFAULT OBJECT;
+
+              this->AddScriptMessage(rec.id,
+                  [ message :=        "Script " || rec.tag || " released due to module upgrade"
+                  , errors :=         DEFAULT RECORD ARRAY
+                  ], FALSE);
+              this->SetStatus(rec, "released");
+              CONTINUE;
+            }
+            ELSE IF (res.msg.type = "tryrelease-cancel")
+            {
+              this->AddScriptMessage(rec.id,
+                  [ message :=        "Script " || rec.tag || " release due to module upgrade cancelled, persisting script"
+                  , errors :=         DEFAULT RECORD ARRAY
+                  ], FALSE);
+
+              CONTINUE;
+            }
+          }
+
+          terminateanyway := TRUE;
+          terminatemessage := "Script didn't respond to softreset release query in 250ms, terminating";
+        }
+
+        IF (NOT rec.persistonreset OR terminateanyway)
+        {
+          LogDebug("scriptmanager", "Terminating " || rec.tag);
+
+          this->scripts[#rec].job->Close();
+          this->scripts[#rec].job := DEFAULT OBJECT;
+
+          this->AddScriptMessage(rec.id,
+              [ message :=        terminatemessage
+              , errors :=         DEFAULT RECORD ARRAY
+              ], FALSE);
+          this->SetStatus(rec, "terminated");
+        }
+      }
+    }
+
+    STRING ARRAY foundtags; //do system:getconfig absolutely first, then move on to system tasks first
+    newscripts := SELECT * FROM newscripts ORDER BY tag="system:getconfig" DESC, tag LIKE "system:*" DESC;
+    FOREVERY (RECORD rec FROM newscripts)
+    {
+      INSERT rec.tag INTO foundtags AT END;
+
+      INTEGER pos := (SELECT AS INTEGER #scripts + 1 FROM this->scripts WHERE tag = rec.tag) - 1;
+      IF (pos = -1)
+        INSERT rec INTO this->scripts AT END;
+      ELSE
+      {
+        RECORD org := this->scripts[pos];
+
+        BOOLEAN significant_change :=
+            org.library != rec.library
+            OR org.portname != rec.portname
+            OR org.globalport != rec.globalport
+            OR org.mode != rec.mode
+            OR org.environment != rec.environment
+            OR org.persistonreset != rec.persistonreset
+            OR org.releaseonreset != rec.releaseonreset;
+
+        org.library := rec.library;
+        org.portname := rec.portname;
+        org.globalport := rec.globalport;
+        org.mode := rec.mode;
+        org.screen := rec.screen;
+        org.title := rec.title;
+        org.tid := rec.tid;
+        org.environment := rec.environment;
+
+        // Restart persistent scripts anyway on big changes
+        IF (significant_change AND ObjectExists(org.job))
+        {
+          org.job->Close();
+          org.job := DEFAULT OBJECT;
+          org.status := "terminated";
+          org.since := GetCurrentDateTime();
+        }
+
+        IF (NOT ObjectExists(org.job) AND rec.mode = "alwayson")
+          org.next_restart := DEFAULT DATETIME;
+
+        this->scripts[pos] := org;
+      }
+    }
+
+    FOREVERY (RECORD rec FROM this->scripts)
+      IF (rec.tag NOT IN foundtags AND rec.job != DEFAULT OBJECT)
+      {
+        rec.job->Close();
+        this->scripts[#rec].job := DEFAULT OBJECT;
+      }
+
+    DELETE FROM this->scripts WHERE tag NOT IN foundtags;
+
+    UPDATE this->scripts
+       SET id := #scripts;
+  }
+
+  MACRO SetAdhocCacheParameters()
+  {
+    OBJECT trans := OpenPrimary([ waituntil := MAX_DATETIME ]);
+    IF(trans->ColumnExists("SYSTEM","FLATREGISTRY","ID"))
+    {
+      INTEGER max_entries   := ReadRegistryKey("system.services.adhoccache.maxentries", [ fallback := -1 ]);
+      INTEGER minperlibrary := ReadRegistryKey("system.services.adhoccache.minperlibrary", [ fallback := -1 ]);
+      IF(max_entries >=0 AND minperlibrary >= 0)
+      {
+        TwistAdhocCacheKnobs(max_entries, minperlibrary);
+        trans->Close();
+        RETURN;
+      }
+    }
+    trans->Close();
+    RegisterTimedCallback(AddTimeToDate(5000,GetCurrentDatetime()), PTR this->SetAdhocCacheParameters); //try again in 5 seconds, db must be initializing
+  }
+
+  MACRO AddScriptMessage(INTEGER id, RECORD message, BOOLEAN iserror)
+  {
+    IF(iserror)
+    {
+      LogError("system:webserver scriptmanager", "script error", [id := id, message := message]);
+      IF (LENGTH(message.errors) != 0)
+        LogHarescriptErrors(message.errors);
+    }
+
+    INSERT CELL date := GetCurrentDateTime() INTO message;
+    INSERT CELL iserror := iserror INTO message;
+
+    INSERT message INTO this->scripts[id].messages AT 0;
+    IF (LENGTH(this->scripts[id].messages) > 16)
+      DELETE FROM this->scripts[id].messages AT 16;
+  }
+
+  MACRO SetStatus(RECORD rec, STRING status)
+  {
+    this->scripts[rec.id].status := status;
+    this->scripts[rec.id].since := GetCurrentDateTime();
+
+    IF (status = "crashed")
+      this->scripts[rec.id].next_restart := AddTimeToDate(crash_retry_space, GetCurrentDateTime());
+    ELSE IF (status = "shutdown" AND rec.mode = "alwayson")
+      this->scripts[rec.id].next_restart := GetCurrentDateTime();
+
+    BroadcastEvent("system:internal.scriptmanager.statechange", DEFAULT RECORD);
+  }
+
+  RECORD FUNCTION StartManagedScript(RECORD rec)
+  {
+    RECORD jobdata := CreateJob(rec.portobjectname = "" ? rec.library : "mod::system/scripts/internal/managedportrunner.whscr");
+    IF (NOT RecordExists(jobdata))
+      ABORT("Don't have permission to start scripts"); // FATAL!
+
+    this->SetStatus(rec, "starting");
+
+    IF (NOT ObjectExists(jobdata.job))
+    {
+      this->SetStatus(rec, "crashed");
+      RETURN
+          [ success :=          FALSE
+          , message :=          [ message := "Could not start library"
+                                , errors := jobdata.errors
+                                ]
+          ];
+    }
+
+    OBJECT job := jobdata.job;
+    RECORD res := job->ipclink->SendMessage(
+        [ task :=       "start_port"
+        , portname :=   rec.portname
+        , portobjectname := rec.portobjectname
+        , library := rec.library
+        , globalport := rec.globalport
+        ]);
+
+    IF (res.status != "ok")
+    {
+      this->SetStatus(rec, "crashed");
+      RECORD result :=
+          [ success :=          FALSE
+          , message :=          [ message := "Could not send script startup message, status code: " || res.status
+                                , errors  := job->GetErrors()
+                                ]
+          ];
+
+      job->Close();
+      RETURN result;
+    }
+
+    // Start the job, so it can handle the startup message
+    job->Start();
+
+    // Wait for a reply on the startup message (wait max 1 secs)
+    res := job->ipclink->ReceiveMessage(AddTimeToDate(1000, GetCurrentDateTime()));
+    IF (res.status != "ok")
+    {
+      this->SetStatus(rec, "crashed");
+      RECORD result :=
+          [ success :=          FALSE
+          , message :=          [ message := "Could not receive startup message, status code: " || res.status
+                                , errors  := job->GetErrors()
+                                ]
+          ];
+      job->Close();
+      RETURN result;
+    }
+
+    // If a port will be opened, test if it is there
+    IF (rec.portname != "")
+    {
+      OBJECT testlink := ConnectToIPCPort(rec.portname);
+      IF (NOT ObjectExists(testlink))
+      {
+        this->SetStatus(rec, "crashed");
+        RECORD result :=
+            [ success :=          FALSE
+            , message :=          [ message := "Script didn't open expected port"
+                                  , errors  := job->GetErrors()
+                                  ]
+            ];
+
+        job->Close();
+        RETURN result;
+      }
+
+      testlink->Close();
+    }
+
+    this->scripts[rec.id].job := job;
+    this->scripts[rec.id].started := GetCurrentDateTime();
+    this->SetStatus(rec, "running");
+
+    RETURN
+        [ success := TRUE
+        , message :=          [ message := "Successfully started"
+                              , errors  := DEFAULT RECORD ARRAY
+                              ]
+        ];
+  }
+
+  RECORD FUNCTION StartScript(RECORD rec)
+  {
+    RECORD res := this->StartManagedScript(rec);
+    this->AddScriptMessage(rec.id, res.message, NOT res.success);
+    RETURN res;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overridden functions
+  //
+
+  UPDATE DATETIME FUNCTION GetNextTimeout()
+  {
+    RETURN
+        SELECT AS DATETIME Min(next_restart)
+          FROM this->scripts CONCAT [ [ mode := "alwayson", next_restart := MAX_DATETIME, status := "none" ] ]
+         WHERE mode = "alwayson"
+           AND status != "running";
+  }
+
+
+  UPDATE MACRO OnTimeout()
+  {
+    DATETIME now := GetCurrentDateTime();
+
+    FOREVERY (RECORD rec FROM this->scripts)
+      IF (rec.mode = "alwayson" AND rec.next_restart <= now AND NOT ObjectExists(rec.job))
+        this->StartScript(rec);
+  }
+
+
+  UPDATE RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    IF (NOT this->IsCellOk(message, "TASK", TypeID(STRING)))
+      THROW NEW Exception("Wrong message format, expected 'task' cell");
+
+    SWITCH (message.task)
+    {
+    CASE "startport"
+      {
+        IF (NOT this->IsCellOk(message, "PORTNAME", TypeID(STRING)))
+          THROW NEW Exception("Wrong message format, expected 'portname' cell");
+
+        RECORD script :=
+            SELECT *
+              FROM this->scripts
+             WHERE portname = message.portname;
+
+        IF (NOT RecordExists(script))
+          THROW NEW Exception("No such port exists");
+
+        IF (NOT ObjectExists(script.job))
+        {
+          RECORD res := this->StartScript(script);
+          RETURN
+            [ result :=         "message"
+            , msg :=            [ status :=     res.success ? "ok" : "error"
+                                , message :=    res.message.message
+                                , errors :=     res.message.errors
+                                ]
+            ];
+        }
+
+        RETURN
+            [ result :=         "message"
+            , msg :=            [ status :=     "ok"
+                                , message :=    "Already started"
+                                , errors :=     DEFAULT RECORD ARRAY
+                                ]
+            ];
+      }
+    CASE "status"
+      {
+        RETURN
+            [ result :=         "message"
+            , msg :=            [ status := "ok"
+                                , scripts :=
+                                    (SELECT library
+                                          , screen
+                                          , running :=  ObjectExists(job)
+                                          , mode
+                                          , status
+                                          , since
+                                          , messages
+                                          , tid
+                                          , title
+                                          , id
+                                       FROM this->scripts)
+                                ]
+            ];
+      }
+    CASE "terminate"
+      {
+        IF (NOT this->IsCellOk(message, "ID", TypeID(INTEGER)))
+          THROW NEW Exception("Wrong message format, expected 'id' cell");
+
+        RECORD script :=
+            SELECT *
+              FROM this->scripts
+             WHERE id = message.id;
+
+        IF (NOT RecordExists(script))
+          THROW NEW Exception("No such port exists");
+
+        IF (NOT ObjectExists(script.job))
+          THROW NEW Exception("Script is not running");
+
+        this->AddScriptMessage(script.id, [ message := "Script " || script.tag || " terminated by user"
+                                          , errors  := DEFAULT RECORD ARRAY
+                                          ], TRUE);
+
+        this->SetStatus(script, "terminated");
+        this->OnHandleSignalled(script.job->handle);
+
+        RETURN
+            [ result :=         "message"
+            , msg :=            [ status := "ok"
+                                ]
+            ];
+      }
+
+    CASE "abort"
+      {
+        ABORT("Abort requested");
+      }
+    }
+    THROW NEW Exception("Unknown task: " || message.task);
+  }
+
+
+  /** Called when another handle than the listenport was signalled
+  */
+  UPDATE MACRO OnHandleSignalled(INTEGER handle)
+  {
+    RECORD script :=
+        SELECT *
+          FROM this->scripts
+         WHERE ObjectExists(job)
+           AND job->handle = handle;
+
+    IF (RecordExists(script))
+    {
+      IF (script.status != "terminated")
+      {
+        STRING newstatus := (LENGTH(script.job->GetErrors()) = 0 ? "shutdown" : "crashed");
+        this->SetStatus(script, newstatus);
+        this->AddScriptMessage(script.id, [ message := "Script " || script.tag || " has " || (newstatus = "shutdown"  ? "shut down" : "crashed") || ": " || script.status
+                                          , errors  := script.job->GetErrors()
+                                          ], TRUE);
+      }
+
+      this->scripts[script.id].job->Close();
+      this->scripts[script.id].job := DEFAULT OBJECT;
+
+      // Schedule restart if needed
+      IF (this->scripts[script.id].mode = "alwayson")
+        this->scripts[script.id].next_restart := AddTimeToDate(crash_retry_space, GetCurrentDateTime());
+    }
+  }
+
+
+  /** Waits for the next event
+      Override if you want to wait for other handles
+  */
+  UPDATE INTEGER FUNCTION WaitForEvent(INTEGER ARRAY default_handles, DATETIME waitlimit)
+  {
+    INTEGER ARRAY read_ports := default_handles;
+
+    read_ports := read_ports CONCAT
+        SELECT AS INTEGER ARRAY job->handle
+          FROM this->scripts
+         WHERE ObjectExists(job);
+
+    RETURN IPCPortHandlerBase::WaitForEvent(read_ports, waitlimit);
+  }
+
+>;

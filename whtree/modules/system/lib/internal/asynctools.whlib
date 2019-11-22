@@ -1,0 +1,275 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::async.whlib" EXPORT WaitableConditionBase;
+
+
+/** This class implements waitable condition with manual signalledness control
+*/
+PUBLIC OBJECTTYPE ManualCondition EXTEND WaitableConditionBase
+< /// Current signalled status
+  UPDATE PUBLIC PROPERTY signalled(pvt_signalled, SetSignalled);
+>;
+
+/** This class implements waitable timer
+*/
+PUBLIC OBJECTTYPE WaitableTimer EXTEND WaitableConditionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER cb;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Create a new timer with a new timeout
+      @param Time the timer should become signalled. Use an INTEGER to specify number of
+            milliseconds, and a DATETIME to specify the exact time. When passing DEFAULT DATETIME,
+            MAX_DATETIME or omitting the parameter, the timer won't become signalled at all.
+  */
+  MACRO NEW(VARIANT timeout DEFAULTSTO DEFAULT DATETIME)
+  {
+    this->Reset(timeout);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotTimeout()
+  {
+    this->cb := 0;
+    this->SetSignalled(TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Reset the timer with a new timeout
+      @param Time the timer should become signalled. Use an INTEGER to specify number of
+            milliseconds, and a DATETIME to specify the exact time. When passing DEFAULT DATETIME,
+            MAX_DATETIME or omitting the parameter, the timer won't become signalled at all.
+  */
+  PUBLIC MACRO Reset(VARIANT time DEFAULTSTO DEFAULT DATETIME)
+  {
+    IF (TypeID(time) = TypeID(INTEGER))
+      time := AddTimeToDate(time, GetCurrentDateTime());
+    ELSE IF (TypeID(time) != TypeID(DATETIME))
+      THROW NEW Exception("Argument is not an INTEGER or DATETIME, but a " || GetTypeName(TypeID(time)));
+
+    this->SetSignalled(FALSE);
+    IF (this->cb != 0)
+    {
+      UnregisterCallback(this->cb);
+      this->cb := 0;
+    }
+    IF (time != DEFAULT DATETIME AND time != MAX_DATETIME)
+      this->cb := RegisterTimedCallback(time, PTR this->GotTimeout);
+  }
+>;
+
+/** This class implements a FIFO (first-in-first-out) queue
+*/
+PUBLIC OBJECTTYPE FIFO EXTEND WaitableConditionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// List of elements in queue
+  RECORD ARRAY elts;
+
+  /// Whether the queue has been closed
+  BOOLEAN closed;
+
+  /// Serializer for AsyncShift
+  OBJECT serializer;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Create a new fifo
+      @param elts Initial elements
+  */
+  MACRO NEW(RECORD ARRAY elts DEFAULTSTO DEFAULT RECORD ARRAY)
+  {
+    this->elts := elts;
+    this->SetSignalled(LENGTH(elts) != 0);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Push an element into the fifo
+      @param elt Element to push
+  */
+  PUBLIC MACRO Push(RECORD elt)
+  {
+    IF (this->closed)
+      THROW NEW Exception(`Trying to push an element into a closed FIFO`);
+    INSERT elt INTO this->elts AT END;
+    this->SetSignalled(TRUE);
+  }
+
+  /** Returns the element at the front of the fifo, but does not pop it
+      @return The first element in the queue, or DEFAULT RECORD if no element is currently present
+  */
+  PUBLIC RECORD FUNCTION Peek()
+  {
+    IF (LENGTH(this->elts) != 0)
+      RETURN this->elts[0];
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Return the element at the front of the fifo, or DEFAULT RECORD if there is none
+      @return The first element in the queue, or DEFAULT RECORD if no element is currently present
+  */
+  PUBLIC RECORD FUNCTION Shift()
+  {
+    RECORD elt;
+    IF (LENGTH(this->elts) != 0)
+    {
+      elt := this->elts[0];
+      DELETE FROM this->elts AT 0;
+      this->SetSignalled(LENGTH(this->elts) != 0 OR this->closed);
+    }
+    RETURN elt;
+  }
+
+  /** Return a promise for the first (or if that doesn't exist, the next added) element in the fifo. That element is
+      removed from the queue.
+      @return Promise that fulfills to an element when one is present or DEFAULT RECORD if the fifo is closed.
+  */
+  PUBLIC ASYNC FUNCTION AsyncShift()
+  {
+    // Serialize calls to AsyncShift
+    IF (NOT ObjectExists(this->serializer))
+      this->serializer := MakeCallSerializer();
+    OBJECT lock := AWAIT this->serializer->GetRunPermission();
+    TRY
+    {
+      AWAIT this->WaitSignalled();
+      RETURN this->Shift();
+    }
+    FINALLY
+      lock->Close();
+  }
+
+  /** Return a promise for the first (or if that doesn't exist, the next added) element in the fifo.
+      @return Promise that fulfills to an element when one is present or DEFAULT RECORD if the fifo is closed
+  */
+  PUBLIC OBJECT ASYNC FUNCTION AsyncPeek()
+  {
+    // Serialize calls to AsyncShift
+    IF (NOT ObjectExists(this->serializer))
+      this->serializer := MakeCallSerializer();
+    OBJECT lock := AWAIT this->serializer->GetRunPermission();
+    TRY
+    {
+      AWAIT this->WaitSignalled();
+      RETURN this->Peek();
+    }
+    FINALLY
+      lock->Close();
+  }
+
+  /** Returns an async iterator that iterates over all pushed items (and removes them from the queue)
+      @return Asynchronous iterator that returns all items that are pushed, and terminates when the FIFO is closed.
+  */
+  PUBLIC ASYNC FUNCTION *AsyncReader()
+  {
+    IF (NOT ObjectExists(this->serializer))
+      this->serializer := MakeCallSerializer();
+    OBJECT lock := AWAIT this->serializer->GetRunPermission();
+    TRY
+    {
+      WHILE (TRUE)
+      {
+        AWAIT this->WaitSignalled();
+        RECORD rec := this->Shift();
+        IF (NOT RecordExists(rec))
+          RETURN DEFAULT RECORD;
+        YIELD rec;
+      }
+    }
+    FINALLY
+      lock->Close();
+  }
+
+  /** Closes the FIFO. After closing, no more pushes are allowed, and the promises return by AsyncPeek
+      and AsyncShift will resolve immediately.
+  */
+  PUBLIC MACRO Close()
+  {
+    this->closed := TRUE;
+    this->SetSignalled(TRUE);
+  }
+>;
+
+// Mixes async iterator and normal promises into one async iterator
+PUBLIC OBJECT ASYNC FUNCTION *MixAsyncIterators(OBJECT ARRAY vals, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  BOOLEAN wrap := CellExists(options, "WRAP") AND options.wrap;
+  OBJECT ARRAY itrs;
+  OBJECT ARRAY promises;
+
+  FOREVERY (OBJECT val FROM vals)
+  {
+    BOOLEAN ispromise := val EXTENDSFROM PromiseBase;
+    INSERT ispromise ? val : val->Next() INTO promises AT END;
+    INSERT ispromise ? DEFAULT OBJECT : val INTO itrs AT END;
+  }
+
+  TRY
+  {
+    WHILE (LENGTH(promises) != 0)
+    {
+      RECORD res := AWAIT CreatePromiseRace(promises, [ wrap := TRUE ]);
+
+      INTEGER pos := SearchElement(promises, res.source);
+      IF (ObjectExists(itrs[pos]))
+      {
+        IF (NOT res.value.done)
+        {
+          YIELD (wrap ? [ source := itrs[pos], value := res.value.value ] : res.value.value);
+          promises[pos] := itrs[pos]->Next();
+
+          // Place this iterator at the back, prevent starvation of the rest
+          IF (pos != LENGTH(itrs) - 1)
+          {
+            INSERT itrs[pos] INTO itrs AT END;
+            INSERT itrs[pos]->Next() INTO promises AT END;
+            DELETE FROM itrs AT pos;
+            DELETE FROM promises AT pos;
+          }
+
+          CONTINUE;
+        }
+      }
+      ELSE
+        YIELD (wrap ? [ source := promises[pos], value := res.value ] : res.value);
+
+      DELETE FROM promises AT pos;
+      DELETE FROM itrs AT pos;
+    }
+  }
+  FINALLY
+  {
+    FOREVERY (OBJECT itr FROM itrs)
+      itr->SendReturn();
+  }
+  RETURN DEFAULT RECORD;
+}

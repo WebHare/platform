@@ -1,0 +1,1391 @@
+@import "screenshotmode.scss";
+@import "dashboard.scss";
+@import "~@mod-tollium/js/themes/indy/mixins.scss";
+@import "~dompack/components/pulldown/mixins.scss";
+@import "../../../webdesigns/webinterface/shared/settings.json";
+
+/****************************************************************************************************************************
+ * General settings
+ */
+#todd-measurements
+{
+  position:absolute;
+  top:0;
+  left:-1000px;
+  width:999px;
+}
+/* line 16, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.inline-component {
+  display: inline-block;
+  vertical-align: top;
+}
+/****************************************************************************************************************************
+ * Application root. The canvas is the container for all our subwindows
+ */
+/* line 27, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.appcanvas {
+  bottom: 0;
+  left: -1000%;
+  overflow: hidden;
+  position: absolute;
+  width: 100%;
+  top: 0;
+  z-index: 0;
+}
+/* line 37, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.appcanvas.visible {
+  left: 0;
+}
+/* The modality layer is mostly a 'hooking' point for the skins, so that they
+   will be less tempted to do :after on t-screen themselves */
+/* line 44, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.appcanvas .appmodalitylayer {
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 999999;
+  display: none;
+}
+/* line 55, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.appcanvas.isbusy .appmodalitylayer {
+  display: block;
+}
+/****************************************************************************************************************************
+ * Application windows
+ */
+
+.t-screen
+{
+  left: 0;
+  position: absolute;
+  top: 0;
+  z-index: 0;
+  -webkit-transform: translate3d(0, 0, 0); //prevent scrollbars from shining through modality layers. ONLY target -webkit because it causes rendering issues in Internet Explorer (2 overlapping iframes with transform:scale(1) mispositions the iframe's paintarea)
+}
+.t-screen:first-child
+{
+  box-shadow: none;
+}
+/* Resizers extend 3 pixels outside the frame and are six pixels wide
+   All diagonal sizers are thus width/height 6px and position -3px
+   All non-diagonal sizers are width OR height 6px, and position -3px on their short side, and 3px on their long side*/
+.t-screen .resize
+{
+  position:absolute;
+}
+.t-screen .resize-nw, .t-screen .resize-ne, .t-screen .resize-sw, .t-screen .resize-se, .t-screen .resize-w, .t-screen .resize-e
+{
+  width:6px;
+}
+.t-screen .resize-nw, .t-screen .resize-ne, .t-screen .resize-sw, .t-screen .resize-se, .t-screen .resize-n, .t-screen .resize-s
+{
+  height:6px;
+}
+.t-screen .resize-nw, .t-screen .resize-n, .t-screen .resize-ne
+{
+  top: -3px;
+}
+.t-screen .resize-sw, .t-screen .resize-s, .t-screen .resize-se
+{
+  bottom: -3px;
+}
+.t-screen .resize-nw, .t-screen .resize-w, .t-screen .resize-sw
+{
+  left:-3px;
+}
+.t-screen .resize-ne, .t-screen .resize-e, .t-screen .resize-se
+{
+  right:-3px;
+}
+.t-screen .resize-e, .t-screen .resize-w
+{
+  top: 3px;
+  bottom: 3px;
+}
+.t-screen .resize-n, .t-screen .resize-s
+{
+  left: 3px;
+  right: 3px;
+}
+
+.t-screen .resize-nw
+{
+  cursor: nw-resize;
+}
+.t-screen .resize-n
+{
+  cursor: n-resize;
+}
+.t-screen .resize-ne
+{
+  cursor: ne-resize;
+}
+.t-screen .resize-e
+{
+  cursor: e-resize;
+}
+.t-screen .resize-se
+{
+  cursor: se-resize;
+}
+.t-screen .resize-s
+{
+  cursor: s-resize;
+}
+.t-screen .resize-sw
+{
+  cursor: sw-resize;
+}
+.t-screen .resize-w
+{
+  cursor: w-resize;
+}
+.t-screen .outline
+{
+  border: 5px solid #999999;
+  opacity: .75;
+  position: absolute;
+}
+.t-screen > div.modallayer
+{
+  background-color: #000000;
+  bottom: 0;
+  left: 0;
+  opacity: 0.18;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 1;
+}
+
+.t-screen.active > div.modallayer
+{
+  visibility: hidden;
+}
+
+.t-screen:not(.fullscreen)
+{
+  padding: 0;
+}
+/* Window header, currently only used to hold the close button and as a target for moving the window */
+.t-screen.fullscreen .windowheader
+{
+  display:none;
+}
+.t-screen .windowheader
+{
+  height: 33px;
+  padding: 0 40px 0 10px;
+  line-height: 33px;
+  position: relative;
+  cursor: default;
+}
+.t-screen .windowheader .title
+{
+  display: inline-block;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.t-screen .windowheader .closewindow
+{
+  background-position: right center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  right: 10px;
+  width: 16px;
+  z-index: 1;
+}
+
+.t-screen .windowheader .closewindow:active
+{
+  margin-right: -1px;
+  margin-top: 1px;
+}
+
+/*
+  .windowtitle
+  {
+    cursor: default;
+    left: @screen-border-size;
+    line-height: 1.6em;
+    position: absolute;
+    right: @screen-border-size;
+    top: @screen-border-size;
+  }
+
+  .windowtitle h1
+  {
+    color: [window_titlebar_text_color];
+    font-size: 1em;
+    font-weight: normal;
+    left: 0;
+    overflow: hidden;
+    padding-right: 1.5em;
+    position: absolute;
+    right: 0;
+    text-overflow: ellipsis;
+    top: 0;
+    white-space: nowrap;
+  }
+
+  .t-screen.toddActive .windowtitle h1
+  {
+    color: [window_titlebar_text_color_active];
+  }
+  */
+/****************************************************************************************************************************
+ * Menus and menubar
+ */
+/* line 268, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-scroller-vertical {
+  margin-top: 4px;
+  margin-bottom: 4px;
+
+  right: 4px;
+  width: 5px;
+
+  background-color: rgba(0, 0, 0, 0.20);
+  border-radius: 3px;
+  z-index: 99;
+
+  opacity: 0;
+  transition: opacity 0.50s;
+  -webkit-transition: opacity 0.50s;
+}
+/* line 278, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+  .wh-scrollableview:hover .wh-scroller-vertical
+, .wh-scrollableview.wh-scrollableview-scrolling .wh-scroller-vertical /* if our tab hasn't got focus, but a scrollwheel is used to scroll */
+{
+  opacity: 1;
+  transition: opacity 0.20s;
+  -webkit-transition: opacity 0.20s;
+}
+/* line 283, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-scroller-vertical {
+  visibility: hidden;
+}
+/* line 285, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-scrollableview-canscroll-v .wh-scroller-vertical {
+  visibility: visible;
+}
+/* line 287, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-menu-detached.wh-scrollableview-canscroll-v .wh-menu {
+  padding-right: 15px;
+}
+ul.wh-menubar
+{
+  overflow: hidden;
+  height: 28px;
+}
+html ul.wh-menubar li
+{
+  padding: 6px 8px 4px 8px;
+  height: 28px;
+}
+  ul.wh-menulist.showshortcuts > li[data-menushortcut]
+{
+  overflow: hidden;
+  white-space: nowrap;
+}
+  ul.wh-menulist.showshortcuts > li[data-menushortcut]:before
+{
+  content: attr(data-menushortcut);
+  float: right;
+  display: inline-block;
+  padding-left: 15px;
+  margin-right: -15px;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 17px;
+  text-transform: uppercase;
+}
+/* line 374, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-menu-detached,
+.wh-menu-context,
+.t-tabs-menu
+{
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+  /* shrink-wrap using inline-block, because the scrollableview wrapper might get the position: absolute;
+     which would otherwise shrink-wrap us */
+
+  display: inline-block;
+  padding: 0;
+  z-index: 5;
+  /* Reset stacking context */
+
+  border-radius: 3px;
+  /* Workaround for bottom right rounded corner on safari - apparently box-shadow triggers it */
+
+}
+ul.wh-menulist
+{
+  z-index: 1;
+}
+.wh-menu li
+{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/****************************************************************************************************************************
+ * Spacer
+ */
+/* line 503, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-spacer {
+  display: inline-block;
+  vertical-align: top;
+}
+/****************************************************************************************************************************
+ * Panel
+ */
+
+t-panel
+{
+  position:relative;
+  display: block;
+}
+/* SYNC-SPACERS: these values must sync up with $todd.settings.spacer_top */
+t-panel.spacer-top
+{
+  padding-top:10px;
+}
+t-panel.spacer-bottom
+{
+  padding-bottom:10px;
+}
+t-panel.spacer-left
+{
+  padding-left:10px;
+}
+t-panel.spacer-right
+{
+  padding-right:10px;
+}
+
+html.debug-grid t-panel:before
+{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+  background: #ffffff url("../img/grid.png") top left;
+}
+/* SYNC-SPACERS-DEBUG: these values must sync up with $todd.settings.spacer_top */
+html.debug-grid t-panel.spacer-top:before
+{
+  top:10px;
+}
+html.debug-grid t-panel.spacer-bottom:before
+{
+  bottom:10px;
+}
+html.debug-grid t-panel.spacer-left:before
+{
+  left:10px;
+}
+html.debug-grid t-panel.spacer-right:before
+{
+  right:10px;
+}
+
+
+t-panel > .panel-area > div.line
+{
+  white-space: nowrap; /* ensure items don't walk off the lines by themselves just because of a simple layout error.. */
+}
+t-panel > .panel-area > div.line > *
+{
+  display: inline-block;
+  vertical-align:top;
+  position: relative;
+}
+t-panel > .panel-area > div.line > select
+{
+  margin-top:2px;
+}
+/* SYNC-SPACERWIDTH */
+t-panel > .panel-area > div.line > * + *
+{
+  margin-left:4px;
+}
+
+/* SYNC-BORDERS: these values must sync up with $todd.settings.border_top */
+t-panel.border-top
+{
+  border-top-width:1px;
+}
+t-panel.border-bottom
+{
+  border-bottom-width:1px;
+}
+t-panel.border-left
+{
+  border-left-width:1px;
+}
+t-panel.border-right
+{
+  border-right-width:1px;
+}
+
+/* line 539, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-panel > .panel-area > div.form > span:first-child
+{
+  display: inline-block;
+  vertical-align: top;
+  /* allow titleholder to set its size */
+
+}
+/* line 544, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-panel > .panel-area > div.center {
+  text-align: center;
+}
+/* line 549, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-panel > .panel-area > div.right {
+  text-align: right;
+}
+/* line 555, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+  t-panel > .panel-area > div.center *
+, t-panel > .panel-area > div.right *
+{
+  text-align: left;
+}
+
+t-panel > .panel-area > div.line > t-textarea
+{
+  margin-top: 2px;
+}
+
+/****************************************************************************************************************************
+ * Container
+ */
+
+t-inlineblock
+{
+  position:relative;
+}
+
+html.debug-grid t-inlineblock:before
+{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+  background: #ffffff url("../img/grid.png") top left;
+}
+
+t-inlineblock > .panel-area > div.line
+{
+  white-space: nowrap; /* ensure items don't walk off the lines by themselves just because of a simple layout error.. */
+}
+t-inlineblock > .panel-area > div.line > *
+{
+  display: inline-block;
+  vertical-align:top;
+  position: relative;
+}
+/* SYNC-SPACERWIDTH */
+t-inlineblock > .panel-area > div.line > * + *
+{
+  margin-left:4px;
+}
+t-inlineblock > .panel-area > div.line > t-text
+{
+  margin-top:6px;
+}
+
+/* SYNC-BORDERS: these values must sync up with $todd.settings.border_top */
+t-inlineblock.border-top
+{
+  border-top-width:1px;
+}
+t-inlineblock.border-bottom
+{
+  border-bottom-width:1px;
+}
+t-inlineblock.border-left
+{
+  border-left-width:1px;
+}
+t-inlineblock.border-right
+{
+  border-right-width:1px;
+}
+
+/* line 539, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-inlineblock > .panel-area > div.form > span:first-child
+{
+  display: inline-block;
+  vertical-align: top;
+  /* allow titleholder to set its size */
+
+}
+/* line 544, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-inlineblock > .panel-area > div.center {
+  text-align: center;
+}
+/* line 549, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-inlineblock > .panel-area > div.right {
+  text-align: right;
+}
+/* line 555, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+  t-inlineblock > .panel-area > div.center *
+, t-inlineblock > .panel-area > div.right *
+{
+  text-align: left;
+}
+
+t-inlineblock > .panel-area > div.line > t-textarea
+{
+  margin-top: 3px;
+}
+
+/****************************************************************************************************************************
+ * Tab-space, FIXME: maybe this should be renamed to something else?
+   Right now this is basically the "buttonbar" above the filmanager's tree and list 8 */
+
+div.tabs-space
+{
+  white-space: nowrap;
+  color: #444444;
+  height: 28px;
+}
+
+  div.tabs-space t-button
+, t-textedit t-button
+{
+  background: none;
+  box-shadow: none;
+  border:none;
+  color:inherit; /* a lighter color is used inside tab-space */
+}
+div.tabs-space select
+{
+  background-color: transparent;
+  border-color: transparent;
+  color:inherit; /* a lighter color is used inside tab-space */
+}
+
+  div.tabs-space t-button
+, t-textedit t-button
+{
+  margin: 0;
+  height: calc(100% - 1px);
+  border-radius: 0;
+}
+
+div.tabs-space t-button .button__img
+{
+  position:absolute;
+  margin:0;
+  float:none;
+  left:6px;
+  top:6px;
+}
+
+/****************************************************************************************************************************
+ * Tabs
+ */
+/* line 573, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-tabs {
+  display: block;
+  position: relative;
+  z-index: 0;
+}
+
+t-tabs > nav
+{
+  height: $tollium_grid_vsize * 1px;
+  overflow: hidden;
+  position: relative;
+  white-space: nowrap;
+  z-index: 1;
+  box-shadow: inset 0 -1px 0 0 #c9c9c9;
+}
+
+t-tabs > nav > span
+{
+  bottom: 0;
+  display: block;
+  position: absolute;
+  top: 0;
+  width: 29px;
+  z-index: 1;
+}
+
+t-tabs > nav > span.nav-left
+{
+  background: #ffffff;
+  left: 0;
+  display: none;
+  border-right: 1px solid #c9c9c9;
+  border-bottom: 1px solid #c9c9c9;
+}
+t-tabs > nav > span.nav-right
+{
+  background: #ffffff;
+  right: 29px;
+  display: none;
+  border-left: 1px solid #c9c9c9;
+  border-right: 1px solid #c9c9c9;
+  border-bottom: 1px solid #c9c9c9;
+}
+  t-tabs > nav > span.nav-left:before
+, t-tabs > nav > span.nav-right:before
+{
+  font-size: 18px;
+  color: #666;
+  position: absolute;
+  top: 4px;
+  left: 9px;
+}
+t-tabs > nav > span.nav-right:before
+{
+  left: 11px;
+}
+  t-tabs > nav > span.nav-left.show
+, t-tabs > nav > span.nav-right.show
+{
+  display: block;
+}
+
+t-tabs > nav > span.nav-tabs
+{
+  cursor: pointer;
+  right: 0;
+  background: #fff;
+  border-bottom: 1px solid #c9c9c9;
+  color: #666;
+  height: 28px;
+  line-height: 28px;
+  width: 29px;
+  font-size: 15px;
+}
+t-tabs > nav > span.nav-tabs:before
+{
+  position: absolute;
+  top: 1px;
+  left: 13px;
+}
+t-tabs > nav > span.nav-tabs.active
+{
+  background: #fafafa;
+  border-bottom-color: #fafafa;
+}
+/* line 647, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.t-screen.active t-tabs > nav > span.nav-tabs.active {
+  color: #48a1c3;
+}
+/* line 657, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-tabs > nav > div {
+  left: 0;
+  overflow: hidden;
+  position: absolute;
+  right: 29px;
+  /* The <div> that holds the label */
+}
+/* line 670, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-tabs > nav > div > div
+{
+  cursor: pointer;
+  display: inline-block;
+
+  border-style: solid;
+  border-width: 0 1px 1px 0;
+  height: 28px;
+  line-height: 26px;
+  padding: 0 10px;
+}
+/* line 688, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.t-screen.active t-tabs > nav > div > div
+{
+  color: #444444;
+}
+/* line 694, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-tabs > nav > div > div.active {
+  background: no-repeat bottom center;
+  /* The label text component */
+
+}
+
+/* line 742, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-tabs > div.line {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+/* line 750, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-tabs > div.tabsheet {
+  overflow: hidden;
+  position: absolute;
+  z-index: 1;
+}
+/* line 756, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+/*t-tabs > div.tabsheet {
+  border-color: #c5c5c5;
+  border-style: solid;
+  border-width: 1px 0 0 0;
+  top: 28px;
+}*/
+/* line 764, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-tabs > div.tabsheet.invisible {
+  /* Due to a WebKit bug, setting visibility: hidden on a tab doesn't work to hide an iframe in Safari when the iframe has
+     content that's 3d-translated, so we'll just position the invisible tab off-screen
+     See https://bugs.webkit.org/show_bug.cgi?id=125565 */
+  transform: translate(-10000px, -10000px);
+  /*visibility: hidden;*/
+  z-index: 0;
+}
+/* line 770, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-tabs > div.tabsheet.transition {
+  transition: opacity 150ms;
+  -moz-transition: opacity 150ms;
+  -ms-transition: opacity 150ms;
+  -webkit-transition: opacity 150ms;
+  -webkit-transform: translateZ(0);
+}
+
+/****************************************************************************************************************************
+ * Stacked stabs */
+t-tabs.stacked
+{
+  overflow: hidden;
+  top: 0px;
+  left: 0px;
+}
+
+t-tabs.stacked > div.tablabel
+{
+  cursor: pointer;
+  padding: 6px 8px;
+  z-index: 2;
+  position: relative;
+}
+
+t-tabs.stacked > div.tablabel > t-text
+{
+  color: rgba(68, 68, 68, 0.5);
+}
+.t-screen.active t-tabs.stacked > div.tablabel > t-text
+{
+  color: #444444;
+}
+
+t-tabs.stacked > div.tablabel.active
+{
+  background-color: #fafafa;
+  background-image: none;
+}
+
+.t-screen.active t-tabs.stacked > div.tablabel.active > t-text
+{
+  color: #48a1c3;
+}
+
+t-tabs.stacked > div.tabsheet
+{
+  border-bottom-width: 0;
+  position: static;
+  z-index: 1;
+}
+
+t-tabs.stacked > div.tabsheet.transition
+{
+  transition: width 75ms ease-out, height 75ms ease-out;
+  -moz-transition: width 75ms ease-out, height 75ms ease-out;
+  -ms-transition: width 75ms ease-out, height 75ms ease-out;
+  -webkit-transition: width 75ms ease-out, height 75ms ease-out;
+  -webkit-transform: translateZ(0);
+}
+/* line 840, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-tabs.server > div {
+  border: none !important;
+  top: 0 !important;
+}
+/* line 845, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-tabs.server > div > t-panel {
+  margin: 0;
+}
+
+
+/****************************************************************************************************************************
+ * Table
+
+ .toddTable was the old name..
+ */
+
+.todd-table
+{
+  position:relative;
+  z-index:0;
+}
+.todd-table__rowgroup
+{
+  position:relative;
+}
+.todd-table__rowgroup > table
+{
+  border: none;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.todd-table__rowgroup.todd-table__rowgroup--scrollable
+{
+  overflow-y:scroll;
+}
+.todd-table__rowgroup > table > tr > td
+{
+  vertical-align:top;
+  text-align:left;
+  padding:0;
+  position: relative;
+}
+
+.todd-table__overlay
+{
+  position:absolute;
+  opacity: .95;
+  overflow: hidden;
+}
+
+  .todd-table__rowgroup > table > tr > .todd-table_cell--selected
+, .todd-table__rowgroup > table > tr > .todd-table_cell--selected > *
+, .todd-table__overlay--selected > *
+{
+  opacity: 1;
+}
+
+.todd-table__overlay--selected
+{
+  z-index: 1; /* Position the selected overlay on top of the other overlays */
+}
+
+.todd-table__rowgroup > table > tr > .todd-table_cell--disabled
+{
+  opacity: .46;
+}
+
+/*
+FIXME: grid and table both use toddTable
+FIXME: no way to distinguish between a toddTable with user-interaction and one without interaction;
+.toddTable > table > tbody > tr > td:hover / *.toddHover* /
+{
+  background: @selection-bgcolor !important; / * Override cell background color * /
+  color:#ffffff;
+}
+*/
+
+.todd-table__overlayresize
+{
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 1;
+}
+
+div.todd-table__overlayresize[todd-resize='n']
+{
+  bottom: auto;
+  cursor: n-resize;
+  height: 6px;
+}
+div.todd-table__overlayresize[todd-resize='s']
+{
+  cursor: s-resize;
+  height: 6px;
+  top: auto;
+}
+div.todd-table__overlayresize[todd-resize='e']
+{
+  cursor: e-resize;
+  left: auto;
+  width: 6px;
+}
+div.todd-table__overlayresize[todd-resize='w']
+{
+  cursor: w-resize;
+  right: auto;
+  width: 6px;
+}
+.todd-table__outline
+{
+  border: 5px solid #999999;
+  opacity: .75;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2; /* Above the selected overlay */
+}
+
+/*
+body
+{
+  scrollbar-face-color: #eee;
+
+  scrollbar-highlight-color: #c0c0c0;
+  scrollbar-3dlight-color: #c0c0c0;
+  scrollbar-darkshadow-color: #c0c0c0;
+
+  scrollbar-shadow-color: #aaa;
+  scrollbar-arrow-color: #000000;
+  scrollbar-track-color: #FFFFFF;
+}
+*/
+
+/* MacOS has a general/show scroll bars option.
+   If it's set to 'when scrolling' or 'Automatically ..'+using trackpad,
+   the scrollbar is an overlay which automatically disappears
+*/
+
+html.stylescrollbars ::-webkit-scrollbar
+{
+  width: 12px;
+  height: 12px;
+  background-color: #FFFFFF;
+
+  box-sizing: border-box;
+}
+
+html.stylescrollbars ::-webkit-scrollbar:horizontal
+{
+  border-top: 1px solid #C0C0C0;
+}
+html.stylescrollbars ::-webkit-scrollbar:vertical
+{
+  border-left: 1px solid #C0C0C0;
+}
+
+html.stylescrollbars ::-webkit-scrollbar-thumb
+{
+  height: 6px;
+
+  border: 2px solid rgba(0, 0, 0, 0);
+  border-left-width: 3px;
+
+  background-color: #C0C0C0;
+  background-clip: padding-box;
+
+  -webkit-border-radius: 4px;
+}
+html.stylescrollbars ::-webkit-scrollbar-button
+{
+  display: none;
+  width: 0;
+  height: 0;
+}
+html.stylescrollbars ::-webkit-scrollbar-corner
+{
+  display: none;
+  border-top: 1px solid #C0C0C0;
+  border-left: 1px solid #C0C0C0;
+}
+
+html.stylescrollbars #dashboard ::-webkit-scrollbar
+{
+  background-color: #333333;
+}
+html.stylescrollbars #dashboard ::-webkit-scrollbar-thumb
+{
+  background-color: #FFFFFF;
+}
+html.stylescrollbars #dashboard ::-webkit-scrollbar:horizontal
+{
+  border-left-width: 0px !important;
+  border: 0;
+}
+html.stylescrollbars #dashboard ::-webkit-scrollbar:vertical
+{
+  border-top-width: 0px !important;
+  border: 0;
+}
+html.stylescrollbars ::-webkit-scrollbar-corner
+{
+  border: 0;
+  background-color: #333333;
+}
+
+
+/****************************************************************************************************************************
+ * Iframe
+ */
+/* line 1374, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-iframe {
+  display: block;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+/* line 1381, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-iframe > iframe {
+  width: 100%;
+  height: 100%;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: none;
+  -moz-transform-origin: 0 0;
+  -o-transform-origin: 0 0;
+  -webkit-transform-origin: 0 0;
+  transform-origin: 0 0;
+}
+/* line 1392, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+html.moveInProgress t-iframe {
+  pointer-events: none;
+}
+/****************************************************************************************************************************
+ * RichEdit
+ */
+/* line 1415, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-rtd__editor {
+  position: relative;
+}
+/* line 1420, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-rtd__editor .wh-rich-frameholder {
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 34px;
+}
+/* line 1428, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+.wh-rtd__editor.wh-rtd--structured .wh-rich-frameholder {
+  top: 64px;
+}
+/****************************************************************************************************************************
+ * textarea
+ */
+t-textarea > textarea
+{
+  white-space: pre-wrap; /* fix textareas not word wrapping on IE */
+  position: relative; /* to keep .wh-textcounter positioned to our textarea */
+}
+/****************************************************************************************************************************
+ * CodeEdit
+ */
+/* line 1439, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-codeedit
+{
+  display: block;
+  position: relative;
+}
+
+t-codeedit div.gutter-background
+{
+  background-color: #e0ebef;
+  position: absolute;
+}
+
+  t-codeedit div.gutter-content
+, t-codeedit > textarea
+{
+  font-family: "Menlo", "Consolas", "DejaVu Sans Mono", "Courier New", "monospace";
+  font-size: 9pt;
+}
+
+t-codeedit div.gutter-content
+{
+  border-right: 1px solid #7f7f7f;
+
+  background: transparent;
+  overflow: hidden;
+  position: absolute;
+
+  text-align: right;
+  white-space: pre;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+t-codeedit div.marker-container
+{
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  height: 100%;
+  width: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+t-codeedit div.marker-scroller
+{
+  position: relative;
+  overflow: visible;
+}
+
+t-codeedit div.marker
+{
+  position: absolute;
+}
+
+
+
+/* line 1443, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less *
+t-codeedit > div {
+  background-color: #e0ebef;
+  border-right: 1px solid #7f7f7f;
+  font-family: "Courier New", "monospace";
+
+  overflow: hidden;
+  position: absolute;
+  font-size: 9pt;
+  text-align: right;
+  white-space: pre;
+  z-index: 1px;
+}*/
+
+/* line 1456, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-codeedit > textarea
+{
+  border: 0;
+  display: block;
+  /* FIXME: skinning */
+
+  margin: 0;
+  overflow: scroll;
+  padding: 0;
+  resize: none;
+  white-space: pre;
+  background: transparent;
+}
+/* Skinning override */
+t-codeedit > textarea[readonly]
+{
+  background: transparent;
+}
+
+/****************************************************************************************************************************
+ * Text
+ */
+t-text
+{
+/*  vertical-align: top;*/
+  white-space: nowrap;
+}
+t-text.overflow
+{
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+t-text.ellipsis
+{
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+t-text.wrapped
+{
+  white-space: normal;
+}
+
+.t-screen.active t-text.label
+{
+  cursor: pointer;
+}
+
+.t-screen.active t-text.selectable
+{
+  cursor: text;
+}
+
+///////////// label underlines (flag RLL)
+html.dompack--debug-rll t-text.label
+{
+  position:relative;
+}
+html.dompack--debug-rll t-text.label:after
+{
+  position:absolute;
+  z-index:999999999;
+  display:block;
+  content:"";
+  border-bottom:1px dotted black;
+  width:1000%;
+  margin-top:-3px;
+}
+
+
+/****************************************************************************************************************************
+ * HR (</box> closer)
+ */
+t-hr
+{
+  display:block;
+}
+t-hr:before
+{
+  display:block;
+  content:"";
+  border-bottom:1px solid;
+  height:18px;
+}
+
+/****************************************************************************************************************************
+ * TagEdit
+ */
+.wh-tagedit
+{
+  cursor: text;
+}
+.wh-tagedit-tag
+{
+  cursor: pointer;
+}
+
+/****************************************************************************************************************************
+ * Image editor
+ */
+t-custom[data-name='imageeditor']
+{
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar,
+t-custom[data-name='imageeditor'] .wh-toolbar-panel
+{
+  height: 72px;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar-modalholder
+{
+  display: flex;
+  flex-wrap: nowrap;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar-modalbuttons
+{
+  display: none; /* remove to show apply and cancel buttons at the right side of the toolbar */
+  flex: 1;
+  order: 2;
+  text-align: right;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar-panel
+{
+  flex: 0;
+  order: 1;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button
+{
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  display: inline-block;
+  font-size: 11px;
+  height: 72px;
+  line-height: inherit;
+  margin: 0;
+  min-width: 73px;
+  overflow: hidden;
+  padding: 16px 4px;
+  position: relative;
+  text-align: center;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button > span
+{
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+  text-align: center !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button:active > span
+{
+  left:1px;
+  position:relative;
+  top:1px;
+}
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button.disabled:active > span
+{
+  left: 0;
+  top: 0;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button img
+{
+  height: 24px;
+  margin: 0;
+  pointer-events: none;
+  width: 24px;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button:active img
+{
+  left: 1px;
+  top: 1px;
+  position: relative;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button.disabled
+{
+  cursor: default;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button.disabled.pressed span,
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button.disabled:active span,
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button.disabled:active img
+{
+  left: 0;
+  top: 0;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button:hover img
+{
+  opacity: 1;
+}
+
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-button + .wh-toolbar-button
+{
+  margin-left: 4px;
+}
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-separator
+{
+  display: inline-block;
+  height: 100%;
+  margin: 2px 8px 0 8px;
+  position: relative;
+  vertical-align: top;
+  width: 0;
+}
+t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-separator:before
+{
+  border-color: inherit;
+  border-style: solid;
+  border-width: 1px;
+  bottom:18px;
+  content: "";
+  position: absolute;
+  top: 12px;
+  width:0;
+}
+
+/****************************************************************************************************************************
+ * Selectlists
+ */
+.t-selectlist
+{
+  @include theme-indy-pulldown;
+  @include dompack-pulldown(28);
+}

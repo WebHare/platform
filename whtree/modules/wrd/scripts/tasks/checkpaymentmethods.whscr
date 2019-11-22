@@ -1,0 +1,70 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+
+BOOLEAN debug;
+
+OBJECT trans := OpenPrimary();
+RECORD ARRAY paymentproviderattrs := SELECT AS RECORD ARRAY CELL[ ...DescribeWRDAttribute(id), tag ]
+                                       FROM wrd.attrs
+                                      WHERE attrs.attributetype = 25;
+
+paymentproviderattrs := SELECT schemaobj := OpenWRDSchemaById(wrdschema)
+                             , attrs := (SELECT * FROM GroupedValues(paymentproviderattrs) ORDER BY wrdtypetag)
+                          FROM paymentproviderattrs
+                      GROUP BY wrdschema;
+
+paymentproviderattrs := SELECT *
+                          FROM paymentproviderattrs
+                         WHERE ObjectExists(schemaobj)
+                      ORDER BY ToUppercase(schemaobj->tag);
+
+FOREVERY(RECORD tocheck FROM paymentproviderattrs)
+{
+  OBJECT wrdschema := tocheck.schemaobj;
+  FOREVERY(RECORD attr FROM tocheck.attrs)
+  {
+    OBJECT wrdtype := wrdschema->GetTypeById(attr.wrdtype);
+    RECORD ARRAY paymentmethods := wrdtype->RunQuery(
+        [ outputcolumns := CELL[ "WRD_ID", paymentprovider := attr.tag ]
+        ]);
+    paymentmethods := SELECT * FROM paymentmethods WHERE RecordExists(paymentprovider);
+
+    IF(Length(paymentmethods) = 0)
+      CONTINUE;
+
+    OBJECT paymentapi := GetPaymentAPI(wrdschema, [ providerfield := attr.wrdtypetag || "." || attr.tag]);
+    FOREVERY(RECORD method FROM paymentmethods)
+    {
+      BOOLEAN iserror;
+      OBJECT psp := paymentapi->__InstantiatePSP(method.wrd_id);
+
+      STRING basetext := `${wrdschema->tag}: ${ToLowercase(wrdtype->tag)} ${method.paymentprovider.__paymentprovider.type} #${method.wrd_id}: `;
+      RECORD status := psp->GetPSPStatus();
+      IF(status.unknown)
+        basetext := basetext || "Unknown";
+      ELSE IF(status.success)
+        basetext := basetext || "OK";
+      ELSE
+      {
+        iserror := TRUE;
+        SetConsoleExitCode(1);
+        basetext := basetext || "ERROR";
+      }
+
+      IF(status.message != "")
+        basetext := basetext || " (" || status.message || ")";
+
+      IF(iserror)
+        PrintTo(2, basetext || "\n"); //scheduled tasks require us to write to '2' to indicate rror
+      ELSE IF(debug)
+        Print(basetext || "\n");
+    }
+  }
+}

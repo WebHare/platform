@@ -1,0 +1,115 @@
+<?wh
+
+LOADLIB "wh::money.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/ingenico.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+OpenPrimary();
+LogCurrentRequestToRPCLog("paymentproviders:pps.builtiningenico");
+
+OBJECT paymentapi := GetWRDTestPaymentAPI();
+INTEGER attrid := paymentapi->paymenttype->GetAttribute(paymentapi->paymentattribute).id;
+RECORD payinfo, payment;
+STRING orderid := GetWebVariable("ORDERID");
+
+FOREVERY(RECORD candidate FROM SELECT * FROM wrd.pendingpayments WHERE paymentattr = attrid)
+{
+  payinfo := paymentapi->paymenttype->GetEntityField(candidate.paymententity, paymentapi->paymentattribute);
+  //ADDME validate payinfo.paymentprovider?
+  IF(payinfo.paymentref = orderid)
+  {
+    payment := candidate;
+    BREAK;
+  }
+}
+IF(NOT RecordExists(payment))
+  ABORT("Cannot find order with id " || orderid);
+
+IF(GetRequestURL() LIKE "*/!/test/querydirect.asp*")
+{
+  STRING statuscode;
+  SWITCH(ReadRegistryKey("webhare_testsuite.tests.ingenicomode"))
+  {
+    CASE "cancelled"
+    {
+      statuscode := "1";
+    }
+    CASE "accepted"
+    {
+      statuscode := "9";
+    }
+    DEFAULT
+    {
+      statuscode := "0";
+    }
+  }
+
+  //Can we still find the payment status?
+  Print(`<?xml version="1.0"?>
+<ncresponse
+orderID="${EncodeValue(orderid)}"
+PAYID="12345678"
+PAYIDSUB=""
+NCSTATUS="0"
+NCERROR="0"
+NCERRORPLUS="!"
+ACCEPTANCE="87654321"
+STATUS="${statuscode}"
+IPCTY="NL"
+CCCTY="NL"
+ECI="5"
+CVCCheck="NO"
+AAVCheck="KO"
+VC=""
+amount="${FormatMoney(payinfo.amountpayable,2,".","",TRUE)}"
+currency="EUR"
+PM="iDEAL"
+BRAND="iDEAL"
+CARDNO="NL85TEST0000000004"
+IP="127.0.0.1">
+</ncresponse>`);
+  ADdHTTPHeader("Content-Type","text/xml",FALSE);
+  RETURN;
+}
+
+IF(NOT VerifyIngenicoURL( GetAllWebVariables(), "SHA1IN", TRUE))
+  THROW NEW Exception("hashfail");
+
+//FIXME do a direct push too
+STRING gotourl := GetWebVariable("ACCEPTURL");
+RECORD ARRAY webvars;
+webvars := webvars CONCAT
+          [ [ name := "orderID", value := GetWebVariable("ORDERID") ]
+          , [ name := "currency", value := "EUR" ]
+          //we SEND amount to ogone mulitplied by 100, but get it back in decimal point notation
+          , [ name := "amount", value := FormatMoney(ToMoney(GetWebVariable("AMOUNT"),0)/100,2,".","",TRUE) ]
+          , [ name := "PM", value := GetWebVariable("PM") ]
+          , [ name := "ACCEPTANCE", value := "0000000000" ]
+          , [ name := "STATUS", value := "9" ]
+          , [ name := "CARDNO", value := "NL85TEST0000000004" ]
+          , [ name := "ED", value := "" ]
+          , [ name := "CN", value := "Buyer Name" ]
+          , [ name := "TRXDATE", value := "05/26/17" ]
+          , [ name := "PAYID", value := "3020573638" ]
+          , [ name := "NCERROR", value := "0" ]
+          , [ name := "BRAND", value := "iDEAL" ]
+          , [ name := "IP", value := "212.238.237.85" ]
+          //, [ name := "_ps", value := "https%253A%2F%2Fwebhare%2Emoe%2Esf%2Eb-lex%2Ecom" ]
+          ];
+
+//The above vars are the ones we sign
+webvars := webvars CONCAT
+           [ [ name := "SHASIGN", value := CalculateIngenicoSHA1Hash(webvars, "SHA1OUT", FALSE) ] ];
+
+gotourl := gotourl || (SearchSubstring(gotourl,'?')=-1?'?':'&');
+
+FOREVERY(RECORD webvar FROM webvars)
+  gotourl := gotourl || (#webvar=0?'':'&') || EncodEURL(webvar.name) || '=' || EncodeURL(webvar.value);
+
+Redirect(gotourl);

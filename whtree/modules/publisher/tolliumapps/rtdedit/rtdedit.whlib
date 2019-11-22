@@ -1,0 +1,53 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE RichDoc EXTEND TolliumScreenBase
+<
+  BOOLEAN did_init_subtree;
+
+  MACRO Init(RECORD data)
+  {
+    INSERT "http://www.webhare.net/xmlns/publisher/richdocumentfile" INTO this->contexts->editdocumentapi->editcontenttypes AT END;
+    this->contexts->editdocumentapi->onsetenabled := PTR this->SetEnabled;
+    this->contexts->editdocumentapi->onloaddata := PTR this->LoadData;
+    this->contexts->editdocumentapi->onstoredata := PTR this->StoreData;
+  }
+
+  MACRO OnDirty()
+  {
+    this->contexts->editdocumentapi->MarkDocumentAsDirty();
+  }
+
+  MACRO LoadData()
+  {
+    IF(NOT this->did_init_subtree) //ADDME move back to Init(), but this requires us to be able to generate download urls to components that don't rename for the CSS
+    {
+      this->did_init_subtree := TRUE;
+
+      IF(Length(this->contexts->editdocumentapi->limitlinksroots) > 0) //subapp mode, explicitly set limitlinks
+        this->rte->internallinkshandler->roots := this->contexts->editdocumentapi->limitlinksroots;
+    }
+
+    RECORD filedata := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+    this->rte->value := filedata.data;
+    this->rte->dirty := FALSE;
+    IF(this->rte->appliedsettings.margins != "")
+      this->rte->margins := this->rte->appliedsettings.margins;
+
+    //FIXME rearm dirty checking?
+  }
+
+  MACRO StoreData()
+  {
+    IF(NOT this->rte->dirty)
+      RETURN;
+
+    this->contexts->editdocumentapi->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [ data := this->rte->value ]);
+    this->rte->dirty := FALSE;
+  }
+
+  MACRO SetEnabled(BOOLEAN enabled)
+  {
+    this->rte->readonly := NOT enabled;
+  }
+>;

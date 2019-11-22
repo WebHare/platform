@@ -1,0 +1,686 @@
+﻿<?wh
+/// @short Datetime tests
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::datetime.whlib";
+
+RECORD ARRAY errors;
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// The basic datatypes are assumed to be working correctly
+
+// MakeTest() is not intended to be complete; to correctly test Make... functions,
+// there must be DATETIME values, which only can be created by Make... functions.
+
+// GetCurrentDateTime() cannot be tested without an external reference to the current
+// date and time, which is not supplied within HareScript (only GetCurrentDateTime()
+// can retrieve the current date and time). GetCurrentDateTime() is only tested to be
+// after 31-12-2001 and before 1-1-2005.
+
+DATETIME globalstamp := MakeDateTime(1916, 12, 31, 12, 34, 56); // Sunday 31-12-1916 12:34:56
+RECORD theDateTime := UnpackDateTime(globalstamp);
+
+/*** Make... [66-68] ***/
+MACRO MakeTest()
+{
+  OpenTest("TestDateTime: MakeTest");
+
+  TestEqualInteger(1, 699804, MakeDayCount(1916, 12, 31));
+
+  TestEqualDateTime(2, MakeDateFromDayCount(MakeDayCount(1916, 12, 31)), MakeDate(1916, 12, 31));
+
+  TestEqualDateTime(3, MakeDateTime(1916, 12, 31, 0, 0, 0), MakeDate(1916, 12, 31));
+
+  CloseTest("TestDateTime: MakeTest");
+}
+
+/*** Get... [62-66] ***/
+MACRO GetTest()
+{
+  OpenTest("TestDateTime: GetTest");
+
+  //disabled, no such function anymore
+  //TestEqualInteger(1, 19, GetCentury(globalstamp));
+
+  TestEqualInteger(2, 699804, GetDayCount(globalstamp));
+
+  TestEqualInteger(3, 31, theDateTime.dayofmonth);
+
+  TestEqualInteger(4, 7, theDateTime.dayofweek);
+
+  TestEqualInteger(5, 366, theDateTime.dayofyear);
+
+  TestEqualInteger(6, 12, theDateTime.hour);
+
+  TestEqualInteger(7, 34, theDateTime.minute);
+
+  TestEqualInteger(8, 12, theDateTime.month);
+
+  TestEqualInteger(9, 31, GetMonthLength(12,1916));
+
+  TestEqualInteger(10, 56, theDateTime.second);
+
+  TestEqualInteger(11, 52, theDateTime.week);
+
+  TestEqualInteger(12, 1916, theDateTime.year);
+
+  TestEqualInteger(13, 366, GetYearLength(1916));
+
+  TestEqualInteger(14, 0, theDateTime.msecond);
+
+  CloseTest("TestDateTime: GetTest");
+}
+
+/*** Misc. functions ***/
+MACRO MiscTest()
+{
+  OpenTest("TestDateTime: MiscTest");
+
+  TestEqualDateTime(1, MakeDateTime(1917, 1, 2, 20, 0, 0), AddTimeToDate(199504000, globalstamp));
+  TestEqualDateTime(1, MakeDateTime(1918, 1, 2, 20, 0, 0), AddTimeToDate(199504000 + 365 * 86400000i64, globalstamp));
+
+  TestEqualString(2,
+                  "% Fri Friday Mar March 06 6 01 1 01 1 066 66 03 3 02 2 am 005 5 03 3 10 10 16 16 0916 916",
+                  FormatDateTime("%% %a %A %b %B %d %#d %H %#H %I %#I %j %#j %m %#m %M %#M %p %Q %#Q %S %#S %V %#V %y %#y %Y %#Y", AddTimeToDate(5, MakeDateTime(916, 3, 6, 1, 2, 3))));
+
+  TestEqualString(3,
+                  "% e5 c5 d3 b3 06 6 01 1 01 1 066 66 03 3 02 2 a1 005 5 03 3 10 10 16 16 0916 916",
+                  FormatDateTime("%% %a %A %b %B %d %#d %H %#H %I %#I %j %#j %m %#m %M %#M %p %Q %#Q %S %#S %V %#V %y %#y %Y %#Y", AddTimeToDate(5, MakeDateTime(916, 3, 6, 1, 2, 3)), "a1;a2;b1;b2;b3;b4;b5;b6;b7;b8;b9;b10;b11;b12;c1;c2;c3;c4;c5;c6;c7;d1;d2;d3;d4;d5;d6;d7;d8;d9;d10;d11;d12;e1;e2;e3;e4;e5;e6;e7"));
+
+  TestEQ('% \u91D1 \u91D1\u66DC\u65E5 \uFF13\u6708 \uFF13\u6708 06 6 01 1 01 1 066 66 03 3 02 2 \u5348\u524D 005 5 03 3 10 10 16 16 0916 916',
+         FormatDateTime("%% %a %A %b %B %d %#d %H %#H %I %#I %j %#j %m %#m %M %#M %p %Q %#Q %S %#S %V %#V %y %#y %Y %#Y", AddTimeToDate(5, MakeDateTime(916, 3, 6, 1, 2, 3)), "jp"));
+
+  TestEQ('% Ven Vendredi Mars Mars 06 6 01 1 01 1 066 66 03 3 02 2 am 005 5 03 3 10 10 16 16 0916 916',
+         FormatDateTime("%% %a %A %b %B %d %#d %H %#H %I %#I %j %#j %m %#m %M %#M %p %Q %#Q %S %#S %V %#V %y %#y %Y %#Y", AddTimeToDate(5, MakeDateTime(916, 3, 6, 1, 2, 3)), "fr"));
+
+  TestEqualBoolean(4, TRUE, GetCurrentDateTime() > MakeDate(2001, 12, 31));
+/* Well, ehm, this test is kinda stupid now ;-)
+  TestEqualBoolean(5, TRUE, GetCurrentDateTime() < MakeDate(2005, 1, 1));
+*/
+  TestEqualBoolean(6, TRUE, GetCurrentDateTime() != DEFAULT DATETIME);
+
+  DATETIME d := DEFAULT DATETIME;
+  TestEqualBoolean(7, TRUE, d = DEFAULT DATETIME);
+
+  TestEq(MakeDateTime(1926, 11, 9, 12, 34, 56), AddDaysToDate(3600, globalstamp));
+  TestEq(MakeDateTime(1926, 11, 9, 12, 34, 56, 789), AddTimeToDate(789,AddDaysToDate(3600, globalstamp)));
+
+  TestEqualString(9, "Monday March", FormatDatetime("%A %B", MakeDate(2005,3,7)));
+  TestEqualString(10, "Monday March", FormatDatetime("%A %B", MakeDate(2005,3,7),"en"));
+  TestEqualString(11, "maandag maart", FormatDatetime("%A %B", MakeDate(2005,3,7),"Nl"));
+  TestEqualString(12, "zo", FormatDateTime("%a", MakeDate(2005,3,6),"nl"));
+  TestEqualString(13, "So", FormatDateTime("%a", MakeDate(2005,3,6),"de"));
+  TestEqualString(14, "Sun", FormatDateTime("%a", MakeDate(2005,3,6),"en"));
+  TestEqualString(15, "9:28 09:28", FormatDatetime("%#I:%M %I:%M", MakeDatetime(1,1,1,21,28,0)));
+
+  TestEq(MakeDateTime(1998,07,17,14,08,55), MakeDateFromText("19980717T14:08:55"));
+  TestEq(MakeDateTime(1998,07,17,14,08,55), MakeDateFromText("19980717 14:08:55"));
+  TestEq(AddTimeToDate(123,MakeDateTime(1998,07,17,14,08,55)), MakeDateFromText("19980717T14:08:55.123"));
+  TestEq(MakeDate(12345,12,31), MakeDateFromText("12345-12-31"));
+  TestEq(MakeDate(12345,12,31), MakeDateFromText("12345-12-31"));
+  TestEq(MakeDate(12345,6,9), MakeDateFromText("12345-6-9"));
+
+  TestEq(MakeDatetime(2003,6,8,22,0,0), MakeDateFromText("2003-06-09+02:00"));
+
+
+  TestEqualString(18, "10000", FormatDatetime("%Y", MakeDatetime(10000,1,1,0,0,0)));
+  TestEqualString(19, "10000", FormatDatetime("%#Y", MakeDatetime(10000,1,1,0,0,0)));
+  TestEqualString(20, "", FormatDatetime("%#Y", DEFAULT DATETIME));
+  TestEqualString(21, "", FormatDatetime("%#Y", MAX_DATETIME));
+
+  TestEq(DEFAULT DATETIME, MakeDateFromText("0000-00-00T12:34:56Z"));
+  TestEq(MakeDateTime(2000,1,2,0,0,0), MakeDateFromText("2000-01-01T24:00:00.000Z"));
+  TestEq(MakeDateTime(2000,1,2,0,0,0), MakeDateFromText("20000101T2400Z"));
+  TestEq(DEFAULT DATETIME, MakeDateFromText("2000-01-01T24:01:00Z"));
+  TestEq(DEFAULT DATETIME, MakeDateFromText("2000-01-01T24:00:01Z"));
+  TestEq(DEFAULT DATETIME, MakeDateFromText("2000-01-01T24:00:00.001Z"));
+
+  TestEq(TRUE, MakeDatefromparts(1,0) < MakeDate(1990,1,1));
+  TestEq(TRUE, MakeDatefromparts(-1,0) < MakeDate(1990,1,1));
+  TestEq(DEFAULT DATETIME, MakeDatefromparts(-1,0));
+
+  FOREVERY(STRING langcode FROM ["NL","DE","JP","EN"])
+    TestEq(40, Length(Tokenize(GetLanguageDatetimeStrings(langcode),';')), "Verifying the number of texts for '" || langcode || "'");
+
+  INTEGER timestamp := ((21 * 60 + 3) * 60 + 4) * 1000 + 555;
+
+  // The time stamp in American English notation.
+  // example1 =
+  TestEq("9:03:04.555 pm", FormatTimeStamp("%#I:%M:%S.%Q %p", timestamp));
+
+  // The time stamp in Dutch notation (note that in this notation the language parameter is not actually used).
+  // example2 :=
+  TestEq("21:03:04,555", FormatTimeStamp("%#H:%M:%S,%Q", timestamp, "nl"));
+
+  TestEq("23:59", FormatTimeStamp("%#H:%M", 23 * 60*60*1000 + 59*60*1000, "nl"));
+  TestEq("0:00", FormatTimeStamp("%#H:%M", 24 * 60*60*1000, "nl"));
+  TestEq("00:00", FormatTimeStamp("%H:%M", 24 * 60*60*1000, "nl"));
+  TestEq("0:00", FormatTimeStamp("%#&H:%M", 0 * 60*60*1000, "nl"));
+  TestEq("24:00", FormatTimeStamp("%&H:%M", 24 * 60*60*1000, "nl"));
+
+  TestEq("277777:46", FormatTimeStamp("%#&H:%M", 1000000000000i64, "nl"));
+
+  CloseTest("TestDateTime: MiscTest");
+}
+
+/*** Datetime calculation testing */
+MACRO CalcTests()
+{
+  OpenTest("TestDateTime: CalcTests");
+  TestEq(             0, GetMsecsDifference(MakeDateTime(2004,1,1,0,0,0), MakeDateTime(2004,1,1,0,0,0)));
+  TestEq(          1000, GetMsecsDifference(MakeDateTime(2004,1,1,0,0,0), MakeDateTime(2004,1,1,0,0,1)));
+  TestEq(         -1000, GetMsecsDifference(MakeDateTime(2004,1,1,0,0,1), MakeDateTime(2004,1,1,0,0,0)));
+  TestEq( [days := 0, msecs := 2*60*60*1000, years := 0], GetDatetimeDifference(MakeDateTime(2004,1,1,23,0,0), MakeDateTime(2004,1,2,1,0,0)));
+  TestEq(  2*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,1,23,0,0), MakeDateTime(2004,1,2,1,0,0)));
+  TestEq( -2*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,2, 1,0,0), MakeDateTime(2004,1,1,23,0,0)));
+  TestEq( 24*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,1, 1,0,0), MakeDateTime(2004,1,2,1,0,0)));
+  TestEq(-24*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,3,23,0,0), MakeDateTime(2004,1,2,23,0,0)));
+  TestEq( 24*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,1, 1,0,0), MakeDateTime(2004,1,2,1,0,1)));
+  TestEq(-24*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2004,1,2,23,0,0)));
+
+  TestEq( [days := -1, msecs := -1000, years := 0], GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2004,1,2,23,0,0)));
+  TestEq( [days := 1, msecs := (86400-50)*1000, years := 0], GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,50), MakeDateTime(2004,1,5,23,0,0)));
+  TestEq( 0, GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2005,1,2,23,0,0)).years);
+  TestEq( 1, GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2005,1,3,23,0,0)).years);
+  TestEq( 1, GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2005,1,4,23,0,0)).years);
+  TestEq( -1, GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2003,1,3,23,0,0)).years);
+  TestEq( 1, GetDatetimeDifference(MakeDateTime(2004,2,28,23,0,1), MakeDateTime(2005,3,1,23,0,0)).years);
+  TestEq( 0, GetDatetimeDifference(MakeDateTime(2003,3,1,23,0,1), MakeDateTime(2004,2,28,23,0,0)).years);
+
+  CloseTest("TestDateTime: CalcTests");
+}
+
+MACRO AnniversaryTest()
+{
+  OpenTest("TestDateTime: AnniversaryTest");
+  TestEqual(1, MakeDate(2008,5,14), GetNextAnniversary(MakeDate(1971,5,14), MakeDate(2007,11,20)));
+
+  TestEq(MakeDate(2002,1,8), GetNextAnniversary(MakeDate(2001,1,8), MakeDate(2002,1,7)));
+  TestEq(MakeDate(2002,1,8), GetNextAnniversary(MakeDate(2001,1,8), MakeDate(2002,1,8)));
+  TestEq(MakeDate(2003,1,8), GetNextAnniversary(MakeDate(2001,1,8), MakeDate(2002,1,9)));
+  TestEq(MakeDateTime(2006,3,1, 0, 0, 1), GetNextAnniversary(MakeDate(2004,2,29), MakeDateTime(2006,3,1, 0, 0, 1)));
+
+  TestEq(MakeDate(2006,3,1), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2006,2,27)));
+  TestEq(MakeDate(2006,3,1), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2006,2,28)));
+  TestEq(MakeDate(2006,3,1), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2006,3,1)));
+  TestEq(MakeDate(2007,3,1), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2006,3,2)));
+
+  TestEq(MakeDate(2007,3,1), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2007,2,27)));
+  TestEq(MakeDate(2007,3,1), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2007,2,28)));
+  TestEq(MakeDate(2007,3,1), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2007,3,1)));
+  TestEq(MakeDate(2008,2,29), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2007,3,2)));
+
+  TestEq(MakeDate(2008,2,29), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2008,2,27)));
+  TestEq(MakeDate(2008,2,29), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2008,2,28)));
+  TestEq(MakeDate(2008,2,29), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2008,2,29)));
+  TestEq(MakeDate(2009,3,1), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2008,3,1)));
+  TestEq(MakeDate(2009,3,1), GetNextAnniversary(MakeDate(2004,2,29), MakeDate(2008,3,2)));
+
+  TestEq(MakeDate(2006,2,28), GetNextAnniversary(MakeDate(2005,2,28), MakeDate(2006,2,27)));
+  TestEq(MakeDate(2006,2,28), GetNextAnniversary(MakeDate(2005,2,28), MakeDate(2006,2,28)));
+  TestEq(MakeDate(2007,2,28), GetNextAnniversary(MakeDate(2005,2,28), MakeDate(2006,3,1)));
+
+  TestEq(MakeDate(2006,3,1), GetNextAnniversary(MakeDate(2005,3,1), MakeDate(2006,2,28)));
+  TestEq(MakeDate(2006,3,1), GetNextAnniversary(MakeDate(2005,3,1), MakeDate(2006,3,1)));
+  TestEq(MakeDate(2007,3,1), GetNextAnniversary(MakeDate(2005,3,1), MakeDate(2006,3,2)));
+
+  TestEq(MakeDate(2008,2,28), GetNextAnniversary(MakeDate(2005,2,28), MakeDate(2008,2,27)));
+  TestEq(MakeDate(2008,2,28), GetNextAnniversary(MakeDate(2005,2,28), MakeDate(2008,2,28)));
+  TestEq(MakeDate(2009,2,28), GetNextAnniversary(MakeDate(2005,2,28), MakeDate(2008,2,29)));
+  TestEq(MakeDate(2009,2,28), GetNextAnniversary(MakeDate(2005,2,28), MakeDate(2008,3,1)));
+
+  TestEq(MakeDate(2008,3,1), GetNextAnniversary(MakeDate(2005,3,1), MakeDate(2008,2,28)));
+  TestEq(MakeDate(2008,3,1), GetNextAnniversary(MakeDate(2005,3,1), MakeDate(2008,2,29)));
+  TestEq(MakeDate(2008,3,1), GetNextAnniversary(MakeDate(2005,3,1), MakeDate(2008,3,1)));
+  TestEq(MakeDate(2009,3,1), GetNextAnniversary(MakeDate(2005,3,1), MakeDate(2008,3,2)));
+
+  TestEq(FALSE, IsAnniversaryAt(MakeDate(2004,1,2), MakeDate(2008,1,1)));
+  TestEq(TRUE, IsAnniversaryAt(MakeDate(2004,1,2), MakeDate(2008,1,2)));
+  TestEq(FALSE, IsAnniversaryAt(MakeDate(2004,1,2), MakeDate(2008,1,3)));
+  TestEq(FALSE, IsAnniversaryAt(MakeDate(2004,2,29), MakeDate(2007,2,28)));
+  TestEq(TRUE, IsAnniversaryAt(MakeDate(2004,2,29), MakeDate(2007,3,1)));
+  TestEq(FALSE, IsAnniversaryAt(MakeDate(2004,2,29), MakeDate(2007,3,2)));
+  TestEq(FALSE, IsAnniversaryAt(MakeDate(2004,2,29), MakeDate(2008,2,28)));
+  TestEq(TRUE, IsAnniversaryAt(MakeDate(2004,2,29), MakeDate(2008,2,29)));
+  TestEq(FALSE, IsAnniversaryAt(MakeDate(2004,2,29), MakeDate(2008,3,1)));
+
+  CloseTest("TestDateTime: AnniversaryTest");
+}
+
+PUBLIC MACRO TestWeekRoundtrip(INTEGER testnum, INTEGER weeknum, INTEGER yearofweek, DATETIME date)
+{
+  RECORD unpacked := UnpackDateTime(date);
+  TestEqualInteger (testnum, weeknum, unpacked.week);
+  TestEqualInteger (testnum+1, yearofweek, unpacked.yearofweek);
+
+  INTEGER askyear := unpacked.year;
+  IF(weeknum = 1 AND unpacked.month = 12) //We are in the first week of the _next_ year!
+    askyear := askyear + 1;
+  IF(weeknum >= 50 AND unpacked.month = 1) //We are in the last week of the _previous_ year!
+    askyear := askyear - 1;
+
+  DATETIME roundtripped := MakeDateTimeFromWeek(askyear, weeknum, unpacked.dayofweek, 0, 0, 0);
+  TestEqual(testnum+2, date, roundtripped);
+}
+
+PUBLIC MACRO GeneralTest()
+{
+  OpenTest("TestDateTime: GeneralTest");
+  INTEGER  daycount;
+  DATETIME stamp;
+
+  daycount := 700534;      //31-12-1918
+  stamp    := MakeDateFromDayCount(daycount);
+  theDateTime := UnpackDateTime(stamp);
+
+  TestEqualInteger (1, daycount, GetDayCount(MakeDateFromDayCount(daycount)) );
+  TestEqualDateTime (2, MakeDateFromDayCount(daycount), MakeDate(1918,12,31));
+  TestEqualInteger (3, 1918, theDateTime.year);
+  TestEqualInteger (4, 12,   theDateTime.month);
+  TestEqualInteger (5, 31,   theDateTime.dayofmonth);
+  TestEqualInteger (6, 365,  theDateTime.dayofyear);
+  TestEqualInteger (7,  31,  GetMonthLength(12,1918));
+
+  daycount:=daycount+1;
+  stamp    := MakeDateFromDayCount(daycount);
+  theDateTime := UnpackDateTime(stamp);
+
+  TestEqualInteger (8, 1919, theDateTime.year);
+  TestEqualInteger (9, 1,   theDateTime.month);
+  TestEqualInteger (10, 1,   theDateTime.dayofmonth);
+  TestEqualInteger (11, 1,  theDateTime.dayofyear);
+
+  //Leapyeartests
+  stamp:=MakeDate(1920, 2,29);
+  theDateTime := UnpackDateTime(stamp);
+
+  TestEqualInteger (12, 1920, theDateTime.year);
+  TestEqualInteger (13, 2,   theDateTime.month);
+  TestEqualInteger (14, 29,   theDateTime.dayofmonth);
+  TestEqualInteger (15, 60,  theDateTime.dayofyear);
+
+  stamp:=MakeDate(1900, 2,28);
+  daycount:=GetDayCount(stamp)+1;
+  stamp:=MakeDateFromDayCount(daycount);
+  theDateTime := UnpackDateTime(stamp);
+
+  TestEqualInteger (16, 1900, theDateTime.year);
+  TestEqualInteger (17, 3,   theDateTime.month);
+  TestEqualInteger (18, 1,   theDateTime.dayofmonth);
+  TestEqualInteger (19, 60,  theDateTime.dayofyear);
+
+  stamp:=MakeDate(2000, 2,28);
+  daycount:=GetDayCount(stamp)+1;
+  stamp:=MakeDateFromDayCount(daycount);
+  theDateTime := UnpackDateTime(stamp);
+
+  TestEqualInteger (20, 2000, theDateTime.year);
+  TestEqualInteger (21, 2,   theDateTime.month);
+  TestEqualInteger (22, 29,  theDateTime.dayofmonth);
+  TestEqualInteger (23, 60,  theDateTime.dayofyear);
+
+  //week and daynumber tests
+  stamp:=MakeDate(2002, 4,30);
+  theDateTime := UnpackDateTime(stamp);
+  TestEqualInteger (24, 2, theDateTime.dayofweek);
+
+  stamp:=MakeDate(2002, 4,30);
+  theDateTime := UnpackDateTime(stamp);
+  TestEqualInteger (25, 18, theDateTime.week);
+
+  stamp:=MakeDate(2004, 1, 1);
+  theDateTime := UnpackDateTime(stamp);
+  TestEqualInteger (26, 1 , theDateTime.week);
+
+  stamp:=MakeDate(2005,1,1);
+  theDateTime := UnpackDateTime(stamp);
+  TestEqualInteger (27, 53 , theDateTime.week);
+
+  stamp:=MakeDate(2004,12,31);
+  theDateTime := UnpackDateTime(stamp);
+  TestEqualInteger (28, 53 , theDateTime.week);
+
+  stamp:=MakeDate(2000,2,29);
+  theDateTime := UnpackDateTime(stamp);
+  TestEqualInteger (29, 9 , theDateTime.week);
+
+  TestEqualInteger (30, 366 , GetYearLength(2004));
+  TestEqualInteger (31, 365 , GetYearLength(2005));
+  TestEqualInteger (32, 366 , GetYearLength(2000));
+  TestEqualInteger (33, 365 , GetYearLength(2100));
+
+  theDateTime := UnpackDateTime(MakeDate(2000,12,30));
+  TestEqualInteger (34, 365 , theDateTime.dayofyear);
+
+  theDateTime := UnpackDateTime(MakeDate(2000,12,31));
+  TestEqualInteger (35, 366 , theDateTime.dayofyear);
+
+  theDateTime := UnpackDateTime(MakeDate(2000,12,31));
+  TestEqualInteger (36, 2000, theDateTime.year);
+
+  theDateTime := UnpackDateTime(MakeDate(2001,12,31));
+  TestEqualInteger (37, 2001, theDateTime.year);
+
+  theDateTime := UnpackDateTime(MakeDate(2002,12,31));
+  TestEqualInteger (38, 2002, theDateTime.year);
+
+  theDateTime := UnpackDateTime(MakeDate(2004,12,31));
+  TestEqualInteger (39, 2004, theDateTime.year);
+
+  theDateTime := UnpackDateTime(MakeDate(2004,12,31));
+  TestEqualInteger (40, 366 , theDateTime.dayofyear);
+
+  theDateTime := UnpackDateTime(MakeDate(2005,1,1));
+  TestEqualInteger (41, 1, theDateTime.dayofyear);
+
+  theDateTime := UnpackDateTime(MakeDate(2004,1,1));
+  TestEqualInteger (42, 1, theDateTime.dayofyear);
+
+  TestEqualInteger (43, MakeDayCount(2000,1,1), GetDayCount(MakeDate(2000,1,1)));
+  TestEqualInteger (44, GetDayCount(MakeDateTime(2000,1,1,0,0,0)), GetDayCount(MakeDate(2000,1,1)));
+  TestEqualInteger (45, GetDayCount(MakeDateTime(2000,1,1,23,59,59)), GetDayCount(MakeDate(2000,1,1)));
+
+  theDateTime := UnpackDateTime(MakeDateTime(2000,1,1,23,59,59));
+  TestEqualInteger (46, 23, theDateTime.hour );
+  TestEqualInteger (47, 59, theDateTime.minute );
+  TestEqualInteger (48, 59, theDateTime.second );
+
+  theDateTime := UnpackDateTime(AddTimeToDate(1000,MakeDateTime(2000,1,1,23,59,59)));
+  TestEqualInteger (49, 0, theDateTime.second );
+
+  theDateTime := UnpackDateTime(AddTimeToDate(10000,MakeDateTime(2000,1,1,00,00,00)));
+  TestEqualInteger (50, 10, theDateTime.second);
+
+  TestEqualBoolean (51, FALSE, RecordExists(UnpackDateTime(DEFAULT DATETIME)));
+  TestEqualBoolean (52, TRUE, RecordExists(theDateTime));
+
+  TestEqualDatetime(53, MakeDate(2005,3,1), AddMonthsToDate(1, MakeDate(2005,1,29)));
+  TestEqualDatetime(54, MakeDate(2005,3,29), AddMonthsToDate(2, MakeDate(2005,1,29)));
+  TestEqualDatetime(55, MakeDate(2005,1,29), AddMonthsToDate(0, MakeDate(2005,1,29)));
+
+  TestEqualDatetime(56, DEFAULT DATETIME, UTCToLocal(DEFAULT DATETIME,"CET"));
+  TestEqualDatetime(57, DEFAULT DATETIME, LocalToUTC(DEFAULT DATETIME,"CET"));
+  TestEqualDatetime(58, MAX_DATETIME, UTCToLocal(MAX_DATETIME,"CET"));
+  TestEqualDatetime(59, MAX_DATETIME, LocalToUTC(MAX_DATETIME,"CET"));
+
+  // Test a full 28-year cycle of leap-years/starting days
+  TestWeekRoundtrip ( 60,  1, 1990, MakeDate(1990, 1, 1)); //starts mon, norm
+  TestWeekRoundtrip ( 63, 52, 1990, MakeDate(1990,12,30));
+  TestWeekRoundtrip ( 66,  1, 1991, MakeDate(1990,12,31));
+  TestWeekRoundtrip ( 69,  1, 1991, MakeDate(1991, 1, 1)); //starts tue, norm
+  TestWeekRoundtrip ( 72, 52, 1991, MakeDate(1991,12,29));
+  TestWeekRoundtrip ( 75,  1, 1992, MakeDate(1991,12,30));
+  TestWeekRoundtrip ( 78,  1, 1992, MakeDate(1991,12,31));
+  TestWeekRoundtrip ( 81,  1, 1992, MakeDate(1992, 1, 1)); //starts wed, leap (53 weeks)
+  TestWeekRoundtrip ( 84, 53, 1992, MakeDate(1992,12,31));
+  TestWeekRoundtrip ( 87, 53, 1992, MakeDate(1993, 1, 1)); //starts fri, norm
+  TestWeekRoundtrip ( 90, 53, 1992, MakeDate(1993, 1, 3));
+  TestWeekRoundtrip ( 93,  1, 1993, MakeDate(1993, 1, 4));
+  TestWeekRoundtrip ( 96, 52, 1993, MakeDate(1993,12,31));
+  TestWeekRoundtrip ( 99, 52, 1993, MakeDate(1994, 1, 1)); //starts sat, norm
+  TestWeekRoundtrip (102, 52, 1993, MakeDate(1994, 1, 2));
+  TestWeekRoundtrip (105,  1, 1994, MakeDate(1994, 1, 3));
+  TestWeekRoundtrip (108, 52, 1994, MakeDate(1994,12,31));
+  TestWeekRoundtrip (111, 52, 1994, MakeDate(1995, 1, 1)); //starts sun, norm
+  TestWeekRoundtrip (114,  1, 1995, MakeDate(1995, 1, 2));
+  TestWeekRoundtrip (117, 52, 1995, MakeDate(1995,12,31));
+  TestWeekRoundtrip (120,  1, 1996, MakeDate(1996, 1, 1)); //starts mon, norm
+  TestWeekRoundtrip (123, 52, 1996, MakeDate(1996,12,29));
+  TestWeekRoundtrip (126,  1, 1997, MakeDate(1996,12,30));
+  TestWeekRoundtrip (129,  1, 1997, MakeDate(1996,12,31));
+  TestWeekRoundtrip (132,  1, 1997, MakeDate(1997, 1, 1)); //starts wed, norm
+  TestWeekRoundtrip (135, 52, 1997, MakeDate(1997,12,28));
+  TestWeekRoundtrip (138,  1, 1998, MakeDate(1997,12,29));
+  TestWeekRoundtrip (141,  1, 1998, MakeDate(1998, 1 ,1)); //starts thu, norm (53 weeks)
+  TestWeekRoundtrip (144, 53, 1998, MakeDate(1998,12,31));
+  TestWeekRoundtrip (147, 53, 1998, MakeDate(1999, 1, 1)); //starts fri, norm
+  TestWeekRoundtrip (150, 53, 1998, MakeDate(1999, 1, 3));
+  TestWeekRoundtrip (153,  1, 1999, MakeDate(1999, 1, 4));
+  TestWeekRoundtrip (156, 52, 1999, MakeDate(1999,12,31));
+  TestWeekRoundtrip (159, 52, 1999, MakeDate(2000, 1, 1)); //starts sat, leap
+  TestWeekRoundtrip (162, 52, 1999, MakeDate(2000, 1, 2));
+  TestWeekRoundtrip (165,  1, 2000, MakeDate(2000, 1, 3));
+  TestWeekRoundtrip (168, 52, 2000, MakeDate(2000,12,31));
+  TestWeekRoundtrip (171,  1, 2001, MakeDate(2001, 1, 1)); //starts mon, norm
+  TestWeekRoundtrip (174, 52, 2001, MakeDate(2001,12,30));
+  TestWeekRoundtrip (177,  1, 2002, MakeDate(2001,12,31));
+  TestWeekRoundtrip (180,  1, 2002, MakeDate(2002, 1, 1)); //starts tue, norm
+  TestWeekRoundtrip (183, 52, 2002, MakeDate(2002,12,29));
+  TestWeekRoundtrip (186,  1, 2003, MakeDate(2002,12,30));
+  TestWeekRoundtrip (189,  1, 2003, MakeDate(2002,12,31));
+  TestWeekRoundtrip (192,  1, 2003, MakeDate(2003, 1, 1)); //starts wed, norm
+  TestWeekRoundtrip (195, 52, 2003, MakeDate(2003,12,28));
+  TestWeekRoundtrip (198,  1, 2004, MakeDate(2003,12,29));
+  TestWeekRoundtrip (201,  1, 2004, MakeDate(2003,12,31));
+  TestWeekRoundtrip (204,  1, 2004, MakeDate(2004, 1, 1)); //starts thu, leap (53 weeks)
+  TestWeekRoundtrip (207, 53, 2004, MakeDate(2004,12,31));
+  TestWeekRoundtrip (210, 53, 2004, MakeDate(2005, 1, 1)); //starts sat, norm
+  TestWeekRoundtrip (213, 53, 2004, MakeDate(2005, 1, 2));
+  TestWeekRoundtrip (216,  1, 2005, MakeDate(2005, 1, 3));
+  TestWeekRoundtrip (219, 52, 2005, MakeDate(2005,12,31));
+  TestWeekRoundtrip (222, 52, 2005, MakeDate(2006, 1, 1)); //starts sun, norm
+  TestWeekRoundtrip (225,  1, 2006, MakeDate(2006, 1, 2));
+  TestWeekRoundtrip (228, 52, 2006, MakeDate(2006,12,31));
+  TestWeekRoundtrip (231,  1, 2007, MakeDate(2007, 1, 1)); //starts mon, norm
+  TestWeekRoundtrip (234, 52, 2007, MakeDate(2007,12,30));
+  TestWeekRoundtrip (237,  1, 2008, MakeDate(2007,12,31));
+  TestWeekRoundtrip (240,  1, 2008, MakeDate(2008, 1, 1)); //starts tue, leap
+  TestWeekRoundtrip (243, 52, 2008, MakeDate(2008,12,28));
+  TestWeekRoundtrip (246,  1, 2009, MakeDate(2008,12,29));
+  TestWeekRoundtrip (249,  1, 2009, MakeDate(2008,12,31));
+  TestWeekRoundtrip (252,  1, 2009, MakeDate(2009, 1, 1)); //starts thu, norm (53 weeks)
+  TestWeekRoundtrip (255, 53, 2009, MakeDate(2009,12,31));
+  TestWeekRoundtrip (258, 53, 2009, MakeDate(2010, 1, 1)); //starts fri, norm
+  TestWeekRoundtrip (261, 53, 2009, MakeDate(2010, 1, 3));
+  TestWeekRoundtrip (264,  1, 2010, MakeDate(2010, 1, 4));
+  TestWeekRoundtrip (267, 52, 2010, MakeDate(2010,12,31));
+  TestWeekRoundtrip (270, 52, 2010, MakeDate(2011, 1, 1)); //starts sat, norm
+  TestWeekRoundtrip (273, 52, 2010, MakeDate(2011, 1, 2));
+  TestWeekRoundtrip (276,  1, 2011, MakeDate(2011, 1, 3));
+  TestWeekRoundtrip (279, 52, 2011, MakeDate(2011,12,31));
+  TestWeekRoundtrip (282, 52, 2011, MakeDate(2012, 1, 1)); //starts sun, leap
+  TestWeekRoundtrip (285,  1, 2012, MakeDate(2012, 1, 2));
+  TestWeekRoundtrip (288, 52, 2012, MakeDate(2012,12,30));
+  TestWeekRoundtrip (291,  1, 2013, MakeDate(2012,12,31));
+  TestWeekRoundtrip (294,  1, 2013, MakeDate(2013, 1, 1)); //starts tue, norm
+  TestWeekRoundtrip (297, 52, 2013, MakeDate(2013,12,29));
+  TestWeekRoundtrip (300,  1, 2014, MakeDate(2013,12,30));
+  TestWeekRoundtrip (303,  1, 2014, MakeDate(2013,12,31));
+  TestWeekRoundtrip (306,  1, 2014, MakeDate(2014, 1, 1)); //starts wed, norm
+  TestWeekRoundtrip (309, 52, 2014, MakeDate(2014,12,28));
+  TestWeekRoundtrip (312,  1, 2015, MakeDate(2014,12,29));
+  TestWeekRoundtrip (315,  1, 2015, MakeDate(2014,12,31));
+  TestWeekRoundtrip (318,  1, 2015, MakeDate(2015, 1, 1)); //starts thu, norm (53 weeks)
+  TestWeekRoundtrip (321, 53, 2015, MakeDate(2015,12,31));
+  TestWeekRoundtrip (324, 53, 2015, MakeDate(2016, 1, 1)); //starts fri, leap
+  TestWeekRoundtrip (327, 53, 2015, MakeDate(2016, 1, 3));
+  TestWeekRoundtrip (330,  1, 2016, MakeDate(2016, 1, 4));
+  TestWeekRoundtrip (333, 52, 2016, MakeDate(2016,12,31));
+  TestWeekRoundtrip (336, 52, 2016, MakeDate(2017, 1, 1)); //starts sun, norm
+  TestWeekRoundtrip (339,  1, 2017, MakeDate(2017, 1, 2));
+  TestWeekRoundtrip (342, 52, 2017, MakeDate(2017,12,31));
+  TestWeekRoundtrip (345,  1, 2018, MakeDate(2018, 1, 1)); //starts mon, norm
+
+  //stabilize out-of-range conditions
+  TestEq(MakeDate(2017,12,31), MakeDateTimeFromWeek(2017, 52, 7,0,0,0));
+  TestEq(MakeDate(2018, 1, 7), MakeDateTimeFromWeek(2017, 53, 7,0,0,0));
+  TestEq(MakeDate(2018, 1, 7), MakeDateTimeFromWeek(2018, 1, 7,0,0,0));
+  TestEq(MakeDate(2017,12,31), MakeDateTimeFromWeek(2018, 0, 7,0,0,0));
+  TestEq(MakeDate(2017,12,24), MakeDateTimeFromWeek(2018, -1, 7,0,0,0));
+  TestEq(MakeDate(2017,12,17), MakeDateTimeFromWeek(2018, -2, 7,0,0,0));
+
+  DATETIME testdate := AddTimeToDate(123, MakeDateTime(2007,5,2,11,20,17)); //123 msecs past 11:20:17
+  TestEq(MakeDateTime(2007,5,2,11,20,17), GetRoundedDatetime(testdate, 1000));
+  TestEq(MakeDateTime(2007,5,2,11,20,16), GetRoundedDatetime(testdate, 2000));
+  TestEq(MakeDateTime(2007,5,2,0,0,0), GetRoundedDatetime(testdate, 86400*1000));
+  TestEq(MAX_DATETIME, GetRoundedDatetime(MAX_DATETIME, 86400*1000));
+
+  TestEq(MakeDate(2005,2,28), AddMonthsToDate(1, MakeDate(2005,1,29), [roundforward := FALSE]));
+  TestEq(MakeDate(2005,3,29), AddMonthsToDate(2, MakeDate(2005,1,29), [roundforward := FALSE]));
+  TestEq(MakeDate(2005,1,29), AddMonthsToDate(0, MakeDate(2005,1,29), [roundforward := FALSE]));
+  TestEq(MakeDate(2004,2,29), AddMonthsToDate(1, MakeDate(2004,1,29), [roundforward := FALSE]));
+
+  TestEq(MakeDate(2004,12,31), AddMonthsToDate(-1, MakeDate(2005,1,31)));
+  TestEq(MakeDate(2004,12,1),  AddMonthsToDate(-2, MakeDate(2005,1,31)));
+  TestEq(MakeDate(2004,3,1),   AddMonthsToDate(-11, MakeDate(2005,1,31)));
+  TestEq(MakeDate(2004,12,31), AddMonthsToDate(-1, MakeDate(2005,1,31),[roundforward := FALSE]));
+  TestEq(MakeDate(2004,11,30),  AddMonthsToDate(-2, MakeDate(2005,1,31),[roundforward := FALSE]));
+  TestEq(MakeDate(2004,2,29),   AddMonthsToDate(-11, MakeDate(2005,1,31),[roundforward := FALSE]));
+
+  CloseTest("TestDateTime: GeneralTest");
+}
+
+MACRO UnixTimeStampTest()
+{
+  OpenTest("TestDateTime: UnixTimeStampTest");
+
+  TestEq(         0, GetUnixTimestamp(MakeDate(1970, 1, 1)));
+  TestEq(    -86400, GetUnixTimestamp(MakeDate(1969, 12, 31)));
+  TestEq(        -1, GetUnixTimestamp(MakeDateTime(1969, 12, 31, 23, 59, 59)));
+  TestEq(1222330698, GetUnixTimestamp(MakeDateTime(2008, 09, 25, 08, 18, 18))); // van wikipedia
+
+  TestEq(            0i64, GetUnixTimestampMsecs(MakeDate(1970, 1, 1)));
+  TestEq(    -86400000i64, GetUnixTimestampMsecs(MakeDate(1969, 12, 31)));
+  TestEq(        -1000i64, GetUnixTimestampMsecs(MakeDateTime(1969, 12, 31, 23, 59, 59)));
+  TestEq(1222330698000i64, GetUnixTimestampMsecs(MakeDateTime(2008, 09, 25, 08, 18, 18))); // van wikipedia
+  TestEq(1222330698055i64, GetUnixTimestampMsecs(MakeDateTime(2008, 09, 25, 08, 18, 18, 55)));
+
+  TestEq(MakeDate(1970, 1, 1), MakeDatetimeFromUnixTimestamp(0));
+  TestEq(MakeDate(1969, 12, 31), MakeDatetimeFromUnixTimestamp(-86400));
+  TestEq(MakeDateTime(1969, 12, 31, 23, 59, 59), MakeDatetimeFromUnixTimestamp(-1));
+  TestEq(MakeDateTime(2008, 09, 25, 08, 18, 18), MakeDatetimeFromUnixTimestamp(1222330698));
+  TestEq(AddTimeToDate(55, MakeDateTime(2008, 09, 25, 08, 18, 18)), MakeDatetimeFromUnixTimestamp(1222330698.055));
+
+  CloseTest("TestDateTime: UnixTimeStampTest");
+}
+
+MACRO ISOTimestampTest()
+{
+  OpenTest("TestDateTime: ISOTimestampTest");
+
+  TestEq("20010101T123456Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "", "", "", FALSE));
+  TestEq("2001-01-01T12:34:56Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "", "", "", TRUE));
+  TestEq("20010101T123456+0100", FormatISO8601DateTime(MakeDateTime(2001,1,1,11,34,56), "", "", "CET", FALSE));
+  TestEq("2001-01-01T12:34:56+01:00", FormatISO8601DateTime(MakeDateTime(2001,1,1,11,34,56), "", "", "CET", TRUE));
+
+  TestEq("2001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "year", "empty", "", FALSE));
+  TestEq("2001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "year", "empty", "", TRUE));
+  TestEq("2001-01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "month", "empty", "", FALSE));
+  TestEq("2001-01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "month", "empty", "", TRUE));
+  TestEq("20010101", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "day", "empty", "", FALSE));
+  TestEq("2001-01-01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "day", "empty", "", TRUE));
+  TestEq("2001W01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "week", "empty", "", FALSE));
+  TestEq("2001-W01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "week", "empty", "", TRUE));
+  TestEq("2001W0102", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "weekday", "empty", "", FALSE));
+  TestEq("2001-W01-02", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "weekday", "empty", "", TRUE));
+  TestEq("2001001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "yearday", "empty", "", FALSE));
+  TestEq("2001-001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "yearday", "empty", "", TRUE));
+
+  TestEq("12Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "hours", "", FALSE));
+  TestEq("12Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "hours", "", TRUE));
+  TestEq("1234Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "minutes", "", FALSE));
+  TestEq("12:34Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "minutes", "", TRUE));
+  TestEq("123456Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "seconds", "", FALSE));
+  TestEq("12:34:56Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "seconds", "", TRUE));
+  TestEq("123456.000Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "milliseconds", "", FALSE));
+  TestEq("12:34:56.000Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "milliseconds", "", TRUE));
+
+  TestEq("", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "empty", "", FALSE));
+  TestEq("", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "empty", "", TRUE));
+  TestEq("", FormatISO8601DateTime(DEFAULT DATETIME, "", "", "", FALSE));
+  TestEq("", FormatISO8601DateTime(DEFAULT DATETIME, "", "", "", TRUE));
+  TestEq("", FormatISO8601DateTime(MAX_DATETIME, "", "", "", FALSE));
+  TestEq("", FormatISO8601DateTime(MAX_DATETIME, "", "", "", TRUE));
+
+  CloseTest("TestDateTime: ISOTimestampTest");
+}
+
+MACRO MSTimestampTest()
+{
+  OpenTest("TestDateTime: MSTimestampTest");
+
+  TestEq(MakeDateTime(2099,12,30,23,0,0), MakeDatetimeFromNTTime(157468284000000000i64));
+  TestEq(MakeDateTime(2015,5,13,22,0,0), MakeDatetimeFromNTTime(130760280000000000i64));
+
+  CloseTest("TestDateTime: MSTimestampTest");
+}
+
+MACRO LimitsTest()
+{
+  OpenTest("TestDateTime: MSTimestampTest");
+
+  TestEq(MakeDateFromParts(0x7FFFFFFF, 24*60*60*1000 - 11), AddTimeToDate(-10, MAX_DATETIME));
+  TestEq(MAX_DATETIME, AddTimeToDate(0, MAX_DATETIME));
+  TestThrows(PTR AddTimeToDate(1, MAX_DATETIME));
+  TestThrows(PTR AddTimeToDate(20, MakeDateFromParts(0x7FFFFFFF, 24*60*60*1000 - 11)));
+  TestThrows(PTR AddDaysTodate(1, MAX_DATETIME));
+  TestThrows(PTR AddTimeToDate(-1, DEFAULT DATETIME));
+  TestThrows(PTR AddDaysToDate(-1, DEFAULT DATETIME));
+  TestEq(DEFAULT DATETIME, AddMonthsToDate(-1, DEFAULT DATETIME));
+  TestEq(DEFAULT DATETIME, AddYearsToDate(-1, DEFAULT DATETIME));
+  TestThrows(PTR AddTimeTodate(-86400*1000 -1, MakeDateFromParts(1,0)));
+  TestThrows(PTR AddDaysToDate(-12, MakeDateFromParts(1,0)));
+  TestThrows(PTR AddYearsToDate(-2, MakeDate(1,1,1)));
+  TestThrows(PTR AddMonthsToDate(-2, MakeDate(1,1,1)));
+  TestThrows(PTR AddYearsToDate(+1, MAX_DATETIME));
+  TestThrows(PTR AddMonthsToDate(+1, MAX_DATETIME));
+  TestThrows(PTR GetNextAnniversary(MakeDate(1979,6,13), MAX_DATETIME));
+
+  TestEq(MakeDateFromParts(0,5), AddTimeToDate(5, DEFAULT DATETIME));
+  TestEq(MakeDateFromParts(0,86400*1000-1), AddTimeToDate(86400*1000-1, DEFAULT DATETIME));
+
+  CloseTest("TestDateTime: MSTimestampTest");
+}
+
+MACRO CronTest()
+{
+  TestEq(MakeDatetime(2018,11,11,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,5,3,0), "* * * * *"));
+  TestEq(MakeDatetime(2018,11,11,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,5,3,53), "* * * * *"));
+
+  TestEq(MakeDatetime(2018,11,11,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 * * *"));
+  TestEq(MakeDatetime(2018,11,12,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,6,5,0), "4 5 * * *"));
+  TestEq(MakeDatetime(2018,11,13,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 13 * *"));
+  TestEq(MakeDatetime(2018,12,13,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 13 12 *"));
+  TestEq(MakeDatetime(2019, 1,13,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 13 1 *"));
+
+  TestEq(MakeDatetime(2018,11,12,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 * * 1")); //2018-11-11 is a sunday
+  TestEq(MakeDatetime(2018,11,12,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 12 * 1")); //2018-11-12 is a monday
+
+  //like cron, if both day-of-month and day-of-week are restricted, either will match
+  TestEq(MakeDatetime(2018,11,12,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 12 * 2")); //closest match: 2018-11-12 (even though not a tuesday)
+  TestEq(MakeDatetime(2018,11,12,5,4,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 13 * 1")); //closeat match: 2018-11-12 (it's a monday!, even though not the 13th)
+
+  //Play with month lenths
+  TestEq(MakeDatetime(2018,10,31,5,4,0), GetNextCronTime(MakeDatetime(2018,10,11,0,0,0), "4 5 31 * *"));
+  TestEq(MakeDatetime(2018,12,31,5,4,0),  GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 31 * *"));
+  TestThrows(PTR GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 32 * *"));
+
+  //Repeats
+  TestEq(MakeDatetime(2018,11,11,3,2,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "*/2 */3 * * *"));
+
+  //Multiple timeslots
+  TestEq(MakeDatetime(2018,11,11,8,0,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "0 8,15 * * *"));
+  TestEq(MakeDatetime(2018,11,11,15,0,0), GetNextCronTime(MakeDatetime(2018,11,11,8,0,1), "0 8,15 * * *"));
+  TestEq(MakeDatetime(2018,11,12,8,0,0), GetNextCronTime(MakeDatetime(2018,11,11,15,0,1), "0 8,15 * * *"));
+
+  //Once a quarter
+  TestEq(MakeDatetime(2019,1,1,8,0,0), GetNextCronTime(MakeDatetime(2018,11,11,15,0,1), "0 8 1 1,4,7,10 *"));
+  TestEq(MakeDatetime(2019,4,1,8,0,0), GetNextCronTime(MakeDatetime(2019,1,1,8,0,0), "0 8 1 1,4,7,10 *"));
+
+}
+
+PRINT("\n === Running TestDateTime\n");
+CalcTests();
+MakeTest();
+GetTest();
+MiscTest();
+GeneralTest();
+AnniversaryTest();
+UnixTimeStampTest();
+ISOTimestampTest();
+MSTimestampTest();
+LimitsTest();
+CronTest();

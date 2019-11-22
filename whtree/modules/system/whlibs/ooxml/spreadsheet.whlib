@@ -1,0 +1,1435 @@
+﻿<?wh
+/** @short OOXML (Office 2007+) file support
+    @topic file-formats/ooxml
+*/
+
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internal/columntools.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::ooxml/internal/utils.whlib";
+LOADLIB "wh::ooxml/internal/ooxml.whlib";
+
+CONSTANT STRING xmlns_main := "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+VARIANT ARRAY tempstore;
+
+BOOLEAN FUNCTION AddToTempStore(VARIANT ARRAY rowcells)
+{
+  INSERT rowcells INTO tempstore AT END;
+  RETURN TRUE;//continue!
+}
+STRING FUNCTION CellToString(VARIANT celldata, BOOLEAN dotrimwhitespace, STRING floatmode)
+{
+  // FIXME: we assume the user wants the INTEGER part of a FLOAT as our STRING.
+  //        it would be much better if we knew the field type (General, Number, Currency etc) so we know how exactly to get the STRING exacly as Excel shows it
+  IF (TypeID( celldata ) = TypeID(FLOAT))
+  {
+    //newvalue := ToString(FloatToInteger(celldata + 0.00000001)) ); // <-- since this first converts to INTEGER it cannot handle very large numbes
+    SWITCH (floatmode)
+    {
+      CASE "float"
+      {
+        RETURN EncodeJSON(celldata);
+      }
+      CASE "money"
+      {
+        RETURN FormatMoney(MONEY(celldata + .000005), 0, ".", "", FALSE);
+      }
+      CASE "integer"
+      {
+        RETURN ToString(INTEGER64(celldata+.5));
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unknown floatmode '${floatmode}'`);
+      }
+    }
+  }
+  ELSE IF (TypeID( celldata ) = TypeID(BOOLEAN))
+  {
+    RETURN celldata ? "TRUE" : "FALSE";
+  }
+  ELSE IF (TypeID( celldata ) = TypeID(DATETIME))
+  {
+    RETURN FormatISO8601Datetime(celldata);
+  }
+  ELSE IF (TypeID( celldata ) = TypeID(STRING))
+  {
+    IF (dotrimwhitespace)
+      RETURN TrimWhitespace(celldata);
+    ELSE
+      RETURN STRING(celldata);
+  }
+  ELSE
+  {
+    THROW NEW Exception(`Unexpected datatype '${GetTypeName(TypeID(celldata))}'`);
+  }
+}
+VARIANT FUNCTION CellToNumber(VARIANT celldata, STRING floatmode)
+{
+  SWITCH (floatmode)
+  {
+    CASE "float"
+    {
+      RETURN FLOAT(celldata);
+    }
+    CASE "money"
+    {
+      RETURN MONEY(celldata + .000005);
+    }
+    CASE "integer"
+    {
+      RETURN INTEGER( celldata + 0.5 );
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unknown floatmode '${floatmode}'`);
+    }
+  }
+}
+
+/* ECMA-376 part 1 18.8.30 numFmt (Number Format)
+   ADDME: far-east languages have language specific additional builtin number formats
+*/
+RECORD ARRAY builtin_numberformats :=
+[[ id := 0, formatcode := "" ]
+,[ id := 1, formatcode := "0" ]
+,[ id := 2, formatcode := "0.00"]
+,[ id := 3, formatcode := "#,##0"]
+,[ id := 4, formatcode := "#,##0.00"]
+,[ id := 9, formatcode := "0%"]
+,[ id := 10, formatcode := "0.00%"]
+,[ id := 11, formatcode := "0.00E+00"]
+,[ id := 12, formatcode := "# ?/?"]
+,[ id := 13, formatcode := "# ??/??"]
+,[ id := 14, formatcode := "mm-dd-yy"]
+,[ id := 15, formatcode := "d-mmm-yy"]
+,[ id := 16, formatcode := "d-mmm"]
+,[ id := 17, formatcode := "mmm-yy"]
+,[ id := 18, formatcode := "h:mm AM/PM"]
+,[ id := 19, formatcode := "h:mm:ss AM/PM"]
+,[ id := 20, formatcode := "h:mm"]
+,[ id := 21, formatcode := "h:mm:ss"]
+,[ id := 22, formatcode := "m/d/yy h:mm"]
+,[ id := 37, formatcode := "#,##0 ;(#,##0)"]
+,[ id := 38, formatcode := "#,##0 ;[Red](#,##0)"]
+,[ id := 39, formatcode := "#,##0.00;(#,##0.00)"]
+,[ id := 40, formatcode := "#,##0.00;[Red](#,##0.00)"]
+,[ id := 45, formatcode := "mm:ss"]
+,[ id := 46, formatcode := "[h]:mm:ss"]
+,[ id := 47, formatcode := "mmss.0"]
+,[ id := 48, formatcode := "##0.0E+0"]
+,[ id := 49, formatcode := "@"]
+];
+
+PUBLIC STATIC OBJECTTYPE ExcelDoc
+<
+  OBJECT ooxmldoc;
+  OBJECT maindoc;
+  OBJECT stylesfile;
+  OBJECT stylesheet;
+  BOOLEAN gotsheets;
+  RECORD ARRAY sheets;
+  RECORD ARRAY styles;
+  BOOLEAN gotstyles;
+  OBJECT stringsfile;
+  RECORD ARRAY stringsnodelist;
+
+  MACRO NEW(BLOB infile)
+  {
+    this->ooxmldoc := NEW OOXMLDocument;
+    IF (NOT this->ooxmldoc->LoadOOXMLDocument(infile))
+      THROW NEW Exception("Unable to load the document");
+    IF(this->ooxmldoc->GetMainDocumentType() != xmlns_main)
+      THROW NEW Exception("Document is not an excel document, but of type " || this->ooxmldoc->GetMainDocumentType());
+
+    this->maindoc := this->ooxmldoc->GetMaindocument()->document->documentelement;
+  }
+
+  /** @short Save the excel document
+      @cell options.recalculate Tell Excel to recalculate all cells after opening (defaults to TRUE)
+      @return The XLSX document as a blob */
+  PUBLIC BLOB FUNCTION SaveExcelDoc(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ recalculate := TRUE ], options);
+
+    IF(options.recalculate)
+    {
+      /* We need to set the <calcPr> node (Calculation Properties).
+      */
+      OBJECT calcpr := PickFirst(this->maindoc->ListElements(xmlns_main, "calcPr"));
+      IF(NOT ObjectExists(calcpr))
+      {
+        calcpr := this->maindoc->ownerdocument->CreateElementNS(xmlns_main, "calcPr");
+        this->maindoc->AppendChild(calcpr);
+      }
+      calcpr->SetAttribute("calcCompleted", "0");
+      calcpr->SetAttribute("forceFullCalc", "1");
+      calcpr->SetAttribute("fullCalcOnLoad", "1");
+
+      this->ooxmldoc->GetMaindocument()->dirty := TRUE;
+    }
+
+    RETURN this->ooxmldoc->SaveOOXMLDocument();
+  }
+
+  /////////////////////////////////////////////////
+  // Shared strings management
+  MACRO EnsureStringsOpen()
+  {
+    IF(ObjectExists(this->stringsfile))
+      RETURN;
+
+    this->stringsfile := this->ooxmldoc->GetMainDocument()->OpenRelationByType("http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings");
+    IF(NOT ObjectExists(this->stringsfile) OR NOT ObjectExists(this->stringsfile->document))
+      THROW NEW Exception("Unable to open the XLSX shared strings table");
+
+    this->stringsnodelist := ToRecordArray(this->stringsfile->document->documentelement->childnodes->GetCurrentElements(), "NODE");
+  }
+  PUBLIC STRING FUNCTION GetFromStringTable(INTEGER idx)
+  {
+    this->EnsureStringsOpen();
+    IF (idx >= LENGTH(this->stringsnodelist))
+      RETURN "";
+
+    // Cache the string value, reading it is quite costly
+    IF (NOT CellExists(this->stringsnodelist[idx], "TEXT"))
+    {
+      OBJECT stringnode := this->stringsnodelist[idx].node;
+      OBJECT text := stringnode->GetElementsByTagNameNS(xmlns_main,"t");
+      INSERT CELL text := text->textcontent INTO this->stringsnodelist[idx];
+    }
+
+    RETURN this->stringsnodelist[idx].text;
+  }
+
+  /////////////////////////////////////////////////
+  // Style management
+  MACRO EnsureStylesOpen()
+  {
+    IF(ObjectExists(this->stylesheet))
+      RETURN;
+
+    this->stylesfile := this->ooxmldoc->GetMainDocument()->OpenRelationByType("http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles");
+    IF(NOT ObjectExists(this->stylesfile) OR NOT ObjectExists(this->stylesfile->document))
+      THROW NEW Exception("Unable to open the XLSX stylesheet");
+
+    this->stylesheet := this->stylesfile->document->documentelement;
+  }
+
+  INTEGER FUNCTION GetNumFmtId(STRING numberformat)
+  {
+    RECORD builtin := SELECT * FROM builtin_numberformats WHERE formatcode = numberformat;
+    IF(RecordExists(builtin))
+      RETURN builtin.id;
+
+    //The <styleSheet> <numFmts> node contains one or more <numFmt> children, which may already have this format
+    OBJECT numfmtsnode := this->stylesheet->GetChildElementsByTagNameNS(xmlns_main, "numFmts")->Item(0);
+    IF(NOT ObjectExists(numfmtsnode))
+    {
+      numfmtsnode := this->stylesheet->ownerdocument->CreateElementNS(xmlns_main, "numFmts");
+      this->stylesheet->insertBefore(numfmtsnode, this->stylesheet->firstchild);
+    }
+
+    INTEGER highest_fmtid := 164; //it seems Excel's custom format ids start at 165
+    INTEGER numformats;
+    FOREVERY(OBJECT existingfmt FROM numfmtsnode->childnodes->GetCurrentELements())
+    {
+      IF(existingfmt->localname!="numFmt")
+        CONTINUE;
+
+      numformats := numformats + 1;
+
+      INTEGER thisfmtid := ToInteger(existingfmt->GetAttribute("numFmtId"),0);
+      IF(thisfmtid=0)
+        CONTINUE;
+
+      IF(existingfmt->GetAttribute("formatCode") = numberformat)
+        RETURN thisfmtid;
+
+      IF(highest_fmtid < thisfmtid)
+        highest_fmtid := thisfmtid;
+    }
+
+    //If we get here, the format doesn't exist yet
+    OBJECT newfmtnode := this->stylesheet->ownerdocument->CreateElementNS(xmlns_main, "numFmt");
+    newfmtnode->SetAttribute("numFmtId", ToString(highest_fmtid+1));
+    newfmtnode->SetAttribute("formatCode", numberformat);
+    numfmtsnode->AppendChild(newfmtnode);
+    numfmtsnode->SetAttribute("count", ToString(numformats));
+
+    this->stylesfile->dirty := TRUE;
+    RETURN highest_fmtid + 1;
+  }
+
+  STRING FUNCTION GetNumFmt(INTEGER formatid)
+  {
+    RECORD builtin := SELECT * FROM builtin_numberformats WHERE id = formatid;
+    IF(RecordExists(builtin))
+      RETURN builtin.formatcode;
+
+    OBJECT numfmtsnode := this->stylesheet->GetChildElementsByTagNameNS(xmlns_main, "numFmts")->Item(0);
+    IF(NOT ObjectExists(numfmtsnode))
+      RETURN "";
+
+    FOREVERY(OBJECT numfmt FROM numfmtsnode->GetChildElementsByTagNameNS(xmlns_main, "numFmt")->GetCurrentElements())
+      IF(ToInteger(numfmt->GetAttribute("numFmtId"),0) = formatid)
+        RETURN numfmt->GetAttribute("formatCode");
+
+    RETURN "";
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetStyles()
+  {
+    IF(this->gotstyles)
+      RETURN this->styles;
+
+    this->EnsureStylesOpen();
+    this->styles := DEFAULT RECORD ARRAY;
+
+    OBJECT cellxfs := this->stylesheet->GetChildElementsByTagNameNS(xmlns_main, "cellXfs")->Item(0);
+    IF(NOT ObjectExists(cellxfs))
+      THROW NEW Exception("Document has not <cellXfs> in its stylesheet");
+
+    FOREVERY(OBJECT xf FROM cellxfs->GetChildElementsByTagNameNS(xmlns_main, "xf")->GetCurrentElements())
+    {
+      STRING numberformat := this->GetNumFmt(ToInteger(xf->GetAttribute("numFmtId"),0));
+
+      INSERT [ styleid := #xf
+             , numberformat := numberformat
+             , lookslikedate := ToUppercase(numberformat) LIKE "*YY*"
+             ] INTO this->styles AT END;
+    }
+    this->gotstyles := TRUE;
+    RETURN this->styles;
+  }
+
+  PUBLIC INTEGER FUNCTION CreateXLSXStyle(STRING numberformat)
+  {
+    this->EnsureStylesOpen();
+    this->gotstyles := FALSE;
+
+    INTEGER numfmt := this->GetNumFmtId(numberformat);
+    OBJECT cellxfs := this->stylesheet->GetChildElementsByTagNameNS(xmlns_main, "cellXfs")->Item(0);
+    IF(NOT ObjectExists(cellxfs))
+      THROW NEW Exception("Document has not <cellXfs> in its stylesheet");
+
+    OBJECT new_xf := this->stylesheet->ownerdocument->CreateElementNS(xmlns_main, "xf");
+    new_xf->SetAttribute("numFmtId", ToString(numfmt));
+    new_xf->SetAttribute("fontId", "0");
+    new_xf->SetAttribute("fillId", "0");
+    new_xf->SetAttribute("borderId", "0");
+    new_xf->SetAttribute("xfId", "0");
+    IF(numfmt != 0)
+      new_xf->SetAttribute("applyNumberFormat", "1");
+
+    cellxfs->AppendChild(new_xf);
+
+    INTEGER numstyles := cellxfs->GetChildElementsByTagNameNS(xmlns_main, "xf")->length;
+    cellxfs->SetAttribute("count", ToString(numstyles));
+
+    RETURN numstyles-1;
+  }
+
+  /////////////////////////////////////////////////
+  // Sheet management
+
+  MACRO EnsureSheetsRead()
+  {
+    IF(this->gotsheets)
+      RETURN;
+
+    this->gotsheets := TRUE;
+
+    OBJECT sheetsnode := this->maindoc->GetChildElementsByTagNameNS(xmlns_main, "sheets")->Item(0);
+    IF(NOT ObjectExists(sheetsnode))
+      RETURN;
+
+    RECORD ARRAY sheets;
+    FOREVERY(OBJECT sheetnode FROM sheetsnode->GetChildElementsByTagNameNS(xmlns_main, "sheet")->GetCurrentElements())
+    {
+      INSERT [ name := sheetnode->GetAttribute("name")
+             , sheetid := sheetnode->GetAttribute("sheetId")
+             , rel := sheetnode->GetAttributeNS(officedocuments_relationships_uri, "id")
+             , sheet := DEFAULT OBJECT
+             , node := sheetnode
+             ] INTO this->sheets AT END;
+    }
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetSheets()
+  {
+    this->EnsureSheetsRead();
+    RETURN this->sheets;
+  }
+
+  PUBLIC OBJECT FUNCTION OpenSheet(INTEGER seqnum)
+  {
+    IF(seqnum < 0 OR seqnum >= Length(this->GetSheets()))
+      RETURN DEFAULT OBJECT;
+
+    IF(NOT ObjectExists(this->sheets[seqnum].sheet))
+    {
+      OBJECT thefile := this->ooxmldoc->GetMainDocument()->OpenRelationByID(this->sheets[seqnum].rel);
+      IF(NOT ObjectExists(thefile))
+        THROW NEW Exception("Unable to open relation '" || this->sheets[seqnum].rel || "'");
+      IF(NOT ObjectExists(thefile->document) OR NOT ObjectExists(thefile->document->documentelement))
+        THROW NEW Exception("Unable to open relation '" || this->sheets[seqnum].rel || "' document");
+
+      this->sheets[seqnum].sheet := NEW ExcelSheet(this, thefile);
+    }
+    RETURN this->sheets[seqnum].sheet;
+  }
+
+  PUBLIC OBJECT FUNCTION OpenSheetByName(STRING sheetname)
+  {
+    INTEGER sheetpos := SELECT AS INTEGER #sheets + 1 FROM this->GetSheets() AS sheets WHERE name = sheetname;
+    IF(sheetpos = -1) //not found, try case insensitive match
+      sheetpos := SELECT AS INTEGER #sheets + 1 FROM this->GetSheets() AS sheets WHERE ToUppercase(name) = TrimWhitespace(ToUppercase(sheetname));
+    RETURN this->OpenSheet(sheetpos-1);
+  }
+
+/*  PUBLIC MACRO RenameSheet(OBJECT renamesheet, STRING newname)
+  {
+    INTEGER sheetpos := SELECT AS INTEGER #sheets + 1 FROM this->GetSheets() AS sheets WHERE sheet = renamesheet;
+    IF(sheetpos<=0)
+      THROW NEW Exception("Sheet is not part of this XLSX file");
+
+    this->sheets[sheetpos-1].name := newname;
+    this->sheets[sheetpos-1].node->setAttribute("name", newname);
+  }
+*/
+  /** @short Convert an excel float representing a date and/or time to a HareScript datetime */
+  PUBLIC DATETIME FUNCTION ExcelFloatToDateTime(FLOAT val)
+  {
+    INTEGER daynum := FloatToInteger(val);
+    FLOAT remainder := val - daynum;
+    INTEGER timepart := FloatToInteger(remainder * (86400*1000f) + 0.5);
+
+    //FIXME proper 1900/1904 mode support
+    RETURN MakeDateFromParts(daynum + 693594, timepart); //693594 = 1899-12-30, the base for the 1900 date system
+  }
+
+  /** @short Convert a HareScript datetime to an excel floating point value. */
+  PUBLIC FLOAT FUNCTION ExcelFloatFromDatetime(DATETIME inval)
+  {
+    FLOAT msecval := GetMsecondCount(inval) / (86400*1000f);
+    IF(GetDayCount(inval) = 0) //assume timestamp
+      RETURN msecval;
+    ELSE
+      RETURN GetDayCount(inval) - 693594 + msecval; //693594 = 1899-12-30, the base for the 1900 date system
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ExcelSheet
+<
+  OBJECT exceldoc;
+  OBJECT sheetfile;
+  OBJECT sheetroot;
+  OBJECT sheetdata;
+  OBJECT xmldoc;
+
+  RECORD ARRAY allrows;
+  RECORD ARRAY styles;
+  BOOLEAN dimensions_dirty;
+  INTEGER currentexport_currentrow;
+  INTEGER currentexport_maxrow;
+
+  PUBLIC PROPERTY xlsx(exceldoc, -);
+
+  MACRO NEW(OBJECT exceldoc, OBJECT sheetfile)
+  {
+    this->exceldoc := exceldoc;
+    this->sheetfile := sheetfile;
+    this->sheetroot := sheetfile->document->documentelement;
+    this->sheetdata := this->sheetroot->GetChildElementsByTagNameNS(xmlns_main, "sheetData")->Item(0);
+    this->sheetfile->AddBeforeSaveCallback(PTR this->BeforeSave);
+    this->xmldoc := sheetfile->document;
+  }
+
+  INTEGER FUNCTION GetLastRowNum()
+  {
+    this->EnsureCachedRows();
+
+    IF(Length(this->allrows)>0)
+    {
+      RETURN Length(this->allrows) + 1;
+      //OBJECT lastrow := this->allrows[Length(this->allrows)-1].rownode;
+      //RETURN ToInteger(lastrow->GetAttribute("r"),0);
+    }
+    RETURN 1;
+  }
+  INTEGER FUNCTION GetLastCellNum(OBJECT rownode)
+  {
+    OBJECT lastcell := rownode->lastchild;
+    WHILE(ObjectExists(lastcell) AND lastcell->localname != "c")
+      lastcell := lastcell->previoussibling;
+
+    IF(ObjectExists(lastcell))
+    {
+      RETURN this->GetCellPosition(lastcell->GetAttribute("r")).col;
+    }
+    RETURN 0;
+  }
+
+  MACRO BeforeSave()
+  {
+    IF(this->dimensions_dirty)
+    {
+      INTEGER maxcol := 1, maxrow := 1;
+      FOREVERY(RECORD row FROM this->allrows)
+      {
+        INTEGER rowmaxcol := this->GetLastCellNum(row.rownode);
+        IF(rowmaxcol > maxcol)
+          maxcol := rowmaxcol;
+      }
+
+      IF(Length(this->allrows)>0)
+      {
+        OBJECT lastrow := this->allrows[Length(this->allrows)-1].rownode;
+        maxrow := ToInteger(lastrow->GetAttribute("r"),0);
+      }
+
+      OBJECT dimensionsnode := this->sheetroot->GetChildElementsByTagNameNS(xmlns_main, "dimension")->Item(0);
+      IF(NOT ObjectExists(dimensionsnode))
+        THROW NEW Exception("No such node <dimension>");
+
+      dimensionsnode->SetAttribute("ref", "A1:" || this->GetCellName(maxrow, maxcol));
+    }
+  }
+
+  PUBLIC STRING FUNCTION GetCellName(INTEGER row, INTEGER col)
+  {
+    IF(row<1 OR col<1)
+      RETURN "";
+
+    RETURN GetNameForColumn(col) || row;
+  }
+
+  PUBLIC RECORD FUNCTION GetCellPosition(STRING cellname)
+  {
+    INTEGER col;
+    WHILE(TRUE)
+    {
+      INTEGER leftval := GetByteValue(Left(cellname,1));
+      IF(leftval < 65 OR leftval > 90)
+        BREAK;
+
+        //AA = (65-65) col =0, A
+        //
+
+      col := col*26 + (leftval - 64);
+      cellname := Substring(cellname, 1);
+    }
+    RETURN [ row := ToInteger(cellname,0 ), col := col ];
+  }
+
+  MACRO EnsureCachedRows()
+  {
+    IF(Length(this->allrows)=0) //setup a row cache
+    {
+      FOREVERY(OBJECT row FROM this->sheetdata->childnodes->GetCurrentElements())
+        IF(row->nodetype = 1 AND row->localname = "row")
+        {
+          INSERT [ rownum := ToInteger(row->GetAttribute("r"),-1), rownode := row ] INTO this->allrows AT END;
+        }
+
+      this->allrows := SELECT * FROM this->allrows ORDER BY allrows.rownum;
+    }
+  }
+
+  OBJECT FUNCTION GetRow(INTEGER rownum, BOOLEAN createrow)
+  {
+    this->EnsureCachedRows();
+
+    //Find the insert postiion
+    RECORD lb := RecordLowerBound(this->allrows, [ rownum := rownum ], ["ROWNUM"]);
+    IF(lb.found)
+      RETURN this->allrows[lb.position].rownode;
+
+    //If we get here, we skipped past the row. In other words, 'row' is a nice insert location for a new row
+    IF(NOT createrow)
+      RETURN DEFAULT OBJECT;
+
+    //FIXME may have to correct existing rows or align our spans, now or later, check the 'spans' optimization rules in the spec..
+    OBJECT newrow := this->xmldoc->CreateElementNS(xmlns_main, "row");
+    newrow->SetAttribute("r", ToString(rownum));
+
+    this->sheetdata->InsertBefore(newrow, lb.position >= Length(this->allrowS) ? DEFAULT OBJECT : this->allrows[lb.position].rownode); //will append if row = default object
+    INSERT [ rownum := rownum, rownode := newrow ] INTO this->allrows AT lb.position;
+    RETURN newrow;
+  }
+
+  OBJECT FUNCTION GetCell(OBJECT row, INTEGER col, STRING cellname, BOOLEAN createcell)
+  {
+    IF(NOT ObjectExists(row))
+      RETURN DEFAULT OBJECT;
+
+    INTEGER rownum := ToInteger(row->GetAttribute("r"), 0);
+    RECORD rowpos := RecordLowerBound(this->allrows, [ rownum := rownum ], ["ROWNUM"]);
+    IF (NOT rowpos.found)
+      THROW NEW Exception("Row cache not consistent, could not find row #" || rownum);
+
+    RECORD ARRAY cells;
+    IF (NOT CellExists(this->allrows[rowpos.position], "CELLS"))
+    {
+      FOR (OBJECT cellnode := row->firstchild; ObjectExists(cellnode); cellnode := cellnode->nextsibling)
+      {
+        IF(cellnode->nodetype != 1 OR cellnode->localname != "c")
+          CONTINUE;
+
+        INTEGER pos := this->GetCellPosition(cellnode->GetAttribute("r")).col;
+        RECORD rec :=
+            [ col :=      pos
+            , node :=     cellnode
+            ];
+        INSERT rec INTO cells AT RecordUpperBound(cells, rec, [ "COL" ]);
+      }
+      INSERT CELL cells := cells INTO this->allrows[rowpos.position];
+    }
+    ELSE
+      cells := this->allrows[rowpos.position].cells;
+
+    RECORD colpos := RecordLowerBound(cells, [ col := col ], [ "COL" ]);
+    IF (colpos.found OR NOT createcell)
+      RETURN colpos.found ? cells[colpos.position].node : DEFAULT OBJECT;
+
+    OBJECT insertbeforenode := colpos.position = LENGTH(cells) ? DEFAULT OBJECT : cells[colpos.position].node;
+
+    //FIXME may have to correct existing rows or align our spans, now or later, check the 'spans' optimization rules in the spec..
+    OBJECT newcell := this->xmldoc->CreateElementNS(xmlns_main, "c");
+    newcell->SetAttribute("r", cellname);
+    row->InsertBefore(newcell, insertbeforenode);
+
+    RECORD rec :=
+        [ col :=      col
+        , node :=     newcell
+        ];
+
+    INSERT rec INTO this->allrows[rowpos.position].cells AT RecordUpperBound(cells, rec, [ "COL" ]);
+
+    this->dimensions_dirty := TRUE;
+    RETURN newcell;
+  }
+
+  VARIANT FUNCTION GetCellObjValue(OBJECT cellobj)
+  {
+    OBJECT rawvaluenode := cellobj->GetChildElementsByTagNameNS(xmlns_main,"v")->Item(0);
+    IF(ObjectExists(rawvaluenode))
+    {
+      STRING type := cellobj->GetAttribute("t");
+      IF(type="b")
+        RETURN rawvaluenode->textcontent IN ["1","true"];
+      IF(type="s") //stringtable lookup
+        RETURN this->exceldoc->GetFromStringTable(ToInteger(rawvaluenode->textcontent,0));
+      IF(type="d") //ISO 8601 datetime
+        RETURN MakeDateFromText(rawvaluenode->textcontent);
+      IF(type="str")
+        RETURN rawvaluenode->textcontent;
+
+      FLOAT val := ToFloat(rawvaluenode->textcontent,0);
+      INTEGER stylenum := ToInteger(cellobj->GetAttribute("s"), 0);
+
+      IF(stylenum>0)
+      {
+        RECORD ARRAY styles := this->exceldoc->GetStyles();
+        IF(stylenum < Length(styles) AND (styles[stylenum].lookslikedate))
+          RETURN this->exceldoc->ExcelFloatToDateTime(val);
+      }
+
+      RETURN val;
+    }
+
+    OBJECT isnode := cellobj->GetChildElementsByTagNameNS(xmlns_main,"is")->Item(0);
+    IF(ObjectExists(isnode))
+    {
+      OBJECT tnode := isnode->GetChildElementsByTagNameNS(xmlns_main,"t")->Item(0);
+      IF(ObjectExists(tnode))
+        RETURN Substitute(tnode->textcontent,'\r','\n');
+    }
+    RETURN "";
+  }
+
+  PUBLIC VARIANT FUNCTION GetCellValue(INTEGER rownum, INTEGER colnum)
+  {
+    OBJECT row := this->GetRow(rownum, FALSE);
+    OBJECT cellnode := this->GetCell(row, colnum, this->GetCellName(rownum,colnum), FALSE);
+    IF(NOT ObjectExists(cellnode))
+      RETURN "";
+    RETURN this->GetCellObjValue(cellnode);
+  }
+  PUBLIC VARIANT FUNCTION GetCellValueByCellName(STRING cellname)
+  {
+    RECORD cellpos := this->GetCellPosition(cellname);
+    RETURN this->GetCellValue(cellpos.row, cellpos.col);
+  }
+
+  /** Send all rows to a callback function
+      @param callback Callback to invoke with a VARIANT ARRAY of cells for each lines. Should return TRUE to continue processing, FALSE to stop
+      @param options Optional options
+      @cell options.alltostring Convert all data to strings
+      @cell options.dotrimwhitespace Trim all whitespace from strings (defaults to true)
+      @cell options.floatmode How to convert numbers when converting to strings: "integer" (the default) rounds to integer
+          values or "money" rounds to money and omits trailing zeroes
+  */
+  PUBLIC MACRO ExportRowsToCallback (FUNCTION PTR callback, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ alltostring := FALSE
+        , dotrimwhitespace := TRUE
+        , processheaders := TRUE
+        , floatmode := ""
+        ], options);
+
+    IF(options.floatmode = "")
+      options.floatmode := options.alltostring ? "integer" : "float";
+
+    this->currentexport_maxrow := this->GetLastRowNum();
+    FOR(this->currentexport_currentrow := 1; this->currentexport_currentrow <= this->currentexport_maxrow; this->currentexport_currentrow := this->currentexport_currentrow + 1)
+    {
+      OBJECT row := this->GetRow(this->currentexport_currentrow, FALSE);
+      VARIANT ARRAY cells;
+      IF(ObjectExists(row))
+      {
+        INTEGER rowmaxcol := this->GetLastCellNum(row);
+        FOR(INTEGER cellnum := 1; cellnum <= rowmaxcol; cellnum := cellnum + 1)
+        {
+          OBJECT cellnode := this->GetCell(row, cellnum, this->GetCellName(this->currentexport_currentrow, cellnum), FALSE);
+          IF(NOT ObjectExists(cellnode))
+          {
+            INSERT "" INTO cells AT END;
+            CONTINUE;
+          }
+
+          VARIANT objvalue := this->GetCellObjValue(cellnode);
+          VARIANT storevalue;
+
+          IF(options.alltostring)
+            storevalue := CellToString(objvalue, options.dotrimwhitespace, options.floatmode);
+          ELSE IF (TypeID(objvalue) IN [TYPEID(INTEGER),TYPEID(MONEY),TypeID(FLOAT)])
+            storevalue := CellToNumber(objvalue, options.floatmode);
+          ELSE IF(options.dotrimwhitespace AND TypeID(objvalue) = TypeID(STRING))
+            storevalue := TrimWhitespace(objvalue);
+          ELSE
+            storevalue := objvalue;
+
+          INSERT storevalue INTO cells AT END;
+        }
+
+        IF(NOT callback(cells))
+          BREAK;
+      }
+    }
+  }
+  PUBLIC VARIANT ARRAY FUNCTION GetAllRows(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    VARIANT ARRAY savetempstore := tempstore;
+    tempstore := DEFAULT RECORD ARRAY;
+    TRY
+    {
+      this->ExportRowsToCallback(PTR AddToTempStore, options);
+      RETURN tempstore;
+    }
+    FINALLY
+    {
+      tempstore := savetempstore;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION GetParseProgress()
+  {
+    RETURN [ cur := this->currentexport_currentrow - 1
+           , total := this->currentexport_maxrow
+           ];
+  }
+
+  /** @float colprops.width Column width, measured as the number of characters of the maximum digit width */
+  PUBLIC MACRO SetColumn(INTEGER colidx, RECORD colprops)
+  {
+    //Find our column match
+    OBJECT cols := this->sheetroot->GetChildElementsByTagNameNS(xmlns_main, "cols")->Item(0);
+    IF(NOT ObjectExists(cols))
+    {
+      cols := this->xmldoc->CreateElementNS(xmlns_main,"cols");
+      this->sheetroot->InsertBefore(cols, this->sheetdata);
+    }
+
+    OBJECT ARRAY children := cols->childnodes->GetCurrentElements();
+    OBJECT col;
+
+    INTEGER idx ;
+    FOR(idx := 0; idx < Length(children); idx := idx + 1)
+    {
+      INTEGER min := ToInteger(children[idx]->GetAttribute("min"),0);
+      INTEGER max := ToInteger(children[idx]->GetAttribute("max"),0);
+
+      //FIXME properly split
+      IF(max < colidx)
+        CONTINUE;
+
+      IF(min > colidx) //overshot
+      {
+        //create a new node
+        BREAK;
+      }
+
+      IF(min!=max)
+        THROW NEW Exception("Splitting a column to set its width is not yet supported "); //ADDME
+
+      col := children[idx];
+      BREAK;
+    }
+
+    this->sheetfile->dirty := TRUE;
+    IF(NOT ObjectExists(col)) //create the node
+    {
+      col := this->xmldoc->CreateElementNS(xmlns_main, "col");
+      col->SetAttribute("min", ToString(colidx));
+      col->SetAttribute("max", ToString(colidx));
+      cols->InsertBefore(col, idx = Length(children) ? DEFAULT OBJECT : children[idx]);
+    }
+
+    IF(CellExists(colprops, 'width'))
+    {
+      col->RemoveAttribute("bestFit");
+      IF(colprops.width=0)
+      {
+        col->RemoveAttribute("customWidth");
+        col->RemoveAttribute("width");
+      }
+      ELSE
+      {
+        col->SetAttribute("customWidth","1");
+        col->SetAttribute("width",FormatFloat(colprops.width,8));
+      }
+    }
+
+    IF(CellExists(colprops, 'defaultstyle'))
+    {
+      IF(colprops.defaultstyle = 0)
+        col->RemoveAttribute("style");
+      ELSE
+        col->SetAttribute("style", ToString(colprops.defaultstyle));
+    }
+
+    IF(col->attributes->length = 2) //only min & max remain?
+      cols->RemoveChild(col);
+
+    //only this column remains? then remove the col node
+    IF(NOT cols->HasChildNodes())
+      this->sheetroot->RemoveChild(cols);
+  }
+
+  /** @short Set a column's width
+      @param colidx Column to set (1 is leftmost column)
+      @param width Column width measured as the number of characters of the maximum digit width of the numbers 0, 1, 2, ..., 9 as rendered in the normal style's font.
+  */
+  PUBLIC MACRO SetColumnWidth(INTEGER colidx, FLOAT width)
+  {
+    this->SetColumn(colidx, [ width := width ]);
+  }
+
+  PUBLIC RECORD FUNCTION __EncodeAsCellNodeValue(VARIANT newvalue, BOOLEAN forcestring)
+  {
+    IF(IsTypeIDArray(TypeID(newvalue)))
+    {
+      //we'll just have to cooerce everything to a string
+      STRING ARRAY result;
+      FOREVERY(VARIANT el FROM newvalue)
+        INSERT this->__EncodeAsCellNodeValue(el, TRUE).value INTO result AT END;
+      RETURN [ value := Detokenize(result,'; '), type := "inlineStr" ];
+    }
+    SWITCH(TypeID(newvalue))
+    {
+      CASE TypeID(STRING)
+      {
+        RETURN [ value := newvalue, type := "inlineStr" ];
+      }
+      CASE TypeID(MONEY)
+      {
+        RETURN [ value := FormatMoney(newvalue, 0, '.', '', FALSE), type := "" ];
+      }
+      CASE TypeID(DATETIME)
+      {
+        //Note. do NOT use type=d storage format. It's not actually supported by older versions of the FileFormatConverters.exe
+        STRING dateval := forcestring ? FormatISO8601Datetime(newvalue) : newvalue != DEFAULT DATETIME ? FormatFloat(this->exceldoc->ExcelFloatFromDatetime(newvalue), 10) : "";
+        RETURN [ value := dateval, type := "" ];
+      }
+      CASE TypeID(BOOLEAN)
+      {
+        RETURN [ value := newvalue ? "1" : "0", type := "b" ];
+      }
+      CASE TypeID(FLOAT)
+      {
+        //ADDME really small/large value support, zero/nines truncation?
+        RETURN [ value := FormatFloat(newvalue, 9), type := "" ];
+      }
+      CASE TypeID(INTEGER), TypeID(INTEGER64)
+      {
+        RETURN [ value := ToString(newvalue), type := "" ];
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unsupported type '${GetTypeName(TypeID(newvalue))}'`);
+      }
+    }
+  }
+
+  MACRO SetCellNodeValue(OBJECT cellnode, VARIANT newvalue)
+  {
+    //ADDME reuse value node if there is only one
+    WHILE(ObjectExists(cellnode->firstchild))
+      cellnode->RemoveChild(cellnode->firstchild);
+
+    RECORD setvalue := this->__EncodeAsCellNodeValue(newvalue, FALSE);
+    IF(setvalue.type != "" )
+      cellnode->SetAttribute("t", setvalue.type);
+    ELSE
+      cellnode->RemoveAttribute("t");
+
+    IF(setvalue.type="inlineStr") //requires different nodes structure
+    {
+      //ADDME support string table ? might help some previewers which assume we're always using it
+      OBJECT isnode := this->xmldoc->CreateElementNS(xmlns_main, "is");
+      OBJECT tnode := this->xmldoc->CreateElementNS(xmlns_main, "t");
+      tnode->AppendChild(this->xmldoc->CreateTextNode(Substitute(setvalue.value,'\n','\r')));
+      isnode->AppendChild(tnode);
+      cellnode->AppendChild(isnode);
+    }
+    ELSE
+    {
+      OBJECT valuenode := this->xmldoc->CreateElementNS(xmlns_main, "v");
+      cellnode->AppendChild(valuenode);
+      valuenode->AppendChild(this->xmldoc->CreateTextNode(setvalue.value));
+    }
+  }
+
+  PUBLIC MACRO SetCell(INTEGER rownum, INTEGER colnum, RECORD cellcontents)
+  {
+    this->sheetfile->dirty := TRUE;
+
+    OBJECT row := this->GetRow(rownum, TRUE);
+    OBJECT cellnode := this->GetCell(row, colnum, this->GetCellName(rownum,colnum), TRUE);
+    IF(NOT ObjectExists(cellnode))
+      THROW NEW Exception("Cannot create cells yet");
+
+    IF(CellExists(cellcontents,'value'))
+      this->SetCellNodeValue(cellnode, cellcontents.value);
+    IF(CellExists(cellcontents,'style'))
+      IF(cellcontents.style != 0)
+        cellnode->SetAttribute("s", ToString(cellcontents.style));
+      ELSE
+        cellnode->RemoveAttribute("s");
+  }
+
+  PUBLIC MACRO SetCellValue(INTEGER rownum, INTEGER colnum, VARIANT newvalue)
+  {
+    this->SetCell(rownum, colnum, [value:=newvalue]);
+  }
+
+  PUBLIC MACRO __DropRowCellsCache(INTEGER rownum)
+  {
+    RECORD lb := RecordLowerBound(this->allrows, [ rownum := rownum ], ["ROWNUM"]);
+    IF(lb.found)
+      DELETE CELL cells FROM this->allrows[lb.position];
+  }
+
+  PUBLIC OBJECT FUNCTION MakeColumnReader(RECORD ARRAY cols)
+  {
+    RETURN NEW ExcelColumnReader(this,cols);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE XLSXColumnFileWriter EXTEND ColumnFileWriterBase
+<
+  OBJECT xls;
+  OBJECT sheet;
+  INTEGER currow;
+  INTEGER datestyle;
+  INTEGER datetimestyle;
+  INTEGER timestyle;
+  INTEGER ARRAY colstyles;
+  INTEGER rowstream;
+  BLOB ARRAY rowblobs;
+
+  PUBLIC PROPERTY excelsheet(sheet, -);
+
+  MACRO ResetDoc()
+  {
+    this->xls := DEFAULT OBJECT;
+    this->sheet := DEFAULT OBJECT;
+    this->datestyle := 0;
+    this->datetimestyle := 0;
+    this->timestyle := 0;
+    this->rowblobs := BLOB[];
+
+    IF (this->rowstream != 0)
+    {
+      MakeBlobFromStream(this->rowstream);
+      this->rowstream := 0;
+    }
+
+    // XSLX files can be huge, collect garbage to clean up
+    CollectGarbage();
+  }
+
+  INTEGER FUNCTION GetColStyle(STRING type)
+  {
+    SWITCH(type)
+    {
+      CASE "date"
+      {
+        IF(this->datestyle = 0)
+          this->datestyle := this->xls->CreateXLSXStyle("d\ mmm\ yyyy;@");
+        RETURN this->datestyle;
+      }
+      CASE "datetime"
+      {
+        IF(this->datetimestyle = 0)
+          this->datetimestyle := this->xls->CreateXLSXStyle("d\ mmm\ yyyy h:mm:ss;@");
+        RETURN this->datetimestyle;
+      }
+      CASE "time","timestamp"
+      {
+        IF(this->timestyle = 0)
+          this->timestyle := this->xls->CreateXLSXStyle("h:mm:ss;@");
+        RETURN this->timestyle;
+      }
+    }
+    RETURN 0;
+  }
+
+  UPDATE PUBLIC MACRO WriteRow(RECORD inrow)
+  {
+    IF (this->rowstream = 0)
+      this->rowstream := CreateStream();
+
+    IF(NOT ObjectExists(this->xls))
+    {
+      this->xls := MakeNewOOXMLSpreadSheetFile();
+      this->sheet := this->xls->OpenSheetByName("Sheet1");
+
+      IF(Length(this->columns) = 0 )
+        this->columns := GuessHeadersFromRow(inrow);
+
+      IF(this->headerrow)
+      {
+        PrintTo(this->rowstream, `<row r="1">`);
+        FOREVERY(RECORD col FROM this->columns)
+          PrintTo(this->rowstream, `<c r="${GetNameForColumn(#col + 1)}1" t="inlineStr"><is><t>${EncodeValue(col.title)}</t></is></c>`);
+
+        PrintTo(this->rowstream, `</row>`);
+        this->currow := 2;
+      }
+      ELSE
+      {
+        this->currow := 1;
+      }
+
+      FOREVERY(RECORD col FROM this->columns)
+      {
+        INTEGER setstyle := this->GetColStyle(col.type);
+        INSERT setstyle INTO this->colstyles AT END;
+
+        RECORD colprops := [ defaultstyle := setstyle ];
+
+        IF (CellExists(col, "width"))
+        {
+          IF (TypeId(col.width) != TypeID(INTEGER))
+            Abort("The optional 'width' setting must be of type 'integer'");
+
+          INSERT CELL width := col.width INTO colprops;
+        }
+        ELSE IF(col.type="date")
+          INSERT CELL width := 12 INTO colprops;
+        ELSE IF(col.type="datetime")
+          INSERT CELL width := 20 INTO colprops;
+
+        this->sheet->SetColumn(#col + 1, colprops);
+      }
+    }
+
+    IF(NOT RecordExists(inrow))
+      RETURN;
+
+    PrintTo(this->rowstream, `<row r="${this->currow}">`);
+
+    //FIXME normalize values according to type definitions (ie fixup their type)
+    FOREVERY(RECORD col FROM this->columns)
+    {
+      //VARIANT invalue := GetCell(inrow, col.name), storevalue;
+      VARIANT storevalue;
+      VARIANT invalue;
+      invalue := this->GetCellByPath(inrow, col.namepath);
+
+      IF(col.type IN ["date","datetime","time"] AND CellExists(col, "storeutc") AND col.storeutc)
+      {
+        IF(this->timezone = "")
+          THROW NEW Exception("'storeutc' was enabled in XLSXColumnFileWriter, but no timezone was set");
+
+        invalue := UTCToLocal(invalue, this->timezone);
+      }
+
+      IF(col.type="date")
+        storevalue := GetRoundedDatetime(invalue, 86400*1000);
+      ELSE IF(col.type="time")
+        storevalue := GetMsecondCount(invalue) / (86400*1000f);
+      ELSE IF(col.type="timestamp")
+        storevalue := invalue / (86400*1000f);
+      ELSE
+        storevalue := invalue;
+
+
+      RECORD setvalue := this->sheet->__EncodeAsCellNodeValue(storevalue, FALSE);
+      PrintTo(this->rowstream, `<c r="${GetNameForColumn(#col + 1)}${this->currow}"${this->colstyles[#col] = 0 ? "" : ` s="${this->colstyles[#col]}"`}`);
+      IF (setvalue.type != "")
+        PrintTo(this->rowstream, ` t="${EncodeValue(setvalue.type)}">`);
+      ELSE
+        PrintTo(this->rowstream, `>`);
+
+      IF (setvalue.type = "inlineStr")
+        PrintTo(this->rowstream, `<is><t>${EncodeValue(Substitute(setvalue.value,'\n','\r'))}</t></is></c>`);
+      ELSE
+        PrintTo(this->rowstream, `<v>${EncodeValue(Substitute(setvalue.value,'\n','\r'))}</v></c>`);
+    }
+    PrintTo(this->rowstream, `</row>`);
+    this->sheet->__DropRowCellsCache(this->currow);
+    this->currow := this->currow + 1;
+  }
+
+  UPDATE PUBLIC BLOB FUNCTION MakeOutputFile()
+  {
+    IF(NOT ObjectExists(this->xls))
+      this->xls := MakeNewOOXMLSpreadSheetFile();
+
+    IF (this->rowstream != 0)
+    {
+      INSERT MakeBlobFromStream(this->rowstream) INTO this->rowblobs AT END;
+      this->rowstream := 0;
+    }
+
+    BLOB output := this->xls->SaveExcelDoc();
+
+    OBJECT resa := OpenExistingArchive(output);
+    BLOB resa_sheet := resa->GetFile("xl/worksheets/sheet1.xml");
+    STRING s := BlobToString(resa_sheet);
+    INTEGER datapos := SearchSubString(s, `<sheetData/>`);
+    INTEGER dimpos := SearchSubString(s, `<dimension ref="A1`) + 18;
+
+    RECORD ARRAY newfile :=
+        [ [ data := resa_sheet, length := dimpos ]
+          //TODO not sure if we should really write A1 and not A1:A1, didnt check spec .. but this is how our reference writer did it
+        , [ data := this->currow > 0 ? StringToBlob(`:${GetNameForColumn(LENGTH(this->columns))}${this->currow - 1}`)  : DEFAULT BLOB ]
+        , [ data := resa_sheet, start := dimpos, length := datapos - dimpos ]
+        , [ data := StringToBlob("<sheetData>") ]
+        , ...ToRecordArray(this->rowblobs, "data")
+        , [ data := StringToBlob("</sheetData>") ]
+        , [ data := resa_sheet, start := datapos + 12 ]
+        ];
+
+    resa->RemoveEntries("xl/worksheets/", "sheet1.xml");
+    resa->AddFile("xl/worksheets/sheet1.xml", MakeComposedBlob(newfile), GetCurrentDateTime());
+    output := resa->MakeBlob();
+    resa->Close();
+
+    this->ResetDoc();
+    RETURN output;
+  }
+>;
+
+
+// FIXME: datatime not implemented
+// ADDME: give some kind of warning or error in case parsing a STRING to INTEGER, FLOAT or MONEY failed
+// ADDME: give some kind of warning or error if a column is missing
+OBJECTTYPE ExcelColumnReader
+< RECORD ARRAY data;
+  OBJECT xlsxsheet;
+  RECORD ARRAY cols;
+  BOOLEAN seen_first_row;
+  RECORD ARRAY cachedemptyrows;
+
+  PUBLIC BOOLEAN first_row_header;
+
+  MACRO NEW(OBJECT xlsxsheet, RECORD ARRAY cols)
+  {
+    this->xlsxsheet := xlsxsheet;
+    this->cols := cols;
+
+    this->first_row_header := TRUE;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetAllRows()
+  {
+    this->data := DEFAULT RECORD ARRAY;
+    this->seen_first_row := FALSE;
+
+    this->xlsxsheet->ExportRowsToCallback(PTR this->GotImportLine(#1));
+
+    RETURN this->data;
+  }
+
+  BOOLEAN FUNCTION GotImportLine(VARIANT ARRAY tokens)
+  {
+//INSERT [ data := tokens ] INTO this->data AT END;
+//RETURN TRUE;
+    IF (this->first_row_header AND NOT this->seen_first_row AND Length(this->data) = 0)
+    {
+      this->seen_first_row := TRUE;
+      RETURN TRUE;
+    }
+
+    RECORD rec;
+    BOOLEAN isemptyrow := TRUE;
+    FOREVERY (RECORD col FROM this->cols)
+    {
+      // if the column doesn't exist, return a default value
+      IF (#col > Length(tokens)-1)
+      {
+        rec := CellInsert(rec, col.name, this->GetEmptyValue(col.type));
+        CONTINUE;
+      }
+
+      // if the column is empty (we get a FLOAT with 0.0 as value), return a default value
+      BOOLEAN emptyfloat := TypeID(tokens[#col]) = TypeID(FLOAT) AND tokens[#col] = 0;
+      IF (emptyfloat)
+      {
+        rec := CellInsert(rec, col.name, this->GetEmptyValue(col.type));
+        //rec := CellInsert(rec, col.name, GetTypeDefaultValue( ... ));
+        CONTINUE;
+      }
+
+      VARIANT newvalue;
+      SWITCH(ToUpperCase(col.type))
+      {
+        CASE "INTEGER"
+        {
+          IF (TypeID( tokens[#col] ) = TypeID(STRING))
+          {
+            // FIXME: build detection for strings that we couldn't parse to a FLOAT ?
+            newvalue := ToInteger(tokens[#col], 0);
+          }
+          ELSE // assume FLOAT, can we expect other types too?
+          {
+            // the 0.00000001 should fix rounding in case of a 0.5 being represented as 0.499999999
+            // (FIXME: check rounding works correctly .. and in all situations. )
+            newvalue := FloatToInteger( tokens[#col] + 0.00000001) ;
+          }
+        }
+
+        CASE "BOOLEAN"
+        {
+          IF (TypeID( tokens[#col] ) = TypeID(BOOLEAN) AND tokens[#col])
+            newvalue := TRUE;
+          ELSE
+           newvalue := FALSE;
+        }
+
+        CASE "FLOAT"
+        {
+          IF (TypeID( tokens[#col] ) = TypeID(STRING))
+          {
+            // FIXME: build detection for strings that we couldn't parse to a FLOAT ?
+            newvalue := ToFloat(tokens[#col], 0);
+          }
+          ELSE // assume FLOAT, can we expect other types too?
+            newvalue := tokens[#col];
+        }
+
+        CASE "MONEY"
+        {
+          IF (TypeID( tokens[#col] ) = TypeID(STRING))
+          {
+            // FIXME: build detection for strings that we couldn't parse to a FLOAT ?
+            newvalue := ToMoney(tokens[#col], 0);
+          }
+          ELSE // assume FLOAT, can we expect other types too?
+            newvalue := FloatToMoney( tokens[#col] );
+        }
+
+        CASE "STRING"
+        {
+          newvalue := CellToString(tokens[#col], NOT CellExists(col,"trimwhitespace") OR col.trimwhitespace = TRUE, "integer");
+        }
+
+        CASE "DATETIME"
+        {
+          // ADDME/FIXME: do some testing, no clue if it works or if we need to parse the ISO date or whatever
+          newvalue := tokens[#col];
+        }
+        DEFAULT
+        {
+          THROW NEW Exception("Unknown type '" || col.type || "'");
+        }
+      }
+
+      IF(NOT IsDefaultValue(newvalue))
+        isemptyrow := FALSE;
+
+      rec := CellInsert(rec, col.name, newvalue);
+    }
+
+    // for DEBUGGING
+    //INSERT CELL raw := tokens INTO rec;
+
+    IF(isemptyrow)
+    {
+      INSERT rec INTO this->cachedemptyrows AT END;
+    }
+    ELSE
+    {
+      IF(Length(this->cachedemptyrows) > 0)
+      {
+        this->data := this->data CONCAT this->cachedemptyrows;
+        this->cachedemptyrows := DEFAULT RECORD ARRAY;
+      }
+      INSERT rec INTO this->data AT END;
+    }
+    RETURN TRUE;
+  }
+
+  VARIANT FUNCTION GetEmptyValue(STRING coltype)
+  {
+    SWITCH (ToUpperCase(coltype))
+    {
+      CASE "STRING"
+      {
+        RETURN "";
+      }
+      CASE "INTEGER"
+      {
+        RETURN 0;
+      }
+      CASE "FLOAT"
+      {
+        RETURN 0f;
+      }
+      CASE "MONEY"
+      {
+        RETURN 0m;
+      }
+      CASE "DATETIME"
+      {
+        RETURN DEFAULT DATETIME;
+      }
+      DEFAULT
+      {
+        THROW NEW Exception("Unexpected column type '" || coltype || "'");
+      }
+    }
+  }
+>;
+
+PUBLIC OBJECT FUNCTION OpenOOXMLSpreadSheetFile(BLOB xlsdoc)
+{
+  OBJECT xls := NEW ExcelDoc(xlsdoc);
+  RETURN xls;
+}
+///@private Deprecate!
+PUBLIC OBJECT FUNCTION MakeOOXMLColumnReader(BLOB xlsdoc, RECORD ARRAY cols)
+{
+  OBJECT importxlsxfile := OpenOOXMLSpreadSheetFile(xlsdoc);
+  OBJECT importxlsxsheet := importxlsxfile->OpenSheet(0);
+  RETURN importxlsxsheet->MakeColumnReader(cols);
+}
+
+/** Read an Excel (XLSX) file
+    @param xlsxdoc Document to load
+    @cell options.alltostring Return all columns as strings (defaults to TRUE)
+    @cell options.processheaders Process the first row as headers (defaults to TRUE)
+    @cell options.dotrimwhitespace Trim all whitespace from strings (defaults to true)
+    @cell options.floatmode How to convert numbers: "integer", "money" (rounds to money and omits trailing zeroes) or "float"
+    @return Extracted rows */
+PUBLIC RECORD ARRAY FUNCTION GetOOXMLSpreadsheetRows(BLOB xlsxdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ alltostring := TRUE
+                             , processheaders := TRUE
+                             , floatmode := "float"
+                             , dotrimwhitespace := TRUE
+                             ], options, [ enums := [ floatmode := ["float","money","integer"]]]);
+
+  OBJECT importxlsxfile := OpenOOXMLSpreadSheetFile(xlsxdoc);
+  OBJECT importxlsxsheet := importxlsxfile->OpenSheet(0);
+  OBJECT getter := NEW TokenRowReceiver(options);
+  importxlsxsheet->ExportRowsToCallback(PTR getter->ReceiveRow, options);
+  RETURN getter->Finalize();
+}
+
+PUBLIC OBJECT FUNCTION MakeNewOOXMLSpreadSheetFile()
+{
+  RETURN OpenOOXMLSpreadSheetFile(GetHarescriptResource("whres::ooxml/template.xlsx"));
+}
+
+/** Validate XLSX options (shared with common dialog and lowlevel %GenerateXLSXFile)
+    @cell(record array) options.rows Rows to export.
+    @cell(record array) options.columns Column to export
+    @cell(string) options.columns.name Column name
+    @cell(string) options.columns.title Column title
+    @cell(string) options.columns.type Column type
+    @cell(boolean) options.columns.storeutc Set to TRUE if the column's value is in UTC
+    @cell(string) options.exporttitle Export title (base for filename and frame title
+    @cell(string) options.timezone Timezone to use for datetime fields
+    @return Validated options */
+PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
+{
+  //we're using options even though we could have just asked for rows and cols, so we can replace 'rows' with a callback or generator in the future
+
+  options := ValidateOptions( [ rows := RECORD[]
+                              , columns := RECORD[]
+                              , exporttitle := ""
+                              , filename := ""
+                              , timezone := ""
+                              ], options, [ required := ["rows" ]]);
+
+  IF(Length(options.columns) = 0 AND Length(options.rows) > 0)
+    options.columns := GuessHeadersFromRow(options.rows[0]);
+
+  options.columns := SELECT AS RECORD ARRAY ValidateOptions(
+    [ name := ""
+    , title := ""
+    , type := ""
+    , storeutc := FALSE
+    ], col, [ required := ["name", "title", "type" ]
+            , title := "column " || #col
+            , enums := [ type := [ "text", "boolean", "money", "datetime", "date", "time", "float", "integer", "integer64", "timestamp", "string" ]
+                       ]
+            ]) FROM options.columns AS col;
+
+  IF(options.timezone = "" AND RecordExists(SELECT FROM options.columns WHERE type IN ["datetime,date","time"] AND storeutc))
+    THROW NEW Exception(`The 'timezone' option must be set if the export contains any columns with storeutc=true`);
+
+  //backwards compatibility... 'string' was often used but actually ignored and then defaulted to 'text'. let's tolerate that...
+  UPDATE options.columns SET type := "text" WHERE type = "string";
+
+  IF(options.filename = "") //we don't require a timezone just for filename autogeneration
+    options.filename := (options.exporttitle ?? "export") || "-" || FormatDatetime("%Y-%m-%d", UTCToLocal(GetCurrentDatetime(), options.timezone ?? "UTC")) || ".xlsx";
+
+  RETURN options;
+}
+
+/** @short Generate a XLSX file
+    @param options @includecelldef #__ValidateXLSXFileOptions.options
+    @return Wrapped blob containing the XLSX file @includecelldef %WrapBlob.return
+    @example
+//Store my record array 'rows' to /tmp/regs.xlsx, generating default cellnames
+StoreDiskFile("/tmp/regs.xlsx", GenerateXLSXFile(CELL[rows]).data);
+*/
+PUBLIC RECORD FUNCTION GenerateXLSXFile(RECORD options)
+{
+  options := __ValidateXLSXFileOptions(options);
+
+  OBJECT csvout := NEW XLSXColumnFileWriter;
+  csvout->columns := options.columns;
+  csvout->timezone := options.timezone;
+  IF(Length(options.rows) > 0)
+    csvout->WriteRows(options.rows);
+  ELSE
+    csvout->WriteRow(DEFAULT RECORD); //ensure at least the header is written
+
+  BLOB output := csvout->MakeOutputFile();
+  RETURN WrapBlob(output, options.filename);
+}
+

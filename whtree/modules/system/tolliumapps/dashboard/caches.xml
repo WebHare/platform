@@ -1,0 +1,30 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="caches.whlib"
+         gid="tolliumapps.dashboard.caches">
+
+  <screen name="precalculatedcache">
+    <actions>
+      <action name="delete" tid="~delete">
+        <enableon source="cacheentries" min="1" onexecute="ondelete"/>
+      </action>
+    </actions>
+    <body height="1pr">
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="cacheentries" ongetrows="ongetcacheentries" height="1pr" borders="top right bottom" selectmode="multiple" eventmasks="system:precalccache.updated">
+            <column name="rowkey" type="integer" tid=".id" width="10x"/>
+            <column name="hash" type="text" width="34x" />
+            <column name="func" type="text" />
+            <column name="state" type="text" width="14x" />
+            <column name="lastuse" type="datetime" storeutc="true" width="18x" />
+          </list>
+        </cell>
+        <cell spacers="top left right">
+          <button width="1pr" action="delete" />
+        </cell>
+      </grid>
+    </body>
+  </screen>
+
+
+</screens>

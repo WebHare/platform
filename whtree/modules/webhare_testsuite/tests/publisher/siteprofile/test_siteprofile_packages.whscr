@@ -1,0 +1,52 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+PUBLIC ASYNC MACRO TestScopedLoader()
+{
+  testfw->BeginWork();
+  OBJECT site := testfw->SetupTestWebdesignWebsite("", [ outputpath := "test_siteprofile_packages" ]);
+  site->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:testpackage"]]);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT testobject := site->rootobject->CreateFolder([name:="mediafolder", typens := "http://www.webhare.net/xmnls/webhare_testsuite/package/mediafolder"]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR CreateWHFSObjectPropsDialog(GetTestController(), testobject->id)->RunModal());
+  TestEq(TRUE, ObjectExists(TT(":MediafolderTextfield")));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+PUBLIC MACRO TestBadPackageUse()
+{
+  TestSiteProfilesNoErrors();
+
+  STRING nodirectpackageuse :=
+    `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition">
+      <applysiteprofile path="${Resolve("data/node_modules/package/package.siteprl.xml")}"/>
+     </siteprofile>`;
+
+  testfw->BeginWork();
+  OBJECT site := testfw->SetupTestWebdesignWebsite(nodirectpackageuse, [ outputpath := "test_siteprofile_badpackageuse" ]);
+  testfw->CommitWork();
+
+  RECORD csp := GetCachedSiteProfiles();
+  //DumpValue(csp.errors,'boxed');
+  TestEq(1, Length(csp.errors));
+  TestEqLike("*scoped*applysiteprofile*", csp.errors[0].message);
+}
+
+
+RunTestFramework( [ PTR TestScopedLoader
+                  , PTR TestBadPackageUse
+                  ],
+                  [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                  ]
+                  ]);

@@ -1,0 +1,1858 @@
+﻿<?wh
+/** @short IMAP library
+    @long A collection of functions to access IMAP email accounts
+    @topic internet/email
+*/
+
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internal/tcputils.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internal/bodystructure.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+
+RECORD ARRAY sessions;
+
+BOOLEAN open_mailbox;
+
+PUBLIC FUNCTION PTR imap_debuglogptr;
+
+PUBLIC MACRO ImapDebugLog(STRING str)
+{
+  IF (imap_debuglogptr != DEFAULT FUNCTION PTR)
+    imap_debuglogptr("IMAP: " || str);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// International folder names handling
+//
+
+
+/** @short this function decodes modified UTF-7 (used for imap foldernames) to UTF-8 */
+PUBLIC STRING FUNCTION DecodeMUTF7(STRING coded)
+{
+  STRING out;
+
+  INTEGER endpos := Length(coded);
+  INTEGER amp;
+  INTEGER dash := -1;
+
+  STRING currentstring := coded;
+
+  WHILE (true)
+  {
+    amp := searchsubstring(currentstring, '&');
+    IF (amp = -1)
+    {
+      RETURN out || currentstring;
+    }
+    ELSE
+    {
+      out := out || left(currentstring, amp); //First paste the uncoded part
+
+      dash := searchsubstring(currentstring, '-');
+      IF (dash = amp + 1) // '&-' codes for '&'
+        out := out || '&';
+      ELSE
+        out := out || DecodeUCS2(DecodeMBase64(substring(currentstring, amp + 1, dash - amp -1)));
+
+      currentstring := substring(currentstring, dash + 1, endpos);
+    }
+  }
+}
+
+
+
+/** @short this function encodes UTF-8 to modified UTF-7 (used for imap foldernames) */
+PUBLIC STRING FUNCTION EncodeMUTF7(STRING uncoded)
+{
+  STRING out;
+
+  STRING tocode;
+  FOR (INTEGER i := 0; i < UCLength(uncoded); i := i + 1)
+  {
+    STRING char := UCSubstring(uncoded,i,1);
+    INTEGER charv := GetUCValue(char);
+
+    IF (charv < 32 OR charv >= 127)
+    {
+      // Must be encoded
+      tocode := tocode || char;
+    }
+    ELSE
+    {
+      IF (Length(tocode) > 0)
+      {
+        out := out || "&" || EncodeMBase64(EncodeUCS2(tocode)) || "-";
+        tocode := "";
+      }
+      IF (charv = 38)
+        out := out || "&-";
+      ELSE
+        out := out || char;
+    }
+  }
+  IF (Length(tocode) > 0)
+  {
+    out := out || "&" || EncodeMBase64(EncodeUCS2(tocode)) || "-";
+    tocode := "";
+  }
+  RETURN out;
+}
+
+STRING FUNCTION EncodeMailboxName(STRING uncoded)
+{
+  STRING encoded := EncodeMUTF7(uncoded);
+
+  encoded := Substitute(encoded, '\\', '\\\\');
+  encoded := Substitute(encoded, '"', '\\"');
+
+  RETURN '"' || encoded || '"';
+}
+
+
+PUBLIC STRING FUNCTION EncodeUCS2(STRING uncoded)
+{
+  INTEGER ARRAY utf16chars;
+
+  FOR (INTEGER i := 0; i < UCLength(uncoded); i := i + 1)
+    INSERT GetUCValue(UCSubstring(uncoded,i,1)) INTO utf16chars AT END;
+
+  RETURN EncodePacket("utf16chars:N*",[utf16chars := utf16chars]);
+}
+
+
+
+PUBLIC STRING FUNCTION DecodeUCS2(string coded)
+{
+  RECORD result := DecodePacket("utf16chars:N*", coded);
+
+  STRING finaltext;
+  FOREVERY(INTEGER utf16char FROM result.utf16chars)
+    finaltext := finaltext || UCToString(utf16char);
+  RETURN finaltext;
+}
+
+
+
+PUBLIC STRING FUNCTION DecodeMBase64(STRING coded)
+{
+  RETURN DecodeBase64(substitute(coded, ",","/"));
+}
+
+
+
+STRING FUNCTION EncodeMBase64(STRING uncoded)
+{
+
+  STRING coded := Substitute(EncodeBase64(uncoded), "/",",");
+  INTEGER eqpos := SearchSubstring(coded, '=');
+
+  IF (eqpos >= 0)
+    coded := Left(coded, eqpos);
+
+  RETURN coded;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// IMAP Error Handling
+//
+
+
+/** @short This function will check and clear the last error that occured (if any)
+    @param connectionid ID of the connection
+    @return String with the error message (can be a multiline message separated by \n's)
+*/
+PUBLIC STRING FUNCTION GetIMAPError(INTEGER connectionid)
+{
+  // Read the error
+  RECORD session := GetSession(connectionid);
+  STRING lasterror := session.lasterror;
+  session.lasterror := "";
+  SaveSession(connectionid, session);
+
+  ImapDebugLog("GetIMAPError: "||lasterror||"\n"||AnyToString(GetStackTrace(),"boxed"));
+
+  RETURN lasterror;
+}
+
+
+
+/** @short This function will set the last error message */
+MACRO SetIMAPError(INTEGER connectionid, STRING error)
+{
+//  ImapDebugLog("!!Error: " || error||"\n"||AnyToString(GetStackTrace(),"boxed"));
+
+  IF (error = "" AND NOT ImapConnectionAlive(connectionid))
+    error := "Connection with IMAP server has been closed by the remote server";
+
+  RECORD session := GetSession(connectionid);
+  session.lasterror := error;
+  SaveSession(connectionid, session);
+}
+
+/** @short This function will set the last error message */
+MACRO SetIMAPErrorFromResponse(INTEGER connectionid, STRING response)
+{
+  INTEGER spos := SearchSubstring(response, " ");
+  SetIMAPError(connectionid, SubString(response, spos + 1));
+}
+
+BOOLEAN FUNCTION HasIMAPErrors(INTEGER connectionid)
+{
+  RETURN GetSession(connectionid).lasterror != "";
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// IMAP Session Management
+//
+
+/** @short This function will find the connectionsession record
+    @param connectionid Integer id of the connection */
+RECORD FUNCTION GetSession(INTEGER connectionid)
+{
+  // Search in the array of sessions for this connection
+  RETURN SELECT * FROM sessions WHERE id = connectionid;
+}
+
+
+
+/** @short This function will find the connectionsessions record
+    @param connectionid Integer id of the connection */
+MACRO SAVESESSION(INTEGER connectionid, RECORD sessionrec)
+{
+  DELETE FROM sessions WHERE id = connectionid;
+  INSERT sessionrec INTO sessions AT END;
+}
+
+
+
+/** @short Send an IMAP command
+    @param connectionid Connection to use
+    @param command Command to send */
+MACRO SendIMAPCommand(INTEGER connectionid, STRING command)
+{
+  RECORD session := GetSession(connectionid);
+  session.tagnr := session.tagnr + 1;
+  STRING command_str := "a" || session.tagnr || " " || command;
+
+  PrintTo(connectionid, command_str || "\r\n");
+  ImapDebugLog("Command: " || command_str);
+
+  SaveSession(connectionid, session);
+}
+
+
+
+/** @short This function verifies the response received from the IMAP server (should start with 'tag OK')
+    @param connectionid Id of the csession
+    @param response String with the response from the server
+    @return Returns TRUE if the response received from the IMAP server is ok */
+BOOLEAN FUNCTION SuccessfulIMAPResponse(INTEGER connectionid, STRING response)
+{
+  ImapDebugLog("TestOK: " || response);
+
+  RECORD session := GetSession(connectionid);
+
+  // Empty response means connection failed
+  IF (response = "")
+  {
+    session.alive := FALSE;
+    session.lasterror := "Connection with IMAP server has been closed by the remote server";
+    SaveSession(connectionid, session);
+
+    RETURN FALSE;
+  }
+  RETURN Left(response, Length("a" || session.tagnr || " OK")) = ("a" || session.tagnr || " OK") OR Left(response, 4) = ("* OK");
+}
+
+
+
+/** @short This function verifies the response received from the IMAP server (should start with 'tag NO')
+    @param connectionid Id of the session
+    @param response String with the response from the server
+    @return Returns TRUE if the IMAP Response was unsuccessfull */
+BOOLEAN FUNCTION UnSuccessfulIMAPResponse(INTEGER connectionid, STRING response)
+{
+  ImapDebugLog("TestFail: " || response);
+
+  RECORD session := GetSession(connectionid);
+
+  // Empty response means connection failed
+  IF (response = "")
+  {
+    session.alive := FALSE;
+    session.lasterror := "Connection with IMAP server has been closed by the remote server";
+    SaveSession(connectionid, session);
+
+    RETURN FALSE;
+  }
+  STRING want_tag := "a" || session.tagnr;
+
+  RETURN Left(response, Length("a" || session.tagnr || " NO")) = ("a" || session.tagnr || " NO")
+      OR Left(response, Length("a" || session.tagnr || " BAD")) = ("a" || session.tagnr || " BAD");
+}
+
+
+
+/*  @short This function checks if the response from the IMAP server has ended
+    @param connectionid Id of the session
+    @param response String with the response from the server
+    @return Returns TRUE if the response has ended */
+BOOLEAN FUNCTION EndOfIMAPCommandResponse(INTEGER connectionid, STRING response)
+{
+  ImapDebugLog("TestEnd: " || response);
+
+  RECORD session := GetSession(connectionid);
+
+  // Empty response means connection failed
+  IF (response = "")
+  {
+    session.alive := FALSE;
+    session.lasterror := "Connection with IMAP server has been closed by the remote server";
+    SaveSession(connectionid, session);
+
+    RETURN FALSE;
+  }
+
+  RETURN Left(response, Length("a" || session.tagnr)) = ("a" || session.tagnr);
+}
+
+
+
+/** @short This function checks if a IMAP connection is still alive
+    @param connectionid Id of the session
+    @return Returns TRUE if the connection is still alive
+*/
+PUBLIC BOOLEAN FUNCTION ImapConnectionAlive(INTEGER connectionid)
+{
+  RECORD session := GetSession(connectionid);
+
+  RETURN session.alive;
+}
+
+INTEGER FUNCTION DoImapLogin(INTEGER connectionid, STRING username, STRING passwd)
+{
+  // Prepare session data
+  RECORD session :=
+    [ id := connectionid
+    , tagnr := 0
+    , root := ""
+    , lasterror := ""
+    , alive := TRUE
+    , delimiter := ""
+    ];
+  SaveSession(connectionid, session);
+
+  STRING received := ReadLineFrom(connectionid, 32768, TRUE);
+  IF (NOT SuccessfulImapResponse(connectionid, received))
+  {
+    CloseIMAPAccount(Connectionid);
+    RETURN -3; // Server not ready
+  }
+
+  // Check if the imap server is ready
+  IF (NOT SuccessfulIMAPResponse(connectionid, received))
+  {
+    CloseIMAPAccount(connectionid);
+    RETURN -2; // No connection
+  }
+
+  ImapDebugLog("Sending login");
+
+  // Login using the default plain authentication
+  SendIMAPCommand(connectionid, 'LOGIN "' || EncodeJava(username) || '" "' || EncodeJava(passwd) || '"');
+  WHILE (TRUE)
+  {
+    received := ReadLineFrom(connectionid, 32768, TRUE);
+
+    ImapDebugLog("Received response: " ||received);
+
+    BOOLEAN success := SuccessfulIMAPResponse(connectionid, received);
+    IF (success)
+      BREAK;
+
+    // Also expect "* blablabla" (gmail sends * capability)
+    IF (LEFT(received, 2) != "* ")
+    {
+      CloseIMAPAccount(connectionid);
+      RETURN -1;
+    }
+  }
+
+  // Now we're logged in
+  RETURN connectionid;
+}
+
+
+
+/** @short This function will try to login to a IMAP server
+    @long  This function tries to login on a IMAP server with a user name and password. When the login is succesful
+           the ID (>0) of the connection is returned. If -1 is returned by the function a wrong password was received.
+           IF -2 is returned there was no connection with the IMAP server. IF -3 is returned the IMAP server was not ready.
+    @param serverip String containing the IP of the IMAP mail server
+    @param serverport Number of the port of the IMAP mail server
+    @param username The user name of the account to connect with
+    @param passwd The password of the account
+    @return ID or error code
+    @see CloseIMAPAccount, OpenSecureIMAPAccount
+*/
+PUBLIC INTEGER FUNCTION OpenImapAccount(STRING serverip, INTEGER serverport, STRING username, STRING passwd)
+{
+  // Open the connection
+  INTEGER connectionid := CreateTCPSocket();
+  IF (connectionid=0)
+  {
+    RETURN -1;
+  }
+
+  IF (NOT ConnectSocket(connectionid,serverip,serverport))
+  {
+    CloseSocket(Connectionid);
+    RETURN -2; // No connection
+  }
+
+  RETURN DoImapLogin(connectionid,username,passwd);
+
+}
+
+
+
+/** @short This function will try to login to a secure IMAP server
+    @long  This function tries to login on a secure IMAP server with a user name and password. When the login is succesful
+           the ID (>0) of the connection is returned. If -1 is returned by the function a wrong password was received.
+           IF -2 is returned there was no connection with the IMAP server. IF -3 is returned the IMAP server was not ready.
+    @param serverip String containing the IP of the IMAP mail server
+    @param serverport Integer of the port of the IMAP mail server
+    @param username The user name of the account to connect with
+    @param passwd The password of the account
+    @return ID or error code
+    @see CloseIMAPAccount, OpenIMAPAccount
+*/
+PUBLIC INTEGER FUNCTION OpenSecureImapAccount(STRING serverip, INTEGER serverport, STRING username, STRING passwd)
+{
+  // Open the connection
+  INTEGER connectionid := CreateTCPSocket();
+  IF (connectionid=0)
+  {
+    RETURN -2;
+  }
+
+  IF (NOT ConnectSocket(connectionid,serverip,serverport))
+  {
+    CloseSocket(Connectionid);
+    RETURN -2; // No connection
+  }
+
+  SetSecureConnection(connectionid);
+  RETURN DoImapLogin(connectionid,username,passwd);
+
+}
+
+
+
+/** @short This function will close the connection to the IMAP server
+    @param connectionid Integer id of the connection
+    @see OpenIMAPAccount, OpenSecureIMAPAccount
+*/
+PUBLIC MACRO CloseIMAPAccount(INTEGER connectionid)
+{
+  // Send the logout command
+  SendIMAPCommand(connectionid, "LOGOUT");
+  // Delete the session record
+  DELETE FROM sessions WHERE id = connectionid;
+  // Close the connection to the IMAP server
+  CloseSocket(connectionid);
+}
+
+
+
+
+/** @short This function will create a mail folder on the IMAP server
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param foldername String name of the new mail folder
+    @return Return TRUE if the IMAP mail folder was created succesfully
+    @see OpenIMAPAccount, GetIMAPMailfolders
+*/
+PUBLIC BOOLEAN FUNCTION CreateIMAPMailfolder(INTEGER connectionid, STRING foldername)
+{
+  // Send the create command
+  SendIMAPCommand(connectionid, 'CREATE ' || EncodeMailboxName(foldername));
+  STRING response := ReadLineFrom(connectionid, 32768, TRUE);
+  IF (NOT SuccessfulIMAPResponse(connectionid, response))
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN FALSE;
+  }
+  ELSE
+    RETURN TRUE;
+}
+
+
+
+/** @short This function will send a message-blob to a IMAP-folder.
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param foldername String name of the mail folder
+    @param message Blob email message
+    @return Returns data of the message if uploaded successfully, DEFAULT RECORD otherwise
+    @cell.date Date of the email
+    @cell.subject Subject of the email
+    @cell.sender Sender of the email
+    @cell.receiver Receiver of the email
+    @cell.size Size of the email
+    @cell.uid The UID of the email
+    @cell.seen True if the message has been read
+*/
+PUBLIC RECORD FUNCTION UploadIMAPBlobMessage(INTEGER connectionid, STRING foldername, BLOB message, DATETIME internaldate, STRING ARRAY flags)
+{
+  // FIXME: handle INTERNALDATE !!
+
+  // Send a NOOP so we can be notified of the existance of the new messages, so we won't get them later
+  SendIMAPCommand(connectionid, 'NOOP');
+  STRING response := ReadLineFrom(connectionid, 32768, TRUE);
+
+  // Throw away all extra responses ('* exists' and stuff)
+  WHILE (NOT EndOfIMAPCommandResponse(connectionid, response) AND ImapConnectionAlive(connectionid))
+    response := ReadLineFrom(connectionid, 32768, TRUE);
+
+  IF (NOT SuccessfulIMAPResponse(connectionid, response))
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN DEFAULT RECORD;
+  }
+
+  // Get the uids in the current folder (so we know the last one)
+  INTEGER ARRAY uids := GetIMAPUidListing(connectionid, foldername, 0);
+  INTEGER lastuid := LENGTH(uids) = 0 ? 0 : uids[LENGTH(uids) - 1];
+
+  STRING optflags := LENGTH(flags) = 0 ? "" : " (" || Detokenize(flags, " ") || ")";
+
+  // Send the append command
+  SendIMAPCommand(connectionid, 'APPEND ' || EncodeMailboxName(foldername) || '' || optflags || ' {' || Length(message) || '}');
+  // Wait till the server is ready to receive the message
+  response := ReadLineFrom(connectionid, 32768, TRUE);
+
+  // It might refuse outright
+  IF (UnSuccessfulIMAPResponse(connectionid, response))
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN DEFAULT RECORD;
+  }
+
+  //Now send the message and end with an empty line
+  SendBlobTo(connectionid, message);
+  PrintTo(connectionid, "\r\n");
+
+  INTEGER ARRAY new_items;
+
+  // Get response
+
+  response := ReadLineFrom(connectionid, 32768, TRUE);
+  IF (LEFT(response, 2) != "* ")
+  {
+    IF (NOT SuccessfulIMAPResponse(connectionid, response))
+    {
+      SetIMAPErrorFromResponse(connectionid, response);
+      RETURN DEFAULT RECORD;
+    }
+
+    // Send a NOOP so we can be notified of the existance of the new message (and so it can be found by search)
+    SendIMAPCommand(connectionid, 'NOOP');
+    response := ReadLineFrom(connectionid, 32768, TRUE);
+  }
+
+  // Interpret extra responses ('* exists' and stuff). See if we have got one new message (that's cool, we don't need the message-id to filter on then)
+  WHILE (NOT EndOfIMAPCommandResponse(connectionid, response) AND ImapConnectionAlive(connectionid))
+  {
+    IF (ToUppercase(response) LIKE "? * EXISTS")
+    {
+      INTEGER spos := SearchSubString(response, " ", 3);
+      INTEGER id := ToInteger(SubString(response, 2, spos - 2), -1);
+      IF (id != -1)
+        INSERT id INTO new_items AT END;
+    }
+    response := ReadLineFrom(connectionid, 32768, TRUE);
+  }
+
+  IF (NOT SuccessfulIMAPResponse(connectionid, response))
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN DEFAULT RECORD;
+  }
+  RECORD ARRAY headers := DecodeMIMEHeaderFromBlob(message);
+  STRING message_id := GetMIMEHeader(headers, "MESSAGE-ID");
+
+  RECORD data := FindUploadedMessage(connectionid, foldername, lastuid, message_id, LENGTH(new_items) = 1);
+//  IF (NOT RecordExists(data))
+//  {
+//  }
+
+  RETURN data;
+}
+
+INTEGER ARRAY FUNCTION InterpretUIDSearchResponse(INTEGER connectionid)
+{
+  STRING response;
+  WHILE(TRUE)
+  {
+    STRING buffer := ReadLineFrom(connectionid, 32768, FALSE);
+    response := response || buffer;
+
+    IF(buffer="" OR UnSuccessfulIMAPResponse(connectionid, response) OR NOT ImapConnectionAlive(connectionid))
+    {
+      SetIMAPErrorFromResponse(connectionid, response);
+      RETURN DEFAULT INTEGER ARRAY;
+    }
+    IF(Right(response,2)="\r\n")
+      BREAK;
+  }
+  response := Left(response, Length(response)-2);
+
+  ImapDebugLog("InterpretUIDSearchResponse: " || response);
+
+  STRING ARRAY parts := Tokenize(response, " ");
+  response := ReadLineFrom(connectionid, 32768, TRUE);
+  IF (NOT SuccessfulIMAPResponse(connectionid, response))
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+  DELETE FROM parts AT 0;
+  DELETE FROM parts AT 0;
+
+  RECORD ARRAY results;
+  FOREVERY (STRING part FROM parts)
+    INSERT [ id := ToInteger(part, 0) ] INTO results AT END;
+
+  RETURN SELECT AS INTEGER ARRAY id
+           FROM results
+       ORDER BY id;
+}
+
+RECORD FUNCTION FindUploadedMessage(INTEGER connectionid, STRING mailfolder, INTEGER lastuid, STRING messageid, BOOLEAN only_one_new)
+{
+  IF (only_one_new)
+    SendIMAPCommand(connectionid, 'UID SEARCH UID '||lastuid+1||':*');
+  ELSE
+    SendIMAPCommand(connectionid, 'UID SEARCH UID '||lastuid+1||':* HEADER MESSAGE-ID "' || EncodeJava(messageid) || '"');
+
+  INTEGER ARRAY uids := InterpretUIDSearchResponse(connectionid);
+  IF (LENGTH(uids) = 0)
+  {
+    SetIMAPError(connectionid, "Could not find added message in account");
+    RETURN DEFAULT RECORD;
+  }
+
+  uids := [ uids[LENGTH(uids) - 1] ];
+  RETURN GetIMAPEmailListingByUids(connectionid, mailfolder, uids, FALSE);
+
+}
+
+/** @short This function will get a flat listing of available mail folders (recursive)
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @return RECORD ARRAY with folder names (DEFAULT RECORD ARRAY when an error has been encountered)
+    @return.cell name Name of the mail folder, may contain wildcards
+    @see OpenIMAPAccount, CreateIMAPMailfolder
+*/
+PUBLIC RECORD ARRAY FUNCTION GetIMAPMailfolders(INTEGER connectionid, STRING mailfolder)
+{
+  SendIMAPCommand(connectionid, 'LIST "" ' || EncodeMailboxName(mailfolder));
+
+  RETURN InterpretListCommandResponse(connectionid);
+}
+
+// Parse a line. Tokenize on spaces, detect quoted strings (and remove the quotes), detect
+// parenthesized lists and give them back without modification.
+STRING ARRAY FUNCTION ParseLineParts(STRING line)
+{
+  OBJECT parser := NEW StringParser;
+  parser->Reset(line);
+
+  RETURN ParseLinePartsFromParser(parser);
+}
+
+// Parses a line, based on a parser object. Returns parsed parts. Public for test purposes.
+PUBLIC STRING ARRAY FUNCTION ParseLinePartsFromParser(OBJECT parser)
+{
+  //ImapDebugLog("parsing: " || parser->remaining_data);
+
+  STRING ARRAY results;
+
+  // Skip all initial spaces
+  parser->ParseWhileInSet(' ');
+
+  WHILE (NOT parser->eof)
+  {
+    // We're at start of a word
+    STRING word;
+    SWITCH (parser->current)
+    {
+    CASE ')', ']'
+      {
+        // Found an enclosing (square) bracket: end of line
+        BREAK;
+      }
+    CASE '"'
+      {
+        // It's a quoted string (format: DQUOTE ([^\\"]|\\.)* DQUOTE
+        parser->SkipN(1); // Skip the '"'
+        WHILE (NOT parser->eof)
+        {
+          // Parse all non-special characters
+          word := word || parser->ParseWhileNotInSet('\\"');
+
+          IF (parser->TryParse("\\")) // Escaped character: remove the \\
+            word := word || parser->ParseN(1);
+          ELSE IF (parser->TryParse('"')) // End of the word
+            BREAK;
+        }
+      }
+    CASE '('
+      {
+        // Quoted list: give back unmodified
+        word := parser->ParseN(1); // Get the '('
+
+        INTEGER level := 1;
+
+        // Parse until the end of the string
+        WHILE (NOT parser->eof)
+        {
+          // Parse all non-special characters
+          word := word || parser->ParseWhileNotInSet('()"');
+
+          // Get the current character (and add it to the current word
+          STRING current := parser->ParseN(1);
+          word := word || current;
+
+          // Special characters (ADDME: should we recognize square brackets too??)
+          SWITCH (current)
+          {
+          CASE '(' // New sub-list
+            {
+              level := level + 1;
+            }
+          CASE ')' // End of (sub-)list
+            {
+              level := level - 1;
+              IF (level = 0) // Top-level list closed: exit loop
+                BREAK;
+            }
+          CASE '"' // Parse string
+            {
+              //ImapDebugLog("Found \" at level " || level || "");
+              WHILE (NOT parser->eof)
+              {
+                word := word || parser->ParseWhileNotInSet('\\"');
+                IF (parser->current = '\\') // Don't change escaped characters (and thus handle \")
+                  word := word || parser->ParseN(2);
+                ELSE // End of string
+                {
+                  word := word || parser->ParseN(1);
+                  BREAK;
+                }
+              }
+            }
+          }
+        }
+      }
+    DEFAULT
+      {
+        WHILE (NOT parser->eof)
+        {
+          // Normal word
+          word := word || parser->ParseWhileNotInSet(' "()[]');
+
+          IF (parser->current != "[")
+            BREAK;
+          ELSE
+          {
+            // Inv: parser->current = '['
+            INTEGER level := 1;
+            word := word || parser->ParseN(1);
+
+            // Parse until the end of the string
+            WHILE (NOT parser->eof)
+            {
+              // Parse all non-special characters
+              word := word || parser->ParseWhileNotInSet('[]"');
+
+              // Get the current character (and add it to the current word
+              STRING current := parser->ParseN(1);
+              word := word || current;
+
+              // Special characters (ADDME: should we recognize brackets too??)
+              SWITCH (current)
+              {
+              CASE '[' // New sub-list
+                {
+                  level := level + 1;
+                }
+              CASE ']' // End of (sub-)list
+                {
+                  level := level - 1;
+                  IF (level = 0) // Top-level list closed: exit loop
+                    BREAK;
+                }
+              CASE '"' // Parse string
+                {
+                  //ImapDebugLog("Found \" at level " || level || "");
+                  WHILE (NOT parser->eof)
+                  {
+                    word := word || parser->ParseWhileNotInSet('\\"');
+                    IF (parser->current = '\\') // Don't change escaped characters (and thus handle \")
+                      word := word || parser->ParseN(2);
+                    ELSE IF (parser->current = '"') // End of string?
+                    {
+                      word := word || parser->ParseN(1);
+                      BREAK;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Add word to results and skip intermediate spaces
+    INSERT word INTO results AT END;
+    parser->ParseWhileInSet(' ');
+  }
+
+  //ImapDebugLog("result: '" || Detokenize(results, "', '") || "'");
+
+  RETURN results;
+}
+
+// Parses a date-time. Public for test purposes.
+PUBLIC DATETIME FUNCTION ParseImapDateTime(STRING data) //(data without quotes)
+{
+  OBJECT parser := NEW StringParser(data);
+
+  //date-time       = DQUOTE date-day-fixed "-" date-month "-" date-year
+  //                  SP time SP zone DQUOTE
+
+  parser->ParseWhileInSet(" \t");
+
+  STRING day := parser->ParseN(2);
+  IF (LEFT(day,1) = " ")
+    day := SubString(day, 1);
+
+  IF (NOT parser->TryParse("-"))
+    RETURN DEFAULT DATETIME; //"Expected '-'"
+
+  STRING month := parser->ParseWhileNotInSet("-");
+
+  IF (NOT parser->TryParse("-"))
+    RETURN DEFAULT DATETIME; //"Expected '-'"
+
+  STRING year := parser->ParseWhileInSet(parser->set_digit);
+  IF (LENGTH(year) != 4)
+    RETURN DEFAULT DATETIME; //"Wrong year format"
+
+  IF (parser->ParseWhileInSet(" \t") = "")
+    RETURN DEFAULT DATETIME; //"Expected ' '"
+
+  STRING hour := parser->ParseWhileInSet(parser->set_digit);
+  IF (LENGTH(hour) != 2)
+    RETURN DEFAULT DATETIME; //"Wrong hour format"
+
+  IF (NOT parser->TryParse(':'))
+    RETURN DEFAULT DATETIME; //"Expected ':'"
+
+  STRING minutes := parser->ParseWhileInSet(parser->set_digit);
+  IF (LENGTH(minutes) != 2)
+    RETURN DEFAULT DATETIME; //"Wrong minute format"
+
+  IF (NOT parser->TryParse(':'))
+    RETURN DEFAULT DATETIME; //"Expected ':'"
+
+  STRING seconds := parser->ParseWhileInSet(parser->set_digit);
+  IF (LENGTH(seconds) != 2)
+    RETURN DEFAULT DATETIME; //"Wrong seconds format"
+
+  IF (parser->ParseWhileInSet(" \t") = "")
+    RETURN DEFAULT DATETIME; //"Expected ' '"
+
+  STRING zone_sign :=  parser->ParseWhileInSet("+-");
+  STRING str_zone := parser->ParseWhileInSet(parser->set_digit);
+  IF (LENGTH(str_zone) != 4)
+    RETURN DEFAULT DATETIME; //"Wrong zone format"
+
+  parser->ParseWhileInSet(" \t");
+  IF (NOT parser->eof)
+    RETURN DEFAULT DATETIME; //"Expected end of data
+
+  INTEGER pos := SearchElement([ "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" ], ToUppercase(month));
+  IF (pos = -1)
+    RETURN DEFAULT DATETIME; //"Don't know that month"
+
+  DATETIME dt := MakeDateTime(
+      ToInteger(year, 0),
+      pos + 1,
+      ToInteger(day, 0),
+      ToInteger(hour, 0),
+      ToInteger(minutes, 0),
+      ToInteger(seconds, 0));
+
+  INTEGER zone_diff := ToInteger(LEFT(str_zone, 2), 0) * 60 + ToInteger(SubString(str_zone, 2), 0);
+  IF (zone_sign = "-")
+    zone_diff := -zone_diff;
+
+  dt := AddTimeToDate(zone_diff * (60 * 1000), dt);
+
+  RETURN dt;
+}
+
+RECORD ARRAY FUNCTION InterpretListCommandResponse(INTEGER connectionid)
+{
+  //ImapDebugLog("ILCR init");
+
+  RECORD ARRAY mailfolders;
+
+  STRING received := ReadLineFrom(connectionid, 32768, TRUE);
+  WHILE (NOT SuccessfulIMAPResponse(connectionid, received) AND ImapConnectionAlive(connectionid))
+  {
+    IF (UnSuccessfulIMAPResponse(connectionid, received))
+    {
+//      ImapDebugLog("Found unsuccessfull imap response: " || received);
+      RETURN mailfolders;
+    }
+
+    STRING ARRAY parts := ParseLineParts(received);
+    IF (Length(parts) = 5)
+    {
+//      ImapDebugLog("Added line from response: " || received || "\nParts:\n"||AnyToString(parts, "tree"));
+
+      RECORD mailfolderrec := [ name := DecodeMUTF7(parts[4]), delimiter := DecodeMUTF7(parts[3]) ];
+      INSERT mailfolderrec INTO mailfolders AT END;
+    }
+//    ELSE ImapDebugLog("Skipped line from response: " || received || "\n" || AnyToString(parts, "tree"));
+    received := ReadLineFrom(connectionid, 32768, TRUE);
+  }
+
+  IF (NOT ImapConnectionAlive(connectionid))
+    RETURN DEFAULT RECORD ARRAY;
+
+  RETURN mailfolders;
+}
+
+STRING FUNCTION GetDelimiter(INTEGER connectionid)
+{
+  RECORD sess := GetSession(connectionid);
+  IF (sess.delimiter = "")
+  {
+    SendIMAPCommand(connectionid, 'LIST \"\" \"\"');
+    RECORD ARRAY resp := InterpretListCommandResponse(connectionid);
+
+//    ImapDebugLog("Delimiter search results:\n"||AnyToString(resp, "boxed"));
+
+    sess.delimiter :=
+      SELECT AS STRING delimiter
+        FROM resp;
+
+    SaveSession(connectionid, sess);
+  }
+  ImapDebugLog("Got delimiter: " || sess.delimiter || "");
+  RETURN sess.delimiter;
+}
+
+STRING FUNCTION DelimitFolderName(INTEGER connection, STRING name)
+{
+  STRING delimiter := GetDelimiter(connection);
+  IF (name != "" AND RIGHT(name, LENGTH(delimiter)) != delimiter)
+    name := name || delimiter;
+//  ImapDebugLog("Delimited folder name: " || name || "");
+  RETURN name;
+}
+
+/** @short This function will get a listing of the mail folders within below a certain folder (non-recursive)
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param rootfolder Root folder (leave empty for top-level)
+    @return RECORD ARRAY of
+    @return.cell name Name of the subfolder
+    @return.cell delimiter Delimiter of the root and the subfolder
+    @see OpenIMAPAccount, CreateIMAPMailfolder
+*/
+PUBLIC RECORD ARRAY FUNCTION GetIMAPMailSubFolders(INTEGER connectionid, STRING rootfolder)
+{
+  rootfolder := DelimitFolderName(connectionid, rootfolder);
+
+  // Return the subfolders of rootfolder
+  SendIMAPCommand(connectionid, 'LIST ' || EncodeMailboxName(rootfolder) || ' %');
+
+  RETURN InterpretListCommandResponse(connectionid);
+}
+
+/** @short This function will search for a string inside message headers and bodies
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param mailfolder The folder of to get the emaillisting from
+    @param searchphrase The phrase to look for in the email (case insensitive)
+    @return INTEGER ARRAY containing the UIDs of the found messages
+*/
+PUBLIC INTEGER ARRAY FUNCTION IMAPSimpleSearch(INTEGER connectionid, STRING mailfolder, STRING ARRAY searchphrases)
+{
+  // Select the specified mail folder
+  IF (NOT SelectIMAPMailbox(connectionid, mailfolder))
+    RETURN DEFAULT INTEGER ARRAY;
+
+  STRING ARRAY query_parts;
+  INTEGER lastitem := LENGTH(searchphrases) - 1;
+  FOREVERY (STRING phrase FROM searchphrases)
+  {
+    IF (#phrase != lastitem)
+      INSERT "OR" INTO searchphrases AT END;
+    INSERT 'TEXT "' || EncodeJava(phrase) || '"' INTO query_parts AT END;
+  }
+
+  SendIMAPCommand(connectionid, 'UID SEARCH ' || Detokenize(query_parts, " "));
+  STRING response := ReadLineFrom(connectionid, 32768, TRUE);
+
+  IF(response ="" OR UnSuccessfulIMAPResponse(connectionid, response))
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+
+  response := Right(response, Length(response) - 9);
+
+  INTEGER ARRAY uids;
+
+  FOREVERY (STRING uid FROM Tokenize(response, " "))
+    INSERT ToInteger(uid, -1) INTO uids AT end;
+
+  response := ReadLineFrom(connectionid, 32768, TRUE);
+  IF (NOT SuccessfulIMAPResponse(connectionid, response))
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+
+  RETURN uids;
+}
+
+
+/** @short This function returns the UIDs of the messages in a folder
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param mailfolder The folder of to get the emaillisting from
+    @param minuid Miniumum id to return, default: return all
+*/
+PUBLIC INTEGER ARRAY FUNCTION GetIMAPUidListing(INTEGER connectionid, STRING mailfolder, INTEGER minuid, STRING flags DEFAULTSTO "")
+{
+  // Select the specified mail folder
+  IF (NOT SelectIMAPMailbox(connectionid, mailfolder))
+  {
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+
+  // Min uid of 1, 0 or lower is not allowed.
+  IF (minuid < 1)
+    minuid := 1;
+
+  STRING command := "UID SEARCH (UID "||minuid||":*";
+  FOREVERY (STRING flag FROM Tokenize(flags, " "))
+    SWITCH (ToUppercase(flag))
+    {
+    CASE ""          {}
+    CASE "SEEN"      { command := command || " SEEN"; }
+    CASE "!DELETED"  { command := command || " UNDELETED"; }
+    DEFAULT          { ABORT("Unknown flag '"|| flag || "'"); }
+    }
+  command := command || ")";
+
+  // Get the listing of uids - loop because the list of ids might exceed the 32K buffer
+  SendIMAPCommand(connectionid, command);
+
+  STRING response;
+  WHILE(TRUE)
+  {
+    STRING buffer := ReadLineFrom(connectionid, 32768, FALSE);
+    response := response || buffer;
+
+    IF(buffer="" OR UnSuccessfulIMAPResponse(connectionid, response) OR NOT ImapConnectionAlive(connectionid))
+    {
+      SetIMAPErrorFromResponse(connectionid, response);
+      RETURN DEFAULT INTEGER ARRAY;
+    }
+    IF(Right(response,2)="\r\n")
+      BREAK;
+  }
+  response := Left(response, Length(response)-2);
+
+  STRING ARRAY parts := Tokenize(response, " ");
+  response := ReadLineFrom(connectionid, 32768, TRUE);
+  IF (NOT SuccessfulIMAPResponse(connectionid, response))
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+  DELETE FROM parts AT 0;
+  DELETE FROM parts AT 0;
+
+  RECORD ARRAY results;
+  FOREVERY (STRING part FROM parts)
+    INSERT [ id := ToInteger(part, 0) ] INTO results AT END;
+
+  RETURN SELECT AS INTEGER ARRAY id
+           FROM results
+       ORDER BY id;
+}
+
+RECORD ARRAY FUNCTION InterpretFetchResponse(INTEGER connectionid, STRING initialline)
+{
+  RECORD ARRAY parts;
+
+  //ImapDebugLog("Response: '" || initialline || "'");
+
+  OBJECT parser := NEW StringParser;
+
+  // Parse '* '
+  parser->Reset(initialline);
+  IF (NOT parser->TryParse("* "))
+  {
+    //ImapDebugLog("Exiting, a '*' at the start of the response line");
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  // Parse message id and space (don't care about the ID)
+  parser->ParseWhileInSet("0123456789 ");
+
+  // Parse 'FETCH'
+  IF (NOT parser->TryParse("FETCH"))
+  {
+    //ImapDebugLog("Exiting, expected FETCH");
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  // Parse ' '
+  parser->ParseWhileInSet(" ");
+
+  IF (NOT parser->TryParse("(")) // expecting a '(' at the start
+  {
+    //ImapDebugLog("Exiting, expected a ( after FETCH");
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  STRING ARRAY lineparts := ParseLinePartsFromParser(parser);
+
+  //ImapDebugLog("Lineparts: '" || Detokenize(lineparts, "', '") || "'");
+  //ImapDebugLog("Remaining data: '" || parser->remaining_data || "'");
+
+  INTEGER pos := 0;
+  INTEGER partcount := LENGTH(lineparts);
+  WHILE (pos < partcount)
+  {
+    STRING item := ToUppercase(lineparts[pos]);
+    //ImapDebugLog("Current item: " || lineparts[pos]);
+
+    IF (LEFT(item, 5) = "BODY[")
+      item := "BODY";
+
+    SWITCH (item)
+    {
+    CASE "UID"
+      {
+        pos := pos + 2;
+        IF (pos > partcount) // Malformed message (needed 2 parts. Must be '>', not '>=' due to pos-1 used)
+        {
+          //ImapDebugLog("Exiting, expected the message uid after UID");
+          RETURN DEFAULT RECORD ARRAY;
+        }
+        INSERT [ field := "UID", value := ToInteger(lineparts[pos - 1], 0) ] INTO parts AT END;
+      }
+    CASE "INTERNALDATE"
+      {
+        pos := pos + 2;
+        IF (pos > partcount) // Malformed message (needed 2 parts. Must be '>', not '>=' due to pos-1 used)
+        {
+          //ImapDebugLog("Exiting, expected the internal date after INTERNALDATE");
+          RETURN DEFAULT RECORD ARRAY;
+        }
+        INSERT [ field := "INTERNALDATE", value := ParseImapDateTime(lineparts[pos - 1]) ] INTO parts AT END;
+      }
+    CASE "RFC822.SIZE"
+      {
+        pos := pos + 2;
+        IF (pos > partcount) // Malformed message (needed 2 parts. Must be '>', not '>=' due to pos-1 used)
+        {
+          //ImapDebugLog("Exiting, expected the message size after RFC822.SIZE");
+          RETURN DEFAULT RECORD ARRAY;
+        }
+        INSERT [ field := "RFC822.SIZE", value := ToInteger(lineparts[pos - 1], 0) ] INTO parts AT END;
+      }
+    CASE "FLAGS"
+      {
+        pos := pos + 2;
+        IF (pos > partcount) // Malformed message (needed 2 parts. Must be '>', not '>=' due to pos-1 used)
+        {
+          //ImapDebugLog("Exiting, expected a specification of the flags after FLAGS");
+          RETURN DEFAULT RECORD ARRAY;
+        }
+
+        STRING flags := lineparts[pos - 1];
+        IF (LEFT(flags, 1) != "(")
+        {
+          //ImapDebugLog("Exiting, expected '(' at start of flag list");
+          RETURN DEFAULT RECORD ARRAY;
+        }
+
+        STRING ARRAY flagdata := ParseLineParts(SubString(flags, 1, LENGTH(flags) - 2));
+        INSERT [ field := "FLAGS", value := flagdata ] INTO parts AT END;
+      }
+    CASE "BODYSTRUCTURE"
+      {
+        pos := pos + 2;
+        IF (pos > partcount) // Malformed message (needed 2 parts. Must be '>', not '>=' due to pos-1 used)
+        {
+          //ImapDebugLog("Exiting, expected a bodystructure after BODYSTRUCTURE");
+          RETURN DEFAULT RECORD ARRAY;
+        }
+
+        INSERT [ field := "BODYSTRUCTURE", value := lineparts[pos - 1] ] INTO parts AT END;
+      }
+    CASE "BODY", "RFC822.HEADER"
+      {
+        pos := pos + 2;
+        IF (pos != partcount OR parser->remaining_data != "") // Expected {nr} at end of current line
+        {
+          //ImapDebugLog("Exiting, expected {nr} to be the end of the current line");
+          RETURN DEFAULT RECORD ARRAY;
+        }
+
+        STRING len := lineparts[pos - 1];
+        IF (Left(len,1) != "{" AND Right(len, 1) != "}")
+          RETURN DEFAULT RECORD ARRAY; // Expected {nr} at end of current line
+
+        INTEGER datalen := ToInteger(SubString(len, 1, LENGTH(len) - 2), 0);
+        INTEGER stream := CreateStream();
+
+        // Only try to receive when we actually need bytes. Can't call ReceiveIntoStream for 0 bytes, it'll read untill conn. close.
+        IF (datalen != 0)
+          ReceiveIntoStream(connectionid, datalen, stream);
+
+        INSERT [ field := item, value := MakeBlobFromStream(stream) ] INTO parts AT END;
+
+        // Grab the next line and feed it into the parser (so the parser always contains the last line)
+        STRING response := ReadLineFrom(connectionid, 32768, TRUE); // Get the next line
+        parser->Reset(response);
+        lineparts := lineparts CONCAT ParseLinePartsFromParser(parser);
+        partcount := LENGTH(lineparts);
+      }
+    DEFAULT
+      {
+        //ImapDebugLog("Ignoring item: '" || item || "'");
+        pos := pos + 2;
+      }
+    }
+  }
+
+  // Line should end with ')', otherwise we have corruption
+  IF (NOT parser->TryParse(")"))
+  {
+    //ImapDebugLog("Exiting, expected ')' at end of line, got: " || parser->remaining_data);
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  RETURN parts;
+}
+
+
+
+/** @short This function will get a listing with emails in the specified mail folder
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param mailfolder The folder of to get the emaillisting from
+    @return RECORD ARRAY of
+    @cell.date Date of the email
+    @cell.subject Subject of the email
+    @cell.sender Sender of the email
+    @cell.receiver Receiver of the email
+    @cell.size Size of the email
+    @cell.uid The UID of the email
+    @cell.seen True if the message has been read
+*/
+PUBLIC RECORD ARRAY FUNCTION GetIMAPEmaillisting(INTEGER connectionid, STRING mailfolder)
+{
+  INTEGER ARRAY uids := GetIMAPUidListing(connectionid, mailfolder, 0);
+
+  RETURN GetIMAPEmaillistingByUids(connectionid, mailfolder, uids, FALSE);
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetIMAPEmailListingByUids(INTEGER connectionid, STRING mailfolder, INTEGER ARRAY uids, BOOLEAN flags_only)
+{
+  STRING ARRAY msgs;
+  FOREVERY (INTEGER uid FROM uids)
+    INSERT ToString(uid) INTO msgs AT END;
+
+  RECORD ARRAY emails;
+  STRING response;
+
+  // Avoid overflowing IMAP servers, and partition the set of messages to download into blocks of 250
+  FOR (INTEGER start := 0; start < Length(msgs); start := start + 250)
+  {
+    STRING ARRAY localmsgs;
+
+    FOR(INTEGER i := start; i < Length(msgs) AND i < start + 250; i := i + 1)
+      INSERT msgs[i] INTO localmsgs AT END;
+
+    // Now check all messages.
+    STRING query_items := flags_only ? "FLAGS" : "(FLAGS BODY.PEEK[HEADER.FIELDS (DATE FROM SUBJECT TO CONTENT-TYPE IN-REPLY-TO MESSAGE-ID)] RFC822.SIZE INTERNALDATE)";
+    SendIMAPCommand(connectionid, "UID FETCH " || DeTokenize(localmsgs, ',') || " " || query_items);
+
+    OBJECT parser := NEW StringParser;
+
+    FOREVERY (STRING msg FROM localmsgs)
+    {
+      response := ReadLineFrom(connectionid, 32768, TRUE);
+      //FIXME: CHECK FOR ERRORS
+
+      RECORD ARRAY parts := InterpretFetchResponse(connectionid, response);
+      IF (NOT RecordExists(parts))
+      {
+        SetIMAPError(connectionid, "Could not parse FETCH response of IMAP server");
+        RETURN emails;
+      }
+
+      INTEGER uid;
+      INTEGER size;
+      RECORD ARRAY header;
+
+      BOOLEAN seen;
+      BOOLEAN answered;
+      BOOLEAN deleted;
+      BOOLEAN forwarded;
+      BOOLEAN draft;
+      BOOLEAN recent;
+      BOOLEAN flagged;
+      STRING ARRAY userflags;
+      DATETIME internaldate;
+
+      FOREVERY (RECORD rec FROM parts)
+      {
+        SWITCH (rec.field)
+        {
+        CASE "UID"              { uid := rec.value; }
+        CASE "RFC822.SIZE"      { size := rec.value; }
+        CASE "FLAGS"
+          {
+            seen := "\\Seen" IN rec.value;
+            answered := "\\Answered" IN rec.value;
+            deleted := "\\Deleted" IN rec.value;
+            forwarded := "$Forwarded" IN rec.value; //This is not set by thunderbird after all..
+            draft := "\\Draft" IN rec.value;
+            recent := "\\Recent" IN rec.value;
+            flagged := "\\Flagged" IN rec.value;
+
+            FOREVERY (STRING flag FROM rec.value)
+              IF (flag NOT LIKE "\\*" AND flag != "$Forwarded")
+                INSERT flag INTO userflags AT END;
+          }
+        CASE "BODY"
+          {
+            BLOB data := rec.value;
+            header := DecodeMIMEHeaderFromBlob(data);
+          }
+        CASE "INTERNALDATE"
+          {
+            internaldate := rec.value;
+          }
+        }
+      }
+
+      IF (flags_only)
+      {
+        INSERT [ uid := uid
+               , seen := seen
+               , answered := answered
+               , draft := draft
+               , flagged := flagged
+               , forwarded := forwarded
+               , recent := recent
+               , deleted := deleted
+               , userflags := userflags
+               ] INTO emails AT END;
+      }
+      ELSE
+      {
+        IF (internaldate = DEFAULT DATETIME)
+          internaldate := MakeDateFromText(GetMIMEHEader(header, "Date"));
+
+        RECORD email := [ date := MakeDateFromText(GetMIMEHEader(header, "Date"))
+                        , subject := GetMIMEHEader(header, "Subject")
+                        , sender := GetMIMEHEader(header, "From")
+                        , receiver := GetMIMEHEader(header, "To")
+                        , ctype := GetMIMEHEader(header, "Content-Type")
+                        , parent := GetMIMEHEader(header, "In-Reply-To")
+                        , identifier := GetMIMEHEader(header, "MESSAGE-ID")
+                        , internaldate := internaldate
+                        , size := size
+                        , uid := uid
+                        , seqnr := #msg + start + 1
+                        , seen := seen
+                        , answered := answered
+                        , draft := draft
+                        , flagged := flagged
+                        , forwarded := forwarded
+                        , recent := recent
+                        , deleted := deleted
+                        , userflags := userflags
+                        , headers := header
+                        ];
+
+        INSERT email INTO emails AT END;
+      }
+    }
+    // Throw away all extra responses
+    WHILE (NOT EndOfIMAPCommandResponse(connectionid, response) AND ImapConnectionAlive(connectionid))
+      response := ReadLineFrom(connectionid, 32768, TRUE);
+  }
+
+  RETURN emails;
+}
+
+BOOLEAN FUNCTION GetIMAPEmailPart(INTEGER connectionid, STRING mailfolder, INTEGER uid, STRING section, MACRO PTR parthandler)
+{
+  // Select the specified mail folder
+  IF (NOT SelectIMAPMailbox(connectionid, mailfolder))
+    RETURN FALSE;
+
+  SendIMAPCommand(connectionid, "UID FETCH " || uid || " BODY.PEEK[" || section || "]");
+
+  STRING response := ReadLineFrom(connectionid, 32768, TRUE);
+
+  IF (NOT EndOfIMAPCommandResponse(connectionid, response))
+  {
+    INTEGER datalength := ToInteger(SubString(response, SearchSubString(response, "{") + 1, SearchSubString(response, "}") - SearchSubString(response, "{") - 1), 0);
+
+    IF (datalength > 0)
+    {
+      ReceiveData(connectionid, datalength, parthandler);
+      WHILE (ImapConnectionAlive(connectionid))
+      {
+        response := ReadLineFrom(connectionid, 32768, TRUE);
+        IF (EndOfIMAPCommandResponse(connectionid, response))
+          BREAK;
+      }
+    }
+    RETURN TRUE;
+  }
+  ELSE
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN FALSE;
+  }
+}
+
+INTEGER receivestream;
+MACRO addtostream(STRING data)
+{
+  PrintTo(receivestream, data);
+}
+
+BLOB FUNCTION GetIMAPEmailPartAsBlob(INTEGER connectionid, STRING mailfolder, INTEGER uid, STRING section)
+{
+  receivestream := CreateStream();
+
+  GetIMAPEmailPart(connectionid, mailfolder, uid, section, PTR addtostream);
+
+  RETURN MakeBlobFromStream (receivestream);
+}
+
+STRING receivestringtemp;
+MACRO addtostring(STRING data)
+{
+  receivestringtemp := receivestringtemp || data;
+}
+
+STRING FUNCTION GetIMAPEmailPartAsString(INTEGER connectionid, STRING mailfolder, INTEGER uid, STRING section)
+{
+  GetIMAPEmailPart(connectionid, mailfolder, uid, section, PTR addtostring);
+  STRING toreturn := receivestringtemp;
+  receivestringtemp := "";
+  RETURN toreturn;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetIMAPMimePartHeaders(INTEGER connectionid, STRING mailfolder, INTEGER uid, STRING section)
+{
+  STRING headerstring := GetIMAPEmailPartAsString(connectionid, mailfolder, uid, section IN [ "", "HEADER", "MIME" ] ? "HEADER" : section || ".MIME");
+
+  IF (headerstring = "")
+    RETURN DEFAULT RECORD ARRAY;
+
+  RETURN DecodeMIMEHeader(headerstring);
+}
+
+PUBLIC RECORD FUNCTION GetIMAPMimeRawPart(INTEGER connectionid, STRING mailfolder, INTEGER uid, STRING section)
+{
+  receivestream := CreateStream();
+
+  BOOLEAN success := GetIMAPEmailPart(connectionid, mailfolder, uid, section = "" ? "TEXT" :  section, PTR addtostream);
+
+  // Make sure stream is closed in case of error
+  BLOB data := MakeBlobFromStream(receivestream);
+
+  RETURN success ? [ data := data ] : DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION GetIMAPMimePart(INTEGER connectionid, STRING mailfolder, INTEGER uid, STRING section)
+{
+  RECORD ARRAY headers := GetIMAPMimePartHeaders(connectionid, mailfolder, uid, section);
+  IF (NOT RecordExists(headers))
+    RETURN DEFAULT RECORD;
+
+  receivestream := CreateMimeDecoder(headers, "text/plain");
+
+  GetIMAPEmailPart(connectionid, mailfolder, uid, section = "" ? "TEXT" :  section, PTR addtostream);
+
+  RETURN [ headers := headers, data := FinishMimeData(receivestream) ];
+}
+
+PUBLIC RECORD FUNCTION GetIMAPBodyStructure(INTEGER connectionid, STRING mailfolder, INTEGER uid)
+{
+  RECORD email;
+
+  // Select the specified mail folder
+  IF (NOT SelectIMAPMailbox(connectionid, mailfolder))
+    RETURN DEFAULT RECORD;
+
+  SendIMAPCommand(connectionid, "UID FETCH " || uid || " (RFC822.HEADER BODYSTRUCTURE)");
+
+  STRING response := ReadLineFrom(connectionid, 32768, TRUE);
+
+  INTEGER datalength;
+  RECORD ARRAY parts := InterpretFetchResponse(connectionid, response);
+  IF (NOT RecordExists(parts))
+  {
+    SetIMAPError(connectionid, "Could not parse FETCH response of IMAP server");
+    RETURN DEFAULT RECORD;
+  }
+
+  BLOB header;
+  STRING bodystructure;
+  FOREVERY (RECORD part FROM parts)
+  {
+    SWITCH (part.field)
+    {
+    CASE "RFC822.HEADER"   { header := part.value; }
+    CASE "BODYSTRUCTURE"   { bodystructure := part.value; }
+    }
+  }
+
+  IF (LENGTH(header) != 0)
+  {
+    RECORD ARRAY headers := DecodeMIMEHeaderFromBlob(header);
+
+    STRING mimetype := GetMIMEHeaderParameter(GetMimeHeader(headers, "CONTENT-TYPE"), "");
+    RECORD body := ParseBodyStructure(bodystructure, mimetype);
+    //ImapDebugLog("Parsed body structure:\n" || AnyToString(body, "tree"));
+
+    WHILE (NOT EndOfIMAPCommandResponse(connectionid, response) AND ImapConnectionAlive(connectionid))
+      response := ReadLineFrom(connectionid, 32768, TRUE);
+
+    email := [ headers := headers, data := body ];
+  }
+//  ImapDebugLog(AnyToString(email, "tree") || AnyToString(parts, "tree"));
+
+  RETURN email;
+}
+
+/** @short This function will open a message (email) from the IMAP server
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param mailfolder The mail folder where the message is stored.
+    @param uid ID of the message in the mail folder
+    @return Record of the email (only if the email was found), check the field email.error (which only exists
+            in case of an error)
+    @cell.date Date the email was sent
+    @cell.header Header of the email message
+    @cell.data Body of the email message
+*/
+PUBLIC RECORD FUNCTION OpenIMAPEmail(INTEGER connectionid, STRING mailfolder, INTEGER uid)
+{
+  RETURN GetIMAPMimePart(connectionid, mailfolder, uid, "");
+}
+
+PUBLIC BLOB FUNCTION GetIMAPEmailSource(INTEGER connectionid, STRING mailfolder, INTEGER uid, STRING section DEFAULTSTO "")
+{
+  RETURN GetIMAPEmailPartAsBlob(connectionid, mailfolder, uid, section);
+}
+
+/** @short This function will rename a mail folder
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param oldpathname Old name of the file
+    @param newpathname New name of the file
+    @return boolean Indicating if mail folder was succesfully renamed
+*/
+PUBLIC BOOLEAN FUNCTION RenameIMAPMailFolder(INTEGER connectionid, STRING oldpathname, STRING newpathname)
+{
+  // Only process commands when no errors are pending
+  IF (HasIMAPErrors(connectionid))
+    RETURN FALSE;
+
+  IF (NOT CloseIMAPMailbox(connectionid))
+    RETURN FALSE;
+
+  SendIMAPCommand(connectionid, 'RENAME ' || EncodeMailboxName(oldpathname) || ' ' || EncodeMailboxName(newpathname));
+
+  RETURN HandleIMAPResponse(connectionid);
+}
+
+
+
+/** @short This function will delete a mail folder
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param mailfolder Name of the mail folder to remove
+    @return boolean Indicating if the mail folder was succesfully deleted
+*/
+PUBLIC BOOLEAN FUNCTION DeleteIMAPMailFolder(INTEGER connectionid, STRING mailfolder)
+{
+  // Only process commands when no errors are pending
+  IF (HasIMAPErrors(connectionid))
+    RETURN FALSE;
+
+  IF (NOT CloseIMAPMailbox(connectionid))
+    RETURN FALSE;
+
+//  ImapDebugLog("Deleting folder "||mailfolder||"\n"||AnyToString(GetStackTrace(),"boxed"));
+
+
+  SendIMAPCommand(connectionid, 'DELETE ' || EncodeMailboxName(mailfolder));
+
+  RETURN HandleIMAPResponse(connectionid);
+}
+
+
+
+/** @short This function will copy an email
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param uid UID of the mail message to copy
+    @param srcmailfolder Name of the mail folder to copy from
+    @param dstmailfolder Name of the mail folder to copy to
+    @return boolean Indicating if the email was copied succesfully
+*/
+PUBLIC BOOLEAN FUNCTION CopyIMAPEmail(INTEGER connectionid, INTEGER uid, STRING srcmailfolder, STRING dstmailfolder)
+{
+  // Only process commands when no errors are pending
+  IF (HasIMAPErrors(connectionid))
+    RETURN FALSE;
+
+  IF (NOT SelectIMAPMailbox(connectionid, srcmailfolder))
+    RETURN FALSE;
+
+  SendIMAPCommand(connectionid, "UID COPY " || uid || ' ' || EncodeMailboxName(dstmailfolder));
+
+  RETURN HandleIMAPResponse(connectionid);
+}
+
+
+
+/** @short This function will move a mail folder
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param uid UID of the mail message to copy
+    @param srcmailfolder Name of the mail folder to move from
+    @param dstmailfolder Name of the mail folder to move to
+    @return boolean Indicating if the email was moved succesfully
+*/
+PUBLIC BOOLEAN FUNCTION MoveIMAPEmail(INTEGER connectionid, INTEGER uid, STRING srcmailfolder, STRING dstmailfolder)
+{
+  // Only process commands when no errors are pending
+  IF (HasIMAPErrors(connectionid))
+    RETURN FALSE;
+
+  IF (NOT SelectIMAPMailbox(connectionid, srcmailfolder))
+    RETURN FALSE;
+
+  SendIMAPCommand(connectionid, "UID COPY " || uid || ' ' || EncodeMailboxName(dstmailfolder));
+
+  IF (NOT HandleIMAPResponse(connectionid))
+    RETURN FALSE;
+
+  RETURN DeleteIMAPEmail(connectionid, srcmailfolder, uid);
+}
+
+
+
+
+/** @short This function will delete an email
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param mailfolder The folder containing the email
+    @param mailid UID of the mail message to delete
+    @return boolean Indicating if the email was deleted succesfully
+*/
+PUBLIC BOOLEAN FUNCTION DeleteIMAPEmail(INTEGER connectionid, STRING mailbox, INTEGER uid)
+{
+  // Only process commands when no errors are pending
+  IF (HasIMAPErrors(connectionid))
+    RETURN FALSE;
+
+  IF (NOT SelectIMAPMailbox(connectionid, mailbox))
+    RETURN FALSE;
+
+  SendIMAPCommand(connectionid, "UID STORE " || uid || " +FLAGS (\\Deleted)");
+  IF (NOT HandleIMAPResponse(connectionid))
+    RETURN FALSE;
+
+  SendIMAPCommand(connectionid, "EXPUNGE");
+
+  RETURN HandleIMAPResponse(connectionid);
+}
+
+
+
+
+/** @short This function will switch a specific flag on or off
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param mailfolder The folder containing the email
+    @param mailid UID of the mail message to delete
+    @param flag Flag to set (or reset)
+    @param setflag Set to TRUE to set flag, FALSE to reset.
+    @return boolean Indicating if the flag was updated succesfully
+*/
+PUBLIC BOOLEAN FUNCTION SetIMAPEmailFlags(INTEGER connectionid, STRING mailbox, INTEGER uid, STRING flag, BOOLEAN setflag)
+{
+  ImapDebugLog("IMAPSETFLAGS");
+  IF (SearchSubString(flag, ' ') != -1)
+    ABORT("Illegal imap flag!");
+
+  // Only process commands when no errors are pending
+  IF (HasIMAPErrors(connectionid))
+    RETURN FALSE;
+
+  IF (NOT SelectIMAPMailbox(connectionid, mailbox))
+    RETURN FALSE;
+
+  SendIMAPCommand(connectionid, "UID STORE " || uid || " " || (setflag ? "+" : "-") || "FLAGS (" || flag || ")");
+  RETURN HandleIMAPResponse(connectionid);
+}
+
+
+
+
+/** @short This function will overwrite all flags for an email
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param mailfolder The folder containing the email
+    @param mailid UID of the mail message to delete
+    @param flags Flags to set. All other flags arre cleared
+    @return boolean Indicating if the flag was updated succesfully
+*/
+PUBLIC BOOLEAN FUNCTION OverwriteIMAPEmailFlags(INTEGER connectionid, STRING mailbox, INTEGER uid, STRING ARRAY flags)
+{
+  ImapDebugLog("IMAPOVERWRITEFLAGS");
+  FOREVERY (STRING flag FROM flags)
+    IF (SearchSubString(flag, ' ') != -1)
+      ABORT("Illegal imap flag!");
+
+  // Only process commands when no errors are pending
+  IF (HasIMAPErrors(connectionid))
+    RETURN FALSE;
+
+  IF (NOT SelectIMAPMailbox(connectionid, mailbox))
+    RETURN FALSE;
+
+  SendIMAPCommand(connectionid, "UID STORE " || uid || " FLAGS (" || Detokenize(flags, " ") || ")");
+  RETURN HandleIMAPResponse(connectionid);
+}
+
+
+
+
+/** @short This function will get a flat listing of subscribed mail folders (recursive)
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @return RECORD ARRAY with folder names (DEFAULT RECORD ARRAY when an error has been encountered)
+    @cell return.name Name of the mail folder
+    @see SetIMAPMailBoxSubscriptionStatus
+*/
+PUBLIC RECORD ARRAY FUNCTION GetSubscribedIMAPMailboxes(INTEGER connectionid)
+{
+  SendIMAPCommand(connectionid, 'LSUB "" "*"');
+
+  RETURN InterpretListCommandResponse(connectionid);
+}
+
+
+
+/** @short This function will changed the subscribed status of a mail folder
+    @param connectionid ID of the connection (opened by OpenIMAPAccount)
+    @param mailfolder Name of the mail folder
+    @param subscribed New subscribed status of the folder
+    @cell return Success of the command
+    @see GetSubscribedIMAPMailboxes
+*/
+PUBLIC BOOLEAN FUNCTION SetIMAPMailBoxSubscriptionStatus(INTEGER connectionid, STRING mailfolder, BOOLEAN subscribed)
+{
+  IF (subscribed)
+    SendIMAPCommand(connectionid, 'SUBSCRIBE ' || EncodeMailboxName(mailfolder));
+  ELSE
+    SendIMAPCommand(connectionid, 'UNSUBSCRIBE ' || EncodeMailboxName(mailfolder));
+
+  RETURN HandleIMAPResponse(connectionid);
+}
+
+
+
+/* @short Internal function to select a mailbox */
+BOOLEAN FUNCTION SelectIMAPMailbox(INTEGER connectionid, STRING mailbox)
+{
+  ImapDebugLog("PRE SELECT open_mailbox: " || (open_mailbox?"Y":"N"));
+  SendIMAPCommand(connectionid, 'SELECT ' || EncodeMailboxName(mailbox));
+  STRING response := ReadLineFrom(connectionid, 32768, TRUE);
+  WHILE (NOT EndOfIMAPCommandResponse(connectionid, response) AND ImapConnectionAlive(connectionid))
+    response := ReadLineFrom(connectionid, 32768, TRUE);
+  IF (NOT SuccessfulIMAPResponse(connectionid, response))
+  {
+    open_mailbox := FALSE;
+
+    ImapDebugLog("POST SELECT open_mailbox: " || (open_mailbox?"Y":"N"));
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN FALSE;
+  }
+
+  open_mailbox := TRUE;
+  ImapDebugLog("POST SELECT open_mailbox: " || (open_mailbox?"Y":"N"));
+  RETURN TRUE;
+}
+
+
+BOOLEAN FUNCTION CloseIMAPMailbox(INTEGER connectionid)
+{
+  ImapDebugLog("PRE CLOSE open_mailbox: " || (open_mailbox?"Y":"N"));
+  IF (NOT open_mailbox)
+    RETURN TRUE;
+
+  SendIMAPCommand(connectionid, 'CLOSE');
+  STRING response := ReadLineFrom(connectionid, 32768, TRUE);
+  WHILE (NOT EndOfIMAPCommandResponse(connectionid, response) AND ImapConnectionAlive(connectionid))
+    response := ReadLineFrom(connectionid, 32768, TRUE);
+  IF (NOT SuccessfulIMAPResponse(connectionid, response))
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN FALSE;
+  }
+
+  open_mailbox := FALSE;
+  ImapDebugLog("POST CLOSE open_mailbox: " || (open_mailbox?"Y":"N"));
+  RETURN TRUE;
+}
+
+
+/* @short Internal function to select a mailbox */
+BOOLEAN FUNCTION HandleIMAPResponse(INTEGER connectionid)
+{
+  STRING response := ReadLineFrom(connectionid, 32768, TRUE);
+  WHILE (NOT EndOfIMAPCommandResponse(connectionid, response) AND ImapConnectionAlive(connectionid))
+    response := ReadLineFrom(connectionid, 32768, TRUE);
+
+  IF (NOT SuccessfulIMAPResponse(connectionid, response))
+  {
+    SetIMAPErrorFromResponse(connectionid, response);
+    RETURN FALSE;
+  }
+
+  RETURN TRUE;
+}

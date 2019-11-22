@@ -1,0 +1,1426 @@
+﻿<?wh (* ISSYSTEMLIBRARY *)
+/** @short   HareScript localization functions
+    @long    This library provides an interface to the ICU library containing localization information to for example format
+             dates, times and numbers, calculate local times, or provide lists of countries and languages. It also offers a
+             number of Intl-compatible interfaces: Collator, DateTimeFormat and NumberFormat (see
+             https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl).
+    @topic harescript-utils/localization
+*/
+/*
+This library offers new versions of these functions:
+  FormatDateTime (wh::datetime.whlib)                    => LocalizeDateTime
+  FormatTimeStamp (wh::datetime.whlib)                   => LocalizeTimeStamp
+  GetLanguageDatetimeStrings (wh::datetime.whlib)        => GetLocalizedDatetimeStrings
+  FormatMoney (wh::money.whlib)                          => LocalizeNumber, LocalizeCurrency, LocalizePercentage
+  FormatFloat (wh::float.whlib)                          => LocalizeNumber, LocalizeCurrency, LocalizePercentage
+  GetCountryList (module::wrd/worldinfo/worldinfo.whlib) => GetCountryList
+  ToUppercase (wh::system.whlib)                         => LocalizedToUppercase
+  ToLowercase (wh::system.whlib)                         => LocalizedToLowercase
+  NormalizeText (wh::util/langspecific.whlib)            => LocalizedNormalizeText
+  UTCToLocal (wh::datetime.whlib)                        => UTCToLocal (re-exported by datetime.whlib)
+  LocalToUTC (wh::datetime.whlib)                        => LocalToUTC (re-exported by datetime.whlib)
+  IsLocalTimeDST (wh::datetime.whlib)                    => IsLocalTimeDST (re-exported by datetime.whlib)
+  GetLocalTimeZoneOffset (wh::datetime.whlib)            => GetLocalTimeZoneOffset (re-exported by datetime.whlib)
+  GetAvailableTimeZones (wh::datetime.whlib)             => GetAvailableTimeZones (re-exported by datetime.whlib)
+  GetAvailableTimeZoneNames (wh::datetime.whlib)         => GetAvailableTimeZoneNames (re-exported by datetime.whlib)
+  GetAllTimeZones (wh::datetime.whlib)                   => GetAllTimeZones (re-exported by datetime.whlib)
+  GetLocalTimeZoneAbbr (wh::datetime.whlib)              => GetTimeZoneDisplay
+
+The new functions aren't all drop-in replacements, as they may offer new functionalities or changed parameters.
+
+Ideas for further functionality:
+  LocalizeTimeSpan - Format a time span, like "1 day, 2 hours and 34 minutes" (possibly make a difference between historic
+                     and future time spans)
+  Support for custom locales, to be able to specify custom date/time notations, decimal separators, etc.
+*/
+LOADLIB "wh::system.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+PUBLIC STRING FUNCTION __ICU_GetICUVersion() __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+PUBLIC STRING FUNCTION __ICU_GetTZDataVersion() __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+
+STRING FUNCTION __ICU_GetLocaleForLangTag(STRING langtag) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+BOOLEAN FUNCTION __ICU_GetLocaleHour12(STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING ARRAY FUNCTION __ICU_GetLanguageDateTimeStrings(STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_GetBestPattern(STRING skeleton, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_FormatDateTime(STRING format, DATETIME value, STRING locale, STRING timezone) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_FormatDuration(INTEGER64 secs, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+
+INTEGER FUNCTION __ICU_GetCurrencyFractionDigits(STRING currency) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_FormatNumber(INTEGER style, STRING currency, BOOLEAN grouping, INTEGER minintdigits, INTEGER minfracdigits, INTEGER maxfracdigits, BOOLEAN significantdigits, VARIANT value, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_FormatSpellout(INTEGER64 value, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_FormatOrdinal(INTEGER64 value, STRING locale, BOOLEAN grouping) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+
+INTEGER FUNCTION __ICU_CollatedCompare(INTEGER sensitivity, BOOLEAN punctuation, BOOLEAN numeric, INTEGER casefirst, STRING string1, STRING string2, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+
+RECORD ARRAY FUNCTION __ICU_GetCountryList(STRING ARRAY locales) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+RECORD ARRAY FUNCTION __ICU_GetLanguageList(STRING ARRAY locales) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+
+STRING FUNCTION __ICU_ToUppercase(STRING value, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_ToLowercase(STRING value, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_NormalizeText(STRING value, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_TransliterateText(STRING value, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+
+STRING ARRAY FUNCTION __ICU_GetTimeZoneIDs() __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+RECORD ARRAY FUNCTION __ICU_GetAllTimeZones(STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_GetCanonicalTimeZoneID(STRING zoneid) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+DATETIME FUNCTION __ICU_UTCToLocal(DATETIME value, STRING zoneid) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+DATETIME FUNCTION __ICU_LocalToUTC(DATETIME value, STRING zoneid) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+INTEGER FUNCTION __ICU_GetUTCOffset(DATETIME value, STRING zoneid) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+BOOLEAN FUNCTION __ICU_IsLocalTimeDST(DATETIME value, STRING zoneid) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+BOOLEAN FUNCTION __ICU_IsWeekend(DATETIME value, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_GetTimeZoneDisplay(STRING timezone, BOOLEAN dst, INTEGER style, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_GetSystemTimeZone() __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+
+
+PUBLIC STRING FUNCTION GetLocaleForLangTag(STRING langtag)
+{
+  RETURN __ICU_GetLocaleForLangTag(langtag);
+}
+
+
+// ==========================================================================================================================
+//
+// Formatting functions
+//
+
+
+
+/** @short   Returns a string containing a formatted date and time.
+    @long    This function returns a string, containing the given date and time in a user-specified format.
+
+             The most common format specifiers are:
+
+             | Code | Effect |
+             | :--- | :---- |
+             | `E` | Abbreviated weekday name |
+             | `EEEE` | Full weekday name |
+             | `MMM` | Abbreviated month name |
+             | `MMMM` | Full month name |
+             | `dd` | Two-digit day of month (01 - 31) |
+             | `d` | Two-digit day of month, remove any leading zeros |
+             | `HH` | Hour of the day, 24 hour day |
+             | `H` | Hour of the day, 24 hour day, remove any leading zeros |
+             | `hh` | Two-digit hour, 12 hour day (01 - 12) |
+             | `h` | Two-digit hour, 12 hour day, remove any leading zeros |
+             | `jj` | Two-digit hour, 12 or 24 hour day, depending on locale |
+             | `j` | Two-digit hour, 12 or 24 hour day, depending on locale, remove any leading zeros |
+             | `D` | Three-digit day of year, remove any leading zeros |
+             | `MM` | Two-digit month number (01 - 12) |
+             | `M` | Two-digit month number, remove any leading zeros |
+             | `mm` | Two-digit minute (00 - 59) |
+             | `m` | Two-digit minute, remove leading any zeros |
+             | `a` | am/pm marker, depending on hour |
+             | `SSS` | Three-digit millisecond (000-999) |
+             | `ss` | Two-digit second (00 - 59) |
+             | `s` | Two-digit second, remove any leading zeros |
+             | `ww` | Two-digit week number (00 - 52) |
+             | `w` | One-digit week number (0 - 52) |
+             | `yy` | Two-digit year without century (00 to 99) |
+             | `y` | Year with century |
+             | `z` | Time zone |
+             | `'` | Literal text is enclosed within single quotes |
+             | `''` | Single quote `'` |
+
+             When specifying an hour display, the locale may change the display from 12 to 24 hour notation or vice versa if
+             combined with other speficiers (e.g. 'z').
+
+             For a full description of the formatting string, see http://userguide.icu-project.org/formatparse/datetime or
+             http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table
+    @param   formatstring Specifies the way the DATETIME value should be formatted
+    @param   date         The DATETIME value to format
+    @param   locale       The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @param   timezone     The time zone to use when formatting the DATETIME (use only when the provided date is in UTC as the
+                          supplied date will be converted to this time zone)
+    @param   useexact     If set to TRUE, use the exact pattern supplied, otherwise find a locale matching pattern (this
+                          defaults to FALSE, so supplying "dMY" as the format will produce "12/25/2010" for 'en', "25/12/2010"
+                          for 'en-GB' and "25-12-2010" for 'nl', if set to TRUE, it will produce the literal "25122010")
+    @return  A string with the formatted date and time. If MAX_DATETIME or an invalid @italic date value was entered, the
+             function returns an empty string
+    @see     LocalizeTimeStamp, GetLocalizeFormatString
+    @example
+// The date and time in American English.
+// example1 = "January 01, 2005"
+STRING example1 := LocalizeDateTime("ddMMMMy", MakeDateTime(2005, 1, 1, 12, 34, 56), "en");
+
+// The date and time in German.
+// example2 = "01. Januar 2005"
+STRING example2 := LocalizeDateTime("ddMMMMy", MakeDateTime(2005, 1, 1, 12, 34, 56), "de");
+
+// The day of the week in the Dutch language. If useexact had not been supplied, only "Zaterdag" would be returned.
+// The date format is <abbreviated> - <full>.
+// example3 = "za - zaterdag"
+STRING example3 := LocalizeDateTime("E - EEEE", MakeDateTime(2005, 1, 1, 12, 34, 56), "nl", "", TRUE);
+
+// The date and time in Dutch notation, in Amsterdam time zone.
+// example4 := "1-1-2005 13:34:56 CET"
+STRING example4 := LocalizeDateTime("HmszdMy", MakeDateTime(2005, 1, 1, 12, 34, 56), "nl", "Europe/Amsterdam");
+*/
+PUBLIC STRING FUNCTION LocalizeDateTime(STRING formatstring, DATETIME date, STRING locale, STRING timezone DEFAULTSTO "", BOOLEAN useexact DEFAULTSTO FALSE)
+{
+  // Check date
+  IF(date = DEFAULT DATETIME OR date = MAX_DATETIME)
+    RETURN "";
+
+  // Check locale
+  locale := GetLocaleForLangTag(locale);
+  IF (locale = "")
+    RETURN "";
+
+  // Get a matching pattern for the locale if not using the exact pattern
+  IF (NOT useexact)
+    formatstring := __ICU_GetBestPattern(formatstring, locale);
+
+  RETURN __ICU_FormatDateTime(formatstring, date, locale, CheckTimeZone(timezone));
+}
+
+
+
+/** @short   Returns a string containing a formatted time.
+    @long    This function returns a string, containing the given time in a user-specified format. See LocalizeDateTime for
+             more information about formatting strings. As time stamps are date-independent, it does not make sense to supply
+             date-specific format specifiers, including timezone.
+    @param   formatstring Specifies the way the time stamp should be formatted
+    @param   timestamp    The time stamp to format
+    @param   locale       The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @param   useexact     If set to TRUE, use the exact pattern supplied, otherwise find a locale matching pattern (this
+                          defaults to FALSE, so supplying "Hms" as the format will produce "12:03:04", if set to TRUE, it
+                          will produce the literal "1234")
+    @return  A string with the formatted time. If an invalid @italic time stamp value was entered, the function returns an
+             empty string
+    @see     LocalizeDateTime, GetLocalizeFormatString
+    @example
+// Example timestamp: 21:03:04.555
+INTEGER timestamp := ((21 * 60 + 3) * 60 + 4) * 1000 + 555;
+
+// The time stamp in American English notation.
+// example1 = "9:03:04.555 PM"
+STRING example1 := LocalizeTimeStamp("jmsSSS", timestamp, "en");
+
+// The time stamp in British English notation.
+// example2 = "21:03:04.555"
+STRING example2 := LocalizeTimeStamp("jmsSSS", timestamp, "en-GB");
+
+// The time stamp in Dutch notation.
+// example3 := "21:03:04,555"
+STRING example3 := LocalizeTimeStamp("jmsSSS", timestamp, "nl");
+*/
+PUBLIC STRING FUNCTION LocalizeTimeStamp(STRING formatstring, INTEGER timestamp, STRING locale, BOOLEAN useexact DEFAULTSTO FALSE)
+{
+  RETURN LocalizeDateTime(formatstring, __HS_CreateDateTimeFromDM(1, timestamp), locale, "", useexact);
+}
+
+
+
+RECORD ARRAY cached_languagestrings;
+
+/** @short   Get a string with date and time formatting components for use with FormatDateTime
+    @long    This function returns a string containing language strings to be used for formatting dates and times. It can be
+             used as the third parameter of FormatDateTime. It is functional equivalent to GetLanguageDatetimeStrings, however
+             some of the returned texts differ slightly.
+    @param   locale The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @return  Semicolon separated date and time language strings for the requested language or locale
+    @see     LocalizedDateTime, GetLocalizeFormatString
+*/
+PUBLIC STRING FUNCTION GetLocalizedDatetimeStrings(STRING locale)
+{
+  locale := GetLocaleForLangTag(locale) ?? "en";
+  STRING cached := SELECT AS STRING strings FROM cached_languagestrings WHERE COLUMN locale = VAR locale;
+  IF (cached = "")
+  {
+    STRING ARRAY strings := __ICU_GetLanguageDateTimeStrings(locale);
+    cached := Length(strings) = 40 ? Detokenize(strings, ";")
+                                   : "AM;PM;January;February;March;April;May;June;July;August;September;October;November;December;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday;Sunday;Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec;Mon;Tue;Wed;Thu;Fri;Sat;Sun";
+    INSERT [ locale := locale, strings := cached ] INTO cached_languagestrings AT END;
+  }
+  RETURN cached;
+}
+
+
+
+/** @short   Convert a FormatDateTime formatting string to ICU format for use with LocalizeDateTime
+    @long    This function creates a LocalizedDateTime formatting string that is equivalent to the given FormatDateTime string.
+             To get the exact same result, be sure to set the useexact parameter to TRUE when calling LocalizedDateTime.
+             There are two differences between FormatDateTime and LocalizeDateTime with GetLocalizeFormatString: for both "%#y"
+             and "%#Q", the leading zeroes are not removed, because of limitations of the ICU formatting functions. It is
+             advised to use LocalizeDateTime with a ICU formatting string instead of the old FormatDateTime formatting string
+             where possible.
+    @param   formatstring The format to convert
+    @return  The converted format
+    @see     LocalizedDateTime, GetLocalizedDateTimeStrings
+*/
+PUBLIC STRING FUNCTION GetLocalizeFormatString(STRING formatstring)
+{
+  STRING formattedtime;
+  INTEGER position := 0;
+  INTEGER formatstringlength := UCLength(formatstring);
+
+  BOOLEAN addingtext;
+  WHILE (position < formatstringlength)
+  {
+    STRING thischar := UCSubString(formatstring,position,1);
+    position := position + 1;
+    IF (thischar != '%')
+    {
+      BOOLEAN isletter := (thischar >= "A" AND thischar <= "Z") OR (thischar >= "a" AND thischar <= "z");
+      IF (NOT addingtext AND isletter)
+        formattedtime := formattedtime || "'";
+      IF (addingtext AND NOT isletter AND thischar != "'")
+        formattedtime := formattedtime || "'";
+      formattedtime := formattedtime || thischar;
+      IF (thischar = "'")
+        formattedtime := formattedtime || "'";
+      addingtext := isletter OR (addingtext AND thischar = "'");
+      CONTINUE;
+    }
+
+    IF (addingtext)
+    {
+      formattedtime := formattedtime || "'";
+      addingtext := FALSE;
+    }
+
+    //Abort if end of string was reached
+    IF (position >= formatstringlength)
+      BREAK;
+
+    BOOLEAN removezeroes := FALSE;
+    thischar := UCSubString(formatstring,position,1);
+    position := position + 1;
+
+    //Is this a 'remove zeros' type?
+    if (thischar = '#')
+    {
+      //Abort if end of string was reached
+      IF (position >= formatstringlength)
+        BREAK;
+
+      removezeroes := TRUE;
+      thischar := UCSubString(formatstring,position,1);
+      position := position + 1;
+    }
+    STRING icuchar;
+    SWITCH (thischar)
+    {
+      // %%  Character % -- Handled by DEFAULT
+
+      // %a  Abbreviated weekday name
+      CASE "a" { icuchar := "EEE"; }
+
+      // %A  Full weekday name
+      CASE "A" { icuchar := "EEEE"; }
+
+      // %b  Abbreviated month name
+      CASE "b" { icuchar := "MMM"; }
+
+      // %B  Full month name
+      CASE "B" { icuchar := "MMMM"; }
+
+      // %d  Two-digit day of month (01 - 31)
+      // %#d Two-digit day of month, remove any leading zeros
+      CASE "d" { icuchar := (removezeroes ? "d" : "dd"); }
+
+      // %H  Hour of the day, 24 hour day
+      // %#H Hour of the day, 24 hour day, remove any leading zeros
+      CASE "H" { icuchar := (removezeroes ? "H" : "HH"); }
+
+      // %I  Two-digit hour, 12 hour day (01 - 12)
+      // %#I Two-digit hour, 12 hour day, remove any leading zeros
+      CASE "I" { icuchar := (removezeroes ? "h" : "hh"); }
+
+      // %j  Three-digit day of year (001 - 366)
+      // %#j Three-digit day of year, remove any leading zeros
+      CASE "j" { icuchar := (removezeroes ? "D" : "DDD"); }
+
+      // %m  Two-digit month number (01 - 12)
+      // %#m Two-digit month number, remove any leading zeros
+      CASE "m" { icuchar := (removezeroes ? "M" : "MM"); }
+
+      // %M  2-digit minute (00 - 59)
+      // %#M 2-digit minute, remove leading any zeros
+      CASE "M" { icuchar := (removezeroes ? "m" : "mm"); }
+
+      // %p  Either "am" or "pm", depending on hour
+      CASE "p" { icuchar := "a"; }
+
+      // %Q  Three-digit millisecond (000-999)99
+      // %#Q Three-digit millisecond, remove any leading zeros
+      //ADDME: "S" only returns the most significant digit, not the milliseconds without leading zeroes. There is no way to
+      //       get the number of milliseconds without leading zeroes.
+      CASE "Q" { icuchar := (removezeroes ? "SSS" : "SSS"); }
+
+      // %S  Two-digit second (00 - 59)
+      // %#S Two-digit second, remove any leading zeros
+      CASE "S" { icuchar := (removezeroes ? "s" : "ss"); }
+
+      // %V  Two-digit week number (00 - 52)
+      // %#V One-digit week number (0 - 52)
+      CASE "V" { icuchar := (removezeroes ? "w" : "ww"); }
+
+      // %y  Two-digit year without century (00 to 99)
+      // %#y Two-digit year without century, remove any leading zeros
+      //ADDME: "y" returns the year without any leading zeroes (what we want for %#Y). There is no way to only get the last
+      //       two digits without leading zeroes.
+      CASE "y" { icuchar := (removezeroes ? "yy" : "yy"); }
+
+      // %Y  Year with century
+      // %#Y Year with century, remove any leading zeros   }
+      CASE "Y" { icuchar := (removezeroes ? "y" : "yyyy"); }
+
+      // If the character is not recognized, let it pass through
+      DEFAULT  { icuchar := thischar; }
+    }
+    formattedtime := formattedtime || icuchar;
+  }
+  IF (addingtext)
+    formattedtime := formattedtime || "'";
+  //THROW NEW Exception(formattedtime);
+  RETURN formattedtime;
+}
+
+
+
+/** @short   Format a numerical value
+    @param   value    The value to format, an INTEGER, INTEGER64, MONEY or FLOAT
+    @param   decimals When rounding, the maximum number of decimals to show, otherwise the minimum number of decimals to show
+    @param   grouping If the digits should be grouped using a thousand separator
+    @param   round    If the value should be rounded to the number of decimals
+    @param   locale   The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @return  The formatted value
+    @see     LocalizeCurrency, LocalizePercentage, LocalizeSpellout, LocalizeOrdinal
+    @example
+// example1 = "12,345.68"
+STRING example1 := LocalizeNumber(12345.6789, 2, TRUE, TRUE, "en");
+
+// example2 = "12.345,6789"
+STRING example2 := LocalizeNumber(12345.6789, 0, TRUE, FALSE, "nl");
+
+// example3 = "123.456.789,0000000000"
+STRING example3 := LocalizeNumber(123456789, 10, TRUE, FALSE, "nl");
+*/
+PUBLIC STRING FUNCTION LocalizeNumber(VARIANT value, INTEGER decimals, BOOLEAN grouping, BOOLEAN round, STRING locale)
+{
+  IF (NOT CanCastTypeTo(TypeID(value), TypeID(FLOAT)))
+    THROW NEW Exception("Cannot format a non-numeric type");
+
+  INTEGER minfracdigits := 0, maxfracdigits := 20;
+  IF (decimals >= 0)
+  {
+    IF (round)
+      maxfracdigits := decimals;
+    ELSE
+      minfracdigits := decimals;
+  }
+  IF (minfracdigits > maxfracdigits)
+    maxfracdigits := minfracdigits;
+  RETURN __ICU_FormatNumber(0, "", grouping, 1, minfracdigits, maxfracdigits, FALSE, value, GetLocaleForLangTag(locale));
+}
+
+
+
+/** @short   Format a currency value
+    @param   value    The value to format, an INTEGER, INTEGER64, MONEY or FLOAT
+    @param   decimals The number of decimals to show, or -1 to use the default number of decimals for the specified currency
+                      (the value will be rounded to the number of decimals)
+    @param   grouping If the digits should be grouped using a thousand separator
+    @param   currency The currency to use (e.g. 'EUR' or 'USD')
+    @param   locale   The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @return  The formatted value
+    @see     LocalizeNumber, LocalizePercentage, LocalizeSpellout, LocalizeOrdinal
+    @example
+// example1 = "€12,345.68"
+STRING example1 := LocalizeCurrency(12345.6789, -1, TRUE, "EUR", "en");
+
+// example2 = "US$\u00A012.346"
+STRING example2 := LocalizeCurrency(12345.6789, 0, TRUE, "USD", "nl");
+*/
+PUBLIC STRING FUNCTION LocalizeCurrency(VARIANT value, INTEGER decimals, BOOLEAN grouping, STRING currency, STRING locale)
+{
+  IF (NOT CanCastTypeTo(TypeID(value), TypeID(FLOAT)))
+    THROW NEW Exception("Cannot format a non-numeric type");
+  IF (currency = "")
+    THROW NEW Exception("No currency provided");
+
+  INTEGER currencydigits := __ICU_GetCurrencyFractionDigits(currency);
+  INTEGER fracdigits := currencydigits;
+  IF (decimals >= 0)
+    fracdigits := decimals;
+  RETURN __ICU_FormatNumber(1, currency, grouping, 1, fracdigits, fracdigits, FALSE, value, GetLocaleForLangTag(locale));
+}
+
+
+
+/** @short   Format a fractional value as percentage
+    @param   value The value to format, 1 = 100%
+    @param   decimals The number of decimals to display (the value will be rounded to the number of decimals)
+    @param   grouping If the digits should be grouped using a thousand separator
+    @param   locale   The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @return  The formatted value
+    @see     LocalizeNumber, LocalizeCurrency, LocalizeSpellout, LocalizeOrdinal
+    @example
+// example1 = "25%"
+STRING example1 := LocalizePercentage(.2468, 0, TRUE, "en");
+
+// example2 = "24,68%"
+STRING example2 := LocalizePercentage(2468, 2, TRUE, "nl");
+*/
+PUBLIC STRING FUNCTION LocalizePercentage(FLOAT value, INTEGER decimals, BOOLEAN grouping, STRING locale)
+{
+  INTEGER fracdigits := 0;
+  IF (decimals > 0)
+    fracdigits := decimals;
+  RETURN __ICU_FormatNumber(2, "", grouping, 1, fracdigits, fracdigits, FALSE, value, GetLocaleForLangTag(locale));
+}
+
+
+
+/** @short   Format a numerical value as spelled out text
+    @param   value    The value to spell out
+    @param   locale   The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @return  The formatted value
+    @see     LocalizeNumber, LocalizeCurrency, LocalizePercentage, LocalizeOrdinal
+    @example
+// example1 = "twelve thousand three hundred forty-five"
+STRING example1 := LocalizeSpellout(12345, "en");
+
+// example2 = "negen­honderd­negen­en­negentig miljard negen­honderd­negen­en­negentig miljoen negen­honderd­negen­en­negentig­duizend­negen­honderd­negen­en­negentig"
+STRING example2 := LocalizeSpellout(999999999999i64, "nl");
+
+// example3 = "minus eine Million"
+STRING example3 := LocalizeSpellout(-1000000, "de");
+*/
+PUBLIC STRING FUNCTION LocalizeSpellout(INTEGER64 value, STRING locale)
+{
+  RETURN __ICU_FormatSpellout(value, GetLocaleForLangTag(locale));
+}
+
+
+
+/** @short   Get the ordinal value of a numerical value
+    @param   value    The number to get the ordinal value for
+    @param   locale   The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @return  The formatted value
+    @see     LocalizeNumber, LocalizeCurrency, LocalizePercentage, LocalizeSpellout
+    @example
+// example1 = "12,345th"
+STRING example1 := LocalizeOrdinal(12345, "en");
+
+// example2 = "12.345e"
+STRING example2 := LocalizeOrdinal(12345, "nl");
+
+// example3 = "12.345."
+STRING example3 := LocalizeOrdinal(12345, "de");
+*/
+PUBLIC STRING FUNCTION LocalizeOrdinal(INTEGER64 value, STRING locale)
+{
+  //ADDME: Setting grouping doesn't seem to have any effect, so we're not exposing the parameter (yet)
+  RETURN __ICU_FormatOrdinal(value, GetLocaleForLangTag(locale), TRUE);
+}
+
+
+
+// ==========================================================================================================================
+//
+// World info
+//
+
+
+
+/** @short   Get a list of country names in one or more locales or languages
+    @param   locale The language(s) or locale(s) to use (e.g. 'en', [ 'en-GB', 'nl' ] or 'zh-Hans-CN')
+    @return  The list of country names (each record contains the country code and a cell for each localization)
+    @cell(string) return.code The two-letter ISO 3166 country code (uppercase)
+*/
+PUBLIC RECORD ARRAY FUNCTION GetCountryList(VARIANT locale)
+{
+  STRING ARRAY locales;
+  IF (TypeID(locale) = TypeID(STRING))
+    INSERT locale INTO locales AT END;
+  ELSE IF (TypeID(locale) = TypeID(STRING ARRAY))
+    locales := locale;
+  ELSE
+    THROW NEW Exception("Expected a single locale or a list of locales");
+
+  RETURN __ICU_GetCountryList(locales);
+}
+
+
+
+/** @short   Get a list of language names in one or more locales or languages
+    @param   locale The language(s) or locale(s) to use (e.g. 'en', [ 'en-GB', 'nl' ] or 'zh-Hans-CN')
+    @return  The list of language names (each record contains the language code and a cell for each localization)
+    @cell(string) return.code The two-letter ISO 639 language code (lowercase)
+*/
+PUBLIC RECORD ARRAY FUNCTION GetLanguageList(VARIANT locale)
+{
+  STRING ARRAY locales;
+  IF (TypeID(locale) = TypeID(STRING))
+    INSERT locale INTO locales AT END;
+  ELSE IF (TypeID(locale) = TypeID(STRING ARRAY))
+    locales := locale;
+  ELSE
+    THROW NEW Exception("Expected a single locale or a list of locales");
+
+  RETURN __ICU_GetLanguageList(locales);
+}
+
+/** @short Check if a languagecode matches a list of languages
+    @param languages Language (STRING) or languages (STRING ARRAY) to match, eg "nl" or ["en","en-us"]. If the current languagecode is 'en-us', 'en' would match too
+    @return True if the webdesign->languagecode is one of the specified languages
+    */
+PUBLIC BOOLEAN FUNCTION MatchLanguage(STRING setlanguagecode, VARIANT matchlanguages)
+{
+  STRING ARRAY matchagainst := [ ToUppercase(setlanguagecode), Left(ToUppercase(setlanguagecode),2) ];
+  IF(TypeID(matchlanguages) = TypeID(STRING))
+    RETURN ToUppercase(matchlanguages) IN matchagainst;
+  IF(TypeID(matchlanguages) != TypeID(STRING ARRAY))
+    THROW NEW Exception("Parameter 'language' should be a STRING or a STRING ARRAY");
+  FOREVERY(STRING lang FROM matchlanguages)
+    IF(ToUppercase(lang) IN matchagainst)
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+
+// ==========================================================================================================================
+//
+// Text transformations
+//
+
+
+
+/** @short   Converts a string to lowercase.
+    @param   src The string to convert
+    @return  The string, converted to lowercase
+    @see     LocalizedToUppercase
+    @example
+// example1 = "üssåñø"
+STRING example1 := LocalizedToLowercase("ÜSSÅÑØ");
+*/
+PUBLIC STRING FUNCTION LocalizedToLowercase(STRING value)
+{
+  //ADDME: Setting the locale doesn't seem to have any effect, so we're not exposing the parameter (yet)
+  RETURN __ICU_ToLowercase(value, "en");
+}
+
+
+
+/** @short   Converts a string to uppercase.
+    @param   src The string to convert
+    @return  The string, converted to uppercase
+    @see     LocalizedToLowercase
+    @example
+// example1 = "ÜSSÅÑØ" ('ß' is uppercased to 'SS')
+STRING example1 := LocalizedToUppercase("üßåñø");
+*/
+PUBLIC STRING FUNCTION LocalizedToUppercase(STRING value)
+{
+  //ADDME: Setting the locale doesn't seem to have any effect, so we're not exposing the parameter (yet)
+  RETURN __ICU_ToUppercase(value, "en");
+}
+
+
+
+/** @short   Normalize text for a given language
+    @long    This function normalizes the given (Latin) text by removing all letter accents, converting letter-like symbols
+             to the closest-matching ASCII variant and lowercasing the result.
+    @param   text The text to normalize
+    @return  The normalized text
+    @example
+// example1 = "≤...<<aeae€ussano" (the symbol '…' is converted to '...', '«' is converted to '<<')
+STRING example1 := LocalizedNormalizeText("≤…«æÆ€ÜSSÅÑØ");
+*/
+PUBLIC STRING FUNCTION LocalizedNormalizeText(STRING value)
+{
+  //ADDME: Setting the locale doesn't seem to have any effect, so we're not exposing the parameter (yet)
+  RETURN __ICU_NormalizeText(value, "en");
+}
+
+
+
+/** @short   Transliterate a string to latin characters
+    @param   text The text to transliterate
+    @return  The normalized text, or an empty string in case of an unrecognized language code
+    @example
+// example1 = "kyanpasu"
+STRING example1 := TransliterateTextLocalized("キャンパス");
+
+// example2 = "Alphabētikós Katálogos"
+STRING example2 := TransliterateTextLocalized("Αλφαβητικός Κατάλογος");
+*/
+PUBLIC STRING FUNCTION TransliterateTextLocalized(STRING value)
+{
+  //ADDME: Setting the locale doesn't seem to have any effect, so we're not exposing the parameter (yet)
+  RETURN __ICU_TransliterateText(value, "en");
+}
+
+
+
+// ==========================================================================================================================
+//
+// Time zone support
+//
+
+
+
+// Cached time zone id's
+RECORD ARRAY cached_timezoneids;
+
+// The ICU time zone functions use case-sensitive time zone id's. Try to find the supplied time zone within the list of all
+// available time zones.
+STRING FUNCTION CheckTimeZone(STRING timezone)
+{
+  IF (timezone = "")
+    RETURN "";
+
+  IF (Length(cached_timezoneids) = 0)
+    cached_timezoneids := SELECT id
+                               , findid := ToUppercase(id)
+                            FROM ToRecordArray(__ICU_GetTimeZoneIDs(), "id")
+                           ORDER BY ToUppercase(id);
+
+  RECORD pos := RecordLowerBound(cached_timezoneids, [ findid := ToUppercase(timezone) ], [ "FINDID" ]);
+  RETURN pos.found ? cached_timezoneids[pos.position].id : "";
+}
+
+
+
+// Get a list of all supported time zones (all time zones associated with countries plus some general time zones)
+RECORD ARRAY FUNCTION GetAllTimeZones(STRING locale DEFAULTSTO "en")
+{
+  RETURN __ICU_GetAllTimeZones(locale) CONCAT
+      SELECT code := ""
+           , tz
+           , comments := GetTimeZoneDisplay(tz, FALSE, "long", GetLocaleForLangTag(locale))
+        FROM ToRecordArray([ "UTC", "GMT"
+                           , "EET", "MET", "CET", "WET"
+                           , "EST", "MST", "HST"
+                           , "EST5EDT", "CST6CDT", "MST7MDT", "PST8PDT" ], "tz");
+}
+
+
+
+/** @short   Convert UTC time to local time
+    @long    This function converts UTC (formerly GMT) time to local time, correcting for any summertime or daylight saving
+             time modifications that are in effect at the specified time. Leap seconds are not taken into account.
+             The timezone parameter should contain a time zone name as supported by zoneinfo, for example "CET", "UTC",
+             "Europe/Amsterdam", or "America/New_York". The function GetAvailableTimeZoneNames can be used to get a list of
+             available time zone names. Please note that time zone names are case-sensitive!
+    @param   date     UTC date and time to convert
+    @param   timezone The time zone to convert the UTC time to
+    @return  Local date and time
+    @see     UTCToLocal, GetAvailableTimeZones, GetAvailableTimeZoneNames
+*/
+PUBLIC DATETIME FUNCTION UTCtoLocal(DATETIME date, STRING timezone)
+{
+  IF (date = MAX_DATETIME)
+    RETURN date;
+
+  RETURN __ICU_UTCToLocal(date, CheckTimeZone(timezone));
+}
+
+
+
+/** @short   Convert local time to UTC time
+    @long    This function converts local time to UTC (formerly GMT) time, correcting for any summertime or daylight saving
+             time modifications that are in effect at the specified time. Leap seconds are not taken into account.
+             The timezone parameter should contain a time zone name as supported by zoneinfo, for example "CET", "UTC",
+             "Europe/Amsterdam", or "America/New_York". The function GetAvailableTimeZoneNames can be used to get a list of
+             available time zone names. Please not that time zone names are case-sensitive!
+    @param   date     Local date and time to convert
+    @param   timezone Time zone to convert the UTC time from
+    @return  UTC date and time
+    @see     UTCToLocal, GetAvailableTimeZones, GetAvailableTimeZoneNames
+*/
+PUBLIC DATETIME FUNCTION LocalToUTC (DATETIME date, STRING timezone)
+{
+  IF(date=MAX_DATETIME)
+    RETURN date;
+
+  RETURN __ICU_LocalToUTC(date, CheckTimeZone(timezone));
+}
+
+
+
+/** @short   Check if daylight saving time is applied to the given local time in the given time zone
+    @param   date     Local date and time to check
+    @param   timezone Time zone the local time is in
+    @return  If daylight saving time is applied to the given local time in the given time zone
+    @see     GetAvailableTimeZones, GetAvailableTimeZoneNames
+*/
+PUBLIC BOOLEAN FUNCTION IsLocalTimeDST(DATETIME date, STRING timezone)
+{
+  RETURN __ICU_IsLocalTimeDST(date, timezone);
+}
+
+
+
+/** @short   Check if the given time is in a weekend for the given locale
+    @param   date   (Local) date and time to check
+    @param   locale The locale to use (e.g. 'en' or 'ar')
+    @return  If it is weekend for the given locale at the given time
+    @examples
+// The 2nd of January 2000 was a Sunday, which is a Dutch weekend day
+// example1 = TRUE
+example1 := IsWeekend(MakeDate(2000, 1, 2), "nl");
+
+// Sunday is not an Arabic weekend day
+// example2 = FALSE
+example2 := IsWeekend(MakeDate(2000, 1, 2), "ar");
+*/
+PUBLIC BOOLEAN FUNCTION IsWeekend(DATETIME date, STRING locale)
+{
+  RETURN __ICU_IsWeekend(date, locale);
+}
+
+
+
+/** @short   Get the display name of a timezone
+    @param   timezone The time zone to display
+    @param   dst      If the DST version of the name should be displayed
+    @param   style    The style to show the name in (one of "long", "short", of "offset")
+    @param   locale   The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @return  The display name of the time zone, or an empty string on error (i.e. non-existing time zone, unknown style)
+    @examples
+// example1 = "Midden-Europese standaardtijd"
+example1 := GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "long", "nl");
+
+// example2 = "Midden-Europese zomertijd"
+example2 := GetTimeZoneDisplay("Europe/Amsterdam", TRUE, "long", "nl");
+
+// example3 = "CET"
+example3 := GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "short", "nl");
+
+// example4 = "+0100"
+example4 := GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "offset", "nl");
+*/
+PUBLIC STRING FUNCTION GetTimeZoneDisplay(STRING timezone, BOOLEAN dst, STRING style, STRING locale)
+{
+  STRING ARRAY display_styles := [ "SHORT", "LONG", "OFFSET" ];
+
+  IF (ToUppercase(style) NOT IN display_styles)
+    THROW NEW Exception("Unknown style value '" || style || "'");
+
+  RETURN __ICU_GetTimeZoneDisplay(CheckTimeZone(timezone), dst, SearchElement(display_styles, ToUppercase(style)), GetLocaleForLangTag(locale));
+}
+
+
+
+/** @short   Get the offset from UTC for the given time zone on a given local time
+    @long    This function returns the difference between UTC and local time for a given time, in milliseconds.
+    @param   date     Local date and time to get the offset for
+    @param   timezone Time zone the local time is in
+    @return  The offset from UTC in minutes
+    @see     GetAvailableTimeZones, GetAvailableTimeZoneNames, GetLocalTimeZoneOffset
+*/
+PUBLIC INTEGER FUNCTION GetUTCOffset(DATETIME date, STRING timezone)
+{
+  RETURN __ICU_GetUTCOffset(date, timezone);
+}
+
+
+
+/** @short   List all available country-specific and general time zones
+    @param   locale The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @return  The list of time zones
+    @cell(string) return.code Two-letter country code (e.g. "NL"), empty for general time zones
+    @cell(string) return.tz Time zone name, which can be used to convert times using UTCToLocal and LocalToUTC (e.g. "Europe/Amsterdam")
+    @cell(string array) return.tz_split Time zone name, split into parts (e.g. [ "Europe", "Amsterdam" ])
+    @cell(string) return.comments Display name of the time zone in the requested locale or language
+    @see     UTCToLocal, LocalToUTC, GetAvailableTimeZoneNames
+*/
+PUBLIC RECORD ARRAY FUNCTION GetAvailableTimeZones(STRING locale DEFAULTSTO "en")
+{
+  RETURN SELECT *
+              , tz_split := Tokenize(tz, "/")
+           FROM GetAllTimeZones(locale);
+}
+
+
+
+/** @short   Get a list of available time zones names for time zone conversion
+    @long    This function returns a list of time zone names, which can be used to convert times using UTCToLocal and LocalToUTC.
+    @param   locale The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @return  A list of time zone names
+    @see     UTCToLocal, LocalToUTC, GetAvailableTimeZones
+*/
+PUBLIC STRING ARRAY FUNCTION GetAvailableTimeZoneNames(STRING locale DEFAULTSTO "en")
+{
+  RETURN SELECT AS STRING ARRAY DISTINCT tz FROM GetAllTimeZones(locale);
+}
+
+
+
+/** @short   Get the canonical time zone name for a given time zone
+    @long    Time zones are only returned by their canonical names by GetAvailableTimeZones and GetAvailableTimeZoneNames, so
+             this function can be used to lookup a time zone by a time zone alias. It is not necessary to use this function
+             for functions that take a time zone, like UTCToLocal, as they will automatically canonicalize the name.
+    @param   timezone The time zone name to check
+    @return  The canonical time zone name, or an empty string for a non-existing time zone
+    @example
+// Returns "Asia/Katmandu"
+STRING timezone := GetCanonicalTimeZoneID("Asia/Kathmandu");
+*/
+PUBLIC STRING FUNCTION GetCanonicalTimeZoneID(STRING timezone)
+{
+  RETURN __ICU_GetCanonicalTimeZoneID(timezone);
+}
+
+
+
+/** @short   Get the time zone name that is currently in use by the system
+    @return  The system time zone name
+    @example
+// Returns "Europe/Amsterdam" for systems set up to use local time in the Netherlands
+STRING timezone := GetSystemTimeZoneID();
+*/
+PUBLIC STRING FUNCTION GetSystemTimeZoneID()
+{
+  RETURN __ICU_GetSystemTimeZone();
+}
+
+
+
+// ==========================================================================================================================
+//
+// Comparison
+//
+
+
+
+/** @short   Get a function to compare strings
+    @long    This function creates and returns a compare function based on the given parameters. The returned function can be
+             used to compare two strings and return 0 if the strings are considered equal, -1 if the first string should be
+             sorted before the second string and 1 if the first string should be sorted after the second string.
+    @param   locale The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
+    @param   sensitivity       The comparison sensitivity, one of "base" (a ≠ b, a = á, a = A), "accent" (a ≠ b, a ≠ á, a = A),
+                               "case" (a ≠ b, a = á, a ≠ A) or "variant" (a ≠ b, a ≠ á, a ≠ A), if empty, "variant" is assumed
+    @param   ignorepunctuation If punctuation should be ignored (if set to TRUE, ".a" = "a.")
+    @param   numeric           If numeric collation should be used (if set to TRUE, "1" < "2" < "10")
+    @param   casefirst         If upper case or lower case should be sorted first, one of "upper" (sort upper case first),
+                               "lower" (sort lower case first) or "false" (use locale default, the default value)
+    @return  A function that can be used to compare two strings, INTEGER FUNCTION(STRING, STRING)
+    @example
+// Returns -1
+GetCompareFunction("en", "base", FALSE, FALSE)("a", "b");
+
+// Returns 0
+GetCompareFunction("en", "base", FALSE, FALSE)("a", "ä");
+
+// Returns 1
+GetCompareFunction("en", "base", FALSE, FALSE)("z", "ä");
+
+// Returns -1 (in Swedish, ä is sorted after z
+GetCompareFunction("sv", "base", FALSE, FALSE)("z", "ä");
+*/
+PUBLIC FUNCTION PTR FUNCTION MakeCompareFunction(STRING locale, STRING sensitivity, BOOLEAN ignorepunctuation, BOOLEAN numeric, STRING casefirst DEFAULTSTO "false")
+{
+  STRING ARRAY supported_sensitivity := [ "VARIANT", "BASE", "ACCENT", "CASE" ];
+  STRING ARRAY supported_casefirst := [ "FALSE", "UPPER", "LOWER" ];
+
+  IF (sensitivity = "")
+    sensitivity := "variant";
+  ELSE IF (ToUppercase(sensitivity) NOT IN supported_sensitivity)
+    THROW NEW Exception("Unknown sensitivity value '" || sensitivity || "'");
+  IF (casefirst = "")
+    casefirst := "false";
+  ELSE IF (ToUppercase(casefirst) NOT IN supported_casefirst)
+    THROW NEW Exception("Unknown casefirst value '" || casefirst || "'");
+
+  RETURN PTR __ICU_CollatedCompare(SearchElement(supported_sensitivity, ToUppercase(sensitivity)),
+                                   ignorepunctuation,
+                                   numeric,
+                                   SearchElement(supported_casefirst, ToUppercase(casefirst)),
+                                   #1,
+                                   #2,
+                                   GetLocaleForLangTag(locale));
+}
+
+
+
+// ==========================================================================================================================
+//
+// Intl, Collator, DateTimeFormat, NumberFormat
+//
+
+
+
+OBJECTTYPE Intl
+< // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING pvt_locale;
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY supportedlocalesof(GetSupportedLocalesOf, -);
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(VARIANT locale)
+  {
+    IF (TypeID(locale) = TypeID(STRING))
+      this->pvt_locale := GetLocaleForLangTag(locale);
+    ELSE IF (TypeID(locale) = TypeID(STRING ARRAY))
+      FOREVERY (STRING loc FROM locale)
+      {
+        this->pvt_locale := GetLocaleForLangTag(loc);
+        //ADDME: Check for valid locale!
+        IF (this->pvt_locale != "")
+          BREAK;
+      }
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING ARRAY FUNCTION GetSupportedLocalesOf()
+  {
+    return default string array;
+  }
+>;
+
+
+
+PUBLIC OBJECTTYPE Collator EXTEND Intl
+< // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER pvt_usage;
+
+  INTEGER pvt_sensitivity;
+
+  BOOLEAN pvt_punctuation;
+
+  BOOLEAN pvt_numeric;
+
+  INTEGER pvt_casefirst;
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY compare(GetCompare, -);
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(VARIANT locale, RECORD options DEFAULTSTO DEFAULT RECORD)
+  : Intl(locale)
+  {
+    this->ParseOptions(options);
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD FUNCTION ResolvedOptions()
+  {
+    RETURN [ locale := this->pvt_locale ];
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  FUNCTION PTR FUNCTION GetCompare()
+  {
+    RETURN PTR this->CompareStrings;
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Internal helper functions
+  //
+
+  MACRO ParseOptions(RECORD options)
+  {
+    // The default options
+    RECORD defaultoptions := [ usage := "sort"
+                             , sensitivity := "variant"
+                             , ignorepunctuation := FALSE
+                             , numeric := FALSE
+                             , casefirst := "false"
+                             ];
+
+    STRING ARRAY supported_usage := [ "sort", "search" ];
+    STRING ARRAY supported_sensitivity := [ "variant", "base", "accent", "case" ];
+    STRING ARRAY supported_casefirst := [ "false", "upper", "lower" ];
+
+    // Update the default options with the given options
+    options := MakeUpdatedRecord(defaultoptions, options);
+
+    IF (options.usage NOT IN supported_usage)
+      options.usage := defaultoptions.usage;
+    IF (options.sensitivity NOT IN supported_sensitivity)
+      options.sensitivity := defaultoptions.sensitivity;
+    IF (options.casefirst NOT IN supported_casefirst)
+      options.casefirst := defaultoptions.casefirst;
+
+    this->pvt_usage := SearchElement(supported_usage, options.usage);
+    this->pvt_sensitivity := SearchElement(supported_sensitivity, options.sensitivity);
+    this->pvt_punctuation := options.ignorepunctuation;
+    this->pvt_numeric := options.numeric;
+    this->pvt_casefirst := SearchElement(supported_casefirst, options.casefirst);
+  }
+
+  INTEGER FUNCTION CompareStrings(STRING string1, STRING string2)
+  {
+    RETURN __ICU_CollatedCompare(this->pvt_sensitivity, this->pvt_punctuation, this->pvt_numeric, this->pvt_casefirst, string1, string2, this->pvt_locale);
+  }
+
+>;
+
+
+
+PUBLIC OBJECTTYPE DateTimeFormat EXTEND Intl
+< // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING pvt_format;
+
+  STRING pvt_timezone;
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY format(GetFormatter, -);
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(VARIANT locale, RECORD options DEFAULTSTO DEFAULT RECORD)
+  : Intl(locale)
+  {
+    this->ParseOptions(options);
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD FUNCTION ResolvedOptions()
+  {
+    RETURN [ locale := this->pvt_locale ];
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  FUNCTION PTR FUNCTION GetFormatter()
+  {
+    RETURN PTR this->FormatDateTime;
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Internal helper functions
+  //
+
+  MACRO ParseOptions(RECORD options)
+  {
+    // The default options
+    RECORD defaultoptions := [ timezone := ""
+                             , hour12 := __ICU_GetLocaleHour12(this->pvt_locale)
+                             , weekday := ""
+                             , era := ""
+                             , year := ""
+                             , month := ""
+                             , day := ""
+                             , hour := ""
+                             , minute := ""
+                             , second := ""
+                             , timezonename := ""
+                             ];
+
+    // Update the default options with the given options
+    options := MakeUpdatedRecord(defaultoptions, options);
+
+    // Check option values
+    IF (options.weekday NOT IN [ "narrow", "short", "long" ])
+      options.weekday := defaultoptions.weekday;
+    IF (options.era NOT IN [ "narrow", "short", "long" ])
+      options.era := defaultoptions.era;
+    IF (options.year NOT IN [ "numeric", "2-digit" ])
+      options.year := defaultoptions.year;
+    IF (options.month NOT IN [ "numeric", "2-digit", "narrow", "short", "long" ])
+      options.month := defaultoptions.month;
+    IF (options.day NOT IN [ "numeric", "2-digit" ])
+      options.day := defaultoptions.day;
+    IF (options.hour NOT IN [ "numeric", "2-digit" ])
+      options.hour := defaultoptions.hour;
+    IF (options.minute NOT IN [ "numeric", "2-digit" ])
+      options.minute := defaultoptions.minute;
+    IF (options.second NOT IN [ "numeric", "2-digit" ])
+      options.second := defaultoptions.second;
+    IF (options.timezonename NOT IN [ "short", "long" ])
+      options.timezonename := defaultoptions.timezonename;
+
+    // If no formatting fields are given, fall back to year, month, day
+    IF (options.weekday = "" AND options.era = ""
+        AND options.year = "" AND options.month = "" AND options.day = ""
+        AND options.hour = "" AND options.minute = "" AND options.second = ""
+        AND options.timezonename = "")
+    {
+      options.year := "numeric";
+      options.month := "numeric";
+      options.day := "numeric";
+    }
+
+    // Use the supplied formatting fields to initialize date and time formats
+    STRING skeleton;
+
+    IF (options.weekday = "narrow")
+      skeleton := skeleton || "EEEEE";
+    ELSE IF (options.weekday = "short")
+      skeleton := skeleton || "E";
+    ELSE IF (options.weekday = "long")
+      skeleton := skeleton || "EEEE";
+
+    IF (options.era = "narrow")
+      skeleton := skeleton || "GGGGG";
+    ELSE IF (options.era = "short")
+      skeleton := skeleton || "G";
+    ELSE IF (options.era = "long")
+      skeleton := skeleton || "GGGG";
+
+    IF (options.year = "numeric")
+      skeleton := skeleton || "y";
+    ELSE IF (options.year = "2-digit")
+      skeleton := skeleton || "yy";
+
+    IF (options.month = "numeric")
+      skeleton := skeleton || "M";
+    ELSE IF (options.month = "2-digit")
+      skeleton := skeleton || "MM";
+    ELSE IF (options.month = "narrow")
+      skeleton := skeleton || "MMMMM";
+    ELSE IF (options.month = "short")
+      skeleton := skeleton || "MMM";
+    ELSE IF (options.month = "long")
+      skeleton := skeleton || "MMMM";
+
+    IF (options.day = "numeric")
+      skeleton := skeleton || "d";
+    ELSE IF (options.day = "2-digit")
+      skeleton := skeleton || "dd";
+
+    IF (options.hour = "numeric")
+      skeleton := skeleton || (options.hour12 ? "h" : "H");
+    ELSE IF (options.hour = "2-digit")
+      skeleton := skeleton || (options.hour12 ? "hh" : "HH");
+
+    IF (options.minute = "numeric")
+      skeleton := skeleton || "m";
+    ELSE IF (options.minute = "2-digit")
+      skeleton := skeleton || "mm";
+
+    IF (options.second = "numeric")
+      skeleton := skeleton || "s";
+    ELSE IF (options.second = "2-digit")
+      skeleton := skeleton || "ss";
+
+    IF (options.timezonename = "short")
+      skeleton := skeleton || "z";
+    ELSE IF (options.timezonename = "long")
+      skeleton := skeleton || "zzzz";
+
+    this->pvt_format := __ICU_GetBestPattern(skeleton, this->pvt_locale);
+    this->pvt_timezone := CheckTimeZone(options.timezone);
+  }
+
+  STRING FUNCTION FormatDateTime(DATETIME value)
+  {
+    RETURN __ICU_FormatDateTime(this->pvt_format, value, this->pvt_locale, this->pvt_timezone);
+  }
+
+>;
+
+
+
+PUBLIC OBJECTTYPE NumberFormat EXTEND Intl
+< // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER pvt_style;
+
+  STRING pvt_currency;
+
+  BOOLEAN pvt_grouping;
+
+  INTEGER pvt_minintdigits;
+
+  INTEGER pvt_minfracdigits;
+
+  INTEGER pvt_maxfracdigits;
+
+  BOOLEAN pvt_significant;
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY format(GetFormatter, -);
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(VARIANT locale, RECORD options DEFAULTSTO DEFAULT RECORD)
+  : Intl(locale)
+  {
+    this->ParseOptions(options);
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD FUNCTION ResolvedOptions()
+  {
+    RETURN [ locale := this->pvt_locale ];
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  FUNCTION PTR FUNCTION GetFormatter()
+  {
+    RETURN PTR this->FormatNumber;
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Internal helper functions
+  //
+
+  MACRO ParseOptions(RECORD options)
+  {
+    // The default options
+    RECORD defaultoptions := [ style := "decimal"
+                             , currency := ""
+                             , currencydisplay := "symbol" // not yet supported
+                             , usegrouping := TRUE
+                             , minimumintegerdigits := 1
+                             , minimumfractiondigits := 0
+                             , maximumfractiondigits := 3
+                             , minimumsignificantdigits := 1
+                             , maximumsignificantdigits := 1
+                             ];
+    STRING ARRAY supported_style := [ "decimal", "currency", "percent" ];
+
+    // If one of the significantdigits options is specified, the integerdigits and fractiondigits options should be ignored
+    // (Check before updating the options record!)
+    this->pvt_significant := CellExists(options, "minimumsignificantdigits") OR CellExists(options, "maximumsignificantdigits");
+
+    // If the formatting style is currency,
+    INTEGER currencydigits;
+    IF (CellExists(options, "style") AND CellExists(options, "currency")
+        AND options.style = "currency" AND options.currency != "")
+    {
+      currencydigits := __ICU_GetCurrencyFractionDigits(options.currency);
+      defaultoptions.minimumfractiondigits := currencydigits;
+      defaultoptions.maximumfractiondigits := currencydigits;
+    }
+    ELSE IF (CellExists(options, "style") AND options.style = "percent")
+    {
+      defaultoptions.maximumfractiondigits := 0;
+    }
+
+    // Update the default options with the given options
+    options := MakeUpdatedRecord(defaultoptions, options);
+
+    IF (options.style NOT IN supported_style)
+      options.style := defaultoptions.style;
+    IF (options.style = "currency" AND options.currency = "")
+      THROW NEW Exception("No currency provided");
+    IF (options.currencydisplay NOT IN [ "symbol", "code", "name" ])
+      options.currencydisplay := defaultoptions.currencydisplay;
+    IF (options.minimumintegerdigits < 1 OR options.minimumintegerdigits > 21)
+      options.minimumintegerdigits := defaultoptions.minimumintegerdigits;
+    IF (options.minimumfractiondigits < 0 OR options.minimumfractiondigits > 20)
+    {
+      options.minimumfractiondigits := defaultoptions.minimumfractiondigits;
+    }
+    IF (options.maximumfractiondigits < 0 OR options.maximumfractiondigits > 20)
+    {
+      options.maximumfractiondigits := defaultoptions.maximumfractiondigits > options.minimumfractiondigits
+                                     ? defaultoptions.maximumfractiondigits
+                                     : options.minimumfractiondigits;
+    }
+    ELSE IF (options.maximumfractiondigits < options.minimumfractiondigits)
+      options.maximumfractiondigits := options.minimumfractiondigits;
+    IF (options.minimumsignificantdigits < 1 OR options.minimumsignificantdigits > 21)
+      options.minimumsignificantdigits := defaultoptions.minimumsignificantdigits;
+    IF (options.maximumsignificantdigits < 1 OR options.maximumsignificantdigits > 21)
+      options.maximumsignificantdigits := options.minimumsignificantdigits;
+
+    this->pvt_style := SearchElement(supported_style, options.style);
+    this->pvt_currency := options.currency;
+    this->pvt_grouping := options.usegrouping;
+    this->pvt_minintdigits := options.minimumintegerdigits;
+    this->pvt_minfracdigits := this->pvt_significant ? options.minimumsignificantdigits : options.minimumfractiondigits;
+    this->pvt_maxfracdigits := this->pvt_significant ? options.maximumsignificantdigits : options.maximumfractiondigits;
+  }
+
+  STRING FUNCTION FormatNumber(VARIANT value)
+  {
+    IF (TypeID(value) NOT IN [ TypeID(INTEGER), TypeID(INTEGER64), TypeID(MONEY), TypeID(FLOAT) ])
+      THROW NEW Exception("Unsupported number type");
+
+    RETURN __ICU_FormatNumber(this->pvt_style, this->pvt_currency, this->pvt_grouping, this->pvt_minintdigits, this->pvt_minfracdigits, this->pvt_maxfracdigits, this->pvt_significant, value, this->pvt_locale);
+  }
+
+>;

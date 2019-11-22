@@ -1,0 +1,144 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "wh::files.whlib";
+
+RECORD ARRAY FUNCTION GetDirectoryItems(STRING basepath, STRING diskpath, BOOLEAN acceptfiles, BOOLEAN acceptfolders)
+{
+  IF (NOT (basepath LIKE "*/")) //not terminating with a slash
+    basepath := basepath || "/";
+  IF (NOT (diskpath LIKE "*/")) //not terminating with a slash
+    diskpath := diskpath || "/";
+
+  RETURN SELECT showtype := type = 1 ? 2 : 1
+              , rowkey := basepath || name
+              , name
+              , diskpath := substitute(diskpath || name,"\\","/")
+              , comment := ""
+              , expanded := FALSE
+              , expandable := type = 1
+              , isfolder := type = 1
+           FROM ReadDiskDirectory(diskpath,"*")
+          WHERE name != "."
+                AND name != ".."
+                AND (acceptfiles OR type != 0)
+       ORDER BY ToUppercase(name);
+}
+
+PUBLIC OBJECTTYPE BrowseServerPath EXTEND TolliumScreenBase
+<
+  PUBLIC PROPERTY path(GetPath, SetPath);
+  PUBLIC PROPERTY prettypath(GetPrettyPath, SetPath);
+
+  PUBLIC BOOLEAN acceptfiles;
+  PUBLIC BOOLEAN acceptfolders;
+  PUBLIC STRING description;
+
+  //Store manually added roots (because it's too expensive to find them in the tree)
+  RECORD ARRAY force_root_adds;
+
+  MACRO NEW()
+  {
+    this->acceptfiles := TRUE;
+    this->acceptfolders := TRUE;
+  }
+
+  STRING FUNCTION GetPath()
+  {
+    RECORD sel := this->folders->selection;
+    STRING path := RecordExists(sel) AND (sel.isfolder = FALSE OR this->acceptfolders) ? sel.diskpath : "";
+    RETURN path;
+  }
+  STRING FUNCTION GetPrettyPath()
+  {
+    STRING path := this->GetPath();
+    RETURN path;
+  }
+  MACRO SetPath(STRING newpath)
+  {
+    IF(newpath="")
+    {
+      this->folders->selection := DEFAULT RECORD;
+    }
+    ELSE
+    {
+      STRING ARRAY toks := Tokenize(newpath,'/');
+      RECORD currentrow;
+      FOREVERY(STRING tok FROM toks)
+      {
+        IF (tok = "")
+          CONTINUE;
+
+        RECORD ARRAY relevant_rows := RecordExists(currentrow) ? this->folders->GetChildRows(currentrow.rowkey) : this->folders->GetRootRows();
+        RECORD selectrow;
+
+        selectrow := SELECT * FROM relevant_rows WHERE name=tok;
+
+        IF(RecordExists(selectrow))
+        {
+          INSERT selectrow.rowkey INTO this->folders->expanded AT END;
+          currentrow := selectrow;
+        }
+        ELSE
+        {
+          BREAK; //no more matches apparently
+        }
+      }
+      this->folders->selection := currentrow;
+    }
+  }
+
+  RECORD ARRAY FUNCTION OnGetChildren(RECORD inrec)
+  {
+    RECORD ARRAY retval;
+
+    IF(NOT RecordExists(inrec))
+    {
+      retval := GetDirectoryItems("","/", this->acceptfiles, this->acceptfolders);
+      retval := retval CONCAT this->force_root_adds;
+    }
+    ELSE
+    {
+      retval := GetDirectoryItems(inrec.rowkey, inrec.rowkey, this->acceptfiles, this->acceptfolders);
+    }
+
+    RETURN
+        SELECT *
+          FROM retval
+      ORDER BY expandable DESC, ToUppercase(name);
+  }
+
+  MACRO OnSelect()
+  {
+    this->showpath->value := this->GetPrettyPath();
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    IF(this->showpath->value="")
+      RETURN FALSE;
+    RETURN TRUE;
+  }
+
+  STRING ARRAY FUNCTION OnGetPath(STRING path)
+  {
+    STRING ARRAY backwardspath;
+    STRING linksofar;
+
+    FOREVERY (STRING pathentry FROM Tokenize(path,"/"))
+    {
+      IF (linksofar!="")
+        linksofar := linksofar || "/";
+      linksofar := linksofar || pathentry;
+
+      IF (#pathentry = 0)
+        CONTINUE; //skip 'drive letter' link on unix
+      IF (pathentry="")
+        CONTINUE;
+
+      INSERT linksofar INTO backwardspath AT END;
+    }
+    //abort(anytostring(backwardspath,'tree'));
+
+    RETURN backwardspath;
+  }
+>;

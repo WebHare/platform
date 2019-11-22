@@ -1,0 +1,1618 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
+LOADLIB "mod::wrd/lib/internal/legacy-wrdschema.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
+
+MACRO SendHTMLPage(STRING wittypath, RECORD wittydata)
+{
+  AddHTTPHeader("Content-Type","text/html;charset=utf-8",FALSE);
+  ResetSecurityHeadersForPreviewPanel();
+  SendWebFile(LoadWittyLibrary(wittypath,"HTML-NI")->RunToBlob(wittydata));
+}
+
+/** WRD auth webdesign plugin
+    @topic wrdauth/api
+    @public
+*/
+PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Current Webcontext/webdesign
+  OBJECT pvt_webcontext;
+
+  /// Cached authdomain api
+  OBJECT api;
+
+  /// Cached user api
+  OBJECT __userapi;
+
+  /// Support object
+  OBJECT supportobject;
+
+  /// Library and name of support objecttype
+  STRING supportobjectname;
+
+  /// Lifetime of password reset links, in minutes
+  INTEGER passwordresetlifetime;
+
+  /// Site tag
+  STRING pvt_sitetag;
+
+  /// Resource URI for service email
+  STRING servicemailtemplate;
+
+  /// WRD fields to export to JS when no support object is configured
+  PUBLIC STRING ARRAY cachefields;
+
+  /// Site-relative URL of login page
+  PUBLIC STRING __loginpage;
+
+  /// Disable integration. internal api, debug.shtml needs this
+  PUBLIC BOOLEAN __disableintegration;
+
+  /// Whether to autocreate unknown users authenticated through SAML
+  BOOLEAN spautocreate;
+
+  /// Current fatalerror which is disabling wrdauth
+  STRING fatalerror;
+
+  OBJECT pvt_wrdschema;
+
+  /// @type(object legacy-api.whlib#WRDAuthIntegration)
+  OBJECT __wrdauth;
+
+  BOOLEAN pvt_api2017;
+
+  RECORD pvt_config;
+
+  STRING cookiename;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  /// WRD schema
+  PUBLIC PROPERTY wrdschema(GetWRDSchema, -);
+
+  /// WRD user api
+  PUBLIC PROPERTY userapi(GetUserAPI, -);
+
+  /// Account type
+  PUBLIC PROPERTY accounttype(GetAccountType, -);
+
+  /// Site tag
+  PUBLIC PROPERTY sitetag(pvt_sitetag, -);
+
+  /// WRDAuthIntegration object
+  PUBLIC PROPERTY wrdauth(GetWRDAuth,-);
+
+  /// Current webcontext/webdesign
+  PUBLIC PROPERTY webcontext(pvt_webcontext, -);
+
+  /// @type(string array) Router features
+  PUBLIC PROPERTY routerfeatures(this->pvt_config.routerfeatures, -);
+
+  /// @type(string) Resource with the Witty for the authentication pages
+  PUBLIC PROPERTY authpageswitty(this->pvt_config.authpageswitty, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Plugin overridden functions
+  //
+
+  /** Used for parsing plugin configuration data
+      @param siteprofile Siteprofile with the node to parse
+      @param node Node to parse
+      @return Configuration
+  */
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RECORD config :=
+           [ wrdschema := node->GetAttribute("wrdschema")
+           , api2017 := ParseXSBoolean(node->GetAttribute("api2017")) OR NOT node->HasAttribute("api2017")
+           , sitetag   := ToUppercase(node->GetAttribute("sitetag"))
+           , supportobjectname := node->GetAttribute("supportobjectname")
+           , passwordresetlifetime := ToInteger(node->GetAttribute("passwordresetlifetime"), 3 * 24 * 60) //in minutes
+           , cachefields := ParseXSList(node->GetAttribute("cachefields"))
+           , servicemailtemplate := siteprofile->ParseFSPath(node, "servicemailtemplate")
+           , loginpage := node->GetAttribute("loginpage")
+           , spautocreate := node->GetAttribute("spautocreate") IN [ "1", "true" ]
+           , cookiename := node->GetAttribute("cookiename")
+           , securecookie := ParseXSBoolean(node->GetAttribute("securecookie"))
+           , nohttponlycookies := ParseXSBoolean(node->GetAttribute("nohttponlycookies"))
+           , firstloginfield := node->GetAttribute("firstloginfield")
+           , lastloginfield := node->GetAttribute("lastloginfield")
+           , samesitecookie := node->HasAttribute("samesitecookie") ? node->GetAttribute("samesitecookie") : "lax"
+           , routerfeatures := ParseXSList(node->GetAttribute("routerfeatures"))
+           , authpageswitty := siteprofile->ParseFSPath(node, "authpageswitty")
+           , cookiedomain := node->GetAttribute("cookiedomain")
+           ];
+
+    IF(config.supportobjectname != "" AND config.supportobjectname NOT LIKE "*#*")
+    {
+      STRING supportlib := siteprofile->ParseFSPath(node, "supportlibrary");
+      config.supportobjectname := supportlib || "#" || config.supportobjectname;
+    }
+    ELSE
+    {
+      config.supportobjectname := MakeAbsoluteResourcePath(siteprofile->siteprofile->name, config.supportobjectname);
+    }
+
+    IF (config.cookiename NOT IN ["", "webharelogin"])
+    {
+      OBJECT cookie_regex := NEW RegEx("^webharelogin-([0-9a-z\\-]*|\\[siteslug\\])$");
+      IF(NOT RecordExists(cookie_regex->Exec(config.cookiename)))
+        THROW NEW Exception(`Invalid wrdauth cookie name '${config.cookiename}', must match regex 'webharelogin-[0-9a-z\\-]*'`);
+    }
+
+    RETURN config;
+  }
+
+  STRING FUNCTION ParseRelativePath(OBJECT webdesign, STRING inpath)
+  {
+    IF(inpath LIKE "currentsite::*")
+    {
+      IF(NOT ObjectExists(webdesign->targetsite))
+        THROW NEW Exception(`Cannot resolve path '${inpath}' - not inside a site`);
+      STRING outpath := MergePath("/" ||UnpackURL(webdesign->targetsite->webroot).urlpath, Substring(inpath,13));
+      IF(outpath NOT LIKE "*/")
+        outpath := outpath || "/";
+      RETURN ResolveToAbsoluteURL(webdesign->targetsite->webroot,outpath);
+    }
+    ELSE IF(inpath LIKE "site::*")
+    {
+      STRING targetsitename := Substring(inpath, 6, SearchSubstring(inpath,'/') - 6);
+      OBJECT targetsite := OpenSiteByName(targetsitename);
+      IF(NOT ObjectExists(targetsite))
+        THROW NEW Exception("No such site '" || targetsitename || "'");
+
+      STRING sitepath := SubString(inpath, SearchSubstring(inpath, "/") + 1);
+      RETURN ResolveToAbsoluteURL(targetsite->webroot, sitepath);
+    }
+    ELSE IF(inpath != "" AND inpath NOT LIKE "/*")
+      THROW NEW Exception("Invalid path in wrdauth configuration: " || inpath || "'");
+    ELSE
+      RETURN inpath;
+  }
+
+  /** Used for configuring the plugin
+      @param webdesign Webdesign
+      @param config Configuration
+  */
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
+  {
+    this->pvt_webcontext := webdesign;
+
+    STRING schemaname := webdesign->ExpandContextVariables(config.wrdschema);
+    this->pvt_api2017 := config.api2017;
+    this->pvt_wrdschema := this->pvt_api2017 ? OpenWRDSchema(schemaname) : OpenWRDSchemaByName(schemaname);
+    this->cookiename := webdesign->ExpandContextVariables(config.cookiename);
+
+    IF(this->cookiename = "")
+      this->cookiename := "webharelogin-" || GetSafeName(schemaname, [ tohyphens := ":" ]);
+
+    IF(NOT ObjectExists(this->pvt_wrdschema))
+    {
+      this->fatalerror := "No such schema '" || schemaname || "'";
+    }
+    ELSE
+    {
+      this->__wrdauth := OpenWRDAuthIntegration(this->pvt_wrdschema, config.sitetag);
+      IF(NOT ObjectExists(this->__wrdauth))
+      {
+        this->fatalerror := "No such auth site '" || config.sitetag || "' in schema '" || schemaname || "'";
+      }
+      ELSE IF(NOT ObjectExists(this->pvt_wrdschema->accounttype))
+      {
+        this->fatalerror := `No accounttype defined for schema '${schemaname}'`;
+      }
+      ELSE
+      {
+        this->__wrdauth->securecookie := config.securecookie;// OR ;
+        /* We'll autoset securecookie if the current URL is being published to https:* AND we're currently on https:
+           If we're not on https but the site officially is, we're being accessed through an alias (most likely: http://127.0.0.1:8000)
+           and we shouldn't set the secure cookie. If it's not an alias, WebHare would have redirected back to https */
+        IF("SECURECOOKIE" NOT IN config.setattributes AND ObjectExists(webdesign->targetsite) AND IsRequest())
+          this->__wrdauth->securecookie := webdesign->targetsite->webroot LIKE "https:*" AND GetClientRequestURL() LIKE "https:*";
+
+        this->__wrdauth->cookiename := this->cookiename;
+        this->__wrdauth->authenticatewebsession := FALSE;
+        this->__wrdauth->nohttponlycookies := config.nohttponlycookies;
+        this->__wrdauth->samesitecookie := config.samesitecookie;
+        this->__wrdauth->cookiedomain := config.cookiedomain;
+      }
+    }
+
+    this->supportobjectname := config.supportobjectname;
+    this->passwordresetlifetime := config.passwordresetlifetime;
+    this->cachefields := config.cachefields;
+    this->pvt_sitetag := config.sitetag;
+    this->servicemailtemplate := config.servicemailtemplate;
+    this->spautocreate := config.spautocreate;
+    this->__loginpage := config.loginpage;
+    this->pvt_config := config;
+
+    IF(webdesign EXTENDSFROM WebDesignBase AND webdesign->IsDynamicPublication() AND this->fatalerror = "")
+    {
+      IF(GetWebCookie(this->__wrdauth->cookiename || "_j") = "" //missing javascript state
+         AND (GetWebCookie(this->__wrdauth->cookiename || "_p") != ""
+              OR GetWebCookie(this->__wrdauth->cookiename) != ""))
+      {
+        this->__wrdauth->__ReestablishSession(TRUE);
+      }
+    }
+  }
+
+  /** Handles a return to an original page
+      @param returnto Contents of `wrdauth_returnto` webvariable
+      @param challenge_str Contents of `wrdauth_challenge` webvariable
+  */
+  PUBLIC MACRO ProcessReturnTo(STRING returnto, STRING challenge_str)
+  {
+    IF (NOT ObjectExists(this->__wrdauth) OR NOT this->IsLoggedIn())
+      RETURN;
+
+    BOOLEAN allow_shortcut := TRUE;
+    RECORD challenge;
+    IF (challenge_str != "")
+    {
+      challenge := this->GetWRDAuthDomain()->DecryptData(challenge_str);
+      IF (RecordExists(challenge))
+        allow_shortcut := challenge.use_wrdauth;
+    }
+
+    IF (allow_shortcut)
+    {
+      RECORD redir := this->__GenerateLoginProofRedirect(returnto, "wrdauth", DEFAULT RECORD, challenge);
+      Redirect(redir.url);
+    }
+  }
+
+  /** Prepares this plugin for rendering
+      @param webdesign Webdesign
+  */
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    IF(this->__disableintegration)
+      RETURN;
+
+    RECORD config :=
+        [ returnid :=   ObjectExists(this->__wrdauth) ? ToString(this->__wrdauth->id) : "true" //used by designfiles wrdauth, not by the modern code
+        , cookiename := this->cookiename
+        ];
+
+    IF(IsRequest())
+    {
+      // Shortcut authentication if already logged in.
+      IF(GetWebVariable("wrdauth_returnto")!="")
+        this->ProcessReturnTo(GetWebVariable("wrdauth_returnto"),GetWebVariable("wrdauth_challenge"));
+
+      IF(GetWebVariable("samlidpreq") != "") //only mention it in the configvar if it's needed
+        INSERT CELL samlidpreq := GetWebVariable("samlidpreq") INTO config;
+    }
+    IF(NOT webdesign->IsUsingModuleDesign())
+      webdesign->AddDesignLoad("wrd.auth"); //in legacy sites, we were responsible for adding this
+
+    webdesign->SetJSPluginConfig("wrd:auth", config);
+  }
+
+  /** @return Witty data for rendering this plugin
+  */
+  UPDATE PUBLIC RECORD FUNCTION GetWittyData()
+  {
+    RETURN [ isloggedin := this->HasFailed() ? FALSE : this->IsLoggedin()
+           , logoutlink := this->GetLogoutLink()
+           ];
+  }
+
+  /** Get links for a wrdauth router
+      @param baseurl URL of the login URL
+      @return Links
+      @cell(boolean) return.loginemail If true, the login field is the same as the email field
+      @cell(string) return.forgotpasswordlink Link to "I forgot my password page'
+      @cell(string) return.emailchangelink Link to "change email" page. Empty if this page is disabled
+      @cell(string) return.passwordchangelink Link to "change password" page. Empty if this page is disabled
+  */
+  PUBLIC RECORD FUNCTION GetWRDAuthRouterWittyData(STRING baseurl)
+  {
+    RETURN [ loginemail := this->pvt_wrdschema->accountemailtag = this->pvt_wrdschema->accountlogintag
+           , forgotpasswordlink := UpdateURLVariables(baseurl, [ "wrd_pwdaction" := "forgotpassword" ])
+           , emailchangelink := "emailchange" IN this->routerfeatures ? UpdateURLVariables(baseurl, [ "wrd_pwdaction" := "emailchange" ]) : ""
+           , passwordchangelink := "passwordchange" IN this->routerfeatures ? UpdateURLVariables(baseurl, [ "wrd_pwdaction" := "passwordchange" ]) : ""
+           ];
+  }
+
+  /** Returns the text with a configuration error
+      @return Configuration error description, empty if configuration was successfull
+  */
+  PUBLIC STRING FUNCTION GetFailReason()
+  {
+    RETURN this->fatalerror;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Returns fields from the current authentication domain
+      @param fields List of fields to return
+      @return Contents of requested fields
+  */
+  RECORD FUNCTION GetAuthDomainFields(STRING ARRAY fields)
+  {
+    OBJECT authtype := this->pvt_wrdschema->GetType("WRD_AUTHDOMAIN");
+    INTEGER authdomainid := authtype->Search("WRD_TAG", this->sitetag);
+    RECORD authinfo := authtype->GetEntityFields(authdomainid, fields);
+    IF(NOT RecordExists(authinfo))
+      THROW NEW Exception("Looking up authdomain '" ||this->sitetag || "' failed");
+    RETURN authinfo;
+  }
+
+  /** Prepares an authpage e-mail
+      @param component Witty component to render (in the either the Witty template from [authpageswitty](#authpageswitty), or the default `mod::wrd/witty/authpages.witty`).
+      @return @includecelldef #PrepareMailWitty.return
+  */
+  PUBLIC OBJECT FUNCTION PrepareAuthPageMail(STRING component)
+  {
+    STRING mailtemplate := this->webcontext->targetapplytester->GetDefaultMailTemplate();
+
+    STRING usewitty;
+    IF(this->authpageswitty != "" AND LoadWittyLibrary(this->authpageswitty,"HTML-NI")->HasComponent(component))
+      usewitty := this->authpageswitty;
+    ELSE
+      usewitty := "mod::wrd/witty/authpages.witty";
+
+    OBJECT mail := PrepareMailWitty(`${usewitty}:${component}`, CELL[ mailtemplate, this->webcontext ]);
+    RETURN mail;
+  }
+
+  /** Handles requesting a password reset link for a forgotten password. Sends an e-mail if a user witht his email address is known.
+      @param email E-mail address of the user
+      @cell options.currenturl URL of the login page
+  */
+  PUBLIC MACRO HandleForgotPassword(STRING email, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ currenturl := ""
+                               ], options);
+    IF(options.currenturl = "")
+      options.currenturl := GetFormRequestURL();
+
+    //ADDME queue the password reset through a managed task, so it always takes the same amount of time (at least the processing part)
+    INTEGER match := this->accounttype->Search(this->wrdschema->accountemailtag, email, [matchcase := FALSE]);
+
+    this->LogCustomAuditEvent("wrd:forgotpassword",
+        [ account := match
+        , login := email
+        ]);
+
+    IF(match = 0)
+      RETURN;
+
+    RECORD emaildata := [ email := email
+                        , hostname := UnpackURL(options.currenturl).host
+                        , resetlink := ""
+                        ];
+
+    emaildata.resetlink := this->CreatePasswordResetLink(options.currenturl, match, [ routerpage := "resetpassword" ]).verifiedlink;
+
+    STRING mailtemplate := this->webcontext->targetapplytester->GetDefaultMailTemplate();
+    OBJECT mail := this->PrepareAuthPageMail("forgotpasswordmail");
+    mail->mergerecord := emaildata;
+    mail->mailto := STRING[email];
+
+    GetPrimary()->BeginWork();
+    mail->QueueMailInWork();
+    GetPrimary()->CommitWork();
+  }
+
+  /** Generates a submitinstruction to execute with a proof that a user is logged in (via wrdauth or via external users of access rule)
+      @param returnto Return URL
+      @param type Proof type ("wrdauth", "wrdauth-nocookies", "external")
+      @param data Proof data for external login
+      @cell data.ruleid Access rule id that requied login
+      @cell data.username User name
+      @param challenge Challenge data
+      @return Redirect submit instruction to return url with login proof attached
+  */
+  PUBLIC RECORD FUNCTION __GenerateLoginProofRedirect(STRING returnto, STRING type, RECORD data, RECORD challenge)
+  {
+    RECORD proof;
+    SWITCH (type)
+    {
+      CASE "wrdauth", "wrdauth-nocookies"
+      {
+        /* FIXME just sharing servers may not be enough proof if the sides use different cookies. who needs this? because test webserver.accessrules braeks
+        // Only allow direct redirect when wrdauth cookies have been set
+        IF (type = "wrdauth")
+        {
+          // Are the cookies enough?
+          IF (ResolveToAbsoluteURL(returnto,'/') = ResolveToAbsoluteURL(GetClientRequestURL(), "/"))
+          {
+            STRING returnurl := ReplaceVariableInUrl(returnto, "wrdauth_returned", "loggedin");
+            IF (IsWHDebugOptionSet("aut"))
+              returnurl := ReplaceVariableInUrl(returnurl, "wh-debug", "aut");
+
+            RETURN
+                [ type :=     "redirect"
+                , url :=      returnurl
+                ];
+          }
+        }
+        */
+
+        proof :=
+            [ type := "wrdauth"
+            , dom := this->__wrdauth->id
+            , entityid := this->GetLoggedinEntity()
+            , until := AddTimeToDate(15 * 60 * 1000, GetCurrentDateTime())
+            ];
+      }
+      CASE "external"
+      {
+        proof :=
+            [ type := "external"
+            , dom := this->__wrdauth->id
+            , ruleid := data.ruleid
+            , username := data.username
+            , until := AddTimeToDate(15 * 60 * 1000, GetCurrentDateTime())
+            ];
+      }
+      DEFAULT
+      {
+        THROW NEW Exception("Unknown proof type '" || type || "'");
+      }
+    }
+
+    OBJECT authdomain := this->GetWRDAuthDomain();
+    STRING proofstr := authdomain->EncryptData(proof);
+
+    STRING returnurl := returnto;
+    IF(CellExists(challenge,'ruleid') AND challenge.ruleid != 0) //We use importsession for access rules, because the returnpage might not be able to remove the wrdproof itself (eg static html, pdf)
+    {
+      returnurl := ResolveToAbsoluteURL(returnurl, ".!wrd/auth/importsession.shtml");
+      returnurl := ReplaceVariableInUrl(returnurl, "b", "/" || UnpackURL(returnto).urlpath);
+      IF (IsWHDebugOptionSet("aut"))
+        returnurl := ReplaceVariableInUrl(returnurl, "wh-debug", "aut");
+    }
+    returnurl := ReplaceVariableInUrl(returnurl, "wrdauth_proof", proofstr);
+
+    RETURN
+        [ type :=     "redirect"
+        , url :=      returnurl
+        ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Get the (cached) current authdomain object
+      @return(object legacy-api.whlib#WRDAuth)  WRD auth object
+  */
+  PUBLIC OBJECT FUNCTION GetWRDAuthDomain()
+  {
+    this->CheckNotFailed();
+    IF(NOT Objectexists(this->api))
+    {
+      this->api := OpenWRDAuthDomainById(this->pvt_wrdschema, this->__wrdauth->id);
+    }
+    RETURN this->api;
+  }
+
+  /** Returns the tag of the password field
+      @return Tag of the password field
+  */
+  PUBLIC STRING FUNCTION GetPasswordFieldTag()
+  {
+    RETURN this->GetWRDAuthDomain()->GetPasswordFieldTag();
+  }
+
+  /** Get (cached) support object
+      @return(object #WRDAuthSupportBase) Auth support object
+  */
+  PUBLIC OBJECT FUNCTION GetSupportObject()
+  {
+    this->CheckNotFailed();
+    IF(this->supportobject = DEFAULT OBJECT)
+    {
+      IF(this->supportobjectname = "")
+      {
+        this->supportobject := NEW WRDAuthSupportBase(this);
+      }
+      ELSE
+      {
+        this->supportobject := MakeObject(this->supportobjectname, this);
+
+        IF (this->supportobject NOT EXTENDSFROM WRDAuthSupportBase)
+          THROW NEW Exception(`WRD authentication plugin support object '${this->supportobjectname}' doesn't extend WRDAuthSupportBase`);
+      }
+
+      this->__wrdauth->loginfilter := PTR this->supportobject->IsLoginDenied;
+    }
+    RETURN this->supportobject;
+  }
+
+  /** Get user info. This info is stored in the cookies, so available to JS.
+      @return User info
+  */
+  PUBLIC RECORD FUNCTION GetUserInfo()
+  {
+    RETURN this->GetSupportObject()->GetJSUserInfo();
+  }
+
+  /** Update user info (updates the javascript cookie holding the userinfo fields) */
+  PUBLIC MACRO UpdateUserInfo()
+  {
+    SetCurrentStateCookie(this->__wrdauth, this);
+  }
+
+  /** Returns whether configuration of the plugin has failed
+      @return TRUE if the configuration has failed
+  */
+  PUBLIC BOOLEAN FUNCTION HasFailed()
+  {
+    RETURN this->fatalerror != "";
+  }
+
+  /// Checks whether configuration of the plugin is successfull, throws if this is not the case
+  PUBLIC MACRO CheckNotFailed()
+  {
+    IF (this->fatalerror != "")
+      THROW NEW Exception(this->fatalerror);
+  }
+
+  OBJECT FUNCTION GetWRDSchema()
+  {
+    this->CheckNotFailed();
+    RETURN this->pvt_wrdschema;
+  }
+  OBJECT FUNCTION GetWRDAuth()
+  {
+    this->CheckNotFailed();
+    RETURN this->__wrdauth;
+  }
+  OBJECT FUNCTION GetUserAPI()
+  {
+    IF(NOT ObjectExists(this->__userapi))
+      this->__userapi := GetWRDAuthUserAPI(this->pvt_wrdschema);
+    RETURN this->__userapi;
+  }
+  OBJECT FUNCTION GetAccountType()
+  {
+    RETURN this->GetWRDSchema()->accounttype;
+  }
+
+  /** Returns whether a user is currently logged in
+      @return TRUE if a user is logged in
+  */
+  PUBLIC BOOLEAN FUNCTION IsLoggedIn()
+  {
+    this->CheckNotFailed();
+    RETURN /*IsRequest() AND */this->__wrdauth->IsLoggedIn();
+  }
+
+  /** Check whether the current user can be logged out
+      @return TRUE if the user can be logged out
+  */
+  PUBLIC BOOLEAN FUNCTION IsLogoutAllowed()
+  {
+    this->CheckNotFailed();
+    RETURN IsRequest() AND this->__wrdauth->IsLogoutAllowed();
+  }
+
+  /** Returns a link that logs out the user, then returns to the baseurl of the current webcontext
+      @return Link to redirect to which logs out the current user
+  */
+  PUBLIC STRING FUNCTION GetLogoutLink()
+  {
+    RETURN "/.wrd/auth/logout.shtml?b=" || EncodeURL(UnpackURL(this->webcontext->baseurl).urlpath);
+  }
+
+  /** Log the user out.
+      @cell options.explicit Set to true if the user explicitly requested to logout (eg clicked a logout linK)
+  */
+  PUBLIC MACRO Logout(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([explicit := TRUE], options);
+
+    INTEGER entityid := this->GetLoggedinEntity();
+    IF(entityid != 0 AND options.explicit)
+    {
+      this->LogCustomAuditEvent("wrd:logout",
+          [ account := entityid
+          ]);
+    }
+
+    this->__wrdauth->Logout([logauditevent := FALSE]);
+  }
+
+  /** Returns the WRD id of the currently logged in entity
+      @return WRD id of the currently logged in user
+  */
+  PUBLIC INTEGER FUNCTION GetLoggedinEntity()
+  {
+    this->CheckNotFailed();
+    RETURN this->__wrdauth->GetLoggedinEntity();
+  }
+
+  /** Verify the specified password for the current user
+      @param currentpwd Password to verify
+      @return TRUE if the password is correct
+  */
+  PUBLIC BOOLEAN FUNCTION VerifyCurrentPassword(STRING currentpwd)
+  {
+    //FIXME throw on saml?
+    OBJECT obj := this->GetLoggedinWRDEntity();
+    RETURN ObjectExists(obj) AND this->GetSupportObject()->VerifyPassword(obj, currentpwd) != 0;
+  }
+
+  OBJECT FUNCTION GetLoggedinWRDEntity()
+  {
+    this->CheckNotFailed();
+    INTEGER id := this->GetLoggedinEntity();
+    RETURN id != 0 ? this->accounttype->GetEntity(id) : DEFAULT OBJECT;
+  }
+
+  /** Returns WRD fields of the currently logged in entity
+      @param fields List of WRD fields to get
+      @return Contents of the requested fields
+  */
+  PUBLIC RECORD FUNCTION GetLoggedinEntityFields(STRING ARRAY fields)
+  {
+    this->CheckNotFailed();
+    RETURN this->accounttype->GetEntityFIelds(this->GetLoggedinEntity(), fields);
+  }
+
+  /** Lookup a user by login name
+      @param loginname Login name of the user
+      @return WRD id if the user, 0 if not found
+  */
+  PUBLIC INTEGER FUNCTION LookupLogin(STRING loginname)
+  {
+    RETURN this->GetSupportObject()->LookupLogin(loginname);
+  }
+
+  /** Logs in a user by ID
+      @param userid WRD id of the user to login
+      @param is_impersonation Whether this is an impersonated login
+      @cell options.allowlogout Whether to allow logout (defaults to TRUE)
+      @cell options.setcookies Set cookies (defaults to TRUE)
+      @return @includecelldef legacy-api.whlib#WRDAuthIntegration::LoginById.return
+  */
+  PUBLIC RECORD FUNCTION LoginById(INTEGER userid, BOOLEAN is_impersonation, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ allowlogout := TRUE
+                               , auditmessage := DEFAULT RECORD
+                               , setcookies := TRUE
+                               ], options);
+
+    this->CheckNotFailed();
+    this->GetSupportObject(); // initialize loginfilter
+
+    RECORD trylogin := this->__wrdauth->LoginById(userid, is_impersonation, options);
+
+    IF(NOT trylogin.success)
+      options.auditmessage := CELL[ failurecode := trylogin.code, ...options.auditmessage];
+    IF(CellExists(trylogin,'userinfo'))
+      options.auditmessage := CELL[ userinfo := trylogin.userinfo, ...options.auditmessage];
+
+    this->LogCustomAuditEvent("wrd:loginbyid:" || (trylogin.success ? "ok" : "failed")
+                              , [ account :=  userid
+                                , isimpersonation := is_impersonation
+                                , message := options.auditmessage
+                                ]);
+
+
+    RECORD submitinstruction;
+    IF (trylogin.success)
+    {
+      IF (options.setcookies)
+        this->UpdateUserInfo();
+
+      IF (CellExists(options, "SAMLIDPREQ") AND options.samlidpreq != "")
+      {
+        RECORD samlreq := DecryptForThisServer("wrd:samlauth", options.samlidpreq);
+        submitinstruction := GenerateSAMLLoginResponse(this, samlreq);
+
+        IF (IsRPCTrafficLogged("wrd:saml"))
+          LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
+      }
+    }
+
+    INSERT CELL submitinstruction := submitinstruction INTO trylogin;
+    RETURN trylogin;
+  }
+
+  PUBLIC RECORD FUNCTION __SolveLoginChallenge(STRING challengedata, STRING returnto)
+  {
+    RECORD challenge := this->GetWRDAuthDomain()->DecryptData(challengedata);
+    IF(NOT challenge.use_wrdauth)
+      THROW NEW Exception("This challenge cannot be resolved by wrdauth"); //TODO think we need to handle external logins ?
+
+    RECORD result := this->__GenerateLoginProofRedirect(returnto, "wrdauth", DEFAULT RECORD, challenge);
+    RETURN result;
+  }
+
+  /** Logs in a user by password
+      @param loginname Login name
+      @param password Password
+      @param options Options (passed to support object / wrdauth)
+      @cell options.rawlogin Login directly to WRD, do not use supportobject alternative logins. You may need this if your support callback requires a 'standard' login as its fallback
+      @cell options.samlidpreq Encrypted SAML idp request (pass as posted to login page in webvariable 'samlidpreq')
+      @cell options.challenge Login challenge string (encrypted)
+      @cell options.returnto Return URL
+      @return Login result
+      @cell return.success Whether the user was logged in successfully
+      @cell return.code Login error code
+      @cell return.submitinstruction Form action to execute to complete SAML / external login flow
+  */
+  PUBLIC RECORD FUNCTION Login(STRING loginname, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ rawlogin := FALSE
+                               , samlidpreq := ""
+                               , challenge := ""
+                               , returnto := ""
+                               , skippasswordcheck := FALSE
+                               , remoteip := IsRequest() ? GetClientRemoteIp() : ""
+                               , auditmessage := DEFAULT RECORD
+                               , auditloginname := ""
+                               , allowlogout := TRUE
+                               , firstloginfield := ""
+                               , lastloginfield := ""
+                               , verifypassword := PTR this->GetSupportObject()->VerifyPassword
+                               ], options, [ optional := ["firstloginfield","lastloginfield"]]);
+
+    this->CheckNotFailed();
+
+    IF(NOT CellExists(options,"firstloginfield") AND this->pvt_config.firstloginfield != "")
+      INSERT CELL firstloginfield := this->pvt_config.firstloginfield INTO options;
+    IF(NOT CellExists(options,"lastloginfield") AND this->pvt_config.lastloginfield != "")
+      INSERT CELL lastloginfield := this->pvt_config.lastloginfield INTO options;
+
+    INSERT CELL lookuplogin := PTR this->LookupLogin INTO options;
+
+    BOOLEAN allow_wrdlogin := TRUE;
+    RECORD challenge;
+    IF (options.challenge != "")
+    {
+      challenge := this->GetWRDAuthDomain()->DecryptData(options.challenge);
+      IF (RecordExists(challenge))
+        allow_wrdlogin := challenge.use_wrdauth;
+    }
+
+    RECORD trylogin := [ success := FALSE ];
+    RECORD submitinstruction;
+
+    IF (allow_wrdlogin)
+    {
+      IF(options.rawlogin)
+        trylogin := this->__wrdauth->Login(loginname, password, options);
+      ELSE
+        trylogin := this->GetSupportObject()->Login(loginname, password, options);
+
+      INTEGER entityid;
+      IF(trylogin.success)
+        entityid := this->GetLoggedinEntity();
+      ELSE IF(CellExists(trylogin,'entityid'))
+        entityid := trylogin.entitiyd;
+      ELSE //FIXME they should all return that!
+        entityid := this->LookupLogin(loginname);
+
+      IF(NOT trylogin.success)
+        options.auditmessage := CELL[ failurecode := trylogin.code, ...options.auditmessage];
+      IF(CellExists(trylogin,'userinfo'))
+        options.auditmessage := CELL[ userinfo := trylogin.userinfo, ...options.auditmessage];
+
+      this->LogCustomAuditEvent("wrd:login:" || (trylogin.success ? "ok" : "failed")
+                                , [ account :=  entityid
+                                  , login := options.auditloginname ?? loginname
+                                  , message := options.auditmessage
+                                  ]);
+
+      IF (trylogin.success)
+      {
+        IF (this->GetLoggedinEntity() = 0)
+          THROW NEW Exception("Logged in, but no WRD user found");
+        this->UpdateUserInfo();
+
+        IF (options.samlidpreq != "")
+        {
+          RECORD samlreq := DecryptForThisServer("wrd:samlauth", options.samlidpreq);
+          submitinstruction := GenerateSAMLLoginResponse(this, samlreq);
+
+          IF (IsRPCTrafficLogged("wrd:saml"))
+            LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
+        }
+        ELSE IF (options.returnto != "")
+          submitinstruction := this->__GenerateLoginProofRedirect(options.returnto, "wrdauth", DEFAULT RECORD, challenge);
+        ELSE
+          submitinstruction := [ type := "reload" ];
+      }
+    }
+
+    IF (NOT trylogin.success AND RecordExists(challenge) AND challenge.use_list != 0)
+    {
+      IF (RecordExists(
+            SELECT
+              FROM system.access_externalusers
+             WHERE username = loginname
+               AND userpassword = password))
+      {
+        trylogin :=
+            [ success :=  TRUE
+            , code :=     "EXTERNAL"
+            ];
+
+        submitinstruction := this->__GenerateLoginProofRedirect(options.returnto, "external",
+            [ ruleid :=   challenge.use_list
+            , username := loginname
+            ], challenge);
+      }
+    }
+
+    trylogin := [ ...trylogin, submitinstruction := submitinstruction ];
+    RETURN trylogin;
+  }
+
+  //not for direct use, public only for tolliumu se
+  PUBLIC RECORD FUNCTION __CompleteLogin(RECORD logindata)
+  {
+    this->CheckNotFailed();
+    RECORD trylogin := this->__wrdauth->__CompleteLogin(logindata, TRUE);
+    IF(trylogin.success)
+      this->UpdateUserInfo();
+    RETURN trylogin;
+  }
+
+  /** @short Log a custom audit event
+      @param type The event type (e.g. "MYSITE:MYEVENT")
+      @cell(integer) options.account The id of the account to log the event for (id of entity within the schema's account type)
+      @cell(string) options.remoteip If the event is logged through a web request, this is filled automatically, otherwise
+          this can be used to overwrite it
+      @cell(string) options.login The login name used for this event, if known
+      @cell(record) options.message Optional extra data
+  */
+  PUBLIC MACRO LogCustomAuditEvent(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->__wrdauth->WriteAuditEvent(type, options);
+  }
+
+  /** Creates a link that can be used to verify a user is present at a account page
+      @param baseurl URL of the login page
+      @param entityid User id
+      @cell(record) options.secret Secret to encode in the verification link
+      @cell(string) options.verifierstart Initial characters for the verification code
+      @return Verification link data
+      @cell return.verifier The verification code (should be emailed to the user)
+      @cell return.verifiedlink The verified link (should be emailed to the user)
+      @cell return.entrylink The code-entry link (user may be redirected or navigate here)
+  */
+  PUBLIC RECORD FUNCTION CreateVerificationLink(STRING baseurl, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ secret := DEFAULT RECORD
+                                , verifierstart := ""
+                                ], options);
+
+    IF(NOT IsAbsoluteURL(baseurl, FALSE))
+      baseurl := ResolveToAbsoluteURL(GetClientRequestURL(), baseurl);
+
+    RECORD verifybase := this->accounttype->GetEntityFields(entityid, ["WRD_GUID","WRD_LIMITDATE"]);
+    DATETIME now := GetCurrentDatetime();
+    IF(NOT RecordExists(verifybase) OR verifybase.wrd_limitdate < now)
+      RETURN DEFAULT RECORD;
+
+    STRING verifier := GeneratePassword(options.verifierstart, 12, FALSE);
+    //resetlifetime is in minutes, so 60000 to get to msecs
+    DATETIME until := AddTimeToDate( (this->passwordresetlifetime % (24*60)) * 60000, AddDaystoDate(this->passwordresetlifetime / (24*60), now));
+    RECORD data :=
+        [ v := verifier
+        , e := entityid
+        , g := verifybase.wrd_guid
+        , m := until
+        ];
+    IF(RecordExists(options.secret))
+      INSERT CELL s := options.secret INTO data;
+
+    STRING baselink := UpdateURLVariables(baseurl, [ _ed := this->GetWRDAuthDomain()->EncryptData(data) ]);
+    RETURN [ verifier := verifier
+           , verifiedlink := UpdateURLVariables(baselink, ["verifier" := verifier ])
+           , entrylink := baselink
+           ];
+  }
+
+  /** Processes a verification link and the passed verification code, checks if they are valid
+      @param encrypted_data Contents of `_ed` variable of the verification/entry link
+      @param verifier Verifier code (contents of the `verifier` variable of the verification link), or the code entered by the user when following the entrylink
+      @return Result of decoding and verifying
+      @cell(boolean) return.expired Whether the link has expired
+      @cell(datetime) return.expireson Date when the verification link exires
+      @cell(boolean) return.success Whether the verification link and code are correct and not expired
+      @cell(boolean) return.failed TRUE if the decoding/verification failed
+      @cell(integer) return.entityid Entity id of the user
+      @cell(record) return.secret Secret passed to [CreateVerificationLink](#CreateVerificationLink)
+      @cell(string) return.failreason Reason why verification failed
+      @cell(boolean) return.failed_incorrectverifier TRUE if the verifier code was incorrect
+  */
+  PUBLIC RECORD FUNCTION ProcessVerificationLink(STRING encrypted_data, STRING verifier)
+  {
+    this->GetWRDAuthDomain();
+
+    RECORD retval := [ expired := FALSE
+                     , expireson := DEFAULT DATETIME
+                     , success := FALSE
+                     , failed := FALSE
+                     , entityid := 0
+                     , secret := DEFAULT RECORD
+                     , failreason := ""
+                     , failed_incorrectverifier := FALSE
+                     ];
+
+    RECORD decrypted, userentity;
+    IF(encrypted_data!="")
+      decrypted := this->api->DecryptData(encrypted_data);
+
+    IF(RecordExists(decrypted))
+    {
+      RECORD verifybase := this->accounttype->GetEntityFields(decrypted.e, ["WRD_GUID", "WRD_LIMITDATE" ]);
+      DATETIME now := GetCurrentDatetime();
+
+      IF(NOT RecordExists(verifybase) OR verifybase.wrd_limitdate < now OR verifybase.wrd_guid != decrypted.g)
+      {
+        retval.expireson := now;
+        retval.expired := TRUE;
+      }
+      ELSE
+      {
+        retval.expireson := decrypted.m;
+        retval.expired := retval.expireson < now;
+        retval.entityid := decrypted.e;
+      }
+
+      IF(NOT retval.expired)
+      {
+        retval.success := ToUppercase(verifier) = decrypted.v;
+        IF (retval.success AND CellExists(decrypted, "s"))
+          retval.secret := decrypted.s;
+      }
+
+      IF (NOT retval.success)
+      {
+        IF (NOT RecordExists(verifybase))
+          retval.failreason := `Could not find entity #${decrypted.e}`;
+        ELSE IF (verifybase.wrd_limitdate < now)
+          retval.failreason := `Entity #${decrypted.e} is not active`;
+        ELSE IF (verifybase.wrd_guid != decrypted.g)
+          retval.failreason := `GUID mismatch for entity #${decrypted.e}: '${verifybase.wrd_guid}' != '${decrypted.g}'`;
+        ELSE IF (retval.expired)
+          retval.failreason := `Reset link has expired: ${FormatISO8601DateTime(retval.expireson)}`;
+        ELSE
+        {
+          retval.failreason := "Verifier check failed";
+          retval.failed_incorrectverifier := TRUE;
+        }
+      }
+    }
+    ELSE
+    {
+      retval.failreason := "Decryption failed";
+    }
+
+    retval.failed := verifier != "" AND NOT retval.success;
+    RETURN retval;
+  }
+
+  /** @short Create a password reset link
+      @long Create a password reset link for email, with optionally a raw code-enty for verification
+      @param baseurl Base url to redirect the user to
+      @param entityid Userid to reset
+      @cell options.verifierstart Optional code with which the verifier should start
+      @return Password reset link data
+      @cell return.verifier The verification code (should be emailed to the user)
+      @cell return.verifiedlink The verified link (should be emailed to the user)
+      @cell return.entrylink The code-entry link (user may be redirected or navigate here)
+  */
+  PUBLIC RECORD FUNCTION CreatePasswordResetLink(STRING baseurl, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ routerpage := ""
+                               , verifierstart := ""
+                               ], options, [ enums := [ routerpage := ["", "resetpassword", "setpassword"] ]]);
+
+    IF(options.routerpage != "")
+      baseurl := UpdateURLVariables( GetWRDPagesCleanURL([ currenturl := baseurl ]), [ wrd_pwdaction := options.routerpage ]);
+
+    RECORD retval := this->CreateVerificationLink(baseurl, entityid, CELL[ options.verifierstart ]);
+    IF (NOT RecordExists(retval))
+      RETURN DEFAULT RECORD;
+
+    RETURN retval;
+  }
+
+  /** @short Change the loggedin user's password. We expect the caller to handle our transaction
+      @param newpassword New password
+  */
+  PUBLIC MACRO UpdateCurrentUserPassword(STRING newpassword)
+  {
+    INTEGER entity := this->GetLoggedinEntity();
+    IF(entity = 0)
+      THROW NEW Exception("Not logged in");
+
+    //store the old password hash in case you need a policy 'last X passwords are forbidden for reuse'
+    STRING previouspasswordhash := this->accounttype->GetEntityField(entity, this->wrdschema->accountpasswordtag);
+    this->accounttype->UpdateEntity(entity, CellInsert(CELL[], this->wrdschema->accountpasswordtag, CreateWebharePasswordHash(newpassword)));
+    this->LogCustomAuditEvent("wrd:updatepassword",
+        [ account := entity
+        , remoteip := IsRequest() ? GetClientRemoteIp() : ""
+        , message := [ previouspasswordhash := previouspasswordhash ]
+        ]);
+  }
+
+  /** @short Implement a password reset
+      @param encrypted_data @includecelldef #ProcessVerificationLink.encrypted_data
+      @param verifier @includecelldef #ProcessVerificationLink.verifier
+      @param newpassword New password
+      @param autologin Whether to automatically login the user after resetting the password
+      @return @includecelldef #ProcessVerificationLink.return
+  */
+  PUBLIC RECORD FUNCTION ProcessPasswordReset(STRING encrypted_data, STRING verifier, STRING newpassword, BOOLEAN autologin)
+  {
+    RECORD retval := this->ProcessVerificationLink(encrypted_data, verifier);
+
+    STRING previouspasswordhash;
+    IF (retval.success AND newpassword != "")
+    {
+      previouspasswordhash := this->accounttype->GetEntityField(retval.entityid, this->wrdschema->accountpasswordtag);
+      this->UpdateUserPassword(retval.entityid, newpassword);
+      IF (autologin)
+      {
+        this->__wrdauth->LoginById(retval.entityid, FALSE);
+        //ADDME There's probably some duplicate work in setting these cookies, fix that
+        SetCurrentStateCookie(this->__wrdauth, this);
+      }
+    }
+
+    this->LogCustomAuditEvent("wrd:resetpassword:" || (retval.success ? "ok" : "failed"),
+        [ account := retval.entityid
+        , remoteip := IsRequest() ? GetClientRemoteIp() : ""
+        , message := retval.success ? [ previouspasswordhash := previouspasswordhash ] : [ failreason := retval.failreason ]
+        ]);
+
+    RETURN retval;
+  }
+
+  /** @short Implement a password reset page filled by a POST
+      @param newpassword New password
+      @param autologin Whether to automatically login the user after resetting the password
+      @return @includecelldef #ProcessPasswordReset.return
+  */
+  PUBLIC RECORD FUNCTION ProcessPasswordResetPost(STRING newpassword, BOOLEAN autologin)
+  {
+    this->CheckNotFailed();
+    RECORD result := this->ProcessPasswordReset(GetWebVariable("_ed"), GetWebVariable("verifier"), newpassword, autologin);
+    RETURN result;
+  }
+
+  /** Updates WRD entity fields of a user
+      @param userid User entity id
+      @param updates Field updates (special field names 'login', 'password' and 'email' are translated to the real fields for thse values)
+  */
+  PUBLIC MACRO UpdateUserAccountFields(INTEGER userid, RECORD updates)
+  {
+    this->GetWRDAuthDomain();
+
+    RECORD upd;
+    IF (CellExists(updates, "login"))
+      upd := CellInsert(upd, this->api->loginfieldtag, updates.login);
+    IF (CellExists(updates, "email"))
+      upd := CellInsert(upd, this->api->emailfieldtag, updates.email);
+    IF (CellExists(updates, "password"))
+      upd := CellInsert(upd, this->api->passwordfieldtag, CreateWebharePasswordHash(updates.password));
+
+    IF (RecordExists(upd))
+    {
+      GetPrimary()->BeginWork();
+      this->accounttype->UpdateEntity(userid, upd);
+      GetPrimary()->CommitWork();
+    }
+  }
+
+  /** Updates the password of user
+      @param userid User entity id
+      @param newpassword New password for the user
+  */
+    PUBLIC MACRO UpdateUserPassword(INTEGER userid, STRING newpassword)
+  {
+    this->UpdateUserAccountFields(userid, [ password := newpassword ]);
+  }
+
+  /** Returns configuration data
+      @return Configuration data
+      @cell(string) return.emailfield Tag of the email field
+      @cell(object %WRDSchema2017) return.wrdschema WRD schema
+      @cell(object %WRDType2017) return.accounttype Tag of the email field
+      @cell(string) return.passwordfield Tag of the password field
+  */
+  PUBLIC RECORD FUNCTION GetWRDAuthConfig()
+  {
+    RETURN [ emailfield :=        this->pvt_wrdschema->accountemailtag
+           , wrdschema :=         this->pvt_wrdschema
+           , accounttype :=       this->accounttype
+           , passwordfield :=     this->pvt_wrdschema->accountpasswordtag
+           ];
+  }
+
+  /** Prepares a email
+      @param origin Origin
+      @return @includecelldef #MakeEmailComposer.return
+  */
+  PUBLIC OBJECT FUNCTION PrepareMail(STRING origin)
+  {
+    RECORD authinfo := this->GetAuthDomainFields([ "WRDAUTH_EMAILBCC", "WRDAUTH_EMAILSUBJECTPREFIX", "WRDAUTH_EMAILSENDER"]);
+    OBJECT email := MakeEmailComposer();
+    email->origin := origin;
+
+    email->mailbcc := TokenizeEmailAddresses(authinfo.wrdauth_emailbcc);
+    email->subjectprefix := authinfo.wrdauth_emailsubjectprefix;
+    email->mailfrom := authinfo.wrdauth_emailsender;
+    RETURN email;
+  }
+
+  /** @short Create a verification link
+      @long Create a verifiable link for email, with optionally a raw code-enty for verification
+      @param baseurl Base url to redirect the user to
+      @param data Data to encrypt on the URL
+      @param lifetime Lifetime of this link in minutes
+      @return Verification lik data
+      @cell return.verifier The verification code (should be emailed to the user)
+      @cell return.verifiedlink The verified link (should be emailed to the user)
+      @cell return.entrylink The code-entry link (user may be redirected or navigate here)
+  */
+  PUBLIC RECORD FUNCTION CreateEmailVerificationLink(STRING baseurl, RECORD data, INTEGER lifetime)
+  {
+    this->CheckNotFailed();
+    RETURN this->__wrdauth->CreateEmailVerificationLink(baseurl, data, lifetime);
+  }
+
+  /** @short Handle an e-mail verification page
+      @return @includecelldef legacy-api.whlib#WRDAuthIntegration::HandleEmailVerificationPage.return
+  */
+  PUBLIC RECORD FUNCTION HandleEmailVerificationPage()
+  {
+    this->CheckNotFailed();
+    RETURN this->__wrdauth->HandleEmailVerificationPage();
+  }
+
+  /** @short Handle an e-mail verification page
+      @param verifier Verification code
+      @param encrypted_data Contents of the `_ed` variable on the verification/entry link returned by [CreateEmailVerificationLink](#CreateEmailVerificationLink)
+      @return @includecelldef legacy-api.whlib#WRDAuthIntegration::HandleEmailVerificationData.return
+  */
+  PUBLIC RECORD FUNCTION HandleEmailVerificationData(STRING verifier, STRING encrypted_data)
+  {
+    this->CheckNotFailed();
+    RETURN this->__wrdauth->HandleEmailVerificationData(verifier,encrypted_data);
+  }
+
+  /** @short Generate a SAML SSO authentication request
+      @param serviceprovidertag Tag of the SP (can be left empty when only one SP is present)
+      @param redirectto URL to redirect to after the login
+      @cell(boolean) options.forcelogin Set tot
+      @cell(boolean) options.passive Whether to do a passive login (don't show login ui if not logged in)
+      @cell options.action 'redirect' / 'postmessage'
+      @cell(boolean) options.allowlogout Whether to allow logout
+      @return @includecelldef saml.whlib#GenerateSAMLLoginRequest.return
+  */
+  PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->CheckNotFailed();
+
+    OBJECT wrd_sp := this->pvt_wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
+    IF (NOT ObjectExists(wrd_sp))
+      THROW NEW Exception("This authentication domain is not setup for SAML authentication");
+
+    RECORD ARRAY filters :=
+        [ [ field := "WRD_LEFTENTITY", value := this->__wrdauth->id ] ];
+
+    IF (serviceprovidertag != "")
+      INSERT [ field := "WRD_TAG", value := serviceprovidertag ] INTO filters AT END;
+
+    RECORD ARRAY spdata := wrd_sp->RunQuery(
+        [ filters := filters
+        , outputcolumns := [ "WRD_ID" ]
+        ]);
+
+    IF (NOT RecordExists(spdata))
+      THROW NEW Exception("No SAML service provider" || (serviceprovidertag != "" ? " with tag '" || EncodeJava(serviceprovidertag) || "' " : "") || "configured for this authentication domain");
+    ELSE IF (LENGTH(spdata) > 1)
+      THROW NEW Exception("Multiple SAML service providers are configured, please select one by tag");
+
+    RETURN GenerateSAMLLoginRequest(this, spdata[0].wrd_id, redirectto, options);
+  }
+
+  /** Returns the configuration object for a registered SAML SP
+      @param sptag tag of the SAML SP
+      @return(object %SAMLSPConfigBase) SAML SP configuration
+  */
+  PUBLIC OBJECT FUNCTION GetSAMLSPConfig(STRING sptag)
+  {
+    RECORD configdata :=
+        [ autocreate :=     this->spautocreate
+        ];
+
+    RETURN this->GetSupportObject()->GetSAMLSPConfig(this, sptag, configdata);
+  }
+
+  /** Returns the configuration object for the SAML IDP for this schema
+      @return(object %SAMLIDPConfigBase) IDP configuration
+  */
+  PUBLIC OBJECT FUNCTION GetSAMLIDPConfig()
+  {
+    RECORD configdata;
+    OBJECT sup := this->GetSupportObject();
+    RETURN sup->GetSAMLIDPConfig(this, configdata);
+  }
+
+  /** @short Get the currently loggedin WebHare user
+      @return @includecelldef %WHUserApi::GetTolliumUserFromEntityId.return
+  */
+  PUBLIC OBJECT FUNCTION GetCurrentWebhareUser()
+  {
+    INTEGER entityid := this->GetLoggedinEntity();
+
+    IF(entityid=0)
+      RETURN DEFAULT OBJECT;
+    RETURN this->userapi->GetTolliumUserFromEntityId(entityid);
+  }
+
+  /** @short Verify that the user is logged in on the plugin, which may not actually cover the current URL
+      @return The Loggedin user object */
+  PUBLIC OBJECT FUNCTION RequireExternalLoggedinUser()
+  {
+    STRING protecturlbase := Tokenize(GetClientRequestURL(),'?')[0]; //ADDME should probably be overrideable
+    STRING rulepath := "/" || UnpackURL(protecturlbase).urlpath;
+
+    RECORD loginres := this->__HandleAuthScriptLogin( [ use_list := 0
+                                                      , use_wrdauth := TRUE
+                                                      , rulepath := rulepath
+                                                      , ruleid := 0
+                                                      ]);
+
+    IF(loginres.backurl != "")
+      Redirect(loginres.backurl);
+
+    RETURN loginres.user;
+  }
+
+  /** @short Verify that the user is logged in, letting him login if he isn't yet
+      @return The Loggedin user object */
+  PUBLIC OBJECT FUNCTION RequireLoggedInUser()
+  {
+    STRING url := GetClientRequestURL();
+    IF(this->__wrdauth->securecookie AND url LIKE "http:*")
+      Redirect("https:" || Substring(url,5));
+
+    OBJECT user := this->GetCurrentWebhareUser();
+    IF(NOT ObjectExists(user))
+      this->__RedirectToLogin();
+    this->__RemoveAuthReturnedIfNeeded();
+    RETURN user;
+  }
+
+  /** @short Verify that the user has the specified right. Let the user log in if he isn't yet
+      @param right Right to check
+      @return False if the user does not have privileges (but is logged in). True if the user has teh privileges*/
+  PUBLIC BOOLEAN FUNCTION RequireRight(STRING right)
+  {
+    OBJECT user := this->RequireLoggedInUser();
+    RETURN user->HasRight(right);
+  }
+
+  /** @short Verify that the user has the specified right on a specific object. Let the user log in if he isn't yet
+      @param right Right to check
+      @param obj Object the user needs to have the right on
+      @return False if the user does not have privileges (but is logged in). True if the user has teh privileges*/
+  PUBLIC BOOLEAN FUNCTION RequireRightOn(STRING right, INTEGER obj)
+  {
+    OBJECT user := this->RequireLoggedInUser();
+    RETURN user->HasRightOn(right, obj);
+  }
+
+
+  PUBLIC MACRO __RemoveAuthReturnedIfNeeded()
+  {
+    IF(GetWebVariable("wrdauth_returned") != "")
+      Redirect(UpdateURLVariables(GetClientRequestURL(), [ wrdauth_returned := ""]));
+  }
+
+  PUBLIC STRING FUNCTION __GetLoginPageURL()
+  {
+    STRING loginpage := this->ParseRelativePath(this->pvt_webcontext, this->__loginpage);
+    RETURN loginpage;
+  }
+
+  PUBLIC MACRO __RedirectToLogin(RECORD challenge DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(GetWebVariable("wrdauth_returned") IN [ "true", "1", ToString(this->__wrdauth->id), "loggedin" ])
+      THROW NEW Exception("Returned to the page requiring a login but still no credentials available (expected cookie: " || this->__wrdauth->cookiename || ")");
+
+    STRING backurl := UpdateURLVariables(GetClientRequestURL(), [ wrdauth_returned := ""]);
+    STRING loginpage := this->__GetLoginPageURL();
+    IF(loginpage="")
+      THROW NEW Exception("Need to redirect to the login page, but no login URL was configured");
+
+    RECORD loginvars :=
+        [ wrdauth_returnto := backurl
+        ];
+
+    STRING encchallenge;
+    IF (RecordExists(challenge))
+    {
+      encchallenge := this->GetWRDAuthDomain()->EncryptData(challenge);
+      INSERT CELL wrdauth_challenge := encchallenge INTO loginvars;
+    }
+
+    loginpage := ResolveToAbsoluteURL(this->pvt_webcontext->targetsite->webroot, loginpage);
+    loginpage := UpdateURLVariables(loginpage, loginvars);
+    /* Redirect through cookie-clearer to get rid of _j and _c cookies if they don't make sense, and prevent login-loops
+       if _j and _c exist but the login cookie doesn't (the JS clientside code will redirect if it sees ?wrdauth-returnto) */
+    loginpage := ResolveToAbsoluteURL(loginpage, '/.wrd/auth/gologin?url=') || EncodeURL(loginpage);
+
+    //If we get a challenge, we're supposed to hand that off to WebHare's login. Without a challenge, lets just run the login
+    IF(RecordExists(challenge) AND (GetWebCookie("__whpub_preview") != "" OR GetWebVariable("__whpub_clock_") != ""))
+    {
+      //Give a loginscript link relative to the WebHare UI... that one should be reachable if you have a preview cookie...
+      RECORD wittydata := [ link := loginpage
+                          , challenge := encchallenge
+                          , returnto := backurl
+                          , loginscript := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.publisher/common/preview/publisher_login.js")
+                          ];
+      SendHTMLPage("mod::wrd/lib/internal/auth/publisher_login.witty", wittydata);
+    }
+    Redirect(loginpage);
+  }
+
+  /** Parses login proof
+      @cell options.rulepath Path to save to authentication cookie for
+      @return Login result
+      @cell return.type Proof type
+      @cell return.sessionid ID of websession created for this login
+      @cell(object %TolliumUser) return.user User object
+      @cell return.username User name
+      @cell return.backurl Current URL with login proof removed
+      @cell return.cookiedata Login cookie data
+  */
+  PUBLIC RECORD FUNCTION ParseAuthLoginProof(RECORD options)
+  {
+    OBJECT authdomain := this->GetWRDAuthDomain();
+    //STRING backurl := GetWebVariable("back");
+
+    RECORD proof := authdomain->DecryptData(GetWebVariable("wrdauth_proof"));
+    IF (IsWHDebugOptionSet("aut"))
+      LogDebug("wrd:auth", "plugin importsession");// to " || backurl);
+
+    IF (NOT RecordExists(proof) OR authdomain->id != proof.dom)
+      THROW NEW Exception("Received authentication data is not valid for this page");
+
+    IF (proof.until >= GetCurrentDateTime())
+    {
+      //STRING rulepath := CellExists(options, "RULEPATH") ? ResolveToAbsoluteURL("http://example.com/", options.rulepath) : backurl;
+      STRING sessionid := CreateWebSession(
+          "wrd:authlogin",
+          [ exists := TRUE ],
+          this->__wrdauth->maxidle_minutes,
+          /*limit to server: */ FALSE);
+
+      STRING cookiedata := sessionid;
+      OBJECT user;
+
+      RECORD result :=
+          [ type :=       proof.type
+          , sessionid :=  sessionid
+          , user :=       DEFAULT OBJECT
+          , username :=   ""
+          , backurl :=    /*backurl ?? */UpdateURLVariables(GetClientRequestURL(), [wrdauth_proof := ""])
+          , cookiedata := ""
+          ];
+
+      SWITCH (proof.type)
+      {
+        CASE "wrdauth"
+        {
+          RECORD cookies := authdomain->__CreateLoginCookies(proof.entityid, [ "external" ]);
+          cookiedata := cookiedata || " " || cookies.external;
+
+          result.user := this->userapi->GetTolliumUserFromEntityId(proof.entityid);
+        }
+        CASE "external"
+        {
+          result.username := proof.username;
+        }
+      }
+
+      result.cookiedata := cookiedata;
+
+      RETURN result;
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Handles login from authentication script
+      Sets [cookiename]_e cookie, with form "[sessionid] [encryptedcookiedata]"
+      If the user isn't logged in, he/she is redirected to the login page
+      @cell options.ruleid Access rule ID
+      @cell options.use_list Allow external users from the system.access_externalusers list
+      @cell options.use_wrdauth ???
+      @cell options.rulepath Path to save to authentication cookie for
+      @return Returns if the user is logged in
+      @cell return.sessionid Session ID for authentication purposes
+      @cell(object %TolliumUser) return.user User object
+      @cell return.backurl URL to redirect to after running the authentication. Empty for no redirection.
+  */
+  PUBLIC RECORD FUNCTION __HandleAuthScriptLogin(RECORD options)
+  {
+    FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+      IF(cellrec.name NOT IN [ "RULEID", "USE_LIST", "USE_WRDAUTH", "RULEPATH" ])
+        THROW NEW Exception("Unrecognized option '" || cellrec.name || "'");
+
+    OBJECT authdomain := this->GetWRDAuthDomain();
+
+    // The domain id is added to the cookie name, so multiple logins are possible in a site
+    STRING cookiename := this->__wrdauth->cookiename || "-" || this->__wrdauth->id || "_e";
+
+    // Did we just arrive from a login page?
+    IF (GetWebVariable("wrdauth_proof") != "")
+    {
+      RECORD parseresult := this->ParseAuthLoginProof(options);
+      IF (RecordExists(parseresult))
+      {
+        UpdateWebCookie(
+            cookiename,
+            parseresult.cookiedata,
+            [ httponly := TRUE
+            , secure :=   GetClientRequestURL() LIKE "https://*"
+            , samesite := "none" //'none' should be safe as _e only gives view access and no other privileges in wrdauth. - TODO switch to LAX if the Publisher finds a different solution for its preview
+            ]);
+
+        RETURN parseresult;
+      }
+    }
+
+    STRING ext_cookie := GetWebCookie(cookiename);
+    IF (ext_cookie = "" OR ext_cookie NOT LIKE "* *")
+      this->__RedirectToLogin(options);
+
+    STRING cookiedata := SubString(ext_cookie, SearchSubstring(ext_cookie, " ") + 1);
+
+    RECORD parsed := authdomain->__ParseCookie(cookiedata, "external");
+    IF (NOT RecordExists(parsed))
+      this->__RedirectToLogin(options);
+
+    OBJECT user := this->userapi->GetTolliumUserFromEntityId(parsed.userid);
+
+    STRING sessionid := Left(ext_cookie, SearchSubstring(ext_cookie, " "));
+    RECORD sessiondata := GetWebSessionData(sessionid, "wrd:authlogin");
+    IF (NOT RecordExists(sessiondata))
+    {
+      sessionid := CreateWebSession(
+          "wrd:authlogin",
+          [ exists := TRUE ],
+          this->__wrdauth->maxidle_minutes,
+          /*limit to server: */ FALSE);
+
+      UpdateWebCookie(
+          cookiename,
+          sessionid || " " || cookiedata,
+          [ httponly := TRUE
+          , secure :=   GetClientRequestURL() LIKE "https://*"
+          ]);
+    }
+
+    RETURN
+        [ sessionid :=  sessionid
+        , user :=       user
+        , backurl :=    ""
+        , type :=       "wrdauth"
+        , username :=   ""
+        ];
+  }
+
+  PUBLIC MACRO __AuthenticateWebSession(RECORD authscriptres)
+  {
+    LogDebug("wrd:auth", "authenticating websession " || authscriptres.sessionid);
+
+    SWITCH (authscriptres.type)
+    {
+      CASE "wrdauth"
+      {
+        AuthenticateWebSession(
+            authscriptres.sessionid,
+            "wrd:authlogin",
+            authscriptres.user->login,
+            TRUE,
+            authscriptres.user->authobjectid,
+            authscriptres.user->entityid,
+            TRUE);
+      }
+      CASE "external"
+      {
+        AuthenticateWebSession(
+            authscriptres.sessionid,
+            "wrd:authlogin",
+            authscriptres.username,
+            TRUE,
+            0,
+            0,
+            TRUE);
+      }
+    }
+  }
+
+  PUBLIC MACRO __ClearAuthSession()
+  {
+    STRING cookiename := this->__wrdauth->cookiename || "-" || this->__wrdauth->id || "_e";
+    STRING sessionid := Tokenize(GetWebCookie(cookiename),' ')[0];
+    CloseWebSession(sessionid, "wrd:authlogin");
+  }
+
+  PUBLIC MACRO __LogOutExternal()
+  {
+    OBJECT authdomain := this->GetWRDAuthDomain();
+
+    // The domain id is added to the cookie name, so multiple logins are possible in a site
+    STRING cookiename := this->__wrdauth->cookiename || "-" || this->__wrdauth->id || "_e";
+
+    STRING ext_cookie := GetWebCookie(cookiename);
+    IF (ext_cookie = "" OR ext_cookie NOT LIKE "* *")
+      RETURN;
+
+    STRING cookiedata := SubString(ext_cookie, SearchSubstring(ext_cookie, " ") + 1);
+
+    RECORD parsed := authdomain->__ParseCookie(cookiedata, "external");
+    IF (NOT RecordExists(parsed))
+      RETURN; // Not valid anyway
+
+    STRING sessionid := Left(ext_cookie, SearchSubstring(ext_cookie, " "));
+    CloseWebSession(sessionid, "wrd:authlogin");
+
+    UpdateWebCookie(
+        cookiename,
+        "wrd:authlogin",
+        [ httponly := TRUE
+        , secure :=   GetClientRequestURL() LIKE "https://*"
+        ]);
+  }
+>;

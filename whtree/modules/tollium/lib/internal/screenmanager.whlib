@@ -1,0 +1,490 @@
+﻿<?wh
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/components/frame.whlib";
+
+INTEGER compseqnr; //global dynamic numbering to prevent replaced contents from generating duplicate numbers
+
+PUBLIC OBJECTTYPE ScreenManager
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Associated screen
+  OBJECT screen;
+
+  /** List of registered components that derive from TolliumSpecialComponent
+      @cell name
+      @cell component
+      @cell line
+      @cell col
+  */
+  RECORD ARRAY registeredspecialcomponents;
+
+  /// Menu components
+  //RECORD ARRAY registeredmenucomponents;
+
+  /** List of all registered components
+      @cell name
+      @cell component
+      @cell line
+      @cell col
+  */
+  RECORD ARRAY registeredcomponents;
+
+  /** Event queue
+      @cell(object) src Component
+      @cell(string) type Event type
+      @cell(record) data Event data
+  */
+  RECORD ARRAY eventqueue;
+
+  OBJECT ARRAY subscreens;
+
+  /// Name of the string
+  PUBLIC STRING resourcename;
+  /// Name of the screen
+  PUBLIC STRING screenname;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables that should be private
+  //
+
+  /// Prefix of fragment that is currently being create d
+  /*FIXME: PRIVATE*/PUBLIC STRING current_fragment_prefix;
+
+  /// Frame
+  /*FIXME: PRIVATE*/PUBLIC OBJECT frame;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Associated screen
+  PUBLIC PROPERTY owner(screen, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT screen)
+  {
+    this->screen := screen;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium stuff
+  //
+
+  MACRO ExtUpdatedComponent()
+  {
+    IF(ObjectExists(this->frame))
+      this->frame->ExtUpdatedComponent(this->frame);
+  }
+
+  MACRO ExtUpdatedComponentList()
+  {
+    IF(ObjectExists(this->frame))
+      this->frame->ExtUpdatedComponentList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Log to the debug log with screenmaanger id
+  MACRO LogDebug(STRING message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  {
+    INSERT message INTO args AT 0;
+    INSERT "ng-scrmgr " || this->frame->instancename INTO args AT 0;
+    CallMacroPTRVA(PTR LogDebug, args);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO RegisterSubscreen(OBJECT screen)
+  {
+    IF(screen IN this->subscreens)
+      THROW NEW Exception("Screen '" || screen->tolliumscreenid || "' is registered twice to this screen");
+    INSERT screen INTO this->subscreens AT END;
+  }
+  PUBLIC MACRO DeregisterSubscreen(OBJECT screen)
+  {
+    INTEGER pos := SearchElement(this->subscreens,screen);
+    IF(pos=-1)
+      THROW NEW Exception("Screen '" || screen->tolliumscreenid || "' is not registered to this screen");
+    DELETE FROM this->subscreens AT pos;
+  }
+
+
+  /** Return list of special components (actions, proxies, menu stuff) (+referenced invisible components that are required)
+  */
+  PUBLIC OBJECT ARRAY FUNCTION GetSpecialComponents()
+  {
+    // Sorted on name
+    RECORD ARRAY list := this->registeredspecialcomponents;
+    RETURN SELECT AS OBJECT ARRAY component FROM list;
+  }
+
+  /** Returns all children of a screen frame
+  */
+  PUBLIC OBJECT ARRAY FUNCTION GetFrameChildren()
+  {
+    OBJECT ARRAY frames := SELECT AS OBJECT ARRAY component FROM this->registeredcomponents WHERE component EXTENDSFROM TolliumFrame;
+    RECORD ARRAY comps :=
+        SELECT *
+          FROM this->registeredcomponents
+         WHERE component->parent IN frames;
+
+    RETURN SELECT AS OBJECT ARRAY component FROM comps ORDER BY seqnr;
+  }
+
+  OBJECT FUNCTION GetScreenByName(STRING screenid)
+  {
+    IF(this->screen->tolliumscreenid = screenid)
+      RETURN this->screen;
+    FOREVERY(OBJECT subscreen FROM this->subscreens)
+      IF(subscreen->tolliumscreenid = screenid)
+        RETURN subscreen;
+    RETURN DEFAULT OBJECT;
+  }
+
+  //get a component by todd-window-global name
+  PUBLIC OBJECT FUNCTION GetToddComponentNoFail(STRING compname)
+  {
+    RECORD compinfo := this->GetComponentInfo(compname);
+    RETURN RecordExists(compinfo) ? compinfo.component : DEFAULT OBJECT;
+  }
+
+  PUBLIC OBJECT FUNCTION GetComponentNofail(STRING findname, STRING prefix DEFAULTSTO "")
+  {
+    findname := ToUppercase(findname);
+    IF(findname LIKE "FRAGMENT!*" OR findname="FRAGMENT")
+    {
+      IF(this->current_fragment_prefix = "")
+        THROW NEW Exception(`Encountered a FRAGMENT! name without an active fragment prefix while looking for '${findname}'' (with prefix '${prefix}')`);
+      ELSE
+        findname := ToUppercase(this->current_fragment_prefix) || Substring(findname,8);
+    }
+
+    IF(findname LIKE "*.*")
+      RETURN SELECT AS OBJECT component FROM this->registeredcomponents WHERE composedname = findname;
+
+    RECORD pos := RecordLowerBound(this->registeredcomponents, [ name := findname ], [ "NAME" ]);
+    RETURN pos.found ? this->registeredcomponents[pos.position].component : DEFAULT OBJECT;
+  }
+
+  PUBLIC OBJECT FUNCTION GetComponent(STRING findname, STRING prefix DEFAULTSTO "")
+  {
+    OBJECT retval := this->GetComponentNofail(findname, prefix);
+    IF(NOT ObjectExists(retval))
+    {
+      //DumpValue(this->registeredcomponents,'boxed'); DumpValue(GetStackTrace(), [ format := 'boxed', name := "No such object: prefix=" || prefix || " findname=" || findname || " current_fragment_prefix=" || this->current_fragment_prefix]);
+      THROW NEW TolliumException(this->frame, "No such object: " || findname);
+    }
+    RETURN retval;
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetComponents(STRING ARRAY names, STRING prefix DEFAULTSTO "")
+  {
+    OBJECT ARRAY retval;
+    FOREVERY(STRING name FROM names)
+      INSERT this->GetComponent(name, prefix) INTO retval AT END;
+    RETURN retval;
+  }
+
+  /** Get component info based on name. DEFAULT RECORD if not found.
+      @cell(string) name
+      @cell(integer) line
+      @cell(integer) col
+      @cell(object) component
+  */
+  PUBLIC RECORD FUNCTION GetComponentInfo(STRING compname)
+  {
+    //IF(ObjectExists(this->frame->containingpanel))
+    //  THROW NEW Exception("Cannot invoke lookup functions on a non-toplevel screen");
+
+    IF(compname LIKE "*:*:*" OR compname NOT LIKE "*:*")
+      THROW NEW Exception("Invalid todd component name '" || compname || "'");
+
+    STRING ARRAY parts := Tokenize(compname,':');
+    OBJECT subscreen := this->GetScreenByName(parts[0]);
+    IF(NOT ObjectExists(subscreen))
+      RETURN DEFAULT RECORD; //may be a reference to a subscreen we already removed on our side
+
+    RETURN subscreen->tolliumscreenmanager->GetComponentInfoByLocalName(parts[1]);
+  }
+  PUBLIC RECORD FUNCTION GetComponentInfoByLocalName(STRING findlocalname)
+  {
+    RECORD pos := RecordLowerBound(this->registeredcomponents, [ name := ToUppercase(findlocalname) ], [ "NAME" ]);
+    RETURN pos.found ? this->registeredcomponents[pos.position] : DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO RegisterComponent(OBJECT component, BOOLEAN is_owner, INTEGER line, STRING name, STRING composedname)
+  {
+    compseqnr := compseqnr + 1;
+
+    RECORD rec :=
+        [ name :=         ToUppercase(name ?? component->name)
+        , component :=    component
+        , line :=         line
+        , col :=          0
+        , composedname := composedname
+        , seqnr :=        compseqnr
+        ];
+
+    // Register component is list
+    RECORD pos := RecordLowerBound(this->registeredcomponents, rec, [ "NAME" ]);
+    IF(pos.found)
+      THROW NEW TolliumException(component, `Duplicate registration of a component named '${rec.name}'`);
+
+    INSERT rec INTO this->registeredcomponents AT pos.position;
+
+    // Register special components in a separate list
+    IF (component EXTENDSFROM TolliumSpecialComponent)
+    {
+      pos := RecordLowerBound(this->registeredspecialcomponents, rec, [ "NAME" ]);
+      INSERT rec INTO this->registeredspecialcomponents AT pos.position;
+    }
+
+    IF (ObjectExists(this->frame))
+    {
+      IF(this->frame->containingpanel != DEFAULT OBJECT)
+        this->frame->containingpanel->owner->tolliumscreenmanager->RegisterComponent(component, FALSE, -1, "", ""); //no need to pass the names, dynamic components won't be looked up ny name
+      this->ExtUpdatedComponentList();
+    }
+  }
+
+  PUBLIC MACRO UnregisterComponent(OBJECT component)
+  {
+    DELETE FROM this->registeredcomponents WHERE COLUMN component = VAR component;
+    IF (component EXTENDSFROM TolliumSpecialComponent)
+      DELETE FROM this->registeredspecialcomponents WHERE COLUMN component = VAR component;
+
+    IF (this->frame->containingpanel != DEFAULT OBJECT)
+      this->frame->containingpanel->owner->tolliumscreenmanager->UnregisterComponent(component);
+    this->frame->Tollium_DeletedComponent(component);
+    this->ExtUpdatedComponentList();
+  }
+
+  //returns tolliumhandleevent error
+  PUBLIC STRING FUNCTION HandleEvent(STRING component, STRING ARRAY actionparams)
+  {
+    OBJECT obj := this->GetComponent(component);
+    IF(NOT ObjectExists(obj))
+      ABORT("Screen (" || this->frame->title || ") has no member '" || component || "' to handle incoming event");
+    IF(NOT MemberExists(obj,"tolliumhandleevent"))
+      ABORT("Object " || obj->name || " has no member tolliumhandleevent");
+    RETURN obj->TolliumHandleEvent(actionparams);
+  }
+
+  PUBLIC STRING FUNCTION CreateAnonymousName(STRING namebase)
+  {
+    compseqnr := compseqnr + 1;
+    STRING name := namebase || '$' || compseqnr;
+    RETURN name;
+  }
+
+  PUBLIC OBJECT FUNCTION CreateComponent(STRING objtype, STRING name, INTEGER line, OBJECT parent, STRING composedname, STRING gid, STRING elementtype)
+  {
+    RECORD savecompinfo := __pvt_nextcomponentinfo;
+    OBJECT newobj;
+    TRY
+    {
+      __pvt_nextcomponentinfo := CELL[ owner := this->screen, name := name, objtype := objtype, gid, elementtype ];
+      newobj := MakeObject(objtype);
+      IF(NOT MemberExists(newobj, "componenttype"))
+        THROW NEW Exception(`Object type '${objtype}' must derive from a tollium component type`);
+    }
+    FINALLY
+    {
+      __pvt_nextcomponentinfo := savecompinfo;
+    }
+
+    IF(name="frame")
+      this->frame:=newobj;
+
+    newobj->__tollium_afternew();
+    newobj->pvt_parent := parent;
+    this->RegisterComponent(newobj, TRUE, line, name, composedname);
+
+    IF (newobj EXTENDSFROM TolliumSpecialComponent)// AND newobj NOT EXTENDSFROM TolliumMenuItem)
+    {
+      newobj->pvt_parent := this->frame;
+
+      IF (this->screen->pvt_tolliumframepreinits)
+        newobj->EnsurePreInit();
+      IF (this->screen->pvt_tolliumframeinitrun)
+        newobj->EnsurePostInit();
+    }
+    RETURN newobj;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ScopeFormObjects(RECORD ARRAY formobjects)
+  {
+  //ABORT(formobjects,'tree:3');
+    UPDATE formobjects SET addtoscope := this->screen->tolliumscreenid || ":" || addtoscope
+                     WHERE addtoscope != "";
+    RETURN formobjects;
+  }
+
+  PUBLIC MACRO DoInitComponents(RECORD ARRAY allcomponents, OBJECT screenbuilder)
+  {
+    //First initialize scopes
+    RECORD ARRAY components_by_scope := SELECT addtoscope, comps := GroupedValues(allcomponents)
+                                          FROM allcomponents
+                                         WHERE localname!=''
+                                      GROUP BY addtoscope;
+
+    FOREVERY(RECORD scope FROM components_by_scope)
+    {
+      OBJECT obj;
+      IF(scope.addtoscope="")
+      {
+        obj := this->screen;
+        IF(NOT (OBJ EXTENDSFROM TolliumScreenBase))
+          THROW NEW Exception("The screen object does not derive from a TolliumScreenBase");
+      }
+      ELSE
+      {
+        obj := this->GetToddComponentNoFail(/*this->screen->tolliumscreenid || ":" || */scope.addtoscope);
+        //RECORD pos := RecordLowerBound(this->registeredcomponents, [ name := ToUppercase(scope.addtoscope) ], [ "NAME" ]);
+        //obj := pos.found ? this->registeredcomponents[pos.position].component : DEFAULT OBJECT;
+
+        IF(NOT ObjectExists(obj))
+        {
+          ABORT("Missing scope component " || scope.addtoscope || '\n' || AnyToSTring(this->registeredcomponents,'boxed'));
+          THROW NEW Exception("Missing scope component " || scope.addtoscope);
+        }
+
+        IF(NOT (OBJ EXTENDSFROM TolliumFragmentBase))
+          THROW NEW Exception(`The fragment object for '${obj->name}' (${Detokenize(GetObjectExtendNames(obj),", ")}) does not derive from a TolliumFragmentBase`);
+      }
+
+      obj->__tolliumscope_RegisterComponents(screenbuilder, scope.comps);
+    }
+
+    FOREVERY(RECORD objinfo FROM allcomponents)
+    {
+      RECORD pos := RecordLowerBound(this->registeredcomponents, [ name := ToUppercase(objinfo.data.name) ], [ "NAME" ]);
+      OBJECT obj := pos.found ? this->registeredcomponents[pos.position].component : DEFAULT OBJECT;
+      objinfo.data := screenbuilder->ReprocessData(obj, objinfo.data, objinfo.data.__xml_fields);
+
+      // For fragments, mark the contents as subcomponents
+      IF(CellExists(objinfo.data,"__fragmentlines"))
+      {
+        OBJECT lastitem := obj;
+        BOOLEAN atendofline := FALSE;
+        FOREVERY(RECORD line FROM objinfo.data.__fragmentlines)
+        {
+          FOREVERY (STRING itemname FROM line.items)
+          {
+            OBJECT item := this->GetComponent(itemname);
+            IF(item=obj OR ObjectExists(item->supercomponent))
+              CONTINUE;
+
+            obj->MarkAsSubcomponent(item);
+            obj->SetSubcomponentPosition(item, lastitem, TRUE, atendofline);
+            atendofline := FALSE;
+            lastitem := item;
+          }
+          atendofline := TRUE;
+        }
+        DELETE CELL __fragmentlines FROM objinfo.data;
+      }
+
+      DELETE CELL name FROM objinfo.data; //prevent reliance on scoped names
+
+      objinfo.data.tolliumscope.scope := objinfo.addtoscope;
+      obj->StaticInit(objinfo.data);
+    }
+  }
+
+  PUBLIC MACRO PreInit()
+  {
+    this->frame->EnsurePreInit();
+  }
+
+  PUBLIC MACRO PostInit()
+  {
+    this->frame->EnsurePostInit();
+  }
+
+  PUBLIC MACRO QueueEvent(OBJECT src, STRING eventtype, RECORD data)
+  {
+    IF (ObjectExists(this->frame->containingpanel))
+    {
+      this->frame->containingpanel->owner->tolliumscreenmanager->QueueEvent(src, eventtype, data);
+    }
+    ELSE
+    {
+      INSERT INTO this->eventqueue(src,type,data) VALUES(src, eventtype, data) AT END;
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION DoEvents()
+  {
+    IF(Length(this->eventqueue)=0)
+      RETURN FALSE;
+
+    RECORD poppedevent := this->eventqueue[0];
+    DELETE FROM this->eventqueue AT 0;
+
+    //this->LogDebug("Dispatching pending event to "||poppedevent.src->name||", type:"||poppedevent.type || "\n");
+
+    BOOLEAN isworkopen := ObjectExists(GetPrimary()) AND GetPrimary()->IsWorkOpen();
+    TRY
+    {
+      poppedevent.src->TolliumDispatchEvent(poppedevent.type, poppedevent.data);
+    }
+    FINALLY
+    {
+      IF(isworkopen = FALSE AND ObjectExists(GetPrimary()) AND GetPrimary()->IsWorkOpen())
+      {
+        LogError("tollium:doevents", "Work leak in " || this->frame->name || " handling event ", [ errortype := "workleak", src := poppedevent.src->name, eventtype := poppedevent.type ]);
+        GetPrimary()->RollbackWork();
+      }
+    }
+    RETURN TRUE;
+  }
+
+  PUBLIC MACRO HandleWorkResult(RECORD workresult)
+  {
+    IF(RecordExists(workresult))
+    {
+      IF(this->screen->tolliumcontroller->debugging AND (Length(workresult.errors)!=0 OR Length(workresult.warnings)!=0))
+      {
+        Print("Work report for " || this->frame->name || " (" || this->frame->title || ") " || Length(workresult.errors) || " errors " || Length(workresult.warnings) || " warnings\n");
+        FOREVERY(RECORD err FROM workresult.errors)
+          Print( (ObjectExists(err.comp) ? "Component " || err.comp->name || ": " : "") || err.text || "\n");
+        FOREVERY(RECORD warn FROM workresult.warnings)
+          Print( (ObjectExists(warn.comp) ? "Component " || warn.comp->name || ": " : "") || warn.text|| "\n");
+      }
+
+      IF(Length(workresult.errors)>0)
+      {
+        this->screen->RunMessageBox("tollium:commondialogs.errors", Detokenize((SELECT AS STRING ARRAY text FROM workresult.errors),'\n'));
+      }
+      ELSE IF(Length(workresult.warnings)>0)
+      {
+        this->screen->RunMessageBox("tollium:commondialogs.warnings", Detokenize((SELECT AS STRING ARRAY text FROM workresult.warnings),'\n'));
+      }
+    }
+  }
+>;

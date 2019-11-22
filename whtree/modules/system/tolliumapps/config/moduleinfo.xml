@@ -1,0 +1,86 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="moduleinfo.whlib" gid="tolliumapps.config">
+
+  <screen name="moduleversions" minwidth="100x" minheight="20x" allowresize="true" title="" savestate="position size" gid=".moduleversions">
+    <actions>
+      <action name="downloadmodule" onexecute="dodownloadmodule">
+        <enableon source="versions" min="1" max="1" checkflags="candownload" />
+      </action>
+      <action name="hotfixes" onexecute="dohotfixes">
+        <enableon source="versions" min="1" max="1" />
+      </action>
+    </actions>
+    <body layout="form" height="1pr">
+      <grid height="1pr">
+        <col width="1pr" />
+        <col width="1x" />
+        <row height="1pr">
+          <cell>
+            <panel height="1pr">
+              <list name="versions"
+                    selectmode="single"
+                    height="1pr"
+                    flags="candownload"
+                    sortascending="false"
+                    >
+                <column name="uploaddate"     type="datetime" precision="minutes" width="16x" storeutc="true" sortkeyname="orderdate" />
+                <column name="archived"       type="text"     width="8x" />
+                <column name="obsoletiondate" type="datetime" precision="minutes" width="16x" storeutc="true" />
+                <column name="version"        type="text"     width="10x" />
+                <column name="revision"       type="text"     width="10x" />
+                <column name="description"    type="text"     width="1pr" tid="~description"/>
+              </list>
+            </panel>
+          </cell>
+          <cell>
+            <button action="downloadmodule" width="1pr" />
+            <button action="hotfixes" width="1pr" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <line layout="right">
+        <button tolliumresult="cancel" tid="~close" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="moduleinfo" minwidth="100x" minheight="40x" allowresize="true" savestate="size" gid=".moduleinfo">
+    <body>
+      <split type="vertical">
+        <part height="2pr">
+          <text name="sourcerepositoryurl" visible="false" />
+          <text name="sourcerepositoryuuid" visible="false" />
+          <text name="sourcerevision" visible="false" />
+          <panel height="1pr">
+            <list name="changesets"
+                  selectmode="single"
+                  onselect="onchangesetselect"
+                  borders="top right left"
+                  >
+              <column name="date" type="datetime" precision="minutes" storeutc="true" />
+              <column name="server" type="text" />
+              <column name="userfullname" type="text" />
+              <column name="source" type="text" />
+            </list>
+          </panel>
+        </part>
+        <part height="1pr" minheight="10x" >
+          <text tid=".modifiedfiles" />
+          <panel height="1pr">
+            <list name="modifications"
+                  selectmode="single"
+                  >
+              <column name="path" type="text" />
+              <column name="status" type="text" />
+            </list>
+          </panel>
+        </part>
+      </split>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+
+</screens>

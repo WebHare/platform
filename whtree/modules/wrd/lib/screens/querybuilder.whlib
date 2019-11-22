@@ -1,0 +1,1514 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/queries.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// QueryBuilder
+//
+PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
+< PUBLIC OBJECT root_node;
+  PUBLIC OBJECT ARRAY selectresults;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    IF (Length(data.params) > 0)
+      this->contexts->wrdschema := OpenWRDSchema(data.params[0]);
+    ELSE IF(RecordExists(data.target))
+      this->contexts->wrdschema := OpenWRDSchemaById(data.target.wrdschema);
+
+    IF(NOT ObjectExists(this->contexts->wrdschema) OR NOT this->tolliumuser->HasRightOn("wrd:read", this->contexts->wrdschema->id))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    this->RegisterLocalDragType("local:querybuilder.removetype", DEFAULT STRING ARRAY);
+    this->RegisterLocalDragType("local:querybuilder.removefilter", DEFAULT STRING ARRAY);
+    this->RegisterLocalDragType("local:querybuilder.type", DEFAULT STRING ARRAY);
+    this->RegisterLocalDragType("local:querybuilder.column", DEFAULT STRING ARRAY);
+
+    this->frame->title := this->contexts->wrdschema->tag || " - " || GetTid("wrd:querybuilder.screentitle");
+
+    this->wrdtypes := SELECT id
+                           , rowkey := ToString(id)
+                           , title
+                           , typename := this->contexts->wrdschema->GetTypeById(id)->tag
+                           , tag
+                           , wrdtype := this->contexts->wrdschema->GetTypeById(id)
+                           , expanded := FALSE
+                           , typedata := types
+                           , attrdata := DEFAULT RECORD
+                           , draginfo :=
+                                [ type := "local:querybuilder.type"
+                                , data := [ id := id ]
+                                ]
+                       FROM this->contexts->wrdschema->ListTypes() AS types
+                   ORDER BY tag="WRD_RELATION" DESC, tag="WRD_PERSON" DESC, tag="WRD_ORGANIZATION" DESC, NormalizeText(title, GetTidLanguage());
+
+    ^types->rows := SELECT *
+                           , draginfo :=
+                                [ type := "local:querybuilder.type"
+                                , data :=
+                                      [ wrdtypeid :=  id
+                                      ]
+                                ]
+                              , subnodes := (SELECT *
+                                                  , rowkey := wrdtypes.rowkey || ":" || tag
+                                                  , wrdtype := DEFAULT OBJECT
+                                                  , typename := tag
+                                                  , typedata := DEFAULT RECORD
+                                                  , attrdata := attrs
+                                                  , ownerrec := wrdtypes
+                                                  , expanded := FALSE
+                                                  , subnodes := DEFAULT RECORD ARRAY
+                                                  , draginfo :=
+                                                        [ type := "local:querybuilder.column"
+                                                        , data :=
+                                                            [ wrdtypeid :=  wrdtypes.id
+                                                            , title :=      title
+                                                            , rowkey :=     wrdtypes.rowkey || ":" || tag
+                                                            , tag :=        tag
+                                                            ]
+                                                        ]
+                                               FROM wrdtype->ListAttributes(0) AS attrs
+                                           ORDER BY NormalizeText(title, this->tolliumuser->language))
+                           FROM this->wrdtypes AS wrdtypes;
+
+    //Quick init code
+  //  this->OnSelectFieldsDrop(this->types, [ RECORD(this->types->rows[1]) ], DEFAULT RECORD);
+
+    this->RebuildScreens();
+  }
+
+  /// Builds a WRD query for the current query
+  PRIVATE OBJECT FUNCTION ConstructQuery()
+  {
+    RECORD ARRAY sources;
+    RECORD ARRAY links;
+
+    FOREVERY (OBJECT sel FROM this->selectresults)
+    {
+      RECORD selected_cols;
+      selected_cols := CellInsert(selected_cols, sel->rowkey || "_id", "WRD_ID");
+      FOREVERY (RECORD sela FROM sel->selected_attrs)
+        selected_cols := CellInsert(selected_cols, sel->rowkey || "_#" || #sela, sela.attr.tag);
+
+      RECORD ARRAY filters;
+      FOREVERY (OBJECT filter FROM sel->filters)
+      {
+        VARIANT value := filter->valueholder.data;
+
+        STRING type;
+        BOOLEAN negate;
+        SWITCH (filter->relationtype)
+        {
+        CASE "contains"           { type := "LIKE"; value := "*" || value || "*"; }
+        CASE "!contains"          { type := "LIKE"; value := "*" || value || "*"; negate := TRUE; }
+        CASE "like"               { type := "LIKE"; }
+        CASE "!like"              { type := "LIKE"; negate := TRUE; }
+        CASE "equal"              { type := "="; }
+        CASE "unequal"            { type := "!="; }
+        CASE "larger"             { type := ">"; }
+        CASE "smaller"            { type := "<"; }
+        CASE "largerequal"        { type := ">="; }
+        CASE "smallerequal"       { type := "<="; }
+        }
+
+        RECORD filterrec :=
+            [ field := filter->attr.tag
+            , match_type := type
+            , value := value
+            , match_case := TypeID(value) != TypeID(STRING)
+            ];
+
+        IF (negate)
+          filterrec := [ type := "not", filter := filterrec ];
+
+        INSERT filterrec INTO filters AT END;
+      }
+      RECORD sourcedata :=
+        [ name := sel->name
+        , type := sel->wrdtype
+        , outputcolumns := selected_cols
+        , filters := filters
+        , historymode := sel->history_mode ];
+
+      IF (sourcedata.historymode = "at")
+        INSERT CELL when := sel->when_at INTO sourcedata;
+      ELSE IF (sourcedata.historymode = "range")
+      {
+        INSERT CELL when_start := sel->when_start INTO sourcedata;
+        INSERT CELL when_limit := sel->when_limit INTO sourcedata;
+      }
+
+      INSERT sourcedata INTO sources AT END;
+    }
+
+    FOREVERY (OBJECT sel FROM this->selectresults)
+    {
+      IF (ObjectExists(sel->query_parent))
+      {
+        IF (sel->parent_link_reversed)
+        {
+          // Jointype is already in the parent's perspective
+          INSERT [ left := sel->query_parent->name, right := sel->name, field := sel->parent_link_attr.tag, jointype := sel->jointype ] INTO links AT END;
+        }
+        ELSE
+        {
+          // Jointype is in the parent's perspective, so need to reverse it
+          STRING jointype := sel->jointype;
+          IF (jointype IN [ "left-optional", "right-optional" ])
+            jointype := jointype = "left-optional" ? "right-optional" : "left-optional";
+
+          INSERT [ left := sel->name, right := sel->query_parent->name, field := sel->parent_link_attr.tag, jointype := jointype ] INTO links AT END;
+        }
+      }
+    }
+
+    RETURN MakeWRDQuery([ sources := sources, links := links ]);
+  }
+
+  /// Converts new acceptdrops format back to old dropformat rows
+  RECORD ARRAY FUNCTION ParseTypesDrop(RECORD dragdata)
+  {
+    RECORD ARRAY items;
+    FOREVERY (RECORD item FROM dragdata.items)
+    {
+      IF (item.type = "local:querybuilder.type")
+        INSERT [ wrdtype := this->contexts->wrdschema->GetTypeById(item.data.wrdtypeid) ] INTO items AT END;
+      ELSE
+      {
+        OBJECT type := this->contexts->wrdschema->GetTypeById(item.data.wrdtypeid);
+        RECORD rec := type->GetAttribute(item.data.tag);
+        INSERT CELL attrdata := rec INTO rec;
+        INSERT CELL wrdtype := DEFAULT OBJECT INTO rec;
+        INSERT CELL rowkey := item.data.rowkey INTO rec;
+        INSERT CELL ownerrec := [ wrdtype := type ] INTO rec;
+
+        INSERT rec INTO items AT END;
+      }
+    }
+    RETURN items;
+  }
+
+  PUBLIC MACRO OnResultSelectDrop2(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
+  {
+    RECORD ARRAY items := this->ParseTypesDrop(dragdata);
+    this->OnResultSelectDropInternal(items, droptarget, dropaction, droptype);
+  }
+
+  PUBLIC MACRO OnResultSelectDropInternal(RECORD ARRAY items, RECORD target, STRING action, STRING mode)
+  {
+    // We can discriminate the different wrd types by the row keys of the items
+
+    // FIXME: this code doesn't handle dropping multiple attributes of multiple types at the same type gracefully.
+
+    OBJECT current_res;
+    IF (RecordExists(target))
+    {
+      current_res := target.obj;
+    }
+
+    RECORD ARRAY accessed_types;
+    FOREVERY (RECORD item FROM items)
+    {
+      INTEGER itemtype;
+      IF (item.wrdtype != DEFAULT OBJECT)
+      {
+        // Explicit add of a type
+        current_res := this->CreateConnectedNode(item.wrdtype);
+        IF (current_res = DEFAULT OBJECT)
+          BREAK;
+      }
+      ELSE
+      {
+        OBJECT wrdtype := item.ownerrec.wrdtype;
+
+        // Add of an attribute
+        IF (current_res = DEFAULT OBJECT) // Not dropped on something?
+        {
+          OBJECT ARRAY compat_results;
+          FOREVERY (OBJECT res FROM this->selectresults)
+            IF (res->wrdtype->id = wrdtype->id)
+              INSERT res INTO compat_results AT END;
+
+          IF (LENGTH(compat_results) = 0)
+          {
+            current_res := this->CreateConnectedNode(wrdtype);
+            IF (current_res = DEFAULT OBJECT)
+              BREAK;
+          }
+          ELSE IF (LENGTH(compat_results) > 1)
+          {
+            this->RunMessageBox(".debugmessage", "Don't know which result to add this selected attribute to");
+            BREAK;
+          }
+          ELSE
+            current_res := compat_results[0];
+        }
+        IF (current_res->wrdtype->id != wrdtype->id)
+        {
+          this->RunMessageBox(".debugmessage", "Adding an attribute to the wrong type!");
+          BREAK;
+        }
+
+        IF (NOT RecordExists(SELECT FROM current_res->selected_attrs WHERE attr.tag = item.tag))
+          INSERT [ name := item.title, attr := item.attrdata, rowkey := item.rowkey, tag := item.tag ] INTO current_res->selected_attrs AT END;
+      }
+    }
+    this->RebuildScreens();
+  }
+
+  PUBLIC MACRO OnQueryDropNew(RECORD dragdata, RECORD target, STRING action, STRING mode)
+  {
+    RECORD ARRAY items := this->ParseTypesDrop(dragdata);
+    this->OnQueryDropInternal(items, target, action, mode);
+  }
+
+  PUBLIC MACRO OnQueryDropInternal(RECORD ARRAY items, RECORD target, STRING action, STRING mode)
+  {
+    FOREVERY (RECORD item FROM items)
+    {
+      INTEGER itemtype;
+      IF (item.wrdtype != DEFAULT OBJECT)
+      {
+        this->RunMessageBox(".debugmessage", "Cannot add nodes to the query tree yet.");
+        RETURN;
+      }
+
+      OBJECT ownertype := item.ownerrec.wrdtype;
+      OBJECT droptarget;
+
+      IF (NOT RecordExists(target))
+      {
+        OBJECT ARRAY matches;
+        FOREVERY (OBJECT sel FROM this->selectresults)
+        {
+          IF (sel->wrdtype->id = ownertype->id)
+            INSERT sel INTO matches AT END;
+        }
+
+        IF (LENGTH(matches) = 0)
+        {
+          droptarget := this->CreateConnectedNode(ownertype);
+          IF (droptarget = DEFAULT OBJECT)
+            BREAK;
+        }
+        ELSE IF (LENGTH(matches) > 1)
+        {
+          this->RunMessageBox(".debugmessage", "Error: Cannot determine which node to add to");
+          BREAK;
+        }
+        ELSE
+          droptarget := matches[0];
+      }
+      ELSE
+        droptarget := target.obj;
+
+      OBJECT editfilter := this->LoadScreen(".editfilter", [ currentschema := this->contexts->wrdschema ]);
+      RECORD filterdata := editfilter->DoAdd(item, ownertype);
+      IF (NOT RecordExists(filterdata))
+      {
+        CONTINUE;
+      }
+
+      OBJECT filter := NEW SelectFilter;
+      filter->rowkey := this->GetUniqueKey();
+      filter->attr := item.attrdata;
+      filter->valueholder := [ data := filterdata.filtervalue ];
+      filter->prettyvalue := filterdata.filterprettyvalue;
+      filter->relationtype := filterdata.filtertype;
+      filter->selectresult := droptarget;
+
+      INSERT filter INTO droptarget->filters AT END;
+    }
+    this->RebuildScreens();
+  }
+
+  PUBLIC MACRO OnQueryClick(RECORD target)
+  {
+    // Doubleclick on filter
+    IF (target.type = "ATTR")
+    {
+  /*      [ rowkey := this->rowkey || ":" || filter.rowkey
+          , filterkey := filter.rowkey
+          , title := filter.attr.title
+          , descr := filter.data.filtertype || " " || filter.data.filterprettyvalue
+          , obj := this
+          , type := "ATTR"
+          , attrtag := filter.attr.tag ];*/
+  /*
+      OBJECT droptarget := target.obj;
+
+      // Get position of filterdata
+      INTEGER filterpos := SELECT AS INTEGER #pos FROM target.obj->filters AS pos WHERE rowkey = target.filterkey;
+
+      OBJECT editfilter := this->LoadScreen(".editfilter");
+  //    RECORD filterdata := editfilter->DoEdit(item, target.obj->wrdtype, target.obj->filters[filterpos]);
+      IF (NOT RecordExists(filterdata))
+      {
+        CONTINUE;
+      }
+      target.obj->filters[filterpos] := filterdata;
+  //                                                , wrdtype := DEFAULT OBJECT
+  //                                                , typename := ""
+  //                                                , typedata := DEFAULT RECORD
+  //                                                , attrdata := attrs
+  */
+    }
+  }
+
+  MACRO OnTypeDropNew(RECORD dragdata, RECORD target, STRING action, STRING mode)
+  {
+    FOREVERY (RECORD rec FROM dragdata.items)
+    {
+      SWITCH (rec.type)
+      {
+        CASE "local:querybuilder.removetype"
+          {
+            FOREVERY (OBJECT child FROM this->selectresults)
+              IF (child->rowkey = rec.data.rowkey)
+                this->TryDeleteNode(child);
+          }
+        CASE "local:querybuilder.removefilter"
+          {
+            FOREVERY (OBJECT child FROM this->selectresults)
+              IF (child->rowkey = rec.data.trowkey)
+              {
+                OBJECT ARRAY new_filters;
+                FOREVERY (OBJECT filter FROM child->filters)
+                  IF (filter->rowkey != rec.data.rowkey)
+                    INSERT filter INTO new_filters AT END;
+                child->filters := new_filters;
+              }
+          }
+      }
+    }
+    this->RebuildScreens();
+  }
+
+  PUBLIC MACRO OnTypesDrop_ResultSelect(RECORD ARRAY items, RECORD target)
+  {
+    FOREVERY (RECORD item FROM items)
+      this->TryDeleteNode(item.obj);
+    this->RebuildScreens();
+  }
+
+  PUBLIC MACRO OnTypesDrop_Query(RECORD ARRAY items, RECORD target)
+  {
+    FOREVERY (RECORD item FROM items)
+      IF (item.type = "OBJ")
+        this->TryDeleteNode(item.obj);
+      ELSE IF (item.type = "FILTER")
+      {
+        OBJECT sel := item.obj->selectresult;
+        OBJECT ARRAY new_filters;
+        FOREVERY (OBJECT filter FROM sel->filters)
+          IF (filter != item.obj)
+            INSERT filter INTO new_filters AT END;
+        sel->filters := new_filters;
+      }
+  }
+
+  PUBLIC MACRO DoEditHistoryModeResultSelect()
+  {
+    IF (RecordExists(^resultselect->selection))
+      this->DoEditHistoryMode(^resultselect->selection.obj);
+  }
+
+  PUBLIC MACRO DoEditHistoryModeQuery()
+  {
+    IF (RecordExists(^query->selection))
+      this->DoEditHistoryMode(^query->selection.obj);
+  }
+
+  PUBLIC MACRO DoEditHistoryMode(OBJECT selected_node)
+  {
+    IF (NOT ObjectExists(selected_node))
+      RETURN;
+
+    OBJECT scr := this->LoadScreen(".edithistorymode");
+    scr->Setup(selected_node);
+
+    scr->Execute();
+
+    this->RebuildScreens();
+  }
+
+  MACRO DoEditFilter()
+  {
+    OBJECT filter := ^query->selection.obj;
+    RECORD data :=
+        [ filtervalue :=  filter->valueholder.data
+        , filtertype :=   filter->relationtype
+        ];
+
+    OBJECT editfilter := this->LoadScreen(".editfilter", [ currentschema := this->contexts->wrdschema ]);
+    RECORD filterdata := editfilter->DoEdit(filter->attr, filter->selectresult->wrdtype, data);
+
+    IF (RecordExists(filterdata))
+    {
+      filter->valueholder := [ data := filterdata.filtervalue ];
+      filter->prettyvalue := filterdata.filterprettyvalue;
+      filter->relationtype := filterdata.filtertype;
+      this->RebuildScreens();
+    }
+  }
+
+  MACRO DoEditJointype()
+  {
+    IF (NOT ObjectExists(^query->selection.obj))
+      RETURN;
+
+    OBJECT scr := this->LoadScreen(".editjointype");
+    scr->Setup(^query->selection.obj);
+
+    scr->Execute();
+
+    this->RebuildScreens();
+  }
+
+  MACRO DoEditSelectNode()
+  {
+    OBJECT screen := this->LoadScreen(".columnselect", [ node := ^resultselect->selection.obj ]);
+    IF (screen->RunModal() = "ok")
+      this->RebuildScreens();
+  }
+
+  MACRO DoDeleteResultSelect()
+  {
+    this->DoDeleteInternal(^resultselect->selection);
+  }
+
+  MACRO DoDeleteQuery()
+  {
+    this->DoDeleteInternal(^query->selection);
+  }
+
+  MACRO DoDeleteInternal(RECORD sel)
+  {
+    IF (NOT RecordExists(sel))
+      RETURN;
+
+    IF (sel.isfilter)
+    {
+      OBJECT filter := sel.obj;
+
+      INTEGER pos := SearchElement(filter->selectresult->filters, filter);
+      IF (pos != -1)
+        DELETE FROM filter->selectresult->filters AT pos;
+    }
+    ELSE IF (sel.isnode)
+    {
+      OBJECT ARRAY worklist := OBJECT[ sel.obj ];
+      WHILE (LENGTH(worklist) != 0)
+      {
+        OBJECT node := worklist[0];
+        DELETE FROM worklist AT 0;
+        INTEGER pos := SearchElement(this->selectresults, node);
+        IF (pos = -1)
+          CONTINUE;
+        DELETE FROM this->selectresults AT pos;
+
+        worklist := worklist CONCAT node->query_children;
+        FOREVERY (OBJECT o FROM this->selectresults)
+          IF (o->query_parent = node)
+            INSERT o INTO worklist AT END;
+      }
+
+      IF (this->root_node NOT IN this->selectresults)
+        this->root_node := DEFAULT OBJECT;
+    }
+
+    this->RebuildScreens();
+  }
+
+  PUBLIC MACRO RebuildScreens()
+  {
+    IF (this->root_node != DEFAULT OBJECT)
+    {
+      // Build list of selects
+      ^resultselect->rows := GetSelectListRows(this->selectresults);
+
+      // Build the query view
+      ^query->rows := GetQueryRows(this->selectresults, this->root_node);
+
+      // Build the results view
+      RECORD ARRAY columns, debugactions;
+      FOREVERY (OBJECT sel FROM this->selectresults)
+      {
+        INSERT [[ type := "wrd:entity", cellname := sel->rowkey || "_ID" ]] INTO debugactions AT END;
+        FOREVERY (RECORD selattr FROM sel->selected_attrs)
+        {
+          RECORD col :=
+              [ type := "text"
+              , title := ToLowercase(sel->name || "." || selattr.tag)
+              , selecticon := ""
+              , iconname := ""
+              , name := sel->rowkey || "_#" || #selattr
+              ];
+
+          SWITCH (selattr.attr.attributetype)
+          {
+          CASE 1, 11, 15  { col.type := "integer"; }
+          CASE 18         { col.type := "integer64"; }
+          CASE 6          { col.type := "date"; }
+          CASE 12         { col.type := "datetime"; INSERT CELL storeutc := TRUE INTO col; }
+          }
+
+          INSERT col INTO columns AT END;
+        }
+      }
+
+      ^results->rows := DEFAULT RECORD ARRAY;
+      ^results->columns := columns;
+      ^results->debugactions := debugactions;
+
+      this->frame->flags.havequery := TRUE;
+    }
+    ELSE
+    {
+      ^resultselect->rows := DEFAULT RECORD ARRAY;
+      ^query->rows := DEFAULT RECORD ARRAY;
+      ^results->rows := DEFAULT RECORD ARRAY;
+      ^results->columns := DEFAULT RECORD ARRAY;
+      ^results->debugactions := RECORD[];
+      this->frame->flags.havequery := FALSE;
+    }
+  }
+
+  /** Returns whether two types can be associated with each other (no reversing and such)
+      @param wrdtype_left Left object
+      @param wrdtype_right Right object
+      @return Returns through whtich attributes an association can be made (default record indicates direct linking join)
+  */
+  PUBLIC RECORD FUNCTION CanAssociateTypes(OBJECT wrdtype_left, OBJECT wrdtype_right)
+  {
+    RECORD data := [ on_right := DEFAULT RECORD ARRAY, on_left := DEFAULT RECORD ARRAY ];
+
+    // Not reverse associating with a domain on the left (and not on the right)
+    IF (wrdtype_left->metatype = 4 AND wrdtype_right->metatype != 4)
+      RETURN data;
+
+    // Check for association through a reference attribute.
+    FOREVERY (RECORD attr FROM wrdtype_right->ListAttributes(0))
+      IF (attr.attributetype IN [ 1 /* single select */,8 /* multiple select */, 16 /* reference */])
+        IF (CellExists(attr, "domain") AND attr.domain = wrdtype_left->id)
+          INSERT attr INTO data.on_right AT END;
+
+    FOREVERY (RECORD attr FROM wrdtype_left->ListAttributes(0))
+      IF (attr.attributetype IN [ 1 /* single select */,8 /* multiple select */, 16 /* reference */])
+        IF (CellExists(attr, "domain") AND attr.domain = wrdtype_right->id)
+          INSERT attr INTO data.on_left AT END;
+
+    RETURN data;
+  }
+
+  PUBLIC MACRO AssociateTypes(OBJECT sel_left, OBJECT sel_right, RECORD byattr, BOOLEAN reversed)
+  {
+    sel_right->query_parent := sel_left;
+    sel_right->parent_link_attr := byattr;
+    sel_right->parent_link_reversed := reversed;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION MatchAcceptables(RECORD ARRAY traces, OBJECT wrdtype)
+  {
+    RECORD ARRAY results;
+    FOREVERY (RECORD trace FROM traces)
+    {
+      OBJECT top := trace.top;
+
+      RECORD accs := this->CanAssociateTypes(trace.top->wrdtype, wrdtype);
+
+      FOREVERY (RECORD normal_attr FROM accs.on_right)
+      {
+        OBJECT newobj := NEW SelectResult(wrdtype, this->GetUniqueKey());
+        this->AssociateTypes(top, newobj, normal_attr, FALSE);
+
+        RECORD newtrace := trace;
+        INSERT [ obj := newobj, rev := FALSE, attr := normal_attr ] INTO newtrace.adds AT END;
+        newtrace.top := newobj;
+        INSERT newtrace INTO results AT END;
+      }
+      FOREVERY (RECORD reversed_attr FROM accs.on_left)
+      {
+        OBJECT newobj := NEW SelectResult(wrdtype, this->GetUniqueKey());
+        this->AssociateTypes(top, newobj, reversed_attr, TRUE);
+
+        // Ignore links when they are the exact reverse on the parent (and the original was not a reverse attr)
+        IF (ObjectExists(top->query_parent)
+            AND LENGTH(trace.adds) > 0
+            AND top->parent_link_attr.tag = reversed_attr.tag
+            AND NOT top->parent_link_reversed
+            AND top->query_parent->wrdtype->id = wrdtype->id)
+          CONTINUE;
+
+        RECORD newtrace := trace;
+        INSERT [ obj := newobj, rev := TRUE, attr := reversed_attr ] INTO newtrace.adds AT END;
+        newtrace.top := newobj;
+        INSERT newtrace INTO results AT END;
+      }
+    }
+
+    RETURN results;
+  }
+
+  PUBLIC OBJECT FUNCTION CreateConnectedNode(OBJECT wrdtype)
+  {
+    IF (wrdtype = DEFAULT OBJECT)
+      ABORT("DEBUG: Got default object");
+
+    // This function creates a new node in such a way no subtree in the query can exist.
+
+    // If no node is present yet, we may add the new node immediately
+    IF (LENGTH(this->selectresults) = 0)
+    {
+      OBJECT obj := NEW SelectResult(wrdtype, this->GetUniqueKey());
+      INSERT obj INTO this->selectresults AT END;
+      this->root_node := obj;
+      RETURN obj;
+    }
+
+    // Start with the nodes currently selected as the base to match the new type to
+    RECORD ARRAY base_accs;
+    FOREVERY (OBJECT sel FROM this->selectresults)
+      INSERT [ base := sel, adds := DEFAULT RECORD ARRAY, top := sel ] INTO base_accs AT END;
+
+    RECORD ARRAY found_accs;
+    OBJECT ARRAY types;
+    FOR (INTEGER idx := 0; idx < 5; idx := idx + 1)
+    {
+      // Try to match the current nodes to the type we must add
+      found_accs := found_accs CONCAT this->MatchAcceptables(base_accs, wrdtype);
+      IF (LENGTH(found_accs) > 0 AND idx >= 2)
+        BREAK;
+
+      // Fill the types object array if still empty. Ignore
+      IF (LENGTH(types) = 0)
+      {
+        FOREVERY (RECORD r FROM this->contexts->wrdschema->ListTypes())
+          INSERT this->contexts->wrdschema->GetTypeById(r.id) INTO types AT END;
+      }
+
+      // Match all types to the current selected nodes, and make that the new baseline
+      RECORD ARRAY new_base_accs;
+      FOREVERY (OBJECT type FROM types)
+        IF (type->id != wrdtype->id)
+          new_base_accs := new_base_accs CONCAT this->MatchAcceptables(base_accs, type);
+
+      base_accs := new_base_accs;
+    }
+
+    // Found multiple places we can add our new type to? Show a dialog to let the user select
+    IF (LENGTH(found_accs) > 1)
+    {
+      RECORD ARRAY rows;
+      FOREVERY (RECORD acc_type FROM found_accs)
+      {
+        STRING rowdata := acc_type.base->name;
+
+        FOREVERY (RECORD add FROM acc_type.adds)
+        {
+          IF (RecordExists(add.attr))
+          {
+            IF (add.attr.tag = "WRD_LEFTENTITY")
+              rowdata := rowdata || (add.rev ? "(reversed) " : "");
+            ELSE
+            {
+              IF (add.attr.tag != "WRD_RIGHTENTITY")
+                rowdata := rowdata || "." || add.attr.tag || " ";
+              IF (NOT add.rev)
+                rowdata := rowdata || "(reversed) ";
+            }
+          }
+          rowdata := rowdata || " " || add.obj->wrdtype->title;
+        }
+        INSERT [ rowkey := ToString(#acc_type), stuff := rowdata, acc_type := acc_type ] INTO rows AT END;
+      }
+
+      // Show the screen
+      OBJECT dialog := this->LoadScreen(".routechooser", [ rows := rows ]);
+      IF (dialog->RunModal() = "ok")
+      {
+        IF (NOT RecordExists(dialog->selection))
+        {
+          this->RunMessageBox(".debugmessage", "Please select a route");
+          RETURN DEFAULT OBJECT;
+        }
+
+        // User clicked OK, select the selected item as the route to add.
+        found_accs := [ RECORD(dialog->selection.acc_type) ];
+      }
+      ELSE
+        RETURN DEFAULT OBJECT;
+    }
+    ELSE IF (LENGTH(found_accs) = 0)
+    {
+      this->RunMessageBox(".debugmessage", "No way found to connect a node of this type");
+      RETURN DEFAULT OBJECT;
+    }
+
+    // Add all objects from the selected route to the selectresults
+    OBJECT current := found_accs[0].base;
+    FOREVERY (RECORD r FROM found_accs[0].adds)
+    {
+      INSERT r.obj INTO this->selectresults AT END;
+    }
+
+    // Return the newly inserted node of the type the user wanted added
+    RETURN found_accs[0].top;
+  }
+
+  PUBLIC BOOLEAN FUNCTION TryDeleteNode(OBJECT node)
+  {
+    FOREVERY (OBJECT child FROM this->selectresults)
+      IF (child->query_parent = node)
+      {
+        this->RunMessageBox(".debugmessage", "May not delete a node when it has children nodes in the query view");
+        RETURN FALSE;
+      }
+    INTEGER pos := SearchElement(this->selectresults, node);
+    IF (pos < 0)
+    {
+      this->RunMessageBox(".debugmessage", "Cannot find node");
+      RETURN FALSE;
+    }
+
+  //  this->RunMessageBox(".debugmessage", "Node has been deleted!");
+    DELETE FROM this->selectresults AT pos;
+
+    IF (LENGTH(this->selectresults) = 0)
+      this->root_node := DEFAULT OBJECT;
+
+    RETURN TRUE;
+  }
+
+  PUBLIC OBJECT currentschema;
+  PUBLIC RECORD ARRAY wrdtypes;
+
+  PUBLIC MACRO DoRunQuery()
+  {
+    IF (NOT ObjectExists(this->root_node))
+    {
+      this->RunMessageBox(".debugmessage", "Cannot run an empty query");
+      RETURN;
+    }
+
+    RECORD ARRAY rows;
+    TRY
+    {
+      OBJECT wrdquery := this->ConstructQuery();
+      RECORD ARRAY results := WRDQuery->Execute();
+      rows := SELECT results.*, rowkey := #results FROM results;
+
+      PRINT(AnyToString(results, "boxed"));
+
+      FOREVERY (OBJECT sel FROM this->selectresults)
+      {
+        FOREVERY (RECORD selattr FROM sel->selected_attrs)
+        {
+          STRING cellname := sel->rowkey || "_#" || #selattr;
+          FOREVERY (RECORD row FROM rows)
+          {
+            VARIANT value := GetCell(row, cellname);
+            row := CellDelete(row, cellname);
+            IF(typeid(value) = typeid(string) and selattr.attr.attributetype=1)
+              abort(selattr.attr.tag);
+            value := ConvertToNiceType(this->tolliumuser, this->contexts->wrdschema, selattr.attr.attributetype, value, FALSE);
+            rows[#row] := CellInsert(row, cellname, value);
+          }
+        }
+      }
+
+    //  ABORT(AnyToString(rows[0], "boxed"));
+    /*
+      FOREVERY (RECORD result FROM results)
+      {
+        RECORD row := [ rowkey := #result ];
+        FOREVERY (OBJECT sel FROM this->selectresults)
+        {
+          RECORD rec := GetCell(result, sel->name);
+
+          FOREVERY (RECORD selattr FROM sel->selected_attrs)
+          {
+            VARIANT value := GetCell(rec, selattr.attr.tag);
+            row := CellInsert(row, sel->rowkey || "_#" || #selattr, ConvertToNiceType(selattr.attr.attributetype, value));
+          }
+        }
+        INSERT row INTO rows AT end;
+      } */
+
+      IF (LENGTH(rows) > 100)
+      {
+        STRING result := this->RunMessageBox(".toomanyresults", ToString(LENGTH(rows)));
+        SWITCH (result)
+        {
+        CASE "yes"                { }
+        CASE "no", "cancel", ""   { RETURN; }
+        CASE "only100"            { rows := SELECT * FROM rows LIMIT 100; }
+        DEFAULT                   { ABORT("Unkown dialog result " || result); }
+        }
+      }
+    }
+    CATCH (OBJECT e)
+    {
+      this->RunMessageBox(".exception", e->what);
+    }
+
+    ^results->rows := rows;
+  }
+
+  PUBLIC MACRO DoExportQuery()
+  {
+    OBJECT expdialog := this->LoadScreen(".exportquery");
+    OBJECT query := this->ConstructQuery();
+
+    OBJECT domimpl := NEW XmlDOMImplementation;
+    OBJECT doc := domimpl->CreateDocument("http://www.webhare.net/xmlns/wrd/query", "query", DEFAULT OBJECT);
+    query->SerializeToXML(doc->documentElement);
+    doc->NormalizeDocument();
+    BLOB serialized := doc->GetDocumentBlob(true);
+
+    expdialog->query->value := BlobToString(serialized, -1);
+    expdialog->RunModal();
+  }
+
+  PUBLIC MACRO DoImportQuery()
+  {
+  }
+
+  RECORD FUNCTION PrepareExport(BOOLEAN alwaystostring)
+  {
+    // Calculate columns
+    RECORD ARRAY columns;
+    FOREVERY (OBJECT sel FROM this->selectresults)
+    {
+      FOREVERY (RECORD selattr FROM sel->selected_attrs)
+      {
+        RECORD col := [ type := "text"
+                      , title := sel->name || "." || selattr.name
+                      , name := sel->rowkey || "_#" || #selattr
+                      ];
+
+        SWITCH (selattr.attr.attributetype)
+        {
+          CASE 1, 11, 15  { col.type := "integer"; }
+          CASE 18         { col.type := "integer64"; }
+          CASE 6          { col.type := "date"; }
+          CASE 12         { col.type := "datetime"; INSERT CELL storeutc := TRUE INTO col; }
+        }
+        INSERT col INTO columns AT END;
+      }
+    }
+
+    // Execute query
+    OBJECT wrdquery := this->ConstructQuery();
+    RECORD ARRAY results := WRDQuery->Execute();
+    RECORD ARRAY rows := SELECT results.*, rowkey := #results FROM results;
+
+    FOREVERY (OBJECT sel FROM this->selectresults)
+    {
+      FOREVERY (RECORD selattr FROM sel->selected_attrs)
+      {
+        STRING cellname := sel->rowkey || "_#" || #selattr;
+        FOREVERY (RECORD row FROM rows)
+        {
+          VARIANT value := GetCell(row, cellname);
+          row := CellDelete(row, cellname);
+          value := ConvertToNiceType(this->tolliumuser, this->contexts->wrdschema, selattr.attr.attributetype, value, alwaystostring);
+          rows[#row] := CellInsert(row, cellname, value);
+        }
+      }
+    }
+
+    RETURN [ rows := rows, columns := columns ];
+  }
+
+  PUBLIC MACRO DoExportResults()
+  {
+    RECORD exp := this->PrepareExport(FALSE);
+    RunColumnFileExportDialog(this, CELL[ exp.columns
+                                        , exp.rows
+                                        , exporttitle := "QueryBuilder export " || this->contexts->wrdschema->tag
+                                        ]);
+  }
+
+
+  PUBLIC MACRO DoExportResultsAsSchemaXML()
+  {
+    RECORD exp := this->PrepareExport(TRUE);
+
+    INTEGER output := CreateStream();
+    PrintTo(output,'<values matchattribute="WRD_TAG">\n');
+    FOREVERY(RECORD row FROM exp.rows)
+    {
+      PrintTo(output,'  <value>\n');
+
+      FOREVERY(RECORD col FROM exp.columns)
+      {
+        PrintTo(output, '    <field tag="' || EncodeValue(ToUppercase(col.tag)) || '">' || EncodeValue(GetCell(row,col.name)) || '</field>\n');
+      }
+      PrintTo(output,'  </value>\n');
+    }
+    PrintTo(output,'</values>\n');
+
+    BLOB final := MakeBlobFromStream(output);
+    DATETIME now := GetCurrenTdatetime();
+    STRING filename := "wrd_exportresults_" || FormatDateTime("%Y%m%dT%H%M%S", now) || ".xml";
+    this->frame->SendFileToUser(final, "text/xml", filename, now);
+  }
+
+  PUBLIC INTEGER node_autonumber;
+
+  PUBLIC STRING FUNCTION GetUniqueKey()
+  {
+    this->node_autonumber := this->node_autonumber + 1;
+    RETURN ToString(this->node_autonumber);
+  }
+>;
+
+PUBLIC OBJECTTYPE EditFilter EXTEND TolliumScreenBase
+<
+  OBJECT currentschema;
+
+  /////////////////////////////////////////////////////////////////////
+  //
+  // EditFilter
+  //
+  MACRO Init(RECORD data)
+  {
+    this->contexts->wrdschema := data.currentschema;
+  }
+  PUBLIC RECORD FUNCTION DoAdd(RECORD attr, OBJECT wrdtype)
+  {
+    RETURN this->DoDialog(attr, wrdtype, DEFAULT RECORD);
+  }
+
+  PUBLIC RECORD FUNCTION DoEdit(RECORD attr, OBJECT wrdtype, RECORD data)
+  {
+    RETURN this->DoDialog(attr, wrdtype, data);
+  }
+
+  PUBLIC RECORD FUNCTION DoDialog(RECORD attr, OBJECT wrdtype, RECORD data)
+  {
+    this->fieldname->value := attr.title;
+    this->filterentity->wrdtype := wrdtype;
+
+    IF (NOT CellExists(attr, "attributetype"))
+      ABORT(attr);
+
+    INTEGER attrtype_for_compare := attr.attributetype;
+
+    PRINT("Attr: " || attr.tag || ", type: " || attr.attributetype || "\n");
+    SWITCH (attr.tag)
+    {
+    CASE "WRD_TITLE", "WRD_FULLNAME", "WRD_ADDRESS_FORMAL", "WRD_SALUTE_FORMAL"
+      {
+        this->wrdfield := this->CreateTolliumComponent("textedit");
+        this->wrdfield->title := attr.title;
+      }
+    CASE "WRD_GUID"
+      {
+        this->wrdfield := this->CreateTolliumComponent("textedit");
+        this->wrdfield->title := attr.title;
+        attrtype_for_compare := 6;
+      }
+    CASE "WRD_ID", "WRD_TYPE"
+      {
+        this->wrdfield := this->CreateTolliumComponent("textedit");
+        this->wrdfield->valuetype := "integer";
+        this->wrdfield->title := attr.title;
+      }
+    DEFAULT
+      {
+        IF (attr.attributetype = 0)
+        {
+          OBJECT work := this->BeginUnvalidatedFeedback();
+          work->AddError(GetTid("wrd:querybuilder.messages.cannotfilteronattr", attr.title));
+          work->Finish();
+          RETURN DEFAULT RECORD;
+        }
+
+        this->wrdfield := this->CreateCustomComponent("http://www.webhare.net/xmlns/wrd/components", "field");
+      }
+    }
+
+    this->wrdfield->cellname := attr.tag;
+    this->wrdfield->composition := this->filterentity;
+    this->filtertype->pvt_parent->InsertComponentAfter(this->wrdfield, this->filtertype, TRUE);
+
+    IF (RecordExists(data))
+      this->wrdfield->value := data.filtervalue;
+
+    RECORD ARRAY contains :=
+        [ [ rowkey := "contains", title := "Contains" ]
+        , [ rowkey := "!contains", title := "Does not contain" ]
+        , [ rowkey := "like", title := "Like" ]
+        , [ rowkey := "!like", title := "Not like" ]
+        ]; // FIXME: language
+    RECORD ARRAY equal    :=
+          [ [ rowkey := "equal",    title := "Equals" ]
+          , [ rowkey := "unequal",    title := "Unequal to" ] ]; // FIXME: language
+    //RECORD ARRAY anyof    := [[ rowkey := "any",      title := "Any of"   ]]; // FIXME: language
+    RECORD ARRAY compare  :=
+          [ [ rowkey := "larger",         title := "Larger" ]
+          , [ rowkey := "largerequal",    title := "Larger or equal" ]
+          , [ rowkey := "smaller",        title := "Smaller" ]
+          , [ rowkey := "smallerequal",   title := "Smaller or equal" ] ];
+
+    RECORD ARRAY allowed_conditions;
+    SWITCH (attrtype_for_compare)
+    {
+    CASE 1        { allowed_conditions := equal; }
+    CASE 2        { allowed_conditions := contains CONCAT equal CONCAT compare; }
+    CASE 3,4,5,21 { allowed_conditions := contains CONCAT equal; }
+    CASE 6        { allowed_conditions := equal CONCAT compare; }
+    CASE 7        { allowed_conditions := equal; }
+  //  CASE 8        { allowed_conditions := anyof; }
+    CASE 9, 10    {  }
+    CASE 11,12,14,15,18 { allowed_conditions := equal CONCAT compare; }
+    CASE 16        { allowed_conditions := equal; }
+    CASE 23        { allowed_conditions := equal; }
+    }
+
+    IF (LENGTH(allowed_conditions) != 0)
+    {
+      this->filtertype->options := allowed_conditions;
+      this->filtertype->value := RecordExists(data) ? data.filtertype : "equal";
+      IF (this->RunModal()="ok")
+      {
+        STRING prettyvalue := ConvertToNiceType(this->tolliumuser, this->contexts->wrdschema, attr.attributetype, this->wrdfield->value, TRUE);
+
+  /*      VARIANT prettyvalue := this->wrdfield->value;
+        IF (attr.attributetype = 6 OR attr.attributetype = 11 OR attr.attributetype = 12)
+          prettyvalue := this->tolliumuser->FormatDateTime(prettyvalue);
+        IF (attr.attributetype = 16)
+          prettyvalue := this->wrdfield->value ? "TRUE" : "FALSE";
+        IF (attr.attributetype IN [6,11,12]
+          prettyvalue := FormatDateTime(*/
+
+        RETURN [ filtertype  := this->filtertype->value
+               , filtervalue := this->wrdfield->value
+               , filterprettyvalue := prettyvalue
+               ];
+      }
+    }
+    ELSE
+    {
+      this->RunMessageBox(".debugmessage", "Cannot filter on attributes of this type");
+      this->tolliumresult := "cancel";
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+  PUBLIC OBJECT wrdfield;
+>;
+
+PUBLIC OBJECTTYPE EditHistoryMode EXTEND TolliumScreenBase
+< PUBLIC OBJECT selectnode;
+
+  /////////////////////////////////////////////////////////////////////
+  //
+  // EditHistoryMode
+  //
+  PUBLIC MACRO Setup(OBJECT node)
+  {
+    this->selectnode := node;
+    this->historymode->value := node->history_mode;
+    this->history_at->value := node->when_at;
+    this->history_range_start->value := node->when_start;
+    this->history_range_limit->value := node->when_limit;
+  }
+
+  PUBLIC MACRO Execute()
+  {
+    IF (this->RunModal() = "ok")
+    {
+      this->selectnode->history_mode := this->historymode->value;
+  //    ABORT(AnyToString(this->historymode->options, "boxed"));
+      SWITCH (this->selectnode->history_mode)
+      {
+      CASE "at"   { this->selectnode->when_at := this->history_at->value; }
+      CASE "range"{
+                    this->selectnode->when_start := this->history_range_start->value;
+                    this->selectnode->when_limit := this->history_range_limit->value;
+                  }
+      }
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE EditJoinType EXTEND TolliumScreenBase
+< PUBLIC OBJECT selectnode;
+
+  /////////////////////////////////////////////////////////////////////
+  //
+  // EditHistoryMode
+  //
+  PUBLIC MACRO Setup(OBJECT node)
+  {
+    this->selectnode := node;
+    this->jointype->value := node->jointype;
+  }
+
+  PUBLIC MACRO Execute()
+  {
+    IF (this->RunModal() = "ok")
+      this->selectnode->jointype := this->jointype->value;
+  }
+>;
+
+
+OBJECTTYPE SelectResult
+< /// Name of this selectresult
+  PUBLIC STRING name;
+
+  /// WRD type for this entity
+  PUBLIC OBJECT wrdtype;
+
+  /** Selected attributes, with added field rename
+      @cell .name Name of the attribute.
+      @cell .attr Record describing the attribute.
+      @cell .rowkey Rowkey from the item from the attribute selection list. */
+  PUBLIC RECORD ARRAY selected_attrs;
+
+  /// Filters on this thingy (of type SelectFilter)
+  PUBLIC OBJECT ARRAY filters;
+
+  /// Parent object in the query view
+  PUBLIC OBJECT query_parent;
+
+  /// Attribute record with which result is linked to its parent
+  PUBLIC RECORD parent_link_attr;
+
+  /// If reversed, this attribute is part of the parent object
+  PUBLIC BOOLEAN parent_link_reversed;
+
+  /// Unique ID for this object, needed for list administration
+  PUBLIC STRING rowkey;
+
+  /// All the children of this object, auto-set before building the query tree
+  PUBLIC OBJECT ARRAY query_children;
+
+  /// WRDQuerySource for this selectresult
+  PUBLIC OBJECT query_source;
+
+  /// History mode (one of "now", "at", "range", "all")
+  PUBLIC STRING history_mode;
+
+  /// Current time for or history mode 'at'
+  PUBLIC DATETIME when_at;
+
+  /// Start time of for history mode 'range'
+  PUBLIC DATETIME when_start;
+
+  /// End time for history mode 'range'
+  PUBLIC DATETIME when_limit;
+
+  /// Join type (how to couple to the parent, from the parent's perspective!)
+  PUBLIC STRING jointype;
+
+  // , BOOLEAN temp_used            // Has this node been included in the query view already?
+  // , BOOLEAN has_query_children   // Has this node children (excluding filters) in the query view?
+  // Build the tree for the select
+  PUBLIC RECORD FUNCTION BuildSelectListRow()
+  {
+    RECORD data :=
+      [ rowkey := "SR:"||this->rowkey
+      , stuff := this->name || " (" || this->wrdtype->tag || ")"
+      , fields := ""
+      , obj := this
+      , isnode := TRUE
+      , isfilter := FALSE
+      , draginfo := [ type := "local:querybuilder.removetype", data := [ rowkey := this->rowkey ] ]
+      ];
+
+    STRING ARRAY fields :=
+        SELECT AS STRING ARRAY attr.tag
+          FROM this->selected_attrs
+      ORDER BY name;
+
+    data.fields := DeTokenize(fields, ", ");
+
+    RETURN data;
+  }
+
+  PUBLIC RECORD FUNCTION BuildQueryTree(BOOLEAN isrootnode)
+  {
+    RECORD data :=
+          [ rowkey := "QT:"||this->rowkey
+          , title := this->name
+          , descr := ""
+          , obj := this
+          , type := "OBJ"
+          , expanded := TRUE
+          , subnodes := DEFAULT RECORD ARRAY
+          , isnode := TRUE
+          , isrootnode := isrootnode
+          , isfilter := FALSE
+          , draginfo := [ type := "local:querybuilder.removetype", data := [ rowkey := this->rowkey ] ]
+          ];
+  //  this->temp_used := TRUE;
+
+    SWITCH (this->history_mode)
+    {
+    CASE "at"     { data.descr := "At " || ShowDate(this->when_at); }
+    CASE "range"  { data.descr := "From " || ShowDate(this->when_start) || " to " || ShowDate(this->when_limit); }
+    CASE "all"    { data.descr := "All historical data"; }
+    }
+
+    IF (ObjectExists(this->query_parent))
+    {
+      IF (data.descr = "")
+        data.descr := "By ";
+      ELSE
+        data.descr := data.descr || ", by ";
+      IF (this->parent_link_reversed)
+        data.descr := data.descr || this->query_parent->name || "." || this->parent_link_attr.title;
+      ELSE
+        data.descr := data.descr || this->parent_link_attr.title;
+    }
+
+    FOREVERY (OBJECT filter FROM this->filters)
+      INSERT
+          [ rowkey := "FI:"||filter->rowkey
+          , filterrowkey := filter->rowkey
+          , title := filter->attr.title
+          , descr := filter->relationtype || " " || filter->prettyvalue
+          , obj := filter
+          , type := "FILTER"
+          , expanded := FALSE
+          , subnodes := DEFAULT RECORD ARRAY
+          , isnode := FALSE
+          , isrootnode := FALSE
+          , isfilter := TRUE
+          , draginfo := [ type := "local:querybuilder.removefilter", data := [ trowkey := this->rowkey, rowkey := filter->rowkey ] ]
+          ] INTO data.subnodes AT END;
+
+    FOREVERY (OBJECT child FROM this->query_children)
+      INSERT child->BuildQueryTree(FALSE) INTO data.subnodes AT END;
+
+    RETURN data;
+  }
+
+  /////////////////////////////////////////////////////////////////////
+  //
+  // SelectResult
+  //
+  PUBLIC MACRO NEW(OBJECT type, STRING rowkey)
+  {
+    this->name := type->title || "_" || rowkey;
+    this->wrdtype := type;
+    this->rowkey := rowkey;
+    this->history_mode := "now";
+    this->jointype := "default";
+  }
+
+>;
+
+/** This object defines a filter on a SelectResult (entity)
+*/
+OBJECTTYPE SelectFilter
+< /// Unique identifier for this filter
+  PUBLIC STRING rowkey;
+
+  /// Attribute to which this tag
+  PUBLIC RECORD attr;
+
+  /// Record which holds the value (in the 'data' member)
+  PUBLIC RECORD valueholder;
+
+  /// Value, rendered in a pretty way
+  PUBLIC STRING prettyvalue;
+
+  /// Type of the relation between the attribute value and the filter value
+  PUBLIC STRING relationtype;
+
+  /// SelectResult this filter operates on.
+  PUBLIC OBJECT selectresult;
+
+>;
+
+// -------------------------------------------------------------------------------------------------
+//
+// RouteChooser
+//
+
+PUBLIC STATIC OBJECTTYPE RouteChooser EXTEND TolliumScreenBase
+< PUBLIC PROPERTY selection(GetSelection, -);
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    ^resultselect->rows := data.rows;
+  }
+
+  RECORD FUNCTION GetSelection()
+  {
+    RETURN ^resultselect->selection;
+  }
+>;
+
+// -------------------------------------------------------------------------------------------------
+//
+// RouteChooser
+//
+
+PUBLIC STATIC OBJECTTYPE ColumnSelect EXTEND TolliumScreenBase
+< OBJECT node;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    RECORD ARRAY attrs := data.node->wrdtype->ListAttributes(0);
+
+    this->node := data.node;
+    ^columns->rows :=
+        SELECT rowkey :=    data.node->wrdtype->id || ":" || tag
+             , name :=      title
+             , attr :=      a
+             , tag
+             , selected :=  RecordExists(SELECT FROM data.node->selected_attrs AS b WHERE data.node->wrdtype->id || ":" || a.tag = b.rowkey)
+          FROM attrs AS a;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    this->node->selected_attrs :=
+        SELECT name
+             , tag
+             , attr
+             , rowkey
+          FROM ^columns->rows
+         WHERE selected;
+
+    RETURN TRUE;
+  }
+
+>;
+
+/////////////////////////////////////////////////////////////////////
+//
+// Global functions
+//
+
+RECORD ARRAY FUNCTION GetSelectListRows(OBJECT ARRAY subnodes)
+{
+  RECORD ARRAY results;
+  FOREVERY (OBJECT subnode FROM subnodes)
+    INSERT subnode->BuildSelectListRow() INTO results AT END;
+  RETURN results;
+}
+
+RECORD ARRAY FUNCTION GetQueryRows(OBJECT ARRAY nodes, OBJECT root_node)
+{
+  FOREVERY (OBJECT node FROM nodes)
+    node->query_children := DEFAULT OBJECT ARRAY;
+
+  FOREVERY (OBJECT node FROM nodes)
+    IF (ObjectExists(node->query_parent))
+      INSERT node INTO node->query_parent->query_children AT END;
+
+  RETURN [ RECORD(root_node->BuildQueryTree(TRUE)) ];
+}
+
+STRING FUNCTION GetSafeStringCell(RECORD rec, STRING cellname)
+{
+  IF (RecordExists(rec) AND CellExists(rec, cellname))
+    RETURN GetCell(rec, cellname);
+  RETURN "";
+}
+
+VARIANT FUNCTION ConvertToNiceType(OBJECT tolliumuser, OBJECT wrdschema, INTEGER attributetype, VARIANT value, BOOLEAN alwaystotext)
+{
+  SWITCH (attributetype)
+  {
+  CASE 0 /* generated type, string */
+    { RETURN STRING(value); }
+
+  CASE 1 /* single select*/
+     , 8 /* (multiple select) */
+    {
+      IF (NOT alwaystotext)
+        RETURN value;
+      RETURN ToString(value, 10);
+    }
+
+  CASE 2 /* free text */
+     , 4 /* Email */
+     , 5 /* Telephone  */
+     , 21 /* URL */
+     , 23 /* Enum */
+    { RETURN value; }
+
+  CASE 7 /* Password */
+    { RETURN value != "" ? "WEBHARE-PASSWORD:" || EncodeUFS(value) : ""; }
+
+  CASE 6 /* Date and/or time types */
+    {
+      IF (NOT alwaystotext)
+        RETURN value;
+      RETURN tolliumuser->FormatDate(value, TRUE, TRUE);
+    }
+
+  CASE 11 /* Time */
+    { RETURN tolliumuser->FormatTimestamp(value, "milliseconds"); }
+
+  CASE 12 /* datetime */
+    {
+      IF (NOT alwaystotext)
+        RETURN value;
+      RETURN tolliumuser->FormatDateTime(value, "milliseconds", TRUE, TRUE);
+    }
+
+  CASE 9 /* Image */
+    { RETURN RecordExists(value) AND LENGTH(value.data) != 0 ? "IMAGE" : ""; }
+
+  CASE 15 /* Integer */
+     , 18 /* Integer64 */
+    {
+      IF (NOT alwaystotext)
+        RETURN value;
+      RETURN ToString(value, 10);
+    }
+
+  CASE 16 /* Boolean */
+    { RETURN value ? "TRUE" : "FALSE"; }
+
+  CASE 14 /* Money */
+    { RETURN FormatMoney(value, 0, ".", ",", FALSE); }
+
+  CASE 3 /* Address */
+    { RETURN FormatAddress(value); }
+  CASE 10 /* File */
+    { RETURN RecordExists(value) ? value.filename || " (" || Length(value.data) || " bytes)" : ""; }
+  CASE 13 /* Array */
+    { RETURN "ARRAY"; }
+  CASE 24 /* Enumarray*/
+    { RETURN DeTokenize(value, ", "); }
+  CASE 22 //Record
+    { RETURN RecordExists(value) ? EncodeHSON(value) : ""; }
+  DEFAULT { ABORT("Cannot print these kinds of types yet (" || attributetype || ")"); }
+  }
+}
+
+STRING FUNCTION ShowDate(DATETIME dt)
+{
+  INTEGER msecs := GetMsecondCount(dt);
+  IF (msecs = 0)
+    RETURN FormatDateTime("%d-%m-%Y", dt);
+  ELSE IF ((msecs % 60000) = 0)
+    RETURN FormatDateTime("%d-%m-%Y %H:%M", dt);
+  ELSE IF ((msecs % 1000) = 0)
+    RETURN FormatDateTime("%d-%m-%Y %H:%M:%S", dt);
+  RETURN FormatDateTime("%d-%m-%Y %H:%M:%S.%Q", dt);
+}

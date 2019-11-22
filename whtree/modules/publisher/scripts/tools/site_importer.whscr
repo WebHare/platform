@@ -1,0 +1,182 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::os.whlib";
+
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "whfspath", type := "stringopt" ]
+                                                     , [ name := "nosite", type := "switch" ]
+                                                     , [ name := "nocommit", type := "switch" ]
+                                                     , [ name := "q", type := "switch" ]
+                                                     , [ name := "archives", type := "paramlist" ]
+                                                     ]);
+IF (NOT RecordExists(args) OR Length(args.archives) = 0 OR args.whfspath = "")
+{
+  Print("Usage: runscript site_importer.whscr --whfspath p [options] archive [ archive ... ]\n");
+  Print("       --whfspath p The path to place the imported sites in\n");
+  Print("       -q           Quiet\n");
+  Print("       --nosite     Don't make a site of the archive (just import files and folders)\n");
+  Print("       archive      The archives to import, no wildcards allowed.\n");
+  Print("                    For multipart archives, simply specify the xxx.000.zip file.\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary();
+
+OBJECT destfolder := OpenWHFSObjectByPath(args.whfspath);
+IF (NOT ObjectExists(destfolder))
+{
+  PRINT("The destination folder '" || args.whfspath || "' does not exist\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+MACRO OnProgress(OBJECT importer)
+{
+  INTEGER percent := FloatToInteger( (importer->bytesimported/(importer->bytestotal+1)) * 100);
+  //PRint(FloatToInteger(info.donelen) || " " || FloatToInteger(info.totallen) || "\n");
+  Print("Unpacking " || Right("0" || percent,2) || "% " || (UCLength(importer->currentfullpath)>40 ? "..."||UCRight(importer->currentfullpath,37):Left(importer->currentfullpath||"                                        ",40)) || "\r");
+}
+
+STRING ARRAY seen_archives; //dont double-process seen archives, to prevent people from double-extracting files when using wildcards
+
+FOREVERY (STRING archive FROM args.archives)
+{
+  archive := Substitute(archive, '\\', '/');
+
+  PRINT("Opening archive '"||archive||"'\n");
+  IF(NOT IsPathAbsolute(archive))
+    archive := MergePath(GetCurrentPath(), archive);
+
+  BLOB data := GetDiskResource(archive);
+  IF(archive IN seen_archives)
+  {
+    Print(".. skipping, already processed this file\n");
+    CONTINUE;
+  }
+  INSERT archive INTO seen_archives AT END;
+
+  BLOB ARRAY archive_files;
+  INSERT data INTO archive_files AT END;
+
+  STRING error;
+
+  STRING basename;
+  STRING extension;
+  IF (ToUppercase(GetExtensionFromPath(archive)) IN [".TGZ",".ZIP",".TARGZ",".TAR.GZ",".WHARCHIVE"])
+  {
+    extension := GetExtensionFromPath(archive);
+    basename := GetDirectoryFromPath(archive) || "/" || GetBasenameFromPath(archive);
+  }
+
+  OBJECT importer := NEW ArchiveImporter;
+
+  IF (ToUppercase(basename) LIKE "*.000")
+  {
+    basename := LEFT(basename, LENGTH(basename) - 4);
+
+    INTEGER count := 1;
+    WHILE (TRUE)
+    {
+      STRING filename := basename || "." || RIGHT("00" || count, 3) || extension;
+      IF(filename IN seen_archives)
+        CONTINUE;
+
+      INSERT filename INTO seen_archives AT END;
+      IF (RecordExists(GetDiskFileProperties(filename)))
+        INSERT GEtDiskResource(filename) INTO archive_files AT END;
+      ELSE
+        BREAK;
+      count := count + 1;
+    }
+    IF (error != "")
+    {
+      PRINT(error || "\n");
+      CONTINUE;
+    }
+  }
+
+  PRINT(" Opening "||LENGTH(archive_files)||" archive files\n");
+  FOREVERY (BLOB filedata FROM archive_files)
+    importer->AddInput(filedata);
+
+  STRING ARRAY rootfolders :=
+      SELECT AS STRING ARRAY DISTINCT GetFirstPathElement(path)
+        FROM importer->GetAllEntries();
+
+  IF (LENGTH(rootfolders) != 1)
+  {
+    PRINT("Multiple root folders encountered in the archive: " || AnyToString(rootfolders, "tree"));
+    CONTINUE;
+  }
+
+  STRING sitename := rootfolders[0];
+
+  IF (sitename = "")
+  {
+    PRINT("Archive has not been created with site_archiver.whsr, cannot import\n");
+    CONTINUE;
+  }
+
+  PRINT(" Archive contains site '"||sitename||"'\n");
+
+  trans->BeginWork();
+
+  IF (NOT args.nosite)
+  {
+    OBJECT sitefolder := destfolder->OpenByName(sitename);
+    IF (NOT ObjectExists(sitefolder))
+      sitefolder := destfolder->CreateFolder([ name := sitename ]);
+
+    IF (NOT RecordExists(SELECT FROM system.sites WHERE root = sitefolder->id))
+      CreateSiteFromFolder(sitefolder->id);
+  }
+
+  importer->overwrite := TRUE;
+  IF(NOT args.q)
+    importer->onprogress := PTR OnProgress(importer);
+  RECORD errorinfo := importer->Import(destfolder->id);
+
+  IF (errorinfo.incompatible)
+  {
+    IF(errorinfo.incompatible_source="")
+      PRINT("This archive file cannot be imported - the metadata has been damaged");
+    ELSE
+      PRINT("This archive file cannot be imported - it is incompatible with this version of WebHare. It appears to have been generated by '"||errorinfo.incompatible_source||"'");
+    CONTINUE;
+  }
+
+//  PRINT(AnyToString(rec, "tree"));
+  IF(args.nocommit)
+  {
+    Print("Not committing\n");
+    RETURN;
+  }
+
+  trans->CommitWork();
+  PRINT("Site '"||sitename||"' has been imported\n");
+}
+
+STRING FUNCTION GetFirstPathElement(STRING path)
+{
+  INTEGER pos := SearchSubString(path, "/");
+  IF (pos != -1)
+    path := LEFT(path, pos);
+  RETURN path;
+}
+
+STRING FUNCTION RemoveFirstPathElement(STRING path)
+{
+  INTEGER pos := SearchSubString(path, "/");
+  IF (pos != -1)
+    path := SubString(path, pos + 1);
+  ELSE
+    path := "";
+  RETURN path;
+}

@@ -1,0 +1,151 @@
+<?wh
+/** @short HareScript files
+    @long Standard functions for rendering HareScript files */
+
+LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
+LOADLIB "mod::publisher/lib/common-v2.whlib" EXPORT file, folder, site;
+LOADLIB "wh::graphics/core.whlib";
+
+/** @short   Opens a new HareScript output part
+    @long    OpenPart opens a new page, to which the objects can be sent.
+             This function may only be called from HareScript files, never from templates.
+             Parts created with OpenPart will always be opened on a new page.
+
+             The OpenPart macro can be used to create multiple parts of a published HareScript file.
+             Every opened part should be closed using the ClosePart macro.
+    @see     ClosePart, OpenNamedPart
+    @example
+// In a folder with many files, an overview consisting of multiple
+// pages is created, showing 10 files per page
+RECORD ARRAY AllFiles := SELECT name FROM files
+                         WHERE parent = folder.ID ORDER BY NAME;
+INTEGER counter := 0;
+FOREVERY (RECORD ThisFile FROM AllFiles)
+{
+  IF (counter%10 = 0)  // for every 10 pages
+    OpenPart();
+  PRINT (ThisFile.name || "<br>");
+  IF (counter%10 = 0)
+    ClosePart();
+  counter := counter + 1;
+}
+*/
+PUBLIC MACRO OpenPart()
+{
+  OpenNamedPart("", TRUE);
+}
+
+
+
+
+
+/** @short   Opens a new HareScript output part, optionally with a name
+    @long    OpenNamedPart opens a new page, to which the objects can be sent.
+             This function may only be called from HareScript files, never from templates.
+
+             Every opened part should be closed using the ClosePart macro.
+    @param   pagename Used to help generating names and links to this object, may be left empty
+    @param   on_new_page if true, indicates that this part should be on a new page, separated from all previous parts
+    @see     ClosePart OpenPart
+    @example
+// In a folder with many files, an overview consisting of
+// multiple pages is created, showing 10 files per page
+RECORD ARRAY AllFiles := SELECT name FROM files
+                         WHERE parent = folder.ID ORDER BY name;
+INTEGER counter := 0;
+FOREVERY (RECORD ThisFile FROM AllFiles)
+{
+  IF (counter%10 = 0)  // for every 10 pages
+    OpenNamedPart("index" || counter || ".html", TRUE);
+  PRINT (ThisFile.name || "<br>");
+  IF (counter%10 = 0)
+    ClosePart();
+  counter := counter + 1;
+}
+*/
+PUBLIC MACRO OpenNamedPart(STRING PAGENAME, BOOLEAN on_new_page)
+{
+  RECORD rec := publishingbackendlink->DoRequest(
+      [ type := "OPENPART"
+      , pagename := ToLowercase(pagename)
+      , wantnewpage := on_new_page
+      ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+}
+
+
+
+
+
+/** @short   Closes an output part opened using the OpenPart macro
+    @long    ClosePart closes a part, previously opened by OpenPart or OpenNamedPart.
+             The macro will cause an error if it is called when there are no open files.
+
+             The ClosePart and OpenPart macros are antagonists.
+    @see     OpenPart OpenNamedPart
+    @example
+// In a folder with many files, an overview consisting of multiple
+// pages is created, showing 10 files per page
+RECORD ARRAY AllFiles := SELECT name FROM files
+                         WHERE parent = folder.ID ORDER BY name;
+INTEGER counter := 0;
+FOREVERY (RECORD ThisFile FROM AllFiles)
+{
+  IF (counter%10 = 0)  // for every 10 pages
+    OpenPart("index" || counter || ".html");
+  PRINT (ThisFile.name || "<br>");
+  IF (counter%10 = 0)
+    ClosePart();
+  counter := counter + 1;
+}
+*/
+PUBLIC MACRO ClosePart()
+{
+  RECORD rec := publishingbackendlink->DoRequest(
+                 [ type := "CLOSEPART"
+                 ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+}
+
+
+
+
+/** @short Insert a link at the current location
+    @param partname Name of the part to which a link should be created
+*/
+PUBLIC MACRO InsertPartLink(STRING partname)
+{
+  RECORD rec := publishingbackendlink->DoRequest(
+                 [ type := "INSERTPARTLINK"
+                 , partname := ToLowerCase(partname)
+                 ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+}
+
+
+/** @short Insert an image at the current location
+    @param canvasid Canvas to insert
+    @param name Name suggestion for the image
+    @param is_photo Set to true if this image is known to be a photo or to have hundreds of thousands of colors. This allows WebHare to skip color counting during picture optimization. */
+PUBLIC MACRO InsertPartImage(INTEGER canvasid, STRING name, BOOLEAN is_photo, STRING alttag DEFAULTSTO "")
+{
+  RECORD rec := publishingbackendlink->DoRequest(
+                 [ type := "INSERTIMAGE"
+                 , name := name
+                 , is_photo := is_photo
+                 , alttag := alttag
+                 , canvas := [ width := GfxGetCanvasWidth(canvasid)
+                             , height := GfxGetCanvasHeight(canvasid)
+                             , data := GfxCreateRAWBlobFromCanvas(canvasid)
+                             ]
+                 ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+}

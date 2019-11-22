@@ -1,0 +1,4 @@
+<?wh
+LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+
+GenerateFallbackHTTPErrorPage(500, DEFAULT RECORD);

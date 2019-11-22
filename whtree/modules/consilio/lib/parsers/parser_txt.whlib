@@ -1,0 +1,65 @@
+<?wh
+/** @private Format parser. (may be replaced with tika at some point) */
+
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
+
+// Maximum length of plain text file title
+INTEGER max_title_length := 80;
+
+/** @short Parse a plain text document
+    @param data The document to parse
+    @return Information for the document
+    @cell return.success If page was parsed
+    @cell return.errormsg If not parse, the error message
+    @cell return.index_page This page should be indexed (always TRUE for plain text)
+    @cell return.title The page title (the first line of text is used as the title of a plain text file)
+    @cell return.keywords Keywords for the page (left empty for plain text)
+    @cell return.description Description for the page (left empty for plain text)
+    @cell return.links The links found in this page (left empty in plain text)
+    @cell return.text The contents of the page */
+PUBLIC RECORD FUNCTION ParsePlainTextDoc(BLOB data)
+{
+  // Default parsed page
+  RECORD parsed_page := CreateParsedPage();
+  parsed_page.type_ext := "txt";
+  parsed_page.follow_links := FALSE;
+
+  // Determine newline character(s)
+  STRING txtsource := BlobToString(data, -1);
+  STRING nl;
+  STRING title;
+  INTEGER n := SearchSubstring(txtsource, "\n");
+  IF (n >= 0)
+  {
+    INTEGER rn := SearchSubstring(txtsource, "\r\n");
+    IF (rn >= 0 AND rn < n)
+      nl := "\r\n";
+    ELSE
+      nl := "\n";
+  }
+  ELSE IF (SearchSubstring(txtsource, "\r") >= 0)
+    nl := "\r";
+
+  // Get title
+  IF (nl != "")
+  {
+    INTEGER s := 0;
+    INTEGER e := UCSearchSubstring(txtsource, nl);
+    WHILE (e != -1 AND e <= s)
+    {
+      s := e + UCLength(nl);
+      e := UCSearchSubstring(txtsource, nl, s);
+    }
+    IF (e > s)
+      parsed_page.title := UCSubstring(txtsource, s, e-s <= max_title_length ? e-s : max_title_length);
+  }
+  ELSE // No newline found, use first part of text
+    parsed_page.title := UCLeft(txtsource, max_title_length);
+
+  // Insert body text
+  parsed_page.text := CleanWhitespace(txtsource);
+
+  RETURN parsed_page;
+}

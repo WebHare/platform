@@ -1,0 +1,58 @@
+<?wh
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+// Make a byte size human-readable
+PUBLIC STRING FUNCTION FormatSize(INTEGER size)
+{
+  IF (size < 1024)
+    RETURN "1K";
+  size := size / 1024;
+  IF (size < 1024)
+    RETURN size || "K";
+  size := size / 1024;
+  RETURN size || "M";
+}
+
+// Make a link to another results page
+PUBLIC STRING FUNCTION MakeLink(STRING sessid, INTEGER page)
+{
+  STRING url := ReplaceVariableInUrl(GetRequestURL(),"s",sessid);
+  url := ReplaceVariableInUrl(url,"page",ToString(page));
+  RETURN url;
+}
+
+// Make sure the URL has a maximum length, replacing zero or more folder parts with "..."
+// Result for http://www.b-lex.nl/this/is/a/long/path/to/file.html will become something like
+// http://www.b-lex.nl/this/is/.../file.html
+PUBLIC STRING FUNCTION ShortenUrl(STRING url, INTEGER maxlength)
+{
+  // If maximum length is 0, return url
+  IF (maxlength = 0 OR Length(url) <= maxlength)
+    RETURN url;
+
+  // Search for end of server name
+  INTEGER serverend := SearchSubstring(url, '//');
+  serverend := SearchSubstring(url, '/', serverend+1);
+
+  // Split the string into path and file part
+  STRING pathpart := Substring(url, 0, SearchLastSubstring(url, '/'));
+  STRING filepart := Substring(url, SearchLastSubstring(url, '/'), Length(url));
+
+  STRING oldpathpart;
+  // Remove folders from pathpart...
+  WHILE (Length(pathpart||"/..."||filepart) > maxlength  // while resulting length > maximum length
+    AND SearchLastSubstring(pathpart, '/') > serverend   //   and we're not removing the server name
+    AND oldpathpart != pathpart)                         //   and we actually removed something
+  {
+    oldpathpart := pathpart;
+    pathpart := Substring(pathpart, 0, SearchLastSubstring(pathpart, '/'));
+  }
+
+  IF (Length(pathpart) > (maxlength - Length(filepart) - 4))
+    // Cannot shorten URL enough by removing folders, so just truncate
+    RETURN Substring(url, 0, maxlength-3) || "...";
+  ELSE
+    // Combine path and file part
+    RETURN pathpart || "/..." || filepart;
+}

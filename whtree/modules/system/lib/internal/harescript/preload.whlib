@@ -1,0 +1,274 @@
+<?wh
+(*ISSYSTEMLIBRARY*)
+
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/hssupport.whlib";
+LOADLIB "wh::internal/transbase.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::system.whlib";
+
+
+MACRO __SYSTEM_REMOTELOG(STRING logname, STRING line) __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION __SYSTEM_GETSYSTEMCONFIG() __ATTRIBUTES__(EXTERNAL);
+MACRO EnableFunctionProfile() __ATTRIBUTES__(EXTERNAL);
+MACRO DisableFunctionProfile() __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION __INTERNAL_GetRawFunctionProfile() __ATTRIBUTES__(EXTERNAL);
+DATETIME FUNCTION GetCurrentDateTime() __ATTRIBUTES__(EXTERNAL);
+BOOLEAN FUNCTION CreateDiskDirectoryRecursive(STRING directory, BOOLEAN visible) __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION __SYSTEM_WHCOREPARAMETERS() __ATTRIBUTES__(EXTERNAL);
+STRING FUNCTION MergePath(STRING first, STRING second) __ATTRIBUTES__ (EXTERNAL);
+
+
+PUBLIC STRING __forcecurrentsite; //used by publishjob.whscr to set the proper resolution base for currentsite::
+FUNCTION PTR __logdebug;
+
+BLOB FUNCTION GetWebhareResource(STRING path)
+{
+  RECORD result := MakeFunctionPtr("mod::system/lib/resources.whlib","RetrieveWebHareResource",TYPEID(RECORD),[TYPEID(STRING),TYPEID(RECORD)])(path,DEFAULT RECORD);
+  RETURN result.data;
+}
+
+STRING FUNCTION LibraryLoadRemapper(STRING inlibrary)
+{
+  IF(inlibrary LIKE "currentsite::*")
+  {
+    IF(__forcecurrentsite != "")
+    {
+      inlibrary := Substitute(inlibrary, "currentsite::", __forcecurrentsite);
+    }
+    ELSE
+    {
+      INTEGER baseid := GetStoredScriptProperty("FILEID");
+      IF(baseid=0)
+        THROW NEW Exception("Cannot support load of library '" || inlibrary || "' - no scriptproperty fileid available");
+
+      STRING parentsitename := MakeFunctionPtr("mod::system/lib/database.whlib", "__GetSiteNameForObjectId", TYPEID(STRING), [TYPEID(INTEGER)])(baseid);
+      IF(parentsitename="")
+        THROW NEW Exception("Cannot support load of library '" || inlibrary || "' - base file #" || baseid || " is not in a site");
+
+      inlibrary := Substitute(inlibrary, "currentsite::", "site::" || parentsitename || "/");
+    }
+  }
+  RETURN inlibrary;
+}
+
+MACRO GotUnhandledRejection(RECORD data)
+{
+  __SYSTEM_REMOTELOG("system:notice", "script\tERROR\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\tunhandled-rejection\t" || EncodeHarescriptException(data.e));
+
+  //TODO I'm leaving the other debugfunctions for now, but wondering if there's any point to them - did anyone recently fix anything using them?
+  STRING msg := "harescript\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\tunhandled_rejection\t" || EncodeHSON([ promise_id := data.promise_id, e := data.e->EncodeForIPC() ]);
+  __SYSTEM_REMOTELOG("system:debug", msg);
+}
+
+MACRO GotRejectionHandled(RECORD data)
+{
+  STRING msg := "harescript\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\trejection_handled\t" || EncodeHSON([ promise_id := data.promise_id ]);
+  __SYSTEM_REMOTELOG("system:debug", msg);
+}
+
+MACRO GotTooManyUnhandledRejections()
+{
+  STRING msg := "harescript\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\ttoo_many_unhandled_rejections";
+  __SYSTEM_REMOTELOG("system:debug", msg);
+}
+
+MACRO ReadDebugConfig()
+{
+  STRING debug_str := GetEnvironmentVariable("WEBHARE_DEBUG");
+  IF (debug_str != "")
+  {
+    __debugconfig :=
+        [ tags :=           Tokenize(debug_str, " ")
+        , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
+        , context :=        GetEnvironmentVariable("WEBHARE_DEBUGCONTEXT")
+        ];
+  }
+  ELSE
+  {
+    RECORD systemconfig := __SYSTEM_GETSYSTEMCONFIG();
+    IF (CellExists(systemconfig, "DEBUGCONFIG") AND TypeID(systemconfig.debugconfig) = TypeID(RECORD))
+    {
+      // Do NOT crash on configuration record errors
+      TRY
+        __debugconfig := ValidateOptions(
+            [ tags :=             STRING[]
+            , outputsession :=    "default"
+            , context :=          ""
+            ], systemconfig.debugconfig);
+      CATCH
+        __debugconfig := DEFAULT RECORD;
+    }
+    ELSE
+      __debugconfig := DEFAULT RECORD;
+  }
+}
+
+BOOLEAN FUNCTION TestDBReadOnlyMode()
+{
+  IF (GetEnvironmentVariable("WEBHARE_DBASE_READONLY") != "")
+    RETURN TRUE;
+
+  RECORD config := EnforceStructure(
+      [ database :=   [ readonly := FALSE ]
+      ], __SYSTEM_GETSYSTEMCONFIG());
+
+  RETURN config.database.readonly;
+}
+
+STRING profilingtype;
+DATETIME profilingstart;
+STRING profilingsession;
+STRING profilingcontext;
+BOOLEAN gotfirstconfig;
+
+MACRO HandleConfigChange()
+{
+  RECORD oldconfig := __debugconfig;
+  ReadDebugConfig();
+  IF (EncodeHSON(oldconfig) != EncodeHSON(__debugconfig))
+  {
+    FinishProfiling();
+    HandleDebugConfig(NOT gotfirstconfig);
+    gotfirstconfig := TRUE;
+  }
+}
+
+MACRO HandleDebugConfig(BOOLEAN initialapply)
+{
+  IF (RecordExists(__debugconfig))
+  {
+    FOREVERY (STRING tag FROM __debugconfig.tags)
+    {
+      SWITCH (tag)
+      {
+        CASE "apr"
+        {
+          IF (profilingtype = "" AND initialapply)
+          {
+            profilingtype := "apr";
+            profilingstart := GetCurrentDateTime();
+            profilingsession := __debugconfig.outputsession;
+            profilingcontext := __debugconfig.context;
+            EnableFunctionProfile();
+             __OnBeforeTerminateScript := PTR FinishProfiling;
+          }
+        }
+        CASE "cov", "system-cov"
+        {
+          IF (profilingtype = "" AND (initialapply OR tag = "system-cov"))
+          {
+            profilingtype := "cov";
+            profilingstart := GetCurrentDateTime();
+            profilingsession := __debugconfig.outputsession;
+            profilingcontext := __debugconfig.context;
+            EnableCoverageProfile();
+            __OnBeforeTerminateScript := PTR FinishProfiling;
+          }
+        }
+        CASE "brk"
+        {
+          IF (initialapply)
+            Debugger();
+        }
+      }
+    }
+  }
+}
+
+MACRO GotConfigChange(STRING event, RECORD data)
+{
+  HandleConfigChange();
+}
+
+RegisterEventCallback("system:systemconfig", PTR GotConfigChange);
+
+HandleConfigChange();
+
+RECORD FUNCTION GetScriptData()
+{
+  STRING script;
+  RECORD libinfo := __HS_INTERNAL_GetLibrariesInfo(TRUE); // get the first directly loaded
+  IF (LENGTH(libinfo.libraries) != 0)
+    script := libinfo.libraries[0].liburi;
+
+  RECORD authrec := GetAuthenticationRecord();
+  RETURN CELL
+      [ script
+      , profilingstart
+      , groupid :=                GetCurrentGroupId()
+      , authenticationrecord :=   GetAuthenticationRecord()
+      , debugcontext :=           profilingcontext
+      ];
+}
+
+MACRO SaveProfileFile(STRING type, STRING ext, VARIANT profiledata)
+{
+  RECORD data := CELL
+      [ type
+      , ...GetScriptData()
+      ];
+
+  STRING encodeddata := JSONENCODETOSTRING(data, FALSE, DEFAULT RECORD);
+  BLOB encodedrawdata := JSONENCODETOBLOB(profiledata, TRUE, DEFAULT RECORD);
+
+  STRING timestamp := Substitute(SubString(EncodeHSON(GetCurrentDatetime()), 7, 19), ".", "");
+  STRING filename := timestamp || "-" || GetCurrentGroupId() || ext;
+
+  STRING outputdir := __SYSTEM_WHCOREPARAMETERS().ephemeralroot || "profiles/" || profilingsession;
+
+  CreateDiskDirectoryRecursive(outputdir, TRUE);
+  INTEGER out := __HS_OpenDiskFile(MergePath(outputdir, filename), TRUE, TRUE, TRUE, TRUE);
+  IF (out != 0)
+  {
+    PrintTo(out, encodeddata);
+    PrintTo(out, "\n");
+    SendBlobTo(out, encodedrawdata);
+
+    __HS_CloseFile(out);
+
+    __HS_EVENT_BROADCAST("system:storedprofile." || profilingsession,
+        [ __recordexists := FALSE
+        , __sourcegroup := GetCurrentGroupId()
+        ], FALSE);
+  }
+}
+
+MACRO SaveCoverageProfile()
+{
+  DisableCoverageProfile();
+  SaveProfileFile("coverageprofile", ".hscov", __INTERNAL_GETCOVERAGEPROFILEDATA());
+  profilingtype := "";
+  profilingsession := "";
+  profilingcontext := "";
+}
+
+MACRO SaveFunctionProfile()
+{
+  DisableFunctionProfile();
+  SaveProfileFile("functionprofile", ".prof", __INTERNAL_GetRawFunctionProfile());
+  profilingtype := "";
+  profilingsession := "";
+  profilingcontext := "";
+}
+
+MACRO FinishProfiling()
+{
+  IF (profilingtype = "cov")
+    SaveCoverageProfile();
+  ELSE IF (profilingtype = "apr")
+    SaveFunctionProfile();
+}
+
+MACRO Shutdown() __ATTRIBUTES__(DEINITMACRO)
+{
+  FinishProfiling();
+}
+
+__GetHSResourceCall := PTR GetWebhareResource;
+__LibraryLoadRemapper := PTR LibraryLoadRemapper;
+__UnhandledRejection := PTR GotUnhandledRejection;
+__RejectionHandled := PTR GotRejectionHandled;
+__TooManyUnhandledRejections := PTR GotTooManyUnhandledRejections;
+__TestDBReadOnlyMode := PTR TestDBReadOnlyMode;
+

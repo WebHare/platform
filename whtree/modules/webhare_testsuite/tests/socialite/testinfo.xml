@@ -1,0 +1,10 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_embedvideo.whscr" tags="external"/>
+  <test script="test_twitter_text.whscr" />
+  <test script="test_plugins.whscr" />
+  <test script="test_feeds.whscr" />
+  <test script="test_seotab.whscr" />
+  <test script="test_google.whscr" tags="external" ifenvironset="TESTFW_GOOGLE_APIKEY" />
+  <test script="test_embedscript.whscr" flaky="true" />
+  <jstest file="test_gtmintegration.es" />
+</group>

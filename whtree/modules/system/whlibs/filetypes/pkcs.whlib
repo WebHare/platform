@@ -1,0 +1,563 @@
+﻿<?wh
+/** @short PKCS files
+    @topic file-formats/pkcs
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/asn1.whlib";
+LOADLIB "wh::internal/ber.whlib";
+
+STRING FUNCTION GetReadableSignatureAlgorithm(STRING oid)
+{
+  SWITCH (oid)
+  {
+    CASE "1.2.840.113549.1.1.5"     { RETURN "SHA-1 with RSA Encryption"; }
+    CASE "1.2.840.113549.1.1.11"    { RETURN "sha256WithRSAEncryption"; }
+    CASE "1.2.840.113549.1.1.12"    { RETURN "sha384WithRSAEncryption"; }
+    CASE "1.2.840.113549.1.1.13"    { RETURN "sha512WithRSAEncryption"; }
+    CASE "1.2.840.113549.1.1.14"    { RETURN "sha224WithRSAEncryption"; }
+  }
+  RETURN oid;
+}
+
+STRING FUNCTION GetFieldName(STRING oid) // String Representation
+{
+  SWITCH(oid)
+  {
+    CASE "2.5.4.6"  { RETURN "C"; }
+    CASE "2.5.4.10" { RETURN "O"; }
+    CASE "2.5.4.11" { RETURN "OU"; }
+    CASE "2.5.4.3"  { RETURN "CN"; }
+    CASE "2.5.4.8"  { RETURN "ST"; }
+    CASE "2.5.4.7"  { RETURN "L"; }
+  }
+  RETURN "";
+}
+STRING FUNCTION GetAttributeType(STRING oid) //X.500 attribute type
+{
+  SWITCH(oid)
+  {
+    CASE "2.5.4.6"  { RETURN "countryName"; }
+    CASE "2.5.4.10" { RETURN "organizationName"; }
+    CASE "2.5.4.11" { RETURN "organizationalUnitName"; }
+    CASE "2.5.4.3"  { RETURN "commonName"; }
+    CASE "2.5.4.8"  { RETURN "stateOrProvinceName"; }
+    CASE "2.5.4.7"  { RETURN "localityName"; }
+  }
+  RETURN "";
+}
+RECORD ARRAY FUNCTION GetDNFields(RECORD ARRAY rdn)
+{
+  RETURN SELECT oid := data.type, fieldname := GetFieldName(data.type), attributetype := GetAttributeType(data.type), value := data.value FROM rdn;
+}
+STRING FUNCTION GetDNPrettyName(RECORD ARRAY dnfields)
+{
+  RETURN Detokenize(SELECT AS STRING ARRAY fieldname || "=" || value FROM dnfields WHERE value != "" AND attributetype != "",", ");
+}
+
+RECORD cached_asn1_description;
+
+RECORD FUNCTION GetCachedASN1Description()
+{
+  IF (NOT RecordExists(cached_asn1_description))
+  {
+    OBJECT parser := GetASN1Parser();
+    parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/x509.asn1"), -1));
+    parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/certsupport.asn1"), -1));
+
+    cached_asn1_description := parser->GetDescription();
+  }
+  RETURN cached_asn1_description;
+}
+
+
+
+/** @param certdata Base64 encoded certdata, without ------BEGIN
+*/
+RECORD FUNCTION DecodeCertificate(STRING certdata)
+{
+  IF (LENGTH(certdata) = 0)
+    RETURN DEFAULT RECORD;
+
+  STRING sourcedata := DecodeBase64(certdata);
+  OBJECT certroot := NEW StaticBERDecoder(sourcedata);
+
+  OBJECT decoder := GetASN1BERDecoder(GetCachedASN1Description());
+  decoder->permissive := TRUE;
+
+  RECORD decoded := decoder->ParseData(certroot, "Certificate");
+
+  RECORD ARRAY extensions;
+  FOREVERY (RECORD ext FROM decoded.value.tbscertificate.extensions)
+  {
+    OBJECT extn_decoder := NEW StaticBERDecoder(ext.extnvalue);
+    STRING extn_type;
+
+    SWITCH (ext.extnid)
+    {
+      CASE "1.3.6.1.5.5.7.1.1"  { extn_type := "AuthorityInfoAccessSyntax"; }
+      CASE "2.5.29.14"          { extn_type := "SubjectKeyIdentifier"; }
+      CASE "2.5.29.15"          { extn_type := "KeyUsage"; }
+      CASE "2.5.29.17"          { extn_type := "SubjectAltName"; }
+      CASE "2.5.29.19"          { extn_type := "BasicConstraints"; }
+      CASE "2.5.29.31"          { extn_type := "CRLDistributionPoints"; }
+      CASE "2.5.29.32"          { extn_type := "CertificatePolicies"; }
+      CASE "2.5.29.35"          { extn_type := "AuthorityKeyIdentifier"; }
+      CASE "2.5.29.37"          { extn_type := "ExtKeyUsageSyntax"; }
+    }
+
+    RECORD extn_decoded;
+    IF (extn_type != "")
+    {
+      extn_decoded := decoder->ParseData(extn_decoder, extn_type);
+      INSERT CELL decoded := extn_decoded.value INTO ext;
+    }
+
+    INSERT ext INTO extensions AT END;
+  }
+
+  STRING ber_altnames :=
+      SELECT AS STRING extnvalue
+        FROM decoded.value.tbscertificate.extensions
+       WHERE extnid = "2.5.29.17";
+
+  OBJECT ber_altnames_decoder := NEW StaticBERDecoder(ber_altnames);
+  IF(NOT CellExists(decoded.value.tbscertificate.issuer,'rdnsequence'))
+    THROW NEW Exception("Unable to parse certificate");
+
+  RECORD ARRAY issuer_rdn := decoded.value.tbscertificate.issuer.rdnsequence;
+  RECORD ARRAY subject_rdn := decoded.value.tbscertificate.subject.rdnsequence;
+
+  OBJECT encoder := NEW BerEncoder;
+  decoder->EncodeData(encoder, "TBSCertificate", decoded.value.tbscertificate);
+
+//  TBSCertificate
+
+  STRING signaturealgorithm := GetReadableSignatureAlgorithm(decoded.value.signaturealgorithm.algorithm);
+
+  STRING subjectpublickeytype := decoded.value.tbscertificate.subjectpublickeyinfo.algorithm.algorithm;
+  STRING subjectpublickey, subjectpublickeyraw, subjectpublickeymodulus;
+  RECORD subjectpublickeydata;
+  SWITCH (subjectpublickeytype)
+  {
+    CASE "1.2.840.113549.1.1.1"
+    {
+      subjectpublickeytype := "RSA encryption";
+      subjectpublickeydata := decoder->ParseData(NEW StaticBERDecoder(decoded.value.tbscertificate.subjectpublickeyinfo.subjectpublickey.data), "RSAPublicKey");
+      subjectpublickeymodulus := subjectpublickeydata.value.modulus;
+
+      // Encode public key
+      OBJECT keyencoder := NEW BerEncoder;
+      decoder->EncodeData(keyencoder, "PublicKeyInfo",
+          [ algorithm :=    decoded.value.tbscertificate.subjectpublickeyinfo.algorithm
+          , publickey :=    decoded.value.tbscertificate.subjectpublickeyinfo.subjectpublickey
+          ]);
+
+      subjectpublickeyraw := keyencoder->GetRequest();
+      subjectpublickey := EncodeRawPEMFile("PUBLIC KEY", subjectpublickeyraw);
+    }
+  }
+
+  STRING ARRAY servernames;
+  RECORD ARRAY subjectfields := GetDNFields(subject_rdn);
+  STRING commonname := SELECT AS STRING value FROM subjectfields WHERE fieldname = "CN";
+  IF(commonname != "")
+    INSERT commonname INTO servernames AT END;
+
+  STRING ARRAY subjectaltnames;
+  RECORD ext_subjaltname := SELECT * FROM extensions WHERE extnid = "2.5.29.17";
+  IF (RecordExists(ext_subjaltname))
+  {
+    subjectaltnames := SELECT AS STRING ARRAY dnsname FROM ext_subjaltname.decoded WHERE CellExists(decoded, "DNSNAME");
+    FOREVERY(STRING altname FROM subjectaltnames)
+      IF(altname NOT IN servernames)
+        INSERT altname INTO servernames AT END;
+  }
+
+  RECORD ARRAY issuerfields := GetDNFields(issuer_rdn);
+
+  RETURN
+      [ serialnumber :=           decoded.value.tbscertificate.serialnumber
+      , version :=                decoded.value.tbscertificate.version
+      , issuerfields :=           issuerfields
+      , subjectfields :=          subjectfields
+      , issuer :=                 GetDNPrettyName(issuerfields)
+      , subject :=                GetDNPrettyName(subjectfields)
+      , valid_from :=             decoded.value.tbscertificate.validity.notbefore.utctime
+      , valid_until :=            decoded.value.tbscertificate.validity.notafter.utctime
+      , signaturealgorithm :=     signaturealgorithm
+      , signature :=              decoded.value.signature
+      , subjectpublickeytype :=   subjectpublickeytype
+      , subjectpublickeydata :=   subjectpublickeydata
+      , subjectpublickey :=       subjectpublickey
+      , subjectpublickeymodulus := subjectpublickeymodulus
+      , extensions :=             extensions
+
+      , dns_altnames :=           subjectaltnames
+      , servernames := servernames
+
+      , rawsource :=              sourcedata
+      , rawdecode :=              decoded
+      , recoded_tbscertificate := encoder->GetRequest()
+      ];
+}
+
+RECORD FUNCTION DecodeCertificateRequest(STRING certdata)
+{
+  STRING sourcedata := DecodeBase64(certdata);
+
+  OBJECT certroot := NEW StaticBERDecoder(sourcedata);
+
+  OBJECT decoder := GetASN1BERDecoder(GetCachedASN1Description());
+
+  RECORD decoded := decoder->ParseData(certroot, "CertificationRequest");
+
+  RECORD ARRAY subject_rdn := decoded.value.certificationrequestinfo.subject.rdnsequence;
+
+  STRING signaturealgorithm := GetReadableSignatureAlgorithm(decoded.value.signaturealgorithm.algorithm);
+
+  STRING subjectpublickeytype := decoded.value.certificationrequestinfo.subjectpublickeyinfo.algorithm.algorithm;
+  STRING subjectpublickey, subjectpublickeyraw, subjectpublickeymodulus;
+  RECORD subjectpublickeydata;
+  SWITCH (subjectpublickeytype)
+  {
+    CASE "1.2.840.113549.1.1.1"
+    {
+      subjectpublickeytype := "RSA encryption";
+      subjectpublickeydata := decoder->ParseData(NEW StaticBERDecoder(decoded.value.certificationrequestinfo.subjectpublickeyinfo.subjectpublickey.data), "RSAPublicKey");
+      subjectpublickeymodulus := subjectpublickeydata.value.modulus;
+
+      // Encode public key
+      OBJECT keyencoder := NEW BerEncoder;
+      decoder->EncodeData(keyencoder, "PublicKeyInfo",
+          [ algorithm :=    decoded.value.certificationrequestinfo.subjectpublickeyinfo.algorithm
+          , publickey :=    decoded.value.certificationrequestinfo.subjectpublickeyinfo.subjectpublickey
+          ]);
+
+      subjectpublickeyraw := keyencoder->GetRequest();
+      subjectpublickey := EncodeRawPEMFile("PUBLIC KEY", subjectpublickeyraw);
+    }
+  }
+
+  OBJECT encoder := NEW BerEncoder;
+  decoder->EncodeData(encoder, "CertificationRequestInfo", decoded.value.certificationrequestinfo);
+
+  RECORD ARRAY subjectfields := GetDNFields(subject_rdn);
+
+  STRING ARRAY servernames;
+  STRING commonname := SELECT AS STRING value FROM subjectfields WHERE fieldname="CN";
+  IF(commonname != "")
+    INSERT commonname INTO servernames AT END;
+
+  RECORD extensionrequest := SELECT * FROM decoded.value.certificationrequestinfo.attributes WHERE type="1.2.840.113549.1.9.14";
+  IF(RecordExists(extensionrequest))
+  {
+    FOREVERY(RECORD val FROM extensionrequest."values")
+      FOREVERY(RECORD dat FROM val.data)
+        IF(dat.extnid = "2.5.29.17")
+        {
+          OBJECT extn_decoder := NEW StaticBERDecoder(dat.extnvalue);
+          RECORD ARRAY vals := decoder->ParseData(extn_decoder, "SubjectAltName").value;
+          FOREVERY(STRING name FROM SELECT AS STRING ARRAY dnsname FROM vals)
+            IF(name NOT IN servernames)
+              INSERT name INTO servernames AT END;
+        }
+  }
+
+  RETURN
+      [ version :=                decoded.value.certificationrequestinfo.version
+      , subjectfields :=          subjectfields
+      , subject :=                GetDNPrettyName(subjectfields)
+      , signaturealgorithm :=     signaturealgorithm
+      , signature :=              decoded.value.signature
+      , subjectpublickeytype :=   subjectpublickeytype
+      , subjectpublickeydata :=   subjectpublickeydata
+      , subjectpublickey :=       subjectpublickey
+      , subjectpublickeymodulus := subjectpublickeymodulus
+      , servernames := servernames
+
+      , rawsource :=    sourcedata
+      , rawdecode :=    decoded
+      , recoded_certificationrequestinfo := encoder->GetRequest()
+      ];
+}
+
+RECORD FUNCTION DecodeRSAPrivateKey(STRING keydata)
+{
+  OBJECT berdecoder := NEW StaticBERDecoder(DecodeBase64(keydata));
+
+  OBJECT decoder := GetASN1BERDecoder(GetCachedASN1Description());
+  decoder->permissive := TRUE;
+
+  RECORD decoded := decoder->ParseData(berdecoder, "RSAPrivateKey");
+
+  RETURN
+      [ algorithm :=    "RSA encryption"
+      , privatekey :=   decoded.value
+      , rawdecode :=    decoded
+      ];
+}
+
+RECORD FUNCTION DecodePrivateKey(STRING keydata)
+{
+  OBJECT berdecoder := NEW StaticBERDecoder(DecodeBase64(keydata));
+
+  OBJECT decoder := GetASN1BERDecoder(GetCachedASN1Description());
+  decoder->permissive := TRUE;
+
+  RECORD decoded := decoder->ParseData(berdecoder, "PrivateKeyInfo");
+
+  STRING algorithm := decoded.value.algorithm.algorithm;
+  RECORD privatekey;
+  SWITCH (algorithm)
+  {
+    CASE "1.2.840.113549.1.1.1"
+    {
+      algorithm := "RSA encryption";
+      privatekey := DecodeRSAPrivateKey(EncodeBase64(decoded.value.privatekey)).privatekey;
+    }
+  }
+
+  RETURN
+      [ algorithm :=    algorithm
+      , privatekey :=   privatekey
+      , rawdecode :=    decoded
+      ];
+}
+
+RECORD FUNCTION DecodePublicKey(STRING keydata)
+{
+  OBJECT berdecoder := NEW StaticBERDecoder(DecodeBase64(keydata));
+
+  OBJECT decoder := GetASN1BERDecoder(GetCachedASN1Description());
+  decoder->permissive := TRUE;
+
+  RECORD decoded := decoder->ParseData(berdecoder, "PublicKeyInfo");
+
+  RETURN
+      [ algorithm :=    decoded.value.algorithm
+      , publickey :=    decoded.value.publickey
+      , rawdecode :=    decoded
+      ];
+}
+
+
+PUBLIC RECORD FUNCTION DecodePEMFile(STRING pemdata)
+{
+  // Multiple parts?
+  STRING ARRAY parts := Tokenize(pemdata, "-----BEGIN ");
+  IF (LENGTH(parts) > 2)
+  {
+    RECORD ARRAY decoded;
+    FOREVERY (STRING part FROM ArraySlice(parts, 1))
+      INSERT DecodePEMFile("-----BEGIN " || part) INTO decoded AT END;
+
+    RETURN
+        [ type :=   "multiple"
+        , parts :=  decoded
+        ];
+  }
+
+  STRING header := "-----BEGIN ";
+  INTEGER pos := SearchSubString(pemdata, header);
+  IF (pos = -1)
+    THROW NEW Exception("Could not find header in file");
+
+  INTEGER epos := SearchSubString(pemdata, "-----", pos + LENGTH(header));
+  IF (epos = -1)
+    THROW NEW Exception("Could not find header in file");
+
+  STRING type := SubString(pemdata, pos + LENGTH(header), epos - pos - LENGTH(header));
+
+  INTEGER endpos := SearchSubString(pemdata, "-----END " || type || "-----", epos);
+  IF (endpos = -1)
+    THROW NEW Exception("Could not find endline in file");
+
+  STRING rawdata := SubString(pemdata, epos + 6, endpos - epos - 6);
+
+  RECORD decoded;
+
+  SWITCH (type)
+  {
+    CASE "CERTIFICATE"
+    {
+      decoded := DecodeCertificate(rawdata);
+    }
+    CASE "PRIVATE KEY"
+    {
+      decoded := DecodePrivateKey(rawdata);
+    }
+    CASE "RSA PRIVATE KEY"
+    {
+      decoded := DecodeRSAPrivateKey(rawdata);
+    }
+    CASE "PUBLIC KEY"
+    {
+      decoded := DecodePublicKey(rawdata);
+    }
+    CASE "CERTIFICATE REQUEST"
+    {
+      decoded := DecodeCertificateRequest(rawdata);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unsupported PEM type '" || type || "'");
+    }
+  }
+
+  INSERT CELL type := ToLowercase(type) INTO decoded;
+  RETURN decoded;
+}
+
+//Reencode PEM files from their raw sources. clears up comments and odd linefeeds, but does not process modifications to the structured data
+PUBLIC STRING FUNCTION EncodePEMFileFromRawSource(RECORD pemdata)
+{
+  STRING output;
+  IF(pemdata.type="multiple")
+  {
+    FOREVERY(RECORD part FROM pemdata.parts)
+      output := output || EncodePEMFileFromRawSource(part);
+  }
+  ELSE
+  {
+    output := output || EncodeRawPEMFile(pemdata.type, pemdata.rawsource);
+  }
+  RETURN output;
+}
+
+PUBLIC STRING FUNCTION EncodeRawPEMFile(STRING type, STRING rawdata)
+{
+  STRING base64data := EncodeBase64(rawdata);
+  type := ToUppercase(type);
+
+  STRING result := "-----BEGIN " || type || "-----\n";
+  FOR (INTEGER i := 0, e := LENGTH(base64data); i < e; i := i + 64)
+    result := result || SubString(base64data, i, 64) || "\n";
+  RETURN result || "-----END " || type || "-----\n";
+}
+
+/** Checks signatures on decoded PKCS stuff (certificates and certificate requests)
+    @param decoded Decoded PKCS file
+    @param options
+    @cell options.signingcert Decoded singing certificate (mandatory for certificates)
+    @return
+    @cell return.success
+    @cell return.code One of the following codes:<br>
+        NOTISSUER: Certificate issuer does not match the signing certificate subject<br>
+        KEYIDENTMISMATCH: AuthorityKeyIdentifier of the certificate does not match the signing certificate SubjectKeyIdentifier<br>
+        SIGNFAILURE: Signature value does not match<br>
+        UNSUPPORTEDALGORITHM: Unsupported signature algorithm<br>
+*/
+PUBLIC RECORD FUNCTION CheckPKCSSignature(RECORD decoded, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD signingthing := decoded;
+
+  STRING signeddata;
+  SWITCH (decoded.type)
+  {
+    CASE "certificate"
+    {
+      signeddata := decoded.recoded_tbscertificate;
+      signingthing := options.signingcert;
+
+      IF (signingthing.type != "certificate")
+        THROW NEW Exception("Signing certificate is not a certificate");
+
+      // Issuer must match signing certificate subject
+      IF (EncodeHSON(decoded.rawdecode.value.tbscertificate.issuer) != EncodeHSON(signingthing.rawdecode.value.tbscertificate.subject))
+      {
+        // Key identifiers do not match
+        RETURN [ success := FALSE, code := "NOTISSUER" ];
+      }
+
+      RECORD authoritykeyidentifier :=
+          SELECT *
+            FROM decoded.extensions
+           WHERE extnid = "2.5.29.35";
+
+      IF (RecordExists(authoritykeyidentifier))
+      {
+        RECORD subjectkeyidentifier :=
+            SELECT *
+              FROM signingthing.extensions
+             WHERE extnid = "2.5.29.14";
+
+        IF (NOT RecordExists(subjectkeyidentifier)
+              OR authoritykeyidentifier.decoded.keyidentifier != subjectkeyidentifier.decoded)
+        {
+          // Key identifiers do not match
+          RETURN [ success := FALSE, code := "KEYIDENTMISMATCH" ];
+        }
+      }
+    }
+    CASE "certificate request"
+    {
+      signeddata := decoded.recoded_certificationrequestinfo;
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Cannot verify PKCS type '" || decoded.type || "'");
+    }
+  }
+
+  SWITCH (decoded.signaturealgorithm)
+  {
+    CASE "SHA-1 with RSA Encryption"
+    {
+      STRING hash := GetHashForString(signeddata, "SHA-1");
+      IF (RecordExists(signingthing))
+      {
+        BOOLEAN result := Verify_RSA_Hash(hash, "SHA-1", decoded.signature.data, signingthing.subjectpublickey);
+        IF (NOT result)
+          RETURN [ success := FALSE, code := "SIGNFAILURE" ];
+      }
+    }
+    CASE "sha224WithRSAEncryption"
+    {
+      STRING hash := GetHashForString(signeddata, "SHA-224");
+      IF (RecordExists(signingthing))
+      {
+        BOOLEAN result := Verify_RSA_Hash(hash, "SHA-224", decoded.signature.data, signingthing.subjectpublickey);
+        IF (NOT result)
+          RETURN [ success := FALSE, code := "SIGNFAILURE" ];
+      }
+    }
+    CASE "sha256WithRSAEncryption"
+    {
+      STRING hash := GetHashForString(signeddata, "SHA-256");
+      IF (RecordExists(signingthing))
+      {
+        BOOLEAN result := Verify_RSA_Hash(hash, "SHA-256", decoded.signature.data, signingthing.subjectpublickey);
+        IF (NOT result)
+          RETURN [ success := FALSE, code := "SIGNFAILURE" ];
+      }
+    }
+    CASE "sha384WithRSAEncryption"
+    {
+      STRING hash := GetHashForString(signeddata, "SHA-384");
+      IF (RecordExists(signingthing))
+      {
+        BOOLEAN result := Verify_RSA_Hash(hash, "SHA-384", decoded.signature.data, signingthing.subjectpublickey);
+        IF (NOT result)
+          RETURN [ success := FALSE, code := "SIGNFAILURE" ];
+      }
+    }
+    CASE "sha512WithRSAEncryption"
+    {
+      STRING hash := GetHashForString(signeddata, "SHA-512");
+      IF (RecordExists(signingthing))
+      {
+        BOOLEAN result := Verify_RSA_Hash(hash, "SHA-512", decoded.signature.data, signingthing.subjectpublickey);
+        IF (NOT result)
+          RETURN [ success := FALSE, code := "SIGNFAILURE" ];
+      }
+    }
+    DEFAULT
+    {
+      RETURN [ success := FALSE, code := "UNSUPPORTEDALGORITHM", signaturealgorithm := decoded.signaturealgorithm ];
+    }
+  }
+
+  RETURN [ success := TRUE, code := "OK" ];
+}

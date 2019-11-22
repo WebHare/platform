@@ -1,0 +1,171 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE SelectUnit EXTEND TolliumScreenBase
+< // -----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // -----------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  // -----------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->unittree->InitForCommonDialog();
+
+    IF (CellExists(data, "UNIT") AND ObjectExists(data.unit))
+      this->unittree->value := data.unit;
+
+    this->unittree->selectright := data.selectright;
+    this->unittree->canselectroot := data.canselectroot;
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  OBJECT FUNCTION GetValue()
+  {
+    RETURN this->unittree->value;
+  }
+
+  MACRO SetValue(OBJECT unit)
+  {
+    this->unittree->value := unit;
+  }
+>;
+
+PUBLIC OBJECTTYPE SelectUserRole EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Object(s) of selected user/role.
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /** Selected unit
+  */
+  PUBLIC PROPERTY unit(GetUnit, SetUnit);
+
+  /** Filter on type (0 to show roles & users, 1 for only users, 3 for only roles)
+  */
+  PUBLIC PROPERTY filterontype(GetFilterOnType, SetFilterOnType);
+
+  /** Selectmode, one of 'single', 'multiple'
+  */
+  PUBLIC PROPERTY selectmode(GetSelectMode, SetSelectMode);
+
+  /** Controls whether only grantable roles are selectable
+  */
+  PUBLIC PROPERTY only_grantable_roles(GetOnlyGrantableRoles, SetOnlyGrantableRoles);
+
+  /** Set the explanation above the selection box
+  */
+  PUBLIC PROPERTY explanation(GetExplanation, SetExplanation);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  PUBLIC MACRO Init()
+  {
+    this->selectuserrole->InitForCommonDialog();
+
+    this->selectuserrole->onopen := PTR this->HandleOpen;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN this->selectuserrole->value;
+  }
+
+  MACRO SetValue(VARIANT newvalue)
+  {
+    this->selectuserrole->value := newvalue;
+  }
+
+  OBJECT FUNCTION GetUnit()
+  {
+    RETURN this->selectuserrole->value;
+  }
+
+  MACRO SetUnit(OBJECT unit)
+  {
+    this->selectuserrole->unit := unit;
+  }
+
+  INTEGER FUNCTION GetFilterOnType()
+  {
+    RETURN this->selectuserrole->filterontype;
+  }
+
+  MACRO SetFilterOnType(INTEGER newtype)
+  {
+    this->selectuserrole->filterontype := newtype;
+  }
+
+  STRING FUNCTION GetSelectMode()
+  {
+    RETURN this->selectuserrole->selectmode;
+  }
+
+  MACRO SetSelectMode(STRING newselectmode)
+  {
+    this->selectuserrole->selectmode := newselectmode;
+  }
+
+  BOOLEAN FUNCTION GetOnlyGrantableRoles()
+  {
+    RETURN this->selectuserrole->only_grantable_roles;
+  }
+
+  MACRO SetOnlyGrantableRoles(BOOLEAN newvalue)
+  {
+    this->selectuserrole->only_grantable_roles := newvalue;
+  }
+
+  STRING FUNCTION GetExplanation()
+  {
+    RETURN this->selectuserrole->explanation;
+  }
+
+  MACRO SetExplanation(STRING newexplanation)
+  {
+    this->selectuserrole->explanation := newexplanation;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO HandleOpen()
+  {
+    this->tolliumresult := "ok";
+  }
+>;

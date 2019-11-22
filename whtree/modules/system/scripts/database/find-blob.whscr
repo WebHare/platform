@@ -1,0 +1,103 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+RECORD info := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "table", type := "stringlist" ]
+                              , [ name := "ids", type := "paramlist" ]
+                              ]);
+
+OBJECT trans := OpenPrimary();
+
+INTEGER ARRAY blobids;
+
+IF (Detokenize(info.ids, ",") = "used")
+{
+  trans->BeginWork();
+  blobids := SELECT AS INTEGER ARRAY blobid FROM __SendWHDBCommand(trans->id, "show usedblobs");
+  trans->RollbackWork();
+  PRINT(`Showing ${LENGTH(blobids)} used blobs\n`);
+}
+ELSE
+{
+  FOREVERY(STRING id FROM info.ids)
+    INSERT ToInteger(id,0) INTO blobids AT END;
+}
+
+IF(Length(blobids)=0)
+  RETURN;
+
+blobids := SortArray(blobids);
+
+RECORD ARRAY relevant_columns := SELECT table_schema,table_name,column_name from information_schema.columns where data_type="BLOB";
+FOREVERY(RECORD col FROM relevant_columns)
+{
+  BOOLEAN allow := LENGTH(info."table") = 0;
+  FOREVERY (STRING s FROM info."table")
+    IF (ToUppercase(s) = col.table_schema OR ToUppercase(col.table_schema || "." || col.table_name) LIKE ToUppercase(s))
+      allow := TRUE;
+  IF (NOT allow)
+    CONTINUE;
+
+  Print("Reading " || col.table_schema || "." || col.table_name || "." || col.column_name);
+  FlushOutputBuffer();
+  INTEGER numbytes, num_mb; //ADDME switch to integer64 as soon as 2.37 is gone everywhere
+
+  OBJECT q := NEW DynamicQuery;
+  BOOLEAN have_id := trans->ColumnExists(col.table_schema, col.table_name, "ID");
+  STRING ARRAY getcols := [STRING(col.column_name)];
+  IF(have_id)
+    INSERT "ID" INTO getcols AT END;
+
+  q->AddTable("data", trans->id, col.table_schema||'.'||col.table_name, getcols);
+  RECORD ARRAY contents := q->Execute();
+  PRINT("\rScanning " || col.table_schema || "." || col.table_name || "." || col.column_name);
+
+  FOREVERY(RECORD r FROM SELECT * FROM contents)
+  {
+    BLOB blb := GetCell(r.data, col.column_name);
+    IF (NOT LowerBound(blobids, __GETWHDBBLOBINTERNALID(blb)).found)
+      CONTINUE;
+
+    Print("\n" || col.table_schema || "." || col.table_name || "." || col.column_name);
+
+    IF(have_id)
+    {
+      Print(", id=" || r.data.id);
+      IF (col.table_schema || "." || col.table_name = "SYSTEM.FS_SETTINGS")
+      {
+        RECORD rec :=
+            SELECT fs_objects.id
+                 , whfspath
+              FROM system.fs_objects
+                 , system.fs_instances
+                 , system.fs_settings
+             WHERE fs_settings.id = r.data.id
+               AND fs_instances.id = fs_settings.fs_instance
+               AND fs_objects.id = fs_instances.fs_object;
+
+        IF (RecordExists(rec))
+          PRINT(` (fsobj: ${rec.id}, ${rec.whfspath})`);
+      }
+      IF (col.table_schema || "." || col.table_name = "SYSTEM.FS_OBJECTS")
+      {
+        RECORD rec :=
+            SELECT fs_objects.id
+                 , whfspath
+              FROM system.fs_objects
+             WHERE id = r.data.id;
+
+        IF (RecordExists(rec))
+          PRINT(` (fsobj: ${rec.id}, ${rec.whfspath})`);
+      }
+    }
+    FlushOutputBuffer();
+  }
+  Print("\n");
+}

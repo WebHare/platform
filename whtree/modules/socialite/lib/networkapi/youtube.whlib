@@ -1,0 +1,192 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+
+
+
+// Scope must be https://gdata.youtube.com, error if something else or missing - so not editable
+RECORD ARRAY oauth_scopes := DEFAULT RECORD ARRAY;
+//    [ [ name :=   "https://gdata.youtube.com" ] ];
+
+
+RECORD thumbnailwidths := [ "default" := 120, "medium" := 320, "high" := 480 ];
+RECORD thumbnailheights:= [ "default" := 90, "medium" := 180, "high" := 360 ];
+
+RECORD ARRAY FUNCTION EnrichThumbnails(RECORD ARRAY thumbnails)
+{
+  RETURN SELECT width := GetCell(thumbnailwidths, type)
+              , height := GetCell(thumbnailheights, type)
+              , url
+           FROM thumbnails
+          WHERE CellExists(thumbnailwidths, type);
+}
+
+RECORD FUNCTION DecodeSearchlistResponse(RECORD injson)
+{
+  RECORD ARRAY items;
+  // for empty array in JSON we get a VARIANT ARRAY
+  FOREVERY(RECORD item FROM RECORD ARRAY(injson.items))
+    INSERT Decoderesult(item) INTO items AT END;
+
+  //Also available: resultsperpage, nextpagetoken, etag
+  RETURN [ items := items
+         , totalresults := injson.pageINFO.totalResults
+         ];
+}
+
+RECORD FUNCTION DecodeSearchResult(RECORD injson)
+{
+  RETURN [ videoid := injson.id.videoid
+         , creationdate := MakeDateFromText(injson.snippet.publishedat)
+         , title     := injson.snippet.title
+         , description := injson.snippet.description
+         , channeltitle := injson.snippet.channeltitle
+         , thumbnails := EnrichThumbnails(SELECT type := name, url := value.url FROM UnpackRecord(injson.snippet.thumbnails))
+         ];
+}
+
+INTEGER FUNCTION ParseDuration(STRING duration)
+{
+  // P=period
+  // T=Time
+
+  /*The length of the video. The tag value is an ISO 8601 duration in the format PT::M::S, in which the letters PT indicate that the value specifies a period of time, and the letters M and S refer to length in minutes and seconds, respectively. The # characters preceding the M and S letters are both integers that specify the number of minutes (or seconds) of the video. For example, a value of PT15M51S indicates that the video is 15 minutes and 51 seconds long. */
+  IF(duration LIKE "PT*M*S")
+  {
+    STRING ARRAY durtoks := Tokenize(SubString(duration,2,Length(duration)-3),'M');
+    IF(Length(durtoks) != 2)
+      RETURN 0;
+
+    RETURN ToInteger(durtoks[0],0) * 60 + ToInteger(durtoks[1],0);
+  }
+  ELSE IF(duration LIKE "PT*S")
+  {
+    STRING seconds := SubString(duration, 2, Length(duration)-3);
+    RETURN ToInteger(seconds, 0);
+  }
+
+  RETURN 0;
+}
+
+RECORD FUNCTION DecodeVideoResult(RECORD injson)
+{
+  /* be very careful parsing recordingdeatils, it may look like this:
+
+    "recordingDetails": {
+    "locationDescription": "eindhoven",
+    "location": {
+     "altitude": 0
+    }
+    */
+  RETURN [ videoid := injson.id
+         , creationdate := MakeDateFromText(injson.snippet.publishedat)
+         , title     := injson.snippet.title
+         , description := injson.snippet.description
+         , channeltitle := CellExists(injson.snippet,'channeltitle') ? injson.snippet.channeltitle : ""
+         , thumbnails := (SELECT type := name, url := value.url, width := value.width, height := value.height FROM UnpackRecord(injson.snippet.thumbnails))
+         , duration := ParseDuration(injson.contentdetails.duration)
+         , location := CellExists(injson, 'RECORDINGDETAILS') AND CellExists(injson.recordingdetails, "LOCATION") AND CellExists(injson.recordingdetails.location, "LONGITUDE") AND CellExists(injson.recordingdetails.location, "LATITUDE")
+                ? [ long := MONEY(injson.recordingdetails.location.longitude), lat := MONEY(injson.recordingdetails.location.latitude) ]
+                : DEFAULT RECORD
+         ];
+}
+
+VARIANT FUNCTION DecodeResult(RECORD injson)
+{
+  SWITCH(injson.kind)
+  {
+    CASE "youtube#searchListResponse","youtube#videoListResponse"
+    {
+      RETURN DecodeSearchListResponse(injson);
+    }
+    CASE "youtube#searchResult"
+    {
+      RETURN DecodeSearchResult(injson);
+    }
+    CASE "youtube#video"
+    {
+      RETURN DecodeVideoResult(injson);
+    }
+    DEFAULT
+    {
+      dumpvalue(injson,'tree:3');
+      THROW NEW Exception("Unrecognized kind " || injson.kind);
+    }
+  }
+}
+
+PUBLIC STATIC OBJECTTYPE YouTubeConnection EXTEND OauthNetworkConnection
+< STRING apiurl_feeds;
+
+  MACRO NEW()
+  : OauthNetworkConnection("2.0", oauth_scopes)
+  {
+    this->pvt_newpermissionmodel := TRUE;
+    this->SetMode("youtube");
+    this->apiurl_feeds := 'https://www.googleapis.com/youtube/v3/';
+  }
+
+  /** @short do a GET request with the given variables
+      @param url to use for the GET request
+      @param variables to send with the request
+      @result
+  */
+  RECORD FUNCTION SendRequest(STRING url, RECORD ARRAY variables)
+  {
+    this->browser->timeout := 8 * 1000;
+
+    FOREVERY (RECORD variable FROM variables)
+      url := AddVariableToUrl(url, variable.name, variable.value);
+
+    this->browser->GotoWebPage(url);
+
+    // PostWebPage uses Content-Type application/x-www-form-urlencoded;charset=utf-8
+    //this->browser->PostWebPage(url, variables, "text/xml", "utf-8");
+
+    // PostWebPageBlob allows you to post a RAW body
+    //this->browser->PostWebPageBlob(url, headers, data);
+
+    //SendBlobTo(0, this->browser->content);
+    //SendBlobTo(0, this->browser->document->GetDocumentBlob(TRUE)); // dump with nice identation
+    RECORD json := DecodeJSONBlob(this->browser->content);
+    IF(CellExists(json,"error"))
+      THROW NEW Exception("Youtube API error:" || json.error.message);
+    RETURN DecodeResult(json);
+  }
+
+  PUBLIC BOOLEAN FUNCTION LooksLikeVideoId(STRING id)
+  {
+    IF(Length(id)=11 AND SearchSubstring(id,' ')=-1)
+      RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  PUBLIC RECORD FUNCTION SearchList(STRING query)
+  {
+    //https://developers.google.com/youtube/v3/docs/search
+    STRING url := this->apiurl_feeds||'search/?part=snippet&q=' || EncodeURL(query);
+    RECORD result := this->SendRequest(url, DEFAULT RECORD ARRAY);
+    RETURN result;
+  }
+
+  PUBLIC RECORD FUNCTION SearchVideo(STRING query)
+  {
+    //__webbrowser_debugall:=TRUE;
+    STRING url := this->apiurl_feeds||'search/?part=snippet&maxResults=25&safeSearch=none&type=video&q=' || EncodeURL(query);
+    RECORD result := this->SendRequest(url, DEFAULT RECORD ARRAY);
+    RETURN result;
+  }
+
+  PUBLIC RECORD FUNCTION GetVideoInfo(STRING videoid)
+  {
+    //https://developers.google.com/apis-explorer/#p/youtube/v3/youtube.videos.list
+    //__webbrowser_debugall:=TRUE;
+    STRING url := this->apiurl_feeds||'videos/?part=contentDetails,snippet,recordingDetails&id=' || EncodeURL(videoid);
+    RECORD result := this->SendRequest(url, DEFAULT RECORD ARRAY);
+    IF(Length(result.items) = 1)
+      RETURN result.items[0];
+    RETURN DEFAULT RECORD;
+  }
+>;

@@ -1,0 +1,102 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+MACRO PrepIt()
+{
+  testfw->BeginWork();
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE, TRUE);
+  testfw->CommitWork();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// ObjectProps
+//
+OBJECT ASYNC FUNCTION ObjectProps()
+{
+  testfw->SetTestUser("sysop");
+  PrepareTestSiteDesignWebsite("", [ witherrors := TRUE ]);
+  testfw->SetTestUser("lisa");
+
+  TestEq(TRUE, ObjectExists(testfw->GetTestSite()));
+
+  testfw->BeginWork();
+
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  OBJECT propsfolder := root->CreateFolder([name := "propstest"]);
+  OBJECT imgfile := propsfolder->CreateFile([name:="img.jpg", data := GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"), publish := TRUE ]);
+  OBJECT imglink := propsfolder->CreateFile([name:="imglink.jpg", type := 20, filelink := imgfile->id, publish := TRUE ]);
+  imglink->SetInstanceData("http://www.webhare.net/xmlns/beta/test"
+                          , [ arraytest := [[ textcell := "Row 1" ]]]);
+  testfw->CommitWork();
+
+  testfw->SetTestUser("sysop");
+
+  OBJECT dialog := CreateWHFSObjectPropsDialog(GetTestController(), imglink->id);
+  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+
+  AWAIT ExpectScreenChange(+1, PTR TT("path")->__test_executebrowse());
+
+  //the thumbnail view should have inited.
+  TestEQ(TRUE, topscreen->filesthumbs->__test_preinitdone, "The preinit for the thumbnail view was not invoked");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  OBJECT betatab := TT(":Beta test tab");
+  TestEQ(TRUE, ObjectExists(betatab));
+
+  OBJECT arrayedit := SELECT AS OBJECT comp FROM ToRecordArray(betatab->GetTopDownAllComponents(), "comp") WHERE comp->name LIKE "*!arraytest";
+  TestEq(1, Length(arrayedit->value));
+
+  AWAIT ExpectScreenChange(+1, PTR arrayedit->addbutton->TolliumClick());
+  TT("textcell")->value := "New row";
+  INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/webhare_testsuite.testfolder/webhare_testsuite.site/static.html";
+  TestEq(TRUE, staticfile != 0, "Where is my static.html?");
+
+  TT("_whfscell")->value := staticfile;
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq(2, Length(arrayedit->value));
+  TestEq(1, Length(arrayedit->selection));
+  TestEq(staticfile, arrayedit->selection[0]._whfscell);
+
+  //Nowe edit it
+  AWAIT ExpectScreenChange(+1, PTR arrayedit->editbutton->TolliumClick());
+  TestEq(staticfile, TT("_whfscell")->value, "Selection not properly retained");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  Testeq("ok", dialog->tolliumresult);
+
+  RECORD data := imglink->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  TestEq(2, Length(data.arraytest));
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION SiteProps()
+{
+  PrepareTestSiteDesignWebsite("", [ witherrors := TRUE ]);
+  TestEq(TRUE, ObjectExists(testfw->GetTestSite()));
+
+  OBJECT root := testfw->GetTestSite()->rootobject;
+
+  testfw->SetTestUser("sysop");
+
+  OBJECT sitedialog := CreateWHFSSitePropsDialog(GetTestController(), root->id);
+  AWAIT ExpectScreenChange(+1, PTR sitedialog->RunModal()); //simply should not crash
+  TT("locksite")->value := TRUE;
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  BOOLEAN lockstatus := SELECT AS BOOLEAN locked FROM system.sites WHERE id = VAR root->id;
+  TestEq(TRUE, lockstatus);
+  RETURN TRUE;
+}
+RunTestframework([ PTR ObjectProps
+                 , PTR SiteProps
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);

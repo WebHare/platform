@@ -1,0 +1,172 @@
+<?wh
+/** @short Web Distributed Authoring and Versioning (WEBDAV)
+    @long These functions extend the HTTP libraries to allow you access to WebDav resources
+    @topic internet/webdav
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+PUBLIC OBJECTTYPE WebdavConnection
+<
+  STRING baseurl;
+  BOOLEAN webbrowser_is_supplied;
+  OBJECT __webbrowser;
+  PUBLIC PROPERTY webbrowser(__webbrowser, -);
+  PUBLIC RECORD ARRAY addheaders;
+
+  PUBLIC STRING access_token;
+
+  MACRO NEW(STRING baseurl, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ browser := DEFAULT OBJECT ], options);
+    this->baseurl := baseurl;
+    this->webbrowser_is_supplied := ObjectExists(options.browser);
+    this->__webbrowser := options.browser ?? NEW WebBrowser;
+  }
+
+  STRING FUNCTION GetRequestURL(STRING path)
+  {
+    IF(path LIKE "/*" AND this->baseurl LIKE "*/")
+      path := Substring(path,1);
+    STRING url := this->baseurl || EncodeURL(path);
+
+    IF (this->access_token != "")
+      url := AddVariableToURL(url, "access_token", this->access_token);
+    RETURN url;
+  }
+
+  RECORD ARRAY FUNCTION DoPropfind(STRING path, INTEGER depth)
+  {
+    RECORD ARRAY retval;
+    RECORD ARRAY headers := this->addheaders CONCAT [[ field := "Depth", value := depth>1 ? "infinity" : ToString(depth) ]];
+
+    this->webbrowser->SendRawRequest("PROPFIND", this->GetRequestUrl(path),headers,DEFAULT BLOB);
+    IF(this->webbrowser->GetHTTPStatusCode() = 404)
+      THROW NEW Exception(`Propfind - not found: ${path}`);
+    IF(this->webbrowser->GetHTTPStatusCode() NOT IN[207,404] OR NOT ObjectExists(this->webbrowser->document))
+      THROW NEW Exception(`Propfind - error: ${this->webbrowser->GetHTTPStatusText()}`);
+
+    RECORD basepath := UnpackURL(this->webbrowser->href);
+
+    OBJECT ARRAY responses := this->webbrowser->document->GetElementsByTagNameNS("DAV:","response")->GetCurrentElements();
+    FOREVERY(OBJECT resp FROM responses)
+    {
+      OBJECT hrefelement := resp->GetChildElementsByTagNameNS("DAV:", "href")->Item(0);
+      STRING href := ObjectExists(hrefelement) ? hrefelement->textcontent : "";
+      href := ResolveToAbsoluteURL(this->webbrowser->href, href);
+
+      OBJECT resourcetypelement := resp->GetElementsByTagNameNS("DAV:", "resourcetype")->Item(0);
+      OBJECT collectionelement;
+      IF(ObjectExists(resourcetypelement))
+        collectionelement := resourcetypelement->GetChildElementsByTagnameNS("DAV:", "collection")->Item(0);
+
+      OBJECT lastmodelement := resp->GetElementsByTagNameNS("DAV:", "getlastmodified")->Item(0);
+      DATETIME lastmod;
+      IF(Objectexists(lastmodelement))
+        lastmod :=MakeDateFromText(lastmodelement->textcontent);
+
+      OBJECT sizeelement := resp->GetElementsByTagNameNS("DAV:", "getcontentlength")->Item(0);
+      INTEGER size;
+      IF(ObjectExists(sizeelement))
+        size := ToInteger(sizeelement->textcontent,0);
+
+      RECORD link := UnpackURL(href);
+      STRING entrypath := DecodeURL(Substring(link.urlpath, Length(basepath.urlpath)));
+
+      WHILE(entrypath LIKE "/*")
+        entrypath := Substring(entrypath, 1);
+      WHILE(entrypath LIKE "*/")
+        entrypath := Left(entrypath, Length(entrypath)-1);
+
+      STRING ARRAY pathtoks := Tokenize(entrypath,"/");
+
+      INSERT [ name := pathtoks[Length(pathtoks)-1]
+             , path := entrypath
+             , iscollection := ObjectExists(collectionelement)
+             , modified := lastmod
+             , size := size
+             ] INTO retval AT END;
+    }
+    RETURN retval;
+  }
+
+  PUBLIC MACRO SetModified(STRING path, DATETIME newmoddate)
+  {
+    STRING patchstatement :=
+    '<?xml version="1.0" encoding="utf-8" ?>'
+    || '<D:propertyupdate xmlns:D="DAV:">'
+      || '<D:set>'
+        || '<D:prop>'
+          || '<D:getlastmodified b:dt="dateTime.rfc1123">' || FormatDatetime("%a, %d %b %Y %H:%M:%S GMT", newmoddate, "EN") || '</D:getlastmodified>'
+        || '</D:prop>'
+       || '</D:set>'
+     || '</D:propertyupdate>';
+
+    this->webbrowser->SendRawRequest("PROPPATCH", this->GetRequestURL(path), this->addheaders, StringToBlob(patchstatement));
+    IF(this->webbrowser->GetHTTPStatusCode() != 207)
+      THROW NEW Exception("Failed to apply the modification");
+  }
+
+  PUBLIC BLOB FUNCTION Get(STRING path)
+  {
+    RECORD ARRAY headers := this->addheaders;
+    this->webbrowser->SendRawRequest("GET", this->GetRequestURL(path), headers, DEFAULT BLOB);
+    IF(this->webbrowser->GetHTTPStatusCode() != 200)
+      THROW NEW Exception("Failed to get the requested resource");
+
+    RETURN this->webbrowser->content;
+  }
+
+  PUBLIC MACRO Put(STRING path, BLOB data, BOOLEAN overwrite)
+  {
+    RECORD ARRAY headers := this->addheaders;
+    IF(overwrite)
+      headers := headers CONCAT [[ field := "Overwrite", value := "1" ]];
+
+    this->webbrowser->SendRawRequest("PUT", this->GetRequestURL(path), headers, data);
+    IF(this->webbrowser->GetHTTPStatusCode() != 201)
+      THROW NEW Exception("Failed to put the requested resource");
+  }
+
+  PUBLIC MACRO DeleteResource(STRING path)
+  {
+    this->webbrowser->SendRawRequest("DELETE", this->GetRequestURL(path), this->addheaders, DEFAULT BLOB);
+    IF(this->webbrowser->GetHTTPStatusCode() NOT IN [204,207])
+      THROW NEW Exception("Failed to delete the requested resource");
+  }
+
+  PUBLIC MACRO CreateCollection(STRING path)
+  {
+    this->webbrowser->SendRawRequest("MKCOL", this->GetRequestURL(path), this->addheaders, DEFAULT BLOB);
+    IF(this->webbrowser->GetHTTPStatusCode() != 201)
+      THROW NEW Exception("Failed to create the requested collection");
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListDirectory(STRING dirpath)
+  {
+    RECORD ARRAY items := this->DoPropfind(dirpath, 1);
+    RETURN SELECT *
+             FROM items
+            WHERE path != "";
+    RETURN items;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListDirectoryRecursive(STRING dirpath)
+  {
+    RECORD ARRAY items := this->DoPropfind(dirpath, 2);
+    RETURN SELECT *
+             FROM items
+            WHERE path != "";
+    RETURN items;
+  }
+
+  PUBLIC MACRO Close()
+  {
+    IF(NOT this->webbrowser_is_supplied)
+      this->webbrowser->Close();
+    this->__webbrowser := DEFAULT OBJECT;
+  }
+>;

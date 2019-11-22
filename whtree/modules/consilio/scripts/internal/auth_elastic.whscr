@@ -1,0 +1,28 @@
+<?wh
+//LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+OpenPrimary();
+TryHTTPLogin("Elasticsearch", PTR GetPassword);
+
+RECORD FUNCTION ReadElasticsearchConfig()
+{
+  STRING secret := GetClusterKeyBase("elasticsecret");
+  RETURN [ username := ToLowercase(Left(secret, 8))
+         , password := Right(secret, 20)
+         ];
+}
+
+//ADDME: Currently, this just returns the local WebHare installation. When using
+//       a central ElasticSearch server, some form of WebHare registry
+//       containing the installations that may connect should be set up.
+RECORD FUNCTION GetPassword(STRING username)
+{
+  RECORD config := ReadElasticsearchConfig();
+  //LogDebug("auth_elastic", "GetPassword", username, config);
+  IF (username = config.username)
+    RETURN config;
+  RETURN DEFAULT RECORD;
+}

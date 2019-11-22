@@ -1,0 +1,225 @@
+<?wh
+
+// command: publisher:exportsite
+// short: export site(s) to disk (for transfer or backup)
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/any.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+INTEGER lastlen;
+
+MACRO ShowProgress(FLOAT progress, STRING file)
+{
+  STRING str := RIGHT("      " || FormatFloat(progress, 1), 5) || "%: " || UCLeft(file, 110);
+  INTEGER thislen := LENGTH(str);
+  IF (thislen < lastlen)
+    str := str || RepeatText(" ", lastlen - thislen);
+  PRINT(str || "\015");
+  lastlen := thislen;
+}
+
+INTEGER ARRAY FUNCTION GetTreeIDS(INTEGER beginid)
+{
+  INTEGER ARRAY folderids;
+  RECORD curfolder := (SELECT id, parent, highestparent FROM system.fs_objects WHERE id=beginid);
+  WHILE(RecordExists(curfolder))
+  {
+    curfolder := SELECT id, parent, highestparent FROM system.fs_objects WHERE id=curfolder.parent AND isfolder;
+    IF(NOT RecordExists(curfolder))
+      BREAK;
+
+    INSERT curfolder.id INTO folderids AT 0;
+    IF(curfolder.highestparent = curfolder.id)
+      BREAK; //at site root
+  }
+
+  RETURN folderids;
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "rotate", type := "stringopt" ]
+                                                     , [ name := "path", type := "stringopt" ]
+                                                     , [ name := "skip", type := "stringlist" ]
+                                                     , [ name := "split", type := "stringopt" ]
+                                                     , [ name := "ids", type := "stringopt" ]
+                                                     , [ name := "p", type := "switch" ]
+                                                     , [ name := "sites", type := "paramlist" ]
+                                                     ]);
+IF (NOT RecordExists(args) OR Length(args.sites) = 0)
+{
+  Print("Usage: wh publisher:exportsite [-p] [--rotate n] [--path p] [--skip site] [--ids ids] site [site ...]\n");
+  Print("       -p           Show progress\n");
+  Print("       --rotate n   The number of rotated archives to keep\n");
+  Print("       --path p     The path to store the archives in\n");
+  Print("       --skip site  Don't archive site (can be specified multiple times)\n");
+  Print("       --split size Place every 'size' MB of input data in a new archive\n");
+  Print("       --ids ids    Comma seperated list of objects to archive\n");
+  Print("       sites        The site(s) to archives, wildcards are permitted\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+STRING archivepath := ResolveToAbsolutePath(args.path);
+CreateDiskDirectoryRecursive(archivepath, TRUE);
+
+INTEGER numarchives := ToInteger(args.rotate, -1);
+INTEGER splitsize := ToInteger(args.split, 0);
+
+OBJECT trans := OpenPrimary();
+
+RECORD ARRAY sites_to_archive := SELECT name, id
+                                  FROM system.sites
+                                 WHERE __MatchesAnyMask(name, args.sites) AND NOT __MatchesAnyMask(name, args.skip)
+                              ORDER BY name;
+
+IF(Length(sites_to_archive)=0)
+  TerminateScriptWithError("No sites to archive!");
+
+FOREVERY (RECORD site FROM sites_to_archive)
+{
+  Print("Archiving site '" || site.name || "'\n");
+
+  trans->BeginWork();
+  trans->DisableWorkTimeout(); //needed to extract sites that take longer than an hour to extract
+
+  RECORD ARRAY archives;
+
+  INTEGER splitsize_bytes;
+  IF (splitsize != 0)
+  {
+    // Convert
+    splitsize_bytes := splitsize * 1024 * 1024;
+
+    INTEGER max_splitsize := 1 BITLSHIFT 30; // Currently max 1 gig, please.
+    IF (splitsize_bytes <= 0 OR splitsize_bytes > max_splitsize)
+      splitsize_bytes := max_splitsize;
+  }
+
+  RECORD opts := [ onprogress := PTR ShowProgress
+                 , splitsize := splitsize_bytes
+                 ];
+
+  IF(args.ids != "")
+  {
+    INTEGER ARRAY limitobjects;
+    FOREVERY(STRING idstr FROM Tokenize(args.ids,','))
+    {
+      INTEGER id := ToInteger(TrimWhitespace(idstr),0);
+      IF(id <= 0)
+        THROW NEW Exception(`Invalid id '${idstr}'`);
+      INSERT id INTO limitobjects AT END;
+    }
+
+    //We alsno need all their parents recursively
+    FOREVERY(INTEGER id FROM limitobjects)
+      FOREVERY(INTEGER parent FROM GetTreeIDS(id))
+        IF(parent NOT IN limitobjects)
+          INSERT parent INTO limitobjects AT END;
+
+    INSERT CELL limitobjects := limitobjects INTO opts;
+  }
+  archives := OpenWHFSObject(site.id)->ExportFolder(opts).files;
+
+  IF (args.p)
+  {
+    PRINT("100.0%: done" || RepeatText(" " , lastlen - 4) || "\n"); // Skip progress line
+    lastlen := 0;
+  }
+
+  trans->RollbackWork();
+
+  STRING archivename := site.name;
+
+  STRING error;
+  IF (RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename || ".wharchive"))) OR
+      RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename || ".000.wharchive"))) OR
+      RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename || ".zip"))) OR
+      RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename || ".000.zip"))))
+  {
+    // Archive already exists, rotate
+    INTEGER lastarchiveid := 0;
+
+    // Enumerate existing archives
+    WHILE (RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename) || ".r" || (lastarchiveid + 1) || ".wharchive"))
+        OR RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename) || ".r" || (lastarchiveid + 1) || ".000.wharchive"))
+        OR RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename) || ".r" || (lastarchiveid + 1) || ".zip"))
+        OR RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename) || ".r" || (lastarchiveid + 1) || ".000.zip")))
+      lastarchiveid := lastarchiveid + 1;
+
+    FOR (INTEGER n := lastarchiveid; n >= 0; n := n - 1)
+    {
+      STRING idtag := n = 0 ? "" : ".r" || n;
+      STRING newidtag := ".r" || n + 1;
+
+      INTEGER archiveparts := 1;
+
+      WHILE (RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename) || idtag || "." || Right("00"||archiveparts,3) || ".wharchive"))
+          OR RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename) || idtag || "." || Right("00"||archiveparts,3) || ".zip")))
+        archiveparts := archiveparts + 1;
+
+      // For every part
+      FOR (INTEGER idx := 0; idx < archiveparts; idx := idx + 1)
+      {
+        STRING parttag := "." || Right("00"||idx,3);
+        IF (idx = 0 AND (RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename) || idtag || ".wharchive")) OR RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename) || idtag || ".zip"))))
+          parttag := "";
+
+        STRING ext := ".zip";
+        STRING filename := MergePath(archivepath,archivename) || idtag || parttag || ".zip";
+        IF (RecordExists(GetDiskFileProperties(MergePath(archivepath,archivename) || idtag || parttag || ".wharchive")))
+        {
+          ext := ".wharchive";
+          filename := MergePath(archivepath,archivename) || idtag || parttag || ext;
+        }
+
+        IF (n >= numarchives)
+        {
+          IF (NOT DeleteDiskFile(filename))
+          {
+            error := "Could not delete '" || filename || "'";
+            BREAK;
+          }
+        }
+        ELSE
+        {
+          STRING new_filename := MergePath(archivepath,archivename) || newidtag || parttag || ext;
+
+          IF (NOT MoveDiskPath(filename, new_filename))
+          {
+            error := "Could not move '" || filename || "' to '" || new_filename || "'";
+            BREAK;
+          }
+        }
+      }
+      IF (error != "")
+        BREAK;
+    }
+  }
+
+  IF (error != "")
+  {
+    Print(error || "\n");
+    CONTINUE;
+  }
+
+  FOREVERY (RECORD file FROM archives)
+    StoreDiskFile(MergePath(archivepath, file.filename), file.data, [ overwrite := TRUE ]);
+
+  IF (error != "")
+  {
+    Print(error || "\n");
+    CONTINUE;
+  }
+
+  PRINT("Site archived in " || MergePath(archivepath, archives[0].filename));
+  IF(Length(archives) > 1)
+    PRINT(" - " || MergePath(archivepath, archives[END-1].filename));
+  Print("\n");
+}

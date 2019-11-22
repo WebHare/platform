@@ -1,0 +1,87 @@
+<?wh
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE Queries EXTEND MonitorPanelBase
+<
+  RECORD ARRAY seenqueries;
+
+  MACRO NEW()
+  {
+
+  }
+  UPDATE PUBLIC MACRO EnableRefresh()
+  {
+    ^consiliolistener->masks := ["consilio:executedquery"];
+  }
+  UPDATE PUBLIC MACRO DisableRefresh()
+  {
+    ^consiliolistener->masks := DEFAULT STRING ARRAY;
+  }
+
+  UPDATE PUBLIC MACRO OnConsilioEvents(RECORD ARRAY events)
+  {
+    FOREVERY(RECORD evt FROM events)
+    {
+      IF(evt.data.isstart)
+      {
+        INSERT evt.data INTO this->seenqueries AT END;
+      }
+      ELSE
+      {
+        //ADDME: if evt.isstart = false, we can update numresults and the time the query took
+      }
+    }
+
+    IF(Length(this->seenqueries) > 100)
+      this->seenqueries := ArraySlice(this->seenqueries, Length(this->seenqueries)-100, 100);
+
+    this->RefreshEvents();
+  }
+  PUBLIC MACRO DoClearQueries()
+  {
+    this->seenqueries := RECORD[];
+    this->RefreshEvents();
+  }
+  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  {
+    this->RefreshEvents();
+  }
+
+  MACRO RefreshEvents()
+  {
+    ^queries->rows := SELECT rowkey := uuid
+                           , query := CellExists(seenqueries,'query') ? query : EncodeJSON(searchquery) //ES gives us searchquery
+                           , searchquery := CellExists(seenqueries,'searchquery') ? searchquery : DEFAULT RECORD
+                           , iselastic := CellExists(seenqueries,'searchquery')
+                           , catalog
+                           , when := now
+                        FROM this->seenqueries;
+}
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+
+  MACRO DoOpenQuery()
+  {
+    RECORD query := ^queries->selection;
+    IF(query.iselastic)
+    {
+      this->LoadScreen("mod::consilio/tolliumapps/elasticsearch.xml#inspectquery",
+        [ indexmanager := query.catalog
+        , query := query.searchquery
+        ])->RunModal();
+    }
+    ELSE
+    {
+      OBJECT scr := this->LoadScreen("consilio:catalog.catalogpreview",
+        [ catalog := TRUE
+        , tag := query.catalog
+        , id := 0
+        , query := query.searchquery
+        ]);
+      scr->RunModal();
+    }
+  }
+>;

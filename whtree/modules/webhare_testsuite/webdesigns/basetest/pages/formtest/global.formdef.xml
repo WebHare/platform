@@ -1,0 +1,7 @@
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms" gid="site">
+  <form name="globaltest" gid='.globaltest' library="formtest.whlib" objectname="GlobalTestForm" idprefix="myglobalform-" jshandler="globalform">
+    <page>
+      <textedit validationchecks="email" name="email" required="1" title="Email" />
+    </page>
+  </form>
+</formdefinitions>

@@ -1,0 +1,815 @@
+﻿<?wh
+
+/** @topic tollium/appdev
+*/
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/registry.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+LOADLIB "mod::wrd/lib/internal/authobjects.whlib";
+
+
+// The registry key where messagebox results are stored ("don't bug me")
+STRING __dialogresult_regkey := "tollium.dialogresult";
+STRING __componentstate_regkey := "tollium.savestate";
+
+/* @short Format the size of a file to a readable format, using either 'bytes', 'kB', 'MB' or 'GB'
+    @long Returns a formatted value of a file size.
+    @param size The size of the file
+    @param decimals Number of decimals to use
+    @param decimalseparator The separator to be used, if the decimals parameter is larger than 0. If left empty, "." will be used.
+    @param showbytes If false, sizes less than 1 kB are shown as '1 kB', otherwise the suffix 'bytes' is used to show the exact number of bytes
+    @return A formatted string of the submitted file size
+    @example
+    // This will return: "4.000 MB"
+    STRING size := FormatFileSize(4194288, 3, "", TRUE);
+
+    // This will return: "113 bytes"
+    STRING size := FormatFileSize(113, 2, "", TRUE);
+
+    // This will return: "1 kB"
+    STRING size := FormatFileSize(113, 2, "", FALSE);
+
+    // This will return: "1,177375 MB"
+    STRING size := FormatFileSize(1234567, 6, "," TRUE);
+*/
+STRING FUNCTION MyFormatFileSize(INTEGER64 fsize, INTEGER decimals, STRING decimalseparator, BOOLEAN showbytes)
+{
+  STRING filesize, sizetype;
+  FLOAT size := FLOAT(fsize); //ADDME use integer calculation, not float
+
+  IF (size>=1073737728f)
+  {
+    FLOAT formatsize := size / 1073737728f;
+    IF (decimals = 0)
+      formatsize := Ceil(formatsize);
+    filesize := FormatFloat(formatsize, decimals);
+    sizetype := 'GB';
+  }
+  ELSE IF (size>=1048572)
+  {
+    FLOAT formatsize := size / 1048576;
+    IF (decimals = 0)
+      formatsize := Ceil(formatsize);
+    filesize := FormatFloat(formatsize, decimals);
+    sizetype := 'MB';
+  }
+  ELSE IF (NOT showbytes OR size>=1024)
+  {
+    FLOAT formatsize := size / 1024;
+    IF (decimals = 0)
+      formatsize := Ceil(formatsize);
+    filesize := FormatFloat(formatsize, decimals);
+    sizetype := 'kB';
+  }
+  ELSE
+    RETURN fsize || ' bytes';
+
+  IF (decimals > 0 AND decimalseparator != "")
+    filesize := Substitute(filesize, ".", decimalseparator);
+
+  RETURN filesize || ' ' || sizetype;
+}
+
+
+/** @short The Tollium user object
+*/
+PUBLIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Read settings from registry?
+  BOOLEAN pvt_readsettings;
+
+  ///Languagecode (in lowercase, eg 'en') - do not add subcodes (such as 'en-us')
+  STRING pvt_language;
+
+  ///Date format tokens for long/readonly dates. Only the characters "DBMY-./" are allowed in this string!
+  STRING pvt_longdateformat;
+
+  ///Date format tokens for short/editable dates. Only the characters "DBMY-./" are allowed in this string!
+  STRING pvt_shortdateformat;
+
+  ///Placeholder for short/editable dates. Only the characters "DBMY-./" are allowed in this string!
+  STRING pvt_shortdateplaceholder;
+
+  ///User time zone (UTC or GMT)
+  STRING pvt_timezone;
+
+  ///Military time? (24h)
+  BOOLEAN pvt_timemilitary;
+
+  ///Decimal separator
+  STRING pvt_decimalseparator;
+
+  ///Thousands separator
+  STRING pvt_thousandseparator;
+
+  RECORD ARRAY pvt_delayedsets;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  ///User login name
+  PUBLIC STRING login;
+
+  ///User real name (as to be shown in signatures and email messages)
+  PUBLIC STRING realname;
+
+  ///User email address (as to be shown as sender in email messages)
+  PUBLIC STRING emailaddress;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  ///Languagecode (in lowercase, eg 'en') - do not add subcodes (such as 'en-us')
+  PUBLIC PROPERTY language(GetLanguage, SetLanguage);
+
+  ///Date format tokens for long/readonly dates. Only the characters "DBMY-./" are allowed in this string!
+  PUBLIC PROPERTY longdateformat(GetLongDateFormat, SetLongDateFormat);
+
+  ///Date format tokens for short/editable dates. Only the characters "DBMY-./" are allowed in this string!
+  PUBLIC PROPERTY shortdateformat(GetShortDateFormat, SetShortDateFormat);
+
+  ///Date format tokens for short/editable dates. Only the characters "DBMY-./" are allowed in this string!
+  PUBLIC PROPERTY shortdateplaceholder(GetShortDatePlaceholder, -);
+
+  ///User time zone (UTC or GMT)
+  PUBLIC PROPERTY timezone(GetTimezone, SetTimezone);
+
+  ///Military time? (24h)
+  PUBLIC PROPERTY timemilitary(GetTimeMilitary, SetTimeMilitary);
+
+  ///Decimal separator
+  PUBLIC PROPERTY decimalseparator(GetDecimalSeparator, SetDecimalSeparator);
+
+  ///Thousands separator
+  PUBLIC PROPERTY thousandseparator(GetThousandsSeperator, SetThousandsSeperator);
+
+  /// Legacy datetokens, redirected to longdateformat. ADDME: fix all code to NOT use this property
+  PUBLIC PROPERTY datetokens(GetLongDateFormat, SetLongDateFormat);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  STRING pvt_registryrootname;
+
+  /** Creates a new tollium user object
+      @param authapi User API
+      @param entity WRD entity of the user
+      @param authobjectid Authobject ID of the user
+      @param registryrootname Name of the registry node to store user settings in
+  */
+  MACRO NEW(OBJECT authapi, OBJECT entity, INTEGER authobjectid, STRING registryrootname)
+  : WRDAuthUser(authapi, entity, authobjectid)
+  {
+    this->pvt_registryrootname := registryrootname;
+    this->pvt_language := "en";
+    this->pvt_longdateformat :="N B Y";
+    this->pvt_shortdateformat :="D-M-Y";
+    this->pvt_shortdateplaceholder := "dd-mm-yyyy";
+    this->pvt_timezone := "Europe/Amsterdam";
+    this->pvt_timemilitary := TRUE;
+    this->pvt_decimalseparator := ",";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RequireRegistrySettings()
+  {
+    IF (NOT this->pvt_readsettings AND ObjectExists(this->entity))
+      this->LoadSettingsFromRegistry();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetLanguage()
+  {
+    this->RequireRegistrySettings();
+    RETURN this->pvt_language;
+  }
+
+  MACRO SetLanguage(STRING lang)
+  {
+    this->RequireRegistrySettings();
+    this->pvt_language := lang;
+  }
+
+  STRING FUNCTION GetLongDateFormat()
+  {
+    this->RequireRegistrySettings();
+    RETURN this->pvt_longdateformat;
+  }
+
+  MACRO SetLongDateFormat(STRING newformat)
+  {
+    this->RequireRegistrySettings();
+    this->pvt_longdateformat := newformat;
+  }
+
+  STRING FUNCTION GetShortDateFormat()
+  {
+    this->RequireRegistrySettings();
+    RETURN this->pvt_shortdateformat;
+  }
+
+  STRING FUNCTION GetShortDatePlaceholder()
+  {
+    this->RequireRegistrySettings();
+    RETURN this->pvt_shortdateplaceholder;
+  }
+
+  MACRO SetShortDateFormat(STRING newformat)
+  {
+    this->RequireRegistrySettings();
+    this->pvt_shortdateformat := newformat;
+  }
+
+  STRING FUNCTION GetTimezone()
+  {
+    this->RequireRegistrySettings();
+    RETURN this->pvt_timezone;
+  }
+
+  MACRO SetTimezone(STRING newzone)
+  {
+    this->RequireRegistrySettings();
+    this->pvt_timezone := newzone;
+  }
+
+  BOOLEAN FUNCTION GetTimeMilitary()
+  {
+    this->RequireRegistrySettings();
+    RETURN this->pvt_timemilitary;
+  }
+
+  MACRO SetTimeMilitary(BOOLEAN newtimemilitary)
+  {
+    this->RequireRegistrySettings();
+    this->pvt_timemilitary := newtimemilitary;
+  }
+
+  STRING FUNCTION GetDecimalSeparator()
+  {
+    this->RequireRegistrySettings();
+    RETURN this->pvt_decimalseparator;
+  }
+
+  MACRO SetDecimalSeparator(STRING newseparator)
+  {
+    this->RequireRegistrySettings();
+    this->pvt_decimalseparator := newseparator;
+  }
+
+  STRING FUNCTION GetThousandsSeperator()
+  {
+    this->RequireRegistrySettings();
+    RETURN this->pvt_thousandseparator;
+  }
+
+  MACRO SetThousandsSeperator(STRING newseparator)
+  {
+    this->RequireRegistrySettings();
+    this->pvt_thousandseparator := newseparator;
+  }
+
+  /// Immediately applies all delayed registry key sets (but only if work isn't open)
+  PUBLIC MACRO ApplyDelayedRegistrySets()
+  {
+    IF(Length(this->pvt_delayedsets) = 0 //nothing to do
+       OR GetPrimary()->IsWorkOpen()) //not touching open work
+      RETURN;
+
+    GetPrimary()->BeginWork();
+
+    FOREVERY (RECORD rec FROM this->pvt_delayedsets)
+      this->SetRegistryKey(rec.regkey, rec.value);
+
+    GetPrimary()->CommitWork();
+    this->pvt_delayedsets := DEFAULT RECORD ARRAY;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Registry
+  //
+
+  /** Read a user registry key
+      @param regkey Key name
+      @param options @includecelldef mod::system/lib/configure.whlib#ReadRegistryKey.options
+      @return Value of registry key. Throws if the key does not exist and no fallback has been provided.
+  */
+  PUBLIC VARIANT FUNCTION ReadRegistryKey(STRING regkey, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN ReadRegistryKey(this->pvt_registryrootname || "." || regkey,options);
+  }
+
+  /** @short Get all keys in a user registry node
+      @param regkey Registry node name
+      @return @includecelldef mod::system/lib/configure.whlib#ReadRegistryNode.return
+  */
+  PUBLIC VARIANT FUNCTION ReadRegistryNode(STRING regkey)
+  {
+    RETURN ReadRegistryNode(this->pvt_registryrootname || "." || regkey);
+  }
+
+  /** @short Set a user registry key if it exists
+      @param regkey Key name
+      @param value New value (must be of the same type as the existing key)
+      @param options @includecelldef mod::system/lib/configure.whlib#WriteRegistryKey.options
+  */
+  PUBLIC MACRO WriteRegistryKey(STRING regkey, VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    WriteRegistryKey(this->pvt_registryrootname || "." || regkey,value,options);
+  }
+
+  /** Read a user registry key
+      @param regkey Key name
+      @param defaultvalue Value to return if the key doesn't exist (also used for type validation)
+      @return Registry key value
+  */
+  PUBLIC VARIANT FUNCTION GetRegistryKey(STRING regkey, VARIANT defaultvalue)
+  {
+    RETURN ReadRegistryKey(this->pvt_registryrootname || "." || regkey, [ fallback := defaultvalue ]);
+  }
+
+  /** Creates/sets a user registry key, opens work if needed
+      @param regkey Key name
+      @param value to set
+  */
+  PUBLIC MACRO SetRegistryKey(STRING regkey, VARIANT value)
+  {
+    GetPrimary()->PushWork();
+    WriteRegistryKey(this->pvt_registryrootname || "." || regkey, value, [ createifneeded := TRUE]);
+    GetPrimary()->PopWork();
+  }
+
+  /** Schedules delayed setting of a registry key
+      @param regkey Registry node name
+      @param value New value (must be of the same type as the existing key)
+  */
+  PUBLIC MACRO DelayedSetRegistryKey(STRING regkey, VARIANT value)
+  {
+    IF (LENGTH(this->pvt_delayedsets) = 0)
+      RegisterTimedCallback(AddTimeToDate(500, GetCurrentDateTime()), PTR this->ApplyDelayedRegistrySets);
+
+    RECORD rec := [ regkey := regkey, value := value ];
+    RECORD pos := RecordLowerBound(this->pvt_delayedsets, rec, [ "REGKEY" ]);
+    IF (pos.found)
+      DELETE FROM this->pvt_delayedsets AT pos.position;
+    INSERT rec INTO this->pvt_delayedsets AT pos.position;
+  }
+
+  /** Deletes a user registry node. Opens work if it hasn't been opened yet.
+      @param regkey Name of the registry node to delete
+  */
+  PUBLIC UPDATE MACRO DeleteRegistryNode(STRING regkey)
+  {
+    GetPrimary()->PushWork();
+    TRY
+    {
+      __DeleteRegistryNode(this->pvt_registryrootname || "." || regkey);
+    }
+    FINALLY
+    {
+      GetPrimary()->PopWork();
+    }
+  }
+
+  /** Deletes a user registry key. Opens work if it hasn't been opened yet.
+      @param regkey Name of the registry key to delete
+  */
+  PUBLIC UPDATE MACRO DeleteRegistryKey(STRING regkey)
+  {
+    GetPrimary()->PushWork();
+    TRY
+    {
+      DeleteRegistryKey(this->pvt_registryrootname || "." || regkey);
+    }
+    FINALLY
+    {
+      GetPrimary()->PopWork();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Get locale settings for this user
+      @return Locale settings
+      @cell return.thousandseparator Thousands seperator for numbers
+      @cell return.decimalseparator Decimal separator for numbers
+      @cell return.language Language code
+      @cell return.timezone Timezone (eg 'Europe/Amsterdam')
+  */
+  PUBLIC RECORD FUNCTION GetLocale()
+  {
+    RECORD locale := ValidateOptions([ thousandseparator := "---"
+                                     , decimalseparator := ""
+                                     , language := ""
+                                     , timezone := ""
+                                     , longdateformat := "" //not currently used!
+                                     , shortdateformat := "" //not currently used!
+                                     , timemilitary := TRUE //not currently used!
+                                     ], this->GetRegistryKey("tollium.locale", DEFAULT RECORD));
+    IF(locale.thousandseparator = "---")
+      locale.thousandseparator := ReadRegistryKey("system.userrights.newuserdefaults_thousandsep");
+    IF(locale.decimalseparator = "")
+      locale.decimalseparator := ReadRegistryKey("system.userrights.newuserdefaults_decimalsep");
+
+    //make sure the decimal separator is always 'safe' and something valuetype=money understands
+    IF(locale.decimalseparator NOT IN [ ".", ",", ":" ] OR locale.decimalseparator = locale.thousandseparator)
+      locale.decimalseparator := locale.thousandseparator = "." ? "," : ".";
+
+    IF(locale.language = "")
+      locale.language := ReadRegistryKey("system.userrights.newuserdefaults_language") ?? "en";
+    IF(locale.timezone = "")
+      locale.timezone := ReadRegistryKey("system.userrights.newuserdefaults_timezone")  ?? "Europe/Amsterdam";
+    RETURN locale;
+  }
+
+  /** Updates locale settings for a user
+      @param newsettings Setting updates @includecelldef #GetLocale.return
+  */
+  PUBLIC MACRO SetLocale(RECORD newsettings)
+  {
+    this->SetRegistryKey("tollium.locale", ValidateOptions(this->GetLocale(), newsettings));
+  }
+
+  RECORD FUNCTION GetCachableUserSettings()
+  {
+    RETURN
+        [ ttl := 5 * 60 * 1000
+        , eventmasks := [ "tollium:userprefs.all", "tollium:userprefs." || this->entityid ]
+        , value := this->GetLocale()
+        ];
+  }
+
+  STRING FUNCTION GetDateFormatString(BOOLEAN shortformat)
+  {
+    RETURN GetDateFormatString(shortformat ? this->shortdateformat : this->longdateformat, shortformat);
+  }
+
+  STRING FUNCTION GetTimeFormatString(STRING precision)
+  {
+    SWITCH(precision)
+    {
+      CASE 'minutes'      { RETURN this->timemilitary ? "%H:%M"       : "%#I:%M %p"; }
+      CASE 'seconds'      { RETURN this->timemilitary ? "%H:%M:%S"    : "%#I:%M:%S %p"; }
+      CASE 'milliseconds' { RETURN this->timemilitary ? "%H:%M:%S.%Q" : "%#I:%M:%S.%Q %p"; }
+      DEFAULT  { ABORT("Unsupported precision '" || precision || "', supported: minutes, seconds, milliseconds"); }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns the saved state of a component
+      @param savestatekey Key identifying the component
+      @return Saved component state
+  */
+  PUBLIC RECORD FUNCTION GetComponentState(STRING savestatekey)
+  {
+    IF (savestatekey = "")
+      RETURN DEFAULT RECORD;
+    savestatekey := EncodeBase16(GetMD5Hash(savestatekey));
+    RETURN this->GetRegistryKey(__componentstate_regkey || "." || savestatekey, DEFAULT RECORD);
+  }
+
+  /** Sets the saved state for a component
+      @param savestatekey Key identifying the component
+      @param state Component state to save
+  */
+  PUBLIC MACRO SetComponentState(STRING savestatekey, RECORD state)
+  {
+    IF (savestatekey = "" OR IsDatabaseReadOnly())
+      RETURN;
+
+    STRING savestatehash := EncodeBase16(GetMD5Hash(savestatekey));
+
+    STRING keynode := __componentstate_regkey || "." || savestatehash;
+    IF(NOT RecordExists(state))
+    {
+      this->DeleteRegistryNode(keynode);
+      RETURN;
+    }
+
+    //Also store the original name of the savestatekey, just in case we want to enumerate it for cleanup at some point
+    this->SetRegistryKey(__componentstate_regkey || "." || savestatehash, CELL[ savestatekey, ...state]);
+  }
+
+  /** Returns the saved result for a message box
+      @param dlgid Key identifying the message box
+      @param buttons List of buttons in the message box
+      @return Saved result ("" if none available)
+  */
+  PUBLIC STRING FUNCTION GetMessageBoxResult(STRING dlgid, STRING ARRAY buttons)
+  {
+    STRING result := this->GetRegistryKey(__dialogresult_regkey||"."||dlgid, "");
+    RETURN result IN buttons ? result : "";
+  }
+
+  /** Saved the result for a message box
+      @param dlgid Key identifying the message box
+      @param result Result to save for this message box
+  */
+  PUBLIC MACRO SetMessageBoxResult(STRING dlgid, STRING result)
+  {
+    this->SetRegistryKey(__dialogresult_regkey||"."||dlgid, result);
+  }
+
+  // Date and time formatting functions
+
+  /** @short Convert a UTC date and time to the user's time zone
+      @param value The date and time to convert
+      @return The localized date and time
+  */
+  PUBLIC DATETIME FUNCTION UTCToLocal(DATETIME value)
+  {
+    RETURN UTCToLocal(value, this->timezone);
+  }
+
+  /** @short Convert a user's local date and time to UTC
+      @param value The date and time to convert
+      @return The UTC date and time
+  */
+  PUBLIC DATETIME FUNCTION LocalToUTC(DATETIME value)
+  {
+    RETURN LocalToUTC(value, this->timezone);
+  }
+
+  /** @short Format a given UTC date according to the user's preferences
+      @long First, the given DATETIME value is converted to the user's local date
+            and time, then it is formatted using the user's dateformat setting.
+      @param value The date to format
+      @param stored_utc True if date is stored in UTC and should be converted to the user's local time
+      @param shortformat True for the short date format (numerical month instead of month name)
+      @return The formatted date
+  */
+  PUBLIC STRING FUNCTION FormatDate(DATETIME value, BOOLEAN stored_utc, BOOLEAN shortformat)
+  {
+    RETURN FormatDateTime(this->GetDateFormatString(shortformat), stored_utc ? this->UTCToLocal(value) : value, this->language);
+  }
+
+  /** @short Format a given UTC time according to the user's preferences
+      @long First, the given DATETIME value is converted to the user's local date
+            and time, then it is formatted using the user's timeformat setting.
+      @param value The time to format
+      @param precision Use either "milliseconds", "seconds" or "minutes"
+      @param stored_utc True if date is stored in UTC and should be converted to the user's local time
+      @return The formatted time
+  */
+  PUBLIC STRING FUNCTION FormatTime(DATETIME value, STRING precision, BOOLEAN stored_utc)
+  {
+    RETURN FormatDateTime(this->GetTimeFormatString(precision), stored_utc ? this->UTCToLocal(value) : value, this->language);
+  }
+
+  /** @short Format a given timestamp according to the user's preferences
+      @param value The time to format, in milliseconds
+      @param precision Optional, use either "milliseconds", "seconds" or "minutes"
+      @return The formatted time
+  */
+  PUBLIC STRING FUNCTION FormatTimestamp(INTEGER64 value, STRING precision)
+  {
+    RETURN FormatTimestamp(this->GetTimeFormatString(precision), value, this->language);
+  }
+
+  /** @short Format a given UTC date and time according to the user's preferences
+      @long First, the given DATETIME value is converted to the user's local date
+            and time, then it is formatted using the user's dateformat and
+            timeformat settings.
+      @param value The date and time to format
+      @param precision Use either "milliseconds", "seconds" or "minutes"
+      @param stored_utc True if the datetime is stored in UTC and should be converted to the user's local time
+      @param shortformat True for the short date format (numerical month instead of month name)
+      @return The formatted date and time
+  */
+  PUBLIC STRING FUNCTION FormatDateTime(DATETIME value, STRING precision, BOOLEAN stored_utc, BOOLEAN shortformat)
+  {
+    RETURN FormatDateTime(this->GetDateFormatString(shortformat) || " " || this->GetTimeFormatString(precision)
+                         , stored_utc ? this->UTCToLocal(value) : value
+                         , this->language
+                         );
+  }
+
+  /** @short Format a given time span
+      @param days Number of days in the time span
+      @param msecs Number of milliseconds, negative values or values larger than the # of msecs in a days are acceptable
+      @param precision Use either "milliseconds", "seconds" or "minutes" for a long text ("2 hours, 5 minutes..")) or "short-milliseconds", "short-seconds", "short-minutes" for numeric only ("2:15")
+      @return The formatted time span (i.e. number of years, months, weeks, days, hours, etc.)
+  */
+  PUBLIC STRING FUNCTION FormatTimespan(INTEGER64 days, INTEGER64 msecs, STRING precision DEFAULTSTO "seconds")
+  {
+    BOOLEAN short := precision LIKE "short-*";
+    IF(short)
+      precision := Substring(precision, 6);
+
+    IF(precision NOT IN ["minutes","seconds","milliseconds"])
+      THROW NEW Exception(`Invalid timespan precision '${precision}'`);
+
+    STRING timespan;
+
+    IF (msecs<0)
+    {
+      IF (msecs <= -(24*60*60*1000))
+      {
+        INTEGER64 to_subtract := (-msecs)/(24*60*60*1000);
+        days := days - to_subtract;
+        msecs := msecs + to_subtract*(24*60*60*1000);
+      }
+      IF (msecs < 0) //counted too many days?
+      {
+        days := days - 1;
+        msecs := msecs + (24*60*60*1000);
+      }
+    }
+    ELSE IF (msecs > (24*60*60*1000))
+    {
+      days := days + msecs/(24*60*60*1000);
+      msecs := msecs % (24*60*60*1000);
+    }
+    IF (days<0)
+    {
+      //negative timespans not supported
+      days := 0;
+      msecs := 0;
+    }
+
+    IF(short)
+    {
+      STRING format := GetCell([ minutes := "%#&H:%M", seconds := "%#&H:%M:%S", milliseconds := "%#&H:%M:%S.%Q" ], precision);
+      RETURN FormatTimestamp(format, days * 86400000i64 + msecs);
+    }
+
+    IF (days>=1)
+    {
+      timespan := timespan || ", " || days || " " || (days = 1 ?
+                                                           GetTid('tollium:common.units.day') :
+                                                           GetTid('tollium:common.units.days'));
+    }
+    INTEGER64 numhours := msecs / (60*60*1000);
+    IF (numhours>=1)
+    {
+      timespan := timespan || ", " || numhours || " " || (numhours = 1 ?
+                                                           GetTid('tollium:common.units.hour') :
+                                                           GetTid('tollium:common.units.hours'));
+      msecs := msecs - (numhours*60*60*1000);
+    }
+    INTEGER64 numminutes := msecs / (60*1000);
+    IF (numminutes>=1)
+    {
+      timespan := timespan || ", " || numminutes || " " || (numminutes = 1 ?
+                                                           GetTid('tollium:common.units.minute') :
+                                                           GetTid('tollium:common.units.minutes'));
+      msecs := msecs - (numminutes*60*1000);
+    }
+    IF(precision != "minutes")
+    {
+      INTEGER64 numseconds := msecs / 1000;
+      IF (numseconds>=1 OR timespan="")
+      {
+        timespan := timespan || ", " || numseconds || " " || (numseconds = 1 ?
+                                                             GetTid('tollium:common.units.second') :
+                                                             GetTid('tollium:common.units.seconds'));
+      }
+      IF(precision = "milliseconds")
+      {
+        msecs := msecs % 1000;
+        IF (msecs>=1 OR timespan="")
+        {
+          timespan := timespan || ", " || numseconds || " " || (msecs = 1 ?
+                                                               GetTid('tollium:common.units.millisecond') :
+                                                               GetTid('tollium:common.units.milliseconds'));
+        }
+      }
+    }
+    RETURN Substring(timespan,2,1000); //strip first comma and space..
+  }
+
+  /** @short Format a money value partly according to the user's preferences
+      @long This function returns a money value as a string. The user's separator
+            preference (for both the decimal (for example the ".") and the thousand seperator
+            (for example ",")) will be applied.
+      @param value The money value to format
+      @param decimals The number of decimals (range 0 to 5)
+      @param round Indicates if the value needs to be rounded (or expanded)
+      @return The formatted money
+  */
+  PUBLIC STRING FUNCTION FormatMoney(MONEY value, INTEGER decimals, BOOLEAN round)
+  {
+    RETURN FormatMoney(value, decimals, this->decimalseparator, this->thousandseparator, round);
+  }
+
+  /** @short Format a float value partly according to the user's preferences
+      @long This function returns a money value as a string. The user's separator
+            preference (only for the decimal (for example the ".") seperator)
+            will be applied.
+      @param value The float value to format
+      @param decimals The number of decimals (range 0 to 5)
+      @return The formatted float
+  */
+  PUBLIC STRING FUNCTION FormatFloat(FLOAT value, INTEGER decimals)
+  {
+    // FormatFloat always uses "." as decimal separator, replace it with our user's decimal separator
+    RETURN Substitute(FormatFloat(value, decimals), ".", this->decimalseparator);
+  }
+
+  /** @short Format the size of a file to a readable format, based on user's settings like language and decimal separator
+      @param filesize The size of the file
+      @param decimals Number of decimals to use
+      @param showbytes If false, sizes less than 1 kB are shown as '1 kB', otherwise the suffix 'bytes' is used to show the exact number of bytes
+      @return A formatted string of the submitted file size
+  */
+  PUBLIC STRING FUNCTION FormatFileSize(INTEGER64 filesize, INTEGER decimals, BOOLEAN showbytes DEFAULTSTO TRUE)
+  {
+    RETURN MyFormatFileSize(filesize, decimals, this->decimalseparator, showbytes);
+  }
+
+  /** Reads the settings from this user from the registry
+  */
+  PUBLIC MACRO LoadSettingsFromRegistry()
+  {
+    RECORD rec := GetAdhocCached(
+          [ type := "userprefs"
+          , id := this->entityid
+          ], PTR this->GetCachableUserSettings());
+
+    this->pvt_language :=          rec.language;
+    //this->pvt_longdateformat :=    "N B Y";
+    //this->pvt_shortdateformat :=   "D-M-Y";
+    this->pvt_shortdateplaceholder := rec.language="en" ? "dd-mm-YYYY" : "dd-mm-JJJJ";
+
+    this->pvt_timezone :=          rec.timezone;
+    this->pvt_timemilitary :=      TRUE; //for all languages we currently care about
+    this->pvt_thousandseparator := rec.thousandseparator;
+    this->pvt_decimalseparator :=  rec.decimalseparator;
+    this->pvt_readsettings :=      TRUE;
+  }
+
+  /** Encodes this user for marshalling accress job boundaries
+      @return Marshalling data
+      @see mod::wrd/lib/internal/userapi.whlib#ReconstructUserFromMarshallInfo
+  */
+  PUBLIC RECORD FUNCTION GetUserMarshallInfo()
+  {
+    //We may not have a schema if overridetoken is exactive
+    RETURN [ __usermarshallinfo := [ wrdschema := ObjectExists(this->entity) ? this->entity->wrdtype->wrdschema->id : 0
+                                   , entityid := this->entityid
+                                   ]
+           ];
+  }
+
+  /** Returns userdata for logging purposes
+      @return @includecelldef #WRDAuthUser::GetUserDataForLogging.return
+      @cell return.login Login name
+      @cell return.realname Real name
+      @cell return.emailaddress E-mail address
+  */
+  UPDATE PUBLIC RECORD FUNCTION GetUserDataForLogging()
+  {
+    RETURN CELL[ ...WRDAuthUser::GetUserDataForLogging()
+               , login :=        this->login
+               , realname :=     this->realname
+               , emailaddress := this->emailaddress
+               ];
+  }
+
+  /** Returns whether to show developer options and apps
+      @return TRUE if developer options and apps should be shown
+  */
+  PUBLIC BOOLEAN FUNCTION ShowDeveloperOptions()
+  {
+    RETURN this->HasRight("system:sysop") AND this->GetRegistryKey("system.prefs.showdeveloperapps", FALSE);
+  }
+>;

@@ -1,0 +1,251 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+PUBLIC STRING FUNCTION PrepareHistoryURLForDisplay(STRING inurl)
+{
+  RETURN "https:" || Substitute(inurl, '%20', '%2520');
+}
+
+PUBLIC STRING FUNCTION NormalizeHistoryURL(STRING inurl)
+{
+  IF(inurl LIKE "//*")
+    inurl := "http:" || inurl;
+  IF(inurl LIKE "*#*")
+    inurl := Left(inurl, SearchSubstring(inurl,'#'));
+
+  RECORD url := UnpackURL(inurl);
+  IF(url.urlpath LIKE "*/")
+    url.urlpath := Left(url.urlpath, Length(url.urlpath)-1);
+
+  url.urlpath := DecodeURL(ToLowercase(url.urlpath));
+  url.urlpath := Substitute(url.urlpath,' ','%20');
+  url.urlpath := Substitute(url.urlpath,'#','%23');
+  url.urlpathslash := TRUE;
+  url.scheme := "http";
+  url.port := 80;
+  RETURN Substring(RepackURL(url), 5);
+}
+
+PUBLIC RECORD FUNCTION GetURLHistoryRedirect(STRING findurl, BOOLEAN findself, BOOLEAN allowunpublished)
+{
+  OBJECT parser := NEW StringParser(findurl);
+  STRING baseurl := NormalizeHistoryURL(parser->ParseWhileNotInSet("?#;"));
+  STRING savepart := parser->remaining_data;
+  RECORD existing := GetExistingForURL(baseurl);
+  STRING gotourlappend;
+
+  IF(NOT RecordExists(existing) AND baseurl LIKE "*/!/*") //bangpath...
+  {
+    STRING nobangurl := Left(baseurl, SearchSubstring(baseurl,'/!/'));
+    existing := GetExistingForURL(nobangurl);
+
+    IF(RecordExists(existing)) //this triggered a match
+    {
+      savepart := Substring(baseurl, Length(nobangurl)+1) || savepart;
+      baseurl := nobangurl;
+    }
+  }
+
+  IF(NOT RecordExists(existing))
+    RETURN DEFAULT RECORD;
+
+  RECORD fileinfo := SELECT indexurl, isactive FROM system.fs_objects WHERE id = existing.fsobject;
+  IF(NOT RecordExists(fileinfo))
+    RETURN DEFAULT RECORD;
+
+  STRING gotourl := fileinfo.indexurl;
+  IF(fileinfo.isactive AND NOT findself AND gotourl != "" AND NormalizeHistoryURL(gotourl) = baseurl)
+    RETURN DEFAULT RECORD; //not allowed to find an active self
+
+  IF(allowunpublished = FALSE AND (fileinfo.isactive = FALSE OR gotourl = ""))
+    RETURN DEFAULT RECORD;
+
+  RETURN [ desturl := gotourl != "" ? gotourl || savepart : ""
+         , destid := existing.fsobject
+         , historyid := existing.id
+         , isactive := fileinfo.isactive
+         ];
+}
+
+RECORD FUNCTION GetExistingForURL(STRING url)
+{
+  STRING currenturlhash := GetSHA1Hash(url);
+  RETURN SELECT * FROM publisher.urlhistory WHERE urlhash = currenturlhash;
+}
+
+PUBLIC MACRO StoreURLHistoryIfNeeded(INTEGER fileid, STRING currenturl)
+{
+  IF(NOT UnpackURL(currenturl).isdefaultport)  //anything not published to a default port doesn't properly support url history anyway
+    RETURN;
+
+  RECORD urlhistory := GetApplyTesterForObject(fileid)->GetURLHistorySettings();
+  IF(NOT urlhistory.store)
+    RETURN;
+
+  AddURLHistoryEntry(fileid, currenturl);
+}
+
+/** Add an entry to the URL history of a file
+    @param fileid ID the history should link to
+    @param legacyurl URL to import
+    @return publisher.urlhistory.id of the updated or newly added history record */
+PUBLIC INTEGER FUNCTION AddURLHistoryEntry(INTEGER fileid, STRING legacyurl)
+{
+  legacyurl := NormalizeHistoryURL(legacyurl);
+
+  STRING currenturlhash := GetSHA1Hash(legacyurl);
+  RECORD match := SELECT id, fsobject FROM publisher.urlhistory WHERE urlhash = currenturlhash;
+  IF(RecordExists(match))
+  {
+    IF(match.fsobject = fileid)
+      RETURN match.id;
+    DELETE FROM publisher.urlhistory WHERE urlhash = currenturlhash;
+  }
+
+  INTEGER newrowid := MakeAutonumber(publisher.urlhistory, "ID");
+  INSERT INTO publisher.urlhistory(id, fsobject, creationdate, url, urlhash)
+         VALUES(newrowid, fileid, GetCurrentDatetime(), legacyurl, currenturlhash);
+
+  RETURN newrowid;
+}
+
+PUBLIC MACRO RemoveURLHistoryEntry(INTEGER entryid)
+{
+  RECORD entry := SELECT fsobject, url FROM publisher.urlhistory WHERE id = entryid;
+  IF(NOT RecordExists(entry))
+    RETURN;// already deleted, race?
+
+  DELETE FROM publisher.urlhistory WHERE id = entryid;
+}
+
+PUBLIC STRING ARRAY FUNCTION GetURLHistory(INTEGER fileid)
+{
+  RETURN SELECT AS STRING ARRAY url FROM publisher.urlhistory WHERE fsobject = fileid;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetURLHistoryData(INTEGER fileid)
+{
+  RETURN SELECT id, url, creationdate FROM publisher.urlhistory WHERE fsobject = fileid;
+}
+
+PUBLIC BLOB FUNCTION ExportURLHistoryForSite(STRING sitename)
+{
+  OBJECT site := OpenSiteByName(sitename);
+  INTEGER ARRAY children := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parentsite = site->id;//GetFSObjectsRecursive(site->id); -- not used as it is currently private and does the same thing in this context
+
+  OBJECT fpe := NEW WHFSBulkSender(site->id, "site::" || site->name);
+  RECORD ARRAY history := SELECT * FROM publisher.urlhistory WHERE fsobject IN children;
+
+  RECORD ARRAY exportdata;
+  OBJECT csv := NEW CSVColumnFileWriter;
+
+  FOREVERY(RECORD entry FROM history)
+  {
+    INSERT [ creationdate := entry.creationdate
+           , fsobject := fpe->MapWHFSRef(entry.fsobject)
+           , url := entry.url
+           ]
+      INTO exportdata AT END;
+  }
+
+  csv->WriteRows(exportdata);
+  RETURN csv->MakeOutputFile();
+}
+
+STRING FUNCTION LookupCurrentURL(INTEGER fsobject)
+{
+  RETURN SELECT AS STRING NormalizeHistoryURL(objecturl) FROM system.fs_objects WHERE id = fsobject;
+}
+
+PUBLIC BLOB FUNCTION ExportURLHistoryForFolder(INTEGER folderid)
+{
+  OBJECT folder := OpenWHFSObject(folderid);
+  INTEGER ARRAY children := GetWHFSDescendantIds(folder->id, FALSE, TRUE);
+
+  OBJECT fpe := NEW WHFSBulkSender(folder->id, "whfs::" || folder->whfspath);
+  RECORD ARRAY history := SELECT * FROM publisher.urlhistory WHERE fsobject IN children;
+
+  RECORD ARRAY exportdata;
+  OBJECT csv := NEW CSVColumnFileWriter;
+
+  FOREVERY(RECORD entry FROM history)
+  {
+    INSERT [ creationdate := entry.creationdate
+           , fsobject := fpe->MapWHFSRef(entry.fsobject)
+           , url := entry.url
+           ]
+      INTO exportdata AT END;
+  }
+
+  csv->WriteRows(exportdata);
+  RETURN csv->MakeOutputFile();
+}
+
+PUBLIC BLOB FUNCTION CreateURLHistoryReportForFolder(INTEGER folderid)
+{
+  INTEGER ARRAY relevantids := GetWHFSDescendantIds(folderid, FALSE, TRUE);
+  RECORD ARRAY history := SELECT creationdate
+                               , url := "https:" || NormalizeHistoryURL(url)/// Ensure the entry is properly normalized
+                               , currenturl := "https:" || LookupCurrentURL(fsobject)
+                            FROM publisher.urlhistory
+                           WHERE fsobject IN relevantids;
+
+  /// Dedupe
+  history := SELECT * FROM history WHERE url != currenturl AND currenturl != "";
+
+  RECORD ARRAY grouped := SELECT currenturl
+                               , history := GroupedValues([ url := url
+                                                          , created := creationdate
+                                                          ])
+                            FROM history
+                        GROUP BY currenturl
+                        ORDER BY currenturl;
+
+  RECORD ARRAY forsheet;
+  FOREVERY(RECORD entry FROM grouped)
+  {
+    STRING current := entry.currenturl;
+    FOREVERY(RECORD historyitem FROM entry.history)
+      INSERT [ current := current, history := historyitem.url, created := historyitem.created ] INTO forsheet AT END;
+  }
+
+  OBJECT excelfile := NEW XLSXColumnFileWriter();
+  excelfile->columns := [ [ title := "Current URL", type := "text",     name := "CURRENT" ]
+                        , [ title := "History URL", type := "text",     name := "HISTORY" ]
+                        , [ title := "Created"    , type := "datetime", name := "CREATED" ]
+                        ];
+  excelfile->writerows(forsheet);
+  RETURN excelfile->MakeOutputFile();
+}
+
+PUBLIC RECORD FUNCTION GetURLEventsSettings(INTEGER objid)
+{
+  RETURN GetApplyTesterForObject(objid)->GetCachedProperty("urlevents", [ enabled := FALSE ]);
+}
+
+PUBLIC MACRO BroadcastURLEventIfNeeded(INTEGER fileid, STRING url, BOOLEAN exists)
+{
+  RECORD urlevents := GetURLEventsSettings(fileid);
+  IF(NOT urlevents.enabled)
+    RETURN;
+
+  BroadcastURLEvent(fileid, url, exists);
+}
+
+PUBLIC MACRO BroadcastURLEvent(INTEGER fileid, STRING url, BOOLEAN exists)
+{
+  BroadcastEvent("publisher:url", [ fileid := fileid, url := url, event := exists ? "pub" : "del" ]);
+}

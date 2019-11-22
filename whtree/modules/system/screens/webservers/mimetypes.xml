@@ -1,0 +1,47 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/webservers/mimetypes.whlib"
+         gid="webservers.mimetypes">
+
+  <messageboxes gid="sysmgmt.webservers.messages">
+    <messagebox name="deletemimetype" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="mimetypes" gid="sysmgmt.webservers.mimetypes" tid=".title" width="120x" height="30x" allowresize="true">
+    <body height="1pr">
+      <panel height="1pr">
+        <listedit name="mimetypelist"
+              height="1pr"
+              gid=".columns"
+              ongetrows="ongetmimetypes"
+              onrowedit="onrowedit"
+              onrowdelete="onrowdelete">
+          <column type="text" width="10x" name="extension" />
+          <column type="text" width="2pr" name="mimetype" />
+          <column type="text" width="30x" name="handling" />
+        </listedit>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="mimetype" gid="sysmgmt.webservers.mimetype">
+    <compositions>
+      <radiogroup name="parsetype" />
+    </compositions>
+    <body>
+      <textedit name="extension" required="true" />
+      <textedit name="mimetype" required="true" />
+
+      <radiobutton group="parsetype" rowkey="0" tid=".parsetype" labeltid=".parsetype-0" />
+      <radiobutton group="parsetype" rowkey="4" title="" labeltid=".parsetype-4" />
+      <radiobutton group="parsetype" rowkey="2" title="" labeltid=".parsetype-2" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

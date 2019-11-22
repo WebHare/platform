@@ -1,0 +1,124 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/internal/backend/users.whlib";
+
+LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
+
+
+// command: database <command>
+// short: database control
+
+
+MACRO ShowSyntax(STRING error)
+{
+  PRINT(`Error: ${error}\n`);
+  PRINT("Syntax: wh database <command>\n");
+  PRINT("Commands:\n");
+  PRINT("  transactions             Show transaction list\n");
+  TerminateScriptWithError("");
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "command", type := "param", required := TRUE ]
+    , [ name := "args", type := "paramlist" ]
+    ]);
+
+IF (NOT RecordExists(args))
+  ShowSyntax("Illegal syntax");
+
+OBJECT trans := OpenPrimary();
+
+SWITCH (args.command)
+{
+  CASE "transactions"
+  {
+    RECORD subargs := ParseArguments(args.args,
+        [ [ name := "allinfo", type := "switch" ]
+        ]);
+
+    IF (NOT RecordExists(subargs))
+      ShowSyntax(`Illegal syntax for command '{${args.command}'`);
+    args := CELL[ ...args, ...subargs ];
+
+    IF (GetDatabaseType() = "whdb")
+    {
+      trans->BeginWork();
+      PRINT(AnyToString(__SendWHDBCommand(trans->id,'show transactions'),'boxed'));
+      RETURN;
+    }
+
+    RECORD ARRAY transactions := trans->__ExecSQL("select * FROM pg_stat_activity");
+    IF (args.allinfo)
+      PRINT(AnyToString(transactions, "tree"));
+    ELSE
+    {
+      PRINT(AnyToString(
+         (SELECT pid
+               , application_name
+               , backend_start
+               , state
+           FROM transactions
+          WHERE backend_type = "client backend"), "boxed"));
+    }
+    PRINT(`Total: ${LENGTH(transactions)} connections\n`);
+  }
+  CASE "readwritestatus"
+  {
+    RECORD subargs := ParseArguments(args.args,
+        [ [ name := "newvalue", type := "param" ]
+        ]);
+
+    IF (NOT RecordExists(subargs))
+      ShowSyntax(`Illegal syntax for command '{${args.command}'`);
+    args := CELL[ ...args, ...subargs ];
+
+    IF (args.newvalue NOT IN [ "", "read-only", "read-write" ])
+      TerminateScriptWithError("Invalid new value, expected one of 'read-only'/'read-write'");
+
+    IF (args.newvalue != "")
+    {
+      STRING envsettings := BlobToString(GetDiskResource(MergePath(GetWebhareConfiguration().varroot, ".webhare-envsettings.sh"), [ allowmissing := TRUE ]));
+      IF (envsettings LIKE "* WEBHARE_DBASE_READONLY=*")
+        TerminateScriptWithError("The database readonly settings are set globally by 'wh console' and cannot be changed.");
+
+      IF (GetEnvironmentVariable("WEBHARE_DBASE_READONLY") != "")
+        Print("Warning: The WEBHARE_DBASE_READONLY environment variable is currently set, the configuration change will only have effect on processes that don't have it set.\n");
+
+      SWITCH (args.newvalue)
+      {
+        CASE "read-only"
+        {
+          PRINT("Are you sure you want to switch the database of this WebHare to read-only? Enter 'yes' to proceed. ");
+          IF (ReadLineFrom(0, 4096, TRUE) != "yes")
+            TerminateScript();
+
+          UpdateSystemConfigurationRecord(CELL[ database := [ readonly := TRUE ] ]);
+          ReloadWebhareConfig2("ALL");
+        }
+        CASE "read-write"
+        {
+          UpdateSystemConfigurationRecord(CELL[ database := [ readonly := FALSE ] ]);
+          ReloadWebhareConfig2("ALL");
+        }
+      }
+    }
+
+    PRINT(`Current database status: ${IsDatabaseReadonly() ? "read-only" : "read-write"}\n`);
+  }
+  DEFAULT
+  {
+    ShowSyntax(`Unknown command '${args.command}'`);
+  }
+}

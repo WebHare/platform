@@ -1,0 +1,46 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/rtd/embeddedobject.whlib";
+
+PUBLIC OBJECTTYPE EmbeddedHTMLObject EXTEND EmbeddedObjectBase
+<
+  UPDATE PUBLIC MACRO RenderPreview()
+  {
+    Print('<div style="padding:0 10px;min-height:60px;font-size:80%">');
+    Print(EncodeHTML(this->data.html));
+    Print('</div>');
+  }
+
+  UPDATE PUBLIC MACRO RenderObject(OBJECT webdesign)
+  {
+    Print(this->data.html);
+  }
+>;
+
+PUBLIC OBJECTTYPE EmbedHTML EXTEND TolliumTabsExtensionBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    //FIXME hack but we can't take full control over the composition
+    ^html->value := ^actualhtml->value;
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT feedback)
+  {
+    OBJECT rewriter := NEW HTMLRewriterContext;
+    OBJECT indoc := MakeXMLDocumentFromHTML(StringToBlob("<body>" || this->html->value || "</body>"), "UTF-8", FALSE, TRUE);
+    OBJECT body := indoc->GetElementsByTagName("body")->Item(0);
+    STRING html := indoc->body->innerhtml;
+
+    IF(Length(html)=0)
+      feedback->AddError(GetTid("publisher:widgets.htmlwidget.invalidhtml"));
+    ELSE IF(Length(html)>4096)
+      feedback->AddError(GetTid("publisher:widgets.htmlwidget.toolonghtml"));
+    ELSE
+      ^actualhtml->value := html;
+  }
+>;

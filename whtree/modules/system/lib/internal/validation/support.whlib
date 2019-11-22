@@ -1,0 +1,105 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+PUBLIC STATIC OBJECTTYPE ValidatingXMLDocument
+<
+  PUBLIC OBJECT xml;
+  PUBLIC STRING respath;
+  PUBLIC RECORD ARRAY errors;
+  PUBLIC RECORD ARRAY warnings;
+
+  MACRO NEW(OBJECT xmldoc, STRING respath)
+  {
+    this->respath := respath;
+    this->xml := xmldoc;
+  }
+
+  PUBLIC MACRO AddWarning(OBJECT node, STRING error)
+  {
+    this->AddWarningForLine(ObjectExists(node) ? node->linenum : 0, error);
+  }
+  PUBLIC MACRO AddWarningForLine(INTEGER linenum, STRING error)
+  {
+    INSERT [ resourcename :=  this->respath
+           , line :=      linenum
+           , col :=       0
+           , message :=   error
+           ] INTO this->warnings AT END;
+  }
+  PUBLIC MACRO AddError(OBJECT node, STRING error)
+  {
+    this->AddErrorForLine(ObjectExists(node) ? node->linenum : 0, error);
+  }
+  PUBLIC MACRO AddErrorForLine(INTEGER linenum, STRING error)
+  {
+    INSERT [ resourcename :=  this->respath
+           , line :=      linenum
+           , col :=       0
+           , message :=   error
+           ] INTO this->errors AT END;
+  }
+  /// Our module name
+  PUBLIC STRING FUNCTION GetModuleName()
+  {
+    RETURN GetModuleNameFromResourcePath(this->respath);
+  }
+  /// Are we working for a builtin module? (higher compliance requirements)
+  PUBLIC BOOLEAN FUNCTION IsBuiltinModule()
+  {
+    RETURN this->GetModuleName() IN whconstant_builtinmodules;
+  }
+  /** @param node Node to get the path from
+      @param attrname Attribute to read
+      @param legacybasepath Alternative lookup path (often `MakeAbsoluteResourcePath(this->respath,"scripts/")`)
+      @cell(boolean) options.warnversion Warn after this version if the file was found in the legacy path. We recommend
+           choosing at least 3 minor versions above the current version. Set to 0 to disable warnings entirely, even for builtin modules (backports)
+      @cell(boolean) options.allowwittytags Allow witty tags in the path (disables verification if they are found)
+      @return Absolute path
+  */
+  PUBLIC STRING FUNCTION GetVerifyPath(OBJECT node, STRING attrname, STRING legacybasepath, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ warnversion := 0
+                               , allowwittytags := FALSE
+                               ], options);
+
+    STRING path := node->GetAttribute(attrname);
+    IF(path = "")
+      RETURN "";
+
+    STRING directpath := MakeAbsoluteResourcePath(this->respath, path);
+    IF(options.allowwittytags AND path LIKE '*[*')
+      RETURN directpath; //no further checking possible
+
+    IF(RecordExists(RetrieveWebHareResource(directpath, [ allowmissing := TRUE ])))
+      RETURN directpath;
+
+    //Direct path not failed.
+    IF(legacybasepath != "")
+    {
+      STRING legacypath := MakeAbsoluteResourcePath(legacybasepath, path);
+      IF(RecordExists(RetrieveWebHareResource(legacypath, [ allowmissing := TRUE ])))
+      {
+        IF(options.warnversion > 0 AND (this->IsBuiltinModule() OR GetWebhareVersionNumber() >= options.warnversion)) //builtin modules need to set a good example, so ignore the version check
+        {
+          STRING realpath := Substring(legacypath, Length(MakeAbsoluteResourcePath(this->respath,"./")));
+          this->AddWarning(node, `Attribute '${attrname}' required the use of an implicit path to find, please specify it as '${realpath}'`);
+        }
+        RETURN legacypath;
+      }
+    }
+    this->AddError(node, `Unable to find '${path}'`);
+    RETURN "";
+  }
+
+>;
+
+PUBLIC OBJECT FUNCTION GetModuleXMLValidator(STRING modulename)
+{
+  OBJECT xml := GetModuleDefinitionXML(modulename);
+  RETURN NEW ValidatingXMLDocument(xml, GetModuleDefinitionXMLResourceName(modulename));
+}

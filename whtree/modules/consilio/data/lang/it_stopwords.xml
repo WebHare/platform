@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Italian stop word list for WebHare Consilio
+
+In this file a list of common words is specified, which are considered less
+important for search queries. Accents are removed or rewritten by Consilio when
+necessary, but be sure to save this file as UTF-8 if you add accented
+characters.
+If you make changes to this file, be sure to put it in the etc/lang directory
+of your WebHare installation, otherwise it will be overwritten when upgrading or
+reinstalling WebHare.
+
+The words on this list are taken from
+http://snowball.tartarus.org/algorithms/italian/stop.txt
+-->
+<stopwords xmlns="http://www.webhare.net/xmlns/consilio/stopwords" xml:lang="it">
+  <word>a<!--at--></word>
+  <word>abbia</word>
+  <word>abbiamo</word>
+  <word>abbiano</word>
+  <word>abbiate</word>
+  <word>ad<!--a (to) before vowel--></word>
+  <word>agl<!--a + gl'--></word>
+  <word>agli<!--a + gli--></word>
+  <word>ai<!--a + i--></word>
+  <word>al<!--a + il--></word>
+  <word>all<!--a + l'--></word>
+  <word>alla<!--a + la--></word>
+  <word>alle<!--a + le--></word>
+  <word>allo<!--a + lo--></word>
+  <word>anche<!--also--></word>
+  <word>avemmo</word>
+  <word>avendo</word>
+  <word>avesse</word>
+  <word>avessero</word>
+  <word>avessi</word>
+  <word>avessimo</word>
+  <word>aveste</word>
+  <word>avesti</word>
+  <word>avete</word>
+  <word>aveva</word>
+  <word>avevamo</word>
+  <word>avevano</word>
+  <word>avevate</word>
+  <word>avevi</word>
+  <word>avevo</word>
+  <word>avrai</word>
+  <word>avranno</word>
+  <word>avrebbe</word>
+  <word>avrebbero</word>
+  <word>avrei</word>
+  <word>avremmo</word>
+  <word>avremo</word>
+  <word>avreste</word>
+  <word>avresti</word>
+  <word>avrete</word>
+  <word>avrà</word>
+  <word>avrò</word>
+  <word>avuta</word>
+  <word>avute</word>
+  <word>avuti</word>
+  <word>avuto</word>
+  <word>c<!--as c' for ce or ci--></word>
+  <word>che<!--who, that--></word>
+  <word>chi<!--who--></word>
+  <word>ci<!--us, there--></word>
+  <word>coi<!--con + i (forms collo, cogli etc are now very rare)--></word>
+  <word>col<!--con + il--></word>
+  <word>come<!--how--></word>
+  <word>con<!--with--></word>
+  <word>contro<!--against--></word>
+  <word>cui<!--whom--></word>
+  <word>da<!--from--></word>
+  <word>dagl<!--da + gll'--></word>
+  <word>dagli<!--da + gli--></word>
+  <word>dai<!--da + i--></word>
+  <word>dal<!--da + il--></word>
+  <word>dall<!--da + l'--></word>
+  <word>dalla<!--da + la--></word>
+  <word>dalle<!--da + le--></word>
+  <word>dallo<!--da + lo--></word>
+  <word>degl<!--di + gl'--></word>
+  <word>degli<!--di + gli--></word>
+  <word>dei<!--di + i--></word>
+  <word>del<!--di + il--></word>
+  <word>dell<!--di + l'--></word>
+  <word>della<!--di + la--></word>
+  <word>delle<!--di + le--></word>
+  <word>dello<!--di + lo--></word>
+  <word>di<!--of--></word>
+  <word>dov<!--where (as dov')--></word>
+  <word>dove<!--where--></word>
+  <word>e<!--and--></word>
+  <word>ebbe</word>
+  <word>ebbero</word>
+  <word>ebbi</word>
+  <word>ed<!--and--></word>
+  <word>era</word>
+  <word>erano</word>
+  <word>eravamo</word>
+  <word>eravate</word>
+  <word>eri</word>
+  <word>ero</word>
+  <word>essendo</word>
+  <word>faccia</word>
+  <word>facciamo</word>
+  <word>facciano</word>
+  <word>facciate</word>
+  <word>faccio</word>
+  <word>facemmo</word>
+  <word>facendo</word>
+  <word>facesse</word>
+  <word>facessero</word>
+  <word>facessi</word>
+  <word>facessimo</word>
+  <word>faceste</word>
+  <word>facesti</word>
+  <word>faceva</word>
+  <word>facevamo</word>
+  <word>facevano</word>
+  <word>facevate</word>
+  <word>facevi</word>
+  <word>facevo</word>
+  <word>fai</word>
+  <word>fanno</word>
+  <word>farai</word>
+  <word>faranno</word>
+  <word>farebbe</word>
+  <word>farebbero</word>
+  <word>farei</word>
+  <word>faremmo</word>
+  <word>faremo</word>
+  <word>fareste</word>
+  <word>faresti</word>
+  <word>farete</word>
+  <word>farà</word>
+  <word>farò</word>
+  <word>fece</word>
+  <word>fecero</word>
+  <word>feci</word>
+  <word>fosse</word>
+  <word>fossero</word>
+  <word>fossi</word>
+  <word>fossimo</word>
+  <word>foste</word>
+  <word>fosti</word>
+  <word>fu</word>
+  <word>fui</word>
+  <word>fummo</word>
+  <word>furono</word>
+  <word>gli<!--to him, the--></word>
+  <word>ha</word>
+  <word>hai</word>
+  <word>hanno</word>
+  <word>ho</word>
+  <word>i<!--the--></word>
+  <word>il<!--the--></word>
+  <word>in<!--in--></word>
+  <word>io<!--I--></word>
+  <word>l<!--as l'--></word>
+  <word>la<!--her, the--></word>
+  <word>le<!--them, the--></word>
+  <word>lei<!--she--></word>
+  <word>li<!--them--></word>
+  <word>lo<!--him, the--></word>
+  <word>loro<!--they--></word>
+  <word>lui<!--he--></word>
+  <word>ma<!--but--></word>
+  <word>mi<!--me--></word>
+  <word>mia</word>
+  <word>mie</word>
+  <word>miei</word>
+  <word>mio<!--my--></word>
+  <word>ne<!--from there etc--></word>
+  <word>negl<!--in + gl'--></word>
+  <word>negli<!--in + gli--></word>
+  <word>nei<!--in + i--></word>
+  <word>nel<!--in + el--></word>
+  <word>nell<!--in + l'--></word>
+  <word>nella<!--in + la--></word>
+  <word>nelle<!--in + le--></word>
+  <word>nello<!--in + lo--></word>
+  <word>noi<!--we--></word>
+  <word>non<!--not--></word>
+  <word>nostra</word>
+  <word>nostre</word>
+  <word>nostri</word>
+  <word>nostro<!--our--></word>
+  <word>o<!--or--></word>
+  <word>per<!--through, by--></word>
+  <word>perché<!--why, because--></word>
+  <word>più<!--more--></word>
+  <word>quale<!--who, that--></word>
+  <word>quanta</word>
+  <word>quante</word>
+  <word>quanti</word>
+  <word>quanto<!--how much--></word>
+  <word>quella</word>
+  <word>quelle</word>
+  <word>quelli</word>
+  <word>quello<!--that--></word>
+  <word>questa</word>
+  <word>queste</word>
+  <word>questi</word>
+  <word>questo<!--this--></word>
+  <word>sarai</word>
+  <word>saranno</word>
+  <word>sarebbe</word>
+  <word>sarebbero</word>
+  <word>sarei</word>
+  <word>saremmo</word>
+  <word>saremo</word>
+  <word>sareste</word>
+  <word>saresti</word>
+  <word>sarete</word>
+  <word>sarà</word>
+  <word>sarò</word>
+  <word>se<!--if--></word>
+  <word>sei</word>
+  <word>si<!--yes--></word>
+  <word>sia</word>
+  <word>siamo</word>
+  <word>siano</word>
+  <word>siate</word>
+  <word>siete</word>
+  <word>sono</word>
+  <word>sta</word>
+  <word>stai</word>
+  <word>stando</word>
+  <word>stanno</word>
+  <word>starai</word>
+  <word>staranno</word>
+  <word>starebbe</word>
+  <word>starebbero</word>
+  <word>starei</word>
+  <word>staremmo</word>
+  <word>staremo</word>
+  <word>stareste</word>
+  <word>staresti</word>
+  <word>starete</word>
+  <word>starà</word>
+  <word>starò</word>
+  <word>stava</word>
+  <word>stavamo</word>
+  <word>stavano</word>
+  <word>stavate</word>
+  <word>stavi</word>
+  <word>stavo</word>
+  <word>stemmo</word>
+  <word>stesse</word>
+  <word>stessero</word>
+  <word>stessi</word>
+  <word>stessimo</word>
+  <word>steste</word>
+  <word>stesti</word>
+  <word>stette</word>
+  <word>stettero</word>
+  <word>stetti</word>
+  <word>stia</word>
+  <word>stiamo</word>
+  <word>stiano</word>
+  <word>stiate</word>
+  <word>sto</word>
+  <word>su<!--on--></word>
+  <word>sua</word>
+  <word>sue</word>
+  <word>sugl<!--su + gl'--></word>
+  <word>sugli<!--su + gli--></word>
+  <word>sui<!--su + i--></word>
+  <word>sul<!--su + il--></word>
+  <word>sull<!--su + l'--></word>
+  <word>sulla<!--su + la--></word>
+  <word>sulle<!--su + le--></word>
+  <word>sullo<!--su + lo--></word>
+  <word>suo</word>
+  <word>suoi<!--his, her--></word>
+  <word>ti<!--thee--></word>
+  <word>tra<!--among--></word>
+  <word>tu<!--thou--></word>
+  <word>tua</word>
+  <word>tue</word>
+  <word>tuo</word>
+  <word>tuoi<!--thy--></word>
+  <word>tutti<!--all--></word>
+  <word>tutto<!--all--></word>
+  <word>un<!--a--></word>
+  <word>una<!--a--></word>
+  <word>uno<!--a--></word>
+  <word>vi<!--you, there--></word>
+  <word>voi<!--you--></word>
+  <word>vostra</word>
+  <word>vostre</word>
+  <word>vostri</word>
+  <word>vostro<!--your--></word>
+  <word>è</word>
+</stopwords>

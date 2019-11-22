@@ -1,0 +1,173 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+
+RECORD cachefolders; //FIXME can't we store these inside the wrdschema object ?
+
+OBJECT FUNCTION GetWHFSFolderForSchema(INTEGER schemaid)
+{
+  IF(CellExists(cachefolders,"w"||schemaid))
+    RETURN GetCell(cachefolders,"w"||schemaid);
+  IF(schemaid <= 0)
+    THROW NEW Exception("Invalid schema id #" || schemaid);
+
+  INTEGER parentfolder := SELECT AS INTEGER id FROM system.fs_objects WHERE parent=13 AND ToUppercase(name) = "S" || schemaid;
+  OBJECT folder;
+  IF(parentfolder = 0)
+    folder := OpenWHFSObject(13)->CreateFolder([name := "s" || schemaid ]);
+  ELSE
+    folder := OpenWHFSObject(parentfolder);
+
+  //FIXME schema cleanup should obliterate it
+  cachefolders := CellInsert(cachefolders, "w" || schemaid, folder);
+  RETURN folder;
+}
+
+PUBLIC INTEGER FUNCTION StoreRTDInWHFS(INTEGER schemaid, RECORD rtd, OBJECT importmapper)
+{
+  //FIXME WRD Schema creation/import should immediately create the backing.
+
+  //folder, to avoid duplicate insertion/creation
+  OBJECT schemafolder := GetWHFSFolderForSchema(schemaid);
+  OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  INTEGER newfileid := schemafolder->GetNewFSObjectId();
+  OBJECT rtdfile := schemafolder->CreateFile( [ name := ToString(newfileid)
+                                              , type := rtdtype->id
+                                              , id := newfileid
+                                              ]);
+  rtdtype->ImportInstanceData(rtdfile->id, [ data := rtd ], importmapper, FALSE);
+  RETURN rtdfile->id;
+}
+
+/** Compares a RTD to one stored in WHFS with StoreRTDInWHFS.
+    @param fsobject
+    @param rtd
+    @param importmapper
+    @return TRUE if they are the same
+*/
+PUBLIC BOOLEAN FUNCTION IsRTDEqualToRTDInWHFS(INTEGER fsobject, RECORD rtd, OBJECT importmapper)
+{
+  IF (ObjectExists(importmapper))
+    RETURN TRUE; // no way to compare yet
+
+  OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  RETURN NOT RecordExists(rtdtype->FilterInstanceDataUpdates(fsobject, [ data := rtd ]));
+}
+
+PUBLIC INTEGER FUNCTION StoreInstanceInWHFS(INTEGER schemaid, RECORD instance, OBJECT importmapper)
+{
+  //FIXME WRD Schema creation/import should immediately create the backing.
+
+  //folder, to avoid duplicate insertion/creation
+  OBJECT schemafolder := GetWHFSFolderForSchema(schemaid);
+  OBJECT instancetype := OpenWHFSType("http://www.webhare.net/xmlns/wrd/instancefile");
+  INTEGER newfileid := schemafolder->GetNewFSObjectId();
+  OBJECT instancefile := schemafolder->CreateFile( [ name := ToString(newfileid)
+                                                   , type := instancetype->id
+                                                   , id := newfileid
+                                                   ]);
+  instancetype->ImportInstanceData(instancefile->id, [ instance := instance ], importmapper, FALSE);
+  RETURN instancefile->id;
+}
+
+/** Compares an instance to one stored in WHFS with StoreInstanceInWHFS.
+    @param fsobject
+    @param rtd
+    @param importmapper
+    @return TRUE if they are the same
+*/
+PUBLIC BOOLEAN FUNCTION IsInstanceEqualToInstanceInWHFS(INTEGER fsobject, RECORD instance, OBJECT importmapper)
+{
+  IF (ObjectExists(importmapper))
+    RETURN TRUE; // no way to compare yet
+
+  OBJECT instancetype := OpenWHFSType("http://www.webhare.net/xmlns/wrd/instancefile");
+  RETURN NOT RecordExists(instancetype->FilterInstanceDataUpdates(fsobject, [ instance := instance ]));
+}
+
+PUBLIC RECORD FUNCTION RetrieveRTDInWHFS(INTEGER wrd_settingid, OBJECT whfsmapper)
+{
+  INTEGER myfsobject := SELECT AS INTEGER fsobject FROM wrd.entity_settings_whfslink WHERE id = wrd_settingid;
+  IF(myfsobject=0)
+    THROW NEW Exception("Unable to retrieve the WHFS document associated with RTD setting #" || wrd_settingid);
+
+  OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  RETURN rtdtype->ExportInstanceData(myfsobject, whfsmapper, FALSE).data;
+}
+
+PUBLIC RECORD FUNCTION RetrieveInstanceInWHFS(INTEGER wrd_settingid, OBJECT whfsmapper)
+{
+  INTEGER myfsobject := SELECT AS INTEGER fsobject FROM wrd.entity_settings_whfslink WHERE id = wrd_settingid;
+  IF(myfsobject=0)
+    THROW NEW Exception("Unable to retrieve the WHFS document associated with instance setting #" || wrd_settingid);
+
+  OBJECT instancetype := OpenWHFSType("http://www.webhare.net/xmlns/wrd/instancefile");
+  RETURN instancetype->ExportInstanceData(myfsobject, whfsmapper, FALSE).instance;
+}
+
+PUBLIC RECORD FUNCTION ReadWRDWHFSInstance(RECORD setting, OBJECT whfsmapper)
+{
+  IF(setting.rawdata!="WHFS")
+    THROW NEW Exception("Unexpected whfs instance setting");
+  RETURN RetrieveInstanceInWHFS(setting.id, whfsmapper);
+}
+
+PUBLIC RECORD FUNCTION ReadWRDRichDocument(RECORD ARRAY settings, OBJECT linkgetter, OBJECT whfsmapper)
+{
+  IF(Length(settings)=0)
+    RETURN DEFAULT RECORD;
+
+  IF(Length(settings) >= 1 AND settings[0].rawdata="WHFS") //shouldn't have more than one setting, but an updaterace can do that...
+  {
+    IF (ObjectExists(linkgetter))
+      RETURN linkgetter->GetRichDocument(settings[0].id, whfsmapper);
+    RETURN RetrieveRTDInWHFS(settings[0].id, whfsmapper);
+  }
+
+  RECORD retval := [ htmltext := settings[0].blobdata
+                   , embedded := DEFAULT RECORD ARRAY
+                   , links := DEFAULT RECORD ARRAY
+                   , instances := DEFAULT RECORD ARRAY
+                   ];
+  FOREVERY(RECORD toset FROM settings)
+  {
+    IF(#toset=0)
+      CONTINUE;
+
+    INTEGER fs_object;
+    IF (toset.rawdata LIKE "WHFS:*")
+    {
+      toset.rawdata := SubString(toset.rawdata, 5);
+      fs_object := SELECT AS INTEGER fsobject FROM wrd.entity_settings_whfslink WHERE id = toset.id; // Allow deleted refs
+    }
+
+    RECORD split := CELL[ ...SplitBlobSetting(toset.rawdata, toset.blobdata, fs_object)
+                        , wrd_settingid := toset.id
+                        , __blobsource := "w" || toset.id
+                        ];
+
+    IF (NOT IsDefaultValue(whfsmapper))
+      split := CELL[ ...split, source_fsobject := whfsmapper->MapWHFSRef(split.source_fsobject) ];
+
+    INSERT CELL contentid := split.filename INTO split;
+    INSERT split INTO retval.embedded AT END;
+  }
+
+  RETURN retval;
+}
+
+//Fixup names in WRD subfolders, 4.06 got this wrong
+PUBLIC INTEGER FUNCTION FixupWRDWHFSNames()
+{
+  RECORD ARRAY tofix := SELECT badfiles.id
+                          FROM system.fs_objects AS badfiles
+                             , system.fs_objects AS wrdfolders
+                         WHERE wrdfolders.parent = 13
+                               AND wrdfolders.id = badfiles.parent
+                               AND ToString(badfiles.id) != badfiles.name;
+  IF(Length(tofix)>0)
+    UPDATE system.fs_objects SET name := ToString(id) WHERE id IN (SELECT AS INTEGER ARRAY id FROM tofix);
+  RETURN Length(tofix);
+}

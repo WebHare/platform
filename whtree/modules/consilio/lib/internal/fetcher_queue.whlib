@@ -1,0 +1,652 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+
+PUBLIC INTEGER fetcherdebuglevel;
+PUBLIC STRING command_portname := "consilio:queuemanager.command";
+
+//highest priority runs first
+CONSTANT INTEGER priority_settings        := 103
+             , priority_checkindexstate := 102
+             , priority_deleteindex     := 101
+             , priority_cleanupindex    := 7  // +10*index prio
+             , priority_deletegroup     := 6  // +10*index prio
+             , priority_deleteobject    := 5  // +10*index prio
+             , priority_checkindex      := 4  // +10*index prio
+             , priority_fastcheckgroup  := 3  // +10*index prio
+             , priority_checkgroup      := 2  // +10*index prio
+             , priority_checkobject     := 1  // +10*index prio
+             ;
+
+RECORD FUNCTION GetCachablePriorityLookupTables()
+{
+  RETURN
+      [ ttl :=    60 * 1000
+      , value :=
+            [ indices :=
+                  (SELECT id
+                        , priority
+                     FROM consilio.indices
+                    WHERE type != 2
+                          AND name NOT LIKE "$consilio$deleted$*"
+                    ORDER BY id)
+            , contentsources :=
+                  (SELECT contentsources.id
+                        , priority
+                     FROM consilio.contentsources
+                        , consilio.indices
+                    WHERE indexid = indices.id
+                          AND indices.name NOT LIKE "$consilio$deleted$*"
+                          AND contentsources.tag NOT LIKE "$consilio$deleted$*"
+                    ORDER BY contentsources.id)
+            ]
+      , eventmasks := [ "consilio:contentsourceschanged" ]
+      ];
+}
+
+PUBLIC INTEGER FUNCTION CalculateQueueItemPriority(RECORD data)
+{
+  RECORD lookup := GetAdhocCached([ type := "lookup" ], PTR GetCachablePriorityLookupTables);
+
+  INTEGER indexprio := 9;
+  IF (CellExists(data, "INDEXID") AND data.indexid != 0)
+  {
+    RECORD pos := RecordLowerBound(lookup.indices, [ id := data.indexid ], [ "ID" ]);
+    IF (pos.found)
+      indexprio := lookup.indices[pos.position].priority;
+  }
+  IF (CellExists(data, "CONTENTSOURCEID") AND data.contentsourceid != 0)
+  {
+    RECORD pos := RecordLowerBound(lookup.contentsources, [ id := data.contentsourceid ], [ "ID" ]);
+    IF (pos.found)
+      indexprio := lookup.contentsources[pos.position].priority;
+  }
+
+  INTEGER priority;
+  SWITCH (data.action)
+  {
+    CASE "CHECKINDEXSTATE"
+    {
+      priority := priority_checkindexstate;
+    }
+
+    CASE "CHECKINDEX", "UPDATEINDEX"
+    {
+      priority := priority_checkindex;
+    }
+
+    CASE "DELETEINDEX"
+    {
+      priority := priority_deleteindex;
+    }
+
+    CASE "FASTCHECKGROUP"
+    {
+      priority := priority_fastcheckgroup;
+    }
+
+    CASE "CHECKGROUP", "UPDATEGROUP"
+    {
+      priority := priority_checkgroup;
+    }
+
+    CASE "DEACTIVATEGROUP"
+    {
+      priority := priority_deletegroup;
+    }
+
+    CASE "DELETEGROUP"
+    {
+      priority := priority_deletegroup;
+    }
+
+    CASE "CHECKOBJECT"
+    {
+      priority := priority_checkobject;
+    }
+
+    CASE "DELETEOBJECT"
+    {
+      priority := priority_deleteobject;
+    }
+
+    CASE "CLEANUPINDEX"
+    {
+      priority := priority_cleanupindex;
+    }
+
+    CASE "SHUTDOWN"
+    {
+      priority := priority_settings;
+    }
+
+    CASE "STATUS"
+    {
+      priority := priority_settings;
+    }
+
+    CASE "GETERRORS"
+    {
+      priority := priority_settings;
+    }
+
+    CASE "CLEARERRORS"
+    {
+      priority := priority_settings;
+    }
+
+    CASE "CONFIGURE"
+    {
+      priority := priority_settings;
+    }
+  }
+
+  IF (priority < 10)
+    priority := priority + 10 * indexprio;
+
+  RETURN priority;
+}
+
+STRING ARRAY FUNCTION TokenizeCommand(STRING command)
+{
+  OBJECT parser := NEW StringParser(command);
+  STRING ARRAY result;
+
+  WHILE (NOT parser->eof)
+  {
+    STRING part;
+    IF (parser->current = "\"")
+    {
+      parser->Next();
+      WHILE (parser->current NOT IN [ "", "\"" ])
+      {
+        part := part || parser->ParseWhileNotInSet("\"\\");
+        IF (parser->current = "\\")
+          part := part || parser->ParseN(2);
+      }
+      parser->Next();
+      IF (parser->current = " ")
+        parser->Next();
+    }
+    ELSE
+    {
+      part := parser->ParseWhileNotInSet(" ");
+      parser->Next();
+    }
+
+    INSERT part INTO result AT END;
+  }
+  RETURN result;
+}
+
+PUBLIC RECORD FUNCTION MakeQueueCmdCheckIndexState(INTEGER indexmanager)
+{
+  RETURN [ success := TRUE
+         , action := "CHECKINDEXSTATE"
+         , commanddate := GetCurrentDateTime()
+         , indexmanager := indexmanager
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetQueueDataFromCommand(STRING command)
+{
+  STRING ARRAY arguments := TokenizeCommand(command);
+  STRING action := ToUppercase(arguments[0]);
+  DELETE FROM arguments AT 0;
+
+  SWITCH (action)
+  {
+    CASE "CHECKINDEXSTATE"
+    {
+      RETURN MakeQueueCmdCheckIndexState(ToInteger(arguments[0],0));
+    }
+    CASE "CHECKINDEX", "UPDATEINDEX"
+    {
+      INTEGER indexid := Length(arguments) >= 1 ? ToInteger(arguments[0], 0) : 0;
+      INTEGER contentsourceid := Length(arguments) >= 2 ? ToInteger(arguments[1], 0) : 0;
+      BOOLEAN setstatus := Length(arguments) >= 3 ? arguments[2] = "setstatus" : FALSE;
+      DATETIME commanddate := Length(arguments) >= 4 ? StringToDateTime(arguments[3]) : DEFAULT DATETIME;
+      RETURN [ success := TRUE
+             , action := action
+             , indexid := indexid
+             , contentsourceid := contentsourceid
+             , setstatus := setstatus
+             , commanddate := commanddate != DEFAULT DATETIME ? commanddate : GetCurrentDateTime()
+             ];
+    }
+    CASE "DELETEINDEX"
+    {
+      IF (Length(arguments) >= 1)
+      {
+        INTEGER indexid := ToInteger(arguments[0], 0);
+        INTEGER contentsourceid := Length(arguments) >= 2 ? ToInteger(arguments[1], 0) : 0;
+        IF (indexid != 0)
+        {
+          RETURN [ success := TRUE
+                 , action := action
+                 , indexid := indexid
+                 , contentsourceid := contentsourceid
+                 ];
+        }
+      }
+    }
+    CASE "FASTCHECKGROUP", "CHECKGROUP", "UPDATEGROUP"
+    {
+      IF (Length(arguments) >= 3)
+      {
+        INTEGER indexid := ToInteger(arguments[0], 0);
+        INTEGER contentsourceid := ToInteger(arguments[1], 0);
+        STRING groupid := DecodeJava(arguments[2]);
+        DATETIME commanddate := Length(arguments) >= 4 ? StringToDateTime(arguments[3]) : DEFAULT DATETIME;
+        IF (indexid != 0 OR contentsourceid > 0 OR ToInteger(groupid, 0) != 0)
+        {
+          RETURN [ success := TRUE
+                 , action := action
+                 , indexid := indexid
+                 , contentsourceid := contentsourceid
+                 , groupid := groupid
+                 , commanddate := commanddate != DEFAULT DATETIME ? commanddate : GetCurrentDateTime()
+                 ];
+        }
+      }
+    }
+    CASE "DEACTIVATEGROUP"
+    {
+      // Delete the group from all content sources which have indexed it before, but are no longer responsible for it
+      IF (Length(arguments) >= 1)
+      {
+        STRING groupid := DecodeJava(arguments[0]);
+        RETURN [ success := TRUE
+               , action := action
+               , indexid := 0
+               , contentsourceid := 0
+               , groupid := groupid
+               , commanddate := GetCurrentDateTime()
+               ];
+      }
+    }
+    CASE "DELETEGROUP"
+    {
+      IF (Length(arguments) >= 3)
+      {
+        INTEGER indexid := ToInteger(arguments[0], 0);
+        INTEGER contentsourceid := ToInteger(arguments[1], 0);
+        STRING groupid := DecodeJava(arguments[2]);
+        RETURN [ success := TRUE
+               , action := action
+               , indexid := indexid
+               , contentsourceid := contentsourceid
+               , groupid := groupid
+               , commanddate := GetCurrentDateTime()
+               ];
+      }
+    }
+    CASE "CHECKOBJECT"
+    {
+      IF (Length(arguments) >= 4)
+      {
+        INTEGER indexid := ToInteger(arguments[0], 0);
+        INTEGER contentsourceid := ToInteger(arguments[1], 0);
+        STRING groupid := DecodeJava(arguments[2]);
+        STRING objectid := DecodeJava(arguments[3]);
+        DATETIME commanddate := Length(arguments) >= 5 ? StringToDateTime(arguments[4]) : DEFAULT DATETIME;
+        IF (indexid != 0 AND contentsourceid > 0 AND objectid != "")
+        {
+          RETURN [ success := TRUE
+                 , action := action
+                 , indexid := indexid
+                 , contentsourceid := contentsourceid
+                 , groupid := groupid
+                 , objectid := objectid
+                 , commanddate := commanddate != DEFAULT DATETIME ? commanddate : GetCurrentDateTime()
+                 ];
+        }
+      }
+    }
+    CASE "DELETEOBJECT"
+    {
+      IF (Length(arguments) >= 2)
+      {
+        INTEGER indexid := ToInteger(arguments[0], 0);
+        STRING objectid := DecodeJava(arguments[1]);
+        RETURN [ success := TRUE
+               , action := action
+               , indexid := indexid
+               , objectid := objectid
+               , commanddate := GetCurrentDateTime()
+               ];
+      }
+    }
+    CASE "CLEANUPINDEX"
+    {
+      IF (Length(arguments) >= 5)
+      {
+        INTEGER indexid := ToInteger(arguments[0], 0);
+        INTEGER contentsourceid := ToInteger(arguments[1], 0);
+        // Only activated after the CheckIndex which issued this CleanupIndex successfully completed the CheckIndex task
+        BOOLEAN active := arguments[2] = "active";
+        // Don't actually delete document if an error occurred
+        BOOLEAN dontdelete := arguments[3] = "dontdelete";
+        DATETIME commanddate := StringToDateTime(arguments[4]);
+        IF (indexid != 0 AND commanddate != DEFAULT DATETIME)
+        {
+          RETURN [ success := TRUE
+                 , action := action
+                 , indexid := indexid
+                 , contentsourceid := contentsourceid
+                 , commanddate := commanddate
+                 , active := active
+                 , dontdelete := dontdelete
+                 ];
+        }
+      }
+    }
+    CASE "SHUTDOWN"
+    {
+      RETURN [ success := TRUE
+             , action := action
+             , commanddate := GetCurrentDateTime()
+             ];
+    }
+    CASE "STATUS", "GETERRORS"
+    {
+      RETURN [ success := TRUE
+             , action := action
+             , arguments := arguments
+             , commanddate := GetCurrentDateTime()
+             ];
+    }
+    CASE "CLEARERRORS"
+    {
+      INTEGER contentsourceid := ToInteger(arguments[0], 0);
+
+      RETURN [ success := TRUE
+             , action := action
+             , arguments := arguments
+             , contentsourceid := contentsourceid
+             , commanddate := GetCurrentDateTime()
+             ];
+    }
+    CASE "CONFIGURE"
+    {
+      RECORD data := [ success := TRUE
+                     , action := action
+                     , configuration := DEFAULT RECORD
+                     , commanddate := GetCurrentDateTime()
+                     ];
+      WHILE (Length(arguments) >= 1)
+      {
+        IF (arguments[0] = "")
+        {
+          DELETE FROM arguments AT 0;
+          CONTINUE;
+        }
+        SWITCH (arguments[0])
+        {
+          CASE "debuglevel"
+          {
+            IF (Length(arguments) >= 2)
+            {
+              INTEGER debuglevel := ToInteger(arguments[1], -1);
+              IF (debuglevel >= 0)
+                INSERT CELL debuglevel := debuglevel INTO data.configuration;
+              DELETE FROM arguments AT 0;
+              DELETE FROM arguments AT 0;
+            }
+          }
+          CASE "maxtasktime"
+          {
+            IF (Length(arguments) >= 2)
+            {
+              INTEGER maxtasktime := ToInteger(arguments[1], -1);
+              IF (maxtasktime >= 0)
+                INSERT CELL maxtasktime := maxtasktime INTO data.configuration;
+              DELETE FROM arguments AT 0;
+              DELETE FROM arguments AT 0;
+            }
+          }
+          CASE "maxgroupobjects"
+          {
+            IF (Length(arguments) >= 2)
+            {
+              INTEGER maxgroupobjects := ToInteger(arguments[1], -1);
+              IF (maxgroupobjects >= 0)
+                INSERT CELL maxgroupobjects := maxgroupobjects INTO data.configuration;
+              DELETE FROM arguments AT 0;
+              DELETE FROM arguments AT 0;
+            }
+          }
+          CASE "numworkers"
+          {
+            IF (Length(arguments) >= 2)
+            {
+              INTEGER numworkers := ToInteger(arguments[1], -1);
+              IF (numworkers >= 0)
+                INSERT CELL numworkers := numworkers INTO data.configuration;
+              DELETE FROM arguments AT 0;
+              DELETE FROM arguments AT 0;
+            }
+          }
+          CASE "indexmanager"
+          {
+            IF (Length(arguments) >= 2)
+            {
+              INSERT CELL indexmanager := arguments[1] INTO data.configuration;
+              DELETE FROM arguments AT 0;
+              DELETE FROM arguments AT 0;
+            }
+          }
+          DEFAULT
+          {
+            RETURN [ success := FALSE
+                   , error := "Unrecognized configuration field '" || arguments[0] || "'"
+                   ];
+          }
+        }
+      }
+
+      RETURN data;
+    }
+  }
+  RETURN [ success := FALSE
+         , error := "Unrecognized arguments '" || EncodeJava(command) || "'"
+         ];
+}
+
+PUBLIC STRING FUNCTION GetCommandFromQueueData(RECORD data, BOOLEAN queueid DEFAULTSTO FALSE)
+{
+  IF (NOT RecordExists(data) OR NOT CellExists(data, "action"))
+    RETURN "";
+
+  // Generating queue item identifier, not interested in index date
+  IF (queueid)
+    data.commanddate := DEFAULT DATETIME;
+
+  SWITCH (data.action)
+  {
+    CASE "CHECKINDEXSTATE"
+    {
+      RETURN data.action || " " || data.indexmanager;
+    }
+    CASE "CHECKINDEX", "UPDATEINDEX"
+    {
+      RETURN data.action || " "
+          || data.indexid || " "
+          || data.contentsourceid || " "
+          || (data.setstatus ? "setstatus" : "") || " "
+          || (data.commanddate != DEFAULT DATETIME ? DateTimeToString(data.commanddate) : "");
+    }
+    CASE "DELETEINDEX"
+    {
+      RETURN data.action || " "
+          || data.indexid || " "
+          || data.contentsourceid;
+    }
+    CASE "FASTCHECKGROUP", "CHECKGROUP", "UPDATEGROUP"
+    {
+      RETURN data.action || " "
+          || data.indexid || " "
+          || data.contentsourceid || " "
+          || "\"" || EncodeJava(data.groupid) || "\" "
+          || (data.commanddate != DEFAULT DATETIME ? DateTimeToString(data.commanddate) : "");
+    }
+    CASE "DEACTIVATEGROUP"
+    {
+      RETURN data.action || " "
+          || "\"" || EncodeJava(data.groupid) || "\"";
+    }
+    CASE "DELETEGROUP"
+    {
+      RETURN data.action || " "
+          || data.indexid || " "
+          || data.contentsourceid || " "
+          || "\"" || EncodeJava(data.groupid) || "\"";
+    }
+    CASE "CHECKOBJECT"
+    {
+      RETURN data.action || " "
+          || data.indexid || " "
+          || data.contentsourceid || " "
+          || "\"" || EncodeJava(data.groupid) || "\" "
+          || "\"" || EncodeJava(data.objectid) || "\" "
+          || DateTimeToString(data.commanddate);
+    }
+    CASE "DELETEOBJECT"
+    {
+      RETURN data.action || " "
+          || data.indexid || " "
+          || "\"" || EncodeJava(data.objectid) || "\"";
+    }
+    CASE "CLEANUPINDEX"
+    {
+      RETURN data.action || " "
+          || data.indexid || " "
+          || data.contentsourceid || " "
+          || (data.active ? "active" : "") || " "
+          || (data.dontdelete ? "dontdelete" : "") || " "
+          || DateTimeToString(data.commanddate);
+    }
+    CASE "SHUTDOWN"
+    {
+      RETURN data.action;
+    }
+    CASE "GETERRORS"
+    {
+      RETURN data.action;
+    }
+    CASE "CLEARERRORS"
+    {
+      RETURN data.action || " "
+          || data.contentsourceid;
+    }
+    CASE "STATUS"
+    {
+      RETURN Detokenize([ STRING(data.action) ] CONCAT data.arguments, " ");
+    }
+    CASE "CONFIGURE"
+    {
+      STRING command;
+      FOREVERY (RECORD field FROM UnpackRecord(data.configuration))
+      {
+        SWITCH (field.name)
+        {
+          CASE "DEBUGLEVEL"
+          {
+            command := command || " debuglevel " || field.value;
+          }
+          CASE "MAXTASKTIME"
+          {
+            command := command || " maxtasktime " || field.value;
+          }
+          CASE "MAXGROUPOBJECTS"
+          {
+            command := command || " maxgroupobjects " || field.value;
+          }
+          CASE "NUMWORKERS"
+          {
+            command := command || " numworkers " || field.value;
+          }
+          CASE "INDEXMANAGER"
+          {
+            command := command || " indexmanager " || field.value;
+          }
+        }
+      }
+      IF (command != "")
+        RETURN data.action || " " || command;
+    }
+  }
+  RETURN "";
+}
+
+PUBLIC OBJECT FUNCTION GetCommandLink(STRING id DEFAULTSTO "")
+{
+  OBJECT ipclink := ConnectToIPCPort("system:whmanager");
+  IF (NOT ObjectExists(ipclink))
+    RETURN DEFAULT OBJECT;
+  RECORD res := ipclink->DoRequest([ type := "connect", port := command_portname ]);
+  IF (NOT RecordExists(res) OR res.status != "ok")
+  {
+    ipclink->Close();
+    RETURN DEFAULT OBJECT;
+  }
+
+  res := ipclink->DoRequest([ action := "connect", id := id ]);
+  IF (NOT RecordExists(res) OR res.status != "ok")
+  {
+    ipclink->Close();
+    RETURN DEFAULT OBJECT;
+  }
+
+  RETURN ipclink;
+}
+
+OBJECT ipclink;
+PUBLIC RECORD FUNCTION SendQueueManagerData(RECORD data)
+{
+  IF (NOT ObjectExists(ipclink))
+    ipclink := GetCommandLink();
+  IF (NOT ObjectExists(ipclink))
+    RETURN DEFAULT RECORD;
+
+  IF (GetCommandFromQueueData(data) = "")
+    RETURN DEFAULT RECORD;
+  IF (NOT CellExists(data, "success"))
+    INSERT CELL success := TRUE INTO data;
+
+  RECORD res := ipclink->DoRequest(data);
+  IF (res.status = "gone")
+  {
+    // The link was broken, try to reconnect
+    ipclink := GetCommandLink();
+    IF (NOT ObjectExists(ipclink))
+      RETURN DEFAULT RECORD;
+
+    res := ipclink->DoRequest(data);
+    IF (res.status = "gone")
+      RETURN DEFAULT RECORD;
+  }
+  RETURN res.msg;
+}
+
+//ADDME still assuming text will end with a \n ..
+PUBLIC MACRO FetcherDebug(INTEGER lvl, STRING text, INTEGER catalogdebuglevel DEFAULTSTO -1)
+{
+  IF((catalogdebuglevel >= 0 AND lvl > catalogdebuglevel) OR (catalogdebuglevel < 0 AND lvl > fetcherdebuglevel))
+    RETURN;
+  SWITCH(lvl)
+  {
+    CASE 0 { Print("DebugError:" || Substitute(text, "\n", "\nDebugError:") || "\n"); }
+    CASE 1 { Print("DebugSkipped:" || Substitute(text, "\n", "\nDebugSkipped:") || "\n"); }
+    CASE 2 { Print("DebugInfo:" || Substitute(text, "\n", "\nDebugInfo:") || "\n"); }
+    DEFAULT { Print("DebugAll:" || Substitute(text, "\n", "\nDebugAll:") || "\n"); }
+  }
+}

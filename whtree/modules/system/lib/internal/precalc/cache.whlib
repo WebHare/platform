@@ -1,0 +1,564 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/precalc/support.whlib";
+
+
+RECORD defaultdesiredevents :=
+    [ timedcallback :=    MAX_DATETIME
+    , eventmasks :=       STRING[]
+    ];
+
+RECORD defaulteventstate :=
+    [ timedcallback :=    MAX_DATETIME
+    , timedcallbackcb :=  0
+    , eventcallbacks :=   RECORD[]
+    ];
+
+PUBLIC STATIC OBJECTTYPE PrecalcCache
+<
+  BOOLEAN debug;
+
+  RECORD ARRAY cacheitems;
+
+  PUBLIC FUNCTION PTR onstatechange;
+
+  MACRO NEW(BOOLEAN debug)
+  {
+    this->debug := debug;
+  }
+
+  PUBLIC MACRO Init()
+  {
+  }
+
+  MACRO RunCacheReset(STRING event, RECORD data)
+  {
+    // softexpire every valid/crash on softreset/cachereset (ADDME: should it hard expire?)
+    FOREVERY (RECORD rec FROM this->cacheitems)
+    {
+      IF (rec.state IN [ "crashed", "valid" ])
+        rec.state := "softexpired";
+      rec.state := this->ProcessTimers(rec) ?? rec.state;
+      this->UpdateCacheItem(rec.hash, CELL[ rec.state ], [ statechangecallback := "forced" ]);
+    }
+  }
+
+  PUBLIC MACRO SoftExpireAll()
+  {
+    // softexpire every valid/crash on softreset/cachereset (ADDME: should it hard expire?)
+    FOREVERY (RECORD rec FROM this->cacheitems)
+    {
+      IF (rec.state IN [ "crashed", "valid" ])
+        rec.state := "softexpired";
+      rec.state := this->ProcessTimers(rec) ?? rec.state;
+      this->UpdateCacheItem(rec.hash, CELL[ rec.state ], [ statechangecallback := "forced" ]);
+    }
+  }
+
+  PUBLIC MACRO ExpireForModule(STRING module)
+  {
+    // softexpire every valid/crash on softreset/cachereset (ADDME: should it hard expire?)
+    FOREVERY (RECORD rec FROM this->cacheitems)
+    {
+      IF (rec.func NOT LIKE `mod*::${module}/*` OR rec.state = "expired")
+        CONTINUE;
+      rec.state := "expired";
+      rec.state := this->ProcessTimers(rec) ?? rec.state;
+      this->UpdateCacheItem(rec.hash, CELL[ rec.state ], [ statechangecallback := "forced" ]);
+    }
+  }
+
+  RECORD FUNCTION GetDesiredEvents(RECORD cacheitem)
+  {
+    RECORD res := defaultdesiredevents;
+
+    IF (cacheitem.state = "crashed")
+    {
+      res.timedcallback := AddTimeToDate(cacheitem.crashretry, cacheitem.lastcrash);
+    }
+    ELSE
+    {
+      IF (cacheitem.state = "valid")
+      {
+        res.timedcallback := cacheitem.softexpires;
+        res.eventmasks := res.eventmasks CONCAT cacheitem.softeventmasks;
+      }
+      IF (cacheitem.state = "valid" OR cacheitem.state = "softexpired")
+      {
+        IF (cacheitem.expires < res.timedcallback)
+          res.timedcallback := cacheitem.expires;
+        res.eventmasks := res.eventmasks CONCAT cacheitem.eventmasks;
+      }
+    }
+
+    IF (cacheitem.state != "discarded" AND cacheitem.lastuse != DEFAULT DATETIME)
+    {
+      DATETIME discardat := AddTimeToDate(cacheitem.discardunusedtimeout, cacheitem.lastuse);
+      IF (res.timedcallback > discardat)
+        res.timedcallback := discardat;
+    }
+
+    RETURN res;
+  }
+
+  RECORD FUNCTION ApplyEvents(STRING hash, RECORD desired, RECORD currentstate)
+  {
+    IF (desired.timedcallback != currentstate.timedcallback)
+    {
+      IF (currentstate.timedcallback != MAX_DATETIME)
+        UnregisterCallback(currentstate.timedcallbackcb);
+
+      IF (desired.timedcallback != MAX_DATETIME)
+        currentstate.timedcallbackcb := RegisterTimedCallback(desired.timedcallback, PTR this->GotTimedCallback(hash));
+      ELSE
+        currentstate.timedcallbackcb := 0;
+    }
+
+    UPDATE currentstate.eventcallbacks SET used := FALSE;
+    FOREVERY (STRING mask FROM GetSortedSet(desired.eventmasks))
+    {
+      RECORD pos := RecordLowerBound(currentstate.eventcallbacks, CELL[ mask ], [ "MASK" ]);
+      IF (NOT pos.found)
+        INSERT CELL[ used := TRUE, mask, cb := RegisterEventCallback(mask, PTR this->GotEvent(hash, #1, #2) ) ] INTO currentstate.eventcallbacks AT pos.position;
+      ELSE
+        currentstate.eventcallbacks[pos.position].used := TRUE;
+    }
+
+    FOREVERY (RECORD rec FROM currentstate.eventcallbacks)
+      IF (NOT rec.used)
+        UnregisterCallback(rec.cb);
+    DELETE FROM currentstate.eventcallbacks WHERE NOT used;
+    RETURN currentstate;
+  }
+
+  STRING FUNCTION ProcessTimers(RECORD item)
+  {
+    DATETIME now := GetCurrentDateTime();
+
+    STRING newstate := "";
+    DATETIME discardat := item.lastuse != DEFAULT DATETIME
+        ? AddTimeToDate(item.discardunusedtimeout, item.lastuse)
+        : MAX_DATETIME;
+
+    IF (now >= discardat)
+      newstate := "discarded";
+    ELSE
+    {
+      IF (item.state = "crashed")
+      {
+        IF (now >= AddTimeToDate(item.crashretry, item.lastcrash))
+          newstate := "expired";
+      }
+      ELSE
+      {
+        IF (now >= item.softexpires AND item.state = "valid")
+          newstate := "softexpired";
+        IF (now >= item.expires AND item.state != "expired")
+          newstate := "expired";
+      }
+    }
+
+    RETURN newstate;
+  }
+
+  MACRO GotTimedCallback(STRING hash)
+  {
+    RECORD pos := RecordLowerBound(this->cacheitems, CELL[ hash ], [ "HASH" ]);
+    IF (NOT pos.found)
+      RETURN;
+
+    RECORD item := this->cacheitems[pos.position];
+
+    IF (this->debug)
+      PRINT(`${TimeStamp()} Timeout for ${hash}, current state ${item.state}\n`);
+
+    STRING newstate := this->ProcessTimers(item);
+    IF (newstate != "")
+      this->UpdateCacheItem(hash, [ state := newstate ]);
+  }
+
+  MACRO GotEvent(STRING hash, STRING event, RECORD data)
+  {
+    RECORD pos := RecordLowerBound(this->cacheitems, CELL[ hash ], [ "HASH" ]);
+    IF (NOT pos.found)
+      RETURN;
+
+    RECORD item := this->cacheitems[pos.position];
+
+    IF (this->debug)
+      PRINT(`${TimeStamp()} Event for ${hash}, current state ${item.state}, event ${event}\n`);
+
+    STRING newstate := "";
+    IF (item.state = "valid")
+    {
+      FOREVERY (STRING mask FROM item.softeventmasks)
+        IF (event LIKE mask)
+          newstate := "softexpired";
+    }
+
+    IF (item.state != "expired" AND item.state != "crashed")
+    {
+      FOREVERY (STRING mask FROM item.eventmasks)
+        IF (event LIKE mask)
+          newstate := "expired";
+    }
+
+    IF (newstate != "")
+      this->UpdateCacheItem(hash, [ state := newstate ]);
+  }
+
+  PUBLIC MACRO UpdateCacheItem(STRING hash, RECORD updates, RECORD options DEFAULTSTO CELL[])
+  {
+    options := ValidateOptions([ statechangecallback := "onchange" ], options);
+
+    RECORD pos := RecordLowerBound(this->cacheitems, CELL[ hash ], [ "HASH" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("Not found!");
+
+    IF (CellExists(updates, "VALUE"))
+    {
+      STRING valuehsonstr := EncodeHSON(updates.value);
+      BOOLEAN smallvalue := LENGTH(valuehsonstr) <= 4096;
+
+      updates  :=
+          CELL[ ...updates
+              , valuehsonstr :=       smallvalue ? valuehsonstr : ""
+              , valuehsonblob :=      smallvalue ? DEFAULT BLOB : StringToBlob(valuehsonstr)
+              , DELETE value
+              ];
+    }
+
+    RECORD olditem := this->cacheitems[pos.position];
+    IF (CellExists(updates, "STATE") AND olditem.state = updates.state)
+      DELETE CELL state FROM updates;
+
+    RECORD item := this->TransformUpdatedItem(olditem, updates);
+    RECORD events := this->GetDesiredEvents(item);
+    item.registrations := this->ApplyEvents(hash, events, item.registrations);
+    this->cacheitems[pos.position] := item;
+
+    BOOLEAN runstatecb := options.statechangecallback = "forced";
+    IF (options.statechangecallback = "onchange")
+      runstatecb := olditem.state != item.state;
+
+    // Compare all state cells
+    IF (runstatecb)
+    {
+      IF (this->onstatechange != DEFAULT FUNCTION PTR)
+        this->onstatechange(hash, olditem, item);
+    }
+  }
+
+  PUBLIC RECORD FUNCTION StoreCacheItem(RECORD data)
+  {
+    data := ValidateOptions(
+        CELL[ value :=                DEFAULT RECORD
+            , keydata :=              DEFAULT RECORD
+            , func :=                 ""
+            , hash :=                 ""
+            , state :=                "valid"
+            , softexpires :=          MAX_DATETIME
+            , softeventmasks :=       DEFAULT STRING ARRAY
+            , eventmasks :=           DEFAULT STRING ARRAY
+            , expires :=              MAX_DATETIME
+            , precalcdefaults.liverefreshtimeout
+            , precalcdefaults.crashretry
+            , precalcdefaults.discardunusedtimeout
+            , precalcdefaults.lastuseroundfactor
+            , lastuse :=              DEFAULT DATETIME
+            , lastcrash :=            DEFAULT DATETIME
+            ], data);
+
+    STRING valuehsonstr := EncodeHSON(data.value);
+    BOOLEAN smallvalue := LENGTH(valuehsonstr) <= 4096;
+
+    RECORD item :=
+        CELL[ ...data
+            , valuehsonstr :=       smallvalue ? valuehsonstr : ""
+            , valuehsonblob :=      smallvalue ? DEFAULT BLOB : StringToBlob(valuehsonstr)
+            , DELETE value
+            , registrations := defaulteventstate
+            ];
+
+    RECORD pos := RecordLowerBound(this->cacheitems, item, [ "HASH" ]);
+    IF (pos.found)
+      THROW NEW Exception("Already present!");
+
+    item := this->TransformNewItem(item);
+
+    RECORD events := this->GetDesiredEvents(item);
+    item.registrations := this->ApplyEvents(item.hash, events, item.registrations);
+    INSERT item INTO this->cacheitems AT pos.position;
+    RETURN item;
+  }
+
+  RECORD FUNCTION TransformNewItem(RECORD newitem)
+  {
+    STRING newstate := this->ProcessTimers(newitem);
+    IF (newstate != "")
+      newitem.state := newstate;
+    RETURN newitem;
+  }
+
+  RECORD FUNCTION TransformUpdatedItem(RECORD olditem, RECORD updates)
+  {
+    RECORD newitem := CELL[ ...olditem, ...updates ];
+    STRING newstate := this->ProcessTimers(newitem);
+    IF (newstate != "")
+      newitem.state := newstate;
+    RETURN newitem;
+  }
+
+  PUBLIC RECORD FUNCTION LookupItem(STRING hash)
+  {
+    RECORD pos := RecordLowerBound(this->cacheitems, CELL[ hash ], [ "HASH" ]);
+    IF (pos.found)
+    {
+      RECORD item := this->cacheitems[pos.position];
+      RETURN
+          CELL[ ...item
+               , value :=     item.valuehsonstr != "" ? DecodeHSON(item.valuehsonstr) : DecodeHSONBlob(item.valuehsonblob)
+               , DELETE valuehsonstr
+               , DELETE valuehsonblob
+               ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO DeleteCacheItem(STRING hash)
+  {
+    IF (this->debug)
+      PRINT(`${TimeStamp()} Delete ${hash} from cache\n`);
+
+    RECORD pos := RecordLowerBound(this->cacheitems, CELL[ hash ], [ "HASH" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("Not present!");
+
+    RECORD item := this->cacheitems[pos.position];
+    this->ApplyEvents(item.hash, defaultdesiredevents, item.registrations);
+    DELETE FROM this->cacheitems AT pos.position;
+    this->TransformDeletedItems([ item ]);
+  }
+
+  PUBLIC MACRO DeleteForModule(STRING module)
+  {
+    IF (this->debug)
+      PRINT(`${TimeStamp()} Delete for module ${module}\n`);
+
+    RECORD ARRAY deleted;
+    FOR (INTEGER i := 0; i < LENGTH(this->cacheitems);)
+    {
+      IF (this->cacheitems[i].func NOT LIKE `mod*::${module}/*`)
+      {
+        i := i + 1;
+        CONTINUE;
+      }
+
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Delete ${this->cacheitems[i].hash}\n`);
+
+      this->ApplyEvents(this->cacheitems[i].hash, defaultdesiredevents, this->cacheitems[i].registrations);
+      INSERT this->cacheitems[i] INTO deleted AT END;
+      DELETE FROM this->cacheitems AT i;
+    }
+
+    IF (module = "*")
+      this->TransformAllDeletedItems();
+    ELSE
+    {
+      this->TransformDeletedItems(deleted);
+      this->TransformSync();
+    }
+  }
+
+  MACRO TransformDeletedItems(RECORD ARRAY deleted)
+  {
+  }
+
+  MACRO TransformAllDeletedItems()
+  {
+  }
+
+  MACRO TransformSync()
+  {
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PersistentPrecalcCache EXTEND PrecalcCache
+<
+
+  OBJECT job;
+
+  MACRO NEW(BOOLEAN debug)
+  : PrecalcCache(debug)
+  {
+    IF (this->debug)
+      PRINT(`${TimeStamp()} Starting persistent cache read\n`);
+
+    INTEGER ARRAY invalidentries;
+    FOREVERY (RECORD rec FROM SELECT * FROM system.precalccache ORDER BY hash)
+    {
+      TRY
+      {
+        RECORD keydata := rec.keydatahsonstr != "" ? DecodeHSON(rec.keydatahsonstr) : DecodeHSONBlob(rec.keydatahsonblob);
+        RECORD settings := ValidateOptions(
+            CELL[ softexpires :=         DEFAULT DATETIME
+                , expires :=             DEFAULT DATETIME
+                , softeventmasks :=      STRING[]
+                , eventmasks :=          STRING[]
+                , precalcdefaults.liverefreshtimeout
+                , precalcdefaults.crashretry
+                , precalcdefaults.discardunusedtimeout
+                , precalcdefaults.lastuseroundfactor
+                ],
+            DecodeHSON(rec.settingshsonstr));
+
+        IF (rec.state NOT IN [ "valid", "expired", "softexpired" ])
+          THROW NEW Exception(`Illegal state '${rec.state}' found`);
+
+        // don't assume the data read from the database is still valid, mark it as softexpired
+        INSERT CELL[ rec.func
+                   , rec.hash
+                   , state :=           rec.state = "valid" ? "softexpired" : rec.state
+                   , keydata
+                   , rec.valuehsonstr
+                   , rec.valuehsonblob
+                   , ...settings
+                   , rec.lastuse
+                   , lastcrash :=       DEFAULT DATETIME
+                   , registrations :=   defaulteventstate
+                   ] INTO this->cacheitems AT END;
+      }
+      CATCH (OBJECT e)
+      {
+        PRINT(`Removing entry for '${rec.hash}', reason: ${e->what}\n`);
+        INSERT rec.id INTO invalidentries AT END;
+      }
+    }
+
+    IF (this->debug)
+      PRINT(`${TimeStamp()}  Read ${LENGTH(this->cacheitems)} items\n`);
+
+    IF (Length(invalidentries) > 0)
+    {
+      IF (this->debug)
+        PRINT(`Removing ${Length(invalidentries)} invalid entries\n`);
+      GetPrimary()->BeginWork();
+      DELETE FROM system.precalccache WHERE id IN invalidentries;
+      GetPrimary()->CommitWork();
+    }
+
+    RECORD jobstartres := CreateJob("mod::system/lib/internal/precalc/dbwriter.whlib", "");
+    IF (NOT ObjectExists(jobstartres.job))
+      THROW NEW HarescriptErrorException(jobstartres.errors);
+
+    this->job := jobstartres.job;
+    this->job->ipclink->SendMessage(CELL[ task := "config", this->debug ]);
+    this->job->Start();
+
+    // Mark all valid entries in the DB as softexpired to match what we read in
+    this->job->ipclink->SendMessage(CELL[ task := "invalidateall", this->debug ]);
+
+    RegisterHandleReadCallback(this->job->handle, PTR this->GotJobSignalled());
+  }
+
+  MACRO GotJobSignalled()
+  {
+    // job signalled, so it crashed
+    THROW NEW HarescriptErrorException(this->job->GetErrors());
+  }
+
+  PUBLIC UPDATE MACRO Init()
+  {
+    this->RunCacheReset("", DEFAULT RECORD);
+  }
+
+  UPDATE RECORD FUNCTION TransformNewItem(RECORD item)
+  {
+    item := PrecalcCache::TransformNewItem(item);
+
+    STRING keydatahsonstr := EncodeHSON(item.keydata);
+
+    BOOLEAN smallkeydata := LENGTH(keydatahsonstr) <= 4096;
+
+    IF (this->debug)
+      PRINT(`${TimeStamp()}  Store ${item.hash} in DB\n`);
+
+    RECORD vals :=
+        CELL[ item.hash
+            , item.func
+            , item.state
+            , keydatahsonstr :=     smallkeydata ? keydatahsonstr : ""
+            , keydatahsonblob :=    smallkeydata ? DEFAULT BLOB : StringToBlob(keydatahsonstr)
+            , item.valuehsonstr
+            , item.valuehsonblob
+            , settingshsonstr :=    EncodeHSON(CELL[ item.softexpires
+                                                   , item.softeventmasks
+                                                   , item.eventmasks
+                                                   , item.expires
+                                                   , item.liverefreshtimeout
+                                                   , item.crashretry
+                                                   , item.discardunusedtimeout
+                                                   , item.lastuseroundfactor
+                                                   ])
+            , item.lastuse
+            ];
+
+    this->job->ipclink->SendMessage([ task := "insert", value := vals ]);
+    RETURN item;
+  }
+
+  UPDATE RECORD FUNCTION TransformUpdatedItem(RECORD olditem, RECORD updates)
+  {
+    RECORD newitem := PrecalcCache::TransformUpdatedItem(olditem, updates);
+    IF (NOT RecordExists(UnpackRecord(updates)))
+      RETURN newitem;
+
+    RECORD dbupdate :=
+        CELL[ newitem.state
+            , settingshsonstr :=  EncodeHSON(CELL[ newitem.softexpires, newitem.softeventmasks, newitem.eventmasks, newitem.expires, newitem.liverefreshtimeout, newitem.crashretry ])
+            , newitem.lastuse
+            ];
+
+    IF (CellExists(updates, "VALUEHSONSTR") OR CellExists(updates, "VALUEHSONBLOB"))
+      dbupdate := CELL[ ...dbupdate, updates.valuehsonstr, updates.valuehsonblob ];
+
+    IF (this->debug)
+      PRINT(`${TimeStamp()}  Update ${olditem.hash} in DB\n`);
+
+    this->job->ipclink->SendMessage([ task := "update", hash := olditem.hash, value := dbupdate ]);
+    RETURN newitem;
+  }
+
+  UPDATE MACRO TransformDeletedItems(RECORD ARRAY deleted)
+  {
+    STRING ARRAY hashes := SELECT AS STRING ARRAY hash FROM deleted;
+
+    IF (this->debug)
+      PRINT(`${TimeStamp()}  Delete ${LENGTH(deleted)} items from DB\n`);
+
+    this->job->ipclink->SendMessage(CELL[ task := "delete", hashes ]);
+  }
+
+  UPDATE MACRO TransformAllDeletedItems()
+  {
+    IF (this->debug)
+      PRINT(`${TimeStamp()}  Delete all items from DB\n`);
+
+    this->job->ipclink->SendMessage(CELL[ task := "deleteall" ]);
+  }
+
+  UPDATE MACRO TransformSync()
+  {
+    IF (this->debug)
+      PRINT(`${TimeStamp()}  Sync cache\n`);
+
+    this->job->ipclink->SendMessage(CELL[ task := "commit" ]);
+  }
+>;

@@ -1,0 +1,125 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// The button (forms)
+
+PUBLIC OBJECTTYPE TolliumButtonGroup EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD pvt_borders;
+
+  STRING pvt_layout;
+
+  OBJECT ARRAY pvt_buttons;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** The borders to show
+  */
+  PUBLIC PROPERTY borders(pvt_borders, pvt_borders);
+
+  /** The layout of the group: "horizontal" or "vertical"
+  */
+  PUBLIC PROPERTY layout(pvt_layout, SetLayout);
+
+  /** The buttons within the group
+  */
+  PUBLIC PROPERTY buttons(pvt_buttons, SetButtons);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_invisibletitle := TRUE;
+    this->componenttype := "buttongroup";
+    this->pvt_borders := tolliumdefaultborderspacer;
+    this->pvt_layout := "horizontal";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumComponentBase::StaticInit(definition);
+
+    this->pvt_borders := definition.borders;
+    this->pvt_buttons := SELECT AS OBJECT ARRAY component FROM definition.buttons;
+  }
+
+  UPDATE PUBLIC MACRO DeleteComponent()
+  {
+    IF (ObjectExists(this->action))
+      this->action->UnregisterDependency(this);
+    TolliumComponentBase::DeleteComponent();
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    RETURN this->buttons;
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->layout = "")
+      THROW NEW TolliumException(this, "No buttongroup layout set");
+
+    IF (this->dirtyflags.fully)
+    {
+      RECORD compinfo := [ borders := this->pvt_borders
+                         , layout := this->layout
+                         , buttons := GetVisibleComponentNames(this->buttons)
+                         ];
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      //ADDME: Shortcut updates?
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  UPDATE MACRO SetLayout(STRING layout)
+  {
+    IF (layout != this->layout AND layout IN [ "horizontal", "vertical" ])
+    {
+      this->pvt_layout := layout;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetButtons(OBJECT ARRAY buttons)
+  {
+    this->pvt_buttons := buttons;
+    this->ExtUpdatedComponent();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+>;

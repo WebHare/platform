@@ -1,0 +1,166 @@
+﻿<?wh
+
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/support.whlib";
+
+LOADLIB "mod::system/lib/testfw/runtest.whlib";
+LOADLIB "mod::system/lib/internal/jstests/testrunner.whlib";
+
+
+OBJECT trans := OpenPrimary();
+
+STRING ARRAY masks;
+STRING ARRAY skips;
+STRING urlbase := DecodeURL(Tokenize(GetRequestURL(),'?')[0]);
+IF(urlbase LIKE "*/!/*")
+{
+
+  STRING ARRAY suburltoks := Tokenize(Tokenize(urlbase,'/!/')[1], '/');
+  SWITCH (suburltoks[0])
+  {
+    CASE "testlist"
+    {
+      OBJECT testfw := NEW RunTests;
+      STRING ARRAY urlmasks, urlskips;
+      IF (GetWebVariable("mask") != "")
+        urlmasks := Tokenize(Substitute(GetWebVariable("mask"), ",", " "), " ");
+      IF (GetWebVariable("skip") != "")
+        urlmasks := Tokenize(Substitute(GetWebVariable("skip"), ",", " "), " ");
+
+      //ADDME now that the cache is fast enough, post-filter ?
+      RECORD ARRAY tests := testfw->GatherAllTests(urlmasks, urlskips);
+      DELETE FROM tests WHERE type != "jstest" OR sitename != GetWebVariable("site");
+
+      IF (GetWebVariable("tags") != "")
+        tests := SELECT * FROM tests WHERE Length(ArrayIntersection(Tokenize(GetWebVariable("tags"),','), tags))>0;
+
+      SendWebFile(EncodeJSONBlob(
+        SELECT name :=    testname
+             , url :=     "../testpage/" || testname || (exclusive ? "?exclusive=1":"")
+             , isjs :=    testscript.scriptpath NOT LIKE "*.es"
+             , args :=    testscript.args
+             , tags
+          FROM tests));
+    }
+    CASE "testpage"
+    {
+      //We are generating the frame containing the test script
+
+      STRING testname := suburltoks[1];
+      OBJECT testfw := NEW RunTests;
+      RECORD ARRAY tests := testfw->GatherAllTests([ testname ], DEFAULT STRING ARRAY);
+      DELETE FROM tests WHERE type != "jstest" OR COLUMN testname != VAR testname;
+      RECORD affectedtest := tests;
+
+      IF (NOT RecordExists(affectedtest))
+        ABORT(`No such test ${testname}`);
+
+      OBJECT testwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML");
+      IF(Length(suburltoks) <= 2)
+      {
+        RECORD data := [ printheaders := DEFAULT MACRO PTR
+                       , harescripttestdata := affectedtest.harescripttestdata
+                       , testjsscript := ""
+                       , exclusive :=    affectedtest.exclusive ? "1" : "0"
+                       , whconfig := [ dtapstage := GetDTAPStage()
+                                     , islive := IsDTAPLive()
+                                     , locale := "en-US"
+                                     , server := GetWebhareVersionNumber()
+                                     ]
+                       ];
+
+        //We need to generate a full page for the specified test
+        BOOLEAN isv2test := affectedtest.testscript.scriptpath LIKE "*.es";
+        IF(affectedtest.testscript.scriptpath LIKE "*.es")
+        {
+          OBJECT depsolver := CreateDependencyResolverForJSFile(GetWebHareResourceDiskPath(affectedtest.testscript.scriptpath));
+          data.printheaders := PTR depsolver->printheaders(DEFAULT OBJECT,"");
+        }
+        ELSE
+        {
+          OBJECT depsolver := GetJSTestDepsolver();
+          data.printheaders := PTR depsolver->printheaders;
+
+          BLOB jsfile :=  GetWebHareResource(affectedtest.testscript.scriptpath);
+          RECORD testinfo := ExtractHeader(jsfile, FALSE, "");
+          FOREVERY(RECORD depend FROM testinfo.depends)
+            depsolver->AddLoad(depend.name);
+
+          data.testjsscript := GetrequestURL() || "/" || EncodeURL(Tokenize(affectedtest.testscript.scriptpath,'/')[END-1]);
+        }
+        testwitty->RunComponent("emptytestpage", data);
+        RETURN;
+      }
+      ELSE IF(suburltoks[2] LIKE "*.js")
+      {
+        AddHTTPHeader("Content-Type", "text/javascript", FALSE);
+        BLOB jsfile :=  GetWebHareResource(affectedtest.testscript.scriptpath);
+        SendWebFile(jsfile);
+      }
+    }
+  }
+}
+
+// list overview
+STRING testlisturl := GetWebVariable("testlist");
+STRING testsiteroot;
+IF (testlisturl = "")
+{
+  // No test list, so this is a webhare test url
+  FOREVERY (RECORD rec FROM GetAllWebVariables())
+    IF (rec.value != "")
+    {
+      IF (rec.name = "mask")
+        masks := masks CONCAT Tokenize(rec.value, ",");
+      ELSE IF (rec.name = "skip")
+        skips := skips CONCAT Tokenize(rec.value, ",");
+    }
+
+  IF(GetWebVariable("site") != "")
+  {
+    OBJECT site := OpenSiteByName(GetWebVariable("site"));
+    IF(NOT ObjectExists(site))
+      THROW NEW Exception("No such site '" || GetWebVariable("site") || "'");
+    IF(site->Webroot = "")
+      THROW NEW Exception("Site '" || GetWebVariable("site") || "' is not being published");
+
+    STRING serverroot := ResolveToAbsoluteURL(site->webroot, "/"); //jstests are always relative to the server root
+    IF(GetClientRequestURL() NOT LIKE serverroot || "*") //accessing from the URL. my.webhare.dev in CI reports can trigger this
+      Redirect(serverroot || UnpackURL(GetClientRequestURL()).urlpath);
+
+    //we should always be invoked through a local /.webhare_testsuite/ so we can just generate a local base path
+    testsiteroot := '/'||UnpackURL(site->webroot).urlpath;
+  }
+
+  testlisturl := UpdateURLVariables("/.system/jstests/!/testlist/",
+      [ masks :=      Detokenize(masks, ",")
+      , skips :=      Detokenize(skips, ",")
+      , tags :=       GetWebVariable("tags")
+      , site :=       GetWebVariable("site")
+      ]);
+}
+
+
+OBJECT testrunwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML");
+
+OBJECT depsolver := CreateDependencyResolverForJSFile(GetWebHareResourceDiskPath("mod::system/web/systemroot/jstests/testsuite.es"));
+
+RECORD data := [ printheaders :=    PTR depsolver->PrintHeaders(DEFAULT OBJECT,"")
+               , mask :=            masks
+               , skips :=           skips
+               , testlisturl :=     testlisturl
+               , seleniumref :=     GetWebVariable("seleniumref")
+               , testsiteroot :=    testsiteroot
+               ];
+
+testrunwitty->RunComponent("hostingpage", data);

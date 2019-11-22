@@ -1,0 +1,373 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor/processlist.whlib"
+         gid="monitor.processlist">
+
+  <messageboxes>
+    <messagebox name="processgone"        icon="information"  buttons="ok" />
+  </messageboxes>
+
+  <fragment name="processdetails">
+    <actions>
+      <action name="opentracerow" >
+        <enableon source="trace" min="1" onexecute="doopentracerow" />
+        <enableon source="errors" min="1" onexecute="doopenerrorrow" />
+      </action>
+    </actions>
+
+    <contents>
+      <grid height="1pr">
+        <col minwidth="50x" />
+        <col width="1pr" />
+        <row height="1pr">
+          <cell>
+            <box name="appstatusbox" tid=".appstatus" minwidth="50x">
+              <text name="groupid" />
+              <text name="status" />
+              <datetime name="creationdate" type="datetime" readonly="true" precision="seconds" storeutc="true" />
+              <datetime name="finishdate" type="datetime" readonly="true" precision="seconds" storeutc="true" />
+              <text name="total_running_txt" />
+            </box>
+            <box name="userdata" minwidth="50x">
+              <text name="appname" />
+              <text name="username" />
+              <text name="useremail" />
+              <text name="databaseuser" />
+            </box>
+            <box name="appstats" hr="false">
+              <text name="backingstore" />
+              <text name="blobstore" />
+              <text name="heap" />
+              <text name="stack" />
+              <text name="instructions" />
+              <text name="objectcount" />
+            </box>
+            <box name="locksbox" tid=".locks" visible="false" height="1pr" hr="false">
+              <panel height="1pr">
+                <list name="locks"
+                      selectmode="single"
+                      sortable="false"
+                      >
+                  <column name="lockorder" type="integer" width="4x" />
+                  <column name="name" type="text" />
+                  <column name="maxconcurrent" type="integer" width="4x" />
+                  <column name="status" type="text" width="8x" />
+                </list>
+              </panel>
+            </box>
+          </cell>
+          <cell>
+            <box name="errorsbox" tid=".errors" height="1pr" visible="false">
+              <panel height="1pr">
+                <list name="errors"
+                      minwidth="80x" width="1pr"
+                      minheight="8x" height="1pr"
+                      selectmode="single"
+                      openaction="opentracerow"
+                      sortable="false"
+                      rowlayout="tworows"
+                      emptytid=".noerrors">
+                  <column name="message" type="text" />
+                  <column name="filename" type="text" />
+                  <column name="line" type="integer" width="7x" align="right" />
+                  <column name="col" type="integer" width="7x" align="right" />
+                  <column name="func" type="text" />
+                  <rowlayout name="tworows">
+                    <col coldef="filename" />
+                    <col coldef="line" />
+                    <col coldef="col" />
+                    <col coldef="func" />
+                    <row>
+                      <cell colspan="4" coldef="message" />
+                    </row>
+                    <row>
+                      <cell coldef="filename" />
+                      <cell coldef="line" />
+                      <cell coldef="col" />
+                      <cell coldef="func" />
+                    </row>
+                  </rowlayout>
+                </list>
+              </panel>
+            </box>
+            <box tid=".stacktrace" height="1pr" hr="false">
+              <panel height="1pr">
+                <list name="trace"
+                      minwidth="80x" width="1pr"
+                      minheight="8x" height="1pr"
+                      emptytid=".nostacktrace"
+                      selectmode="single"
+                      openaction="opentracerow"
+                      sortable="false">
+                  <column name="filename" type="text" />
+                  <column name="line" type="integer" width="7x" align="right" />
+                  <column name="col" type="integer" width="7x" align="right" />
+                  <column name="func" type="text" />
+                </list>
+              </panel>
+            </box>
+          </cell>
+        </row>
+      </grid>
+    </contents>
+  </fragment>
+
+  <screen name="processlist" title="">
+    <actions>
+      <action name="viewprocess">
+        <enableon source="jobs" min="1" max="1" onexecute="doviewprocess" />
+        <enableon source="lockslist" min="1" max="1" onexecute="doviewlockprocess" />
+        <enableon source="historyerrors" min="1" max="1" onexecute="doviewerrorprocess" />
+      </action>
+      <action name="abortprocess">
+        <enableon source="jobs" min="1" onexecute="doabortprocess" />
+        <enableon source="lockslist" min="1" onexecute="doabortlockprocess" />
+      </action>
+      <action name="debugprocess">
+        <enableon source="jobs" min="1" max="1" onexecute="dodebugprocess" />
+        <enableon source="lockslist" min="1" max="1" onexecute="dodebuglockprocess" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="jobscontext">
+        <item action="viewprocess" />
+        <item action="abortprocess" />
+        <item action="debugprocess" disablemode="hidden" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener name="prefslistener" onevents="onprefschange" />
+    </compositions>
+
+    <body height="1pr">
+      <tabs height="1pr">
+        <tab name="running" spacers="left right bottom">
+          <checkbox name="hidetolliuminternals" title="" labeltid=".hidetolliuminternals" />
+          <split type="vertical">
+            <part height="1pr">
+              <panel height="1pr">
+                <list name="jobs"
+                      selectmode="multiple"
+                      borders="top right left"
+                      sortcolumn="creationdate"
+                      onselect="onjobselect"
+                      icons="tollium:actions/up"
+                      rowiconname="priorityicon"
+                      selectcontextmenu="jobscontext"
+                      openaction="viewprocess"
+                      >
+                  <column name="groupid" type="text" width="25x" />
+                  <column name="script_show" tid=".script" type="text" />
+                  <column name="status" type="text" width="14x"  />
+                  <column name="creationdate" type="datetime" precision="seconds" storeutc="true" width="18x" />
+                  <column name="cpu" type="text" sortkeyname="cpu" width="7x" align="right" />
+                  <column name="total_running_txt" type="text" sortkeyname="total_running" width="12x" />
+                  <!-- <column name="runningtimeout" type="datetime" precision="seconds" storeutc="true" width="18x" /> -->
+                  <column name="size_txt" type="text" sortkeyname="size" align="right" width="13x" />
+                </list>
+              </panel>
+            </part>
+            <part>
+              <includefragment name="processdetails" fragment=".processdetails" />
+            </part>
+          </split>
+        </tab>
+        <tab name="history" spacers="left right bottom">
+          <split type="vertical">
+            <part height="1pr">
+              <grid >
+                <col />
+                <col width="3x"/>
+                <col />
+                <col width="3x"/>
+                <col />
+                <row>
+                  <cell>
+                    <checkbox name="hidetolliuminternalshistory" title="" labeltid=".hidetolliuminternals" />
+                  </cell>
+                  <cell/>
+                  <cell>
+                    <checkbox name="ignoreparameters" title="" labeltid=".ignoreparameters" />
+                  </cell>
+                  <cell/>
+                  <cell>
+                    <textedit name="history_secs" valuetype="integer" readonly="true" />
+                  </cell>
+                </row>
+              </grid>
+              <panel height="1pr">
+                <list name="historylist"
+                      selectmode="single"
+                      sortcolumn="creationdate"
+                      icons="tollium:actions/up"
+                      >
+                  <column name="script_show" tid=".script" type="text" />
+                  <column name="count"        type="integer" width="9x" />
+                  <column name="totaltime"    type="time" precision="seconds" width="10x" />
+                  <column name="avgtime"      type="time" precision="milliseconds" width="12x" />
+                  <column name="total_running" type="time" precision="seconds" width="10x" />
+                  <column name="avgrunning"   type="time" precision="milliseconds" width="12x" />
+                </list>
+              </panel>
+            </part>
+            <part height="1pr">
+              <panel height="1pr">
+                <list name="historyerrors"
+                      minwidth="80x" width="1pr"
+                      minheight="8x" height="1pr"
+                      selectmode="single"
+                      borders="left right bottom"
+                      openaction="viewprocess"
+                      rowlayout="layout"
+                      emptytid=".noerrorsreported">
+                  <column name="finishdate" type="datetime" precision="seconds" storeutc="true" width="18x" />
+                  <column name="script_show" tid=".script" type="text" />
+                  <column name="message" type="text" />
+                  <column name="filename" type="text" />
+                  <column name="line" type="integer" width="6x" />
+                  <column name="col" type="integer" width="6x" />
+                  <column name="func" type="text" />
+                  <rowlayout name="layout">
+                    <col coldef="finishdate" />
+                    <col coldef="filename" />
+                    <col coldef="line" />
+                    <col coldef="col" />
+                    <col coldef="func" />
+                    <row>
+                      <cell colspan="4" coldef="message" />
+                      <cell coldef="script_show" />
+                    </row>
+                    <row>
+                      <cell coldef="finishdate" />
+                      <cell coldef="filename" />
+                      <cell coldef="line" />
+                      <cell coldef="col" />
+                      <cell coldef="func" />
+                    </row>
+                  </rowlayout>
+                </list>
+              </panel>
+            </part>
+          </split>
+        </tab>
+        <tab name="lockstab" tid=".locks">
+          <split type="vertical">
+            <part height="1pr">
+              <list name="locks"
+                    selectmode="single"
+                    onselect="onlockselect"
+                    borders="top left right"
+                    >
+                <column name="name" type="text" />
+                <column name="maxwaittime" type="text" width="12x" align="right" />
+                <column name="maxlocktime" type="text" width="12x" align="right" />
+                <column name="locked" type="integer" width="8x" />
+                <column name="waiting" type="integer" width="8x" />
+              </list>
+            </part>
+            <part height="1pr">
+              <list name="lockslist"
+                    borders="left right bottom"
+                    selectmode="multiple"
+                    openaction="viewprocess"
+                    selectcontextmenu="jobscontext"
+                    >
+                <column name="position" type="integer" width="8x" />
+                <column name="groupid" type="text" width="24x" />
+                <column name="script_show" tid=".script" type="text" />
+                <column name="waittime" type="text" width="12x" align="right" />
+                <column name="locktime" type="text" width="12x" align="right" />
+                <column name="locked" type="text" width="12x"/>
+                <column name="maxconcurrent" type="integer" width="8x"/>
+              </list>
+            </part>
+          </split>
+        </tab>
+      </tabs>
+    </body>
+  </screen>
+
+  <screen name="processview"
+          allowresize="true"
+          height="50x"
+          width="180x"
+          >
+    <actions>
+      <action name="abort" onexecute="doabort" />
+      <action name="refresh" onexecute="dorefresh" />
+    </actions>
+    <body>
+      <box tid=".script" hr="false">
+        <textedit name="script" enabled="false" width="1pr" />
+        <textedit name="mainscript" enabled="false" width="1pr" />
+      </box>
+      <includefragment name="processdetails" fragment=".processdetails" />
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="abort" />
+        <button action="refresh" />
+        <button tolliumresult="cancel" tid="tollium:common.actions.close" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="codeview"
+          allowresize="true"
+          height="70x"
+          width="180x"
+          savestate="position size"
+          >
+    <actions>
+      <action name="openineditor" onexecute="doopenineditor" tid="~openineditor">
+        <enableon source="trace" min="1" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="stacktracemenu">
+        <item action="openineditor" title="Open in editor"/>
+      </menu>
+    </menus>
+
+    <body>
+      <split type="vertical">
+        <part height="1pr">
+          <tabs height="1pr" name="tabs" type="server">
+            <tab name="viewtab">
+              <codeedit name="codeview"
+                        height="1pr" />
+            </tab>
+            <tab name="cannotfindsourcetab">
+              <panel height="1pr" />
+              <line layout="center"><text valuetid=".cannotfindsource" /></line>
+              <panel height="1pr" />
+            </tab>
+          </tabs>
+        </part>
+        <part>
+          <box tid=".stacktrace" height="1pr">
+            <list name="trace"
+                  minwidth="80x" width="1pr"
+                  minheight="10x" height="1pr"
+                  emptytid=".nostacktrace"
+                  selectmode="single"
+                  onselect="onselecttracerow"
+                  selectcontextmenu="stacktracemenu"
+                  sortable="false">
+              <column name="filename" type="text" />
+              <column name="line" type="integer" width="6x" />
+              <column name="col" type="integer" width="6x" />
+              <column name="func" type="text" />
+            </list>
+          </box>
+        </part>
+      </split>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+
+</screens>

@@ -1,0 +1,454 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/testfw/payments.whlib";
+LOADLIB "mod::wrd/lib/internal/sync/support.whlib";
+LOADLIB "mod::wrd/lib/internal/sync/sync.whlib";
+
+
+INTEGER laststatuslen;
+MACRO PrintStatusLine(STRING line)
+{
+  INTEGER diff := laststatuslen - LENGTH(line);
+  laststatuslen := LENGTH(line);
+  PRINT(`${line}${diff > 0 ? RepeatText(" ", diff) : ""}\r`);
+}
+
+RECORD FUNCTION RunSync(OBJECT synctarget, OBJECT peer, STRING remotetag, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OBJECT itr := SyncFromExternalSchema(synctarget, peer, remotetag, options);
+  RECORD rec;
+  WHILE (TRUE)
+  {
+    rec := itr->Next();
+    IF (rec.done)
+      BREAK;
+
+    IF (testfw->debug)
+      PrintStatusLine(`${Right("  " || FormatMoney(rec.value.progress, 1, ".", "", TRUE), 5)}: ${rec.value.status}`);
+  }
+
+  IF (testfw->debug)
+  {
+    PrintStatusLine(`sync done`);
+    PRINT("\n");
+  }
+
+  RETURN rec.value;
+}
+
+OBJECT syncpeer;
+
+MACRO PrepareSchemaContent()
+{
+  // Add a payment
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  RECORD keypair := testfw->GenerateKeyPair("payments");
+  OBJECT pm2 := testfw->wrdschema->^payprov->CreateEntity(
+    [ wrd_title := "TestMethod"
+    , method := MakePaymentProviderValue("wrd:test", [ keypair := keypair.id, requirekeypair := TRUE ])
+    ]);
+
+  OBJECT pd2b := paymentapi->paymenttype->CreateEntity([ wrd_tag := "PD2B" ]);
+  testfw->CommitWork();
+
+  STRING gotourl := StartWRDTestPayment(paymentapi, pd2b->id, 18.57m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER" ]);
+  TestEq("pending", pd2b->GetField("DATA").status);
+
+  DATETIME paymentstart := GetCurrentDatetime();
+  CompleteWRDTestpayment(gotourl, "approved");
+
+  //Create domainarrays for ordering tests
+  testfw->BeginWork();
+  OBJECT selfreferringtype := testfw->wrdschema->CreateType("TEST_SYNC_SELFREFERRING");
+  selfreferringtype->CreateAttribute("DOMAINARRAY", "DOMAINARRAY", [ domain := selfreferringtype->id ]);
+
+  OBJECT selfrefer1 := selfreferringtype->CreateEntity(CELL[], [temp := TRUE]);
+  OBJECT selfrefer2 := selfreferringtype->CreateEntity(CELL[]);
+
+  selfrefer1->UpdateEntity([ domainarray := INTEGER[ selfrefer1->id, selfrefer2->id ]]);
+  selfrefer2->UpdateEntity([ domainarray := INTEGER[ selfrefer1->id, selfrefer2->id ]]);
+  testfw->CommitWork();
+}
+
+MACRO TestSync()
+{
+  OBJECT userapi := GetWRDAuthUserAPI(testfw->wrdschema);
+
+  OBJECT user_sysop := testfw->GetUserObject("sysop");
+  RECORD tokenrec := userapi->GenerateOAuthAccessToken(user_sysop->entityid, STRING[]);
+
+  STRING token := tokenrec.token;
+
+  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  TestEq(TRUE, ObjectExists(schemaobj));
+
+  testfw->BeginWork();
+  OBJECT synctarget := CreateWRDSchema("webhare_testsuite:synctarget",
+        [ title := "webhare_testsuite schema, sync target"
+        , description := "The webhare_testsuite WRD schema sync target"
+        ]);
+
+  OBJECT linktometype := testfw->GetWRDSchema()->CreateDomain("ZZ_LAST");
+  OBJECT linktome1 := linktometype->CreateEntity([wrd_tag := "LINKTOME1"]);
+
+  testfw->CommitWork();
+
+  RECORD port := testfw->GetLocalhostWebinterface();
+
+  syncpeer := OpenMarshalledWebHarePeer(
+      [ __marshall__remotewebhareconnection :=
+            [ url :=          port.baseurl
+            , username :=     ""
+            , encpassword :=  "bearer:" || token
+            ]
+      ]);
+
+  //RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
+  RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
+
+  RECORD ARRAY org_persons :=
+      SELECT *
+        FROM schemaobj->^wrd_person->RunQuery(
+                [ outputcolumns := [ "*" ]
+                ])
+    ORDER BY wrd_contact_email;
+
+  // Compare all the fields that don't contain a reference to a wrd_id
+  STRING ARRAY fields :=
+      SELECT AS STRING ARRAY name
+        FROM UnpackRecord(org_persons[0])
+       WHERE name NOT IN [ "WRD_ID", "WRD_TYPE"
+                         , "WHUSER_UNIT"
+                         , "TEST_SINGLE_DOMAIN", "TEST_SINGLE_DOMAIN2", "TEST_SINGLE_DOMAIN3", "TEST_MULTIPLE_DOMAIN"
+                         ];
+
+  RECORD ARRAY new_persons :=
+      SELECT *
+        FROM synctarget->^wrd_person->RunQuery(
+                [ outputcolumns := fields
+                ])
+    ORDER BY wrd_contact_email;
+
+  // Compare all the persons
+  TestEQ(LENGTH(org_persons), LENGTH(new_persons));
+  FOREVERY (RECORD orgrec FROM org_persons)
+  {
+    RECORD upd := schemaobj->^wrd_person->GetEntity(orgrec.wrd_id)->FilterFieldUpdates(new_persons[#orgrec]);
+    TestEQ(DEFAULT RECORD, upd, `user[${orgrec.wrd_contact_email}]`);
+  }
+
+  // Test for updates of local schema that has more attributes than local schema
+
+  testfw->BeginWork();
+
+  //sync failed if the parent wasn't part of an update, because it got thrown out when sorting the domain tree
+  OBJECT linktome2 := linktometype->CreateEntity([ wrd_leftentity := linktome1->id, wrd_tag := "LINKTOME2"]);
+
+  synctarget->^wrd_person->CreateAttribute("ETEST_DOMAIN", "DOMAIN", [ domain := synctarget->^wrd_person->id ]);
+  synctarget->^wrd_person->CreateAttribute("ETEST_FILE", "FILE");
+  synctarget->^wrd_person->CreateAttribute("ETEST_ARRAY", "ARRAY");
+  synctarget->^wrd_person->CreateAttribute("ETEST_ARRAY.TEXT", "FREE");
+  schemaobj->^wrd_person->CreateAttribute("LINKTOME", "DOMAIN", [ domain := linktometype->id ]);
+
+  // Test array with extra attributes too
+  testfw->GetWRDSchema()->^wrd_person->CreateAttribute("ETEST_ARRAY2", "ARRAY");
+  testfw->GetWRDSchema()->^wrd_person->CreateAttribute("ETEST_ARRAY2.TEXT", "FREE");
+  synctarget->^wrd_person->CreateAttribute("ETEST_ARRAY2", "ARRAY");
+  synctarget->^wrd_person->CreateAttribute("ETEST_ARRAY2.TEXT", "FREE");
+  synctarget->^wrd_person->CreateAttribute("ETEST_ARRAY2.TEXT2", "FREE");
+
+  // Lookup ids for test entities
+  INTEGER org_0 := testfw->GetWRDSchema()->^wrd_person->Search("WRD_GUID", org_persons[0].wrd_guid);
+  INTEGER new_0 := synctarget->^wrd_person->Search("WRD_GUID", org_persons[0].wrd_guid);
+  INTEGER new_1 := synctarget->^wrd_person->Search("WRD_GUID", org_persons[1].wrd_guid);
+
+  schemaobj->^wrd_person->UpdateEntity(org_0, [ etest_array2 := [ [ text := "t1" ] ], linktome := linktome2->id ]);
+  Sleep(2); // make sure the org_0 and new_0 entities have different modificationdates
+  synctarget->^wrd_person->UpdateEntity(new_0,
+      [ etest_domain := new_1
+      , etest_file :=   WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg")
+      , etest_array :=  [ [ text := "t3" ] ]
+      , etest_array2 := [ [ text := "t4", text2 := "t5" ] ]
+      ]);
+
+  RECORD fields_before_sync := synctarget->^wrd_person->GetEntityFields(new_0, [ "etest_domain", "etest_file", "etest_array", "etest_array2" ]);
+
+  testfw->CommitWork();
+
+  RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
+
+  RECORD fields_after_update := synctarget->^wrd_person->GetEntityFields(new_0, [ "etest_domain", "etest_file", "etest_array", "etest_array2" ]);
+
+  // etest_array2[0].text was synced to 't1', erasing other array members. array setting will be changed too
+  RECORD expected_fields := fields_before_sync;
+  expected_fields.etest_array2[0].text := "t1";
+  expected_fields.etest_array2[0].text2 := "";
+  expected_fields.etest_array2[0].wrd_settingid := fields_after_update.etest_array2[0].wrd_settingid;
+
+  TestEQ(expected_fields, fields_after_update);
+  TestEQ(synctarget->^wrd_person->GetDomVal("LINKTOME", "LINKTOME2"), synctarget->^wrd_person->GetEntityField(new_0, "LINKTOME"));
+}
+
+MACRO TestRenamedTypeBreaks()
+{
+  OBJECT synctarget := OpenWRDSchema("webhare_testsuite:synctarget");
+
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->CreateType("TEST_SYNC");
+  testfw->GetWRDSchema()->^test_sync->CreateAttribute("WRD_TITLE", "FREE");
+  testfw->GetWRDSchema()->^test_sync->CreateEntity([wrd_title := "I am a test"]);
+  testfw->CommitWork();
+
+  RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag);
+
+  TestEq(TRUE, ObjectExists(synctarget->GetType("TEST_SYNC")));
+  TestEq(1, Length(synctarget->^test_sync->RunQuery([outputcolumns := ["*"] ])));
+
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^test_sync->UpdateMetadata([tag:="BACKUP_TEST_SYNC"]);
+  testfw->CommitWork();
+
+//FIXME - CRASHES: RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag);
+}
+
+MACRO TestCopyTo()
+{
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->CopySchemaTo("webhare_testsuite:copiedschema");
+  testfw->CommitWork();
+
+  RECORD syncres := RunSync(OpenWRDSchema("webhare_testsuite:copiedschema"), syncpeer, testfw->GetWRDSchema()->tag);
+  TestEq(FALSE, syncres.anychanges, "RunSync did work after CopyTo, so copy wasn't proper");
+}
+
+MACRO TestSchemaSettings()
+{
+  testfw->BeginWork();
+
+  // Clean schema, otherwise we'll get a sync error due to a duplicated guid
+  OpenWRDSchema("webhare_testsuite:synctarget")->DeleteSelf();
+  OBJECT synctarget := CreateWRDSchema("webhare_testsuite:synctarget",
+        [ title := "webhare_testsuite schema, sync target"
+        , description := "The webhare_testsuite WRD schema sync target"
+        ]);
+
+  testfw->GetWRDSchema()->SetSchemaSetting("webhare_testsuite:a", 1);
+  synctarget->SetSchemaSetting("webhare_testsuite:b", "b");
+  testfw->GetWRDSchema()->SetSchemaSetting("webhare_testsuite:c", "f");
+  synctarget->SetSchemaSetting("webhare_testsuite:c", "g");
+  testfw->CommitWork();
+
+  RECORD syncres := RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag);
+  TestEQMembers(
+      [ [ name := "webhare_testsuite:a", value := 1 ]
+      , [ name := "webhare_testsuite:c", value := "f" ]
+      , [ name := "wrd:auth.domainsecret", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.domainsecret") ]
+      , [ name := "wrd:debug.answer", value := 42 ]
+      , [ name := "wrd:payments.paymentrefstate", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:payments.paymentrefstate") ]
+      , [ name := "wrd:sync.history", value :=  [ [ type :=               "fullsync"
+                                                  , creationsource :=     testfw->GetWRDSchema()->creationsource
+                                                  , remoteschema :=       `local schema ${testfw->GetWRDSchema()->tag}`
+                                                  , excludetypes :=       STRING[]
+                                                  , includetypes :=       STRING[]
+                                                  , remotesynchistory :=  RECORD[]
+                                                  ]
+                                                ]
+        ]
+      ], (SELECT * FROM synctarget->ListSchemaSettings()), "*");
+
+  syncres := RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag);
+  TestEq(FALSE, syncres.anychanges, "Settings shouldn't change after re-sync");
+  TestEQ(
+      [ [ name := "webhare_testsuite:a", value := 1 ]
+      , [ name := "webhare_testsuite:c", value := "f" ]
+      , [ name := "wrd:auth.domainsecret", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.domainsecret") ]
+      , [ name := "wrd:debug.answer", value := 42 ]
+      , [ name := "wrd:payments.paymentrefstate", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:payments.paymentrefstate") ]
+      ], SELECT * FROM testfw->GetWRDSchema()->ListSchemaSettings() WHERE name NOT IN [ "wrd:schemaresources" ]);
+}
+
+MACRO TestSyncHistory()
+{
+  // Clean schema for clean sync history
+  testfw->BeginWork();
+  IF (ObjectExists(OpenWRDSchema("webhare_testsuite:synctarget")))
+    OpenWRDSchema("webhare_testsuite:synctarget")->DeleteSelf();
+  IF (ObjectExists(OpenWRDSchema("webhare_testsuite:synctarget2")))
+    OpenWRDSchema("webhare_testsuite:synctarget2")->DeleteSelf();
+
+  OBJECT synctarget := CreateWRDSchema("webhare_testsuite:synctarget",
+        [ title := "webhare_testsuite schema, sync target"
+        , description := "The webhare_testsuite WRD schema sync target"
+        ]);
+
+  OBJECT synctarget2 := CreateWRDSchema("webhare_testsuite:synctarget2",
+        [ title := "webhare_testsuite schema, sync target2"
+        , description := "The webhare_testsuite WRD schema 2nd sync target"
+        ]);
+
+  testfw->CommitWork();
+
+  STRING org_creationsource := synctarget->creationsource;
+  DATETIME org_creationdate := synctarget->creationdate;
+
+  // Run a partial sync
+  RECORD syncres := RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag, [ excludetypes := [ "DOESNOTEXIST"]]);
+
+  TestEQMembers(
+      [ [ type :=               "existingschema"
+        , creationsource :=     org_creationsource
+        , creationdate :=       org_creationdate
+        ]
+      , [ type :=               "partialsync"
+        , creationsource :=     testfw->GetWRDSchema()->creationsource
+        , creationdate :=       testfw->GetWRDSchema()->creationdate
+        , remoteschema :=       `local schema ${testfw->GetWRDSchema()->tag}`
+        , excludetypes :=       STRING[ "DOESNOTEXIST" ]
+        , includetypes :=       STRING[]
+        , remotesynchistory :=  RECORD[]
+        , user :=               [ login := "sysop@beta.webhare.net" ]
+        ]
+      ], synctarget->GetSchemaSetting("wrd:sync.history"), "*");
+
+  TestEQLike(
+      `*testsynchistory*partial*sync*${testfw->GetWRDSchema()->tag}*${testfw->GetWRDSchema()->creationsource}*`,
+      synctarget->creationsource);
+
+  STRING org_creationsource2 := synctarget2->creationsource;
+
+  RECORD syncres2 := RunSync(synctarget2, DEFAULT OBJECT, synctarget->tag, [ excludetypes := [ "DOESNOTEXIST2"]]);
+  TestEQMembers(
+      [ [ type :=               "existingschema"
+        , creationsource :=     org_creationsource2
+        ]
+      , [ type :=               "partialsync"
+        , creationsource :=     synctarget->creationsource
+        , creationdate :=       synctarget->creationdate
+        , remoteschema :=       `local schema ${synctarget->tag}`
+        , excludetypes :=       STRING[ "DOESNOTEXIST2" ]
+        , includetypes :=       STRING[]
+        , remotesynchistory :=  synctarget->GetSchemaSetting("wrd:sync.history")
+        , user :=               [ login := "sysop@beta.webhare.net" ]
+        ]
+      ], synctarget2->GetSchemaSetting("wrd:sync.history"), "*");
+
+  TestEQLike(
+      `*testsynchistory*partial*sync*${synctarget->tag}*${synctarget->creationsource}*`,
+      synctarget2->creationsource);
+
+  // full sync clears the history
+  RECORD syncres3 := RunSync(synctarget2, DEFAULT OBJECT, synctarget->tag);
+  TestEQMembers(
+      [ [ type :=               "fullsync"
+        , creationsource :=     synctarget->creationsource
+        , creationdate :=       synctarget->creationdate
+        , remoteschema :=       `local schema ${synctarget->tag}`
+        , excludetypes :=       STRING[]
+        , includetypes :=       STRING[]
+        , remotesynchistory :=  synctarget->GetSchemaSetting("wrd:sync.history")
+        , user :=               [ login := "sysop@beta.webhare.net" ]
+        ]
+      ], synctarget2->GetSchemaSetting("wrd:sync.history"), "*");
+
+  TestEQLike(
+      `Sync*${synctarget->tag}*${synctarget->creationsource}*`,
+      synctarget2->creationsource);
+
+  // rmote peer
+  RECORD syncres4 := RunSync(synctarget2, syncpeer, synctarget->tag);
+  TestEQMembers(
+      [ [ type :=               "fullsync"
+        , creationsource :=     synctarget->creationsource
+        , creationdate :=       synctarget->creationdate
+        , remoteschema :=       `${syncpeer->url}#${synctarget->tag}`
+        , excludetypes :=       STRING[]
+        , includetypes :=       STRING[]
+        , remotesynchistory :=  synctarget->GetSchemaSetting("wrd:sync.history")
+        , user :=               [ login := "sysop@beta.webhare.net" ]
+        ]
+      ], synctarget2->GetSchemaSetting("wrd:sync.history"), "*");
+
+  TestEQLike(
+      `Sync*${syncpeer->url}*${synctarget->tag}*${synctarget->creationsource}*`,
+      synctarget2->creationsource);
+}
+
+MACRO TestLocalBlobUsage()
+{
+  __sync_reusedblobs := 0;
+
+  // Clean schema for clean sync history
+  testfw->BeginWork();
+  IF (ObjectExists(OpenWRDSchema("webhare_testsuite:synctarget")))
+    OpenWRDSchema("webhare_testsuite:synctarget")->DeleteSelf();
+
+  OBJECT synctarget := CreateWRDSchema("webhare_testsuite:synctarget",
+        [ title := "webhare_testsuite schema, sync target"
+        , description := "The webhare_testsuite WRD schema sync target"
+        ]);
+
+  OBJECT entity := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+      [ test_file :=    WrapBlob(StringToBlob("string file"), "filename.text")
+      , test_image :=   WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg")
+      , richie :=       [ htmltext := StringToBlob('<html><body>'
+                                          || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://webhare.nl/">webhare</a> <i>[]paragraaf[]</i><br/>met\neen      soft-break en een afbeelding: <img src="cid:imagecid-81400" class="wh-rtd__img--floatright" width="160" height="120" alt="I&amp;G" /></p>'
+                                          || '</body></html>')
+                        , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg")
+                                        , contentid := "imagecid-81400"
+                                        ]
+                                      ]
+                        ]
+      , wrd_tag :=      "PERSON1"
+      ]);
+
+  testfw->CommitWork();
+
+  // Run a fill sync
+  RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag);
+
+  // No blob reusage, we had an empty schema
+  TestEQ(0, __sync_reusedblobs);
+
+  // Update the remote entity, triggers reync of that entity
+  testfw->BeginWork();
+  entity->UpdateEntity([ test_integer := 1 ]);
+  testfw->CommitWork();
+
+  // Run a second sync - should re-use 3 of the 4 blobs (rtd htmltext has no hash to compare)
+  RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag);
+  TestEQ(3, __sync_reusedblobs);
+
+  // Test if the data is equal
+  RECORD syncedfields := synctarget->^wrd_person->GetEntityFields(synctarget->^wrd_person->Search("WRD_TAG", "PERSON1"), [ "test_file", "test_image", "richie" ]);
+  TestEQ(DEFAULT RECORD, entity->FilterFieldUpdates(syncedfields));
+}
+
+RunTestframework(
+    [ PTR CreateWRDTestSchema
+    , PTR PrepareSchemaContent
+    , PTR TestSync
+    , PTR TestRenamedTypeBreaks
+    , PTR TestCopyTo
+    , PTR TestSchemaSettings
+    , PTR TestSyncHistory()
+    , PTR TestLocalBlobUsage()
+    ],
+    [ testusers :=
+          [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
+          ]
+    , debug := TRUE
+    ]);

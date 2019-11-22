@@ -1,0 +1,197 @@
+<?wh
+LOADLIB "mod::system/lib/webapi/oauth2.whlib";
+LOADLIB "wh::datetime.whlib";
+
+CONSTANT RECORD google_oauth_settings := CELL[ authorizeurl := "https://accounts.google.com/o/oauth2/v2/auth"
+                                             , authtokenurl := "https://www.googleapis.com/oauth2/v4/token"
+                                             ];
+
+OBJECTTYPE ReportsRequest
+<
+  OBJECT conn;
+  STRING viewid;
+  RECORD ARRAY dimensions;
+  RECORD ARRAY metrics;
+  DATETIME startdate;
+  DATETIME enddate;
+
+  MACRO NEW (OBJECT conn, STRING viewid)
+  {
+    this->conn := conn;
+    this->viewid := viewid;
+  }
+
+  PUBLIC MACRO SetDateRange(DATETIME start, DATETIME endrange)
+  {
+    this->startdate := start;
+    this->enddate := endrange;
+  }
+
+  PUBLIC MACRO AddDimension(STRING dimname)
+  {
+    INSERT [ name := dimname
+           , histogramBuckets := DEFAULT STRING ARRAY
+           ] INTO this->dimensions AT END;
+  }
+
+  PUBLIC MACRO AddMetric(STRING name)
+  {
+    INSERT [ expression := name
+           , alias := name
+           , formattingtype := "METRIC_TYPE_UNSPECIFIED"
+           ] INTO this->metrics AT END;
+  }
+
+  RECORD FUNCTION RequestReportPage(STRING pagetoken)
+  {
+    //https://developers.google.com/analytics/devguides/reporting/core/v4/rest/v4/reports/batchGet
+    RECORD request := [ reportRequests :=
+                         [ [ viewId := this->viewid
+                           , dateRanges := [ [ startDate := FormatDateTime("%Y-%m-%d", this->startdate)
+                                             , endDate := FormatDateTime("%Y-%m-%d", this->enddate)
+                                             ]
+                                           ]
+                           , samplingLevel := "LARGE"
+                           , dimensions := this->dimensions
+                           , dimensionFilterClauses := DEFAULT RECORD ARRAY
+                           , metrics := this->metrics
+                           , filtersExpression := ""
+                           , orderBys := DEFAULT RECORD ARRAY
+                           , segments := DEFAULT RECORD ARRAY
+                           , pivots := DEFAULT RECORD ARRAY
+                           , cohortGroup := DEFAULT RECORD
+                           , pageToken := pagetoken
+                           , pageSize := 1000
+                           ]
+                         ]
+                       ];
+
+    RECORD translations := [ viewId := "viewId"
+                           , dateRanges := "dateRanges"
+                           , startDate := "startDate"
+                           , endDate := "endDate"
+                           , samplingLevel := "samplingLevel"
+                           , histogramBuckets := "histogramBuckets"
+                           , dimensionFilterClauses := "dimensionFilterClauses"
+                           , formattingType := "formattingType"
+                           , filtersExpression := "filtersExpression"
+                           , orderBys := "orderBys"
+                           , pageToken := "pageToken"
+                           , pageSize := "pageSize"
+                           , reportRequests := "reportRequests"
+                           , cohortGroup := "cohortGroup"
+                           ];
+
+    IF(NOT this->conn->oauth2->browser->PostWebPageBlob("https://analyticsreporting.googleapis.com/v4/reports:batchGet", DEFAULT RECORD ARRAY, EncodeJSONBlob(request, translations)))
+    {
+      TRY
+      {
+        RECORD responsedata := DecodeJSONBlob(this->conn->oauth2->browser->content); //see data/examples/googleanalytics.txt
+        IF(RecordExists(responsedata) AND CellExists(responsedata,'ERROR') AND CellExists(responsedata.error,'message'))
+          THROW NEW Exception(responsedata.error.message);
+      }
+      CATCH(OBJECT e)
+      {
+        e->what := "Request failed: " || e->what;
+        THROW;
+      }
+      THROW NEW Exception("Request failed");
+    }
+
+    RECORD responsedata := DecodeJSONBlob(this->conn->oauth2->browser->content); //see data/examples/googleanalytics.txt
+    RECORD report := this->ParseReport(responsedata.reports[0]);
+    RETURN report;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetAll()
+  {
+    IF(this->startdate = DEFAULT DATETIME)
+      THROW NEW Exception("Missing start date");
+    IF(this->enddate = DEFAULT DATETIME)
+      THROW NEW Exception("Missing end date");
+
+    RECORD ARRAY outrows;
+    STRING nexttoken;
+    WHILE(TRUE)
+    {
+      RECORD page := this->RequestReportPage(nexttoken);
+      outrows := outrows CONCAT page.rows;
+      nexttoken := page.nextpagetoken;
+      IF(nexttoken="")
+        BREAK;
+    }
+    RETURN outrows;
+  }
+  RECORD FUNCTION ParseReport(RECORD reportnode)
+  {
+    RECORD ARRAY rows;
+    IF(CellExists(reportnode.data,'rows'))
+      rows := this->ParseDataRows(reportnode.data.rows, reportnode.columnheader);
+    STRING nextpagetoken := CellExists(reportnode, 'nextpagetoken') ? reportnode.nextpagetoken : "";
+
+    RETURN [ rows := rows
+           , nextpagetoken := nextpagetoken
+           ];
+  }
+
+  RECORD ARRAY FUNCTION ParseDataRows(RECORD ARRAY rows, RECORD columnheader)
+  {
+    RECORD ARRAY outrows;
+    FOREVERY(RECORD row FROM rows)
+    {
+      RECORD outrow;
+      FOREVERY(STRING dim FROM columnheader.dimensions)
+        outrow := CellInsert(outrow, dim, row.dimensions[#dim]);
+      FOREVERY(RECORd metric FROM columnheader.metricHeader.metricHeaderEntries)
+        IF(metric.type="INTEGER")
+          outrow := CellInsert(outrow, metric.name, ToInteger(row.metrics[0]."values"[#metric],0 ));
+        ELSE
+          outrow := CellInsert(outrow, metric.name, row.metrics[0]."values"[#metric]);
+
+      INSERT outrow INTO outrows AT END;
+    }
+    RETURN outrows;
+  }
+>;
+
+
+
+PUBLIC OBJECTTYPE GoogleAnalyticsAPI
+<
+  PUBLIC OBJECT oauth2;
+
+  MACRO NEW(RECORD options)
+  {
+    options := ValidateOptions(CELL[ ...oauth2options
+                                   , ...google_oauth_settings
+                                   ], options);
+    this->oauth2 := NEW Oauth2Connection(options);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Google Analytics V3
+  //
+
+  PUBLIC RECORD FUNCTION GetWebProperty(STRING accountid, STRING webpropertyid)
+  {
+    IF(NOT this->oauth2->browser->GotoWebPage(`https://www.googleapis.com/analytics/v3/management/accounts/${EncodeURL(accountid)}/webproperties/${EncodeURL(webpropertyid)}`))
+      THROW NEW Exception("request failed");
+
+    RETURN DecodeJSONBlob(this->oauth2->browser->content);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetAccounts()
+  {
+    IF(NOT this->oauth2->browser->GotoWebPage("https://www.googleapis.com/analytics/v3/management/accountSummaries"))
+      THROW NEW Exception("request failed");
+
+    RETURN RECORD ARRAY(DecodeJSONBlob(this->oauth2->browser->content).items);
+  }
+
+  /// Core reporting api v4
+  PUBLIC OBJECT FUNCTION MakeReportRequest(STRING viewid)
+  {
+    RETURN NEW ReportsRequest(this, viewid);
+  }
+>;

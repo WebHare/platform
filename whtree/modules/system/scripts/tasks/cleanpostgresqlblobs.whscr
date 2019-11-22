@@ -1,0 +1,10 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql-blobmgmt.whlib";
+
+
+OBJECT trans := OpenPrimary();
+OBJECT analyzer := NEW PostgreSQLBlobAnalyzer(trans);
+analyzer->UpdateBlobManifest();
+analyzer->RemoveUnreferencedBlobs();

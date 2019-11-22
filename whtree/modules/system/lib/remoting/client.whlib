@@ -1,0 +1,436 @@
+﻿<?wh
+/** @topic rpc/client */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::internet/mime.whlib";
+
+LOADLIB "mod::system/lib/internal/remoting/support.whlib" EXPORT RemotingException;
+LOADLIB "mod::system/lib/internal/remoting/whremotingtransport.whlib";
+LOADLIB "mod::system/lib/internal/remoting/whwsremotingtransport.whlib";
+LOADLIB "mod::system/lib/remoting/remotable.whlib" EXPORT RemotableObject;
+
+
+STATIC OBJECTTYPE ConnectorBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING url;
+  STRING displayurl;
+  STRING session;
+  OBJECT browser;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT browser, STRING url)
+  {
+    this->browser := browser;
+    this->url := url;
+
+    //remove any passwords from the display url
+    RECORD decoded := UnpackURL(this->url);
+    IF(decoded.password!="")
+      decoded.password := "------";
+    this->displayurl := RepackURL(decoded);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Throws an exception when an error has been detected
+      @param(object %WebBrowser) browser WebBrowser used to make the request
+      @param closebrowseronerror Close the browser object when an error is thrown
+  */
+  MACRO DecodeBrowserError(OBJECT browser, BOOLEAN closebrowseronerror)
+  {
+    TRY
+    {
+      RECORD status := browser->GetHTTPStatus();
+      IF (RecordExists(status))
+      {
+        SWITCH (status.code)
+        {
+          CASE 401
+          {
+            THROW NEW RemotingException("UNAUTHORIZED","Remote service '"||this->displayurl||"' requires authentication");
+          }
+          CASE 404
+          {
+            THROW NEW RemotingException("NOSUCHSERVICE","Remote service '"||this->displayurl||"' does not exist");
+          }
+          CASE 500
+          {
+            STRING contenttype := GetMIMEHeaderParameter(browser->contenttype,"");
+            IF (contenttype != "text/xml")
+              THROW NEW RemotingException("REMOTEERROR", "Remote service '"||this->displayurl||"' is currently not available due to server errors");
+          }
+          DEFAULT
+          {
+            THROW NEW RemotingException("UNKNOWNERROR", `Connecting to remote service '${this->displayurl}' failed, error code: ${status.code} (${status.message})`);
+          }
+        }
+      }
+      ELSE
+        THROW NEW RemotingException("CONNECTIONFAILED", "Connecting to remote service '"||this->displayurl||"' failed");
+    }
+    CATCH (OBJECT e)
+    {
+      IF (closebrowseronerror)
+        browser->Close();
+      THROW e;
+    }
+  }
+
+  VARIANT FUNCTION ProcessAnswer(RECORD rec) //__ATTRIBUTES__(SKIPTRACE)
+  {
+    SWITCH (rec.type)
+    {
+      CASE "methodcall"
+      {
+        THROW NEW Exception("Received reverse method call, not yet allowed");
+      }
+      CASE "exception"
+      {
+        OBJECT e := NEW Exception(rec.what);
+        e->trace := rec.trace;
+        THROW e;
+      }
+      CASE "errors"
+      {
+        IF (LENGTH(rec.errors) > 0 AND rec.errors[0].message LIKE "Error ID: *")
+          rec.errors[0].message := rec.errors[0].message || ` from ${this->url}`;
+        THROW NEW HareScriptErrorException(rec.errors);
+      }
+      CASE "response"
+      {
+        IF (CellExists(rec, "SESSION") AND rec.session != "" AND this->session = "")
+        {
+          this->session := rec.session;
+          this->url := this->url || "?whs-srh=" || EncodeURL(this->session);
+        }
+        RETURN rec.value;
+      }
+      DEFAULT
+      {
+        THROW NEW Exception("Unimplemented type '" || rec.type || "'");
+      }
+    }
+  }
+>;
+
+
+STATIC OBJECTTYPE BrowserConnector EXTEND ConnectorBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT transport;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT browser, STRING url)
+  : ConnectorBase(browser, url)
+  {
+    this->transport := CreateRequestWHRemotingTransport();
+    this->transport->remoter->remotecall := PTR this->ExecuteRemoteMethodCall;
+    this->transport->remoter->remotesessionclose := PTR this->ExecuteRemoteSessionClose;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  VARIANT FUNCTION ExecuteRemoteMethodCall(OBJECT obj, STRING methodname, VARIANT ARRAY data) __ATTRIBUTES__(SKIPTRACE)
+  {
+    RECORD rec := this->transport->EncodeMethodCall(obj, methodname, data);
+
+    RETURN this->ExecuteRemoteCall(rec, methodname);
+  }
+
+  MACRO ExecuteRemoteSessionClose()
+  {
+    RECORD rec := this->transport->EncodeSessionClose();
+
+    this->ExecuteRemoteCall(rec, "__sessionclose");
+
+    IF (ObjectExists(this->browser))
+      this->browser->Close();
+  }
+
+  VARIANT FUNCTION ExecuteRemoteCall(RECORD encoded_call, STRING methodname)// __ATTRIBUTES__(SKIPTRACE)
+  {
+    OBJECT browser := ObjectExists(this->browser) ? this->browser : NEW WebBrowser;
+
+    STRING url := methodname != "" ? AddVariableToURL(this->url, "method", ToLowercase(methodname)) : this->url;
+
+    BOOLEAN success := browser->PostWebPageBlob(url, encoded_call.headers, encoded_call.data);
+    IF (NOT success)
+      this->DecodeBrowserError(browser, NOT ObjectExists(this->browser));
+
+    RECORD rec := this->transport->GenericDecode(browser->content);
+    IF (NOT ObjectExists(this->browser))
+      browser->Close();
+
+    RETURN this->ProcessAnswer(rec);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  // set authentication?
+
+  PUBLIC VARIANT FUNCTION CallFunction(VARIANT ARRAY args)
+  {
+    RECORD rec := this->transport->EncodeFunctionCall(args);
+    RETURN this->ExecuteRemoteCall(rec, "");
+  }
+>;
+
+
+STATIC OBJECTTYPE WSConnector EXTEND ConnectorBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT conn;
+  OBJECT transport;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT browser, STRING url)
+  : ConnectorBase(browser, url)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  VARIANT FUNCTION ExecuteRemoteMethodCall(OBJECT obj, STRING methodname, VARIANT ARRAY data) __ATTRIBUTES__(SKIPTRACE)
+  {
+    RECORD rec := this->transport->EncodeMethodCall(obj, methodname, data);
+
+    RETURN this->ExecuteRemoteCall(rec, methodname);
+  }
+
+  MACRO ExecuteRemoteSessionClose()
+  {
+    RECORD rec := this->transport->EncodeSessionClose();
+
+    this->ExecuteRemoteCall(rec, "__sessionclose");
+
+    IF (ObjectExists(this->browser))
+      this->browser->Close();
+  }
+
+  RECORD FUNCTION EnsureConnection()
+  {
+    IF (NOT ObjectExists(this->conn))
+    {
+      OBJECT browser := ObjectExists(this->browser) ? this->browser : NEW WebBrowser;
+
+      RECORD ARRAY headers;
+      RECORD connrec := browser->OpenWebSocket(this->url, headers);
+      IF (NOT connrec.success)
+      {
+        this->DecodeBrowserError(browser, NOT ObjectExists(this->browser));
+
+        // Answer is in xml format, use normal whremotingtransport
+        OBJECT orgtransport := CreateRequestWHRemotingTransport();
+        RECORD rec := orgtransport->GenericDecode(browser->content);
+        RETURN [ answer := this->ProcessAnswer(rec) ];
+      }
+
+      this->conn := connrec.conn;
+
+      this->conn->SendData('{"supported_wsversions":'||EncodeJSON(supported_wsversions)||'}');
+      RECORD rec := this->conn->ReceivePacket(AddTimeToDate(10000, GetCurrentDatetime()));
+      IF (rec.status != "ok")
+        THROW NEW Exception("Could not establish connection, no response on handshake");
+
+      RECORD v := DecodeJSON(rec.data);
+      IF (NOT RecordExists(v))
+        THROW NEW Exception("Could not decode response ('" || EncodeValue(SubString(rec.data, 25)) || "')");
+      IF (NOT v.success)
+        THROW NEW Exception("Could not agree on a supported remoting version");
+
+      this->transport := CreateRequestWHWSRemotingTransport([ INTEGER(v.version) ]);
+      this->transport->remoter->remotecall := PTR this->ExecuteRemoteMethodCall;
+      this->transport->remoter->remotesessionclose := PTR this->ExecuteRemoteSessionClose;
+
+      this->session := v.session;
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+
+  VARIANT FUNCTION ExecuteRemoteCall(RECORD encoded_call, STRING methodname)// __ATTRIBUTES__(SKIPTRACE)
+  {
+    //PRINT("Sending blobs:\n" || AnyToString(encoded_call.packets, "tree"));
+    FOREVERY (BLOB packet FROM encoded_call.packets)
+      this->conn->SendBinaryDataBlob(packet);
+
+    RECORD response := this->conn->ReceivePacketBlob(MAX_DATETIME); // ADDME: sane timeout?
+    //PRINT(AnyToString(response, "tree"));
+    IF (response.status != "ok" OR (response.status = "ok" AND response.op = 8))
+    {
+      IF (response.status = "ok")
+        this->RetrieveErrorsAfterClose();
+
+      this->conn->Close();
+      IF (ObjectExists(this->browser))
+        this->browser->Close();
+
+      // FIXME: is there a way to get the error codes of the crash?
+      THROW NEW Exception(response.status = "timeout" ? "Connection timeout" : "Connection gone");
+    }
+
+    RECORD explain := this->transport->AnalyzeFirstPacket(response.data);
+    BLOB ARRAY packets := [ BLOB(response.data) ];
+    FOR (INTEGER i := 1; i < explain.packetcount; i := i + 1)
+    {
+      response := this->conn->ReceivePacketBlob(MAX_DATETIME); // ADDME: sane timeout?
+      IF (response.status != "ok" OR (response.status = "ok" AND response.op = 8))
+      {
+        IF (response.status = "ok")
+          this->RetrieveErrorsAfterClose();
+
+        this->conn->Close();
+        this->browser->Close();
+        // FIXME: is there a way to get the error codes of the crash?
+        THROW NEW Exception(response.status = "timeout" ? "Connection timeout" : "Connection gone");
+      }
+      INSERT response.data INTO packets AT END;
+    }
+
+    RECORD action := this->transport->DecodePackets(explain, packets);
+//    ABORT(action);
+    RETURN this->ProcessAnswer(action);
+  }
+
+  MACRO RetrieveErrorsAfterClose()
+  {
+    STRING error_url := Substitute(this->url, ".whsock", "") || "?ws-errorsession=" || EncodeURL(this->session);
+
+    OBJECT browser;
+    TRY
+    {
+      // FIXME: get error correctly
+      browser := ObjectExists(this->browser) ? this->browser : NEW WebBrowser;
+      browser->CallJSONRPC(error_url, "geterrors"); // dummy method name
+//      SendBlobTo(0, browser->content);
+//      ABORT(error_url);
+    }
+    FINALLY
+    {
+      IF (NOT ObjectExists(this->browser))
+        browser->Close();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  // set authentication?
+
+  PUBLIC VARIANT FUNCTION CallFunction(VARIANT ARRAY args)
+  {
+    RECORD rec := this->EnsureConnection();
+    IF (RecordExists(rec))
+      RETURN rec.value;
+
+    rec := this->transport->EncodeFunctionCall(args);
+    RETURN this->ExecuteRemoteCall(rec, "");
+  }
+>;
+
+
+/** Invoke a function on a remote webhare server
+    @param(object %WebBrowser) browser WebBrowser to use
+    @param url URL of the webservice
+    @param args Arguments for the remote function
+    @return Return value
+*/
+PUBLIC VARIANT FUNCTION InvokeRemoteFunctionWithBrowser(OBJECT browser, STRING url, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  IF(url="")
+    THROW NEW Exception("Empty URL passed to InvokeRemoteFunctionWithBrowser");
+
+  RECORD unpacked := UnpackURL(url);
+
+  STRING urlpath := unpacked.urlpath;
+  IF (urlpath LIKE "*/")
+    urlpath := LEFT(urlpath, LENGTH(urlpath) - 1);
+
+  STRING ARRAY path := Tokenize(urlpath, "/");
+
+//  PRINT(AnyToString(path, "tree"));
+
+  IF (LENGTH(path) != 4 OR path[0] NOT IN [ "wh_services", "wh_services.whsock" ])
+    THROW NEW Exception("Illegal URL specified: must have 3 components in path (wh_services/module/service/method)");
+
+  IF (path[0] LIKE "*.whsock")
+  {
+    // Path needs to end in .whsock for nginx processing rules
+    IF (path[3] NOT LIKE "*.whsock")
+    {
+      STRING ARRAY qsep := Tokenize(unpacked.urlpath, "?");
+      qsep[0] := qsep[0] || ".whsock";
+      unpacked.urlpath := Detokenize(qsep, "?");
+      url := RepackURL(unpacked);
+    }
+
+    OBJECT conn := NEW WSConnector(browser, url);
+    RETURN conn->CallFunction(args);
+  }
+
+  OBJECT conn := NEW BrowserConnector(browser, url);
+
+  RETURN conn->CallFunction(args);
+}
+
+/** Invoke a function on a remote webhare server
+    @param URL of the webservice
+    @param args Arguments for the remote function
+    @return Return value
+*/
+PUBLIC VARIANT FUNCTION InvokeRemoteFunction(STRING url, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  INSERT url INTO args AT 0;
+  INSERT DEFAULT OBJECT INTO args AT 0;
+
+  RETURN CallFunctionPtrVA(PTR InvokeRemoteFunctionWithBrowser, args);
+}
+
+/** Given a remote object, close the corresponding remoting session
+    @param remoteobject Remote object
+*/
+PUBLIC MACRO CloseRemotingSession(OBJECT remoteobject)
+{
+  IF (NOT MemberExists(remoteobject, "__REMOTINGCLOSESESSION"))
+    THROW NEW Exception("Cannot close the remoting session, this is not a remote object");
+
+  remoteobject->__RemotingCloseSession();
+}

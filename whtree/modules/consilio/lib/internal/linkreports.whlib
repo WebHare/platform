@@ -1,0 +1,343 @@
+<?wh
+/** @private Use GetWRDLinkCheckReport and EnrichLinkCheckStatuses from consilio/lib/api.whlib. */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+
+
+
+/** Get the links from the whfs settings of an filesystem object
+    @param fsobject ID of filesystem object
+    @return List of links
+*/
+PUBLIC RECORD ARRAY FUNCTION GetLinksForFSObject(INTEGER fsobject)
+{
+  RETURN GetLinksForFSObjects([ fsobject ]);
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetLinksForFSObjects(INTEGER ARRAY fsobjects)
+{
+  RECORD ARRAY links :=
+      SELECT checked_links.url
+           , checked_links.status
+           , checked_links.checked
+           , checked_objectlinks.text
+           , referrer := fs_members.name
+           , fssettingid := checked_objectlinks.system_fs_setting
+           , groupid := fs_objects.id
+           , fileurl := fs_objects.objecturl
+           , href := checked_objectlinks.url
+        FROM consilio.checked_links
+           , consilio.checked_objectlinks
+           , system.fs_members
+           , system.fs_settings
+           , system.fs_instances
+           , system.fs_objects
+       WHERE fs_objects.id IN fsobjects
+             AND fs_instances.fs_object = fs_objects.id
+             AND fs_settings.fs_instance = fs_instances.id
+             AND fs_settings.fs_member = fs_members.id
+             AND checked_objectlinks.system_fs_setting = fs_settings.id
+             AND checked_objectlinks.link = checked_links.id;
+
+  INTEGER ARRAY enrichablesettings := SELECT AS INTEGER ARRAY fssettingid FROM links WHERE text="" AND fssettingid != 0;
+  IF(LengtH(enrichablesettings)>0) //There may be room for enrichment
+  {
+    //We need the fs_settings.parent for each link, as that will match the arrayrow fs_settingid in gatheredlinks
+    RECORD ARRAY parents := SELECT id, parent FROM system.fs_settings WHERE id IN enrichablesettings;
+    OBJECT gatheredlinks := OpenWHFSType("http://www.webhare.net/xmlns/consilio/gatheredlinks");
+
+    //Update what we can
+    FOREVERY(RECORD link FROM links)
+    {
+      RECORD linksinfo := gatheredlinks->GetInstanceData(link.groupid);
+
+      INTEGER arrayrowid := SELECT AS INTEGER parent FROM parents WHERE parents.id = link.fssettingid;
+      IF(arrayrowid=0)
+        CONTINUE;
+
+      RECORD matchrow := SELECT * FROM linksinfo.links WHERE fs_settingid = arrayrowid;
+      IF(NOT RecordExists(matchrow))
+        CONTINUE; //this link did not come from gatheredlinks
+
+      link.text := matchrow.text;
+      link.referrer := "<gatheredlink>";
+      links[#link] := link;
+    }
+  }
+
+  RETURN GetInternalRTDLinksForFSObjects(fsobjects) CONCAT
+      SELECT *
+           , DELETE fssettingid
+        FROM links;
+}
+
+RECORD ARRAY FUNCTION GetInternalRTDLinksForFSObjects(INTEGER ARRAY fsobjects)
+{
+  // The 'data' member has a 'richdocument' type, which means that the setting
+  // with ordering 0 is the htmlvalue and the settings with ordering 2 are the
+  // internal links
+
+  RECORD ARRAY richdocsettings :=
+      SELECT fs_settings.blobdata
+           , fs_settings.setting
+           , fs_settings.fs_object
+           , fs_settings.ordering
+           , fs_members.name
+           , groupid := fs_objects.id
+           , fileurl := fs_objects.url
+        FROM system.fs_types
+           , system.fs_members
+           , system.fs_settings
+           , system.fs_instances
+           , system.fs_objects
+       WHERE fs_objects.id IN fsobjects
+             AND fs_objects.publish
+             AND fs_instances.fs_object = fs_objects.id
+             AND fs_settings.fs_instance = fs_instances.id
+             AND fs_settings.fs_member = fs_members.id
+             AND fs_members.fs_type = fs_types.id
+             AND fs_members.name = "data"
+             AND fs_types.namespace = "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+             AND fs_settings.ordering IN [ 0, 2 ];
+
+  RETURN ResolveInternalRTDLinks(richdocsettings);
+}
+
+RECORD ARRAY FUNCTION ResolveInternalRTDLinks(RECORD ARRAY settings)
+{
+  // Initialize an HTML document for each file with internal links, so we can lookup the link text
+  RECORD ARRAY htmldocs;
+  FOREVERY (RECORD setting FROM SELECT * FROM settings WHERE ordering = 0) // htmlvalue
+  {
+    IF (NOT RecordExists(SELECT FROM settings WHERE groupid = setting.groupid AND ordering = 2))
+      CONTINUE;
+    OBJECT htmldoc := MakeXMLDocument(setting.blobdata);
+    IF (ObjectExists(htmldoc))
+      INSERT [ id := setting.groupid, doc := htmldoc ] INTO htmldocs AT END;
+  }
+
+  RECORD ARRAY links := SELECT * FROM settings WHERE ordering = 2; // links
+  RECORD ARRAY referred_objects :=
+      SELECT id
+           , url := indexurl
+           , path := whfspath
+        FROM system.fs_objects
+       WHERE id IN (SELECT AS INTEGER ARRAY fs_object FROM links)
+             AND isactive;
+
+  links :=
+      SELECT TEMPORARY refidx := (SELECT AS INTEGER #referred_objects + 1 FROM referred_objects WHERE id = links.fs_object) - 1
+           , TEMPORARY refurl := refidx >= 0 ? referred_objects[refidx].url : ""
+           , url := refurl ?? (SELECT AS STRING path FROM referred_objects WHERE id = links.fs_object)
+           , type := 0 // hyperlink
+           , status := refidx < 0 ? 11  // internallinknonexisting
+                     : refurl = "" ? 12 // internallinknotpublished
+                     : 200
+           , checked := GetCurrentDateTime()
+           , text := GetLinkText((SELECT AS OBJECT doc FROM htmldocs WHERE id = links.groupid), setting)
+           , referrer := name
+           , groupid
+           , fileurl
+           , setting
+        FROM links;
+
+  // Filter out links that could not be found in the actual document, works around bug that would add edited links instead of
+  // replacing them
+  links := SELECT * FROM links WHERE text != "";
+
+  RETURN links;
+}
+
+STRING FUNCTION GetLinkText(OBJECT htmldoc, STRING setting)
+{
+  IF (NOT ObjectExists(htmldoc))
+    RETURN "";
+
+  // Find the a that has a href that starts with the requested href (ignoring anchor links not present in the requested href)
+  OBJECT res := htmldoc->QuerySelector("a[href^='x-richdoclink:" || setting || "']");
+  RETURN ObjectExists(res) ? res->childrentext : "";
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetLinksForWRDEntity(INTEGER entityid)
+{
+  INTEGER ARRAY attrids :=
+      SELECT AS INTEGER ARRAY attrs.id
+        FROM wrd.attrs
+           , wrd.entities
+       WHERE attrs.type = entities.type
+             AND entities.id = entityid;
+  RETURN GetLinksForWRDEntityAttributes(entityid, attrids);
+}
+
+RECORD ARRAY FUNCTION GetLinksForWRDEntityAttributes(INTEGER entityid, INTEGER ARRAY attrids)
+{
+  DATETIME now := GetCurrentDateTime();
+
+  RECORD ARRAY direct_settings :=
+      SELECT checked_links.url
+           , checked_links.status
+           , checked_links.checked
+           , checked_objectlinks.text
+           , referrer := attrs.tag
+           , parentattr := attrs.parent
+        FROM consilio.checked_links
+           , consilio.checked_objectlinks
+           , wrd.entity_settings
+           , wrd.attrs
+       WHERE entity_settings.entity = entityid
+             AND entity_settings.attribute = attrs.id
+             AND attrs.id IN attrids
+             AND checked_objectlinks.link = checked_links.id
+             AND checked_objectlinks.wrd_entity_setting = entity_settings.id;
+
+  RECORD ARRAY wrd_fs_settings :=
+      SELECT fs_settings.id
+           , name := attrs.tag
+           , attrs.parent
+           , fs_settings.blobdata
+           , fs_settings.setting
+           , fs_settings.fs_object
+           , fs_settings.ordering
+           , groupid := 0
+           , fileurl := ""
+        FROM system.fs_settings
+           , system.fs_instances
+           , wrd.entity_settings_whfslink
+           , wrd.entity_settings
+           , wrd.attrs
+       WHERE entity_settings.entity = entityid
+             AND entity_settings.attribute = attrs.id
+             AND attrs.id IN attrids
+             AND entity_settings_whfslink.id = entity_settings.id
+             AND entity_settings_whfslink.fsobject = fs_instances.fs_object
+             AND fs_settings.fs_instance = fs_instances.id
+             AND fs_settings.ordering IN [ 0, 2 ]; // Only select htmlvalue and links
+
+  RECORD ARRAY fs_settings :=
+      SELECT links.url
+           , links.status
+           , links.checked
+           , objectlinks.text
+           , referrer := wrd_fs_settings.name
+           , parentattr := wrd_fs_settings.parent
+        FROM consilio.checked_links AS links
+           , consilio.checked_objectlinks AS objectlinks
+           , wrd_fs_settings
+       WHERE objectlinks.system_fs_setting = wrd_fs_settings.id
+             AND objectlinks.link = links.id;
+
+  RECORD ARRAY settings := direct_settings CONCAT fs_settings;
+  UPDATE settings
+     SET referrer := GetRecursiveWRDAttributeTag(referrer, parentattr)
+   WHERE parentattr != 0;
+
+  RETURN ResolveInternalRTDLinks(wrd_fs_settings) CONCAT
+      SELECT *
+           , DELETE parentattr
+        FROM settings;
+}
+
+STRING FUNCTION GetRecursiveWRDAttributeTag(STRING tag, INTEGER parent)
+{
+  IF (parent != 0)
+  {
+    RECORD attr := SELECT COLUMN tag, COLUMN parent
+                     FROM wrd.attrs
+                    WHERE id = VAR parent;
+    tag := attr.tag || "." || tag;
+    IF (attr.parent != 0)
+      tag := GetRecursiveWRDAttributeTag(tag, attr.parent);
+  }
+  RETURN tag;
+}
+
+PUBLIC STRING FUNCTION GetStatusText(INTEGER status)
+{
+  SWITCH (status)
+  {
+    // 000: Not checked yet
+    CASE   0 { RETURN GetTid("consilio:report.linkcheck.status.notcheckedyet"); }
+    // 0xx: Connection Error (Consilio-defined codes, see executelinkcheck.whscr)
+    CASE   1 { RETURN GetTid("consilio:report.linkcheck.status.socketerror"); }
+    CASE   2 { RETURN GetTid("consilio:report.linkcheck.status.servernotfound"); }
+    CASE   3 { RETURN GetTid("consilio:report.linkcheck.status.couldnotconnect"); }
+    CASE   4 { RETURN GetTid("consilio:report.linkcheck.status.connectiontimedout"); }
+    CASE   5 { RETURN GetTid("consilio:report.linkcheck.status.nohttpconnection"); }
+    CASE   6 { RETURN GetTid("consilio:report.linkcheck.status.nosecureconnection"); }
+    CASE   7 { RETURN GetTid("consilio:report.linkcheck.status.requestcouldnotbesent"); }
+    CASE   8 { RETURN GetTid("consilio:report.linkcheck.status.nohttpresponse"); }
+    CASE   9 { RETURN GetTid("consilio:report.linkcheck.status.circularredirection"); }
+    CASE  10 { RETURN GetTid("consilio:report.linkcheck.status.toomanyredirections"); }
+    CASE  11 { RETURN GetTid("consilio:report.linkcheck.status.internallinknonexisting"); }
+    CASE  12 { RETURN GetTid("consilio:report.linkcheck.status.internallinknotpublished"); }
+    // 1xx: Informational
+    CASE 100 { RETURN GetTid("consilio:report.linkcheck.status.continue"); }
+    CASE 101 { RETURN GetTid("consilio:report.linkcheck.status.switchingprotocols"); }
+    // 2xx: Successful
+    CASE 200 { RETURN GetTid("consilio:report.linkcheck.status.ok"); }
+    CASE 201 { RETURN GetTid("consilio:report.linkcheck.status.created"); }
+    CASE 202 { RETURN GetTid("consilio:report.linkcheck.status.accepted"); }
+    CASE 203 { RETURN GetTid("consilio:report.linkcheck.status.nonauthorativeinformation"); }
+    CASE 204 { RETURN GetTid("consilio:report.linkcheck.status.nocontent"); }
+    CASE 205 { RETURN GetTid("consilio:report.linkcheck.status.resetcontent"); }
+    CASE 206 { RETURN GetTid("consilio:report.linkcheck.status.partialcontent"); }
+    // 3xx: Redirection
+    CASE 300 { RETURN GetTid("consilio:report.linkcheck.status.multiplechoices"); }
+    CASE 301 { RETURN GetTid("consilio:report.linkcheck.status.movedpermanently"); }
+    CASE 302 { RETURN GetTid("consilio:report.linkcheck.status.found"); }
+    CASE 303 { RETURN GetTid("consilio:report.linkcheck.status.seeother"); }
+    CASE 304 { RETURN GetTid("consilio:report.linkcheck.status.notmodified"); }
+    CASE 305 { RETURN GetTid("consilio:report.linkcheck.status.useproxy"); }
+    CASE 307 { RETURN GetTid("consilio:report.linkcheck.status.temporaryredirect"); }
+    // 4xx: Client Error
+    CASE 400 { RETURN GetTid("consilio:report.linkcheck.status.badrequest"); }
+    CASE 401 { RETURN GetTid("consilio:report.linkcheck.status.unauthorized"); }
+    CASE 402 { RETURN GetTid("consilio:report.linkcheck.status.paymentrequired"); }
+    CASE 403 { RETURN GetTid("consilio:report.linkcheck.status.forbidden"); }
+    CASE 404 { RETURN GetTid("consilio:report.linkcheck.status.notfound"); }
+    CASE 405 { RETURN GetTid("consilio:report.linkcheck.status.methodnotallowed"); }
+    CASE 406 { RETURN GetTid("consilio:report.linkcheck.status.notacceptable"); }
+    CASE 407 { RETURN GetTid("consilio:report.linkcheck.status.proxyauthenticationrequired"); }
+    CASE 408 { RETURN GetTid("consilio:report.linkcheck.status.requesttimeout"); }
+    CASE 409 { RETURN GetTid("consilio:report.linkcheck.status.conflict"); }
+    CASE 410 { RETURN GetTid("consilio:report.linkcheck.status.gone"); }
+    CASE 411 { RETURN GetTid("consilio:report.linkcheck.status.lengthrequired"); }
+    CASE 412 { RETURN GetTid("consilio:report.linkcheck.status.preconditionfailed"); }
+    CASE 413 { RETURN GetTid("consilio:report.linkcheck.status.requestentitytoolarge"); }
+    CASE 414 { RETURN GetTid("consilio:report.linkcheck.status.requesturitoolarge"); }
+    CASE 415 { RETURN GetTid("consilio:report.linkcheck.status.unsupportedmediatype"); }
+    CASE 416 { RETURN GetTid("consilio:report.linkcheck.status.requestrangenotsatisfiable"); }
+    CASE 417 { RETURN GetTid("consilio:report.linkcheck.status.expectationfailed"); }
+    // 5xx: Server Error
+    CASE 500 { RETURN GetTid("consilio:report.linkcheck.status.internalservererror"); }
+    CASE 501 { RETURN GetTid("consilio:report.linkcheck.status.notimplemented"); }
+    CASE 502 { RETURN GetTid("consilio:report.linkcheck.status.badgateway"); }
+    CASE 503 { RETURN GetTid("consilio:report.linkcheck.status.serviceunavailable"); }
+    CASE 504 { RETURN GetTid("consilio:report.linkcheck.status.gatewaytimeout"); }
+    CASE 505 { RETURN GetTid("consilio:report.linkcheck.status.httpversionnotsupported"); }
+  }
+  RETURN GetTid("consilio:report.linkcheck.status.unknown");
+}
+
+PUBLIC INTEGER FUNCTION GetStatusIcon(INTEGER status, OBJECT list)
+{
+  IF (status <= 0)
+    RETURN list->GetIcon("tollium:status/unknown");
+  IF (status < 100)
+    RETURN list->GetIcon("tollium:status/serious_error");
+  IF (status < 200)
+    RETURN list->GetIcon("tollium:status/warning");
+  IF (status < 300)
+    RETURN list->GetIcon("tollium:status/positive");
+  IF (status < 400)
+    RETURN list->GetIcon("tollium:status/warning");
+  IF (status < 500)
+    RETURN list->GetIcon("tollium:status/error");
+  RETURN list->GetIcon("tollium:status/abort_error");
+}

@@ -1,0 +1,251 @@
+<?wh
+/** @topic rpc/server */
+//FIXME: need to rename this file when integrating. it's named server, but a REST server doesn't need it directly, this is an implementation detail
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+LOADLIB "mod::system/lib/internal/remoting/restapisupport.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+
+
+PUBLIC MACRO RunRestCall(STRING apispecification, STRING relurl, STRING fullurl, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ log := FALSE ], options, [ optional := ["log"] ]);
+
+  RECORD rec := RunRestCallInternal(apispecification, GetRequestMethod(), relurl, fullurl, GetAllWebVariables(), GetRequestBody(), GetWebHeader("Content-Type"), GetClientRemoteIP(), options);
+
+  AddHTTPHeader("Content-Type", rec.mimetype ?? "application/json", FALSE);
+
+  IF (rec.status != "")
+    AddHTTPHeader("Status", rec.status, FALSE);
+
+  SendWebFile(rec.resultblob);
+}
+
+RECORD FUNCTION RunRestCallInternal(STRING apispecification, STRING method, STRING relurl, STRING fullurl, RECORD ARRAY allwebvariables, BLOB postbody, STRING contenttype, STRING clientid, RECORD restoptions)
+{
+  // Ensure there is a primary webhare transaction
+  IF (GetPrimaryWebhareTransaction() = 0)
+    OpenPrimary();
+
+  STRING orgurl := relurl;
+
+  RECORD config := GetRestConfig(apispecification);
+  IF(NOT CellExists(restoptions,'log'))
+    INSERT CELL log := IsRPCTrafficLogged(config.logsource) INTO restoptions;
+
+  STRING transid := GenerateUFS128BitID();
+
+  IF(restoptions.log)
+  {
+    LogRPCTraffic(config.logsource, method || " " || orgurl, FALSE, clientid, transid,
+        [ allwebvariables :=  allwebvariables
+        , body :=             MakeSlicedBlob(postbody,0,32768)
+        , bodylength :=    Length(postbody)
+        , contenttype :=      contenttype
+        , headers := GetAllWebheaders()
+        ]);
+  }
+
+  RECORD endpoint;
+  BOOLEAN executed_request;
+  TRY
+  {
+    IF(Length(config.errors) > 0)
+      THROW NEW Exception("Validation errors on the restapi description document");
+
+    // Determine endpoint
+    RECORD rec := GetEndpointFromRelativeURL(config, method, relurl);
+
+    STRING ARRAY tokens := rec.tokens;
+    endpoint := rec.endpoint;
+
+    BOOLEAN wasjson;
+
+    IF (method != "GET" AND LENGTH(postbody) != 0)
+    {
+      SWITCH (TrimWhitespace(Tokenize(contenttype, ";")[0]))
+      {
+        CASE "application/x-www-form-urlencoded", "multipart/form-data" {}
+        CASE "application/json"
+        {
+          VARIANT input := DecodeJSONBlob(postbody);
+          IF(TypeID(input) != TypeID(RECORD)) //it must be an object so we know the parameter names
+            THROW NEW RPCBadRequestException(`We expect to receive a JSON object in an application/json call (with the parameter names as object keys), got '${GetTypeName(input)}'`);
+
+          RECORD data := input;
+
+          allwebvariables := allwebvariables CONCAT
+              SELECT name := ToLowercase(name)
+                   , value
+                FROM UnpackRecord(data);
+
+          //The code used to simply expect 'JSON' input to be repacked webvariables... and that everything was a string..
+          //WE set 'wasjson' to differentiate between these cases
+          wasjson := TRUE;
+        }
+        DEFAULT
+        {
+          THROW NEW RPCBadRequestException("Illegal request content-type '" || contenttype || "'. Allowed: application/x-www-form-urlencoded, multipart/form-data, application/json.");
+        }
+      }
+    }
+
+    FOREVERY (RECORD varrec FROM allwebvariables)
+      IF (varrec.name NOT IN endpoint.allowed_webvariables AND varrec.name != "wh-debug")
+        THROW NEW RPCInvalidArgsException("Variable '" || varrec.name || "' is not allowed for this call");
+
+    RECORD options;
+    VARIANT ARRAY callparams;
+    FOREVERY (RECORD param FROM endpoint.parameters)
+    {
+      RECORD data := DEFAULT RECORD;
+      IF (param.tokenpos != -1)
+        data := [ value := tokens[param.tokenpos] ];
+      ELSE
+        data := SELECT * FROM allwebvariables WHERE name = param.name;
+
+      VARIANT value := FALSE;
+      IF (NOT RecordExists(data))
+      {
+        IF (NOT param.isoptional)
+          THROW NEW RPCInvalidArgsException("Variable '" || param.name || "' is required.");
+
+        IF (NOT RecordExists(param.defaultvalue))
+          CONTINUE;
+
+        value := param.defaultvalue.value;
+      }
+      ELSE
+      {
+        value := wasjson ? DecodeArgumentJSON(data, param) : DecodeArgument(data, param);
+        value := ValidateValue(param, config.types, value, "parameters." || param.name, DEFAULT RECORD, TRUE);
+      }
+
+      IF (param.callparampos != -1)
+        INSERT value INTO callparams AT END;
+      ELSE
+        options := CellInsert(options, param.name, value);
+    }
+
+    IF (endpoint.optionspos >= 0)
+      INSERT options INTO callparams AT endpoint.optionspos;
+
+    FUNCTION PTR func;
+    IF (endpoint.objtype != "")
+    {
+      __restapiinfo :=
+          [ wrdauthplugin :=  DEFAULT OBJECT
+          ];
+
+      IF(endpoint.security = "wrdauth")
+        __restapiinfo.wrdauthplugin := GetWRDAuthPlugin(fullurl);
+
+      OBJECT obj := MakeObject(endpoint.library, endpoint.objtype);
+      func := GetObjectMethodPtr(obj, endpoint.functionname);
+    }
+    ELSE
+      func := MakeFunctionPTR(endpoint.library, endpoint.functionname, TypeID(RECORD), endpoint.callparamtypes);
+
+    //FIXME either XSD should enforce we return a <record>, or we should be more liberal with accepted types
+    RECORD result := CallFunctionPtrVA(func, callparams);
+
+    executed_request := TRUE;
+    IF (endpoint.returntype = "json" AND RecordExists(endpoint.returnspec))
+    {
+      result := ValidateValue(endpoint.returnspec, config.types, result, "returnvalue", DEFAULT RECORD, FALSE);
+    }
+
+    RECORD retval := CELL[ endpoint
+                         , resultblob := DEFAULT BLOB
+                         , status := ""
+                         , mimetype := ""
+                         ];
+
+    IF (RecordExists(endpoint) AND endpoint.returntype = "file")
+    {
+      retval.mimetype := result.mimetype;
+      retval.resultblob := result.data;
+    }
+    ELSE
+    {
+      retval.resultblob := EncodeJSONBlob(result);
+    }
+
+    IF(restoptions.log)
+      LogRPCTraffic(config.logsource, method || " " || orgurl, TRUE, clientid, transid,
+              [ type :=   endpoint.returntype
+              , mimetype := retval.mimetype
+              , body :=   MakeSlicedBlob(retval.resultblob, 0, 32*1024)
+              ]);
+
+    RETURN retval;
+  }
+  CATCH (OBJECT e)
+  {
+    LogHarescriptException(e);
+    IF(NOT restoptions.log) //not already logged
+      LogRPCTraffic(config.logsource, method || " " || orgurl, FALSE, clientid, transid,
+          [ allwebvariables :=  allwebvariables
+          , body :=             MakeSlicedBlob(postbody,0,32768)
+          , bodylength :=    Length(postbody)
+          , contenttype :=      contenttype
+          , headers := GetAllWebheaders()
+          ]);
+
+    LogRPCTraffic(config.logsource, method || " " || orgurl, TRUE, clientid, transid,
+          [ allwebvariables :=  allwebvariables
+          , type :=       "error"
+          , what :=       e->what
+          , trace :=      e->trace
+          ]);
+
+    STRING status;
+    IF (e EXTENDSFROM RPCBadRequestException)
+      status := "400 Bad request: " || e->what;
+    ELSE IF (NOT executed_request AND e EXTENDSFROM RPCInvalidArgsException) // Returnvalue validation should return 500's
+      status := "422 Invalid arguments: " || e->what;
+    ELSE
+      status := "500 Internal error: " || e->what;
+
+    RETURN
+        [ endpoint := endpoint
+        , mimetype := ""
+        , resultblob := EncodeJSONBlob(
+              [ error :=
+                    [ message :=    e->what
+                    , trace :=      e->trace
+                    ]
+              ])
+        , status :=   status
+        ];
+  }
+}
+
+/** Base object type to extend a REST API object from
+*/
+PUBLIC OBJECTTYPE RestAPIBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC OBJECT wrdauthplugin;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->wrdauthplugin := __restapiinfo.wrdauthplugin;
+  }
+>;

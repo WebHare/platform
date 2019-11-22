@@ -1,0 +1,216 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Debug screen
+//
+
+/*
+TODO:
+- cooperation with the 'Inspector Gadget'
+- clearly show if a blob or string is cut off
+- when opening objects which are rendered on another place, copy that node to the branch that's being opened
+*/
+
+PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Initial data
+  RECORD keepref;
+
+  /// Whether only ui objects should be shown
+  BOOLEAN onlyuiobjects;
+
+  /// Storage HTML version of the page, so we don't need to regenerate it in case the user wants to download it
+  BLOB htmlcontent;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium init
+  //
+
+  /** Initialize debug screen
+      @param params
+      @cell params.data Data to show
+      @cell params.tree Whether data must be shown as a tree
+      @cell params.onlyuiobjects Whether non ui-stuff should be hidden
+  */
+  MACRO Init(RECORD params)
+  {
+    RECORD reflectoptions;
+    IF (CellExists(params, "reflectoptions"))
+    {
+      reflectoptions := ValidateOptions([ format := "tree:3"
+                                        , showprivate := TRUE
+                                        , expandlevel := 1
+                                        , hidestacktrace := FALSE
+                                        , hidedebugbutton := FALSE
+                                        ]
+                                        , params.reflectoptions);
+
+      ^valuedisplay->showprivate := reflectoptions.showprivate;
+      ^valuedisplay->expandlevel := reflectoptions.expandlevel;
+
+      IF (reflectoptions.hidedebugbutton)
+        ^openindebuggerbutton->visible := FALSE;
+    }
+
+    VARIANT data := params.data;      // The data to be shown
+    BOOLEAN tree := params.tree;      // =True -> convert to a tree
+                                      // =False -> directly dump RAW HTML into the iframe
+    this->keepref := [ data := params.data ]; // Keep the copy or reference so we can make new dumps later on
+
+    IF (CellExists(params.settings,'onlyuiobjects'))
+      this->onlyuiobjects := params.settings.onlyuiobjects;
+
+    IF (tree)
+      ^valuedisplay->value := data;
+    ELSE
+      this->ShowText(data);
+
+    IF(CellExists(params.settings, 'stacktrace') AND NOT (RecordExists(reflectoptions) AND reflectoptions.hidestacktrace))
+      ^stacktrace->rows := params.settings.stacktrace;
+    ELSE
+      ^stacktrace->visible := FALSE;
+  }
+
+  MACRO DoDownload()
+  {
+    this->frame->SendFileToUser( this->htmlcontent
+                               , "text/html"
+                               , "debugdump.html"
+                               , GetCurrentDateTime()
+                               );
+  }
+
+  // ADDME: but how to implement?
+  MACRO DoOpenInNewTab()
+  {
+  }
+
+  MACRO DoShowBrowsePanel()
+  {
+    ^browsepanel->visible := TRUE;
+  }
+
+  MACRO DoOpenInDebugger()
+  {
+    RECORD message :=
+        [ groupid := GetCurrentGroupId()
+        ];
+
+    STRING callingfile :=
+        SELECT AS STRING filename
+          FROM ^stacktrace->rows
+         WHERE ToUppercase(func) != "REFLECT";
+
+    IF (callingfile != "")
+      INSERT CELL files := [ callingfile ] INTO message;
+
+    this->tolliumcontroller->SendApplicationMessage(
+          "system:debugger",
+          DEFAULT RECORD,
+          message,
+          FALSE);
+  }
+
+  MACRO DoOpenInEditor()
+  {
+    RECORD sel := ^stacktrace->selection;
+    this->contexts->controller->ExecuteClientCall("OpenInEditor", sel.filename,
+          [ line := sel.line
+          , col := CellExists(sel, "COL") ? sel.col  : 1
+          ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetDebugHTML(BLOB htmltext)
+  {
+/*
+    this->htmlcontent := htmltext;
+    this->debugdump->blobvalue := htmltext;
+*/
+  }
+
+
+  MACRO ShowText(STRING message)
+  {
+    this->SetDebugHTML(StringToBlob(
+           '<style type="text/css">'
+        || 'body { font-family: Tahoma,"Lucida Grande",arial,helvetica,sans-serif; font-size: 0.7em; margin: 10px; }'
+        || '</style>'
+        || EncodeHTML(message))
+        );
+  }
+
+  MACRO ShowHTML(BLOB message)
+  {
+    this->SetDebugHTML(message);
+  }
+  MACRO OnGetValueAsChange()
+  {
+    SWITCH(^getvalueas->value)
+    {
+      CASE "hson"
+      {
+        ^data->value := EncodeHSON(this->keepref.data);
+      }
+      CASE "decodehson"
+      {
+        ^data->value := `DecodeHSON('${EncodeJava(EncodeHSON(this->keepref.data))}')`;
+      }
+      DEFAULT
+      {
+        ^data->value := "";
+      }
+    }
+  }
+>;
+
+
+
+PUBLIC OBJECTTYPE MissingTids EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->frame->flags :=
+        [ canopenlangedit := this->tolliumuser->HasRight("system:sysop")
+        ];
+
+    this->missingtids->rows :=
+        SELECT module
+             , tid
+             , stacktrace
+          FROM data.missingtids;
+  }
+
+  MACRO DoOpenStackTrace()
+  {
+    RunStackTraceDialog(this, this->missingtids->selection.stacktrace);
+  }
+
+  MACRO DoOpenLangedit()
+  {
+    this->tolliumcontroller->SendApplicationMessage(
+          "tollium:langedit",
+          [ module := this->missingtids->selection.module ],
+          [ gototid := this->missingtids->selection.tid ],
+          TRUE);
+  }
+
+>;

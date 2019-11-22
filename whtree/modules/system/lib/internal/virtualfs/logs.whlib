@@ -1,0 +1,142 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/virtualfs/base.whlib";
+PUBLIC OBJECTTYPE LogsFS EXTEND VirtualReadOnlyFSBase
+<
+  RECORD ARRAY FUNCTION GetAllLogs(STRING logfolderroot)
+  {
+    RECORD ARRAY all_log_files :=
+        SELECT *
+             , logdate :=   DEFAULT DATETIME
+          FROM ReadDiskDirectory(logfolderroot, "*.log");
+
+    FOREVERY (RECORD rec FROM all_log_files)
+    {
+      IF (rec.name LIKE "*.20??????.log")
+      {
+        STRING logstamp := SubString(rec.name, LENGTH(rec.name) - 12, 8);
+        all_log_files[#rec].logdate := MakeDate(ToInteger(LEFT(logstamp, 4), 1970), ToInteger(SubString(logstamp, 4, 2), 1), ToInteger(SubString(logstamp, 6, 2), 1));
+      }
+      ELSE
+        all_log_files[#rec].logdate := GetRoundedDateTime(rec.modified, 86400 * 1000);
+    }
+
+    RETURN all_log_files;
+  }
+
+  DATETIME FUNCTION GetLogDateFromPath(STRING pathelt)
+  {
+    STRING ARRAY pathelements := Tokenize(pathelt, "/");
+
+    DATETIME today := GetRoundedDateTime(GetCurrentDateTime(), 86400 * 1000);
+    DATETIME logdate;
+    SWITCH (ToLowercase(pathelements[0]))
+    {
+    CASE "today"      { logdate := today; }
+    CASE "yesterday"  { logdate := AddDaysToDate(-1, today); }
+    DEFAULT
+      {
+        IF (pathelements[0] LIKE "????-??-??")
+          logdate := MakeDate(ToInteger(LEFT(pathelements[0], 4), 1), ToInteger(SubString(pathelements[0], 5, 2), 1), ToInteger(SubString(pathelements[0], 8, 2), 1));
+      }
+    }
+    IF (logdate <= MakeDate(1970, 1, 1))
+      RETURN DEFAULT DATETIME;
+    RETURN logdate;
+  }
+
+
+  /* Retrieve a directory listing
+     @cell path Path to retrieve
+     @return Directory entries
+     @cell return.name Name of this entry */
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetDirectoryListing(STRING path)
+  {
+    RECORD ARRAY result;
+
+    STRING logfolderroot := GetWebHareConfiguration().logroot;
+
+    RECORD ARRAY all_log_files := this->GetAllLogs(logfolderroot);
+
+    IF (path LIKE "/*")
+      path := SubString(path, 1);
+    IF (path LIKE "*/")
+      path := LEFT(path, LENGTH(path) - 1);
+
+    STRING ARRAY pathelements := Tokenize(path, "/");
+    IF (pathelements[0] = "")
+    {
+      DATETIME today := GetRoundedDateTime(GetCurrentDateTime(), 86400 * 1000);
+      RECORD ARRAY dirlisting :=
+          [ [ name :=         "today"
+            , logdate :=     today
+            ]
+          , [ name :=         "yesterday"
+            , logdate :=      AddDaysToDate(-1, today)
+            ]
+          ] CONCAT
+              SELECT name := FormatDateTime("%Y-%m-%d", logdate)
+                   , logdate
+                FROM all_log_files
+            GROUP BY logdate;
+
+      result :=
+          SELECT name
+               , type := 1            // dir
+               , size := 0i64
+               , read :=              TRUE
+               , write :=             FALSE
+               , modificationdate :=  logdate
+               , creationdate :=      logdate
+            FROM dirlisting;
+    }
+    ELSE
+    {
+      DATETIME logdate := this->GetLogDateFromPath(pathelements[0]);
+      IF (logdate = DEFAULT DATETIME)
+        THROW NEW VirtualFSException("BADPATH","No data paths");
+
+      result :=
+          SELECT name
+              , type :=              0 // file
+              , size := INTEGER64(size)
+              , read :=              TRUE
+              , write :=             FALSE
+              , modificationdate :=  modified
+              , creationdate :=      modified
+            FROM all_log_files
+          WHERE COLUMN logdate = VAR logdate;
+    }
+
+    RETURN result;
+  }
+
+  UPDATE PUBLIC BLOB FUNCTION GetFile(STRING filename)
+  {
+    STRING path := GetDirectoryFromPath(filename);
+    STRING name := Substring(filename, Length(path), Length(filename));
+
+    IF (path LIKE "/*")
+      path := SubString(path, 1);
+    IF (path LIKE "*/")
+      path := LEFT(path, LENGTH(path) - 1);
+    STRING ARRAY pathelements := Tokenize(path, "/");
+
+    IF (pathelements[0] = "" OR LENGTH(pathelements) != 1)
+      THROW NEW VirtualFSException("BADPATH","No data path");
+
+    DATETIME logdate := this->GetLogDateFromPath(pathelements[0]);
+    IF (logdate = DEFAULT DATETIME)
+      THROW NEW VirtualFSException("BADPATH","No data path");
+
+    STRING logfolderroot := GetWebHareConfiguration().logroot;
+    RECORD ARRAY all_log_files := this->GetAllLogs(logfolderroot);
+
+    RECORD rec := SELECT * FROM all_log_files WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name) AND COLUMN logdate = VAR logdate;
+    IF (NOT RecordExists(rec))
+      THROW NEW VirtualFSException("BADPATH","No data path");
+    RETURN GetDIskResource(logfolderroot || name);
+  }
+>;

@@ -1,0 +1,204 @@
+<?wh
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+MACRO TestPreview()
+{
+  //test static preview
+  OBJECT staticpreviewpage := OpenTestsuiteSite()->OpenByPath("testpages/wrdauthtest-static");
+  STRING previewlink := CreatePreviewLink(MAX_DATETIME, "", staticpreviewpage->id, staticpreviewpage->id);
+  TestEq(TRUE, testfw->browser->GotoWebPage(previewlink)); //make sure no internal error
+}
+
+MACRO LookupTest()
+{
+  RECORD lookupresult;
+
+  RECORD lookuptest  := testfw->CreateWebserverPort([ outputserver := TRUE, virtualhosts := ["test-lookup.example.net"], aliases := ["test-alias.example.net","*plein.example.net"]]);
+
+  testfw->StartTrans("~webhare", TRUE);
+  testfw->BeginWork();
+
+  testfw->SetupTestWebsite(DEFAULT BLOB);
+
+  //Test with http://127.0.0.1:39124/ URLs...
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  lookupresult := LookupPublisherURL(root->url);
+
+  TestEq(root->parentsite, lookupresult.site);
+  TestEq(root->id, lookupresult.folder);
+  TestEq(0, lookupresult.file);
+
+  OBJECT testfolder := testfw->GetTestSite()->rootobject->CreateFolder([name:="testfolder"]);
+
+  //Now test with virtualhosted URLs
+  testfw->GettestSite()->SetPrimaryOutput(lookuptest.webservers[0].id,"/");
+
+  root := testfw->GetTestSite()->rootobject;
+  lookupresult := LookupPublisherURL(root->url);
+  TestEq(lookuptest.webservers[0].id, lookupresult.webserver);
+  TestEq(root->parentsite, lookupresult.site, root->url || " did not return the proper site");
+  TestEq(root->id, lookupresult.folder);
+  TestEq(0, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder");
+  TestEq(root->parentsite, lookupresult.site);
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(0, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder/");
+  TestEq(root->parentsite, lookupresult.site);
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(0, lookupresult.file);
+
+  FOREVERY(STRING shouldwork FROM [ "test-alias.example.net", "test-alias.example.net", "test-lookup.example.net"
+                                  , "www.trampolineplein.example.net", "www.plein.example.net", "plein.example.net"
+                                  ])
+  {
+    STRING testurl := Substitute(root->url, "test-lookup.example.net", shouldwork);
+    RECORD res := LookupPublisherURL(testurl);
+    TestEq(root->parentsite, res.site, testurl || " should work");
+  }
+  FOREVERY(STRING shouldfail FROM [ "mytest-alias.example.net" ])
+  {
+    STRING testurl := Substitute(root->url, "test-lookup.example.net", shouldfail);
+    RECORD res := LookupPublisherURL(Substitute(root->url, "test-lookup.example.net", shouldfail));
+    TestEq(0, res.site, testurl || " should fail");
+  }
+
+  //any virtualhosted site should accept https versions too (ADDME: test: but only if that port# is actually being listened to by a virtualhost?)
+  lookupresult := LookupPublisherURL(Substitute(root->url,'http:','https:'));
+
+  TestEq(root->parentsite, lookupresult.site);
+  TestEq(root->id, lookupresult.folder);
+  TestEq(0, lookupresult.file);
+
+  OBJECT testfile := testfolder->CreateFile([name:='test.html']);
+  lookupresult := LookupPublisherURL(testfile->url);
+  TestEq(root->parentsite, lookupresult.site);
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile->id, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test.html");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile->id, lookupresult.file);
+
+  // test with ignored extension extension
+  OBJECT whfstype_doc := OpenWHFSType("http://www.webhare.net/xmlns/publisher/mswordfile");
+  OBJECT testfile2 := testfolder->CreateFile([name:='test-ignoreext.doc', published := PublishedFlag_StripExtension, type := whfstype_doc->id ]);
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test-ignoreext.doc");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile2->id, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test-ignoreext");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile2->id, lookupresult.file);
+
+  // file of folder should be the indexdoc, 0 if not no indexdoc
+  lookupresult := LookupPublisherURL(root->url || "testfolder");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(0, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder/");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(0, lookupresult.file);
+
+  OBJECT testfile3 := testfolder->CreateFile([name:='index.html']); // auto indexdoc
+  testfolder->Refresh();
+  TestEQ(testfolder->indexdoc, testfile3->id);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile3->id, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder/");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile3->id, lookupresult.file);
+
+  // hash ignored
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test.html#jo");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile->id, lookupresult.file);
+
+  // parameters ignored?
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test.html?param");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile->id, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test.html&param");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile->id, lookupresult.file);
+
+  // !part ignored?
+  lookupresult := LookupPublisherURL(root->url || "testfolder/!ignored/test.html&param");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile->id, lookupresult.file);
+
+  // ! terminates
+  lookupresult := LookupPublisherURL(root->url || "testfolder/!/test.html/");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile3->id, lookupresult.file); // should go to indexdoc of testfolder, 'test.html' must be ignored.
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test.html/!/ignored");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile->id, lookupresult.file);
+
+  //Test through preview link
+  STRING previewlink := CreatePreviewLink(MAX_DATETIME, "", lookupresult.file, lookupresult.file);
+  lookupresult := LookupPublisherURL(previewlink);
+  TestEq(testfile->id, lookupresult.file, "LookupPublisherURL did not crack the preview link");
+  lookupresult := LookupPublisherURL(previewlink || "&bladiebla");
+  TestEq(testfile->id, lookupresult.file, "LookupPublisherURL did not crack the preview link");
+  lookupresult := LookupPublisherURL(previewlink || "#bladiebla");
+  TestEq(testfile->id, lookupresult.file, "LookupPublisherURL did not crack the preview link");
+
+
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test",
+                            [ arraytest := [[ blobcell := WrapBlob(StringToBlob("1"), "1.txt") ]
+                                           ,[ blobcell := WrapBlob(StringToBlob("2"), "2.zip") ]
+                                           ]
+                            ]);
+  RECORD testdata := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  lookupresult := LookupPublisherURL(GetCachedFSSettingFileURL(root->url, testdata.arraytest[1].blobcell.settingid));
+  TestEq(root->parentsite, lookupresult.site);
+  TestEq(testfolder->id, lookupresult.folder);
+
+  TestEq(testfile->id, lookupresult.file, "Looking up testdata.arraytest[1].blobcell.link");
+
+  testfile := root->CreateFile([name:='def.doc',type := 4]);
+  TestEq(TRUE, testfile->url NOT LIKE "*.doc*"); //shouldn't contain .doc anymore, given our strip code
+  lookupresult := LookupPublisherURL(testfile->url);
+  TestEq(testfile->id, lookupresult.file);
+
+  //Regression
+  lookupresult := LookupPublisherURL(ResolveToAbsoluteURL(testfile->url, "/tollium_todd/download/iJTSMjXoVvWNNXrggqeq3g/"));
+  TestEq(testfile->parentsite, lookupresult.site);
+  TestEq(lookuptest.webservers[0].id, lookupresult.webserver);
+  lookupresult := LookupPublisherURL(ResolveToAbsoluteURL(testfile->url, "/.system/dl/ec~AQLrIyEAgpvLAiE2CwCjrcACOgas/yt-g.png"));
+  TestEq(testfile->parentsite, lookupresult.site);
+  TestEq(lookuptest.webservers[0].id, lookupresult.webserver);
+
+  OBJECT webharetestsuitesite := OpenTestsuiteSite();
+  lookupresult := LookupPublisherURL(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/webhare-testsuite.site/testpages/formtest/"));
+  TestEq(webharetestsuitesite->id, lookupresult.site);
+  TestEq(webharetestsuitesite->outputweb, lookupresult.webserver);
+
+  testfw->GetTestSite()->rootobject->RecycleSelf();
+  testfw->CommitWork();
+  testfw->EndTrans();
+}
+
+RunTestFramework([ PTR TestPreview
+                 , PTR LookupTest
+                 ]);

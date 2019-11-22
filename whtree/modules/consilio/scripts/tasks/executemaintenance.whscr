@@ -1,0 +1,34 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+
+//ADDME: Also check for configuration file?
+
+//ADDME: Maintenance-taak om out-of-date links, servers en pagina's uit de database halen
+//ADDME: Shouldn't this script also remove checked_pages which are no longer in the index?
+
+OBJECT trans := OpenPrimary( [ clientname := "consilio execute maintenance" ]);
+trans->BeginWork();
+
+// Clean up unreferenced links
+INTEGER daystokeep := ReadRegistryKey("consilio.linkchecker.keeplinks");
+DATETIME limitdate := AddDaysToDate(0-daystokeep,GetCurrentDateTime());
+// First, collect all links that are referred to, but would be deleted based on their last_referred dates
+INTEGER ARRAY links_to_keep := (SELECT AS INTEGER ARRAY DISTINCT checked_links.id
+                                  FROM consilio.checked_links
+                                     , consilio.checked_objectlinks
+                                 WHERE checked_links.id = checked_objectlinks.link
+                                       AND checked_links.last_referred < limitdate);
+// Then delete all outdated links which are not referred to anymore
+DELETE FROM consilio.checked_links WHERE last_referred < limitdate
+                                         AND id NOT IN links_to_keep;
+
+// Clean up old searched words
+daystokeep := ReadRegistryKey("consilio.options.keepsearchterms");
+limitdate := AddDaysToDate(0-daystokeep,GetCurrentDateTime());
+DELETE FROM consilio.query_results WHERE when < limitdate;
+
+
+trans->CommitWork();

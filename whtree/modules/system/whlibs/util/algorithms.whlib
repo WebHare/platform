@@ -1,0 +1,742 @@
+﻿<?wh
+/** @topic harescript-utils/algorithms
+*/
+LOADLIB "wh::internal/interface.whlib" EXPORT RecordLowerBound, RecordUpperBound;
+LOADLIB "wh::internal/enrichment.whlib";
+
+/** @short Does a (case sensitive) binary search within a sorted record array, returns all matching records
+    @long This function searches for records with specific values within a record array that is sorted
+          on specific cells. The range of matching records are returned.
+    @param list Record array to search in
+    @param element Record with values to search for
+    @param cellnames Names of cells to search for (the list must be ordered on these cellnames, in the
+               same order they are passed to this function)
+    @return The range of records that match the values.
+    @seealso RecordLowerBound, RecordUpperBound
+    @example
+
+// List (sorted on 'a', then 'b')
+RECORD ARRAY list :=
+    [ [ a := 1, b := 10, text := "value 1" ]
+    , [ a := 3, b := 1,  text := "second value" ]
+    , [ a := 3, b := 1,  text := "second value again" ]
+    , [ a := 3, b := 3,  text := "value 3" ]
+    , [ a := 5, b := 7,  text := "last value" ]
+    ];
+
+// Returns [ [ a := 3, b := 1,  text := "second value" ]
+//         , [ a := 3, b := 1,  text := "second value again" ]
+//         , [ a := 3, b := 3,  text := "value 3" ]
+//         ]
+RECORD ARRAY res := RecordRange(list, [ a := 3 ], [ "A" ]);
+
+// Returns DEFAULT RECORD ARRAY
+INTEGER res := RecordRange(list, [ a := 5, b := 8 ], [ "A", "B" ]);
+*/
+PUBLIC RECORD ARRAY FUNCTION RecordRange(RECORD ARRAY list, RECORD element, STRING ARRAY cellnames)
+{
+  RECORD pos := RecordLowerBound(list, element, cellnames);
+  IF (NOT pos.found)
+    RETURN DEFAULT RECORD ARRAY;
+
+  INTEGER endpos := RecordUpperBound(list, element, cellnames);
+  RETURN ArraySlice(list, pos.position, endpos - pos.position);
+}
+
+/** @short Does a (case sensitive) binary search within a sorted record array
+    @long This function searches for an record with specific values within a record array that is sorted
+          on specific cells.
+    @param list Record array to search in
+    @param element Record with values to search for
+    @param cellnames Names of cells to search for (the list must be ordered on these cellnames, in the
+               same order they are passed to this function)
+    @return Position of the the matching element, or -1 if not found
+    @seealso RecordLowerBound, LowerBound, UpperBound, RecordLowerBound
+    @example
+
+// List (sorted on 'a', then 'b')
+RECORD ARRAY list :=
+    [ [ a := 1, b := 10, text := "value 1" ]
+    , [ a := 3, b := 1,  text := "second value" ]
+    , [ a := 3, b := 1,  text := "second value again" ]
+    , [ a := 3, b := 3,  text := "value 3" ]
+    , [ a := 5, b := 7,  text := "last value" ]
+    ];
+
+// Returns 3
+INTEGER res := RecordBinaryFind(list, [ a := 3, b := 1 ], [ "A", "B" ]);
+
+// Returns -1
+INTEGER res := RecordBinaryFind(list, [ a := 1, b := 8 ], [ "A", "B" ]);
+*/
+PUBLIC INTEGER FUNCTION RecordBinaryFind(RECORD ARRAY list, RECORD element, STRING ARRAY cellnames)
+{
+  RECORD lb := RecordLowerBound(list, element, cellnames);
+  RETURN lb.found ? lb.position : -1;
+}
+
+
+/** @short Does a (case sensitive) binary search within a list
+    @long This function searches for an element within a sorted list. If the element is found, its
+          position is returned, otherwise the insert position is returned (the place the element
+          should be inserted to preserve the ordering of the list)
+    @param list Array to search in
+    @param element Element to search for
+    @param comparefunction Optional compare function, which must return whether the first parameter should
+       be sorted before the second (signature: BOOLEAN FUNCTION func(VARIANT a, VARIANT b)
+    @return Whether the element was found, and the position of the element/position is should be inserted
+                to preserve the ordering of list
+    @cell return.found Whether the element was found
+    @cell return.position Position of the element (when found, otherwise the insert position)
+    @seealso RecordLowerBound, RecordUpperBound, UpperBound
+    @example
+
+STRING ARRAY list := [ "b", "d", "f" ];
+
+// Returns [ found := TRUE, position := 1 ]
+RECORD res := LowerBound(list, "d");
+
+// Returns [ found := FALSE, position := 3 ] (one past the end)
+RECORD res := LowerBound(list, "g");
+
+// Returns [ found := FALSE, position := 0 ]
+RECORD res := LowerBound(list, "a");
+*/
+PUBLIC RECORD FUNCTION LowerBound(VARIANT list, VARIANT element, FUNCTION PTR comparefunction DEFAULTSTO DEFAULT FUNCTION PTR)
+{
+  IF (comparefunction = DEFAULT FUNCTION PTR)
+    RETURN __HS_SQL_LOWERBOUND(list, element);
+
+  INTEGER curstart := 0, curlimit := Length(list);
+  INTEGER segmentsize := curlimit - curstart;
+
+  // Do binary search
+  WHILE (segmentsize > 0)
+  {
+    INTEGER half := segmentsize / 2;
+    INTEGER middle := curstart + half;
+    IF (comparefunction(list[middle], element))
+    {
+      curstart := middle + 1;
+      segmentsize := segmentsize - half - 1;
+    }
+    ELSE
+    {
+      segmentsize := half;
+    }
+  }
+
+  IF(curstart < Length(list) AND NOT comparefunction(element, list[curstart]))
+    RETURN [ found := TRUE, position := curstart ];
+  ELSE
+    RETURN [ found := FALSE, position := curstart ];
+}
+
+/** @short Does a (case sensitive) binary search within a list, returns of the position of the element that is greater than the searched-for element.
+    @long This function searches for an element within a sorted list. The position of the first element that
+          is greater than the search-for element is returned; if no such element exists the length of the list
+          is returned (so an insert at the returned position preserves the ordering of the list)
+    @param list Array to search in
+    @param element Element to search for
+    @param comparefunction Optional compare function, which must return whether the first parameter should
+       be sorted before the second (signature: BOOLEAN FUNCTION func(VARIANT a, VARIANT b)
+    @return Position of the first element that is greater than the searched-for element, or the end of the list
+            if no such element can be found.
+    @seealso LowerBound, RecordLowerBound, RecordUpperBound
+    @example
+
+STRING ARRAY list := [ "b", "d", "d", "f" ];
+
+// Returns 3
+INTEGER res := LowerBound(list, "d");
+
+// Returns 4 (one past the end)
+INTEGER res := LowerBound(list, "g");
+
+// Returns 0
+INTEGER res := LowerBound(list, "a");
+*/
+PUBLIC INTEGER FUNCTION UpperBound(VARIANT list, VARIANT element, FUNCTION PTR comparefunction DEFAULTSTO DEFAULT FUNCTION PTR)
+{
+  IF (comparefunction = DEFAULT FUNCTION PTR)
+    RETURN __HS_SQL_UPPERBOUND(list, element);
+
+  INTEGER curstart := 0, curlimit := Length(list);
+  INTEGER segmentsize := curlimit - curstart;
+
+  // Do binary search
+  WHILE (segmentsize > 0)
+  {
+    INTEGER half := segmentsize / 2;
+    INTEGER middle := curstart + half;
+    IF (NOT comparefunction(element, list[middle]))
+    {
+      curstart := middle + 1;
+      segmentsize := segmentsize - half - 1;
+    }
+    ELSE
+    {
+      segmentsize := half;
+    }
+  }
+
+  RETURN curstart;
+}
+
+/** @short Does a (case sensitive) binary search within a list
+    @long This function searches for an element within a sorted list.
+    @param list Array to search in
+    @param element Element to search for
+    @param comparefunction Optional compare function, which must return whether the first parameter should
+       be sorted before the second (signature: BOOLEAN FUNCTION func(VARIANT a, VARIANT b)
+    @return Position of the first element that is greater than the searched-for element, or the end of the list
+            if no such element can be found.
+    @seealso LowerBound, RecordLowerBound, RecordUpperBound
+    @example
+
+STRING ARRAY list := [ "b", "d", "d", "f" ];
+
+// Returns 3
+INTEGER res := BinaryFind(list, "d");
+
+// Returns -1
+INTEGER res := BinaryFind(list, "a");
+*/
+PUBLIC INTEGER FUNCTION BinaryFind(VARIANT list, VARIANT element, FUNCTION PTR comparefunction DEFAULTSTO DEFAULT FUNCTION PTR)
+{
+  RECORD lb := LowerBound(list, element, comparefunction);
+  RETURN lb.found ? lb.position : -1;
+}
+
+/** @short Returns an array containing all elements present in both arrays
+    @long Searches for values in the second array that are also present in the first array and returns the an array containing all matches found.
+          When no matches are found, an empty array of the type given is returned. Arrays must be of the same type.
+    @param first The first array to use in the comparison
+    @param second The second array to use in the comparison
+    @return An array containing all the entries that are present in both arrays.
+    @example
+STRING ARRAY alpha := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+STRING ARRAY bravo := [ "delta", "echo", "foxtrot", "baz", "bar", "golf", "hotel" ];
+STRING ARRAY charlie := [ "foo1", "bar1", "baz1", "test1", "alpha1", "beta1", "charlie1" ];
+STRING ARRAY delta := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+// returns ["bar", "baz"]
+STRING ARRAY matches1 := ArrayIntersection(alpha, bravo);
+
+// returns DEFAULT STRING ARRAY
+STRING ARRAY matches2 := ArrayIntersection(alpha, charlie);
+
+// returns ["foo", "bar", "baz", "test", "alpha", "beta", "charlie"]
+STRING ARRAY matches3 := ArrayIntersection(alpha, delta);
+*/
+PUBLIC VARIANT Function ArrayIntersection(VARIANT first, VARIANT second)
+{
+  IF(NOT IsTypeIDArray(TypeID(first)) OR NOT IsTypeIDArray(TypeID(second)))
+    THROW NEW Exception("ArrayIntersection only works on arrays");
+
+  IF(TypeID(first) = TypeID(RECORD ARRAY) OR TypeID(second) = TypeID(RECORD ARRAY))
+    THROW NEW Exception("ArrayIntersection does not work on record arrays (record is not a comparable type)");
+
+  IF(TypeID(first) != TypeID(second))
+    THROW NEW Exception("ArrayIntersection expects both arrays to be of the same type");
+
+  VARIANT intersects := GetTypeDefaultValue(TypeID(first));
+  FOREVERY(VARIANT elem FROM first)
+    IF(elem IN second)
+      INSERT elem INTO intersects AT END;
+
+  RETURN intersects;
+}
+
+/** @short Returns TRUE if any value in either supplied array is present in both arrays.
+    @long Iterates through every value in the shortest of the supplied array to determine if it is present in the longest
+          array. If a match is found, returns TRUE. If no matches are present, returns FALSE.
+    @param first The first array to use in the comparison
+    @param second The second array to use in the comparison
+    @return(BOOLEAN) Returns TRUE if there was an intersection, FALSE otherwise
+    @example
+STRING ARRAY alpha := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+STRING ARRAY bravo := [ "delta", "echo", "foxtrot", "baz", "bar", "golf", "hotel" ];
+STRING ARRAY charlie := [ "foo1", "bar1", "baz1", "test1", "alpha1", "beta1", "charlie1" ];
+STRING ARRAY delta := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+// returns TRUE
+STRING ARRAY matches1 := ArraysIntersect(alpha, bravo);
+
+// returns FALSE
+STRING ARRAY matches2 := ArraysIntersect(alpha, charlie);
+
+// returns TRUE
+STRING ARRAY matches3 := ArraysIntersect(alpha, delta);
+*/
+PUBLIC BOOLEAN FUNCTION ArraysIntersect(VARIANT first, VARIANT second)
+{
+  IF(NOT IsTypeIDArray(TypeID(first)) OR NOT IsTypeIDArray(TypeID(second)))
+    THROW NEW Exception("ArraysIntersect only works on arrays");
+
+  IF(TypeID(first) = TypeID(RECORD ARRAY) OR TypeID(second) = TypeID(RECORD ARRAY))
+    THROW NEW Exception("ArraysIntersect does not work on record arrays (record is not a comparable type)");
+
+  IF(TypeID(first) != TypeID(second)
+     AND NOT (TypeID(first) IN [TypeID(INTEGER ARRAY), TypeID(MONEY ARRAY), TypeID(INTEGER64 ARRAY), TypeID(FLOAT ARRAY)]
+              AND TypeID(second) IN [TypeID(INTEGER ARRAY), TypeID(MONEY ARRAY), TypeID(INTEGER64 ARRAY), TypeID(FLOAT ARRAY)])
+     AND TYPEID(first) != TYPEID(VARIANT ARRAY)
+     AND TYPEID(second) != TYPEID(VARIANT ARRAY))
+  {
+    THROW NEW Exception("ArraysIntersect expects both arrays to be of the same type, or to be both of a numeric type");
+  }
+
+  VARIANT base;
+  VARIANT comp;
+  IF(Length(first) < Length(second))
+  {
+    base := first;
+    comp := second;
+  }
+  ELSE
+  {
+    base := second;
+    comp := first;
+  }
+  FOREVERY(VARIANT val FROM base)
+    IF(val IN comp)
+      RETURN TRUE;
+
+  RETURN FALSE;
+}
+
+/** @short Returns an array with all elements in 'toremove' deleted from 'list'
+    @long Searches for values in the second array that are not present in the first array and returns the an array containing all differences found.
+          When all entries match, an empty array of the type given is returned. Arrays must be of the same type.
+    @param list The first array to use in the comparison
+    @param toremove The second array to use in the comparison
+    @return The 'list' array with all values from 'toremove' deleted
+    @example
+STRING ARRAY alpha := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+STRING ARRAY bravo := [ "delta", "echo", "foxtrot", "baz", "bar", "golf", "hotel" ];
+STRING ARRAY charlie := [ "foo1", "bar1", "baz1", "test1", "alpha1", "beta1", "charlie1" ];
+STRING ARRAY delta := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+// returns ["foo", "test", "alpha", "beta", "charlie"]
+STRING ARRAY matches1 := ArrayDelete(alpha, bravo);
+
+// returns ["foo", "bar", "baz", "test", "alpha", "beta", "charlie"]
+STRING ARRAY matches2 := ArrayDelete(alpha, charlie);
+
+// returns DEFAULT STRING ARRAY
+STRING ARRAY matches3 := ArrayDelete(alpha, delta);
+*/
+PUBLIC VARIANT FUNCTION ArrayDelete(VARIANT list, VARIANT toremove)
+{
+  IF(NOT IsTypeIDArray(TypeID(list)) OR NOT IsTypeIDArray(TypeID(toremove)))
+    THROW NEW Exception("ArrayDelete only works on arrays");
+
+  IF(TypeID(list) = TypeID(RECORD ARRAY) OR TypeID(toremove) = TypeID(RECORD ARRAY))
+    THROW NEW Exception("ArrayDelete does not work on record arrays (record is not a comparable type)");
+
+  IF(TypeID(list) != TypeID(toremove))
+    THROW NEW Exception("ArrayDelete expects both arrays to be of the same type");
+
+  VARIANT differences := GetTypeDefaultValue(TypeID(list));
+  FOREVERY(VARIANT elem FROM list)
+    IF(elem NOT IN toremove)
+      INSERT elem INTO differences AT END;
+
+  RETURN differences;
+}
+
+
+
+/** @short Combines the unique values from two arrays into one array
+    @long Combines the unique values from two arrays into one array (of the same type) into one array. (The result is NOT guaranteed to be sorted)
+    @param first The first array to use in the union
+    @param second The second array to use in the union
+    @return A sorted array containing the combined entries from both arrays
+    @example
+STRING ARRAY alpha := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+STRING ARRAY bravo := [ "delta", "echo", "foxtrot", "baz", "bar", "golf", "hotel" ];
+STRING ARRAY charlie := [ "foo1", "bar1", "baz1", "test1", "alpha1", "beta1", "charlie1" ];
+STRING ARRAY delta := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+
+// returns ['alpha', 'bar', 'baz', 'beta', 'charlie', 'delta', 'echo', 'foo', 'foxtrot', 'golf', 'hotel', 'test']
+STRING ARRAY matches1 := ArrayUnion(alpha, bravo);
+
+// returns ['alpha', 'alpha1', 'bar', 'bar1', 'baz', 'baz1', 'beta', 'beta1', 'charlie', 'charlie1', 'foo', 'foo1', 'test', 'test1']
+STRING ARRAY matches2 := ArrayUnion(alpha, charlie);
+
+// returns ['alpha', 'bar', 'baz', 'beta', 'charlie', 'foo', 'test']
+STRING ARRAY matches3 := ArrayUnion(alpha, delta);
+*/
+PUBLIC VARIANT FUNCTION ArrayUnion(VARIANT first, VARIANT second)
+{
+  IF(NOT IsTypeIDArray(TypeID(first)) OR NOT IsTypeIDArray(TypeID(second)))
+    THROW NEW Exception("ArrayUnion only works on arrays");
+
+  IF(TypeID(first) = TypeID(RECORD ARRAY) OR TypeID(second) = TypeID(RECORD ARRAY))
+    THROW NEW Exception("ArrayUnion does not work on record arrays (record is not a comparable type)");
+
+  IF(TypeID(first) != TypeID(second))
+    THROW NEW Exception("ArrayUnion expects both arrays to be of the same type");
+
+  RETURN __HS_SQL_SortArray(first CONCAT second, FALSE, TRUE);
+}
+
+/** @short Checks if the 'subset' array is a subset of the 'fullset' array
+    @long Returns FALSE if any element in the 'subset' set is missing from the 'fullset' set
+    @param subset The array to check
+    @param fullset The array with all elements
+    @return TRUE if the match array is a subset of the input array
+    @example
+STRING ARRAY alpha := [ "baz", "bar" ];
+STRING ARRAY bravo := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+
+// Returns TRUE
+BOOLEAN test1 := ArrayIsSubsetOf(alpha, bravo);
+
+// Returns FALSE
+BOOLEAN test2 := ArrayIsSubsetOf(bravo, alpha);
+*/
+PUBLIC BOOLEAN FUNCTION ArrayIsSubsetOf(VARIANT subset, VARIANT fullset)
+{
+  IF(NOT IsTypeIDArray(TypeID(subset)) OR NOT IsTypeIDArray(TypeID(fullset)))
+    THROW NEW Exception("ArrayIsSubsetOf only works on arrays");
+
+  IF(TypeID(subset) = TypeID(RECORD ARRAY) OR TypeID(fullset) = TypeID(RECORD ARRAY))
+    THROW NEW Exception("ArrayIsSubsetOf does not work on record arrays (record is not a comparable type)");
+
+  IF(TypeID(subset) != TypeID(fullset))
+    THROW NEW Exception("ArrayIsSubsetOf expects both arrays to be of the same type");
+
+  FOREVERY(VARIANT elem FROM subset)
+    IF(elem NOT IN fullset)
+      RETURN FALSE;
+
+  RETURN TRUE;
+}
+
+/** @short Checks if two arrays are equal, if treated as a set (ignore duplicates and ordering)
+    @param input The array to compare against
+    @param match The array to check
+    @return TRUE if the arrays are equal as a set
+    @example
+// Returns TRUE
+BOOLEAN test1 := ArrayIsSetEqual([1,2], [2,1]);
+
+// Returns TRUE
+BOOLEAN test1 := ArrayIsSetEqual([1,2,2], [1,2]);
+*/
+PUBLIC BOOLEAN FUNCTION ArrayIsSetEqual(VARIANT match, VARIANT input)
+{
+  IF(NOT IsTypeIDArray(TypeID(input)) OR NOT IsTypeIDArray(TypeID(match)))
+    THROW NEW Exception("ArrayIsSetEqual only works on arrays");
+
+  IF(TypeID(input) = TypeID(RECORD ARRAY) OR TypeID(match) = TypeID(RECORD ARRAY))
+    THROW NEW Exception("ArrayIsSetEqual does not work on record arrays (record is not a comparable type)");
+
+  IF(TypeID(input) != TypeID(match))
+    THROW NEW Exception("ArrayIsSetEqual expects both arrays to be of the same type");
+
+  FOREVERY(VARIANT elem FROM input)
+    IF(elem NOT IN match)
+      RETURN FALSE;
+  FOREVERY(VARIANT elem FROM match)
+    IF(elem NOT IN input)
+      RETURN FALSE;
+
+  RETURN TRUE;
+}
+
+/** @short A dictionary/map to look up values by key
+*/
+PUBLIC STATIC OBJECTTYPE ValueMapper
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Whether any variables have been inserted in the map
+  BOOLEAN seenanyvalues;
+
+  /** List of mappings
+      @cell fromval Key
+      @cell toval Value
+  */
+  RECORD ARRAY themap;
+
+  /// Type of the key
+  INTEGER fromtype;
+
+  /// Type of the value
+  INTEGER totype;
+
+  /// Do we need to apply case insensitivity (case insensitive and type is STRING)
+  BOOLEAN apply_uppercase;
+
+  /// Whether lookups are case sensitive
+  BOOLEAN pvt_casesensitive;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Whether lookups are case sensitive. Default is case insensitive. Explicitly setting to false for non-strings is an error.
+  PUBLIC PROPERTY casesensitive(pvt_casesensitive, SetCaseSensitive);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetCaseSensitive(BOOLEAN newsetting)
+  {
+    IF (newsetting = this->pvt_casesensitive)
+      RETURN;
+
+    IF (this->seenanyvalues)
+      THROW NEW Exception("The case sensitivity of a ValueMapper cannot be changed once values have been inserted");
+
+    this->pvt_casesensitive := newsetting;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Add a key and a value to this mapping
+      @param mapkey Key for this mapping
+      @param toval Value
+  */
+  PUBLIC MACRO Add(VARIANT fromval, VARIANT toval)
+  {
+    IF(NOT this->seenanyvalues)
+    {
+      this->fromtype := TypeID(fromval);
+      this->totype := TypeID(toval);
+      this->seenanyvalues := TRUE;
+
+      this->apply_uppercase := NOT this->pvt_casesensitive AND this->fromtype = TypeID(STRING);
+    }
+    ELSE
+    {
+      IF(TypeID(fromval) != this->fromtype)
+        THROW NEW Exception("The 'FROM' value passed was expected to be of type '" || GetTypeName(this->fromtype) || "' just like the first type");
+      IF(TypeID(toval) != this->totype)
+        THROW NEW Exception("The 'TO' value passed was expected to be of type '" || GetTypeName(this->totype) || "' just like the first type");
+    }
+
+    VARIANT origval := fromval;
+    IF (this->apply_uppercase)
+      fromval := ToUppercase(fromval);
+
+    RECORD match := RecordLowerBound(this->themap, [ fromval := fromval ], [ "fromval" ]);
+    IF(match.found)
+      THROW NEW Exception("The value " || EncodeJSON(origval) || " was already added");
+
+    INSERT [ fromval := fromval, toval := toval ] INTO this->themap AT match.position;
+  }
+
+  /** Add multiple keys and values to this mapping
+      @param inmap
+      @cell inmap.fromval
+      @cell inmap.toval
+  */
+  PUBLIC MACRO AddMultiple(RECORD ARRAY inmap)
+  {
+    RECORD ARRAY savemap := this->themap;
+    TRY
+    {
+      FOREVERY(RECORD inrow FROM inmap)
+        this->Add(inrow.fromval, inrow.toval);
+    }
+    CATCH(OBJECT e)
+    {
+      this->themap := savemap;
+      THROW;
+    }
+  }
+
+  /** Looks up a value by a key, throws if the no value is found for that key
+      @param inval Key
+      @return Mapped value
+  */
+  PUBLIC VARIANT FUNCTION Has(VARIANT inval)
+  {
+    IF(Length(this->themap)=0)
+      RETURN FALSE;
+
+    IF(TypeID(inval) != this->fromtype)
+      THROW NEW Exception("The 'INVAL' value passed was expected to be of type '" || GetTypeName(this->fromtype) || "' just like the stored types");
+
+    VARIANT origval := inval;
+    IF (this->apply_uppercase AND this->fromtype = TypeID(STRING))
+      inval := ToUppercase(inval);
+
+    RECORD match := RecordLowerBound(this->themap, [ fromval := inval ], [ "FROMVAL" ]);
+    RETURN match.found;
+  }
+
+  /** Looks up a value by a key, throws if the no value is found for that key
+      @param inval Key
+      @return Mapped value
+  */
+  PUBLIC VARIANT FUNCTION Lookup(VARIANT inval)
+  {
+    IF(Length(this->themap)=0)
+      THROW NEW Exception("The value " || EncodeJSON(inval) || " was not found (the map is still empty)");
+
+    IF(TypeID(inval) != this->fromtype)
+      THROW NEW Exception("The 'INVAL' value passed was expected to be of type '" || GetTypeName(this->fromtype) || "' just like the stored types");
+
+    VARIANT origval := inval;
+    IF (this->apply_uppercase AND this->fromtype = TypeID(STRING))
+      inval := ToUppercase(inval);
+
+    RECORD match := RecordLowerBound(this->themap, [ fromval := inval ], [ "FROMVAL" ]);
+    IF(NOT match.found)
+      THROW NEW Exception("The value " || EncodeJSON(origval) || " was not found");
+
+    RETURN this->themap[match.position].toval;
+  }
+
+  /** Returns the list of all mappings
+      @return List of mappings
+      @cell return.fromval
+      @cell return.toval
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAllMappings()
+  {
+    RETURN this->themap;
+  }
+>;
+
+RECORD FUNCTION FixRecToBase(RECORD inrec, RECORD baserecord, STRING joinwithfield, STRING ARRAY cellnames, BOOLEAN addjoinfield)
+{
+  INSERT CELL __joinid := GetCell(inrec, joinwithfield) INTO baserecord ;
+  FOREVERY(STRING cellname FROM cellnames)
+    baserecord := CellUpdate(baserecord, cellname, GetCell(inrec,cellname));
+  //IF(addjoinfield AND NOT CellExists(baserecord, joinwithfield))
+  IF(addjoinfield)
+    baserecord := CellInsert(baserecord, joinwithfield, baserecord.__joinid);
+  RETURN Baserecord;
+}
+RECORD FUNCTION FixRec(RECORD inrec, STRING joinwithfield,STRING deleterhsfield)
+{
+  DELETE CELL __joinid FROM inrec;
+  INSERT CELL __joinid := GetCell(inrec, joinwithfield) INTO inrec;
+  IF(deleterhsfield!="")
+    inrec := CellDelete(inrec, deleterhsfield);
+  RETURN inrec;
+}
+
+VARIANT FUNCTION GetAndUppercase(VARIANT indata, BOOLEAN uppercase) //using a helper as a ?: approach would limit us to returning strings
+{
+  IF(uppercase)
+    indata := ToUPpercase(indata);
+  RETURN indata;
+}
+
+RECORD ARRAY FUNCTION GetBulkFields(RECORD ARRAY inlist, RECORD baserecord, STRING joinwithfield, STRING deleterhsfield, VARIANT keys, BOOLEAN getall, BOOLEAN uppercase, BOOLEAN addjoinfield)
+{
+  IF(NOT getall)
+    inlist := SELECT * FROM inlist WHERE LowerBound(keys, GetAndUppercase(GetCell(inlist,joinwithfield), uppercase)).found;
+  IF(Length(inlist)=0)
+    RETURN inlist;
+
+  IF(RecordExists(baserecord))
+  {
+    STRING ARRAY cells := SELECT AS STRING ARRAY name FROM UnpackRecord(baserecord);
+    inlist := SELECT AS RECORD ARRAY FixRecToBase(inlist, baserecord, joinwithfield, cells, addjoinfield)
+                FROM inlist;
+  }
+  ELSE
+  {
+    inlist := SELECT AS RECORD ARRAY FixRec(inlist, joinwithfield, deleterhsfield)
+                FROM inlist;
+  }
+  RETURN inlist;
+}
+RECORD FUNCTION GetDefaultRecord(RECORD baserecord)
+{
+  RETURN baserecord;
+}
+/** @short Join two record arrays
+    @param lhs The record array to join data into
+    @param joincellname The cell in lhs on which to join the arrays
+    @param rhs The array to join with
+    @param baserecord The structure of the cells of the rhs to merge. If default, all cells of rhs will be merged into lhs (except for the cell named 'joincellname', if no explicit joinfield is set). Otherwise, only cells named in this record will be copied to lhs
+    @param options Options
+    @cell options.rightouterjoin Perform a right outer join. If any lhs record does not have a match in rhs, it will be merged with the baserecord. If rightouterjoin is not set (the default), any unmatched records in lhs will be removed
+    @cell options.joinfield The field in the rhs array to use for the join. If not set, the joincellname is used
+    @cell options.presentfield If set, this field will contain 'left', 'right' or 'both' depending on which records were present
+    @cell options.leftouterjoin Perform a left outer join (too). If any rhs records do not have a match in lhs, it will be merged with this record
+    @return rhs joined into lhs. The ordering of the lhs array will not change
+    */
+PUBLIC RECORD ARRAY FUNCTION JoinArrays(RECORD ARRAY lhs, STRING joincellname, RECORD ARRAY rhs, RECORD baserecord, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(CellExists(options,'rightouterjoin') AND options.rightouterjoin = TRUE AND NOT RecordExists(baserecord))
+    THROW NEW Exception("A right outer join requires the baserecord to be specified");
+
+  STRING deleterhsfield := NOT CellExists(options,'joinfield') AND NOT RecordExists(baserecord) ? joincellname : "";
+  STRING joinwithfield := CellExists(options,'joinfield') ? options.joinfield : joincellname;
+  IF (joinwithfield LIKE "*[]")
+    joinwithfield := Left(joinwithfield, LENGTH(joinwithfield) - 2);
+  BOOLEAN addjoinfield := joinwithfield = joincellname;
+  DELETE CELL joinfield FROM options;
+  RETURN ExecuteEnrichment(lhs, joincellname, options, PTR GetBulkFields(rhs,baserecord,joinwithfield,deleterhsfield,#1, #2, #3, addjoinfield), PTR GetDefaultRecord(baserecord));
+}
+
+/** Sorts an array of comparable values
+    @param input Input array
+    @return The sorted array
+// Given a simple INTEGER ARRAY like so:
+INTEGER ARRAY test := [ 5, 3, 4, 9, 11, 5, 0, 4 ];
+test := GetSortedSet(test);
+// The result would be:
+INTEGER ARRAY [ 0, 3, 4, 5, 9, 11 ];
+*/
+PUBLIC VARIANT FUNCTION GetSortedSet(VARIANT input)
+{
+  RETURN __HS_SQL_SortArray(input, FALSE, TRUE);
+}
+
+/** @short Returns a random element from the given input array of values.
+    @param input An array of values (all array types are supported)
+    @return A random element from the given input array.
+*/
+PUBLIC VARIANT FUNCTION GetRandomElement(VARIANT input)
+{
+  IF(NOT IsTypeidArray(TYPEID(input)))
+    THROW NEW Exception("Argument to GetRandomElement must be an array");
+
+  IF(Length(input) = 0)
+    RETURN GetArrayTypeDefaultElement(TypeID(input));
+
+  RETURN input[Random(0, END - 1)];
+}
+
+/** @short Shuffles the given array randomly, using the Durstenfeld algorithm for Fisher Yates shuffling.
+    @param input An array of values (all array types are supportd)
+    @return The input array, reshuffled to a random order.
+*/
+PUBLIC VARIANT FUNCTION GetShuffledElements(VARIANT input)
+{
+  IF(NOT IsTypeidArray(TYPEID(input)))
+    THROW NEW Exception("Argument to GetShuffledElements must be an array");
+
+  VARIANT output := GetTypeDefaultValue(TypeID(input));
+  INTEGER pos;
+  FOR(INTEGER i := 0; i < Length(input); i := i + 1)
+  {
+    pos := Random(0, i);
+    INSERT input[i] INTO output AT pos;
+  }
+  RETURN output;
+}

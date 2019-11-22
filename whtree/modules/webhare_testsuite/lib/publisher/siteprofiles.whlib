@@ -1,0 +1,89 @@
+<?wh
+
+STRING dyntype :=
+  `<contenttype namespace="http://www.webhare.net/xmlns/beta/autocreatedynexectest" />
+   <filetype typedef="http://www.webhare.net/xmlns/beta/autocreatedynexectest" blobiscontent="false">
+     <dynamicexecution library="module::webhare_testsuite/publisher/testsitedesign.whlib" webpageobjectname="WebPage" />
+   </filetype>`;
+
+PUBLIC STRING testsiteprofile :=
+  `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/autocreatetest">
+      <member name="str" type="string" />
+      <member name="emptystr" type="string" />
+      <member name="int" type="integer" />
+      <member name="blub" type="file" />
+      <member name="price" type="money" />
+      <member name="rich" type="richdocument" />
+      <member name="yesno" type="boolean" />
+      <member name="afloat" type="float" />
+      <member name="adatetime" type="datetime" />
+      <member name="aninstance" type="instance" />
+      <member name="strarray" type="stringarray" />
+      <member name="url" type="url" />
+      <member name="arecord" type="record" />
+      <member name="anarray" type="array">
+        <member name="richmember" type="richdocument" />
+        <member name="intmember" type="integer" />
+        <member name="asubarray" type="array">
+          <member name="subrichmember" type="richdocument" />
+          <member name="subintmember" type="integer" />
+        </member>
+      </member>
+    </contenttype>
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/autocreatefiletest" />
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/autocreatefoldertest" />
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/instance1">
+      <member name="str1" type="string" />
+    </contenttype>
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/instance2">
+      <member name="str2" type="string" />
+    </contenttype>
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/instance3">
+      <member name="str3" type="string" />
+    </contenttype>
+    <filetype typedef="http://www.webhare.net/xmlns/beta/autocreatefiletest" blobiscontent="true" />
+    <foldertype typedef="http://www.webhare.net/xmlns/beta/autocreatefoldertest" />
+    ${dyntype}
+  </siteprofile>`;
+
+PUBLIC STRING testsiteprofile_without_str :=
+  `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/autocreatetest">
+      <member name="emptystr" type="string" />
+      <member name="int" type="integer" />
+    </contenttype>
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/autocreatefiletest" />
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/autocreatefoldertest" />
+    <filetype typedef="http://www.webhare.net/xmlns/beta/autocreatefiletest" blobiscontent="true" />
+    <foldertype typedef="http://www.webhare.net/xmlns/beta/autocreatefoldertest" />
+    ${dyntype}
+  </siteprofile>`;
+
+PUBLIC STRING testconversionssiteprofile :=
+  `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/conversionstest">
+      <member name="str" type="string" />
+      <member name="rich" type="richdocument" />
+      <member name="arr" type="array">
+        <member name="data1" type="string" />
+        <member name="data2" type="string" />
+        <member name="data3" type="string" />
+        <member name="arraydata" type="array">
+          <member name="data4" type="string" />
+        </member>
+      </member>
+      <member name="photos" type="whfsrefarray" />
+    </contenttype>
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/conversionsdest">
+      <member name="arrdest" type="array">
+        <member name="data1" type="string" />
+        <member name="data2" type="richdocument" />
+        <member name="data4" type="string" />
+      </member>
+      <member name="slidephotos" type="array">
+        <member name="image" type="whfsref"/>
+        <member name="applytexts" type="string"/>
+      </member>
+    </contenttype>
+  </siteprofile>`;

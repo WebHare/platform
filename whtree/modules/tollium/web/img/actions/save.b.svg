@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <path id="floppy-outline" d="M27,4H5C4,4,4,5,4,5v22l2,2h18.1l0,0h2.3c0.8,0,1.5-0.9,1.5-1.7V5C28,5,27.9,4,27,4zM10,6h12v9H10V6zM15,27h-2v-5h2V27zM26,27h-5v-7h-9l-1,1v6H7l-1-1V6h2v10l1,1h14l1-1V6h2V27z"/>
+    <rect id="floppy-label" x="10" y="6" width="12" height="9"/>
+  </defs>
+  <g>
+    <use xlink:href="#floppy-outline" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#floppy-label" fill="transparent" stroke="#4a4a4a" stroke-width="0"/>
+  </g>
+</svg>

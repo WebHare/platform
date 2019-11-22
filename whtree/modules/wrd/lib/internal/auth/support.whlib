@@ -1,0 +1,55 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+
+PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
+{
+  IF(NOT IsRequest())
+    RETURN;
+
+  RECORD opts := [ domain := wrdauth->cookiedomain
+                 , httponly := FALSE
+                 , secure := wrdauth->securecookie
+                 , lifetime := -1
+                 , encrypt := FALSE
+                 , samesite := wrdauth->samesitecookie
+                 ];
+
+  RECORD userinfo;
+  STRING value;
+
+  IF(wrdauth->IsLoggedIn())
+  {
+    userinfo := plugin->GetUserInfo();
+    value := "." || (RecordExists(userinfo) ? EncodeJSON(userinfo) : "");
+
+    STRING persisthash := EncodeUFS(GetMD5Hash(GetWebCookie(wrdauth->cookiename || "_p")));
+    UpdateWebCookie(wrdauth->cookiename || "_c", value != "" ? persisthash || value : "", opts);
+
+    opts.lifetime := wrdauth->GetPersistentCookieLifetime();
+    UpdateWebCookie(wrdauth->cookiename || "_j", value != "" ? persisthash || "." : "", opts);
+  }
+  ELSE
+  {
+    UpdateWebCookie(wrdauth->cookiename, "");
+    UpdateWebCookie(wrdauth->cookiename || "_j", "", opts);
+    UpdateWebCookie(wrdauth->cookiename || "_c", "", opts);
+    UpdateWebCookie(wrdauth->cookiename || "_p", "");
+  }
+}
+
+/** @return
+    @cell return.id
+    @cell return.name
+*/
+PUBLIC RECORD FUNCTION LookupAuthobjectByEntityid(INTEGER entityid)
+{
+  STRING rawguid := SELECT AS STRING guid FROM wrd.entities WHERE id = entityid;
+  IF(rawguid="")
+    RETURN DEFAULT RECORD;
+
+  RETURN LookupAuthobjectByGuid(EncodeWRDGUID(rawguid));
+}

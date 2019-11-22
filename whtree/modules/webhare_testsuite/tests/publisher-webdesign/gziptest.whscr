@@ -1,0 +1,59 @@
+﻿<?wh
+
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
+
+MACRO TestGzipEqual(STRING url)
+{
+  TestEq(TRUE, testfw->browser->SendRawRequest("GET", url, [ [ field := "Accept-Encoding", value := "identity" ] ], DEFAULT BLOB));
+  TestEq("identity", (SELECT AS STRING value FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "CONTENT-ENCODING") ?? "identity", "Previous requrest should not accept any-encoding, please modify it!");
+
+  BLOB original := testfw->browser->content;
+  TestEq(TRUE, testfw->browser->GotoWebPage(url || ".gz"));
+  // Compare the original
+  TestEq(original, MakeZlibDecompressedFile(testfw->browser->content, "GZIP"));
+}
+
+MACRO TestInitialFiles()
+{
+  testfw->BeginWork();
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(siteroot->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(siteroot->url || "bob.jpg"));
+  TestEq(FALSE, testfw->browser->GotoWebPage(siteroot->url || "bob.jpg.gz"));
+  TestGzipEqual(siteroot->url || "index.html");
+  TestGzipEqual(siteroot->url || "static.html");
+  TestGzipEqual(siteroot->url || "^index.html/test.txt");
+  TestGzipEqual(siteroot->url || "^static.html/test.txt");
+
+  // Outputanalyze this folder, make sure no .gz files are destroyed
+  testfw->BeginWork();
+  ScanSingleFolder(siteroot->id);
+  testfw->CommitWork();
+
+  TestGzipEqual(siteroot->url || "index.html");
+  TestGzipEqual(siteroot->url || "static.html");
+  TestGzipEqual(siteroot->url || "^index.html/test.txt");
+  TestGzipEqual(siteroot->url || "^static.html/test.txt");
+
+  testfw->BeginWork();
+  siteroot->OpenByName("static.html")->RecycleSelf();
+  ScanSingleFolder(siteroot->id); //make sure the old version is cleaned (outputanalyzer does that usually, but on a delay)
+  testfw->CommitWork();
+
+  TestEq(FALSE, testfw->browser->GotoWebPage(siteroot->url || "static.html"));
+  TestEq(FALSE, testfw->browser->GotoWebPage(siteroot->url || "static.html.gz"));
+  TestEq(FALSE, testfw->browser->GotoWebPage(siteroot->url || "^static.html/test.txt.gz"));
+}
+
+RunTestframework([ PTR PrepareTestSiteDesignWebsite("", [ witherrors := TRUE ])
+                 , PTR TestInitialFiles
+                 ], [ profile := TRUE ]);

@@ -1,0 +1,92 @@
+<?wh
+/** @short Base classes for implementing form components and handlers
+    @topic forms/baseclasses
+*/
+// This is not part of components.whlib as we pull in many dependencies
+
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+
+/** Base class for form handler managed tasks
+*/
+PUBLIC STATIC OBJECTTYPE FormHandlerTaskBase EXTEND ManagedTaskBase
+<
+  RECORD settings;
+  OBJECT formfsobject;
+  OBJECT formdefinition;
+  OBJECT formresults;
+  STRING handlerguid;
+
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    this->formfsobject := OpenWHFSObject(data.formid);
+    IF (NOT ObjectExists(this->formfsobject))
+    {
+      this->ResolveByFailure(DEFAULT RECORD, `Could not find WHFS object ${data.formid}`);
+      RETURN;
+    }
+
+    this->formdefinition := OpenFormFileDefinition(this->formfsobject, [ formname := data.formname ]);
+    IF (NOT ObjectExists(this->formdefinition))
+    {
+      this->ResolveByFailure(DEFAULT RECORD, `Could not find form '${data.formname}' in file '${this->formfsobject->GetResourceName()}`);
+      RETURN;
+    }
+
+    RECORD ARRAY handlers := this->formdefinition->GetParsedHandlers();
+    RECORD handler := SELECT * FROM handlers WHERE handlers.guid = data.formhandler;
+    IF(NOT RecordExists(handler))
+    {
+      this->ResolveByFailure(DEFAULT RECORD, `Could not find handler '${data.formhandler}'`);
+      RETURN;
+    }
+
+    this->settings := handler.settings;
+    this->handlerguid := handler.guid;
+
+    //ADDME this may cause a duplicate parse when extracting the result ? reuse formfile above?
+    this->formresults := OpenFormFileResults(this->formfsobject, [ formname := data.formname ]);
+    RECORD results := this->formresults->GetSingleResult(data.resultsguid,
+        [ allowcancelled := data.submittype = "cancel"
+        , allowpending := data.submittype = "pending"
+        , showexpiredresults := TRUE
+        ]);
+    IF(NOT RecordExists(results))
+    {
+      this->ResolveByCancellation(DEFAULT RECORD, `Result '${data.resultsguid}' no longer available`);
+      RETURN;
+    }
+    this->RunFormTask(results);
+  }
+
+  /** Override RunFormTask with your task code. Throw exceptions if something fails and you want to be restarted, and use ResolveByRestart for a graceful continuation later
+      @param result @includecelldef mod::publisher/lib/internal/forms/results.whlib#WHFSForm::GetSingleResult.return
+  */
+  PUBLIC MACRO RunFormTask(RECORD result)
+  {
+    THROW NEW Exception("The task did not override FormHandlerTaskBase::RunFormTask");
+  }
+
+  //FIXME required because STATIC is still buggy
+  UPDATE PUBLIC MACRO ResolveByCancellation(RECORD retval, STRING error)
+  {
+    ManagedTaskBase::ResolveByCancellation(retval, error);
+  }
+  UPDATE PUBLIC MACRO ResolveByFailure(RECORD retval, STRING error)
+  {
+    ManagedTaskBase::ResolveByFailure(retval, error);
+  }
+  UPDATE PUBLIC MACRO ResolveByRestart(DATETIME when, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    ManagedTaskBase::ResolveByRestart(when, options);
+  }
+  UPDATE PUBLIC MACRO ResolveByCompletion(RECORD retval)
+  {
+    ManagedTaskBase::ResolveByCompletion(retval);
+  }
+
+>;
+

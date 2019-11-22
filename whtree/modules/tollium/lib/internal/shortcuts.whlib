@@ -1,0 +1,43 @@
+<?wh
+
+PUBLIC RECORD FUNCTION ParseShortcut(STRING shortcut)
+{
+  IF (shortcut = "")
+    RETURN DEFAULT RECORD;
+
+  RECORD shortcutrec := [ ctrl := FALSE
+                        , alt := FALSE
+                        , shift := FALSE
+                        , keystr := ""
+                        ];
+
+  // A keyboard shortcut: [ctrl+][shift+][alt+](a-z,0-9,punctuation,f1-f12,tab,bksp,del,home,end,pgup,pgdn)
+  // Valid punctuation characters: . , : ; + - /
+  shortcut := ToUppercase(shortcut);
+  IF (Left(shortcut, 5) = "CTRL+")
+  {
+    shortcutrec.ctrl := TRUE;
+    shortcut := Right(shortcut, Length(shortcut) - 5);
+  }
+  IF (Left(shortcut, 4) = "ALT+")
+  {
+    shortcutrec.alt := TRUE;
+    shortcut := Right(shortcut, Length(shortcut) - 4);
+  }
+  IF (Left(shortcut, 6) = "SHIFT+")
+  {
+    shortcutrec.shift := TRUE;
+    shortcut := Right(shortcut, Length(shortcut) - 6);
+  }
+
+  IF ((Length(shortcut) = 1 AND ((shortcut >= 'A' AND shortcut <= 'Z')
+        OR (shortcut >= '0' AND shortcut <= '9')
+        OR shortcut IN [ '.', ',', ':', ';', '+', '-', '/' ]))
+      OR shortcut IN [ 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'
+                     , 'ESC', 'ENTER', 'LEFT', 'UP', 'RIGHT', 'DOWN', 'TAB', 'BKSP', 'DEL', 'HOME', 'END', 'PGUP', 'PGDN' ])
+  {
+    shortcutrec.keystr := shortcut;
+    RETURN shortcutrec;
+  }
+  RETURN DEFAULT RECORD;
+}

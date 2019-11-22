@@ -1,0 +1,453 @@
+﻿<?wh
+
+/** @short Dispatchable
+    @long A low-level api for TCP applications */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::system/lib/internal/appserverbase.whlib";
+
+/// Appserver connection object
+OBJECT connection;
+
+PUBLIC OBJECTTYPE NotAnAppserverContextException EXTEND Exception
+<
+  MACRO NEW()
+  : Exception("The current script is not running in the context of an application runner process")
+  {
+  }
+>;
+
+OBJECTTYPE AppServerConnection EXTEND AppServerConnectionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Link to appserver control connection
+  OBJECT link;
+
+
+  /// Current message buffer
+  RECORD ARRAY messagebuffer;
+
+
+  /// Output buffer
+  STRING buffer;
+
+
+  /** Connectiondata
+      @cell local_ip
+      @cell local_port
+      @cell remote_ip
+      @cell remote_port
+  */
+  RECORD conndata;
+
+
+  /** What is expected?
+      "": No desire specified yet
+      "line": Want an incoming line
+      "binary": Want incoming binary data
+      "disconnect": Disconnect called, want nothing
+  */
+  STRING expect_mode;
+
+
+  /// For binary: expected binary size, line: max line size
+  INTEGER expect_size;
+
+
+  /// Current timer timeout
+  DATETIME timeout;
+
+
+  /// Current outstanding msgid for data
+  INTEGER64 lastdatamsgid;
+
+
+  /// Script ID
+  STRING pvt_scriptid;
+
+
+  /// Is debug mode
+  BOOLEAN pvt_indebugmode;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT link)
+  {
+    this->timeout := MAX_DATETIME;
+    this->expect_mode := "";
+
+    this->link := GetIPCLinkToParent();
+    IF (NOT ObjectExists(this->link))
+    {
+      THROW NEW Exception("Could not establish link to appserver control");
+    }
+
+    RECORD initmsg := this->link->ReceiveMessage(DEFAULT DATETIME);
+    IF (initmsg.status != "ok" OR initmsg.msg.type != "appserver-init")
+      THROW NEW Exception("Did not receive correct information message from appserver control");
+//    LOGPRINT("CO: Received INIT message '"||initmsg.msg.type||"', id: "||FormatIPCMessageId(initmsg.msgid)||"\n");
+
+    this->conndata :=
+        [ local_ip :=       initmsg.msg.local_ip
+        , local_port :=     initmsg.msg.local_port
+        , remote_ip :=      initmsg.msg.remote_ip
+        , remote_port :=    initmsg.msg.remote_port
+        ];
+     this->pvt_scriptid := initmsg.msg.scriptid;
+     this->pvt_indebugmode := initmsg.msg.debugmode;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Handles the expect set in the callbacks
+  */
+  MACRO HandleExpect()
+  {
+    IF (this->expect_mode = "")
+      THROW NEW Exception("Expected an ExpectXXX or Disconnect to be called within the handler");
+
+    SWITCH (this->expect_mode)
+    {
+    CASE "binary"
+      {
+        RECORD msg := this->link->SendMessage([ type := "expectbinary", size := this->expect_size ]);
+//        IF (msg.status != "ok")
+//          LOGPRINT("CO: Sent message 'expectbinary', FAIL: "||msg.status||"\n");
+//        ELSE
+//          LOGPRINT("CO: Sent message 'expectbinary', id: "||FormatIPCMessageId(msg.msgid) || "\n");
+
+        // Flush data after expect, this call can block, and it's better that the expect has been sent before that
+        this->FlushBuffer(FALSE);
+      }
+    CASE "line"
+      {
+        RECORD msg := this->link->SendMessage([ type := "expectline", size := this->expect_size ]);
+//        IF (msg.status != "ok")
+//          LOGPRINT("CO: Sent message 'expectline', FAIL: "||msg.status||"\n");
+//        ELSE
+//          LOGPRINT("CO: Sent message 'expectline', id: "||FormatIPCMessageId(msg.msgid) || "\n");
+
+        // Flush data after expect, this call can block, and it's better that the expect has been sent before that
+        this->FlushBuffer(FALSE);
+      }
+    CASE "disconnect"
+      {
+        // Flush data buffer BEFORE disconnect, because data won't be sent after the disconnect.
+        this->FlushBuffer(FALSE);
+
+        // Wait until all data has been sent before disconnecting
+        this->WaitAllDataSent();
+
+        RECORD msg := this->link->SendMessage([ type := "disconnect" ]);
+//        IF (msg.status != "ok")
+//          LOGPRINT("CO: Sent message 'disconnect', FAIL: "||msg.status||"\n");
+//        ELSE
+//          LOGPRINT("CO: Sent message 'disconnect', id: "||FormatIPCMessageId(msg.msgid) || "\n");
+      }
+    }
+  }
+
+
+  MACRO WaitAllDataSent()
+  {
+    // Outstanding data message, wait for it to complete
+    IF (this->lastdatamsgid != 0)
+    {
+      WHILE (TRUE)
+      {
+        RECORD reply := this->link->ReceiveMessage(MAX_DATETIME);
+        IF (reply.status != "ok")
+        {
+          this->lastdatamsgid := 0;
+          BREAK;
+        }
+
+        IF (reply.replyto != this->lastdatamsgid)
+        {
+          INSERT reply INTO this->messagebuffer AT END;
+//            LOGPRINT(" CO: Message put into buffer\n");
+        }
+        ELSE
+        {
+          this->lastdatamsgid := 0;
+          BREAK;
+        }
+      }
+    }
+  }
+
+
+  /** Flushes the current output buffer
+      @param allow_partial If TRUE, only full blocks of 16384 bytes are sent, otherwise everything is sent
+  */
+  MACRO FlushBuffer(BOOLEAN allow_partial)
+  {
+    IF (LENGTH(this->buffer) != 0)
+    {
+      STRING data;
+
+      IF (allow_partial)
+      {
+        // Partial sends: send in blocks of 16384 bytes)
+        INTEGER len := LENGTH(this->buffer);
+        len := len - (len % 16384);
+
+        data := LEFT(this->buffer, len);
+        this->buffer := SubString(this->buffer, len);
+      }
+      ELSE
+      {
+        data := this->buffer;
+        this->buffer := "";
+      }
+
+      // Wait until the previous batch of data has been sent
+      this->WaitAllDataSent();
+
+      RECORD res := this->link->SendMessage([ type := "send", data := data ]);
+      IF (res.status = "ok")
+        this->lastdatamsgid := res.msgid;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION GetOptions()
+  {
+    RETURN
+        [ has_binary_expect :=  TRUE
+        ];
+  }
+
+
+  UPDATE PUBLIC MACRO ExpectLine(INTEGER maxlinelength)
+  {
+    IF (this->expect_mode != "")
+      THROW NEW Exception("Only one ExceptXXX call may be done at a time");
+
+    this->expect_mode := "line";
+    this->expect_size := maxlinelength;
+  }
+
+
+  UPDATE PUBLIC MACRO ExpectBinaryData(INTEGER size)
+  {
+    IF (this->expect_mode != "")
+      THROW NEW Exception("Only one ExceptXXX call may be done at a time");
+
+    this->expect_mode := "binary";
+    this->expect_size := size;
+  }
+
+
+  UPDATE PUBLIC MACRO SetTimer(INTEGER timeout)
+  {
+    DATETIME until := AddTimeToDate(timeout*1000, GetCurrentDateTime());
+//    LOGPRINT("CO: Timer set to "||FormatDateTime("%Y-%m-%dT%H:%M:%S.%Q", until)||" = "||FormatDateTime("%Y-%m-%dT%H:%M:%S.%Q", GetCurrentDateTime())||" + "||timeout||" secs\n");
+    this->timeout := until;
+  }
+
+
+  UPDATE PUBLIC MACRO SendData(STRING line)
+  {
+    // All output is buffered, buffer is sent when larger than 16384 bytes
+    this->buffer := this->buffer || line;
+    IF (LENGTH(this->buffer) >= 16384)
+      this->FlushBuffer(TRUE);
+  }
+
+
+    /// Flushes all sent data still in buffers
+  UPDATE PUBLIC MACRO FlushData()
+  {
+    this->FlushBuffer(FALSE);
+  }
+
+
+  UPDATE PUBLIC MACRO Disconnect(INTEGER grace_timeout)
+  {
+//    LOGPRINT("CO: Disconnecting\n");
+    this->expect_mode := "disconnect";
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION GetConnectionData()
+  {
+    RETURN this->conndata;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetScriptID()
+  {
+    RETURN this->pvt_scriptid;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION InDebugMode()
+  {
+    RETURN this->pvt_indebugmode;
+  }
+
+
+  UPDATE PUBLIC MACRO Run()
+  {
+    IF (this->expect_mode = "")
+      THROW NEW Exception("Cannot start the appserver loop when no ExpectXXX has been issued");
+
+    // Send all initial data in buffers
+    this->FlushBuffer(FALSE);
+
+    // Handle initial expect, must be set
+    this->HandleExpect();
+
+    // Next scheduled garbage collection. Garbage is collected once every minute (but only if user interaction has taken place)
+    DATETIME next_gc := AddTimeToDate(60000, GetCurrentDateTime());
+
+    // Go into messaging loop
+    WHILE (this->expect_mode != "disconnect")
+    {
+      INTEGER handle;
+      RECORD res;
+
+      // Check if a message is in the buffer
+      IF (LENGTH(this->messagebuffer) != 0)
+      {
+        res := this->messagebuffer[0];
+        DELETE FROM this->messagebuffer AT 0;
+      }
+      ELSE
+      {
+        // Try to immediately get a message
+        res := this->link->ReceiveMessage(DEFAULT DATETIME);
+      }
+
+//      PRINT("ir := " || res.status || (res.status = "ok" ? " - " || res.msg.type : "") || "\n");
+      IF (res.status = "timeout")
+      {
+        DATETIME next := this->timeout;
+        IF (next_gc < next)
+          next := next_gc;
+
+        INTEGER ARRAY readhandles := [ INTEGER(this->link->handle) ];
+
+        // Wait for the handles
+        RECORD rec := WaitUntil([ read := readhandles ], next);
+        IF (rec.type = "timeout")
+        {
+          DATETIME now := GetCurrentDateTime();
+          handle := -1;
+
+          IF (now >= this->timeout)
+          {
+            // Timeout. Reset timer and call timerexpire function
+            this->timeout := MAX_DATETIME;
+
+            IF (this->OnTimerExpire != DEFAULT FUNCTION PTR)
+            {
+              this->OnTimerExpire();
+
+              // Send all data generated in the callback
+              this->FlushBuffer(FALSE);
+            }
+          }
+
+          IF (now >= next_gc)
+          {
+            LOGPRINT("CO: Collecting garbage\n");
+            CollectGarbage();
+            next_gc := MAX_DATETIME;
+          }
+        }
+        ELSE
+          handle := rec.handle;
+      }
+
+      IF (handle != -1)
+      {
+        // Incoming message
+//        LOGPRINT("CO: Receiving message loc #3\n");
+        IF (res.status = "timeout")
+          res := this->link->ReceiveMessage(DEFAULT DATETIME);
+//        LOGPRINT("CO: Received message #1 '"||res.msg.type||"' (id: " || FormatIPCMessageId(res.msgid) || ")\n");
+        IF (res.status = "ok")
+        {
+          SWITCH (res.msg.type)
+          {
+          CASE "binary"
+            {
+              // Incoming binary data: dispatch
+              this->expect_mode := "";
+              this->OnBinaryDataReceive(res.msg.data);
+
+              this->HandleExpect();
+            }
+          CASE "line"
+            {
+              // Incoming line data: dispatch
+              this->expect_mode := "";
+              this->OnLineReceive(res.msg.data, res.msg.is_complete);
+
+              this->HandleExpect();
+            }
+          CASE "datasent"
+            {
+              this->lastdatamsgid := 0;
+            }
+          CASE "clientdisconnect"
+            {
+              // Other has disconnected, expect
+              IF (this->OnClientDisconnect != DEFAULT FUNCTION PTR)
+                this->OnClientDisconnect();
+
+              this->Disconnect(0);
+              RETURN;
+            }
+          DEFAULT
+            {
+              // 'datasent' message can't be received here
+              THROW NEW Exception("Got unexpected message type from appserver control: '"||res.msg.type||"'");
+            }
+          }
+        }
+        ELSE IF (res.status != "timeout")
+          THROW NEW Exception("Error receiving message from appserver control");
+
+        IF (next_gc = MAX_DATETIME)
+        {
+          next_gc := AddTimeToDate(60000, GetCurrentDateTime());
+          LOGPRINT("CO: Scheduling garbage collection at " || AnyToString(next_gc, "tree"));
+        }
+      }
+    }
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetAppserverConnection()
+{
+  IF(ObjectExists(connection))
+    RETURN connection;
+
+  OBJECT parentlink := GetIPCLinkToParent();
+  //FIXME verify that our parent is truly an apprunner
+  IF(NOT ObjectExists(parentlink))
+    THROW NEW NotAnAppserverContextException;
+
+  connection := NEW AppServerConnection(parentlink);
+  RETURN connection;
+}
+
+MACRO LogPrint(STRING s)
+{
+  PRINTTO(1, s);
+}

@@ -1,0 +1,156 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/serverconfig.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
+<
+  RECORD ARRAY save_servertype_options;
+
+  MACRO Init()
+  {
+    RECORD config := LoadServerConfig();
+    IF(ObjectExists(config.confighandler))
+    {
+      RECORD identity := config.confighandler->GetIdentity();
+      ^servername->enabled := NOT identity.has_servername;
+      ^servertype->enabled := NOT identity.has_dtapstage;
+    }
+    this->save_servertype_options := ^servertype->options;
+
+    // general
+    INTEGER curoutputweb := OpenSite(whconstant_whfsid_webharebackend)->outputweb;
+    ^webhareurl->options := SELECT rowkey := id
+                                 , title := baseurl
+                                 , tolliumselected := id = VAR curoutputweb
+                              FROM system.webservers
+                             WHERE webservers.type = whconstant_webservertype_interface
+                          ORDER BY ToUppercase(baseurl);
+
+    ^servername->value := GetServerName();
+    ^servertype->value := GetDTAPStage();
+    ^displayname->value := ReadRegistryKey("system.backend.layout.title");
+    ^checkipallowmask->value := ReadRegistryKey("system.backend.check.ipallowmask");
+    ^allowpasswordreset->value := ReadRegistryKey("system.backend.security.allowpasswordreset");
+
+    OBJECT dashboardbg := OpenWHFSObjectByPath("/webhare-private/system/backend/dashboardbackground");
+    IF(ObjectExists(dashboardbg))
+      ^dashboardbackground->value := dashboardbg->GetWrapped();
+
+    OBJECT displayimage := OpenWHFSObjectByPath("/webhare-private/system/backend/tabbarimage");
+    IF(ObjectExists(displayimage))
+      ^displayimage->value := displayimage->GetWrapped();
+
+    OBJECT loginbackground := OpenWHFSObjectByPath("/webhare-private/system/backend/loginbackground");
+    IF(ObjectExists(loginbackground))
+      ^loginbackground->value := loginbackground->GetWrapped();
+
+    ^infotitle->value := ReadRegistryKey("system.backend.layout.infotitle");
+    ^infotext->value := ReadRegistryKey("system.backend.layout.infotext");
+
+    ^modulemgr->ReadFromRegistry();
+    ^tweaks->ReadFromRegistry();
+    ^proxy->ReadFromRegistry();
+    ^security->ReadFromRegistry();
+    ^wrdglobalconfig->ReadFromRegistry();
+    ^tasks->ReadFromRegistry();
+    ^smtp->ReadFromRegistry();
+    ^geonames->ReadFromRegistry();
+
+    ^displaytype->value := RecordExists(^displayimage->value) ? "displayimage" : "displayname";
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    BOOLEAN recheckindex;
+    OBJECT work := this->BeginWork();
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    IF(^servertype->enabled)
+      WriteRegistryKey("system.global.servertype",^servertype->value);
+    IF(^servername->enabled)
+      WriteRegistryKey("system.global.servername", ^servername->value);
+    WriteRegistryKey("system.backend.check.ipallowmask", ^checkipallowmask->value);
+    WriteRegistryKey("system.backend.layout.title", ^displayname->value);
+
+    IF(NOT work->HasFailed())
+    {
+      OBJECT systemfolder := OpenWHFSObject(whconstant_whfsid_private_system);
+      OBJECT backendfolder := systemfolder->EnsureFolder([name := "backend"]);
+      OBJECT bgfile := backendfolder->OpenByName("dashboardbackground");
+
+      IF(ObjectExists(bgfile))
+        IF(RecordExists(^dashboardbackground->value))
+          bgfile->UpdateMetadata([ wrapped := ^dashboardbackground->value ]);
+        ELSE
+          bgfile->DeleteSelf();
+      ELSE IF(RecordExists(^dashboardbackground->value))
+        backendfolder->CreateFile([name := "dashboardbackground", type := 12, data := ^dashboardbackground->value.data]);
+
+      OBJECT displayimage := backendfolder->OpenByName("tabbarimage");
+      IF(ObjectExists(displayimage))
+        IF(RecordExists(^displayimage->value))
+          displayimage->UpdateMetadata([ wrapped := ^displayimage->value ]);
+        ELSE
+          displayimage->DeleteSelf();
+      ELSE IF(RecordExists(^displayimage->value))
+        backendfolder->CreateFile([name := "tabbarimage", type := 12, data := ^displayimage->value.data]);
+
+      OBJECT loginbackground := backendfolder->OpenByName("loginbackground");
+      IF(ObjectExists(loginbackground))
+        IF(RecordExists(^loginbackground->value))
+          loginbackground->UpdateMetadata([ wrapped := ^loginbackground->value ]);
+        ELSE
+          loginbackground->DeleteSelf();
+      ELSE IF(RecordExists(^loginbackground->value))
+        backendfolder->CreateFile([name := "loginbackground", type := 12, data := ^loginbackground->value.data]);
+
+      WriteRegistryKey("system.backend.layout.infotitle", ^infotitle->value);
+      WriteRegistryKey("system.backend.layout.infotext", ^infotext->value);
+
+      GetPrimary()->RegisterCommitHandler("", PTR this->RefreshGLobalDashboard);
+      WriteRegistryKey("system.backend.security.allowpasswordreset", ^allowpasswordreset->value);
+
+      OpenSite(whconstant_whfsid_webharebackend)->SetPrimaryOutput(^webhareurl->value, "/");
+    }
+
+    ^modulemgr->WriteToRegistry();
+    ^tweaks->WriteToRegistry();
+    ^proxy->WriteToRegistry();
+    ^security->WriteToRegistry();
+    ^wrdglobalconfig->WriteToRegistry();
+    ^tasks->WriteToRegistry();
+    ^smtp->WriteToRegistry();
+    ^geonames->WriteToRegistry();
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    BroadcastEvent("system:internal.configdata", DEFAULT RECORD);
+    BroadcastEvent("system:config.servertype", DEFAULT RECORD);
+    UpdateSystemConfigurationRecord();
+    RevokeAllWebsessionAuthentications(); //make sure all auth scripts run again
+
+    RETURN TRUE;
+  }
+
+  MACRO RefreshGLobalDashboard(BOOLEAN iscommit)
+  {
+    BroadcastToAllSessions( [ type := "tollium:shell.refreshdashboard" ]);
+  }
+
+  MACRO DoRegisterGeoNames(OBJECT handler)
+  {
+    handler->SendURL("https://www.geonames.org/login");
+  }
+>;

@@ -1,0 +1,119 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/components/embedvideo.whlib"
+         gid="components.embedvideo"
+         >
+
+  <messageboxes>
+    <messagebox name="novideoselected"  icon="error" buttons="ok" />
+    <messagebox name="searchunavailable" icon="error" buttons="ok" />
+  </messageboxes>
+
+  <fragment name="embedvideocomponent"
+            gid=".movies"
+            >
+    <actions>
+      <action name="preview" title="" onexecute="dopreview"/>
+      <action name="act_search" title="" onexecute="doedit"/>
+      <action name="clear" title="" onexecute="doclear"/>
+    </actions>
+    <contents>
+      <inlineblock name="thumbnail" title="" borders="all">
+        <panel backgroundcolor="#ffffffcc" borders="bottom" spacers="left">
+          <line layout="tabs-space">
+            <text title="" value="" width="1pr" />
+            <buttongroup layout="horizontal" borders="left">
+              <button name="previewbutton"
+                      action="preview"
+                      hinttid="publisher:components.embedvideo.hints.preview_video" title=""
+                      type="icon" icon="tollium:actions/play" />
+              <button name="searchbutton"
+                      action="act_search"
+                      hinttid="publisher:components.embedvideo.hints.search_video" title=""
+                      type="icon" icon="tollium:actions/edit" />
+              <button name="clearbutton"
+                      action="clear"
+                      hinttid="publisher:components.embedvideo.hints.clear_video" title=""
+                      type="icon" icon="tollium:actions/delete" />
+            </buttongroup>
+          </line>
+        </panel>
+        <panel height="1pr">
+        </panel>
+        <panel backgroundcolor="#ffffffcc" borders="top" spacers="left right" layout="left">
+          <line>
+            <image name="videotype" title="" width="16px" height="16px" visible="false" />
+            <text name="videotitle" title="" valuetid="publisher:components.embedvideo.no_video" ellipsis="true" width="1pr" />
+            <text name="duration" title="" value="" />
+          </line>
+        </panel>
+      </inlineblock>
+    </contents>
+  </fragment>
+
+  <screen name="searchvideo"
+          gid=".searchvideo"
+          tid=".screentitle"
+          allowresize="true"
+          minwidth="120x"
+          minheight="450px"
+          height="52x"
+          flags="movieselected"
+          savestate="size"
+          >
+
+    <actions>
+      <action name="clear" onexecute="doclear" tid="tollium:common.actions.clear" />
+      <action name="search" onexecute="dosearch" title="" />
+      <action name="preview" onexecute="dopreview" title="" />
+      <action name="actsubmit" onexecute="dosubmit" title="" />
+    </actions>
+
+    <body>
+      <line layout="left">
+        <select name="network" type="pulldown" onchange="onnetworkchange" />
+        <textedit name="movietext" tid=".searchwords"  value="" defaultbutton="searchbutton" width="1pr" />
+        <button name="searchbutton" action="search" tid="tollium:common.actions.search" />
+        <button action="clear" />
+      </line>
+
+      <!-- This info text says that you can search by search terms AND ids, but ids doesn't work yet... so if that is
+           fixed, re-enable this text -->
+      <panel name="infotextpanel" layout="left" visible="true">
+        <text title="" valuetid=".infotext" selectable="true" />
+      </panel>
+
+      <panel name="errortextpanel" layout="left" visible="false">
+        <line>
+          <image value="tollium:status/warning" title="" name="errorimage" width="16px" height="16px" />
+          <text bold="true" title="" name="errortext"/>
+        </line>
+      </panel>
+
+      <panel height="1pr" vscroll="true" name="searchresultscontainer">
+        <table name="searchresults" width="1pr" selectmode="single" openaction="actsubmit" />
+      </panel>
+
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+
+  </screen>
+
+  <screen name="playvideo"
+          gid=".playvideo"
+          tid=".screentitle"
+          savestate="size"
+          width="486px"
+          height="313px"
+          allowresize="true"
+          >
+    <body layout="left">
+      <iframe name="movieplayer" height="1pr"></iframe>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+</screens>

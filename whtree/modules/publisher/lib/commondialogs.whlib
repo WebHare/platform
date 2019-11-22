@@ -1,0 +1,335 @@
+﻿<?wh
+/** @short All dialogs that are used in the publisher module
+    @private Interesting dialogs should be moved to dialogs.whlib AND use a Run... instead of Make... workflow
+*/
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+/** @short Create a dialog for browsing files and folders in the publisher
+    @param parent The parent object to insert the dialog in
+*/
+PUBLIC OBJECT FUNCTION CreateBrowseForWHFSObjectDialog(OBJECT parent)
+{
+  RETURN parent->LoadScreen('publisher:commondialogs.browsewhfsobject');
+}
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// Create/edit a file or folder
+//
+/** @short Run the standard new folder procedure */
+PUBLIC INTEGER FUNCTION RunNewFolderInteractive(OBJECT parentscreen, INTEGER parentfolder) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunNewFSObjectDialog")
+{
+  IF(parentfolder < 0)
+    RETURN 0;
+
+  OBJECT typesdialog := parentscreen->LoadScreen("publisher:filemgrdialogs.selecttype", [ parent := parentfolder
+                                                                                        , foldertypes := TRUE
+                                                                                       ]);
+  typesdialog->selectedtype := 0;
+  IF (typesdialog->RunModal() != "ok")
+    RETURN 0;
+
+  OBJECT newdialog := CreateNewFolderDialog(parentscreen, parentfolder, typesdialog->selectedtype);
+  IF (newdialog->RunModal() = "ok")
+    RETURN newdialog->objectid;
+  RETURN 0;
+}
+
+/** @short Run the standard new file procedure */
+PUBLIC INTEGER FUNCTION RunNewFileInteractive(OBJECT parentscreen, INTEGER parentfolder) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunNewFSObjectDialog")
+{
+  IF(parentfolder < 0)
+    RETURN 0;
+
+  OBJECT typesdialog := parentscreen->LoadScreen("publisher:filemgrdialogs.selecttype", [ parent := parentfolder
+                                                                                        , foldertypes := FALSE
+                                                                                        ]);
+  IF (typesdialog->RunModal() != "ok")
+    RETURN 0;
+
+  OBJECT newdialog := CreateNewFileDialog(parentscreen, parentfolder, typesdialog->selectedtype);
+  IF (newdialog->RunModal() = "ok")
+    RETURN newdialog->objectid;
+  RETURN 0;
+}
+
+/** @short "Create a new file" dialog
+*/
+PUBLIC OBJECT FUNCTION CreateNewFileDialog(OBJECT parent, INTEGER parentfolder, INTEGER type) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunNewFSObjectDialog")
+{
+  RETURN __CreateHistoryPropsDialog(parent, [ why := "newfile", parentfolder := parentfolder, type := type ], "publisher:commondialogs/objectprops.objectprops");
+}
+
+/** @short "Create a new folder" dialog
+*/
+PUBLIC OBJECT FUNCTION CreateNewFolderDialog(OBJECT parent, INTEGER parentfolder, INTEGER type) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunNewFSObjectDialog")
+{
+  RETURN __CreateHistoryPropsDialog(parent, [ why := "newfolder", parentfolder := parentfolder, type := type ], "publisher:commondialogs/objectprops.objectprops");
+}
+
+/** @short "Create a new site" dialog
+*/
+PUBLIC OBJECT FUNCTION CreateNewSiteDialog(OBJECT parent, INTEGER parentfolder, INTEGER type)
+{
+  RETURN __CreateHistoryPropsDialog(parent, [ why := "newsite", parentfolder := parentfolder, type := type ], "publisher:commondialogs/siteprops.siteprops");
+}
+
+/** @short Create a "WHFS Object properties" dialog
+*/
+PUBLIC OBJECT FUNCTION CreateWHFSObjectPropsDialog(OBJECT parent, INTEGER fsobj)
+{
+  //IF(Length(SELECT * FROM system.fs_objects WHERE id = fsobj AND parentsite = fsobj) = 1)
+  //  RETURN __CreateHistoryPropsDialog(parent, [ why := "edit", fsobj := fsobj], "publisher:commondialogs/objectprops.siteprops");
+
+  RETURN __CreateHistoryPropsDialog(parent, [ why := "edit", fsobj := fsobj ], "publisher:commondialogs/objectprops.objectprops");
+}
+
+/** @short Create a "WHFS Site properties" dialog
+*/
+PUBLIC OBJECT FUNCTION CreateWHFSSitePropsDialog(OBJECT parent, INTEGER fsobj)
+{
+    RETURN parent->LoadScreen("publisher:commondialogs/siteprops.siteprops", [ why := "edit", fsobj := fsobj ]);
+}
+
+/** @short Create a "WHFS Object properties" dialog
+*/
+PUBLIC OBJECT FUNCTION CreateWHFSObjectInspectDialog(OBJECT parent, INTEGER fsobj)
+{
+  RETURN parent->LoadScreen("mod::publisher/tolliumapps/filemanager/inspect.xml#inspect", [ fsobj := fsobj ]);
+}
+
+/** @short Create a "WHFS Duplicate Object" dialog
+*/
+PUBLIC OBJECT FUNCTION CreateWHFSDuplicateObjectDialog(OBJECT parent, INTEGER parentfolder, INTEGER sourceobj) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunNewFSObjectDialog")
+{
+  RETURN __CreateHistoryPropsDialog(parent, [ why := "duplicate", parentfolder := parentfolder, fsobj := sourceobj ], "publisher:commondialogs/objectprops.objectprops");
+}
+
+
+OBJECTTYPE UploadDialog
+<
+  OBJECT parent;
+  INTEGER parentfolder;
+
+  PUBLIC INTEGER ARRAY uploadedfiles;
+  PUBLIC BOOLEAN createdownloadableversions;
+
+  MACRO NEW(OBJECT parent, INTEGER parentfolder)
+  {
+    this->parent := parent;
+    this->Parentfolder := parentfolder;
+  }
+
+  PUBLIC BOOLEAN FUNCTION RunUploadDialog()
+  {
+    RECORD ARRAY files := this->parent->frame->GetUserFiles(0, DEFAULT STRING ARRAY);
+    IF (Length(files) = 0)
+      RETURN FALSE;
+
+    this->uploadedfiles := DoFilemanagerUpload(this->parent, this->parentfolder, files, [ createdownloadableversions := this->createdownloadableversions ]);
+    IF(Length(this->uploadedfiles)=0)
+      RETURN FALSE;
+
+    RETURN TRUE;
+  }
+>;
+PUBLIC OBJECT FUNCTION CreateUploadDialog(OBJECT parent, INTEGER parentfolder) __ATTRIBUTES__(DEPRECATED "Switch to DoFilemanagerUpload")
+{
+  OBJECT diag := NEW UploadDialog(parent, parentfolder);
+  RETURN diag;
+}
+
+OBJECTTYPE ReplaceFileDialog
+<
+  OBJECT parent;
+  INTEGER fileid;
+
+  MACRO NEW(OBJECT parent, INTEGER fileid)
+  {
+    this->parent := parent;
+    this->fileid := fileid;
+  }
+
+  PUBLIC BOOLEAN FUNCTION RunReplaceDialog()
+  {
+    RECORD uploaded := this->parent->frame->GetUserFile(0, DEFAULT STRING ARRAY);
+    IF (NOT RecordExists(uploaded))
+      RETURN FALSE;
+
+    RETURN DoFilemanagerReplace(this->parent, this->fileid, uploaded);
+  }
+>;
+
+PUBLIC OBJECT FUNCTION CreateReplaceDialog(OBJECT parent, INTEGER replacefile) __ATTRIBUTES__(DEPRECATED "Switch to DoFilemanagerReplace")
+{
+  OBJECT diag := NEW ReplaceFileDialog(parent, replacefile);
+  RETURN diag;
+}
+
+STRING FUNCTION GetDropFullpathFolder(STRING infullpath) //removes last component, strips dupe slashes
+{
+  RETURN MergePath("", GetDirectoryFromPath(infullpath));
+}
+
+OBJECT FUNCTION EnsureDeepFolder(OBJECT base, STRING path)
+{
+  IF(path="")
+    RETURN base;
+  FOREVERY(STRING tok FROM Tokenize(path,'/'))
+    base := base->EnsureFolder([name:=tok]);
+  RETURN base;
+}
+
+PUBLIC INTEGER ARRAY FUNCTION DoFilemanagerUpload(OBJECT tolliumscreen, INTEGER basefolderid, RECORD ARRAY files, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ createdownloadableversions := FALSE ], options);
+
+  files := SELECT *, destfolder := CellExists(files,"fullpath") ? GetDropFullpathFolder(files.fullpath) : "" FROM files;
+  IF(RecordExists(SELECT FROM files WHERE Length(destfolder)>300 OR Length(Tokenize(destfolder,'/'))>7)) //this is too odd...
+    RETURN DEFAULT INTEGER ARRAY;
+
+  //when dropping folders, remove metadata and fork files
+  DELETE FROM files WHERE destfolder != "" AND (files.filename LIKE "._*" OR ToUppercase(files.filename) IN ["THUMBS.DB",".DS_STORE"]);
+
+  OBJECT work := tolliumscreen->BeginUnvalidatedWork();
+  OBJECT basedestfolder := basefolderid = 0 ? OpenWHFSRootObject() : OpenWHFSObject(basefolderid);
+  IF(NOT ObjectExists(basedestfolder))
+  {
+    work->Cancel();
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+
+  INTEGER ARRAY rootuploads;
+  RECORD ARRAY perfolder := SELECT files := GroupedValues(files)
+                                 , destfolder := ANY(destfolder)
+                              FROM files
+                          GROUP BY ToUppercase(COLUMN destfolder);
+
+  FOREVERY(RECORD uploadgroup FROM perfolder)
+  {
+    OBJECT uploadtofolder;
+    TRY
+    {
+
+       uploadtofolder := EnsureDeepFolder(basedestfolder, uploadgroup.destfolder);
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      work->Cancel();
+      RETURN DEFAULT INTEGER ARRAY;
+    }
+
+    OBJECT parenttester := GetApplyTesterForObject(uploadtofolder->id);
+    RECORD uploadsettings;
+    IF(ObjectExists(parenttester))
+      uploadsettings := parenttester->GetFolderSettings();
+
+    BOOLEAN safename := NOT tolliumscreen->contexts->user->GetRegistryKey("publisher.prefs.nouploadrename",FALSE);
+
+    FOREVERY(RECORD file FROM uploadgroup.files)
+    {
+      RECORD filemeta := [ name := ""
+                         , data := file.data
+                         ];
+
+      IF(RecordExists(uploadsettings) AND uploadsettings.ordering = "orderable")
+        INSERT CELL ordering := (SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = uploadtofolder->id) INTO filemeta;
+      IF(ObjectExists(parenttester))
+        INSERT CELL type := parenttester->GetUploadFileTypeMapping(file.filename, file.mimetype) INTO filemeta;
+
+      filemeta.name := uploadtofolder->GenerateUniqueName(file.filename, [ safename := safename ]);
+
+      OBJECT res := uploadtofolder->CreateFile(filemeta); //ADDME: Allow 'publish:=true' to be set and createfile do the 'thinking' worwk
+      IF(ObjectExists(res))
+      {
+        OBJECT sitepolicy := GetVersioningPolicyForFileObject(res);
+        UpdateMetadataForPolicy(sitepolicy, res, DEFAULT RECORD,
+            [ modifypublished :=  PTR ConvertToWillPublish(#1, FALSE, TRUE, PubPrio_DirectEdit)
+            ]);
+
+        IF(res->type = 4 AND options.createdownloadableversions)
+          res->UpdateMetadata([type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/msworddownload")->id]);
+
+        RunAddFileHooks(res->id);
+
+        INTEGER addid := uploadtofolder = basedestfolder ? res->id : uploadtofolder->id;
+        IF(addid NOT IN rootuploads)
+          INSERT addid INTO rootuploads AT END;
+      }
+
+      //when a file is the first upload in a folder and an acceptabel index, it should become one
+      IF(Length(uploadgroup.files) = 1
+        AND res->isacceptableindex
+        AND Length(SELECT FROM system.fs_objects WHERE parent = uploadtofolder->id AND NOT isfolder) = 1)
+      {
+        uploadtofolder->UpdateMetadata([indexdoc := res->id]);
+      }
+    }
+  }
+
+  IF(NOT work->Finish())
+    RETURN DEFAULT INTEGER ARRAY;
+
+  RETURN rootuploads;
+}
+
+PUBLIC BOOLEAN FUNCTION DoFilemanagerReplace(OBJECT tolliumscreen, INTEGER filetoreplace, RECORD uploadedfile)
+{
+  OBJECT file := OpenWHFSObject(filetoreplace);
+  IF(NOT ObjectExists(file) OR file->isfolder)
+    RETURN FALSE;
+
+  // Check content types - they should be the same. If not, add a warning.
+  RECORD original_filetype := ScanBlob(file->data, file->name);
+  RECORD new_filetype := ScanBlob(uploadedfile.data, uploadedfile.filename);
+  IF (ToUpperCase(original_filetype.mimetype) != ToUpperCase(new_filetype.mimetype)
+      AND tolliumscreen->RunMessageBox("publisher:commondialogs.replace_file_with_other_type") != "yes")
+  {
+    RETURN FALSE;
+  }
+
+  OBJECT parenttester := GetApplyTesterForObject(file->parent);
+  INTEGER newordering;
+  IF(parenttester->GetFolderSettings().ordering = "orderable")
+    newordering := SELECT AS INTEGER ordering FROM system.fs_objects WHERE id = filetoreplace;
+
+  OBJECT work := tolliumscreen->BeginUnvalidatedWork();
+  OBJECT policy := parenttester->GetVersioningPolicy();
+
+  STRING mode := UpdateMetadataForPolicy(policy, file,
+      [ data :=             uploadedfile.data
+      , modificationdate := GetCurrentDatetime()
+      , modifiedby :=       GetEffectiveUserId()
+      , ordering :=         newordering
+      ],
+      [ modifypublished := PTR ConvertToWillPublish(#1, FALSE, FALSE, PubPrio_DirectEdit)
+      ]);
+
+  SWITCH (mode)
+  {
+    CASE "locked"   { work->AddError(GetTid("publisher:versioning.draftislockedforapproval")); }
+    CASE "readonly" { work->AddError(GetTid("publisher:versioning.draftisreadonly")); }
+  }
+
+  RETURN work->Finish();
+}
+
+PUBLIC OBJECT FUNCTION CreateSiteSelectDialog(OBJECT parent)
+{
+  RETURN parent->LoadScreen("publisher:commondialogs.selectsitedialog", DEFAULT RECORD);
+}

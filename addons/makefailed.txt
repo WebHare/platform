@@ -1,0 +1,17 @@
+
+                ________________________________________________________________________________________
+               /                                                                                        \
+               | Make failed. Read any errors above carefully (it might not be the last line that gives |
+               | you the right clue). You can try 'wh fixbuild' once and see if it helps.               |
+               |                                                                                        |
+               | Read https://www.webhare.dev/reference/installation/fromsource - most common build     |
+               | errors are described there.                                                            |
+               |                                                                                        |
+              /| If you're still stuck, ask for help on https://forum.webhare.dev/ and post as much of  |
+     \\      / | the error log as possible of your *last* 'wh make' attempt that didn't generate any    |
+      \\_   /  | further progress.                                                                      |
+      ( _\      \_______________________________________________________________________________________/
+      / \__
+     / _/`"`
+    {\  )_
+jgs `"""`

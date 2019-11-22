@@ -1,0 +1,129 @@
+<?wh
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+
+PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
+<
+  BOOLEAN issupervisor;
+
+  MACRO NEW()
+  {
+    OBJECT currentuser := RequireLoggedinWebHareUser();
+    this->issupervisor := currentuser->HasRight("system:supervisor");
+  }
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    IF(IsRequestPost())
+      this->ApplySettings();
+    ELSE
+      this->ShowSettings();
+  }
+  MACRO ApplySettings()
+  {
+    STRING ARRAY debugopts;
+    IF(GetWebVariable("submit") != "") //pressed submit
+    {
+      debugopts := SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE name = "debug";
+      STRING ARRAY extraopts := Tokenize(GetWebVariable("extraoptions")," ");
+      FOREVERY(STRING opt FROM extraopts)
+      {
+        IF(opt LIKE "*.*")
+          THROW NEW Exception("Debugoptions may not contain dots");
+        IF(opt!="")
+          INSERT opt INTO debugopts AT END;
+      }
+    }
+
+    IF("debugmode" IN debugopts)
+    {
+      DELETE FROM debugopts AT SearchElement(debugopts,'debugmode');
+      UpdateWebCookie("__whpub_preview",'debug', [ httponly := FALSE, lifetime := 30*86400 ]);
+    }
+    ELSE
+    {
+      UpdateWebCookie("__whpub_preview",'', [ httponly := FALSE, lifetime := 30*86400  ]);
+    }
+
+    IF(this->issupervisor) //only for supervisors we allow the private flags and will actually sign
+      UpdateWebCookie("wh-debug", GetSignedWHDebugOptions(debugopts), [ httponly := FALSE, lifetime := 30*86400  ]);
+    ELSE
+      UpdateWebCookie("wh-debug", Detokenize(debugopts,'.'), [ httponly := FALSE, lifetime := 30*86400  ]);
+
+    Redirect("/" || GetWebVariable("b"));
+  }
+  MACRO ShowSettings()
+  {
+    STRING fromurl := GetWebVariable("back") ?? GetWebHeader("Referer") ?? ResolveToAbsoluteURL(GetClientRequestURL(),'/');
+    //rewrite to our origin as client might not know the real url
+    fromurl := UnpackURL(GetRequestURL()).origin || "/" || UnpackURL(fromurl).urlpath;
+
+    STRING ARRAY currentopts := Tokenize(GetWebCookie("wh-debug"), ".");
+    IF(AreOutputToolsActive())
+      INSERT "debugmode" INTO currentopts AT END;
+
+    RECORD fromfile := LookupPublisherUrl(fromurl);
+    INTEGER targetobject := fromfile.file ?? fromfile.folder ?? whconstant_whfsid_repository; //1 = repository, so we at least get all global options
+
+    RECORD ARRAY options;
+    OBJECT webcontext := GetWebContext(targetobject);
+    STRING userwarning;
+
+    FOREVERY(RECORD debugsettings FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "debugsettings", targetobject))
+    {
+      IF(debugsettings.node->HasAttribute("userwarning"))
+        userwarning := debugsettings.node->GetAttribute("userwarning");
+
+      FOREVERY (OBJECT subnode FROM debugsettings.node->childnodes->GetCurrentElements())
+        IF(subnode->localname = "option")
+          INSERT [ grouptitle := debugsettings.node->GetAttribute("title")
+                 , title := subnode->GetAttribute("title")
+                 , tag := subnode->GetAttribute("tag")
+                 ] INTO options AT END;
+    }
+
+    FOREVERY(OBJECT plugin FROM webcontext->GetPluginsByFeature("debugsettings"))
+      options := options CONCAT SELECT grouptitle, title, tag FROM plugin->HookGetDebugSettings();
+
+    IF(NOT this->issupervisor) //we'll not be signing, so only offer public flags
+      DELETE FROM options WHERE tag != "debugmode" AND tag NOT IN whconstant_whdebug_publicflags;
+
+    STRING ARRAY originalgroupordering := SELECT AS STRING ARRAY grouptitle FROM options;
+    RECORD ARRAY optionspergroup := SELECT title := grouptitle, options := GroupedValues(options)
+                                      FROM options
+                                  GROUP BY grouptitle
+                                  ORDER BY SearchElement(originalgroupordering, grouptitle);
+
+    STRING ARRAY knownopts;
+    FOREVERY(RECORD grp FROM optionspergroup)
+    {
+      grp.options := SELECT rowkey := tag
+                          , title
+                          , selected := tag IN currentopts
+                          , allowaswebvar := tag != "debugmode"
+                          , makebold := #grp=0 AND #options=0
+                       FROM grp.options;
+      knownopts := knownopts CONCAT (SELECT AS STRING ARRAY rowkey FROM grp.options);
+      optionspergroup[#grp] := grp;
+    }
+
+    STRING ARRAY extraopts := SELECT AS STRING ARRAY val FROM ToRecordArray(currentopts,"val") WHERE val NOT IN knownopts AND val NOT LIKE "sig=*";
+    STRING feedbackurl := UpdateURLVariables( GetClientRequestURL(), [ back := "", b := UnpackURL(fromurl).urlpath ]);
+    EmbedWittyComponent("mod::publisher/lib/internal/builtinpages/debug.witty:debugoptions", [ settingssaved := FALSE
+                                        , optgroups := optionspergroup
+                                        , extraoptions := Detokenize(extraopts," ")
+                                        , feedbackurl := feedbackurl
+                                        , userwarning := userwarning
+                                        ]);
+  }
+>;
+
+OpenPrimary();
+NEW DebugPage->RunPageForWHFSId(whconstant_whfsid_webharebackend);

@@ -1,0 +1,274 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+LOADLIB "mod::publisher/lib/internal/blit/hashapi.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/repositorytree.whlib";
+
+
+RECORD FUNCTION BuildTree(VARIANT data, STRING type)
+{
+  IF (TypeID(data) = TypeID(STRING) OR TypeID(data) = TypeID(BLOB))
+  {
+    IF (TypeID(data) = TypeID(STRING))
+      data := StringToBlob(data);
+
+    RETURN
+        [ isfolder :=   FALSE
+        , data :=       data
+        , hash :=       GetBlitFileHash(data)
+        ];
+  }
+
+  IF (TypeID(data) = TypeID(RECORD))
+    data := [ RECORD(data) ];
+
+  RECORD ARRAY objects;
+  RECORD ARRAY children;
+  FOREVERY (RECORD rec FROM data)
+  {
+    STRING name := CellExists(rec, "NAME_" || type) ? GetCell(rec, "NAME_" || type) : rec.name;
+    VARIANT value := CellExists(rec, type) ? GetCell(rec, type) : rec.data;
+    IF (TypeID(value) = TypeID(STRING) AND value = "")
+      CONTINUE;
+
+    RECORD child := BuildTree(value, type);
+    INSERT CELL name := name INTO child;
+    INSERT child INTO children AT END;
+  }
+
+  RETURN
+      [ isfolder := TRUE
+      , hash :=     GetBlitFolderHash(children)
+      , children := children
+      ];
+}
+              /*
+RECORD FUNCTION BuildTestTree(RECORD ARRAY tests, STRING type)
+{
+  RECORD result;
+  FOREVERY (RECORD r FROM tests)
+  {
+    STRING name := CellExists(r, "NAME_" || type) ? GetCell(r, "NAME_" || type) : r.name;
+    PRINT(type || ":" || name || "\n");
+    STRING data := GetCell(r, type);
+    IF (data != "")
+      result := CellInsert(result, name, data);
+  }
+  RETURN BuildTree(result);
+}             */
+
+VARIANT FUNCTION GetVal(STRING str)
+{
+  IF (str LIKE "folder:*")
+    RETURN [ name := "file", data := str ];
+  RETURN str;
+}
+
+BOOLEAN FUNCTION IsConflict(STRING ARRAY vals)
+{
+  RETURN LENGTH(SELECT AS STRING ARRAY DISTINCT val FROM ToRecordArray(vals, "VAL")) >= 3;
+}
+
+STRING ARRAY FUNCTION GetValueOptions(STRING type, STRING ARRAY used)
+{
+  STRING ARRAY allopts;
+  IF (type = "")
+    allopts := [ "" ];
+  ELSE IF (type = "file")
+    allopts := [ "1", "2", "3" ];
+  ELSE
+    allopts := [ "folder:1", "folder:2", "folder:3" ];
+
+  BOOLEAN have_unknown;
+  STRING ARRAY result;
+  FOREVERY (STRING s FROM allopts)
+    IF (s IN used)
+      INSERT s INTO result AT END;
+    ELSE IF (NOT have_unknown)
+    {
+      INSERT s INTO result AT END;
+      have_unknown := TRUE;
+    }
+  RETURN result;
+}
+
+INTEGER ARRAY FUNCTION GetNameOptions(STRING value, INTEGER ARRAY used)
+{
+  IF (value = "")
+    RETURN [ -1 ];
+
+  INTEGER ARRAY allopts := [ 0, 1, 2 ];
+  INTEGER ARRAY result;
+  BOOLEAN have_unknown;
+  FOREVERY (INTEGER i FROM allopts)
+    IF (i IN used)
+      INSERT i INTO result AT END;
+    ELSE IF (NOT have_unknown)
+    {
+      INSERT i INTO result AT END;
+      have_unknown := TRUE;
+    }
+  RETURN result;
+}
+
+STRING FUNCTION SimpleResolve(STRING parent, STRING changes, STRING addto)
+{
+  IF (changes = addto) RETURN addto;
+  IF (parent = changes) RETURN addto;
+  IF (parent = addto) RETURN changes;
+  ABORT("Cannot resolve conflict");
+}
+
+MACRO TestRepositoryDiff()
+{
+  RECORD ARRAY tests;
+
+  // Test diff algo with algo that does the same, but has been developed a bit differently
+  // Generate ALL different scenarios
+
+  FOREVERY (STRING parenttype FROM [ "", "file", "folder" ])
+   FOREVERY (STRING remotetype FROM [ "", "file", "folder" ])
+    FOREVERY (STRING localtype FROM [ "", "file", "folder" ])
+     FOREVERY (STRING parentvalue FROM GetValueOptions(parenttype, DEFAULT STRING ARRAY))
+      FOREVERY (STRING remotevalue FROM GetValueOptions(remotetype, [ parentvalue ]))
+       FOREVERY (STRING localvalue FROM GetValueOptions(localtype, [ parentvalue, remotevalue ]))
+        FOREVERY (INTEGER parentnamenr FROM GetNameOptions(parentvalue, DEFAULT INTEGER ARRAY))
+          FOREVERY (INTEGER remotenamenr FROM GetNameOptions(remotevalue, [ parentnamenr ]))
+            FOREVERY (INTEGER localnamenr FROM GetNameOptions(localvalue, [ parentnamenr, remotenamenr ]))
+            {
+              // Need at least one file
+              IF (remotevalue = "" AND localvalue = "")
+                CONTINUE;
+
+              STRING basename := "test" || Right("00000" || LENGTH(tests), 6);
+              STRING parentname := [ "", "aa", "aA", "Aa" ][parentnamenr + 1];
+              STRING remotename := [ "", "aa", "aA", "Aa" ][remotenamenr + 1];
+              STRING localname := [ "", "aa", "aA", "Aa" ][localnamenr + 1];
+
+              STRING expectname := localname ?? remotename;
+
+              STRING expect;
+              IF (remotename || remotevalue = localname || localvalue)
+                expect := "unmodified";
+              ELSE IF (remotename || remotevalue = parentname || parentvalue)
+              {
+                IF (localtype = "")
+                  expect := "staydeleted";
+                ELSE
+                  expect := "keep";
+              }
+              ELSE IF (localname || localvalue = parentname || parentvalue)
+              {
+                IF (remotetype = "")
+                  expect := "delete";
+                ELSE
+                {
+                  expectname := remotename;
+                  IF (localtype = "")
+                    expect := "add";
+                  ELSE IF (localtype = "folder" AND remotetype = "folder")
+                  {
+                    expect := remotename = localname ? "merge" : "merge-rename";
+                  }
+                  ELSE
+                    expect := "replace";
+                }
+              }
+              ELSE IF (IsConflict([ parenttype, remotetype, localtype ]))
+              {
+                expect := "" IN [ parentname, remotename, localname ] ? "existence-conflict" : "type-conflict";
+              }
+              ELSE IF (IsConflict([ parentname, remotename, localname ]))
+              {
+                IF ("" IN [ parentname, remotename, localname ])
+                  expect := "existence-conflict";
+                ELSE IF (remotetype != localtype)
+                  expect := "type-conflict";
+                ELSE IF (remotetype = "folder")
+                  expect := "merge-nameconflict";
+                ELSE IF (parenttype != localtype)
+                  expect := "type-conflict";
+                ELSE
+                  expect := "data-conflict";
+              }
+              ELSE
+              {
+                STRING resulttype := SimpleResolve(parenttype, remotetype, localtype);
+                STRING resultname := SimpleResolve(parentname, remotename, localname);
+                BOOLEAN dataconflict := IsConflict([ parentvalue, remotevalue, localvalue ]);
+
+                IF (parenttype = "file" AND remotetype = "file" AND localtype = "file")
+                {
+                  IF (dataconflict)
+                    expect := "data-conflict";
+                  ELSE
+                  {
+                    // Either rename or data replace
+                    expect := "replace";
+                    expectname := resultname;
+                  }
+                }
+                ELSE IF (resulttype = "file" AND dataconflict)
+                  expect := "" IN [ parenttype, remotetype, localtype ] ? "existence-conflict" : "type-conflict";
+                ELSE IF (remotetype = "folder" AND localtype = "folder")
+                {
+                  expect := resultname = localname ? "merge" : "merge-rename";
+                  expectname := resultname;
+                }
+                ELSE IF (remotetype != localtype OR parenttype != localtype)
+                {
+                  expect := "" IN [ parenttype, remotetype, localtype ] ? "existence-conflict" : "type-conflict";
+                }
+                ELSE
+                  ABORT("Situation not encountered yet");
+              }
+
+              INSERT
+                  [ name :=             basename || parentname
+                  , name_parent :=      parentname = "" ? "" : basename || parentname
+                  , name_remote :=      remotename = "" ? "" : basename || remotename
+                  , name_local :=       localname = "" ? "" : basename || localname
+                  , name_expect :=      basename || expectname
+                  , parent :=           GetVal(parentvalue)
+                  , remote :=           GetVal(remotevalue)
+                  , local :=            GetVal(localvalue)
+                  , expect :=           expect
+                  ] INTO tests AT END;
+            }
+
+  OBJECT tree_parent := EncapsulateRawRepositoryTree(BuildTree(tests, "parent"));
+  OBJECT tree_remote := EncapsulateRawRepositoryTree(BuildTree(tests, "remote"));
+  OBJECT tree_local := EncapsulateRawRepositoryTree(BuildTree(tests, "local"));
+
+  OBJECT modrtree := RepositoryTreeDiff3(tree_local, tree_parent, tree_remote);
+
+/*
+  FOREVERY (RECORD rec FROM tests)
+  {
+    IF (rec.expect = "")
+      CONTINUE;
+    IF (modrtree->root.children[#rec].status != rec.expect)
+      PRINT("Fail:" || rec.name || " expect:" || rec.expect || " got:" || modrtree->root.children[#rec].status || "\n");
+  }
+*/
+/*
+  PRINT("Expected:\n" || AnyToString((
+        SELECT name :=      CellExists(tests, "NAME_EXPECT") ? name_expect : name
+             , status :=    expect
+         FROM tests), "boxed"));
+  PRINT("Actual\n" || AnyToString((SELECT name, status FROM modrtree->root.children), "boxed"));
+//*/
+  TestEQ(
+     (SELECT name :=      CellExists(tests, "NAME_EXPECT") ? name_expect : name
+           , status :=    expect
+        FROM tests),
+     (SELECT name
+           , status
+        FROM modrtree->root.children));
+}
+
+RunTestFramework([ PTR TestRepositoryDiff ]);

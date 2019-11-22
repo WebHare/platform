@@ -1,0 +1,1382 @@
+﻿<?wh
+/** @short Canvas and paths
+    @topic graphics/canvas
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/graphics.whlib" EXPORT ExplainImageProcessing;
+LOADLIB "wh::graphics/filters.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+OBJECT ARRAY allocated_canvasses;
+
+//ADDME Is there a nicer way to implement colors? Perhaps add a HS primitive, constants?
+
+/// Transparent (with black RGB channels)
+PUBLIC CONSTANT INTEGER ColorBlackTransparent := 0x00000000;
+/// Transparent (with white RGB channels)
+PUBLIC CONSTANT INTEGER ColorWhiteTransparent := 0x00FFFFFF;
+/// Fully opaque black
+PUBLIC CONSTANT INTEGER ColorBlack := 0xFF000000;
+/// Fully opaque white
+PUBLIC CONSTANT INTEGER ColorWhite := 0xFFFFFFFF;
+
+BOOLEAN FUNCTION LineHasPixel(OBJECT incanvas, INTEGER line)
+{
+  INTEGER w := incanvas->width;
+  FOR(INTEGER x := 0; x < w; x:= x+ 1)
+  {
+    IF( (incanvas->GetPixel(x,line) BITAND 0xFF000000) != 0)
+      RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+BOOLEAN FUNCTION RowHasPixel(OBJECT incanvas, INTEGER col)
+{
+  INTEGER h := incanvas->height;
+  FOR(INTEGER y := 0; y < h; y:= y+ 1)
+    IF( (incanvas->GetPixel(col,y) BITAND 0xFF000000) != 0)
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+/** This object contains a drawable canvas.
+*/
+OBJECTTYPE GraphicsCanvas
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Drawlib ID of the canvas
+  INTEGER pvt_canvasid;
+
+  /// Width of the canvas
+  INTEGER pvt_width;
+
+  /// Height of the canvas
+  INTEGER pvt_height;
+
+  /// Callstack at the time of creation (for allocation/leak checks)
+  RECORD ARRAY creation_callstack;
+
+  /// Callstack at the time of destruction (for allocation/leak checks)
+  RECORD ARRAY destruction_callstack;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Drawlib ID of the canvas
+  PUBLIC PROPERTY canvasid(pvt_canvasid,-);
+
+  /// Width of the canvas
+  PUBLIC PROPERTY width(pvt_width,-);
+
+  /// Height of the canvas
+  PUBLIC PROPERTY height(pvt_height,-);
+
+  /// Current pixelmode (one of 'DEFAULT', 'AND', 'OR', 'XOR', 'NOP')
+  PUBLIC PROPERTY pixelmode(GetPixelMode, SetPixelMode);
+
+  /** Current blendmode (one of 'BLEND255', 'COPYALPHA', 'COPYALL', 'MINALPHA', 'MAXALPHA',
+          'LINEARBURN', 'CUTOUTALPHA', 'COLORBURN', 'COLORDODGE', 'DARKEN', 'DIFFERENCE', 'EXCLUSION',
+          'HARDLIGHT', 'LIGHTEN', 'LINEARDODGE', 'MULTIPLY', 'OVERLAY', 'SCREEN', 'DIFFERENCEALL')
+  */
+  PUBLIC PROPERTY blendmode(GetBlendMode, SetBlendMode);
+
+  /** Manipulate the full paint state (blending mode etc)
+      @cell(string) pixelmode Pixelmode
+      @cell(string) blendmode Blendmode
+  */
+  PUBLIC PROPERTY paintstate(GetPaintState, SetPaintState);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER canvasid)
+  {
+    this->creation_callstack := GetStacktrace();
+    this->pvt_canvasid := canvasid;
+    this->pvt_width := __DRAWLIB_V2_GetCanvasWidth(this->pvt_canvasid);
+    this->pvt_height := __DRAWLIB_V2_GetCanvasHeight(this->pvt_canvasid);
+
+    INSERT PRIVATE this INTO allocated_canvasses AT END;
+    __DRAWLIB_V2_SETCANVASMARSHALLER(this);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ValidateCanvas()
+  {
+    IF(this->pvt_canvasid != 0)
+      RETURN;
+
+    //ADDME optional debugging
+/*    Print("\nCanvas no longer exists\n\n");
+    Print("Access at:\n");
+    DumpValue(GetStackTrace(),'boxed');
+    Print("Created at:\n");
+    DumpValue(this->creation_callstack,'boxed');
+    Print("\n\nDestroyed at:\n");
+    DumpValue(this->destruction_callstack,'boxed');
+*/
+    THROW NEW Exception("Invoking operation on a closed canvas");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  RECORD FUNCTION GetPaintState()
+  {
+    RETURN [ blendmode := this->blendmode
+           , pixelmode := this->pixelmode
+           ];
+  }
+
+  MACRO SetPaintState(RECORD state)
+  {
+    this->blendmode := state.blendmode;
+    this->pixelmode := state.pixelmode;
+  }
+
+  STRING FUNCTION GetBlendMode()
+  {
+    this->ValidateCanvas();
+    RETURN __alphamodes[__DRAWLIB_V2_GetAlphaMode(this->pvt_canvasid)];
+  }
+
+  MACRO SetBlendMode(STRING blendmode)
+  {
+    this->ValidateCanvas();
+    INTEGER mode := SearchElement(__alphamodes, blendmode);
+    IF(mode=-1)
+      THROW NEW Exception("Unsupported blending mode '" || blendmode || "'");
+
+    __DRAWLIB_V2_SetAlphaMode(this->pvt_canvasid, mode);
+  }
+
+  STRING FUNCTION GetPixelMode()
+  {
+    this->ValidateCanvas();
+    RETURN __pixelmodes[__DRAWLIB_V2_GetPixelMode(this->pvt_canvasid)];
+  }
+
+  MACRO SetPixelMode(STRING pixelmode)
+  {
+    this->ValidateCanvas();
+    INTEGER mode := SearchElement(__pixelmodes, pixelmode );
+    IF(mode=-1)
+      THROW NEW Exception("Unsupported pixel mode '" || pixelmode || "'");
+
+    __DRAWLIB_V2_SetPixelMode(this->pvt_canvasid, mode);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Set the desired pixel to a color.
+      @long Sets the pixel at (x,y) to the desired color. The upperleft corner is (0,0). The color
+          consists of 3 levels, the level of red, the level of green, and the level of blue. These
+          levels may vary from 0 to 255. The value of <code>color</code> is calculate as follows:
+          <code>color = 65536 * red + 256 * green + blue You want to use
+          <link>Drawlib_MakeColor</link>
+      @param x The x coordinate of the pixel
+      @param y The y coordinate of the pixel
+      @param color The color to set the pixel to.
+      @see GfxCreateColor
+  */
+  PUBLIC MACRO DrawPixel(INTEGER x, INTEGER y, INTEGER color)
+  {
+    this->ValidateCanvas();
+    __DRAWLIB_V2_DrawPixel(this->canvasid, x, y, color);
+  }
+
+  /** @short Draws the bitmap of another canvas on this canvas
+      @param sourcecanvas The source canvas where to get the bitmap from
+      @param offsetx The x offset (the upperleft corner where the source is pasted on this canvas)
+      @param offsety The y offset (the upperleft corner where the source is pasted on this canvas)
+  */
+  PUBLIC MACRO DrawCanvas(OBJECT sourcecanvas, INTEGER x, INTEGER y)
+  {
+    this->ValidateCanvas();
+
+    IF(sourcecanvas->canvasid=0)
+      THROW NEW Exception("Trying to draw the contents of a closed canvas");
+
+    __DRAWLIB_V2_DRAWCANVAS(this->canvasid, sourcecanvas->canvasid, x, y);
+  }
+
+
+
+  //ADDME createresizedcanvas with full method stupport
+
+  /** @short Create a duplicate canvas. Also copies the paint state.
+      @return Canvas with the same contents as the current canvas (and the same paint state)
+  */
+  PUBLIC OBJECT FUNCTION CreateDuplicateCanvas()
+  {
+    this->ValidateCanvas();
+    RETURN NEW GraphicsCanvas(__DRAWLIB_V2_DuplicateCanvas(this->pvt_canvasid));
+  }
+
+  /** @short Update the alpha channel on a canvas
+      @param multiply Alpha multiplication factor (<1 increases transparancy)
+  */
+  PUBLIC MACRO MultiplyAlpha(FLOAT multiply)
+  {
+    __DRAWLIB_V2_ALPHACANVAS(this->canvasid, multiply);
+  }
+
+
+  /** @short Add a value to the alpha channel on a canvas
+      @param toadd Value to add (positive values increase opacity, negative values increase transparancy)
+  */
+  PUBLIC MACRO AddAlpha(INTEGER toadd)
+  {
+    __DRAWLIB_V2_ALPHACANVASADD(this->canvasid, toadd);
+  }
+
+  /** @short Blur canvas.
+      @param hsize Horizontal blur size
+      @param vsize Vertical blur size
+  */
+  PUBLIC MACRO Blur(INTEGER hsize, INTEGER vsize)
+  {
+    this->ValidateCanvas();
+    IF(hsize<1 OR vsize < 1 OR (hsize=1 AND vsize=1))
+      RETURN; //no-op
+    __DRAWLIB_V2_BLURCANVAS(this->canvasid, hsize, vsize);
+  }
+
+  /** @short Grayscale the canvas */
+  PUBLIC MACRO Grayscale()
+  {
+    this->ValidateCanvas();
+    __DRAWLIB_V2_GRAYSCALECANVAS(this->canvasid);
+  }
+
+
+  /** @short Project another canvas onto this canvas within a projection frame, with correction for perspective
+      @param sourcecanvas Canvas to project
+      @param lt Position where the left top of the projected canvas must be drawn
+      @cell(float) lt.x
+      @cell(float) lt.y
+      @param rt Position where the right top of the projected canvas must be drawn
+      @cell(float) rt.x
+      @cell(float) rt.y
+      @param lb Position where the left bottom of the projected canvas must be drawn
+      @cell(float) rt.x
+      @cell(float) rt.y
+      @param rb Position where the right bottom of the projected canvas must be drawn
+      @cell(float) rt.x
+      @cell(float) rt.y
+      @param multiplier If higher than 1, the projection is sampled at multiple points for anti-aliasing.
+          (the effect is as if the projection is done on a canvas with both width and height both multiplied
+          with the multiplier, then scaled to the original size, then blended.)
+  */
+  PUBLIC MACRO ProjectCanvas(OBJECT sourcecanvas, RECORD lt, RECORD rt, RECORD lb, RECORD rb, INTEGER multiplier)
+  {
+    this->ValidateCanvas();
+
+    IF(sourcecanvas->canvasid=0)
+      THROW NEW Exception("Trying to draw the contents of a closed canvas");
+
+    IF(multiplier>1)
+    {
+      /* as multiplier overwrites the entire canvas (in contrast to the direct texture fill)
+         we cannot currently support any other blendmode than BLEND255 */
+      IF(this->blendmode != "BLEND255")
+        THROW NEW Exception("ProjectCanvas requires BLEND255 mode when using a multiplier");
+
+      lt.x := lt.x * multiplier;
+      lt.y := lt.y * multiplier;
+      rt.x := rt.x * multiplier;
+      rt.y := rt.y * multiplier;
+      lb.x := lb.x * multiplier;
+      lb.y := lb.y * multiplier;
+      rb.x := rb.x * multiplier;
+      rb.y := rb.y * multiplier;
+    }
+
+    // Get projection functions for the source canvas
+    RECORD projectionfuncs := GfxGetProjectionFunctionsFromProjectedCanvas(sourcecanvas->canvasid, lt, rt, lb, rb);
+
+    // Make a path outlining the projection
+    RECORD ARRAY path := [ [ type := "MOVETO", x := FLOAT(lt.x), y := FLOAT(lt.y) ]
+                         , [ type := "LINETO", x := FLOAT(rt.x), y := FLOAT(rt.y) ]
+                         , [ type := "LINETO", x := FLOAT(rb.x), y := FLOAT(rb.y) ]
+                         , [ type := "LINETO", x := FLOAT(lb.x), y := FLOAT(lb.y) ]
+                         , [ type := "LINETO", x := FLOAT(lt.x), y := FLOAT(lt.y) ]
+                         ];
+
+    //GfxFillPath(this->canvasid, ColorPaleMauve, 10, path);
+
+    IF(multiplier>1)
+    {
+      //Paint it to temp canvas, then copy temp canvas onto destination canvas
+      OBJECT tempcanvas := CreateEmptyCanvas(this->width * multiplier, this->height * multiplier, ColorWhiteTransparent);
+      Gfx3dTextureFillPath(tempcanvas->canvasid, sourcecanvas->canvasid, projectionfuncs, path);
+      tempcanvas->SetImageSize(this->width, this->height);
+
+      this->DrawCanvas(tempcanvas, 0, 0);
+
+      tempcanvas->Close();
+    }
+    ELSE
+    {
+      Gfx3dTextureFillPath(this->canvasid, sourcecanvas->canvasid, projectionfuncs, path);
+    }
+  }
+
+  /** @short Create a cropped canvas from this canvas. Also copies the paint state.
+      @param left
+      @param top
+      @param rightlimit
+      @param bottomlimit
+      @return Cropped canvas
+  */
+  PUBLIC OBJECT FUNCTION CreateCroppedCanvas(INTEGER left, INTEGER top, INTEGER rightlimit, INTEGER bottomlimit)
+  {
+    this->ValidateCanvas();
+
+    IF(left>=rightlimit)
+      THROW NEW Exception("CreateCroppedCanvas: empty or negative horizontal cropping area: from " || left || " to " || rightlimit);
+    IF(top>=bottomlimit)
+      THROW NEW Exception("CreateCroppedCanvas: empty or negative vertical cropping area: from " || top || " to " || bottomlimit);
+
+    IF(left<0 OR top<0 OR rightlimit > this->width OR bottomlimit > this->height)
+      THROW NEW Exception("CreateCroppedCanvas: trying to extract (" || left || "," || top || ")-(" || rightlimit || "," || bottomlimit || ") from a " || this->width || "x" || this->height || " canvas");
+
+    RETURN NEW GraphicsCanvas(__DRAWLIB_V2_MakeCanvasFromCanvas(this->canvasid, left, top, rightlimit-left, bottomlimit-top));
+  }
+
+  /** @short Resize canvas, rescaling the image but keeping its aspect ratio
+      @param newwidth New canvas width in pixels. The new height is derived from the specified width
+  */
+  PUBLIC MACRO SetImageWidth(INTEGER newwidth)
+  {
+    this->SetImageSize(newwidth, INTEGER(this->height * FLOAT(newwidth) / this->width + 0.5));
+  }
+
+  /** @short Resize canvas, rescaling the image but keeping its aspect ratio
+      @param newheight New canvas height in pixels. The new width is derived from the specified height
+  */
+  PUBLIC MACRO SetImageHeight(INTEGER newheight)
+  {
+    this->SetImageSize(INTEGER(this->width * FLOAT(newheight) / this->height + 0.5), newheight);
+  }
+
+  /** @short Resize canvas, rescaling the image
+      @param newwidth New canvas width in pixels
+      @param newight New canvas height in pixels
+  */
+  PUBLIC MACRO SetImageSize(INTEGER newwidth, INTEGER newheight)
+  {
+    this->ValidateCanvas();
+
+    __Drawlib_v2_ResizeCanvas(this->canvasid, newwidth, newheight);
+    this->pvt_width := newwidth;
+    this->pvt_height := newheight;
+  }
+  //ADDME? SetCanvasSize(INTEGER newwidt,h INTEGER newheight, anchor position? direction and/or x/y coordinates?)
+
+
+  /**
+  @short          Compare two canvases by calculating the mean square error between them.
+  @long           Calculate the mean square error between two canvases. If the canvases are exactly the same,
+                  the result is equal to 0.
+
+  @param Canvas2ID  against Canvas to compare against
+  @return the mean square error (float)
+  */
+  PUBLIC FLOAT FUNCTION CompareWithCanvas(OBJECT against)
+  {
+    this->ValidateCanvas();
+    RETURN __DRAWLIB_V2_COMPARECANVASES(this->canvasid, against->canvasid);
+  }
+
+  /** @short Creates a blob with the contents of this canvas, in GIF format
+      @return Image blob, in GIF format.
+  */
+  PUBLIC BLOB FUNCTION ExportAsGIF()
+  {
+    this->ValidateCanvas();
+    RETURN __DRAWLIB_V2_CREATEGIFBLOBFROMCANVAS(this->canvasid);
+  }
+
+  /** @short Creates a blob with the contents of this canvas, in RAW format
+      @param outputformat Output description
+      @cell output.pixelformat Format of the raw file (supported: 'RGBA', 'ARGB)
+      @cell output.premultiplied If true, interpret the alpha channel to be premultiplied
+      @return Image blob, in RAW format.
+  */
+  PUBLIC BLOB FUNCTION ExportAsRaw(RECORD outputformat)
+  {
+    this->ValidateCanvas();
+
+    IF(outputformat.pixelformat NOT IN ["RGBA","ARGB"])
+      THROW NEW Exception("Only pixelformats RGBA and ARGB are currently supported");
+
+    FOREVERY(RECORD cellrec FROM UnpackRecord(outputformat))
+      IF(cellrec.name NOT IN ["PIXELFORMAT", "PREMULTIPLIED"])
+        THROW NEW Exception("Unexpected outputformat property '" || cellrec.name || "'");
+
+    BOOLEAN premultiplied := CellExists(outputformat,"premultiplied") AND outputformat.premultiplied;
+    IF(premultiplied)
+      THROW NEW Exception("Premultiplied export is not supported yet");
+
+    RETURN __DRAWLIB_V2_CREATERAWBLOBFROMCANVAS(this->canvasid, outputformat.pixelformat);
+  }
+
+  /** @short Creates a blob with the contents of this canvas, in paletted PNG format
+      @param discard_transparancy Whether to discard transparancy
+      @return Image blob, in paletted PNG format.
+  */
+  PUBLIC BLOB FUNCTION ExportAsPalettedPNG(BOOLEAN discard_transparancy)
+  {
+    this->ValidateCanvas();
+    RETURN __DRAWLIB_V2_CREATEPNGBLOBFROMCANVAS(this->canvasid, TRUE, discard_transparancy);
+  }
+
+  /** @short Creates a blob with the contents of this canvas, in PNG format
+      @param discard_transparancy Whether to discard transparancy
+      @return Image blob, in PNG format.
+  */
+  PUBLIC BLOB FUNCTION ExportAsPNG(BOOLEAN discard_transparancy)
+  {
+    this->ValidateCanvas();
+    RETURN __DRAWLIB_V2_CREATEPNGBLOBFROMCANVAS(this->canvasid, FALSE, discard_transparancy);
+  }
+
+  /** @short Creates a blob with the contents of this canvas, in JPEG format
+      @param quality Quality (number between in the range 0..100, higher means better quality)
+      @return Image blob, in JPEG format.
+  */
+  PUBLIC BLOB FUNCTION ExportAsJPEG(INTEGER quality DEFAULTSTO 85)
+  {
+    this->ValidateCanvas();
+    IF(quality < 0)
+      quality := 0;
+    ELSE IF(quality > 100)
+      quality := 100;
+    RETURN __DRAWLIB_V2_CREATEJPGBLOBFROMCANVAS(this->canvasid, quality);
+  }
+
+  /** @short Returns the reference count for this canvas
+      @long This function returns the reference count for this canvas. Creating a duplicate canvas
+          using CreateDuplicateCanvas or CreateCroppedCanvas just increase the reference count for
+          the bitmap, instead of allocating new internal storeage. If a modifying operation is
+          executed, the canvas is unshared first.
+      @return Reference count
+  */
+  PUBLIC INTEGER FUNCTION GetReferenceCount()
+  {
+    this->ValidateCanvas();
+    RETURN __DRAWLIB_V2_GETREFCOUNT(this->pvt_canvasid);
+  }
+
+  /** @short Count the number of colors and alpha values in the canvas
+      @param minalpha Minimum alpha value that a pixel must have to be considered visible (range 0-255)
+      @return Record with color information
+      @cell return.alphas Number of transparant pixels
+      @cell return.colors Number of counted colors
+  */
+  PUBLIC RECORD FUNCTION CountColors(INTEGER minalpha)
+  {
+    this->ValidateCanvas();
+    RETURN GfxCountCanvasColors(this->pvt_canvasid, minalpha);
+  }
+
+  /** @short Calculate the dominant color on this canvas
+      @param options
+      @cell options.randomseed Value between 0 and 1 for deterministic calculations (leave out for random initialization of kmeans clustering algorithm)
+      @cell options.resize When needed, resize width/height so that none of the dimensions exceed this value.
+      */
+  PUBLIC INTEGER ARRAY FUNCTION GetDominantColors(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ randomseed :=   -1f
+        , resize :=       100
+        ], options);
+
+    // Need to resize?
+    IF (options.resize > 0 AND (this->width > options.resize OR this->height > options.resize))
+    {
+      OBJECT tempcanvas := this->CreateDuplicateCanvas();
+      TRY
+      {
+        tempcanvas->SetImageSize(
+            Min[](INTEGER[ tempcanvas->width, options.resize ]),
+            Min[](INTEGER[ tempcanvas->height, options.resize ]));
+
+        options.resize := -1;
+        RETURN tempcanvas->GetDominantColors(options);
+      }
+      FINALLY
+        tempcanvas->Close();
+    }
+
+    RECORD ARRAY colorrecs := __DRAWLIB_V2_GETKMEANSQUANTIZEDPALETTE(
+        this->pvt_canvasid,
+        6,
+        50, //alpha < 20%, hardly visible
+        10, // 10 iterations should suffice
+        options.randomseed);
+
+    INTEGER ARRAY colors;
+    FOREVERY (RECORD rec FROM colorrecs)
+      INSERT GfxCreateColor(rec.r, rec.g, rec.b) INTO colors AT END;
+
+    RETURN colors;
+  }
+
+
+  /** @short Rotate the canvas
+      @param degrees Degrees to rotate (currently only 90 (rotate right) and -90 (rotate left) are supported)
+  */
+  PUBLIC MACRO Rotate(INTEGER degrees)
+  {
+    IF(degrees != 90 AND degrees != -90)
+      THROW NEW Exception("Only rotation of +90 or -90 is currently supported");
+    this->ValidateCanvas();
+
+    __Drawlib_v2_RotateCanvas(this->pvt_canvasid,degrees=90);
+    this->pvt_width := __DRAWLIB_V2_GetCanvasWidth(this->pvt_canvasid);
+    this->pvt_height := __DRAWLIB_V2_GetCanvasHeight(this->pvt_canvasid);
+  }
+
+  /** @short Mirror the canvas (horizontal flip)
+  */
+  PUBLIC MACRO Mirror()
+  {
+    __DRAWLIB_V2_MIRRORCANVAS(this->pvt_canvasid);
+  }
+
+  /** @short Shear the canvas
+      @param scale_x Horizontal scale factor
+      @param scale_y Vertical scale factor
+  */
+  PUBLIC MACRO Shear(FLOAT scale_x, FLOAT scale_y)
+  {
+    this->ValidateCanvas();
+    __Drawlib_v2_ShearCanvas(this->pvt_canvasid, scale_x, scale_y);
+  }
+
+  /** @short Get the current color and alpha of a pixel
+      @long Gets the color of the pixel at (x,y). The upperleft corner is (0,0). The color
+          consists of 3 levels, the level of red, the level of green, and the level of blue.
+          These levels may vary from 0 to 255. The value of <code>color</code> is calculated as
+          follows: <code>color = 65536 * red + 256 * green + blue
+      @param x The x coordinate of the pixel to get
+      @param y The y coordinate of the pixel to get
+      @return The color of the specified pixel.
+  */
+  PUBLIC INTEGER FUNCTION GetPixel(INTEGER x, INTEGER y)
+  {
+    this->ValidateCanvas();
+    RETURN __DRAWLIB_V2_Getpixel(this->pvt_canvasid, x, y);
+  }
+
+  /** @short Set the color and alpha of a pixel
+      @long Sets the pixel at (x,y) to the desired color. The upperleft corner is (0,0). The color
+          consists of 3 levels, the level of red, the level of green, and the level of blue.
+          These levels may vary from 0 to 255. The value of <code>color</code> is calculated as
+          follows: <code>color = 65536 * red + 256 * green + blue
+      @param x The x coordinate of the pixel
+      @param y The y coordinate of the pixel
+      @param color    The color to set the pixel to.
+  */
+  PUBLIC MACRO SetPixel(INTEGER x, INTEGER y, INTEGER color)
+  {
+    this->ValidateCanvas();
+    __DRAWLIB_V2_DrawPixel(this->pvt_canvasid, x, y, color);
+  }
+
+/*  PUBLIC OBJECT FUNCTION __CloseAndMarshall() //ADDME make marshalling completely transparent
+  {
+    this->ValidateCanvas();
+    OBJECT marshaller := GfxGetCanvasMarshaller(this->canvasid);
+
+    this->pvt_canvasid:=-1;
+
+    DELETE FROM allocated_canvasses AT SearchElement(allocated_canvasses, this);
+    this->destruction_callstack := GetStackTrace();
+    RETURN marshaller;
+  }
+*/
+
+  PUBLIC RECORD FUNCTION GetBoundingBox()
+  {
+    INTEGER w := this->width;
+    INTEGER h := this->height;
+
+    INTEGER top,left,bottom,right;
+
+    FOR(top := 0; top < h; top := top + 1)
+      IF(LineHasPixel(this,top))
+        BREAK;
+    IF(top=h) //fully transparent
+      RETURN [ top := 0, width := 0, left := 0, height := 0];
+
+    FOR(bottom := h-1; bottom>0; bottom := bottom-1)
+      IF(LineHasPixel(this,bottom))
+        BREAK;
+    FOR(left := 0;;left:=left+1)
+      IF(RowHasPixel(this,left))
+        BREAK;
+    FOR(right := w-1;;right:=right-1)
+      IF(RowHasPixel(this,right))
+        BREAK;
+
+    RETURN [ top := top
+           , left := left
+           , width := right-left
+           , height := bottom-top
+           ];
+  }
+
+  /** @short Closes this canvas, and releases it resources.
+  */
+  PUBLIC MACRO Close()
+  {
+    this->ValidateCanvas();
+    __DRAWLIB_V2_DESTROYCANVAS(this->pvt_canvasid);
+    this->__ReleaseAndClean();
+  }
+
+  PUBLIC INTEGER FUNCTION __ReleaseAndClean()
+  {
+    INTEGER handle := this->pvt_canvasid;
+    DELETE FROM allocated_canvasses AT SearchElement(allocated_canvasses, this);
+    this->destruction_callstack := GetStacktrace();
+    this->pvt_canvasid := 0;
+    RETURN handle;
+  }
+>;
+
+/** Describes a 2D path on the canvas
+*/
+OBJECTTYPE Path2D
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Path
+      @cell(string) type One of 'MOVETO', 'LINETO', 'BEZIERTO', 'ARCTO', 'ARCTOR'
+      @cell x New x coordinate
+      @cell y New y coordinate
+      @cell c1x FIXME ??? (bezierto only)
+      @cell c1y FIXME ??? (bezierto only)
+      @cell c2x FIXME ??? (bezierto only)
+      @cell c2y FIXME ??? (bezierto only)
+      @cell cx FIXME ??? (arcto/arctor only)
+      @cell cy FIXME ??? (arcto/arctor only)
+      @cell rx FIXME ??? (arcto/arctor only)
+      @cell ry FIXME ??? (arcto/arctor only)
+  */
+  RECORD ARRAY path;
+
+  /// Texture to fill the path with
+  PUBLIC OBJECT filltexture;
+
+  /// FIXME ???
+  PUBLIC INTEGER filloffsetx;
+
+  /// FIXME ???
+  PUBLIC INTEGER filloffsety;
+
+  /// Color to fill the path width
+  PUBLIC INTEGER fillcolor;
+
+  /// Outline color
+  PUBLIC INTEGER outlinecolor;
+
+  /// Width of the outline
+  PUBLIC INTEGER outlinewidth;
+
+  /// Anti-aliasing multiplier
+  PUBLIC INTEGER antialiasing;
+
+  /// ???
+  PUBLIC FLOAT ARRAY translation;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Current x coordinate (setting adds a move to coordinate (new x, current y))
+  PUBLIC PROPERTY x(GetX,SetX);
+
+  /// Current x coordinate (setting adds a move to coordinate (current x, new y))
+  PUBLIC PROPERTY y(GetY,SetY);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD ARRAY path)
+  {
+    this->path := path;
+    this->outlinecolor := ColorBlack;
+    this->outlinewidth := 1;
+    this->antialiasing := 1;
+    this->translation := [ 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  FLOAT FUNCTION GetX()
+  {
+    IF(Length(this->path)=0 OR NOT CellExists(this->path[Length(this->path)-1],"x"))
+      THROW NEW Exception("No last coordinate in path");
+    RETURN this->path[Length(this->path)-1].x;
+  }
+
+  FLOAT FUNCTION GetY()
+  {
+    IF(Length(this->path)=0 OR NOT CellExists(this->path[Length(this->path)-1],"y"))
+      THROW NEW Exception("No last coordinate in path");
+    RETURN this->path[Length(this->path)-1].y;
+  }
+
+  MACRO SetX(FLOAT x)
+  {
+    this->MoveTo(x, this->GetY());
+  }
+
+  MACRO SetY(FLOAT y)
+  {
+    this->MoveTo(this->GetX(), y);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Clone the path
+      @long Duplicate the path and its state (does NOT duplicate the tetxures, both paths will point to the same textures, if any)
+      @return Cloned path
+  */
+  PUBLIC OBJECT FUNCTION Clone()
+  {
+    OBJECT newpath := NEW Path2D(this->path);
+    newpath->filltexture := this->filltexture;
+    newpath->filloffsetx := this->filloffsetx;
+    newpath->filloffsety := this->filloffsety;
+    newpath->fillcolor := this->fillcolor;
+    newpath->outlinecolor := this->outlinecolor;
+    newpath->outlinewidth := this->outlinewidth;
+    newpath->antialiasing := this->antialiasing;
+    newpath->translation := this->translation;
+    RETURN newpath;
+  }
+
+  /** Adds a move to a coordinate to the path
+      @param x New x coordinate
+      @param y New y coordinate
+  */
+  PUBLIC MACRO MoveTo(FLOAT x, FLOAT y)
+  {
+    INSERT [type := "MOVETO", x := x, y := y] INTO this->path AT END;
+  }
+
+  /** Adds a line from the current coordinate to another coordinate to the path
+      @param x New x coordinate
+      @param y New y coordinate
+  */
+  PUBLIC MACRO LineTo(FLOAT x, FLOAT y)
+  {
+    INSERT [type := "LINETO", x := x, y := y] INTO this->path AT END;
+  }
+
+  /** Adds a bezier curve from the current coordinate to another coordinate to the path
+      @param c1x FIXME ???
+      @param c1y FIXME ???
+      @param c2x FIXME ???
+      @param c2y FIXME ???
+      @param x New x coordinate
+      @param y New y coordinate
+  */
+  PUBLIC MACRO BezierTo(FLOAT c1x, FLOAT c1y, FLOAT c2x, FLOAT c2y, FLOAT x, FLOAT y)
+  {
+    INSERT [type := "BEZIERTO", c1x := c1x, c1y := c1y, c2x := c2x, c2y := c2y, x := x, y := y] INTO this->path AT END;
+  }
+
+  /** Adds a FIXME ??? from the current coordinate to another coordinate to the path
+      @param cx FIXME ???
+      @param cy FIXME ???
+      @param rx FIXME ???
+      @param ry FIXME ???
+      @param x New x coordinate
+      @param y New y coordinate
+  */
+  PUBLIC MACRO ArcTo(FLOAT cx, FLOAT cy, FLOAT rx, FLOAT ry, FLOAT x, FLOAT y)
+  {
+    INSERT [type := "ARCTO", cx := cx, cy := cy, rx := rx, ry := ry, x := x, y := y] INTO this->path AT END;
+  }
+
+  /** Adds a FIXME ??? from the current coordinate to another coordinate to the path
+      @param cx FIXME ???
+      @param cy FIXME ???
+      @param rx FIXME ???
+      @param ry FIXME ???
+      @param x New x coordinate
+      @param y New y coordinate
+  */
+  PUBLIC MACRO ArcToR(FLOAT cx, FLOAT cy, FLOAT rx, FLOAT ry, FLOAT x, FLOAT y)
+  {
+    INSERT [type := "ARCTOR", cx := cx, cy := cy, rx := rx, ry := ry, x := x, y := y] INTO this->path AT END;
+  }
+
+  /// Closes the path
+  PUBLIC MACRO ClosePath()
+  {
+    INSERT [type := "CLOSEPATH"] INTO this->path AT END;
+  }
+
+  /** @short Add a smooth curve using the specified points
+      @long Create bezier curves from the current starting point (so use MoveTo first) through the
+          specified points, building a smooth graph
+      @param points A record array of points to paint the curve through
+      @cell(float) points.x X coordinate
+      @cell(float) points.Y Y coordinate
+  */
+  PUBLIC MACRO SmoothBezierCurve(RECORD ARRAY points)
+  {
+    points := [[ x := this->x, y := this-> y ]] CONCAT points;
+    RECORD res := GetCurveControlPoints(points);
+    FOREVERY(RECORD firstcp FROM res.firstcontrolpoints)
+    {
+      //Print("from " || FormatFloat(this->x,3) || "," || FormatFloat(this->y,3) || " c1 " || FormatFloat(firstcp.x,3) || "," || FormatFloat(firstcp.y,3) || " c2 " || FormatFloat(res.secondcontrolpoints[#firstcp].x,3) || "," || FormatFloat(res.secondcontrolpoints[#firstcp].y,3) || " to " || FormatFloat(points[#firstcp+1].x,3) || "," || FormatFloat(points[#firstcp+1].y,3) || '\n');
+      this->BezierTo(firstcp.x,firstcp.y,res.secondcontrolpoints[#firstcp].x,res.secondcontrolpoints[#firstcp].y,points[#firstcp+1].x,points[#firstcp+1].y);
+    }
+  }
+
+  /** @short Draws the path onto a canvas
+      @long Draws the current set path onto the canvas, filling it when either the filltexture is
+          set or the fillcolor is not fully transparent. The outline is drawn when the outlinewidth
+          is not 0 and the outline color is not fully transparent.
+      @param canvas Canvas to draw on
+  */
+  PUBLIC MACRO Draw(OBJECT canvas)
+  {
+    BOOLEAN fill := ObjectExists(this->filltexture) OR (this->fillcolor BITAND 0xFF000000)!=0;
+    BOOLEAN stroke := this->outlinewidth >= 1 AND (this->outlinecolor BITAND 0xFF000000)!=0;
+
+    IF(this->antialiasing > 1) //we need antialias steps...
+    {
+      OBJECT tempcanvas := CreateEmptyCanvas(canvas->width * this->antialiasing, canvas->height * this->antialiasing, ColorWhiteTransparent);
+      RECORD ARRAY finalpath := this->path;
+      FOREVERY(RECORD elem FROM finalpath)
+      {
+        FOREVERY(STRING multiplycell FROM ["x","y","cx","cy","rx","ry","c1x","c1y","c2x","c2y"])
+          IF(CellExists(elem, multiplycell))
+            elem := CellUpdate(elem, multiplycell, GetCell(elem, multiplycell) * this->antialiasing);
+
+        finalpath[#elem] := elem;
+      }
+
+      OBJECT tempfilltexture;
+      __DRAWLIB_V2_SetOutlineMode (tempcanvas->canvasid, 0); //solid color
+      __DRAWLIB_V2_SetOutlineColor(tempcanvas->canvasid, this->outlinecolor);
+      __DRAWLIB_V2_SetOutlineWidth(tempcanvas->canvasid, this->outlinewidth * this->antialiasing);
+
+      IF(ObjectExists(this->filltexture))
+      {
+        tempfilltexture := this->filltexture->CreateDuplicateCanvas();
+        tempfilltexture->SetImageSize(tempfilltexture->width * this->antialiasing, tempfilltexture->height * this->antialiasing);
+
+        __DRAWLIB_V2_SetFillTexture(tempcanvas->canvasid, tempfilltexture->canvasid, this->filloffsetx * this->antialiasing, this->filloffsety * this->antialiasing);
+        __DRAWLIB_V2_SetFillMode (tempcanvas->canvasid, 1); //texture fill
+      }
+      ELSE
+      {
+        __DRAWLIB_V2_SetFillMode (tempcanvas->canvasid, 0);
+        __DRAWLIB_V2_SetFillColor(tempcanvas->canvasid, this->fillcolor);
+      }
+
+      //FIXME multiply translation path too...
+      __DRAWLIB_V2_DRAWPATH(tempcanvas->canvasid, fixuppath(finalpath), stroke, fill, this->translation);
+
+      IF(ObjectExists(tempfilltexture))
+        tempfilltexture->Close();
+
+      tempcanvas->SetImageSize(canvas->width, canvas->height);
+
+      RECORD saveddrawingstate := canvas->paintstate;
+      canvas->blendmode := "BLEND255";
+      canvas->DrawCanvas(tempcanvas, 0, 0);
+      canvas->paintstate := saveddrawingstate;
+
+      tempcanvas->Close();
+    }
+    ELSE
+    {
+      __DRAWLIB_V2_SetOutlineMode (canvas->canvasid, 0); //solid color
+      __DRAWLIB_V2_SetOutlineColor(canvas->canvasid, this->outlinecolor);
+      __DRAWLIB_V2_SetOutlineWidth(canvas->canvasid, this->outlinewidth);
+
+      IF(ObjectExists(this->filltexture))
+      {
+        __DRAWLIB_V2_SetFillTexture(canvas->canvasid, this->filltexture->canvasid, this->filloffsetx, this->filloffsety);
+        __DRAWLIB_V2_SetFillMode (canvas->canvasid, 1); //texture fill
+      }
+      ELSE
+      {
+        __DRAWLIB_V2_SetFillMode (canvas->canvasid, 0);
+        __DRAWLIB_V2_SetFillColor(canvas->canvasid, this->fillcolor);
+      }
+
+      __DRAWLIB_V2_DRAWPATH(canvas->canvasid, fixuppath(this->path), stroke, fill, this->translation);
+    }
+  }
+>;
+
+/** This object contains a font renderer. It draws text relative to a baseline point - the
+    horizontal and vertical alignment and the baseangle determine where the text is drawn
+    exactly.
+*/
+OBJECTTYPE TextRenderer
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Handle to the current font
+  INTEGER fonthandle;
+
+  /// Name of the current font
+  STRING openedfont;
+
+  /// Current horizontal alignment
+  INTEGER pvt_halign;
+
+  /// Current vertical alignment
+  INTEGER pvt_valign;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Font family
+  PUBLIC STRING fontfamily;
+
+  /// Font style
+  PUBLIC STRING fontstyle;
+
+  /// Size of the font
+  PUBLIC INTEGER fontsize;
+
+  /// Rendering color
+  PUBLIC INTEGER color;
+
+  /// Whether to draw the text using anti-aliasing
+  PUBLIC BOOLEAN antialiasing;
+
+  /// Word-wrapping with in pixels
+  PUBLIC INTEGER wordwrapwidth;
+
+  /** The angle between the X-axis and the baseline of the complete text, in degrees
+      Example: orientation = 90 degrees; alignment = LEFT draws (the dot is the baselinepoint)
+      T
+      X
+      E
+      T
+      .  etc.
+  */
+  PUBLIC FLOAT baseangle;
+
+  /// The angle between the X-axis and the base of each glyph, in degrees
+  PUBLIC FLOAT glyphangle;
+
+  /// Letter spacing
+  PUBLIC FLOAT letterspacing;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** Get/set the horizontal alignment (one of 'LEFT', 'CENTER', 'RIGHT'). Defaults to LEFT
+      The baselinepoint is the point that positions the text:
+      Left aligment:          .TEXT
+      Right aligment:     TEXT.
+      Center                TE.XT
+  */
+  PUBLIC PROPERTY halign(GetHAlign, SetHalign);
+
+  /// Get/set the vertical alignment (one of 'TOP', 'CENTER', 'BOTTOM', 'BASELINE', 'ASCENDER', 'DESCENDER'). Defaults to BASELINE
+  PUBLIC PROPERTY valign(GetVAlign, SetValign);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->fontfamily := "Arial";
+    this->fontstyle := "Regular";
+    this->fontsize := 12;
+    this->color := ColorBlack;
+    this->antialiasing := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO EnsureFontOpen()
+  {
+    IF(this->openedfont != this->fontfamily || "\t" || this->fontstyle)
+    {
+      this->Close();
+
+      this->fonthandle := __DRAWLIB_V2_MAKEFONT(this->fontfamily, this->fontstyle, this->fontsize);
+      IF(this->fonthandle <= 0)
+        THROW NEW Exception("Unable to open font '" || this->fontfamily || " " || this->fontstyle || "'");
+      this->openedfont := this->fontfamily || "\t" || this->fontstyle;
+    }
+    __DRAWLIB_V2_SetFontSize(this->fonthandle, this->fontsize);
+    __DRAWLIB_V2_SetFontColor(this->fonthandle, this->color);
+    __DRAWLIB_V2_SetFontAlignment(this->fonthandle, this->pvt_halign, this->pvt_valign);
+    __DRAWLIB_v2_SetFontAntiAliasMode(this->fonthandle, this->antialiasing ? 1 : 0);
+    __DRAWLIB_V2_SetFontOrientation(this->fonthandle, INTEGER(this->baseangle), INTEGER(this->glyphangle));
+    __DRAWLIB_V2_SETFONTLETTERSPACING(this->fonthandle,this->letterspacing);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetHAlign()
+  {
+    RETURN __haligns[this->pvt_halign];
+  }
+
+  MACRO SetHAlign(STRING alignment)
+  {
+    INTEGER align := SearchElement(__haligns,ToUppercase(alignment));
+    IF(align=-1)
+      THROW NEW Exception("Invalid horizontal alignment '" || alignment || "'");
+    this->pvt_halign := align;
+  }
+
+  STRING FUNCTION GetVAlign()
+  {
+    RETURN __valigns[this->pvt_valign];
+  }
+
+  MACRO SetVAlign(STRING alignment)
+  {
+    INTEGER align := SearchElement(__valigns,ToUppercase(alignment));
+    IF(align=-1)
+      THROW NEW Exception("Invalid vertical alignment '" || alignment || "'");
+    this->pvt_valign := align;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION __LayoutText(STRING text)
+  {
+    INTEGER x,y;
+    OBJECT parser := NEW StringParser(text);
+
+    STRING ARRAY lines;
+    STRING linesofar;
+    WHILE (NOT parser->eof)
+    {
+      STRING tok := parser->ParseWhileNotInSet(this->wordwrapwidth > 0 ? " \n" : "\n");
+
+      //Check if we can add to the line
+      IF(tok != "" AND this->wordwrapwidth > 0)
+      {
+        STRING tryline := linesofar || tok;
+        IF(__DRAWLIB_V2_GETTEXTWIDTH(this->fonthandle, tryline) > this->wordwrapwidth)
+        {
+          IF(linesofar != "")
+          {
+            INSERT linesofar INTO lines AT END;
+            linesofar := tok;
+          }
+
+          WHILE(TRUE)
+          {
+            STRING fittingtok := tok;
+
+            WHILE(__DRAWLIB_V2_GETTEXTWIDTH(this->fonthandle, fittingtok) > this->wordwrapwidth)
+            {
+              fittingtok := Left(fittingtok, Length(fittingtok)-1);
+            }
+
+            IF(fittingtok = tok OR fittingtok="") //also break on no forward progress
+              BREAK;
+
+            INSERT fittingtok INTO lines AT END;
+            tok := Substring(tok,Length(fittingtok));
+          }
+          linesofar := tok;
+        }
+        ELSE
+        {
+          linesofar := tryline;
+        }
+      }
+      ELSE
+      {
+        linesofar:=linesofar||tok;
+      }
+
+      WHILE(TRUE)
+      {
+        IF(parser->TryParse(" "))
+          linesofar := linesofar || " ";
+        ELSE IF(parser->TryParse("\n"))
+        {
+          INSERT linesofar INTO lines AT END;
+          linesofar := "";
+        }
+        ELSE
+          BREAK;
+      }
+    }
+    IF(linesofar!="")
+      INSERT linesofar INTO lines AT END;
+
+    //wordwrap
+    RECORD ARRAY outlines;
+    FOREVERY(STRING line FROM lines)
+    {
+      IF(this->wordwrapwidth > 0)
+        WHILE(Right(line,1)=' ')
+          line := Left(line,Length(line)-1);
+
+      RECORD outline := [ x := x
+                        , y := y
+                        , lineheight := this->fontsize
+                        , text := line
+                        ];
+
+      INSERT outline INTO outlines AT END;
+      y := y + outline.lineheight;
+    }
+    RETURN outlines;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Draw a text onto a canvas
+      @param canvas Canvas to draw on
+      @param x X coordinate of the baselinepoint
+      @param y Y coordinate to the baselinepoint
+      @param text Text to draw
+  */
+  PUBLIC MACRO DrawText(OBJECT canvas, INTEGER x, INTEGER y, STRING text)
+  {
+    this->EnsureFontOpen();
+
+    RECORD ARRAY lines := this->__LayoutText(text);
+
+    IF(Length(lines) > 1 AND this->valign="CENTER") //FIXME proper lineheight calculation
+      y := y - (this->fontsize * Length(lines))/2;
+    ELSE IF(Length(lines) > 1 AND this->valign="BOTTOM") //FIXME proper lineheight calculation
+      y := y - (this->fontsize * Length(lines));
+
+    FOREVERY(RECORD line FROM lines)
+      __DRAWLIB_V2_DRAWTEXT(canvas->canvasid, this->fonthandle, x + line.x, y + line.y, line.text);
+  }
+
+  /** @short Calculates the width of a text
+      @param text Text to calculate the width of
+      @return Width of the text in pixels
+  */
+  PUBLIC INTEGER FUNCTION GetTextWidth(STRING text)
+  {
+    this->EnsureFontOpen();
+
+    INTEGER maxwidth;
+    RECORD ARRAY lines := this->__LayoutText(text);
+    FOREVERY(RECORD line FROM lines)
+    {
+      INTEGER linewidth := __DRAWLIB_V2_GETTEXTWIDTH(this->fonthandle,line.text);
+      IF(linewidth > maxwidth)
+        maxwidth := linewidth;
+    }
+    RETURN maxwidth;
+  }
+
+  /** @short Calculates the height of a text
+      @param text Text to calculate the width of
+      @return Width of the text in pixels
+  */
+  PUBLIC INTEGER FUNCTION GetTextHeight(STRING text)
+  {
+    //FIXME proper lineheight calculation
+    this->EnsureFontOpen();
+
+    INTEGER totalheight;
+    RECORD ARRAY lines := this->__LayoutText(text);
+
+    IF(Length(lines) = 0)
+      RETURN 0;
+
+    RECORD lastline := lines[Length(lines)-1];
+    RETURN lastline.y + lastline.lineheight;
+  }
+
+  /** @short Given a box and a text, calculate the maximum font size where the text still fits inside the box
+      @param maxwidth Maximum width
+      @param maxheight Maximum height
+      @param text Text
+      @return Maximum font size where the text still fits inside the maximum width and height
+  */
+  PUBLIC INTEGER FUNCTION GetFittingFontSize(INTEGER maxwidth, INTEGER maxheight, STRING text)
+  {
+    this->EnsureFontOpen();
+
+    INTEGER lowerbound := 1, upperbound := 10000, savefontsize := this->fontsize;
+
+    WHILE(lowerbound < upperbound-1)
+    {
+      INTEGER trysize := lowerbound + (upperbound-lowerbound)/2;
+      this->fontsize := trysize;
+      INTEGER trywidth := this->GetTextWidth(text);
+      INTEGER tryheight := this->GetTextHeight(text);
+
+      IF(trywidth <= maxwidth AND tryheight <= maxheight)
+        lowerbound := trysize;
+      ELSE
+        upperbound := trysize;
+    }
+    this->fontsize := savefontsize;
+    RETURN lowerbound;
+  }
+
+  /** @short Releases all resources
+  */
+  PUBLIC MACRO Close()
+  {
+    IF(this->fonthandle=0)
+      RETURN;
+
+    __DRAWLIB_V2_DESTROYFONT(this->fonthandle);
+    this->fonthandle := 0;
+    this->openedfont := "";
+  }
+>;
+
+/** @short Creates a canvas from an existing image (eg a GIF, JPEG or a PNG image)
+    @param infile Image
+    @return Canvas object, or DEFAULT OBJECT if the image could not be read
+*/
+PUBLIC OBJECT FUNCTION CreateCanvasFromBlob(BLOB infile)
+{
+  INTEGER canvas := __DRAWLIB_V2_CreateCanvasFromFile(infile);
+  IF(canvas=0)
+    RETURN DEFAULT OBJECT;
+  RETURN NEW GraphicsCanvas(canvas);
+}
+
+/** @short Create a canvas from raw image data
+    @param infile Data to read
+    @cell(string) inputformat.pixelformat Pixelformat (currently RGBA anD ARGB are supported)
+    @cell(integer) inputformat.width Input width
+    @cell(integer) inputformat.height Input height
+    @cell(boolean) inputformat.premultiplied If true, expect the input to have its color channels premultiplied with the alpha channel, and undo that */
+PUBLIC OBJECT FUNCTION CreateCanvasFromRawBlob(BLOB infile, RECORD inputformat)
+{
+  IF(inputformat.pixelformat NOT IN ["RGBA","ARGB"])
+    THROW NEW Exception("Only pixelformats RGBA and ARGB are currently supported");
+  IF(inputformat.width < 1 OR inputformat.height < 1)
+    THROW NEW Exception("Illegal canvas dimensions: " || inputformat.width || "x" || inputformat.height);
+
+  FOREVERY(RECORD cellrec FROM UnpackRecord(inputformat))
+    IF(cellrec.name NOT IN ["PIXELFORMAT", "WIDTH", "HEIGHT", "PREMULTIPLIED"])
+      THROW NEW Exception("Unexpected inputformat property '" || cellrec.name || "'");
+
+  BOOLEAN premultiplied := CellExists(inputformat,"premultiplied") AND inputformat.premultiplied;
+  INTEGER canvas := __DRAWLIB_V2_CREATECANVASFROMRAWBLOB(infile, inputformat.width, inputformat.height, inputformat.pixelformat, premultiplied);
+  IF(canvas=0)
+    RETURN DEFAULT OBJECT;
+  RETURN NEW GraphicsCanvas(canvas);
+}
+
+/** @short Creates a canvas from an image blob, and resizes it immediately
+    @param infile Raw image blob
+    @param method Resize method
+    @return Canvas object, or DEFAULT OBJECT if the image could not be read
+*/
+PUBLIC OBJECT FUNCTION CreateResizedCanvasFromBlob(BLOB infile, RECORD method)
+{
+  DELETE CELL noforce FROM method;
+  INSERT CELL noforce := FALSE INTO method; //ensure canvas is loaded, even if nothing changed
+
+  RECORD filerec := CellInsert(ScanBLob(infile), "data", infile);
+  RECORD outinfo := __MyGfxResizeImageBlobWithMethod(filerec, method);
+  IF(NOT RecordExists(outinfo))
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW GraphicsCanvas(outinfo.canvas);
+}
+
+/** @short Create a new canvas
+    @param width Width of the new canvas
+    @param height Height of the new canvas
+    @param initialcolor Initial color of the new canvas
+    @return Canvas object
+*/
+PUBLIC OBJECT FUNCTION CreateEmptyCanvas(INTEGER width, INTEGER height, INTEGER initialcolor)
+{
+  IF(width < 1 OR height < 1)
+    THROW NEW Exception("Illegal canvas dimensions: " || width || "x" || height);
+  RETURN NEW GraphicsCanvas(__DRAWLIB_V2_MakeCanvas(width, height, initialcolor));
+}
+
+/** @short Create a new 2D path
+    @return 2D path object
+*/
+PUBLIC OBJECT FUNCTION Create2DPath()
+{
+  RETURN NEW Path2D(DEFAULT RECORD ARRAY);
+}
+
+/** @short Create a new text renderer
+    @return Text renderer object
+*/
+PUBLIC OBJECT FUNCTION CreateTextRenderer()
+{
+  RETURN NEW TextRenderer();
+}
+
+PUBLIC RECORD FUNCTION GetImageResizeInstruction(INTEGER width, INTEGER height, STRING mimetype, RECORD method) __ATTRIBUTES__(DEPRECATED "GetImageResizeInstruction cannot handle rotated photos. Use ExplainImageProcessing for resize information that considers rotation")
+{
+  RETURN ExplainImageProcessing( [ width := width, height := height, mimetype := mimetype, rotation := 0, mirrored := FALSE, refpoint := DEFAULT RECORD ], method);
+}
+
+PUBLIC OBJECT FUNCTION __CreateCanvasWithCanvasID(INTEGER id) //entry point for canvas marshaller
+{
+  RETURN NEW GraphicsCanvas(id);
+}

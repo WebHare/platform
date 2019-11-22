@@ -1,0 +1,28 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "wh::util/localization.whlib";
+
+PUBLIC RECORD ARRAY initialitems := [[ rowkey := 1, title := "One", country := "DE" ]
+                              ,[ rowkey := 2, title := "Two", country := "NL", subnodes :=
+                                 [[ rowkey := 3, title := "Three", country := "AU" ]
+                                 ]
+                               ]
+                              ];
+
+PUBLIC STRING FUNCTION ExpandCountry(STRING countrycode)
+{
+  RETURN SELECT AS STRING en FROM GetCountryList("en") WHERE code=countrycode;
+}
+
+PUBLIC STATIC OBJECTTYPE XMLList EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^list->rows := initialitems;
+  }
+  STRING FUNCTION ExpandCountry(STRING countrycode)
+  {
+    RETURN ExpandCountry(countrycode);
+  }
+>;

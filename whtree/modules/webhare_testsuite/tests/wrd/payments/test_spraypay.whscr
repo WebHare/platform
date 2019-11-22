@@ -1,0 +1,173 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/spraypay.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+STRING currenturl;
+
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_SPRAYPAY_MERCHANTID") = "";
+IF(offlineonly)
+  Print("*** Skipping some tests as TESTFW_SPRAYPAY_MERCHANTID is not set\n\n");
+
+MACRO SetPage(RECORD evt)
+{
+  PRINT("** RECEIVED URL " || evt.frame.url || " **\n");
+  currenturl := evt.frame.url;
+}
+
+MACRO TestBaseFunctions()
+{
+  RECORD ARRAY fields := [[ name := "webshopId", value := "1" ]
+                         ,[ name := "webshopOrderAmount", value := "400"]
+                         ,[ name := "webshopOrderId", value := "131313"]
+                         ,[ name := "webshopCustomerId", value := "121212"]
+                         ,[ name := "returnUrl", value := "https://webshop.nl/payment" ]
+                         ,[ name := "xx", value := "notinscope" ]
+                         ];
+
+  TestEq("uRnSkBNX9HO+V/KcTSGwftBRTKpouTz2npTOCO7DF2c=",
+          GetSprayPaySignature(fields, [ "webshopOrderAmount"
+                                       , "webshopOrderId"
+                                       , "webshopCustomerId"
+                                       , "webshopId"
+                                       , "returnUrl"
+                                       ], "44782DEF547AAA06C910C43932B1EB0C71FC68D9D0C057550C48EC2ACF6BA056"));
+}
+
+ASYNC MACRO SetupSprayPay()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("addprovider"));
+  TT("methods")->value := "wrd:spraypay";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+  TT(":Webshop ID")->value := ToInteger(GetEnvironmentVariable("TESTFW_SPRAYPAY_MERCHANTID"),0);
+  TT(":API key")->value := GetEnvironmentVariable("TESTFW_SPRAYPAY_APIKEY");
+  TT(":Title")->value := "Spray Your Pay!";
+  TT("paymentextension->testmode")->value := true;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+}
+
+ASYNC MACRO TestPaymentSprayPay()
+{
+  IF(offlineonly)
+    RETURN;
+
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  paymentapi->UpdateConfig([ ordernrformat := "TST|" || GenerateUFS128BitId() || "|%d%03n"]);
+
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  RECORD spraypaymethod := SELECT * FROM methods WHERE title="Spray Your Pay!";
+  TestEq(TRUE, RecordExists(spraypaymethod));
+  TEstEq(0, Length(spraypaymethod.issuers));
+
+  OBJECT testperson := paymentapi->wrdschema->^wrd_person->CreateEntity(
+      [ wrd_gender := 1
+      , wrd_firstname := "Test"
+      , wrd_lastname := "Acceptatie 123"
+      , wrd_contact_email := "spraypaytest@example.net"
+      , wrd_dateofbirth := MakeDate(1990,1,1)
+      , wrd_contact_phone := "+31513744112"
+      //, wrd_contact_phone2 := fortype = "BE" ? "+32
+      //4720677610" : "+31513744112"
+      ]);
+
+  OBJECT payment1 := paymentapi->paymenttype->CreateEntity(CELL[]);
+  OBJECT payment2 := paymentapi->paymenttype->CreateEntity(CELL[]);
+  OBJECT payment3 := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD properrequest := [ paymentprovider := spraypaymethod.paymentprovider
+                          , paymentoptiontag := spraypaymethod.paymentoptiontag
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          ];
+  IF(testfw->debug)
+    Print("Planned return url: " || properrequest.returnurl || "\n");
+
+  TestThrowsLike("*customer id*", PTR paymentapi->StartPayment(payment1->id, 154.87, properrequest));
+  properrequest := CELL[ ...properrequest
+                       , customerid := GenerateUFS128BitId()
+                       ];
+
+  TestThrowsLike("*email address*", PTR paymentapi->StartPayment(payment1->id, 154.88, properrequest));
+
+  properrequest := CELL[ ...properrequest
+                       , billingaddress := [ street := "Teststraat"
+                                           , city :="Testplaats"
+                                           , country := "NL"
+                                           , nr_detail := "1"
+                                           , zip := "8443 ER"
+                                           ]
+                       , wrdpersonentity := testperson
+                       ];
+
+  RECORD paymentinstruction := paymentapi->StartPayment(payment1->id, 154.89, properrequest);
+  STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
+  IF(testfw->debug)
+    Print(`Payment url: ${payurl}\n`);
+
+  TestEq("pending", payment1->GetField("DATA").status);
+
+
+  //////////// use chrome headless to execute the paymemnt ////////////////////// ADDME generalize cleanup?
+  OBJECT runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+  RECORD session := AWAIT runner->CreateSession();
+  OBJECT connector := NEW ChromeConnector(session.connectorurl, [ debug := TRUE ]);
+  OBJECT conn := AWAIT connector->ConnectToSession(session);
+  OBJECT pageobj := NEW Page(conn);
+  OBJECT navwatcher := NEW NavigationWatcher(conn);
+
+  AWAIT pageobj->Init();
+  AWAIT pageobj->Navigate(payurl);
+
+  Print("Looking for error button\n");
+  OBJECT redirectbutton := AWAIT WaitForChromeElement(conn, pageobj, "error-page .md-button");
+  Print("Found button\n");
+  AWAIT redirectbutton->Click();
+  Print("Cliecked button\n");
+
+  WHILE(pageobj->mainframe->url NOT LIKE "*wrd/paymentinfo*")
+  {
+    Print("Now on: " || pageobj->mainframe->url || "\n");
+    AWAIT navwatcher->WaitForNavigation();
+  }
+
+  Print("MSP returned to: " || pageobj->mainframe->url || "\n");
+
+  TestEq("failed", payment1->GetField("DATA").status);
+  paymentapi->ForceRecheckPayment(payment1->id);
+  TestEq("failed", payment1->GetField("DATA").status);
+
+  //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , payment1->id));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+}
+
+RunTestframework([ PTR TestBaseFunctions
+                 , PTR CreateWRDTestSchema
+                 , PTR SetupSprayPay
+                 , PTR RunStandardPaymentMethodTests
+                 , PTR TestPaymentSprayPay
+                 ]);

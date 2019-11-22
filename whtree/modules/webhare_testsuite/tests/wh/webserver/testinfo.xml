@@ -1,0 +1,14 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test-accesslog.whscr" />
+  <test script="configfiles.whscr" />
+  <test script="loopbacks.whscr" flaky="true" />
+  <test script="ranges.whscr" />
+  <test script="mutexes.whscr" />
+  <test script="websockets.whscr" />
+  <test script="test-webserver-minimalconfig.whscr" />
+  <jstest name="websockets" file="websockets.es" />
+
+  <jstest file="accessrules.es" exclusive="true" />
+
+  <test name="remoting"   path="remoting/" />
+</group>

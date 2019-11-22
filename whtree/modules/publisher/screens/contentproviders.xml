@@ -1,0 +1,27 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         gid="contentproviders">
+
+  <!-- IMPORTANT: If changes are made to this screen, make sure all other 'publishercontent' contentproviders are still compatible! -->
+  <screen name="webhare" gid=".webhare" lib="internal/contentprovider.whlib" title="">
+    <compositions>
+      <record name="mysettings" />
+    </compositions>
+    <body>
+      <publisher:browseforobject composition="mysettings" cellname="folder" name="folder" required="true"
+                                 acceptfiles="false" width="1pr" />
+      <!-- The lastcontentscheck and contentcheckinterval fields are just here to prevent them from being deleted (they're used by the executeindextasks script) -->
+      <textedit composition="mysettings" cellname="contentcheckinterval" title="" valuetype="integer" visible="false" />
+      <textedit composition="mysettings" cellname="lastcontentscheck" title="" visible="false" />
+      <line layout="left">
+        <text name="lastcontentscheck" />
+      </line>
+
+      <!-- Username/password authentication is no longer used by Consilio -->
+      <heading name="loginrequired" checkbox="true" enablecomponents="username password" visible="false" />
+      <textedit composition="mysettings" cellname="http_username" name="username" width="20x" visible="false" />
+      <textedit composition="mysettings" cellname="http_password" name="password" password="true" width="20x" visible="false" />
+    </body>
+  </screen>
+
+</screens>

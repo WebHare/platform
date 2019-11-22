@@ -1,0 +1,995 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile
+   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+   xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+
+  <!--
+
+      This is the publisher base site profile. It always applies and
+      is parsed before any global or site local profile
+
+  -->
+
+  <language xmlns="http://www.webhare.net/xmlns/tollium/screens">
+  </language>
+
+  <language xml:lang="nl" xmlns="http://www.webhare.net/xmlns/tollium/screens">
+  </language>
+
+  <rtdtype namespace="http://www.webhare.net/xmlns/publisher/defaultrtdtype">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="HEADING1" textstyles="i u" />
+      <textstyle tag="HEADING2" textstyles="i u" />
+      <textstyle tag="HEADING3" textstyles="i u" />
+      <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
+      <textstyle tag="UNORDERED" containertag="ul" textstyles="b a-href img sup sub strike" />
+      <textstyle tag="ORDERED" containertag="ol" textstyles="b a-href img sup sub strike" />
+      <tablestyle tag="TABLE" />
+    </blockstyles>
+  </rtdtype>
+
+  <rtdtype namespace="http://www.webhare.net/xmlns/publisher/defaultmailrtdtype">
+    <css path="siteprofiles/defaultmailrtdtype.css" />
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="NORMAL" textstyles="b i u a-href img sup sub strike" />
+      <textstyle tag="ORDERED" containertag="ol" textstyles="b i u a-href img sup sub strike" />
+      <textstyle tag="UNORDERED" containertag="ul" textstyles="b i u a-href img sup sub strike" />
+    </blockstyles>
+    <widgets ignoresiteprofilewidgets="true" /> <!-- we never want siteprofile widgets available in emails.. they are generally not suited -->
+  </rtdtype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/errorinfo" cloneoncopy="false">
+    <member name="messages" type="array">
+      <member name="type" type="integer" />
+      <member name="line" type="integer" />
+      <member name="col" type="integer" />
+      <member name="file" type="whfsref" />
+      <member name="filename" type="string" />
+      <member name="code" type="integer" />
+      <member name="param1" type="string" />
+      <member name="param2" type="string" />
+    </member>
+    <member name="trace" type="array">
+      <member name="line" type="integer" />
+      <member name="col" type="integer" />
+      <member name="file" type="whfsref" />
+      <member name="filename" type="string" />
+      <member name="func" type="string" />
+    </member>
+  </contenttype>
+
+  <!-- Define the special '0' types
+  -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/normalfolder" cloneoncopy="true" />
+  <foldertype typedef="http://www.webhare.net/xmlns/publisher/normalfolder"
+              tid="publisher:terminology.types.normalfolder"
+              tolliumicon="tollium:folders/normal"
+              />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/unknownfile" cloneoncopy="true" />
+  <filetype typedef="http://www.webhare.net/xmlns/publisher/unknownfile"
+            tid="publisher:terminology.types.unknownfile"
+            tolliumicon="tollium:files/application_x-webhare-unknown"
+            blobiscontent="true"
+            ispublishable="true"
+            requirescontent="true"/>
+
+  <!-- Define the publisher folder types
+  -->
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/foreignfolder" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/systemfolder" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/photoalbum" cloneoncopy="true">
+    <member name="rows" type="string" />
+    <member name="columns" type="string" />
+    <member name="picturesize" type="string" /> <!-- legacy -->
+    <member name="picturewidth" type="integer" />
+    <member name="pictureheight" type="integer" />
+    <member name="thumbnailsize" type="string" /> <!-- legacy -->
+    <member name="thumbnailwidth" type="integer" />
+    <member name="thumbnailheight" type="integer" />
+    <member name="publishoriginals" type="boolean" />
+  </contenttype>
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/tagfolder" cloneoncopy="true" />
+
+  <!-- Editor for photoalbum settings -->
+  <propertyeditor name="photoalbum_settings">
+    <compositions>
+      <p:whfsinstance name="fsinstance" typedef="http://www.webhare.net/xmlns/publisher/photoalbum" />
+    </compositions>
+    <newtab gid="publisher:foldertypes.photoalbum-settings" tid=".tabtitle">
+      <t:line>
+        <t:textedit tid=".indexpage" width="5x" composition="fsinstance" cellname="rows" />
+        <t:text valuetid=".rows" />
+        <t:textedit width="5x" composition="fsinstance" cellname="columns" />
+        <t:text valuetid=".columns" />
+      </t:line>
+      <t:line>
+        <t:textedit tid=".picturewidth" width="6x" composition="fsinstance" cellname="picturewidth" valuetype="integer"/>
+        <t:text valuetid=".pixels" />
+      </t:line>
+      <t:line>
+        <t:textedit tid=".pictureheight" width="6x" composition="fsinstance" cellname="pictureheight" valuetype="integer"/>
+        <t:text valuetid=".pixels" />
+      </t:line>
+      <t:line>
+        <t:textedit tid=".thumbnailwidth" width="6x" composition="fsinstance" cellname="thumbnailwidth" valuetype="integer" />
+        <t:text valuetid=".pixels" />
+      </t:line>
+      <t:line>
+        <t:textedit tid=".thumbnailheight" width="6x" composition="fsinstance" cellname="thumbnailheight" valuetype="integer"/>
+        <t:text valuetid=".pixels" />
+      </t:line>
+      <t:line layout="left">
+        <t:checkbox title="" labeltid=".publishoriginals" composition="fsinstance" cellname="publishoriginals" />
+      </t:line>
+    </newtab>
+  </propertyeditor>
+  <apply>
+    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/photoalbum" />
+    <extendproperties name="photoalbum_settings" />
+  </apply>
+
+  <!-- DBfile publishing -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/dbpublication" cloneoncopy="false">
+    <member name="dbfiles" type="array">
+      <member name="filename" type="string" />
+      <member name="data" type="file" />
+    </member>
+  </contenttype>
+
+  <foldertype
+      typedef="http://www.webhare.net/xmlns/publisher/foreignfolder"
+      webhare_builtintypeid="1"
+      tid="publisher:foldertypes.foreign"
+      tolliumicon="tollium:folders/locked"
+      isdevelopertype="true"
+      ishidden="true"
+      indexfile="none"
+  />
+
+  <foldertype
+      typedef="http://www.webhare.net/xmlns/publisher/systemfolder"
+      webhare_builtintypeid="2"
+      tid="publisher:foldertypes.system"
+      tolliumicon="tollium:folders/system"
+      isdevelopertype="true"
+      ishidden="true"
+      indexfile="none"
+  />
+
+  <foldertype
+      typedef="http://www.webhare.net/xmlns/publisher/photoalbum"
+      webhare_builtintypeid="3"
+      tid="publisher:foldertypes.photoalbum"
+      tolliumicon="tollium:folders/photoalbum"
+      indexfile="contentlisting"
+      protectindexfile="true"
+  />
+
+  <foldertype
+      typedef="http://www.webhare.net/xmlns/publisher/designfilessite"
+      tid="publisher:foldertypes.designfilessite"
+      tolliumicon="tollium:folders/system"
+      indexfile="none"
+  />
+
+  <foldertype
+      typedef="http://www.webhare.net/xmlns/publisher/tagfolder"
+      tid="publisher:foldertypes.tagfolder"
+      tolliumicon="tollium:folders/tag"
+      indexfile="none"
+      ishidden="true"
+      protectindexfile="true"
+  />
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/previewinfo" cloneoncopy="false">
+    <member name="previewmodificationdate" type="datetime" />
+    <member name="previewimage" type="file" />
+  </contenttype>
+
+  <!-- Define the publisher file types
+  -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/mswordfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/htmlfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/javascriptfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/semidynamicfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/cssfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/targzfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/pdffile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/imagefile" cloneoncopy="true"/>
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/multimediafile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/zipfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/archivefile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/libraryfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/flashfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/externallink" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/internallink" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/contentlink" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/plaintextfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/standalonetemplatefile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/xmlfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/contentlisting" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/shtmlfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/prebuiltpage" cloneoncopy="true">
+    <member name="prebuilttag" type="string" />
+  </contenttype>
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/wittyfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/siteprofilefile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/templatefile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/profilefile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/webfieldsfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/smarttagsfile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/mp3audiofile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/flvvideofile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/richdocumentfile" cloneoncopy="true">
+    <member name="original" type="file" />
+    <member name="data" type="richdocument" />
+  </contenttype>
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/msworddownload" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/dynamicfoldercontents" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/languagefile" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/designfilessite" cloneoncopy="true" />
+  <contenttype namespace="http://www.webhare.net/xmlns/wrd/instancefile" cloneoncopy="true">
+    <member name="instance" type="instance" />
+  </contenttype>
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/tagfile" cloneoncopy="true">
+    <member name="belongstorepos" type="whfsrefarray" />
+  </contenttype>
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/tagrepository" cloneoncopy="true">
+    <member name="tags" type="whfsrefarray" />
+  </contenttype>
+  <!-- Tag meta for files: -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/taginfo" cloneoncopy="true">
+    <member name="tags" type="whfsrefarray" />
+  </contenttype>
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/webharearchivefile" cloneoncopy="true" />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/mswordfile"
+      webhare_builtintypeid="4"
+      tid="publisher:filetypes.msword"
+      tolliumicon="tollium:files/application_msword"
+      extensions=".doc"
+      blobiscontent="true"
+      requirescontent="true"
+      needstemplate="true"
+      needsprofile="true"
+      isacceptableindex="true"
+      ispublishable="true"
+      ispublishedassubdir="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/htmlfile"
+      webhare_builtintypeid="5"
+      tid="publisher:filetypes.html"
+      tolliumicon="tollium:files/text_html"
+      extensions=".html .htm"
+      blobiscontent="true"
+      needstemplate="true"
+      needsprofile="false"
+      isacceptableindex="true"
+      ispublishable="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/javascriptfile"
+      webhare_builtintypeid="6"
+      tid="publisher:filetypes.javascript"
+      tolliumicon="tollium:files/application_x-javascript"
+      extensions=".js"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      ispublishable="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/semidynamicfile"
+      webhare_builtintypeid="7"
+      tid="publisher:filetypes.semidynamic"
+      tolliumicon="tollium:files/application_x-webhare-semidynamic"
+      extensions=".html .htm .shtml"
+      blobiscontent="true"
+      needstemplate="true"
+      needsprofile="false"
+      isdevelopertype="true"
+      isacceptableindex="true"
+      ispublishable="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/cssfile"
+      webhare_builtintypeid="9"
+      tid="publisher:filetypes.css"
+      tolliumicon="tollium:files/text_css"
+      extensions=".css"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      ispublishable="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/targzfile"
+      webhare_builtintypeid="10"
+      tid="publisher:filetypes.targz"
+      tolliumicon="tollium:files/application_x-gzip"
+      extensions=".tar.gz"
+      blobiscontent="true"
+      requirescontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      ispublishable="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/pdffile"
+      webhare_builtintypeid="11"
+      tid="publisher:filetypes.pdf"
+      tolliumicon="tollium:files/application_pdf"
+      extensions=".pdf"
+      blobiscontent="true"
+      needstemplate="false"
+      requirescontent="true"
+      needsprofile="false"
+      ispublishable="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/imagefile"
+      webhare_builtintypeid="12"
+      tid="publisher:filetypes.image"
+      tolliumicon="tollium:files/image"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      ispublishable="true"
+      requirescontent="true"
+  />
+
+  <!-- The multimedia file type uses the 'video' icon as we don't have a general 'multimedia' icon -->
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/multimediafile"
+      webhare_builtintypeid="13"
+      tid="publisher:filetypes.multimedia"
+      tolliumicon="tollium:files/video"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      ispublishable="true"
+      requirescontent="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/zipfile"
+      webhare_builtintypeid="14"
+      tid="publisher:filetypes.zip"
+      tolliumicon="tollium:files/application_zip"
+      extensions=".zip"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      ispublishable="true"
+      requirescontent="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/webharearchivefile"
+      tid="publisher:filetypes.webharearchive"
+      tolliumicon="tollium:files/application_wharchive"
+      extensions=".wharchive"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      ispublishable="false"
+      requirescontent="true"
+  />
+
+  <!-- The archive file type uses the 'application/zip' icon as we don't have a general 'archive' icon -->
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/archivefile"
+      webhare_builtintypeid="15"
+      tid="publisher:filetypes.archive"
+      tolliumicon="tollium:files/application_zip"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      ispublishable="true"
+      requirescontent="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/libraryfile"
+      webhare_builtintypeid="16"
+      tid="publisher:filetypes.library"
+      tolliumicon="tollium:files/application_x-webhare-library"
+      extensions=".whlib"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/flashfile"
+      webhare_builtintypeid="17"
+      tid="publisher:filetypes.flash"
+      tolliumicon="tollium:files/application_x-webhare-general"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      ispublishable="true"
+      requirescontent="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/externallink"
+      webhare_builtintypeid="18"
+      tid="publisher:filetypes.externallink"
+      tolliumicon="tollium:files/application_x-webhare-externallink"
+      blobiscontent="false"
+      needstemplate="false"
+      needsprofile="false"
+      isacceptableindex="true"
+      ispublishable="true"
+      ispublishedassubdir="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/internallink"
+      webhare_builtintypeid="19"
+      tid="publisher:filetypes.internallink"
+      tolliumicon="tollium:files/application_x-webhare-internallink"
+      blobiscontent="false"
+      needstemplate="false"
+      needsprofile="false"
+      isacceptableindex="true"
+      ispublishable="true"
+      ispublishedassubdir="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/contentlink"
+      webhare_builtintypeid="20"
+      tid="publisher:filetypes.contentlink"
+      tolliumicon="tollium:files/application_x-webhare-contentlink"
+      extensions=".whlink"
+      blobiscontent="false"
+      needstemplate="true"
+      needsprofile="false"
+      ispublishable="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/plaintextfile"
+      webhare_builtintypeid="21"
+      tid="publisher:filetypes.plaintext"
+      tolliumicon="tollium:files/text_plain"
+      extensions=".txt"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      ispublishable="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/standalonetemplatefile"
+      webhare_builtintypeid="22"
+      tid="publisher:filetypes.standalonetemplate"
+      tolliumicon="tollium:files/application_x-webhare-serverparsed"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      isacceptableindex="true"
+      ispublishable="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/xmlfile"
+      webhare_builtintypeid="23"
+      tid="publisher:filetypes.xml"
+      tolliumicon="tollium:files/text_xml"
+      extensions=".xml"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      ispublishable="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/contentlisting"
+      webhare_builtintypeid="24"
+      tid="publisher:filetypes.contentlisting"
+      tolliumicon="tollium:files/application_x-webhare-contentlisting"
+      extensions=".html .htm"
+      blobiscontent="false"
+      needstemplate="true"
+      needsprofile="false"
+      isdevelopertype="false"
+      isacceptableindex="true"
+      ispublishable="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/shtmlfile"
+      webhare_builtintypeid="25"
+      tid="publisher:filetypes.shtml"
+      tolliumicon="tollium:files/application_x-webhare-whscript"
+      extensions=".shtml"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      isacceptableindex="true"
+      ispublishable="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile"
+      webhare_builtintypeid="38"
+      tid="publisher:filetypes.shtmlwithdesign"
+      tolliumicon="tollium:files/application_x-webhare-whscript"
+      extensions=".shtml"
+      blobiscontent="true"
+      needstemplate="true"
+      needsprofile="false"
+      isdevelopertype="true"
+      isacceptableindex="true"
+      ispublishable="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/prebuiltpage"
+      webhare_builtintypeid="39"
+      tid="publisher:filetypes.prebuiltpage"
+      tolliumicon="tollium:files/application_x-webhare-whscript"
+      needstemplate="true"
+      needsprofile="false"
+      isacceptableindex="true"
+      ispublishable="true"
+      ispublishedassubdir="true"
+      blobiscontent="false"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/wittyfile"
+      webhare_builtintypeid="26"
+      tid="publisher:filetypes.witty"
+      tolliumicon="tollium:files/application_x-webhare-witty"
+      extensions=".witty"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/siteprofilefile"
+      webhare_builtintypeid="27"
+      tid="publisher:filetypes.siteprofile"
+      tolliumicon="tollium:files/application_x-webhare-siteprofile"
+      extensions=".siteprl"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/templatefile"
+      webhare_builtintypeid="28"
+      tid="publisher:filetypes.template"
+      tolliumicon="tollium:files/application_x-webhare-template"
+      extensions=".tpl"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/profilefile"
+      webhare_builtintypeid="29"
+      tid="publisher:filetypes.profile"
+      tolliumicon="tollium:files/application_x-webhare-profile"
+      extensions=".prl"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <!-- TODO: remove when blexdev_formsapi goes! -->
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/webfieldsfile"
+      webhare_builtintypeid="34"
+      tid="publisher:filetypes.webfieldsfile"
+      tolliumicon="tollium:files/text_xml"
+      extensions=".webfields"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/mp3audiofile"
+      tid="publisher:filetypes.mp3audiofile"
+      tolliumicon="tollium:files/audio"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      ispublishable="true"
+      requirescontent="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/flvvideofile"
+      tid="publisher:filetypes.flvvideofile"
+      tolliumicon="tollium:files/video"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      ispublishable="true"
+      requirescontent="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile"
+      tid="publisher:filetypes.richdocumentfile"
+      tolliumicon="tollium:files/application_x-webhare-richdocument"
+      blobiscontent="false"
+      needstemplate="true"
+      needsprofile="false"
+      ispublishable="true"
+      requirescontent="false"
+      isacceptableindex="true"
+      ispublishedassubdir="true"
+      extensions=".rtd"
+      searchprovider="../lib/search/searchproviders.whlib#RichDocumentSearchProvider"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/msworddownload"
+      tid="publisher:filetypes.msworddownload"
+      tolliumicon="tollium:files/application_msword"
+      extensions=".doc"
+      blobiscontent="true"
+      requirescontent="true"
+      ispublishable="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
+      tid="publisher:filetypes.dynamicfoldercontents"
+      tolliumicon="tollium:files/application_x-webhare-contentlisting"
+      extensions=".shtml"
+      webhare_builtintypeid="35"
+      blobiscontent="false"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      isacceptableindex="true"
+      ispublishable="true"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/languagefile"
+      tid="publisher:filetypes.languagefile"
+      tolliumicon="tollium:files/application_x-webhare-languagefile"
+      extensions=".xml"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      isacceptableindex="false"
+      ispublishable="true"
+      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/wrd/instancefile"
+      tid="publisher:filetypes.wrdinstancefile"
+      blobiscontent="false"
+      requirescontent="false"
+      needstemplate="false"
+      needsprofile="false"
+      isacceptableindex="false"
+      ispublishable="false"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/tagfile"
+      tid="publisher:filetypes.tagfile"
+      tolliumicon="tollium:mailclient/label"
+      blobiscontent="false"
+      requirescontent="false"
+      needstemplate="false"
+      needsprofile="false"
+      isacceptableindex="false"
+      ispublishable="false"
+  />
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/publisher/tagrepository"
+      tid="publisher:filetypes.tagrepository"
+      tolliumicon="tollium:folders/repository"
+      blobiscontent="false"
+      requirescontent="false"
+      needstemplate="false"
+      needsprofile="false"
+      isacceptableindex="false"
+      ispublishable="false"
+  />
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/reports/publishstatus"
+               cloneoncopy="false">
+    <member name="show_publishing" type="boolean"  />
+    <member name="show_warnings" type="boolean" />
+    <member name="show_puberrors" type="boolean" />
+    <member name="show_ioerrors" type="boolean"  />
+    <member name="show_aborted" type="boolean" />
+    <member name="show_errors" type="boolean" />
+    <member name="sorting" type="string" />
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/reports/sitesummary"
+               cloneoncopy="false">
+    <member name="show_filecount" type="boolean" />
+    <member name="show_foldercount" type="boolean" />
+    <member name="show_inputsizes" type="boolean"/>
+    <member name="show_outputsizes" type="boolean" />
+    <member name="show_publishstatus" type="boolean" />
+    <member name="show_linkstatus" type="boolean" />
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/sitesettings" cloneoncopy="true">
+    <member name="siteprofiles" type="whfsrefarray" />
+    <member name="sitedesign" type="string" />
+    <member name="webfeatures" type="stringarray" />
+    <member name="comments" type="string" />
+    <member name="productionurl" type="string" />
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/widgetpreview">
+    <member name="modificationdate" type="datetime" />
+    <member name="image" type="file" />
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/draftmetadata">
+    <member name="parent" type="whfsref" />
+    <member name="name" type="string" />
+    <member name="flags" type="integer" />
+    <!-- Bitmask 1: published
+         BitMask 6: 2: make this the index, 4: make sure this won't be the index
+    -->
+  </contenttype>
+
+  <apply>
+    <to type="all" />
+
+    <!-- Republish the index of a folder when a file changes -->
+    <republish indexonly="true" />
+
+    <!-- Allow all WebHare file and folder types by default -->
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/normalfolder" />
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/systemfolder" />
+
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/*" />
+
+    <!-- These are seldom used -->
+    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/tagfile" />
+    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/tagrepository" />
+    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/profilefile" />
+
+    <!-- Disable for now, until we make this feature public -->
+    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/formwebtool" />
+    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/formwidget" />
+  </apply>
+
+  <apply>
+    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/photoalbum" />
+    <!-- Default photoalbum settings -->
+    <defaultsettings typedef="http://www.webhare.net/xmlns/publisher/photoalbum">
+      <member name="rows">5</member>
+      <member name="columns">5</member>
+      <member name="picturewidth">600</member>
+      <member name="pictureheight">600</member>
+      <member name="thumbnailwidth">100</member>
+      <member name="thumbnailheight">100</member>
+    </defaultsettings>
+  </apply>
+
+  <apply>
+    <to type="all" sitemask="?*" /> <!-- limited to  sites -->
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/photoalbum" />
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/foreignfolder" />
+  </apply>
+
+  <apply>
+    <to type="folder" />
+
+    <!-- Republish the index of the parent folder when a folder changes -->
+    <republish folder=".." indexonly="true" />
+
+    <!-- Show title+description, but no keywords -->
+    <baseproperties title="true" description="true" />
+
+    <!-- To ensure backwards compatibility, we don't specify default folderindex here. If it would be specified here, there
+         would be no way to determine if a site uses the old site settings or the new site profile settings. New sites
+         MUST use a site profile to get a default index placed in new folders. -->
+  </apply>
+
+  <apply>
+    <to type="folder" sitemask="Repository" />
+
+    <!-- Don't add an index file to new folders in the Repository -->
+    <folderindex indexfile="none" />
+  </apply>
+
+  <!-- enable texteditors -->
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/htmlfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/javascriptfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/semidynamicfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/cssfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/libraryfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/plaintextfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/standalonetemplatefile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/xmlfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/shtmlfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/wittyfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/siteprofilefile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/templatefile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/webfieldsfile" />
+    <setobjecteditor name="publisher:texteditor" />
+  </apply>
+
+  <apply>
+    <to type="file" />
+    <bodyrenderer library="mod::publisher/lib/webdesign.whlib" objectname="StaticPageBase" />
+    <baseproperties title="true" description="true" keywords="true" />
+  </apply>
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+    <setobjecteditor name="publisher:editdocument" supportsversioning="true" />
+    <richdocumenteditor>
+      <structuredefinition fullpath="mod::publisher/data/default.structure.xml" />
+      <css fullpath="mod::publisher/data/default.structure.css" />
+    </richdocumenteditor>
+    <bodyrenderer library="mod::publisher/lib/internal/renderers/rtd.whlib" objectname="RenderRTD" />
+  </apply>
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/mswordfile" />
+    <bodyrenderer library="mod::publisher/lib/internal/renderers/msword.whlib" objectname="RenderMSWordFile"/>
+  </apply>
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/contentlisting" parenttype="http://www.webhare.net/xmlns/publisher/photoalbum" />
+    <bodyrenderer library="mod::publisher/lib/internal/renderers/photogallery.whlib" objectname="PhotoGalleryRenderer" />
+  </apply>
+
+  <apply priority="-1">
+    <to type="all" />
+    <!-- By default, allow all questions and handlers that don't require extra configuration or JS help -->
+    <allowformquestion type="http://www.webhare.net/xmlns/publisher/forms#*" />
+    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#address" />
+    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#password" />
+    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#rtd" />
+    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#captcha" />
+    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#array" />
+    <allowformhandler type="http://www.webhare.net/xmlns/publisher/forms#*" />
+    <denyformhandler type="http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler" />
+    <allowformrtdtype type="http://www.webhare.net/xmlns/publisher/rtdfielddefaulttype" />
+  </apply>
+
+  <!-- Sharedblocks -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/sharedblocks">
+    <member name="overridetype" type="integer" /> <!-- 0 = inherit from parent, 1 = don't show any blocks, 2 = set specific blocks -->
+    <member name="overridefromparent" type="boolean" /> <!-- Old, but remaining for a little while to be able to make convert scripts if needed -->
+    <member name="blocks" type="array">
+      <member name="block" type="whfsref" />
+    </member>
+  </contenttype>
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/htmlfile" />
+    <bodyrenderer library="mod::publisher/lib/internal/renderers/htmlfile.whlib" objectname="StaticHTMLFile" />
+  </apply>
+
+  <apply>
+    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/designfolder" />
+    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/systemfolder" />
+    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/tagfolder" />
+    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/foreignfolder" />
+    <foldersettings ordering="none" />
+  </apply>
+
+  <!-- ======================================================================
+
+       Prebuilt pages
+
+  ==== -->
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/prebuiltpage" />
+    <usepublishtemplate script="mod::publisher/scripts/internal/publishwebdesign.whscr" />
+    <extendproperties extension="mod::publisher/screens/objectprops/specialtypes.xml#prebuiltpage" contenttype="http://www.webhare.net/xmlns/publisher/prebuiltpage" />
+  </apply>
+
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/internallink" />
+    <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" />
+  </apply>
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/externallink" />
+    <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" skipnormalrepublish="true" />
+  </apply>
+  <!-- ======================================================================
+
+       Folder sync
+
+  ==== -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/foldersync" cloneoncopy="false">
+    <member name="peers" type="array">
+      <member name="peer" type="string" />
+      <member name="remotepath" type="string" />
+    </member>
+  </contenttype>
+
+  <!-- ======================================================================
+
+       Consilio indexes
+
+  ==== -->
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/searchinfo" cloneoncopy="false">
+    <member name="formodificationdate" type="datetime" /> <!-- modification date for which this searchinfo was cached -->
+    <member name="subfiles" type="array">
+      <member name="body" type="file" />
+    </member>
+    <member name="error" type="string" />
+  </contenttype>
+
+  <applysiteprofile path="siteprofiles/debugsettings.siteprl.xml" />
+
+  <!-- publisherindex is lowest priority, because fsobject updates are usually processed synchronously. we can live with the background index checks on low priority -->
+  <index xmlns="http://www.webhare.net/xmlns/consilio" name="publisher:whfs" priority="-5">
+    <contentsource tag="publisher:fsobjects"
+                   type="consilio:custom"
+                   library="mod::publisher/lib/internal/consiliocontent.whlib"
+                   contentobject="WHFSObjectContentSource"
+                   contentcheckinterval="-1" />
+  </index>
+
+</siteprofile>

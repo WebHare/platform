@@ -1,0 +1,35 @@
+﻿<?wh
+// This scripts validate the screen file passed as command-line parameter
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+
+// command: validate <path>
+// short: Validate XML files
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(),
+  [ [ name := "tids", type := "switch" ]
+  , [ name := "doc", type := "switch" ]
+  , [ name := "files", type := "paramlist" ]
+  ]);
+
+IF(NOT RecordExists(cmdargs) OR Length(cmdargs.files) = 0)
+  TerminateScriptWithError("Syntax: wh validate [--tids] [--doc] <files...>");
+
+FOREVERY(STRING arg FROM cmdargs.files)
+{
+  IF(NOT IsPathAbsolute(arg) AND arg NOT LIKE "*::*")
+    arg := MergePath(GetCurrentPath(), arg);
+
+  STRING resname := GetResourceNameFromDiskPath(arg);
+  IF(resname="")
+    TerminateScriptWithError(`Cannot map path '${arg}' to a WebHare resource`);
+
+  RECORD result := ValidateSingleFile(resname, [ documentation := cmdargs.doc ]);
+  PrintValidationMessages(result);
+
+  IF(cmdargs.tids)
+    DumpValue(result.tids, 'boxed');
+}

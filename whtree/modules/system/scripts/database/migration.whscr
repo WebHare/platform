@@ -1,0 +1,429 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/modulemanager.whlib";
+LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql-bootstrap.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+
+
+SCHEMA
+< TABLE
+  < BLOB id
+  > "blob"
+, TABLE
+  < INTEGER id
+  , STRING type
+  , STRING tablename
+  , INTEGER primarykey
+  , STRING olddata __ATTRIBUTES__(BINARY)
+  , STRING newdata
+  > postgresql_migration_issues
+> webhare_internal;
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "dryrun", type := "switch" ]
+    ]);
+
+IF (NOT RecordExists(args))
+  TerminateScriptWithError(`Invalid arguments`);
+
+MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+
+
+ASYNC MACRO HandleProcess(OBJECT itr)
+{
+  WHILE (TRUE)
+  {
+    RECORD rec := AWAIT itr->Next();
+    IF (rec.done)
+      BREAK;
+    SWITCH (rec.value.type)
+    {
+      CASE "output" { PRINT(rec.value.line || "\n"); }
+      CASE "error"  { PRINT(rec.value.line || "\n"); }
+      CASE "close"  { PRINT(`Process closed with exit code ${rec.value.exitcode}\n`); }
+    }
+  }
+}
+
+STRING dbasefolder := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "dbase");
+STRING postgresql_migrate_dbasefolder := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql-migration");
+STRING postgresql_final_dbasefolder := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql");
+
+IF (GetEnvironmentVariable("__WEBHARE_DBASE") = "postgresql")
+  TerminateScriptWithError(`Current database is already set to 'postgresql'`);
+
+IF (RecordExists(GetDiskFileProperties(postgresql_final_dbasefolder)))
+  TerminateScriptWithError(`Existing PostgreSQL database found in '${postgresql_final_dbasefolder}', refusing to re-migrate`);
+
+// Start postgresql server
+RECORD ARRAY postgresql_env :=
+    [ [ name := "__WEBHARE_DBASE", value := "postgresql" ]
+    , [ name := "WEBHARE_DBASENAME", value := "webhare" ]
+    , [ name := "WEBHARE_POSTGRESQL_MIGRATION", value := "1" ]
+    ] CONCAT
+    SELECT *
+      FROM GetEnvironment()
+     WHERE name NOT IN [ "__WEBHARE_DBASE", "WEBHARE_POSTGRESQL_MIGRATION" ];
+
+OBJECT psql_server := CreateProcess(
+                              MergePath(GetEnvironmentVariable("WEBHARE_DIR"), "bin/dbserver.sh"),
+                              STRING[],
+                              [ take_input :=       FALSE
+                              , take_output :=      FALSE
+                              , take_errors :=      FALSE
+                              ]);
+
+psql_server->share_stdout := TRUE;
+psql_server->share_stderr := TRUE;
+
+psql_server->SetEnvironment(postgresql_env);
+psql_server->Start();
+OBJECT processitr := MakeProcessAsyncIterator(psql_server);
+OBJECT processwait := HandleProcess(processitr);
+
+
+OBJECT trans := OpenPrimary();
+OBJECT postgresql_trans;
+
+// UTF-8 invalid stuff that can be deleted safely
+trans->BeginWork();
+DELETE FROM system.flatregistry WHERE name LIKE "webhare_testsuite.storeddata.*";
+trans->CommitWork();
+
+
+INTEGER loop;
+FOR (loop := 0; loop < 180; loop := loop + 1)
+{
+  TRY
+  {
+    postgresql_trans := __StartWHPostgreSQLTransaction(CELL
+      [ dbasefolder :=        postgresql_migrate_dbasefolder
+      , webhare_dbasename :=  "webhare"
+      ]);
+    IF (ObjectExists(postgresql_trans))
+      BREAK;
+  }
+  CATCH (OBJECT e)
+  {
+    IF ((loop % 10) = 0)
+      PRINT(`Waiting for PostgreSQL server to start\n`);
+    WaitUntil(DEFAULT RECORD, AddTimeToDate(1000, GetCurrentDateTime()));
+  }
+}
+
+// Throw on errors during commit, so we don't need to check all commits
+postgresql_trans->throwoncommiterror := TRUE;
+
+webhare_internal := BindTransactionToSchema(postgresql_trans->id, "webhare_internal");
+
+BootstrapPostgreSQL(postgresql_trans);
+
+RECORD ARRAY schemas := trans->GetSchemaListing();
+
+RECORD ARRAY apply_schemadefs;
+
+FOREVERY (RECORD schemarec FROM SELECT * FROM schemas ORDER BY ToUppercase(schema_name) != "SYSTEM")
+{
+  IF (schemarec.is_system_schema)
+    CONTINUE;
+
+  STRING modulename := ToLowercase(schemarec.schema_name);
+
+  PRINT(`Reading schema structure: ${modulename}\n`);
+
+  STRING schemadef_str := GetSchemaModuleDef(GetPrimary(), schemarec.schema_name);
+
+  OBJECT doc := MakeXMLDocument(StringToBlob(`<container xmlns="http://www.webhare.net/xmlns/system/moduledefinition">${schemadef_str}</container>`));
+  OBJECT dbschema := doc->documentelement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema")->GetCurrentElements()[0];
+
+  // Parse it back into a schema definition record
+  RECORD parsed := ParseWHDBSchemaSpec(modulename, dbschema);
+
+  // Apply bytea columns from the moduledefinitions
+  IF (modulename IN GetInstalledModuleNames())
+  {
+    RECORD moduledef := GetModuleDatabaseSchema(modulename);
+    STRING ARRAY byteacols;
+    FOREVERY (RECORD tbldef FROM moduledef.tables)
+      FOREVERY (RECORD coldef FROM tbldef.cols)
+        IF (coldef.dbtype = "BYTEA")
+          INSERT `${tbldef.name}.${coldef.name}` INTO byteacols AT END;
+
+    FOREVERY (RECORD tbldef FROM parsed.tables)
+    {
+      FOREVERY (RECORD coldef FROM tbldef.cols)
+      {
+        IF (`${tbldef.name}.${coldef.name}` IN byteacols)
+          parsed.tables[#tbldef].cols[#coldef].dbtype := "BYTEA";
+      }
+    }
+  }
+
+  // Read access managers are not supported anymore, write access only for system.sites and system.fs_objects
+  FOREVERY (RECORD tbldef FROM parsed.tables)
+  {
+    IF (tbldef.legacy_readaccessmgr != "")
+    {
+      PRINT(`Ignore read access manager '${tbldef.legacy_readaccessmgr}' on ${ToLowercase(schemarec.schema_name)}.${tbldef.name}\n`);
+      parsed.tables[#tbldef].legacy_readaccessmgr := "";
+    }
+    IF (tbldef.legacy_writeaccessmgr != "" AND ToLowercase(`${schemarec.schema_name}.${tbldef.name}`) NOT IN [ "system.sites", "system.fs_objects"])
+    {
+      PRINT(`Ignore write access manager '${tbldef.legacy_writeaccessmgr}' on ${ToLowercase(schemarec.schema_name)}.${tbldef.name}\n`);
+      parsed.tables[#tbldef].legacy_writeaccessmgr := "";
+    }
+  }
+
+
+  INSERT parsed INTO apply_schemadefs AT END;
+}
+
+trans->BeginWork();
+postgresql_trans->BeginWork();
+
+PRINT(`Creating schemas... `);
+RECORD cmd := GenerateIndependentSQLCommands(apply_schemadefs, postgresql_trans);
+ExecuteSQLUpdates(postgresql_trans, cmd.commands);
+PRINT(`done\n`);
+
+WaitUntil(DEFAULT RECORD, GetCurrentDateTime());
+
+PRINT(`Creating tables... `);
+cmd := GeneratePostgreSQLDependentSQLCommands(apply_schemadefs, postgresql_trans, [ skipcreateforeignkeys := TRUE, skipcreateindices := TRUE ]);
+ExecuteSQLUpdates(postgresql_trans, cmd.commands);
+PRINT(`done\n`);
+
+__LegacyCreateTable(postgresql_trans, "webhare_internal", "postgresql_migration_issues",
+    [ primarykey := "id"
+    , cols :=       [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 1 ]
+                    , [ column_name := "type", data_type := "VARCHAR", character_octet_length := 256 ]
+                    , [ column_name := "tablename", data_type := "VARCHAR", character_octet_length := 256 ]
+                    , [ column_name := "primarykey", data_type := "INTEGER" ]
+                    , [ column_name := "olddata", data_type := "BYTEA" ] // maxlength not needed in PostgreSQL
+                    , [ column_name := "newdata", data_type := "STRING", character_octet_length := 4096 ]
+                    ]
+    ]);
+
+// Defer all constraints
+postgresql_trans->__ExecSQL("SET CONSTRAINTS ALL DEFERRED");
+
+PRINT(`Starting record import\n`);
+
+WaitUntil(DEFAULT RECORD, GetCurrentDateTime());
+
+INTEGER64 lastprogress;
+STRING lastprinted;
+DATETIME lastset;
+MACRO AddProgress(INTEGER64 nr)
+{
+  Print(RepeatText("\x08", LENGTH(lastprinted)));
+  INTEGER64 prevlastprogress := lastprogress < 0 ? 0i64 : lastprogress;
+  IF (nr >= 0)
+    lastprogress := prevlastprogress + nr;
+  ELSE
+    lastprogress := -1;
+  STRING newnr := lastprogress >= 0 ? ToString(lastprogress) : "";
+  DATETIME now := GetCurrentDateTime();
+  IF (lastprogress >= 0 AND nr != 0)
+  {
+    INTEGER msecs := GetDateTimeDifference(lastset, now).msecs;
+    IF (msecs > 0)
+      newnr := newnr || ` ${1000 * nr / msecs}/s`;
+  }
+  PRINT(newnr);
+  INTEGER overlen := LENGTH(lastprinted) - LENGTH(newnr);
+  IF (overlen > 0)
+    PRINT(RepeatText(" ", overlen) || RepeatText("\x08", overlen));
+  lastprinted := newnr;
+  lastset := now;
+}
+
+BOOLEAN got_invalid_records;
+
+STRING ARRAY createdblobfolders;
+INTEGER ARRAY createdids;
+
+BOOLEAN FUNCTION ProcessRecords(OBJECT inserter, STRING tablename, STRING ARRAY blobcols, STRING ARRAY varcharcols, RECORD ARRAY records)
+{
+  records := SELECT AS RECORD ARRAY tbl FROM records;
+
+  // Check format of first record
+  IF (LENGTH(records) != 0)
+  {
+    FOREVERY (RECORD rec FROM UnpackRecord(records[0]))
+      IF (TypeID(rec.value) = TypeID(BLOB) AND ToLowercase(rec.name) NOT IN blobcols)
+        ABORT(records[0], `Col ${rec.name} in is blob but not in blobcols`);
+  }
+
+  FOREVERY (RECORD rec FROM records)
+  {
+    FOREVERY (STRING col FROM blobcols)
+    {
+      BLOB data := GetCell(rec, col);
+      IF (LENGTH(data) = 0)
+        CONTINUE;
+
+      INTEGER id := __GetWHDBBlobInternalId(data);
+      IF (id = 0)
+        ABORT(`No whdb blob id found in blob`);
+
+      // Already imported?
+      RECORD ipos := LowerBound(createdids, id);
+      IF (ipos.found)
+      {
+        __PGSQL_SETUPLOADEDBLOBINTERNALID(postgresql_trans->id, data, ToString(id));
+        CONTINUE;
+      }
+
+      INSERT id INTO createdids AT ipos.position;
+
+      STRING postgresql_blobdir := GetBlobDir(postgresql_migrate_dbasefolder, id);
+
+      // Directory already created?
+      RECORD pos := LowerBound(createdblobfolders, postgresql_blobdir);
+      IF (NOT pos.found)
+      {
+        IF (NOT CreateDiskDirectoryRecursive(postgresql_blobdir, TRUE))
+          TerminateScriptWithError(`Could not create blob dir ${postgresql_blobdir}`);
+        INSERT postgresql_blobdir INTO createdblobfolders AT pos.position;
+      }
+
+      STRING whdb_file := MergePath(GetBlobDir(dbasefolder, id), ToString(id));
+      STRING postgresql_file := MergePath(postgresql_blobdir, ToString(id));
+
+      IF (NOT CreateHardLink(postgresql_file, whdb_file))
+      {
+        PRINT(`Could not make a hard link for blob ${id}, origin: ${whdb_file}\n`);
+        IF (NOT RecordExists(GetDiskFileProperties(whdb_file)))
+          PRINT(`Origin file does not exist\n`);
+        PRINT(`Destination: ${postgresql_file}\n`);
+        TerminateScriptWithError(`Could not link create blob file`);
+      }
+
+      __PGSQL_SETUPLOADEDBLOBINTERNALID(postgresql_trans->id, data, ToString(id));
+      INSERT [ id := data ] INTO webhare_internal."blob";
+    }
+  }
+
+  BOOLEAN allvalid := TRUE;
+  FOREVERY (RECORD rec FROM records)
+  {
+    FOREVERY (STRING col FROM varcharcols)
+    {
+      STRING data := GetCell(rec, col);
+
+      IF (NOT IsValidUTF8(data))
+      {
+        STRING newdata := DecodeInvalidUTF8Chars(data, "ISO-8859-15");
+
+        RECORD registration := CELL
+            [ tablename
+            , type :=       "invalidutf8"
+            , olddata :=    EncodeHSON(data)
+            , newdata :=    newdata
+            ];
+
+        IF (CellExists(rec, "id") AND TypeID(rec.id) = TypeID(INTEGER))
+          INSERT CELL primarykey := rec.id INTO registration;
+
+        INSERT registration INTO webhare_internal.postgresql_migration_issues;
+
+        // Update the new data
+        records[#rec] := CellUpdate(records[#rec], col, newdata);
+
+        PRINT(" problem detected:\n");
+        DumpValue(rec, [ name := `invalid utf-8 in column '${col}': ${EncodeHSON(GetCell(rec, col))}` ]);
+        IF (NOT IsValidUTF8(newdata))
+        {
+          PRINT(`** Could not correct!\n`);
+          allvalid := FALSE;
+        }
+      }
+    }
+  }
+
+  IF (allvalid)
+    inserter->InsertRecords(records);
+  ELSE
+    got_invalid_records := TRUE;
+
+  AddProgress(LENGTH(records));
+  WaitUntil(DEFAULT RECORD, GetCurrentDateTime());
+  RETURN TRUE;
+}
+
+FOREVERY (RECORD schemadef FROM apply_schemadefs)
+{
+  FOREVERY (RECORD tabledef FROM schemadef.tables)
+  {
+    STRING tblname := `${schemadef.name}.${tabledef.name}`;
+    PRINT(`Processing ${tblname}... `);
+    STRING ARRAY cols := SELECT AS STRING ARRAY name FROM tabledef.cols WHERE internalcolumnname = "";
+    STRING ARRAY blobcols := SELECT AS STRING ARRAY name FROM tabledef.cols WHERE internalcolumnname = "" AND dbtype = "BLOB";
+    STRING ARRAY varcharcols := SELECT AS STRING ARRAY name FROM tabledef.cols WHERE internalcolumnname = "" AND dbtype = "VARCHAR";
+
+    OBJECT query := NEW DynamicQuery;
+    query->AddTable("tbl", trans->id, `${schemadef.name}.${tabledef.name}`, cols);
+
+    OBJECT inserter := GetDynamicInserter(postgresql_trans, `${schemadef.name}.${tabledef.name}`, CELL[ cols ]);
+
+    AddProgress(-1);
+    query->ExecuteTo(PTR ProcessRecords(inserter, tblname, blobcols, varcharcols, #1));
+    INTEGER64 inserted := lastprogress < 0 ? 0i64 : lastprogress;
+    AddProgress(-1);
+    PRINT(`done: ${inserted} records\n`);
+  }
+}
+
+IF (got_invalid_records)
+  TerminateScriptWithError(`Got UTF-8 invalid records, migration failed`);
+
+PRINT(`Checking all deferred constraints... `);
+postgresql_trans->__ExecSQL("SET CONSTRAINTS ALL IMMEDIATE");
+PRINT(`done\n`);
+
+PRINT(`Creating indices and foreign keys... `);
+cmd := GeneratePostgreSQLDependentSQLCommands(apply_schemadefs, postgresql_trans);
+ExecuteSQLUpdates(postgresql_trans, cmd.commands);
+PRINT(`done\n`);
+
+PRINT("Committing\n");
+postgresql_trans->CommitWork();
+
+PRINT("Shutting down PostgreSQL\n");
+psql_server->SendInterrupt();
+WaitUntil([ promise := processwait ], MAX_DATETIME);
+
+PRINT("Sync to disk\n");
+OBJECT sync_process := CreateProcess("/usr/bin/sync", STRING[],
+    [ take_output := TRUE
+    , take_errors := TRUE
+    , merge_output_errors := TRUE
+    ]);
+sync_process->Start();
+WaitForPromise(HandleProcess(MakeProcessAsyncIterator(sync_process)));
+
+IF (NOT args.dryrun)
+{
+  PRINT(`Moving PostgreSQL database into expected location\n`);
+  IF (NOT MoveDiskPath(postgresql_migrate_dbasefolder, postgresql_final_dbasefolder))
+    TerminateScriptWithError(`Could not rename dbase folder from '${postgresql_migrate_dbasefolder}' to '${postgresql_final_dbasefolder}'`);
+
+  PRINT(`Migration complete, please restart WebHare\n`);
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <rect id="maskcanvas" width="32px" height="32px" fill="#ffffff"/>
+    <mask id="clearlistmask">
+      <use xlink:href="#maskcanvas"/>
+      <path d="M21.073,19.092l-3.087-3.059l3.115-3.143c0.272-0.275,0.265-0.724-0.018-1.002l-1.02-1.009c-0.281-0.28-0.729-0.284-1.002-0.01l-3.115,3.145l-3.087-3.059c-0.282-0.28-0.729-0.284-1.002-0.009l-0.921,0.929c-0.272,0.275-0.263,0.723,0.019,1.001l3.086,3.059l-3.146,3.176c-0.271,0.273-0.263,0.723,0.019,1.002l1.018,1.01c0.282,0.278,0.732,0.282,1.002,0.009l3.146-3.176l3.088,3.059c0.282,0.28,0.73,0.285,1.002,0.011l0.921-0.93C21.365,19.82,21.355,19.371,21.073,19.092z" transform="translate(8 7)" stroke="#000000" stroke-width="2"/>
+    </mask>
+    <path id="cross" d="M21.073,19.092l-3.087-3.059l3.115-3.143c0.272-0.275,0.265-0.724-0.018-1.002l-1.02-1.009c-0.281-0.28-0.729-0.284-1.002-0.01l-3.115,3.145l-3.087-3.059c-0.282-0.28-0.729-0.284-1.002-0.009l-0.921,0.929c-0.272,0.275-0.263,0.723,0.019,1.001l3.086,3.059l-3.146,3.176c-0.271,0.273-0.263,0.723,0.019,1.002l1.018,1.01c0.282,0.278,0.732,0.282,1.002,0.009l3.146-3.176l3.088,3.059c0.282,0.28,0.73,0.285,1.002,0.011l0.921-0.93C21.365,19.82,21.355,19.371,21.073,19.092z"/>
+  </defs>
+  <g>
+    <rect x="6" y="6" width="20" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" style="mask:url(&quot;#clearlistmask&quot;);"/>
+    <rect x="6" y="10" width="20" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" style="mask:url(&quot;#clearlistmask&quot;);"/>
+    <rect x="6" y="14" width="20" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" style="mask:url(&quot;#clearlistmask&quot;);"/>
+    <rect x="6" y="18" width="20" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" style="mask:url(&quot;#clearlistmask&quot;);"/>
+    <rect x="6" y="22" width="13" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" style="mask:url(&quot;#clearlistmask&quot;);"/>
+    <use xlink:href="#cross" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" transform="translate(8 7)"/>
+  </g>
+</svg>

@@ -1,0 +1,307 @@
+﻿<?wh
+
+LOADLIB "wh::util/comparisons.whlib";
+
+PUBLIC CONSTANT STRING ns_wsdl := "http://schemas.xmlsoap.org/wsdl/";
+PUBLIC CONSTANT STRING ns_soap := "http://schemas.xmlsoap.org/wsdl/soap/";
+PUBLIC CONSTANT STRING ns_soap11env := "http://schemas.xmlsoap.org/soap/envelope/";
+PUBLIC CONSTANT STRING ns_soap11enc := "http://schemas.xmlsoap.org/soap/encoding/";
+PUBLIC CONSTANT STRING ns_soap12env := "http://www.w3.org/2003/05/soap-envelope";
+
+// Copy from xml.whlib, because doc needs to work on 3.01
+PUBLIC OBJECT FUNCTION PrivateImportNode(OBJECT doc, OBJECT node, BOOLEAN deep)
+{
+//  IF (MemberExists(doc, "IMPORTNODE"))
+//    RETURN doc->importnode(node, deep);
+
+  OBJECT retval;
+  SWITCH (node->nodetype)
+  {
+  CASE 2    // ATTRIBUTE_NODE
+    {
+      // Because of issues with namespace-declaration attributes (libxml doesn't have them as real attr nodes), importing attr nodes is disabled.
+      THROW NEW Exception("Importing attribute nodes directly is not supported");
+    }
+  CASE 11   // DOCUMENT_FRAGMENT_NODE
+    {
+      retval := doc->CreateDocumentFragment();
+    }
+  CASE 9    // DOCUMENT_NODE
+    {
+      THROW NEW Exception("Cannot import a Document node");
+    }
+  CASE 10   // DOCUMENT_TYPE_NODE
+    {
+      THROW NEW Exception("Cannot import a DocumentType node");
+    }
+  CASE 1    // ELEMENT_NODE
+    {
+      retval := node->localname = "" ? doc->CreateElement(node->nodename) : doc->CreateElementNS(node->namespaceuri, node->nodename);
+      FOREVERY(OBJECT attr FROM node->attributes->GetCurrentNodes()) // ADDME: use recursive import and setattributenode when those work
+        IF (attr->localname = "")
+          retval->SetAttribute(attr->nodename, attr->value);
+        ELSE
+          retval->SetAttributeNS(attr->namespaceuri, attr->nodename, attr->value);
+    }
+  CASE 6    // ENTITY_NODE
+    {
+      THROW NEW Exception("FIXME: cannot import an Entity node");
+    }
+  CASE 5    // ENTITY_REFERENCE_NODE
+    {
+      THROW NEW Exception("FIXME: cannot import an EntityReference node");
+    }
+  CASE 12   // NOTATION_NODE
+    {
+      THROW NEW Exception("FIXME: cannot import an Notation node");
+    }
+  CASE 7    // PROCESSING_INSTRUCTION_NODE
+    {
+      retval := doc->CreateProcessingInstruction(node->target, node->data);
+      deep := FALSE;
+    }
+  CASE 3    // TEXT_NODE
+    {
+      retval := doc->CreateTextNode(node->data);
+      deep := FALSE;
+    }
+  CASE 4    // CDATA_SECTION_NODE
+    {
+      retval := doc->CreateCDATASection(node->data);
+      deep := FALSE;
+    }
+  CASE 8    // COMMENT_NODE
+    {
+      retval := doc->CreateComment(node->data);
+      deep := FALSE;
+    }
+  DEFAULT
+    {
+      THROW NEW Exception("Cannot import a node with type '"||node->type||"'");
+    }
+  }
+
+  IF (deep)
+  {
+    FOR (OBJECT child := node->firstchild; ObjectExists(child); child := child->nextsibling)
+      retval->AppendChild(PrivateImportNode(doc, child, deep));
+  }
+  RETURN retval;
+}
+
+/** Throws an error that a specific cell was not used
+    @param allowedcells List of cells that were allowed in this context
+    @param datapath Path from root record to actual record (eg. PARAMETERS.GETPERSONS)
+    @param location Extra location info (eg. 'in type {uri}typename')
+    @param rec Record with data
+    @param unusedfield Name of unused field
+*/
+PUBLIC MACRO ThrowUnusedCellException(STRING ARRAY allowedcells, STRING datapath, STRING location, RECORD rec, STRING unusedfield)
+{
+  STRING bestmatch := GetBestMatch(unusedfield, allowedcells);
+
+  IF (location != "" AND location NOT LIKE " *")
+    location := " " || location;
+
+  IF (datapath != "")
+    datapath := ToUppercase(datapath) || ".";
+
+  IF (bestmatch = "")
+    THROW NEW Exception(`The offered cell '${datapath || unusedfield}' was not requested by the service${location}`);
+  ELSE
+    THROW NEW Exception(`The offered cell '${datapath || unusedfield}' was not requested by the service${location}, did you mean '${ToUppercase(datapath) || bestmatch}'?`);
+}
+
+/** Throws an error message that a specific cell is missing
+    @param datapath Path from root record to actual record (eg. PARAMETERS.GETPERSONS)
+    @param typeref Optional XSD Type
+    @param data Data the cell is missing from
+    @param missingcell Name of the missing cell
+*/
+PUBLIC MACRO ThrowMissingCellException(STRING datapath, RECORD typeref, VARIANT data, STRING missingcell)
+{
+  missingcell := ToUppercase(missingcell);
+
+  STRING bestmatch;
+  IF (TypeID(data) = TypeID(RECORD))
+    bestmatch := GetBestMatch(missingcell, SELECT AS STRING ARRAY name FROM UnpackRecord(data));
+
+  STRING location;
+  IF (RecordExists(typeref))
+    location := " in type {" || typeref.target_namespace || "}" || typeref.name;
+
+  IF (datapath != "")
+    datapath := ToUppercase(datapath) || ".";
+
+  IF (bestmatch = "")
+    THROW NEW Exception(`Missing cell '${datapath || missingcell}'${location}`);
+  ELSE
+    THROW NEW Exception(`Missing cell '${datapath || missingcell}'${location}, did you mean '${ToUppercase(datapath) || bestmatch}' instead?`);
+}
+
+/** @topic internet/soap
+    @public
+    @loadlib wh::internet/soap.whlib
+*/
+PUBLIC OBJECTTYPE WSDLModifications
+<
+  /** Extra messages to add to the WSDL
+      @cell namespaceuri
+      @cell names
+      @cell parts
+      @cell parts.name
+      @cell parts.element
+      @cell parts.type
+  */
+  PUBLIC RECORD ARRAY extra_messages;
+
+  /** Modifications to soap operations
+      @cell toinput
+      @cell tooutput
+      @cell namemasks
+      @cell type 'addheader'
+      @cell header
+      @cell header.message
+      @cell header.message.namespaceuri
+      @cell header.message.localname
+      @cell header.part
+      @cell header.encodingstyle
+      @cell header.use
+      @cell header.namespaceuri
+  */
+  PUBLIC RECORD ARRAY soapopmods;
+>;
+
+
+RECORD FUNCTION EncodeInOutput(OBJECT flatxsd, RECORD data)
+{
+//  PRINT(AnyToString(data.headers, "boxed"));
+  RETURN
+      [ name :=         data.name
+      , message :=      EncodeMessage(flatxsd, data.message)
+      , body :=
+            [ parts :=          (SELECT AS STRING ARRAY part->name FROM ToRecordArray(data.body.parts, "PART"))
+            , use :=            data.body.use
+            , encodingstyle :=  data.body.encodingstyle
+            , namespace :=      data.body.namespace
+            ]
+      , headers :=
+           (SELECT message :=   EncodeMessage(flatxsd, message)
+                 , part :=      part->name
+                 , use
+                 , encodingstyle
+                 , namespace
+                 , headerfaults :=
+                      (SELECT message :=        EncodeMessage(flatxsd, message)
+                            , part :=           part->name
+                            , use
+                            , encodingstyle
+                            , namespace
+                         FROM headerfaults)
+             FROM data.headers)
+       ];
+}
+
+
+PUBLIC RECORD FUNCTION EncodeBoundOperationData(OBJECT flatxsd, OBJECT op)
+{
+  RETURN
+      [ style :=        op->style
+      , target_namespace := op->operation->target_namespace
+      , name :=         op->operation->name
+      , action :=       op->action
+      , actionrequired := op->actionrequired
+      , input :=        EncodeInOutput(flatxsd, op->input)
+      , output :=       RecordExists(op->output) ? EncodeInOutput(flatxsd, op->output) : DEFAULT RECORD
+      , faults :=       EncodeFaults(flatxsd, op->faults)
+      , wsaw_action :=  op->operation->input.wsaw_action
+      ];
+}
+
+
+RECORD ARRAY FUNCTION EncodeFaults(OBJECT flatxsd, RECORD ARRAY faults)
+{
+  RETURN
+      SELECT name
+           , part := message->parts[0]->name
+           , message := EncodeMessage(flatxsd, message)
+           , use
+           , encodingstyle
+           , namespace
+        FROM faults;
+}
+
+
+RECORD FUNCTION EncodeMessage(OBJECT flatxsd, OBJECT message)
+{
+  RETURN
+      [ name :=                 message->name
+      , target_namespace :=     message->target_namespace
+      , fullqname :=            message->fullqname
+      , parts :=                EncodeParts(flatxsd, message->parts)
+      ];
+}
+
+
+RECORD ARRAY FUNCTION EncodeParts(OBJECT flatxsd, OBJECT ARRAY parts)
+{
+  RECORD ARRAY result;
+
+  FOREVERY (OBJECT part FROM parts)
+  {
+    OBJECT xsdelt := ObjectExists(part->type) ? part->type : part->element;
+
+    INSERT
+        [ name :=       part->name
+        , type :=       ObjectExists(part->type) ? "type" : "element"
+        , xsdref :=     flatxsd->GetReference(xsdelt)
+        ] INTO result AT END;
+  }
+
+  RETURN result;
+}
+/** Function to get additional data from the WSDL XSD definitions, that
+    the normal XSD flattener won't store.
+
+    For complextype:
+    [ is_wsdl_array :=  TRUE/FALSE
+    , arraytype :=      [ namespaceuri :=       "http://"
+                        , localname :=          "localname"
+                        ]
+    ]
+*/
+PUBLIC RECORD FUNCTION GetWSDLArrayData(OBJECT xsdparser, OBJECT flatxsd, OBJECT xsdelement)
+{
+  IF (xsdelement->type != "XSD_COMPLEXTYPE")
+    RETURN DEFAULT RECORD;
+
+  FOREVERY (OBJECT attr FROM xsdelement->attribute_uses)
+  {
+    IF (attr->attribute_declaration->target_namespace = ns_soap11enc AND attr->attribute_declaration->name = "arrayType")
+    {
+      IF (attr->source_xml_node->HasAttributeNS(ns_wsdl, "arrayType"))
+      {
+        // Attribute has form prefix:nodename\[dim1[,dimX]*\]*
+        STRING value := attr->source_xml_node->GetAttributeNS(ns_wsdl, "arrayType");
+        INTEGER bpos := SearchSubString(value, "[");
+
+        STRING qname := LEFT(value, bpos);
+
+        OBJECT elttype := xsdparser->ParserLookupNodeFromQName(LEFT(value, bpos), attr->source_xml_node, "DATATYPE");
+
+        RETURN
+            [ is_wsdl_array :=  TRUE
+            , arraytype :=      flatxsd->GetReference(elttype)
+            //, ADDME: dimension?
+            ];
+      }
+    }
+  }
+  RETURN
+      [ is_wsdl_array :=    FALSE
+      , arraytype :=        DEFAULT RECORD
+      //, ADDME: dimension?
+      ];
+}
+
+

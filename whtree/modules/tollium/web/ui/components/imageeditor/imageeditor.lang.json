@@ -1,0 +1,3 @@
+{ "imports": { "tollium": [ "components.imgedit" ] }
+, "requires": [ "../../common.lang.json" ]
+}

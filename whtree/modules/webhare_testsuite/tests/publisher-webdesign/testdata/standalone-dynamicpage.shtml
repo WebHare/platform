@@ -1,0 +1,11 @@
+<?wh
+LOADLIB "mod::webhare_testsuite/lib/publisher/testsitedesign.whlib";
+
+OBJECTTYPE StandaloneDynamicPage EXTEND WebPage
+<
+>;
+
+PUBLIC MACRO RunDynamicPage()
+{
+  NEW StandaloneDynamicPage->RunPageInDefaultWebdesign();
+}

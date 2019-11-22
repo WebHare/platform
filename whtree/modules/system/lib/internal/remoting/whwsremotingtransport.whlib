@@ -1,0 +1,393 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/webserver/websocket.whlib";
+LOADLIB "mod::system/lib/internal/remoting/transportbase.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+LOADLIB "mod::system/lib/internal/remoting/objremoter.whlib";
+LOADLIB "mod::system/lib/internal/remoting/binary_encoding.whlib";
+
+
+MACRO __HS_MARSHALPACKETWRITETO(INTEGER stream, VARIANT v) __ATTRIBUTES__(EXTERNAL);
+VARIANT FUNCTION __HS_MARSHALPACKETREADFROMBLOB(BLOB data) __ATTRIBUTES__(EXTERNAL);
+
+// supported versions: 1
+PUBLIC INTEGER ARRAY supported_wsversions := [ 1 ]; // reverse order!
+
+
+PUBLIC STATIC OBJECTTYPE WHWSRemotingTransport EXTEND Transport
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_remoter;
+
+  OBJECT codec;
+
+  BOOLEAN is_server;
+
+  OBJECT serverhandler;
+
+  INTEGER pvt_version;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY remoter(pvt_remoter, -);
+
+//  PUBLIC PROPERTY get_session_errors(pvt_get_session_errors, pvt_get_session_errors);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(BOOLEAN is_server)
+  : Transport("whremoting")
+  {
+    this->is_server := is_server;
+    this->pvt_remoter := CreateObjectRemoter(NOT is_server);
+    this->codec := CreateRemotingBinaryCodec(this->pvt_remoter);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION EncodeRecord(RECORD rec, BOOLEAN keeprunning)
+  {
+    //INTEGER str := CreateStream();
+    //__HS_MARSHALPACKETWRITETO(str, rec);
+    RETURN
+        [ packets :=        this->codec->EncodePackets(rec)
+        , keeprunning :=    keeprunning
+        , headers :=        DEFAULT RECORD ARRAY
+        ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION DecodeRequest(BLOB body, STRING functionname)
+  {
+    IF (this->is_server AND NOT ObjectExists(this->serverhandler))
+    {
+      // Accept the websocket, convert to websocket connection
+      this->serverhandler := CreateWebSocketHandler();
+
+      // Receive handshake & negotiate version
+      RECORD rec := this->serverhandler->ReceivePacket(AddTimeToDate(20000, GetCurrentDateTime()));
+      IF (rec.status != "ok")
+        THROW NEW Exception("Error waiting for remoting handshake");
+
+      INTEGER ARRAY ext_supported_wsversions := DecodeJSON(rec.data).supported_wsversions;
+
+      FOREVERY (INTEGER v FROM supported_wsversions)
+        IF (v IN ext_supported_wsversions)
+        {
+          this->pvt_version := v;
+          BREAK;
+        }
+
+      IF (this->pvt_version = 0)
+      {
+        this->serverhandler->SendData(EncodeJSON([success := FALSE, supported_wsversions := supported_wsversions]));
+        this->serverhandler->SendClose(4000, "No supported remoting version");
+        TerminateScript();
+      }
+
+      this->serverhandler->SendData(EncodeJSON(
+          [ success := TRUE
+          , version := this->pvt_version
+          , session := GetCurrentGroupId()
+          ]));
+    }
+
+    RECORD rec := this->ReceiveAndDecode();
+//    RECORD rec := this->GenericDecode(body);
+
+    IF (rec.type != "functioncall")
+      THROW NEW RPCInvalidArgsException("Malformed WHRemoting request: expected message type 'functioncall'");
+
+    INSERT CELL functionname := functionname INTO rec;
+    INSERT CELL requesttoken := DEFAULT RECORD INTO rec;
+
+    LogDebug("system", "remoting:decoded", rec);
+
+    RETURN rec;
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeResponse(BOOLEAN is_macro, VARIANT response, STRING srhid, RECORD requesttoken)
+  {
+    RETURN this->EncodeRecord(
+          [ type :=           "response"
+          , have_value :=     NOT is_macro
+          , value :=          response
+          ], TRUE);
+  }
+
+  PUBLIC RECORD FUNCTION EncodeSessionClose()
+  {
+    RETURN this->EncodeRecord(
+          [ type :=           "sessionclose"
+          ], FALSE);
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeExceptionInternal(OBJECT e, BOOLEAN keep_running)
+  {
+    RETURN this->EncodeRecord(
+          [ type :=           "exception"
+          , what :=           e->what
+          , trace :=          e->trace
+          , encoded :=        e->EncodeForIPC()
+          ], keep_running);
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeException(OBJECT e, RECORD requesttoken)
+  {
+    RETURN this->EncodeExceptionInternal(e, FALSE);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeMissingFunction(STRING functionname, RECORD requesttoken)
+  {
+    RETURN this->EncodeExceptionInternal(NEW Exception(`Could not find function '${functionname}'`), FALSE);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeErrors(RECORD ARRAY errors, RECORD requesttoken)
+  {
+    ABORT("Should not be called for websocket connections"); // conn is broken by error
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeRequest(VARIANT ARRAY args)
+  {
+    RETURN this->EncodeRecord(
+          [ type :=   "functioncall"
+          , args :=   args
+          ], TRUE);
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeMethodCall(OBJECT obj, STRING methodname, VARIANT ARRAY args)
+  {
+    RECORD rec := this->remoter->GetObjectId(obj);
+    IF (NOT rec.seen)
+      THROW NEW Exception("Calling a method on an unknown remote object");
+
+    RETURN this->EncodeRecord(
+          [ type :=       "methodcall"
+          , args :=       args
+          , objectid :=   rec.id
+          , methodname := methodname
+          ], TRUE);
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeFunctionCall(VARIANT ARRAY args)
+  {
+    RETURN this->EncodeRecord(
+          [ type :=   "functioncall"
+          , args :=   args
+          ], TRUE);
+  }
+
+  RECORD FUNCTION ReceiveNextPacket()
+  {
+    WHILE (TRUE)
+    {
+      RECORD rec := this->serverhandler->ReceivePacketBlob(AddTimeToDate(60 * 60 * 1000, GetCurrentDateTime()));
+      IF (rec.status != "ok") // timeout / gone
+        RETURN DEFAULT RECORD;
+
+      IF (rec.op = 8) // close?
+        RETURN DEFAULT RECORD;
+
+      IF (rec.op IN [ 1, 2 ])
+        RETURN rec;
+
+      ABORT(rec);
+    }
+  }
+
+  PUBLIC RECORD FUNCTION ReceiveAndDecode()
+  {
+    RECORD rec := this->ReceiveNextPacket();
+    IF (NOT RecordExists(rec))
+      RETURN DEFAULT RECORD;
+
+    BLOB ARRAY packets := [ BLOB(rec.data) ];
+
+    RECORD analyzeresult := this->AnalyzeFirstPacket(rec.data);
+
+    FOR (INTEGER i := 1; i < analyzeresult.packetcount; i := i + 1)
+    {
+      rec := this->ReceiveNextPacket();
+      IF (NOT RecordExists(rec))
+        THROW NEW Exception("Error receiving additional packets for request");
+
+      INSERT rec.data INTO packets AT END;
+    }
+
+    RETURN this->DecodePackets(analyzeresult, packets);
+  }
+
+  MACRO SendEncoded(RECORD encoded)
+  {
+    FOREVERY (BLOB packet FROM encoded.packets)
+      this->serverhandler->SendBinaryDataBlob(packet);
+  }
+
+  PUBLIC RECORD FUNCTION GenericDecode(RECORD rec)
+  {
+    //RECORD rec := __HS_MARSHALPACKETREADFROMBLOB(body);
+    SWITCH (rec.type)
+    {
+      CASE "functioncall"
+      {
+        RETURN
+            [ type :=         "functioncall"
+            , args :=         rec.args
+//            , functionname := rec.functionname
+            ];
+      }
+      CASE "methodcall"
+      {
+        RETURN
+            [ type :=         "methodcall"
+            , args :=         rec.args
+            , objectid :=     rec.objectid
+            , methodname :=   rec.methodname
+            ];
+      }
+      CASE "response"
+      {
+        RETURN
+            [ type :=         "response"
+            , have_value :=   rec.have_value
+            , value :=        rec.value
+            ];
+      }
+      CASE "sessionclose"
+      {
+        RETURN
+            [ type :=         "sessionclose"
+            ];
+      }
+      CASE "exception"
+      {
+        RETURN
+            [ type :=       "exception"
+            , what :=       rec.what
+            , trace :=      rec.trace
+            , encoded :=    rec.encoded
+            ];
+      }
+      // error won't be sent over a websocket
+      DEFAULT
+      {
+        THROW NEW RPCInvalidArgsException("Malformed WHRemoting request: unknown message type '"||rec.type||"'");
+      }
+    }
+  }
+
+   PUBLIC RECORD FUNCTION AnalyzeFirstPacket(BLOB firstpacket)
+  {
+    RETURN this->codec->AnalyzeFirstPacket(firstpacket);
+  }
+
+  PUBLIC VARIANT FUNCTION DecodePackets(RECORD analyzeresult, BLOB ARRAY packets)
+  {
+    RECORD rec := this->codec->DecodePackets(analyzeresult, packets);
+    RETURN this->GenericDecode(rec);
+  }
+
+  UPDATE PUBLIC MACRO Persist()
+  {
+    // No call to base persist, no need to detach
+    WHILE (TRUE)
+    {
+      RECORD rec := this->ReceiveAndDecode();
+      IF (NOT RecordExists(rec))
+        TerminateScript(); // connection is gone - terminate script
+
+      TRY
+      {
+        SWITCH (rec.type)
+        {
+        CASE "functioncall"   { THROW NEW Exception("Remoting message type 'functioncall' not allowed here"); }
+        CASE "exception"
+          {
+            // FIXME: check if type is known
+            ThrowReceivedException(rec.encoded);
+          }
+        CASE "methodcall"
+          {
+            OBJECT obj := this->remoter->GetRemoteObject(rec.objectid);
+
+            FUNCTION PTR method := GetObjectMethodPtr(obj, rec.methodname);
+            RECORD res := DoCheckedVarArgsCall(method, rec.args, rec.methodname);
+
+            //response := [ type := "result", is_macro := res.is_macro, result := res.result ];
+
+            this->SendEncoded(this->EncodeResponse(res.is_macro, res.result, "", DEFAULT RECORD));
+          }
+        CASE "response"
+          {
+            THROW NEW Exception("Responses not implemented");
+          }
+        CASE "sessionclose"
+          {
+//            response := [ type := "sessionclose" ];
+
+            this->SendEncoded(this->EncodeResponse(TRUE, FALSE, "", DEFAULT RECORD));
+            TerminateScript();
+          }
+        DEFAULT
+          {
+            THROW NEW Exception("Unimplemented message type '"||rec.type||"'");
+          }
+        }
+      }
+      CATCH (OBJECT e)
+      {
+        IF (e NOT EXTENDSFROM RPCInvalidArgsException)
+          LogHarescriptException(e);
+
+        this->SendEncoded(this->EncodeExceptionInternal(e, TRUE));
+      }
+
+//      ABORT(rec); // FIXME: handle stuff
+    }
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION TrySendResult(RECORD encoded_result)
+  {
+    FOREVERY (BLOB packet FROM encoded_result.packets)
+      this->serverhandler->SendBinaryDataBlob(packet);
+    RETURN TRUE;
+  }
+>;
+
+
+
+PUBLIC OBJECT FUNCTION CreateRequestWHWSRemotingTransport(INTEGER ARRAY allowversions)
+{
+  RETURN NEW WHWSRemotingTransport(FALSE);
+}
+
+PUBLIC OBJECT FUNCTION InitiateServerWebsocketConnection()
+{
+  RETURN NEW WHWSRemotingTransport(TRUE);
+}

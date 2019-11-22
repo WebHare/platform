@@ -1,0 +1,499 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="moduleroot::publisher/tolliumapps/versioning/versioning.whlib"
+         gid="tolliumapps.versioning"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components">
+
+  <messageboxes>
+    <messagebox name="surecancelrequest" icon="question" buttons="yes no"/>
+    <messagebox name="genericinfobox" icon="information" buttons="ok" />
+    <messagebox name="copycreated" icon="information" buttons="ok" />
+    <messagebox name="undeletesubmitted" icon="information" buttons="ok" />
+  </messageboxes>
+
+  <screen name="main" allowresize="true" icon="tollium:applications/versioning" menubar="menubar" onmessage="onmessage" flags="canreview issysop">
+    <actions>
+      <action name="accept" onexecute="doaccept">
+        <enableon source="actionlist" checkflags="!isowner isopenrequest" frameflags="canreview" min="1" max="1" />
+      </action>
+      <action name="deny" onexecute="dodeny">
+        <enableon source="actionlist" checkflags="!isowner isopenrequest" frameflags="canreview" min="1" max="1" />
+      </action>
+      <action name="history" onexecute="dohistory">
+        <enableon source="actionlist" min="1" max="1" />
+      </action>
+      <action name="undelete" onexecute="doundelete">
+        <enableon source="actionlist" checkflags="!isactive !hasopenrequest" min="1" max="1" />
+      </action>
+      <action name="cancelrequest" onexecute="docancelrequest">
+        <enableon source="actionlist" checkflags="isowner isopenrequest" min="1" max="1" />
+      </action>
+      <action name="openinapp" onexecute="doopeninapp">
+        <enableon source="actionlist" min="1" max="1" />
+      </action>
+      <action name="togglefilter" onexecute="dotogglefilter" title="" />
+      <action name="filelistsinglerow" onexecute="dofilelistsinglerow" title="" />
+      <action name="filelistmultirow" onexecute="dofilelistmultirow" title="" />
+      <action name="export" onexecute="doexport" tid=".export" />
+      <action name="close" onexecute="cancel" tid="tollium:common.actions.close" />
+      <action name="inspectpolicy" onexecute="doinspectpolicy" tid="tollium:common.actions.inspect">
+        <enableon source="actionlist" min="1" max="1" frameflags="issysop" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="menubar">
+        <item action="accept" name="accept_menu" tid=".accept" />
+        <item action="deny" name="deny_menu" tid=".deny" />
+        <item action="history" />
+        <divider/>
+        <item action="undelete"/>
+        <divider/>
+        <item action="export"/>
+        <divider/>
+        <item action="inspectpolicy" disablemode="hidden" />
+        <item action="close"/>
+      </menu>
+      <menu name="contextmenu">
+        <item action="accept" name="accept_ctx" tid=".accept" disablemode="hidden"  />
+        <item action="deny" name="deny_ctx" tid=".deny" disablemode="hidden"  />
+        <item action="history" disablemode="hidden"  />
+        <divider/>
+        <item action="cancelrequest" disablemode="hidden"  />
+        <divider/>
+        <item action="undelete" disablemode="hidden" />
+        <divider />
+        <item action="inspectpolicy" disablemode="hidden" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener name="listener" onevents="gotversioningevents" />
+    </compositions>
+
+    <toolbar>
+      <button icon="tollium:actions/accept" action="accept" name="accept_btn" tid=".accept" />
+      <button icon="tollium:actions/delete" action="deny" name="deny_btn" tid=".deny" />
+      <divider/>
+      <button icon="tollium:actions/history" action="history"/>
+    </toolbar>
+
+    <body spacers="none">
+      <split type="horizontal">
+        <part width="1pr" >
+          <split type="vertical">
+            <part height="1pr">
+              <panel name="filelistbuttonsholder" backgroundcolor="#f0f0f0" spacers="none" borders="bottom">
+                <line layout="tabs-space">
+                  <select name="whichlist" type="pulldown" title="" onchange="onwhichlistchange">
+                    <option rowkey="otherrequests" indent="1" />
+                    <option rowkey="myrequests" indent="1" />
+                    <option rowkey="allrequests" indent="1" />
+                    <option rowkey="recentlypublishedapproved" indent="1" />
+                    <option rowkey="recentlydenied" indent="1" />
+                    <option rowkey="recentlyoffline" indent="1" />
+                    <option rowkey="expiring" indent="1" />
+                    <!-- Custom lists are added with "custom-<idx>" rowkeys -->
+                  </select>
+                  <spacer/>
+                  <buttongroup layout="horizontal" borders="left right">
+                    <button name="listfilterbtn" action="togglefilter" icon="tollium:actions/filter" type="icon" hinttid=".filter" title="" />
+                  </buttongroup>
+                  <buttongroup layout="horizontal" borders="left">
+                    <button name="listmultirowbtn" action="filelistmultirow" icon="tollium:buttonbar/showmultirow" type="icon" hinttid=".filelistmultihint" title="" />
+                    <button name="listsinglerowbtn" action="filelistsinglerow" icon="tollium:buttonbar/showsinglerow" type="icon" hinttid=".filelistsinglehint" title="" />
+                  </buttongroup>
+                </line>
+              </panel>
+              <panel height="1gr" spacers="left" name="filterbar" borders="bottom" visible="false">
+                <line>
+                  <date name="filterfrom" onselect="onfilterdatechange" />
+                  <date name="filterto" onselect="onfilterdatechange" />
+                </line>
+              </panel>
+              <list name="actionlist"
+                    rowselect="true"
+                    borders="none"
+                    icons="tollium:actions/edit
+                           tollium:actions/trash
+                           tollium:actions/accept
+                           tollium:actions/delete
+                           tollium:objects/questionmark"
+                    flags="isowner isopenrequest isactive hasopenrequest"
+                    rowlayout="tworows"
+                    selectmode="single"
+                    ongetchildren="getactionlistchildren"
+                    selectcontextmenu="contextmenu"
+                    onselect="onselectrequest"
+                    sortascending="false"
+                    openaction="openinapp"
+                    >
+                <column name="filetypeicon" type="icon" title="" />
+                <column name="actionicon" type="icon" title="" />
+                <column name="name" type="text" width="17x" tid=".filename" />
+                <column name="displayname" type="text" tid=".user" />
+                <column name="comment" type="text" />
+                <column name="when" type="datetime" storeutc="true" />
+                <rowlayout name="tworows">
+                  <col coldef="filetypeicon" combinewithnext="true" />
+                  <col coldef="when" />
+                  <col coldef="actionicon" />
+                  <col coldef="displayname" />
+                  <row>
+                    <cell coldef="filetypeicon" rowspan="2" />
+                    <cell coldef="when" />
+                    <cell coldef="actionicon" />
+                    <cell coldef="displayname" />
+                  </row>
+                  <row>
+                    <cell coldef="name" />
+                    <cell coldef="comment" colspan="2"/>
+                  </row>
+                </rowlayout>
+                <style name="expiring" backgroundcolor="#ffd79c" />
+                <style name="expired" backgroundcolor="#ff9c9c" />
+              </list>
+
+            </part>
+            <part spacers="all" height="1pr" name="changespart" visible="false">
+              <heading tid=".requested" height="1pr" />
+              <line layout="left">
+                <textarea name="requestdescription" width="1pr" height="3gr" title="" value="" enabled="false" />
+              </line>
+              <text name="requestversionnumber" />
+              <text name="previousexpirydate" />
+              <text name="requestexpirydate" />
+              <heading tid=".requestedchanges"/>
+              <list height="1pr"
+                    icons="tollium:actions/properties tollium:folders/normal tollium:actions/delete tollium:objects/world tollium:files/application_x-webhare-general"
+                    name="modifications"
+
+                >
+                <column name="typeicon" type="icon" title=""/>
+                <column name="changetype" type="text" width="1pr"/>  <!-- properties / location / deletion / data / content / publication -->
+                <column name="changecontent" type="text" width="2pr"/>
+              </list>
+            </part>
+          </split>
+        </part>
+        <part width="2pr">
+          <publisher:previewbrowser name="previewbrowser" />
+
+<!--
+          <panel name="urlpanel" backgroundcolor="#f0f0f0" spacers="left right" borders="bottom">
+            <line layout="tabs-space">
+              <textedit width="1pr" name="previewurl" enabled="false" title="" >
+                <button name="qrbutton" type="icon" icon="tollium:objects/qr"  title="" />
+              </textedit>
+              <select name="deviceselect" type="pulldown" title="" >
+                <option rowkey="1" title="Standaardweergave"/>
+              </select>
+              <buttongroup layout="horizontal" borders="left">
+                <button type="icon" icon="tollium:actions/reload"  hinttid=".refreshhint"/>
+              </buttongroup>
+            </line>
+          </panel>
+        -->
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="history" allowresize="true" icon="tollium:actions/history" height="700px"  width="900px" flags="issysop">
+    <actions>
+      <action name="inspectpolicy" onexecute="doinspectpolicy" tid="tollium:common.actions.inspect">
+        <enableon source="versionevents" min="1" max="1" frameflags="issysop" />
+      </action>
+      <action name="createcopy" onexecute="docreatecopy" tid="tollium:common.actions.duplicate">
+        <enableon source="versionevents" min="1" max="1" />
+      </action>
+      <action name="restorecontent" onexecute="dorestorecontent" tid=".restore">
+        <enableon source="versionevents" min="1" max="1" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="context">
+        <item action="inspectpolicy" />
+        <item action="createcopy" />
+        <item action="restorecontent" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener name="listener" onevents="gotversioningevents" />
+    </compositions>
+
+    <body spacers="none">
+      <split type="horizontal">
+        <part width="1pr" spacers="all">
+          <line>
+            <date name="filterfrom" onselect="refresh" />
+            <date name="filterto" onselect="refresh" />
+          </line>
+          <list name="versionevents"
+                sortcolumn="when"
+                sortascending="false"
+                rowselect="true"
+                rowlayout="tworows"
+                icons="tollium:actions/accept
+                       tollium:objects/meredians
+                       tollium:actions/removepublication
+                       tollium:actions/upload
+                       tollium:actions/replace
+                       tollium:actions/accept
+                       tollium:actions/delete
+                       tollium:objects/questionmark
+                      "
+                selectmode="single"
+                borders="all"
+                onselect="onselectrequest"
+                selectcontextmenu="context"
+                flags="isactive"
+                ><!--  -->
+            <column name="icon" type="icon" title="" />
+            <column name="icon2" type="icon" title="" />
+            <column name="when" type="datetime" width="18x" storeutc="true" />
+            <column name="filename" type="text"/>
+            <column name="comment" type="text"/>
+            <column name="displayname" type="text" tid=".fullname" width="5x" />
+            <column name="versionnumber" type="text" tid=".versionnumber" />
+            <rowlayout name="singlerow">
+              <col coldef="icon"  />
+              <col coldef="when" />
+              <col coldef="icon2"  />
+              <col coldef="filename" />
+              <col coldef="comment" />
+              <col coldef="displayname" />
+              <row>
+                <cell coldef="icon" />
+                <cell coldef="when" />
+                <cell coldef="icon2" />
+                <cell coldef="filename" />
+                <cell coldef="comment" />
+                <cell coldef="displayname" />
+              </row>
+            </rowlayout>
+            <rowlayout name="tworows">
+              <col coldef="icon" combinewithnext="true" />
+              <col coldef="when" />
+              <col coldef="versionnumber" combinewithnext="true" />
+              <col coldef="displayname" />
+              <row>
+                <cell coldef="icon" rowspan="2" />
+                <cell coldef="when" />
+                <cell coldef="displayname" />
+                <cell coldef="versionnumber" />
+              </row>
+              <row>
+                <cell coldef="filename" />
+                <cell coldef="comment" colspan="2" />
+              </row>
+            </rowlayout>
+          </list>
+          <panel layout="right" borders="left right bottom" backgroundcolor="#e5e5e5" spacers="right">
+            <line>
+              <button action="restorecontent" />
+              <button action="createcopy" />
+            </line>
+          </panel>
+        </part>
+        <part width="2pr" spacers="none">
+          <tabs name="proptabs" height="1pr">
+            <tab tid=".requesttab">
+              <heading tid=".requested" height="1pr" />
+              <panel minheight="3gr" borders="all" spacers="left right">
+                <text name="requestdescription" width="1pr" wordwrap="true" title="" value=""/>
+              </panel>
+              <heading tid=".requestedchanges"/>
+              <list height="1pr"
+                    icons="tollium:actions/properties tollium:folders/normal tollium:actions/delete tollium:objects/world tollium:files/application_x-webhare-general"
+                    name="modifications">
+                <column name="typeicon" type="icon" title=""/>
+                <column name="changetype" type="text" width="1pr"/>  <!-- properties / location / deletion / data / content / publication -->
+                <column name="changecontent" type="text" width="2pr"/>
+              </list>
+            </tab>
+            <tab tid=".previewtab" spacers="none">
+              <publisher:previewbrowser name="previewbrowser" />
+            </tab>
+          </tabs>
+        </part>
+      </split>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="acceptchange" allowresize="true" width="60x" height="20x">
+    <body>
+      <line layout="left">
+        <textarea name="description" title="" height="1pr" required="true" errorlabeltid=".description" />
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="denychange" allowresize="true" width="60x" height="20x">
+    <body>
+      <line layout="left">
+        <textarea name="description" title="" height="1pr" required="true" errorlabeltid=".description" />
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="diffview" allowresize="true" width="120x" height="40x" title="">
+    <actions>
+      <action name="showpolicy" onexecute="doshowpolicy" />
+      <action name="showpolicyinfo" onexecute="doshowpolicyinfo" />
+      <action name="inspectfsobject" onexecute="doinspectfsobject" />
+      <action name="showversionedfields" onexecute="doshowversionedfields" />
+    </actions>
+    <toolbar>
+      <button icon="tollium:folders/locked" action="showpolicy" />
+      <button icon="tollium:folders/linked" action="showversionedfields" />
+      <divider />
+      <button icon="tollium:actions/search" action="inspectfsobject" />
+    </toolbar>
+
+    <body spacers="none">
+      <tabs type="regular" height="1pr">
+        <tab name="code" height="1pr">
+          <codeedit name="textdiff" width="1pr" height="1pr" />
+        </tab>
+        <tab name="array" height="1pr">
+          <list name="arraydiff"
+                selectmode="single"
+                borders="all"
+                width="1pr"
+                height="1pr"
+                >
+            <column name="name" type="text" tree="true" title="Name" />
+            <column name="type" type="text" width="20x" title="Type" />
+            <column name="data" type="text" title="Data" />
+          </list>
+        </tab>
+        <tab name="changes" height="1pr" title="Changes">
+          <box tid=".requested" hr="false" height="1pr">
+            <text name="requestdescription" width="1pr" wordwrap="true" title="" value=""/>
+            <heading tid=".requestedchanges"/>
+            <list height="1pr"
+                  icons="tollium:actions/properties tollium:folders/normal tollium:actions/delete tollium:objects/world tollium:files/application_x-webhare-general"
+                  name="modifications"
+
+              >
+              <column name="typeicon" type="icon" title=""/>
+              <column name="changetype" type="text" width="1pr"/>  <!-- properties / location / deletion / data / content / publication -->
+              <column name="changecontent" type="text" width="2pr"/>
+            </list>
+          </box>
+
+        </tab>
+        <tab name="request" height="1pr" title="Request">
+          <list name="versionrequest"
+                selectmode="single"
+                borders="all"
+                width="1pr"
+                height="1pr"
+                >
+            <column name="name" type="text" tree="true" title="Name" />
+            <column name="type" type="text" width="20x" title="Type" />
+            <column name="data" type="text" title="Data" />
+          </list>
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="fieldsview" allowresize="true" width="80x" height="32x" title="">
+    <body>
+      <split type="vertical">
+        <part height="11x">
+          <split type="horizontal">
+            <part width="1pr">
+
+              <box title="Base fields" hr="false" width="1pr">
+                <list name="basefields" width="1pr" height="10x">
+                  <column name="name" type="text" title="" />
+                </list>
+              </box>
+
+            </part>
+            <part width="1pr">
+
+              <box title="Readonly fields" hr="false" width="1pr">
+                <list name="readonlyfields" width="1pr" height="10x">
+                  <column name="name" type="text" title="" />
+                </list>
+              </box>
+
+            </part>
+          </split>
+        </part>
+        <part height="1pr">
+
+          <box title="Type-specific fields" hr="false">
+            <list name="contenttypes"
+                  selectmode="single"
+                  borders="all"
+                  width="1pr"
+                  height="12x"
+                  >
+              <column name="name" type="text" tree="true" title="Name" />
+              <column name="type" type="text" width="20x" title="Type" />
+              <!--<column name="data" type="text" title="Data" />-->
+            </list>
+            <text name="contenttypens" width="1pr" title="Namespace"  visible="false"/>
+<!--
+            <list name="contenttypes" width="1pr" height="12x">
+              <column name="name" type="text" title="Name" />
+              <column name="typename" type="text" title="Type" />
+            </list>
+          -->
+          </box>
+
+        </part>
+      </split>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="objectcopied" allowresize="true" width="60x" tid=".objectcopied">
+    <actions>
+      <action name="openinapp" onexecute="doopeninapp" />
+    </actions>
+    <body>
+      <text name="objectcopiedto" wordwrap="true" title="" />
+    </body>
+    <footer layout="right">
+      <line>
+        <button action="openinapp" />
+        <button tolliumresult="cancel" tid="tollium:common.actions.close" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="exportevents" tid=".exportevents">
+    <body>
+      <line layout="left">
+        <text title="" valuetid=".description" wordwrap="true" />
+      </line>
+      <datetime name="fromdate" type="date" />
+      <datetime name="todate" type="date" emptyvalue="max_datetime" />
+    </body>
+    <footer layout="right">
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

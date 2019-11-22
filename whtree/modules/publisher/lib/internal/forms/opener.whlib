@@ -1,0 +1,88 @@
+<?wh
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
+
+
+PUBLIC RECORD __passthrough;
+
+PUBLIC OBJECT FUNCTION OpenFormWithContext(OBJECT webcontext, STRING formname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(NOT ObjectExists(webcontext->targetapplytester))
+    THROW NEW Exception("No applytester available, openform not available");
+
+  //IF(formname LIKE "wt:*")
+  //{
+  //  RECORD form := GetTargetWebtoolForm(formname);
+  //  RETURN OpenTheWebtoolForm(webcontext, form.targetform, formname );
+  //}
+
+  STRING formfile;
+  IF(formname LIKE "*#*")
+  {
+    formfile := Left(formname, SearchSubstring(formname,'#'));
+    IF(formfile NOT LIKE "*:*")
+      THROW NEW Exception("A formdefinition name must be of the form 'module:filename'");
+  }
+
+  RECORD forminfo := webcontext->targetapplytester->GetFormDefinitionFile(formfile);
+  IF(NOT RecordExists(forminfo))
+    THROW NEW Exception("No formdefinition defined for the current file" || (formfile != "" ? " with name " || formfile : ""));
+
+  RETURN OpenForm(forminfo.path, formname, [ ...options
+                                           , webcontext := webcontext
+                                           , applytester := webcontext->targetapplytester
+                                           ]);
+}
+
+PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ applytester := DEFAULT OBJECT
+                             , webcontext := DEFAULT OBJECT
+                             , forcewebtoolformbase := FALSE
+                             , languagecode := ""
+                             , formref := ""
+                             ], options);
+
+  RECORD parsed := CELL[ ...formdef
+                       , options.applytester
+                       , options.webcontext
+                       , options.languagecode
+                       , options.formref
+                       ];
+
+  RECORD savesettings := __passthrough;
+  OBJECT formobj;
+  TRY
+  {
+    __passthrough := parsed;
+
+    STRING toopen := options.forcewebtoolformbase ? "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase"
+                                                  : parsed.objectname ?? "mod::publisher/lib/forms/base.whlib#FormBase";
+;
+
+    formobj := MakeObject(toopen);
+    formobj->__EnsurePreInit();
+//    IF(NOT (formobj EXTENDSFROM FormBase))  TODO would be a nice check but introduces dependency hell.
+//      THROW NEW Exception("Form object " || parsed.lib || " " || parsed.objectname || " does not derive from FormBase");
+  }
+  CATCH (OBJECT e)
+  {
+    e->what := e->what || ` while instantiating form '${formdef.externalformname}'`;
+    THROW;
+  }
+  FINALLY
+  {
+    __passthrough := savesettings;
+  }
+
+  RETURN formobj;
+}
+
+/** @topic forms/api
+    @public
+    @loadlib mod::publisher/lib/forms/api.whlib
+*/
+PUBLIC OBJECT FUNCTION OpenForm(STRING formdefinitionfile, STRING formname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD formdef := GetFormDef(formdefinitionfile, formname);
+  RETURN OpenFormByDef(formdef, options); //ADDME adhoc cache this
+}

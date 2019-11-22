@@ -1,0 +1,3 @@
+<?wh
+PUBLIC INTEGER i := 42;
+PUBLIC INTEGER i2 := 43;

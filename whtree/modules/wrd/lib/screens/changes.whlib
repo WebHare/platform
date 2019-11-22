@@ -1,0 +1,366 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/any.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+VARIANT FUNCTION GetValueByPath(VARIANT value, VARIANT path)
+{
+  IF(Length(path) = 0)
+    RETURN value;
+
+  IF(IsTypeIdArray(TYPEID(value)))
+  {
+    IF(path[0] >= Length(value))
+      RETURN DEFAULT OBJECT; //NULL marker
+
+    value := value[path[0]];
+  }
+  ELSE //has to be record
+  {
+    IF(NOT CellExists(value, path[0]))
+      RETURN DEFAULT OBJECT;
+
+    value := GetCell(value, path[0]);
+  }
+
+  RETURN GetValueByPath(value, ArraySlice(path, 1));
+}
+
+MACRO FillPanelWithValue(OBJECT targetpanel, VARIANT invalue)
+{
+  RECORD ARRAY cur := targetpanel->ExtractALlLines();
+  IF(Length(cur)>0)
+    cur[0].items[0]->DeleteComponent();
+
+  IF(TYPEID(invalue) = TYPEID(OBJECT)) //no content
+    RETURN;
+
+  OBJECT newcomp;
+  IF(TYPEID(invalue) = TYPEID(RECORD) AND CellExists(invalue, "HTMLTEXT")) //guessing RTD
+  {
+    newcomp := targetpanel->owner->CreateTolliumComponent("richdocument");
+    newcomp->value := invalue;
+    newcomp->readonly := TRUE;
+  }
+  ELSE IF(TYPEID(invalue) = TYPEID(RECORD) AND CellExists(invalue, "DATA") AND CellExists(invalue, "MIMETYPE") AND CellExists(invalue, "WIDTH") AND invalue.width > 0) //guessing image
+  {
+    newcomp := targetpanel->owner->CreateTolliumComponent("imgedit");
+    newcomp->value := invalue;
+    newcomp->enabled := FALSE;
+  }
+  ELSE
+  {
+    newcomp := targetpanel->owner->CreateTolliumComponent("textarea");
+    newcomp->value := AnyToString(invalue, 'tree');
+    newcomp->enabled := FALSE;
+  }
+  newcomp->width := "1pr";
+  newcomp->height := "1pr";
+  targetpanel->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
+}
+
+PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
+<
+  OBJECT _entity;
+
+  OBJECT ARRAY _recursetypes;
+
+  STRING ARRAY _hideattributes;
+
+  STRING ARRAY _showattributes;
+
+  FUNCTION PTR _mapchangesrows;
+
+  BOOLEAN _mergechanges;
+
+  MACRO Init(RECORD data)
+  {
+    data := ValidateOptions(
+        [ entity :=             DEFAULT OBJECT
+        , recursetypes :=       STRING[]
+        , hideattributes :=     STRING[]
+        , showattributes :=     STRING[]
+        , mapchangesrows :=     DEFAULT FUNCTION PTR
+        , mergechanges :=       TRUE
+        ], data);
+
+    this->_entity := data.entity;
+    this->_hideattributes := data.hideattributes;
+    this->_showattributes := data.showattributes;
+    this->_mapchangesrows := data.mapchangesrows;
+    this->_mergechanges := data.mergechanges;
+    FOREVERY (STRING type FROM data.recursetypes)
+      INSERT this->_entity->wrdschema->GetType(type) INTO this->_recursetypes AT END;
+
+    STRING ARRAY masks := this->_entity->wrdtype->GetEventMasks();
+    FOREVERY (OBJECT wrdtype FROM this->_recursetypes)
+      masks := masks CONCAT wrdtype->GetEventMasks();
+
+    ^changelistener->masks := masks;
+
+    this->ReloadChanges();
+    this->ReloadEntityChanges();
+
+    IF(this->_entity->wrdtype->keephistorydays > 0)
+      ^historystatus->value := this->GetTid(".keepinghistory", ToString(this->_entity->wrdtype->keephistorydays));
+    ELSE
+      ^historystatus->value := this->GetTid(".notkeepinghistory");
+  }
+
+  MACRO GotChangeEvents(RECORD ARRAY events)
+  {
+    this->ReloadChanges();
+  }
+
+  MACRO GotChangeSelect()
+  {
+    this->ReloadEntityChanges();
+  }
+
+  MACRO ReloadChanges()
+  {
+    RECORD ARRAY entities :=
+        [ [ type :=     this->_entity->wrdtype
+          , ids :=      INTEGER[ this->_entity->id ]
+          ]
+        ];
+
+    FOREVERY (OBJECT typeobj FROM this->_recursetypes)
+    {
+      RECORD ARRAY erec := SELECT * FROM entities WHERE typeobj->linkfrom IN INTEGER[ type->id, type->parent ];
+      IF (NOT RecordExists(erec))
+        THROW NEW Exception(`Could not find the linkfrom type '${this->_entity->wrdschema->GetTypeByid(typeobj->linkfrom)->tag}' of '${typeobj->tag}' in the list of visited types`);
+
+      INTEGER ARRAY ids;
+      FOREVERY (RECORD rec FROM erec)
+        ids := ids CONCAT rec.ids;
+
+      INSERT
+          [ type :=   typeobj
+          , ids :=    typeobj->RunQuery(
+                            [ outputcolumn := "wrd_id"
+                            , filters := [ [ field := "wrd_leftentity", value := ids ]
+                                         ]
+                            ])
+          ] INTO entities AT END;
+    }
+
+    RECORD ARRAY changesets;
+    INTEGER ARRAY relevantids;
+
+    FOREVERY (RECORD rec FROM entities)
+    {
+      relevantids := relevantids CONCAT rec.ids;
+      FOREVERY (INTEGER id FROM rec.ids)
+        changesets := changesets CONCAT rec.type->ListChangeSets(id);
+    }
+
+    changesets :=
+        SELECT ...Any(changesets)
+          FROM changesets
+      GROUP BY id
+      ORDER BY Any(creationdate) DESC;
+
+    ^changes->rows :=
+        SELECT rowkey :=      `changeset:${id}`
+             , type :=        "changeset"
+             , id
+             , when :=        this->contexts->user->FormatDateTime(creationdate, "minutes", TRUE, TRUE)
+             , user :=        (CellExists(userdata, "realname") ? userdata.realname : "") ?? (CellExists(userdata, "login") ? userdata.login : "")
+             , relevantids := relevantids
+             , expanded :=    #changesets < 3
+             , subnodes :=    this->GetChangeSetChildren(id, relevantids)
+             , icon :=        CellExists(userdata, "login") AND userdata.login = this->contexts->user->login
+                                  ? 5
+                                  : 6
+          FROM changesets;
+  }
+
+  RECORD ARRAY FUNCTION GetChangeSetChildren(INTEGER changeset, INTEGER ARRAY relevantids)
+  {
+    RECORD ARRAY rows;
+
+    FOREVERY (OBJECT typeobj FROM OBJECT[ this->_entity->wrdtype, ...this->_recursetypes ])
+    {
+      RECORD ARRAY changes :=
+          SELECT *
+            FROM typeobj->GetChanges(changeset, CELL[ mergechanges := this->_mergechanges ])
+           WHERE entity IN relevantids;
+
+      RECORD ARRAY entityrows :=
+          SELECT entity
+               , type :=      typeobj->title ?? typeobj->tag
+            FROM changes
+           WHERE entity != 0
+        ORDER BY entity;
+
+      IF (RecordExists(typeobj->GetAttribute("wrd_title")))
+        entityrows := typeobj->Enrich(entityrows, "entity", [ title := "wrd_title" ], [ rightouterjoin := TRUE ]);
+      ELSE
+        entityrows := SELECT *, title := "" FROM entityrows;
+
+      IF (this->_mapchangesrows != DEFAULT FUNCTION PTR)
+      {
+        entityrows := this->_mapchangesrows(typeobj, entityrows);
+      }
+      entityrows := SELECT sortkey := title, ...entityrows FROM entityrows;
+
+      changes := JoinArrays(changes, "entity", entityrows, [ title := "", type := typeobj->title ?? typeobj->tag, sortkey := "" ], [ rightouterjoin := TRUE ]);
+
+      changes :=
+          SELECT rowkey :=        `change:${id}`
+               , type :=          "change"
+               , id
+               , when :=          type
+               , user :=          title
+               , change :=        changes
+               , entity
+               , typesortkey :=   `${type}\n${sortkey ?? title}`
+               , expandable :=    FALSE
+               , icon :=          SearchElement([ "new", "edit", "close", "newclose" ], changetype) + 1
+            FROM changes;
+
+      rows := rows CONCAT changes;
+    }
+
+    RETURN
+        SELECT *
+          FROM rows
+      ORDER BY typesortkey;
+  }
+
+  RECORD FUNCTION RolloutChanges(STRING rowkey, STRING prop, STRING sortprop, VARIANT oldvalue, VARIANT newvalue, VARIANT path)
+  {
+    prop:=rowkey;//FIXME if this work remove prop parameter
+    RECORD row := [ rowkey := rowkey
+                  , prop := prop
+                  , sortprop := sortprop
+                  , oldvalue := ""
+                  , newvalue := ""
+                  , subnodes := RECORD[]
+                  , path := path
+                  ];
+
+    INTEGER comparetype := TYPEID(oldvalue) != TYPEID(DEFAULT OBJECT) ? TYPEID(oldvalue) : TYPEID(newvalue);
+    IF(IsTypeIdArray(comparetype))
+    {
+      IF(NOT IsTypeIdArray(TYPEID(oldvalue)))
+        oldvalue := RECORD[];
+      IF(NOT IsTypeIdArray(TYPEID(newvalue)))
+        newvalue := RECORD[];
+
+      FOREVERY(VARIANT v FROM oldvalue)
+      {
+        VARIANT comparegainst;
+        IF(#v < Length(newvalue))
+          comparegainst := newvalue[#v];
+        ELSE
+          comparegainst := DEFAULT OBJECT; //marker for 'no value' - bit of a hack, wrd data can never contain an object
+
+        INSERT this->RolloutChanges( `${prop}[${#v}]`
+                                   , `${prop}[${#v}]`
+                                   , `${prop}[${Right("000000000" || #v,9)}]` //rightpadded array index for sorting
+                                   , v
+                                   , comparegainst
+                                   , path CONCAT VARIANT[#v]) INTO row.subnodes AT END;
+      }
+
+      IF(Length(newvalue) > Length(oldvalue))
+        FOREVERY(VARIANT v FROM ArraySlice(newvalue, Length(oldvalue)))
+        {
+          INTEGER idx := #v + Length(oldvalue);
+          INSERT this->RolloutChanges( `${prop}[${idx}]`
+                                     , `${prop}[${idx}]`
+                                     , `${prop}[${Right("000000000" || idx,9)}]` //rightpadded array index for sorting
+                                     , DEFAULT OBJECT
+                                     , v
+                                     , path CONCAT VARIANT[#v]) INTO row.subnodes AT END;
+        }
+
+      row.oldvalue := GetTid("wrd:common.generic.rows", ToString(Length(oldvalue)));
+      row.newvalue := GetTid("wrd:common.generic.rows", ToString(Length(newvalue)));
+    }
+    ELSE IF(comparetype = TYPEID(RECORD))
+    {
+      IF(TYPEID(oldvalue) != TYPEID(RECORD))
+        oldvalue := DEFAULT RECORD;
+      IF(TYPEID(newvalue) != TYPEID(RECORD))
+        newvalue := DEFAULT RECORD;
+
+      FOREVERY(RECORD cellrec FROM UnpackRecord(oldvalue))
+      {
+        VARIANT comparegainst;
+        IF(CellExists(newvalue, cellrec.name))
+          comparegainst := GetCell(newvalue, cellrec.name);
+        ELSE
+          comparegainst := DEFAULT OBJECT; //marker for 'no value' - bit of a hack, wrd data can never contain an object
+
+        STRING propname := `${ToLowercase(cellrec.name)}`;
+        STRING sortpropname := `${prop}.${ToLowercase(cellrec.name)}`;
+        INSERT this->RolloutChanges(`${prop}.${ToLowercase(cellrec.name)}`, propname, sortpropname, cellrec.value, comparegainst, path CONCAT VARIANT[cellrec.name]) INTO row.subnodes AT END;
+      }
+      FOREVERY(RECORD cellrec FROM UnpackRecord(newvalue))
+        IF(NOT CellExists(oldvalue, cellrec.name)) //missing cell
+        {
+          STRING propname := `${ToLowercase(cellrec.name)}`;
+          STRING sortpropname := `${prop}.${ToLowercase(cellrec.name)}`;
+          INSERT this->RolloutChanges(`${prop}.${ToLowercase(cellrec.name)}`, propname, sortpropname, DEFAULT OBJECT, cellrec.value, path CONCAT VARIANT[cellrec.name]) INTO row.subnodes AT END;
+        }
+    }
+    ELSE
+    {
+      IF(TYPEID(oldvalue) != TYPEID(OBJECT))
+        row.oldvalue := AnyToString(oldvalue,'tree');
+      IF(TYPEID(newvalue) != TYPEID(OBJECT))
+        row.newvalue := AnyToString(newvalue,'tree');
+    }
+    RETURN row;
+  }
+
+  MACRO ReloadEntityChanges()
+  {
+    STRING type;
+    IF (RecordExists(^changes->selection) AND ^changes->selection.type = "change")
+    {
+      RECORD change := ^changes->selection.change;
+      BOOLEAN is_new := NOT RecordExists(change.oldsettings);
+      RECORD ARRAY contentchanges :=
+          SELECT name
+               , value :=   [ oldvalue :=   CellExists(change.oldsettings, name) ? GetCell(change.oldsettings, name) : GetTypeDefaultValue(TYPEID(value))
+                            , newvalue :=   value
+                            ]
+            FROM UnpackRecord(change.modifications)
+           WHERE NOT (__MatchesAnyMask(name, this->_hideattributes) AND NOT __MatchesAnyMask(name, this->_showattributes));
+
+      RECORD ARRAY changerows;
+      FOREVERY(RECORD changerec FROM contentchanges)
+      {
+        STRING propname := ToLowercase(changerec.name);
+        INSERT this->RolloutChanges(propname, propname, propname, changerec.value.oldvalue, changerec.value.newvalue, VARIANT[propname]) INTO changerows AT END;
+      }
+      ^changedvalues->rows := changerows;
+    }
+    ELSE
+    {
+      ^changedvalues->rows := RECORD[];
+    }
+  }
+
+  MACRO OnValueSelect()
+  {
+    RECORD change := ^changes->selection;
+    RECORD sel := ^changedvalues->selection;
+    VARIANT oldval := DEFAULT OBJECT, newval := DEFAULT OBJECT;
+
+    IF(RecordExists(sel))
+    {
+      oldval := GetValueByPath(change.change.oldsettings, sel.path);
+      newval := GetValueByPath(change.change.modifications, sel.path);
+    }
+
+    FillPanelWithValue(^oldvalue, oldval);
+    FillPanelWithValue(^newvalue, newval);
+  }
+>;

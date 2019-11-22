@@ -1,0 +1,36 @@
+[component indexpage]<!DOCTYPE html>
+  <html>
+    <head>
+      <style>
+        html
+        {
+          font: Arial,Helvetica;
+        }
+        .nohits
+        {
+          margin-left:15px;
+          font-size:80%;
+        }
+        .nohits--isprivate
+        {
+          font-weight: bold;
+        }
+      </style>
+    </head>
+    <body>
+      [forevery files]
+        <a href="[outfile]">[filename]</a>, hit lines: [hitlines]<br/>
+        [if nohits]
+          <div class="nohits">
+            no hits:
+            [forevery nohits]
+              [if first] [else], [/if]
+              <span class="[if ispublic]nohits--ispublic[else]nohits--isprivate[/if]">[name]</span>
+            [/forevery]
+          </div>
+        [/if]
+        <br/>
+      [/forevery]
+    </body>
+  </html>
+[/component]

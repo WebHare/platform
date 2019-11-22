@@ -1,0 +1,58 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/webservers/bindings.whlib"
+         gid="webservers.bindings">
+
+  <messageboxes gid="sysmgmt.webservers.messages">
+    <messagebox name="cannotdeletebindinginuse" icon="error" buttons="ok" />
+    <messagebox name="deletebinding" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="bindings" gid="sysmgmt.webservers.bindings" tid=".title" width="120x" height="30x" allowresize="true">
+    <body>
+      <listedit name="bindinglist" ongetchildren="ongetbindings" height="1pr" gid=".columns"
+                icons="tollium:status/checked tollium:status/negative tollium:security/key"
+                onrowedit="onrowedit" onrowdelete="onrowdelete" highlightname="yourbinding">
+        <column type="text" width="1pr" name="port" sortkeyname="sortport" iconname="porticon"/>
+        <column type="icon" width="16x" name="virtualhost" />
+        <column type="text" width="2pr" name="description" tid="tollium:common.labels.description"/>
+      </listedit>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+
+  <screen name="updatebinding" gid="sysmgmt.webservers.updatebinding" tid=".portgroup">
+    <body width="1pr" height="1pr">
+      <panel layout="left" name="readonlywarningpanel" visible="false">
+        <text title="" name="readonlywarning" textcolor="#ff0000" valuetid=".readonlywarning" />
+      </panel>
+      <combobox name="port" valuetype="integer" width="10x" minvalue="1" maxvalue="65535" emptyvalue="0" required="true" />
+      <textarea name="description" tid="tollium:common.labels.description" width="1pr" height="3x"/>
+
+      <select name="localip" type="radio" >
+        <option rowkey="allips" tid=".allips"/>
+        <option rowkey="allip6s" tid=".allip6s"/>
+        <option rowkey="address" tid=".address">
+          <combobox name="ip" required="true" />
+        </option>
+      </select>
+
+      <box tid=".hostingtype" hr="false">
+        <select type="radio" rowkeytype="boolean" name="virtualhosting">
+          <option rowkey="true" tid=".namebinding" />
+          <option rowkey="false" tid=".portbinding" />
+        </select>
+        <line layout="left">
+          <checkbox name="securehosting" enablecomponents="privatekeys" title="" labeltid=".securehosting" />
+          <select title="" errorlabeltid=".privatekeys" name="privatekeys" type="pulldown" rowkeytype="integer" required="true" />
+        </line>
+      </box>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

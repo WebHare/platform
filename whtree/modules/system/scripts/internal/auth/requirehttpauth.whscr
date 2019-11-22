@@ -1,0 +1,19 @@
+<?wh
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+RECORD accessrule := SELECT * FROM GetWebhareAccessRules() WHERe id = GetWebHareAccessRuleId();
+IF(NOT RecordExists(accessrule))
+{
+  THROW NEW Exception("Invalid or missing access rule #" || GetWebHareAccessRuleId());
+}
+
+RECORD FUNCTION GetPassword(STRING findusername)
+{
+
+  RETURN SELECT username, password
+           FROM accessrule.data.accounts
+          WHERE ToUppercase(username) = ToUppercase(TrimWhitespace(findusername));
+}
+
+TryHTTPLogin(accessrule.data.path, PTR GetPassword);
+

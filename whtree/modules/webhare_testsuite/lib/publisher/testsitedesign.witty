@@ -1,0 +1,15 @@
+[component htmlbody]
+
+  <div id="content" data-dynamiclink="[dynamiclink]" data-webdesign-prepareforrendering="[webdesign_prepareforrendering]">
+    [contents]
+  </div>
+  [if widget]
+    <div id="widget">[widget]</div>
+  [/if]
+  [if have_widgetimg]<img id="imgtest" src="[imgroot]img.jpg" alt="Not all webdesign tests actually publish this image" />[/if]
+[/component]
+
+[component wrapbody][embed testsitedesign.witty:wrapbody2][/component]
+[component wrapbody2][origbody][/component]
+[component blinky]<blink>[text]</blink>[if img]<img src="[img.link]"></img>[/if][/component]
+

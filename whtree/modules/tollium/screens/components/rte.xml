@@ -1,0 +1,149 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/components/rte.whlib"
+         gid="components.rte">
+
+  <messageboxes>
+    <messagebox name="sureremovetable" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="imageproperties" gid=".imageproperties">
+    <compositions>
+      <record name="settings" />
+      <radiogroup name="align" composition="settings" cellname="align" />
+    </compositions>
+    <body spacers="none">
+      <tabs>
+        <tab tid=".properties">
+          <box tid=".position">
+            <grid>
+              <col width="1pr" />
+              <col width="1pr" />
+              <col width="1pr" />
+              <row>
+                <cell layout="center">
+                  <image value="rte/img_inline" width="42px" height="44px" onclick="doimginline" /> <!-- ADDME need something like 'labelfor' -->
+                  <radiobutton group="align" rowkey="" />
+                  <text valuetid=".img_inline" />
+                </cell>
+                <cell layout="center">
+                  <image value="rte/img_left" width="42px" height="44px" onclick="doimgleft" />
+                  <radiobutton group="align" rowkey="left" />
+                  <text valuetid=".img_left" />
+                </cell>
+                <cell layout="center">
+                  <image value="rte/img_right" width="42px" height="44px" onclick="doimgright" />
+                  <radiobutton group="align" rowkey="right" />
+                  <text valuetid=".img_right" />
+                </cell>
+              </row>
+            </grid>
+          </box>
+          <box tid=".dimensions">
+            <line>
+              <textedit composition="settings" cellname="width" valuetype="integer" name="width" minvalue="1" maxvalue="10000" width="6x" required="true" onchange="onwidthchange" />
+              <text value="px" />
+            </line>
+            <line>
+              <textedit composition="settings" cellname="height" valuetype="integer" name="height" minvalue="1" maxvalue="10000" width="6x" required="true" onchange="onheightchange" />
+              <text value="px" />
+            </line>
+            <line layout="left">
+              <checkbox name="keepaspectratio" title="" labeltid=".keepaspectratio" onchange="onwidthchange" />
+            </line>
+          </box>
+          <heading tid=".accessibility" />
+          <text tid=".alttext" />
+          <line layout="left">
+            <textarea composition="settings" cellname="alttext" errorlabeltid=".alttext" title="" height="3x" name="alttext" />
+          </line>
+        </tab>
+        <tab tid=".hyperlink">
+          <heading tid=".destination" />
+          <select name="linktype" title="" type="radio" required="true" rowkeytype="integer">
+            <option rowkey="0" tid="components.rte.imageproperties.nohyperlink" />
+            <option rowkey="1" tid="components.rte.externallink">
+              <textedit width="1pr" title="" name="externallink" validationchecks="url-plus-relative" required="true" errorlabeltid="components.rte.externallink" placeholdertid="components.rte.externallink-placeholder" />
+            </option>
+          </select>
+          <line layout="left">
+            <checkbox name="openinnewwindow" title="" labeltid=".openinnewwindow" />
+          </line>
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <!-- allowresize/savesate was set by wouterH 29 july 2013. don't know why. reverted as it breaks dynamic changes to the dialog
+       we will set a minwidth to give the extlink component some room
+       -->
+  <screen name="hyperlink" gid=".hyperlink" minwidth="80x">
+    <actions>
+      <action name="removehyperlink" onexecute="doremovehyperlink" />
+    </actions>
+    <body>
+      <heading name="destination" height="1pr" />
+      <select name="linktype" title="" type="radio" required="true" rowkeytype="integer">
+        <option rowkey="0" tid="components.rte.imageproperties.nohyperlink" />
+        <option rowkey="1" tid="components.rte.externallink">
+          <textedit width="1pr" title="" name="externallink" validationchecks="url-plus-relative" required="true" errorlabeltid="components.rte.externallink" placeholdertid="components.rte.externallink-placeholder" />
+        </option>
+      </select>
+      <line layout="left">
+        <checkbox name="openinnewwindow" title="" labeltid=".openinnewwindow" />
+      </line>
+    </body>
+    <footer>
+      <grid>
+        <col />
+        <col width="1pr" />
+        <row>
+          <cell>
+            <button action="removehyperlink" name="removehyperlinkbutton" tid=".removehyperlink" />
+          </cell>
+          <cell>
+            <defaultformbuttons buttons="ok cancel" />
+          </cell>
+        </row>
+      </grid>
+
+    </footer>
+
+  </screen>
+
+  <screen name="tableproperties" gid=".tableproperties" minwidth="80x">
+    <actions>
+      <action name="removetable" onexecute="doremovetable" />
+    </actions>
+    <body>
+      <select name="tablestyle" type="pulldown">
+      </select>
+      <line layout="left">
+        <checkbox name="topheader" title="" labeltid=".topheader" />
+      </line>
+      <line layout="left">
+        <checkbox name="leftheader" title="" labeltid=".leftheader" />
+      </line>
+    </body>
+    <footer>
+      <grid>
+        <col />
+        <col width="1pr" />
+        <row>
+          <cell>
+            <button action="removetable" tid=".removetable" />
+          </cell>
+          <cell>
+            <defaultformbuttons buttons="ok cancel" />
+          </cell>
+        </row>
+      </grid>
+
+    </footer>
+
+  </screen>
+
+
+</screens>

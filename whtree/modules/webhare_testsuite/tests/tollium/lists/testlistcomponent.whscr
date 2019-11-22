@@ -1,0 +1,228 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "relative::data/listtest.whlib";
+
+OBJECT list;
+RECORD ARRAY currentitems;
+
+STRING ARRAY queries;
+
+RECORD ARRAY FUNCTION GenerateListItems()
+{
+  INSERT "listitems" INTO queries AT END;
+  RETURN currentitems;
+}
+
+//converts our raw list to a dynamic tree
+RECORD ARRAY FUNCTION GenerateListTree(RECORD parent)
+{
+  IF(RecordExists(parent) AND NOT RecordExists(SELECT FROM list->columns WHERE columns.tree))
+    THROW NEW Exception("children are being requested but the tree is not even in list mode!");
+
+  INSERT "tree:" || (RecordExists(parent) ? ToString(parent.rowkey) : "-") INTO queries AT END;
+
+  RECORD ARRAY returnitems;
+
+  IF(NOT RecordExists(parent))
+    returnitems := currentitems;
+  ELSE IF(parent.rowkey = 1)
+    THROW NEW Exception("row 1 is not expandable so shouldn't be attempted");
+  ELSE IF(parent.rowkey = 2)
+    returnitems := (SELECT * FROM currentitems WHERE rowkey = parent.rowkey).subnodes;
+
+  FOREVERY(RECORD item FROM returnitems)
+  {
+    IF(CellExists(item,'subnodes'))
+    {
+      DELETE CELL subnodes FROM item;
+      INSERT CELL expandable := TRUE INTO item;
+    }
+    returnitems[#item] := item;
+  }
+
+  RETURN returnitems;
+}
+
+ASYNC MACRO TestList_XML()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(Resolve("data/listtest.xml#xmllist")));
+  RECORD listinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "component" AND target = TT("list")->toddname;
+  TestEq(TRUE, "Germany" IN listinstr.rows[0]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestList(STRING mode)
+{
+  currentitems := initialitems;
+
+  OBJECT browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+   [ component := "list"
+   , settings := [ ongetchildren := mode="getchildren" ? PTR GenerateListTree : DEFAULT FUNCTION PTR
+                 , ongetrows :=     mode="getrows"     ? PTR GenerateListItems : DEFAULT FUNCTION PTR
+                 , rows :=          mode="static"      ? currentitems : DEFAULT RECORD ARRAY
+                 , columns := [[ name := "title", type := "text" ]
+                              ,[ name := "country", type := "text", onmapvalue := PTR ExpandCountry ]
+                              ]
+                 , eventmasks := DEFAULT STRING ARRAY
+                 ]
+   ]);
+
+  list := browser->comp;
+  list->eventmasks := ["webhare_testsuite:testlistcomponent"];
+
+  AWAIT ExpectScreenChange(+1, PTR browser->RunModal);
+  RECORD listinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "component" AND target = list->toddname;
+  TestEq(TRUE, "Germany" IN listinstr.rows[0]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+
+  TestEq(2,Length(list->rows));
+  TestEq(0,list->value);
+  list->expanded := [1]; //no effect, there are no tree columns
+  TestEq(2,Length(list->rows));
+
+  list->columns[0].tree := TRUE;
+  IF(mode="static") //we'll need to manually restore rows
+    list->rows := initialitems;
+
+  TestEq(mode != "getchildren" ? 3 : 2,Length(list->rows));
+  TestEq(FALSE, list->rows[0].expandable);
+  TestEq(FALSE, list->rows[1].expanded);
+  TestEq(TRUE, list->rows[1].expandable);
+
+
+  list->expanded := [1];
+  TestEq(mode != "getchildren"  ? 3 : 2,Length(list->rows));
+
+  list->expanded := [2];
+  TestEq(TRUE, list->rows[1].expanded);
+  TestEq(3,Length(list->rows));
+
+  TestEq("Three", list->rows[2].title);
+  IF(mode != "static")
+  {
+    currentitems[1].subnodes[0].title := "Third";
+    queries := STRING[];
+    list->Invalidate();
+    TestEQ(mode = "getrows" ? [ "listitems" ] : [ "tree:-", "tree:2" ], queries);
+    TestEq("Third", list->rows[2].title);
+  }
+
+  IF(mode = "static")
+  {
+    //rows reassignment shouldn't break anything (even though it's tricky as we're re-assigning the tree)
+    list->rows := list->rows;
+    TestEq(TRUE, list->rows[1].expandable);
+    TestEq(1, list->rows[2].level);
+  }
+
+  //Test initial expanding
+  currentitems := initialitems;
+  INSERT CELL expanded := TRUE INTO currentitems[1];
+
+  browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+   [ component := "list"
+   , settings := [ ongetchildren := mode="getchildren" ? PTR GenerateListTree : DEFAULT FUNCTION PTR
+                 , ongetrows :=     mode="getrows"     ? PTR GenerateListItems : DEFAULT FUNCTION PTR
+                 , rows :=          mode="static"      ? currentitems : DEFAULT RECORD ARRAY
+                 , columns := [[ name := "title", type := "text", tree := TRUE ]]
+                 ]
+   ]);
+  list := browser->comp;
+
+  TestEq(3,Length(list->rows));
+}
+
+ASYNC MACRO TestList_Static()
+{
+  AWAIT TestList("static");
+}
+
+ASYNC MACRO TestList_OnGetChildren()
+{
+  AWAIT TestList("getchildren");
+}
+
+ASYNC MACRO TestList_OnGetRows()
+{
+  AWAIT TestList("getrows");
+}
+
+MACRO TestEmptyList()
+{
+  currentitems := DEFAULT RECORD ARRAY;
+
+  OBJECT browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+   [ component := "list"
+   , settings := [ ongetchildren := PTR GenerateListTree
+                 ]
+   , readvalue := FALSE //disable value reading as an empty list doesn't like that
+   ]);
+
+  TestEq(0,Length(browser->comp->rows));
+  browser->comp->ReloadList();
+  TestEq(0,Length(browser->comp->rows));
+
+  currentitems := initialitems;
+  browser->comp->ReloadList();
+  TestEq(2,Length(browser->comp->rows));
+}
+
+RECORD ARRAY FUNCTION CrashOnGetChildren(RECORD parent)
+{
+  THROW NEW Exception("CrashOnGetChildren may not be invoked");
+}
+
+ASYNC MACRO TestListRegressions()
+{
+  //profiler expected to be able to request a 'value' from a list without triggering its getitems, if the rowkeytype was set
+  OBJECT browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+   [ component := "list"
+   , settings := [ ongetchildren := PTR CrashOnGetChildren
+                 , rowkeytype := TYPEID(INTEGER)
+                 ]
+   , readvalue := FALSE
+   ]);
+
+  TestEq(0, browser->comp->value);
+  TestEq(DEFAULT RECORD, browser->comp->selection);
+
+  /* an empty dynamic list didn't send new rows to the frontend after calling Invalidate() (cause was missing callback
+     from listtreehelper that the rows had changed)
+  */
+  currentitems := DEFAULT RECORD ARRAY;
+  browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+      [ component := "list"
+      , settings := [ ongetrows :=     PTR GenerateListItems
+                    , columns :=       [ [ name := "title", type := "text" ] ]
+                    , eventmasks :=    DEFAULT STRING ARRAY
+                    ]
+      ]);
+
+  AWAIT ExpectScreenChange(+1, PTR browser->RunModal);
+
+  // Flush
+  GetTestController()->GrabInstructions();
+
+  // Invalidate, see if the list sends new rows to frontend
+  currentitems := [ [ rowkey := 1, title := "title" ] ];
+  browser->comp->Invalidate();
+
+  // Should be a row sent to interface
+  RECORD listinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE target LIKE "*:thecomponent$*";
+  TestEQ(TRUE, RecordExists(listinstr), "Should have new rows sent to list");
+  TestEQ(1, LENGTH(listinstr.rows));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+}
+
+RunTestframework([ PTR TestList_XML
+                 , PTR TestList_Static
+                 , PTR TestList_OnGetChildren
+                 , PTR TestList_OnGetRows
+                 , PTR TestEmptyList
+                 , PTR TestListRegressions
+                 ]);

@@ -1,0 +1,412 @@
+﻿<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT authapi;
+
+  PUBLIC PROPERTY authobject(authapi, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+  MACRO NEW()
+  {
+    IF(ObjectExists(this->contexts->userapi))
+      this->contexts->wrdschema := this->contexts->userapi->wrdschema;
+  }
+
+  MACRO Init(RECORD data)
+  {
+    // If the user api could not be loaded, exit early to prevent crashes.
+    IF (NOT ObjectExists(this->contexts->userapi))
+    {
+      this->RunMessageBox(".userapinotset");
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
+    this->frame->flags.anygrantablerights := this->contexts->user->HasAnyGrantableRight();
+    ^objectstab->visible := this->frame->flags.anygrantablerights;
+
+    this->RefreshApp();
+
+    this->unittree->onselect := PTR this->OnUnitSelectHandler;
+    this->unitcontents->onselect := PTR this->OnUserRoleSelectHandler;
+    this->objecttree->onselect := PTR this->OnObjectListSelect;
+    this->userrolesearch->onshow := PTR this->OnShowSearchResult;
+
+    // Correct borders
+    this->unittree->borders.right := FALSE;
+    this->unitcontents->borders.left := FALSE;
+    this->unitcontents->borders.bottom := FALSE;
+    this->objecttree->borders.right:= FALSE;
+    this->objectrightslist->borders.left := FALSE;
+
+    this->SetupUsermgrExtensions();
+
+    IF (RecordExists(data.target))
+      this->GotMessage(data.target);
+    ELSE IF (RecordExists(data.message))
+      this->GotMessage(data.message);
+  }
+
+  MACRO SetupUsermgrExtensions() //Setup the module-based extensions
+  {
+    RECORD ARRAY exportadditions;
+    FOREVERY(RECORD ext FROM GetApplicableExtensions(this->tolliumuser, 'usermgrextensions'))
+    {
+      FOREVERY(RECORD action FROM GetExtensionActions(this, ext, "exports"))
+      {
+        IF(action.windowopenmacro != "")
+        {
+          action.onwindowopen := PTR this->ExecuteUsermgrWOExtension(action, #1);
+        }
+        ELSE
+        {
+          action.onexecute := PTR this->ExecuteUsermgrExtension(action);
+        }
+        INSERT action INTO exportadditions AT END;
+      }
+    }
+    this->ConstructMenuItems(exportadditions, ^exportsmenu);
+  }
+
+  MACRO ExecuteUsermgrWOExtension(RECORD action, OBJECT openhandler)
+  {
+    MakeFunctionPtr(action.windowopenmacro)(this, openhandler);
+  }
+  MACRO ExecuteUsermgrExtension(RECORD action)
+  {
+    IF(action.screen != "")
+      this->RunScreen(action.screen);
+    ELSE IF(action.startmacro != "")
+      MakeFunctionPtr(action.startmacro)(this);
+  }
+
+  RECORD ARRAY FUNCTION ConstructMenuItems(RECORD ARRAY items, OBJECT receivingmenu)
+  {
+    FOREVERY(RECORD newmenuitem FROM items)
+    {
+      STRING ARRAY requireflags;
+      STRING actioncell;
+      MACRO PTR folderactionptr;
+      MACRO PTR fileactionptr;
+
+      IF(newmenuitem.onwindowopen != DEFAULT MACRO PTR)
+        newmenuitem.__action->onwindowopen := PTR this->WrapWindowOpen(newmenuitem.onwindowopen, #1);
+      ELSE
+        newmenuitem.__action->onexecute := PTR this->WrapExecute(newmenuitem.onexecute);
+
+      items[#newmenuitem] := newmenuitem;
+
+      INSERT [ menuitem := newmenuitem.__menuitem
+             , isdivider := FALSE
+             ] INTO receivingmenu->items AT END;
+    }
+
+    RETURN items;
+  }
+
+  MACRO WrapWindowOpen(MACRO PTR handler, OBJECT openhandler)
+  {
+    handler(openhandler, ^foldertree->value);
+  }
+  MACRO WrapExecute(MACRO PTR handler)
+  {
+    handler();
+  }
+  MACRO RefreshApp()
+  {
+    this->authapi := this->contexts->userapi;
+
+    IF(NOT this->authapi->wrdschema->usermgmt)
+      THROW NEW Exception("The WRD schema '" || this->authapi->wrdschema->tag || "' has not been blessed for user management");
+
+    /// Start applying the UserEdit policy
+    RECORD policy := GetPolicyForUser(this->contexts, this->tolliumuser->entityid);
+    /// Check for searchable fields, if any:
+    RECORD searchablefields := policy.searchablefields;
+
+    IF(CellExists(searchablefields, "PERSON") AND Length(searchablefields.person) > 0
+       AND CellExists(searchablefields, "ROLE") AND Length(searchablefields.role) > 0
+       AND CellExists(searchablefields, "UNIT") AND Length(searchablefields.unit) > 0
+      )
+    {
+      this->togglesearchbarbutton->pressed := this->tolliumuser->GetRegistryKey("system.userrights.showsearchbar", FALSE);
+      this->searchbar->visible := this->togglesearchbarbutton->pressed;
+    }
+    ELSE
+      this->togglesearchbarbutton->enabled := FALSE;
+
+    /// Check for hidden fields, if any:
+    STRING ARRAY hiddenfields;
+    IF(CellExists(policy, "HIDDENFIELDS"))
+      hiddenfields := policy.hiddenfields;
+
+    /// Apply for non-sysops:
+    IF(Length(hiddenfields) > 0 AND NOT this->tolliumuser->HasRight("system:sysop"))
+    {
+      /// Apply
+      Reflect("Should now apply limitations on hidden fields");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotMessage(RECORD message)
+  {
+    IF (NOT CellExists(message, "TYPE"))
+      RETURN;
+
+    SWITCH (message.type)
+    {
+      CASE "gotoobject"
+      {
+        IF(NOT ^objectstab->visible)
+          RETURN;
+
+        this->viewmode->selectedtab := this->objectstab;
+
+        this->objecttree->value :=
+            [ rightsgroup :=      CellExists(message, "RIGHTSGROUP") ? message.rightsgroup : ""
+            , objecttypename :=   CellExists(message, "OBJECTTYPENAME") ? message.objecttypename : ""
+            , objectid :=         CellExists(message, "OBJECTID") ? message.objectid : 0
+            ];
+      }
+    }
+  }
+
+  MACRO OnTabChange()
+  {
+  }
+
+  MACRO OnUnitSelectHandler()
+  {
+    this->unitcontents->unit := this->unittree->value;
+  }
+
+  MACRO OnUserRoleSelectHandler()
+  {
+    OBJECT wrdauthobject;
+    IF (LENGTH(this->unitcontents->value) = 1)
+      wrdauthobject := this->unitcontents->value[0];
+
+    this->userrolerightslist->wrdauthobject := wrdauthobject;
+  }
+
+  MACRO OnObjectListSelect()
+  {
+    RECORD val := this->objecttree->value;
+
+    IF (NOT RecordExists(val))
+      this->objectrightslist->UnselectObject();
+    ELSE
+    {
+      IF (val.rightsgroup != "")
+        this->objectrightslist->SelectRightsGroup(val.rightsgroup);
+      ELSE
+        this->objectrightslist->SelectObject(val.objecttypename, val.objectid);
+    }
+  }
+
+  MACRO OnShowSearchResult()
+  {
+    // Make sure we're looking at the correct tab:
+    IF(this->viewmode->selectedtab->name != "unitstab")
+      this->viewmode->selectedtab := this->unitstab;
+
+    // Get the selection and try to select the unit:
+    RECORD toselect := this->userrolesearch->selection;
+    OBJECT selunit := this->contexts->userapi->GetUnit(toselect.unit);
+
+    /// Is there still a unit associated with this user?
+    IF(NOT ObjectExists(selunit) OR NOT ObjectExists(selunit->entity) OR NOT selunit->entity->IsLive())
+    {
+      IF(this->RunMessageBox(".nounit", toselect.name) = "no")
+        RETURN;
+
+      IF(NOT this->tolliumuser->HasRightOn("system:manageunit", toselect.authobjectparentid))
+      {
+        this->RunMessageBox("system:userrights/userrights.notunitmanagerforuser", toselect.name);
+        RETURN;
+      }
+
+      OBJECT dialog := MakeSelectUnitDialog(this, DEFAULT OBJECT, "system:manageunit", TRUE);
+      IF (dialog->RunModal() = "ok")
+      {
+        selunit := dialog->value;
+        /// Now, update the auth object:
+        OBJECT work := this->BeginLockedWork("wrd:usermgmt");
+        INTEGER id;
+        TRY
+        {
+          id := toselect.wrd_id;
+          OBJECT entity := this->contexts->userapi->wrdschema->GetType("WRD_PERSON")->GetEntity(id);
+          entity->UpdateEntity([ whuser_unit := selunit->entityid ]);
+          work->Finish();
+          this->contexts->userapi->SyncUnitAfterUpdate(selunit->entityid);
+        }
+        FINALLY
+        {
+          BroadcastEvent("system:unit.change." || selunit->entityid, DEFAULT RECORD);
+        }
+      }
+      ELSE
+        RETURN;/// No unit, no point doing anything
+    }
+    // Actually select the unit
+    this->unittree->value := selunit;
+    this->OnUnitSelectHandler();
+
+    IF(toselect.type = 2)
+      RETURN;// Don't select anything if what we're looking for is a unit
+
+    // Select the relevant user or role
+    OBJECT retval := toselect.type = 1 ? this->contexts->userapi->GetUser(toselect.wrd_id) : this->contexts->userapi->GetRole(toselect.wrd_id);
+    IF(this->unitcontents->selectmode = "single")
+      this->unitcontents->value := retval;
+    ELSE
+      this->unitcontents->value := [ retval ];
+
+    this->OnUserRoleSelectHandler();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoExportAllGrants()
+  {
+    RECORD ARRAY cols := [[ name := "type",            type := "text",     title := this->GetTid(".export.type") ]
+                         ,[ name := "login",           type := "text",     title := GetTid("~username") ]
+                         ,[ name := "realname",        type := "text",     title := GetTid("~fullname") ]
+                         ,[ name := "email",           type := "text",     title := GetTid("~email") ]
+                         ,[ name := "unitname",        type := "text",     title := this->GetTid(".export.unitname") ]
+                         ,[ name := "rightname",       type := "text",     title := this->GetTid(".export.rightname") ]
+                         ,[ name := "objecttypename",  type := "text",     title := this->GetTid(".export.objecttypename") ]
+                         ,[ name := "objectpath",      type := "text",     title := this->GetTid(".export.objectpath") ]
+                         ,[ name := "grantor",         type := "text",     title := this->GetTid(".export.grantor") ]
+                         ,[ name := "creationdate",    type := "datetime", title := this->GetTid(".export.grantdate"), storeutc := TRUE ]
+                         ,[ name := "withgrantoption", type := "boolean",  title := this->GetTid(".export.withgrantoption") ]
+                         ,[ name := "comment",         type := "text",     title := this->GetTid(".export.comment") ]
+                         ];
+    RunColumnFileExportDialog(this, [ columns := cols
+                                    , rows := ListRightsAndRolesForExport(this->contexts->userapi)
+                                    , exporttitle := this->GetTid(".export.allgrants")
+                                    ]);
+  }
+  MACRO DoExit()
+  {
+    this->tolliumresult := "exit";
+  }
+
+  MACRO DoSyncauthobjects()
+  {
+    OBJECT work := this->BeginWork();
+    this->authapi->ResyncToSystemTables();
+    work->AddWarning(this->GetTid(".syncedauthobjects"));
+    work->Finish();
+    this->RefreshApp();
+  }
+
+  MACRO DoSetUserDefaults()
+  {
+    OBJECT screen := this->LoadScreen("userrights/dialogs/users.setuserdefaults");
+    screen->RunModal();
+  }
+
+  MACRO DoToggleSearchButton()
+  {
+    this->searchbar->visible := NOT this->searchbar->visible;
+    this->togglesearchbarbutton->pressed := this->searchbar->visible;
+    this->tolliumuser->SetRegistryKey("system.userrights.showsearchbar", this->searchbar->visible);
+  }
+
+  MACRO DoCopyPermissions()
+  {
+    OBJECT userselect := MakeUserRoleSelectionDialog(this);
+    userselect->explanation := this->GetTid(".selectusertocopyallpermissionsto");
+    userselect->unit := this->unittree->value;
+    userselect->selectmode := "single";
+
+    IF (userselect->RunModal() != "ok")
+      RETURN;
+
+    OBJECT copy_from := this->unitcontents->value[0];
+    OBJECT copy_to := userselect->value;
+
+    RECORD ARRAY add_roles :=
+       SELECT role, comment := ANY(comment)
+         FROM system.rolegrants
+        WHERE COLUMN grantee = copy_from->authobjectid
+     GROUP BY role;
+
+    IF (copy_to->type = 3 AND LENGTH(add_roles) != 0)
+    {
+      IF (this->RunMessageBox(".copyonlyrightstorole") != "yes")
+        RETURN;
+    }
+
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    RECORD ARRAY add_grants := GetDirectGrantsTo(copy_from->authobject);
+
+    RECORD ARRAY existing_grants :=
+        SELECT *
+          FROM GetDirectGrantsTo(copy_to->authobject)
+      ORDER BY objectid, rightid, withgrantoption;
+
+    INTEGER ARRAY existing_roles :=
+       SELECT AS INTEGER ARRAY DISTINCT COLUMN role
+         FROM system.rolegrants
+        WHERE COLUMN grantee = copy_to->authobjectid;
+
+    STRING ARRAY grant_columns := [ "OBJECTID", "RIGHTID", "WITHGRANTOPTION" ];
+
+    //TODO give a chance to specify a new comment
+    IF (copy_to->type != 3)
+    {
+      FOREVERY (RECORD role FROM add_roles)
+        IF (role.role NOT IN existing_roles)
+          this->tolliumuser->authobject->GrantRoleTo(role.role, copy_to->authobject, [ comment := role.comment ]);
+    }
+
+    FOREVERY (RECORD grant FROM add_grants)
+      IF (NOT RecordLowerBound(existing_grants, grant, grant_columns).found)
+      {
+        IF (IsRightGlobal(grant.rightname))
+          this->tolliumuser->GrantRightTo(grant.rightname, copy_to, grant.withgrantoption);
+        ELSE
+          this->tolliumuser->GrantRightToOn(grant.rightname, copy_to, grant.objectid, grant.withgrantoption);
+      }
+
+    work->Finish();
+  }
+>;

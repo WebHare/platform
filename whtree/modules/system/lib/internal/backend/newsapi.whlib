@@ -1,0 +1,297 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+/** @short Retrieves a news item by ID; to be used for populating Tollium list / listedit components.
+    @long Retrieves a newsitem from the database for the given ID, looks up the proper display name for the author (using the
+          supplied Tollium controller object) and returns a record containing the relevant data.
+    @param(INTEGER) id The ID of the newsitem to be retrieved.
+    @param(OBJECT) controller An instance of TolliumController.
+    @return(RECORD)
+      @cell(STRING) title The title of the newsitem
+      @cell(DATETIME) creationdate The date and time of creation
+      @cell(STRING) createdby_string The (formatted) display name of the author, or "Unknown"
+      @cell(INTEGER) rowkey The id of the newsitem
+      @cell(INTEGER) id The id of the newsitem
+      @cell(DATETIME) publish_from The date and time at which to start publishing the newsitem
+      @cell(INTEGER ARRAY) audience A list of unit Entity IDs representing the intended audience
+      @cell(INTEGER) author The user ID (WRD entity ID) of the author of the newsitem
+*/
+PUBLIC RECORD FUNCTION GetNewsItem(INTEGER id, OBJECT controller)
+{
+  OBJECT announcement_type := controller->userapi->wrdschema->GetType("WHUSER_ANNOUNCEMENT");
+  RECORD ARRAY newsentries := announcement_type->RunQuery( [ outputcolumns := [ "WRD_CREATIONDATE"
+                                                                              , "ANNOUNCEMENT_TITLE"
+                                                                              , "ANNOUNCEMENT_AUTHOR"
+                                                                              , "ANNOUNCEMENT_UNIT"
+                                                                              , "WRD_ID"
+                                                                              , "PUBLISH_FROM"
+                                                                              , "PUBLISH_UNTIL"
+                                                                              ]
+                                                           ,       filters := [ [ field := "WRD_ID"
+                                                                                , matchtype := "="
+                                                                                , value := id
+                                                                              ] ]
+                                                           ] );
+  RETURN SELECT title := announcement_title
+              , creationdate := wrd_creationdate
+              , createdby_string := (announcement_author = 0) ?
+                                    GetTid("system:sysmgmt.systemnews.unknown") :
+                                    controller->userapi->GetUserDisplayName(controller->userapi->GetTolliumUserFromEntityId(announcement_author)->authobjectid)
+              , rowkey := wrd_id
+              , id := wrd_id
+              , publish_from
+              , audience := announcement_unit
+              , author := announcement_author
+           FROM newsentries;
+}
+
+/** @short Retrieves all currently published newsitems for the given list of units
+    @long Retrieves a a RECORD ARRAY of newsitems that are currently published and have been assigned the a unit present in
+          the given INTEGER ARRAY of unit IDs (or have no associated units set). Note that the supplied array will be expanded
+          to include all child units for the given units.
+    @param(INTEGER ARRAY) unitids The IDs of the units for which to retrieve the published newsitems
+    @return(RECORD ARRAY)
+      @cell(STRING) title The title of the newsitem
+      @cell(RECORD) text The RTD formatted text of the newsitem
+      @cell(DATETIME) creationdate The date and time of creation
+      @cell(INTEGER) id The id of the newsitem
+      @cell(DATETIME) publish_from The date and time at which to start publishing the newsitem
+      @cell(DATETIME) publish_until The date and time at which to stop publishing the newsitem
+      @cell(INTEGER ARRAY) audience A list of unit Entity IDs representing the intended audience
+      @cell(INTEGER) author The user ID (WRD entity ID) of the author of the newsitem
+*/
+PUBLIC RECORD ARRAY FUNCTION GetCurrentNewsItemsForUnits(OBJECT userapi, INTEGER ARRAY unitids)
+{
+  IF(NOT ObjectExists(userapi))
+    RETURN DEFAULT RECORD ARRAY;
+
+  unitids := ExpandUnitIDsWithChildren(userapi, unitids);
+  OBJECT announcement_type := userapi->wrdschema->GetType("WHUSER_ANNOUNCEMENT");
+  DATETIME now := GetCurrentDatetime();
+  RECORD ARRAY newsentries := announcement_type->RunQuery( [ outputcolumns := [ "WRD_CREATIONDATE"
+                                                                              , "ANNOUNCEMENT_TITLE"
+                                                                              , "ANNOUNCEMENT_TEXT"
+                                                                              , "ANNOUNCEMENT_AUTHOR"
+                                                                              , "ANNOUNCEMENT_UNIT"
+                                                                              , "WRD_ID"
+                                                                              , "PUBLISH_FROM"
+                                                                              , "PUBLISH_UNTIL"
+                                                                              , "TARGET_LANGUAGE"
+                                                                              ]
+                                                           ,       filters := [ [ field := "PUBLISH_FROM"
+                                                                                , matchtype := "<"
+                                                                                , value := now
+                                                                                ]
+                                                                              , [ field := "PUBLISH_FROM"
+                                                                                , matchtype := "!="
+                                                                                , value := DEFAULT DATETIME
+                                                                                ]
+                                                                              ]
+                                                           ] );
+  RETURN SELECT title := announcement_title
+              , text := announcement_text
+              , creationdate := wrd_creationdate
+              , id := wrd_id
+              , publish_from
+              , publish_until
+              , audience := announcement_unit
+              , author := announcement_author
+              , lang := MapLanguageToCode(target_language)
+           FROM newsentries
+          WHERE (ArraysIntersect(unitids, announcement_unit) OR Length(announcement_unit) = 0)// If no units are set, we'll call it a global announcement
+            AND (publish_until >= now OR publish_until = DEFAULT DATETIME)
+       ORDER BY wrd_creationdate DESC;
+}
+
+/** @short Retrieves all newsitems, including unpublished ones
+    @long Retrieves a a RECORD ARRAY of all newsitems that exist in the database.
+    @return(RECORD ARRAY)
+      @cell(STRING) title The title of the newsitem
+      @cell(RECORD) text The RTD formatted text of the newsitem
+      @cell(DATETIME) creationdate The date and time of creation
+      @cell(INTEGER) id The id of the newsitem
+      @cell(DATETIME) publish_from The date and time at which to start publishing the newsitem
+      @cell(DATETIME) publish_until The date and time at which to stop publishing the newsitem
+      @cell(INTEGER ARRAY) audience A list of unit Entity IDs representing the intended audience
+      @cell(INTEGER) author The user ID (WRD entity ID) of the author of the newsitem
+*/
+PUBLIC RECORD ARRAY FUNCTION GetAllNewsItems(OBJECT userapi)
+{
+  OBJECT announcement_type := userapi->wrdschema->GetType("WHUSER_ANNOUNCEMENT");
+  RECORD ARRAY newsentries := announcement_type->RunQuery( [ outputcolumns := [ "WRD_CREATIONDATE"
+                                                                              , "ANNOUNCEMENT_TITLE"
+                                                                              , "ANNOUNCEMENT_TEXT"
+                                                                              , "ANNOUNCEMENT_AUTHOR"
+                                                                              , "ANNOUNCEMENT_UNIT"
+                                                                              , "WRD_ID"
+                                                                              , "PUBLISH_FROM"
+                                                                              , "PUBLISH_UNTIL"
+                                                                              , "TARGET_LANGUAGE"
+                                                                              ]
+                                                           ] );
+  RETURN SELECT title := announcement_title
+              , text := announcement_text
+              , creationdate := wrd_creationdate
+              , id := wrd_id
+              , publish_from
+              , publish_until
+              , audience := announcement_unit
+              , author := announcement_author
+              , lang := MapLanguageToCode(target_language)
+           FROM newsentries
+       ORDER BY wrd_creationdate DESC;
+}
+
+/** @short Retrieves all currently published newsitems, regardless of intended audience.
+    @long Retrieves a a RECORD ARRAY of newsitems that are currently published; if you want to filter them by audience, use
+          GetCurrentNewsItemsForUnits instead
+    @return(RECORD ARRAY)
+      @cell(STRING) title The title of the newsitem
+      @cell(RECORD) text The RTD formatted text of the newsitem
+      @cell(DATETIME) creationdate The date and time of creation
+      @cell(INTEGER) id The id of the newsitem
+      @cell(DATETIME) publish_from The date and time at which to start publishing the newsitem
+      @cell(DATETIME) publish_until The date and time at which to stop publishing the newsitem
+      @cell(INTEGER ARRAY) audience A list of unit Entity IDs representing the intended audience
+      @cell(INTEGER) author The user ID (WRD entity ID) of the author of the newsitem
+*/
+PUBLIC RECORD ARRAY FUNCTION GetAllCurrentNewsItems(OBJECT userapi)
+{
+  DATETIME now := GetCurrentDatetime();
+  OBJECT announcement_type := userapi->wrdschema->GetType("WHUSER_ANNOUNCEMENT");
+  RECORD ARRAY newsentries := announcement_type->RunQuery( [ outputcolumns := [ "WRD_CREATIONDATE"
+                                                                              , "ANNOUNCEMENT_TITLE"
+                                                                              , "ANNOUNCEMENT_TEXT"
+                                                                              , "ANNOUNCEMENT_AUTHOR"
+                                                                              , "ANNOUNCEMENT_UNIT"
+                                                                              , "WRD_ID"
+                                                                              , "PUBLISH_FROM"
+                                                                              , "PUBLISH_UNTIL"
+                                                                              , "TARGET_LANGUAGE"
+                                                                              ]
+                                                           ,       filters := [ [ field := "PUBLISH_FROM"
+                                                                                , matchtype := "<"
+                                                                                , value := now
+                                                                                ]
+                                                                              , [ field := "PUBLISH_FROM"
+                                                                                , matchtype := "!="
+                                                                                , value := DEFAULT DATETIME
+                                                                                ]
+                                                                              ]
+                                                           ] );
+  RETURN SELECT title := announcement_title
+              , text := announcement_text
+              , creationdate := wrd_creationdate
+              , id := wrd_id
+              , publish_from
+              , publish_until
+              , audience := announcement_unit
+              , author := announcement_author
+              , lang := MapLanguageToCode(target_language)
+           FROM newsentries
+          WHERE (publish_until >= now OR publish_until = DEFAULT DATETIME)
+       ORDER BY wrd_creationdate DESC;
+}
+
+/** @short Filters the given RECORD ARRAY of newsitems for items the given userid has marked as read.
+    @long Returns all newsitems from the given RECORD ARRAY of items for which the user identified by the userid parameter
+          has not specified they should be hidden.
+    @param(INTEGER) userid The IDs of the user for whom to retrieve the relevant setting.
+    @param(RECORD ARRAY) newsitems The output of one of the getter functions in this API.
+    @return(RECORD ARRAY)
+      @cell(STRING) title The title of the newsitem
+      @cell(RECORD) text The RTD formatted text of the newsitem
+      @cell(DATETIME) creationdate The date and time of creation
+      @cell(INTEGER) id The id of the newsitem
+      @cell(DATETIME) publish_from The date and time at which to start publishing the newsitem
+      @cell(DATETIME) publish_until The date and time at which to stop publishing the newsitem
+      @cell(INTEGER ARRAY) audience A list of unit Entity IDs representing the intended audience
+      @cell(INTEGER) author The user ID (WRD entity ID) of the author of the newsitem
+*/
+PUBLIC RECORD ARRAY FUNCTION FilterHiddenNewsItems(OBJECT userapi, INTEGER userid, RECORD ARRAY newsitems)
+{
+  IF(NOT ObjectExists(userapi) OR LengtH(newsitems)=0)
+    RETURN DEFAULT RECORD ARRAY;
+
+  OBJECT announcement_type := userapi->wrdschema->GetType("WRD_PERSON");
+  RECORD ARRAY newsentries := announcement_type->RunQuery( [ outputcolumns := [ "WHUSER_HIDDENANNOUNCEMENTS" ], filters := [ [ field := "WRD_ID", matchtype := "=", value := userid ] ] ] );
+  IF(Length(newsentries) = 0)
+    RETURN DEFAULT RECORD ARRAY;
+
+  RETURN SELECT * FROM newsitems WHERE id NOT IN RECORD(newsentries).whuser_hiddenannouncements;
+}
+
+
+/** @short Converts an INTEGER ARRAY of unit entity IDs to a STRING ARRAY of entity GUIDs.
+    @param(INTEGER ARRAY) units The list of units to convert
+    @return(STRING ARRAY) The GUIDs of the units given.
+*/
+STRING ARRAY FUNCTION UnitEntityIDsToGUIDs(OBJECT userapi, INTEGER ARRAY units)
+{
+  OBJECT unit_type := userapi->wrdschema->GetType("WHUSER_UNIT");
+  RECORD ARRAY unitids := unit_type->RunQuery( [ outputcolumns := [ "WRD_GUID" ], filters := [ [ field := "WRD_ID", matchtype := "IN", value := units ] ] ] );
+  RETURN SELECT AS STRING ARRAY wrd_guid FROM unitids;
+}
+
+/** @short Returns an integer an INTEGER ARRAY containing the given units and all child units under the given units.
+    @long Please note that if one of the given units equals zero (0), ALL units will be returned. This is intentional, as
+          unit 0, while nonexistant, is the virtual root unit for all units and should therefor be considered valid input
+          and interpreted as a valid parent for "all units".
+    @param(INTEGER ARRAY) units The list of entity IDs for the units to resolve
+    @return(INTEGER ARRAY) A list of the given units and all their child units' entity IDs
+*/
+INTEGER ARRAY FUNCTION ExpandUnitIDsWithChildren(OBJECT userapi, INTEGER ARRAY units)
+{
+  IF(NOT ObjectExists(userapi))
+    RETURN DEFAULT INTEGER ARRAY;
+
+  OBJECT unit_type := userapi->wrdschema->GetType("WHUSER_UNIT");
+  IF(NOT ObjectExists(unit_type))
+    RETURN DEFAULT INTEGER ARRAY;
+
+  IF(0 NOT IN units)
+  {
+    STRING ARRAY authobjectids := SELECT AS STRING ARRAY guid FROM system.authobjects WHERE guid IN UnitEntityIDsToGUIDs(userapi, units);
+    STRING ARRAY guids := SELECT AS STRING ARRAY guid FROM system.authobjects WHERE parent IN (SELECT AS INTEGER ARRAY id FROM system.authobjects WHERE guid IN authobjectids);
+    IF(Length(guids) = Length(units))
+      RETURN units;
+
+    RECORD ARRAY unitids := unit_type->RunQuery( [ outputcolumns := [ "WRD_ID" ], filters := [ [ field := "WRD_GUID", matchtype := "IN", value := guids ] ] ] );
+    units := units CONCAT ExpandUnitIDsWithChildren(userapi, SELECT AS INTEGER ARRAY wrd_id FROM unitids);
+    RETURN units;
+  }
+  ELSE
+  {
+    RECORD ARRAY unitids := unit_type->RunQuery( [ outputcolumns := [ "WRD_ID" ] ] );
+    RETURN SELECT AS INTEGER ARRAY wrd_id FROM unitids;
+  }
+}
+
+STRING FUNCTION MapLanguageToCode(INTEGER id)
+{
+  SWITCH(id)
+  {
+    CASE 0
+    {
+      RETURN "nlen";
+    }
+    CASE 1
+    {
+      RETURN "en";
+    }
+    CASE 2
+    {
+      RETURN "nl";
+    }
+    DEFAULT
+    {
+      RETURN "nlen";
+    }
+  }
+}

@@ -1,0 +1,100 @@
+<?wh
+/** @short OOXML (Office 2007+) file support
+    @topic file-formats/ooxml
+*/
+
+LOADLIB "wh::ooxml/internal/utils.whlib";
+LOADLIB "wh::ooxml/internal/ooxml.whlib";
+
+//STRING xmlns_main := "http://schemas.openxmlformats.org/presentationml/2006/main";
+
+OBJECTTYPE PPTXDoc
+<
+  OBJECT ooxmldoc;
+  OBJECT maindoc;
+
+  BOOLEAN gotslides;
+  RECORD ARRAY slides;
+
+  MACRO NEW(BLOB infile)
+  {
+    this->ooxmldoc := NEW OOXMLDocument;
+    IF (NOT this->ooxmldoc->LoadOOXMLDocument(infile))
+      THROW NEW Exception("Unable to load the document");
+    IF(this->ooxmldoc->GetMainDocumentType() != presentationml_main_uri)
+      THROW NEW Exception("Document is not an ppt document, but of type " || this->ooxmldoc->GetMainDocumentType());
+
+    this->maindoc := this->ooxmldoc->GetMaindocument()->document->documentelement;
+  }
+
+  /////////////// slides ///////////////////
+  PUBLIC RECORD ARRAY FUNCTION GetSlides()
+  {
+    IF(this->gotslides)
+      RETURN this->slides;
+
+    OBJECT slidelistnode := this->maindoc->GetchildElementsByTagNameNS(presentationml_main_uri,"sldIdLst")->Item(0);
+    IF(NOT ObjectExists(slidelistnode))
+      THROW NEW Exception("Unable to find pptx sldIdLst node");
+
+    FOREVERY(OBJECT slidenode FROM slidelistnode->GetElementsByTagNameNS(presentationml_main_uri,"sldId")->GetCurrentElements())
+    {
+      RECORD slide := [ id := slidenode->getAttribute("id")
+                      , rel := slidenode->GetAttributeNS(officedocuments_relationships_uri, "id")
+                      , slide := DEFAULT OBJECT
+                      ];
+      INSERT slide INTO this->slides AT END;
+    }
+    this->gotslides := TRUE;
+    RETURN this->slides;
+  }
+
+  PUBLIC OBJECT FUNCTION OpenSlide(INTEGER seqnum)
+  {
+    IF(seqnum < 0 OR seqnum >= Length(this->GetSlides()))
+      RETURN DEFAULT OBJECT;
+
+    IF(NOT ObjectExists(this->slides[seqnum].slide))
+    {
+      OBJECT thefile := this->ooxmldoc->GetMainDocument()->OpenRelationByID(this->slides[seqnum].rel);
+      IF(NOT ObjectExists(thefile))
+        THROW NEW Exception("Unable to open relation '" || this->slides[seqnum].rel || "'");
+      IF(NOT ObjectExists(thefile->document) OR NOT ObjectExists(thefile->document->documentelement))
+        THROW NEW Exception("Unable to open relation '" || this->slides[seqnum].rel || "' document");
+
+      this->slides[seqnum].slide := NEW PptSlide(this, thefile);
+    }
+    RETURN this->slides[seqnum].slide;
+  }
+>;
+
+OBJECTTYPE PptSlide
+<
+  OBJECT pptdoc;
+  OBJECT slidefile;
+  OBJECT slideroot;
+
+  MACRO NEW(OBJECT pptdoc, OBJECT slidefile)
+  {
+    this->pptdoc := pptdoc;
+    this->slidefile := slidefile;
+
+    this->slideroot := slidefile->document->documentelement;
+  }
+
+  PUBLIC STRING FUNCTION GetAllSlideText()
+  {
+    //quick and dirty text scanner
+    STRING outtext;
+    OBJECT ARRAY textnodes := this->slideroot->GetElementsByTagNameNS(drawingml_main_uri, "t")->GetCurrentElements();
+    FOREVERY(OBJECT textnode FROM textnodes)
+      outtext := outtext || textnode->textcontent || " ";
+    RETURN outtext;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION OpenOOXMLPresentationFileFile(BLOB pptdoc)
+{
+  OBJECT ppt := NEW PPTXDoc(pptdoc);
+  RETURN ppt;
+}

@@ -1,0 +1,129 @@
+<?wh
+
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/register.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO TestRegister()
+{
+  //Get existing slots
+  RECORD ARRAY slots := GetAllWHFSRegisterSlots();
+  TestEq([[ title := "webhare_testsuite:module.testsite.title"
+          , description := "webhare_testsuite:module.testsite.description"
+          , initialvalue := "site::webhare testsuite site"
+          , isorphan := FALSE
+          ]
+         ], SELECT title, description, initialvalue, isorphan FROM slots WHERE name="webhare_testsuite:testsite");
+
+  TestEq([[ title := ":Test Slot"
+          , description := ":Test Description"
+          , initialvalue := "whfs::/webhare_testsuite.testfolder/testslot"
+          , isorphan := FALSE
+          ]
+         ], SELECT title, description, initialvalue, isorphan FROM slots WHERE name="webhare_testsuite:testslot");
+
+  TestThrows(PTR LookupInWHFSRegister("webhare_testsuite:nosuchslot" || Random(1,65535)));
+
+  //Make sure the testslot and testsite unset
+  testfw->BeginWork();
+  SetWHFSRegisterSlot("webhare_testsuite:testslot", 0);
+  SetWHFSRegisterSlot("webhare_testsuite:testsite", 0);
+  testfw->CommitWork();
+
+  //Request testslot - should not be there yet...
+  TestThrows(PTR LookupInWHFSRegister("webhare_testsuite:testslot"));
+  TestEq(OpenTestsuiteSite()->id, LookupInWHFSRegister("webhare_testsuite:testsite"));
+
+  //Create the testslot's folder
+  testfw->BeginWork();
+  OBJECT testslotfolder := testfw->GetWHFSTestRoot()->CreateFolder([name := "testslot"]);
+  TestThrows(PTR LookupInWHFSRegister("webhare_testsuite:testslot"), "we do not permit referring to it in the same transactions, as its still globally invisible");
+  testfw->CommitWork();
+
+  TestEq(testslotfolder->id, LookupInWHFSRegister("webhare_testsuite:testslot")); //NOW we're good to go!
+
+  testfw->BeginWork();
+  OBJECT testslotfolder2 := testfw->GetWHFSTestRoot()->CreateFolder([name := "testslot2"]);
+  SetWHFSRegisterSlot("webhare_testsuite:testslot", testslotfolder2->id);
+  testfw->CommitWork();
+
+  TestEq(testslotfolder2->id, LookupInWHFSRegister("webhare_testsuite:testslot"));
+
+  //test through our list api
+  slots := GetAllWHFSRegisterSlots();
+
+  TestEq([[ title := ":Test Slot"
+          , description := ":Test Description"
+          , initialvalue := "whfs::/webhare_testsuite.testfolder/testslot"
+          , currentvalue := testslotfolder2->id
+          , isorphan := FALSE
+          ]
+         ], SELECT title, description, initialvalue, currentvalue, isorphan FROM slots WHERE name="webhare_testsuite:testslot");
+
+  testfw->BeginWork();
+  OBJECT testslotfile := testfw->GetWHFSTestRoot()->CreateFile([name := "testslotfile"]);
+  TestThrows(PTR SetWHFSRegisterSlot("webhare_testsuite:testslot", testslotfile->id));
+  testfw->CommitWork();
+
+  TestEq(testslotfolder2->id, LookupInWHFSRegister("webhare_testsuite:testslot"));
+
+  testfw->BeginWork();
+  testslotfolder2->RecycleSelf();
+  testfw->CommitWork();
+
+  //deleted entry should recover if the target is recreated
+  testfw->BeginWork();
+  TestEq(testslotfolder->id, LookupInWHFSRegister("webhare_testsuite:testslot"));
+  testslotfolder->UpdateMetadata([name := "testslot3"]);
+  testfw->CommitWork();
+
+  TestEq(testslotfolder->id, LookupInWHFSRegister("webhare_testsuite:testslot"), "should follow the new entry after ename");
+
+  testfw->BeginWork();
+  testslotfolder->RecycleSelf();
+  testfw->CommitWork();
+
+  TestThrows(PTR LookupInWHFSRegister("webhare_testsuite:testslot"));
+
+  testfw->BeginWork();
+  testslotfolder := testfw->GetWHFSTestRoot()->CreateFolder([name := "testslot"]);
+  testfw->CommitWork();
+
+  TestEq(testslotfolder->id, LookupInWHFSRegister("webhare_testsuite:testslot"));
+}
+
+MACRO TestOrphans()
+{
+  testfw->BeginWork();
+
+  OBJECT testslotfile := testfw->GetWHFSTestRoot()->OpenByName("testslotfile");
+  OBJECT testslotfolder := testfw->GetWHFSTestRoot()->OpenByName("testslot");
+
+  OBJECT rawslotfolder := OpenWHFSObject(whconstant_whfsid_registerslots);
+  rawslotfolder->OpenByName("webhare_testsuite--testslot")->DeleteSelf();
+  rawslotfolder->EnsureFile([name := "webhare_testsuite--OrphanSlot", type := 19])->UpdateMetadata([ filelink := testslotfile->id]);
+
+  testfw->CommitWork();
+
+  TestEq(testslotfile->id, LookupInWHFSRegister("webhare_testsuite:orphanslot"));
+  TestThrows(PTR SetWHFSRegisterSlot("webhare_testsuite:orphanslot", testslotfolder->id)); //an orphan cannot currently be changed through the API
+
+  RECORD ARRAY slots := GetAllWHFSRegisterSlots();
+  TestEq([[ title := ""
+          , description := ""
+          , initialvalue := ""
+          , currentvalue := testslotfile->id
+          , currentpath := testslotfile->whfspath
+          , isorphan := TRUE
+          ]
+         ], SELECT title, description, initialvalue, currentvalue, currentpath, isorphan FROM slots WHERE name="webhare_testsuite:orphanslot");
+}
+
+RunTestframework ([ PTR TestRegister
+                  , PTR TestOrphans
+                  ]);

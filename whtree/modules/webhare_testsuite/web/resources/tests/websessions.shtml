@@ -1,0 +1,42 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+STRING session := GetWebVariable("sess");
+BOOLEAN pre_sess := session != "";
+
+IF (NOT pre_sess)
+{
+  session := CreateWebSession("test", [ test := 14 ], 1, TRUE);
+
+  INTEGER userid := GetWebSessionUserid(session, "test");
+  IF (userid != 0)
+    ABORT("Expected session created by CreateWebSession to have a userid of 0!");
+
+  AuthenticateWebSession(session, "test", "horse", TRUE/*can close*/, 999, 0, TRUE);
+
+  userid := GetWebSessionUserid(session, "test");
+  IF (userid != 999)
+    ABORT("Expected authenticated session to have a userid of 999!");
+
+  RECORD retrievedata := GetWebSessionData(session, "test");
+  TestEq(TRUE, RecordExists(retrievedata));
+  TestEq(14, retrievedata.test);
+
+  TestThrowsLike("Incorrect scope*", PTR GetWebSessionData(session, "test2"));
+  TestThrowsLike("No scope*", PTR GetWebSessionData(session, ""));
+  TestEq(DEFAULT RECORD, GetWebSessionData("no-such-sesssion-id", ""));  //it's okay to open a nonexisting session
+  TestEq(DEFAULT RECORD, GetWebSessionData("no-such-sesssion-id", "x")); //with any password
+
+  PRINT("ok: " || session);
+}
+ELSE
+{
+  INTEGER userid := GetWebSessionUserid(session, "test");
+  IF (userid != 999)
+    ABORT("Expected pre-existing session "||session||" to have a userid of 999!");
+
+  PRINT("ok2");
+}
+

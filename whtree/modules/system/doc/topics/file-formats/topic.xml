@@ -1,0 +1,14 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="File formats"
+       shortdescription="Parsers for various file types">
+  <section name="archives" title="Archive files (tar.gz and zip)" />
+  <section name="bibtex" title="Bibtex" />
+  <section name="css" title="CSS (Cascading style sheets)" />
+  <section name="csv" title="CSV im/export" />
+  <section name="html" title="HTML" />
+  <section name="icalendar" title="iCalendar event encoding/decoding functions" />
+  <section name="markdown" title="MarkDown" />
+  <section name="ooxml" title="OOXML (Office 2007+) file support" />
+  <section name="pkcs" title="PKCS files" />
+  <section name="rss" title="RSS/Atom" />
+</topic>

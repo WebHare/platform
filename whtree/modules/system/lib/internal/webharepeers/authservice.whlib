@@ -1,0 +1,37 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+
+
+PUBLIC RECORD FUNCTION RPC_GetConnectionState(STRING token, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  //ADDME validate token, if specified
+  RECORD retval := [ v := 1
+                   , isloggedin := FALSE
+                   , scope := STRING[] //scopes may go away in the future
+                   , issysop := FALSE
+                   , expires := DEFAULT DATETIME
+                   ];
+  IF(token != "")
+  {
+    OpenPrimary();
+    OBJECT userapi := GetPrimaryWebhareUserApi();
+    RECORD res := userapi->TryOAuthLogin(token);
+    IF(res.success)
+    {
+      retval.isloggedin := TRUE;
+      retval.scope := res.scope;
+      retval.issysop := userapi->GetUser(res.wrdentityid)->HasRight("system:sysop");
+      retval.expires := res.expires;
+    }
+    ELSE
+    {
+      //Log audit!
+    }
+  }
+
+  RETURN retval;
+}

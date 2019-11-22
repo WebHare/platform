@@ -1,0 +1,8 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
+
+OpenPrimary()->BeginWork();
+IF(GetPrimary()->ColumnExists("publisher","urlhistory","id"))
+  DELETE FROM publisher.urlhistory WHERE urlhash = "";
+GetPrimary()->CommitWork();

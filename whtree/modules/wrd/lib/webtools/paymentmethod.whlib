@@ -1,0 +1,260 @@
+<?wh
+/** @short Payment selector
+    @topic payments/selector
+*/
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+
+
+PUBLIC RECORD FUNCTION __ParsePaymentMethod(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  INSERT CELL wrdschema := node->GetAttribute("wrdschema")
+            , providerfield := node->GetAttribute("providerfield")
+            , paymentfield := node->GetAttribute("paymentfield")
+        INTO fielddef;
+  RETURN fielddef;
+}
+
+PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
+<
+  OBJECT pvt_paymentapi;
+  RECORD ARRAY paymentoptions;
+  OBJECT paymentmethodselect;
+  RECORD ARRAY pvt_filters;
+  RECORD ARRAY savedissuerfields;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Current value
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  PUBLIC PROPERTY options(this->paymentmethodselect->options, this->paymentmethodselect->options);
+  PUBLIC PROPERTY selection(this->paymentmethodselect->selection, this->paymentmethodselect->selection);
+
+  PUBLIC PROPERTY paymentapi(this->pvt_paymentapi, SetPaymentAPI);
+  PUBLIC PROPERTY filters(pvt_filters, SetFilters);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : ComposedFormFieldBase(form, parent, field)
+  {
+    IF(field.wrdschema != "")
+      this->paymentapi := GetPaymentAPI(OpenWRDSchema(field.wrdschema), [ providerfield := field.providerfield, paymentfield := field.paymentfield ]);
+  }
+
+  MACRO SetPaymentAPI(OBJECT newpaymentapi)
+  {
+    IF(newpaymentapi = this->pvt_paymentapi)
+      RETURN;
+    IF(newpaymentapi = DEFAULT OBJECT)
+      THROW NEW Exception("'Unsetting' the payment API is not supported");
+
+    this->pvt_paymentapi := newpaymentapi;
+    this->Reconstruct();
+  }
+
+  MACRO SetFilters(RECORD ARRAY filters)
+  {
+    this->pvt_filters := filters;
+    this->Reconstruct();
+  }
+
+  MACRO Reconstruct()
+  {
+    IF(NOT ObjectExists(this->pvt_paymentapi))
+      RETURN;
+
+    IF(NOT ObjectExists(this->paymentmethodselect))
+    {
+      this->paymentmethodselect := this->CreateSubField("select", "paymentmethod");
+      this->paymentmethodselect->type := "radio";
+      this->paymentmethodselect->htmltitle := this->htmltitle;
+      this->paymentmethodselect->required := this->required;
+      this->paymentmethodselect->requiredcondition := this->requiredcondition;
+      this->SetupComposition( [ this->paymentmethodselect ]);
+    }
+
+    this->paymentoptions := SELECT *
+                                 , subfields := this->ConstructSubfields(this->paymentmethodselect, opt, #opt)
+                                 , paymentoption := opt
+                             FROM this->pvt_paymentapi->ListAllPaymentOptions([ filters := this->filters ]) AS opt;
+
+    BOOLEAN warnlive := GetDtapStage() != "production";
+    RECORD ARRAY opts := SELECT subfields
+                              , enablecomponents := subfields
+                              , rowkey := paymentmethodtag
+                              , title := title || (islive ? warnlive ? " (LIVE!)" : "" : " (test mode)")
+                              , paymentprovider
+                              , paymentoption
+                              , islive
+                           FROM this->paymentoptions;
+
+    this->paymentmethodselect->options := opts;
+  }
+
+  OBJECT ARRAY FUNCTION ConstructSubfields(OBJECT field, RECORD paymentopt, INTEGER idx)
+  {
+    IF(Length(paymentopt.issuers)=0)
+      RETURN OBJECT[];
+
+    STRING compname := "issuer" || idx;
+    OBJECT issuerpulldown := SELECT AS OBJECT comp FROM this->savedissuerfields WHERE name = compname;
+    IF(NOT ObjectExists(issuerpulldown))
+    {
+      issuerpulldown := field->CreateSubField("select", compname);
+      INSERT CELL[ comp := issuerpulldown, name := compname ] INTO this->savedissuerfields AT END;
+    }
+
+    issuerpulldown->type := "pulldown";
+    issuerpulldown->options := [[ rowkey := "", title := GetTid("wrd:site.forms.payments.selectbank"), enabled := FALSE ]] CONCAT paymentopt.issuers;
+    issuerpulldown->required := TRUE;
+    RETURN [issuerpulldown];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN RecordExists(this->GetValue());
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    IF(NOT ObjectExists(this->paymentmethodselect))
+      RETURN DEFAULT RECORD;
+
+    RECORD selected := SELECT * FROM this->paymentoptions WHERE paymentmethodtag = this->paymentmethodselect->value;
+    IF(NOT RecordExists(selected))
+      RETURN DEFAULT RECORD;
+
+    STRING issuer;
+    IF(Length(selected.issuers)>0)
+      issuer := selected.subfields[0]->value;
+
+    RETURN [ paymentprovider := selected.paymentprovider
+           , paymentoptiontag := selected.paymentoptiontag
+           , issuer := issuer
+           ];
+  }
+
+  MACRO SetValue(RECORD value)
+  {
+    IF(NOT ObjectExists(this->paymentmethodselect) AND RecordExists(value))
+      THROW NEW Exception("Must configure payment API settings before setting a value");
+
+    RECORD toselect := SELECT * FROM this->paymentoptions WHERE paymentprovider = value.paymentprovider AND paymentoptiontag = value.paymentoptiontag;
+    IF(NOT RecordExists(toselect))
+    {
+      this->paymentmethodselect->selection := DEFAULT RECORD;
+      RETURN;
+    }
+
+    this->paymentmethodselect->value := toselect.paymentmethodtag;
+    IF(Length(toselect.issuers) > 0)
+      toselect.subfields[0]->value := value.issuer;
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT ObjectExists(this->paymentmethodselect))
+      RETURN;
+
+    RECORD selectedopt := this->paymentmethodselect->selection;
+    IF(NOT RecordExists(selectedopt))
+    {
+      IF(this->IsNowRequired())
+        work->AddErrorFor(this->paymentmethodselect, GetTid("publisher:site.forms.commonerrors.required"));
+      RETURN;
+    }
+    IF(RecordExists(selectedopt) AND Length(selectedopt.subfields) > 0) //subfields currently always implies issuers
+    {
+      RECORD selected := selectedopt.subfields[0]->selection;
+      IF(NOT RecordExists(selected) OR selected.rowkey="")
+      {
+        work->AddErrorFor(selectedopt.subfields[0], GetTid("publisher:site.forms.commonerrors.required"));
+        RETURN;
+      }
+    }
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetStorageValue()
+  {
+    RECORD result := this->value;
+    IF(NOT RecordExists(result))
+      RETURN DEFAULT RECORD;
+
+    //convert PM to GUID
+    result := CELL[ ...result
+                  , paymentprovider := SELECT AS STRING paymentproviderguid FROM this->paymentoptions WHERE paymentoptions.paymentprovider = result.paymentprovider
+                  ];
+    RETURN CELL[ result, attachments := RECORD[] ];
+  }
+  UPDATE PUBLIC MACRO SetFromStorage(VARIANT value, RECORD ARRAY attachments)
+  {
+    IF(RecordExists(value))
+    {
+      value := CELL[...value
+                   , paymentprovider := SELECT AS INTEGER paymentprovider FROM this->paymentoptions WHERE paymentoptions.paymentproviderguid = value.paymentprovider
+                   ];
+    }
+    this->value := value;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    RETURN [[ title := this->title
+            , name := "value"
+            , type := "text"
+           ]];
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    FOREVERY(RECORD inval FROM inputvalues)
+    {
+      STRING result;
+      IF(RecordExists(inval.value))
+      {
+        RECORD toselect := SELECT * FROM this->paymentoptions WHERE paymentproviderguid = inval.value.paymentprovider AND paymentoptiontag = inval.value.paymentoptiontag;
+        IF(RecordExists(toselect))
+        {
+          result := toselect.title;
+          IF(CellExists(inval.value,'issuer') AND inval.value.issuer != "")
+            result := result || " (" || inval.value.issuer || ")";
+        }
+      }
+
+      inputvalues[#inval] := CELL[...inval, value := result];
+    }
+    RETURN inputvalues;
+  }
+
+  UPDATE MACRO SetRequired(BOOLEAN newval)
+  {
+    ComposedFormFieldBase::SetRequired(newval);
+    IF(ObjectExists(this->paymentmethodselect))
+      this->paymentmethodselect->required := newval;
+  }
+  UPDATE MACRO SetRequiredCondition(RECORD newcondition)
+  {
+    ComposedFormFieldBase::SetRequiredCondition(newcondition);
+    IF(ObjectExists(this->paymentmethodselect))
+      this->paymentmethodselect->requiredcondition := newcondition;
+  }
+>;

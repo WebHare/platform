@@ -1,0 +1,273 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+
+/** @param resourcename Resource name of the document with this node
+    @param tasknode Node to parse
+    @param mod Module name of this resource
+    @cell options.ephemeral Whether this is an ephemeral task
+    @return Tasktype
+    @cell return.tasktype Name of the task type
+    @cell return.ephemeral Whether this is an ephemeral task
+    @cell return.library Name of the library that runs this task
+    @cell return.objectname Name of the object that runs this task
+    @cell return.isnode Whether this is a task run by Node.js
+    @cell return.workertype Whether this is a task run by Node.js
+    @cell return.applyerror Apply error (task may only run if this is empty)
+    @cell return.cluster Name of the taskcluster this task should run in
+*/
+RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, RECORD options)
+{
+  STRING applyerror := GetApplicabilityError(GetMyApplicabilityInfo(), ReadApplicableToWebHareNode(tasknode));
+
+  STRING type := tasknode->GetAttribute("type");
+  STRING library := tasknode->GetAttribute("library");
+  STRING objectname := tasknode->GetAttribute("objectname");
+  STRING cluster := tasknode->GetAttribute("cluster");
+  BOOLEAN isnode := library LIKE "*.js" OR library LIKE "*.es";
+  INTEGER maxfailures := tasknode->HasAttribute("maxfailures") ? ParseXSInt(tasknode->GetAttribute("maxfailures")) : -1;
+  STRING libname;
+
+  IF (cluster != "" AND cluster NOT LIKE "*:*")
+    cluster := `${mod}:${cluster}`;
+
+  INTEGER priority := ParseManagedTaskPriority(tasknode->GetAttribute("priority"));
+  IF(isnode)
+  {
+    libname := GetWebHareResourceDiskPath(`mod::${mod}/${library}`);
+  }
+  ELSE IF(library != "")
+  {
+    IF(RecordExists(RetrieveWebHareResource(`module::${mod}/${library}`, [ allowmissing := TRUE ])))
+      libname := `module::${mod}/${library}`; //ADDME moduledef parser should give a warning on these
+    ELSE
+      libname := `mod::${mod}/${library}`;
+  }
+  ELSE IF(objectname != "") //library not set but object name is.. resolve
+  {
+    objectname := MakeAbsoluteResourcePath(resourcename, objectname);
+  }
+
+  RETURN CELL
+      [ library :=      objectname = "" ? libname : ""
+      , objectname :=   objectname LIKE "*#*" ? objectname : libname || "#" || objectname
+      , tasktype :=     mod || ":" || type
+      , isnode :=       isnode
+      , workertype :=   isnode ? 1 : 0
+      , applyerror :=   applyerror
+      , cluster
+      , ephemeral :=    options.ephemeral
+      , priority
+      , maxfailures
+      ];
+}
+
+/** Returns all task types and taskclusters, for adhoccache
+    @return Cachable task & taskcluster data
+    @cell(string array) return.eventmasks Masks for events that invalidate this data
+    @cell(record) return.value All managed/ephemeral tasktypes and taskclusters
+    @cell return.value.tasktypes @includecelldef #ParseTaskNode.return
+    @cell(record array) return.value.clusters List of taskclusters
+    @cell(string) return.value.clusters.tag Tag of the taskcluster
+    @cell(integer) return.value.clusters.harescriptworkers Number of harescript workers
+    @cell(integer) return.value.clusters.javascriptworkers Number of javascript workers
+*/
+RECORD FUNCTION GetCachableAllTaskTypeInfo()
+{
+  RECORD ARRAY tasktypes;
+  STRING ARRAY resources;
+
+  // Default cluster
+  RECORD ARRAY clusters  :=
+      [ [ tag :=                    "system:default"
+        , harescriptworkers :=      1
+        , javascriptworkers :=      2
+        ]
+      ];
+
+  FOREVERY (STRING modulename FROM GetInstalledModuleNames())
+  {
+    STRING resname := GetModuleDefinitionXMLResourceName(modulename);
+    OBJECT xmldoc := GetModuleDefinitionXML(modulename);
+
+    INSERT resname INTO resources AT END;
+
+    FOREVERY(OBJECT tasknode FROM xmldoc->GetElementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition", "managedtask")->GetCurrentElements())
+      INSERT ParseTaskNode(resname, tasknode, modulename, [ ephemeral := FALSE ]) INTO tasktypes AT END;
+
+    FOREVERY(OBJECT tasknode FROM xmldoc->GetElementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition", "ephemeraltask")->GetCurrentElements())
+      INSERT ParseTaskNode(resname, tasknode, modulename, [ ephemeral := TRUE ]) INTO tasktypes AT END;
+
+    FOREVERY(OBJECT clusternode FROM xmldoc->GetElementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition", "taskcluster")->GetCurrentElements())
+    {
+      INSERT
+          [ tag :=                  `${modulename}:${clusternode->GetAttribute("tag")}`
+          , harescriptworkers :=    ToInteger(clusternode->GetAttribute("harescriptworkers"), 1)
+          , javascriptworkers :=    ToInteger(clusternode->GetAttribute("javascriptworkers"), 0)
+          ] INTO clusters AT END;
+    }
+  }
+
+  // Fix task types to remove clusters that aren't available anymore (or set the default when not provided)
+  STRING ARRAY activeclusters := [ "system:default", ...SELECT AS STRING ARRAY tag FROM clusters ];
+  UPDATE tasktypes SET cluster := "system:default" WHERE cluster NOT IN activeclusters;
+
+  tasktypes := SELECT * FROM tasktypes ORDER BY tasktype, ephemeral;
+  clusters := SELECT * FROM clusters ORDER BY tag;
+
+  RETURN
+      [ value :=      CELL[ tasktypes, clusters ]
+      , eventmasks := [ "system:modulesupdate" ] CONCAT GetResourceEventMasks(resources)
+      ];
+}
+
+RECORD FUNCTION GetModuleTaskType(STRING tasktype, BOOLEAN ephemeral)
+{
+  IF(tasktype!=ToLowercase(tasktype) OR tasktype NOT LIKE "?*:?*" OR tasktype LIKE "*:*:*")
+    THROW NEW Exception(`Invalid task type ${tasktype}`);
+
+  STRING ARRAY toks := Tokenize(tasktype,':');
+  STRING mod := toks[0];
+  IF(NOT IsModuleInstalled(mod))
+    THROW NEW Exception(`No such module ${mod}`);
+
+  STRING resname := GetModuleDefinitionXMLResourceName(mod);
+  OBJECT xmldoc := GetModuleDefinitionXML(mod);
+
+  RECORD taskinfo;
+  FOREVERY(OBJECT tasknode FROM xmldoc->GetElementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition", ephemeral ? "ephemeraltask" : "managedtask")->GetCurrentElements())
+  {
+    IF(tasknode->GetAttribute("type") != toks[1])
+      CONTINUE;
+
+    taskinfo := ParseTaskNode(resname, tasknode, mod, CELL[ ephemeral ]);
+  }
+
+  IF(NOT RecordExists(taskinfo))
+    THROW NEW Exception(`No such ${ephemeral?"ephemeral":"managed"} task type '${tasktype}'`);
+
+  RETURN [ value := taskinfo
+         , ttl := 60*60*1000
+         , eventmasks := GetResourceEventMasks([resname])
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetTaskTypeSettings(STRING tasktype, BOOLEAN ephemeral)
+{
+  RETURN GetAdhocCached([ tasktype := tasktype, isephemeral := ephemeral ], PTR GetModuleTaskType(tasktype, ephemeral));
+}
+
+/** Get all tasktype and taskclusters
+    @return @includecelldef #GetCachableAllTaskTypeInfo.return.value
+*/
+PUBLIC RECORD FUNCTION GetAllTaskTypeInfo()
+{
+  RETURN GetAdhocCached(CELL[ "tasktypes" ], PTR GetCachableAllTaskTypeInfo());
+}
+
+
+PUBLIC RECORD FUNCTION GetTaskExecuteInfo(RECORD taskdata, RECORD taskinfo)
+{
+  RECORD executeinfo := [ queueid :=        taskdata.queueid
+                        , isephemeral :=    taskdata.isephemeral
+                        , library :=        taskinfo.library
+                        , tasktype :=       taskdata.tasktype
+                        , objectname :=     taskinfo.objectname
+                        ];
+
+  IF(taskdata.isephemeral)
+  {
+    INSERT CELL data := taskdata.taskdata
+              , options := taskdata.options
+           INTO executeinfo;
+  }
+  ELSE
+  {
+    RECORD taskrec :=
+        SELECT COLUMN taskdata
+             , auxdata
+          FROM system.managedtasks
+         WHERE id = VAR taskdata.id;
+
+    IF (NOT RecordExists(taskrec))
+      THROW NEW Exception(`Managed task ${taskdata.id} has disappeared`);
+
+    RECORD data := DecodeHSON(taskrec.taskdata);
+    IF(Length(taskrec.auxdata) > 0)
+      data := CELL[...data, ...DecodeHSONBlob(taskrec.auxdata)];
+
+    INSERT CELL dbid := taskdata.id
+              , data := data
+              , options := DEFAULT RECORD
+           INTO executeinfo;
+  }
+  RETURN executeinfo;
+}
+
+PUBLIC INTEGER FUNCTION ParseManagedTaskPriority(STRING priority)
+{
+  INTEGER pos := SearchElement([ "background", "normal", "interactive", "update", "updateinteractive" ], priority);
+  IF (pos = -1)
+    RETURN 0;
+
+  RETURN [ 100, 0, -100, -200, -300 ][pos];
+}
+
+OBJECTTYPE TaskFinishHandler EXTEND TransactionFinishHandlerBase
+<
+  RECORD ARRAY tasks;
+
+  UPDATE PUBLIC MACRO OnCommit()
+  {
+    RunInSeparatePrimary(PTR this->QueueTasks, [ work := TRUE ]);
+  }
+  MACRO QueueTasks()
+  {
+    DATETIME now;
+
+    FOREVERY(RECORD task FROM this->tasks)
+    {
+      STRING tasktag := Substitute(task.tag,':','.'); //system.tasks uses "module.tag" instead of the usual "module:tag", so convert
+      IF(task.when = DEFAULT DATETIME AND now = DEFAULT DATETIME)
+        now := GetCurrentDatetime();
+
+      DATETIME when := task.when ?? now;
+      UPDATE system_internal.tasks SET nexttime := VAR when
+                                 WHERE tasks.tag = VAR tasktag
+                                       AND tasks.enabled
+                                       AND (tasks.nexttime = DEFAULT DATETIME OR tasks.nexttime > when);
+      GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
+    }
+  }
+
+  PUBLIC MACRO ScheduleTask(STRING tag, DATETIME when)
+  {
+    INTEGER taskpos := SELECT AS INTEGER #tasks + 1 FROM this->tasks WHERE tasks.tag = VAR tag;
+    IF(taskpos = 0)
+      INSERT [ tag := tag, when := when ] INTO this->tasks AT END;
+    ELSE IF(this->tasks[taskpos-1].when > when) //originally scheduled further in the future ? move back
+      this->tasks[taskpos-1].when := when;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetTaskFinishHandler()
+{
+  OBJECT handler := GetPrimary()->GetFinishHandler("system:tasksfinish");
+  IF (NOT ObjectExists(handler))
+  {
+    handler := NEW TaskFinishHandler;
+    GetPrimary()->SetFinishHandler("system:tasksfinish", handler);
+  }
+  RETURN handler;
+}
+

@@ -1,0 +1,35 @@
+<?wh
+
+/** Find the first gap range in a list of strictly increasing integers
+    @param ids Strictly increasing list of integers (sorted and no duplicates)
+    @param expectfirst Expected first element in the list of integers
+    @param expectlimit One obove the expected last element in the list of integers
+    @return Gap range
+    @cell return.rangestart First element in the first gap
+    @cell return.rangelimit First element after the first gap
+    @private This really needs tests, so it must be public
+*/
+PUBLIC RECORD FUNCTION __FindFirstGapInSet(INTEGER ARRAY ids, INTEGER expectfirst, INTEGER expectlimit)
+{
+  IF (LENGTH(ids) >= (expectlimit - expectfirst))
+    RETURN DEFAULT RECORD; // no gap present given the assumptions
+
+  // Find the first element that is higher than value expected at that position, or one past the end of the list
+  INTEGER s := 0, e := LENGTH(ids);
+  WHILE (s != e)
+  {
+    INTEGER m := (s + e) BITRSHIFT 1;
+    IF (ids[m] = expectfirst + m)
+      s := m + 1; // equal to expected value, check the next position
+    ELSE
+      e := m; // first nonexpected at e or below
+  }
+
+  // s is now the first position that doesn't have the expected value were the range completely filled
+  INTEGER rangelimit := s = LENGTH(ids)
+      ? expectlimit
+      : ids[s];
+
+  RETURN CELL[ rangestart := expectfirst + s, rangelimit ];
+}
+

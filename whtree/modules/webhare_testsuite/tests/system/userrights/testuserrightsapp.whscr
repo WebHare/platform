@@ -1,0 +1,167 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+ASYNC MACRO Setup()
+{
+  INTEGER lisaunit := GetTestController()->userapi->CreateUnit([wrd_title := "Lisa's unit"]);
+
+  testfw->SetTestUser("lisa");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  TestEqLike("Rights problem", topscreen->title);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:manageunit", testfw->GetUserObject("lisa"), GetTestController()->userapi->GetUnit(lisaunit)->authobjectid, TRUE);
+  testfw->CommitWork();
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD, message := DEFAULT RECORD ]));
+
+  //Create a unit
+  TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="Lisa's unit";
+  AWAIT ExpectScreenChange(+1, PTR TT("unittree->newunit")->TolliumClick);
+  TT("wrd_title")->value := "Lisa's new unit";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  //Select the new unit
+  TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="Lisa's new unit";
+
+  //Add a user
+  AWAIT ExpectScreenChange(+1, PTR TT("unitcontents->newuser")->TolliumClick);
+
+  TT("username")->value := "bart@example.net";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  //Select the new user
+  TestEq(TRUE, RecordExists(SELECT FROM TT("unitcontents->userandrolelist")->rows WHERE email="bart@example.net"));
+  TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE email="bart@example.net";
+  AWAIT ExpectScreenChange(+1, PTR topscreen->unitcontents->move->TolliumClick);
+
+  TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="Lisa's unit";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  OBJECT bartuser := GetTestController()->userapi->GetTolliumUserByLogin("bart@example.net");
+  TestEq(TRUE, ObjectExists(bartuser));
+
+  OBJECT lisaunitobject := GetTestController()->userapi->GetUnit(lisaunit);
+  //test that authobjects was updated properly
+  TestEq(lisaunitobject->authobjectid, SELECT AS INTEGER parent FROM system.authobjects WHERE id=bartuser->authobjectid);
+
+  //Add a user with the same name. Should give an error, not crash
+  AWAIT ExpectScreenChange(+1, PTR TT("unitcontents->newuser")->TolliumClick);
+  TT("username")->value := "bart@example.net";
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick(":OK"), [ messagemask := "*not unique*" ]);
+  TT("username")->value := "bart2@example.net";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  //Get its ID for later use
+  INTEGER bart2id := testfw->GetWRDschema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "bart2@example.net");
+  TestEq(TRUE, bart2id != 0);
+
+  //Delete the user
+  topscreen->frame->focused := TT("unitcontents->userandrolelist");
+  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("delete"));
+  TestEq(TRUE, testfw->GetWRDschema()->^wrd_person->GetEntityField(bart2id,"WRD_LIMITDATE") < GetCurrentDatetime());
+
+  //Delete his unit
+  topscreen->frame->focused := TT("unittree->unitlist");
+  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("delete"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestExport()
+{
+  testfw->BeginWork();
+  testfw->SetupTestWebsite(DEFAULT BLOB);
+
+  OBJECT subfolder1 := testfw->GetTestSite()->rootobject->CreateFolder([ name := "visiblefolder" ]);
+  OBJECT subfolder2 := testfw->GetTestSite()->rootobject->CreateFolder([ name := "invisiblefolder" ]);
+
+  OBJECT visibleunit := testfw->userapi->GetUnit(testfw->userapi->CreateUnit([ wrd_title := "visibleunit" ]));
+  OBJECT invisibleunit := testfw->userapi->GetUnit(testfw->userapi->CreateUnit([ wrd_title := "invisibleunit" ]));
+
+  OBJECT testuser := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := visibleunit->entityid, wrd_contact_email := "testuser@beta.webhare.net", wrd_lastname := "testuser" ]));
+  OBJECT visibleuser1 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := visibleunit->entityid, wrd_contact_email := "visibleuser1@beta.webhare.net", wrd_lastname := "visibleuser1" ]));
+  OBJECT visibleuser2 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := visibleunit->entityid, wrd_contact_email := "visibleuser2@beta.webhare.net", wrd_lastname := "visibleuser2" ]));
+  OBJECT visibleuser3 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := visibleunit->entityid, wrd_contact_email := "visibleuser3@beta.webhare.net", wrd_lastname := "visibleuser3" ]));
+  OBJECT invisibleuser1 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := invisibleunit->entityid, wrd_contact_email := "invisibleuser1@beta.webhare.net", wrd_lastname := "invisibleuser1" ]));
+  OBJECT invisibleuser2 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := invisibleunit->entityid, wrd_contact_email := "invisibleuser2@beta.webhare.net", wrd_lastname := "invisibleuser2" ]));
+  OBJECT visiblerole := testfw->userapi->GetRole(testfw->userapi->CreateRole([ wrd_leftentity := visibleunit->entityid, wrd_title := "visiblerole" ]));
+  OBJECT invisiblerole := testfw->userapi->GetRole(testfw->userapi->CreateRole([ wrd_leftentity := invisibleunit->entityid, wrd_title := "invisiblerole" ]));
+
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:manageunit", testuser, visibleunit->authobjectid, TRUE);
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", testuser, subfolder1->id, FALSE);
+
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", visibleuser1, subfolder1->id, FALSE); // visible right, visible user, visible object
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", visibleuser1, subfolder2->id, FALSE); // visible right, visible user, invisible object
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess", visibleuser1, subfolder1->id, FALSE); // invisible right, visible user, visible object
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", invisibleuser1, subfolder1->id, FALSE); // visible right, invisible user, visible object
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", visiblerole, subfolder1->id, FALSE); // visible right, visible user, visible object, via visible role
+  testfw->GetUserObject("sysop")->GrantRoleTo(visiblerole, visibleuser2);
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", invisiblerole, subfolder1->id, FALSE); // visible right, visible user, visible object, via invisible role
+  testfw->GetUserObject("sysop")->GrantRoleTo(invisiblerole, visibleuser3);
+
+  testfw->CommitWork();
+
+  __SetEffectiveUser(testuser);
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+
+  // Go to the 'Module and object rights' tab
+  TTFillByTitle("viewmode", "Module and object rights");
+
+  // Find the 'visiblefolder' object
+  TTFillByTitle("objecttree->objectlist->thelist", "visiblefolder", [ expandtreelevels := 3 ]);
+
+  // Export the object rights on this folder
+  AWAIT ExpectScreenChange(+1, PTR TTClick("objecttree->exportobjectrights"));
+  RECORD rec := AWAIT ExpectSentWebFile(PTR TTClick("download"));
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  RECORD ARRAY rows := GetOOXMLSpreadsheetRows(rec.file.data);
+  TestEQ(
+      [ [ path   :=       "/visiblefolder"
+        , username :=     "visibleunit/testuser@beta.webhare.net"
+        , "full name" :=  "testuser"
+        , right :=        "Browse"
+        , "via role" :=   ""
+        ]
+      , [ path   :=       "/visiblefolder"
+        , username :=     "visibleunit/visibleuser1@beta.webhare.net"
+        , "full name" :=  "visibleuser1"
+        , right :=        "Browse"
+        , "via role" :=   ""
+        ]
+      , [ path   :=       "/visiblefolder"
+        , username :=     "visibleunit/visibleuser2@beta.webhare.net"
+        , "full name" :=  "visibleuser2"
+        , right :=        "Browse"
+        , "via role" :=   "visibleunit/visiblerole"
+        ]
+      ], SELECT * FROM rows ORDER BY username);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+MACRO VerifyNoLooseEnds()
+{
+  testfw->BeginWork();
+  testfw->EnsureUserMgmtClean();
+  testfw->CommitWork();
+}
+
+RunTestframework( [ PTR Setup
+                  , PTR TestExport
+                  , PTR VerifyNoLooseEnds
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ,[ login := "lisa"]
+                                    ]
+                     , testroles := [[ role := "powerplantmanagers" ]]
+                     , debug := TRUE
+                     ]
+                  );

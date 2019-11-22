@@ -1,0 +1,47 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch", defaultvalue := GetEnvironmentVariable("PUBLISHER_CONSILIOHANDLER_DEBUG") != "" OR IsRunningInEditor() ]
+    , [ name := "force", type :="switch" ]
+    , [ name := "ids", type := "paramlist" ]
+    ]);
+IF (NOT RecordExists(args))
+  TerminateScriptWithError("Usage: reindex_publisher.whscr <whfsid> [<whfsid>, ...]");
+
+OpenPrimary();
+
+RECORD ARRAY to_reindex;
+FOREVERY (STRING idstr FROM args.ids)
+{
+  INTEGER objid := ToInteger(idstr, 0);
+  IF (objid <= 0)
+  {
+    Print(`Invalid id '${idstr}'\n`);
+    CONTINUE;
+  }
+
+  RECORD obj := SELECT isfolder, isactive FROM system.fs_objects WHERE id = objid AND isactive;
+  IF (NOT RecordExists(obj))
+  {
+    Print(`Cannot find object with id ${objid}\n`);
+    CONTINUE;
+  }
+
+  INSERT
+      [ id := objid
+      , isfolder := obj.isfolder
+      , isdelete := NOT obj.isactive
+      ] INTO to_reindex AT END;
+}
+
+IF (Length(to_reindex) > 0)
+  ReindexWHFSChanges(to_reindex, [ debug := args.debug, force := args.force ]);
+ELSE
+  Print("Nothing to do\n");

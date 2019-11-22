@@ -1,0 +1,182 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO Prep()
+{
+  testfw->BeginWork();
+  OBJECT testfolderobj2 := GetTestsuiteTempFolder()->CreateFolder([ name := "sub" ]);
+
+  OBJECT newfile := testfolderobj2->CreateFile([name:="test.html",title:="A new title", keywords := "my new keywords", description := "d", data:=StringToBlob("I'm a jolly good file"), type := 5 ]);
+  OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test");
+  betatype->SetInstanceData(newfile->id, [ stringarray := ["a","b","d"] ]);
+
+  testfw->CommitWork();
+}
+
+MACRO DraftingTest()
+{
+  testfw->BeginWork();
+  testfw->SetTestUser("firstowner");
+
+  OBJECT testfile := GetTestsuiteTempFolder()->OpenByPath("sub/test.html");
+  TestEq(TRUE, ObjectExists(testfile));
+
+  //There shouldn't be anything being editted about this file
+  TestEq(0, Length(GetDrafts(testfile->id)));
+
+  TestEQ(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
+//PublishedFlag_HasDraft
+
+  //Start editting this document. Create a private draft.
+  OBJECT draft := CreateDraft(testfile, FALSE);
+  TestEq(FALSE, draft->ispublic);
+  TestEq(TRUE, ObjectExists(draft->fsobject));
+  TestEq(FALSE, draft->fsobject->isactive);
+
+  RECORD betadata := draft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  TestEq(['a','b','d'], betadata.stringarray);
+
+  RECORD ARRAY drafts := GetDrafts(testfile->id);
+  TestEq(1, Length(drafts));
+  TestEq(FALSE, drafts[0].ispublic);
+  TestEq(draft->id, drafts[0].id);
+  TestEq(testfw->GetUserAuthobjectId("firstowner"), drafts[0].user);
+  TestEq(TRUE, drafts[0].mine);
+
+  //Let's create another draft. Ignore it though
+  CreateDraft(testfile, FALSE);
+  TestEq(2, Length(GetDrafts(testfile->id)));
+
+  //Get autosaves for this user
+  RECORD ARRAY autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
+  TestEq(2,Length(autosaves));
+
+  //Now create a public draft from the first version. A public draft will destroy all autosaves
+  draft->SaveAsPublicDraft();
+  TestEq(TRUE, draft->ispublic);
+  TestEQ(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
+  drafts := GetDrafts(testfile->id);
+  TestEq(1, Length(drafts));
+  TestEq(TRUE, drafts[0].ispublic);
+
+  draft := OpenDraft(testfile->id, draft->id);
+  TestEq(TRUE, draft->ispublic);
+
+  draft := OpenWHFSDraft(draft->id);
+  TestEq(TRUE, draft->ispublic);
+  TestEq(testfile->id, draft->source);
+
+  TestEq(FALSE, Objectexists(OpenWHFSDraft(testfile->id)));
+
+  //Create a draft!
+  Sleep(1);
+  draft := CreateDraft(testfile, FALSE);
+
+  //We need more drafts!
+  Sleep(1);
+  testfw->SetTestUser("newowner");
+  draft := CreateDraft(testfile, FALSE);
+
+  drafts := GetDrafts(testfile->id);
+  TestEq(3, Length(drafts));
+  TestEq(testfw->GetUserAuthobjectId("firstowner"), drafts[0].user);
+  TestEq(testfw->GetUserAuthobjectId("firstowner"), drafts[1].user);
+  TestEq(TRUE, drafts[0].creationdate < drafts[1].creationdate);
+  TestEq(FALSE, drafts[0].mine);
+  TestEq(FALSE, drafts[1].mine);
+  TestEq(testfw->GetUserAuthobjectId("newowner"), drafts[2].user);
+  TestEq(TRUE, drafts[2].mine);
+
+  //Cleanup discardable work from other users
+  CleanupOtherPrivateDrafts(testfile->id);
+  drafts := GetDrafts(testfile->id);
+  TestEq(2, Length(drafts));
+  TestEq(FALSE, drafts[0].mine);
+  TestEq(TRUE, drafts[1].mine);
+
+  TestEQ(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
+
+  //We now need to publish the final draft
+  draft := OpenWHFSDraft(drafts[1].id);
+  draft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["testing", "data", "removal" ]]);
+
+  DATETIME oldmoddate := testfile->modificationdate;
+  OBJECT final := draft->SaveAsFinal();
+  TestEQ(TRUE, OBjectExists(final));
+  TestEQ(["testing", "data", "removal" ], final->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq(final->id, testfile->id);
+  TestEq(0, Length(GetDrafts(testfile->id)));
+  TestEq(TRUE, final->modificationdate >  oldmoddate);
+
+  OBJECT draft2 := CreateDraft(final, TRUE);
+  draft2->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := DEFAULT STRING ARRAY ]);
+  OBJECT final2 := draft2->SaveAsFinal();
+  TestEQ(DEFAULT STRING ARRAY, final2->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+
+  drafts := GetDrafts(testfile->id);
+  TestEq(0, Length(drafts));
+  TestEQ(FALSE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
+
+  testfw->CommitWork();
+}
+
+MACRO ComplexInstancesAndDrafts()
+{
+  testfw->BeginWork();
+
+  OBJECT testfile := GetTestsuiteTempFolder()->EnsureFile([name:="testfile"]);
+  TestEq(TRUE, ObjectExists(testfile));
+
+  OBJECT autosave := CreateDraft(testfile, FALSE);
+  RECORD testform := [ formtext := StringToBlob(`
+      <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
+        <form name="webtoolform">
+          <page>
+            <richtext textid="Yl98JQ8ztbgW3-KdqLzYBA" title="asdf def" guid="wtfrm:9A757BDEF63422BC86F6C5586FDA3508"/>
+          </page>
+        </form>
+      </formdefinitions>`)
+                     , instances := [[ instanceid := 'Yl98JQ8ztbgW3-KdqLzYBA'
+                                     , data := [ whfstype := 'http://www.webhare.net/xmlns/publisher/richdocumentfile'
+                                               , data := [ htmltext := StringToBlob(`<html><body><p class="normal">asdf def</p></body></html>`) ]
+                                               ]
+                                    ]]];
+
+  autosave->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", [data:=testform]);
+
+  TestEq(1, Length(autosave->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").data.instances));
+
+  OBJECT publicdraft := CreateDraft(testfile, TRUE);
+  autosave->SaveToPublicDraft([ contenttypes := ["http://www.webhare.net/xmlns/publisher/formwebtool"] ]);
+
+  TestEq(1, Length(publicdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").data.instances));
+
+  autosave := CreateDraft(testfile, FALSE);
+  autosave->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", publicdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool"));
+  TestEq(1, Length(autosave->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").data.instances));
+
+  autosave->SaveToPublicDraft([ contenttypes := ["http://www.webhare.net/xmlns/publisher/formwebtool"] ]);
+  testfw->CommitWork();
+  TestEq(1, Length(publicdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").data.instances));
+}
+
+RunTestframework([ PTR Prep
+                 , PTR DraftingTest
+                 , PTR ComplexInstancesAndDrafts
+                 ]
+                ,[ testusers := [[ login := "firstowner", grantrights := DEFAULT STRING ARRAY ]
+                                ,[ login := "newowner", grantrights := DEFAULT STRING ARRAY ]
+                                ]
+                 , profile := TRUE
+                 ]);

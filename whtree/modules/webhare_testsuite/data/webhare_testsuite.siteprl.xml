@@ -1,0 +1,328 @@
+<siteprofile
+   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+   xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+   xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+   xmlns:webhare_testsuite="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+   xmlns:xyz="urn:xyz">
+
+  <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:h="http://www.w3.org/1999/xhtml">
+    <textgroup gid="editors">
+      <text tid="betatest">Beta test</text>
+      <text tid="stringtest">stringtest</text>
+      <text tid="array">array</text>
+      <text tid="textcell">textcell</text>
+      <text tid="whfscell">whfscell</text>
+      <text tid="editrow">Edit row</text>
+    </textgroup>
+    <textgroup gid="test">
+      <text tid="richtext">Dit is <h:b>bold</h:b></text>
+      <text tid="richtext_params">param:<h:i><param p="1" /></h:i></text>
+    </textgroup>
+  </language>
+
+  <grouptype namespace="http://www.webhare.net/xmlns/beta/tollium/richdoc_group"
+             title="webhare_testsuite richdoc testgroup" />
+
+  <grouptype namespace="http://www.webhare.net/xmlns/beta/group"
+             title="webhare_testsuite testgroup" />
+
+  <widgettype namespace="http://www.webhare.net/xmlns/beta/embedblock1"
+              renderlibrary="module::webhare_testsuite/screens/components/embedtest.whlib"
+              renderobjectname="embedblock1_renderer"
+              ingroup="http://www.webhare.net/xmlns/beta/tollium/richdoc_group"
+              >
+    <members>
+      <member name="id" type="string" />
+      <member name="styletitle" type="string" />
+      <member name="fsref" type="whfsref" />
+    </members>
+  </widgettype>
+
+  <apply>
+    <to type="file" pathmask="*/widget.html" />
+    <setembeddedobjectrenderer contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
+                               library="module::webhare_testsuite/screens/components/embedtest.whlib"
+                               objectname="embedblock1_renderer_override" />
+  </apply>
+
+  <widgettype namespace="http://www.webhare.net/xmlns/beta/embedblock2"
+              renderlibrary="module::webhare_testsuite/screens/components/embedtest.whlib"
+              renderobjectname="embedblock2_renderer"
+              ingroup="http://www.webhare.net/xmlns/beta/tollium/richdoc_group">
+    <members>
+      <member name="id2" type="string" />
+      <member name="styletitle" type="string" />
+    </members>
+  </widgettype>
+
+  <widgettype namespace="http://www.webhare.net/xmlns/beta/embedinlineblock1"
+              editfragment="mod::webhare_testsuite/screens/components/embedtest.xml#embedinlineblock1_comp"
+              renderlibrary="module::webhare_testsuite/screens/components/embedtest.whlib"
+              renderobjectname="EmbedInlineBlock1Renderer"
+              embedtype="inline"
+              ingroup="http://www.webhare.net/xmlns/beta/tollium/richdoc_group">
+    <members>
+      <member name="id" type="string" />
+      <member name="styletitle" type="string" />
+      <member name="fsref" type="whfsref" />
+    </members>
+  </widgettype>
+
+  <apply>
+    <to type="file" pathmask="*/widget.html" />
+    <setembeddedobjectrenderer contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
+                               library="module::webhare_testsuite/screens/components/embedtest.whlib"
+                               objectname="embedblock1_renderer_override" />
+  </apply>
+
+
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/test"
+               cloneoncopy="true">
+    <member name="stringtest" type="string" />
+    <member name="arraytest" type="array">
+      <member name="textcell" type="string" />
+      <member name="_whfscell" type="whfsref" />
+      <member name="intextcell" type="intextlink" />
+      <member name="stringarray" type="stringarray" />
+      <member name="blobcell" type="file" />
+    </member>
+    <member name="_whfsarray" type="whfsrefarray" />
+    <member name="stringarray" type="stringarray" />
+    <member name="richtest" type="richdocument" />
+    <member name="instancetest" type="instance" />
+    <member name="recordtest" type="record" />
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/test2" cloneoncopy="true">
+    <member name="stringtest" type="string" />
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/dynfile" cloneoncopy="true">
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/dynfolder" cloneoncopy="true">
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/dynfolder2" cloneoncopy="true">
+  </contenttype>
+
+  <filetype typedef="http://www.webhare.net/xmlns/beta/dynfile" title="TestsuiteDynFile"
+            blobiscontent="false"
+            ispublishable="true"
+            extensions=".shtml"
+            tid="siteprofile.dynfile">
+    <dynamicexecution library="module::webhare_testsuite/publisher/dynamicexecute.whlib" startmacro="FileEntry" />
+  </filetype>
+
+  <foldertype typedef="http://www.webhare.net/xmlns/beta/dynfolder" title="TestsuiteDynFolder">
+    <dynamicexecution library="module::webhare_testsuite/publisher/dynamicexecute.whlib" startmacro="FolderEntry" />
+  </foldertype>
+
+  <foldertype typedef="http://www.webhare.net/xmlns/beta/dynfolder2" title="TestsuiteDynFolder2">
+    <dynamicexecution library="module::webhare_testsuite/publisher/dynamicexecute.whlib" startmacro="FolderEntry" />
+  </foldertype>
+
+  <!-- Productionsroot -->
+  <propertyeditor name="testeditor">
+    <compositions>
+      <p:whfsinstance name="fsinstance" typedef="http://www.webhare.net/xmlns/beta/test" />
+    </compositions>
+    <newtab gid="editors" tid=".betatest">
+      <t:textedit composition="fsinstance" cellname="stringtest" />
+      <t:select composition="fsinstance" cellname="_whfsarray" type="checkboxlist" height="8x">
+        <p:fsobjects composition="fsinstance" titlecell="whfspath" />
+        <p:fsobjects composition="fsinstance" fullpath="/" titlecell="whfspath" />
+      </t:select>
+      <t:box tid=".array" height="1pr">
+        <t:arrayedit composition="fsinstance" cellname="arraytest" name="arraytest" orderable="false" enabled="true" height="1pr" roweditscreen=".editrow">
+          <t:column name="textcell" type="text" tid=".textcell" width="11x"/>
+          <p:whfsrefcolumn name="_whfscell" display="path" tid=".whfscell" />
+        </t:arrayedit>
+      </t:box>
+    </newtab>
+  </propertyeditor>
+
+  <screen name="editrow" implementation="rowedit" xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="editors" tid=".editrow">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit composition="row" cellname="textcell" name="textcell" />
+      <select composition="row" cellname="_whfscell" type="pulldown" height="8x" name="_whfscell">
+        <p:fsobjects composition="row" titlecell="whfspath" />
+        <p:fsobjects composition="row" fullpath="/" titlecell="whfspath" />
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <apply>
+    <to type="file" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" parentmask="/*/*" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
+    <extendproperties name="testeditor" />
+  </apply>
+  <apply>
+    <to type="folder" sitemask="WebHare testsuite site" pathmask="/tmp/applytest-throughglobal/*" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
+    <xyz:test data="applytest-throughglobal" />
+  </apply>
+
+  <embeddedobjecttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" isfiletype="true">
+    <member name="stringdata" type="string" />
+    <member name="aref" type="whfsref" />
+    <member name="img" type="file" />
+  </embeddedobjecttype>
+
+  <apply>
+    <to type="all" />
+    <setembeddedobjectrenderer contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" library="module::webhare_testsuite/rte/testcomp.whlib" objectname="RTDInstanceTestObj" />
+  </apply>
+
+  <!-- Testsite -->
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/testsite">
+  </contenttype>
+  <foldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/testsite" title="webhare_testsuite testsite">
+  </foldertype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/moduledesignsite">
+  </contenttype>
+
+  <apply>
+    <to type="all" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" />
+    <disablelegacysitesettings notemplateprofile="true" />
+    <webdesign witty="module::webhare_testsuite/publisher/testsitedesign.witty"
+               library="module::webhare_testsuite/publisher/testsitedesign.whlib"
+               objectname="BetaWebDesign"
+               wittyencoding="HTML-NI"/>
+
+    <mswordconversion webharecss="false">
+      <deletetextstyles>
+        <deletetextstyle mask="font-size:*" />
+      </deletetextstyles>
+      <profile emptydocobjects="false" >
+        <style tag="h2" fontfamily="&quot;LinotypeUniversW02-Cn&quot;,Arial" fontsize="27px" fgcolor="#333333" bold="false" italic="false" underline="false" smallcaps="allcaps" mswordstyleid="1"/>
+        <style tag="h3" fontfamily="&quot;LinotypeUniversW02-Cn&quot;,Arial" fontsize="19px" fgcolor="#333333" bold="false" italic="false" underline="false" smallcaps="allcaps" mswordstyleid="2"/>
+        <style tag="h4" fontfamily="&quot;LinotypeUniversW02-Cn&quot;,Arial" fontsize="15px" fgcolor="#333333" bold="false" italic="false" underline="false" smallcaps="allcaps" mswordstyleid="3"/>
+        <style tag="h5" fontfamily="univers_lt_std_57_cnregular, Arial" fontsize="12px" fgcolor="#333333" bold="false" italic="false" underline="false" mswordstyleid="4"/>
+        <style fontfamily="&quot;LinotypeUniversW02-Cn&quot;,Arial" fontsize="12px" fgcolor="#333333" />
+        <style toclevel="99" mswordcustomstyle="HTML Sourcecode" embedtype="rawhtml"/>
+      </profile>
+    </mswordconversion>
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="/withdesignfolder/*" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" />
+    <webdesign designfolder="site::webhare_testsuite.site/design/" basedependency="js/test.js" />
+  </apply>
+
+  <apply>
+    <to type="all" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" pathmask="/filtered*/" />
+    <foldersettings filterscreen="moduleroot::webhare_testsuite/screens/tests/publisher.xml#filterpanel">
+      <contentslisthandler library="../lib/screens/tests/publisher.whlib" objectname="newslisthandler" />
+    </foldersettings>
+  </apply>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/webdesign/tests">
+    <member name="file" type="file" />
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder" cloneoncopy="true" />
+  <foldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder" title="webdesign-dynfolder (webhare_testsuite)">
+    <dynamicexecution library="module::webhare_testsuite/publisher/testsitedesign.whlib" webpageobjectname="WebPage" />
+  </foldertype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynrouter" cloneoncopy="true" />
+  <foldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynrouter" title="webdesign-dynrouter (webhare_testsuite)">
+    <dynamicexecution routerfunction="mod::webhare_testsuite/lib/publisher/testsitedesign.whlib#testrouter" />
+  </foldertype>
+
+  <!-- empty doc type. triggered I/O errors if named index.html -->
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/webdesign/emptydocumentfile">
+  </contenttype>
+
+  <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/webdesign/emptydocumentfile"
+            title="EmptyDocFile"
+            blobiscontent="false"
+            ispublishable="true"
+            needstemplate="true"
+            ispublishedassubdir="true"
+            isacceptableindex="true"
+            />
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="testextension">
+    <newtab gid="test.newtab" tid=".tabtitle">
+    </newtab>
+  </tabsextension>
+
+  <!-- fsobject caused a crash 'Component does not have a parent (while looking for the parent panel)'-->
+  <propertyeditor name="fsobjectcrash">
+    <compositions>
+      <p:whfsinstance name="fsinstance" typedef="http://www.webhare.net/xmlns/webhare_testsuite/webdesign/emptydocumentfile" /> <!-- just a random type, doesn't matter which -->
+    </compositions>
+    <newtab>
+      <t:select name="t_select" title="" type="checkbox" rowkeytype="integer">
+        <p:fsobjects name="p_fsobjects" show="folders" composition="fsinstance" rowkeycell="id" fullpath="/" />
+      </t:select>
+    </newtab>
+  </propertyeditor>
+
+  <apply>
+    <to type="all" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" pathmask="*/fsobjectcrash/"/>
+    <extendproperties name="fsobjectcrash" />
+  </apply>
+
+  <!-- publisher.publishersearchtest -->
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest">
+    <member name="testfield" type="integer" />
+    <member name="testarray" type="array">
+      <member name="arrayfield" type="string" />
+      <member name="otherfield" type="datetime" />
+    </member>
+  </contenttype>
+
+  <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest"
+            title="PublisherSearchTest"
+            blobiscontent="true"
+            ispublishable="true"
+            needstemplate="false"
+            ispublishedassubdir="false"
+            isacceptableindex="false"
+            searchprovider="../lib/publisher/publishersearch.whlib#testprovider"
+            />
+
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc">
+    <css path="test/rte-structure.css" />
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="HEADING1" containertag="h1" textstyles="i u" />
+      <textstyle tag="HEADING2" containertag="h2" textstyles="i u" />
+      <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
+      <textstyle tag="MYCUSTOMSTYLE" containertag="div" title="MyCustomStyle" textstyles="b a-href img sup sub strike" />
+      <tablestyle tag="MYTABLE" />
+    </blockstyles>
+  </rtdtype>
+
+  <!-- test pagelist -->
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" />
+  <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/pagelist"
+            title="Testsuite: pagelists"
+            blobiscontent="false"
+            ispublishable="true"
+            capturesubpaths="true"
+            ispublishedassubdir="true"
+            needstemplate="true"
+            pagelistprovider="../lib/publisher/testsitedesign.whlib#TestPageListProvider"
+            />
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" />
+    <usepublishtemplate script="mod::webhare_testsuite/webdesigns/basetest/lib/publishpagelist.whscr" />
+  </apply>
+
+  <!-- configure /testportal further -->
+  <apply>
+    <to type="file" pathmask="/testportal" sitename="WebHare backend" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" dashboardmenuupdater="../lib/tollium.whlib#UpdateDashboardMenu" />
+  </apply>
+
+  <applysiteprofile path="webhare_testsuite-next.siteprl.xml" />
+</siteprofile>

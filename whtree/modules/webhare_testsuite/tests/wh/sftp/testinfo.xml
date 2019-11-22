@@ -1,0 +1,3 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_sftp.whscr" />
+</group>

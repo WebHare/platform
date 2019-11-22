@@ -1,0 +1,42 @@
+<?wh
+/** @topic tollium/dialogs */
+
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+/** Show a column file (eg CSV, XLSX) export dialog.
+    @long If the list of rows empty, the dialog will report this and prevent downloading an empty file
+    @param parent Parent window
+    @param options @includecelldef %GenerateXLSXFile.options
+*/
+PUBLIC MACRO RunColumnFileExportDialog(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := __ValidateXLSXFileOptions(CELL[ timezone := parent->contexts->user->timezone
+                                           , ...options
+                                           ]);
+  IF(Length(options.rows) = 0)
+  {
+    parent->contexts->screen->RunSimpleScreen("info", GetTid("tollium:commondialogs.columnfileexport.exportisempty"));
+    RETURN;
+  }
+
+  OBJECT scr := parent->contexts->screen->LoadScreen("mod::tollium/screens/commondialogs.xml#columnfileexport");
+  scr->columns := options.columns;
+  scr->rows := options.rows;
+  IF(options.exporttitle != "")
+    scr->title := GetTid("tollium:commondialogs.columnfileexport.exporttitle", options.exporttitle);
+
+  scr->filename := options.filename;
+  scr->RunModal();
+}
+
+/** Show an dialog reporting an exception
+    @param parent Parent window
+    @param exceptionobject The exception
+*/
+PUBLIC MACRO RunExceptionReportDialog(OBJECT parent, OBJECT exceptionobject, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  (parent->contexts->screen ?? parent->contexts->controller)->LoadScreen("tollium:commondialogs.exceptionscreen", CELL[ type := "exception", exception := exceptionobject, options ])->RunModal();
+}
+

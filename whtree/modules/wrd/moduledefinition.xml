@@ -1,0 +1,741 @@
+<?xml version="1.0"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <meta>
+    <description>WebHare Relation Database</description>
+    <packaging>
+      <dependency module="system" />
+    </packaging>
+    <validation options="nowarnings" />
+  </meta>
+
+  <publisher>
+    <webdesignplugin name="wrdauth" namespace="http://www.webhare.net/xmlns/wrd" library="internal/auth/webdesignplugin.whlib" objectname="wrdauthplugin"  />
+    <siteprofile path="data/wrd.siteprl.xml" />
+    <formcomponents namespace="http://www.webhare.net/xmlns/wrd/forms" xmlschema="data/formcomponents.xsd"/>
+    <customnode namespace="http://www.webhare.net/xmlns/wrd/siteprofile" name="addressvalidation" />
+  </publisher>
+
+  <servicemanager>
+    <task runat="41  3 * * *" runtz="maintenance" tag="maintenancetask" script="scripts/tasks/executemaintenance.whscr" />
+    <task runat="*/6 * * * *" runtz="maintenance" tag="pollpaymentstatus" script="scripts/tasks/pollpaymentstatus.whscr" />
+    <task runat="22 */3 * * *" runtz="maintenance" tag="checkpaymentmethods" script="scripts/tasks/checkpaymentmethods.whscr" runatstartup="true" />
+    <managedtask type="deletetask" objectname="lib/internal/tasks.whlib#deletetask" priority="background" />
+  </servicemanager>
+
+  <tollium>
+    <components namespace="http://www.webhare.net/xmlns/wrd/components" xmlschema="components.xsd" />
+    <debugaction name="entity" library="lib/internal/debugactions.whlib" startmacro="DebugWRDEntity" />
+  </tollium>
+
+  <services>
+    <localservice name="authapi" library="auth/api.whlib" objectname="WRDAuthService" reuse="false" withtransaction="false" />
+    <webservice name="auth" transports="jsonrpc" library="internal/auth/service.whlib" primarytrans="auto" prefix="rpc_">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+
+    <webservice name="sync" transports="whremoting" library="internal/sync/service.whlib" primarytrans="auto" prefix="rpc_">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </webservice>
+  </services>
+
+  <rights>
+    <objecttype name="schema"
+                table=".schemas"
+                tid="rights.schemas"
+                icon="tollium:database/database">
+      <describer library="internal/support.whlib" objectname="wrdschemaobjecttypedescriber" />
+    </objecttype>
+
+    <objecttype name="entities"
+                table=".entities"
+                tid="rights.entities" >
+      <describer library="internal/support.whlib" objectname="wrdentitiesobjecttypedescriber" />
+    </objecttype>
+
+    <obsoleteright name="superuser" /> <!-- superuser IS effectively sysop, with WRD user management. so removing it -->
+    <right name="createschema" showafter="superuser" tid="rights.createschema" descriptiontid="rights.createschema_descr" >
+      <impliedby right="system:sysop" />
+    </right>
+    <right name="metadata" objecttype="schema" tid="rights.metadata" descriptiontid="rights.metadata_descr" >
+      <impliedby right="system:sysop" />
+    </right>
+    <right name="readwrite" objecttype="schema" showafter="metadata" tid="rights.readwrite" descriptiontid="rights.readwrite_descr" >
+      <impliedby right="metadata" />
+    </right>
+    <right name="read" objecttype="schema" showafter="readwrite" tid="rights.read" descriptiontid="rights.read_descr" >
+      <impliedby right="readwrite" />
+    </right>
+  </rights>
+
+  <portal>
+    <application group="apps" name="browser" tid="browser.main.title" screen="browser.main" icon="tollium:database/database" openmultipleinstances="true" shortcut="ctrl+shift+w">
+      <accesscheck combine="or">
+        <requireright right="read" />
+        <requireright right="createschema" />
+      </accesscheck>
+    </application>
+
+    <application name="querybuilder" title="WRD Querybuilder" screen="querybuilder.querybuilder" >
+      <accesscheck>
+        <requireright right="read" />
+      </accesscheck>
+    </application>
+  </portal>
+
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+<!--     <d:obsoleterole name="superuser" /> -->
+    <d:role name="superuser" />
+    <d:role name="webinterface" />
+    <d:grant permissions="all" grantee=".webinterface" />
+
+    <d:table name="attrs" primarykey="id" parentlinkcolumn="type">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="attributetype" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="checklinks">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="description" maxlength="1024">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="domain" references=".types" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="multiline">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="isunique">
+        <d:documentation>
+          Whether the value of this attribute must be unique for each entity within it's type
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="parent" references=".attrs" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="required">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="ordered">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="tag" maxlength="64" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="title" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="type" references=".types" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="allowedvalues" maxlength="4096">
+        <d:documentation>
+          Allowed values for an enumeration, tab separated
+        </d:documentation>
+      </d:varchar>
+
+      <d:index name="tagattrindex" columns="type parent tag(32)" unique="true" uppercase="true">
+        <d:documentation>
+          Prevent duplicate tags inside a type
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="entities" primarykey="id" parentlinkcolumn="type">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="creationdate" nullable="0">
+        <d:documentation>
+          When the entity has come into existence. If creationdate is in the future, only queries which set a historymode will be able to see it. MAX_DATETIME signals a temporary entity
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="dateofbirth">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="dateofdeath">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="firstname" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="firstnames" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="gender">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:bytea name="guid" nullable="0" maxlength="16">
+        <d:documentation>
+          Global Unique IDentifier. This is generated upon creation of the entity
+          and (unlike wrd_id) won't change when exported/imported.
+        </d:documentation>
+      </d:bytea>
+      <d:varchar name="infix" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="initials" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="lastname" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="leftentity" references=".entities" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="limitdate" nullable="0">
+        <d:documentation>
+          Until which date/time this entity will be available through normal queries.
+          (setting this to GetCurrentDateTime() gives the impression the entity has been deleted)
+          The entity can still be found in historymode (and in the WRD editor). For temporary entities, limitdate will be its expiration date
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="modificationdate" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="ordering">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="rightentity" references=".entities" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="tag" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="title" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="titles" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="titles_suffix" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="type" nullable="0" references=".types" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+
+      <d:index name="type_guid" columns="type guid" unique="1">
+        <d:documentation>
+        </d:documentation>
+      </d:index>
+      <d:index name="type_title" columns="type title(16)" uppercase="1">
+        <d:documentation>
+        </d:documentation>
+      </d:index>
+      <d:index name="type_tag" columns="type tag(16)" uppercase="1">
+        <d:documentation>
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="entity_settings_whfslink" primarykey="id" parentlinkcolumn="id">
+      <d:integer name="id" references=".entity_settings" ondelete="cascade" nullable="0" />
+      <d:integer name="fsobject" references="system.fs_objects" ondelete="cascade" nullable="0" />
+      <d:integer name="linktype" /> <!-- 0: RTD, 1: instance data, 2: FS object -->
+    </d:table>
+
+    <d:table name="entity_settings" primarykey="id" parentlinkcolumn="entity">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="attribute" references=".attrs" nullable="0" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:blob name="blobdata">
+        <d:documentation>
+
+        </d:documentation>
+      </d:blob>
+      <d:integer name="entity" references=".entities" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="ordering">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="parentsetting" references=".entity_settings" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="rawdata" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="setting" references=".entities" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="unique_rawdata" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+
+      <d:index name="entity_attr" columns="entity attribute">
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+      <d:index name="attr_rawdata" columns="attribute rawdata(16)" uppercase="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+      <d:index name="unique_rawdata"
+               columns="attribute unique_rawdata(32)"
+               uppercase="true"
+               nonullstores="true"
+               unique="true">
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="schemas" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:obsoletecolumn name="authkey" />
+      <d:datetime name="creationdate">
+        <d:documentation>When was this schema created (4.19 and up)</d:documentation>
+      </d:datetime>
+      <d:varchar name="creationsource" maxlength="1024">
+        <d:documentation>What is the source of this schema (4.19 and up)</d:documentation>
+      </d:varchar>
+      <d:varchar name="description" maxlength="1024">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="name" nullable="0" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="title" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="protected">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="usermgmt">
+        <d:documentation>
+          This schema is a source of users
+        </d:documentation>
+      </d:boolean>
+
+      <d:integer name="accounttype" references="wrd.types" ondelete="set default">
+        <d:documentation>
+          The type containing users for authentication purposes
+        </d:documentation>
+      </d:integer>
+      <d:integer name="accountemail" references="wrd.attrs" ondelete="set default">
+        <d:documentation>
+          The attribute containing email addresses for the accounttype
+        </d:documentation>
+      </d:integer>
+      <d:integer name="accountpassword" references="wrd.attrs" ondelete="set default">
+        <d:documentation>
+          The attribute containing password for the accounttype
+        </d:documentation>
+      </d:integer>
+      <d:integer name="accountlogin" references="wrd.attrs" ondelete="set default">
+        <d:documentation>
+          The attribute containing login names for the accounttype
+        </d:documentation>
+      </d:integer>
+
+
+      <!-- These 2 are obsolete (is being saved in types).. can we delete without hesitation? -->
+      <d:varchar name="required_fields" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="unique_fields" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+
+      <d:obsoletecolumn name="languages" />
+      <d:obsoletecolumn name="worldinfo" />
+      <d:obsoletecolumn name="schemadata_xml" />
+      <d:index name="uniquename" columns="name" unique="true" uppercase="true" />
+    </d:table>
+
+    <d:table name="types" primarykey="id" parentlinkcolumn="wrd_schema">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="abstract">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="builtincolumns" maxlength="128">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="description" maxlength="1024">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="metatype" nullable="0">
+        <d:documentation>1 = object, 2 = link, 3 = attachment, 4 = domain</d:documentation>
+      </d:integer>
+      <d:integer name="parenttype" references=".types" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="requiretype_left" references=".types" ondelete="cascade">
+        <d:documentation>left side entity (used by links and attachments)</d:documentation>
+      </d:integer>
+      <d:integer name="requiretype_right" references=".types" ondelete="cascade">
+        <d:documentation>right side entity (only used for links)</d:documentation>
+      </d:integer>
+      <d:varchar name="tag" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="title" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+
+      <!-- Comma separated tags of attributes -->
+      <d:varchar name="required_fields" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="unique_fields" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+
+      <d:integer name="wrd_schema" nullable="0" references=".schemas" ondelete="cascade">
+        <d:documentation>
+          Schema to which this type belongs.
+        </d:documentation>
+      </d:integer>
+
+      <d:integer name="keephistorydays">
+        <d:documentation>
+          Keep changes to entities of this type for this number of days.
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="keyvaluestore" primarykey="id" parentlinkcolumn="wrd_schema">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="wrd_schema" references=".schemas" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="name" nullable="false" maxlength="128">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="data" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:blob name="blobdata">
+        <d:documentation>
+
+        </d:documentation>
+      </d:blob>
+      <d:obsoletecolumn name="type" />
+      <d:index name="keyfinder" columns="wrd_schema name" unique="true" uppercase="true">
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="storedqueries" primarykey="id" parentlinkcolumn="wrd_schema">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="tag" maxlength="256"> <!-- FIXME mark as required, but first drop all untagged queries. create unique index over query,schema. or simply merge this into eg storedvalues -->
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:obsoletecolumn name="title" />
+      <d:obsoletecolumn name="description" />
+      <d:blob name="query" nullable="false">
+        <d:documentation>
+
+        </d:documentation>
+      </d:blob>
+      <d:integer name="wrd_schema" nullable="0" references=".schemas" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="pendingpayments" primarykey="id" parentlinkcolumn="providerattr">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>Payment seq#</d:documentation>
+      </d:integer>
+      <d:datetime name="creationdate" nullable="false">
+        <d:documentation>Start of payment</d:documentation>
+      </d:datetime>
+      <d:datetime name="nextcheck"> <!-- TODO should be nullable=false but we need to be sure that all servers are up to date first -->
+        <d:documentation>Next payment check</d:documentation>
+      </d:datetime>
+      <d:varchar name="uuid" maxlength="22" nullable="false">
+      </d:varchar>
+      <d:varchar name="returnurl" maxlength="2048">
+      </d:varchar>
+      <d:integer name="paymentattr" references="wrd.attrs" ondelete="cascade" nullable="false">
+      </d:integer>
+      <d:integer name="providerattr" references="wrd.attrs" ondelete="cascade" nullable="false">
+      </d:integer>
+      <d:integer name="paymententity" references="wrd.entities" ondelete="cascade" nullable="false">
+      </d:integer>
+      <d:varchar name="error" maxlength="512">
+        <d:documentation>Last payment error</d:documentation>
+      </d:varchar>
+      <d:obsoletecolumn name="onpayment"/>
+      <d:index name="uuidindex" columns="uuid(22)">
+        <d:documentation>Allow us to quickly lookup transactions by their uuid</d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="auditevents" primarykey="id" parentlinkcolumn="wrdschema">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+          Audit event id
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="creationdate" nullable="false">
+        <d:documentation>
+          When the event happend
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="wrdschema" references="wrd.schemas" ondelete="cascade" nullable="false">
+      </d:integer>
+      <d:integer name="entity" references="wrd.entities" ondelete="set default">
+      </d:integer>
+      <d:boolean name="impersonated" />
+      <d:varchar name="ip" maxlength="64">
+      </d:varchar>
+      <d:varchar name="login" maxlength="128">
+      </d:varchar>
+      <d:varchar name="type" maxlength="64" nullable="false">
+      </d:varchar>
+      <d:varchar name="data" maxlength="4096">
+      </d:varchar>
+    </d:table>
+
+    <d:table name="changesets" primarykey="id" parentlinkcolumn="wrdschema">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>Changeset id</d:documentation>
+      </d:integer>
+      <d:datetime name="creationdate" nullable="false">
+        <d:documentation>When the changes were applied</d:documentation>
+      </d:datetime>
+      <d:integer name="wrdschema" references="wrd.schemas" ondelete="cascade" nullable="false">
+      </d:integer>
+      <d:integer name="entity" references="wrd.entities" ondelete="set default">
+        <d:documentation>Entity id of the user making these changes</d:documentation>
+      </d:integer>
+      <d:varchar name="userdata" maxlength="2048">
+        <d:documentation>Data describing user making these changes (GetUserDataForLogging)</d:documentation>
+      </d:varchar>
+    </d:table>
+
+    <d:table name="changes" primarykey="id" parentlinkcolumn="changeset">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>Change id</d:documentation>
+      </d:integer>
+      <d:integer name="changeset" references="wrd.changesets" ondelete="cascade" nullable="false">
+        <d:documentation>The changeset this change belongs to</d:documentation>
+      </d:integer>
+      <d:datetime name="creationdate" nullable="false">
+        <d:documentation>When this change was applied</d:documentation>
+      </d:datetime>
+      <d:integer name="type" nullable="0" references=".types" ondelete="cascade">
+        <d:documentation>Type of the entity that was changed</d:documentation>
+      </d:integer>
+      <d:bytea name="entity" nullable="0" maxlength="16">
+        <d:documentation>GUID of the entity that was changed</d:documentation>
+      </d:bytea>
+      <d:varchar name="summary" maxlength="4096">
+        <d:documentation>Comma-separated list of changed attributes</d:documentation>
+      </d:varchar>
+      <d:varchar name="oldsettings" maxlength="4096">
+        <d:documentation>Old entity settings, HSON-encoded</d:documentation>
+      </d:varchar>
+      <d:blob name="oldsettings_blob">
+        <d:documentation>Old entity settings, HSON-encoded, if more than 4096 bytes</d:documentation>
+      </d:blob>
+      <d:varchar name="modifications" maxlength="4096">
+        <d:documentation>Modified entity settings, HSON-encoded</d:documentation>
+      </d:varchar>
+      <d:blob name="modifications_blob">
+        <d:documentation>Modified entity settings, HSON-encoded, if more than 4096 bytes</d:documentation>
+      </d:blob>
+      <d:varchar name="source" maxlength="4096">
+        <d:documentation>Source, HSON-encoded</d:documentation>
+      </d:varchar>
+      <d:blob name="source_blob">
+        <d:documentation>Source, HSON-encoded, if more than 4096 bytes</d:documentation>
+      </d:blob>
+    </d:table>
+
+    <d:table name="change_attachments" primarykey="id" parentlinkcolumn="change">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>Attachment id</d:documentation>
+      </d:integer>
+      <d:integer name="change" references="wrd.changes" ondelete="cascade" nullable="false">
+        <d:documentation>The change this attachment belongs to</d:documentation>
+      </d:integer>
+      <d:integer name="seqnr">
+        <d:documentation>Blob sequence number inside this change (to tell apart multiple blobs inside one change)</d:documentation>
+      </d:integer>
+      <d:blob name="data">
+        <d:documentation>The actual attachment</d:documentation>
+      </d:blob>
+    </d:table>
+
+    <d:obsoletetable name="registrykeys" />
+    <d:obsoletetable name="registrynodes" />
+  </databaseschema>
+
+  <backend>
+    <webrule path="allroots:/.wrd/endpoints/" match="initial" redirecttodir="web:/endpoints/" priority="after" />
+    <webrule path="allroots:/.wrd/auth/" redirecttoscript="web:auth/endpoint.shtml" match="initial" priority="after" />
+  </backend>
+
+  <moduleregistry>
+    <node name="globalconfig">
+      <integer name="keepauditlogdays" description="How long to keep wrd audit log entries" initialval="180" />
+      <integer name="keeppaymentsdays" description="How long to keep payment records to receive updates" initialval="30" />
+    </node>
+  </moduleregistry>
+
+  <documentation>
+    <xmlschemas>
+      <xmlschema path="schemadefinition.xsd" title="WRD Schema definitions" />
+    </xmlschemas>
+  </documentation>
+
+  <validation>
+    <xmlfiletype name="wrdschema"
+                 namespaceuri="http://www.webhare.net/xmlns/wrd/schemadefinition"
+                 rootnodes="schemadefinition"
+                 schemalocation="data/schemadefinition.xsd"
+                 library="lib/internal/schemadef.whlib"
+                 objectname="WRDSchemaDefinitionFile" />
+  </validation>
+
+  <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+    <schema tag="testschema" title="WebHare testsuite test schema" autocreate="true" definitionfile="mod::system/data/wrdschemas/default.wrdschema.xml" maxservertype="development"/>
+  </wrdschemas>
+</module>

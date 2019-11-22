@@ -1,0 +1,158 @@
+<?wh
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
+LOADLIB "mod::system/lib/internal/tasks/queueapi.whlib";
+
+
+BOOLEAN nodelay;
+
+PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
+<
+  MACRO NEW()
+  {
+    onanalyzerissue := PTR this->PrintAnalyzerIssue;
+  }
+
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    this->debug := data.debug;
+
+    IF (this->debug)
+      LogDebug("publisher:outputanalyzer", "RunTask", data.task);
+    SWITCH (data.task.action)
+    {
+      CASE "GATHERFOLDERS"
+      {
+        INTEGER64 start := GetTimestamp();
+        this->GatherFolders();
+        this->ResolveByCompletion([ _runtime := GetTimestamp() - start]);
+        RETURN;
+      }
+
+      CASE "SCAN"
+      {
+        INTEGER64 start := GetTimestamp();
+        this->ScanFolder(data.task.folderid, data.task.recursive);
+        this->ResolveByCompletion([ _runtime := GetTimestamp() - start]);
+        RETURN;
+      }
+
+      CASE "SCANALL"
+      {
+        INTEGER64 start := GetTimestamp();
+        this->ScanAllFoldersNow();
+        this->ResolveByCompletion([ _runtime := GetTimestamp() - start]);
+        RETURN;
+      }
+    }
+    this->ResolveByFailure(DEFAULT RECORD, `Unknown action '${data.task.action}'`);
+  }
+
+  MACRO GatherFolders()
+  {
+    GetPrimary()->BeginWork();
+
+    INTEGER ARRAY allfolders;
+
+    // Generate a list of folders to check (ADDME: Have separate keys for startup scans and scanning interval!)
+    IF (ReadRegistryKey("publisher.publication.scanoutputatstartup"))
+      allfolders := this->GetAllFolders();
+
+    //Quick requeue of pending files
+    RECORD ARRAY to_reschedule :=
+        SELECT id, parent, lastpublishtime, template, profile, published
+          FROM system.fs_objects
+         WHERE isfolder = FALSE
+               AND published > 0
+               AND publish = TRUE /*server side filters*/
+               AND (published % 100000) >= 1
+               AND (published % 100000) < 100;
+    FOREVERY (RECORD file FROM to_reschedule)
+      RequeueSubItem(file.parent, file);
+
+    GetPrimary()->CommitWork();
+
+    FOREVERY (INTEGER folderid FROM allfolders)
+      SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULE", CELL[ action := "SCAN", folderid, recursive := FALSE ]);
+  }
+
+  MACRO ScanFolder(INTEGER folderid, BOOLEAN recursive)
+  {
+    DATETIME start;
+
+    GetPrimary()->BeginWork();
+    IF (NOT nodelay)
+      Sleep(25);
+    IF (this->debug)
+      this->PrintAnalyzerIssue("LOG", `Analyzing folder #${folderid}`);
+    ScanSingleFolder(folderid);
+    GetPrimary()->CommitWork();
+
+    IF (recursive)
+      FOREVERY(RECORD item FROM (SELECT id FROM system.fs_objects WHERE isfolder AND parent = folderid AND type != 1))
+        SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULE", CELL[ action := "SCAN", folderid := item.id, recursive := TRUE ]);
+  }
+
+  MACRO ScanAllFoldersNow()
+  {
+    GetPrimary()->BeginWork();
+
+    /* Generate a list of folders to check */
+    INTEGER ARRAY allfolders := this->GetAllFolders();
+
+    GetPrimary()->RollbackWork();
+
+    FOREVERY( INTEGER folderid FROM allfolders)
+      this->ScanFolder(folderid, /*recursive*/FALSE);
+  }
+
+  INTEGER ARRAY FUNCTION GetAllFolders()
+  {
+    INTEGER ARRAY rootfolders := SELECT AS INTEGER ARRAY root FROM system.sites;
+    RETURN
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE isfolder = TRUE
+               AND type != 1 /*foreign*/
+               AND isactive
+      ORDER BY id = 16 DESC, id IN rootfolders DESC; // Put all root files first, they often matter more
+  }
+
+  MACRO PrintAnalyzerIssue(STRING class, STRING msg)
+  {
+    SWITCH (class)
+    {
+      CASE "LOG", "DEBUG"
+      {
+        IF (class = "LOG" OR this->debug)
+          LogDebug("publisher:outputanalyzer", TrimWhitespace(msg));
+      }
+      CASE "QUEUE"
+      {
+        STRING ARRAY tokens := Tokenize(msg, "\t");
+        IF (Length(tokens) >= 6)
+        {
+          INTEGER fileid := ToInteger(tokens[0], 0);
+          IF (fileid > 0)
+          {
+            LogDebug("publisher:outputanalyzer", "SchedulingFileRepublish", fileid);
+            //ADDME: Don't schedule if already scheduled (maybe change priority?) Or maybe the new publisher queue can
+            // intelligently handle multiple republication actions for the same file?
+            ScheduleFileRepublish(fileid);
+          }
+        }
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Invalid msg class '${class}'`);
+      }
+    }
+  }
+>;

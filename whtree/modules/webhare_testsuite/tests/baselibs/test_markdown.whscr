@@ -1,0 +1,189 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::filetypes/markdown.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+/// Color is fun!
+SetAnsiCmdMode("enabled");
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "startat", type := "param" ]
+    ]);
+
+STRING starttest;
+INTEGER startlinenr;
+BOOLEAN anytestmatch;
+
+IF (args.startat != "")
+{
+  STRING ARRAY parts := Tokenize(args.startat, ":");
+  IF (LENGTH(parts) = 1)
+    INSERT "0" INTO parts AT END;
+  IF (LENGTH(parts) != 2 OR ToInteger(parts[1], -1) = -1)
+    ABORT(`Illegal start spec`);
+  starttest := parts[0];
+  startlinenr := ToInteger(parts[1], 0);
+}
+
+STRING FUNCTION ColorText(STRING text, STRING color)
+{
+  RETURN `${AnsiCMD(color)}${SubStitute(text, "\n", `${AnsiCMD("reset")}\n${AnsiCMD(color)}`)}${AnsiCMD("reset")}`;
+}
+
+RECORD ARRAY FUNCTION ExtractTestsFromSpecification(BLOB filedata)
+{
+  STRING ARRAY lines := Tokenize(BlobToString(filedata), "\n");
+
+  STRING markdown, html;
+  STRING state := "text";
+  STRING marker := RepeatText("`", 32);
+  INTEGER linenr;
+  RECORD ARRAY tests;
+
+  STRING ARRAY lastspec;
+  STRING ARRAY spec;
+
+  FOREVERY (STRING line FROM lines)
+  {
+    IF (line = marker || " example")
+    {
+      state := "markdown";
+      markdown := "";
+      html := "";
+      linenr := #line + 1;
+    }
+    ELSE IF (line = ".")
+      state := "html";
+    ELSE IF (line = marker AND state = "html")
+    {
+      INSERT CELL[ markdown, html, linenr, spec := spec ?? lastspec ] INTO tests AT END;
+      IF (NOT IsDefaultValue(spec))
+        lastspec := spec;
+      spec := STRING[];
+      state := "";
+    }
+    ELSE IF (state = "markdown")
+      markdown := markdown || Substitute(line, "→", "\t") || "\n";
+    ELSE IF (state = "html")
+      html := html || Substitute(line, "→", "\t") || "\n";
+    ELSE IF (line != "") // Save the last specification lines for error context
+      INSERT line INTO spec AT END;
+    IF (LENGTH(spec) > 10)
+      spec := ArraySlice(spec, 1);
+  }
+
+  RETURN tests;
+}
+
+MACRO RunSpecTest(STRING testname, STRING resourcename, RECORD parseoptions, RECORD renderoptions)
+{
+  IF (starttest NOT IN [ "", testname ])
+    RETURN;
+
+  // Read the commonmark spec
+  BLOB commonmark_spec := GetWebhareResource(resourcename);
+
+  RECORD ARRAY tests := ExtractTestsFromSpecification(commonmark_spec);
+
+  PRINT(`Test: ${GetNameFromPath(resourcename)}: `);
+  BOOLEAN didtest;
+
+  FOREVERY (RECORD test FROM tests)
+  {
+    IF (test.linenr < startlinenr)
+      CONTINUE;
+
+    anytestmatch := TRUE;
+
+    // Ignore all tests with tabs
+//    IF (test.markdown LIKE "*\t*")
+//      CONTINUE;
+
+    PRINT(`${didtest?", ":""}${test.linenr}`);
+    didtest := TRUE;
+
+    RECORD tree := ParseMarkDown(test.markdown, parseoptions);
+    STRING got;
+    IF (testname NOT LIKE "*text")
+      got := RenderMarkdownToHTML(tree, renderoptions);
+    ELSE
+      got := RenderMarkdownToText(tree);
+
+    got := TrimWhitespace(got);
+
+    STRING expect := TrimWhitespace(test.html);
+
+    IF (got != expect)
+    {
+      PRINT("\n");
+      PRINT(`${AnsiCMD("red")}Failed test on line ${test.linenr}${AnsiCMD("reset")}\n`);
+      PRINT(`Source:\n${ColorText(Substitute(test.markdown, "\t", "→"), "back-red,black")}\n\n`);
+
+      PRINT("Diff:\n");
+      PRINT(SimpleTextDiff(Substitute(expect, "\t", "→"), Substitute(got, "\t", "→"), [ color := TRUE, header := FALSE ]));
+
+      PRINT(`Expected:\n${ColorText(Substitute(test.html, "\t", "→"), "back-red,black")}\n\n`);
+      PRINT(`Got:\n${ColorText(Substitute(got, "\t", "→"), "back-red,black")}\n\n`);
+
+      PRINT(`Previous spec lines:\n${ColorText(Detokenize(test.spec, "\n"), "back-green,black")}\n\n`);
+
+      ABORT("Test failure");
+    }
+  }
+  PRINT("\n");
+}
+
+MACRO CommonMarkSpecTests()
+{
+  RunSpecTest("commonmark", "mod::webhare_testsuite/data/test/baselibs/commonmark-spec.md", DEFAULT RECORD, [ encoding := "spec" ]);
+}
+
+MACRO WebhareFlavorSpecTests()
+{
+  RunSpecTest("webhare", "mod::webhare_testsuite/data/test/baselibs/webhare-markdown-spec.md", [ flavor := "webhare" ], [ encoding := "spec" ]);
+}
+
+MACRO ExtraTests()
+{
+  RunSpecTest("extra", "mod::webhare_testsuite/data/test/baselibs/markdown-extra.md", [ flavor := "webhare" ], [ encoding := "spec" ]);
+  RunSpecTest("extra", "mod::webhare_testsuite/data/test/baselibs/markdown-extra.md", [ flavor := "webhare" ], DEFAULT RECORD);
+}
+
+MACRO TextTests()
+{
+  RunSpecTest("text", "mod::webhare_testsuite/data/test/baselibs/markdown-text.md", [ flavor := "webhare" ], DEFAULT RECORD);
+}
+
+STRING FUNCTION AddLeadingStuff(STRING link)
+{
+  RETURN "stuff:" || link;
+}
+
+MACRO TestRewriteLinks()
+{
+  STRING testmarkdown := `
+[link](ref1) ![image](ref2) <http://ref3> %ref4
+`;
+
+  RECORD tree := ParseMarkDown(testmarkdown, [ flavor := "webhare" ]);
+  STRING got := TrimWhitespace(RenderMarkdownToHTML(tree, [ encoding := "spec", rewritelink := PTR AddLeadingStuff ]));
+
+  TestEQ(`<p><a href="stuff:ref1">link</a> <img src="stuff:ref2" alt="image" /> <a href="stuff:http://ref3">http://ref3</a> <a href="stuff:%25ref4">ref4</a></p>`, got);
+}
+
+RunTestframework( [ PTR CommonMarkSpecTests
+                  , PTR WebhareFlavorSpecTests
+                  , PTR ExtraTests
+                  , PTR TestRewriteLinks
+                  , PTR TextTests
+                  ],
+                  [ usedatabase := FALSE
+                  ]);
+
+IF (NOT anytestmatch)
+  ABORT(`No test matched ${args.startat}`);

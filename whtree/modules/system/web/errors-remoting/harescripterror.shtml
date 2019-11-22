@@ -1,0 +1,11 @@
+﻿<?wh
+LOADLIB "mod::system/lib/webserver/errors.whlib";
+LOADLIB "mod::system/lib/internal/remoting/server.whlib";
+
+RECORD errorinfo := GetRequestErrorInfo();
+RECORD ARRAY allerrors :=
+    SELECT *
+      FROM errorinfo.errors
+  ORDER BY istrace, istrace ? code : #errors;
+
+RunRequest(allerrors, errorinfo.groupid, FALSE);

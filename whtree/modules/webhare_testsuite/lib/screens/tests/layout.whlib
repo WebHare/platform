@@ -1,0 +1,348 @@
+﻿<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE LayoutTest EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    IF (LENGTH(data.params) > 0 AND MemberExists(this, "DoOpen" || data.params[0]))
+      GetObjectMethodPtr(this, "DoOpen" || data.params[0])();
+  }
+  MACRO DoOpenWizard()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_wizard");
+    wtest->RunModal();
+  }
+  MACRO DoOpenTabs()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_tabs");
+    wtest->RunModal();
+  }
+  MACRO DoOpenSplit()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_split");
+    wtest->RunModal();
+  }
+  MACRO DoOpenBox()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_box");
+    wtest->RunModal();
+  }
+  MACRO DoOpenForm()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_form");
+    wtest->RunModal();
+  }
+  MACRO DoOpenTable()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_table");
+    wtest->RunModal();
+  }
+  MACRO DoOpenTable2()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_table2");
+    wtest->RunModal();
+  }
+  MACRO DoOpenGrid()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_grid");
+    wtest->RunModal();
+  }
+  MACRO DoOpenMargins()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_margins");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenImage()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_image");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenFileEdit()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_fileedit");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenLayoutcomponents()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_layoutcomponents");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenBoxesInGrid()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_boxesingrid");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenLayoutcomponents3()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_layoutcomponents3");
+    wtest->RunModal();
+  }
+
+
+  MACRO DoOpenLayoutcomponents4()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_layoutcomponents4");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenlistbuttons()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_listbuttons");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpentoolbar()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_toolbar");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenlistwidth()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_listwidth");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenDivers()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_divers");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpentabsspace()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_tabsspace");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenVscroll()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_vscroll");
+    wtest->RunModal();
+  }
+
+  MACRO DoGridColWidth()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_gridcolwidth");
+    wtest->RunModal();
+  }
+
+  MACRO DoOpenAutosuggest()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_autosuggest");
+    wtest->RunModal();
+  }
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_Wizard EXTEND TolliumScreenBase
+<
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN this->BeginWork()->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_tabs EXTEND TolliumScreenBase
+<
+  BOOLEAN longtabnames;
+  MACRO Init(RECORD data)
+  {
+    this->SetTabNames(this->longtabnames);
+  }
+  MACRO DoShowappholder()
+  {
+    this->servertabs->selectedtab := this->appholder;
+  }
+  MACRO DoSync()
+  {
+    this->tab1_imagetext_title->value := this->type_imagetext_title->value;
+    this->tab3_texteditstack2->value := this->texteditstack2->value;
+  }
+  MACRO OnTabSelect()
+  {
+    this->selectedtab->value := this->tabs->selectedtab->name;
+    this->selectedstackedtab->value := this->stackedtabs->selectedtab->name;
+  }
+  MACRO DoToggleTabNames()
+  {
+    this->longtabnames := NOT this->longtabnames;
+    this->SetTabNames(this->longtabnames);
+  }
+  MACRO SetTabNames(BOOLEAN longtabnames)
+  {
+    this->tab1->title := this->longtabnames ? "Very long name for tab 1" : "Tab 1";
+    this->tab2->title := this->longtabnames ? "Very long name for tab 2" : "Tab 2";
+    this->tab3->title := this->longtabnames ? "Very very very very very very very very very very very very long name for tab 3" : "Tab 3";
+  }
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_gridLayout EXTEND TolliumScreenBase
+<
+  MACRO DoToggleProgress()
+  {
+    IF(this->progress->value = 5)
+    {
+      this->progress->value := 10;
+      this->progress->max := 10;
+    }
+    ELSE IF(this->progress->value = 10)
+    {
+      this->progress->value := 0;
+      this->progress->max := 0;
+    }
+    ELSE IF(this->progress->max = 0)
+    {
+      this->progress->value := 0;
+      this->progress->max := 10;
+    }
+    ELSE
+    {
+      this->progress->value := 5;
+      this->progress->max := 10;
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_grid EXTEND TolliumScreenBase
+<
+  MACRO DoButtonAction()
+  {
+    this->sel1->type := "radio";
+  }
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_margins EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_margins2 EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_image EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_LayoutComponents EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_BoxesInGrid EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_LayoutComponents3 EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_LayoutComponents4 EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_listbuttons EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_fileedit EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_toolbar EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->dobutton->pressed := true;
+    this->dobutton2->pressed := true;
+  }
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_listwidth EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->dobutton->pressed := true;
+    this->dobutton2->pressed := true;
+  }
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_Divers EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+  }
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_TabsSpace EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->folderpath2->pressed := TRUE;
+    this->filelistsingle->pressed := TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_Vscroll EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+  }
+>;
+
+PUBLIC OBJECTTYPE LayoutTest_GridColWidth EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE LayoutTest_Autosuggest EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->onlegacyextrachange();
+  }
+  STRING ARRAY FUNCTION onvalidatetagrestrict(STRING ARRAY input)
+  {
+    STRING ARRAY output;
+    FOREVERY(STRING inp FROM input)
+      IF(Right(inp,1) IN ["1","2","3","4","5","6","7","8","9","_","."])
+        INSERT inp INTO output AT END;
+    RETURN output;
+  }
+  MACRO onlegacyextrachange()
+  {
+    RECORD ARRAY opts := [[ title := "AAAAA" ], [ title := "AAAAB" ], [ title := "AAAAC" ]];
+    IF(^legacyextra->value)
+      opts := opts CONCAT [[ title := "AAAAD" ], [ title := "AAAAE" ], [ title := "AAAAF" ]];
+    ^legacydynamic->options := opts;
+  }
+>;
+
+PUBLIC OBJECTTYPE DynamicAutosuggest EXTEND TolliumAutoSuggestBase
+<
+  PUBLIC UPDATE RECORD ARRAY FUNCTION Lookup(STRING curtext)
+  {
+    IF(curtext LIKE "user:*")
+    {
+      RETURN [[ value := "user:" || GetEffectiveUser()->login ]];
+    }
+
+    RECORD ARRAY vals;
+    FOREVERY(STRING append FROM ["1","2","3","4","5","6","7","8","9","_","."])
+    {
+      RECORD row := [ value := curtext || append ];
+      IF(#append=1)
+        row := CELL[...row, append := "(2)"];
+      INSERT row INTO vals AT END;
+    }
+    RETURN vals;
+  }
+>;
+

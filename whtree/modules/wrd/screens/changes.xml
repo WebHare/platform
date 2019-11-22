@@ -1,0 +1,56 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         lib="screens/changes.whlib">
+
+  <screen name="entitychanges" width="140x" height="40x" allowresize="true" gid="entitychanges" savestate="size">
+    <compositions>
+      <eventlistener name="changelistener" onevents="GotChangeEvents" />
+    </compositions>
+    <body>
+      <split type="horizontal" width="1pr">
+        <part width="1pr">
+          <list name="changes"
+                sortable="false"
+                selectmode="single"
+                onselect="GotChangeSelect"
+                borders="left top bottom"
+                icons="tollium:status/new tollium:actions/edit tollium:actions/trash tollium:actions/unknown tollium:users/user tollium:objects/star"
+                >
+            <column name="when" type="text" tree="true" iconname="icon" />
+            <column name="user" type="text" />
+          </list>
+        </part>
+        <part width="1pr">
+          <list name="changedvalues" height="1pr" borders="top bottom" selectmode="single" onselect="onvalueselect">
+            <column name="prop" type="text" tree="true" width="1pr" sortkeyname="sortprop"/>
+            <column name="oldvalue" type="text" width="1pr" />
+            <column name="newvalue" type="text" width="1pr" />
+          </list>
+        </part>
+        <part width="1pr">
+          <split type="vertical" height="1pr">
+            <part height="1pr" spacers="left bottom">
+              <heading tid=".oldvalue" />
+              <panel name="oldvalue" height="1pr" />
+            </part>
+            <part height="1pr" spacers="left">
+              <heading tid=".newvalue" />
+              <panel name="newvalue" height="1pr" />
+            </part>
+          </split>
+        </part>
+      </split>
+    </body>
+    <footer>
+      <grid>
+        <cell width="1pr">
+          <text name="historystatus" title="" />
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="close" />
+        </cell>
+      </grid>
+    </footer>
+  </screen>
+
+</screens>

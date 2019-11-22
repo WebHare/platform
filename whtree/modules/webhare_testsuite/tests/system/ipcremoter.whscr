@@ -1,0 +1,88 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/remoting/remotable.whlib";
+LOADLIB "mod::system/lib/internal/remoting/ipcremoter.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+STRING ARRAY result;
+
+
+OBJECTTYPE x EXTEND RemotableObject
+<
+  PUBLIC MACRO Yeey(OBJECT ret)
+  {
+    INSERT "Yeey" INTO result AT END;
+    STRING y2 := ret->Yeey2();
+    INSERT y2 INTO result AT END;
+  }
+
+  PUBLIC MACRO YeeyID(INTEGER id)
+  {
+    INSERT "YeeyID" || id INTO result AT END;
+  }
+
+  PUBLIC BLOB FUNCTION PassBlob(BLOB data)
+  {
+    INSERT `BLOB:${EncodeBase64(GetHashForBlob(data, "SHA-256"))}` INTO result AT END;
+    RETURN data;
+  }
+>;
+
+OBJECTTYPE y EXTEND RemotableObject
+<
+  PUBLIC STRING FUNCTION Yeey2()
+  {
+    INSERT "Yeey2" INTO result AT END;
+    RETURN "Yeey3";
+  }
+>;
+
+OBJECT FUNCTION ServerFunc()
+{
+  RETURN NEW x;
+}
+
+MACRO TestIPCRemoter()
+{
+  OBJECT port := CreateIPCPort("x");
+
+  OBJECT link1 := ConnectToIPCPort("x");
+  OBJECT link2 := port->accept(MAX_DATETIME);
+
+  OBJECT r1 := NEW IPCRemoter(link1, TRUE);
+  OBJECT r2 := NEW IPCRemoter(link2, FALSE);
+
+  r1->RegisterFunction("func", PTR ServerFunc);
+
+  OBJECT o := r2->CallFunction("func");
+  o->Yeey(NEW y);
+  INSERT "before" INTO result AT END;
+  o->__ASYNC_YeeyId(4);
+  INSERT "after" INTO result AT END;
+  o->YeeyId(5);
+  INSERT "done" INTO result AT END;
+
+  // large blob (1025 MB, larger than 1 GB max blob encoding in IPC packets)
+  BLOB largeblob := MakeComposedBlob(RepeatElement([ data := StringToBlob(RepeatText("123456789", 1024 * 1024)) ], 114));
+  TestEQ(TRUE, LENGTH64(largeblob) > 1024*1024*1024);
+  STRING expecthash := "Z+M0dOS509BQLvoTqQr77rigS3BZ6YL2qg0UMVSx+Iw=";
+  //TestEQ(expecthash, EncodeBase64(GetHashForBlob(largeblob, "SHA-256"))); // is slow, will be caught by next tests
+
+  BLOB gotback := o->PassBlob(largeblob);
+  //TestEQ(expecthash, EncodeBase64(GetHashForBlob(gotback, "SHA-256"))); // passblob will place hash in variable 'result'
+
+  TestEQ([ "Yeey", "Yeey2", "Yeey3", "before", "after", "YeeyID4", "YeeyID5", "done", `BLOB:${expecthash}` ], result);
+}
+
+RunTestframework([ PTR TestIPCRemoter
+                 ],
+                 [ usedatabase :=   FALSE
+                 , wrdauth :=       FALSE
+                 ]);

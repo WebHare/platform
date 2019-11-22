@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test name="forum" path="forum/" />
+  <test name="poll" path="poll/" />
+</group>

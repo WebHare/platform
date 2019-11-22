@@ -1,0 +1,205 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+PUBLIC STRING FUNCTION EncodeURL3986(STRING indata) //http://tools.ietf.org/html/rfc3986
+{
+  indata := EncodeURL(indata);
+  indata := Substitute(indata,'/',"%2F");
+  indata := Substitute(indata,'!',"%21");
+  indata := Substitute(indata,'$',"%24");
+  indata := Substitute(indata,'(',"%28");
+  indata := Substitute(indata,')',"%29");
+  indata := Substitute(indata,'%7E','~');
+  RETURN indata;
+}
+
+STRING FUNCTION CalculateSigningKey(STRING accesssecret, STRING xamzdate, STRING region, STRING service)
+{
+  STRING signingkey := GetHashForString(Left(xamzdate,8), "HMAC:SHA-256", "AWS4" || accesssecret);
+  signingkey := GetHashForString(region, "HMAC:SHA-256", signingkey);
+  signingkey := GetHashForString(service, "HMAC:SHA-256", signingkey);
+  signingkey := GetHashForString("aws4_request", "HMAC:SHA-256", signingkey);
+  RETURN signingkey;
+}
+
+
+PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
+<
+  OBJECT browser;
+  STRING accesskey;
+  STRING accesssecret;
+  STRING region;
+
+  PUBLIC PROPERTY debug(this->browser->debug,this->browser->debug);
+
+  MACRO NEW(STRING region, STRING accesskey, STRING accesssecret)
+  {
+    IF(accesskey = "")
+      THROW NEW Exception("No AWS acccess key set");
+    IF(accesssecret = "")
+      THROW NEW Exception("No AWS acccess secret set");
+
+    this->region := region;
+    this->accesskey := accesskey;
+    this->accesssecret := accesssecret;
+    this->browser := NEW WEBBrowser;
+  }
+
+  PUBLIC OBJECT FUNCTION RawAWS4Request(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  {
+    options := ValidateOptions([ signedrequest := FALSE
+                               , urlparameters := RECORD[]
+                               , headers := RECORD[]
+                               , body := DEFAULT BLOB
+                               , region := this->region
+                               , accept404 := FALSE
+                               ], options);
+
+    IF(SearchSubstring(url,"?") != -1)
+      THROW NEW Exception("Don't try to add query variables to the URL");
+
+    STRING xamzdate := FormatDatetime("%Y%m%dT%H%M%SZ", GetCurrentDatetime());
+    STRING bodyhash := ToLowercase(EncodeBase16(GetHashForBlob(options.body, "SHA-256")));
+    STRING credential_scope := Left(xamzdate,8) || "/" || options.region || "/" || service || "/aws4_request";
+    STRING credential := this->accesskey || "/" || credential_scope;
+    STRING algorithm := "AWS4-HMAC-SHA256";
+
+    RECORD ARRAY headers := options.headers;
+    INSERT [ field := "Host", value := UnpackURL(url).host ] INTO headers AT END;
+
+    IF(NOT options.signedrequest)
+    {
+      INSERT [ field := "X-Amz-Date", value := xamzdate ] INTO headers AT END;
+      INSERT [ field := "X-Amz-Content-SHA256", value := bodyhash ] INTO headers AT END;
+    }
+
+    RECORD ARRAY signedheaders := SELECT *
+                                    FROM headers
+                                  WHERE ToUppercase(field) IN ["HOST","CONTENT-MD5"] OR ToUppercase(field) LIKE "X-AMZ-*"
+                                  ORDER BY Touppercase(field);
+    STRING signedheadernames := Detokenize( (SELECT AS STRING ARRAY ToLowercase(field) FROM signedheaders), ';');
+
+    RECORD ARRAY urlparameters := options.urlparameters;
+    IF(options.signedrequest)
+    {
+      urlparameters := urlparameters CONCAT
+         [ [ name := "X-Amz-Algorithm", value := algorithm ]
+         , [ name := "X-Amz-Credential", value := credential ]
+         , [ name := "X-Amz-Date", value := xamzdate ]
+         //, [ name := "X-Amz-Expires"]
+         , [ name := "X-Amz-SignedHeaders", value := signedheadernames ]
+         ];
+    }
+
+    STRING querystring;
+
+    FOREVERY(RECORD param FROM SELECT * FROM urlparameters ORDER BY name)
+      querystring := (querystring=""?"":querystring||"&") || EncodeURL3986(param.name) || "=" || EncodeURL3986(param.value);
+
+    //http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
+    STRING canonicalrequest :=
+      method || "\n"
+      || "/" || UnpackURL(url).urlpath || "\n"
+      || querystring || "\n";
+
+    FOREVERY(RECORD header FROM signedheaders)
+      canonicalrequest := canonicalrequest || ToLowercase(header.field) || ":" || TrimWhitespace(header.value) || "\n";
+
+    canonicalrequest := canonicalrequest
+      || "\n"
+      || signedheadernames || "\n"
+      || bodyhash;
+
+    IF(this->debug)
+      PRINT(`Canonicalrequest=[${canonicalrequest}]\n`);
+
+    STRING canonicalhash := ToLowercase(EncodeBase16(GetHashForString(canonicalrequest, "SHA-256")));
+
+    //http://docs.aws.amazon.com/general/latest/gr/sigv4-create-string-to-sign.html
+    STRING stringtosign :=
+      algorithm || "\n"
+      || xamzdate || "\n"
+      || credential_scope || "\n"
+      || canonicalhash;
+    IF(this->debug)
+      PRINT(`StringToSign=[${stringtosign}]\n`);
+
+    STRING signingkey := CalculateSigningKey(this->accesssecret, xamzdate, options.region, service);
+    STRING signature := ToLowercase(EncodeBase16(GetHashForString(stringtosign, "HMAC:SHA-256", signingkey)));
+
+    IF(options.signedrequest)
+    {
+      url := url || "?" || querystring || "&X-Amz-Signature=" || signature;
+    }
+    ELSE
+    {
+      IF(querystring != "")
+        url := url || "?" || querystring;
+
+      INSERT [ field := "Authorization"
+             , value := algorithm || " Credential=" || this->accesskey || "/" || credential_scope || ", SignedHeaders=" || signedheadernames || ", Signature=" || signature
+             ] INTO headers AT END;
+    }
+
+    IF(NOT this->browser->SendRawRequest(method, url, headers, options.body))
+    {
+      IF(NOT (options.accept404 AND this->browser->GetHTTPStatusCode()=404))
+      {
+        this->ProcessAWSError();
+        THROW NEW Exception("Request failure and error not handled by ProcessAWSError");
+      }
+    }
+
+    RETURN this->browser->document;
+  }
+
+  MACRO ProcessAWSError()
+  {
+    //override this for service specific error handling. they should throw on error
+    THROW NEW Exception("Request failure");
+  }
+
+  STRING FUNCTION CreateV2Req(STRING method, STRING urltext, RECORD ARRAY vars)
+  {
+    RECORD url := UnpackURL(urltext);
+    //Signature version 2:http://docs.amazonwebservices.com/general/latest/gr/signature-version-2.html
+    STRING host := url.host;
+    IF( (url.scheme="http" AND url.port!=80) OR (url.scheme="https" AND url.port!=443))
+      host := host || ":" || url.port;
+
+    STRING signbase := ToUppercase(method) || "\n"
+                       || url.host || "\n"
+                       || "/" ||url.urlpath || "\n";
+    STRING req := "?";
+
+    vars := vars CONCAT [[ name := "SignatureMethod", value := "HmacSHA1" ]
+                        ,[ name := "AWSAccessKeyId", value := this->accesskey ]
+                        ,[ name := "SignatureVersion", value := "2" ]
+                        ,[ name := "Timestamp", value := FormatDatetime("%Y-%m-%dT%H:%M:%S", GetCurrentDatetime()) ]
+                        ];
+
+    FOREVERY(RECORD varrec FROM (SELECT * FROM vars ORDER BY name))
+    {
+      STRING querypart := (#varrec=0?"":"&") || EncodeURL3986(varrec.name) || "=" || EncodeURL3986(varrec.value);
+      signbase := signbase || querypart;
+      req := req || querypart;
+    }
+
+    STRING hash := GetHashForString(signbase, "HMAC:SHA-1", this->accesssecret);
+    RETURN req || "&Signature=" || ENcodeURL3986(EncodeBase64(hash));
+  }
+
+  PUBLIC OBJECT FUNCTION RawRequest(STRING url, RECORD ARRAY vars)
+  {
+    //this->browser->debug := TRUE;
+    IF(NOT this->browser->GotoWebPage(url||this->CreateV2Req("GET", url, vars)))
+      THROW NEW Exception("Unable to navigate to the URL " || url);
+    RETURN this->browser->document;
+  }
+>;
+
+

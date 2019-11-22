@@ -1,0 +1,387 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+
+
+/**
+*/
+
+/* The blob cleanup has two different steps
+
+   - analyze which blobs are not referenced / abandoned uploads, save this in a manifest
+   - removing database records for unreferenced records, deleting blob files that
+     haven't been in the database for some time
+*/
+
+PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
+<
+  OBJECT trans;
+
+  /** How old a blob file should be before it flagged as abandoned upload when
+      no database entry exists for it
+  */
+  PUBLIC INTEGER abandoned_upload_secs;
+
+  /** How long a blob should be unreferenced before being removed from the
+      database table
+  */
+  PUBLIC INTEGER unreferenced_period_secs;
+
+  /** How long a blob file should be kept after removing its database record
+  */
+  PUBLIC INTEGER keep_removed_files_secs;
+
+  /** Filter seen blobs by this ids, for testing purposes
+  */
+  PUBLIC STRING ARRAY __filterids;
+
+  /// Path to the blob manifest file
+  PUBLIC STRING manifestpath;
+
+  /** Creates a new blob analyzer for a PostgreSQL database
+      @param trans PostgreSQL transaction
+  */
+  MACRO NEW(OBJECT trans)
+  {
+    this->trans := trans;
+    this->abandoned_upload_secs := 4 * 3600; // 4 hour
+    this->unreferenced_period_secs := 2 * 3600; // 2 hour
+    this->unreferenced_period_secs := 1 * 3600; // 1 hour
+    this->manifestpath := MergePath(this->trans->blobfolder, "blobmanifest.json");
+  }
+
+  /** Lists all blob files in the tree
+      @return All found blobs
+      @cell(string array) return.new_disk_blobs Ids of blobs newer than new_cutoff
+      @cell(string array) return.old_disk_blobs Ids of blobs older than new_cutoff
+  */
+  RECORD FUNCTION GetDiskBlobInfo()
+  {
+    STRING ARRAY new_disk_blobs;
+    STRING ARRAY old_disk_blobs;
+
+    DATETIME new_cutoff := AddTimeToDate(-this->abandoned_upload_secs * 1000, GetCurrentDateTime());
+
+    FOREVERY (RECORD rec FROM ReadDiskDirectory(this->trans->blobfolder, "*"))
+    {
+      INTEGER blobfoldernr := ToInteger(SubString(rec.name, 5), 0);
+      IF (rec.name = "blob" OR (rec.name LIKE "blob-*" AND blobfoldernr > 0))
+      {
+        FOREVERY (RECORD subfolder FROM ReadDiskDirectory(rec.path, "*"))
+        {
+          IF (ToInteger(subfolder.name, -1) >= 0)
+          {
+            FOREVERY (RECORD blobfile FROM ReadDiskDirectory(subfolder.path, "*"))
+            {
+              IF (ToInteger(blobfile.name, -1) > 0)
+              {
+                IF (IsValueSet(this->__filterids) AND blobfile.name NOT IN this->__filterids)
+                  CONTINUE;
+
+                IF (blobfile.modified >= new_cutoff)
+                {
+                  RECORD pos := LowerBound(new_disk_blobs, blobfile.name);
+                  IF (NOT pos.found)
+                    INSERT blobfile.name INTO new_disk_blobs AT pos.position;
+                }
+                ELSE
+                {
+                  RECORD pos := LowerBound(old_disk_blobs, blobfile.name);
+                  IF (NOT pos.found)
+                    INSERT blobfile.name INTO old_disk_blobs AT pos.position;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    RETURN CELL[ old_disk_blobs, new_disk_blobs ];
+  }
+
+  /** List all blobs in the database tables
+      @return All blobs in the DB
+      @cell(string array) return.existing_blobs List of all blobs in the blob table
+      @cell(string array) return.unreferenced_blobs Active blobs that have no reference
+  */
+  RECORD FUNCTION GetDatabaseBlobInfo()
+  {
+    IF (this->trans->type != "postgresql")
+      ABORT("Not a PostgreSQL transaction");
+
+    STRING blobfolder := this->trans->blobfolder;
+
+    STRING old_isolationlevel := this->trans->transactionisolationlevel;
+    this->trans->transactionisolationlevel := "repeatable read";
+    this->trans->BeginWork();
+
+    STRING ARRAY referenced_blobs;
+    FOREVERY (RECORD schemarec FROM this->trans->GetSchemaListing())
+    {
+      IF (schemarec.is_system_schema)
+        CONTINUE;
+
+      FOREVERY (RECORD tablerec FROM this->trans->GetTableListing(schemarec.schema_name))
+      {
+        FOREVERY (RECORD columnrec FROM this->trans->GetColumnListing(schemarec.schema_name, tablerec.table_name))
+        {
+          IF (columnrec.data_type != "webhare_blob" OR (schemarec.schema_name = "webhare_internal" AND tablerec.table_name = "blob"))
+            CONTINUE;
+
+          // Select via raw query so we won't get itnto problems with missing blobs, and avoid blob lookup
+          STRING ARRAY blobids :=
+              SELECT AS STRING ARRAY DISTINCT id
+                FROM this->trans->__ExecSQL(
+                        `SELECT ("${columnrec.column_name}").id
+                           FROM "${schemarec.schema_name}"."${tablerec.table_name}"
+                          WHERE "${columnrec.column_name}" IS NOT NULL`);
+
+          referenced_blobs := ArrayUnion(referenced_blobs, blobids);
+        }
+      }
+    }
+
+    // Get the blobs from the blob table via a direct query, missing blobs might cause throws
+    STRING ARRAY existing_blobs :=
+        SELECT AS STRING ARRAY id
+          FROM this->trans->__ExecSQL(`SELECT (id).id FROM webhare_internal.blob`) ORDER BY id;
+
+    IF (IsValueSet(this->__filterids))
+    {
+      referenced_blobs := ArrayIntersection(referenced_blobs, this->__filterids);
+      existing_blobs := ArrayIntersection(existing_blobs, this->__filterids);
+    }
+
+    this->trans->RollbackWork();
+    this->trans->transactionisolationlevel := old_isolationlevel;
+
+    STRING ARRAY unreferenced_blobs := ArrayDelete(existing_blobs, referenced_blobs);
+
+    RETURN CELL
+        [ existing_blobs
+        , referenced_blobs
+        , unreferenced_blobs :=     ArrayDelete(existing_blobs, referenced_blobs)
+        ];
+  }
+
+  MACRO DeleteBlobFiles(STRING ARRAY ids)
+  {
+    FOREVERY (STRING id FROM ids)
+    {
+      STRING dir := GetBlobDir(this->trans->blobfolder, ToInteger(id, 0));
+      DeleteDiskFile(MergePath(dir, id));
+    }
+  }
+
+  /** Reads the blob manifest from disk
+      @return Blob manifest contents
+      @cell return.unreferenced List of unreferenced blobs
+      @cell(string) return.unreferenced.date Date when the unreferencedness was detected first
+      @cell return.unreferenced.checked Date when the unreferencedness was last confirmed (used because the delete
+         stage isn't integrated with the analyze state)
+      @cell(string array) return.unreferenced.ids Ids of the unferenced blobs
+      @cell return.unlinked List of unlinked blobs (unreferenced blob whose database entry
+         was deleted by blob cleanup)
+      @cell(string) return.unlinked.date Date when the database entry was deleted
+      @cell(string array) return.unlinked.ids Ids of the unlinked blobs
+      @cell return.abandoned List of blob ids of abandoned blobs (old blobs with no database entry)
+  */
+  PUBLIC RECORD FUNCTION ReadBlobManifest()
+  {
+    RETURN EnforceStructure(
+        [ unreferenced :=       [ [ date := "", checked := "", ids := STRING[] ] ]
+        , unlinked :=           [ [ date := "", ids := STRING[] ] ]
+        , abandoned :=          STRING[]
+        ], DecodeJSONBlob(GetDiskResource(this->manifestpath, [ allowmissing := TRUE ])),
+        [ removeunexpected := TRUE ]);
+  }
+
+  MACRO StoreBlobManifest(RECORD manifest)
+  {
+    StoreDiskFile(this->manifestpath || ".tmp", EncodeJSONBlob(manifest), [ overwrite := TRUE ]);
+    MoveDiskPath(this->manifestpath || ".tmp", this->manifestpath);
+  }
+
+  /** Analyze the disk and database blobs, update the blob manifest with that info
+  */
+  PUBLIC MACRO UpdateBlobManifest()
+  {
+    OBJECT lock := OpenLockManager()->LockMutex("system:blobcleanup");
+    TRY
+    {
+      STRING curdate := FormatISO8601DateTime(GetCurrentDateTime());
+
+      RECORD dbinfo := this->GetDatabaseBlobInfo();
+      RECORD diskinfo := this->GetDiskBlobInfo();
+
+      STRING ARRAY all_missing_blob_files := ArrayDelete(dbinfo.existing_blobs, diskinfo.old_disk_blobs CONCAT diskinfo.new_disk_blobs);
+      IF (IsValueSet(all_missing_blob_files))
+      {
+        STRING ARRAY referenced_missing_blob_files := ArrayDelete(all_missing_blob_files, dbinfo.unreferenced_blobs);
+        IF (IsValueSet(referenced_missing_blob_files))
+        {
+          PRINT(`Could not locate all referenced blobs!\n`);
+          ABORT(CELL[ all_missing_blob_files, referenced_missing_blob_files ]);
+        }
+        ELSE
+        {
+          PRINT(`Could not locate some unreferenced blobs\n`);
+          DumpValue(Cell[ all_missing_blob_files ]);
+        }
+      }
+
+      RECORD manifest := this->ReadBlobManifest();
+
+      STRING ARRAY new_unreferenced := dbinfo.unreferenced_blobs;
+
+      // Remove the referenced blobs from the list of previously unreferenced blobs
+      // and remove previously unreferenced blobs from our list of new unrefs.
+      FOREVERY (RECORD rec FROM manifest.unreferenced)
+      {
+        STRING ARRAY filtered_ids := ArrayDelete(rec.ids, dbinfo.referenced_blobs);
+        manifest.unreferenced[#rec].ids := filtered_ids;
+        manifest.unreferenced[#rec].checked := curdate;
+
+        new_unreferenced := ArrayDelete(new_unreferenced, filtered_ids);
+      }
+
+      IF (IsValueSet(new_unreferenced))
+      {
+        INSERT [ date := curdate, checked := curdate, ids := new_unreferenced ]
+          INTO manifest.unreferenced AT END;
+      }
+
+      // The abandoned uploads are all 'old' diskblobs without a dbentry, of which the
+      // db entry wasn't deleted for being unreferenced
+      STRING ARRAY abandoned := ArrayDelete(diskinfo.old_disk_blobs, dbinfo.existing_blobs);
+      FOREVERY (RECORD rec FROM manifest.unlinked)
+      {
+        // Remove now registered blobs from list of pending deletes
+        manifest.unlinked[#rec].ids := ArrayDelete(rec.ids, dbinfo.existing_blobs);
+        abandoned := ArrayDelete(abandoned, rec.ids);
+      }
+
+      manifest.abandoned := abandoned;
+      DELETE FROM manifest.unreferenced WHERE IsDefaultValue(ids);
+      DELETE FROM manifest.unlinked WHERE IsDefaultValue(ids);
+
+      this->StoreBlobManifest(manifest);
+    }
+    FINALLY
+      lock->Close();
+  }
+
+  STRING ARRAY FUNCTION TryDeleteUnreferencedBlobs(STRING ARRAY ids)
+  {
+    STRING ARRAY deleted;
+
+    STRING ARRAY worklist := ids, nextround;
+    FOR (INTEGER blocksize := 64; blocksize >= 1; blocksize := blocksize / 2)
+    {
+      IF (blocksize >= LENGTH(ids) * 2) // Skip blocksizes much bigger than deletion set
+        CONTINUE;
+
+      ids := ShuffleArray(ids);
+      nextround := STRING[];
+
+      FOR (INTEGER i := 0; i < LENGTH(ids); i := i + blocksize)
+      {
+        STRING ARRAY todelete := ArraySlice(ids, i, blocksize);
+        TRY
+        {
+          this->trans->BeginWork();
+          STRING ARRAY returned_deleted :=
+              SELECT AS STRING ARRAY id
+                FROM this->trans->__ExecSQL(
+            `DELETE FROM webhare_internal.blob AS x
+              WHERE id = Any(SELECT id
+                               FROM webhare_internal.blob
+                              WHERE (id).id = ANY($1)
+                                FOR UPDATE SKIP LOCKED)
+          RETURNING (id).id`, [ args := VARIANT[ todelete ]]);
+          this->trans->CommitWork();
+          deleted := deleted CONCAT returned_deleted;
+        }
+        CATCH
+        {
+          IF (this->trans->IsWorkOpen())
+            this->trans->RollbackWork();
+
+          nextround := nextround CONCAT todelete;
+        }
+      }
+
+      ids := nextround;
+    }
+
+    RETURN deleted;
+  }
+
+  /** Removes all blobs that have been unreferenced dusing checks twice, at least
+      'minunrefmins' minutes apart. Also deletes all blobs files unlinked by these removals
+      after 'minunlinkedmins'
+  */
+  PUBLIC MACRO RemoveUnreferencedBlobs()
+  {
+    OBJECT lock := OpenLockManager()->LockMutex("system:blobcleanup");
+    TRY
+    {
+      RECORD manifest := this->ReadBlobManifest();
+
+      STRING curdate := FormatISO8601DateTime(GetCurrentDateTime());
+
+      // Move abandoned blobs to the unlinked list, so they will be deleted after a grace period
+      IF (IsValueSet(manifest.abandoned))
+      {
+        IF (IsDefaultValue(manifest.unlinked) OR manifest.unlinked[END-1].date != curdate)
+          INSERT [ date := curdate, ids := STRING[] ] INTO manifest.unlinked AT END;
+
+        manifest.unlinked[END-1].ids := ArrayUnion(manifest.unlinked[END-1].ids, manifest.abandoned);
+        manifest.abandoned := STRING[];
+        this->StoreBlobManifest(manifest);
+      }
+
+      WHILE (IsValueSet(manifest.unreferenced))
+      {
+        RECORD rec := manifest.unreferenced[0];
+        RECORD diff := GetDateTimeDifference(MakeDateFromText(rec.date), MakeDateFromText(rec.checked));
+        IF (diff.days * 24 * 3600 * 60 + diff.msecs / 1000 < this->unreferenced_period_secs)
+          BREAK;
+
+        // Try to delete unferenced blobs. Any blobs not deleted (and still unreferenced)
+        // will be deleted in the following round
+        STRING ARRAY deleted := this->TryDeleteUnreferencedBlobs(rec.ids);
+        DELETE FROM manifest.unreferenced AT 0;
+
+        IF (IsDefaultValue(manifest.unlinked) OR manifest.unlinked[END-1].date != curdate)
+          INSERT [ date := curdate, ids := STRING[] ] INTO manifest.unlinked AT END;
+
+        manifest.unlinked[END-1].ids := ArrayUnion(manifest.unlinked[END-1].ids, deleted);
+        this->StoreBlobManifest(manifest);
+      }
+
+      DATETIME deletecutoff := AddTimeToDate(-this->keep_removed_files_secs * 1000, GetCurrentDateTime());
+      WHILE (IsValueSet(manifest.unlinked))
+      {
+        RECORD rec := manifest.unlinked[0];
+        IF (MakeDateFromText(rec.date) > deletecutoff)
+          BREAK;
+
+        this->DeleteBlobFiles(rec.ids);
+        DELETE FROM manifest.unlinked AT 0;
+        this->StoreBlobManifest(manifest);
+      }
+    }
+    FINALLY
+      lock->Close();
+  }
+>;

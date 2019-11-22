@@ -1,0 +1,2568 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "wh::internal/soap/domwalker.whlib";
+LOADLIB "wh::internal/soap/support.whlib";
+
+// This library contains code to encode/decode data in SOAP encoding
+// For use with the flat xsd representation
+
+STRING ns_xmlns := "http://www.w3.org/2000/xmlns/";
+STRING ns_xsd2001 := "http://www.w3.org/2001/XMLSchema";
+STRING ns_xsd2001_instance := "http://www.w3.org/2001/XMLSchema-instance";
+//STRING ns_soap11enc := "http://schemas.xmlsoap.org/soap/encoding/";
+//STRING ns_wsdl := "http://schemas.xmlsoap.org/wsdl/";
+
+
+PUBLIC OBJECTTYPE SOAPCodecDummyData
+< PUBLIC VARIANT FUNCTION GetValue(OBJECT codec, STRING cellname, STRING typens, STRING typename)
+  {
+    THROW NEW Exception("Implement this");
+  }
+
+  PUBLIC VARIANT FUNCTION GetArray(OBJECT codec, STRING cellname)
+  {
+    THROW NEW Exception("Implement this");
+  }
+
+  PUBLIC VARIANT FUNCTION GetElement(OBJECT codec, STRING cellname, STRING eltns, STRING eltname)
+  {
+    THROW NEW Exception("Implement this");
+  }
+
+  PUBLIC BOOLEAN FUNCTION ElementExists(OBJECT codec, STRING cellname, STRING eltns, STRING eltname)
+  {
+    THROW NEW Exception("Implement this");
+  }
+>;
+
+
+/// Base for encoding / decoding
+STATIC OBJECTTYPE CodecBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Current xmldoc that is encoded/decoded
+  OBJECT pvt_xmldoc;
+
+
+  OBJECT pvt_flatxsd;
+
+
+  RECORD ARRAY pvt_overrides;
+
+
+  BOOLEAN pvt_autodecode_wildcards;
+
+
+  STRING pvt_nodeprefix;
+
+
+  STRING pvt_formattingtimezone;
+
+
+  RECORD ARRAY pvt_xmlnamespaces;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY xmldoc(pvt_xmldoc, pvt_xmldoc);
+
+
+  PUBLIC PROPERTY autodecode_wildcards(pvt_autodecode_wildcards, pvt_autodecode_wildcards);
+
+
+  /// Node prefix to use for newly created nodes (can be left empty). Defaults to 'm'.
+  PUBLIC PROPERTY nodeprefix(pvt_nodeprefix, pvt_nodeprefix);
+
+
+  PUBLIC PROPERTY formattingtimezone(pvt_formattingtimezone, pvt_formattingtimezone);
+
+
+  /** Prefixes to use for specific namespaces. If no prefix is specified for a namespace, it defaults to nodeprefix.
+      No xmlns:prefix= nodes are emitted for prefixes found in this array.
+      @cell prefix
+      @cell namespaceuri
+  */
+  PUBLIC PROPERTY namespaceprefixes(pvt_xmlnamespaces, pvt_xmlnamespaces);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Construct new SOAP 1.1 codec
+      @param xmldoc Document for which variables are encoded
+      @param flatxsd Flat XSD data to lookup types and elements
+  */
+  MACRO NEW(OBJECT xmldoc, OBJECT flatxsd)
+  {
+    this->pvt_xmldoc := xmldoc;
+    this->pvt_flatxsd := flatxsd;
+    this->pvt_nodeprefix := "m";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION CreateNode(STRING namespace, STRING name, BOOLEAN withtypeinfo)
+  {
+    OBJECT node;
+    IF (namespace != "")
+    {
+      RECORD prefixrec := SELECT * FROM this->pvt_xmlnamespaces WHERE namespaceuri = namespace;
+      STRING prefix := RecordExists(prefixrec) ? prefixrec.prefix : this->pvt_nodeprefix;
+
+//      PRINT("XX^ #2 Using name: " || "m:" || name || "\n");
+      IF (prefix != "")
+      {
+        node := this->pvt_xmldoc->CreateElementNS(namespace, prefix || ":" || name);
+        IF (NOT RecordExists(prefixrec))
+          node->SetAttributeNS(ns_xmlns, "xmlns:" || this->pvt_nodeprefix, namespace);
+      }
+      ELSE
+        node := this->pvt_xmldoc->CreateElementNS(namespace, name);
+    }
+    ELSE
+    {
+      INTEGER cpos := SearchSubString(name, ":") + 1;
+      IF (cpos > 0)
+        name := SubString(name, cpos);
+      node := this->pvt_xmldoc->CreateElement(name);
+    }
+
+    IF (withtypeinfo)
+    {
+      node->SetAttributeNS(ns_xmlns, "xmlns:xsd", ns_xsd2001);
+      node->SetAttributeNS(ns_xmlns, "xmlns:xsi", ns_xsd2001_instance);
+      node->SetAttributeNS(ns_xmlns, "xmlns:soapenc", ns_soap11enc);
+    }
+
+    RETURN node;
+  }
+
+
+  MACRO AddNodeTextValue(OBJECT node, STRING text)
+  {
+    node->AppendChild(this->pvt_xmldoc->CreateTextNode(text));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC OBJECT ARRAY FUNCTION EncodeVariable(VARIANT data, STRING namespace, STRING name, RECORD type, BOOLEAN withtypeinfo, STRING datapath)
+  {
+    THROW NEW Exception("This function must be overridden");
+  }
+
+
+  PUBLIC MACRO AddEncodingStyle(OBJECT envelope)
+  {
+    THROW NEW Exception("This function must be overridden");
+  }
+
+
+  PUBLIC VARIANT FUNCTION DecodeVariable(OBJECT datanode, RECORD type, STRING datapath, BOOLEAN isnil DEFAULTSTO FALSE)
+  {
+    THROW NEW Exception("This function must be overridden");
+  }
+
+
+  /** This function returns the type that DecodeVariable would return
+  */
+  PUBLIC INTEGER FUNCTION GetDecodeVariableType(OBJECT datanode, RECORD type, STRING datapath)
+  {
+    THROW NEW Exception("This function must be overridden");
+  }
+
+
+  PUBLIC RECORD FUNCTION GetVariableDefault(RECORD type, STRING datapath)
+  {
+    THROW NEW Exception("This function must be overridden");
+  }
+
+  /** Set encoding/decoding overrides
+      @param overrides List of overrides
+      @cell overrides.type Override type (currently allowed: "hstype")
+      @cell overrides.path Data cell path (matched with LIKE)
+      @cell overrides.namespaceuri hstype: Namespace of simple data type to match (LIKE)
+      @cell overrides.name Namespace of data type to match (LIKE)
+      @cell overrides.hstype Harescript type to decode the variable in
+  */
+  PUBLIC MACRO SetOverrides(RECORD ARRAY overrides)
+  {
+    this->pvt_overrides := overrides;
+  }
+
+>;
+
+
+/// Encoder/decoder for SOAP 1.1 and 1.2
+STATIC OBJECTTYPE SOAPCodecBase EXTEND CodecBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY timezone_encoders;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY encodingstyleuri(GetEncodingStyleUri, -);
+  PUBLIC PROPERTY customtzencoders(GetTimezoneEncoders, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Construct new SOAP 1.1 codec
+      @param xmldoc Document for which variables are encoded
+      @param flatxsd Flat XSD data to lookup types and elements
+  */
+  MACRO NEW(OBJECT xmldoc, OBJECT flatxsd)
+  : CodecBase(xmldoc, flatxsd)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  STRING FUNCTION GetEncodingStyleUri()
+  {
+    RETURN ns_soap11enc;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+
+  /** Check whether every cell in a record is actually used. Throws when an unused cell is detected.
+      @param elttype
+      @param datapath Path from root record to actual record (eg. PARAMETERS.GETPERSONS)
+      @param rec
+      @param usedcells List of used cells, MUST ALL BE UPPERCASED!
+  */
+  MACRO CheckUsedCells(RECORD elttype, STRING datapath, RECORD rec, STRING ARRAY usedcells)
+  {
+    FOREVERY (RECORD field FROM UnpackRecord(rec))
+    {
+      IF (field.name NOT IN usedcells)
+      {
+        STRING ARRAY fieldnames;
+        STRING typeref;
+        IF (elttype.type IN [ "simpletype", "complextype", "primitive_type" ])
+        {
+          fieldnames := this->GetPossibleFieldNamesForType(elttype);
+          typeref := " in type {" || elttype.target_namespace || "}" || elttype.name;
+        }
+        ELSE
+        {
+          fieldnames := this->GetPossibleFieldNamesForParticle(elttype);
+          elttype.term := this->pvt_flatxsd->ResolveReference(elttype.term);
+        }
+
+        // Remove already used fields, small chance thay were meant to be used.
+        fieldnames := ArrayDelete(fieldnames, usedcells);
+
+        ThrowUnusedCellException(fieldnames, datapath, typeref, rec, field.name);
+      }
+    }
+  }
+
+  /** Get the list of field names this type can consume
+      @param type Type record
+      @return List of usable field names
+  */
+  STRING ARRAY FUNCTION GetPossibleFieldNamesForType(RECORD type)
+  {
+    IF (type.type = "simpletype")
+      RETURN DEFAULT STRING ARRAY;
+
+    // type.type = "complextype"
+    STRING ARRAY fieldnames;
+    IF (RecordExists(type.content_type))
+    {
+      IF (type.content_type.type != "simple")
+      {
+        RECORD particle := this->pvt_flatxsd->ResolveReference(type.content_type.content);
+        fieldnames := this->GetPossibleFieldNamesForParticle(particle);
+      }
+      ELSE // For complex type with simplecontent, the cell __VALUE is used for the encoded text value
+        INSERT "__VALUE" INTO fieldnames AT END;
+    }
+
+    // Add names of all attributes
+    FOREVERY (RECORD attribute_use FROM type.attribute_uses)
+    {
+      attribute_use := this->pvt_flatxsd->ResolveReference(attribute_use);
+      attribute_use.attribute_declaration := this->pvt_flatxsd->ResolveReference(attribute_use.attribute_declaration);
+      INSERT ToUppercase(attribute_use.attribute_declaration.name) INTO fieldnames AT END;
+    }
+
+    RETURN fieldnames;
+  }
+
+  /** Get the list of field names this particle can consume
+      @param particle Particle record
+      @return List of usable field names
+  */
+  STRING ARRAY FUNCTION GetPossibleFieldNamesForParticle(RECORD particle)
+  {
+    // Lookup the particle term
+    RECORD term := this->pvt_flatxsd->ResolveReference(particle.term);
+
+    SWITCH (term.type)
+    {
+    CASE "element"
+      {
+        RETURN [ ToUppercase(term.name) ];
+      }
+    CASE "modelgroup"
+      {
+        STRING ARRAY fieldnames;
+
+        SWITCH (term.compositor)
+        {
+        CASE "all", "sequence", "choice"
+          {
+            FOREVERY (RECORD p FROM term.particles)
+            {
+              p := this->pvt_flatxsd->ResolveReference(p);
+              fieldnames := fieldnames CONCAT this->GetPossibleFieldNamesForParticle(p);
+            }
+          }
+        }
+        RETURN fieldnames;
+      }
+    }
+    RETURN DEFAULT STRING ARRAY;
+  }
+
+
+  /** Encodes a value into an element
+      @param type FlatXSD type record (type to encode the variable in).
+      @param namespace Namespace of the element to create
+      @param name Name of the element to create
+      @param data Data to encode
+      @param withtypeinfo Add type info to created nodes (eg xsi:type="xsd:integer)
+      @return List of created element nodes
+      @cell return.nodes
+      @cell return.usedcells
+  */
+  RECORD FUNCTION EncodeTypedVariable(RECORD type, STRING namespace, STRING name, VARIANT data, STRING datapath, BOOLEAN withtypeinfo, BOOLEAN nillable)
+  {
+    SWITCH (type.type)
+    {
+    CASE "simpletype"
+      {
+        STRING ARRAY usedcells;
+
+        // Allow [ __value := content ] for all simple types too
+        IF (TypeID(data) = TypeID(RECORD))
+        {
+          IF (NOT CellExists(data, "__VALUE"))
+            ThrowMissingCellException(datapath, type, data, "__VALUE");
+          data := data.__value;
+          datapath := datapath || ".__VALUE";
+          INSERT "__VALUE" INTO usedcells AT END;
+        }
+        ELSE IF (TypeID(data) = TypeID(RECORD ARRAY))
+        {
+          OBJECT ARRAY nodes;
+          STRING ARRAY eltusedcells := [ "__VALUE" ];
+          FOREVERY (RECORD rec FROM data)
+          {
+            STRING localpath := datapath || "[" || #rec || "]";
+            IF (NOT CellExists(rec, "__VALUE"))
+              ThrowMissingCellException(localpath, type, rec, "__VALUE");
+
+            nodes := nodes CONCAT this->EncodeXSDSimpleType(type, namespace, name, rec.__value, localpath, withtypeinfo, nillable);
+            this->CheckUsedCells(type, localpath, rec, eltusedcells);
+          }
+
+          RETURN
+              [ nodes :=          nodes
+              , usedcells :=      usedcells
+              ];
+        }
+
+        RETURN
+            [ nodes :=          this->EncodeXSDSimpleType(type, namespace, name, data, datapath, withtypeinfo, nillable)
+            , usedcells :=      usedcells
+            ];
+      }
+    CASE "complextype"
+      {
+        RETURN this->EncodeXSDComplexType(type, namespace, name, data, datapath, withtypeinfo, nillable);
+      }
+    DEFAULT
+      {
+        ABORT("Cannot encode variables in xsd type of type " || type.type);
+      }
+    }
+  }
+
+  RECORD FUNCTION DetermineSimpleUnionEncodeType(RECORD type, VARIANT value)
+  {
+    RECORD ARRAY candidates;
+
+    // Ignore empty strings type in unions (used in NCCW)
+    // ADDME: Should actually determine whether current value is acceptable for any of the member types.
+
+    FOREVERY (RECORD member_type_definition FROM type.member_type_definitions)
+    {
+      member_type_definition := this->pvt_flatxsd->ResolveReference(member_type_definition);
+
+      RECORD spec := this->GetTypeBuiltinParentAndFacets(member_type_definition);
+
+      IF (spec.builtin_type.name = "string"
+          AND spec.builtin_type.target_namespace = "http://www.w3.org/2001/XMLSchema"
+          AND RecordExists(SELECT FROM spec.facets WHERE COLUMN type = "maxLength" AND COLUMN value = "0"))
+      {
+        // Accept empty string when given, use string to encode that
+        IF (TypeID(value) = TypeID(STRING) AND value = "")
+          RETURN member_type_definition;
+        CONTINUE;
+      }
+
+      INSERT member_type_definition INTO candidates AT END;
+    }
+
+    IF (LENGTH(candidates) = 1)
+      RETURN candidates[0];
+
+    /* ADDME: Here, we should look at the value, and select the best member_type_definition that can encode this value.
+       For that, we need more annotations for the primitive types, though
+    */
+    THROW NEW Exception("Encoding unions is not supported");
+  }
+
+  PUBLIC MACRO RegisterTimezoneEncoder(STRING tzidentifier, FUNCTION PTR encoder)
+  {
+    IF(tzidentifier NOT IN (SELECT AS STRING ARRAY identifer FROM this->timezone_encoders))
+    {
+      IF(ValidateFunctionPTR(encoder, TypeID(STRING), [ TypeID(DATETIME) ]))
+        INSERT [ identifier := tzidentifier, call := encoder ] INTO this->timezone_encoders AT END;
+      ELSE
+        THROW NEW Exception("Invalid signature for timezone encoder; expected STRING FUNCTION encoder(DATETIME param1)");
+    }
+    ELSE
+      THROW NEW Exception("Cannot register timezone encoder for identifier '" || tzidentifier || "'; an encoder for this timezone was already registered");
+  }
+
+  PUBLIC MACRO UnRegisterTimezoneEncode(STRING tzidentifier)
+  {
+    IF(Length(SELECT * FROM this->timezone_encoders WHERE ToUpperCase(identifier) = ToUpperCase(tzidentifier)) > 0)
+      DELETE FROM this->timezone_encoders WHERE ToUpperCase(identifier) = ToUpperCase(tzidentifier);
+    ELSE
+      THROW NEW Exception("Cannot unregister timezone encoder '" || tzidentifier || "': Nu such encoder registered");
+  }
+
+  STRING ARRAY FUNCTION GetTimezoneEncoders()
+  {
+    RETURN SELECT AS STRING ARRAY identifier FROM this->timezone_encoders;
+  }
+
+  STRING FUNCTION EncodeDateTime(DATETIME data)
+  {
+    IF(Left(this->formattingtimezone, 1) = "?")
+    {
+      IF(this->formattingtimezone != "?UTC")
+        RETURN Substitute(FormatISO8601DateTime(LocalToUTC(data, Substring(this->formattingtimezone, 1)), "", "seconds"), "Z", "");
+      ELSE
+        RETURN Substitute(FormatISO8601DateTime(data, "", "seconds"), "Z", "");
+    }
+    ELSE IF(Length(SELECT * FROM this->timezone_encoders WHERE ToUpperCase(identifier) = ToUpperCase(this->formattingtimezone)) > 0)
+    {
+      FUNCTION PTR encoderfunc := SELECT AS FUNCTION PTR call FROM this->timezone_encoders WHERE ToUpperCase(identifier) = ToUpperCase(this->formattingtimezone);
+      RETURN encoderfunc(data);
+    }
+    RETURN FormatISO8601DateTime(data, "", "seconds", this->formattingtimezone);
+  }
+
+
+  STRING FUNCTION EncodeRawXSDSimpleType(RECORD type, VARIANT data, STRING datapath, STRING cellname)
+  {
+    IF (TypeID(data) = TypeID(OBJECT) /* AND data EXTENDSFROM SOAPCodecDummyData*/)
+    {
+      data := data->GetValue(this, cellname, type.target_namespace, type.name);
+    }
+
+    // Check type overrides first
+    RECORD override :=
+        SELECT *
+          FROM this->pvt_overrides
+         WHERE COLUMN type = "hstype"
+           AND datapath LIKE path
+           AND type.target_namespace LIKE namespaceuri
+           AND type.name LIKE name;
+
+    IF (RecordExists(override))
+    {
+      IF (NOT CanCastTypeTo(TypeID(data), override.hstype))
+        THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(data))||" to "||GetTypeName(override.hstype));
+
+      IF (CellExists(override, "encodefunction") AND override.encodefunction != DEFAULT FUNCTION PTR)
+        RETURN override.encodefunction(data);
+
+      // String encoding already has the formatting we want.
+      type := this->pvt_flatxsd->LookupNode(ns_xsd2001, "string", "datatype");
+    }
+
+    SWITCH (type.variety)
+    {
+      CASE "list"
+      {
+        BOOLEAN wasarray;
+        IF (IsTypeIDArray(TypeID(data)))
+          wasarray := TRUE;
+        ELSE
+          data := this->ConditionalArrayify(data, "arr");
+
+        RECORD itemtype := this->pvt_flatxsd->ResolveReference(type.item_type_definition);
+
+        STRING ARRAY parts;
+        FOREVERY (VARIANT val FROM data)
+        {
+          STRING itemdatapath := datapath || (wasarray ? "[" || #val || "]" : "");
+          INSERT this->EncodeRawXSDSimpleType(itemtype, val, itemdatapath, cellname) INTO parts AT END;
+        }
+
+        RETURN Detokenize(parts, " ");
+      }
+      CASE "union"
+      {
+        type := this->DetermineSimpleUnionEncodeType(type, data);
+        RETURN this->EncodeRawXSDSimpleType(type, data, datapath, cellname);
+      }
+    }
+
+    IF (type.variety != "atomic")
+      THROW NEW Exception("Encoding nested non-atomic simple types is not yet supported");
+
+    // For custom derived types, lookup the base XML schema type. Ignore the facets for now.
+    RECORD orgtype := type;
+    BOOLEAN did_derive;
+    WHILE (type.target_namespace != ns_xsd2001)
+    {
+      type := this->pvt_flatxsd->ResolveReference(type.base_type_definition);
+      did_derive := TRUE;
+    }
+
+    SWITCH (type.name)
+    {
+    CASE "integer", "nonPositiveInteger", "negativeInteger", "long", "int",
+         "short", "byte", "nonNegativeInteger", "unsignedLong", "unsignedInt",
+         "unsignedShort", "unsignedByte", "positiveInteger"
+      {
+        IF (TypeID(data) NOT IN [ TypeID(INTEGER), TypeID(INTEGER64) ])
+          THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(data))||" to INTEGER");
+
+        RETURN ToString(data);
+      }
+    CASE "decimal"
+      {
+        IF (TypeID(data) NOT IN [ TypeID(INTEGER), TypeID(INTEGER64), TypeID(MONEY) ])
+          THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(data))||" to MONEY");
+
+        RETURN FormatMoney(data, 0, ".", "", FALSE);
+      }
+    CASE "float", "double"
+      {
+        SWITCH (TypeID(data))
+        {
+        CASE TypeID(INTEGER), TypeID(INTEGER64) { RETURN ToString(data); }
+        CASE TypeID(MONEY)                      { RETURN FormatMoney(data, 0, ".", "", FALSE); }
+        DEFAULT
+          {
+            THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(data))||" to MONEY");
+          }
+        }
+      }
+    CASE "string", "anyURI", "ID"
+      {
+        // For string, allow all sorts of data
+        SWITCH (TypeID(data))
+        {
+        CASE TypeID(STRING)     { RETURN data; }
+        CASE TypeID(INTEGER)    { RETURN ToString(data); }
+        CASE TypeID(INTEGER64)  { RETURN ToString(data); }
+        CASE TypeID(MONEY)      { RETURN FormatMoney(data, 0, ".", "", FALSE); }
+        CASE TypeID(BOOLEAN)    { RETURN data ? "1" : "0"; }
+        CASE TypeID(DATETIME)   { RETURN this->EncodeDateTime(data); }
+        DEFAULT
+          {
+            THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(data))||" to STRING");
+          }
+        }
+      }
+    CASE "boolean"
+      {
+        IF (TypeID(data) != TypeID(BOOLEAN))
+          THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(data))||" to BOOLEAN");
+
+        RETURN data ? "1" : "0";
+      }
+    CASE "date"
+      {
+        IF (TypeID(data) != TypeID(DATETIME))
+          THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(data))||" to DATETIME");
+
+        RETURN FormatDateTime("%Y-%m-%d", data);
+      }
+    CASE "dateTime"
+      {
+        IF (TypeID(data) != TypeID(DATETIME))
+          THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(data))||" to DATETIME");
+
+        RETURN this->EncodeDateTime(data);
+      }
+    CASE "time"
+      {
+        // Allow for DATETIME times (interpreted as UTC datetime) and INTEGER timestamps (as UTC time of current day)
+        SWITCH (TypeID(data))
+        {
+        CASE TypeID(DATETIME)
+          {
+            // Encode as datetime, truncate left part
+            STRING encoded := this->EncodeDateTime(data);
+            IF (encoded NOT LIKE "*T*")
+              RETURN encoded;
+            RETURN Substring(encoded, SearchSubString(encoded, "T") + 1);
+          }
+        CASE TypeID(INTEGER)
+          {
+            // Encode as datetime, truncate left part
+            DATETIME timetoday := MakeDateFromParts(GetDayCount(GetCurrentDateTime()), data);
+            STRING encoded := this->EncodeDateTime(timetoday);
+            IF (encoded NOT LIKE "*T*")
+              RETURN encoded;
+            RETURN Substring(encoded, SearchSubString(encoded, "T") + 1);
+          }
+        DEFAULT
+          {
+            THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(data))||" to DATETIME");
+          }
+        }
+      }
+    CASE "base64Binary"
+      {
+        IF (TypeID(data) != TypeID(BLOB))
+          THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(data))||" to BLOB");
+
+        RETURN EncodeBase64(BlobToString(data, -1));
+      }
+
+    DEFAULT
+      {
+        IF (did_derive)
+          THROW NEW Exception("Cannot encode simple type {" || orgtype.target_namespace || "}'" || orgtype.name || "' (derived from primitive type '" || type.name || "') for cell '" || datapath || "'.'" || cellname || "'");
+        ELSE
+          THROW NEW Exception("Cannot encode xsd primitive type '" || orgtype.name || "' for cell '" || datapath || "'.'" || cellname || "'");
+      }
+    }
+  }
+
+
+  /** Encodes a value to an element, encoded with XSD simpletype
+      @param type FlatXSD type record
+      @param namespace Namespace of the element to create
+      @param name Name of the element to create
+      @param data Data to encode
+      @param withtypeinfo Add type info to created nodes (eg xsi:type="xsd:integer)
+      @return List of created element nodes
+  */
+  OBJECT ARRAY FUNCTION EncodeXSDSimpleType(RECORD type, STRING namespace, STRING name, VARIANT data, STRING datapath, BOOLEAN withtypeinfo, BOOLEAN nillable)
+  {
+    // FIXME: support 'list' too
+    IF (type.variety NOT IN [ "atomic", "union", "list" ])
+      THROW NEW Exception("Encoding non-atomic simple types is not yet supported");
+
+    // Create the element node
+    OBJECT node := this->CreateNode(namespace, name, withtypeinfo);
+
+    IF (withtypeinfo)
+      node->SetAttributeNS(ns_xsd2001_instance, "xsi:type", "xsd:"||type.name);
+
+    IF (TypeID(data) = TypeID(RECORD) AND NOT RecordExists(data))
+    {
+      IF (NOT nillable)
+        THROW NEW Exception("Cell '" || datapath || "' is a DEFAULT RECORD, but used for an element that is not nillable.");
+
+      node->SetAttributeNS(ns_xsd2001_instance, "xsi:nil", "true");
+      RETURN [ node ];
+    }
+
+/*
+    IF (type.target_namespace != ns_xsd2001)
+    {
+      // custom type: walk up until we find the atomic type
+      // FIXME: this ignores all facets, so no error checking is done!
+      WHILE (type.target_namespace != ns_xsd2001)
+      {
+        type := this->pvt_flatxsd->ResolveReference(type.base_type_definition);
+
+        IF (type.variety != "atomic")
+          THROW NEW Exception("Encoding non-atomic simple types is not yet supported");
+      }
+//      ABORT("Do not support simple type '{" || type.target_namespace || "}" || type.name || "'");
+    }
+*/
+
+    this->AddNodeTextValue(node, this->EncodeRawXSDSimpleType(type, data, datapath, name));
+    RETURN [ node ];
+  }
+
+
+  OBJECT ARRAY FUNCTION EncodeWSDLArray(RECORD elttype, STRING namespace, STRING name, VARIANT data, STRING datapath, BOOLEAN withtypeinfo, BOOLEAN nillable)
+  {
+    OBJECT node := this->CreateNode(namespace, name, withtypeinfo);
+
+    IF (NOT IsTypeidArray(TypeID(data)))
+      THROW NEW Exception("Cannot convert cell '" || name || "' from "||GetTypeName(TypeID(data))||" to an array");
+
+    IF (withtypeinfo)
+    {
+      node->SetAttributeNS(ns_xmlns, "xmlns:tns", elttype.target_namespace);
+      node->SetAttributeNS(ns_xsd2001_instance, "xsi:type", "soapenc:Array");
+      node->SetAttributeNS(ns_soap11enc, "soapenc:arrayType", "tns:" || elttype.name || "[" || LENGTH(data) || "]");
+    }
+
+    OBJECT ARRAY nodes;
+
+    IF (TypeID(data) = TypeID(OBJECT))
+    {
+      //IF (data NOT EXTENDSFROM SOAPCodecDummyData) THROW NEW Exception("Blabla");
+      data := data->GetArray(this, name);
+    }
+
+    FOREVERY (VARIANT x FROM data)
+    {
+      RECORD res := this->EncodeXSDComplexType(elttype, namespace, "Item" || #x, x, datapath || "[" || #x || "]", withtypeinfo, nillable);
+
+      IF (TypeID(x) = TypeID(RECORD))
+        this->CheckUsedCells(elttype, datapath || "[" || #x || "]", x, res.usedcells);
+
+      nodes := nodes CONCAT res.nodes;
+    }
+
+    FOREVERY (OBJECT n FROM nodes)
+      node->AppendChild(n);
+
+    RETURN [ node ];
+  }
+
+
+  RECORD FUNCTION EncodeComplexTypeAttributes(RECORD type, VARIANT data, STRING datapath, OBJECT ARRAY nodes)
+  {
+    STRING ARRAY usedcells;
+
+    FOREVERY (RECORD attribute_use FROM type.attribute_uses)
+    {
+      // Resolve reference
+      attribute_use := this->pvt_flatxsd->ResolveReference(attribute_use);
+
+      attribute_use.attribute_declaration := this->pvt_flatxsd->ResolveReference(attribute_use.attribute_declaration);
+
+      RECORD typedef := this->pvt_flatxsd->ResolveReference(attribute_use.attribute_declaration.type_definition);
+
+      // Shorthand to get target_namespace and name
+      RECORD namerec := attribute_use.attribute_declaration;
+
+      // FIXME: check constraint too
+      IF (TypeID(data) = TypeID(RECORD) AND CellExists(data, namerec.name))
+      {
+        IF (LENGTH(nodes) = 0)
+          THROW NEW Exception("Cannot encode cell '" || datapath || "." || namerec.name || "' into attribute without node");
+        ELSE IF (LENGTH(nodes) > 1)
+          THROW NEW Exception("Cannot encode cell '" || datapath || "." || namerec.name || "' into attribute in multiple nodes");
+
+        VARIANT rawdata := GetCell(data, namerec.name);
+        STRING encoded_value := this->EncodeRawXSDSimpleType(typedef, rawdata, datapath, namerec.name);
+        IF (encoded_value != "")
+          nodes[0]->SetAttributeNS(namerec.target_namespace, namerec.name, encoded_value);
+
+        INSERT ToUppercase(namerec.name) INTO usedcells AT END;
+      }
+      ELSE IF (attribute_use.required)
+        ThrowMissingCellException(datapath, type, data, namerec.name);
+    }
+
+    // Add non-wsdl specced attributes
+    IF (TypeID(data) = TypeID(RECORD) AND CellExists(data, "__ATTRIBUTES"))
+    {
+      FOREVERY (RECORD rec FROM data.__attributes)
+        IF (rec.namespaceuri = "")
+          nodes[0]->SetAttribute(rec.name, rec.value);
+        ELSE
+          nodes[0]->SetAttributeNS(rec.namespaceuri, rec.name, rec.value);
+
+      INSERT "__ATTRIBUTES" INTO usedcells AT END;
+    }
+
+    RETURN
+        [ usedcells :=  usedcells
+        ];
+  }
+
+
+  RECORD FUNCTION EncodeXSDComplexType(RECORD type, STRING namespace, STRING name, VARIANT data, STRING datapath, BOOLEAN withtypeinfo, BOOLEAN nillable)
+  {
+    // If this is a simple type, don't create a node, let EncodeXSDSimpleType do that
+    IF (RecordExists(type.content_type) AND type.content_type.type = "simple")
+    {
+      RECORD content := this->pvt_flatxsd->ResolveReference(type.content_type.content);
+      IF (TypeID(data) = TypeID(RECORD))
+      {
+        // When using a record, the simple content must be in the __VALUE cell
+        IF (NOT CellExists(data, "__VALUE"))
+          ThrowMissingCellException(datapath, type, data, "__VALUE");
+
+        // Encode the simple content, then place the attributes on the single returned node
+        OBJECT ARRAY nodes := this->EncodeXSDSimpleType(content, namespace, name, data.__value, datapath || ".__VALUE", withtypeinfo, nillable);
+        RECORD attribute_encode_result := this->EncodeComplexTypeAttributes(type, data, datapath, nodes);
+
+        RETURN
+            [ nodes :=      nodes
+            , usedcells :=  [ "__VALUE" ] CONCAT attribute_encode_result.usedcells
+            ];
+      }
+      ELSE
+      {
+        // Data is not a record, use value directly for simple data encode
+        OBJECT ARRAY nodes := this->EncodeXSDSimpleType(content, namespace, name, data, datapath, withtypeinfo, nillable);
+
+        RETURN
+            [ nodes :=      nodes
+            , usedcells :=  DEFAULT STRING ARRAY
+            ];
+      }
+    }
+
+//    PRINT("XX^ #1 Name: " || name || "\n");
+//    PRINT("XX^ #1 Data: \n" || AnyToString(data, "tree"));
+
+    // Empty content-type: might be an wsdl array
+    IF (NOT RecordExists(type.content_type))
+    {
+      IF (type.userdata.wsdl.is_wsdl_array)
+      {
+        // Get the element type of the array
+        RECORD elttype := this->pvt_flatxsd->ResolveReference(type.userdata.wsdl.arraytype);
+        OBJECT ARRAY nodes := this->EncodeWSDLArray(elttype, namespace, name, data, datapath, withtypeinfo, FALSE);
+
+        RECORD attribute_encode_result := this->EncodeComplexTypeAttributes(type, data, datapath, nodes);
+
+        RETURN
+            [ nodes :=      nodes
+            , usedcells :=  attribute_encode_result.usedcells
+            ];
+      }
+
+      // Not an array: just return an empty element
+      // Create the element node
+      OBJECT node := this->CreateNode(namespace, name, withtypeinfo);
+
+      IF (withtypeinfo AND type.name != "")
+        node->SetAttributeNS(ns_xsd2001_instance, "xsi:type", "xsd:"||type.name);
+
+      RECORD attribute_encode_result := this->EncodeComplexTypeAttributes(type, data, datapath, [ node ]);
+
+      RETURN
+          [ nodes :=      [ node ]
+          , usedcells :=  attribute_encode_result.usedcells
+          ];
+    }
+
+    OBJECT node := this->CreateNode(namespace, name, withtypeinfo);
+
+    IF (withtypeinfo AND type.name != "")
+    {
+      // Encode the type
+      node->SetAttributeNS(ns_xmlns, "xmlns:tns", type.target_namespace);
+      node->SetAttributeNS(ns_xsd2001_instance, "xsi:type", "tns:" || type.name);
+    }
+
+    // Get the content type particle, and encode
+    RECORD particle := this->pvt_flatxsd->ResolveReference(type.content_type.content);
+    RECORD res := this->EncodeXSDParticle(particle, namespace, name, data, datapath, withtypeinfo, FALSE, 0);
+
+    FOREVERY (OBJECT n FROM res.nodes)
+      node->AppendChild(n);
+
+    RECORD attribute_encode_result := this->EncodeComplexTypeAttributes(type, data, datapath, [ node ]);
+
+    RETURN
+        [ nodes :=      [ node ]
+        , usedcells :=  res.usedcells CONCAT attribute_encode_result.usedcells
+        ];
+  }
+
+
+  VARIANT FUNCTION ConditionalArrayify(VARIANT data, STRING mode)
+  {
+    SWITCH (mode)
+    {
+    CASE "id"   { RETURN data; }
+    CASE "arr"
+      {
+        VARIANT arr := GetTypeDefaultArray(TypeID(data));
+        INSERT data INTO arr AT END;
+        RETURN arr;
+      }
+    CASE "varr"
+      {
+        VARIANT ARRAY x;
+        INSERT data INTO x AT END;
+        RETURN x;
+      }
+    }
+    THROW NEW Exception("Unknown arrayify mode");
+  }
+
+
+  /** @return
+      @cell return.nodes
+      @cell return.usedcells
+  */
+  RECORD FUNCTION EncodeXSDParticle(RECORD particle, STRING namespace, STRING name, VARIANT data, STRING datapath, BOOLEAN withtypeinfo, BOOLEAN optionalchoice, INTEGER particleno)
+  {
+    // Lookup the particle term and type
+    IF (NOT CellExists(particle, "TERM"))
+      ABORT("Particle has no TERM\n" || AnyToString(particle, "tree"));
+    RECORD term := this->pvt_flatxsd->ResolveReference(particle.term);
+
+//    PRINT("XX^ #4 Particle " || term.name || "\n" || AnyToString(particle, "boxed") || AnyToString(data, "tree"));
+
+    /* When we have a <sequence><choice maxOccurs="unbounded"></sequence>, the input must be an array. In this case, it can
+       be addressed by using __choice0 := array. Number is index of particle within parent.
+    */
+    IF (TypeID(data) = TypeID(RECORD))
+    {
+      STRING subname := ToUppercase("__" || (term.type = "modelgroup" ? term.compositor : term.type) || particleno);
+      IF (CellExists(data, subname))
+      {
+        VARIANT subdata := GetCell(data, subname);
+        STRING newdatapath := datapath = "" ? subname : datapath || "." || subname;
+        RECORD res := this->EncodeXSDParticleTerm(particle, term, namespace, name, subdata, newdatapath, withtypeinfo, FALSE);
+
+        IF (TypeID(subdata) = TypeID(RECORD))
+          this->CheckUsedCells(term, newdatapath, subdata, res.usedcells);
+
+        RETURN
+            [ nodes :=      res.nodes
+            , usedcells :=  [ subname ]
+            ];
+      }
+    }
+
+    RETURN this->EncodeXSDParticleTerm(particle, term, namespace, name, data, datapath, withtypeinfo, optionalchoice);
+  }
+
+
+  RECORD FUNCTION EncodeXSDParticleTerm(RECORD particle, RECORD term, STRING namespace, STRING name, VARIANT data, STRING datapath, BOOLEAN withtypeinfo, BOOLEAN optionalchoice)
+  {
+    SWITCH (term.type)
+    {
+    CASE "element"
+      {
+        // Get the element type
+        RECORD type := this->pvt_flatxsd->ResolveReference(term.type_definition);
+
+        // We get the data from the cell @a term.name from the @a data parameter.
+        // If it doesn't exist, accept that for min_occurs = 0.
+        IF (TypeID(data) = TypeID(RECORD) AND NOT CellExists(data, term.name))
+        {
+          IF (particle.min_occurs = 0 OR optionalchoice)
+            RETURN
+                [ nodes :=      DEFAULT OBJECT ARRAY
+                , usedcells :=  DEFAULT STRING ARRAY
+                ];
+
+          IF (term.nillable)
+          {
+            OBJECT node := this->CreateNode(term.target_namespace, term.name, FALSE);
+            node->SetAttributeNS(ns_xsd2001_instance, "xsi:nil", "true");
+            RETURN
+                [ nodes :=      [ node ]
+                , usedcells :=  DEFAULT STRING ARRAY
+                ];
+          }
+
+          ThrowMissingCellException(datapath, DEFAULT RECORD, data, term.name); // ADDME: pass last named parent type
+        }
+        IF (TypeID(data) = TypeID(Object) AND data EXTENDSFROM SOAPCodecDummyData AND (optionalchoice OR particle.min_occurs != 1))
+        {
+          IF (NOT data->ElementExists(this, term.name, term.target_namespace, term.name))
+            RETURN
+                [ nodes :=      DEFAULT OBJECT ARRAY
+                , usedcells :=  DEFAULT STRING ARRAY
+                ];
+        }
+
+        // Get the element data
+        VARIANT eltdata := 0;
+        STRING localdatapath;
+        IF (TypeID(data) = TypeID(OBJECT) AND data EXTENDSFROM SOAPCodecDummyData)
+        {
+          eltdata := data->GetElement(this, term.name, term.target_namespace, term.name);
+          localdatapath := datapath || "." || term.name;
+        }
+        ELSE IF (TypeID(data) = TypeID(RECORD))
+        {
+          eltdata := GetCell(data, term.name);
+          localdatapath := datapath || "." || term.name;
+        }
+        ELSE
+        {
+          eltdata := data;
+          localdatapath := datapath;
+        }
+
+        STRING make_array_mode := "id";
+        IF (IsTypeIDArray(TypeID(eltdata)))
+        {
+//          PRINT("XX^ #5 Type is array!\n");
+
+          // The cell contains an array. Return immediately for empty arrays and a min_occurs = 0
+          IF (LENGTH(eltdata) = 0 AND particle.min_occurs = 0)
+            RETURN
+                [ nodes :=      DEFAULT OBJECT ARRAY
+                , usedcells :=  [ ToUppercase(term.name) ]
+                ];
+
+          // max_occurs = 1? Probably soap-array, pass array in one piece.
+          IF (particle.max_occurs = 1)
+            make_array_mode := "varr";
+        }
+        ELSE
+          make_array_mode := "arr";
+
+        VARIANT vals := this->ConditionalArrayify(eltdata, make_array_mode);
+
+        OBJECT ARRAY nodes;
+        FOREVERY (VARIANT val FROM vals)
+        {
+          RECORD res := this->EncodeTypedVariable(
+              type,
+              term.target_namespace,
+              term.name,
+              val,
+              localdatapath || (make_array_mode = "arr" ? "[" || #val || "]" : ""),
+              withtypeinfo,
+              term.nillable);
+
+          nodes := nodes CONCAT res.nodes;
+
+          IF (TypeID(val) = TypeID(RECORD))
+            this->CheckUsedCells(type, datapath, val, res.usedcells);
+        }
+        RETURN
+            [ nodes :=          nodes
+            , usedcells :=      [ ToUppercase(term.name) ]
+            ];
+      }
+    CASE "modelgroup"
+      {
+/*        // Choice with max_occurs = 1 -> pass entire data to choice particles
+        IF (term.compositor = "choice" AND particle.max_occurs = 1)
+        {
+          INTEGER last_p_pos := LENGTH(term.particles) - 1;
+          FOREVERY (RECORD p FROM term.particles)
+          {
+            BOOLEAN is_optional := #p != last_p_pos OR optionalchoice OR particle.min_occurs = 0;
+
+            p := this->pvt_flatxsd->ResolveReference(p);
+            RECORD res := this->EncodeXSDParticle(p, namespace, name, data, datapath, withtypeinfo, is_optional, #p);
+            IF (LENGTH(res.nodes) != 0)
+              RETURN res;
+          }
+        }
+*/
+        STRING make_array_mode := "id";
+        BOOLEAN data_is_array := IsTypeidArray(TypeID(data));
+        IF (data_is_array)
+        {
+          IF (particle.min_occurs = 0 AND LENGTH(data) = 0)
+            RETURN
+                [ nodes :=      DEFAULT OBJECT ARRAY
+                , usedcells :=  DEFAULT STRING ARRAY
+                ];
+        }
+        ELSE IF (particle.min_occurs = 0 AND TypeID(data) = TypeID(RECORD) AND NOT RecordExists(data))
+        {
+          RETURN
+              [ nodes :=      DEFAULT OBJECT ARRAY
+              , usedcells :=  DEFAULT STRING ARRAY
+              ];
+        }
+        ELSE
+          make_array_mode := "arr";
+
+        VARIANT vals := this->ConditionalArrayify(data, make_array_mode);
+        OBJECT ARRAY nodes;
+        STRING ARRAY usedcells;
+        BOOLEAN checkcells := data_is_array AND LENGTH(vals) != 0 AND TypeID(vals[0]) = TypeID(RECORD); // If not converted to array
+        BOOLEAN savecells := TypeID(data) = TypeID(RECORD);
+
+        RECORD result :=
+            [ nodes :=      DEFAULT OBJECT ARRAY
+            , usedcells :=  DEFAULT STRING ARRAY
+            ];
+
+        FOREVERY (VARIANT val FROM vals)
+        {
+          STRING eltdatapath := data_is_array ? datapath || "[" || #val || "]" : datapath;
+
+          SWITCH (term.compositor)
+          {
+          CASE "all", "sequence"
+            {
+              STRING ARRAY localusedcells;
+
+              FOREVERY (RECORD p FROM term.particles)
+              {
+                // If we are in a choice, commit when we successfully handled the first array element
+                p := this->pvt_flatxsd->ResolveReference(p);
+                RECORD res := this->EncodeXSDParticle(p, namespace, name, val, eltdatapath, withtypeinfo, optionalchoice AND #p = 0, #p);
+
+                // Are we in a choice, and couldn't handle the first element? Return.
+                IF (optionalchoice AND #p = 0 AND LENGTH(nodes) = 0)
+                  RETURN
+                       [ nodes :=       DEFAULT OBJECT ARRAY
+                       , usedcells :=   DEFAULT STRING ARRAY
+                       ];
+
+                nodes := nodes CONCAT res.nodes;
+                localusedcells := localusedcells CONCAT res.usedcells;
+              }
+
+              IF (checkcells AND LENGTH(nodes) != 0)
+                this->CheckUsedCells(particle, eltdatapath, val, localusedcells);
+              ELSE IF (savecells)
+                usedcells := usedcells CONCAT localusedcells;
+            }
+          CASE "choice"
+            {
+              STRING ARRAY localusedcells;
+              INTEGER last_p_pos := LENGTH(term.particles) - 1;
+
+              IF (NOT data_is_array AND particle.min_occurs = 0)
+                optionalchoice := TRUE;
+
+              // Once we (partially) use a particle from the choice, test the whole record contents against that particle
+              RECORD test_particle := particle;
+              FOREVERY (RECORD p FROM term.particles)
+              {
+                BOOLEAN is_optional := #p != last_p_pos OR optionalchoice;
+
+                p := this->pvt_flatxsd->ResolveReference(p);
+                RECORD res := this->EncodeXSDParticle(p, namespace, name, val, eltdatapath, withtypeinfo, is_optional, #p);
+                nodes := nodes CONCAT res.nodes;
+                localusedcells := localusedcells CONCAT res.usedcells;
+
+                IF (LENGTH(res.nodes) != 0)
+                {
+                  test_particle := p;
+                  BREAK;
+                }
+              }
+
+              IF (optionalchoice AND LENGTH(nodes) = 0)
+              {
+                RETURN
+                    [ nodes :=       DEFAULT OBJECT ARRAY
+                    , usedcells :=   DEFAULT STRING ARRAY
+                    ];
+              }
+
+              IF (checkcells AND LENGTH(nodes) != 0)
+                this->CheckUsedCells(test_particle, eltdatapath, val, localusedcells);
+              ELSE IF (savecells)
+                usedcells := usedcells CONCAT localusedcells;
+            }
+          }
+        }
+
+        RETURN
+            [ nodes :=    nodes
+            , usedcells :=usedcells
+            ];
+      }
+    CASE "wildcard"
+      {
+        VARIANT eltdata := DEFAULT OBJECT ARRAY;
+        IF (TypeID(data) = TypeID(RECORD))
+        {
+          IF (CellExists(data, "ANY"))
+            eltdata := data.any;
+        }
+        ELSE
+          eltdata := data;
+
+        STRING make_array_mode := "id";
+        IF (NOT IsTypeIDArray(TypeID(eltdata)))
+          make_array_mode := "arr";
+
+        VARIANT vals := this->ConditionalArrayify(eltdata, make_array_mode);
+
+        IF (TypeID(vals) != TypeID(OBJECT ARRAY) AND (TypeID(vals) != TypeID(VARIANT ARRAY) OR LENGTH(vals) != 0))
+          THROW NEW Exception("Wrong type  for '" || datapath || "." || "ANY, must be an OBJECT'");
+
+        IF (LENGTH(vals) > particle.max_occurs)
+          THROW NEW Exception("Too many 'any' values, got " || LENGTH(vals) || ", but max_occurs is " || particle.max_occurs);
+
+        OBJECT ARRAY nodes;
+        FOREVERY (VARIANT val FROM vals)
+        {
+          IF (ObjectExists(val))
+          {
+            OBJECT node := PrivateImportNode(this->pvt_xmldoc, val, TRUE);
+            INSERT node INTO nodes AT END;
+          }
+        }
+
+        RETURN
+            [ nodes :=      nodes
+            , usedcells :=  [ "ANY" ]
+            ];
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("XSDComplexType Term type " || term.type || " not supported");
+      }
+    }
+  }
+
+
+  /** Returns the default value of an XSD simpleType
+      @param type Type definition of simpleType
+      @param datapath Data path within soap message, for error reporting
+      @return Default value for the type
+  */
+  VARIANT FUNCTION GetSimpleTypeDefault(RECORD type, STRING datapath)
+  {
+//    PRINT("XX^ GetTypeDefault for path '" || datapath || "'\n" || AnyToString(type, "tree"));
+
+    // Check type overrides first
+    RECORD override :=
+        SELECT *
+          FROM this->pvt_overrides
+         WHERE COLUMN type = "hstype"
+           AND datapath LIKE path
+           AND type.target_namespace LIKE namespaceuri
+           AND type.name LIKE name;
+
+    IF (RecordExists(override))
+      RETURN GetTypeDefaultValue(override.hstype);
+
+    IF (type.variety = "list")
+    {
+      INTEGER v := TypeID(this->GetSimpleTypeDefault(this->pvt_flatxsd->ResolveReference(type.item_type_definition), datapath));
+
+      IF (IsTypeidArray(v))
+        THROW NEW Exception("Cannot parse a list of lists");
+
+      RETURN GetTypeDefaultArray(v);
+    }
+
+    IF (type.variety = "union")
+    {
+      // For unions, just return the first type
+      type := this->DetermineSimpleUnionDecodeType(type);
+//      RETURN this->GetSimpleTypeDefault(this->pvt_flatxsd->ResolveReference(type.member_type_definitions[0]), datapath);
+    }
+
+    // type = "atomic"
+    RECORD primitive := this->pvt_flatxsd->ResolveReference(type.primitive_type_definition);
+
+//    PRINT("XX^ decode primitive\n" || AnyTOString(type, "tree") || AnyTOString(primitive, "tree"));
+
+    SWITCH (primitive.name)
+    {
+    CASE "decimal"
+      {
+        WHILE (RecordExists(type) AND type.type != "primitivetype")
+        {
+          IF (type.name = "int" OR type.name = "unsignedInt")
+            RETURN DEFAULT INTEGER;
+          IF (type.name = "integer")
+            RETURN DEFAULT INTEGER;
+          IF (type.name = "long")
+            RETURN DEFAULT INTEGER64;
+
+          IF (NOT RecordExists(type.base_type_definition))
+            BREAK;
+
+          type := this->pvt_flatxsd->ResolveReference(type.base_type_definition);
+        }
+        RETURN DEFAULT MONEY;
+      }
+    CASE "string", "anyURI", "ID"
+      {
+        RETURN DEFAULT STRING;
+      }
+    CASE "boolean"
+      {
+        RETURN DEFAULT BOOLEAN;
+      }
+    CASE "double"
+      {
+        RETURN DEFAULT FLOAT;
+      }
+    CASE "date", "dateTime"
+      {
+        RETURN DEFAULT DATETIME;
+      }
+    CASE "time"
+      {
+        RETURN DEFAULT INTEGER;
+      }
+    CASE "float"
+      {
+        RETURN DEFAULT FLOAT;
+      }
+    CASE "base64Binary"
+      {
+        RETURN DEFAULT BLOB;
+      }
+    DEFAULT // FIXME: Support more primitive types!
+      {
+        THROW NEW Exception("Simple types derived from '" || primitive.name || "' not yet supported");
+      }
+    }
+  }
+
+
+  /** For restrictions of a primitype simple type, return the primitive type and the restricting facets
+  */
+  RECORD FUNCTION GetTypeBuiltinParentAndFacets(RECORD type)
+  {
+    RECORD retval :=
+        [ builtin_type :=   DEFAULT RECORD
+        , facets :=         DEFAULT RECORD ARRAY
+        ];
+
+    RECORD ARRAY facets;
+
+    // FIXME: the primitives should also be simple type defs, and not special...
+    WHILE (type.type != "primitivetype")
+    {
+      IF (type.variety != "atomic")
+        THROW NEW Exception("Cannot get base type of list or union types");
+
+      retval.facets := retval.facets CONCAT type.facets;
+      type := this->pvt_flatxsd->ResolveReference(type.primitive_type_definition);
+    }
+
+    retval.builtin_type := type;
+
+    RETURN retval;
+  }
+
+
+  RECORD FUNCTION DetermineSimpleUnionDecodeType(RECORD type)
+  {
+    RECORD ARRAY candidates;
+
+    // Ignore empty strings type in unions (used in NCCW)
+
+    FOREVERY (RECORD member_type_definition FROM type.member_type_definitions)
+    {
+      member_type_definition := this->pvt_flatxsd->ResolveReference(member_type_definition);
+
+      RECORD spec := this->GetTypeBuiltinParentAndFacets(member_type_definition);
+
+      IF (spec.builtin_type.name = "string"
+          AND spec.builtin_type.target_namespace = "http://www.w3.org/2001/XMLSchema"
+          AND RecordExists(SELECT FROM spec.facets WHERE COLUMN type = "maxLength" AND value = "0"))
+        CONTINUE;
+
+      INSERT member_type_definition INTO candidates AT END;
+    }
+
+    IF (LENGTH(candidates) = 1)
+      RETURN candidates[0];
+
+    /* ADDME: Here, we should look at the childrentext, and select the first member_type_definition for which
+        it is a legal value. For that, we need more annotations for the primitive types, though
+    */
+    THROW NEW Exception("Parsing unions is not supported");
+  }
+
+
+  /** Decode an xml text to an XSD simpleType
+      @param childrentext Value to decode
+      @param type Type definition of simpleType
+      @param datapath Data path within soap message, for error reporting
+      @return Decoded value
+  */
+  VARIANT FUNCTION DecodeXSDSimpleType(STRING childrentext, RECORD type, STRING datapath)
+  {
+    STRING normalized := TrimWhitespace(NormalizeWhitespace(childrentext));
+
+    // Check type overrides first
+    RECORD override :=
+        SELECT *
+          FROM this->pvt_overrides
+         WHERE COLUMN type = "hstype"
+           AND datapath LIKE path
+           AND type.target_namespace LIKE namespaceuri
+           AND type.name LIKE name;
+
+    IF (RecordExists(override))
+    {
+      IF (CellExists(override, "DECODEFUNCTION") AND override.decodefunction != DEFAULT FUNCTION PTR)
+        RETURN override.decodefunction(normalized);
+
+      // Immediate fallthrough to
+      type := [ variety := "atomic" ];
+    }
+
+    SWITCH (type.variety)
+    {
+    CASE "list"
+      {
+        STRING ARRAY listvals := Tokenize(normalized, " ");
+
+        RECORD elttype := this->pvt_flatxsd->ResolveReference(type.primitive_type_definition);
+
+        VARIANT val := this->GetSimpleTypeDefault(type, datapath);
+        FOREVERY (STRING listval FROM listvals)
+          INSERT this->DecodeXSDSimpleType(listval, elttype, datapath) INTO val AT END;
+
+        RETURN val;
+      }
+    CASE "union"
+      {
+        RECORD subtype := this->DetermineSimpleUnionDecodeType(type);
+        RETURN this->DecodeXSDSimpleType(childrentext, subtype, datapath);
+
+        /* ADDME: Here, we should look at the childrentext, and select the first member_type_definition for which
+           it is a legal value. For that, we need more annotations for the primitive types, though
+        */
+        THROW NEW Exception("Parsing unions is not supported");
+      }
+    CASE "atomic"
+      {
+        // If we have an override, no need to go to GetSimpleTypeDefault (which will find the same default)
+        VARIANT val := RecordExists(override)
+            ? GetTypeDefaultValue(override.hstype)
+            : this->GetSimpleTypeDefault(type, datapath);
+
+        SWITCH (TypeID(val))
+        {
+        CASE TypeID(INTEGER)
+          {
+            IF (childrentext LIKE "??:??:??Z") //ADDME: time stamps in other timezones, but which reference date to use?
+              RETURN GetMSecondCount(MakeDateFromText("2000-01-01T" || childrentext));
+            RETURN ToInteger(normalized, -1);
+          }
+        CASE TypeID(INTEGER64)
+          {
+            RETURN ToInteger64(normalized, -1);
+          }
+        CASE TypeID(STRING)
+          {
+            RETURN childrentext;
+          }
+        CASE TypeID(BOOLEAN)
+          {
+            RETURN ToUppercase(childrentext) IN [ "1", "TRUE" ];
+          }
+        CASE TypeID(MONEY)
+          {
+            RETURN ToMoney(childrentext, 0);
+          }
+        CASE TypeID(FLOAT)
+          {
+            RETURN ToFloat(childrentext, 0);
+          }
+        CASE TypeID(DATETIME)
+          {
+            IF (childrentext LIKE "????-??-??") // ADDME: negative year, timezone. See XMLSchema part 2, 3.2.9.1.
+              RETURN MakeDateFromText(childrentext || "T00:00:00Z");
+            RETURN MakeDateFromText(childrentext);
+          }
+        CASE TypeID(BLOB)
+          {
+            RETURN StringToBlob(DecodeBase64(childrentext));
+          }
+        DEFAULT
+          {
+            THROW NEW Exception("Parsing HS type " || GetTypeName(TypeID(val)) || " not implemented in soap decoder");
+          }
+        }
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Internal error, unknown simpletype variety '"||type.variety||"'");
+      }
+    }
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION GetVariableDefault(RECORD type, STRING datapath)
+  {
+//    PRINT("GetVariableDefault incoming "||datapath||"\n" || AnyToString(type, "boxed"));
+
+    SWITCH (type.type)
+    {
+    CASE "simpletype"
+      {
+        RETURN
+            [ exists :=         TRUE
+            , value :=          this->GetSimpleTypeDefault(type, datapath)
+            ];
+      }
+    CASE "complextype"
+      {
+        STRING missingtype := "defaultvalue";
+
+        IF (NOT RecordExists(type.content_type))
+          ABORT("FIXME: not implemented");
+
+        IF (type.target_namespace = ns_soap11enc AND type.name = "Array")
+        {
+          RETURN
+              [ exists :=       TRUE
+              , value :=        DEFAULT RECORD ARRAY
+              ];
+        }
+
+        IF (type.content_type.type = "simple") // FIXME: existing record?
+        {
+          // Complex type with simple content
+          RECORD simple_type := this->pvt_flatxsd->ResolveReference(type.content_type.content);
+
+          RECORD value :=
+              [ __value :=  this->GetSimpleTypeDefault(simple_type, datapath)
+              ];
+
+          value := this->DecodeXSDComplexTypeAttributes(DEFAULT OBJECT, type, datapath, value);
+
+          RETURN
+              [ exists :=         TRUE
+              , value :=          value
+              ];
+        }
+
+        // Complex type with complex content
+        RECORD particle := this->pvt_flatxsd->ResolveReference(type.content_type.content);
+        RECORD term := this->pvt_flatxsd->ResolveReference(particle.term);
+
+        SWITCH (term.type)
+        {
+        CASE "element"
+          {
+            // FIXME: make return type overridable.
+            // Possible: missing cell, empty array, type default value (current).
+
+            RECORD value;
+
+            SWITCH (missingtype)
+            {
+            CASE "missing"
+              {
+                RETURN
+                    [ exists :=         FALSE
+                    ];
+              }
+            CASE "defaultvalue"
+              {
+                VARIANT defaultval := this->GetVariableDefault(
+                      this->pvt_flatxsd->ResolveReference(term.type_definition),
+                      datapath);
+
+                // This is the code for default cell value
+                VARIANT result := "";
+                IF (particle.max_occurs > 1)
+                  result := GetTypeDefaultArray(TypeID(defaultval));
+                ELSE
+                  result := defaultval;
+
+//                PRINT("GetVariableDefault defaultvalue\n" || AnyToString(particle, "boxed") || AnyToString(term, "boxed") || AnyToString(value, "tree"));
+
+                RETURN
+                    [ exists :=         TRUE
+                    , value :=          result
+                    ];
+              }
+            DEFAULT
+              {
+                THROW NEW Exception("Unknown missingtype action: '" || missingtype || "'");
+              }
+            }
+          }
+        CASE "modelgroup"
+          {
+            SWITCH (term.compositor)
+            {
+            CASE "sequence", "all", "choice"
+              {
+                RETURN
+                    [ exists :=     missingtype = "defaultvalue"
+                    , value :=      DEFAULT RECORD
+                    ];
+              }
+            DEFAULT
+              {
+                THROW NEW Exception("Unsupported compositor for default values: " || term.compositor);
+              }
+            }
+          }
+        DEFAULT
+          {
+            THROW NEW Exception("Unsupported particle type for default values: " || particle.type);
+          }
+        }
+      }
+    DEFAULT
+      {
+        ABORT("Cannot encode variables in xsd type of type " || type.type);
+      }
+    }
+  }
+
+
+  RECORD FUNCTION GetPossibleElements(RECORD particle, RECORD term, BOOLEAN ignore_particle_minoccurs)
+  {
+    SWITCH (term.type)
+    {
+    CASE "element"
+      {
+        RETURN
+            [ elements :=   [ [ namespaceuri :=     term.target_namespace
+                              , name :=             term.name
+                              ]
+                            ]
+            , any_element :=FALSE
+            , allow_none := particle.min_occurs = 0 AND NOT ignore_particle_minoccurs
+            ];
+      }
+    CASE "modelgroup"
+      {
+        RECORD result :=
+            [ elements :=       DEFAULT RECORD ARRAY
+            , any_element :=    FALSE
+            , allow_none :=     term.compositor != "choice"
+            ];
+
+        FOREVERY (RECORD p FROM term.particles)
+        {
+          p := this->pvt_flatxsd->ResolveReference(p);
+          RECORD subterm := this->pvt_flatxsd->ResolveReference(p.term);
+
+          RECORD res := this->GetPossibleElements(p, subterm, FALSE);
+          result.elements := result.elements CONCAT res.elements;
+          result.any_element := result.any_element OR res.any_element;
+
+          SWITCH (term.compositor)
+          {
+          CASE "sequence"
+            {
+              result.allow_none := result.allow_none AND res.allow_none;
+              IF (NOT result.allow_none)
+                BREAK;
+            }
+          CASE "choice"
+            {
+              result.allow_none := result.allow_none OR res.allow_none;
+            }
+          CASE "all"
+            {
+              result.allow_none := result.allow_none AND res.allow_none;
+            }
+          }
+        }
+
+        IF (particle.min_occurs = 0 AND NOT ignore_particle_minoccurs)
+          result.allow_none := TRUE;
+
+        RETURN result;
+      }
+    CASE "wildcard"
+      {
+        RETURN
+            [ elements :=       DEFAULT RECORD ARRAY
+            , any_element :=    TRUE
+            , allow_none :=     particle.min_occurs = 0
+            ];
+      }
+
+    DEFAULT
+      {
+        THROW NEW Exception("Cannot decode particles terms of type '"||term.type||"'");
+      }
+    }
+  }
+
+
+  BOOLEAN FUNCTION NodeIsInExpectedSet(RECORD expect, OBJECT node)
+  {
+    // No node: allowed when expected set isn't
+    IF (NOT ObjectExists(node))
+      RETURN expect.allow_none;
+
+    IF (expect.any_element)
+      RETURN TRUE;
+
+    STRING ns := node->namespaceuri;
+    STRING localname := GetDOMNodeLocalName(node);
+
+    RETURN RecordExists(
+        SELECT
+          FROM expect.elements
+         WHERE ns = namespaceuri AND name = localname);
+  }
+
+
+  VARIANT FUNCTION NormalizeDecodedArray(VARIANT ARRAY elts, BOOLEAN only_first)
+  {
+    IF (only_first)
+    {
+      IF (LENGTH(elts) = 0)
+        RETURN elts;
+
+      RETURN elts[0];
+    }
+
+    INTEGER type := TypeID(elts[0]);
+
+    VARIANT result := GetTypeDefaultArray(type);
+
+    FOREVERY (VARIANT elt FROM elts)
+      INSERT elt INTO result AT END;
+
+    RETURN result;
+  }
+
+
+  RECORD FUNCTION DecodeXSDParticle(OBJECT node, RECORD particle, STRING datapath, BOOLEAN require_record_return, INTEGER particlenr)
+  {
+    RECORD term := this->pvt_flatxsd->ResolveReference(particle.term);
+
+    RETURN this->DecodeXSDParticleWithTerm(node, particle, term, datapath, require_record_return, particlenr);
+  }
+
+
+  RECORD FUNCTION DecodeXSDParticleWithTerm(OBJECT node, RECORD particle, RECORD term, STRING datapath, BOOLEAN require_record_return, INTEGER particlenr)
+  {
+//    PRINT("DecodeXSDParticleWithTerm "||(ObjectExists(node)?"<"||node->nodename||">":"(no node)")||", particle & term:\n" || AnyToString(particle, "boxed") || AnyToString(term, "boxed"));
+
+    //IF (particle.min_occurs != 1 OR particle.max_occurs != 1)
+    {
+      SWITCH (term.type)
+      {
+      CASE "element"
+        {
+          BOOLEAN match_elt;
+          IF (ObjectExists(node))
+            match_elt := node->namespaceuri = term.target_namespace AND GetDOMNodeLocalName(node) = term.name;
+
+          IF (particle.min_occurs = 0 AND NOT match_elt)
+          {
+            RECORD defval := this->GetVariableDefault(
+                this->pvt_flatxsd->ResolveReference(term.type_definition),
+                datapath);
+
+            RECORD value;
+            IF (defval.exists)
+            {
+              IF (particle.max_occurs > 1)
+              {
+                VARIANT arrval := GetTypeDefaultArray(TypeID(defval.value));
+                value := CellInsert(DEFAULT RECORD, term.name, arrval);
+              }
+              ELSE
+                value := CellInsert(DEFAULT RECORD, term.name, defval.value);
+            }
+
+//            PRINT("DecodeXSDParticleWithTerm element default return value\n"||AnyToString(value, "tree"));
+
+            RETURN
+                [ is_array :=   FALSE
+                , value :=      value
+                , node :=       node
+                ];
+          }
+
+          IF (NOT match_elt)
+          {
+            //PRINT(AnyToString(particle, "boxed"));
+            THROW NEW Exception("Expected element {" || term.target_namespace || "}" || term.name || ", got " ||
+                  (ObjectExists(node) ? "{" || node->namespaceuri || "}" || GetDOMNodeLocalName(node) : "no node at all") || " at " || datapath);
+          }
+
+          datapath := datapath || "." || term.name;
+          VARIANT ARRAY elts;
+
+          WHILE (TRUE)
+          {
+            VARIANT data := this->DecodeVariable(
+                node,
+                this->pvt_flatxsd->ResolveReference(term.type_definition),
+                datapath,
+                node->GetAttributeNS(ns_xsd2001_instance, "nil") IN [ "1", "true"]);
+
+            node := GetNextSiblingElement(node);
+
+            INSERT data INTO elts AT END;
+            IF (particle.max_occurs = 1 OR NOT ObjectExists(node))
+              BREAK;
+
+            BOOLEAN is_match_elt := node->namespaceuri = term.target_namespace AND GetDOMNodeLocalName(node) = term.name;
+            IF (NOT is_match_elt)
+              BREAK;
+          }
+
+          VARIANT result := this->NormalizeDecodedArray(elts, particle.max_occurs = 1);
+
+          RECORD value;
+          value := CellInsert(value, term.name, result);
+
+//           PRINT("DecodeXSDParticleWithTerm element normal return value\n"||AnyToString(value, "tree"));
+
+          RETURN
+              [ is_array :=     FALSE
+              , value :=        value
+              , node :=         node
+              ];
+        }
+
+      CASE "modelgroup"
+        {
+          SWITCH (term.compositor)
+          {
+          CASE "sequence"
+            {
+              RECORD expected;
+              IF (particle.min_occurs != 1 OR particle.max_occurs != 1)
+                expected := this->GetPossibleElements(particle, term, TRUE);
+
+              RECORD ARRAY retval;
+              WHILE (TRUE)
+              {
+                IF (LENGTH(retval) >= particle.max_occurs)
+                  BREAK;
+                IF (RecordExists(expected) AND NOT this->NodeIsInExpectedSet(expected, node))
+                  BREAK;
+
+                RECORD value;
+
+                FOREVERY (RECORD subparticle FROM term.particles)
+                {
+                  subparticle := this->pvt_flatxsd->ResolveReference(subparticle);
+                  RECORD subterm := this->pvt_flatxsd->ResolveReference(subparticle.term);
+
+                  RECORD res := this->DecodeXSDParticleWithTerm(node, subparticle, subterm, datapath, FALSE, #subparticle);
+                  node := res.node;
+
+                  IF (res.is_array)
+                    res := [ value := CellInsert(DEFAULT RECORD, "__" || subterm.compositor || #subparticle, res.value) ];
+
+                  BOOLEAN overlap;
+                  FOREVERY (RECORD r FROM UnpackRecord(res.value))
+                    IF (CellExists(value, r.name))
+                      overlap := TRUE;
+                  IF (overlap)
+                    res := [ value := CellInsert(DEFAULT RECORD, "__" || (subterm.type = "modelgroup" ? subterm.compositor : subterm.type) || #subparticle, res.value) ];
+
+                  value := MakeMergedRecord(value, res.value);
+                }
+
+                INSERT value INTO retval AT END;
+              }
+
+              IF (NOT RecordExists(expected))
+              {
+                RETURN
+                    [ is_array :=   FALSE
+                    , value :=      RECORD(retval)
+                    , node :=       node
+                    ];
+              }
+              IF (require_record_return)
+              {
+                RETURN
+                    [ is_array :=   FALSE
+                    , value :=      CellInsert(DEFAULT RECORD, "__SEQUENCE" || particlenr, retval)
+                    , node :=       node
+                    ];
+              }
+
+              RETURN
+                  [ is_array :=   TRUE
+                  , value :=      retval
+                  , node :=       node
+                  ];
+            }
+
+          CASE "all"
+            {
+              IF (particle.min_occurs != 1 OR particle.max_occurs != 1)
+                THROW NEW Exception("Cannot decode 'all'-modelgroups with min_occurs != 1 or max_occurs != 1 yet"); // FIXME: implement
+
+              RECORD value := DEFAULT RECORD;
+
+              FOREVERY (RECORD subparticle FROM term.particles)
+                term.particles[#subparticle] := this->pvt_flatxsd->ResolveReference(subparticle);
+
+              RECORD ARRAY subs :=
+                  SELECT particle :=     particles
+                       , term :=         this->pvt_flatxsd->ResolveReference(particles.term)
+                       , used :=            FALSE
+                    FROM term.particles;
+
+              subs :=
+                  SELECT *
+                       , expected :=        this->GetPossibleElements(COLUMN particle, COLUMN term, FALSE)
+                    FROM subs;
+
+              WHILE (ObjectExists(node))
+              {
+                FOREVERY (RECORD sub FROM subs)
+                {
+                  IF (NOT sub.used AND this->NodeIsInExpectedSet(sub.expected, node))
+                  {
+                    subs[#sub].used := TRUE;
+
+                    RECORD res := this->DecodeXSDParticleWithTerm(node, sub.particle, sub.term, datapath, FALSE, #sub);
+                    node := res.node;
+
+                    IF (res.is_array)
+                      res := [ value := CellInsert(DEFAULT RECORD, "__" || sub.term.compositor || #sub, res.value) ];
+
+                    value := MakeMergedRecord(value, res.value);
+                    BREAK;
+                  }
+                }
+              }
+
+              FOREVERY (RECORD sub FROM subs)
+                IF (NOT sub.used AND sub.particle.min_occurs != 0)
+                {
+                  RECORD elt := sub.expected.elements;
+                  IF (RecordExists(elt))
+                    THROW NEW Exception("Expected element {"||elt.namespaceuri||"}" || elt.name || " at path '"||datapath||"'");
+                  ELSE
+                    THROW NEW Exception("Expected any element at path '"||datapath||"'");
+                }
+
+              RETURN
+                  [ is_array :=     FALSE
+                  , value :=        value
+                  , node :=         node
+                  ];
+            }
+
+          CASE "choice"
+            {
+              RECORD ARRAY vals;
+
+              IF (ObjectExists(node) OR particle.min_occurs != 0)
+              {
+                WHILE (TRUE)
+                {
+                  RECORD result;
+
+                  RECORD use_subparticle;
+                  INTEGER subparticle_nr;
+
+                  // Test the subparticles if any match
+                  FOREVERY (RECORD subparticle FROM term.particles)
+                  {
+                    subparticle := this->pvt_flatxsd->ResolveReference(subparticle);
+                    RECORD subterm := this->pvt_flatxsd->ResolveReference(subparticle.term);
+                    RECORD expected := this->GetPossibleElements(subparticle, subterm, FALSE);
+
+                    IF (this->NodeIsInExpectedSet(expected, node))
+                    {
+                      // We prefer non-wildcard decodes
+                      IF (NOT RecordExists(use_subparticle) OR NOT expected.any_element)
+                      {
+                        use_subparticle := subparticle;
+                        subparticle_nr := #subparticle;
+                        IF (NOT expected.any_element)
+                          BREAK;
+                      }
+                    }
+                  }
+
+                  // Did we find a matching subparticle?
+                  IF (RecordExists(use_subparticle))
+                  {
+                    RECORD subterm := this->pvt_flatxsd->ResolveReference(use_subparticle.term);
+                    result := this->DecodeXSDParticleWithTerm(node, use_subparticle, subterm, datapath, TRUE, subparticle_nr);
+                  }
+
+                  IF (NOT RecordExists(result))
+                    BREAK;
+
+                  OBJECT orgnode := node;
+                  node := result.node;
+
+                  INSERT result.value INTO vals AT END;
+                  IF (particle.max_occurs = 1 OR NOT ObjectExists(node))
+                    BREAK;
+                }
+              }
+
+              IF ((particle.min_occurs = 1 OR ObjectExists(node)) AND LENGTH(vals) = 0)
+              {
+                STRING ARRAY expected_list;
+
+                FOREVERY (RECORD subparticle FROM term.particles)
+                {
+                  // FIXME: reuse?
+                  subparticle := this->pvt_flatxsd->ResolveReference(subparticle);
+                  RECORD subterm := this->pvt_flatxsd->ResolveReference(subparticle.term);
+                  RECORD expected := this->GetPossibleElements(subparticle, subterm, FALSE);
+                  FOREVERY (RECORD r FROM expected.elements)
+                    INSERT "{"||r.namespaceuri||"}"||r.name INTO expected_list AT END;
+
+                  IF (LENGTH(expected_list) > 3)
+                  {
+                    WHILE (LENGTH(expected_list) > 3)
+                      DELETE FROM expected_list AT 3;
+                    INSERT "..." INTO expected_list AT END;
+                  }
+                }
+
+                STRING ex_str := (LENGTH(expected_list) != 0 ? ", expected any of " || Detokenize(expected_list, ", ") : "");
+
+                IF (NOT ObjectExists(node))
+                  THROW NEW Exception("Expected an element at path '"||datapath||"'" || ex_str);
+                ELSE
+                  THROW NEW Exception("Unexpected element '"||GetXMLNodePrettyName(node)||"' at path '"||datapath||"'" || ex_str);
+              }
+
+              BOOLEAN is_singular := particle.min_occurs = 1 AND particle.max_occurs = 1;
+
+              IF (is_singular)
+              {
+                RETURN
+                    [ is_array :=     FALSE
+                    , value :=        vals[0]
+                    , node :=         node
+                    ];
+              }
+
+              IF (require_record_return)
+              {
+                RETURN
+                    [ is_array :=   FALSE
+                    , value :=      CellInsert(DEFAULT RECORD, "__CHOICE" || particlenr, vals)
+                    , node :=       node
+                    ];
+              }
+
+              RETURN
+                  [ is_array :=     TRUE
+                  , value :=        vals
+                  , node :=         node
+                  ];
+            }
+          DEFAULT
+            {
+              THROW NEW Exception("Compositor type '"||term.compositor||"' not supported for decoding");
+            }
+          }
+        }
+      CASE "wildcard" // <any /> ?
+      {
+        VARIANT result := DEFAULT VARIANT ARRAY;
+        BOOLEAN mixed_content := FALSE;
+
+        INTEGER count := particle.max_occurs;
+        WHILE (ObjectExists(node) AND count > 0)
+        {
+          VARIANT data := node;
+          STRING typeattr := node->GetAttributeNS(ns_xsd2001_instance, "type");
+          IF (this->autodecode_wildcards AND typeattr != "")
+            data := this->DecodeVariable(node, DEFAULT RECORD, datapath);
+
+          INTEGER hstype := TypeID(data);
+          IF (LENGTH(result) = 0)
+            result := GetTypeDefaultArray(hstype);
+          ELSE IF (NOT mixed_content AND LENGTH(result) != 1 AND TypeID(result[0]) != hstype)
+          {
+            result := VARIANT ARRAY(result);
+            mixed_content := TRUE;
+          }
+
+          INSERT data INTO result AT END;
+
+          count := count - 1;
+          node := GetNextSiblingElement(node);
+        }
+
+        IF (particle.max_occurs = 1)
+        {
+          RETURN
+              [ is_array := FALSE
+              , value := [ "ANY" := result[0] ]
+              , node := node
+              ];
+        }
+        ELSE
+        {
+          RETURN
+              [ is_array := FALSE
+              , value := [ "ANY" := result ]
+              , node := node
+              ];
+        }
+      }
+      DEFAULT
+        {
+          IF (NOT ObjectExists(node))
+            THROW NEW Exception("Missing element node XXX"); // FIXME: document, recover?
+
+          THROW NEW Exception("XSDComplexType Particle term type " || term.type || " not supported");
+        }
+      }
+    }
+
+    RETURN
+        [ is_array :=   FALSE
+        , value :=      DEFAULT RECORD
+        , node :=       node
+        ];
+  }
+
+
+  RECORD FUNCTION GetArrayEltType(OBJECT node, RECORD type)
+  {
+    IF ((type.target_namespace = ns_soap11enc AND type.name = "Array")
+        OR (CellExists(type.userdata, "WSDL") AND type.userdata.wsdl.is_wsdl_array))
+    {
+      RECORD elttype;
+
+      // Try array type in encoding
+      STRING typeattr := ObjectExists(node) ? node->GetAttributeNS(ns_soap11enc, "arrayType") : "";
+      IF (typeattr != "")
+      {
+        // FIXME: parse [..] part
+        INTEGER bpos := SearchSubString(typeattr, "[");
+        IF (bpos != -1)
+          typeattr := LEFT(typeattr, bpos);
+
+        elttype := this->LookupTypeByQname(typeattr, node);
+      }
+      ELSE
+      {
+        // No type attribute declared: use WSDL array type
+        IF (CellExists(type.userdata, "WSDL") AND RecordExists(type.userdata.wsdl.arraytype))
+          elttype := this->pvt_flatxsd->ResolveReference(type.userdata.wsdl.arraytype);
+      }
+
+      RETURN
+          [ elttype :=  elttype
+          ];
+
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+
+  INTEGER FUNCTION GetDecodeXSDComplexTypeType(OBJECT node, RECORD type, STRING datapath)
+  {
+    RECORD arraytype := this->GetArrayEltType(node, type);
+    IF (RecordExists(arraytype))
+    {
+      INTEGER hstype := this->GetDecodeVariableType(DEFAULT OBJECT, arraytype.elttype, datapath);
+      RETURN TypeID(GetTypeDefaultArray(hstype));
+    }
+
+    // Both for simple & complex content, return a RECORD
+
+    RETURN TypeID(RECORD); // Return value of DecodeXSDParticle
+  }
+
+
+  RECORD FUNCTION DecodeXSDComplexTypeAttributes(OBJECT node, RECORD type, STRING datapath, RECORD value)
+  {
+    FOREVERY (RECORD attribute_use FROM type.attribute_uses)
+    {
+      // Resolve reference
+      attribute_use := this->pvt_flatxsd->ResolveReference(attribute_use);
+
+      attribute_use.attribute_declaration := this->pvt_flatxsd->ResolveReference(attribute_use.attribute_declaration);
+
+      RECORD typedef := this->pvt_flatxsd->ResolveReference(attribute_use.attribute_declaration.type_definition);
+
+      // Shorthand to get target_namespace and name
+      RECORD namerec := attribute_use.attribute_declaration;
+
+      IF (ObjectExists(node) AND node->HasAttributeNS(namerec.target_namespace, namerec.name))
+      {
+        STRING content := node->GetAttributeNS(namerec.target_namespace, namerec.name);
+        VARIANT attribute_value := this->DecodeXSDSimpleType(content, typedef, datapath || "." || namerec.name);
+
+        IF (CellExists(value, namerec.name))
+          THROW NEW Exception("Value attribute '" || datapath || "." || namerec.name || "' already present in value");
+
+        value := CellInsert(value, namerec.name, attribute_value);
+      }
+/* Should be liberal in what we accept.
+      ELSE IF (ObjectExists(node) AND attribute_use.required)
+        THROW NEW Exception("Missing attribute '" || datapath || "." || namerec.name || "'");
+*/
+      ELSE
+      {
+        RECORD defval := this->GetVariableDefault(this->pvt_flatxsd->ResolveReference(typedef), datapath);
+
+        IF (CellExists(value, namerec.name))
+          THROW NEW Exception("Value attribute '" || datapath || "." || namerec.name || "' already present in value");
+
+        value := CellInsert(value, namerec.name, defval.value);
+      }
+    }
+
+    RETURN value;
+  }
+
+
+  VARIANT FUNCTION DecodeXSDComplexType(OBJECT node, RECORD type, STRING datapath)
+  {
+    RECORD arraytype := this->GetArrayEltType(node, type);
+    IF (RecordExists(arraytype))
+    {
+      INTEGER hselttype := TypeID(RECORD);
+      IF (RecordExists(arraytype.elttype))
+        hselttype := this->GetDecodeVariableType(DEFAULT OBJECT, arraytype.elttype, datapath);
+
+      VARIANT result := GetTypeDefaultArray(hselttype);
+      FOREVERY (OBJECT subnode FROM node->childnodes->GetCurrentElements())
+      {
+        VARIANT v := this->DecodeVariable(subnode, arraytype.elttype, datapath);
+
+        IF (TypeID(v) != hselttype)
+          THROW NEW Exception("Cannot convert cell '" || datapath || "' from "||GetTypeName(TypeID(v))||" to " || GetTypeName(hselttype));
+
+        INSERT v INTO result AT END;
+      }
+
+      RETURN result;
+    }
+
+    IF (NOT RecordExists(type.content_type))
+      RETURN DEFAULT RECORD;
+      //THROW NEW Exception("Cannot decode complex type with empty content_type ({"||type.target_namespace||"}"||type.name||")");
+
+    BOOLEAN have_attribute_uses := LENGTH(type.attribute_uses) != 0;
+
+    VARIANT value := "";
+    IF (type.content_type.type = "simple")
+    {
+      // Complex type with simple content
+      RECORD simple_type := this->pvt_flatxsd->ResolveReference(type.content_type.content);
+
+      STRING childrentext := ObjectExists(node) ? node->textcontent : "";
+
+      value :=
+          [ __value :=    this->DecodeXSDSimpleType(childrentext, simple_type, datapath)
+          ];
+    }
+    ELSE
+    {
+      // Complex type with complex content
+      RECORD particle := this->pvt_flatxsd->ResolveReference(type.content_type.content);
+      value := this->DecodeXSDParticle(GetFirstChildElement(node), particle, datapath, have_attribute_uses, 0).value;
+    }
+
+    // Decode attributes too
+    IF (have_attribute_uses)
+    {
+      IF (TypeID(value) != TypeID(RECORD))
+      {
+        value :=
+            [ __value := value
+            ];
+        THROW NEW Exception("Decoding content of complex type {"||type.target_namespace||"}"||type.name||" with attributes did not give back a RECORD, but a " || GetTypeName(TypeID(value)));
+      }
+
+      value := this->DecodeXSDComplexTypeAttributes(node, type, datapath, value);
+    }
+
+    RETURN value;
+  }
+
+  RECORD FUNCTION TryLookupTypeByQname(STRING qname, OBJECT node)
+  {
+    RECORD typeref := ResolveQNameFromXMLNode(qname, node);
+    RETURN this->pvt_flatxsd->LookupNode(typeref.namespaceuri, typeref.localname, "datatype");
+  }
+
+
+  RECORD FUNCTION LookupTypeByQname(STRING qname, OBJECT node)
+  {
+    RECORD typeref := ResolveQNameFromXMLNode(qname, node);
+    RECORD elttype := this->pvt_flatxsd->LookupNode(typeref.namespaceuri, typeref.localname, "datatype");
+
+    IF (NOT RecordExists(elttype))
+      THROW NEW Exception("Cannot find locate type {" || typeref.namespaceuri || "}" || typeref.localname);
+
+    RETURN elttype;
+  }
+
+  VARIANT FUNCTION DecodeVariableForSpecialTypes(STRING typeattr, OBJECT datanode, STRING path)
+  {
+    RECORD typeref := ResolveQNameFromXMLNode(typeattr, datanode);
+    STRING qtypename := "{" || typeref.namespaceuri || "}" || typeref.localname;
+    SWITCH (qtypename)
+    {
+    CASE "{http://schemas.xmlsoap.org/soap/encoding/}Struct"
+      {
+        RECORD rec;
+        OBJECT child := GetFirstChildElement(datanode);
+        WHILE (ObjectExists(child))
+        {
+          STRING name := child->nodename;
+
+          VARIANT data := this->DecodeVariable(child, DEFAULT RECORD, path || "." || name);
+          rec := CellInsert(rec, name, data);
+
+          child := GetNextSiblingElement(child);
+        }
+        RETURN rec;
+      }
+    CASE "{http://schemas.xmlsoap.org/soap/encoding/}Array"
+      {
+        VARIANT result := DEFAULT VARIANT ARRAY;
+        BOOLEAN mixed_content;
+
+        OBJECT child := GetFirstChildElement(datanode);
+        INTEGER counter;
+        WHILE (ObjectExists(child))
+        {
+          VARIANT data := this->DecodeVariable(child, DEFAULT RECORD, path || "[" || counter || "]");
+
+          INTEGER hstype := TypeID(data);
+
+          IF (LENGTH(result) = 0)
+            result := GetTypeDefaultArray(hstype);
+          ELSE IF (NOT mixed_content AND LENGTH(result) != 1 AND TypeID(result[0]) != hstype)
+          {
+            result := VARIANT ARRAY(result);
+            mixed_content := TRUE;
+          }
+
+          INSERT data INTO result AT END;
+
+          counter := counter + 1;
+          child := GetNextSiblingElement(child);
+        }
+        RETURN result;
+      }
+    CASE "{http://xml.apache.org/xml-soap}Map"
+      {
+        RECORD result;
+
+        OBJECT child := GetFirstChildElement(datanode);
+        INTEGER counter;
+        WHILE (ObjectExists(child))
+        {
+          OBJECT keynode, valuenode;
+
+          OBJECT subchild := GetFirstChildElement(child);
+          WHILE (ObjectExists(subchild))
+          {
+            IF (subchild->nodename = "key")
+              keynode := subchild;
+            ELSE IF (subchild->nodename = "value")
+              valuenode := subchild;
+            subchild := GetNextSiblingElement(subchild);
+          }
+
+          STRING subpath := path || "[" || counter || "]";
+
+          IF (NOT ObjectExists(keynode) OR NOT ObjectExists(valuenode))
+            THROW NEW Exception("Missing key or value node in " || subpath);
+
+          STRING keyvalue := this->DecodeVariable(keynode, DEFAULT RECORD, subpath);
+          VARIANT valuevalue := this->DecodeVariable(valuenode, DEFAULT RECORD, subpath);
+
+          result := CellInsert(result, keyvalue, valuevalue);
+          counter := counter + 1;
+          child := GetNextSiblingElement(child);
+        }
+        RETURN result;
+      }
+    }
+
+    THROW NEW Exception("Cannot locate type " || qtypename);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION EncodeVariable(VARIANT data, STRING namespace, STRING name, RECORD type, BOOLEAN withtypeinfo, STRING datapath)
+  {
+//    PRINT("XX^ #3 ev name: " || name || "\n");
+
+    IF (NOT RecordExists(type))
+    {
+      // No type given, lookup an appropriate type
+      SWITCH (TypeID(data))
+      {
+      CASE TypeID(INTEGER)
+        {
+          type := this->pvt_flatxsd->LookupNode(ns_xsd2001, "integer", "datatype");
+        }
+      CASE TypeID(BOOLEAN)
+        {
+          type := this->pvt_flatxsd->LookupNode(ns_xsd2001, "boolean", "datatype");
+        }
+      CASE TypeID(STRING)
+        {
+          type := this->pvt_flatxsd->LookupNode(ns_xsd2001, "string", "datatype");
+        }
+      DEFAULT
+        {
+          THROW NEW Exception("SOAP 1.1 encoding for variables of type " || GetTypeName(TypeID(data)) || " not implemented, datapath: '" || datapath || "'");
+        }
+      }
+      IF (NOT RecordExists(type))
+        THROW NEW Exception("Internal error: could not find datatype to encode variables of type "|| GetTypeName(TypeID(data)));
+    }
+
+
+    RECORD res := this->EncodeTypedVariable(type, namespace, name, data, datapath, withtypeinfo, FALSE);
+    IF (typeID(data) = TypeID(RECORD))
+      this->CheckUsedCells(type, datapath, data, res.usedcells);
+
+    RETURN res.nodes;
+  }
+
+
+  UPDATE PUBLIC VARIANT FUNCTION DecodeVariable(OBJECT datanode, RECORD type, STRING datapath, BOOLEAN isnil DEFAULTSTO FALSE)
+  {
+//    PRINT("XX^ DecodeVariable '" || datapath || "' " || (ObjectExists(datanode)?"<"||datanode->nodename||">":"(no node)") || "\n");
+//    PRINT("xx^ specified type:\n" || AnyToString(type, "boxed"));
+
+    IF (NOT RecordExists(type))
+    {
+      // ADDME: support other than xsd-2001 types.
+      STRING typeattr := datanode->GetAttributeNS(ns_xsd2001_instance, "type");
+
+      IF (typeattr != "")
+      {
+        type := this->TryLookupTypeByQname(typeattr, datanode);
+        IF (NOT RecordExists(type)
+            OR (type.target_namespace = "http://schemas.xmlsoap.org/soap/encoding/" AND type.name IN [ "Struct", "Array" ])
+            OR (type.target_namespace = "http://xml.apache.org/xml-soap" AND type.name IN [ "Map" ]))
+          RETURN this->DecodeVariableForSpecialTypes(typeattr, datanode, datapath);
+      }
+    }
+
+//    PRINT("xx^  final type:\n" || AnyToString(type, "tree"));
+
+    IF (NOT RecordExists(type)) // No type info at all, treat as string
+      RETURN datanode->textcontent;
+
+    IF (isnil)
+      RETURN GetTypeDefaultValue(this->GetDecodeVariableType(datanode, type, datapath));
+
+    SWITCH (type.type)
+    {
+    CASE "simpletype"
+      {
+        STRING childrentext := ObjectExists(datanode) ? datanode->textcontent : "";
+
+        RETURN this->DecodeXSDSimpleType(childrentext, type, datapath);
+      }
+    CASE "complextype"
+      {
+        RETURN this->DecodeXSDComplexType(datanode, type, datapath);
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Unsupported XSD type '"||type.rectype||"'");
+      }
+    }
+  }
+
+
+  UPDATE PUBLIC INTEGER FUNCTION GetDecodeVariableType(OBJECT datanode, RECORD type, STRING datapath)
+  {
+    IF (ObjectExists(datanode) AND NOT RecordExists(type))
+    {
+      // ADDME: support other than xsd-2001 types.
+      STRING typeattr := datanode->GetAttributeNS(ns_xsd2001_instance, "type");
+
+      IF (typeattr != "")
+        type := this->LookupTypeByQname(typeattr, datanode);
+    }
+
+    IF (NOT RecordExists(type)) // No type info at all, treat as string
+      RETURN TypeID(STRING);
+
+    SWITCH (type.type)
+    {
+    CASE "simpletype"
+      {
+        RETURN TypeID(this->GetSimpleTypeDefault(type, datapath));
+      }
+    CASE "complextype"
+      {
+        RETURN this->GetDecodeXSDComplexTypeType(datanode, type, datapath);
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Unsupported XSD type '"||type.rectype||"'");
+      }
+    }
+  }
+
+>;
+
+STATIC OBJECTTYPE SOAP11Codec EXTEND SoapCodecBase
+<
+  MACRO NEW(OBJECT xmldoc, OBJECT flatxsd)
+  : SoapCodecBase(xmldoc, flatxsd)
+  {
+  }
+>;
+STATIC OBJECTTYPE SOAP12Codec EXTEND SoapCodecBase
+<
+  MACRO NEW(OBJECT xmldoc, OBJECT flatxsd)
+  : SoapCodecBase(xmldoc, flatxsd)
+  {
+  }
+>;
+
+PUBLIC OBJECT FUNCTION MakeSOAPCodec(STRING version, OBJECT xmldoc, OBJECT flatxsd)
+{
+  IF(version="1.1")
+    RETURN NEW SOAP11Codec(xmldoc, flatxsd);
+  ELSE IF(version="1.2")
+    RETURN NEW SOAP12Codec(xmldoc, flatxsd);
+  ELSE
+    THROW NEW Exception("Unsupported SOAP version " || version);
+}

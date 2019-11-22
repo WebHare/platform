@@ -1,0 +1,373 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/richdocument.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/catalog.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
+{
+  RETURN event.groupid = ToString(expectfile);
+}
+
+MACRO ConsilioTest()
+{
+  testfw->BeginWork();
+
+  OBJECT site := testfw->SetupTestWebdesignWebsite("");
+  OBJECT siteroot := site->rootobject;
+  OBJECT subfolder := site->rootobject->CreateFolder([ name := "subfolder" ]);
+
+  AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
+  AddFolderToCatalog(subfolder->id, testfw->GetCatalogName_2(), "", "");
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  INTEGER index_1 := testfw->GetCatalogIdByName(testfw->GetCatalogName_1());
+  INTEGER index_2 := testfw->GetCatalogIdByName(testfw->GetCatalogName_2());
+  INTEGER contentsource_1 := testfw->GetPublisherContentSource(testfw->GetCatalogName_1(), siteroot->id);
+  INTEGER contentsource_2 := testfw->GetPublisherContentSource(testfw->GetCatalogName_2(), subfolder->id);
+//  site->SetPrimaryOutput(testwebserver,"first");
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT file_1 := siteroot->CreateFile([name:="testfile1.txt", data := StringToBlob("blabla check"), publish := TRUE]);
+  OBJECT file_2 := siteroot->CreateFile([name:="testfile2.whlib", data := StringToBlob("<?wh PUBLIC MACRO RunDynamicPage() { PRINT('blabla2'); }") ]);
+  OBJECT file_3 := siteroot->CreateFile([name:="testfile3.shtml", data := StringToBlob("<?wh LOADLIB 'currentsite::testfile2.whlib' EXPORT RunDynamicPage;"), publish := TRUE]);
+  OBJECT file_4 := siteroot->CreateFile([name:="testfile4.txt", data := StringToBlob("blabla4"), publish := TRUE]);
+  OBJECT file_6 := siteroot->CreateFile([name:="testfile6.rtd", type := richdoctype->id, publish := TRUE]);
+
+  OBJECT myrichdoc := NEW RichDocument;
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
+                                 || '<h1 class="heading1"><a href="">Ik</a> <a name="ben">ben</a>     \neen <b>heading 1&</b></h1>'
+                                 || '<p class="normal"><br/></p>'
+                                 || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br/>met\neen      soft-break. Check deze afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&#38;G" /></p>'
+                                   || '<table><colgroup><col style="width:25px"/><col style="width:45px"/></colgroup><tbody>' //FIXME should have class="tabletag" but we lack tabletyping
+                                      || '<tr>'
+                                        || '<td><p data-rtd-anchor="bob" class="normal">Cell 1 para 1</p><p class="normal">Cell 1 para 2</p></td>'
+                                        || '<td><p class="normal">Cell 2 para 1</p></td>'
+                                      || '</tr><tr>'
+                                        || '<td><p class="normal">Cell 3</p></td>'
+                                        || '<td><p class="normal">Cell 4</p></td>'
+                                      || '</tr>'
+                                   || '</tbody></table>'
+                                 || '</body></html>')
+                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 ]);;
+
+  richdoctype->SetInstanceData(file_6->id, [data := myrichdoc->ExportAsRecord()]);
+
+
+  OBJECT ARRAY fileevents := [ OBJECT(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_1->id,#1)))
+                             , testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_3->id,#1))
+                             , testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_4->id,#1))
+                             , testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_6->id,#1))
+                             ];
+
+  testfw->CommitWork();
+
+  testfw->RefreshWebserverConfig();
+  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPromise(CreatePromiseAll(fileevents));
+  testfw->WaitConsilioQueueEmpty();
+
+  OBJECT search_1_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+  search_1_obj->empty_result_record := DEFAULT RECORD;
+  search_1_obj->summary_length := 0;
+  search_1_obj->donthighlight := TRUE;
+  OBJECT search_2_obj := OpenSearchObject("en", testfw->GetCatalogName_2());
+  search_2_obj->empty_result_record := DEFAULT RECORD;
+  search_2_obj->summary_length := 0;
+  RECORD results;
+
+  results := search_1_obj->Search("body:blabla", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_1->objecturl
+              , groupid :=    ToString(file_1->id)
+              ]
+            ]
+      ], results);
+
+  results := search_1_obj->Search("blabla2", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_3->objecturl
+              , groupid :=    ToString(file_3->id)
+              ]
+            ]
+      ], results);
+
+  results := search_1_obj->Search("blabla4", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_4->objecturl
+              , groupid :=    ToString(file_4->id)
+              ]
+            ]
+      ], results);
+
+  results := search_1_obj->Search("paragraaf", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_6->objecturl
+              , groupid :=    ToString(file_6->id)
+              ]
+            ]
+      ], results);
+
+  testfw->BeginWork();
+  file_4->RecycleSelf();
+  testfw->CommitWork();
+
+  Sleep(2000);
+  testfw->WaitConsilioQueueEmpty();
+  results := search_1_obj->Search("blabla4", 0, 10);
+
+  TestEq(
+      [ totalcount :=       0
+      , results :=          DEFAULT RECORD ARRAY
+      ], results);
+
+  // Remove the group manually
+  DeleteConsilioGroup(index_1, ToString(file_1->id));
+  testfw->WaitConsilioQueueEmpty();
+
+  results := search_1_obj->Search("blabla", 0, 10);
+  TestEq(
+      [ totalcount :=       0
+      , results :=          DEFAULT RECORD ARRAY
+      ], results);
+
+  // Update the index
+  CheckConsilioContentSource(contentsource_1);
+  testfw->WaitContentSourceDone(contentsource_1);
+
+  results := search_1_obj->Search("blabla", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_1->objecturl
+              , groupid :=    ToString(file_1->id)
+              ]
+            ]
+      ], results);
+
+  testfw->BeginWork();
+  file_1->MoveTo(subfolder, "");
+  testfw->CommitWork();
+
+  file_1->Refresh();
+
+  testfw->WaitForPublishCompletion(siteroot->id);
+  Sleep(500); // Wait until consilio has picked up publications
+  testfw->WaitConsilioQueueEmpty();
+
+  results := search_1_obj->Search("blabla", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_1->objecturl
+              , groupid :=    ToString(file_1->id)
+              ]
+            ]
+      ], results);
+
+  results := search_2_obj->Search("blabla", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_1->objecturl
+              , groupid :=    ToString(file_1->id)
+              ]
+            ]
+      ], results);
+
+  // Test restrict url
+  search_1_obj->restrict_url := site->webroot || "folder/";
+  results := search_1_obj->Search("blabla", 0, 10);
+  TestEq(
+      [ totalcount :=       0
+      , results := DEFAULT RECORD ARRAY
+      ], results);
+  search_1_obj->restrict_url := Left(file_1->url, SearchLastSubstring(file_1->url, "/") + 1);
+  results := search_1_obj->Search("blabla", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_1->objecturl
+              , groupid :=    ToString(file_1->id)
+              ]
+            ]
+      ], results);
+  results := search_1_obj->Search("blabla2", 0, 10);
+  TestEq(
+      [ totalcount :=       0
+      , results := DEFAULT RECORD ARRAY
+      ], results);
+  search_1_obj->restrict_url := "";
+  results := search_1_obj->Search("blabla2", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_3->objecturl
+              , groupid :=    ToString(file_3->id)
+              ]
+            ]
+      ], results);
+
+  // Test exclude url's
+  RECORD query := CQAnd([ CQMatch("body", "CONTAINS", "check"), CQMatch("whmodification", "<=", AddDaysToDate(1, GetCurrentDateTime())) ]);
+  results := search_1_obj->SearchQuery(query, 0, 10);
+  TestEq(2, results.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM results.results WHERE objectid = file_1->objecturl));
+  TestEq(TRUE, RecordExists(SELECT FROM results.results WHERE objectid = file_6->objecturl));
+  search_1_obj->exclude_urls := [ Left(file_1->url, SearchLastSubstring(file_1->url, "/") + 1) ];
+  results := search_1_obj->SearchQuery(query, 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_6->objecturl
+              , groupid :=    ToString(file_6->id)
+              ]
+            ]
+      ], results);
+  search_1_obj->exclude_urls := STRING[];
+
+  //Test the custom fields
+  testfw->BeginWork();
+  OBJECT file_5 := siteroot->CreateFile([name:="testfile5.html", data := StringToBlob('<html><head><meta name="consilio-extrafield" content="testextra5 and more stuff" /></head><body>blabla5</body></html>'), publish := TRUE, type := 21]);
+  testfw->CommitWork();
+
+  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_5->id,#1)));
+  testfw->WaitConsilioQueueEmpty();
+
+  search_1_obj->empty_result_record := [ extrafield := "" ];
+  results := search_1_obj->Search("extrafield:testextra5", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_5->objecturl
+              , groupid :=    ToString(file_5->id)
+              , extrafield := "testextra5 and more stuff"
+              ]
+            ]
+      ], results);
+  search_1_obj->empty_result_record := DEFAULT RECORD;
+
+  // Test using Publisher titles instead of file titles
+  testfw->BeginWork();
+  OBJECT file_7 := siteroot->CreateFile([name:="testfile7.pdf", data := testfw->GetModuleTestBlob("webhare_testsuite","publisher/testdata/pdf-with-title.pdf"), title := "", publish := TRUE, type := 11]);
+  testfw->CommitWork();
+
+  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_7->id,#1)));
+  testfw->WaitConsilioQueueEmpty();
+
+  // Search for a word in the content
+  results := search_1_obj->Search("content", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_7->objecturl
+              , groupid :=    ToString(file_7->id)
+              ]
+            ]
+      ], results);
+  // Search for a word in the PDF title
+  results := search_1_obj->Search("certain", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_7->objecturl
+              , groupid :=    ToString(file_7->id)
+              ]
+            ]
+      ], results);
+
+  // Update the file title, which should now be used for indexing instead of the PDF title
+  testfw->BeginWork();
+  file_7->UpdateMetaData([ title := "this is the overwritten titel" ]);
+  ScheduleFileRepublish(file_7->id);
+  testfw->CommitWork();
+
+  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_7->id,#1)));
+  testfw->WaitConsilioQueueEmpty();
+
+  // Search for a word in the content
+  results := search_1_obj->Search("content", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid := file_7->objecturl
+              , groupid :=  ToString(file_7->id)
+              ]
+            ]
+      ], results);
+  // Search for a word in the PDF title, should no longer be found
+  results := search_1_obj->Search("certain", 0, 10);
+  TestEq(
+      [ totalcount :=       0
+      , results :=          RECORD[]
+      ], results);
+  // Search for a word in the file title
+  results := search_1_obj->Search("overwritten", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid := file_7->objecturl
+              , groupid :=  ToString(file_7->id)
+              ]
+            ]
+      ], results);
+
+  // Test not indexing internal links
+  results := search_1_obj->Search("body:blabla", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_1->objecturl
+              , groupid :=    ToString(file_1->id)
+              ]
+            ]
+      ], results);
+
+  // Add a link to file 1
+  testfw->BeginWork();
+  OBJECT linkfile := siteroot->CreateFile([name:="testlink.whlib", type := 19, filelink := file_1->id, publish := TRUE]);
+  TestEq(file_1->link, linkfile->link);
+  testfw->CommitWork();
+
+  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(linkfile->id,#1)));
+  testfw->WaitConsilioQueueEmpty();
+
+  // The search should still (only) return file 1
+  results := search_1_obj->Search("body:blabla", 0, 10);
+  TestEq(
+      [ totalcount :=       1
+      , results :=
+            [ [ objectid :=   file_1->objecturl
+              , groupid :=    ToString(file_1->id)
+              ]
+            ]
+      ], results);
+
+  testfw->EndTrans();
+}
+
+RunTestframework([ PTR ConsilioTest ]
+                 , [ consilio := TRUE
+                   ]);

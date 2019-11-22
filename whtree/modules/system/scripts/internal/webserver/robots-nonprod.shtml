@@ -1,0 +1,11 @@
+<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+AddHTTPHeader("Content-Type","text/plain",FALSE);
+
+IF(GetDtapStage()!="production")
+  Print('# WebHare has set up this robots.txt because this server is not marked as a production environment.\n');
+Print("User-agent: *\nDisallow: /\n");
+

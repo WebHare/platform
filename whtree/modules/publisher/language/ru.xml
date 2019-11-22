@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="ru" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Пожалуйста, отметьте поле ниже</text>
+      <text tid="title">верификация</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">следующий</text>
+      <text tid="previouspage">предыдущий</text>
+      <text tid="selectfile">Выберите файл</text>
+      <text tid="starsrequired">* указывает на обязательное поле</text>
+      <text tid="submit">Отправить</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">Адрес не найден.</text>
+        <text tid="invalid_nr_detail">Неверный номер дома с дополнением.</text>
+        <text tid="invalid_zip">Неверный почтовый индекс.</text>
+        <text tid="zip_not_found">Неизвестная комбинация почтового индекса и номера дома.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">Введите буквенно-цифровое значение.</text>
+        <text tid="check">Выберите от <param p="1"/> до <param p="2"/> значений.</text>
+        <text tid="default">Некорректное значение.</text>
+        <text tid="digits">Введите только цифры.</text>
+        <text tid="email">Введите адрес электронной почты.</text>
+        <text tid="email_baddomain">Из-за трудностей с отправкой на адреса электронной почты <param p="1"/> мы просим вас использовать альтернативного поставщика электронной почты.</text>
+        <text tid="email_suggestion">Вы имели в виду <param p="1"/>?</text>
+        <text tid="equalto">Это значение должно совпадать.</text>
+        <text tid="integer">Введите целое число.</text>
+        <text tid="length">Это значение должно содержать от <param p="1"/> до <param p="2"/> символов.</text>
+        <text tid="max">Это значение должно быть не более чем <param p="1"/>.</text>
+        <text tid="maxarray">Вы можете добавить <ifparam p="1" value="1">максимум 1 предмет<else/>не более <param p="1"/> предметов</ifparam></text>
+        <text tid="maxcheck">Выберите не более <param p="1"/> значений.</text>
+        <text tid="maxlength">Это значение должно содержать не более <param p="1"/> символов.</text>
+        <text tid="min">Это значение должно быть не менее чем <param p="1"/>.</text>
+        <text tid="minarray">Вы должны добавить <ifparam p="1" value="1">хотя бы 1 предмет<else/>как минимум <param p="1"/> предметов</ifparam></text>
+        <text tid="mincheck">Выберите не менее <param p="1"/> значений.</text>
+        <text tid="minlength">Это значение должно содержать не менее <param p="1"/> символов.</text>
+        <text tid="notblank">Это поле должно быть заполнено.</text>
+        <text tid="number">Введите число.</text>
+        <text tid="pattern">Это значение некорректно.</text>
+        <text tid="range">Это значение должно быть от <param p="1"/> до <param p="2"/>.</text>
+        <text tid="required">Обязательное поле.</text>
+        <text tid="url">Введите URL адрес.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="forum">   <!-- site.forum -->
+      <textgroup gid="comments">   <!-- site.forum.comments -->
+        <text tid="email">электронное письмо</text>
+        <text tid="email-placeholder-notshown">user@example.org (не показан)</text>
+        <text tid="message">Отправить сообщение</text>
+        <text tid="name">имя</text>
+        <text tid="respond-button">послать</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

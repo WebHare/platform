@@ -1,0 +1,57 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+
+
+MACRO TestBlobAlloc()
+{
+  STRING testdir := GenerateTemporaryPathname();
+  TestEq(TRUE, CreateDiskDirectory(testdir, TRUE));
+
+  FOR (INTEGER i := 1; i < 17000; i := i + 1)
+  {
+    RECORD rec := AllocateBlobFile(testdir);
+
+    PrintTo(rec.fileid, ToString(i));
+    CloseDiskFile(rec.fileid);
+
+    TestEQ(i, rec.blobid);
+    TestEQ(MergePath(GetBlobDir(testdir, i), ToString(i)), rec.trypath);
+  }
+
+  // Delete random blobs and make sure they are filled in from the start
+  SeedRandomizer(15);
+  INTEGER ARRAY randomids;
+  FOR (INTEGER i := 0; i < 100; i := i + 1)
+    INSERT Random(1, 17000) INTO randomids AT END;
+  randomids := GetSortedSet(randomids);
+
+  FOREVERY (INTEGER i FROM randomids)
+    DeleteDiskFile(MergePath(GetBlobDir(testdir, i), ToString(i)));
+
+  BroadcastEvent("system:blobstore.idstate", DEFAULT RECORD);
+
+  FOREVERY (INTEGER i FROM randomids)
+  {
+    RECORD rec := AllocateBlobFile(testdir);
+
+    PrintTo(rec.fileid, ToString(i));
+    CloseDiskFile(rec.fileid);
+
+    TestEQ(i, rec.blobid);
+    TestEQ(MergePath(GetBlobDir(testdir, i), ToString(i)), rec.trypath);
+
+    IF ((i % 4 ) = 0)
+      BroadcastEvent("system:blobstore.idstate", DEFAULT RECORD);
+  }
+
+  DeleteDiskDirectoryRecursive(testdir);
+}
+
+RunTestframework([ PTR TestBlobAlloc
+                 ], [ usedatabase := FALSE ]);

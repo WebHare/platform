@@ -1,0 +1,830 @@
+﻿<?wh
+
+/** This library contains a parser for a wsdl specification
+*/
+
+/*
+
+WSDLSpecification
+  services -> *WSDLService
+  messages -> *WSDLMessage
+  ports -> *WSDLPortType
+  bindings -> *WSDLBindingBase (extended by binding)
+
+WSDLPortType
+  operations -> *WSDLOperation
+
+WSDLOperation
+  inputs -> *WSDLMessage
+  outputs -> *WSDLMessage
+  faults -> *WSDLMessage
+
+WSDLMessage
+  parts -> *WSDLPart
+
+WSDLPart
+  element -> 0..1 XSD thing (FIXME specify)
+  type -> 0..1 XSDSimpleType
+
+WSDLService
+  ports -> *WSDLPortBase (extended by binding)
+
+WSDLPortBase
+  operations -> *WSDLAddressedBoundOperationBase
+  binding -> WSDLBindingBase
+
+WSDLAddressedBoundOperationBase
+  port -> WSDLPortBase
+  bound_operation -> WSDLBoundOperationBase
+
+WSDLBoundOperationBase (extended by binding)
+  inputs -> *WSDLMessage,
+            *header -> WSDLMessage, WSDLPart
+                    -> *headerfault
+                       -> WSDLMessage, WSDLPart
+  outputs -> *WSDLMessage,
+             *header -> WSDLMessage, WSDLPart
+                     -> *headerfault
+                        -> WSDLMessage, WSDLPart
+  faults -> *WSDLMessage
+  operation -> WSDLOperation
+
+WSDLBindingBase (extended by binding)
+  operations -> *WSDLBoundOperationBase
+  porttype -> *WSDLPortType
+
+
+*/
+
+//------------------------------------------------------------------------------
+//
+// WSDLNamespacedObject
+//
+
+/** Base class for namespaced objects
+    Provides a nice display property.
+*/
+PUBLIC OBJECTTYPE WSDLNamespacedObject
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// WSDL specification
+  OBJECT pvt_specification;
+
+
+  STRING pvt_name;
+
+
+  STRING pvt_target_namespace;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY specification(pvt_specification, -);
+
+
+  PUBLIC PROPERTY name(pvt_name, -);
+
+
+  PUBLIC PROPERTY target_namespace(pvt_target_namespace, -);
+
+
+  PUBLIC PROPERTY fullqname(GetFullQname, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT specification, STRING target_namespace, STRING name)
+  {
+    this->pvt_specification := specification;
+    this->pvt_target_namespace := target_namespace;
+    this->pvt_name := name;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  STRING FUNCTION GetFullQName()
+  {
+    RETURN "{" || this->target_namespace || "}" || this->name;
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLPart
+//
+
+/** A WSDLPart describes the data type for a single part of a message.
+
+    It either points to an xsd element (in member @a element), or an xsd
+    complexType (in member @a type).
+
+    http://www.w3.org/TR/wsdl#_message
+*/
+PUBLIC OBJECTTYPE WSDLPart
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  // Name of the part (local within WSDLMessage)
+  PUBLIC STRING name;
+
+
+  /// Type of element that stores the data for this part (XSDElement)
+  PUBLIC OBJECT element;
+
+
+  /// ComplexType that stores the data (XSDComplexType)
+  PUBLIC OBJECT type;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(STRING name)
+  {
+    this->name := name;
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLMessage
+//
+
+/** A WSDL message, consisting of multiple parts
+
+    http://www.w3.org/TR/wsdl#_messages
+*/
+PUBLIC OBJECTTYPE WSDLMessage EXTEND WSDLNamespacedObject
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// List of the message parts
+  PUBLIC OBJECT ARRAY parts;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT specification, STRING target_namespace, STRING name)
+  : WSDLNamespacedObject(specification, target_namespace, name)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Looks up a part by name, throws if not found
+      @param name Name of the part
+  */
+  PUBLIC OBJECT FUNCTION GetPartByName(STRING name)
+  {
+    FOREVERY (OBJECT p FROM this->parts)
+      IF (p->name = name)
+        RETURN p;
+
+    THROW NEW Exception("Could not locate part '" || name || "' in message '{" || this->target_namespace || "}" || this->name || "'");
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLOperation
+//
+
+/** Describes a single WSDL operation
+
+    http://www.w3.org/TR/wsdl#_porttypes
+*/
+PUBLIC OBJECTTYPE WSDLOperation EXTEND WSDLNamespacedObject
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /** Input for this operation
+      @cell name Name of the input (may be "")
+      @cell message WSDLMessage
+  */
+  PUBLIC RECORD input;
+
+
+  /** Output for this operation
+      @cell name Name of the output (may be "")
+      @cell message WSDLMessage
+  */
+  PUBLIC RECORD output;
+
+
+  /** Possible faults for this operation
+      @cell name Name of the fault
+      @cell message WSDLMessage
+  */
+  PUBLIC RECORD ARRAY faults;
+
+
+  /// Transmission primitive ("one-way"/"request-response"/"solicit-response"/"notification")
+  PUBLIC STRING transmission_primitive;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT specification, STRING target_namespace, STRING name)
+  : WSDLNamespacedObject(specification, target_namespace, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLPortType
+//
+
+/** Describes a WSDL port type
+
+    http://www.w3.org/TR/wsdl#_porttypes
+*/
+PUBLIC OBJECTTYPE WSDLPortType EXTEND WSDLNamespacedObject
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /** List of operations, type WSDLOperation
+      Operation names do not need to be unique (overloading). Further matching is
+      done on the names of the input and output.
+  */
+  PUBLIC OBJECT ARRAY operations;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT specification, STRING target_namespace, STRING name)
+  : WSDLNamespacedObject(specification, target_namespace, name)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Looks up operations by name and namespace, throws if not found
+      @param namespaceuri Target namespace of the operation
+      @param name Name of the operation
+      @return All matching operations
+  */
+  PUBLIC OBJECT ARRAY FUNCTION GetOperationsByName(STRING name)
+  {
+    OBJECT ARRAY result;
+
+    FOREVERY (OBJECT o FROM this->operations)
+      IF (o->name = name)
+        INSERT o INTO result AT END;
+
+    RETURN result;
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLBoundOperationBase
+//
+
+/** This is the base class object for bound operations. Every binding (SOAP, HTTP,
+    MIME) extends this object.
+*/
+PUBLIC OBJECTTYPE WSDLBoundOperationBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// The binding (of WSDLBindingBase) this binding binds to
+  PUBLIC OBJECT binding;
+
+
+  /// The operation that this object binds to (WSDLOperation)
+  PUBLIC OBJECT operation;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT binding, OBJECT operation)
+  {
+    this->binding := binding;
+    this->operation := operation;
+  }
+
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLBindingBase
+//
+
+/** This is the base class object for a specific wsdl binding. Every binding type
+    (SOAP, HTTP, MIME) extends this object.
+*/
+PUBLIC OBJECTTYPE WSDLBindingBase EXTEND WSDLNamespacedObject
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// The PortType that this binding binds to (WSDLPortType)
+  PUBLIC OBJECT porttype;
+
+
+  /// The interpreter that built this binding (WSDLBindingInterpreterBase)
+  PUBLIC OBJECT interpreter;
+
+
+  /// Bound operations (WSDLBoundOperationBase)
+  PUBLIC OBJECT ARRAY operations;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT specification, STRING target_namespace, STRING name, OBJECT porttype, OBJECT interpreter)
+  : WSDLNamespacedObject(specification, target_namespace, name)
+  {
+    this->porttype := porttype;
+    this->interpreter := interpreter;
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// WSDLPortBase
+//
+
+/** This object contains an individual endpoint, with an port. This object
+    is extended for every binding type.
+*/
+PUBLIC OBJECTTYPE WSDLPortBase EXTEND WSDLNamespacedObject
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// The binding for this port (WSDLBindingBase)
+  PUBLIC OBJECT pvt_binding;
+
+
+  /// List of operations  (WSDLAddressedBoundOperation)
+  PUBLIC OBJECT ARRAY pvt_operations;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT specification, STRING target_namespace, STRING name, OBJECT binding)
+  : WSDLNamespacedObject(specification, target_namespace, name)
+  {
+    this->pvt_binding := binding;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC RECORD ARRAY FUNCTION GetOperations()
+  {
+    //FIXME properly de-dupe and annotate overloads?
+
+    RECORD ARRAY funcs;
+    FOREVERY(OBJECT op FROM this->pvt_operations)
+    {
+      OBJECT o := op->bound_operation->operation;
+      INSERT [ name := o->name
+             ] INTO funcs AT END;
+    }
+    RETURN SELECT DISTINCT name FROM funcs;
+  }
+
+  /** Looks up operations by name, throws if not found
+      @param name Name of the operation
+      @return All matching operations
+  */
+  PUBLIC OBJECT ARRAY FUNCTION GetOperationsByName(STRING name)
+  {
+    OBJECT ARRAY result;
+
+    FOREVERY (OBJECT o FROM this->pvt_operations)
+    {
+      OBJECT base_operation := o->operation->operation;
+      IF (base_operation->name = name)
+        INSERT o INTO result AT END;
+    }
+
+    RETURN result;
+  }
+>;
+
+//------------------------------------------------------------------------------
+//
+// WSDLService
+//
+
+/** A service groups a set of related ports together
+*/
+PUBLIC OBJECTTYPE WSDLService EXTEND WSDLNamespacedObject
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// The ports for this service (of type WSDLPortBase)
+  PUBLIC OBJECT ARRAY pvt_ports;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT specification, STRING target_namespace, STRING name)
+  : WSDLNamespacedObject(specification, target_namespace, name)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC RECORD ARRAY FUNCTION GetPorts()
+  {
+    RECORD ARRAY retval;
+    FOREVERY(OBJECT serv FROM this->pvt_ports)
+      INSERT [ namespace := serv->target_namespace
+             , name := serv->name
+             ] INTO retval AT END;
+    RETURN retval;
+  }
+
+  /** Get a port by qualified name, throws if not found
+      @param namespaceuri
+      @param name
+      @return Port (WSDLPortBase)
+  */
+  PUBLIC OBJECT FUNCTION GetPortNS(STRING namespaceuri, STRING name)
+  {
+    FOREVERY (OBJECT o FROM this->pvt_ports)
+      IF (o->target_namespace = namespaceuri AND o->name = name)
+        RETURN o;
+
+    THROW NEW Exception("Could not locate port '{"||namespaceuri||"}"||name||" in service '"||this->fullqname||"'");
+  }
+>;
+
+//------------------------------------------------------------------------------
+//
+// WSDLAddressedBoundOperationBase
+//
+
+/** A WSDLAddressedBoundOperationBase object describes an operation that
+    is bound to a port. Must be extended to provide implementation of message
+    creation/interpretation.
+*/
+PUBLIC OBJECTTYPE WSDLAddressedBoundOperationBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Port (WSDLPortBase)
+  PUBLIC OBJECT port;
+
+
+  /// Bound operation (WSDLBoundOperationBase)
+  PUBLIC OBJECT bound_operation;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT port, OBJECT bound_operation)
+  {
+    this->port := port;
+    this->bound_operation := bound_operation;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Test function to execute an rpc. Must be overridden by binding */
+  PUBLIC RECORD FUNCTION TEST_ExecuteRPC(RECORD data)
+  {
+    ABORT("AddressedBoundOperationBase::TEST_ExecuteRPC must be overridden by binding");
+  }
+>;
+
+//------------------------------------------------------------------------------
+//
+// WSDLSpecification
+//
+
+/** Parsed WSDL specification
+
+    WSDLAddressedBoundOperationBase can be accessed via services->ports->operations.
+*/
+PUBLIC OBJECTTYPE WSDLSpecification// EXTEND WSDLNamespacedObject
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /** List of messages defined in this specification (WSDLMessage)
+  */
+  PUBLIC OBJECT ARRAY pvt_messages;
+
+
+  /** List of porttypes defined in this specification (WSDLPortType)
+  */
+  PUBLIC OBJECT ARRAY pvt_porttypes;
+
+
+  /** List of bindings defined in this specification (WSDLBindingBase)
+  */
+  PUBLIC OBJECT ARRAY pvt_bindings;
+
+
+  /** List of services defined in this specification (WSDLService)
+  */
+  PUBLIC OBJECT ARRAY pvt_services;
+
+
+  /// XSD parser used to parse schema section
+  OBJECT pvt_xsdparser;
+
+
+  /** List of unparsable elements
+      @cell namespaceuri Namespace of binding
+      @cell name Name of binding
+      @cell type Type of element ('port', 'binding')
+      @cell msg Message describing why the element could not be parsed
+
+  */
+  PUBLIC RECORD ARRAY unparsable_elements;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY xsdparser(pvt_xsdparser, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT xsdparser)
+  {
+    this->pvt_xsdparser := xsdparser;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Get available services */
+  PUBLIC RECORD ARRAY FUNCTION GetServices()
+  {
+    RECORD ARRAY retval;
+    FOREVERY(OBJECT serv FROM this->pvt_services)
+      INSERT [ namespace := serv->target_namespace
+             , name := serv->name
+             ] INTO retval AT END;
+    RETURN retval;
+  }
+
+  /** Returns the service with the specified namespace and name. Throws if not found
+      @param namespaceuri
+      @param name
+      @return Service (WSDLService)
+  */
+  PUBLIC OBJECT FUNCTION GetServiceNS(STRING namespaceuri, STRING name)
+  {
+    FOREVERY (OBJECT o FROM this->pvt_services)
+      IF (o->name = name AND o->target_namespace = namespaceuri)
+        RETURN o;
+//      ELSE
+//        PRINT("Skipping {" || o->target_namespace || "}" || o->name || "\n");
+
+    THROW NEW Exception("Could not find WSDL service '{"||namespaceuri||"}"||name||"'");
+  }
+
+
+  /** Returns the binding with the specified namespace and name. Throws if not found
+      @param namespace
+      @param name
+      @return Binding (WSDLBindingBase)
+  */
+  PUBLIC OBJECT FUNCTION GetBindingNS(STRING namespaceuri, STRING name)
+  {
+    FOREVERY (OBJECT o FROM this->pvt_bindings)
+      IF (o->name = name AND o->target_namespace = namespaceuri)
+        RETURN o;
+
+    THROW NEW Exception("Could not find WSDL binding '{"||namespaceuri||"}"||name||"'");
+  }
+
+
+  /** Returns the message with the specified namespace and name. Throws if not found
+      @param namespace
+      @param name
+      @return Service (WSDLService)
+  */
+  PUBLIC OBJECT FUNCTION GetMessageNS(STRING namespaceuri, STRING name)
+  {
+    FOREVERY (OBJECT o FROM this->pvt_messages)
+      IF (o->name = name AND o->target_namespace = namespaceuri)
+        RETURN o;
+
+    THROW NEW Exception("Could not find WSDL message '{"||namespaceuri||"}"||name||"'");
+  }
+
+
+  /** Returns the port type with the specified namespace and name. Throws if not found
+      @param namespace
+      @param name
+      @return Port type (WSDLPortType)
+  */
+  PUBLIC OBJECT FUNCTION GetPortTypeNS(STRING namespaceuri, STRING name)
+  {
+    FOREVERY (OBJECT o FROM this->pvt_porttypes)
+      IF (o->name = name AND o->target_namespace = namespaceuri)
+        RETURN o;
+
+    THROW NEW Exception("Could not find WSDL port type '{"||namespaceuri||"}"||name||"'");
+  }
+
+>;
+
+//------------------------------------------------------------------------------
+//
+// WSDLBindingInterpreterBase
+//
+
+/** The WSDLBindingInterpreterBase object is extended for every supported binding type
+    (eg. SOAP)
+
+    Register with RegisterWSDLBindingInterpreter in wsdl/parser/whlib.
+*/
+PUBLIC OBJECTTYPE  WSDLBindingInterpreterBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Creates a binding object
+      @param wsdlspec WSDLSpecification object this binding is created for
+      @param target_namespace Target namespace
+      @param name Name of the binding
+      @param porttype The porttype this binding binds
+      @param extensibility_elements List of extensibility elements provided with this binding
+      @param options Options as passed to ParseWSDL
+      @return A binding object, derived from WSDLBindingBase
+  */
+  PUBLIC OBJECT FUNCTION CreateBinding(
+      OBJECT wsdlspec,
+      STRING target_namespace,
+      STRING name,
+      OBJECT porttype,
+      OBJECT documentation,
+      OBJECT ARRAY extensibility_elements,
+      RECORD options)
+  {
+    ABORT("Function WSDLBindingInterpreterBase::CreateBinding needs to be overridden");
+  }
+
+
+  /** Creates a bound operation. Communicates all data in http://www.w3.org/TR/wsdl#_bindings to the
+      binding interpreter
+      @param wsdlspec WSDLSpecification object this binding is created for
+      @param Binding this operations is bound on (created earlier with @a CreateBinding)
+      @param operation Operation that is bound
+      @param extensibility_elements Extensibility elements provided with the operation itself
+      @param input Data about the input part of the operation (DEFAULT RECORD if not provided)
+      @cell input.name
+      @cell input.message (WSDLMessage)
+      @cell input.ext_elts OBJECT ARRAY operation_extensibility_elements, documentation := OBJECT ]
+      @cell input.documentation OBJECT
+      @param output Data about the output part of the operation (DEFAULT RECORD if not provided)
+      @cell output.name
+      @cell output.message (WSDLMessage)
+      @cell output.ext_elts OBJECT ARRAY operation_extensibility_elements, documentation := OBJECT ]
+      @cell output.documentation OBJECT
+      @param faults Data about the fault parts of the operation
+      @cell faults.name
+      @cell faults.message (WSDLMessage)
+      @cell faults.ext_elts OBJECT ARRAY operation_extensibility_elements, documentation := OBJECT ]
+      @cell faults.documentation OBJECT
+      @param mods Optional WSDLModifications object
+      @param options Options as passed to ParseWSDL
+      @return New bound operation, must extend WSDLBoundOperationBase
+  */
+  PUBLIC OBJECT FUNCTION CreateBoundOperation(
+      OBJECT wsdlspec,
+      OBJECT binding,
+      OBJECT operation,
+      OBJECT documentation,
+      OBJECT ARRAY extensibility_elements,
+      RECORD input,           //   [ name := name, message := WSDLMessage, ext_elts := OBJECT ARRAY operation_extensibility_elements, documentation := OBJECT ]
+      RECORD output,          //   [ name := name, message := WSDLMessage, ext_elts := OBJECT ARRAY operation_extensibility_elements, documentation := OBJECT ]
+      RECORD ARRAY faults,    //   [ [ name := name, message := WSDLMessage, ext_elts := OBJECT ARRAY operation_extensibility_elements, documentation := OBJECT ] ]
+      OBJECT mods,
+      RECORD options)
+  {
+    ABORT("Function WSDLBindingInterpreterBase::CreateBoundOperation needs to be overridden");
+  }
+
+
+  /** Creates new port
+      @param wsdlspec WSDLSpecification object this port is created for
+      @param target_namespace Target namespace
+      @param name Name of the port
+      @param binding Binding of this port, created by @a CreateBinding (WSDLBindingBase)
+      @param extensibility_elements List of extensibility elements provided with this port
+      @param options Options as passed to ParseWSDL
+      @return New port, must extend WSDLPortBase
+  */
+  PUBLIC OBJECT FUNCTION CreatePort(
+      OBJECT wsdlspec,
+      STRING target_namespace,
+      STRING name,
+      OBJECT binding,
+      OBJECT ARRAY extensibility_elements,
+      RECORD options)
+  {
+    ABORT("Function WSDLBindingInterpreterBase::CreatePort needs to be overridden");
+  }
+
+
+  /** Creates new addressed bound operation
+      @param wsdlspec WSDLSpecification object this operation is created for
+      @param bound_operation Bound operation, created by @a CreateBoundOperation (WSDLBoundOperationBase)
+      @param port Port object, created by @a CreatePort (WSDLPortBase)
+      @param options Options as passed to ParseWSDL
+      @return New addressed bound operation, must extend WSDLAddressedBoundOperation
+  */
+  PUBLIC OBJECT FUNCTION CreateAddressedBoundOperation(
+      OBJECT wsdlspec,
+      OBJECT bound_operation,
+      OBJECT port,
+      RECORD options)
+  {
+    ABORT("Function WSDLBindingInterpreterBase::CreateAddressedBoundOperation needs to be overridden");
+  }
+
+
+  /** Returns whether this interpreter can handle a specific type of extensions indiicated by an extensibility element
+      @param namespaceuri Namespaceuri of a binding extension element
+      @param name Name of a binding extension element
+      @return Whether this interpreter can handle this binding type
+  */
+  PUBLIC BOOLEAN FUNCTION CanHandleBinding(STRING namespaceuri, STRING name)
+  {
+    ABORT("Function WSDLBindingInterpreterBase::CanHandleBinding needs to be overridden");
+  }
+>;

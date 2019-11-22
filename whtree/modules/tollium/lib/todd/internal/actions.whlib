@@ -1,0 +1,26 @@
+<?wh
+///Implements portal directed actions
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+PUBLIC RECORD FUNCTION ExecuteAction(OBJECT userapi, OBJECT user, RECORD action)
+{
+  SWITCH (action.type)
+  {
+    CASE "getoauthtoken"
+    {
+      STRING ARRAY scopes := action.scopes;
+      RECORD tokendata := userapi->GenerateOAuthAccessToken(user->entityid, scopes);
+      RETURN
+          [ token :=          tokendata.token
+          , scopes :=         scopes
+          , serverversion :=  GetWebhareVersionInfo().versionnum
+          , expires :=        GetUnixTimeStamp(tokendata.expires)
+          ];
+    }
+  }
+
+  THROW NEW Exception("Unrecognized action '" || action.type || "'");
+}

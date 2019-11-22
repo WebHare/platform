@@ -1,0 +1,2179 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/enrichment.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+
+LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/fsctypes.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+
+RECORD FUNCTION GetInstanceMember(RECORD setting, RECORD ARRAY cursettings, OBJECT cdatagetter, OBJECT remapper, BOOLEAN orphansvisible)
+{
+  OBJECT instancetype := OpenWHFSTypeById(setting.instancetype);
+  IF (NOT ObjectExists(instancetype))
+    THROW NEW Exception("Could not open instance type #" || setting.instancetype);
+
+  IF(NOT orphansvisible AND instancetype->orphan)
+    RETURN DEFAULT RECORD;
+
+  instancetype->__LoadMembers();
+
+  RECORD newval;
+  newval := instancetype->__RecurseGetInstanceData(0, setting.id, cursettings, cdatagetter, remapper, orphansvisible, DEFAULT INTEGER ARRAY, FALSE);
+  INSERT CELL whfstype := instancetype->namespace
+            , whfssettingid := setting.id
+            , whfsfileid := 0
+         INTO newval;
+  RETURN newval;
+}
+
+RECORD ARRAY FUNCTION GetCurrentSettingsForInstance(INTEGER instanceid)
+{
+  RETURN
+      SELECT parent
+           , fs_member
+           , settings :=    GroupedValues(fs_settings)
+        FROM system.fs_settings
+       WHERE fs_settings.fs_instance = VAR instanceid
+    GROUP BY parent, fs_member
+    ORDER BY parent, fs_member;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetCurrentSubSettingsForSetting(INTEGER setting)
+{
+  INTEGER instanceid :=
+      SELECT AS INTEGER fs_instance
+        FROM system.fs_settings
+       WHERE id = VAR setting;
+
+  IF (instanceid = 0)
+    RETURN DEFAULT RECORD ARRAY;
+
+  RECORD ARRAY settings := GetCurrentSettingsForInstance(instanceid);
+  RECORD ARRAY worklist := [ [ id := setting ] ];
+  RECORD ARRAY result;
+
+  //PRINT(`All settings, getting children of ${setting}:\n${AnyToString(settings, "tree")}`);
+
+  INTEGER wpos := 0;
+  STRING ARRAY cmp_cells := [ "PARENT" ];
+  WHILE (wpos != LENGTH(worklist))
+  {
+    RECORD ARRAY range := RecordRange(settings, [ parent := worklist[wpos].id ], cmp_cells);
+    result := result CONCAT range;
+    FOREVERY (RECORD rec FROM range)
+      worklist := worklist CONCAT rec.settings;
+    wpos := wpos + 1;
+  }
+
+  //PRINT(`Unsorted result\n${AnyToString(result, "tree")}`);
+
+  RETURN
+      SELECT *
+        FROM result
+    ORDER BY parent, fs_member;
+}
+
+PUBLIC OBJECTTYPE BaseUrlOnDemand
+<
+  INTEGER objectid;
+  BOOLEAN isinstanceid;
+  BOOLEAN goturl;
+  STRING cdata_baseurl;
+
+  MACRO NEW(INTEGER objectid, BOOLEAN isinstanceid)
+  {
+    this->objectid := objectid;
+    this->isinstanceid := isinstanceid;
+  }
+  PUBLIC STRING FUNCTION GetCdataBaseURL()
+  {
+    IF(NOT this->goturl)
+    {
+      this->goturl := TRUE;
+
+      INTEGER objectid;
+      IF(this->isinstanceid)
+        objectid := SELECT AS INTEGER fs_object FROM system.fs_instances WHERE id = this->objectid;
+      ELSE
+        objectid := this->objectid;
+
+      IF(this->objectid != 0)
+      {
+        this->cdata_baseurl := SELECT AS STRING cdnbaseurl ?? webroot
+                                 FROM system.sites
+                                    , system.fs_objects
+                                WHERE fs_objects.id = objectid
+                                      AND sites.id = fs_objects.highestparent;
+      }
+    }
+    RETURN this->cdata_baseurl;
+  }
+>;
+
+PUBLIC RECORD ARRAY FUNCTION GatherReferredSharedBlocks(RECORD ARRAY blocks)
+{
+  INTEGER ARRAY widgetids := SELECT AS INTEGER ARRAY DISTINCT block FROM blocks;
+
+  RECORD ARRAY widgetdata := SELECT id
+                                  , title
+                                  , type
+                               FROM system.fs_objects
+                              WHERE id IN widgetids
+                                    AND isactive;
+
+  FOREVERY(RECORD widget FROM widgetdata)
+  {
+    OBJECT widgettype := OpenWHFSTypeById(widget.type);
+    IF(NOT ObjectExists(widgettype))
+      CONTINUE;
+
+    INSERT CELL type_ns := widgettype->namespace INTO widget;
+    INSERT CELL data := widgettype->GetInstanceData(widget.id) INTO widget;
+    widgetdata[#widget] := widget;
+  }
+
+
+  RECORD ARRAY outwidgets;
+  FOREVERY(RECORD widgetref FROM blocks)
+  {
+    RECORD widget := SELECT * FROM widgetdata WHERE widgetdata.id = widgetref.block;
+    IF(RecordExists(widget) AND CellExists(widget,'data'))
+      INSERT widget INTO outwidgets AT END;
+  }
+  RETURN outwidgets;
+}
+
+/** This objecttype is the base class for file and foldertypes in WHFS
+    @topic sitedev/whfs
+    @public
+*/
+STATIC OBJECTTYPE WHFSType
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Record that contains the record with the typedef (verbatim from the system.fs_types table)
+      @cell id Id of the type
+      @cell cloneoncopy Whether instances of this type must be copied too when a file is copied.
+      @cell namespace Namespace of the type
+      @cell needstemplate Do files of this type need a template (only for file types)
+      @cell needsprofile  Do files of this type need a profile (only for file types)
+      @cell isfiletype TRUE when this is a file type
+      @cell isfoldertype TRUE when this is a folder type
+      @cell isacceptableindex Can files of this type be an index (only for file types)
+      @cell ispublishedassubdir Are files of this type published as a subdirectory (only for file types)
+      @cell ispublishable Can files of this type be published (only for file types)
+      @cell searchprovider Used to create publisher search body contents
+  */
+  RECORD typedef;
+
+  ///True if pvt_members is currently valid
+  BOOLEAN pvt_members_valid;
+
+  //Not documenting obsolete/internal use publish, emptyval and maxlength
+  /** List of members of this type, sorted on (parent, name)
+      @cell id Id of the member
+      @cell name Name of the member (lowercased)
+      @cell type Type of the member (see internal/fsctypes.whlib for list)
+      @cell parent Parent member (must be pointing to an array)
+  */
+  RECORD ARRAY pvt_members;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Namespace of this type
+  PUBLIC PROPERTY namespace(this->typedef.namespace, -);
+
+
+  /** List of members of this type
+      @includecelldef #WHFSType.pvt_members
+  */
+  PUBLIC PROPERTY members(GetMembers, -);
+
+  /** List of all members of this type, including orphans (unreferenced by siteprofile)
+      @includecelldef #WHFSType.pvt_members
+  */
+  PUBLIC PROPERTY allmembers(GetAllMembers, -);
+
+  /** Id of this type
+  */
+  PUBLIC PROPERTY id(this->typedef.id, -);
+
+
+  /** True when this is a foldertype
+  */
+  PUBLIC PROPERTY foldertype(this->typedef.isfoldertype, -);
+
+
+  /** True when this is a filetype
+  */
+  PUBLIC PROPERTY filetype(this->typedef.isfiletype, -);
+
+
+  /** True when this is type is orphaned (not referred by any content type)
+  */
+  PUBLIC PROPERTY orphan(this->typedef.orphan, -);
+
+  /** When a copy is made of a file, whether the instance data of this type is copied too.
+  */
+  PUBLIC PROPERTY cloneoncopy(this->typedef.cloneoncopy, -);
+
+  /** Default value for an instance
+  */
+  PUBLIC PROPERTY defaultinstance(GetDefaultInstance, -);
+
+  /** Structure for an instance (suitable for use with %EnforceStructure)
+  */
+  PUBLIC PROPERTY structure(GetStructure, -);
+
+  /// Whether files of this type need a template
+  PUBLIC PROPERTY needstemplate(this->typedef.needstemplate, -);
+
+
+  /// Whether files of this type need a profile
+  PUBLIC PROPERTY needsprofile(this->typedef.needsprofile, -);
+
+
+  /// Whether files of this type can function as index
+  PUBLIC PROPERTY isacceptableindex(this->typedef.isacceptableindex, -);
+
+
+  /// Whether files of this type are published as a subdirectory
+  PUBLIC PROPERTY ispublishedassubdir(this->typedef.ispublishedassubdir, -);
+
+  /// Whether files should publish as a index.shtml with systemredirection
+  PUBLIC PROPERTY isdynamicexecution(this->typedef.isdynamicexecution, -);
+
+  /// Whether to capture subpaths
+  PUBLIC PROPERTY capturesubpaths(this->typedef.capturesubpaths, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Create a new type object
+      @param typedef Type definition from the system.fs_types table
+      @private
+  */
+  MACRO NEW(RECORD typedef)
+  {
+    this->typedef := typedef;
+    this->__rescan();
+  }
+
+  PUBLIC MACRO __LoadMembers()
+  {
+    this->pvt_members := GetMembers(this->typedef.id);
+    this->pvt_members_valid := TRUE;
+  }
+
+  PUBLIC MACRO __rescan() //ADDME make applyctmembers internal and make this private
+  {
+    this->pvt_members_valid := FALSE;
+  }
+
+  RECORD FUNCTION GetDefaultInstance()
+  {
+    IF(NOT this->pvt_members_valid)
+      this->__LoadMembers();
+    RETURN this->__RecurseGetInstanceData(0, 0, DEFAULT RECORD ARRAY, DEFAULT OBJECT, DEFAULT OBJECT, FALSE, DEFAULT INTEGER ARRAY, FALSE);
+  }
+
+  RECORD FUNCTION GetStructure()
+  {
+    IF(NOT this->pvt_members_valid)
+      this->__LoadMembers();
+    RETURN this->__RecurseGetInstanceData(0, 0, DEFAULT RECORD ARRAY, DEFAULT OBJECT, DEFAULT OBJECT, FALSE, DEFAULT INTEGER ARRAY, TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  RECORD ARRAY FUNCTION GetMembers()
+  {
+    IF(NOT this->pvt_members_valid)
+      this->__LoadMembers();
+    RETURN SELECT * FROM this->pvt_members WHERE orphan = FALSE;
+  }
+
+  RECORD ARRAY FUNCTION GetAllMembers()
+  {
+    IF(NOT this->pvt_members_valid)
+      this->__LoadMembers();
+    RETURN this->pvt_members;
+  }
+
+  // Returns the new element id if allocated, 0 if reused
+  PUBLIC INTEGER FUNCTION __WriteInstanceMember(RECORD newval, RECORD memberrec, BOOLEAN orphansvisible, RECORD ARRAY cursettings, OBJECT remapper, RECORD ARRAY current_member_settings, INTEGER instanceid, INTEGER cursetting, STRING settingdata, INTEGER useordering)
+  {
+    IF (NOT CellExists(newval, "WHFSTYPE"))
+      THROW NEW WHFSException("OTHER","Missing field 'WHFSTYPE' for instance field '" || memberrec.name || "'' in type " || this->namespace);
+
+    OBJECT instancetype := OpenWHFSType(newval.whfstype, [ openorphans := orphansvisible]);
+    IF (NOT ObjectExists(instancetype))
+      THROW NEW WHFSException("OTHER","Invalid whfstype for instance field '" || memberrec.name || "' in type " || this->namespace || ": type '" || newval.whfstype || "' does not exist");
+
+    // make sure old record is thrown away recursively if the type changes
+    INTEGER elementid := Length(current_member_settings) > 0 AND current_member_settings[0].instancetype = instancetype->id ? current_member_settings[0].id : 0;
+
+    instancetype->__LoadMembers();
+    INTEGER newelementid;
+    IF(elementid = 0) //create it in the database
+    {
+      // No matching DB element
+      newelementid := MakeAutoNumber(system.fs_settings, "id");
+      INSERT INTO system.fs_settings(id, fs_instance, fs_member, parent, instancetype, setting, ordering)
+             VALUES(newelementid, instanceid, memberrec.id, cursetting, instancetype->id, settingdata, useordering);
+    }
+
+    RECORD rec := instancetype->__RecurseSetInstanceData(instanceid, 0, elementid ?? newelementid, newval, cursettings, remapper, orphansvisible);
+    GetWHFSCommitHandler()->AddLinkCheckedSettings(rec.linkchecked_settingids);
+
+    RETURN newelementid;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Returns the instancedata for a setting or for an array element
+      @param curmember Id of parent member (0 for entire setting)
+      @param cursetting Current setting (0 for root)
+      @param cursettings List of all current settings (from system.fs_settings)
+      @param cdata_baseurl If not empty, all published blob members have the cell 'link' filled with the string
+        cdata_baseurl || setting-id || '.' || blob-extension
+      @param remapper If not present, all file links will be returns as is (raw id, in an integer/integer array).
+        Otherwise, the link is run through the MapWHFSRef function of the remapper (must return a STRING), and
+        returned as strings (string arrays).
+  */
+  PUBLIC RECORD FUNCTION __RecurseGetInstanceData(INTEGER curmember, INTEGER cursetting, RECORD ARRAY cursettings, OBJECT cdatagetter, OBJECT remapper, BOOLEAN orphansvisible, INTEGER ARRAY limit_to_members, BOOLEAN isgetstructure)
+  {
+    RECORD retval := CELL[];
+    RECORD ARRAY getmembers := SELECT *
+                                 FROM this->pvt_members
+                                WHERE parent = curmember
+                                      AND (orphansvisible ? TRUE : orphan = FALSE)
+                                      AND (Length(limit_to_members) = 0 ? TRUE : id IN limit_to_members);
+
+    FOREVERY(RECORD memberrec FROM getmembers)
+    {
+      RECORD ARRAY curset;
+      RECORD pos := RecordLowerBound(cursettings, [ parent := cursetting, fs_member := memberrec.id ], [ "PARENT", "FS_MEMBER" ]);
+      IF (pos.found)
+        curset := cursettings[pos.position].settings;
+
+      VARIANT newval := memberrec.emptyval;
+
+      SWITCH(memberrec.type)
+      {
+        CASE 13 //WHFSREFARRAY
+        {
+          INTEGER ARRAY objs := SELECT AS INTEGER ARRAY fs_object FROM curset WHERE fs_object != 0 ORDER BY ordering;
+
+          IF(ObjectExists(remapper))
+          {
+            newval := DEFAULT STRING ARRAY;
+            FOREVERY(INTEGER obj FROM objs)
+              INSERT remapper->MapWHFSRef(obj) INTO newval AT END;
+          }
+          ELSE
+          {
+            newval := objs;
+          }
+        }
+        CASE 11 //WHFSREF
+        {
+          INTEGER obj := Length(curset)>=1 ? curset[0].fs_object : 0;
+
+          IF(ObjectExists(remapper))
+            newval := remapper->MapWHFSRef(obj);
+          ELSE
+            newval := obj;
+        }
+        CASE 16 //INTEXTLINK
+        {
+          IF(Length(curset)=0 OR (curset[0].setting="" AND curset[0].fs_object=0))
+          {
+            newval := DEFAULT RECORD;
+          }
+          ELSE IF(curset[0].fs_object != 0)
+          {
+            VARIANT intlink;
+            IF(ObjectExists(remapper))
+              intlink := remapper->MapWHFSRef(curset[0].fs_object);
+            ELSE
+              intlink := curset[0].fs_object;
+
+            STRING append := curset[0].setting;
+            IF (Left(append, 1) NOT IN [ "", "#", "?", "!" ])
+              append := "";
+
+            newval := [ externallink := "", internallink := intlink, append := append ];
+          }
+          ELSE //setting must be set
+          {
+            newval := [ externallink := curset[0].setting, internallink := 0, append := "" ];
+          }
+        }
+        CASE 12 //ARRAY
+        {
+          IF(isgetstructure)
+          {
+            INSERT CELL[ ...this->__RecurseGetInstanceData(memberrec.id, 0, RECORD[], cdatagetter, remapper, orphansvisible, limit_to_members, isgetstructure)
+                       , fs_settingid := 0
+                       ] INTO newval AT END;
+          }
+          ELSE FOREVERY(RECORD element FROM (SELECT * FROM curset ORDER BY ordering))
+          {
+            RECORD rec := this->__RecurseGetInstanceData(memberrec.id, element.id, cursettings, cdatagetter, remapper, orphansvisible, limit_to_members, FALSE);
+            INSERT CELL fs_settingid := element.id INTO rec;
+            INSERT rec INTO newval AT END;
+          }
+        }
+        CASE 3,14 //Multiple choice, String Array
+        {
+          newval := SELECT AS STRING ARRAY setting FROM curset ORDER BY ordering;
+        }
+        CASE 5 //Blob/file record
+        {
+          IF(Length(curset)>=1)
+          {
+            newval := SplitBlobSetting(curset[0].setting, curset[0].blobdata, curset[0].fs_object);
+            IF(RecordExists(newval))
+            {
+              newval := CELL[ ...newval
+                            , settingid := curset[0].id
+                            , __blobsource := "s" || curset[0].id
+                            ];
+
+              IF(GetDtapStage() = "development")
+              {
+                INSERT CELL link := [ linkisobsolete := FALSE ] INTO newval;
+              }
+              ELSE
+              {
+                STRING link;
+                IF (memberrec.publish AND ObjectExists(cdatagetter) AND cdatagetter->GetCdataBaseURL() != "")
+                  link := GetCachedFSSettingFileURL(cdatagetter->GetCdataBaseURL(), curset[0].id, [ embed := TRUE, filename := newval.filename, allowanyextension := TRUE ]);
+                INSERT CELL link := link INTO newval;
+              }
+
+              IF (ObjectExists(remapper))
+              {
+                VARIANT remapped := remapper->MapWHFSRef(newval.source_fsobject);
+                DELETE CELL source_fsobject FROM newval;
+                INSERT CELL source_fsobject := remapped INTO newval;
+              }
+            }
+          }
+        }
+        CASE 4,6,7,8,9
+        {
+          IF(Length(curset)>=1)
+            newval := AnyTypeFromString(curset[0].setting, memberrec.type);
+        }
+        CASE 15,20 //richdocument, formdefinition
+        {
+          RECORD root := SELECT * FROM curset WHERE ordering=0;
+          BOOLEAN isrtd := memberrec.type = 15; //rtd
+          IF( RecordExists(root) AND root.setting = (isrtd ? "RD1" : "FD1")) //version indicator
+          {
+            newval := [ embedded := DEFAULT RECORD ARRAY
+                      , links := DEFAULT RECORD ARRAY
+                      , instances := DEFAULT RECORD ARRAY
+                      ];
+            IF(isrtd)
+              newval := CELL[...newval, htmltext := root.blobdata ];
+            ELSE
+              newval := CELL[...newval, formtext := root.blobdata ];
+
+            FOREVERY(RECORD setting FROM curset)
+            {
+              IF(setting.ordering=1)
+              {
+                RECORD split := SplitBlobSetting(setting.setting, setting.blobdata, setting.fs_object);
+                IF(NOT RecordExists(SELECT FROM newval.embedded WHERE embedded.contentid = split.filename))
+                {
+                  //Then add it!
+                  split := CELL[ ...split
+                               , contentid := split.filename
+                               , settingid := setting.id
+                               , __blobsource := "s" || setting.id
+                               ];
+
+                  IF(GetDtapStage() = "development")
+                  {
+                    INSERT CELL link := [ linkisobsolete := FALSE ] INTO split;
+                  }
+                  ELSE
+                  {
+                    STRING link;
+                    IF (isrtd AND memberrec.publish AND ObjectExists(cdatagetter) AND cdatagetter->GetCdataBaseURL() != "")
+                      link := GetCachedFSSettingFileURL(cdatagetter->GetCdataBaseURL(), setting.id) || "/" || split.filename; //note that Unifiedcache never supported old ec~/fc~ links
+                    INSERT CELL link := link INTO split;
+                  }
+
+                  IF (ObjectExists(remapper))
+                  {
+                    VARIANT remapped := remapper->MapWHFSRef(split.source_fsobject);
+                    DELETE CELL source_fsobject FROM split;
+                    INSERT CELL source_fsobject := remapped INTO split;
+                  }
+
+                  INSERT split INTO newval.embedded AT END;
+                }
+              }
+              ELSE IF(setting.ordering = 2)
+              {
+                STRING ARRAY toks := Tokenize(setting.setting, '\t'); //makes it easier to add new fields in the future
+
+                INSERT [ tag := toks[0]
+                       , linkref := ObjectExists(remapper) ? remapper->MapWHFSRef(setting.fs_object) : setting.fs_object
+                       ] INTO newval.links AT END;
+              }
+              ELSE IF(setting.ordering = 3)
+              {
+                STRING ARRAY toks := Tokenize(setting.setting, '\t'); //makes it easier to add new fields in the future
+                RECORD data := GetInstanceMember(setting, cursettings, cdatagetter, remapper, orphansvisible);
+                IF(RecordExists(data))
+                  INSERT [ instanceid := toks[0]
+                         , data := data
+                         ] INTO newval.instances AT END;
+              }
+            }
+
+            newval.embedded := SELECT * FROM newval.embedded ORDER BY contentid;
+            newval.links := SELECT * FROM newval.links ORDER BY tag;
+            newval.instances := SELECT * FROM newval.instances ORDER BY instanceid;
+          }
+        }
+        CASE 22 //formcondition
+        {
+          IF(Length(curset) > 0 AND curset[0].setting = "FC1") //version indicator
+          {
+            // There is only version FC1 at the moment, so we can just return the stored data
+            newval := DecodeHSONBlob(curset[0].blobdata);
+          }
+        }
+        CASE 18 // instance
+        {
+          IF(Length(curset) > 0)
+            newval := GetInstanceMember(curset[0], cursettings, cdatagetter, remapper, orphansvisible);
+        }
+        CASE 21 // record
+        {
+          IF (Length(curset) > 0)
+          {
+            newval := curset[0].setting != ""
+                ? DecodeHSON(curset[0].setting)
+                : DecodeHSONBlob(curset[0].blobdata);
+          }
+        }
+        DEFAULT
+        {
+          newval := Length(curset)>=1 ? curset[0].setting : "";
+        }
+      }
+      retval := CellInsert(retval, memberrec.name, newval);
+    }
+    RETURN retval;
+  }
+
+
+  /** Writes instance data to the database
+      @param instanceid Instance id (reference to fs_instances)
+      @param curmember Current written member (0 for root)
+      @param cursetting Current parent setting (0 for root, parent setting for array elements)
+      @param newdata New instance data to write
+      @param cursettings List of current settings
+      @param remapper Optional remapper to run whfs(array) values through (convert from string (array) -> whfsref(array))
+      @return
+      @cell return.any_nondefault Returns whether any non-default value was written
+      @cell return.linkchecked_settingids Link-checked settings that were added/updated
+  */
+  PUBLIC RECORD FUNCTION __RecurseSetInstanceData(INTEGER instanceid, INTEGER curmember, INTEGER cursetting, RECORD newdata, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible)
+  {
+    BOOLEAN any_nondefault := FALSE;
+
+    STRING ARRAY allowedcells := [ "FS_SETTINGID" ] CONCAT SELECT AS STRING ARRAY ToUppercase(name) FROM this->pvt_members WHERE parent = curmember AND (orphansvisible OR orphan = FALSE);
+
+    IF(NOT ObjectExists(remapper) OR remapper->ignore_missing_members = FALSE)
+      FOREVERY(RECORD testcell FROM UnpackRecord(newdata))
+        IF(ToUppercase(testcell.name) NOT IN allowedcells AND testcell.name NOT IN [ "WHFSTYPE", "WHFSSETTINGID", "WHFSFILEID" ])
+        {
+          IF(debugmapping)
+          {
+            Print("Trying to set a value for the non-existing cell '" || testcell.name || "' in content type '" || this->namespace || "'\n");
+            Print("new data\n");
+            PrintRecordTo(0,newdata,'tree');
+            Print("current members\n");
+            PrintRecordArrayTo(0,this->pvt_members,'tree');
+            Print("database members\n");
+            printrecordarrayto(0, (Select * from system.fs_members WHERE fs_type = this->typedef.id),'boxed');
+          }
+
+          STRING didyoumeancell := GetBestMatch(testcell.name, allowedcells);
+          IF (didyoumeancell != "")
+            didyoumeancell := ", did you mean '" || didyoumeancell || "'?";
+
+          IF(RecordExists(SELECT FROM this->pvt_members WHERE parent = curmember AND ToUppercase(name) = ToUppercase(testcell.name)))
+            THROW NEW WHFSException("INVALIDARG", "Trying to set a value for the orphan cell '" || testcell.name || "' in content type '" || this->namespace || "'" || (didyoumeancell ?? " (incorrect/missing siteprofile?)"));
+          ELSE
+            THROW NEW WHFSException("INVALIDARG", "Trying to set a value for the non-existing cell '" || testcell.name || "' in content type '" || this->namespace || "'" || didyoumeancell);
+        }
+
+    INTEGER ARRAY linkchecked_settingids;
+    RECORD ARRAY killsettings;
+
+    FOREVERY(RECORD memberrec FROM (SELECT * FROM this->pvt_members WHERE parent = curmember AND (orphansvisible OR orphan = FALSE)))
+    {
+      IF(NOT CellExists(newdata, memberrec.name) AND curmember = 0)
+        CONTINUE; //not being updated
+
+      RECORD ARRAY current_member_settings;
+      RECORD pos := RecordLowerBound(cursettings, [ parent := cursetting, fs_member := memberrec.id ], [ "PARENT", "FS_MEMBER" ]);
+      IF (pos.found)
+        current_member_settings := cursettings[pos.position].settings;
+      IF(NOT CellExists(newdata, memberrec.name)) //resetting!
+      {
+        killsettings := killsettings CONCAT current_member_settings;
+        CONTINUE;
+      }
+
+      VARIANT newval := CellExists(newdata, memberrec.name) ? GetCell(newdata, memberrec.name) : memberrec.emptyval;
+      IF(Length(current_member_settings)>1 AND memberrec.type NOT IN [ 3, 12, 14, 15, 20 ]) //setting should not have multiple values, except multiple choice, arrays and richdocs
+      {
+        //Correct it. It may happen when two transactions create the same settings record in parallel
+        //ADDME find a nicer solution..
+        killsettings := killsettings CONCAT ArraySlice(current_member_settings,1);
+        current_member_settings := RECORD[current_member_settings[0]];
+      }
+
+      SWITCH(memberrec.type)
+      {
+        CASE 3,14 //Multiple gok
+        {
+          //FIXME: Also update for this case!
+          killsettings := killsettings CONCAT current_member_settings;
+
+          FOREVERY(STRING tok FROM newval)
+          {
+            IF (tok != "") //ADDME: More extensive validation
+            {
+              INSERT INTO system.fs_settings(fs_instance, fs_member, setting, parent, ordering)
+                     VALUES(instanceid, memberrec.id, tok, cursetting, #tok);
+              any_nondefault := TRUE;
+            }
+          }
+        }
+        CASE 13 //WHFSREFARRAY
+        {
+          IF(TYPEID(newval) != (ObjectExists(remapper) ? TYPEID(STRING ARRAY) : TYPEID(INTEGER ARRAY)))
+            THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace);
+
+          //ADDME: Avoid database rewrites
+          killsettings := killsettings CONCAT current_member_settings;
+
+          INTEGER ARRAY outobjs;
+          IF(ObjectExists(remapper))
+          {
+            FOREVERY(VARIANT indata FROM newval)
+              INSERT remapper->UnmapWHFSRef(indata) INTO outobjs AT END;
+          }
+          ELSE
+          {
+            outobjs := newval;
+          }
+
+          FOREVERY(INTEGER obj FROM outobjs)
+          {
+            IF(obj = 0)
+              CONTINUE;
+
+            INTEGER newid := MakeAutoNumber(system.fs_settings, "id");
+            INSERT INTO system.fs_settings(id, fs_instance, fs_member, fs_object, parent, ordering)
+                   VALUES(newid, instanceid, memberrec.id, obj, cursetting, #obj);
+            any_nondefault := TRUE;
+          }
+        }
+        CASE 11 //WHFS REF
+        {
+          INTEGER expecttype := ObjectExists(remapper) ? TYPEID(STRING) : TYPEID(INTEGER);
+          IF(TYPEID(newval) != expecttype)
+            THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace || ", expected " || GetTypeName(expecttype) || " got " || GetTypeName(Typeid(newval)));
+
+          INTEGER data := ObjectExists(remapper) ? remapper->UnmapWHFSRef(newval) : newval;
+          IF (Length(current_member_settings)>0)
+          {
+            IF(data != current_member_settings[0].fs_object)
+            {
+              IF(data=0)
+                killsettings := killsettings CONCAT current_member_settings;
+              ELSE
+              {
+                UPDATE system.fs_settings SET fs_object := data WHERE id = current_member_settings[0].id;
+                any_nondefault := TRUE;
+              }
+            }
+            ELSE
+            {
+              any_nondefault := TRUE;
+            }
+          }
+          ELSE IF (data != 0)
+          {
+            INSERT INTO system.fs_settings(fs_instance, fs_member, fs_object, parent)
+                   VALUES(instanceid, memberrec.id, data, cursetting);
+            any_nondefault := TRUE;
+          }
+        }
+        CASE 16 //INTEXTLINK
+        {
+          INTEGER fsobj;
+          STRING data;
+
+          IF(ObjectExists(remapper) AND TypeID(newval) = TypeID(string))
+          {
+            //Legacy contenttype data
+            IF(Left(newval,1) = "*") //external links start with an asterisk
+              newval := [ externallink := Substring(newval,1), internallink := "", append := ""];
+            ELSE  IF(newval!="")
+              newval := [ externallink := "", internallink := newval, append := "" ];
+            ELSE
+              newval := DEFAULT RECORD;
+          }
+
+          IF(TYPEID(newval) != TYPEID(RECORD))
+              THROW NEW WHFSException("INVALIDARG","Incorrect type for field '" || memberrec.name || "'' in type " || this->namespace);
+
+          IF(RecordExists(newval))
+            FOREVERY(STRING cellname FROM ["INTERNALLINK","EXTERNALLINK","APPEND"])
+              IF(NOT CellExists(newval,cellname))
+                THROW NEW WHFSException("INVALIDARG", "Intextlink is missing cell '" || cellname || "'");
+
+          IF(RecordExists(newval))
+          {
+            IF(newval.externallink = "") //extlinks take precedence, so don't parse internallink if it's set
+            {
+              IF(ObjectExists(remapper) AND newval.internallink != "")
+              {
+                fsobj := remapper->UnmapWHFSRef(newval.internallink);
+              }
+              ELSE IF(NOT ObjectExists(remapper) AND newval.internallink != 0)
+              {
+                fsobj := newval.internallink;
+              }
+            }
+            data := fsobj != 0 ? newval.append : newval.externallink;
+          }
+
+
+          BOOLEAN isempty := fsobj = 0 AND data = "";
+          IF (Length(current_member_settings)>0)
+          {
+            IF(fsobj != current_member_settings[0].fs_object OR data != current_member_settings[0].setting)
+            {
+              IF(isempty)
+                killsettings := killsettings CONCAT current_member_settings;
+              ELSE
+              {
+                UPDATE system.fs_settings SET fs_object := fsobj, setting := data WHERE id = current_member_settings[0].id;
+                INSERT current_member_settings[0].id INTO linkchecked_settingids AT END;
+                any_nondefault := TRUE;
+              }
+            }
+            ELSE
+            {
+              any_nondefault := TRUE;
+            }
+          }
+          ELSE IF (NOT isempty)
+          {
+            INTEGER newid := MakeAutoNumber(system.fs_settings, "id");
+            INSERT INTO system.fs_settings(id, fs_instance, fs_member, fs_object, setting, parent)
+                   VALUES(newid, instanceid, memberrec.id, fsobj, data, cursetting);
+            INSERT newid INTO linkchecked_settingids AT END;
+            any_nondefault := TRUE;
+          }
+        }
+        CASE 5 //Blob/file record
+        {
+          IF(TypeID(newval) != TypeID(RECORD))
+            THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace || ", expected RECORD got " || GetTypeName(Typeid(newval)));
+
+          RECORD imginfo := newval;
+
+          IF(NOT RecordExists(imginfo)) // no data
+          {
+            killsettings := killsettings CONCAT current_member_settings;
+          }
+          ELSE //we have data to submit
+          {
+            any_nondefault := TRUE;
+
+            // Translate source_fsobject if present
+            IF (CellExists(imginfo, "SOURCE_FSOBJECT") AND ObjectExists(remapper))
+            {
+              VARIANT sourceval := imginfo.source_fsobject;
+              IF (TYPEID(sourceval) != TypeID(STRING))
+                THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || ".SOURCE_FSOBJECT' in type " || this->namespace || ", expected STRING got " || GetTypeName(Typeid(sourceval)));
+
+              DELETE CELL source_fsobject FROM imginfo;
+              INSERT CELL source_fsobject := remapper->UnmapWHFSRef(sourceval) INTO imginfo;
+            }
+
+            RECORD newinfo := JoinBlobSetting(imginfo);
+            IF(Length(current_member_settings)>0)
+            {
+              IF(newinfo.rawdata != current_member_settings[0].setting OR newinfo.fs_object != current_member_settings[0].fs_object) //have to update
+              {
+                UPDATE system.fs_settings
+                       SET fs_object := newinfo.fs_object
+                         , setting := newinfo.rawdata
+                         , blobdata := imginfo.data
+                       WHERE id = current_member_settings[0].id;
+              }
+              ELSE IF(NOT AreBlobsEqual(imginfo.data, current_member_settings[0].blobdata))
+                THROW NEW WHFSException("OTHER",`Trying to overwrite the blob for field '${memberrec.name}' in type '${this->namespace}' without resetting the other properties`);
+            }
+            ELSE
+            {
+              INSERT INTO system.fs_settings(fs_instance, fs_member, fs_object, setting, blobdata, parent)
+                     VALUES(instanceid, memberrec.id, newinfo.fs_object, newinfo.rawdata, imginfo.data, cursetting);
+            }
+          }
+        }
+        CASE 12 //Array
+        {
+          // Get list of existing ids for the array in the DB
+          INTEGER ARRAY unmatched_ids := SELECT AS INTEGER ARRAY id FROM current_member_settings;
+
+          FOREVERY (RECORD el FROM newval)
+          {
+            // Try to match the element ot a unmatched element in the DB
+            INTEGER elt_id := CellExists(el, "FS_SETTINGID") ? el.fs_settingid : 0;
+            IF (elt_id != 0)
+            {
+              INTEGER unmatched_ids_pos := SearchElement(unmatched_ids, elt_id);
+              IF (unmatched_ids_pos = -1)
+                elt_id := 0;
+              ELSE
+                DELETE FROM unmatched_ids AT unmatched_ids_pos; // Never match a DB element twice!
+            }
+
+            IF (elt_id = 0)
+            {
+              // No matching DB element
+              INTEGER newid := MakeAutoNumber(system.fs_settings, "id");
+              INSERT INTO system.fs_settings(id, fs_instance, fs_member, ordering, parent)
+                     VALUES(newid, instanceid, memberrec.id, #el, cursetting);
+
+              RECORD rec := this->__RecurseSetInstanceData(instanceid, memberrec.id, newid, el, cursettings, remapper, orphansvisible);
+              any_nondefault := TRUE;
+              linkchecked_settingids := linkchecked_settingids CONCAT rec.linkchecked_settingids;
+            }
+            ELSE
+            {
+              // Have matching DB element, update ordering
+              UPDATE system.fs_settings
+                 SET ordering := #el
+               WHERE id = elt_id;
+
+              RECORD rec := this->__RecurseSetInstanceData(instanceid, memberrec.id, elt_id, el, cursettings, remapper, orphansvisible);
+              any_nondefault := TRUE;
+              linkchecked_settingids := linkchecked_settingids CONCAT rec.linkchecked_settingids;
+            }
+          }
+
+          // Delete non-matched old settings
+          killsettings := killsettings CONCAT SELECT * FROM current_member_settings WHERE id IN unmatched_ids;
+        }
+        CASE 15,20 //Rich document, formdefinition
+        {
+          /* Rich documents are stored as follows:
+             fs_settings { setting: "RD1" (version indicator, for future use), blobdata: html doc, ordering: 0 }
+             embedded images are stored like blobs, but we prefix the setting field with the contentid */
+
+          BOOLEAN isrtd := memberrec.type = 15;
+          INTEGER ARRAY all_existing_ids := SELECT AS INTEGER ARRAY id FROM current_member_settings;
+
+          INTEGER ARRAY ids_in_use;
+
+          IF(TYPEID(newval) != TYPEID(RECORD))
+            THROW NEW WHFSException("OTHER","Incorrect type for richdocument field '" || memberrec.name || "' in type " || this->namespace || ", expected RECORD, got " || GetTypeName(TYPEID(newval)));
+
+          IF(RecordExists(newval) AND ObjectExists(remapper) AND CellExists(newval,'embedded')) //convert first!
+          {
+            FOREVERY(RECORD embed FROM newval.embedded)
+              IF (CellExists(embed, "SOURCE_FSOBJECT"))
+              {
+                IF (TYPEID(embed.source_fsobject) != TypeID(STRING))
+                  THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || ".EMBEDDED["||#embed||"].SOURCE_FSOBJECT' in type " || this->namespace || ", expected STRING got " || GetTypeName(Typeid(embed.source_fsobject)));
+
+                embed := [...embed, source_fsobject := remapper->UnmapWHFSRef(embed.source_fsobject) ];
+                newval.embedded[#embed] := embed;
+              }
+          }
+
+          newval := __ValidateRichDocumentLike(newval, isrtd, FALSE);
+
+          IF(RecordExists(newval))
+          {
+            STRING versionindicator := isrtd ? "RD1" : "FD1";
+            BLOB storetext := isrtd ? newval.htmltext : newval.formtext;
+            any_nondefault := TRUE;
+
+            INTEGER rootnodeid := SELECT AS INTEGER id FROM current_member_settings WHERE ordering=0;
+            IF(rootnodeid != 0)
+            {
+              UPDATE system.fs_settings
+                     SET setting := versionindicator
+                       , blobdata := VAR storetext
+                     WHERE id = rootnodeid;
+            }
+            ELSE
+            {
+              rootnodeid := MakeAutonumber(system.fs_settings, "id");
+              INSERT INTO system.fs_settings(id, fs_instance, fs_member, ordering, parent, setting, blobdata)
+                     VALUES(rootnodeid, instanceid, memberrec.id, 0, cursetting, versionindicator, storetext);
+            }
+            INSERT rootnodeid INTO ids_in_use AT END;
+            INSERT rootnodeid INTO linkchecked_settingids AT END;
+
+            RECORD ARRAY embedded := newval.embedded;
+
+            // Get source_fsobjects, filter out deleted objects
+            IF(Length(embedded) > 0)
+            {
+              INTEGER ARRAY valid_source_fsobjects :=
+                  SELECT AS INTEGER ARRAY id
+                    FROM system.fs_objects
+                   WHERE id IN (SELECT AS INTEGER ARRAY source_fsobject FROM embedded WHERE source_fsobject != 0);
+              UPDATE embedded SET source_fsobject := 0 WHERE source_fsobject NOT IN valid_source_fsobjects;
+            }
+
+            FOREVERY(RECORD embed FROM embedded)
+            {
+              //ADDME safe/restore hash?
+              DELETE CELL filename FROM embed;
+              INSERT CELL filename := embed.contentid INTO embed;
+
+              RECORD settingdata := JoinBlobSetting(embed);
+
+              INTEGER settingid := SELECT AS INTEGER id FROM current_member_settings WHERE ordering=1 AND SplitBlobSetting(setting, DEFAULT BLOB, 0).filename = embed.contentid;;
+              IF(settingid != 0)
+              {
+                UPDATE system.fs_settings
+                       SET fs_object := settingdata.fs_object
+                         , setting := settingdata.rawdata
+                         , blobdata := embed.data
+                       WHERE id = settingid;
+              }
+              ELSE
+              {
+                settingid := MakeAutonumber(system.fs_settings, "id");
+                INSERT INTO system.fs_settings(id, fs_instance, fs_member, ordering, parent, fs_object, setting, blobdata)
+                       VALUES(settingid, instanceid, memberrec.id, 1, cursetting, settingdata.fs_object, settingdata.rawdata, embed.data);
+              }
+              INSERT settingid INTO ids_in_use AT END;
+            }
+            IF(CellExists(newval,'INSTANCES'))
+            {
+              IF (RecordExists(SELECT FROM newval.instances WHERE NOT RecordExists(instances) OR NOT CellExists(data, "WHFSTYPE")))
+                THROW NEW Exception("Embedded data contains empty instances or instances without a 'WHFSTYPE' cell");
+              IF (RecordExists(SELECT FROM newval.instances GROUP BY instances.instanceid HAVING Count(*)>1))
+                THROW NEW Exception("Embedded data contains duplicate instance ids");
+
+              FOREVERY(RECORD instance FROM newval.instances)
+              {
+                RECORD ARRAY mysettings := SELECT * FROM current_member_settings WHERE ordering=3 AND (setting LIKE instance.instanceid || "\t*" OR setting = instance.instanceid);
+                IF (this->__WriteInstanceMember(instance.data, memberrec, orphansvisible, cursettings, remapper, mysettings, instanceid, cursetting, instance.instanceid, 3) = 0)
+                  INSERT mysettings[0].id INTO ids_in_use AT END;
+              }
+            }
+
+            IF(CellExists(newval,'LINKS'))
+              FOREVERY(RECORD link FROM newval.links)
+              {
+                INTEGER settingid := SELECT AS INTEGER id FROM current_member_settings WHERE ordering=2 AND (setting=link.tag OR setting LIKE link.tag || "\t*");
+                INTEGER linkref;
+                IF (ObjectExists(remapper))
+                  linkref := remapper->UnmapWHFSRef(link.linkref);
+                ELSE
+                  linkref := link.linkref;
+
+                IF(settingid != 0)
+                {
+                  UPDATE system.fs_settings
+                         SET setting := link.tag
+                           , fs_object := linkref
+                         WHERE id = settingid;
+                }
+                ELSE
+                {
+                  settingid := MakeAutonumber(system.fs_settings, "id");
+                  INSERT INTO system.fs_settings(id, fs_instance, fs_member, ordering, parent, setting, fs_object)
+                         VALUES(settingid, instanceid, memberrec.id, 2, cursetting, link.tag, linkref);
+                }
+                INSERT settingid INTO ids_in_use AT END;
+              }
+
+            killsettings := killsettings CONCAT SELECT * FROM current_member_settings WHERE id IN all_existing_ids AND id NOT IN ids_in_use;
+          }
+          ELSE
+          {
+            killsettings := killsettings CONCAT current_member_settings;
+          }
+        }
+        CASE 22 //formcondition
+        {
+          IF(TYPEID(newval) != TYPEID(RECORD))
+            THROW NEW WHFSException("OTHER","Incorrect type for formcondition field '" || memberrec.name || "' in type " || this->namespace || ", expected RECORD, got " || GetTypeName(TYPEID(newval)));
+
+          newval := ValidateFormCondition(newval);
+
+          IF (RecordExists(newval))
+          {
+            STRING versionindicator := "FC1";
+            BLOB storedata := EncodeHSONBlob(newval);
+
+            IF(Length(current_member_settings) > 0)
+            {
+              UPDATE system.fs_settings
+                     SET setting := versionindicator
+                       , blobdata := VAR storedata
+                     WHERE id = current_member_settings[0].id;
+            }
+            ELSE
+            {
+              INSERT INTO system.fs_settings(fs_instance, fs_member, ordering, parent, setting, blobdata)
+                     VALUES(instanceid, memberrec.id, 0, cursetting, versionindicator, storedata);
+            }
+          }
+          ELSE
+          {
+            IF (Length(current_member_settings) > 0)
+              DELETE FROM system.fs_settings WHERE id = current_member_settings[0].id;
+          }
+        }
+        CASE 18
+        {
+          // Get list of existing ids for the array in the DB
+          INTEGER ARRAY unmatched_ids := SELECT AS INTEGER ARRAY id FROM current_member_settings;
+          IF (RecordExists(newval))
+          {
+            IF (this->__WriteInstanceMember(newval, memberrec, orphansvisible, cursettings, remapper, current_member_settings, instanceid, cursetting, "", 0) = 0)
+              DELETE FROM unmatched_ids AT 0;
+            any_nondefault := TRUE;
+          }
+
+          // Delete non-matched old settings
+          IF(Length(unmatched_ids)>0)
+            killsettings := killsettings CONCAT SELECT * FROM system.fs_settings WHERE id IN unmatched_ids;
+        }
+        CASE 19 // URL
+        {
+          IF (NOT CanCastTypeTo(TYPEID(newval), TYPEID(STRING)))
+            THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace ||
+                ", got type '" || GetTypeName(TYPEID(newval)) || "', but wanted 'STRING'");
+
+          IF(newval = "") //destroy current settings
+          {
+            killsettings := killsettings CONCAT current_member_settings;
+          }
+          ELSE
+          {
+            IF (NOT IsValidURL(newval))
+              THROW NEW WHFSException("OTHER","Incorrect value for field '" || memberrec.name || "' in type " || this->namespace ||
+                ", got invalid url '" || EncodeValue(newval) || "'");
+
+            any_nondefault := TRUE;
+            IF (Length(current_member_settings) > 0)
+            {
+              IF (newval != current_member_settings[0].setting)
+              {
+                UPDATE system.fs_settings SET setting := newval WHERE id = current_member_settings[0].id;
+                INSERT current_member_settings[0].id INTO linkchecked_settingids AT END;
+              }
+            }
+            ELSE
+            {
+              INTEGER newid := MakeAutoNumber(system.fs_settings, "id");
+              INSERT INTO system.fs_settings(id, fs_instance, fs_member, setting, parent)
+                     VALUES(newid, instanceid, memberrec.id, newval, cursetting);
+              INSERT newid INTO linkchecked_settingids AT END;
+            }
+          }
+        }
+        CASE 21 // RECORD
+        {
+          IF (NOT CanCastTypeTo(TYPEID(newval), TYPEID(RECORD)))
+            THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace ||
+                ", got type '" || GetTypeName(TYPEID(newval)) || "', but wanted 'RECORD'");
+
+          IF (NOT RecordExists(newval))
+          {
+            killsettings := killsettings CONCAT current_member_settings;
+          }
+          ELSE
+          {
+            STRING data := EncodeHSON(newval);
+            RECORD newset;
+
+            IF (Length(data) <= 4096)
+              newset := [ setting := data, blobdata := DEFAULT BLOB ];
+            ELSE
+              newset := [ setting := "", blobdata := StringToBlob(data) ];
+
+            IF (Length(current_member_settings) = 1)
+            {
+              UPDATE system.fs_settings SET setting := newset.setting, blobdata := newset.blobdata WHERE id = current_member_settings[0].id;
+            }
+            ELSE
+            {
+              killsettings := killsettings CONCAT current_member_settings;
+
+              INTEGER newid := MakeAutoNumber(system.fs_settings, "id");
+              INSERT INTO system.fs_settings(id, fs_instance, fs_member, setting, blobdata, parent)
+                     VALUES(newid, instanceid, memberrec.id, newset.setting, newset.blobdata, cursetting);
+            }
+          }
+        }
+        DEFAULT
+        {
+          IF (NOT CanCastTypeTo(TYPEID(newval), TYPEID(memberrec.emptyval)))
+            THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace ||
+                ", got type '" || GetTypeName(TYPEID(newval)) || "', but wanted '" || GetTypename(TYPEID(memberrec.emptyval)) || "'");
+
+          IF(newval = memberrec.emptyval) //destroy current settings
+          {
+            killsettings := killsettings CONCAT current_member_settings;
+          }
+          ELSE
+          {
+            STRING data;
+            IF(memberrec.type IN [4,6,7,8,9])//date
+              data := EncodeMember(newval, memberrec.type);
+            ELSE
+              data := newval;
+
+            any_nondefault := TRUE;
+            IF (Length(current_member_settings)>0)
+            {
+              IF(data != current_member_settings[0].setting)
+                UPDATE system.fs_settings SET setting := data WHERE id = current_member_settings[0].id;
+            }
+            ELSE
+            {
+              IF(Length(data) > 4096)
+                THROW NEW Exception("Cannot insert fs_setting: Data may never exceed 4096 bytes");
+
+              INSERT INTO system.fs_settings(fs_instance, fs_member, setting, parent)
+                     VALUES(instanceid, memberrec.id, data, cursetting);
+            }
+          }
+        }
+      }
+    }
+
+    IF(Length(killsettings) > 0)
+    {
+      DELETE FROM system.fs_settings WHERE fs_settings.id IN (SELECT AS INTEGER ARRAY killsettings.id FROM killsettings);
+    }
+
+    RETURN
+        [ any_nondefault :=         any_nondefault
+        , linkchecked_settingids := linkchecked_settingids
+        ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Find all whfs objects that have a particular value in a specific member. Refer to members in an array
+      as 'arrayname.submembername'. Only works for members of type STRING and WHFSREF.
+      Warning: this function will not return any results when searching for strings of 2048 or more characters.
+      @param membername Name of member to search in
+      @param value Value to search for
+      @param case_sensitive Whether string compares should be done case sensitive
+      @return List of ids of object that have value @a value in member @a member.
+      @see FindObjectsByMemberValueMask
+  */
+  PUBLIC INTEGER ARRAY FUNCTION FindObjectsByMemberValue(STRING membername, VARIANT value, BOOLEAN case_sensitive DEFAULTSTO TRUE)
+  {
+    IF(NOT this->pvt_members_valid)
+      this->__LoadMembers();
+
+    RECORD memberinfo;
+    FOREVERY (STRING submembername FROM Tokenize(membername, "."))
+    {
+      memberinfo := SELECT id, type, emptyval
+                      FROM this->pvt_members
+                     WHERE ToUppercase(name)=ToUppercase(submembername)
+                           AND orphan = FALSE
+                           AND parent = (RecordExists(memberinfo) ? memberinfo.id : 0);
+      IF(NOT RecordExists(memberinfo))
+        THROW NEW WHFSException("INVALIDARG","No such member '" || membername || "' in contenttype " || this->namespace);
+    }
+
+    STRING searchval;
+    INTEGER searchfsobj;
+
+    //FIXME: Support for non-string and domain values
+    IF (memberinfo.type = 11 OR memberinfo.type = 13) //WHFSREF and WHFSREFARRAY
+    {
+      IF(value=0)
+        THROW NEW WHFSException("INVALIDARG", "FindObjectsByMemberValue cannot be used to find empty values");
+      searchfsobj := value;
+    }
+    ELSE IF (memberinfo.type IN [ 1, 2 ]) // single choice, string
+    {
+      IF(value="")
+        THROW NEW WHFSException("INVALIDARG", "FindObjectsByMemberValue cannot be used to find empty values");
+      IF (LENGTH(value) >= 2048)
+        THROW NEW WHFSException("INVALIDARG", "FindObjectsByMemberValue cannot be used to find values longer than 2048 bytes");
+
+      searchval := value;
+    }
+    ELSE IF (memberinfo.type IN [ 14 ]) // stringarray
+    {
+      //ADDME: This code may also be used for types other than stringarray in the future
+      IF(TypeID(GetArrayTypeDefaultElement(TypeID(memberinfo.emptyval))) != TypeID(value))
+        THROW NEW WHFSException("INVALIDARG", "Search value type must be of member value element type");
+      IF(value = GetArrayTypeDefaultElement(TypeID(memberinfo.emptyval)))
+        THROW NEW WHFSException("INVALIDARG", "FindObjectsByMemberValue cannot be used to find empty values");
+
+      searchval := value;
+    }
+    ELSE IF(memberinfo.type = 7)
+    {
+      IF(value=0)
+        THROW NEW WHFSException("INVALIDARG", "FindObjectsByMemberValue cannot be used to find empty values");
+      searchval := ToString(value);
+    }
+    ELSE IF(memberinfo.type = 6)
+    {
+      IF(value=FALSE)
+        THROW NEW WHFSException("INVALIDARG", "FindObjectsByMemberValue cannot be used to find empty values");
+
+      searchval := "1";
+    }
+    ELSE
+    {
+      THROW NEW WHFSException("INVALIDARG","FindObjectsByMemberValue can only search for strings, stringarrays and for WHFS references.");
+    }
+
+    RETURN SELECT AS INTEGER ARRAY DISTINCT fs_instances.fs_object
+             FROM system.fs_settings
+                , system.fs_instances
+                , system.fs_objects
+            WHERE fs_settings.fs_member = memberinfo.id
+                  AND fs_settings.fs_instance = fs_instances.id
+                  AND fs_objects.id = fs_instances.fs_object
+                  AND fs_objects.isactive = TRUE
+                  AND (memberinfo.type = 11 OR memberinfo.type=13 ? fs_settings.fs_object = searchfsobj
+                                            : case_sensitive ? fs_settings.setting = searchval
+                                                             : ToUppercase(fs_settings.setting) = ToUppercase(searchval));
+  }
+
+
+  /** Masked search, returns ids of all whfs that have a string member that matches a LIKE mask
+      Warning: string members with a length 2048 or more bytes will not be considered for matching.
+      @param membername Member to search in (use "*" to search all string members)
+      @param mymask Mask to search with
+      @param case_sensitive Case-sensitive search? (defaults to true)
+      @return All matching object ids
+      @see FindObjectsByMemberValue
+  */
+  PUBLIC INTEGER ARRAY FUNCTION FindObjectsByMemberValueMask(STRING membername, STRING mymask, BOOLEAN case_sensitive DEFAULTSTO TRUE)
+  {
+    IF(NOT this->pvt_members_valid)
+      this->__LoadMembers();
+
+    IF(membername="*")
+    {
+      INTEGER ARRAY stringmembers := SELECT AS INTEGER ARRAY id FROM this->pvt_members WHERE type = 2 AND orphan = FALSE;
+      RETURN SELECT AS INTEGER ARRAY DISTINCT fs_instances.fs_object
+               FROM system.fs_settings
+                  , system.fs_instances
+                  , system.fs_objects
+              WHERE fs_settings.fs_member IN stringmembers
+                    AND fs_settings.fs_instance = fs_instances.id
+                    AND fs_objects.id = fs_instances.fs_object
+                    AND fs_objects.isactive = TRUE
+                    AND (case_sensitive ? fs_settings.setting LIKE mymask
+                                        : ToUppercase(fs_settings.setting) LIKE ToUppercase(mymask));
+    }
+    ELSE
+    {
+      INTEGER memberid;
+      FOREVERY (STRING submembername FROM Tokenize(membername, "."))
+      {
+        memberid := SELECT AS INTEGER id
+                      FROM this->pvt_members
+                     WHERE ToUppercase(name)=ToUppercase(submembername)
+                           AND orphan = FALSE
+                           AND parent = memberid;
+        IF(memberid=0)
+          THROW NEW WHFSException("OTHER","No such member '" || membername || "'");
+      }
+
+      RETURN SELECT AS INTEGER ARRAY DISTINCT fs_instances.fs_object
+               FROM system.fs_settings
+                  , system.fs_instances
+                  , system.fs_objects
+              WHERE fs_settings.fs_member = memberid
+                    AND fs_settings.fs_instance = fs_instances.id
+                    AND fs_objects.id = fs_instances.fs_object
+                    AND fs_objects.isactive = TRUE
+                    AND (case_sensitive ? fs_settings.setting LIKE mymask
+                                        : ToUppercase(fs_settings.setting) LIKE ToUppercase(mymask));
+    }
+  }
+
+
+  /** Returns the instance data of this type for a specific whfs object, with optional remapping of whfs references.
+      Warning: the link cell in published blobs/memos links to the weblink of the primary output if the site they are in.
+      @param objectid Id of whfs object to return the instance data for
+      @param remapper Optional object to remap whfsref(array)s to string values
+      @return A record with the instance data for this object. Publication links for blobs will only be
+          filled in when no remapper is specified.
+      @see ImportInstanceData, SetInstanceData
+  */
+  PUBLIC RECORD FUNCTION ExportInstanceData(INTEGER objectid, OBJECT remapper, BOOLEAN export_orphans)
+  {
+    IF(NOT this->pvt_members_valid)
+      this->__LoadMembers();
+
+    INTEGER instance := SELECT AS INTEGER id
+                          FROM system.fs_instances
+                         WHERE fs_type = this->typedef.id
+                               AND fs_object = objectid;
+
+    RECORD ARRAY allsettings := GetCurrentSettingsForInstance(instance);
+
+    RETURN this->__RecurseGetInstanceData(0, 0, allsettings, NEW BaseUrlOnDemand(objectid, FALSE), remapper, export_orphans, DEFAULT INTEGER ARRAY, FALSE);
+  }
+
+
+  /** Return the instance data of a specific whfs object. Warning: the link cell in published blobs/memos links
+         to the weblink of the primary output if the site they are in.
+      @param objectid Id of the object
+      @cell(boolean) options.orphans Get orphan (unreferenced by siteprofile) members too
+      @return Instance data
+      @see SetInstanceData, ExportInstanceData
+  */
+  PUBLIC RECORD FUNCTION GetInstanceData(INTEGER objectid, RECORD options DEFAULTSTO CELL[])
+  {
+    options := ValidateOptions(
+        [ orphans       := FALSE
+        ], options);
+
+    RETURN this->ExportInstanceData(objectid, DEFAULT OBJECT, options.orphans);
+  }
+
+  /** @short Merge objects of this type into another type
+      @long Convert all fs_objects of this type to be of the destination type, clearing their contents if
+  */
+  PUBLIC INTEGER ARRAY FUNCTION MergeTypeInto(OBJECT targettype, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[], options); //TODO options like configuring whether to set/remove publish, recycle content?
+    IF(NOT targettype->filetype AND NOT targettype->foldertype)
+      THROW NEW Exception(`Target type '${targettype->namespace}' is neither a folder nor a file type`);
+
+    INTEGER ARRAY tofix := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE type = this->id;
+
+    //Delete all contents of the converted types, if not converting to a folder
+    IF(NOT targettype->foldertype)
+      FOREVERY(RECORD subitem FROM SELECT id, parent, parentsite FROM system.fs_objects WHERE parent IN tofix)
+        GetWHFSCommitHandler()->DoDeleteOrRecycle(subitem.parentsite, subitem.parent, subitem.id, TRUE);
+
+    /* Convert the objects
+       - when converting into a file, republish if needed
+       - when converting from folder to file, enforce publish */
+    UPDATE system.fs_objects
+       SET type := targettype->id
+         , isfolder := FALSE
+         , published := targettype->foldertype ? 0
+                                               : ConvertToWillPublish(published, FALSE, this->foldertype, PubPrio_DirectEdit)
+     WHERE id IN tofix;
+
+    RETURN tofix;
+  }
+
+  /** @short Get a few specific members, in bulk
+      @param ids Object ids
+      @param fields Fields to get
+  */
+  RECORD ARRAY FUNCTION __GetBulkData(INTEGER ARRAY ids, STRING ARRAY fields, BOOLEAN addjoinid, BOOLEAN get_all_ignore, BOOLEAN uppercase_ignore, BOOLEAN getorphanmembers)
+  {
+    IF(NOT this->pvt_members_valid)
+      this->__LoadMembers();
+
+    /* Lowercase, sort and unique the selected fields
+       Makes sure directly selected arrays are added before their members
+    */
+    FOREVERY (STRING field FROM fields)
+      fields[#field] := ToLowercase(field);
+    fields := GetSortedSet(fields);
+
+    // List of all members that need to be selected
+    INTEGER ARRAY selectmembers;
+    // Directly selected array members that need to be expanded
+    INTEGER ARRAY expandarrays;
+
+    BOOLEAN have_instances; // Whether any selected member can have instance data
+    BOOLEAN need_cdata_baseurl; // Whether any member is published
+
+    // Lookup all directly selected fields
+    FOREVERY (STRING field FROM fields)
+    {
+      RECORD memberrec := [ id := 0 ];
+      STRING ARRAY parts := Tokenize(field, ".");
+
+      FOR (INTEGER i := 0, m := LENGTH(parts) - 1; i <= m; i := i + 1)
+      {
+        // Lookup this part in the context of its parent
+        RECORD pos := RecordLowerBound(this->pvt_members, [ parent := memberrec.id, name := parts[i] ], [ "PARENT", "NAME" ]);
+        IF (NOT pos.found)
+          THROW NEW Exception(`No such member '${Detokenize(ArraySlice(parts, 0, i + 1), ".")}' in contenttype ${this->namespace}`);
+
+        memberrec := this->pvt_members[pos.position];
+
+        IF (i != m) // more parts following (so we can assume this member is an array)
+        {
+          // We might have seen this array in the previous field
+          IF (memberrec.id IN selectmembers)
+          {
+            // When already expanding an array, skip processing its members
+            IF (memberrec.id IN expandarrays)
+              BREAK;
+          }
+          ELSE // select the parent array setting
+            INSERT memberrec.id INTO selectmembers AT END;
+          CONTINUE;
+        }
+
+        // This is a new directly selected member
+        INSERT memberrec.id INTO selectmembers AT END;
+        IF (memberrec.type = 12)
+          INSERT memberrec.id INTO expandarrays AT END;
+        ELSE IF (memberrec.type IN [ 15, 18, 20 ])
+          have_instances := TRUE;
+        IF (memberrec.publish)
+          need_cdata_baseurl := TRUE;
+      }
+    }
+
+    // Expand arrays. No need to check for double-expansion, because we skipped processing members of already expanded arrays
+    FOR (INTEGER i := 0; i < LENGTH(expandarrays); i := i + 1)
+    {
+      RECORD ARRAY members := RecordRange(this->pvt_members, CELL[ parent := expandarrays[i] ], [ "PARENT" ]);
+      FOREVERY (RECORD memberrec FROM members)
+      {
+        INSERT memberrec.id INTO selectmembers AT END;
+        IF (memberrec.type = 12) // schedule expansion within this loop (dynamic end condition!)
+          INSERT memberrec.id INTO expandarrays AT END;
+        ELSE IF (memberrec.type IN [ 15, 18, 20 ])
+          have_instances := TRUE;
+        IF (memberrec.publish)
+          need_cdata_baseurl := TRUE;
+      }
+    }
+
+    BOOLEAN can_add_id := addjoinid = FALSE AND "id" NOT IN fields;
+
+    //FIXME proper child expansion so we can support arrays
+    RECORD ARRAY basedata := SELECT fsid := fs_instances.fs_object
+                                  , parent
+                                  , fs_member
+                                  , settings :=     GroupedValues(fs_settings)
+                                  , fs_type := Any(fs_type)
+                               FROM system.fs_instances
+                                  , system.fs_settings
+                              WHERE fs_instances.fs_object IN ids
+                                    AND fs_settings.fs_instance = fs_instances.id
+                                    AND (have_instances ? TRUE : fs_settings.fs_member IN selectmembers)
+                                    //AND fs_instances.fs_type = this->id //do this in after filtering, it will usually filter few items and the database incorrectly selects the filter
+                           GROUP BY fs_instances.fs_object, parent, fs_member
+                           ORDER BY fs_instances.fs_object, parent, fs_member;
+    DELETE FROM basedata WHERE fs_type != this->id;
+
+    RECORD ARRAY outrows;
+    FOREVERY(INTEGER exportid FROM ids)
+    {
+      OBJECT baseurlgetter;
+      IF(need_cdata_baseurl)
+        baseurlgetter := NEW BaseUrlOnDemand(exportid, FALSE);
+
+      RECORD lbound := RecordLowerBound(basedata, [ fsid := exportid ], [ "FSID" ]);
+      INTEGER ubound := RecordUpperBound(basedata, [ fsid := exportid ], [ "FSID" ]);
+
+      RECORD ARRAY itemsettings := ArraySlice(basedata, lbound.position, ubound - lbound.position);
+
+      RECORD data := this->__RecurseGetInstanceData(0, 0, itemsettings, baseurlgetter, DEFAULT OBJECT, getorphanmembers, selectmembers, FALSE);
+      IF(can_add_id)
+        INSERT CELL id := exportid INTO data;
+      ELSE IF(addjoinid)
+        INSERT CELL __joinid := exportid INTO data;
+      INSERT data INTO outrows AT END;
+    }
+    RETURN outrows;
+  }
+
+  /** @deprecated Use Enrich
+      @private has been deprecated for a long time, use Enrich instead
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetBulkData(INTEGER ARRAY ids, STRING ARRAY fields)
+  {
+    RETURN this->__GetBulkData(ids, fields, FALSE, FALSE, FALSE, FALSE);
+  }
+
+  RECORD FUNCTION GetDefaultRecord(STRING ARRAY fields)
+  {
+    FOREVERY(STRING fld FROM fields)
+      fields[#fld] := ToUppercase(fld);
+
+    RECORD defval := this->defaultinstance;
+    FOREVERY(RECORD cellrec FROM UnpackRecord(defval))
+      IF(cellrec.name NOT IN fields)
+        defval := CellDelete(defval, cellrec.name);
+
+    RETURN defval;
+  }
+
+  /** Enrich a record array with values from this type in bulk
+      @param inrows Input rows to enrich
+      @param idcellname Name of the cell in the inrows that contain the fs_object id. Append '[]' if the cell is an array of values, use `<cellname>.<innerarray>` to enrich inner arrays.
+      @param fields Fields to retrieve
+      @param options Options
+      @cell(boolean) options.rightouterjoin No effect - getting instancedata always succeeds.
+      @cell(string) options.wrapfields If not empty, wrap the enriched fields in a cell with this name (when the idcell is an array, insert enriched values into this cell).
+      @cell(boolean) options.rightouterjoin No effect - getting instancedata always succeeds.
+      @cell(boolean) options.orphans Get orphan members too
+      @return Enriched rows
+  */
+  PUBLIC RECORD ARRAY FUNCTION Enrich(RECORD ARRAY inrows, STRING idcellname, STRING ARRAY fields, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    BOOLEAN getorphanmembers := CellExists(options, 'orphans') AND options.orphans;
+    IF (CellExists(options, "LEFTOUTERJOIN") AND RecordExists(options.leftouterjoin))
+      THROW NEW Exception("Left outer joins are not permitted against WHFS instance data");
+
+    RETURN ExecuteEnrichment(inrows, idcellname, CELL[...options, DELETE orphans], PTR this->__GetBulkData(#1,  fields, TRUE, #2, #3, getorphanmembers), PTR this->GetDefaultRecord(fields));
+  }
+
+  /** @short Enrich a record array with bulk data
+      @param inputrows Input rows. Should have a cell 'id' referring to the fs_object to update
+      @param fields Fields to get */
+  PUBLIC RECORD ARRAY FUNCTION EnrichWithBulkData(RECORD ARRAY inputrows, STRING ARRAY fields)
+  {
+    RETURN this->Enrich(inputrows, "ID", fields, [rightouterjoin := TRUE]);
+  }
+
+  /** Imports instancedata for a specific object into the database, with optional remapping of whfs references
+      @param objectid Id of whfs object to set the instance data for
+      @param newinstancedata New instance data
+      @param remapper Optional object to remap string (array) values back to whfsref(array)s
+      @param options Options
+      @cell options.isvisibleedit Whether the modificationdate should be adjusted (defaults to the contenttype cloneoncopy value).
+      @return Id of instance (0 if no instance was present)
+      @see ExportInstanceData, SetInstanceData
+  */
+  PUBLIC INTEGER FUNCTION ImportInstanceData(INTEGER objectid, RECORD newinstancedata, OBJECT remapper, BOOLEAN export_orphans, RECORD options DEFAULTSTO CELL[])
+  {
+    //TODO Gather all changes and UPDATE/INSERT/DELETE in one pass, so we won't be throwing any validation exceptions halfway a SetInstanceData
+    options := ValidateOptions(
+        [ isvisibleedit :=    this->cloneoncopy
+        ], options);
+
+    IF(NOT this->pvt_members_valid)
+      this->__LoadMembers();
+
+    INTEGER instance := SELECT AS INTEGER id
+                          FROM system.fs_instances
+                         WHERE fs_type = this->typedef.id
+                               AND fs_object = objectid;
+
+    BOOLEAN isnew := instance=0;
+    RECORD ARRAY cursettings;
+    IF(isnew) //ADDME Don't create the instance if ALL members equal their emptyval
+    {
+      instance := MakeAutonumber(system.fs_instances,"id");
+      INSERT INTO system.fs_instances(id, fs_type, fs_object) VALUES(instance, this->typedef.id, objectid);
+    }
+    ELSE
+    {
+      cursettings :=
+          SELECT parent
+               , fs_member
+               , settings := GroupedValues(CELL[id,setting,fs_object,ordering,instancetype,blobdata])
+           FROM system.fs_settings
+          WHERE fs_instance = VAR instance
+       GROUP BY parent, fs_member
+       ORDER BY parent, fs_member;
+    }
+
+    RECORD rec := this->__RecurseSetInstanceData(instance, 0, 0, newinstancedata, cursettings, remapper, export_orphans);
+    IF (NOT rec.any_nondefault)
+    {
+      /* We may be able to delete the instance completely. Check if settings still remain, there may be
+         members RecurseSetInstanceData didn't know about */
+      IF(NOT RecordExists(SELECT FROM system.fs_settings WHERE fs_instance = instance LIMIT 1))
+      {
+        DELETE FROM system.fs_instances WHERE id = instance;
+        instance := 0;
+      }
+    }
+    ELSE
+    {
+      GetWHFSCommitHandler()->AddLinkCheckedSettings(rec.linkchecked_settingids);
+    }
+
+    RunModuleHookTarget("system:whfs_object_afterinstancedataupdate", [ objectid := objectid
+                                                                      , typeobject := this
+                                                                      , newinstancedata := newinstancedata
+                                                                      ]);
+
+    IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings"
+       AND NOT GetWHFSCommitHandler()->IsSiteProfileRecompileOnCommitTriggered()
+       AND RecordExists(SELECT FROM system.sites WHERE id = objectid))
+    {
+      //this might change siteprofile associations or webdesign/webfeatures
+      GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+    }
+
+    RECORD file := SELECT parentsite, parent, type FROM system.fs_objects WHERE id = objectid;
+    IF(RecordExists(file)) //no conflict removed it ?
+    {
+      IF (options.isvisibleedit)
+        GetWHFSCommitHandler()->TriggerEmptyUpdateOnCommit(objectid);
+    }
+
+    RETURN instance;
+  }
+
+  /** Set the instance data for a specific whfs object
+      @param objectid Id of the object to set the instance data for
+      @param newinstancedata New instance data to set
+      @param options Options
+      @cell options.isvisibleedit Whether the modificationdate should be adjusted (defaults to the contenttype cloneoncopy value).
+      @cell options.orphans Allow to set orphaned cells
+      @see GetInstanceData, ImportInstanceData, FilterInstanceDataUpdates
+  */
+  PUBLIC INTEGER FUNCTION SetInstanceData(INTEGER objectid, RECORD newinstancedata, RECORD options DEFAULTSTO CELL[])
+  {
+    options := ValidateOptions(
+        [ isvisibleedit := this->cloneoncopy
+        , orphans       := FALSE
+        ], options);
+
+    BOOLEAN orphans := options.orphans;
+    DELETE CELL orphans FROM options;
+    RETURN this->ImportInstanceData(objectid, newinstancedata, DEFAULT OBJECT, orphans, options);
+  }
+
+  /** Compare instance data and filters out instance members that won't be changed when new instance data is written */
+  PUBLIC RECORD FUNCTION CompareInstanceDataUpdates(RECORD oldinstancedata, RECORD newinstancedata)
+  {
+    RECORD filtered;
+    FOREVERY (RECORD field FROM UnpackRecord(newinstancedata))
+    {
+      IF (NOT CellExists(oldinstancedata, field.name))
+        THROW NEW Exception("Could not find fs member '" || field.name || "' in current instance data " || AnyToString(oldinstancedata, "tree"));
+      IF (NOT CompareSettingValues(GetCell(oldinstancedata, field.name), field.value, TRUE, FALSE))
+        filtered := CellInsert(filtered, field.name, field.value);
+    }
+    RETURN filtered;
+  }
+
+  /** Filters out instance members that won't be changed when new instance data is written, compared to the current data
+      in the database.
+      @param newinstancedata
+      @return Instancedata members that will be changed when writing this instance data
+      @see GetInstanceData, ImportInstanceData
+  */
+  PUBLIC RECORD FUNCTION FilterInstanceDataUpdates(INTEGER objectid, RECORD newinstancedata)
+  {
+    RECORD existing := this->GetInstanceData(objectid);
+    RETURN this->CompareInstanceDataUpdates(existing, newinstancedata);
+  }
+
+  /** Get the shared blocks for a file or folder */
+  PUBLIC RECORD ARRAY FUNCTION GetSharedBlocks(INTEGER objectid, STRING membername)
+  {
+    //Get at tree to the root
+    INTEGER ARRAY objids := [objectid];
+    WHILE(TRUE)
+    {
+      IF(Length(objids)>16)
+        THROW NEW WHFSException("LOOP", "Loop in WHFS - path from fsobject #" || objectid || " is too long");
+
+      INTEGER parentid := SELECT AS INTEGER parent FROM system.fs_objects WHERE id=objectid;
+      IF(parentid=0)
+        BREAK;
+      INSERT parentid INTO objids AT END;
+      objectid := parentid;
+    }
+
+    RECORD ARRAY widgetinfos := this->GetBulkData(objids, [membername]);
+    RECORD widgetcell;
+    FOREVERY(RECORD widgetinfo FROM widgetinfos)
+    {
+      RECORD data := GetCell(widgetinfo,membername);
+      IF(RecordExists(data) AND (data.overridetype != 0 OR #widgetinfo = Length(widgetinfos)-1)) //this is The One
+      {
+        widgetcell := data;
+        BREAK;
+      }
+    }
+
+    IF(NOT RecordExists(widgetcell) OR widgetcell.overridetype = 1 /* no blocks */ OR Length(widgetcell.blocks)=0)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN GatherReferredSharedBlocks(widgetcell.blocks);
+  }
+
+
+  /** Returns all instances of with a specific type
+      @param type Id of the WHFS type
+      @return
+      @cell(integer) return.settingid Setting id (0 for fsobject instance data, set for instances in instances members)
+      @cell(integer) return.fsobject FS object
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListAllInstances()
+  {
+    // Settings directly set on fsobjects
+    RECORD ARRAY rootinstances :=
+        SELECT settingid :=       0
+             , fsobject :=        fs_instances.fs_object
+             , directref :=       [ __token := [ type := "instanceref", _i := this->typedef.id, _o := fs_instances.fs_object, _s := 0 ] ]
+          FROM system.fs_instances
+         WHERE fs_instances.fs_type = this->typedef.id;
+
+    // Instance members
+    RECORD ARRAY subinstances :=
+        SELECT settingid :=       fs_settings.id
+             , fsobject :=        fs_instances.fs_object
+             , directref :=       [ __token := [ type := "instanceref", _i := this->typedef.id, _o := fs_instances.fs_object, _s := fs_settings.id ] ]
+          FROM system.fs_settings
+             , system.fs_instances
+         WHERE fs_settings.instancetype = this->typedef.id
+           AND fs_settings.fs_instance = fs_instances.id;
+
+    RETURN rootinstances CONCAT subinstances;
+  }
+
+  /** @private used by RTE and convert scripts to get instances nested in other instances
+  */
+  PUBLIC RECORD FUNCTION GetInstanceDataByDirectRef(RECORD directref)
+  {
+    IF (directref.__token._i != this->typedef.id)
+      THROW NEW Exception("Using a instance directref from another type");
+
+    IF (directref.__token._s = 0)
+      RETURN this->GetInstanceData(directref.__token._o);
+    ELSE
+      RETURN GetWHFSInstanceDirect(directref.__token._s);
+  }
+
+  /** @private used by RTE and convert scripts to set instances nested in other instances
+  */
+  PUBLIC MACRO SetInstanceDataByDirectRef(RECORD directref, RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ isvisibleedit :=    this->cloneoncopy
+        ], options);
+
+    IF (CellExists(data, "WHFSTYPE") AND data.whfstype != this->namespace)
+      THROW NEW Exception(`Setting data with 'WHFSTYPE' set to the wrong type (expected ${this->namespace}, got ${data.whfstype}`);
+
+    IF (directref.__token._s = 0)
+    {
+      IF (directref.__token._i != this->typedef.id)
+      {
+        OBJECT oldtype := OpenWHFSTypeById(INTEGER(directref.__token._i));
+        oldtype->SetInstanceData(directref.__token._o, oldtype->defaultinstance);
+      }
+      this->SetInstanceData(directref.__token._o, data);
+    }
+    ELSE
+    {
+      // Get the setting and member record
+      RECORD setting :=
+          SELECT fs_settings.*
+               , __memberrec :=
+                      [ id :=     fs_members.id
+                      , name :=   fs_members.name
+                      ]
+            FROM system.fs_settings
+               , system.fs_members
+           WHERE fs_settings.id = directref.__token._s
+             AND fs_members.id = fs_settings.fs_member;
+
+      IF (NOT RecordExists(setting))
+        THROW NEW Exception("Setting has been deleted");
+
+      IF (NOT CellExists(data, "WHFSTYPE"))
+        INSERT CELL whfstype := this->namespace INTO data;
+
+      RECORD ARRAY cursettings := GetCurrentSubSettingsForSetting(directref.__token._s);
+      INTEGER newid := this->__WriteInstanceMember(data, setting.__memberrec, FALSE, cursettings, DEFAULT OBJECT, [ setting ], setting.fs_instance, setting.parent, setting.setting, setting.ordering);
+      IF (newid != 0)
+        DELETE FROM system.fs_settings WHERE id = directref.__token._s;
+    }
+
+    IF (options.isvisibleedit)
+      PerformEmptyWHFSMetadataUpdate(directref.__token._o, [ republish := TRUE ]);
+  }
+
+>;
+
+/** Register or update a new WHFS type */
+PUBLIC MACRO RegisterWHFSType(RECORD typeinfo)
+{
+  OBJECT type := OpenWHFSType(typeinfo.namespace, [ openorphans := TRUE ]);
+  INTEGER whfstypeid;
+
+  BOOLEAN makefoldertype := CellExists(typeinfo, 'foldertype') AND typeinfo.foldertype;
+  BOOLEAN makefiletype := CellExists(typeinfo, 'filetype') AND typeinfo.filetype;
+  BOOLEAN makecloneoncopy := CellExists(typeinfo, 'cloneoncopy') AND typeinfo.cloneoncopy;
+  BOOLEAN makedynamicexecution := CellExists(typeinfo, 'isdynamicexecution') AND typeinfo.isdynamicexecution;
+  GetWHFSCommitHandler()->FSTypesChanged();
+
+  IF(NOT ObjectExists(type))
+  {
+    whfstypeid := MakeAutonumber(system.fs_types, "id");
+    INSERT INTO system.fs_types(id, namespace, orphan, isfiletype, isfoldertype, cloneoncopy, isdynamicexecution)
+           VALUES(whfstypeid, typeinfo.namespace, TRUE, makefiletype, makefoldertype, makecloneoncopy, makedynamicexecution);
+  }
+  ELSE
+  {
+    whfstypeid := type->id;
+
+    UPDATE system.fs_types SET isfoldertype := makefoldertype OR isfoldertype
+                             , isfiletype := makefiletype OR isfiletype
+                             , cloneoncopy := makecloneoncopy OR cloneoncopy
+                             , isdynamicexecution := makedynamicexecution OR isdynamicexecution
+                           WHERE id = type->id;
+  }
+
+  RECORD applyres := ApplyCTMembers(typeinfo.members, whfstypeid, TRUE);
+  IF(debugmapping)
+  {
+    Print("applyres\n");
+    printrecordto(0, applyres, 'tree');
+  }
+
+  IF(ObjectExists(type))
+    type->__rescan();
+
+  GetPrimary()->BroadcastOnCommit("publisher:internal.siteprofiles.memberschanged", DEFAULT RECORD); //TODO shouldn't FSTypesChanged imply this?
+}
+
+/** @short Returns a WHFS type object from the id of the type
+    @long This function opens a WHFS type by its id. It will open both normal and orphaned types
+    @param getid Id of the WHFS type
+    @return(object %WHFSType) WHFS type object (DEFAULT OBJECT if the type does not exist)
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+*/
+PUBLIC OBJECT FUNCTION OpenWHFSTypeById(INTEGER getid)
+{
+  RECORD entry := SELECT * FROM whfscache_loadedwhfstypes WHERE id=getid;
+  IF(RecordExists(entry))
+  {
+    OBJECT whfstype := OBJECT(entry.obj);
+    IF(ObjectExists(whfstype))
+      RETURN whfstype;
+
+    //lost the reference. delete it from cache
+    DELETE FROM whfscache_loadedwhfstypes WHERE id=getid;
+  }
+
+  entry := SELECT * FROM system.fs_types WHERE id = getid;
+  RETURN FinalizeWHFSType(entry);
+}
+OBJECT FUNCTION FinalizeWHFSType(RECORD entry)
+{
+  IF(NOT RecordExists(entry))
+    RETURN DEFAULT OBJECT;
+
+  OBJECT rettype := NEW WHFSType(entry);
+
+  EnsureWHFSCacheListener();
+  INSERT CELL obj := WEAKOBJECT(rettype) INTO entry;
+  INSERT entry INTO whfscache_loadedwhfstypes AT END;
+  RETURN rettype;
+}
+
+/** @short Returns a WHFS type object from the namespace of the type
+    @long This function opens a WHFS type by its namespace
+    @param getnamespace Namespace of the WHFS type
+    @cell options.openorphans Open type even if orphan (not referred by any siteprofile)
+    @return(object ) WHFS type object (DEFAULT OBJECT if the type does not exist)
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+*/
+PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ openorphans := FALSE ], options);
+
+  BOOLEAN isnormalfolder := getnamespace = "http://www.webhare.net/xmlns/publisher/normalfolder";
+  BOOLEAN isunknownfile := getnamespace = "http://www.webhare.net/xmlns/publisher/unknownfile";
+  IF(isnormalfolder OR isunknownfile)
+  {
+    RETURN FinalizeWHFSType([ id := 0
+                            , namespace := getnamespace
+                            , isfoldertype := isnormalfolder
+                            , isfiletype := isunknownfile
+                            , orphan := FALSE
+                            , cloneoncopy := FALSE
+                            , isacceptableindex := FALSE
+                            , ispublishedassubdir := FALSE
+                            , searchprovider := ""
+                            ]);
+  }
+
+  RECORD entry := SELECT * FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace;
+  IF(RecordExists(entry))
+  {
+    OBJECT whfstype := OBJECT(entry.obj);
+    IF(ObjectExists(whfstype))
+      RETURN whfstype;
+
+    //lost the reference. delete it from cache
+    DELETE FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace;
+  }
+
+  entry := SELECT * FROM system.fs_types WHERE namespace = getnamespace;
+
+  OBJECT obj := FinalizeWHFSType(entry);
+  IF(NOT ObjectExists(obj))
+    RETURN DEFAULT OBJECT;
+
+  IF(options.openorphans = FALSE AND obj->orphan)
+    RETURN DEFAULT OBJECT;
+
+  RETURN obj;
+}
+
+BOOLEAN FUNCTION UpdateMember(INTEGER memberid, RECORD memberdata, RECORD oldversion)
+{
+  //ADDME move to compiled siteprofiles or just remove it
+  BOOLEAN newpublish;
+  IF(CellExists(memberdata,'publish'))
+  {
+    newpublish := (memberdata.type IN [5,15] AND CellExists(memberdata,"publish")) ? memberdata.publish : FALSE;
+  }
+
+  IF(RecordExists(oldversion)
+     AND oldversion.name=memberdata.name
+     AND oldversion.type=memberdata.type
+     AND oldversion.publish=newpublish)
+    RETURN FALSE; //nothing to update
+
+  GetWHFSCommitHandler()->FSTypesChanged();
+
+  UPDATE system.fs_members
+         SET name := memberdata.name
+           , type := memberdata.type //FIXME Avoid incompatible (nearly all) type changes on existing members.. reject those changes instead!
+           , publish := CellExists(memberdata,'publish') ? newpublish : fs_members.publish
+         WHERE id = memberid;
+
+  // Type change?
+  IF (RecordExists(oldversion) AND oldversion.type != memberdata.type)
+  {
+    IF (oldversion.type = 19) // URL
+    {
+      // From URL to something else -> remove checked links
+      INTEGER ARRAY current_settings :=
+          SELECT AS INTEGER ARRAY id
+            FROM system.fs_settings
+           WHERE fs_member = memberid;
+
+      GetWHFSCommitHandler()->RemoveLinkCheckedSettings(current_settings);
+    }
+    IF (memberdata.type = 19) // URL
+    {
+      // To URL: add all filled settings to link check
+      INTEGER ARRAY filled_settings :=
+          SELECT AS INTEGER ARRAY id
+            FROM system.fs_settings
+           WHERE fs_member = memberid
+             AND setting != "";
+
+      GetWHFSCommitHandler()->AddLinkCheckedSettings(filled_settings);
+    }
+  }
+
+  RETURN TRUE;
+}
+
+
+PUBLIC RECORD FUNCTION ApplyCTMembers(RECORD ARRAY inmembers, INTEGER curtype, BOOLEAN orphans)
+{
+  RECORD ARRAY allcurmembers := SELECT *
+                                  FROM system.fs_members
+                                 WHERE fs_type=curtype;
+  RETURN ApplyCTMembersRecurse(inmembers, curtype, 0, orphans, allcurmembers);
+}
+
+/** @cell(string) inmembers.name
+    @cell(integer) inmembers.type
+    @cell(integer) inmembers.maxlength
+    @cell(boolean) inmembers.publish */
+PUBLIC RECORD FUNCTION ApplyCTMembersRecurse(RECORD ARRAY inmembers, INTEGER curtype, INTEGER curparent, BOOLEAN orphans, RECORD ARRAY allcurmembers)
+{
+  RECORD retval := [ updatedmembers := DEFAULT INTEGER ARRAY
+                   , seenmembers := DEFAULT INTEGER ARRAY
+                   ];
+
+  GetWHFSCommitHandler()->FSTypesChanged();
+
+  RECORD ARRAY curmembers := SELECT * FROM allcurmembers WHERE parent=curparent;
+  FOREVERY(RECORD memberinfo FROM inmembers)
+  {
+    RECORD oldversion := SELECT * FROM curmembers WHERE ToUppercase(name)=ToUppercase(memberinfo.name);
+    INTEGER memberid;
+    BOOLEAN isupdate;
+
+    IF(RecordExists(oldversion))
+    {
+      memberid := oldversion.id;
+    }
+    ELSE
+    {
+      memberid := MakeAutonumber(system.fs_members, "id");
+      INSERT INTO system.fs_members(id, name, fs_type, parent, orphan, type)
+             VALUES(memberid, memberinfo.name, curtype, curparent, orphans, memberinfo.type);
+    }
+
+    INSERT memberid INTO retval.seenmembers AT END;
+    IF (UpdateMember(memberid, memberinfo, oldversion))
+      INSERT memberid INTO retval.updatedmembers AT END;
+
+    IF(memberinfo.type = 12)
+    {
+      RECORD subres := ApplyCTMembersRecurse(memberinfo.children, curtype, memberid, orphans, allcurmembers);
+      retval.updatedmembers := retval.updatedmembers CONCAT subres.updatedmembers;
+      retval.seenmembers := retval.seenmembers CONCAT subres.seenmembers;
+    }
+  }
+  RETURN retval;
+}
+
+PUBLIC MACRO FlushUnreferredContentData()
+{
+  //Drop all non-updated members with no associated settings
+  INTEGER ARRAY member_deletion_candidates := SELECT AS INTEGER ARRAY fs_members.id
+                                                FROM system.fs_members, system.fs_types
+                                               WHERE fs_members.fs_type = fs_types.id
+                                                     AND (fs_members.orphan OR fs_types.orphan);
+
+  INTEGER ARRAY keep_members;
+  IF(Length(member_deletion_candidates) > 0)
+  {
+    GetWHFSCommitHandler()->FSTypesChanged();
+
+    keep_members := SELECT AS INTEGER ARRAY fs_member
+                      FROM system.fs_settings
+                     WHERE fs_member IN member_deletion_candidates
+                  GROUP BY fs_member;
+
+    DELETE FROM system.fs_members
+           WHERE id IN member_deletion_candidates AND id NOT IN keep_members;
+  }
+
+  //Drop all non-updated contenttypes IF they have no members
+  INTEGER ARRAY types_with_members := SELECT AS INTEGER ARRAY fs_type
+                                        FROM system.fs_members
+                                    GROUP BY fs_type;
+
+  //All out-of-date types without up-to-date members, are deletion candidates
+  INTEGER ARRAY candidates_for_deletion := SELECT AS INTEGER ARRAY id
+                                             FROM system.fs_types
+                                            WHERE orphan = TRUE
+                                                  AND (id NOT IN types_with_members);
+  IF(Length(candidates_for_deletion)>0)
+  {
+    GetWHFSCommitHandler()->FSTypesChanged();
+
+    INTEGER ARRAY used_types := SELECT AS INTEGER ARRAY type
+                                  FROM system.fs_objects
+                                 WHERE type IN candidates_for_deletion
+                              GROUP BY type;
+
+    used_types := used_types CONCAT SELECT AS INTEGER ARRAY instancetype
+                                      FROM system.fs_settings
+                                     WHERE instancetype != 0
+                                           AND instancetype IN candidates_for_deletion
+                                  GROUP BY instancetype;
+
+    DELETE FROM system.fs_types
+           WHERE id IN candidates_for_deletion
+                 AND id NOT IN used_types;
+  }
+
+  IF(Length(member_deletion_candidates) > 0 OR Length(candidates_for_deletion) > 0)
+    GetPrimary()->BroadcastOnCommit("publisher:internal.siteprofiles.memberschanged", DEFAULT RECORD);
+}
+
+PUBLIC MACRO RescanWHFSConsilioLinks()
+{
+  INTEGER ARRAY members :=
+      SELECT AS INTEGER ARRAY id
+        FROM system.fs_members
+       WHERE type IN [ 15, 16, 19 ]; // RICHDOCUMENT, INTEXTLINK, URL
+
+  INTEGER ARRAY all_settings :=
+      SELECT AS INTEGER ARRAY fs_settings.id
+        FROM system.fs_settings
+       WHERE fs_member IN members
+         AND ordering = 0; // Needed for RICHDOCUMENT
+
+  GetWHFSCommitHandler()->AddLinkCheckedSettings(all_settings);
+}
+
+/** @short Reads an WHFS instance from its setting ID
+    @param fssettingid WHFS setting id of the instance
+    @return Instance data
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+*/
+PUBLIC RECORD FUNCTION GetWHFSInstanceDirect(INTEGER fssettingid)
+{
+  RECORD settingrec := SELECT * FROM system.fs_settings WHERE id = VAR fssettingid;
+  IF(NOT RecordExists(settingrec))
+    RETURN DEFAULT RECORD;
+
+  RECORD ARRAY cursettings := GetCurrentSettingsForInstance(settingrec.fs_instance);
+  RETURN GetInstanceMember(settingrec, cursettings, NEW BaseUrlOnDemand(settingrec.fs_instance, TRUE), DEFAULT OBJECT, FALSE);
+}

@@ -1,0 +1,30 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE ConfigAfterpay EXTEND PSPSettingsExtensionBase
+<
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    PSPSettingsExtensionBase::InitExtension(extendablelinescontainer);
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetPaymentProviderValue()
+  {
+    RETURN ^methodsettings->value;
+  }
+  UPDATE PUBLIC MACRO SetPaymentProviderValue(RECORD settings)
+  {
+    ^methodsettings->value := settings;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PayInfo EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD meta := data.payment->__GetPaymentData();
+    //^transactionid->value := meta.transactionid;
+  }
+>;

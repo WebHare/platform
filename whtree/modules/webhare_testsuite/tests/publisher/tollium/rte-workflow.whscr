@@ -1,0 +1,110 @@
+<?wh
+/* Test the save & preview workflows in the EditDocument app */
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+INTEGER testrtdfileid;
+STRING previewlink;
+
+MACRO PrepIt()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  testfw->BeginWork();
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), GetTestsuiteTempFolder()->id, FALSE, TRUE);
+  //publish=true as all new RTD files currently are immediately published
+  OBJECT testrtd := GetTestsuiteTempFolder()->CreateFile( [ name := "draft-test.rtd", type := richdoctype->id, publish := TRUE ]);
+  testrtdfileid := testrtd->id;
+  testfw->CommitWork();
+}
+
+ASYNC MACRO EditRTD()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+
+  OBJECT rte := TT("doceditor")->contents->rte;
+  rte->TolliumWeb_FormUpdate('<p class="normal">This is a previewable text</p>');
+  rte->__debug_simulatedirty();
+  TestEq(TRUE, topscreen->saveasdraftbutton->TolliumClick());
+
+  AWAIT ExpectScreenChange(+1, PTR TTCLick("sendpreviewlink"));
+
+  topscreen->passwordprotect->value := TRUE;
+  topscreen->password->value := "secret";
+  topscreen->wizard->nextbutton->TolliumClick();
+  previewlink := topscreen->link->value;
+
+  Print(previewlink||"\n");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(previewlink));
+
+  TestEq(FALSE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
+  TestEQ("", testfw->browser->GetResponseHeader("X-WHPUB-PREVIEW"));
+
+  OBJECT form := testfw->browser->document->GetElement("form");
+  form->GetElement("*[name='password']")->SetAttribute("value", "bladiebla");
+  testfw->browser->SubmitForm(form);
+
+  TestEq(FALSE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
+  form := testfw->browser->document->GetElement("form");
+  form->GetElement("*[name='password']")->SetAttribute("value", "secret");
+  testfw->browser->SubmitForm(form);
+
+  TestEq(TRUE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
+
+  //Now test if "__whpub_preview" doesn't interfere with password checking
+  testfw->browser->SetSessionCookie("__whpub_preview", "debug");
+  TestEq(TRUE, testfw->browser->GotoWebPage(previewlink));
+  TestEQ(previewlink, testfw->browser->GetResponseHeader("X-WHPUB-PREVIEW"));
+
+  TestEq(FALSE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
+
+  form := testfw->browser->document->GetElement("form");
+  form->GetElement("*[name='password']")->SetAttribute("value", "secret");
+  testfw->browser->SubmitForm(form);
+
+  TestEq(TRUE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
+  TestEQ(previewlink, testfw->browser->GetResponseHeader("X-WHPUB-PREVIEW"));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+ASYNC MACRO RecycleDraft()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+
+  OBJECT rte := TT("doceditor")->contents->rte;
+  rte->TolliumWeb_FormUpdate('<p class="normal">This is a recyclable draft text</p>');
+  rte->__debug_simulatedirty();
+  TestEq(TRUE, topscreen->saveasdraftbutton->TolliumClick());
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TestEq(1, Length(ListUserWHFSDrafts(GetEffectiveUserId())));
+
+  testfw->BeginWork();
+  OpenWHFSObject(testrtdfileid)->RecycleSelf();
+  testfw->CommitWork();
+
+  TestEq(1, Length(ListUserWHFSDrafts(GetEffectiveUserId())));
+
+  testfw->BeginWork();
+  OpenWHFSObject(testrtdfileid)->MoveTo(GetTestsuiteTempFolder(), "draft-test.rtd");
+  testfw->CommitWork();
+
+  TestEq(1, Length(ListUserWHFSDrafts(GetEffectiveUserId())));
+}
+
+RunTestframework([ PTR PrepIt
+                 , PTR EditRTD
+                 , PTR RecycleDraft
+                 ], [ testusers := [[ login := "lisa" ]
+                                   ]
+                    , profile := TRUE
+                    ]);

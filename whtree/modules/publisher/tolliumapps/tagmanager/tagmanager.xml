@@ -1,0 +1,34 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.tagmanager"
+         library="tagmanager.whlib">
+
+  <screen name="tagmanager" allowresize="true">
+    <body>
+     <listedit name="tags"
+               height="1pr"
+               rowselect="true"
+               ongetchildren="loadtags"
+               onrowedit="editrow"
+               onrowdelete="deleterow"
+               buttons="edit delete"
+               minwidth="50x"
+               minheight="14x">
+        <column name="tag" type="text" />
+      </listedit>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="tagedit" allowresize="true" >
+    <body>
+      <textedit name="tag" required="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

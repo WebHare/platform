@@ -1,0 +1,6 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="Witty"
+       docorder="syntax usage emails"
+       shortdescription="The template engine">
+  <section name="api" title="Witty API" />
+</topic>

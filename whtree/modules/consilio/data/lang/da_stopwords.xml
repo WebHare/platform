@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Danish stop word list for WebHare Consilio
+
+In this file a list of common words is specified, which are considered less
+important for search queries. Accents are removed or rewritten by Consilio when
+necessary, but be sure to save this file as UTF-8 if you add accented
+characters.
+If you make changes to this file, be sure to put it in the etc/lang directory
+of your WebHare installation, otherwise it will be overwritten when upgrading or
+reinstalling WebHare.
+
+The words on this list are taken from
+http://snowball.tartarus.org/algorithms/danish/stop.txt
+-->
+<stopwords xmlns="http://www.webhare.net/xmlns/consilio/stopwords" xml:lang="da">
+  <word>ad<!--by/through--></word>
+  <word>af<!--of/by/from/off/for/in/with/on, off--></word>
+  <word>alle<!--all/everyone/everybody etc.--></word>
+  <word>alt<!--everything--></word>
+  <word>anden<!--other--></word>
+  <word>at<!--that (in front of a sentence)/to (with infinitive)--></word>
+  <word>blev<!--past tense of "to stay/to remain/to get/to become"--></word>
+  <word>blive<!--be/become--></word>
+  <word>bliver<!--present tense of "to be/to become"--></word>
+  <word>da<!--then, when/as/since--></word>
+  <word>de<!--they--></word>
+  <word>dem<!--them--></word>
+  <word>den<!--it (pers. pronoun)/that (dem. pronoun)--></word>
+  <word>denne<!--this--></word>
+  <word>der<!--who/which, there/those--></word>
+  <word>deres<!--their/theirs--></word>
+  <word>det<!--that (dem. pronoun)/it (pers. pronoun)--></word>
+  <word>dette<!--this--></word>
+  <word>dig<!--you--></word>
+  <word>din<!--your/yours--></word>
+  <word>disse<!--these--></word>
+  <word>dog<!--however/yet/after all--></word>
+  <word>du<!--you--></word>
+  <word>efter<!--after/behind/according to/for/by/from, later/afterwards--></word>
+  <word>eller<!--or--></word>
+  <word>en<!--a/an--></word>
+  <word>end<!--than--></word>
+  <word>er<!--present tense of "to be"--></word>
+  <word>et<!--a/an/one, one (number), someone/somebody/one--></word>
+  <word>for<!--at/for/to/from/by/of/ago, in front/before, because--></word>
+  <word>fra<!--from/off/since, off, since--></word>
+  <word>ham<!--him--></word>
+  <word>han<!--he--></word>
+  <word>hans<!--his--></word>
+  <word>har<!--present tense of "to have"--></word>
+  <word>havde<!--past tense of "to have"--></word>
+  <word>have<!--have--></word>
+  <word>hende<!--her--></word>
+  <word>hendes<!--her/hers--></word>
+  <word>her<!--here--></word>
+  <word>hos<!--by/at--></word>
+  <word>hun<!--she--></word>
+  <word>hvad<!--what--></word>
+  <word>hvis<!--if--></word>
+  <word>hvor<!--where--></word>
+  <word>i<!--in--></word>
+  <word>ikke<!--not--></word>
+  <word>ind<!--in--></word>
+  <word>jeg<!--I--></word>
+  <word>jer<!--you--></word>
+  <word>jo<!--you know/you see (adv), yes--></word>
+  <word>kunne<!--could--></word>
+  <word>man<!--you/one--></word>
+  <word>mange<!--many--></word>
+  <word>med<!--with/by/in, along--></word>
+  <word>meget<!--much/very, plenty of--></word>
+  <word>men<!--but--></word>
+  <word>mig<!--me/myself--></word>
+  <word>min<!--my--></word>
+  <word>mine<!--my--></word>
+  <word>mit<!--my/mine--></word>
+  <word>mod<!--against--></word>
+  <word>ned<!--down--></word>
+  <word>noget<!--something--></word>
+  <word>nogle<!--some--></word>
+  <word>nu<!--now--></word>
+  <word>når<!--when--></word>
+  <word>og<!--and--></word>
+  <word>også<!--also--></word>
+  <word>om<!--round/about/for/in/a, about/around/down, if--></word>
+  <word>op<!--up--></word>
+  <word>os<!--us/ourselves--></word>
+  <word>over<!--over/above/across/by/beyond/past/on/about, over/past--></word>
+  <word>på<!--on/upon/in/on/at/to/after/of/with/for, on--></word>
+  <word>selv<!--myself/youself/herself/ourselves etc., even--></word>
+  <word>sig<!--oneself/himself/herself/itself/themselves--></word>
+  <word>sin<!--his/her/its/one's--></word>
+  <word>sine<!--his, her, its, one's--></word>
+  <word>sit<!--his, her, its, one's--></word>
+  <word>skal<!--must/shall etc.--></word>
+  <word>skulle<!--should--></word>
+  <word>som<!--who, as--></word>
+  <word>sådan<!--such, like this/like that--></word>
+  <word>thi<!--for (conj)--></word>
+  <word>til<!--to/at/for/until/against/by/of/into, more--></word>
+  <word>ud<!--out--></word>
+  <word>under<!--under/beneath/below/during, below/underneath--></word>
+  <word>var<!--past tense of "to be"--></word>
+  <word>vi<!--we--></word>
+  <word>vil<!--will (verb)--></word>
+  <word>ville<!--would--></word>
+  <word>vor<!--our--></word>
+  <word>være<!--present tense of "to be"--></word>
+  <word>været<!--be--></word>
+</stopwords>

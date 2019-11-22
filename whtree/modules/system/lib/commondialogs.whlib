@@ -1,0 +1,34 @@
+﻿<?wh
+/** @private Interesting dialogs should be moved to dialogs.whlib AND use a Run... instead of Make... workflow */
+
+/** @private Use RunSendEmailDialog */
+PUBLIC OBJECT FUNCTION MakeComposeMailDialog(OBJECT parent)
+{
+  OBJECT mailer := parent->LoadScreen("system:commondialogs.mailer");
+  OBJECT user := parent->tolliumuser;
+
+  IF (user->emailaddress!="")
+  {
+    IF(user->realname!="") //ADDME: username encoding?
+      mailer->mailfrom := user->realname || " <" || user->emailaddress || ">";
+    ELSE
+      mailer->mailfrom := user->emailaddress;
+  }
+
+  RETURN mailer;
+}
+
+/** @private Use RunEmailViewDialog */
+PUBLIC OBJECT FUNCTION MakeViewMailDialog(OBJECT parent, RECORD data)
+{
+  OBJECT mailer := parent->LoadScreen("system:commondialogs.mailviewer", data);
+  RETURN mailer;
+}
+
+/** @private Use RunMailQueueDialog */
+PUBLIC OBJECT FUNCTION MakeMailQueueDialog(OBJECT parent, STRING filter)
+{
+  OBJECT dialog := parent->LoadScreen("system:commondialogs.mailqueuedialog", [ sourcefilter := filter ]);
+  RETURN dialog;
+}
+

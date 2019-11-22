@@ -1,0 +1,267 @@
+<?wh
+/** @topic sitedev/caching */
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/filters.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
+LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/errors.whlib";
+
+/* UC URL structure
+
+  /.uc/i<twodigits>/restdigits/
+
+  We'll store images as follows
+  /.uc/i12/<imgtoken>.jpg
+  /.uc/i34/<imgtoken>.png
+  /.uc/i56/<imgtoken>.gif
+
+  Need pretty names? Then simpy append /bicycle.jpg
+  This naming convention allows us to serve images without looking at their
+  contents
+
+  We'll also want to offer files, and without having to go to the database. Ie,
+  the disk version should give us enough info.
+
+  e=embed, f=file
+
+  /uc/e78/application/zip/<filetoken><extension>
+  /uc/f9a/application/zip/<filetoken><extension>
+*/
+
+RECORD FUNCTION GetMimeType(STRING extension)
+{
+  OBJECT trans := OpenPrimary();
+  STRING mimetype := (SELECT AS STRING mimetypes.mimetype FROM system.mimetypes WHERE mimetypes.extension = Substring(VAR extension,1)) ?? "application/octet-stream";
+  trans->Close();
+  RETURN [ value := mimetype
+         , ttl := 5 * 60 * 1000 //ADDME flush on mimetype table change
+         ];
+}
+
+PUBLIC OBJECTTYPE UnifiedCacheHostBase
+<
+  /** The hash used by this cachehost. You should set this (and also pass it
+      to all Getcached... calls) if you want to make sure your cachehost can't
+      be avoided, eg by using the /.uc/ URLs. You want this if your cachehost
+      eg. watermarks images
+
+      Modifying the hosthash invalidates all previously created GetCached.. URLs
+      which used the wrong hash, so you can also use this to ensure no existing
+      image URLs are valid after changing your postprocessor. */
+  PUBLIC STRING hosthash;
+
+  BOOLEAN force;
+  BOOLEAN trace;
+
+  MACRO NEW()
+  {
+    this->force := GetWebVariable("force")="1";
+    this->trace := GetWebVariable("trace")="1" AND GetDTAPStage() = "development";
+    IF(this->trace)
+      AddHTTPHeader("Content-Type","text/plain",FALSE);
+  }
+
+  //Get the disk hash key for this image
+  STRING FUNCTION GetDiskPath(RECORD analyzed)
+  {
+    IF (analyzed.urlschema = "v1")
+      RETURN MergePath(GetWebhareConfiguration().ephemeralroot || "system.uc/",ToLowercase(analyzed.urlpart));
+    ELSE IF (analyzed.urlschema = "v2")
+    {
+      STRING folder := Left(analyzed.urlpart, SearchLastSubString(analyzed.urlpart, "/"));
+      STRING hash := ToLowercase(EncodeBase16(GetHashForString(folder, "SHA-256"))) || analyzed.extension;
+      hash := Left(hash, 3) || "/" || SubString(hash, 3);
+
+      RETURN MergePath(GetWebhareConfiguration().ephemeralroot || "system.uc2/", hash);
+    }
+
+    THROW NEW Exception(`Unsupported unified cache urlschema '${analyzed.urlschema}'`);
+  }
+
+  BLOB FUNCTION ProcessImage(RECORD imgrec, RECORD imginfo)
+  {
+    /* Verify and decode image information */
+    RECORD hostdata;
+    IF(CellExists(imginfo, 'hostdata'))
+      hostdata := imginfo.hostdata;
+
+    INSERT CELL postprocessor := this->GetImagePostProcessor(hostdata) INTO imginfo.resizemethod;
+    RECORD res := GfxResizeWrappedImageWithMethod(imgrec, imginfo.resizemethod);
+    IF(NOT RecordExists(res))
+      THROW NEW Exception("GfxResizeImageBlobWithMethod failed");
+    RETURN res.data;
+  }
+
+  RECORD FUNCTION GetCacheRawData(RECORD data)
+  {
+    //Get the path for this image
+    STRING path := this->GetDiskPath(data);
+    BLOB diskfile;
+    IF (NOT this->force)
+    {
+      TRY
+      {
+        diskfile := GetDiskResource(path);
+        IF(this->trace)
+          Print("Disk name: " || path || " " || Length(diskfile) || " bytes\n");
+
+        RECORD fileinfo := GetDiskFileProperties(path);
+        RETURN [ modified := fileinfo.modified
+               , data := diskfile
+               ];
+      }
+      CATCH(OBJECT e)
+      {
+        IF(this->trace)
+          Print("Disk name: " || path || " not present: " || e->what || "\n");
+      }
+    }
+
+    //Need to create it
+    //ADDME interlock/mutex to ensure 25 threads don't race to create the same image?
+    STRING temppath := path || ".$$" || GenerateUFS128BitId();
+    INTEGER imghandle;
+    TRY
+    {
+      RECORD dbdata := LookupDataForUnifiedURL(data.item);
+      IF (this->trace)
+        DumpValue(dbdata, "tree");
+      BLOB content := dbdata.data;
+      IF(data.datatype=1)
+        content := this->ProcessImage(dbdata, data.item);
+
+      imghandle := CreateDiskFile(temppath, TRUE, TRUE);
+      IF (imghandle <= 0)
+      {
+        CreateDiskDirectoryRecursive(GetDirectoryFromPath(temppath), TRUE);
+        imghandle := CreateDiskFile(temppath, TRUE, TRUE);
+      }
+      IF (imghandle <= 0)
+      {
+        IF(this->trace)
+          Print("Temporary file creation failed. See error logs for more information.\n");
+
+        THROW NEW Exception("I/O error creating temporary image path " || temppath);
+      }
+      //Write the image to the temp file
+      SendBlobTo(imghandle, content);
+    }
+    CATCH(OBJECT e)
+    {
+      IF(imghandle > 0)
+      {
+        CloseDiskFile(imghandle);
+        DeleteDiskFile(temppath);
+      }
+      THROW e;
+    }
+    IF (NOT CloseDiskFile(imghandle))
+    {
+      IF(this->trace)
+        Print("I/O error writing temporary file. See error logs for more information.\n");
+
+      DeleteDiskFile(temppath);
+      THROW NEW Exception("I/O error writing image to " || temppath);
+    }
+
+    DATETIME now := GetCurrentDatetime();
+    IF (NOT MoveDiskPath(temppath, path))
+    {
+      //LogWebserverError("I/O error moving image " || temppath || " to " || path || " (conflict?)");
+      path := temppath;
+    }
+
+    IF(this->trace)
+    {
+      STRING ourlm := FormatHTTPDatetime(now);
+      Print("Image is generated. Last modified: " || ourlm || "\n");
+    }
+
+    RETURN [ modified := GetDiskFileProperties(path).modified
+           , data := GetDiskResource(path)
+           ];
+  }
+
+  /** The postprocessor to apply to the canvas.  */
+  PUBLIC MACRO PTR FUNCTION GetImagePostProcessor(RECORD hostdata)
+  {
+    RETURN DEFAULT MACRO PTR;
+  }
+
+  MACRO FailRequest(STRING why, BOOLEAN badurl)
+  {
+    IF(this->trace)
+    {
+      Print("Failed: " || why || "\n");
+      TerminateScript();
+    }
+    IF(badurl)
+      AddHTTPHeader("Cache-Control", "public, max-age=86400", FALSE); //not immutable, give us a chance to fix eg broken encryption secret
+    AbortWithHTTPError(404, why);
+  }
+
+  PUBLIC STRING FUNCTION GetTokenFromURL(STRING inurl)
+  {
+    INTEGER start := SearchSubstring(inurl,'/.uc/');
+    RETURN start > 0 ? Substring(inurl,start + 5) : "";
+  }
+
+  PUBLIC MACRO HandleRequest()
+  {
+    STRING token := this->GetTokenFromURL(GetRequestURL());
+    IF(token="")
+      this->FailRequest("Unable to detect the token from the URL", TRUE);
+
+    IF(this->trace)
+      Print("Token = [" || token || "]\n");
+
+    TRY
+    {
+      RECORD analyzed := AnalyzeUnifiedURLToken(token, this->hosthash);
+      IF(NOT RecordExists(analyzed))
+        this->FailRequest("Could not parse urltoken", TRUE);
+
+      IF(this->trace)
+        DumpValue(analyzed,'tree');
+
+      RECORD img := this->GetCacheRawData(analyzed);
+      IF(this->trace)
+        DumpValue(img,'tree');
+
+      STRING mimetype := GetAdhocCached([ extension := analyzed.extension], PTR GetMimeType(analyzed.extension));
+
+      AddHTTPHeader("Status", "200", FALSE);
+      IF(this->trace)
+      {
+        Print("Generated image of " || Length(img.data) || " bytes with mimetype " || mimetype || "\n");
+      }
+      ELSE
+      {
+        AddHTTPHeader("Cache-Control", "public, max-age=31536000, immutable", FALSE);
+        AddHTTPHeader("Content-Type", mimetype, FALSE);
+        AddHTTPHeader("Last-Modified", FormatHTTPDatetime(img.modified), FALSE);
+        SendWebFile(img.data);
+      }
+    }
+    CATCH(OBJECT e)
+    {
+      AddHTTPHeader("Cache-Control", "no-cache", FALSE);
+      LogWebserverError(e->what);
+      IF(this->trace)
+        Print("Final error: " || e->what ||"\n");
+      ELSE
+      {
+        AddHTTPHeader("Status", "404", FALSE);
+        GenerateHTTPErrorPage(404, DEFAULT RECORD);
+      }
+    }
+  }
+>;
+AddHTTPHeader("Cache-Control", "no-cache", FALSE);

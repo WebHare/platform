@@ -1,0 +1,73 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/screenbase.whlib";
+
+// NOTE: this screen doesn't use the poll API
+//       This also means it's a second path which assigns guid's.
+//       Should we (and how) find a way to update the options through the poll API ?
+//       (must we can hook into retrieval of the composition value and make it use the poll API's enrichment?? but then it wouldn't do cleanup of votes though.)
+
+
+// ADDME: sync titles of polloptions after they have changed
+
+
+// PollSettings, UpdatePoll or EditPoll
+PUBLIC OBJECTTYPE EditPoll EXTEND FSObjectEditScreenBase
+<
+  /** enrich the poll options with vote counts
+  */
+  RECORD ARRAY FUNCTION OnMapOptionRows(RECORD ARRAY rows)
+  {
+    STRING ARRAY pollguids := SELECT AS STRING ARRAY guid FROM rows;
+
+    RECORD ARRAY pollstats :=
+        SELECT guid
+             , votes
+          FROM publisher.polloptions
+         WHERE poll_fsobject = this->fsobjectid
+               AND guid IN pollguids;
+
+    RETURN SELECT *
+                , votes := (SELECT AS INTEGER COLUMN votes FROM pollstats WHERE pollstats.guid = rows.guid)
+                , style := hide ? "hidden" : ""
+             FROM rows;
+  }
+
+  // If at this moment the poll option already has votes warn now
+  // (although we on submit also check, it's nicer to warn now even though between)
+  BOOLEAN FUNCTION OnRowDelete(RECORD row)
+  {
+    RECORD sel := this->options->value;
+
+    // Check whether this poll options has been selected
+    // FIXME: check the polloptions, the pollvotes or use pollapi->getVotes(optionguid) or pollapi->getPollOptionStatistics() ??
+    RECORD polloption :=
+        SELECT *
+          FROM publisher.polloptions
+         WHERE guid = sel.guid;
+
+    IF (RecordExists(polloption) AND polloption.votes > 0)
+    {
+      //this->owner->RunMessageBox("moduleroot::publisher/screens/objectprops/webtools-poll.xml#cannotdeleteusedpolloption", ToString(polloption.votes));
+      this->owner->RunMessageBox("publisher:objectprops/webtools-poll.cannotdeleteusedpolloption", ToString(polloption.votes));
+      RETURN FALSE;
+    }
+    ABORT("?");
+  }
+>;
+
+
+PUBLIC OBJECTTYPE EditPollOption EXTEND TolliumRowEditScreenBase
+<
+  UPDATE PUBLIC RECORD FUNCTION GetUpdatedRow()
+  {
+    RECORD value := this->row->value;
+
+    IF (value.guid = "")
+      value.guid := GenerateUFS128BitId(); // ADDME: pollobj->__GetNewOptionGUID()
+
+    RETURN value;
+  }
+>;

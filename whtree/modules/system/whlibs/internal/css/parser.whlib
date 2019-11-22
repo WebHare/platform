@@ -1,0 +1,597 @@
+﻿<?wh
+
+LOADLIB "wh::internal/css/tokenizer.whlib";
+
+
+PUBLIC OBJECTTYPE CSSParser2
+<
+  OBJECT tokenizer;
+  PUBLIC BOOLEAN verbose;
+  PUBLIC BOOLEAN debug;
+
+  /** Initializes this parser to parse a CSS text
+  */
+  PUBLIC MACRO InitializeForTextParse(STRING text, BOOLEAN verbose DEFAULTSTO FALSE)
+  {
+    this->verbose := verbose;
+    this->tokenizer := NEW CSSTokenizer(text, verbose);
+  }
+
+  /** Initializes this parser to reparse a list of tokens
+  */
+  PUBLIC MACRO InitializeForReparse(RECORD ARRAY tokens)
+  {
+    this->tokenizer := NEW ReparseTokenizer(tokens);
+  }
+
+  /** Parses the value of a declaration (the part after the ":"). Returns the list of tokens. If !important was at the end, it is removed.
+  */
+  PUBLIC RECORD ARRAY FUNCTION ParseDeclarationValue(STRING value, BOOLEAN verbose DEFAULTSTO FALSE)
+  {
+    this->verbose := verbose;
+    this->tokenizer := NEW CSSTokenizer(value, this->verbose);
+
+    RECORD val := this->ConsumeDeclarationValue();
+    RETURN val.important ? ArraySlice(val.value, 0, val.important_idx) : val.value;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ParseStylesheet()
+  {
+    /* https://www.w3.org/TR/2014/CR-css-syntax-3-20140220/#parser-entry-points
+
+        5.3.1. Parse a stylesheet
+
+        To parse a stylesheet from a stream of tokens:
+
+        1. Create a new stylesheet.
+        2. Consume a list of rules from the stream of tokens, with the top-level flag set.
+        3. Assign the returned value to the stylesheet’s value.
+        4. Return the stylesheet.
+
+        ** Modifications:
+        To move the parser to another library, this function just returns the list of rules, the creation of
+        the stylesheet and the nodes is done elsewhere.
+    */
+    RETURN this->ConsumeListOfRules(TRUE);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ParseListOfRules()
+  {
+    /* https://www.w3.org/TR/2014/CR-css-syntax-3-20140220/#parse-a-list-of-rules0
+
+        5.3.2. Parse a list of rules
+
+        To parse a list of rules from a stream of tokens:
+
+        Consume a list of rules from the stream of tokens, with the top-level flag unset.
+        Return the returned list.
+    */
+    RETURN this->ConsumeListOfRules(FALSE);
+  }
+
+  PUBLIC RECORD FUNCTION ParseRule()
+  {
+    /* https://www.w3.org/TR/2014/CR-css-syntax-3-20140220/#parse-a-rule0
+
+        5.3.3. Parse a rule
+
+        To parse a rule from a stream of tokens:
+
+        1. Consume the next input token.
+        2. While the current input token is a <whitespace-token>, consume the next input token.
+        3. If the current input token is an <EOF-token>, return a syntax error.
+
+           Otherwise, if the current input token is an <at-keyword-token>, consume an at-rule and let rule be the return value.
+
+           Otherwise, consume a qualified rule and let rule be the return value. If nothing was returned, return a syntax error.
+
+        4. While the current input token is a <whitespace-token>, consume the next input token.
+        5. If the current input token is an <EOF-token>, return rule. Otherwise, return a syntax error.
+
+    */
+
+    this->tokenizer->ConsumeToken();
+
+    RECORD ARRAY whitespace_tokens;
+    WHILE (this->tokenizer->type IN [ "ws", "ws-comment" ])
+    {
+      IF (this->tokenizer->type = "ws-comment")
+        INSERT this->tokenizer->GetToken() INTO whitespace_tokens AT END;
+      this->tokenizer->ConsumeToken();
+    }
+
+    IF (this->tokenizer->type = "eof")
+      RETURN DEFAULT RECORD;
+
+    RECORD rule;
+    IF (this->tokenizer->type = "at-rule")
+      rule := this->ConsumeAtRule(whitespace_tokens);
+    ELSE
+      rule := this->ConsumeQualifiedRule(whitespace_tokens);
+
+    IF (this->tokenizer->type = "eof")
+      RETURN DEFAULT RECORD;
+    RETURN rule;
+  }
+
+
+  PUBLIC RECORD ARRAY FUNCTION ParseListOfDeclarations()
+  {
+    /* https://www.w3.org/TR/css-syntax-3/#parse-a-list-of-declarations
+
+        5.3.5. Parse a list of declarations
+
+        To parse a list of declarations:
+
+        1. Consume a list of declarations.
+        2. Return the returned list.
+    */
+    RETURN this->ConsumeListOfDeclarations();
+  }
+
+  RECORD ARRAY FUNCTION ConsumeListOfRules(BOOLEAN toplevel) // http://www.w3.org/TR/css3-syntax/#consume-a-list-of-rules
+  {
+    RECORD ARRAY rules;
+
+    IF(this->verbose)
+      PRINT("[PARSER] Consuming a list of rules starting on line "  || this->tokenizer->line || ", (at " || (this->tokenizer->startpos - this->tokenizer->linestart) || ")\n");//" at a block depth of " || this->blockdepth || ";\n");
+
+    /* http://www.w3.org/TR/2014/CR-css-syntax-3-20140220/
+       5.4.1. Consume a list of rules
+          Create an initially empty list of rules.
+          Repeatedly consume the next input token:
+
+          - <whitespace-tokef>
+            Do nothing.
+          - <EOF-token>
+            Return the list of rules.
+          - <CDO-token>, <CDC-token>
+            If the top-level flag is set, do nothing.
+            Otherwise, reconsume the current input token. Consume a qualified rule. If anything is returned, append it to the list of rules.
+          - <at-keyword-token>
+            Reconsume the current input token. Consume an at-rule. If anything is returned, append it to the list of rules.
+          - anything else
+            Reconsume the current input token. Consume a qualified rule. If anything is returned, append it to the list of rules.
+    */
+
+    RECORD ARRAY whitespace_tokens;
+
+    WHILE(TRUE)
+    {
+      this->tokenizer->ConsumeToken();
+
+      // Pick up all whitespace before the rule
+      IF (this->tokenizer->type IN [ "ws", "ws-comment" ])
+      {
+        INSERT this->tokenizer->GetToken() INTO whitespace_tokens AT END;
+        CONTINUE;
+      }
+
+      IF(this->tokenizer->type = "eof")
+        RETURN rules;
+
+      IF(this->tokenizer->type = "at-rule")// AND this->tokenizer->Peek() = 'media')
+      {
+        IF(this->verbose)
+          PRINT("[PARSER] Encountered an at-rule (@" || this->tokenizer->value || ") on line " || this->tokenizer->line || " (at " || (this->tokenizer->startpos - this->tokenizer->linestart) || ") while consuming a list of rules;\n");
+
+        RECORD rule := this->ConsumeAtRule(whitespace_tokens);
+        IF (RecordExists(rule))
+          INSERT rule INTO rules AT END;
+
+        whitespace_tokens := DEFAULT RECORD ARRAY;
+        CONTINUE;
+      }
+
+      // cdo & cdc at toplevel: ignore
+      IF ((this->tokenizer->type = "cdo" OR this->tokenizer->type = "cdc") AND toplevel)
+          CONTINUE;
+
+      // Parse errors (CSS syntax, p5)
+      IF (this->tokenizer->type IN [ "}", ")", "]", "function"])
+        CONTINUE;
+
+      this->tokenizer->ReconsumeToken();
+
+      RECORD rule := this->ConsumeQualifiedRule(whitespace_tokens);
+      IF (RecordExists(rule))
+        INSERT rule INTO rules AT END;
+
+      whitespace_tokens := DEFAULT RECORD ARRAY;
+    }
+  }
+
+  RECORD FUNCTION ConsumeAtRule(RECORD ARRAY whitespace)
+  {
+    /* https://www.w3.org/TR/css-syntax-3/#consume-an-at-rule0
+        5.4.2. Consume an at-rule
+
+        To consume an at-rule:
+
+        Create a new at-rule with its name set to the value of the current input token, its prelude initially set to an empty list, and its value initially set to nothing.
+
+        Repeatedly consume the next input token:
+
+        - <semicolon-token>, <EOF-token>
+          Return the at-rule.
+        - <{-token>
+          Consume a simple block and assign it to the at-rule’s block. Return the at-rule.
+        - simple block with an associated token of <{-token>
+          Assign the block to the at-rule’s block. Return the at-rule.
+        - anything else
+          Reconsume the current input token. Consume a component value. Append the returned value to the at-rule’s prelude.
+    */
+
+    RECORD rule :=
+        [ type :=     "parsed-atrule"
+        , name :=     this->tokenizer->value
+        , prelude :=  whitespace CONCAT [ RECORD(this->tokenizer->GetToken()) ]
+        , block :=    DEFAULT RECORD
+        ];
+
+    WHILE (TRUE)
+    {
+      this->tokenizer->ConsumeToken();
+      IF (this->tokenizer->type IN [ "eof", ";" ])
+        RETURN rule;
+
+      IF (this->tokenizer->type = "{") // Consume a simple block and assign it to the qualified rule’s block. Return the qualified rule.
+      {
+        rule.block := this->ConsumeSimpleBlock(this->tokenizer->type);
+        RETURN rule;
+      }
+
+      IF (this->tokenizer->type = "parsed-simpleblock")
+      {
+        rule.block := this->tokenizer->GetToken();
+        RETURN rule;
+      }
+
+      // Anything else: reconsume and consume a component value. Add to prelude.
+      this->tokenizer->ReconsumeToken();
+      RECORD value := this->ConsumeComponentValue();
+      INSERT value INTO rule.prelude AT END;
+    }
+  }
+
+  RECORD FUNCTION ConsumeQualifiedRule(RECORD ARRAY whitespace)// http://www.w3.org/TR/css3-syntax/#consume-a-qualified-rule0
+  {
+    /* http://www.w3.org/TR/2014/CR-css-syntax-3-20140220/
+        5.4.3. Consume a qualified rule
+
+        To consume a qualified rule:
+
+        Create a new qualified rule with its prelude initially set to an empty list, and its value initially set to nothing.
+
+        Repeatedly consume the next input token:
+
+        - <EOF-token>
+          This is a parse error. Return nothing.
+        - <{-token>
+          Consume a simple block and assign it to the qualified rule’s block. Return the qualified rule.
+        - simple block with an associated token of <{-token>
+          Assign the block to the qualified rule’s block. Return the qualified rule.
+        - anything else
+          Reconsume the current input token. Consume a component value. Append the returned value to the qualified rule’s prelude.
+    */
+
+    RECORD rule :=
+        [ type :=     "parsed-qualifiedrule"
+        , prelude :=  whitespace
+        , block :=    DEFAULT RECORD
+        ];
+
+    WHILE(TRUE)
+    {
+      this->tokenizer->ConsumeToken();
+      IF (this->tokenizer->type = "eof")
+        RETURN DEFAULT RECORD; //This is a parse error. Return nothing.
+
+      IF (this->tokenizer->type = "{") // Consume a simple block and assign it to the qualified rule’s block. Return the qualified rule.
+      {
+        rule.block := this->ConsumeSimpleBlock(this->tokenizer->type);
+        RETURN rule;
+      }
+
+      IF (this->tokenizer->type = "parsed-simpleblock")
+      {
+        rule.block := this->tokenizer->GetToken();
+        RETURN rule;
+      }
+
+      // Anything else: reconsume and consume a component value. Add to prelude.
+      this->tokenizer->ReconsumeToken();
+      RECORD value := this->ConsumeComponentValue();
+      INSERT value INTO rule.prelude AT END;
+    }
+  }
+
+  RECORD ARRAY FUNCTION ConsumeListOfDeclarations() // http://www.w3.org/TR/css3-syntax/#consume-a-list-of-declarations0
+  {
+    /* http://www.w3.org/TR/2014/CR-css-syntax-3-20140220/
+        5.4.4. Consume a list of declarations
+
+        To consume a list of declarations:
+        Create an initially empty list of declarations.
+        Repeatedly consume the next input token:
+
+        - <whitespace-token>, <semicolon-token>
+          Do nothing.
+        - <EOF-token>
+          Return the list of declarations.
+        - <at-keyword-token>
+          Consume an at-rule. Append the returned rule to the list of declarations.
+        - <ident-token>
+          Initialize a temporary list initially filled with the current input token. Consume the next input token. While the current input token is anything other than a <semicolon-token> or <EOF-token>, append it to the temporary list and consume the next input token. Consume a declaration from the temporary list. If anything was returned, append it to the list of declarations.
+          anything else
+          This is a parse error. Repeatedly consume a component value until it is a <semicolon-token> or <EOF-token>.
+    */
+    RECORD ARRAY declarations;
+
+    RECORD ARRAY whitespace_tokens;
+    WHILE (TRUE)
+    {
+      this->tokenizer->ConsumeToken();
+
+      IF(this->tokenizer->type IN [ "ws", ";" ])
+        CONTINUE;
+      IF (this->tokenizer->type = "ws-comment")
+      {
+        INSERT this->tokenizer->GetToken() INTO whitespace_tokens AT END;
+        CONTINUE;
+      }
+
+      IF(this->tokenizer->type = "eof")
+      {
+        IF (LENGTH(whitespace_tokens) != 0)
+        {
+          // Consume free-standing comments too
+          OBJECT old_tokenizer := this->tokenizer;
+          this->tokenizer := NEW ReparseTokenizer(whitespace_tokens);
+          RECORD declaration := this->ConsumeDeclaration();
+          IF (RecordExists(declaration))
+            INSERT declaration INTO declarations AT END;
+          this->tokenizer := old_tokenizer;
+        }
+        RETURN declarations;
+      }
+
+      IF (this->tokenizer->type = "at-rule")
+      {
+        RECORD atrule := this->ConsumeAtRule(whitespace_tokens);
+        INSERT atrule INTO declarations AT END;
+        CONTINUE;
+      }
+
+      BOOLEAN is_parse_error := this->tokenizer->type != "ident";
+
+      RECORD ARRAY tokens;
+      WHILE (this->tokenizer->type NOT IN [ "eof", ";" ])
+      {
+        INSERT this->tokenizer->GetToken() INTO tokens AT END;
+        this->tokenizer->ConsumeToken();
+      }
+
+      IF (NOT is_parse_error)
+      {
+        OBJECT old_tokenizer := this->tokenizer;
+        this->tokenizer := NEW ReparseTokenizer(whitespace_tokens CONCAT tokens);
+        RECORD declaration := this->ConsumeDeclaration();
+        IF (RecordExists(declaration))
+          INSERT declaration INTO declarations AT END;
+        this->tokenizer := old_tokenizer;
+        whitespace_tokens := DEFAULT RECORD ARRAY;
+      }
+    }
+  }
+
+  RECORD FUNCTION ConsumeDeclaration()
+  {
+    /* https://www.w3.org/TR/css-syntax-3/#consume-a-declaration0
+        5.4.5. Consume a declaration
+
+        To consume a declaration:
+
+        Create a new declaration with its name set to the value of the current input token and its value initially set to the empty list.
+
+        1. Consume the next input token.
+        2. While the current input token is a <whitespace-token>, consume the next input token.
+        3. If the current input token is anything other than a <colon-token>, this is a parse error. Return nothing.
+           Otherwise, consume the next input token.
+
+        4. While the current input token is anything other than an <EOF-token>, append it to the declaration’s value and consume the next input token.
+        5. If the last two non-<whitespace-token>s in the declaration’s value are a <delim-token> with the value "!" followed by an <ident-token> with a value that is an ASCII case-insensitive match for "important", remove them from the declaration’s value and set the declaration’s important flag to true.
+        6. Return the declaration.
+
+        ** Modifications: the tokenizer starts before the declaration line (even before the whitespace!). So, we must first consume
+            a token.
+    */
+    RECORD declaration :=
+        [ type :=           "parsed-declaration"
+        , tokens :=         DEFAULT RECORD ARRAY
+        , name :=           ""
+        , important :=      FALSE
+        , name_idx :=       -1
+        , value_idx :=      -1
+        , important_idx :=  -1
+        , only_whitespace := FALSE
+        ];
+
+    WHILE (this->tokenizer->type != "eof")
+    {
+      this->tokenizer->ConsumeToken();
+      IF (this->tokenizer->type = "eof")
+        BREAK;
+
+      IF (declaration.name_idx = -1)
+      {
+        IF (this->tokenizer->type = "ident")
+        {
+          declaration.name_idx := LENGTH(declaration.tokens);
+          declaration.name := this->tokenizer->value;
+        }
+        ELSE IF (this->tokenizer->type NOT IN [ "ws", "ws-comment" ])
+          THROW NEW Exception("Consistency error: ConsumeDeclaration first non-ws token shoud be 'ident'");
+      }
+      ELSE IF (declaration.value_idx = -1 AND this->tokenizer->type NOT IN [ "ws", "ws-comment" ])
+      {
+        IF (this->tokenizer->type != ":")
+          RETURN DEFAULT RECORD;
+
+        declaration.value_idx := LENGTH(declaration.tokens) + 1;
+      }
+
+      INSERT this->tokenizer->GetToken() INTO declaration.tokens AT END;
+    }
+
+    //If the last two non-<whitespace-token>s in the declaration’s value are a <delim-token> with the value "!" followed by an <ident-token> with a value that is an ASCII case-insensitive match for "important", remove them from the declaration’s value and set the declaration’s important flag to true.
+    RECORD ARRAY nonws := SELECT origpos := #tokens, * FROM declaration.tokens WHERE type NOT IN [ "ws", "ws-comment" ];
+    IF(Length(nonws) >= 2
+       AND nonws[END-2].type = "delim" AND nonws[END-2].value = "!"
+       AND nonws[END-1].type = "ident" AND ToUppercase(nonws[END-1].value) = "IMPORTANT")
+    {
+      declaration.important := TRUE;
+      declaration.important_idx := nonws[END-2].origpos;
+    }
+    RETURN declaration;
+  }
+
+  RECORD FUNCTION ConsumeComponentValue()
+  {
+    /* http://www.w3.org/TR/css3-syntax/#consume-a-component-value0
+
+        5.4.6. Consume a component value
+
+        To consume a component value:
+
+        Consume the next input token.
+
+        If the current input token is a <{-token>, <[-token>, or <(-token>, consume a simple block and return it.
+
+        Otherwise, if the current input token is a <function-token>, consume a function and return it.
+
+        Otherwise, return the current input token.
+    */
+
+    // Consume the next input token.
+    this->tokenizer->ConsumeToken();
+
+    //If the current input token is a <{-token>, <[-token>, or <(-token>, consume a simple block and return it.
+    IF(this->tokenizer->type IN ["{","[","("])
+    {
+      IF(this->verbose)
+        PRINT("[PARSER] Encountered a simple block on line " || this->tokenizer->line || " (at " || (this->tokenizer->startpos - this->tokenizer->linestart) || " while consuming a component value;\n");
+      RETURN this->ConsumeSimpleBlock(this->tokenizer->type);
+    }
+
+    IF (this->tokenizer->type = "function")
+      RETURN this->ConsumeFunction();
+
+    //Otherwise, return the current input token.
+    RETURN this->tokenizer->GetToken();
+  }
+
+  RECORD FUNCTION ConsumeSimpleBlock(STRING associatedtoken) // http://www.w3.org/TR/css3-syntax/#consume-a-simple-block0
+  {
+    /** https://www.w3.org/TR/css-syntax-3/#consume-a-simple-block0
+
+        5.4.7. Consume a simple block
+
+          To consume a simple block:
+          The ending token is the mirror variant of the current input token. (E.g. if it was called with <[-token>, the
+          ending token is <]-token>.)
+
+          Create a simple block with its associated token set to the current input token and with a value with is initially
+          an empty list.
+
+          Repeatedly consume the next input token and process it as follows:
+
+          - <EOF-token>, ending token
+            Return the block.
+          - anything else
+            Reconsume the current input token. Consume a component value and append it to the value of the block.
+    */
+
+    STRING endingtoken := GetMirrorToken(associatedtoken);
+    RECORD block :=
+        [ type :=             "parsed-simpleblock"
+        , associatedtoken :=  associatedtoken
+        , value :=            DEFAULT RECORD ARRAY
+        ];
+
+    WHILE (TRUE)
+    {
+      this->tokenizer->ConsumeToken();
+      IF (this->tokenizer->type = "eof" OR this->tokenizer->type = endingtoken)
+        RETURN block;
+
+      this->tokenizer->ReconsumeToken();
+
+      // Parse errors: just drop to top-level {} block, no matter what type of block this is.
+      IF (this->tokenizer->type = "}")
+        RETURN block;
+
+      RECORD value := this->ConsumeComponentValue();
+      INSERT value INTO block.value AT END;
+    }
+  }
+
+  RECORD FUNCTION ConsumeFunction()
+  {
+    /* https://www.w3.org/TR/css-syntax-3/#consume-a-function0
+        5.4.8. Consume a function
+
+        To consume a function:
+
+        Create a function with a name equal to the value of the current input token, and with a value which is initially an empty list.
+
+        Repeatedly consume the next input token and process it as follows:
+
+        - <EOF-token>, <)-token>
+          Return the function.
+        - anything else
+          Reconsume the current input token. Consume a component value and append the returned value to the function’s value.
+    */
+
+    STRING name := this->tokenizer->value;
+
+    RECORD ARRAY functionvalue;
+    WHILE(TRUE)
+    {
+      this->tokenizer->ConsumeToken();
+      IF(this->tokenizer->type IN [ "eof", ")" ])
+        BREAK;
+
+      this->tokenizer->ReconsumeToken();
+      INSERT this->ConsumeComponentValue() INTO functionvalue AT END;
+    }
+    RETURN [ type := "parsed-function", name := name, value := functionvalue ];
+  }
+
+  RECORD FUNCTION ConsumeDeclarationValue()
+  {
+    RECORD value :=
+        [ value :=          DEFAULT RECORD ARRAY
+        , important_idx :=  -1
+        , important :=      FALSE
+        ];
+
+    WHILE(this->tokenizer->type != "eof" AND this->tokenizer->type != ";")
+    {
+      INSERT this->tokenizer->GetToken() INTO value.value AT END;
+      this->tokenizer->ConsumeToken();
+    }
+
+    //If the last two non-<whitespace-token>s in the declaration’s value are a <delim-token> with the value "!" followed by an <ident-token> with a value that is an ASCII case-insensitive match for "important", remove them from the declaration’s value and set the declaration’s important flag to true.
+    RECORD ARRAY nonws := SELECT origpos := #value, * FROM value.value WHERE type NOT IN [ "ws", "ws-comment" ];
+    IF(Length(nonws) >= 2
+       AND nonws[END-2].type = "delim" AND nonws[END-2].value = "!"
+       AND nonws[END-1].type = "ident" AND ToUppercase(nonws[END-1].value) = "IMPORTANT")
+    {
+      value.important := TRUE;
+      value.important_idx := nonws[END-2].origpos;
+    }
+
+    RETURN value;
+  }
+>;

@@ -1,0 +1,910 @@
+﻿<?wh
+/** @short File and disk I/O
+    @long Functions to create blobs and to manage files and directories on the filesystem hosting WebHare
+    @topic harescript-core/os
+*/
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::internal/interface.whlib" EXPORT OpenBlobAsFile, SetFilePointer, MakeBlobFromStream;
+LOADLIB "wh::internal/filetypes.whlib";
+LOADLIB "wh::internal/graphics.whlib";
+LOADLIB "wh::graphics/core.whlib";
+
+/** @short Obtain the directory part from a path
+    @long Strips the filename and extension from a complete path, leaving only the
+          directory name. This is only done for the path submitted to the function. No checks on disk or in
+          the WebHare database are performed
+    @param path Path to strip
+    @return The directory from the submitted path
+    @see GetNameFromPath, GetExtensionFromPath, GetBasenameFromPath
+    @example
+//Returns "/my/dir/"
+PRINT(GetDirectoryFromPath("/my/dir/b-lex.it"); */
+PUBLIC STRING FUNCTION GetDirectoryFromPath(STRING path)
+{
+  INTEGER lastslash := SEARCHLASTSUBSTRING(path,'/');
+  IF (lastslash>=0) //Truncate the path
+     RETURN LEFT(path,lastslash+1);
+  ELSE
+     RETURN path;
+}
+
+
+
+
+/** @short Obtain the basename part from a path
+    @long Strips the directory and extension from a complete path, leaving
+          only the filename.
+          This is only done for the path submitted to the function. No checks on disk or in
+          the WebHare database are performed. Initial dots are ignored for extension matching
+    @param path Path to strip
+    @return The filename from the submitted path
+    @see GetDirectoryFromPath, GetNameFromPath, GetExtensionFromPath
+    @example
+//Returns "b-lex"
+PRINT(GetBasenameFromPath("/my/dir/b-lex.it"); */
+PUBLIC STRING FUNCTION GetBasenameFromPath(STRING path)
+{
+  path := GetNameFromPath(path);
+
+  //Ignore initial dots
+  INTEGER startpos;
+  FOR (startpos:=0;startpos<Length(path);startpos:=startpos+1)
+    IF (Substring(path,startpos,1)!='.')
+      BREAK;
+
+  //Now chop off the extension
+  INTEGER lastdot := SEARCHLASTSUBSTRING(path,'.');
+  IF (lastdot>startpos)
+    RETURN LEFT(path,lastdot);
+  ELSE
+    RETURN path;
+}
+
+
+
+
+/** @short Obtain the filename part from a path
+    @long Strips the directory from a complete path, leaving its basename and extension
+          This is only done for the path submitted to the function. No checks on disk or in
+          the WebHare database are performed. Initial dots are ignored for extension matching
+    @param path Path to strip
+    @return The filename from the submitted path
+    @see GetDirectoryFromPath, GetExtensionFromPath, GetBasenameFromPath
+    @example
+//Returns "b-lex.it"
+PRINT(GetNameFromPath("/my/dir/b-lex.it"); */
+PUBLIC STRING FUNCTION GetNameFromPath(STRING path)
+{
+  //Remove the path
+  INTEGER lastslash := SEARCHLASTSUBSTRING(path,'/');
+  IF (lastslash>=0)
+    path := SUBSTRING(path,lastslash+1,LENGTH(path));
+
+  RETURN path;
+}
+
+
+
+
+
+/** @short Obtain the extension part from a path
+    @long Strips the directory and filename from a complete path, leaving
+          only the extension.
+          This is only done for the path submitted to the function. No checks on disk or in
+          the WebHare database are performed. Initial dots are ignored for extension matching
+    @param path Path to strip
+    @return The extension from the submitted path
+    @see GetDirectoryFromPath
+    @example
+//Returns ".it"
+PRINT(GetDirectoryFromPath("/my/dir/b-lex.it"); */
+PUBLIC STRING FUNCTION GetExtensionFromPath(STRING path)
+{
+  path := GetNameFromPath(path);
+
+  //Ignore initial dots
+  INTEGER startpos;
+  FOR (startpos:=0;startpos<Length(path);startpos:=startpos+1)
+    IF (Substring(path,startpos,1)!='.')
+      BREAK;
+
+  INTEGER lastdot := SEARCHLASTSUBSTRING(path,'.');
+
+  IF (lastdot>startpos)
+    RETURN SUBSTRING(path,lastdot,length(path));
+  ELSE
+    RETURN "";
+}
+
+
+
+
+/** @short Delete a file from disk
+    @param path File to delete
+    @return true on a succesful delete, false on failure */
+PUBLIC BOOLEAN FUNCTION DeleteDiskFile(STRING path) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Delete a directory from disk
+    @long This function allows you to delete a directory from disk. A directory can only be deleted when it is empty.
+    @param path Directory to delete
+    @return true on a succesful delete, false on failure */
+PUBLIC BOOLEAN FUNCTION DeleteDiskDirectory(STRING path) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Delete a directory and any of its contents from disk, recursively
+    @long This function allows you to delete both non-empty and empty directories from a disk.
+    @param path Directory to delete
+    @return true on a succesful delete, false on failure */
+PUBLIC BOOLEAN FUNCTION DeleteDiskDirectoryRecursive(STRING path) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Delete files or directories recursively using wildcards
+    @long This function allows you to delete both non-empty and empty direcetories from a disk.
+    @param path Mask to delete. Wildcards are only accepted in the last path component
+    @return False if deletion of any file or folder failed. Also retursn true if nothing matched the path */
+PUBLIC BOOLEAN FUNCTION DeleteDiskWildcardsRecursive(STRING path)
+{
+  BOOLEAN anyfail;
+  RECORD ARRAY tokill := ReadDiskDirectory(GetDirectoryFromPath(path), GetNameFromPath(path));
+  FOREVERY(RECORD killit FROM tokill)
+    IF(NOT DeleteDiskDirectoryRecursive(killit.path))
+      anyfail := TRUE;
+  RETURN anyfail;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// BLOB functions
+//
+/** @short Create a stream
+    @long Start the creation of a blob, which can be filled using PrintTo and closed using MakeBlobFromStream
+    @return Stream ID to write the data to
+    @see PrintTo,SendBlobTo,MakeBlobFromStream */
+PUBLIC INTEGER FUNCTION CreateStream()
+{
+  INTEGER retval := __HS_CreateStream();
+  RETURN retval;
+}
+
+
+/** @short Get the length of the stream so far
+    @param streamid File ID, as returned by CreateStream
+    @return The number of bytes already written to this stream
+    @see PrintTo,SendBlobTo,MakeBlobFromStream */
+PUBLIC INTEGER64 FUNCTION GetStreamLength(INTEGER streamid) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Open an existing file on disk as a blob
+    @param path Path to the file to open.
+    @return A blob with the file, or an empty blob if the file does not exist
+    @see MakeBlobFromStream,OpenBlobAsFile
+*/
+PUBLIC BLOB FUNCTION MakeBlobFromDiskFile(STRING path) __ATTRIBUTES__(DEPRECATED "Use GetDiskResource to be able to distinguish between 0-byte files and nonexisting files, and to easily support relative paths")
+{
+  IF(NOT IsPathAbsolute(path))
+    RETURN DEFAULT BLOB;
+  TRY RETURN GetDiskResource(path);
+  CATCH RETURN DEFAULT BLOB;
+}
+
+/** @short Resolve a possible relative path to an absolute path */
+PUBLIC STRING FUNCTION ResolveToAbsolutePath(STRING path)
+{
+  IF(NOT IsPathAbsolute(path))
+  {
+    STRING cwd := GetCurrentPath();
+    IF(cwd NOT LIKE "*/")
+      cwd := cwd || "/";
+    path := cwd || path;
+  }
+  RETURN __CollapsePath(path);
+}
+
+/** @short Resolve an absolte path to a relative path (with respect to a basepath) */
+PUBLIC STRING FUNCTION ResolveToRelativePath(STRING basepath, STRING targetpath)
+{
+  basepath := GetDirectoryFromPath(basepath);
+  STRING ARRAY baseparts := Tokenize(basepath, "/");
+  STRING ARRAY targetparts := Tokenize(targetpath, "/");
+
+  // Remove the '' at the end of baseparts (basepath ends with '.../')
+  IF (NOT IsDefaultValue(baseparts))
+    DELETE FROM baseparts AT END-1;
+
+  WHILE (NOT IsDefaultValue(baseparts) AND LENGTH(targetparts) >= 2 AND baseparts[0] = targetparts[0])
+  {
+    DELETE FROM baseparts AT 0;
+    DELETE FROM targetparts AT 0;
+  }
+
+  RETURN RepeatText("../", LENGTH(baseparts)) || Detokenize(targetparts, "/");
+}
+
+/** @short Get an existing file from disk as a blob
+    @param path Path to the file to open.
+    @return A blob with the file. Throws if the file does not exist
+    @cell(boolean) options.allowmissing If set to TRUE, don't throw if the resource doesn't exist but return a DEFAULT BLOB
+    @see OpenBlobAsFile
+*/
+PUBLIC BLOB FUNCTION GetDiskResource(STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ allowmissing := FALSE ], options);
+  path := ResolveToAbsolutePath(path);
+  RECORD res := __GetHSResource("direct::" || path);
+  IF(res.error = 0)
+    RETURN res.data;
+  IF(options.allowmissing)
+    RETURN DEFAULT BLOB;
+  THROW NEW Exception(`No such disk file '${path}'`);
+}
+
+/** @short Open a HareScript resource file as a blob
+           This allows getting data from
+           - any file using moduledata::
+           - files within site::, but ONLY if they are of a filetype deemed as safe
+
+           If the file cannot be found OR you are not allowed to get the file you'll get an 'No such HareScript resource' exception.
+    @param path Path to the file to open.
+    @return A blob with the file
+*/
+PUBLIC BLOB FUNCTION GetHarescriptResource(STRING path)
+{
+  STRING namespace := ToLowercase(Left(path, SearchSubstring(path, '::')));
+  IF(namespace IN ["wh","whres","direct","test"])
+  {
+    RECORD res := __GetHSResource(path);
+
+    IF(res.error=1)
+      THROW NEW Exception("Illegal path '" || path || "' for HareScript resource");
+    ELSE IF(res.error=2)
+    {
+      // the resource/file does not exist or we aren't allowed access to it
+      THROW NEW Exception("No such HareScript resource " || path);
+    }
+    ELSE
+      RETURN res.data;
+  }
+  IF(__GetHSResourceCall != DEFAULT FUNCTION PTR)
+    RETURN __GetHSResourceCall(path);
+  THROW NEW Exception("Illegal path '" || path || "' for HareScript resource");
+}
+
+/** @short Open an existing file on disk
+    @param path Path to the file to open.
+    @param writeaccess True to get write access to the file
+    @return ID of open file, or 0 if file opening failed
+    @see CloseDiskFile, CreateDiskFile, ReadFromFile, PrintTo
+*/
+PUBLIC INTEGER FUNCTION OpenDiskFile(STRING path, BOOLEAN writeaccess)
+{
+  RETURN __HS_OpenDiskFile(path,writeaccess,FALSE,FALSE,FALSE);
+}
+
+
+
+
+/** @short Create a file on disk
+    @long Create a new file, or open an existing file. Remember that you may
+          want to truncate the file if it already exists by using SetDiskFilelength(fileid,0)
+    @param path Path to the file to create.
+    @param failifexists Fail if the file already exists?
+    @param publicfile If the file is created, should it be publicly readable?
+    @return ID of open file, or 0 if file creation failed
+    @see OpenDiskFile,PrintTo,CloseDiskFile, SetDiskFilelength
+*/
+PUBLIC INTEGER FUNCTION CreateDiskFile(STRING path, BOOLEAN failifexists, BOOLEAN publicfile)
+{
+  RETURN __HS_OpenDiskFile(path,TRUE,TRUE,failifexists,publicfile);
+}
+
+
+
+
+/** @short Write a blob to disk
+    @long Create a new file, or open an existing file, and writes the source data to the file.
+          If the file already existed, its previous contents are erased.
+    @param path Path to the file to create.
+    @param failifexists Fail if the file already exists? If TRUE the function will not overwrite the existing file.
+                        If FALSE the function will overwrite the existing file, if any.
+    @param publicfile If the file is created, should it be publicly readable?
+    @param sourcedata Blob to write
+    @return True on success, false on I/O error
+    @see CreateDiskFile
+*/
+PUBLIC BOOLEAN FUNCTION CreateDiskFileFromBlob(STRING path, BOOLEAN failifexists, BOOLEAN publicfile, BLOB sourcedata) __ATTRIBUTES__(DEPRECATED "CreateDiskFileFromBlob has been deprecated, we recommend StoreDiskFile for a cleaner syntax")
+{
+  INTEGER newfile := CreateDiskFile(path,failifexists,publicfile);
+  IF (newfile <= 0)
+    RETURN false;
+
+  SetDiskFilelength(newfile,0);
+  SendBlobTo(newfile,sourcedata);
+  RETURN CloseDiskFile(newfile);
+}
+
+
+/** @short Store a blob to disk
+    @long Create a new file, or open an existing file, and writes the source data to the file.
+          If the file already existed, its previous contents are erased.
+          If overwrite is set, inplace is not set, and the filename length is shorter than 230 bytes, a temporary file will be created
+          and moved over the original to ensure an atomic replace
+    @param path Path to the file to create.
+    @param data Blob to write
+    @param options
+    @cell(boolean) options.overwrite Overwrite if the file already exists? If TRUE, the function will overwrite the existing file. Defaultsto FALSE
+    @cell(boolean) options.publicfile If the file is created, should it be publicly readable? Defaults to TRUE
+    @cell(boolean) options.inplace Create/overwrite the file in place. Normally, a temporary file is generated first
+    @see CreateDiskFile
+*/
+PUBLIC MACRO StoreDiskFile(STRING path, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(CellExists(options,'exclusive'))
+    options := [ ...options
+               , overwrite := NOT options.exclusive
+               , DELETE exclusive
+               ];
+
+  options := ValidateOptions( [ publicfile := TRUE, overwrite := FALSE, inplace := FALSE ], options);
+  BOOLEAN usetemp := options.inplace = FALSE AND Length(GetNameFromPath(path))<230;
+  STRING writepath := usetemp ? path || ".tmp" || GenerateUFS128BitId() : path;
+
+  INTEGER reservefile;
+  /* To provide both the atomicity guarantee of inplace := FALSE and the exlusive-create guarantee of overwrite := FALSE
+     we need to hold handles to both versions */
+  IF(usetemp  AND options.overwrite = FALSE)
+  {
+    reservefile := CreateDiskFile(path, TRUE, options.publicfile);
+    IF(reservefile <= 0)
+    {
+      STRING err := GetLastOSError();
+      RECORD diskprops := GetDiskFileProperties(path);
+      IF(RecordExists(diskprops) AND diskprops.type=1)
+        THROW NEW Exception(`Unable to create file '${path}' - a directory is blocking the path`);
+      ELSE IF(RecordExists(diskprops) AND diskprops.type=0)
+        THROW NEW Exception(`Unable to create file '${path}' - it already exists`);
+      ELSE
+       THROW NEW Exception(`Unable to create file '${path}': ${err}`);
+    }
+  }
+
+  TRY
+  {
+    INTEGER newfile := CreateDiskFile(writepath, options.overwrite = FALSE, options.publicfile);
+    IF(newfile <= 0)
+    {
+      STRING err := GetLastOSError();
+      RECORD diskprops := GetDiskFileProperties(path);
+      IF(RecordExists(diskprops) AND diskprops.type=1)
+        THROW NEW Exception(`Unable to create file '${path}' - a directory is blocking the path`);
+      ELSE IF(RecordExists(diskprops) AND diskprops.type=0)
+        THROW NEW Exception(`Unable to create file '${path}' - it already exists`);
+      ELSE
+       THROW NEW Exception(`Unable to create file '${path}': ${err}`);
+    }
+    IF(NOT usetemp) //with a temp, we can assume the file to be empty
+      SetDiskFilelength(newfile,0);
+    IF(NOT SendBlobTo(newfile, data))
+    {
+      CloseDiskFile(newfile);
+      DeleteDiskFile(writepath);
+      THROW NEW Exception(`I/O error on '${path}'`);
+    }
+    IF(NOT CloseDiskFile(newfile))
+    {
+      DeleteDiskFile(writepath);
+      THROW NEW Exception(`I/O error on '${path}'`);
+    }
+
+    IF(usetemp)
+    {
+      IF(NOT MoveDiskPath(writepath, path))
+      {
+        DeleteDiskFile(writepath);
+        THROW NEW Exception(`I/O error on '${path}'`);
+      }
+    }
+  }
+  FINALLY
+  {
+    IF(reservefile > 0)
+      CloseDiskFile(reservefile);
+  }
+}
+
+/** @short Get the size of a file (a file on disk or a blob)
+    @long Get the size of a file on disk. For blobs, you can also use LENGTH on the BLOB itself.
+    @param filehandle ID of file, as returned by OpenBlobAsFile, OpenDiskFile or CreateDiskFile
+    @return The size of the file in bytes
+    @see OpenBlobAsFile, OpenDiskFile, SetDiskFileLength, Length */
+PUBLIC INTEGER64 FUNCTION GetFilelength(INTEGER filehandle) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Set the size of a file on disk
+    @long Set the size of a file on disk, truncating or extending it as necessary.
+          If the file pointer points outside the new file, it is moved to EOF,
+          otherwise it is not moved.
+          If a file is extended, the new bytes will be set to zero.
+    @param filehandle ID of file, as returned by OpenDiskFile or CreateDiskFile
+    @param filesize The new size for the file in bytes
+    @see GetFilelength, OpenDiskFile, CreateDiskFile */
+PUBLIC MACRO SetDiskFilelength(INTEGER filehandle, INTEGER64 filesize) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Read from a file on disk, moving the file pointer while reading
+    @param filehandle ID of file, as returned by OpenBlobAsFile, OpenDiskFile or CreateDiskFile
+    @param numbytes Number of bytes to read
+    @return Data read from the file
+    @see OpenBlobAsFile, OpenDiskFile, CreateDiskFile */
+PUBLIC STRING FUNCTION ReadFromFile(INTEGER filehandle, INTEGER64 numbytes)
+{
+  // No size limit on this function
+  STRING data;
+  WHILE (numbytes > 0)
+  {
+    STRING piece := ReadFrom(filehandle, numbytes > 65536 ? 65536 : INTEGER(numbytes));
+    IF (piece = "")
+      BREAK;
+    data := data || piece;
+    numbytes := numbytes - LENGTH(piece);
+  }
+  RETURN data;
+}
+
+
+
+
+/** @short Get the current file pointer
+    @long Get the location (in the range 0 to the length of file) where the next read or write will take place
+    @param filehandle ID of file, as returned by OpenBlobAsFile, OpenDiskFile or CreateDiskFile
+    @return The current file pointer
+    @see OpenBlobAsFile,OpenDiskFile,CreateDiskFile*/
+PUBLIC INTEGER64 FUNCTION GetFilePointer(INTEGER filehandle) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Close a file on disk
+    @param filehandle ID of file, as returned by OpenDiskFile or CreateDiskFile
+    @return False if I/O errors occured on close, or on a previous Write
+    @see OpenDiskFile,CreateDiskFile
+*/
+PUBLIC BOOLEAN FUNCTION CloseDiskFile(INTEGER filehandle)
+{
+  RETURN __HS_CloseFile(filehandle);
+}
+
+
+
+
+/** @short Close a blob file
+    @param filehandle ID of file, as returned by OpenDiskFile or CreateDiskFile
+    @return False if I/O errors occured on close, or on a previous Write
+    @see OpenBlobAsFile,OpenDiskFile,CreateDiskFile
+*/
+PUBLIC BOOLEAN FUNCTION CloseBlobFile(INTEGER filehandle)
+{
+  RETURN __HS_CloseFile(filehandle);
+}
+
+/** @short Collapse a path containing duplicate slashes, '.' and '..' entries
+    @long This function returns the shortest possible path that points to the
+          same location as the specified path. It also eliminates any '..'
+          entries at the beginning of the path.
+          Any terminating slash is also cleared, unless this path refers to a root directory.
+    @param path Path to collapse
+    @example
+//Prints "/a/b/c"
+Print(CollapsePath("/a/b/g/../c/"));
+
+//Prints "b" (because drive letters are ignored)
+Print(CollapsePath("A:/../b"));
+
+    @return The cleaned and collapsed path */
+PUBLIC STRING FUNCTION CollapsePath(STRING path)
+{
+  RETURN __CollapsePath(path);
+}
+STRING FUNCTION __CollapsePath(STRING path) __ATTRIBUTES__ (EXTERNAL);
+
+
+
+
+/** @short Merges to paths together, inserting a slash at the merge point if necessary. The returned string is then collapsed.
+    @long This functions returns the merge of two paths. If the first path isn't empty and doesn't end in a slash
+          and the second path doesn't begin with a slash, a slash is added between the two paths. The merged
+          path is then collapsed, eliminating all unnecessary path elements.
+    @param first First part of the path
+    @param second Second part of the path
+    @return The two paths merged together
+    @see CollapsePath
+    @example
+//Prints "/a/b/c"
+PRINT(MergePath("/a/b/", "/c"));
+//Prints "/a/b/c"
+PRINT(MergePath("/a/../a/.//b", "c"));
+//Prints "c"
+PRINT(MergePath("", "c"));
+*/
+PUBLIC STRING FUNCTION MergePath(STRING first, STRING second) __ATTRIBUTES__ (EXTERNAL);
+
+/*ADDME: @cell return.ownergroup Group owning this file     @cell return.owneruser User owning this file
+         they are already returned empty ATM */
+
+
+
+/** @short Read the contents of a directory on disk
+    @long Reads a directory, optionally filtering the contents with a mask.
+          The UNIX globbing rules will apply when using this mask (eg, "*.*" only
+          matches files with an extension, not all files as it would do on DOS/NT).
+          This function also returns the "." and ".." directory entries, if they exist.
+    @param directory Path to directory to read.
+    @param mask Mask of files to read (* to read all files)
+    @return A record array of found files and directories
+    @cell(string) return.name Name of the directory entry
+    @cell(string) return.path Full path to the directory entry
+    @cell(integer) return.type Type of the directory entry (0=file, 1=directory, 2=link)
+    @cell(datetime) return.modified Last modification time, in UTC
+    @cell(integer) return.size Size of the file, in bytes
+    @cell(integer64) return.size64 Size of the file, in bytes
+    @cell(integer) return.unixpermissions Unix file permissions. */
+PUBLIC RECORD ARRAY FUNCTION ReadDiskDirectory(STRING directory, STRING mask) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Rename or move a path on disk
+    @param from_path Path to rename or move.
+    @param to_path New location of path.
+    @return true on success */
+PUBLIC BOOLEAN FUNCTION MoveDiskPath(STRING from_path, STRING to_path) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Read the properties of a file on disk
+    @long Read a file's properties and return information about this file.
+    @param filename The file to analyze.
+    @return a record containing information about the file
+    @cell(string) return.name Name of the file
+    @cell(integer) return.type 0=file, 1=directory
+    @cell(datetime) return.modified Last modification time
+    @cell(integer) return.size Size of the file, in bytes
+    @cell(integer64) return.size64 Size of the file, in bytes
+    @cell(integer) return.unixpermissions Unix file permissions.  */
+PUBLIC RECORD FUNCTION GetDiskFileProperties(STRING filename) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Create a directory
+    @param directory Path to directory to create.
+    @param visible Set true to create a directory whose contents are visible to other users (unix only)
+    @return true if directory could be created on disk */
+PUBLIC BOOLEAN FUNCTION CreateDiskDirectory(STRING directory, BOOLEAN visible) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Create a directory and its parents
+    @param directory Path to directory to create. If any of the parent directories does not exist, it will be created recursively.
+    @param visible Set true to create a directory whose contents are visible to other users (unix only)
+    @return true if directory could be created on disk */
+PUBLIC BOOLEAN FUNCTION CreateDiskDirectoryRecursive(STRING directory, BOOLEAN visible) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Read the target of a soft link
+    @param path Path to link to read
+    @return The link target */
+PUBLIC STRING FUNCTION ReadSoftLink(STRING path) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Create a soft link
+    @param path Path to create
+    @param linkto Link target
+    @return True on success */
+PUBLIC BOOLEAN FUNCTION CreateSoftLink(STRING path, STRING linkto) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Create a hard link
+    @param path Path to create
+    @param linkto Link target
+    @return True on success */
+PUBLIC BOOLEAN FUNCTION CreateHardLink(STRING path, STRING linkto) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Convert a blob to a string
+    @param data Blob to read
+    @param maxlen Maximum number of bytes to convert, if -1 or unspecified, convert all blob data
+    @return The blob as a string */
+PUBLIC STRING FUNCTION BlobToString(BLOB data, INTEGER maxlen DEFAULTSTO -1)
+{
+  IF (maxlen=-1)
+    maxlen:=length(data);
+  IF (maxlen=0)
+    RETURN "";
+
+  INTEGER openblob := OpenBlobAsFile(data);
+  STRING retval;
+
+  WHILE(TRUE)
+  {
+    STRING readdata := ReadFromFile(openblob,maxlen > 32768 ? 32768 : maxlen);
+    IF(readdata="")
+      BREAK;
+    retval := retval || readdata;
+    maxlen := maxlen - Length(readdata);
+  }
+
+  CloseBlobFile(openblob);
+  RETURN retval;
+}
+
+
+
+
+/** @short Convert a string to a blob
+    @param data String to create a blob from
+    @return The string as a blob */
+PUBLIC BLOB FUNCTION StringToBlob(STRING data)
+{
+  IF(data="")
+    RETURN DEFAULT BLOB;
+
+  INTEGER newblobstream := CreateStream();
+  PrintTo(newblobstream, data);
+  RETURN MakeBlobFromStream(newblobstream);
+}
+
+/** @short Get the output of a function call as a blob */
+PUBLIC BLOB FUNCTION GetPrintedAsBlob(MACRO PTR toinvoke)
+{
+  INTEGER str := CreateStream();
+  INTEGER save := RedirectOutputTo(str);
+  BLOB result;
+  TRY
+  {
+    toinvoke();
+  }
+  FINALLY
+  {
+    RedirectOutputTo(save);
+    result := MakeBlobFromStream(str);
+  }
+  RETURN result;
+}
+
+/** @short Slice a blob
+    @long A sliced blob allows you to create a blob that access only partial data from a parent blob. The slice is not a copy,
+         but a reference to data in a parent blob (any action that invalidates parent blobs, such as closing connections to an
+         external database, would also invalidate a sliced blob).
+    @param parentblob Blob to slice
+    @param startoffset Start offset inside the parent blob
+    @param length Length of the new blob
+    @return Sliced blob */
+PUBLIC BLOB FUNCTION MakeSlicedBlob(BLOB parentblob, INTEGER64 startoffset, INTEGER64 length)
+{
+  RETURN MakeComposedBlob([ [ data := parentblob, start := startoffset, length := length ] ]);
+}
+
+/** @short Compose a blob from other blobs
+    @long A composed blob allows you to create a blob by concatenation of (parts) of other blobs. This blob is not a copy,
+         but a reference to data in a parent blobs (any action that invalidates any of the parent blobs, such as closing connections to an
+         external database, would also invalidate a composed blob).
+    @param parts
+    @cell(blob) parts.data Blob to use for this part
+    @cell(integer64) parts.start Start offset inside the blob of this part (optional)
+    @cell(integer64) parts.length Length of this part (optional)
+    @return Composed blob */
+PUBLIC BLOB FUNCTION MakeComposedBlob(RECORD ARRAY parts) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Set unix permissions for a file.
+    @param path Path to file to update
+    @param permissions New file permissions (eg ToInteger("755",0,8) for publicly readable files)
+    @return True on success */
+PUBLIC BOOLEAN FUNCTION SetUNIXPermissions(STRING path, INTEGER permissions) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Update the modification date for a file
+    @param path Path to file to update
+    @param newmodtime New modification date
+    @return True on success */
+PUBLIC BOOLEAN FUNCTION SetFileModificationDate(STRING path, DATETIME newmodtime) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Generate a temporary filepath
+    @long This function generates a temporary filepath. The returned name should be opened with a 'create, exclusive' flag to protect against race conditions
+    @return A temporary path in the harescript vm's temporary directory */
+PUBLIC STRING FUNCTION GenerateTemporaryPathname() __ATTRIBUTES__ (EXTERNAL);
+
+/** @short Generate a temporary filepath, with a specific base path as prefix
+    @long This function generates a temporary filepath, with a specific base path as prefix. The returned name should be opened with a 'create, exclusive' flag to protect against race conditions
+    @return A temporary path with the base path as prefix */
+PUBLIC STRING FUNCTION GenerateTemporaryPathnameFromBasepath(STRING basepath) __ATTRIBUTES__ (EXTERNAL);
+
+/** @short Get the path to temporary working space
+    @long This function returns the path to a temporary directory
+    @return The path to the harescript vm's temporary directory */
+PUBLIC STRING FUNCTION GetTempDir() __ATTRIBUTES__ (EXTERNAL);
+
+/** @short Generate a filename from a string
+    @long Convert a string into a name which can be safely used as a file or folder name.
+    @param value Value to use for the name
+    @return Returns a filename that can be safely used as a file or folder name. Returns 'unknown' if it cannot figure out a proper filename */
+PUBLIC STRING FUNCTION GetSafeFileName(STRING value)
+{
+  RETURN GetSafeName(value, [ safedots := TRUE ]);
+}
+
+/** @short Test if a path is absolute
+    @long This function tests whether a pathname is absolute.
+          A path is defined to be absolute if the location it refers to is not dependent on
+          the current directory.
+    @param path Path to test
+    @return True if the path is considered to be an absolute path */
+PUBLIC BOOLEAN FUNCTION IsPathAbsolute(STRING path) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short Returns the last OS error
+    @long This function looks at the result of the last OS operation, and returns a string containing a
+          description of its success status
+    @return Last OS error.
+*/
+PUBLIC STRING FUNCTION GetLastOSError() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Get the proper or usual extension for the file's mimetype */
+PUBLIC STRING FUNCTION GetExtensionForMimeType(STRING mimetype)
+{
+  SWITCH(mimetype)
+  {
+    CASE "image/tiff"       { RETURN ".tif"; }
+    CASE "image/x-bmp"      { RETURN ".bmp"; }
+    CASE "image/gif"        { RETURN ".gif"; }
+    CASE "image/png"        { RETURN ".png"; }
+    CASE "image/jpeg"       { RETURN ".jpg"; }
+    CASE "image/svgx+xml"   { RETURN ".svg"; }
+
+    CASE "application/zip"  { RETURN ".zip"; }
+
+    CASE "application/vnd.openxmlformats-officedocument.wordprocessingml.document"    { RETURN ".docx"; }
+    CASE "application/vnd.openxmlformats-officedocument.presentationml.presentation"  { RETURN ".pptx"; }
+    CASE "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"          { RETURN ".xlsx"; }
+
+    CASE "application/vnd.android.package-archive"                                    { RETURN ".apk"; }
+    CASE "application/x-silverlight-app"                                              { RETURN ".xap"; }
+
+    CASE "application/msword"                                                         { RETURN ".doc"; }
+    CASE "application/vnd.ms-excel"                                                   { RETURN ".xls"; }
+    CASE "application/vnd.ms-powerpoint"                                              { RETURN ".ppt"; }
+    CASE "application/x-webhare-fla"                                                  { RETURN ".fla"; }
+    CASE "application/x-webhare-conversionprofile"                                    { RETURN ".prl"; }
+
+    CASE "application/x-webhare-template" { RETURN ".tpl"; }
+    CASE "application/x-webhare-library" { RETURN ".whlib"; }
+    CASE "application/x-webhare-shtmlfile" { RETURN ".shtml"; }
+    CASE "application/x-webhare-harescriptfile" { RETURN ".whscr"; }
+
+
+    CASE "text/xml"                                                                   { RETURN ".xml"; }
+
+    CASE "application/x-javascript"                                                   { RETURN ".js"; }
+    CASE "audio/amr"                                                                  { RETURN ".amr"; }
+    CASE "text/css"                                                                   { RETURN ".css"; }
+    CASE "text/csv"                                                                   { RETURN ".csv"; }
+    CASE "audio/x-wav"                                                                { RETURN ".wav"; }
+    CASE "audio/mpeg"                                                                 { RETURN ".mp3"; }
+    CASE "video/mpeg"                                                                 { RETURN ".mpg"; }
+    CASE "video/x-msvideo"                                                            { RETURN ".avi"; }
+    CASE "video/quicktime"                                                            { RETURN ".mov"; }
+    CASE "video/mp4"                                                                  { RETURN ".mp4"; }
+    CASE "image/vnd.microsoft.icon"                                                   { RETURN ".ico"; }
+    CASE "application/x-rar-compressed"                                               { RETURN ".rar"; }
+    CASE "text/html"                                                                  { RETURN ".html"; }
+    CASE "application/x-gzip"                                                         { RETURN ".gz"; }
+    CASE "text/plain"                                                                 { RETURN ".txt"; }
+    CASE "application/x-webhare-siteprofile"                                          { RETURN ".siteprl"; }
+    CASE "application/pdf"                                                            { RETURN ".pdf"; }
+    CASE "message/rfc822"                                                             { RETURN ".eml"; }
+    CASE "text/x-vcard"                                                               { RETURN ".vcf"; }
+    CASE "video/x-flv"                                                                { RETURN ".flv"; }
+    CASE "text/calendar"                                                              { RETURN ".ics"; }
+    DEFAULT                                                                           { RETURN ""; }
+  }
+}
+
+/** @short Scan a blob and explain its contents.
+    @param toscan Blob to scan
+    @param filename Filename associated with the blob, if known. This may help detection of some file formats
+    @param options
+    @cell(boolean) options.extractdominantcolor If TRUE, extract the dominant color from images
+    @cell(boolean) options.generatehash If TRUE, calculate the hash of the data
+    @cell(string) options.mimetype Force the mimetype to the requested type
+    @return A record describing the scanned blob
+    @cell(string) return.extension The proper or usual extension for the file's mimetype, if known to webhare. Either empty or a text starting with a dot ('.')
+    @cell(string) return.mimetype The mimetype for the file. If unrecognized, `application/octet-stream`
+    @cell(integer) return.width Image width (in pixels)
+    @cell(integer) return.heigh Image height (in pixels)
+    @cell(integer) return.rotation Image rotation in degrees (0,90,180 or 270)
+    @cell(boolean) return.mirrored True if this is a mirrored image
+    @cell(record) return.refpoint Reference point if set, default record otherwise
+    @cell(integer) return.refpoint.x X coordinate of reference point (in pixels)
+    @cell(integer) return.refpoint.y Y coordinate of reference point (in pixels)
+    @cell(string) return.dominantcolor Image's dominant color as a `#RRGGBB` code, 'transparent' if the image is transparent. Only extracted if the extractdominantcolor option is enabled
+    @cell(string) return.hash UFS encoded SHA-256 hash of the file. Only calculated if the generatehash option is enabled
+*/
+PUBLIC RECORD FUNCTION ScanBlob(BLOB toscan, STRING filename DEFAULTSTO "", RECORD options DEFAULTSTO CELL [])
+{
+  options := ValidateOptions( [ extractdominantcolor := FALSE
+                              , generatehash := FALSE
+                              , mimetype := ""
+                              ],options);
+
+  RECORD typeinfo := __DetectFileType(toscan, filename);
+  RECORD base := [ ...basescannedblob
+                 , mimetype := options.mimetype ?? typeinfo.contenttype
+                 ];
+  base.extension := GetExtensionForMimeType(base.mimetype);
+
+  IF(RecordExists(typeinfo.imginfo) AND base.mimetype LIKE "image/*")
+  {
+    base := [ ...base
+            , width    := typeinfo.imginfo.width
+            , height   := typeinfo.imginfo.height
+            , rotation := typeinfo.imginfo.rotation
+            , mirrored := typeinfo.imginfo.mirrored
+            ];
+    IF(options.extractdominantcolor)
+    {
+      INTEGER canvas := GfxCreateResizedCanvasFromImageBlob(toscan, 100, 100);
+      IF(canvas > 0)
+      {
+        RECORD ARRAY colorrecs := __DRAWLIB_V2_GETKMEANSQUANTIZEDPALETTE(
+            canvas,
+            6,
+            50, //alpha < 20%, hardly visible
+            10, // 10 iterations should suffice
+            0.5);
+        IF(Length(colorrecs)>0)
+          base.dominantcolor := "#"||Right("00000"||ToString(GfxCreateColor(colorrecs[0].r,colorrecs[0].g,colorrecs[0].b),16),6);
+        ELSE
+          base.dominantcolor := "transparent";
+        GfxDestroyCanvas(canvas);
+      }
+    }
+  }
+  IF(options.generatehash)
+  {
+    INTEGER hasher := CreateHasher("SHA-256");
+    SendBlobTo(hasher, toscan);
+    base.hash := EncodeUFS(FinalizeHasher(hasher));
+  }
+  RETURN base;
+}
+
+
+/** @short Create a record wrapping the blob and its contents
+    @long This function returns the same record as %ScanBlob, but adds a 'data', 'filename' and 'extensions' members required for storage in some databases (eg, WHFS, WRD)
+    @param toscan Blob to scan
+    @param filename The filename of the blob. Wrapping a blob requires a filename. If the filename ends with '.*', it will be replaced with the proper extensopn
+    @param options Options @includecelldef %ScanBlob.options
+    @return The wrapped blob @includecelldef %ScanBlob.return
+    @cell(string) return.filename Filename of the wrapped blob
+    @cell(blob) return.data The blob itself
+*/
+PUBLIC RECORD FUNCTION WrapBlob(BLOB toscan, STRING filename, RECORD options DEFAULTSTO CELL[])
+{
+  IF(filename LIKE "*/*")
+    filename := Substring(filename, SearchLastSubstring(filename,'/')+1);
+  filename := TrimWhitespace(filename);
+
+  RECORD base := CELL[ ...basestoredfile
+                     , ...ScanBlob(toscan, filename, options)
+                     , data := toscan
+                     , __blobsource := ""
+                     , source_fsobject := 0
+                     ];
+
+  base.filename := filename ?? GetSafeFileName("noname" || GetExtensionForMimeType(base.mimetype));
+
+  IF(Right(base.filename,2) = ".*")
+    base.filename := Left(base.filename, Length(base.filename) - 2) || GetExtensionForMimeType(base.mimetype);
+
+  RETURN base;
+}

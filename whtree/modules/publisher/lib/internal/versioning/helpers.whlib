@@ -1,0 +1,258 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/internal/versioning/base.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+
+PUBLIC OBJECT FUNCTION GetVersioningPolicyForSite(INTEGER siteid)
+{
+  RETURN GetVersioningPolicyForSites([ siteid ]).policy;
+}
+
+PUBLIC RECORD FUNCTION GetVersioningPolicyForSites(INTEGER ARRAY siteids)
+{
+  siteids := GetSortedSet(siteids);
+
+  RECORD ARRAY versioned :=
+      SELECT id, versioningpolicy
+        FROM system.sites
+       WHERE id IN siteids AND versioningpolicy != "";
+
+  IF (LENGTH(versioned) = 0)
+    RETURN [ policy := DEFAULT OBJECT ];
+
+  IF (LENGTH(versioned) = 1 AND LENGTH(siteids) = 1) // no mix of site with and without policy
+  {
+    RETURN [ policy := OpenVersioningPolicy(versioned[0].versioningpolicy) ];
+  }
+
+  //FIXME Rob suggested setting up a block-all policy for missing policy, might as well work with mixed
+
+  // Got mixed policies!
+  RETURN DEFAULT RECORD;
+}
+
+/** @param files
+    @cell files.id
+    @cell files.parent
+    @cell files.parentsite
+*/
+PUBLIC RECORD FUNCTION GetVersioningPolicyForFiles(RECORD ARRAY files)
+{
+  INTEGER ARRAY siteids :=
+      SELECT AS INTEGER ARRAY parentsite
+        FROM files
+       WHERE parent != 18;
+
+  INTEGER ARRAY deleted_files := SELECT AS INTEGER ARRAY id FROM files WHERE parent = 18;
+  IF (NOT IsDefaultValue(deleted_files))
+  {
+    siteids := siteids CONCAT
+        SELECT AS INTEGER ARRAY fs_site
+          FROM system.fs_versionevents
+         WHERE live_object IN deleted_files
+           AND iscurrent;
+  }
+
+  RETURN GetVersioningPolicyForSites(siteids);
+}
+
+/** Returns the versioning policy for a file object
+*/
+PUBLIC OBJECT FUNCTION GetVersioningPolicyForFileObject(OBJECT whfsfile)
+{
+  RETURN GetVersioningPolicyForFiles([ [ id := whfsfile->id, parent := whfsfile->parent, parentsite := whfsfile->parentsite ]]).policy;
+}
+
+
+
+/** @param work
+    @param selection
+    @cell selection.id
+    @cell selection.parentsite
+    @cell selection.isfolder
+    @cell selection.published
+    @param fields
+    @return
+    @cell return.mode
+    @cell return.direct Direct modification allowed
+    @cell return.versioned Need to create a draft first
+    @cell return.drafts Already has a draft
+*/
+PUBLIC RECORD FUNCTION TestSelectionForVersioningUpdates(OBJECT work, RECORD ARRAY selection, STRING ARRAY fields)
+{
+  FOREVERY (STRING field FROM fields)
+    IF (ToLowercase(field) != field)
+      THROW NEW Exception("Fields must be lowercase");
+
+  RECORD retval :=
+      [ mode :=         "versioned"
+      , policy :=       DEFAULT OBJECT
+      , direct :=       DEFAULT INTEGER ARRAY
+      , versioned :=    DEFAULT INTEGER ARRAY
+      , drafts :=       DEFAULT INTEGER ARRAY
+      , allids :=       DEFAULT INTEGER ARRAY
+      , siteids :=      DEFAULT INTEGER ARRAY
+      ];
+
+  // First get the list of all used sites
+  retval.siteids :=
+      SELECT AS INTEGER ARRAY parentsite
+        FROM selection;
+
+  RECORD policy := GetVersioningPolicyForSites(retval.siteids);
+  IF (NOT RecordExists(policy)) // mixed policies!
+  {
+    work->AddError(GetTid("publisher:versioning.errors.mixedpolicies"));
+    RETURN DEFAULT RECORD;
+  }
+
+  IF (NOT ObjectExists(policy.policy))
+  {
+    retval.mode := "normal";
+    retval.direct := SELECT AS INTEGER ARRAY id FROM selection;
+    retval.allids := retval.direct;
+    RETURN retval;
+  }
+
+  retval.policy := policy.policy;
+
+  RECORD ARRAY enriched := policy.policy->EnrichWithObjectPolicy(selection, [ returnpolicyafteraccept := TRUE ]);
+  FOREVERY (RECORD rec FROM enriched)
+  {
+    RECORD fieldspolicy := rec.policy->GetFields();
+    BOOLEAN isversioned := LENGTH(fields) = 0 ? LENGTH(fieldspolicy.versioned_fields) != 0 : FALSE;
+
+    // For locked files, we also need to see if the changes affect fields that become protected in the new policy
+    IF (rec.draftlocked)
+    {
+      // No need to check readonly fields for the current policy, will catch that later
+      RECORD newfieldspolicy := rec.policyafteraccept->GetFields();
+      FOREVERY (STRING field FROM fields)
+        IF (field IN fieldspolicy.versioned_fields
+            OR field IN newfieldspolicy.versioned_fields
+            OR field IN newfieldspolicy.readonly_fields)
+        {
+          work->AddError(GetTid("publisher:versioning.errors.modifyinglockedfiles"));
+          RETURN DEFAULT RECORD;
+        }
+    }
+
+    FOREVERY (STRING field FROM fields)
+    {
+      IF (field IN fieldspolicy.versioned_fields)
+        isversioned := TRUE;
+      ELSE IF (field IN fieldspolicy.readonly_fields)
+      {
+        work->AddError(GetTid("publisher:versioning.errors.versioning.modifyingreadonlyfield"));
+        RETURN DEFAULT RECORD;
+      }
+    }
+
+    IF (NOT isversioned)
+      INSERT rec.id INTO retval.direct AT END;
+    ELSE
+      INSERT rec.id INTO retval.versioned AT END;
+  }
+
+  IF (LENGTH(retval.versioned) != 0)
+  {
+    RECORD ARRAY drafts :=
+        SELECT id
+             , filelink
+          FROM system.fs_objects
+         WHERE filelink IN retval.versioned
+           AND parent = 15;
+
+    retval.drafts := SELECT AS INTEGER ARRAY id FROM drafts;
+    INTEGER ARRAY live := SELECT AS INTEGER ARRAY filelink FROM drafts;
+
+    retval.versioned := ArrayDelete(retval.versioned, live);
+  }
+
+  IF (LENGTH(retval.versioned) = 0 AND LENGTH(retval.drafts) = 0)
+    retval.mode := "normal";
+
+  retval.allids := retval.direct CONCAT retval.versioned CONCAT retval.drafts;
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION TestSelectionForVersioningUpdatesByIds(OBJECT work, INTEGER ARRAY selection, STRING ARRAY fields)
+{
+  RETURN TestSelectionForVersioningUpdates(
+      work,
+      (SELECT id, isfolder, parentsite
+         FROM system.fs_objects
+        WHERE id IN selection),
+      fields);
+}
+
+
+/** @param testresults Results from TestSelectionForVersioningUpdates(ByIds)
+    @param modifyids Ids from testresults that need changing
+    @return
+    @cell return.directids
+    @cell return.draftids
+    @cell return.objectids
+    @cell return.have_drafts
+*/
+PUBLIC RECORD FUNCTION PrepareForVersionedUpdate(RECORD testresult, INTEGER ARRAY modify_ids)
+{
+  INTEGER ARRAY draftids :=
+      SELECT AS INTEGER ARRAY id
+        FROM system.fs_objects
+       WHERE id IN testresult.drafts AND id IN modify_ids;
+
+  draftids := draftids CONCAT
+      SELECT AS INTEGER ARRAY CreateDraft(OpenWHFSObject(id), TRUE)->id
+        FROM system.fs_objects
+       WHERE id IN testresult.versioned AND id IN modify_ids;
+
+  INTEGER ARRAY directids :=
+      SELECT AS INTEGER ARRAY id
+        FROM system.fs_objects
+       WHERE id IN testresult.direct AND id IN modify_ids;
+
+  RETURN
+      [ directids :=    directids
+      , draftids :=     draftids
+      , objectids :=    directids CONCAT draftids
+      , have_drafts :=  LENGTH(draftids) != 0
+      ];
+}
+
+/** Get the protected fields for a file
+    @param enriched_rec Record as returned by EnrichWithObjectPolicy
+    @return
+    @cell(integer array) return.versioned_contenttypes
+    @cell(string array)  return.readonly_fields
+    @cell(string array) return.versioned_fields
+*/
+PUBLIC RECORD FUNCTION GetPolicyProtectedFields(RECORD enriched_rec)
+{
+  RECORD retval := enriched_rec.policy->GetFields();
+  IF (enriched_rec.draftlocked)
+  {
+    IF (NOT CellExists(enriched_rec, "POLICYAFTERACCEPT"))
+      THROW NEW Exception("Enriched record does not have the policy after accept, please run enrich with RETURNPOLICYAFTERACCEPT := TRUE");
+    RECORD newfields := enriched_rec.policyafteraccept->GetFields();
+
+    retval.versioned_contenttypes :=
+        retval.versioned_contenttypes CONCAT
+        newfields.versioned_contenttypes;
+    retval.readonly_fields :=
+        retval.readonly_fields CONCAT
+        retval.versioned_fields CONCAT
+        newfields.readonly_fields CONCAT
+        newfields.versioned_fields;
+    retval.versioned_fields := DEFAULT STRING ARRAY;
+  }
+  RETURN retval;
+}

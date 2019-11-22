@@ -1,0 +1,72 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+OBJECT linksrtdfile;
+
+MACRO PrepIt()
+{
+  testfw->BeginWork();
+  testfw->SetupTestWebdesignWebsite("");
+
+  OBJECT siteroot := testfw->GetTestsite()->rootobject;
+
+  OBJECT myrichdoc := NEW EditableRichDocument;
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
+                                 || '<p class="normal"><a href="http://www.example.net/link42/">Link 42</a></p>'
+                                 || '</body></html>')
+                              ]);
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  linksrtdfile := siteroot->CreateFile([name := "links.rtd", type := richdoctype->id, publish:=FALSE]);
+
+  richdoctype->SetInstanceData(linksrtdfile->id, [data := myrichdoc->ExportAsRecord()]);
+
+  OBJECT indexpromise := MakeChangesIndexedPromise();
+  testfw->CommitWork();
+  WaitForPromise(indexpromise);
+}
+
+OBJECT ASYNC FUNCTION Search()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Search"], target := DEFAULT RECORD ]));
+  TestEq(TRUE, RecordExists(TT("foldertree")->selection));
+  TestEq("Search", TT("foldertree")->selection.name);
+
+  OBJECT searchscreen := TT("filelist")->folderfilter->contents;
+  TestEq(
+      [ filters :=
+          [ [ type := "publisher:text"
+            , value := [ textquery := "" ]
+            ]
+          ]
+      ], searchscreen->GetFilterData());
+
+  searchscreen->SetFilterData(
+      [ filters :=
+          [ [ type := "consilio:linksto"
+            , value := [ textquery := "example.net/link42" ]
+            ]
+          ]
+      ]);
+
+  TT("filelist")->filter->TolliumClick();
+
+  RECORD ARRAY rows := TT("filelist")->rows;
+  TestEq(1,Length(rows));
+  TestEq(linksrtdfile->id, rows[0].rowkey);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  RETURN TRUE;
+}
+
+RunTestframework([ PTR PrepIt
+                 , PTR Search
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);

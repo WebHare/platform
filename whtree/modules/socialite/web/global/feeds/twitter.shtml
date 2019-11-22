@@ -1,0 +1,59 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
+LOADLIB "mod::socialite/lib/twitter.whlib";
+
+BOOLEAN force;
+IF(GetWebVariable("force")="1")
+{
+  IF(IsDtapLive())
+    AbortWithHTTPError(403, "'Force' parameter not supported on live installations");
+  force := TRUE;
+}
+
+STRING query := DecryptForThisServer("socialite:twitterquery", GetWebVariable("q"), [fallback := "---decodefail---"]);
+IF(query="")
+{
+  AddHTTPHeader("Status","400 Could not decode/decrypt the query parameter",FALSE);
+  RETURN;
+}
+
+INTEGER requestnum := ToInteger(GetWebVariable("l"),30);//max total request
+IF(requestnum < 1)
+  requestnum := 1;
+IF(requestnum > 30)
+  requestnum := 30; //FIXME higher limits are okay, but we should probably store the limit into the encrypted query to prevent people from harassing this endpoint
+
+//pagination
+INTEGER requestpage := ToInteger(GetWebVariable("page"),1);//pagenr starts with 1
+IF(requestpage < 1)
+  requestpage := 1;
+
+INTEGER pageitemcount := ToInteger(GetWebVariable("count"),requestnum);
+IF(pageitemcount < 1)
+  pageitemcount := 1;
+
+RECORD res := GetTwitterSearchFeed("DESIGNFILES",query,requestnum, [ force := force ]);
+
+IF(pageitemcount < requestnum)
+  res.entries := SELECT * FROM res.entries WHERE #entries >= ((requestpage-1)*pageitemcount) LIMIT pageitemcount;
+
+RECORD retval := [ messages := (SELECT "from" := fromuser
+                                   //, fromid := fromuserid
+                                     , fromname := fromusername
+                                     , fromavatar
+                                     , text
+                                     , link
+                                     , htmltext := richtext
+                                     , messageid
+                                     , postdate := FormatISO8601Datetime(created)
+                                  FROM res.entries)
+                 , username := RecordExists(res.baseinfo) ? res.baseinfo.username : ""
+                 , title := RecordExists(res.baseinfo) ? res.baseinfo.title : ""
+                 , url := RecordExists(res.baseinfo) AND TypeID(res.baseinfo.url)= TypeID(STRING) ? res.baseinfo.url : ""
+                 , avatar := RecordExists(res.baseinfo) ? res.baseinfo.avatar : ""
+                 ];
+AddHTTPHeader("Content-Type","application/json",FALSE);
+Print(EncodeJSON(retval));

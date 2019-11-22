@@ -1,0 +1,39 @@
+console [--profile] [--coverage]        Run WebHare in console mode, optionally enable full profiling and/or coverage modes
+exec ...                                Execute the specified process inside a WebHare environment (eg wh exec backup ...)
+setupmyshell                            Prepare my shell for easy WebHare use. Invoke as: eval \`$WEBHARE_DIR/bin/wh setupmyshell\`
+cachereset                              Clear all caches
+run <script>                            Run the specified script
+backuplocal                             Create a local snapshot backup of your WebHare
+clonerestoredb <destdir>                Clone the database to the specified directory
+republish <objectid>[...]               Republish the selected file(s), specified by id
+pstree                                  Show WebHare processes
+terminate                               Terminate all WebHare processes nicely (SIGTERM)
+kill                                    Kill all WebHare processes abruptly (SIGKILL)
+activity                                Show recent activity from the access.log
+accesslog                               Show the access log
+errorslog                               Show the error log
+servicelog                              Show the service manager log
+dirs                                    Show paths and environment settings
+check                                   Run selfchecks
+shellconfig                             Get WebHare configuration in shell variables
+setupdev                                Set up this WebHare for development
+getmodulelist                           Get the list of installed modules
+getmoduledir <name>                     Where is module '<name>' ?
+getrootdir                              Get the WebHare installation root directory
+getdatadir                              Get the WebHare installation data directory
+runtest <test>                          Run the specified test
+isrunning                               Exits with errorcode 0 if WebHare is running, 1 otherwise
+waitfor poststartdone                   Wait for WebHare to reach 'poststartdone' phase
+
+--- developer options ---
+freshdbconsole                          Wipe database and run in console mode
+up                                      Update git
+st                                      Git status
+make                                    Build from source
+mic                                     Make Install, run in console mode
+umic                                    Update git, make install, run in console mode
+hstest <test>                           Run the specified HareScript test
+installsocketbinder                     Install the socket binder
+obsoletebranches [dir]                  Remove merged branches (in WebHare source tree if no directory specified)
+
+--- standard options ---

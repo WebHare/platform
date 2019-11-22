@@ -1,0 +1,293 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queries.whlib";
+LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+
+
+PUBLIC OBJECTTYPE LinkCheck EXTEND TolliumScreenBase
+<
+
+  INTEGER siteid;
+  RECORD ARRAY alllinks;
+
+  MACRO Init(RECORD data)
+  {
+    // Cache all broken links for the requested site
+    this->ReloadLinks(data.siteid);
+  }
+
+  MACRO ReloadLinks(INTEGER siteid)
+  {
+    //Only get published files
+    INTEGER ARRAY relevant_fs_objects := GetWHFSDescendantIds(siteid, FALSE, TRUE, 32, TRUE);
+
+    // Get all broken links for the requested site
+    RECORD ARRAY checked := SELECT *
+                              FROM GetLinksForFSObjects(relevant_fs_objects)
+                             ORDER BY groupid;
+
+    INTEGER ARRAY referenced_files := SELECT AS INTEGER ARRAY DISTINCT groupid FROM checked;
+
+    RECORD ARRAY files :=
+          SELECT fileid := id
+               , filename := name
+               , filepath := fullpath
+               , filetitle := title
+               , filefolder := parent
+               , filedate := modificationdate
+            FROM system.fs_objects
+           WHERE id IN referenced_files;
+
+    // Merge. Every element from files has an element in checked
+    this->alllinks := DEFAULT RECORD ARRAY;
+    INTEGER pos := 0;
+    INTEGER len := Length(checked);
+    FOREVERY (RECORD rec FROM files)
+    {
+      WHILE (checked[pos].groupid < rec.fileid)
+        pos := pos + 1;
+
+      WHILE (checked[pos].groupid = rec.fileid)
+      {
+        // Only show http(s) links
+        IF (checked[pos].url LIKE "http*://*")
+          INSERT MakeMergedRecord(rec, checked[pos]) INTO this->alllinks AT END;
+
+        pos := pos + 1;
+        IF (pos >= len)
+          BREAK;
+      }
+    }
+    this->RefreshLinks();
+  }
+
+  MACRO RefreshLinks()
+  {
+    IF (this->showalllinks->value)
+      this->links->empty := GetTid("publisher:commondialogs.objectprops.nolinks");
+    ELSE
+      this->links->empty := GetTid("publisher:commondialogs.objectprops.nobrokenlinks");
+
+    this->links->rows := SELECT *
+                              , status_icon := GetStatusIcon(status, this->links)
+                              , status_hint := GetStatusText(status)
+                           FROM this->GetFilteredLinks();
+  }
+
+  RECORD ARRAY FUNCTION GetFilteredLinks()
+  {
+    RETURN this->showalllinks->value
+         ? this->alllinks
+         : SELECT * FROM this->alllinks WHERE status < 200 OR status > 299;
+  }
+
+  MACRO DoFileView()
+  {
+    this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := this->links->selection.fileid ], DEFAULT RECORD, FALSE);
+  }
+
+  MACRO DoCSVExport()
+  {
+    RunColumnFileExportDialog(this,
+           [ columns := [ [ title := GetTID("consilio:report.linkcheck.url"), name := "url", type := "text" ]
+                         , [ title := GetTID("consilio:report.linkcheck.text"), name := "text", type := "text" ]
+                         , [ title := GetTID("consilio:report.linkcheck.status"), name := "status", type := "integer" ]
+                         , [ title := GetTID("consilio:report.linkcheck.statushint"), name := "statushint", type := "text" ]
+                         , [ title := GetTID("consilio:report.linkcheck.checked"), name := "checked", type := "date" ]
+                         , [ title := GetTID("consilio:report.linkcheck.fileid"), name := "fileid", type := "integer" ]
+                         , [ title := GetTID("consilio:report.linkcheck.fileurl"), name := "fileurl", type := "text" ]
+                         , [ title := GetTID("consilio:report.linkcheck.filename"), name := "filename", type := "text" ]
+                         , [ title := GetTID("consilio:report.linkcheck.filepath"), name := "filepath", type := "text" ]
+                         , [ title := GetTID("consilio:report.linkcheck.filetitle"), name := "filetitle", type := "text" ]
+                         , [ title := GetTID("consilio:report.linkcheck.filefolder"), name := "filefolder", type := "integer" ]
+                         , [ title := GetTID("consilio:report.linkcheck.filedate"), name := "filedate", type := "date" ]
+                         ]
+           , rows := (SELECT url, text, status, statushint := GetStatusText(status), checked, fileid, fileurl, filename, filepath, filetitle, filefolder, filedate
+                        FROM this->GetFilteredLinks())
+           , exporttitle := GetTid("consilio:report.linkcheck.broken_links")
+           ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE Queries EXTEND TolliumScreenBase
+<
+  RECORD ARRAY all_queries;
+  BOOLEAN show_grouped;
+  DATETIME show_fromdate;
+  OBJECT parser;
+
+  MACRO Init(RECORD data)
+  {
+    this->parser := NEW QueryParser();
+
+    // Cache all queries for the requested site or catalog
+    IF (CellExists(data, "siteid"))
+      this->all_queries := this->GetAllSiteQueries(data.siteid);
+    ELSE
+      this->all_queries := this->GetAllCatalogQueries(data.catalogid);
+    this->fromdate->value := AddDaysToDate(-30, MakeDateFromDayCount(GetDayCount(GetCurrentDateTime())));
+
+    this->Refresh();
+  }
+
+  RECORD ARRAY FUNCTION GetFilteredQueries()
+  {
+    RECORD ARRAY results := SELECT * FROM this->all_queries
+                             WHERE when > this->show_fromdate;
+
+    IF (this->show_grouped)
+      results := SELECT query := ToLowercase(Any(query))
+                      , when := Max(when)
+                      , results := Count(*)
+                      , pages := Avg(pages)
+                   FROM results
+                  GROUP BY ToLowercase(query);
+
+    RETURN results;
+  }
+
+  MACRO Refresh()
+  {
+    this->show_grouped := ("grouped" IN this->options->value);
+    this->show_fromdate := this->fromdate->value;
+
+    this->results->rows := this->GetFilteredQueries();
+  }
+
+  RECORD ARRAY FUNCTION GetAllSiteQueries(INTEGER siteid)
+  {
+    RECORD ARRAY results :=
+        SELECT *
+             , query := this->parser->ExtractUserQuery(query)
+          FROM consilio.query_results
+         WHERE site = siteid
+               AND tag != "__consilio_preview";
+
+    RETURN results;
+  }
+
+  RECORD ARRAY FUNCTION GetAllCatalogQueries(INTEGER catalogid)
+  {
+    RECORD ARRAY results :=
+        SELECT *
+             , query := this->parser->ExtractUserQuery(query)
+          FROM consilio.query_results
+         WHERE indexid = catalogid
+	             AND tag != "__consilio_preview";
+
+    RETURN results;
+  }
+
+  MACRO DoCSVExport()
+  {
+    RunColumnFileExportDialog(this,
+            [ columns := [ [ title := GetTID("consilio:report.queries.query"), name := "query", type := "text" ]
+                         , [ title := GetTID("consilio:report.queries.results"), name := "results", type := "integer" ]
+                         , [ title := GetTID("consilio:report.queries.pages"), name := "pages", type := "integer" ]
+                         , [ title := GetTID("consilio:report.queries.when"), name := "when", type := "datetime", storeutc := TRUE ]
+                         ]
+            , rows := (SELECT query, results, pages, when
+                         FROM this->GetFilteredQueries())
+            , exporttitle := GetTid("consilio:report.queries.queries")
+            ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE ObjectReport EXTEND TolliumFragmentBase
+<
+  INTEGER fs_object_id;
+  INTEGER wrd_entity_id;
+
+  RECORD ARRAY alllinks;
+
+  PUBLIC PROPERTY fs_object(fs_object_id, SetFSObject);
+  PUBLIC PROPERTY wrd_entity(wrd_entity_id, SetWRDEntity);
+
+  MACRO NEW()
+  {
+  }
+
+  MACRO SetFSObject(INTEGER id)
+  {
+    this->fs_object_id := id;
+    this->wrd_entity_id := 0;
+    this->ReloadLinks();
+  }
+
+  MACRO SetWRDEntity(INTEGER id)
+  {
+    this->fs_object_id := 0;
+    this->wrd_entity_id := id;
+    this->ReloadLinks();
+  }
+
+  MACRO ReloadLinks()
+  {
+    IF (this->fs_object_id > 0)
+    {
+      this->alllinks := SELECT referrer
+                             , url
+                             , text := TrimWhitespace(text)
+                             , status
+                             , status_icon := GetStatusIcon(status, this->links)
+                             , status_hint := GetStatusText(status)
+                          FROM GetLinksForFSObject(this->fs_object_id)
+                         WHERE url LIKE "http*://*"; // Only show http(s) links
+      this->alllinks := SELECT *
+                             , referrer_sort := referrer//(referrer = "[index]" ? "0" : "1" || ToLowercase(referrer)) || "/" || ToLowercase(url)
+                             , url_sort := ToLowercase(url) || "/" || (referrer = "[index]" ? "0" : "1" || ToLowercase(referrer))
+                             , text_sort := ToLowercase(text) || "/" || (referrer = "[index]" ? "0" : "1" || ToLowercase(referrer))
+                             , status_sort := Right("00" || (status >= 200 AND status < 300 ? 999 : status = 0 ? 998 : status), 3) || "/" || ToLowercase(url) || "/" || (referrer = "[index]" ? "0" : "1" || ToLowercase(referrer))
+                          FROM this->alllinks;
+    }
+    ELSE IF (this->wrd_entity_id > 0)
+    {
+      this->alllinks := SELECT referrer := attrs.title
+                             , url
+                             , text := TrimWhitespace(text)
+                             , status
+                             , status_icon := GetStatusIcon(status, this->links)
+                             , status_hint := GetStatusText(status)
+                          FROM GetLinksForWRDEntity(this->wrd_entity_id) AS links
+                             , wrd.attrs
+                             , wrd.entities
+                         WHERE links.referrer = attrs.tag
+                               AND attrs.type = entities.type
+                               AND entities.id = this->wrd_entity_id
+                               AND url LIKE "http*://*"; // Only show http(s) links
+      this->alllinks := SELECT *
+                             , referrer_sort := ToLowercase(referrer) || "/" || ToLowercase(url)
+                             , url_sort := ToLowercase(url) || "/" || ToLowercase(referrer)
+                             , text_sort := ToLowercase(text) || "/" || ToLowercase(referrer)
+                             , status_sort := Right("00" || (status >= 200 AND status < 300 ? 999 : status = 0 ? 998 : status), 3) || "/" || ToLowercase(url) || "/" || ToLowercase(referrer)
+                          FROM this->alllinks;
+    }
+
+    this->RefreshLinks();
+  }
+
+  PUBLIC MACRO RefreshLinks()
+  {
+    IF (this->showalllinks->value)
+    {
+      this->links->empty := GetTid("publisher:commondialogs.objectprops.nolinks");
+      this->links->rows := this->alllinks;
+    }
+    ELSE
+    {
+      this->links->empty := GetTid("publisher:commondialogs.objectprops.nobrokenlinks");
+      this->links->rows := SELECT * FROM this->alllinks WHERE status < 200 OR status > 299;
+    }
+  }
+>;

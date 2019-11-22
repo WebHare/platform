@@ -1,0 +1,78 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/sysmgmt/webdav.whlib"
+         gid="sysmgmt.webdav">
+
+  <messageboxes gid=".messages" >
+    <messagebox name="deletefolder" icon="question" buttons="yes no" />
+    <messagebox name="deleteuser" icon="question" buttons="yes no" />
+    <messagebox name="deleteusers" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="webdav_data" gid=".data" tid=".title" width="100x" height="30x" allowresize="true" menubar="menubar">
+    <actions>
+      <action name="addfolder" onexecute="doaddfolder" tid="tollium:common.actions.add" shortcut="ctrl+n"/>
+      <action name="editfolder" onexecute="doeditfolder" tid="tollium:common.actions.edit">
+        <enableon source="folders" min="1" />
+      </action>
+      <action name="deletefolder" onexecute="dodeletefolder" tid="tollium:common.actions.delete"  shortcut="del">
+        <enableon source="folders" min="1" />
+      </action>
+      <action name="rightsfolder" onexecute="dorightsfolder">
+        <enableon source="folders" min="1" max="1" />
+      </action>
+      <action name="close" onexecute="cancel" tid="tollium:common.actions.close" shortcut="ctrl+q"/>
+    </actions>
+    <menus>
+      <menu name="contextmenu">
+        <item action="editfolder" />
+        <item action="deletefolder" />
+      </menu>
+      <menu name="newcontextmenu">
+        <item action="addfolder" />
+      </menu>
+       <menu name="menubar">
+        <item action="addfolder" />
+        <item action="editfolder" />
+        <item action="deletefolder" />
+        <divider/>
+        <item action="close"/>
+      </menu>
+    </menus>
+    <toolbar>
+      <button action="addfolder" icon="tollium:actions/add"  />
+      <button action="editfolder" icon="tollium:actions/edit" />
+      <button action="rightsfolder"  icon="tollium:users/users"  />
+      <button action="deletefolder"  icon="tollium:actions/delete"  />
+    </toolbar>
+    <body layout="form" height="1pr">
+      <panel height="1pr">
+        <list name="folders"
+              selectmode="single"
+              height="1pr"
+              openaction="editfolder"
+              selectcontextmenu="contextmenu"
+              newcontextmenu="newcontextmenu"
+              >
+          <column name="foldername" type="text" />
+          <column name="diskfolder" type="text" />
+        </list>
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="webdav_folder" gid=".folder">
+    <body layout="form" >
+      <box name="webdavdata">
+        <textedit name="foldername" required="true" maxlength="256" />
+        <browseserverpath name="diskfolder" allowmanualedit="true" required="true" acceptfiles="false" />
+      </box>
+      <line layout="left">
+        <checkbox name="forcelowercase" title="" labeltid=".forcelowercase" value="true" />
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

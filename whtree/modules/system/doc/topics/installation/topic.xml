@@ -1,0 +1,14 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="Installation and maintenance"
+       shortdescription="Install, ugrade and maintain WebHare"
+       docorder="wh
+                 sqlclient
+                 dtap
+                 environment
+                 serverconfig
+                 backup-and-restore
+                 fromsource
+                 running-in-docker
+                 configuration-tuning
+                 future-deprecations">
+</topic>

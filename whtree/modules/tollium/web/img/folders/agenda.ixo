@@ -1,0 +1,10 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <backgroundlayer src="tollium:backgrounds/folder" size="24px"/>
+  <layer src="tollium:objects/folder"  size="24px"/>
+  <layer src="tollium:overlays/filetypes/calendar"  size="24px"/>
+
+  <backgroundlayer src="tollium:backgrounds/agenda" size="16px"/>
+  <backgroundlayer src="tollium:objects/agenda" size="16px"/>
+  <layer src="tollium:overlays/agenda/month" size="16px"/>
+
+</icon>

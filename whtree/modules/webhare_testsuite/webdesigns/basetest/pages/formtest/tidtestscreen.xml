@@ -1,0 +1,15 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         >
+
+  <screen
+      name="testscreen"
+      gid="missing"
+      implementation="none">
+    <body>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+</screens>

@@ -1,0 +1,118 @@
+<?wh
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_SISOW_MERCHANTID") = "";
+
+ASYNC MACRO SetupSisow()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
+  TT("methods")->value := "wrd:sisow";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+  TT(":Merchant ID")->value := GetEnvironmentVariable("TESTFW_SISOW_MERCHANTID") ?? "dummy-id";
+  TT(":Merchant secret")->value := GetEnvironmentVariable("TESTFW_SISOW_MERCHANTSECRET") ?? "dummy-secret";
+  TT("paymentextension->testmode")->value := true;
+  IF(NOT offlineonly)
+  {
+    AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  }
+
+  TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(title) IN ["IDEAL","PAYPAL EXPRESS CHECKOUT"];
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+}
+
+ASYNC MACRO TestPaymentSisow()
+{
+  IF(offlineonly)
+    RETURN;
+
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  TestEq(2,Length(methods));
+  TestEq("iDEAL", methods[0].title);
+  TEstEq(1, Length(methods[0].issuers));
+
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD properrequest := [ paymentprovider := methods[0].paymentprovider
+                          , paymentoptiontag := methods[0].paymentoptiontag
+                          , issuer := methods[0].issuers[0].rowkey
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          ];
+  IF(testfw->debug)
+    Print("Planned return url: " || properrequest.returnurl || "\n");
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 272.23, properrequest);
+  STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
+  IF(testfw->debug)
+    Print(`Payment url: ${payurl}\n`);
+
+  TestEq("pending", entity->GetField("DATA").status);
+
+ //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  //////////// use chrome headless to execute the paymemnt ////////////////////// ADDME generalize cleanup?
+  OBJECT runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+  RECORD session := AWAIT runner->CreateSession();
+  OBJECT connector := NEW ChromeConnector(session.connectorurl, [ debug := TRUE ]);
+  OBJECT conn := AWAIT connector->ConnectToSession(session);
+  OBJECT pageobj := NEW Page(conn);
+  OBJECT navwatcher := NEW NavigationWatcher(conn);
+
+  AWAIT pageobj->Init();
+  AWAIT pageobj->Navigate(payurl);
+
+  OBJECT executebutton := AWAIT pageobj->mainFrame->"$"("#bUitvoeren");
+  IF (NOT ObjectExists(executebutton))
+    THROW NEW Exception("Sisowpage didn't load properly, cannot find #bUitvoeren");
+
+  AWAIT executebutton->Click();
+  WHILE(pageobj->mainframe->url NOT LIKE "*wrd/paymentinfo*")
+  {
+    Print("Now on: " || pageobj->mainframe->url || "\n");
+    AWAIT navwatcher->WaitForNavigation();
+  }
+
+  Print("Sisow returned to: " || pageobj->mainframe->url || "\n");
+
+  TestEq("approved", entity->GetField("DATA").status);
+
+  //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+}
+
+IF(offlineonly)
+  Print("*** Skipping some tests as TESTFW_SISOW_MERCHANTID is not set\n\n");
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR SetupSisow
+                 , PTR RunStandardPaymentMethodTests
+                 , PTR TestPaymentSisow
+                 ]);

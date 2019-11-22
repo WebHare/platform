@@ -1,0 +1,23 @@
+class Webhare < Formula
+  desc "WebHare dependency descriptions"
+  homepage "https://www.webhare.dev/"
+  url "https://www.webhare.dev/"
+  version "1"
+
+  depends_on "openssl"
+  depends_on "pkg-config"
+  depends_on "icu4c"
+  depends_on "pixman"
+  depends_on "libtiff"
+  depends_on "freetype"
+  depends_on "giflib"
+  depends_on "libmaxminddb"
+  depends_on "unixodbc"
+  depends_on "fswatch"
+  depends_on "node"
+  depends_on "libxml2"
+  depends_on "libgit2"
+  depends_on "ccache"
+  depends_on "elastic/tap/elasticsearch-oss"
+  depends_on "postgresql"
+end

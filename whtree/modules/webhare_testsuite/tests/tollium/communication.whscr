@@ -1,0 +1,275 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::crypto.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
+
+
+OBJECT tempport;
+
+RECORD FUNCTION CreateLinkPair()
+{
+  IF (NOT ObjectExists(tempport))
+    tempport := CreateIPCPort(GenerateUFS128BitId());
+  OBJECT link := ConnectToIPCPort(tempport->name);
+  RETURN
+      [ linka :=  link
+      , linkb :=  tempport->Accept(DEFAULT DATETIME)
+      ];
+}
+
+MACRO DispatchCallbacks()
+{
+  WHILE (TRUE)
+  {
+    IF (WaitUntil([ callbacks := TRUE ], DEFAULT DATETIME).type != "callback")
+      BREAK;
+  }
+}
+
+INTEGER timeoutctr;
+
+MACRO GotTimeout()
+{
+  timeoutctr := timeoutctr + 1;
+  LogDebug("test-comm", "timeout " || timeoutctr);
+}
+
+RECORD ARRAY recv;
+
+MACRO ReceiveMessage(STRING linkid, RECORD msg, INTEGER seqnr) { INSERT [ linkid := linkid, msg := msg.msg, seqnr := seqnr ] INTO recv AT END; }
+
+MACRO TestLinkDispatcher()
+{
+  OBJECT disp := NEW ToddLinkDispatcher("disp");
+
+  OBJECT e1_1 := new ToddMessageLinkEndpoint(disp, "l1", "f1"); e1_1->onmessage := PTR ReceiveMessage("l1", #1, #2);
+  OBJECT e1_2 := new ToddMessageLinkEndpoint(disp, "l2", "f1"); e1_2->onmessage := PTR ReceiveMessage("l2", #1, #2);
+  OBJECT e2_3 := new ToddMessageLinkEndpoint(disp, "l3", "f2"); e2_3->onmessage := PTR ReceiveMessage("l3", #1, #2);
+  OBJECT e2_4 := new ToddMessageLinkEndpoint(disp, "l4", "f2"); e2_4->onmessage := PTR ReceiveMessage("l4", #1, #2);
+
+  RECORD t1 := CreateLinkPair();
+  t1.linka->SendMessage(
+      [ type := "linkmessages"
+      , frontendids := [ "f1" ]
+      , data := [ [ linkid := "l1", frontendid := "f1", messages := [ [ seqnr := 1, data := [ msg := "ma1" ] ] ], ack := 0, needack := FALSE ] ]
+      , ispersistentlink := FALSE
+      ]);
+
+  RECORD rec := t1.linkb->ReceiveMessage(DEFAULT DATETIME);
+
+  disp->RegisterLink(t1.linkb, rec.msg);
+  TestEQ([ [ linkid := "l1", msg := "ma1", seqnr := 1 ] ], recv);
+
+  e1_1->QueueMessage([ msg := "mb1" ]);
+
+  rec := t1.linka->ReceiveMessage(DEFAULT DATETIME);
+  TestEq(
+      [ forcesend := TRUE
+      , type := "linkmessages"
+      , data := [ [ status := "response"
+                  , linkid := "l1"
+                  , ack := 1
+                  , messages := [ [ seqnr := 1, data := [ msg := "mb1" ] ]
+                                ]
+                  ]
+                ]
+      ], rec.msg);
+
+  TestEQ("gone", t1.linka->ReceiveMessage(DEFAULT DATETIME).status);
+  t1.linka->Close();
+
+  e1_1->QueueMessage([ msg := "mb2" ]);
+
+  t1 := CreateLinkPair();
+  t1.linka->SendMessage(
+      [ type := "linkmessages"
+      , frontendids := [ "f1" ]
+      , data := [ [ linkid := "l1", frontendid := "f1", messages := DEFAULT RECORD ARRAY, ack := 0 ] ] // don'tack mb1
+      , ispersistentlink := FALSE
+      ]);
+
+  rec := t1.linkb->ReceiveMessage(DEFAULT DATETIME);
+  disp->RegisterLink(t1.linkb, rec.msg);
+  TestEQ([ [ linkid := "l1", msg := "ma1", seqnr := 1 ] ], recv);
+
+  rec := t1.linka->ReceiveMessage(DEFAULT DATETIME);
+  //PRINT(AnyToString(rec, "tree"));
+  TestEq(
+      [ forcesend := TRUE
+      , type := "linkmessages"
+      , data := [ [ status := "response"
+                  , linkid := "l1"
+                  , ack := 1
+                  , messages := [ [ seqnr := 1, data := [ msg := "mb1" ] ] // Not ack'ed!
+                                , [ seqnr := 2, data := [ msg := "mb2" ] ]
+                                ]
+                  ]
+                ]
+      ], rec.msg);
+
+  TestEQ("gone", t1.linka->ReceiveMessage(DEFAULT DATETIME).status);
+
+  t1.linka->Close();
+
+  t1 := CreateLinkPair();
+  t1.linka->SendMessage(
+      [ type := "linkmessages"
+      , frontendids := [ "f1" ]
+      , data := [ [ linkid := "l1", frontendid := "f1", messages := [ [ seqnr := 2, data := [ msg := "ma2" ] ] ], ack := 2, needack := FALSE ] ]
+      , ispersistentlink := FALSE
+      ]);
+
+  rec := t1.linkb->ReceiveMessage(DEFAULT DATETIME);
+  disp->RegisterLink(t1.linkb, rec.msg);
+  TestEQ([ [ linkid := "l1", msg := "ma1", seqnr := 1 ]
+        , [ linkid := "l1", msg := "ma2", seqnr := 2 ]
+        ], recv);
+
+  rec := t1.linka->ReceiveMessage(DEFAULT DATETIME);
+  TestEQ("timeout", t1.linka->ReceiveMessage(DEFAULT DATETIME).status);
+
+  RECORD t2 := CreateLinkPair();
+  t2.linka->SendMessage(
+      [ type := "linkmessages"
+      , frontendids := [ "f2", "f1" ]
+      , data := [ [ linkid := "l3", frontendid := "f2", messages := [ [ seqnr := 1, data := [ msg := "mc1" ] ] ], ack := 0, needack := FALSE ] ]
+      , ispersistentlink := FALSE
+      ]);
+
+  rec := t2.linkb->ReceiveMessage(DEFAULT DATETIME);
+  disp->RegisterLink(t2.linkb, rec.msg);
+  TestEQ([ [ linkid := "l1", msg := "ma1", seqnr := 1 ]
+        , [ linkid := "l1", msg := "ma2", seqnr := 2 ]
+        , [ linkid := "l3", msg := "mc1", seqnr := 1 ]
+        ], recv);
+
+  //rec := t1.linka->ReceiveMessage(DEFAULT DATETIME);
+  TestEQ([ type := "cancel", forcesend := TRUE ], t1.linka->ReceiveMessage(DEFAULT DATETIME).msg);
+  TestEQ("gone", t1.linka->ReceiveMessage(DEFAULT DATETIME).status);
+
+  e2_3->Close();
+  rec := t2.linka->ReceiveMessage(DEFAULT DATETIME);
+  TestEq(
+      [ forcesend := TRUE
+      , type := "linkmessages"
+      , data := [ [ status := "gone"
+                  , linkid := "l3"
+                  , frontendid := "f2"
+                  , ack := 0
+                  , messages := DEFAULT RECORD ARRAY
+                  ]
+                ]
+      ], rec.msg);
+
+  e1_1->Close();
+  e1_2->Close();
+  e2_4->Close();
+  disp->Close();
+}
+
+MACRO TestTimeouts()
+{
+  OBJECT disp := NEW ToddLinkDispatcher("disp");
+
+  DATETIME start := GetCurrentDateTime();
+
+  OBJECT e1_5 := new ToddMessageLinkEndpoint(disp, "l5", "f1");
+  e1_5->onmessage := PTR ReceiveMessage("l5", #1, #2);
+  e1_5->timeout := 1;
+  e1_5->ontimeout := PTR GotTimeout;
+
+  TestEQ(0, timeoutctr);
+
+  Sleep(1050);
+  DispatchCallbacks();
+
+  TestEQ(1, timeoutctr);
+
+  e1_5->Close();
+
+  OBJECT e1_6 := new ToddMessageLinkEndpoint(disp, "l6", "f1");
+  e1_6->onmessage := PTR ReceiveMessage("l6", #1, #2);
+  e1_6->timeout := 1;
+  e1_6->ontimeout := PTR GotTimeout;
+
+  recv := DEFAULT RECORD ARRAY;
+
+
+  RECORD t1 := CreateLinkPair();
+  t1.linka->SendMessage(
+      [ type := "linkmessages"
+      , frontendids := [ "f1" ]
+      , data := [ [ linkid := "l6", frontendid := "f1", messages := [ [ seqnr := 1, data := [ msg := "m6_1" ] ] ], ack := 0, needack := FALSE ] ]
+      , ispersistentlink := FALSE
+      ]);
+
+  RECORD rec := t1.linkb->ReceiveMessage(DEFAULT DATETIME);
+  disp->RegisterLink(t1.linkb, rec.msg);
+  TestEQ([ [ linkid := "l6", msg := "m6_1", seqnr := 1 ]
+        ], recv);
+
+  // While connected, no timeouts
+  Sleep(1500);
+  DispatchCallbacks();
+  TestEQ(1, timeoutctr);
+
+  // Closing ext connection
+  t1.linka->Close();
+  disp->ProcessAllSignalled();
+
+  // After 1000ms
+  Sleep(950);
+  DispatchCallbacks();
+
+  TestEQ(1, timeoutctr);
+  Sleep(100);
+  DispatchCallbacks();
+  TestEQ(2, timeoutctr);
+
+  e1_6->Close();
+
+  // Test ACK being sent after 100ms after receiving message with needack := TRUE
+  OBJECT e1_7 := new ToddMessageLinkEndpoint(disp, "l7", "f1");
+  e1_7->onmessage := PTR ReceiveMessage("l7", #1, #2);
+
+  recv := DEFAULT RECORD ARRAY;
+
+  t1 := CreateLinkPair();
+
+  start := GetCurrentDateTime();
+  t1.linka->SendMessage(
+      [ type := "linkmessages"
+      , frontendids := [ "f1" ]
+      , data := [ [ linkid := "l7", frontendid := "f1", messages := [ [ seqnr := 1, data := [ msg := "m7_1" ] ] ], ack := 0, needack := TRUE ] ]
+      , ispersistentlink := FALSE
+      ]);
+
+  rec := t1.linkb->ReceiveMessage(DEFAULT DATETIME);
+  disp->RegisterLink(t1.linkb, rec.msg);
+  TestEQ([ [ linkid := "l7", msg := "m7_1", seqnr := 1 ]
+        ], recv);
+
+  rec := t1.linka->ReceiveMessage(AddTimeToDate(90, start));
+  TestEQ("timeout", rec.status);
+
+  // Start waiting at +120ms, receive until +175ms
+  WaitUntil(DEFAULT RECORD, AddTimeToDate(120, start));
+  rec := t1.linka->ReceiveMessage(AddTimeToDate(175, start));
+  TestEQ("ok", rec.status);
+  TestEQ(1, rec.msg.data[0].ack);
+
+  e1_7->Close();
+  disp->Close();
+}
+
+
+RunTestframework([ PTR TestLinkDispatcher
+                 , PTR TestTimeouts
+                 ]);

@@ -1,0 +1,519 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
+LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
+LOADLIB "mod::wrd/lib/internal/exchange.whlib" ;
+LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
+
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/support2.whlib" ;
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/queries.whlib" ;
+LOADLIB "mod::wrd/lib/internal/wrdtrans.whlib";
+LOADLIB "mod::wrd/lib/internal/legacy-wrdtype.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdschema.whlib";
+
+STRING schemadatans := "http://www.webhare.net/xmlns/wrd/schemadata"; //FIXME obsolete and merge into schemadefinition info
+STRING ns_schemadef := "http://www.webhare.net/xmlns/wrd/schemadefinition";
+
+PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD pvt_settings;
+
+  STRING pvt_currentlanguage;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public Variables
+  //
+
+  PUBLIC RECORD ARRAY countries;
+
+  /// Language texts for the current language
+  PUBLIC RECORD pvt_lang;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Name of this WRD schema
+  PUBLIC PROPERTY name(Getname, -);
+
+  /// Obsolete list of required fields (now stored in types)
+  PUBLIC PROPERTY required_fields(GetRequiredFields, -);
+
+  /// Obsolete list of unique fields (now stored in types)
+  PUBLIC PROPERTY unique_fields(GetUniqueFields, -);
+
+  /// Currently selected language
+  PUBLIC PROPERTY currentlanguage(pvt_currentlanguage, SetLanguage);
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+
+  //
+
+  PUBLIC MACRO NEW(RECORD schemarec, STRING currentlanguage)
+  : WRDSchemaBase(schemarec)
+  {
+    this->currentlanguage := currentlanguage ?? GetTidLanguage() ?? "en";
+  }
+
+  UPDATE PUBLIC STRING FUNCTION __GetCurrentLanguageCode()
+  {
+    RETURN this->currentlanguage;
+  }
+  UPDATE OBJECT FUNCTION __CreateTypeObject(RECORD typerec)
+  {
+    RETURN NEW LegacyWRDType(this, typerec, this->currentlanguage);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  INTEGER FUNCTION GetId()
+  {
+    RETURN this->schemarec.id;
+  }
+
+  STRING FUNCTION GetName()
+  {
+    RETURN this->schemarec.name;
+  }
+
+  STRING FUNCTION GetDescription()
+  {
+    RETURN this->schemarec.description;
+  }
+
+  STRING FUNCTION GetRequiredFields()
+  {
+    RETURN this->schemarec.required_fields;
+  }
+
+  STRING FUNCTION GetUniqueFields()
+  {
+    RETURN this->schemarec.unique_fields;
+  }
+
+  MACRO SetLanguage(STRING langcode)
+  {
+    langcode := ToLowercase(langcode);
+    IF(langcode = this->pvt_currentlanguage)
+      RETURN;
+
+    this->pvt_currentlanguage := langcode;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Simple query storage
+  //
+  PUBLIC MACRO StoreQueryInXML(OBJECT node, RECORD query)
+  {
+    MakeWRDQuery(query)->SerializeToXML(node);
+  }
+  PUBLIC RECORD FUNCTION LoadQueryFromXML(OBJECT node)
+  {
+    RETURN ImportQueryFromXML(this, node);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC STRING FUNCTION GetCountryLabel()
+  {
+    RETURN GetLangTexts(this->__GetCurrentLanguageCode()).country;
+  }
+
+  PUBLIC OBJECT FUNCTION GetType(VARIANT type_id)
+  {
+    IF(TYPEID(type_id) = TYPEID(STRING)) //wrd2017 style call, just remain compatible
+      RETURN this->__GetTypeByTag(type_id, TRUE);
+    RETURN this->GetTypeById(type_id);
+  }
+  PUBLIC OBJECT FUNCTION GetTypeByTag(STRING findtag)
+  {
+    RETURN this->__GetTypeByTag(findtag);
+  }
+
+  PUBLIC MACRO DeleteType(INTEGER type_id)
+  {
+    DELETE FROM wrd.types WHERE id=type_id;
+    DELETE FROM this->typecache WHERE id=type_id;
+
+    this->__SignalMetadataChanged();
+  }
+
+  /** @short Get a WebHare auth api for this schema */
+  PUBLIC OBJECT FUNCTION GetUserAPI()
+  {
+    IF(NOT this->usermgmt)
+      THROW NEW Exception("Requesting the user api of schema '" || this->name || "' which is not configured for user management");
+    RETURN MakeObject("module::wrd/internal/userapi.whlib","WHUserApi",this);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetAllTypes()
+  {
+    RETURN SELECT *
+                , is_classification := isattachment
+                , is_entity := isobject
+                , is_link := islink
+                , is_domain := isdomain
+                , requiretype_left  := linkfrom
+                , requiretype_right := linkto
+             FROM this->ListTypes();
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetCountryListing()
+  {
+    IF(Length(this->countries)=0)
+      this->countries := SELECT code, country := title FROM GetWRDCountryList(this->currentlanguage, "") WHERE NOT isempty;
+
+    RETURN this->countries;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetCountryAddressFields(STRING countrycode)
+  {
+    RETURN GetWRDAddressInfo(countrycode, this->currentlanguage);
+  }
+
+  PUBLIC STRING FUNCTION GetParsedAddressDisplay(RECORD addressdata)
+  {
+    RETURN GetDisplayValueForParsedAddress(addressdata, this->currentlanguage, TRUE);
+  }
+
+  PUBLIC OBJECT FUNCTION CreateRelationType (STRING title, STRING description, STRING tag)
+  {
+    RETURN this->__DoCreateType( [ title := title, description := description, tag := tag
+                             , linkfrom := 0, linkto := 0, metatype := 1
+                             , parenttype := 0
+                             ]
+                           );
+  }
+
+  /* 15-02-2012 */
+  PUBLIC OBJECT FUNCTION CreateRelationTypeWithParentType (STRING title, STRING description, STRING tag, INTEGER parenttype)
+  {
+    RETURN this->__DoCreateType( [ title := title, description := description, tag := tag
+                             , linkfrom := 0, linkto := 0, metatype := 1
+                             , parenttype := parenttype
+                             ]
+                           );
+  }
+
+  PUBLIC OBJECT FUNCTION CreateLinkType (STRING title, STRING description, STRING tag, INTEGER linkfrom, INTEGER linkto)
+  {
+    RETURN this->__DoCreateType( [ title := title, description := description, tag := tag
+                             , linkfrom := linkfrom, linkto := linkto, metatype := 2
+                             , parenttype := 0
+                             ]
+                           );
+  }
+
+  PUBLIC OBJECT FUNCTION CreateClassificationType (STRING title, STRING description, STRING tag, INTEGER linkfrom)
+  {
+    RETURN this->__DoCreateType( [ title := title, description := description, tag := tag
+                             , linkfrom := linkfrom, linkto := 0, metatype := 3
+                             , parenttype := 0
+                             ]
+                           );
+  }
+
+  /** @short Creates a domain in this schema
+    @param title The title for the domain
+    @param description The description for the domain
+    @param tag The tag for the domain
+    @return A record containing the following cells:
+            - id: The id of the newly created domain. 0 if an error occurred
+            - errors: A record array of errors, if any
+            - domainobject: If no errors occurred, the newly created domain object
+*/
+  PUBLIC OBJECT FUNCTION CreateDomainType (STRING title, STRING description, STRING tag)
+  {
+    RETURN this->__DoCreateType( [ title := title, description := description, tag := tag
+                             , linkfrom := 0, linkto := 0, metatype := 4
+                             , parenttype := 0
+                             ] );
+  }
+
+  PUBLIC OBJECT FUNCTION OpenWRDEntityByGuid (STRING http_guid)
+  {
+    http_guid := ToUpperCase(http_guid);
+
+    IF (LEFT(http_guid, 4) != "WRD:")
+      ABORT("Global unique id's must start with 'wrd:'");
+
+    // Find the entity, to know the WRD type id
+    RECORD entityrec := SELECT type_id := types.id, entity_id := entities.id
+                          FROM wrd.entities, wrd.types, wrd.schemas
+                         WHERE entities.type = types.id
+                               AND types.wrd_schema = schemas.id
+                               AND schemas.id = this->id
+                               AND ToUppercase(guid) = ToUppercase(DecodeWRDGUID(http_guid));
+    IF (NOT RecordExists(entityrec))
+      RETURN DEFAULT OBJECT;
+
+    // Find the type, open it and return the entity
+    RETURN this->GetType(entityrec.type_id)->GetEntity(entityrec.entity_id);
+  }
+
+  /** Runs a stored query
+      @param entity Owner of the stored query, 0 for global queries
+      @param query_tag Tag of the stored query
+      @param parameters Optional parameters for the query
+      @return Results of the stored query
+  */
+  PUBLIC RECORD ARRAY FUNCTION RunStoredQueryByTag(INTEGER entity, STRING query_tag, RECORD parameters DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->RunStoredQuery(query_tag, [ parameters := parameters ]);
+  }
+
+
+  /** Returns a stored query object
+      @param entity Owner of the stored query, 0 for global queries
+      @param query_tag Tag of the stored query
+      @seealso GetListOfStoredQueries, RunStoredQuery
+  */
+  PUBLIC OBJECT FUNCTION GetStoredQueryByTag(INTEGER entity, STRING query_tag)
+  {
+    RECORD rec :=
+        SELECT *
+          FROM wrd.storedqueries
+         WHERE ToUppercase(tag) = ToUppercase(query_tag)
+           AND wrd_schema = this->id;
+
+    IF (NOT RecordExists(rec))
+      RETURN DEFAULT OBJECT;
+
+    RETURN NEW WRDStoredQuery(this, rec, FALSE);
+  }
+
+
+  /** Returns a stored query object
+      @param query_tag Tag of the stored query
+      @seealso GetListOfStoredQueries, RunStoredQuery
+  */
+  PUBLIC OBJECT FUNCTION GetStoredQuery(INTEGER query_id)
+  {
+    RECORD rec :=
+        SELECT *
+          FROM wrd.storedqueries
+         WHERE id = query_id
+           AND wrd_schema = this->id;
+
+    IF (NOT RecordExists(rec))
+      RETURN DEFAULT OBJECT;
+
+    RETURN NEW WRDStoredQuery(this, rec, FALSE);
+  }
+
+  /** Returns the list of all stored queries
+      @return All stored queries within this schema
+      @cell return.id Id of stored query
+      @cell return.tag Tag of stored query
+      @cell return.title Title of stored query
+      @cell return.description Description of stored query
+      @cell return.entity Owner of stored query
+      @seealso GetStoredQuery, RunStoredQuery
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetListOfStoredQueries()
+  {
+    RETURN
+        SELECT id
+             , tag
+          FROM wrd.storedqueries
+         WHERE wrd_schema = this->id;
+  }
+
+
+  /** Creates a new stored query
+      @param entity Owner new stored query (optional)
+      @param tag Tag of the new stored query (optional)
+      @param title Title of the new stored query (optional)
+      @param description Description of the new stored query
+      @param query WRD query record with the new query.
+  */
+  PUBLIC OBJECT FUNCTION CreateStoredQuery(/*INTEGER entity, */STRING tag, /*STRING title, STRING description, */RECORD query/*, BOOLEAN ispublic DEFAULTSTO FALSE*/)
+  {
+    RECORD fields :=
+        [/* entity :=        entity
+        ,*/ tag :=           tag
+        //, title :=         title
+        //, description :=   description
+        , query_rec :=     query
+        //, ispublic :=      ispublic
+        ];
+    RETURN NEW WRDStoredQuery(this, fields, TRUE);
+  }
+
+
+  /** Open a new transaction
+      Bind the transaction to your table definitions using BindTransactionToSchema(trans->id, "");
+      @return Transaction
+  */
+  PUBLIC OBJECT FUNCTION OpenTransaction()
+  {
+    RETURN OpenWRDTransaction(this);
+  }
+
+
+  /** Get a XML export of this schema */
+  PUBLIC BLOB FUNCTION GetXMLMetadataFile()
+  {
+    RETURN CreateWRDSchemaDefinitionFile(this);
+  }
+
+  PUBLIC OBJECT FUNCTION CreateExporter()
+  {
+    /* ADDME
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+    IF(trans->HasWorkSupport())
+      trans->PushWork(); //speed up exports
+    */
+
+    OBJECT exporter := NEW WRDImExport(this, DEFAULT RECORD);
+    exporter->usemarshalformat:=TRUE;
+    RETURN exporter;
+  }
+
+  PUBLIC MACRO Validate()
+  {
+    // Get list of all valid entities
+    RECORD ARRAY all_entities :=
+        SELECT entities.id
+             , type := types.id
+          FROM wrd.entities
+             , wrd.types
+         WHERE types.wrd_schema = this->id
+           AND entities.type = types.id
+      ORDER BY types.id, entities.id;
+
+    // Make list of parenttypes for every type, per level. Per level a record array (reversed, most derived at position 0)
+    // First get root types (those without parents)
+    RECORD ARRAY currentlevel :=
+        SELECT id
+             , parenttype
+          FROM wrd.types
+         WHERE wrd_schema = this->id
+           AND parenttype = 0;
+
+    // Then get every further derived type in levels
+    RECORD ARRAY levels;
+    WHILE (LENGTH(currentlevel) != 0)
+    {
+      INTEGER ARRAY currentlevel_ids := SELECT AS INTEGER ARRAY id FROM currentlevel;
+      currentlevel :=
+          SELECT id
+               , parenttype
+            FROM wrd.types
+           WHERE parenttype IN currentlevel_ids;
+
+      IF (LENGTH(currentlevel) != 0)
+        INSERT [ types := currentlevel ] INTO levels AT 0;
+    }
+
+    // Duplicate entities for every level (except for the root, but that one isn't in the array)
+    // Levels were reversed, so entities are copied for every (grand-*)parenttype.
+    FOREVERY (RECORD level FROM levels)
+      FOREVERY (RECORD type FROM level.types)
+      {
+        // Get range for this type - assumes entityids are > 0
+        INTEGER e_start := RecordUpperBound(all_entities, [ type := type.id, id := 0 ], [ "TYPE", "ID" ]);
+        INTEGER e_limit := RecordUpperBound(all_entities, [ type := type.id + 1, id := 0 ], [ "TYPE", "ID" ]);
+
+        // Get entities, change to parent type
+        RECORD ARRAY entities := ArraySlice(all_entities, e_start, e_limit - e_start);
+        UPDATE entities SET type := type.parenttype;
+
+        // Insert one by one - there may have already been entities of the parent type
+        FOREVERY (RECORD rec FROM entities)
+          INSERT rec INTO all_entities AT RecordUpperBound(all_entities, rec, [ "TYPE", "ID" ]);
+      }
+
+    // Check leftentity, rightentity & entity settings
+    RECORD ARRAY broken :=
+       (SELECT type :=        "leftentity"
+             , entityid :=    entities.id
+             , leftentity
+          FROM wrd.entities
+             , wrd.types
+         WHERE type = types.id
+           AND types.wrd_schema = this->id
+           AND requiretype_left != 0
+           AND leftentity != 0
+           AND NOT RecordLowerBound(all_entities, [ id := leftentity, type := types.id ], [ "TYPE", "ID" ]).found)
+      CONCAT
+       (SELECT type :=        "rightentity"
+             , entityid :=    entities.id
+             , rightentity
+          FROM wrd.entities
+             , wrd.types
+         WHERE type = types.id
+           AND types.wrd_schema = this->id
+           AND requiretype_right != 0
+           AND rightentity != 0
+           AND NOT RecordLowerBound(all_entities, [ id := rightentity, type := types.id ], [ "TYPE", "ID" ]).found)
+      CONCAT
+       (SELECT type :=        "setting"
+             , entityid :=    entity
+             , setting
+             , attr :=        attrs.id
+             , attrtag :=     attrs.tag
+          FROM wrd.entities
+             , wrd.types
+             , wrd.entity_settings
+             , wrd.attrs
+         WHERE entities.type = types.id
+           AND entity = entities.id
+           AND attribute = attrs.id
+           AND types.wrd_schema = this->id
+           AND domain != 0
+           AND entity_settings.setting != 0
+           AND NOT RecordLowerBound(all_entities, [ id := setting, type := domain ], [ "TYPE", "ID" ]).found);
+
+    // Just abort on failure.
+    IF (LENGTH(broken) != 0)
+      ABORT(broken, "boxed");
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasAddressVerification()
+  {
+    RETURN RecordExists(this->GetSchemaSetting("wrd:addressverification", [fallback := DEFAULT RECORD]));
+  }
+
+  PUBLIC RECORD FUNCTION CheckAddress(RECORD address)
+  {
+    RETURN GetWRDAddressLookupAPI(this, CellExists(address,'country') ? address.country : "")->CheckAddress(address);
+  }
+>;
+
+PUBLIC OBJECT FUNCTION OpenWRDSchemaByName(STRING findname, STRING currentlanguage DEFAULTSTO "")
+{
+  RECORD schemarec := disablewrdcache ? GetCacheableSchemaRecByName(findname).value : GetAdhocCached([ type := "wrdschema", name := findname ], PTR GetCacheableSchemaRecByName(findname));
+  IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
+    RETURN DEFAULT OBJECT;
+
+  OBJECT theschema := NEW LegacyWRDSchema(schemarec, currentlanguage);
+  RETURN theschema;
+}

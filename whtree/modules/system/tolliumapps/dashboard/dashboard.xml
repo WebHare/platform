@@ -1,0 +1,152 @@
+  <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         library="dashboard.whlib"
+         gid="tolliumapps.dashboard.dashboard">
+
+  <screen name="main"
+          allowresize="true"
+          oninterval="oninterval"
+          flags="refreshcontents issysop"
+          menubar="menubar"
+          icon="system:sysmgmt/monitoring"
+          onmessage="onmessage">
+    <actions>
+      <action name="togglerefresh" onexecute="dotogglerefresh" title="" />
+      <action name="refresh" onexecute="dorefresh" title="" />
+      <action name="softreset" onexecute="dosoftreset" />
+      <action name="clearcaches" onexecute="doclearcaches" />
+      <action name="gototask" onexecute="dogototask">
+        <enableon source="results" min="1" max="1" checkflags="canjumpto" />
+      </action>
+     <action name="editsnooze" tid="~edit">
+        <enableon source="results" min="1" onexecute="doeditmessagesnooze" />
+        <enableon source="snoozes" min="1" max="1" onexecute="doeditsnooze" />
+      </action>
+      <action name="deletesnooze" tid="~delete">
+        <enableon source="snoozes" min="1" onexecute="dodeletesnooze" />
+      </action>
+      <windowopenaction name="openinseparatetab" frameflags="issysop" onwindowopen="doopeninseparatetab">
+        <enableon source="monitorpanels" min="1" max="1" />
+      </windowopenaction>
+     </actions>
+    <menus>
+      <menu name="menubar">
+        <item action="clearcaches" />
+        <item action="softreset" />
+        <divider/>
+        <item action="gototask" />
+        <item action="editsnooze" />
+        <item action="deletesnooze" />
+        <divider />
+        <item action="openinseparatetab" disablemode="hidden" />
+      </menu>
+      <menu name="snoozecontextmenu">
+        <item action="editsnooze" disablemode="hidden" />
+        <item action="deletesnooze" disablemode="hidden" />
+      </menu>
+      <menu name="contextmenu">
+        <item action="gototask" disablemode="hidden" />
+        <item action="editsnooze" disablemode="hidden" tid=".editsnooze" />
+      </menu>
+      <menu name="panelscontextmenu">
+        <item action="openinseparatetab" disablemode="hidden" />
+      </menu>
+    </menus>
+    <toolbar>
+      <button action="togglerefresh" name="togglerefreshbutton" icon="system:sysmgmt/cruisecontrol" />
+      <button action="refresh" name="refreshbutton" icon="tollium:actions/reload"  />
+      <divider/>
+      <button action="clearcaches" icon="system:sysmgmt/clearcache"  />
+      <button action="softreset" icon="system:sysmgmt/softreset"  />
+    </toolbar>
+    <body spacers="none">
+      <split type="horizontal">
+        <part width="1pr">
+          <list name="monitorpanels" selectmode="single" height="1pr" columnheaders="false" onselect="onmonitorpanelsselect" borders="none" sortable="false" selectcontextmenu="panelscontextmenu">
+            <column name="title" type="text" tree="true" title=""/>
+          </list>
+          <panel name="statusbar" spacers="left" borders="top">
+            <text name="lastupdate" />
+          </panel>
+        </part>
+        <part width="4pr" name="currentmonitor">
+          <tabs height="1pr">
+            <tab tid=".errors">
+              <grid height="1pr">
+                <cell width="1pr">
+                  <list name="results"
+                        height="1pr"
+                        emptytid=".noerrors"
+                        selectmode="multiple"
+                        openaction="gototask"
+                        flags="canjumpto"
+                        selectcontextmenu="contextmenu"
+                        ongetrows="ongeterrors">
+                    <column type="text" name="message" width="2pr" />
+                    <style name="snoozed" textcolor="#CCCCCC" />
+                  </list>
+                </cell>
+                <cell>
+                  <button action="editsnooze" />
+                </cell>
+              </grid>
+            </tab>
+            <tab tid=".snoozes">
+              <grid height="1pr">
+                <cell width="1pr">
+                  <list name="snoozes"
+                        height="1pr"
+                        selectmode="multiple"
+                        openaction="editsnooze"
+                        selectcontextmenu="snoozecontextmenu"
+                        ongetrows="ongetsnoozes"
+                        >
+                    <column name="message" type="text" />
+                    <column name="displayname" type="text" />
+                    <column name="until" type="datetime" precision="minutes" storeutc="true" />
+                    <column name="comment" type="text" />
+                  </list>
+                </cell>
+                <cell>
+                  <button action="editsnooze" width="1pr" />
+                  <button action="deletesnooze" width="1pr" />
+                </cell>
+              </grid>
+            </tab>
+          </tabs>
+          <hr/>
+          <panel name="mainpanel" spacers="left bottom">
+            <heading tid=".general" />
+            <text name="txtServer"      selectable="true" tid=".server" />
+            <text name="buildinfo"      selectable="true"  />
+            <text name="txtPlatform"    selectable="true" tid=".platform" wordwrap="true" />
+            <text name="txtDateTime"    selectable="true" tid=".datetime" />
+            <text name="txtUptime"      selectable="true" tid=".uptime" />
+          </panel>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="editsnooze" width="100x">
+    <actions>
+      <action name="ok" onexecute="submit" tid="~ok" />
+      <action name="remove" onexecute="doremove" />
+    </actions>
+    <body>
+      <text name="messagetidatsnooze" width="1pr" wordwrap="true" />
+      <text name="snoozer" visible="false" />
+      <datetime name="created" type="datetime" precision="minutes" storeutc="true" visible="false" readonly="true" />
+      <datetime name="until" type="datetime" precision="minutes" storeutc="true" required="true" />
+      <textarea name="comment" width="1pr" required="true" height="8x" />
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="ok" />
+        <button name="removebutton" action="remove" tid=".remove" />
+        <button tolliumresult="cancel" tid="~cancel" />
+      </line>
+    </footer>
+  </screen>
+
+</screens>

@@ -1,0 +1,1209 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+LOADLIB "wh::util/localization.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/commondialogs.whlib";
+LOADLIB "mod::system/lib/dialogs.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/commondialogs.whlib";
+LOADLIB "mod::wrd/lib/dialogs.whlib";
+
+
+
+/* ------------------------------------------------------------------
+   Entities browse dialog
+   ------------------------------------------------------------------*/
+PUBLIC OBJECTTYPE Entities EXTEND TolliumScreenBase
+<
+  STRING ARRAY pvt_eventmasks;
+  RECORD listconfig;
+
+
+  PUBLIC OBJECT currenttype;
+
+// A filter for the list to be showed
+  PUBLIC BOOLEAN showastree;
+
+  PUBLIC RECORD add_additional_values;
+
+  PUBLIC RECORD listquery;
+  PUBLIC RECORD ARRAY listfilters;
+  RECORD ARRAY quickfilters;
+  PUBLIC RECORD ARRAY columns;
+
+  PUBLIC RECORD ARRAY listcolumns;
+  PUBLIC STRING ARRAY edittags;
+  PUBLIC STRING ARRAY requiredtags;
+  PUBLIC BOOLEAN multiple;
+  PUBLIC MACRO PTR OnEntityEdit;
+
+  /** Attributes in which the user is allowed to search (leave empty for all attributes)
+      @cell(boolean) isdivider If TRUE, show divider
+      @cell(string) tag Tag of attribute
+      @cell(string) title Title override
+      @cell(boolean) autowildcards Auto-add a '*' wildcard before, after and at spaces.
+  */
+  PUBLIC RECORD ARRAY searchattributes;
+
+  PUBLIC PROPERTY icons(GetIcons, SetIcons);
+  PUBLIC PROPERTY eventmasks(pvt_eventmasks, SetEventMasks);
+
+  MACRO Init(RECORD data)
+  {
+    this->OnEntityEdit := PTR this->StandardEntityEdit;
+    IF(data.isselectentity)
+    {
+      this->freesearchbox->visible := TRUE;
+    }
+  }
+
+  STRING ARRAY FUNCTION GetIcons()
+  {
+    RETURN this->ents->icons;
+  }
+
+  MACRO SetIcons(STRING ARRAY newicons)
+  {
+    this->ents->icons := newicons;
+  }
+
+  MACRO SetEventMasks(STRING ARRAY neweventmasks)
+  {
+    this->pvt_eventmasks := neweventmasks;
+    IF (RecordExists(this->listconfig))
+      this->eventlistener->masks := this->pvt_eventmasks CONCAT this->listconfig.eventmasks;
+  }
+
+  MACRO OnEvent(STRING event, RECORD ARRAY data)
+  {
+    this->RefreshList();
+  }
+
+
+
+  MACRO RefreshList()
+  {
+    // Check whether we have been properly initialized
+    IF (NOT RecordExists(this->listconfig))
+      RETURN;
+
+    RECORD ARRAY rows :=
+        SELECT *
+             , __wrd_checked := FALSE
+          FROM GetEntityListRows(this->currenttype, this->listconfig, this->tolliumuser->language);
+
+    this->ents->columns[0].checkboxname := this->multiple ? "__wrd_checked" : "";
+    this->ents->rows := rows;
+  }
+
+
+
+  PUBLIC BOOLEAN FUNCTION Setup(OBJECT typeinfo)
+  {
+    this->currenttype := typeinfo;
+    IF(NOT ObjectExists(this->currenttype))
+      RETURN FALSE;
+
+    this->quickfilter->searchattributes := this->searchattributes;
+    this->quickfilter->wrdtype := this->currenttype;
+
+    this->showastree := this->currenttype->isdomain;
+    this->SetupEntities();
+    RETURN TRUE;
+  }
+
+  MACRO DoSearchFree()
+  {
+  }
+  MACRO OnSelectFreeAttr()
+  {
+
+  }
+
+  PUBLIC MACRO DoAdd()
+  {
+    this->OnEntityEdit(this->currenttype, 0);
+    //this->SetupEntities(); // refresh after the add action
+    this->RefreshList();
+  }
+
+  PUBLIC MACRO DoEdit()
+  {
+    IF(NOT RecordExists(this->ents->selection))
+      RETURN;
+
+    this->OnEntityEdit(this->currenttype, this->ents->selection.rowkey);
+    //this->SetupEntities(); // refresh after the edit action
+    this->RefreshList();
+  }
+
+  PUBLIC MACRO DoDel()
+  {
+    IF(NOT RecordExists(this->ents->selection))
+      RETURN;
+
+    OBJECT entity := this->currenttype->GetEntity(this->ents->selection.rowkey);
+    IF(NOT ObjectExists(entity))
+      RETURN;
+
+    // Check whether this domain value is used anywhere
+    IF (RecordExists(SELECT FROM wrd.entity_settings WHERE setting = VAR entity->id))
+    {
+      // FIXME: Cannot set a title for the dialog
+      // FIXME: not a very helpfull message, why not at least tell in which types/attributes still have a link to this entitysetting
+      //        (even better would be to show a list of entities pointing to this entitysetting)
+      this->RunMessageBox(".entity_in_use");
+    }
+    ELSE
+    {
+      // FIXME: Cannot set a title for the dialog
+      BOOLEAN delete_it := this->RunMessageBox(".delete_entity") = "yes";
+      IF(delete_it)
+      {
+        OBJECT work := this->BeginWork();
+        entity->DeleteEntity();
+        work->Finish();
+        // Re-build the list
+        this->Setup(this->currenttype);
+      }
+    }
+  }
+
+  MACRO OnQuickfilterSearch(RECORD ARRAY queryfilters)
+  {
+    this->quickfilters := queryfilters;
+    this->SetupEntities();
+  }
+
+  PUBLIC MACRO SetupEntities()
+  {
+    this->listconfig := SetupEntityList(this->ents, this->currenttype, this->listcolumns, "", this->showastree, this->listquery, this->listfilters CONCAT this->quickfilters, this->columns);
+    this->eventlistener->masks := this->pvt_eventmasks CONCAT this->listconfig.eventmasks;
+    this->RefreshList();
+  }
+
+  PUBLIC MACRO StandardEntityEdit(OBJECT type, INTEGER entityid)
+  {
+    // FIXME: integrate edittags, requiredtags and add_additional_values functionality in entity.edit dialog.
+    IF (LENGTH(this->edittags) != 0 OR LENGTH(this->requiredtags) != 0 OR RecordExists(this->add_additional_values))
+    {
+      // For now, use old style edit dialog when any of the 'edittags', 'requiredtags' or 'add_additional_values' are set
+      // Hopefully, not too many dialogs that will now be backconverted from the new dialog to the old one will have issues with that.
+      OBJECT value_editor := MakeWRDEditEntityDialog(this, this->currenttype, entityid);
+      value_editor->typetags := this->edittags;
+      value_editor->requiredtags := this->requiredtags;
+      IF(entityid=0)
+        value_editor->additional_values := this->add_additional_values;
+
+      value_editor->RunDialog();
+    }
+    ELSE
+    {
+      RunWRDEntityEditDialog(this, this->currenttype, entityid);
+    }
+  }
+
+  PUBLIC MACRO SetSelection(VARIANT value)
+  {
+    IF (this->multiple)
+      UPDATE this->ents->rows SET checked := rowkey IN INTEGER ARRAY(value);
+    ELSE
+      this->ents->selection := SELECT * FROM this->ents->rows WHERE rowkey = INTEGER(value);
+  }
+>;
+
+/* ------------------------------------------------------------------
+ WRD edit entity
+ ------------------------------------------------------------------*/
+PUBLIC OBJECTTYPE EditEntity EXTEND TolliumScreenBase
+< PUBLIC OBJECT currenttype; //FIXME: Make stuff private
+  PUBLIC OBJECT currententity;
+  PUBLIC RECORD additional_values;
+  PUBLIC RECORD ARRAY typeattrs;
+  PUBLIC STRING ARRAY typetags;
+  PUBLIC STRING ARRAY required_fields;
+  PUBLIC STRING ARRAY requiredtags;
+  PUBLIC STRING dialogtitle;
+  PUBLIC INTEGER entityid;
+
+  PRIVATE STRING attributebase;
+  PRIVATE INTEGER topparent;
+
+  PUBLIC PROPERTY entity_value(GetEntityValue, SetEntityValue);
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->currenttype := data.wrdtype;
+    this->currententity := data.entity;
+    this->typetags := data.typetags;
+    this->requiredtags := data.requiredtags;
+
+    IF(data.array_base_attr!="")
+    {
+      RECORD attrinfo := this->currenttype->GetAttribute(data.array_base_attr);
+      IF(RecordExists(attrinfo) AND attrinfo.attributetype = 13/*array*/)
+      {
+        this->topparent := attrinfo.id;
+        this->attributebase := attrinfo.tag || ".";
+      }
+    }
+
+    IF (ObjectExists(this->currententity))
+      this->entityid := this->currententity->id;
+
+    this->SetupEditor();
+  }
+
+  RECORD FUNCTION GetEntityValue()
+  {
+    RETURN this->entity->value;
+  }
+
+  MACRO SetEntityValue(RECORD data)
+  {
+    this->entity->value := data;
+  }
+
+  PUBLIC MACRO SetupEditor()
+  {
+    // Collect type attributes
+    BOOLEAN autoselecttags := Length(this->typetags)=0;
+    this->typeattrs := SELECT *
+                         FROM this->currenttype->ListAttributes(this->topparent)
+                        WHERE autoselecttags ? (isreadonly = FALSE AND localtag NOT IN ["WRD_CREATIONDATE","WRD_LIMITDATE"])
+                                             : localtag IN this->typetags;
+    IF(NOT autoselecttags)
+      this->typeattrs := SELECT * FROM this->typeattrs ORDER BY SearchElement(this->typetags, localtag);
+
+    this->entity->attributebase := this->attributebase;
+    FOREVERY (RECORD attr FROM this->typeattrs)
+    {
+      OBJECT wrdfield;
+      /*IF (attr.attributetype = 3) // Address
+        wrdfield := this->CreateCustomComponent("http://www.webhare.net/xmlns/wrd/components", "addressbox");
+      ELSE */IF (attr.attributetype = 13) // Array
+        wrdfield := this->CreateCustomComponent("http://www.webhare.net/xmlns/wrd/components", "arraybox");
+      ELSE
+      {
+        wrdfield := this->CreateCustomComponent("http://www.webhare.net/xmlns/wrd/components", "field");
+        IF (attr.attributetype = 8) // multiple domain select
+          wrdfield->selectmethod := "dialog";
+      }
+
+      wrdfield->DynamicInit(attr.localtag, this->entity);
+
+      IF (ToUpperCase(attr.tag) IN this->requiredtags)
+        wrdfield->required := TRUE;
+
+      this->general->InsertComponentAfter(wrdfield, DEFAULT OBJECT, TRUE);
+    }
+
+    //ADDME: Accepteer ook dat men alleen creation of alleen limit wil zien (nu betekent een van beide niet opgeven beide niet zien)
+    //ADDME: Voor array elementen nu uitgezet, maar misschien toch aan kunnen zetten indien men history wil hebben?
+    IF(this->topparent != 0) // kill lifetime fields
+    {
+      this->lifetime->visible := FALSE;
+      this->entity->GetFieldByTag("wrd_creationdate")->DeleteComponent();
+      this->entity->GetFieldByTag("wrd_limitdate")->DeleteComponent();
+    }
+    ELSE IF(NOT autoselecttags AND ("WRD_CREATIONDATE" NOT IN this->typetags OR "WRD_LIMITDATE" NOT IN this->typetags))
+    {
+      //this->availability->visible := FALSE;
+      this->lifetime->visible := FALSE;
+    }
+
+    IF(ObjectExists(this->currententity))
+      this->entity->wrdentity := this->currententity;
+    ELSE
+    {
+      this->entity->wrdtype := this->currenttype;
+      RECORD rec := this->entity->value;
+      IF (CellExists(rec, "WRD_CREATIONDATE"))
+        this->entity->value := CELL[ ...rec, wrd_creationdate := GetCurrentDatetime() ];
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    IF(this->topparent != 0) //just editing an element
+      RETURN work->finish();
+
+    INTEGER entityid;
+
+    IF(ObjectExists(this->currententity))
+    {
+      entityid := this->entity->wrdentity->id;
+      this->entity->UpdateEntity(work, this->additional_values);
+    }
+    ELSE
+      entityid := this->entity->CreateEntity(work, this->additional_values);
+
+    IF (work->Finish())
+    {
+      this->entityid := entityid;
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+  >;
+
+/* ------------------------------------------------------------------
+   WRD query run dialog
+   ------------------------------------------------------------------*/
+
+PUBLIC OBJECTTYPE ResultGrid EXTEND TolliumScreenBase
+  < PRIVATE STRING pvt_emailcolumn;
+    PRIVATE RECORD ARRAY pvt_columns;
+
+    PUBLIC RECORD ARRAY parameterfields;
+
+    PRIVATE STRING FUNCTION GetFormattedExportCell(RECORD coldef, RECORD listrow)
+    {
+      SWITCH(coldef.type)
+      {
+        CASE "text","tree","email"
+        {
+          RETURN GetCell(listrow,coldef.name);
+        }
+        CASE "image"
+        {
+          RETURN "";
+        }
+        CASE "date"
+        {
+          DATETIME date := GetCell(listrow,coldef.name);
+          IF(date!=DEFAULT DATETIME AND date!=MAX_DATETIME)
+            RETURN this->tolliumuser->FormatDate(date, CellExists(coldef, "STOREUTC") AND coldef.storeutc, FALSE);
+          RETURN "";
+        }
+        CASE "integer", "icon"
+        {
+          RETURN ToString(GetCell(listrow,coldef.name));
+        }
+        DEFAULT
+        {
+          ABORT("Unknown column type '" || coldef.type || "'");
+        }
+      }
+    }
+
+    PUBLIC MACRO DoExportFromRecordArray(RECORD ARRAY results)
+    {
+      OBJECT exportquestions := this->LoadScreen(".resultexport");
+      STRING lastsep := this->tolliumuser->GetRegistryKey("wrd.commondialogs.export.sep", "semicolon");
+      STRING lastcharset := this->tolliumuser->GetRegistryKey("wrd.commondialogs.export.charset","ISO-8859-1");
+
+      IF(lastsep IN ["comma","semicolon","tab"])
+        exportquestions->separator->value:=lastsep;
+      IF(lastcharset IN ["ISO-8859-1","UTF-8"])
+        exportquestions->charset->value:=lastcharset;
+
+      IF(exportquestions->RunModal()!="ok")
+        RETURN;
+
+      INTEGER output_csv := CreateStream();
+      STRING sep := exportquestions->separator->value="comma" ? "," : exportquestions->separator->value="semicolon" ? ";" : "\t";
+      BOOLEAN encode := sep!="\t";
+      STRING charset := exportquestions->charset->value;
+
+      //Add the header first
+      RECORD ARRAY cols := this->pvt_columns;
+
+      FOREVERY(RECORD col FROM cols)
+      {
+        IF(#col>0)
+          PrintTo(output_csv,sep);
+
+        STRING data := charset="UTF-8" ? col.title : EncodeCharset(col.title,charset);
+        PrintTo(output_csv, encode ? EncodeExcelCSV(data) : data);
+      }
+      PrintTo(output_csv, "\r\n");
+
+      FOREVERY(RECORD row FROM results)
+      {
+        FOREVERY(RECORD col FROM cols)
+        {
+          IF(#col>0)
+            PrintTo(output_csv,sep);
+
+          STRING data := this->GetFormattedExportCell(col,row);
+          IF(charset!="UTF-8")
+            data := EncodeCharset(data,charset);
+          PrintTo(output_csv, encode ? EncodeExcelCSV(data) : data);
+        }
+        PrintTo(output_csv, "\r\n");
+      }
+
+      BLOB csvfile := MakeBlobFromStream(output_csv);
+      this->frame->SendFileToUser(csvfile, "text/plain", "export.csv", GetCurrentDatetime());
+
+      this->tolliumuser->SetRegistryKey("wrd.commondialogs.export.sep", exportquestions->separator->value);
+      this->tolliumuser->SetRegistryKey("wrd.commondialogs.export.charset", exportquestions->charset->value);
+    }
+
+    PUBLIC MACRO SetEmailColumn(STRING newemailcolumn)
+    {
+      this->pvt_emailcolumn := newemailcolumn;
+      this->frame->flags.canemail := this->emailcolumn != "";
+
+      //FIXME: Shouldn't be necessary, todd should hide button
+      this->emailbutton->visible := this->frame->flags.canemail;
+    }
+
+    PUBLIC MACRO DoRun()
+    {
+      this->results->rows := this->runner();
+      this->frame->flags.canemail := this->emailcolumn != "";
+    }
+
+    PUBLIC MACRO DoExport()
+    {
+      this->DoExportFromRecordArray(this->results->rows);
+    }
+
+    PUBLIC MACRO DoExportDirect()
+    {
+      this->DoExportFromRecordArray(this->runner());
+    }
+
+    PUBLIC MACRO DoEmail()
+    {
+      IF(this->emailcolumn="")
+      {
+        this->RunMessageBox(".no_email_column");
+        RETURN;
+      }
+
+      OBJECT mailer := MakeComposeMailDialog(this);
+      STRING ARRAY emails;
+      FOREVERY(RECORD row FROM this->results->rows)
+      {
+        STRING thismail := GetCell(row, this->emailcolumn);
+        IF(thismail!="" AND thismail NOT IN emails)
+          INSERT thismail INTO emails AT END;
+      }
+
+      RunSendEmailDialog(this, [ mailfrom := this->tolliumuser->emailaddress
+                               , mailto := emails
+                               ]);
+    }
+    PUBLIC FUNCTION PTR runner;
+    PUBLIC PROPERTY emailcolumn(pvt_emailcolumn, SetEmailColumn);
+
+    PUBLIC MACRO SetOutputColumns(RECORD ARRAY columns)
+    {
+      this->pvt_columns := columns;
+      this->results->columns := SELECT *
+                                  FROM this->pvt_columns
+                                 WHERE NOT exportonly;
+    }
+  >;
+
+///////////////////////////////////////////////////////////////////////////
+//
+
+PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN pvt_required;
+
+
+  BOOLEAN pvt_verification;
+
+
+  RECORD verified_address;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC RECORD address;
+
+
+  PUBLIC OBJECT wrdschema;
+
+
+  PUBLIC STRING defaultcountry;
+
+
+  PUBLIC BOOLEAN force_verification;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY value(GetAddress, SetAddress);
+
+
+  PUBLIC PROPERTY verification(pvt_verification, SetVerification);
+
+
+  PUBLIC PROPERTY required(pvt_required, SetRequired);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  PUBLIC MACRO Init(RECORD initdata)
+  {
+    this->wrdschema := initdata.wrdschema;
+    ^countryfields->wrdschema := this->wrdschema;
+    this->defaultcountry := initdata.defaultcountry;
+
+    STRING langcode := this->tolliumuser->language;
+    RECORD ARRAY countrylist := SELECT rowkey := code, title := GetCell(countries, langcode)
+                                  FROM GetCountryList(langcode) AS countries;
+    IF(this->defaultcountry != "")
+      this->defaultcountry := SELECT AS STRING rowkey FROM countrylist WHERE ToUppercase(rowkey)=ToUppercase(this->defaultcountry);
+    INSERT [ rowkey := "", title := "" ] INTO countrylist AT 0;
+
+    ^country->options := SELECT * FROM countrylist ORDER BY ToUppercase(title);
+    this->SetAddress(initdata.address);
+    this->verified_address := initdata.address;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  MACRO SetVerification(BOOLEAN verify)
+  {
+    this->pvt_verification := verify;
+    ^btn_verify->visible := this->pvt_verification;
+    ^countryfields->have_nl_validation := this->pvt_verification;
+
+    this->UpdateVerifyStatus();
+  }
+
+
+  RECORD FUNCTION GetAddress()
+  {
+    RECORD retval := ^countryfields->value;
+    IF(RecordExists(retval))
+    {
+      DELETE CELL country_full FROM retval;
+      INSERT CELL country_full := ^country->selection.title INTO retval;
+    }
+    RETURN retval;
+  }
+
+
+  MACRO SetAddress(RECORD addy)
+  {
+    IF(CellExists(addy,'country'))
+    {
+      ^country->value := ToUppercase(addy.country);
+      ^countryfields->value := addy;
+    }
+    ELSE
+    {
+      ^country->value := ToUppercase(this->defaultcountry);
+    }
+  }
+
+
+  MACRO SetRequired(BOOLEAN newrequired)
+  {
+    this->pvt_required := newrequired;
+    ^country->required := newrequired;
+    ^countryfields->required := newrequired;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  PUBLIC MACRO OnCountryChange()
+  {
+    ^countryfields->country := ToLowercase(^country->value);
+    this->UpdateVerifyStatus();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Submit
+  //
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    //ADDME: Need better method to validate all values and report any errors
+    OBJECT work := this->BeginWork();
+
+    IF (this->required AND ^country->value = "")
+      work->AddErrorFor(^country, GetTid("tollium:common.errors.field_required", ^country->title));
+
+    IF (NOT work->Finish())
+      RETURN FALSE;
+
+    IF (this->force_verification AND NOT this->IsAddressEqual(this->verified_address, this->value))
+      RETURN this->CheckVerifyAddress(TRUE);
+
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BOOLEAN FUNCTION IsAddressEqual(RECORD lhs, RECORD rhs)
+  {
+    FOREVERY(RECORD lhscell FROM UnpackRecord(lhs))
+    {
+      IF(lhscell.name = "COUNTRY_FULL")
+        CONTINUE; //don't compare country full names
+      IF(NOT CellExists(rhs, lhscell.name) OR lhscell.value != GetCell(rhs, lhscell.name))
+        RETURN FALSE;
+    }
+    //no need to inspect RHS if all cells in LHS match (considering that they _should_ have the same record structure anyway)
+    RETURN TRUE;
+  }
+
+
+  /// Returns a string with all the contents of this->address (stable for cell ordering). Use to compare for changes.
+  PRIVATE STRING FUNCTION GenerateAddressString()
+  {
+    RECORD ARRAY fields := UnpackRecord(this->address);
+    IF(CellExists(this->address,"country"))
+      INSERT [ name := "country_full", value := ^country->selection.title ] INTO fields AT END;
+
+    STRING addr;
+    FOREVERY (RECORD rec FROM SELECT * FROM fields ORDER BY name)
+      addr := addr || EncodeJava(rec.name) || "\t" || EncodeJava(rec.value) || "\n";
+    RETURN addr;
+  }
+
+  PRIVATE BOOLEAN FUNCTION CheckVerifyAddress(BOOLEAN onexit)
+  {
+    RECORD addressdata := this->GetAddress();
+    IF (NOT RecordExists(addressdata))
+      RETURN TRUE;
+
+    OBJECT lookup := ObjectExists(this->contexts->applytester)
+        ? GetAddressLookupAPI(this->contexts->applytester, addressdata.country)
+        : ObjectExists(this->wrdschema)
+            ? GetWRDAddressLookupAPI(this->wrdschema, addressdata.country)
+            : DEFAULT OBJECT;
+
+    IF(NOT ObjectExists(lookup))
+      RETURN TRUE;
+
+    RECORD verify_data := lookup->CheckAddress(addressdata, [ alwaysverify := TRUE ]);
+
+    SWITCH (verify_data.status)
+    {
+      CASE "ok"
+      {
+        RECORD newaddr := CELL[ ...verify_data.data, ...verify_data.looked_up ];
+        this->SetAddress(newaddr);
+        this->verified_address := newaddr;
+
+        IF (NOT onexit)
+          this->RunMessageBox("wrd:commondialogs.addressverify_ok");
+        RETURN TRUE;
+      }
+      CASE "incomplete"
+      {
+        RECORD newaddr := CELL[ ...verify_data.data, ...verify_data.looked_up ];
+        this->SetAddress(newaddr);
+        this->verified_address := newaddr;
+
+        IF (onexit)
+          this->RunMessageBox("wrd:commondialogs.addressverify_incomplete");
+      }
+      CASE "different_citystreet"
+      {
+        IF (NOT CellExists(verify_data.looked_up, "NR_DETAIL") AND CellExists(this->address, "NR_DETAIL"))
+          INSERT CELL nr_detail := this->address.nr_detail INTO verify_data.looked_up;
+
+        OBJECT dialog := this->LoadScreen("wrd:commondialogs.verificationresult");
+        dialog->original->value := FormatAddress(addressdata);
+        dialog->returned->value := FormatAddress(verify_data.looked_up);
+        dialog->problems_street->visible := ToUppercase(addressdata.street) != ToUppercase(verify_data.looked_up.street);
+        dialog->problems_city->visible := ToUppercase(addressdata.city) != ToUppercase(verify_data.looked_up.city);
+        IF(dialog->RunModal()="overwrite")
+        {
+          this->SetAddress(verify_data.data);
+        }
+      }
+      CASE "not_enough_data"
+      {
+        this->RunMessageBox("wrd:commondialogs.addressverify_not_enough_data");
+      }
+      CASE "zip_not_found"
+      {
+        this->RunMessageBox("wrd:commondialogs.addressverify_zip_not_found");
+      }
+      CASE "address_not_found"
+      {
+        this->RunMessageBox("wrd:commondialogs.addressverify_address_not_found");
+      }
+      CASE "invalid_nr_detail"
+      {
+        this->RunMessageBox("wrd:commondialogs.addressverify_invalid_nr_detail");
+      }
+      CASE "invalid_zip"
+      {
+        this->RunMessageBox("wrd:commondialogs.addressverify_invalid_zip");
+      }
+      CASE "lookup_failed"
+      {
+        this->RunMessageBox("wrd:commondialogs.addressverify_lookup_failed");
+      }
+      CASE "invalid_settings"
+      {
+        this->RunMessageBox("wrd:commondialogs.addressverify_invalid_settings");
+      }
+    }
+    RETURN FALSE;
+  }
+
+
+  MACRO UpdateVerifyStatus()
+  {
+    IF (this->verification AND ToUppercase(^country->value) = "NL")
+    {
+      ^btn_verify->enabled := TRUE;
+    }
+    ELSE
+    {
+      ^btn_verify->enabled := FALSE;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC MACRO DoCheckVerify()
+  {
+    this->CheckVerifyAddress(FALSE);
+  }
+>;
+
+
+/* ------------------------------------------------------------------
+   Audit log dialog
+   ------------------------------------------------------------------*/
+
+STRING ARRAY wrdauth_success_types :=
+    [ "wrd:login:ok", "wrd:logincookie", "wrd:loginbyid:ok" ]
+    CONCAT [ "WRDAUTH:LOGIN", "WRDAUTH:LOGINCOOKIE", "WRDAUTH:LOGINID", "WRDAUTH:PWDRESETOK" ]; //legacy events, can go in 2020
+STRING ARRAY wrdauth_warning_types := [ "wrd:forgotpassword", "wrd:getresetlink", "wrd:updatepassword", "wrd:resetpassword:ok", "wrd:resetpassword:failed" ];
+STRING ARRAY wrdauth_failure_types :=
+    [ "wrd:login:failed", "wrd:loginbyid:failed" ]
+    CONCAT [ "WRDAUTH:INCORRECTPASSWORD", "WRDAUTH:LOGINDENIED", "WRDAUTH:PWDRESETFAILED", "WRDAUTH:UNKNOWNLOGIN" //legacy events, can go in 2020
+    , "WRDAUTH:UNKNOWNLOOKUPLOGIN" ];
+
+// Informational: [ "WRDAUTH:LOGOUT" ]
+
+PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING ARRAY pvt_success_types;
+  STRING ARRAY pvt_warning_types;
+  STRING ARRAY pvt_failure_types;
+  INTEGER pvt_showaccount;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// The event types that are treated as successful
+  PUBLIC PROPERTY success_types(pvt_success_types, SetSuccessTypes);
+
+  /// The event types that are treated as a warning
+  PUBLIC PROPERTY warning_types(pvt_warning_types, SetWarningTypes);
+
+  /// The event types that are treated as failed
+  PUBLIC PROPERTY failure_types(pvt_failure_types, SetFailureTypes);
+
+  /// Custom 'show event' handler
+  PUBLIC FUNCTION PTR onshowevent;
+
+  /// Custom event type mapper
+  PUBLIC FUNCTION PTR onmaptype;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW(RECORD data)
+  {
+    IF(ObjectExists(data.wrdschema))
+      this->contexts->wrdschema := data.wrdschema;
+
+    this->pvt_showaccount := data.accountid;
+    this->onshowevent := data.onshow;
+    this->onmaptype := data.onmaptype;
+  }
+
+  /** @cell(object) data.wrdschema The schema to use
+      @cell(integer) data.account The account to show events for (optional)
+  */
+  MACRO Init(RECORD data)
+  {
+    this->pvt_success_types := wrdauth_success_types CONCAT data.success_types;
+    this->pvt_warning_types := wrdauth_warning_types CONCAT data.warning_types;
+    this->pvt_failure_types := wrdauth_failure_types CONCAT data.failure_types;
+
+
+    // Check if there is a specific account to show
+    IF (CellExists(data, "account"))
+    {
+      this->pvt_showaccount := data.account;
+      // If we have an account, hide the 'account' column
+      IF (this->pvt_showaccount > 0)
+        DELETE FROM this->events->columns WHERE name = "wrdaudit_account";
+    }
+
+    // Show events from the past week by default
+    this->fromdate->value := this->tolliumuser->LocalToUTC(MakeDateFromParts(GetDayCount(GetCurrentDateTime()) - 7, 0));
+
+    // Sort events from new to old by default (cannot be set in XML)
+    this->events->sortascending := FALSE;
+
+    // If showing a specific account, show the account field in the title
+    IF (this->pvt_showaccount > 0)
+    {
+      STRING showfield := this->contexts->wrdschema->accounttype->GetEntityField(this->pvt_showaccount, this->contexts->wrdschema->accountlogintag);
+      this->frame->title := GetTid("wrd:commondialogs.auditlog.title", showfield ?? `#${this->pvt_showaccount}`);
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  RECORD ARRAY FUNCTION OnGetEvents()
+  {
+    RECORD ARRAY evts := SELECT wrd_creationdate := creationdate
+                              , wrdaudit_type := this->OnMapTypeValue(type)
+                              , entity
+                              , wrdaudit_login := login
+                              , rowkey := id
+                           FROM wrd.auditevents
+                          WHERE auditevents.wrdschema = this->contexts->wrdschema->id
+                                AND (this->pvt_showaccount != 0 ? auditevents.entity = this->pvt_showaccount : TRUE)
+                                AND (this->fromdate->value != DEFAULT DATETIME ? this->fromdate->value <= creationdate : TRUE)
+                                AND (this->todate->value != DEFAULT DATETIME ? creationdate < this->todate->value : TRUE)
+                                AND ((this->show_success->value ? type IN this->pvt_success_types : FALSE)
+                                     OR (this->show_warning->value ? type IN this->pvt_warning_types : FALSE)
+                                     OR (this->show_failure->value ? type IN this->pvt_failure_types : FALSE)
+                                     OR (this->show_other->value ? type NOT IN (this->pvt_success_types CONCAT this->pvt_warning_types CONCAT this->pvt_failure_types) : FALSE)
+                                     );
+
+    evts := this->contexts->wrdschema->accounttype->Enrich(evts, "entity", [ wrdaudit_account := this->contexts->wrdschema->accountlogintag ], [ rightouterjoin := TRUE ]);
+
+    evts := SELECT TEMPORARY success_event := wrdaudit_type IN this->pvt_success_types
+                 , TEMPORARY warning_event := wrdaudit_type IN this->pvt_warning_types
+                 , TEMPORARY failure_event := wrdaudit_type IN this->pvt_failure_types
+                 , *
+                 , status := success_event ? 1 : warning_event ? 2 : failure_event ? 3 : 0
+              FROM evts;
+    RETURN evts;
+  }
+
+  STRING FUNCTION OnMapTypeValue(STRING type)
+  {
+    STRING title;
+    SWITCH(type)
+    {
+      CASE "wrd:login:ok"              { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.login"); }
+      CASE "wrd:logincookie"           { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logincookie"); }
+      CASE "wrd:loginbyid:ok"          { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginid"); }
+      CASE "wrd:forgotpassword"        { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.forgotpassword"); }
+      CASE "wrd:getresetlink"          { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.getresetlink"); }
+      CASE "wrd:updatepassword"        { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.updatepassword"); }
+      CASE "wrd:resetpassword:ok"      { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resetpassword"); }
+      CASE "wrd:resetpassword:failed"  { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resetpasswordfailed"); }
+      CASE "wrd:login:failed"          { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logindenied"); }
+      CASE "wrd:loginbyid:failed"      { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.login"); }
+    }
+
+    IF (type LIKE "wrdauth:*")
+      title := GetTid("wrd:commondialogs.auditlog.wrdauth." || Substring(type, 8)); //FIXME remove in 2020
+    ELSE IF (this->onmaptype != DEFAULT FUNCTION PTR)
+      title := this->onmaptype(type);
+    RETURN title ?? type;
+  }
+
+  MACRO DoShowEvent()
+  {
+    RECORD event := SELECT * FROM wrd.auditevents WHERE id = this->events->value;
+
+    IF (this->onshowevent != DEFAULT FUNCTION PTR)
+      this->onshowevent(event);
+    ELSE
+      Reflect(event);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+  MACRO DoRefresh()
+  {
+    this->events->Invalidate();
+  }
+
+  MACRO SetAccountField(STRING tag)
+  {
+    RECORD col := SELECT * FROM this->events->columns WHERE name = "wrdaudit_account";
+    IF (RecordExists(col))
+      col.resolverobject->field := tag;
+    this->events->Invalidate();
+  }
+
+  MACRO SetSuccessTypes(STRING ARRAY types)
+  {
+    this->pvt_success_types := types;
+    this->events->Invalidate();
+  }
+
+  MACRO SetWarningTypes(STRING ARRAY types)
+  {
+    this->pvt_warning_types := types;
+    this->events->Invalidate();
+  }
+
+  MACRO SetFailureTypes(STRING ARRAY types)
+  {
+    this->pvt_failure_types := types;
+    this->events->Invalidate();
+  }
+>;
+
+
+
+RECORD FUNCTION SetupEntityList(OBJECT list, OBJECT type, RECORD ARRAY listcolumns, STRING condition, BOOLEAN showastree, RECORD listquery, RECORD ARRAY listfilters, RECORD ARRAY finallistcolumns)
+{
+  RECORD ARRAY listcols, bulkcols;
+  BOOLEAN seen_rowkey := FALSE;
+  STRING sortcell;
+
+  RECORD base_query :=
+    [ sources := [ [ name := "base"
+                   , type := type
+                   , outputcolumns := [ wrd_id := "WRD_ID" ]
+                   ]
+                 ]
+    , links :=   DEFAULT RECORD ARRAY ];
+
+  IF(Length(finallistcolumns)>0) //explicit list of columns
+  {
+    listcols := finallistcolumns;
+    FOREVERY(RECORD col FROM finallistcolumns)
+    {
+      IF (NOT CellExists(base_query.sources[0].outputcolumns, col.name))
+        base_query.sources[0].outputcolumns := CellInsert(base_query.sources[0].outputcolumns, col.name, col.name);
+
+      IF(showastree AND Touppercase(col.name)="WRD_TITLE" AND sortcell="")
+        sortcell := col.name;
+    }
+  }
+  ELSE
+  {
+    FOREVERY(RECORD listcol FROM listcolumns)
+    {
+      RECORD attrinfo := type->GetAttribute(listcol.tag);
+      IF(NOT RecordExists(attrinfo))
+        ABORT("Cannot locate column '" || listcol.tag || "'");
+
+      STRING cellname;
+      IF(ToUppercase(listcol.tag)="WRD_ID" AND NOT seen_rowkey)
+      {
+        seen_rowkey := TRUE;
+        cellname := "ROWKEY";
+      }
+      ELSE
+      {
+        cellname := "col" || #listcol;
+      }
+
+      INSERT INTO listcols(type, title, selecticonname, iconname, name, width, tree)
+             //FIXME: Support more types..
+             VALUES(GetListType(attrinfo), (CellExists(listcol, "title") ? listcol.title : attrinfo.title) ?? attrinfo.tag, "", "", cellname, CellExists(listcol,"width") ? listcol.width : "1pr", showastree AND #listcol=0)
+             AT END;
+
+      IF(showastree AND Touppercase(listcol.tag)="WRD_TITLE" AND sortcell="")
+        sortcell := cellname;
+
+      IF (CellExists(attrinfo, "DOMAIN") AND attrinfo.domain != 0) //ADDME: CellExists is ugly, understand the type - what hpapens with multivalue attributes?
+      {
+        OBJECT domain := type->wrdschema->GetTypeById(attrinfo.domain);
+        STRING title := "WRD_TITLE";
+        IF (domain->tag = "WRD_PERSON")
+          title := "WRD_FULLNAME";
+        ELSE IF (domain->tag = "WRD_ORGANIZATION")
+          title := "WRD_ORGNAME";
+
+        RECORD reqcolumns := CellInsert(DEFAULT RECORD, cellname, title);
+
+        INSERT INTO base_query.sources(name, type, outputcolumns)
+               VALUES (cellname, type->wrdschema->GetTypeById(attrinfo.domain), reqcolumns) AT END;
+        INSERT INTO base_query.links(left, right, field, jointype)
+               VALUES ("base", cellname, listcol.tag, "right-optional") AT END;
+      }
+      ELSE
+        base_query.sources[0].outputcolumns := CellInsert(base_query.sources[0].outputcolumns, cellname, listcol.tag);
+    }
+  }
+
+  list->columns := listcols;
+
+  IF(NOT seen_rowkey)
+    base_query.sources[0].outputcolumns := CellInsert(base_query.sources[0].outputcolumns, "ROWKEY", "WRD_ID");
+  IF(showastree)
+    base_query.sources[0].outputcolumns := CellInsert(base_query.sources[0].outputcolumns, "__PARENT", "WRD_LEFTENTITY");
+  IF (type->isdomain AND NOT CellExists(base_query.sources[0].outputcolumns, "WRD_ORDERING"))
+    base_query.sources[0].outputcolumns := CellInsert(base_query.sources[0].outputcolumns, "WRD_ORDERING", "WRD_ORDERING");
+
+  STRING ARRAY eventmasks;
+  FOREVERY (RECORD source FROM base_query.sources)
+    eventmasks := eventmasks CONCAT source.type->GetEventMasks();
+
+  RETURN
+      [ base_query :=   base_query
+      , showastree :=   showastree
+      , sortcell :=     sortcell
+      , eventmasks :=   eventmasks
+      , listfilters :=  listfilters
+      ];
+}
+
+
+RECORD ARRAY FUNCTION GetEntityListRows(OBJECT type, RECORD config, STRING langcode)
+{
+  RECORD base_query := config.base_query;
+  BOOLEAN showastree := config.showastree;
+  STRING sortcell := config.sortcell;
+  RECORD ARRAY listfilters := config.listfilters;
+
+  INTEGER ARRAY visible_values;
+  IF (LENGTH(listfilters) > 0)
+  {
+    visible_values :=
+        SELECT AS INTEGER ARRAY wrd_id
+          FROM type->wrdschema->RunQuery(
+                  [ sources := [ [ name := "base"
+                                 , type := type
+                                 , outputcolumns := [ wrd_id := "WRD_ID" ]
+                                 , filters := listfilters
+                                 ]
+                               ]
+                  ]);
+  }
+
+  RECORD ARRAY results := SELECT * FROM type->wrdschema->RunQuery(base_query) AS row;
+
+  IF (LENGTH(listfilters) > 0)
+    results := SELECT *, visible := wrd_id IN visible_values FROM results;
+  ELSE
+    results := SELECT *, visible := TRUE FROM results;
+
+  IF (type->isdomain)
+  {
+    IF(sortcell!="")
+      results := SELECT * FROM results ORDER BY wrd_ordering, NormalizeText(GetCell(results,sortcell), langcode);
+    ELSE IF (showastree)
+      results := SELECT * FROM results ORDER BY wrd_ordering;
+  }
+  ELSE IF(sortcell!="")
+    results := SELECT * FROM results ORDER BY NormalizeText(GetCell(results,sortcell), langcode);
+
+  IF(showastree)
+    results := GenerateTree(results, 0, 0);
+  ELSE
+    results := SELECT * FROM results WHERE visible;
+
+  RETURN results;
+}
+
+
+/** Generates a tree from list of (possibily invisible) records (max 15 levels deep)
+    @param inrows List of rows to generate a tree from
+    @cell inrows.rowkey Rowkey of the row
+    @cell inrows.__parant Rowkey of the parent of the row
+    @param curparent Rowkey of row to use as root
+    @param depth Current depth
+    @return Returns list of all visible nodes at (not subnodes of other visible nodes)
+*/
+RECORD ARRAY FUNCTION GenerateTree(RECORD ARRAY inrows, INTEGER curparent, INTEGER depth)
+{
+  RECORD ARRAY results;
+
+  RECORD ARRAY nodes :=
+      SELECT *
+        FROM inrows AS row
+        WHERE __parent=curparent;
+
+  FOREVERY (RECORD rec FROM nodes)
+  {
+    RECORD ARRAY subnodes := depth<15 ? GenerateTree(inrows, rec.rowkey, depth+1) : DEFAULT RECORD ARRAY;
+    IF (rec.visible)
+    {
+      INSERT CELL expanded := TRUE INTO rec;
+      INSERT CELL subnodes := subnodes INTO rec;
+      INSERT rec INTO results AT END;
+    }
+    ELSE
+      results := results CONCAT subnodes;
+  }
+  RETURN results;
+}
+
+
+STRING FUNCTION GetListType(RECORD attrinfo)
+{
+  IF (attrinfo.attributetype = 15 /*integer*/OR attrinfo.tag = "WRD_GENDER")
+    RETURN "integer";
+
+  SWITCH (attrinfo.attributetype)
+  {
+    CASE 18 /*integer64*/
+    {
+      RETURN "integer64";
+    }
+    CASE 6 /*date*/, 12 /*datetime*/
+    {
+      RETURN "date";
+    }
+    CASE 0/*WRD_FULLNAME, WRD_GUID*/, 1/*domain*/, 2/*free*/, 4/*e-mail*/, 5/*telephone*/, 21/*url*/
+    {
+      RETURN "text";
+    }
+    DEFAULT
+    {
+      ABORT("Don't know what to do with type " || attrinfo.attributetype || " (tag '" || attrinfo.tag || "')");
+    }
+  }
+
+  RETURN "";
+}

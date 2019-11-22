@@ -1,0 +1,15 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="WebHare internals"
+       docorder="coredevelopment
+                 documenting
+                 profiling
+                 cli-guide
+                 bootstrap
+                 events
+                 webhare-connect
+                 escrow
+                 whdb
+                 classnames
+                 ">
+  <section name="webharedb" title="WebHare Database access" />
+</topic>

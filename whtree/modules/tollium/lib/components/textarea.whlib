@@ -1,0 +1,236 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
+
+PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
+<
+  STRING pvt_contents;
+  INTEGER pvt_maxlength;
+  STRING pvt_maxlengthmeasure;
+  BOOLEAN pvt_showcounter;
+
+  PUBLIC BOOLEAN trimwhitespace;
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY showcounter(pvt_showcounter, SetShowCounter);
+  PUBLIC PROPERTY maxlength(pvt_maxlength, SetMaxLength);
+  PUBLIC PROPERTY maxlengthmeasure(pvt_maxlengthmeasure, SetMaxLengthMeasure);
+
+  /// Wrap long lines? Defaults to true
+  PUBLIC BOOLEAN wordwrap;
+
+  /// List of input validation checks
+  STRING ARRAY pvt_validationchecks;
+
+  /// List of input validation checks to run
+  PUBLIC PROPERTY validationchecks(pvt_validationchecks, pvt_validationchecks);
+
+  /// Placeholder text to show if nothing is filled in
+  STRING pvt_placeholder;
+  PUBLIC PROPERTY placeholder(pvt_placeholder, SetPlaceholder);
+
+
+  MACRO NEW()
+  {
+    EXTEND THIS by TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->componenttype := "textarea";
+    this->formfieldtype := "string";
+
+    this->trimwhitespace := TRUE;
+    this->wordwrap := TRUE;
+    this->maxlength := -1;
+    this->maxlengthmeasure := "characters";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->pvt_contents := def.value;
+    this->maxlength := def.maxlength;
+    this->maxlengthmeasure := def.maxlengthmeasure;
+    this->showcounter := def.showcounter;
+    this->errorlabel := def.errorlabel; //FIXME dupe with visual componentbase
+    this->trimwhitespace := def.trimwhitespace;
+    this->pvt_validationchecks := def.validationchecks;
+    this->placeholder := def.placeholder;
+    this->wordwrap := def.wordwrap;
+  }
+
+
+  STRING FUNCTION GetValue()
+  {
+    RETURN this->pvt_contents;
+  }
+
+  MACRO SetInternalValue(STRING contents)
+  {
+    IF(this->trimwhitespace)
+      contents := TrimWhitespace(contents);
+
+    contents := Substitute(contents, "\r\n", "\n");
+    this->pvt_contents := contents;
+  }
+
+  // used when setting property value from Harescript
+  MACRO SetValue(STRING contents)
+  {
+    this->SetInternalValue(contents);
+    this->ExtUpdatedText(); //TolliumHandleUpdate();
+  }
+
+  MACRO SetMaxLengthMeasure(STRING measure)
+  {
+    measure := ToLowercase(measure);
+    IF (measure NOT IN [ "bytes", "characters" ])
+      measure := "characters";
+
+    IF (this->pvt_maxlengthmeasure != measure)
+    {
+      this->pvt_maxlengthmeasure := measure;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetShowCounter(BOOLEAN showcounter)
+  {
+    IF (this->pvt_showcounter != showcounter)
+    {
+      this->pvt_showcounter := showcounter;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetMaxLength(INTEGER maxlength)
+  {
+    IF (this->pvt_maxlength != maxlength)
+    {
+      this->pvt_maxlength := maxlength;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetPlaceholder(STRING placeholder)
+  {
+    IF (placeholder != this->pvt_placeholder)
+    {
+      this->pvt_placeholder := placeholder;
+      this->ExtUpdatedPlaceholder();
+    }
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(STRING);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel!="" ? this->errorlabel : this->title;
+
+    //FIXME: handle when labels are not present!
+    IF((this->enabled AND this->required) AND this->pvt_contents="")
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+    }
+    ELSE IF(this->maxlength>0 AND (
+      (this->maxlengthmeasure = "bytes" AND Length(this->pvt_contents) > this->maxlength)
+        OR
+      (this->maxlengthmeasure = "characters" AND UCLength(this->pvt_contents) > this->maxlength)))
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.too_long", fieldtitle, ToString(this->maxlength)));
+    }
+    ELSE IF (this->pvt_contents != "" AND LENGTH(this->pvt_validationchecks) != 0)
+    {
+      STRING error := ValidateInput(this->pvt_contents, fieldtitle, this->pvt_validationchecks);
+      IF (error != "")
+        work->AddErrorFor(this, error);
+    }
+  }
+
+  UPDATE PUBLIC MACRO TolliumDispatchEvent(STRING type, RECORD data)
+  {
+    TolliumComponentBase::TolliumDispatchEvent(type, data);
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+  UPDATE PUBLIC STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "2gr";
+  }
+
+  MACRO ExtUpdatedText()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    IF(this->readonly)
+    {
+      this->ExtUpdatedComponent();
+      RETURN;
+    }
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.text := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedPlaceholder()
+  {
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ text := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      IF(this->readonly)
+      {
+        this->TolliumWebReadOnly(this->pvt_contents, TRUE);
+        RETURN;
+      }
+
+      RECORD compinfo := [ /*areatype := this->type
+                         , */required := this->required
+                         , value := this->pvt_contents
+                         , hint := this->hint
+                         , maxlength := this->maxlength
+                         , maxlengthmeasure := this->maxlengthmeasure
+                         , showcounter := this->showcounter
+                         , placeholder := this->placeholder
+                         , wordwrap := this->wordwrap
+                         ];
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.text)
+      {
+        this->ToddUpdate([type:="value", value := this->pvt_contents]);
+      }
+    }
+
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(STRING indata)
+  {
+    // *don't* directly set the value.
+    // This would cause text be set to dirty, causing an update to be send back,
+    // causing the <textarea>+caret to be reset in the browser.
+    //this->value := indata;
+
+    this->SetInternalValue(indata);
+  }
+>;

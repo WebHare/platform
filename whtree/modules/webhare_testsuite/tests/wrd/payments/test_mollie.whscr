@@ -1,0 +1,94 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_MOLLIE_APIKEY") = "";
+IF(offlineonly)
+  Print("*** Skipping some tests as TESTFW_MOLLIE_APIKEY is not set\n\n");
+
+ASYNC MACRO SetupMollie()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
+  TT("methods")->value := "wrd:mollie";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+  TT("paymentextension->apikey")->value := GetEnvironmentVariable("TESTFW_MOLLIE_APIKEY") ?? "test-mollie-apikey";
+  TT("paymentextension->webhooks")->value := FALSE;
+
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(rowkey) IN ["IDEAL"];
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  TestEq(["IDEAL"], SELECT AS STRING ARRAY ToUppercase(rowkey) FROM TT("{select}:Methods")->selection);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("editprovider")); //test persisting between dialogs
+  TestEq(["IDEAL"], SELECT AS STRING ARRAY ToUppercase(rowkey) FROM TT("{select}:Methods")->selection);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+}
+
+ASYNC MACRO TestPaymentMollie()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  //we've just added mollie as a single-option provider. it should inherit the title given during config
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  RECORD idealmethod := SELECT * FROM methods WHERE ToUppercase(title) LIKE "IDEAL*";
+  TestEq(TRUE, RecordExists(idealmethod));
+  Testeq(1, Length(methods)); //no other methods should be offered
+
+  testfw->BeginWork();
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD properrequest := [ paymentprovider := idealmethod.paymentprovider
+                          , paymentoptiontag := idealmethod.paymentoptiontag
+                          , issuer := idealmethod.issuers[0].rowkey
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          ];
+  IF(testfw->debug)
+    Print("Planned return url: " || properrequest.returnurl || "\n");
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 242.12, properrequest);
+  TestEqLike("000000??????", entity->GetField("DATA").paymentref);
+  TestEq("pending", entity->GetField("DATA").status);
+
+  TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(paymentinstruction.submitinstruction));
+
+  //Should be at the Mollie page
+  OBJECT mollieform := testfw->browser->QS("form[id=body]");
+  TestEq(TRUE, ObjectExists(mollieform), "Expecing a form#body");
+  OBJECT mollie_radiobutton_paid := testfw->browser->QS("input[name=final_state][value=paid]");
+  TestEq(TRUE, ObjectExists(mollie_radiobutton_paid), "Expecing a input[name=final_state][value=paid]");
+  mollie_radiobutton_paid->SetAttribute("checked","checked");
+  TestEQ(TRUE, testfw->browser->SubmitForm(mollieform));
+
+  RECORD status := DecodeJSONBlob(testfw->browser->content);
+  TestEq(entity->id, status.returninfo.paymentid);
+  TestEq("approved", status.payinfo.status);
+  TestEq("approved", entity->GetField("DATA").status);
+
+  //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+  TestEqLike("?*", TT("paymentinfo")->contents->^paymentid->value);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+}
+
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR SetupMollie
+                 , PTR RunStandardPaymentMethodTests
+                 , PTR TestPaymentMollie
+                 ]);

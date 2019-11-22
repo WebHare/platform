@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+  targetNamespace="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+
+  <xs:element name="block_multilinecomponent">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="tests/components.multilinecomponent" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="inline_multilinecomponent">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="tests/components.multilinecomponent" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="youtube_rec">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="components/media.youtube_rec" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="vimeo_rec">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="components/media.vimeo_rec" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="mediachooser">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="components/media.mediachooser" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="embedblock1_comp">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="components/embedtest.embedblock1_comp" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="embedblock2_comp">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="components/embedtest.embedblock2_comp" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="fragcomp">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="tests/fragments.fragcomp" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+      <xs:attribute name="textcomp1" type="tc:ComponentRef" />
+      <xs:attribute name="textcomp2" type="tc:ComponentRef" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="preinittest">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" lib="screens/tests/fragments.whlib" objecttype="PreinitTestComponent" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="preinitcomptest">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="composition" lib="screens/tests/fragments.whlib" objecttype="PreinitCompTestComponent" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:CompositionBase" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="preinitspecialtest">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="composition" lib="screens/tests/fragments.whlib" objecttype="PreinitTestSpecialComponent" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="emptyfragcomp">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="tests/fragments.emptyfragcomp" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="inlinecomp">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" fragment="tests/fragments.fragcomp" validator="../lib/screens/tests/fragments.whlib#ValidateInlineComp" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+      <xs:attribute name="textcomp1" type="tc:ComponentRef" />
+      <xs:attribute name="textcomp2" type="tc:ComponentRef" />
+      <xs:attribute name="nowarning" type="xs:boolean" default="true"/> <!-- setting default so we can also test that -->
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="querysourcecomp">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="optionsource" lib="screens/tests/fragments.whlib" objecttype="QuerySourceComponent" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+      <xs:attribute name="textcomp1" type="tc:ComponentRef" />
+      <xs:attribute name="textcomp2" type="tc:ComponentRef" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="intextlink">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="inline" fragment="tests/fragments.intextlink" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attributeGroup ref="sc:Errorlabel" />
+      <xs:attributeGroup ref="sc:Required" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="customlinkhandler">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="rte" lib="screens/components/customlinkhandler.whlib" objecttype="CustomLinkHandler" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

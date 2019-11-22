@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
+
+  <attachment tag="WRD_AUTHDOMAIN_SAMLPROVIDERBASE" title="Authentication domain SAML service base" linkfrom="WRD_AUTHDOMAIN">
+    <attributes>
+      <free tag="SAMLENTITYID" title="SAML Entity ID" />
+      <whfsintextlink tag="KEYPAIR" title="Link to private key/certificate" />
+
+      <array tag="CONNECTIONS" title="Connected providers">
+        <free tag="SAMLENTITYID" title="SAML Entity ID" />
+        <file tag="CERTIFICATE" title="Provider certificate" />
+        <free tag="DESCRIPTION" title="Description" />
+        <free tag="METADATAURL" title="URL of metadata" />
+        <datetime tag="VALIDUNTIL" title="Valid until" />
+        <file tag="ENTITYDESCRIPTOR" title="Entity descriptor" />
+      </array>
+
+      <boolean tag="ALLOW_REDIRECTBINDING" title="Allow and publish the redirect binding" />
+
+      <free tag="ORGANIZATION_NAME" title="Organization short name" />
+      <free tag="ORGANIZATION_DISPLAYNAME" title="Organization display name" />
+      <free tag="ORGANIZATION_URL" title="Organization URL" />
+
+      <array tag="CONTACTS" title="Contacts">
+        <free tag="TYPE" title="Contact type" />
+        <free tag="COMPANY" title="Company" />
+        <free tag="GIVENNAME" title="First name" />
+        <free tag="SURNAME" title="Last name" />
+        <email tag="EMAIL" title="Email address" />
+        <telephone tag="TELEPHONE" title="Telephone" />
+      </array>
+    </attributes>
+  </attachment>
+
+  <attachment tag="WRD_AUTHDOMAIN_SAML_IDP" title="Authentication domain SAML identity provider" linkfrom="WRD_AUTHDOMAIN" parent="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
+    <attributes>
+      <array tag="SUPPORTEDNAMEIDFORMATS" title="Supported name identifier formats">
+        <free tag="NAMEIDFORMAT" title="Name identifier format" />
+      </array>
+    </attributes>
+  </attachment>
+
+  <attachment tag="WRD_AUTHDOMAIN_SAML_SP" title="Authentication domain SAML service provider" linkfrom="WRD_AUTHDOMAIN" parent="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
+    <attributes>
+      <free tag="NAMEIDPOLICY" title="NameID policy to use (optional)" />
+    </attributes>
+  </attachment>
+
+  <!-- Type of the entity is determined by type of parent. parent is SP -> this is an IDP, parent is IDP -> this is an SP -->
+  <attachment tag="WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY" title="Authentication domain SAML connected service provider" linkfrom="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
+    <attributes>
+      <free tag="SAMLENTITYID" title="SAML Entity ID" />
+      <free tag="METADATAURL" title="Metadata URL used for import" />
+
+      <array tag="CERTIFICATES" title="Certificates">
+        <file tag="DATA" title="Certificate data (X.509, PEM-encoded with headers)" />
+        <datetime tag="ACCEPTUNTIL" title="Accept until date" />
+      </array>
+
+      <!-- this aggregates all the service endpoints from the descriptors -->
+      <array tag="SERVICEENDPOINTS" title="Service endpoints">
+        <free tag="TYPE" title="Endpoint type" />
+        <free tag="BINDING" title="Binding" />
+        <free tag="LOCATION" title="Location" />
+        <free tag="RESPONSELOCATION" title="Response location" />
+        <integer tag="INDEX" title="Index" />
+        <boolean tag="ISDEFAULT" title="Is default endpoint (for this type)" />
+      </array>
+
+      <array tag="SUPPORTEDNAMEIDFORMATS" title="Supported name identifier formats">
+        <free tag="NAMEIDFORMAT" title="Name identifier format" />
+      </array>
+
+      <free tag="ORGANIZATION_NAME" title="Organization short name" />
+      <free tag="ORGANIZATION_DISPLAYNAME" title="Organization display name" />
+      <free tag="ORGANIZATION_URL" title="Organization URL" />
+
+      <array tag="CONTACTS" title="Contacts">
+        <free tag="TYPE" title="Contact type" />
+        <free tag="COMPANY" title="Company" />
+        <free tag="GIVENNAME" title="First name" />
+        <free tag="SURNAME" title="Last name" />
+        <email tag="EMAIL" title="Email address" />
+        <telephone tag="TELEPHONE" title="Telephone" />
+      </array>
+    </attributes>
+
+
+<!--
+    <d:table name="connectedentities" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="localentity" references=".localentities" ondelete="cascade" />
+      <d:varchar name="entityid" maxlength="4096" />
+      <d:blob name="certificate" />
+      <d:varchar name="description" maxlength="4096" />
+      <d:varchar name="metadataurl" maxlength="4096" /> <!- - ADDME: pinned certificate? - ->
+      <d:datetime name="validuntil" />
+      <d:blob name="entitydescriptor" />
+      </d:table>-->
+  </attachment>
+
+</schemadefinition>

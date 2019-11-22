@@ -1,0 +1,471 @@
+<?wh
+/** @short POP3 email
+    @long These functions allow access to POP3 e-mail accounts
+    @topic internet/email
+*/
+
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::files.whlib";
+
+PUBLIC FUNCTION PTR pop3_debuglogptr;
+
+PUBLIC MACRO Pop3DebugLog(STRING str)
+{
+  IF (pop3_debuglogptr != DEFAULT FUNCTION PTR)
+    pop3_debuglogptr("POP: " || str);
+}
+
+
+/** @short Checks the response of the POP3 server
+    @long This function verifies the response received from the POP3 server (should start with +OK)
+    @param response String with the response from the server
+*/
+BOOLEAN FUNCTION SuccessfulPop3Response(STRING response)
+{
+  Pop3DebugLog("TestOK: " || response);
+  RETURN ToLowerCase(Left(response, 3)) = "+ok";
+}
+
+MACRO SendPop3Command(INTEGER connectionid, STRING command)
+{
+  Pop3DebugLog("Command: " || command);
+  PrintTo(connectionid, command || "\r\n");
+
+}
+
+INTEGER FUNCTION DoPop3Logon(INTEGER connectionid, STRING username, STRING passwd)
+{
+  STRING received := ReadLineFrom(connectionid, 4096, TRUE);
+
+  // Check if the pop3 server is ready
+  IF (NOT SuccessfulPop3Response(received))
+  {
+    CloseSocket(connectionid);
+    RETURN -2; // No connection
+  }
+
+  // Send username
+  SendPop3Command(connectionid, "USER " || username);
+  received := ReadLineFrom(connectionid, 4096, TRUE);
+  IF (NOT SuccessfulPop3Response(received))
+  {
+    CloseSocket(connectionid);
+    RETURN -1;
+  }
+
+  // Send password
+  SendPop3Command(connectionid, "PASS " || passwd);
+  received := ReadLineFrom(connectionid, 4096, TRUE);
+  IF (NOT SuccessfulPop3Response(received))
+  {
+    CloseSocket(connectionid);
+    RETURN -1; // Wrong password
+  }
+
+  // Now we're logged in
+  RETURN connectionid;
+}
+
+
+
+
+/** @short This function will try to login on a POP3 server
+    @long  This function tries to login on a POP3 server with a user name and password. When the login is succesful
+           the ID (>0) of the connection is returned. If -1 is returned by the function a wrong password was received.
+           IF -2 is returned there was no connection with the POP3 server.
+    @param server String containing the IP address or hostname of the POP3 mail server
+    @param serverport Integer of the port of the POP3 mail server
+    @param username  Username  of the acount
+    @param passwd Password of the account
+    @return ID or error code
+    @see OpenSecurePop3Account, ClosePop3Account
+*/
+PUBLIC INTEGER FUNCTION OpenPop3Account(STRING server, INTEGER serverport, STRING username, STRING passwd)
+{
+  // Open the connection
+  INTEGER connectionid := CreateTCPSocket();
+  IF (connectionid=0)
+  {
+    RETURN -2;
+  }
+
+  IF (NOT ConnectSocket(connectionid,server,serverport))
+  {
+    CloseSocket(Connectionid);
+    RETURN -2; // No connection
+  }
+
+  RETURN DoPop3Logon(connectionid,username,passwd);
+}
+
+
+
+
+/** @short This function will try to login to a secure POP3 server
+    @long  This function tries to login on a secure POP3 server with a user name and password. When the login is succesful
+           the ID (>0) of the connection is returned. If -1 is returned by the function a wrong password was received.
+           IF -2 is returned there was no connection with the POP3 server.
+    @param server String containing the IP address or hostname of the POP3 mail server
+    @param serverport Integer of the port of the POP3 mail server
+    @param username Username of the account
+    @param passwd Password of the account
+    @return ID or error code
+    @see OpenPop3Account, ClosePop3Account
+*/
+PUBLIC INTEGER FUNCTION OpenSecurePop3Account(STRING server, INTEGER serverport, STRING username, STRING passwd)
+{
+  // Open the connection
+  INTEGER connectionid := CreateTCPSocket();
+  IF (connectionid=0)
+  {
+    RETURN -2;
+  }
+
+  IF (NOT ConnectSocket(connectionid,server,serverport))
+  {
+    CloseSocket(Connectionid);
+    RETURN -2; // No connection
+  }
+
+  SetSecureConnection(connectionid);
+
+  RETURN DoPop3Logon(connectionid,username,passwd);
+}
+
+
+
+
+/** @short This function will close the connection to the POP3 server
+    @param connectionid ID of the connection
+    @see OpenPop3Account, OpenSecurePop3Account
+*/
+PUBLIC MACRO ClosePop3Account(INTEGER connectionid)
+{
+  // Close the connection to the pop3 server. Send the QUIT command to delete all deleted messages.
+  SendPop3Command(connectionid,"QUIT");
+  ReadLineFrom(connectionid, 4096, TRUE);
+  CloseSocket(connectionid);
+}
+
+
+
+/** @short This function will close the connection to the POP3 server, but will not allow
+           the POP server to delete retrieved/deleted messages
+    @param connectionid ID of the connection
+    @see OpenPop3Account, OpenSecurePop3Account
+*/
+PUBLIC MACRO ClosePop3AccountWithoutDeleting(INTEGER connectionid)
+{
+  // Just close the connection to the pop3 server. Do NOT send the QUIT command, so messages won't be deleted
+  CloseSocket(connectionid);
+}
+
+
+/** @short This function will close the connection to the POP3 server without deleting the marked files
+    @param connectionid ID of the connection
+    @see OpenPop3Account, OpenSecurePop3Account
+*/
+PUBLIC MACRO AbortPop3Account(INTEGER connectionid)
+{
+  // Close the connection to the pop3 server
+  CloseSocket(connectionid);
+}
+
+
+
+
+/** @short This function will list the emails in the inbox
+    @param connectionid ID of the connection
+    @return Record Array containing:
+    @cell return.id Message unique ID
+    @cell return.size Size of the email (in bytes)
+*/
+PUBLIC RECORD ARRAY FUNCTION GetPop3MailOverview(INTEGER connectionid)
+{
+  RECORD ARRAY emails;
+  SendPop3Command(connectionid, "LIST");
+  STRING received := ReadLineFrom(connectionid, 4096,TRUE);
+  IF (NOT SuccessfulPop3Response(received))
+    RETURN emails;
+  WHILE(TRUE)
+  {
+    received := ReadLineFrom(connectionid, 4096, TRUE);
+    IF(Left(received,1)=".")
+      BREAK;
+
+    STRING ARRAY linetoks:=Tokenize(received," ");
+    IF(Length(Linetoks)<2)
+      BREAK;
+    INSERT INTO emails(id,size) VALUES(ToInteger(linetoks[0],0), ToInteger(linetoks[1],0)) AT END;
+  }
+  RETURN emails;
+}
+
+
+
+
+/** @short This function will list the emails in the inbox and download their headers
+    @param connectionid ID of the connection
+    @return Record Array containing:
+    @cell return.id Message unique ID
+    @cell return.date Date the email was sent
+    @cell return.headers Full headers of the message
+    @cell return.size Size of the email (in bytes)
+    @cell return.sender Sender of the email (example "Name" <email>)
+    @cell return.subject Subject of the email
+    @cell return.messageid Message-ID of the email
+    @cell return.contenttype Content type of the message, including any subtype information
+*/
+PUBLIC RECORD ARRAY FUNCTION GetPop3MailListing(INTEGER connectionid)
+{
+  RECORD ARRAY emails := GetPop3MailOverview(connectionid);
+  FOREVERY(RECORD mail FROM emails)
+  {
+    // Get the header only
+    SendPop3Command(connectionid, "TOP " || mail.id || " 0");
+
+    STRING sender;
+    DATETIME date;
+    STRING subject;
+    INTEGER size;
+
+    // Read the header untill a '.\n' occurs
+    STRING received := ReadLineFrom(connectionid, 4096, TRUE);
+    IF (NOT SuccessfulPop3Response(received))
+      RETURN DEFAULT RECORD ARRAY;
+
+    STRING header;
+    received := ReadLineFrom(connectionid, 4096, TRUE);
+    WHILE (Left(received, 1) != ".")
+    {
+      header := header || received || "\r\n";
+      received := ReadLineFrom(connectionid, 4096, TRUE);
+    }
+
+    RECORD ARRAY headers := DecodeMIMEHeader(header);
+    INSERT CELL headers :=     headers INTO emails[#mail];
+    INSERT CELL date :=        MakeDateFromText(GetMIMEHeader(headers, "date")) INTO emails[#mail];
+    INSERT CELL sender :=      GetMIMEHeader(headers, "from") INTO emails[#mail];
+    INSERT CELL subject :=     GetMIMEHeader(headers, "subject") INTO emails[#mail];
+    INSERT CELL messageid :=   GetMIMEHeader(headers, "message-id") INTO emails[#mail];
+    INSERT CELL contenttype := GetMIMEHeader(headers, "content-type") INTO emails[#mail];
+
+    IF (emails[#mail].contenttype="")
+      emails[#mail].contenttype := "text/plain"; //assume...
+  }
+  RETURN emails;
+}
+
+
+
+
+/** @short This function downloads a raw POP3 email message
+    @param connectionid ID of the connection
+    @param message Integer message number in the mailbox
+    @return The raw email message
+*/
+PUBLIC BLOB FUNCTION GetPop3RawEmailData(INTEGER connectionid, INTEGER message)
+{
+  INTEGER outstream := CreateStream();
+
+  // Get the message
+  SendPop3Command(connectionid, "RETR " || message);
+
+  // Check if the command was succesful
+  STRING received := ReadLineFrom(connectionid, 4096, TRUE);
+  IF (SuccessfulPop3Response(received))
+  {
+    WHILE (TRUE)
+    {
+      STRING received2 := ReadLineFrom(connectionid, 4096, TRUE);
+
+      // Decode .. at the beginning of a line to a single .
+      IF (received2 LIKE ".*")
+        IF (received2 = ".")
+          BREAK;
+        ELSE
+          received2 := Substring(received2, 1);
+
+      PrintTo(outstream, received2 || "\r\n");
+    }
+  }
+
+  RETURN MakeBlobFromStream(outstream);
+}
+
+
+/** @short ReceiveHeader will get a header from a connection, which can be used for MIMEDecodeHeader
+    @param connectionid ID of the connection to use
+    @param size The length of the data to use
+    @return String of the received data */
+STRING FUNCTION ReceiveHeader(INTEGER connectionid)
+{
+  STRING received := ReadLineFrom(connectionid,32768,TRUE);
+  STRING header := received;
+  WHILE (received != "" AND received != ".")
+  {
+    received := ReadLineFrom(connectionid, 4096, TRUE);
+    header := header || "\r\n" || received;
+  }
+  RETURN header;
+}
+
+
+/** @short This function will open a message from the POP3 server
+    @param connectionid ID of the connection
+    @param message Integer message number in the mailbox
+    @return Record of the email (only if the email was found), check the field email.error (which only exists in case of an error)
+    @cell return.header Header of the email message
+    @cell return.data Top mimepart of the email message */
+PUBLIC RECORD FUNCTION OpenPop3Email(INTEGER connectionid, INTEGER message)
+{
+  RECORD email;
+
+  // Get the message
+  SendPop3Command(connectionid, "RETR " || message);
+
+  // Check if the command was succesful
+  STRING received := ReadLineFrom(connectionid, 4096, TRUE);
+  IF (SuccessfulPop3Response(received))
+  {
+    // First MIME decode the header
+    received := ReadLineFrom(connectionid,32768,TRUE);
+    STRING header := received;
+    WHILE (received != "" AND received != ".")
+    {
+      received := ReadLineFrom(connectionid, 4096, TRUE);
+      header := header || "\r\n" || received;
+    }
+    RECORD ARRAY headers := DecodeMIMEHeader(header);
+    INTEGER decoder := CreateMimeDecoder(headers, "text/plain");
+
+    // And now wait till we get a line with a . (which is the end marker)
+    STRING data;
+    IF(received != ".")
+    {
+      WHILE (TRUE)
+      {
+        received := ReadLineFrom(connectionid, 4096, TRUE);
+        IF (received = ".")
+          BREAK;
+
+        // Decode .. at the beginning of a line to a single .
+        IF (Left(received, 1) = ".")
+          received := Right(received, Length(received) - 1);
+        PrintTo(decoder, received || "\r\n"); //FIXME: are we sure to add "\r\n" ??
+      }
+    }
+
+    email := [ headers := headers, data := FinishMimeData(decoder) ];
+  }
+  ELSE
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  RETURN email;
+}
+
+
+
+
+/** @short Opens the header of a message from the POP3 server
+    @param connectionid ID of the connection
+    @param message Integer message number in the mailbox
+    @return Header records of the email
+*/
+PUBLIC RECORD ARRAY FUNCTION OpenPop3EmailHeader(INTEGER connectionid, INTEGER message)
+{
+  RECORD email;
+
+  // Get the message
+  SendPop3Command(connectionid, "TOP " || message || " 0");
+
+  // Check if the command was succesful
+  STRING received := ReadLineFrom(connectionid, 4096, TRUE);
+  IF (SuccessfulPop3Response(received))
+  {
+    // First MIME decode the header
+    STRING header_ := ReceiveHeader(connectionid);
+    RECORD ARRAY headers := DecodeMIMEHeader(header_);
+
+    // And now wait till we get a line with a . (which is the end marker)
+    WHILE (ReadLineFrom(connectionid, 4096, TRUE) != ".")
+      /*wait*/;
+
+    RETURN headers;
+  }
+  ELSE
+  {
+    RETURN DEFAULT RECORD ARRAY;
+  }
+}
+
+
+
+
+
+/** @short Open a message (email) from the POP3 server
+    @param connectionid ID of the connection
+    @param message Integer message number in the mailbox
+    @return TRUE when deletion was successful
+*/
+PUBLIC BOOLEAN FUNCTION DeletePop3Email(INTEGER connectionid, INTEGER message)
+{
+  // Get the message
+  SendPop3Command(connectionid, "DELE " || message);
+  STRING received := ReadLineFrom(connectionid, 4096, TRUE);
+  IF (NOT SuccessfulPop3Response(received))
+  {
+    // An error occurred
+    RETURN FALSE;
+  }
+
+  RETURN TRUE;
+}
+
+
+
+
+/** @short Get a listing of all UIDs for all messages from the POP3 server
+    @param connectionid ID of the connection
+    @return Record with success status
+    @cell return.success TRUE when UIDL supported, FALSE when not
+    @cell return.list List of all messages and their UID
+    @cell return.list.id Message id
+    @cell return.list.uid Message uid
+*/
+PUBLIC RECORD FUNCTION GetPop3UIDList(INTEGER connectionid)
+{
+  // Get the message
+  SendPop3Command(connectionid, "UIDL");
+  STRING received := ReadLineFrom(connectionid, 4096, TRUE);
+  IF (NOT SuccessfulPop3Response(received))
+  {
+    // An error occurred
+    RETURN [ success := FALSE, list := DEFAULT RECORD ARRAY ];
+  }
+
+  RECORD ARRAY list;
+
+  WHILE(TRUE)
+  {
+    received := ReadLineFrom(connectionid, 4096, TRUE);
+    IF(Left(received,1)=".")
+      BREAK;
+
+    STRING ARRAY linetoks:=Tokenize(received," ");
+    IF(Length(Linetoks)<2)
+      RETURN [ success := FALSE, list := DEFAULT RECORD ARRAY ];
+
+    INSERT [ id    := ToInteger(linetoks[0], 0)
+           , uid   := linetoks[1]
+           ]
+      INTO list AT END;
+  }
+  RETURN [ success := TRUE
+         , list    := list
+         ];
+}

@@ -1,0 +1,58 @@
+<?wh
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+STRING FUNCTION FormatTree(INTEGER ARRAY tree)
+{
+  STRING text;
+  FOREVERY(INTEGER step FROM tree)
+    text := (#step=0 ? "" : text || " -> ") || "#" || step;
+  RETURN text;
+}
+
+MACRO ScanDupe(STRING tablename, STRING columnname)
+{
+  OBJECT q := NEW DynamicQuery;
+  q->AddTable("TAB", GetPrimary()->id, tablename, ["ID",columnname]);
+
+  RECORD ARRAY results := SELECT id := tab.id, parent := GetCell(tab, columnname) FROM q->Execute();
+  results := SELECT * FROM results ORDER BY id;
+
+  FOREVERY(RECORD row FROM results)
+  {
+    INTEGER ARRAY tree := [ INTEGER(row.id) ];
+    INTEGER iteration := 0;
+
+    INTEGER lookfor := row.parent;
+    WHILE(lookfor != 0)
+    {
+      iteration := iteration + 1;
+
+      INTEGER parentrow := RecordBinaryFind(results, [ id := lookfor ], ["ID"]);
+      IF(parentrow=-1)
+      {
+        Print("Missing parent #" || lookfor || "  in tree " || FormatTree(tree) || "\n");
+        BREAK;
+      }
+
+      RECORD foundrow := results[parentrow];
+      IF(CellExists(foundrow,'tree')) //already complete
+      {
+        tree := tree CONCAT foundrow.tree;
+        BREAK;
+      }
+
+      lookfor := foundrow.parent;
+      IF(lookfor IN tree)
+      {
+        Print("Circulair reference to #" || lookfor || " in tree " || FormatTree(tree) || "\n");
+        BREAK;
+      }
+    }
+    INSERT CELL tree := tree INTO results[#row];
+  }
+}
+
+OpenPrimary();
+ScanDupe("system.authobjects", "parent");

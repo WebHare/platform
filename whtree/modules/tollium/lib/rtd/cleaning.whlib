@@ -1,0 +1,205 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
+
+PUBLIC STATIC OBJECTTYPE RTDCleaner
+<
+  PUBLIC STRING type;
+
+  PUBLIC STRING ARRAY tagfilter;
+
+  PUBLIC RECORD ARRAY cidcache;
+
+  PUBLIC BOOLEAN trimwhitespace;
+
+  PUBLIC RECORD rtdtypeinfo;
+
+  PUBLIC STRING htmlvalue;
+
+  PUBLIC RECORD ARRAY instances;
+
+  MACRO NEW()
+  {
+    this->tagfilter := [ "*" ];
+  }
+
+  PUBLIC STRING ARRAY FUNCTION CalculateAllowedTags()
+  {
+    BOOLEAN havetagfilter := LENGTH(this->tagfilter) != 1 OR this->tagfilter[0]!="*";
+    STRING ARRAY tags;
+    IF(this->type="html-inline")
+    {
+      STRING ARRAY allowtags := [ "SUB", "SUP", "SPAN", "A-HREF", "IMG", "B", "I", "U", "STRIKE" ];
+      IF(havetagfilter)
+        allowtags := FilterAllowTags(allowtags, this->tagfilter);
+
+      tags := allowtags;
+    }
+    ELSE IF(havetagfilter)
+    {
+      tags := this->tagfilter;
+    }
+
+    IF(Length(tags)>0)
+    {
+      FOREVERY(STRING tag FROM tags)
+        tags[#tag] := ToLowercase(tag);
+
+      IF("a-href" IN tags)
+        INSERT "a" INTO tags AT END;
+      IF("ul" IN tags OR "ol" IN tags)
+        INSERT "li" INTO tags AT END;
+
+      tags := tags CONCAT ["html","body","br"];
+    }
+    RETURN tags;
+  }
+
+  STRING FUNCTION RewriteImage(STRING inurl)
+  {
+    STRING imagecid;
+    TRY //FIXME just skip this when running from rte.whlib? it's RewriteImage did not even bother with this
+    {
+      RECORD metadata := GetCachedDataSourceMetadataFromURL(inurl);
+      IF (RecordExists(metadata) AND metadata.type = 2)
+      {
+        imagecid :=
+            SELECT AS STRING contentid
+              FROM this->cidcache
+             WHERE settingid = metadata.id;
+      }
+    }
+    CATCH (OBJECT e)
+    {
+      // Not a imagecache URL. Silently ignore.
+    }
+
+    IF(imagecid="")
+      IF(inurl LIKE "cid:*")
+        imagecid := Substring(inurl,4);
+      ELSE
+        imagecid := SELECT AS STRING contentid FROM this->cidcache WHERE url = inurl;
+
+    IF (imagecid != "")
+    {
+      UPDATE this->cidcache SET seen := TRUE WHERE contentid = imagecid;
+      RETURN "cid:" || imagecid;
+    }
+    ELSE
+    {
+      RETURN inurl;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION GetInternalValue()
+  {
+    IF(RecordExists(this->rtdtypeinfo) AND this->type != "html")
+      THROW NEW Exception("Structured documents require the 'html' type");
+
+    this->cidcache := SELECT *, seen := FALSE FROM this->cidcache;
+
+    OBJECT xmldoc := MakeXmlDocumentFromHtml(StringToBlob(this->htmlvalue), "utf-8");
+    RECORD settings := [ allowscript := FALSE
+                       , allowembed := FALSE
+                       ];
+    STRING ARRAY tags := this->CalculateAllowedTags();
+    IF(Length(tags)>0)
+      INSERT CELL limittags := tags INTO settings;
+
+    IF(this->type="html-inline")
+      INSERT CELL converttoinline := TRUE INTO settings;
+
+    OBJECT rewriter := NEW HTMLRewriterContext;
+    OBJECT body := xmldoc->QuerySelector("body");
+    rewriter->CleanupHTML(xmldoc, settings);
+    rewriter->RewriteEmbeddedLinks(body, PTR this->RewriteImage);
+
+    xmldoc->QuerySelectorAll("head")->Dispose();
+
+    IF(RecordExists(this->rtdtypeinfo)) //clean up embedded objects
+    {
+      WHILE(ObjectExists(body->lastchild) AND IsRTDEmptyOrWhitespace(body->lastchild))
+        body->RemoveChild(body->lastchild);
+
+      FOREVERY(OBJECT embobj FROM body->QuerySelectorAll(".wh-rtd-embeddedobject")->GetCurrentElements())
+      {
+        FOREVERY(OBJECT attr FROM embobj->attributes->GetCurrentNodes())
+          IF(attr->nodename NOT IN ["class","data-instanceid"])
+            attr->Dispose();
+        embobj->Empty();
+      }
+    }
+
+    OBJECT firstobj := body->firstelementchild;
+
+    //empty doc?
+    IF( (NOT ObjectExists(firstobj) OR (body->childelementcount <= 1
+                                        AND ToUppercase(firstobj->nodename)!="IMG"
+                                        AND NOT IsEmbeddedObject(firstobj)
+                                        AND firstobj->childelementcount = 0
+                                        AND TrimWhitespace(firstobj->textcontent)=""))
+        AND TrimWhitespace(body->textcontent)="")
+      RETURN DEFAULT RECORD;
+
+    BLOB value;
+    IF(this->type IN ["html-block", "html-inline"])
+      value := rewriter->GenerateHTML(xmldoc->QuerySelector("body"));
+    ELSE
+      value := rewriter->GenerateHTML(xmldoc);
+
+    IF(Length(value)=0)
+      RETURN DEFAULT RECORD;
+
+    /* The contentid can't be saved in blob settings, so the filename is overwritten with the contentid
+       within WHFS/WRD. Fill the filename with the contentid here so we match what's written to (and given
+       back from) the DB.
+    */
+    RECORD ARRAY embedded := SELECT data
+                                  , mimetype
+                                  , contentid// := cid
+                                  , width
+                                  , height
+                                  , extension
+                                  , filename := contentid
+                                  , rotation
+                                  , mirrored
+                                  , refpoint := DEFAULT RECORD
+                                  , source_fsobject
+                                  , __blobsource
+                               FROM this->cidcache
+                              WHERE seen;
+
+    INTEGER ARRAY source_ids := SELECT AS INTEGER ARRAY source_fsobject FROM this->cidcache WHERE source_fsobject != 0;
+    IF (LENGTH(source_ids) != 0)
+    {
+      INTEGER ARRAY valid_sources := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE id IN source_ids;
+      UPDATE embedded SET source_fsobject := 0 WHERE source_fsobject NOT IN valid_sources;
+    }
+
+    // Filter the instances that are actually used by an embedded object
+    OBJECT ARRAY embeddedobjects := xmldoc->documentelement->GetElementsByTagName("div,span")->GetCurrentElements();
+    STRING ARRAY instanceids;
+    FOREVERY (OBJECT div FROM embeddedobjects)
+    {
+      IF(NOT IsEmbeddedObject(div))
+        CONTINUE;
+      INSERT div->GetAttribute("data-instanceid") INTO instanceids AT END;
+    }
+
+    RECORD ARRAY instances := SELECT *
+                                FROM this->instances
+                               WHERE instanceid IN instanceids;
+
+    RETURN [ htmltext := value
+           , embedded := embedded
+           , instances := instances
+           , links := DEFAULT RECORD ARRAY
+           ];
+  }
+>;

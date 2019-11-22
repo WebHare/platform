@@ -1,0 +1,103 @@
+<?wh
+// test a form page. you can only generate proper links to this page if you're a sysop
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+PUBLIC STATIC OBJECTTYPE DynamicPage EXTEND DynamicPageBase
+<
+  OBJECT webdesign;
+  MACRO NEW()
+  {
+  }
+
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
+  {
+    this->webdesign := webdesign;
+    BOOLEAN alldisabled := GetWebVariable("disabled")="1";
+    BOOLEAN allrequired := GetWebVariable("required")="1";
+    BOOLEAN infotexts := GetWebVariable("infotexts")="1";
+
+    IF(ObjectExists(this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher","formintegration")))
+      ABORT("This design should be switching to the unnamespaced <formintegration/> in its siteprofile");
+
+    OBJECT formsintegrationplugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration") ?? this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher","formintegration");
+    IF(NOT ObjectExists(formsintegrationplugin))
+      THROW NEW Exception('Please setup the formintegration plugin first - the siteprofile needs a <formintegration /> node');
+
+    this->webdesign->pagetitle := "Forms test | " || this->webdesign->pagetitle;
+    this->webdesign->isstandardcontentpage := TRUE;
+    IF(GetWebVariable("type")="webpack" AND IsModuleInstalled("webpack"))
+    {
+      formsintegrationplugin->__AddWebpack([type := 2, name := "BLEXDEV_FORM DEMO FORMULIER" ]);
+    }
+
+    __CONSTREF RECORD infodoc := [ htmltext := StringToBlob(`<html><body><h2>This a heading 2</h2><p class="normal">This is a normal infotext paragraph</p></body></html>`) ];
+    MACRO PTR contents;
+    IF(GetWebVariable("type")="webpack")
+    {
+    }
+    ELSE
+    {
+      OBJECT form := OpenForm("mod::publisher/lib/internal/forms/testpage.formdef.xml", "testpage", [ webcontext := this->webdesign ]);
+      FOREVERY(RECORD field FROM form->ListFields())
+      {
+        IF(alldisabled)
+          field.obj->enabled := FALSE;
+        IF(allrequired)
+          field.obj->required := TRUE;
+
+        IF(infotexts)
+        {
+          IF(field.obj->name IN ["radiohorizontal","checkboxhorizontal"])
+          {
+            CONTINUE; //cant infofield these yet
+          }
+          ELSE IF(field.obj->name IN ["radiowithaddendum","checkboxwithaddendum"])
+          {
+            UPDATE field.obj->options SET infotext := infodoc;
+          }
+          ELSE
+          {
+            field.obj->__Setinfotext(infodoc);
+          }
+        }
+      }
+      contents := PTR EmbedWittyComponent("fulldemo", [ testform := form->GetWittyData() ]);
+    }
+
+    RETURN PTR EmbedWittyComponent("mod::publisher/lib/internal/forms/testpage.witty:testpage",
+                  [ fsobject := GetWebVariable("fsobject")
+                  , contents := contents
+                  , haswebpack := IsModuleInstalled("webpack")
+                  , allrequired := allrequired
+                  , alldisabled := alldisabled
+                  , infotexts := infotexts
+                  , toggledisabledlink := UpdateURLVariables(GetRequestURL(),
+                                            [ "disabled" := alldisabled ? "" : "1"
+                                            ])
+                  , togglerequiredlink := UpdateURLVariables(GetRequestURL(),
+                                            [ "required" := allrequired ? "" : "1"
+                                            ])
+                  , toggleinfotextlink := formsintegrationplugin->enableinfotexts ? UpdateURLVariables(GetRequestURL(),
+                                            [ "infotexts" := infotexts ? "" : "1"
+                                            ]) : ""
+                  ]);
+  }
+>;
+
+
+INTEGER fsobject := DecryptForThisServer("publisher:testpage", GetWebVariable("fsobject"), [ fallback := 0]);
+IF(fsobject=0)
+  AbortWithHTTPError(404, "Cannot decrypt fsobject");
+
+OpenPrimary();
+NEW DynamicPage->RunPageForWHFSId(fsobject);

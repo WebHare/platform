@@ -1,0 +1,120 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/internal/nginx/config.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+RECORD FUNCTION FixedAuthHandler(STRING password, STRING realm, STRING url)
+{
+  RETURN
+      [ username := "webhare"
+      , password := password
+      ];
+}
+
+RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
+{
+  IF(NOT RecordExists(configuration))
+    THROW NEW Exception("No valid configuration received");
+
+  configuration.rules := SELECT ...__whs_baserulerecord, ... rules FROM configuration.rules;
+  RECORD reloadstatus := ConfigureWebserver(configuration);
+
+  FlushAuthentication();
+
+  //Do NOT just blindly talk to proxies when restarting - they should already be working from our previous config
+  IF(isuptodate)
+    ReconfigureProxies(configuration);
+
+  BroadcastEvent("system:internal.webserver.didconfigreload", DEFAULT RECORD);
+  RETURN CELL [...configuration, version := GetWebhareVersionNumber(), reloadstatus];
+}
+
+/** Reloads the webserver configuration. Broadcasts are done in the getconfig.whscr runner
+*/
+PUBLIC RECORD FUNCTION ReloadConfig()
+{
+  OBJECT trans := OpenPrimary([ clientname := "webserver reloadconfig" ]);
+  IF (NOT IsDatabaseReadOnly())
+    trans->BeginWork();
+  RECORD config := DownloadWebserverConfig();
+  IF (NOT IsDatabaseReadOnly())
+    trans->RollbackWork();
+
+  RETURN LoadConfig(config, TRUE);
+}
+
+// Reloads a previously saved configuration
+PUBLIC RECORD FUNCTION ReloadPreviousConfig(RECORD config)
+{
+  RETURN LoadConfig(config, FALSE);
+}
+
+MACRO ReconfigureProxies(RECORD config)
+{
+  IF (IsDatabaseReadOnly())
+    RETURN;
+
+  OBJECT trans := GetPrimary();
+  OBJECT lock := OpenLockManager()->LockMutex("system:webserver.proxyconfig");
+  TRY
+  {
+    // Generate a new verification code for this registration round
+    STRING data := GenerateUFS128BitId();
+    trans->BeginWork();
+    WriteRegistryKey("system.webserver.global.proxyservers.verificationcode", data);
+    trans->CommitWork();
+
+    STRING verificationurl := AddVariableToURL(GetPrimaryWebhareInterfaceURL(), "proxy_test", data);
+
+    IF(RecordExists(SELECT FROM system.proxies))
+    {
+      FOREVERY (RECORD rec FROM SELECT id, url, password, reverseaddress, hostswhitelist FROM system.proxies ORDER BY Random(1, 1000))
+      {
+        RECORD reg := GenerateNginxProxyRegistrationRequest(config, rec.reverseaddress, verificationurl, rec.hostswhitelist,  rec.id);
+
+        trans->BeginWork();
+        OBJECT browser := NEW WebBrowser;
+        IF(IsRPCTrafficLogged("system:webservers.proxies"))
+          LogRPCForWebbrowser("system:webservers.proxies", "register", browser);
+
+        browser->onauth := PTR FixedAuthHandler(rec.password, #1, #2);
+        browser->timeout := 120000;
+        RECORD result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(rec.url, "/rpc"), "registerProxyClient", [ reg ]);
+        STRING type := RecordExists(result)
+            ? result.success
+                  ? "ok"
+                  : "error"
+            : browser->GetHTTPStatusCode() = 403
+                  ? "password"
+                  : "connecterror";
+
+        UPDATE system.proxies
+           SET status :=                  type
+             , lastregistration :=        GetCurrentDateTime()
+             , lasterror :=               CellExists(result,'error') ? Left(result.error.message,4096) : ''
+             , registrationresultdata :=  browser->content
+             , proxy_ips :=               type != "ok" ? proxy_ips : Detokenize(STRING ARRAY(result.result.local_ips), ",")
+         WHERE id = rec.id;
+
+        trans->CommitWork();
+        BroadcastEvent("system:webserver.proxies", DEFAULT RECORD);
+        browser->Close();
+      }
+    }
+  }
+  FINALLY
+  {
+    lock->Close();
+  }
+}

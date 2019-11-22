@@ -1,0 +1,78 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/virtualfs/base.whlib";
+LOADLIB "mod::system/lib/virtualfs/diskfolder.whlib";
+LOADLIB "mod::system/lib/virtualfs/modular.whlib";
+
+
+RECORD ARRAY betaroot := [ [ name := "devnull" ]
+                         , [ name := "diskfolder" ]
+                         ];
+
+PUBLIC OBJECTTYPE BetaFS EXTEND VirtualFSBase
+<
+  UPDATE PUBLIC MACRO PutFile(STRING path, BLOB data, BOOLEAN overwrite)
+  {
+    IF(path LIKE "/devnull/*")
+      RETURN; //all fine with us
+    THROW NEW VirtualFSException("XS","Not allowed to place files");
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetDirectoryListing(STRING path)
+  {
+    IF(path="/")
+      RETURN SELECT name
+                  , type := 1
+                  , size := 0i64
+                  , read := TRUE
+                  , write := TRUE
+                  , modificationdate := DEFAULT DATETIME
+                  , creationdate := DEFAULT DATETIME
+               FROM betaroot;
+
+    IF(path="/devnull" OR path="/devnull/")
+      RETURN DEFAULT RECORD ARRAY;
+
+    THROW NEW VirtualFSException("BADPATH","No such path in beta");
+  }
+>;
+
+PUBLIC OBJECTTYPE BetaModularFS EXTEND VirtualModularFSBase
+<
+  UPDATE OBJECT FUNCTION GetSubfolder(STRING subfolder)
+  {
+    SWITCH (subfolder)
+    {
+    CASE "test-1"
+      {
+        STRING diskroot := MergePath(GetTempDir(), "beta-test");
+
+        OBJECT diskfolder := NEW DiskFolderFS(diskroot, TRUE, FALSE);
+        diskfolder->readonlymasks :=
+            [ '/wonly-1'
+            , '/wonly-2*'
+            , '/wonly-3/*'
+            ];
+        RETURN diskfolder;
+      }
+    }
+    THROW NEW VirtualFSException("BADPATH","No data path '"||subfolder||"'");
+  }
+
+  UPDATE RECORD ARRAY FUNCTION GetSubfolderListing()
+  {
+    RETURN
+        [ [ name :=               "test-1"
+          , type :=               1
+          , size :=               0
+          , read :=               TRUE
+          , write :=              FALSE
+          , creationdate :=       DEFAULT DATETIME
+          , modificationdate :=   DEFAULT DATETIME
+          ]
+        ];
+  }
+
+>;

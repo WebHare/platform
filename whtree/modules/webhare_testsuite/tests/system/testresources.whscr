@@ -1,0 +1,283 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/commonxml.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+MACRO TestParseAPIs()
+{
+  TestEq(TRUE, MatchCommonXMLWildcardMasks("webhare_testsuite:test", ["webhare_testsuite:*"]));
+  TestEq(FALSE, MatchCommonXMLWildcardMasks("webhare_testsuite:test", [""]));
+  TestEq(TRUE, MatchCommonXMLWildcardMasks("webhare_testsuite:test", ["*"]));
+  TestEq(TRUE, MatchCommonXMLWildcardMasks("webhare_testsuite_test", ["a:*","webhare_*"]));
+  TestEq(TRUE, MatchCommonXMLWildcardMasks("webhare_testsuite_test", ["webhare_*","*_test"]));
+  TestEq(TRUE, MatchCommonXMLWildcardMasks("webhare_testsuite_test", ["webhare_*","*_test",""]));
+  TestEq(TRUE, MatchCommonXMLWildcardMasks("webhare_testsuite:test", ["*WEBHARE*"]));
+
+  TestEq(FALSE, MatchCommonXMLWildcardMasks("webhare_testsuite:test", ["!*:*"]));
+  TestEq(TRUE, MatchCommonXMLWildcardMasks("webhare_testsuite:test", ["*:*", "!webhare_testsuite:hideapp"]));
+  TestEq(FALSE, MatchCommonXMLWildcardMasks("webhare_testsuite:hideapp", ["*:*", "!webhare_testsuite:hideapp"]));
+  TestEq(TRUE, MatchCommonXMLWildcardMasks("webhare_testsuite:hideapp", ["*:*", "!webhare_testsuite:hideapp", "*"]));
+  TestEq(TRUE, MatchCommonXMLWildcardMasks("webhare_testsuite:hideapps", ["*:*", "!webhare_testsuite:hideapp"]));
+  TestEq(FALSE, MatchCommonXMLWildcardMasks("webhare_testsuite:hideapps", ["*:*", "!webhare_testsuite:*"]));
+}
+
+MACRO TestResolve()
+{
+  TestEq("mod::webhare_testsuite/tests/system/x.whlib", Resolve("x.whlib"));
+  TestEq("mod::webhare_testsuite/tests/system/x.whlib", Resolve("relative::x.whlib"));
+  TestEq("mod::webhare_testsuite/tests/system/", Resolve("."));
+  TestEq("mod::webhare_testsuite/tests/system/testresources.whscr", Resolve(""));
+  TestEq("mod::webhare_testsuite/tests/system/testresources.whscr#", Resolve("#"));
+  TestEq("mod::webhare_testsuite/tests/system/testresources.whscr#funkY", Resolve("#funkY"));
+  TestEq("mod::webhare_testsuite/tests/system/testresources.whscr#funkY/", Resolve("#funkY/"));
+  TestEq("mod::webhare_testsuite/tests/system/testresources.witty", Resolve("testresources.witty"));
+  TestEq("mod::webhare_testsuite/tests/system/testresources.witty:", Resolve("testresources.witty:"));
+  TestEq("mod::webhare_testsuite/tests/system/testresources.witty:mycomp", Resolve("testresources.witty:mycomp"));
+  TestEq("mod::webhare_testsuite/tests/system/", Resolve("./"));
+  TestEq("mod::webhare_testsuite/tests/system/#x", Resolve("./#x"));
+  TestEq("mod::webhare_testsuite/tests/system/", Resolve("../system/"));
+  TestEq("mod::webhare_testsuite/tests/system/#x", Resolve("../system/#x"));
+  TestThrows(PTR Resolve("../../../../../../../../system/"));
+  TestEq("mod::webhare_testsuite/", Resolve("/"));
+  TestEq("mod::webhare_testsuite/", Resolve("//"));
+  TestEq("mod::webhare_testsuite/a/", Resolve("/a/"));
+  TestEq("mod::webhare_testsuite/a", Resolve("/a"));
+  TestEq("mod::webhare_testsuite/a/", Resolve("/a//"));
+  TestEq("mod::webhare_testsuite/b", Resolve("/a/../b"));
+  TestEq("mod::webhare_testsuite/a\\..\\b", Resolve("/a\\..\\b"));
+  TestEq("mod::webhare_testsuite/b/", Resolve("/a/../b/"));
+  TestEq("mod::webhare_testsuite/tests/system/y/z.whlib", Resolve("y/z.whlib"));
+  TestEq("mod::webhare_testsuite/tests/system/*.whlib", Resolve("*.whlib"));
+  TestEq("site::x.whlib", Resolve("site::x.whlib"));
+  TestEq("mod::publisher/lib/publisher.whlib", Resolve("module::publisher/publisher.whlib"));
+}
+
+MACRO ResolveAbsoluteLibrary()
+{
+  TestEq("site::a/b/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("site::a/b/test.whscr", "relative::c.whlib"));
+  TestEq("site::a/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("site::a/b/test.whscr", "relative::../c.whlib"));
+  TestThrows(PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("site::a/b/test.whscr", "relative::../../c.whlib"));
+  TestEq("site::a/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("site::a/b/test.whscr", "relative::/c.whlib"));
+  TestEq("site::a/b/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("site::a/b/test.whscr", "relative::./c.whlib"));
+
+  TestEq("wh::a/b/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("wh::a/b/test.whscr", "relative::c.whlib"));
+  TestEq("wh::a/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("wh::a/b/test.whscr", "relative::../c.whlib"));
+  TestEq("wh::c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("wh::a/b/test.whscr", "relative::../../c.whlib"));
+  TestThrows(PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("wh::a/b/test.whscr", "relative::../../../c.whlib"));
+  TestEq("wh::c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("wh::a/b/test.whscr", "relative::/c.whlib"));
+  TestEq("wh::a/b/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("wh::a/b/test.whscr", "relative::./c.whlib"));
+
+  STRING systempath := GetModuleInstallationRoot("system");
+
+  TestEq("mod::system/lib/tests/cluster.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::cluster.whlib"));
+  TestEq("mod::system/lib/cluster.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::../cluster.whlib"));
+  TestEq("mod::system/cluster.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::../../cluster.whlib"));
+  TestEq("mod::system/cluster.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::/cluster.whlib"));
+  TestEq("mod::system/lib/tests/whfs.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::./whfs.whlib"));
+
+  TestEq("wh::internal/jobs.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "whlibs/internal/formatter.whlib", "relative::jobs.whlib"));
+  TestEq("wh::ipc.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "whlibs/internal/formatter.whlib", "relative::../ipc.whlib"));
+  TestEq("wh::ipc.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "whlibs/internal/formatter.whlib", "relative::/ipc.whlib"));
+  TestEq("wh::internal/formatter.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "whlibs/internal/formatter.whlib", "relative::./formatter.whlib"));
+
+  TestEq("mod::publisher/designs/emptydesign/", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", "moduleroot::publisher/designs/emptydesign/"));
+}
+
+MACRO TranslateLibraryPath()
+{
+  STRING systempath := GetModuleInstallationRoot("system");
+
+  TestEq("mod::system/lib/tests/cluster.whlib", __HS_INTERNAL_TRANSLATELIBRARYPATH(systempath || "lib/tests/cluster.whlib"));
+  TestEq("wh::internal/formatter.whlib", __HS_INTERNAL_TRANSLATELIBRARYPATH(systempath || "whlibs/internal/formatter.whlib"));
+  TestEq("whres::asn1/ldap.asn1", __HS_INTERNAL_TRANSLATELIBRARYPATH(systempath || "whres/asn1/ldap.asn1"));
+  TestEq("direct::/etc", __HS_INTERNAL_TRANSLATELIBRARYPATH("/etc"));
+}
+
+MACRO TestGetResourceNameFromDiskPath()
+{
+  STRING systempath := GetModuleInstallationRoot("system");
+
+  TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath(systempath || "lib/tests/cluster.whlib"));
+  TestEq("wh::internal/formatter.whlib", GetResourceNameFromDiskPath(systempath || "whlibs/internal/formatter.whlib"));
+  TestEq("whres::asn1/ldap.asn1", GetResourceNameFromDiskPath(systempath || "whres/asn1/ldap.asn1"));
+  TestEq("", GetResourceNameFromDiskPath("/etc"));
+  TestEq("direct::/etc", GetResourceNameFromDiskPath("/etc", [ allowdiskpath := TRUE ]));
+  TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath("mod::system/lib/tests/cluster.whlib"));
+  TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath("module::system/tests/cluster.whlib"));
+  TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath("moduleroot::system/lib/tests/cluster.whlib"));
+  TestEq("wh::asn1/ldap.asn1", GetResourceNameFromDiskPath("mod::system/whlibs/asn1/ldap.asn1"));
+  TestEq("whres::asn1/ldap.asn1", GetResourceNameFromDiskPath("mod::system/whres/asn1/ldap.asn1"));
+  TestEq("site::a/b/test.whscr", GetResourceNameFromDiskPath("site::a/b/test.whscr"));
+}
+
+MACRO TestBase()
+{
+  TestThrows(PTR MakeAbsoluteResourcePath("", "lib/emtpydesign.whlib"));
+
+  TestEQ("",MakeAbsoluteResourcePath("moduleroot::a/b/c/d",""));
+  TestEQ("mod::a/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","/e"));
+  TestEQ("mod::a/b/c/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","./e"));
+  TestEQ("mod::a/b/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","../e"));
+  TestEQ("mod::a/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","../../e"));
+  TestThrows(PTR MakeAbsoluteResourcePath("moduleroot::a/b/c/d","../../../e"));
+
+  TestEQ(TRUE, IsAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/"));
+  TEstEq(TRUE, IsAbsoluteResourcePath("whres::xml/xmlschema.xsd"));
+  TEstEq(FALSE, IsAbsoluteResourcePath("unknown-future-resource-path::xx"));
+
+  TestEQ("mod::publisher/designs/emptydesign/lib/emptydesign.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "lib/emptydesign.whlib"));
+  TestEQ("mod::publisher/designs/emptydesign/lib/",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "lib/"));
+  TestEQ("mod::publisher/api.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "/api.whlib"));
+  TestEQ("mod::system/lib/go.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "module::system/go.whlib")); //it doesn't exist so we assume lib
+  TestEQ("mod::system/lib/database.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "module::system/database.whlib")); //it actually exists
+  TestEQ("site::webhare backend/design/lib/webharebackend.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "site::webhare backend/design/lib/webharebackend.whlib"));
+  TestEq("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml", MakeAbsoluteResourcePath("moduleroot::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml'));
+  TestEq("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("moduleroot::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
+
+  TestEq("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("", 'moduleroot::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor'));
+
+  TestEq("mod::webhare_testsuite/lib/testfallbac.whlib", MakeAbsoluteResourcePath("", "module::webhare_testsuite/testfallbac.whlib"));
+  TestEq("mod::webhare_testsuite/include/testfallback.whlib", MakeAbsoluteResourcePath("", "module::webhare_testsuite/testfallback.whlib")); //this one is actually in /include/ !
+
+  TestEQ("mod::publisher/designs/emptydesign/lib/emptydesign.witty",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/lib/emptydesign.whlib", "emptydesign.witty"));
+  TestEQ("mod::publisher/designs/emptydesign/",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/siteprl.prl", "."));
+
+  TestEQ("site::lelibel/design/customleft.siteprl", MakeAbsoluteResourcePath("site::lelibel/design/", "/design/customleft.siteprl"));
+
+  TestEq("/.publisher/sd/webhare_testsuite/basetest/", GetModuleResourceURL("mod::webhare_testsuite/webdesigns/basetest/web/"));
+  TestEq("/.publisher/sd/webhare_testsuite/basetest/", GetModuleResourceURL("moduleroot::webhare_testsuite/webdesigns/basetest/web/"));
+  TestEq("/.publisher/sd/webhare_testsuite/basetest/img/smallbob.jpg", GetModuleResourceURL("moduleroot::webhare_testsuite/webdesigns/basetest/web/img/smallbob.jpg"));
+
+  TestEq("", GetModuleResourceURL("moduleroot::webhare_testsuite/webdesigns/basetest/web"));
+  TestEq("", GetModuleResourceURL("moduleroot::webhare_testsuite/webdesigns/basetest/web2"));
+  TestEq("", GetModuleResourceURL("moduledata::webhare_testsuite/webdesigns/basetest/web/"));
+  TestEq("", GetModuleResourceURL("moduleroot::webhare_testsuite/webdesign/basetest/web/"));
+
+  //TODO drop support for test:: - just use mod::webhare_testsuite/tests/baselibs/hsengine/
+  //Testeq(TRUE, Length(GetWebhareResource("test::runtests.sh"))>0);
+  //TestEq(TRUE, Length(GetWebhareResource("direct::" || GetWebHareResourceDiskPath("test::runtests.sh")))>0);
+  TestEq(GetModuleInstallationRoot("webhare_testsuite") || "include/testfallback.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/testfallback.whlib"));
+  TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/database.whlib"));
+  TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("mod::webhare_testsuite/lib/database.whlib"));
+  TestEq(GetModuleInstallationRoot("webhare_testsuite") || "data/xyz", GetWebHareResourceDiskPath("moduledata::webhare_testsuite/xyz"));
+
+  BLOB smallbob := GetWebHareResource("moduleroot::webhare_testsuite/webdesigns/basetest/web/img/smallbob.jpg");
+  TestEq(TRUE, Length(smallbob) > 0);
+  TestEq(smallbob, GetWebHareResource("direct::" || GetModuleInstallationRoot("webhare_testsuite") || "webdesigns/basetest/web/img/smallbob.jpg"));
+
+  TestEQ("wh::a/", MakeAbsoluteResourcePath("wh::a/b.whlib", "."));
+  TestEQ("wh::b/la/", MakeAbsoluteResourcePath("wh::b/", "la/"));
+  TestEQ("wh::b/la/", MakeAbsoluteResourcePath("wh::b/c.whlib", "la/"));
+  TestEQ("wh::c.whlib", MakeAbsoluteResourcePath("wh::a/b.whlib", "/c.whlib"));
+  TestEQ("wh::c.whlib", MakeAbsoluteResourcePath("wh::a/b.whlib", "../c.whlib"));
+  TestThrows(PTR MakeAbsoluteResourcePath("wh::a/b.whlib", "../../c.whlib"));
+  TestThrows(PTR MakeAbsoluteResourcePath("wh::a.whlib", "../../c.whlib"));
+  TestThrows(PTR MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "../../../bla.whlib"));
+  TestThrows(PTR MakeAbsoluteResourcePath("site::mysite/folder/test.html", "../../bla.html"));
+}
+
+MACRO VariousPaths()
+{
+  INTEGER trackcounter := 42;
+  FOREVERY(STRING path FROM [ "module::webhare_testsuite/system/resources.whlib"
+                            , "module::webhare_testsuite/system/resources.whlib"
+                            , "mod::webhare_testsuite/lib/system/resources.whlib"
+                            , "moduleroot::webhare_testsuite/lib/system/resources.whlib"
+                            , "module::webhare_testsuite//system//resources.whlib"
+                            , "module::webhare_testsuite///system///resources.whlib"
+                            , "mod::webhare_testsuite//lib//system//resources.whlib"
+                            ])
+  {
+    FUNCTION PTR getcounter := MakeFunctionPtr(path, "GetCounter", TYPEID(INTEGER), DEFAULT INTEGER ARRAY);
+    TestEq(trackcounter, getcounter(), "getcounter is off at " || path);
+
+    MACRO PTR inccounter := MakeFunctionPtr(path, "IncCounter", 0, DEFAULT INTEGER ARRAY);
+    inccounter();
+    trackcounter := trackcounter + 1;
+
+    TestEq(trackcounter, getcounter(), "getcounter is off after " || path);
+  }
+
+  FOREVERY(STRING moduledir FROM GetWebHareConfiguration().moduledirs)
+    TestEq(TRUE, moduledir LIKE "*/", `All moduledirs are expected to end with a slash: ${moduledir}`);
+}
+
+MACRO SupportLIbrary()
+{
+  TestEq('publisher', GetModuleNameFromResourcePath('mod::publisher/screens/a/b/c.xml'));
+  TestEq('publisher', GetModuleNameFromResourcePath('moduleroot::publisher/screens/a/b/c.xml'));
+  TestEq('publisher', GetModuleNameFromResourcePath('moduleroot::publisher/screens/a/b/c.xml#screeb1'));
+  TestEq('webhare_testsuite', GetModuleNameFromResourcePath('moduledata::webhare_testsuite/testcomponents.xsd'));
+
+  TestThrows(PTR GetResourceNameFromScreenPath('publisher:a/b.c'));
+  TestEq("mod::publisher/screens/a/b.xml#c", MakeAbsoluteScreenReference("", 'publisher:a/b.c'));
+
+  TestEq('mod::publisher/screens/a/b.xml', GetResourceNameFromScreenPath('moduleroot::publisher/screens/a/b.xml#c'));
+  TestThrowS(PTR GetScreenNameFromSCreenPath('publisher:a/b.c'));
+  TestEq('screeb1', GetScreenNameFromSCreenPath('moduleroot::publisher/screens/a/b/c.xml#screeb1'));
+
+
+  TestThrows(PTR GetResourceNameFromScreenPath("tollium:components/listedit.arrayedit"));
+  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml", ".arraylisteditbase"));
+  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml", "#arraylisteditbase"));
+  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#abc", ".arraylisteditbase"));
+  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#def", "#arraylisteditbase"));
+
+  TestEq("mod::tollium/screens/screen.xml#other", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#def", "screen.other"));
+
+  TestThrows(PTR MakeAbsoluteScreenReference("moduledata::utwente_campusapp/siteprofile.xml", ".././screens/eventsignup.xml#signupform"));
+  TestEq("mod::utwente_campusapp/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("moduleroot::utwente_campusapp/data/siteprofile.xml", "../screens/eventsignup.xml#signupform"));
+
+  TestEq("mod::publisher/screens/a/b.xml#screen1", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#def", "publisher:a/b.screen1"));
+
+  TestEq("mod::publisher/screens/a/b.xml#screen1", MakeAbsoluteScreenReference("", "publisher:a/b.screen1"));
+  TestEq("mod::utwente_campusapp/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduleroot::utwente_campusapp/screens/eventsignup.xml#signupform"));
+  TestEq("mod::utwente_campusapp/data/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduledata::utwente_campusapp/eventsignup.xml#signupform"));
+
+  TestThrows(PTR MakeAbsoluteScreenReference("moduledata::webhare_testsuite/testcomponents.xsd", "components/media.vimeo_rec"));
+
+  TestEq("mod::publisher/screens/a/b.xml", GetResourceNameFromDiskPath(GEtModuleInstallationRoot("publisher") || "screens/a/b.xml"));
+  TestEq("mod::publisher/screens/a/b.xml", GetResourceNameFromDiskPath("mod::publisher/screens/a/b.xml"));
+  TestEq("wh::files.whlib", GetResourceNameFromDiskPath(GEtModuleInstallationRoot("system") || "whlibs/files.whlib"));
+  TestEq("whres::test.xml", GetResourceNameFromDiskPath(GEtModuleInstallationRoot("system") || "whres/test.xml"));
+
+  TestEq("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteScreenReference("moduleroot::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
+  TestEq("mod::wrd/screens/types.xml#managetypes", MakeAbsoluteScreenReference("moduleroot::wrd/screens/browser.xml", "types.xml#managetypes"));
+}
+
+MACRO ModuleMgr()
+{
+  RetrieveCachedXMLResource(GetResourceNameFromScreenPath(MakeAbsoluteScreenReference("","tollium:commondialogs.messagebox")));
+  TestEq(TRUE, RecordExists(__RETRIEVECACHEDXMLSCHEMA("moduledata::system/moduledefinition.xsd")));
+}
+
+MACRO TestInline()
+{
+  TestEq("Hi!", BlobToString(GetWebhareResource("inline::Hi!")));
+  TestEq("inline::Hi!",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","inline::Hi!"));
+  TestEq("inline::Hi!#bla",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","inline::Hi!#bla"));
+
+  TestEq("Hi!", BlobToString(GetWebhareResource("inline-base64::SGkh")));
+  TestEq("inline-base64::SGkh",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","inline-base64::SGkh"));
+  TestEq("inline-base64::SGkh#bla",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","inline-base64::SGkh#bla"));
+
+  TestEq(STRING[], GetResourceEventMasks(["inline::"]));
+}
+
+RunTestFramework([PTR TestParseAPIs
+                 ,PTR TestResolve
+                 ,PTR ResolveAbsoluteLibrary
+                 ,PTR TranslateLibraryPath
+                 ,PTR TestGetResourceNameFromDiskPath
+                 ,PTR TestBase
+                 ,PTR VariousPaths
+                 ,PTR SupportLIbrary
+                 ,PTR ModuleMgr
+                 ,PTR TestInline
+                 ]);

@@ -1,0 +1,27 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+
+OBJECT trans := OpenPrimary();
+
+RECORD ARRAY errors;
+/*
+   Look for any sites with a deleted root
+*/
+trans->BeginWork();
+RECORD ARRAY badsites := SELECT sites.name, sites.id, sites.root
+                           FROM system.sites, system.fs_objects
+                          WHERE sites.root = fs_objects.id
+                                AND fs_objects.isactive = FALSE
+                                AND fs_objects.id != 16; //don't kill the tollium root site!
+FOREVERY(RECORD badsite FROM badsites)
+{
+  Print("Site #" || badsite.id || ":" || badsite.name || " has a deleted root folder #" || badsite.root || ": removing system.sites record\n");
+  DELETE FROM system.sites WHERE id=badsite.id;
+}
+
+errors := trans->CommitWork();
+IF (LENGTH(errors) != 0)
+{
+  PrintRecordArrayTo(0, errors, "boxed");
+  ABORT("fix_whfs failed");
+}

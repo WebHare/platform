@@ -1,0 +1,600 @@
+﻿<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::internal/any.whlib";
+
+MACRO TestRecordLowerBound()
+{
+  // List (sorted on 'a', then 'b')
+  RECORD ARRAY list :=
+      [ [ a := 1, b := 10, text := "value 1" ]
+      , [ a := 3, b := 1,  text := "second value" ]
+      , [ a := 3, b := 1,  text := "second value, again" ]
+      , [ a := 3, b := 3,  text := "value 3" ]
+      , [ a := 5, b := 7,  text := "last value" ]
+      ];
+
+  TestEq([ found := TRUE, position := 1 ], RecordLowerBound(list, [ a := 3, b := 1 ], [ "A", "B" ]));
+
+  TestEq([ found := FALSE, position := 5 ], RecordLowerBound(list, [ a := 5, b := 8 ], [ "A", "B" ]));
+
+  TestEq([ found := FALSE, position := 0 ], RecordLowerBound(list, [ a := 1, b := 8 ], [ "A", "B" ]));
+  TestThrows(PTR RecordLowerBound([ [ a := 3 ], [ a := 2 ], [ a := 2 ] ], [ a := 2 ], [ "A" ]));
+}
+
+MACRO TestRecordUpperBound()
+{
+  // List (sorted on 'a', then 'b')
+  RECORD ARRAY list :=
+      [ [ a := 1, b := 10, text := "value 1" ]
+      , [ a := 3, b := 1,  text := "second value" ]
+      , [ a := 3, b := 1,  text := "second value, again" ]
+      , [ a := 3, b := 3,  text := "value 3" ]
+      , [ a := 5, b := 7,  text := "last value" ]
+      ];
+
+  TestEq(1, RecordUpperBound(list, [ a := 1, b := 10 ], [ "A", "B" ]));
+  TestEq(3, RecordUpperBound(list, [ a := 3, b := 1 ], [ "A", "B" ]));
+  TestEq(5, RecordUpperBound(list, [ a := 5, b := 8 ], [ "A", "B" ]));
+  TestEq(0, RecordUpperBound(list, [ a := 1, b := 8 ], [ "A", "B" ]));
+  TestThrows(PTR RecordUpperBound([ [ a := 1 ], [ a := 2 ], [ a := 2 ], [ a := 1 ] ], [ a := 2 ], [ "A" ]));
+}
+
+MACRO TestLowerBound()
+{
+  STRING ARRAY list := [ "b", "d", "d", "f" ];
+
+  // Returns [ found := TRUE, position := 1 ]
+  TestEq([ found := TRUE, position := 1 ], LowerBound(list, "d"));
+
+  TestEq([ found := FALSE, position := 4 ], LowerBound(list, "g"));
+
+  TestEq([ found := FALSE, position := 0 ], LowerBound(list, "a"));
+
+  TestThrows(PTR LowerBound([3,2,2], 2));
+}
+
+MACRO TestUpperBound()
+{
+  STRING ARRAY list := [ "b", "d", "d", "f" ];
+
+  TestEq(3, UpperBound(list, "d"));
+
+  TestEq(4, UpperBound(list, "g"));
+
+  TestEq(0, UpperBound(list, "a"));
+
+  TestThrows(PTR UpperBound([1,2,2,1], 2));
+}
+
+BOOLEAN FUNCTION RecordCompare(RECORD a, RECORD b)
+{
+  IF (a.c1 != b.c1)
+    RETURN a.c1 > b.c1;
+
+  RETURN a.c2 < b.c2;
+}
+
+MACRO TestLowerBoundCustomSort()
+{
+  RECORD ARRAY list :=
+      [ [ c1 := 10, c2 := 1 ]
+      , [ c1 :=  8, c2 := 1 ]
+      , [ c1 :=  8, c2 := 2 ]
+      , [ c1 :=  8, c2 := 10 ]
+      , [ c1 :=  4, c2 := 8 ]
+      ];
+
+  // Returns [ found := TRUE, position := 1 ]
+  TestEq([ found := TRUE, position := 1 ], LowerBound(list, [ c1 := 8, c2 := 1 ], PTR RecordCompare));
+
+  TestEq([ found := FALSE, position := 3 ], LowerBound(list, [ c1 := 8, c2 := 6 ], PTR RecordCompare));
+
+  TestEq([ found := FALSE, position := 0 ], LowerBound(list, [ c1 := 11, c2 := 2 ], PTR RecordCompare));
+}
+
+
+MACRO TestUpperBoundCustomSort()
+{
+  RECORD ARRAY list :=
+      [ [ c1 := 10, c2 := 1 ]
+      , [ c1 :=  8, c2 := 1 ]
+      , [ c1 :=  8, c2 := 1 ]
+      , [ c1 :=  8, c2 := 2 ]
+      , [ c1 :=  8, c2 := 10 ]
+      , [ c1 :=  4, c2 := 8 ]
+      ];
+
+  TestEq(3, UpperBound(list, [ c1 := 8, c2 := 1 ], PTR RecordCompare));
+  TestEq(4, UpperBound(list, [ c1 := 8, c2 := 6 ], PTR RecordCompare));
+  TestEq(5, UpperBound(list, [ c1 := 8, c2 := 10 ], PTR RecordCompare));
+  TestEq(0, UpperBound(list, [ c1 := 11, c2 := 2 ], PTR RecordCompare));
+}
+
+MACRO TestEnrich()
+{
+  RECORD ARRAY set1 := [ [ id := 12, x := "12" ], [ id := 5, x := "5" ], [ id := 9, x := "9" ]];
+  RECORD ARRAY set2 := [ [ id := 12, y := "12" ], [ id := 9, y := "9" ] ];
+
+  RECORD ARRAY results;
+  TestThrowsLike("*requires the baserecord*", PTR JoinArrays(set1, "ID", set2, DEFAULT RECORD, [ rightouterjoin := TRUE ]));
+
+  TestEq( [ [ id := 12, x := "12", y := "12" ]
+          , [ id := 9, x := "9", y := "9" ]
+          ], JoinArrays(set1,"ID",set2,DEFAULT RECORD));
+  TestEq( [ [ id := 12, x := "12" ]
+          , [ id := 9, x := "9" ]
+          ], JoinArrays(set1,"ID",set2,CELL[]));
+  TestEq( [ [ id := 12, x := "12" ]
+          , [ id := 5, x := "5" ]
+          , [ id := 9, x := "9" ]
+          ], JoinArrays(set1,"ID",set2,CELL[], [rightouterjoin := TRUE ]));
+  TestEq( [ [ id := 12, x := "12", present := "both" ]
+          , [ id := 5, x := "5", present := "left" ]
+          , [ id := 9, x := "9", present := "both" ]
+          ], JoinArrays(set1,"ID",set2,CELL[], [ rightouterjoin := TRUE, presentfield := "present" ]));
+
+  TestEq( [ [ id := 12, x := "12", present := "both" ]
+          ], JoinArrays(set1,"ID", [[ id := 48, cx := 12, rock := 42]], CELL[], [ joinfield := "CX", presentfield := "present" ]));
+
+  TestEq( [ [ id := 12, x := "12", rock := 42 ]
+          ], JoinArrays(set1,"ID", [[ id := 48, cx := 12, rock := 42]], [ rock := 0 ], [ joinfield := "CX" ]));
+
+
+  TestEq( [ [ id := 1, x := "1", y := "" ]
+          , [ id := 2, x := "2", y := "2" ]
+          , [ id := 3, x := "", y := "3" ]
+          ], JoinArrays([[ id := 1, x := "1"],[ id := 2, x := "2"]], "ID", [[id := 2, y := "2"],[id := 3, y := "3"]], [ y := "" ], [ leftouterjoin := [ x := "" ], rightouterjoin := TRUE ])
+         );
+
+  TestEq( [ [ id := 1, x := "1", y := "", present := "left" ]
+          , [ id := 2, x := "2", y := "2", present := "both" ]
+          , [ id := 3, x := "", y := "3", present := "right" ]
+          ], JoinArrays([[ id := 1, x := "1"],[ id := 2, x := "2"]], "ID", [[id := 2, y := "2"],[id := 3, y := "3"]], [ y := "" ], [ leftouterjoin := [ x := "" ], rightouterjoin := TRUE, presentfield := "present" ])
+         );
+
+  //it should be safe to mention 'id := 0' in the merge record, JoinArrays was unstable in this
+  TestEq( [ [ id := 1, x := "1", y := "", present := "left" ]
+          , [ id := 2, x := "2", y := "2", present := "both" ]
+          , [ id := 3, x := "", y := "3", present := "right" ]
+          ], JoinArrays([[ id := 1, x := "1"],[ id := 2, x := "2"]], "ID", [[id := 2, y := "2"],[id := 3, y := "3"]], [ y := "" ], [ leftouterjoin := [ id := 0, x := "" ], rightouterjoin := TRUE, presentfield := "present" ])
+         );
+
+  TestEq( [ [ id := 12, x := "12", y := "" ]
+          , [ id := 5, x := "5", y := "" ]
+          , [ id := 9, x := "9", y := "" ]
+          , [ id := 15, x := "", y := "15" ]
+          ], JoinArrays(set1,"ID", [[ id := 15, y := "15"]], [ y := ""], [ leftouterjoin := [ x := ""], rightouterjoin := TRUE ]));
+
+  //casesensitive
+  TestEq( [ [ id := "B", x := "2", y := "2" ]
+          ], JoinArrays([[ id := "A", x := "1"],[ id := "b", x := "2"]], "ID", [[id := "B", y := "2"],[id := "C", y := "3"]], [ y := "" ], [ matchcase := FALSE ])
+         );
+  TestEq( [ [ id := "b", x := "2", y := "2" ]
+          ], JoinArrays([[ id := "A", x := "1"],[ id := "B", x := "2"]], "ID", [[id := "b", y := "2"],[id := "C", y := "3"]], [ y := "" ], [ matchcase := FALSE ])
+         );
+
+  TestEq( [ [ id := "A", x := "1", y := "" ]
+          , [ id := "B", x := "2", y := "2" ]
+          ], JoinArrays([[ id := "A", x := "1"],[ id := "b", x := "2"]], "ID", [[id := "B", y := "2"],[id := "C", y := "3"]], [ y := "" ], [ rightouterjoin := TRUE, matchcase := FALSE ])
+         );
+
+  TestEq( [ [ id := "A", x := "1", y := "" ]
+          , [ id := "B", x := "2", y := "2" ]
+          , [ id := "C", x := "", y := "3" ]
+          ], JoinArrays([[ id := "A", x := "1"],[ id := "b", x := "2"]], "ID", [[id := "B", y := "2"],[id := "C", y := "3"]], [ y := "" ], [ leftouterjoin := [ x := "" ], rightouterjoin := TRUE, matchcase := FALSE ])
+         );
+
+  //edge case: lhs empty
+  TestEq( [ [ id := "b", y := "2" ]
+          ], JoinArrays(DEFAULT RECORD ARRAY, "ID", [[id := "b", y := "2"]], [ y := "" ], [ matchcase := FALSE, leftouterjoin := CELL[] ])
+         );
+  //edge case: leftouterjoin specified but not used
+  TestEq( DEFAULT RECORD ARRAY, JoinArrays(DEFAULT RECORD ARRAY, "ID", [[id := "b", y := "2"]], [ y := "" ], [ matchcase := FALSE, leftouterjoin := DEFAULT RECORD ])
+         );
+  //edge case: rhs empty but case-insensitive
+  TestEq( [ [ id := "b", y := "2" ]
+          ], JoinArrays([[id := "b", y := "2"]], "ID", DEFAULT RECORD ARRAY, CELL[], [ matchcase := FALSE, rightouterjoin := TRUE ])
+         );
+  //edge case: uppercasing leaking through data
+  TestEq( [ [ id := "c", x := "2", y:=  "" ], [ id := "b", x := "", y := "2" ]
+          ], JoinArrays([[id := "c", x := "2"]], "ID", [[id := "b", y := "2"]], [ y := "" ], [ matchcase := FALSE, leftouterjoin := [ x := "" ], rightouterjoin := TRUE ])
+         );
+
+  //wrapping
+  TestEq( [ [ id := 1, wrap := [ a := "1" ] ], [ id := 2, wrap := [ a := "2" ] ]
+          ], JoinArrays([ [ id := 1 ], [ id := 2 ] ], "ID", [ [ id := 1, a := "1"], [ id := 2, a := "2" ] ], DEFAULT RECORD, [ wrapfields := "WRAP" ]));
+}
+
+MACRO TestArrayEnrich()
+{
+  // Normal
+  TestEQ(
+      [ [ ids := [ [ ids := 1, a := "1" ], [ ids := 2, a := "2" ] ]
+        ]
+      , [ ids := [ [ ids := 3, a := "3" ], [ ids := 2, a := "2" ] ]
+        ]
+      ], JoinArrays(
+            [ [ ids := [ 1, 2 ] ], [ ids := [ 3, 2 ] ] ],
+            "IDS[]",
+            [ [ ids := 1, a := "1" ], [ ids := 2, a := "2" ], [ ids := 3, a := "3" ] ],
+            DEFAULT RECORD,
+            DEFAULT RECORD));
+
+  TestEQ(
+      [ [ ids := [ [ ids := 1, a := "1", whichpresent := "both" ], [ ids := 2, a := "2", whichpresent := "both" ] ]
+        ]
+      , [ ids := [ [ ids := 3, a := "3", whichpresent := "both" ], [ ids := 2, a := "2", whichpresent := "both" ] ]
+        ]
+      ], JoinArrays(
+            [ [ ids := [ 1, 2 ] ], [ ids := [ 3, 2 ] ] ],
+            "IDS[]",
+            [ [ ids := 1, a := "1" ], [ ids := 2, a := "2" ], [ ids := 3, a := "3" ] ],
+            DEFAULT RECORD,
+            [ presentfield := "whichpresent"] ));
+
+  // non-found and repeated stuff
+  TestEQ(
+      [ [ ids := [ [ ids := 1, a := "1" ], [ ids := 2, a := "2" ], [ ids := 1, a := "1" ], [ ids := 2, a := "2" ] ]
+        ]
+      , [ ids := [ [ ids := 2, a := "2" ], [ ids := 1, a := "1" ] ]
+        ]
+      ], JoinArrays(
+            [ [ ids := [ 0, 1, 2, 0, 1, 2 ] ],  [ ids := [ 2, 1, 0 ] ] ],
+            "IDS[]",
+            [ [ ids := 1, a := "1" ], [ ids := 2, a := "2" ] ],
+            DEFAULT RECORD,
+            DEFAULT RECORD));
+
+  // With joinfield
+  TestEQ(
+      [ [ ids := [ [ id := 1, a := "1" ], [ id := 2, a := "2" ] ]
+        ]
+      ], JoinArrays(
+            [ [ ids := [ 1, 2 ] ] ],
+            "IDS[]",
+            [ [ id := 1, a := "1" ], [ id := 2, a := "2" ] ],
+            DEFAULT RECORD,
+            [ joinfield := "ID" ]));
+
+  // Right outer join
+  TestEQ(
+      [ [ ids := [ [ id := 99, a := "99", whichpresent := "left" ], [ id := 1, a := "1", whichpresent := "both"  ], [ id := 2, a := "2", whichpresent := "both"  ] ]
+        ]
+      , [ ids := [ [ id := 2, a := "2", whichpresent := "both" ], [ id := 1, a := "1", whichpresent := "both"  ], [ id := 99, a := "99", whichpresent := "left"  ] ]
+        ]
+      ], JoinArrays(
+            [ [ ids := [ 0, 1, 2 ] ]
+            , [ ids := [ 2, 1, 0 ] ]
+            ],
+            "IDS[]",
+            [ [ id := 1, a := "1" ], [ id := 2, a := "2" ] ],
+            [ id := 99, a := "99" ],
+            [ joinfield := "ID"
+            , rightouterjoin := TRUE
+            , presentfield := "whichpresent"
+            ]));
+
+  // Left outer join
+  TestEQ(
+      [ [ ids := [ [ id := 1, a := "1", whichpresent := "both" ], [ id := 2, a := "2", whichpresent := "both" ] ]
+        ]
+      , [ ids := [ [ id := 50, a := "50", whichpresent := "right" ] ]
+        , missing := TRUE
+        ]
+      ], JoinArrays(
+            [ [ ids := [ 1, 2 ] ] ],
+            "IDS[]",
+            [ [ id := 1, a := "1" ], [ id := 2, a := "2" ], [ id := 50, a := "50" ] ],
+            DEFAULT RECORD,
+            [ joinfield := "ID"
+            , leftouterjoin := [ missing := TRUE ]
+            , presentfield := "whichpresent"
+            ]));
+
+  // Full outer join
+  TestEQ(
+      [ [ ids := [ [ id := 99, a := "99", whichpresent := "left" ], [ id := 1, a := "1", whichpresent := "both" ], [ id := 2, a := "2", whichpresent := "both" ] ]
+        ]
+      , [ ids := [ [ id := 50, a := "50", whichpresent := "right" ] ]
+        , missing := TRUE
+        ]
+      ], JoinArrays(
+            [ [ ids := [ 0, 1, 2 ] ] ], "IDS[]",
+            [ [ id := 1, a := "1" ], [ id := 2, a := "2" ], [ id := 50, a := "50" ] ],
+            [ id := 99, a := "99" ],
+            [ joinfield := "ID"
+            , leftouterjoin := [ missing := TRUE ]
+            , rightouterjoin := TRUE
+            , presentfield := "whichpresent"
+            ]));
+
+  // Full outer join, with uppercasing
+  TestEQ(
+      [ [ ids := [ [ id := "d", a := "99" ], [ id := "A", a := "1" ], [ id := "b", a := "2" ] ]
+        ]
+      , [ ids := [ [ id := "c", a := "50" ] ]
+        , missing := TRUE
+        ]
+      ], JoinArrays(
+            [ [ ids := [ "E", "a", "B" ] ] ], "IDS[]",
+            [ [ id := "A", a := "1" ], [ id := "b", a := "2" ], [ id := "c", a := "50" ] ],
+            [ id := "d", a := "99" ],
+            [ joinfield := "ID"
+            , leftouterjoin := [ missing := TRUE ]
+            , rightouterjoin := TRUE
+            , matchcase := FALSE
+            ]));
+
+  // Full outer join, with uppercasing and wrapping
+  TestEQ(
+      [ [ ids := [ "E", "a", "B" ]
+        , vals := [ [ id := "d", a := "99" ], [ id := "A", a := "1" ], [ id := "b", a := "2" ] ]
+        ]
+      , [ ids := DEFAULT STRING ARRAY
+        , vals := [ [ id := "c", a := "50" ] ]
+        , missing := TRUE
+        ]
+      ], JoinArrays(
+            [ [ ids := [ "E", "a", "B" ] ] ], "IDS[]",
+            [ [ id := "A", a := "1" ], [ id := "b", a := "2" ], [ id := "c", a := "50" ] ],
+            [ id := "d", a := "99" ],
+            [ joinfield := "ID"
+            , leftouterjoin := [ missing := TRUE ]
+            , rightouterjoin := TRUE
+            , matchcase := FALSE
+            , wrapfields := "VALS"
+            ]));
+}
+
+MACRO TestVAlueMapper()
+{
+  OBJECT gender := NEW ValueMapper;
+  gender->Add('Male',1);
+  gender->Add('Female',2);
+  TestThrows(PTR gender->Add('FEMALE',3));
+  TestEq(1, gender->Lookup('Male'));
+  TestEq(1, gender->Lookup('male'));
+  TestThrows(PTR MemberUpdate(gender, "casesensitive", TRUE));
+
+  TestThrows(PTR gender->Lookup('Bla'));
+  TestThrows(PTR gender->Lookup(''));
+
+  TestEq(2,Length(gender->GetAllMappings()));
+  gender->AddMultiple( [[ fromval := "abc", toval := 5 ]]);
+  TestEq(3,Length(gender->GetAllMappings()));
+  TestThrows(PTR gender->AddMultiple( [[ fromval := "abc", toval := 5 ], [fromval :="def", toval := 6 ]]));
+  TestEq(3,Length(gender->GetAllMappings())); //NONE should have been added
+
+  gender := NEW ValueMapper;
+  gender->casesensitive := TRUE;
+  gender->Add('Male',1);
+  TestThrows(PTR gender->Lookup('male'));
+  gender->Add('Female',2);
+
+  OBJECT gender2 := NEW ValueMapper;
+  gender2->Add("Man",1);
+  gender2->AddMultiple(gender->GetAllMappings());
+  TestEq('MAN', gender2->GetAllMappings()[2].fromval);
+  TestEq(1, gender2->GetAllMappings()[1].toval);
+  TestEq(2, gender2->Lookup('Female'));
+
+}
+
+MACRO TestArrayIntersection()
+{
+  STRING ARRAY alpha := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+  STRING ARRAY bravo := [ "delta", "echo", "foxtrot", "baz", "bar", "golf", "hotel" ];
+  STRING ARRAY charlie := [ "foo1", "bar1", "baz1", "test1", "alpha1", "beta1", "charlie1" ];
+  STRING ARRAY delta := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+  TestEq(["bar", "baz"], ArrayIntersection(alpha, bravo));
+  TestEq(DEFAULT STRING ARRAY, ArrayIntersection(alpha, charlie));
+  TestEq(["foo", "bar", "baz", "test", "alpha", "beta", "charlie"], ArrayIntersection(alpha, delta));
+}
+
+MACRO TestArraysIntersect()
+{
+  STRING ARRAY alpha := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+  STRING ARRAY bravo := [ "delta", "echo", "foxtrot", "baz", "bar", "golf", "hotel" ];
+  STRING ARRAY charlie := [ "foo1", "bar1", "baz1", "test1", "alpha1", "beta1", "charlie1" ];
+  STRING ARRAY delta := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+  TestEq(TRUE, ArraysIntersect(alpha, bravo));
+  TestEq(FALSE, ArraysIntersect(alpha, charlie));
+  TestEq(TRUE, ArraysIntersect(alpha, delta));
+  TestEq(TRUE, ArraysIntersect(alpha, VARIANT ARRAY(delta)));
+  TestEq(TRUE, ArraysIntersect(VARIANT ARRAY(alpha), delta));
+  TestEq(TRUE, ArraysIntersect(VARIANT ARRAY(alpha), VARIANT ARRAY(delta)));
+
+  TestEq(TRUE, ArraysIntersect([1,2], [1m,2m,3m]));
+}
+
+MACRO TestArrayDelete()
+{
+  STRING ARRAY alpha := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+  STRING ARRAY bravo := [ "delta", "echo", "foxtrot", "baz", "bar", "golf", "hotel" ];
+  STRING ARRAY charlie := [ "foo1", "bar1", "baz1", "test1", "alpha1", "beta1", "charlie1" ];
+  STRING ARRAY delta := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+  TestEq(["foo", "test", "alpha", "beta", "charlie"], ArrayDelete(alpha, bravo));
+  TestEq(["foo", "bar", "baz", "test", "alpha", "beta", "charlie"], ArrayDelete(alpha, charlie));
+  TestEq(DEFAULT STRING ARRAY, ArrayDelete(alpha, delta));
+}
+
+MACRO TestArrayUnion()
+{
+  STRING ARRAY alpha := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+  STRING ARRAY bravo := [ "delta", "echo", "foxtrot", "baz", "bar", "golf", "hotel" ];
+  STRING ARRAY charlie := [ "foo1", "bar1", "baz1", "test1", "alpha1", "beta1", "charlie1" ];
+  STRING ARRAY delta := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+  TestEq(['alpha', 'bar', 'baz', 'beta', 'charlie', 'delta', 'echo', 'foo', 'foxtrot', 'golf', 'hotel', 'test'], ArrayUnion(alpha, bravo));
+  TestEq(['alpha', 'alpha1', 'bar', 'bar1', 'baz', 'baz1', 'beta', 'beta1', 'charlie', 'charlie1', 'foo', 'foo1', 'test', 'test1'], ArrayUnion(alpha, charlie));
+  TestEq(['alpha', 'bar', 'baz', 'beta', 'charlie', 'foo', 'test'], ArrayUnion(alpha, delta));
+
+  TestEq([16,120737,476740], ArrayUnion([120737,476740,16],[476740]));
+  TestEq(["a","b","d"], ArrayUnion(["a","d"], ["b"]));
+}
+
+MACRO TestArrayIsSubsetOf()
+{
+  STRING ARRAY alpha := [ "baz", "bar" ];
+  STRING ARRAY bravo := [ "foo", "bar", "baz", "test", "alpha", "beta", "charlie" ];
+  TestEq(TRUE, ArrayIsSubsetOf(alpha, bravo));
+  TestEq(FALSE, ArrayIsSubsetOf(bravo, alpha));
+  //edge cases
+  TestEq(TRUE, ArrayIsSubsetOf(DEFAULT STRING ARRAY, DEFAULT STRING ARRAY));
+  TestEq(TRUE, ArrayIsSubsetOf(DEFAULT STRING ARRAY, ["a"]));
+  TestEq(FALSE, ArrayIsSubsetOf(["a"], DEFAULT STRING ARRAY));
+  TestEq(TRUE, ArrayIsSubsetOf(["a"], ["a"]));
+}
+
+MACRO TestArrayIsSetEqual()
+{
+  TestEq(FALSE, ArrayIsSetEqual([1], [2]));
+  TestEq(TRUE, ArrayIsSetEqual([1], [1]));
+  TestEq(TRUE, ArrayIsSetEqual([1,2], [1,2]));
+  TestEq(TRUE, ArrayIsSetEqual([2,1], [2,1]));
+  TestEq(TRUE, ArrayIsSetEqual([1,2,2], [1,2]));
+  TestEq(TRUE, ArrayIsSetEqual([1,2], [1,2,2]));
+  TestEq(TRUE, ArrayIsSetEqual([2,1,2], [1,2,2]));
+  TestEq(FALSE, ArrayIsSetEqual([2,1,2,3], [1,2,2]));
+  TestEq(FALSE, ArrayIsSetEqual([2,1,3], [1,2,2]));
+}
+
+MACRO TestReverseArray()
+{
+  TestEQ(DEFAULT STRING ARRAY, ReverseArray(DEFAULT STRING ARRAY));
+  TestEQ([ "bar" ], ReverseArray([ "bar" ]));
+  TestEQ([ "bar", "baz" ], ReverseArray([ "baz", "bar" ]));
+  TestEQ([ 1, 2, 3, 4 ], ReverseArray([ 4, 3, 2, 1 ]));
+}
+
+MACRO TestSortArray()
+{
+  TestEq([1,2,3], SortArray([3,2,1]));
+  TestEq(['a','b','b','c'], SortArray(['c','b','a','b']));
+
+  TestEq(DEFAULT INTEGER ARRAY, SortArray(DEFAULT INTEGER ARRAY));
+  TestThrows(PTR SortArray(1));
+
+  VARIANT ARRAY x;
+  TestThrows(PTR SortArray(x));
+
+  INSERT 5 INTO x AT END;
+  INSERT 1 INTO x AT END;
+  TestEq([1,5], SortArray(x));
+  INSERT 'a' INTO x AT END;
+  TestThrows(PTR SortArray(x));
+
+  TestEQ(DEFAULT STRING ARRAY, SortArray(DEFAULT STRING ARRAY));
+  TestEQ([ "bar" ], SortArray([ "bar" ]));
+  TestEQ([ "bar", "baz" ], SortArray([ "baz", "bar" ]));
+  TestEQ([ 1, 1, 2, 3, 4 ], SortArray([ 3, 4, 2, 1, 1 ]));
+}
+
+MACRO TestGetSortedSet()
+{
+  TestEQ(DEFAULT STRING ARRAY, GetSortedSet(DEFAULT STRING ARRAY));
+  TestEQ([ "bar" ], GetSortedSet([ "bar" ]));
+  TestEQ([ "bar", "baz" ], GetSortedSet([ "baz", "bar" ]));
+  TestEQ([ "bar", "baz" ], GetSortedSet([ "bar", "bar", "baz", "bar" ]));
+  TestEQ([ 1, 2, 3, 4 ], GetSortedSet([ 3, 4, 2, 1, 1, 3 ]));
+}
+
+MACRO TestArrayRandomizations()
+{
+  SeedRandomizer(5);
+  INTEGER ARRAY test := [ 1, 2, 3, 4, 5, 6 ];
+  TestEq(GetShuffledElements(test), [ 5, 4, 2, 6, 3, 1 ]);
+
+  SeedRandomizer(5);
+  INTEGER ARRAY test2 := [ 1 ];
+  TestEq(GetShuffledElements(test2), [ 1 ]);
+
+  SeedRandomizer(5);
+  INTEGER ARRAY test3 := DEFAULT INTEGER ARRAY;
+  TestEq(GetShuffledElements(test3), DEFAULT INTEGER ARRAY);
+
+  SeedRandomizer(5);
+  TestEq(GetRandomElement(test), 4);
+
+  SeedRandomizer(5);
+  TestEq(GetRandomElement(test2), 1);
+
+  SeedRandomizer(5);
+  TestEq(GetRandomElement(test3), DEFAULT INTEGER);
+
+}
+
+MACRO TestInMasks()
+{
+  TestEq(TRUE, __MatchesAnyMask("webhare_testsuite:test", ["webhare_testsuite:*"]));
+  TestEq(FALSE, __MatchesAnyMask("webhare_testsuite:test", [""]));
+  TestEq(TRUE, __MatchesAnyMask("webhare_testsuite:test", ["*"]));
+  TestEq(TRUE, __MatchesAnyMask("webhare_testsuite_test", ["a:*","webhare_*"]));
+  TestEq(TRUE, __MatchesAnyMask("webhare_testsuite_test", ["webhare_*","*_test"]));
+  TestEq(TRUE, __MatchesAnyMask("webhare_testsuite_test", ["webhare_*","*_test",""]));
+  TestEq(TRUE, __MatchesAnyMask("webhare_testsuite:test", ["*WEBHARE*"]));
+
+  TestEq(TRUE, __MatchesAllMasks("webhare_testsuite:test", ["webhare_testsuite:*"]));
+  TestEq(FALSE, __MatchesAllMasks("webhare_testsuite:test", [""]));
+  TestEq(TRUE, __MatchesAllMasks("webhare_testsuite:test", ["*"]));
+  TestEq(FALSE, __MatchesAllMasks("webhare_testsuite_test", ["a:*","webhare_*"]));
+  TestEq(TRUE, __MatchesAllMasks("webhare_testsuite_test", ["webhare_*","*_test"]));
+  TestEq(FALSE, __MatchesAllMasks("webhare_testsuite_test", ["webhare_*","*_test",""]));
+  TestEq(TRUE, __MatchesAllMasks("webhare_testsuite:test", ["*WEBHARE*"]));
+}
+
+MACRO TestArrayMove()
+{
+  //TODO we need to see if we can borrow syntax somewhere. and think of a name
+  TestEq( [0,1,3,2,4], __ArrayMove([0,1,2,3,4], 2, 'down'));
+  TestEq( [0,2,1,3,4], __ArrayMove([0,1,2,3,4], 2, 'up'));
+  TestEq( [2,0,1,3,4], __ArrayMove([0,1,2,3,4], 2, 'top'));
+  TestEq( [0,1,3,4,2], __ArrayMove([0,1,2,3,4], 2, 'bottom'));
+
+  TestEq( [2,0,1,3,4], __ArrayMove([0,1,2,3,4], 2, 0));
+  TestEq( [0,2,1,3,4], __ArrayMove([0,1,2,3,4], 2, 1));
+  TestEq( [0,1,2,3,4], __ArrayMove([0,1,2,3,4], 2, 2));
+  TestEq( [0,1,3,2,4], __ArrayMove([0,1,2,3,4], 2, 3));
+  TestEq( [0,1,3,4,2], __ArrayMove([0,1,2,3,4], 2, 4));
+
+  //edge cases
+  TestEq( [0,1,2,3,4], __ArrayMove([0,1,2,3,4], 0, 'top'));
+  TestEq( [0,1,2,3,4], __ArrayMove([0,1,2,3,4], 0, 'up'));
+  TestEq( [0,1,2,3,4], __ArrayMove([0,1,2,3,4], 4, 'bottom'));
+  TestEq( [0,1,2,3,4], __ArrayMove([0,1,2,3,4], 4, 'down'));
+
+  TestEq( [2,0,1,3,4], __ArrayMove([0,1,2,3,4], 2, -1));
+  TestEq( [0,1,3,4,2], __ArrayMove([0,1,2,3,4], 2, 5));
+
+  TestThrows(PTR __ArrayMove([0,1,2,3,4], 2, 'xxx'));
+  TestThrows(PTR __ArrayMove([0,1,2,3,4], 2, 1.5));
+  TestThrows(PTR __ArrayMove([0,1,2,3,4], -1, 'down'));
+  TestThrows(PTR __ArrayMove([0,1,2,3,4], 5, 'up'));
+}
+
+PRINT("\n === Running TestAlgorithms\n");
+TestRecordLowerBound();
+TestLowerBound();
+TestLowerBoundCustomSort();
+
+TestRecordUpperBound();
+TestUpperBound();
+TestUpperBoundCustomSort();
+
+TestEnrich();
+TestArrayEnrich();
+TestVAlueMapper();
+
+TestArrayIntersection();
+TestArraysIntersect();
+TestArrayDelete();
+TestArrayUnion();
+TestSortArray();
+TestArrayIsSubsetOf();
+TestArrayIsSetEqual();
+TestReverseArray();
+TestGetSortedSet();
+TestArrayRandomizations();
+TestInMasks();
+TestArrayMove();

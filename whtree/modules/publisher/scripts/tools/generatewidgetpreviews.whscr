@@ -1,0 +1,103 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+
+OBJECT trans := OpenPrimary();
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch" ]
+    , [ name := "force", type := "switch" ]
+    ]);
+
+IF (NOT Recordexists(args))
+  Syntax();
+
+MACRO Syntax()
+{
+  PRINT("Syntax: runscript generatewidgetpreviews.whscr [ --debug ]\n");
+  SetConsoleExitcode(1);
+  TerminateScript();
+}
+
+
+RECORD csp := GetCachedSiteProfiles();
+OBJECT previewtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/widgetpreview");
+
+RECORD ARRAY previewable_types :=
+    SELECT type :=    id
+      FROM csp.contenttypes
+     WHERE RecordExists(filetype) AND fstype.generatepreview
+  ORDER BY id;
+
+INTEGER ARRAY fstypeids := SELECT AS INTEGER ARRAY type FROM previewable_types;
+
+STRING ARRAY strs_type := [ "TYPE" ];
+RECORD ARRAY all_widgets :=
+    SELECT id
+         , modificationdate
+         , whfspath
+         , typerec :=   previewable_types[ RecordLowerBound(previewable_types, fs_objects, strs_type).position ]
+      FROM system.fs_objects
+     WHERE type IN fstypeids
+  ORDER BY id;
+
+INTEGER ARRAY fileids := SELECT AS INTEGER ARRAY id FROM all_widgets;
+RECORD ARRAY existing := previewtype->GetBulkData(fileids, [ "MODIFICATIONDATE"]);
+
+RECORD ARRAY taskdata;
+
+STRING ARRAY strs_id := [ "ID" ];
+FOREVERY (RECORD widget FROM all_widgets)
+{
+  DATETIME now := GetCurrentDatetime();
+
+  IF (NOT args.force)
+  {
+    RECORD pos := RecordLowerBound(existing, widget, strs_id);
+    IF (pos.found AND existing[pos.position].modificationdate = widget.modificationdate)
+    {
+      PRINT("Skipping unchanged " || widget.whfspath || "\n");
+      CONTINUE;
+    }
+  }
+
+  INSERT
+      [ data :=
+            [ id :=   widget.id
+            ]
+      , whfspath :=   widget.whfspath
+      ] INTO taskdata AT END;
+}
+
+// Wait max an hour
+DATETIME wait_until := AddTimeToDate(60 * 60 * 1000, GetCurrentDatetime());
+
+IF (LENGTH(taskdata) != 0)
+{
+  trans->BeginWork();
+  INTEGER ARRAY taskids := ScheduleManagedTasks("publisher:generatewidgetpreview", (SELECT AS RECORD ARRAY COLUMN data FROM taskdata), DEFAULT RECORD);
+  trans->CommitWork();
+
+  PRINT("Scheduled updates for " || LENGTH(taskids) || " widgets\n");
+
+  FOREVERY (INTEGER taskid FROM taskids)
+  {
+    PRINT("Waiting: " || taskdata[#taskid].whfspath);
+    TRY
+    {
+      RECORD rec := RetrieveManagedTaskResult(taskid, wait_until);
+      PRINT("\rDone:    " || taskdata[#taskid].whfspath || "\n");
+    }
+    CATCH (OBJECT e)
+      PRINT("\r" || AnsiCmd("red,bold") || "Failed:  " || taskdata[#taskid].whfspath || ": " || e->what || AnsiCmd("reset") || "\n");
+  }
+}

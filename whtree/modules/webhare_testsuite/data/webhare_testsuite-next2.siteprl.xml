@@ -1,0 +1,10 @@
+<siteprofile
+   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+   xmlns:xyz="urn:xyz">
+
+  <apply>
+    <to type="folder" sitemask="WebHare testsuite site" pathmask="/tmp/applytest-throughglobal/*" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
+    <xyz:test data="applytest-throughglobal-next2" />
+  </apply>
+
+</siteprofile>

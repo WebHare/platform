@@ -1,0 +1,185 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::publisher/lib/webtools/forum.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/tests/publisher/webtools/forum/forum.whlib";
+
+DATETIME save_seen_closedate;
+
+MACRO TestForumApiBase()
+{
+  ResetTestForums();
+
+  testfw->BeginWork();
+  OBJECT randomforumfile := GetTestsuiteTempFolder()->CreateFile([ name := "randomforum", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"]);
+  OBJECT tempcommentsfile := GetTestsuiteTempFolder()->CreateFile([ name := "forumcomments", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile" ]);
+  OBJECT tempclosedatefile := GetTestsuiteTempFolder()->CreateFile([ name := "forumcomments-closedate", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile" ]);
+  testfw->CommitWork();
+
+  //no plugin registered, should fail
+  TestThrows(PTR OpenForum(randomforumfile->id));
+
+  //test implicit closing date
+  TestEq(DEFAULT DATETIME, OpenForum(tempcommentsfile->id)->GetInitialTopicCloseDate(tempcommentsfile->id));
+
+  DATETIME autoclose := GetRoundedDatetime(AddDaysToDate(1,tempclosedatefile->creationdate), 86400 * 1000);
+  TestEq(autoclose, OpenForum(tempclosedatefile->id)->GetInitialTopicCloseDate(tempclosedatefile->id));
+  save_seen_closedate := autoclose; //needed later
+}
+
+MACRO TestCommentsForumApi()
+{
+  RECORD testport := testfw->GetLocalhostWebinterface();
+  OBJECT browser := NEW WebBrowser;
+
+  OBJECT forumcommentsfile := OpenTestsuiteSite()->OpenByPath("webtools/forumcomments");
+
+  BLOB picture := CreateEmptyCanvas(500,500,0xFFFF0000)->ExportAsPNG(FALSE);
+
+  RECORD postdata := [ name := "Arnold", email := "arnold@example.net", message := "hoihoi", messagetype := "text/plain", source := "127.0.0.1:12345", sourceurl := "http://www.example.nl/"
+                     , images := [ WrapBlob(picture,"picture.jpg") ], subject := "test"
+                     ];
+
+  OBJECT forumapi := OpenForum(forumcommentsfile->id);
+  TestEq(TRUE, ObjectExists(forumapi));
+  TestEq(FALSE, forumapi->MayHaveSubforums());
+  TestEq(FALSE, forumapi->MayHaveTopics(), "Topics should be disabled - this test failing may also point towards a corrupt siteprofile");
+
+  RECORD subforum := forumapi->SelectOnlySubforum();
+  TestEq(TRUE, RecordExists(subforum));
+
+  TestThrows(PTR forumapi->SelectOnlyTopic(0)); //not specifying a file id is bad too for a comments forum
+  TestThrows(PTR forumapi->AddPost(postdata)); //must fail, no forum selected
+
+  RECORD topic := forumapi->SelectOnlyTopic(forumcommentsfile->id);
+  TestEq(FALSE, RecordExists(topic)); //topics cannot be pre-created, but rest assured, its selected
+
+  TestEq(0, forumapi->GetNumMessagePages()); //0 pages in this topic
+  TestEq(0, Length(forumapi->GetMessagesByPage(0,""))); //and 0 messages on page 0
+
+  INTEGER postid := forumapi->AddPost(postdata);
+  TestEq(TRUE, postid != 0);
+
+  RECORD ARRAY mails := testfw->ExtractAllMailFor("forumcomments@beta.webhare.net", [ timeout := 0, count := 1 ]);
+  TestEqLIke("*A comment*hoihoi*", mails[0].plaintext);
+
+  TestEq(1, forumapi->GetNumMessagePages()); //1 page in this topic
+  TestEq(1, Length(forumapi->GetMessagesByPage(0,""))); //and 1 message on page 0
+  TestEq(0, Length(forumapi->GetMessagesByPage(-1,""))); //but nothing on out of range pages
+  TestEq(0, Length(forumapi->GetMessagesByPage(1,""))); //but nothing on out of range pages
+
+  //Now create 20 extra messages to test pagination
+  INTEGER ARRAY seenpostids := [postid];
+  FOR(INTEGER i := 0; i < 20; i:=i+1)
+  {
+    Sleep(1);
+    postdata.message := "hoihoi msg #" || i;
+    DELETE CELL images FROM postdata;
+
+    INTEGER extrapostid := forumapi->AddPost(postdata);
+    TestEq(TRUE, extrapostid != 0, "AddPost didn't return an id for the new post");
+    TestEq(FALSE, extrapostid IN seenpostids, "AddPost returned non-unique id");
+    INSERT extrapostid INTO seenpostids AT END;
+  }
+
+  TestEq(3, forumapi->GetNumMessagePages()); //3 page in this topic (10 per page)
+  //10 on page 0, 10 on page 1, 1 on page 2
+  TestEq(10, Length(forumapi->GetMessagesByPage(0,"")));
+  TestEq(10, Length(forumapi->GetMessagesByPage(1,"")));
+  TestEq(1, Length(forumapi->GetMessagesByPage(2,"")));
+
+  //Request the first page
+  RECORD ARRAY msgs := forumapi->GetMessagesByPage(0,"");
+  TestEq(seenpostids[1], msgs[1].id, "Cannot verify AddPost id");
+  //verify creationdate at most 10secs behind
+  TestEq(TRUE, msgs[0].creationdate <= GetCurrentDatetime());
+  TestEq(TRUE, msgs[0].creationdate >= AddTimeToDate(-10000, GetCurrentDatetime()));
+  TestEq("hoihoi msg #0", msgs[1].content);
+  TestEq("test", msgs[0].subject);
+  TestEq("test", msgs[1].subject);
+  TestEq(0,Length(msgs[1].images));
+  TestEq(1,Length(msgs[0].images));
+  TestEq(TRUE, msgs[0].images[0].fullversionlink != "");
+
+  TestEq(TRUE, browser->GotoWebPage(ResolveToAbsoluteURL(testport.baseurl, msgs[0].images[0].fullversionlink)), browser->href);
+  TestEq(picture, browser->content);
+  TestEq("image/png", browser->contenttype);
+  TestEq(TRUE,msgs[0].images[0].displayversionlink != "");
+
+  TestEq(TRUE, browser->GotoWebPage(ResolveToAbsoluteURL(testport.baseurl, msgs[0].images[0].displayversionlink)));
+  TestEq("image/jpeg", browser->contenttype);
+  RECORD info := ScanBlob(browser->content,'');
+  TestEq("image/jpeg", info.mimetype);
+  TestEq(240, info.width);
+  TestEq(240, info.height);
+
+  topic := forumapi->SelectOnlyTopic(forumcommentsfile->id);
+  TestEq(21, topic.numentries);
+}
+
+MACRO TestCloseDate()
+{
+  OBJECT forumcommentsfile := OpenTestsuiteSite()->OpenByPath("webtools/forumcomments-closedate");
+
+  OBJECT forumapi := OpenForum(forumcommentsfile->id);
+  RECORD subforum := forumapi->SelectOnlySubforum();
+
+  TestEq(FALSE, RecordExists(forumapi->SelectOnlyTopic(forumcommentsfile->id)));
+
+  testfw->BeginWork();
+  forumapi->SetCloseDate(MakeDate(2009,1,1));
+  testfw->CommitWork();
+
+  RECORD topicinfo := forumapi->SelectOnlyTopic(forumcommentsfile->id);
+  TestEq(MakeDate(2009,1,1), topicinfo.closedate);
+  TestEq(0, topicinfo.numentries);
+  TestEq(DEFAULT DATETIME, topicinfo.creationdate);
+
+  DATETIME before := GetCurrentDatetime();
+  Sleep(1); //ensure time drift
+
+  RECORD postdata := [ name := "Arnold", email := "arnold@example.net", message := "heyhey", messagetype := "text/plain", source := "127.0.0.1:12345", sourceurl := "http://www.example.nl/"
+                     ];
+  TestThrows(PTR forumapi->AddPost(postdata));
+  //FIXME should actually be in forum's timezone (eg CET midnight), no UTC
+  forumapi->SetCloseDate(AddTimeToDate(60*1000, GetCurrentDatetime()));
+  forumapi->AddPost(postdata);
+
+  topicinfo :=   forumapi->SelectOnlyTopic(forumcommentsfile->id);
+  TestEq(1, topicinfo.numentries);
+  TestEq(TRUE, topicinfo.creationdate != DEFAULT DATETIME);
+  TestEq(TRUE, topicinfo.creationdate > before);
+  TestEq(TRUE, topicinfo.firstposting != 0);
+  TestEq(TRUE, topicinfo.firstposting = topicinfo.lastposting);
+}
+
+ASYNC MACRO TestCommentsBackend()
+{
+  OBJECT forumcommentsfile := GetTestsuiteTempFolder()->OpenByPath("forumcomments-closedate");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ `site::${OpenTestsuiteSite()->name}/tmp/forumcomments-closedate` ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+  OBJECT commentstab := SELECT AS OBJECT obj FROM ToRecordArray(TT("maintabs")->pages,'obj') WHERE obj->title LIKE "*Comments*";
+  TestEq(TRUE, ObjectExists(commentstab));
+  TestEq(save_seen_closedate, TT(":Close comments on")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework([ PTR TestForumApiBase
+                 , PTR TestCommentsForumApi
+                 , PTR TestCloseDate
+                 , PTR TestCommentsBackend
+                 ],
+                 [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                 ]
+                 ]);

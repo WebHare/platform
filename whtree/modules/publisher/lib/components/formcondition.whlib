@@ -1,0 +1,584 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+OBJECT __condition_parent;
+
+
+OBJECTTYPE ConditionContext
+<
+  PUBLIC RECORD ARRAY conditionsources;
+>;
+
+PUBLIC OBJECTTYPE FormCondition EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD pvt_value;
+  MACRO PTR onchange;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY value(pvt_value, SetValue);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->contexts->^conditioncontext := NEW ConditionContext();
+    this->contexts->^conditioncontext->conditionsources := this->contexts->formcomponentapi->GetConditionSources();
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD description)
+  {
+    TolliumFragmentBase::StaticInit(description);
+    this->condition->title := this->title;
+    this->onchange := description.onchange;
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    IF (NOT MemberExists(this->contexts, "formcomponentapi"))
+      THROW NEW TolliumException(this, "No formcomponentapi context available");
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoEdit()
+  {
+    IF (Length(this->contexts->^conditioncontext->conditionsources) = 0)
+    {
+      this->owner->RunSimpleScreen("warning", GetTid("publisher:components.formcondition.createoptionsfirst"));
+      RETURN;
+    }
+    RECORD condition := this->owner->RunScreen("mod::publisher/screens/components.xml#editformcondition", [ condition := this->value ]);
+    IF (RecordExists(condition))
+      this->value := condition;
+  }
+
+  MACRO DoClear()
+  {
+    this->value := DEFAULT RECORD;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetValue(RECORD value)
+  {
+    this->condition->value := this->contexts->formcomponentapi->FormatFormCondition(value);
+    IF(this->condition->value = "")
+      value := DEFAULT RECORD;  //If FormatFormCondition returns an empty string, it was an empty or incompatible value
+
+    IF(EncodeHSON(value) = EncodeHSON(this->pvt_value)) //no change
+      RETURN;
+
+    this->pvt_value := value;
+    IF(this->onchange != DEFAULT MACRO PTR)
+      this->onchange();
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE EditFormCondition EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // List of condition component references
+  OBJECT ARRAY conditionobjs;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    // Create the condition, or create a new condition if there isn't one already
+    this->CreateCondition(data.condition, DEFAULT OBJECT);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO AddCondition(OBJECT conditionobj)
+  {
+    // Add an empty condition after the given condition
+    this->CreateCondition(DEFAULT RECORD, conditionobj);
+  }
+
+  PUBLIC MACRO DeleteCondition(OBJECT conditionobj)
+  {
+    INTEGER pos := SearchElement(this->conditionobjs, conditionobj);
+    IF (pos >= 0)
+    {
+      // Delete the condition
+      DELETE FROM this->conditionobjs AT pos;
+      conditionobj->DeleteComponent();
+
+      // Keep at least one condition
+      IF (Length(this->conditionobjs) = 0)
+        this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  RECORD FUNCTION Submit()
+  {
+    // Return the single condition
+    RETURN this->conditionobjs[0]->condition;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION CreateCondition(RECORD condition, OBJECT aftercondition)
+  {
+    // Initialize the new condition component
+    OBJECT oldparent := __condition_parent;
+    __condition_parent := this;
+    OBJECT conditionobj := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "singleformcondition");
+    __condition_parent := oldparent;
+
+    // Insert the component and set the condition
+    this->frame->bodynode->InsertComponentAfter(conditionobj, aftercondition, TRUE);
+    conditionobj->condition := condition;
+    conditionobj->canadd := FALSE;
+    conditionobj->candelete := FALSE;
+
+    // Add a reference to the list of condition components
+    INTEGER pos := SearchElement(this->conditionobjs, aftercondition) + 1;
+    IF (pos = 0)
+      pos := Length(this->conditionobjs);
+    INSERT conditionobj INTO this->conditionobjs AT pos;
+
+    RETURN conditionobj;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE SingleFormCondition EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // The edit screen for top-level conditions or the and/or/not condition for subconditions
+  OBJECT pvt_conditionparent;
+
+  // For detecting matchtype changes
+  STRING prevtype;
+
+  // If the condition setter is active, we don't have to handle matchtype changes
+  BOOLEAN setting_condition;
+
+  // List of condition component references
+  OBJECT ARRAY conditionobjs;
+
+  // Selected values for value_in
+  RECORD ARRAY value_in_options;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  // The edit screen for top-level conditions or the and/or/not condition for subconditions
+  PUBLIC PROPERTY parentcondition(GetParentCondition, -);
+
+  // The condition value for storage
+  PUBLIC PROPERTY condition(GetCondition, SetCondition);
+
+  // Toggle the add button
+  PUBLIC PROPERTY canadd(-, ^addconditionbutton->visible);
+
+  // Toggle the delete button
+  PUBLIC PROPERTY candelete(-, ^deleteconditionbutton->visible);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    IF (NOT ObjectExists(__condition_parent))
+      THROW NEW Exception("SingleFormCondition cannot be instatiated directly");
+    this->pvt_conditionparent := __condition_parent;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    // If the condition parent doesn't extend from TolliumScreenBase, this is a subcondition
+    ^subconditionline->visible := ObjectExists(this->parentcondition);
+    ^subconditionspacer->visible := ^subconditionline->visible;
+
+    // Add the AND, OR and NOT options
+    ^field->options := this->contexts->^conditioncontext->conditionsources
+        CONCAT
+        [ [ rowkey := "-", isdivider := TRUE ]
+        , [ rowkey := ":AND", title := GetTid("publisher:components.formcondition.field-and"), type := "and" ]
+        , [ rowkey := ":OR", title := GetTid("publisher:components.formcondition.field-or"), type := "or" ]
+        , [ rowkey := ":NOT", title := GetTid("publisher:components.formcondition.field-not"), type := "not" ]
+        ];
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  // Called by the subcondition when its add button is clicked
+  PUBLIC MACRO AddCondition(OBJECT conditionobj)
+  {
+    this->CreateCondition(DEFAULT RECORD, conditionobj);
+    this->UpdateState();
+  }
+
+  // Called by the subcondition when its delete button is clicked
+  PUBLIC MACRO DeleteCondition(OBJECT conditionobj)
+  {
+    INTEGER pos := SearchElement(this->conditionobjs, conditionobj);
+    IF (pos >= 0)
+    {
+      DELETE FROM this->conditionobjs AT pos;
+      conditionobj->DeleteComponent();
+
+      // If the last subcondition was deleted, delete the condition itself
+      IF (Length(this->conditionobjs) = 0)
+        this->pvt_conditionparent->DeleteCondition(this);
+      ELSE
+        this->UpdateState();
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAddCondition()
+  {
+    this->pvt_conditionparent->AddCondition(this);
+  }
+
+  MACRO DoDeleteCondition()
+  {
+    this->pvt_conditionparent->DeleteCondition(this);
+  }
+
+  MACRO DoEditValueIn()
+  {
+    STRING ARRAY selected := this->owner->RunScreen("#selectvalues", [ options := this->value_in_options ]);
+    IF (Length(selected) > 0)
+    {
+      UPDATE this->value_in_options SET tolliumselected := rowkey IN selected;
+      this->UpdateState();
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnFieldSelect()
+  {
+    IF (RecordExists(^field->selection))
+    {
+      SWITCH (^field->selection.type)
+      {
+        CASE "in"
+        {
+          this->value_in_options := SELECT *, value := rowkey, rowkey := EncodeHSON(rowkey), tolliumselected := FALSE FROM ^field->selection.options;
+
+          // Delete any subcondition components
+          FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
+            this->DeleteCondition(conditionobj);
+        }
+        CASE "hasvalue"
+        {
+          ^value_hasvalue->value := FALSE;
+
+          // Delete any subcondition components
+          FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
+            this->DeleteCondition(conditionobj);
+        }
+        CASE "and", "or", "not"
+        {
+          IF (this->setting_condition)
+          {
+            // If the condition setter is running, delete any subcondition components, they will be re-added by the setter
+            // when needed
+            FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
+              this->DeleteCondition(conditionobj);
+          }
+          ELSE
+          {
+            IF (this->prevtype NOT IN [ "and", "or", "not" ] OR Length(this->conditionobjs) = 0)
+            {
+              // Make sure there is at least one condition
+              this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
+            }
+            ELSE IF (^field->selection.type = "not")
+            {
+              // Keep only one condition
+              FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
+                IF (#conditionobj > 0)
+                  this->DeleteCondition(conditionobj);
+            }
+          }
+        }
+      }
+    }
+    this->prevtype := ^field->selection.type;
+    this->UpdateState();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  OBJECT FUNCTION GetParentCondition()
+  {
+    IF (this->pvt_conditionparent EXTENDSFROM TolliumScreenBase)
+      RETURN DEFAULT OBJECT;
+    RETURN this->pvt_conditionparent;
+  }
+
+  RECORD FUNCTION GetCondition()
+  {
+    IF (RecordExists(^field->selection))
+    {
+      SWITCH (^field->selection.type)
+      {
+        CASE "in"
+        {
+          VARIANT ARRAY value;
+          FOREVERY (RECORD option FROM this->value_in_options)
+            IF (option.tolliumselected)
+              INSERT DecodeHSON(option.rowkey) INTO value AT END;
+          IF (Length(value) > 0)
+          {
+            RETURN
+                [ field := ^field->value
+                , matchtype := ToUppercase(^matchtype->value)
+                , value := value
+                ];
+          }
+        }
+        CASE "hasvalue"
+        {
+          RETURN
+              [ field := ^field->value
+              , matchtype := "HASVALUE"
+              , value := ^value_hasvalue->value
+              ];
+        }
+        CASE "and", "or"
+        {
+          RECORD ARRAY conditions := SELECT AS RECORD ARRAY conditionobj->condition FROM ToRecordArray(this->conditionobjs, "conditionobj");
+          DELETE FROM conditions WHERE NOT RecordExists(conditions);
+          IF (RecordExists(conditions))
+            RETURN
+                CELL[ matchtype := ToUppercase(^field->selection.type)
+                    , conditions
+                    ];
+        }
+        CASE "not"
+        {
+          IF (Length(this->conditionobjs) > 0)
+          {
+            RECORD condition := this->conditionobjs[0]->condition;
+            IF (RecordExists(condition))
+              RETURN
+                  CELL[ matchtype := ToUppercase(^field->selection.type)
+                      , condition
+                      ];
+          }
+        }
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO SetCondition(RECORD condition)
+  {
+    IF (NOT RecordExists(condition))
+    {
+      // Reset to first field in pulldown
+      ^field->selection := SELECT * FROM ^field->options;
+      this->OnFieldSelect();
+    }
+    ELSE
+    {
+      this->setting_condition := TRUE;
+      SWITCH (condition.matchtype)
+      {
+        CASE "AND", "OR"
+        {
+          ^field->value := ":" || condition.matchtype;
+          IF (NOT RecordExists(condition.conditions))
+          {
+            // Make sure there is at least one subcondition
+            this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
+          }
+          ELSE
+          {
+            // Create the subcondition components
+            FOREVERY (RECORD subcondition FROM condition.conditions)
+              this->CreateCondition(subcondition, DEFAULT OBJECT);
+          }
+        }
+        CASE "NOT"
+        {
+          ^field->value := ":" || condition.matchtype;
+          // Create the subcondition component
+          this->CreateCondition(condition.condition, DEFAULT OBJECT);
+        }
+        CASE "HASVALUE"
+        {
+          ^field->value := condition.field;
+          ^value_hasvalue->value := condition.value;
+        }
+        CASE "IN", "HAS", "IS"
+        {
+          ^field->value := condition.field;
+          UPDATE this->value_in_options SET tolliumselected := value IN condition.value;
+          ^matchtype->value := ToLowercase(condition.matchtype);
+        }
+        DEFAULT
+        {
+          THROW NEW TolliumException(this, `Unknown condition type '${condition.matchtype}'`);
+        }
+      }
+      this->setting_condition := FALSE;
+    }
+    this->UpdateState();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION CreateCondition(RECORD condition, OBJECT aftercondition)
+  {
+    // Initialize the new condition component
+    OBJECT oldparent := __condition_parent;
+    __condition_parent := this;
+    OBJECT conditionobj := this->owner->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "singleformcondition");
+    __condition_parent := oldparent;
+
+    // Insert the component and set the condition
+    ^subconditions->InsertComponentAfter(conditionobj, aftercondition, TRUE);
+    conditionobj->condition := condition;
+
+    // Add a reference to the list of condition components
+    INTEGER pos := SearchElement(this->conditionobjs, aftercondition) + 1;
+    IF (pos = 0)
+      pos := Length(this->conditionobjs);
+    INSERT conditionobj INTO this->conditionobjs AT pos;
+
+    RETURN conditionobj;
+  }
+
+  MACRO UpdateState()
+  {
+    // Show only the matchtype-specific settings
+    STRING matchtype := RecordExists(^field->selection) ? ^field->selection.type : "";
+    ^settings_in->visible := matchtype = "in";
+    ^settings_hasvalue->visible := matchtype = "hasvalue";
+    ^settings_sub->visible := matchtype IN [ "and", "or", "not" ];
+    ^settings_suffix->visible := matchtype IN [ "and", "or" ];
+
+    ^value_in->value := Detokenize((SELECT AS STRING ARRAY title FROM this->value_in_options WHERE tolliumselected), "; ");
+
+    // Update the add/delete button state for subconditions
+    IF (Length(this->conditionobjs) > 0)
+    {
+      // For NOT conditions, there is exactly one subcondition, i.e. subconditions cannot be added or deleted
+      BOOLEAN not_condition := RecordExists(^field->selection) AND ^field->selection.type = "not";
+      this->conditionobjs[0]->canadd := NOT not_condition;
+      this->conditionobjs[0]->candelete := NOT not_condition;
+    }
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE SelectValues EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^value->options := data.options;
+  }
+
+  STRING ARRAY FUNCTION Submit()
+  {
+    RETURN ^value->value;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE FormConditionColumn EXTEND TolliumListColumnBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  UPDATE PUBLIC VARIANT FUNCTION TranslateValue(VARIANT condition)
+  {
+    RETURN this->list->contexts->formcomponentapi->FormatFormCondition(condition);
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetExpectedInputType()
+  {
+    RETURN TypeID(RECORD);
+  }
+>;

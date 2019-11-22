@@ -1,0 +1,4 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <layer src="tollium:objects/meredians"/>
+  <layer src="tollium:overlays/status/negative"/>
+</icon>

@@ -1,0 +1,116 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/harescript.whlib";
+
+RECORD FUNCTION GetJSONTok(INTEGER infile)
+{
+  WHILE(TRUE)
+  {
+    RECORD tok := GetHareScriptFileToken(infile);
+    IF(NOT RecordExists(tok) OR NOT tok.iswhitespace)
+      RETURN tok;
+  }
+}
+
+STRING FUNCTION JSONExpect(INTEGER infile, STRING ARRAY validtokens)
+{
+  RECORD tok := GetJSONTok(infile);
+  IF(NOT RecordExists(tok) OR tok.token NOT IN validtokens)
+  {
+    STRING expected := Length(validtokens) = 1
+                          ? `Expected '${validtokens[0]}'`
+                          : `Expected one of '${Detokenize(validtokens,"', '")}'`;
+    IF(RecordExists(tok))
+      THROW NEW Exception(`${expected} got '${tok.token}'`);
+    ELSE
+      THROW NEW Exception(`${expected} but at end of data`);
+  }
+  RETURN tok.token;
+}
+
+//default blob is used as an error indicator, as no json data can contain a default blob
+STRING FUNCTION DecodeJSONData(INTEGER infile, RECORD inputtok, INTEGER indent)
+{
+  IF(NOT RecordExists(inputtok))
+    THROW NEW Exception(`Expected a JSON value`);
+
+  STRING token := inputtok.token;
+  IF(token="[" OR token= "{") //starts an array
+  {
+    BOOLEAN isobject := token= "{";
+    STRING listterminator := isobject ? "}" : "]";
+    RECORD tok := GetJSONTok(infile);
+
+    IF (RecordExists(tok) AND tok.token = listterminator) //immediate termination
+      RETURN token ||listterminator;
+
+    STRING retval := token || "\n";
+    WHILE(TRUE)
+    {
+      retval := retval || RepeatText(' ',indent + 2);
+
+      IF(isobject)
+      {
+        STRING cellname := Left(tok.token,1) IN ["'",'"'] ? DecodeJava(Substring(tok.token, 1, Length(tok.token)-2)) : tok.token;
+        retval := retval || '"' || EncodeJava(cellname) || '": ';
+
+        JSONExpect(infile, [':']);
+        tok := GetJSONTok(infile);
+      }
+
+      STRING toadd := DecodeJSONData(infile, tok, indent + 2);
+      retval := retval || toadd;
+
+      IF(JSONExpect(infile, [',', listterminator]) = ',')
+      {
+        retval := retval || ",\n";
+        tok := GetJSONTok(infile);
+        CONTINUE; //that's okay!
+      }
+      RETURN retval || "\n" || RepeatText(' ',indent) || listterminator ;
+    }
+  }
+  IF(Left(token,1) IN ["'",'"']) //String
+  {
+    RETURN `"${EncodeJava(DecodeJava(Substring(token, 1, Length(token)-2)))}"`;
+  }
+
+  // experimental float support
+  IF (SearchSubstring(token,'.') >= 0)
+    RETURN token;
+
+  //FIXME: Float/Number support!
+  IF (token="-")
+  {
+    inputtok := GetJSONTok(infile);
+    token := inputtok.token;
+    IF (SearchSubstring(token,'.') >= 0)
+    {
+      // TODO: errorchecks?
+      RETURN "-"||token;
+    }
+    IF(ToInteger(Left(token,1),-1) != -1)
+      RETURN "-"||token;
+  }
+  IF(ToInteger(Left(token,1),-1) != -1)
+    RETURN token;
+  IF (ToUppercase(token) = "TRUE")
+    RETURN "true";
+  IF (ToUppercase(token) = "FALSE")
+    RETURN "false";
+  IF (ToUppercase(token) = "NULL")
+    RETURN "null";
+  THROW NEW Exception(`Unexpected token '${token}'`);
+}
+
+PUBLIC STRING FUNCTION PrettifyJSON(STRING inputdata)
+{
+  //ADDME Get me a real decoder :-)
+  INTEGER infile := OpenHareScriptFile(StringToBlob("<?wh " || inputdata));
+
+  RECORD tok := GetJSONTok(infile);
+  STRING retval := DecodeJSONData(infile, tok, 0);
+  CloseHarescriptFile(infile);
+  RETURN retval;
+}

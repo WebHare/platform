@@ -1,0 +1,82 @@
+<?wh // Testscript
+
+LOADLIB "mod::webhare_testsuite/lib/db/test_client.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+ClientStart(2);
+
+TABLE <INTEGER id, INTEGER idref> beta_reftests;
+INTEGER test_fp_trans;
+INTEGER cursorid;
+
+RECORD ARRAY update_recs;
+BOOLEAN FUNCTION TestRecord(RECORD testr)
+{
+  INSERT testr INTO update_recs AT END;
+  RETURN TRUE;
+}
+
+//--------------------------------------------------------------------------------
+// Test 1; make reference in script 0 to a record, which will be updated by
+//         script 1 before script 0 commits transaction
+
+IF (clientid = 0)
+{
+  // Put standard record into beta_reftests, commit and open new trans, insert reference to record 1
+  SectionStart(1);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+
+  __BindWHDBMetaTables(test_fp_trans);
+  IF (NOT WHDBColumnExists("beta_reftests","id"))
+    SendWHDBCommand(test_fp_trans, "CREATE TABLE beta_reftests(id INTEGER PRIMARY KEY AUTONUMBER 1 NOT NULL NOUPDATE, idref INTEGER REFERENCES beta_reftests)");
+
+  beta_reftests := BindTransactionToTable (test_fp_trans, "beta_reftests");
+
+  DELETE FROM beta_reftests;
+  INSERT INTO beta_reftests(id, idref) VALUES (1, 0);
+  INSERT INTO beta_reftests(id, idref) VALUES (2, 1);
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans)) != 0)
+    Abort("Commit errors test 1 - inserts failed (not expected)");
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_reftests := BindTransactionToTable (test_fp_trans, "beta_reftests");
+
+  TestEqualRecordArrays([[id:=1,idref:=0],[id:=2,idref:=1]], (SELECT * FROM beta_reftests ORDER BY id));
+
+  // Reference record with id 1, don't commit yet
+  INSERT INTO beta_reftests(idref) VALUES (1);
+
+  SectionEnd(1);
+}
+
+IF (clientid = 1)
+{
+  // Update record 1, commit changes
+  SectionStart(2);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  __BindWHDBMetaTables(test_fp_trans);
+  beta_reftests := BindTransactionToTable (test_fp_trans, "beta_reftests");
+
+  UPDATE beta_reftests SET idref := 2 WHERE id = 1;
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans)) != 0)
+    Abort("Commit errors test 1 - update failed (not expected!)");
+
+  SectionEnd(2);
+}
+
+IF (clientid = 0)
+{
+  // Commit changes
+  SectionStart(3);
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans)) != 0)
+    Abort("Commit errors test 1 - could not commit reference to updated record");
+
+  SectionEnd(3);
+}
+
+TestEnd(4);

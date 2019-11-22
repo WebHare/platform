@@ -1,0 +1,231 @@
+[component login]
+  <div class="wh-wrdauth-form wh-wrdauth-login">
+    <form class="wh-form wh-styledinput wh-wrdauth-login__form" [form.formattributes]>
+      <div class="wh-form__page">
+        <div class="wh-wrdauth-form__intro wh-wrdauth-login__intro">
+          <p class="wh-wrdauth--text">
+            [if loginemail]
+              [gettid site.forms.authpages.login-email-intro]
+            [else]
+              [gettid site.forms.authpages.login-username-intro]
+            [/if]
+          </p>
+        </div>
+        [form.username.render]
+        [form.password.render]
+        <div class="wh-wrdauth-login__forgotpasswordlinkholder">
+          <a class="wh-wrdauth-login__forgotpasswordlink" href="[forgotpasswordlink]">[gettid site.forms.authpages.forgotpassword]</a>
+        </div>
+      </div>
+      <div class="wh-form__buttongroup wh-form__navbuttons">
+        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-login__loginbutton">[gettid site.forms.authpages.login-button]</button>
+      </div>
+    </form>
+  </div>
+[/component]
+
+[component forgotpassword]
+  <div class="wh-wrdauth-form wh-wrdauth-forgotpassword">
+    <form class="wh-form wh-styledinput wh-wrdauth-forgotpassword__form" [form.formattributes]>
+      <div class="wh-form__page">
+        <div class="wh-wrdauth-form__intro wh-wrdauth-forgotpassword__intro">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.forgotpassword-intro]
+          </p>
+        </div>
+        [form.email.render]
+      </div>
+      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
+        <div class="wh-wrdauth__done wh-wrdauth-forgotpassword__done">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.forgotpassword-processed]
+          </p>
+        </div>
+      </div>
+      <div class="wh-form__buttongroup wh-form__navbuttons">
+        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-forgotpassword__forgotbutton">[gettid site.forms.authpages.forgotpassword-button]</button>
+      </div>
+    </form>
+  </div>
+[/component]
+
+[component forgotpasswordmail]
+  <html>
+    <head>
+      <title>[gettid site.forms.authpages.forgotpasswordmail.subject hostname]</title>
+    </head>
+    <body>
+      [embed forgotpasswordmailbody]
+    </body>
+  </html>
+[/component]
+
+[component forgotpasswordmailbody]
+  <div class="wh-wrdauth-login__resetmail">
+    <p>
+      [gethtmltid site.forms.authpages.forgotpasswordmail.receivedfor email]
+    </p>
+    <p>
+      [if resetlink]
+        [gethtmltid site.forms.authpages.forgotpasswordmail.followlink resetlink]
+      [else]
+        [gethtmltid site.forms.authpages.forgotpasswordmail.emailunknown]
+      [/if]
+    </p>
+  </div>
+[/component]
+
+[component linkexpired]
+  <div class="wh-wrdauth-form wh-wrdauth-linkexpired">
+    <p class="wh-wrdauth--text wh-wrdauth-linkexpired__text">
+      [gettid site.forms.authpages.linkexpired]
+    </p>
+  </div>
+[/component]
+
+[! PLEASE NOTE - resetpassword and setpassword are identical except for the classnames/tids !]
+[component resetpassword]
+  <div class="wh-wrdauth-form wh-wrdauth-resetpassword">
+    <form class="wh-form wh-styledinput wh-wrdauth-resetpassword__form" [form.formattributes]>
+      <div class="wh-form__page">
+        <div class="wh-wrdauth-form__intro wh-wrdauth-resetpassword__intro">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.resetpassword-intro]
+          </p>
+        </div>
+        [form.passwordnew.render]
+        [form.passwordrepeat.render]
+      </div>
+      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
+        <div class="wh-wrdauth__done wh-wrdauth-resetpassword__done">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.resetpassword-processed]
+          </p>
+          <div class="wh-form__buttongroup wh-form__navbuttons">
+            <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.resetpassword-continue]</a>
+          </div>
+        </div>
+      </div>
+      <div class="wh-form__buttongroup wh-form__navbuttons">
+        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-resetpassword__resetbutton">[gettid site.forms.authpages.resetpassword-button]</button>
+      </div>
+    </form>
+  </div>
+[/component]
+
+[! PLEASE NOTE - resetpassword and setpassword are identical except for the classnames/tids !]
+[component setpassword]
+  <div class="wh-wrdauth-form wh-wrdauth-setpassword">
+    <form class="wh-form wh-styledinput wh-wrdauth-setpassword__form" [form.formattributes]>
+      <div class="wh-form__page">
+        <div class="wh-wrdauth-form__intro wh-wrdauth-setpassword__intro">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.setpassword-intro]
+          </p>
+        </div>
+        [form.passwordnew.render]
+        [form.passwordrepeat.render]
+      </div>
+      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
+        <div class="wh-wrdauth__done wh-wrdauth-setpassword__done">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.setpassword-processed]
+          </p>
+          <div class="wh-form__buttongroup wh-form__navbuttons">
+            <a href="[continuelink]" type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-setpassword__continuebutton">[gettid site.forms.authpages.setpassword-continue]</a>
+          </div>
+        </div>
+      </div>
+      <div class="wh-form__buttongroup wh-form__navbuttons">
+        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-setpassword__setbutton">[gettid site.forms.authpages.setpassword-button]</button>
+      </div>
+    </form>
+  </div>
+[/component]
+
+[component emailchange]
+  <div class="wh-wrdauth-form wh-wrdauth-emailchange">
+    <form class="wh-form wh-styledinput wh-wrdauth-emailchange__form" [form.formattributes]>
+      <div class="wh-form__page">
+        <div class="wh-wrdauth-form__intro wh-wrdauth-emailchange__intro">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.emailchange-intro]
+          </p>
+        </div>
+        [form.email.render]
+      </div>
+      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
+        <div class="wh-wrdauth__done wh-wrdauth-emailchange__done">
+          <p class="wh-wrdauth--text">
+            [text_emailchange_processed]
+          </p>
+        </div>
+      </div>
+      <div class="wh-form__buttongroup wh-form__navbuttons">
+        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-emailchange__changebutton">[gettid site.forms.authpages.emailchange-button]</button>
+      </div>
+    </form>
+  </div>
+[/component]
+
+[component emailchangemail]
+  <html>
+    <head>
+      <title>[gettid site.forms.authpages.emailchangemail.subject hostname]</title>
+    </head>
+    <body>
+      [embed emailchangemailbody]
+    </body>
+  </html>
+[/component]
+
+[component emailchangemailbody]
+  <div class="wh-wrdauth-login__emailchange">
+    <p>
+      [gethtmltid site.forms.authpages.emailchangemail.receivedfor oldemail newemail]
+    </p>
+    <p>
+      [if confirmlink]
+        [gethtmltid site.forms.authpages.emailchangemail.followlink confirmlink]
+      [else]
+        [gethtmltid site.forms.authpages.emailchangemail.emailinuse]
+      [/if]
+    </p>
+  </div>
+[/component]
+
+[component emailchanged]
+  <div class="wh-wrdauth-form wh-wrdauth-emailchanged">
+    <p class="wh-wrdauth--text wh-wrdauth-emailchanged__text">
+      [gettid site.forms.authpages.emailchanged]
+    </p>
+  </div>
+[/component]
+
+[component passwordchange]
+  <div class="wh-wrdauth-form wh-wrdauth-passwordchange">
+    <form class="wh-form wh-styledinput wh-wrdauth-passwordchange__form" [form.formattributes]>
+      <div class="wh-form__page">
+        <div class="wh-wrdauth-form__intro wh-wrdauth-passwordchange__intro">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.passwordchange-intro currentlogin]
+          </p>
+        </div>
+        [form.currentpassword.render]
+        [form.passwordnew.render]
+        [form.passwordrepeat.render]
+      </div>
+      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
+        <div class="wh-wrdauth__done wh-wrdauth-passwordchange__done">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.passwordchange-processed]
+          </p>
+        </div>
+      </div>
+      <div class="wh-form__buttongroup wh-form__navbuttons">
+        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-passwordchange__changebutton">[gettid site.forms.authpages.passwordchange-button]</button>
+      </div>
+    </form>
+  </div>
+[/component]
+

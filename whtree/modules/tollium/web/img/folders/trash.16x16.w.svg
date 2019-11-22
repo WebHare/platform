@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <g id="trashcan-outline">
+      <path d="M27,8h-4V6c0-0.9-1.1-2-2-2h-8c-0.9,0-2,1.1-2,2v2H7C6.4,8,6,8.4,6,9c0,0.6,0.4,1,1,1h1v19c0,0.5,0.5,1,1,1h16c0.5,0,1-0.5,1-1V10h1c0.6,0,1-0.4,1-1C28,8.4,27.6,8,27,8zM13,6h8v2h-8V6zM24,28H10V10h14V28z"/>
+      <g transform="translate(1,0)">
+        <path d="M12,26c0.7,0,1-0.4,1-1V13c0-0.6-0.3-1-1-1s-1,0.4-1,1v12C11,25.6,11.3,26,12,26z"/>
+        <path d="M16,26c0.6,0,1-0.4,1-1V13c0-0.6-0.4-1-1-1s-1,0.4-1,1v12C15,25.6,15.4,26,16,26z"/>
+        <path d="M20,26c0.6,0,1-0.4,1-1V13c0-0.6-0.4-1-1-1s-1,0.4-1,1v12C19,25.6,19.4,26,20,26z"/>
+      </g>
+    </g>
+  </defs>
+  <g>
+    <use xlink:href="#trashcan-outline" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+  </g>
+</svg>

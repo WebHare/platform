@@ -1,0 +1,132 @@
+<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/formedit-tollium.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE EditHandler EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT node;
+  BOOLEAN existing;
+  RECORD compdef;
+  OBJECT compextension;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    BOOLEAN suggestresize;
+
+    this->frame->savestatebasekey := `${this->frame->savestatebasekey}(${data.compdef.qname})`;
+    this->node := data.node;
+    this->existing := data.existing;
+    this->compdef := data.compdef;
+    this->frame->title := data.compdef.title;
+    ^tabs->extendposition := Length(^tabs->pages)-1; //insert before the advaned tab
+    ^tabs->insertpoints :=
+        [ [ name := "settings",     component := ^settings_insertpoint ]
+        , [ name := "dependencies", component := ^dependencies_insertpoint ]
+        , [ name := "advanced",     component := ^advanced_insertpoint ]
+        ];
+
+    ^comment->value := this->node->GetAttribute("comment");
+    ^pins->value := ParseXSList(this->node->GetAttribute("pins"));
+    ^condition->visible := "condition" IN this->compdef.editdefaults; //only require title if you can see it
+
+    IF (this->compdef.editextension != "")
+    {
+      RECORD result := ^tabs->LoadTabsExtension(this->compdef.editextension);
+      this->compextension := result.fragment;
+      IF (this->compextension NOT EXTENDSFROM FormComponentExtensionBase)
+        THROW NEW TolliumException(result.components[0], "Form handler editextension does not extend FormComponentExtensionBase");
+
+      this->compextension->node := this->node;
+      this->compextension->existing := this->existing;
+      // This is used to load the custom settings, must be run after node is set
+      ^tabs->RunExtensionsPostInit();
+
+      IF(^tabs->IsResizeSuggested())
+        suggestresize := TRUE;
+    }
+
+    IF(^condition->visible)
+      ^condition->value := this->contexts->formcomponentapi->GetConditionAttribute(this->node, "conditionid");
+
+    this->SetupAdvanced();
+
+    FOREVERY (OBJECT tab FROM ^tabs->pages)
+      tab->visible := tab->HasAnyVisibleComponents();
+    IF (^tabs->GetNumVisiblePages() <= 1)
+      ^tabs->type := "server";
+
+    IF(suggestresize)
+    {
+      this->frame->savestatebasekey := `${this->frame->savestatebasekey}(${data.compdef.qname})`;
+      this->frame->allowresize := TRUE;
+      this->frame->savestate := ["size"];
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnPinsChange()
+  {
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+
+    ^tabs->SubmitExtensions(work);
+
+    IF (NOT work->HasFailed())
+    {
+      IF(^condition->visible)
+        this->contexts->formcomponentapi->SetConditionAttribute(this->node, "conditionid", ^condition->value);
+
+      IF (^comment->value != "")
+        this->node->SetAttribute("comment", ^comment->value);
+      ELSE
+        this->node->RemoveAttribute("comment");
+
+      IF(Length(^pins->value)>0)
+        this->node->SetAttribute("pins", Detokenize(^pins->value,' '));
+      ELSE
+        this->node->RemoveAttribute("pins");
+    }
+
+    RETURN work->Finish();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+
+  MACRO SetupAdvanced()
+  {
+    BOOLEAN showadvanced := this->contexts->formcomponentapi->showadvanced;
+    FOREVERY (STRING field FROM controlled_fields)
+    {
+      BOOLEAN showfield := showadvanced OR field NOT IN advanced_fields;
+      GetMember(this, "^"||field)->visible := GetMember(this, "^"||field)->visible AND showfield;
+    }
+  }
+>;

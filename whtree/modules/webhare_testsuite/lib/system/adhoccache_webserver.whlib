@@ -1,0 +1,24 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+STRING cacheval := GetWebVariable("cacheval");
+
+RECORD FUNCTION GetCacheVal()
+{
+  RETURN [ ttl := 60000
+         , value := cacheval
+         ];
+}
+
+PUBLIC STRING FUNCTION GetData()
+{
+  RETURN GetAdhocCached(DEFAULT RECORD, PTR GetCacheVal);
+}
+
+PUBLIC MACRO InvalidateData()
+{
+  InvalidateAdhocCache();
+}

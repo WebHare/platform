@@ -1,0 +1,94 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE ColumnFileExport EXTEND TolliumScreenBase
+<
+  BOOLEAN headerrow;
+  PUBLIC BOOLEAN autoaddcolumns;
+
+  PUBLIC RECORD ARRAY columns;
+  PUBLIC RECORD ARRAY rows;
+
+  /// @short Overridable file name for the exported file (an extension is not needed; also, the file name will be used in conjunction with GetSafeFileName later)
+  PUBLIC STRING filename;
+  PUBLIC PROPERTY title(this->frame->title, this->frame->title);
+
+  PUBLIC MACRO Init()
+  {
+    this->headerrow := TRUE;
+
+    this->separator->SetvalueIfValid(this->tolliumuser->GetRegistryKey("tollium.commondialogs.csvexport.sep", "semicolon"));
+    this->charset->SetValueIfValid(this->tolliumuser->GetRegistryKey("tollium.commondialogs.csvexport.charset","ISO-8859-1"));
+    this->decimal->SetValueIfValid(this->tolliumuser->GetRegistryKey("tollium.commondialogs.csvexport.decimal","period"));
+    this->outputformat->SetvalueIfValid(this->tolliumuser->GetRegistryKey("tollium.commondialogs.csvexport.outputformat", "xlsx"));
+  }
+
+  MACRO OnDownload(OBJECT filereceiver)
+  {
+    this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.sep", this->separator->value);
+    this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.charset", this->charset->value);
+    this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.decimal", this->decimal->value);
+    this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.outputformat", this->outputformat->value);
+
+    RECORD setupwriter;
+
+    IF(this->outputformat->value="csv")
+      setupwriter := this->SetupCSVWriter();
+    ELSE
+      setupwriter := this->SetupXLSXWriter();
+
+    setupwriter.writer->timezone := this->tolliumuser->timezone;
+    IF(Length(this->columns)>0)
+      setupwriter.writer->columns := this->columns;
+
+    setupwriter.writer->WriteRows(this->rows);
+
+    BLOB csvfile := setupwriter.writer->MakeOutputFile();
+
+    STRING filename := this->filename != "" ? GetSafeFileName(this->filename) : "export";
+    IF(filename LIKE "*.xlsx")
+      filename := Left(filename, Length(filename) - 5); //strip extension added by __ValidateXLSXFileOptions, user can still go for CSV :(
+    filename := filename || setupwriter.extension;
+
+    filereceiver->SendFile(csvfile, setupwriter.mimetype, filename);
+  }
+
+  MACRO OnDownloadStarted()
+  {
+    this->tolliumresult := "ok";
+  }
+
+  RECORD FUNCTION SetupCSVWriter()
+  {
+    OBJECT csvwriter := NEW CSVColumnFileWriter;
+    csvwriter->fieldseparator := this->separator->value="comma" ? "," : this->separator->value="semicolon" ? ";" : "\t";
+    csvwriter->charset := this->charset->value;
+    csvwriter->encode_excel_values := csvwriter->fieldseparator != "\t";
+    csvwriter->booleans_to_yesno := TRUE; //for legacy reasons...
+    csvwriter->timezone := this->tolliumuser->timezone;
+    csvwriter->languagecode := this->tolliumuser->language;
+    csvwriter->headerrow := this->headerrow;
+    RETURN [ writer := csvwriter
+           , extension := ".csv"
+           , mimetype := "application/ms-excel"
+           ];
+  }
+
+  RECORD FUNCTION SetupXLSXWriter()
+  {
+    OBJECT writer := NEW XLSXColumnFileWriter;
+    RETURN [ writer := writer
+           , extension := ".xlsx"
+           , mimetype := "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+           ];
+  }
+
+  /// @short RunModal wrapper for backwards compatibility
+  PUBLIC BOOLEAN FUNCTION RunDialog()
+  {
+    RETURN this->RunModal()="ok";
+  }
+>;

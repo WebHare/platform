@@ -1,0 +1,928 @@
+<?wh
+/// @short Record manipulation tests
+
+/*****************************************
+ * Does HareScript manipulate records the right way?
+ * Also: Does the record optimizer work correctly?
+ *****************************************/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+RECORD ARRAY errors;
+RECORD result;
+
+// CellProtected() cannot be tested without having records with protected cells.
+
+// Is there any way to iterate over a record's cells? Could be handy when
+// testing the setting of multiple cells.
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+OBJECTTYPE objtype< PUBLIC INTEGER b; PUBLIC RECORD c; MACRO NEW() { this->b := 2; this->c := [ d := 3 ]; } >;
+
+// STRING and PRINT() are assumed to be implemented,
+// i.e. PRINT(t) should output the value of STRING t.
+MACRO RecordInitializerTest()
+{
+  OpenTest("TestRecords: RecordInitializerTest");
+
+  RECORD a;
+  RECORD c;
+  INSERT CELL a:=1 INTO a;
+  INSERT CELL b:="f" INTO a;
+  INSERT CELL test:="ok" INTO c;
+  INSERT CELL nested:=c INTO a;
+
+  TestEqualRecord(1, c, [ test := "ok" ]);
+  TestEqualRecord(2, c, [ "test" := "ok" ]);
+  TestEqualRecord(3, a, [ a := 1, b := "f", nested := [ test := "ok" ]]);
+  TestEqualRecord(4, a, [ "a" := 1, "b" := "f", "nested" := [ "test" := "ok" ]]);
+
+  errors := TestCompile('<?wh RECORD a := [ a:= 1, a := 2 ]; ?>');
+  MustContainError(5, errors, 204, "A");
+
+  errors := TestCompile('<?wh RECORD a := [ ]; ?>');
+  MustContainError(6, errors, 73, "]");
+
+  TestEQ(CELL[], CELL[]);
+  TestEQ([ a := 1 ], CELL[ a := 1]);
+
+  INTEGER d := 1;
+  OBJECT x := NEW objtype;
+  TestEQ([ d := 1, b := 2 ], CELL[ d, b := 2 ]);
+  TestEQ([ b := "b" ], CELL[ "b" ]);
+  TestEQ([ a := 1 ], CELL[ a.a ]);
+  TestEQ([ a := 1 ], CELL[ ((a.a)) ]);
+  TestEQ([ test := "ok" ], CELL[ ((a.nested.test)) ]);
+  TestEQ([ b := 2 ], CELL[ x->b ]);
+  TestEQ([ d := 3 ], CELL[ x->c.d ]);
+
+  RECORD ARRAY ra := [ [ e := 1 ] ];
+  TestEQ([ [ a := [ e := 1 ] ] ], SELECT a := CELL[ COLUMN "e" ] FROM ra);
+
+  result := TestCompileAndRun('<?wh RECORD r := CELL[ 13 ];');
+  MustContainError(0, result.errors, 34);
+
+  result := TestCompileAndRun('<?wh INTEGER a,b; RECORD r := [ a := a, b ];');
+  MustContainError(0, result.errors, 199);
+
+  // expect ':=' after 'd'
+  result := TestCompileAndRun('<?wh INTEGER d := 1; RECORD r := CELL[ d + 1 ];');
+  MustContainError(0, result.errors, 199);
+
+  CloseTest("TestRecords: RecordInitializerTest");
+}
+
+MACRO InsertCellTest()
+{
+  OpenTest("TestRecord: InsertCellTest");
+
+  //do the basics work?
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL data := "Data1" INTO r; PRINT(r.data); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "Data1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL data := "Data1", data2 := 5 INTO r; PRINT(r.data || (r.data2+1));');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "Data16", result.output);
+
+  //protect against cell overwrites
+  result := TestCompileAndRun('<?wh RECORD r := [ data := "data" ]; INSERT CELL data := "Data1" INTO r; PRINT(r.data);');
+  MustContainError(5, result.errors, 204, "DATA");
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL "" := "Data1" INTO r; PRINT(r.""); ?>');
+  MustContainError(0, result.errors, 34);
+
+  result := TestCompileAndRun('<?wh RECORD r; r := CellInsert(r, "", "Data1") ; PRINT(GetCell(r,"")); ?>');
+  MustContainError(0, result.errors, 34);
+
+  CloseTest("TestRecord: InsertCellTest");
+}
+
+MACRO DeleteCellTest()
+{
+  OpenTest("TestRecord: DeleteCellTest");
+
+  RECORD a := [ b := 1 ];
+
+  TestEqual(1, TRUE, CellExists(a, "B"));
+  DELETE CELL b FROM a;
+  TestEqual(2, FALSE, CellExists(a, "B"));
+  TestEqual(3, TRUE, RecordExists(a));
+
+  a := DEFAULT RECORD;
+
+  DELETE CELL b FROM a;
+  TestEqual(4, FALSE, RecordExists(a));
+  TestEqual(5, FALSE, RecordExists(CellDelete(DEFAULT RECORD,"b")));
+
+  a := CELL[];
+
+  DELETE CELL b FROM a;
+  TestEqual(6, TRUE, RecordExists(a));
+  TestEqual(7, FALSE, RecordExists(CellDelete(DEFAULT RECORD,"b")));
+
+  a := [ b := 1, c := 2 ];
+  DELETE CELL b, c FROM a;
+  TestEqual(8, TRUE, RecordExists(a));
+  TestEqual(9, 0, Length(UnpackRecord(a)));
+
+  CloseTest("TestRecord: DeleteCellTest");
+}
+
+/*** CellExists [42] ***/
+MACRO CellExistsTest()
+{
+  OpenTest("TestRecords: CellExistsTest");
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; PRINT (CellExists(r, "a") ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "TRUE", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; PRINT (CellExists(r, "b") ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "FALSE", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; PRINT (CellExists(r, "a") ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "FALSE", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r := DEFAULT RECORD; PRINT (CellExists(r, "a") ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "FALSE", result.output);
+
+  errors := TestCompile('<?wh CellExists("a", "b"); ?>');
+  MustContainError(9, errors, 62, 'STRING', 'RECORD');
+
+  errors := TestCompile('<?wh RECORD r; CellExists(r, 1); ?>');
+  MustContainError(10, errors, 62, 'INTEGER', 'STRING');
+
+  CloseTest("TestRecords: CellExistsTest");
+}
+
+/*** CellProtected [42] ***/
+
+/*** GetCell [43] ***/
+MACRO GetCellTest()
+{
+  OpenTest("TestRecords: GetCellTest");
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; PRINT (GetCell(r, "a")||""); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; PRINT (GetCell(r, "b")||""); ?>');
+  MustContainError(3, result.errors, 92, 'B');
+
+  result := TestCompileAndRun('<?wh RECORD r := CELL[]; PRINT (GetCell(r, "a")||""); ?>');
+  MustContainError(4, result.errors, 92, 'A');
+
+  errors := TestCompile('<?wh GetCell("a", "b"); ?>');
+  MustContainError(5, errors, 62, 'STRING', 'RECORD');
+
+  errors := TestCompile('<?wh RECORD r; CellExists(r, 1); ?>');
+  MustContainError(6, errors, 62, 'INTEGER', 'STRING');
+
+  result := TestCompileAndRun('<?wh RECORD x; PRINT(x.name); ?>');
+  MustContainError(7, result.errors, 47, 'NAME');
+
+  result := TestCompileAndRun('<?wh RECORD x; PRINT(GetCell(x,"name")); ?>');
+  MustContainError(8, result.errors, 47, 'NAME');
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1,b:=2 INTO r; PRINT (r.a||r.b); ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "12", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1,a:=2 INTO r; PRINT (r.a||r.b); ?>');
+  MustContainError(11, result.errors, 204, 'A');
+
+  CloseTest("TestRecords: GetCellTest");
+}
+
+/*** MakeEmptyRecord [44] ***/
+MACRO MakeEmptyTest()
+{
+  OpenTest("TestRecords: MakeEmptyTest");
+
+  result := TestCompileAndRun('<?wh RECORD r := CELL[]; PRINT (RecordExists(r) ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "TRUE", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r := CELL[]; PRINT (Length(UnpackRecord(r))||""); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "0", result.output);
+
+  CloseTest("TestRecords: MakeEmptyTest");
+}
+
+/*** RecordExists [45] ***/
+MACRO RecordExistsTest()
+{
+  OpenTest("TestRecords: RecordExistsTest");
+
+  result := TestCompileAndRun('<?wh RECORD r := CELL[]; PRINT (RecordExists(r) ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "TRUE", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r := DEFAULT RECORD; PRINT (RecordExists(r) ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "FALSE", result.output);
+
+  CloseTest("TestRecords: RecordExistsTest");
+}
+
+/*** Cell assignment ***/
+MACRO CellAssignmentTest()
+{
+  OpenTest("TestRecords: CellAssignmentTest");
+
+  // Normal assignment - 1
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; ; r.a := 2; PRINT(r.a || ""); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "2", result.output);
+
+  // Normal assignment - 2
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:="b" INTO r; ; r.a := "c"; PRINT(r.a || ""); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "c", result.output);
+
+  // Normal assignment, casting from integer to money
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1.1 INTO r; ; r.a := 4; PRINT(FormatMoney(r.a, 1, ".", ",", false)); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "4.0", result.output);
+
+  // Normal assignment, casting from record array to record
+  result := TestCompileAndRun('<?wh RECORD r; RECORD ARRAY b; INSERT CELL a:=r INTO r; DELETE CELL a FROM r; INSERT CELL a:=b INTO r; PRINT(CellExists(r, "a") ? "1" : "0"); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "1", result.output);
+
+  // Inserting assignment
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; r.b := 1; PRINT(GetCell(r, "b")||""); ?>');
+  MustContainError(9, result.errors, 92, 'B');
+
+  // Type-changing assignment
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;r.a := "no"; PRINT(GetCell(r, "a")||""); ?>');
+  MustContainError(10, result.errors, 62, 'STRING', 'INTEGER');
+
+  // Assignment into non-existing record
+  result := TestCompileAndRun('<?wh RECORD r; r.a := 0; PRINT(""||r.a);?>');
+  MustContainError(11, result.errors, 47, 'A');
+
+  CloseTest("TestRecords: CellAssignmentTest");
+}
+
+/*** Record Optimizer ***/
+MACRO RecordOptimizerTest()
+{
+  OpenTest("TestRecords: RecordOptimizerTest");
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;PRINT(r.a || ""); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;PRINT(r.b); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;PRINT(r.a || "-" || r.b); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "1-1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; PRINT(ra.a || "-" || ra.b); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "1-1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; FOREVERY (RECORD t FROM ra) PRINT(t.a || "-" || t.b); ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "1-1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; FOREVERY (RECORD t FROM SELECT * FROM ra) PRINT(t.a || "-" || t.b); ?>');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "1-1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;PRINT(Length(UnpackRecord(r) ) || ""); ?>');
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "2", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; PRINT(Length(ra) || ""); ?>');
+  TestCleanResult(15, result.errors);
+  TestEqualString(16, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; PRINT(Length(SELECT * FROM ra) || ""); ?>');
+  TestCleanResult(17, result.errors);
+  TestEqualString(18, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; FOREVERY (RECORD t FROM SELECT b FROM ra) PRINT(t.b); ?>');
+  TestCleanResult(19, result.errors);
+  TestEqualString(20, "1", result.output);
+
+  result := TestCompileAndRun('<?wh PRINT(Length("Test") || ""); ?>');
+  TestCleanResult(23, result.errors);
+  TestEqualString(24, "4", result.output);
+
+  result := TestCompileAndRun('<?wh STRING s := "Test"; PRINT(Length(s) || ""); ?>');
+  TestCleanResult(25, result.errors);
+  TestEqualString(26, "4", result.output);
+
+  {
+    // not good enough link between expression sources and output
+    RECORD x;
+    INSERT CELL a := "a" INTO x;
+    RECORD ARRAY xs := [ x ];
+    RECORD fx := SELECT * FROM xs; // Didn't link subst record back to xs, so 'a' was optimized away
+    TestEQ("a", fx.a);
+  }
+  {
+    RECORD ARRAY test :=
+        [ [ a :=      ""
+          , b :=      ""
+          , c :=      ""
+          ]
+        ];
+
+    RECORD ARRAY ftest :=
+        SELECT a
+             , b
+             , c
+          FROM test;
+
+    UPDATE ftest
+       SET a := "1";
+
+    UPDATE ftest
+       SET b := "2"
+     WHERE b = "";
+
+    TestEQ("1", ftest[0].a);
+    TestEQ("2", ftest[0].b);
+    TestEQ("", ftest[0].c);
+  }
+  // Turning into a forevery discarded rest-stuff within conditional where
+  {
+    BOOLEAN is_false := FALSE;
+    TestEQ(0, LENGTH(SELECT FROM [[ a := 1 ]] WHERE is_false OR a NOT IN [ 1 ]));
+  }
+
+  CloseTest("TestRecords: RecordOptimizerTest");
+}
+
+//Test whether we can work around the normal compile-time type protectors by using data cells
+MACRO IncompleteTypeinfoTest()
+{
+  OpenTest("TestRecords: IncompleteTypeinfoTest");
+
+  result := TestCompileAndRun('<?wh RECORD x; INSERT CELL s:="1" INTO x; PRINT(x.s=1?"yes":"no");');
+  MustContainError(1, result.errors, 62, "STRING", "INTEGER");
+
+  //FIXME: Voeg testen toe om via records (zodat type informatie niet door de compiler gebruikt kan worden)
+  //       float en integers etc te vergelijken, zodat CompareHareScriptVariables met Ongelijke types getest wordt
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:=2 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
+  TestCleanResult(2, result.errors);
+  TestEqualString(3, "0", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=2 INTO r;INSERT CELL b:=1 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
+  TestCleanResult(4, result.errors);
+  TestEqualString(5, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=2 INTO r;INSERT CELL b:=1.0 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
+  TestCleanResult(6, result.errors);
+  TestEqualString(7, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; FLOAT f := 1; INSERT CELL a:=2 INTO r;INSERT CELL b:=f INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
+  TestCleanResult(8, result.errors);
+  TestEqualString(9, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=2.0 INTO r;INSERT CELL b:=1 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
+  TestCleanResult(10, result.errors);
+  TestEqualString(11, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=2.0 INTO r;INSERT CELL b:=1.0 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
+  TestCleanResult(12, result.errors);
+  TestEqualString(13, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; FLOAT f := 1; INSERT CELL a:=2.0 INTO r;INSERT CELL b:=f INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
+  TestCleanResult(14, result.errors);
+  TestEqualString(15, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; FLOAT f := 1; INSERT CELL a:=2*f INTO r;INSERT CELL b:=1 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
+  TestCleanResult(16, result.errors);
+  TestEqualString(17, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; FLOAT f := 1; INSERT CELL a:=2*f INTO r;INSERT CELL b:=1.0 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
+  TestCleanResult(18, result.errors);
+  TestEqualString(19, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; FLOAT f := 1; INSERT CELL a:=2*f INTO r;INSERT CELL b:=f INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
+  TestCleanResult(20, result.errors);
+  TestEqualString(21, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="a" INTO r;PRINT(r.a < r.b ? "1" : "0") ?>');
+  MustContainError(22, result.errors, 62, 'INTEGER', 'STRING');
+
+  //test whether merge properly detects non-strings
+  result := TestCompileAndRun('<?wh RECORD r := [ a := 1, b := true ]; PRINT(r.a || r.b);');
+  MustContainError(23, result.errors, 62, 'BOOLEAN', 'STRING');
+
+  result := TestCompileAndRun('<?wh RECORD r := [ a := 1, b := true ]; PRINT(r.b || r.a);');
+  MustContainError(24, result.errors, 62, 'BOOLEAN', 'STRING');
+
+  CloseTest("TestRecords: IncompleteTypeinfoTest");
+}
+
+MACRO DeepTest()
+{
+  /* Record optimizer also gets this (test 1 and 2) wrong */
+  OpenTest("TestRecords: DeepTest");
+
+  result := TestCompileAndRun('<?wh RECORD x; INSERT CELL abc:="ABC" INTO x; '
+                              || 'RECORD ARRAY y; INSERT x INTO y AT END; INSERT x INTO y AT END; INSERT x INTO y AT END; '
+                              || 'INSERT CELL y:=y INTO x; PRINT(x.y[2].abc); ');
+
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "ABC", result.output);
+
+  //Try INSERT INTO and DELETE in 'deep' arrays
+  result := TestCompileAndRun('<?wh RECORD x := [ z := DEFAULT RECORD ARRAY ];PRINT(">" || LENGTH(x.z));INSERT x INTO x.z AT END;PRINT(">" || LENGTH(x.z) || LENGTH(x.z[0].z));DELETE FROM x.z AT 0;PRINT (">" || LENGTH(x.z));');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, ">0>10>0", result.output);
+
+  errors := TestCompile('<?wh RECORD FUNCTION a() { RETURN [x:=1]; } a().x := 2; ?>');
+  MustContainError(5, errors, 108);
+
+  errors := TestCompile('<?wh INTEGER ARRAY FUNCTION a() { RETURN [0]; } a()[0] := 2; ?>');
+  MustContainError(6, errors, 108);
+
+  RECORD x := [ a := [ "x1" ], b := [ c := "x2" ], d := [ [ e := "x3", f := DEFAULT RECORD ARRAY ] ] ];
+  RECORD ARRAY xs := [ [ a := [ "x1" ], b := [ c := "x2" ], d := [ [ e := "x3", f := DEFAULT RECORD ARRAY ] ] ] ];
+
+  // Deep sets
+  x.a[0] := "x4";
+  x.b.c := "x5";
+  x.d[0].e := "x6";
+  TestEq([ a := [ "x4" ], b := [ c := "x5" ], d := [ [ e := "x6", f := DEFAULT RECORD ARRAY ] ] ], x);
+  xs[0].a[0] := "x4";
+  xs[0].b.c := "x5";
+  xs[0].d[0].e := "x6";
+  TestEq([ [ a := [ "x4" ], b := [ c := "x5" ], d := [ [ e := "x6", f := DEFAULT RECORD ARRAY ] ] ] ], xs);
+
+  // Deep appends
+  INSERT "x7" INTO x.a AT END;
+  INSERT [ g := "x8" ] INTO x.d[0].f AT END;
+  TestEq([ a := [ "x4", "x7" ], b := [ c := "x5" ], d := [ [ e := "x6", f := [ [ g := "x8" ] ] ] ] ], x);
+  INSERT "x7" INTO xs[0].a AT END;
+  INSERT [ g := "x8" ] INTO xs[0].d[0].f AT END;
+  TestEq([ [ a := [ "x4", "x7" ], b := [ c := "x5" ], d := [ [ e := "x6", f := [ [ g := "x8" ] ] ] ] ] ], xs);
+
+  // Deep inserts
+  INSERT "x9" INTO x.a AT 1;
+  INSERT [ h := "x10" ] INTO x.d[0].f AT 1;
+  TestEq([ a := [ "x4", "x9", "x7" ], b := [ c := "x5" ], d := [ [ e := "x6", f := [ [ g := "x8" ], [ h := "x10" ] ] ] ] ], x);
+  INSERT "x9" INTO xs[0].a AT 1;
+  INSERT [ h := "x10" ] INTO xs[0].d[0].f AT 1;
+  TestEq([ [ a := [ "x4", "x9", "x7" ], b := [ c := "x5" ], d := [ [ e := "x6", f := [ [ g := "x8" ], [ h := "x10" ] ] ] ] ] ], xs);
+
+  // Deep deletes
+  DELETE FROM x.a AT 1;
+  DELETE FROM x.d[0].f AT 1;
+  TestEq([ a := [ "x4", "x7" ], b := [ c := "x5" ], d := [ [ e := "x6", f := [ [ g := "x8" ] ] ] ] ], x);
+  DELETE FROM xs[0].a AT 1;
+  DELETE FROM xs[0].d[0].f AT 1;
+  TestEq([ [ a := [ "x4", "x7" ], b := [ c := "x5" ], d := [ [ e := "x6", f := [ [ g := "x8" ] ] ] ] ] ], xs);
+
+  CloseTest("TestRecords: DeepTest");
+}
+MACRO UnpackRepackTest()
+{
+  OpenTest("TestRecords: UnpackRepackTest");
+
+  RECORD a;
+  INTEGER b := 6;
+  STRING c := "ohoh";
+  INTEGER ARRAY bb := [5];
+  RECORD d;
+  INSERT CELL test := b INTO d;
+  INSERT CELL str := c INTO d;
+  INSERT CELL rec := a INTO d;
+  INSERT CELL zz := bb INTO d;
+
+  RECORD ARRAY unpacked := SELECT * FROM UnpackRecord(d) ORDER BY name;
+  TestEq([
+        [name := "REC", value := a],
+        [name := "STR", value := c],
+        [name := "TEST", value := b],
+        [name := "ZZ", value := bb]], unpacked);
+
+  //both default and empty record unpack to empty
+  TestEq(DEFAULT RECORD ARRAY, UnpackRecord(DEFAULT RECORD));
+  TestEq(DEFAULT RECORD ARRAY, UnpackRecord(CELL[]));
+
+  //but an empty array always repacks to empty
+  TestEq(DEFAULT RECORD, RepackRecord(DEFAULT RECORD ARRAY));
+  TestEq([x := 42], RepackRecord([[name := "x", value := 42]]));
+  TestEq([x := 42, y:=43], RepackRecord([[name := "x", value := 42],[name:="y",value:=43]]));
+  TestEq([x := 42, y:=43], RepackRecord(UnpackRecord([x:=42,y:=43])));
+  TestThrows(PTR RepackRecord([[name := "x", value := 42],[name := "x", value := 42]]));
+
+
+  CloseTest("TestRecords: UnpackRepackTest");
+}
+
+MACRO MergeTest()
+{
+  Opentest("TestRecords: Mergetest");
+
+  RECORD in1 := [ a := 1, subrec := [ b := 1, c := 1] ];
+  RECORD in2 := [ b := 2, subrec := [ c := 2 ] ];
+
+  TestEq([ a := 1, subrec := [ b := 1, c := 2 ] ], MakeUpdatedRecord(in1,in2));
+  TestEq([ a := 1, subrec := [ c := 2 ] ], MakeReplacedRecord(in1,in2));
+
+  TestEq(in1, MakeUpdatedRecord(in1,DEFAULT RECORD));
+  TestEq(in1, MakeReplacedRecord(in1,DEFAULT RECORD));
+
+  TestEq(DEFAULT RECORD, MakeUpdatedRecord(DEFAULT RECORD, in1));
+  TestEq(DEFAULT RECORD, MakeReplacedRecord(DEFAULT RECORD, in1));
+
+  TestEq([ b := 2, subrec := [ c := 1 ] ], MakeUpdatedRecord(in2,in1));
+  TestEq([ b := 2, subrec := [ b := 1, c := 1 ] ], MakeReplacedRecord(in2,in1));
+
+  TestEq(in1, MakeUpdatedRecord(in1,in1));
+  TestEq(in1, MakeReplacedRecord(in1,in1));
+
+  TestEq(in2, MakeUpdatedRecord(in2,in2));
+  TestEq(in2, MakeReplacedRecord(in2,in2));
+
+  TestEq([ a := 1, subrec := [ b := 1, c := 2 ] ], MakeUpdatedRecord(in1,CellInsert(in2, 'd', 3)));
+  TestEq([ a := 1, subrec := [ c := 2 ] ], MakeReplacedRecord(in1,CellInsert(in2, 'd', 3)));
+
+  TestEq([ a := 1, subrec := [ b := 1, c := 2 ], d:= 3 ], MakeUpdatedRecord(CellInsert(in1, 'd', 3),in2));
+  TestEq([ a := 1, subrec := [ c := 2 ], d:= 3 ], MakeReplacedRecord(CellInsert(in1, 'd', 3),in2));
+
+  TestEq([ a := 1 ], MakeUpdatedRecord([a:=1],[a:=TRUE]));
+  TestEq([ a := 1 ], MakeReplacedRecord([a:=1],[a:=TRUE]));
+
+  TestEq([ a := 1, b := 2, subrec := [ c := 2 ] ], MakeOverwrittenRecord(in1,in2));
+
+  TestEQ([ a := 1, b := 2i64, c := 3i64, d := 4m, e := 5m, f := 6f, g := 7f, h := 8f, i := 9f ], MakeOverwrittenRecord(
+            [ a := 0, b := 0i64, c := 0i64, d := 0m, e := 0m, f := 0f, g := 0f, h := 0f, i := 0f ],
+            [ a := 1, b := 2, c := 3i64, d := 4, e := 5m, f := 6, g := 7i64, h := 8m, i := 9f ]));
+
+  CloseTest("TestRecords: Mergetest");
+}
+
+
+
+INTEGER seq;
+
+INTEGER FUNCTION GetSeq()
+{
+  seq:=seq+1;
+  RETURN seq;
+}
+
+MACRO RegressionTest()
+{
+  OpenTest("TestRecords: RegressionTest");
+
+  /* Bug @15-1-2005:
+     record array test := [ [id:=1] ];
+     update test set id_x := 2;
+     does not trigger an error - should report column doesn't exist (there is no id_x column) */
+
+  result := TestCompileAndRun('<?wh record array test := [ [id:=1] ]; update test set id_x := 2; print(""||length(test)); ');
+  MustContainError(1, result.errors, 92, 'ID_X');
+
+  //Ensure sequence points
+  TestEqual(2, [ bla := 4, cell1 := 1, cell2 := 3, cell3 := 2 ]
+             , [ cell1 := GetSeq(), cell3 := GetSeq(), cell2 := GetSeq(), bla := GetSeq() ]);
+
+  result := TestCompileAndRun('<?wh record test := [ x:=1 ]; test:=cellinsert(test,"x",2); print(test.x || "\\n");');
+  MustContainError(3, result.errors, 204, 'X');
+
+  CloseTest("TestRecords: RegressionTest");
+}
+
+MACRO MissingCellTest()
+{
+  OpenTest("TestRecords: MissingCellTest");
+
+  result := TestCompileAndRun('<?wh RECORD x := [ aaa := 1, bbb := 2, ccc := 3 ]; PRINT(x.aax); PRINT(AnyToString(x, "tree")); ');
+  MustContainError(1, result.errors, 86, 'AAX', 'AAA');
+
+  result := TestCompileAndRun('<?wh RECORD x := [ aaa := 1, bbb := 2, ccc := 3 ]; PRINT(x.bbx); PRINT(AnyToString(x, "tree")); ');
+  MustContainError(2, result.errors, 86, 'BBX', 'BBB');
+
+  result := TestCompileAndRun('<?wh RECORD x := [ aaa := 1, bbb := 2, ccc := 3 ]; PRINT(x.ccx); PRINT(AnyToString(x, "tree")); ');
+  MustContainError(3, result.errors, 86, 'CCX', 'CCC');
+
+  result := TestCompileAndRun('<?wh RECORD x := [ aaa := 1, bbb := 2, ccc := 3 ]; PRINT(x.ddx); PRINT(AnyToString(x, "tree")); ');
+  MustContainError(4, result.errors, 92, 'DDX');
+
+  CloseTest("TestRecords: MissingCellTest");
+}
+
+MACRO ValidateOptionsTest()
+{
+  OBJECT exc;
+  TestEq([a := 42], ValidateOptions([ a := 42 ], DEFAULT RECORD));
+  TestEq([a := 42], ValidateOptions([ a := 42 ], DEFAULT RECORD));
+  TestEq([a := 43], ValidateOptions([ a := 42 ], [ a := 43 ]));
+  TestEq([a := 43, nothingtopass := DEFAULT RECORD ], ValidateOptions([ a := 42 ], [ a := 43 ], [ passthroughin := "NOTHINGTOPASS" ]));
+
+  exc := TestThrowsLike("Unexpected*BCELL*", PTR ValidateOptions([ a := 42], [ BCELL := 43 ]));
+  TestEq(TRUE, exc EXTENDSFROM InvalidOptionException, "Exception must be an InvalidOptionException");
+  TestEq("BCELL", exc->option, "'BCELL' should be to blame");
+  TestEq([ a :=  42 ], ValidateOptions([ a := 42], [ BCELL := 43 ], [ discard := ["BCELL"]]));
+  TestThrowsLike("Unexpected*BCELL*", PTR ValidateOptions([ a := 42], [ BCELL := 43 ], [ passthrough := FALSE ]));
+  TestThrowsLike("Unexpected*BCELL*mean*ACELL*?", PTR ValidateOptions([ acell := 42], [ BCELL := 43 ], [ passthrough := FALSE ]));
+  TestEq([ a := 42, bcell := 43], ValidateOptions([ a := 42], [ BCELL := 43 ], [ passthrough := TRUE ]));
+  //its okay to mix passthrough := TRUE with an empty passthroughin paramater
+  TestEq([ a := 42, bcell := 43], ValidateOptions([ a := 42], [ BCELL := 43 ], [ passthrough := TRUE, passthroughin := "" ]));
+  TestEq([ a := 42, therest := [ BCELL := 43 ]], ValidateOptions([ a := 42], [ BCELL := 43 ], [ passthroughin := "therest" ]));
+  TestEq([ a := 42, therest := [ BCELL := 43 ]], ValidateOptions([ a := 42], [ BCELL := 43 ], [ passthrough := FALSE, passthroughin := "therest" ]));
+  //but you can't set both passthrough and passthroughin
+  exc := TestThrowsLike("Cannot set both passthrough AND *", PTR ValidateOptions([ a := 42], [ BCELL := 43 ], [ passthrough := TRUE, passthroughin := "therest" ]));
+  TestEq(FALSE, exc EXTENDSFROM InvalidOptionException, "Syntax errors in the defaultoptions should not trigger an InvalidOptionException");
+
+  TestThrows(PTR ValidateOptions([ a := 42], [ a := "ABC" ]));
+  TestThrowsLike("*meta option*", PTR ValidateOptions([ a := 42], DEFAULT RECORD, [ nosuchmeta := 42 ]));
+  TestThrows(PTR ValidateOptions([ a := 42], DEFAULT RECORD, [ required := ["a"] ]));
+  TestThrowsLike("Missing required*BCELL*use*ACELL*?", PTR ValidateOptions([ bcell := 42 ], [ acell := 1 ], [ required := ["bcell"], passthroughin := "pt" ]));
+
+  // Casting:
+  TestEq([ a := 42m ], ValidateOptions([ a := 42m ], [ a := 42 ]));
+  TestEq([ a := 42m ], ValidateOptions([ a := 42m ], [ a := 42 ], [ optional := ["a"] ]), "optional should not allow evasion of typecasts");
+  TestThrows(PTR ValidateOptions([ a := DEFAULT RECORD ], [ a := DEFAULT RECORD ARRAY ]));
+
+  //optional
+  TestEq(CELL[], ValidateOptions([ a := 42 ], DEFAULT RECORD, [ optional :=["a"]]));
+  TestEq(CELL[], ValidateOptions([ a := 42 ], CELL[], [ optional :=["a"]]));
+  TestEq([b := 44], ValidateOptions([ a := 42, b := 43 ], [ b := 44 ], [ optional := ["a"]]));
+  TestEq([a := 41, b := 43], ValidateOptions([ a := 42, b := 43 ], [ a := 41], [ optional := ["a"]]));
+
+  //optional '*'
+  TestEq([a := 41 ], ValidateOptions([ a := 42, b := 43 ], [ a := 41], [ optional := ["*"]]));
+  TestEq(CELL[], ValidateOptions([ a := 42, b := 43 ], DEFAULT RECORD, [ optional := ["*"]]));
+  TestEq(CELL[], ValidateOptions([ a := 42, b := 43 ], CELL[], [ optional := ["*"]]));
+
+  //notypecheck
+  TestEq([a := "a" ], ValidateOptions([ a := 42 ], [ a := "a"], [ notypecheck := [ "a" ]]));
+  TestEq([a := "a", b := 43 ], ValidateOptions([ a := 42, b := 43 ], [ a := "a" ], [ notypecheck := [ "b", "a" ]]));
+  TestEq([a := 42, b := 43 ], ValidateOptions([ a := 42, b := 43 ], DEFAULT RECORD, [ notypecheck := [ "b", "a" ]]));
+  TestEq([a := 42, b := 43 ], ValidateOptions([ a := 42, b := 43 ], [ a := 42 ], [ notypecheck := [ "b", "a" ]]));
+
+  TestEq(CELL[], ValidateOptions( [ fallback := "" ], DEFAULT RECORD, [ optional := ["fallback"], notypecheck := ["fallback" ]]));
+
+  TestThrows(PTR ValidateOptions( [ a := "1" ], DEFAULT RECORD, [ enums := [ a := "2" ] ])); // enum values not string array
+  TestThrows(PTR ValidateOptions( [ a := "1" ], DEFAULT RECORD, [ enums := [ a := [ "2", "3" ] ] ])); // default value not allowed
+  TestThrows(PTR ValidateOptions( [ a := "" ], DEFAULT RECORD, [ enums := [ a := [ "1", "3" ] ] ])); // empty value as default is allowed, but a value must be passed then
+  TestThrows(PTR ValidateOptions( [ a := "1" ], DEFAULT RECORD, [ enums := [ c := [ "1", "2" ] ] ])); // no such option 'c'
+  TestThrows(PTR ValidateOptions( [ a := 1 ], DEFAULT RECORD, [ enums := [ a := [ "1", "3" ] ] ])); // default not a string
+  TestThrows(PTR ValidateOptions( [ a := "1" ], [ a := "2" ], [ enums := [ a := [ "1", "3" ] ] ])); // not allowed value
+  TestEQ([ a := "1" ], ValidateOptions( [ a := "1" ], DEFAULT RECORD, [ enums := [ a := [ "1", "2", "3" ] ] ]));
+  TestEQ([ a := "2" ], ValidateOptions( [ a := "1" ], [ a := "2" ], [ enums := [ a := [ "1", "2", "3" ] ] ]));
+  TestEQ([ a := "2" ], ValidateOptions( [ a := "" ], [ a := "2"], [ enums := [ a := [ "1", "2", "3" ] ] ])); // empty value is allowed as default
+}
+
+MACRO EnforceStructureTest()
+{
+  //test the infamous json nulls
+  TestEq("", EnforceStructure("", DEFAULT RECORD));
+  TestEq(0, EnforceStructure(0, DEFAULT RECORD));
+
+  //we only enforce structure so actual values are ignored:
+  TestEq("", EnforceStructure("XX", DEFAULT RECORD));
+
+  TestEq([ x := 42 ], EnforceStructure([ x := 0 ], [ x := 42 ]));
+  TestEq([ x := 42 ], EnforceStructure([ x := 0 ], [[ x := 42 ]]));
+  TestEq([ x := 42 ], EnforceStructure([ x := 0 ], [ x := "42" ]));
+  TestEq([ x := 0 ], EnforceStructure([ x := 0 ], CELL[]));
+  TestEq([ x := 0 ], EnforceStructure([ x := 0 ], DEFAULT RECORD));
+  TestEq([ x := 0 ], EnforceStructure([ x := 0 ], 1));
+
+  TestEq([ x := 42, y := 18 ], EnforceStructure([ x := 0 ], [ x := "42", y := 18 ]));
+  TestEq([ x := 0, y := 18 ], EnforceStructure([ x := 0 ], [ y :=18 ]));
+
+  TestEq([[ x := 42 ]], EnforceStructure([[ x := 0 ]], [[ x := 42 ]]));
+  TestEq([[ x := 42 ], [ x := 43 ]], EnforceStructure([[ x := 0 ]], [[ x := 42 ], [ x := 43 ]]));
+  TestEq([[ x := 0 ], [ x := 43 ]], EnforceStructure([[ x := 0 ]], [DEFAULT RECORD, [ x := 43 ]]));
+  TestEq([[ x := 0 ], [ x := 43 ]], EnforceStructure([[ x := 0 ], [ y := 0 ]], [DEFAULT RECORD, [ x := 43 ]]), "second element of a structure array must be ignored");
+  TestEq(RECORD[], EnforceStructure(RECORD[], VARIANT[]), "Variant arrays must become arrays of their own type");
+  TestEq(RECORD[], EnforceStructure([[ x := 0 ]], VARIANT[]), "Variant arrays must become arrays of their own type");
+  TestEq(RECORD[], EnforceStructure(RECORD[], DEFAULT RECORD), "And of course, null should be properly handled");
+
+  TestEq([[ x := 42 ]], EnforceStructure(RECORD[], RECORD[[ x := 42 ]]));
+  TestEq([[ x := 42 ]], EnforceStructure(RECORD[], VARIANT[[ x := 42 ]]));
+
+  TestEq([[ x := MakeDate(2012,5,2) ]], EnforceStructure(RECORD[[ x := DEFAULT DATETIME ]], VARIANT[[ x := "2012-05-02" ]]));
+
+  //Test coercion of wide number types
+  //float -> all 3:
+  TestEq([ _integer64 := 123456789012345i64, _float :=123456789012345f, _money := 1234567890.12345m ]
+         , EnforceStructure([ _integer64 := 0i64, _float := 0f, _money := 0m ], [ _integer64 := 123456789012345f, _float := 123456789012345f, _money := 1234567890.12345f ]));
+  //money -> all 3:
+  TestEq([ _integer64 := 123456789012345i64, _float :=123456789012345f, _money := 1234567890.12345m ]
+         , EnforceStructure([ _integer64 := 0i64, _float := 0f, _money := 0m ], [ _integer64 := 123456789012345.0, _float := 123456789012345.0, _money := 1234567890.12345 ]));
+
+  //ABORT(123456789012345i64);
+
+  //integer64 -> all 3:
+  TestEq([ _integer64 := 123456789012345i64, _float :=123456789012345f, _money := 1234567890123m ]
+         , EnforceStructure([ _integer64 := 0i64, _float := 0f, _money := 0m ], [ _integer64 := 123456789012345i64, _float := 123456789012345i64, _money := 1234567890123i64 ]));
+
+  //integer64/float/money -> integer
+  TestEq([ _int := 0 ], EnforceStructure([ _int := 0 ], [ _int := 0i64 ]));
+  TestEq([ _int := 0 ], EnforceStructure([ _int := 0 ], [ _int := 0m ]));
+  TestEq([ _int := 1 ], EnforceStructure([ _int := 0 ], [ _int := 1.49999m ]));
+  TestEq([ _int := 2 ], EnforceStructure([ _int := 0 ], [ _int := 1.5m ]));
+  TestEq([ _int := 0 ], EnforceStructure([ _int := 0 ], [ _int := 0f ]));
+  TestEq([ _int := 2 ], EnforceStructure([ _int := 0 ], [ _int := 1.5f ]));
+
+  //integer/float/money -> integer64
+  TestEq([ _int64 := 0i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 0 ]));
+  TestEq([ _int64 := 0i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 0m ]));
+  TestEq([ _int64 := 1i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 1.49999m ]));
+  TestEq([ _int64 := 2i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 1.5m ]));
+  TestEq([ _int64 := 0i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 0f ]));
+  TestEq([ _int64 := 2i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 1.5f ]));
+
+  // integer/integer64/money -> float
+  TestEq([ _float := 0f ], EnforceStructure([ _float := 0f ], [ _float := 0 ]));
+  TestEq([ _float := 0f ], EnforceStructure([ _float := 0f ], [ _float := 0i64 ]));
+  TestEq([ _float := 0f ], EnforceStructure([ _float := 0f ], [ _float := 0m ])); // FAILS
+  TestEq([ _float := 0f ], EnforceStructure([ _float := 0f ], [ _float := 0m ])); // FAILS
+  TestEq([ _float := 1.5f ], EnforceStructure([ _float := 0f ], [ _float := 1.5f ]));
+
+  // integer/integer64/float -> money
+  TestEq([ _money := 0m ], EnforceStructure([ _money := 0m ], [ _money := 0 ]));
+  TestEq([ _money := 0m ], EnforceStructure([ _money := 0m ], [ _money := 0i64 ]));
+  TestEq([ _money := 1m ], EnforceStructure([ _money := 0m ], [ _money := 1f ]));
+  TestEq([ _money := 1.5m ], EnforceStructure([ _money := 0m ], [ _money := 1.5f ]));
+  TestEq([ _money := 0.00000m ], EnforceStructure([ _money := 0m ], [ _money := 0.0000049f ]));
+  TestEq([ _money := 0.00001m ], EnforceStructure([ _money := 0m ], [ _money := 0.0000051f ]));
+
+  //test overflows
+  TestEq([ _int := 123 ], EnforceStructure([ _int := 0 ], [ _int := 123i64 ]));
+  TestEq([ _int := 123 ], EnforceStructure([ _int := 0 ], [ _int := 123f ]));
+  TestEq([ _int := 123 ], EnforceStructure([ _int := 0 ], [ _int := 123.001f ]));
+  TestEq([ _int := 123 ], EnforceStructure([ _int := 0 ], [ _int := 123.001m ]));
+  TestEq([ _int := 124 ], EnforceStructure([ _int := 0 ], [ _int := 123.99f ]));
+  TestEq([ _int := 124 ], EnforceStructure([ _int := 0 ], [ _int := 123.99m ]));
+  TestThrowsLike("*out of range*", PTR EnforceStructure([ _int := 0 ], [ _int := 123456789012345i64 ]));
+  TestThrowsLike("*out of range*", PTR EnforceStructure([ _int := 0 ], [ _int := 123456789012345f ]));
+  TestThrowsLike("*out of range*", PTR EnforceStructure([ _int := 0 ], [ _int := 1234567890123m ]));
+  TestThrowsLike("*out of range*", PTR EnforceStructure([ _int := 0 ], [ _int := 1234567890123m ]));
+  TestThrowsLike("*out of range*", PTR EnforceStructure([ _int64 := 0 ], [ _int64 := 10000000000000000000f ]));
+  TestThrowsLike("*out of range*", PTR EnforceStructure([ _money := 0 ], [ _money := 92233720368548i64 ]));
+  TestThrowsLike("*out of range*", PTR EnforceStructure([ _money := 0 ], [ _money := 92233720368548f ]));
+
+  TestEQ([ _int := 42 ], EnforceStructure([ _int := 0 ], [ _int := 123456789012345i64 ], [ outofboundsvalue := 42 ]));
+  TestEQ([ _int := 42 ], EnforceStructure([ _int := 0 ], [ _int := 123456789012345f ], [ outofboundsvalue := 42 ]));
+  TestEQ([ _int := 42 ], EnforceStructure([ _int := 0 ], [ _int := 1234567890123m ], [ outofboundsvalue := 42 ]));
+  TestEQ([ _int := 42 ], EnforceStructure([ _int := 0 ], [ _int := 1234567890123m ], [ outofboundsvalue := 42 ]));
+  TestEQ([ _int64 := 42i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 10000000000000000000f ], [ outofboundsvalue := 42 ]));
+  TestEQ([ _money := 42m ], EnforceStructure([ _money := 0m ], [ _money := 92233720368548i64 ], [ outofboundsvalue := 42 ]));
+  TestEQ([ _money := 42m ], EnforceStructure([ _money := 0m ], [ _money := 92233720368548f ], [ outofboundsvalue := 42 ]));
+
+  // Arrays (with normal conversions)
+  TestEQ([ _ia := [ 1, 2, 3, 4 ] ], EnforceStructure([ _ia := INTEGER[] ], [ _ia := VARIANT[ 1, 1.5m, 2.9f, 4i64 ] ]));
+  TestEQ([ _ia := [ 1, 2, 3, 4 ] ], EnforceStructure([ _ia := INTEGER[] ], [ _ia := INTEGER[ 1, 2, 3, 4 ] ]));
+  TestEQ([ _sa := [ "1", "2" ] ], EnforceStructure([ _sa := STRING[] ], [ _sa := VARIANT[ "1", 2 ] ]));
+  TestEQ([ _sa := [ "1", "2" ] ], EnforceStructure([ _sa := STRING[] ], [ _sa := STRING[ "1", "2" ] ]));
+
+  // Sub records explicitly specified should expand
+  TestEq([ rec := [ a := "" ]], EnforceStructure([ rec := [ a := "" ]], DEFAULT RECORD));
+  TestEq([ rec := [ a := "" ]], EnforceStructure([ rec := [ a := "" ]], CELL[]));
+  TestEq([ rec := [ a := "" ]], EnforceStructure([ rec := [ a := "" ]], [ rec := DEFAULT RECORD ]));
+  TestEq([ rec := [ a := "" ]], EnforceStructure([ rec := [ a := "" ]], [ rec := CELL[] ]));
+
+  //But not if it was unspecified as record
+  TestEq([ rec := DEFAULT RECORD ], EnforceStructure([ rec := DEFAULT RECORD ], DEFAULT RECORD));
+  TestEq([ rec := DEFAULT RECORD ], EnforceStructure([ rec := DEFAULT RECORD ], CELL[]));
+  TestEq([ rec := DEFAULT RECORD ], EnforceStructure([ rec := DEFAULT RECORD ], [ rec := DEFAULT RECORD ]));
+  TestEq([ rec := CELL[] ],         EnforceStructure([ rec := DEFAULT RECORD ], [ rec := CELL[] ]));
+
+  //Some consistency tests to find (possible) optimization errors
+  TestEq([ x := 42 ], EnforceStructure([ x := 0 ], RECORD[[ x := 42 ]]));
+  TestEq([ x := 42 ], EnforceStructure(CELL[], RECORD[[ x := 42 ]]));
+  TestEq([ x := 42 ], EnforceStructure(DEFAULT RECORD, RECORD[[ x := 42 ]]));
+  TestEq(DEFAULT RECORD, EnforceStructure(DEFAULT RECORD, RECORD[]));
+
+  TestEq([ clientids := [[ x := 42 ], [ x := 0 ], [ x := 0] ] ]
+        , EnforceStructure([ clientids := [[ x := 0 ]]],
+                           [ clientids := RECORD[[ x := 42 ], CELL[], DEFAULT RECORD ] ] ));
+
+  //Run through the type matrix to ensure no combination crashes
+  INTEGER ARRAY valuetypes := [ TYPEID(BOOLEAN), TYPEID(STRING), TYPEID(INTEGER), TYPEID(INTEGER64)
+                              , TYPEID(MONEY), TYPEID(FLOAT), TYPEID(DATETIME), TYPEID(RECORD)
+                              , TYPEID(BLOB)
+
+                              , TYPEID(BOOLEAN ARRAY), TYPEID(STRING ARRAY), TYPEID(INTEGER ARRAY), TYPEID(INTEGER64 ARRAY)
+                              , TYPEID(MONEY ARRAY), TYPEID(FLOAT ARRAY), TYPEID(DATETIME ARRAY), TYPEID(RECORD ARRAY)
+                              , TYPEID(BLOB ARRAY)
+                              ];
+
+  FOREVERY(INTEGER outtype FROM valuetypes)
+    FOREVERY(INTEGER intype FROM valuetypes)
+    {
+      //print(GetTypeName(intype) || ' => ' || GetTypeName(outtype) || '\n');
+      TestEq(GetTypeName(outtype),
+             GetTypeName(typeid(EnforceStructure(GetTypeDefaultValue(outtype), GetTypeDefaultValue(intype)))));
+    }
+
+  // If removeunexpected, remove all cells not mentioned in the expected structure
+  TestEq([ a := 0, x := 42 ], EnforceStructure([ x := 0 ], [ a := 0, x := 42 ]));
+  TestEq([ x := 42 ], EnforceStructure([ x := 0 ], [ a := 0, x := 42 ], [ removeunexpected := TRUE ]));
+  TestEq([ x := 42
+         , b := [ c := 1 ]
+         , e := [ [ g := 0 ], [ g := 2 ] ]
+         ], EnforceStructure(
+                [ x := 0
+                , b := [ c := 0 ]
+                , e := [ [ g := 0 ] ]
+                ],
+                [ a := 0
+                , x := 42
+                , b := [ c := 1, d := 2 ]
+                , e := [ [ f := 1 ], [ g := 2 ] ]
+                ], [ removeunexpected := TRUE ]));
+}
+
+MACRO SpreadTest()
+{
+  RECORD x1 := [ b := 3 ], x2 := [ d := 5 ];
+  STRING c := "1";
+
+  TestEQ([ a := 1, b := 3 ], [ a := 1, ...x1 ]);
+  TestEQ([ b := 3, c := "3" ], [ b := "1", ...x1, c := "3" ]);
+  TestEQ([ b := 4.4 ], [ b := "1", ...x1, b := 4.4 ]);
+  TestEQ([ b := 4.4 ], [ b := c, ...x1, b := 4.4 ]);
+  TestEQ([ a := 1, b := 4.4 ], [ a := 1, b := c, ...x1, b := 4.4 ]);
+  TestEQ([ b := 3 ], CELL[ ...x1 ]);
+  TestEQ([ b := 3, d := 5 ], CELL[ ...x1, ...x2 ]);
+  TestEQ([ a := 1, b := 3, d := "1" ], [ a := 1, d := c, ...x1 ]);
+  TestEQ([ c := 1 ], CELL[ ...[ c := 1 ] ]);
+  TestEQ([ a := 1, c := 1 ], CELL[ a := 1, ...[ c := 1 ] ]);
+  TestEQ([ c := "1", d := 1 ], CELL[ c := c, ...[ d := 1 ] ]);
+  TestEQ([ a := 1, c := "1", d := 1, e := 1 ], CELL[ a := 1, c := c, ...[ d := 1 ], e := 1 ]);
+  TestEQ([ a := 1, c := "1", d := 2, e := 1 ], CELL[ a := 1, c := c, ...[ d := 1 ], ...[ d := 2 ], e := 1 ]);
+  TestEQ([ a := 1, c := "1", d := 5, e := 1 ], CELL[ a := 1, c := c, ...[ d := 1 ], ...x2, e := 1 ]);
+  TestEQ(CELL[], CELL[ ...DEFAULT RECORD ]);
+  TestEQ(CELL[], CELL[ ...CELL[] ]);
+  TestEQ(CELL[], CELL[ ...DEFAULT RECORD, ...DEFAULT RECORD ]);
+  TestEQ(CELL[], CELL[ ...DEFAULT RECORD, ...CELL[] ]);
+  TestEQ(CELL[], CELL[ ...CELL[], ...CELL[] ]);
+
+  TestEQ(CELL[], [ a := 1, DELETE a ]);
+  TestEQ([ a := 1 ], [ a := 1, ...[v := 2], DELETE v ]);
+  TestEQ([ a := 1, b := 3 ], [ a := 1, ...x1, DELETE v ]); // delete of column we can't verify is ok
+  TestEQ([ a := 1 ], [ a := 1, ...x2, DELETE d ]);
+  TestEQ(CELL[], CELL[ ...x2, DELETE d ]);
+  TestEQ(CELL[], CELL[ "c", DELETE c ]);
+
+  result := TestCompileAndRun('<?wh RECORD r := CELL[ a := 1, DELETE b ];'); // don't delete a column that certainly doesn't exist, though
+  MustContainError(0, result.errors, 92, "B");
+}
+
+MACRO CellUpdateTest()
+{
+  // normal updates and casts
+  TestEQ([ x := 1 ], CellUpdate([ x := 0 ], "x", 1));
+  TestEQ([ x := 1i64 ], CellUpdate([ x := 0i64 ], "x", 1));
+  TestEQ([ x := 1i64 ], CellUpdate([ x := 0i64 ], "x", 1i64));
+  TestEQ([ x := 1m ], CellUpdate([ x := 0m ], "x", 1));
+  TestEQ([ x := 1m ], CellUpdate([ x := 0m ], "x", 1m));
+  TestEQ([ x := 1f ], CellUpdate([ x := 0f ], "x", 1));
+  TestEQ([ x := 1f ], CellUpdate([ x := 0f ], "x", 1i64));
+  TestEQ([ x := 1f ], CellUpdate([ x := 0f ], "x", 1m));
+  TestEQ([ x := 1f ], CellUpdate([ x := 0f ], "x", 1f));
+  TestEQ([ x := [ a := 1 ] ], CellUpdate([ x := DEFAULT RECORD ], "x", [ [ a := 1 ] ]));
+
+  result := TestCompileAndRun('<?wh DumpValue(CellUpdate([ x := 0 ], "x", "")); ');
+  MustContainError(4, result.errors, 62, "STRING", "INTEGER");
+  result := TestCompileAndRun('<?wh DumpValue(CellUpdate([ x := 0m ], "x", 1i64)); ');
+  MustContainError(4, result.errors, 62, "INTEGER64", "MONEY");
+}
+
+PRINT("\n === Running TestRecords\n");
+UnpackRepackTest();
+RecordInitializerTest();
+IncompleteTypeinfoTest();
+CellAssignmentTest();
+CellExistsTest();
+GetCellTest();
+MakeEmptyTest();
+RecordExistsTest();
+RecordOptimizerTest();
+DeepTest();
+InsertCellTest();
+DeleteCellTest();
+RegressionTest();
+MergeTest();
+MissingCellTest();
+ValidateOptionsTest();
+EnforceStructureTest();
+SpreadTest();
+CellUpdateTest();

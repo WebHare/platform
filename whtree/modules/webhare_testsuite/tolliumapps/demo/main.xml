@@ -1,0 +1,76 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         lib="mod::webhare_testsuite/tolliumapps/demo/main.whlib"
+         gid="tolliumapps.demo"
+         >
+
+  <messageboxes>
+    <messagebox name="cannotloadscreen" icon="error" buttons="ok" title="Cannot load the screen" />
+  </messageboxes>
+
+  <screen name="main" menubar="menubar" allowresize="true">
+    <actions>
+      <action name="close" onexecute="cancel" title="Close" />
+      <action name="openitem" onexecute="doopenitem" />
+    </actions>
+
+    <menus>
+      <menu name="menubar">
+        <item tid=".file">
+          <!-- ADDME: open selected test in Sublime -->
+          <item action="close" />
+        </item>
+      </menu>
+    </menus>
+
+    <body>
+      <!--
+      <select name="displaymethod" type="pulldown" >
+        <option rowkey="modaldialog" />
+        <option rowkey="panel" />
+        <option rowkey="apptab" />
+        <option rowkey="browsertab" />
+      </select>
+      -->
+
+      <text name="quicklinkurl"
+            selectable="true"
+            />
+
+      <split type="horizontal">
+        <part minwidth="25x">
+          <list name="type"
+                selectmode="single"
+                borders="top left bottom"
+                onselect="dorefreshdemolist"
+                >
+            <column name="title" type="text" />
+          </list>
+        </part>
+        <part minwidth="70x"
+              spacers="right"
+              >
+
+          <list name="list"
+                selectmode="single"
+                openaction="openitem"
+                onselect="doshowtesturl"
+                sortable="true"
+                icons="tollium:tollium/webhare tollium:tollium/bestaatniet"
+                borders="top right bottom"
+                >
+            <column name="title" type="text" tree="true" title="Test name" />
+            <column name="tag"   type="text" title="App" />
+          </list>
+
+        </part>
+        <part width="1pr"
+              name="testpanel"
+              >
+        </part>
+    </split>
+
+    </body>
+  </screen>
+
+</screens>

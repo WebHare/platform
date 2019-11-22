@@ -1,0 +1,203 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+
+
+PUBLIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_unit;
+  OBJECT pvt_parent;
+  OBJECT pvt_orgparent;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY unit(pvt_unit, -);
+  PUBLIC PROPERTY parent(pvt_parent, SetParent);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->entity->LoadEntity(this->contexts->userapi->wrd_unit, ObjectExists(data.unit) ? data.unit->entityid : 0);
+    IF (ObjectExists(this->entity->wrdentity))
+    {
+      this->pvt_parent := this->contexts->userapi->GetUnitOf(data.unit);
+      this->pvt_orgparent := this->pvt_parent;
+    }
+    ELSE
+      this->pvt_parent := data.parent;
+
+    this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetParent(OBJECT newparent)
+  {
+    this->pvt_parent := newparent;
+    this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Submit
+  //
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
+    OBJECT work := this->BeginWork();
+    INTEGER id;
+    TRY
+    {
+      IF (work->HasFailed())
+        RETURN work->Finish();
+      this->contexts->userapi->CheckName(this->pvt_parent, this->entity->GetFieldByTag("WRD_TITLE")->value, this->entity->entityid, FALSE, work);
+      id := this->entity->StoreEntity(work, [ wrd_leftentity := this->pvt_parent->entityid ]);
+      IF (id != 0)
+        this->contexts->userapi->SyncUnitAfterUpdate(id);
+      IF (work->Finish())
+      {
+        this->pvt_unit := this->contexts->userapi->GetUnit(id);
+        RETURN TRUE;
+      }
+      RETURN FALSE;
+    }
+    FINALLY
+    {
+      lock->Close();
+      BroadcastEvent("system:unit.change." || this->pvt_parent->entityid, DEFAULT RECORD);
+      IF (ObjectExists(this->pvt_orgparent) AND this->pvt_orgparent->entityid != this->pvt_parent->entityid)
+        BroadcastEvent("system:unit.change." || this->pvt_orgparent->entityid, DEFAULT RECORD);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoSelectUnit()
+  {
+    OBJECT dialog := MakeSelectUnitDialog(this, this->pvt_parent, "system:manageunit", TRUE);
+    IF (dialog->RunModal() = "ok")
+    {
+      this->pvt_parent := dialog->value;
+      this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+    }
+  }
+>;
+
+
+PUBLIC OBJECTTYPE EditRole EXTEND TolliumScreenBase
+< // -----------------------------------------------------------------------------
+  //
+  // Global variables and such
+  //
+
+  OBJECT pvt_roleobj;
+  OBJECT pvt_parent;
+  OBJECT pvt_orgparent;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY roleobj(pvt_roleobj, -);
+
+  PUBLIC PROPERTY parent(pvt_parent, SetParent);
+
+  // -----------------------------------------------------------------------------
+  //
+  // Tollium init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->entity->LoadEntity(this->contexts->userapi->wrd_role, ObjectExists(data.roleobj) ? data.roleobj->entityid : 0);
+    IF (ObjectExists(this->entity->wrdentity))
+    {
+      this->pvt_parent := this->contexts->userapi->GetUnitOf(data.roleobj);
+      this->pvt_orgparent := this->pvt_parent;
+    }
+    ELSE
+      this->pvt_parent := data.parent;
+
+    this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetParent(OBJECT newparent)
+  {
+    this->pvt_parent := newparent;
+    this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Other
+  //
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
+    OBJECT work := this->BeginWork();
+    INTEGER id;
+    TRY
+    {
+      IF (work->HasFailed())
+        RETURN work->Finish();
+      this->contexts->userapi->CheckName(this->pvt_parent, this->entity->GetFieldByTag("WRD_TITLE")->value, this->entity->entityid, FALSE, work);
+      id := this->entity->StoreEntity(work, [ wrd_leftentity := this->pvt_parent->entityid ]);
+      IF (id != 0)
+        this->contexts->userapi->SyncRoleAfterUpdate(id);
+      IF (work->Finish())
+      {
+        this->pvt_roleobj := this->contexts->userapi->GetRole(id);
+        RETURN TRUE;
+      }
+      RETURN FALSE;
+    }
+    FINALLY
+    {
+      lock->Close();
+      BroadcastEvent("system:unit.change." || this->pvt_parent->entityid, DEFAULT RECORD);
+      IF (ObjectExists(this->pvt_orgparent) AND this->pvt_orgparent->entityid != this->pvt_parent->entityid)
+        BroadcastEvent("system:unit.change." || this->pvt_orgparent->entityid, DEFAULT RECORD);
+    }
+  }
+
+  MACRO DoSelectUnit()
+  {
+    OBJECT dialog := MakeSelectUnitDialog(this, this->pvt_parent, "system:manageroles", FALSE);
+    IF (dialog->RunModal() = "ok")
+    {
+      this->pvt_parent := dialog->value;
+      this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+    }
+  }
+>;

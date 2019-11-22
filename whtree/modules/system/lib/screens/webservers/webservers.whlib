@@ -1,0 +1,853 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/checks/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webserver/certbot.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/webserver/stats.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/tolliumapps/webservers/support.whlib";
+
+
+BOOLEAN FUNCTION IsLocalIP(STRING ip)
+{
+  INTEGER sock := CreateTCPSocket();
+  BOOLEAN canbind := BindSocket(sock, ip, 0);
+  CloseSocket(sock);
+  RETURN canbind;
+}
+
+STRING FUNCTION GetWebserverTypeTitle(INTEGER type)
+{
+  RETURN type = 1 ? GetTid("system:sysmgmt.webservers.types.webhare_interface") : GetTid("system:sysmgmt.webservers.types.webhare_output");
+}
+
+MACRO ValidateDirectCollisions(OBJECT feedback, OBJECT field, STRING hostname, INTEGER ignorewebserver, INTEGER ignorealias)
+{
+  IF(NOT feedback->HasFailed()) //check against vhosted webserver colissions
+  {
+    RECORD conflicting_webserver := SELECT
+                                      FROM system.webservers
+                                     WHERE type IN [0,1]
+                                           AND port = 0
+                                           AND id != ignorewebserver
+                                           AND ToUppercase(GetHostnameFromUrl(baseurl)) = toUppercase(hostname);
+    IF(RecordExists(conflicting_webserver))
+      feedback->AddErrorFor(field, GetTid("system:system.webservers.updatewebserver.hostnameinuse", hostname));
+  }
+
+  IF(NOT feedback->HasFailed())
+  {
+    RECORD conflicting_alias := SELECT webservers.baseurl
+                                  FROM system.webservers_aliases
+                                     , system.webservers
+                                 WHERE webservers.type IN [0,1]
+                                       AND webservers.id = webservers_aliases.webserver
+                                       AND webservers.port = 0
+                                       AND webservers.id != ignorewebserver
+                                       AND webservers_aliases.id != ignorealias
+                                       AND ToUppercase(webservers_aliases.hostname) = toUppercase(VAR hostname);
+    IF(RecordExists(conflicting_alias))
+      feedback->AddErrorFor(field, GetTid("system:system.webservers.updatewebserver.hostnameinuseasalias", hostname, conflicting_alias.baseurl));
+  }
+}
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  RECORD ARRAY allwebs;
+  INTEGER numrootrules;
+  INTEGER curwebserver;
+
+  MACRO Init(RECORD data)
+  {
+    this->frame->flags.issysop := this->tolliumuser->HasRight("system:sysop");
+    this->curwebserver := this->tolliumcontroller->GetWebserverRequestData().webserver;
+    this->ReloadWebservers();
+    this->RegisterLocalDragType("local:webserver", DEFAULT STRING ARRAY);
+    this->RegisterLocalDragType("local:webserveralias", DEFAULT STRING ARRAY);
+
+    IF (RecordExists(data.message) AND data.message.task = "selectkey")
+      this->LoadScreen("sysmgmt/keystore.main", [ value := data.message.id ])->RunModal();
+  }
+
+  RECORD ARRAY FUNCTION GetAliases(RECORD ARRAY aliases)
+  {
+    RETURN SELECT path := ""
+                , webserver:= hostname
+                , icon := explicit ? 4 : 6
+                , rowkey := "a" || id
+                , sites := ""
+                , rules := ""
+                , parent := 0
+                , id
+                , subnodes := DEFAULT RECORD ARRAY
+                , expanded := FALSE
+                , iswebserver := FALSE
+                , isgroup := FALSE
+                , isroot := FALSE
+                , isalias := TRUE
+                , ishosted := FALSE
+                , isvhosted := FALSE
+                , iscurwebserver := FALSE
+                , canview := SearchSubstring(hostname,'*') = -1 AND SearchSubstring(hostname,'?') = -1
+                , draginfo := [ type := "local:webserveralias"
+                              , data := [ rowkey := id
+                                        ]
+                              ]
+                , status := lastcheckerror != "" ? 7 : 0
+                , statusmessage := GetWebserverErrorMessage(hostname, lastseen, lastcheckerror)
+             FROM aliases
+         ORDER BY Touppercase(hostname);
+  }
+
+  RECORD ARRAY FUNCTION GetWebserverChilds(INTEGER fromparent)
+  {
+    RECORD ARRAY rows :=
+         SELECT path := isgroup OR type=1 ? "" : FormatOutputPath(diskfolder)
+              , webserver := isgroup ? title : baseurl
+              , icon := isgroup ? 5 : type=0 ? diskfolder = "" ? 8 : 1 : type=1 ? 2 : 3
+              , rowkey := "w" || id
+              , sites := (type = 0 AND diskfolder != "") OR sites != 0 ? ToString(sites) : ""
+              , id
+              , parent := fromparent
+              , subnodes := isgroup ? this->GetWebserverChilds(id) : this->GetAliases(aliases)
+              , expanded := FALSE
+              , iswebserver := NOT isgroup
+              , isgroup
+              , isroot := FALSE
+              , isalias := FALSE
+              , ishosted := type IN [0,1]
+              , isvhosted := type IN [0,1] AND port=0
+              , iscurwebserver := id = this->curwebserver
+              , canview := NOT isgroup
+              , rules := ToString(numrules)
+              , draginfo := [ type := "local:webserver"
+                            , data := [ rowkey := id
+                                      ]
+                            ]
+              , status := lastcheckerror != "" ? 7 : 0
+              , statusmessage := lastcheckerror != "" ? GetWebserverErrorMessage(UnpackURL(baseurl).host, lastseen, lastcheckerror) : ""
+            FROM this->allwebs AS webs
+           WHERE parent=fromparent
+        ORDER BY isgroup ? 1 : 2, ToUppercase(title), ToUppercase(baseurl);
+
+    RETURN rows;
+  }
+
+  MACRO OnFilterChange()
+  {
+    this->RefreshWebservers();
+  }
+
+  MACRO RefreshWebservers()
+  {
+    RECORD ARRAY rows := [[ path := ""
+                          , webserver := GetTid("system:sysmgmt.webservers.overview.webroot")
+                          , icon := 5
+                          , rowkey := "root"
+                          , parent := 0
+                          , sites := ""
+                          , id := 0
+                          , subnodes := this->GetWebserverChilds(0)
+                          , expanded := TRUE
+                          , iswebserver := FALSE
+                          , isgroup := FALSE
+                          , isroot := TRUE
+                          , isalias := FALSE
+                          , ishosted := TRUE
+                          , isvhosted := FALSE
+                          , candrag := FALSE
+                          , canview := FALSE
+                          , iscurwebserver := FALSE
+                          , rules := ToString(this->numrootrules)
+                          , status := 0
+                          , statusmessage := ""
+                         ]];
+    IF(this->filter->value != "")
+    {
+      rows := this->ApplyFilters(rows, this->filter->value);
+      this->webserverslist->empty := GetTid("system:sysmgmt.webservers.overview.nofiltermatch", this->filter->value);
+    }
+    this->webserverslist->rows := rows;
+
+    IF(this->filter->value != "") //using filters requires us to expand all
+      this->webserverslist->expanded := SELECT AS STRING ARRAY rowkey FROM this->webserverslist->rows;
+  }
+
+  RECORD ARRAY FUNCTION ApplyFilters(RECORD ARRAY inrows, STRING filter)
+  {
+    RECORD ARRAY outrows;
+    FOREVERY(RECORD row FROM inrows)
+    {
+      IF(NOT row.isroot AND ToUppercase(row.webserver) LIKE ToUppercase("*" || filter || "*")) //this is a direct match, show ALL subnodes
+      {
+        INSERT row INTO outrows AT END;
+        CONTINUE;
+      }
+      row.subnodes := this->ApplyFilters(row.subnodes,filter);
+      IF(Length(row.subnodes) > 0)
+        INSERT row INTO outrows AT END;
+    }
+    RETURN outrows;
+  }
+
+  INTEGER FUNCTION GetNumByWebserver(RECORD ARRAY nums, INTEGER webserver)
+  {
+    RECORD pos := RecordLowerBound(nums, [ webserver := webserver ], [ "WEBSERVER" ]);
+    IF (pos.found)
+      RETURN nums[pos.position].num;
+    RETURN 0;
+  }
+
+  RECORD ARRAY FUNCTION GetAliasesByWebserver(RECORD ARRAY aliases, INTEGER webserver)
+  {
+    RECORD pos := RecordLowerBound(aliases, [ webserver := webserver ], [ "WEBSERVER" ]);
+    IF (pos.found)
+      RETURN aliases[pos.position].aliases;
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  MACRO ReloadWebservers()
+  {
+    RECORD ARRAY sitesperweb := SELECT num := Count(*), webserver := outputweb FROM system.sites WHERE outputweb != 0 GROUP BY outputweb ORDER BY outputweb;
+    RECORD ARRAY rulesperweb := SELECT num := Count(*), webserver FROM system.access GROUP BY webserver ORDER BY webserver;
+
+    RECORD ARRAY allaliases := SELECT aliases := GroupedValues(webservers_aliases)
+                                    , webserver
+                                 FROM system.webservers_aliases
+                             GROUP BY webserver
+                             ORDER BY webserver;
+
+    this->allwebs := SELECT id, type, diskfolder, baseurl, port
+                          , sites := this->GetNumByWebserver(sitesperweb, id)
+                          , sort_host := ToUppercase(GetHostnameFromUrl(baseurl) || baseurl)
+                          , parent
+                          , title
+                          , isgroup := type=6
+                          , aliases := type IN [0,1] ? this->GetAliasesByWebserver(allaliases, id) : DEFAULT RECORD ARRAY
+                          , numrules := this->GetNumByWebserver(rulesperweb, id)
+                          , lastcheckerror
+                          , lastseen
+                       FROM system.webservers;
+
+    this->numrootrules := this->GetNumByWebserver(rulesperweb, 0);
+    this->RefreshWebservers();
+  }
+
+  INTEGER FUNCTION FindGroup(RECORD selection)
+  {
+    RETURN RecordExists(selection) ? (selection.isgroup ? selection.id : selection.parent) : 0;
+  }
+
+  MACRO OnDrop(RECORD dropdata, RECORD target, STRING action, STRING type)
+  {
+    IF(target.iswebserver)
+    {
+      this->OnDropAlias(dropdata, target, action, type);
+    }
+    ELSE
+    {
+      this->OnDropWebserver(dropdata, target, action, type);
+    }
+  }
+
+  MACRO OnDropWebserver(RECORD dropdata, RECORD target, STRING action, STRING type)
+  {
+    //note: a group is also considered a webserver
+    STRING ARRAY droppedwebserverskeys := SELECT AS STRING ARRAY "w" || items.data.rowkey FROM dropdata.items;
+    RECORD ARRAY droppedwebservers := SELECT *
+                                        FROM this->webserverslist->rows
+                                       WHERE rowkey IN droppedwebserverskeys;
+
+    INTEGER newparent := this->FindGroup(target);
+
+    OBJECT work := this->beginwork();
+    UPDATE system.webservers SET parent := newparent WHERE id IN (SELECT AS INTEGER ARRAY id FROM droppedwebservers);
+
+    IF(NOT work->Finish())
+      RETURN;
+
+    this->ReloadWebservers();
+  }
+
+  MACRO OnDropAlias(RECORD dropdata, RECORD target, STRING action, STRING type)
+  {
+    STRING ARRAY droppedaliaskeys := SELECT AS STRING ARRAY "a" || items.data.rowkey FROM dropdata.items;
+    RECORD ARRAY droppedalias := SELECT *
+                                  FROM this->webserverslist->rows
+                                 WHERE rowkey IN droppedaliaskeys;
+
+    OBJECT work := this->beginwork();
+    UPDATE system.webservers_aliases SET webserver := target.id WHERE id IN (SELECT AS INTEGER ARRAY id FROM droppedalias);
+
+    IF(NOT work->Finish())
+      RETURN;
+
+    ReloadWebhareConfig(TRUE, FALSE);
+    this->ReloadWebservers();
+  }
+
+  MACRO DoAddWebServer()
+  {
+    OBJECT screen := this->LoadScreen(".updatewebserver", [ id := 0
+                                                          , parent := this->FindGroup(this->webserverslist->selection)
+                                                          ] );
+
+    IF (screen->RunModal() = "ok")
+    {
+      this->ReloadWebservers();
+      this->webserverslist->value := ["w" || screen->newwebserverid];
+    }
+  }
+
+  MACRO DoAddGroup()
+  {
+    OBJECT screen := this->LoadScreen(".webservergroup", [ id := 0
+                                                         , parent := this->FindGroup(this->webserverslist->selection)
+                                                         ] );
+    IF (screen->RunModal() = "ok")
+      this->ReloadWebservers();
+  }
+
+  MACRO DoAddAlias()
+  {
+    RECORD selection := this->webserverslist->selection;
+    OBJECT screen := this->LoadScreen(".updatealias", [ id := 0, webserver := selection.id ] );
+
+    IF (screen->RunModal() = "ok")
+      this->ReloadWebservers();
+  }
+
+  MACRO DoEdit()
+  {
+    RECORD selection := this->webserverslist->selection;
+
+    IF(selection.isalias)
+    {
+      OBJECT screen := this->LoadScreen(".updatealias", [ webserver := this->webserverslist->GetParentRow(selection.rowkey).id, id := selection.id ] );
+      IF (screen->RunModal() = "ok")
+        this->ReloadWebservers();
+    }
+    ELSE IF (selection.isgroup)
+    {
+      OBJECT screen := this->LoadScreen(".webservergroup", [ id := selection.id, parent := 0 ] );
+      IF (screen->RunModal() = "ok")
+        this->ReloadWebservers();
+    }
+    ELSE
+    {
+      OBJECT screen := this->LoadScreen(".updatewebserver", [ id := selection.id, parent := 0 ] );
+      IF (screen->RunModal() = "ok")
+        this->ReloadWebservers();
+    }
+  }
+
+  MACRO DoPreview(OBJECT openhandler)
+  {
+    RECORD selection := this->webserverslist->selection;
+    IF(selection.iswebserver)
+    {
+      openhandler->SendURL(selection.webserver);
+    }
+    ELSE IF(selection.isalias)
+    {
+      RECORD parentrow := this->webserverslist->GetParentRow(selection.rowkey);
+      RECORD url := UnpackURL(parentrow.webserver);
+      url.host := selection.webserver;
+      openhandler->SendURL(RepackURL(url));
+    }
+  }
+
+  MACRO DoBindings()
+  {
+    this->LoadScreen("webservers/bindings.bindings")->RunModal();
+  }
+
+  MACRO DoProxies()
+  {
+    this->LoadScreen("webservers/proxies.proxies")->RunModal();
+  }
+
+  MACRO DOKeystore()
+  {
+    this->LoadScreen("sysmgmt/keystore.main")->RunModal();
+  }
+  MACRO DoFiletypes()
+  {
+    this->LoadScreen("webservers/mimetypes.mimetypes")->RunModal();
+  }
+  MACRO DoExportUsageStats()
+  {
+    this->LoadScreen(".exportusagestats")->RunModal();
+  }
+  MACRO DoScheduleCheck()
+  {
+    GetPrimary()->ScheduleTask("system:checkwebservers", DEFAULT DATETIME);
+    this->RunMessageBox(".checkingwebservers");
+  }
+  MACRO OnErrorsRefresh(STRING mask, RECORD ARRAY events)
+  {
+    this->ReloadWebservers();
+  }
+
+  MACRO DoAccessRules()
+  {
+    OBJECT screen := this->LoadScreen("webservers/accessrules.accessrules", [ id := this->webserverslist->selection[0].id ] );
+    screen->RunModal();
+    this->ReloadWebservers();
+  }
+
+  MACRO DoDelete()
+  {
+    RECORD ARRAY selection := this->webserverslist->selection;
+    IF(RecordExists(SELECT FROM selection WHERE iswebserver AND id = this->tolliumcontroller->GetWebserverRequestData().webserver))
+    {
+      this->RunMessageBox(".cannotdeleteyourserver", selection[0].webserver);
+      RETURN;
+    }
+    IF(RecordExists(SELECT FROM selection WHERE iswebserver AND id = (SELECT AS INTEGER outputweb FROM system.sites WHERE id = 16)))
+    {
+      this->RunMessageBox(".cannotdeleteprimaryinterface", selection[0].webserver);
+      RETURN;
+    }
+
+    IF(Length(selection)>1)
+    {
+      IF(this->RunMessageBox(".deleteselection")!="yes")
+        RETURN;
+    }
+    ELSE IF(selection[0].isalias)
+    {
+      IF (this->RunMessageBox(".deletealias", selection[0].webserver) != "yes")
+        RETURN;
+    }
+    ELSE IF(selection[0].isgroup)
+    {
+      IF(RecordExists(SELECT FROM this->webserverslist->rows WHERE parent = selection[0].id))
+      {
+        IF(this->RunMessageBox(".verifydeletefilledgroup")!="yes")
+          RETURN;
+      }
+      ELSE
+      {
+        IF(this->RunMessageBox(".deletegroup")!="yes")
+          RETURN;
+      }
+    }
+    ELSE
+    {
+      IF (this->RunMessageBox(".deletewebserver", selection[0].webserver) != "yes")
+        RETURN;
+    }
+
+    OBJECT work := this->beginwork();
+
+    INTEGER ARRAY aliasestokill := SELECT AS INTEGER ARRAY id FROM selection WHERE isalias;
+    INTEGER ARRAY webserverstokill := SELECT AS INTEGER ARRAY id FROM selection WHERE NOT isalias;
+    IF(Length(aliasestokill)>0)
+      DELETE FROM system.webservers_aliases WHERE id IN aliasestokill;
+    IF(Length(webserverstokill)>0)
+      DELETE FROM system.webservers  WHERE id IN webserverstokill;
+
+    IF (work->Finish())
+    {
+      this->ReloadWebservers();
+      ReloadWebhareConfig(TRUE, FALSE);
+    }
+  }
+
+  MACRO DoCertbotRequest()
+  {
+    STRING ARRAY names := (SELECT AS STRING ARRAY ToLowercase(UnpackURL(webserver).host )
+                             FROM ^webserverslist->selection
+                            WHERE iswebserver)
+                          CONCAT
+                          (SELECT AS STRING ARRAY ToLowercase(webserver)
+                             FROM ^webserverslist->selection
+                            WHERE isalias);
+
+    this->RunScreen("#certbotrequest", CELL[ names ]);
+  }
+>;
+
+
+PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
+< INTEGER webserverid;
+  INTEGER parentid;
+  INTEGER origboundto;
+  PUBLIC INTEGER newwebserverid;
+
+  MACRO Init(RECORD params)
+  {
+    this->webserverid := params.id;
+    this->parentid := params.parent;
+    ^folder->startfolder := GetWebserverBaseOutputFolder();
+
+    IF (params.id = 0) // Add
+    {
+      this->extension->visible := FALSE;
+    }
+    ELSE //editing
+    {
+      RECORD webserverrec := SELECT * FROM system.webservers WHERE id = this->webserverid;
+
+      BOOLEAN have_versioned_sites := RecordExists(
+          SELECT
+            FROM system.sites
+           WHERE outputweb = params.id
+             AND versioningpolicy != "");
+
+      IF (have_versioned_sites)
+      {
+        this->servertype->readonly := TRUE;
+        this->boundto->readonly := TRUE;
+        this->url->readonly := TRUE;
+        this->versioningmessagesbox->visible := TRUE;
+      }
+
+      this->origboundto := webserverrec.port;
+      this->folder->value := FormatOutputPath(webserverrec.diskfolder);
+      this->url->value := webserverrec.baseurl;
+      this->extension->value := webserverrec.outputextension;
+      this->servertype->value := webserverrec.type = 0 AND webserverrec.diskfolder = "" ? -1 : webserverrec.type IN [0,1] ? webserverrec.type : 0;
+      ^stricttransportsecurity->value := webserverrec.stricttransportsecurity;
+    }
+
+    this->OnServerTypeChange();
+  }
+
+  /*
+  -1 - Webhare rules only
+  0 - Webhare output webserver
+  1 - Webhare interface webserver
+  */
+  MACRO OnServerTypeChange()
+  {
+    INTEGER ARRAY usedports := SELECT AS INTEGER ARRAY port FROM system.webservers WHERE id != this->webserverid AND port != 0;
+    RECORD ARRAY ports := SELECT rowkey := id
+                               , title := (ip="" ? GetTid("system:sysmgmt.webservers.updatewebserver.bound-allips") : ip) || ":" || port
+                               , secure := COLUMN keypair != 0
+                            FROM system.ports
+                           WHERE NOT virtualhost
+                                 AND id NOT IN usedports
+                        ORDER BY port, ip;
+
+    this->boundto->options := [[ rowkey := 0, title := GetTid("system:sysmgmt.webservers.updatewebserver.virtualhosted"), secure := FALSE ]]
+                              CONCAT ports;
+    this->boundto->enabled := TRUE;
+    this->boundto->value := this->origboundto;
+
+    // documentmap is not relevant for 'WebHare interface webserver' and will not be shown when creating a new webserver (you rarely change them!)
+    this->folder->visible := this->servertype->value = 0 AND this->webserverid != 0;
+    this->folder->required := this->servertype->value = 0 AND this->webserverid != 0;
+    this->extension->visible := this->servertype->value = 0 AND this->webserverid != 0;
+  }
+
+  MACRO OnBindingChange()
+  {
+    RECORD newbinding := this->boundto->selection;
+    IF(NOT RecordExists(newbinding) OR newbinding.rowkey=0)
+      RETURN;
+
+    IF(newbinding.secure AND this->url->value LIKE "http:*")
+      this->url->value := "https:" || Substring(this->url->value, 5);
+    IF(NOT newbinding.secure AND this->url->value LIKE "https:*")
+      this->url->value := "http:" || Substring(this->url->value, 6);
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    //OBJECT work := this->BeginUnvalidatedWork();
+    //work->Validate(this->basesettingspage);
+    OBJECT work := this->BeginWork();
+
+    RECORD unpacked_url := UnpackURL(this->url->value);
+    IF (NOT IsValidIPAddress(unpacked_url.host) AND NOT IsValidHostName(Substitute(unpacked_url.host,"*","x"))) //allow '*' in validation
+      work->AddErrorFor(this->url, GetTid("tollium:validation.errors.invalid_hostname", this->url->title));
+
+    IF(this->boundto->value != 0) //specific binding, so verify http/https
+    {
+      BOOLEAN issecure := RecordExists(SELECT FROM system.ports WHERE COLUMN keypair != 0 AND id = this->boundto->value);
+      IF(unpacked_url.scheme = "http" AND issecure)
+        work->AddErrorFor(this->url, GetTid("system:system.webservers.updatewebserver.bindingrequireshttps"));
+      IF(unpacked_url.scheme = "https" AND NOT issecure)
+        work->AddErrorFor(this->url, GetTid("system:system.webservers.updatewebserver.bindingrequireshttp"));
+    }
+    ELSE//vhosted local server
+    {
+      ValidateDirectCollisions(work, this->url, unpacked_url.host, this->webserverid, 0);
+    }
+
+    IF(unpacked_url.urlpath!="")
+      work->AddErrorFor(this->url, GetTid("system:system.webservers.updatewebserver.urlnosubpath"));
+
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    IF(this->webserverid = 0 AND this->servertype->value = 0) //generate output path?
+    {
+      STRING basefolder := GetWebserverBaseOutputFolder();
+
+      FOR(INTEGER tryseq := -1;;tryseq := tryseq+1)
+      {
+        STRING tryfolder := basefolder || ToLowercase(unpacked_url.host);
+        IF(tryseq != -1)
+          tryfolder := tryfolder || "-" || (tryseq = 0 ? unpacked_url.port : tryseq);
+        tryfolder := tryfolder || "/" || unpacked_url.urlpath;
+        IF(tryfolder NOT LIKE "*/")
+          tryfolder := tryfolder || "/";
+
+        IF(NOT RecordExists(SELECT FROM system.webservers WHERE ToUppercase(diskfolder) = ToUppercase(tryfolder)))
+        {
+          this->folder->value := tryfolder;
+          BREAK;
+        }
+      }
+    }
+
+    BOOLEAN newwebserver;
+    INTEGER webserverid := this->webserverid;
+    IF(webserverid = 0)
+    {
+      webserverid := MakeAutoNumber(system.webservers, "id");
+      INSERT INTO system.webservers (id, parent) VALUES (webserverid, this->parentid);
+      newwebserver := TRUE;
+    }
+    ELSE
+    {
+      INTEGER dupe_self_alias := SELECT AS INTEGER id FROM system.webservers_aliases
+                                  WHERE webserver=webserverid
+                                        AND ToUppercase(hostname)=ToUppercase(unpacked_url.host);
+      IF(dupe_self_alias != 0)
+      {
+        STRING oldhostname := SELECT AS STRING UnpackURL(baseurl).host FROM system.webservers WHERE id=webserverid;
+        IF(ToUppercase(oldhostname) = ToUppercase(unpacked_url.host))
+        {
+          //odd, it was already on the alias list? just delete the offending alias then
+          DELETE FROM system.webservers_aliases WHERE id = dupe_self_alias;
+        }
+        ELSE
+        {
+          work->AddWarning(GetTid("system:sysmgmt.webservers.updatewebserver.aliasswap", oldhostname, unpacked_url.host));
+          UPDATE system.webservers_aliases SET hostname := oldhostname WHERE id = dupe_self_alias;
+        }
+      }
+    }
+
+    STRING url := this->url->value;
+    IF(url NOT LIKE "*/")
+      url := url || "/";
+
+    UPDATE system.webservers
+       SET diskfolder := this->servertype->value = 0 ? UnmapOutputPath(this->folder->value) : ""
+         , baseurl := url
+         , outputextension := this->servertype->value = 0 ? this->extension->value : ".html"
+         , type := this->servertype->value = -1 ? 0 : this->servertype->value
+         , port := this->boundto->value
+         , stricttransportsecurity := ^stricttransportsecurity->value
+     WHERE id = webserverid;
+
+    INTEGER ARRAY unlocksites;
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    IF(Length(unlocksites) > 0)
+    {
+      work := this->BeginUnvalidatedWork();
+      FOREVERY (INTEGER id FROM unlocksites)
+        OpenSite(id)->UpdateSiteMetadata([ locked := FALSE ]);
+      work->Finish();
+    }
+
+    IF (newwebserver)
+      this->newwebserverid := webserverid;
+
+    ReloadWebhareConfig(TRUE, FALSE);
+
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE WebserverGroup EXTEND TolliumScreenBase
+<
+  INTEGER groupid;
+  INTEGER parentid;
+
+  MACRO Init(RECORD params)
+  {
+    this->groupid := params.id;
+
+    IF (this->groupid != 0)
+    {
+      RECORD grouprec := SELECT * FROM system.webservers WHERE id = this->groupid AND type=6;
+      this->title->value := grouprec.title;
+    }
+    ELSE
+    {
+      this->parentid := params.parent;
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->beginwork();
+
+    IF (this->groupid = 0)
+    {
+      INSERT INTO system.webservers(title, parent, type) VALUES (this->title->value, this->parentid, 6);
+    }
+    ELSE
+    {
+      UPDATE system.webservers SET title := this->title->value WHERE id = this->groupid;
+    }
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    ReloadWebhareConfig(TRUE, FALSE);
+
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE UpdateAlias EXTEND TolliumScreenBase
+<
+  INTEGER id;
+  INTEGER webserver;
+
+  MACRO Init(RECORD data)
+  {
+    this->id := data.id;
+    this->webserver := data.webserver;
+
+    IF(data.id != 0)
+    {
+      RECORD aliasinfo := SELECT * FROM system.webservers_aliases WHERE id=this->id;
+      this->hostname->value := aliasinfo.hostname;
+      this->explicit->value := aliasinfo.explicit;
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT feedback := this->BeginFeedback();
+    IF (NOT IsValidIPAddress(this->hostname->value) AND NOT IsValidHostName(Substitute(this->hostname->value,"*","x"))) //allow '*' in validation
+      feedback->AddErrorFor(this->hostname, GetTid("tollium:validation.errors.invalid_hostname", this->hostname->title));
+    IF(NOT feedback->Finish())
+      RETURN FALSE;
+
+    OBJECT work := this->BeginWork();
+
+    ValidateDirectCollisions(work, this->hostname, this->hostname->value, 0, this->id); //verify against conflicts
+
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    IF(this->id = 0)
+    {
+      INSERT INTO system.webservers_aliases(webserver,hostname,explicit) VALUES(this->webserver, this->hostname->value,this->explicit->value);
+    }
+    ELSE
+    {
+      UPDATE system.webservers_aliases SET hostname := this->hostname->value
+                                         , explicit := this->explicit->value
+                                     WHERE id = this->id;
+    }
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    ReloadWebhareConfig(TRUE, FALSE);
+    RETURN TRUE;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE ExportUsageStats EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    RECORD now := UnpackDatetime(GetCurrentDatetime());
+    this->startdate->value := MakeDate(now.month=1 ? now.year-1 : now.year, now.month = 1 ? 12 : now.month-1, 1);
+    this->enddate->value := AddDaysToDate(-1, AddMonthsToDate(1, this->startdate->value));
+  }
+
+  MACRO DoExport(OBJECT filereceiver)
+  {
+    filereceiver->SendWrappedFile(GetWebserverUsageStatsAsXLSX([GetRawWebserverUsageStats(this->startdate->value, AddDaysToDate(1,this->enddate->value))]));
+  }
+>;
+
+PUBLIC RECORD FUNCTION RequestCert(STRING ARRAY names, BOOLEAN staging)
+{
+  OpenPrimary();
+  RETURN RequestCertbotCertificate(names, staging);
+}
+
+PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^domainnames->value := Detokenize(data.names,'\n');
+  }
+  ASYNC MACRO DoRequest()
+  {
+    ^domainnames->enabled := FALSE;
+    ^request->enabled := FALSE;
+
+    OBJECT work := this->BeginFeedback();
+    IF(work->HasFailed())
+    {
+      work->Finish();
+      RETURN;
+    }
+
+    STRING ARRAY names := ParseXSList(Substitute(^domainnames->value,',',' '));
+
+    TRY
+    {
+      RECORD result := AWAIT AsyncCallFunctionFromJob(Resolve("#RequestCert"), names, FALSE);
+      IF(result.success)
+      {
+        work->Finish();
+
+        GetPrimary()->ScheduleTask("system:checkwebservers", DEFAULT DATETIME);
+        this->tolliumresult := "ok";
+        RETURN;
+      }
+
+      IF (result.error = "hostnotlocal")
+      {
+        work->AddError(this->GetTid(".nothostedhere", result.errordata));
+      }
+      ELSE
+      {
+        work->AddError(result.error || ": " || result.errordata);
+      }
+
+      work->Finish();
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      RunExceptionReportDialog(this, e);
+    }
+
+    ^domainnames->enabled := TRUE;
+    ^request->enabled := TRUE;
+  }
+
+>;

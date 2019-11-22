@@ -1,0 +1,497 @@
+﻿<?wh
+/// @short Array manipulation tests
+
+LOADLIB "wh::internal/hsselftests.whlib";
+RECORD ARRAY errors;
+RECORD result;
+
+// Inserting into, deleting inserted items from and changing items in RECORD
+// and BLOB arrays is not tested.
+
+// For testing DATETIME arrays the MakeDateFromDayCount() and GetDayCount()
+// functions should be implemented.
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// When an error should be reported, the output is undefined.
+
+// STRING and PRINT() are assumed to be implemented,
+// i.e. PRINT(t) should output the value of STRING t.
+
+MACRO DeclareTest()
+{
+  INTEGER a := 1;
+  TestEQ(0, LENGTH(INTEGER[]));
+  TestEQ(1, LENGTH(INTEGER[1]));
+  TestEQ([1], INTEGER[1]);
+  TestEQ([1], INTEGER[a]);
+  TestEQ([2,1], INTEGER[2,a]);
+  TestEQ([1,2], INTEGER[a,2]);
+  TestEQ(VARIANT ARRAY([1]) CONCAT VARIANT ARRAY([ "2" ]), VARIANT[1,"2"]);
+  TestEQ(DEFAULT RECORD ARRAY, RECORD[]);
+
+  result := TestCompileAndRun('<?wh VARIANT v := INTEGER ARRAY[]; ?>');
+  MustContainError(0, result.errors, 194);
+}
+
+/*** Insert [30] ***/
+MACRO InsertTest()
+{
+  OpenTest("TestArrays: InsertTest");
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 0; INSERT 3 INTO a AT 0; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "3 2 1 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT END; INSERT 2 INTO a AT END; INSERT 3 INTO a AT END; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "1 2 3 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 1; INSERT 3 INTO a AT 1; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "1 3 2 ", result.output);
+
+  // FIXME: this fails only for kleunen, no error was returned
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 1; PRINT(a[2] || ""); ?>');
+  MustContainError(7, result.errors, 46, '1');
+
+  errors := TestCompile('<?wh INTEGER ARRAY a; INSERT "a" INTO a AT END; ?>');
+  MustContainError(8, errors, 62, 'STRING', 'INTEGER');
+
+  errors := TestCompile('<?wh INTEGER i; INSERT 1 INTO i AT END; ?>');
+  MustContainError(9, errors, 130);
+
+  result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT 0; INSERT "b" INTO a AT 0; FOREVERY (STRING s FROM a) PRINT (s || " "); ?>');
+  TestCleanResult(10, result.errors);
+  TestEqualString(11, "b a ", result.output);
+
+  result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT END; INSERT "b" INTO a AT END; FOREVERY (STRING s FROM a) PRINT (s || " "); ?>');
+  TestCleanResult(12, result.errors);
+  TestEqualString(13, "a b ", result.output);
+
+//  // FIXME: this fails only for kleunen, no error was returned
+  result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT 1; PRINT(a[2]); ?>');
+  MustContainError(14, result.errors, 46, '1');
+
+  errors := TestCompile('<?wh STRING ARRAY a; INSERT 1 INTO a AT END; ?>');
+  MustContainError(15, errors, 62, 'INTEGER', 'STRING');
+
+  result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT 0; INSERT FALSE INTO a AT 0; FOREVERY (BOOLEAN b FROM a) PRINT ((b ? "TRUE" : "FALSE") || " "); ?>');
+  TestCleanResult(16, result.errors);
+  TestEqualString(17, "FALSE TRUE ", result.output);
+
+  result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT END; INSERT FALSE INTO a AT END; FOREVERY (BOOLEAN b FROM a) PRINT ((b ? "TRUE" : "FALSE") || " "); ?>');
+  TestCleanResult(18, result.errors);
+  TestEqualString(19, "TRUE FALSE ", result.output);
+
+//  // FIXME: this fails only for kleunen, no error was returned
+  result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT 1; PRINT(a[2] ? "TRUE" : "FALSE"); ?>');
+  MustContainError(20, result.errors, 46, '1');
+
+  errors := TestCompile('<?wh BOOLEAN ARRAY a; INSERT 1 INTO a AT END; ?>');
+  MustContainError(21, errors, 62, 'INTEGER', 'BOOLEAN');
+
+  result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT 0; INSERT MakeDateFromDayCount(2) INTO a AT 0; FOREVERY (DATETIME d FROM a) PRINT (GetDayCount(d) || " "); ?>');
+  TestCleanResult(22, result.errors);
+  TestEqualString(23, "2 1 ", result.output);
+
+  result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT END; INSERT MakeDateFromDayCount(2) INTO a AT END; FOREVERY (DATETIME d FROM a) PRINT (GetDayCount(d) || " "); ?>');
+  TestCleanResult(24, result.errors);
+  TestEqualString(25, "1 2 ", result.output);
+
+//  // FIXME: this fails only for kleunen, no error was returned
+  result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT 1; PRINT(GetDayCount(a[2]) || ""); ?>');
+  MustContainError(26, result.errors, 46, '1');
+
+  errors := TestCompile('<?wh DATETIME ARRAY a; INSERT 1 INTO a AT END; ?>');
+  MustContainError(27, errors, 62, 'INTEGER', 'DATETIME');
+
+  errors := TestCompile('<?wh RECORD ARRAY a; INSERT 1 INTO a AT END; ?>');
+  MustContainError(28, errors, 62, 'INTEGER', 'RECORD');
+
+  errors := TestCompile('<?wh BLOB ARRAY a; INSERT 1 INTO a AT END; ?>');
+  MustContainError(29, errors, 62, 'INTEGER', 'BLOB');
+
+  result := TestCompileAndRun('<?wh RECORD ARRAY xs := [ [ is := DEFAULT INTEGER ARRAY ] ] ; INSERT 0 INTO xs[0].is AT 2; PRINT(LENGTH(xs[0].is) || ""); ?>');
+  MustContainError(9, result.errors, 46, '2');
+
+  result := TestCompileAndRun('<?wh RECORD ARRAY xs := [ [ is := DEFAULT INTEGER ARRAY ] ] ; INSERT 0 INTO xs[0].is AT -1; PRINT(LENGTH(xs[0].is) || ""); ?>');
+  MustContainError(9, result.errors, 46, '-1');
+
+  result := TestCompileAndRun('<?wh RECORD ARRAY a := [ [ b := 1 ] ];INSERT 1 INTO a[0].b AT 0; IF (LENGTH(a) = 0) PRINT(""); ?>');
+  MustContainError(0, result.errors, 130);
+
+  RECORD ARRAY a;
+  INSERT CELL[] INTO a AT END;
+  TestEQ([ CELL[] ], a);
+
+  CloseTest("TestArrays: InsertTest");
+}
+
+/*** Delete [31] ***/
+MACRO DeleteTest()
+{
+  OpenTest("TestArrays: DeleteTest");
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 0; INSERT 3 INTO a AT 0; DELETE FROM a AT 1; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "3 1 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 0; INSERT 3 INTO a AT 0; DELETE FROM a ALL; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT END; INSERT 2 INTO a AT END; INSERT 3 INTO a AT END; DELETE FROM a AT 1; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "1 3 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 1; INSERT 3 INTO a AT 1; DELETE FROM a AT 1; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "1 2 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; DELETE FROM a AT 1; PRINT(a[2] || ""); ?>');
+  MustContainError(9, result.errors, 46, '1');
+
+  errors := TestCompile('<?wh INTEGER i; DELETE FROM i AT 0; ?>');
+  MustContainError(10, errors, 130);
+
+  result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT 0; INSERT "b" INTO a AT 0; DELETE FROM a AT 1; FOREVERY (STRING s FROM a) PRINT (s || " "); ?>');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "b ", result.output);
+
+  result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT 0; INSERT "b" INTO a AT 0; DELETE FROM a ALL; FOREVERY (STRING s FROM a) PRINT (s || " "); ?>');
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "", result.output);
+
+  result := TestCompileAndRun('<?wh STRING ARRAY a; DELETE FROM a AT 1; PRINT(a[2]); ?>');
+  MustContainError(15, result.errors, 46, '1');
+
+  result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT 0; INSERT FALSE INTO a AT 0; DELETE FROM a AT 1; FOREVERY (BOOLEAN b FROM a) PRINT ((b ? "TRUE" : "FALSE") || " "); ?>');
+  TestCleanResult(16, result.errors);
+  TestEqualString(17, "FALSE ", result.output);
+
+  result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT 0; INSERT FALSE INTO a AT 0; DELETE FROM a ALL; FOREVERY (BOOLEAN b FROM a) PRINT ((b ? "TRUE" : "FALSE") || " "); ?>');
+  TestCleanResult(18, result.errors);
+  TestEqualString(19, "", result.output);
+
+  result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; DELETE FROM a AT 1; PRINT(a[2] ? "TRUE" : "FALSE"); ?>');
+  MustContainError(20, result.errors, 46, '1');
+
+  result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT 0; INSERT MakeDateFromDayCount(2) INTO a AT 0; DELETE FROM a AT 1; FOREVERY (DATETIME d FROM a) PRINT (GetDayCount(d) || " "); ?>');
+  TestCleanResult(21, result.errors);
+  TestEqualString(22, "2 ", result.output);
+
+  result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT 0; INSERT MakeDateFromDayCount(2) INTO a AT 0; DELETE FROM a ALL; FOREVERY (DATETIME d FROM a) PRINT (GetDayCount(d) || " "); ?>');
+  TestCleanResult(23, result.errors);
+  TestEqualString(24, "", result.output);
+
+  result := TestCompileAndRun('<?wh DATETIME ARRAY a; DELETE FROM a AT 1; PRINT(GetDayCount(a[2]) || ""); ?>');
+  MustContainError(25, result.errors, 46, '1');
+
+  result := TestCompileAndRun('<?wh RECORD ARRAY xs := [ [ is := DEFAULT INTEGER ARRAY ] ] ; DELETE FROM xs[0].is AT 1; PRINT(LENGTH(xs[0].is) || ""); ?>');
+  MustContainError(9, result.errors, 46, '1');
+
+  result := TestCompileAndRun('<?wh RECORD ARRAY xs := [ [ is := DEFAULT INTEGER ARRAY ] ] ; DELETE FROM xs[0].is AT -1; PRINT(LENGTH(xs[0].is) || ""); ?>');
+  MustContainError(9, result.errors, 46, '-1');
+
+  result := TestCompileAndRun('<?wh RECORD ARRAY a := [ [ b := 1 ] ];DELETE FROM a[0].b AT 0; IF (LENGTH(a) = 0) PRINT(""); ?>');
+  MustContainError(0, result.errors, 130);
+
+  CloseTest("TestArrays: DeleteTest");
+}
+
+/*** Update [31] ***/
+MACRO UpdateTest()
+{
+  OpenTest("TestArrays: UpdateTest");
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 0; INSERT 3 INTO a AT 0; a[1] := 4; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "3 4 1 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT END; INSERT 2 INTO a AT END; INSERT 3 INTO a AT END; a[1] := 4; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "1 4 3 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 1; INSERT 3 INTO a AT 1; a[1] := 4; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "1 4 2 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a; a[1] := 1; PRINT(a[2] || ""); ?>');
+  MustContainError(7, result.errors, 46, '1');
+
+  errors := TestCompile('<?wh INTEGER i; i[0] := 1; ?>');
+  MustContainError(8, errors, 130);
+
+  result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT 0; INSERT "b" INTO a AT 0; a[1] := "c"; FOREVERY (STRING s FROM a) PRINT (s || " "); ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "b c ", result.output);
+
+  result := TestCompileAndRun('<?wh STRING ARRAY a; a[1] := "a"; PRINT(a[2]); ?>');
+  MustContainError(11, result.errors, 46, '1');
+
+  result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT 0; INSERT FALSE INTO a AT 0; a[1] := FALSE; FOREVERY (BOOLEAN b FROM a) PRINT ((b ? "TRUE" : "FALSE") || " "); ?>');
+  TestCleanResult(12, result.errors);
+  TestEqualString(13, "FALSE FALSE ", result.output);
+
+  result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; a[1] := TRUE; PRINT(a[2] ? "TRUE" : "FALSE"); ?>');
+  MustContainError(14, result.errors, 46, '1');
+
+  result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT 0; INSERT MakeDateFromDayCount(2) INTO a AT 0; a[1] := MakeDateFromDayCount(3); FOREVERY (DATETIME d FROM a) PRINT (GetDayCount(d) || " "); ?>');
+  TestCleanResult(15, result.errors);
+  TestEqualString(16, "2 3 ", result.output);
+
+  result := TestCompileAndRun('<?wh DATETIME ARRAY a; a[1] := MakeDateFromDayCount(1); PRINT(GetDayCount(a[2]) || ""); ?>');
+  MustContainError(17, result.errors, 46, '1');
+
+  result := TestCompileAndRun('<?wh RECORD ARRAY a := [ [ b := 1 ] ];UPDATE a[0].b SET c := 1 WHERE c = 0; IF (LENGTH(a) = 0) PRINT(""); ?>');
+  MustContainError(8, result.errors, 62, 'INTEGER', 'RECORD ARRAY');
+
+  CloseTest("TestArrays: UpdateTest");
+}
+
+MACRO ArraySpread()
+{
+  OpenTest("TestArrays: ArraySpread");
+  result := TestCompileAndRun('<?wh INTEGER ARRAY a, b := [ ...a ]; ?>');
+  MustContainError(8, result.errors, 208);
+
+  TestEQ([ 1, 2 ], [ 1, ...[2] ]);
+  INTEGER ARRAY a := [ 2, 3 ];
+  INTEGER b := 4;
+  TestEQ([ 1, 2, 3, 4, 5 ], [ 1, ...a, b, 5 ]);
+  TestEQ([ 1, 4, 6, 2, 3, 5, 4 ], [ 1, b, 6, ...a, 5, b ]);
+  TestEQ([ 4, 2, 3, 5, 4 ], [ b, ...a, 5, b ]);
+  TestEQ([ 4, 2, 5 ], [ b, ...[2], 5 ]);
+
+  INTEGER ARRAY c;
+  TestEQ([ 1 ], [ ...c, 1 ]);
+
+  TestEQ([ 1, 2 ], [ 1, ...[2] ]);
+  TestEQ([ 2, 3 ], INTEGER[ ...a ]);
+  TestEQ(VARIANT[ "1", 2, 3, 4.4 ], VARIANT[ "1", ...a, 4.4 ]);
+  CloseTest("TestArrays: ArraySpread");
+}
+
+MACRO SubscriptTest()
+{
+  OpenTest("TestArrays: SubscriptTest");
+  result := TestCompileAndRun('<?wh DATETIME ARRAY a; PRINT(GetDayCount(a[-1]) || ""); ?>');
+  MustContainError(1, result.errors, 46, '-1');
+  CloseTest("TestArrays: SubscriptTest");
+}
+
+STRING ARRAY FUNCTION ToSA(STRING str)
+{
+  STRING ARRAY result;
+  FOR (INTEGER i :=0, e := LENGTH(str); i < e; i := i + 1)
+    INSERT SubSTring(str, i, 1) INTO result AT END;
+  RETURN result;
+}
+
+MACRO SliceTest()
+{
+  OpenTest("SliceTest");
+
+  STRING ARRAY test := ToSA("abcde");
+
+  TestEq(ToSA("abcde"), ArraySlice(test, 0));
+  TestEq(ToSA("bcde"), ArraySlice(test, 1));
+  TestEq(ToSA("cd"), ArraySlice(test, 2, 2));
+  TestEq(ToSA("cde"), ArraySlice(test, 2, 3));
+  TestEq(ToSA("cde"), ArraySlice(test, 2, 4));
+  TestEq(ToSA("cde"), ArraySlice(test, 2, 4));
+  TestEq(ToSA(""), ArraySlice(test, 10, 0));
+  TestEq(ToSA(""), ArraySlice(test, 10, 17));
+  TestEq(ToSA(""), ArraySlice(test, -3, 3));
+  TestEq(ToSA("a"), ArraySlice(test, -3, 4));
+  TestEq(ToSA("ab"), ArraySlice(test, -3, 5));
+  TestEq(ToSA("abcd"), ArraySlice(test, -3, 7));
+  TestEq(ToSA("abcde"), ArraySlice(test, -3, 10));
+  TestEq(ToSA(""), ArraySlice(test, -10, 7));
+  TestEq(ToSA("abcde"), ArraySlice(test, -10));
+
+  TestEq(ToSA(""), ArraySlice(test, -2147483648,2147483647));
+  TestEq(ToSA(""), ArraySlice(test, -2147483648,2147483648i64));
+  TestEq(ToSA("a"), ArraySlice(test, -2147483648,2147483649i64));
+  TestEq(ToSA("abcde"), ArraySlice(test, -2147483648));
+
+  TestThrows(PTR ArraySlice(test, 2, -1));
+  TestThrows(PTR ArraySlice("bla", 0, 1));
+
+  CloseTest("SliceTest");
+}
+
+MACRO InAndSearchElementTest()
+{
+  OpenTest("InAndSearchElementTest");
+
+  TestEQ(TRUE, 1 IN [0, 1, 2]);
+  TestEQ(TRUE, 1 IN [2, 1, 0]);
+  TestEQ(FALSE, 1 IN [2, 0]);
+  TestEQ(1, SearchElement([0, 1, 2], 1));
+  TestEQ(1, SearchElement([2, 1, 0], 1));
+  TestEQ(-1, SearchElement([2, 0], 1));
+  TestEQ(1, SearchLastElement([0, 1, 2], 1));
+  TestEQ(1, SearchLastElement([2, 1, 0], 1));
+  TestEQ(-1, SearchLastElement([2, 0], 1));
+
+  result := TestCompileAndRun('<?wh VARIANT xs := [ "a", "b", "c" ]; IF (1 IN xs) PRINT("Y"); ?>');
+  MustContainError(11, result.errors, 62, 'INTEGER', 'STRING');
+
+  VARIANT ARRAY xs;
+  INSERT 1 INTO xs AT END;
+  INSERT "a" INTO xs AT END;
+
+  TestEQ(FALSE, 2 IN xs);
+  TestEQ(TRUE, 1 IN xs);
+  TestEQ(FALSE, "b" IN xs);
+  TestEQ(TRUE, "a" IN xs);
+
+  TestEQ(-1, SearchElement(xs, 2));
+  TestEQ(0, SearchElement(xs, 1));
+  TestEQ(-1, SearchElement(xs, "b"));
+  TestEQ(1, SearchElement(xs, "a"));
+
+  TestEQ(-1, SearchLastElement(xs, 2));
+  TestEQ(0, SearchLastElement(xs, 1));
+  TestEQ(-1, SearchLastElement(xs, "b"));
+  TestEQ(1, SearchLastElement(xs, "a"));
+
+  CloseTest("InAndSearchElementTest");
+}
+
+OBJECTTYPE endtesttype
+<
+  PUBLIC RECORD ARRAY myarray;
+>;
+
+MACRO EndTest()
+{
+  OpenTest("EndTest");
+
+  INTEGER ARRAY ia := [1,2,3,4,5];
+  TestEq(1,ia[END-END]);
+  TestEq(5,ia[END-1]);
+  TestEq(4,ia[END-2]);
+  ia[end-1]:=6;
+  TestEq(6,ia[END-1]);
+
+  INSERT 0 INTO ia AT END-END;
+  INSERT 9 INTO ia AT END;
+  TestEq([0,1,2,3,4,6,9],ia);
+
+  DELETE FROM ia AT END-1;
+  TestEq([0,1,2,3,4,6],ia);
+
+  RECORD ARRAY deeparrays := [[ x := [1,2,3]], [ y := [4,5,6] ] ];
+  TestEq(3, deeparrays[0].x[2]);
+  TestEq(3, deeparrays[0].x[END-1]);
+  TestEq(3, deeparrays[END-2].x[2]);
+  TestEq(3, deeparrays[END-2].x[END-1]);
+
+  INSERT 0 INTO deeparrays[end-2].x AT 0;
+  TestEq([[ x := [0,1,2,3]], [ y := [4,5,6] ] ], deeparrays);
+  INSERT 4 INTO deeparrays[end-2].x AT END;
+  TestEq([[ x := [0,1,2,3,4]], [ y := [4,5,6] ] ], deeparrays);
+  INSERT 5 INTO deeparrays[end-2].x AT END-1;
+  TestEq([[ x := [0,1,2,3,5,4]], [ y := [4,5,6] ] ], deeparrays);
+  INSERT 7 INTO deeparrays[end-1].y AT END;
+  TestEq([[ x := [0,1,2,3,5,4]], [ y := [4,5,6,7] ] ], deeparrays);
+
+  deeparrays[end-2].x[end-1] := 6;
+  TestEq([[ x := [0,1,2,3,5,6]], [ y := [4,5,6,7] ] ], deeparrays);
+
+  OBJECT obj := NEW endtesttype;
+  obj->myarray := [[ x := [1,2,3]], [ y := [4,5,6] ] ];
+  TestEq(3, obj->myarray[0].x[2]);
+  TestEq(3, obj->myarray[0].x[END-1]);
+  TestEq(3, obj->myarray[END-2].x[2]);
+  TestEq(3, obj->myarray[END-2].x[END-1]);
+
+  INSERT 0 INTO obj->myarray[end-2].x AT 0;
+  TestEq([[ x := [0,1,2,3]], [ y := [4,5,6] ] ], obj->myarray);
+  INSERT 4 INTO obj->myarray[end-2].x AT END;
+  TestEq([[ x := [0,1,2,3,4]], [ y := [4,5,6] ] ], obj->myarray);
+  INSERT 5 INTO obj->myarray[end-2].x AT END-1;
+  TestEq([[ x := [0,1,2,3,5,4]], [ y := [4,5,6] ] ], obj->myarray);
+  INSERT 7 INTO obj->myarray[end-1].y AT END;
+  TestEq([[ x := [0,1,2,3,5,4]], [ y := [4,5,6,7] ] ], obj->myarray);
+
+  obj->myarray[end-2].x[end-1] := 6;
+  TestEq([[ x := [0,1,2,3,5,6]], [ y := [4,5,6,7] ] ], obj->myarray);
+
+
+  deeparrays := [[ x := [1,2,3]], [ y := [4,5,6] ] ];
+
+  DELETE FROM deeparrays[END-1].y AT END-1;
+  TestEq([[ x := [1,2,3]], [ y := [4,5] ] ], deeparrays);
+
+  obj->myarray := [[ x := [1,2,3]], [ y := [4,5,6] ] ];
+  DELETE FROM obj->myarray[END-1].y AT END-1;
+  TestEq([[ x := [1,2,3]], [ y := [4,5] ] ], obj->myarray);
+
+  //FIXME test en voorkom dubbele executie als je AT END gebruikt icm iets dat objecten dereferencet...
+
+  CloseTest("EndTest");
+}
+
+MACRO MiscTest()
+{
+  OpenTest("MiscTest");
+
+  // Test RepeatElement(element, count);
+  TestEQ(DEFAULT INTEGER ARRAY, RepeatElement(1, -1));
+  INTEGER ARRAY expected;
+  FOR (INTEGER i := 0; i < 16; i := i + 1)
+  {
+    TestEQ(expected, RepeatElement(1, i), "Expect an array with " || i || " elements");
+    INSERT 1 INTO expected AT END;
+  }
+  CloseTest("MiscTest");
+}
+
+MACRO VariantInTest()
+{
+  OpenTest("VariantInTest");
+
+  RECORD ARRAY x := [[ rowkey := 1 ]];
+  VARIANT ARRAY seeklist := [ 1 ];
+  TestEq( [[rowkey:=1]], (SELECT * FROM x WHERE rowkey!=rowkey OR rowkey IN seeklist));
+  //TestEq( [[rowkey:=1]], (SELECT * FROM x WHERE rowkey IN seeklist)); //#598
+
+  CloseTest("VariantInTest");
+}
+
+MACRO PickTest()
+{
+  OpenTest("PickTest");
+
+  TestEq(5, PickFirst([5,4,3]));
+  TestEq('a', PickLast(['c','b','a']));
+  TestEq(DEFAULT RECORD, PickLast(DEFAULT RECORD ARRAY));
+  TestEq(0, PickLast(DEFAULT INTEGER ARRAY));
+
+  VARIANT ARRAY x;
+  INSERT 5 INTO x AT END;
+  TestThrows(PTR PickFirst(x));
+  TestThrows(PTR PickFirst("array"));
+
+  Closetest("PickTest");
+
+}
+
+PRINT("\n === Running TestArrays\n");
+DeclareTest();
+InsertTest();
+DeleteTest();
+UpdateTest();
+ArraySpread();
+SubscriptTest();
+SliceTest();
+InAndSearchElementTest();
+EndTest();
+MiscTest();
+VariantInTest();
+PickTest();

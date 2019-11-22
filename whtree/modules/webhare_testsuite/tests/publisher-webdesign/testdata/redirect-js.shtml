@@ -1,0 +1,5 @@
+<?wh
+PUBLIC MACRO RunDynamicPage()
+{
+  Print('<script>location.href="http://www.b-lex.nl/";</script>');
+}

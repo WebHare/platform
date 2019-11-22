@@ -1,0 +1,150 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::consilio/lib/catalog.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+
+BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
+{
+  RETURN event.groupid = ToString(expectfile);
+}
+
+STRING testsiteprofile := `
+    <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+      <apply>
+        <to type="all" />
+        <robots xmlns="http://www.webhare.net/xmlns/consilio" />
+      </apply>
+    </siteprofile>`;
+
+BLOB FUNCTION GetTestPage(INTEGER siteid, BOOLEAN noindex, BOOLEAN nofollow)
+{
+  RETURN StringToBlob(`
+      <?wh
+      LOADLIB "mod::publisher/lib/webdesign.whlib";
+      LOADLIB "mod::system/lib/webserver.whlib";
+
+      PUBLIC MACRO RunDynamicPage()
+      {
+        NEW TestPage()->RunPageForWHFSId(${siteid});
+      }
+
+      OBJECTTYPE TestPage EXTEND DynamicPageBase
+      <
+        INTEGER pagenum;
+
+        UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+        {
+          this->pagenum := ToInteger(GetWebVariable("page"), 0);
+
+          IF (this->pagenum = 0)
+          {
+            OBJECT robotsplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/consilio", "robots");
+            robotsplugin->noindex := ${noindex ? "TRUE" : "FALSE"};
+            robotsplugin->nofollow := ${nofollow ? "TRUE" : "FALSE"};
+          }
+        }
+
+        UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+        {
+          Print('<p>page ' || this->pagenum || '\\n');
+          IF (this->pagenum = 0)
+            Print('<a href="' || GetRequestUrl() || '?page=1">next</a>');
+          Print('</p>');
+        }
+      >;`);
+}
+
+MACRO TestHTMLIndexing()
+{
+  OBJECT search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+
+  // The testfile has two pages, with the first page linking to the second page
+
+
+  // First page has robots "index, follow" -> both pages should be indexed
+  testfw->BeginWork();
+
+  INTEGER indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
+  OBJECT site := testfw->SetupTestWebdesignWebsite(testsiteprofile);
+  OBJECT siteroot := site->rootobject;
+  AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
+  INTEGER contentsourceid := SELECT AS INTEGER id FROM consilio.contentsources WHERE COLUMN indexid = VAR indexid;
+
+  OBJECT testfile := siteroot->CreateFile(
+      [ name := "testfile.shtml"
+      , title := "testlinks"
+      , data := GetTestPage(site->id, FALSE, FALSE)
+      , publish := TRUE
+      ]);
+  OBJECT fileevent := OBJECT(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(testfile->id, #1)));
+
+  testfw->CommitWork();
+
+  IF (testfw->debug)
+    Print(testfile->url || "\n");
+
+  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPromise(fileevent);
+  testfw->WaitConsilioQueueEmpty();
+
+  RECORD res := search_obj->Search("page", 0, -1);
+  TestEQ(2, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = testfile->url));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = `${testfile->url}?page=1`));
+
+
+  Sleep(1000); // So compile server sees the change
+  testfw->BeginWork();
+  testfile->UpdateData(GetTestPage(site->id, TRUE, FALSE));
+  // First page now has robots "noindex, follow" -> only second page should be indexed
+  testfw->CommitWork();
+
+  CheckConsilioGroup(contentsourceid, ToString(testfile->id));
+  testfw->WaitConsilioQueueEmpty();
+
+  res := search_obj->Search("page", 0, -1);
+  TestEq(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = `${testfile->url}?page=1`));
+
+
+  Sleep(1000); // So compile server sees the change
+  testfw->BeginWork();
+  testfile->UpdateData(GetTestPage(site->id, FALSE, TRUE));
+  // First page has robots "index, nofollow" -> only first page should be indexed
+  testfw->CommitWork();
+
+  CheckConsilioGroup(contentsourceid, ToString(testfile->id));
+  testfw->WaitConsilioQueueEmpty();
+
+  res := search_obj->Search("page", 0, -1);
+  TestEQ(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = testfile->url));
+
+
+  // First page has robots "noindex, nofollow" -> both pages should not be indexed
+  Sleep(1000); // So compile server sees the change
+  testfw->BeginWork();
+  testfile->UpdateData(GetTestPage(site->id, TRUE, TRUE));
+  testfw->CommitWork();
+
+  CheckConsilioGroup(contentsourceid, ToString(testfile->id));
+  testfw->WaitConsilioQueueEmpty();
+
+  res := search_obj->Search("page", 0, -1);
+  TestEQ(0, res.totalcount);
+}
+
+RunTestframework(
+    [ PTR TestHTMLIndexing ],
+    [ consilio := TRUE
+    , testusers :=
+        [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
+        ]
+    ]);

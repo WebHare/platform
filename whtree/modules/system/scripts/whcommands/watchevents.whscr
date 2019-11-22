@@ -1,0 +1,49 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+RECORD info := ParseArguments(GetConsoleArguments(),
+    [ [ name := "x", type := "switch" ]
+    , [ name := "v", type := "stringlist" ]
+    , [ name := "masks", type := "paramlist" ]
+    ]);
+
+IF (NOT RecordExists(info))
+{
+  PRINT("Syntax: wh eventwatch [ -x ] [ -v mask ]* masks\n");
+  PRINT("Watch events.\n");
+  PRINT("  -x    Print event data record\n");
+  PRINT("  -v    Skip masks\n");
+  PRINT("  masks Events masks to show\n");
+  RETURN;
+}
+
+FOREVERY (STRING s FROM info.v)
+  IF (SearchSubString(s, "*") = -1)
+    info.v[#s] := "*" || s || "*";
+
+OBJECT eventmgr := NEW EventManager;
+
+FOREVERY (STRING mask FROM info.masks ?? [ "*" ])
+  eventmgr->RegisterInterest(mask);
+
+WHILE(TRUE)
+{
+  RECORD event := eventmgr->ReceiveEvent(AddTimeToDate(5000, GetCurrentDateTime()));
+  IF (event.status = "timeout")
+    CONTINUE;
+
+  BOOLEAN ignore;
+  FOREVERY (STRING mask FROM info.v)
+    IF (event.event LIKE mask)
+      ignore := TRUE;
+
+  IF (ignore)
+    CONTINUE;
+
+  PRINT(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " " || event.event || (event.issynchronous ? " (synchronous)" : "") || "\n");
+  IF (info.x AND RecordExists(event.msg))
+    PRINT(AnyToString(event.msg, "tree") || "\n");
+}

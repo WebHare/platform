@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs/>
+  <g>
+    <path d="M30,32H2c-1.1,0-2-0.9-2-2V2c0-1.1,0.9-2,2-2h28c1.1,0,2,0.9,2,2v28C32,31.1,31.1,32,30,32zM30,30v1V30L30,30L30,30zM2,8v22h28V8H2z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="4" y="10" width="10" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="4" y="14" width="10" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="4" y="18" width="10" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="4" y="22" width="10" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="4" y="26" width="10" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="18" y="10" width="10" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <polyline points="28,16 18,16 18,14 28,14   " fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <polyline points="28,20 18,20 18,18 28,18   " fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <polyline points="28,24 18,24 18,22 28,22   " fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <polyline points="28,28 18,28 18,26 28,26   " fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+  </g>
+</svg>

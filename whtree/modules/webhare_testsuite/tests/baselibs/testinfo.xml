@@ -1,0 +1,5 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test name="hsengine"   path="hsengine/" />
+
+  <test script="test_markdown.whscr" />
+</group>

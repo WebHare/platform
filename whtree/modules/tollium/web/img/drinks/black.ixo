@@ -1,0 +1,5 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <backgroundlayer src="tollium:backgrounds/beer/beerglass"/>
+  <layer src="tollium:backgrounds/beer/black"/>
+  <layer src="tollium:objects/beerglass"/>
+</icon>

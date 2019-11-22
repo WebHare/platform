@@ -1,0 +1,298 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/webapi/aws/awsbase.whlib";
+
+CONSTANT STRING ns_ec20121001 := "http://ec2.amazonaws.com/doc/2012-10-01/";
+CONSTANT RECORD ec2endpoints := [ "us-east-1" := "https://ec2.us-east-1.amazonaws.com/"
+                                , "us-west-1" := "https://ec2.us-west-1.amazonaws.com"
+                                , "us-west-2" := "https://ec2.us-west-2.amazonaws.com/"
+                                , "sa-east-1" := "https://ec2.sa-east-1.amazonaws.com/"
+                                , "eu-west-1" := "https://ec2.eu-west-1.amazonaws.com/"
+                                , "ap-southeast-1" := "https://ec2.ap-southeast-1.amazonaws.com/"
+                                , "ap-northeast-1" := "https://ec2.ap-northeast-1.amazonaws.com/"
+                                ];
+
+PUBLIC OBJECTTYPE AmazonAWSEC2Interface EXTEND AmazonAWSInterface
+<
+  STRING endpoint;
+  //
+
+  MACRO NEW(STRING zone, STRING accesskey, STRING accesssecret)
+  : AmazonAWSInterface(zone, accesskey, accesssecret)
+  {
+    IF(NOT CellExists(ec2endpoints,zone))
+      THROW NEW Exception("Invalid EC2 zone '" || zone || "'");
+    this->endpoint := GetCell(ec2endpoints,zone);
+  }
+
+  /*
+<?xml version="1.0" encoding="UTF-8"?>
+<DescribeInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2012-10-01/">
+    <requestId>ae8dd6ac-e222-45a2-93fc-caccbd7247c0</requestId>
+    <reservationSet>
+        <item>
+            <reservationId>r-f5fec093</reservationId>
+            <ownerId>079021186127</ownerId>
+            <groupSet>
+                <item>
+                    <groupId>sg-41015029</groupId>
+                    <groupName>autoserver</groupName>
+                </item>
+            </groupSet>
+            <instancesSet>
+                <item>
+                    <instanceId>i-d3c7abaf</instanceId>
+                    <imageId>ami-e8249881</imageId>
+                    <instanceState>
+                        <code>0</code>
+                        <name>pending</name>
+                    </instanceState>
+                    <privateDnsName>ip-10-31-166-178.ec2.internal</privateDnsName>
+                    <dnsName>ec2-54-242-165-252.compute-1.amazonaws.com</dnsName>
+                    <reason/>
+                    <keyName>autoserver</keyName>
+                    <amiLaunchIndex>0</amiLaunchIndex>
+                    <productCodes/>
+                    <instanceType>m1.small</instanceType>
+                    <launchTime>2012-10-30T15:16:42.000Z</launchTime>
+                    <placement>
+                        <availabilityZone>us-east-1a</availabilityZone>
+                        <groupName/>
+                        <tenancy>default</tenancy>
+                    </placement>
+                    <kernelId>aki-88aa75e1</kernelId>
+                    <monitoring>
+                        <state>disabled</state>
+                    </monitoring>
+                    <privateIpAddress>10.31.166.178</privateIpAddress>
+                    <ipAddress>54.242.165.252</ipAddress>
+                    <groupSet>
+                        <item>
+                            <groupId>sg-41015029</groupId>
+                            <groupName>autoserver</groupName>
+                        </item>
+                    </groupSet>
+                    <architecture>x86_64</architecture>
+                    <rootDeviceType>instance-store</rootDeviceType>
+                    <blockDeviceMapping/>
+                    <virtualizationType>paravirtual</virtualizationType>
+                    <clientToken/>
+                    <hypervisor>xen</hypervisor>
+                    <networkInterfaceSet/>
+                    <ebsOptimized>false</ebsOptimized>
+                </item>
+            </instancesSet>
+        </item>
+    </reservationSet>
+</DescribeInstancesResponse>
+  */
+
+  RECORD FUNCTION ParseInstanceItem(OBJECT item)
+  {
+    RECORD instanceinfo;
+    FOREVERY(STRING simpleprop FROM ["instanceId","imageId","privateDnsName","dnsName","reason","keyName","amiLaunchIndex"
+                                    ,"instanceType", "launchTime", "kernelId","privateIpAddress","ipAddress","architecture"
+                                    ,"rootDeviceType","virtualizationType","hypervisor","availabilityZone"])
+    {
+      OBJECT node := item->GetElementsByTagNameNS(ns_ec20121001, simpleprop)->Item(0);
+      STRING data := ObjectExists(node) ? node->childrentext : "";
+      instanceinfo := CellInsert(instanceinfo, simpleprop, data);
+    }
+
+    OBJECT instancestate := item->GetElementsByTagNameNS(ns_ec20121001, "instanceState")->Item(0);
+    STRING instancestatename;
+    IF(OBjectExists(instancestate))
+      instancestatename := instancestate->GetElementsByTagNameNS(ns_ec20121001, "name")->Item(0)->childrentext;
+
+    INSERT CELL instancestate := instancestatename INTO instanceinfo;
+    RETURN instanceinfo;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListInstances()
+  {
+    OBJECT response := this->RawRequest(this->endpoint, [ [ name := "Action", value := "DescribeInstances" ]
+                                                        , [ name := "Version", value := "2012-10-01" ]
+                                                        ]);
+
+    OBJECT reservationset := response->GetElementsByTagNameNS(ns_ec20121001,"reservationSet")->Item(0);
+    RECORD ARRAY instances;
+
+    //every Runinstances generates a reservation id, ie you can use it to group launches. it hasn't got (much?) to do with Reserved Instances
+    FOREVERY(OBJECT reservationnode FROM reservationset->childnodes->GetCurrentElements())
+      instances := instances CONCAT this->ParseReservationNode(reservationnode);
+
+    RETURN instances;
+  }
+
+  PUBLIC RECORD FUNCTION GetConsoleOutput(STRING instanceid)
+  {
+    OBJECT response := this->RawRequest(this->endpoint, [ [ name := "Action", value := "GetConsoleOutput" ]
+                                                        , [ name := "Version", value := "2012-10-01" ]
+                                                        , [ name := "InstanceId", value := instanceid ]
+                                                        ]);
+    RETURN [ lastupdate := MakeDateFromText(response->GetElementsByTagNameNS(ns_ec20121001,"timestamp")->Item(0)->childrentext)
+           , output :=     DecodeBase64(response->GetElementsByTagNameNS(ns_ec20121001,"output")->Item(0)->childrentext)
+           ];
+  }
+
+  RECORD ARRAY FUNCTION ParseReservationNode(OBJECT reservationnode)
+  {
+    STRING reservationid := reservationnode->GetElementsByTagNameNS(ns_ec20121001, "reservationId")->Item(0)->childrentext;
+    OBJECT instancesset := reservationnode->GetElementsByTagNameNS(ns_ec20121001,"instancesSet")->Item(0);
+
+    RECORD ARRAY instances;
+    FOREVERY(OBJECT instance FROM instancesset->childnodes->GetCurrentElements())
+    {
+      RECORD instanceinfo := this->ParseInstanceItem(instance);
+      INSERT CELL reservationid := reservationid INTO instanceinfo;
+      INSERT instanceinfo INTO instances AT END;
+    }
+    RETURN instances;
+  }
+  PUBLIC STRING FUNCTION GetInstanceUSerData(STRING instanceid)
+  {
+    OBJECT resp := this->RawRequest(this->endpoint, [ [ name := "Action", value := "DescribeInstanceAttribute" ]
+                                                    , [ name := "Version", value := "2012-10-01" ]
+                                                    , [ name := "InstanceId", value := instanceid ]
+                                                    , [ name := "Attribute", value := "userData" ]
+                                                    ]);
+    RETURN DecodeBase64(resp->GetElementsByTagNameNS(ns_ec20121001,"value")->Item(0)->childrentext);
+  }
+
+/* TO PARSE
+
+   <?xml version="1.0" encoding="UTF-8"?>
+<RunInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2012-10-01/">
+    <requestId>2a436eee-dfe8-49de-aeaf-024987f160c8</requestId>
+    <reservationId>r-f5fec093</reservationId>
+    <ownerId>079021186127</ownerId>
+    <groupSet>
+        <item>
+            <groupId>sg-41015029</groupId>
+            <groupName>autoserver</groupName>
+        </item>
+    </groupSet>
+    <instancesSet>
+        <item>
+            <instanceId>i-d3c7abaf</instanceId>
+            <imageId>ami-e8249881</imageId>
+            <instanceState>
+                <code>0</code>
+                <name>pending</name>
+            </instanceState>
+            <privateDnsName/>
+            <dnsName/>
+            <reason/>
+            <keyName>autoserver</keyName>
+            <amiLaunchIndex>0</amiLaunchIndex>
+            <productCodes/>
+            <instanceType>m1.small</instanceType>
+            <launchTime>2012-10-30T15:16:42.000Z</launchTime>
+            <placement>
+                <availabilityZone>us-east-1a</availabilityZone>
+                <groupName/>
+                <tenancy>default</tenancy>
+            </placement>
+            <kernelId>aki-88aa75e1</kernelId>
+            <monitoring>
+                <state>disabled</state>
+            </monitoring>
+            <groupSet>
+                <item>
+                    <groupId>sg-41015029</groupId>
+                    <groupName>autoserver</groupName>
+                </item>
+            </groupSet>
+            <stateReason>
+                <code>pending</code>
+                <message>pending</message>
+            </stateReason>
+            <architecture>x86_64</architecture>
+            <rootDeviceType>instance-store</rootDeviceType>
+            <blockDeviceMapping/>
+            <virtualizationType>paravirtual</virtualizationType>
+            <clientToken/>
+            <hypervisor>xen</hypervisor>
+            <networkInterfaceSet/>
+            <ebsOptimized>false</ebsOptimized>
+        </item>
+    </instancesSet>
+</RunInstancesResponse>
+
+*/
+  PUBLIC RECORD FUNCTION RunInstances(STRING instancetype
+                                     ,STRING imageid
+                                     ,STRING securitygroup
+                                     ,STRING keypair
+                                     ,STRING availabilityzone
+                                     ,STRING userdata
+                                     )
+  {
+    OBJECT response := this->RawRequest(this->endpoint, [ [ name := "Action", value := "RunInstances" ]
+                                                        , [ name := "Version", value := "2012-10-01" ]
+                                                        , [ name := "MinCount", value := "1" ]
+                                                        , [ name := "MaxCount", value := "1" ]
+                                                        , [ name := "KeyName", value := keypair ]
+                                                        , [ name := "SecurityGroup.0", value := securitygroup ]
+                                                        , [ name := "Placement.AvailabilityZone", value := availabilityzone ]
+                                                        , [ name := "UserData", value := EncodeBase64(userdata) ]
+                                                        , [ name := "InstanceType", value := instancetype ]
+                                                        , [ name := "ImageId", value := imageid]
+                                                        ]);
+    RETURN this->ParseReservationNode(response)[0];
+  }
+
+  PUBLIC MACRO CreateTag(STRING resourceid, STRING tag, STRING value)
+  {
+    IF(UCLength(tag)>128)
+      THROW NEW Exception("'tag' too long (max 128 characters)");
+    IF(UCLength(value)>128)
+      THROW NEW Exception("'value' too long (max 128 characters)");
+
+    OBJECT resp := this->RawRequest(this->endpoint, [ [ name := "Action", value := "CreateTags" ]
+                                                    , [ name := "Version", value := "2012-10-01" ]
+                                                    , [ name := "ResourceId.0", value := resourceid ]
+                                                    , [ name := "Tag.0.Key", value := tag ]
+                                                    , [ name := "Tag.0.Value", value := value ]
+                                                    ]);
+  }
+
+  ///List tags for the specified resource. If resourceid is empty, list all tags
+  PUBLIC RECORD ARRAY FUNCTION ListTags(STRING resourceid)
+  {
+    RECORD ARRAY req := [ [ name := "Action", value := "DescribeTags" ]
+                        , [ name := "Version", value := "2012-10-01" ]
+                        ];
+    IF(resourceid!="")
+    {
+      req := req CONCAT [ [ name := "Filter.1.Name", value := "resource-id" ]
+                        , [ name := "Filter.1.Value.1", value := resourceid ]
+                        ];
+    }
+
+    OBJECT resp := this->RawRequest(this->endpoint, req);
+    RECORD ARRAY tags;
+    FOREVERY(OBJECT itemnode FROM resp->GetElementsByTagNameNS(ns_ec20121001,"item")->GetCurrentElements())
+    {
+      INSERT [ resourceid   := itemnode->GetElementsByTagNameNS(ns_ec20121001,"resourceId")->Item(0)->childrentext
+             , resourcetype := itemnode->GetElementsByTagNameNS(ns_ec20121001,"resourceType")->Item(0)->childrentext
+             , tag          := itemnode->GetElementsByTagNameNS(ns_ec20121001,"key")->Item(0)->childrentext
+             , value        := itemnode->GetElementsByTagNameNS(ns_ec20121001,"value")->Item(0)->childrentext
+             ] INTO tags AT END;
+    }
+    RETURN tags;
+  }
+
+  PUBLIC MACRO TerminateInstance(STRING instanceid)
+  {
+    OBJECT resp := this->RawRequest(this->endpoint, [ [ name := "Action", value := "TerminateInstances" ]
+                                                    , [ name := "Version", value := "2012-10-01" ]
+                                                    , [ name := "InstanceId.0", value := instanceid ]
+                                                    ]);
+
+  }
+
+>;
+

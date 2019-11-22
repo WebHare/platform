@@ -1,0 +1,124 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+BOOLEAN FUNCTION IsLikeIn(STRING name, STRING ARRAY list)
+{
+  FOREVERY(STRING item FROM list)
+    IF(name LIKE item)
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+
+PUBLIC RECORD FUNCTION GetCacheableHostedSites()
+{
+  RECORD ARRAY hosts := SELECT id
+                             , baseurl
+                             , port
+                             , isinterface := type = 1
+                          FROM system.webservers
+                         WHERE type IN [0,1];
+  RECORD ARRAY ports := SELECT id
+                             , virtualhost
+                             , port
+                          FROM system.ports;
+  //Also mark our trusted port as a virtualhosted port
+  INSERT [ id := -1, virtualhost := TRUE, port := GetWebHareConfiguration().baseport + 5 ] INTO ports AT END;
+  RETURN [ ttl := 15 * 60 * 1000
+         , value := [ hosts := EnrichWithListenHosts(hosts)
+                    , ports := ports
+                    ]
+         , eventmasks := [ "system:internal.webserver.didconfigreload" ]
+         ];
+}
+INTEGER FUNCTION GetGlobalOrdering(STRING hostname)
+{
+  IF(SearchSUbstring(hostname,'*') = -1 AND SearchSUbstring(hostname,'?')=-1) //plain hostname
+    RETURN -1;
+  IF(hostname="*")
+    RETURN 2;
+  RETURN hostname != "" AND Right(hostname,1)='*' ? 0 : 1;
+}
+PUBLIC RECORD ARRAY FUNCTION EnrichWithListenHosts(RECORD ARRAY hosts)
+{
+  RECORD ARRAY aliaslist := SELECT webserver, hostname FROM system.webservers_aliases WHERE explicit;
+  FOREVERY(RECORD host FROM hosts)
+  {
+    RECORD unp := UnpackURL(host.baseurl);
+    STRING hostname := unp.host LIKE "*::*" ? "[" || ToUppercase(unp.host) || "]" : ToUppercase(unp.host); //wrap IPv6 adresses
+    STRING ARRAY listenhosts;
+
+    IF(host.port=0)
+    {
+      listenhosts := [STRING(hostname)]
+                     CONCAT
+                     (SELECT AS STRING ARRAY ToUppercase(aliaslist.hostname) FROM aliaslist WHERE aliaslist.webserver = host.id);
+    }
+    ELSE
+    {
+      listenhosts := [STRING(hostname) || (unp.isdefaultport?"":":"||unp.port)];
+      IF(NOT unp.isdefaultport)
+        INSERT "*:" || unp.port INTO listenhosts AT END;
+    }
+
+    INSERT CELL hostname := ToLowercase(hostname)
+              , listenhosts := listenhosts
+           INTO host;
+    hosts[#host]:=host;
+  }
+
+  FOREVERY(RECORD website FROM hosts)
+    hosts[#website].listenhosts := SELECT AS STRING ARRAY host
+                                     FROM ToRecordArray(website.listenhosts,'host')
+                                 ORDER BY GetGlobalOrdering(host)
+                                        , Length(host)
+                                        , ToUppercase(host);
+  RETURN hosts;
+}
+PUBLIC RECORD FUNCTION GetHostedSites()
+{
+  RETURN GetAdhocCached( [ type := "hostedsites" ], PTR GetCacheableHostedSites);
+}
+
+PUBLIC RECORD FUNCTION LookupWebserver(RECORD hostinginfo, STRING findhostname, INTEGER findport)
+{
+  //enumerate all our ports.. bit of a workaround as we may not know whether the host is IPv4 or IPv6
+  findhostname := ToUppercase(findhostname);
+
+  RECORD ARRAY ports := SELECT id, virtualhost FROM hostinginfo.ports WHERE ports.port = findport;
+
+  IF(RecordExists(SELECT FROM ports WHERE virtualhost) OR (LENGTH(ports) = 0 AND findport IN [ 80, 443 ]))
+  {
+    RECORD matchserver;
+    /* do we need this?
+    IF(findport NOT IN [80,443])
+       matchserver := SELECT id,baseurl, isinterface FROM hostinginfo.hosts WHERE findhostname || ":" || findport IN Listenhosts;
+       */
+    IF(NOT RecordExists(matchserver))
+      matchserver := SELECT id,baseurl, isinterface FROM hostinginfo.hosts WHERE findhostname IN Listenhosts;
+      /*
+    IF(NOT RecordExists(matchserver) AND findport NOT IN [80,443])
+      matchserver := SELECT id,baseurl, isinterface FROM hostinginfo.hosts WHERE IsLikeIn(findhostname||":"||findport,Listenhosts);
+      */
+    IF(NOT RecordExists(matchserver))
+      matchserver := SELECT id, baseurl, isinterface FROM hostinginfo.hosts WHERE IsLikeIn(findhostname,Listenhosts);
+    IF(RecordExists(matchserver))
+      RETURN matchserver;
+  }
+
+  FOREVERY(RECORD port FROM ports)
+  {
+    IF(port.virtualhost)
+      CONTINUE;
+
+    RECORD matchserver := SELECT id, baseurl, isinterface := type=1 FROM system.webservers WHERE webservers.port = VAR port.id;
+    IF(RecordExists(matchserver))
+      RETURN matchserver;
+  }
+  RETURN DEFAULT RECORD;
+}
+

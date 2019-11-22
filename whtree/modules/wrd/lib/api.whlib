@@ -1,0 +1,255 @@
+<?wh
+/** @short Main WRD Api
+    @topic wrd/api
+*/
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/cache.whlib" EXPORT WrapImageField;
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib" EXPORT GetCloneableEntityFields;
+LOADLIB "mod::wrd/lib/internal/support2.whlib" EXPORT GetCachedWRDImageURL, GetCachedWRDFileURL;
+LOADLIB "mod::wrd/lib/internal/wrdschema.whlib" EXPORT GetWRDSchemaSetting, SetWRDSchemaSetting, RemoveWRDSchemaSetting;
+LOADLIB "mod::wrd/lib/internal/payments/ordernrs.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/updateschema.whlib";
+
+/** @short Give a quick description of a WRD attribute id
+    @param attributeid Attribute to look up
+    @return A record describing the entity, or a non-existing record if the entity was not found
+    @cell return.attributetag Attribute's tag
+    @cell return.wrdtype Attribute's type id
+    @cell return.wrdtypetag Attribute's type tag
+    @cell return.wrdschema Attribute's schema id */
+PUBLIC RECORD FUNCTION DescribeWRDAttribute(INTEGER attributeid)
+{
+  RETURN SELECT attributetag := attrs.tag
+              , wrdtype := types.id
+              , wrdtypetag := types.tag
+              , wrdschema := types.wrd_schema
+           FROM wrd.attrs, wrd.types
+          WHERE attrs.id = attributeid
+                AND attrs.type=types.id;
+
+}
+
+/** @short Give a quick description of a WRD entity
+    @param entityid Entity to look up
+    @return A record describing the entity, or a non-existing record if the entity was not found
+    @cell return.entitytag Entity's tag
+    @cell return.wrdtype Entity's type id
+    @cell return.wrdtypetag Entity's type tag
+    @cell return.wrdschema Entity's schema id
+    @cell return.guid ASCII format entity guid */
+PUBLIC RECORD FUNCTION DescribeWRDEntity(INTEGER entityid)
+{
+  RETURN SELECT entitytag := entities.tag
+              , wrdtype := types.id
+              , wrdtypetag := types.tag
+              , wrdschema := types.wrd_schema
+              , guid := EncodeWRDGUID(entities.guid)
+           FROM wrd.entities, wrd.types
+          WHERE entities.id=entityid AND entities.type=types.id;
+}
+
+/** @short Does the GUID conform to WRD GUID formatting
+    @param guid GUID to test
+    @return TRUE if it's a valid GUID
+*/
+PUBLIC BOOLEAN FUNCTION IsValidWRDGuid(STRING guid)
+{
+  RETURN ValidateWRDGUID(guid);
+}
+
+/** @short Retrieves a WRD Schema based on it's name.
+    @param(string) findname The name of the WRD Schema to retrieve.
+    @return(object %WRDSchema2017) The WRD Schema identified by the given name.
+*/
+PUBLIC OBJECT FUNCTION OpenWRDSchema(STRING findname)
+{
+  RECORD schemarec := disablewrdcache ? GetCacheableSchemaRecByName(findname).value : GetAdhocCached([ type := "wrdschema", name := findname ], PTR GetCacheableSchemaRecByName(findname));
+  IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
+    RETURN DEFAULT OBJECT;
+
+  OBJECT theschema := NEW WRDSchema2017(schemarec);
+  RETURN theschema;
+}
+
+/** @short Retrieves a WRD Schema based on it's unique ID.
+    @param schemaid The unique ID of the WRD Schema to retrieve.
+    @return(object %WRDSchema2017) The WRD Schema identified by the given ID.
+*/
+PUBLIC OBJECT FUNCTION OpenWRDSchemaById(INTEGER schemaid)
+{
+  RECORD schemarec := disablewrdcache ? GetCacheableSchemaRec(schemaid).value : GetAdhocCached([ type := "wrdschema", id := schemaid ], PTR GetCacheableSchemaRec(schemaid));
+  IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
+    RETURN DEFAULT OBJECT;
+
+  OBJECT theschema := NEW WRDSchema2017(schemarec);
+  RETURN theschema;
+}
+
+/** Creates a new WRD schema
+    @param tag Tag for the new schema
+    @param metadata Metadata
+    @cell(string) metadata.title Title
+    @cell(string) metadata.description Description
+    @cell(boolean) metadata.initialize Set up the schema using the wrdschema defined in its moduledefinition
+    @cell(boolean) metadata.usermgmt Whether this schema is used for user management
+    @cell(string) metadata.creationsource Location where this schema was originally created
+    @return(object %WRDSchema2017) The created WRD schema
+*/
+PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DEFAULT RECORD)
+{
+  metadata := ValidateOptions([ title := ""
+                              , description := ""
+                              , initialize := FALSE //initialize based on module data
+                              , schemaresource := ""
+                              , usermgmt := FALSE
+                              , creationsource := ""
+                              ], metadata, [ title := "metadata" ]);
+  IF(metadata.creationsource = "")
+    metadata.creationsource := GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func);
+
+  IF(RecordExists(SELECT FROM wrd.schemas WHERE ToUppercase(name) = ToUppercase(tag)))
+    THROW NEW Exception(`A schema with tag '${tag}' already exists`);
+
+  RECORD schemadef;
+  IF(metadata.initialize)
+  {
+    STRING deffile := metadata.schemaresource;
+    IF(deffile = "")
+    {
+      RECORD def := GetModuleWRDSchemaDefinition(tag, FALSE);
+      IF(NOT RecordExists(def))
+        THROW NEW Exception(`No schema definition available for WRD schema '${tag}'`);
+
+      IF(def.title != "")
+        metadata.title := def.title; //unconditionally overwrite, the next wrd:updateschemas will do it anway
+
+      deffile := def.definitionfile;
+    }
+
+    schemadef := OpenWRDSchemaDefFile(deffile);
+  }
+
+  INTEGER schemaid := MakeAutonumber(wrd.schemas,"id");
+  INSERT CELL[ id := schemaid
+             , name := tag
+             , metadata.title
+             , metadata.description
+             , metadata.creationsource
+             , creationdate := GetCurrentDatetime()
+             ] INTO wrd.schemas;
+
+  OBJECT wrdschema := OpenWRDSchemaById(schemaid);
+  wrdschema->SetSchemaSetting("wrd:auth.domainsecret", GenerateUFS128BitId() || GenerateUFS128BitId());
+  wrdschema->__InstallCoreTypes();
+
+  IF(RecordExists(schemadef))
+    UpdateSchema(wrdschema, schemadef);
+
+  IF(metadata.usermgmt)
+    wrdschema->UpdateMetadata( CELL[ usermgmt := metadata.usermgmt ]);
+
+  GetWRDCommitHandler()->SchemaCreated();
+
+  RETURN wrdschema;
+}
+
+/** @short Get a list of WRD schemas a user may schema-manage
+    @cell options.user Only show schemas accessible to this user
+    @return List of schemas
+    @cell return.id Schema ID
+    @cell return.tag Schema tag
+    @cell return.title Schema title
+    @cell return.description Schema Description
+    @cell return.has_right_metadata
+    @cell return.has_right_readwrite
+*/
+PUBLIC RECORD ARRAY FUNCTION ListWRDSchemas(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ user := DEFAULT OBJECT ], options);
+
+  IF (NOT Objectexists(options.user) OR options.user->HasRight("system:sysop"))
+  {
+    RETURN SELECT schemas.id
+                , tag := schemas.name
+                , schemas.title
+                , schemas.description
+                , has_right_metadata := TRUE
+                , has_right_readwrite := TRUE
+                , protected
+                , usermgmt
+             FROM wrd.schemas
+            WHERE name NOT LIKE "$wrd$deleted*";
+  }
+  ELSE
+  {
+    RETURN SELECT schemas.id
+                , tag := schemas.name
+                , schemas.title
+                , schemas.description
+                , has_right_metadata := options.user->HasRightOn("wrd:metadata", schemas.id)
+                , has_right_readwrite := options.user->HasRightOn("wrd:readwrite", schemas.id)
+                , protected
+                , usermgmt
+             FROM wrd.schemas
+            WHERE NOT usermgmt // Need sysop for that
+              AND name NOT LIKE "$wrd$deleted*"
+              AND options.user->HasRightOn("wrd:read", schemas.id);
+  }
+}
+
+/** Get the next sequence number
+    @param wrdschemaid
+    @param options
+    @cell options.mutex Mutex to use (if set, runs in a separate transaction). If not set, make sure a mutex protects the transaction
+    @cell options.nrformat
+    @cell options.statekey
+*/
+PUBLIC STRING FUNCTION GetWRDSequenceNext(INTEGER wrdschemaid, STRING statekey, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ mutex :=     ""
+                             , nrformat :=  ""
+                             , now :=       DEFAULT DATETIME
+                             , peek :=      FALSE
+                             ], options, [required := ["mutex"]]); //you need to explicitly think about setting or not settings a mtuex
+
+  IF(options.now = DEFAULT DATETIME)
+    options.now := GetCurrentDatetime();
+
+  IF(options.mutex != "")
+    RETURN RunInSeparatePrimary(PTR AllocateSourceOrderNumber(wrdschemaid, statekey, options));
+  ELSE
+    RETURN AllocateSourceOrderNumber(wrdschemaid, statekey, options);
+}
+
+/** Update parameters for calculation of the next sequence number
+    @param wrdschemaid
+    @param options
+    @cell options.mutex Mutex to use (if set, runs in a separate transaction). If not set, make sure a mutex protects the transaction
+    @cell options.statekey
+    @cell options.minnumber Minimum nr to use for '%0xxn' formatting
+    @cell options.nrformat Default nr format
+*/
+PUBLIC MACRO UpdateWRDSequenceParameters(INTEGER wrdschemaid, STRING statekey, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ mutex :=       ""
+                             , nrformat :=    ""
+                             , minnumber :=   0i64
+                             , mindate :=     DEFAULT DATETIME
+                             , next :=        ""
+                             ], options, [ required := ["mutex"], optional := ["next","minnumber"] ]); //you need to explicitly think about setting or not settings a mtuex
+
+  IF(CellExists(options,'next') AND CellExists(options,'minnumber'))
+    THROW NEW Exception(`Cannot set both 'next' and 'minnumber' in UpdateWRDSequenceParameters`);
+
+  IF(options.mutex != "")
+    RunInSeparatePrimary(PTR UpdateSourceOrderNumberParameters(wrdschemaid, statekey, options));
+  ELSE
+    UpdateSourceOrderNumberParameters(wrdschemaid, statekey, options);
+}

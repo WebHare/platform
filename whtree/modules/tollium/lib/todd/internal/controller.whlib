@@ -1,0 +1,605 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/users.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+
+//ADDME remove these loadlibs:
+INTEGER todd_srhtimeout := 10 * 60;  // Must have client contact every 10 minutes
+
+RECORD webcontroller_dirty := [ fully := FALSE
+                              , grab_activation := FALSE //NOT implied by fully!
+                              ];
+
+// ---------------------------------------------------------------------------
+//
+// TolliumWebFileTransferAsyncAction
+//
+
+OBJECTTYPE TolliumWebAsyncDownload EXTEND TolliumAsyncDownloadBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_link;
+
+  INTEGER64 pvt_msgid;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY link(pvt_link, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT target, STRING id)
+  : TolliumAsyncDownloadBase(target, id)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SetLink(OBJECT link, INTEGER64 msgid)
+  {
+    this->pvt_link := link;
+    this->pvt_msgid := msgid;
+  }
+
+  UPDATE PUBLIC MACRO SendFile(BLOB data, STRING mimetype, STRING filename)
+  {
+    TolliumAsyncDownloadBase::SendFile(data, mimetype, filename);
+
+    IF (ObjectExists(this->pvt_link))
+    {
+      this->pvt_link->SendReply(this->pvt_response, this->pvt_msgid);
+      this->pvt_link := DEFAULT OBJECT;
+    }
+  }
+
+  UPDATE PUBLIC MACRO Cancel()
+  {
+    TolliumAsyncFileTransferBase::Cancel();
+
+    IF (ObjectExists(this->pvt_link))
+    {
+      this->pvt_link->SendReply(this->pvt_response, this->pvt_msgid);
+      this->pvt_link := DEFAULT OBJECT;
+    }
+  }
+>;
+
+OBJECTTYPE TolliumWebAsyncWindowOpen EXTEND TolliumAsyncWindowOpenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_link;
+
+  INTEGER64 pvt_msgid;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY link(pvt_link, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT target, STRING id)
+  : TolliumAsyncWindowOpenBase(target, id)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SetLink(OBJECT link, INTEGER64 msgid)
+  {
+    this->pvt_link := link;
+    this->pvt_msgid := msgid;
+  }
+
+  UPDATE PUBLIC MACRO SendFile(BLOB data, STRING mimetype, STRING filename)
+  {
+    TolliumAsyncFileTransferBase::SendFile(data, mimetype, filename);
+
+    IF (ObjectExists(this->pvt_link))
+    {
+      this->pvt_link->SendReply(this->pvt_response, this->pvt_msgid);
+      this->pvt_link := DEFAULT OBJECT;
+    }
+  }
+
+  UPDATE PUBLIC MACRO SendURL(STRING url)
+  {
+    TolliumAsyncWindowOpenBase::SendURL(url);
+
+    IF (ObjectExists(this->pvt_link))
+    {
+      this->pvt_link->SendReply(this->pvt_response, this->pvt_msgid);
+      this->pvt_link := DEFAULT OBJECT;
+    }
+  }
+
+  UPDATE PUBLIC MACRO Cancel()
+  {
+    TolliumAsyncFileTransferBase::Cancel();
+
+    IF (ObjectExists(this->pvt_link))
+    {
+      this->pvt_link->SendReply(this->pvt_response, this->pvt_msgid);
+      this->pvt_link := DEFAULT OBJECT;
+    }
+  }
+>;
+
+OBJECTTYPE TolliumWebAsyncCallback EXTEND TolliumWebAsyncWindowOpen
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC RECORD data;
+>;
+
+/*
+ADDME: Split these controllers in two: the part that integrates into WebHare (OpenFile/LookupComponent)
+       and the part that does the web interface
+*/
+PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // Start options
+  RECORD options;
+
+  //STRING toddbase;
+  STRING startmenutext;
+  BOOLEAN requestretry;
+
+  INTEGER pvt_outputstream;
+
+  STRING uploadmethod;
+  STRING downloadmethod;
+
+  RECORD dirtyflags;
+
+  OBJECT printembedder;
+
+  /// Whether there is an active request
+  BOOLEAN requestactive;
+
+  /// Whether there are any dirty components
+  BOOLEAN havedirtycomponents;
+
+  /// Current signalled state
+//  BOOLEAN issignalled;
+
+
+  /// Debugging variables
+  ///@{
+
+  PUBLIC BOOLEAN highpriority;
+
+//  RECORD logpipedata;
+
+  ///@}
+
+
+  /** Requestdata
+      @cell remoteip
+      @cell remoteport
+      @cell localport
+      @cell localip
+      @cell webserver
+  */
+  RECORD requestdata;
+
+  // Id of currently requested form state
+  INTEGER requestedformstate;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  ///Current Tollium version
+  PUBLIC STRING webversion;
+
+  ///Explanation of where to modify IEx download settings
+  PUBLIC FUNCTION PTR webiegetdownloadsettinghint;
+
+  /// SRH initialisation errors, stored to show srh errors in dialog after activation
+  PUBLIC RECORD srhiniterrors;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY webstartmenutext(startmenutext, SetStartMenuText);
+  PUBLIC PROPERTY outputstream(pvt_outputstream, -);
+
+  PUBLIC PROPERTY webvariables(this->options.webvars, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @short Create a web controller
+      @param toddbase URL to the todd data files (the /modules/tollium/web/todd/ folder). Relative URLs are automatically converted */
+  MACRO NEW(RECORD options, OBJECT userapi, OBJECT wrdauthplugin)
+  : TolliumControllerBase(userapi, wrdauthplugin, FALSE)
+  {
+    this->options := options;
+    this->pvt_connectenabled := options.hasconnect;
+    this->pvt_wrdauthplugin := wrdauthplugin;
+    this->debugging := options.params.debug; //FIXME ensure that debugging is ONLY enabled if the appservice permitted this user to debug
+    this->profiling := options.profile ? 3 : options.memoryprofile ? 4 : 0;
+    this->frontendid := this->options.frontendid;
+    this->requestdata := this->options.requestdata;
+
+    this->controllertype := "todd";
+
+    this->pvt_apptimeout := todd_srhtimeout;
+
+    this->dirtyflags := webcontroller_dirty;
+    this->dirtyflags.fully := TRUE;
+    this->requestactive := TRUE;
+
+    this->pvt_baseurl := Tokenize(options.url,'?')[0];
+    this->intolerant := options.intolerant;
+
+    IF (options.shorttid)
+      __shortfailtid := TRUE;
+
+    __system_reflecthook := PTR this->OnReflect;
+
+    // Initialize debugging
+    this->pvt_debugstream := CreateStream();
+    RedirectOutputTo(this->pvt_debugstream);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetStartMenuText(STRING startmenutext)
+  {
+    this->startmenutext := startmenutext;
+    this->ExtUpdatedController();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Debugging
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Internal helper functions
+  //
+
+  PUBLIC STRING FUNCTION SetPriorityInURL(STRING url)
+  {
+    IF (this->highpriority AND url != "")
+      url := ReplaceVariableInURL(url, "$tolliumhighpriority", "true");
+    RETURN url;
+  }
+
+  MACRO TolliumWebRender()
+  {
+    IF(this->dirtyflags.fully)
+    {
+      this->QueueInstruction([ instr := "appupdate"
+                             , type := "language"
+                             , lang := ObjectExists(this->user) ? this->user->language : ""
+                             ]);
+      this->QueueInstruction([ instr:="appupdate"
+                             , type:="apptab"
+                             , title := this->title ?? this->options.app
+                             , icon := this->icon
+                             , hasissues := this->reportissues AND Length(this->appissues) > 0
+                             , appmenu := this->GetAppMenu()
+                             ]);
+
+      this->QueueInstruction([instr:="appupdate", type:="target", target:=this->applicationtarget]);
+    }
+    ELSE
+    {
+    }
+
+    IF(this->dirtyflags.grab_activation)
+      this->QueueInstruction([instr:="grabactivation"]);
+
+    this->dirtyflags := DEFAULT RECORD;
+  }
+
+  MACRO FlushDebugLog()
+  {
+    BLOB data := MakeBlobFromStream(this->pvt_debugstream);
+    this->pvt_debugstream := CreateStream();
+    RedirectOutputTo(this->pvt_debugstream);
+
+    IF (LENGTH(data) != 0 AND this->debugging)
+    {
+      STRING strdata := BlobToString(data, -1);
+      this->QueueInstruction([ instr:="appdebuginfo", msg := BlobToString(data, -1) ]);
+      FOREVERY(STRING line FROM Tokenize(strdata,"\n"))
+      {
+        IF(line!="")
+          LogDebug(this->laststartedapp, line);
+      }
+    }
+  }
+
+  UPDATE MACRO TransmitDirtyComponents()
+  {
+    IF (RecordExists(this->dirtyflags))
+      this->TolliumWebRender();
+
+    TolliumControllerBase::TransmitDirtyComponents();
+
+    // Always do handle debuglog data, make sure the stream doesn't become too big
+    this->FlushDebugLog();
+
+    // Transmit replies .Should always be at the end of the message queue (we don't want to go unbusy and then re-busy)
+    //ADDME Probably only need to send the 'last' reply
+    FOREVERY(RECORD reply FROM this->replies)
+      this->QueueInstruction([ instr:= "reply", seqnr := reply.seqnr, replydata := reply.replydata ]);
+
+    this->replies := DEFAULT RECORD ARRAY;
+
+    IF(debug_logcontroller)
+      LogDebug("tollium:controller", "We have " || Length(this->instructions) || " messages to send in our response");
+
+
+    /* Set up a cleaner response record (ADDME optimize the this->QueueInstruction's to directly set up a cleaner record*/
+    RECORD response := [ instructions := DEFAULT RECORD ARRAY
+                       , screens := DEFAULT RECORD ARRAY
+                       ];
+
+    // Group screen-specific instructions to the screens
+    RECORD ARRAY screens;
+    FOREVERY(RECORD entry FROM this->instructions)
+    {
+      IF(entry.instr="component" OR entry.instr="update") //this affects one of the screens
+      {
+        RECORD pos := RecordLowerBound(screens, entry, [ "WINDOW" ]);
+        IF (NOT pos.found)
+          INSERT [ window := entry.window, messages := [ entry ] ] INTO screens AT pos.position;
+        ELSE
+          INSERT entry INTO screens[pos.position].messages AT END;
+      }
+      ELSE
+        INSERT entry INTO response.instructions AT END;
+    }
+
+    response.screens :=
+        SELECT name :=    window
+             , messages
+          FROM screens;
+
+    // Queue message (translate objects first!)
+    RECORD msg := [ type := "response", response := response ];
+    this->commendpoint->QueueMessage(msg);
+
+    this->instructions := DEFAULT RECORD ARRAY;
+
+    IF(debug_logcontroller)
+      LogDebug("tollium:controller", "ToddTransmitDirtyComponents", LENGTH(this->commendpoint->queuedmessages));
+  }
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Controller running loop stuff
+  //
+
+  UPDATE PUBLIC STRING FUNCTION GetClientState(RECORD options)
+  {
+    FOREVERY (RECORD field FROM UnpackRecord(options))
+      IF (field.name NOT IN [ "TIMEOUT", "LOCKCLIENT" ])
+        THROW NEW Exception("Illegal field '" || field.name || "' in options of GetClientState");
+
+    DATETIME timeout := CellExists(options, "TIMEOUT") ? options.timeout : MAX_DATETIME;
+    BOOLEAN synchronous := CellExists(options, "LOCKCLIENT") AND options.lockclient;
+
+    this->requestedformstate := this->requestedformstate + 1;
+    this->QueueInstruction([ instr:="sendformstate", id := this->requestedformstate, sync := synchronous ]);
+
+    STRING res := this->ControllerLoop(
+                      DEFAULT OBJECT,
+                      [ callback_time := 0
+                      , expectformstate := this->requestedformstate
+                      , timeout := timeout
+                      ]);
+
+    SWITCH (res)
+    {
+      CASE "closed"     { RETURN "closed"; }
+      CASE "formstate"  { RETURN "ok"; }
+      CASE "timeout"    { RETURN "timeout"; }
+    }
+    THROW NEW Exception("Unknown return value '" || res || "' from tollium ControllerLoop");
+  }
+
+  MACRO HandleIncomingRequest(RECORD response)
+  {
+    IF (response.data.type IN [ "appmessage", "listen" ])
+    {
+      response.link->userdata := [ listening := TRUE ];
+
+      OBJECT ARRAY new_links;
+      FOREVERY (OBJECT link FROM this->current_links)
+        IF (link->userdata.listening AND link != response.link)
+        {
+          link->SendMessage([ type := "cancel" ]); // cancel waiter, we have a new listener
+          link->Close();
+        }
+        ELSE
+          INSERT link INTO new_links AT END;
+
+      this->current_links := new_links;
+    }
+
+    IF (response.data.type = "appmessage")
+    {
+      this->commendpoint->ProcessWireMessage(response.data.data);
+//      this->ParseClientRequest(response.data.data);
+    }
+  }
+
+  STRING FUNCTION GetComponentName(OBJECT comp)
+  {
+    IF (ObjectExists(comp) AND comp EXTENDSFROM TolliumComponentBase)
+      RETURN comp->name;
+    RETURN "";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX
+  //
+
+  UPDATE MACRO ExtUpdatedController()
+  {
+    IF(NOT RecordExists(this->dirtyflags))
+      this->dirtyflags := webcontroller_dirty;
+    this->dirtyflags.fully := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API - user actions
+  //
+
+  UPDATE PUBLIC MACRO LaunchApplication(STRING appname, RECORD data)
+  {
+    this->applicationtarget := data.target;
+    this->laststartedapp := appname;
+    IF (RecordExists(data.message))
+      INSERT data.message INTO this->messagequeue AT END;
+
+    IF(RecordExists(this->currentapplication))
+      THROW NEW Exception("Cannot launch an application inside an application"); //it would mess up appcontext scopes
+
+    TolliumControllerBase::LaunchApplication(appname, data);
+  }
+
+  /** Activate this web application, stealing focus from any other open Todd application */
+  PUBLIC MACRO ActivateWebApplication()
+  {
+    IF(NOT RecordExists(this->dirtyflags))
+      this->dirtyflags := webcontroller_dirty;
+    this->dirtyflags.grab_activation := TRUE;
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION GetAsyncObject(OBJECT component, STRING type, STRING ftid, BOOLEAN create)
+  {
+    IF(debug_logcontroller)
+      LogDebug("tollium:controller", "Looking for async obj " || ftid);
+    FOREVERY (OBJECT obj FROM this->asyncobjects)
+      IF (obj->id = ftid)
+      {
+        IF(debug_logcontroller)
+          LogDebug("tollium:controller", "Found async obj " || ftid);
+        RETURN obj;
+      }
+
+    OBJECT req;
+    IF (create)
+    {
+      IF(debug_logcontroller)
+        LogDebug("tollium:controller", "Creating async obj " || ftid || " of type " || type);
+
+      SWITCH (type)
+      {
+        CASE "asyncdownload"
+          {
+            req := NEW TolliumWebAsyncDownload(component, ftid);
+          }
+        CASE "asyncwindowopen"
+          {
+            req := NEW TolliumWebAsyncWindowOpen(component, ftid);
+          }
+        CASE "asynccallback"
+          {
+            req := NEW TolliumWebAsyncCallback(component, ftid);
+          }
+      }
+      INSERT req INTO this->asyncobjects AT END;
+    }
+
+    RETURN req;
+  }
+
+  PUBLIC STRING FUNCTION GetClientRemoteIP()
+  {
+    RETURN CellExists(this->requestdata, "REMOTEIP") ? this->requestdata.remoteip : "";
+  }
+
+  PUBLIC RECORD FUNCTION GetWebserverRequestData()
+  {
+    RETURN this->requestdata;
+  }
+
+  MACRO OnReflect(VARIANT val, RECORD reflectoptions)
+  {
+    BOOLEAN killuser;
+    TRY
+    {
+      IF(NOT ObjectExists(this->tolliumuser))
+      {
+        killuser:=TRUE;
+        this->tolliumuser := NEW TolliumUser(DEFAULT OBJECT, DEFAULT OBJECT, 0, "<anonymous>");
+      }
+
+      OBJECT dialog := this->LoadScreen( "mod::tollium/screens/debugging.xml#reflectdialog"
+                                , [ data := val
+                                  , tree := TRUE
+                                  , settings := [ stacktrace := ArraySlice(GetStackTrace(),1) ]
+                                  , reflectoptions := reflectoptions
+                                  ]);
+
+      IF(dialog->RunModal() = "") //the user disconnected
+        TerminateScript(); //then STOP ourselves too - users do not expect 'Reflect(); DoSomething();' to actually do something if they abort during Reflect
+    }
+    FINALLY
+    {
+      IF(killuser)
+        this->tolliumuser := DEFAULT OBJECT;
+    }
+  }
+>;

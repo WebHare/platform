@@ -1,0 +1,19 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+MACRO TestOutput()
+{
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  TestEq(TRUE, testfw->browser->GotoWebPage(siteroot->link));
+  TestEq("Een homepage", BlobToString(testfw->browser->content));
+
+}
+
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:nodesign")
+                 , PTR TestOutput
+                 ]);

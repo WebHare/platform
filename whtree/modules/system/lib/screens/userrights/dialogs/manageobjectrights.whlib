@@ -1,0 +1,54 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+/** This dialog manages the rights on a specific object
+*/
+PUBLIC OBJECTTYPE ManageObjectRights EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  /** @param data
+      @cell data.grantee
+  */
+  MACRO Init(RECORD data)
+  {
+    IF (data.type = "object")
+      this->objectrightslist->SelectObject(data.objecttypename, data.objectid);
+    ELSE IF (data.type = "rightsgroup")
+      this->objectrightslist->SelectRightsGroup(data.rightsgroup);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other tollium stuff
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+>;

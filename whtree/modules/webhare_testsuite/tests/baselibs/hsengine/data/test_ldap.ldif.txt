@@ -1,0 +1,53 @@
+dn:		dc=b-lex,dc=nl
+objectClass:	dcObject
+objectClass:	organization
+o:		test_ldap
+dc:		b-lex
+description:	HareScript LDAP Test Suite
+
+dn:		ou=system,dc=b-lex,dc=nl
+objectClass:	organizationalUnit
+ou:		system
+description:	System Functions
+
+dn:		cn=print,ou=system,dc=b-lex,dc=nl
+objectClass:	organizationalRole
+cn:		print
+ou:		system
+description:	Prints a string
+
+dn:		cn=tostring,ou=system,dc=b-lex,dc=nl
+objectClass:	organizationalRole
+cn:		tostring
+ou:		system
+description:	Returns a string representation of an integer
+
+dn:		cn=abort,ou=system,dc=b-lex,dc=nl
+objectClass:	organizationalRole
+cn:		abort
+ou:		system
+description:	Signal a fatal error
+
+dn:		ou=internet,dc=b-lex,dc=nl
+objectClass:	organizationalUnit
+ou:		internet
+description:	Internet Functions
+
+dn:		cn=openhttpserver,ou=internet,dc=b-lex,dc=nl
+objectClass:	organizationalRole
+cn:		openhttpserver
+ou:		internet
+description:	This function will try to open a connection to an http server
+
+dn:		cn=sendhttprequest,ou=internet,dc=b-lex,dc=nl
+objectClass:	organizationalRole
+cn:		sendhttprequest
+ou:		internet
+description:	This function will send a formatted http header to a webserver
+
+dn:		cn=refer2,ou=ldap,dc=b-lex,dc=nl
+objectClass:	organizationalRole
+cn:		refer2
+ou:		system
+description:	This request will be referred to server 2
+

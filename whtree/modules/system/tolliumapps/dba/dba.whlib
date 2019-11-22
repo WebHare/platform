@@ -1,0 +1,533 @@
+<?wh
+/* Direct link
+   https://webhare.moe.sf.webhare.nl/?app=system:config/dba
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/modulemanager.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+LOADLIB "mod::system/lib/imexport.whlib";
+
+
+STRING FUNCTION GetDefStmt(RECORD tabledef, RECORD ARRAY columns, STRING indent)
+{
+  STRING hs_tabledef;
+
+  columns :=
+    SELECT *
+      FROM columns
+  ORDER BY column_name != tabledef.primary_key_name, column_name;
+
+  FOREVERY (RECORD col FROM columns)
+  {
+    IF(#col>0)
+      hs_tabledef := hs_tabledef || "\n" || indent || ", ";
+
+    STRING hstype := __whdb_GetHarescriptType(col.data_type);
+    hs_tabledef := hs_tabledef ||  (hstype || ' "' || EncodeJava(col.column_name) || '"');
+    IF (hstype = "INTEGER" AND col.referenced_table_name != "")
+      hs_tabledef := hs_tabledef || " NULL := 0" ;
+    IF (ToLowercase(col.data_type) = "bytea")
+      hs_tabledef := hs_tabledef || " __ATTRIBUTES__(BINARY)" ;
+  }
+  IF (tabledef.primary_key_name != "")
+    hs_tabledef := hs_tabledef || `\n${indent}; KEY "${EncodeJava(tabledef.primary_key_name)}"`;
+
+  RETURN hs_tabledef;
+}
+
+STRING FUNCTION GetDatabaseWHLIB(OBJECT trans, STRING schemaname)
+{
+  STRING bindfuncname := 'Bind';
+  FOREVERY(STRING tok FROM Tokenize(schemaname,"_"))
+    bindfuncname := bindfuncname || ToUppercase(Left(tok,1)) || ToLowercase(substring(tok,1));
+  bindfuncname := bindfuncname || 'Tables';
+
+  STRING hs_schemadef := '<?wh\nLOADLIB "mod::system/lib/database.whlib";\n\n'
+                         || 'PUBLIC SCHEMA\n< ';
+
+  FOREVERY(RECORD tablerec FROM SELECT * FROM trans->GetTableListing(schemaname) ORDER BY table_name)
+  {
+    IF(#tablerec>0)
+      hs_schemadef := hs_schemadef || "\n  , ";
+
+    RECORD ARRAY columns := trans->GetColumnListing(schemaname, tablerec.table_name);
+    hs_schemadef := hs_schemadef || "TABLE\n    < " || GetDefStmt(tablerec, columns,"    ") || '\n    > "' || EncodeJava(ToLowercase(tablerec.table_name)) || '"';
+  }
+  hs_schemadef := hs_schemadef || "\n  > " || ToLowercase(schemaname) || ";\n"
+                  || '\n'
+                  || 'MACRO ' || bindfuncname || '(INTEGER transactionid)\n'
+                  || '{\n'
+                  || '  ' || ToLowercase(schemaname) || ' := BindTransactionToSchema(transactionid, "' || ToLowercase(schemaname) || '");\n'
+                  || '}\n'
+                  || '\n'
+                  || 'SetupPrimaryTransactionBinder(PTR ' || bindfuncname || ');\n';
+
+  RETURN hs_schemadef;
+}
+
+
+STRING FUNCTION ExplainConstraints(RECORD tabledef, RECORD columnrec)
+{
+  STRING ARRAY constraints;
+  IF(tabledef.primary_key_name = columnrec.column_name)
+  {
+    INSERT GetTid("system:tolliumapps.dba.main.primarykey") INTO constraints AT END;
+  }
+  ELSE //no point in stating the obvious
+  {
+    IF(columnrec."is_unique")
+      INSERT GetTid("system:tolliumapps.dba.main.unique") INTO constraints AT END;
+    IF(columnrec.is_nullable)
+      INSERT GetTid("system:tolliumapps.dba.main.not_null") INTO constraints AT END;
+    IF(ToUppercase(columnrec.on_delete) = "SET DEFAULT")
+      INSERT GetTid("system:tolliumapps.dba.main.on_delete_set_default") INTO constraints AT END;
+    IF(ToUppercase(columnrec.on_delete) = "CASCADE")
+      INSERT GetTid("system:tolliumapps.dba.main.on_delete_cascade") INTO constraints AT END;
+  }
+  IF(columnrec.autonumber_start!=0)
+    INSERT GetTid("system:tolliumapps.dba.main.autonumber", ToString(columnrec.autonumber_start)) INTO constraints AT END;
+
+  RETURN Detokenize(constraints,", ");
+}
+
+
+RECORD ARRAY FUNCTION GetSchemaRoles(STRING schema_name)
+{
+  IF (GetDatabaseType() != "whdb")
+    RETURN RECORD[];
+
+  RETURN SELECT rowkey := role_id
+              , roleid := role_id
+              , name := role_name
+           FROM information_schema.all_roles
+          WHERE role_schema = VAR schema_name;
+}
+
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  RECORD ARRAY dbs;
+  RECORD ARRAY databaseschemas;
+  RECORD ARRAY modlist;
+
+  MACRO Init(RECORD data)
+  {
+    this->AddDatabaseProvider(GetDatabaseType());
+    this->RefreshDatabaseSchemas();
+    //IF(Length(data.params)>0 AND data.params[0]="odbc")
+    //{
+    //  this->AddDatabaseProvider("odbc");
+    //}
+
+  }
+
+  MACRo RefreshDatabaseSchemas()
+  {
+    this->modlist := SELECT *
+                          , databaseschemas := GetModuleDatabaseSchema(name)
+                       FROM GetWebHareModules();
+
+    this->databaseschemas := RECORD[];
+    FOREVERY(RECORD mod FROM this->modlist)
+      this->databaseschemas := this->databaseschemas CONCAT mod.databaseschemas;
+  }
+
+  MACRO DoUpdateSchemas()
+  {
+    RECORD result := [ commitmessages := DEFAULT RECORD ARRAY, commands := DEFAULT RECORD ARRAY ];
+    this->RefreshDatabaseSchemas();
+    FOREVERY(RECORD module FROM this->modlist)
+    {
+      RECORD output := InitModuleTables(module);
+      result.commitmessages := result.commitmessages CONCAT output.commitmessages;
+      result.commands := result.commands CONCAT output.commands;
+    }
+
+    this->InvalidateAll();
+    this->OnSelectSchema();
+
+    STRING ARRAY sqlcommands := SELECT AS STRING ARRAY cmd FROM result.commands;
+
+    //FIXME nicer output, but what to do with a mix of errors and commands?
+    REFLECT(CELL[result, sqlcommands]);
+
+  }
+
+  MACRO AddDatabaseProvider(STRING type) //we dynamically load only requested database types, to not get stuck on DLL load errors
+  {
+    SWITCH(type)
+    {
+      CASE "odbc"
+      {
+        MACRO PTR enumerator := MakeFunctionPtr("mod::system/tolliumapps/dba/odbc.whlib#EnumerateDatabaseTypes", TypeID(RECORD ARRAY), DEFAULT INTEGER ARRAY);
+        this->AddDatabases(enumerator());
+      }
+      CASE "whdb", "postgresql"
+      {
+        MACRO PTR enumerator := MakeFunctionPtr("mod::system/tolliumapps/dba/webharedb.whlib#EnumerateDatabaseTypes", TypeID(RECORD ARRAY), DEFAULT INTEGER ARRAY);
+        this->AddDatabases(enumerator());
+      }
+    }
+  }
+
+  MACRO AddDatabases(RECORD ARRAY dbs)
+  {
+    this->dbs := this->dbs CONCAT (SELECT *, triedtrans := FALSE, trans := DEFAULT OBJECT FROM dbs);
+  }
+
+  OBJECT FUNCTION GetTransactionForDatabase(STRING rowkey)
+  {
+    RECORD db := SELECT * FROM this->dbs WHERE dbs.rowkey = VAR rowkey;
+    IF(db.triedtrans)
+      RETURN db.trans;
+
+    OBJECT trans := db.gettrans();
+    UPDATE this->dbs SET trans := VAR trans, triedtrans := TRUE WHERE dbs.rowkey = VAR rowkey;
+    RETURN trans;
+  }
+
+  MACRO InvalidateAll()
+  {
+    ^databases->Invalidate();
+    this->OnSelectSchema();
+  }
+
+
+  PUBLIC BOOLEAN FUNCTION OnDatabasesCellEdit(RECORD row, STRING columnname, STRING newvalue)
+  {
+    IF(NOT row.isschema)
+      RETURN FALSE;
+
+    //FIXME if the renamed schema has rights tables pointing to it, how does this affect rights management?
+    OBJECT work := this->BeginWork();
+    __SendWHDBCommand(GetPrimaryWebhareTransaction(), 'ALTER SCHEMA "' || row.schema_name || '" RENAME TO "' || EncodeJava(newvalue) || '"');
+    RETURN work->Finish();
+    this->InvalidateAll();
+  }
+
+  PUBLIC MACRO DoImportSchema()
+  {
+    RECORD infile := this->frame->GetUserFile(-1, DEFAULT STRING ARRAY);
+    IF(NOT RecordExists(infile))
+      RETURN;
+
+    OBJECT scr := this->LoadScreen(".importwizard", [ importfile := infile ]);
+    scr->RunModal();
+    this->InvalidateAll();
+  }
+
+  PUBLIC MACRO DoExportSchema()
+  {
+    RECORD curitem := ^databases->selection;
+    OBJECT imexporter := NEW DatabaseImExport("system.dba.schemaexport", "0.1");
+    imexporter->ignore_extrefs := FALSE;
+
+    STRING modulename := ToLowercase(curitem.schema_name);
+
+    RECORD ARRAY toplevels := imexporter->GetSchemaToplevels(modulename);
+    RECORD res;
+    IF(Length(toplevels) = 0)
+    {
+      this->RunSimpleScreen("error", this->GetTid(".noschemadef"));
+      RETURN;
+    }
+    imexporter->SetupByModule(modulename, SELECT AS STRING ARRAY name FROM toplevels);
+    imexporter->SetDefaultImExports();
+
+    IF(Length(imexporter->GetOpenExternalReferences()) > 0)
+    {
+      //ADDME allow users to 'map' external references in a wizard, or at least show them the references we have issues with
+      OBJECT work := this->BeginWork();
+      work->AddError("Cannot deal yet with schemas that have external references. Please create your own export code for now.");
+      work->Finish();
+      RETURN;
+    }
+
+    BLOB result := imexporter->RunExport();
+
+    //ADDME allow users to specify output format (xml or marshal)
+    //ADDME progress
+    this->frame->SendFileToUser(result,
+                                "application/octet-stream",
+                                GetSafeFilename("dbexport_" || ToLowercase(curitem.schema_name) || "_" || FormatDatetime("%Y%m%d_%H%M%S", this->tolliumuser->UTCToLocal(GetCurrentDatetime()))) || ".tar.gz",
+                                DEFAULT DATETIME);
+  }
+
+  PUBLIC MACRO OnSelectSchema()
+  {
+    RECORD curitem := ^databases->selection;
+    IF(NOT RecordExists(curitem))
+    {
+      ^columns->rows := DEFAULT RECORD ARRAY;
+      ^indices->rows := DEFAULT RECORD ARRAY;
+      ^definition->value := "";
+      RETURN;
+    }
+
+    IF(curitem.isdatabase)
+    {
+      ^columns->rows := DEFAULT RECORD ARRAY;
+      ^indices->rows := DEFAULT RECORD ARRAY;
+      ^definition->value := "";
+      RETURN;
+    }
+    IF(curitem.isschema)
+    {
+      ^columns->rows := DEFAULT RECORD ARRAY;
+      ^indices->rows := DEFAULT RECORD ARRAY;
+      ^roles->rows := GetSchemaRoles(curitem.schema_name);
+      //^definition->value := GetSchemaDefStatement(curitem.rowkey) || "\n\n" || GetSchemaModuleDef(curitem.rowkey);
+      ^definition->value := GetSchemaModuleDef(GetPrimary(), curitem.schema_name);
+      ^databasewhlib->value := GetDatabaseWHLIB(GetPrimary(), curitem.schema_name);
+      RETURN;
+    }
+
+    RECORD ARRAY rows, indices;
+
+    IF(curitem.istable)
+    {
+      BOOLEAN allclaimed := ToLowercase(curitem.schema_name) IN [ "information_schema", "system_rights" ];
+      STRING ARRAY claimedcolumns;
+      IF(NOT allclaimed)
+      {
+        RECORD schemadef := SELECT * FROM this->databaseschemas WHERE ToUppercase(name) = ToUppercase(curitem.schema_name);
+        IF(RecordExists(schemadef))
+        {
+          RECORD tabledef := SELECT * FROM schemadef.tables WHERE ToUppercase(name) = ToUppercase(curitem.table_name);
+          IF(RecordExists(tabledef))
+          {
+            claimedcolumns := SELECT AS STRING ARRAY ToLowercase(name) FROM tabledef.cols;
+          }
+        }
+      }
+
+      RECORD tabledef :=
+          SELECT *
+            FROM GetPrimary()->GetTableListing(curitem.schema_name)
+           WHERE ToUppercase(table_name) = ToUppercase(curitem.table_name);
+
+      rows := SELECT columnname := ToLowercase(column_name)
+                   , columntype := data_type = "VARCHAR" ? data_type || "(" || character_maximum_length || ")" : data_type
+                   , references := referenced_table_schema!="" ? ToLowercase(referenced_table_schema || "." || referenced_table_name) : ""
+                   , constraints := ExplainConstraints(tabledef, columns)
+                   , rowkey := column_name
+                   , icon := column_name = tabledef.primary_key_name ? 1 : 0
+                   , listrowclasses := allclaimed OR ToLowercase(column_name) IN claimedcolumns ? STRING[] : ["grayedout"]
+                   , candelete := NOT (allclaimed OR ToLowercase(column_name) IN claimedcolumns)
+                FROM GetPrimary()->GetColumnListing(curitem.schema_name, curitem.table_name) AS columns;
+
+      IF (IsValueSet(claimedcolumns))
+      {
+        RECORD moduledef := GetSchemaModuleDefinition(GetPrimary(), curitem.schema_name, [ withimplicitindices := TRUE ]);
+        IF (RecordExists(moduledef))
+        {
+          RECORD mod_tbldef := SELECT * FROM moduledef.tables WHERE name = curitem.table_name;
+          IF (RecordExists(mod_tbldef))
+          {
+            indices :=
+                SELECT name
+                     , listrowclasses :=  is_implicit ? ["grayedout"] : STRING[]
+                     , is_unique :=       is_unique ? GetTid("~yes") : GetTid("~no")
+                     , is_uppercase :=    is_uppercase ? GetTid("~yes") : GetTid("~no")
+                     , cols :=            Detokenize((SELECT AS STRING ARRAY name FROM cols), ", ")
+                  FROM mod_tbldef.indices;
+          }
+        }
+      }
+    }
+
+    ^columns->rows := rows;
+    ^indices->rows := indices;
+  }
+
+  STRING ARRAY FUNCTION OnDatabasesTreePath(STRING item)
+  {
+    IF(item="")
+      RETURN DEFAULT STRING ARRAY;
+
+    STRING ARRAY pathitems;
+    STRING ARRAY intoks := Tokenize(item, '\t');
+    FOREVERY(STRING tok FROM intoks)
+      INSERT Detokenize(ArraySlice(intoks, 0, #tok+1), '\t') INTO pathitems AT END;
+    RETURN pathitems;
+  }
+
+  RECORD ARRAY FUNCTION OnDatabasesLoadItems(RECORD item)
+  {
+    STRING ARRAY claimed_schemas := GetInstalledModuleNames() //ADDME only if they register a <databaseschema>
+                                    CONCAT ["public","system_rights","information_schema"];
+    IF(NOT RecordExists(item))
+    {
+      RETURN SELECT name := title
+                  , rowkey
+                  , isdatabase := TRUE
+                  , isschema := FALSE
+                  , istable := FALSE
+                  , expandable := TRUE
+                  , expanded := TRUE
+                  , candelete := FALSE
+                  , icon := 1
+                  , database := rowkey
+               FROM this->dbs
+           ORDER BY ToUppercase(title);
+    }
+
+    IF (item.isdatabase)
+    {
+      OBJECT trans := this->GetTransactionForDatabase(item.database);
+      IF(NOT ObjectExists(trans))
+        RETURN DEFAULT RECORD ARRAY;
+
+      RETURN SELECT TEMPORARY isclaimed := ToLowercase(schema_name) IN claimed_schemas
+                  , *
+                  , name := ToLowercase(schema_name)
+                  , rowkey := item.rowkey || "\t" || schema_name
+                  , isdatabase := FALSE
+                  , isschema := TRUE
+                  , istable := FALSE
+                  , icon := 2
+                  , expandable := Length(trans->GetTableListing(schema_name)) > 0
+                  , expanded := FALSE
+                  , candelete := isclaimed = FALSE OR NOT IsDtapLive()
+                  , database := item.database
+                  , schema_name := schema_name
+                  , listrowclasses := isclaimed ? STRING[] : ["grayedout"]
+               FROM trans->GetSchemaListing()
+           ORDER BY ToUppercase(schema_name); //ADDME mark 'is_system_schema' tables
+    }
+
+    IF(item.isschema)
+    {
+      OBJECT trans := this->GetTransactionForDatabase(item.database);
+      IF(NOT ObjectExists(trans))
+        RETURN DEFAULT RECORD ARRAY;
+
+      BOOLEAN allclaimed := ToLowercase(item.schema_name) IN [ "information_schema", "system_rights" ];
+      STRING ARRAY tables;
+      IF(NOT allclaimed)
+      {
+        RECORD schemadef := SELECT * FROM this->databaseschemas WHERE name = item.name;
+        IF(RecordExists(schemadef))
+          tables := SELECT AS STRING ARRAY ToLowercase(name) FROM schemadef.tables;
+      }
+
+      RETURN SELECT *
+                  , name := ToLowercase(table_name)
+                  , rowkey := item.rowkey || "\t" || table_name
+                  , isdatabase := FALSE
+                  , isschema := FALSE
+                  , istable := TRUE
+                  , icon := isview ? 4 : 3
+                  , candelete := VAR item.candelete //FIXME allow deletion of tables not mentioned in schemadef
+                  , expanded := FALSE
+                  , expandable := FALSE
+                  , database := item.database
+                  , schema_name := item.schema_name
+                  , listrowclasses := allclaimed OR ToLowercase(table_name) IN tables ? STRING[] : ["grayedout"]
+               FROM trans->GetTableListing(item.schema_name)
+           ORDER BY ToUppercase(table_name);
+    }
+    ABORT("Unrecognized item");
+  }
+
+  PUBLIC MACRO DoAddItem()
+  {
+  }
+
+  PUBLIC MACRO DoDelete()
+  {
+    RECORD curitem := ^databases->selection;
+    STRING question := curitem.isschema ? this->GetTid(".verifydeleteschema", curitem.schema_name)
+                                        : this->GetTid(".verifydeletetable", curitem.name);
+
+    //ADDME check and inform if there would be cascades? just not allowing CASCADE for now
+    IF(this->RunSimpleScreen("confirm", question) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    IF(curitem.isschema)
+      GetPrimary()->DropSchema(curitem.schema_name);
+    ELSE
+      GetPrimary()->DropTable(curitem.schema_name, curitem.name);
+    work->Finish();
+    this->InvalidateAll();
+  }
+
+  PUBLIC MACRO DoDeleteColumn()
+  {
+    RECORD databaseitem := ^databases->selection;
+    RECORD curitem := ^columns->selection;
+    //ADDME check and inform if there would be cascades? just not allowing CASCADE for now
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".verifydeletecolumn", curitem.columnname)) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    GetPrimary()->DropColumn(databaseitem.schema_name, databaseitem.table_name, curitem.columnname);
+    work->Finish();
+    this->InvalidateAll();
+  }
+
+  PUBLIC MACRO DoRunSQLClient()
+  {
+    RunModuleScriptDialog(this, "mod::system/scripts/whcommands/sql.whscr", STRING[], [ inputenabled := TRUE ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE ImportWizard EXTEND TolliumScreenBase
+<
+  RECORD importfile;
+
+  MACRO Init(RECORD data)
+  {
+    this->importfile := data.importfile;
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    //ADDME better interaction might be to allow an overwrite of the schema contents, but with a warning if there are outside tables referring to us who would get a cascade?
+    //ADDME warn about existing data, allow schema to be created from scratch/using metadata from the export?
+
+    OBJECT imexporter := NEW DatabaseImExport("system.dba.schemaexport", "0.1");
+    RECORD ARRAY toplevels;
+
+    IF(RecordExists(SELECT FROM information_schema.all_schemata WHERE ToUppercase(schema_name) = ToUppercase(this->schemaname->value)))
+    {
+      toplevels := imexporter->GetSchemaToplevels(this->schemaname->value);
+      IF(Length(toplevels) = 0)
+      {
+        this->Adderror("Module does not define any usable database schema");
+        RETURN work->Finish();
+      }
+
+      //FIXME error handling, allow export of mappings
+      imexporter->SetupByModule(this->schemaname->value, SELECT AS STRING ARRAY name FROM toplevels);
+    }
+    ELSE
+    {
+    }
+
+    imexporter->SetDefaultImExports();
+    IF(Length(imexporter->GetOpenExternalReferences()) > 0)
+    {
+      //ADDME allow users to 'map' external references in a wizard, or at least show them the references we have issues with
+      work->AddError("Cannot deal yet with schemas that have external references. Please create your own import code for now.");
+      RETURN work->Finish();
+    }
+
+
+    imexporter->RunImport(this->importfile.data);
+    RETURN work->Finish();
+  }
+>;

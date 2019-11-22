@@ -1,0 +1,16 @@
+<?wh
+//various selftests
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+MACRO TestWRDConsistency()
+{
+  FOREVERY(STRING attrtype FROM attrtypes)
+  {
+    RECORD descr := DescribeAttributeType(attrtype);
+    TestEq(#attrtype+1, descr.attributetype);
+    TestEq(IsDomainAttributeType(#attrtype+1), "domain" IN descr.options, `Domain ${attrtype} mismatching domain option`);
+  }
+}
+RunTestframework([ PTR TestWRDConsistency ]);

@@ -1,0 +1,193 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::tollium/lib/backgroundtask.whlib";
+
+PUBLIC OBJECTTYPE BackgroundUnarchiver EXTEND TolliumBackgroundTask
+< RECORD data;
+
+  MACRO Init(RECORD data)
+  {
+    this->data := data;
+  }
+
+  MACRO OnProgress(OBJECT importer)
+  {
+    INTEGER percent := FloatToInteger( (importer->bytesimported/(importer->bytestotal+1)) * 100);
+    this->status := [ progress := percent, status := GetTid("publisher:backgroundtasks.common.unpacking", importer->currentfullpath) ];
+  }
+
+  MACRO Run()
+  {
+    OBJECT work := this->BeginWork();
+    OBJECT importer := NEW ArchiveImporter;
+
+    importer->overwrite := this->data.overwrite;
+    importer->replace := this->data.replace;
+
+    this->status := [ progress := 0, status := GetTid("publisher:backgroundtasks.archiver.importingfiles") ];
+
+    BLOB archive_data;
+    IF (this->data.mode = "blob")
+    {
+      archive_data := this->data.archive_data;
+    }
+    ELSE
+    {
+      // ADDME: detect if file is gone
+      archive_data :=
+          SELECT AS BLOB data
+            FROM system.fs_objects
+           WHERE id = this->data.fileid;
+    }
+
+    RECORD openstatus := importer->AddInput(archive_data);
+
+    //ADDME: Should we add the option "delete all files/folders which are not overwritten by this archive?"?
+    IF(NOT openstatus.success)
+    {
+      work->AddError(GetTid("publisher:backgroundtasks.archiver.archivecorrupt"));
+      work->FInish();
+      this->result := [ status := "corrupt"
+                      , errorinfo := DEFAULT RECORD
+                      , errors := work->errors
+                      ];
+      RETURN;
+    }
+
+    importer->onprogress := PTR this->OnProgress(importer);
+    IF (this->data.delete_archive)
+      OpenWHFSObject(this->data.fileid)->RecycleSelf();
+
+    RECORD errorinfo;
+    TRY
+      errorinfo := importer->Import(this->data.parent);
+    CATCH (OBJECT< CopyMoveException > e)
+    {
+      AddCopyMoveExceptionToWork(work, e, OpenWHFSObject(this->data.parent));
+    }
+
+    IF (work->Finish())
+    {
+      this->result := [ status := "ok"
+                      , errorinfo := errorinfo
+                      ];
+    }
+    ELSE
+    {
+      this->result := [ status := "fail"
+                      , errorinfo := errorinfo
+                      , errors := work->errors
+                      ];
+    }
+  }
+>;
+
+
+PUBLIC OBJECTTYPE ExtractHere EXTEND TolliumScreenBase
+<
+  OBJECT file;
+
+  MACRO Init(RECORD data)
+  {
+    this->file := OpenWHFSObject(data.fileid);
+    IF(NOT ObjectExists(this->file))
+    {
+      this->tolliumresult:="cancel";
+      RETURN;
+    }
+
+    this->frame->title := this->GetTid(".extracthere", this->file->name);
+
+    STRING type := ScanBlob(this->file->data).mimetype;
+    IF(type = "application/x-webhare-archive")
+    {
+      IF(NOT this->contexts->user->HasRight("system:sysop"))
+      {
+        // The new formshandler will make extraction very dangerous, as you can basically access all data using smart
+        // wrd components/queries. Random metadata overwriting is blocked by denying extraction to non-sysops.
+        this->RunSimpleScreen("error", this->GetTid(".noextractprivileges"));
+        this->tolliumresult:="cancel";
+        RETURN;
+      }
+    }
+    ELSE IF(type = "application/zip")
+    {
+      DELETE FROM this->unpack_options->options WHERE rowkey = "replace";
+    }
+    ELSE
+    {
+      this->RunSimpleScreen("error", this->GetTid(".unknownfileformat", type));
+      this->tolliumresult:="cancel";
+      RETURN;
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    BOOLEAN replace := this->unpack_options->value="replace";
+    BOOLEAN overwrite := replace OR this->unpack_options->value = "overwrite";
+
+    IF (NOT this->BeginUnvalidatedFeedback()->Finish())
+      RETURN FALSE;
+
+    IF(replace AND this->RunMessageBox(".warnreplace")!="ok")
+      RETURN FALSE;
+
+    OBJECT bgtask := CreateProgressDialog(this, "mod::publisher/lib/screens/fd-archive.whlib", "BackgroundUnarchiver",
+        [ mode           := "fileid"
+//          , archive_data   := this->file->data
+        , delete_archive := this->delete_archive->value
+        , fileid         := this->file->id
+        , parent         := this->file->parent
+        , overwrite      := overwrite
+        , replace        := replace
+        , userid         := GetEffectiveUserId()
+        ]);
+
+    // FIXME: Fix BackgroundUnarchiver progress reporting so we can show an estimate
+    bgtask->showestimate := FALSE;
+    bgtask->title := GetTid("publisher:filemgrdialogs.createarchive.extractprogresstitle", this->file->name);
+
+    STRING result := bgtask->RunModal();
+    IF (result = "cancel")// Importing archive was canceled
+    {
+      this->tolliumresult := "cancel";
+      RETURN TRUE;
+    }
+
+    IF (result != "ok")
+    {
+      // errors have occurred, show them, or at least a message
+      RETURN TRUE;
+    }
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    IF (bgtask->result.status = "fail")
+    {
+      dumpvalue(bgtask->result.errors,'tree');
+    }
+    IF (RecordExists(bgtask->result.errorinfo) AND bgtask->result.errorinfo.incompatible)
+    {
+      IF(bgtask->result.errorinfo.incompatible_source="")
+      {
+        work->AddError(this->GetTid(".error_damagedarchive"));
+      }
+      ELSE
+      {
+        work->AddError(this->GetTid(".error_incompatiblearchive", bgtask->result.errorinfo.incompatible_source));
+      }
+    }
+    RETURN work->Finish();
+  }
+>;

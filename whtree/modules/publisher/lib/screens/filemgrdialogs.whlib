@@ -1,0 +1,763 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/any.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
+<
+  PUBLIC PROPERTY selectedtype(GetSelectedType, SetSelectedType);
+  PUBLIC PROPERTY selectedtemplate(GetSelectedTemplate, -);
+
+  RECORD ARRAY fsobjects; // either only files or only folders
+  INTEGER ARRAY fsobjectids;
+  BOOLEAN edittypeisfile;
+  INTEGER parent;
+  BOOLEAN isnew;
+  OBJECT applytester;
+  BOOLEAN showdeveloper;
+  RECORD ARRAY initialcolumns;
+  RECORD ARRAY templates;
+
+  MACRO Init(RECORD data)
+  {
+    data := ValidateOptions([ parent := 0
+                            , foldertypes := FALSE
+                            , fsobjects := INTEGER[]
+                            ], data);
+
+    this->showdeveloper := this->tolliumuser->HasRight("system:supervisor");
+    this->initialcolumns := ^types->columns;
+    //show all types to people who have full publisher browse access (if only shown to developers, it leaks information about customers through filetype urls)
+    ^showalltypes->visible := this->showdeveloper AND this->tolliumuser->HasRightOn("system:fs_browse", 0);
+
+    this->fsobjectids := data.fsobjects;
+    this->fsobjects := SELECT id, name, parent, isfolder, highestparent, type, indexdoc FROM system.fs_objects WHERE id IN VAR data.fsobjects;
+
+    IF(Length(data.fsobjects)>0) //Editing an existing object
+    {
+      RECORD objinfo := this->fsobjects[0];
+      IF(NOT RecordExists(objinfo))
+      {
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+
+      /* A bit of a hack for compatibility with current assumptions and old
+         implementations: if we are our highest parent, we must be a site root.
+         consider ourselves as the parent, so foldertypes properly apply to site roots
+         (FIXME: properly deal with multiple selections) */
+      IF(this->fsobjectids[0] = objinfo.highestparent)
+        this->parent := this->fsobjectids[0];
+      ELSE
+        this->parent := objinfo.parent;
+      this->edittypeisfile := objinfo.isfolder = FALSE;
+    }
+    ELSE
+    {
+      this->edittypeisfile := data.foldertypes = FALSE;
+      this->parent := data.parent;
+      this->isnew := TRUE;
+    }
+
+    IF (NOT this->isnew) // We're edit files or folder types
+    {
+      IF (this->edittypeisfile) // Editing type for file(s)
+      {
+        this->frame->title := this->GetTid(".editfiletype");
+        ^explain->value := this->GetTid(".explainforfiles", ToString(LENGTH(this->fsobjects)), this->fsobjects[0].name);
+      }
+      ELSE // Editing type for folder(s)
+      {
+        this->frame->title := this->GetTid(".editfoldertype");
+        ^explain->value := this->GetTid(".explainforfolders", ToString(LENGTH(this->fsobjects)), this->fsobjects[0].name);
+      }
+    }
+    ELSE // We're adding a file or folder, and only want to return the file/folder type
+    {
+      IF (data.foldertypes)
+      {
+        this->frame->title := this->GetTid(".newfolder");
+        ^explain->value := this->GetTid(".explainfoldertype");
+      }
+      ELSE
+      {
+        this->frame->title := this->GetTid(".newfile");
+        ^explain->value := this->GetTid(".explainfiletype");
+      }
+    }
+
+    //ADDME What to do if multiple folders/files in the selection have different applies...
+    this->applytester := this->isnew ? GetApplyTesterForFakeObject(this->parent, this->edittypeisfile, 0)
+                                     : GetApplyTesterForObject(this->fsobjectids[0]);
+
+    IF(this->isnew)
+    {
+      INTEGER ARRAY templateroots := this->applytester->GetLibrary("publisher:fsobjecttemplates");
+      IF(Length(templateroots) > 0)
+      {
+        this->templates := SELECT id, type, title := title ?? name
+                             FROM system.fs_objects
+                            WHERE parent IN templateroots
+                                  AND (isfolder = NOT this->edittypeisfile)
+                                  AND type NOT IN whconstant_whfstypes_invalidtemplate;
+
+        this->templates := SELECT TEMPORARY fileinfo := DescribeContentTypeById(type, [ isfolder := NOT this->edittypeisfile, mockifmissing := TRUE ])
+                                , *
+                                , namespace := fileinfo.namespace
+                                , tolliumicon := fileinfo.tolliumicon
+                            FROM this->templates;
+
+      }
+    }
+    this->RefreshTypeList();
+
+    // Preselect the type if all file or folder types are the same
+    IF (Length(SELECT FROM this->fsobjects GROUP BY type) = 1)
+      ^types->SetValueIfValid("type:" || this->fsobjects[0].type);
+    ELSE
+      ^types->SetValueIfValid("type:0"); //if normal folder is available, just autoselect that. we used to accidentally do this by default, but people liked it, so restore it
+  }
+
+  MACRO GotFilterChange()
+  {
+    this->RefreshTypeList();
+  }
+
+  MACRO RefreshTypeList()
+  {
+    RECORD ARRAY types;
+    STRING savedvalue := ^types->value;
+
+    IF(^showalltypes->value)
+    {
+      ^types->columns := this->initialcolumns;
+      ^types->columnheaders := TRUE;
+      ^filter->visible := TRUE;
+    }
+    ELSE
+    {
+      ^types->columns := SELECT * FROM this->initialcolumns WHERE name="title";
+      ^types->columnheaders := FALSE;
+      ^filter->visible := FALSE;
+    }
+
+    IF(this->edittypeisfile)
+      types := GetFileTypes(this->applytester, this->tolliumuser->language, this->showdeveloper, ^showalltypes->value, this->isnew);
+    ELSE
+      types := GetFolderTypes(this->applytester, this->tolliumuser->language, this->showdeveloper, ^showalltypes->value);
+
+    IF(NOT this->isnew AND NOT this->edittypeisfile)
+      DELETE FROM types WHERE namespace = "http://www.webhare.net/xmlns/publisher/foreignfolder";
+
+    //Add the types
+    RECORD ARRAY rows := SELECT rowkey := "type:" || id
+                              , title := GetTid(title)
+                              , icon := ^types->GetIcon(tolliumicon ?? "tollium:files/application_x-webhare-unknown")
+                              , contenttype := namespace
+                              , type := id
+                              , template := 0
+                           FROM types;
+
+    //And add any templates
+    rows := rows CONCAT SELECT rowkey := "template:" || id
+                             , title
+                             , icon := ^types->GetIcon(tolliumicon ?? "tollium:files/application_x-webhare-unknown")
+                             , contenttype := namespace
+                             , type
+                             , template := id
+                          FROM this->templates;
+
+    IF(^filter->value != "")
+    {
+      STRING ARRAY masks := SELECT AS STRING ARRAY "*" || ToUppercase(token) || "*"
+                              FROM ToRecordArray(Tokenize(NormalizeWhitespace(^filter->value), " "), "TOKEN");
+
+      DELETE
+        FROM rows
+       WHERE NOT __MatchesAnyMask(title || " " || contenttype, masks);
+    }
+
+    // Remove types that are not allowed by the versioning policy
+    OBJECT policy := this->applytester->GetVersioningPolicy();
+    IF (ObjectExists(policy))
+    {
+      INTEGER ARRAY ids := SELECT AS INTEGER ARRAY type FROM rows;
+      INTEGER ARRAY allowed_ids := policy->FilterAllowedFSObjectTypes(ids);
+
+      DELETE FROM rows WHERE type NOT IN allowed_ids;
+    }
+
+    ^types->rows := rows;
+    ^types->SetValueIfValid(savedvalue);
+  }
+
+  MACRO OnAllTypesChange()
+  {
+    ^filter->value := "";
+    this->RefreshTypeList();
+  }
+
+  UPDATE BOOLEAN FUNCTION Submit()
+  {
+    // If we're updating a file or folder type, update it in the database
+    IF (this->isnew) // Only selecting a file/folder type
+      RETURN RecordExists(^types->selection);
+
+    INTEGER newtype := ^types->selection.type;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    // See if we can change the 'type' for the files/folders we're going to modify
+    RECORD res := TestSelectionForVersioningUpdatesByIds(work, this->fsobjectids, [ "type" ]);
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    // See which ones we actually need to modify
+    INTEGER ARRAY modify_ids :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE id IN this->fsobjectids
+           AND type != newtype;
+
+    // Create drafts for the stuff to update
+    RECORD updateres := PrepareForVersionedUpdate(res, modify_ids);
+
+    RECORD ARRAY toupdate :=
+        SELECT id
+             , isfolder
+             , indexdoc
+             , type
+          FROM system.fs_objects
+         WHERE id IN updateres.objectids
+      ORDER BY parent;
+
+    FOREVERY (RECORD rec FROM toupdate)
+    {
+      OBJECT fsobject := OpenWHFSObject(rec.id);
+
+      // Update the object type
+      fsobject->UpdateMetadata([ type := newtype ]);
+
+      // For drafts, there is no more checking to do
+      IF (rec.id IN updateres.draftids)
+        CONTINUE;
+
+      ApplyTypeChangeSideEffects(work, fsobject, rec.type);
+    }
+
+    RETURN work->Finish();
+  }
+
+  INTEGER FUNCTION GetSelectedTemplate()
+  {
+   RETURN ^types->selection.template;
+  }
+
+  INTEGER FUNCTION GetSelectedType()
+  {
+    RETURN ^types->selection.type;
+  }
+
+  MACRO SetSelectedType(INTEGER type)
+  {
+    ^types->value := "type:" || type;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE GoToObject EXTEND TolliumScreenBase
+<
+  PUBLIC INTEGER id;
+  PUBLIC STRING remarks;
+
+  MACRO Init(RECORD data)
+  {
+    data := ValidateOptions([suggestwhere := ""], data);
+
+    BOOLEAN seeallsites := this->tolliumuser->HasRightOn("system:fs_browse",0);
+    ^obj->options := SELECT title := name
+                            FROM system.sites
+                           WHERE NOT locked
+                                 AND (seeallsites ? TRUE : this->tolliumuser->HasRightOn("system:fs_browse",root))
+                        ORDER BY ToUppercase(name);
+
+    IF(data.suggestwhere != "")
+    {
+      ^obj->value := data.suggestwhere;
+      IF(this->Submit())
+        this->tolliumresult := "ok";
+    }
+  }
+
+  RECORD FUNCTION FigureOutID(OBJECT work)
+  {
+    //What is it ? Officially, we assume you're entering a site or an id
+    IF(^obj->value LIKE "http:*" OR ^obj->value LIKE "https:*")
+    {
+      //check the history first... as LookupPublisherURL is too eager to match entries
+      RECORD redir := GetURLHistoryRedirect(^obj->value, FALSE, TRUE);
+      IF(RecordExists(redir))
+        RETURN [ remarks := redir.isactive ? this->GetTid(".historygoto")
+                                           : this->GetTid(".historyremoved")
+               , id := redir.destid
+               ];
+
+      RECORD findit := LookupPublisherURL(^obj->value);
+      IF (findit.folder != 0)
+        RETURN [ remarks := "", id := findit.file ?? findit.folder ];
+
+      work->AddErrorFor(^obj, this->GetTid(".urlnotfound"));
+      RETURN DEFAULT RECORD;
+    }
+
+    IF(^obj->value LIKE "site::*" OR ^obj->value LIKE "whfs::*")
+    {
+      OBJECT dest := OpenWHFSObjectByPath(^obj->value);
+      IF(ObjectExists(dest))
+        RETURN [ remarks := "", id := dest->id ];
+
+      work->AddErrorFor(^obj, this->GetTid(".nosuchwhfspath", ^obj->value));
+      RETURN DEFAULT RECORD;
+    }
+
+    IF(Left(^obj->value,1) = '/')
+    {
+      OBJECT whfsobj := OpenWHFSObjectByPath(^obj->value);
+      IF (ObjectExists(whfsobj))
+        RETURN [ remarks := "", id := whfsobj->id ];
+
+      work->AddErrorFor(^obj, this->GetTid(".nosuchwhfspath", ^obj->value));
+      RETURN DEFAULT RECORD;
+    }
+
+    //Cornercase, a site named after an id... the site wins
+    OBJECT site := OpenSiteByName(^obj->value);
+    IF(ObjectExists(site))
+      RETURN [ remarks := "", id := site->id ];
+
+    INTEGER tryid := ToInteger(^obj->value,0);
+    IF(tryid > 0)
+    {
+      IF(RecordExists(SELECT FROM system.fs_objects WHERE id = tryid))
+        RETURN [ remarks := "", id := tryid ];
+      work->AddErrorFor(^obj, this->GetTid(".idnotfound"));
+      RETURN DEFAULT RECORD;
+    }
+
+    work->AddErrorFor(^obj, this->GetTid(".sitenotfound"));
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    RECORD result := this->FigureOutID(work);
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    RECORD objinfo := SELECT isactive, parent, parentsite, whfspath FROM system.fs_objects WHERE id = result.id;
+    IF(RecordExists(objinfo) AND objinfo.isactive = FALSE AND IsRecycleBinWHFSPath(objinfo.whfspath))
+    {
+      //FIXME verify whether we can see this recyclebin
+      this->id := result.id;
+      this->remarks := result.remarks;
+      RETURN work->Finish();
+    }
+
+    IF(NOT this->tolliumuser->HasRightOn("system:fs_browse", result.id))
+      work->AddErrorFor(^obj, this->GetTid(".norights"));
+
+    INTEGER siteid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = result.id;
+    IF(siteid != 0 AND SELECT AS BOOLEAN locked FROM system.sites WHERE id=siteid)
+      work->AddErrorFor(^obj, this->GetTid(".sitelocked"));
+
+    this->id := result.id;
+    this->remarks := result.remarks;
+    //FIXME deal with unlisted objects
+
+    RETURN work->Finish();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE CreateArchiveFile EXTEND TolliumScreenBase
+< OBJECT selecteditem;
+  PUBLIC INTEGER archiveid;
+  OBJECT savefolder;
+
+  STRING suggestlocalname;
+  STRING suggestdownloadname;
+
+  MACRO Init(RECORD data)
+  {
+    this->selecteditem := OpenWHFSObject(data.folder.id);
+    this->recursive->visible := this->selecteditem->isfolder;
+
+    this->frame->title := this->GetTid(".windowtitle", this->selecteditem->name);
+    ^fileformat->value := this->contexts->user->GetRegistryKey("publisher.archiving.fileformat", "zip");
+
+    // Set a nice filename
+    STRING suggestname := this->selecteditem->name;
+    RECORD site := SELECT * FROM system.sites WHERE id = this->selecteditem->parentsite;
+    IF (this->selecteditem->parent = 0 AND RecordExists(site))
+      suggestname := site.name;
+
+    IF (NOT IsValidWHFSName(suggestname, FALSE))
+      suggestname := "archive";
+
+    suggestname := suggestname || (^fileformat->value = "webhare" ? ".wharchive" : ".zip");
+
+    IF(RecordExists(site) AND site.root != data.folder.id) //site subfolder
+      this->suggestdownloadname := site.name || " - " || suggestname;
+    ELSE
+      this->suggestdownloadname := suggestname;
+
+    // If we have a savefolder, make the name unique for the savefolder, and set the location
+    this->savefolder := data.savelocation > 0 ? OpenWHFSObject(data.savelocation) : DEFAULT OBJECT;
+    IF (ObjectExists(this->savefolder))
+    {
+      this->savelocation->value := this->savefolder->id;
+      suggestname := this->savefolder->GenerateUniqueName(suggestname, 0);
+    }
+    this->suggestlocalname := suggestname;
+
+    this->filename->value := suggestname;
+    IF (ObjectExists(this->savefolder) AND NOT data.defaulttodownload)
+      ^fileaction->value := "savefile";
+    ELSE
+      ^fileaction->value := "downloadfile";
+  }
+
+  MACRO OnFileActionChange()
+  {
+    IF(this->filename->value IN [this->suggestdownloadname,this->suggestlocalname])
+      this->filename->value := (^fileaction->value = "savefile" ? this->suggestlocalname : this->suggestdownloadname);
+  }
+
+  MACRO OnFileFormatChange()
+  {
+    STRING ext := ^fileformat->value = "webhare" ? ".wharchive" : ".zip";
+    IF(GetExtensionFromPath(^filename->value) IN [".wharchive",".zip"])
+      ^filename->value := GetBasenameFromPath(^filename->value) || ext;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (^fileaction->value = "savefile" AND this->savelocation->value = 0)
+      work->AddError(this->GetTid(".pleaseselectfolder"));
+    IF (NOT work->Finish())
+      RETURN FALSE;
+
+    this->contexts->user->SetRegistryKey("publisher.archiving.fileformat", ^fileformat->value);
+
+    OBJECT bgtask := CreateProgressDialog(this, "mod::publisher/lib/internal/backgroundtasks.whlib", "BackgroundArchiver",
+        [ folder :=     this->selecteditem->id
+        , recursive :=  this->recursive->value
+        , name :=       this->selecteditem->name
+
+        , storeparent := ^fileaction->value = "savefile" AND this->savelocation->value > 0 ? this->savelocation->value : 0
+        , storename :=  this->filename->value
+        , withmetadata := ^fileformat->value = "webhare"
+        ]);
+
+    bgtask->title := this->GetTid(".archiveprogresstitle", this->filename->value);
+    STRING result := bgtask->RunModal();
+    IF (result = "cancel")
+      this->tolliumresult := "cancel";
+
+    IF (result != "ok")
+      RETURN FALSE;
+
+    IF (RecordExists(bgtask->result) AND bgtask->result.status = "ok")
+    {
+      this->archiveid := bgtask->result.archiveid;
+      IF (this->archiveid = 0 AND Length(bgtask->result.archivedata) > 0)
+        this->frame->SendFileToUser(bgtask->result.archivedata, "application/zip", this->filename->value, GetCurrentDateTime());
+      RETURN TRUE;
+    }
+    ELSE
+    {
+      RETURN FALSE;
+    }
+
+  }
+>;
+
+PUBLIC OBJECTTYPE FailedPublish EXTEND TolliumScreenBase
+<
+  INTEGER fileid;
+  INTEGER blamefile;
+
+  MACRO Init(RECORD data)
+  {
+    this->fileid := data.id;
+    this->waitforpublished->masks := [ "publisher:publish.folder." || OpenWHFSObject(data.id)->parent ];
+    this->Refresh();
+  }
+  MACRO Refresh()
+  {
+    RECORD fileinfo := SELECT * FROM system.fs_objects WHERE id=this->fileid;
+    IF(NOT RecordExists(fileinfo))
+    {
+      this->tolliumresult := "refresh";
+      RETURN;
+    }
+
+    INTEGER errorcode := GetErrorFromPublished(fileinfo.published);
+    IF(errorcode>100)
+    {
+      this->message->value := GetPublicationErrorMsg(fileinfo.published, fileinfo.errordata); //ADDME Gettid-dy me!
+    }
+    ELSE IF(TestFlagFromPublished(fileinfo.published, 400000)) //warnings
+    {
+      RECORD errorinfo := OpenWHFSType("http://www.webhare.net/xmlns/publisher/errorinfo")->GetInstanceData(this->fileid);
+      STRING ARRAY warnings := SELECT AS STRING ARRAY param1 FROM errorinfo.messages;
+      this->message->value := Detokenize(warnings,'\n');
+    }
+    ELSE
+    {
+      this->message->value := "";
+    }
+
+    // error was an ABORT or Harescript error?
+    IF(errorcode IN [101,102])
+    {
+      STRING detailtext;
+      RECORD errorinfo := OpenWHFSType("http://www.webhare.net/xmlns/publisher/errorinfo")->GetInstanceData(this->fileid);
+
+      IF(Length(errorinfo.messages)>0)
+      {
+        detailtext := "Error/warning messages:\n";
+        FOREVERY(RECORD msg FROM errorinfo.messages)
+        {
+          IF(msg.type NOT IN [0,1]) //only get true warnings/errors
+            CONTINUE;
+          detailtext := detailtext || msg.filename || " (" || msg.line || "," || msg.col || "):" || GetHareScriptMessageText(msg.type=0, msg.code, msg.param1, msg.param2) || "\n";
+        }
+      }
+      IF(Length(errorinfo.trace)>0)
+      {
+        IF(detailtext!="")
+          detailtext := detailtext || "\nError trace:\n";
+        FOREVERY(RECORD msg FROM errorinfo.trace)
+        {
+          detailtext := detailtext || msg.filename || " " || msg.func || " (" || msg.line || "," || msg.col || ")\n";
+        }
+      }
+
+      //FIXME Make sure the blamefile is actulaly accessible to us
+      this->blamefile := SELECT AS INTEGER file FROM errorinfo.trace AS trace WHERE file!=0 ORDER BY #trace DESC;
+      IF(this->blamefile=0)
+        this->blamefile := SELECT AS INTEGER file FROM errorinfo.messages WHERE file!=0 AND type=0;
+
+      this->details->value := detailtext;
+    }
+    ELSE
+    {
+      this->details->visible := FALSE;
+    }
+
+    IF(this->message->value="" AND NOT this->details->visible)
+    {
+      this->tolliumresult := "refresh";
+      RETURN;
+    }
+  }
+
+  MACRO OnPublished(RECORD ARRAY events)
+  {
+    this->Refresh();
+  }
+>;
+
+PUBLIC OBJECTTYPE RepubMask EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD ARRAY sitedesigns := SELECT rowkey
+                                     , title := GetTid(title)
+                                  FROM GetAvailableWebDesigns(FALSE);
+
+    this->limittodesign->options := this->limittodesign->options
+                                  CONCAT
+                                  SELECT * FROM sitedesigns ORDER BY ToUppercase(title);
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    //progress dialogs
+    OBJECT bgtask := CreateProgressDialog(this, "mod::publisher/lib/internal/backgroundtasks.whlib", "ScheduleRepublishTask",
+        [ mask := this->republishmask->value
+        , nontemplatetoo := this->nontemplatetoo->value
+        , recursive := this->recursive->value
+        , iffailed := this->iffailed->value
+        , limittodesign := this->limittodesign->value
+        ]);
+
+    bgtask->title := this->GetTid(".repubprogresstitle");
+    STRING result := bgtask->RunModal();
+    RETURN result != "cancel";
+  }
+>;
+
+PUBLIC OBJECTTYPE ShowModifications EXTEND TolliumScreenBase
+<
+  INTEGER folderid;
+  DATETIME cutoff;
+
+  MACRO Init(RECORD data)
+  {
+    this->folderid := data.folderid;
+    this->dtfrom->value := AddDaysToDate(-7,this->tolliumuser->UTCToLocal(GetCurrentDateTime())); //FIXME swhy utctolocal? dtfrom isn't storeutc?
+    this->DoRefresh();
+  }
+
+  MACRO DoRefresh()
+  {
+    this->cutoff := this->tolliumuser->LocalToUTC(this->dtfrom->value);
+    RECORD ARRAY allchanges := this->GetChangesInFolder(this->folderid);
+
+    RECORD ARRAY cols := [[ name :=      "modificationdate"
+                          , type :=      "datetime"
+                          , precision := "seconds"
+                          , storeutc :=  TRUE
+                          , title :=     GetTid("publisher:main.showmodifications.modificationdate")
+                          , width :=     "20x"
+                          ]
+                         ,[ name :=  "fullpath"
+                          , type :=  "text"
+                          , title := GetTid("publisher:main.showmodifications.fullpath")
+                          , width := "2pr"
+                          ]
+                         ,[ name :=  "modifiedby"
+                          , type :=  "text"
+                          , title := GetTid("publisher:main.showmodifications.modifiedby")
+                          , width := "1pr"
+                          ]
+                         ];
+
+    // more than 1 site? then show the site column, else remove
+    IF (Length(SELECT DISTINCT parentsite FROM allchanges) > 1)
+      INSERT [ name := "sitename", type := "text", title := GetTid("publisher:main.showmodifications.sitename"), width := "1pr" ] INTO cols AT 1;
+
+    this->modifications->columns := cols;
+    this->modifications->rows := SELECT *
+                                      , modifiedby := fullname = "" ? login : fullname || " (" || login || ")"
+                                   FROM allchanges
+                               ORDER BY modificationdate;
+    this->modifications->sortcolumn := "modificationdate";
+  }
+
+  RECORD ARRAY FUNCTION GetChangesInFolder(INTEGER folderid)
+  {
+    RECORD ARRAY changes := SELECT id
+                                 , fullpath
+                                 , modificationdate
+                                 , userid := modifiedby
+                                 , parentsite
+                                 , rowkey := id
+                              FROM system.fs_objects
+                             WHERE parent = folderid
+                                   AND NOT isfolder
+                                   AND modificationdate >= this->cutoff
+                          ORDER BY modificationdate DESC, id;
+
+    // Enrich with sitenames:
+    RECORD ARRAY sitedata := SELECT id, name FROM system.sites WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT parentsite FROM changes);
+    changes := SELECT *
+                    , sitename := (SELECT AS STRING name FROM sitedata WHERE id = changes.parentsite)
+                 FROM changes;
+
+    // Enrich with userdata
+    changes := this->contexts->userapi->EnrichUsers("USERID", changes, [ celltype := "authobjectid" ]);
+
+    // Recurse
+    FOREVERY(INTEGER subfolder FROM SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = folderid AND isfolder ORDER BY ToUppercase(name))
+      changes := changes CONCAT this->GetChangesInFolder(subfolder);
+
+    RETURN changes;
+  }
+
+  MACRO DoOpenInPublisher()
+  {
+    this->tolliumcontroller->SendApplicationMessage("publisher:app"
+                                                  , [ fileid := this->modifications->value ]
+                                                  , DEFAULT RECORD
+                                                  , TRUE);
+  }
+
+  MACRO DoExport()
+  {
+    RunColumnFileExportDialog(this,
+            [ columns := [ [ title := GetTid("publisher:main.showmodifications.export.modificationdate"), name := "modificationdate", type := "datetime",  storeutc := TRUE ]
+                         , [ title := GetTid("publisher:main.showmodifications.export.fullpath"), name := "fullpath", type := "text" ]
+                         , [ title := GetTid("publisher:main.showmodifications.export.site"), name := "sitename", type := "text" ]
+                         , [ title := GetTid("publisher:main.showmodifications.export.modifiedby"), name := "modifiedby", type := "text" ]
+                         ]
+            , rows := (SELECT *
+                         FROM this->modifications->rows
+                     ORDER BY modificationdate DESC, id)
+            , exporttitle := GetTid("publisher:main.showmodifications.export.windowtitle")
+            ]);
+
+  }
+>;
+
+PUBLIC OBJECTTYPE SubmitChangesForApproval EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC PROPERTY description(this->descriptiontext->value, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init & submit
+  //
+
+  MACRO Init(RECORD data)
+  {
+    IF (CellExists(data, "draftids") AND NOT IsDefaultValue(data.draftids))
+      ABORT("No draftids!");
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN this->BeginWork()->Finish();
+  }
+>;

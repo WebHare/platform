@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile
+   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+   xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+
+  <apply priority="-1"> <!-- make sure our settings appear first, to stabilize ordering -->
+    <to type="all" />
+    <debugsettings title="Commonly used">
+      <option tag="debugmode" title="Enable output debugmode" />
+      <option tag="etr" title="Show error stacktraces" />
+      <option tag="apr" title="Auto-profile dynamic pagines" />
+      <option tag="tol" title="Debug Tollium and apps" />
+    </debugsettings>
+    <debugsettings title="Tollium debugging">
+      <option tag="ild" title="Image loading: debug SVG composition" />
+      <option tag="ilc" title="Image loading: Force &lt;canvas>" />
+      <option tag="isc" title="Image editor: Debug smartcrop" />
+      <option tag="ixf" title="Image editor: Experimental functions" />
+      <option tag="rll" title="Render label lines" />
+      <option tag="whc" title="WebHare Connect" />
+    </debugsettings>
+    <debugsettings title="Site testing">
+      <option tag="nsc" title="No spam checks (disable recaptchas etc)" />
+      <option tag="anl" title="Social &amp; analytics" />
+      <option tag="ner" title="No errorhandler.js" />
+      <option tag="win" title="Witty invocations" />
+      <option tag="pxl" title="Pxl events" />
+    </debugsettings>
+    <debugsettings title="RPCs &amp; authentication">
+      <option tag="rpc" title="RPC request and responses" />
+      <option tag="aut" title="wrd.auth" />
+    </debugsettings>
+    <debugsettings title="Formhandler">
+      <option tag="fhv" title="wh.form validation" />
+      <option tag="fhp" title="wh.form prefiller" />
+      <option tag="fdv" title="wh.form disable client-side validation" />
+    </debugsettings>
+    <debugsettings title="Designfiles components">
+      <option tag="men" title="wh.menu debugging" />
+      <option tag="meo" title="wh.menu/pulldown keep open" />
+      <option tag="rte" title="wh.rich debugging" />
+      <option tag="upl" title="wh.net.upload debugging" />
+    </debugsettings>
+    <debugsettings title="Miscellaneous">
+      <option tag="sho" title="Webshop" />
+      <option tag="bus" title="Busy &amp; waits" />
+      <option tag="gtd" title="Debug getTid" />
+      <option tag="sht" title="Shorten unknown tids" />
+      <option tag="key" title="Dompack Keyboard" />
+      <option tag="pro" title="Trace promises for unhandled rejections" />
+      <option tag="testfw" title="Testframework" />
+    </debugsettings>
+  </apply>
+ </siteprofile>

@@ -1,0 +1,152 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+RECORD ARRAY FUNCTION GatherAttachmentsFromMailTree(RECORD currentpart, STRING parenttype)
+{
+  STRING mimetype := ToLowercase(GetMIMEHeaderParameter(currentpart.mimetype,""));
+
+  //under multipart/mixed, gather everything, otherwise gather non-rendered types
+  IF(mimetype LIKE "multipart/*")
+  {
+    RECORD ARRAY attachments;
+    FOREVERY(RECORD part FROM currentpart.subparts)
+      attachments := attachments CONCAT GatherAttachmentsFromMailTree(part, mimetype);
+    RETURN attachments;
+  }
+
+  IF(parenttype = "multipart/mixed" OR (parenttype = "multipart/alternative" AND mimetype NOT IN ["text/plain","text/html"]))
+    RETURN [ currentpart ];
+
+  RETURN RECORD[];
+}
+
+RECORD ARRAY FUNCTION GetAttachments(RECORD bodystruct)
+{
+  RECORD ARRAY squashed := GatherAttachmentsFromMailTree(bodystruct, "");
+  RECORD ARRAY attachments :=
+         (SELECT rowkey := "attachment-" || #squashed
+               , name := GetMIMEHeaderParameter(squashed.mimetype, "name")
+               , type := GetMIMEHeaderParameter(mimetype, "")
+               , size := Length(data)
+               , data
+            FROM squashed);
+
+  RETURN attachments;
+}
+
+PUBLIC STATIC OBJECTTYPE EmailContents EXTEND TolliumFragmentBase
+<
+  RECORD ARRAY embedded;
+  RECORD decodedmsg;
+
+  BLOB __htmlsource;
+  PUBLIC PROPERTY htmlsource(__htmlsource, -);
+
+  MACRO NEW()
+  {
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->LoadEML(DEFAULT BLOB);
+  }
+
+  PUBLIC MACRO LoadEML(BLOB data)
+  {
+    this->embedded := RECORD[];
+    this->decodedmsg := Length(data) > 0 ? DecodeMIMEMessage(data) : DEFAULT RECORD;
+    IF(RecordExists(this->decodedmsg))
+    {
+      RECORD relatedpart := GetEmailPrimaryMIMEPart(this->decodedmsg.data, "multipart/related");
+      IF (RecordExists(relatedpart))
+        this->embedded := SELECT *, link := "" FROM relatedpart.subparts;
+    }
+    this->Refresh();
+  }
+
+  STRING FUNCTION RewriteEmbeddedLink(STRING inlink)
+  {
+    IF(inlink NOT LIKE "cid:*")
+      RETURN inlink;
+
+    STRING lookfor :=  '<' || Substring(inlink,4) || '>';
+    RECORD match := SELECT * FROM this->embedded WHERE contentid = lookfor;
+    IF(RecordExists(match) AND match.link = "")
+    {
+      match.link := ^preview->AddInlineDownload(match.data, GetMIMEHeaderParameter(match.mimetype,""), GetMIMEHeaderParameter(match.mimetype,"name"));
+      UPDATE this->embedded SET link := match.link WHERE contentid = lookfor;
+    }
+    RETURN RecordExists(match) ? match.link : inlink;
+  }
+
+  MACRO Refresh()
+  {
+    ^mailfrom->value         := RecordExists(this->decodedmsg) ? this->decodedmsg.sender : "";
+    ^mailto->value           := RecordExists(this->decodedmsg) ? this->decodedmsg.tos : "";
+    ^mailcc->value           := RecordExists(this->decodedmsg) ? this->decodedmsg.ccs : "";
+    ^mailbcc->value          := RecordExists(this->decodedmsg) ? this->decodedmsg.bccs : "";
+    ^replyto->value          := RecordExists(this->decodedmsg) ? this->decodedmsg.replyto : "";
+    ^mailsubject->value      := (RecordExists(this->decodedmsg) ? this->decodedmsg.subject : "");
+    ^attachmentrows->rows    := RecordExists(this->decodedmsg) ? GetAttachments(this->decodedmsg.data) : RECORD[];
+
+    ^errorsto->value := "";
+    IF(RecordExists(this->decodedmsg))
+    {
+      RECORD returnpath := SELECT * FROM this->decodedmsg.headers WHERE ToUppercase(field) = ToUppercase("RETURN-PATH");
+      IF(RecordExists(returnpath))
+        ^errorsto->value := returnpath.value;
+     }
+
+    ^mailcc->visible         := ^mailcc->value != "";
+    ^mailbcc->visible        := ^mailbcc->value != "";
+    ^mailsubject->visible    := ^mailsubject->value != "";
+    ^replyto->visible        := ^replyto->value != "";
+    ^errorsto->visible       := ^errorsto->value != "";
+    ^attachmentpart->visible := LENGTH(^attachmentrows->rows) > 0;
+
+    STRING htmldata;
+    RECORD htmlpart;
+    IF(RecordExists(this->decodedmsg))
+      htmlpart := GetEmailPrimaryMIMEPart(this->decodedmsg.data, "text/html");
+
+    ^preview->ResetContent();
+    IF (RecordExists(htmlpart))
+    {
+      this->__htmlsource := htmlpart.data;
+      OBJECT doc  := MakeXMLDocumentFromHTML(htmlpart.data);
+      FOREVERY(OBJECT link FROM doc->GetElements("*[href]"))
+        link->SetAttribute("target", "_blank");
+
+      NEW HTMLRewriterContext->RewriteEmbeddedLinks(doc, PTR this->RewriteEmbeddedLink);
+      ^preview->value := doc->innerhtml;
+    }
+    ELSE
+    {
+      RECORD textpart;
+      IF(RecordExists(this->decodedmsg))
+        textpart := GetEmailPrimaryMIMEPart(this->decodedmsg.data, "text/plain");
+      IF (RecordExists(textpart))
+      {
+        STRING converted := EncodeHTML(BlobToString(textpart.data));
+        this->__htmlsource := StringToBlob(converted);
+        ^preview->value := converted;
+      }
+      ELSE
+        this->__htmlsource := DEFAULT BLOB;
+    }
+  }
+
+  MACRO DoDownloadAttachment(OBJECT obj)
+  {
+    RECORD attrow := ^attachmentrows->selection;
+    obj->SendFile(attrow.data, attrow.type, attrow.name);
+  }
+>;

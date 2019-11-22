@@ -1,0 +1,14 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+MACRO TestMinimalConfig()
+{
+  TestEq(FALSE, HavePrimaryTransaction());
+  RECORD minimal := CreateMinimalWebserverConfig();
+  TestEq(FALSE, HavePrimaryTransaction());
+
+}
+
+RunTestFramework([ PTR TestMinimalConfig ], [ usedatabase := FALSE ]);

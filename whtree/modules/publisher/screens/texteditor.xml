@@ -1,0 +1,110 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         xmlns:html="http://www.w3.org/1999/xhtml"
+         gid="texteditor"
+         lib="screens/texteditor.whlib">
+
+  <messageboxes gid=".messageboxes">
+    <messagebox name="succesfullysaved" dontshowagain="ok" buttons="ok" />
+    <messagebox name="failedtosave" icon="error" buttons="ok" />
+    <messagebox name="siteprofileerrors" buttons="yes no" />
+    <messagebox name="unsavedchanges" buttons="yes no cancel" />
+    <messagebox name="saveignoreconflict" buttons="yes no cancel" />
+    <messagebox name="cannotopenerroredfile" buttons="ok" />
+  </messageboxes>
+
+
+  <screen name="main"
+          gid=".main"
+          title=""
+          allowresize="true"
+          savestate="position size"
+          width="120x" height="45x"
+          flags="canwrite"
+          >
+    <actions>
+      <action name="save" onexecute="dosave" icon="tollium:actions/save" shortcut="ctrl+s" tid="tollium:common.actions.save" frameflags="canwrite" />
+      <action name="openfile">
+        <enableon source="messages" min="1" max="1" onexecute="doopenfile_messages" checkflags="canopen" />
+        <enableon source="trace" min="1" max="1" onexecute="doopenfile_stacktrace"  checkflags="canopen" />
+      </action>
+
+      <!-- selection menu support
+      <action name="setsyntaxtext" onexecute="dosetsyntaxtotext" />
+      <action name="setsyntaxc"    onexecute="dosetsyntaxtoc"    />
+      <action name="setsyntaxcpp"  onexecute="dosetsyntaxtocpp"  />
+      <action name="setsyntaxcss"  onexecute="dosetsyntaxtocss"  />
+      <action name="setsyntaxhs"   onexecute="dosetsyntaxtohs"   />
+      <action name="setsyntaxjava" onexecute="dosetsyntaxtojava" />
+      <action name="setsyntaxjs"   onexecute="dosetsyntaxtojs"   />
+      <action name="setsyntaxhtml" onexecute="dosetsyntaxtohtml" />
+      <action name="setsyntaxphp"  onexecute="dosetsyntaxtophp"  />
+      <action name="setsyntaxxml"  onexecute="dosetsyntaxtoxml"  />
+      <action name="setsyntaxsql"  onexecute="dosetsyntaxtosql"  />
+-->
+    </actions>
+    <menus>
+
+      <menu name="listcontext">
+        <item action="openfile" />
+      </menu>
+      <!-- FIXME: Should be able to share the menu, why doesn't that work? -->
+      <menu name="listcontext2">
+        <item action="openfile" />
+      </menu>
+    </menus>
+
+    <toolbar>
+      <button action="save" />
+      <!-- For debugging only
+      <button action="viewsource" />
+      -->
+    </toolbar>
+
+    <body spacers="none"  borders="bottom">
+      <codeedit width="1pr" height="1pr" name="source"/>
+      <tabs name="messagestabs" visible="false">
+        <tab name="messagestab">
+          <panel height="1pr">
+            <list name="messages"
+                  minwidth="80x" width="1pr"
+                  minheight="8x" height="1pr"
+                  flags="canopen"
+                  selectcontextmenu="listcontext"
+                  selectmode="single"
+                  openaction="openfile">
+              <column name="filename" type="text" />
+              <column name="line" type="integer" width="6x" />
+              <column name="col" type="integer" width="6x" />
+              <column name="error" type="text" />
+            </list>
+          </panel>
+        </tab>
+        <tab name="stacktracetab">
+          <panel height="1pr">
+            <list name="trace"
+                  minwidth="80x" width="1pr"
+                  minheight="8x" height="1pr"
+                  flags="canopen"
+                  emptytid=".nostacktrace"
+                  selectcontextmenu="listcontext2"
+                  selectmode="single"
+                  openaction="openfile"
+                  sortable="false">
+              <column name="filename" type="text" />
+              <column name="line" type="integer" width="6x" />
+              <column name="col" type="integer" width="6x" />
+              <column name="func" type="text" />
+            </list>
+          </panel>
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <line layout="left">
+        <text name="statusbar" title="" />
+      </line>
+    </footer>
+  </screen>
+
+</screens>

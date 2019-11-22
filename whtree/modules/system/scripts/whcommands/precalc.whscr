@@ -1,0 +1,59 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+
+
+MACRO Get(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "idhash", type := "param", required := TRUE ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh get <id|hash>\n");
+    TerminateScriptWithError("");
+  }
+
+  RECORD cacheentry;
+  IF(ToInteger(subargs.idhash,-1) > 0)
+    cacheentry := SELECT * FROM system.precalccache WHERE id = ToInteger(subargs.idhash,-1);
+  IF(NOT RecordExists(cacheentry))
+    cacheentry := SELECT * FROM system.precalccache WHERE hash = subargs.idhash;
+  IF(NOT RecordExists(cacheentry))
+    TerminateScriptWithError(`Cannot find cache entry '${subargs.idhash}'`);
+
+  OBJECT link := WaitForPromise(OpenWebHareService("system:precalc"));
+  RECORD keydata := ReadAnyFromDatabase(cacheentry.keydatahsonstr, cacheentry.keydatahsonblob);
+  VARIANT result :=  WaitForPromise(link->GetPrecalculatedData(keydata, cacheentry.func, [ waitforrefresh := TRUE ]));
+  DumpValue(result);
+}
+
+MACRO Main()
+{
+  RECORD ARRAY options := [ [ name := "command", type := "param", required := TRUE ]
+                          , [ name := "params", type := "paramlist" ]
+                          ];
+
+  RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+
+
+  SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
+  {
+    CASE "get"
+    {
+      Get(cmdargs.params);
+    }
+    DEFAULT
+    {
+      Print("Syntax: wh precalc <command>\n");
+      Print("  get <id|hash>:           Retrieve the specified key\n");
+      TerminateScriptWithError("");
+    }
+  }
+}
+
+OpenPrimary();
+Main();

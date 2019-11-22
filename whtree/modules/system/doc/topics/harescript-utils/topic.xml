@@ -1,0 +1,10 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="HareScript utility functions"
+       docorder="">
+  <section name="algorithms" title="Algorithms and structures" />
+  <section name="stringparser" title="String parser" />
+  <section name="comparisons" title="String/text comparisons and diffs" />
+  <section name="geo" title="Latitude/longitude calculations" />
+  <section name="localization" title="Localization and internationalization (i18n)" />
+  <section name="luhn" title="Luhn algorithm" />
+</topic>

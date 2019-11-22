@@ -1,0 +1,1196 @@
+﻿<?wh
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+
+PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  RECORD pvt_dragrecord;
+  BOOLEAN pvt_sortable;
+
+  MACRO PTR pvt_onrowedit;
+  MACRO PTR pvt_onrowdelete;
+  MACRO PTR pvt_onrowsdelete;
+  MACRO PTR pvt_onchangeorder;
+
+  /// Name of the local drag type (used for drag'ndrop)
+  STRING overlaydragtype;
+
+  INTEGER lastaddedactionid;
+  RECORD ARRAY addedactions;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC PROPERTY onrowedit(pvt_onrowedit, SetOnRowEdit);
+  PUBLIC PROPERTY onrowdelete(pvt_onrowdelete, SetOnRowDelete);
+  PUBLIC PROPERTY onrowsdelete(pvt_onrowsdelete, SetOnRowsDelete);
+
+  PUBLIC PROPERTY oncelledit(this->list->oncelledit, this->list->oncelledit);
+  PUBLIC PROPERTY onselect(this->list->onselect, this->list->onselect);
+  PUBLIC PROPERTY onfocusin(this->list->onfocusin, this->list->onfocusin);
+  PUBLIC BOOLEAN rowselect;
+  PUBLIC PROPERTY selectcontextmenu(this->list->selectcontextmenu, this->list->selectcontextmenu);
+  PUBLIC PROPERTY newcontextmenu(this->list->newcontextmenu, this->list->newcontextmenu);
+  PUBLIC PROPERTY eventmasks(this->list->eventmasks, this->list->eventmasks);
+
+  PUBLIC PROPERTY onchangeorder(pvt_onchangeorder, SetOnChangeOrder);
+
+  UPDATE PUBLIC PROPERTY height(this->maingrid->height, this->maingrid->height);
+
+  UPDATE PUBLIC PROPERTY width(this->maingrid->width, this->maingrid->width);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY borders(this->list->borders, this->list->borders);
+
+  PUBLIC PROPERTY debugactions(this->list->debugactions, this->list->debugactions);
+
+  PUBLIC PROPERTY savestate(this->list->savestate, this->list->savestate);
+
+  ///(string array) Names of buttons to show ('add', 'edit', 'delete')
+  PUBLIC PROPERTY buttons(GetButtons, SetButtons);
+
+  PUBLIC PROPERTY showbuttons(this->buttoncell->visible,this->buttoncell->visible);
+
+  /** Columns to show
+      @cell(string) type
+      @cell(string) title
+      @cell(string) name
+  */
+  PUBLIC PROPERTY columns(this->list->columns, this->list->columns);
+
+  PUBLIC PROPERTY openaction(this->list->openaction, this->list->openaction);
+
+  PUBLIC PROPERTY styles(this->list->styles, this->list->styles);
+
+  PUBLIC PROPERTY rows(this->list->rows, -);
+
+  /// Text to show when the list is empty
+  PUBLIC PROPERTY empty(this->list->empty, this->list->empty);
+
+  /// Whether the list is user-sortable (ignored when list is not orderable)
+  PUBLIC PROPERTY sortable(this->list->sortable, SetSortable);
+
+  /// If true, sort the list ascending
+  PUBLIC PROPERTY sortascending(this->list->sortascending, this->list->sortascending);
+
+  /// Column to sort the rows on (ignored when orderable = true)
+  PUBLIC PROPERTY sortcolumn(this->list->sortcolumn, this->list->sortcolumn);
+
+  /// If the list column headers should be visible, defaults to TRUE
+  PUBLIC PROPERTY columnheaders(this->list->columnheaders, this->list->columnheaders);
+
+  /// List of icons that can be used in the list
+  PUBLIC PROPERTY icons(this->list->icons, this->list->icons);
+
+  PUBLIC PROPERTY flags(GetFlags, SetFlags);
+
+  PUBLIC PROPERTY editableflags(GetEditableFlags, SetEditableFlags);
+
+  PUBLIC PROPERTY deletableflags(GetDeletableFlags, SetDeletableFlags);
+
+  /** Give access to the list component embedded in this component.
+      This makes it possible to for example use listedit->embeddedlist->GetIcon().
+  */
+  PUBLIC PROPERTY embeddedlist(this->list, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & init
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsDirtyable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD description)
+  {
+    TolliumFragmentBase::StaticInit(description);
+
+    this->onrowedit := description.onrowedit;
+    this->onrowdelete := description.onrowdelete;
+    this->onrowsdelete := description.onrowsdelete;
+
+    this->onselect := description.onselect;
+
+    this->oncelledit := description.oncelledit;
+
+    this->flags := description.flags;
+    this->editableflags := description.editableflags;
+    this->deletableflags := description.deletableflags;
+    this->sortable := description.sortable;
+
+    this->list->borders := description.borders;
+    this->list->columns := description.columns;
+    this->list->columnheaders := description.columnheaders;
+    this->list->styles := description.styles;
+    this->list->sortascending := description.sortascending;
+    this->list->sortcolumn := description.sortcolumn;
+    this->list->empty := description.empty;
+    this->list->icons := description.icons;
+    this->list->rowiconname := description.rowiconname;
+    this->list->highlightname := description.highlightname;
+    this->list->onfocusin := description.onfocusin;
+    IF(description.openaction != DEFAULT OBJECT)
+      this->list->openaction := description.openaction;
+
+    IF (ObjectExists(description.newcontextmenu))
+      this->list->newcontextmenu := description.newcontextmenu;
+
+    IF (ObjectExists(description.selectcontextmenu))
+      this->list->selectcontextmenu := description.selectcontextmenu;
+
+    this->buttons := description.buttons;
+
+//    this->errorlabel := description.errorlabel;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    //FIXME should there be standard ways to reflect these properties to ourselves?
+    this->maingrid->width := this->width;
+    this->maingrid->height := this->height;
+
+    this->maingrid->minwidth := this->minwidth;
+    this->maingrid->minheight := this->minheight;
+
+    this->UpdateDropTarget();
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION GetEnableOnComponent()
+  {
+    RETURN this->list->GetEnableOnComponent();
+  }
+
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    this->list->ExecutePathAction(path);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetOnRowEdit(FUNCTION PTR onrowedit)
+  {
+    this->pvt_onrowedit := onrowedit;
+  }
+  MACRO SetOnRowDelete(FUNCTION PTR onrowdelete)
+  {
+    this->pvt_onrowdelete := onrowdelete;
+    this->CheckDelete();
+  }
+  MACRO SetOnRowsDelete(FUNCTION PTR onrowsdelete)
+  {
+    this->pvt_onrowsdelete := onrowsdelete;
+    this->CheckDelete();
+  }
+
+  STRING ARRAY FUNCTION GetFlags()
+  {
+    RETURN SELECT AS STRING ARRAY flag FROM ToRecordArray(this->list->flags, "flag") WHERE flag != "__arrayedit_canmoveup" AND flag != "__arrayedit_canmovedown";
+  }
+  MACRO SetFlags(STRING ARRAY flags)
+  {
+    this->list->flags := flags CONCAT ["__arrayedit_canmoveup", "__arrayedit_canmovedown"];
+  }
+  STRING ARRAY FUNCTION GetEditableFlags()
+  {
+    RETURN this->edit->enableon[0].checkflags;
+  }
+  MACRO SetEditableFlags(STRING ARRAY flags)
+  {
+    this->edit->enableon[0].checkflags := flags;
+  }
+  STRING ARRAY FUNCTION GetDeletableFlags()
+  {
+    RETURN this->"delete"->enableon[0].checkflags;
+  }
+  MACRO SetDeletableFlags(STRING ARRAY flags)
+  {
+    this->"delete"->enableon[0].checkflags := flags;
+  }
+
+  STRING ARRAY FUNCTION GetButtons()
+  {
+    STRING ARRAY buttons;
+    IF (this->addbutton->visible)
+      INSERT "add" INTO buttons AT END;
+    IF (this->editbutton->visible)
+      INSERT "edit" INTO buttons AT END;
+    IF (this->deletebutton->visible)
+      INSERT "delete" INTO buttons AT END;
+    RETURN buttons;
+  }
+
+  MACRO SetButtons(STRING ARRAY buttons)
+  {
+    this->add->enabled := this->pvt_enabled AND "add" IN buttons;
+    this->addbutton->visible := "add" IN buttons;
+    this->edit->enabled:= this->pvt_enabled AND "edit" IN buttons;
+    this->editbutton->visible := "edit" IN buttons;
+    this->CheckDelete();
+    this->deletebutton->visible := "delete" IN buttons;
+  }
+
+  UPDATE PUBLIC MACRO SetEnabled(BOOLEAN enable)
+  {
+    this->maingrid->enabled := enable;
+    this->list->enabled := enable;
+
+    STRING ARRAY buttons := this->buttons;
+    this->pvt_enabled := enable;
+    this->add->enabled := enable AND "add" IN buttons;
+    this->edit->enabled := enable AND "edit" IN buttons;
+    this->CheckDelete();
+    this->moveup->enabled := enable;
+    this->movedown->enabled := enable;
+
+    this->UpdateDropTarget();
+  }
+
+  /** Add an action to the the list (button and menu item)
+      @param title Title for the button and menu item
+      @param toexecute Callback handler
+      @cell options.requireselection Whether to require a selection for this action. Defaults to TRUE.
+      @return ID for the added action
+  */
+  UPDATE PUBLIC INTEGER FUNCTION AddAction(STRING title, MACRO PTR toexecute, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ requireselection := TRUE ], options);
+
+    this->lastaddedactionid := this->lastaddedactionid + 1;
+
+    INTEGER newactionid := this->lastaddedactionid;
+    OBJECT action := this->owner->CreateTolliumComponent("action");
+    OBJECT button := this->owner->CreateTolliumComponent("button");
+    OBJECT menuitem := this->owner->CreateTolliumComponent("menuitem");
+
+    action->onexecute := toexecute;
+    button->title := title;
+    button->action := action;
+    button->width := "1pr";
+    menuitem->title := title;
+    menuitem->action := action;
+    IF(options.requireselection)
+      action->enableon := [[ min := 1, max := 1, source := this->list ]];
+
+    this->extrabuttons->visible := TRUE;
+    this->extrabuttons->InsertComponentAfter(button, DEFAULT OBJECT, TRUE);
+    INSERT [ menuitem := menuitem, isdivider := FALSE ] INTO this->selectionmenu->items AT END;
+
+    INSERT CELL[ id := newactionid, button ] INTO this->addedactions AT END;
+    RETURN newactionid;
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION ExecuteAddedAction(INTEGER actionid)
+  {
+    RECORD act := SELECT * FROM this->addedactions WHERE id=actionid;
+    IF(NOT RecordExists(act))
+      THROW NEW TolliumException(this,`No such added action #${actionid}`);
+    RETURN act.button->TolliumClick();
+  }
+
+  MACRO SetOnChangeOrder(MACRO PTR newonchangeorder)
+  {
+    IF(this->pvt_onchangeorder = newonchangeorder)
+      RETURN;
+
+    this->pvt_onchangeorder := newonchangeorder;
+
+    this->moveupitem->visible := newonchangeorder != DEFAULT MACRO PTR;
+    this->movedownitem->visible := newonchangeorder != DEFAULT MACRO PTR;
+    this->moveupbutton->visible := newonchangeorder != DEFAULT MACRO PTR;
+    this->movedownbutton->visible := newonchangeorder != DEFAULT MACRO PTR;
+    this->flags := this->flags; //make sure flag definitions are updated to include moveup/movedown
+    this->list->sortable := this->pvt_sortable AND newonchangeorder = DEFAULT MACRO PTR;
+    this->UpdateDropTarget();
+  }
+
+  MACRO SetSortable(BOOLEAN newvalue)
+  {
+    this->pvt_sortable := newvalue;
+    this->list->sortable := newvalue AND this->pvt_onchangeorder = DEFAULT MACRO PTR;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotListCheck(RECORD row, STRING checkboxname)
+  {
+    // Sync list rows when a row's checkbox or radiobutton is clicked
+    INTEGER pos := SELECT AS INTEGER #currows FROM this->currows WHERE rowkey = row.rowkey;
+    RECORD newdata := CellInsert(CELL[], checkboxname, GetCell(row, checkboxname));
+    this->__UpdateSingleRow(newdata, pos);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Get all rowkeys in list, sorted on ordering
+  VARIANT FUNCTION GetAllRowkeys()
+  {
+    VARIANT result := GetTypeDefaultArray(this->list->rowkeytype);
+    FOREVERY (RECORD row FROM this->list->rows)
+      INSERT row.rowkey INTO result AT END;
+    RETURN result;
+  }
+
+
+  MACRO UpdateDropTarget()
+  {
+    BOOLEAN want_dragdrop := this->pvt_onchangeorder != DEFAULT MACRO PTR;
+    IF (want_dragdrop AND this->overlaydragtype = "")
+    {
+      this->overlaydragtype := "local:tollium.listedit." || this->name || ".row";
+      this->owner->RegisterLocalDragType(this->overlaydragtype, DEFAULT STRING ARRAY);
+    }
+
+    IF (want_dragdrop)
+    {
+      this->list->acceptdrops :=
+          [ accepttypes :=
+              [ [ type := this->overlaydragtype
+                , sourceflags := DEFAULT STRING ARRAY
+                , targetflags := DEFAULT STRING ARRAY
+                , appendchildflags := [ "false" ] // Disable appendchild
+                , frameflags := DEFAULT STRING ARRAY
+                , requiretarget := FALSE
+                , locations := [ "position" ]
+                , dropeffects := [ "move" ]
+                ]
+              ]
+          , ondrop := PTR this->DropRows
+          ];
+    }
+    ELSE
+      this->list->acceptdrops := DEFAULT RECORD ARRAY;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List refresh
+  //
+
+  RECORD ARRAY FUNCTION PrepareRows(RECORD ARRAY inrows)
+  {
+    INTEGER numrows := Length(inrows);
+    inrows := SELECT *
+                   , __arrayedit_canmoveup := #inrows > 0
+                   , __arrayedit_canmovedown := #inrows < numrows - 1
+                FROM inrows;
+
+    IF (this->pvt_onchangeorder != DEFAULT MACRO PTR)
+    {
+      inrows :=
+          SELECT *
+               , draginfo := [ type := this->overlaydragtype, data := [ rowkey := rowkey ] ]
+            FROM inrows;
+    }
+
+    RETURN inrows;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Handlers
+  //
+
+  MACRO DropRows(RECORD dragdata, RECORD target, STRING action, STRING type)
+  {
+    VARIANT ARRAY tomove := SELECT AS VARIANT ARRAY data.rowkey FROM dragdata.items;
+
+    RECORD ARRAY rows := this->list->rows;
+
+    INTEGER targetpos := LENGTH(rows);
+    IF (RecordExists(target))
+      targetpos := SELECT AS INTEGER #rows FROM rows WHERE rowkey = target.rowkey;
+
+    VARIANT empty_rowkeys := GetTypeDefaultArray(this->list->rowkeytype);
+
+    VARIANT before := empty_rowkeys;
+    VARIANT moved := empty_rowkeys;
+    VARIANT after := empty_rowkeys;
+
+    FOREVERY (VARIANT rowkey FROM this->GetAllRowkeys())
+    {
+      IF (rowkey IN tomove)
+        INSERT rowkey INTO moved AT END;
+      ELSE IF (#rowkey < targetpos)
+        INSERT rowkey INTO before AT END;
+      ELSE
+        INSERT rowkey INTO after AT END;
+    }
+
+    this->SetDirty();
+    this->onchangeorder(before CONCAT moved CONCAT after);
+    this->list->ReloadList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO MoveUpValue()
+  {
+    IF(Length(this->list->rows) = 0 OR this->onchangeorder = DEFAULT MACRO PTR)
+      RETURN;
+
+    VARIANT ARRAY selected_rowkeys;
+    IF (this->list->selectmode = "multiple")
+      selected_rowkeys := this->list->value;
+    ELSE IF (RecordExists(this->list->selection))
+      INSERT this->list->value INTO selected_rowkeys AT END;
+
+    VARIANT rowkeys := this->GetAllRowkeys();
+    FOREVERY (VARIANT rowkey FROM rowkeys)
+      IF (#rowkey != 0 AND rowkey IN selected_rowkeys)
+      {
+        DELETE FROM rowkeys AT #rowkey;
+        INSERT rowkey INTO rowkeys AT #rowkey - 1;
+      }
+
+    this->SetDirty();
+    this->onchangeorder(rowkeys); // ReorderValues() will apply the order (this allows people to make an override function which will block the reordering)
+    this->list->ReloadList();
+  }
+
+  MACRO MoveDownValue()
+  {
+    IF(Length(this->list->rows) = 0 OR this->onchangeorder = DEFAULT MACRO PTR)
+      RETURN;
+
+    VARIANT ARRAY selected_rowkeys;
+    IF (this->list->selectmode = "multiple")
+      selected_rowkeys := this->list->value;
+    ELSE IF (RecordExists(this->list->selection))
+      INSERT this->list->value INTO selected_rowkeys AT END;
+
+    VARIANT rowkeys := this->GetAllRowkeys();
+    FOREVERY (VARIANT rowkey FROM rowkeys)
+      IF (#rowkey != LENGTH(rowkeys) - 1 AND rowkey IN selected_rowkeys)
+      {
+        DELETE FROM rowkeys AT #rowkey;
+        INSERT rowkey INTO rowkeys AT #rowkey + 1;
+      }
+
+    this->SetDirty();
+    this->onchangeorder(rowkeys);
+    this->list->ReloadList();
+  }
+
+  MACRO CheckDelete()
+  {
+    this->"delete"->enabled := this->pvt_enabled AND (this->onrowdelete != DEFAULT FUNCTION PTR OR this->onrowsdelete != DEFAULT FUNCTION PTR);
+  }
+>;
+
+
+
+PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
+<
+  /// Value of the list edit
+  PUBLIC PROPERTY value(this->list->value, this->list->value);
+  /// Selection of the list edit
+  PUBLIC PROPERTY selection(this->list->selection, this->list->selection);
+
+  FUNCTION PTR ongetchildren;
+  FUNCTION PTR ongetrows;
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposableListener;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD description)
+  {
+    //this->pvt_composition_forwardto := this->list; //FIXME can we remove forward completely again? not sure if we needed it at all?
+    ArrayListEditBase::StaticInit(description);
+
+    this->list->selectmode := "single";
+    this->list->rowkeytype := ParseRowKeyType(description.rowkeytype);
+    this->eventmasks := description.eventmasks;
+
+    this->ongetchildren := description.ongetchildren;
+    this->ongetrows := description.ongetrows;
+    this->onchangeorder := description.onchangeorder;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    ArrayListEditBase::PreInitComponent();
+    this->list->ongetchildren := PTR this->GetChildren;
+  }
+
+  RECORD ARRAY FUNCTION GetChildren(RECORD parentrow)
+  {
+    IF(this->ongetchildren != DEFAULT MACRO PTR)
+      RETURN this->PrepareRows(this->ongetchildren(parentrow));
+
+    IF(this->ongetrows != DEFAULT MACRO PTR)
+    {
+      IF(RecordExists(parentrow))
+        RETURN RECORD[];
+      RETURN this->PrepareRows(this->ongetrows());
+    }
+    THROW NEW TolliumException(this, "List has no ongetchildren or ongetrows handler");
+  }
+
+  MACRO AddValue()
+  {
+    this->onrowedit(DEFAULT RECORD);
+    this->SetDirty();
+    this->list->ReloadList();
+  }
+
+  MACRO EditValue()
+  {
+    this->onrowedit(this->list->selection);
+    this->SetDirty();
+    this->list->ReloadList();
+  }
+
+  MACRO DeleteValue()
+  {
+    this->onrowdelete(this->list->selection);
+    this->SetDirty();
+    this->list->ReloadList();
+  }
+
+  PUBLIC MACRO ReloadList() // reload complete list
+  {
+    this->list->ReloadList();
+  }
+
+  UPDATE MACRO SetOnRowEdit(FUNCTION PTR onrowedit)
+  {
+    ArrayListEditBase::SetOnRowEdit(onrowedit);
+    this->add->enabled := this->pvt_enabled AND onrowedit != DEFAULT FUNCTION PTR;
+    this->edit->enabled := this->pvt_enabled AND onrowedit != DEFAULT FUNCTION PTR;
+  }
+
+  UPDATE PUBLIC MACRO Invalidate()
+  {
+    this->ReloadList();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
+<
+  RECORD ARRAY currows;
+  INTEGER pvt_maxrows;
+  INTEGER highestrowkey;
+  FUNCTION PTR pvt_onmaprows;
+  STRING pvt_rowaddscreen;
+  STRING pvt_roweditscreen;
+
+  PUBLIC PROPERTY rowaddscreen(pvt_rowaddscreen, SetRowAddScreen);
+  PUBLIC PROPERTY roweditscreen(pvt_roweditscreen, SetRowEditScreen);
+
+  PUBLIC STRING rowtypename;
+  RECORD ARRAY datatypes;
+
+  /// Minimum required number of rows
+  PUBLIC INTEGER minrows;
+
+  /// Maximum allowed number of rows
+  PUBLIC PROPERTY maxrows(pvt_maxrows, SetMaxRows);
+
+  /// Value of the array edit (all the rows)
+  PUBLIC PROPERTY value(GetRows, SetRows);
+
+  /** Selection of the array edit (the rows which are selected).
+      We only support getting. Setting the selection is not possible due to rowkey's not being exposed by ->value,
+      so id to reference the rows.
+      (unless you use ->embeddedlist->rows for lookup and ->embeddedlist->rows to set the selection)
+  **/
+  PUBLIC PROPERTY selection(GetSelection, -);
+
+  /// Filter that converts the stored rows to list rows
+  PUBLIC PROPERTY onmaprows(pvt_onmaprows, SetOnMapRows);
+
+  /// Whether the list is orderable (move up and move down buttons)
+  PUBLIC PROPERTY orderable(GetOrderable, SetOrderable);
+
+  PUBLIC MACRO PTR onchange;
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD description)
+  {
+    //this->pvt_composition_forwardto := this->list; //FIXME can we remove forward completely again? not sure if we needed it at all?
+    ArrayListEditBase::StaticInit(description);
+
+    IF (this->onrowdelete = DEFAULT FUNCTION PTR)
+      this->list->selectmode := "multiple";
+
+    IF (description.oncelledit = DEFAULT FUNCTION PTR)
+      this->oncelledit := PTR this->DoUpdateValueForEdittedCell;
+
+    this->SetEnabled(description.enabled);
+
+    this->pvt_roweditscreen := description.roweditscreen;
+    this->onchange := description.onchange;
+
+    this->rowaddscreen := description.rowaddscreen;
+    this->datatypes := description.rowdatatypes;
+    this->rowtypename := description.rowtypename;
+    this->onmaprows := description.onmaprows;
+
+    IF (this->rowtypename = "" AND this->rowaddscreen != "")
+      THROW NEW Exception("rowaddscreen is only supported in combination with rowtypename.");
+    IF(this->rowtypename != "")
+    {
+      this->flags := ["__arrayedit_canedit"];
+      this->editableflags := ["__arrayedit_canedit"];
+    }
+
+    this->minrows := description.minrows;
+    this->maxrows := description.maxrows;
+    this->orderable := description.orderable;
+
+    // set the rowkeytype so ->GetSelection() doesn't crash when used before our arrayedit had any content
+    // (since the ArrayEdit handles rowkey's itself we always know the type beforehand anyway)
+    this->list->rowkeytype := TypeID(INTEGER);
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    ArrayListEditBase::PreInitComponent();
+    this->list->valuecontext := this;
+    this->list->ongetchildren := PTR this->GetCurrentRows;
+  }
+
+  MACRO SetMaxRows(INTEGER newmaxrows)
+  {
+    this->pvt_maxrows := newmaxrows;
+    this->add->enabled := this->pvt_enabled AND (this->pvt_maxrows <= 0 OR Length(this->value) < this->pvt_maxrows);
+  }
+
+  BOOLEAN FUNCTION GetOrderable()
+  {
+    RETURN this->onchangeorder != DEFAULT MACRO PTR;
+  }
+
+  MACRO SetOrderable(BOOLEAN neworderable)
+  {
+    this->onchangeorder := neworderable ? PTR this->ReorderValues : DEFAULT MACRO PTR;
+  }
+
+  MACRO SetOnMapRows(FUNCTION PTR newonmaprows)
+  {
+    IF(this->pvt_onmaprows = newonmaprows)
+      RETURN;
+
+    this->pvt_onmaprows := newonmaprows;
+    this->RefreshList(FALSE);
+  }
+
+  MACRO SetRowAddScreen(STRING screenname)
+  {
+    this->pvt_rowaddscreen := MakeAbsoluteScreenReference("", screenname);
+  }
+  MACRO SetRowEditScreen(STRING screenname)
+  {
+    this->pvt_roweditscreen := MakeAbsoluteScreenReference("", screenname);
+  }
+
+  // FIXME: or is there are function to cast to record array?
+  RECORD ARRAY FUNCTION ConvertReturnValueToArray(VARIANT value)
+  {
+    IF (TypeID(value) = TypeID(RECORD))
+    {
+      IF (NOT RecordExists(value))
+        RETURN DEFAULT RECORD ARRAY;
+      ELSE
+        RETURN [ RECORD(value) ];
+    }
+    ELSE IF (TypeID(value) = TypeID(RECORD ARRAY))
+      RETURN value;
+    ELSE
+      THROW NEW Exception("Unsupported returntype for onRowEdit.");
+  }
+
+
+
+  RECORD ARRAY FUNCTION DoRowEdit(RECORD inrow)
+  {
+    IF(this->onrowedit != DEFAULT MACRO PTR)
+    {
+      VARIANT value := this->onrowedit(inrow);
+      RETURN this->ConvertReturnValueToArray(value);
+    }
+
+    STRING rowtype;
+    IF (this->rowtypename != "" AND NOT RecordExists(inrow))
+    {
+      // If applicable open a dialog in which the user can select the type of data he wants to add
+      OBJECT addscreen := this->GetRowTypeSelectionScreen();
+      IF (ObjectExists(addscreen))
+      {
+        IF (addscreen->RunModal() != "ok")
+          RETURN DEFAULT RECORD ARRAY;
+
+        IF (this->rowaddscreen = "" AND this->rowtypename != "")
+          rowtype := addscreen->rowtype->value; // inbuild selection uses name 'rowtype'
+        ELSE
+        {
+          /*
+          NOTE: custom rowaddscreen cannot be used to fill in data other than the type.
+                If we deem it wise to implement support for multiple fields in the rowaddscreen,
+                we may alter the Init() of TolliumRowEditScreenBase to pass a flag to indicate the passed data
+                is not a complete RECORD but a subset. We can then fetch the default value of the composition,
+                use MakeUpdateRecord() and set the value to the updated RECORD.
+          */
+          RECORD rowtyperec := addscreen->GetUpdatedRow();
+
+          // for a custom rowaddscreen we expect they use the field specified as rowtypename
+          IF (NOT CellExists(rowtyperec, this->rowtypename))
+            THROW NEW Exception("addscreen did not return field \""||this->rowtypename||"\" which was specified as rowtypename.");
+
+          rowtype := GetCell(rowtyperec, this->rowtypename);
+        }
+      }
+    }
+
+    // When editting we only support editting a single row
+    //RECORD ARRAY newdata;
+    RECORD newdata;
+
+    OBJECT editor;
+    TRY
+    {
+      editor := this->GetRowEditScreen(inrow, rowtype);
+    }
+    CATCH(OBJECT err)
+    {
+      // in case we crash we aren't in an invalid state... we just aren't able to add or edit.
+      // inform there is a problem and then let the user/develop continue
+      RunExceptionReportDialog(this->owner, err);
+      RETURN DEFAULT RECORD ARRAY; // act as if editting was cancelled
+    }
+
+    IF (NOT ObjectExists(editor)) // if loading a screen failed we already thew an exception. if we get here it's because of a datatype without edit screen.
+      RETURN [ CellInsert(DEFAULT RECORD, this->rowtypename, rowtype) ];
+
+    IF(editor->RunModal() = "ok")
+      newdata := editor->GetUpdatedRow();
+
+    IF (NOT RecordExists(newdata)) // edit dialog cancelled (or dialog not found?)
+      RETURN DEFAULT RECORD ARRAY;
+
+    IF (rowtype != "") // add screen
+    {
+      //FOREVERY(RECORD row FROM newdata)
+      //  newdata[#row] := CellInsert(newdata[#row], this->rowtypename, rowtype);
+      newdata := CellInsert(newdata, this->rowtypename, rowtype);
+    }
+
+    RETURN [ RECORD(newdata) ];
+  }
+
+  MACRO AddValue()
+  {
+    this->RunAddRow(DEFAULT RECORD);
+  }
+
+  /** @short Run the edit-procedure to add a new row
+      @param basedata Base rowdata to initialize the screen with
+      @cell(integer) options.insertat Insert position. If not specified, inserts at end */
+  PUBLIC MACRO RunAddRow(RECORD basedata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ insertat := 0 ], options, [ optional := [ "insertat" ]]);
+
+    RECORD ARRAY newdata := this->DoRowEdit(basedata);
+    IF (Length(newdata) = 0)
+      RETURN;
+
+    newdata :=
+        SELECT *
+             , rowkey := this->highestrowkey + #row + 1
+          FROM newdata AS row;
+
+    this->highestrowkey := this->highestrowkey + Length(newdata);
+
+    IF(CellExists(options,"insertat"))
+      this->currows := ArraySlice(this->currows, 0, options.insertat) CONCAT newdata CONCAT ArraySlice(this->currows, options.insertat);
+    ELSE
+      this->currows := this->currows CONCAT newdata;
+
+    this->SetDirty();
+
+    this->RefreshList(TRUE);
+
+    // select the new row(s)
+    IF (this->list->selectmode = "multiple")
+      this->list->value := (SELECT AS INTEGER ARRAY rowkey FROM newdata);
+    ELSE
+      this->list->value := newdata[0].rowkey;
+  }
+
+  MACRO EditValue()
+  {
+    INTEGER selected_rowkey := this->list->selectmode = "multiple" ? this->list->value[0] : this->list->value;
+
+    INTEGER pos := SELECT AS INTEGER #currows FROM this->currows WHERE rowkey = selected_rowkey;
+    RECORD row := this->currows[pos];
+
+    RECORD newdata := this->DoRowEdit(row);
+    IF(NOT RecordExists(newdata))
+      RETURN;
+
+    this->__UpdateSingleRow(newdata, pos);
+  }
+
+  MACRO DeleteValue()
+  {
+    FUNCTION PTR handler := this->onrowsdelete ?? this->onrowdelete;
+
+    IF(handler != DEFAULT MACRO PTR)
+    {
+      IF (NOT handler(this->list->selection))
+        RETURN;
+    }
+    ELSE IF(this->owner->RunMessageBox("tollium:commondialogs.confirmrowdeletion") != "yes")
+      RETURN;
+
+    IF (this->list->selectmode = "multiple")
+    {
+      DELETE FROM this->currows WHERE rowkey IN this->list->value;
+    }
+    ELSE
+    {
+      INTEGER pos := SELECT AS INTEGER #currows FROM this->currows WHERE rowkey = this->list->value;
+      DELETE FROM this->currows AT pos;
+    }
+
+    this->SetDirty();
+
+    // recreate the <list>'s row's from our internal item list
+    this->RefreshList(TRUE);
+  }
+
+  MACRO ReorderValues(INTEGER ARRAY rowkeys)
+  {
+    this->currows := SELECT * FROM this->currows ORDER BY SearchElement(rowkeys, rowkey);
+
+    IF (this->onchange != DEFAULT MACRO PTR)
+      this->onchange();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Handlers
+  //
+
+  // default handler for cell edit's
+  BOOLEAN FUNCTION DoUpdateValueForEdittedCell(RECORD row, STRING cellname, STRING newvalue)
+  {
+    // Update our internal list
+    INTEGER pos := this->GetSelectedRows()[0];
+    INTEGER celltypeid := TypeID(GetCell(row, cellname));
+
+    IF (celltypeid = TypeID(STRING))
+      this->currows[pos] := CellUpdate(this->currows[pos], cellname, newvalue);
+    ELSE IF (celltypeid = TypeID(INTEGER))
+      this->currows[pos] := CellUpdate(this->currows[pos], cellname, ToInteger(newvalue, 0));
+    ELSE
+      THROW NEW Exception("The default oncelledit for a listedit/arrayedit can only handle columns of type 'text' or 'integer'");
+
+    this->SetDirty();
+
+    // Update the specific row in the list
+    //this->list->UpdateSingleRow(row);
+    this->RefreshList(TRUE);
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** @short get the dialog in which the rowtype is selected.if an DEFAULT OBJECT is returned there is no addscreen
+  */
+
+  // FIXME: should we call this GetRowTypeSelectionScreen? or would we want to (or already support) add generic fields like titel in custom add screens?
+  OBJECT FUNCTION GetRowTypeSelectionScreen()
+  {
+    OBJECT editor;
+
+    IF (this->rowaddscreen != "")
+    {
+      editor := this->owner->tolliumcontroller->PVT_LoadScreen
+                           ([ parent := this->owner
+                            , screen := this->rowaddscreen
+                            , params := [ calltype := "rowedit", row := DEFAULT RECORD, contextrequestfallback := this->composition ]
+                            , run_init := TRUE
+                            ]);
+      //IF (NOT ObjectExists(editor))
+      //  THROW NEW Exception("Could not load rowaddscreen");
+    }
+    ELSE IF (this->rowtypename != "")
+    {
+      editor := this->owner->tolliumcontroller->PVT_LoadScreen
+                             ([ parent := this->owner
+                              , screen := "mod::tollium/screens/components/listedit.xml#arrayedit_addscreen"
+                              , params := [ datatypes := this->datatypes ]
+                              , run_init := TRUE
+                              ]);
+    }
+
+    RETURN editor;
+  }
+
+
+  /** @short
+      @param row
+      @param rowtype required if datatypes are used and row is DEFAULT RECORD (a new row is being added)
+  */
+  OBJECT FUNCTION GetRowEditScreen(RECORD row, STRING rowtype)
+  {
+    STRING roweditscreen;
+
+    BOOLEAN newrow := NOT RecordExists(row);
+
+    IF (this->rowtypename = "")
+    {
+      roweditscreen := this->roweditscreen; // editting or no separate addscreen specified
+
+      IF (roweditscreen = "")
+        THROW NEW TolliumException(this, "No roweditscreen specified for the arrayedit component.");
+    }
+    ELSE
+    {
+      STRING currentrow_type := RecordExists(row) ? GetCell(row, this->rowtypename) : rowtype;
+      // use the screen specified for the datatype or fall back to the specified default roweditscreen
+      RECORD datatype := SELECT * FROM this->datatypes WHERE type = currentrow_type;
+
+      // we want to be strict, so we don't use roweditscreen as fallback
+      // having no rowdatatype/editscreen for this specific type is considered an error
+      IF (NOT RecordExists(datatype))
+        THROW NEW Exception("No datatype for type \""||currentrow_type||"\"");
+
+      roweditscreen := datatype.screen;
+      IF(roweditscreen = "") //this datatype has nothing to edit
+        RETURN DEFAULT OBJECT;
+    }
+
+    RECORD screenopts := [ parent := this->owner
+                         , screen := roweditscreen
+                         , params := [ calltype := "rowedit", row := row, contextrequestfallback := this->composition ]
+                         , run_init := TRUE
+                         ];
+
+    OBJECT editor := this->owner->tolliumcontroller->PVT_LoadScreen(screenopts);
+    IF(NOT ObjectExists(editor))
+      THROW NEW TolliumException(this, "Screen '" || roweditscreen || "' could not be loaded");
+
+    IF (editor NOT EXTENDSFROM TolliumRowEditScreenBase)
+      THROW NEW TolliumException(this, "Screen '" || roweditscreen || "' must extend from TolliumRowEditScreenBase");
+
+    RETURN editor;
+  }
+
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    INTEGER amountofrows := Length(this->list->rows);
+
+    IF (amountofrows < this->minrows)
+    {
+      work->AddError( GetTid("tollium:components.arrayedit.notenoughrows"
+                            , this->errorlabel
+                            , ToString(this->minrows)
+                            , ToString(amountofrows)
+                            )
+                    );
+    }
+
+    IF (this->maxrows > 0 AND amountofrows > this->maxrows)
+    {
+      work->AddError( GetTid( "tollium:components.arrayedit.toomanyrows"
+                            , this->errorlabel
+                            , ToString(this->maxrows)
+                            , ToString(amountofrows)
+                            )
+                    );
+    }
+  }
+
+
+  RECORD ARRAY FUNCTION GetRows()
+  {
+    RETURN SELECT *
+                , DELETE rowkey
+             FROM this->currows;
+  }
+
+
+  /*
+  GetSelection -> in case you want to show a preview of the data in the row in readonly
+                  (or maybe an 'updatecomposition' to set the composition value to the selected row would be a nice to have)
+
+  SetSelection -> highlight rows which
+  */
+
+  RECORD ARRAY FUNCTION GetSelection()
+  {
+    INTEGER ARRAY selected_rowkeys := this->list->selectmode = "multiple" ? this->list->value : [INTEGER(this->list->value)];
+    RETURN SELECT * FROM this->currows WHERE rowkey IN selected_rowkeys;
+  }
+  PUBLIC INTEGER ARRAY FUNCTION GetSelectedRows()
+  {
+    RETURN SELECT AS INTEGER ARRAY #rows FROM this->list->rows WHERE tolliumselected;
+  }
+  PUBLIC MACRO SetSelectedRows(INTEGER ARRAY rowindexes)
+  {
+    this->list->selection := SELECT * FROM this->list->rows WHERE #rows IN rowindexes;
+  }
+
+/*
+  MACRO SetSelection(VARIANT selection)
+  {
+    IF (this->list->selectmode = "multiple")
+      this->list->value := SELECT AS INTEGER ARRAY rowkey FROM selection;
+    ELSE
+      this->list->value := RECORD(selection);
+  }
+*/
+
+  // FIXME: also use for celledit
+  // FIXME: expose the function (make it PUBLIC)?
+  /*PUBLIC*/ MACRO UpdateSingleRow(RECORD newdata)
+  {
+    INTEGER pos := (SELECT AS INTEGER #currows + 1 FROM this->currows WHERE rowkey = this->list->value) - 1;
+    IF (pos = -1)
+      THROW NEW Exception("UpdateSingleRow() - rowkey doesn't exist.");
+
+    this->__UpdateSingleRow(newdata, pos);
+  }
+
+  MACRO __UpdateSingleRow(RECORD newdata, INTEGER pos)
+  {
+    RECORD row := this->currows[pos];
+    DELETE CELL rowkey FROM newdata;
+
+    //we need to update the existing record with any new cells, but without recursing (which MakeUpdatedRecord would do)
+    FOREVERY(RECORD cellrec FROM UnpackRecord(newdata))
+    {
+      row := CellDelete(row, cellrec.name);
+      row := CellInsert(row, cellrec.name, cellrec.value);
+    }
+    this->currows[pos] := row;
+    // ADDME: update a single row in our list instead of using RefreshList().
+    //        this way the list only needs to send a single row to the client
+    //        (but make sure to update __arrayedit_* fields !)
+    //this->list->UpdateSingleRow(row.rowkey);
+
+    this->SetDirty();
+
+    this->RefreshList(TRUE);
+  }
+
+  MACRO SetRows(RECORD ARRAY newrows)
+  {
+    this->currows :=
+        SELECT *
+             , rowkey := #newrows + 1
+             , DELETE __arrayedit_canmovedown
+             , DELETE __arrayedit_canmoveup
+          FROM newrows;
+
+    this->highestrowkey := Length(newrows);
+    this->RefreshList(TRUE);
+  }
+
+  // toselect is 1-based position of row to select
+  MACRO RefreshList(BOOLEAN isvaluechange)
+  {
+    this->list->ReloadList();
+    this->add->enabled := this->pvt_enabled AND (this->pvt_maxrows <= 0 OR Length(this->value) < this->pvt_maxrows);
+
+    //ADDME: Only call when rows have actually changed?
+    IF (isvaluechange AND this->onchange != DEFAULT MACRO PTR)
+      this->onchange();
+  }
+
+  RECORD ARRAY FUNCTION GetCurrentRows(RECORD parent)
+  {
+    IF(RecordExists(parent))
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY rows := this->currows;
+    IF(Length(rows) > 0 AND this->pvt_onmaprows != DEFAULT FUNCTION PTR)
+    {
+      RECORD ARRAY newrows := this->pvt_onmaprows(rows);
+      IF(Length(newrows) != Length(rows))
+        THROW NEW TolliumException(this,"The onmaprows handler received " || Length(rows) || " rows but returned " || Length(newrows) || " rows. A rowmapper may not add, delete or reorder rows.");
+      rows := newrows;
+    }
+
+    RECORD ARRAY inrows := this->PrepareRows(rows);
+    IF(this->rowtypename != "")
+    {
+      STRING ARRAY editabletypes := SELECT AS STRING ARRAY ToUppercase(type) FROM this->datatypes WHERE screen != "";
+      inrows := SELECT *, __arrayedit_canedit := ToUppercase(GetCell(inrows,this->rowtypename)) IN editabletypes FROM inrows;
+    }
+
+    RETURN inrows;
+  }
+
+  UPDATE PUBLIC MACRO Invalidate()
+  {
+    this->RefreshList(FALSE);
+  }
+
+  UPDATE MACRO CheckDelete()
+  {
+    this->"delete"->enabled := this->pvt_enabled;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE ArrayEdit_AddScreen EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->rowtype->options :=
+          SELECT rowkey := type
+                      , title
+                   FROM data.datatypes;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN TRUE;
+  }
+
+>;

@@ -1,0 +1,109 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/validation.whlib";
+
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE EditSource EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD data;
+  RECORD ARRAY errors;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->data := data.data;
+    ^source->value := BlobToString(this->data.formtext);
+
+    IF(data.validateimmediately)
+      this->ValidateIt();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnShowError(INTEGER line)
+  {
+    STRING ARRAY line_errors := SELECT AS STRING ARRAY message FROM this->errors WHERE COLUMN line = VAR line;
+    IF (Length(line_errors) > 0)
+      this->RunSimpleScreen("error", Detokenize(line_errors, "\n"));
+  }
+
+  RECORD FUNCTION ValidateIt()
+  {
+    OBJECT work := this->BeginFeedback();
+
+    RECORD data := [ ...this->data, formtext := StringToBlob(^source->value) ];
+    OBJECT formdefsfile := CreateNewFormdefinitionsFile();
+
+    this->errors := DEFAULT RECORD ARRAY;
+    ^source->markers := DEFAULT RECORD ARRAY;
+    RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := data.formtext ]);
+
+    RECORD ARRAY validationerrors := SELECT * FROM validation.errors WHERE line >= 1 AND resourcename = "whfs::dummy.formdef.xml";
+    RECORD ARRAY othererrors := SELECT * FROM validation.errors WHERE NOT (line >= 1 AND resourcename = "whfs::dummy.formdef.xml");
+
+    IF (Length(validationerrors) > 0)
+    {
+      // Show error markers
+      this->errors := validationerrors;
+      ^source->markers :=
+          SELECT line
+               , type := "gutter"
+               , color := "red"
+            FROM validation.errors;
+
+      // Scroll to first error
+      ^source->GotoLine(validation.errors[0].line);
+
+      work->AddError(GetTid("publisher:tolliumapps.formedit.messages.validationerrors"));
+    }
+    FOREVERY(RECORD othererror FROM othererrors)
+      work->AddError(othererror.message);
+
+    IF (NOT work->HasFailed())
+    {
+      TRY
+      {
+        formdefsfile->ImportFromRecord(data);
+        OBJECT mainform := formdefsfile->OpenFormDefinition("webtoolform");
+        IF(NOT ObjectExists(mainform))
+          THROW NEW Exception(`Unable to find the 'webtoolform' in this form`);
+
+        RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefsfile);
+        IF (NOT RecordExists(parseresult))
+          THROW NEW Exception(`Could not parse the form`);
+      }
+      CATCH (OBJECT e)
+      {
+        work->AddError(e->what);
+      }
+    }
+
+    RETURN work->Finish() ? data : DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION Submit()
+  {
+    RETURN this->ValidateIt();  }
+>;
+
+

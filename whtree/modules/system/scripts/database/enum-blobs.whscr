@@ -1,0 +1,160 @@
+﻿<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+OBJECT trans := OpenPrimary();
+RECORD ARRAY blobs;
+
+RECORD ARRAY relevant_columns := SELECT table_schema,table_name,column_name from information_schema.columns where data_type="BLOB" ORDER BY table_schema, table_name, column_name;
+FOREVERY(RECORD col FROM relevant_columns)
+{
+  IF (col.table_schema = "WRD")
+    CONTINUE;
+
+  Print("Scanning " || col.table_schema || "." || col.table_name || "." || col.column_name || " (" || #col+1 || "/" || LENGTH(relevant_columns) || ")\n");
+  FlushOutputBuffer();
+
+  OBJECT q := NEW DynamicQuery;
+  BOOLEAN have_id := trans->ColumnExists(col.table_schema, col.table_name, "ID");
+  STRING ARRAY getcols := [STRING(col.column_name)];
+  IF(have_id)
+    INSERT "ID" INTO getcols AT END;
+
+  STRING tablename := col.table_schema||"."||col.table_name;
+  STRING colname := col.column_name;
+
+  q->AddTable("data", trans->id, tablename, getcols);
+  RECORD ARRAY colblobs :=
+      SELECT tablename :=   tablename
+           , size :=        LENGTH64(GetCell(data, colname))
+        FROM q->Execute()
+       WHERE LENGTH(GetCell(data, colname)) != 0;
+
+  blobs := blobs CONCAT
+      SELECT *
+           , size_sectors :=  (size + 511) BITAND -512
+           , size_pages :=    (size + 4095) BITAND -4096
+        FROM colblobs;
+}
+PRINT("Grouping\n");
+
+// Order for median
+blobs := SELECT * FROM blobs ORDER BY tablename, size;
+
+blobs :=
+    SELECT tablename
+         , blobs :=             COUNT(*)
+         , avgsize :=           AVG(size)
+         , totalsize :=         SUM(size)
+         , totalsize_gb :=      SUM(size) / 1024 / 1024 / 1024
+         , totalsize_sectors := SUM(size_sectors)
+         , totalsize_pages :=   SUM(size_pages)
+         , less4k :=            LENGTH(SELECT FROM ToRecordArray(GroupedValues(size), "bsize") WHERE bsize < 4096)
+         , median :=            GroupedValues(size)[Count(*) / 2]
+      FROM blobs
+  GROUP BY tablename;
+
+PRINT("Result:\n");
+PRINT(AnyToString(blobs, "boxed"));
+
+INTEGER64 totalfiles := SELECT AS INTEGER64 totalsize FROM blobs WHERE tablename = "SYSTEM.FS_OBJECTS";
+INTEGER64 filethreshold := totalfiles/100;
+
+PRINT("Reading all folders:\n");
+RECORD ARRAY folders :=
+    SELECT id :=        id
+         , parent  :=   parent
+         , name :=      name
+         , size :=      0i64
+      FROM system.fs_objects
+  ORDER BY id;
+
+PRINT("Reading all files:\n");
+RECORD ARRAY folderfiles :=
+    SELECT parent
+         , size :=      SUM(LENGTH64(data))
+      FROM system.fs_objects AS file
+     WHERE isfolder = FALSE
+  GROUP BY parent;
+
+PRINT("Adding files to folders:\n");
+FOREVERY (RECORD ff FROM folderfiles)
+{
+  INTEGER pos := RecordLowerBound(folders, [ id := ff.parent ], [ "ID" ]).position;
+  folders[pos].size := folders[pos].size + ff.size;
+}
+
+folders := SELECT * FROM folders ORDER BY parent;
+
+INTEGER cnt;
+
+RECORD FUNCTION GetFolders(RECORD ARRAY rawdata, STRING name, INTEGER64 localsize, INTEGER parent)
+{
+  IF ((cnt % 1000) = 0)
+    PRINT("Folder " || cnt || " / " || LENGTH(folders) || "\r");
+
+  RECORD pos := RecordLowerBound(rawdata, [ parent := parent ], [ "PARENT" ]);
+  INTEGER ubound := RecordUpperBound(rawdata, [ parent := parent ], [ "PARENT" ]);
+
+  INTEGER64 size := localsize;
+  BOOLEAN hasthresholdchildren;
+
+  RECORD ARRAY subs;
+  FOR (INTEGER i := pos.position; i < ubound; i := i + 1)
+  {
+    RECORD s := rawdata[i];
+    RECORD rec := GetFolders(rawdata, name || "/" || s.name, s.size, s.id);
+    size := size + rec.direct.size;
+    subs := subs CONCAT [ RECORD(rec.direct) ] CONCAT rec.subs;
+    IF (rec.direct.thr)
+      hasthresholdchildren := TRUE;
+  }
+
+  RETURN
+      [ direct :=
+            [ name := name
+            , size := size
+            , thr :=  size > filethreshold
+            , newthr := size > filethreshold// AND NOT hasthresholdchildren
+            ]
+      , subs := subs
+      ];
+}
+
+PRINT("Calculating folder total sizes\n");
+RECORD final := GetFolders(folders, "", 0, 0);
+
+RECORD ARRAY lsubs :=
+    SELECT name
+         , size
+         , size_mb :=       size / 1024 / 1024
+         , size_gb :=       size / 1024 / 1024 / 1024
+         , perc :=          size / (totalfiles / 100)
+      FROM final.subs
+     WHERE newthr
+  ORDER BY name;/*DESC;
+  ORDER BY size DESC;*/
+
+PRINT(AnyToString(lsubs, "boxed"));
+
+
+
+
+/*
+PRINT("Totals:\n");
+RECORD ARRAY totals :=
+    SELECT blobs :=               SUM(COLUMN blobs)
+         , totalsize :=           SUM(totalsize)
+         , totalsize_gb :=        SUM(totalsize / 1024 / 1024 / 1024)
+         , totalsize_sectors :=   SUM(totalsize_sectors)
+         , totalsize_sectors_gb :=SUM(totalsize_sectors / 1024 / 1024 / 1024)
+         , totalsize_pages :=     SUM(totalsize_pages)
+         , totalsize_pages_gb :=  SUM(totalsize_pages/ 1024 / 1024 / 1024)
+      FROM blobs;
+
+
+//*/

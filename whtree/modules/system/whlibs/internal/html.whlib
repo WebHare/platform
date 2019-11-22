@@ -1,0 +1,44 @@
+<?wh
+LOADLIB "wh::util/stringparser.whlib";
+
+PUBLIC RECORD ARRAY FUNCTION ParseNSPI(STRING indata)
+{
+  OBJECT parser := NEW StringParser(indata);
+  RECORD ARRAY fields;
+  WHILE(TRUE)
+  {
+    //eat any whitespace
+    parser->ParseWhileInSet("\t\r\n ");
+    //get the fieldname, stop at =
+    STRING fieldname := parser->ParseWhileNotInSet("\t\r\n= ");
+    //eat any whitespace
+    parser->ParseWhileInSet("\t\r\n ");
+
+    IF(NOT parser->TryParse('='))
+      BREAK; //assume corrupter
+
+    //eat any whitespace after =
+    parser->ParseWhileInSet("\t\r\n ");
+
+    //now see if it is quoted, or if we should just parse one word
+    STRING fielddata;
+    IF(parser->TryParse('"'))
+    {
+      fielddata := parser->ParseWhileNotInSet('"');
+      parser->TryParse('"');
+    }
+    ELSE IF(parser->TryParse("'"))
+    {
+      fielddata := parser->ParseWhileNotInSet("'");
+      parser->TryParse("'");
+    }
+    ELSE
+    {
+      fielddata := parser->ParseWhileNotInSet("\t\r\n ");
+      parser->TryParse('"');
+    }
+
+    INSERT INTO fields(name, value) VALUES(DecodeValue(fieldname), DecodeValue(fielddata)) AT END;
+  }
+  RETURN fields;
+}

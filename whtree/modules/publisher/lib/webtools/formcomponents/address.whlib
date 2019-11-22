@@ -1,0 +1,939 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::util/localization.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+
+//ADDME: This loadlib can be removed when AddressField::SetCountryList can remove form fields (it's used for a DTAP check)
+LOADLIB "mod::system/lib/configure.whlib";
+
+RECORD ARRAY countryregions :=
+    [ [ name := "benelux"
+      , countries :=
+          [ "BE", "LU", "NL" ]
+      ]
+    , [ name := "eu"
+      , countries :=
+          [ "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GR", "HR", "HU", "IE", "IT", "LU", "LV"
+          , "MT", "NL", "PL", "PT", "RO", "SE", "SI", "SK"
+          ]
+      ]
+    , [ name := "africa"
+      , countries :=
+          [ "AO", "BF", "BI", "BJ", "BV", "BW", "CC", "CD", "CF", "CG", "CI", "CM", "CX", "CV", "DJ", "DZ", "EG", "EH", "ER"
+          , "ET", "GA", "GH", "GM", "GN", "GQ", "GS", "GW", "IO", "KE", "KM", "LR", "LS", "LY", "MA", "MG", "ML", "MR", "MU"
+          , "MW", "MZ", "NA", "NE", "NG", "RE", "RW", "SC", "SD", "SH", "SL", "SN", "SO", "SS", "ST", "SZ", "TD", "TF", "TG"
+          , "TN", "TZ", "UG", "YT", "ZA", "ZM", "ZW"
+          ]
+      ]
+    , [ name := "america"
+      , countries :=
+          [ "AG", "AI", "AR", "AW", "BB", "BL", "BM", "BO", "BQ", "BR", "BS", "BZ", "CA", "CL", "CO", "CR", "CU", "DM", "DO"
+          , "EC", "FK", "GD", "GF", "GL", "GP", "GT", "GY", "HN", "HT", "JM", "KN", "KY", "LC", "MF", "MQ", "MS", "MX", "NI"
+          , "PA", "PE", "PM", "PR", "PY", "SR", "SV", "SX", "TC", "TT", "US", "UY", "VC", "VE", "VG", "VI"
+          ]
+      ]
+    , [ name := "asia"
+      , countries :=
+          [ "AE", "AF", "AM", "AZ", "BD", "BH", "BN", "BT", "CN", "CY", "GE", "HK", "ID", "IL", "IN", "IQ", "IR", "JO", "JP"
+          , "KG", "KH", "KP", "KR", "KW", "KZ", "LA", "LB", "LK", "MM", "MN", "MO", "MV", "MY", "OM", "NP", "PH", "PK", "PS"
+          , "QA", "SA", "SG", "SY", "TH", "TJ", "TL", "TM", "TR", "TW", "UZ", "VN", "YE"
+          ]
+      ]
+    , [ name := "europe"
+      , countries :=
+          [ "AD", "AL", "AT", "AX", "BA", "BE", "BG", "BY", "CH", "CZ", "DE", "DK", "EE", "ES", "FI", "FO", "FR", "GB", "GG"
+          , "GI", "GR", "HR", "HU", "IE", "IM", "IS", "IT", "JE", "LI", "LT", "LU", "LV", "MC", "MD", "ME", "MK", "MT", "NL"
+          , "NO", "PL", "PT", "RS", "RO", "RU", "SE", "SI", "SJ", "SK", "SM", "UA", "VA", "XK"
+          ]
+      ]
+    , [ name := "oceania"
+      , countries :=
+          [ "AQ", "AS", "AU", "CK", "FJ", "FM", "GU", "HM", "KI", "MH", "MP", "NC", "NF", "NR", "NU", "NZ", "PF", "PG", "PN"
+          , "PW", "SB", "TK", "TO", "TV", "UM", "VU", "WF", "WS"
+          ]
+      ]
+    ];
+
+RECORD cached_countrylists;
+
+OBJECT FUNCTION ReadCountries(STRING language)
+{
+  IF (NOT CellExists(cached_countrylists, language))
+  {
+    OBJECT countrymap := NEW ValueMapper();
+    RECORD ARRAY allcountries :=
+        SELECT TEMPORARY translation := GetCell(allcountries, language)
+             , fromval := code
+             , toval := translation
+          FROM GetCountryList(language) AS allcountries;
+    countrymap->AddMultiple(allcountries);
+    countrymap->Add("-", GetTid("publisher:formcomponents.address.divider"));
+    cached_countrylists := CellInsert(cached_countrylists, language, countrymap);
+  }
+  RETURN GetCell(cached_countrylists, language);
+}
+
+STRING ARRAY FUNCTION CheckCountryList(STRING ARRAY countries, OBJECT allcountries, STRING langcode)
+{
+  IF("WORLD" IN countries) //FIXME just support regions properly and have WORLD iterate 'm all
+  {
+    RETURN
+        SELECT AS STRING ARRAY fromval
+          FROM allcountries->GetAllMappings()
+         WHERE fromval != "-"
+         ORDER BY NormalizeText(toval, langcode);
+  }
+
+  RETURN
+      SELECT AS STRING ARRAY ToUppercase(code)
+        FROM ToRecordArray(countries, "code")
+       WHERE allcountries->Has(ToUppercase(code));
+}
+
+PUBLIC STATIC OBJECTTYPE Address EXTEND FormComponentExtensionBase
+<
+  STRING ARRAY countrylist;
+  OBJECT allcountries;
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->allcountries := ReadCountries(this->tolliumuser->language);
+
+    this->countrylist := CheckCountryList(ParseXSList(this->node->GetAttribute("countrylist")), this->allcountries, this->tolliumuser->language);
+    this->RefreshCountries();
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (Length(this->countrylist) = 0)
+      work->AddError(GetTid("tollium:common.errors.field_required", ^countries->errorlabel ?? ^countries->title));
+    IF (NOT work->HasFailed())
+    {
+      this->node->SetAttribute("countrylist", Detokenize(this->countrylist, " "));
+    }
+  }
+
+  MACRO DoEditCountries()
+  {
+    STRING ARRAY countrylist := this->owner->RunScreen("mod::publisher/screens/formcomponents.xml#editcountries",
+                                                       CELL[ this->countrylist, this->allcountries ]);
+    countrylist := CheckCountryList(countrylist, this->allcountries, this->tolliumuser->language);
+    IF (Length(countrylist) > 0)
+    {
+      this->countrylist := countrylist;
+      this->RefreshCountries();
+    }
+  }
+
+  MACRO RefreshCountries()
+  {
+    ^countries->value := Detokenize((
+        SELECT AS STRING ARRAY this->allcountries->Has(code) ? this->allcountries->Lookup(code) : code
+          FROM ToRecordArray(this->countrylist, "code")
+         WHERE code != "-"), ", ");
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditCountries EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT allcountries;
+  STRING ARRAY countrylist;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->allcountries := data.allcountries;
+
+    ^regions->rows :=
+        (SELECT title := this->GetTid(`.${name}`)
+              , name
+              , isregion := TRUE
+              , subnodes :=
+                  (SELECT TEMPORARY translation := this->allcountries->Lookup(code)
+                        , code
+                        , title := translation
+                        , isregion := FALSE
+                        , region := countryregions.name
+                     FROM ToRecordArray(countryregions.countries, "code")
+                    ORDER BY NormalizeText(translation, this->tolliumuser->language))
+              , expanded := TRUE
+           FROM countryregions)
+        CONCAT
+        [ [ title := this->GetTid(".allcountries")
+          , name := "WORLD"
+          , isregion := TRUE
+          , subnodes :=
+              (SELECT code := fromval
+                    , title := toval
+                    , isregion := FALSE
+                    , region := "WORLD"
+                 FROM this->allcountries->GetAllMappings()
+                WHERE fromval != "-"
+                ORDER BY NormalizeText(toval, this->tolliumuser->language))
+          , expanded := TRUE
+          ]
+        ];
+    this->countrylist := data.countrylist;
+    this->RefreshCountries();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO DoCopy()
+  {
+    STRING ARRAY tocopy;
+    STRING lastregion;
+    FOREVERY (RECORD value FROM ^regions->selection)
+    {
+      IF (value.expanded)
+      {
+        tocopy := tocopy CONCAT SELECT AS STRING ARRAY code FROM ^regions->rows WHERE NOT isregion AND region = value.name;
+        lastregion := value.name;
+      }
+      ELSE IF (value.region != lastregion)
+      {
+        INSERT value.code INTO tocopy AT END;
+      }
+    }
+    this->InsertCountries(tocopy);
+    this->frame->focused := ^countries;
+  }
+
+  MACRO DoAddDivider()
+  {
+    this->InsertCountries([ "-" ]);
+    this->frame->focused := ^countries;
+  }
+
+  MACRO DoDelete()
+  {
+    this->countrylist :=
+        SELECT AS STRING ARRAY code
+          FROM ^countries->rows
+         WHERE rowkey NOT IN ^countries->value;
+    this->RefreshCountries();
+  }
+
+  MACRO DoDeduplicate()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmdeduplicate")) = "yes")
+    {
+      INTEGER ARRAY todelete;
+      STRING ARRAY seen;
+      FOREVERY (RECORD row FROM ^countries->rows)
+      {
+        IF (row.code = "-")
+          CONTINUE;
+        IF (row.code IN seen)
+          INSERT row.rowkey INTO todelete AT END;
+        ELSE
+          INSERT row.code INTO seen AT END;
+      }
+      this->countrylist :=
+          SELECT AS STRING ARRAY code
+            FROM ^countries->rows
+           WHERE rowkey NOT IN todelete;
+      this->RefreshCountries();
+    }
+  }
+
+  MACRO DoMoveTop()
+  {
+    INTEGER ARRAY selected := ^countries->value;
+    this->countrylist :=
+        (SELECT AS STRING ARRAY code
+           FROM ^countries->rows
+          WHERE rowkey IN selected)
+        CONCAT
+        (SELECT AS STRING ARRAY code
+           FROM ^countries->rows
+          WHERE rowkey NOT IN selected);
+    this->RefreshCountries();
+    ^countries->value :=
+        SELECT AS INTEGER ARRAY rowkey
+          FROM ^countries->rows
+         WHERE #rows < Length(selected);
+  }
+
+  MACRO DoMoveUp()
+  {
+    RECORD ARRAY rows := SELECT *, idx := #rows FROM ^countries->rows;
+    INTEGER ARRAY selected := SELECT AS INTEGER ARRAY #rows FROM rows WHERE rowkey IN ^countries->value;
+    FOR (INTEGER idx := 0; idx < Length(rows); idx := idx + 1)
+    {
+      // If this row is not selected, but the next is, switch the rows (move next row towards front)
+      IF (idx NOT IN selected AND idx + 1 IN selected)
+      {
+        RECORD row := rows[idx];
+        rows[idx] := rows[idx + 1];
+        rows[idx + 1] := row;
+        selected := ArrayDelete(selected, [ idx + 1 ]);
+        INSERT idx INTO selected AT END;
+      }
+    }
+    this->countrylist := SELECT AS STRING ARRAY code FROM rows;
+    this->RefreshCountries();
+    ^countries->value :=
+        SELECT AS INTEGER ARRAY rowkey
+          FROM ^countries->rows
+         WHERE #rows IN selected;
+  }
+
+  MACRO DoMoveDown()
+  {
+    RECORD ARRAY rows := SELECT *, idx := #rows FROM ^countries->rows;
+    INTEGER ARRAY selected := SELECT AS INTEGER ARRAY #rows FROM rows WHERE rowkey IN ^countries->value;
+    FOR (INTEGER idx := Length(rows) - 1; idx >= 0; idx := idx - 1)
+    {
+      // If this row is not selected, but the previous is, switch the rows (move previous row towards end)
+      IF (idx NOT IN selected AND idx - 1 IN selected)
+      {
+        RECORD row := rows[idx];
+        rows[idx] := rows[idx - 1];
+        rows[idx - 1] := row;
+        selected := ArrayDelete(selected, [ idx - 1 ]);
+        INSERT idx INTO selected AT END;
+      }
+    }
+    this->countrylist := SELECT AS STRING ARRAY code FROM rows;
+    this->RefreshCountries();
+    ^countries->value :=
+        SELECT AS INTEGER ARRAY rowkey
+          FROM ^countries->rows
+         WHERE #rows IN selected;
+  }
+
+  MACRO DoMoveBottom()
+  {
+    INTEGER ARRAY selected := ^countries->value;
+    this->countrylist :=
+        (SELECT AS STRING ARRAY code
+           FROM ^countries->rows
+          WHERE rowkey NOT IN selected)
+        CONCAT
+        (SELECT AS STRING ARRAY code
+           FROM ^countries->rows
+          WHERE rowkey IN selected);
+    this->RefreshCountries();
+    ^countries->value := selected;
+    ^countries->value :=
+        SELECT AS INTEGER ARRAY rowkey
+          FROM ^countries->rows
+         WHERE #rows >= Length(^countries->rows) - Length(selected);
+  }
+
+  MACRO DoSort()
+  {
+    this->countrylist :=
+        SELECT AS STRING ARRAY code
+          FROM ^countries->rows
+         ORDER BY code = "-" DESC // dividers first
+                , NormalizeText(title, this->tolliumuser->language);
+    this->RefreshCountries();
+    ^countries->value := INTEGER[];
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  STRING ARRAY FUNCTION Submit()
+  {
+    RETURN SELECT AS STRING ARRAY code FROM ^countries->rows;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO InsertCountries(STRING ARRAY countries)
+  {
+    INTEGER pos := Length(this->countrylist);
+    IF (RecordExists(^countries->selection))
+      pos := (SELECT AS INTEGER #rows FROM ^countries->rows WHERE rowkey = ^countries->value[END-1]) + 1;
+
+    this->countrylist := STRING[ ...ArraySlice(this->countrylist, 0, pos), ...countries, ...ArraySlice(this->countrylist, pos) ];
+
+    this->RefreshCountries();
+    ^countries->value :=
+        SELECT AS INTEGER ARRAY rowkey
+          FROM ^countries->rows
+         WHERE #rows >= pos AND #rows < pos + Length(countries);
+  }
+
+  MACRO RefreshCountries()
+  {
+    RECORD ARRAY countries :=
+        SELECT code
+             , title := this->allcountries->Lookup(code)
+          FROM ToRecordArray(this->countrylist, "code");
+    INTEGER lastidx := Length(this->countrylist) - 1;
+    ^countries->rows :=
+        SELECT *
+             , canmoveup := #countries > 0
+             , canmovedown := #countries < lastidx
+          FROM countries;
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormAddress(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  RECORD fieldtitles;
+  FOREVERY(OBJECT opt FROM node->childnodes->GetCurrentElements())
+  {
+    STRING tag := opt->GetAttribute("tag");
+    STRING title;
+    IF (opt->HasAttribute("title") OR opt->HasAttribute("tid"))
+      title := parsecontext.parsexmltidptr(opt, "title");
+    ELSE IF (fielddef.title != "" AND Left(fielddef.title,1) != ":")
+      title := parsecontext.parsexmltiddirectly(opt, fielddef.title || "-" || tag, "rowkey");
+    IF (NOT CellExists(fieldtitles, tag))
+      fieldtitles := CellInsert(fieldtitles, tag, title);
+    ELSE
+      fieldtitles := CellUpdate(fieldtitles, tag, title);
+  }
+  RETURN
+      CELL[ ...fielddef
+          , countrylist :=      ParseXSList(node->GetAttribute("countrylist"))
+          , options :=          ParseXSList(node->GetAttribute("options"))
+          , hascountrylist :=   node->HasAttribute("countrylist")
+          , hasoptions :=       node->HasAttribute("options")
+          , fieldtitles
+          ];
+}
+
+PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT validators; // validator cache
+  STRING ARRAY pvt_countrylist;
+  RECORD ARRAY allfields;
+  OBJECT allcountries;
+  RECORD pvt_fieldtitles;
+  STRING ARRAY pvt_options;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY value(GetValue,SetValue);
+  PUBLIC PROPERTY countrylist(pvt_countrylist, SetCountryList);
+  PUBLIC PROPERTY fieldtitles(pvt_fieldtitles, SetFieldTitles);
+
+  /** List of options. Allowed values: nl-zip-force: For NL, place zip and nr_detail first and disable street/city,
+      nl-zip-suggest: For NL, place zip and nr_detail first, keep street/city editable.
+  */
+  PUBLIC PROPERTY options(pvt_options, SetOptions);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : ComposedFormFieldBase(form, parent, field)
+  {
+    // Address is always required
+    this->pvt_required := TRUE;
+
+    // Initialize before setting countrylist, which uses those
+    this->validators := NEW ValueMapper();
+    this->fieldtitles := field.fieldtitles;
+    this->allcountries := ReadCountries(this->form->formlanguagecode);
+
+    RECORD integrationsettings := this->GetIntegrationConfiguration();
+
+    // Set options before initializing components by setting countrylist
+    this->options := integrationsettings.options CONCAT field.options;
+    this->countrylist := field.hascountrylist ? field.countrylist : CheckCountryList(integrationsettings.countrylist, this->allcountries, this->form->formlanguagecode);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  RECORD FUNCTION GetValue()
+  {
+    // Countrylist not initialized yet?
+    IF (IsDefaultValue(this->allfields))
+      RETURN DEFAULT RECORD;
+
+    STRING country := this->allfields[0].fieldobj->value;
+    IF (country = "")
+      RETURN DEFAULT RECORD;
+
+    RECORD value;
+    FOREVERY (RECORD field FROM this->allfields)
+    {
+      IF (#field = 0 OR country IN field.countries)
+        value := CellInsert(value, field.tag, field.fieldobj->value);
+    }
+    RETURN value;
+  }
+
+  MACRO SetValue(RECORD value)
+  {
+    // Clear all fields first
+    FOREVERY (RECORD field FROM this->allfields)
+      field.fieldobj->value := GetTypeDefaultValue(TypeID(field.fieldobj->value));
+
+    // Ensure the country field is the first field
+    RECORD ARRAY valuefields := SELECT * FROM UnpackRecord(value) AS vfs ORDER BY name = "COUNTRY" DESC, #vfs;
+
+    STRING country;
+    FOREVERY (RECORD field FROM valuefields)
+    {
+      RECORD thefield := SELECT * FROM this->allfields WHERE tag = field.name;
+      IF (NOT RecordExists(thefield))
+        CONTINUE; // fields not relevant for any configured country can be ignored
+
+      IF (field.name = "COUNTRY")
+      {
+        country := field.value;
+        IF (country NOT IN this->countrylist)
+          BREAK; // Ignore addresses with a country that is not in the countrylist
+      }
+      ELSE IF (#field = 0)
+        BREAK; // Don't update without a value for the country field
+      ELSE IF (country NOT IN thefield.countries)
+        CONTINUE; // Don't update address field that is not defined for this country
+
+      IF (NOT CanCastTypeTo(TypeID(field.value), TypeID(thefield.fieldobj->value)))
+        THROW NEW Exception(`Cannot convert address field '${field.name}' type ${GetTypeName(TypeID(field.value))} to type ${GetTypeName(TypeID(thefield.fieldobj->value))}`);
+      thefield.fieldobj->value := field.value;
+    }
+  }
+
+  MACRO SetCountryList(STRING ARRAY countrylist)
+  {
+    IF (RecordExists(this->allfields))
+    {
+      IF (GetDTAPStage() = "development")
+        THROW NEW Exception("Address country list cannot be changed");
+      RETURN;
+    }
+
+    this->pvt_countrylist := CheckCountryList(countrylist, this->allcountries, this->form->formlanguagecode);
+    IF (Length(this->countrylist) = 0)
+      RETURN;
+
+    RECORD ARRAY orderings :=
+        [ [ fieldorder := STRING[]
+          , countries :=  STRING[]
+          ]
+        ];
+
+    // Get all fields that are defined for at least one available country
+    FOREVERY (STRING code FROM SELECT AS STRING ARRAY DISTINCT cc FROM ToRecordArray(this->countrylist, "cc") WHERE cc != "-")
+    {
+      RECORD ARRAY fields := GetAddressFormat(code, [ language := this->form->formlanguagecode ]).fields;
+      STRING ARRAY disablefields;
+
+      IF (NOT this->validators->Has(code))
+      {
+        OBJECT validator := GetAddressLookupAPI(this->form->formapplytester, code);
+        IF (ObjectExists(validator))
+        {
+          this->validators->Add(code, validator);
+          IF(Length(validator->completionfields) > 0) //actually disabling still requires a country specific optin
+          {
+            IF(code = "NL" AND "nl-zip-force" IN this->pvt_options)
+              disablefields := validator->completionfields;
+          }
+        }
+      }
+
+      IF (code = "NL") //reorder for NL
+      {
+        IF ("nl-zip-suggest" IN this->pvt_options OR "nl-zip-force" IN this->pvt_options)
+          fields := SELECT * FROM fields ORDER BY (SearchElement([ "ZIP", "NR_DETAIL" ], tag) + 1 ?? 99);
+      }
+
+      orderings := this->AddFieldsToOrderings(orderings, code, fields);
+
+      FOREVERY (RECORD field FROM GetAddressFormat(code, [ language := this->form->formlanguagecode ]).fields)
+      {
+        RECORD fieldrec := SELECT *, idx := #allfields FROM this->allfields WHERE tag = field.tag;
+        IF (RecordExists(fieldrec))
+        {
+          INSERT code INTO this->allfields[fieldrec.idx].countries AT END;
+          IF (field.required)
+            INSERT code INTO this->allfields[fieldrec.idx].requiredfor AT END;
+          IF (field.tag IN disablefields)
+            INSERT code INTO this->allfields[fieldrec.idx].disabledfor AT END;
+          IF (field.autocomplete NOT IN this->allfields[fieldrec.idx].autocomplete)
+            INSERT field.autocomplete INTO this->allfields[fieldrec.idx].autocomplete AT END;
+        }
+        ELSE
+          INSERT
+              CELL[ ...field
+                  , countries := STRING[ code ]
+                  , requiredfor := field.required ? [ code ] : STRING[]
+                  , disabledfor := field.tag IN disablefields ? [ code ] : STRING[]
+                  , autocomplete := field.autocomplete != "" ? STRING[ field.autocomplete ] : STRING[]
+                  ] INTO this->allfields AT END;
+      }
+    }
+
+    // First ordering is the one of the first country, order the fields in that order
+    this->allfields :=
+        SELECT *
+          FROM this->allfields
+      ORDER BY SearchElement(orderings[0].fieldorder, tag);
+
+    orderings :=
+        SELECT *
+          FROM orderings
+         WHERE LENGTH(fieldorder) != 0
+      ORDER BY LENGTH(countries);
+
+    orderings[END-1].countries := STRING[];
+
+    // Add a country field
+    RECORD countrydef := GetAddressField("COUNTRY", [ language := this->form->formlanguagecode ]);
+    OBJECT countryfield := this->CreateSubField("select", "country");
+    countryfield->title := CellExists(this->fieldtitles, "country") ? GetTid(GetCell(this->fieldtitles, "country")) : countrydef.title;
+    countryfield->type := "pulldown";
+    countryfield->required := TRUE;
+    countryfield->autocomplete := this->autocomplete CONCAT (countrydef.autocomplete != "" ? STRING [ countrydef.autocomplete ] : STRING[]);
+    countryfield->dataset := [ orderingdata := orderings ];
+    RECORD ARRAY countryoptions := [ [ rowkey := "", title := "", enabled := FALSE ] ];
+    OBJECT allcountries := ReadCountries(this->form->formlanguagecode);
+    FOREVERY (STRING code FROM this->countrylist)
+    {
+      IF (code = "-")
+        INSERT [ rowkey := "d#" || #code, title := "", enabled := FALSE ] INTO countryoptions AT END;
+      ELSE
+      {
+        INSERT [ rowkey := code, title := allcountries->Lookup(code) ] INTO countryoptions AT END;
+      }
+    }
+    countryfield->options := countryoptions;
+    INSERT "wh-form__fieldgroup--addressfield" INTO countryfield->groupclasses AT END;
+    MemberInsert(this, "^country", FALSE, countryfield);
+
+    // Get all possible fields
+    FOREVERY (RECORD field FROM this->allfields)
+    {
+      OBJECT subfield := this->CreateSubField("textedit", ToLowercase(field.tag));
+      subfield->title := CellExists(this->fieldtitles, field.tag) ? GetTid(GetCell(this->fieldtitles, field.tag)) : field.title;
+      subfield->visiblecondition := [ matchtype := "IN", field := countryfield->name, value := field.countries ];
+      subfield->requiredcondition := [ matchtype := "IN", field := countryfield->name, value := field.requiredfor ];
+      subfield->enabledcondition :=
+          [ matchtype := "NOT", condition :=
+              [ matchtype := "IN", field := countryfield->name, value := field.disabledfor ]
+          ];
+      subfield->autocomplete := this->autocomplete CONCAT field.autocomplete;
+      INSERT CELL fieldobj := subfield INTO this->allfields[#field];
+      MemberInsert(this, "^" || field.tag, FALSE, subfield);
+    }
+
+    INSERT CELL[ ...countrydef, fieldobj := countryfield, tag := "COUNTRY" ] INTO this->allfields AT 0;
+
+    this->SetupComposition(SELECT AS OBJECT ARRAY fieldobj FROM this->allfields);
+  }
+
+  MACRO SetFieldTitles(RECORD fieldtitles)
+  {
+    // Assume we're either receiving complete tid's (module:gid.tid) or direct texts (:title), so if a title doesn't contain
+    // a colon, prepend it, making it a direct text
+    FOREVERY (RECORD field FROM UnpackRecord(fieldtitles))
+      IF (field.value NOT LIKE "*:*")
+        fieldtitles := CellUpdate(fieldtitles, field.name, ":" || field.value);
+    this->pvt_fieldtitles := fieldtitles;
+
+    // Update existing field titles
+    FOREVERY (RECORD field FROM this->allfields)
+      IF (CellExists(this->fieldtitles, field.tag))
+        field.fieldobj->title := GetTid(GetCell(this->fieldtitles, field.tag));
+  }
+
+  MACRO SetOptions(STRING ARRAY newoptions)
+  {
+    STRING ARRAY finaloptions ;
+
+    FOREVERY (STRING option FROM newoptions)
+    {
+      BOOLEAN isundo := option LIKE "!*"; //can't do no-* as 'no' is already taken by a country
+      IF(isundo)
+        option := Substring(option,1);
+
+      IF (option NOT IN valid_addressfield_options)
+        THROW NEW Exception(`Illegal address option ${option}`);
+
+      INTEGER pos := SearchElement(finaloptions, option);
+
+      IF(isundo AND pos >= 0)
+        DELETE FROM finaloptions AT pos;
+      ELSE IF(NOT isundo AND pos < 0)
+        INSERT option INTO finaloptions AT END;
+    }
+
+    this->pvt_options := finaloptions;
+  }
+
+  UPDATE MACRO SetRequired(BOOLEAN newval)
+  {
+    IF (NOT newval)
+      THROW NEW Exception(`Address fields are always required`);
+
+    FormFieldBase::SetRequired(newval);
+  }
+
+  UPDATE MACRO SetRequiredCondition(RECORD newcondition)
+  {
+    IF (RecordExists(newcondition))
+      THROW NEW Exception(`Address fields are always required`);
+
+    FormFieldBase::SetRequiredCondition(newcondition);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION GetIntegrationConfiguration()
+  {
+      OBJECT formintegrationplugin;
+      IF (ObjectExists(this->form->formcontext))
+        formintegrationplugin := this->form->formcontext->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "formintegration");
+
+      IF (NOT ObjectExists(formintegrationplugin))
+        RETURN [ countrylist := STRING["WORLD"], options := default_addressfield_options ];
+
+      RETURN CELL
+          [ formintegrationplugin->countrylist
+          , options := formintegrationplugin->addressoptions
+          ];
+  }
+
+  /** @param orderings List of orderings. Last ordering MUST exist and have an empty fieldorder
+      @cell fieldorder List of tags. Last record must have
+      @cell countries List of applicable countries
+      @param country
+      @param fields List of fields
+      @cell fields.tag
+  */
+  RECORD ARRAY FUNCTION AddFieldsToOrderings(RECORD ARRAY orderings, STRING country, RECORD ARRAY fields)
+  {
+    FOREVERY (RECORD rec FROM orderings)
+    {
+      INTEGER pos := -1;
+      BOOLEAN valid_ordering := TRUE;
+      STRING ARRAY neworder;
+      FOREVERY (RECORD field FROM fields)
+      {
+        STRING tag := ToLowercase(field.tag);
+        INTEGER fpos := SearchElement(rec.fieldorder, tag);
+        IF (fpos = -1)
+          INSERT tag INTO neworder AT END;
+        ELSE
+        {
+          IF (fpos < pos)
+          {
+            valid_ordering := FALSE;
+            BREAK;
+          }
+          neworder := neworder CONCAT ArraySlice(rec.fieldorder, pos + 1, fpos - pos);
+          pos := fpos;
+        }
+      }
+      IF (valid_ordering)
+      {
+        IF (IsDefaultValue(orderings[#rec].fieldorder))
+          INSERT [ fieldorder := STRING[], countries := STRING[] ] INTO orderings AT END;
+        orderings[#rec].fieldorder := neworder;
+        INSERT country INTO orderings[#rec].countries AT END;
+        RETURN orderings;
+      }
+    }
+    THROW NEW Exception(`Orderings array not correctly initialized`);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN RecordExists(this->value);
+  }
+
+  /** Get a form component by its tag
+      @param fieldtag Tag, eg 'COUNTRY'
+      @return The requested form component, or DEFAULT OBJECT if not present
+      */
+  PUBLIC OBJECT FUNCTION GetFieldByTag(STRING fieldtag)
+  {
+    RETURN SELECT AS OBJECT fieldobj FROM this->allfields WHERE ToUppercase(tag) = ToUppercase(fieldtag);
+  }
+
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    IF (TypeID(jsdata) != TypeID(RECORD))
+      THROW NEW Exception(`Wrong JS value type for '${this->name}' (wanted RECORD, got ${GetTypeName(TypeID(jsdata))})`);
+    this->SetValue(jsdata);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    BOOLEAN have_nondefault_address;
+    FOREVERY (RECORD field FROM this->allfields)
+      IF (field.tag != "COUNTRY" AND NOT IsDefaultValue(field.fieldobj->value))
+        have_nondefault_address := TRUE;
+
+    RECORD checked := [ status := "not_enough_data" ];
+    IF (have_nondefault_address)
+    {
+      // Check the address so we can fill/update fields
+      checked := this->CheckAddress(this->value);
+      IF (checked.status NOT IN [ "ok", "not_enough_data", "incomplete" ]
+          AND CellExists(this->value, "country"))
+      {
+        FOREVERY (RECORD field FROM this->allfields)
+          IF (field.tag = "ZIP")
+          {
+            // Only use show code for which we have translations
+            STRING status := checked.status IN [ "address_not_found", "invalid_nr_detail", "invalid_zip", "zip_not_found" ]
+                ? checked.status
+                : "address_not_found";
+
+            IF(status IN ["address_not_found", "zip_not_found"]
+               AND NOT (this->value.country = "NL" AND "nl-zip-force" IN this->options))
+            {
+              //Do not report lookup errors unless we're in FORCE mode for NL
+              CONTINUE;
+            }
+
+            work->AddErrorFor(field.fieldobj, GetTid("publisher:site.forms.addressfield." || status));
+            BREAK;
+          }
+
+        RETURN;
+      }
+    }
+
+    checked := checked.status = "incomplete" ? checked.data : DEFAULT RECORD;
+    FOREVERY (RECORD field FROM this->allfields)
+    {
+      IF (CellExists(checked, field.tag))
+        field.fieldobj->value := GetCell(checked, field.tag);
+      IF (field.fieldobj->IsNowRequired() AND IsDefaultValue(field.fieldobj->value))
+        work->AddErrorFor(field.fieldobj, GetTid("publisher:site.forms.commonerrors.required"));
+    }
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetComposableData()
+  {
+    RECORD val := this->value;
+
+    RETURN CELL[ this->title
+               , raw   := val
+               , text  := RecordExists(val) ? FormatAddress(val, [ language := this->form->formlanguagecode ]) : ""
+               , files := RECORD[]
+               ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    RETURN
+        SELECT title := fieldobj->title
+             , name := ToLowercase(tag)
+             , type := "text"
+          FROM this->allfields;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    OBJECT allcountries := ReadCountries(this->form->formlanguagecode);
+    FOREVERY(RECORD row FROM inputvalues)
+    {
+      FOREVERY (RECORD field FROM this->allfields)
+      {
+        IF (NOT CellExists(row.value, field.tag))
+        {
+          row := CellInsert(row, field.tag, "");
+          CONTINUE;
+        }
+        IF (field.tag = "COUNTRY")
+        {
+          row := CellInsert(row, field.tag, row.value.country != "" ? allcountries->Lookup(row.value.country) : "");
+        }
+        ELSE
+        {
+          row := CellInsert(row, field.tag, GetCell(row.value, field.tag));
+        }
+      }
+      inputvalues[#row] := row;
+    }
+    RETURN inputvalues;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Form RPC callbacks
+  //
+
+  PUBLIC RECORD FUNCTION RPC_ValidateValue(RECORD value)
+  {
+    RETURN this->CheckAddress(value);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION CheckAddress(RECORD value)
+  {
+    IF (CellExists(value, "country") AND this->validators->Has(value.country))
+    {
+      IF (value.country = "NL" AND "nl-zip-force" IN this->options)
+        value := CELL[ ...value, street := "", city := "" ];
+
+      RETURN this->validators->Lookup(value.country)->CheckAddress(value);
+    }
+    ELSE
+    {
+      RETURN [ status := "ok", data := value, looked_up := DEFAULT RECORD ];
+    }
+  }
+>;

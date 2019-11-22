@@ -1,0 +1,22 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
+         lib="screens/userrights/dialogs/addgrantonobject.whlib">
+
+  <!-- Add a right on  a pre-chosen object to selectable users/roles -->
+  <screen name="addgrantonobject"
+          minwidth="80x"
+          width="120x"
+          height="35x"
+          allowresize="true"
+          savestate="size">
+    <body>
+      <includefragment name="selectuserrole" fragment="userrights/parts/selectuserrole.selectuserrole" />
+      <includefragment name="selectright" fragment="userrights/parts/selectright.selectright" />
+      <textarea name="comment" tid="userrights.commondialogs.rights.comment" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

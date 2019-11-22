@@ -1,0 +1,30 @@
+<?wh
+/** @short APIs for managing form files
+    @topic forms/api
+*/
+
+LOADLIB "mod::publisher/lib/internal/forms/opener.whlib" EXPORT OpenForm;
+LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib" EXPORT CreateNewFormdefinitionsFile, OpenWHFSFormDefinitionsFile;
+LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+
+
+/** @short Open a formdefinition WHFS file
+    @param formfile File to open
+    @return AN opened formdefinition
+*/
+PUBLIC OBJECT FUNCTION OpenFormFileDefinition(OBJECT formfile, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ formname := "webtoolform" ], options);
+  RETURN OpenWHFSFormDefinitionsFile(formfile)->OpenFormDefinition(options.formname);
+}
+
+/** @short Open the result storage of a formdefinition WHFS file
+    @param formfile File to open
+    @return AN opened formdefinition
+*/
+PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ formname := "webtoolform" ], options);
+  OBJECT formdef := OpenFormFileDefinition(formfile, [ formname := options.formname ]);
+  RETURN OpenWebtoolFormResultsForFormdef(formfile, /*formdef->ListFields(), */options.formname, formdef);
+}

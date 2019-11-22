@@ -1,0 +1,323 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+CONSTANT STRING browsertargets_current := "last 2 chrome versions, last 2 firefox versions, last 2 safari versions";
+
+
+PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND MonitorPanelBase
+<
+  OBJECT assetpackcontrol;
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  {
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      TRY this->assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol")); CATCH;
+
+    IF(NOT ObjectExists(this->assetpackcontrol))
+    {
+      this->bundles->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    RECORD status;
+    TRY
+    {
+      status := WaitForPromise(this->assetpackcontrol->GetStatus());
+    }
+    CATCH (OBJECT e)
+    {
+      status := [ bundles := DEFAULT RECORD ARRAY ];
+      this->ResetConnection();
+    }
+
+    RECORD ARRAY bundles :=
+        SELECT rowkey :=      outputtag
+             , designfolder
+             , status :=      haserrors
+                               ? (iscompiling ? "COMPILING (was ERROR)" : requirecompile ? "DIRTY (was ERROR)" : "ERROR")
+                               : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK"
+             , outputtag
+             , lastcompile
+             , lastuse
+             , id
+             , candelete
+             , watchcount :=  watchcount = 0 ? "" : ToString(watchcount)
+          FROM status.bundles;
+
+    ^bundles->rows := bundles;
+
+    this->LoadConfig();
+    this->OnBundleSelect();
+  }
+
+  MACRO LoadConfig()
+  {
+    ^suspendautocompile->value := ReadRegistryKey("publisher.bundledassets.suspendautocompile");
+    STRING devbrowsertargets := ReadRegistryKey("publisher.bundledassets.devbrowsertargets");
+    IF (devbrowsertargets = "")
+      ^devbrowsertargetselect->value := "production";
+    ELSE IF (devbrowsertargets = browsertargets_current)
+      ^devbrowsertargetselect->value := "current";
+    ELSE
+    {
+      ^devbrowsertargetselect->value := "other";
+      ^otherdevbrowsertarget->value := devbrowsertargets;
+    }
+  }
+
+  MACRO OnAutocompileChange()
+  {
+    IF(ReadRegistryKey("publisher.bundledassets.suspendautocompile") != ^suspendautocompile->value)
+    {
+      GetPrimary()->BeginWork();
+      WriteRegistryKey("publisher.bundledassets.suspendautocompile", ^suspendautocompile->value);
+      GetPrimary()->CommitWork();
+    }
+  }
+
+  MACRO GotDevBrowserTargetChange()
+  {
+    STRING newdevbrowsertarget;
+    SWITCH (^devbrowsertargetselect->value)
+    {
+      CASE ""         { newdevbrowsertarget := ""; }
+      CASE "current"  { newdevbrowsertarget := browsertargets_current; }
+      CASE "other"    { newdevbrowsertarget := ^otherdevbrowsertarget->value; }
+    }
+
+    IF(ReadRegistryKey("publisher.bundledassets.devbrowsertargets") != newdevbrowsertarget)
+    {
+      GetPrimary()->BeginWork();
+      WriteRegistryKey("publisher.bundledassets.devbrowsertargets", newdevbrowsertarget);
+      GetPrimary()->CommitWork();
+    }
+  }
+
+  /** @short This monitor has been activated, start refreshing */
+  UPDATE PUBLIC MACRO EnableRefresh()
+  {
+    ^listener->enabled := TRUE;
+    ^configlistener->enabled := TRUE;
+  }
+  /** @short This monitor has been deactivated, stop refreshing */
+  UPDATE PUBLIC MACRO DisableRefresh()
+  {
+    ^listener->enabled := FALSE;
+    ^configlistener->enabled := FALSE;
+  }
+
+  MACRO ResetConnection()
+  {
+    IF (ObjectExists(this->assetpackcontrol))
+      this->assetpackcontrol->CloseService();
+    this->assetpackcontrol := DEFAULT OBJECT;
+  }
+
+  MACRO OnAssetEvent(RECORD ARRAY events)
+  {
+    FOREVERY (RECORD rec FROM events)
+      IF (rec.event = "system:webhareservice.publisher:assetpackcontrol.start")
+        this->ResetConnection();
+
+    this->RefreshMonitorPanel();
+  }
+  MACRO OnConfigEvent(RECORD ARRAY events)
+  {
+    this->LoadConfig();
+  }
+
+  MACRO DoBundleProperties()
+  {
+    OBJECT scr := this->LoadScreen("publisher:monitor/assetpackcontrol.bundleprops",
+                                   [ assetpackcontrol := this->assetpackcontrol
+                                   , uuid := this->bundles->value[0]
+                                   , id := this->bundles->selection[0].id
+                                   ]);
+    scr->RunModal();
+  }
+
+  MACRO OnBundleSelect()
+  {
+    STRING ARRAY bundleids := this->bundles->value;
+    IF(Length(bundleids)!=1)
+    {
+      this->messages->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    RECORD ARRAY errors;
+    TRY
+    {
+      RECORD status := WaitForPromise(this->assetpackcontrol->GetBundleStatus(bundleids[0]));
+      IF(RecordExists(status.info))
+      {
+        errors := RECORD ARRAY(status.info.errors);
+      }
+    }
+    CATCH (OBJECT e)
+    {
+      this->ResetConnection();
+    }
+
+    this->messages->rows := SELECT rowkey := 1 + #errors
+                                 , message :=   TypeID(message) = TypeID(STRING) ? message : AnyToString(message, "tree")
+                              FROM errors;
+  }
+
+  MACRO DoMessageProperties()
+  {
+  }
+
+  MACRO DoDeleteBundles()
+  {
+    IF(this->RunMessageBox(".confirmdeletebundles") != "yes")
+      RETURN;
+
+    this->RunDelete(this->bundles->selection);
+  }
+  MACRO RunDelete(RECORD ARRAY todelete)
+  {
+    INTEGER ARRAY bundleids := SELECT AS INTEGER ARRAY id FROM todelete;
+    OBJECT work := this->BeginWork();
+    DELETE FROM system.assetpacks WHERE id IN bundleids;
+    work->Finish();
+
+    TRY
+    {
+      WaitForPromise(this->assetpackcontrol->UpdateAssetPackManager());
+    }
+    CATCH (OBJECT e)
+    {
+      this->ResetConnection();
+    }
+
+    RemoveObsoleteCacheFolders();
+    FOREVERY(RECORD deleted FROM todelete)
+      BroadcastEvent("publisher:assetpackcontrol.change." || deleted.outputtag, DEFAULT RECORD);
+  }
+
+  MACRO DoRecompileBundles()
+  {
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      TRY this->assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol")); CATCH;
+
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      RETURN;
+
+    RECORD status;
+    TRY
+    {
+      FOREVERY (RECORD rec FROM this->bundles->selection)
+        WaitForPromise(this->assetpackcontrol->RecompileBundle(rec.outputtag));
+    }
+    CATCH (OBJECT e)
+    {
+      this->ResetConnection();
+    }
+  }
+
+  MACRO DoRebuildBundles()
+  {
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      TRY this->assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol")); CATCH;
+
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      RETURN;
+
+    RECORD status;
+    TRY
+    {
+      FOREVERY (RECORD rec FROM this->bundles->selection)
+        WaitForPromise(this->assetpackcontrol->RecompileBundle(rec.outputtag, TRUE));
+    }
+    CATCH (OBJECT e)
+    {
+      this->ResetConnection();
+    }
+  }
+
+  MACRO DoRebuildAll()
+  {
+    IF (this->RunMessageBox(".surerebuildall") != "yes")
+      RETURN;
+
+    // Restart assetpackmanager, purge caches
+    OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
+    RECORD response := WaitForPromise(link->Restart("publisher:assetpackmgr"));
+    link->CloseService();
+
+    // Schedule compile for all bundles
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      TRY this->assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol")); CATCH;
+
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      RETURN;
+
+    RECORD status;
+    TRY
+    {
+      WaitForPromise(this->assetpackcontrol->RecompileBundle("*", TRUE));
+    }
+    CATCH (OBJECT e)
+    {
+      this->ResetConnection();
+    }
+  }
+
+>;
+
+PUBLIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
+<
+  OBJECT assetpackcontrol;
+  STRING uuid;
+  MACRO Init(RECORD data)
+  {
+    this->assetpackcontrol := data.assetpackcontrol;
+    this->uuid := data.uuid;
+    this->listener->masks := [ "publisher:assetpackcontrol.change." || data.uuid ];
+
+    this->Reload();
+  }
+
+  MACRO GotEvents(RECORD ARRAY events)
+  {
+    this->Reload();
+  }
+
+  MACRO Reload()
+  {
+    RECORD status := WaitForPromise(this->assetpackcontrol->GetBundleStatus(this->uuid));
+    IF(NOT RecordExists(status))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    this->filedependencies->rows := ToRecordArray(status.dependencies.filedependencies, "path");
+
+    this->outputtag->value := status.outputtag;
+    this->stats->value := status.stats;
+    this->errors->value := status.errors;
+    this->entrypoint->value := status.entrypoint;
+    IF (RecordExists(status.bundleconfig))
+    {
+      this->extrarequires->value := Detokenize(status.bundleconfig.extrarequires,'\n');
+      this->languages->value := Detokenize(status.bundleconfig.languages,', ');
+      this->environment->value := status.bundleconfig.environment;
+    }
+    this->missingdependencies->value := Detokenize(status.missingdependencies,'\n');
+  }
+>;

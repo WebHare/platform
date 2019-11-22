@@ -1,0 +1,332 @@
+﻿<?wh
+
+LOADLIB "wh::xml/internal/structures.whlib";
+
+/*  This library contains the datatypes from xmlschema-2
+
+http://www.w3.org/TR/xmlschema-2/
+*/
+
+// -----------------------------------------------------------------------------
+//
+// XSDPrimitiveType
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveType EXTEND XSDType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDType(xsdparser, namespaceuri, name, "PRIMITIVE_TYPE", DEFAULT OBJECT, "")
+  {
+  }
+>;
+
+
+// -----------------------------------------------------------------------------
+//
+// XSDAnySimpleType
+//
+
+PUBLIC OBJECTTYPE XSDAnySimpleType EXTEND XSDSimpleType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name, RECORD ARRAY facets)
+  : XSDSimpleType(xsdparser, namespaceuri, name, DEFAULT OBJECT, "")
+  {
+    this->facets := facets;
+  }
+>;
+
+
+// -----------------------------------------------------------------------------
+//
+// XSDPrimitiveString
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveString EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+// -----------------------------------------------------------------------------
+//
+// XSDPrimitiveBoolean
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveBoolean EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+// -----------------------------------------------------------------------------
+//
+// XSDDecimal
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveDecimal EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveBase64Binary
+//
+//------------------------------------------------------------------------------
+
+PUBLIC OBJECTTYPE XSDPrimitiveBase64Binary EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveHexBinary
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveHexBinary EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveDateTime
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveDateTime EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveDate
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveDate EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveFloat
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveFloat EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveDouble
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveDouble EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveGYearMonth
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveGYearMonth EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveGYear
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveGYear EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveGMonthDay
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveGMonthDay EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveGMonth
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveGMonth EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveGDay
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveGDay EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveTime
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveTime EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;
+
+
+//------------------------------------------------------------------------------
+//
+// XSDPrimitiveDuration
+//
+
+PUBLIC OBJECTTYPE XSDPrimitiveDuration EXTEND XSDPrimitiveType
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO NEW(OBJECT xsdparser, STRING namespaceuri, STRING name)
+  : XSDPrimitiveType(xsdparser, namespaceuri, name)
+  {
+  }
+>;

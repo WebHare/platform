@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+             xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+
+  <!-- WRD login page -->
+  <contenttype namespace="http://www.webhare.net/xmlns/wrd/loginpage">
+  </contenttype>
+
+  <filetype typedef="http://www.webhare.net/xmlns/wrd/loginpage" tid="wrd:siteprofiles.loginpage" blobiscontent="false">
+    <dynamicexecution library="module::wrd/internal/auth/loginpage.whlib" webpageobjectname="LoginPage" />
+  </filetype>
+
+  <!-- SAML IDP -->
+  <contenttype namespace="http://www.webhare.net/xmlns/wrd/samlidpendpoint" cloneoncopy="true">
+  </contenttype>
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/wrd/samlidpendpoint"
+      tid="wrd:filetypes.samlidpendpoint"
+      tolliumicon="tollium:files/samlidpendpoint"
+      blobiscontent="false"
+      needstemplate="false"
+      needsprofile="false"
+      isacceptableindex="false"
+      ispublishable="true"
+      ispublishedassubdir="true">
+    <dynamicexecution library="module::wrd/internal/auth/samlidpendpoint.whlib" startmacro="RunSAMLIdpEndpoint" />
+  </filetype>
+
+  <!-- SAML SP -->
+  <contenttype namespace="http://www.webhare.net/xmlns/wrd/samlspendpoint" cloneoncopy="true">
+  </contenttype>
+
+  <filetype
+      typedef="http://www.webhare.net/xmlns/wrd/samlspendpoint"
+      tid="wrd:filetypes.samlspendpoint"
+      tolliumicon="tollium:files/samlspendpoint"
+      blobiscontent="false"
+      needstemplate="false"
+      needsprofile="false"
+      isacceptableindex="false"
+      ispublishable="true"
+      ispublishedassubdir="true">
+    <dynamicexecution library="module::wrd/internal/auth/samlspendpoint.whlib" startmacro="RunSAMLSpEndpoint" />
+  </filetype>
+
+  <apply>
+    <to type="all" />
+    <formdefinitions name="wrd:authpages" path="mod::wrd/data/forms/authpages.formdef.xml" />
+  </apply>
+
+</siteprofile>

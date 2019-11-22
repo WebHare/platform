@@ -1,0 +1,1561 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
+
+
+STRING testfile_diskbase := GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/";
+STRING testfile_diskpath := testfile_diskbase || "webserver.shtml";
+RECORD mykeypair;
+
+STRING shorttext := "|This is a text 100 bytes in length. The quick brown fox jumped over the dodgy red beagle! Run Eddy|";
+IF(Length(shorttext)!=100)
+  ABORT("Shorttext is " || length(shorttext) || " in length, must be 100 bytes");
+
+STRING longtext := RepeatText(shorttext,1024);
+
+BLOB shortblob := StringToBlob(shorttext);
+BLOB longblob := StringToBlob(longtext);
+OBJECT browser  := NEW WebBrowser;
+RECORD ipv6port;
+RECORD lowercaseport;
+RECORD securebinding;
+RECORD testport;
+RECORD proxy80port, proxy443port;
+
+browser->autofollow := FALSE;
+
+STRING betabaseurl;
+STRING betabaseurl_lowercase;
+STRING testfile_webpath;
+STRING testfile_webpath_ipv6;
+STRING tracked_testfile_webpath;
+
+/////////////////////////////////////////////////////////////////////
+//
+// Set up testing access rules
+//
+
+MACRO UpdateXforwardedFor(BOOLEAN addme)
+{
+  STRING ARRAY current_xforwarded_for := Tokenize(ReadRegistryKey("system.webserver.global.proxyservers.trustxforwardedfor"),",");
+
+  IF("127.0.0.1" IN current_xforwarded_for)
+    DELETE FROM current_xforwarded_for AT SearchElement(current_xforwarded_for, "127.0.0.1");
+  IF("::1" IN current_xforwarded_for)
+    DELETE FROM current_xforwarded_for AT SearchElement(current_xforwarded_for, "::1");
+  IF(addme)
+  {
+    INSERT "127.0.0.1" INTO current_xforwarded_for AT END;
+    INSERT "::1" INTO current_xforwarded_for AT END;
+  }
+
+  WriteRegistryKey("system.webserver.global.proxyservers.trustxforwardedfor",Detokenize(current_xforwarded_for,","));
+}
+
+MACRO Setup()
+{
+  testport := testfw->GetLocalhostWebinterface();
+
+  testfw->BeginWork();
+  mykeypair := testfw->GenerateKeyPair("webhare-testsuite-hostname");
+
+  ipv6port := testfw->AddWebserverPortToDbase( [ ipv6 := TRUE ]);
+  lowercaseport := testfw->AddWebserverPortToDbase();
+  securebinding := testfw->AddWebserverPortToDbase([secure_keyfile := mykeypair.keyname ]);
+
+  proxy80port := testfw->AddWebserverPortToDbase ( [ virtualhost:=TRUE, port := 80 ]);
+  proxy443port := testfw->AddWebserverPortToDbase( [ virtualhosts:=["secure2.example.net"], port := 443, secure_keyfile := mykeypair.keyname, redirectingaliases := ["secureredirect2.example.net"], stricttransportsecurity := 99 ]);
+  securebinding := testfw->AddWebserverPortToDbase([secure_keyfile := mykeypair.keyname ]);
+
+  //Base path for our tests
+  INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase);
+  INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
+         VALUES(ipv6port.webserverid, "/webserver-beta-testing/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase);
+  INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
+         VALUES(lowercaseport.webserverid, "/webserver-beta-testing/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase);
+
+  INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
+         VALUES(proxy443port.webservers[0].id, "/secure2-beta-testing/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase);
+
+  //This should match as a directory, even though it does not exist on the output
+  INSERT INTO system.access(webserver, path, matchtype)
+         VALUES(testport.webserverid, "/webserver-beta-testing/subdir/", 0/*exact*/             );
+  INSERT INTO system.access(webserver, path, matchtype)
+         VALUES(testport.webserverid, "/webserver-beta-testing/subdir2/", 1/*initial*/             );
+  //This may NOT match as a subdir
+  INSERT INTO system.access(webserver, path, matchtype)
+         VALUES(testport.webserverid, "/webserver-beta-testing/nosubdir", 0/*exact*/             );
+  INSERT INTO system.access(webserver, path, matchtype)
+         VALUES(testport.webserverid, "/webserver-beta-testing/nosubdir2", 1/*initial*/             );
+
+  //Regression test - match as subdir should not get confused by an existing directory
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath
+                           )
+         VALUES(testport.webserverid, "/webserver-beta-testing/subdir3/", 1/*initial*/,2/*alt dir*/, testfile_diskbase);
+
+  //directory requests must match index.shtml (test by verifying authentication is properly required)
+  INSERT INTO system.access(webserver, path, matchtype, authrequirement, authtype)
+         VALUES(testport.webserverid, "/webserver-beta-testing/index.shtml", 0/*exact*/, TRUE, 1);
+
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/recurse/", 1/*initial*/, 2/*alt dir*/, testfile_diskbase);
+
+  //an accces rule on a subdir /x/ should also protect all default pages (/x/index.html and /x/index.shtml usually)
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath, redirectcode)
+         VALUES(testport.webserverid, "/webserver-beta-testing/defaultpagetest/", 0/*exact*/, 4/*redirect*/, "http://www.test.invalid/", 301);
+
+  //check 307 redirects
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath, redirectcode)
+         VALUES(testport.webserverid, "/webserver-beta-testing/307test/", 0/*exact*/, 4/*redirect*/, "http://www.test.invalid/", 307);
+
+  //check that wildcard access rules actually work
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath, redirectcode)
+         VALUES(testport.webserverid, "/webserver-beta-testing/*wildcard*", 2/*wildcard*/, 4/*redirect*/, "http://www.wildcard.invalid/", 302);
+
+  //Check modulescript:: rules in access rules
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/webserverurl/", 1/*initial*/, 3/*exact file*/, "mod::webhare_testsuite/scripts/tests/webserverurl.shtml");
+
+  //Check custom auth scripts
+  INSERT INTO system.access(webserver, path, matchtype, authscript, authrequirement, disablecaching)
+         VALUES(testport.webserverid, "/webserver-beta-testing/customaccess/", 1/*initial*/, "mod::webhare_testsuite/scripts/tests/webserverauth.shtml", TRUE, TRUE);
+
+  //Deny all inside stripextensions, to test evasion
+  INSERT INTO system.access(webserver, path, matchtype, authrequirement,authtype, authlist)
+         VALUES(testport.webserverid, "/webserver-beta-testing/stripextensions/geheim/", 1/*initial*/, TRUE,0,TRUE);
+
+  //Check IP filtering
+  INTEGER ipfilterrule_denyall := MakeAutonumber(system.access,"id");
+  INSERT INTO system.access(id, webserver, path, matchtype, authrequirement)
+         VALUES(ipfilterrule_denyall, testport.webserverid, "/webserver-beta-testing/ipfiltering/denyall/", 1/*initial*/, TRUE);
+  INSERT INTO system.access_ips(accessid, is_allow, mask)
+         VALUES(ipfilterrule_denyall, FALSE, 'ipv4:000.000.000.000/00');
+
+  INTEGER ipfilterrule_butlocal := MakeAutonumber(system.access,"id");
+  INSERT INTO system.access(id, webserver, path, matchtype, authrequirement)
+         VALUES(ipfilterrule_butlocal, testport.webserverid, "/webserver-beta-testing/ipfiltering/denyallbutlocal/", 1/*initial*/, TRUE);
+  INSERT INTO system.access_ips(accessid, is_allow, mask)
+         VALUES(ipfilterrule_butlocal, FALSE, 'ipv4:000.000.000.000/00');
+  INSERT INTO system.access_ips(accessid, is_allow, mask)
+         VALUES(ipfilterrule_butlocal, TRUE, 'ipv4:127.000.000.001/32');
+  INSERT INTO system.access_ips(accessid, is_allow, mask)
+         VALUES(ipfilterrule_butlocal, TRUE, '::1/128');
+
+  INTEGER ipfilterrule_butsome := MakeAutonumber(system.access,"id");
+  INSERT INTO system.access(id, webserver, path, matchtype, authrequirement)
+         VALUES(ipfilterrule_butsome, testport.webserverid, "/webserver-beta-testing/ipfiltering/denyallbutsome/", 1/*initial*/, TRUE);
+  INSERT INTO system.access_ips(accessid, is_allow, mask)
+         VALUES(ipfilterrule_butsome, FALSE, 'ipv4:000.000.000.000/00');
+  INSERT INTO system.access_ips(accessid, is_allow, mask)
+         VALUES(ipfilterrule_butsome, TRUE, 'ipv4:001.002.003.004/32');
+  INSERT INTO system.access_ips(accessid, is_allow, mask)
+         VALUES(ipfilterrule_butsome, TRUE, '1:2::3:4/128');
+
+  //Check user filtering
+  INTEGER userrule := MakeAutonumber(system.access,"id");
+  INSERT INTO system.access(id, webserver, path, matchtype, authrequirement, authtype, authlist)
+         VALUES(userrule, testport.webserverid, "/webserver-beta-testing/userfilter/", 1/*initial*/, TRUE, 0, TRUE);
+  testfw->GetUserObject("user1")->GrantRightToOn("system:urlaccess", testfw->GetUserObject("user1"), userrule, FALSE, TRUE);
+  INSERT INTO system.access_externalusers(accessid, username, userpassword)
+         VALUES(userrule, "homersimpson", "donut:good");
+
+  //Alternative errors on a deeper path
+  INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/deepererrors/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/deepererrors/", 2/*alt dir*/, testfile_diskbase);
+  INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/deepererrors-gz/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/deepererrors-gz/", 2/*alt dir*/, testfile_diskbase);
+  INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/deepererrors-gzonly/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/deepererrors-gzonly/", 2/*alt dir*/, testfile_diskbase);
+
+  testfw->Commit();
+  testfw->RefreshWebserverConfig();
+
+  betabaseurl := testport.baseurl || "webserver-beta-testing/";
+  betabaseurl_lowercase := lowercaseport.baseurl || "webserver-beta-testing/";
+  testfile_webpath := betabaseurl || "webserver.shtml";
+  testfile_webpath_ipv6 := ipv6port.baseurl || "webserver-beta-testing/webserver.shtml";
+}
+
+MACRO TestAcceptEncoding()
+{
+  TestEq(TRUE, testfw->browser->SendRawRequest("GET", betabaseurl || "static.html", [[ field := "Accept-Encoding", value := "gzip" ]], DEFAULT BLOB));
+
+  TestEq("104", testfw->browser->GetResponseHeader("Content-Length"));
+  TestEq("gzip", testfw->browser->GetResponseHeader("Content-Encoding"));
+  TestEq("Accept-Encoding", testfw->browser->GetResponseHeader("Vary"));
+
+  TestEq(TRUE, testfw->browser->SendRawRequest("GET", betabaseurl || "static.html", DEFAULT RECORD ARRAY, DEFAULT BLOB));
+  TestEq("127", testfw->browser->GetResponseHeader("Content-Length"));
+  TestEq("", testfw->browser->GetResponseHeader("Content-Encoding"));
+  TestEq("Accept-Encoding", testfw->browser->GetResponseHeader("Vary"));
+
+  TestEq(TRUE, testfw->browser->SendRawRequest("GET", betabaseurl || "static.html", [[ field := "Accept-Encoding", value := "(bug)" ]], DEFAULT BLOB));
+  TestEq("127", testfw->browser->GetResponseHeader("Content-Length"));
+  TestEq("", testfw->browser->GetResponseHeader("Content-Encoding"));
+  TestEq("Accept-Encoding", testfw->browser->GetResponseHeader("Vary"));
+}
+
+MACRO TestHead()
+{
+  TestEq(TRUE, testfw->browser->SendRawRequest("GET", betabaseurl || "static.html", RECORD[], DEFAULT BLOB));
+  INTEGER clength := ToInteger(testfw->browser->GetResponseHeader("Content-Length"),0);
+
+  TestEq(TRUE, testfw->browser->SendRawRequest("HEAD", betabaseurl || "static.html", RECORD[], DEFAULT BLOB));
+  Testeq(clength, ToInteger(testfw->browser->GetResponseHeader("Content-Length"),0));
+
+  //verify channel still ok
+  TestEq(TRUE, testfw->browser->SendRawRequest("GET", betabaseurl || "static.html", RECORD[], DEFAULT BLOB));
+  Testeq(clength, ToInteger(testfw->browser->GetResponseHeader("Content-Length"),0));
+}
+
+MACRO TestFixCase()
+{
+  RECORD plainport := testfw->CreateWebserverPort([outputserver:=TRUE]); //create a port without an interface webserver
+  STRING nofixbaseurl := plainport.baseurl || "nofix/";
+  STRING fixbaseurl := plainport.baseurl || "fix/";
+
+  testfw->StartTrans("~webhare", FALSE);
+
+
+  INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath,fixcase)
+         VALUES(plainport.webserverid, "/nofix/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase, FALSE);
+  INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath,fixcase)
+         VALUES(plainport.webserverid, "/fix/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase, TRUE);
+
+  testfw->Commit();
+  testfw->RefreshWebserverConfig();
+
+  //basic testing, make sure case actually matters
+  TestEq(FALSE, browser->GotoWebPage(nofixbaseurl || "mixedcase/uppercasefile.html"));
+  TestEq(FALSE,  browser->GotoWebPage(nofixbaseurl || "MixedCase/UPPERCASEFILE.HTML")); //no longer reachable without fixcase #1386
+  TestEq(TRUE,  browser->GotoWebPage(fixbaseurl || "mixedcase/uppercasefile.html"));
+  TestEq("text/html", browser->mimetype); //make sure it was picked up
+  TestEq(TRUE,  browser->GotoWebPage(fixbaseurl || "MixedCase/UPPERCASEFILE.HTML"));
+  TestEq("text/html", browser->mimetype);
+  TestEq(TRUE,  browser->GotoWebPage(fixbaseurl || "mixedcase/upper.sHTml"));
+  TestEq("text/html", browser->mimetype);
+  TestEq("Hello, World", BlobTostring(browser->content,-1));
+}
+
+MACRO TestStripExtensions()
+{
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/withext.doc/index.html"));
+  TestEq(200, browser->GetHTTPStatus().code);
+  TestEq("", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "stripextensions.doc/withext.doc/index.html"));
+  TestEq(404, browser->GetHTTPStatus().code);
+
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without.doc/index.html"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("/webserver-beta-testing/stripextensions/without/index.html", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without.doc/"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("/webserver-beta-testing/stripextensions/without/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "stripextensions/withext/index.html")); //decided not to support this scenario
+  TestEq(404, browser->GetHTTPStatus().code);
+
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without/index.html"));
+  TestEq(200, browser->GetHTTPStatus().code);
+  TestEq("", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/withext.doc"));
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without.doc"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("/webserver-beta-testing/stripextensions/without", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/!optionalcomponent/without.doc"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("/webserver-beta-testing/stripextensions/!optionalcomponent/without", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/!optionalcomponent/without.doc/!/wheretogofromhere"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("/webserver-beta-testing/stripextensions/!optionalcomponent/without/!/wheretogofromhere", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("/webserver-beta-testing/stripextensions/without/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without.doc?var"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("/webserver-beta-testing/stripextensions/without?var", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without?var"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("/webserver-beta-testing/stripextensions/without/?var", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "stripextensions/geheim/"));
+  TestEq(401, browser->GetHTTPStatus().code, browser->url);
+
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/geheim.doc/"));
+  TestEq(301, browser->GetHTTPStatus().code); //ADDME: allow extension-redirects to be disabled when we no longer need them. in the future, do this by default
+  TestEq("/webserver-beta-testing/stripextensions/geheim/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+}
+
+MACRO TestIPV6()
+{
+  IF("::1" NOT IN GetLocalIPs())
+  {
+    Print("No IPv6 support, skipping IPv6 test\n");
+    RETURN;
+  }
+
+  //note: we can't assume to find an interface op ipv6 as the CI environment might not actually have published the interface. but we can trigger a 404
+  TestEq(FALSE, browser->GotoWebPage(ipv6port.baseurl || "nonexistingpage"));
+  TestEq(404, browser->GetHTTPStatus().code);
+}
+
+RECORD vhostport, securevhostport;
+MACRO TestVhostAlias()
+{
+  vhostport := testfw->CreateWebserverPort( [ virtualhosts := [ "server1.example.net","www.example.net" ], aliases := ["alias.example.net"], redirectingaliases := ["redirect.example.net"] ]); //create a port without an interface webserver
+  securevhostport := testfw->CreateWebserverPort( [ secure_keyfile := mykeypair.keyname, virtualhosts := [ "secure1.example.net" ], redirectingaliases := ["secureredirect1.example.net"] ]); //create a port without an interface webserver
+
+  testfw->StartTrans("~webhare", FALSE);
+  FOREVERY(RECORD server FROM vhostport.webservers)
+    INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
+           VALUES(server.id, "/webserver-beta-testing/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase);
+  FOREVERY(RECORD server FROM securevhostport.webservers)
+    INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
+           VALUES(server.id, "/webserver-beta-testing/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase);
+
+  testfw->Commit();
+  testfw->RefreshWebserverConfig();
+
+  browser->SetHostnameOverride("server1.example.net", "127.0.0.1");
+  browser->SetHostnameOverride("alias.example.net", "127.0.0.1");
+  browser->SetHostnameOverride("redirect.example.net", "127.0.0.1");
+  browser->SetHostnameOverride("www.server1.example.net", "127.0.0.1");
+  browser->SetHostnameOverride("www.example.net", "127.0.0.1");
+  browser->SetHostnameOverride("example.net", "127.0.0.1");
+  browser->SetHostnameOverride("secure1.example.net", "127.0.0.1");
+  browser->SetHostnameOverride("secureredirect1.example.net", "127.0.0.1");
+
+  //try a direct connection to the vhost port, should fail
+  TestEq(FALSE, browser->PostWebPage("http://127.0.0.1:" || vhostport.portnumber || "/webserver-beta-testing/webserver.shtml",
+                                                       [[ name := "type", value := "echo" ]
+                                                       ,[ name := "data", value := shorttext ]
+                                                       ], "multipart/form-data"), "Should not have been able to find our page on " || vhostport.portnumber);
+  TestEq(404, browser->GetHTTPStatusCode());
+
+  //access it through a vhost
+  TestEq(TRUE, browser->PostWebPage("http://server1.example.net:" || vhostport.portnumber || "/webserver-beta-testing/webserver.shtml",
+                                                            [[ name := "type", value := "echo" ]
+                                                            ,[ name := "data", value := shorttext ]
+                                                            ], "multipart/form-data"));
+  TestEq(TRUE, browser->PostWebPage("http://www.example.net:" || vhostport.portnumber || "/webserver-beta-testing/webserver.shtml",
+                                                            [[ name := "type", value := "echo" ]
+                                                            ,[ name := "data", value := shorttext ]
+                                                            ], "multipart/form-data"));
+
+  // Test secure port
+  TestEq(TRUE, browser->PostWebPage("https://secure1.example.net:" || securevhostport.portnumber || "/webserver-beta-testing/webserver.shtml",
+                                                            [[ name := "type", value := "echo" ]
+                                                            ,[ name := "data", value := shorttext ]
+                                                            ], "multipart/form-data"));
+
+  OBJECT trustedbrowser := NEW WebBrowser;
+
+  trustedbrowser->SetupWebHareTrustedPort(GetWebhareConfiguration().trustedhost, GetWebhareConfiguration().trustedport, "100::Dead:beef");
+  TestEq(TRUE, trustedbrowser->GotoWebPage("https://secure1.example.net:" || securevhostport.portnumber || "/webserver-beta-testing/webserver.shtml?type=describe"));
+  RECORD describe := DecodeJSONBlob(trustedbrowser->content);
+  TestEq("100::dead:beef", describe.remoteip);
+  TestEqLike("https:*",describe.url);
+
+  // Force to https from non-secure port (must replace port with secure port). Follow the redirect here.
+  BOOLEAN old_autofollow := browser->autofollow;
+  browser->autofollow := TRUE;
+  TestEq(TRUE, browser->GotoWebPage("http://secure1.example.net:" || vhostport.portnumber || "/webserver-beta-testing/webserver.shtml?type=getrequesturl"));
+  TestEQLike("https://secure1.example.net:" || securevhostport.portnumber || "/*", BlobtoString(browser->content));
+
+  //test explicit alias
+  TestEq(TRUE, browser->GotoWebPage("http://alias.example.net:" || vhostport.portnumber || "/webserver-beta-testing/webserver.shtml?type=getrequesturl"));
+  TestEQLike("http://alias.example.net:" || vhostport.portnumber || "/*", BlobtoString(browser->content));
+
+  //test redirecting alias
+  TestEq(TRUE, browser->GotoWebPage("http://redirect.example.net:" || vhostport.portnumber || "/webserver-beta-testing/webserver.shtml?type=getrequesturl"));
+  TestEQLike("http://server1.example.net:" || vhostport.portnumber || "/*", BlobtoString(browser->content));
+
+  //test port 80 and 443 through the secure port
+  trustedbrowser->autofollow := FALSE;
+  TestEq(TRUE, trustedbrowser->GotoWebPage("http://secure2.example.net/"));
+  TestEq("https://secure2.example.net/", trustedbrowser->GetResponseHeader("Location"));
+  TestEq(TRUE, trustedbrowser->GotoWebPage("http://secure2.example.net/a/b/c/"));
+  TestEq("https://secure2.example.net/a/b/c/", trustedbrowser->GetResponseHeader("Location"));
+  TestEq(TRUE, trustedbrowser->GotoWebPage("http://secure2.example.net:80/a/b/c/"));
+  TestEq("https://secure2.example.net/a/b/c/", trustedbrowser->GetResponseHeader("Location"));
+
+  //verify first HSTS works on the final site
+  TestEq(TRUE, trustedbrowser->GotoWebPage("https://secure2.example.net/"));
+  TestEqLike("max-age=99", trustedbrowser->GetResponseheader("Strict-Transport-Security"),"HSTS should be set through database setting");
+
+  TestEq(TRUE, trustedbrowser->GotoWebPage("http://secureredirect2.example.net/"));
+  TestEq("https://secureredirect2.example.net/", trustedbrowser->GetResponseHeader("Location"), "Should _first_ redirect to https");
+  TestEq(301, trustedbrowser->GetHTTPStatusCode(), 'GET/HEAD https redirects should be 301s');
+
+  TestEq(TRUE, trustedbrowser->GotoWebPage("https://secureredirect2.example.net/"));
+  TestEqLike("https://secure2.example.net/", trustedbrowser->GetResponseheader("location"), "Should now go to the real site");
+  TestEqLike("max-age=99", trustedbrowser->GetResponseheader("Strict-Transport-Security"),"HSTS should already be set to secure this redirect, and reflected from main site settings");
+
+  TestEq(TRUE, trustedbrowser->PostWebPage("http://secure2.example.net/secure2-beta-testing/webserver.shtml"
+                                           , [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                            ], "multipart/form-data"));
+  TestEq("https://secure2.example.net/secure2-beta-testing/webserver.shtml", trustedbrowser->GetResponseHeader("Location"), "Should _first_ redirect to https, even POST");
+  TestEq(307, trustedbrowser->GetHTTPStatusCode(), 'Other https redirects should be 307s to reduce chances of breaking external POSTs');
+
+  trustedbrowser->autofollow := TRUE;
+  TestEq(TRUE, trustedbrowser->PostWebPage("http://secure2.example.net/secure2-beta-testing/webserver.shtml"
+                                           , [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                            ], "multipart/form-data"));
+  TestEq(shorttext, BlobToString(trustedbrowser->content));
+
+  browser->autofollow := old_autofollow;
+}
+
+MACRO TestAuthScripts()
+{
+  STRING authbaseurl := betabaseurl || "customaccess/";
+  RECORD res;
+
+  //note: ?authdo= talks to beta/scripts/tests/webserverauth.shtml, ?do= talks to web/resources/tests/customaccess/index.shtml
+
+  //Requesting customaccess without a slash, should redirect us to customaccess with slash
+  TestEq(TRUE, browser->GotoWebPage(Left(authbaseurl, Length(authbaseurl)-1)));
+  TestEq(303, browser->GetHTTPStatus().code);
+  TestEq(authbaseurl, (SELECT AS STRING value FROM browser->responseheaders WHERE field="Location"));
+
+  TestEq(FALSE, browser->GotoWebPage(authbaseurl));
+  TestEq(401, browser->GetHTTPStatus().code);
+
+  TestEq(TRUE, browser->GotoWebPage(authbaseurl || "?authdo=authonce"));
+  TestEq(FALSE, browser->GotoWebPage(authbaseurl));
+
+  TestEq(TRUE, browser->GotoWebPage(authbaseurl || "?authdo=createauthsession"));
+  res := DecodeJSON(BlobToString(browser->content,-1));
+  TestEq("", res.webharelogin);
+  STRING savelogin := browser->GetCookie("webharelogin");
+
+  //still shouldn't be permanently authorized
+  TestEq(FALSE, browser->GotoWebPage(authbaseurl));
+
+  //now get the access rule to auth the session
+  TestEq(TRUE, browser->GotoWebPage(authbaseurl || "?authdo=permauthsession"));
+  res := DecodeJSON(BlobToString(browser->content,-1));
+  TestEq(savelogin, res.webharelogin);
+
+  //should now be permanently authorized
+  TestEq(TRUE, browser->GotoWebPage(authbaseurl));
+  res := DecodeJSON(BlobToString(browser->content,-1));
+  TestEq(savelogin, res.webharelogin);
+
+  //verify that the static resources which we explicitly marked as uncacheable too, are
+  TestEq(TRUE, browser->GotoWebPage(authbaseurl || "static.html"));
+  TestEq("no-cache", browser->GetResponseHeader("Cache-Control"));
+
+  //forget our cookie, should be denied access
+  browser->DeleteCookie("webharelogin");
+  TestEq(FALSE, browser->GotoWebPage(authbaseurl));
+
+  //restore the cookie, should be granted access
+  browser->SetSessionCookie("webharelogin", savelogin);
+  TestEq(TRUE, browser->GotoWebPage(authbaseurl));
+
+  //close our cookie serverside
+  TestEq(TRUE, browser->GotoWebPage(authbaseurl || "?do=delcookie"));
+  res := DecodeJSON(BlobToString(browser->content,-1));
+  TestEq(savelogin, res.webharelogin);
+
+  //retry accessing
+  TestEq(FALSE, browser->GotoWebPage(authbaseurl), browser->GetHTTPStatusCode() || " on " || authbaseurl);
+
+  //test RequireHTTPLogin API
+  RECORD testurl := UnpackURL(authbaseurl || "?authdo=requirehttplogin");
+  TestEq(FALSE, testfw->browser->GotoWebPage(RepackURL(testurl)));
+  TestEq(401, testfw->browser->GetHTTPStatusCode());
+
+  testurl.user := "User1";
+  testurl.password := "bad";
+  TestEq(FALSE, testfw->browser->GotoWebPage(RepackURL(testurl)));
+
+  testurl.user := "User1";
+  testurl.password := "firstpassword";
+  TestEq(TRUE, testfw->browser->GotoWebPage(RepackURL(testurl)));
+  TestEqLike("user1\n*", BlobToString(testfw->browser->content));
+
+  testurl.user := "user1";
+  testurl.password := "secondpassword";
+  TestEq(TRUE, testfw->browser->GotoWebPage(RepackURL(testurl)));
+
+  testurl.user := "user2";
+  testurl.password := "badpassword";
+  TestEq(FALSE, testfw->browser->GotoWebPage(RepackURL(testurl)));
+
+  //Reset password
+  OBJECT proc;
+  STRING secret := "xx" || Random(1,65535);
+  proc := CreateProcess(GetWebhareConfiguration().installationroot || "bin/wh"
+                       , [ "registry", "set", "--password", "webhare_testsuite.tests.hashedpassword", secret]
+                       , [ take_output := FALSE, take_errors := FALSE]);
+  proc->Start();
+  proc->Wait(MAX_DATETIME);
+  proc->Close();
+
+  testurl.user := "user2";
+  testurl.password := secret;
+  TestEq(TRUE, testfw->browser->GotoWebPage(RepackURL(testurl)));
+  TestEqLike("user2\n*", BlobToString(testfw->browser->content));
+}
+
+MACRO Status404()
+{
+  TestEq(FALSE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "404" ]
+                                                     ], "multipart/form-data"));
+  TestEq("A custom 404!", BlobToString(browser->content,1000));
+  TestEq(404, browser->GetHTTPStatus().code);
+  TestEq("Bla Bla", browser->GetHTTPStatus().message);
+  TestEq(FALSE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "404" ]
+                                                     ,[ name := "customstatus", value := "401 weird status"]
+                                                     ], "multipart/form-data"));
+  TestEq(401, browser->GetHTTPStatus().code);
+  TestEq("weird status", browser->GetHTTPStatus().message);
+  //Cache-Control must be no-chace, this was a dynamic SHTML request
+  TestEq("no-cache", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Cache-Control"));
+
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "deepererrors/bestaatniet.html"));
+  TestEq("A different 404!", TrimWhitespace(BlobToString(browser->content,1000)));
+
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "deepererrors-gz/bestaatniet.html"));
+  TEstEqLike("text/html*", browser->GetResponseheader("Content-Type"));
+  TestEq("A different 404!", TrimWhitespace(BlobToString(browser->content,1000)));
+
+  //we hit a bug where we would offer the 404.html.gz as a application/x-gzip response, because we simple looked for 404.*
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "deepererrors-gzonly/bestaatniet.html"));
+  TEstEqLike("text/html*", browser->GetResponseheader("Content-Type"));
+  TestEq("A custom 404!", TrimWhitespace(BlobToString(browser->content,1000))); //fallback to original, we currently ignore the GZ file in deepererrors-gzonly
+}
+
+MACRO StatusBad()
+{
+  //Test CERT-UT#110927 - the status header is not encoded in the response
+  TestEq(FALSE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "statusbad" ]
+                                                     ], "multipart/form-data"));
+  TestEq(FALSE, RecordExists(SELECT FROM browser->responseheaders WHERE ToUppercase(field)="BAD"));
+  TestEq("404 Bad", browser->GetHTTPStatusText());
+
+  //Test overlong headers
+  TestEq(FALSE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "statuslong" ]
+                                                     ], "multipart/form-data"));
+  TestEq("404 I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm oka", browser->GetHTTPStatusText());
+}
+
+MACRO TestIPChecks() //combine IP filtering and x-forwarded-for checking
+{
+  testfw->BeginWork();
+  UpdateXforwardedFor(FALSE);
+  testfw->CommitWork();
+  testfw->RefreshWebserverConfig();
+
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "ipfiltering/denyall/"));
+  TestEq(403, browser->GetHTTPStatus().code);
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "ipfiltering/denybutlocal/"));
+  TestEq(404, browser->GetHTTPStatus().code); //note,404=good
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "ipfiltering/denyallbutsome/"));
+  TestEq(403, browser->GetHTTPStatus().code);
+  TestEq(FALSE, browser->SendRawRequest("GET", betabaseurl || "ipfiltering/denyallbutsome/", [[ field := "X-Forwarded-For", value := "1.2.3.4" ]], DEFAULT BLOB));
+  TestEq(403, browser->GetHTTPStatus().code, browser->href);
+  TestEq(FALSE, browser->SendRawRequest("GET", betabaseurl || "ipfiltering/denyallbutsome/", [[ field := "X-Forwarded-For", value := "1:2::3:4" ]], DEFAULT BLOB));
+  TestEq(403, browser->GetHTTPStatus().code);
+
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "getmyip" ]
+                                                      ], "multipart/form-data"));
+  TestEq("127.0.0.1", BlobToString(browser->content,-1));
+
+  TestEq(TRUE, browser->SendRawRequest("GET", testfile_webpath || "?type=getmyip", [[ field := "X-Forwarded-For", value := "1.2.3.4" ]], DEFAULT BLOB));
+  TestEq("127.0.0.1", BlobToString(browser->content,-1)); //we're not accepted yet
+  IF("::1" IN GetLocalIPs())
+  {
+    TestEq(TRUE, browser->SendRawRequest("GET", testfile_webpath_ipv6 || "?type=getmyip", [[ field := "X-Forwarded-For", value := "2001:1690:22:102:10:8:3:202" ]], DEFAULT BLOB));
+    TestEq("::1", BlobToString(browser->content,-1)); //we're not accepted yet
+  }
+
+  testfw->BeginWork();
+  UpdateXforwardedFor(TRUE);
+  testfw->CommitWork();
+  testfw->RefreshWebserverConfig();
+
+  TestEq(TRUE, browser->SendRawRequest("GET", testfile_webpath || "?type=getmyip", [[ field := "X-Forwarded-For", value := "1.2.3.4" ]], DEFAULT BLOB));
+  TestEq("1.2.3.4", BlobToString(browser->content,-1));
+  TestEq(TRUE, browser->SendRawRequest("GET", testfile_webpath || "?type=getmyip", [[ field := "X-Forwarded-For", value := "::ffff:1.2.3.4" ]], DEFAULT BLOB));
+  TestEq("1.2.3.4", BlobToString(browser->content,-1));
+  IF("::1" IN GetLocalIPs())
+  {
+    TestEq(TRUE, browser->SendRawRequest("GET", testfile_webpath_ipv6 || "?type=getmyip", [[ field := "X-Forwarded-For", value := "2001:1690:22:102:10:8:3:202" ]], DEFAULT BLOB));
+    TestEq("2001:1690:22:102:10:8:3:202", BlobToString(browser->content,-1));
+  }
+
+  TestEq(FALSE, browser->SendRawRequest("GET", betabaseurl || "ipfiltering/denyallbutsome/", [[ field := "X-Forwarded-For", value := "1.2.3.4" ]], DEFAULT BLOB));
+  TestEq(404, browser->GetHTTPStatus().code);
+  TestEq(FALSE, browser->SendRawRequest("GET", betabaseurl || "ipfiltering/denyallbutsome/", [[ field := "X-Forwarded-For", value := "1.2.3.5" ]], DEFAULT BLOB));
+  TestEq(403, browser->GetHTTPStatus().code);
+  IF("::1" IN GetLocalIPs())
+  {
+    TestEq(FALSE, browser->SendRawRequest("GET", betabaseurl || "ipfiltering/denyallbutsome/", [[ field := "X-Forwarded-For", value := "2001:1690:22:102:10:8:3:202" ]], DEFAULT BLOB));
+    TestEq(403, browser->GetHTTPStatus().code);
+    TestEq(FALSE, browser->SendRawRequest("GET", betabaseurl || "ipfiltering/denyallbutsome/", [[ field := "X-Forwarded-For", value := "1:2::3:4" ]], DEFAULT BLOB));
+    TestEq(404, browser->GetHTTPStatus().code);
+  }
+
+  testfw->StartTrans("~webhare", FALSE);
+  UpdateXforwardedFor(FALSE);
+  testfw->Commit();
+  testfw->RefreshWebserverConfig();
+}
+MACRO TestUserChecks()
+{
+  TestEq(FALSE, browser->SendRawRequest("GET", betabaseurl || "userfilter/", DEFAULT RECORD ARRAY, DEFAULT BLOB));
+  TestEq(401, browser->GetHTTPStatus().code, browser->url);
+
+  RECORD unpacked := UnpackURL(betabaseurl || "userfilter/");
+  unpacked.user := testfw->GetUserLogin("user2");
+  unpacked.password := testfw->GetUserPassword("user2");
+
+  TestEq(FALSE, browser->SendRawRequest("GET", RepackURL(unpacked), DEFAULT RECORD ARRAY, DEFAULT BLOB));
+  TestEq(401, browser->GetHTTPStatus().code);
+
+  unpacked.user := "homersimpson";
+  unpacked.password := "beer";
+  TestEq(FALSE, browser->SendRawRequest("GET", RepackURL(unpacked), DEFAULT RECORD ARRAY, DEFAULT BLOB));
+  TestEq(401, browser->GetHTTPStatus().code);
+
+  unpacked.user := "homersimpson";
+  unpacked.password := "donut:good";
+  TestEq(FALSE, browser->SendRawRequest("GET", RepackURL(unpacked), DEFAULT RECORD ARRAY, DEFAULT BLOB));
+  TestEq(404, browser->GetHTTPStatus().code, browser->url);
+}
+
+MACRO TestPostHandling()
+{
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "echo" ]
+                                                    ,[ name := "data", value := shorttext ]
+                                                    ], "multipart/form-data"));
+  TestEq(shortblob, browser->content);
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "echo" ]
+                                                    ,[ name := "data", value := longtext ]
+                                                    ], "multipart/form-data"));
+  TestEq(longblob, browser->content);
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "echo" ]
+                                                    ,[ name := "data", value := shorttext ]
+                                                    ], "application/x-www-form-urlencoded"));
+  TestEq(shortblob, browser->content);
+  //ADDME: In webserver, the longtext is currently stored as a string (bad handling for form-urlencoded), need to fix that!
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "echo" ]
+                                                    ,[ name := "data", value := longtext ]
+                                                    ], "application/x-www-form-urlencoded"));
+  TestEq(longblob, browser->content);
+
+  RECORD result;
+
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath || "?onurl=1&data1=&data3",
+                                                      [[ name := "type", value := "echorequest" ]
+                                                      ,[ name := "data2", value := "" ]
+                                                      ], "multipart/form-data"));
+  result := DecodeHSONBlob(browser->content);
+  TestEq( [ ispost := FALSE, value := "1" ], RECORD(SELECT ispost,value FROM result.allvars WHERE name="onurl"));
+  TestEq( [ ispost := FALSE, value := "" ], RECORD(SELECT ispost,value FROM result.allvars WHERE name="data1"));
+  TestEq( [ ispost := TRUE, value := "echorequest" ], RECORD(SELECT ispost,value FROM result.allvars WHERE name="type"));
+  TestEq( [ ispost := TRUE, value := "" ], RECORD(SELECT ispost,value FROM result.allvars WHERE name="data2"));
+  TestEq( [ ispost := FALSE, value :="" ] , RECORD(SELECT ispost,value FROM result.allvars WHERE name="data3"));
+
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath || "?onurl=1&data1=&data3",
+                                                      [[ name := "type", value := "echorequest" ]
+                                                      ,[ name := "data2", value := "" ]
+                                                      ], "application/x-www-form-urlencoded"));
+  result := DecodeHSONBlob(browser->content);
+  TestEq( [ ispost := FALSE, value := "1" ], RECORD(SELECT ispost,value FROM result.allvars WHERE name="onurl"));
+  TestEq( [ ispost := FALSE, value := "" ], RECORD(SELECT ispost,value FROM result.allvars WHERE name="data1"));
+  TestEq( [ ispost := TRUE, value := "echorequest" ], RECORD(SELECT ispost,value FROM result.allvars WHERE name="type"));
+  TestEq( [ ispost := TRUE, value := "" ], RECORD(SELECT ispost,value FROM result.allvars WHERE name="data2"));
+  TestEq( [ ispost := FALSE, value :="" ] , RECORD(SELECT ispost,value FROM result.allvars WHERE name="data3"));
+}
+
+MACRO TransferEncoding()
+{
+  RECORD unp_resbaseurl := UnpackUrL(testfile_webpath);
+  INTEGER http := OpenHTTPServer(unp_resbaseurl.host, unp_resbaseurl.port);
+  STRING testtekst := "Dit is een testtekst. Lorum ipsum etc bla bla loopback test.";
+
+  RECORD res := __SendRawHTTPRequest(http, "POST " || unp_resbaseurl.urlpath || "?type=echobody HTTP/1.1",
+                                [[field:="Transfer-Encoding", value:="identity"]
+                                ,[field:="Content-Length",value:=ToString(Length(testtekst))]
+                                ], StringToBlob(testtekst), TRUE, FALSE);
+
+  TestEq(200, res.code);
+  TestEq(testtekst, BlobToSTring(res.content,600));
+
+  STRING chunktekst := ToString(25,16) || "\r\n"
+                       || Substring(testtekst,0,25) || "\r\n"
+                       || "000" || ToString(3,16) || "\r\n"
+                       || Substring(testtekst,25,3) ||"\r\n"
+                       || "000" || ToString(Length(testtekst)-28,16) || "\r\n"
+                       || Substring(testtekst,28) || "\r\n"
+                       || "00" || "\r\n"
+                       || "\r\n";
+
+  res := __SendRawHTTPRequest(http, "POST " || unp_resbaseurl.urlpath || "?type=echobody HTTP/1.1",
+                          [[field:="Transfer-Encoding", value:="chunked"]
+                          ], StringToBlob(chunktekst), TRUE, FALSE);
+  TestEq(200, res.code);
+  TestEq(testtekst, BlobToSTring(res.content,600));
+}
+
+MACRO TestFlushWebResponse()
+{
+  //We expect the POST to fail
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "flushwebresponse" ]
+                                                     ], "multipart/form-data"));
+  TestEq("no-cache", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Cache-Control"));
+  TestEq(200, browser->GetHTTPStatus().code); //even though we expect an abort, it's too late to intercept the response
+  TestEq("First test flush web responseSecond test flush web response", BlobToString(browser->content,59));
+  //we no longer append the error response
+}
+
+MACRO OptionalURLParts()
+{
+  //Test '/!' and '/!part' paths
+  STRING timestampedpath := Substitute(testfile_webpath, '/webserver.shtml', '!xxx/webserver.shtml');
+  TestEq(FALSE, browser->PostWebPage(timestampedpath
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"), "Failed " || timestampedpath);
+
+  timestampedpath := Substitute(testfile_webpath, '/webserver.shtml', '/!xxx/webserver.shtml');
+  TestEq(TRUE, browser->PostWebPage(timestampedpath
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"), "Failed " || timestampedpath);
+
+  timestampedpath := Substitute(testfile_webpath, '/webserver.shtml', '/!xxx/!yyy/webserver.shtml');
+  TestEq(TRUE, browser->PostWebPage(timestampedpath
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"), "Failed " || timestampedpath);
+
+  timestampedpath := Substitute(testfile_webpath, '/webserver.shtml', '/webserver.shtml/:/xyz');
+  TestEq(FALSE, browser->PostWebPage(timestampedpath
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"), "Failed " || timestampedpath);
+
+  // /!
+  timestampedpath := Substitute(testfile_webpath, '/webserver.shtml', '/webserver.shtml/!');
+  TestEq(FALSE, browser->PostWebPage(timestampedpath
+                                    ,  [[ name := "type", value := "echo" ]
+                                       ,[ name := "data", value := shorttext ]
+                                       ], "multipart/form-data"));
+
+  timestampedpath := Substitute(testfile_webpath, '/webserver.shtml', '/webserver.shtml/!/xyz');
+  TestEq(FALSE, browser->PostWebPage(timestampedpath
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"), "Failed " || timestampedpath);
+}
+
+MACRO URLTrickery()
+{
+  //Attempt to append a dot to the url
+  TestEq(FALSE, browser->PostWebPage(testfile_webpath || '.'
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"));
+  TestEq(404, browser->GetHTTPStatus().code);
+
+  //Attempt to append a space to the url
+  TestEq(FALSE, browser->PostWebPage(testfile_webpath || '%20'
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"));
+  TestEq(404, browser->GetHTTPStatus().code);
+
+  //Attempt a source code dump with a mixed case extension
+  STRING mixed_case_extension := Left(testfile_webpath,Length(testfile_webpath)-1) || 'L';
+  IF(browser->PostWebPage(mixed_case_extension
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data")) //linux will just return false because this the test triggers a 404
+  {
+    TestEq(200, browser->GetHTTPStatus().code);
+    TestEq(shortblob, browser->content);
+  }
+
+  //Attempt a source code dump with an encoded extension
+  STRING encoded_extension := Left(testfile_webpath,Length(testfile_webpath)-1) || '%6C';
+  TestEq(TRUE, browser->PostWebPage(encoded_extension
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"));
+  TestEq(200, browser->GetHTTPStatus().code);
+  TestEq(shortblob, browser->content);
+
+  //Attempt a source code dump with a non-shortest-form extension (UTF-8 exploit)
+  STRING non_short_extension := Left(testfile_webpath,Length(testfile_webpath)-1) || '%C1%AC';
+  TestEq(FALSE, browser->PostWebPage(non_short_extension
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"));
+  TestEq(403, browser->GetHTTPStatus().code);
+
+  non_short_extension := Left(testfile_webpath,Length(testfile_webpath)-1) || '\xC1\xAC';
+  TestEq(FALSE, browser->PostWebPage(non_short_extension
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"));
+  TestEq(403, browser->GetHTTPStatus().code);
+
+  STRING non_short_path := Substitute(testfile_webpath, '/webserver.shtml', '%C0%AFwebserver.shtml');
+  TestEq(FALSE, browser->PostWebPage(non_short_path
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"));
+  TestEq(403, browser->GetHTTPStatus().code);
+
+  non_short_path := Substitute(testfile_webpath, '/webserver.shtml', '\xC0\xAFwebserver.shtml');
+  TestEq(FALSE, browser->PostWebPage(non_short_path
+                                          ,  [[ name := "type", value := "echo" ]
+                                             ,[ name := "data", value := shorttext ]
+                                             ], "multipart/form-data"));
+  TestEq(403, browser->GetHTTPStatus().code);
+}
+
+MACRO AccessRules()
+{
+  //Request a fake directory
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || 'nosubdir'));
+  TestEq(404, browser->GetHTTPStatus().code);
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'subdir'));
+  TestEq(303, browser->GetHTTPStatus().code);
+  TestEq(betabaseurl || 'subdir/', (SELECT AS STRING value FROM browser->responseheaders WHERE field="Location"));
+
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || 'nosubdir2'));
+  TestEq(404, browser->GetHTTPStatus().code);
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'subdir2'));
+  TestEq(303, browser->GetHTTPStatus().code);
+  TestEq(betabaseurl || 'subdir2/', (SELECT AS STRING value FROM browser->responseheaders WHERE field="Location"));
+
+  //Request a fake directory, test against "confused if files do exist on disk" regression
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'subdir3'));
+  TestEq(303, browser->GetHTTPStatus().code);
+  TestEq(betabaseurl || 'subdir3/', (SELECT AS STRING value FROM browser->responseheaders WHERE field="Location"));
+
+
+  //But requesting through the recurse dir should work fine
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "recurse/"));
+  TestEq(200, browser->GetHTTPStatus().code);
+  TestEq("index.shtml", BlobToString(browser->content,100));
+
+  //Test whether webserverurl.shtml is properly handledr
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || "webserverurl/deeper"), betabaseurl || "webserverurl/deeper");
+  TestEq(200, browser->GetHTTPStatus().code);
+  TestEq("webserverurl dot shtml", BlobToString(browser->content,100));
+
+  //Start
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'subdir'));
+  TestEq(303, browser->GetHTTPStatus().code);
+
+}
+
+MACRO AcceptRange()
+{
+  /*firefox and acrobat confuse each other with large PDFs - it seems that adobe excepts range requests but firefox converts
+    them to normal requests, unless we throw in an Accept-Ranges: bytes .... */
+
+  //baseline test, header should normally not be there
+  TestEq(TRUE, browser->GotoWebPage(testfile_webpath || '?type=echo'));
+  TestEq("", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Accept-Ranges"));
+  //static PDF
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'test.pdf'));
+  TestEq("application/pdf", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Content-Type"));
+  TestEq("bytes", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Accept-Ranges"));
+  //dynamic PDF
+  TestEq(TRUE, browser->GotoWebPage(testfile_webpath || '?type=echo&mimetype=application/pdf'));
+  TestEq("application/pdf", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Content-Type"));
+  TestEq("bytes", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Accept-Ranges"));
+}
+
+/*
+
+
+%C0%AF = slash
+%C1%AC = 'l'
+
+//Attempt a source code dump with a mixed case extension
+STRING extension_encoded_uri := Left(testfile_webpath,Length(testfile_webpath)-1) || '
+
+
+TestEq(FALSE, browser->PostWebPage(testfile_webpath || ':$DATA'
+                                        ,  [[ name := "type", value := "echo" ]
+                                           ,[ name := "data", value := shorttext ]
+                                           ], "multipart/form-data"));
+TestEq(404, browser->GetHTTPStatus().code);
+
+*/
+
+MACRO WildcardMatching()
+{
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'matched-by-a-wildcard/'));
+  TestEq(302, browser->GetHTTPStatus().code);
+  TestEq("http://www.wildcard.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+}
+
+MACRO PostToNonDynamicPage() //we need POSTs to dynamic pages to no longer return 405s, because that sucks when dealing with eg Facebook atbs
+{
+  TestEq(TRUE, browser->PostWebPage(betabaseurl || 'static.html', [[ name := "type", value := "404" ]], "multipart/form-data"));
+  TestEq(TRUE, browser->SendRawRequest("OPTIONS", betabaseurl || 'static.html', DEFAULT RECORD ARRAY, DEFAULT BLOB));
+  TestEq(TRUE, browser->GetResponseheader("Allow") LIKE "*POST*");
+}
+
+MACRO ExactSubpageMatching()
+{
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'defaultpagetest/'));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("http://www.test.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  //make sure webbrowser strips #. not really a webserver test...
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'defaultpagetest/#'));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("http://www.test.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'defaultpagetest/index.html'));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("http://www.test.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'defaultpagetest/index.shtml'));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq("http://www.test.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq(TRUE, browser->GotoWebPage(betabaseurl || '307test/'));
+  TestEq(307, browser->GetHTTPStatus().code);
+  TestEq("http://www.test.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+}
+
+MACRO AuthenticateWebsession()
+{
+  testport := testfw->GetLocalhostWebinterface();
+  TestEq(TRUE, browser->GotoWebPage(testport.baseurl || "tollium_todd.res/webhare_testsuite/tests/websessions.shtml"));
+  STRING content := BlobToString(browser->content, -1);
+  TestEq(TRUE, content LIKE "ok: *");
+
+  STRING sess := SubString(content, 4);
+
+  TestEq(TRUE, browser->GotoWebPage(testport.baseurl || "tollium_todd.res/webhare_testsuite/tests/websessions.shtml?sess="||sess));
+  content := BlobToString(browser->content, -1);
+  TestEq(TRUE, content LIKE "ok2");
+}
+
+MACRO SubdirRedirect()
+{
+  /* test ut issue:
+
+oude situatie
+/srv/webdata/pst/htdocs/index.html -> http://www.psts.utwente.nl/
+nieuwe situatie
+redirect met subs http://www.psts.utwente.nl/ naar http://www.utwente.nl/psts
+
+index.html stond op oude loc
+op nieuwe loc heette de file default.html
+redirect stuk
+*/
+  testport := testfw->GetLocalhostWebinterface();
+
+  testfw->StartTrans("~webhare", FALSE);
+
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/redirectbase/", 1/*initial*/, 5/*redirect with subs*/,
+                betabaseurl || "redirectdest/");
+
+  //test redirects met variabelen
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/redirectbase2/", 1/*initial*/, 5/*redirect with subs*/,
+                betabaseurl || "redirectdest2/?x=1");
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/redirectbase3/", 1/*initial*/, 5/*redirect with subs*/,
+                betabaseurl || "redirectdest3/?x=1&y=2");
+
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/redirectbase4/", 1/*initial*/, 5/*redirect with subs*/,
+                betabaseurl || "redirectdest4/?x=1&y=2");
+
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
+         VALUES(testport.webserverid, "/webserver-beta-testing/addbang/", 1/*initial*/, 5/*redirect with subs*/,
+                betabaseurl || "addbang/!");
+
+  // Test redirects with forcelowercase
+  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
+         VALUES(lowercaseport.webserverid, "/webserver-beta-testing/redirectbase/", 1/*initial*/, 5/*redirect with subs*/,
+                betabaseurl_lowercase || "redirectdest/");
+
+
+  testfw->Commit();
+  testfw->RefreshWebserverConfig();
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase/"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  STRING dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest/", dest);
+  TestEq(TRUE, browser->GotoWebpage(dest));
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase"));
+  TestEq(303, browser->GetHTTPStatus().code); //see other is always used for into-subdir redirects
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectbase/", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase?xyz=1"));
+  TestEq(303, browser->GetHTTPStatus().code); //see other is always used for into-subdir redirects
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectbase/", dest); //we accept loss of variables when redirecting this way
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase/abc/"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest/abc/", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase/!abc/x/"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest/!abc/x/", dest);
+
+  //we're redirecting "redirectbase/"
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase/!abc"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest/!abc", dest);
+  TestEq(TRUE, browser->GotoWebpage(dest));
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase/!abc/"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest/!abc/", dest);
+  TestEq(TRUE, browser->GotoWebpage(dest));
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "!xx/../redirectbase/!abc/"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest/!abc/", dest);
+  TestEq(TRUE, browser->GotoWebpage(dest));
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "!xyz/redirectbase/!abc/"));
+  TestEq(301, browser->GetHTTPStatus().code, "expecting redirect on " || betabaseurl || "!xyz/redirectbase/!abc/");
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest/!abc/", dest);
+  TestEq(TRUE, browser->GotoWebpage(dest));
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase/%3F%3F"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest/%3F%3F", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase/?var=x&var=y"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest/?var=x&var=y", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase2/"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest2/?x=1", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase2/%3F%3F"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest2/%3F%3F?x=1", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase2/?var=x&var=y"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest2/?x=1&var=x&var=y", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase3/"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest3/?x=1&y=2", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase3/%3F%3F"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest3/%3F%3F?x=1&y=2", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase3/?var=x&var=y"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest3/?x=1&y=2&var=x&var=y", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase3/;var=x&var=y"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "redirectdest3/?x=1&y=2;var=x&var=y", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "addbang/"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "addbang/!", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "addbang/!"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "addbang/!", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "addbang/intotheroom"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "addbang/!intotheroom", dest);
+
+  TestEq(TRUE, browser->GotoWebpage(betabaseurl || "addbang/!intotheroom"));
+  TestEq(301, browser->GetHTTPStatus().code);
+  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+  TestEq(betabaseurl || "addbang/!intotheroom", dest);
+
+
+  // FIXME: redirects in a lowercasemode webserver also lowercase the part of the path that is added to the new url!!!
+//  TestEq(TRUE, browser->GotoWebpage(betabaseurl_lowercase || "redirectbase/Test?Test=2"));
+//  TestEq(301, browser->GetHTTPStatus().code);
+//  dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
+//  TestEq(betabaseurl_lowercase || "redirectdest/Test?Test=2", dest);
+}
+
+MACRO TestAutoFollow()
+{
+  browser->autofollow := FALSE;
+
+  TestEq(TRUE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "301" ])));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq(TRUE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "302" ])));
+  TestEq(302, browser->GetHTTPStatus().code);
+  TestEq(TRUE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "303" ])));
+  TestEq(303, browser->GetHTTPStatus().code);
+  TestEq(TRUE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "307" ])));
+  TestEq(307, browser->GetHTTPStatus().code);
+
+  TestEq(TRUE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirectencoding" ])));
+  TestEq(0, browser->document->GetElementsByTagName("script")->Length, "No script tag should have escaped encoding");
+  TestEq("", browser->GetResponseHeader("Test"), "Should be no header leak of Test");
+  TestEq("", browser->GetResponseHeader("X-Test-3"), "Should be no header leak of X-Test-3");
+  TestEq("", browser->GetResponseHeader("X-Test-2"), "Corrupt header X-Test-2 should be discarded");
+  TestEq("", browser->GetResponseHeader("Location"), "Corrupt header Location should be discarded");
+
+  browser->autofollow := TRUE;
+
+  TestEq(FALSE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "301" ])));
+  TestEq("http://www.test.invalid/301", browser->url);
+  TestEq(FALSE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "302" ])));
+  TestEq("http://www.test.invalid/302", browser->url);
+  TestEq(FALSE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "303" ])));
+  TestEq("http://www.test.invalid/303", browser->url);
+  TestEq(FALSE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "307" ])));
+  TestEq("http://www.test.invalid/307", browser->url);
+
+  INTEGER ARRAY statuses := browser->autofollow_statuses;
+  browser->autofollow_statuses := [ 302, 303, 307 ];
+
+  TestEq(TRUE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "301" ])));
+  TestEq(301, browser->GetHTTPStatus().code);
+  TestEq(FALSE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "302" ])));
+  TestEq("http://www.test.invalid/302", browser->url);
+  TestEq(FALSE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "303" ])));
+  TestEq("http://www.test.invalid/303", browser->url);
+  TestEq(FALSE, browser->GotoWebpage(UpdateURLVariables(testfile_webpath, [ type := "redirect", status := "307" ])));
+  TestEq("http://www.test.invalid/307", browser->url);
+}
+
+MACRO TestCookies()
+{
+  //get a proper cookie, and one set by old webhare code
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "setcookie1" ]
+                                                      ], "multipart/form-data"));
+
+
+  TestEq(" a;b,c,%,&,\" ", browser->GetCookie("cookietest"));
+
+  //have our webbrowser loop the cookie back, and verify their values server-side
+  //if this test fails, check errors.log
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "setcookie2" ]
+                                                      ], "multipart/form-data"));
+
+  TestEq(1,Length(SELECT * FROM browser->responseheaders WHERE field = "Set-Cookie"));
+
+  //test ecnyrpted cookies proper cookie, and one set by old webhare code
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "setencryptedcookie1" ]
+                                                      ], "multipart/form-data"));
+
+
+  TestEq(TRUE, browser->GetCookie("cookietest") LIKE "X-*");
+
+  //have our webbrowser loop the cookie back, and verify their values server-side
+  //if this test fails, check errors.log
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "setencryptedcookie2" ]
+                                                      ], "multipart/form-data"));
+
+  // Test overwriting behaviour of UpdateWebCookie
+  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "setcookie3" ]
+                                                      ], "multipart/form-data"));
+
+  TestEQ(
+      [ "sc3-test1=val1-overwrite;Path=/;HttpOnly"
+      , "sc3-test2=val2-overwrite;Path=/;HttpOnly"
+      , "sc3-test3=val3-nooverwrite1;Path=/blaah/meh/;HttpOnly"
+      , "sc3-test3=val3-overwrite;Path=/blaah/;HttpOnly"
+      , "sc3-test4=val4-nooverwrite1;Path=/blaah/;HttpOnly"
+      , "sc3-test4=val4-nooverwrite2;Path=/blaah/;Domain=www.b-lex.com;HttpOnly"
+      , "sc3-test4=val4-overwrite;Path=/blaah/;Domain=www.example.com;HttpOnly"
+      ], SELECT AS STRING ARRAY value
+           FROM browser->responseheaders
+          WHERE ToUppercase(field) = "SET-COOKIE"
+       ORDER BY value);
+}
+
+MACRO TestAuthenticateWebsession()
+{
+  testport := testfw->GetLocalhostWebinterface();
+  STRING baseurl := testport.baseurl  || "tollium_todd.res/webhare_testsuite/tests/";
+
+  TestEq(TRUE, browser->GotoWebPage(baseurl || "websessions.shtml"));
+  STRING content := BlobToString(browser->content, -1);
+  TestEq(TRUE, content LIKE "ok: *");
+
+  STRING sess := SubString(content, 4);
+
+  TestEq(TRUE, browser->GotoWebPage(baseurl || "websessions.shtml?sess="||sess));
+  content := BlobToString(browser->content, -1);
+  TestEq(TRUE, content LIKE "ok2");
+}
+
+MACRO TestWHPubPreview()
+{
+  testport := testfw->GetLocalhostWebinterface();
+  STRING baseurl := testport.baseurl || "tollium_todd.res/webhare_testsuite/tests/";
+
+  OBJECT previewbrowser := NEW WebBrowser;
+
+  BOOLEAN res;
+  RECORD data;
+
+  // When requesting the a port-hosted page with a (locally nonsence) host header, the correct page should be served
+  res := previewbrowser->GotoWebPage(baseurl || "getrequestdata.shtml", [ headers := [ [ field := "host", value := "proxyhost:821" ] ] ]);
+  TestEQ(TRUE, res);
+
+  data := DecodeHSONBlob(previewbrowser->content);
+  TestEQMembers(
+      [ clienturl :=      'http://proxyhost:821/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
+      , serverurl :=      `http://127.0.0.1:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , localip :=        "127.0.0.1"
+      , localport :=      testport.portnumber
+      , ispreview :=      FALSE
+      ], data, "*");
+
+  // Test with proxy headers in the request (send through trusted port)
+  res := previewbrowser->SendRawRequest("GET", baseurl || "getrequestdata.shtml",
+      [ [ field := "host", value := "proxyhost:82143" ]
+      , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
+                                                               , binding :=   testport.portid
+                                                               , proto :=     "https"
+                                                               , forip :=     "2001:db8::1"
+                                                               , localip :=   "2001:db8::2"
+                                                               , localport := testport.portnumber
+                                                               ])
+        ]
+      ], DEFAULT BLOB,
+      [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
+
+  TestEQ(TRUE, res);
+
+  data := DecodeHSONBlob(previewbrowser->content);
+  TestEQMembers(
+      [ clienturl :=      'https://proxyhost:82143/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
+      , serverurl :=      `http://[2001:db8::2]:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , remoteip :=       `2001:db8::1`
+      , remoteport :=     0
+      , localip :=        `2001:db8::2`
+      , localport :=      testport.portnumber
+      , ispreview :=      FALSE
+      ], data, "*");
+
+  previewbrowser->Close();
+
+  previewbrowser := NEW WebBrowser;
+  previewbrowser->SetSessionCookie("__whpub_preview", "debug");
+
+  // When requesting the a port-hosted page with a (locally nonsense) host header, the preview page should still serve the correct page
+  res := previewbrowser->GotoWebPage(baseurl || "getrequestdata.shtml", [ headers := [ [ field := "host", value := "proxyhost:821" ] ] ]);
+  TestEQ(TRUE, res);
+
+  data := DecodeHSONBlob(previewbrowser->content);
+  TestEQMembers(
+      [ clienturl :=      'http://proxyhost:821/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
+      , serverurl :=      `http://127.0.0.1:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , localip :=        "127.0.0.1"
+      , localport :=      testport.portnumber
+      , ispreview :=      TRUE
+      ], data, "*");
+
+  // When requesting the a port-hosted page with a (locally nonsense) host header, the preview page should still serve the correct page
+  res := previewbrowser->SendRawRequest("GET", baseurl || "getrequestdata.shtml",
+      [ [ field := "host", value := "proxyhost:82143" ]
+      , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
+                                                               , binding :=   testport.portid
+                                                               , proto :=     "https"
+                                                               , forip :=     "2001:db8::1"
+                                                               , localip :=   "2001:db8::2"
+                                                               , localport := testport.portnumber
+                                                               ])
+        ]
+      ], DEFAULT BLOB,
+      [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
+
+  TestEQ(TRUE, res);
+
+  data := DecodeHSONBlob(previewbrowser->content);
+  TestEQMembers(
+      [ clienturl :=      'https://proxyhost:82143/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
+      , serverurl :=      `http://[2001:db8::2]:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , remoteip :=       `2001:db8::1`
+      , remoteport :=     0
+      , localip :=        `2001:db8::2`
+      , localport :=      testport.portnumber
+      , ispreview :=      TRUE
+      ], data, "*");
+
+  //Test redirection to https
+  previewbrowser->autofollow := FALSE;
+//  browser->debug:=TRUE;
+
+  FOREVERY(BOOLEAN withcookie FROM [FALSE,TRUE])
+  {
+    previewbrowser->Close();
+    previewbrowser := NEW WebBrowser;
+    IF (withcookie)
+      previewbrowser->SetSessionCookie("__whpub_preview", "debug");
+
+    //Access secure1 through trusted port over http. should redirect to https immediately (getrequestdata.shtml does not get a chance to run)
+    res := previewbrowser->SendRawRequest("GET", "http://secure1.example.net:" || vhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
+        [ [ field := "host", value := "secure1.example.net:" || vhostport.portnumber ]
+        , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
+                                                                 , binding :=   vhostport.portid
+                                                                 , proto :=     "http"
+                                                                 , forip :=     "2001:db8::1"
+                                                                 , localip :=   "2001:db8::2"
+                                                                 , localport := vhostport.portnumber
+                                                                 ])
+          ]
+        ], DEFAULT BLOB,
+        [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
+
+    TestEq(301, previewbrowser->GetHTTPStatusCode());
+    TestEq("https://secure1.example.net:" || securevhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml", previewbrowser->GetResponseheader("location"));
+
+    //'Follow' the secure1 redirect
+    res := previewbrowser->SendRawRequest("GET", "https://secure1.example.net:" || securevhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
+        [ [ field := "host", value := "secure1.example.net:" || securevhostport.portnumber ]
+        , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
+                                                                 , binding :=   securevhostport.portid
+                                                                 , proto :=     "https"
+                                                                 , forip :=     "2001:db8::1"
+                                                                 , localip :=   "2001:db8::2"
+                                                                 , localport := securevhostport.portnumber
+                                                                 ])
+          ]
+        ], DEFAULT BLOB,
+        [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
+
+    TestEq(200, previewbrowser->GetHTTPStatusCode());
+    data := DecodeHSONBlob(previewbrowser->content);
+    TestEQMembers(
+        [ clienturl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+        , serverurl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+        , remoteip :=       `2001:db8::1`
+        , localip :=        "2001:db8::2"
+        , localport :=      securevhostport.portnumber
+        , ispreview :=      withcookie
+        ], data, "*");
+
+    //Test compatibility with old style headers
+    res := previewbrowser->SendRawRequest("GET", "https://secure1.example.net:" || securevhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
+        [ [ field := "host", value := "secure1.example.net:" || securevhostport.portnumber ]
+        , [ field := "X-Forwarded-For", value := "2001:db8::1" ]
+        , [ field := "X-Forwarded-Proto", value := "https" ]
+        , [ field := "X-Webhare-Proxy", value := "999999999" ]
+        ], DEFAULT BLOB,
+        [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
+
+    TestEq(200, previewbrowser->GetHTTPStatusCode());
+    data := DecodeHSONBlob(previewbrowser->content);
+    TestEQMembers(
+        [ clienturl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+        , serverurl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+        , remoteip :=       `2001:db8::1`
+        //, localip :=        "2001:db8::2"                  //not reliably available
+        //, localport :=      securevhostport.portnumber     //not reliably available
+        , ispreview :=      withcookie
+        ], data, "*");
+  }
+
+  previewbrowser->Close();
+}
+
+MACRO TestDataStorage()
+{
+  STRING basedatadir := GetWebHareConfiguration().basedataroot;
+
+  // Delete the files we'll generate in this test
+  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/blue.html"));
+  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/72a/9b1ded08c2b7413bf64e2608e8cea03d5f8ff6b7c61382b11eb04a290d611.html"));
+  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha_dir/9f8/6d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.html"));
+  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/file.shtml"));
+
+  TestEQ(TRUE, browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/datastorage/test/blue.html"));
+  TestEQLike("*I'm just a static page*", BlobToString(browser->content));
+
+  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/"), TRUE);
+  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/file.shtml"), StringToBlob(`<?wh PRINT("I'm a"); PRINT(" dynamic page");`));
+  TestEQ(TRUE, browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/datastorage/test/blue.html"));
+  TestEQLike("I'm a dynamic page*", BlobToString(browser->content));
+
+  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha_dir/9f8/"), TRUE);
+  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha_dir/9f8/6d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.html"), StringToBlob(`I'm a dir hash page`));
+  TestEQ(TRUE, browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/datastorage/test/blue.html"));
+  TestEQLike("*I'm a dir hash page*", BlobToString(browser->content));
+
+  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/72a/"), TRUE);
+  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/72a/9b1ded08c2b7413bf64e2608e8cea03d5f8ff6b7c61382b11eb04a290d611.html"), StringToBlob(`I'm a hash page`));
+  TestEQ(TRUE, browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/datastorage/test/blue.html"));
+  TestEQLike("*I'm a hash page*", BlobToString(browser->content));
+
+  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/"), TRUE);
+  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/blue.html"), StringToBlob(`<body><body>I'm a blue page</body></html>");`));
+  TestEQ(TRUE, browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/datastorage/test/blue.html"));
+  TestEQLike("*I'm a blue page*", BlobToString(browser->content));
+}
+
+MACRO TestGlobalAccessRules()
+{
+  RECORD outputport := testfw->CreateWebserverPort([ outputserver := TRUE ]);
+
+  // Set a datestorage siteprofile over '/', see if global accessrules with datastorage rules still work
+  STRING siteprl_datastorage :=
+`<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+  <sitesettings>
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+      <webrule path="/" match="initial">
+        <tryfolder path="siteoutput::[sitename]/" />
+        <tryfile path="siteoutput::[sitename]/index.shtml" />
+      </webrule>
+    </webruleset>
+  </sitesettings>
+</siteprofile>`;
+
+  testfw->BeginWork();
+
+  testfw->SetupTestWebsite(DEFAULT BLOB);
+  testfw->GetTestSite()->SetPrimaryOutput(outputport.webservers[0].id,"/");
+
+  OBJECT siteprof := testfw->GetTestSite()->rootobject->CreateFile(
+      [ name := "test.siteprl.xml"
+      , data := StringToBlob(siteprl_datastorage)
+      , type := 27
+      ]);
+
+  OBJECT image := testfw->GetTestSite()->rootobject->CreateFile(
+      [ name := "bob.jpg"
+      , data := GetWebhareResource("mod::webhare_testsuite/data/test/bob.jpg")
+      , publish := TRUE
+      ]);
+
+  TestEq(TRUE, testfw->GetTestSite()->AssignSiteProfile(siteprof->id));
+
+  testfw->CommitWork();
+  testfw->RefreshWebserverConfig();
+
+  STRING url := ResolveToAbsoluteURL(testfw->GetTestSite()->webroot, GetCachedImageLink(image->GetWrapped(), [ method := "none" ]));
+
+  TestEQ(TRUE, testfw->browser->GotoWebPage(url));
+  TestEQ(image->data, testfw->browser->content);
+
+  // Test .publisher/sd/ (priority was not set in intial commit)
+  TestEQ(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(testfw->GetTestSite()->webroot, ".publisher/sd/webhare_testsuite/basetest/img/smallbob.jpg")));
+
+  // Test access rule priorities. The set with priority 5 should win
+  testfw->BeginWork();
+  siteprof->UpdateMetadata([ data := StringToBlob(
+`<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+  <sitesettings>
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition" priority="6">
+      <webrule path="/" match="initial">
+        <addheader header="X-Ordertest" value="6"/>
+      </webrule>
+    </webruleset>
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition" priority="5">
+      <webrule path="/bob.jpg" match="initial">
+        <addheader header="X-Ordertest" value="5"/>
+      </webrule>
+    </webruleset>
+  </sitesettings>
+</siteprofile>`) ]);
+  testfw->CommitWork();
+  testfw->RefreshWebserverConfig();
+
+  testfw->WaitForPublishCompletion(testfw->GetTestSite()->id);
+  TestEQ(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(testfw->GetTestSite()->webroot, "bob.jpg")));
+
+  // highest priority number is run last, so we get that header
+  TestEQ("6", SELECT AS STRING value FROM testfw->browser->responseheaders WHERE field = "X-Ordertest");
+}
+
+
+MACRO PTR ARRAY tests;
+tests := [ PTR Setup
+         , PTR TestAcceptEncoding
+         , PTR TestHead
+
+         , PTR TestStripExtensions
+         , PTR TestIPV6
+         , PTR TestAuthScripts
+         , PTR Status404
+         , PTR StatusBad
+         , PTR TestVhostAlias
+         , PTR TestPostHandling
+         , PTR TestFlushWebResponse
+
+         , PTR TestUserChecks
+         , PTR OptionalURLParts
+         , PTR URLTrickery
+         , PTR AccessRules
+         , PTR AcceptRange
+         , PTR WildcardMatching
+         , PTR PostToNonDynamicPage
+         , PTR ExactSubpageMatching
+         , PTR AuthenticateWebsession
+         , PTR SubdirRedirect
+         , PTR TestAutoFollow
+         , PTR TestCookies
+         , PTR TestAuthenticateWebsession
+         , PTR TestIPChecks
+         , PTR TestWHPubPreview()
+         , PTR TestDataStorage()
+         , PTR TestGlobalAccessRules()
+         ];
+
+IF(GetSystemOsName() NOT LIKE "Darwin*") //test is pointless on win32 and mac
+  INSERT  PTR TestFixCase INTO tests AT END;
+
+RunTestFramework(tests, [ testusers := [[ login := "user1" ]
+                                       ,[ login := "user2" ]
+                                       ]
+                        ]);

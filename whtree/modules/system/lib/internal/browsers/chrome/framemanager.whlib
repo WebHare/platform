@@ -1,0 +1,287 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/internal/browsers/chrome/elementhandle.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/helper.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
+
+
+OBJECT lastcreatedframe;
+
+// https://github.com/GoogleChrome/puppeteer/blob/master/lib/FrameManager.js#L352
+STATIC OBJECTTYPE Frame
+<
+  OBJECT pvt_client;
+  OBJECT pvt_mouse;
+
+  OBJECT pvt_parentframe;
+  STRING pvt_frameid;
+  OBJECT ARRAY pvt_childframes;
+  BOOLEAN pvt_detached;
+  INTEGER pvt_defaultcontextid;
+
+  STRING pvt_name;
+  STRING pvt_url;
+  BOOLEAN pvt_loadingfailed;
+
+  OBJECT pvt_windowhandle;
+
+  PUBLIC PROPERTY id(pvt_frameid, -);
+
+  PUBLIC PROPERTY childframes(pvt_childframes, -);
+
+  PUBLIC PROPERTY url(pvt_url, -);
+
+  MACRO NEW(OBJECT client, OBJECT mouse, OBJECT parentframe, STRING frameid)
+  {
+    this->pvt_client := client;
+    this->pvt_mouse := mouse;
+    this->pvt_parentframe := parentframe;
+    this->pvt_frameid := frameid;
+    IF (ObjectExists(parentframe))
+      INSERT PRIVATE this INTO parentframe->pvt_childframes AT END;
+    lastcreatedframe := PRIVATE this;
+  }
+
+  MACRO Navigated(RECORD framepayload)
+  {
+    IF(ObjectExists(this->pvt_windowhandle)) //no need to dispose, doing so gives error so this probably autoclears on nav
+      this->pvt_windowhandle := DEFAULT OBJECT;
+
+    this->pvt_name := CellExists(framepayload, "name") ? framepayload.name : "";
+    this->pvt_url := framepayload.url;
+    /* unreachableurl looks like this:
+     +ID: '(195F3FD3FD8AD1804DF848A747D78336)'
+     +LOADERID: '68.1'
+     +MIMETYPE: 'text/html'
+     +SECURITYORIGIN: '://'
+     +UNREACHABLEURL: 'https://webhare.moe.sf.webhare.nl/.adhocserve/qQfm4EA9_p6HoqIxsw4DMw/.contents'
+     +URL: 'chrome-error://chromewebdata/''.
+    */
+    this->pvt_loadingfailed := CellExists(framepayload, "unreachableurl"); // not tested
+  }
+
+  MACRO Detach()
+  {
+    this->pvt_detached := TRUE;
+    IF (ObjectExists(this->pvt_parentframe))
+      DELETE FROM this->pvt_parentframe->pvt_childframes AT SearchElement(this->pvt_parentframe->pvt_childframes, this);
+    this->pvt_parentframe := DEFAULT OBJECT;
+  }
+
+  ASYNC FUNCTION RawEvaluate(STRING pagefunction, VARIANT ARRAY args)
+  {
+    INTEGER contextid := this->pvt_defaultcontextid;
+    STRING expression := pagefunction;
+
+    RECORD res;
+    IF (expression NOT LIKE "*=>*")
+    {
+      res := AWAIT this->pvt_client->^Runtime->^Evaluate(
+          CELL[ expression
+              , contextId
+              , returnByValue :=  FALSE
+              , awaitPromise :=   FALSE
+              ]);
+    }
+    ELSE
+    {
+      IF (NOT ObjectExists(this->pvt_windowhandle))
+      {
+        RECORD remoteObject := AWAIT this->RawEvaluate("window", VARIANT[]);
+        this->pvt_windowhandle := NEW ElementHandle(this->pvt_client, this, this->pvt_mouse, remoteobject);
+      }
+
+      res := AWAIT this->pvt_client->^Runtime->^CallFunctionOn(
+          CELL[ functiondeclaration :=  expression
+              , objectId :=             this->pvt_windowhandle->GetRemoteObjectId()
+              , arguments :=            this->ConvertArguments(args)
+              , returnByValue :=        FALSE
+              , awaitPromise :=         FALSE
+              ]);
+    }
+    IF (CellExists(res, "exceptionDetails") AND NOT IsDefaultValue(res.exceptionDetails))
+    {
+      IF (res.exceptiondetails.text = "Uncaught")
+        THROW NEW Exception(res.exceptiondetails.exception.description);
+      THROW NEW Exception(res.exceptiondetails.text);
+    }
+
+    RETURN res.result;
+  }
+
+  RECORD ARRAY FUNCTION ConvertArguments(VARIANT args)
+  {
+    RECORD ARRAY res;
+    FOREVERY (VARIANT arg FROM args)
+      INSERT this->ConvertArgument(arg) INTO res AT END;
+    RETURN res;
+  }
+
+  RECORD FUNCTION ConvertArgument(VARIANT arg)
+  {
+    IF (TypeID(arg) = TypeID(OBJECT) AND arg EXTENDSFROM ElementHandle)
+    {
+      IF (arg->frame != this)
+        THROW NEW Exception('ElementHandles passed as arguments should belong to the frame that does evaluation');
+      RETURN [ objectid := arg->GetRemoteObjectId() ];
+    }
+    // ADDME: infinities, -0, NaN
+    RETURN [ value := arg ];
+  }
+
+  PUBLIC ASYNC FUNCTION "$"(STRING selector)
+  {
+    RECORD remoteobject := AWAIT this->RawEvaluate(`document.querySelector("${EncodeJava(selector)}")`, VARIANT[]);
+    IF (remoteobject.subtype = "node")
+      RETURN NEW ElementHandle(this->pvt_client, this, this->pvt_mouse, remoteobject);
+    AWAIT ReleaseObject(this->pvt_client, remoteObject);
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC ASYNC FUNCTION Evaluate(STRING pagefunction, VARIANT ARRAY ...args)
+  {
+    RECORD remoteobject := AWAIT this->RawEvaluate(pagefunction, args);
+    RETURN AWAIT SerializeRemoteObject(this->pvt_client, remoteobject);
+  }
+
+  PUBLIC ASYNC FUNCTION "$eval"(STRING selector, STRING pagefunction, VARIANT ARRAY ...args)
+  {
+    OBJECT elementhandle := AWAIT this->"$"(selector);
+    IF (NOT ObjectExists(elementhandle))
+      THROW NEW Exception(`Error: failed to find element matching selector "${selector}"`);
+    VARIANT result := AWAIT CallFunctionPTRVA(PTR this->Evaluate, VARIANT[ pagefunction, elementhandle, ...args ]);
+    AWAIT elementhandle->Dispose();
+    RETURN result;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE FrameManager EXTEND EventEmitter
+<
+  OBJECT pvt_client;
+  OBJECT pvt_mouse;
+
+  OBJECT pvt_mainframe;
+  OBJECT pvt_mainframe_public;
+  OBJECT ARRAY pvt_frames;
+  RECORD ARRAY pvt_executioncontexts;
+
+  PUBLIC PROPERTY mainframe(pvt_mainframe_public, -);
+
+  MACRO NEW(OBJECT client, OBJECT mouse)
+  {
+    this->pvt_client := client;
+    this->pvt_mouse := mouse;
+
+    this->pvt_client->AddListener("Page.frameAttached", PTR this->GotFrameAttached);
+    this->pvt_client->AddListener("Page.frameNavigated", PTR this->GotFrameNavigated);
+    this->pvt_client->AddListener("Page.frameDetached", PTR this->GotFrameDetached);
+    this->pvt_client->AddListener("Runtime.executionContextCreated", PTR this->GotExecutionContextCreated);
+    this->pvt_client->AddListener("Runtime.executionContextDestroyed", PTR this->GotExecutionContextDestroyed);
+  }
+
+  RECORD FUNCTION FindFrame(STRING id)
+  {
+    FOREVERY (OBJECT f FROM this->pvt_frames)
+      IF (f->id = id)
+        RETURN [ found := TRUE, position := #f, frame := f ];
+    RETURN [ found := FALSE, position := -1, frame := DEFAULT OBJECT ];
+  }
+
+  INTEGER FUNCTION FindExecutionContext(STRING frameid)
+  {
+    RETURN SELECT AS INTEGER id FROM this->pvt_executioncontexts WHERE COLUMN frameid = VAR frameid;
+  }
+
+  MACRO GotFrameAttached(RECORD data)
+  {
+    RECORD framepos := this->FindFrame(data.frameid);
+    IF (framepos.found)
+      RETURN;
+
+    OBJECT parentframe := this->FindFrame(data.parentframeid).frame;
+    NEW Frame(this->pvt_client, this->pvt_mouse, parentframe, data.frameid);
+    lastcreatedframe->pvt_defaultcontextid := this->FindExecutionContext(data.frameid);
+    INSERT lastcreatedframe INTO this->pvt_frames AT END;
+  }
+
+  MACRO GotFrameNavigated(RECORD data)
+  {
+    BOOLEAN ismainframe := NOT CellExists(data.frame, "PARENTID");
+    OBJECT frame := ismainframe ? this->pvt_mainframe : this->FindFrame(data.frame.id).frame;
+    IF (NOT ismainframe AND NOT ObjectExists(frame))
+      THROW NEW Exception("Not true: We either navigate top level or have old version of the navigated frame");
+
+    IF (ObjectExists(frame))
+    {
+      FOREVERY (OBJECT child FROM frame->childframes)
+        this->RemoveFramesRecursively(frame->childframes);
+    }
+
+    IF (ismainframe)
+    {
+      IF (ObjectExists(frame))
+        frame->pvt_frameid := data.frame.id;
+      ELSE
+      {
+        this->pvt_mainframe_public := NEW Frame(this->pvt_client, this->pvt_mouse, DEFAULT OBJECT, data.frame.id);
+        this->pvt_mainframe := lastcreatedframe;
+        this->pvt_mainframe->pvt_defaultcontextid := this->FindExecutionContext(data.frame.id);
+        INSERT this->pvt_mainframe INTO this->pvt_frames AT END;
+        frame := lastcreatedframe;
+      }
+    }
+
+    frame->Navigated(data.frame);
+    this->EmitEvent("framenavigated", [ frame := MakePublicObjectReference(frame) ]);
+  }
+
+  MACRO GotFrameDetached(RECORD data)
+  {
+    RECORD frame := this->FindFrame(data.frameid);
+    IF (frame.found)
+      this->RemoveFramesRecursively(frame.frame);
+  }
+
+  MACRO GotExecutionContextCreated(RECORD data)
+  {
+    STRING frameid;
+    IF (CellExists(data.context, "AUXDATA") AND data.context.auxdata.isdefault)
+    {
+      RECORD f := this->FindFrame(data.context.auxdata.frameid);
+      IF (f.found)
+        f.frame->pvt_defaultcontextid := data.context.id;
+      ELSE
+      {
+        RECORD pos := RecordLowerBound(this->pvt_executioncontexts, CELL[ data.context.id ], [ "ID" ]);
+        IF (pos.found)
+          DELETE FROM this->pvt_executioncontexts AT pos.position;
+        INSERT CELL[ data.context.id, data.context.auxdata.frameid ] INTO this->pvt_executioncontexts AT pos.position;
+      }
+    }
+  }
+
+  MACRO GotExecutionContextDestroyed(RECORD data)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_executioncontexts, [ id := data.executioncontextid ], [ "ID" ]);
+    IF (pos.found)
+      DELETE FROM this->pvt_executioncontexts AT pos.position;
+  }
+
+  MACRO RemoveFramesRecursively(OBJECT frame)
+  {
+    FOREVERY (OBJECT c FROM frame->pvt_childframes)
+      this->RemoveFramesRecursively(c);
+    frame->Detach();
+    RECORD pos := this->FindFrame(frame->id);
+    DELETE FROM this->pvt_frames AT pos.position;
+    this->EmitEvent("framedetached", [ frame := MakePublicObjectReference(frame) ]);
+  }
+
+  PUBLIC OBJECT FUNCTION "$"(STRING selector)
+  {
+    RETURN this->mainframe->"$"(selector);
+  }
+>;

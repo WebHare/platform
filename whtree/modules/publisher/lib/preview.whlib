@@ -1,0 +1,8 @@
+<?wh
+PUBLIC OBJECTTYPE PreviewObjectBase
+<
+  PUBLIC STRING FUNCTION GetPreviewUrl(INTEGER objectid)
+  {
+    RETURN "";
+  }
+>;

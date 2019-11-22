@@ -1,0 +1,1883 @@
+<?wh
+/** @short Query parsing and creation
+    @private This is a predecessor to the CQ api - users should switch to consilio/lib/api.whlib
+    @topic consilio/api
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::util/localization.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+
+RECORD cached_stopwordlists;
+
+// Boost factors for different types of query terms
+CONSTANT FLOAT title_boost := 5;
+CONSTANT FLOAT keywords_boost := 10;
+CONSTANT FLOAT description_boost := 5;
+CONSTANT FLOAT body_boost := 1;
+//CONSTANT FLOAT initial_body_boost := .7;
+CONSTANT FLOAT stemmed_factor := .5;
+CONSTANT FLOAT stopword_factor := .1;
+CONSTANT FLOAT thesaurus_factor := .5;
+
+CONSTANT RECORD ARRAY defaultfields :=
+    [ [ field := "title",       boost := title_boost,       stemmed_field := TRUE ]
+    , [ field := "keywords",    boost := keywords_boost,    stemmed_field := FALSE ]
+    , [ field := "description", boost := description_boost, stemmed_field := FALSE ]
+    , [ field := "body",        boost := body_boost,        stemmed_field := TRUE ]
+    ];
+
+CONSTANT INTEGER maxclausecount := 1024;
+
+__CONSTREF OBJECT parserpunct_regex := NEW RegEx("\\+|\\-|\\:|\\\"|\\~|\\^|\\.|\\,|\\(|\\)|\\[|\\]|\\{|\\}|\\@");
+
+CONSTANT INTEGER TokenTypeParserPunct := 5;
+
+
+PUBLIC CONSTANT INTEGER
+  require_allowed := 0,       /**< @public
+                                   @loadlib mod::consilio/lib/api.whlib
+                                   @short The term is allowed (used in OR queries) */
+  require_required := 1,      /**< @public
+                                   @loadlib mod::consilio/lib/api.whlib
+                                   @short The term is required (used in AND queries) */
+  require_prohibited := -1;   /**< @public
+                                   @loadlib mod::consilio/lib/api.whlib
+                                   @short The term is prohibited (used in NOT queries) */
+
+
+/** Consilio query parser
+*/
+PUBLIC STATIC OBJECTTYPE QueryParser
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT reader;
+
+  RECORD ARRAY pvt_defaultfields;
+  RECORD ARRAY pvt_thesaurus_by_word;
+  RECORD ARRAY pvt_thesaurus_by_group;
+
+  // Parse state
+  INTEGER parser_depth;
+  RECORD ARRAY parsed_queries;
+  RECORD query_term;
+  RECORD ARRAY parsed_filters;
+  STRING ARRAY parsed_words;
+  STRING query_field;
+  STRING query_word;
+  STRING ARRAY query_words;
+  BOOLEAN query_stopterm;
+  RECORD query_token;
+  INTEGER require;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// The default requirement for query terms (defaults to require_allowed for OR queries, set to require_required for AND
+  /// queries)
+  PUBLIC INTEGER defaultrequire;
+
+  PUBLIC BOOLEAN debug;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY defaultfields(GetDefaultFields, SetDefaultFields);
+
+  PUBLIC PROPERTY thesaurus(-, SetThesaurus);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  /** @short Create a new query parser
+      @param defaultrequire Optional default requirement
+  */
+  MACRO NEW(INTEGER defaultrequire DEFAULTSTO 0)
+  {
+    this->defaultrequire := defaultrequire;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Parse a query string into a query record
+      @param query The query string to parse
+      @param lang The language to use while parsing, used for normalization, stemming and stop words
+  */
+  PUBLIC RECORD FUNCTION Parse(STRING query, STRING lang)
+  {
+    this->reader := NEW QueryParserTokenStream(query, lang);
+    this->reader->debug := this->debug;
+
+    IF (this->debug)
+      Print(`Parse: ${TrimWhitespace(AnyToString(query, "tree"))} (${lang})\n`);
+
+    this->parsed_queries := DEFAULT RECORD ARRAY;
+    INSERT this->MakeBooleanQuery() INTO this->parsed_queries AT END;
+
+    this->query_term := DEFAULT RECORD; // No terms yet
+    this->parsed_filters := DEFAULT RECORD ARRAY;
+    this->parsed_words := DEFAULT STRING ARRAY;
+    this->query_words := DEFAULT STRING ARRAY;
+    this->query_stopterm := FALSE;
+
+    // Goto first state
+    this->query_token := this->reader->GetNextToken();
+    this->RunParser([ state := "term" ]);
+
+    // If we were parsing a term, add it
+    this->FlushTerms();
+
+    this->reader := DEFAULT OBJECT;
+    RETURN [ query := this->parsed_queries[0]
+           , filters := this->parsed_filters
+           , words := (SELECT AS STRING ARRAY DISTINCT word FROM ToRecordArray(this->parsed_words, "word"))
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION ParseUserQuery(RECORD query, STRING lang)
+  {
+    INTEGER curdefaultrequire;
+    IF (query.defaultrequire != 0)
+    {
+      curdefaultrequire := this->defaultrequire;
+      this->defaultrequire := query.defaultrequire;
+    }
+    RECORD ARRAY curdefaultfields;
+    IF (RecordExists(query.defaultfields))
+    {
+      curdefaultfields := this->pvt_defaultfields;
+      this->defaultfields := query.defaultfields;
+    }
+
+    RECORD ARRAY curthesaurus;
+    IF (CellExists(query, "thesaurus"))
+    {
+      curthesaurus := this->pvt_thesaurus_by_word;
+      this->thesaurus := query.thesaurus;
+    }
+
+    RECORD parsed := this->Parse(query.userquery, lang);
+
+    IF (curdefaultrequire != 0)
+      this->defaultrequire := curdefaultrequire;
+    IF (RecordExists(curdefaultfields))
+      this->pvt_defaultfields := curdefaultfields;
+
+    IF (CellExists(query, "thesaurus"))
+      this->thesaurus := curthesaurus;
+
+    RETURN parsed;
+  }
+
+  PUBLIC STRING FUNCTION ExtractUserQuery(STRING query)
+  {
+    // We'll assume that if the query doesn't start with a (required/prohibited) boolean query, it already is a raw user query
+    IF (query NOT LIKE "(*" AND query NOT LIKE "+(*" AND query NOT LIKE "-(*")
+      RETURN query;
+
+    RETURN Detokenize(this->ExtractUserQueryRecursive(this->Parse(query, "")), " ");
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Parser functions
+  //
+
+  RECORD FUNCTION State_SubQuery(INTEGER require)
+  {
+    IF (this->debug)
+      Print("  State_SubQuery\n");
+
+    RECORD subquery := this->MakeBooleanQuery();
+
+    INTEGER subrequire := require >= 0 ? require : this->require;
+
+    INSERT subquery INTO this->parsed_queries AT END;
+
+    this->query_token := this->reader->GetNextToken(); // Eat '('
+    this->RunParser([ state := "term" ]);
+
+    IF (NOT this->FlushTerms())
+      RETURN DEFAULT RECORD;
+
+    IF (RecordExists(this->query_token) AND Left(this->query_token.text, 1) = ')')
+      this->query_token := this->reader->GetNextToken(); // Eat ')'
+
+    IF (RecordExists(this->query_token) AND Left(this->query_token.text, 1) = '^')
+      this->RunParser([ state := "boostfactor", subquery_end := TRUE ]);
+
+    subquery := this->parsed_queries[END - 1];
+    DELETE FROM this->parsed_queries AT END -1;
+    IF (require >= 0)
+    {
+      IF (Length(subquery.subqueries) = 1)
+      {
+        // Combine "(a) ((b))" into "(a) (b)"
+        INSERT this->MakeSubQuery(subquery.subqueries[0].query, subrequire) INTO this->parsed_queries[END - 1].subqueries AT END;
+        DELETE FROM subquery.subqueries AT 0;
+      }
+      ELSE
+      {
+        // Try to combine "(a) ((b) (c))" into "(a) (b) (c)"
+        WHILE (Length(subquery.subqueries) > 0)
+        {
+          IF (subquery.subqueries[0].required != (subrequire = require_required))
+            BREAK;
+          INSERT this->MakeSubQuery(subquery.subqueries[0].query, subrequire) INTO this->parsed_queries[END - 1].subqueries AT END;
+          DELETE FROM subquery.subqueries AT 0;
+        }
+      }
+    }
+    IF (Length(subquery.subqueries) > 0)
+      INSERT this->MakeSubQuery(subquery, subrequire) INTO this->parsed_queries[END - 1].subqueries AT END;
+
+    RETURN [ state := "term" ];
+  }
+
+  RECORD FUNCTION State_Term()
+  {
+    IF (this->debug)
+      Print("  State_Term\n");
+
+    IF (NOT this->FlushTerms())
+      RETURN DEFAULT RECORD;
+
+    // Initialize subquery
+    this->require := this->defaultrequire; // Switch to default requirement for new term
+    this->query_field := ""; // Field to search
+    this->query_word := ""; // Word to look for
+
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 1//TokenTypeWord
+        {
+          IF (this->query_token.text = "AND")
+          {
+            IF (Length(this->parsed_queries[END - 1].subqueries) > 0)
+              this->parsed_queries[END - 1].subqueries[END - 1].required := TRUE;
+            RETURN [ state := "subquery", require := require_required ];
+          }
+          IF (this->query_token.text = "OR")
+          {
+            IF (Length(this->parsed_queries[END - 1].subqueries) > 0)
+              this->parsed_queries[END - 1].subqueries[END - 1].required := FALSE;
+            RETURN [ state := "subquery", require := require_allowed ];
+          }
+          RETURN [ state := "text", has_field := FALSE ];
+        }
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = ')')
+          {
+            RETURN DEFAULT RECORD;
+          }
+          ELSE IF (Left(this->query_token.text, 1) = '(')
+          {
+            RETURN [ state := "subquery", require := -1 ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = '"')
+          {
+            RETURN [ state := "phrasestart" ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = '-' OR Left(this->query_token.text, 1) = '+')
+          {
+            RETURN [ state := "requirement" ];
+          }
+        }
+      }
+      this->query_token := this->reader->GetNextToken(); // Eat unknown token, read next and start over
+      RETURN [ state := "term" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_UntokenizedText(BOOLEAN word_only)
+  {
+    IF (this->debug)
+      Print("  State_UntokenizedText\n");
+
+    this->query_word := ""; // Clear the field name
+
+    BOOLEAN have_quotes := FALSE;
+    BOOLEAN next_escaped := FALSE;
+    if (Left(this->query_token.text, 1) = '\"')
+    {
+      have_quotes := TRUE;
+      this->query_token := this->reader->GetNextToken(); // Eat opening quote
+    }
+
+    // Parse the untokenized text, end at whitespace, '(' or ')', '{', '}', '[', ']', ','
+    WHILE (TRUE)
+    {
+      IF (NOT RecordExists(this->query_token)) // Invalid token means end of untokenized text
+        BREAK;
+
+      IF (this->query_token.type = TokenTypeWhitespace AND NOT have_quotes)
+        BREAK;
+
+      IF (this->query_token.type = TokenTypeParserPunct)
+      {
+        IF (NOT have_quotes)
+        {
+          IF (Left(this->query_token.text, 1) IN [ '(', ')', '{', '}', '[', ']', ',' ])
+            BREAK;
+        }
+        ELSE IF (NOT next_escaped AND Left(this->query_token.text, 1) = '"')
+        {
+          this->query_token := this->reader->GetNextToken(); // Eat current token
+          BREAK;
+        }
+      }
+
+      IF (NOT next_escaped AND Left(this->query_token.text, 1) = '\\')
+        next_escaped := TRUE;
+      ELSE
+        next_escaped := FALSE;
+
+      this->query_word := this->query_word || this->query_token.text;
+
+      this->query_token := this->reader->GetNextToken(); // Eat current token
+    }
+    IF (have_quotes)
+      this->query_word := DecodeJava(this->query_word);
+    IF (word_only)
+      RETURN DEFAULT RECORD; // We don't want a term created, just read a word and return
+
+    // Create the query term
+    this->query_term := this->MakeTermQuery(this->query_field, this->query_word);
+
+    this->query_field := ""; // Field to search
+    this->query_word := ""; // Word to look for
+
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = ')')
+          {
+            RETURN DEFAULT RECORD;
+          }
+          ELSE IF (Left(this->query_token.text, 1) = '^')
+          {
+            RETURN [ state := "boostfactor", subquery_end := FALSE ];
+          }
+        }
+      }
+      // Let Term handle the unknown token
+      RETURN [ state := "term" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_Requirement()
+  {
+    IF (this->debug)
+      Print("  State_Requirement\n");
+
+    IF (Left(this->query_token.text, 1) = '+')
+      this->require := require_required;
+    ELSE IF (Left(this->query_token.text, 1) = '-')
+      this->require := require_prohibited;
+
+    this->query_token := this->reader->GetNextToken(); // Eat '+' or '-'
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 1//TokenTypeWord
+        {
+          RETURN [ state := "text", has_field := FALSE ];
+        }
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = ')')
+          {
+            RETURN DEFAULT RECORD;
+          }
+          ELSE IF (Left(this->query_token.text, 1) = '(')
+          {
+            RETURN [ state := "subquery", require := -1 ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = '"')
+          {
+            RETURN [ state := "phrasestart" ];
+          }
+        }
+      }
+      // Let Term handle the unknown token
+      RETURN [ state := "term" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_Text(BOOLEAN has_field)
+  {
+    IF (this->debug)
+      Print("  State_Text\n");
+
+    this->query_stopterm := this->query_token.stopword;
+    this->query_word := this->query_token.normalizedtext;
+
+    IF (RecordExists(this->query_token))
+    {
+      // Make search term with query word and stemmed word, if available
+      this->query_term := this->MakeSearchTerm(this->query_stopterm, this->query_field, this->query_word, this->query_token.stemmedtext);
+
+      // If we didn't read a field name yet, this might be it
+      IF (NOT has_field)
+      {
+        this->query_field := this->query_word;
+
+        // Support for "field.member@module" field names
+        RECORD next_token := this->reader->GetNextToken(); // Eat word
+        WHILE (RecordExists(next_token) AND next_token.type = TokenTypeParserPunct AND Left(next_token.text, 1) IN [ '@', '.' ])
+        {
+          STRING punct := next_token.text;
+          next_token := this->reader->GetNextToken(); // Eat '@' or '.'
+
+          IF (RecordExists(next_token) AND next_token.type = TokenTypeWord)
+          {
+            this->query_field := this->query_field || punct || next_token.normalizedtext;
+            next_token := this->reader->GetNextToken(); // Eat word
+          }
+          ELSE
+            BREAK;
+        }
+        this->query_token := next_token;
+      }
+      ELSE
+        this->query_token := this->reader->GetNextToken(); // Eat word
+    }
+    ELSE
+      this->query_token := this->reader->GetNextToken(); // Eat word
+
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (NOT has_field AND Left(this->query_token.text, 1) = ':')
+          {
+            RETURN [ state := "field" ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = '^')
+          {
+            RETURN [ state := "boostfactor", subquery_end := FALSE ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = ')')
+          {
+            RETURN DEFAULT RECORD;
+          }
+          ELSE
+          {
+            IF (NOT has_field)
+              this->query_field := "";
+
+            RETURN [ state := "directphrasestart" ];
+          }
+        }
+        CASE 2//TokenTypePunct
+        {
+          IF (NOT has_field)
+            this->query_field := "";
+
+          RETURN [ state := "directphrasestart" ];
+        }
+      }
+      // Let Term handle the unknown token
+      RETURN [ state := "term" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_Field()
+  {
+    IF (this->debug)
+      Print("  State_Field\n");
+
+    // The last word was the field name to search, delete current subquery
+    this->query_term := DEFAULT RECORD;
+    this->query_words := DEFAULT STRING ARRAY;
+    this->query_stopterm := FALSE;
+
+    this->query_token := this->reader->GetNextToken(); // Eat ':'
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 1//TokenTypeWord
+        {
+          IF (NOT this->IsTokenizedField(this->query_field))
+            RETURN [ state := "untokenizedtext", word_only := FALSE ];
+          ELSE
+            RETURN [ state := "text", has_field := TRUE ];
+        }
+        CASE 2//TokenTypePunct
+        {
+          IF (this->query_token.text = '*')
+          {
+            this->query_term := this->MakeExistsQuery(this->query_field);
+            this->query_token := this->reader->GetNextToken(); // Eat '*'
+            RETURN [ state := "term" ];
+          }
+        }
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = '[' OR Left(this->query_token.text, 1) = '{')
+          {
+            RETURN [ state := "rangestart" ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = ')')
+          {
+          }
+          ELSE
+          {
+            IF (NOT this->IsTokenizedField(this->query_field))
+            {
+              RETURN [ state := "untokenizedtext", word_only := FALSE ];
+            }
+            ELSE IF (Left(this->query_token.text, 1) = '"')
+            {
+              RETURN [ state := "phrasestart" ];
+            }
+          }
+          RETURN DEFAULT RECORD;
+        }
+      }
+      IF (NOT this->IsTokenizedField(this->query_field))
+        RETURN [ state := "untokenizedtext", word_only := FALSE ];
+      ELSE
+      {
+        // Let Term handle the unknown token
+        RETURN [ state := "term" ];
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_RangeStart()
+  {
+    IF (this->debug)
+      Print("  State_RangeStart\n");
+
+    BOOLEAN includelower := Left(this->query_token.text, 1) = '[';
+    this->query_word := "";
+
+    this->query_token := this->reader->GetNextToken(); // Eat '[' or '{'
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 1//TokenTypeWord
+        {
+          RETURN [ state := "rangelower", includelower := includelower ];
+        }
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = ',')
+          {
+            RETURN [ state := "rangesep", lowerterm := "", includelower := includelower ];
+          }
+        }
+      }
+      IF (NOT this->IsTokenizedField(this->query_field))
+        RETURN [ state := "rangelower", includelower := includelower ];
+      ELSE
+      {
+        // Let Term handle the unknown token
+        RETURN [ state := "term" ];
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_RangeLower(BOOLEAN includelower)
+  {
+    IF (this->debug)
+      Print("  State_RangeLower\n");
+
+    STRING lowerterm;
+    IF (NOT this->IsTokenizedField(this->query_field))
+    {
+      this->RunParser([ state := "untokenizedtext", word_only := TRUE ]);
+      lowerterm := this->query_word;
+    }
+    ELSE
+    {
+      lowerterm := this->query_word = "" ? this->query_token.normalizedtext : (this->query_word || this->query_token.text);
+
+      this->query_token := this->reader->GetNextToken(); // Eat lower term
+    }
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      IF (this->query_token.type = TokenTypeParserPunct AND Left(this->query_token.text, 1) = ',')
+        RETURN [ state := "rangesep", lowerterm := lowerterm, includelower := includelower ];
+      ELSE
+      {
+        // Let Term handle the unknown token
+        RETURN [ state := "term" ];
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_RangeSep(STRING lowerterm, BOOLEAN includelower)
+  {
+    IF (this->debug)
+      Print("  State_RangeSep\n");
+
+    this->query_word := "";
+
+    this->query_token := this->reader->GetNextToken(); // Eat ','
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 1//TokenTypeWord
+        {
+          RETURN [ state := "rangeupper", lowerterm := lowerterm, includelower := includelower ];
+        }
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) IN [ ']', '}' ])
+          {
+            RETURN [ state := "rangeend", lowerterm := lowerterm, includelower := includelower, upperterm := "" ];
+          }
+        }
+      }
+      IF (NOT this->IsTokenizedField(this->query_field))
+        RETURN [ state := "rangeupper", lowerterm := lowerterm, includelower := includelower ];
+      ELSE
+      {
+        // Let Term handle the unknown token
+        RETURN [ state := "term" ];
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_RangeUpper(STRING lowerterm, BOOLEAN includelower)
+  {
+    IF (this->debug)
+      Print("  State_RangeUpper\n");
+
+    STRING upperterm;
+    IF (NOT this->IsTokenizedField(this->query_field))
+    {
+      this->RunParser([ state := "untokenizedtext", word_only := TRUE ]);
+      upperterm := this->query_word;
+    }
+    ELSE
+    {
+      upperterm := this->query_word = "" ? this->query_token.normalizedtext : (this->query_word || this->query_token.text);
+
+      this->query_token := this->reader->GetNextToken(); // Eat lower term
+    }
+
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      IF (this->query_token.type = TokenTypeParserPunct AND (Left(this->query_token.text, 1) IN [ ']', '}' ]))
+        RETURN [ state := "rangeend", lowerterm := lowerterm, includelower := includelower, upperterm := upperterm ];
+      ELSE
+      {
+        // Let Term handle the unknown token
+        RETURN [ state := "term" ];
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_RangeEnd(STRING lowerterm, BOOLEAN includelower, STRING upperterm)
+  {
+    IF (this->debug)
+      Print("  State_RangeEnd\n");
+
+    // this->query_field holds the field name
+    BOOLEAN includeupper := Left(this->query_token.text, 1) = ']';
+
+    // Only apply filter if not lowerterm and upperterm are both empty
+    IF (lowerterm != "" OR upperterm != "")
+    {
+      RECORD rangefilter := MakeRangeFilter(this->query_field, lowerterm, upperterm, includelower, includeupper);
+      INSERT rangefilter INTO this->parsed_filters AT END;
+    }
+
+    this->query_token := this->reader->GetNextToken(); // Eat ']' or '}'
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+      RETURN [ state := "term" ];
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_PhraseStart()
+  {
+    IF (this->debug)
+      Print("  State_PhraseStart\n");
+
+    //ADDME: Search other fields as well (maybe we should have a PhraseQuery per field?)
+    this->query_term := this->MakePhraseQuery(this->query_field ?? "body");
+
+    this->query_token := this->reader->GetNextToken(); // Eat '"'
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 1//TokenTypeWord
+        {
+          RETURN [ state := "phrasetext" ];
+        }
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = '"')
+          {
+            // Empty term, delete it
+            this->query_term := DEFAULT RECORD;
+            this->query_words := DEFAULT STRING ARRAY;
+
+            // Go to next term
+            this->query_token := this->reader->GetNextToken(); // Eat '"'
+            RETURN [ state := "term" ];
+          }
+        }
+      }
+      // Not a word, read next token
+      RETURN [ state := "phrasesep" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_PhraseText()
+  {
+    IF (this->debug)
+      Print("  State_PhraseText\n");
+
+    IF (this->query_token.type = TokenTypeWord)
+    {
+      IF (this->query_field = "")
+      {
+        INSERT this->query_token.normalizedtext INTO this->query_term.words AT END;
+        INSERT this->query_token.normalizedtext INTO this->query_words AT END;
+      }
+      ELSE
+      {
+        INSERT this->query_token.normalizedtext INTO this->query_term.words AT END;
+
+        // Add the query word if searching through body or title
+        IF (this->query_field = "body" OR this->query_field = "title")
+          INSERT this->query_token.normalizedtext INTO this->query_words AT END;
+      }
+      this->query_token := this->reader->GetNextToken(); // Eat word
+    }
+
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = '"')
+          {
+            RETURN [ state := "phraseend" ];
+          }
+        }
+      }
+      // Not a word, read next token
+      RETURN [ state := "phrasesep" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_PhraseSep()
+  {
+    IF (this->debug)
+      Print("  State_PhraseSep\n");
+
+    this->query_token := this->reader->GetNextToken(); // Eat non-word token
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 1//TokenTypeWord
+        {
+          RETURN [ state := "phrasetext" ];
+        }
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = '"')
+          {
+            RETURN [ state := "phraseend" ];
+          }
+        }
+      }
+      // Not a word, read next token
+      RETURN [ state := "phrasesep" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_PhraseEnd()
+  {
+    IF (this->debug)
+      Print("  State_PhraseEnd\n");
+
+    this->query_token := this->reader->GetNextToken(); // Eat '"'
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = '~')
+          {
+            RETURN [ state := "slopfactor" ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = '^')
+          {
+            RETURN [ state := "boostfactor", subquery_end := FALSE ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = ')')
+          {
+            RETURN DEFAULT RECORD;
+          }
+        }
+      }
+      // Let Term handle the unknown token
+      RETURN [ state := "term" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_DirectPhraseStart()
+  {
+    IF (this->debug)
+      Print("  State_DirectPhraseStart\n");
+
+    IF (this->query_term._type != "phrase")
+    {
+      // The last word was the first phrase term, delete current subquery
+      this->query_term := this->MakePhraseQuery(this->query_field ?? "body");
+      this->query_words := DEFAULT STRING ARRAY;
+
+      IF (this->query_field = "")
+      {
+        INSERT this->query_word INTO this->query_term.words AT END;
+        INSERT this->query_word INTO this->query_words AT END;
+      }
+      ELSE
+      {
+        INSERT this->query_word INTO this->query_term.words AT END;
+
+        // Clear the query word if not searching for body or title
+        IF (this->query_field = "body" OR this->query_field = "title")
+          INSERT this->query_word INTO this->query_words AT END;
+      }
+    }
+
+    IF (Left(this->query_token.text, 1) = ')')
+      RETURN DEFAULT RECORD;
+
+    this->query_token := this->reader->GetNextToken(); // Eat '+' or '-'
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 1//TokenTypeWord
+        {
+          RETURN [ state := "directphrasetext" ];
+        }
+      }
+      // Let Term handle the unknown token
+      RETURN [ state := "term" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_DirectPhraseText()
+  {
+    IF (this->debug)
+      Print("  State_DirectPhraseText\n");
+
+    IF (this->query_token.type = TokenTypeWord)
+    {
+      IF (this->query_field = "")
+      {
+        INSERT this->query_token.normalizedtext INTO this->query_term.words AT END;
+        INSERT this->query_token.normalizedtext INTO this->query_words AT END;
+      }
+      ELSE
+      {
+        INSERT this->query_token.normalizedtext INTO this->query_term.words AT END;
+
+        // Clear the query word if not searching for body or title
+        IF (this->query_field = "body" OR this->query_field = "title")
+          INSERT this->query_token.normalizedtext INTO this->query_words AT END;
+      }
+    }
+
+    this->query_token := this->reader->GetNextToken(); // Eat (stemmed) word
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 1//TokenTypeWord
+        {
+          RETURN [ state := "directphrasetext" ];
+        }
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = '~')
+          {
+            RETURN [ state := "slopfactor" ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = '^')
+          {
+            RETURN [ state := "boostfactor", subquery_end := FALSE ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = ')')
+          {
+            RETURN DEFAULT RECORD;
+          }
+          this->RunParser([ state := "directphrasestart" ]);
+        }
+        CASE 2//TokenTypePunct
+        {
+          RETURN [ state := "directphrasestart" ];
+        }
+      }
+      // Let Term handle the unknown token
+      RETURN [ state := "term" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_SlopFactor()
+  {
+    IF (this->debug)
+      Print("  State_SlopFactor\n");
+
+    this->query_token := this->reader->GetNextToken(); // Eat '~'
+    IF (NOT RecordExists(this->query_token))
+      RETURN DEFAULT RECORD;
+
+    // Read slop factor (unsigned integer)
+    this->query_term.slop := ToInteger(this->query_token.text, 0);
+
+    this->query_token := this->reader->GetNextToken(); // Eat number
+    IF (RecordExists(this->query_token)) // Invalid token means end of text
+    {
+      SWITCH (this->query_token.type)
+      {
+        CASE 5//TokenTypeParserPunct
+        {
+          IF (Left(this->query_token.text, 1) = '^')
+          {
+            RETURN [ state := "boostfactor", subquery_end := FALSE ];
+          }
+          ELSE IF (Left(this->query_token.text, 1) = ')')
+            RETURN DEFAULT RECORD;
+        }
+      }
+      // Let Term handle the unknown token
+      RETURN [ state := "term" ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION State_BoostFactor(BOOLEAN subquery_end)
+  {
+    IF (this->debug)
+      Print("  State_BoostFactor\n");
+
+    this->query_token := this->reader->GetNextToken(); // Eat '^'
+    IF (NOT RecordExists(this->query_token))
+      RETURN DEFAULT RECORD;
+
+    // Read boost factor (unsigned float)
+    FLOAT boost;
+    INTEGER intpart;
+    IF (this->query_token.type = TokenTypeWord)
+    {
+      intpart := ToInteger(this->query_token.text, 1);
+      boost := intpart;
+
+      this->query_token := this->reader->GetNextToken(); // Eat number
+    }
+    IF (RecordExists(this->query_token) AND this->query_token.type = TokenTypeParserPunct AND Left(this->query_token.text, 1) = '.')
+    {
+      this->query_token := this->reader->GetNextToken(); // Eat '.'
+      IF (NOT RecordExists(this->query_token))
+        RETURN DEFAULT RECORD;
+
+      INTEGER factor := Length(this->query_token.text);
+      INTEGER decimals := ToInteger(this->query_token.text, 0);
+      FLOAT f := 1;
+      FOR (INTEGER i := 0; i < factor; i := i + 1)
+        f := f * 10;
+      boost := intpart + (decimals / f);
+
+      this->query_token := this->reader->GetNextToken(); // Eat number
+    }
+    IF (boost > 0)
+    {
+      IF (subquery_end)
+        this->parsed_queries[END - 1].boost := boost;
+      ELSE
+        this->query_term.boost := boost;
+    }
+
+    IF (NOT subquery_end)
+      RETURN [ state := "term" ];
+    RETURN DEFAULT RECORD;
+  }
+
+
+  BOOLEAN FUNCTION FlushTerms()
+  {
+    IF (RecordExists(this->query_term))
+    {
+      // Check the maximum number of boolean clauses before adding
+      IF (Length(this->parsed_queries[END - 1].subqueries) < maxclausecount)
+      {
+        INSERT this->MakeSubQuery(this->query_term, this->require) INTO this->parsed_queries[END - 1].subqueries AT END;
+        IF (this->require != require_prohibited)
+          this->parsed_words := this->parsed_words CONCAT this->query_words;
+        this->query_term := DEFAULT RECORD;
+        this->query_words := DEFAULT STRING ARRAY;
+        this->query_stopterm := FALSE;
+      }
+      ELSE
+      {
+        // Not adding this this->query_term, so delete it
+        this->query_term := DEFAULT RECORD;
+        this->query_words := DEFAULT STRING ARRAY;
+        this->query_stopterm := FALSE;
+
+        // No more terms to add
+        RETURN FALSE;
+      }
+    }
+    RETURN TRUE;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  RECORD ARRAY FUNCTION GetDefaultFields()
+  {
+    RETURN this->pvt_defaultfields ?? defaultfields;
+  }
+
+  MACRO SetDefaultFields(RECORD ARRAY fields)
+  {
+    this->pvt_defaultfields :=
+        SELECT field
+             , boost := CellExists(fields, "boost") ? boost : 1f
+             , stemmed_field := CellExists(fields, "stemmed_field") AND stemmed_field
+          FROM fields
+         WHERE CellExists(fields, "field");
+  }
+
+  MACRO SetThesaurus(RECORD ARRAY thesaurus)
+  {
+    this->pvt_thesaurus_by_word := SELECT * FROM thesaurus ORDER BY word, wordgroup;
+    this->pvt_thesaurus_by_group := SELECT * FROM thesaurus ORDER BY wordgroup, word;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RunParser(RECORD state)
+  {
+    IF (this->parser_depth = 100)
+      RETURN;
+    this->parser_depth := this->parser_depth + 1;
+    WHILE (RecordExists(state))
+    {
+      SWITCH (state.state)
+      {
+        CASE "boostfactor" { state := this->State_BoostFactor(state.subquery_end); }
+        CASE "directphrasestart" { state := this->State_DirectPhraseStart(); }
+        CASE "directphrasetext" { state := this->State_DirectPhraseText(); }
+        CASE "field" { state := this->State_Field(); }
+        CASE "phraseend" { state := this->State_PhraseEnd(); }
+        CASE "phrasesep" { state := this->State_PhraseSep(); }
+        CASE "phrasestart" { state := this->State_PhraseStart(); }
+        CASE "phrasetext" { state := this->State_PhraseText(); }
+        CASE "rangeend" { state := this->State_RangeEnd(state.lowerterm, state.includelower, state.upperterm); }
+        CASE "rangelower" { state := this->State_RangeLower(state.includelower); }
+        CASE "rangesep" { state := this->State_RangeSep(state.lowerterm, state.includelower); }
+        CASE "rangestart" { state := this->State_RangeStart(); }
+        CASE "rangeupper" { state := this->State_RangeUpper(state.lowerterm, state.includelower); }
+        CASE "requirement" { state := this->State_Requirement(); }
+        CASE "slopfactor" { state := this->State_SlopFactor(); }
+        CASE "subquery" { state := this->State_SubQuery(state.require); }
+        CASE "term" { state := this->State_Term(); }
+        CASE "text" { state := this->State_Text(state.has_field); }
+        CASE "untokenizedtext" { state := this->State_UntokenizedText(state.word_only); }
+      }
+      IF (this->parser_depth = 1 AND NOT RecordExists(state) AND RecordExists(this->query_token))
+      {
+        this->query_token := this->reader->GetNextToken(); // Eat offending token
+        IF (RecordExists(this->query_token))
+          state := [ state := "term" ];
+      }
+    }
+    this->parser_depth := this->parser_depth - 1;
+  }
+
+  RECORD FUNCTION MakeBooleanQuery(FLOAT boost DEFAULTSTO 1f)
+  {
+    IF (this->debug)
+      Print("    MakeBooleanQuery\n");
+
+    RETURN MakeBooleanQuery(boost);
+  }
+
+  RECORD FUNCTION MakeTermQuery(STRING field, STRING text, FLOAT boost DEFAULTSTO 1f)
+  {
+    IF (this->debug)
+      Print("    MakeTermQuery: " || EncodeJava(field) || ":" || EncodeJava(text) || "\n");
+
+    RETURN MakeTermQuery(field, text, boost);
+  }
+
+  RECORD FUNCTION MakePhraseQuery(STRING field, FLOAT boost DEFAULTSTO 1f)
+  {
+    IF (this->debug)
+      Print("    MakePhraseQuery\n");
+
+    RETURN MakePhraseQuery(field, DEFAULT STRING ARRAY, boost);
+  }
+
+  RECORD FUNCTION MakeExistsQuery(STRING field)
+  {
+    IF (this->debug)
+      Print("    MakeExistsQuery\n");
+
+    RETURN MakeExistsQuery(field);
+  }
+
+  RECORD FUNCTION MakeSubQuery(RECORD query, INTEGER require)
+  {
+    RETURN MakeSubQuery(query, require);
+  }
+
+  RECORD FUNCTION MakeSearchTerm(BOOLEAN stopterm, STRING field, STRING text, STRING stemmedtext)
+  {
+    RECORD searchterm := this->MakeBooleanQuery();
+
+    IF (field = "")
+    {
+      FLOAT ARRAY boosts := SELECT AS FLOAT ARRAY boost FROM this->defaultfields;
+      IF (Length(boosts) > 0)
+      {
+        IF (stopterm)
+          boosts := SELECT AS FLOAT ARRAY stopword_factor * boost FROM ToRecordArray(boosts, "boost");
+
+        RECORD subquery := MakeMatchQuery((SELECT AS STRING ARRAY COLUMN field FROM this->defaultfields), text, boosts);
+        INSERT this->MakeSubQuery(subquery, require_allowed) INTO searchterm.subqueries AT END;
+
+        INSERT text INTO this->query_words AT END;
+
+        // Stemmed term?
+        IF (stemmedtext != "")
+        {
+          boosts := SELECT AS FLOAT ARRAY stemmed_factor * boost FROM this->defaultfields WHERE stemmed_field;
+          IF (Length(boosts) > 0)
+          {
+            IF (stopterm)
+              boosts := SELECT AS FLOAT ARRAY stopword_factor * boost FROM ToRecordArray(boosts, "boost");
+
+            RECORD stemmedsubquery := MakeMatchQuery((SELECT AS STRING ARRAY COLUMN field FROM this->defaultfields WHERE stemmed_field), stemmedtext, boosts);
+            INSERT this->MakeSubQuery(stemmedsubquery, require_allowed) INTO searchterm.subqueries AT END;
+
+            INSERT stemmedtext INTO this->query_words AT END;
+          }
+        }
+
+        STRING ARRAY synonyms := this->GetWordThesaurus(text);
+        FOREVERY (STRING synonym FROM synonyms)
+        {
+          FLOAT ARRAY synonymboosts := SELECT AS FLOAT ARRAY thesaurus_factor * boost FROM this->defaultfields;
+          RECORD synonymsubquery := MakeMatchQuery((SELECT AS STRING ARRAY COLUMN field FROM this->defaultfields), synonym, synonymboosts);
+          INSERT this->MakeSubQuery(synonymsubquery, require_allowed) INTO searchterm.subqueries AT END;
+        }
+      }
+    }
+    ELSE
+    {
+      // Search given field
+      RECORD subquery := this->MakeTermQuery(field, text, (stopterm ? stopword_factor : 1f) * body_boost);
+      INSERT this->MakeSubQuery(subquery, require_allowed) INTO searchterm.subqueries AT END;
+
+      INSERT text INTO this->query_words AT END;
+
+      IF (stemmedtext != "" AND stemmedtext != text)
+      {
+        // Search given field
+        subquery := this->MakeTermQuery(field, stemmedtext, (stopterm ? stopword_factor : 1f) * stemmed_factor * body_boost);
+        INSERT this->MakeSubQuery(subquery, require_allowed) INTO searchterm.subqueries AT END;
+
+        INSERT stemmedtext INTO this->query_words AT END;
+      }
+
+      STRING ARRAY synonyms := this->GetWordThesaurus(text);
+      FOREVERY (STRING synonym FROM synonyms)
+      {
+        RECORD synonymsubquery := this->MakeTermQuery(field, synonym, thesaurus_factor * body_boost);
+        INSERT this->MakeSubQuery(synonymsubquery, require_allowed) INTO searchterm.subqueries AT END;
+      }
+    }
+
+    RETURN Length(searchterm.subqueries) > 1 ? searchterm : searchterm.subqueries[0].query;
+  }
+
+  STRING ARRAY FUNCTION ExtractUserQueryRecursive(RECORD query)
+  {
+    BOOLEAN required, prohibited;
+    IF (CellExists(query, "query"))
+    {
+      required := CellExists(query, "required") AND query.required;
+      prohibited := CellExists(query, "prohibited") AND query.prohibited;
+      query := query.query;
+    }
+
+    IF (query._type != "boolean")
+      RETURN DEFAULT STRING ARRAY;
+
+    // We're looking for boolean queries like "(title:XXXX^5 keywords:XXXX^10 description:XXXX^5 XXXX)", which is constructed
+    // from the user query "XXXX". This is parsed into a boolean query with four subqueries, one term query for each of
+    // "title", "keywords" and "description" and either one term query for "body" or (if the query was formatted with the
+    // "body" field name) a match query for the fields "title", "keywords", "description" and "body". All queries must have
+    // the same term or text, which was the word the user searched for.
+    IF (Length(query.subqueries) = 4
+        AND RecordExists(SELECT FROM query.subqueries WHERE NOT COLUMN required AND NOT COLUMN prohibited AND COLUMN query._type = "term" AND COLUMN query.field = "title")
+        AND RecordExists(SELECT FROM query.subqueries WHERE NOT COLUMN required AND NOT COLUMN prohibited AND COLUMN query._type = "term" AND COLUMN query.field = "keywords")
+        AND RecordExists(SELECT FROM query.subqueries WHERE NOT COLUMN required AND NOT COLUMN prohibited AND COLUMN query._type = "term" AND COLUMN query.field = "description"))
+    {
+      // Either "body" term query or match query for all fields
+      IF (RecordExists(SELECT FROM query.subqueries WHERE NOT COLUMN required AND NOT COLUMN prohibited AND COLUMN query._type = "term" AND COLUMN query.field = "body")
+          OR RecordExists(SELECT FROM query.subqueries
+                           WHERE NOT COLUMN required
+                                 AND NOT COLUMN prohibited
+                                 AND COLUMN query._type = "match"
+                                 AND Length(COLUMN query.fields) = 4
+                                 AND "title" IN COLUMN query.fields
+                                 AND "keywords" IN COLUMN query.fields
+                                 AND "description" IN COLUMN query.fields
+                                 AND "body" IN COLUMN query.fields))
+      {
+        STRING ARRAY userwords :=
+            SELECT AS STRING ARRAY DISTINCT CellExists(COLUMN query, "text") ? COLUMN query.text : COLUMN query.term
+              FROM query.subqueries;
+        IF (Length(userwords) = 1)
+          RETURN [ (required ? "+" : prohibited ? "-" : "") || userwords[0] ];
+      }
+    }
+
+    // This wasn't a user boolean query, so search the subqueries for user queries
+    STRING ARRAY userwords;
+    FOREVERY (RECORD subquery FROM query.subqueries)
+      userwords := userwords CONCAT this->ExtractUserQueryRecursive(subquery);
+    RETURN userwords;
+  }
+
+  BOOLEAN FUNCTION IsTokenizedField(STRING field)
+  {
+    RETURN field NOT IN [ "indexid", "groupid", "objectid", "initialfilter" ]
+        AND field NOT LIKE "date_*" AND field NOT LIKE "*.date_*";
+  }
+
+  STRING ARRAY FUNCTION GetWordThesaurus(STRING word)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_thesaurus_by_word, CELL[ word ], [ "word" ]);
+    IF (NOT pos.found)
+      RETURN DEFAULT STRING ARRAY;
+    STRING ARRAY wordgroup := [ word ];
+    INTEGER curword := pos.position;
+    WHILE (curword < Length(this->pvt_thesaurus_by_word) AND this->pvt_thesaurus_by_word[curword].word = word)
+    {
+      pos := RecordLowerBound(this->pvt_thesaurus_by_group, CELL[ this->pvt_thesaurus_by_word[curword].wordgroup ], [ "wordgroup" ]);
+      INTEGER curgroup := pos.position;
+      WHILE (curgroup < Length(this->pvt_thesaurus_by_group) AND this->pvt_thesaurus_by_group[curgroup].wordgroup = this->pvt_thesaurus_by_word[curword].wordgroup)
+      {
+        IF (this->pvt_thesaurus_by_group[curgroup].word NOT IN wordgroup)
+          INSERT this->pvt_thesaurus_by_group[curgroup].word INTO wordgroup AT END;
+        curgroup := curgroup + 1;
+      }
+      curword := curword + 1;
+    }
+    DELETE FROM wordgroup AT 0; // Delete the word itself
+    RETURN wordgroup;
+  }
+>;
+
+
+// A tokenstream with support for query parser punctuation and stop words
+OBJECTTYPE QueryParserTokenStream EXTEND TokenStream
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // List of stop words for the current language (sorted by cell 'word' so it can be searched using RecordLowerBound)
+  RECORD ARRAY stopwordlist;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC BOOLEAN debug;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW(STRING text, STRING langcode DEFAULTSTO "")
+  : TokenStream(text, langcode)
+  {
+    this->ReadStopwordList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION GetNextToken()
+  {
+    RECORD token := TokenStream::GetNextToken();
+
+    IF (NOT RecordExists(token))
+    {
+      IF (this->debug)
+        Print("GetNextToken: invalid\n");
+      RETURN token;
+    }
+
+    INSERT CELL stopword := token.type = TokenTypeWord
+        AND RecordLowerBound(this->stopwordlist, [ word := token.normalizedtext ], [ "WORD" ]).found INTO token;
+
+    IF (token.type = TokenTypePunct)
+    {
+      IF (parserpunct_regex->Test(token.text))
+        token.type := TokenTypeParserPunct;
+    }
+
+    IF (this->debug)
+      Print("GetNextToken: " || token.type || " " || token.text || "\n");
+    RETURN token;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  UPDATE MACRO SetLanguage(STRING langcode)
+  {
+    TokenStream::SetLanguage(langcode);
+    this->ReadStopwordList();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ReadStopwordList()
+  {
+    IF (this->language = "")
+    {
+      this->stopwordlist := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    // Read the stopword list for the new language, if not already cached
+    IF (NOT CellExists(cached_stopwordlists, this->language))
+    {
+      RECORD ARRAY stopwordlist;
+      TRY
+      {
+        STRING lang := Tokenize(GetLocaleForLangTag(this->language), "-")[0];
+        BLOB stopworddata := GetHarescriptResource("mod::consilio/data/lang/" || lang || "_stopwords.xml");
+        OBJECT stopwordquery := MakeXMLDocument(stopworddata)->CreateXPathQuery();
+        stopwordquery->RegisterNamespace("cs", "http://www.webhare.net/xmlns/consilio/stopwords");
+        FOREVERY (OBJECT wordnode FROM stopwordquery->ExecuteQuery("//cs:word")->GetCurrentElements())
+        {
+          STRING word := wordnode->textcontent;
+          RECORD pos := RecordLowerBound(stopwordlist, [ word := word ], [ "WORD" ]);
+          IF (NOT pos.found)
+            INSERT [ word := word ] INTO stopwordlist AT pos.position;
+        }
+      }
+      CATCH {}
+      cached_stopwordlists := CellInsert(cached_stopwordlists, this->language, stopwordlist);
+    }
+    this->stopwordlist := GetCell(cached_stopwordlists, this->language);
+  }
+>;
+
+
+/** @short Create a query with filters
+    @long Use this function to add filtering to an existing query.
+    @param query The query to use, a boolean query, term query, match query, literal query or phrase query
+    @param filters The filters to use, for example range filters. If left empty, no filtering is applied
+    @return The filtered query
+    @cell return.query The query
+    @cell return.filters The filters
+    @see MakeBooleanQuery, MakeTermQuery, MakeMatchQuery, MakeLiteralQuery, MakePhraseQuery, MakeRangeFilter
+*/
+PUBLIC RECORD FUNCTION MakeFilteredQuery(RECORD query, RECORD ARRAY filters)
+{
+  IF (NOT CellExists(query, "_type") OR query._type NOT IN [ "boolean", "term", "match", "literal", "phrase" ])
+    THROW NEW Exception("Invalid query supplied for filtered query");
+
+  RETURN [ query := query
+         , filters := filters
+         ];
+}
+
+/** @short Create a boolean query
+    @long The boolean query combines multiple subqueries into one query. Each subquery can have a requirement to control
+        whether the subquery is allowed (MAY be matched), required (MUST be matched) or prohibited (MUST NOT be matched).
+    @param boost The (optional) boost factor for this query
+    @return The boolean query
+    @cell return.subqueries The subqueries, created by MakeSubQuery
+    @cell return.boost The boost factor
+    @see MakeSubQuery
+*/
+PUBLIC RECORD FUNCTION MakeBooleanQuery(FLOAT boost DEFAULTSTO 1f)
+{
+  RETURN [ _type := "boolean"
+         , subqueries := DEFAULT RECORD ARRAY
+         , boost := boost
+         ];
+}
+
+/** @short Create a term query
+    @long The term query can be used to fuzzy search for a word in a field. The term is normalized and possibly stemmed
+        before searching. To search for multiple words and/or in multiple fields, use a match query. To search for an exact
+        term, use a literal query.
+    @param field The field to search
+    @param text The term to search for
+    @param boost The (optional) boost factor for this query
+    @return The term query
+    @cell return.field The query field
+    @cell return.term The query text
+    @cell return.boost The boost factor
+    @see MakeMatchQuery, MakeLiteralQuery
+*/
+PUBLIC RECORD FUNCTION MakeTermQuery(STRING field, STRING text, FLOAT boost DEFAULTSTO 1f)
+{
+  IF (field = "")
+    THROW NEW Exception("Query field is required for term query");
+  IF (text = "")
+    THROW NEW Exception("Query text is required for term query");
+
+  RETURN [ _type := "term"
+         , field := field
+         , term := text
+         , boost := boost
+         ];
+}
+
+/** @short Create a match query
+    @long The match query can be used to fuzzy search multiple fields. If the text contains multiple words (texts separated
+        by spaces), all words are searched individually. To search for words in a specific order, use a phrase query. Each
+        field can be boosted separately within the query.
+    @param fields The fields to search
+    @param text The text to search for
+    @param boosts (Optional) boost factors for each field. If there are more fields than boost factors, the boost factors are
+        modulated.
+    @param boost The (optional) boost factor for the whole query
+    @return The match query
+    @cell return.fields The query fields
+    @cell return.text The query text
+    @cell return.boosts The individual field boost factors
+    @cell return.boost The query boost factor
+    @see MakePhraseQuery
+*/
+PUBLIC RECORD FUNCTION MakeMatchQuery(STRING ARRAY fields, STRING text, FLOAT ARRAY boosts DEFAULTSTO DEFAULT FLOAT ARRAY, FLOAT boost DEFAULTSTO 1)
+{
+  IF (Length(fields) = 0)
+    THROW NEW Exception("Query fields are required for match query");
+  IF (text = "")
+    THROW NEW Exception("Query text is required for match query");
+
+  RETURN [ _type := "match"
+         , fields := fields
+         , text := text
+         , boosts := boosts
+         , boost := boost
+         ];
+}
+
+/** @short Create a literal term query
+    @long The literal term query can be used to match a given term exactly. This can be used to search non-tokenized keyword
+        fields.
+    @param field The field to search
+    @param term The exact term to search for
+    @param boost The (optional) boost factor for this query
+    @return The term query
+    @cell return.field The query field
+    @cell return.term The query text
+    @cell return.boost The boost factor
+    @see MakeTermQuery
+*/
+PUBLIC RECORD FUNCTION MakeLiteralQuery(STRING field, STRING term, FLOAT boost DEFAULTSTO 1f)
+{
+  IF (field = "")
+    THROW NEW Exception("Query field is required for literal query");
+  IF (term = "")
+    THROW NEW Exception("Query term is required for literal query");
+
+  RETURN [ _type := "literal"
+         , field := field
+         , term := term
+         , boost := boost
+         ];
+}
+
+/** @short Create a phrase query
+    @long The prase query can be used to search for a list of words that have to appear in the given order in a field. The
+        slop factor can be used to allow for words between those words.
+    @param field The field to search
+    @param words The words to search for
+    @param boost The (optional) boost factor for this query
+    @return The phrase query
+    @cell return.field The query field
+    @cell return.words The words (phrase) to search for
+    @cell return.slop The slop factor, i.e. the number of other words allowed between phrase words
+    @cell return.boost The boost factor
+*/
+PUBLIC RECORD FUNCTION MakePhraseQuery(STRING field, STRING ARRAY words, FLOAT boost DEFAULTSTO 1f)
+{
+  IF (field = "")
+    THROW NEW Exception("Query field is required for phrase query");
+
+  RETURN [ _type := "phrase"
+         , field := field
+         , words := DEFAULT STRING ARRAY
+         , slop := 0
+         , boost := boost
+         ];
+}
+
+PUBLIC RECORD FUNCTION MakeExistsQuery(STRING field)
+{
+  IF (field = "")
+    THROW NEW Exception("Query field is required for exists query");
+
+  RETURN [ _type := "exists"
+         , field := field
+         , boost := 1f//boost
+         ];
+}
+
+/** @short Create a subquery for a boolean query
+    @param query The subquery
+    @param required The subquery requirement, one of require_allowed (the subquery MAY match), require_required (the subquery
+        MUST match) or require_prohibited (the subquery MUST NOT match)
+    @return The subquery which can be added to a boolean query's subqueries
+    @see MakeBooleanQuery
+*/
+PUBLIC RECORD FUNCTION MakeSubQuery(RECORD query, INTEGER require)
+{
+  IF (NOT CellExists(query, "_type") OR query._type NOT IN [ "user", "boolean", "term", "match", "literal", "phrase", "exists" ])
+    THROW NEW Exception("Invalid query supplied for subquery");
+
+  RETURN [ query := query
+         , required := require = require_required
+         , prohibited := require = require_prohibited
+         ];
+}
+
+/** @short Create a range filter
+    @param field The field to filter on
+    @param lowerterm The lower limit of the range (for date fields, this can be a DATETIME value)
+    @param upperterm The upper limit of the range (for date fields, this can be a DATETIME value)
+    @param includelower If lowerterm is included in the range
+    @param includeupper If upperterm is included in the range
+    @return The range filter which can be added to a filtered query's filters
+*/
+PUBLIC RECORD FUNCTION MakeRangeFilter(STRING field, VARIANT lowerterm, VARIANT upperterm, BOOLEAN includelower, BOOLEAN includeupper)
+{
+  IF (field = "")
+    THROW NEW Exception("Query field is required for range filter");
+
+  RECORD filter :=
+      [ _type := "range"
+      , field := field
+      , lowerterm := lowerterm
+      , upperterm := upperterm
+      , includelower := includelower
+      , includeupper := includeupper
+      ];
+
+  // Convert date ranges to DATETIME
+  IF (field LIKE "date_*" OR field LIKE "*.date_*")
+  {
+    IF (TypeID(lowerterm) = TypeID(STRING))
+    {
+      IF (lowerterm LIKE "@????????????????")
+        filter := CellInsert(CellDelete(filter, "lowerterm"), "lowerterm", StringToDateTime(lowerterm));
+      ELSE
+        filter := CellInsert(CellDelete(filter, "lowerterm"), "lowerterm", MakeDateFromText(lowerterm));
+    }
+    IF (TypeID(upperterm) = TypeID(STRING))
+    {
+      IF (upperterm LIKE "@????????????????")
+        filter := CellInsert(CellDelete(filter, "upperterm"), "upperterm", StringToDateTime(upperterm));
+      ELSE
+        filter := CellInsert(CellDelete(filter, "upperterm"), "upperterm", MakeDateFromText(upperterm));
+    }
+  }
+  RETURN filter;
+}
+
+//we use indexid only to be able to construct CQAll queries
+PUBLIC STRING FUNCTION __FormatQuery(INTEGER indexid, RECORD query, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ field := "body" // The default field, which is ommitted from the output (e.g. "body:term" will become just "term")
+      , language := "" // The language used to parse user queries
+      , userquery := FALSE // If set to true, return the first user queries as-is instead of formatting the whole query
+      , consilio := FALSE // Format the query before sending it to the Consilio indexmanager
+      ], options);
+
+  STRING formatted;
+  IF (CellExists(query, "query"))
+    formatted := FormatQueryRecursive(indexid, query.query, options.field, options.language, options.userquery, FALSE, options.consilio);
+  ELSE
+    formatted := FormatQueryRecursive(indexid, query, options.field, options.language, options.userquery, FALSE, options.consilio);
+  IF (CellExists(query, "filters"))
+    FOREVERY (RECORD filter FROM query.filters)
+      formatted := formatted || " " || __FormatFilter(filter);
+  RETURN formatted;
+}
+
+STRING FUNCTION FormatQueryRecursive(INTEGER indexid, RECORD query, STRING field, STRING language, BOOLEAN returnuserquery, BOOLEAN literaluserquery, BOOLEAN forconsilio)
+{
+  IF (NOT RecordExists(query))
+    RETURN "";
+  IF (CellExists(query, "aggregation"))
+  {
+    IF (forconsilio)
+      THROW NEW Exception("Aggregations are not supported by Consilio");
+    RETURN "";
+  }
+
+  STRING boost := __FormatBoost(query.boost);
+  IF (query._type = "user")
+  {
+    IF (returnuserquery)
+      RETURN query.userquery;
+    query := NEW QueryParser()->ParseUserQuery(query, language).query;
+    literaluserquery := TRUE;
+  }
+
+  IF(CellExists(query,"subqueries"))
+    FOREVERY(RECORD subq FROM query.subqueries)
+      IF(subq.query._type = "user" AND returnuserquery)
+        RETURN subq.query.userquery;
+
+  SWITCH (query._type)
+  {
+    CASE "all"
+    {
+      RETURN "+indexid:" || indexid;
+    }
+    CASE "nothing"
+    {
+      RETURN "";
+    }
+    CASE "boolean"
+    {
+      IF (Length(query.subqueries) = 0)
+        RETURN "";
+
+      STRING ARRAY clauses :=
+          SELECT AS STRING ARRAY (required ? "+" : prohibited ? "-" : "")
+                                 || (subqueries.query._type != "match" ? "(" : "")
+                                 || FormatQueryRecursive(indexid, subqueries.query, field, language, returnuserquery, literaluserquery, forconsilio)
+                                 || (subqueries.query._type != "match" ? ")" : "")
+            FROM query.subqueries;
+      RETURN boost != "" ? "(" || Detokenize(clauses, " ") || ")" || boost : Detokenize(clauses, " ");
+    }
+    CASE "term"
+    {
+      RETURN (query.field != field ? query.field || ":" : "") || (literaluserquery ? "\"" || query.term || "\"" : query.term) || boost;
+    }
+    CASE "match"
+    {
+      IF (query.text = "" OR Length(query.fields) = 0)
+        RETURN "";
+
+      STRING ARRAY boosts :=
+          SELECT AS STRING ARRAY __FormatBoost(fieldboost)
+            FROM ToRecordArray(query.boosts ?? [ 1f ], "fieldboost");
+      RECORD ARRAY query_fields := ToRecordArray(query.fields, "query_field");
+      STRING ARRAY clauses :=
+          SELECT AS STRING ARRAY "(" || Detokenize((SELECT AS STRING ARRAY (query_field != field ? query_field || ":" : "") || (literaluserquery ? "\"" || texts.text || "\"" : texts.text) || boosts[#query_fields % Length(boosts)] FROM query_fields), " ") || ")"
+            FROM ToRecordArray(Tokenize(query.text, " "), "text") AS texts;
+      IF (Length(clauses) = 1)
+        RETURN boost != "" ? clauses[0] || boost : clauses[0];
+      RETURN boost != "" ? "(" || Detokenize(clauses, " ") || ")" || boost : Detokenize(clauses, " ");
+    }
+    CASE "literal"
+    {
+      RETURN (query.field != field ? query.field || ":" : "") || "\"" || EscapeQuery(query.term) || "\"" || boost;
+    }
+    CASE "phrase"
+    {
+      STRING slop := query.slop != 0 ? "~" || query.slop : "";
+      RETURN (query.field != field AND query.field != "" ? query.field || ":" : "") || "\"" || Detokenize(query.words, " ") || "\"" || slop || boost;
+    }
+    CASE "range"
+    {
+      STRING lowerterm, upperterm;
+      BOOLEAN includelower, includeupper;
+      IF (query.matchtype LIKE "<*")
+      {
+        upperterm := query.term;
+        includeupper := query.matchtype = "<=";
+      }
+      ELSE IF (query.matchtype LIKE ">*")
+      {
+        lowerterm := query.term;
+        includelower := query.matchtype = ">=";
+      }
+      ELSE IF (query.matchtype IN [ "[]", "{]", "[}", "{}" ])
+      {
+        // Explicit range
+        lowerterm := query.lowerterm;
+        upperterm := query.upperterm;
+        includelower := query.matchtype LIKE "[*";
+        includeupper := query.matchtype LIKE "*]";
+      }
+      STRING formatted := __FormatFilter(MakeRangeFilter(query.field, lowerterm, upperterm, includelower, includeupper));
+      RETURN Substring(formatted, 1, Length(formatted) - 2);
+    }
+    CASE "date"
+    {
+      IF (query.matchtype = "=")
+        RETURN (query.field != field ? query.field || ":" : "") || DateTimeToString(query.term) || boost;
+
+      DATETIME lowerterm, upperterm;
+      BOOLEAN includelower, includeupper;
+      IF (query.matchtype LIKE "<*")
+      {
+        upperterm := query.term;
+        includeupper := query.matchtype = "<=";
+      }
+      ELSE IF (query.matchtype LIKE ">*")
+      {
+        lowerterm := query.term;
+        includelower := query.matchtype = ">=";
+      }
+      STRING formatted := __FormatFilter(MakeRangeFilter(query.field, lowerterm, upperterm, includelower, includeupper));
+      RETURN Substring(formatted, 1, Length(formatted) - 2);
+    }
+    CASE "exists"
+    {
+      RETURN query.field || ":*";// || boost;
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unknown query type '" || query._type || "'");
+    }
+  }
+}
+
+OBJECT escapeparser;
+
+// Escape only control characters and double quote (EscapeJava encodes non-ASCII characters as literal unicode codepoints)
+STRING FUNCTION EscapeQuery(STRING query)
+{
+  IF (NOT ObjectExists(escapeparser))
+    escapeparser := NEW StringParser();
+  escapeparser->Reset(query);
+
+  STRING escaped;
+  WHILE (NOT escapeparser->eof)
+  {
+    // Add characters that we won't escape as-is
+    escaped := escaped || escapeparser->ParseWhileNotInSet(escapeparser->set_control || `"`);
+    // Java-encode other characters
+    STRING toescape := escapeparser->ParseWhileInSet(escapeparser->set_control || `"`);
+    IF (toescape != "")
+      escaped := escaped || EncodeJava(toescape);
+  }
+  RETURN escaped;
+}
+
+PUBLIC STRING FUNCTION __FormatBoost(FLOAT boost)
+{
+  IF (boost = 1)
+    RETURN "";
+  STRING formatted := FormatFloat(boost * 100000, 0);
+  formatted := Left(formatted, Length(formatted) - 5) || "." || Substring(formatted, Length(formatted) - 5);
+  WHILE (Right(formatted, 1) = "0")
+    formatted := Left(formatted, Length(formatted) - 1);
+  IF (Right(formatted, 1) = ".")
+    formatted := Left(formatted, Length(formatted) - 1);
+  IF (Left(formatted, 1) = ".")
+    formatted := "0" || formatted;
+  RETURN "^" || formatted;
+}
+
+PUBLIC STRING FUNCTION __FormatFilter(RECORD filter)
+{
+  BOOLEAN isdatefilter := filter.field LIKE "date_*" OR filter.field LIKE "*.date_*";
+  RETURN "("
+         || filter.field || ":"
+         || (filter.includelower ? "[" : "{")
+         || (isdatefilter ? DateTimeToString(filter.lowerterm) : filter.lowerterm)
+         || ","
+         || (isdatefilter ? DateTimeToString(filter.upperterm) : filter.upperterm)
+         || (filter.includeupper ? "]" : "}")
+         || ")";
+}

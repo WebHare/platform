@@ -1,0 +1,146 @@
+<?wh
+/* This library should be used for all global settings/tunables in WebHare, so we find relevant constants more easily.
+   This library should do no calculation that we can't const-optimize at some point
+   All settings should be prefixed with whconstant_
+*/
+
+// The basemodule list MUST be in their final dependency ordering. webhare_testsuite is not criticial and not considered a core module
+PUBLIC CONSTANT STRING ARRAY whconstant_builtinmodules := ["system", "wrd", "consilio", "publisher", "tollium", "socialite" ];
+
+//An oauth token is valid until ${whconstant_oauthtoken_validuntil} ${whconstant_oauthoken_days} days later
+PUBLIC CONSTANT INTEGER whconstant_oauthtoken_validuntil := 5 * 60 * 60 * 1000;
+PUBLIC CONSTANT INTEGER whconstant_oauthoken_days := 30;
+
+//Folder id for webhare-private/
+PUBLIC CONSTANT INTEGER whconstant_whfsid_private := 10;
+
+//Folder id for webhare-private/whfs-drafts
+PUBLIC CONSTANT INTEGER whconstant_whfsid_publicdrafts := 15;
+
+//Folder id for webhare-private/system/
+PUBLIC CONSTANT INTEGER whconstant_whfsid_private_system := 19;
+
+//Folder id for webhare-private/system/rootsettings - used to store properties associated wtih the WebHare Publisher root (id 0)
+PUBLIC CONSTANT INTEGER whconstant_whfsid_private_rootsettings := 21;
+
+//Folder id for webhare-private/system/registerslots
+PUBLIC CONSTANT INTEGER whconstant_whfsid_registerslots := 20;
+
+//Folder/site id of the Repository site
+PUBLIC CONSTANT INTEGER whconstant_whfsid_repository := 1;
+
+//Folder id storing autosaves
+PUBLIC CONSTANT INTEGER whconstant_whfsid_autosaves := 14;
+
+//Folder id storing drafts
+PUBLIC CONSTANT INTEGER whconstant_whfsid_drafts := 15;
+
+//Folder/site id of the WebHare Backend site
+PUBLIC CONSTANT INTEGER whconstant_whfsid_webharebackend := 16;
+
+//Default index page for webserver. Must be lowercase!
+PUBLIC CONSTANT STRING whconstant_webserver_indexbasename := "index";
+
+//All possible index pages for webservers. indexbasename + all supported extensions
+PUBLIC CONSTANT STRING ARRAY whconstant_webserver_indexpages := [whconstant_webserver_indexbasename || ".html", whconstant_webserver_indexbasename || ".shtml"];
+
+//Webserver type of an interface webserver
+PUBLIC CONSTANT INTEGER whconstant_webservertype_interface := 1;
+
+//'Webserver' type of a webserver group
+PUBLIC CONSTANT INTEGER whconstant_webservertype_group := 6;
+
+//Scriptable types which are reflected to disk so the compiler can see them
+PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_scriptsondisk :=
+  [  7 //semidynamic
+  , 16 //whlib
+  , 22 //standalone tpl
+  , 25 //shtml
+  , 28 //template
+  ];
+
+//Scriptable types which can be stored in the publisher, and should be sysop-only editable
+PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_scriptable :=
+  [ ...whconstant_whfstypes_scriptsondisk
+  , 27 //siteprl
+  , 38 //shtml with design file
+  ];
+
+//types which we do not accept as a file/folder template. if unsure, block until use case
+PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_invalidtemplate :=
+  [ ...whconstant_whfstypes_scriptable //all scriptables are too dangerous
+  ,  1 //external folder (does not make sense to duplicate)
+  ,  2 //system folder (does not make sense to duplicate, it would be invisible after duplication)
+  , 18, 19, 20 //int, ext, contentlinks (unsure)
+  , 39 //prebuiltpage (unsure)
+  , 24 //contentlisting
+  , 26 //witty (unsure)
+  , 29 //conversion profile (deprecated)
+  , 34 //webfields file (deprecated)
+  , 35 //dynamic folder contents (does not make sense to duplicate)
+  ];
+
+/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/shtmlfile
+PUBLIC CONSTANT INTEGER whconstant_whfstype_shtmlfile := 25;
+
+/* WHFS type member names
+    1 unused, was: Single choice (default value: STRING)
+    2 String
+    3 unused, was: Multiple choice (default value: STRING ARRAY)
+    4 Datetime
+    5 Memo (Blob)
+    6 Boolean
+    7 Integer
+    8 Float
+    9 Money
+   10 unused, was: Blob
+   11 WHFSREF
+   12 Array
+   13 WHFSREFARRAY
+   14 STRINGARRAY
+   15 RICHDCOCUMENT
+   16 INTEXTLINK
+   17 unused
+   18 INSTANCE
+   19 URL
+   20 FORMDEFINITION
+   21 RECORD
+   22 FORMCONDITION
+*/
+PUBLIC CONSTANT STRING ARRAY whconstant_whfstype_membertypes :=
+[ "", "", "string", "", "datetime", "file", "boolean", "integer", "float", "money", "", "whfsref", "array", "whfsrefarray", "stringarray", "richdocument", "intextlink", "", "instance", "url", "formdefinition", "record", "formcondition" ];
+
+//ip address reported by the consilio fetcher
+PUBLIC CONSTANT STRING whconstant_consilio_fetcher_trusted_ip := "100::cccc:ffff";
+
+//name of the publisher whfs catalog
+PUBLIC CONSTANT STRING whconstant_consilio_catalog_whfs := "publisher:whfs";
+
+//our 2 indexmanager backends
+PUBLIC CONSTANT INTEGER whconstant_consilio_indexmanager_legacybackend := 1;
+PUBLIC CONSTANT INTEGER whconstant_consilio_indexmanager_elasticsearch := 2;
+
+//our 2 index types
+PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_siteprofindex := 0;
+PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_moduleindex := 1;
+PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_fieldgroup := 2; //deprecated - but please keep this ID reserved until we're really sure it's cleaned up
+
+//separates modulename from indexname
+PUBLIC CONSTANT STRING whconstant_consilio_module_sep := "__";
+
+//valid settings for RTD margins
+PUBLIC CONSTANT STRING ARRAY whconstant_tollium_rtd_margins := [ "none", "compact", "wide" ];
+
+//name of the wrd testschema
+PUBLIC CONSTANT STRING whconstant_wrd_testschema := "wrd:testschema";
+
+//valid editdefaults= values
+PUBLIC CONSTANT STRING ARRAY whconstant_forms_valideditdefaults :=
+[ "name", "title", "hidetitle", "required", "noenabled", "groupclasses", "label", "placeholder", "prefix", "suffix", "infotext" ];
+
+//valid editdefaults= values for handlers
+PUBLIC CONSTANT STRING ARRAY whconstant_forms_validhandlereditdefaults :=
+[ "condition" ];
+
+//valid user-supplied debug tokens
+PUBLIC CONSTANT STRING ARRAY whconstant_whdebug_publicflags := ["apr"];

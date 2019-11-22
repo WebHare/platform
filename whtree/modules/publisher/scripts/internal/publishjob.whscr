@@ -1,0 +1,87 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/common-v2.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/harescript/preload.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+OBJECT trans := OpenPrimary();
+trans->EnsurePrivileged();
+
+DATETIME start;
+
+autofileidextensions := Tokenize(ToUppercase(ReadRegistryKey("publisher.autofileid.extensions")),";");
+publishingbackendlink := GetIPCLinkToParent();
+IF(NOT ObjectExists(publishingbackendlink))
+  ABORT("Unable to contact the publishing parent port");
+
+RECORD settings := publishingbackendlink->ReceiveMessage(MAX_DATETIME);
+cached_publish_info := settings.msg.publishdata;
+IF(settings.msg.profile)
+{
+  SetupFunctionProfiling(settings.msg.scriptname, MapExternalWHFSRef(cached_publish_info.fileid) ?? "#" || cached_publish_info.fileid);
+}
+
+INSERT CELL istemplaterun := settings.msg.istemplate INTO cached_publish_info;
+
+file := __FindFile(cached_publish_info.fileid);
+folder := __FindFolder(file.parent);
+site := __FindSite(folder.parentsite);
+
+IF(RecordExists(file))
+{
+  //look up the 'real' content type if necessary..
+  IF (file.type = 20)
+  {
+    contentfile := SELECT id, type, data, url := objecturl, parent FROM system.fs_objects WHERE id = file.filelink;
+  }
+  ELSE IF (file.type = 24)
+  {
+    INTEGER placeholder := GetApplyTesterForObject(file.id)->GetSitePlaceHolder();
+    IF (placeholder != 0)
+      contentfile := SELECT id, type, data, url:= objecturl, parent FROM system.fs_objects WHERE id = placeholder;
+    ELSE
+      contentfile := file;
+  }
+  ELSE
+  {
+    contentfile := file;
+  }
+
+  publishsourceisscriptable := file.type IN whconstant_whfstypes_scriptable;
+
+  IF (contentfile.parent = file.parent)
+    contentfolder := folder;
+  ELSE
+    contentfolder := SELECT id, indexdoc, parentsite FROM system.fs_objects WHERE id = contentfile.parent;
+
+  IF(contentfolder.parentsite = folder.parentsite)
+    contentsite := site;
+  ELSE
+    contentsite := SELECT id, webroot FROM system.sites WHERE sites.id = contentfolder.parentsite;
+}
+
+__HS_INTERNAL_OverrideExecuteLibrary(settings.msg.scriptname);
+
+//FIXME this hack shouldn't be needed anymore with __HS_INTERNAL_OverrideExecuteLibrary
+IF(settings.msg.scriptname LIKE "site::*")
+  __forcecurrentsite := Tokenize(settings.msg.scriptname,'/')[0] || "/";
+
+//settings.msg.istemplate = true for template, false for harescriptfiles
+TRY
+{
+  MakeFunctionPTR(settings.msg.scriptname, "INITFUNCTION",0,DEFAULT INTEGER ARRAY);
+}
+CATCH(OBJECT e)
+{
+  IF(e->what NOT LIKE "Function*INITFUNCTION*")
+    THROW e; //let true harescript errors leak through
+}
+//abort(settings.msg.scriptname);

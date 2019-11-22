@@ -1,0 +1,160 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/webserver/proxymgmt.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE Proxies EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD params)
+  {
+    this->ReloadList();
+  }
+
+  RECORD FUNCTION FixedAuthHandler(STRING password, STRING realm, STRING url)
+  {
+    RETURN
+        [ username := "webhare"
+        , password := password
+        ];
+  }
+
+
+  MACRO GotProxyUpdate(RECORD ARRAY events)
+  {
+    this->ReloadList();
+  }
+
+  STRING FUNCTION GetStatusIcon(STRING status)
+  {
+    IF (status = "ok")
+      RETURN "tollium:status/checked";
+    ELSE IF (status = "password")
+      RETURN "tollium:security/key";
+    RETURN "tollium:status/negative";
+  }
+
+  MACRO ReloadList()
+  {
+    INTEGER currentproxy := this->tolliumcontroller->GetWebserverRequestData().proxyid;
+    RECORD ARRAY proxies :=
+        SELECT *
+             , lastregistration
+             , status :=  this->proxylist->GetIcon(this->GetStatusIcon(status))
+          FROM system.proxies;
+
+    this->proxylist->rows :=
+        SELECT rowkey := id
+             , url
+             , yourproxy := id = currentproxy
+             , lastregistration
+             , status
+             , description
+          FROM proxies;
+  }
+
+  MACRO DoAddProxy()
+  {
+    OBJECT screen := this->LoadScreen(".updateproxy", [ id := 0 ]);
+    IF (screen->RunModal() = "ok")
+      this->proxylist->value := screen->id;
+  }
+
+  MACRO DoEditProxy()
+  {
+    OBJECT screen := this->LoadScreen(".updateproxy", [ id := this->proxylist->value ]);
+    screen->RunModal();
+  }
+
+  MACRO DoDeleteProxy()
+  {
+    IF (this->RunMessageBox(".deleteproxy", this->proxylist->selection.url) != "yes")
+      RETURN;
+
+    IF(NOT UnregisterWebhareProxy(this->proxylist->value))
+    {
+      IF (this->RunMessageBox(".unregisterfailedsuredelete") != "yes")
+        RETURN;
+    }
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    DeleteWebhareProxy(this->proxylist->value);
+    work->Finish();
+  }
+
+  MACRO DoReRegister()
+  {
+    ReloadWebhareConfig(TRUE, FALSE);
+  }
+>;
+
+PUBLIC OBJECTTYPE UpdateProxy EXTEND TolliumScreenBase
+<
+  INTEGER proxyid;
+
+  PUBLIC PROPERTY id(proxyid, -);
+
+  RECORD tested;
+
+  MACRO Init(RECORD data)
+  {
+    this->proxyid := data.id;
+    IF (this->proxyid != 0)
+    {
+      this->row->value := SELECT * FROM system.proxies WHERE id = data.id;
+      this->tested := this->row->value;
+    }
+    this->reverseaddress->placeholder := "http://.....:" || GetWebHareConfiguration().baseport + 5;
+  }
+
+  BOOLEAN FUNCTION DoTest(BOOLEAN hidepositivefeedback DEFAULTSTO FALSE)
+  {
+    OBJECT feedback := this->BeginFeedback();
+    IF(feedback->HasFailed())
+      RETURN feedback->Finish();
+
+    RECORD testresult := TestWebHareProxy(this->row->value.url, this->row->value.password, this->row->value.reverseaddress);
+    IF(testresult.success)
+    {
+      IF (NOT hidepositivefeedback)
+        this->RunMessageBox(".testok");
+      this->tested := this->row->value;
+      RETURN feedback->Finish();
+    }
+    ELSE
+    {
+      feedback->AddError(testresult.errormessage);
+    }
+    RETURN feedback->Finish();
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    IF (NOT this->BeginFeedback()->Finish())
+      RETURN FALSE;
+
+    IF (NOT RecordExists(this->tested) OR NOT RecordLowerBound([ this->tested ], this->row->value,
+        [ "URL"
+        , "PASSWORD"
+        , "REVERSEADDRESS"
+        ]).found)
+    {
+      IF (NOT this->DoTest(TRUE))
+        RETURN FALSE;
+    }
+
+    OBJECT work := this->BeginWork();
+    INTEGER id := SetWebHareProxy(this->proxyid, this->row->value);
+    IF (NOT work->Finish())
+      RETURN FALSE;
+
+    this->proxyid := id;
+    RETURN TRUE;
+  }
+>;

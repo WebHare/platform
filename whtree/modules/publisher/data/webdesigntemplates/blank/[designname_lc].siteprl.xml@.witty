@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <!-- Global site settings -->
+  <apply>
+    <to type="all" />
+
+    <!-- Setup default webdesign -->
+    <webdesign designfolder="."
+               maxcontentwidth="960px"
+               witty="[designname_lc].witty"
+               library="[designname_lc].whlib"
+               objectname="[designobjectname]"
+               assetpack="[designname_lc]"
+               wittyencoding="HTML-NI"
+               async="true" />
+
+    <!-- Set site language -->
+    <sitelanguage lang="[defaultlanguage]" />
+
+    <!-- Set up a rtdtype -->
+    <rtddoc rtdtype="http://[domainname]/xmlns/[designname_lc]/defaultrtdtype" />
+
+    <!-- Configure widgets -->
+    <videowidget />
+
+    <!-- Republish all files upon every change
+    <republish folder="/" indexonly="false" recursive="true" />
+    -->
+
+    <!-- Disable the legacy site settings -->
+    <disablelegacysitesettings notemplateprofile="true" />
+
+    <!-- Enable formsapi
+         To enable (google) recaptcha, add: usecaptcha="1"
+    -->
+    <formintegration />
+
+    <!-- disable keywords field -->
+    <baseproperties keywords="false" />
+
+    <!-- Default types -->
+    <denyfiletype typedef="*" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/imagefile" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/pdffile" />
+    <!--
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/externallink" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/internallink" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/contentlink" />
+    -->
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/formwebtool" />
+
+    <denyfoldertype typedef="*" />
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/normalfolder" />
+
+    <!-- Downloadable Word docs -->
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/msworddownload" />
+    <uploadtypemapping mimetypemask="application/msword" filetype="http://www.webhare.net/xmlns/publisher/msworddownload" />
+    <uploadtypemapping mimetypemask="application/vnd.openxmlformats-officedocument.wordprocessingml.document" filetype="http://www.webhare.net/xmlns/publisher/msworddownload" />
+  </apply>
+
+  <!-- Live only settings, eg analytics -->
+  <apply minservertype="production">
+    <to type="all" />
+    <!-- Pick one of:
+    <googleanalytics account="UA-XXXXXXX-X" anonymizeip="true" />
+    <gtm account="GTM-XXXXXX" />
+    -->
+  </apply>
+
+  <apply>
+    <to type="folder" />
+    <folderindex indexfile="newfile"
+                 newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile"
+                 newfilename="index.rtd"
+                 />
+  </apply>
+
+  <!-- Other siteprofile imports (applysiteprofile) must always be at end of this primary siteprofile -->
+  <applysiteprofile path="shared/rtd/rtd.siteprl.xml" />
+
+  <sitesettings>
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+      <webrule path="/" match="initial"> <!-- A nice initial security policy - better to remove than having to add later -->
+        <addheader header="X-Frame-Options" value="DENY"/>
+        <addheader header="X-XSS-Protection" value="1; mode=block"/>
+        <addheader header="X-Content-Type-Options" value="nosniff"/>
+        <addheader header="Referrer-Policy" value="strict-origin-when-cross-origin"/>
+        <addheader header="Content-Security-Policy" value="script-src 'self'; report-uri https://reports.webhare.com/csp/" />
+        <addheader header="Feature-Policy" value="geolocation 'none'; camera 'none'; payment 'none'; microphone 'none'; speaker 'none'"/>
+      </webrule>
+    </webruleset>
+  </sitesettings>
+
+</siteprofile>

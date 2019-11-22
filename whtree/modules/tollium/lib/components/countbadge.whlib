@@ -1,0 +1,113 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// Count badge
+
+PUBLIC STATIC OBJECTTYPE TolliumCountBadge EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Count to show
+  */
+  INTEGER pvt_count;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Count to show
+  */
+  PUBLIC PROPERTY count(pvt_count, SetCount);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    // Set hint to "0" (default count) to enable automatic hint update
+    this->pvt_hint := "0";
+    this->componenttype := "countbadge";
+  }
+
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ count := FALSE
+        , hint := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD compinfo := [ count := this->pvt_count
+                         , hint  := this->pvt_hint
+                         ];
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.count)
+        this->ToddUpdate([type:="count",count:=this->pvt_count]);
+      IF (this->dirtyflags.hint)
+        this->ToddUpdate([type:="hint",hint:=this->pvt_hint]);
+    }
+
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetCount(INTEGER count)
+  {
+    IF (count != this->pvt_count)
+    {
+      // Update hint if set to current count
+      IF (this->pvt_hint = ToString(this->pvt_count))
+        this->hint := ToString(count);
+
+      this->pvt_count := count;
+      this->ExtUpdatedCount();
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedCount()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.count := TRUE;
+    */
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+>;

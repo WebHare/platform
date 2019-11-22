@@ -1,0 +1,43 @@
+﻿<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "wh::ipc.whlib";
+
+MACRO CanvasStateTest()
+{
+  OBJECT canvas := CreateEmptyCanvas(400, 600, ColorWhite);
+  TestEq(400, canvas->width);
+  TestEq(600, canvas->height);
+
+  canvas->blendmode:="COPYALPHA";
+  TestEq("COPYALPHA", canvas->blendmode);
+
+  canvas->pixelmode:="XOR";
+  TestEq("XOR", canvas->pixelmode);
+  canvas->Close();
+}
+MACRO CanvasMarshallingTest()
+{
+  OBJECT canvas := CreateEmptyCanvas(400, 600, ColorWhite);
+
+  RECORD jobrec := CreateJob("module::webhare_testsuite/drawlib/marshallingtest.whlib");
+
+  jobrec.job->Start();
+
+  RECORD rec := jobrec.job->ipclink->DoRequest( [ canvas := canvas
+                                                , isoldstyle := FALSE
+                                                ]);
+
+  // Original canvas must be closed
+  TestEQ(0, canvas->canvasid);
+
+  //dumpvalue(jobrec.job->Geterrors(),'tree');
+  canvas := rec.msg.canvas;
+
+  TestEq("COPYALPHA", canvas->blendmode);
+  TestEq("XOR", canvas->pixelmode);
+  canvas->Close();
+}
+RunTestframework([ PTR CanvasStateTest
+                 , PTR CanvasMarshallingTest
+                 ]);

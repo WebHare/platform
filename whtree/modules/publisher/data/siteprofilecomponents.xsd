@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/publisher/siteprofile"
+  xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
+
+  <xs:element name="propertyeditor">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="screens"/>
+          <s:childcomponents field="compositions" target="./sp:compositions" adoptfields="compositions" />
+          <s:childcomponents field="newtabs" target="./sp:newtab" />
+          <s:childcomponents field="inserts" target="./sp:insert" adoptfields="lines position where" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:element ref="compositions" minOccurs="0" maxOccurs="1" />
+        <xs:element ref="insert" minOccurs="0" maxOccurs="unbounded" />
+        <xs:element ref="newtab" minOccurs="0" maxOccurs="unbounded" />
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" />
+      <xs:attribute name="developeronly" type="xs:boolean" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="compositions" type="s:Compositions" />
+  <xs:element name="newtab" type="s:NewTab" />
+  <xs:element name="insert" type="s:TabsExtensionInsert" />
+
+</xs:schema>

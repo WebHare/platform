@@ -1,0 +1,1579 @@
+<?wh
+/** @topic testframework/tollium */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/components/action.whlib";
+LOADLIB "mod::tollium/lib/components/button.whlib";
+LOADLIB "mod::tollium/lib/components/text.whlib";
+LOADLIB "mod::tollium/lib/components/panel.whlib";
+LOADLIB "mod::tollium/lib/components/menuitem.whlib";
+LOADLIB "mod::tollium/lib/components/select.whlib";
+LOADLIB "mod::tollium/lib/headless/controller.whlib" EXPORT GetTestTolliumPortalURL;
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+
+/// Whether to output detailed expect framework logging
+BOOLEAN debug_expects := FALSE;
+
+
+// Tollium controller
+OBJECT controller;
+
+// Top screen
+PUBLIC OBJECT topscreen;
+
+/// List of events (screenchange, noforwardprogress, callresult)
+OBJECT screenfifo := NEW Fifo;
+
+/// Screen stack size that was last waited on
+INTEGER lastwaitedstacklength;
+
+/** Current screen stack
+    @cell screen
+    @cell trace Trace for opening the screen
+*/
+RECORD ARRAY screenstack;
+
+/// Counter to generate call ids
+INTEGER callcounter;
+
+/// Stack trace of last expect call
+RECORD ARRAY lastexpectcalltrace;
+
+/// Stack trace of last expect call with an trigger-call
+RECORD ARRAY lastcallcalltrace;
+
+/// Last trigger-call
+FUNCTION PTR lastcall;
+
+//// Wheteher to allow a click to find no relevant action handler
+BOOLEAN allownoactionhandlerfound;
+
+/** List of currently running calls
+    @cell callid
+    @cell trace
+    @cell(object) error
+*/
+RECORD ARRAY running_calls;
+
+/// Callback for unprocessed items
+INTEGER unprocessed_error_cb;
+
+
+/// Get stack trace from within tollium, cut out a lot of excess stuff
+RECORD ARRAY FUNCTION GetTolliumStackTrace() __ATTRIBUTES__(SKIPTRACE)
+{
+  RECORD ARRAY asynctrace := GetAsyncStackTrace();
+  FOREVERY (RECORD rec FROM asynctrace)
+    IF (rec.func = "TESTFRAMEWORK#RUNSERIE")
+      RETURN ArraySlice(asynctrace, 0, #rec);
+  RETURN asynctrace;
+
+  RECORD ARRAY trace := GetStackTrace();
+  INTEGER pos := SELECT AS INTEGER #trace FROM trace WHERE func LIKE "*LAUNCHAPPLICATION";
+  IF (pos != 0)
+    trace := ArraySlice(trace, 0, pos);
+
+  DELETE
+    FROM trace
+   WHERE func IN
+        [ "TOLLIUMHEADLESSCONTROLLER#RUNMODALSCREEN"
+        , "PROMISEBASE#EXECUTECALLBACK"
+        , "PROMISEBASE#__RUNMICROTASK"
+        , "HANDLESIGNALLEDCBHANDLE"
+        , "__INTERNAL_HANDLEEVENTCALLBACKEVENTS"
+        , "__HS_INTERNAL_ASYNCFUNCTIONGENERATOR#RESOLVEINTERNAL"
+        , "PROMISEBASE#EXECUTECALLBACK"
+        , "PROMISEBASE#__RUNMICROTASK"
+        ];
+
+  RETURN trace;
+}
+
+MACRO OnScreenChange(OBJECT screen, BOOLEAN isopen)
+{
+  RECORD ARRAY trace := GetTolliumStackTrace();
+
+  // Open work is never allowed
+  IF (GetPrimary()->IsWorkOpen())
+  {
+    STRING msg := "Work is open while " || (isopen ? "opening" : "closing") || " " || GetScreenShortName(screen);
+    PRINT("** " || msg || "\n" || GetScreenDetails(screen) || "\nLast call " || ExplainFunctionPtrSignature(lastcall) || "\n");
+    DumpStackTrace(lastcallcalltrace);
+    screenfifo->Push(
+          [ type :=         "error"
+          , error :=        msg
+          , trace :=        trace
+          ]);
+  }
+
+  IF (debug_expects)
+    PRINT("- OnScreenChange " || (isopen ? "+1" : "-1") || " " || screen->frame->screenname || "\n");
+  IF(testfw->debug)
+    Print(RepeatText(">", Length(controller->windowstack) + (isopen ? 0 : 1))
+         || (isopen ? " Opening " : " Closing ") || "screen " || screen->frame->screenname || " (" || screen->frame->title || ")\n");
+
+  INTEGER newstacklength := LENGTH(screenstack) + (isopen?1:-1);
+  screenfifo->Push(
+      [ type :=         "screenchange"
+      , screen :=       screen
+      , isopen :=       isopen
+      , stacklength :=  newstacklength
+      , trace :=        trace
+      ]);
+
+  HandleUnprocessedErrors();
+
+  IF (isopen)
+  {
+    topscreen := screen;
+    INSERT [ screen := screen, trace := trace ] INTO screenstack AT END;
+  }
+  ELSE
+  {
+    DELETE FROM screenstack AT END-1;
+    topscreen := LENGTH(screenstack) != 0 ? screenstack[END - 1].screen : DEFAULT OBJECT;
+  }
+}
+
+BOOLEAN FUNCTION OnNoForwardProgress(OBJECT screen, OBJECT e)
+{
+  IF (debug_expects)
+  {
+    PRINT("- OnNoForwardProgress in screen " || GetScreenShortName(screen) || "\n" || GetScreenDetails(screen));
+    DumpStackTrace(GetTolliumStackTrace());
+  }
+
+  screenfifo->Push(
+      [ type :=         "noforwardprogress"
+      , screen :=       screen
+      , trace :=        GetTolliumStackTrace()
+      , stacklength :=  LENGTH(screenstack)
+      ]);
+
+  HandleUnprocessedErrors();
+
+  WaitUntil(DEFAULT RECORD, AddTimeToDate(50, GetCurrentDateTime()));
+
+  RETURN FALSE;
+}
+
+MACRO OnNoActionHandlerFound(OBJECT action)
+{
+  IF (allownoactionhandlerfound)
+    RETURN;
+
+  __debugactions := TRUE;
+  action->ResolveActionHandler(DEFAULT OBJECT);
+  __debugactions := FALSE;
+  THROW NEW Exception(`Terminating because of an action click that could not find an action handler`);
+}
+
+
+BOOLEAN FUNCTION OnSendWebFile(OBJECT screen, RECORD filedata)
+{
+  IF (debug_expects)
+  {
+    IF(ObjectExists(screen))
+      PRINT("- OnSendWebFile in screen " || GetScreenShortName(screen) || "\n" || GetScreenDetails(screen));
+    ELSE
+      PRINT("- OnSendWebFile\n");
+    DumpStackTrace(GetTolliumStackTrace());
+  }
+
+  screenfifo->Push(
+      [ type :=         "sendwebfile"
+      , screen :=       screen
+      , trace :=        GetTolliumStackTrace()
+      , stacklength :=  LENGTH(screenstack)
+      , data :=         filedata
+      ]);
+  RETURN FALSE;
+}
+
+BOOLEAN in_expect_call;
+
+MACRO HandleUnprocessedErrors()
+{
+  IF (screenfifo->signalled AND NOT in_expect_call)
+  {
+    IF (unprocessed_error_cb = 0)
+    {
+      IF (debug_expects)
+        PRINT("First unexpected unprocessed error, schedule callback\n");
+
+      unprocessed_error_cb := RegisterTimedCallback(AddTimeToDate(15 * 1000, GetCurrentDateTime()), PTR OnUnprocessErrors);
+    }
+  }
+  ELSE
+  {
+    IF (unprocessed_error_cb != 0)
+    {
+      IF (debug_expects)
+        PRINT("Canceling unprocessed error callback\n");
+
+      UnregisterCallback(unprocessed_error_cb);
+      unprocessed_error_cb := 0;
+    }
+  }
+}
+
+MACRO OnUnprocessErrors()
+{
+  unprocessed_error_cb := 0;
+
+  // for some times, we got events outside an expect
+  IF (debug_expects)
+    PRINT("Got unprocessed events\n");
+
+  WHILE (screenfifo->signalled)
+  {
+    RECORD rec := screenfifo->Shift();
+    IF (debug_expects)
+      PRINT("Got event " || rec.type || "\n");
+
+    IF (rec.type = "screenchange")
+    {
+      STRING msg := "Got an unexpected " || GetScreenShortName(rec.screen) || (rec.isopen ? " opening" : " closing") || " outside an expect-call (did you forget a PTR for the call parameter?)";
+      PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
+      THROW NEW Exception(msg);
+    }
+    ELSE IF (rec.type = "noforwardprogress")
+    {
+      STRING msg := "Got stuck in " || GetScreenShortName(rec.screen) || " outside an expect-call, test hung (did you forget a PTR for the call parameter?)";
+      PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
+      THROW NEW Exception(msg);
+    }
+    ELSE IF (rec.type = "sendwebfile")
+    {
+      STRING msg := "Got an unexpected sendwebfile from " || GetScreenShortName(rec.screen) || " outside an expect-call, test hung";
+      PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
+      THROW NEW Exception(msg);
+    }
+    ELSE IF (rec.type = "callresult") // eat call results
+      ProcessCallresult(rec, GetTolliumStackTrace());
+
+    // Eat 'no forward progress'
+  }
+}
+
+VARIANT FUNCTION AbortOnException(FUNCTION PTR call)
+{
+  TRY
+  {
+    BOOLEAN have_returnvalue := ValidateFunctionPtr(call, TypeID(VARIANT), DEFAULT INTEGER ARRAY);
+    IF(have_returnvalue)
+      RETURN call();
+    call();
+    RETURN FALSE;
+  }
+  CATCH(OBJECT e)
+  {
+    RECORD ARRAY origtrace := e->trace;
+
+    e->trace := e->trace CONCAT GetAsyncStackTrace();
+    LogHarescriptException(e);
+
+    Print(`\nAsync exception: ${e->what}\n`);
+    Print("\nCurrent async stacktrace:\n" || FormatHarescriptStackTrace(GetAsyncStackTrace()));
+    Print("\nException trace:\n" || FormatHarescriptStackTrace(origtrace));
+    PRINT("\nException from scheduled call: " || e->what || "\n");
+    SetConsoleExitCode(1);
+    TerminateScript();
+  }
+}
+
+RECORD FUNCTION ScheduleCall(RECORD ARRAY trace, FUNCTION PTR call)
+{
+  callcounter := callcounter + 1;
+  INTEGER expect_callid := callcounter;
+
+  RECORD rec := [ trace := trace, callid := expect_callid, call := call, defer := CreateDeferredPromise() ];
+  INSERT rec INTO running_calls AT END;
+
+  IF (call = DEFAULT FUNCTION PTR)
+  {
+    IF (debug_expects) PRINT("Schedule dummy call " || expect_callid || "\n");
+    PushCallResult(rec, DEFAULT OBJECT, FALSE);
+  }
+  ELSE
+  {
+    IF (debug_expects) PRINT("Schedule call " || expect_callid || "\n");
+    CreateResolvedPromise(DEFAULT RECORD)->Then(PTR AbortOnException(call))->Then(PTR PushCallResult(rec, DEFAULT OBJECT, #1), PTR PushCallResult(rec, #1, FALSE));
+  }
+  RETURN rec;
+}
+
+
+MACRO PushCallResult(RECORD rec, OBJECT error, VARIANT callresult)
+{
+  IF (debug_expects) PRINT("- CallResult " || rec.callid || "\n");
+  screenfifo->Push([ type := "callresult", trace := rec.trace, callid := rec.callid, error := error, callresult := callresult, defer := rec.defer ]);
+  HandleUnprocessedErrors();
+}
+
+
+MACRO TestEmptyFifo(RECORD ARRAY trace)
+{
+  IF (debug_expects) PRINT("Initial emptying the fifo\n");
+  WHILE (screenfifo->signalled)
+  {
+    RECORD rec := screenfifo->Shift();
+    IF (debug_expects) PRINT("Got event " || rec.type || "\n");
+    IF (rec.type = "error")
+    {
+      OBJECT e := NEW Exception(rec.error);
+      e->trace := rec.trace;
+      THROW e;
+    }
+    IF (rec.type = "screenchange")
+    {
+      STRING message := "The " || GetScreenShortName(rec.screen) || " automatically " || (rec.isopen ? "opened" : "closed") || " before the running the trigger-call for this expect. Shouldn't the trigger be a DEFAULT FUNCTION PTR?";
+      PRINT("** " || message || "\n" || GetScreenDetails(rec.screen));
+      THROW NEW Exception(message);
+    }
+    ELSE IF (rec.type = "callresult") // eat call results
+      ProcessCallresult(rec, trace);
+    ELSE IF (rec.type = "sendwebfile")
+    {
+      STRING message := "The " || GetScreenShortName(rec.screen) || " unexpectedly sent a web file";
+      PRINT("** " || message || "\n" || GetScreenDetails(rec.screen));
+      THROW NEW Exception(message);
+    }
+
+    // Eat 'no forward progress'
+  }
+}
+
+RECORD ARRAY FUNCTION InitExpect(FUNCTION PTR call DEFAULTSTO DEFAULT FUNCTION PTR)
+{
+  IF (debug_expects)
+  {
+    PRINT("Init expect\n");
+    RECORD ARRAY trace := GetTolliumStackTrace();
+    WHILE (LENGTH(trace) > 2
+          AND trace[0].filename = "module::tollium/testframework.whlib"
+          AND trace[1].filename = "module::tollium/testframework.whlib")
+      DELETE FROM trace AT 0;
+    DumpStackTrace(trace);
+  }
+
+  IF (in_expect_call)
+  {
+    PRINT("Did not finish a previous expect. Was it AWAIT'ed?:\n");
+    DumpStackTrace(lastexpectcalltrace);
+    OBJECT e := NEW Exception("Attempting to expect a screen change without having finished the previous screen change. Did you AWAIT it?");
+    // Add the lastexpectcalltrace for quick jumping to the right place
+    e->trace := lastexpectcalltrace;
+    THROW e;
+  }
+  in_expect_call := TRUE;
+  HandleUnprocessedErrors();
+
+  lastexpectcalltrace := GetTolliumStackTrace();
+  IF (call != DEFAULT FUNCTION PTR)
+  {
+    lastcall := call;
+    lastcallcalltrace := GetTolliumStackTrace();
+  }
+  RETURN lastexpectcalltrace;
+}
+
+MACRO ProcessCallresult(RECORD rec, RECORD ARRAY trace)
+{
+  RECORD pos := RecordLowerBound(running_calls, rec, [ "CALLID"]);
+  IF (NOT pos.found)
+    ABORT("got call result twice");
+
+  IF(ObjectExists(rec.error))
+    rec.defer.reject(rec.error);
+  ELSE
+    rec.defer.resolve(rec.callresult);
+
+  IF (ObjectExists(rec.error))
+  {
+    RECORD rrec := running_calls[pos.position];
+    PRINT("Call to " || ExplainFunctionPtrSignature(rrec.call) || " failed: " || rec.error->what || "\n");
+    PRINT("Started at:\n");
+    DumpStackTrace(rrec.trace);
+
+    THROW rec.error;
+  }
+  ELSE
+    DELETE FROM running_calls AT pos.position;
+}
+
+/** Expect the screen stack to not change after a call  */
+PUBLIC OBJECT ASYNC FUNCTION ExpectNoScreenChange(MACRO PTR call)
+{
+  RECORD ARRAY trace := InitExpect(call); // save trace before first await, captures calling context.
+
+  IF (debug_expects) PRINT("Enter ExpectNoScreenChange" || (call  = DEFAULT FUNCTION PTR ? "" : ", calling " || ExplainFunctionPtrSignature(call)) || "\n");
+  TestEmptyFifo(trace);
+
+  RECORD expect_call := ScheduleCall(trace, call);
+
+  in_expect_call := FALSE;
+  HandleUnprocessedErrors();
+
+  RETURN ExpectImmediateCallResult(expect_call);
+}
+
+BOOLEAN FUNCTION IsMessageBox(OBJECT screen)
+{
+  RETURN MemberExists(screen, "DONTSHOWAGAINLABEL") OR screen->frame->screenname = "mod::tollium/screens/commondialogs.xml#showmessagebox";
+}
+
+STRING FUNCTION GetMessageBoxName(OBJECT screen)
+{
+  IF (MemberExists(screen, "DONTSHOWAGAINLABEL"))
+    RETURN __HS_GetPrivatemember(topscreen, "DLGID");
+  RETURN "ShowMessageBox";
+}
+
+STRING FUNCTION GetScreenShortName(OBJECT screen)
+{
+  IF (IsMessageBox(screen))
+    RETURN "MessageBox";
+  ELSE
+    RETURN "screen '" || Tokenize(screen->frame->screenname || "#", "#")[1] || "'";
+}
+
+STRING FUNCTION GetScreenDetails(OBJECT screen)
+{
+  IF (IsMessageBox(screen))
+  {
+    STRING retval;
+    IF (MemberExists(screen, "DONTSHOWAGAINLABEL"))
+    {
+      retval :=
+          `Name: '${EncodeJava(__HS_GetPrivateMember(screen, "DLGID"))}'\n` ||
+          `Title: '${EncodeJava(screen->title)}'\n` ||
+          `Message: '${EncodeJava(screen->message)}'\n`;
+    }
+    ELSE
+    {
+      retval :=
+          `Title: '${EncodeJava(screen->frame->title)}'\n` ||
+          `Message: '${EncodeJava(screen->^message->value)}'\n`;
+    }
+
+    IF (MemberExists(topscreen, "BUTTONMAP"))
+      retval := retval || "Buttons: '" || Detokenize((SELECT AS STRING ARRAY name FROM UnpackRecord(topscreen->buttonmap)), "', '") || "'\n";
+    ELSE
+      retval := retval || "Buttons: (not yet initialized)\n";
+
+    RETURN retval;
+  }
+  ELSE
+  {
+    RETURN
+        "Screen name: " || screen->frame->screenname || "\n" ||
+        "Title: " || screen->frame->title || "\n";
+  }
+}
+
+
+OBJECT ASYNC FUNCTION ExpectImmediateCallResult(RECORD call)
+{
+  InitExpect(); // save trace before first await, captures calling context.
+  //RECORD ARRAY trace := GetTolliumStackTrace();
+
+  IF (debug_expects) PRINT("Expect immediate call result " || call.callid || ", now running: " || AnyToString((SELECT AS INTEGER ARRAY COLUMN callid FROM running_calls), "tree"));
+
+  WHILE (TRUE)
+  {
+    RECORD pos := RecordLowerBound(running_calls, [ callid := call.callid ], [ "callid" ]);
+    IF (NOT pos.found)
+      BREAK;
+    RECORD crec := running_calls[pos.position];
+
+    RECORD rec := AWAIT screenfifo->AsyncShift();
+    IF (debug_expects) PRINT("Got event " || rec.type || "\n");
+    IF (rec.type = "error")
+    {
+      OBJECT e := NEW Exception(rec.error);
+      e->trace := rec.trace;
+      THROW e;
+    }
+    IF (rec.type = "screenchange")
+    {
+      PRINT("\n** Got " || GetScreenShortName(rec.screen) || " unexpectedly " || (rec.isopen ? "opening" : "closing") || " while waiting for a call to return\n" || GetScreenDetails(rec.screen));
+
+      IF (rec.isopen) // no need to show trace about closing screens
+      {
+        PRINT("\n** Screen was opened at\n");
+        DumpStackTrace(rec.trace);
+      }
+
+      PRINT("\n** Call origin:\n");
+      DumpStackTrace(call.trace);
+      PRINT("\n");
+
+      OBJECT e := NEW Exception("Got " || GetScreenShortName(rec.screen) || " unexpectedly " || (rec.isopen ? "opening" : "closing") || " while waiting for a call to return");
+      //e->trace := rec.trace CONCAT trace;
+      THROW e;
+    }
+    ELSE IF (rec.type = "callresult") // explicitly wait until the callresult
+      ProcessCallresult(rec, call.trace);
+    ELSE IF (rec.type = "sendwebfile")
+    {
+      STRING msg := "Got an unexpected sent web file from " || GetScreenShortName(rec.screen) || " while waiting for call to return";
+      PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
+      THROW NEW Exception(msg);
+    }
+    ELSE
+    {
+      PRINT("** Call to " || ExplainFunctionPtrSignature(crec.call) || " is stuck (not returning or opening/closing screens)\n");
+      PRINT("\n** Call was started at\n");
+      DumpStackTrace(call.trace);
+      PRINT("\n");
+
+      OBJECT e := NEW Exception("No progress when waiting for call to return");
+//      e->trace := rec.trace CONCAT trace;
+      THROW e;
+    }
+  }
+
+  IF (debug_expects) PRINT("Exit immediate call result, now running: " || AnyToString((SELECT AS INTEGER ARRAY COLUMN callid FROM running_calls), "tree"));
+
+  in_expect_call := FALSE;
+  HandleUnprocessedErrors();
+
+  RETURN call.defer.promise;
+}
+
+OBJECT ASYNC FUNCTION ReturnAsyncImmediately() { RETURN DEFAULT RECORD; }
+
+/** Expect the screen stack to change
+    @param diff Expected change, eg +1 expects one screen to open, -2 expects two screens to close
+    @param call Trigger call that will cause the screen change to happen
+    @param options
+    @cell options.allowscreenchangeafter
+    @cell options.namemask
+    @cell options.titlemask
+    @return
+    @cell return.expectcallreturn Expect call that requires the trigger-call to have finished.
+*/
+PUBLIC OBJECT ASYNC FUNCTION ExpectScreenChange(INTEGER diff, MACRO PTR call, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ allowscreenchangeafter :=   TRUE
+      , namemask :=                 "*"
+      , titlemask :=                "*"
+      ], options);
+
+  RECORD ARRAY trace := InitExpect(call); // save trace before first await, captures calling context.
+
+  INTEGER wantdepth := lastwaitedstacklength + diff;
+
+  IF (debug_expects) PRINT("Enter ExpectScreenChange" || (call = DEFAULT FUNCTION PTR ? "" : ", calling " ||ExplainFunctionPtrSignature(call)) || ", want depth " || wantdepth || ", last waited " || lastwaitedstacklength || ", now: " || LENGTH(screenstack) || "\n");
+
+  FUNCTION PTR waitcallresult;
+
+  // If we have a call, there should not be any pending screen changes
+  IF (call != DEFAULT FUNCTION PTR)
+  {
+    // Wait a little while to allow previous calls to return
+    TestEmptyFifo(trace);
+
+    RECORD expect_call := ScheduleCall(trace, call);
+    waitcallresult := PTR ExpectImmediateCallResult(expect_call);
+  }
+
+  BOOLEAN have_screenchange;
+  WHILE (TRUE)
+  {
+    IF (debug_expects) PRINT("Wait for event\n");
+    RECORD rec := AWAIT screenfifo->AsyncShift();
+    IF (debug_expects) PRINT("Got event " || rec.type || "\n");
+    IF (rec.type = "error")
+    {
+      OBJECT e := NEW Exception(rec.error);
+      e->trace := rec.trace;
+      THROW e;
+    }
+    IF (rec.type = "screenchange" AND rec.stacklength = wantdepth)
+    {
+      // Got the wanted screen, test its props
+      IF (rec.screen->frame->screenname NOT LIKE options.namemask)
+      {
+        STRING msg := `Got the wrong screen, expected the name to be like '${options.namemask}', but got '${rec.screen->frame->screenname}'`;
+        PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
+        THROW NEW Exception(msg);
+      }
+      IF (ToUppercase(rec.screen->frame->title) NOT LIKE ToUppercase(options.titlemask))
+      {
+        STRING msg := `Got the wrong screen, expected the frame title to be like '${options.titlemask}', but got '${rec.screen->frame->title}'`;
+        PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
+        THROW NEW Exception(msg);
+      }
+      BREAK;
+    }
+    ELSE IF (rec.type = "noforwardprogress")
+    {
+      STRING message := "stuck in a " || GetScreenShortName(rec.screen) || " while expecting a screen change.";
+      IF (IsMessageBox(rec.screen))
+      {
+        IF (GetMessageBoxName(rec.screen) = "mod::tollium/screens/commondialogs.xml#errors")
+          message := message || " Did you use ExpectWorkErrors?";
+        ELSE
+          message := message || " Did you use ExpectAndAnswerMessageBox?";
+      }
+      ELSE IF (call = DEFAULT FUNCTION PTR)
+        message := message || " Did you forget to provide the trigger-call?";
+      PRINT("** " || message || "\n" || GetScreenDetails(rec.screen));
+
+      IF (rec.stacklength > wantdepth)
+      {
+        IF (rec.stacklength = lastwaitedstacklength)
+          PRINT("This screen didn't close as expected");
+        ELSE
+          PRINT("This screen opened unexpectedly");
+      }
+      ELSE IF (rec.stacklength < lastwaitedstacklength)
+        PRINT("The current screen closed instead of opening a new screen");
+      ELSE
+        PRINT("The expected screen didn't open");
+      PRINT(call = DEFAULT FUNCTION PTR ? "\n\n" : " after calling " || ExplainFunctionPtrSignature(call) || "\n\n");
+
+      PRINT("Expected the screen to change at:\n");
+      DumpStackTrace(trace);
+
+      OBJECT e := NEW Exception("No forward progress when expecting a screen change");
+//      e->trace := rec.trace CONCAT trace;
+      THROW e;
+    }
+    ELSE IF (rec.type = "callresult")
+      ProcessCallresult(rec, trace);
+    ELSE IF (rec.type = "sendwebfile")
+    {
+      STRING msg;
+      IF(ObjectExists(rec.screen))
+      {
+        msg := `Got an unexpected sent web file from ${ObjectExists(rec.screen) ? GetScreenShortName(rec.screen) : "<unknown>"} while waiting for a screen change`;
+        PRINT("** " || msg || "\n"|| GetScreenDetails(rec.screen));
+      }
+      ELSE
+      {
+        msg := `Got an unexpected sent web file from <unknown> while waiting for a screen change`;
+        Print("** " || msg||'\n');
+      }
+      THROW NEW Exception(msg);
+    }
+  }
+
+  lastwaitedstacklength := wantdepth;
+
+  IF (NOT options.allowscreenchangeafter)
+  {
+    WHILE (screenfifo->signalled)
+    {
+      RECORD rec := screenfifo->Shift();
+      IF (debug_expects) PRINT("Got after event " || rec.type || "\n");
+      IF (rec.type = "screenchange")
+      {
+        PRINT("** got an unexpected " || GetScreenShortName(rec.screen) || (rec.isopen ? " opening" : " closing") || " after reaching expected screen depth\n" || GetScreenDetails(rec.screen));
+
+        OBJECT e := NEW Exception("Got an unexpected " || GetScreenShortName(rec.screen) || (rec.isopen ? " opening" : " closing") || " after reaching expected screen depth");
+        e->trace := rec.trace; // Not awaited yet, no need to trace captured at function start
+        THROW e;
+      }
+      ELSE IF (rec.type = "callresult")
+        ProcessCallresult(rec, trace);
+      // Eat 'no forward progress'
+    }
+  }
+
+  IF (debug_expects) PRINT("Exit ExpectScreenChange " || diff || "\n");
+  in_expect_call := FALSE;
+  HandleUnprocessedErrors();
+
+  RETURN [ expectcallreturn := waitcallresult ];
+}
+
+PUBLIC ASYNC MACRO ExpectApplicationOpen(FUNCTION PTR call)
+{
+  IF (NOT IsDefaultValue(call))
+    AWAIT ExpectNoScreenChange(call);
+
+  RECORD applaunchinstruction := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="sendappmessage";
+  TestEq(TRUE, RecordExists(applaunchinstruction));
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp(applaunchinstruction.app, [ calltype := "direct", ...applaunchinstruction, DELETE app, DELETE instr, DELETE reuse ]));
+}
+
+/** Expect a file to be sent to the user
+    @param call Trigger call that will cause the screen change to happen
+    @param options
+    @return Returns when a file has been sent
+    @cell return.expectcallreturn Expect call that requires the trigger-call to have finished.
+    @cell return.file Returned file
+*/
+PUBLIC OBJECT ASYNC FUNCTION ExpectSentWebFile(MACRO PTR call, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(DEFAULT RECORD, options);
+
+  RECORD ARRAY trace := InitExpect(call); // save trace before first await, captures calling context.
+
+  IF (debug_expects) PRINT("Enter ExpectSentWebFile" || (call = DEFAULT FUNCTION PTR ? "" : ", calling " ||
+    ExplainFunctionPtrSignature(call)) || "\n");
+
+  FUNCTION PTR waitcallresult;
+
+  // If we have a call, there should not be any pending screen changes
+  RECORD expect_call;
+  IF (call != DEFAULT FUNCTION PTR)
+  {
+    // Wait a little while to allow previous calls to return
+    TestEmptyFifo(trace);
+
+    expect_call := ScheduleCall(trace, call);
+    waitcallresult := PTR ExpectImmediateCallResult(expect_call);
+  }
+
+  BOOLEAN have_screenchange;
+  WHILE (TRUE)
+  {
+    IF (debug_expects) PRINT("Wait for event\n");
+    RECORD rec := AWAIT screenfifo->AsyncShift();
+    IF (debug_expects) PRINT("Got event " || rec.type || "\n");
+    IF (rec.type = "error")
+    {
+      OBJECT e := NEW Exception(rec.error);
+      e->trace := rec.trace;
+      THROW e;
+    }
+    IF (rec.type = "screenchange")
+    {
+      STRING msg := "Got an unexpected " || GetScreenShortName(rec.screen) || (rec.isopen ? " opening" : " closing") || " while expecting a sent web file";
+      PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
+      THROW NEW Exception(msg);
+    }
+    ELSE IF (rec.type = "noforwardprogress")
+    {
+      STRING msg := "stuck in a " || GetScreenShortName(rec.screen) || " while expecting a sent web file.";
+      IF (IsMessageBox(rec.screen))
+      {
+        IF (GetMessageBoxName(rec.screen) = "mod::tollium/screens/commondialogs.xml#errors")
+          msg := msg || " Did you use ExpectWorkErrors?";
+        ELSE
+          msg := msg || " Did you use ExpectAndAnswerMessageBox?";
+      }
+      ELSE IF (call = DEFAULT FUNCTION PTR)
+        msg := msg || " Did you forget to provide the trigger-call?";
+      PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
+      THROW NEW Exception(msg);
+    }
+    ELSE IF (rec.type = "callresult")
+      ProcessCallresult(rec, trace);
+    ELSE IF (rec.type = "sendwebfile")
+    {
+      IF (debug_expects) PRINT("Exit ExpectSentWebFile\n");
+      in_expect_call := FALSE;
+
+      rec.data.callbackobj->targetcomponent->ProcessInboundMessage("download-started", [ ftid := rec.data.callbackobj->id ]);
+      HandleUnprocessedErrors();
+
+      RETURN
+          [ expectcallreturn :=   waitcallresult
+          , file :=               CELL[ data := rec.data.data, mimetype := rec.data.mimetype, filename := rec.data.filename ]
+          ];
+    }
+  }
+}
+
+PUBLIC MACRO DumpRunningExpectCalls()
+{
+  FOREVERY (RECORD rec FROM running_calls)
+  {
+    PRINT("Running call, id: " || rec.callid || ", trace:\n");
+    DumpStackTrace(rec.trace);
+  }
+}
+
+MACRO ThrowAlreadyAwaitedError()
+{
+  THROW NEW Exception("The call was already awaited within the ExpectAndAnswerMessageBox function, due to 'awaitcall := TRUE'");
+}
+
+/** Answers the currently open messagebox
+    @param answer Button to press in the message box
+    @param options
+    @cell(string) options.messagemask Like-mask for the expected message
+    @cell(string) options.namemask Like-mask for the name of the messagebox
+    @return Promise resolving when the messagebox has closed
+*/
+PUBLIC OBJECT ASYNC FUNCTION AnswerMessageBox(STRING answer, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ messagemask :=    "*"
+      , namemask :=       "*"
+      ], options);
+
+  IF (NOT MemberExists(topscreen, "BUTTONMAP"))
+  {
+    Print("** Expected a messagebox, but got screen " || GetScreenShortName(topscreen) || "\n" || GetScreenDetails(topscreen));
+    THROW NEW Exception("Expected a messagebox, but got screen " || GetScreenShortName(topscreen));
+  }
+  STRING message := MemberExists(topscreen,'message') ? topscreen->message : topscreen->^message->value;
+  IF (options.messagemask != "*")
+  {
+    IF (message NOT LIKE options.messagemask)
+    {
+      PRINT("Current MessageBox:\n" || GetScreenDetails(topscreen) || "\nInvocation trace:\n");
+      DumpStackTrace(screenstack[END - 1].trace);
+    }
+    TestEQLike(options.messagemask, message, "The message in the messagebox does not match");
+  }
+  IF (options.namemask != "*")
+  {
+    IF (GetMessageBoxName(topscreen) NOT LIKE options.namemask)
+    {
+      PRINT("Current MessageBox:\n" || GetScreenDetails(topscreen) || "\nInvocation trace:\n");
+      DumpStackTrace(screenstack[END - 1].trace);
+    }
+    TestEQLike(options.namemask, GetMessageBoxName(topscreen), "The name of messagebox does not match");
+  }
+
+  IF(NOT CellExists(topscreen->buttonmap, answer))
+  {
+    PRINT("** Could not find button '" || answer || "' in MessageBox\n" || GetScreenDetails(topscreen));
+    THROW NEW Exception("No such button '" || answer || "' in MessageBox");
+  }
+  AWAIT ExpectScreenChange(-1, PTR GetCell(topscreen->buttonmap,answer)->TolliumClick(), [ allowscreenchangeafter := TRUE ]);
+  RETURN DEFAULT RECORD;
+}
+
+/** Expect a message-box to open after a trigger-call, and answer it
+    @param answer Button to press in the message box
+    @param call Call to trigger the messagebox
+    @param options
+    @cell(boolean) options.awaitcall Expect the trigger call to return after answering the messagebox
+    @cell(string) options.messagemask Like-mask for the expected message
+    @cell(string) options.namemask Like-mask for the name of the messagebox
+    @return
+    @cell return.expectcallreturn Expect call that requires the trigger-call to have finished (not usable when using awaitcall)
+*/
+PUBLIC OBJECT ASYNC FUNCTION ExpectAndAnswerMessageBox(STRING answer, MACRO PTR call, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF (debug_expects) PRINT("Enter ExpectAndAnswerMessageBox\n");
+
+  options := ValidateOptions(
+      [ awaitcall :=    FALSE
+      , messagemask :=  "*"
+      , namemask :=     "*"
+      ], options);
+
+  RECORD rec := AWAIT ExpectScreenChange(+1, call);
+  AWAIT AnswerMessageBox(answer, [ messagemask := options.messagemask, namemask := options.namemask ]);
+  IF (CellExists(options, "AWAITCALL") AND options.awaitcall)
+  {
+    IF (debug_expects) PRINT("Wait for call to finish in ExpectAndAnswerMessageBox\n");
+    AWAIT rec.expectcallreturn();
+
+    rec.expectcallreturn := PTR ThrowAlreadyAwaitedError;
+  }
+
+  IF (debug_expects) PRINT("Exit ExpectAndAnswerMessageBox\n");
+
+  RETURN rec;
+}
+
+/** Expect work errors, auto 'ok' them
+    @param call Call to trigger the work errors
+    @param options
+    @cell(boolean) options.awaitcall Expect the trigger call to return after answering the messagebox
+    @cell(string) options.messagemask Like-mask for the expected message
+    @return
+    @cell return.expectcallreturn Expect call that requires the trigger-call to have finished (not usable when using awaitcall)
+*/
+PUBLIC OBJECT FUNCTION ExpectWorkErrors(MACRO PTR call, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  INSERT CELL namemask := "mod::tollium/screens/commondialogs.xml#errors" INTO options;
+  RETURN ExpectAndAnswerMessageBox("ok", call, options);
+}
+
+/** Expect that an async action (triggered by call, if specified) may result in a progress window, process that progress window
+*/
+PUBLIC ASYNC FUNCTION ExpectOptionalProgressWindow(MACRO PTR call, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF (debug_expects) PRINT("Enter ExpectOptionalProgressWindow\n");
+
+  options := ValidateOptions(
+      [ awaitcall :=    FALSE
+      ], options);
+
+  RECORD ARRAY trace := InitExpect(call); // save trace before first await, captures calling context.
+
+  // If we have a call, there should not be any pending screen changes
+  FUNCTION PTR expectcallreturn;
+  IF (call != DEFAULT FUNCTION PTR)
+  {
+    // Wait a little while to allow previous calls to return
+    TestEmptyFifo(trace);
+
+    RECORD expect_call := ScheduleCall(trace, call);
+    expectcallreturn := PTR ExpectImmediateCallResult(expect_call);
+  }
+
+  RECORD result := CELL[ expectcallreturn ];
+
+  // A progress screen might open
+  IF (debug_expects) PRINT("Wait for event\n");
+  RECORD rec := AWAIT screenfifo->AsyncPeek();
+  IF (debug_expects) PRINT("Got event " || rec.type || "\n");
+
+  in_expect_call := FALSE;
+  IF (rec.type = "screenchange" AND rec.isopen AND rec.screen->frame->screenname = "mod::tollium/screens/commondialogs.xml#progressscreen")
+  {
+    // got a progress screen, wait for it to close
+    AWAIT ExpectScreenChange(0, DEFAULT FUNCTION PTR);
+  }
+
+  IF (CellExists(options, "AWAITCALL") AND options.awaitcall)
+  {
+    IF (debug_expects) PRINT("Wait for call to finish in ExpectAndAnswerMessageBox\n");
+    AWAIT rec.expectcallreturn();
+
+    rec.expectcallreturn := PTR ThrowAlreadyAwaitedError;
+  }
+
+  IF (debug_expects) PRINT("Exit ExpectOptionalProgressWindow\n");
+
+  RETURN DEFAULT RECORD;
+}
+
+
+PUBLIC OBJECT FUNCTION GetTestsuiteWRDauthPlugin()
+{
+  RETURN GetWRDAuthPlugin(GetTestTolliumPortalURL());
+}
+
+INTEGER downloadcounter;
+
+/** Execute an open-new-window action
+    @param actioncomponent
+    @param options
+    @cell options.rule Enableon rule nr
+*/
+PUBLIC RECORD FUNCTION ExecuteWindowOpenAction(OBJECT actioncomponent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ rule := 0
+      ], options);
+
+  downloadcounter := downloadcounter + 1;
+  actioncomponent->ProcessInboundMessage("windowopen", [ ftid := "FT:c" || downloadcounter, rule := options.rule ]);
+  OBJECT asyncobject := GetTestController()->GetAsyncObject(actioncomponent, "windowopen", "FT:c" || downloadcounter, FALSE);
+
+  RETURN asyncobject->response;
+}
+
+RECORD FUNCTION BuildDropMessage(OBJECT sourcecomp, VARIANT selection, OBJECT targetcomp, RECORD options)
+{
+  options := ValidateOptions(
+      [ dropeffect :=     "move"
+      , droplocation :=   "ontarget"
+      , files :=          RECORD[]
+      ],
+      options);
+
+  STRING dropeffect := options.dropeffect;
+  STRING droplocation := options.droplocation;
+
+  RECORD message :=
+      [ dropeffect :=   options.dropeffect
+      , droplocation := options.droplocation
+      , source :=       "local"
+      , sourcecomp :=   GetComponentName(sourcecomp)
+      , items :=        RECORD[]
+      ];
+
+  IF(Length(options.files)>0)
+  {
+    IF(IsValueSet(selection))
+      THROW NEW Exception("Cannot drop both files and a selection");
+
+    message.source := "files";
+
+    FOREVERY(RECORD infile FROM options.files)
+    {
+      //PrepareUpload is normally invoked by the filetransfer.shtml (through an 'upload' message), and filetransfer will already have scanned the mimetype
+      STRING token := targetcomp->PrepareUpload([ data := infile.data
+                                                , mimetype := ScanBlob(infile.data, infile.filename).mimetype
+                                                , filename := infile.filename
+                                                ])[0];
+      RECORD item := CELL[ type := "file", token ];
+      IF(CellExists(infile,'fullpath'))
+        INSERT CELL fullpath := infile.fullpath INTO item;
+      INSERT item INTO message.items AT END;
+    }
+  }
+  ELSE
+  {
+    IF ("TOLLIUMLIST" IN GetObjectExtendNames(sourcecomp))
+    {
+      IF (NOT IsTypeidArray(TypeId(selection)))
+        selection := RepeatElement(selection, 1);
+      IF (TypeID(selection[0]) = TypeID(INTEGER))
+        selection := INTEGER ARRAY(selection);
+      ELSE
+        selection := STRING ARRAY(selection);
+
+      message.items :=
+          SELECT type :=  draginfo.type
+               , id :=    TypeID(rowkey) = TypeID(STRING) ? rowkey : ToString(rowkey)
+               , data :=  draginfo.data
+            FROM sourcecomp->rows
+           WHERE rowkey IN selection;
+
+      IF (LENGTH(message.items) != LENGTH(selection))
+        THROW NEW Exception("Not all rowkeys from source list were found");
+    }
+    ELSE IF ("TOLLIUMTABLE" IN GetObjectExtendNames(sourcecomp))
+    {
+      OBJECT overlay := selection;
+
+      message.items :=
+          [ CELL
+            [ overlay->id
+            , overlay->draginfo.type
+            , overlay->draginfo.data
+            ]
+          ];
+    }
+  }
+
+  RETURN message;
+}
+
+/** Do a drag-drop from list to list
+    @param sourcecomp List component with dragged items
+    @param rowkeys Rowkey(s) of dragged items
+    @param targetcomp Target list component
+    @cell options.dropeffect Drop effect: one of "move", "link", "copy"
+    @cell options.droplocation Drop location: one of "ontarget", "appendchild", "insertbefore"
+    @cell options.target Optional rowkey of target row (if not specified, dropped in empty space)
+*/
+PUBLIC MACRO ExecuteListDragDrop(OBJECT sourcecomp, VARIANT rowkeys, OBJECT targetcomp, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF ("TOLLIUMLIST" NOT IN GetObjectExtendNames(targetcomp))
+    THROW NEW Exception(`Target component is not a list`);
+
+  ExecuteDragDrop(sourcecomp, rowkeys, targetcomp, options);
+}
+
+/** Do a drag-drop onto another component
+    @param sourcecomp Component with dragged items
+    @param selection Rowkey(s) of dragged items (lists), selected overlay(s) for table
+    @param targetcomp Target list component
+    @cell options.dropeffect Drop effect: one of "move", "link", "copy"
+    @cell options.droplocation Drop location for lists: one of "ontarget", "appendchild", "insertbefore" (only for lists)
+    @cell options.target Target to drop onto
+                         - Lists: rowkey of target row (if not specified, dropped in empty space)
+                         - Tables: table cell to drop on (if not specified, not dropped on a specific cell)
+*/
+PUBLIC MACRO ExecuteDragDrop(OBJECT sourcecomp, VARIANT selection, OBJECT targetcomp, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD message;
+
+  STRING ARRAY targetextendnames := GetObjectExtendNames(targetcomp);
+  IF ("TOLLIUMTABLE" IN targetextendnames)
+  {
+    options := ValidateOptions(
+        [ dropeffect :=     "move"
+        , target :=         DEFAULT OBJECT
+        , files :=          RECORD[]
+        ],
+        options);
+
+    message := BuildDropMessage(sourcecomp, selection, targetcomp, CELL[ ...options, droplocation := "oncell", DELETE target ]);
+
+    IF (ObjectExists(options.target))
+    {
+      IF ("TABLECELL" NOT IN GetObjectExtendNames(options.target))
+        THROW NEW Exception(`Target is not a table cell`);
+
+      INSERT CELL target := `${options.target->row}:${options.target->col}` INTO message;
+    }
+  }
+  ELSE IF ("TOLLIUMLIST" IN targetextendnames)
+  {
+    options := ValidateOptions(
+        [ dropeffect :=     "move"
+        , droplocation :=   "ontarget"
+        , target :=         0
+        , files :=          RECORD[]
+        ],
+        options,
+        [ optional :=       [ "TARGET" ]
+        , notypecheck :=    [ "TARGET" ]
+        ]);
+
+    message := BuildDropMessage(sourcecomp, selection, targetcomp, CELL[ ...options, DELETE target ]);
+
+    IF (CellExists(options, "TARGET"))
+    {
+      IF (targetcomp->GetRowFlatPosition(options.target) = -1)
+        THROW NEW Exception("Could not find target rowkey in target list");
+
+      INSERT CELL target := TypeID(options.target) = TypeID(STRING) ? options.target : ToString(options.target) INTO message;
+    }
+  }
+  ELSE
+    THROW NEW Exception(`Cannot drop on the target component, it is not a list or a table`);
+
+  targetcomp->ProcessInboundMessage("acceptdrop", message);
+}
+
+MACRO CheckScreensAllClosed()
+{
+  IF (NOT RecordExists(screenstack))
+    RETURN;
+
+  OBJECT screen := screenstack[END - 1].screen;
+  STRING msg := "Screen " || GetScreenShortName(screen) || " is still open after test, did you forget to close it?";
+  PRINT("** " || msg || "\n" || GetScreenDetails(screen) || "\n");
+  DumpStackTrace(screenstack[END - 1].trace);
+
+  THROW NEW Exception(msg);
+}
+
+PUBLIC OBJECT FUNCTION GetTestController()
+{
+  IF(NOT ObjectExists(controller))
+  {
+    IF(NOT ObjectExists(testfw->userapi))
+      THROW NEW Exception("No userapi available, cannot configure controller");
+
+    controller := NEW TolliumHeadlessController(testfw->userapi, testfw->wrdauth ? GetTestsuiteWRDauthPlugin() : DEFAULT OBJECT, FALSE);
+    controller->debugging := testfw->debug;
+
+    controller->__onscreenchange := PTR OnScreenChange;
+    controller->__onnoforwardprogress := PTR OnNoForwardProgress;
+    controller->__onsendwebfile := PTR OnSendWebFile;
+    controller->__onnoactionhandlerfound := PTR OnNoActionHandlerFound;
+
+    IF(NOT ObjectExists(GetEffectiveUser()))
+      __SetEffectiveUser(testfw->userapi->GetAnonymousUser());
+
+    controller->user->language := "debug";
+
+    testfw->RegisterBeforeEachTest(PTR CheckScreensAllClosed);
+
+    controller->ActivateWebController();
+  }
+  RETURN controller;
+}
+
+//////////////////////////////////////////////////////////////////////////
+//
+// Test api clean
+
+//TTLaunchApplication
+PUBLIC ASYNC MACRO TTLaunchApp(STRING appname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  GetTestController()->LaunchApplication(appname, options);
+}
+
+OBJECT ARRAY FUNCTION GetAllVisibleComponents(OBJECT screen)
+{
+  OBJECT ARRAY allcomps;
+  IF (screen EXTENDSFROM TolliumScreenBase)
+    allcomps := screen->frame->GetTopDownAllComponents();
+  ELSE
+    allcomps := screen->GetSubcomponentsRecursive() CONCAT screen->GetTopDownAllComponents();
+
+  OBJECT ARRAY visible;
+  FOREVERY (OBJECT comp FROM allcomps)
+  {
+    //Ignore invisible objects, remove duplicates
+    IF (comp->isnowvisible AND comp NOT IN visible)
+      INSERT comp INTO visible AT END;
+  }
+
+  RETURN visible;
+}
+
+OBJECT FUNCTION LookupByCellname(OBJECT screen, STRING name, RECORD options)
+{
+  OBJECT ARRAY matches;
+  OBJECT ARRAY comps := GetAllVisibleComponents(screen);
+
+  IF (name LIKE "*!*") // lookup fragments by name
+  {
+    FOREVERY(OBJECT obj FROM comps)
+    {
+      //Ignore invisible objects
+      IF(obj->name = name)
+        INSERT obj INTO matches AT END;
+    }
+  }
+
+  IF (LENGTH(matches) = 0)
+  {
+    FOREVERY(OBJECT obj FROM comps)
+    {
+      IF(MemberExists(obj,'cellname') AND obj->cellname = name)
+        INSERT obj INTO matches AT END;
+    }
+  }
+
+  IF(Length(matches) > 1)
+  {
+    STRING ARRAY matchnames := SELECT AS STRING ARRAY obj->toddname FROM ToRecordArray(matches,'obj');
+    THROW NEW Exception(`${Length(matches)} objects with cellname '${name}': ${Detokenize(matchnames,', ')}`);
+  }
+  IF(Length(matches) = 0)
+  {
+    IF (options.allowmissing)
+      RETURN DEFAULT OBJECT;
+    THROW NEW Exception(`No objects with cellname '${name}'`);
+  }
+  RETURN matches[0];
+}
+
+OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING pathstr, RECORD options)
+{
+  OBJECT ARRAY matches;
+  OBJECT ARRAY comps := GetAllVisibleComponents(screen);
+
+  STRING matchelementtype;
+  IF(text LIKE "{?*}:?*")
+  {
+    matchelementtype := Substring(text, 1, SearchSubstring(text,'}:')-1);
+    text := Substring(text,SearchSubstring(text,'}:')+2);
+  }
+  ELSE
+  {
+    text := Substring(text,1);
+  }
+
+  FOREVERY(OBJECT obj FROM comps)
+  {
+    BOOLEAN titlematch := ToUppercase(obj->title ?? obj->errorlabel) = ToUppercase(text);
+
+    IF(matchelementtype != "")
+    {
+      IF(obj->elementtype != matchelementtype OR NOT titlematch)
+        CONTINUE;
+    }
+    ELSE
+    {
+      IF(obj->componenttype = "menuitem" AND NOT (islast AND options.menuitem))
+        CONTINUE; //ignore menuitems, frequent source of conflicting items
+      //Ignore actiom/menu objects and other untransmitted components, except for SElects - it's useful to select those by title
+      IF(obj->componenttype IN ["component","action"] AND (NOT obj ExtendsFrom TolliumSelect))
+        CONTINUE;
+      IF(obj->componenttype = "pulldown" AND obj->supercomponent EXTENDSFROM TolliumSelect)
+        CONTINUE;
+
+      IF(NOT titlematch //title match
+         AND
+           (obj->componenttype != "text" OR NOT ObjectExists(obj->action) OR ToUppercase(obj->value) != ToUppercase(text)) //value match
+          )
+      CONTINUE;
+    }
+
+    //It's a match. chase final action
+    IF(options.chaseaction)
+    {
+      WHILE((obj EXTENDSFROM TolliumForward AND ObjectExists(obj->action))
+            OR
+            (obj EXTENDSFROM TolliumButton AND ObjectExists(obj->action))
+            OR
+            (obj EXTENDSFROM TolliumMenuItem AND ObjectExists(obj->action)))
+      {
+        obj := obj->action;
+      }
+    }
+
+    IF(obj IN matches) //already seen
+      CONTINUE;
+
+    INSERT obj INTO matches AT END;
+  }
+
+  IF(Length(matches) > 1)
+  {
+    STRING ARRAY matchnames := SELECT AS STRING ARRAY obj->toddname FROM ToRecordArray(matches,'obj');
+    THROW NEW Exception(`${Length(matches)} objects with title '${text}' in '${pathstr}': ${Detokenize(matchnames,', ')}`);
+  }
+  IF(Length(matches) = 0)
+  {
+    IF (options.allowmissing)
+      RETURN DEFAULT OBJECT;
+
+    STRING ARRAY alltexts :=
+        SELECT AS STRING ARRAY obj->title
+          FROM ToRecordArray(comps, "OBJ")
+         WHERE obj->isnowvisible
+           AND (obj->componenttype NOT IN ["component","action","menuitem"] OR (obj ExtendsFrom TolliumSelect));
+
+    alltexts := alltexts CONCAT
+        SELECT AS STRING ARRAY obj->value
+          FROM ToRecordArray(comps, "OBJ")
+         WHERE obj->isnowvisible
+           AND obj->componenttype = "text"
+           AND ObjectExists(obj->action);
+
+    STRING didyoumean := GetBestMatch(text, GetSortedSet(alltexts));
+    THROW NEW Exception(`No objects with title '${text}' in '${pathstr}'${didyoumean=""?"":`, did you mean '${didyoumean}'?`}`);
+  }
+
+  RETURN matches[0];
+}
+
+/** @short Look for a component in the current toplevel screen
+    @param compname Component name
+    @cell(boolean) options.chaseaction
+    @cell(boolean) options.menuitem Interpret the last item from the path as a menu item
+    @cell(boolean) options.allowmissing Just return DEFAULT OBJECT if the last component in the path does not exist
+    @cell(boolean) options.findinvisible Allow finding invisible components
+    @return Component
+*/
+PUBLIC OBJECT FUNCTION TT(STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN __LookupComponentByTestReference(topscreen, compname, options);
+}
+
+PUBLIC OBJECT FUNCTION __LookupComponentByTestReference(OBJECT screen, STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ chaseaction := FALSE
+                              , menuitem := FALSE
+                              , allowmissing := FALSE
+                              , findinvisible := FALSE
+                              ], options);
+
+  OBJECT ptrsofar := screen, curcomp := ptrsofar->frame;
+  IF(NOT ObjectExists(ptrsofar))
+    THROW NEW Exception(`No open screen while looking for '${compname}'`);
+  STRING ARRAY comppath := Tokenize(compname,"->");
+
+  STRING pathstr := "topscreen";
+  TRY
+  {
+    FOREVERY(STRING pathentry FROM comppath)
+    {
+      IF(ptrsofar EXTENDSFROM TolliumPanel AND ObjectExists(ptrsofar->contents))
+      {
+        //descend into replaced panels
+        ptrsofar := ptrsofar->contents;
+      }
+
+      IF(pathentry LIKE ":?*" OR pathentry LIKE "{?*}:?*")
+      {
+        ptrsofar := LookupByTitle(ptrsofar, pathentry, #pathentry = Length(comppath)-1, pathstr, options);
+      }
+      ELSE
+      {
+        VARIANT memberval := DEFAULT OBJECT;
+        IF(MemberExists(ptrsofar, "^"||pathentry))
+          memberval := __HS_GETPRIVATEMEMBER(ptrsofar, "^"||pathentry);
+        ELSE IF(MemberExists(ptrsofar, pathentry))
+          memberval := __HS_GETPRIVATEMEMBER(ptrsofar, pathentry);
+        ELSE
+          memberval := LookupByCellname(ptrsofar, pathentry, options);
+
+        IF (ObjectExists(memberval) AND (TypeID(memberval) != TypeID(OBJECT) OR memberval NOT EXTENDSFROM TolliumComponentBase))
+          THROW NEW Exception(`Member ${pathstr} is not a component`);
+        ptrsofar := memberval;
+
+        IF(NOT ObjectExists(ptrsofar))
+        {
+          IF (options.allowmissing AND #pathentry = LENGTH(comppath) - 1)
+            RETURN DEFAULT OBJECT;
+          THROW NEW Exception(`${pathstr} has no member ${compname}`);
+        }
+        IF(NOT options.findinvisible AND NOT ptrsofar EXTENDSFROM TolliumTabsExtensionBase AND NOT ptrsofar->isnowvisible) //tabsextensionbases are not marked as visible, not sure why but just exclude them from testing now
+          THROW NEW Exception(`${pathstr} member '${compname}' is not visible`);
+      }
+      pathstr := `${pathstr}->${pathentry}`;
+      curcomp := ptrsofar;
+    }
+    RETURN ptrsofar;
+  }
+  CATCH(OBJECT e)
+  {
+    Print(`\n** Lookup of '${compname}' in '${pathstr}' failed: ${e->what}\n\n`);
+    DumpValue((curcomp ?? topscreen->frame)->GetComponentOutline(),'tree');
+    THROW;
+  }
+}
+//Click/execute an action or component
+PUBLIC BOOLEAN FUNCTION TTClick(STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OBJECT comp := TT(compname, [ chaseaction := TRUE, ...options, DELETE allowfailure ]);
+  IF(comp EXTENDSFROM TolliumText AND ObjectExists(comp->action))
+    comp := comp->action; //manually chase to fix texts pointing to download actions (see testformcustomfile)
+  IF(comp EXTENDSFROM TolliumDownloadAction)
+  {
+    downloadcounter := downloadcounter + 1;
+    comp->ProcessInboundMessage("download", [ ftid := "FT:c" || downloadcounter, rule := CellExists(options,'rule') ? options.rule : 0 ]);
+    OBJECT asyncobject := GetTestController()->GetAsyncObject(comp, "windowopen", "FT:c" || downloadcounter, FALSE);
+    RETURN TRUE;
+  }
+
+  options := ValidateOptions(
+      [ allowfailure :=   FALSE
+      ], options,
+      [ passthrough :=    TRUE
+      ]);
+
+  BOOLEAN old_allownoactionhandlerfound := allownoactionhandlerfound;
+  TRY
+  {
+    allownoactionhandlerfound := options.allowfailure;
+    RETURN comp->TolliumClick();
+  }
+  FINALLY
+    allownoactionhandlerfound := old_allownoactionhandlerfound;
+}
+
+PUBLIC MACRO TTEscape()
+{
+  topscreen->TolliumExecuteCancel();
+}
+
+/** Sets a component value
+    @param compname Component to set the value of
+    @param val Title/value of the value to set
+    @cell options.cellname Cell to search the value in. Defaults to the title for selects, the first text column for lists.
+    @cell(integer) options.expandtreelevels Expand this nr of tree levels before searching
+*/
+PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ cellname :=         ""
+      , expandtreelevels := 0
+      ], options);
+
+  OBJECT comp := TT(compname);
+  STRING ARRAY extendnames := GetObjectExtendNames(comp);
+  IF ("TOLLIUMLIST" IN extendnames OR "TOLLIUMSELECT" IN extendnames)
+  {
+    IF (NOT IsTypeIdArray(TypeID(val)))
+      val := IsDefaultValue(val) ? VARIANT[] : VARIANT[ val ];
+
+    VARIANT ARRAY rowkeys;
+
+    STRING searchcell;
+    RECORD ARRAY rows;
+    BOOLEAN selectmultiple;
+
+    IF ("TOLLIUMLIST" IN extendnames)
+    {
+      IF (options.cellname = "" OR options.cellname LIKE ":*")
+      {
+        IF (options.cellname != "" AND NOT comp->columnheaders)
+          THROW NEW Exception(`Cannot search column name when these those hidden on list '${compname}'`);
+
+        searchcell :=
+            SELECT AS STRING name
+              FROM comp->columns
+             WHERE type = "text"
+               AND (options.cellname = "" ? TRUE : ToUppercase(title) LIKE ToUppercase(SubString(options.cellname, 1)));
+
+        IF (searchcell = "")
+          THROW NEW Exception(`Cannot find text column '${options.cellname}' in list '${compname}'`);
+      }
+      ELSE
+        searchcell := options.cellname;
+
+      IF (comp->columns[0].tree)
+      {
+        FOR (INTEGER i := 0; i < options.expandtreelevels; i := i + 1)
+        {
+          VARIANT expanded := comp->expanded, orgexpanded := expanded;
+          FOREVERY (RECORD row FROM comp->rows)
+            IF (row.expandable)
+              INSERT row.rowkey INTO expanded AT END;
+          expanded := GetSortedSet(expanded);
+          IF (LENGTH(expanded) = LENGTH(orgexpanded))
+            BREAK;
+          comp->expanded := expanded;
+        }
+      }
+
+      rows := comp->rows;
+      selectmultiple := comp->selectmode = "multiple";
+    }
+    ELSE
+    {
+      IF (options.cellname LIKE ":*")
+        THROW NEW Exception(`Cannot search by column name in select component ${compname}`);
+
+      searchcell := options.cellname ?? "title";
+      rows := comp->options;
+      selectmultiple := comp->type = "checkbox";
+    }
+
+    FOREVERY (VARIANT v FROM val)
+    {
+      RECORD rec :=
+          SELECT *
+            FROM rows
+           WHERE TypeID(v) = TypeID(STRING)
+                    ? GetCell(rows, searchcell) LIKE v
+                    : GetCell(rows, searchcell) = v;
+
+      IF (NOT RecordExists(rec))
+      {
+        IF (TypeID(v) = TypeID(STRING))
+        {
+          STRING bestmatch := GetBestMatch(v, SELECT AS STRING ARRAY GetCell(rows, searchcell) FROM rows);
+          IF (bestmatch != "")
+            THROW NEW Exception(`Could not find value '${EncodeValue(v)}' in cell ${searchcell} in list '${compname}', did you mean '${EncodeValue(bestmatch)}'`);
+        }
+        VARIANT items := SELECT AS VARIANT ARRAY GetCell(rows, searchcell) FROM rows LIMIT 20;
+        DumpValue(items, [ name := `First ${LENGTH(items)} items` ]);
+        THROW NEW Exception(`Could not find value ${EncodeHSON(v)} in cell ${searchcell} in list '${compname}'`);
+      }
+
+      INSERT rec.rowkey INTO rowkeys AT END;
+    }
+
+    IF (selectmultiple)
+      comp->value := CastTo(rowkeys, TypeID(comp->value));
+    ELSE IF (LENGTH(rowkeys) = 0)
+      comp->value := GetTypeDefaultValue(TypeID(comp->value));
+    ELSE
+      comp->value := rowkeys[0];
+  }
+  ELSE IF ("TOLLIUMTEXTEDIT" IN extendnames OR "TOLLIUMTEXTAREA" IN extendnames)
+  {
+    comp->value := val;
+  }
+  ELSE IF ("TOLLIUMTABS" IN extendnames)
+  {
+    OBJECT newtab;
+    FOREVERY (OBJECT tab FROM comp->pages)
+      IF (tab->title LIKE val)
+        newtab := tab;
+    IF (NOT ObjectExists(newtab))
+      THROW NEW Exception(`No such tab '${val}' in component '${compname}'`);
+    comp->selectedtab := newtab;
+  }
+  ELSE
+    THROW NEW Exception(`Cannot fill by title for component '${compname}', extendnames: ${Detokenize(extendnames, ", ")}`);
+}

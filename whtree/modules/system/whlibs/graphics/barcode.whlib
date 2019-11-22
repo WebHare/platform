@@ -1,0 +1,85 @@
+<?wh
+/** @short Bar and QR codes
+    @topic graphics/scancodes
+*/
+
+LOADLIB "wh::graphics/canvas.whlib";
+
+/* FIXME - reenable, but try to match the 128B functions, when we will be requiring this again
+PUBLIC STRING FUNCTION SetEAN13ControlNumber(STRING code)
+{
+  IF (LENGTH(code) NOT IN [ 12, 13 ]) // allow with control too
+    THROW NEW Exception("EAN base must be 12 digits long");
+
+  INTEGER codebaselen := 12;
+
+  INTEGER total;
+  FOR (INTEGER i := 0; i < codebaselen; i := i + 1)
+    total := total + ToInteger(SubString(code, i, 1), 0) * (((codebaselen - i) % 2) = 1 ? 3 : 1);
+
+  RETURN Left(code, 12) || ((30 * codebaselen - total) % 10);
+}
+
+MACRO TestEAN13()
+{
+  TestEQ("0000000000000", SetEAN13ControlNumber("000000000000"));
+  TestEQ("8710412241428", SetEAN13ControlNumber("871041224142"));
+  TestEQ("8710412241428", SetEAN13ControlNumber("8710412241428"));
+  TestEQ("8711715861184", SetEAN13ControlNumber("871171586118"));
+  TestEQ("8711715861184", SetEAN13ControlNumber("8711715861184"));
+  TestEQ("9999999999994", SetEAN13ControlNumber("999999999999"));
+}
+
+*/
+
+PUBLIC STRING FUNCTION GetCode128BBarcodeText(STRING intext)
+{
+  //http://www.idautomation.com/barcode-fonts/code-128/user-manual.html was used as the basis for this algorithm
+  intext := Substitute(intext,"\u00A0"," "); //transform NBSPs to spaces
+
+  //Remap high ascii codes to their 128B equivalents. Calculate the checkvalue
+  INTEGER checkvalue := 104; //Start B
+  INTEGER numchars := UCLength(intext);
+  FOR(INTEGER i := 0; i < numchars; i := i + 1)
+  {
+    STRING ucchar := UCSubstring(intext,i,1);
+    INTEGER ucvalue := GetUCValue(ucchar);
+     IF(ucvalue >= 0xC3 AND ucvalue <= 0xCD) //the range 0xC3 - 0xCD (195 to 205) maps to 95-105
+      checkvalue := checkvalue + (ucvalue - 100) * (i+1);
+    ELSE IF(ucvalue >= 32 AND ucvalue <= 126)
+      checkvalue := checkvalue + (ucvalue - 32) * (i+1);
+    ELSE
+      THROW NEW Exception("The character '" || ucchar || "' is not part of the Code 128 B repertoire");
+  }
+
+  checkvalue := checkvalue % 103;
+  IF(checkvalue <= 94)
+    checkvalue := checkvalue + 32;
+  ELSE
+    checkvalue := checkvalue + 100;
+
+  STRING outtext := "\u00CC" || intext || UCToString(checkvalue) || "\u00CE";
+  RETURN outtext;
+}
+
+PUBLIC OBJECT FUNCTION CreateCode128BBarcode(STRING intext, INTEGER fontsize)
+{
+  STRING outtext := GetCode128BBarcodeText(intext);
+
+  OBJECT barcoderenderer := CreateTextRenderer();
+  barcoderenderer->fontfamily := "Code 128";
+  barcoderenderer->fontsize := fontsize;
+  barcoderenderer->antialiasing := FALSE;
+
+  //ADDME properly generate/calculate whitespace. for now, we'll just take 50% fontsize extra
+  INTEGER reqwidth := barcoderenderer->GetTextWidth(outtext) + INTEGER(0.5*fontsize + 0.5);
+  INTEGER reqheight := barcoderenderer->GetTextHeight(outtext) + 2;
+
+  OBJECT outcanvas := CreateEmptyCanvas(reqwidth, reqheight, ColorWhite);
+  barcoderenderer->halign := "LEFT";
+  barcoderenderer->valign := "TOP";
+  barcoderenderer->DrawText(outcanvas, 0,2,outtext);
+
+  barcoderenderer->Close();
+  RETURN outcanvas;
+}

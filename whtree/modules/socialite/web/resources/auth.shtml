@@ -1,0 +1,147 @@
+﻿<?wh
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::socialite/lib/api.whlib";
+
+STRING sessid := GetWebVariable('socialite_session');
+RECORD sessdata;
+
+MACRO LaunchLogin(OBJECT conn)
+{
+  STRING completeauth := UpdateURLVariables( GetRequestURL()
+                                           , [ permissions := ""
+                                             , account := ""
+                                             , application := ""
+                                             , socialite_session := sesSid
+                                             , code := ""
+                                             , app := ""
+                                             , cb := ""
+                                             , dd := ""
+                                             , sq := ""
+                                             ]);
+
+  RECORD login := conn->StartLogin(completeauth, sessdata.permissions != "" ? Tokenize(sessdata.permissions,"||") : DEFAULT STRING ARRAY, ""); // authorize_uri, sessiontoken
+  sessdata.sessiontoken := login.sessiontoken;
+  StoreWebSessionData(sessid, '', sessdata);
+  Redirect(login.authorize_uri);
+  RETURN;
+}
+
+//ADDME error checking
+//ADDME als iemand in socialite een URL instelt, krijgt dat voorrang boven onze URL! :-()
+
+OBJECT trans := OpenPrimary();
+
+IF(sessid!='')
+{
+  sessdata := GetWebSessionData(sessid, "");
+  IF(NOT RecordExists(sessdata))
+  {
+    //FIXME Generic 'it failed' message? Invoke a failure callback? Negotiate a once-only auto-retry with our caller?
+    RETURN;
+  }
+}
+ELSE
+{
+  sessdata := [ account := GetWebVariable("account")
+              , application := GetWebVariable('application')
+              , sessiontoken := ""
+              , ssid := ToInteger(GetWebVariable("ssid"),-1)
+              , permissions := GetWebVariable("p")
+              , cb := GetWebVariable("cb")
+              , dd := GetWebVariable("dd")
+              , sq := GetWebVariable("sq")
+              ];
+
+  IF(sessdata.permissions="")
+    sessdata.permissions := GetWebVariable("permissions");
+
+  STRING app := GetWebVariable("app");
+  IF(app!="")
+  {
+    STRING ARRAY apptoks := Tokenize(app,':');
+    IF(Length(apptoks)=2)
+    {
+      sessdata.account := apptoks[0];
+      sessdata.application := apptoks[1];
+    }
+  }
+}
+
+
+OBJECT conn := OpenSocialiteConnection(sessdata.account, sessdata.application);
+IF(sessid='')
+{
+  //15 mins should be more than enough to authorize? ADDME - could set a random session password and use that only in the redirect for extra safety?
+  sessid := CreateWebSession("", DEFAULT RECORD, 15, TRUE);
+  LaunchLogin(conn);
+}
+
+STRING securetoken;
+BOOLEAN is_denied := (ToUpperCase(GetWebVariable("denied")) NOT IN [ "", "0", "FALSE" ])
+                     OR (ToUpperCase(GetWebVariable("error_reason")) = "USER_DENIED");
+
+IF(NOT is_denied)
+{
+  TRY
+  {
+    conn->FinishLogin(sessdata.sessiontoken , GetRequestURL());
+    securetoken := conn->GetSecureAccessToken();
+  }
+  CATCH(OBJECT e)
+  {
+    LogHarescriptException(e);
+    LaunchLogin(conn); //Let's retry...
+  }
+}
+
+IF (conn->jsredirecturl != "")
+{
+  STRING finalurl := AddVariableToURL(conn->jsredirecturl, "ssid", tostring(sessdata.ssid));
+  finalurl := AddVariableToURL(finalurl, "securetoken", securetoken);
+  CloseWebSession(sessid, "");
+  Redirect(finalurl);
+}
+
+IF(sessdata.sq != "")
+  UpdateWebCookie("socialite_cb_" || sessdata.sq, securetoken != "" ? securetoken : "-fail-" , [ httponly := FALSE, lifetime := 300 ]);
+
+STRING cb := sessdata.cb;
+IF(cb="" AND sessdata.sq != "")
+  cb := '__socialitecallback' || sessdata.sq;
+
+CloseWebSession(sessid, "");
+
+?><!DOCTYPE html>
+<html>
+  <head>
+    <script type="text/javascript">
+    <?wh IF(cb != "") { ?>
+      try
+      {
+        window.opener["$wh"]["<?wh print(EncodeJava(cb)) ?>"]("<?wh print(EncodeJava(securetoken)) ?>");
+      }
+      catch(e)
+      {
+        try
+        {
+          document.domain = "<?wh print(EncodeJava(sessdata.dd)) ?>";
+          window.opener["$wh"]["<?wh print(EncodeJava(cb)) ?>"]("<?wh print(EncodeJava(securetoken)) ?>");
+        }
+        catch(e)
+        {
+
+        }
+      }
+    <?wh } ELSE { ?>
+      if(window.opener && window.opener.SocialiteSession)
+        window.opener.SocialiteSession.sessions[<?wh print(tostring(sessdata.ssid)); ?>].__completed('<?wh print (EncodeJava(securetoken)) ?>');
+    <?wh } ?>
+    window.close();
+    </script>
+  </head>
+</html>
+<?wh

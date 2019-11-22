@@ -1,0 +1,22 @@
+version: '2'
+services:
+  hub:
+    image: selenium/hub
+    ports:
+      - "4444:4444"
+  firefox:
+    depends_on:
+      - hub
+    image: selenium/node-firefox-debug:2.53.0
+    ports:
+      - "5900"
+    links:
+      - hub
+  chrome:
+    depends_on:
+      - hub
+    image: selenium/node-chrome-debug:2.53.0
+    ports:
+      - "5900"
+    links:
+      - hub

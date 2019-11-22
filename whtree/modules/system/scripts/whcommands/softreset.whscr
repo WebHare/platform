@@ -1,0 +1,104 @@
+﻿<?wh
+// command: softreset
+// short: Send a soft-reset
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/restart_reset.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/validator.whlib";
+LOADLIB "mod::system/lib/internal/checks/checker.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "c", type := "switch" ]
+    , [ name := "p", type := "switch" ]
+    , [ name := "sp", type := "switch" ]
+    , [ name := "spv", type := "switch" ] //undocumented: siteprofile validate only
+    , [ name := "web", type := "switch" ]
+    , [ name := "debug", type := "switch" ]
+    , [ name := "color", type := "switch" ]
+    , [ name := "twice", type := "switch" ]
+    , [ name := "reportmissing", type := "switch" ]
+    ]);
+
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: wh softreset [ -c ] [ -p ] [ --sp ] [ --web ] [ --reportmissing ]\n");
+  PRINT(" -c Just clear caches, don't run startup/wrd schema sync/consilio reindex/siteprofile recompilation/etc.\n");
+  PRINT(" -p Just clear persistent cache.\n");
+  PRINT(" --sp Just recompile siteprofiles\n");
+  PRINT(" --web Just reload webserver configuration and proxies registrations\n");
+  PRINT(" --reportmissing Report site profile references to missing types/folders\n");
+  RETURN;
+}
+IF (args.debug)
+  Print("\n");
+
+IF (args.color OR IsConsoleATerminal())
+  SetAnsiCmdMode("enabled");
+
+DATETIME start := GetCurrentDatetime();
+
+IF (args.c OR args.p)
+{
+  Print("Clearing caches\n");
+  BroadcastEvent("system:clearcaches", [ clearprecalccache := args.p ]);
+}
+ELSE IF(args.sp OR args.spv)
+{
+  IF(args.sp)
+  {
+    Print("Recompiling siteprofiles\n");
+    RECORD res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //invoke synchronously so we can debug it (Receive info and see proper stack traces)
+    IF(args.twice)
+      res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //rerun it, for debugging/profiling
+
+    IF(Length(res.errors) > 0)
+      SetConsoleExitCode(1);
+
+    PrintValidationMessages(res);
+    IF(Length(res.warnings CONCAT res.errors) > 0)
+      Print("\n"); //extra linefeed
+  }
+
+  Print("Validating siteprofiles\n");
+  RECORD res := ValidateSiteProfiles([ debug := args.debug, reportmissing := args.reportmissing ]);
+  FOREVERY(RECORD err FROM res.errors)
+    Print(`${AnsiCmd("red")}${err.filename}:${err.line}: Error: ${err.error}${AnsiCmd("reset")}\n`);
+
+  IF(Length(res.errors)>0)
+  {
+    Print("\n");
+    SetConsoleExitCode(1);
+  }
+}
+ELSE IF (args.web)
+{
+  Print("Reloading webserver configuration and proxy registrations\n");
+  RefreshGlobalWebserverConfig();
+}
+ELSE
+{
+  Print("Running soft-reset\n");
+  OBJECT trans := OpenPrimary();
+  RunSoftReset(args.debug);
+  BroadcastEvent("system:clearcaches", DEFAULT RECORD); // for now, let manual softresets imply a cachereset
+
+  //Do a 'wh check' like thing after softreset, as a convenience
+  RECORD ARRAY messages := RunChecks();
+  FOREVERY(RECORD msg FROM messages)
+    IF(NOT msg.snoozed)
+      Print(GetTid(msg.msg) || "\n");
+
+  INTEGER numsnoozed := Length(SELECT FROM messages WHERE snoozed);
+  IF(numsnoozed>0)
+    Print(`Additionally, ${numsnoozed} message${numsnoozed > 1 ? "s" : ""} have been snoozed\n`);
+}
+

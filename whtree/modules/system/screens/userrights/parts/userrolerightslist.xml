@@ -1,0 +1,128 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components">
+
+  <!-- list of permissions of a user or role -->
+  <fragment name="userrolerightslist" lib="screens/userrights/parts/userrolerightslist.whlib" gid="userrights.userrolerightslist">
+    <actions gid="userrights.actions">
+      <action name="addroletousers" onexecute="doaddroletousers" hinttid=".addroletousers-hint" >
+        <!--        <enableon min="1" source="userandrolelist" checkflags="!isrole" frameflags="inuserstab"/> -->
+      </action>
+
+      <action name="addrighttousers" onexecute="doaddrighttousers"  hinttid=".addrighttousers-hint" ellipsis="true">
+        <!-- <enableon min="1" source="userandrolelist"  frameflags="inuserstab"/> -->
+      </action>
+
+      <action name="revokefromusers" hinttid=".revokefromusers-hint">
+        <enableon source="directpermissions" min="1" checkflags="canmanage" onexecute="dorevokefromusers" />
+      </action>
+
+      <action name="makerolefromrights" hinttid=".makerolefromrights-hint" ellipsis="true">
+        <enableon source="directpermissions" min="1" checkflags="canmanage" onexecute="domakerolefromrights" />
+      </action>
+
+      <action name="edit" hinttid=".edit-hint">
+        <enableon source="directpermissions" min="1" max="1" checkflags="canmanage" onexecute="doeditgrant" />
+        <enableon source="userlistbyrole" min="1" max="1" checkflags="candelete" onexecute="doeditrolegrant" />
+      </action>
+
+      <action name="adduserstorole" onexecute="doadduserstorole" hinttid=".adduserstorole-hint">
+        <!--<enableon min="1"max ="1" source="userandrolelist" frameflags="inuserstab" checkflags="isrole canedit" onexecute="doadduserstorole" />-->
+      </action>
+
+      <action name="removeusersfromrole" hinttid=".removeusersfromrole-hint">
+        <enableon min="1" source="userlistbyrole" onexecute="doremoveusersfromrole" checkflags="candelete" />
+      </action>
+
+    </actions>
+
+    <menus>
+      <menu name="context_directpermissions">
+        <item action="revokefromusers" tid="userrights.actions.revokefromusers-list" disablemode="hidden"/>
+        <item action="edit" tid="userrights.actions.properties" disablemode="hidden"/>
+        <item action="makerolefromrights" tid="userrights.actions.makerolefromrights" disablemode="hidden"/>
+      </menu>
+
+      <menu name="newcontext_directpermissions">
+        <item action="addroletousers" disablemode="hidden" />
+        <item action="addrighttousers" disablemode="hidden" />
+      </menu>
+
+      <menu name="context_roleusers">
+        <item action="removeusersfromrole" disablemode="hidden" />
+      </menu>
+
+      <menu name="newcontext_roleusers">
+        <item action="adduserstorole" disablemode="hidden" />
+      </menu>
+
+    </menus>
+
+    <contents>
+      <tabs name="rightstabs" type="server" height="1pr" visible="false" onselect="onrightstabchange">
+        <tab name="rightstab" tid=".tabs.rights" spacers="none">
+          <grid height="1pr" width="1pr">
+            <col width="1pr"/>
+            <col/>
+            <row height="1pr">
+              <cell>
+                <list name="directpermissions"
+                      selectmode="multiple"
+                      selectcontextmenu="context_directpermissions"
+                      newcontextmenu="newcontext_directpermissions"
+                      openaction="edit"
+                      height="1pr"
+                      icons="tollium:security/key tollium:users/indirect tollium:users/mask"
+                      gid="userrights.columns"
+                      emptytid="userrights.empty.permissionsfromuser"
+                      flags="isrole canmanage"
+                      borders="right bottom">
+
+                  <column name="name" type="text" width="2pr" tree="true" iconname="icon" tid=".permission" />
+                  <column name="objectpath" type="text" width="4pr" />
+                  <column name="withgrantoption" type="text" width="1pr" />
+                </list>
+              </cell>
+              <cell spacers="top left">
+                <button action="addroletousers" tid="userrights.actions.addroletousers-list" width="1pr" ellipsis="true" disablemode="hidden"/>
+                <button action="addrighttousers" tid="userrights.actions.addrighttousers-list" width="1pr" ellipsis="true" disablemode="hidden"/>
+                <button action="revokefromusers" tid="userrights.actions.revokefromusers-list" width="1pr"/>
+                <button action="edit" tid="~properties" width="1pr"/>
+              </cell>
+            </row>
+          </grid>
+        </tab>
+        <tab name="userstab" tid=".tabs.users" spacers="none">
+          <grid height="1pr" width="1pr">
+            <col width="1pr"/>
+            <col />
+            <row height="1pr">
+              <cell>
+                <panel height="1pr">
+                  <list name="userlistbyrole"
+                        selectmode="multiple"
+                        selectcontextmenu="context_roleusers"
+                        icons="tollium:users/user tollium:users/users tollium:users/mask tollium:status/checked tollium:status/unknown tollium:security/lock_closed"
+                        gid="userrights.columns"
+                        borders="right bottom"
+                        emptytid="userrights.empty.nousersinrole"
+                        flags="candelete">
+
+                    <column name="name" type="text" width="30x" iconname="type" />
+                    <column name="fullname" type="text" width="1pr" />
+                    <column name="unitpath" type="text" width="1pr" />
+                  </list>
+                </panel>
+              </cell>
+              <cell spacers="top left">
+                <button action="adduserstorole" hinttid="userrights.actions.adduserstorole-hint" width="1pr" ellipsis="true" disablemode="hidden"/>
+                <button action="edit" tid="~properties" width="1pr"/>
+                <button action="removeusersfromrole" hinttid="userrights.actions.removeusersfromrole-hint" width="1pr"/>
+              </cell>
+            </row>
+          </grid>
+        </tab>
+      </tabs>
+    </contents>
+  </fragment>
+</screens>

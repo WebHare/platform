@@ -1,0 +1,84 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/towl.whlib";
+
+
+PUBLIC OBJECTTYPE AppStart EXTEND TolliumScreenBase
+<
+  INTEGER sentmsgs;
+  INTEGER incomingmsgcount;
+  BOOLEAN confirmclose;
+
+  MACRO Init(RECORD data)
+  {
+    Sleep(500); //give focus steal test an unfair chance
+
+    INTEGER my_targetid := RecordExists(this->tolliumcontroller->applicationtarget) ? this->tolliumcontroller->applicationtarget.test : 0;
+    this->targetval->value := my_targetid;
+    this->UpdateTitle();
+  }
+
+  MACRO UpdateTitle()
+  {
+    this->frame->title := "app_" || (RecordExists(this->tolliumcontroller->applicationtarget) ? this->tolliumcontroller->applicationtarget.test : 0) || "_" || this->incomingmsgcount;
+  }
+
+  MACRO DoStartApp()
+  {
+    INTEGER my_targetid := RecordExists(this->tolliumcontroller->applicationtarget) ? this->tolliumcontroller->applicationtarget.test : 0;
+    this->sentmsgs := this->sentmsgs + 1;
+    this->tolliumcontroller->SendApplicationMessage("webhare_testsuite:appstarttest", [ test := 1 ], [ id := my_targetid || ":" || this->sentmsgs ], TRUE);
+  }
+
+  MACRO OnMessage(RECORD data)
+  {
+    this->incomingmsgcount := this->incomingmsgcount + 1;
+    this->messages->value := this->messages->value || "\n" || data.id;
+    this->UpdateTitle();
+  }
+
+  MACRO DoAbortApp()
+  {
+    ABORT([[text := "DoAbortApp requested"],...RepeatElement([text := "Extra line"],40)]); //generate enough content to cause the errordialog to need scroll
+  }
+
+  MACRO DoOpenNoclose()
+  {
+    this->LoadScreen(".noclose")->RunModal();
+  }
+  MACRO DoOpenCloseable()
+  {
+    this->LoadScreen(".closeable")->RunModal();
+  }
+  MACRO DoToggleAllowClose()
+  {
+    this->confirmclose := TRUE;
+    this->frame->allowclose := NOT this->frame->allowclose;
+  }
+  BOOLEAN FUNCTION Cancel()
+  {
+    RETURN this->confirmclose = FALSE OR this->RunMessageBox(".confirmclose")="yes";
+  }
+>;
+
+
+PUBLIC OBJECTTYPE EventServer EXTEND TolliumScreenBase
+<
+  INTEGER msgcount;
+
+  MACRO DoSendMessage()
+  {
+    this->msgcount := this->msgcount + 1;
+    //ADDME would be best to send it directly to the user's session, but the tests run with an unaddressable anonymous user
+    ShowTowlNotification("webhare_testsuite:eventservertest",
+                             [ __all_users := TRUE ],
+                             //// wrd_users := [ INTEGER(this->tolliumcontroller->user->entityid), __ALL_USERS := ] ],
+                             [ descriptionparams := [ ToString(this->msgcount )]
+                             , icon := "tollium:filemgr/mydocuments"
+                             , persistent := TRUE
+                             , tag := this->msgcount > 1 ? "webhare_testsuite:towltag" : "" //start deduplicating after first
+                             //, priority := TowlPriorityHigh
+                             ]);
+  }
+>;

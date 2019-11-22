@@ -1,0 +1,307 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::socialite/lib/vimeo.whlib";
+
+MACRO Prep()
+{
+  IF(IsRunningInEditor())
+  {
+    IF(GetServerName() IN ["moe.sf.b-lex.com","moe.sf.webhare.nl"])
+      testfw->MockRegistryKey("system.services.webhare.serviceshosts", "webhare.moe.sf.webhare.nl"); //for local tests on MOE
+  }
+
+  //testfw->MockRegistryKey("system.services.webhare.serviceshosts", "services-1.webhare.com"); //enable to force testing CMS1
+  //testfw->MockRegistryKey("system.services.webhare.serviceshosts", "services-2.webhare.com"); //enable to force testing PORTAL-WH
+}
+
+MACRO TestVimeo()
+{
+  RECORD ARRAY vimeotestdata := [ [ test:= 'http://vimeo.com/channels/staffpicks/100426447'
+                                  , out := '100426447'
+                                  ]
+                                , [ test:= 'http://vimeo.com/channels/'
+                                  , out := ''
+                                  ]
+                                , [ test:= 'http://b-lex.com/'
+                                  , out := ''
+                                  ]
+                                , [ test:= '//vimeo.com/100426447/'
+                                  , out := '100426447'
+                                  ]
+                                , [ test:= '//vimeo.com/channels/staffpicks/1006447/'
+                                  , out := '1006447'
+                                  ]
+                                , [ test:= '<iframe src="//player.vimeo.com/video/100426447?title=0&amp;byline=0&amp;portrait=0&amp;badge=0" width="500" height="281" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe> <p><a href="http://vimeo.com/100426447">Beautiful Scotland</a> from <a href="http://vimeo.com/johnduncan">John Duncan</a> on <a href="https://vimeo.com">Vimeo</a>.</p>'
+                                  , out := '100426447'
+                                  ]
+                                ];
+
+  FOREVERY(RECORD testdata FROM vimeotestdata)
+    TestEq(testdata.out, GetVimeoMovieIdByText(testdata.test));
+}
+
+
+MACRO TestNewVideoAPI()
+{
+  /*
+  NOTES
+  - YouTube supports ?t= both with and without s attached at the end
+  - YouTube supports
+      - ?t= for the normal URL, share(short) URL            (but not in the iframe embed src)
+      - ?start= for the iframe embed src & share(short) URL (but not the YouTube video page URL)
+  */
+  RECORD ARRAY youtubetestdata :=
+      [ [ title  := "YouTube"
+        , test   := "https://www.youtube.com/watch?v=TRVaU9X0rOs"
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 0 ]
+        ]
+
+      , [ title  := "YouTube (typo with uppercase)"
+        , test   := "https://www.yoUTUbe.com/watch?v=TRVaU9X0rOs"
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 0 ]
+        ]
+
+      , [ title  := "YouTube nocookie"
+        , test   := "https://www.youtube-nocookie.com/watch?v=TRVaU9X0rOs"
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 0 ]
+        ]
+
+      , [ title  := "Share URL"
+        , test   := "http://youtu.be/TRVaU9X0rOs"
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 0 ]
+        ]
+
+        // setting starttime using the 't' argument
+      , [ title  := "Share URL with start time"
+        , test   := "http://youtu.be/TRVaU9X0rOs?t=4s" // official way the YouTube share works
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 4 ]
+        ]
+      , [ title  := "Share URL with start time"
+        , test   := "http://youtu.be/TRVaU9X0rOs?t=4" // leaving out the unit works (YouTube assumes seconds)
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 4 ]
+        ]
+      , [ title  := "Share URL with start time"
+        , test   := "http://youtu.be/TRVaU9X0rOs?t=2m" // although not documented in the embed parameters, 'm' (minutes) is a working unit
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 120 ]
+        ]
+
+        // setting starttime using the 'start' argument
+      , [ title  := "Share URL with start time"
+        , test   := "http://youtu.be/TRVaU9X0rOs?start=4s" // official way the YouTube share works
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 4 ]
+        ]
+      , [ title  := "Share URL with start time"
+        , test   := "http://youtu.be/TRVaU9X0rOs?start=4" // leaving out the unit works (YouTube assumes seconds)
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 4 ]
+        ]
+      , [ title  := "Share URL with start time"
+        , test   := "http://youtu.be/TRVaU9X0rOs?start=2m" // although not documented in the embed parameters, 'm' (minutes) is a working unit
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 120 ]
+        ]
+
+
+      , [ title  := "YouTube embed"
+        , test   := '<iframe width="560" height="315" src="//www.youtube.com/embed/TRVaU9X0rOs" frameborder="0" allowfullscreen></iframe>'
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 0 ]
+        ]
+
+      , [ title  := "YouTube old URL schema"
+        , test   := '<iframe width="560" height="315" src="//www.youtube.com/v/TRVaU9X0rOs" frameborder="0" allowfullscreen></iframe>'
+        , out    := [ network := "youtube", videoid := "TRVaU9X0rOs", starttime := 0 ]
+        ]
+
+      , [ title := "Regressed"
+        , test :=   'https://www.youtube.com/watch?v=U3NTNdbj8yg&list=PLLi0G31kZGUkv_UYVqcPCFBkA_GAgNZZC'
+        , out :=  [ network := "youtube", videoid := "U3NTNdbj8yg", starttime := 0 ]
+        ]
+
+      , [ title := "URL stripped from old object embed with variable in URL"
+        , test  := "http://www.youtube.com/v/Sv5wi369eS4&feature"
+        , out   := [ network := "youtube", videoid := "Sv5wi369eS4", starttime := 0 ]
+        ]
+      ];
+
+  RECORD ARRAY vimeotestdata :=
+      [ [ test:= 'http://vimeo.com/channels/staffpicks/100426447'
+        , out := [ network := "vimeo", videoid := '100426447', starttime := 0 ]
+        ]
+      , [ test:= 'http://vimeo.com/channels/'
+        , out := DEFAULT RECORD
+        ]
+      , [ test:= 'http://b-lex.com/'
+        , out := DEFAULT RECORD
+        ]
+      , [ test:= '//vimeo.com/100426447/'
+        , out := [ network := "vimeo", videoid := '100426447', starttime := 0 ]
+        ]
+      , [ test:= '//vimeo.com/channels/staffpicks/1006447/'
+        , out := [ network := "vimeo", videoid := '1006447', starttime := 0 ]
+        ]
+      , [ test:= '<iframe src="//player.vimeo.com/video/100426447?title=0&amp;byline=0&amp;portrait=0&amp;badge=0" width="500" height="281" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe> <p><a href="http://vimeo.com/100426447">Beautiful Scotland</a> from <a href="http://vimeo.com/johnduncan">John Duncan</a> on <a href="https://vimeo.com">Vimeo</a>.</p>'
+        , out := [ network := "vimeo", videoid := '100426447', starttime := 0 ]
+        ]
+
+      , [ test:= 'vimeo.com/100426447' // no protocol, no trailing slash
+        , out := [ network := "vimeo", videoid := '100426447', starttime := 0 ]
+        ]
+      , [ test:= 'vimeo.com/100426447/' // no protocol
+        , out := [ network := "vimeo", videoid := '100426447', starttime := 0 ]
+        ]
+
+        // ADDME: test with starttime in the hash -> #t=2m10s
+      ];
+
+  RECORD ARRAY youkutestdata :=
+    [ [ title := "Youku video"
+      , test  := "http://v.youku.com/v_show/id_XNzk4MTkwNDI0.html"
+      , out   := [ network := "youku", videoid := "XNzk4MTkwNDI0", starttime := 0 ]
+      ]
+    , [ title := "Youku Flash player"
+      , test  := "http://player.youku.com/player.php/sid/XNzk4MTkwNDI0/v.swf"
+      , out   := [ network := "youku", videoid := "XNzk4MTkwNDI0", starttime := 0 ]
+      ]
+    , [ title := "Youku Embed"
+      , test  := '<embed src="http://player.youku.com/player.php/sid/XNzk4MTkwNDI0/v.swf" allowFullScreen="true" quality="high" width="480" height="400" align="middle" allowScriptAccess="always" type="application/x-shockwave-flash"></embed>'
+      , out   := [ network := "youku", videoid := "XNzk4MTkwNDI0", starttime := 0 ]
+      ]
+    , [ title := "Youku iframe embed"
+      , test  := '<iframe height=498 width=510 src="http://player.youku.com/embed/XNzk4MTkwNDI0" frameborder=0 allowfullscreen></iframe>'
+      , out   := [ network := "youku", videoid := "XNzk4MTkwNDI0", starttime := 0 ]
+      ]
+    ];
+
+  FOREVERY(RECORD testdata FROM (youtubetestdata CONCAT vimeotestdata CONCAT youkutestdata))
+  {
+    RECORD result := GuessEmbeddedVideoFromCode(testdata.test);
+    TestEq(testdata.out, result);
+  }
+}
+
+MACRO TestVimeoProvider()
+{
+  OBJECT prov := GetVideoEmbedProvider("vimeo");
+  TestEQ(TRUE, ObjectExists(prov));
+
+  RECORD ARRAY searchres := prov->Search("",3);
+  TestEq(0, Length(searchres));
+
+  searchres := prov->Search("Beagle",3);
+  TestEq(3, Length(searchres));
+
+  //get video specifically - this is a public video
+  searchres := prov->Search("50788492",1);
+  TestEq(1,Length(searchres));
+  Testeq(MakeDateTime(2012,10,4,20,35,49), searchres[0].creationdate);
+  TestEqLike("*the txtr beagle*", searchres[0].description);
+  TestEq(110, searchres[0].duration);
+  TestEqFloat(1.77, searchres[0].playratio,0.05);
+  TestEq("txtr beagle", searchres[0].title);
+  TestEq("50788492", searchres[0].videoid);
+  TestEQ(DEFAULT RECORD, searchres[0].location);
+
+  //Vimeo suddenly started repoter 720px heigh instead of the real 544 - stop testing height
+  TestEqMembers([URL := 'https://i.vimeocdn.com/video/349943863_960.jpg', WIDTH := 960], searchres[0].biggestthumbnail, "url,width");
+  TestEqMembers([URL := 'https://i.vimeocdn.com/video/349943863_960.jpg', WIDTH := 960], searchres[0].thumbnail, "url,width");
+
+  RECORD describeres := prov->DescribeVideo("50788492");
+  TestEq(searchres[0], describeres);
+
+  searchres := prov->Search("217139057",3);
+  TestEq(TRUE, RecordExists(searchres), 'expected result for hidden vimeo video');
+  TestEq("217139057", searchres[0].videoid);
+  Testeq(MakeDateTime(2017,5,12,4,20,56), searchres[0].creationdate);
+  TestEq("", searchres[0].description);
+  TestEq(430, searchres[0].duration);
+  TestEqFloat(1.77, searchres[0].playratio,0.05);
+  TestEq("Pitch of Health stories for domain, impact, infrastructure, and scientific contribution", searchres[0].title);
+  TestEQ(DEFAULT RECORD, searchres[0].location);
+  TestEq([HEIGHT := 360, URL := 'https://i.vimeocdn.com/video/634280563_640.jpg', WIDTH := 640], searchres[0].biggestthumbnail);
+  TestEq([HEIGHT := 360, URL := 'https://i.vimeocdn.com/video/634280563_640.jpg', WIDTH := 640], searchres[0].thumbnail);
+
+  describeres := prov->DescribeVideo("217139057");
+  TestEq(searchres[0], describeres);
+
+  TestEq(1, Length(searchres));
+}
+
+MACRO TestYoutubeProvider()
+{
+ // __webbrowser_debugall := TRUE;
+  OBJECT prov := GetVideoEmbedProvider("youtube");
+  TestEQ(TRUE, ObjectExists(prov));
+
+  RECORD ARRAY searchres := prov->Search("",3);
+  TestEq(0, Length(searchres));
+
+  searchres := prov->Search("BEAGLE",3);
+  TestEq(TRUE, LEngth(searchres)> 1);
+
+  //DumpValue(searchres[0],'tree');
+  RECORD videores := prov->DescribeVideo(searchres[0].videoid);
+  TestEq(TRUE, RecordExists(videores));
+  TestEq(searchres[0].videoid, videores.videoid);
+  TestEq(TRUE, videores.duration > 0);
+
+  videores := prov->DescribeVideo("4rPNWYD8su8"); //video with location
+  TestEq(TRUE, RecordExists(videores));
+  IF(RecordExists(videores.location)) //if location info is present... (dropped 27 feb?)
+  {
+    TestEq(TRUE, RecordExists(videores.location));
+    TestEq(TYPEID(FLOAT), TypeID(videores.location.lat));
+    TestEq(TYPEID(FLOAT), TypeID(videores.location.long));
+  }
+
+  videores := prov->DescribeVideo("dCnyLx4fQ-8"); //video with location that crashed earlier (it only supplies )
+  TestEq(TRUE, RecordExists(videores));
+  TestEq(FALSE, RecordExists(videores.location));
+
+  //invisible video
+  searchres := prov->Search("hAp2lrclF3w",2);
+  TestEq(1, Length(searchres));
+  TestEQ("hAp2lrclF3w", searchres[0].videoid);
+  TestEq(TRUE, RecordExists(searchres[0].thumbnail));
+}
+
+MACRO TestYoukuProvider()
+{
+  OBJECT prov := GetVideoEmbedProvider("youku");
+  TestEQ(TRUE, ObjectExists(prov));
+
+  RECORD ARRAY searchres := prov->Search("",3);
+  TestEq(0, Length(searchres));
+
+  searchres := prov->Search("why love you",3); //'test' was returning only 2 videos all of a sudden
+  TestEq(TRUE, Length(searchres)>0);
+
+  RECORD videoinfo := prov->DescribeVideo(searchres[0].videoid);
+  TestEq(TRUE, videoinfo.duration != 0);
+
+  RECORD embedinstance := MakeVideoEmbedInstance("youku", searchres[0].videoid);
+  TestEq(TRUE, RecordExists(embedinstance.thumbnail));
+  TestEq(TRUE, embedinstance.thumbnail.width > 0);
+
+  STRING findvideo := searchres[0].videoid;
+  searchres := prov->Search(searchres[0].videoid,1);
+  TestEq(1, Length(searchres));
+  TestEq(findvideo, searchres[0].videoid);
+
+  // 2018-02-05: This search started to return results
+  //searchres := prov->Search("xzxzxzkeywordthatsurelyshouldntmatchanythingzxzxzxfhgd",3);
+  //DumpValue(searchres, "tree");
+  //TestEq(0, Length(searchres));
+}
+
+RunTestFramework([ PTR Prep
+                 , PTR TestNewVideoAPI
+                 , PTR TestYoutubeProvider
+                 , PTR TestVimeo
+                 , PTR TestVimeoProvider
+                 , PTR TestYoukuProvider
+                 ]);

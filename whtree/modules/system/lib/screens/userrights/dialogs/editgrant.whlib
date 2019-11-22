@@ -1,0 +1,324 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+
+/** This common dialog edits a grant
+*/
+PUBLIC OBJECTTYPE EditRightGrant EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Right info
+  OBJECT rightsinfo;
+
+  /// Grantee for the grant
+  OBJECT pvt_grantee;
+
+  /// Originally granted right
+  STRING org_rightname;
+
+  /// Original granted objectid
+  INTEGER pvt_objectid;
+
+  /// Original withgrantoption
+  BOOLEAN org_withgrantoption;
+
+  /// Is the grantee a user?
+  BOOLEAN grantee_is_user;
+
+  /// Select right panel
+  OBJECT selectrightpanel;
+
+  /// Grantee name
+  STRING grantee_name;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Selected right
+  PUBLIC PROPERTY rightname(GetSelectedRight, -);
+
+  /// Value of withgrantoption
+  PUBLIC PROPERTY withgrantoption(GetWithGrantOption, -);
+
+  /// Selected user/role
+  PUBLIC PROPERTY grantee(pvt_grantee, -);
+
+  /// Selected object
+  PUBLIC PROPERTY objectid(pvt_objectid, -);
+
+  PUBLIC PROPERTY readonly(GetReadOnly, SetReadOnly);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  /** @param data
+      @cell data.grantee Id of grantee
+      @cell data.rightname
+      @cell data.objectid
+  */
+  MACRO Init(RECORD data)
+  {
+    // Get right info
+    this->rightsinfo := GetRightsInfoObject(this->tolliumuser);
+
+    // Store initial data
+    this->pvt_grantee := data.grantee;
+    this->org_rightname := data.rightname;
+    this->pvt_objectid := data.objectid;
+
+    // Use the selectrightpanel to show the right
+    this->selectright->Init(
+        [ rightname :=        this->org_rightname
+        , objectid :=         this->pvt_objectid
+        , withgrantoption :=  FALSE // updated later
+        ]);
+
+    // Grantee gone? Please update
+    IF (NOT this->pvt_grantee->ExistsInDatabase())
+    {
+      OBJECT work := this->BeginWork();
+      work->AddError(GetTid("system:userrights.commondialogs.errors.grantdoesnotexistanymore"));
+      work->Finish();
+
+      this->tolliumresult := "deleted";
+      RETURN;
+    }
+
+    // Calculate the frame name
+    this->grantee_is_user := this->pvt_grantee->type != 3;
+
+    // Lookup the right, for the withgrantoption property
+    RECORD rec := ExplainRightGrantedToOn(data.rightname, this->pvt_grantee->authobject, data.objectid, TRUE);
+
+    IF (NOT RecordExists(rec))
+    {
+      OBJECT work := this->BeginWork();
+      work->AddError(GetTid("system:userrights.commondialogs.errors.grantdoesnotexistanymore"));
+      work->Finish();
+
+      this->tolliumresult := "deleted";
+      RETURN;
+    }
+
+    this->org_withgrantoption := rec.withgrantoption;
+    this->selectright->withgrantoption := rec.withgrantoption;
+    this->selectright->grantor := this->contexts->userapi->GetObjectByAuthObjectId(rec.grantor);
+    this->selectright->creationdate := rec.creationdate;
+    ^comment->value := rec.comment;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other tollium stuff
+  //
+
+  BOOLEAN FUNCTION Submit()
+  {
+    IF (this->readonly)
+      RETURN TRUE;
+
+    OBJECT work := this->BeginWork();
+
+    STRING new_rightname := this->selectright->rightname;
+    BOOLEAN new_withgrantoption := this->selectright->withgrantoption;
+
+    // See if anything has changed. If not: everything is ok
+    IF (this->org_rightname = new_rightname
+        AND this->org_withgrantoption = new_withgrantoption)
+      RETURN work->Finish();
+
+    // Dangerous is when you had grant option, and you are choosing another right/object or removing new_withgrantoption.
+    BOOLEAN possible_dangerous := this->org_withgrantoption
+        AND (NOT new_withgrantoption
+          OR (this->org_rightname != new_rightname AND NOT IsRightImpliedByOtherRight(this->org_rightname, new_rightname)));
+
+    PRINT("org rightname: " || this->org_rightname || "\n");
+    PRINT("new rightname: " || new_rightname || "\n");
+    PRINT("org_withgrantoption: " || (this->org_withgrantoption?"yes":"no") || "\n");
+    PRINT("new_withgrantoption: " || (new_withgrantoption?"yes":"no") || "\n");
+    PRINT("new rightname: " || new_rightname || "\n");
+    PRINT("ipb: " || (IsRightImpliedByOtherRight(this->org_rightname, new_rightname)? "yes":"no") || "\n");
+
+    // If dangerous, pop a question
+    IF (possible_dangerous)
+    {
+      RECORD ARRAY revokes :=
+        [ [ grantee     := this->pvt_grantee->authobjectid
+          , objectid    := this->pvt_objectid
+          , rightname   := this->org_rightname
+          ]
+        ];
+
+      IF (AreRevokesDangerous(this->tolliumuser->authobject, revokes, DEFAULT RECORD ARRAY))
+      {
+        work->Finish();
+
+        IF (this->RunSimpleScreen("verify", GetTid("system:userrights.dialogues.dangerousrightsrevoke", "1")) != "yes")
+          RETURN FALSE;
+
+        work := this->BeginWork();
+      }
+    }
+
+    //OBJECT grantee := GetWebhareRightsObject(this->grantee_id);
+    IF (NOT this->grantee->ExistsInDatabase())
+    {
+      IF (NOT this->grantee_is_user)
+        work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", this->grantee_name));
+      ELSE
+        work->AddError(GetTid("system:userrights.commondialogs.errors.userhasbeendeleted", this->grantee_name));
+
+      this->tolliumresult := "deleted";
+      RETURN work->Finish();
+    }
+
+    IF (this->org_rightname = new_rightname)
+    {
+      // Only grant option changed.
+
+      // INV: new_withgrantoption != this->org_withgrantoption
+      IF (new_withgrantoption)
+        TolliumGrantRightTo(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, new_rightname, [ this->pvt_objectid ], TRUE, ^comment->value);
+      ELSE
+        TolliumRevokeRightFrom(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, new_rightname, this->pvt_objectid, TRUE, FALSE);
+    }
+    ELSE
+    {
+      // See if there are existing grants (take grantoption into account)
+      RECORD ARRAY existing_grants :=
+          SELECT *
+            FROM ExplainRightGrantedToOn(new_rightname, this->pvt_grantee->authobject, this->pvt_objectid, TRUE)
+            WHERE VAR new_withgrantoption ? COLUMN withgrantoption : TRUE;
+
+      IF (RecordExists(existing_grants))
+      {
+        IF (this->grantee_is_user)
+          work->AddWarning(GetTid("system:userrights.errors.useralreadyhasgrantforright", this->pvt_grantee->GetUserRightsName(), this->rightsinfo->GetRightTitle(new_rightname)));
+        ELSE
+          work->AddWarning(GetTid("system:userrights.errors.rolealreadyhasgrantforright", this->pvt_grantee->GetUserRightsName(), this->rightsinfo->GetRightTitle(new_rightname)));
+        RETURN work->Finish();
+      }
+
+      // The right changed. First grant, then revoke (the revoke might kill the right to grant)
+      TolliumGrantRightTo(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, new_rightname, [ this->pvt_objectid ], new_withgrantoption, ^comment->value);
+
+      // If the grant has failed; don't revoke.
+      IF (NOT work->HasFailed())
+        TolliumRevokeRightFrom(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, this->org_rightname, this->pvt_objectid, FALSE, FALSE);
+    }
+
+    RETURN work->Finish();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetSelectedRight()
+  {
+    RETURN this->selectrightpanel->rightname;
+    BOOLEAN new_withgrantoption := this->selectrightpanel->withgrantoption;
+  }
+
+
+  BOOLEAN FUNCTION GetWithGrantOption()
+  {
+    RETURN this->selectrightpanel->withgrantoption;
+  }
+
+  BOOLEAN FUNCTION GetReadOnly()
+  {
+    RETURN this->selectright->readonly;
+  }
+
+  MACRO SetReadOnly(BOOLEAN newval)
+  {
+    this->selectright->readonly := newval;
+  }
+>;
+
+
+/** This common dialog edits a role grant
+*/
+PUBLIC STATIC OBJECTTYPE EditRoleGrant EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_grantee;
+
+  OBJECT pvt_roleobj;
+
+  BOOLEAN pvt_readonly;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PROPERTY readonly(pvt_readonly, SetReadOnly);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  /** @param data
+      @cell data.grantee Id of grantee
+      @cell data.rightname
+      @cell data.roleid
+  */
+  MACRO Init(RECORD data)
+  {
+    OBJECT grantee := data.grantee;//GetWebhareRightsObject(data.grantee);
+
+    RECORD explain := ExplainRoleGrantedTo(data.roleobj->authobjectid, grantee->authobject);
+    IF (NOT RecordExists(explain))
+    { //deletion race
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    OBJECT grantor;
+    IF (explain.grantor != 0)
+      grantor := this->contexts->userapi->GetObjectByAuthObjectId(explain.grantor);
+
+    this->pvt_grantee := data.grantee;
+    this->pvt_roleobj:= data.roleobj;
+    ^rolename->value := GetAuthObjectPresentationName(this->contexts, this->pvt_roleobj);
+    ^grantdatetime->value := this->tolliumuser->FormatDateTime(explain.creationdate, "seconds", TRUE, TRUE);
+    ^comment->value := explain.comment;
+
+    IF (ObjectExists(grantor))
+    {
+      ^grantor->value := GetAuthObjectPresentationName(this->contexts, grantor);
+      // ADDME: say when the grantor is unknown/invisible
+      ^grantor->visible := explain.grantor != 0 AND grantor->IsVisibleFor(this->tolliumuser);
+    }
+    ELSE
+      ^grantor->visible := FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetReadOnly(BOOLEAN newval)
+  {
+    this->pvt_readonly := newval;
+  }
+>;

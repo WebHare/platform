@@ -1,0 +1,273 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::filetypes/richdocument.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
+STRING tempstring := "0123456789ABCDEF";
+
+STRING FUNCTION GetStringOfLength(INTEGER l)
+{
+  WHILE (LENGTH(tempstring) < l)
+    tempstring := tempstring || tempstring;
+  RETURN Left(tempstring, l);
+}
+
+OBJECT wrd_person;
+OBJECT linkfile;
+
+STRING attrwitty :=
+    '<?xml version="1.0" encoding="UTF-8"?>\n' ||
+    '    <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">\n' ||
+    '  <domain tag="DOMAIN" title="Domain">\n' ||
+    '    <attributes>\n' ||
+    '      <url tag="TESTURL" title="Test attribute" />\n' ||
+    '      [if type]<[type] tag="TESTATTR" title="Test attribute"/>[/if]\n' ||
+    '    </attributes>\n' ||
+    '  </domain>\n' ||
+    '</schemadefinition>\n';
+
+BOOLEAN FUNCTION ApplyTestAttrMetadata(OBJECT wrdschema, STRING type)
+{
+  OBJECT witty := NEW WittyTemplate("XML");
+  witty->LoadCodeDirect(attrwitty);
+  BLOB data := witty->RunToBlob([ type := type ]);
+  RETURN ApplyWRDSchemaDefinitionFile(wrdschema, data).success;
+}
+
+MACRO CreateMyTestSchema()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  TestEq(TRUE, ObjectExists(schemaobj));
+
+  wrd_person := schemaobj->GetType("WRD_PERSON");
+  wrd_person->CreateAttribute("RICHDOC",        "RICHDOCUMENT",    [ title := "Richdocument" ]);
+  wrd_person->CreateAttribute("INSTANCE",       "WHFSINSTANCE",    [ title := "Testinstance" ]);
+  wrd_person->CreateAttribute("INTEXTLINK",     "WHFSINTEXTLINK",  [ title := "Testintextlink" ]);
+  wrd_person->CreateAttribute("FREE",           "FREE",            [ title := "Free", checklinks := TRUE ]);
+  wrd_person->CreateAttribute("TESTARRAY",      "ARRAY",           [ title := "Array" ]);
+  wrd_person->CreateAttribute("TESTARRAY.FREE", "FREE",            [ title := "Free", checklinks := TRUE ]);
+  wrd_person->CreateAttribute("URL",            "URL");
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  linkfile := firstfolder->CreateFile([ name := "linktarget.txt" ]);
+
+  testfw->CommitWork();
+}
+
+MACRO TestNormalOperation()
+{
+  testfw->BeginWork();
+
+  OBJECT doc := NEW RichDocument;
+  doc->ImportFromRecord([ htmltext := StringToBlob('<html><body>'
+                                                   || '<a href="http://example.com/4">4</a><a href="http://example.com/5">5</a>'
+                                                   || '</body></html')
+                        , embedded := DEFAULT RECORD ARRAY
+                       ]);
+
+  // Create a person with some testdata
+  RECORD persondata :=
+        [ url :=            "http://example.com/1"
+        , richdoc :=        doc->ExportAsRecord()
+        , intextlink :=     MakeIntExtExternalLink("http://example.com/2")
+        , wrd_contact_email := "person@beta.webhare.net"
+        ];
+
+  OBJECT entity := wrd_person->CreateEntity(persondata);
+
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/1", referrer := "URL" ]
+      , [ url :=    "http://example.com/2", referrer := "INTEXTLINK" ]
+      , [ url :=    "http://example.com/4", referrer := "RICHDOC" ]
+      , [ url :=    "http://example.com/5", referrer := "RICHDOC" ]
+      ], SELECT url, referrer FROM GetWRDLinkCheckReport([ entity := entity->id ]) ORDER BY url);
+
+  testfw->BeginWork();
+
+  doc->ImportFromRecord([ htmltext := StringToBlob('<html><body>'
+                                                   || '<a href="http://example.com/4a">4</a><a href="http://example.com/5a">5</a>'
+                                                   || '</body></html')
+                        , embedded := DEFAULT RECORD ARRAY
+                       ]);
+
+  // Update data
+  persondata :=
+        [ url :=            "http://example.com/1a"
+        , richdoc :=        doc->ExportAsRecord()
+        , intextlink :=     MakeIntExtExternalLink("http://example.com/2a")
+        ];
+
+  entity->UpdateEntity(persondata);
+
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/1a", referrer := "URL" ]
+      , [ url :=    "http://example.com/2a", referrer := "INTEXTLINK" ]
+      , [ url :=    "http://example.com/4a", referrer := "RICHDOC" ]
+      , [ url :=    "http://example.com/5a", referrer := "RICHDOC" ]
+      ], SELECT url, referrer FROM GetWRDLinkCheckReport([ entity := entity->id ]) ORDER BY url);
+
+  testfw->BeginWork();
+
+  doc->ImportFromRecord([ htmltext := StringToBlob('<html><body>'
+                                                   || '<a href="http://example.com/4b">4</a><a href="http://example.com/5b">5</a>'
+                                                   || '</body></html')
+                        , embedded := DEFAULT RECORD ARRAY
+                        , links :=    [ [ tag := "tag1", linkref := linkfile->id ] ]
+                       ]);
+
+  // Update data - doc will be stored in whfs
+  persondata :=
+        [ url :=            "http://example.com/1a"
+        , richdoc :=        doc->ExportAsRecord()
+        , intextlink :=     MakeIntExtExternalLink("http://example.com/2a")
+        ];
+
+  entity->UpdateEntity(persondata);
+
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/1a", referrer := "URL" ]
+      , [ url :=    "http://example.com/2a", referrer := "INTEXTLINK" ]
+      , [ url :=    "http://example.com/4b", referrer := "RICHDOC" ]
+      , [ url :=    "http://example.com/5b", referrer := "RICHDOC" ]
+      ], SELECT url, referrer FROM GetWRDLinkCheckReport([ entity := entity->id ]) ORDER BY url);
+
+  // Partial update, of 'checklinks := TRUE' attribute
+  testfw->BeginWork();
+  entity->UpdateEntity([ free := "http://example.com/6a" ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/1a", referrer := "URL" ]
+      , [ url :=    "http://example.com/2a", referrer := "INTEXTLINK" ]
+      , [ url :=    "http://example.com/4b", referrer := "RICHDOC" ]
+      , [ url :=    "http://example.com/5b", referrer := "RICHDOC" ]
+      , [ url :=    "http://example.com/6a", referrer := "FREE" ]
+      ], SELECT url, referrer FROM GetWRDLinkCheckReport([ entity := entity->id ]) ORDER BY url);
+
+  // Set array
+  testfw->BeginWork();
+  entity->UpdateEntity([ testarray := [ [ free := "http://example.com/7a" ] ] ]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/1a", referrer := "URL" ]
+      , [ url :=    "http://example.com/2a", referrer := "INTEXTLINK" ]
+      , [ url :=    "http://example.com/4b", referrer := "RICHDOC" ]
+      , [ url :=    "http://example.com/5b", referrer := "RICHDOC" ]
+      , [ url :=    "http://example.com/6a", referrer := "FREE" ]
+      , [ url :=    "http://example.com/7a", referrer := "TESTARRAY.FREE" ] // ADDME: or should name be 'FREE'
+      ], SELECT url, referrer FROM GetWRDLinkCheckReport([ entity := entity->id ]) ORDER BY url);
+
+  testfw->BeginWork();
+
+  // Clear data
+  persondata :=
+        [ url :=            ""
+        , richdoc :=        DEFAULT RECORD
+        , intextlink :=     DEFAULT RECORD
+        , free :=           ""
+        , testarray :=      DEFAULT RECORD ARRAY
+        ];
+
+  entity->UpdateEntity(persondata);
+
+  testfw->CommitWork();
+
+  TestEQ(DEFAULT RECORD ARRAY, SELECT url, referrer FROM GetWRDLinkCheckReport([ entity := entity->id ]) ORDER BY url);
+}
+
+MACRO TestTypeChange()
+{
+  testfw->BeginWork();
+
+  //Export current structure
+  OBJECT wrdschema := testfw->GetWRDSchema();
+
+  ApplyTestAttrMetadata(wrdschema, "free");
+
+  OBJECT domaintype := wrdschema->GetType("DOMAIN");
+  OBJECT entity := domaintype->CreateEntity([ testattr := "http://example.com/1", testurl := "http://example.com/base" ]);
+
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/base", referrer := "TESTURL" ]
+      ], SELECT url, referrer FROM GetWRDLinkCheckReport([ entity := entity->id ]) ORDER BY url);
+
+  testfw->BeginWork();
+  TestEq(FALSE, domaintype->GetAttribute("TESTATTR").checklinks);
+  ApplyTestAttrMetadata(wrdschema, "url");
+  TestEq(TRUE, domaintype->GetAttribute("TESTATTR").checklinks);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/1", referrer := "TESTATTR" ]
+      , [ url :=    "http://example.com/base", referrer := "TESTURL" ]
+      ], SELECT url, referrer FROM GetWRDLinkCheckReport([ entity := entity->id ]) ORDER BY url);
+
+  testfw->BeginWork();
+  ApplyTestAttrMetadata(wrdschema, "free");
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/base", referrer := "TESTURL" ]
+      ], SELECT url, referrer FROM GetWRDLinkCheckReport([ entity := entity->id ]) ORDER BY url);
+}
+
+MACRO DeleteSchema(INTEGER id)
+{
+  OpenWRDSchemaById(id)->DeleteSelf();
+}
+
+MACRO TestImport()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj :=  testfw->GetWRDSchema();
+  TestEq(TRUE, ObjectExists(schemaobj));
+
+  OBJECT wrd_imexport := schemaobj->CreateType("IMEXPORT");
+
+  wrd_imexport->CreateAttribute("URL", "URL");
+  wrd_imexport->CreateEntity([ wrd_tag := "TAG", url := "http://example.com/7" ]);
+
+  OBJECT exporter := MakeWRDSchemaExporter(schemaobj);
+  BLOB file := exporter->RunExport();
+
+  schemaobj := CreateWRDSchemaFromImport(file, [ onoverwritingschema := PTR Deleteschema(#1) ]);
+
+  wrd_imexport := schemaobj->GetType("IMEXPORT");
+  INTEGER eid := wrd_imexport->Search("WRD_TAG", "TAG");
+
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/7", referrer := "URL", statustext := "Not checked yet", statusicon := "tollium:status/unknown" ]
+      ], SELECT url, referrer, statustext, statusicon FROM EnrichLinkCheckStatuses(GetWRDLinkCheckReport([ entity := eid ])) ORDER BY url);
+}
+
+RunTestframework([ PTR CreateMyTestSchema
+                 , PTR TestNormalOperation
+                 , PTR TestTypeChange
+                 , PTR TestImport
+                 ], [ wrdauth := FALSE ]);
+

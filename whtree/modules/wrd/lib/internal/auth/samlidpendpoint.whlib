@@ -1,0 +1,216 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/saml.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
+
+
+PUBLIC MACRO RunSAMLIdpEndpoint()
+{
+  RECORD pageparams := GetDynamicPageParameters();
+
+  OBJECT wrdauthplugin := GetAuthIntegrationPlugin(pageparams.absolutebaseurl);
+
+  OBJECT idp := GetAuthPluginIDP(wrdauthplugin);
+
+  IF (pageparams.subpath NOT LIKE "!/*")
+    Redirect(pageparams.absolutebaseurl || "!/metadata/");
+
+  SWITCH (Tokenize(pageparams.subpath, "/")[1])
+  {
+    CASE "metadata"
+    {
+      OBJECT keypair := idp->GetKeyPair();
+
+      RECORD contactdata := idp->GetContactData();
+
+      RECORD organization :=
+          [ organizationname:=          contactdata.organization_name
+          , organizationdisplayname:=   contactdata.organization_displayname
+          , organizationurl:=           contactdata.organization_url
+          ];
+
+      RECORD ARRAY supportednameidformats := idp->GetSupportedNameIDFormats() ??
+          [ [ nameidformat :=   "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent" ]
+          , [ nameidformat :=   "urn:oasis:names:tc:SAML:2.0:nameid-format:transient" ]
+          ];
+
+      RECORD ARRAY contacts :=
+          SELECT company
+               , givenname
+               , surname
+               , emailaddress :=        email
+               , telephonenumber :=     telephone
+               , contacttype :=         type
+            FROM contactdata.contacts;
+
+      RECORD descriptor :=
+          [ entityid :=           idp->GetSAMLEntityID()
+          , organization :=       organization
+          , contactperson :=      contacts
+          , idpssodescriptor :=   [ [ protocolSupportEnumeration :=   [ "urn:oasis:names:tc:SAML:2.0:protocol" ]
+                                    , keydescriptor :=                EncodeCertificateToSAMLKeyDescriptor(keypair->certificate)
+                                    , singlelogoutservice :=          DEFAULT RECORD ARRAY
+                                    , singlesignonservice :=
+                                            [ [ binding :=      "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                                              , location :=     pageparams.absolutebaseurl || "!/ssoservice"
+                                              ]
+                                            ] CONCAT (idp->IsRedirectBindingAllowed()
+                                                  ? [ [ binding :=      "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+                                                      , location :=     pageparams.absolutebaseurl || "!/ssoservice"
+                                                      ]
+                                                    ]
+                                                  : DEFAULT RECORD ARRAY)
+                                    , nameidformat :=       (SELECT AS STRING ARRAY nameidformat FROM supportednameidformats)
+                                    ]
+                                  ]
+          , spssodescriptor :=    DEFAULT RECORD ARRAY
+          ];
+
+      RECORD data :=
+          [ type :=                 "EntitiesDescriptor"
+          , entitydescriptor :=     [ descriptor ]
+          ];
+
+      OBJECT coder := NEW SAMLCoder;
+      OBJECT doc := coder->CodeMetadataDocument(data);
+      doc->documentelement->NormalizeNamespaces();
+
+      RECORD ARRAY errors := VerifySAMLMetadataDocument(doc);
+      IF (LENGTH(errors) != 0)
+        ABORT(AnyToString(errors, "boxed"));
+
+      AddHTTPHeader("Content-Type", "text/xml", FALSE);
+      SendWebFile(doc->GetDocumentBlob(TRUE));
+    }
+
+    CASE "ssoservice"
+    {
+      STRING binding;
+      IF (GetRequestMethod() = "GET")
+        binding := "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect";
+      ELSE IF (GetRequestMethod() = "POST")
+        binding := "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST";
+      ELSE
+        THROW NEW Exception("Cannot figure out used binding");
+
+      IF (binding = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" AND NOT idp->IsRedirectBindingAllowed())
+        THROW NEW Exception("SAML HTTP-Redirect binding is not allowed for this service");
+
+      RECORD webdata := GetSAMLDataFromWebData(binding);
+      STRING transid;
+
+      // Try to get id of request
+      IF (ObjectExists(webdata.requestdoc->documentelement))
+        transid := webdata.requestdoc->documentelement->GetAttribute("ID");
+      transid := transid ?? GenerateUFS128BitId();
+
+      IF (IsRPCTrafficLogged("wrd:saml"))
+      {
+        RECORD copy := webdata;
+        DELETE CELL requestdoc, responsedoc FROM copy;
+        LogRPCTraffic("wrd:saml", "ssoservice", FALSE, GetClientRemoteIp(), transid, copy);
+      }
+
+      RECORD reqdata := DecodeSAMLMessage(webdata, TRUE);
+      RECORD request := reqdata.message;
+
+      IF (NOT RecordExists(request.issuer))
+        THROW NEW Exception("No issuer present, that field is mandatory");
+
+      OBJECT sp := idp->GetConnectedSP(request.issuer.value);
+
+      reqdata.validate(sp->GetCertificates());
+
+      // Validate the rest of the request
+      IF (NOT RecordExists(request) OR request.type != "AuthnRequest")
+        THROW NEW Exception("Only AuthnRequest allowed here. Bye.");
+
+      IF (RecordExists(request.subject))
+        THROW NEW Exception("No subject preselection/fixing allowed yet.");
+
+    //  IF (RecordExists(request.nameidpolicy) AND request.nameidpolicy.format != "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified")
+    //    THROW NEW Exception("Name-id policy selection not supported.");
+
+      IF (RecordExists(request.conditions))
+        THROW NEW Exception("Conditions not supported.");
+
+      IF (RecordExists(request.requestedauthncontext))
+        THROW NEW Exception("Requesting of a specific authncontext not supported.");
+
+      IF (request.AssertionConsumerServiceIndex = -1)
+        THROW NEW Exception("Setting the AssertionConsumerServiceIndex is required for this service");
+
+      IF (binding IN
+          [ "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+          , "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+          ])
+      {
+        IF (request.destination = "")
+          THROW NEW Exception("Destination field is required for this binding");
+      }
+
+      RECORD authrequest_data :=
+          [ t :=    "authnrequest"
+          , p :=    (binding = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" ? 1 : 0) // post?
+          , idp :=  idp->wrd_id
+          , sp :=   sp->id
+          , rs :=   reqdata.relaystate
+          , r :=    [ id :=       request.id
+                    , acs :=      request.AssertionConsumerServiceIndex
+                    ]
+          , ip :=   GetClientRemoteIp() // FIXME proxy?
+          , ti :=   transid
+          ];
+
+      IF (request.ispassive OR (NOT request.forceauthn AND wrdauthplugin->GetLoggedInEntity() != 0))
+      {
+        RECORD samlaction := GenerateSAMLLoginResponse(wrdauthplugin, authrequest_data);
+
+        IF (IsRPCTrafficLogged("wrd:saml"))
+          LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), transid, samlaction);
+
+        ExecuteSubmitInstruction(samlaction);
+      }
+
+      STRING enc_samlreq := EncryptForThisServer("wrd:samlauth", authrequest_data);
+
+      STRING target := wrdauthplugin->__GetLoginPageURL();
+      IF(target="")
+        THROW NEW Exception("Need to redirect to the login page, but no login URL was configured");
+
+      RECORD submitinstr;
+      IF (binding = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect")
+        submitinstr := [ type := "redirect", url := AddVariableToURL(target, "samllogin", enc_samlreq) ];
+      ELSE
+      {
+        submitinstr :=
+            [ type := "form"
+            , form :=
+                  [ method :=   "POST"
+                  , action :=   target
+                  , vars :=     [ [ name := "samlidpreq", value := enc_samlreq ] ]
+                  ]
+            ];
+      }
+
+      IF (IsRPCTrafficLogged("wrd:saml"))
+        LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
+
+      ExecuteSubmitInstruction(submitinstr);
+    }
+    DEFAULT
+    {
+      Redirect(pageparams.absolutebaseurl || "!/metadata/");
+    }
+  }
+}

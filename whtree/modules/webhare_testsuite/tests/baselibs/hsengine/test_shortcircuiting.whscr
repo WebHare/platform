@@ -1,0 +1,116 @@
+<?wh
+/// @short Short circuiting tests
+
+LOADLIB "wh::internal/hsselftests.whlib";
+
+// This module tests shortcicuiting for AND and OR
+
+INTEGER secounter;
+
+BOOLEAN FUNCTION SideEffect(BOOLEAN val)
+{
+  secounter := secounter + 1;
+  RETURN val;
+}
+
+MACRO AndTest()
+{
+  OpenTest("TestShortCircuiting: AndTest");
+
+  BOOLEAN result;
+
+  // Basic conformance
+
+  TestEqualBoolean(1, TRUE, TRUE AND TRUE);
+  TestEqualBoolean(2, FALSE, TRUE AND FALSE);
+  TestEqualBoolean(3, FALSE, FALSE AND TRUE);
+  TestEqualBoolean(4, FALSE, FALSE AND FALSE);
+
+  // Side effects
+  secounter := 0;
+  TestEqualBoolean(5, TRUE, TRUE AND SideEffect(TRUE));
+  TestEqualInteger(6, 1, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(7, FALSE, TRUE AND SideEffect(FALSE));
+  TestEqualInteger(8, 1, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(9, FALSE, FALSE AND SideEffect(TRUE));
+  TestEqualInteger(10, 0, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(11, FALSE, FALSE AND SideEffect(FALSE));
+  TestEqualInteger(12, 0, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(13, TRUE, SideEffect(TRUE) AND SideEffect(TRUE));
+  TestEqualInteger(14, 2, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(15, FALSE, SideEffect(TRUE) AND SideEffect(FALSE));
+  TestEqualInteger(16, 2, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(17, FALSE, SideEffect(FALSE) AND SideEffect(TRUE));
+  TestEqualInteger(18, 1, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(19, FALSE, SideEffect(FALSE) AND SideEffect(FALSE));
+  TestEqualInteger(20, 1, secounter);
+
+  CloseTest("TestShortCircuiting: AndTest");
+}
+
+MACRO OrTest()
+{
+  OpenTest("TestShortCircuiting: OrTest");
+
+  BOOLEAN result;
+
+  // Basic conformance
+
+  TestEqualBoolean(1, TRUE, TRUE OR TRUE);
+  TestEqualBoolean(2, TRUE, TRUE OR FALSE);
+  TestEqualBoolean(3, TRUE, FALSE OR TRUE);
+  TestEqualBoolean(4, FALSE, FALSE OR FALSE);
+
+  // Side effects
+  secounter := 0;
+  TestEqualBoolean(5, TRUE, TRUE OR SideEffect(TRUE));
+  TestEqualInteger(6, 0, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(7, TRUE, TRUE OR SideEffect(FALSE));
+  TestEqualInteger(8, 0, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(9, TRUE, FALSE OR SideEffect(TRUE));
+  TestEqualInteger(10, 1, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(11, FALSE, FALSE OR SideEffect(FALSE));
+  TestEqualInteger(12, 1, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(13, TRUE, SideEffect(TRUE) OR SideEffect(TRUE));
+  TestEqualInteger(14, 1, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(15, TRUE, SideEffect(TRUE) OR SideEffect(FALSE));
+  TestEqualInteger(16, 1, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(17, TRUE, SideEffect(FALSE) OR SideEffect(TRUE));
+  TestEqualInteger(18, 2, secounter);
+
+  secounter := 0;
+  TestEqualBoolean(19, FALSE, SideEffect(FALSE) OR SideEffect(FALSE));
+  TestEqualInteger(20, 2, secounter);
+
+  CloseTest("TestShortCircuiting: OrTest");
+}
+
+PRINT("\n === Running TestShortCircuiting\n");
+AndTest();
+OrTest();

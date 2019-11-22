@@ -1,0 +1,17 @@
+﻿<?wh
+/** @private This library is deprecated  */
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib" EXPORT RichDocumentStructure;
+LOADLIB "wh::filetypes/richdocument.whlib" EXPORT RichDocument;
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib" EXPORT RichDocumentFilter;
+
+PUBLIC OBJECT FUNCTION MakeParsedRichDocument(RECORD richdocrecord) __ATTRIBUTES__(DEPRECATED "The tollium/rtd/* libraries are deprecated")
+{
+  OBJECT richdoc := NEW PublishableRichDocument;
+  richdoc->ImportFromRecord(richdocrecord);
+  RETURN richdoc;
+}
+
+PUBLIC OBJECT FUNCTION OpenWHFSRichDocument(OBJECT file) __ATTRIBUTES__(DEPRECATED "The tollium/rtd/* libraries are deprecated")
+{
+  RETURN __OpenWHFSRichDocument(file,DEFAULT OBJECT);
+}

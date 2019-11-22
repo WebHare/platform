@@ -1,0 +1,130 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::wrd/lib/payments.whlib";
+
+LOADLIB "mod::wrd/lib/testfw/payments.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+OBJECT pm2;
+
+PUBLIC MACRO BuildForm()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  testfw->BeginWork();
+  pm2 := testfw->wrdschema->^payprov->CreateEntity(
+    [ wrd_title := "TestMethod"
+    , method := MakePaymentProviderValue("wrd:test")
+    ]);
+  testfw->CommitWork();
+
+  BuildWebtoolForm([addpaymentmethod := TRUE, addcustompaymenthandler := TRUE]);
+  BuildCustomWebtoolForm([addpaymentmethod:=TRUE]);
+}
+
+PUBLIC MACRO FillInForm()
+{
+  //Ensure the form is up
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  IF(testfw->debug)
+    Print('Form URL: ' || formfile->url||'\n');
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+
+  OBJECT ARRAY radios := testfw->browser->document->GetElements('input[name="pm.paymentmethod"]');
+  TestEq(2, Length(radios), "should be two options now, noissuer and withissuer");
+
+  OBJECT ARRAY verify_inside_required := testfw->browser->document->GetElements('.wh-form__fieldgroup.wh-form__fieldgroup--required input[name="pm.paymentmethod"]');
+  TestEq(2, Length(verify_inside_required), "paymentmethod should be inside a wh-form__fieldgroup--required");
+
+  OBJECT ARRAY pulldowns := testfw->browser->document->GetElements('select');
+  TestEq(1, Length(pulldowns), "Can't find issuer <select>");
+
+  OBJECT ARRAY issuer_opts := pulldowns[0]->GetElements("option");
+  TestEq(3, Length(issuer_opts), "Expecting three options");
+
+  OBJECT webtoolform := OpenFormFileDefinition(formfile);
+  OBJECT webtoolresults := OpenFormFileResults(formfile);
+  RECORD ARRAY fields := webtoolform->ListFields();
+
+  TestEq(TRUE, RecordExists(SELECT FROM fields WHERE title = ":Pay using"), "payment field not in formfields!");
+  TestEq(FALSE, RecordExists(SELECT FROM fields WHERE ToUppercase(name)="PM.PAYMENTMETHOD"), "PM.PAYMENTMETHOD should not leak into fields"); //it never did here, though
+
+  STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  RECORD submitrec := [ firstname := "Pietje"
+                      , "pm.paymentmethod" := STRING[radios[0]->GetAttribute("value")]
+                      ];
+
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  //Inspect the raw data to ensure a GUID was stored
+  RECORD rawdata := SELECT * FROM publisher.formresults WHERE formresults.guid = res.result.resultsguid;
+  RECORD rawresults := DecodeHSON(rawdata.results);
+  RECORD rawpm := GetCEll(rawresults, SELECT AS STRING guid FROM fields WHERE ToUppercase(name)="PM");
+  TestEq([ paymentprovider := pm2->guid, paymentoptiontag := "NOISSUER", issuer := "" ], rawpm);
+
+  RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  TestEq([ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", issuer := "" ], submitted.response.pm);
+  TestEq(FALSE, CellExists(submitted.response,"PM.PAYMENTMETHOD")); //should not leak
+
+  submitrec := [ ...submitrec, "pm.paymentmethod" := STRING[radios[1]->GetAttribute("value")]];
+  res := tester->SubmitForm(submitrec);
+  TestEq(FALSE, res.success);
+
+  //Select an issuer. The only pulldown should be the issuer
+  submitrec := CellInsert(submitrec, pulldowns[0]->GetAttribute("name"), issuer_opts[1]->GetAttribute("value"));
+  res := tester->SubmitForm(submitrec);
+  //dumpvalue(res);
+  TestEq(TRUE, res.success);
+
+  submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  TestEq([ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "BLB" ], submitted.response.pm);
+  //dumpvalue(submitted);
+
+  RECORD witty := webtoolresults->GetWittyResultdata(submitted);
+  TestEq(TRUE, CellExists(witty.field,'PM')); //we want this to exist
+  TestEq(FALSE, CellExists(witty.field,'PM.PAYMENTMETHOD')); //but we DON'T want to see this subcell
+
+  TestEq(TRUE, RecordExists(res.result.submitinstruction), "Expect a submission instruction to execute the payment");
+  TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(res.result.submitinstruction));
+
+  PushWRDTestPaymentButton("approved");
+  RECORD payresult := DecodeJSONBlob(testfw->browser->content);
+  TestEq("approved", payresult.payinfo.status);
+
+  //Test an export
+  OBJECT exporter := webtoolresults->CreateExporter();
+  IF(testfw->debug)
+    dumpvalue(exporter->columns,'boxed');
+
+  RECORD ARRAY exportrows := exporter->ExportAllResults();
+  STRING col_payusing  := SELECT AS STRING name FROM exporter->columns WHERE title="Pay using";
+  TestEq("TestWithIssuer (BLB)", GetCell(exportrows[1], col_payusing));
+}
+
+MACRO CustomForm()
+{
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
+  IF(testfw->debug)
+    Print('Form URL: ' || formfile->url||'\n');
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+
+  OBJECT ARRAY labels := testfw->browser->document->GetElements('label.wh-form__optionlabel');
+  TestEq(2, Length(labels), "should be two labels");
+  TEsteq("Test<b>WITH</b>Issuer (test mode)", labels[1]->innerhtml);
+}
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR BuildForm
+                 , PTR FillInForm
+                 , PTR CustomForm
+                 ], [ wrdauth := FALSE ]);

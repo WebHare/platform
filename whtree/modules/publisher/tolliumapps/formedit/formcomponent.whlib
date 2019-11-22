@@ -1,0 +1,446 @@
+<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/webtools/formcomponents/richtext.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/formedit-tollium.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE SelectComponent EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    STRING value;
+    SWITCH (data.type)
+    {
+      CASE "question"
+      {
+        this->frame->title := GetTid("publisher:tolliumapps.formedit.selectcomponent.title-question");
+        ^intro->value := GetTid("publisher:tolliumapps.formedit.selectcomponent.intro-question");
+      }
+      CASE "handler"
+      {
+        this->frame->title := GetTid("publisher:tolliumapps.formedit.selectcomponent.title-handler");
+        ^intro->value := GetTid("publisher:tolliumapps.formedit.selectcomponent.intro-handler");
+      }
+      CASE "pubsearch"
+      {
+        this->frame->title := GetTid("publisher:tolliumapps.formedit.selectcomponent.title-pubsearch");
+        ^intro->value := GetTid("publisher:tolliumapps.formedit.selectcomponent.intro-pubsearch");
+        ^manually->visible := TRUE;
+        value := data.value;
+      }
+    }
+
+    ^builtincomponents->rows :=
+        SELECT rowkey := qname
+             , name := title
+             , icon := ^builtincomponents->GetIcon(icon)
+             , description
+          FROM data.components
+         WHERE builtin
+      ORDER BY ordering ?? 999999999, ToUppercase(title);
+    IF (RecordExists(SELECT FROM ^builtincomponents->rows WHERE rowkey = value))
+    {
+      ^builtincomponents->value := value;
+      ^type->selectedtab := ^builtin;
+      value := "";
+    }
+
+    ^customcomponents->rows :=
+        SELECT rowkey := qname
+             , name := title
+             , icon := ^customcomponents->GetIcon(icon)
+             , description
+          FROM data.components
+         WHERE NOT builtin;
+    IF (RecordExists(SELECT FROM ^customcomponents->rows WHERE rowkey = value))
+    {
+      ^customcomponents->value := value;
+      ^type->selectedtab := ^custom;
+      value := "";
+    }
+
+    IF (data.type = "pubsearch")
+    {
+      IF (value != "")
+      {
+        ^qname->value := value;
+        ^type->selectedtab := ^manually;
+      }
+      // Don't switch to 'server' tabs if the 'manually' tab is visible for Publisher search
+    }
+    ELSE IF (Length(^customcomponents->rows) = 0)
+    {
+      ^intropanel->spacers.bottom := FALSE;
+      ^intropanel->borders.bottom := FALSE;
+      ^type->type := "server";
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  STRING FUNCTION Submit()
+  {
+    IF (^type->selectedtab = ^builtin)
+      RETURN ^builtincomponents->value;
+    IF (^type->selectedtab = ^custom)
+      RETURN ^customcomponents->value;
+    IF (^type->selectedtab = ^manually)
+    {
+      IF (this->BeginFeedback()->Finish())
+        RETURN ^qname->value;
+    }
+    RETURN "";
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT node;
+  BOOLEAN existing;
+  RECORD compdef;
+  OBJECT compfragment;
+  OBJECT compextension;
+  //Shadows the value of the required checkbox of the requiredcondition is set
+  BOOLEAN shadowrequired;
+  //This item is forcibly pinned - do not allow removal of the pin setting
+  BOOLEAN force_existence;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    BOOLEAN suggestresize;
+
+    this->node := data.node;
+    this->existing := data.existing;
+    this->compdef := data.compdef;
+    this->frame->title := data.compdef.title;
+    ^tabs->extendposition := Length(^tabs->pages)-1; //insert before the advanced tab
+    ^tabs->insertpoints :=
+        [ [ name := "titles",       component := ^titles_insertpoint ]
+        , [ name := "answers",      component := ^answers_insertpoint ]
+        , [ name := "presentation", component := ^presentation_insertpoint ]
+        , [ name := "validation",   component := ^validation_insertpoint ]
+        , [ name := "dependencies", component := ^dependencies_insertpoint ]
+        , [ name := "advanced",     component := ^advanced_insertpoint ]
+        ];
+
+    ^title->required := "title" IN this->compdef.editdefaults; //only require title if you can see it
+
+    FOREVERY (STRING field FROM default_fields)
+    {
+      IF (field IN this->compdef.editdefaults)
+      {
+        IF (field IN [ "hidetitle", "required" ])
+          GetMember(this, "^"||field)->value := ParseXSBoolean(this->node->GetAttribute(field));
+        ELSE IF (field = "enabled") // Map the negative 'enabled' attribute to the positive 'disabled' field
+          ^disabled->value := this->node->HasAttribute(field) AND NOT ParseXSBoolean(this->node->GetAttribute(field));
+        ELSE IF (field IN [ "name", "groupclasses" ])
+          GetMember(this, "^"||field)->value := this->node->GetAttribute(field);
+        ELSE IF (field IN [ "title", "label", "placeholder", "prefix", "suffix" ])
+          this->ReadTidField(GetMember(this, "^"||field));
+      }
+    }
+
+    //We must set ^requiredcondition AFTER ^required so shadowing can do its thing
+    ^requiredcondition->value := this->contexts->formcomponentapi->GetConditionAttribute(this->node, "requiredconditionid");
+    ^enabledcondition->visible := "noenabled" NOT IN this->compdef.editdefaults;
+    ^enabledcondition->value := this->contexts->formcomponentapi->GetConditionAttribute(this->node, "enabledconditionid");
+    ^visiblecondition->value := this->contexts->formcomponentapi->GetConditionAttribute(this->node, "visibleconditionid");
+
+    ^comment->value := this->node->GetAttribute("comment");
+    ^pins->value := ParseXSList(this->node->GetAttribute("pins"));
+
+    this->force_existence := this->node->localname = "page" AND this->node->GetAttribute("role") = "thankyou";
+    IF(this->force_existence)
+      DELETE FROM ^pins->options WHERE rowkey = "existence";
+
+    IF (this->compdef.editextension != "")
+    {
+      RECORD result := ^tabs->LoadTabsExtension(this->compdef.editextension);
+      this->compextension := result.fragment;
+      IF (this->compextension NOT EXTENDSFROM FormComponentExtensionBase)
+        THROW NEW TolliumException(result.components[0], "Form component editextension does not extend FormComponentExtensionBase");
+
+      this->compextension->node := this->node;
+      this->compextension->existing := this->existing;
+      IF(^tabs->IsResizeSuggested())
+        suggestresize := TRUE;
+
+      // This is used to load the custom settings, must be run after node is set
+      ^tabs->RunExtensionsPostInit();
+    }
+
+    this->SetupAdvanced();
+    ^answers->visible := this->HaveVisibleAnswerFields();
+
+    RECORD integrationsettings := this->contexts->formcomponentapi->integrationsettings;
+    IF(RecordExists(integrationsettings) AND integrationsettings.enableinfotexts AND "infotext" IN this->compdef.editdefaults)
+    {
+      IF(integrationsettings.infotextrtdtype != "")
+        ^infotext->SetupForRTDType(integrationsettings.infotextrtdtype);
+
+      ^infotext->value := GetRichTextAttribute(this, this->node, "infotext");
+      suggestresize := TRUE;
+    }
+    ELSE
+    {
+      ^infotextheading->visible := FALSE;
+      ^infotext->visible := FALSE;
+    }
+
+    FOREVERY (OBJECT tab FROM ^tabs->pages)
+      tab->visible := tab->HasAnyVisibleComponents();
+    IF (^tabs->GetNumVisiblePages() <= 1)
+      ^tabs->type := "server";
+    IF(suggestresize)
+    {
+      this->frame->savestatebasekey := `${this->frame->savestatebasekey}(${data.compdef.qname})`;
+      this->frame->allowresize := TRUE;
+      this->frame->savestate := ["size"];
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC OBJECT FUNCTION GetDefaultField(STRING name)
+  {
+    IF (name IN this->compdef.editdefaults)
+      RETURN GetMember(this, "^"||name);
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC MACRO HideField(STRING name)
+  {
+    IF (name IN default_fields CONCAT controlled_fields CONCAT condition_fields)
+    {
+      IF (name = "enabled")
+        ^disabled->visible := FALSE;
+      ELSE
+      {
+        GetMember(this, "^"||name)->visible := FALSE;
+        GetMember(this, "^"||name)->required := FALSE;
+      }
+    }
+  }
+
+  PUBLIC MACRO ReadTidField(OBJECT field, STRING fieldname DEFAULTSTO "")
+  {
+    RECORD attrnames := this->GetTidAttributesForField(field, fieldname);
+
+    // If tid is defined, title cannot be set
+    IF (this->node->GetAttribute(attrnames.fieldtid) != "")
+    {
+      field->value := this->node->GetAttribute(attrnames.fieldtid);
+      field->enabled := FALSE;
+    }
+    ELSE
+    {
+      field->value := this->node->GetAttribute(attrnames.fieldname);
+    }
+  }
+
+  PUBLIC MACRO WriteTidField(OBJECT field, STRING fieldname DEFAULTSTO "")
+  {
+    RECORD attrnames := this->GetTidAttributesForField(field, fieldname);
+
+    // Only if tid is not defined, title can be set
+    IF (this->node->GetAttribute(attrnames.fieldtid) = "")
+    {
+      IF (field->value != "")
+        this->node->SetAttribute(attrnames.fieldname, field->value);
+      ELSE
+        this->node->RemoveAttribute(attrnames.fieldname);
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+  MACRO OnRequiredConditionChange()
+  {
+    IF(^required->enabled != RecordExists(^requiredcondition->value))
+      RETURN; //in sync, no change
+
+    IF(RecordExists(^requiredcondition->value))
+    {
+      this->shadowrequired := ^required->value;
+      ^required->value := TRUE;
+      ^required->enabled := FALSE;
+      ^required->label := this->GetTid(".required-supersededbycondition");
+    }
+    ELSE
+    {
+      ^required->value := this->shadowrequired;
+      ^required->enabled := TRUE;
+      ^required->label := this->GetTid(".required");
+    }
+  }
+
+  MACRO OnPinsChange()
+  {
+    ^name->enabled := "existence" NOT IN ^pins->value;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+
+    // Check if another question with this tag already exists
+    IF (this->contexts->formcomponentapi->showadvanced AND ^name->value != "")
+    {
+      IF (NOT IsValidFieldName(^name->value))
+        work->AddError(GetTid("publisher:tolliumapps.formedit.messages.invalidtag", ^name->value));
+      ELSE
+      {
+        RECORD otherfield := this->contexts->formcomponentapi->GetFieldByTag(ToLowercase(^name->value));
+        IF (RecordExists(otherfield) AND otherfield.guid != this->node->GetAttribute("guid"))
+        {
+          RECORD field := this->contexts->formcomponentapi->DescribeField(otherfield.guid, [ field_fallback_title := FALSE ]); // It will fallback to the tag
+          work->AddError(GetTid("publisher:tolliumapps.formedit.messages.tagnotunique", ^name->value, field.fieldtitle, field.grouptitle, field.pagetitle));
+        }
+      }
+    }
+
+    ^tabs->SubmitExtensions(work); // This validates and stores the custom settings
+
+    IF (NOT work->HasFailed())
+    {
+      ^name->value := ToLowercase(^name->value);
+
+      FOREVERY (STRING field FROM default_fields)
+      {
+        IF (field IN this->compdef.editdefaults)
+        {
+          IF (field = "hidetitle")
+          {
+            IF (^hidetitle->value)
+              this->node->SetAttribute(field, "true");
+            ELSE
+              this->node->RemoveAttribute(field);
+          }
+          ELSE IF (field = "required")
+          {
+            IF (^required->value AND NOT RecordExists(^requiredcondition->value))
+              this->node->SetAttribute(field, "true");
+            ELSE
+              this->node->RemoveAttribute(field);
+          }
+          ELSE IF (field = "enabled")
+          {
+            IF (^disabled->value) // Map the positive 'disabled' field to the negative 'enabled' attribute
+              this->node->SetAttribute("enabled", "false");
+            ELSE
+              this->node->RemoveAttribute(field);
+          }
+          ELSE IF (field IN [ "name", "groupclasses" ])
+          {
+            IF (GetMember(this, "^"||field)->value != "")
+              this->node->SetAttribute(field, GetMember(this, "^"||field)->value);
+            ELSE
+              this->node->RemoveAttribute(field);
+          }
+          ELSE IF (field IN [ "title", "label", "placeholder", "prefix", "suffix" ])
+            this->WriteTidField(GetMember(this, "^"||field));
+        }
+      }
+
+      IF (^comment->value != "")
+        this->node->SetAttribute("comment", ^comment->value);
+      ELSE
+        this->node->RemoveAttribute("comment");
+
+      this->node->RemoveAttribute("hideinresults");
+
+      STRING ARRAY pins := ^pins->value;
+      IF(this->force_existence)
+        INSERT "existence" INTO pins AT END;
+
+      IF(Length(pins)>0)
+        this->node->SetAttribute("pins", Detokenize(pins,' '));
+      ELSE
+        this->node->RemoveAttribute("pins");
+
+      this->contexts->formcomponentapi->SetConditionAttribute(this->node, "requiredconditionid", ^requiredcondition->value);
+      this->contexts->formcomponentapi->SetConditionAttribute(this->node, "enabledconditionid", ^enabledcondition->value);
+      this->contexts->formcomponentapi->SetConditionAttribute(this->node, "visibleconditionid", ^visiblecondition->value);
+
+      IF(^infotext->visible)
+        SetRichTextAttribute(this, this->node, "infotext", ^infotext->value);
+
+      IF (ObjectExists(this->compfragment))
+        this->compfragment->StoreData();
+    }
+
+    RETURN work->Finish();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION GetTidAttributesForField(OBJECT field, STRING fieldname)
+  {
+    fieldname := fieldname ?? Tokenize(field->name, "!")[END - 1];
+    STRING fieldtid := fieldname LIKE "*title" ? Left(fieldname, Length(fieldname) - 5) || "tid" : fieldname || "tid";
+    RETURN CELL[ fieldname, fieldtid ];
+  }
+
+  MACRO SetupAdvanced()
+  {
+    BOOLEAN showadvanced := this->contexts->formcomponentapi->showadvanced;
+    FOREVERY (STRING field FROM default_fields CONCAT controlled_fields)
+    {
+      BOOLEAN showfield := (field IN controlled_fields OR field IN this->compdef.editdefaults) AND (showadvanced OR field NOT IN advanced_fields);
+      IF (field = "enabled")
+        ^disabled->visible := ^disabled->visible AND showfield;
+      ELSE
+        GetMember(this, "^"||field)->visible := GetMember(this, "^"||field)->visible AND showfield;
+    }
+
+    ^requiredcondition->visible := ^requiredcondition->visible AND ^required->visible;
+  }
+
+  BOOLEAN FUNCTION HaveVisibleAnswerFields()
+  {
+    BOOLEAN seenanswers;
+    FOREVERY(OBJECT child FROM ^general->GetChildComponents())
+    {
+      IF(seenanswers AND child->isnowvisible)
+        RETURN TRUE; //first visible child after answers heading
+
+      IF(child = ^answers_detectpoint)
+        seenanswers := TRUE;
+    }
+    RETURN FALSE;
+  }
+>;

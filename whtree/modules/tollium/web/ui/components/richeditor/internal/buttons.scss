@@ -1,0 +1,90 @@
+//TODO BEM this stuff
+
+.wh-rtd-button[data-button=ul]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/bulletedlist.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=ol]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/numberedlist.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=li-decrease-level]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/unindentlist.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=li-increase-level]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/indentlist.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=action-showformatting]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/paragraph.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=action-properties]
+{
+   background: url(~@mod-tollium/web/img/actions/properties.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=b]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/bold.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=i]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/italic.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=u]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/underlined.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=strike]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/strikethrough.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=sub]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/subscript.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=sup]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/superscript.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=a-href]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/link.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=img]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/image.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=object-video]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/insertmovie.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=object-insert]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/insertobject.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=table]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/table.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-button[data-button=action-clearformatting]
+{
+   background: url(~@mod-tollium/web/img/buttonbar/clearformatting.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-navabovebutton
+{
+   background: url(~@mod-tollium/web/img/buttonbar/cursorabove.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-navunderbutton
+{
+   background: url(~@mod-tollium/web/img/buttonbar/cursorbelow.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-editbutton
+{
+   background: url(~@mod-tollium/web/img/actions/edit.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}
+.wh-rtd-deletebutton
+{
+   background: url(~@mod-tollium/web/img/actions/delete.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+}

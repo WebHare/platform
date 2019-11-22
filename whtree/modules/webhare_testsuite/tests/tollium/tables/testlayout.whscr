@@ -1,0 +1,43 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+OBJECT ASYNC FUNCTION TestColRowCheck()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/tables.layouttest1");
+  TestEq(TRUE, ObjectExists(scr));
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen("webhare_testsuite:tests/tables.layouttest2")); //note, if this throws, verify the CATCH in PVT_Loadscreen - it may not be converting to a load error
+  TestEq(1, Length(TT("errors")->rows));
+  TestEqLike("Colspan exceeds number of columns for cell 0:0 (*)", TT("errors")->rows[0].message);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen("webhare_testsuite:tests/tables.layouttest3"));
+  TestEq(1, Length(TT("errors")->rows));
+  TestEqLike("Rowspan exceeds number of rows for cell 0:0 (*)", TT("errors")->rows[0].message);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen("webhare_testsuite:tests/tables.layouttest4"));
+  TestEq(1, Length(TT("errors")->rows));
+  TestEqLike("Cell 1:0 spans over active cell 1:1 (*)", TT("errors")->rows[0].message);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen("webhare_testsuite:tests/tables.layouttest5"));
+  TestEq(1, Length(TT("errors")->rows));
+  TestEqLike("Extra cell 0:2* (*)", TT("errors")->rows[0].message);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen("webhare_testsuite:tests/tables.layouttest6"));
+  TestEq(1, Length(TT("errors")->rows));
+  TestEqLike("Extra cell 1:1* (*)", TT("errors")->rows[0].message);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen("webhare_testsuite:tests/tables.layouttest7"));
+  TestEq(1, Length(TT("errors")->rows));
+  TestEqLike("Missing cell 0:1 (*)", TT("errors")->rows[0].message);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  RETURN TRUE;
+}
+
+RunTestFramework([PTR TestColRowCheck ]);

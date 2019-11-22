@@ -1,0 +1,28 @@
+body
+{
+  overflow: hidden; /* Prevent scrollbars in IE */
+}
+
+iframe
+{
+  background: #ffffff;
+  border: none;
+  box-shadow: 0 0 10px rgba(0, 0, 0, .5);
+  box-sizing: border-box;
+  display: none; /* Hide initially, show after first resize */
+  margin: 8px;
+  position: absolute;
+  -ms-transform-origin: 0 0;
+  transform-origin: 0 0;
+}
+
+iframe.fullscreen
+{
+  height: 100% !important;
+  left: 0 !important;
+  margin: 0 !important;
+  top: 0 !important;
+  -ms-transform: none !important;
+  transform: none !important;
+  width: 100% !important;
+}

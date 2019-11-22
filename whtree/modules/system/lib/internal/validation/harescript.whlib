@@ -1,0 +1,355 @@
+<?wh
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::filetypes/harescript.whlib";
+
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+
+PUBLIC RECORD FUNCTION GetNextTok(INTEGER fileid)
+{
+  WHILE(TRUE)
+  {
+    RECORD tok := GetHareScriptFileToken(fileid);
+    IF(NOT RecordExists(tok) OR NOT tok.iswhitespace)
+      RETURN Tok;
+  }
+}
+
+STRING lastlookuperror;
+STRING FUNCTION LookupScreenGid(STRING modulename, STRING resourcepath, STRING find_objecttype)
+{
+  STRING assume_screensfile;
+  lastlookuperror := "";
+//Print(modulename || " " || resourcepath || " " || find_objecttype || "\n");
+  //workaround for tollium. but we should be smarter and more generic in matching
+  IF(modulename="tollium" AND resourcepath LIKE "mod::tollium/lib/components/*.whlib")
+  {
+    assume_screensfile := Substring(resourcepath, 35); //strip mod::tollium/lib/components/
+    assume_screensfile := "mod::tollium/screens/components/" || Left(assume_screensfile, Length(assume_screensfile) - 6) || ".xml"; //strip .whlib
+  }
+
+  IF(assume_screensfile="")
+  {
+    STRING prefix := "mod::" || modulename;
+
+    //a heuristic to find the screen file: assume /include/screens/xxx/yyy.whlib mapss to screens/xxx/yyy.xml
+    //Print(resourcepath || "\n" || prefix || "\n");
+    IF(resourcepath LIKE prefix || "/include/screens/*.whlib")
+    {
+      assume_screensfile := prefix || "/screens/" || Substring(resourcepath, LENGTH(prefix) + 17); //strip /include/screens/
+      assume_screensfile := Left(assume_screensfile, Length(assume_screensfile) - 6) || ".xml"; //strip .whlib
+    }
+    ELSE IF(resourcepath LIKE prefix || "/lib/screens/*.whlib")
+    {
+      assume_screensfile := prefix || "/screens/" || Substring(resourcepath, LENGTH(prefix) + 13); //strip /lib/screens/
+      assume_screensfile := Left(assume_screensfile, Length(assume_screensfile) - 6) || ".xml"; //strip .whlib
+    }
+    ELSE
+    {
+      assume_screensfile := Left(resourcepath,Length(resourcepath)-6) || ".xml"; //strip .whlib, add .xml
+    }
+  }
+
+  TRY
+  {
+    RECORD docinfo := RetrieveCachedXMLResource(assume_screensfile);
+
+    //ADDME let the screenparser give us this information?
+    STRING rootgid := docinfo.doc->documentelement->GetAttribute("gid");
+
+
+    FOREVERY(OBJECT screen FROM docinfo.doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens","screen")->GetCurrentElements()
+                                CONCAT
+                                docinfo.doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens","fragment")->GetCurrentElements()
+                                CONCAT
+                                docinfo.doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens","tabsextension")->GetCurrentElements())
+    {
+      IF(ToUppercase(screen->GetAttribute("name")) = ToUppercase(find_objecttype))
+      {
+
+        STRING localgid := DetermineNodeGid(assume_screensfile, screen);
+        IF(localgid="")
+          lastlookuperror := `No gid attribute on ${screen->localname} '${ToLowercase(find_objecttype)}'`;
+
+        RETURN localgid;
+      }
+    }
+
+    lastlookuperror := `Unable to find screen/fragment/tabsextension '${ToLowercase(find_objecttype)}'`;
+    RETURN "";
+  }
+  CATCH
+  {
+    lastlookuperror := `Unable to find file '${ToLowercase(assume_screensfile)}' for screen/fragment/tabsextension '${ToLowercase(find_objecttype)}'`;
+    RETURN "";
+  }
+}
+
+
+PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
+{
+  STRING modulename := GetModuleNameFromResourcePath(resourcepath);
+  RECORD ARRAY warnings;
+
+  RECORD ARRAY texts;
+  RECORD ARRAY screens;
+
+//  BOOLEAN findscreens := TRUE; // we only need to search for screens in *.whlib files
+
+  // Skip time consuming tokenizing and analysing of Harescript code
+  // if the file has no mention of GetTid anywhere.
+  // (This gives a big speed boost, huge even for the system module)
+  STRING rawtext := ToUpperCase(BlobToString(libdata));
+  IF (SearchSubString(rawtext, 'GETTID') = -1 AND // Also matches GETTIDFORLANGUAGE
+      SearchSubString(rawtext, 'GETHTMLTID') = -1 AND // Also matches GETHTMLTIDFORLANGUAGE
+      SearchSubString(rawtext, '/*TID*/') = -1)
+    RETURN [ warnings := DEFAULT RECORD ARRAY
+           , texts    := DEFAULT RECORD ARRAY
+           , screens  := DEFAULT RECORD ARRAY
+           , skipped  := TRUE
+           ];
+
+  INTEGER file := OpenHareScriptFile(libdata);
+
+  RECORD tok := GetNextTok(file);
+  RECORD ARRAY prevtokens;
+
+  STRING current_objecttype;
+  STRING current_screen_gid;
+
+  WHILE(TRUE)
+  {
+    tok := GetNextTok(file);
+    IF(NOT RecordExists(tok))
+      BREAK;
+
+    //Keep a simple tokens lookback buffer
+    IF(Length(prevtokens)=10)
+      DELETE FROM prevtokens AT 0;
+    INSERT tok INTO prevtokens AT END;
+
+    IF(ToUppercase(tok.token)="OBJECTTYPE")
+    {
+      tok := GetNextTok(file);
+      current_objecttype := tok.token;
+      current_screen_gid := "";
+      CONTINUE;
+    }
+
+    BOOLEAN is_gettid := ToUppercase(tok.token) IN ["GETTID","GETHTMLTID"];
+    BOOLEAN is_getidforlanguage := ToUppercase(tok.token) IN ["GETTIDFORLANGUAGE","GETHTMLTIDFORLANGUAGE"];
+    BOOLEAN is_explicittid := ToUppercase(tok.token) = "/*TID*/";
+    IF(is_gettid OR is_getidforlanguage OR is_explicittid)
+    {
+      BOOLEAN is_this_gettid;
+
+      //ADDME: Gather errors and report them in a list after a 'scan missing texts' action
+      RECORD expect_parenthesis := GetNextTok(file);
+
+      //Figure out if this is a ".GETTID". That would be a witty 'gettid' member call, and something we should just skip..
+      IF(is_gettid AND Length(prevtokens)>=2 AND prevtokens[END-2].token = ".")
+        CONTINUE;
+
+      //Figure out if this is a "->GETTID")
+      IF(is_gettid AND Length(prevtokens)>=2 AND prevtokens[END-2].token = "->")
+      {
+        IF(Length(prevtokens)>=3 AND ToUppercase(prevtokens[END-3].token) = "THIS")
+        {
+          is_this_gettid := TRUE;
+
+          IF(current_screen_gid = "")
+            current_screen_gid := LookupScreenGid(modulename, resourcepath, current_objecttype);
+        }
+      }
+
+      RECORD expect_tid;
+
+      IF (is_gettid OR is_getidforlanguage)
+      {
+        IF(RecordExists(expect_parenthesis) AND expect_parenthesis.token IN [":=","="]) //use of gettid as variable name
+          CONTINUE; //skippable!
+
+        IF(NOT RecordExists(expect_parenthesis) OR expect_parenthesis.token!="(")
+        {
+          CONTINUE;
+        }
+
+        expect_tid := GetNextTok(file);
+        IF(RecordExists(expect_tid) AND expect_tid.istype) //definition of a function named gettid
+          CONTINUE;
+      }
+      ELSE //is_explicittid
+      {
+        expect_tid := expect_parenthesis;
+      }
+
+      IF(is_getidforlanguage)
+      {
+        //Wait for a comma
+        WHILE(RecordExists(expect_tid) AND expect_tid.token != ',')
+          expect_tid := GetNextTok(file);
+        expect_tid := GetNextTok(file);
+      }
+
+      // Ignore if first parameter of GetTid is not a STRING
+      IF(NOT RecordExists(expect_tid) OR Left(expect_tid.token,1) NOT IN ["'",'"'])
+        CONTINUE;
+
+      STRING tid := DecodeJava(Substring(expect_tid.token, 1, Length(expect_tid.token)-2));
+      IF(is_this_gettid AND (tid LIKE "*:*" OR tid NOT LIKE ".*"))
+      {
+        INSERT [ message := 'Unexpected non-relative tid in ...->GetTid'
+               , warning := "Unexpected non-relative tid in ...->GetTid in " || resourcepath || " line " || tok.line
+               , line := tok.line
+               , col := tok.col
+               , resourcename := resourcepath
+               ] INTO warnings AT END;
+        CONTINUE;
+      }
+
+      IF(is_this_gettid)
+      {
+        IF(current_screen_gid = "") //cannot actually resolve, but at least we did the check above...
+          CONTINUE;
+        tid := current_screen_gid || tid;
+      }
+
+      // Ignore if the Tid isn't a single STRING
+      RECORD expect_comma_close := GetNextTok(file);
+      IF(is_explicittid = FALSE AND (NOT RecordExists(expect_comma_close) OR Left(expect_comma_close.token,1) NOT IN [",",")","]"]))
+        CONTINUE;
+
+      INSERT [ resourcename :=  resourcepath
+             , line :=      tok.line
+             , col :=       tok.col
+             , tid :=       tid
+             ]
+        INTO texts AT END;
+    }
+  }
+
+  CloseHarescriptFile(file);
+
+  RETURN [ warnings := warnings
+         , texts    := texts
+         , screens  := screens
+         , skipped  := FALSE
+         ];
+}
+
+STRING FUNCTION FixSpacesInTid(STRING intid)
+{
+  STRING ARRAY parts := Tokenize(intid,':');
+  IF(Length(parts) = 2) //proper x:y syntax
+    RETURN parts[0] || ":" || Substitute(parts[1],' ','_');
+  ELSE
+    RETURN intid;
+}
+
+PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD options)
+{
+  IF (resourcename LIKE "whfs::*") // Can't recompile within whfs::, translate to site::
+  {
+    OBJECT obj := OpenWHFSObjectByPath(resourcename);
+    IF (NOT ObjectExists(obj) OR obj->highestparent = 0)
+      THROW NEW Exception(ObjectExists(obj) ? "Can only recompile files within a site" : "File not found");
+
+    resourcename := "site::" || obj->highestparentobject->name || obj->fullpath;
+  }
+
+  RECORD retval := [ errors := RECORD[], warnings := RECORD[], tids := RECORD[] ];
+
+  OBJECT scanresult := AsyncCallFunctionFromJob(Resolve("#__ScanLib"), doc_blob, resourcename);
+
+  OBJECT devcheck;
+  IF(NOT options.onlytids)
+  {
+    IF (options.documentation AND IsModuleInstalled("dev"))
+      devcheck := AsyncCallFunctionFromJob("mod::dev/lib/validation.whlib#ValidateSourceFileDocumentation", resourcename, [ overridedata := doc_blob ]);
+
+    RECORD res := CompileFromSource(resourcename, doc_blob);
+    res.messages := SELECT *, resourcename := filename, DELETE filename FROM res.messages;
+    retval.errors := SELECT * FROM res.messages WHERE metadata.iserror;
+    retval.warnings := SELECT * FROM res.messages WHERE NOT metadata.iserror;
+
+    // Also compile the library on disk when validating a disk file (skip for validate from source)
+    IF (NOT CellExists(options, "OVERRIDEDATA"))
+      __SYSTEM_RECOMPILELIBRARY(resourcename, FALSE);
+  }
+
+  RECORD scaninfo := WaitForPromise(scanresult);
+
+  UPDATE scaninfo.texts SET tid := FixSpacesInTid(tid) WHERE tid LIKE "* *";
+  retval.tids := scaninfo.texts;
+  retval.warnings := retval.warnings CONCAT scaninfo.warnings;
+
+  IF (ObjectExists(devcheck))
+  {
+    RECORD res := WaitForPromise(devcheck);
+
+    retval.errors := retval.errors CONCAT res.errors;
+    retval.warnings := retval.warnings CONCAT res.warnings;
+  }
+
+  IF(options.perfectcompile)
+  {
+    retval.errors := retval.errors CONCAT retval.warnings;
+    retval.warnings := RECORD[];
+  }
+
+  RETURN retval;
+}
+
+OBJECT compilebrowser;
+
+RECORD FUNCTION CompileFromSource(STRING filename, BLOB source)
+{
+  INTEGER compilerport := GetWebHareConfiguration().baseport + 1;
+
+  IF(NOT ObjectExists(compilebrowser))
+    compilebrowser := MakeObject("wh::internet/webbrowser.whlib", "WebBrowser");
+  BOOLEAN res := compilebrowser->PostWebPageBlob("http://127.0.0.1:"||compilerport||"/compilesource/" || EncodeURL(filename), DEFAULT RECORD ARRAY, source);
+  IF (NOT res)
+    THROW NEW Exception("Could not contact compile server");
+
+  RECORD ARRAY messages;
+  FOREVERY (STRING line FROM Tokenize(BlobToString(compilebrowser->content), "\n"))
+  {
+    IF (line = "")
+      CONTINUE;
+
+    STRING ARRAY parts := Tokenize(line || "\t\t\t\t\t\t", "\t");
+
+    RECORD metadata :=
+        [ iserror :=    parts[0] = "E"
+        , iswarning :=  parts[0] = "W"
+        , code :=       ToInteger(parts[4], 0)
+        , msg1 :=       parts[5]
+        , msg2 :=       parts[6]
+        , istopfile :=  parts[3] IN [ "", filename ]
+        ];
+
+    RECORD msg := CELL
+        [ filename :=   parts[3]
+        , line :=       ToInteger(parts[1], 1)
+        , col :=        ToInteger(parts[2], 1)
+        , message :=    GetHareScriptMessageText(metadata.iserror, metadata.code, metadata.msg1, metadata.msg2)
+        , source :=     "harescript"
+        , metadata
+        ];
+
+    INSERT msg INTO messages AT END;
+  }
+
+  RETURN
+      [ messages := messages
+      ];
+}

@@ -1,0 +1,441 @@
+﻿<?wh
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::wrd/lib/commondialogs.whlib";
+LOADLIB "mod::wrd/lib/components/entity.whlib";
+LOADLIB "mod::wrd/lib/components/field.whlib";
+
+
+PUBLIC OBJECTTYPE TolliumWRDEntitySelectionField EXTEND TolliumComponentBase
+<
+  RECORD ARRAY pvt_domainfilters;
+
+  /** @short Entity id */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  INTEGER ARRAY curentityids; // the current value (ids of the selected entities)
+  PUBLIC STRING displayattribute; /// the attribute to use as title
+
+  PRIVATE OBJECT ARRAY comps;
+  PRIVATE BOOLEAN using_select_element;
+  PRIVATE RECORD ARRAY listcolumns;
+
+  STRING pvt_domaintag;
+  PRIVATE OBJECT pvt_domain;
+  BOOLEAN pvt_selectmultiple;
+
+  PUBLIC PROPERTY domaintag(pvt_domaintag, SetDomainTag);
+  PUBLIC PROPERTY domain(pvt_domain, SetDomain);
+  PUBLIC PROPERTY selectmultiple(pvt_selectmultiple, SetSelectMultiple);
+
+  BOOLEAN use_selectmultiple;
+
+  PUBLIC STRING type;
+  PUBLIC PROPERTY domainfilters(pvt_domainfilters, SetDomainFilters); // Filters for (single/multi) domains
+  PUBLIC MACRO PTR onselectdialog; // Hook to override standard browse behaviour (in type="dialog" mode), used by eg webshop
+
+  /** Callback function called when the current selection changes
+  */
+  PUBLIC FUNCTION PTR onchange;
+
+  BOOLEAN inerrormode;
+  PUBLIC PROPERTY __inerrormode(inerrormode, -); // for tests
+
+  /////////////////////////////////////////////////////////////////////
+  //
+  // TolliumWRDEntitySelectionField
+  //
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->invisibletitle := TRUE;
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD definition)
+  {
+    TolliumComponentBase::StaticInit(definition);
+
+    this->type := definition.type;
+    this->listcolumns := definition.columns;
+    this->pvt_domaintag := definition.domaintag;
+    this->displayattribute := definition.displayattribute;
+    this->pvt_selectmultiple := definition.selectmultiple;
+    this->onchange := definition.onchange;
+  }
+
+  PUBLIC UPDATE MACRO PostInitComponent()
+  {
+    IF(Length(this->comps)=0 OR this->inerrormode)
+    {
+      this->GenerateContents();
+
+      // it's now safe to set the value now we know which attribute type (singledomain/multipledomain)
+      // we edit and which component we use to edit)
+      this->UpdateFieldValue();
+    }
+  }
+
+  UPDATE PUBLIC MACRO CompositionMetadataIsUpdated()
+  {
+    this->GenerateContents();
+  }
+
+  MACRO SetDomainTag(STRING newdomaintag)
+  {
+    this->pvt_domain := DEFAULT OBJECT;
+    this->pvt_domaintag := newdomaintag;
+    this->GenerateContents();
+  }
+  MACRO SetSelectMultiple(BOOLEAN selectmultiple)
+  {
+    IF(this->pvt_selectmultiple = selectmultiple)
+      RETURN;
+    this->pvt_selectmultiple := selectmultiple;
+    this->GenerateContents();
+  }
+
+  MACRO SetDomain(OBJECT newdomain)
+  {
+    this->pvt_domain := newdomain;
+    this->pvt_domaintag := ObjectExists(newdomain) ? newdomain->tag : "";
+    this->use_selectmultiple := this->pvt_selectmultiple;
+    this->GenerateContents();
+  }
+
+  MACRO GenerateErrorContents(STRING errormessage)
+  {
+    this->inerrormode := TRUE;
+    IF(GetDtapStage() = "production")
+      RETURN;
+
+    OBJECT comp := this->CreateSubComponent("text");
+    comp->title := this->title;
+    comp->value := errormessage;
+    this->comps := [ comp ];
+    this->InsertMyComponents();
+  }
+
+  MACRO GenerateContents()
+  {
+    // FIXME: I think the following line should be added here to copy over the
+    //        current value when regenerating (new subcomponents)
+    //this->UpdateFromFieldValue();
+
+    this->inerrormode := FALSE;
+    FOREVERY (OBJECT obj FROM this->comps)
+      obj->DeleteComponent();
+    this->comps := DEFAULT OBJECT ARRAY;
+    this->using_select_element := FALSE;
+
+    IF(NOT ObjectExists(this->parent))
+      RETURN; //too early! we're dont have a parent yet
+
+    IF(NOT ObjectExists(this->pvt_domain))
+    {
+      /* When used by a WRD field, composition can't be used (the wrdfield already uses our cellname, and empty cellname
+         is not allowed). Use the wrdfield composition instead
+      */
+      OBJECT startobj := this;
+      OBJECT composition;
+      IF (startobj->supercomponent EXTENDSFROM TolliumWRDField)
+        composition := startobj->supercomponent->composition;
+      ELSE
+        composition := startobj->composition;
+
+      OBJECT wrdentity := GetWRDEntityComposition(composition);
+
+      IF(this->domaintag != "")
+        this->use_selectmultiple := this->pvt_selectmultiple;
+
+      IF(NOT ObjectExists(wrdentity))
+      {
+        this->GenerateErrorContents("Unable to find wrd:entity composition");
+        RETURN;
+      }
+
+      IF(NOT ObjectExists(wrdentity->wrdtype))
+      {
+        this->GenerateErrorContents("wrd:entity composition has no type");
+        RETURN;
+      }
+
+      IF(this->domaintag != "")
+      {
+        this->pvt_domain := wrdentity->wrdtype->wrdschema->GetType(this->domaintag);
+        IF(NOT ObjectExists(this->pvt_domain))
+        {
+          this->GenerateErrorContents(`no such type '${this->domaintag}' for domaintag`);
+          RETURN;
+        }
+        // FIXME: I think this->use_selectmultiple should be set here too???
+      }
+      ELSE
+      {
+        RECORD field := wrdentity->GetLocalAttributeInfoByTag(this->cellname);
+        IF(NOT RecordExists(field))
+        {
+          this->GenerateErrorContents(`no such cell '${this->cellname}' in type`);
+          RETURN;
+        }
+        IF(field.domain = 0)
+        {
+          this->GenerateErrorContents(`cell '${this->domaintag}' is not a domain field`);
+          RETURN;
+        }
+
+        this->pvt_domain := wrdentity->wrdtype->wrdschema->GetTypeById(field.domain);
+        this->use_selectmultiple := RecordExists(field) AND field.attributetype = 8;
+      }
+    }
+
+    this->using_select_element := NOT this->readonly
+                                  AND (this->type IN ["pulldown","checkbox","radio","checkboxlist","inlinecheckboxlist"]
+                                       OR (this->type="" AND this->pvt_domain->isdomain));
+
+    IF(this->using_select_element)
+    {
+      OBJECT comp := this->CreateSubComponent("select");
+      comp->rowkeytype := TypeID(INTEGER);
+
+      this->CalculatePulldownOptions(comp);
+
+      comp->title := this->title;
+      comp->required := this->required;
+      comp->enabled := this->enabled;
+      comp->onchange := this->onchange;
+      comp->width := this->width;
+      comp->height := this->height;
+      this->comps := [comp];
+    }
+    ELSE
+    {
+      OBJECT textcomp := this->owner->CreateTolliumComponent("textedit");
+      IF (this->readonly)
+        textcomp->readonly := TRUE;
+      ELSE
+        textcomp->enabled := FALSE;
+      this->MarkAsSubComponent(textcomp);
+
+      textcomp->title := this->title;
+
+      IF (NOT this->readonly)
+      {
+        OBJECT selectaction := this->CreateSubComponent("action");
+        selectaction->onexecute := PTR this->DoBrowseForEntity();
+
+        OBJECT selectcomp := this->CreateSubComponent("button");
+        selectcomp->action := selectaction;
+        selectcomp->title := GetTid("tollium:common.actions.select");
+        selectcomp->enabled := this->enabled;
+
+        this->comps := [ textcomp, selectcomp ];
+      }
+      ELSE
+      {
+        this->comps := [ textcomp ];
+      }
+    }
+    this->InsertMyComponents();
+    this->UpdateFieldValue();
+  }
+
+  MACRO InsertMyComponents()
+  {
+    OBJECT pos := this;
+    FOREVERY (OBJECT obj FROM this->comps)
+    {
+      this->parent->InsertComponentAfter(obj, pos, FALSE);
+      pos := obj;
+    }
+  }
+
+  MACRO CalculatePulldownOptions(OBJECT comp)
+  {
+    IF(NOT this->using_select_element)
+      RETURN;
+
+    RECORD outputcols := [ id := "WRD_ID" ];
+
+    STRING titlecell := this->GetUsableDisplayAttribute();
+    IF(titlecell != "")
+      INSERT CELL title := titlecell INTO outputcols;
+
+    BOOLEAN useordering := RecordExists(this->pvt_domain->GetAttribute("WRD_ORDERING"));
+    IF(useordering)
+      INSERT CELL ordering := "WRD_ORDERING" INTO outputcols;
+
+    RECORD ARRAY domainvals := this->pvt_domain->RunQuery(
+        [ outputcolumns := outputcols
+        , filters := this->domainfilters
+        ]);
+
+    RECORD ARRAY opts := SELECT TEMPORARY titlevalue := (titlecell != "" ? title : "") ?? "#" || id
+                              , rowkey := id
+                              , title := titlevalue
+                           FROM domainvals
+                       ORDER BY (useordering ? ordering : 0)
+                              , NormalizeText(titlevalue, this->owner->tolliumuser->language)
+                              , id;
+
+    //ADDME: Geen lege waarde tonen indien niet toegestaan (maar hoe om te gaan met current entities die nog geen waarde hebben ondanks de requirement?)
+    //ADDME: Bij grote domeinen kiezen voor een invulbox ipv pulldown (automatisch bij 10 of 20 ofzo wisselen, gebruiker mogelijkheid tot override bieden?)
+    comp->type := this->use_selectmultiple ? this->type IN ["checkboxlist", "inlinecheckboxlist"] ? this->type : "checkbox"
+                                           : this->type = "radio"        ? "radio"        : "pulldown";
+    IF(comp->type IN ["checkboxlist","inlinecheckboxlist"])
+    {
+      comp->height := this->height;
+    }
+    IF(comp->type="pulldown")
+      INSERT [ rowkey := 0, title := "", invalidselection := this->required ] INTO opts AT 0;
+
+    comp->options := opts;
+    IF(NOT this->use_selectmultiple AND NOT RecordExists(comp->selection)) //multiple
+      comp->selection := opts[0];
+  }
+
+  PRIVATE MACRO DoBrowseForEntity()
+  {
+    IF(this->onselectdialog != DEFAULT MACRO PTR)
+    {
+      this->onselectdialog(this);
+      RETURN;
+    }
+
+    OBJECT newdiag := MakeWRDEntitySelectDialog(this->owner, this->pvt_domain);
+    newdiag->multiple := this->use_selectmultiple;
+    newdiag->listfilters := this->domainfilters;
+    newdiag->listcolumns := this->listcolumns;
+
+  //  newdiag->listcolumns := [ [ tag := "WRD_TITLE", width := "1pr" ] ];
+
+    newdiag->value := this->value;
+    newdiag->sortable := TRUE;
+
+    IF(newdiag->RunDialog())
+    {
+      this->value := newdiag->value;
+      IF (this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
+    }
+  }
+
+  PRIVATE MACRO SetDomainFilters(RECORD ARRAY domainfilters)
+  {
+    this->pvt_domainfilters := domainfilters;
+
+    // may be set before init with type
+    IF (NOT this->readonly AND this->using_select_element AND Length(this->comps)>0)
+      this->CalculatePulldownOptions(this->comps[0]);
+  }
+
+  PRIVATE VARIANT FUNCTION GetValue()
+  {
+    IF(Length(this->comps)=0 OR this->inerrormode)
+      this->GenerateContents(); //we need this to convert to selectmultiple during initialization
+
+    this->UpdateFromFieldValue();
+
+    IF(this->use_selectmultiple)
+      RETURN this->curentityids;
+    ELSE
+      RETURN Length(this->curentityids)>0 ? this->curentityids[0] : 0;
+  }
+
+  PRIVATE MACRO SetValue(VARIANT val)
+  {
+    IF(TypeID(val) NOT IN [TypeID(INTEGER), TypeID(INTEGER ARRAY)])
+      THROW NEW Exception(`Value passed to '${this->GetComponentIdentification()}' is not an integer (array)`);
+
+    // If we don't have subcomponents yet we must store the value
+    // (we cannot validate yet, because the reason we don't have subcomponents
+    // is that we do not know yet what attribute we are editting
+    // or what domain we are selecting from)
+    IF(Length(this->comps)=0 OR this->inerrormode)
+    {
+      IF (TypeID(val) = TypeID(INTEGER ARRAY))
+        this->curentityids := val;
+      ELSE
+        this->curentityids := [ INTEGER(val) ];
+
+      RETURN;
+    }
+
+    IF(this->use_selectmultiple)
+      this->curentityids := val;
+    ELSE
+      this->curentityids := [ INTEGER(val) ];
+
+    this->UpdateFieldValue();
+    IF(this->onchange != DEFAULT MACRO PTR)
+      this->onchange();
+  }
+
+  STRING FUNCTION GetUsableDisplayAttribute()
+  {
+    STRING suggested := this->displayattribute ?? "WRD_TITLE";
+    RETURN RecordExists(this->pvt_domain->GetAttribute(suggested)) ? suggested : "";
+
+  }
+
+  PRIVATE MACRO UpdateFromFieldValue()
+  {
+    IF(Length(this->comps)=0 OR this->inerrormode)
+      RETURN;
+
+    IF(this->using_select_element)
+    {
+      IF(this->use_selectmultiple)
+        this->curentityids := this->comps[0]->value;
+      ELSE
+      {
+        INTEGER val := this->comps[0]->value;
+        this->curentityids := val=0 ? DEFAULT INTEGER ARRAY : [val];
+      }
+    }
+  }
+
+  PRIVATE MACRO UpdateFieldValue()
+  {
+    IF(Length(this->comps)=0 OR this->inerrormode)
+      RETURN;
+
+    IF(this->using_select_element)
+    {
+      IF (this->use_selectmultiple)
+        this->comps[0]->value := this->curentityids;
+      ELSE
+        this->comps[0]->value := Length(this->curentityids) > 0 ? this->curentityids[0] : 0;
+    }
+    ELSE
+    {
+      STRING ARRAY vals;
+      IF(Length(this->curentityids) > 0)
+      {
+        STRING attr := this->GetUsableDisplayAttribute();
+        IF(attr != "")
+        {
+          vals := this->pvt_domain->RunQuery(
+              [ outputcolumn := attr
+              , filters := [ [ field := "WRD_ID", value := this->curentityids ]
+                           ]
+              ]);
+        }
+      }
+      this->comps[0]->value := Detokenize(vals,", ");
+    }
+  }
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled OR NOT this->required OR this->readonly)
+      RETURN;
+
+    IF(    (this->use_selectmultiple     AND Length(this->GetValue()) = 0)
+        OR (NOT this->use_selectmultiple AND this->GetValue() = 0)
+      )
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", this->errorlabel??this->title));
+    }
+  }
+>;

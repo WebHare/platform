@@ -1,0 +1,341 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::socialite/lib/api.whlib";
+LOADLIB "mod::socialite/lib/database.whlib";
+LOADLIB "mod::socialite/lib/internal/rss.whlib";
+
+// a simple app used to read built-in anonymous feeds
+OBJECTTYPE SocialiteFeedApp
+<
+  PUBLIC RECORD FUNCTION __ExecuteFeedQuery(STRING query, INTEGER maxitems)
+  {
+    STRING type := Left(query,SearchSubstring(query,':'));
+    query := Substring(query, Length(type)+1);
+
+    SWITCH(type)
+    {
+      CASE "rss"
+      {
+        RETURN GetRSSItems(query);
+      }
+      DEFAULT
+      {
+        ABORT("Type not understood '" || type || "')");
+      }
+    }
+  }
+
+  STRING FUNCTION GetSimpleTextFromHTML(OBJECT indoc)
+  {
+    STRING output;
+    FOR(OBJECT node := indoc->firstchild;ObjectExists(node);node := node->nextsibling)
+    {
+      IF(indoc->nodetype = 1 OR indoc->nodetype = 9)
+        IF(ToUppercase(indoc->nodename)="BR")
+          output := output || "\n";
+        ELSE
+          output := output || this->GetSimpleTextFromHTML(node);
+      ELSE IF(indoc->nodetype=3)//text
+        output := output || indoc->nodevalue;
+    }
+    RETURN output;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION DecodeFeedItems(STRING format, RECORD ARRAY initems)
+  {
+    OBJECT rewriter := NEW HTMLRewriter;
+    FOREVERY(RECORD row FROM initems)
+    {
+      OBJECT indoc := MakeXMLDocumentFromHTML(StringToBlob(row.data.richtext), "UTF-8");
+      STRING rawtext := this->GetSimpleTextFromHTML(indoc);
+
+      //FIXME cleanup the data
+      rewriter->parsemode:="block";
+      rewriter->ParseXmlDocument(indoc);
+
+      INSERT CELL text := rawtext INTO row;
+      INSERT CELL richtext := rewriter->parsed_text INTO row;
+      INSERT CELL title := row.data.title INTO row;
+      INSERT CELL url := row.data.url INTO row;
+
+      initems[#row] := row;
+    }
+    RETURN initems;
+  }
+>;
+
+// Might be used with & without open work!
+RECORD FUNCTION TryReturnCachedFeed(OBJECT netapp, INTEGER sessionid, STRING query, INTEGER maxnum, DATETIME now)
+{
+  // Retrieve the feed (based on the query)
+  RECORD feed :=
+      SELECT *
+        FROM socialite.feeds
+       WHERE feeds.session = sessionid
+         AND feeds.query = VAR query;
+
+  RECORD result;
+  RECORD baseinfo;
+
+  IF (RecordExists(feed))
+  {
+    IF (Length(feed.baseinfo) != 0)
+      baseinfo := DecodeHSON(BlobToString(feed.baseinfo,-1));
+
+    IF (feed.lastupdateattempt >= AddTimeToDate(-5*60*1000,now)) //less than 5 minutes old, so no updates needed
+    {
+      // Get DB feed entries for this feed
+      RECORD ARRAY dbfeedentries :=
+          SELECT created
+               , messageid
+               , data := ReadAnyFromDatabase(data, longdata)
+            FROM socialite.feedentries
+           WHERE feedentries.feed = VAR feed.id
+             AND publish
+        ORDER BY created DESC
+           LIMIT maxnum;
+
+      // Decode them. Already ordered & limited in previous query
+      RECORD ARRAY entries :=
+          SELECT *
+            FROM netapp->DecodeFeedItems(feed.format, dbfeedentries);
+
+      result :=
+          [ lastupdate :=   feed.lastupdate
+          , entries :=      entries
+          , baseinfo :=     baseinfo
+          ];
+    }
+  }
+
+  RETURN
+      [ feed :=       feed
+      , baseinfo :=   baseinfo
+      , result :=     result
+      ];
+}
+
+RECORD FUNCTION GrabFeed(STRING account, STRING app, STRING sessionname, STRING query, INTEGER maxnum, BOOLEAN force)
+{
+  RETURN RunInSeparatePrimary(PTR DoGrabFeed(account,app,sessionname,query,maxnum,force));
+}
+
+RECORD FUNCTION DoGrabFeed(STRING account, STRING app, STRING sessionname, STRING query, INTEGER maxnum, BOOLEAN force)
+{
+  //Open the proper socialite app
+  OBJECT netapp;
+  INTEGER sessionid;
+
+  TRY
+  {
+    IF(account != "")
+    {
+      netapp := OpenSocialiteConnection(account, app);
+      sessionid := netapp->OpenPersistentSessionByTag(sessionname);
+    }
+    ELSE
+    {
+      netapp := NEW SocialiteFeedApp;
+    }
+  }
+  CATCH(OBJECT e)
+  {
+    LogError("socialite:feeds", "Error opening persistent session " || account || ":" || app || " account " || sessionname || " for '" || query || "': " || e->what, [ error := "FEEDOPENERROR", account := account, app := app, sessionname := sessionname, query := query]);
+    RETURN [ ttl := 60 * 1000
+            ,value := [ lastupdate := DEFAULT DATETIME
+                      , entries := DEFAULT RECORD ARRAY
+                      , baseinfo := DEFAULT RECORD
+                      ]
+           , eventmasks := [ "socialite:feedsupdate" ]
+           ];
+  }
+
+  // Whether to re-get the feed
+  DATETIME now := GetCurrentDatetime();
+
+  // Current feed up to date?
+  RECORD feedcheck := TryReturnCachedFeed(netapp, sessionid, query, maxnum, now);
+  IF (RecordExists(feedcheck.result) AND NOT force)
+    RETURN [ ttl := 60 * 1000
+           , value := feedcheck.result
+           , eventmasks := [ "socialite:feedsupdate" ]
+           ];
+//
+  // No such feed, or last update attempt was more than 5 mins ago.
+
+  ///FIXME we should probably ALWAYS do async-updates. first request for a feed should simply be scheduling it
+
+  // Begin locked work for this feed. Group together on sessionid & query
+  GetPrimary()->BeginLockedWork("socialite:updatefeed." || sessionid || "." || EncodeUFS(GetSHA1Hash(query)));
+  TRY
+  {
+    // Time may have progressed significantly when waiting for a lock
+    now := GetCurrentDatetime();
+
+    // Recheck feed within work (another thread might have updated it already)
+    feedcheck := TryReturnCachedFeed(netapp, sessionid, query, maxnum, now);
+    IF (RecordExists(feedcheck.result) AND NOT force)
+      RETURN [ ttl := 60 * 1000
+             , value := feedcheck.result
+             , eventmasks := [ "socialite:feedsupdate" ]
+             ];
+
+    // Nope, really need to update
+
+    //Get a feed update.
+    STRING error;
+    RECORD baseinfo;
+    RECORD feedresult;
+
+    TRY
+    {
+      //FIXME ensure timeouts
+      //FIXME do all non-initial updates asynchronously. but then we may need mutexes too to prevent double creation - or it won't happen because its either "First" or "Async" update?
+      feedresult := netapp->__ExecuteFeedQuery(query, maxnum);
+
+      UPDATE feedresult.entries
+         SET messageid := EncodeUFS(GetSHA1Hash(messageid))
+       WHERE Length(messageid) > 64; //ensure all message ids fit
+
+      //ADDME: are there cases where we want to merge with existing entries, ie to get 'old forgotten' twitter stuff?
+
+      IF(CellExists(feedresult,'baseinfo'))
+        baseinfo := feedresult.baseinfo;
+    }
+    CATCH(OBJECT e)
+    {
+      LogError("socialite:feeds", "Error querying feed " || account || ":" || app || " account " || sessionname || " for '" || query || "': " || e->what, [ error := "FEEDQUERYERROR", account := account, app := app, sessionname := sessionname, query := query]);
+      error := e->what; //FIXME Log it, mark the feed as failing
+    }
+
+    baseinfo := baseinfo ?? feedcheck.baseinfo;
+    STRING baseinfodata := EncodeHSON(baseinfo);
+    STRING baseinfohash := EncodeBase16(GetMD5Hash(baseinfodata));
+
+    RECORD ARRAY existing_entries;
+
+    INTEGER feedid;
+    IF (RecordExists(feedcheck.feed))
+    {
+      feedid := feedcheck.feed.id;
+      UPDATE socialite.feeds
+         SET lastupdateattempt :=  now
+           , lastupdate :=         RecordExists(feedresult) ? now : lastupdate
+           , lastrequest :=        now
+           , format :=             COLUMN format ?? RecordExists(feedresult) ? feedresult.format : ""
+           , maxnum :=             MAX[]([ COLUMN maxnum, VAR maxnum ])
+       WHERE id = feedid;
+
+      IF (error = "" AND baseinfohash != feedcheck.feed.baseinfohash)
+        UPDATE socialite.feeds
+           SET baseinfo :=      StringToBlob(VAR baseinfodata)
+             , baseinfohash :=  VAR baseinfohash
+         WHERE id = feedid;
+
+      // Get all current existing entries
+      existing_entries :=
+          SELECT id
+               , created
+               , messageid
+               , data := DecodeHSON(data != "" ? data : BlobToString(longdata,-1))
+            FROM socialite.feedentries
+           WHERE feedentries.feed = feedid
+        ORDER BY messageid;
+    }
+    ELSE
+    {
+      // New feed
+      feedid := MakeAutonumber(socialite.feeds,"ID");
+      INSERT INTO socialite.feeds(id, session, query, created, lastupdateattempt, lastupdate, lastrequest, format, maxnum, baseinfo, baseinfohash)
+              VALUES(feedid, sessionid, query, now, now, error != "" ? DEFAULT DATETIME : now, now, RecordExists(feedresult) ? feedresult.format : "", maxnum, StringToBLob(baseinfodata), baseinfohash);
+    }
+
+    //Throw new entries into the database (but only if there were no errors getting the feed)
+    STRING format;
+    DATETIME lastupdate;
+
+    IF (RecordExists(feedresult))
+    {
+      // Save format
+      format := feedresult.format;
+      lastupdate := now;
+
+      // Get list of new message ids, ordered on messageid
+      STRING ARRAY new_messageids := SELECT AS STRING ARRAY messageid FROM feedresult.entries ORDER BY messageid;
+
+      STRING ARRAY org_new_messageids := new_messageids;
+
+      // Need to update the DB so only the new messages are in there
+
+      // Delete all existing entries that are not in new_messageids list. Keep max 1 entry per messageid.
+      // Removes existing entries from new_messageids
+      INTEGER ARRAY to_delete;
+      FOREVERY (RECORD rec FROM existing_entries)
+      {
+        RECORD pos := LowerBound(new_messageids, rec.messageid);
+        IF (pos.found)
+          DELETE FROM new_messageids AT pos.position;
+        ELSE
+          INSERT rec.id INTO to_delete AT END;
+      }
+
+      DELETE FROM socialite.feedentries WHERE id IN to_delete;
+      DELETE FROM existing_entries WHERE id IN to_delete;
+
+      // new_messageids now only contains messageids of new messages that are not yet in the database
+      // Insert all feed-returned entries that are in the new_messageids list.
+      FOREVERY(RECORD entry FROM feedresult.entries)
+        IF (LowerBound(new_messageids, entry.messageid).found)
+        {
+          RECORD parts := PrepareAnyForDatabase(entry.data);
+          INSERT INTO socialite.feedentries(feed,created,messageid,data,longdata,publish)
+                VALUES(feedid, entry.created ?? GetCurrentDatetime(), entry.messageid, parts.stringpart, parts.blobpart,TRUE);
+
+          // Also add the entry to the list of existing entries
+          INSERT entry INTO existing_entries AT END;
+        }
+    }
+    ELSE IF (RecordExists(feedcheck.feed))
+    {
+      format := feedcheck.feed.format;
+      lastupdate := feedcheck.feed.lastupdate;
+    }
+
+    // Decode the entries
+    RECORD ARRAY entries;
+    IF (Length(existing_entries) > 0)
+      entries := SELECT * FROM netapp->DecodeFeedItems(format, existing_entries) ORDER BY created DESC LIMIT maxnum;
+
+    RETURN [ ttl := 60 * 1000
+           , value := [ lastupdate := lastupdate
+                      , entries :=    entries
+                      , baseinfo :=   baseinfo
+                      ]
+           , eventmasks := [ "socialite:feedsupdate" ]
+           ];
+  }
+  FINALLY
+  {
+    GetPrimary()->CommitWork();
+    BroadcastEvent("socialite:feedsupdate",DEFAULT RECORD);
+  }
+}
+
+PUBLIC RECORD FUNCTION RequestFeed(STRING account, STRING app, STRING sessionname, STRING query, INTEGER maxnum, BOOLEAN forcerequest)
+{
+  IF(forcerequest)
+    RETURN GrabFeed(account,app,sessionname,query,maxnum, TRUE).value;
+  //The adhoc cache also prevents multiple requests for the same feed to be issued, causing database duplicates
+  RETURN GetAdhocCached([ account := account, app := app, sessionname := sessionname, query := query, maxnum := maxnum ], PTR GrabFeed(account,app,sessionname,query,maxnum, FALSE));
+}

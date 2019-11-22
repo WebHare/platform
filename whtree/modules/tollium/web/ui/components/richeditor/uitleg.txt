@@ -1,0 +1,155 @@
+Noodgedwongen plaats ik dit verhaal maar even hier tot we een mooie plek hebben.
+
+Opzet RTE algemeen:
+- frontend: de RTE moet in de frontend kunnen draaien om het ding eenvoudig
+  testbaar te hebben. in de toekomst zou de free rte bovendien inzetbaar moeten
+  zijn voor bv. forum reply, blog comments, dat soort dingen. self rte heeft
+  ook duidelijk nut.
+
+  testcases: /tollium_todd.res/tollium_dev/jstests/?mask=webhare_testsuite.designfiles.rte*&reportid=1
+  testfront: /designfiles_demos/df/wh/rich/editor/?editor=free
+
+- backend: we zijn het <rte> component, geimplementeerd door ~/m/tollium/ui/js/rte.js
+  testcases:  /tollium_todd.res/tollium_dev/jstests/?mask=webhare_testsuite.tollium.richdoc.*&reportid=1
+  testpagina: /tollium_todd.res/webhare_testsuite/tollium/host.shtml?app=webhare_testsuite:runscreen%28tests/richdoc.main%29
+
+Editmodes:
+- free:       structuurloze editing van een iframe <body>, ondersteunt zoveel mogelijk tags
+              deze editor implementeert ook tollium's "inline" en "blocks" mode.
+- email:      als free, uitgebreid met emailclient support. voornamelijk het automatisch 'breken' van quotes bij 'enter'
+              (FIXME: nog te implementeren, email mode zit nu alleen in tollium, maar we moeten blockquote-breaking etc ook hier testen)
+- structured: een iframe <body> editor die een stramien afdwingt op de gegenereerde HTML, en style selectie ondersteunt
+- page:       een structured iframe editor, waarbij je on-click containers kan wijzigen die met "data-wh-rtd-edit=1" zijn gemarkeerd
+- self:       een structured editor die de pagina zelf. deze ondersteunt expliciet geen iframes
+
+
+STRUCTUUR
+
+wh.rich.content
+  - dit moet men includen in uitvoersites. het bevat standaard aannames van de
+    RTE (bv de definitie van img.wh-rtd-floatleft)
+
+    overigens gaat de RTD er ook vanuit dat je een standaard 'style reset' doet,
+    waarbij alle default margins/paddings op 0 worden gezet. een designfiles
+    site doet dit standaard al
+
+wh.rich.debug
+  - debuggingcode, door de testfront en testcases gebruikt.
+
+wh.rich.editor
+  - de $wh.RTE class, die de publieke API van de RTE publiceert.
+    $wh.RTE (Implements Events, Options, PreloadableAsset)
+    $wh.Form.RTEModel (Implements Form.InputGroupBase)
+
+wh.rich.internal.domlevel
+  - DOM constructie en manipulatie
+    $wh.Rich.UndoItem (Implements Events)
+    $wh.Rich.Dom
+    $wh.Rich.Locator
+    $wh.Rich.Range
+    $wh.Rich.RangeIterator2
+    $wh.Rich.RangeIterator
+
+
+wh.rich.internal.editorbase
+  -
+     $wh.Rich.PropertiesEvent
+     $wh.Rich.EditorBase
+     $wh.Rich.TextFormattingState
+
+wh.rich.internal.freeeditor
+  - de 'free' en 'email' editor implementaties
+     $wh.Rich.FreeEditor
+
+wh.rich.internal.iframelevel
+  -
+    $wh.Rich.EditArea (Implements Events, Options)
+    $wh.Rich.Iframe (Implements Events, Options)
+
+wh.rich.internal.persistentiframe
+  - de iframe die zijn content en scripting kan herstellen na hide/reparents.
+    het bestaan van de 'self' mode is de voornaamste reden dat deze class niet
+    geintegreerd is in $wh.RTE
+    $wh.Rich.PersistentIframe
+
+$wh.rich.intenal.selection
+    $wh.Rich.SelectionInterface
+
+wh.rich.internal.selfframemanager
+    $wh.Rich.SelfFrameManager
+
+wh.rich.internal.structurededitor
+    $wh.Rich.StructuredEditor (Extends Rich.EditorBase)
+    $wh.Rich.PasteCleanup
+
+
+wh.rich.internal.toolbar
+  - de toolbar.
+    $wh.Rich.Toolbar
+
+
+
+
+$wh.Rich.Iframe
+  $wh.Rich.EditorBase
+    $wh.Rich.FreeEditor
+    $wh.Rich.StructuredEditor
+
+
+
+TODO (ADDMEs en FIXMEs)
+  Tableediting
+    - table columns kunnen resizen via dragging (voornamelijk om te testen of
+      we 'voldoende' scripting hebben, ook onder IE8 en IE9/10)
+    - een begin maken met tabellen (desnoods hardcoded inserten) zodat we zien
+      waar we tegenaan gaan lopen (selecties door tabelcelgrenzen heen, tab-wissel
+      tussen cellen)
+
+  Free RTE
+    - 'email' mode implementeren. testcase maken voor blockquote splitsen, Kris
+       had ooit een endless loop ?
+    - BR gedrag op IE stabiliseren, specifiek het geval van de 'lege regels/paragrafen'.
+      UT bleef hierover vallen na de 3.10 upgrade, het speelde op IE9 met Touch site,
+      mijn workaround was een p { min-height:9px; } maar dat suckt als generieke oplossing..
+    - 'html-flash' mode van Tollium, werkt die nog? 1 of 2 testcasejes zou wel
+      prettig zijn, volgens mij werkt bv oneill er nog mee (met hun rare FONT tag hacks)
+
+  Page RTE
+    - het aanklikken van <h1 class='heading1' data-wh-edit=1> insert nu een p.
+      wat moet gebeuren is dat ik paragraaf mag editten, maar dat alle blockstylen
+      geblokkeerd zijn (BR wordt soft-enter, pulldown wordt geblocked op heading1)
+    - hoe gaan we dit ding in Tollium integreren ? hij is probably interessant
+      voor de newsletter app
+
+  Images
+    - inline kunnen resizen van images, OF dit volledig blokkeren
+    - kunnen we drag-in/drag-uit van images voor elkaar krijgen?
+
+  Blokcomponenten
+    - XSD validatie van de componenten in de rte-structure.xml (processContents moet strict worden)
+
+  Drag&drop tussen tollium lists/componenten en RTE
+
+  Integratie
+    - de RTD heet nu een table width/height 100%, waardoor hij perfect meeschaalt
+      met zijn parent zonder JS. Echter, hij heeft ook een border, en is nu 2 pixels
+      groter dan zijn parent. kunnen we 'm css-only leren precies te passen?
+      moeten we misschien de outerborder weghalen ?
+
+  Cleanup SHOWSTOPPERS - cleanups worden tegengehouden door deze vragen:
+    - Rob noemde veel corner cases met crashes bij aan/uit zetten van
+      contenteditable op IE. Kan hij dit nog herhalen?
+    - Kunnen we draggen van custom tableborders ondersteunen? (voldoet de
+      scripting engine?)
+
+  Cleanup (maar pas nadat de showstoppers weg zijn!)
+    - veel testcases zijn uitgecomment. kunnen ze weer aan of zijn ze overbodig?
+    - designmodeshim is grotendeels overbodig? dit kwam uit de designmode tijd
+      maar content-editable moet het nu worden
+    - persistentiframe.js bevat nog veel code uit de 'generieke' tijd, als we
+      niets engs meer zien kan dat weg
+    - iframelevel.js kan zelf persistentiframes maken. dit hoeft niet meer.
+    - veel events komen nog uit de lagere lagen, en geven als 'target's dan
+      lowlevel edit objecten, ipv de $wh.RTE. is dat slim?
+    - tollium rte.js roept regelmatig rte.getEditor() aan en gaat daarmee door
+      abstracties heen, suckt.

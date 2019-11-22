@@ -1,0 +1,104 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/userapi.whlib";
+
+OBJECT trans := OpenPrimary();
+
+MACRO CleanupTasks()
+{
+  trans->BeginWork();
+
+  //these retention times are configurable in the global settings of system:config
+  INTEGER finishedtaskretention := ReadRegistrykey("system.tasks.finishedretention"); //default: 3
+  INTEGER finishedmailretention := ReadRegistrykey("system.services.smtp.mailretention"); //default: 7
+
+  DELETE FROM system.managedtasks WHERE finished != DEFAULT DATETIME AND tasktype != "system:outgoingmail" AND finished <= AddDaysToDate(-finishedtaskretention, GetCurrentDateTime());
+  DELETE FROM system.managedtasks WHERE finished != DEFAULT DATETIME AND tasktype = "system:outgoingmail" AND finished <= AddDaysToDate(-finishedmailretention, GetCurrentDateTime());
+
+  trans->CommitWork();
+}
+
+MACRO CleanupUsageLogs()
+{
+  trans->BeginWork();
+
+  DATETIME delete_usagestats_older_than := AddDaysToDate(-ReadRegistrykey("system.webserver.global.usagelogdays"), GetCurrentDateTime());
+  DELETE FROM system.webservers_usage WHERE time < delete_usagestats_older_than;
+
+  trans->CommitWork();
+}
+
+MACRO CleanupDiversions()
+{
+  trans->BeginWork();
+
+  DATETIME cutoff := AddDaysToDate(-ReadRegistryKey("system.webserver.webdav.divertcachedays"), GetCurrentDatetime());
+  DELETE FROM system.webdav_diversions WHERE created < cutoff;
+
+  trans->CommitWork();
+}
+
+MACRO CleanupUsermgmt()
+{
+  INTEGER retention := ReadRegistrykey("system.userrights.retention");
+  IF(retention <= 0)
+    RETURN;
+
+  OBJECT usermgmtschema := OpenWRDSchema("system:usermgmt");
+  IF(NOT ObjectExists(usermgmtschema))
+    RETURN;
+
+  DATETIME cutoff := AddDaysToDate(-retention, GetCurrentDatetime());
+
+  trans->BeginWork();
+  FOREVERY(RECORD type FROM usermgmtschema->ListTypes())
+  {
+    OBJECT wrdtype := usermgmtschema->GetTypeById(type.id);
+    RECORD ARRAY tokill := wrdtype->RunQuery([ outputcolumns := [ "WRD_ID" ]
+                                             , filters := [[ field := "WRD_LIMITDATE", matchtype := "<", value := cutoff ]]
+                                             , historymode := "all"
+
+                                             ]);
+    IF(Length(tokill) > 0)
+      wrdtype->DeleteEntities(SELECT AS INTEGER ARRAY wrd_id FROM tokill);
+  }
+  trans->CommitWork();
+}
+
+MACRO CleanupAuthObjects()
+{
+  trans->BeginWork();
+
+  DATETIME cutoff := AddDaysToDate(0 - (IsDtapLive() ? 60 : 7), GetCurrentDatetime());
+  DELETE FROM system.authobjects WHERE deletiondate != DEFAULT DATETIME AND deletiondate < cutoff;
+
+  trans->CommitWork();
+}
+
+MACRO FixupUserMgmt()
+{
+  trans->BeginWork();
+
+  ResyncAllToSystemTables();
+
+  trans->CommitWork();
+}
+
+MACRO RunExecuteMaintenance()
+{
+  IF(NOT IsRestoredWebhare())
+  {
+    CleanupTasks();
+    CleanupUsageLogs();
+    CleanupDiversions();
+    CleanupUserMgmt();
+    CleanupAuthObjects();
+  }
+  FixupUserMgmt();
+}
+
+RunExecuteMaintenance();

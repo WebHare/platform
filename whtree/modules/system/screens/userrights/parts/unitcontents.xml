@@ -1,0 +1,123 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
+         lib="screens/userrights/parts/unitcontents.whlib" >
+
+  <!-- list of users & roles within a unit -->
+  <fragment name="unitcontents" gid="userrights.unitcontents">
+    <actions gid="userrights.actions">
+      <action name="newuser" hinttid=".newuser-hint" onexecute="doadduser" enabled="false" />
+      <action name="newrole" hinttid=".newrole-hint" onexecute="doaddrole" enabled="false" />
+
+      <action name="addroletousers" onexecute="doaddroletousers" hinttid=".addroletousers-hint" ellipsis="true">
+        <enableon min="1" source="userandrolelist" checkflags="!isrole" />
+      </action>
+
+      <action name="addrighttousers" onexecute="doaddrighttousers"  hinttid=".addrighttousers-hint" ellipsis="true">
+        <enableon min="1" source="userandrolelist"/>
+      </action>
+
+      <action name="adduserstorole" ellipsis="true">
+        <enableon min="1" max="1" source="userandrolelist" checkflags="isrole canedit" onexecute="doadduserstorole"  />
+      </action>
+
+      <action name="move" hinttid=".move-hint" ellipsis="true">
+        <enableon source="userandrolelist" min="1" checkflags="candelete" onexecute="domoveitemstoanotherunit" />
+      </action>
+
+      <action name="delete" hinttid=".delete-hint" shortcut="del">
+        <enableon source="userandrolelist" min="1" checkflags="candelete" onexecute="dodeleteuserorrole" requirefocus="true" />
+      </action>
+
+      <action name="edit" hinttid=".edit-hint">
+        <enableon source="userandrolelist" min="1" max="1" checkflags="isrole canedit" onexecute="doeditrole" />
+        <enableon source="userandrolelist" min="1" max="1" checkflags="!isrole canedit" onexecute="doedituser" />
+      </action>
+
+      <action name="getresetlink" ellipsis="true">
+        <enableon source="userandrolelist" min="1" max="1" checkflags="!isrole canedit" onexecute="dogetresetlink" />
+      </action>
+
+      <windowopenaction name="openas" hinttid=".openas-hint">
+        <enableon source="userandrolelist" min="1" max="1" checkflags="canopenas" onwindowopen="doopenas" />
+      </windowopenaction>
+    </actions>
+
+    <menus>
+      <menu name="selectcontextmenu">
+        <item action="addroletousers" disablemode="hidden" />
+        <item action="addrighttousers" disablemode="hidden" />
+        <item action="adduserstorole" tid="userrights.actions.adduserstorolecontext" disablemode="hidden" />
+        <divider />
+        <item action="move" />
+        <item action="delete" />
+        <divider />
+        <item action="getresetlink" />
+        <item action="openas" disablemode="hidden" />
+        <divider />
+        <item action="edit" />
+      </menu>
+
+      <menu name="newcontextmenu">
+        <item action="newuser" disablemode="hidden"  />
+        <item action="newrole" disablemode="hidden" />
+      </menu>
+    </menus>
+
+    <contents>
+      <list name="userandrolelist"
+            selectmode="multiple"
+            selectcontextmenu="selectcontextmenu"
+            newcontextmenu="newcontextmenu"
+            onselect="onselecthandler"
+            openaction="edit"
+            icons="tollium:users/user tollium:users/mask tollium:status/checked tollium:status/unknown tollium:objects/lock tollium:users/manager tollium:status/positive"
+            gid="userrights.columns"
+            borders="all"
+            emptytid="userrights.empty.usersinunits"
+            flags="isrole canedit candelete canopenas">
+        <acceptdrops ondrop="ontypeddrop">
+          <accepttype type="system:role" targetflags="canmanage" sourceflags="candelete" dropeffects="move" />
+          <accepttype type="system:user" targetflags="canmanage" sourceflags="candelete" dropeffects="move" />
+        </acceptdrops>
+
+
+        <column name="name" type="text" width="30x" iconname="icon" />
+        <column name="fullname" type="text" width="1pr" />
+        <column name="email" type="text" width="1pr" tid="~email" />
+        <column name="lastlogin" type="datetime" width="1pr" storeutc="true" />
+        <column name="unitpath" type="text" width="1pr" />
+        <column name="online" type="icon" title="" width="20px" align="center" sortkeyname="online_login" />
+
+      </list>
+    </contents>
+  </fragment>
+
+  <screen name="prepareresetlink" gid="userrights.prepareresetlink">
+    <body>
+      <select type="radio" name="resettype" title="">
+        <option rowkey="directresetlink" />
+        <option rowkey="codedresetlink" />
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="getresetlink" gid="userrights.getresetlink">
+    <actions>
+      <copyaction name="copyresetcode" title="" source="resetcode" />
+    </actions>
+    <body>
+      <url name="resetlink" width="80x" />
+      <textedit name="resetcode" width="80x" enabled="false">
+        <button type="icon" icon="tollium:actions/copy" action="copyresetcode" title="" />
+      </textedit>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+</screens>

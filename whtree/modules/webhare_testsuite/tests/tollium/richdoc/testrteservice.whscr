@@ -1,0 +1,255 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
+
+
+BLOB bobjpg := GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg");
+BLOB smallbobjpg := GetHarescriptResource("mod::webhare_testsuite/data//test/smallbob.jpg");
+
+MACRO RegisterBlobInWebhareDB(BLOB data)
+{
+  IF (LENGTH(data) = 0)
+    RETURN;
+
+  // Cause an upload to the database
+  testfw->BeginWork();
+  OpenWHFSObject(whconstant_whfsid_private_system)->CreateFile(CELL[ name := "__webhare_testsuite_blobregistering", data ]);
+  testfw->RollbackWork();
+
+  IF (GetDatabaseType() = "whdb")
+    TestEQ(TRUE, GetWHDBBlobInternalId(data) != 0);
+  ELSE
+    TestEQ(TRUE, __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data) != "");
+}
+
+MACRO RTECreation()
+{
+  testfw->BeginWork();
+
+  OBJECT doc;
+  OBJECT site := testfw->SetupTestWebdesignWebsite("");
+  OBJECT siteroot := testfw->GetTestsite()->rootobject;
+  OBJECT myrichdoc := NEW EditableRichDocument;
+  OBJECT testextralink := siteroot->CreateFile( [ name := "testextralink", publish := TRUE ]);
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
+                                 || '<p><a href="x-richdoclink:1234-5678-001">Link naar site</a> <a href="x-richdoclink:1234-5678-002">Link naar richtest</a> <a href="https://example.org/"></a>'
+                                 || ' afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&#38;G" /></p>'
+                                 || '<p><a id="boblink" href="x-richdoclink:EXT#goto-bob">Link naar Bob</a></p>'
+                                 || '<div class="wh-rtd-embeddedobject" data-instanceid="_1ra7ve1TrCw-usGy9kO-g">noise</div>'
+                                 || '</body></html>')
+                 , embedded := [ MakeMergedRecord(WrapBlob(bobjpg,"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 , links := [[ tag := "1234-5678-001", linkref := testextralink->id ]
+                            ,[ tag := "EXT", linkref := site->id ]
+                            ]
+                 , instances := [[ instanceid := "_1ra7ve1TrCw-usGy9kO-g"
+                                 , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
+                                           , aref := testextralink->id
+                                           , stringdata := "MyStringData"
+                                           ]
+                                 ]
+                                ]
+                 ]);
+
+  //Commit the document to the database  ADDME need a simpler api to manage richdocs
+  OBJECT testfile2 := siteroot->CreateFile([name := "richtest2", type := richdoctype->id ,publish:=FALSE]);
+  richdoctype->SetInstanceData(testfile2->id, [ data := myrichdoc->ExportAsRecord() ]);
+
+  testfw->CommitWork();
+
+  OBJECT editable := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
+  editable->basetype := "html";
+  editable->basefsobject := testfile2;
+  editable->rtdtype := GetRTDSettingsForFile(testfile2->id);
+
+  editable->ImportFromRecord(DEFAULT RECORD);
+  TestEq(DEFAULT RECORD, editable->ExportAsRecord());
+
+
+  editable->ImportFromRecord(richdoctype->GetInstanceData(testfile2->id).data);
+
+  //Get the rendered value from this RTECreation
+  doc := MakeXMLDocumentFromHTML(StringToBlob(editable->GetHTMLForClientRTE()));
+
+  //Test if the empty link is removed when exporting
+  TestEq(3, doc->QuerySelectorAll("a")->length);
+
+  //Ensure the image is rewritten to something representing the Bob
+  OBJECT ARRAY images := doc->GetElementsByTagName("img")->GetCurrentElements();
+  TestEq(1, Length(images));
+  TestEq(TRUE, images[0]->GetAttribute("src") NOT LIKE "cid:*", "Image url should not be a 'cid:' url anymore");
+
+  //Verify that it actually works!
+  TestEq(TRUE, IsAbsoluteURL(images[0]->GetAttribute("src"), FALSE));
+  TestEq(TRUE, testfw->browser->GotoWebPage(images[0]->GetAttribute("src")));
+  TestEq(bobjpg, testfw->browser->content);
+
+  //Get the rendered embeddedobject. It should be rewritten to data-innerhtml-contents
+  OBJECT embobjdiv := doc->QuerySelector('div[class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block"]');
+  TestEq(TRUE, ObjectExists(embobjdiv));
+  TestEq("a <b>preview</b> rendering. your string data: <i>MyStringData</i>", embobjdiv->GetAttribute("data-innerhtml-contents"));
+
+  //Simulate a change done by the server... we'll copy paste the first paragraph to the end
+  doc->body->AppendChild(doc->body->QuerySelector("p")->CloneNode(TRUE));
+  editable->SetHTMLFromClientRTE(doc->outerhtml);
+
+  //Make sure it got picked up
+  doc := MakeXMLDocumentFromHTML(StringToBlob(editable->GetHTMLForClientRTE()));
+  images := doc->GetElementsByTagName("img")->GetCurrentElements();
+  TestEq(2, Length(images));
+
+  TestEq(FALSE, doc->outerhtml LIKE "*noise*", "The word noise didn't get stripped from embeddedobject contents");
+
+  /* Test upload support.... this works like this:
+     - user initiates upload (or paste). client does fun stuff, but eventually PrepareUpload(RECORD[data,filename]) is invoked
+     - this function stores the image and returns a valid url for further img src use
+     - this url must be valid AND must convert to a proper url for storage */
+
+  RECORD insertinfo := editable->InsertImage(smallbobjpg, "smallbob.jpg");
+  TestEq(TRUE, RecordExists(insertinfo));
+  TestEq(TRUE, insertinfo.link != "");
+  TestEq(TRUE, IsAbsoluteURL(insertinfo.link,FALSE));
+  TestEq(TRUE, testfw->browser->GotoWebPage(insertinfo.link));
+  TestEq(smallbobjpg, testfw->browser->content);
+
+  OBJECT smallbobimg := doc->CreateElement("img");
+  smallbobimg->SetAttribute("src", insertinfo.link);
+  smallbobimg->SetAttribute("width", ToString(insertinfo.width));
+  smallbobimg->SetAttribute("height", ToString(insertinfo.height));
+  doc->body->lastchild->AppendChild(smallbobimg);
+  editable->SetHTMLFromClientRTE(doc->outerhtml);
+
+  //Create a new instance.
+  RECORD newwidgetdata := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
+                          , aref := siteroot->id
+                          , stringdata := "ANewWidget"
+                          , img := DEFAULT RECORD
+                          , whfssettingid := 0
+                          , whfsfileid := 0
+                          ];
+  RECORD newinstance := editable->CreateWidget(newwidgetdata);
+  TestEqLike("*ANewWidget*", newinstance.htmltext);
+
+  OBJECT widgetdiv := CreateLiveInstanceBlockNode(doc, newinstance.instanceref);
+  widgetdiv->SetAttribute("data-innerhtml-contents", newinstance.htmltext);
+  doc->body->AppendChild(widgetdiv);
+  editable->SetHTMLFromClientRTE(doc->outerhtml);
+
+  //Random instancerefs should not crash FIXME: generate valid random instanceref for this test
+  //TestEq(DEFAULT RECORD, editable->GetWidget("bestaatniet"));
+
+  //If we're requested to get widget data by id, can we ?
+  RECORD editable_widget := editable->GetWidget(newinstance.instanceref);
+  TestEqStructure(newwidgetdata, editable_widget);
+  TestEqMembers(newwidgetdata, editable_widget, "AREF,STRINGDATA,IMG,WHFSTYPE");
+
+  editable_widget.stringdata := "AnUpdatedWidget";
+
+
+  RECORD updatedinstance := editable->UpdateWidget(newinstance.instanceref, editable_widget);
+  TestEqLike("*AnUpdatedWidget*", updatedinstance.htmltext);
+  widgetdiv->SetAttribute("data-innerhtml-contents", updatedinstance.htmltext);
+  doc->body->AppendChild(widgetdiv);
+
+  //Export it
+  RECORD exportrec := editable->ExportAsRecord();
+  TestEq(FALSE, BlobToString(exportrec.htmltext) LIKE "*noise*", "The word noise didn't get stripped from embeddedobject contents");
+//  dumpvalue(exportrec,'tree');
+  TestEq(2, Length(exportrec.links));
+  TestEq(2, Length(exportrec.embedded));
+  TestEq(2, Length(exportrec.instances));
+/* ADDME?    IF(RecordExists(value))
+      value.links := SELECT tag, linkref FROM this->richdoclinks;*/
+
+  //There are 5 links now (the first paragraph was cloned)
+  doc := MakeXMLDocumentFromHTML(StringToBlob(editable->GetHTMLForClientRTE()));
+  TestEq(5, doc->QuerySelectorAll("a")->length);
+
+  //Add a new empty link (containing an empty <b> node)
+  OBJECT new_p := doc->CreateElement("p");
+  new_p->AppendChild(doc->CreateElement("a"));
+  new_p->lastchild->SetAttribute("href", "http://example.net");
+  new_p->lastchild->AppendChild(doc->CreateElement("b"));
+
+  //Add a new link containing an image, should not be stripped!
+  new_p->AppendChild(doc->CreateElement("a"));
+  new_p->lastchild->SetAttribute("href", "http://example.net");
+  new_p->lastchild->AppendChild(doc->CreateElement("img"));
+
+  doc->body->AppendChild(new_p);
+
+  //There are 7 links now
+  TestEq(7, doc->QuerySelectorAll("a")->length);
+
+  editable->SetHTMLFromClientRTE(doc->outerhtml);
+
+  //The empty link should be stripped by now, the link containing the image should not
+  doc := MakeXMLDocumentFromHTML(StringToBlob(editable->GetHTMLForClientRTE()));
+  TestEq(6, doc->QuerySelectorAll("a")->length);
+
+  //Test reset
+  editable->SetHTMLFromClientRTE(`<html><body><p class="normal"><br data-wh-rte="bogus"/></p></body>`);
+  TestEq(DEFAULT RECORD, editable->ExportAsRecord());
+
+  editable->ImportFromRecord(DEFAULT RECORD);
+  TestEq(DEFAULT RECORD, editable->ExportAsRecord());
+
+  // Test blob stability
+  editable->SetHTMLFromClientRTE(`<html><body>Text</body></html>`);
+  RECORD exportdata := editable->ExportAsRecord();
+  RegisterBlobInWebhareDB(exportdata.htmltext);
+
+  // test 2nd export of the same data
+  TestEQ(GetWHDBBlobInternalId(exportdata.htmltext), GetWHDBBlobInternalId(editable->ExportAsRecord().htmltext));
+
+  editable->SetHTMLFromClientRTE(`<html><body>Text2</body></html>`);
+  editable->SetHTMLFromClientRTE(`<html><body>Text</body></html>`);
+
+  // test remembering through changes
+  TestEQ(GetWHDBBlobInternalId(exportdata.htmltext), GetWHDBBlobInternalId(editable->ExportAsRecord().htmltext));
+
+  // test import - export
+  OBJECT editable2 := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
+  editable2->ImportFromRecord(exportdata);
+  TestEQ(GetWHDBBlobInternalId(exportdata.htmltext), GetWHDBBlobInternalId(editable2->ExportAsRecord().htmltext));
+}
+
+MACRO NewImage()
+{
+  OBJECT editable := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
+  RECORD imageonlydoc := [ htmltext := StringToBlob('<img src="cid:imagecid-81400"/>')
+                         , embedded := [[ contentid := "imagecid-81400"
+                                        , data := smallbobjpg
+                                        , filename := "81400"
+                                        ]
+                                       ]
+                         ];
+  editable->ImportFromRecord(imageonlydoc);
+  RECORD exportrec := editable->ExportAsRecord();
+  TestEq(1, Length(exportrec.embedded));
+
+  imageonlydoc.embedded[0].data := DEFAULT BLOB;
+  editable->ImportFromRecord(imageonlydoc);
+  exportrec := editable->ExportAsRecord();
+  TestEq(0, Length(exportrec.embedded));
+}
+
+RunTestFramework([ PTR RTECreation
+                 , PTR NewImage
+                 ],
+                 [ profile := TRUE ]);

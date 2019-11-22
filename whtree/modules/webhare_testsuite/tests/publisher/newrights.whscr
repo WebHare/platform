@@ -1,0 +1,110 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+OBJECT fullrightfolder;
+OBJECT lisasfolder;
+
+MACRO Setup()
+{
+  testfw->BeginWork();
+
+  OBJECT testbase := testfw->GetWHFSTestRoot();
+  fullrightfolder := testbase->CreateFolder([ name := "fullrightfolder" ]);
+  lisasfolder := testbase->CreateFolder([ name := "lisasfolder", modifiedby := testfw->GetUserAuthobjectid("lisa") ]);
+
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), lisasfolder->id, FALSE, TRUE);
+
+  fullrightfolder->CreateFile([name := "preexisting.whlib", type := 16, data := StringToBlob("<?wh abort('mycode'); ?>") ]);
+
+  testfw->CommitWork();
+}
+
+MACRO TryRights()
+{
+  testfw->BeginWork();
+  testfw->SetTestUser("lisa");
+
+  OBJECT testwhlib := fullrightfolder->CreateFile([ name := "test.whlib", type := 0 ]); //unknown
+  testwhlib->UpdateMetadata([ data := StringToBlob("<?wh Print('bla'); ?>") ]);
+  testwhlib := OpenWHFSObject(testwhlib->id);
+  TestEq("http://www.webhare.net/xmlns/publisher/plaintextfile", testwhlib->typens);
+
+  testwhlib->UpdateMetadata([ type := 16 ]); //Make it a whlib
+  testwhlib := OpenWHFSObject(testwhlib->id); //flush any cache , just in cache, although UpdateMetadata should refresh metadata in the object
+  TestEq("http://www.webhare.net/xmlns/publisher/plaintextfile", testwhlib->typens);
+
+  OBJECT test2whlib := fullrightfolder->CreateFile([ name := "test2.whlib", type := 16 ]); //Create a whlib
+  TestEq("http://www.webhare.net/xmlns/publisher/plaintextfile", test2whlib->typens);
+
+  OBJECT preexisting := fullrightfolder->OpenByName("preexisting.whlib");
+  preexisting->UpdateMetadata([title := "Your new title"]); //shouldn't hurt
+  TestEq("http://www.webhare.net/xmlns/publisher/libraryfile", preexisting->typens);
+  preexisting->UpdateData(StringToBlob("<?wh abort(1);"));
+  TestEq("http://www.webhare.net/xmlns/publisher/plaintextfile", preexisting->typens);
+
+  BLOB arc := fullrightfolder->ExportFolder().files[0].data;
+
+  ImportWHFSArchive(fullrightfolder->parentobject, arc, [ overwrite := TRUE ]);
+  preexisting := fullrightfolder->OpenByName("preexisting.whlib");
+  TestEq("http://www.webhare.net/xmlns/publisher/plaintextfile", preexisting->typens); //its type should be gone
+
+  ImportWHFSArchive(fullrightfolder, arc, [ overwrite := TRUE ]); //this just creates a subfolder
+  preexisting := fullrightfolder->OpenByPath("fullrightfolder/preexisting.whlib");
+  TestEq("http://www.webhare.net/xmlns/publisher/plaintextfile", preexisting->typens); //it shouldn't have gotten a type
+
+  testfw->RollbackWork();
+
+  testfw->SetTestUser(""); //in preparation for PrepareTestDeisgnWebsite.. back to the original fullright user
+
+}
+
+MACRO CheckPublication()
+{
+  testfw->BeginWork();
+
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), siteroot->id, FALSE, TRUE);
+
+  OBJECT testvalidshtml := siteroot->CreateFile([ name := "valid.shtml", data := StringToBlob("<?wh Print('valid shtml'); ?>"), publish := TRUE ]);
+  TestEq(25, testvalidshtml->type);
+
+  testfw->SetTestUser("lisa");
+
+  OBJECT testplain :=      siteroot->CreateFile([ name := "test.shtml",      type := 21/*plain text*/, data := StringToBlob("<?wh FORMAT('C:'); ?>"), publish := TRUE ]);
+  OBJECT testplainclink := siteroot->CreateFile([ name := "test2.shtml",     type := 20/*content link*/, filelink := testplain->id, publish := TRUE ]);
+  OBJECT testextlink :=    siteroot->CreateFile([ name := "external.whlink", type := 18/*external link*/, externallink := "http://www.nu.nl/", publish := TRUE ]);
+  OBJECT testvalidclink := siteroot->CreateFile([ name := "valid2.shtml",    type := 20/*content link*/, filelink := testvalidshtml->id, publish := TRUE ]);
+  OBJECT testwhsock :=     siteroot->CreateFile([ name := "test.whsock",     type := 21/*plain text*/, data := StringToBlob("<?wh FORMAT('C:'); ?>"), publish := TRUE ]);
+
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(siteroot->id);
+
+  testplain := OpenWHFSObject(testplain->id);
+  TestEq(3004, testplain->published);
+
+  testplainclink := OpenWHFSObject(testplainclink->id);
+  TestEq(3004, testplainclink->published);
+
+  testextlink := OpenWHFSObject(testextlink->id);
+  TestEq(100000, testextlink->published, "external.whlink failed");
+
+  testvalidclink := OpenWHFSObject(testvalidclink->id);
+  TestEq(100000, testvalidclink->published);
+
+  testwhsock := OpenWHFSObject(testwhsock->id);
+  TestEq(3004, testwhsock->published);
+}
+
+RunTestFramework([ PTR Setup
+                 , PTR TryRights
+                 , PTR PrepareTestSiteDesignWebsite("", [ witherrors := TRUE ])
+                 , PTR CheckPublication
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ,[ login := "bart" ]
+                                   ]]);

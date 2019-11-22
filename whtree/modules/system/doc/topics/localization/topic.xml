@@ -1,0 +1,5 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="Localization and translations">
+  <section name="localization" title="HareScript localization functions" />
+  <section name="gettid" title="The Tollium GetTid API" />
+</topic>

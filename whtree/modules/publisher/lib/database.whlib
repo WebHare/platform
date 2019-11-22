@@ -1,0 +1,3 @@
+<?wh
+///@private External modules shouldn't access internal schemas, they can change
+LOADLIB "mod::publisher/lib/internal/dbschema.whlib" EXPORT publisher;

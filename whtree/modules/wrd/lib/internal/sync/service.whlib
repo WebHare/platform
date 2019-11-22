@@ -1,0 +1,203 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/internal/sync/support.whlib";
+
+
+/* @param schemaname
+   @param currentcontents
+   @cell currentcontents.type
+   @cell currentcontents.entities
+   @cell currentcontents.entities.wrd_guid
+   @cell currentcontents.entities.modificationdate
+   @cell options.mapwhfslinks Map WHFS links
+*/
+PUBLIC RECORD FUNCTION RPC_GetSyncInstructions(STRING schemaname, RECORD ARRAY currentcontents, RECORD options)
+{
+  options := ValidateOptions(
+      [ excludetypes := STRING[]
+      , includetypes := STRING[]
+      , knownblobs :=   STRING[]
+      , mapwhfslinks := FALSE
+      ], options);
+
+  FOREVERY (STRING s FROM options.excludetypes)
+    options.excludetypes[#s] := ToUppercase(s);
+  FOREVERY (STRING s FROM options.includetypes)
+    options.includetypes[#s] := ToUppercase(s);
+
+  // Order currentcontents by type
+  currentcontents := SELECT *, type := ToUppercase(type) FROM currentcontents ORDER BY ToUppercase(type);
+
+  GetPrimary()->PushWork();
+
+  DATETIME now := GetCurrentDateTime();
+
+  RECORD ARRAY returntypes;
+
+  OBJECT wrdschema := OpenWRDSchema(schemaname);
+  IF (NOT ObjectExists(wrdschema))
+    THROW NEW Exception(`No such schema '${schemaname}'`);
+
+  FOREVERY (RECORD typerec FROM SELECT * FROM wrdschema->ListTypes() ORDER BY ToUppercase(tag)) //order types to make sync issues more predictable
+  {
+    BOOLEAN isexcluded;
+    FOREVERY(STRING exclude FROM options.excludetypes)
+      IF(ToUppercase(typerec.tag) LIKE exclude)
+        isexcluded := TRUE;
+
+    IF (isexcluded)
+      CONTINUE;
+
+    IF (LENGTH(options.includetypes) != 0 AND typerec.tag NOT IN options.includetypes)
+      CONTINUE;
+
+    RECORD ARRAY gotentities;
+    RECORD pos := RecordLowerBound(currentcontents, [ type := typerec.tag ], [ "TYPE" ]);
+    IF (pos.found)
+      gotentities := SELECT *, used := FALSE FROM currentcontents[pos.position].entities ORDER BY wrd_guid;
+
+    OBJECT type := wrdschema->GetType(typerec.tag);
+    RECORD ARRAY currententities :=
+        SELECT *
+          FROM type->RunQuery(
+                  [ outputcolumns :=  [ "wrd_id", "wrd_guid", "wrd_modificationdate" ]
+                  , filters :=        [ [ field := "WRD_TYPE", value := type->id ] ]
+                  , historymode :=    "__getfields"
+                  ]);
+
+    INTEGER ARRAY updated_ids;
+    FOREVERY (RECORD rec FROM currententities)
+    {
+      RECORD guidpos := RecordLowerBound(gotentities, rec, [ "WRD_GUID" ]);
+      IF (guidpos.found)
+      {
+        gotentities[guidpos.position].used := TRUE;
+        IF (gotentities[guidpos.position].wrd_modificationdate != rec.wrd_modificationdate)
+          INSERT rec.wrd_id INTO updated_ids AT END;
+      }
+      ELSE
+        INSERT rec.wrd_id INTO updated_ids AT END;
+    }
+
+    RECORD ARRAY attrs := type->ListAttributes(0);
+//    DumpValue((SELECT * FROM attrs), "boxed");
+
+    STRING ARRAY outputcolumns :=
+        SELECT AS STRING ARRAY localtag
+          FROM attrs
+         WHERE NOT isreadonly;
+    //DumpValue(outputcolumns);
+
+    IF (typerec.isdomain)
+      INSERT "WRD_ID" INTO outputcolumns AT END;
+
+    OBJECT whfsmapper := options.mapwhfslinks
+        ? NEW WHFSResourceNameMapper
+        : DEFAULT OBJECT;
+
+    RECORD ARRAY updates := type->RunQuery(CELL
+                  [ outputcolumns
+                  , filters := [ [ field := "WRD_ID", matchtype := "IN", value := updated_ids ] ]
+                  , historymode :=    "__getfields"
+                  , whfsmapper
+                  ]);
+
+    updates := SELECT * FROM updates ORDER BY wrd_guid;
+
+    IF (typerec.isdomain)
+      updates := SortInDomainTreeOrder(updates);
+
+    // FIXME: reorder domain values so parent values come first
+
+    RECORD ARRAY instrs := GenerateProcessingInstructions(type, 0, outputcolumns);
+    RECORD links := RetrieveLinks(DEFAULT RECORD, instrs, updates);
+    links := ResolveLinks(wrdschema, links, "guid");
+    updates := RewriteLinks(links, instrs, updates, FALSE, GetSortedSet(options.knownblobs), "");
+
+    INSERT CELL
+        [ type :=     typerec.tag
+        , updates
+        , deletes :=  SELECT AS STRING ARRAY wrd_guid FROM gotentities WHERE NOT used
+        ] INTO returntypes AT END;
+  }
+
+  GetPrimary()->PopWork();
+
+  RETURN CELL
+      [ schemadefinition :=   CreateWRDSchemaDefinitionFile(wrdschema)
+      , types :=              returntypes
+      , creationsource :=     wrdschema->creationsource
+      , creationdate :=       wrdschema->creationdate
+      ];
+}
+
+/** Runs a query on a WRD schema
+    @param schemaname WRD schema name
+    @param type Type to execute the query on
+    @param query WRD query specifications. 'outputcolumn' is not allowed, 'outputcolumns' must be a STRING ARRAY
+    @cell options.mapwhfslinks Map WHFS links
+    @cell options.enumeratelinks Add list with all links of the returned entities
+    @cell options.includeblobs If TRUE, return the data of the returned blobs (defaults to TRUE)
+    @return Query results
+    @cell return.data Query result
+    @cell return.links List of links (only present when options.enumeratelinks is TRUE)
+    @cell return.links.type Linked type
+    @cell return.links.links List of linked entities of this type
+    @cell return.links.links.id Entity id
+    @cell return.links.links.wrd_guid Entity guid
+*/
+PUBLIC RECORD FUNCTION RPC_RunWRDQuery(STRING schemaname, STRING type, RECORD query, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ mapwhfslinks :=   FALSE
+      , enumeratelinks := FALSE
+      , includeblobs :=   TRUE
+      ], options);
+
+  OBJECT wrdschema := OpenWRDSchema(schemaname);
+  IF (NOT ObjectExists(wrdschema))
+    THROW NEW Exception(`No such schema '${schemaname}'`);
+
+  OBJECT typeobj := wrdschema->GetType(type);
+  IF (NOT ObjectExists(typeobj))
+    THROW NEW Exception(`No such type '${type}' in schema '${schemaname}'`);
+
+  IF (CellExists(query, "outputcolumns") AND TypeID(query.outputcolumns) != TypeID(STRING ARRAY))
+    THROW NEW Exception(`Can only specifiy STRING ARRAY for the outputcolumns`);
+  IF (CellExists(query, "outputcolumn"))
+    THROW NEW Exception(`Using 'outputcolumn' is not supported`);
+
+  OBJECT whfsmapper := options.mapwhfslinks
+      ? NEW WHFSResourceNameMapper
+      : DEFAULT OBJECT;
+
+  query := CELL[ outputcolumns := STRING[], ...query, whfsmapper ];
+  RECORD ARRAY data := typeobj->RunQuery(query);
+
+  RECORD ARRAY instrs := GenerateProcessingInstructions(typeobj, 0, query.outputcolumns);
+  RECORD links := RetrieveLinks(DEFAULT RECORD, instrs, data);
+  links := ResolveLinks(wrdschema, links, "id-guid");
+  data := RewriteLinks(links, instrs, data, NOT options.includeblobs, STRING[], DEFAULT RECORD);
+
+  RECORD retval := CELL
+      [ data
+      ];
+
+  IF (options.enumeratelinks)
+  {
+    INSERT CELL links :=
+        SELECT type :=    name
+             , links :=   (SELECT AS RECORD ARRAY value.data FROM value)
+          FROM UnpackRecord(links) INTO retval;
+  }
+
+  RETURN retval;
+}

@@ -1,0 +1,65 @@
+<?wh
+/** @short WRD prefiller for forms
+    @topic wrdauth/prefiller
+*/
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+
+
+RECORD ARRAY wrdmapping :=
+  [ [ autocomplete := "given-name", wrdfield := "WRD_FIRSTNAME" ]
+  , [ autocomplete := "email", wrdfield := "WRD_CONTACT_EMAIL" ]
+  ];
+
+
+PUBLIC STATIC OBJECTTYPE WRDAuthPrefillHandler EXTEND FormHandlerBase
+<
+  UPDATE PUBLIC MACRO PrepareRendering()
+  {
+    OBJECT wrdauthplugin := this->form->GetWRDAuthPlugin();
+    IF (NOT (ObjectExists(wrdauthplugin) AND wrdauthplugin->IsLoggedIn()))
+      RETURN;
+
+    RECORD ARRAY getfields; //FIXME allow matching up other fields? We DO need to prevent leaking 'any' field in WRD, as it would allow any formbuilder to extract any field
+    FOREVERY(RECORD field FROM this->form->ListFields())
+    {
+      IF(Length(field.obj->autocomplete) = 0)
+        CONTINUE;
+
+      FOREVERY(RECORD wrdmap FROM wrdmapping)
+      {
+        IF(wrdmap.autocomplete IN field.obj->autocomplete)
+        {
+          IF(RecordExists(SELECT FROM getfields WHERE mapping.wrdfield = wrdmap.wrdfield))
+            CONTINUE; //already seen this field
+
+          //Is the specified field proper ?
+          IF(TYPEID(field.obj->value) != TYPEID(STRING))
+            CONTINUE; //not compatible or already set
+
+          //Is the found WRD field sane?
+          RECORD wrdfieldinfo := wrdauthplugin->wrdschema->accounttype->GetAttribute(wrdmap.wrdfield);
+          IF(NOT RecordExists(wrdfieldinfo))
+            CONTINUE; //FIXME check sanity types
+
+          INSERT [ mapping := wrdmap, field := field.obj ] INTO getfields AT END;
+        }
+      }
+    }
+
+    IF(Length(getfields)=0) //nothing to autocomplete
+      RETURN;
+
+    RECORD userinfo := wrdauthplugin->GetLoggedinEntityFields(SELECT AS STRING ARRAY DISTINCT mapping.wrdfield FROM getfields);
+    IF(NOT RecordExists(userinfo))
+      RETURN;
+
+    FOREVERY(RECORD fld FROM getfields)
+    {
+      IF(NOT IsDefaultValue(fld.field->value))
+        CONTINUE; //already set
+
+      fld.Field->value := GetCell(userinfo, fld.mapping.wrdfield);
+    }
+  }
+>;

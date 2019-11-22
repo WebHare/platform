@@ -1,0 +1,197 @@
+<?wh
+
+/* wh runtest publisher.forms.testformfile-editconditions
+   https://my.webhare.dev/?app=publisher:edit(/WebHare%20testsuite%20site/webtools/conditionalform)
+*/
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+OBJECT conditionalformfile, checkboxesfield, radiobuttonsfield, checkboxfield;
+
+MACRO TestBuildConditionalForm()
+{
+  testfw->BeginWork();
+
+  // (Re)create the form file
+  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+  conditionalformfile := webtoolsfolder->OpenByName("conditionalform");
+  IF (ObjectExists(conditionalformfile))
+    conditionalformfile->RecycleSelf();
+  conditionalformfile := webtoolsfolder->CreateFile([ name := "conditionalform", type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formwebtool")->id, publish := TRUE ]);
+
+  // Fill the form through the form definition api
+  OBJECT formdefs := CreateNewFormdefinitionsFile();
+  OBJECT formdef := formdefs->CreateFormDefinition("webtoolform");
+  OBJECT formpage := formdef->GetPage(0);
+
+  // Add a checkboxes field
+  checkboxesfield := formpage->AppendComponent("select");
+  checkboxesfield->SetAttribute("name", "checkboxes");
+  checkboxesfield->SetAttribute("title", "Checkboxes");
+  checkboxesfield->SetAttribute("type", "checkbox");
+  FOREVERY (INTEGER suffix FROM [1, 2, 3])
+  {
+    OBJECT checkboxopt := checkboxesfield->ownerdocument->CreateElementNS(checkboxesfield->namespaceuri, "option");
+    checkboxopt->SetAttribute("rowkey", "copt" || suffix);
+    checkboxopt->SetAttribute("title", "Checkbox Option " || suffix);
+    checkboxesfield->AppendChild(checkboxopt);
+  }
+
+  // Add a radiobuttons field
+  radiobuttonsfield := formpage->AppendComponent("select");
+  radiobuttonsfield->SetAttribute("name", "radiobuttons");
+  radiobuttonsfield->SetAttribute("title", "Radiobuttons");
+  radiobuttonsfield->SetAttribute("type", "radio");
+  FOREVERY (INTEGER suffix FROM [1, 2, 3])
+  {
+    OBJECT radioopt := radiobuttonsfield->ownerdocument->CreateElementNS(radiobuttonsfield->namespaceuri, "option");
+    radioopt->SetAttribute("rowkey", "ropt" || suffix);
+    radioopt->SetAttribute("title", "Radiobutton Option " || suffix);
+    radiobuttonsfield->AppendChild(radioopt);
+  }
+
+  // Add a single checkbox field
+  checkboxfield := formpage->AppendComponent("checkbox");
+  checkboxfield->SetAttribute("name", "checkbox");
+  checkboxfield->SetAttribute("title", "Checkbox");
+
+  // Add a text field, for which we'll edit the conditions
+  OBJECT firstnamefield := formpage->AppendComponent("textedit");
+  firstnamefield->SetAttribute("name", "firstname");
+  firstnamefield->SetAttribute("tid", "tollium:tilde.firstname");
+  firstnamefield->SetAttribute("autocomplete", "given-name");
+
+  // Save the file
+  formdefs->SaveToWHFS(conditionalformfile);
+  testfw->CommitWork();
+}
+
+ASYNC MACRO TestEditConditions()
+{
+  // Open the editor
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ conditionalformfile->whfspath ], target := DEFAULT RECORD ]));
+
+  // Select and edit the textedit question
+  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[4];
+  TestEq("First name", TT("doceditor->questions")->selection.title);
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
+
+  TestEq(DEFAULT RECORD, TT("requiredcondition")->value);
+
+  // Edit the required condition
+  AWAIT ExpectScreenChange(+1, PTR TTClick("requiredcondition!edit"));
+  // One single condition should be present, without add or delete buttons
+  TestEq(FALSE, ObjectExists(TT("fragment1!addconditionbutton", [ allowmissing := TRUE ])));
+  TestEq(FALSE, ObjectExists(TT("fragment1!deleteconditionbutton", [ allowmissing := TRUE ])));
+  TestEq(FALSE, ObjectExists(TT("fragment2!field", [ allowmissing := TRUE ])));
+  // Cannot close: By default the first field is selected, which is a checkboxes field, and by default no options are selected
+  TestEq(checkboxesfield->GetAttribute("guid"), TT("fragment1!field")->value);
+  AWAIT ExpectNoScreenChange(PTR TTClick(":OK"));
+  TT("fragment1!field")->value := radiobuttonsfield->GetAttribute("guid");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment1!selectvalues"));
+  TT("value")->value := [ EncodeHSON("ropt1") ]; // Field rowkeys are always HSON encoded
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  // Unfortunately we cannot compare the field value with the value of an FC* function directly, as these functions return
+  // the 'comparename' of referenced fields (for frontend use) where the field value uses raw guid's.
+  TestEq([ field := radiobuttonsfield->GetAttribute("guid"), matchtype := "IN", value := VARIANT[ "ropt1" ] ], TT("requiredcondition")->value);
+
+  // Edit the required condition again, it should still be there
+  AWAIT ExpectScreenChange(+1, PTR TTClick("requiredcondition!edit"));
+  TestEq(radiobuttonsfield->GetAttribute("guid"), TT("fragment1!field")->value);
+  TestEq("Radiobutton Option 1", TT("fragment1!value_in")->value);
+
+  // Change to an OR condition
+  TT("fragment1!field")->value := ":OR";
+  // The first condition is still not addable or deleteable
+  TestEq(FALSE, ObjectExists(TT("fragment1!addconditionbutton", [ allowmissing := TRUE ])));
+  TestEq(FALSE, ObjectExists(TT("fragment1!deleteconditionbutton", [ allowmissing := TRUE ])));
+  // There should be a second condition now
+  TestEq(TRUE, ObjectExists(TT("fragment2!field")));
+  TestEq(FALSE, ObjectExists(TT("fragment3!field", [ allowmissing := TRUE ])));
+  // Set the new condition value
+  TestEq(checkboxesfield->GetAttribute("guid"), TT("fragment2!field")->value);
+  TT("fragment2!field")->value := radiobuttonsfield->GetAttribute("guid");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment2!selectvalues"));
+  TT("value")->value := [ EncodeHSON("ropt1") ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  // The new condition can be deleted, in which case the OR condition is deleted and a new condition is initialized
+  TTClick("fragment2!deleteconditionbutton");
+  TestEq(checkboxesfield->GetAttribute("guid"), TT("fragment3!field")->value);
+  TestEq("", TT("fragment3!value_in")->value);
+
+  // Change it again to an OR condition
+  TT("fragment3!field")->value := ":OR";
+  // The first condition is still not addable or deleteable
+  TestEq(FALSE, ObjectExists(TT("fragment3!addconditionbutton", [ allowmissing := TRUE ])));
+  TestEq(FALSE, ObjectExists(TT("fragment3!deleteconditionbutton", [ allowmissing := TRUE ])));
+  // There should be a second condition now
+  TestEq(TRUE, ObjectExists(TT("fragment4!field")));
+  TestEq(FALSE, ObjectExists(TT("fragment5!field", [ allowmissing := TRUE ])));
+  // Set the new condition value
+  TestEq(checkboxesfield->GetAttribute("guid"), TT("fragment4!field")->value);
+  TT("fragment4!field")->value := radiobuttonsfield->GetAttribute("guid");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment4!selectvalues"));
+  TT("value")->value := [ EncodeHSON("ropt1") ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  // Add a second subcondition
+  TTClick("fragment4!addconditionbutton");
+  TT("fragment5!field")->value := checkboxfield->GetAttribute("guid");
+  TT("fragment5!value_hasvalue")->value := TRUE;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq(
+      [ matchtype := "OR"
+      , conditions :=
+          [ [ field := radiobuttonsfield->GetAttribute("guid"), matchtype := "IN", value := VARIANT[ "ropt1" ] ]
+          , [ field := checkboxfield->GetAttribute("guid"), matchtype := "HASVALUE", value := TRUE ]
+          ]
+      ], TT("requiredcondition")->value);
+
+  // Edit the required condition again
+  AWAIT ExpectScreenChange(+1, PTR TTClick("requiredcondition!edit"));
+  TestEq(":OR", TT("fragment1!field")->value);
+  TestEq(radiobuttonsfield->GetAttribute("guid"), TT("fragment2!field")->value);
+  TestEq("Radiobutton Option 1", TT("fragment2!value_in")->value);
+  TestEq(TRUE, ObjectExists(TT("fragment2!addconditionbutton")));
+  TestEq(TRUE, ObjectExists(TT("fragment2!deleteconditionbutton")));
+  TestEq(TRUE, ObjectExists(TT("fragment3!field")));
+  TestEq(TRUE, ObjectExists(TT("fragment3!deleteconditionbutton")));
+  TestEq(checkboxfield->GetAttribute("guid"), TT("fragment3!field")->value);
+  TestEq(TRUE, TT("fragment3!value_hasvalue")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq(
+      [ matchtype := "OR"
+      , conditions :=
+          [ [ field := radiobuttonsfield->GetAttribute("guid"), matchtype := "IN", value := VARIANT[ "ropt1" ] ]
+          , [ field := checkboxfield->GetAttribute("guid"), matchtype := "HASVALUE", value := TRUE ]
+          ]
+      ], TT("requiredcondition")->value);
+
+  // Save the textedit question
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  // Save and publish
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  // Close the editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+}
+
+RunTestframework([ PTR TestBuildConditionalForm
+                 , PTR TestEditConditions
+                 ]
+                ,[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                ]
+                 ]);

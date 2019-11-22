@@ -1,0 +1,70 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/internal/csvexport.whlib";
+LOADLIB "mod::wrd/lib/internal/exchange.whlib";
+
+// command: wrd:flatexport [--xml] <schema>
+// short: Export WRD schema to XML/CSV files
+
+INTEGER errors := 0;
+
+RECORD ARRAY options :=
+  [ [ name := "include",    type := "stringlist" ]
+  , [ name := "skip",       type := "stringlist" ]
+  , [ name := "xml",        type := "switch" ]
+  , [ name := "schemaname", type := "param" ]
+  ];
+RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+IF(NOT RecordExists(cmdargs) OR cmdargs.schemaname="")
+{
+  Print("Syntax: wh wrd:flatexport [ --xml ] [ --include mask ]* [ --skip mask ]* <schemaname>\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary();
+
+OBJECT wrdschema := OpenWRDSchemaByName(cmdargs.schemaname);
+
+IF(NOT ObjectExists(wrdschema))
+{
+  print("Schema '" || cmdargs.schemaname || "' not found\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+MACRO OnP(MONEY progress)
+{
+  PRINT(Right("    " || FormatMoney(progress, 1, ".", "", TRUE), 5) || " %\r");
+}
+
+IF (cmdargs.xml)
+{
+  OBJECT exporter := MakeWRDSchemaHumanReadableExporter(wrdschema);
+  exporter->progresscallback := PTR OnP;
+  exporter->to_skip := cmdargs.skip;
+  exporter->to_include := cmdargs.include;
+
+  STRING target_filename := "WRDExport_" || GetSafeFileName(cmdargs.schemaname) || "_xml.zip";
+  StoreDiskFile(target_filename, exporter->CreateExport(), [ overwrite := TRUE]);
+  PRINT("Saved as " || target_filename || "\n");
+}
+ELSE
+{
+  OBJECT exporter := NEW WRDSchemaCSVExporter;
+  exporter->to_skip := cmdargs.skip;
+  exporter->to_include := cmdargs.include;
+
+  STRING target_filename := "WRDExport_" || GetSafeFileName(cmdargs.schemaname) || ".tar.gz";
+  StoreDiskFile(target_filename, exporter->ExportSchema(wrdschema, "tar.gz"), [ overwrite := TRUE]);
+
+  PRINT("Created files:\n" || AnyToString(exporter->files, "boxed"));
+  PRINT("Saved as " || target_filename || "\n");
+}

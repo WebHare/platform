@@ -1,0 +1,358 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+/* Testurl examples:
+
+http://sites.moe.sf.b-lex.com/b-lex-selftest-tolliumbackend/testsuiteportal/?app=webhare_testsuite:runscreen(tests/fragments.testenableonlinks)&intolerant=1
+*/
+
+PUBLIC STRING ARRAY initorder;
+INTEGER inits_commonlist;
+
+PUBLIC OBJECTTYPE CommonList EXTEND TolliumFragmentBase
+<
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumFragmentBase::StaticInit(definition);
+
+    // We require the subcomponents to be initialized
+    TestEq("open", this->open->title, "Action component 'open' ("||this->open->name||") has to be initialized before parent fragment (" || this->name || ")");
+
+    inits_commonlist := inits_commonlist + 1;
+  }
+
+  MACRO DoOpen()
+  {
+  }
+>;
+
+STRING FUNCTION FixName(STRING inname)
+{
+  IF(inname LIKE "tollium_d$*")
+    inname := "tollium_d$nn";
+  RETURN inname;
+}
+
+PUBLIC OBJECTTYPE FragComp EXTEND TolliumFragmentBase
+<
+  MACRO NEW()
+  {
+
+  }
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    //Code probably shouldn't be relying on initialization ordering, but add some tests to stabilize stuff anyway
+
+    TolliumFragmentBase::StaticInit(definition);
+    INSERT "SI:" || FixName(this->name) INTO initorder AT END;
+    IF(NOT MemberExists(this, "text1"))
+      ABORT("Where is my local text1?");
+    IF(NOT ObjectExists(this->text1))
+      ABORT("Where is my initialized local text1?");
+
+    TestEq("INNER text 1", this->text1->value, "It looks like text1 didn't execute its StaticInit before me");
+
+    IF(ObjectExists(definition.textcomp1) AND definition.textcomp1->value!="Text 1")
+      ABORT("The supplied textcomp1 didn't initialize yet");
+    IF(ObjectExists(definition.textcomp2) AND definition.textcomp2->value="Text 2")
+      ABORT("The supplied textcomp2 improperly already initialized");
+  }
+  UPDATE MACRO PreInitComponent()
+  {
+    TolliumFragmentBase::PreInitComponent();
+    INSERT "PRE:" || FixName(this->name) INTO initorder AT END;
+  }
+  UPDATE MACRO PostInitComponent()
+  {
+    TolliumFragmentBase::PostInitComponent();
+    INSERT "POST:" || FixName(this->name) INTO initorder AT END;
+  }
+>;
+
+PUBLIC OBJECTTYPE PreinitTestComponent EXTEND TolliumComponentBase
+<
+  MACRO NEW()
+  {
+    this->invisibletitle := TRUE;
+  }
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(Def);
+    INSERT "SI:" || FixName(this->name) INTO initorder AT END;
+  }
+  UPDATE MACRO PreInitComponent()
+  {
+    TolliumComponentBase::PreInitComponent();
+    INSERT "PRE:" || FixName(this->name) INTO initorder AT END;
+  }
+  UPDATE MACRO PostInitComponent()
+  {
+    TolliumComponentBase::PostInitComponent();
+    INSERT "POST:" || FixName(this->name) INTO initorder AT END;
+  }
+>;
+
+PUBLIC OBJECTTYPE PreinitCompTestComponent EXTEND TolliumCompositionBase
+<
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumCompositionBase::StaticInit(Def);
+    INSERT "SI:" || FixName(this->name) INTO initorder AT END;
+  }
+  UPDATE MACRO PreInitComponent()
+  {
+    TolliumCompositionBase::PreInitComponent();
+    INSERT "PRE:" || FixName(this->name) INTO initorder AT END;
+  }
+  UPDATE MACRO PostInitComponent()
+  {
+    TolliumCompositionBase::PostInitComponent();
+    INSERT "POST:" || FixName(this->name) INTO initorder AT END;
+  }
+>;
+
+PUBLIC OBJECTTYPE PreinitTestSpecialComponent EXTEND TolliumSpecialComponent
+<
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumSpecialComponent::StaticInit(Def);
+    INSERT "SI:" || FixName(this->name) INTO initorder AT END;
+  }
+  UPDATE MACRO PreInitComponent()
+  {
+    TolliumSpecialComponent::PreInitComponent();
+    INSERT "PRE:" || FixName(this->name) INTO initorder AT END;
+  }
+  UPDATE MACRO PostInitComponent()
+  {
+    TolliumSpecialComponent::PostInitComponent();
+    INSERT "POST:" || FixName(this->name) INTO initorder AT END;
+  }
+>;
+
+PUBLIC OBJECTTYPE QuerySourceComponent EXTEND TolliumOptionSourceBase
+<
+  PUBLIC OBJECT subcomp;
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(Def);
+    INSERT "SI:" || FixName(this->name) INTO initorder AT END;
+
+    this->subcomp := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "preinitspecialtest");
+
+//    ABORT(this->subcomp->parent);
+  }
+  UPDATE MACRO PreInitComponent()
+  {
+    TolliumComponentBase::PreInitComponent();
+    INSERT "PRE:" || FixName(this->name) INTO initorder AT END;
+  }
+  UPDATE MACRO PostInitComponent()
+  {
+    TolliumComponentBase::PostInitComponent();
+    INSERT "POST:" || FixName(this->name) INTO initorder AT END;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE EmptyFragComp EXTEND PreinitTestComponent
+<
+>;
+
+PUBLIC OBJECTTYPE FragmentTest EXTEND TOlliumScreenBase
+<
+  INTEGER ctr;
+
+  MACRO NEW()
+  {
+    inits_commonlist := 0;
+  }
+
+  MACRO Init()
+  {
+    INSERT "INIT" INTO initorder AT END;
+
+    IF(this->firstcommonlist NOT IN this->firsttab->GetChildComponents())
+      ABORT("firsttab incorrectly doesn't have firstcommonlist as a child");
+    IF(this->firstcommonlist->thelist NOT IN this->firsttab->GetChildComponents())
+      ABORT("firsttab incorrectly doesn't have firstcommonlist->thelist as a child");
+
+    IF(this->secondcommonlist NOT IN this->secondtab->GetChildComponents())
+      ABORT("secondtab incorrectly doesn't have secondcommonlist as a child");
+    IF(this->secondcommonlist->commonlist NOT IN this->secondtab->GetChildComponents())
+      ABORT("secondtab incorrectly doesn't have secondcommonlist->commonlist as a child");
+    IF(this->secondcommonlist->commonlist->thelist NOT IN this->secondtab->GetChildComponents())
+      ABORT("secondtab incorrectly doesn't have secondcommonlist->commonlist->thelist as a child");
+
+    IF(this->firstcommonlist->parentscope != this)
+      ABORT("firstcommonlist doesn't have us as its parentscope");
+    IF(this->secondcommonlist->parentscope != this)
+      ABORT("secondcommonlist doesn't have us as its parentscope");
+    IF(this->secondcommonlist->commonlist->parentscope != this->secondcommonlist)
+      ABORT("secondcommonlist->commonlist doesn't have secondcommonlist as its parentscope");
+
+    IF(this->secondcommonlist->editbutton->action != this->edit)
+      ABORT("secondcommonlist->editbutton doesn't have this->edit as action");
+
+    this->secondcommonlist->parentaction->onexecute();
+    IF(this->ctr!=1)
+      ABORT("executing parent action failed");
+
+    this->test->value := [ textedit1 := "textedit1", textedit2 := "textedit2", checkbox1 := TRUE ];
+    IF (inits_commonlist != 3)
+      ABORT("Commonlist not initialized enough: " || inits_commonlist);
+
+    IF (NOT this->firstcommonlist->thelist->isnowvisible)
+      ABORT("Sublist not visible");
+    IF (NOT this->secondcommonlist->commonlist->thelist->isnowvisible)
+      ABORT("Second sublist not visible");
+
+    this->firstcommonlist->visible := FALSE;
+    this->secondcommonlist->visible := FALSE;
+
+    IF (this->firstcommonlist->thelist->isnowvisible)
+      ABORT("Sublist still visible");
+    IF (this->secondcommonlist->commonlist->thelist->isnowvisible)
+      ABORT("Second sublist still visible");
+
+    INSERT "INITEND" INTO initorder AT END;
+  }
+
+  MACRO OnShow()
+  {
+    INSERT "ONSHOW" INTO initorder AT END;
+  }
+
+  MACRO updatecounter()
+  {
+    this->ctr := this->ctr+1;
+  }
+
+  MACRO editinfirstlist()
+  {
+
+  }
+  MACRO editinsecondlist()
+  {
+
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    work->AddError ("test:\n" || AnyToString(this->test->value, 'tree'));
+    this->test->value := DEFAULT RECORD;
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE DynFragmentTest EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    INSERT "INIT" INTO initorder AT END;
+
+    OBJECT arrayedit1 := this->CreateTolliumComponent("arrayedit");
+    OBJECT arrayedit2 := this->CreateTolliumComponent("arrayedit");
+    this->body->InsertComponentAfter(arrayedit1, DEFAULT OBJECT, TRUE);
+    this->body->InsertComponentAfter(arrayedit2, DEFAULT OBJECT, TRUE);
+
+    OBJECT listedit := this->CreateTolliumComponent("arrayedit");
+    this->body->InsertComponentAfter(listedit, DEFAULT OBJECT, TRUE);
+
+    IF (NOT listedit->maingrid->isnowvisible)
+      ABORT("Subgrid not visible");
+    listedit->visible := FALSE;
+    IF (listedit->maingrid->isnowvisible)
+      ABORT("Subgrid still visible");
+
+    OBJECT fragcomp := this->CreateCustomComponent("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents","fragcomp");
+    this->body->InsertComponentAfter(fragcomp, DEFAULT OBJECT, TRUE);
+    //IF(Detokenize(initorder," => ") NOT LIKE "*fragcomp*=>*preinittest*")
+      //ABORT("expected fragcomp BEFORE preinittest, got '" || Detokenize(initorder," => ") || "'");
+
+    INSERT "INITEND" INTO initorder AT END;
+  }
+
+  MACRO OnShow()
+  {
+    INSERT "ONSHOW" INTO initorder AT END;
+  }
+>;
+
+PUBLIC OBJECTTYPE LoadFragment EXTEND TolliumFragmentBase
+<
+
+
+>;
+
+PUBLIC OBJECTTYPE LoadFragmentTest EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    INSERT "INIT" INTO initorder AT END;
+    /* Dynamically loading a fragment
+
+       This tests tests if a <select type="radio"><option><component></option></select> works correctly.
+
+       Previously failed because the reprocessor removed the component from its parent - and the
+       fragment marked that component as subcomponent. When inserting the fragment, those components were
+       also inserted, causing the following error when calling ExplainLines.
+
+       'Panel positioningpanel: Block (panel) and non-block items (textedit) on single line #1'
+
+       (fixed by not removing option components from parent, fragment not marking components as subcomponents
+       when they already have a parent.)
+    */
+    this->positioningpanel->LoadFragment("moduleroot::webhare_testsuite/screens/tests/fragments.xml", "loadfragment");
+
+    // Call explainlines, checking if the option components were also inserted into the root panel.
+    this->positioningpanel->TolliumWebDoLines();
+    INSERT "INITEND" INTO initorder AT END;
+  }
+  MACRO OnShow()
+  {
+    INSERT "ONSHOW" INTO initorder AT END;
+  }
+>;
+
+PUBLIC OBJECTTYPE FragComponentTest EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    INSERT "INIT" INTO initorder AT END;
+  }
+  MACRO OnShow()
+  {
+    INSERT "ONSHOW" INTO initorder AT END;
+  }
+>;
+
+PUBLIC OBJECTTYPE SubComponentTest EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC OBJECTTYPE TestVisibility EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->box->visible := TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE TestEnableOnLinks EXTEND TolliumScreenBase
+<
+>;
+PUBLIC OBJECTTYPE IntextLink EXTEND TolliumFragmentBase
+<
+>;
+
+PUBLIC MACRO ValidateInlineComp(OBJECT pageparser, OBJECT node, RECORD val)
+{
+  IF(NOT val.nowarning)
+    pageparser->AddWarning(node->linenum, "Warning!");
+}

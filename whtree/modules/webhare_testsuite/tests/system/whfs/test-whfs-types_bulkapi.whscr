@@ -1,0 +1,234 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/publisher/siteprofiles.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+OBJECT testsite;
+
+MACRO TestBulkApi()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  testsite := CreateSiteFromFolder(firstfolder->id);
+
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="testbulk.siteprl", data := StringToBlob(testsiteprofile)]);
+  OBJECT siteprof2 := testsite->rootobject->CreateFile([name:="testbulk2.siteprl", data := StringToBlob(testconversionssiteprofile)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof2->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT testdatafolder := testsite->rootobject->CreateFolder([ name:="testbulk", type := 0]);
+  OBJECT testfile2 := testdatafolder->CreateFile([ name:="testbulk.2", type := 0]);
+  OBJECT testfile1 := testdatafolder->CreateFile([ name:="testbulk.1", type := 0]);
+  OBJECT mytype := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest");
+  OBJECT arrayedtype := OpenWHFSType("http://www.webhare.net/xmlns/beta/conversionstest");
+
+  mytype->SetInstanceData(testfile2->id,
+      [ str := "String"
+      , int := 42
+      , blub := wrapblob(StringToBlob("Dit is een test"),"blub")
+      , price := 0m
+      , yesno := FALSE
+      , afloat := 0f
+      , adatetime := MakeDatetime(2010,5,4,3,2,1)
+      , aninstance :=
+          [ whfstype := "http://www.webhare.net/xmlns/beta/instance1"
+          , str1 := "str1"
+          ]
+      , url := ""
+      , rich :=
+          [ htmltext :=   StringToBlob("htmltext")
+          , embedded :=   [MakeMergedRecord(WrapBlob(StringToBlob("text"),"text.txt"), [ contentid := "cid:1" ])]
+          , instances := [ [ instanceid := "TAG1"
+                           , data :=
+                                [ whfstype := "http://www.webhare.net/xmlns/beta/instance1"
+                                , str1 := "str1"
+                                ]
+                           ]
+                         , [ instanceid := "TAG3"
+                           , data :=
+                                [ whfstype := "http://www.webhare.net/xmlns/beta/instance3"
+                                , str3 := "str3"
+                                ]
+                           ]
+                         ]
+          ]
+      , anarray :=
+          [ [ intmember := 1
+            , richmember :=
+                [ htmltext :=   StringToBlob("htmltext")
+                , embedded :=   [MakeMergedRecord(WrapBlob(StringToBlob("text"),"text.txt"), [ contentid := "cid:1" ])]
+                , instances := [ [ instanceid := "TAG1-1"
+                                 , data :=
+                                      [ whfstype := "http://www.webhare.net/xmlns/beta/instance1"
+                                      , str1 := "str1-1"
+                                      ]
+                                 ]
+                               , [ instanceid := "TAG1-3"
+                                 , data :=
+                                      [ whfstype := "http://www.webhare.net/xmlns/beta/instance3"
+                                      , str3 := "str1-3"
+                                      ]
+                                 ]
+                               ]
+                ]
+            , asubarray :=
+                  [ [ subintmember := 11
+                    , subrichmember :=
+                        [ htmltext :=   StringToBlob("htmltext")
+                        , embedded :=   [MakeMergedRecord(WrapBlob(StringToBlob("text"),"text.txt"), [ contentid := "cid:1" ])]
+                        , instances := [ [ instanceid := "TAG11-1"
+                                         , data :=
+                                              [ whfstype := "http://www.webhare.net/xmlns/beta/instance1"
+                                              , str1 := "str11-1"
+                                              ]
+                                         ]
+                                       , [ instanceid := "TAG11-3"
+                                         , data :=
+                                              [ whfstype := "http://www.webhare.net/xmlns/beta/instance3"
+                                              , str3 := "str11-3"
+                                              ]
+                                         ]
+                                       ]
+                        ]
+                    ]
+                  ]
+            ]
+          , [ intmember := 2
+            , richmember :=
+                [ htmltext :=   StringToBlob("htmltext")
+                , embedded :=   [MakeMergedRecord(WrapBlob(StringToBlob("text"),"text.txt"), [ contentid := "cid:1" ])]
+                , instances := [ [ instanceid := "TAG2-1"
+                                 , data :=
+                                      [ whfstype := "http://www.webhare.net/xmlns/beta/instance1"
+                                      , str1 := "str2-1"
+                                      ]
+                                 ]
+                               , [ instanceid := "TAG2-3"
+                                 , data :=
+                                      [ whfstype := "http://www.webhare.net/xmlns/beta/instance3"
+                                      , str3 := "str2-3"
+                                      ]
+                                 ]
+                               ]
+                ]
+            ]
+          ]
+      ]);
+
+  arrayedtype->SetInstanceData(testfile2->id, [ arr := [ [ data1 := "1&1", data2 := "1&2", data3 := "1&3", arraydata := [ [ data4 := "1&4" ] ] ]
+                                                       , [ data1 := "2&1", data2 := "2&2", data3 := "2&3", arraydata := [ [ data4 := "2&4" ] ] ]
+                                                       ]]);
+
+  mytype->SetInstanceData(testfile1->id,
+      [ str := ""
+      , int := 0
+      , blub := DEFAULT RECORD
+      , price := 42.42
+      , yesno := TRUE
+      , afloat := 3.5f
+      , url := "http://example.com/test2"
+      ]);
+
+  RECORD ARRAY results;
+  results := mytype->GetBulkData([INTEGER(testfile1->id), testfile2->id], ["STR","INT","ADATETIME","ANINSTANCE", "URL", "ANARRAY"]);
+
+  TestEq(2,Length(results));
+  TestEq(testfile1->id, results[0].id);
+  TestEq(testfile2->id, results[1].id);
+  TestEq("", results[0].str);
+  TestEq(42, results[1].int);
+  TestEq(DEFAULT DATETIME, results[0].adatetime);
+  TestEq(MakeDatetime(2010,5,4,3,2,1), results[1].adatetime);
+  TestEq(DEFAULT RECORD, results[0].aninstance);
+  TestEq("http://www.webhare.net/xmlns/beta/instance1", results[1].aninstance.whfstype);
+  TestEq("str1", results[1].aninstance.str1);
+  TestEq(TRUE, results[1].aninstance.whfssettingid != 0);
+  TestEq(0, results[1].aninstance.whfsfileid);
+
+  TestEq(results[1].aninstance, GetWHFSInstanceDirect(results[1].aninstance.whfssettingid));
+  TestEq("http://example.com/test2", results[0].url);
+  TestEq("", results[1].url);
+
+  // Request complete 'arr' record array members
+  results := arrayedtype->GetBulkData([INTEGER(testfile1->id), testfile2->id],["ARR"]);
+  TestEq(0,Length(results[0].arr));
+  TestEq(2,Length(results[1].arr));
+  TestEq("1&1",results[1].arr[0].data1);
+  TestEq("2&3",results[1].arr[1].data3);
+  TestEq(1,Length(results[1].arr[0].arraydata));
+  //ADDME: Failes; requesting "ARR" should retrieve all subfields recursively
+  TestEq("1&4",results[1].arr[0].arraydata[0].data4);
+
+  // Because complete 'arr' record array members are requested, the 'arr.data1' is implicitly returned as well
+  results := arrayedtype->GetBulkData([INTEGER(testfile1->id), testfile2->id],["ARR","ARR.DATA1"]);
+  TestEq(0,Length(results[0].arr));
+  TestEq(2,Length(results[1].arr));
+  TestEq("1&1",results[1].arr[0].data1);
+  TestEq("2&3",results[1].arr[1].data3);
+
+  // Only the 'arr.data1' member is requested, all other 'arr' members will have their default values
+  results := arrayedtype->GetBulkData([INTEGER(testfile1->id), testfile2->id],["ARR.DATA1"]);
+  TestEq(0,Length(results[0].arr));
+  TestEq(2,Length(results[1].arr));
+  TestEq("1&1",results[1].arr[0].data1);
+  TestEq(FALSE,CellExists(results[1].arr[1],"data3"));
+
+  // Test for throw on non-existing subfield
+  TestThrows(PTR arrayedtype->GetBulkData([INTEGER(testfile1->id), testfile2->id],["ARR.DATA4"]));
+
+  // Get RTD with instances
+  results := mytype->GetBulkData([INTEGER(testfile2->id)],["RICH"]);
+  TestEq(1,Length(results));
+  TestEq(2,Length(results[0].rich.instances));
+  TestEq('str1', results[0].rich.instances[0].data.str1);
+
+  results := mytype->GetBulkData(INTEGER[ testfile2->id ], [ "ANARRAY"]);
+  TestEq('str1-1', results[0].anarray[0].richmember.instances[0].data.str1);
+  TestEq('str2-3', results[0].anarray[1].richmember.instances[1].data.str3);
+  TestEq('str11-1', results[0].anarray[0].asubarray[0].subrichmember.instances[0].data.str1);
+  TestEq(1, results[0].anarray[0].intmember);
+  TestEq(11, results[0].anarray[0].asubarray[0].subintmember);
+
+  results := mytype->GetBulkData(INTEGER[ testfile2->id ], [ "ANARRAY.RICHMEMBER", "ANARRAY.ASUBARRAY.SUBRICHMEMBER"]);
+  TestEq('str1-1', results[0].anarray[0].richmember.instances[0].data.str1);
+  TestEq('str2-3', results[0].anarray[1].richmember.instances[1].data.str3);
+  TestEq('str11-1', results[0].anarray[0].asubarray[0].subrichmember.instances[0].data.str1);
+  TestEq(FALSE, CellExists(results[0].anarray[0], "intmember"));
+  TestEq(FALSE, CellExists(results[0].anarray[0].asubarray[0], "subintmember"));
+
+  testfw->RollbackWork();
+}
+
+MACRO TestGroups()
+{
+  STRING grouptestsiteprofile :=
+    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:comp1="urn::comp1">'
+      || '<embeddedobjecttype namespace="http://www.webhare.net/xmlns/beta/grouptest_ct"'
+                         || ' title="embed1"'
+                         || ' editextension="#comp2"'
+                         || ' renderlibrary="module::test/test.whlib"'
+                         || ' renderobjectname="objname">'
+        || '<member name="str" type="string" />'
+        || '<member name="str2" type="string" />'
+        || '<ingroup type="http://www.webhare.net/xmlns/beta/grouptest_grp" />'
+        || '<ingroup type="http://www.webhare.net/xmlns/beta/grouptest_grp2" />'
+      || '</embeddedobjecttype>\n'
+      || '<grouptype namespace="http://www.webhare.net/xmlns/beta/grouptest_grp" title="title" tolliumicon="test/test" />\n'
+    || '</siteprofile>';
+
+  testfw->BeginWork();
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="testgroups.siteprl", data := StringToBlob(grouptestsiteprofile)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+}
+
+RunTestframework([ PTR TestBulkApi
+                 , PTR TestGroups
+                 ]);

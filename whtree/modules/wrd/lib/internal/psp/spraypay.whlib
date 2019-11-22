@@ -1,0 +1,246 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+CONSTANT STRING ARRAY spraypay_requirements := [ "wrd_contact_email", "customerid"
+                                               ];
+
+/* api docs:
+https://spraypayintegratie.docs.apiary.io/
+*/
+
+OBJECT spraypaybrowser;
+
+OBJECT FUNCTION GetBrowser()
+{
+  IF(ObjectExists(spraypaybrowser))
+    RETURN spraypaybrowser;
+
+  spraypaybrowser := NEW WebBrowser;
+  IF(IsRPCTrafficLogged("wrd:payments.spraypay"))
+    LogRPCForWebbrowser("wrd:payments.spraypay", "", spraypaybrowser);
+
+  RETURN spraypaybrowser;
+}
+
+STRING FUNCTION GetApiBase(BOOLEAN testmode)
+{
+  RETURN testmode ? "https://preprod.spraypay-test.nl/api/" : "https://app.spraypay.nl/api/";
+}
+
+CONSTANT RECORD defaultpaymentdata :=
+    [ status := ""
+    , customer := RECORD[]
+    ];
+
+PUBLIC STRING FUNCTION GetSprayPaySignature(RECORD ARRAY fields, STRING ARRAY fieldsinscope, STRING hmackey)
+{
+  // https://spraypayintegratie.docs.apiary.io/#introduction/hmac-calculation
+
+  //sig calculation: Sort the key-value pairs by key
+  FOREVERY(STRING fieldinscope FROM fieldsinscope)
+    fieldsinscope[#fieldinscope] := ToUppercase(fieldinscope);
+
+
+  RECORD ARRAY keyfields := SELECT * FROM fields WHERE ToUppercase(name) IN fieldsinscope ORDER BY name ;
+
+  //Step 2: Replace null values with an empty string (""). In the value of each pair, escape each "\" (backslash) as "\\" and each ":" (colon) as "\:".
+  UPDATE keyfields SET value := Substitute(value,'\\','\\\\');
+  UPDATE keyfields SET value := Substitute(value,':','\\:');
+
+  //Step 3: Concatenate all key - value pairs, using a colon (“:”) to delimit the key names and values to obtain the signing string.
+  STRING signingstring := Detokenize((SELECT AS STRING ARRAY name || ":" || value FROM keyfields),":");
+
+  //Step 4: Calculate the HMAC with the signing string, in binary representation given the UTF-8 charset, using the cryptographic hash function SHA-256.
+  //this should match: base64_encode(hash_hmac('sha256', $signingString, $HMAC_KEY, true))
+  STRING hash := EncodeBase64(GetHashForString(signingstring, "HMAC:SHA-256", hmackey));
+  RETURN hash;
+}
+
+
+PUBLIC STATIC OBJECTTYPE SprayPayPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  RECORD msporderdata;
+
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:spraypay", "redirect", settings)
+  {
+    this->needspaymentref := TRUE;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetPSPStatus()
+  {
+    //As discussed with spraypay, getorderstatus for an invalid order is a good way to test credentials
+    this->__GetStatusForOrder("___checking_credentials___");
+    RECORD response := EnforceStructure([ code := 0, description :="" ], DecodeJSONBlob(GetBrowser()->content));
+    IF(response.code = 118) //this is the signature mismatch code
+      RETURN [ success := FALSE, unknown := FALSE, message := response.description ];
+
+    RETURN [ success := TRUE, unknown := FALSE, message := "" ];
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RETURN [[ paymentoptiontag := ""
+            , title := this->settings.methodtitle ?? "SprayPay"
+            , issuers := RECORD[]
+            , islive := NOT this->settings.testmode
+            , requirements := spraypay_requirements
+            ]];
+  }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
+
+    RECORD personfields := this->GetCustomerInfo(paymentmethod, [ requirements := spraypay_requirements ]);
+
+    RECORD ARRAY customer;
+    IF(ObjectExists(paymentmethod.wrdpersonentity))
+    {
+      customer := [ [ name := "initials",          value := personfields.wrd_initials ]
+                  , [ name := "firstName",         value := personfields.wrd_firstname ]
+                  , [ name := "lastNamePrefix",    value := personfields.wrd_infix ]
+                  , [ name := "lastName",          value := personfields.wrd_lastname ]
+                  , [ name := "gender",            value := personfields.wrd_gender = 1 ? "MALE" : personfields.wrd_gender = 2 ? "FEMALE" : "UNKNOWN" ]
+                  , [ name := "emailAddress",      value := personfields.wrd_contact_email ]
+                  , [ name := "webshopCustomerId", value := personfields.customerid ]
+                  , [ name := "phoneNumberMobile", value := personfields.wrd_contact_phone ]
+                  , [ name := "phoneNumberOther",  value := personfields.wrd_contact_phone2 ]
+                  ];
+
+      IF(RecordExists(personfields.billingaddress))
+      {
+        RECORD splitit := SplitHousenumber(personfields.billingaddress.nr_detail);
+        customer := customer
+                     CONCAT
+                        [ [ name := "houseNumber",  value  := splitit.nr ]
+                        , [ name := "extension",    value  := splitit.detail ]
+                        , [ name := "postalCode",   value  := personfields.billingaddress.zip ]
+                        , [ name := "city",         value  := personfields.billingaddress.city ]
+                        , [ name := "country",      value  := personfields.billingaddress.country ]
+                        ];
+      }
+      DELETE FROM customer WHERE value = "";
+    }
+    this->msporderdata := [ ...defaultpaymentdata
+                          , customer := customer
+                          ];
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    this->msporderdata := EnforceStructure(defaultpaymentdata, payment.__paymentdata.m);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN this->msporderdata;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RunPaymentRequest(STRING paymenttok)
+  {
+    RECORD result := [ submitinstruction := DEFAULT RECORD
+                     , errors := RECORD[]
+                     , processnow := FALSE
+                     ];
+
+    IF(Length(result.errors) > 0)
+      RETURN result; //preflight failure, pointless to continue
+
+    //TODO preflight first, perhaps we can already abort the requets
+
+    STRING returnurl := GetInternalReturnURL(paymenttok);
+    STRING apibase := GetApiBase(this->settings.testmode);
+
+    RECORD ARRAY orderfields := this->msporderdata.customer
+                                CONCAT
+                                [[ name := "webshopOrderAmount", value := FormatMoney(this->amountpayable,2,'.','',FALSE) ]
+                                ,[ name := "webshopOrderId",     value := this->paymentref ]
+                                ,[ name := "webshopId",          value := ToString(this->settings.webshopid) ]
+                                ,[ name := "returnUrl",          value := returnurl ]
+                                ];
+    STRING sig := GetSprayPaySignature(orderfields,
+                                       [ "webshopOrderAmount"
+                                       , "webshopOrderId"
+                                       , "webshopCustomerId"
+                                       , "webshopId"
+                                       , "returnUrl"
+                                       ], this->settings.apikey);
+
+    INSERT [ name := "merchantSig", value := sig ] INTO orderfields AT END;
+
+    RECORD translationmap := RepackRecord(SELECT name, value := name FROM orderfields);
+    BLOB data := EncodeJSONBlob(RepackRecord(orderfields), translationmap);
+
+
+    OBJECT browser := GetBrowser();
+    browser->autofollow := FALSE; //we get a 303 back....
+    IF(NOT browser->PostWebPageBlob(`${apibase}loanRequest?redirect=true`,
+                                    [[ field := "Content-Type", value := "application/json" ]], data))
+    {
+      THROW NEW Exception("Order post failed");
+    }
+
+    IF(browser->GetHTTPStatusCode() != 303)
+      THROW NEW Exception("Expected a 303 but didn't receive it...");
+
+     result.submitinstruction := [ type := "redirect"
+                                 , url := browser->GetResponseHeader("Location")
+                                 ];
+
+    RETURN result;
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    this->PollStatus();
+  }
+
+  BOOLEAN FUNCTION __GetStatusForOrder(STRING paymentref)
+  {
+    STRING apibase := GetApiBase(this->settings.testmode);
+
+    RECORD ARRAY pollfields := [[ name := "orderId",     value := this->paymentref ]
+                               ,[ name := "webshopId",   value := ToString(this->settings.webshopid) ]
+                               ];
+    STRING sig := GetSprayPaySignature(pollfields, ["orderId", "webshopId"], this->settings.apikey);
+    INSERT [ name := "merchantSig", value := sig ] INTO pollfields AT END;
+
+    RECORD translationmap := RepackRecord(SELECT name, value := name FROM pollfields);
+    BLOB data := EncodeJSONBlob(RepackRecord(pollfields), translationmap);
+
+    OBJECT browser := GetBrowser();
+    RETURN browser->PostWebPageBlob(`${apibase}order/status`,
+                                    [[ field := "Content-Type", value := "application/json" ]], data);
+  }
+  MACRO PollStatus()
+  {
+    IF(NOT this->__GetStatusForOrder(this->paymentref))
+      THROW NEW Exception("Status request failed");
+
+    RECORD result := DecodeJSONBlob(GetBrowser()->content);
+
+    IF(result.status = "APPROVED")
+      this->pvt_status := "approved";
+    ELSE IF(result.status = "CANCELLED")
+      this->pvt_status := "failed";
+    ELSE
+      this->pvt_status := "pending";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    this->PollStatus();
+    RETURN TRUE;
+  }
+
+>;

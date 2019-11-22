@@ -1,0 +1,14 @@
+<?wh
+
+PUBLIC OBJECTTYPE DragTypeDescriber
+<
+  PUBLIC RECORD FUNCTION GetBaseRecord()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC RECORD FUNCTION HandleDownload(RECORD dragdata)
+  {
+    RETURN DEFAULT RECORD;
+  }
+>;

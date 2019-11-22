@@ -1,0 +1,117 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+MACRO PrepIt()
+{
+  testfw->BeginWork();
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), GetTestsuiteTempFolder()->id, FALSE, TRUE);
+  FOREVERy(RECORD tokill FROM SELECT id FROM system.fs_objects WHERE parent=0 AND name like "filemanager?root?uploadtest*.dat")
+    OpenWHFSObject(tokill.id)->RecycleSelf();
+
+  testfw->CommitWork();
+}
+OBJECT ASYNC FUNCTION UploadRoot()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  TT("upload")->ExecuteUpload([[ filename := "filemanager_root_uploadtest.dat", data := DEFAULT BLOB]]);
+
+  OBJECT uploadtest := OpenWHFSRootObject()->OpenByPath("filemanager_root_uploadtest.dat");
+  TestEq(FALSE, ObjectExists(uploadtest));
+  uploadtest := OpenWHFSRootObject()->OpenByPath("filemanager-root-uploadtest.dat");
+  TestEq(TRUE, ObjectExists(uploadtest));
+
+  //flip our upload preference
+  AWAIT(ExpectScreenChange(+1, PTR TTClick("prefs")));
+  INSERT "nouploadrename" INTO TT("opts")->value AT END;
+  AWAIT(ExpectScreenChange(-1, PTR TTClick(":OK")));
+
+  TT("upload")->ExecuteUpload([[ filename := "filemanager_root_uploadtest2.dat", data := DEFAULT BLOB]]);
+  uploadtest := OpenWHFSRootObject()->OpenByPath("filemanager_root_uploadtest2.dat");
+  TestEq(TRUE, ObjectExists(uploadtest));
+
+  testfw->BeginWork();
+  uploadtest->DeleteSelf();
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION DropStuff()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ GetTestsuiteTempFolder()->whfspath ], target := DEFAULT RECORD ]));
+
+  //plain dragdrop
+  ExecuteListDragDrop(DEFAULT OBJECT, VARIANT[], TT("filelist->mylist"), [ files :=
+      [[ filename := "mydata1.txt", data := StringToBlob("Mydata1")  ]
+      ]]);
+
+  OBJECT mydata1 := GetTestsuiteTempFolder()->OpenByName("mydata1.txt");
+  TestEq("mydata1.txt", TT("filelist->mylist")->selection.name);
+  TestEq(TRUE, ObjectExists(mydata1));
+  Testeq("Mydata1", BlobToString(mydata1->data));
+
+  //badname drop
+  ExecuteListDragDrop(DEFAULT OBJECT, VARIANT[], TT("filelist->mylist"), [ files :=
+      [[ filename := "^^mydata1.txt", data := StringToBlob("^^Mydata1")  ]
+      ]]);
+  TestEq("mydata1-1.txt", TT("filelist->mylist")->selection.name);
+  ExecuteListDragDrop(DEFAULT OBJECT, VARIANT[], TT("filelist->mylist"), [ files :=
+      [[ filename := "^^mydata1.txt", data := StringToBlob("^^Mydata1")  ]
+      ]]);
+  TestEq("mydata1-2.txt", TT("filelist->mylist")->selection.name);
+
+
+  //Now drop a folder structure
+  ExecuteListDragDrop(DEFAULT OBJECT, VARIANT[], TT("filelist->mylist"),
+      [ files := [[ filename := "mydata2.txt", data := StringToBlob("Mydata2"), fullpath := "/uploadfolder/Mydata2.txt" ]
+                 ,[ filename := "deeper.txt", data := StringToBlob("Deeper"), fullpath := "/uploadfolder/deep1/deep2/deep3/deeper.txt" ]
+                 ,[ filename := "deeper2.txt", data := StringToBlob("Deeper2"), fullpath := "/uploadfolder/deep1/deep2/deep3/deeper2.txt" ]
+                 ]
+      ]);
+
+  TestEq("uploadfolder", TT("filelist->mylist")->selection.name);
+
+  OBJECT uploadfolder := GetTestsuiteTempFolder()->OpenByPath("uploadfolder");
+  TestEq(TRUE, ObjectExists(uploadfolder));
+  TestEq(TRUE, uploadfolder->isfolder);
+
+  OBJECT mydata2 := uploadfolder->OpenByName("Mydata2.txt");
+  TestEq(TRUE, ObjectExists(mydata2));
+  Testeq("Mydata2", BlobToString(mydata2->data));
+
+  ExecuteListDragDrop(DEFAULT OBJECT, VARIANT[], TT("filelist->mylist"),
+      [ files := [[ filename := "^^webhare_folder_metadata.xml", data := StringToBlob("webhare_folder_metadata.xml"), fullpath := "/uploadfolder/^^webhare_folder_metadata.xml" ]
+                 ,[ filename := ".DS_Store", data := StringToBlob(".DS_Store.xml"), fullpath := "/uploadfolder/.DS_Store" ]
+                 ]
+      ]);
+
+  TestEq(FALSE, ObjectExists(uploadfolder->OpenByName(".DS_Store")), 'dsstore should have been filtered' );
+  TestEq(TRUE, ObjectExists(uploadfolder->OpenByName("webhare-folder-metadata.xml")), 'webhare_folder_metadata.xml should have been renamed and accepted' );
+
+  //overwrite a file - shouldn't crash (and is currently ignored)
+  ExecuteListDragDrop(DEFAULT OBJECT, VARIANT[], TT("filelist->mylist"),
+      [ files := [[ filename := "deeper.txt", data := StringToBlob("Deeper"), fullpath := "/mydata1.txt/deeper.txt" ]
+                 ]
+      ]);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  RETURN TRUE;
+}
+
+
+RunTestframework([ PTR PrepIt
+                 , PTR UploadRoot
+                 , PTR DropStuff
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);
+
+//select singlerow layout. this broke jump-to-id

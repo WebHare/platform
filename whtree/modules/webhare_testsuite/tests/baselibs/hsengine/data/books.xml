@@ -1,0 +1,7 @@
+<?xml-stylesheet href="booklist.xsl" type="text/xml"?>
+<books xmlns="urn::book" xmlns:test="urn::test">
+  <!-- A list of books -->
+  <book xml:id="book_4" test:id2="bla" amp="&amp;"><!-- First book -->abc<author>John Smith</author>def<title>About a John</title>ghi</book>
+  <book xml:id="book_8"><!-- Second book -->def<author>&lt;Jim Doe&gt; &amp; &quot;Jane Doe&quot;</author>jkl<title>My first book</title>mno</book>
+  <test:book xml:id="book_12">pqr</test:book>
+</books>

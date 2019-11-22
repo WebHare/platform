@@ -1,0 +1,107 @@
+<?wh
+/** @topic widgets/widgets
+*/
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::system/lib/cache.whlib";
+
+/** @short Embedded video widget
+    @long Implements youtube/vimeo video widget (http://www.webhare.net/xmlns/publisher/embedvideo)
+*/
+PUBLIC OBJECTTYPE VideoWidgetBase EXTEND WidgetBase
+<
+  UPDATE PUBLIC STRING FUNCTION GetWidgetType()
+  {
+    OBJECT prov := GetVideoEmbedProvider(this->data.network);
+    IF(ObjectExists(prov))
+    {
+      STRING title := prov->GetTitle();
+      IF(title != "")
+        RETURN GetTid("publisher:siteprofile.widgets.embedvideooftype", title);
+    }
+    RETURN GetTid("publisher:siteprofile.widgets.embedvideo");
+  }
+  UPDATE PUBLIC MACRO Render()
+  {
+    IF(this->context->IsRTDPreview())
+    {
+      OBJECT prov := GetVideoEmbedProvider(this->data.network);
+      RECORD thumbnail := WrapCachedImage(this->data.thumbnail, [ method := "fit", setwidth := 120, setheight:=90 ]);
+      this->RenderImagesPreview(RecordExists(this->data.thumbnail) ? RECORD[ this->data.thumbnail ] : RECORD[] //FIXME fallback to generic provider image?
+                               ,this->data.title
+                               ,DecodeHTML(this->data.description)
+                               , [ icon := ObjectExists(prov) ? prov->GetIcon() : ""
+                                 ]);
+
+      RETURN;
+    }
+
+    RECORD ARRAY videosettings := this->context->targetapplytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "videowidget");
+    STRING aspectclass := ABS(4f/3f - this->data.playratio) < 0.1 ? "wh-video--aspect_4_3" : "wh-video--aspect_16_9";
+    IF(Length(videosettings) = 0) //V1 video widget
+    {
+      Print('<div class="wh-video ' || aspectclass || '" data-video="' || EncodeValue(EncodeJSON(GetVideoEmbedInfo(this->data))) || '"></div>');
+      RETURN;
+    }
+
+    //V2 video widget - TODO preparse these settings, we don't want to be XML parsing on dynamic video pages!
+    RECORD settings := [ requireconsent := ""
+                       , breakpoints := INTEGER[]
+                       ];
+
+    FOREVERY(RECORD setting FROM videosettings)
+    {
+      IF(setting.node->HasAttribute("requireconsent"))
+        settings.requireconsent := setting.node->GetAttribute("requireconsent");
+      IF(setting.node->HasAttribute("breakpoints"))
+        settings.breakpoints := SELECT AS INTEGER ARRAY ToInteger(val,0) FROM ToRecordArray(ParseXSList(setting.node->GetAttribute("breakpoints")),'val');
+    }
+
+    Print(`<div class="wh-video  ${aspectclass} ${settings.requireconsent != "" ? " wh-requireconsent" : ""}" data-wh-video="${EncodeValue(EncodeJSON(GetVideoEmbedInfo(this->data)))}" title="${EncodeValue(this->data.title)}" data-duration="${this->data.duration}}"`);
+    IF(settings.requireconsent!="")
+      Print(` data-wh-consent-required="${EncodeValue(settings.requireconsent)}"`);
+    Print(">");
+    IF(settings.requireconsent!="")
+      Print('<div class="wh-requireconsent__overlay"></div>');
+
+    Print('<div class="wh-video--activate wh-video__innerframe">');
+    Print('<div class="wh-video__innerframe__preview">');
+
+    RECORD thumbnail := WrapCachedImage(this->data.thumbnail, [ method := "none" ]);
+    INTEGER ARRAY breakpoints := SELECT AS INTEGER ARRAY val
+                                   FROM ToRecordArray(settings.breakpoints,'val')
+                                  WHERE val > 0 AND val < this->data.thumbnail.width
+                               ORDER BY val;
+
+    Print('<picture>');
+    FOREVERY(INTEGER breakpoint FROM breakpoints)
+    {
+      RECORD breakpointimg := WrapCachedImage(this->data.thumbnail, [ method := "scale", setwidth := breakpoint ]);
+      STRING media := `(max-width:${breakpoint}px)`;
+      IF(#breakpoint > 0)
+        media := `(min-width:${breakpoints[#breakpoint-1]+1}px) and ${media}`;
+
+      Print(`<source srcset="${EncodeValue(breakpointimg.link)}" media="${media}">`);
+    }
+    Print(`<img src="${EncodeValue(thumbnail.link)}" alt="" />`);
+    Print('</picture>');
+    Print('<div class="wh-video__playbutton"></div>');
+    Print('</div>'); //close wh-video__innerframe__preview
+    Print('</div>'); //close wh-video__innerframe
+
+    //ABORT(this->data);
+    //RECORD thumbnail := WrapCachedImage(this->data.thumbnail, [ method := "scale", setwidth := 120, setheight:=90 ]);
+
+    //<picture xstyle="position:absolute;top:0;bottom:0;left:0;right:0">
+    //  <source srcset="[previewsmall]" media="(min-width:730px)" />
+    //  <img src="[previewlarge]" style="/>
+    //</picture>
+
+    Print('</div>'); //close wh-video or wh-requireconsent
+  }
+>;
+

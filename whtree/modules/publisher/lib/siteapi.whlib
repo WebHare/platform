@@ -1,0 +1,519 @@
+﻿<?wh
+/** @topic sitedev/whfs */
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/base.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+RECORD FUNCTION TestForeignFolder(OBJECT siteroot, STRING path)
+{
+  STRING ARRAY pathtoks := Tokenize(path,"/");
+  OBJECT curloc := siteroot;
+
+  IF(NOT ObjectExists(curloc)) //easy, you need a folder named 'pathtoks[0]'...
+    RETURN [ parent := 0, name := pathtoks[0], id := 0, site := 0 ];
+
+  FOREVERY(STRING tok FROM pathtoks)
+  {
+    IF(tok="")
+      CONTINUE;
+
+    OBJECT subfolder := curloc->OpenByName(tok);
+    IF(NOT ObjectExists(subfolder))
+      RETURN [ parent := curloc->id, name := tok, id := 0, site := 0 ];
+
+    IF(subfolder->type = 1) //found a foreign folder, we're done
+      RETURN DEFAULT RECORD;
+
+    curloc := subfolder;
+    IF(NOT curloc->isfolder)
+      BREAK; //a file truly blocks us
+  }
+  RETURN [ parent := curloc->parent, name := curloc->name, id := curloc->id, site := 0 ];
+}
+
+/** @short Test a site output availability
+    @param forsiteid Site id for which we are testing (set to 0 if the site is not created yet)
+    @param newoutputweb New output webserver
+    @param newoutputfolder Outputfolder within the new webserver
+    @return Site output availability test result
+    @cell(boolean) return.success True if output is available
+    @cell(string)  return.outputfolder The output folder used in testing (we may fix/update it)
+    @cell(integer) return.siteonlocation If not 0, id of the site that's already publishing at this location
+    @cell(integer) return.sitecontaininglocation If not 0, id of the site that requires a foreign folder to hold this site. See neededfolders for more details
+    @cell(record array) return.neededfolders Foreign folders that need to be in place to create the requested output
+    @cell(integer) return.neededfolders.parent Parent folder in which the foreign folder should exist
+    @cell(integer) return.neededfolders.name Name of the needed foreign folder
+    @cell(integer) return.neededfolders.id Id of the object that is in the way. If 0, no object is in the way but the foreign folder must be created
+    @cell(integer) return.neededfolders.site Id of site that requires this folder. 0 if it's the site for which primaryoutput is called that needs the folder
+    */
+PUBLIC RECORD FUNCTION TestSiteOutputAvailability(INTEGER forsiteid, INTEGER newoutputweb, STRING newoutputfolder)
+{
+  RECORD retval := [ success := FALSE
+                   , outputfolder := ""
+                   , siteonlocation := 0
+                   , sitecontaininglocation := 0
+                   , neededfolders := DEFAULT RECORD ARRAY
+                   ];
+
+  IF(newoutputweb = 0)
+  {
+    newoutputfolder := "";
+  }
+  ELSE
+  {
+    newoutputfolder := CollapsePath(newoutputfolder);
+    IF(newoutputfolder NOT LIKE "/*")
+      newoutputfolder := "/" || newoutputfolder;
+    IF(newoutputfolder NOT LIKE "*/")
+      newoutputfolder := newoutputfolder || "/";
+  }
+  retval.outputfolder := newoutputfolder;
+
+  IF(newoutputweb != 0)
+  {
+    //Find the site that contains this folder
+    RECORD existingsite := SELECT id, root, name, outputfolder
+                             FROM system.sites
+                            WHERE sites.outputweb = newoutputweb
+                                  AND sites.id != forsiteid
+                                  AND ToUppercase(newoutputfolder) LIKE ToUppercase(sites.outputfolder||"*")
+                         ORDER BY Length(sites.outputfolder) DESC;
+
+    IF(RecordExists(existingsite))
+    {
+      STRING subpath := Substring(newoutputfolder, Length(existingsite.outputfolder));
+      IF(subpath="") //they are identical
+      {
+        retval.siteonlocation := existingsite.id;
+        RETURN retval;
+      }
+
+      //The site better have a foreign folder in the right spot
+      RECORD testf := TestForeignFolder(OpenWHFSObject(existingsite.root), subpath);
+      IF(RecordExists(testf))
+      {
+        retval.sitecontaininglocation := existingsite.id;
+        INSERT testf INTO retval.neededfolders AT END;
+      }
+    }
+
+    //Now find any sites that would be contained by us
+    RECORD ARRAY containedsites :=
+                           SELECT id, root, name, outputfolder
+                             FROM system.sites
+                            WHERE sites.outputweb = newoutputweb
+                                  AND sites.id != forsiteid
+                                  AND ToUppercase(sites.outputfolder) LIKE ToUppercase(newoutputfolder||"*")
+                         ORDER BY ToUppercase(sites.outputfolder);
+    IF(Length(containedsites)>0)
+    {
+      OBJECT newsiteroot := forsiteid != 0 ? OpenWHFSObject(forsiteid) : DEFAULT OBJECT;
+      FOREVERY(RECORD contained FROM containedsites)
+      {
+        STRING subpath := Substring(contained.outputfolder, Length(newoutputfolder));
+        RECORD testf := TestForeignFolder(newsiteroot, subpath);
+        IF(RecordExists(testf))
+        {
+          testf.site := contained.id;
+          INSERT testf INTO retval.neededfolders AT END;
+        }
+      }
+    }
+
+    IF(Length(retval.neededfolders)>0)
+      RETURN retval; //failure
+  }
+  retval.success := TRUE;
+  RETURN retval;
+}
+
+/** WHFS site object
+    @public
+*/
+STATIC OBJECTTYPE SiteObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD siterec;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Name of the site
+  PUBLIC PROPERTY name(this->siterec.name, -);
+
+  /// Id of the site
+  PUBLIC PROPERTY id(this->siterec.id, -);
+
+  /// Id of the root folder of the site
+  PUBLIC PROPERTY root(this->siterec.id, -);
+
+  /// Root folder WHFS object
+  PUBLIC PROPERTY rootobject(GetRootObject, -);
+
+  /// Id of the webserver that hosts this site
+  PUBLIC PROPERTY outputweb(this->siterec.outputweb, -);
+
+  /// Subfolder within the webserver root
+  PUBLIC PROPERTY outputfolder(this->siterec.outputfolder, -);
+
+  /// URL of this site (non-CDN)
+  PUBLIC PROPERTY webroot(this->siterec.webroot, -);
+
+  /// If set, CDN address of this site
+  PUBLIC PROPERTY cdnbaseurl(this->siterec.cdnbaseurl, -);
+
+  /// If available, the CDN address of this site, otherwise the locally hosted URL.
+  PUBLIC PROPERTY cdnroot(GetCDNRoot, -);
+
+  /// Name of the site design for this site
+  PUBLIC PROPERTY sitedesign(GetSiteDesign, -);
+
+  /// List of webfeatures of this site
+  PUBLIC PROPERTY webfeatures(GetWebFeatures, -);
+
+  /// Whether this site is versioned
+  PUBLIC PROPERTY isversioned(GetIsVersioned, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD site)
+  {
+    this->siterec := site;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Setters & getters
+  //
+
+  BOOLEAN FUNCTION GetIsVersioned()
+  {
+    RETURN this->siterec.versioningpolicy != "";
+  }
+  STRING FUNCTION GetCDNRoot()
+  {
+    RETURN this->siterec.cdnbaseurl ?? this->webroot;
+  }
+
+  OBJECT FUNCTION GetRootObject()
+  {
+    RETURN OpenWHFSObject(this->siterec.id);
+  }
+
+  STRING FUNCTION GetSiteDesign()
+  {
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    RETURN sitesettingstype->GetInstanceData(this->id).sitedesign;
+  }
+
+  STRING ARRAY FUNCTION GetWebFeatures()
+  {
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    RETURN sitesettingstype->GetInstanceData(this->id).webfeatures;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Reload all properties from the database
+  */
+  PUBLIC MACRO Refresh()
+  {
+    RECORD siterec := SELECT * FROM system.sites WHERE id = this->id;
+    IF(NOT RecordExists(siterec))
+      THROW NEW Exception("The site no longer exists");
+
+    this->siterec := siterec;
+  }
+
+  /** Maps a locally hosted URL to the equivalent URL on the CDN
+      @param inlink Link within this site
+      @return Equivalent URL on the CDN
+  */
+  PUBLIC STRING FUNCTION MapToCDN(STRING inlink)
+  {
+    IF(this->siterec.cdnbaseurl = "")
+      RETURN inlink;
+    IF(inlink LIKE this->siterec.webroot || "*")
+      RETURN this->siterec.cdnbaseurl || Substring(inlink, Length(this->siterec.webroot));
+
+    IF(inlink LIKE "//*")
+    {
+      STRING webroot := Substring(this->siterec.webroot,SearchSubstring(this->siterec.webroot,':')+1);
+      STRING cdnroot := Substring(this->siterec.cdnbaseurl,SearchSubstring(this->siterec.cdnbaseurl,':')+1);
+      IF(inlink LIKE webroot || "*")
+        RETURN cdnroot || Substring(inlink, Length(webroot));
+    }
+    RETURN inlink;
+  }
+
+  /** Open a file or folder relative, with a path relative to the site root
+      @param path Relative path
+      @param options @includecelldef %WHFSFolder::OpenByPath.options
+      @return @includecelldef %OpenWHFSObject.return
+  */
+  PUBLIC OBJECT FUNCTION OpenByPath(STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(path LIKE "/?*") //strip initial slash, because root openbypath requires relative functions
+      path := Substring(path,1);
+
+    RETURN OpenWHFSObject(this->siterec.root)->OpenByPath(path, options);
+  }
+
+  /** Assigns an additional site profile to this site
+      @param siteprofileid WHFS id of the site profile
+      @return Whether the site profile was added successfully
+  */
+  PUBLIC BOOLEAN FUNCTION AssignSiteProfile(INTEGER siteprofileid)
+  {
+    IF(NOT RecordExists(SELECT FROM system.fs_objects WHERE id=siteprofileid AND isactive=TRUE AND type=27))
+      RETURN FALSE;
+
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    INTEGER ARRAY cursiteprofiles := sitesettingstype->GetInstanceData(this->id).siteprofiles;
+    IF(siteprofileid NOT IN cursiteprofiles)
+    {
+      INSERT siteprofileid INTO cursiteprofiles AT END;
+      this->UpdateSiteMetadata([siteprofiles := cursiteprofiles]);
+    }
+    RETURN TRUE;
+  }
+
+  /** @short Remove a siteprofile from this site
+      @param siteprofileid ID of site profile to remove
+      @return True if the site profile was succesfully removed. False if it wasn't assigned or cannot be removed (eg assigned to a parent folder) */
+  PUBLIC BOOLEAN FUNCTION UnassignSiteProfile(INTEGER siteprofileid)
+  {
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    INTEGER ARRAY cursiteprofiles := sitesettingstype->GetInstanceData(this->id).siteprofiles;
+    IF(siteprofileid IN cursiteprofiles)
+    {
+      DELETE FROM cursiteprofiles AT SearchElement(cursiteprofiles, siteprofileid);
+      this->UpdateSiteMetadata([siteprofiles := cursiteprofiles]);
+    }
+    RETURN TRUE;
+  }
+
+  /** Returns whether the specified siteprofile is currently assigned to this site
+      @param siteprofileid WHFS id of the site profile
+      @return TRUE if the siteprofile assigned to this site
+  */
+  PUBLIC BOOLEAN FUNCTION IsUsingSiteProfile(INTEGER siteprofileid)
+  {
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    RECORD cursettings := sitesettingstype->GetInstanceData(this->root);
+    RETURN siteprofileid IN cursettings.siteprofiles;
+  }
+
+  /** Updates the current webserver and relative url within that webserver where this site is hosted locally.
+      @param newoutputweb Id of the webserver that will host this site, 0 for no hosting
+      @param newoutputfolder Output folder, relative to site root where this site is hosted.
+      @return @includecelldef #UpdateSiteMetadata.return
+  */
+  PUBLIC RECORD FUNCTION SetPrimaryOutput(INTEGER newoutputweb, STRING newoutputfolder)
+  {
+    RETURN this->UpdateSiteMetadata([outputweb:=newoutputweb, outputfolder := newoutputfolder]);
+  }
+
+  /** Update the metadata for this site
+      @param metadata Updates
+      @cell(boolean) metadata.isversioned Whether the site is versioned
+      @cell(string) metadata.sitedesign Site design used by this site
+      @cell(string array) metadata.webfeatures List of webfeatures
+      @cell(string) metadata.webdesign Site design used by this site (deprecated)
+      @cell(string) metadata.cdnbaseurl CDN base url
+      @cell(boolean) metadata.locked Whether the site is locked
+      @cell(string) metadata.lockreason Reason for locking the site
+      @cell(integer) metadata.outputweb Output webserver, 0 for no hosting
+      @cell(string) metadata.outputfolder Folder within output webserver where this site is hosted
+      @cell(integer array) metadata.siteprofiles List of associated siteprofiles
+      @return Update result @includecelldef #TestSiteOutputAvailability.return
+      @cell return.success Whether the operation was successful. Can be false when modifying the outputweb or outputfolder
+  */
+  PUBLIC RECORD FUNCTION UpdateSiteMetadata(RECORD metadata)
+  {
+    RECORD retval := [ success := TRUE
+                     , outputfolder := ""
+                     , siteonlocation := 0
+                     , sitecontaininglocation := 0
+                     , neededfolders := DEFAULT RECORD ARRAY
+                     ];
+
+    BOOLEAN republishsite;
+    RECORD siterecupdate := ValidateOptions( [ versioningpolicy := ""
+                                             , sitedesign := ""
+                                             , webdesign := ""
+                                             , webfeatures := DEFAULT STRING ARRAY
+                                             , cdnbaseurl := ""
+                                             , locked := FALSE
+                                             , lockreason := ""
+                                             , outputweb := 0
+                                             , outputfolder := ""
+                                             , siteprofiles := DEFAULT INTEGER ARRAY
+                                             ], metadata, [ optional := ["*"], title := "site metadata" ]);
+
+    RECORD currentrec := SELECT * FROM system.sites WHERE id = this->id;
+    IF(NOT RecordExists(currentrec))
+      THROW NEW Exception("No site #" || this->id || " in the database");
+
+    IF(CellExists(siterecupdate,'VERSIONINGPOLICY') AND siterecupdate.versioningpolicy != "")
+      OpenVersioningPolicy(siterecupdate.versioningpolicy); //validate it
+
+    IF(CellExists(siterecupdate,'LOCKED') AND siterecupdate.locked != currentrec.locked)
+      republishsite := TRUE;
+
+    IF(CellExists(siterecupdate,'OUTPUTWEB') OR CellExists(siterecupdate, 'OUTPUTFOLDER'))
+    {
+      INTEGER newoutputweb :=   CellExists(siterecupdate, 'OUTPUTWEB')    ? siterecupdate.outputweb : currentrec.outputweb;
+      STRING newoutputfolder := CellExists(siterecupdate, 'OUTPUTFOLDER') ? siterecupdate.outputfolder : currentrec.outputfolder;
+
+      IF(newoutputweb != currentrec.outputweb OR newoutputfolder != currentrec.outputfolder)
+      {
+        RECORD test := TestSiteOutputAvailability(this->id, newoutputweb, newoutputfolder);
+        IF(NOT test.success)
+          retval := MakeUpdatedRecord(retval, test);
+
+        IF(this->id = whconstant_whfsid_webharebackend AND newoutputweb != 0)
+        {
+          INTEGER outtype := SELECT AS INTEGER type FROM system.webservers WHERE id = newoutputweb;
+          IF(outtype != 1)
+            THROW NEW Exception("Webserver #" || newoutputweb || " is not an interface webserver, and not acceptable for the WebHare backend site");
+          IF(newoutputfolder != "/")
+            THROW NEW Exception("Output folder '" || newoutputfolder || "' is not acceptable for the WebHare backend site, the output folder MUST be '/'");
+        }
+
+        DELETE CELL outputfolder FROM siterecupdate;
+        INSERT CELL outputfolder := test.outputfolder INTO siterecupdate;
+
+        IF(newoutputweb != 0)
+          republishsite := TRUE;
+      }
+    }
+
+    IF(NOT retval.success)
+      RETURN retval;
+
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    IF(NOT ObjectExists(sitesettingstype))
+      THROW NEW Exception("Type 'http://www.webhare.net/xmlns/publisher/sitesettings' not registered!");
+
+    RECORD currentsettings := sitesettingstype->GetInstanceData(this->id);
+    RECORD updsettings;
+
+    IF(CellExists(metadata,"SITEDESIGN") OR CellExists(metadata,"WEBDESIGN"))
+    {
+      STRING setwebdesign := CellExists(metadata,"WEBDESIGN") ? metadata.webdesign : metadata.sitedesign;
+      IF (currentsettings.sitedesign != setwebdesign)
+        INSERT CELL sitedesign := setwebdesign INTO updsettings;
+    }
+    IF(CellExists(metadata,"WEBFEATURES"))
+    {
+      STRING ARRAY setwebfeatures := SELECT AS STRING ARRAY DISTINCT feature FROM ToRecordArray(metadata.webfeatures, "feature");
+      IF (Detokenize(currentsettings.webfeatures,'\t') != Detokenize(setwebfeatures,'\t'))
+        INSERT CELL webfeatures := setwebfeatures INTO updsettings;
+    }
+    IF(CellExists(metadata,"SITEPROFILES") AND NOT ArrayIsSetEqual(metadata.siteprofiles, currentsettings.siteprofiles))
+    {
+      INSERT CELL siteprofiles := metadata.siteprofiles INTO updsettings;
+    }
+    DELETE CELL sitedesign, webdesign, webfeatures, siteprofiles FROM siterecupdate;
+
+    UPDATE system.sites SET RECORD siterecupdate WHERE id = this->id;
+    this->Refresh();
+
+    IF(RecordExists(updsettings))
+      sitesettingstype->SetInstanceData(this->id, updsettings);
+
+    IF(republishsite)
+    {
+      ScheduleFolderRepublish(this->id, /*recursive=*/TRUE, /*non_template_too=*/TRUE);
+      GetWHFSCommitHandler()->SiteUpdated(this->id);
+    }
+
+    GetPrimary()->BroadcastOnCommit("system:whfs.sitemeta." || this->siterec.id, DEFAULT RECORD);
+    RETURN retval;
+  }
+>;
+
+/* Sites and site manipulation functions */
+
+/** Opens the site object for a site given its name
+    @param sitename Name of the site
+    @return(object %SiteObject) Site object, DEFAULT OBJECT if the site was not found
+*/
+PUBLIC OBJECT FUNCTION OpenSiteByName(STRING sitename)
+{
+  RECORD siterec := SELECT * FROM system.sites WHERE ToUppercase(name)=ToUppercase(sitename);
+  IF(NOT RecordExists(siterec))
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW SiteObject(siterec);
+}
+
+/** Opens the site object for a site from the id of the site
+    @param siteid WHFS id of the site
+    @return(object %SiteObject) Site object, DEFAULT OBJECT if the site was not found
+*/
+PUBLIC OBJECT FUNCTION OpenSite(INTEGER siteid)
+{
+  RECORD siterec := SELECT * FROM system.sites WHERE id=siteid;
+  IF(NOT RecordExists(siterec))
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW SiteObject(siterec);
+}
+
+MACRO ScanAllCompilablesOnCommit(BOOLEAN iscommit)
+{
+  IF(iscommit)
+    ScanAllCompilables(FALSE);
+}
+
+/** Converts a WHFS folder into a site
+    @param rootfolderid WHFS id of the folder to convert
+    @return(object %SiteObject) Site object
+*/
+PUBLIC OBJECT FUNCTION CreateSiteFromFolder(INTEGER rootfolderid)
+{
+  RECORD siteinfo := SELECT name, description, parent FROM system.fs_objects WHERE id = VAR rootfolderid;
+  INSERT INTO system.sites (id, name, description)
+         VALUES(rootfolderid, siteinfo.name, siteinfo.description);
+
+  RunModuleHookTarget("publisher:sites_aftercreation"
+                    , [ id := rootfolderid
+                      , name := siteinfo.name
+                      , root := rootfolderid
+                      , siteowner := 0
+                      ]);
+  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+  GetWHFSCommitHandler()->TriggerScanCompilables();
+  GetWHFSCommitHandler()->ObjectUpdate(rootfolderid, siteinfo.parent, rootfolderid);
+  RETURN OpenSite(rootfolderid);
+}
+
+/** Converts a site into a normal folder
+    @param rootfolderid WHFS id of the site
+*/
+PUBLIC MACRO RemoveSiteFromFolder(INTEGER rootfolderid)
+{
+  DELETE FROM system.sites WHERE id = rootfolderid;
+  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+  GetWHFSCommitHandler()->TriggerScanCompilables();
+}

@@ -1,0 +1,121 @@
+.wh-imageeditor-fullscreen
+{
+  position: fixed;
+  z-index: 1000;
+  top:0;
+  left:0;
+  bottom:0;
+  right:0;
+  background:#dddddd;
+}
+
+.wh-image-surface
+{
+  position:relative;
+  overflow:hidden;
+  /*checkerboard*/
+  background: #ccc url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAIAAAAC64paAAAAIUlEQVQ4y2P4jxecwQsYRjWPaiaoGb80fqNHNY9qJqgZAP2BNAVlXUe2AAAAAElFTkSuQmCC) 0 0 repeat;
+}
+
+  .wh-cropbox
+, .wh-filterbox
+, .wh-refbox
+{
+  position:absolute;
+  margin:0 auto;
+}
+  .wh-cropbox .wh-cropbox-mask
+, .wh-cropbox .wh-cropbox-img
+, .wh-filterbox .wh-filterbox-img
+{
+  position:absolute;
+  top:0;
+  right:0;
+  left:0;
+  bottom:0;
+  width:inherit;
+  height:inherit;
+  overflow: hidden;
+}
+
+.wh-cropbox .wh-cropbox-mask
+{
+  background-color: #000;
+  opacity:0.6;
+  position: absolute;
+}
+.wh-cropbox .wh-cropbox-dragger
+{
+  position:absolute;
+  border:1px solid #fff;
+  background-color: green;
+  width:16px;
+  height:16px;
+  border-radius:8px;
+  margin:-9px;
+  cursor:pointer;
+}
+.wh-cropbox .wh-cropbox-viewport
+{
+  position:absolute;
+  border:1px solid #000;
+  cursor:pointer;
+  width:inherit;
+  height:inherit;
+}
+.wh-cropbox .wh-cropbox-viewport > div
+{
+  position:absolute;
+  background-color: #000;
+}
+  .wh-cropbox .wh-cropbox-viewport .vline1
+, .wh-cropbox .wh-cropbox-viewport .vline2
+{
+  height:inherit;
+  width:1px;
+  top:0;
+  bottom:0;
+}
+.wh-cropbox .wh-cropbox-viewport .vline1
+{
+  left:33%;
+}
+.wh-cropbox .wh-cropbox-viewport .vline2
+{
+  right:33%;
+}
+
+  .wh-cropbox .wh-cropbox-viewport .hline1
+, .wh-cropbox .wh-cropbox-viewport .hline2
+{
+  height:1px;
+  width:inherit;
+  left:0;
+  right:0;
+}
+.wh-cropbox .wh-cropbox-viewport .hline1
+{
+  top:33%;
+}
+.wh-cropbox .wh-cropbox-viewport .hline2
+{
+  bottom:33%;
+}
+
+.wh-refbox > canvas
+{
+  cursor: crosshair;
+}
+
+.wh-refbox-pointer
+{
+  background: transparent;
+  border: 5px solid green;
+  border-radius: 100%;
+  cursor: move;
+  height: 16px;
+  margin-left: -8px;
+  margin-top: -8px;
+  position: absolute;
+  width: 16px;
+}

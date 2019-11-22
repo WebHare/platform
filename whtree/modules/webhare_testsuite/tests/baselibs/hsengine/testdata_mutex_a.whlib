@@ -1,0 +1,84 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+OBJECT link := GetIPCLinkToParent();
+
+// No link? This is a loadlib for compile-reasons.
+IF (NOT ObjectExists(link))
+  RETURN;
+
+OBJECT lockmgr := OpenLocalLockManager();
+
+RECORD ARRAY mutexes;
+
+WHILE (TRUE)
+{
+  RECORD rec := link->ReceiveMessage(MAX_DATETIME);
+//  PRINT("Got message\n" || AnyTostring(rec, "tree"));
+
+  IF (CellExists(rec.msg, "RUNAT"))
+    WaitForMultipleUntil(DEFAULT INTEGER ARRAY, DEFAULT INTEGER ARRAY, rec.msg.runat);
+
+  RECORD response;
+
+  TRY
+  {
+    SWITCH (rec.msg.type)
+    {
+    CASE "lockmutex"
+      {
+        OBJECT mutex := lockmgr->LockLocalMutex(rec.msg.name);
+        INSERT [ name := rec.msg.name, obj := mutex ] INTO mutexes AT END;
+        response := [ type := "lockmutex" ];
+      }
+    CASE "trylockmutex"
+      {
+        OBJECT mutex := lockmgr->TryLockMutex(rec.msg.name, rec.msg.waituntil);
+        IF (ObjectExists(mutex))
+          INSERT [ name := rec.msg.name, obj := mutex ] INTO mutexes AT END;
+        response := [ type := "trylockmutex", locked := ObjectExists(mutex) ];
+      }
+    CASE "locksemaphore"
+      {
+        OBJECT mutex := lockmgr->LockLocalSemaphore(rec.msg.name, rec.msg.maxconcurrent);
+        INSERT [ name := rec.msg.name, obj := mutex ] INTO mutexes AT END;
+        response := [ type := "locksemaphore" ];
+      }
+    CASE "trylocksemaphore"
+      {
+        OBJECT mutex := lockmgr->TryLockSemaphore(rec.msg.name, rec.msg.maxconcurrent, rec.msg.waituntil);
+        IF (ObjectExists(mutex))
+          INSERT [ name := rec.msg.name, obj := mutex ] INTO mutexes AT END;
+        response := [ type := "locksemaphore", locked := ObjectExists(mutex) ];
+      }
+    CASE "unlock"
+      {
+        OBJECT mutex := SELECT AS OBJECT obj FROM mutexes WHERE name = rec.msg.name;
+        DELETE FROM mutexes WHERE obj = mutex;
+        mutex->Close();
+        response := [ type := "unlock" ];
+      }
+    CASE "ping"
+      {
+        response := [ type := "pong" ];
+      }
+    CASE "haslocked"
+      {
+        response := [ locked := lockmgr->HasLockedMutex(rec.msg.name) ];
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Unknown type '" || rec.msg.type || "'");
+      }
+    }
+
+//    PRINT("Send reply for " || rec.msgid || "\n" || AnyToString(response, "tree"));
+
+    link->SendReply(response, rec.msgid);
+  }
+  CATCH (OBJECT e)
+  {
+    link->SendExceptionReply(e, rec.msgid);
+  }
+}

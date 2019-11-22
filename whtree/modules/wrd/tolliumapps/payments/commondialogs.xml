@@ -1,0 +1,143 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         library="commondialogs.whlib"
+         gid="tolliumapps.payments.commondialogs">
+
+  <screen name="paymentproviders" height="15x" width="120x" allowresize="true" savestate="size">
+    <actions>
+      <action name="addprovider" onexecute="doadd" tid="tollium:common.actions.add" />
+      <action name="editprovider" onexecute="doedit" tid="tollium:common.actions.edit" >
+        <enableon source="providers" min="1" max="1"  />
+      </action>
+      <action name="deleteprovider" onexecute="dodelete" tid="tollium:common.actions.delete">
+        <enableon source="providers" min="1" max="1" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="selectcontextmenu">
+        <item action="editprovider" />
+        <divider />
+        <item action="deleteprovider" />
+      </menu>
+    </menus>
+    <body>
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="providers" selectmode="single" minheight="8x" height="1pr" width="1pr" rowselect="true" openaction="editprovider" selectcontextmenu="selectcontextmenu" ongetrows="GetProviders">
+              <column name="title" type="text" tid="tollium:common.labels.title" />
+              <column name="type" type="text" />
+              <column name="tag" type="text" />
+            </list>
+          </cell>
+          <cell>
+            <button action="addprovider" width="1pr"/>
+            <button action="editprovider" width="1pr"/>
+            <button action="deleteprovider" width="1pr"/>
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="selectpaymentprovider" >
+    <body>
+      <select name="methods" type="pulldown" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="paymentprovider">
+    <actions>
+      <helpaction name="helpaction" title="" />
+    </actions>
+    <compositions>
+      <wrd:entity name="provider" />
+    </compositions>
+    <body spacers="none">
+      <tabs type="regular" height="1pr" name="providertabs">
+        <tab tid=".generic" name="providertab">
+          <textedit composition="provider" cellname="wrd_tag" tid="~tag" width="1pr" />
+          <!--
+          <textedit composition="provider" cellname="wrd_title" required="true" maxlength="200" />
+          <textedit composition="provider" cellname="wrd_ordering" emptyvalue="0" width="10x" valuetype="integer" />
+          <textedit composition="provider" cellname="payment_expirepending" emptyvalue="0" width="4x" valuetype="integer" />
+        -->
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <grid>
+        <cell width="1pr">
+          <button action="helpaction" name="helpbutton" tid="tollium:common.actions.help" />
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="ok cancel" />
+        </cell>
+      </grid>
+    </footer>
+  </screen>
+
+  <screen name="paymentinfo" flags="canmanagepayments ispending">
+    <actions>
+      <action name="recheckpayment" onexecute="dorecheckpayment" frameflags="canmanagepayments"/>
+      <action name="cancelpayment" onexecute="docancelpayment" frameflags="canmanagepayments ispending"/>
+    </actions>
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <text name="amountpayable" />
+          <text name="paymentstatus" />
+          <text name="paymentreference" />
+          <text name="paymentdate" />
+          <text name="paymentprovider" />
+          <heading name="paymentdetails" />
+          <panel name="paymentinfo" />
+        </cell>
+        <cell>
+          <button width="1pr" action="recheckpayment" />
+          <button width="1pr" action="cancelpayment" />
+        </cell>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="pendingpayments" allowresize="true" savestate="size" width="70x" height="14x">
+    <actions>
+      <action name="openpaymententity" onexecute="doopenpaymententity">
+        <enableon source="pendingpayments" min="1" />
+      </action>
+    </actions>
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="pendingpayments" ongetrows="ongetpendingpayments" height="1pr" selectmode="single">
+            <column name="creationdate" type="datetime" storeutc="true" precision="seconds" width="22x" tid=".paymentdate"/>
+            <column name="paymententity" type="integer" width="12x" />
+            <column name="paymentref" type="text" tid=".paymentreference" />
+            <column name="paymentoptiontag" type="text" />
+            <column name="amountpayable" type="money" decimals="2" align="right" width="10x"/>
+            <column name="status" type="text" />
+          </list>
+        </cell>
+        <cell>
+          <button action="openpaymententity" width="1pr"/>
+        </cell>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+</screens>

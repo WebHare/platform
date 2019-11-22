@@ -1,0 +1,985 @@
+﻿<?wh
+
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+STRING ARRAY all_permissions := ["SELECT","INSERT","UPDATE","DELETE","REFERENCES"];
+RECORD results_so_far;
+
+/* WHDB cannot optimize most queries, so its worth the effort to cache */
+BOOLEAN have_explicitcolumngrants, have_explicittablegrants, have_explicitschemagrants, have_explicitrolegrants
+      , have_schemata, have_allroles, have_tables, have_columns, have_indices;
+RECORD ARRAY explicitcolumngrants, explicittablegrants, explicitschemagrants, explicitrolegrants
+     , schemata, allroles, alltables, allcolumns, allindices;
+
+RECORD ARRAY FUNCTION GetSchemata()
+{
+  IF(NOT have_schemata)
+  {
+    schemata := SELECT * FROM information_schema.all_schemata;
+    have_schemata := TRUE;
+  }
+  RETURN schemata;
+}
+
+RECORD ARRAY FUNCTION GetTables()
+{
+  IF(NOT have_tables)
+  {
+    alltables := SELECT * FROM information_schema.tables;
+    have_tables := TRUE;
+  }
+  RETURN alltables ;
+}
+
+RECORD ARRAY FUNCTION GetColumns()
+{
+  IF(NOT have_columns)
+  {
+    allcolumns := SELECT * FROM information_schema.columns;
+    have_columns := TRUE;
+  }
+  RETURN allcolumns ;
+}
+
+RECORD ARRAY FUNCTION GEtIndices()
+{
+  IF(NOT have_indices)
+  {
+    allindices:= SELECT * FROM information_schema.indices;
+    have_indices := TRUE;
+  }
+  RETURN allindices;
+}
+
+RECORD ARRAY FUNCTION GetAllRoles()
+{
+  IF(NOT have_allroles)
+  {
+    allroles := SELECT * FROM information_schema.all_roles;
+    have_allroles := TRUE;
+  }
+  RETURN allroles;
+}
+
+RECORD ARRAY FUNCTION GetExplicitColumnGrants()
+{
+  IF(NOT have_explicitcolumngrants)
+  {
+    explicitcolumngrants := SELECT * FROM information_schema.explicit_column_grants;
+    have_explicitcolumngrants := TRUE;
+  }
+  RETURN explicitcolumngrants;
+}
+
+RECORD ARRAY FUNCTION GetExplicitTableGrants()
+{
+  IF(NOT have_explicittablegrants)
+  {
+    explicittablegrants := SELECT * FROM information_schema.explicit_table_grants;
+    have_explicittablegrants := TRUE;
+  }
+  RETURN explicittablegrants;
+}
+
+RECORD ARRAY FUNCTION GetExplicitSchemaGrants()
+{
+  IF(NOT have_explicitschemagrants)
+  {
+    explicitschemagrants := SELECT * FROM information_schema.explicit_schema_grants;
+    have_explicitschemagrants := TRUE;
+  }
+  RETURN explicitschemagrants;
+}
+
+RECORD ARRAY FUNCTION GetExplicitroleGrants()
+{
+  IF(NOT have_explicitrolegrants)
+  {
+    explicitrolegrants := SELECT * FROM information_schema.explicit_role_grants;
+    have_explicitrolegrants := TRUE;
+  }
+  RETURN explicitrolegrants;
+}
+
+PUBLIC MACRO ClearAllWHDBSchemaCaches()
+{
+  have_explicitcolumngrants := FALSE;
+  have_explicittablegrants := FALSE;
+  have_explicitschemagrants := FALSE;
+  have_explicitrolegrants := FALSE;
+  have_schemata := FALSE;
+  have_allroles := FALSE;
+  have_tables := FALSE;
+  have_columns := FALSE;
+  have_indices:= FALSE;
+}
+
+MACRO ResetResults()
+{
+  results_so_far := [ commands := DEFAULT RECORD ARRAY
+                    , errors := DEFAULT STRING ARRAY
+                    ];
+}
+
+RECORD FUNCTION ResultsSoFar()
+{
+  RETURN results_so_far;
+}
+
+MACRO AddTransOp(FUNCTION PTR cmd)
+{
+  INSERT [ type := "transop", cmd := cmd ] INTO results_so_far.commands AT END;
+}
+
+MACRO AddCommand(OBJECT trans, STRING cmd)
+{
+  INSERT [ type := "transop", cmd := PTR __SendWHDBCommand(trans->id, cmd) ] INTO results_so_far.commands AT END;
+}
+
+MACRO AddError(STRING err)
+{
+  INSERT err INTO results_so_far.errors AT END;
+}
+
+STRING FUNCTION EncodeWHDB(STRING indata)
+{
+  //ADDME: Should only encode names if really needed?
+  RETURN '"' || EncodeJava(indata) || '"';
+}
+
+STRING FUNCTION GetXMLGrantee(STRING curschema, STRING grantschema, STRING grantrole)
+{
+  IF(ToUppercase(grantrole) IN ["PUBLIC","_SYSTEM"])
+    RETURN ToLowercase(grantrole);
+  RETURN ToLowercase((ToUppercase(curschema) = ToUppercase(grantschema) ? "." : grantschema || ".") || grantrole);
+}
+
+STRING FUNCTION GetEncodedGrantee(RECORD grant)
+{
+  IF(ToUppercase(grant.r) IN ["PUBLIC","_SYSTEM"])
+    RETURN grant.r;
+
+  RETURN EncodeWHDB(grant.s) || '.' || EncodeWHDB(grant.r);
+}
+
+BOOLEAN AGGREGATE FUNCTION IsAnyTrue(BOOLEAN ARRAY bools)
+{
+  FOREVERY (BOOLEAN b FROM bools)
+    IF (b)
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+PUBLIC RECORD FUNCTION GenerateWHDBIndependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
+{
+  ResetResults();
+
+  FOREVERY(RECORD schemaspec FROM schemaspecs)
+  {
+    IF(trans->__is_whdb)
+    {
+      RECORD schemadef := SELECT * FROM GetSchemata() WHERE ToUppercase(schema_name)=ToUppercase(schemaspec.name);
+      IF(RecordExists(schemadef))
+      {
+        IF(ToUppercase(schemaspec.name) NOT IN ["SYSTEM","SYSTEM_RIGHTS"])
+        {
+          //Make sure moduleowner is under control of the modulemanager
+          IF(NOT RecordExists(SELECT FROM GetExplicitRoleGrants()
+                                     WHERE grantor="MODULEOWNER"
+                                           AND grantor_schema=ToUppercase(schemaspec.name)
+                                           AND grantee="MODULEMANAGER"
+                                           AND grantee_schema="SYSTEM"
+                                           AND ToUppercase(role)=ToUppercase(schemaspec.authorization.r)
+                                           AND ToUppercase(role_schema)=ToUppercase(schemaspec.authorization.s)
+                                           AND with_admin))
+          {
+            AddCommand(trans, 'GRANT ' || EncodeWHDB(schemaspec.name) || '.MODULEOWNER TO SYSTEM.MODULEMANAGER WITH ADMIN OPTION GRANTED BY ' || EncodeWHDB(schemaspec.name) || '.MODULEOWNER');
+          }
+        }
+      }
+      ELSE
+      {
+        AddTransOp(PTR trans->CreateSchema(schemaspec.name, schemaspec.authorization.s, schemaspec.authorization.r));
+        IF(ToUppercase(schemaspec.name) NOT IN ["SYSTEM","SYSTEM_RIGHTS"])
+          AddCommand(trans, 'GRANT ' || EncodeWHDB(schemaspec.name) || '.MODULEOWNER TO SYSTEM.MODULEMANAGER WITH ADMIN OPTION GRANTED BY ' || EncodeWHDB(schemaspec.name) || '.MODULEOWNER');
+      }
+
+      FOREVERY(RECORD role FROM schemaspec.roles)
+      {
+        IF(NOT RecordExists(SELECT FROM GetAllRoles()
+                                   WHERE ToUppercase(role_schema)=ToUppercase(schemaspec.name)
+                                         AND ToUppercase(role_name)=ToUppercase(role.name)))
+        {
+          AddCommand(trans, 'CREATE ROLE ' || EncodeWHDB(schemaspec.name) || '.' || EncodeWHDB(role.name));
+          AddCommand(trans, 'GRANT ' || EncodeWHDB(schemaspec.name) || '.' || EncodeWHDB(role.name) || ' TO SYSTEM.MODULEMANAGER WITH ADMIN OPTION GRANTED BY SYSTEM.MODULEMANAGER');
+        }
+      }
+    }
+    ELSE
+    {
+      IF(NOT RecordExists(SELECT FROM trans->GetSchemaListing() WHERE ToUppercase(schema_name) = ToUppercase(VAR schemaspec.name)))
+        AddTransOp(PTR trans->CreateSchema(schemaspec.name, schemaspec.authorization.s, schemaspec.authorization.r));
+    }
+  }
+
+  RETURN ResultsSoFar();
+}
+
+PUBLIC RECORD FUNCTION GenerateWHDBPostupdateSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
+{
+  ResetResults();
+
+  FOREVERY(RECORD schemaspec FROM schemaspecs)
+    FOREVERY(RECORD grant FROM schemaspec.grants)
+      IF(grant.to_obsolete AND ToUppercase(grant.granted_by.r) = "_SYSTEM")
+      {
+        ApplyGrant(schemaspec.name, grant, TRUE, trans);
+      }
+
+  FOREVERY(RECORD schemaspec FROM schemaspecs)
+    FOREVERY(RECORD role FROM schemaspec.obsoleteroles)
+    {
+      IF(RecordExists(SELECT
+                        FROM GetAllRoles()
+                       WHERE ToUppercase(role_schema)=ToUppercase(schemaspec.name)
+                         AND ToUppercase(role_name)=ToUppercase(role.name)))
+      {
+        AddCommand(trans, 'DROP ROLE ' || EncodeWHDB(schemaspec.name) || '.' || EncodeWHDB(role.name));
+      }
+    }
+
+  /* Kill obsoleted tables */
+  FOREVERY(RECORD schemaspec FROM schemaspecs)
+  {
+    RECORD ARRAY current_tables := SELECT table_name
+                                     FROM GetTables()
+                                    WHERE ToUppercase(table_schema) = ToUppercase(schemaspec.name);
+
+    FOREVERY(RECORD tablerec FROM schemaspec.obsoletetables)
+      IF(RecordExists(SELECT FROM current_tables WHERE ToUppercase(table_name) = ToUppercase(tablerec.name)))
+        AddTransOp(PTR trans->DropTable(schemaspec.name, tablerec.name));
+  }
+  RETURN ResultsSoFar();
+}
+
+STRING FUNCTION GetColumnBaseDef(RECORD colrec)
+{
+  IF(ToUppercase(colrec.dbtype) = "BYTEA")
+    colrec.dbtype := "VARCHAR";
+  STRING def := EncodeWHDB(colrec.name) || " " || colrec.dbtype;
+  IF(colrec.dbtype="VARCHAR")
+    def := def || "(" || colrec.maxlength || ")";
+  IF(NOT colrec.nullable)
+    def := def || " NOT NULL";
+  IF(colrec.isunique)
+    def := def || " UNIQUE";
+  IF(colrec.noupdate)
+    def := def || " NOUPDATE";
+  IF(colrec.dbtype = "INTEGER" AND colrec.autonumberstart>0)
+    def := def || " AUTONUMBER " || colrec.autonumberstart;
+  IF(colrec.defval != "")
+    def := def || " DEFAULT " || colrec.defval; //Already properly encoded
+  IF(colrec.internalcolumnname!="")
+    def := def || " INTERNAL \"" || EncodeValue(colrec.internalcolumnname) || "\"";
+
+  RETURN def;
+}
+
+STRING ARRAY FUNCTION UppercaseStringArray(STRING ARRAY arr)
+{
+  FOREVERY (STRING e FROM arr)
+    arr[#e] := ToUppercase(e);
+  RETURN arr;
+}
+
+
+MACRO ApplyGrant(STRING schemaname, RECORD grant, BOOLEAN to_obsolete, OBJECT trans)
+{
+  STRING ARRAY already_got;
+
+  IF (Length(grant.to_columns) != 0) // Column-level
+  {
+    already_got := SELECT AS STRING ARRAY privilege_type
+                     FROM GetExplicitColumnGrants()
+                    WHERE ToUppercase(grantor) = ToUppercase(grant.granted_by.r)
+                      AND ToUppercase(grantor_schema) = ToUppercase(grant.granted_by.s)
+                      AND (grant.withgrantoption ? is_grantable = "YES" : TRUE)
+                      AND ToUppercase(grantee) = ToUppercase(grant.grantee.r)
+                      AND ToUppercase(grantee_schema) = ToUppercase(grant.grantee.s)
+                      AND ToUppercase(table_name) = ToUppercase(grant.to_table)
+                      AND ToUppercase(column_name) IN UppercaseStringArray(grant.to_columns)
+                 GROUP BY privilege_type
+                   HAVING Length(GroupedValues(column_name)) = Length(grant.to_columns);
+  }
+  ELSE IF (grant.to_table != "")
+  {
+    already_got := SELECT AS STRING ARRAY privilege_type
+                     FROM GetExplicitTableGrants()
+                    WHERE ToUppercase(grantor) = ToUppercase(grant.granted_by.r)
+                      AND ToUppercase(grantor_schema) = ToUppercase(grant.granted_by.s)
+                      AND (grant.withgrantoption ? is_grantable = "YES" : TRUE)
+                      AND ToUppercase(grantee) = ToUppercase(grant.grantee.r)
+                      AND ToUppercase(grantee_schema) = ToUppercase(grant.grantee.s)
+                      AND ToUppercase(table_schema) = ToUppercase(grant.to_schema)
+                      AND ToUppercase(table_name) = ToUppercase(grant.to_table);
+  }
+  ELSE
+  {
+    already_got := SELECT AS STRING ARRAY privilege_type
+                     FROM GetExplicitSchemaGrants()
+                    WHERE ToUppercase(grantor) = ToUppercase(grant.granted_by.r)
+                      AND ToUppercase(grantor_schema) = ToUppercase(grant.granted_by.s)
+                      AND (grant.withgrantoption ? is_grantable = "YES" : TRUE)
+                      AND ToUppercase(grantee) = ToUppercase(grant.grantee.r)
+                      AND ToUppercase(grantee_schema) = ToUppercase(grant.grantee.s)
+                      AND ToUppercase(schema_name) = ToUppercase(grant.to_schema);
+
+  }
+
+
+  STRING ARRAY incorrect;
+  FOREVERY (STRING p FROM grant.permissions)
+    IF (grant.to_obsolete ? (p IN already_got) : (p NOT IN already_got))
+      INSERT p INTO incorrect AT END;
+
+  IF(Length(incorrect)=0)
+    RETURN; //all required privs are granted (ADDME: Warn if there are too many privs?)
+
+  STRING cmd := (grant.to_obsolete ? "REVOKE " : "GRANT ") || Detokenize(incorrect,",") || " ON";
+  IF(grant.to_table="")
+  {
+    cmd := cmd || ' SCHEMA ' || EncodeWHDB(grant.to_schema);
+  }
+  ELSE IF(Length(grant.to_columns)=0)
+  {
+    cmd := cmd || ' TABLE ' || EncodeWHDB(grant.to_schema) || '.' || EncodeWHDB(grant.to_table);
+  }
+  ELSE
+  {
+    cmd := cmd || ' ' || EncodeWHDB(grant.to_schema) || '.' || EncodeWHDB(grant.to_table) || '(';
+    FOREVERY(STRING col FROM grant.to_columns)
+      cmd := cmd || (#col=0?"":",") || EncodeWHDB(col);
+    cmd := cmd || ')';
+  }
+
+  cmd := cmd || (grant.to_obsolete ? " FROM " : " TO ") || GetEncodedGrantee(grant.grantee);
+
+  IF(grant.withgrantoption)
+    cmd := cmd || ' WITH GRANT OPTION';
+  cmd := cmd || ' GRANTED BY ' || EncodeWHDB(grant.granted_by.s) || '.' || EncodeWHDB(grant.granted_by.r);
+
+  AddCommand(trans, cmd);
+}
+
+MACRO DropColumnFkey(STRING tableschema, STRING tablename, RECORD colrec, OBJECT trans)
+{
+  STRING def := "ALTER TABLE " || EncodeWHDB(tableschema) || "." || EncodeWHDB(tablename) || " ALTER COLUMN " || EncodeWHDB(colrec.name);
+  AddCommand(trans, def || " DROP REFERENCES");
+}
+
+MACRO SetColumnFkey(STRING tableschema, STRING tablename, RECORD colrec, OBJECT trans)
+{
+  IF(colrec.references_table="")
+    RETURN;
+
+  STRING def := "ALTER TABLE " || EncodeWHDB(tableschema) || "." || EncodeWHDB(tablename) || " ALTER COLUMN " || EncodeWHDB(colrec.name);
+  def := def || " SET REFERENCES " || EncodeWHDB(colrec.references_schema) || "." || EncodeWHDB(colrec.references_table);
+  IF(colrec.ondelete != "" AND ToUppercase(colrec.ondelete) != "NO ACTION")
+    def := def || " ON DELETE " || ToUppercase(colrec.ondelete);
+  AddCommand(trans, def);
+}
+
+PUBLIC RECORD FUNCTION GenerateWHDBDependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
+{
+  ResetResults();
+  UPDATE schemaspecs SET name := ToUppercase(name);
+
+  /* Process grants FROM other schemas (ADDME: Verify that those schemas are actually our dependencies)
+     These can give our moduleowner reference rights to necessary schemas */
+  FOREVERY(RECORD schemaspec FROM schemaspecs)
+    FOREVERY(RECORD grant FROM schemaspec.grants)
+      IF(NOT grant.to_obsolete AND ToUppercase(grant.to_schema) != ToUppercase(schemaspec.name))
+        ApplyGrant(schemaspec.name, grant, FALSE, trans);
+
+  RECORD ARRAY fkeys_to_update;
+
+  /* CREATE and ALTER tables (but do NOT set foreign keys) */
+  FOREVERY(RECORD schemaspec FROM schemaspecs)
+  {
+    RECORD ARRAY current_tables := SELECT table_name, read_access_manager, write_access_manager, object_id
+                                     FROM GetTables()
+                                    WHERE ToUppercase(table_schema) = ToUppercase(schemaspec.name);
+    FOREVERY(RECORD tablerec FROM schemaspec.tables)
+    {
+      RECORD curtab := SELECT * FROM current_tables WHERE ToUppercase(table_name) = ToUppercase(tablerec.name);
+
+      IF(RecordExists(curtab))
+      {
+        //FIXME: Verify that columns have the proper properties
+        RECORD ARRAY curcols := SELECT column_name, referenced_table_schema, referenced_table_name, on_delete, noupdate, not_null, COLUMN "unique", autonumber_start, character_maximum_length, column_default, internal_column_name
+                                  FROM GetColumns()
+                                 WHERE table_id = curtab.object_id;
+
+        IF(ToUppercase(curtab.read_access_manager) != ToUppercase(tablerec.legacy_readaccessmgr))
+        {
+          STRING cmd := "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name);
+          IF(tablerec.legacy_readaccessmgr!="")
+            cmd := cmd || " SET READACCESSMANAGER \"" || EncodeValue(tablerec.legacy_readaccessmgr) || "\"";
+          ELSE
+            cmd := cmd || " DROP READACCESSMANAGER";
+          AddCommand(trans, cmd);
+        }
+
+        IF(ToUppercase(curtab.write_access_manager) != ToUppercase(tablerec.legacy_writeaccessmgr))
+        {
+          STRING cmd := "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name);
+          IF(tablerec.legacy_writeaccessmgr!="")
+            cmd := cmd || " SET WRITEACCESSMANAGER \"" || EncodeValue(tablerec.legacy_writeaccessmgr) || "\"";
+          ELSE
+            cmd := cmd || " DROP WRITEACCESSMANAGER";
+          AddCommand(trans, cmd);
+        }
+
+        FOREVERY(RECORD coldef FROM tablerec.cols)
+        {
+          RECORD curcol := SELECT * FROM curcols WHERE ToUppercase(column_name) = ToUppercase(coldef.name);
+          IF(RecordExists(curcol))
+          {
+            //foreign key mismatch?
+            IF(ToUppercase(curcol.referenced_table_schema) != ToUppercase(coldef.references_schema)
+                OR ToUppercase(curcol.referenced_table_name) != ToUppercase(coldef.references_table)
+                OR ToUppercase(curcol.on_delete ?? "no action") != ToUppercase(coldef.ondelete ?? "no action"))
+            {
+              IF(curcol.referenced_table_name != "")
+                DropColumnFkey(schemaspec.name, tablerec.name, coldef, trans);
+              IF(coldef.references_table != "")
+                INSERT INTO fkeys_to_update(tablename,colrec) VALUES(tablerec.name, coldef) AT END;
+            }
+
+            IF(coldef.noupdate != curcol.noupdate)
+              AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || (coldef.noupdate ? " SET NOUPDATE" : " DROP NOUPDATE"));
+            IF(coldef.nullable != NOT curcol.not_null)
+              AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || (coldef.nullable ? " DROP NOT NULL" : " SET NOT NULL"));
+            IF(coldef.isunique != curcol."unique")
+              AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || (coldef.isunique ? " SET UNIQUE" : " DROP UNIQUE"));
+            IF(coldef.dbtype="INTEGER" AND coldef.autonumberstart != curcol.autonumber_start)
+              IF(coldef.autonumberstart > 0)
+                AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || " SET AUTONUMBER " || coldef.autonumberstart);
+              ELSE
+                AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || " DROP AUTONUMBER");
+            IF(coldef.dbtype="VARCHAR" AND coldef.maxlength > curcol.character_maximum_length)
+              AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || " SET MAXLENGTH " || coldef.maxlength);
+
+            IF(coldef.internalcolumnname != curcol.internal_column_name) //modify internal column handler
+            {
+              //Drop the current column
+              AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " DROP COLUMN " || EncodeWHDB(coldef.name));
+              //Recreate it
+              STRING cmd := "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ADD COLUMN ";
+              cmd := cmd || GetColumnBaseDef(coldef);
+              IF(coldef.references_table!="")
+                INSERT INTO fkeys_to_update(tablename,colrec) VALUES(tablerec.name, coldef) AT END;
+              AddCommand(trans, cmd);
+            }
+
+            IF(curcol.column_default != coldef.defval)
+              IF(coldef.defval="")
+                AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || " DROP DEFAULT");
+              ELSE
+                AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || " SET DEFAULT " || coldef.defval);
+          }
+          ELSE
+          {
+            IF(ToUppercase(coldef.name) = ToUppercase(tablerec.primarykey))
+            {
+              AddError("Cannot change the primary column of table " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name));
+              CONTINUE;
+            }
+
+            STRING cmd := "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ADD COLUMN ";
+            cmd := cmd || GetColumnBaseDef(coldef);
+            IF(coldef.references_table!="")
+              INSERT INTO fkeys_to_update(tablename,colrec) VALUES(tablerec.name, coldef) AT END;
+            AddCommand(trans, cmd);
+          }
+        }
+
+        RECORD ARRAY kill_columns := SELECT obsoletecols.*
+                                       FROM tablerec.obsoletecols AS obsoletecols, curcols
+                                      WHERE ToUppercase(obsoletecols.name) = ToUppercase(curcols.column_name);
+        FOREVERY(RECORD coldef FROM kill_columns)
+        {
+          STRING cmd := "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " DROP COLUMN " || EncodeWHDB(coldef.name);
+          AddCommand(trans, cmd);
+        }
+      }
+      ELSE
+      {
+        //Create a table creation command
+        STRING cmd := "CREATE TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name);
+        FOREVERY(RECORD col FROM tablerec.cols)
+        {
+          cmd := cmd || (#col=0 ? "(" : ",") || GetColumnBaseDef(col);
+          IF(col.name=tablerec.primarykey)
+            cmd := cmd || " PRIMARY KEY";
+          IF(col.references_table!="")
+            INSERT INTO fkeys_to_update(tablename,colrec) VALUES(tablerec.name, col) AT END;
+        }
+        cmd := cmd || ")";
+        IF(tablerec.legacy_readaccessmgr!="")
+          cmd := cmd || " READACCESSMANAGER \"" || EncodeValue(tablerec.legacy_readaccessmgr) || "\"";
+        IF(tablerec.legacy_writeaccessmgr!="")
+          cmd := cmd || " WRITEACCESSMANAGER \"" || EncodeValue(tablerec.legacy_writeaccessmgr) || "\"";
+
+        AddCommand(trans, cmd);
+      }
+
+      IF (LENGTH(tablerec.indices) != 0 OR LENGTH(tablerec.obsoleteindices) != 0)
+      {
+        // Get current indices for the current table
+        RECORD ARRAY current_indices :=
+                                SELECT index_name
+                                     , is_unique := Any(is_unique)
+                                     , is_uppercase := IsAnyTrue(is_uppercase)
+                                     , nonullstores := IsAnyTrue(nonullstores)
+                                     , columns := (SELECT * FROM GroupedValues(indices) ORDER BY ordering)
+                                  FROM GetIndices() AS indices
+                                 WHERE ToUppercase(table_schema) = ToUppercase(schemaspec.name)
+                                       AND ToUppercase(table_name) = ToUppercase(tablerec.name)
+                              GROUP BY index_name;
+
+        FOREVERY (RECORD ind FROM tablerec.indices)
+        {
+          RECORD old_index := SELECT * FROM current_indices WHERE ToUppercase(index_name) = ToUppercase(ind.name);
+          IF (RecordExists(old_index))
+          {
+            // Check if the indexdefinition is identical; if not delete the old index
+            BOOLEAN is_identical := old_index.is_unique = ind.is_unique
+                                      AND old_index.is_uppercase = ind.is_uppercase
+                                      AND old_index.nonullstores = ind.nonullstores;
+
+            IF (is_identical AND LENGTH(old_index.columns) != LENGTH(ind.columns))
+              is_identical := FALSE;
+            ELSE
+            {
+              /* FIXME if the moduldef requests a column with that is too long (ie guid[32] after an id, the database
+                  silently truncates it and reports back 22 - and we just keep dropping and recreating!) */
+              FOREVERY (RECORD col FROM ind.columns)
+              {
+                RECORD old_col := old_index.columns[#col];
+                IF (ToUppercase(col.name) != ToUppercase(old_col.column_name))
+                  is_identical := FALSE;
+                ELSE IF (CellExists(col, "length") AND col.length != old_col.column_length)
+                  is_identical := FALSE;
+              }
+            }
+            IF (NOT is_identical)
+            {
+              //DumpValue(ind, "tree");
+              //DumpValue(old_index, "tree");
+
+              STRING cmd := "DROP INDEX " || EncodeWHDB(ind.name) || " ON " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name);
+              AddCommand(trans, cmd);
+            }
+            ELSE
+              CONTINUE; // Skip creation step, the old index is identical.
+          }
+
+          // Create the new index
+          STRING cmd := "CREATE ";
+          IF (ind.is_uppercase)
+            cmd := cmd || "UPPERCASE ";
+          IF (ind.nonullstores)
+            cmd := cmd || "NONULLSTORES ";
+          IF (ind.is_unique)
+            cmd := cmd || "UNIQUE ";
+          cmd := cmd || "INDEX " || EncodeWHDB(ind.name) || " ON " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name);
+          cmd := cmd || "(";
+
+          FOREVERY (RECORD col FROM ind.columns)
+          {
+            IF (#col != 0)
+              cmd := cmd || ", ";
+            cmd := cmd || EncodeWHDB(col.name);
+            IF (CellExists(col, "LENGTH") AND col.length != 0)
+              cmd := cmd || "[" || col.length || "]";
+          }
+          cmd := cmd || ")";
+
+          AddCommand(trans, cmd);
+        }
+
+        RECORD ARRAY kill_indices := SELECT obsoleteindices.*
+                                       FROM tablerec.obsoleteindices, current_indices
+                                      WHERE ToUppercase(obsoleteindices.name) = ToUppercase(current_indices.index_name);
+        FOREVERY(RECORD indexdef FROM kill_indices)
+        {
+          STRING cmd := "DROP INDEX " || EncodeWHDB(indexdef.name) || " ON " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name);
+          AddCommand(trans, cmd);
+        }
+      }
+    }
+
+    /* Apply all foreign key contraints */
+    FOREVERY(RECORD fkey FROM fkeys_to_update)
+      SetColumnFkey(schemaspec.name, fkey.tablename, fkey.colrec, trans);
+
+    /* Apply grants FROM our schema */
+    //Process internal grants
+    FOREVERY(RECORD grant FROM schemaspec.grants)
+      IF(NOT grant.to_obsolete AND ToUppercase(grant.to_schema) = ToUppercase(schemaspec.name))
+        ApplyGrant(schemaspec.name, grant, FALSE, trans);
+
+    FOREVERY(RECORD grant FROM schemaspec.grants)
+      IF(grant.to_obsolete AND ToUppercase(grant.granted_by.r) != "_SYSTEM")
+        ApplyGrant(schemaspec.name, grant, TRUE, trans);
+
+    /* Reduce impact of obsoleted tables (but physical drop will wait till the real end) */
+    FOREVERY(RECORD tablerec FROM schemaspec.obsoletetables)
+      IF(RecordExists(SELECT FROM current_tables WHERE ToUppercase(table_name) = ToUppercase(tablerec.name)))
+      {
+        RECORD ARRAY refercolumns := SELECT column_name
+                                       FROM GetColumns()
+                                      WHERE ToUppercase(table_schema) = ToUppercase(schemaspec.name)
+                                            AND ToUppercase(table_name) = ToUppercase(tablerec.name)
+                                            AND referenced_table_name!="";
+        FOREVERY(RECORD refcol FROM refercolumns)
+          AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(refcol.column_name) || " DROP REFERENCES");
+
+        // Get current indices for the current table
+        RECORD ARRAY referindices := SELECT index_name
+                                       FROM GetIndices()
+                                      WHERE ToUppercase(table_schema) = ToUppercase(schemaspec.name)
+                                            AND ToUppercase(table_name) = ToUppercase(tablerec.name)
+                              GROUP BY index_name;
+        FOREVERY(RECORD ind FROM referindices)
+        {
+          STRING cmd := "DROP INDEX " || EncodeWHDB(ind.index_name) || " ON " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name);
+          AddCommand(trans, cmd);
+        }
+      }
+  }
+  RETURN ResultsSoFar();
+}
+
+STRING FUNCTION GetPrivilegeString(STRING ARRAY privs)
+{
+  FOREVERY(STRING priv FROM all_permissions)
+    IF(priv NOT IN privs)
+      RETURN Tolowercase(DeTokenize(privs," "));
+  RETURN "all";
+}
+
+PUBLIC STRING FUNCTION GetWHDBSchemaModuleDef(STRING schemaname)
+{
+  ClearAllWHDBSchemaCaches();
+
+  STRING def := '<databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">\n';
+  RECORD schemainfo := SELECT * FROM GetSchemata() WHERE schema_name=schemaname;
+  IF(NOT RecordExists(schemainfo))
+    RETURN "";
+
+  IF(schemainfo.schema_owner!="MODULEOWNER" OR schemainfo.schema_owner_schema != schemaname)
+    def := def || '  <!-- Warning: schema ownership by "' || EncodeValue(schemainfo.schema_owner_schema || "." || schemainfo.schema_owner) || '" cannot be restored by a moduledefinition -->\n';
+
+  STRING ARRAY controlled_roles := SELECT AS STRING ARRAY role
+                                     FROM GetExplicitRoleGrants()
+                                    WHERE grantor="MODULEMANAGER" AND grantor_schema="SYSTEM"
+                                          AND grantee="MODULEMANAGER" AND grantee_schema="SYSTEM"
+                                          AND role_schema=schemaname
+                                          AND with_admin;
+
+  FOREVERY(RECORD role FROM (SELECT role_name FROM GetAllRoles() WHERE role_schema=schemaname))
+    IF(role.role_name!="MODULEOWNER")
+    {
+      IF(role.role_name NOT IN controlled_roles)
+        def := def || '  <!-- Warning: role "' || ToLowercase(role.role_name) || '" was not created by the module manager -->\n';
+      def := def || '  <d:role name="' || EncodeValue(ToLowercase(role.role_name)) || '" />\n';
+    }
+
+  //Discover all explicit grants granted TO anyone FROM our tables
+  FOREVERY(RECORD grant FROM (SELECT grantor, grantor_schema, grantee, grantee_schema, is_grantable, privs := GroupedValues(privilege_type)
+                                FROM GetExplicitSchemaGRants()
+                               WHERE schema_name=schemaname
+                            GROUP BY grantor, grantor_schema, grantee, grantee_schema, is_grantable))
+  {
+    IF(grant.grantor != "MODULEMANAGER" OR grant.grantor_schema != "SYSTEM")
+      def := def || '  <!-- Warning: grant was not created by the module manager but granted by "' || grant.grantor_schema || '.' || grant.grantor || '" -->\n';
+    def := def || '  <d:grant permissions="' || GetPrivilegeString(grant.privs) || '"';
+    IF(grant.is_grantable = "YES")
+      def := def || ' withgrantoption="true"';
+    def := def || ' grantee="' || EncodeValue(GetXMLGrantee(schemaname,grant.grantee_schema,grant.grantee)) || '" />\n';
+  }
+
+  FOREVERY(RECORD grant FROM (SELECT table_name, grantor, grantor_schema, grantee, grantee_schema, is_grantable, privs := GroupedValues(privilege_type)
+                                FROM GetExplicitTableGrants()
+                               WHERE table_schema=schemaname
+                            GROUP BY grantor, grantor_schema, grantee, grantee_schema, is_grantable, table_name))
+  {
+    IF(grant.grantor != "MODULEMANAGER" OR grant.grantor_schema != "SYSTEM")
+      def := def || '  <!-- Warning: grant was not created by the module manager but granted by "' || grant.grantor_schema || '.' || grant.grantor || '" -->\n';
+    def := def || '  <d:grant permissions="' || GetPrivilegeString(grant.privs) || '"';
+    IF(grant.is_grantable = "YES")
+      def := def || ' withgrantoption="true"';
+    def := def  || ' table="' || EncodeValue(ToLowercase(grant.table_name)) || '"';
+    def := def || ' grantee="' || EncodeValue(GetXMLGrantee(schemaname,grant.grantee_schema,grant.grantee)) || '" />\n';
+  }
+
+  FOREVERY(RECORD grant FROM (SELECT table_name, grantor, grantor_schema, grantee, grantee_schema, is_grantable, privilege_type, cols := GroupedValues(column_name)
+                                FROM GetExplicitColumnGrants()
+                               WHERE table_schema=schemaname
+                            GROUP BY grantor, grantor_schema, grantee, grantee_schema, is_grantable, table_name, privilege_type))
+  {
+    IF(grant.grantor != "MODULEMANAGER" OR grant.grantor_schema != "SYSTEM")
+      def := def || '  <!-- Warning: grant was not created by the module manager but granted by "' || grant.grantor_schema || '.' || grant.grantor || '" -->\n';
+    def := def || '  <d:grant permissions="' || ToLowercase(grant.privilege_type) || '"';
+    IF(grant.is_grantable = "YES")
+      def := def || ' withgrantoption="true"';
+    def := def  || ' table="' || EncodeValue(ToLowercase(grant.table_name)) || '"';
+    def := def  || ' columns="' || EncodeValue(ToLowercase(Detokenize(grant.cols," "))) || '"';
+    def := def || ' grantee="' || EncodeValue(GetXMLGrantee(schemaname,grant.grantee_schema,grant.grantee)) || '" />\n';
+  }
+
+  FOREVERY(RECORD tablerec FROM (SELECT * FROM GetTables() WHERE table_schema=schemaname ORDER BY table_name))
+  {
+    RECORD ARRAY columns := SELECT * FROM GetColumns()
+                                     WHERE table_schema=schemaname AND table_name=tablerec.table_name
+                                     ORDER BY is_primary DESC, column_name;
+    def := def || '  <d:table name="' || ToLowercase(EncodeValue(tablerec.table_name)) || '"';
+    STRING ARRAY primarykeys := SELECT AS STRING ARRAY column_name FROM columns WHERE is_primary;
+    IF(Length(primarykeys)>0)
+      def := def || ' primarykey="' || ToLowercase(EncodeValue(Detokenize(primarykeys,' '))) || '"';
+    IF(tablerec.read_access_manager != "")
+      def := def || ' legacy_readaccessmgr="' || EncodeValue(tablerec.read_access_manager) || '"';
+    IF(tablerec.write_access_manager != "")
+      def := def || ' legacy_writeaccessmgr="' || EncodeValue(tablerec.write_access_manager) || '"';
+    def := def || '>\n';
+
+    FOREVERY(RECORD col FROM columns)
+    {
+      def := def || '    <d:' || ToLowercase(col.data_type) || ' name="' || EncodeValue(ToLowercase(col.column_name)) || '"';
+      IF(col.referenced_table_name!="")
+      {
+        STRING refto := (col.referenced_table_schema=schemaname?"":col.referenced_table_schema) || '.' || col.referenced_table_name;
+        def := def || ' references="' || EncodeValue(ToLowercase(refto)) || '"';
+        IF(col.on_delete!="")
+          def := def || ' ondelete="' || ToLowercase(col.on_delete) || '"';
+      }
+      IF(NOT col.is_primary)
+      {
+        IF(col."unique")
+          def:=def || ' unique="true"';
+        IF(col."not_null")
+          def:=def || ' nullable="false"';
+        IF(col."noupdate")
+          def:=def || ' noupdate="true"';
+      }
+      IF(col.column_default!="")
+      {
+        SWITCH(col.data_type)
+        {
+          CASE "BOOLEAN", "INTEGER"
+          {
+            def := def || ' default="' || ToLowercase(col.column_default) || '"';
+          }
+          CASE "VARCHAR"
+          {
+            def := def || ' default="' || EncodeValue(DecodeJava(Substring(col.column_default, 1, Length(col.column_default)-2))) || '"';
+          }
+          DEFAULT
+          {
+            ABORT("Do not support default value for type '" || col.data_type || "'");
+          }
+        }
+      }
+      IF(col.autonumber_start > 0)
+        def:=def||' autonumberstart="' || col.autonumber_start || '"';
+
+      IF(col.data_type="VARCHAR")
+        def:=def||' maxlength="' || col.character_maximum_length || '"';
+
+      IF(col.internal_column_name!="")
+        def:=def||' internalcolumnname="' || EncodeValue(col.internal_column_name) || '"';
+
+      def := def || ' />\n';
+    }
+
+    //Discover indices in this table
+    RECORD ARRAY indices := SELECT index_name
+                                 , is_unique := Any(is_unique)
+                                 , is_uppercase := IsAnyTrue(is_uppercase)
+                                 , nonullstores := IsAnyTrue(nonullstores)
+                                 , columns := (SELECT * FROM GroupedValues(indices) ORDER BY ordering)
+                              FROM GetIndices() AS indices
+                             WHERE table_schema = schemaname
+                                   AND table_name = tablerec.table_name
+                          GROUP BY index_name;
+
+    FOREVERY(RECORD idx FROM indices)
+    {
+      STRING cols;
+      FOREVERY(RECORD col FROM idx.columns)
+      {
+        RECORD colinfo := SELECT * FROM columns WHERE column_name=col.column_name;
+        IF(#col>0)
+          cols:=cols || " ";
+        cols := cols || ToLowercase(col.column_name);
+        IF(colinfo.data_type="VARCHAR")
+          cols := cols || "(" || col.column_length || ")";
+      }
+      def:=def || '    <d:index name="' || EncodeValue(ToLowercase(idx.index_name)) || '" columns="' || EncodeValue(cols) || '"';
+      IF(idx.is_unique)
+        def := def || ' unique="true"';
+      IF(idx.is_uppercase)
+        def := def || ' uppercase="true"';
+      IF(idx.nonullstores)
+        def := def || ' nonullstores="true"';
+      def := def || ' />\n';
+    }
+
+    def := def || '  </d:table>\n';
+  }
+
+  def := def || '</databaseschema>';
+  RETURN def;
+  //FIXME: Grants!
+}
+
+PUBLIC RECORD FUNCTION GetWHDBDatabaseSchemaDef(STRING schemaname)
+{
+  ClearAllWHDBSchemaCaches();
+
+  STRING def := '<databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">\n';
+  RECORD schemainfo := SELECT * FROM GetSchemata() WHERE ToUppercase(schema_name) = ToUppercase(schemaname);
+  IF(NOT RecordExists(schemainfo))
+    RETURN DEFAULT RECORD;
+
+  RECORD schemadef :=
+      [ name :=               ToLowercase(schemainfo.schema_name)
+      , tables :=             RECORD[]
+      , obsoletetables :=     RECORD[]
+      ];
+
+  FOREVERY (RECORD tablerec FROM (SELECT * FROM GetTables() WHERE table_schema = schemainfo.schema_name ORDER BY table_name))
+  {
+    RECORD ARRAY columns :=
+        SELECT *
+          FROM GetColumns()
+         WHERE table_schema = schemainfo.schema_name AND table_name = tablerec.table_name
+      ORDER BY is_primary DESC, column_name;
+
+    STRING ARRAY primarykeys := SELECT AS STRING ARRAY ToLowercase(column_name) FROM columns WHERE is_primary;
+    RECORD tabledef :=
+        [ name :=                   tablerec.table_name
+        , primarykey :=             Detokenize(primarykeys,' ')
+        , cols :=                   RECORD[]
+        , obsoletecols :=           RECORD[]
+        , indices :=                RECORD[]
+        , obsoleteindices :=        RECORD[]
+        , legacy_readaccessmgr :=   tablerec.read_access_manager
+        , legacy_writeaccessmgr :=  tablerec.write_access_manager
+        , parentlinkcolumn :=       ""
+        ];
+
+    FOREVERY(RECORD col FROM columns)
+    {
+      RECORD coldef :=
+          [ name :=                     ToLowercase(col.column_name)
+          , autonumberstart :=          0i64
+          , internalcolumnname :=       ""
+          , dbtype :=                   ToLowercase(col.data_type)
+          , defval :=                   ""
+          , isunique :=                 FALSE
+          , maxlength :=                0
+          , nullable :=                 FALSE
+          , noupdate :=                 FALSE
+          , ondelete :=                 ""
+          , references_schema :=        ""
+          , references_table :=         ""
+          ];
+
+      def := def || '    <d:' || ToLowercase(col.data_type) || ' name="' || EncodeValue(ToLowercase(col.column_name)) || '"';
+      IF (col.referenced_table_name!="")
+      {
+        coldef.references_schema := col.referenced_table_schema;
+        coldef.references_table := col.referenced_table_name;
+        coldef.ondelete := ToLowercase(col.on_delete);
+      }
+      IF (NOT col.is_primary)
+      {
+        coldef.isunique := col."unique";
+        coldef.nullable := NOT col."not_null";
+        coldef.noupdate := col.noupdate;
+      }
+      IF (col.column_default != "")
+      {
+        SWITCH(col.data_type)
+        {
+          CASE "BOOLEAN", "INTEGER"
+          {
+            coldef.defval := ToLowercase(col.column_default);
+          }
+          CASE "VARCHAR"
+          {
+            coldef.defval := DecodeJava(Substring(col.column_default, 1, Length(col.column_default)-2));
+          }
+          DEFAULT
+          {
+            ABORT("Do not support default value for type '" || col.data_type || "'");
+          }
+        }
+      }
+      coldef.autonumberstart := col.autonumber_start;
+      IF (col.data_type="VARCHAR")
+        coldef.maxlength := col.character_maximum_length;
+      coldef.internalcolumnname := col.internal_column_name;
+
+      INSERT coldef INTO tabledef.cols AT END;
+    }
+
+    //Discover indices in this table
+    RECORD ARRAY indices := SELECT index_name
+                                 , is_unique := Any(is_unique)
+                                 , is_uppercase := IsAnyTrue(is_uppercase)
+                                 , columns := (SELECT * FROM GroupedValues(indices) ORDER BY ordering)
+                              FROM GetIndices() AS indices
+                             WHERE table_schema = schemaname
+                                   AND table_name = tablerec.table_name
+                          GROUP BY index_name;
+
+    FOREVERY (RECORD idx FROM indices)
+    {
+      RECORD indexdef :=
+          [ name :=           idx.index_name
+          , is_unique :=      idx.is_unique
+          , is_uppercase :=   idx.is_uppercase
+          , cols :=           RECORD[]
+          ];
+
+      FOREVERY(RECORD col FROM idx.columns)
+      {
+        RECORD colinfo := SELECT * FROM columns WHERE column_name=col.column_name;
+        IF (colinfo.data_type="VARCHAR")
+          INSERT [ name := col.column_name, len := col.column_length ] INTO indexdef.cols AT END;
+        ELSE
+          INSERT [ name := col.column_name, len := 0 ] INTO indexdef.cols AT END;
+      }
+
+      INSERT indexdef INTO tabledef.indices AT END;
+    }
+
+    INSERT tabledef INTO schemadef.tables AT END;
+  }
+
+  RETURN schemadef;
+}
+
+/* Checks whether the current webhare database connection is still alive.
+    Also reacts on pings from the database to prevent inactivity timeouts.
+    @return Whether the connection to the database is still alive
+*/
+PUBLIC BOOLEAN FUNCTION IsWHDBConnectionAlive() __ATTRIBUTES__ (EXTERNAL);
+PUBLIC MACRO ReconnectAllWHDBTransactions() __ATTRIBUTES__ (EXTERNAL);
+
+

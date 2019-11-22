@@ -1,0 +1,124 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/dragdrop.whlib"
+         gid="dragdrop">
+
+  <screen name="frametest" title="Frame testing parent">
+    <body>
+    </body>
+  </screen>
+
+  <screen name="subwindow" title="Frame testing"
+          allowresize="true" savestate="size"
+          implementation="none"
+           width="200px" height="200px">
+    <body name="subwindow_body">
+      <split name="split_horizontal" type="horizontal" width="1pr" height="1pr">
+        <part name="split_left" width="1pr" />
+        <part name="split_middle" width="2pr" minwidth="20px">
+          <split name="split_vertical" type="vertical" width="1pr" height="1pr">
+            <part name="split_top" height="1pr" />
+            <part name="split_bottom" height="1pr" />
+          </split>
+        </part>
+        <part name="split_right" width="1pr" />
+      </split>
+    </body>
+  </screen>
+
+  <screen name="listtest" title="List drag test" allowresize="true" menubar="menubar">
+    <actions>
+      <action name="addrows" onexecute="doaddrows" title="A01 Add rows" />
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item action="addrows" />
+      </menu>
+    </menus>
+    <body>
+      <split type="vertical">
+        <part height="1pr">
+          <split type="horizontal">
+            <part width="1pr">
+              <list name="source"
+                    selectmode="multiple">
+                <column name="title" type="text" />
+              </list>
+            </part>
+            <part width="1pr">
+              <list name="target"
+                    selectmode="multiple"
+                    flags="canadd canlink">
+                <acceptdrops ondrop="ondropontarget">
+                  <accepttype type="local:type1" sourceflags="canmove" targetflags="canadd" dropeffects="move" />
+                  <accepttype type="local:type1" targetflags="canadd" dropeffects="copy" />
+                  <accepttype type="local:type2" targetflags="canadd" dropeffects="copy" requiretarget="1" />
+                  <accepttype type="local:type2" targetflags="canlink" dropeffects="link" requiretarget="1" />
+                </acceptdrops>
+                <column name="title" type="text" />
+              </list>
+            </part>
+          </split>
+        </part>
+        <part height="1pr">
+          <split type="horizontal">
+            <part width="1pr">
+              <list name="tree"
+                    selectmode="single"
+                    flags="caninsertbefore canappendchild">
+                <acceptdrops ondrop="ondropontree">
+                  <accepttype type="local:type3" noloops="true" />
+                  <accepttype type="local:type2" />
+                  <accepttype type="local:type1" dropeffects="copy move link" />
+                  <accepttype type="local:type1" dropeffects="copy move link" locations="position" insertbeforeflags="caninsertbefore" appendchildflags="canappendchild" />
+                </acceptdrops>
+                <column name="title" type="text" tree="true" />
+              </list>
+            </part>
+            <part width="1pr">
+              <textarea name="log" height="1pr" />
+            </part>
+          </split>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="multitest" allowresize="true" title="all components dragdrop test">
+    <body>
+      <heading title="list" />
+      <list name="clist"
+            selectmode="single">
+        <acceptdrops ondrop="onlistdrop">
+          <accepttype type="local:type1" dropeffects="copy move link" />
+          <acceptfile />
+        </acceptdrops>
+        <column name="title" type="text" title="title" />
+      </list>
+      <heading title="table" />
+      <table name="ctable" height="10x">
+        <acceptdrops ondrop="ontabledrop">
+          <accepttype type="local:type1" dropeffects="copy move link" />
+          <acceptfile />
+        </acceptdrops>
+      </table>
+      <heading title="panel" />
+      <panel name="cpanel" height="10x" borders="all">
+        <acceptdrops ondrop="onpaneldrop">
+          <accepttype type="local:type1" dropeffects="copy move link" />
+          <acceptfile />
+        </acceptdrops>
+      </panel>
+      <heading title="log" />
+      <textarea name="log" title="" />
+    </body>
+  </screen>
+
+  <screen name="subscreen" allowresize="true">
+    <body>
+      <panel name="toppart" height="1pr" />
+      <panel name="bottompart" height="1pr" />
+    </body>
+  </screen>
+
+</screens>

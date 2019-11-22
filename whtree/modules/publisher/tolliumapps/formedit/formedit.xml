@@ -1,0 +1,325 @@
+<screens
+    xmlns="http://www.webhare.net/xmlns/tollium/screens"
+    xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+    library="formedit.whlib"
+    gid="tolliumapps.formedit">
+
+  <screen
+      name="editor"
+      icon="tollium:files/application_x-webhare-survey"
+      menubar="menubar"
+      flags="isdirty issinglepage showdevoptions canedit canviewresults"
+      allowresize="true">
+    <actions>
+      <action name="settings" onexecute="dosettings" frameflags="canedit" />
+      <action name="showresults" onexecute="doshowresults" frameflags="canviewresults" />
+
+      <action name="addpage" onexecute="doaddpage" frameflags="canedit !issinglepage" />
+      <action name="addgroup" onexecute="doaddgroup" frameflags="canedit">
+        <enableon source="questions" min="1" max="1" checkflags="canaddgroups" />
+      </action>
+      <action name="addquestion" onexecute="doaddquestion" frameflags="canedit">
+        <enableon source="questions" min="1" max="1" checkflags="canaddquestions" />
+      </action>
+      <action name="duplicate" onexecute="doduplicatequestion" frameflags="canedit" tid="~duplicate">
+        <enableon source="questions" min="1" max="1" checkflags="canduplicate" />
+      </action>
+      <action name="addtext" onexecute="doaddtext" frameflags="canedit">
+        <enableon source="questions" min="1" max="1" checkflags="canaddtexts" />
+      </action>
+      <action name="addhandler" onexecute="doaddhandler" frameflags="canedit" />
+      <action name="edititem" tid="tollium:common.actions.edit" frameflags="canedit">
+        <enableon source="questions" min="1" max="1" checkflags="caneditrow ispage" onexecute="doeditpage" />
+        <enableon source="questions" min="1" max="1" checkflags="caneditrow isquestion" onexecute="doeditquestion" />
+        <enableon source="questions" min="1" max="1" checkflags="caneditrow ishandler" onexecute="doedithandler" />
+      </action>
+      <action name="deleteitem" tid="tollium:common.actions.delete" onexecute="dodeleteitem" frameflags="canedit">
+        <enableon source="questions" min="1" checkflags="candelete" />
+      </action>
+      <action name="movetotop" frameflags="canedit" tid="~totop">
+        <enableon source="questions" min="1" max="1" checkflags="canmoveup" onexecute="domovetotop" />
+      </action>
+      <action name="moveup" tid="~up" frameflags="canedit">
+        <enableon source="questions" min="1" max="1" checkflags="canmoveup" onexecute="domoveup" />
+      </action>
+      <action name="movedown" tid="~down" frameflags="canedit">
+        <enableon source="questions" min="1" max="1" checkflags="canmovedown" onexecute="domovedown" />
+      </action>
+      <action name="movetobottom" tid="~tobottom" frameflags="canedit">
+        <enableon source="questions" min="1" max="1" checkflags="canmovedown" onexecute="domovetobottom" />
+      </action>
+
+      <action name="editsource" onexecute="doeditsource" frameflags="canedit showdevoptions" shortcut="ctrl+u" />
+      <helpaction name="help" manual="publisher/forms" tid="~help" languages="nl"/>
+      <action name="importwebpack" onexecute="doimportwebpack" frameflags="canedit" />
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item name="additem" tid="tollium:common.actions.add">
+          <item action="addpage" />
+          <item action="addgroup" />
+          <divider/>
+          <item action="addquestion" />
+          <item action="addtext" />
+          <divider/>
+          <item action="addhandler" />
+        </item>
+        <item action="edititem" />
+        <item action="duplicate" />
+        <item action="deleteitem" name="deletemenu" tid="tollium:common.actions.delete" />
+        <divider />
+        <item name="settingsitem" action="settings" tid=".settings" />
+        <item action="importwebpack" tid=".importwebpack" name="importwebpackitem"/>
+        <item action="showresults" name="showresultsbutton" tid=".showresults" />
+        <divider />
+        <item title="#####" visible="false" /><!-- The insertion point for editor extension menu items -->
+        <divider />
+        <item name="developersmenu" tid="publisher:tolliumapps.editdocument.editdocumentapp.developersmenu">
+          <item action="editsource" />
+        </item>
+        <item action="help" />
+      </menu>
+      <menu name="questioncontext">
+        <item action="addgroup" disablemode="hidden" tid=".addgroupmenu"/>
+        <item action="addquestion" disablemode="hidden" tid=".addquestionmenu"/>
+        <item action="edititem" disablemode="hidden"/>
+        <item action="duplicate" disablemode="hidden"/>
+        <divider/>
+        <item action="movetotop" disablemode="hidden" />
+        <item action="moveup" disablemode="hidden" />
+        <item action="movedown" disablemode="hidden" />
+        <item action="movetobottom" disablemode="hidden" />
+        <divider/>
+        <item action="deleteitem" disablemode="hidden"/>
+      </menu>
+      <menu name="questioncontextnew">
+        <item tid="tollium:common.actions.add">
+          <item action="addpage" disablemode="hidden"/>
+          <item action="addquestion" disablemode="hidden"/>
+          <item action="addtext" disablemode="hidden" />
+        </item>
+        <item action="showresults"/>
+      </menu>
+    </menus>
+    <toolbar name="toolbar">
+      <button name="addbutton" tid="tollium:common.actions.add" menu="additem" icon="tollium:actions/add" />
+      <button name="editbutton" action="edititem" tid="tollium:common.actions.edit" icon="tollium:actions/edit" />
+      <button name="deletebutton" tid="tollium:common.actions.delete" action="deleteitem" icon="tollium:actions/trash" />
+      <divider />
+      <button name="settingsbutton" tid=".settings" action="settings" icon="tollium:tools/tools" />
+      <divider />
+      <button name="resultsbuttons" tid=".showresults" action="showresults" icon="tollium:reporting/statistics" />
+    </toolbar>
+    <body>
+      <split type="horizontal" height="1pr" >
+        <part width="1pr" borders="bottom" minwidth="400px">
+          <panel backgroundcolor="#f0f0f0" height="1gr" borders="bottom">
+            <line layout="tabs-space">
+              <spacer />
+              <buttongroup layout="horizontal" borders="left" name="sortbuttonsgroup">
+                <button title="" name="movetotopbutton" action="movetotop" icon="tollium:actions/to_top" type="icon" hinttid=".movetotophint" />
+                <button title="" name="moveupbutton" action="moveup" icon="tollium:actions/up" type="icon" hinttid=".moveuphint" />
+                <button title="" name="movedownbutton" action="movedown" icon="tollium:actions/down" type="icon" hinttid=".movedownhint"/>
+                <button title="" name="movetobottombutton" action="movetobottom" icon="tollium:actions/to_bottom" type="icon" hinttid=".movetobottomhint" />
+              </buttongroup>
+            </line>
+          </panel>
+          <list
+              name="questions"
+              selectcontextmenu="questioncontext"
+              newcontextmenu="questioncontextnew"
+              selectmode="multiple"
+              rowselect="true"
+              openaction="edititem"
+              icons="tollium:status/required tollium:status/pinned tollium:status/conditionalrequired tollium:actions/save"
+              sortable="false"
+              flags="canaddgroups canaddquestions canaddtexts canaddhandlers candelete caneditrow canmoveup canmovedown isform ispage isgroup isquestion istext ishandler isselectable intextpage ingroup canduplicate"
+              selectableflags="isselectable"
+              columnheaders="false"
+              borders="none"
+              height="1pr">
+            <acceptdrops ondrop="ondropitems">
+              <!-- Pages can only be inserted _before_ other pages. The thank you page is last, so pages cannot be moved past
+                   the thank you page. The thank you page itself is not moveable. -->
+              <accepttype
+                  type="local:page"
+                  frameflags="canedit"
+                  targetflags="ispage"
+                  insertbeforeflags="ispage"
+                  appendchildflags="false"
+                  requiretarget="true"
+                  locations="position"
+                  dropeffects="move" />
+
+              <!-- Non-text groups can only be added to non-text pages (i.e. not to the thank you page) -->
+              <accepttype
+                  type="local:group"
+                  frameflags="canedit"
+                  sourceflags="!istext"
+                  targetflags="ispage canaddquestions"
+                  requiretarget="true"
+                  locations="ontarget"
+                  dropeffects="move" />
+              <!-- Text groups can be added to all pages -->
+              <accepttype
+                  type="local:group"
+                  frameflags="canedit"
+                  sourceflags="istext"
+                  targetflags="ispage"
+                  requiretarget="true"
+                  locations="ontarget"
+                  dropeffects="move" />
+              <!-- Text groups on text pages only accept text groups -->
+              <accepttype
+                  type="local:group"
+                  frameflags="canedit"
+                  sourceflags="istext"
+                  targetflags="istext intextpage !ingroup"
+                  insertbeforeflags="istext intextpage !ingroup"
+                  appendchildflags="ispage !canaddquestions"
+                  requiretarget="true"
+                  locations="position"
+                  dropeffects="move" />
+              <!-- All groups on non-text pages accept all groups -->
+              <accepttype
+                  type="local:group"
+                  frameflags="canedit"
+                  targetflags="isquestion !intextpage !ingroup"
+                  insertbeforeflags="isquestion !intextpage !ingroup"
+                  appendchildflags="ispage canaddquestions"
+                  requiretarget="true"
+                  locations="position"
+                  dropeffects="move" />
+
+              <!-- Non-text questions can only be added to non-text pages (i.e. not to the thank you page) -->
+              <accepttype
+                  type="local:question"
+                  frameflags="canedit"
+                  sourceflags="!istext"
+                  targetflags="ispage canaddquestions"
+                  requiretarget="true"
+                  locations="ontarget"
+                  dropeffects="copy move" />
+              <!-- Text questions can be added to all pages -->
+              <accepttype
+                  type="local:question"
+                  frameflags="canedit"
+                  sourceflags="istext"
+                  targetflags="ispage"
+                  requiretarget="true"
+                  locations="ontarget"
+                  dropeffects="copy move" />
+              <!-- Non-text questions can only be added to non-text groups (i.e. not to groups on the thank you page) -->
+              <accepttype
+                  type="local:question"
+                  frameflags="canedit"
+                  sourceflags="!istext"
+                  targetflags="isgroup canaddquestions"
+                  requiretarget="true"
+                  locations="ontarget"
+                  dropeffects="copy move" />
+              <!-- Text questions can be added to all groups -->
+              <accepttype
+                  type="local:question"
+                  frameflags="canedit"
+                  sourceflags="istext"
+                  targetflags="isgroup"
+                  requiretarget="true"
+                  locations="ontarget"
+                  dropeffects="copy move" />
+              <!-- Text questions on text pages only accept text questions -->
+              <accepttype
+                  type="local:question"
+                  frameflags="canedit"
+                  sourceflags="istext"
+                  targetflags="istext intextpage"
+                  insertbeforeflags="istext intextpage"
+                  appendchildflags="ispage !canaddquestions"
+                  requiretarget="true"
+                  locations="position"
+                  dropeffects="copy move" />
+              <!-- All questions on non-text pages accept all questions -->
+              <accepttype
+                  type="local:question"
+                  frameflags="canedit"
+                  targetflags="isquestion !intextpage"
+                  insertbeforeflags="isquestion !intextpage"
+                  appendchildflags="ispage canaddquestions"
+                  requiretarget="true"
+                  locations="position"
+                  dropeffects="copy move" />
+            </acceptdrops>
+            <column name="title" title="" iconname="type" iconoverlayname="overlay" type="text" tree="true" />
+            <column name="icons" title="" type="icons" hintname="icons_hint" width="10x" align="right" />
+            <style name="form" bold="true" />
+            <style name="inactive" textcolor="#808080" />
+          </list>
+        </part>
+        <part width="2pr">
+          <panel height="1pr"/>
+          <grid height="411px">
+            <cell width="1pr">
+            </cell>
+            <cell width="411px">
+              <image value="tollium:tollium/rabbitplaceholder" height="411px" width="411px"/>
+            </cell>
+            <cell width="1pr">
+            </cell>
+          </grid>
+          <panel height="1pr"/>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="settings" gid=".settings" allowresize="true" savestate="size">
+    <body spacers="none">
+      <tabs name="tabs" type="regular" height="1pr">
+        <tab name="general" spacers="all">
+          <heading tid=".storeresults" />
+          <lines layout="left">
+            <select name="overwritestoreresults" rowkeytype="boolean" title="" type="radio">
+              <option rowkey="false" tid="~defaultvalue" />
+              <option rowkey="true" tid=".overwritestoreresults">
+                <textedit
+                    name="storeresults"
+                    title=""
+                    errorlabeltid=".storeresults"
+                    valuetype="integer"
+                    emptyvalue="-1"
+                    minvalue="0"
+                    maxvalue="99999"
+                    width="6x"
+                    required="true" />
+                <text title="" valuetid="~units.days" />
+                  </option>
+            </select>
+            <text name="cannotsaveresults" title="" valuetid=".cannotsaveresults"/>
+          </lines>
+
+          <hr name="storeresultsdivider" />
+          <panel name="other_settings">
+            <line layout="left">
+              <!-- Please note: you cannot enable spamchecks - that's determined by siteprofile (<formintegration usecaptcha>)
+                   and potentially disabled by <captchaintegration skipfunction>. but you can _disable_ it, which is why
+                   we're using the normally discouraged negative form here -->
+              <checkbox title="" name="disablecaptcha" labeltid=".disablecaptcha" />
+            </line>
+            <spacer name="settings_insertpoint" visible="false" />
+            <!-- insert position="settings" where="after" -->
+          </panel>
+        </tab>
+        <tab name="availabilitytab" spacers="all">
+          <line layout="left">
+            <checkbox name="available" title="" labeltid=".available" onchange="onavailablechange" />
+          </line>
+          <heading tid=".unavailabletext" />
+          <richdocument name="unavailabletext" height="1pr" errorlabeltid=".unavailabletext" required="true" width="1pr" minwidth="120x" minheight="8x"/>
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+</screens>

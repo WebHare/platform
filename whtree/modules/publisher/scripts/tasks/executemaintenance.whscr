@@ -1,0 +1,121 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+
+OBJECT trans;
+trans := OpenPrimary();
+
+//ADDME: Deal with race conditions due to tasks 'just' completing (or find better ways to 'enforce' proper scheduled icons)
+MACRO CheckScheduledTasks()
+{
+  trans->BeginWork();
+
+  /////////////////////////////////////////////////////////////////////
+  // Get a list of all scheduled tasks
+  RECORD ARRAY tasks := SELECT * FROM publisher.schedule;
+
+  /////////////////////////////////////////////////////////////////////
+  // Make sure all files listed in 'tasks' are marked as scheduled
+  FOREVERY(RECORD task FROM tasks)
+  {
+    RECORD badfile := SELECT * FROM system.fs_objects WHERE id = task.file AND TestFlagFromPublished(published, PublishedFlag_Scheduled) = FALSE;
+    IF (RecordExists(badfile))
+    {
+      UPDATE system.fs_objects SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, TRUE) WHERE id=task.file;
+      PRINT("File #" || task.file || " had a pending task, but seemed to be incorrectly not marked with a scheduled task icon\n");
+      GetWHFSCommitHandler()->ObjectUpdate(badfile.parentsite, badfile.parent, badfile.id);
+    }
+  }
+
+  /////////////////////////////////////////////////////////////////////
+  // Make sure no files are marked as scheduled that don't really have a schedule
+  RECORD ARRAY scheduled_files := SELECT * FROM system.fs_objects
+                                          WHERE published >= PublishedFlag_Scheduled //this criterium just helps the database optimizer weed out improbable matches
+                                                AND TestFlagFromPublished(published, PublishedFlag_Scheduled) = TRUE
+                                                AND NOT RecordExists(SELECT FROM tasks WHERE tasks.file = fs_objects.id);
+
+  FOREVERY(RECORD file FROM scheduled_files)
+  {
+    PRINT("File #" || file.id || " had no pending tasks, but seemed to be incorrectly marked with a scheduled task icon\n");
+    UPDATE system.fs_objects SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, FALSE) WHERE id=file.id;
+    GetWHFSCommitHandler()->ObjectUpdate(file.parentsite, file.parent, file.id);
+  }
+
+  trans->CommitWork();
+}
+
+MACRO CheckPublicDrafts()
+{
+  trans->BeginWork();
+
+  INTEGER ARRAY files_with_public_drafts :=
+      SELECT AS INTEGER ARRAY DISTINCT filelink
+        FROM system.fs_objects
+       WHERE parent = whconstant_whfsid_publicdrafts;
+
+  RECORD ARRAY badfiles :=
+      SELECT id
+           , parent
+           , parentsite
+        FROM system.fs_objects
+       WHERE id IN files_with_public_drafts
+         AND NOT TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
+
+  badfiles := badfiles CONCAT
+      SELECT id
+           , parent
+           , parentsite
+        FROM system.fs_objects
+       WHERE published >= PublishedFlag_HasPublicDraft //this criterium just helps the database optimizer weed out improbable matches
+         AND id NOT IN files_with_public_drafts
+         AND TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
+
+  FOREVERY (RECORD rec FROM badfiles)
+  {
+    IF (rec.id NOT IN files_with_public_drafts)
+      PRINT("File #" || rec.id || " had a public draft, but seemed to be incorrectly not marked with a draft icon\n");
+    ELSE
+      PRINT("File #" || rec.id || " has no public drafts, but seemed to be incorrectly marked with a draft icon\n");
+
+    UPDATE system.fs_objects
+       SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, id IN files_with_public_drafts)
+     WHERE id = rec.id;
+
+    GetWHFSCommitHandler()->ObjectUpdate(rec.parentsite, rec.parent, rec.id);
+  }
+
+  trans->CommitWork();
+}
+
+//Remove obsolete bundled assets from the database
+MACRO RemoveObsoleteBundledAssets()
+{
+  trans->BeginWork();
+  DELETE FROM system.assetpacks WHERE outputtag NOT LIKE "*:*";
+  trans->CommitWork();
+}
+
+MACRO RemoveObsoleteAutosaves()
+{
+  trans->BeginWork();
+  //We'll take the trashcan expiry limit for autosave too
+  INTEGER max_recycle_days := ReadRegistryKey("publisher.trashcan.trashcanexpire");
+  DATETIME cutoff := AddDaysToDate(-max_recycle_days, GetCurrentDatetime());
+  DELETE FROM system.fs_objects WHERE parent=14 AND modificationdate<cutoff;
+  trans->CommitWork();
+}
+
+CheckScheduledTasks();
+CheckPublicDrafts();
+RemoveObsoleteBundledAssets();
+RemoveObsoleteCacheFolders();
+RemoveObsoleteAutosaves();

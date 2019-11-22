@@ -1,0 +1,13 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_sequences.whscr" />
+  <test script="test_payment.whscr" />
+  <test script="test_payment_forms.whscr" />
+  <test script="test_ideal.whscr" tags="external" ifenvironset="TESTFW_IDEAL_MERCHANTID" />
+  <test script="test_ingenico.whscr" />
+  <test script="test_mollie.whscr" tags="external"/>
+  <test script="test_sisow.whscr" tags="external"/>
+  <test script="test_multisafepay.whscr" tags="external"/>
+  <test script="test_afterpay.whscr" tags="external"/>
+  <test script="test_spraypay.whscr" tags="external"/>
+  <test script="test_stripe.whscr" tags="external"/>
+</group>

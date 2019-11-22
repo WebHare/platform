@@ -1,0 +1,33 @@
+<?wh
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/remoting/client.whlib";
+
+PUBLIC STRING ARRAY FUNCTION GetWHServiceServers()
+{
+  STRING ARRAY hostnames := Tokenize(ReadRegistryKey("system.services.webhare.serviceshosts")," ");
+  RETURN SELECT AS STRING ARRAY "https://" || hostname || "/" FROM ToRecordArray(hostnames,"hostname") ORDER BY Random(1,65535);
+}
+
+PUBLIC VARIANT FUNCTION InvokeHostedWHService(STRING service, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  //ADDME check for connect failures (eg 0 and 4xx codes) and retry on a different hosted webhare service
+  INSERT GetWHServiceServers()[0] || "wh_services/webhare_services/" || service INTO args AT 0;
+  RETURN CallAnyPtrVA(PTR InvokeRemoteFunction, args);
+}
+
+OBJECT browser;
+
+PUBLIC OBJECT FUNCTION GetWebbrowserForWHServiceURL(STRING url)
+{
+  IF(NOT ObjectExists(browser))
+    browser := NEW WebBrowser;
+  IF(url LIKE "/*")
+    url := Substring(url,1);
+
+  STRING ARRAY serviceshosts := GetWHServiceServers();
+  FOREVERY(STRING host FROM serviceshosts)
+    IF(browser->GotoWebPage(host || url))
+      RETURN browser;
+  RETURN DEFAULT OBJECT;
+}

@@ -1,0 +1,61 @@
+<?wh
+LOADLIB "mod::tollium/lib/backgroundtask.whlib";
+PUBLIC OBJECTTYPE Search EXTEND TolliumBackgroundTask
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// String to search for
+  STRING searchfor;
+
+  /** List of search sources
+
+  */
+  RECORD ARRAY searchsources;
+
+  /** Results
+  */
+  RECORD ARRAY sourceresults;
+
+
+  MACRO Init(RECORD data)
+  {
+    this->searchfor := data.searchfor;
+    this->searchsources := data.searchsources;
+  }
+
+
+  PUBLIC MACRO Run()
+  {
+    RECORD ARRAY sourceresults;
+    FOREVERY (RECORD source FROM this->searchsources)
+    {
+      // Let it throw
+      OBJECT obj := MakeObject(source.library, source.objname);
+      obj->Init(source.data);
+      INSERT CELL obj := obj INTO this->searchsources[#source];
+    }
+
+    FOREVERY (RECORD source FROM this->searchsources)
+    {
+      // Retrieve the results
+      RECORD ARRAY results;
+
+      this->status :=
+          [ progress := 5 + (95m * #source) / LENGTH(this->searchsources)
+          , status   := source.obj->searchtitle
+          ];
+
+      results := source.obj->Search(this->searchfor);
+
+      INSERT
+        [ sourceid := source.sourceid
+        , results  := results
+        , pos      := LENGTH(results)
+        ] INTO sourceresults AT END;
+    }
+
+    this->result := [ sourceresults := sourceresults ];
+  }
+>;

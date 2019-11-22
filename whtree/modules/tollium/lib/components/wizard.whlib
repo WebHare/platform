@@ -1,0 +1,280 @@
+<?wh
+LOADLIB "mod::tollium/lib/components/panel.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+PUBLIC OBJECTTYPE TolliumWizard EXTEND TolliumPanel
+<
+  OBJECT tabs;
+  RECORD ARRAY pages;
+  OBJECT tabspanel;
+  OBJECT bottompanel;
+  OBJECT prevbutton;
+  OBJECT pvt_nextbutton;
+  OBJECT cancelbutton;
+  BOOLEAN cancelbutton_visible;
+  BOOLEAN pvt_curpagefinish;
+
+  RECORD ARRAY pagestack;
+
+  //have we done postinit yet? quick wrokaround to let GotoPage work when called from a screen's Init()
+  BOOLEAN done_postinit;
+  //initial page to open in PostInit
+  OBJECT initialpage;
+  OBJECT pvt_nextpage;
+
+  /** @short The next page we'll jump to (used only for 'onnext' handlers) */
+  PUBLIC PROPERTY nextpage(pvt_nextpage, SetNextPage);
+  PUBLIC RECORD nextpagedata;
+
+  PUBLIC PROPERTY nextbutton(pvt_nextbutton,-);
+  PUBLIC PROPERTY currentpage(GetCurrentPage,-);
+  PUBLIC PROPERTY currentpagedata(GetCurrentPageData,-);
+  PUBLIC PROPERTY currentpageisfinal(pvt_curpagefinish, SetCurrentPagefinish); //FIXME DEPRECATED
+
+  PUBLIC PROPERTY currentpageisfinish(pvt_curpagefinish, SetCurrentPagefinish);
+  PUBLIC PROPERTY hidecancel(GetHideCancel, SetHideCancel);
+
+  PUBLIC PROPERTY pagelist(pages, SetPageList);
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    this->TolliumComponentBase_StaticInit(def);
+    this->cancelbutton_visible := NOT def.hidecancel;
+
+    this->pages := SELECT pagepanel := component
+                        , isfinish
+                        , onnext
+                        , oninit
+                     FROM def.pages;
+  }
+
+  UPDATE PUBLIC MACRO PreinitComponent()
+  {
+    this->tabs := this->CreateSubComponent("tabs");
+    this->tabs->type := "server";
+    this->tabs->height := "1pr"; // allow wizard's content to grow to fit it's container (usually a dialog)
+
+    FOREVERY(RECORD page FROM this->pages)
+    {
+      page.pagepanel->RemoveFromParent(); //just a fluke, they were never inserted anyway
+      this->tabs->InsertPanelAsTab(#page, page.pagepanel);
+    }
+
+    this->prevbutton := this->CreateSubComponent("button");
+    this->prevbutton->title := "\xE2\x80\xB9\xE2\x80\xB9 " || GetTid("tollium:common.actions.previous");
+    this->prevbutton->action := this->CreateSubComponent("action");
+    this->prevbutton->action->onexecute := PTR this->GotoPreviousPage;
+
+    this->pvt_nextbutton := this->CreateSubComponent("button");
+    this->pvt_nextbutton->action := this->CreateSubComponent("action");
+    this->pvt_nextbutton->action->onexecute := PTR this->GotoNextPage;
+
+    this->cancelbutton := this->CreateSubComponent("button");
+    this->cancelbutton->title := GetTid("tollium:common.actions.cancel");
+    this->cancelbutton->tolliumresult := "tollium_cancel";
+    this->cancelbutton->visible := this->cancelbutton_visible;
+
+    this->tabspanel := this->CreateSubComponent("panel");
+    this->tabspanel->height := "1pr";
+    this->tabspanel->spacers := [ "left" := TRUE, "right" := TRUE, "top" := TRUE, "bottom" := TRUE ];
+    this->tabspanel->InsertLinesAfter(
+                           [ [ items := [ this->tabs ]
+                             , linesettings := [ layout := "left" ]
+                             ]
+                           ], DEFAULT OBJECT);
+
+    this->bottompanel := this->CreateSubComponent("panel");
+    this->bottompanel->isfooter := TRUE;
+    this->bottompanel->spacers := [ "left" := TRUE, "right" := TRUE, "top" := TRUE, "bottom" := TRUE ];
+    this->bottompanel->InsertLinesAfter(
+                           [ [ items := [ this->prevbutton, this->pvt_nextbutton, this->cancelbutton ]
+                             , linesettings := [ layout := "right" ]
+                             ]
+                           ], DEFAULT OBJECT);
+
+    this->InsertLinesAfter([ [ items := [ this->tabspanel ]
+                             ]
+                           , [ items := [ this->bottompanel ]
+                             ]
+                           ], DEFAULT OBJECT);
+  }
+
+  UPDATE PUBLIC MACRO PostInitComponent()
+  {
+    this->done_postinit := TRUE;
+
+    IF(ObjectExists(this->initialpage))
+      this->GotoPage(this->initialpage);
+    ELSE
+      this->GotoPage(this->pages[0].pagepanel);
+
+    this->initialpage := DEFAULT OBJECT;
+  }
+
+  MACRO SetPageList(RECORD ARRAY newpages)
+  {
+    OBJECT ARRAY current_pages := SELECT AS OBJECT ARRAY pagepanel FROM this->pages;
+
+    FOREVERY(RECORD page FROM this->pages)
+      page.pagepanel->RemoveFromParent();
+
+    this->pages := DEFAULT RECORD ARRAY;
+    FOREVERY(RECORD page FROM (SELECT pagepanel, isfinish, oninit, onnext FROM newpages))
+    {
+      INTEGER listpos := SearchElement(current_pages, page.pagepanel);
+      IF(listpos != -1)
+        DELETE FROM current_pages AT listpos;
+
+      page.pagepanel->RemoveFromParent();
+      this->tabs->InsertPanelAsTab(#page, page.pagepanel);
+      INSERT page INTO this->pages AT END;
+    }
+
+    this->GotoPage(this->pages[0].pagepanel);
+    this->ClearPageHistory();
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+
+  OBJECT FUNCTION GetCurrentPage()
+  {
+    RETURN this->pagestack[Length(this->pagestack)-1].page;
+  }
+
+  RECORD FUNCTION GetCurrentPageData()
+  {
+    RETURN this->pagestack[Length(this->pagestack)-1].pagedata;
+  }
+
+  BOOLEAN FUNCTION GetHideCancel()
+  {
+    RETURN NOT this->cancelbutton_visible;
+  }
+  MACRO SetHideCancel(BOOLEAN hidecancel)
+  {
+    this->cancelbutton_visible := NOT hidecancel;
+    this->cancelbutton->visible := this->cancelbutton_visible;
+  }
+
+  MACRO SetCurrentPagefinish(BOOLEAN isfinish)
+  {
+    this->pvt_curpagefinish := isfinish;
+    this->pvt_nextbutton->title := isfinish ? GetTid("tollium:common.actions.finish")
+                                           : GetTid("tollium:common.actions.next") ||  " \xE2\x80\xBA\xE2\x80\xBA";
+  }
+
+  PUBLIC MACRO GotoPreviousPage()
+  {
+    IF(Length(this->pagestack)<=1)
+      RETURN;
+
+    DELETE FROM this->pagestack AT Length(this->pagestack)-1;
+    this->FinishSetPage();
+  }
+
+  PUBLIC MACRO GotoNextPage()
+  {
+    this->EnsurePostInit();
+    INTEGER curpage := this->GetPageNum();
+    IF(curpage<0)
+      RETURN;
+
+    INTEGER page := curpage;
+    IF(this->currentpageisfinish)
+    {
+      this->owner->TolliumExecuteSubmit();
+      RETURN;
+    }
+
+    FOR(page := page + 1;page < Length(this->pages);page:=page+1)
+    {
+      OBJECT panel := this->pages[page].pagepanel;
+      IF(NOT panel->visible)
+        CONTINUE;
+
+      IF(Length(panel->visibleon)>0)
+      {
+        BOOLEAN show := FALSE;
+        FOREVERY (RECORD rec FROM panel->visibleon)
+          IF (rec.source->EnabledOn(rec.min, rec.max, rec.checkflags, rec.selectionmatch))
+            show := TRUE;
+        IF(NOT show)
+          CONTINUE;
+      }
+      BREAK; //every page satisfies right now
+    }
+
+    IF(page>=Length(this->pages)) //no more pages!
+      RETURN;
+
+    this->nextpage := this->pages[page].pagepanel;
+    this->nextpagedata := DEFAULT RECORD;
+
+    IF(this->pages[curpage].onnext != DEFAULT FUNCTION PTR)
+      IF (NOT this->pages[curpage].onnext()) // FIXME: If the onnext function is a MACRO instead of a BOOLEAN FUNCTION: Cannot convert type 'INTEGER' to type 'BOOLEAN'
+        RETURN; //Next was cancelled...
+
+    INSERT [ page := this->nextpage, pagedata := this->nextpagedata ] INTO this->pagestack AT END;
+    this->FinishSetPage();
+  }
+
+  MACRO SetNextPage(OBJECT nextpage)
+  {
+    IF(NOT RecordExists(SELECT FROM this->pages WHERE pagepanel=nextpage))
+      THROW NEW TolliumException(this, "Object '" || nextpage->name || "' is not a page of wizard '" || this->name || "'");
+    this->pvt_nextpage := nextpage;
+  }
+
+  /** @short Goto a specified page, pushing it on the stack
+      @long Send a user to the specified page in the wizard. The back button will send him back to the current page. Using this function inside an "onnext" handler is not recommended - update the nextpage property instead
+  */
+  PUBLIC MACRO GotoPage(OBJECT nextpage)
+  {
+    IF(NOT RecordExists(SELECT FROM this->pages WHERE pagepanel=nextpage))
+      THROW NEW TolliumException(this, "Object '" || nextpage->name || "' is not a page of wizard '" || this->name || "'");
+
+    IF(NOT this->done_postinit) //too soon
+    {
+      this->initialpage := nextpage;
+      RETURN;
+    }
+
+    INSERT [ page := nextpage, pagedata := DEFAULT RECORD ] INTO this->pagestack AT END;
+    this->FinishSetPage();
+  }
+
+  PUBLIC MACRO ClearPageHistory()
+  {
+    FOR(INTEGER tokill := Length(this->pagestack)-2; tokill >= 0; tokill := tokill - 1)
+      DELETE FROM this->pagestack AT tokill;
+
+    this->prevbutton->enabled := Length(this->pagestack)>1;
+  }
+
+  MACRO FinishSetPage()
+  {
+    this->prevbutton->enabled := Length(this->pagestack)>1;
+    INTEGER pagenum := this->GetPageNum();
+
+    this->tabs->selectedtab := this->pages[pagenum].pagepanel;
+    this->SetCurrentPagefinish(this->pages[pagenum].isfinish);
+
+    IF(this->pages[pagenum].oninit != DEFAULT FUNCTION PTR)
+      this->pages[pagenum].oninit(this->pagestack[Length(this->pagestack)-1].pagedata);
+  }
+
+  INTEGER FUNCTION GetPageNum()
+  {
+    OBJECT curpage := this->pagestack[Length(this->pagestack)-1].page;
+    RETURN (SELECT AS INTEGER (#pages+1) FROM this->pages AS pages WHERE pagepanel=curpage)-1;
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    this->tabs->ValidateValue(work);
+  }
+>;

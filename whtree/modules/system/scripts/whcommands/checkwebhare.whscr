@@ -1,0 +1,15 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/validator.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+OpenPrimary();
+
+//Run any systemwide checks, such as siteprofile validation consistency
+RECORD res := ValidateSiteProfiles();
+IF(Length(res.errors)>0)
+{
+  DumpValue(res.errors, [ name := "Siteprofile validation errors", format := "boxed" ]);
+  SetConsoleExitCode(1);
+}
+

@@ -1,0 +1,157 @@
+<?wh
+/** @short User & rights api
+    @long This library gives access to the new users, roles and rights api
+    @topic modules/rights
+*/
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib" EXPORT ObjectTypeDescriber;
+LOADLIB "mod::wrd/lib/internal/userapi.whlib";
+
+/** @short Get the WRD Auth plugin of the primary WebHare interface URL
+    @return(object mod::wrd/lib/internal/auth/webdesignplugin.whlib#WRDAuthPlugin) Requested authentication plugin, or throws if none available */
+PUBLIC OBJECT FUNCTION GetPrimaryWebhareAuthPlugin()
+{
+  FUNCTION PTR getwebcontext := MakeFunctionPtr("mod::publisher/lib/siteprofiles.whlib","GETWEBCONTEXT",TYPEID(OBJECT),[TYPEID(INTEGER)]);
+  OBJECT wrdauthplugin := getwebcontext(16)->GetWRDAuthPlugin();
+  IF(NOT ObjectExists(wrdauthplugin))
+    THROW NEW Exception("Unable to retrieve the WebHare backend wrdauthplugin");
+  RETURN wrdauthplugin;
+}
+
+/** @short Get the user api of the primary WebHare interface URL
+    @return @includecelldef #GetWRDAuthUserAPI.return
+*/
+PUBLIC OBJECT FUNCTION GetPrimaryWebhareUserApi()
+{
+  OBJECT primaryplugin := GetPrimaryWebhareAuthPlugin();
+  RETURN GetWRDAuthUserAPI(primaryplugin->wrdschema);
+}
+
+/** @short Require the current request to be from a loggedin WebHare user
+    @return Loggedin user (throws if not logged in) */
+PUBLIC OBJECT FUNCTION RequireLoggedinWebHareUser()
+{
+  OBJECT wrdauthplugin := GetPrimaryWebhareAuthPlugin();
+  IF(NOT ObjectExists(wrdauthplugin))
+    THROW NEW Exception("This application requires a configured WRDAUTH plugin");
+
+  OBJECT currentuser := wrdauthplugin->RequireExternalLoggedinUser(); //the authentication login may not be available for this URL
+  RETURN currentuser;
+}
+
+/** @short Get authobject id for an authobject guid
+    @param guid The wrd_guid to look up
+    @return Associated authobject id, or 0 if not found*/
+PUBLIC INTEGER FUNCTION GetAuthobjectIdByGuid(STRING guid)
+{
+  RETURN SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = VAR guid;
+}
+
+/** @short Get authobject ids for multiple authobject guids
+    @param guids Guids to look up
+    @return An array of ids. Unmatched guids are not returned. The ordering of this returned array is unspecified */
+PUBLIC INTEGER ARRAY FUNCTION GetAuthobjectIdsByGuid(STRING ARRAY guids)
+{
+  //Database does not yet optimize IN queries for strings, so we'll offer this endpoint and do it the fast way until we get potimized
+  INTEGER ARRAY result;
+  FOREVERY(STRING guid FROM guids)
+  {
+    INTEGER id := GetAuthobjectIdByguid(guid);
+    IF(id=0 OR id IN result)
+      CONTINUE;
+    INSERT id INTO result AT END;
+  }
+  RETURN result;
+}
+
+/** @short List authobjects which have a specific right
+    @param rightname Right to look up
+    @param obj Object to which the right should apply (if the right supports objects)
+    @cell(boolean) options.inherited Also look for grants applied to higher levels, if the objecttype supports parent/child relations (defaults to TRUE)
+    @cell(boolean) options.expandroles Expand role auth objects and also return all users inside the role
+    @return authobjectids which have the requested grant
+*/
+PUBLIC INTEGER ARRAY FUNCTION GetGrantedAuthObjects(STRING rightname, INTEGER obj, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ inherited := TRUE
+                              , expandroles := TRUE
+                              ], options);
+  INTEGER ARRAY grantees;
+
+  RECORD data := GetRightByNameInternal(rightname);
+  IF (NOT RecordExists(data))
+    THROW NEW Exception(`No such right '${rightname}`);
+
+  INTEGER ARRAY objs;
+
+  INSERT obj INTO objs AT END;
+  IF (options.inherited)
+  {
+    WHILE (obj != 0)
+    {
+      obj := GetParentObject(data.objecttypename, obj);
+      INSERT obj INTO objs AT END;
+    }
+  }
+
+  RECORD ARRAY worklist :=
+      [ [ rightid :=        data.rightid
+        , storagetable :=   data.storagetable
+        , objs :=           objs
+        ]
+      ];
+
+  WHILE (LENGTH(worklist) != 0)
+  {
+    RECORD ARRAY new_worklist;
+    FOREVERY (RECORD rec FROM worklist)
+    {
+      grantees := grantees CONCAT GetAllSpecificGranteesFor(rec.rightid, rec.storagetable, rec.objs);
+
+      IF (NOT options.inherited)
+        CONTINUE;
+
+      RECORD ARRAY impliedbys := GetImpliedBysById(rec.rightid);
+
+      // Put impliedbys in the worklist (might be more than one)
+      FOREVERY (RECORD r FROM impliedbys)
+      {
+        RECORD wlitem :=
+            [ rightid :=        r.rightid
+            , storagetable :=   r.storagetable
+            , objs :=           (r.storagetable = rec.storagetable ? rec.objs : DEFAULT INTEGER ARRAY)
+            ];
+        INSERT wlitem INTO new_worklist AT END;
+      }
+    }
+    worklist := new_worklist;
+  }
+
+  // Remove duplicates
+  grantees :=
+      SELECT AS INTEGER ARRAY id
+        FROM ToRecordArray(grantees, "ID")
+    GROUP BY id;
+
+  // Now we have the list of all user/roles that have this right.
+  // Apply role grants.
+  IF (options.expandroles)
+  {
+    WHILE (TRUE)
+    {
+      INTEGER ARRAY role_grantees :=
+          SELECT AS INTEGER ARRAY grantee
+            FROM system.rolegrants
+           WHERE role IN grantees
+             AND grantee NOT IN grantees;
+
+      IF (LENGTH(role_grantees) = 0)
+        BREAK;
+
+      grantees := grantees CONCAT role_grantees;
+    }
+  }
+
+  RETURN grantees;
+}

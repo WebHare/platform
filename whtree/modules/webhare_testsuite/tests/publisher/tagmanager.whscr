@@ -1,0 +1,146 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/tagmanager.whlib";
+
+
+MACRO PrepIt()
+{
+  testfw->BeginWork();
+  testfw->SetupTestWebdesignWebsite("");
+  testfw->CommitWork();
+}
+
+MACRO Creation()
+{
+  testfw->BeginWork();
+  OBJECT mgr := CreateTagFolder(testfw->GetTestSite()->rootobject, "tagfolder1", "");
+
+  TestEQ(DEFAULT RECORD ARRAY, mgr->GetAllRepositoryData());
+  TestEQ(DEFAULT STRING ARRAY, mgr->ListAllRepositories());
+
+  mgr->CreateRepository("repo1", "repo1-title");
+
+  TestEQ([ "repo1" ], mgr->ListAllRepositories());
+  INTEGER repo1_id := mgr->repositoryid;
+
+  TestEQ([ [ name := "repo1", title := "repo1-title", id := repo1_id ] ], mgr->GetAllRepositoryData());
+
+  INTEGER repo2 := mgr->CreateRepository("repo2", "repo2-title");
+  TestEQ([ "repo1", "repo2" ], mgr->ListAllRepositories());
+
+  TestEQ("repo2", mgr->repository);
+  mgr->SelectRepositoryByName("repo1");
+  TestEQ("repo1", mgr->repository);
+
+  mgr->DeleteRepository("repo2");
+  TestEQ([ "repo1" ], mgr->ListAllRepositories());
+
+  TestEQ("repo1", mgr->repository);
+
+  // Create tags in repo1
+  OBJECT tag1 := mgr->CreateTag("tag1");
+
+  TestEQ("tag1", tag1->tag);
+  TestEQ(tag1->id, mgr->GetTag("tag1")->id);
+  TestEQ("tag1", mgr->GetTagById(tag1->id)->tag);
+
+  OBJECT tag2 := mgr->CreateTag("tag2");
+
+  TestEQ([ "tag1", "tag2" ], mgr->ListTags());
+
+  TestEQ([ "tag1", "tag2" ], mgr->GetTagnamesByIDs([ INTEGER(tag1->id), tag2->id ]));
+  TestEQ([ INTEGER(tag1->id), tag2->id ], mgr->GetTagIDsByNames([ "tag1", "tag2" ]));
+
+  TestEQ([ "tag1", "tag2" ], mgr->GetTagnamesByIDs([ INTEGER(tag1->id), tag2->id ]));
+  TestEQ(
+      [ [ id := tag1->id, tag := "tag1" ]
+      , [ id := tag2->id, tag := "tag2" ]
+      ], mgr->GetAllTagData());
+
+  TestEQ([ INTEGER(tag1->id), tag2->id ], mgr->GetAllTagIds());
+
+  // Create tags in repo1
+  OBJECT tag3 := mgr->CreateTag("tag3");
+
+  TestEQ([ "tag1", "tag2", "tag3" ], mgr->ListTags());
+  tag3->RemoveFromRepository(repo1_id);
+
+  TestEQ([ "tag1", "tag2" ], mgr->ListTags());
+  TestEQ(0, tag3->id);
+
+  tag3->AddToRepository(repo1_id);
+  TestEQ([ "tag1", "tag2", "tag3" ], mgr->ListTags());
+
+  INTEGER repo3_id := mgr->CreateRepository("repo3", "repo3-title");
+  TestEQ([ "repo1", "repo3" ], mgr->ListAllRepositories());
+
+  tag3->AddToRepository(repo3_id);
+  TestEQ([ "tag3" ], mgr->ListTags());
+
+  mgr->SelectRepositoryByName("repo1");
+  TestEQ([ "tag1", "tag2", "tag3" ], mgr->ListTags());
+
+  tag3->RemoveFromRepository(repo1_id);
+  TestEQ([ "tag1", "tag2" ], mgr->ListTags());
+
+  mgr->SelectRepositoryByName("repo3");
+  TestEQ([ "tag3" ], mgr->ListTags());
+
+  mgr->TruncateRepository("repo3");
+  TestEQ(DEFAULT OBJECT, mgr->GetTag("tag3"));
+
+  mgr->tagfolder->RecycleSelf();
+
+  testfw->CommitWork();
+}
+
+MACRO DefaultTagging()
+{
+  testfw->BeginWork();
+  OBJECT root := testfw->GetTestSite()->rootobject;
+
+  OBJECT mgr := CreateTagFolder(testfw->GetTestSite()->rootobject, "tagfolder1", "repo1");
+  mgr->CreateRepository("repo2");
+  mgr->SelectRepositoryByName("repo1");
+
+  mgr->CreateTag("tag1");
+  mgr->CreateTag("tag2");
+  mgr->CreateTag("tag3");
+
+  OBJECT f1 := root->CreateFile([ name := "file1" ]);
+  OBJECT f2 := root->CreateFile([ name := "file2" ]);
+
+  mgr->SetWHFSObjectTags(f1->id, [ "tag1", "tag2" ]);
+  mgr->SetWHFSObjectTags(f2->id, [ "tag2", "tag3" ]);
+
+  TestEQ(1, mgr->CountOccurrencesForTag(mgr->GetTag("tag1")->id));
+  TestEQ(2, mgr->CountOccurrencesForTag(mgr->GetTag("tag2")->id));
+  TestEQ(1, mgr->CountOccurrencesForTag(mgr->GetTag("tag3")->id));
+
+  mgr->FixupRelationsForRepo("repo1");
+
+  TestEQ(
+      [ [ tag :=        "tag2"
+        , tagid :=      mgr->GetTag("tag2")->id
+        , occurences := 2
+        ]
+      , [ tag :=        "tag1"
+        , tagid :=      mgr->GetTag("tag1")->id
+        , occurences := 1
+        ]
+      , [ tag :=        "tag3"
+        , tagid :=      mgr->GetTag("tag3")->id
+        , occurences := 1
+        ]
+      ], mgr->GetUsageStatsForRepository());
+
+  testfw->RollbackWork();
+}
+
+
+RunTestframework([ PTR PrepIt
+                 , PTR Creation
+                 , PTR DefaultTagging
+                 ]);

@@ -1,0 +1,2259 @@
+<?wh
+/** @topic testframework/api */
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEQ, TestEqFloat, TestThrows, TestThrowsLike, TestRejected, TestEqLike, TestEqStructure, TestEqMembers, TestEqCSSColor, show_test_progress, TestFailException;
+
+LOADLIB "mod::consilio/lib/internal/testframework.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/testfw/emails.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/tasks.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/devtools/support.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
+LOADLIB "mod::system/lib/internal/remoting/restapisupport.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/registry.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/publishing-backend.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmedia/memory.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+///Name of the testmodule
+PUBLIC CONSTANT STRING testfw_testmodule := "webhare_testsuite_temp";
+
+CONSTANT STRING betatestport := "testframework.whlib created temporary test port";
+STRING disallowtestframework; // disallow access to testframework if filled with reason
+
+OBJECTTYPE EventListener
+< INTEGER ARRAY cbs;
+  STRING ARRAY gotevents;
+  MACRO NEW(STRING ARRAY eventmasks)
+  {
+    FOREVERY (STRING mask FROM eventmasks)
+      INSERT RegisterEventCallback(mask, PTR this->onevent) INTO this->cbs AT END;
+  }
+  MACRO OnEvent(STRING event, RECORD data)
+  {
+    INSERT event INTO this->gotevents AT END;
+  }
+  PUBLIC MACRO RequireEvent(STRING name)
+  {
+    DispatchCallbacks();
+    this->Close();
+
+    IF (name NOT IN this->gotevents)
+      THROW NEW Exception("Did not receive event '" || name || "'");
+  }
+  PUBLIC MACRO Close()
+  {
+    FOREVERY (INTEGER i FROM this->cbs)
+      UnregisterCallback(i);
+    this->cbs := DEFAULT INTEGER ARRAY;
+  }
+>;
+
+
+/** This objecttype provides facilities for waiting on specific events. It also allows
+    events expanding into new waits
+*/
+PUBLIC STATIC OBJECTTYPE AsyncEventWaiter
+<
+  // Deferred promise
+  RECORD result;
+
+  // List of event callbacks
+  INTEGER ARRAY eventcallbacks;
+
+  /// Timed callback
+  INTEGER timedcallback;
+
+  /** List of events
+      @cell eventname
+      @cell data
+  */
+  RECORD ARRAY storedevents;
+
+  /** @cell event
+      @cell conditiontest
+      @cell datatest
+      @cell expandfunction
+      @cell nextevent Index in storedevents of next event to test
+  */
+  RECORD ARRAY pendingwaits;
+
+  /// Exception to throw on timeout
+  OBJECT timeoutexception;
+
+  /// Whether the test function is running now
+  BOOLEAN testing;
+
+  /// Whether another loop in the test function is needed
+  BOOLEAN scheduletest;
+
+  /// Started wait
+  BOOLEAN startedwait;
+
+
+  /** Constructor
+      @cell options.masks Listen masks - should match all listen masks added later
+      @cell options.fataltimeout Whether a the timeout is fatal
+  */
+  MACRO NEW(RECORD options DEFAULTSTO CELL[])
+  {
+    options := ValidateOptions(
+        [ masks :=          [ "*" ]
+        , fataltimeout :=   TRUE
+        , timeout :=        AddTimeToDate(180 * 1000, GetCurrentDatetime())
+        ], options);
+
+    this->timeoutexception := options.fataltimeout ? NEW Exception("Got timeout waiting for events") : DEFAULT OBJECT;
+
+    FOREVERY (STRING mask FROM options.masks)
+      INSERT RegisterEventCallback(mask, PTR this->GotEvent) INTO this->eventcallbacks AT END;
+    this->timedcallback := RegisterTimedCallback(options.timeout, PTR this->GotTimeout);
+  }
+
+  /** Add a new event to wait for
+      @cell options.mask Event mask
+      @cell options.conditiontest BOOLEAN FUNCTION conditiontest() If returns false, events are ignored
+      @cell options.datatest BOOLEAN FUNCTION datatest(RECORD data) If returns data, events are ignored
+      @cell options.expandsfunction RECORD ARRAY FUNCTION expandsfunction(event, data) Returns a list of waits to add
+      @return This waiter, for chaining
+  */
+  PUBLIC OBJECT FUNCTION AddEvent(RECORD options)
+  {
+    IF (this->startedwait)
+      THROW NEW Exception("Cannot add extra wait events manually after wait has started");
+
+    this->AddEventInternal(options);
+    RETURN this;
+  }
+
+  MACRO AddEventInternal(RECORD options)
+  {
+    options := ValidateOptions(
+        [ mask :=           ""
+        , conditiontest :=    DEFAULT FUNCTION PTR
+        , datatest :=         DEFAULT FUNCTION PTR
+        , expandsfunction :=  DEFAULT FUNCTION PTR
+        ], options,
+        [ required :=       [ "MASK" ]
+        ]);
+
+    INSERT CELL nextevent := 0 INTO options;
+    INSERT CELL[ ...options, bestmatch := DEFAULT RECORD ] INTO this->pendingwaits AT END;
+
+    IF (NOT this->testing)
+      this->TestAll();
+  }
+
+  MACRO GotEvent(STRING event, RECORD data)
+  {
+    INSERT [ event := event, data := data ] INTO this->storedevents AT END;
+    this->TestAll();
+  }
+
+  MACRO TestAll()
+  {
+    this->scheduletest := TRUE;
+    IF (this->testing)
+      RETURN;
+
+    this->testing := TRUE;
+    WHILE (this->scheduletest)
+    {
+      this->scheduletest := FALSE;
+
+      // Loop through pendingwaits. New ones can appear during running (via AddEvent call)
+      FOR (INTEGER i := 0; i < LENGTH(this->pendingwaits);)
+      {
+        BOOLEAN matched;
+
+        // Test untested events (via counter, new ones can appear during processing)
+        FOR (INTEGER t := this->pendingwaits[i].nextevent; t < LENGTH(this->storedevents); t := t + 1)
+        {
+          this->pendingwaits[i].nextevent := t + 1;
+
+          RECORD res := this->Test(this->pendingwaits[i], this->storedevents[t].event, this->storedevents[t].data);
+          IF (NOT RecordExists(res)) // done, no need to test again (so testing can stay on)
+            RETURN;
+
+          FOREVERY (RECORD rec FROM res.expands)
+            this->AddEventInternal(rec);
+
+          IF (res.matches)
+          {
+            matched := TRUE;
+            BREAK;
+          }
+          ELSE
+          {
+            IF (NOT RecordExists(this->pendingwaits[i].bestmatch) OR this->pendingwaits[i].bestmatch.mismatch > res.mismatch)
+              this->pendingwaits[i].bestmatch := CELL[ ...res, this->storedevents[t].event, this->storedevents[t].data ];
+          }
+        }
+
+        IF (matched)
+          DELETE FROM this->pendingwaits AT i;
+        ELSE
+          i := i + 1;
+      }
+    }
+
+    this->testing := FALSE;
+
+    IF (this->startedwait AND LENGTH(this->pendingwaits) = 0)
+    {
+      IF (NOT RecordExists(this->result))
+        this->result := CreateDeferredPromise();
+      this->result.resolve(TRUE);
+    }
+  }
+
+  RECORD FUNCTION Test(RECORD test, STRING eventname, RECORD eventdata)
+  {
+    TRY
+    {
+      INTEGER mismatch;
+      IF (eventname NOT LIKE test.mask)
+        mismatch := CalculateLevenshteinDistance(eventname, test.mask);
+      ELSE
+      {
+        // test data
+        IF (test.datatest != DEFAULT FUNCTION PTR AND NOT test.datatest(eventdata))
+          mismatch := mismatch + 2;
+
+        IF (test.conditiontest != DEFAULT FUNCTION PTR AND NOT test.conditiontest())
+          mismatch := mismatch + 2;
+      }
+      IF (mismatch != 0)
+        RETURN CELL[ matches := FALSE, expands := RECORD[], mismatch ];
+
+      RECORD ARRAY expands;
+      IF (test.expandsfunction != DEFAULT FUNCTION PTR)
+        expands := test.expandsfunction(eventname, eventdata);
+
+      RETURN CELL[ matches := TRUE, expands, mismatch := 0 ];
+    }
+    CATCH (OBJECT e)
+    {
+      IF (NOT RecordExists(this->result))
+        this->result := CreateDeferredPromise();
+
+      this->result.reject(e);
+      this->Close();
+      RETURN DEFAULT RECORD;
+    }
+  }
+
+  MACRO GotTimeout()
+  {
+    IF (NOT RecordExists(this->result))
+      this->result := CreateDeferredPromise();
+
+    this->timedcallback := 0;
+    IF (this->timeoutexception != DEFAULT OBJECT)
+    {
+      DumpValue(this->pendingwaits, [ name := "Expected events that were not fired after timeout", format := "tree" ]);
+      this->result.reject(this->timeoutexception);
+    }
+    ELSE
+      this->result.resolve(FALSE);
+    this->Close();
+  }
+
+  MACRO Close()
+  {
+    FOREVERY (INTEGER cb FROM this->eventcallbacks)
+      UnregisterCallback(cb);
+    this->eventcallbacks := INTEGER[];
+
+    IF(this->timedcallback != 0)
+    {
+      UnregisterCallback(this->timedcallback);
+      this->timedcallback := 0;
+    }
+  }
+
+  /** Returns a promise that will resolve when all events have been received. After this moment,
+      no manual AddEvent calls are allowed
+      @return Promises that resolves to TRUE when
+  */
+  PUBLIC OBJECT FUNCTION Wait()
+  {
+    this->startedwait := TRUE;
+    IF (NOT RecordExists(this->result))
+      this->result := CreateDeferredPromise();
+    this->TestAll();
+    RETURN this->result.promise;
+  }
+
+  /** Checks if all added events have been fired, aborts if that is not the case
+      @return A promise that resolves to TRUE when all events have been fired,
+        and is rejected when a timeout occurs.
+  */
+  PUBLIC OBJECT FUNCTION CheckNow()
+  {
+    this->startedwait := TRUE;
+    this->TestAll();
+
+    IF (RecordExists(this->result))
+      RETURN this->result.promise;
+
+    DumpValue(this->pendingwaits, [ name := "Expected events that were not fired", format := "tree" ]);
+    ABORT(`Not all events were fired`);
+  }
+>;
+
+/*
+OBJECTTYPE AsyncWaiter
+<
+  OBJECT eventmgr;
+  INTEGER eventcallback;
+  INTEGER timedcallback;
+  PUBLIC RECORD prom;
+  FUNCTION PTR waitfunction;
+  FUNCTION PTR eventdatatest;
+
+  /* We wait for the event to occur.
+     If eventtest is specified it is invoked with the event data and must return true on one of the events
+     If waitfunction is specified, it must return TRUE or we ignore the event.  * /
+  MACRO NEW(STRING eventname, FUNCTION PTR waitfunction, FUNCTION PTR eventdatatest)
+  {
+    this->prom := CreateDeferredPromise();
+    this->eventmgr := NEW EventManager;
+    this->eventmgr->RegisterInterest(eventname);
+    this->eventcallback := RegisterMultiEventCallback(eventname, PTR this->GotEvent);
+    this->timedcallback := RegisterTimedCallback(AddTimeToDate(180 * 1000,GetCurrentDatetime()), PTR this->GotTimeout);
+    this->waitfunction := waitfunction;
+    this->eventdatatest := eventdatatest;
+  }
+  MACRO GotEvent(STRING name, RECORD ARRAY event)
+  {
+    TRY
+    {
+      IF(this->eventdatatest != DEFAULT FUNCTION PTR)
+      {
+        BOOLEAN anymatch;
+        FOREVERY(RECORD evt FROM event)
+          IF(this->eventdatatest(evt))
+          {
+            anymatch:=TRUE;
+            BREAK;
+          }
+        IF(NOT anymatch)
+          RETURN;
+      }
+
+      IF(this->waitfunction = DEFAULT FUNCTION PTR OR this->waitfunction())
+      {
+        this->prom.resolve(TRUE);
+        this->Close();
+      }
+      RETURN;
+    }
+    CATCH(OBJECT e)
+    {
+      this->prom.reject(e);
+      this->Close();
+    }
+  }
+  MACRO GotTimeout()
+  {
+    this->timedcallback := 0;
+    this->prom.resolve(FALSE);
+    this->Close();
+  }
+  MACRO Close()
+  {
+    IF(this->eventcallback != 0)
+    {
+      UnregisterCallback(this->eventcallback);
+      this->eventcallback := 0;
+    }
+    IF(this->timedcallback != 0)
+    {
+      UnregisterCallback(this->timedcallback);
+      this->timedcallback := 0;
+    }
+  }
+>;
+*/
+
+
+MACRO DispatchCallbacks()
+{
+  WHILE (TRUE)
+  {
+    IF (WaitUntil([ callbacks := TRUE ], DEFAULT DATETIME).type != "callback")
+      BREAK;
+  }
+}
+
+
+OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO just move them to their own whlib/object/freestanding functions
+<
+  BOOLEAN didruntests;
+  RECORD ARRAY tests;
+  RECORD ARRAY credentials;
+  RECORD ARRAY roles;
+  RECORD ARRAY modulelog;
+
+  OBJECT pvt_controller;
+
+  STRING temppath;
+  STRING publisheroutputbase;
+
+  OBJECT openwrdschema;
+  PUBLIC PROPERTY wrdschema(GetWRDSchema,-);
+
+  //Create relative output folders in system.webservers
+  BOOLEAN relativeoutputfolders;
+
+  INTEGER betatestunit;
+
+  //PUBLIC OBJECT trans;
+  PUBLIC BOOLEAN profile;
+  PUBLIC BOOLEAN debug;
+  PUBLIC OBJECT browser;
+  PUBLIC PROPERTY wrdauth(pvt_wrdauth,-);
+
+  //localhost port, if any
+  RECORD localhostinterface;
+
+  ///The paranoid property improves fast error detection (used to faster detect database errors). Only affects newly opened transactions
+  PUBLIC PROPERTY paranoid(pvt_paranoid,SetParanoid);
+
+  PUBLIC STRING ARRAY addinterfacealiases;
+
+  ///Disable standard creation/cleanup handlers
+  PUBLIC BOOLEAN disablecreatecleanup;
+
+  BOOLEAN pvt_paranoid;
+  BOOLEAN tests_started;
+  OBJECT pvt_userapi;
+  PUBLIC PROPERTY userapi(pvt_userapi,-);
+
+  PUBLIC BOOLEAN usedatabase;
+  PUBLIC BOOLEAN useseparateoutputport;
+
+  // List of handed out ports
+  INTEGER ARRAY server_ports;
+
+  INTEGER testoutputserver;
+  INTEGER testport;
+  BOOLEAN pvt_wrdauth;
+  OBJECT saveinitialuser;
+  BOOLEAN mailwhitelists;
+  RECORD options;
+  DATETIME __testfwstart;
+  PUBLIC RECORD hashedpasswords;
+
+  ///When did the current test run start?
+  PUBLIC PROPERTY starttime(__testfwstart,-);
+
+  MACRO NEW(RECORD options)
+  {
+    this->__testfwstart := GetCurrentDatetime();
+
+    this->options := options;
+    //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble
+    this->hashedpasswords := [ test := "WHBF:$2y$10$WiHCQT62TCzqcTLGURXPc.dU82JTaAyLizm4F5HAQO8hpnxg2qK4."
+                             , secret := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO"
+                             ];
+    this->saveinitialuser := GetEffectiveUser();
+
+    SetTidLanguage("en");
+    this->relativeoutputfolders := options.relativeoutputfolders;
+    this->testport := options.requireport ?? GetWebHareConfiguration().baseport + 9;
+    this->pvt_wrdauth := options.wrdauth;
+    this->mailwhitelists := options.mailwhitelists;
+    this->useseparateoutputport := options.requireport != 0;
+
+    this->usedatabase := options.usedatabase;
+    IF(this->usedatabase AND IsDTAPLive())
+      ABORT(`The testframework may ONLY run in development environments. Current stage: ${GetDTAPStage()} (use eg: 'wh cli setsystemtype development')`);
+
+    this->publisheroutputbase := (this->relativeoutputfolders ? "" : GetWebHareConfiguration().basedataroot || 'output/') || 'beta_testsite_publisher_output/';
+
+    this->RegisterTest("testfw.prepare", PTR this->RunPrepare);
+    this->RegisterTest("whfs.prepare", PTR this->WHFSPrepare);
+
+
+    IF (disallowtestframework != "")
+      THROW NEW Exception("The testframework may only be used in an exclusive context: " || disallowtestframework);
+  }
+
+  MACRO SetParanoiaOptions()
+  {
+    __INTERNAL_GetSystemSchemaBinding()->allowerrordelay := FALSE;
+  }
+
+  MACRO SetParanoid(BOOLEAN paranoid)
+  {
+    this->pvt_paranoid := paranoid;
+  }
+
+ /** Declare a user for further use in tests. Call before running any tests
+      @param username User's name
+  */
+  PUBLIC MACRO DeclareTestUser(STRING username, STRING ARRAY grantrights)
+  {
+    IF(this->tests_started)
+      ABORT("Cannot invoke DeclareTestUser once the tests are running");
+
+    INSERT [ login := username
+           , wrdid := 0
+           , authobjectid := 0
+           , userpassword := GeneratePassword("betatest",32,TRUE)
+           , userobj := DEFAULT OBJECT
+           , rights := grantrights
+           ] INTO this->credentials AT END;
+  }
+
+  /** Declare a user for further use in tests. Call before running any tests */
+  PUBLIC MACRO DeclareTestRole(STRING rolename)
+  {
+    IF(this->tests_started)
+      ABORT("Cannot invoke DeclareTestUser once the tests are running");
+
+    INSERT [ rolename := rolename
+           , wrdid := 0
+           , authobjectid := 0
+           , roleobj := DEFAULT OBJECT
+           ] INTO this->roles AT END;
+  }
+
+  /** Get a test role's id */
+  PUBLIC INTEGER FUNCTION GetRoleAuthobjectId(STRING name)
+  {
+    IF(NOT this->tests_started)
+      ABORT("Cannot invoke GetRole before the tests are running");
+
+    RECORD roleinfo := SELECT * FROM this->roles WHERE rolename=name;
+    IF(NOT RecordExists(roleinfo))
+      ABORT("No such role '" || name || "' - use DeclareTestURole");
+
+    RETURN roleinfo.authobjectid;
+  }
+  /** Get a test role's authobject */
+  PUBLIC OBJECT FUNCTION GetRoleObject(STRING name)
+  {
+    IF(NOT this->tests_started)
+      ABORT("Cannot invoke GetRole before the tests are running");
+
+    RECORD roleinfo := SELECT * FROM this->roles WHERE rolename=name;
+    IF(NOT RecordExists(roleinfo))
+      ABORT("No such role '" || name || "' - use DeclareTestURole");
+
+    RETURN roleinfo.roleobj;
+  }
+
+  /** Get a test user's id */
+  PUBLIC INTEGER FUNCTION GetUserAuthobjectId(STRING name)
+  {
+    IF(NOT this->tests_started)
+      ABORT("Cannot invoke GetUser before the tests are running");
+
+    RECORD userinfo := SELECT * FROM this->credentials WHERE login=name;
+    IF(NOT RecordExists(userinfo))
+      ABORT("No such user '" || name || "' - use DeclareTestUser");
+
+    RETURN userinfo.authobjectid;
+  }
+  PUBLIC INTEGER FUNCTION GetUserWRDId(STRING name)
+  {
+    IF(NOT this->tests_started)
+      ABORT("Cannot invoke GetUser before the tests are running");
+
+    RECORD userinfo := SELECT * FROM this->credentials WHERE login=name;
+    IF(NOT RecordExists(userinfo))
+      ABORT("No such user '" || name || "' - use DeclareTestUser");
+
+    RETURN userinfo.wrdid;
+  }
+  /** Get a test user's authobject */
+  PUBLIC OBJECT FUNCTION GetUserObject(STRING name)
+  {
+    IF(name="")
+      RETURN DEFAULT OBJECT;
+
+    RECORD userinfo := SELECT * FROM this->credentials WHERE login=name;
+    IF(NOT RecordExists(userinfo))
+      ABORT("No such user '" || name || "' - use DeclareTestUser");
+    RETURN userinfo.userobj;
+  }
+  /** Get the full login name for a test user */
+  PUBLIC STRING FUNCTION GetUserLogin(STRING name)
+  {
+    RECORD userinfo := SELECT * FROM this->credentials WHERE login=name;
+    IF(NOT RecordExists(userinfo))
+      ABORT("No such user '" || name || "' - use DeclareTestUser");
+
+    RETURN userinfo.login || "@beta.webhare.net";
+  }
+  /** Get the password name for a test user */
+  PUBLIC STRING FUNCTION GetUserPassword(STRING name)
+  {
+    RECORD userinfo := SELECT * FROM this->credentials WHERE login=name;
+    IF(NOT RecordExists(userinfo))
+      ABORT("No such user '" || name || "' - use DeclareTestUser");
+
+    RETURN userinfo.userpassword;
+  }
+
+  PUBLIC INTEGER FUNCTION GetTestPort()
+  {
+    RETURN this->testport;
+  }
+
+  PUBLIC INTEGER FUNCTION GetServerPort()
+  {
+    INTEGER port;
+    IF(Length(this->server_ports)=0)
+    {
+      port := this->GetTestPort()+1;
+      INSERT port INTO this->server_ports AT END;
+      RETURN port;
+    }
+    WHILE (TRUE)
+    {
+      // Don't use any of the ephemeral ports on windows/linux (windows uses 1024-5000 or 49152+, linux usually 32768-61000),
+      // so we won't bind agains a port that is already in use. See http://en.wikipedia.org/wiki/Ephemeral_port
+      port := Random(10000, 32700);
+
+      IF (port IN this->server_ports)
+        CONTINUE;
+
+      // Test if this socket can be listened on
+      INTEGER socket := CreateTCPSocket();
+      BOOLEAN listenable := BindSocket(socket, "127.0.0.1", port);
+      CloseSocket(socket);
+      IF (listenable)
+        BREAK;
+
+      PRINT("Tested socket " || port || ", in use\n");
+    }
+
+    INSERT port INTO this->server_ports AT END;
+    RETURN port;
+  }
+
+  /** @short Get the test unit */
+  PUBLIC OBJECT FUNCTION GetUnit()
+  {
+    RETURN this->betatestunit != 0 ? this->userapi->GetUnit(this->betatestunit) : DEFAULT OBJECT;
+  }
+
+  /** @param options
+      @cell options.port Port number
+      @cell(string array) options.virtualhosts Virtual hosts to host the site under
+      @cell(string array) options.aliases List of aliases
+      @cell(string array) options.redirectingaliases
+      @cell options.virtualhost
+      @cell options.ipv6
+      @cell options.secure_keyfile
+      @cell options.outputserver
+      @cell options.secure_keyfile
+      @cell options.diskfolder
+      @return
+      @cell return.portnumber Virtual host port number
+      @cell return.portid Virtual host port id
+      @cell return.webservers List of webservers
+      @cell return.webserversid Webserver ID
+      @cell return.webservershost Webserver Host
+      @cell return.webserversurl Webserver Url
+      @cell return.connecthost Hostname
+      @cell return.webserverid Webserver ID (only when virtualhosts is empty)
+      @cell return.baseurl URL (only when virtualhosts is empty)
+  */
+  PUBLIC RECORD FUNCTION AddWebserverPortToDbase(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    // Don't use any of the ephemeral ports on windows/linux (windows uses 1024-5000 or 49152+, linux usually 32768-61000),
+    // so we won't bind agains a port that is already in use. See http://en.wikipedia.org/wiki/Ephemeral_port
+    options := ValidateOptions([ port := this->GetServerPort()
+                               , virtualhosts := STRING[]
+                               , aliases := STRING[]
+                               , redirectingaliases := STRING[]
+                               , virtualhost := FALSE
+                               , ipv6 := FALSE
+                               , secure_keyfile := ""
+                               , outputserver := FALSE
+                               , diskfolder := ""
+                               , stricttransportsecurity := 0
+                               ], options);
+
+    INTEGER portid := options.port != 0 ? MakeAutonumber(system.ports,"ID") : 0;
+    RECORD ARRAY webservers;
+    BOOLEAN makevhost := Length(options.virtualhosts) > 0 OR options.virtualhost;
+
+    STRING connecthost := options.ipv6 ? "::1" : "127.0.0.1";
+    STRING httphost := options.ipv6 ? "[::1]" : "127.0.0.1";
+
+    IF(options.port != 0)
+    {
+      INTEGER keypair;
+      IF (CellExists(options,"secure_keyfile") AND options.secure_keyfile != "")
+        keypair := OpenKeyPairByName(options.secure_keyfile)->id;
+
+      INSERT INTO system.ports(id, ip, port, keypair, virtualhost, description)
+           VALUES(portid, connecthost, options.port, keypair, makevhost, betatestport);
+    }
+
+    IF(options.outputserver AND options.diskfolder = "")
+      options.diskfolder := GenerateTemporaryPathname() || "/";
+
+    FOREVERY(STRING vhost FROM Length(options.virtualhosts)=0 ? [httphost] : options.virtualhosts)
+    {
+      INTEGER webserverid := MakeAutonumber(system.webservers,"ID");
+      STRING baseurl := options.secure_keyfile != "" ? "https://" : "http://";
+      baseurl := baseurl || vhost || (options.port NOT IN [0,80,443] ? ":" || options.port : "") || "/";
+
+      INSERT INTO system.webservers(id, type, baseurl,outputextension,port, diskfolder, stricttransportsecurity)
+                 VALUES(webserverid, options.outputserver ? 0 : 1, baseurl, ".html",Length(options.virtualhosts)=0?portid:0, options.diskfolder, options.stricttransportsecurity);
+
+      //mark it
+      INSERT INTO system.access(webserver,path,matchtype,hostingsrc,hostingpath)
+                  VALUES(webserverid,"/",1,6,"webhare_testsuite:testframework");
+      INSERT INTO system.access(webserver,path,description)
+                  VALUES(webserverid,"/" || "webhare_testsuite" || "/betatestaccessrule/","A temporary accessrule to help the betatests clean up");
+
+      IF(#vhost=0)
+      {
+        FOREVERY(STRING alias FROM options.aliases)
+          INSERT INTO system.webservers_aliases(webserver, hostname, explicit) VALUES(webserverid, alias, TRUE);
+        FOREVERY(STRING alias FROM options.redirectingaliases)
+          INSERT INTO system.webservers_aliases(webserver, hostname, explicit) VALUES(webserverid, alias, FALSE);
+      }
+      INSERT [ id := webserverid
+             , host := vhost
+             , url := baseurl
+             ] INTO webservers AT END;
+    }
+
+    RECORD retval := [ portnumber := options.port
+                     , portid := portid
+                     , webservers := webservers
+                     , connecthost := connecthost
+                     ];
+
+    /* We only return webserverid + baseurl if virtualhosts was not set.. to prevent code from blindly following through
+       with a 0 (and possibly creating a global access rule) */
+    IF(Length(options.virtualhosts) = 0)
+      retval := CELL[ ...retval
+                    , webserverid := webservers[0].id
+                    , baseurl := webservers[0].url
+                    ];
+    RETURN retval;
+  }
+
+  /** @param options @includecelldef #AddWebserverPortToDbase.options
+      @return @includecelldef #AddWebserverPortToDbase.return
+  */
+  PUBLIC RECORD FUNCTION CreateWebserverPort(RECORD options)
+  {
+    this->BeginWork();
+    RECORD retval := this->AddWebserverPortToDbase(options);
+    this->CommitWork();
+
+    this->RefreshWebserverConfig();
+
+    //check for success immediately
+    IF(retval.portnumber != 0)
+    {
+      INTEGER tcpconn := CreateTCPSocket();
+      BOOLEAN success := ConnectSocket(tcpconn, retval.connecthost, retval.portnumber);
+      CloseSocket(tcpconn);
+      IF(NOT success)
+        THROW NEW Exception("Failed to actually connect to testinterface port at " || retval.connecthost || " port " || retval.portnumber);
+    }
+
+    RETURN retval;
+  }
+
+  /** @short Get or create a localhost
+      @return @includecelldef #CreateWebserverPort.return
+  */
+  PUBLIC RECORD FUNCTION GetLocalhostWebinterface()
+  {
+    IF(NOT RecordExists(this->localhostinterface))
+      this->localhostinterface := this->CreateWebserverPort(DEFAULT RECORD);
+
+    RETURN this->localhostinterface;
+  }
+
+  /** @short Returns a temp directory that will be deleted at test cleanup */
+  PUBLIC STRING FUNCTION GetTempDir()
+  {
+    IF(this->temppath != "")
+      RETURN this->temppath;
+
+    this->temppath := MergePath(GetTempDir(), "testframework") || "/"; //note: mergepath strips the last /
+    CreateDiskDirectory(this->temppath, TRUE);
+    RETURN this->temppath;
+  }
+
+  MACRO CheckedCommit(OBJECT trans)
+  {
+    trans->CommitWork();
+  }
+
+  /** Cleanup a WRD schema (delete old test stuff)
+      @long Executes a series of cleanups to prepare a WRD schema for tests. This
+            is generally used when an app shares its schema with its tests. All
+            the specified cleanups are applied cumulatively (eg if a type specifies
+            both tag, tamasks and filters, any entity matching either the tag, tagmasks
+            or the filters gets deleted, they are not AND-ed together)
+      @param wrdschema Schema to clean up
+      @param cleanups Cleanups to apply
+      @cell(string) cleanups.type WRD type to clean
+      @cell(string array) cleanups.tags List of tags to delete from this type
+      @cell(string array) cleanups.tagmasks List of tag masks to delete from this type
+      @cell(record array) cleanups.filters Query filters to use to find entities to delete
+   */
+  PUBLIC MACRO CleanupWRDSchema(OBJECT wrdschema, RECORD ARRAY cleanups)
+  {
+    FOREVERY(RECORD tocleanup FROM cleanups)
+    {
+      tocleanup := ValidateOptions(
+          [ type :=     ""
+          , tags :=     DEFAULT STRING ARRAY
+          , tagmasks := DEFAULT STRING ARRAY
+          , filters :=  RECORD[]
+          ], tocleanup);
+
+      OBJECT wrdtype := wrdschema->GetType(tocleanup.type);
+      IF(NOT ObjectExists(wrdtype))
+        CONTINUE;
+
+      RECORD ARRAY killlist;
+      FOREVERY(STRING tag FROM tocleanup.tags)
+      {
+        IF(tag = "")
+          CONTINUE;
+
+        RECORD ARRAY items := wrdtype->RunQuery(
+              [ outputcolumns := [ "WRD_ID" ]
+              , filters := [ [ field := "WRD_TAG", value := tag] ]
+              , historymode := "all"
+              ]);
+        killlist := killlist CONCAT items;
+      }
+
+      FOREVERY(STRING tag FROM tocleanup.tagmasks)
+      {
+        IF(tag = "")
+          CONTINUE;
+
+        RECORD ARRAY items := wrdtype->RunQuery(
+              [ outputcolumns := [ "WRD_ID" ]
+              , filters := [ [ field := "WRD_TAG", matchtype := "LIKE", value := tag ] ]
+              , historymode := "all"
+              ]);
+        killlist := killlist CONCAT items;
+      }
+
+      IF(Length(tocleanup.filters) > 0) //we ONLY honor filters if its actually set, too dangerous otherwise (and just drop the type then?)
+      {
+        RECORD ARRAY items := wrdtype->RunQuery(
+              [ outputcolumns := [ "WRD_ID" ]
+              , filters := tocleanup.filters
+              , historymode := "all"
+              ]);
+        killlist := killlist CONCAT items;
+      }
+
+      wrdtype->DeleteEntities(SELECT AS INTEGER ARRAY DISTINCT wrd_id FROM killlist);
+    }
+  }
+
+  MACRO DestroyWRDSchema(STRING name)
+  {
+    OBJECT wrdschema := OpenWRDSchema(name);
+    IF(NOT ObjectExists(wrdschema))
+      RETURN;
+
+    //quick-wipe authobjects
+    STRING ARRAY killguids;
+    FOREVERY(STRING wrdauthtype FROM ["WRD_PERSON","WHUSER_ROLE","WHUSER_UNIT"])
+    {
+      OBJECT thetype := wrdschema->GetType(wrdauthtype);
+      IF(NOT ObjectExists(thetype))
+        CONTINUE;
+      killguids := killguids CONCAT SELECT AS STRING ARRAY wrd_guid FROM thetype->RunQuery([ outputcolumns := [ wrd_guid := "WRD_GUID" ], historymode := "all" ]);
+    }
+
+    INTEGER ARRAY killauthobjects;
+    FOREVERY(STRING killit FROM killguids)
+      killauthobjects := killauthobjects CONCAT SELECT AS INTEGER ARRAY id FROM system.authobjects WHERE guid=killit;
+
+    IF(length(killauthobjects)>0)
+    {
+      DELETE FROM system.authobjects WHERE id IN killauthobjects;
+    }
+
+    wrdschema->DeleteSelf();
+  }
+
+  MACRO CleanupTests()
+  {
+    IF(this->disablecreatecleanup)
+      RETURN;
+
+    //kill the testmodule if it exists
+    IF(IsModuleInstalled(testfw_testmodule))
+      IF(NOT DeleteModule(testfw_testmodule))
+        THROW NEW Exception(`Deletion of module '${testfw_testmodule} failed!`);
+
+    //kill folders from this or older beta runs
+    FOREVERY(RECORD tokill FROM ReadDiskDirectory(this->publisheroutputbase,"*"))
+      DeleteDiskDirectoryRecursive(MergePath(this->publisheroutputbase,tokill.name));
+
+    IF(NOT this->usedatabase)
+      RETURN;
+
+    //Find and remove any interface test webservers/ports. They are marked by having a security access rule pointing to "/" || test_prefix || "/betatestaccessrule/"
+    INTEGER ARRAY ourwebservers := SELECT AS INTEGER ARRAY webserver
+                                     FROM system.access
+                                    WHERE hostingsrc=6 AND hostingpath="webhare_testsuite:testframework"
+                                          AND webserver != 0;
+    IF(Length(ourwebservers)>0)
+    {
+      GetPrimary()->BeginLockedWork("system:webservers"); //coordinate ourselves with webserverusage script, we conflict too often in test cleanup
+      DELETE FROM system.webservers WHERE id IN ourwebservers;
+      DELETE FROM system.webservers_aliases WHERE hostname LIKE "*.localhost.beta.webhare.net";
+      GetPrimary()->CommitWork();
+    }
+
+    GetPrimary()->Beginwork();
+
+    //Wipe existing schemas
+    FOREVERY (STRING name FROM SELECT AS STRING ARRAY COLUMN tag
+                                 FROM ListWRDSchemas()
+                                WHERE COLUMN tag = whconstant_wrd_testschema
+                                      OR COLUMN tag = whconstant_wrd_testschema || ".bak"
+                                      OR COLUMN tag LIKE whconstant_wrd_testschema || ".bak (*)"
+                                      OR COLUMN tag LIKE "webhare_testsuite:*")
+      this->DestroyWRDSchema(name);
+
+    IF(this->options.wrdschema)
+    {
+      this->openwrdschema := CreateWRDSchema(whconstant_wrd_testschema,
+         [ description := "The webhare_testsuite WRD schema"
+         , usermgmt := this->wrdauth
+         , initialize := TRUE
+         ]);
+
+      IF(this->wrdauth)
+      {
+        this->openwrdschema->^wrd_authdomain->CreateEntity([ wrd_tag := "MYBACKEND"
+                                                           , WRDAUTH_LASTLOGINFIELD := "WHUSER_LASTLOGIN"
+                                                           , WRDAUTH_LASTIPFIELD := "WHUSER_LASTIP"
+                                                           ]);
+        this->pvt_userapi := GetWRDAuthUserAPi(this->openwrdschema);
+      }
+    }
+
+    this->DoWHFSCleanUp();
+
+    FOREVERY(STRING addhost FROM this->addinterfacealiases)
+    {
+      INSERT INTO system.webservers_aliases(webserver, hostname, explicit) VALUES(this->GetTestOutputServer(), addhost, TRUE);
+      this->browser->SetHostnameOverride(addhost, "127.0.0.1");
+    }
+
+    DELETE FROM system.access WHERE description LIKE "webhare_testsuite*";
+
+    // Remove keys
+    INTEGER keystore_folder := LookupWHFSObject(0, "/webhare-private/system/keystore");
+    IF (keystore_folder != -1)
+    {
+      FOREVERY (INTEGER id FROM SELECT AS INTEGER ARRAY COLUMN id FROM system.fs_objects WHERE parent = keystore_folder AND name LIKE "webhare_testsuite--*")
+        OpenWHFSObject(id)->RecycleSelf();
+    }
+
+    // Remove mailroutes
+    DELETE FROM system.mailqueue_route WHERE tag LIKE "webhare_testsuite:*"
+                                             OR outgoingmailaddress LIKE "*.beta.webhare.net" //ui-generated rules
+                                             OR mask LIKE "*.beta.webhare.net";
+
+    IF(this->mailwhitelists)
+    {
+      //whitelist sender
+      INSERT [ tag := "webhare_testsuite:whitelist-beta-senders", ordering := -50, mask := "*@*beta.webhare.net", ruletype := 1 ] INTO system.mailqueue_route;
+      //whitelist receiver
+      INSERT [ tag := "webhare_testsuite:whitelist-beta-receivers", ordering := -50, mask := "*@*beta.webhare.net", ruletype := 2 ] INTO system.mailqueue_route;
+      //block a domain we don't like
+      INSERT [ tag := "webhare_testsuite:whitelist-beta-fixdomain", ordering := -50, mask := "*@fixdomai.beta.webhare.net", ruletype := 3, outgoingmailaddress := "*@fixdomain.beta.webhare.net" ] INTO system.mailqueue_route;
+      //block a domain we don't like
+      INSERT [ tag := "webhare_testsuite:whitelist-beta-block", ordering := -50, mask := "*@block.beta.webhare.net", ruletype := 4 ] INTO system.mailqueue_route;
+    }
+
+    GetPrimary()->CommitWork();
+    BroadcastEvent("system:internal/mailroutechange", DEFAULT RECORD);
+
+    //Remove outgoing mail
+    __TryGetEmails("*@beta.webhare.net", FALSE);
+    __TryGetEmails("*@*.beta.webhare.net", FALSE);
+
+    IF(Length(ourwebservers)>0) //make sure the settings are flushed
+      this->RefreshWebserverConfig();
+
+    IF(this->temppath != "" )
+      DeleteDiskDirectoryRecursive(this->temppath);
+  }
+
+  MACRO PrepTests()
+  {
+    IF(this->tests_started)
+      ABORT("Dupe prepare");
+    IF(this->disablecreatecleanup OR NOT this->usedatabase)
+      RETURN;
+
+    GetPrimary()->BeginWork();
+
+    this->tests_started := TRUE;
+
+    IF(Length(this->credentials) > 0 OR Length(this->roles) > 0)
+    {
+      IF(NOT ObjectExists(this->userapi))
+        THROW NEW Exception("userapi (wrdauth) disabled, so cannot create roles");
+      this->betatestunit := this->userapi->CreateUnit([ wrd_title := "webhare_testsuite.unit", whuser_comment := "Beta test unit" ]);
+    }
+
+    IF(Length(this->credentials) > 0)
+    {
+      //Create any requested users
+      FOREVERY(RECORD cred FROM this->credentials)
+      {
+        RECORD newuser := [ wrd_contact_email := cred.login || "@beta.webhare.net"
+                          , whuser_unit := this->betatestunit
+                          , whuser_password := "PLAIN:" || cred.userpassword
+                          , wrd_firstname := ToUppercase(Left(cred.login,1)) || Substring(cred.login,1)
+                          , wrd_lastname := "McTestsuite"
+                          ];
+
+        cred.wrdid := this->userapi->CreateUser(newuser);
+        cred.userobj := this->userapi->GetTolliumUserFromEntityId(cred.wrdid); //we can't create this on-demand, as we probably wont have ~webhare anymore then, and currently we rely on full rights
+        cred.userobj->language := "en";
+        IF(NOT ObjectExists(cred.userobj))
+        {
+          ABORT("Was unable to create tollium user from #" || Cred.wrdid);
+        }
+
+        // Set default locale options, make sure no global registry settings can influence them
+        cred.userobj->SetLocale(
+            [ thousandseparator :=  "."
+            , decimalseparator :=   ","
+            , language :=           "en"
+            , timezone :=           "Europe/Amsterdam"
+            ]);
+        BroadcastEvent("tollium:userprefs." || cred.userobj->entityid, DEFAULT RECORD);
+        cred.userobj->LoadSettingsFromRegistry();
+
+        cred.authobjectid := cred.userobj->authobjectid;
+        FOREVERY(STRING grantright FROM cred.rights)
+          cred.userobj->GrantRightTo(grantright, cred.userobj, TRUE, TRUE, "Granted by RunTestframework");
+
+        this->credentials[#cred] := cred;
+      }
+    }
+    IF(Length(this->roles) > 0)
+    {
+      //Create any requested roles
+      OBJECT roletype := this->userapi->wrdschema->GetType("WHUSER_ROLE");
+      FOREVERY(RECORD role FROM this->roles)
+      {
+        //role.roleid := betatestunit->CreateRole( [ name := role.rolename ]);
+        role.wrdid := this->userapi->CreateRole([ wrd_leftentity := this->betatestunit, wrd_title := role.rolename ]);
+        role.roleobj := this->userapi->GetRole(role.wrdid);
+        role.authobjectid := role.roleobj->authobjectid;
+        this->roles[#role] := role;
+      }
+    }
+    GetPrimary()->CommitWork();
+
+    IF(Length(this->credentials) > 0)
+      this->SetTestUser(this->credentials[0].login); //autoselect first user
+  }
+
+  /** Look up a testfile in the module's test directory by path (searches in <modulename>/tests/....) */
+  PUBLIC BLOB FUNCTION GetModuleTestBlob(STRING modulename, STRING filepath)
+  {
+    RETURN GetWebhareResource("mod::" || modulename || "/tests/" || filepath);
+  }
+
+  /** Save or swap a transaction
+      @param newtrans New transaction (DEFAULT OBJECT to reset)
+      @return The current transaction */
+  PUBLIC OBJECT FUNCTION SwapTrans(OBJECT newtrans)
+  {
+    OBJECT retval := GetPrimary();
+    SetPrimaryWebhareTransaction(ObjectExists(newtrans) ? newtrans->id : 0);
+    RETURN retval;
+  }
+
+  /** Start a transaction
+      @param*/
+  PUBLIC MACRO StartTrans(STRING username, BOOLEAN auto)
+  {
+    IF(NOT this->usedatabase)
+      ABORT("StartTrans executed but 'usedatabase' was set to FALSE");
+
+    IF(username="")
+      THROW NEW Exception("Anonymous transactions are no longer supported. Open as ~webhare");
+
+    this->SetTestUser(username);
+    IF(NOT auto)
+      this->BeginWork();
+  }
+
+  PUBLIC MACRO EndTrans()
+  {
+    IF(GetPrimary()->HasWorkSupport() AND GetPrimary()->IsWorkOpen())
+      GetPrimary()->RollbackWork();
+  }
+
+  PUBLIC MACRO BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT HavePrimaryTransaction())
+      THROW NEW Exception("Use StartTrans before BeginWork");
+    GetPrimary()->BeginWork(options);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION CommitReturnErrors()
+  {
+    RETURN this->CommitWorkReturnErrors();
+  }
+
+  PUBLIC MACRO Commit()
+  {
+    GetPrimary()->CommitWork();
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION CommitWorkReturnErrors()
+  {
+    TRY GetPrimary()->CommitWork();
+    CATCH(OBJECT<DatabaseException> e) RETURN e->errors;
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  PUBLIC MACRO CommitWork()
+  {
+    RECORD ARRAY errors := GetPrimary()->CommitWork();
+    IF(Length(errors)>0)
+    {
+      print("Transaction commit errors\n");
+      Printrecordarrayto(0,errors,'boxed');
+      abort("TestCommitWork failed");
+    }
+  }
+
+  PUBLIC MACRO RollbackWork()
+  {
+    GetPrimary()->RollbackWork();
+  }
+
+  PUBLIC MACRO RegisterTest(STRING testname, MACRO PTR func)
+  {
+    INSERT [ name := testname, func := func ] INTO this->tests AT END;
+  }
+
+  MACRO PTR ARRAY beforeeachtest;
+
+  PUBLIC MACRO RegisterBeforeEachTest(MACRO PTR func)
+  {
+    INSERT func INTO this->beforeeachtest AT END;
+  }
+
+  OBJECT FUNCTION * RunSerie(RECORD ARRAY serie)
+  {
+    IF(this->profile)
+    {
+      __HS_INTERNAL_ReportFunctionProfile("testframework", "startup code", this->__testfwstart, DEFAULT RECORD);
+    }
+
+    FOREVERY(RECORD item FROM serie)
+    {
+      //reset webbrowser modes
+      IF(ObjectExists(this->browser))
+        this->browser->autofollow := TRUE;
+
+      FOREVERY(MACRO PTR runbeforetest FROM this->beforeeachtest)
+        runbeforetest();
+
+      IF(this->debug)
+        Print("Running " || item.name || "\n");
+
+      DATETIME start;
+      IF(this->profile)
+      {
+        ResetFunctionProfile();
+        start := GetCurrentDateTime();
+        Enablefunctionprofile();
+      }
+
+      //OpenTest(item.name);
+
+      TRY
+      {
+        IF(ValidateFunctionPtr(item.func, TYPEID(OBJECT), DEFAULT INTEGER ARRAY))
+        {
+          VARIANT retval := item.func();
+          IF(TYpeID(retval) = TypeID(OBJECT) AND retval EXTENDSFROM PromiseBase)
+          {
+            IF (this->debug)
+              print("start wait\n");
+            YIELD retval;
+          }
+        }
+        ELSE
+        {
+          item.func();
+        }
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e, [ addcurrentstack := FALSE ]);
+
+        IF(IsRequest()) //we were invoked from a RPC or something.. just handle normally
+          THROW;
+
+        SetConsoleExitCode(1);
+        IF(NOT (e EXTENDSFROM TestFailException))
+        {
+          Print(" ** UNEXPECTED EXCEPTION: " || e->what || "\n");
+          DumpStackTrace(e->trace);
+        }
+
+        IF(this->usedatabase)
+        {
+          OBJECT trans := GetPrimary();
+          IF(ObjectExists(trans))
+          {
+            IF(trans->IsWorkOpen())
+              trans->RollbackWork();
+          }
+        }
+
+        IF(this->profile)
+        {
+          Disablefunctionprofile();
+          __HS_INTERNAL_ReportFunctionProfile("testframework", item.name || " (failed)", start, DEFAULT RECORD);
+        }
+
+        this->PrepareForTermination();
+        TerminateScript();
+      }
+      //CloseTest(item.name);
+
+      IF(this->profile)
+      {
+        Disablefunctionprofile();
+        __HS_INTERNAL_ReportFunctionProfile("testframework", item.name, start, DEFAULT RECORD);
+      }
+
+      IF(this->usedatabase AND GetPrimary()->IsWorkOpen())
+        THROW NEW Exception(`Test '${item.name}' didn't close opened work. It must testfw->CommitWork or testfw->RollbackWork (we used to automatically rollback when a test ended)`);
+    }
+
+    // Run the beforetest stuff again
+    FOREVERY(MACRO PTR runbeforetest FROM this->beforeeachtest)
+      runbeforetest();
+
+    RETURN DEFAULT RECORD;
+  }
+
+  /** @short Refresh the webserver configuration
+      @long Ask the webserver to refresh its configuration read from the database and module definitions. The relevant changes need to be already committed. Returns when the webserver is reconfigured */
+  PUBLIC MACRO RefreshWebserverConfig()
+  {
+    IF (ObjectExists(GetPrimaryWebhareTransactionObject()) AND GetPrimary()->IsWorkOpen())
+      GetPrimary()->RegisterCommitHandler("webserver:configreload", PTR this->OnCommitRefreshWebserverConfig);
+    ELSE
+      this->OnCommitRefreshWebserverConfig(TRUE);
+  }
+
+  MACRO OnCommitRefreshWebserverConfig(BOOLEAN iscommit)
+  {
+    IF (iscommit)
+    {
+      DATETIME reloadstart := GetCurrentDatetime();
+      IF(this->debug)
+        Print("Refreshing webserver config... ");
+
+      RefreshGlobalWebserverConfig();
+      IF(this->debug)
+        Print(GetDatetimeDifference(reloadstart, GetCurrentDatetime()).msecs || " ms\n");
+    }
+  }
+
+  MACRO RunGenerator(OBJECT generator)
+  {
+    VARIANT v := GeneratorSpawnTrySync(generator);
+    IF (TYPEID(v) = TYPEID(OBJECT) AND v EXTENDSFROM PromiseBase)
+      WaitForPromise(v);
+  }
+
+  PUBLIC MACRO RunPrepare()
+  {
+    this->browser := NEW WebBrowser;
+    this->browser->printnavigation := TRUE;
+
+    STRING ARRAY debugflags := (this->profile ? [ "apr", "etr" ] : [ "etr" ]) CONCAT this->options.debugflags;
+    this->browser->SetSessionCookie("wh-debug", GetSignedWHDebugOptions(debugflags));
+
+    this->CleanupTests();
+    this->PrepTests();
+  }
+
+  PUBLIC MACRO PrepareForTermination()
+  {
+  }
+
+  PUBLIC MACRO RunTests()
+  {
+    IF(this->usedatabase AND NOT HavePrimaryTransaction())
+      OpenPrimary();
+    IF(this->pvt_paranoid)
+      this->SetParanoiaOptions();
+
+    IF(this->didruntests)
+      ABORT("runtests may only be invoked once");//sometimes testfamework.whlib>testfw.whlib conversions forget to remove the last testfw->RunTests call
+    this->didruntests := TRUE;
+
+    OBJECT lock := OpenLockManager()->TryLockMutex("webhare_testsuite:testframework", DEFAULT DATETIME);
+    IF(NOT ObjectExists(lock))
+      THROW NEW Exception("Unable to acquire the global testframework lock - you cannot run two tests at the same time");
+
+    __onlogentry := PTR this->RecordModuleLogEntry;
+
+    TRY
+    {
+      this->RunGenerator(this->RunSerie(this->tests));
+      this->PrepareForTermination();
+    }
+    FINALLY lock->Close();
+  }
+
+  MACRO RecordModuleLogEntry(STRING log, STRING line)
+  {
+    INSERT CELL[ log
+               , when := GetCurrentDatetime()
+               , source := "local"
+               , line
+               , tokens := Tokenize(line,'\t')
+               ] INTO this->modulelog AT END;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsMailqueueEmptyFor(STRING emailmask)
+  {
+    RETURN NOT RecordExists(SELECT FROM system.managedtasks
+                              WHERE tasktype = "system:outgoingmail"
+                                    AND finished = DEFAULT DATETIME
+                                    AND DecodeHSON(taskdata).receiver LIKE emailmask);
+  }
+
+  /** Returns all emails that match a receiver mask
+      @param recipient Receiver mask, must end with @beta.webhare.net
+      @param options
+      @cell options.peekonly If TRUE, don't remove emails from queue
+      @cell options.timeout Timeout in milliseconds, max 60000
+      @return
+      @cell return.mimeheaders MIME headers
+      @cell return.toppart Toppart
+      @cell return.sender Sender
+      @cell return.receiver Receiver
+  */
+  PUBLIC RECORD ARRAY FUNCTION ExtractAllMailFor(STRING recipient, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ peekonly := FALSE
+                               , timeout := 0
+                               , count := 1
+                               ], options);
+    RETURN DoRetrieveEmails(recipient, options.timeout, options.count, options.peekonly);
+  }
+
+  MACRO DoWHFSCleanUP()
+  {
+    INTEGER ARRAY testports := SELECT AS INTEGER ARRAY id FROM system.ports WHERE description = betatestport;
+    IF(Length(testports) > 0)
+    {
+      DELETE FROM system.webservers WHERE port IN testports;
+      DELETE FROM system.ports WHERE id IN testports;
+      this->RefreshWebserverConfig();
+    }
+
+    OBJECT folderobj := this->GetWHFSTestRoot();
+    OBJECT folderobj2 := this->GetWHFSTestRoot2();
+
+    // Get potential site ids
+    INTEGER ARRAY object_ids;
+    IF (ObjectExists(folderobj))
+      object_ids := object_ids CONCAT folderobj->GetDescendantObjectIds();
+    IF (ObjectExists(folderobj2))
+      object_ids := object_ids CONCAT folderobj2->GetDescendantObjectIds();
+
+    // Also recycle live objects and drafts that are in archive or draft storage
+    INTEGER ARRAY all_live_objects :=
+        SELECT AS INTEGER ARRAY DISTINCT live_object
+          FROM system.fs_versionevents
+         WHERE fs_site IN object_ids;
+
+    INTEGER ARRAY all_versioned_draft_objects :=
+        SELECT AS INTEGER ARRAY DISTINCT draft_object
+          FROM system.fs_versionevents
+         WHERE fs_site IN object_ids;
+
+    INTEGER ARRAY all_drafts :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE parent IN [ 14, 15 ]
+           AND filelink IN object_ids;
+
+    IF(Length(object_ids) > 0
+       OR (ObjectExists(folderobj) AND folderobj->modificationdate != MakeDate(2001,1,1))
+       OR (ObjectExists(folderobj2) AND folderobj2->modificationdate != MakeDate(2001,1,1)))
+    { //Looks like something happened in these folders (avoid cleanups if the previous test didn't even touch WHFS!)
+
+      // Delete all versioning events
+      DELETE FROM system.fs_versionevents WHERE fs_site IN object_ids;
+
+      IF (ObjectExists(folderobj))
+        folderobj->RecycleSelf();
+      IF (ObjectExists(folderobj2))
+        folderobj2->RecycleSelf();
+
+
+      // Recycle all non-recycled objects with links to the folder
+      FOREVERY (INTEGER id FROM FilterOutRecycledObjects(all_live_objects CONCAT all_versioned_draft_objects CONCAT all_drafts))
+        OpenWHFSObject(id)->RecycleSelf();
+    }
+
+    OBJECT testsite := OpenSiteByName("WebHare testsuite site"); //TODO only generated if webhare_testsuite is present so can't we move it completely out of the core testframework code?
+    IF(ObjectExists(testsite))
+    {
+      OBJECT tmpfolder := testsite->OpenByPath("tmp");
+      IF(ObjectExists(tmpfolder))
+        FOREVERY(RECORD obj FROM SELECT id FROM system.fs_objects WHERE parent = tmpfolder->id)
+          OpenWHFSObject(obj.id)->RecycleSelf();
+    }
+  }
+
+  MACRO WHFSPrepare()
+  {
+    IF(NOT this->usedatabase)
+      RETURN;
+
+    GetPrimary()->BeginWork();
+    //recreate testfolders... if needed!
+    CONSTANT STRING ARRAY testfolders := ["webhare_testsuite.testfolder","webhare_testsuite.testfolder2"];
+    RECORD ARRAY existingroots := SELECT id, name, parentsite
+                                    FROM system.fs_objects
+                                   WHERE parent = 0
+                                         AND name IN testfolders;
+
+    FOREVERY(STRING folder FROM testfolders)
+    {
+      RECORD match := SELECT * FROM existingroots WHERE name = folder;
+      IF(RecordExists(match) AND match.parentsite = 0)
+        CONTINUE; //clean for reuse
+
+      IF(RecordExists(match))
+        OpenWHFSObject(match.id)->RecycleSelf();
+
+      OpenWHFSRootObject()->CreateFolder([name := folder,  modificationdate := MakeDate(2001,1,1)]);
+    }
+    GetPrimary()->CommitWork();
+  }
+
+  PUBLIC OBJECT FUNCTION GetTestSite(STRING name DEFAULTSTO "<prefix>site") //normally returns whfs:/webhare_testsuite.testfolder/webhare_testsuite.site
+  {
+    name := Substitute(name, "<prefix>", "webhare_testsuite" || ".");
+    RETURN OpenSiteByName(name);
+  }
+
+  PUBLIC INTEGER FUNCTION GetTestOutputServer()
+  {
+    IF(this->testoutputserver != 0)
+      RETURN this->testoutputserver;
+
+    IF(this->useseparateoutputport)
+    {
+      // Check if port 39124 are open. If so, create them.
+      INTEGER out_port_id;
+
+      RECORD out_port := SELECT * FROM system.ports WHERE port = this->GetTestPort();
+      IF (RecordExists(out_port))
+      {
+        out_port_id := out_port.id;
+      }
+      ELSE
+      {
+        out_port_id := MakeAutoNumber(system.ports,"id");
+        INSERT INTO system.ports(id,ip,port,virtualhost,description) VALUES(out_port_id, "127.0.0.1", this->GetTestPort(), FALSE, betatestport);
+      }
+
+      // output webserver
+      STRING folder := this->publisheroutputbase || GenerateUFS128BitId() || "/";
+
+      IF (NOT RecordExists(SELECT FROM system.webservers WHERE port = out_port_id))
+        INSERT INTO system.webservers(port) VALUES (out_port_id);
+
+      UPDATE system.webservers
+         SET type := 0,
+             diskfolder := folder,
+             baseurl := 'http://127.0.0.1:' || this->GetTestPort() || '/',
+             outputextension := '.html'
+       WHERE port = out_port_id;
+      this->testoutputserver := SELECT AS INTEGER id FROM system.webservers WHERE port = out_port_id;
+
+      this->RefreshWebserverConfig();
+    }
+    ELSE
+    {
+      this->testoutputserver := SELECT AS INTEGER outputweb FROM system.sites WHERE id = 16;
+      IF(this->testoutputserver = 0)
+        ABORT("Site #16 (the interface) has no output webserver");
+    }
+
+    RETURN this->testoutputserver;
+  }
+
+  /** Create a test website, and optionally unpack the selected archive
+      Requires its caller to setup a transaction/work */
+  PUBLIC RECORD FUNCTION SetupTestWebsite(BLOB archive)
+  {
+    IF(NOT HavePrimaryTransaction() OR (GetPrimary()->HasWorkSUpport() AND NOT GetPrimary()->IsWorkOpen()))
+      ABORT("SetupTestWebsite requires a writable transaction (explicit or opened work)");
+
+    STRING sitename := "webhare_testsuite" || ".site";
+    OBJECT siteroot := this->GetWHFSTestRoot()->OpenByName(sitename);
+    IF(ObjectExists(siteroot))
+      siteroot->RecycleSelf();
+
+    IF (NOT this->useseparateoutputport)
+      OpenWHFSObject(16)->EnsureFolder( [ name := "webhare-testsuite.output", type := 1 ]);
+
+    siteroot := this->GetWHFSTestRoot()->CreateFolder( [ name := sitename ] );
+    OBJECT newsite := CreateSiteFromFolder(siteroot->id);
+    IF (NOT newsite->SetPrimaryOutput(this->GetTestOutputServer(), this->useseparateoutputport ? '/' : '/webhare-testsuite.output/').success)
+      ABORT("Could not set primary output");
+
+    RECORD ARRAY unpacked_files := UnpackArchive(archive, ".tar.gz");
+    RETURN ImportWHFSArchive(siteroot, archive, [ overwrite := FALSE ]);
+  }
+
+  /** Create a test website with the siteprofile passed */
+  PUBLIC OBJECT FUNCTION SetupTestWebdesignWebsite(STRING siteprofile, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    OpenWHFSObject(16)->EnsureFolder( [ name := "webhare-testsuite.output", type := 1]);
+
+    IF(NOT HavePrimaryTransaction() OR (GetPrimary()->HasWorkSUpport() AND NOT GetPrimary()->IsWorkOpen()))
+      ABORT("SetupTestWebdesignWebsite requires a writable transaction (explicit or opened work)");
+
+    //FIXME only do this with sites we create form webhare_testsuite, not 'just if the module exists'
+    OBJECT testsitetype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/testsite");
+
+    options := ValidateOptions([ sitetype := ObjectExists(testsitetype) ? testsitetype->id : 0
+                               , sitename := "webhare_testsuite.site"
+                               , isversioned := FALSE
+                               , outputpath := "/"
+                               , sitedesign := ""
+                               , enableoutput := TRUE
+                               ], options);
+
+
+    OBJECT siteroot := this->GetWHFSTestRoot()->OpenByName(options.sitename);
+    IF(ObjectExists(siteroot))
+      siteroot->RecycleSelf();
+
+    siteroot := this->GetWHFSTestRoot()->CreateFolder( [ name := options.sitename, type := options.sitetype ] );
+    OBJECT newsite := CreateSiteFromFolder(siteroot->id);
+    IF(options.isversioned)
+      newsite->UpdateSiteMetadata([ isversioned := options.isversioned ]);
+
+    IF(options.enableoutput)
+    {
+      RECORD res := newsite->SetPrimaryOutput(this->GetTestOutputServer(), MergePath(this->useseparateoutputport ? '/' : '/webhare-testsuite.output/', options.outputpath) || "/");
+      IF(NOT res.success)
+      {
+        DumpValue(res,'tree');
+        ABORT("Failed to create the testsite, foreign folder conflicts?");
+      }
+    }
+
+    IF(siteprofile != "")
+    {
+      OBJECT designfolder := siteroot->CreateFolder( [ type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfolder")->id, name := "design" ]);
+
+      OBJECT siteprof := designfolder->CreateFile(
+          [ name:=    "testsite.siteprl"
+          , data :=   StringToBlob(siteprofile)
+          , type :=   27 //siteprofile
+          ]);
+      IF(NOT newsite->AssignSiteProfile(siteprof->id))
+        THROW NEW Exception("Setting up siteprofile for testsite failed");
+    }
+    IF(options.sitedesign != "")
+      newsite->SetSiteDesign(options.sitedesign);
+
+    RETURN newsite;
+  }
+
+  PUBLIC MACRO EnsureCompiledAssetpack(STRING asssetpackname)
+  {
+    RECORD res := WaitForCompiledAssetpack(asssetpackname);
+    IF(res.haserrors)
+      DumpValue(res,'tree:3');
+    TestEq(FALSE, res.haserrors, "compile should have succeeded");
+  }
+  PUBLIC OBJECT FUNCTION CreateEventExpectation(STRING ARRAY masks)
+  {
+    OBJECT bc_event := NEW EventListener(masks);
+    RETURN bc_event;
+  }
+
+  PUBLIC OBJECT ASYNC FUNCTION WaitAndProcessEvents(FUNCTION PTR until, STRING failure)
+  {
+    DATETIME timeout := AddTimeToDate(60 * 1000, GetCurrentDateTime());
+
+    WHILE (timeout > GetCurrentDatetime())
+    {
+      AWAIT NEW WaitableTimer(100)->WaitSignalled();
+      IF (until())
+        RETURN DEFAULT RECORD;
+    }
+
+    THROW NEW Exception("WaitAndProcessEvents. never completed: '" || failure || "'");
+  }
+
+  PUBLIC MACRO WaitForPublishCompletion(INTEGER startingfolder)
+  {
+    IF(NOT WaitForPublishCompletion(startingfolder, [ deadline := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime())
+                                                    , reportfrequency := 15000
+                                                    ]))
+    {
+      ABORT("Publication in folder #" || startingfolder || " isn't completing");
+    }
+  }
+
+  /** Construct an AsyncEventWaiter
+      @param options
+      @cell(stringarray) options.masks Events masks to listen to, defaults to [ "*" ]. All added events must match one of these masks
+      @cell(boolean) options.fataltimeout Whether the timeout is fatal
+      @cell(datetime) options.timeout Timeout date
+  */
+  PUBLIC OBJECT FUNCTION GetAsyncEventWaiter(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN NEW AsyncEventWaiter(options);
+  }
+
+  PUBLIC OBJECT FUNCTION GetWHFSTestRoot()
+  {
+    RETURN OpenWHFSObjectByPath("/webhare_testsuite.testfolder");
+  }
+
+  PUBLIC OBJECT FUNCTION GetWHFSTestRoot2()
+  {
+    RETURN OpenWHFSObjectByPath("/webhare_testsuite.testfolder2");
+  }
+
+  PUBLIC OBJECT FUNCTION GetWRDSchema(BOOLEAN forcereload DEFAULTSTO FALSE)
+  {
+    IF(NOT this->options.wrdschema)
+      THROW NEW Exception("Test WRD schema was disabled for this test");
+
+    IF(NOT ObjectExists(this->openwrdschema) OR forcereload)
+    {
+      this->openwrdschema := OpenTestsuiteWRDSchema();
+    }
+
+    RETURN this->openwrdschema;
+  }
+
+  PUBLIC MACRO SetTestUser(STRING username)
+  {
+    __SetEffectiveUser(username = "~webhare" ? this->saveinitialuser : this->GetUserObject(username));
+  }
+
+  /** Wait for a condition to become true, check when an event has fired
+      @param waitfunction Function returning TRUE once the conditiion is satisfied
+      @param eventname Event that must fire before we check the condition
+      @return A promise */
+  PUBLIC OBJECT FUNCTION AsyncWaitOnWithEvent(FUNCTION PTR waitfunction, STRING eventname) //Wait for a condition to trigger, and recheck whenever the specified event fires
+  {
+    IF(waitfunction())
+      RETURN CreateResolvedPromise(TRUE);
+
+    OBJECT waiter := NEW AsyncEventWaiter([ masks := [ eventname ] ]);
+    waiter->AddEvent([ mask := eventname, conditiontest := waitfunction ]);
+    RETURN waiter->Wait();
+  }
+
+  /** Wait for an event to fire
+      @param eventname Event that must fire
+      @return A promise */
+  PUBLIC OBJECT FUNCTION AsyncWaitForEvent(STRING eventname)
+  {
+    OBJECT waiter := NEW AsyncEventWaiter([ masks := [ eventname ] ]);
+    waiter->AddEvent([ mask := eventname ]);
+    RETURN waiter->Wait();
+  }
+
+  /** Wait for a specific event to fire
+      @param eventname Event that must fire
+      @param eventtest Function given the event data, which must return TRUE once the condition is satisfied
+      @return A promise */
+  PUBLIC OBJECT FUNCTION AsyncWaitForSpecificEvent(STRING eventname, FUNCTION PTR eventtest)
+  {
+    OBJECT waiter := NEW AsyncEventWaiter([ masks := [ eventname ] ]);
+    waiter->AddEvent([ mask := eventname, datatest := eventtest ]);
+    RETURN waiter->Wait();
+  }
+
+  PUBLIC MACRO CompareWithImage(BLOB imgdata, STRING resource, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ annotation := ""
+                               , maxmse := 0f
+                               ], options);
+    STRING respath := resource;
+    BLOB expectdata;
+    TRY
+      expectdata := GetWebHareResource(respath);
+    CATCH
+      PRINT("Could not open reference image " || respath || "\n");
+    STRING sourcepath := GetWebHareResourceDiskPath(respath);
+
+    OBJECT expectcanvas := LENGTH(expectdata) != 0 ? CreateCanvasFromBlob(expectdata) : CreateEmptyCanvas(1,1,0);
+    OBJECT gotcanvas := CreateCanvasFromBlob(imgdata);
+
+    FLOAT mse;
+    FLOAT maxmse := options.maxmse;
+
+    BOOLEAN dimension_mismatch := expectcanvas->width != gotcanvas->width OR expectcanvas->height != gotcanvas->height;
+    BOOLEAN iserror := dimension_mismatch;
+    IF (iserror)
+      PRINT("Image dimensions does not match reference image\n");
+    ELSE
+    {
+      mse := expectcanvas->CompareWithCanvas(gotcanvas);
+      iserror := mse > maxmse;
+      IF (iserror)
+        PRINT("Reference image differs from generated image\n");
+    }
+
+    IF (NOT iserror)
+      RETURN;
+
+    STRING resourceshortname := GetBasenameFromPath(resource);
+    STRING refcopy := GetTempDir() || "/" || resourceshortname || "-ref.png";
+    STRING gencopy := GetTempDir() || "/" || resourceshortname || "-gen.png";
+    STRING diffcopy := GetTempDir() || "/" || resourceshortname || "-gen.diff-alpha.png";
+    STRING diffnoalphacopy := GetTempDir() || "/" || resourceshortname || "-gen.diff-noalpha.png";
+
+    CreateDiskDirectoryRecursive(GetTempDir(), TRUE);
+    StoreDiskFile(refcopy, expectdata, [ overwrite := TRUE ]);
+    StoreDiskFile(gencopy, imgdata, [ overwrite := TRUE ]);
+
+    Print("\n");
+    Print("Reference version:  " || sourcepath || "\n");
+    Print("Generated version:  " || gencopy || "\n");
+
+    IF (NOT dimension_mismatch)
+    {
+      //create a difference version
+      gotcanvas->blendmode := "DIFFERENCEALL";
+      gotcanvas->DrawCanvas(expectcanvas,0,0);
+      StoreDiskFile(diffcopy, gotcanvas->ExportAsPNG(TRUE), [ overwrite := TRUE ]);
+
+      //clear alpha
+      gotcanvas->blendmode := "COPYALPHA";
+      OBJECT clearingcanvas := CreateEmptyCanvas(gotcanvas->width, gotcanvas->height, ColorWhite);
+      gotcanvas->DrawCanvas(clearingcanvas, 0,0);
+      StoreDiskFile(diffnoalphacopy, gotcanvas->ExportAsPNG(TRUE), [ overwrite := TRUE ]);
+
+      Print("Difference w/alpha: " || diffcopy || "\n");
+      Print("Difference opaque:  " || diffnoalphacopy || "\n");
+    }
+
+    IF (dimension_mismatch)
+    {
+      PRINT("\nExpected dimensions: " || expectcanvas->width || "x" || expectcanvas->height || "\n");
+      PRINT("Got dimensions: " || gotcanvas->width || "x" || gotcanvas->height || "\n");
+    }
+    ELSE
+    {
+      Print("\nimage " || resourceshortname || " differs: MSE=" || FormatFloat(mse,3) || ", max MSE=" || FormatFloat(maxmse,3) || "\n\n");
+    }
+    PRINT(`To overwriting the source file:\ncp ${gencopy} ${sourcepath}\n\n`);
+    TestEQ("image ok", "image not ok", options.annotation);
+  }
+
+
+  PUBLIC MACRO EnsureUserMgmtClean()
+  {
+    RECORD ARRAY changes := this->userapi->ResyncToSystemTables();
+    IF(Length(changes)>0)
+    {
+      PRINT("UNEXPECTED CHANES\n");
+      DumpValue(changes,'tree');
+      ABORT("There were unexpected changes made by ResyncToSystemTables - our incremental updates might be bad");
+    }
+  }
+
+  PUBLIC MACRO MockRegistryKey(STRING keyname, VARIANT newvalue)
+  {
+    //Mock the specified registry key for the current test (does not necessarily apply to jobs/subvms!)
+    __MockRegistryKey(keyname,newvalue);
+  }
+
+  PUBLIC RECORD FUNCTION CreateKeyPair(STRING commonname, BLOB privatekey, BLOB certificate, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING keyname := "webhare_testsuite--" || GetSafeFileName(commonname);
+    OBJECT keypair := CreateKeyPair(keyname, privatekey, options);
+    IF(Length(certificate) > 0)
+      keypair->UpdateMetadata(CELL[ certificatechain := certificate ]);
+
+    RETURN CELL [ id := keypair->id
+                , keyname
+                , keypair
+                ];
+  }
+
+  PUBLIC RECORD FUNCTION GenerateKeyPair(STRING commonname)
+  {
+    OBJECT evpkey := GenerateCryptoKey("RSA", 1024);
+    RECORD res := this->CreateKeyPair(commonname, StringToBlob(evpkey->privatekey), DEFAULT BLOB);
+    BLOB csr := res.keypair->GenerateCSR([ cn := commonname ]);
+    RECORD certdata := res.keypair->SignCertificateRequest(csr, [ selfsign := TRUE ]);
+    res.keypair->UpdateMetadata([ certificatechain := certdata.certificatechain ]);
+    RETURN res;
+  }
+
+  /** Flush tasks of the specified types. Throws if any task failed
+      @param tasktypes List of tasks to cancel
+      @cell options.createdafter Only flush tasks creatd after this time (takes test start time by default)
+      @cell options.acceptcancel Don't throw if the task is cancelled */
+  PUBLIC MACRO FlushTasks(STRING ARRAY tasktypes, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ createdafter := this->__testfwstart
+                               , acceptcancel := FALSE
+                               ], options);
+
+    DATETIME maxwait := AddTimeToDate(60*1000, GetCurrentDatetime());
+    FOREVERY(STRING type FROM tasktypes)
+    {
+      GetTaskTypeSettings(type, FALSE); //validate its extistence
+      FOREVERY(RECORD task FROM LookupManagedTasks(type, CELL[options.createdafter]))
+        RetrieveManagedTaskResult(task.id, maxwait, [ acceptcancel := options.acceptcancel ]);
+    }
+  }
+
+  PUBLIC OBJECT FUNCTION MakeRestAPITester(STRING apispecification, STRING baseurl, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN NEW RestTester(this, apispecification, baseurl, options);
+  }
+
+  //Setup the test module
+  PUBLIC MACRO SetupTestModule(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT this->usedatabase)
+      THROW NEW Exception("Setting up modules requires a database connection");
+
+    RECORD result := SetupModule(testfw_testmodule, testfw_testmodule,
+                                 CELL[ description := "Test module"
+                                     , defaultlanguage := "en"
+                                     , gitinit := FALSE
+                                     , ...options
+                                     ]);
+    TestEq(testfw_testmodule, result.modulename);
+  }
+
+  /** @short Get any logged module log entries (error, accounting, etc). Clears the log so far
+      @cell(string) return.log Name of the log, eg system:accounting
+      @cell(datetime) return.when When the log entry was generated
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetModuleLog()
+  {
+    RECORD ARRAY retval := this->modulelog;
+    this->modulelog := RECORD[];
+    RETURN retval;
+  }
+>;
+
+/** Returns true when a file is currently being published
+    @param objid Id of the file
+    @return TRUE if the file is now being published
+*/
+PUBLIC BOOLEAN FUNCTION IsBeingPublished(INTEGER objid)
+{
+  INTEGER published := SELECT AS INTEGER fs_objects.published FROM system.fs_objects WHERE id=objid;
+  RETURN GetErrorFromPublished(published)>=1 AND GetErrorFromPublished(published)<100;
+}
+
+/** Returns true when a file is currently being published
+    @param objid Id of the file
+    @param when Minimum republish date of the file
+    @return TRUE if the file is now being published, or was republished after `when`.
+*/
+PUBLIC BOOLEAN FUNCTION IsBeingPublishedSince(INTEGER objid, DATETIME when)
+{
+  RECORD fileinfo := SELECT published, lastpublishdate FROM system.fs_objects WHERE id=objid;
+  RETURN RecordExists(fileinfo)
+         AND (fileinfo.lastpublishdate >= when
+              OR (GetErrorFromPublished(fileinfo.published)>=1 AND GetErrorFromPublished(fileinfo.published)<100)
+             );
+}
+
+
+/** Marks a file as published
+    @param objid File id
+    @param needswebdesign Whether the file needs a webdesign
+    @param setlastpublishdate If set, set the last publish date to this value
+*/
+PUBLIC MACRO MarkAsPublished(INTEGER objid, BOOLEAN needswebdesign, DATETIME setlastpublishdate DEFAULTSTO DEFAULT DATETIME)
+{
+  UPDATE system.fs_objects SET published := PublishedFlag_OncePublished + (needswebdesign ? 800000 : 0)
+                             , lastpublishdate := setlastpublishdate != DEFAULT DATETIME ? setlastpublishdate : GetCurrentDatetime()
+                           WHERE id = objid;
+}
+
+
+/** Deletes all setting ids (wrd_settingid, fs_settingid, __blource, etc) from records, to be able to compare the content
+    @param data Data to scrub
+    @param extra_deletes Extra cells to delete
+    @return Data with all settingids removed
+*/
+PUBLIC VARIANT FUNCTION RecurseDeleteSettingIds(VARIANT data, STRING ARRAY extra_deletes)
+{
+  SWITCH (TypeId(data))
+  {
+  CASE TypeID(RECORD)
+    {
+      RECORD newrec;
+      FOREVERY (RECORD r FROM UnpackRecord(data))
+        IF (r.name != "WRD_SETTINGID" AND r.name != "FS_SETTINGID" AND r.name != "SETTINGID" AND r.name != "__BLOBSOURCE" AND r.name NOT IN extra_deletes AND r.name != "WHFSSETTINGID" AND r.name != "WHFSFILEID")
+          newrec := CellInsert(newrec, r.name, RecurseDeleteSettingIds(r.value, extra_deletes));
+
+      RETURN newrec;
+    }
+  CASE TypeID(RECORD ARRAY)
+    {
+      RECORD ARRAY newrecs;
+      FOREVERY (RECORD r FROM data)
+        INSERT RecurseDeleteSettingIds(r, extra_deletes) INTO newrecs AT END;
+
+      RETURN newrecs;
+    }
+  }
+  RETURN data;
+}
+
+/** Runs an inline file publication
+    @param fileid Id of the file to publish
+    @param profile
+    @return Publication info
+*/
+PUBLIC RECORD FUNCTION RunFilePublish(INTEGER fileid, BOOLEAN profile)
+{
+  RECORD retval := [ success := FALSE
+                   , compileerror := FALSE
+                   , hserrors := DEFAULT RECORD ARRAY
+                   , hsgroupid := ""
+                   , runtimeerror := FALSE
+                   , files := DEFAULT RECORD ARRAY
+                   , dbfiles := DEFAULT RECORD ARRAY
+                   , error := ""
+                   , checkablelinks := DEFAULT RECORD ARRAY
+                   ];
+
+  OBJECT process := NEW PublicationProcess(fileid);
+  OBJECT memory := NEW MemoryOutputMedia;
+  RECORD ARRAY outputs := process->GetOutputs();
+
+  IF(Length(outputs)=0)
+    THROW NEW Exception("No output generated");
+
+  RECORD output := SELECT * FROM outputs;
+  IF(NOT RecordExists(output))
+    THROW NEW Exception("No such output");
+
+  OBJECT outputrun := process->CreatePublicationRun(memory, output, profile);
+  INTEGER runresult := outputrun->Run();
+
+  retval.hserrors := outputrun->hs_errors;
+  IF(Length(retval.hserrors) > 0)
+  {
+    Print(`** Publication of file #${fileid} failed. Errors:\n`);
+    Print(FormatHarescriptErrors(retval.hserrors));
+  }
+
+  retval.hsgroupid := outputrun->hs_groupid;
+  retval.checkablelinks := outputrun->checkablelinks;
+  retval.dbfiles := outputrun->dbfiles;
+
+  IF(outputrun->errorcode = 101) //harescript compiletime error
+  {
+    retval.compileerror := TRUE;
+    retval.error := "Compilation error";
+  }
+  ELSE IF(outputrun->errorcode = 102) //harescript runtime error
+  {
+    retval.runtimeerror := TRUE;
+    retval.error := "Runtime error";
+  }
+  ELSE IF(outputrun->errorcode = 107)
+  {
+    retval.error := "Publication did not create a first output file";
+  }
+  ELSE IF(outputrun->errorcode = 0)
+  {
+    retval.success := TRUE;
+  }
+  ELSE
+  {
+    retval.error := "Publication error code #" || outputrun->errorcode;
+  }
+  /*
+  Print(Retval||"<br>");
+//DumpValue(outputrun->errordata,'html');
+Print(outputrun->errorcode||" " || outputrun->errordata || "<br>");
+DumpValue(outputrun->hs_errors,'html');
+DumpValue(outputrun->warnings,'html');
+DumpValue(outputrun->dbfiles,'html');
+*/
+  IF(ObjectExists(memory->lastom))
+    retval.files := memory->lastom->files;
+  RETURN retval;
+}
+
+/** Test framework
+    @type(object %TestFramework)
+*/
+PUBLIC OBJECT testfw;
+
+STRING FUNCTION GenerateName(MACRO PTR test)
+{
+  RECORD info := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(test);
+  //Dumpvalue(info,'tree'); //FIXME encode bound parameters
+  RETURN ToLowercase(tokenize(info."function",':')[0]);
+}
+
+/** Run a number of tests within the framework
+    @param tests Function pointers to tests to run
+    @cell(boolean) options.debug
+    @cell(string array) options.debugflags Additional debug options to set on the testframework browser
+    @cell(record array) options.testusers Test users to create
+    @cell(boolean) options.profile
+    @cell(boolean) options.relativeoutputfolders
+    @cell(integer) options.requireport
+    @cell(record array) options.testroles
+    @cell(boolean) options.wrdschema
+    @cell(boolean) options.wrdauth Set to false to suppress creating our schema with usermgmt capabilities (WHUSER_LOGIN etc). Defaults to true
+    @cell(boolean) options.usedatabase
+    @cell(boolean) options.consilio
+    @cell(string array) options.addinterfacealiases
+    @cell(boolean) options.mailwhitelists
+    @cell(string array) options.canceltasks Array of masks of task types to clean up before testing
+*/
+PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(NOT RecordExists(PollWHServiceState("poststartdone")))
+    THROW NEW Exception("WebHare is not yet ready for tests (state 'poststartdone' not yet reached)");
+
+  options := ValidateOptions( [ debug := IsRunningInEditor()
+                              , testusers := RECORD[]
+                              , profile := NOT (IsRequest() AND IsWHDebugOptionSet("apr")) AND NOT IsDebugTagEnabled("apr") //prevent recursive profiling..
+                              , relativeoutputfolders := FALSE
+                              , requireport := 0
+                              , testroles := RECORD[]
+                              , wrdschema := TRUE
+                              , wrdauth := TRUE
+                              , usedatabase := TRUE
+                              , consilio := FALSE
+                              , addinterfacealiases := STRING[]
+                              , mailwhitelists := TRUE
+                              , canceltasks := STRING[]
+                              , debugflags := STRING[]
+                              ], options);
+  IF(options.profile)
+  {
+    Enablefunctionprofile();
+  }
+
+  STRING ARRAY addinterfacealiases;
+  FOREVERY(STRING alias FROM options.addinterfacealiases)
+  {
+    IF(alias NOT LIKE "*.localhost.beta.webhare.net")
+      THROW NEW Exception("Interface aliases must end in .localhost.beta.webhare.net");
+    INSERT alias INTO addinterfacealiases AT END;
+  }
+
+  IF(ObjectExists(testfw))
+    THROW NEW Exception("testfw already set - duplicate testframework invocation?");
+
+  IF(options.usedatabase AND NOT HavePrimaryTransaction())
+    OpenPrimary();
+
+  testfw := NEW TestFramework(options);
+  IF(Length(options.canceltasks) > 0)
+  { //clean the tasks, if any
+    INTEGER ARRAY taskids;
+    FOREVERY(STRING tokill FROM options.canceltasks)
+      taskids := taskids CONCAT SELECT AS INTEGER ARRAY id FROM LookupManagedTasks(tokill, [ unfinished := TRUE ]);
+
+    IF(Length(taskids)>0)
+    {
+      testfw->BeginWork();
+      OBJECT cancelpromise := CancelManagedTasks(taskids);
+      testfw->CommitWork();
+      WaitForPromise(cancelpromise);
+    }
+  }
+  testfw->addinterfacealiases := addinterfacealiases;
+
+  IF(options.consilio)
+    EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(testfw) BY ConsilioTestExtensions;
+
+  testfw->profile := options.profile;
+  testfw->debug := options.debug;
+
+  FOREVERY(RECORD testuser FROM options.testusers)
+  {
+    testuser := ValidateOptions( [ login := "", grantrights := DEFAULT STRING ARRAY], testuser, [ title := "testuser", required := ["login"]]);
+    testfw->DeclareTestUser(testuser.login, testuser.grantrights);
+  }
+  FOREVERY(RECORD testrole FROM options.testroles)
+    testfw->DeclareTestRole(testrole.role);
+
+  FOREVERY(FUNCTION PTR test FROM tests)
+  {
+    STRING testname := GenerateName(test);
+    testfw->RegisterTest(testname, test);
+  }
+
+  testfw->RunTests();
+}
+
+INTEGER ARRAY FUNCTION FilterOutRecycledObjects(INTEGER ARRAY ids)
+{
+  RECORD ARRAY worklist :=
+      SELECT id
+           , parent :=  id
+        FROM ToRecordArray(ids, "ID")
+    GROUP BY id;
+
+  INTEGER ARRAY result;
+
+  WHILE (LENGTH(worklist) != 0)
+  {
+    result := result CONCAT SELECT AS INTEGER ARRAY id FROM worklist WHERE parent = 0;
+    INTEGER ARRAY curparents := SELECT AS INTEGER ARRAY parent FROM worklist WHERE parent != 0;
+
+    RECORD ARRAY folders :=
+        SELECT id
+             , parent
+          FROM system.fs_objects
+         WHERE id IN curparents
+      ORDER BY id;
+
+    RECORD ARRAY newworklist;
+    FOREVERY (RECORD rec FROM worklist)
+      IF (rec.parent != 0 AND rec.parent != 11) // filter out everything in whfs-versions
+      {
+        RECORD pos := RecordLowerBound(folders, [ id := rec.parent ], [ "ID" ]);
+        INSERT [ id := rec.id, parent := folders[pos.position].parent ] INTO worklist AT END;
+      }
+
+    worklist := newworklist;
+  }
+
+  RETURN result;
+}
+
+/** Prints a stacktrace
+    @param trace Stack trace
+    @cell(string) trace.filename Resource name
+    @cell(string) trace.func Function name
+    @cell(integer) trace.line Line number
+    @cell(integer) trace.col Column number
+*/
+PUBLIC MACRO DumpStackTrace(RECORD ARRAY trace)
+{
+  Print("\n");
+  FOREVERY (RECORD rec FROM trace)
+  {
+    STRING path := rec.filename;
+    TRY
+    {
+      path := GetWebHareResourceDiskPath(rec.filename);
+    }
+    CATCH(OBJECT ignore)
+    {
+    }
+    PRINT(`${path}:${rec.line}:${rec.col}: Called from ${rec.func}\n`);
+  }
+}
+
+/** Ensures that further usage of the testframework throws an error
+    @param why Reason (leave empty to allow usage of the test framwork)
+*/
+PUBLIC MACRO DisallowFrameWorkUsage(STRING why)
+{
+  disallowtestframework := why;
+}
+
+/** Opens temporary the WRD schema created by the testsuite
+    @return(object %WRDSchema2017) WRD schema
+*/
+PUBLIC OBJECT FUNCTION OpenTestsuiteWRDSchema()
+{
+  RETURN OpenWRDSchema(whconstant_wrd_testschema);
+}
+
+/** Extracts the webdesign rendering summary from an HTML document
+    @param(object wh::xml/dom.whlib#XmlDocument) htmldoc HTML document
+    @return Webdesign rendering summary
+*/
+PUBLIC RECORD FUNCTION ExtractWebdesignRenderingSummary(OBJECT htmldoc)
+{
+  OBJECT whconfig := htmldoc->GetElementById("wh-rendering-summary");
+  IF(NOT ObjectExists(whconfig))
+    RETURN DEFAULT RECORD;
+  RETURN DecodeJSON(whconfig->textcontent);
+}

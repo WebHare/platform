@@ -1,0 +1,12 @@
+<richstructure xmlns="http://www.webhare.net/xmlns/tollium/richstructure">
+
+  <blockstyles defaultstyle="NORMAL">
+    <textstyle tag="HEADING1" />
+    <textstyle tag="HEADING2" />
+    <textstyle tag="HEADING3" />
+    <textstyle tag="NORMAL" />
+    <textstyle tag="UNORDERED" />
+    <textstyle tag="ORDERED" />
+  </blockstyles>
+
+</richstructure>

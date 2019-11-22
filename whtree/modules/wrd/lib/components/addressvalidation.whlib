@@ -1,0 +1,114 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+
+
+PUBLIC OBJECTTYPE AddressValidation EXTEND TolliumFragmentBase
+<
+  RECORD ARRAY services;
+
+  /** @short The address validation settings (DEFAULT RECORD for no validation)
+      @cell(string) type One of "pdok", "postcodeapi.nu", "webservices.nl"
+      @cell(string) apikey (postcodeapi.nu only) The API key to use
+      @cell(string) user (webservices.nl only) The username to use
+      @cell(string) password (webservices.nl only) The username to use
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->invisibletitle := TRUE;
+
+    this->services := GetAddressValidationServices();
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->validationtype->options := this->validationtype->options CONCAT
+        SELECT rowkey := name
+             , title := GetTid(title)
+          FROM this->services
+         WHERE NOT isdefault;
+
+    //this->validationsettings->insertpoints := ...
+    FOREVERY (RECORD service FROM this->services)
+    {
+      RECORD result := this->validationsettings->LoadTabsExtension(service.editextension);
+
+      IF (result.fragment NOT EXTENDSFROM WRDAddressVerificationExtensionBase)
+        THROW NEW TolliumException(result.components[0], "Address validation extension doesn't extend WRDAddressVerificationExtensionBase");
+      IF (Length(result.addedtabs) != 1)
+        THROW NEW TolliumException(result.components[0], "Address validation extension must add 1 tab");
+
+      this->services[#service] :=
+          CELL[ ...this->services[#service]
+              , extension := result.fragment
+              , tab := result.addedtabs[0]
+              ];
+    }
+  }
+
+  MACRO OnTypeSelected()
+  {
+    RECORD def := SELECT * FROM this->services WHERE name = this->validationtype->value;
+    IF (NOT RecordExists(def))
+      this->validationsettings->selectedtab := this->nosettings;
+    ELSE
+      this->validationsettings->selectedtab := def.tab;
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    IF (this->validationtype->value = "")
+      RETURN DEFAULT RECORD;
+    IF (this->validationtype->value = "-none-")
+      RETURN [ type := this->validationtype->value ];
+
+    RECORD def := SELECT * FROM this->services WHERE name = this->validationtype->value;
+    IF (NOT RecordExists(def))
+      RETURN DEFAULT RECORD;
+    RETURN CELL[ ...def.extension->value, type := this->validationtype->value ];
+  }
+
+  MACRO SetValue(RECORD value)
+  {
+    this->validationtype->value := RecordExists(value) ? value.type : "";
+    DELETE CELL type FROM value;
+    RECORD def := SELECT * FROM this->services WHERE name = this->validationtype->value;
+    IF (RecordExists(def))
+      def.extension->value := value;
+  }
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+    RECORD settings := this->value;
+    IF (NOT RecordExists(settings))
+      RETURN;
+
+    TRY
+    {
+      IF(NOT __OpenWRDAddressLookupAPI(settings, "", "").success)
+        work->AddErrorFor(this, GetTid("wrd:components.addressvalidation.invalidsettings", "Unknown error"));
+    }
+    CATCH (OBJECT e)
+      work->AddErrorFor(this, GetTid("wrd:components.addressvalidation.invalidsettings", e->what));
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE WRDAddressVerificationExtensionBase EXTEND TolliumTabsExtensionBase
+<
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  RECORD FUNCTION GetValue()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO SetValue(RECORD value)
+  {
+  }
+>;

@@ -1,0 +1,84 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+
+MACRO SyntaxFail()
+{
+  Print("Syntax: wh registry get <keyname>\n");
+  Print("        wh registry set [--password] <keyname> <value>\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "cmd", type := "param", required := TRUE ]
+    , [ name := "rest", type := "paramlist" ]
+    ]);
+
+IF(NOT RecordExists(args))
+  SyntaxFail();
+
+SWITCH(args.cmd)
+{
+  CASE "get"
+  {
+    RECORD restargs := ParseArguments( args.rest, [[ name := "keyname", type := "param", required := TRUE ]]);
+    IF(NOT RecordExists(restargs))
+      SyntaxFail();
+
+    OpenPrimary();
+    VARIANT val := ReadRegistryKey(restargs.keyname);
+    IF(TypeId(val)=TypeID(STRING))
+      Print(val||"\n");
+    ELSE
+      DumpValue(val, [ name := "" ]);
+  }
+  CASE "set"
+  {
+    RECORD restargs := ParseArguments( args.rest, [[ name := "type", type := "stringopt" ]
+                                                  ,[ name := "password", type := "switch" ]
+                                                  ,[ name := "keyname", type := "param", required := TRUE ]
+                                                  ,[ name := "value", type := "param", required := TRUE
+                                                   ]
+                                                  ]);
+    IF(NOT RecordExists(restargs))
+      SyntaxFail();
+
+    OBJECT trans := OpenPrimary();
+    trans->BeginWork();
+
+    BOOLEAN createifneeded := restargs.type != "";
+    IF (restargs.type = "")
+    {
+      VARIANT val := ReadRegistryKey(restargs.keyname);
+      restargs.type := GetTypeName(TypeID(val));
+    }
+
+    STRING keytype := ToLowercase(restargs.type);
+    IF(restargs.password)
+    {
+      IF(keytype != "string")
+        TerminateScriptWithError("Only keys of type 'string' can be set as a --password");
+
+      restargs.value := CreateWebharePasswordHash(restargs.value);
+    }
+
+    SWITCH (keytype)
+    {
+      CASE "string"     { WriteRegistryKey(restargs.keyname, restargs.value, CELL[ createifneeded ]); }
+      CASE "boolean"    { WriteRegistryKey(restargs.keyname, ToUppercase(restargs.value) IN ["1","TRUE"], CELL[ createifneeded ]); }
+      CASE "integer"    { WriteRegistryKey(restargs.keyname, ToInteger(restargs.value,0), CELL[ createifneeded ]); }
+      DEFAULT           { TerminateScriptWithError(`Not sure how to store value of type '${keytype}'`); }
+    }
+
+    trans->CommitWork();
+  }
+  DEFAULT
+  {
+    SyntaxFail();
+  }
+}

@@ -1,0 +1,66 @@
+[component moduledefxml]<?xml version="1.0"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+  <meta>
+    <description>B-Lex testsuite testmodule</description>
+  </meta>
+</module>
+[/component]
+
+[component language_default]<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:h="http://www.w3.org/1999/xhtml">
+  <textgroup gid="testfallbackrecursion" usefromlanguage="nl">
+    <text tid="text">Can't find me</text>
+  </textgroup>
+  <textgroup gid="testfallbacklocalrecursion" usefromlanguage="en">
+    <text tid="text">Can't find me</text>
+  </textgroup>
+  <textgroup gid="testfallbackdefaultrecursion">
+    <text tid="text">Can't find me from NL</text>
+  </textgroup>
+  <textgroup gid="testfallback">
+    <textgroup gid="sub">
+      <text tid="text">A text</text>
+    </textgroup>
+    <text tid="anothertext">Another text</text>
+  </textgroup>
+  <textgroup gid="notifications">
+    <text tid="messagefromthefuture">A <h:i>message</h:i></text>
+    <text tid="messagefromthefuture-desc">I got a message from the future!</text>
+    <text tid="message_from_the_future">A message with underscores</text>
+    <text tid="testmessage"><param p="1"/></text>
+    <text tid="testmessage-desc"><param p="1"/></text>
+    <text tid="linkfromthefuture">An <h:a href="http://www.example.org/">example</h:a> link</text>
+    <text tid="linkparameter">A <h:a data-href-param="1">parametered</h:a> link</text>
+  </textgroup>
+</language>[/component]
+
+[component language_nl]<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:h="http://www.w3.org/1999/xhtml">
+  <textgroup gid="testfallbackrecursion" usefromlanguage="en">
+    <text tid="text">Can't find me</text>
+  </textgroup>
+  <textgroup gid="testfallbackdefaultrecursion" usefromlanguage="default">
+    <text tid="text">Can't find me from NL</text>
+  </textgroup>
+  <textgroup gid="testfallback" usefromlanguage="en">
+    <textgroup gid="sub" usefromlanguage="xx">
+      <text tid="text">Ignore this text</text>
+    </textgroup>
+    <text tid="anothertext">This text should be ignored</text>
+  </textgroup>
+</language>
+[/component]
+
+[component language_xx]<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="xx">
+</language>
+[/component]
+
+[component language_xy]<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="xy" fallbacklanguage="en">
+  <textgroup gid="testfallback">
+    <text tid="anothertext">Changed this text!</text>
+  </textgroup>
+</language>
+[/component]
+

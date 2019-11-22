@@ -1,0 +1,508 @@
+<?wh
+/** @short Gallery Generator
+    @long This library may be used in converted HareScript files (but not in templates!)
+          to create photo galleries.  */
+LOADLIB "mod::publisher/lib/harescriptfile-v2.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib" EXPORT GetPhotoalbumProps;
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/core.whlib";
+record array photofiles;
+record array emptyset;
+
+integer thumbnail_maxheight        := 128;
+integer thumbnail_maxwidth         := 128;
+integer photo_max_width            := 320;
+integer thumbnails_per_page        := 9;
+integer thumbnail_background_color := 0xFF000000;
+boolean originals_available        := false;
+boolean uses_background_images     := false;
+blob    background_horizontal;
+blob    background_vertical;
+
+
+BOOLEAN use_local_photos := TRUE;
+
+MACRO InitPhotofiles()
+{
+  IF (folder.type != 3 OR NOT use_local_photos)
+    RETURN;
+
+  photofiles := GetPhotoalbumContents(folder.id);
+}
+
+
+
+
+/** @short Sets the photos for the gallery
+    @long  This macro checks each photo in the record array for valid data and a valid name and assigns updates the record
+           array by adding a sequence number to each photo.
+    @param photoset An array with the photos to create
+    @cell  photoset.data BLOB containing the photo data to use
+    @cell  photoset.name Filename of the photo (used to tell the difference between .JPG, GIF and .PNG files)
+*/
+PUBLIC MACRO SetPhotoSet(RECORD ARRAY photoset)
+{
+  use_local_photos := FALSE;
+
+  //FIXME: we shouldn't be needing the 'name' cell
+  photofiles:=photoset;
+  for (integer count:=0; count<length(photofiles); count:=count+1) //give a nice id to each photo (to start a 1)
+  {
+    record r := photofiles[count];
+    IF ((NOT CellExists(r, "data")) OR (NOT CellExists(r, "name")) )
+    {
+        photofiles:=emptyset;
+        abort("The photoset contains at least one record that has no data.");
+        break;
+    }
+    INSERT CELL photoid := count + 1 INTO r;
+    photofiles[count]:=r;
+  }
+}
+
+
+
+
+/* Force our thumbnails to be considered as photos? (if not, they're
+   probably be written out as PNG instead of JPG) */
+boolean thumbnails_always_photo := true;
+
+/* Force the normal size pictures to be considered as photos? (speeds up
+   publiaction becuase there won't be any need for color counting in the
+   picture) */
+boolean fullpics_always_photo := true;
+
+/* Trade memory for speed by creating pic & thumbnail at same time?
+   Requires approx thumbnails_per_page * photo_maxwidth^2 * 4 bytes*/
+boolean memory_for_speed           := true;
+
+/* Canvas cache with cells 'photoid', 'canvas' and 'isthumbnail', which we use
+   to store yet unused canvasses when running in memory-for-speed mode */
+record array canvas_cache;
+
+/*******************************************************************************
+
+ FUNCTIONS
+
+********************************************************************************/
+
+//limit a picture's size to specific dimensions
+RECORD FUNCTION CalcOutputPicSize(INTEGER picturewidth, INTEGER pictureheight, INTEGER maxwidth, INTEGER maxheight)
+{
+  //Calculate required horizonal compression
+  INTEGER x_compression_factor := maxwidth * 100000 / picturewidth;
+  INTEGER y_compression_factor := maxheight * 100000 / pictureheight;
+
+  //Get the smallest compression factor (this will guarantee both height and width fall inside their max)
+  INTEGER image_compression_factor;
+  IF (y_compression_factor < x_compression_factor)
+    image_compression_factor := y_compression_factor;
+  ELSE
+    image_compression_factor := x_compression_factor;
+
+  IF (image_compression_factor < 100000)
+  {
+    RETURN [resize_width  := picturewidth * image_compression_factor / 100000,
+            resize_height := pictureheight * image_compression_factor / 100000,
+            resize := TRUE];
+  }
+  ELSE
+  {
+    RETURN [resize_width  := picturewidth,
+            resize_height := pictureheight,
+            resize := FALSE];
+  }
+}
+
+INTEGER FUNCTION GetPicCanvas(RECORD currentfile, INTEGER maxwidth, INTEGER maxheight)
+{
+  integer tempcanvas := 0;    //tempcanvas is used to build the thumbnail on
+
+  RECORD imgdata := ScanBlob(currentfile.data);
+  RECORD resizeinfo := CalcOutputPicSize(imgdata.width, imgdata.height, maxwidth, maxheight);
+
+  IF (resizeinfo.resize = TRUE)
+  {
+    tempcanvas := GfxCreateResizedCanvasFromImageBlob(currentfile.data, resizeinfo.resize_width, resizeinfo.resize_height);
+  }
+  ELSE
+    tempcanvas := GfxCreateCanvasFromImageBlob(currentfile.data);
+
+  IF (tempcanvas = 0)
+    ABORT(currentfile.name || " is not in a supported image format");
+
+  RETURN tempcanvas;
+}
+
+//generate thumbnail and full pic, store one into cache, return the other
+INTEGER FUNCTION GetAndCachePics(RECORD currentfile, BOOLEAN return_thumbnail)
+{
+  RECORD current_cache_entry := SELECT * FROM canvas_cache WHERE photoid=currentfile.photoid;
+  IF (RecordExists(current_cache_entry))
+  {
+    GfxDestroyCanvas(current_cache_entry.canvas);
+    DELETE FROM canvas_cache WHERE photoid=currentfile.photoid;
+  }
+
+  //Create the Full pic first
+  INTEGER fullcanvas := GetPicCanvas(currentfile,photo_max_width,photo_max_width);
+
+  //Duplicate it to create the thumbnail canvas
+  INTEGER thumbcanvas := GfxCreateDuplicateCanvas(fullcanvas);
+
+  //Check if we have to resize..
+  RECORD resizeinfo := CalcOutputPicSize(GfxGetCanvasWidth(fullcanvas), GfxGetCanvasHeight(fullcanvas),
+        thumbnail_maxwidth, thumbnail_maxheight);
+
+  // Do the resizing if necessary..
+  if (resizeinfo.resize = TRUE)
+        GfxResizeCanvas(thumbcanvas, resizeinfo.resize_width, resizeinfo.resize_height);
+
+  //Store one of these into the cache
+  INSERT INTO canvas_cache(photoid, canvas, isthumbnail)
+         VALUES(currentfile.photoid, return_thumbnail ? fullcanvas : thumbcanvas, return_thumbnail=false)
+         AT END;
+
+  //And return the other
+  RETURN return_thumbnail ? thumbcanvas : fullcanvas;
+}
+
+//get a Thumbnail canvas for a picture
+INTEGER FUNCTION GetThumbnail(RECORD currentfile)
+{
+  IF (NOT memory_for_speed) //generate on demand
+    RETURN GetPicCanvas(currentfile, thumbnail_maxwidth, thumbnail_maxheight);
+
+  //is it in the cache?
+  RECORD current_cache_entry := SELECT * FROM canvas_cache WHERE photoid=currentfile.photoid AND isthumbnail;
+  IF (RecordExists(current_cache_entry))
+  {
+    DELETE FROM canvas_cache WHERE photoid=currentfile.photoid; //drop from cache
+    RETURN current_cache_entry.canvas; //and give us the canvas!
+  }
+
+  //put it into the cache!
+  RETURN GetAndCachePics(Currentfile,TRUE);
+}
+
+//get a Full Picture canvas for a picture
+INTEGER FUNCTION GetFullPic(RECORD currentfile)
+{
+  IF (NOT memory_for_speed) //generate on demand
+    RETURN GetPicCanvas(currentfile, photo_max_width, photo_max_width);
+
+  //is it in the cache?
+  RECORD current_cache_entry := SELECT * FROM canvas_cache WHERE photoid=currentfile.photoid AND NOT isthumbnail;
+  IF (RecordExists(current_cache_entry))
+  {
+    DELETE FROM canvas_cache WHERE photoid=currentfile.photoid; //drop from cache
+    RETURN current_cache_entry.canvas; //and give us the canvas!
+  }
+
+  //put it into the cache!
+  RETURN GetAndCachePics(Currentfile,FALSE);
+}
+
+
+
+
+
+/** @short Get the photo pages. They have an ID from 1 to number_of_photos
+    @long  This function returns a record array containing the pages with the the large photos in the gallery.
+           They have an ID from 1 to number of photos.
+    @return A record array filled with the photopages.
+    @see GetThumbnailPages
+*/
+PUBLIC RECORD ARRAY FUNCTION GetPhotoPages()
+{
+  InitPhotoFiles();
+
+  RETURN photofiles;
+}
+
+
+
+
+/** @short Retrieves the thumbnail page id of a photo
+    @long  This function returns the id of the thumbnail page where the thumbnail of the photo with ID photoid
+           is shown.
+    @param photoid The id of the photo
+    @return The id of the thumbnail page
+*/
+INTEGER FUNCTION GetThumbnailPageId(INTEGER photoid)
+{
+  RETURN 1 + ((photoid-1) / thumbnails_per_page);
+}
+
+
+
+
+/** @short  Get the name of the thumbnail part on which a photo is shown
+    @param  photoid The ID of the photo
+    @return The file name of the page that contains the photo's thumbnail
+    @see    GetPhotoPartName
+*/
+PUBLIC STRING FUNCTION GetThumbnailPartName(INTEGER photoid)
+{
+  RETURN "index_page_" || ToString(GetThumbnailPageId(photoid));
+}
+
+
+
+
+/** @short  Get the name of the photo part on which a photo is shown
+    @param  photoid The ID of the photo
+    @return The file name of the page that contains the photo
+    @see    GetThumbnailPartName
+*/
+PUBLIC STRING FUNCTION GetPhotoPartName(INTEGER photoid)
+{
+  RETURN "photo_page_" || ToString(photoid);
+}
+
+
+
+
+/** @short  Get the thumbnail page records
+    @long   This function calculates how many thumnail pages are needed in the gallery based on the number of photos in the
+            gallery and the user settings of a thumbnail page. This function creates the thumbnail pages accordingly.
+    @return A record array filled with the thumbnail pages.
+ */
+PUBLIC RECORD ARRAY FUNCTION GetThumbnailPages()
+{
+  InitPhotoFiles();
+
+  RECORD ARRAY thumbnailpages;
+
+  integer rest :=     LENGTH(photofiles) %  thumbnails_per_page;
+  integer totalpages:=LENGTH(photofiles) /  thumbnails_per_page;
+
+  if (rest>0)
+    totalpages:=totalpages+1;
+
+  //fill each page with thumbnails
+  for (integer i:=0; i<totalpages; i:=i+1)
+  {
+    record array thumbnails;
+    record thumbnail;
+    record thumbnailpage;
+    for (integer j:=0; j<  thumbnails_per_page; j:=j+1)
+    {
+      integer pos := i* thumbnails_per_page + j;
+      if (pos<LENGTH(photofiles))
+      {
+        thumbnail   := photofiles[pos];             //a thumbnail is just a copy of the photo
+        INSERT thumbnail INTO thumbnails AT END;
+      }
+    }
+    INSERT CELL pageid := i+1 INTO thumbnailpage;              //give the thumbnailpage an id.
+    INSERT CELL thumbnails := thumbnails INTO thumbnailpage;    //and add the thumbnails as well
+    INSERT thumbnailpage INTO thumbnailpages AT END;
+  }
+  return thumbnailpages;
+}
+
+
+
+
+/** @short Set the maximum width of the photos.
+    @long  Set max. width for landscape photos and the max. height for portrait photos. The aspect ratio of the original
+           picture is maintained. This is to keep the size of the photos under control in your website and to keep the area
+           covered by the photos identical.
+    @param max The maximum width (or height) of a photo
+*/
+PUBLIC MACRO SetPhotoMaxWidth(INTEGER max)
+{
+  IF (max>=0)
+    photo_max_width := max;
+}
+
+
+
+
+/** @short Set the number of thumbnails on a page
+    @param number_of_thumbnails Number of thumbnails to show on each thumbnail page
+ */
+PUBLIC MACRO SetThumbnailsPerPage(integer number_of_thumbnails)
+{
+    IF (number_of_thumbnails>=0)
+      thumbnails_per_page := number_of_thumbnails;
+}
+
+
+
+
+/** @short Set the size of the thumbnails.
+    @long  The photos are scaled to fit within the maximum width and height of the thumbnails. The aspect ratio of
+           the original picture is maintained.
+    @param maxwidth Maximum thumbnail width
+    @param maxheight Maximum thumbnail height
+*/
+PUBLIC MACRO SetThumbnailMaxSize(integer maxwidth, integer maxheight)
+{
+    IF (maxwidth>=0)
+      thumbnail_maxwidth := maxwidth;
+    IF (maxheight>=0)
+      thumbnail_maxheight := maxheight;
+}
+
+/** FIXME: IMPLEMENT !@short Sets the background images
+    @param hor  The bitmap used for landscape photos
+    @param vert The bitmap used for portrait  photos
+
+public macro SetThumbnailBackground(blob hor, blob vert)
+{
+    background_horizontal:=hor ;
+    background_vertical  :=vert;
+    uses_background_images:=true;
+}
+*/
+/** FIXME: IMPLEMENT ! Set the color of the thumbnail background. Only used when no background is set
+    @param red   The value of the red   channel. Must be 0-255.
+    @param green The value of the green channel. Must be 0-255.
+    @param blue  The value of the blue  channel. Must be 0-255.
+public macro SetThumbnailBackgroundColor(integer red, integer green, integer blue)
+{
+    thumbnail_background_color := GfxCreateColor (red,green,blue,255);
+}
+ */
+
+
+
+
+/** @short Sets the original photos available or not
+    @long  This macro can be used if you want the orginal photos to be available when you click on a photo in your website.
+           If TRUE a link to the original photo is created. If FALSE a link to the thumbnail page is created.
+    @param originals If TRUE, link to the original photos, if FALSE it links to the thumbnail page
+ */
+PUBLIC MACRO SetOriginalsAvailable(BOOLEAN originals)
+{
+    originals_available := originals;
+}
+
+
+
+
+/** @short Prints a thumbnail page
+    @param currentfile The thumbnail page to print
+    @see PrintPhoto
+ */
+PUBLIC MACRO PrintThumbnail(RECORD currentfile)
+{
+  //get the alt tag of the image. It currently uses the title of the file.
+  STRING alt_tag;
+  IF (CellExists(currentfile,"title"))
+    alt_tag:=currentfile.title;
+  IF (alt_tag="" AND CellExists(currentfile,"name"))
+    alt_tag:=currentfile.name;
+
+  //Actual writing takes place here! And linking too,
+  //note that it is only HTML linkage. so no XML is supported here!
+  PRINT('<a href="');
+  InsertPartLink("photo_page_" || ToString(currentfile.photoid));
+  PRINT('">');
+  IF (CellExists(currentfile,"thumbnaillink"))
+  {
+    Print('<img src="' || currentfile.thumbnaillink || '" alt="' || EncodeValue(alt_tag) || '"  border="0" />');
+  }
+  ELSE
+  {
+    INTEGER canvas := GetThumbnail(currentfile);
+    InsertPartImage(/*helpcanvas*/canvas, alt_tag,/*isphoto=*/thumbnails_always_photo,alt_tag);
+    GfxDestroyCanvas(canvas);
+  }
+  PRINT('</a>');
+}
+
+
+
+
+/** @short Prints a photo page
+    @param currentfile The file for which a photo page is created
+    @see PrintThumbnail
+  */
+PUBLIC MACRO PrintPhoto(RECORD currentfile)
+{
+  STRING alt_tag:="";
+  IF (CellExists(currentfile,"title"))
+    alt_tag:=currentfile.title;
+
+  STRING origurl := originals_available ? currentfile.url : CellExists(currentfile,"originallink") AND currentfile.originallink != "" ? currentfile.originallink : "";
+
+  //if originals are available, link to them.
+  IF (origurl!="")
+  {
+    PRINT ("<a href="|| origurl || ">" );
+  }
+  ELSE
+  {
+    integer thumbnailpage:=GetThumbnailPageId(currentfile.photoid);
+    PRINT('<a href="');
+    InsertPartLink("index_page_" || ToString(thumbnailpage));
+    PRINT('">');
+  }
+  IF (CellExists(currentfile,"photolink"))
+  {
+    Print('<img src="' || EncodeValue(currentfile.photolink) || '" alt="' || EncodeValue(alt_tag) || '" border="0" />');
+  }
+  ELSE
+  {
+    integer canvas:= GetFullPic(currentfile);
+    InsertPartImage(canvas, alt_tag, /*isphoto=*/fullpics_always_photo,alt_tag);
+    GfxDestroyCanvas(canvas);
+  }
+  PRINT ("</a>");
+}
+
+
+
+
+/** @short Open a part that will contain a photo page
+    @long  This macro opens a part of that can contain a photo page. When this macro is used you should always
+           close the part with the ClosePhotoPart macro.
+    @param currentfile The photo to make a page for.
+    @see ClosePhotoPart
+*/
+PUBLIC MACRO OpenPhotoPart(RECORD currentfile)
+{
+    OpenNamedPart("photo_page_" || ToString(currentfile.photoid), true );
+}
+
+
+
+
+/** @short Close a part that will contain a photo page
+    @param currentfile The photo to close a page for.
+    @see   OpenPhotoPart
+*/
+PUBLIC MACRO ClosePhotoPart(RECORD currentfile)
+{
+    ClosePart();
+}
+
+
+
+
+/** @short Open a part that will contain a thumbnail page
+    @long  This macro opens a part of that can contiain a thumbnail page. When this macro is used you should always
+           close the part with the CloseThumbnailPart macro.
+    @param thumbnailpage The thumbnail page to open
+    @see   CloseThumbnailPart
+*/
+PUBLIC MACRO OpenThumbnailPart(RECORD thumbnailpage)
+{
+    OpenNamedPart("index_page_" || ToString(thumbnailpage.pageid), true );
+}
+
+
+
+
+/** @short Close a part that will contain a thumbnail page
+    @param thumbnailpage The thumbnail page to close
+    @see   OpenThumbnailPart
+*/
+PUBLIC MACRO CloseThumbnailPart(RECORD thumbnailpage)
+{
+    ClosePart();
+}

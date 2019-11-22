@@ -1,0 +1,2374 @@
+<?xml version="1.0"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <meta>
+    <description>WebHare core functionality</description>
+    <validation options="nowarnings">
+      <exclude mask="whres/xml/*" why="External XSDs, currently too complex to validate. But even if we could, we cannot modify them, so no need to warn" permanent="true"/>
+    </validation>
+  </meta>
+
+  <servicemanager>
+    <task runat="13  0 * * *"  runtz="maintenance" tag="system_maintenance_task" script="scripts/tasks/executemaintenance.whscr" />
+    <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />
+    <task runat="19  2 * * *"  runtz="maintenance" tag="updategeoip" script="scripts/tasks/updategeoip.whscr" description="Update the GEOIP database" unlessenvironset="WEBHARE_CI WEBHARE_NOUPDATEGEOIP"/>
+    <task runat="26  2 * * *"  runtz="maintenance" tag="unifiedcache_cleanup" script="scripts/tasks/unifiedcache_cleanup.whscr"  />
+    <task runat=" 3  2 * * *"  runtz="maintenance" tag="system_cleanversions" script="scripts/tasks/cleanversions.whscr" unlessenvironset="WEBHARE_ISRESTORED"/>
+    <task runat=" 6  2 * * *"  runtz="maintenance" tag="system_cleanfsdata" script="scripts/tasks/cleanfsdata.whscr" unlessenvironset="WEBHARE_ISRESTORED"/>
+    <task runat="11  3 * * *"  runtz="maintenance" tag="system_fix_whfs" script="scripts/tasks/fix_whfs.whscr"  />
+    <task runat="19  4 * * *"  runtz="maintenance" tag="renewcertbot" script="scripts/tasks/renewcertbot.whscr" description="Renew certbot certificates" unlessenvironset="WEBHARE_ISRESTORED" />
+    <task runat="39  5 * * *"  runtz="maintenance" tag="updatefallbackcertificate" script="scripts/tasks/updatefallbackcertificate.whscr" description="Renew the fallback certificate" runatstartup="true"/>
+
+    <task runat="29  * * * *"  runtz="maintenance" tag="cleanup_hourly" script="scripts/tasks/cleanup_hourly.whscr" description="Hourly cleanup"/>
+
+    <task runat="*/10 * * * *" runtz="maintenance" tag="webserverusage" script="scripts/tasks/webserverusage.whscr" description="Process webserver usage stats" />
+    <task runat="19 */4 * * *" runtz="maintenance" tag="compileablestodisk" script="scripts/tasks/compileablestodisk.whscr" description="Ensures database HareScript code is on disk" />
+
+    <task runat="*/30 * * * *" tag="checkwebservers" script="scripts/tasks/checkwebservers.whscr" description="Make sure all webservers still properly resolve"/>
+    <task runat="  33 * * * *" tag="updateconnectinfo" script="scripts/tasks/updateconnectinfo.whscr" runatstartup="true" />
+    <task runat="54 */4 * * *" tag="check_hotfixes" script="scripts/tasks/check_hotfixes.whscr" runatstartup="true" />
+    <task runat="35 0,3,6 * * *" tag="cleanpostgresqlblobs" script="scripts/tasks/cleanpostgresqlblobs.whscr" ifenvironset="WEBHARE_DBASENAME" />
+
+    <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" unlessenvironset="WEBHARE_ISRESTORED" />
+    <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
+  </servicemanager>
+
+  <portal>
+    <applicationgroup name="cms" tid="module.appgroups.cms" orderbefore="apps" />
+    <applicationgroup name="apps" tid="module.appgroups.apps" orderbefore="setup" orderafter="cms" />
+    <applicationgroup name="setup" tid="module.appgroups.setup" orderbefore="documentation" orderafter="apps" />
+    <applicationgroup name="documentation" tid="module.appgroups.documentation" orderbefore="development" orderafter="documentation" />
+    <applicationgroup name="development" tid="module.appgroups.development" orderafter="documentation" />
+
+    <application name="dashboard" group="setup" tid="module.apps.dashboard" screen="tolliumapps/dashboard/dashboard.xml#main" icon="system:sysmgmt/monitoring" shortcut="ctrl+shift+d">
+      <accesscheck>
+        <requireright right="system:supervisor" />
+      </accesscheck>
+    </application>
+
+    <application name="forgotpassword" screen="tolliumapps/login/forgotpassword.xml#forgotpassword">
+      <accesscheck />
+    </application>
+
+    <application name="resetpassword" screen="tolliumapps/login/forgotpassword.xml#resetpassword">
+      <accesscheck />
+    </application>
+
+    <application name="needsysop" screen="sysmgmt/needsysop.main" supportedlanguages="en">
+      <accesscheck />
+    </application>
+
+    <application group="setup" name="userrights" tid="portal.apps.userrights" screen="userrights/userrights.main" icon="tollium:users/users" shortcut="ctrl+shift+u">
+      <accesscheck combine="or">
+        <requireanygrantableright />
+        <requireright right="system:browseunits" />
+      </accesscheck>
+    </application>
+
+    <application name="dba" screen="tolliumapps/dba/dba.xml#main" isdeveloperapp="true" group="development" tid="module.apps.dba" icon="tollium:database/database">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+
+    <application name="personalsettings" screen="mod::system/screens/userrights/dialogs/userpreferences.xml#userpreferences">
+      <accesscheck>
+      </accesscheck>
+    </application>
+
+    <application name="debugger" screen="debugger/debugger.main" group="development" title="Integrated debugger" isdeveloperapp="true" supportedlanguages="en" icon="tollium:objects/bug">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+
+    <application name="profiles" screen="debugger/profiles.main" group="development" tid="portal.apps.profilingmonitor" isdeveloperapp="true" supportedlanguages="en">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+
+    <application name="config" screen="tolliumapps/config/config.xml#main" group="system:setup" tid="portal.apps.config" icon="tollium:system/system" shortcut="ctrl+shift+c">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+    <application name="webservers" screen="webservers/webservers.main" group="system:setup" tid="portal.apps.webservers" icon="tollium:objects/rackserver">
+      <accesscheck>
+        <requireright right="system:webservermgmt" />
+      </accesscheck>
+    </application>
+
+    <monitorgroup name="ap" tid="monitor.groups.ap" icon="tollium:system/webhare" orderbefore="*"/>
+    <monitorgroup name="tasks" tid="monitor.groups.tasks" icon="tollium:system/webhare" orderbefore="dev other"/>
+    <monitorgroup name="dev" tid="monitor.groups.dev" icon="tollium:system/system" orderafter="ap other" />
+    <monitorgroup name="other" tid="monitor.groups.other" icon="tollium:system/system" orderafter="ap"/>
+
+    <monitorpanel group="tasks" name="queues" tid="monitor.queues.title" screen="monitor/queues.queues" />
+    <monitorpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs" />
+    <monitorpanel group="ap" name="rpclog" tid="monitor.rpclog.title" screen="monitor/rpclog.rpclog" />
+    <dashboardpanel group="ap" name="installedfonts" tid="tolliumapps.dashboard.fonts.installedfonts" screen="tolliumapps/dashboard/fonts.xml#installedfonts" />
+    <dashboardpanel group="dev" name="precalculatedcache" tid="tolliumapps.dashboard.caches.precalculatedcache" screen="tolliumapps/dashboard/caches.xml#precalculatedcache" />
+    <monitorpanel group="ap" name="apps" tid="monitor.apps.title" screen="monitor/apps.apps" />
+    <monitorpanel group="ap" name="whdb" tid="monitor.whdb.title" screen="monitor/whdb.whdb" />
+    <monitorpanel group="ap" name="users" tid="monitor.users.title" screen="monitor/users.users" />
+    <monitorpanel group="ap" name="processlist" tid="monitor.processlist.title" screen="monitor/processlist.processlist" />
+    <monitorpanel group="ap" name="webserverscripts" tid="monitor.webserverscripts.title" screen="monitor/webserverscripts.webserverscripts" />
+    <monitorpanel group="ap" name="apprunner" tid="monitor.apprunner.title" screen="monitor/apprunner.apprunner" />
+    <dashboardpanel group="ap" name="systemnews" tid="tolliumapps.dashboard.systemnews.systemnews" screen="tolliumapps/dashboard/systemnews.xml#overview" />
+
+    <monitorpanel group="tasks" name="mailqueue" tid="monitor.mailqueue.title" screen="monitor/mailqueue.mailqueuepanel"  />
+
+    <monitorpanel group="dev" name="events" tid="monitor.events.title" screen="monitor/events.events" />
+    <monitorpanel group="dev" name="locks" tid="monitor.locks.title" screen="monitor/locks.locks" />
+    <monitorpanel group="tasks" name="managedtasks" tid="monitor.managedtasks.title" screen="monitor/managedtasks.panel" />
+
+    <monitorpanel group="other" name="nodemodules" tid="monitor.nodemodules.title" screen="monitor/nodemodules.panel" />
+
+
+    <notification name="notifications.whfs.siteprofcompiled" tid="notifications.whfs.siteprofcompiled" descriptiontid="notifications.whfs.siteprofcompiled-desc" />
+    <notification name="notifications.whfs.siteproferrors" tid="notifications.whfs.siteproferrors" descriptiontid="notifications.whfs.siteproferrors-desc" defaultenabled="true" />
+    <notification name="notifications.webdav.putexception" tid="notifications.webdav.putexception" descriptiontid="notifications.webdav.putexception-desc" defaultenabled="true" />
+    <notification name="notifications.broadcast" tid="notifications.broadcast" descriptiontid="notifications.broadcast-desc" defaultenabled="true" />
+  </portal>
+
+  <tollium>
+    <components namespace="http://www.webhare.net/xmlns/system/components" xmlschema="data/components.xsd" />
+    <components namespace="http://www.webhare.net/xmlns/system/webapis" xmlschema="tolliumcomponents/webapis.xsd" />
+
+    <!-- candownloadflags requires 'filename' & 'mimetype' -->
+    <dragtype name="whfsfile"
+              candownloadflags="candownload"
+              library="internal/whfs/dragtypes.whlib"
+              objectname="whfsfiledrag"
+              flags="canmove candownload isactive" />
+
+    <dragtype name="whfsfolder"
+              library="internal/whfs/dragtypes.whlib"
+              objectname="whfsfolderdrag"
+              flags="canmove isactive" />
+
+    <dragtype name="unit"
+              library="internal/support.whlib"
+              objectname="unitdrag"
+              flags="candelete" />
+
+    <dragtype name="user"
+              library="internal/support.whlib"
+              objectname="userdrag"
+              flags="candelete" />
+
+    <dragtype name="role"
+              library="internal/support.whlib"
+              objectname="roledrag"
+              flags="candelete" />
+
+  </tollium>
+
+  <rights>
+    <rightsgroup name="unreferenced"
+                tid="rights.unreferenced"
+                descriptiontid="rights.unreferenced-descr"
+                icon="tollium:smileys/frown"
+                />
+    <rightsgroup name="default"
+                tid="rights.default"
+                descriptiontid="rights.default-descr"
+                />
+    <rightsgroup name="fs"
+                tid="rights.fs"
+                descriptiontid="rights.fs-descr"
+                icon="tollium:folders/publisher"
+                />
+    <rightsgroup name="authobjects"
+                tid="rights.authobjects"
+                descriptiontid="rights.authobjects-descr"
+                icon="tollium:users/users"
+                />
+
+    <objecttype name="units"
+                table=".authobjects"
+                tid="rights.units"
+                parentfield="parent"
+                rightsgroup="authobjects"
+                icon="tollium:users/users"
+                describer="lib/internal/support.whlib#unitobjecttypedescriber"/>
+
+    <objecttype name="fs_objects"
+                table=".fs_objects"
+                tid="rights.fs_objects"
+                parentfield="parent"
+                rightsgroup="fs"
+                description="File system objects (files and folders)*"
+                icon="tollium:folders/normal"
+                describer="lib/internal/support.whlib#fsobjecttypedescriber" />
+
+    <objecttype name="webdav_datafolders"
+                table=".webdav_datafolders"
+                tid="rights.webdav_datafolders"
+                describer="lib/internal/support.whlib#webdav_datafoldersdescriber" />
+
+    <objecttype name="accessrules"
+                table=".access"
+                tid="rights.accessrules"
+                >
+     <describer library="internal/support.whlib" objectname="accessrulesdescriber" />
+    </objecttype>
+
+    <obsoleteobjecttype name="dumps" table=".adhocdump_dumps" />
+
+    <right name="sysop" tid="rights.sysop" descriptiontid="rights.sysop-descr" showbefore="*">
+      <impliedby right="sysop" />
+    </right>
+    <right name="supervisor" tid="rights.supervisor" descriptiontid="rights.supervisor-descr" showafter="sysop">
+      <impliedby right="sysop" />
+    </right>
+    <right name="openas" objecttype="units" tid="rights.openas" descriptiontid="rights.openas-descr" >
+      <impliedby right="sysop" />
+    </right>
+    <right name="manageunit" objecttype="units" tid="rights.manageunit" descriptiontid="rights.manageunit-descr" >
+      <impliedby right="openas" />
+    </right>
+    <right name="manageroles" objecttype="units" tid="rights.manageroles" descriptiontid="rights.manageroles-descr" showafter="manageunit" >
+      <impliedby right="manageunit" />
+    </right>
+    <right name="browseunits" objecttype="units" tid="rights.browseunits" descriptiontid="rights.browseunits-descr" showafter="manageroles" >
+      <impliedby right="manageroles" />
+    </right>
+
+    <right name="fs_fullaccess" objecttype="fs_objects" tid="system:rights.fs_fullaccess" descriptiontid="rights.fs_fullaccess-descr">
+      <impliedby right="sysop" />
+    </right>
+    <right name="fs_browse" objecttype="fs_objects" tid="system:rights.fs_browse" descriptiontid="rights.fs_browse-descr" showafter="fs_fullaccess" >
+      <impliedby right="fs_fullaccess" />
+    </right>
+
+    <right name="webdav_fullaccess" objecttype="webdav_datafolders" tid="system:rights.webdav_fullaccess" descriptiontid="rights.webdav_fullaccess-descr">
+      <impliedby right="sysop" />
+    </right>
+    <right name="webdav_readaccess" objecttype="webdav_datafolders" tid="system:rights.webdav_readaccess" descriptiontid="rights.webdav_readaccess-descr">
+      <impliedby right="webdav_fullaccess" />
+    </right>
+
+    <right name="webservermgmt" tid="system:rights.webservermgmt" descriptiontid="rights.webservermgmt-descr">
+      <impliedby right="sysop" />
+    </right>
+    <right name="urlaccess" objecttype="accessrules" tid="system:rights.urlaccess" descriptiontid="rights.urlaccess-descr">
+      <impliedby right="webservermgmt" />
+    </right>
+
+    <obsoleteright name="adhocdump_fullaccess" />
+    <obsoleteright name="adhocdump_editresults" />
+    <obsoleteright name="adhocdump_viewresults" />
+  </rights>
+
+  <backend>
+
+    <!-- NEW namespacing rules (adopt future URL usage) to this:
+
+      .<short>/ = a shorttag reserved for webhare modules, eg /.pd/ or /.ic/ or /.ea/ - these will all be two characters. no module should have such a short name
+      .<module>/ = reserved for that module
+   -->
+
+    <webruleset name="webdav">
+      <webrule
+        path="/"
+        match="exact"
+        method="PROPFIND OPTIONS"
+        allowallmethods="true"
+        redirecttoscript="internal/webdavnamespace.shtml"
+        primarytrans="none"
+        authscript="internal/auth/webdav.whscr"
+      />
+
+      <webrule
+        path="/webdav"
+        match="exact"
+        allowallmethods="true"
+        redirecttoscript="internal/webdavnamespace.shtml"
+        primarytrans="none"
+        authscript="internal/auth/webdav.whscr"
+      />
+
+      <webrule
+        path="/webdav/"
+        match="initial"
+        allowallmethods="true"
+        redirecttoscript="internal/webdavnamespace.shtml"
+        matchassubdir="false"
+        primarytrans="none"
+        authscript="internal/auth/webdav.whscr"
+      />
+    </webruleset>
+
+    <!-- TODO now that .system/dl is retired, we can just catch /.system/ ? -->
+    <webrule path="root:/.system/endpoints" match="initial" redirecttodir="web:/systemroot/endpoints/" />
+    <webrule path="allroots:/.system/filetransfer" match="initial" redirecttodir="web:/systemroot/filetransfer/" priority="after" />
+
+    <!-- two separate rules are required because matchassubdir breaks Windows WebDav Redirector -->
+    <webrule path="root:/" match="initial" applyruleset="system:webdav" />
+
+    <!-- TODO: should there be a way to disable this builtin redirect? -->
+    <webrule path="allroots:/.well-known/acme-challenge/" match="initial" handlebyscript="web/global/acme.shtml" priority="after" />
+    <webrule path="allroots:/.webhare/direct/" match="initial" handlebyscript="web/global/direct.shtml" priority="after" />
+
+    <webrule path="allroots:/.uc/"
+             match="initial"
+             cachecontrol="public, max-age=31536000, immutable"
+             priority="after">
+      <tryfolder resolver="sha256b16_directory" path="whdata::ephemeral/system.uc2/"  />
+      <tryfolder path="whdata::ephemeral/system.uc/" />
+      <tryfile path="mod::system/web/unifiedcache/404.shtml" />
+    </webrule>
+
+    <webrule path="allroots:/.adhocserve/" redirecttoscript="internal/adhocserve.shtml" match="initial" priority="after" />
+
+    <webrule
+      path="allroots:/wh_services/"
+      allowallmethods="true"
+      redirecttoscript="internal/remoting.shtml"
+      errorpath="web:errors-remoting/"
+      finalerrorpath="true"
+      match="initial"
+      priority="after">
+    </webrule>
+
+    <webrule
+      path="allroots:/wh_services.whsock/"
+      allowallmethods="true"
+      redirecttoscript="internal/remoting.whsock"
+      errorpath="web:errors-remoting/"
+      finalerrorpath="true"
+      match="initial"
+      priority="after">
+    </webrule>
+
+    <webrule path="root:/tests/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:/tests/" />
+    <webrule path="allroots:/.system/jstests/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:systemroot/jstests/" priority="after"/>
+
+    <!-- prevent indexing of non-production servers -->
+    <webrule maxservertype="acceptance" match="exact" path="allroots:/robots.txt" handlebyscript="scripts/internal/webserver/robots-nonprod.shtml" priority="after" />
+
+    <webruleset name="noindex" tid="module.webruleset-noindex">
+      <webrule path="/robots.txt" match="exact" handlebyscript="scripts/internal/webserver/robots-explicit.shtml" />
+    </webruleset>
+  </backend>
+
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema" authorization=".modulemanager">
+    <d:role name="webdav" /> <!-- ADDME remove role webdav when webdav3 is live -->
+    <d:role name="whfs" /> <!-- role under which system.whfs can act -->
+    <d:role name="testframework" />
+
+    <d:grant permissions="select" table="mimetypes" grantee="public" />
+
+    <d:grant permissions="select" table="authobjects" columns="id name parent type creationdate" grantee="public" />
+    <d:grant permissions="select" table="rolegrants" grantee="public" />
+    <d:grant permissions="select" table="modules" grantee="public" />
+    <d:grant permissions="select" table="module_objecttypes" grantee="public" />
+    <d:grant permissions="select" table="module_rights" grantee="public" />
+    <d:grant permissions="select" table="module_impliedbys" grantee="public" />
+
+    <d:grant permissions="all" table="fs_objects" grantee="public" />
+
+    <d:grant permissions="references" table="fs_instances" grantee="public" /> <!-- FIXME "all" was demoted to "references". try to drop this further -->
+    <d:grant permissions="select" table="fs_instances" grantee="public" />
+    <d:grant permissions="select" table="fs_members" grantee="public" />
+    <d:grant permissions="references" table="fs_settings" grantee="public" /> <!-- FIXME "all" was demoted to "references". try to drop this further -->
+    <d:grant permissions="select" table="fs_settings" grantee="public" />
+    <d:grant permissions="all" table="fs_settings" grantee=".whfs" />
+    <d:grant permissions="select" table="fs_types" grantee="public" />
+
+    <d:grant permissions="select" table="towl_notifications" grantee="public" />
+
+
+
+
+    <d:table name="access" primarykey="id">
+      <d:documentation>This table contains the security settings for WebHare-hosted webservers.</d:documentation>
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+          Unique id for this access rule
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="authlist">
+        <d:documentation>
+          If true, a separate authentication list for external users applies (see system_access_externalusers)
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="authscript" maxlength="256">
+        <d:documentation>
+Name of a HareScript file that handles access control for this page
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="authtype">
+        <d:documentation>Type of authentication. 0 = no authentication, 1 = all webhare users may login, 2 = specified webhare users may login</d:documentation>
+      </d:integer>
+      <d:boolean name="authrequirement">
+        <d:documentation>
+Boolean indication the use of IP access rules
+true = all users must authenticate AND must match the IP access rules
+false = authentication is only necessary for users not matching the IP access rules
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="description" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="disabled" />
+      <d:boolean name="disablecaching" />
+      <d:varchar name="errorpath" maxlength="256">
+        <d:documentation>
+Path with error documents like 404.html
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="hostingpath" maxlength="256">
+        <d:documentation>
+Alternative hosting path (for hostingsrc)
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="hostingsrc">
+        <d:documentation>
+Hosting source
+0 = standard serving
+2 = Alternate directory
+3 = single script
+          6: Apply hostingpath as a module ruleset (eg system:webdav)
+        </d:documentation>
+      </d:integer>
+      <d:integer name="matchtype">
+        <d:documentation>
+          0=exact, 1=initial, 2=wildcards
+        </d:documentation>
+      </d:integer>
+      <d:integer name="maxage">
+        <d:documentation>
+          Maximum cache age, in seconds
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="path" maxlength="256">
+        <d:documentation>
+Initial path to which this access rule applies. Rule applies to path and all contained folders
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="webserver" references=".webservers" ondelete="cascade">
+        <d:documentation>
+          Webserver to which this access rule applies. If 0, applies to all webservers
+        </d:documentation>
+      </d:integer>
+      <d:obsoletecolumn name="transtype" />
+      <d:integer name="redirectcode">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="fixcase">
+        <d:documentation>
+          Try to fix lowercase/uppercase issues in URLs
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="applysource" references=".fs_objects" ondelete="set default">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+    </d:table>
+    <d:table name="access_externalusers">
+      <d:documentation>This table contains the external users that can access a certain path. It is only applicable when 'authlist' on the access rule is set to true.</d:documentation>
+      <d:integer name="accessid" references=".access" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="description" maxlength="256">
+        <d:documentation>
+Free-form description of this user account
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="username" maxlength="256">
+        <d:documentation>
+Login name associated with this account
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="userpassword" maxlength="256">
+        <d:documentation>
+Password associated with this account
+
+        </d:documentation>
+      </d:varchar>
+    </d:table>
+    <d:table name="access_ips">
+      <d:documentation>This table contains the IP addresses linked to access rules for WebHare-hosted webservers.</d:documentation>
+      <d:integer name="accessid" references=".access" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="is_allow">
+        <d:documentation>
+True if this is an allow rule
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="mask" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+    </d:table>
+
+    <d:table name="mailqueue_route" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+          Primary key
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="tag" maxlength="256">
+        <d:documentation>
+          Tag, for scripts to find and manage specific routes
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="sendermask" maxlength="4096">
+        <d:documentation>
+          Space separated list of sender masks to which the rule applies (only relevant for type=0)
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="originmask" maxlength="256">
+        <d:documentation>
+          Wildcard mask to match against the mail origin (the X-WebHare-Origin header)
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="mask" maxlength="4096">
+        <d:documentation>
+          Space separated list of receivers masks to which the rule applies
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="serverurl" maxlength="512">
+        <d:documentation>
+          smtp:// url for outgoing server. If empty, use the services.smtp.defaultmailroute
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="ordering">
+        <d:documentation>
+          Priority for this rule, lower numbered rules execute first
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="outgoingmailaddress" maxlength="128">
+        <d:documentation>
+          Override the outgoing mail address ('to' address)
+          (redirect mails which match this rule to the specified address)
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="outgoingaddressrewrite">
+        <d:documentation>
+          Include the original receiver ('to:') mail address in the '+' part
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="description" maxlength="4096">
+        <d:documentation>
+          Notes on the route.
+          Use this to state why this rule is used, for what project.
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="ruletype">
+        <d:documentation>
+          0=mailroute, 1=sender whitelist, 2=receiver whitelist, 3=destination suggestion, 4=destination block
+        </d:documentation>
+      </d:integer>
+      <d:integer name="suggestionfuzz">
+        <d:documentation>
+          Fuzz factor for destination suggestions
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="mimetypes" primarykey="id">
+      <d:documentation>This table lists the mime types that will be used by WebHare-hosted webservers. It also defines which mimetypes will be compiled and executed before transmission (eg. dynamic pages)</d:documentation>
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="extension" maxlength="256">
+        <d:documentation>
+Extension used for this mimetype (eg "html")
+
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="forcedispositionattachment">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="mimetype" maxlength="256">
+        <d:documentation>
+Mimetype sent for content with this extenion (eg "text/html")
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="parsetype">
+        <d:documentation>
+Whether the document needs preprocessing before sending
+0: send the document as is.
+1: interpret the document as a HareScript file.
+        </d:documentation>
+      </d:integer>
+      <d:index name="extensionindex" columns="extension(32)" unique="true" uppercase="true">
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="ports" primarykey="id">
+      <d:documentation>This table lists all TCP ports on which the WebHare webserver will accept connections</d:documentation>
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="ip" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="keypair" references=".fs_objects" ondelete="set default">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="port" nullable="false">
+        <d:documentation>
+TCP port number to listen on (eg 8000).
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="virtualhost">
+        <d:documentation>
+True if this port should support virtual hosting.
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="description" maxlength="1024">
+        <d:documentation>
+          Describe this port
+        </d:documentation>
+      </d:varchar>
+      <d:obsoletecolumn name="portmode" />
+    </d:table>
+
+    <d:table name="proxies" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="url" maxlength="1024">
+        <d:documentation>
+          URL to the root of the proxy configuration interface
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="password" maxlength="1024">
+        <d:documentation>
+          Password for this proxy
+        </d:documentation>
+      </d:varchar>
+      <d:datetime name="lastregistration">
+        <d:documentation>
+          Last successfull registration
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="reverseaddress" maxlength="300">
+        <d:documentation>
+          The address the proxy should connect to us with
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="hostswhitelist" maxlength="300">
+        <d:documentation>
+          Space separated list of hostmasks that are published through the proxy
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="description" maxlength="1024">
+        <d:documentation>
+          Describe this proxy
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="proxy_ips" maxlength="4096">
+        <d:documentation>
+          List of IP adresses the proxy has
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="lasterror" maxlength="4096">
+        <d:documentation>
+          Last reported error
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="status" maxlength="4096">
+        <d:documentation>
+          Current registration status
+        </d:documentation>
+      </d:varchar>
+      <d:blob name="registrationresultdata">
+        <d:documentation>
+          Error data
+        </d:documentation>
+      </d:blob>
+    </d:table>
+
+    <d:table name="managedtasks" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="creationdate">
+        <d:documentation>
+          When the task was created
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="nextattempt">
+        <d:documentation>
+          When to try the next attempt on this task
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="finished">
+        <d:documentation>
+          When the task was finished
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="workertype">
+        <d:documentation>
+          Required worker type - 0 = harescript, 1 = javascript
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="tasktype" maxlength="400">
+        <d:documentation>
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="taskdata" maxlength="4096">
+        <d:documentation>
+          HSON encoded record associated with the task
+        </d:documentation>
+      </d:varchar>
+      <d:blob name="auxdata">
+        <d:documentation>
+          HSON encoded record with extra data for the task, which might not fit into taskdata
+        </d:documentation>
+      </d:blob>
+      <d:varchar name="lasterrors" maxlength="4096">
+        <d:documentation>
+          Last seen output if errors occurred
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="stacktrace" maxlength="4096">
+        <d:documentation>
+          HSON-encoded stack trace, may be filled when errors have occurred
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="shortretval" maxlength="1000">
+        <d:documentation>
+          A short HSON retval if available. If set to 'long', see 'longretval'
+        </d:documentation>
+      </d:varchar>
+      <d:blob name="longretval">
+        <d:documentation>
+          A long HSON retval
+        </d:documentation>
+      </d:blob>
+      <d:integer name="failures">
+        <d:documentation>
+          Number of task failures so far (exceptions and ABORTs)
+        </d:documentation>
+      </d:integer>
+      <d:integer name="iterations">
+        <d:documentation>
+          For restartable tasks, how many iterations we've done
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="iscancelled">
+        <d:documentation>
+          True if this task is cancelled. Cancelled tasks do not count towards eg. mail failure rate
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="priority">
+        <d:documentation>
+          Task priority, a lower number means higher priority.
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="managedtasksmeta" primarykey="id">
+      <d:documentation>
+        Additional data we associate with tasks. Used to eg. store mail delivery status, which can come in async and can't
+        be safely added to the normal 'managedtask' return records
+      </d:documentation>
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+          Unique row id
+        </d:documentation>
+      </d:integer>
+      <d:integer name="task" references=".managedtasks" ondelete="cascade" nullable="0">
+        <d:documentation>
+          Task we're associated with
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="metakey" nullable="0" maxlength="128">
+        <d:documentation>
+          Unique key for this data
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="metavalue" nullable="0" maxlength="4096">
+        <d:documentation>
+          The actual HSON data
+        </d:documentation>
+      </d:varchar>
+      <d:index name="extensionindex" columns="task metakey(32)" unique="true" uppercase="true">
+        <d:documentation>
+          Make sure only one instance of each datakey exists
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="tasks" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="autoadded">
+        <d:documentation>Automatically added by a moduledefinition</d:documentation>
+      </d:boolean>
+      <d:varchar name="description" maxlength="1024">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="enabled">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="inapplicable" maxlength="500">
+        <d:documentation>If set, the reason this task is inapplicable to this server</d:documentation>
+      </d:varchar>
+      <d:varchar name="error" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:datetime name="currentstart">
+        <d:documentation>
+          When running, time when the script started running
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="lastrun">
+        <d:documentation>
+          Last time this task was executed
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="nexttime">
+        <d:documentation>
+          Next time this task will be executed, or DEFAULT DATETIME if no execution is scheduled
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="parameters" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="repeatcount">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="repeatinterval">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="repeatintervaltype">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="workerthreads">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="runatstartup">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="script" nullable="false" maxlength="1024">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="tag" maxlength="64">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:obsoletecolumn name="oninstallationtype"/>
+      <d:integer name="timeout">
+        <d:documentation>
+          Time (in minutes) after which the task is forcibly terminated. Set to 0 use the default timeout
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="authobjects" primarykey="id">
+      <d:integer name="id" autonumberstart="2">
+        <d:documentation>Authobject unique id, primary key</d:documentation>
+      </d:integer>
+      <d:varchar name="name" maxlength="256" nullable="false">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:obsoletecolumn name="description" />
+      <d:integer name="parent" references=".authobjects" ondelete="cascade" nullable="true">
+        <d:documentation>Authobject's parent, used to reconstruct unit tree</d:documentation>
+      </d:integer>
+      <d:integer name="type" nullable="false">
+        <d:documentation>1: user, 2: unit, 3: user role (userrights). (4 and 5 were formerly module and database roles, but are obsolete since the flat registry)</d:documentation>
+      </d:integer>
+      <d:datetime name="creationdate">
+        <d:documentation>Time of authobject creation (may not have been set for very old authobjects)</d:documentation>
+      </d:datetime>
+      <d:datetime name="deletiondate">
+        <d:documentation>If set, time of authobject deletion. Used to expire authobjects after 60 (production, acceptance) or 7 (test, development) days</d:documentation>
+      </d:datetime>
+
+      <d:varchar name="guid" maxlength="40" unique="true" nullable="false">
+        <d:documentation>wrd: id of entity associated with this authobject</d:documentation>
+      </d:varchar>
+
+      <d:obsoleteindex name="parentnameindex" />
+      <d:obsoleteindex name="guidindex" />
+    </d:table>
+    <d:table name="rolegrants" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>Unique database id</d:documentation>
+      </d:integer>
+      <d:integer name="role" references=".authobjects" ondelete="cascade" nullable="0">
+        <d:documentation>The role being granted</d:documentation>
+      </d:integer>
+      <d:integer name="grantee" references=".authobjects" ondelete="cascade" nullable="0">
+        <d:documentation>Role recipient</d:documentation>
+      </d:integer>
+      <d:integer name="grantor" references=".authobjects" ondelete="set default">
+        <d:documentation>Authobject creating this role assignment</d:documentation>
+      </d:integer>
+      <d:datetime name="creationdate" nullable="0">
+        <d:documentation>When this rolegrant was created</d:documentation>
+      </d:datetime>
+      <d:varchar name="comment" maxlength="2048">
+        <d:documentation>Additional comment to decribe this grant</d:documentation>
+      </d:varchar>
+      <d:varchar name="grantordata" maxlength="2048">
+        <d:documentation>Data describing user doing this action (GetUserDataForLogging)</d:documentation>
+      </d:varchar>
+    </d:table>
+    <d:table name="webservers" primarykey="id">
+      <d:documentation>This table lists all webservers which are either hosted by the WebHare webserver, or to which WebHare can write</d:documentation>
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:obsoletecolumn name="altdefaultpages" />
+      <d:varchar name="baseurl" maxlength="256">
+        <d:documentation>
+URL where the webserver starts. It must start with the protocol (usually "http:") and end with a forward slash. (/)
+
+        </d:documentation>
+      </d:varchar> <!-- webserver with empty baseurl is ignored -->
+      <d:obsoletecolumn name="defaultpage" />
+      <d:obsoletecolumn name="defaultweb" />
+      <d:varchar name="diskfolder" maxlength="256">
+        <d:documentation>
+Folder on disk, referring to the files of baseurl on disk. Paths must always be stored using forward slashes, and must end with a forward slash. (/)
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="outputextension" maxlength="64">
+        <d:documentation>
+Extension for generated formatted files (usually ".html")
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="parent" references=".webservers" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="port" references=".ports">
+        <d:documentation>
+The port to which this webserver is bound. If this value is 0, this webserver can only be reached through a TCP port for which 'virtual hosting' has been enabled.
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="title" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="type">
+        <d:documentation>Entry type: 0 output website, 1 for backend, 6 for webserver group</d:documentation>
+      </d:integer>
+      <d:obsoletecolumn name="forcelowercase" />
+      <d:datetime name="lastseen">
+        <d:documentation>
+          Last time checkwebservers.whscr has seen this webserver point to us
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="lastcheck">
+        <d:documentation>
+          Last time checkwebservers.whscr has checked this webserver
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="lastcheckerror" maxlength="512">
+        <d:documentation>
+          Last check error
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="stricttransportsecurity">
+        <d:documentation>Seconds to set a HSTST header for</d:documentation>
+      </d:integer>
+    </d:table>
+    <d:table name="webservers_aliases" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="hostname" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="webserver" references=".webservers" ondelete="cascade" nullable="false">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="explicit">
+        <d:documentation>
+          Explicit alias (do not redirect to primary name)
+        </d:documentation>
+      </d:boolean>
+      <d:datetime name="lastseen">
+        <d:documentation>
+          Last time checkwebservers.whscr has seen this webserver point to us
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="lastcheck">
+        <d:documentation>
+          Last time checkwebservers.whscr has checked this webserver
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="lastcheckerror" maxlength="512">
+        <d:documentation>
+          Last check error
+        </d:documentation>
+      </d:varchar>
+    </d:table>
+
+    <d:table name="webservers_usage" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="webserver" references=".webservers" ondelete="cascade" nullable="false">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="time" nullable="0" />
+      <d:integer name="hits" nullable="0" />
+      <d:integer name="serverfails" />
+      <d:integer name="clientfails" />
+      <d:integer name="highpagetime" />
+      <d:integer name="failips" />
+      <d:integer64 name="download" />
+      <d:integer64 name="upload" />
+      <d:integer64 name="sumpagetime" />
+
+      <d:index name="timeindex" columns="time">
+        <d:documentation>
+          Allow quick access by time
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="modules" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="name" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:datetime name="modificationdate">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+    </d:table>
+
+    <d:table name="module_objecttypes" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="name" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="tablename" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="storagetable" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="module" references=".modules" ondelete="cascade" nullable="false">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="primarykey" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="parentfield" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="describer" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="icon" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+    </d:table>
+
+    <d:table name="module_rights" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="name" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="objtype" references=".module_objecttypes" ondelete="cascade" nullable="false">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="module" references=".modules" ondelete="cascade" nullable="false">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="module_impliedbys" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="right" references=".module_rights" ondelete="cascade" nullable="false">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="impliedby" references=".module_rights" ondelete="cascade" nullable="false">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="fieldname" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+    </d:table>
+
+    <d:table name="fs_instances" primarykey="id">
+      <d:documentation>
+        An instance of contenttype data for a fs_objects (file/folder).
+      </d:documentation>
+
+      <d:integer name="id" autonumberstart="1">
+      </d:integer>
+      <d:integer name="fs_object" references=".fs_objects" ondelete="cascade" nullable="false">
+        <d:documentation>
+          The fs_object (file/folder) to which this data is linked.
+        </d:documentation>
+      </d:integer>
+      <d:integer name="fs_type" references=".fs_types" ondelete="cascade" nullable="false" noupdate="true">
+        <d:documentation>
+          The content type
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="fs_members" primarykey="id">
+      <d:documentation>
+        A member of a contenttype
+      </d:documentation>
+
+      <d:integer name="id" autonumberstart="1">
+      </d:integer>
+      <d:integer name="fs_type" references=".fs_types" ondelete="cascade" nullable="false" noupdate="true">
+        <d:documentation>
+          To which contenttype this member belongs
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="name" nullable="false" maxlength="256">
+        <d:documentation>
+          Name within the contenttype (or within the array if this member has a parent)
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="orphan">
+        <d:documentation>
+          If TRUE, this member currently doesn't exist anymore in a siteprofile
+          (which means this member was kept in the database because there still were instances/files using this member, but the member isn't returned by instancedata API's such as GetInstanceData or whfstype-&gt;Enrich anymore. When the member exists again (not an orphan anymore) the data formally set in these orphan members becomes accessable again.)
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="publish">
+        <d:documentation>
+          Whether the content of this member can retrieved through the publisher.
+          (for making member's of type 'file' and image content in 'richdocument' members accessable)
+          This attribute is deprecated, you should now use use module::system/cache.wlib and GetCachedFileLink() to get an URL.
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="type" nullable="0">
+        <d:documentation>What type of content this member contains. See whconstant_whfstype_membertypes for posssible values</d:documentation>
+      </d:integer>
+      <d:integer name="parent" references=".fs_members" ondelete="cascade">
+        <d:documentation>
+          If this member is part of an array, this contains the id of the array member it's part of.
+        </d:documentation>
+      </d:integer>
+      <d:index name="typenameparentindex" columns="fs_type parent name(32)" unique="true" uppercase="true">
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="fs_objects" primarykey="id" legacy_writeaccessmgr="WEBHARE">
+      <d:integer name="id" autonumberstart="256">
+        <d:documentation>
+          Unique identification for this file
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="creationdate" nullable="false">
+        <d:documentation>
+          The date and time in UTC when this file was created
+        </d:documentation>
+      </d:datetime>
+      <d:blob name="data">
+        <d:documentation>
+          The content of the file, for file types which have physical content (all file types except profiles and link files)
+        </d:documentation>
+      </d:blob>
+      <d:varchar name="description" maxlength="2048">
+        <d:documentation>
+          A description for this file
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="errordata" maxlength="1024">
+        <d:documentation>
+          Contains additional error information for some publication status codes
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="externallink" maxlength="1024">
+        <d:documentation>
+          If this file is of type 'external link', the URL to which this file points
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="filelink" references=".fs_objects" ondelete="set default">
+        <d:documentation>
+          If this is an internal or content link file, the id of the linked file
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="fullpath" maxlength="4096" internalcolumnname="FULLPATH">
+        <d:documentation>
+          The path from the site's root folder to this file. Always starts and ends with a slash character ('/')
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="whfspath" maxlength="4096" internalcolumnname="WHFSPATH">
+        <d:documentation>
+          Full path to the file from the root of the WHFS file system - unlike fullpath, this path does not stop at the site root
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="highestparent" internalcolumnname="HIGHESTPARENT">
+        <d:documentation>
+          The id of the hightest parent that is still in the same site. Equivalent to the 'root' field of the folder's parentsite. 0 if this folder is not inside a site.
+        </d:documentation>
+      </d:integer>
+      <d:integer name="indexdoc" references=".fs_objects" ondelete="set default">
+        <d:documentation>
+          This is the id of the index document of the folder.
+          If a file is selected or a folder has no indexdoc, the indexdoc is 0 else the indexdoc is the id of the file.
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="indexurl" maxlength="4096" internalcolumnname="INDEXURL">
+        <d:documentation>
+          The indexurl, is the url of the currently selected document.
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="isfolder">
+        <d:documentation>
+          Whether the selected item is a folder
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="keywords" maxlength="1024">
+        <d:documentation>
+          A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)
+        </d:documentation>
+      </d:varchar>
+      <d:datetime name="firstpublishdate">
+        <d:documentation>
+          The date and time in UTC when this file was first published
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="lastpublishdate">
+        <d:documentation>
+          The date and time in UTC when this file was last published
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="lastpublishsize">
+        <d:documentation>
+          The size of the item since its last publication
+        </d:documentation>
+      </d:integer>
+      <d:integer name="lastpublishtime">
+        <d:documentation>
+          The time in milliseconds it took to publish the file, last time we succesfully published it. 0 if no measurement is available.
+        </d:documentation>
+      </d:integer>
+      <d:obsoletecolumn name="assetbundle" />
+      <d:obsoletecolumn name="assetpack" />
+      <d:obsoletecolumn name="metadata"/>
+      <d:varchar name="scandata" maxlength="512">
+        <d:documentation>
+          File scanned data, used to reconstruct a scannedblob record and save some tweakable metadata (such as dominantcolor)
+        </d:documentation>
+      </d:varchar>
+      <d:obsoletecolumn name="limitaccess" />
+      <d:integer name="modifiedby" references=".authobjects" ondelete="set default">
+        <d:documentation>
+          The id of the user that modified this item last.
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="modificationdate" nullable="false">
+        <d:documentation>
+          The date and time in UTC when this file was last modified
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="name" nullable="false" maxlength="256">
+        <d:documentation>
+          The name for this file, which must be unique inside its parent folder
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="ordering">
+        <d:documentation>
+          Relative ordering of this file
+        </d:documentation>
+      </d:integer>
+      <d:obsoletecolumn name="owner" />
+      <d:integer name="parent" references=".fs_objects" ondelete="cascade">
+        <d:documentation>
+          Id of the folder containing this file
+        </d:documentation>
+      </d:integer>
+      <d:integer name="parent_inside_site" internalcolumnname="PARENT_INSIDE_SITE">
+        <d:documentation>
+          The parent of the selected item
+        </d:documentation>
+      </d:integer>
+      <d:integer name="profile" references=".fs_objects" ondelete="set default">
+        <d:documentation>
+          The (word conversion) profile used to publish this file (in the old template V2 system), if its type requires any.
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="publish" internalcolumnname="PUBLISH">
+        <d:documentation>
+          Checks if the document needs to be published or not
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="published">
+        <d:documentation>
+          Status en flags indicating the current publishing, task and error status of the file.
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="requireprofile">
+        <d:documentation>
+          Whether this document requires a (word conversion) profile (in the old template V2 system)
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="requireprofileinsubfolders">
+        <d:documentation>
+          Whether subfolders of this selected item require (word conversion) profiles (in the old template V2 system)
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="requiretemplate">
+        <d:documentation>
+          Checks if this document requires a template
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="requiretemplateinsubfolders">
+        <d:documentation>
+          Checks if subfolders of this selected item require templates
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="template" references=".fs_objects" ondelete="set default">
+        <d:documentation>
+          The id of the template that is running the current file
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="title" maxlength="256">
+        <d:documentation>
+          The title of the currently selected item
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="type" references=".fs_types">
+        <d:documentation>
+          The file's type. See the file type list for more information on the currently supported file ids.
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="url" maxlength="4096" internalcolumnname="URL">
+        <d:documentation>
+          The URL to (the first page of) the published file. An empty string if this file will not be published.
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="isactive" internalcolumnname="ISACTIVE">
+        <d:documentation>
+          Checks if the current selected item is active
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="ispinned">
+        <d:documentation>
+          Checks if the current selected item is pinned, if yes; the item cannot be replaced/renamed or deleted.
+        </d:documentation>
+      </d:boolean>
+
+      <d:index name="parentnameindex" columns="parent name(32)" unique="true" uppercase="true">
+        <d:documentation>
+          Also used to enforce unique names within folders.
+        </d:documentation>
+      </d:index>
+
+      <d:obsoletecolumn name="parentsite" />
+      <d:obsoletecolumn name="canedit" />
+      <d:obsoletecolumn name="access" />
+    </d:table>
+
+    <d:table name="fs_settings" primarykey="id" >
+      <d:documentation>
+        The value/content of a contenttype's member with in a specific instance.
+        In case of member's of type 'whfsref' or 'array' there can be multiple fs_settings per member+instance combination.
+      </d:documentation>
+
+      <d:integer name="id" autonumberstart="1">
+      </d:integer>
+      <d:blob name="blobdata">
+        <d:documentation>
+          Value/content (used if the content is longer than 4096 and therefore doesn't fit in the 'setting' field)
+        </d:documentation>
+      </d:blob>
+
+      <d:integer name="instancetype" references=".fs_types" ondelete="cascade">
+        <d:documentation>
+          The contenttype of this member in case this setting belongs to a member of type 'instance'.
+        </d:documentation>
+      </d:integer>
+      <d:integer name="fs_instance" references=".fs_instances" ondelete="cascade" nullable="false" noupdate="true">
+        <d:documentation>
+          Used for members of type "instance" to store an instance of a(nother) contenttype.
+          This instance will than be the value (returned as RECORD through the API) instead of the blobdata or settings field.
+        </d:documentation>
+      </d:integer>
+
+      <d:integer name="fs_member" references=".fs_members" ondelete="cascade" nullable="false" noupdate="true">
+        <d:documentation>
+          For which member in the contenttype this setting contains the value.
+        </d:documentation>
+      </d:integer>
+
+      <d:varchar name="setting" maxlength="4096">
+        <d:documentation>
+          The value (unless the value is longer than 4096 characters, in which case it'll be stored in blobdata)
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="fs_object" references=".fs_objects" ondelete="set default">
+        <d:documentation>
+          Used for members of type "whfsref" or "whfsrefarray" to link to the fs_object, and by images to point to the original Publisher file.
+        </d:documentation>
+      </d:integer>
+      <d:integer name="parent" references=".fs_settings" ondelete="cascade">
+        <d:documentation>
+          The setting of type 'array' that combines the individual elements of an array row
+        </d:documentation>
+      </d:integer>
+      <d:integer name="ordering">
+        <d:documentation>
+          In case this setting belongs to a member of type 'array',
+          this will be the position in that array for this value.
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="fs_types" primarykey="id">
+      <d:documentation>
+        Describes (metadata of) a contenttype.
+        An contenttypes can also be designated to be used as a filetypes, foldertypes and embeddedobjects.
+      </d:documentation>
+
+      <d:integer name="id" autonumberstart="1001">
+      </d:integer>
+      <d:boolean name="cloneoncopy">
+        <d:documentation>
+          Whether the data in this contenttype will be copied to the new fs_object when copying a file or folder.
+
+          FIXME: how does this work when a type is used in a member type 'instance'??
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="isfiletype">
+        <d:documentation>
+          Whether to allow creation of a file with this type in the Publisher
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="isfoldertype">
+        <d:documentation>
+          Whether to allow creation of a folder with this type in the Publisher
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="namespace" nullable="false" maxlength="256" unique="true">
+        <d:documentation>
+          The human readable name through which you can refer to this contenttype.
+          Guidelines:<br />
+          <ul>
+            <li>For websites start the namespace with the URL on which the main site is hosted</li>
+            <li>Optionally add /xmlns/ to the namespace</li>
+            <li>Add the name of the type of data (for example "headerimages") or the purpose it serves (for example "newswidget")</li>
+          </ul>
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="isacceptableindex">
+        <d:documentation>
+          Whether a file which using this contenttype as filetype can be used as index file for it's parent folder.
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="needstemplate">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="needsprofile">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="ispublishedassubdir">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="ispublishable">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="isdynamicexecution">
+        <d:documentation>
+          If true, this file or foldertype requires dynamicexecution to be setup (eg a systemredirect file). We need to always know
+          this so we generate the proper files even if contenttypes are currently incomplete
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="capturesubpaths">
+        <d:documentation>
+          If true, publish files in such a way that they capture subpaths.
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="generatepreview">
+        <d:documentation>
+          Generate widget preview for files of this type.
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="previewlibrary" maxlength="256">
+        <d:documentation>
+          If this a file of this type has never been published, generate a preview for files of this type using the object previewobjectname in this library.
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="previewobjectname" maxlength="256">
+        <d:documentation>
+          If this a file of this type has never been published, generate a preview for files of this type using this object in the library previewlibrary.
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="orphan">
+        <d:documentation>
+          When a contenttype doesn't exist anymore in a siteprofile but is still kept in the database, the orphan field will be set to TRUE.
+          (the contenttype is preserved in the database when there still are fs_objects or member of type 'instance' using this contenttype).
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="searchprovider" maxlength="256">
+        <d:documentation>
+          The library#object used to create the publisher search body contents for this type
+        </d:documentation>
+      </d:varchar>
+    </d:table>
+
+    <d:table name="fs_history" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+          Unique id, primary key
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="when" nullable="0">
+        <d:documentation>
+          When this action took place
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="fs_object" references=".fs_objects" ondelete="cascade">
+        <d:documentation>
+          Object described by this history record
+        </d:documentation>
+      </d:integer>
+      <d:integer name="user" references=".authobjects" ondelete="set default">
+        <d:documentation>
+          User responsible for this action
+        </d:documentation>
+      </d:integer>
+      <d:integer name="type">
+        <d:documentation>
+          History action type. 0=deletion, 1=edit+delete, 2=simple move (only parent/name changed), 3=edit
+        </d:documentation>
+      </d:integer>
+      <d:integer name="currentparent" references=".fs_objects" ondelete="set default">
+        <d:documentation>
+          The parent at the moment the action was created
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="currentname" nullable="0" maxlength="256">
+        <d:documentation>
+          The name at the moment the action was created
+        </d:documentation>
+      </d:varchar>
+    </d:table>
+
+    <d:table name="fs_versionevents" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+          Unique id, primary key
+        </d:documentation>
+      </d:integer>
+      <d:integer name="fs_site" references=".sites">
+        <d:documentation>
+          Site this history item belongs to
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="when" nullable="0">
+        <d:documentation>
+          When this action took place
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="live_object" references=".fs_objects">
+        <d:documentation>
+          The published object of this item (the canonical item)
+        </d:documentation>
+      </d:integer>
+      <d:integer name="draft_object" references=".fs_objects">
+        <d:documentation>
+          The draft this version item refers to
+        </d:documentation>
+      </d:integer>
+      <d:integer name="user" references=".authobjects" ondelete="set default">
+        <d:documentation>
+          User responsible for this action
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="comment" maxlength="4096">
+        <d:documentation>
+          Comment about this action
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="tag" maxlength="4096">
+        <d:documentation>
+          Optional tag for this action
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="eventtype">
+        <d:documentation>
+          History event type.
+          0=request approval (accorderingsverzoek)
+          1=approve+apply (accorderen en toepassen)
+          2=final deny (verzoek is afgewezen)
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="iscurrent">
+        <d:documentation>
+          TRUE for the last event, last apply event, and open requests
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="ordering">
+        <d:documentation>
+          Monotonically increasing ordering for events for this live_object
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="orgfullpath" maxlength="4096">
+        <d:documentation>
+          Fullpath of the linked original before the modification
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="orgurl" maxlength="4096">
+        <d:documentation>
+          URL of the linked original before the modification
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="newfullpath" maxlength="4096">
+        <d:documentation>
+          Fullpath after the modification, at the time of versionevent creation (if this is an apply, the realized value)
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="newurl" maxlength="4096">
+        <d:documentation>
+          URL after the modification, at the time of versionevent creation (if this is an apply, the realized value)
+        </d:documentation>
+      </d:varchar>
+
+      <d:boolean name="isdelete">
+        <d:documentation>
+          TRUE if this event is an deletion.
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="newflags">
+        <d:documentation>
+          Flags describing new publication.index status for the live version when the request is applied
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="finished">
+        <d:documentation>
+          When the request for approval has been finished (cancelled or applied)
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="previousrequest" references=".fs_versionevents">
+        <d:documentation>
+          Refers to the relevant request for approval
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="versionnumber" maxlength="4096">
+        <d:documentation>
+          Version id for this version
+        </d:documentation>
+      </d:varchar>
+      <d:datetime name="expirydate">
+        <d:documentation>
+          Expiry date
+        </d:documentation>
+      </d:datetime>
+
+      <!-- index to quickly find the 'current' events -->
+      <d:index name="currentindex" columns="live_object iscurrent">
+        <d:documentation>
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="sites" primarykey="id" legacy_writeaccessmgr="WEBHARE">
+      <d:integer name="id" references=".fs_objects" ondelete="cascade" unique="1" nullable="0" noupdate="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:obsoletecolumn name="altdefaultpages" />
+      <d:obsoletecolumn name="defaultpage" />
+      <d:varchar name="description" maxlength="2048">
+        <d:documentation>
+A short description of the contents of the site
+
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="locked">
+        <d:documentation>
+True if this site is locked (it may not be browsed or modified by its owners, and the site published output will not be modified)
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="lockreason" maxlength="1024">
+        <d:documentation>
+The reason specified by the user locking this site
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="name" nullable="0" maxlength="256">
+        <d:documentation>
+The name for this site, as displayed in the site overview
+
+        </d:documentation>
+      </d:varchar>
+      <d:obsoletecolumn name="outputextension" />
+      <d:varchar name="outputfolder" maxlength="256">
+        <d:documentation>
+The subfolder in which the site should be published inside the specified webserver. This folder's name always ends in a slash
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="outputweb" references=".webservers" ondelete="set default">
+        <d:documentation>
+The webserver on which this site is hosted, 0 if the site is not published
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="cdnbaseurl" maxlength="1024">
+        <d:documentation>
+          The corresponding CDN URL for the webroot
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="webroot" maxlength="1024" internalcolumnname="webroot">
+        <d:documentation>
+The full base URL on which this site will be published, calculated by combining and encoding the webserver's base URL and the site's output folder. Empty if this site is not published
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="versioningpolicy" maxlength="128">
+        <d:documentation>
+          Whether the site is under version control
+        </d:documentation>
+      </d:varchar>
+      <d:index name="nameindex" columns="name(32)" unique="1" uppercase="1" >
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:grant permissions="all" table="sites" grantee="public" />
+
+    <d:table name="flatregistry" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="name" nullable="false" maxlength="512" noupdate="true" />
+      <d:bytea name="namehash" maxlength="20" nullable="false" unique="true" noupdate="true"/>
+      <d:bytea name="nodehash" maxlength="20" nullable="false" noupdate="true"/>
+      <d:varchar name="data" maxlength="4096" />
+      <d:datetime name="modificationdate" />
+      <d:blob name="blobdata" />
+      <d:index name="nodehashindex" columns="nodehash" />
+    </d:table>
+
+    <!-- diverted files -->
+    <d:table name="webdav_diversions" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+          Primary key
+        </d:documentation>
+      </d:integer>
+      <d:integer name="owner" references=".authobjects" ondelete="cascade" nullable="0">
+        <d:documentation>
+          The owner of this diverted file. Users can only see the diversions they stored themselves
+        </d:documentation>
+      </d:integer>
+      <d:bytea name="pathhash" nullable="0" maxlength="20">
+        <d:documentation>
+          SHA1 path hash
+        </d:documentation>
+      </d:bytea>
+      <d:varchar name="path" nullable="0" maxlength="4096">
+        <d:documentation>
+          File/folder path
+        </d:documentation>
+      </d:varchar>
+      <d:datetime name="created" nullable="0">
+        <d:documentation>
+          Creation time
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="type">
+        <d:documentation>
+          Type (0=file, 1=directory)
+        </d:documentation>
+      </d:integer>
+      <d:blob name="data">
+        <d:documentation>
+          File data
+        </d:documentation>
+      </d:blob>
+      <d:index name="pathindex" columns="owner pathhash" />
+    </d:table>
+
+    <!-- Custom shared folders
+
+    FIXME: Should not be visible to everyone
+
+    -->
+    <d:table name="webdav_datafolders" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="foldername" maxlength="256" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="diskfolder" maxlength="4096" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:index name="foldernameindex" columns="foldername(32)" unique="true" uppercase="true">
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+      <d:boolean name="forcelowercase">
+        <d:documentation>
+          Force output to be lowercase, input paths to be case-insensitive
+        </d:documentation>
+      </d:boolean>
+    </d:table>
+<!--
+    <d:grant permissions="select" table="webdav_datafolders" grantee="public" />
+-->
+
+    <d:table name="towl_notifications" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="module" references=".modules" ondelete="cascade" nullable="false">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="name" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="descriptiontid" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="defaultenabled">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+    </d:table>
+
+    <d:obsoletetable name="adhocdump_dumps"/>
+    <d:obsoletetable name="adhocdump_fields"/>
+    <d:obsoletetable name="adhocdump_results"/>
+    <d:obsoletetable name="adhocdump_resultvalues"/>
+
+    <d:table name="assetpacks" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:datetime name="created" nullable="false">
+        <d:documentation>
+          Creation date of the asset pack
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="lastuse">
+        <d:documentation>
+          Last use date of the design files.
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="designfolder" maxlength="256">
+        <d:documentation>
+          Module for which this file was generated
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="entrypoint" nullable="false" maxlength="256">
+        <d:documentation>
+          Requested entry point
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="bundleconfig" maxlength="4096">
+        <d:documentation>
+          Bundle configuration, HSON encoded
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="outputtag" nullable="false" maxlength="128" unique="true">
+        <d:documentation>
+        Output tag (uuid or export name) for this module/sitedesign/entrypoint combination
+        </d:documentation>
+      </d:varchar>
+    </d:table>
+
+    <d:table name="precalccache" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="hash" maxlength="32" unique="true" nullable="false" />
+      <d:varchar name="func" maxlength="1024" />
+      <d:varchar name="state" maxlength="32">
+        <d:documentation>
+          "valid", "expired", "softexpired", "crashed", "discarded"
+        </d:documentation>
+      </d:varchar>
+
+      <d:varchar name="keydatahsonstr" maxlength="4096" />
+      <d:blob name="keydatahsonblob"/>
+      <d:varchar name="valuehsonstr" maxlength="4096" />
+      <d:blob name="valuehsonblob"/>
+      <d:varchar name="settingshsonstr" maxlength="4096" />
+      <d:datetime name="lastuse" />
+    </d:table>
+
+    <d:obsoletetable name="registrykeys" />
+    <d:obsoletetable name="registrynodes" />
+    <d:obsoletetable name="users"/>
+  </databaseschema>
+
+  <registry>
+    <node name="publisher">
+      <node name="publication">
+        <integer name="numworkers" description="Number of worker processes to start" initialval="2" />
+        <integer name="maxpublishtime" description="Maximum publication time (seconds)" initialval="600" />
+        <integer name="loglevel" description="Queuemanager logging level" />
+        <string name="defaultcontentlisting" description="Default content listing file" initialval="mod::publisher/scripts/defaultcontentlisting.whscr" />
+        <obsoletekey name="templatehspermissions" />
+        <boolean name="scanoutputatstartup" description="Scan all output at startup" initialval="true" />
+        <string name="stripextensions" description="Extensions to strip from published-as-subfolder documents" initialval=".rtd .docx .doc" />
+      </node>
+      <node name="autofileid">
+        <string name="extensions" initialval="shtml" />
+      </node>
+      <node name="bundledassets">
+        <obsoletekey name="expireafterdays" />
+        <boolean name="suspendautocompile" description="Suspend auto-compilation of production assets" />
+        <string name="devbrowsertargets" description="Browser targets for dev assetpacks" initialval="" />
+      </node>
+      <node name="filemgr">
+        <boolean name="showwhfsprivate" description="Show the WebHare private folder (/whfs-private/)" />
+        <boolean name="showwebharebackend" description="Show the WebHare backend site (/WebHare backend)" />
+        <boolean name="showblitoverlays" description="Show object status overlays in de Publisher" initialval="false" />
+        <boolean name="defaultautotitles" description="Default autotitle setting" initialval="false" />
+      </node>
+      <node name="trashcan">
+        <integer name="trashcanexpire" initialval="90" description="Expiry time for trashcan items in days (0 to disable)" />
+        <integer name="trashcanmaxsize" description="Max size of trashcan in MB (0 to disable)" />
+      </node>
+      <node name="forms"> <!-- FIXME at some point, just move this to the base site profile (at prio=negative) to allow modules to overwrite this. And processreults was intended to be 7 -->
+        <integer name="storeresults" initialval="400" description="The default number of days to store form results (default is 1 year + 1 month)" />
+        <integer name="processresults" initialval="30" description="The number of days to store form results internally for processing" />
+      </node>
+      <node name="analytics">
+        <string name="privateipcountry" initialval="NL" description="Country code to return for private IPs" />
+      </node>
+      <obsoletenode name="internalwebdesign" />
+    </node>
+
+    <node name="system">
+      <node name="webserver">
+        <node name="global"> <!-- Global options affect all websites/servers -->
+          <integer name="accesslogdays" description="Nr of days of access logs to keep" initialval="30" />
+          <integer name="errorlogdays" description="Nr of days of error logs to keep" initialval="30" />
+          <integer name="usagelogdays" description="Nr of days of usage stats to keep" initialval="90" />
+          <obsoletekey name="explicitaliases" />
+          <obsoletekey name="logstacktraces" />
+          <integer name="scripttimeout" description="Script timeout" initialval="900" />
+          <obsoletenode name="basefolder"/>
+          <obsoletenode name="monitoring" />
+          <integer name="historyseconds" description="Nr of seconds to keep process history" initialval="300" />
+          <node name="locking">
+            <boolean name="sysoponly" description="All logins except for administrators are disabled" />
+            <datetime name="scheduleddowntime" description="The time and date of the next scheduled downtime, if any" />
+            <integer name="estimateddowntime" description="The amount of time (in minutes) that the scheduled downtime is estimated to last" />
+          </node>
+          <node name="proxyservers">
+            <string name="trustxforwardedfor" description="A comma separated list of ip addresses of proxy servers that add a trustable X-Forwarded-For header" />
+            <string name="verificationcode" description="Verification code for webhare nginx proxy servers" />
+          </node>
+          <string name="debugurls" description="Supply header debug info for these urls, glob masks, comma-separated" />
+        </node>
+        <node name="nginx">
+          <obsoletekey name="isfrontend" />
+        </node>
+        <node name="security">
+          <string name="cachesecret" description="Secret key used to sign image cache URLs" />
+          <string name="cookiesecret" description="Secret key used to encrypt/sign cookies" />
+          <string name="elasticsecret" description="Secret key used for Elasticsearch" />
+          <boolean name="autodenyipv6" description="Automatically deny IPv6 access to URLs, if a global IPv4 deny exists" initialval="true" />
+          <string name="ciphersuite" description="Override OpenSSL ciphersuite list for webserver listening ports" />
+          <string name="fullaccessips" description="List of IP addresses that bypass access rule login requirements, comma-separated" />
+          <node name="keys" />
+          <obsoletekey name="authscript_dbase" />
+          <obsoletenode name="custom" />
+        </node>
+        <node name="webdav">
+          <boolean name="divertmacfileforks" description="Divert Apple's file forks" initialval="true" />
+          <boolean name="divertdsstore" description="Divert Apple's DS Store folders" initialval="true" />
+          <boolean name="divertthumbsdb" description="Divert Windows' Thumbs.db folders" initialval="true" />
+          <integer name="divertcachedays" description="Number of days to keep files in the diversion cache" initialval="7" />
+          <boolean name="simulatesharepoint" description="Try to mimick Sharepoint headers" initialval="true" />
+        </node>
+        <node name="measure">
+          <string name="accesslogcheckpoint" description="Current access.log checkpoint" />
+        </node>
+      </node>
+      <node name="services">
+        <node name="accounting">
+          <boolean name="logtraces" description="Log accounting hit stack traces" />
+        </node>
+        <node name="webhare">
+          <obsoletenode name="servicesurl" />
+          <string name="serviceshosts" description="URL to provider of integrated WebHare services" initialval="services-1.webhare.com services-2.webhare.com" />
+        </node>
+        <node name="smtp"> <!-- system.services.smtp -->
+          <string name="mailfrom" description="Default FROM address" />
+          <boolean name="usemailfromfornonwhitelisted" description="Use default FROM for non-whitelisted senders" />
+          <string name="mailrulefilter" description="Set a tag-based filter for mailrules to use (mocked during tests)" />
+          <obsoletekey name="resendinterval" />
+          <obsoletekey name="connecttimeout" />
+          <obsoletekey name="transactiontimeout" />
+          <obsoletekey name="smtptimeout" />
+
+          <string name="defaultmailroute" description="SMTP URL for the defailt mail route "/>
+
+          <!-- ADDME: Merge these into SMTP tables -->
+          <string name="hostname" description="SMTP server hostname" />
+          <integer name="port" description="SMTP server port" initialval="25" />
+          <obsoletekey name="lastconnected" />
+          <obsoletekey name="errormessage" />
+          <obsoletekey name="lasterror" />
+          <boolean name="outgoingredirect" description="Redirect all outgoing mail?" />
+          <string name="outgoingmailaddress" description="Redirect all outgoing mail to the specified email adress" />
+          <boolean name="outgoingaddressrewrite" description="Include the original outgoing mail address in the '+' part" />
+          <string name="authusername" description="SMTP authorization username" />
+          <string name="authpassword" description="SMTP authorization password" />
+          <integer name="mailretention" description="How long to keep sent mails (in days), needed to associate bounces" initialval="7" />
+          <integer name="maxsize" description="Maximum message size in bytes" initialval="10000000" />
+          <!-- ... -->
+        </node>
+        <node name="adhoccache">
+          <integer name="maxentries" description="Maximum number of entries in the adhoc cache" initialval="1024" />
+          <integer name="minperlibrary" description="Number of entries kept per library when cleaning up the cache" initialval="64" />
+        </node>
+        <node name="geonames">
+          <string name="accountname" description="Account name for GeoNames Web Services" />
+        </node>
+      </node>
+      <node name="cache">
+        <datetime name="moddatecutoff" description="After this date, we use the image hash instead of modification date in URLs" initialval="now" />
+      </node>
+      <node name="global">
+        <string name="servertype" description="Type of the server: production, acceptance, test, development, alpha" initialval="production" />
+        <string name="servername" description="Name of your server" initialval=""/>
+        <string name="installationid" description="Installation ID of your server" initialval=""/>
+      </node>
+      <node name="licensing">
+        <obsoletekey name="serviceurl" />
+        <string name="licensekey" description="Licensekey, base64-encoded" />
+      </node>
+      <node name="userrights"> <!-- system.userrights -->
+        <obsoletekey name="showwhmodules"/>
+        <obsoletekey name="requirepassword"/>
+        <integer name="retention" description="Retention period for deleted users, roles etc in system:usermgmt, in days" initialval="90" />
+        <string name="newuserdefaults_language" description="Default settings for new users - language" initialval="en" />
+        <obsoletekey name="newuserdefaults_timemilitary" />
+        <obsoletekey name="newuserdefaults_shortdateformat" />
+        <obsoletekey name="newuserdefaults_longdateformat" />
+        <string name="newuserdefaults_timezone" description="Default settings for new users - time zone" initialval="Europe/Amsterdam" />
+        <string name="newuserdefaults_decimalsep" description="Default settings for new users - decimal separator" initialval="," />
+        <string name="newuserdefaults_thousandsep" description="Default settings for new users - thousand separator" initialval="." />
+      </node>
+      <node name="tasks"> <!-- system.tasks -->
+        <integer name="maxprocesses" description="Maximum # of parallel processes started by executetasks" initialval="4" />
+        <integer name="defaulttimeout" description="Default task timeout (in minutes)" initialval="60" />
+        <integer name="finishedretention" description="How long to keep completed tasks (in days)" initialval="3" />
+        <obsoletekey name="convertscandata_batchsize" />
+      </node>
+      <node name="precalc"> <!-- system.precalc -->
+        <integer name="maxjobs" description="Maximum # of parallel jobs started by precalc" initialval="10" />
+        <integer name="maxnoninteractivejobs" description="Maximum # of parallel non-interactive jobs started by precalc" initialval="5" />
+      </node>
+      <node name="modulemgr">
+        <integer name="archivedays" description="The number of days archived modules must be kept in the archivedmodules folder" initialval="180" />
+        <string name="installumask" description="Umask to apply to installed module files" initialval="0755" />
+      </node>
+      <node name="backend">
+        <node name="check">
+          <string name="ipallowmask" description="Space separated list of IP addresses/masks allowed to use the check page" initialval="127.0.0.1" />
+        </node>
+        <node name="layout">
+          <string name="title" initialval="WebHare&#174; Platform" />
+          <obsoletekey name="dashboardbgpos" />
+          <string name="infotitle" />
+          <string name="infotext" />
+          <obsoletekey name="headergoodies"  />
+        </node>
+        <obsoletekey name="sharepoint" />
+        <obsoletekey name="menu" />
+        <node name="integration">
+          <obsoletekey name="webhareurl" />
+          <obsoletekey name="toddfallbackurl" />
+          <obsoletekey name="disablewebui4" />
+          <obsoletekey name="rolebasedredirect" />
+          <obsoletekey name="reportemailaddress" />
+          <obsoletekey name="enablechromeframe" />
+          <obsoletekey name="lastboostrap"/>
+          <obsoletekey name="lastbootstrap" />
+          <obsoletekey name="backendrevision" />
+          <obsoletekey name="universalanalyticscode" />
+          <string name="gotomanualsurl" description="Link to jump to manuals" initialval="https://manuals.webhare.com/go/" />
+          <obsoletekey name="defaultuserschema" />
+        </node>
+        <node name="security">
+          <boolean name="needsysop" description="The next user to login will become a sysop" />
+          <node name="override">
+            <datetime name="validuntil" description="Time until which this override key is valid" />
+            <string name="token" description="The override token to use" />
+            <integer name="duration" description="Duration of normal override tokens" initialval="1800000" /><!-- 30 minutes -->
+          </node>
+          <boolean name="allowpasswordreset" description="Allow users to reset their password" />
+        </node>
+        <node name="exclusiveaccess">
+          <integer name="takeovertime" description="The number of seconds to allow another user to decline a takeover request" initialval="30" />
+        </node>
+        <node name="development">
+          <string name="designfiles" description="Use public designfiles from specified WHFS location" initialval="" />
+          <boolean name="manualdebugmgr" description="Don't run the debugmanager from the apprunner (when TRUE)" initialval="false" />
+          <integer name="zombietimeout" description="Zombie timeout in msecs" initialval="60000" />
+          <obsoletekey name="indexsourcecode" />
+          <string name="npmlinkroots" description="Directories that contain npm linked modules" initialval="" />
+          <string name="whconnectroots" description="Directories where connectinfo should be written to" initialval="" />
+        </node>
+        <node name="tuning">
+          <obsoletekey name="allowjscaching" />
+          <obsoletekey name="allowimagecaching" />
+        </node>
+      </node>
+    </node>
+    <obsoletenode name="sysmgmt" />
+    <obsoletenode name="development" />
+  </registry>
+
+  <hooking>
+    <!-- This hook is invoked whenever the 'type' and/or 'data' of a file is changed -->
+    <target name="whfs_file_aftercontentupdate" />
+    <target name="whfs_folder_aftermetadataupdate" />
+    <target name="whfs_file_aftermetadataupdate" />
+    <target name="whfs_object_afterinstancedataupdate" />
+    <target name="moduleconfig_afterconnectchange" />
+
+    <intercept name="whfs_file_defaultaftercontentupdate" target="whfs_file_aftercontentupdate" interceptfunction="lib/internal/whfs/hooks.whlib#DefaultAfterContentUpdate" />
+    <intercept name="whfs_file_defaultaftermetadataupdate" target="whfs_file_aftermetadataupdate" interceptfunction="lib/internal/whfs/hooks.whlib#DefaultAfterMetadataUpdate" />
+    <intercept name="whfs_folder_gallerysettingsreset" target="whfs_folder_aftermetadataupdate" interceptfunction="lib/internal/whfs/hooks.whlib#GallerySettingsReset" />
+  </hooking>
+
+  <publisher>
+    <virtualfs name="data" library="internal/virtualfs/data.whlib" objectname="DataFS">
+      <accesscheck>
+        <requireright right="webdav_readaccess" />
+      </accesscheck>
+    </virtualfs>
+    <virtualfs name="system" library="internal/virtualfs/system.whlib" objectname="SystemFS">
+      <accesscheck>
+        <requireright right="sysop" />
+      </accesscheck>
+    </virtualfs>
+  </publisher>
+
+  <services>
+    <webservice name="auth" transports="whremoting" library="internal/webharepeers/authservice.whlib" primarytrans="none" prefix="RPC_">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+    <webservice name="admin" transports="whremoting" library="internal/adminservice.whlib" requirewhaccount="true" primarytrans="auto" prefix="RPC_">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+    <webservice name="editorservice" transports="whremoting jsonrpc" library="internal/devtools/editorservice.whlib" primarytrans="none" prefix="RPC_">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+    <webservice name="jstests" transports="jsonrpc" maxservertype="development" library="internal/jstests/service.whlib" prefix="RPC_">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+
+    <localservice name="whfs" library="internal/whfs/service.whlib" objectname="WHFSCalls" reuse="true" />
+    <localservice name="rights" library="internal/rightsmgmt.whlib" objectname="ElevatedRightsCalls" reuse="true" />
+    <localservice name="diversion" library="internal/virtualfs/diversion.whlib" objectname="DiversionCalls" reuse="true" />
+
+    <!-- The __systemservice is a generic service, that will accept the local transaction -->
+    <localservice name="__systemservice" library="internal/systemservice.whlib" objectname="SystemService" reuse="true" />
+
+    <internalservice tag="getconfig"
+                     library="internal/webserver/getconfig.whscr"
+                     tid="sysmgmt.webservers.scripts.getconfig"
+                     portname="system:webserver.getconfig"
+                     globalport="true"
+                     mode="alwayson"
+                     screen=""
+                     persistonsoftreset="true"
+                     environment="WEBHARE:WEBSERVERMANAGER"
+                     where="webserver" />
+
+    <apprunnerconfig configfunction="lib/internal/support.whlib#getsystemapprunnerconfig" />
+  </services>
+
+  <documentation>
+    <xmlschemas>
+      <xmlschema path="moduledefinition.xsd" title="Specification for moduledefinition.xml files" />
+      <xmlschema path="restapi.xsd" title="Specification for REST-api xml files" />
+    </xmlschemas>
+  </documentation>
+
+  <logging>
+    <log name="rpc" filename="rpc" mseconds="true" />
+    <log name="debug" filename="debug" mseconds="true" />
+    <log name="notice" filename="notice" mseconds="true" />
+    <log name="audit" filename="audit" mseconds="true" />
+    <log name="accounting" filename="accounting" mseconds="true" />
+  </logging>
+
+  <validation>
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/restapi" rootnodes="restapi" schemalocation="data/restapi.xsd" validator="lib/internal/remoting/restapisupport.whlib#RestAPIDefinitionFile" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/moduledefinition" rootnodes="module" schemalocation="data/moduledefinition.xsd" validator="lib/internal/validation/xml.whlib#ModuleDefinitionValidator" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/serverconfig" rootnodes="serverconfig" schemalocation="data/serverconfig.xsd" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/webhare/apconfig" rootnodes="apconfig" schemalocation="data/apconfig.xsd" />
+    <xmlfiletype namespaceuri="http://www.w3.org/2001/XMLSchema" rootnodes="schema" schemalocation="whres::xml/xmlschema.xsd" validator="lib/internal/validation/xml.whlib#XSDValidator" />
+    <xmlfiletype namespaceuri="http://schemas.xmlsoap.org/wsdl/" rootnodes="definitions" schemalocation="whres::xml/wsdl.xsd" />
+    <xmlfiletype namespaceuri="" rootnodes="group"  validator="lib/internal/validation/xml.whlib#LegacyTestInfoValidator" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/testinfo" rootnodes="group" schemalocation="data/testinfo.xsd" validator="lib/internal/validation/xml.whlib#TestInfoValidator" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/dev/topic" rootnodes="topic" schemalocation="data/topic.xsd" validator="lib/internal/validation/xml.whlib#TopicValidator" />
+  </validation>
+
+  <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+    <schema tag="usermgmt" autocreate="true" definitionfile="data/wrdschemas/usermgmt.wrdschema.xml" originalname="WebHare Usermanagement"/>
+  </wrdschemas>
+</module>

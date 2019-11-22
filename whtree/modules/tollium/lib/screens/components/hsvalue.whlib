@@ -1,0 +1,132 @@
+<?wh
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/hsvalue_introspection.whlib";
+
+
+/////////////////////////////////////////////////////////////////////
+// The HSValue component
+
+PUBLIC OBJECTTYPE HSValue EXTEND TolliumFragmentBase
+<
+  RECORD valueholder;
+
+  PUBLIC PROPERTY value(this->valueholder.val, SetValue);
+
+  //PUBLIC PROPERTY settings(this->serializer->debug, this->serializer->debug);
+
+  PUBLIC PROPERTY showprivate(this->dumper->showprivate, this->dumper->showprivate);
+  PUBLIC PROPERTY forceshowraw(this->dumper->forceshowraw, this->dumper->forceshowraw);
+  PUBLIC PROPERTY expandlevel(this->dumper->expandlevel, this->dumper->expandlevel);
+
+  PUBLIC PROPERTY iframe(this->valuedisplay, -);
+
+  OBJECT serializer;
+  OBJECT dumper;
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->serializer := NEW HSValueDescriber();
+    this->dumper := NEW HSValueDumper();
+    this->valueholder := [ val := DEFAULT RECORD ];
+  }
+
+  PUBLIC MACRO SetValue(VARIANT newval)
+  {
+    this->valueholder := [ val := newval ];
+    //this->valuedisplay->blobvalue := StringToBlob(AnyToString(this->valueholder.val,'htmltree:4'));
+
+    RECORD descriptionrec;
+    IF (this->dumper->IsDescribedValue(newval))
+      descriptionrec := newval;
+    ELSE
+      descriptionrec := this->serializer->Describe(this->valueholder.val);
+
+    this->valuedisplay->blobvalue := this->dumper->StyledAnyToHTMLBlob(descriptionrec, this->valuedisplay);
+  }
+
+  PUBLIC BOOLEAN FUNCTION DoHandleLink(STRING url)
+  {
+    RECORD urlrec := UnpackURL(url);
+    IF (urlrec.scheme != "webhare")
+    {
+      this->owner->frame->OpenBrowserWindow(url, "_blank");
+      RETURN FALSE;
+    }
+
+    IF (urlrec.host = "wrd")
+    {
+      STRING ARRAY urlparts := Tokenize(urlrec.urlpath, ",");
+      IF (Length(urlparts) = 1)
+      {
+         this->tolliumcontroller->SendApplicationMessage("wrd:browser", [ schemaname := urlparts[0] ], DEFAULT RECORD, FALSE);
+      }
+    }
+    ELSE IF (urlrec.host = "whfs")
+    {
+      // Open the publisher by WHFS ID, URL or WHFSPATH
+      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ selectobject := urlrec.urlpath ], DEFAULT RECORD, FALSE);
+      /*
+      STRING ARRAY urlparts := Tokenize(urlrec.urlpath, ",");
+      IF (Length(urlparts) > 0)
+      {
+        this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid := ToInteger(urlparts[0], 0) ], DEFAULT RECORD, FALSE);
+      }
+      */
+    }
+    // ADDME: implement opening of URL (urlopenaction)
+    //ELSE
+    //ABORT (url);
+      //this->frame->OpenBrowserWindow(url, "_blank");
+      //this->frame->OpenBrowserWindow("/webhare/?app=" || thismodulename || "(" || EncodeURL(data.screen) || ")","_blank");
+
+    RETURN TRUE;
+  }
+
+/*
+  MACRO DoShowInNewPublishers()
+  {
+    RECORD ARRAY sel := this->whfsobjects->selection;
+    INTEGER items := Length(sel);
+
+    IF (items > 15)
+      RETURN; // silently ignore
+
+    IF (items > 10 AND this->RunMessageBox(".suretoopenmultiple",  ToString(items)) != "yes")
+      RETURN;
+
+    FOREVERY(RECORD fsobj FROM sel)
+    {
+      IF (fsobj.isfolder)
+        this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid := fsobj.id ], DEFAULT RECORD, FALSE);
+      ELSE
+        this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := fsobj.id / *, folderid := fsobj.parent* / ], DEFAULT RECORD, FALSE);
+    }
+  }
+
+  MACRO DoOpenProperties()
+  {
+    RECORD sel := this->whfsobjects->selection;
+
+    OBJECT dlg := CreateWHFSObjectPropsDialog(this, sel.id);
+
+    // check whether creation of the properties dialog has failed
+    // (for example due to an error in a propertyeditor in a siteprofile)
+    IF (NOT ObjectExists(dlg))
+      RETURN; // FALSE;
+
+    //RETURN dlg->RunModal() = "ok";
+    dlg->RunModal();
+  }
+
+  MACRO DoInspect()
+  {
+    RECORD sel := this->whfsobjects->selection;
+    OBJECT dlg := CreateWHFSObjectInspectDialog(this, sel.id);
+    dlg->RunModal();
+  }
+*/
+>;

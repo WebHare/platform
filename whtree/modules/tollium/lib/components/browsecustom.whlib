@@ -1,0 +1,211 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+
+PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
+<
+  RECORD pvt_value;
+  INTEGER pvt_valuetypeid;
+
+  STRING empty;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  PUBLIC FUNCTION PTR onbrowse;
+  PUBLIC FUNCTION PTR onchange;
+  PUBLIC FUNCTION PTR onmapvalue;
+
+
+  MACRO NEW()
+  {
+    this->invisibletitle := TRUE;
+
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+
+    // we only support STRING and INTEGER as valuetype
+    SWITCH(def.valuetype)
+    {
+      CASE "blob"          { this->pvt_valuetypeid := TypeID(BLOB); }
+      CASE "datetime"      { this->pvt_valuetypeid := TypeID(DATETIME); }
+      CASE "float"         { this->pvt_valuetypeid := TypeID(FLOAT); }
+      CASE "integer"       { this->pvt_valuetypeid := TypeID(INTEGER); }
+      CASE "integer64"     { this->pvt_valuetypeid := TypeID(INTEGER64); }
+      CASE "money"         { this->pvt_valuetypeid := TypeID(MONEY); }
+      CASE "record"        { this->pvt_valuetypeid := TypeID(RECORD); }
+      CASE "string"        { this->pvt_valuetypeid := TypeID(STRING); }
+
+      CASE "blobarray"      { this->pvt_valuetypeid := TypeID(BLOB ARRAY); }
+      CASE "datetimearray"  { this->pvt_valuetypeid := TypeID(DATETIME ARRAY); }
+      CASE "floatarray"     { this->pvt_valuetypeid := TypeID(FLOAT ARRAY); }
+      CASE "integerarray"   { this->pvt_valuetypeid := TypeID(INTEGER ARRAY); }
+      CASE "integer64array" { this->pvt_valuetypeid := TypeID(INTEGER64 ARRAY); }
+      CASE "moneyarray"     { this->pvt_valuetypeid := TypeID(MONEY ARRAY); }
+      CASE "recordarray"    { this->pvt_valuetypeid := TypeID(RECORD ARRAY); }
+      CASE "stringarray"    { this->pvt_valuetypeid := TypeID(STRING ARRAY); }
+
+      DEFAULT { THROW NEW Exception("Unsupported valuetype "||def.valuetype); }
+    }
+
+    this->onbrowse := def.onbrowse;
+    this->onchange := def.onchange;
+    this->onmapvalue := def.onmapvalue;
+
+    this->empty := def.empty;
+
+    this->SetTitle(def.title);
+    this->SetReadonly(def.readonly);
+    this->SetEnabled(def.enabled);
+    this->SetRequired(def.required);
+
+    IF (this->pvt_valuetypeid IN [TypeID(INTEGER), TypeID(INTEGER64)])
+    {
+      //IF (def.value != "") // no selection?
+        this->SetValue(ToInteger(def.value, 0)); // FIXME: check if valid number
+    }
+    ELSE IF (this->pvt_valuetypeid = TypeID(STRING))
+    {
+      this->SetValue(def.value);
+    }
+    ELSE
+    {
+      // setting the DEFAULT value in XML is only supported for INTEGER and STRING
+      this->SetValue(GetTypeDefaultValue(this->pvt_valuetypeid));
+    }
+  }
+
+  UPDATE PUBLIC MACRO PostInitComponent()
+  {
+    this->titletext->width := this->width;
+    TolliumFragmentBase::PostInitComponent();
+  }
+
+  MACRO DoBrowse()
+  {
+    IF (this->onbrowse = DEFAULT FUNCTION PTR)
+      RETURN;
+
+    VARIANT newvalue := this->onbrowse(this->GetValue());
+
+    // 0 and "" will be treated as sign that browsing has been canceled.
+    // To clear the value, the user must use the 'Clear' button
+    IF (this->IsEmptyValue(newvalue))
+      RETURN;
+
+    this->SetValue(newvalue);
+  }
+
+  MACRO DoClear()
+  {
+    this->SetValue( GetTypeDefaultValue(this->pvt_valuetypeid) );
+    //this->pvt_value := [ value := GetTypeDefaultValue(this->pvt_valuetypeid) ];
+    //this->titletext->value := this->empty;
+  }
+
+  VARIANT FUNCTION GetValue()
+  {
+    IF (RecordExists(this->pvt_value))
+      RETURN this->pvt_value.value;
+
+    RETURN GetTypeDefaultValue(this->pvt_valuetypeid);
+  }
+
+  MACRO SetValue(VARIANT newvalue)
+  {
+    RECORD orgcontainer := this->pvt_value;
+    this->pvt_value := [ value := newvalue ];
+
+    IF (this->IsEmptyValue(newvalue))
+    {
+      this->titletext->value := this->empty;
+
+      IF (this->onchange != DEFAULT FUNCTION PTR AND (NOT RecordExists(orgcontainer) OR NOT this->IsEmptyValue(orgcontainer.value)))
+        this->onchange();
+
+      RETURN;
+    }
+
+    //IF (NOT CanCastTypeTo(TypeID(newvalue), this->pvt_valuetypeid))
+    //  THROW NEW Exception("new value must be of type "||GetTypeName(this->pvt_valuetypeid));
+
+    IF (this->onmapvalue != DEFAULT FUNCTION PTR)
+      this->titletext->value := this->onmapvalue(newvalue);
+    ELSE IF (this->pvt_valuetypeid IN [TypeID(STRING), TypeID(INTEGER)])
+      this->titletext->value := newvalue || "";
+    // ADDME: support datetime too?
+
+    // Fire onchange when the value has changed - or might have changed, but we can't detect it
+    IF (this->onchange != DEFAULT FUNCTION PTR
+        AND (NOT RecordExists(orgcontainer)
+            OR TypeID(orgcontainer.value) != TypeID(newvalue)
+            OR TypeID(newvalue) NOT IN [ TypeID(DATETIME), TypeID(FLOAT), TypeID(INTEGER), TypeID(INTEGER64), TypeID(MONEY), TypeID(STRING) ]
+            OR orgcontainer.value != newvalue))
+
+      this->onchange();
+  }
+
+  UPDATE MACRO SetReadonly(BOOLEAN readonly)
+  {
+    this->pvt_readonly := readonly;
+    //this->titletext->enabled := NOT readonly;
+    this->browsebutton->visible := NOT readonly;
+    this->clearbutton->visible := NOT readonly AND NOT this->pvt_required;
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newenabled)
+  {
+    TolliumFragmentBase::SetEnabled(newenabled);
+    this->clearbutton->enabled := newenabled;
+    this->browsebutton->enabled := newenabled;
+  }
+
+  UPDATE MACRO SetRequired(BOOLEAN required)
+  {
+    this->pvt_required := required;
+    this->titletext->required := required;
+    this->clearbutton->visible := NOT required AND NOT this->pvt_readonly;
+  }
+
+  UPDATE MACRO SetTitle(STRING title)
+  {
+    this->titletext->title := title;
+  }
+
+  BOOLEAN FUNCTION IsEmptyValue(VARIANT value)
+  {
+    // determine whether to call this value empty
+    // depending on default value of the valuetype and whether emptyvalue is specified for <browsecustom)
+    // (FIXME: treat browse cancel and empty check different?.. or use a RECORD.value/ok ?)
+
+    IF (IsTypeIDArray(this->pvt_valuetypeid))
+      RETURN Length(value) = 0;
+    ELSE IF (this->pvt_valuetypeid = TypeID(BLOB))
+      RETURN Length(value) = 0;
+    ELSE IF (this->pvt_valuetypeid = TypeID(RECORD))
+      RETURN NOT RecordExists(value);
+
+    RETURN value = GetTypeDefaultValue(this->pvt_valuetypeid);
+  }
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel ?? this->title;
+
+    IF( this->pvt_required AND (NOT RecordExists(this->pvt_value) OR this->IsEmptyValue(this->pvt_value.value)))
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+  }
+>;

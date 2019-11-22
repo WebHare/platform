@@ -1,0 +1,14 @@
+[component simpleembed][embed embedtest.witty:simple][/component]
+[component subdirembed][embed subdir/embedtest2.witty:subdir][/component]
+[component subdirreverseembed][embed subdir/embedtest2.witty:reverse][/component]
+
+[component blatest][embed embedtest.witty:blatest][/component]
+[component firsttest][forevery ra][embed embedtest.witty:isfirst][/forevery][/component]
+[component seqnrtest][forevery ra][embed embedtest.witty:getseqnr][/forevery][/component]
+
+[component gettidtest][embed embedtest.witty:gettidtest][/component]
+
+[component wittyvar][embed embedtest.witty:wittyvar][/component]
+
+[component local]local-testsuite[/component]
+

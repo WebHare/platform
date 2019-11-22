@@ -1,0 +1,53 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+
+
+MACRO TestTableSpans()
+{
+  OBJECT myrichdoc := NEW EditableRichDocument;
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob(`<html><body>
+ <table><colgroup><col style="width:25px"/><col style="width:45px"/><col style="width:55px"/></colgroup><tbody>
+    <tr>
+      <th scope="col" colspan="2"><p class="normal">R1C1P1</p><p class="normal">R1C1P2</p></th>
+      <th scope="col" colspan="1" rowspan="1"><p class="normal">R1C3P1</p></th>
+    </tr>
+    <tr>
+      <td rowspan="2"><p class="normal">R2C1P1</p></td>
+      <td colspan="2"><p class="normal">R2C2P1</td>
+    </tr>
+    <tr>
+      <td colspan="2"><p class="normal">R3C2P1</td>
+    </tr>
+    <tr>
+      <td colspan="3"><p class="normal">R4C1P1</td>
+    </tr>
+ </tbody></table>
+</body></html>`)]);
+
+  /* Note: we don't do deep validation yet (ie illegal colspans, too many tds....).
+     As soon as we find issues in practice that need it, we'll adapt */
+  OBJECT parseddoc := NEW PublishableRichDocument;
+  parseddoc->ImportFromRecord(myrichdoc->ExportAsRecord());
+  parseddoc->ApplyRTDType(GetRTDType("http://www.webhare.net/xmlns/publisher/defaultrtdtype"));
+
+  OBJECT output := parseddoc->RenderAllAsHTMLDocument();
+  OBJECT ARRAY cells := output->GetElements("th,td");
+  TestEq(6, Length(cells));
+  TestEq("2", cells[0]->GetAttribute("colspan"));
+  TestEq("", cells[0]->GetAttribute("rowspan"));
+  TestEq("\nR1C1P1\nR1C1P2\n", cells[0]->textcontent);
+  TestEq("", cells[1]->GetAttribute("colspan"));
+  TestEq("", cells[1]->GetAttribute("rowspan"));
+  TestEq("2", cells[2]->GetAttribute("rowspan"));
+}
+
+RunTestframework([ PTR TestTableSpans
+                 ]);
+

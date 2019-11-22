@@ -1,0 +1,231 @@
+@import './rtdcss.scss';
+
+.wh-rtd-embeddedobject
+{
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+
+  clear:both;
+  position:relative;
+  background: #f9f9f9;
+  color: #111111;
+  font-size:12px;
+
+  z-index:0; //make sure our button control doesn't escape
+  cursor:pointer;
+}
+
+// firefox won't copy content with user-select: none
+.wh-rtd-editor-bodynode--copying .wh-rtd-embeddedobject
+{
+  -moz-user-select: all;
+  user-select: all;
+}
+
+.wh-rtd-embeddedobject--block
+{
+  border: 1px dashed #aaaaaa;
+  border-radius: 3px;
+
+  //pad/margin settings for margin-none mode, but these will ALSO apply to embobjs-inside-embobjs
+  margin: $widget-vmargin $widget-hinset;
+  line-height:100%;
+  min-height:38px;
+}
+
+.wh-rtd-embeddedobject--inline
+{
+  //not sure if we really want this, but at least it prevents edit/delete button from sticking on previous line when we wrapped to the next
+  white-space: nowrap;
+}
+
+div.wh-rtd--margins-compact
+{
+  //our specific margin/paddings may only apply to embeddedobjects that are toplevel objects, embedded, tabled or inline stuff would break!
+  .wh-rtd > .wh-rtd-embeddedobject--block
+  {
+    margin: $widget-vmargin ($widget-hinset - $body-standardmargin);
+
+    .wh-rtd-embeddedobject__preview
+    {
+      padding: 2px ($body-standardmargin - $widget-hinset);
+    }
+  }
+}
+
+div.wh-rtd--margins-wide
+{
+  //our specific margin/paddings may only apply to embeddedobjects that are toplevel objects, embedded, tabled or inline stuff would break!
+  .wh-rtd > .wh-rtd-embeddedobject--block
+  {
+    margin: $widget-vmargin ($widget-hinset - $body-widemargin);
+
+    &:not(.wh-rtd-embeddedobject--wide) .wh-rtd-embeddedobject__preview
+    {
+      //stretch standard widgets to reach the wide edge, but realign their content to the content area
+      padding: 2px ($body-widemargin - $widget-hinset);
+    }
+  }
+}
+
+.wh-rtd-embeddedobject__preview
+{
+  position:relative;
+  overflow-x:hidden;
+  pointer-events: none; //prevent interaction with content of a preview
+
+  filter: grayscale(100%);
+  transition:filter $transition-duration;
+
+  z-index:0; //make sure our preview contains anything inside it - don't give people ideas
+}
+.wh-rtd-embeddedobject--block .wh-rtd-embeddedobject__preview
+{
+  padding: 2px ($body-standardmargin - $widget-hinset);
+}
+
+.wh-rtd-embeddedobject:hover .wh-rtd-embeddedobject__preview
+{
+  filter: grayscale(0%);
+}
+
+.wh-rtd-objectbuttons
+{
+  background: #ffffff;
+
+  border-radius: 4px;
+  border: 1px solid #777;
+  box-shadow: rgba(127,127,127,.1) 0 0 0 3px;
+  display: inline-block;
+  vertical-align: top;
+  overflow: hidden;
+
+  pointer-events: all;
+  position:absolute;
+  z-index:2; //above typeinfo box
+  top:5px;
+  right:5px;
+
+  height:26px;
+}
+
+  .wh-rtd-navabovebutton
+, .wh-rtd-navunderbutton
+, .wh-rtd-editbutton
+, .wh-rtd-deletebutton
+{
+  width:26px;
+  display:inline-block;
+  vertical-align: top;
+  height:24px;
+  cursor:pointer;
+}
+
+  .wh-rtd-editbutton
+, .wh-rtd-deletebutton
+{
+  border-left: 1px solid #b3b3b3;
+}
+
+//Hide edit button if the object is not editable
+  .wh-rtd-embeddedobject:not(.wh-rtd-embeddedobject--editable) .wh-rtd-editbutton
+, .wh-rtd-embeddedobject:not(.wh-rtd-embeddedobject--editable) .wh-rtd-editbutton + .wh-rtd-separator
+{
+  display:none;
+}
+
+.wh-rtd-embeddedobject__stickyheader
+{
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
+  transition: opacity $transition-duration;
+  z-index:1;
+}
+.wh-rtd-embeddedobject:hover > .wh-rtd-embeddedobject__stickyheader
+{
+  opacity: 1;
+}
+.wh-rtd-embeddedobject--block > .wh-rtd-embeddedobject__stickyheader
+{
+  position: absolute;
+  position: -webkit-sticky; //Safari 12
+  position: sticky;
+  top: 0px;
+  left: 0px;
+  width: 100%;
+}
+.wh-rtd-embeddedobject--inline > .wh-rtd-embeddedobject__stickyheader
+{
+  display:inline;
+  left: 0;
+  right: 0;
+}
+.wh-rtd-embeddedobject--inline .wh-rtd-embeddedobject__typebox
+{
+  display:none; //TODO do we want to show this? for now, hide it
+}
+.wh-rtd-embeddedobject__typebox
+{
+  background-color: #2486db;
+  border-bottom-right-radius: 5px 5px;
+  color: #ffffff;
+  position:absolute;
+  top: 0;
+  left: 0;
+  font-weight: bold;
+  height: 30px;
+  line-height: 30px;
+  padding: 0 10px;
+}
+span.wh-rtd-embeddedobject__typebox //inline embedded object
+{
+  top:100%;
+}
+
+//We need a white thingy to do this, and much smaller
+//.wh-rtd-embeddedobject__typebox:before
+//{
+//  content:"";
+//  display:inline-block;
+//  width:16px;
+//  height:16px;
+//  background: url(~@mod-tollium/web/img/buttonbar/insertobject.16x16.b.svg) 50% 50%/16px 16px no-repeat;
+//}
+
+.wh-rtd__inlinepreview
+{
+  display: inline-block;
+  border: 1px solid #9b9b9b;
+  border-radius: 3px;
+  background-color: #dddddd;
+  padding-top: 2px;
+}
+
+.wh-rtd__inlinepreview__iconholder
+{
+  display: inline;
+  vertical-align: middle;
+}
+
+.wh-rtd__inlinepreview__iconholder > .wh-rtd__inlinepreview__icon
+{
+  vertical-align: bottom;
+  margin-bottom: 2px;
+}
+
+.wh-rtd__inlinepreview__title
+{
+  display: inline-block;
+  padding: 2px 3px 3px 0px;
+  font-weight: bold;
+}
+
+.wh-rtd-embeddedobject.wh-rtd-embeddedobject--hasinlinepreview
+{
+  background: transparent;
+}

@@ -1,0 +1,1473 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+
+STRING command_portname := "wh:debugmgr_internal";
+STRING app_portname := "wh:debugmgr";
+
+// 0: none
+// 9: all
+INTEGER debuglevel;
+
+STATIC OBJECTTYPE DebugManager
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Link to whmanager, for keeping debugger port registered
+  OBJECT pvt_managerlink;
+
+  /// Command port (all processes will connect to this port)
+  OBJECT pvt_commandport;
+
+  /// App port (communication with debugger)
+  OBJECT pvt_appport;
+
+  /// Id counter
+  INTEGER64 pvt_idcounter;
+
+  /** List of webhare processes
+      @cell processcode
+      @cell(object #WHProcess) process
+  */
+  RECORD ARRAY pvt_processes;
+
+  /** List of client apps
+      @cell id
+      @cell app
+  */
+  RECORD ARRAY pvt_applications;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->InitManagerConnection();
+    RegisterMultiEventCallback("system:debugger.configchange", PTR this->GotConfigChange);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ManageCommandPortRegistration()
+  {
+    BOOLEAN need_command_port := LENGTH(this->pvt_applications) != 0 OR GetDTAPStage() = "development";
+
+    IF (ObjectExists(this->pvt_commandport) = need_command_port)
+      RETURN;
+
+    IF (NOT need_command_port)
+    {
+      IF (debuglevel >= 5)
+        PRINT("Last application disconnected\n");
+
+      IF (RecordExists(this->pvt_commandport->userdata))
+        UnregisterCallback(this->pvt_commandport->userdata.cb);
+
+      IF (debuglevel >= 5)
+        PRINT("Unregister global command port\n");
+      IF (ObjectExists(this->pvt_managerlink))
+        this->pvt_managerlink->SendMessage([ type := "unregister", port := command_portname ]);
+
+      RECORD res := this->pvt_managerlink->ReceiveMessage(MAX_DATETIME);
+      IF (res.status = "gone")
+        THROW NEW Exception("WHManager has gone, terminating");
+
+      IF (res.status = "ok")
+      {
+        IF (res.msg.type != "unregisterportresponse" OR res.msg.port != command_portname)
+          THROW NEW Exception("Unrecognized whmanager communication\n"||AnyToString(res.msg, "tree"));
+      }
+
+      IF (debuglevel >= 5)
+        PRINT("Close command port\n");
+      this->pvt_commandport->Close();
+      this->pvt_commandport := DEFAULT OBJECT;
+
+      IF (debuglevel >= 5)
+        PRINT("Closing links to all processes\n");
+      FOREVERY (RECORD rec FROM this->pvt_processes)
+        rec.process->Close();
+
+      RETURN;
+    }
+
+    IF (debuglevel >= 5)
+      PRINT("New application connected, opening command port\n");
+
+    // Register the global Debugmanager command port with the whmanager
+    this->pvt_commandport := CreateIPCPort(command_portname);
+    this->pvt_managerlink->SendMessage([ type := "register", port := command_portname ]);
+
+    RECORD res := this->pvt_managerlink->ReceiveMessage(MAX_DATETIME);
+    IF (res.status = "gone")
+      THROW NEW Exception("WHManager has gone, terminating");
+
+    IF (res.status = "ok")
+    {
+      IF (res.msg.type != "createportresponse" OR res.msg.port != command_portname)
+        THROW NEW Exception("Unrecognized whmanager communication\n"||AnyToString(res.msg, "tree"));
+      IF (NOT res.msg.success)
+        THROW NEW Exception("Unable to register command port");
+    }
+
+    this->pvt_commandport->userdata := [ cb := RegisterHandleReadCallback(this->pvt_commandport->handle, PTR this->GotCommandPortSignalled()) ];
+  }
+
+  MACRO InitManagerConnection()
+  {
+    this->pvt_managerlink := ConnectToIPCPort("system:whmanager");
+
+    // Retry if the whmanager isn't available immediately
+    FOR (INTEGER i := 0; NOT ObjectExists(this->pvt_managerlink) AND i < 10; i := i + 1)
+    {
+      IF (i != 0)
+        Sleep(i * 100);
+      this->pvt_managerlink := ConnectToIPCPort("system:whmanager");
+    }
+
+    IF (NOT ObjectExists(this->pvt_managerlink))
+      THROW NEW Exception("Could not open IPC link to system:whmanager");
+
+    this->ManageCommandPortRegistration();
+
+    this->pvt_appport := CreateIPCPort(app_portname);
+    this->pvt_managerlink->SendMessage([ type := "register", port := app_portname ]);
+
+    RECORD res := this->pvt_managerlink->ReceiveMessage(MAX_DATETIME);
+    IF (res.status = "gone")
+      THROW NEW Exception("WHManager has gone, terminating");
+
+    IF (res.status = "ok")
+    {
+      IF (res.msg.type != "createportresponse" OR res.msg.port != app_portname)
+        THROW NEW Exception("Unrecognized whmanager communication\n"||AnyToString(res.msg, "tree"));
+      IF (NOT res.msg.success)
+        THROW NEW Exception("Unable to register command port");
+    }
+
+    this->pvt_managerlink->userdata := [ cb := RegisterHandleReadCallback(this->pvt_managerlink->handle, PTR this->GotManagerSignalled()) ];
+    this->pvt_appport->userdata := [ cb := RegisterHandleReadCallback(this->pvt_appport->handle, PTR this->GotAppPortSignalled()) ];
+
+    BroadcastEvent("wh:debugmgr.started", DEFAULT RECORD);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotConfigChange(STRING event, RECORD ARRAY events)
+  {
+    this->UpdateConfiguration(FALSE);
+  }
+
+  MACRO GotManagerSignalled()
+  {
+    IF (debuglevel >= 0)
+      PRINT("WHManager has gone, terminating\n");
+    TerminateScript();
+  }
+
+  MACRO GotCommandPortSignalled()
+  {
+    // Command port got signalled, this is a new process registering
+    IF (NOT ObjectExists(this->pvt_commandport))
+      RETURN;
+
+    OBJECT link := this->pvt_commandport->Accept(DEFAULT DATETIME);
+    IF (ObjectExists(link))
+    {
+      IF (debuglevel >= 5)
+        PRINT("New connected process, link: " || link->handle || "\n");
+
+      // Create new process, automatically sends configuration over the link
+      this->pvt_idcounter := this->pvt_idcounter + 1;
+      NEW WHProcess(PRIVATE this, link, this->pvt_idcounter);
+    }
+  }
+
+  MACRO GotAppPortSignalled()
+  {
+    // App port got signalled, new debugger app connecting
+    OBJECT link := this->pvt_appport->Accept(DEFAULT DATETIME);
+    IF (ObjectExists(link))
+    {
+      IF (debuglevel >= 5)
+        PRINT("New connected app, link: " || link->handle || "\n");
+
+      // Create new process, autoregisters
+      this->pvt_idcounter := this->pvt_idcounter + 1;
+      NEW ConnectedApplication(PRIVATE this, link, this->pvt_idcounter);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Registration stuff
+  //
+
+  MACRO ChangeProcessRegistration(RECORD rec, BOOLEAN add)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_processes, rec, [ "PROCESSCODE" ]);
+    IF (add)
+    {
+      INSERT rec INTO this->pvt_processes AT pos.position;
+
+      FOREVERY (RECORD reg FROM this->pvt_applications)
+        IF (reg.app->pvt_wantprocessupdates)
+          reg.app->GotProcessConnected(rec);
+    }
+    ELSE
+    {
+      // Signal all apps that process is gone
+      FOREVERY (RECORD reg FROM this->pvt_applications)
+        IF (reg.app->pvt_wantprocessupdates)
+          reg.app->GotProcessDisconnected(rec);
+
+      DELETE FROM this->pvt_processes AT pos.position;
+    }
+  }
+
+  MACRO ChangeApplicationRegistration(RECORD rec, BOOLEAN add)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_applications, rec, [ "ID" ]);
+    IF (add)
+    {
+      INSERT rec INTO this->pvt_applications AT pos.position;
+
+      this->ManageCommandPortRegistration();
+    }
+    ELSE
+    {
+      // Signal all processes that the app is gone
+      FOREVERY (RECORD proc FROM this->pvt_processes)
+        proc.process->GotApplicationDisconnected(rec);
+
+      DELETE FROM this->pvt_applications AT pos.position;
+
+      // First manage command port, then update configuration (when last app is gone, processes are closed)
+      this->ManageCommandPortRegistration();
+
+      // Update config everywhere (remove rules from the removed app)
+      this->UpdateConfiguration(FALSE);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public stuff for apps & connections
+  //
+
+  PUBLIC RECORD ARRAY FUNCTION GetProcesses()
+  {
+    RETURN
+        SELECT processcode
+             , clientname :=    proc.process->clientname
+          FROM this->pvt_processes AS proc
+         WHERE proc.process->clientname != "";
+  }
+
+  PUBLIC OBJECT FUNCTION GetProcessByCode(INTEGER64 processcode)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_processes, [ processcode := processcode ], [ "PROCESSCODE" ]);
+    RETURN pos.found ? this->pvt_processes[pos.position].process : DEFAULT OBJECT;
+  }
+
+  /** Update configuration with all processes
+      @param reset If TRUE, replace all rules in the connected processes instead of using incremental updates
+  */
+  PUBLIC MACRO UpdateConfiguration(BOOLEAN reset)
+  {
+    FOREVERY (RECORD rec FROM this->pvt_processes)
+      rec.process->UpdateConfiguration(reset);
+  }
+>;
+
+/** A running process
+*/
+STATIC OBJECTTYPE WHProcess
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Link to in-process debugger
+  OBJECT pvt_link;
+
+  /// Debugmanager
+  OBJECT pvt_debugmgr;
+
+  /// Whmanager process code
+  INTEGER64 pvt_processcode;
+
+  /// Client name
+  STRING pvt_clientname;
+
+  /// Has the debugger an inform rule installed?
+  STRING ARRAY installed_rule_tags;
+
+  /** @cell id
+      @cell app
+      @cell jobs_single_update
+      @cell jobs_live_updates
+  */
+  RECORD ARRAY pvt_appregistrations;
+
+  /** List of jobs owned by an application
+      @cell groupid
+      @cell app
+      @cell job
+  */
+  RECORD ARRAY pvt_attachedjobs;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY processcode(pvt_processcode, -);
+
+  PUBLIC PROPERTY clientname(pvt_clientname, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT debugmgr, OBJECT link, INTEGER64 cpid)
+  {
+    this->pvt_link := link;
+    this->pvt_debugmgr := debugmgr;
+    IF (debuglevel >= 5)
+      PRINT("New connected process, configuring & waiting for greeting\n");
+    this->UpdateConfiguration(TRUE);
+
+    this->pvt_link->userdata := [ cb := RegisterHandleReadCallBack(this->pvt_link->handle, PTR this->GotLinkSignalled) ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Job registration
+  //
+
+  MACRO ChangeJobRegistration(RECORD rec, BOOLEAN add, RECORD addmetadata DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_attachedjobs, rec, [ "GROUPID" ]);
+    IF (add)
+    {
+      IF (pos.found)
+      {
+        this->pvt_attachedjobs[pos.position].job := rec.job;
+        this->pvt_attachedjobs[pos.position].app->GotJobConnect(rec.job, addmetadata);
+      }
+      ELSE
+        rec.job->Disconnect();
+    }
+    ELSE IF (pos.found)
+    {
+      rec := this->pvt_attachedjobs[pos.position];
+      DELETE FROM this->pvt_attachedjobs AT pos.position;
+
+      rec.app->GotJobDisconnect(rec.job);
+
+      FOREVERY (RECORD reg FROM this->pvt_appregistrations)
+        IF (reg.joblist_live)
+          reg.app->GotJobConnectedStatusChange(rec.job, FALSE);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Rule configuration
+  //
+
+  BOOLEAN FUNCTION HaveLiveJobUpdatesSubscription()
+  {
+    RETURN RecordExists(SELECT FROM this->pvt_appregistrations WHERE joblist_live);
+  }
+
+  RECORD ARRAY FUNCTION GenerateRuleList()
+  {
+    RECORD ARRAY rules;
+
+    IF (this->HaveLiveJobUpdatesSubscription())
+    {
+      INSERT
+          [ [ tag :=              "live-updates"
+            , sites :=            3 // 1=start & 2=terminate
+            , hosttype :=         "*"
+            , script :=           "*"
+            , script_exclude :=   [ "*"||"/remoting.shtml" ]
+            , connect_on_match := FALSE
+            , inform_start_stop :=TRUE
+            , authrecordrules := DEFAULT RECORD ARRAY
+            ]
+          ] INTO rules AT END;
+    }
+
+    FOREVERY (RECORD reg FROM this->pvt_debugmgr->pvt_applications)
+      rules := rules CONCAT reg.app->pvt_rules;
+
+    RETURN SELECT * FROM rules ORDER BY tag;
+  }
+
+  MACRO UpdateConfiguration(BOOLEAN reset)
+  {
+    RECORD ARRAY rules := this->GenerateRuleList();
+    STRING ARRAY all_tags := SELECT AS STRING ARRAY tag FROM rules ORDER BY tag;
+
+    RECORD ARRAY toadd;
+    FOREVERY (RECORD rule FROM rules)
+    {
+      RECORD pos := LowerBound(this->installed_rule_tags, rule.tag);
+      IF (NOT pos.found)
+      {
+        // New rule (register in installed_rule_tags to allow only one rule with the same tag per config)
+        INSERT rule INTO toadd AT END;
+        INSERT rule.tag INTO this->installed_rule_tags AT pos.position;
+      }
+    }
+
+    // Delete all unreferenced rules
+    STRING ARRAY todelete :=
+        SELECT AS STRING ARRAY tag
+          FROM ToRecordArray(this->installed_rule_tags, "TAG")
+         WHERE NOT LowerBound(all_tags, tag).found;
+
+    // Register newly installed rule tags
+    this->installed_rule_tags := all_tags;
+
+    RECORD config := GetDebuggerConfig();
+
+    IF (debuglevel >= 5)
+    {
+      PRINT("Sending configuration to process " || this->processcode || ". Reset: " || (reset?"yes":"no") || "\n");
+      IF (debuglevel >= 7)
+      {
+        PRINT(" adding rules: " || AnyToString((SELECT AS STRING ARRAY tag FROM toadd), "tree"));
+        PRINT(" deleting rules: " || AnyToString(todelete, "tree"));
+        PRINT(" final installed rules: " || AnyToString(this->installed_rule_tags, "tree"));
+        PRINT(" keep_errorterminated_msecs: " || config.keep_errorterminated_msecs || "ms\n");
+      }
+    }
+
+    this->pvt_link->SendMessage(
+        [ type :=         "configure"
+        , keep_errorterminated_msecs := config.keep_errorterminated_msecs
+        , reset :=        reset
+        , addrules :=     rules
+        , deleterules :=  todelete
+        ]);
+  }
+
+  MACRO UpdateAppRegistration(OBJECT app, RECORD updates)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_appregistrations, [ id := app->id ], [ "ID" ]);
+    IF (NOT pos.found)
+    {
+      INSERT
+          [ id :=           app->id
+          , app :=          app
+          , joblist_live := FALSE
+          , joblist_once := FALSE
+          ] INTO this->pvt_appregistrations AT pos.position;
+    }
+
+    this->pvt_appregistrations[pos.position] := MakeUpdatedRecord(this->pvt_appregistrations[pos.position], updates);
+    IF (CellExists(updates, "JOBLIST_LIVE"))
+      this->UpdateConfiguration(FALSE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Message dispatch
+  //
+
+  MACRO GotApplicationDisconnected(RECORD apprec)
+  {
+    FOREVERY (RECORD rec FROM this->pvt_attachedjobs)
+      IF (rec.app->id = apprec.id AND ObjectExists(rec.job))
+        rec.job->Disconnect();
+
+    DELETE FROM this->pvt_attachedjobs WHERE app->id = apprec.id;
+    DELETE FROM this->pvt_appregistrations WHERE id = apprec.id;
+  }
+
+  MACRO GotDisconnected()
+  {
+    // Disconnect jobs
+    FOREVERY (RECORD rec FROM this->pvt_attachedjobs)
+    {
+      IF (ObjectExists(rec.job))
+        rec.job->GotDisconnected();
+      ELSE
+        rec.app->GotJobConnectFail(PRIVATE this, rec.groupid, "connectjob-gone");
+    }
+    this->pvt_attachedjobs := DEFAULT RECORD ARRAY;
+
+    // Remove registration in debugmgr (will handle unregistration in other objects)
+    IF (ObjectExists(this->pvt_debugmgr) AND this->pvt_processcode != 0)
+    {
+      this->pvt_debugmgr->ChangeProcessRegistration(
+          [ processcode :=  this->pvt_processcode
+          , clientname :=   this->pvt_clientname
+          , obj :=          PRIVATE this
+          ], FALSE);
+    }
+    this->pvt_debugmgr := DEFAULT OBJECT;
+
+    IF (ObjectExists(this->pvt_link))
+    {
+      UnregisterCallback(this->pvt_link->userdata.cb);
+      this->pvt_link->Close();
+    }
+    this->pvt_link := DEFAULT OBJECT;
+  }
+
+  MACRO GotLinkSignalled()
+  {
+    RECORD rec := this->pvt_link->ReceiveMessage(DEFAULT DATETIME);
+    IF (rec.status = "timeout")
+      RETURN;
+
+    IF (rec.status = "gone")
+    {
+      this->GotDisconnected();
+      RETURN;
+    }
+
+    this->GotMessage(rec.msg, rec.msgid, rec.replyto);
+  }
+
+  BOOLEAN FUNCTION HandleRuleConnect(RECORD msg)
+  {
+    BOOLEAN connected;
+    FOREVERY (RECORD reg FROM this->pvt_debugmgr->pvt_applications)
+    {
+      FOREVERY (RECORD rule FROM reg.app->pvt_rules)
+      {
+        IF (rule.tag IN msg.connect_tags)
+        {
+          // Found an app that has a rule that triggered the connect
+          RECORD pos := RecordLowerBound(this->pvt_attachedjobs, [ groupid := msg.groupid ], [ "GROUPID" ]);
+          INSERT
+              [ groupid :=    msg.groupid
+              , app :=        reg.app
+              , job :=        DEFAULT OBJECT
+              ] INTO this->pvt_attachedjobs AT pos.position;
+
+          NEW AttachedJob(PRIVATE this, reg.app, msg, "rule", rule.tag);
+
+          FOREVERY (RECORD appreg FROM this->pvt_appregistrations)
+            IF (appreg.joblist_live)
+              appreg.app->GotJobConnectedStatusChange(this->pvt_attachedjobs[pos.position].job, TRUE);
+
+          connected := TRUE;
+          BREAK;
+        }
+      }
+
+      IF (connected)
+        BREAK;
+    }
+
+    RETURN connected;
+  }
+
+
+  MACRO GotMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+  {
+    IF (debuglevel >= 5)
+      PRINT("Process " || this->processcode || " sent message '" || msg.type || "', msgid: "||msgid||"\n" || AnyToString(msg, debuglevel >= 7 ? "tree" : "tree:2"));
+
+    SWITCH (msg.type)
+    {
+      CASE "greeting"
+      {
+        this->pvt_clientname := msg.clientname;
+        this->pvt_processcode := msg.processcode;
+
+        this->pvt_debugmgr->ChangeProcessRegistration(
+            [ processcode :=  msg.processcode
+            , clientname :=   msg.clientname
+            , process :=      PRIVATE this
+            ], TRUE);
+      }
+
+      CASE "getjobmgrstatus-response"
+      {
+        RECORD ARRAY jobs :=
+            SELECT script
+                 , status
+                 , groupid
+                 , creationdate
+                 , total_running
+                 , authenticationrecord
+                 , connected :=   RecordLowerBound(this->pvt_attachedjobs, jobs, [ "GROUPID" ]).found
+              FROM msg.jobs
+          ORDER BY groupid;
+
+        FOREVERY (RECORD reg FROM this->pvt_appregistrations)
+          IF (reg.joblist_live OR reg.joblist_once)
+          {
+            this->pvt_appregistrations[#reg].joblist_once := FALSE;
+            reg.app->GotJoblist(this, jobs);
+          }
+      }
+
+      CASE "job-started"
+      {
+        RECORD jobrec :=
+            [ script :=       msg.script
+            , status :=       msg.status
+            , groupid :=      msg.groupid
+            , creationdate := msg.creationdate
+            , total_running := msg.total_running
+            , authenticationrecord := msg.authenticationrecord
+            , connected :=    RecordLowerBound(this->pvt_attachedjobs, msg, [ "GROUPID" ]).found
+            ];
+
+        FOREVERY (RECORD reg FROM this->pvt_appregistrations)
+          IF (reg.joblist_live)
+            reg.app->GotJobStarted(PRIVATE this, jobrec);
+
+        IF (msg.connected)
+        {
+          IF (NOT this->HandleRuleConnect(msg))
+          {
+            // No rule found that took this job, just disconnect it immediately
+            this->pvt_link->SendMessage(
+                [ type :=     "disconnectjob"
+                , groupid :=  msg.groupid
+                ]);
+          }
+        }
+      }
+
+      CASE "job-rulehit"
+      {
+        IF (NOT this->HandleRuleConnect(msg))
+        {
+          // No rule found that took this job, just disconnect it immediately
+          this->pvt_link->SendMessage(
+              [ type :=     "disconnectjob"
+              , groupid :=  msg.groupid
+              ]);
+        }
+      }
+
+      CASE "job-terminated"
+      {
+        RECORD jobrec :=
+            [ script :=       msg.script
+            , status :=       msg.status
+            , removed :=      msg.removed
+            , groupid :=      msg.groupid
+            , creationdate := msg.creationdate
+            , total_running := msg.total_running
+            , authenticationrecord := msg.authenticationrecord
+            , connected :=    FALSE
+            ];
+
+        IF (msg.connected)
+        {
+          // Already connected or newly (rule-connected)
+
+          RECORD pos := RecordLowerBound(this->pvt_attachedjobs, [ groupid := msg.groupid ], [ "GROUPID" ]);
+          IF (pos.found)
+          {
+            IF (NOT ObjectExists(this->pvt_attachedjobs[pos.position].job))
+            {
+              IF (debuglevel >= 5)
+              {
+                PRINT("Rule-connect on termination for job " || msg.groupid || "\n");
+                PRINT(AnyToSTring(this->pvt_attachedjobs, "boxed"));
+              }
+
+              // Auto-registers job, informs app
+              NEW AttachedJob(PRIVATE this, this->pvt_attachedjobs[pos.position].app, msg, "connect", "");
+
+              FOREVERY (RECORD reg FROM this->pvt_appregistrations)
+                IF (reg.joblist_live)
+                  reg.app->GotJobConnectedStatusChange(this->pvt_attachedjobs[pos.position].job, TRUE);
+            }
+          }
+          ELSE
+          {
+            IF (NOT this->HandleRuleConnect(msg))
+            {
+              // No rule found that took this job, just disconnect it immediately
+              this->pvt_link->SendMessage(
+                  [ type :=     "disconnectjob"
+                  , groupid :=  msg.groupid
+                  ]);
+            }
+          }
+        }
+
+        RECORD pos := RecordLowerBound(this->pvt_attachedjobs, [ groupid := msg.groupid ], [ "GROUPID" ]);
+        IF (pos.found AND ObjectExists(this->pvt_attachedjobs[pos.position].job))
+          this->pvt_attachedjobs[pos.position].job->GotMessage(msg, msgid, replyto);
+
+        FOREVERY (RECORD reg FROM this->pvt_appregistrations)
+          IF (reg.joblist_live)
+            reg.app->GotJobTerminated(PRIVATE this, jobrec);
+      }
+
+      CASE "job-removed"
+      {
+        FOREVERY (RECORD reg FROM this->pvt_appregistrations)
+          IF (reg.joblist_live)
+            reg.app->GotJobRemoved(PRIVATE this, msg.groupid);
+      }
+
+      CASE "connectjob-gone", "connectjob-alreadyconnected"
+      {
+        RECORD pos := RecordLowerBound(this->pvt_attachedjobs, [ groupid := msg.groupid ], [ "GROUPID" ]);
+        IF (pos.found)
+        {
+          this->pvt_attachedjobs[pos.position].app->GotJobConnectFail(PRIVATE this, msg.groupid, msg.type);
+          DELETE FROM this->pvt_attachedjobs AT pos.position;
+        }
+      }
+
+      CASE "connectjob-ack"
+      {
+        RECORD pos := RecordLowerBound(this->pvt_attachedjobs, [ groupid := msg.groupid ], [ "GROUPID" ]);
+        IF (pos.found)
+        {
+          // Auto-registers job, informs app
+          NEW AttachedJob(PRIVATE this, this->pvt_attachedjobs[pos.position].app, msg, "connect", "");
+
+          FOREVERY (RECORD reg FROM this->pvt_appregistrations)
+            IF (reg.joblist_live)
+              reg.app->GotJobConnectedStatusChange(this->pvt_attachedjobs[pos.position].job, TRUE);
+        }
+        ELSE // Noone waiting for the connect, disconnect immediately
+          this->pvt_link->SendMessage([ type := "disconnectjob", groupid := msg.groupid ]);
+      }
+
+      /*CASE "rule-stop"
+      {
+        // A job matched a signal with a STOP rule
+        OBJECT job := this->AttachJob(msg, TRUE);
+        IF (ObjectExists(job))
+          job->OnMessage(msg);
+      }*/
+      DEFAULT
+      {
+        IF (msg.type LIKE "job-*")
+        {
+          RECORD pos := RecordLowerBound(this->pvt_attachedjobs, [ groupid := msg.groupid ], [ "GROUPID" ]);
+          IF (pos.found AND ObjectExists(this->pvt_attachedjobs[pos.position].job))
+          {
+            this->pvt_attachedjobs[pos.position].job->GotMessage(msg, msgid, replyto);
+            RETURN;
+          }
+        }
+
+        IF (debuglevel >= 1)
+          PRINT("** Unknown message from C++ debugger " || msg.type || "\n" || AnyToString(msg, "tree"));
+
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SetJobListSubscription(OBJECT app, BOOLEAN newvalue)
+  {
+    this->UpdateAppRegistration(app, [ joblist_live := newvalue ]);
+  }
+
+  PUBLIC MACRO RequestJobListUpdate(OBJECT app)
+  {
+    BOOLEAN pending := RecordExists(SELECT FROM this->pvt_appregistrations WHERE joblist_once);
+    this->UpdateAppRegistration(app, [ joblist_once := TRUE ]);
+    IF (NOT pending)
+      this->pvt_link->SendMessage([ type := "getjobmgrstatus" ]);
+  }
+
+  PUBLIC MACRO RequestConnect(OBJECT app, STRING groupid)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_attachedjobs, [ groupid := groupid ], [ "GROUPID" ]);
+    IF (pos.found) // already connection (attempt)
+      app->GotJobConnectFail(PRIVATE this, groupid, "already_connected");
+
+    INSERT
+        [ groupid :=    groupid
+        , app :=        app
+        , job :=        DEFAULT OBJECT
+        ] INTO this->pvt_attachedjobs AT pos.position;
+
+    this->pvt_link->SendMessage([ type := "connectjob", groupid := groupid ]);
+  }
+
+  PUBLIC MACRO RequestTerminate(OBJECT app, STRING groupid)
+  {
+    this->pvt_link->SendMessage([ type := "terminatejob", groupid := groupid ]);
+  }
+
+  PUBLIC MACRO Close()
+  {
+    this->GotDisconnected();
+  }
+>;
+
+/** This objecttype is the representation of a connected job on a process.
+*/
+STATIC OBJECTTYPE AttachedJob
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Process that runs this job
+  OBJECT pvt_process;
+
+  /// Group id of this job
+  STRING pvt_groupid;
+
+  /// Application that is attached to this job
+  OBJECT pvt_app;
+
+  RECORD ARRAY commandqueue;
+
+  RECORD pvt_status;
+
+  BOOLEAN paused;
+
+  /// msgid, replyto
+  RECORD ARRAY pvt_requests;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY process(pvt_process, -);
+
+  PUBLIC PROPERTY groupid(pvt_groupid, -);
+
+  PUBLIC PROPERTY status(pvt_status, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT process, OBJECT app, RECORD status, STRING connectreason, STRING ruletag)
+  {
+    this->pvt_process := process;
+    this->pvt_app := app;
+    this->pvt_groupid := status.groupid;
+    this->pvt_status := status;
+    this->paused := status.realstatus = "DebugStopped";
+
+    BroadcastEvent("system:debugger.attach." || this->pvt_groupid, DEFAULT RECORD);
+    IF (this->paused)
+      BroadcastEvent("system:debugger.paused." || this->pvt_groupid, DEFAULT RECORD);
+
+    process->ChangeJobRegistration(
+          [ groupid := this->pvt_groupid
+          , job := PRIVATE this
+          , app := app
+          ],
+          TRUE,
+          [ connectreason := connectreason
+          , ruletag := ruletag
+          ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Messages
+  //
+
+  MACRO GotDisconnected()
+  {
+    BroadcastEvent("system:debugger.detach." || this->pvt_groupid, DEFAULT RECORD);
+
+    this->pvt_app->GotJobDisconnect(PRIVATE this);
+  }
+
+  MACRO GotMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+  {
+    // Passthrough responses to simple requests
+    RECORD pos := RecordLowerBound(this->pvt_requests, [ msgid := replyto ], [ "MSGID" ]);
+    IF (pos.found)
+    {
+      INSERT CELL processcode := this->pvt_process->processcode INTO msg;
+      IF (debuglevel >= 5)
+        PRINT("Sending process answer to app: " || msg.type || "\n");
+      this->pvt_app->pvt_link->SendReply(msg, this->pvt_requests[pos.position].replyto);
+      DELETE FROM this->pvt_requests AT pos.position;
+      RETURN;
+    }
+
+    SWITCH (msg.type)
+    {
+      CASE "job-paused", "job-status", "job-running", "job-terminated"
+      {
+        this->pvt_status := msg;
+        this->pvt_app->GotJobStateChange(PRIVATE this, msg);
+        IF (debuglevel >= 5)
+          PRINT("Incoming status: " || msg.realstatus || "-" || msg.status || "\n");
+
+        BOOLEAN newpaused := msg.realstatus IN [ "DebugStopped", "Terminated" ];
+        IF (this->paused != newpaused)
+        {
+          IF (newpaused)
+            BroadcastEvent("system:debugger.paused." || this->pvt_groupid, DEFAULT RECORD);
+          ELSE
+            BroadcastEvent("system:debugger.running." || this->pvt_groupid, DEFAULT RECORD);
+        }
+        this->paused := newpaused;
+      }
+      DEFAULT
+      {
+        THROW NEW Exception("Unhandled message from C++ debugger: '" || msg.type || "'");
+      }
+    }
+  }
+
+  BOOLEAN FUNCTION CheckPaused(INTEGER64 msgid)
+  {
+    IF (this->paused)
+      RETURN TRUE;
+
+    this->pvt_app->pvt_link->SendReply(
+        [ type := "error"
+        , msg := "notpaused"
+        ], msgid);
+    RETURN FALSE;
+  }
+
+  MACRO SendRequest(RECORD msg, INTEGER64 msgid)
+  {
+    RECORD rec := this->pvt_process->pvt_link->SendMessage(msg);
+    INSERT
+        [ msgid :=  rec.msgid, replyto := msgid
+        ] INTO this->pvt_requests AT END;
+  }
+
+  MACRO GotAppMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+  {
+    SWITCH (msg.type)
+    {
+      CASE "job-disconnect", "job-externdisconnect"
+      {
+        this->Disconnect();
+      }
+      CASE "job-pause"
+      {
+        this->pvt_process->pvt_link->SendMessage([ type := "pausejob", groupid := this->pvt_groupid ]);
+        if (NOT this->paused)
+          BroadcastEvent("system:debugger.paused." || this->pvt_groupid, DEFAULT RECORD);
+        this->paused := TRUE;
+      }
+      CASE "job-continue"
+      {
+        IF (this->pvt_status.realstatus = "DebugStopped")
+        {
+          IF (debuglevel >= 5)
+            PRINT("Send continuejob to debugger\n");
+          this->pvt_process->pvt_link->SendMessage([ type := "continuejob", groupid := this->pvt_groupid ]);
+        }
+        ELSE IF (debuglevel >= 5)
+          PRINT("Eat continue, status is " || this->pvt_status.realstatus || "\n");
+      }
+      CASE "job-getvariables"
+      {
+        IF (this->CheckPaused(msgid))
+        {
+          this->SendRequest(
+              [ type := "getvariables"
+              , groupid := this->pvt_groupid
+              , variables := msg.variables
+              ], msgid);
+        }
+      }
+      CASE "job-getlibraries"
+      {
+        IF (this->CheckPaused(msgid))
+        {
+          this->SendRequest(
+              [ type := "getlibraries"
+              , groupid := this->pvt_groupid
+              ], msgid);
+        }
+      }
+      CASE "job-setbreakpoints"
+      {
+        this->SendRequest(
+            [ type := "setbreakpoints"
+            , groupid := this->pvt_groupid
+            , minstacksize := msg.minstacksize
+            , maxstacksize := msg.maxstacksize
+            , breakpoints := msg.breakpoints
+            ], msgid);
+      }
+      CASE "job-setprofiling"
+      {
+        this->SendRequest(
+            [ type := "setprofiling"
+            , groupid := this->pvt_groupid
+            , profiletype := msg.profiletype
+            , value := msg.enable
+            , reset := msg.reset
+            ], msgid);
+      }
+      CASE "job-getprofile"
+      {
+        this->SendRequest(
+            [ type := "getprofile"
+            , groupid := this->pvt_groupid
+            , profiletype := msg.profiletype
+            ], msgid);
+      }
+      CASE "job-getmemorysnapshot"
+      {
+        this->SendRequest(
+            [ type := "getmemorysnapshot"
+            , groupid := this->pvt_groupid
+            , include_unreferenced := msg.include_unreferenced
+            ], msgid);
+      }
+      CASE "job-getblobreferences"
+      {
+        this->SendRequest(
+            [ type := "getblobreferences"
+            , groupid := this->pvt_groupid
+            , include_unreferenced := msg.include_unreferenced
+            ], msgid);
+      }
+      DEFAULT
+      {
+        IF (debuglevel >= 5)
+          PRINT("App " || this->pvt_app->id || ": Sending error reply\n");
+
+        this->pvt_app->pvt_link->SendReply(
+            [ type := "error"
+            , msg := "Unknown app job message type '" || msg.type || "'"
+            ], msgid);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO Disconnect()
+  {
+    this->pvt_process->pvt_link->SendMessage([ type := "disconnectjob", groupid := this->pvt_groupid ]);
+    this->pvt_process->ChangeJobRegistration([ groupid := this->pvt_groupid, job := PRIVATE this, app := this->pvt_app ], FALSE);
+
+    BroadcastEvent("system:debugger.detach." || this->pvt_groupid, DEFAULT RECORD);
+  }
+>;
+
+/** Application communication
+
+    - getprocesslist > reply:processlist
+    - subscribeprocessupdates(bool enabled) > async:processlist
+    - getjoblist(processcode)
+    - subscribejobupdates(processcode, bool enabled) > async:processlist
+    - connectjob(processcode, groupid) > reply: connectresult(cid)
+      - break(cid) > async: jobstate(cid)
+      - continue(cid)
+      A shutdown/crash > async: jobstate(cid)
+    - disconnectjob(cid)
+*/
+STATIC OBJECTTYPE ConnectedApplication
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER64 pvt_id;
+
+  OBJECT pvt_debugmgr;
+
+  OBJECT pvt_link;
+
+  BOOLEAN pvt_wantprocessupdates;
+
+  INTEGER64 ARRAY pvt_subscribed_jobs_processcodes;
+
+  OBJECT ARRAY attachedjobs;
+
+  RECORD ARRAY pvt_rules;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY id(pvt_id, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT debugmgr, OBJECT link, INTEGER64 id)
+  {
+    this->pvt_link := link;
+    this->pvt_debugmgr := debugmgr;
+    this->pvt_id := id;
+    IF (debuglevel >= 5)
+      PRINT("New connected applications: " || this->id || "\n");
+
+    this->pvt_link->userdata := [ cb := RegisterHandleReadCallBack(this->pvt_link->handle, PTR this->GotLinkSignalled) ];
+
+    this->pvt_debugmgr->ChangeApplicationRegistration([ id := id, app := PRIVATE this ], TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotDisconnected()
+  {
+    IF (ObjectExists(this->pvt_debugmgr))
+      this->pvt_debugmgr->ChangeApplicationRegistration([ id := this->pvt_id, app := PRIVATE this ], FALSE);
+    this->pvt_debugmgr := DEFAULT OBJECT;
+
+    IF (ObjectExists(this->pvt_link))
+    {
+      UnregisterCallback(this->pvt_link->userdata.cb);
+      this->pvt_link->Close();
+    }
+    this->pvt_link := DEFAULT OBJECT;
+  }
+
+  MACRO GotLinkSignalled()
+  {
+    RECORD rec := this->pvt_link->ReceiveMessage(DEFAULT DATETIME);
+    IF (rec.status = "timeout")
+      RETURN;
+
+    IF (rec.status = "gone")
+    {
+      this->GotDisconnected();
+      RETURN;
+    }
+
+    this->GotMessage(rec.msg, rec.msgid, rec.replyto);
+  }
+
+  MACRO GotMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+  {
+    IF (debuglevel >= 5)
+      PRINT("App " || this->id || " sent message '" || msg.type || "', msgid: "||msgid||"!\n" || AnyToString(msg, debuglevel >= 7 ? "tree" : "tree:2"));
+
+    /*
+    - getprocesslist > reply:processlist
+    - subscribeprocessupdates(bool enabled) > reply:processsubscribestatus > async:processlist
+    - getjoblist(processcode)
+    - subscribejobupdates(processcode, bool enabled) > reply:jobsubscribestatus > async:joblist, async: jobsubscribestatus
+    - connectjob(processcode, groupid) > reply: connectresult(cid)
+      - break(cid) > async: jobstate(cid)
+      - continue(cid)
+      A shutdown/crash > async: jobstate(cid)
+    - disconnectjob(cid)
+    */
+
+    SWITCH (msg.type)
+    {
+      CASE "getprocesslist"
+      {
+        IF (debuglevel >= 5)
+          PRINT("Sending processlist reply\n");
+
+        this->pvt_link->SendReply(
+            [ type :=       "processlist"
+            , processes :=  (SELECT processcode, clientname FROM this->pvt_debugmgr->pvt_processes)
+            ], msgid);
+      }
+
+      CASE "subscribeprocessupdates"
+      {
+        this->pvt_wantprocessupdates := msg.enabled;
+      }
+
+      CASE "addrule"
+      {
+        RECORD rule :=
+            [ tag :=              msg.tag
+            , sites :=            msg.sites
+            , hosttype :=         msg.hosttype
+            , script :=           msg.script
+            , script_exclude :=   msg.script_exclude
+            , connect_on_match := msg.connect_on_match
+            , authrecordrules :=  (SELECT path, mask := mask FROM msg.authrecordrules)
+            , inform_start_stop :=FALSE
+            ];
+
+        RECORD pos := RecordLowerBound(this->pvt_rules, rule, [ "TAG" ]);
+        IF (NOT pos.found)
+        {
+          INSERT rule INTO this->pvt_rules AT pos.position;
+          this->pvt_debugmgr->UpdateConfiguration(FALSE);
+        }
+      }
+
+      CASE "deleterule"
+      {
+        RECORD pos := RecordLowerBound(this->pvt_rules, msg, [ "TAG" ]);
+        IF (pos.found)
+        {
+          DELETE FROM this->pvt_rules AT pos.position;
+          this->pvt_debugmgr->UpdateConfiguration(FALSE);
+        }
+      }
+
+      CASE "getjoblist"
+      {
+        OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
+        IF (NOT ObjectExists(process))
+          this->SendProcessGone(msg.processcode);
+        ELSE
+        {
+          IF (debuglevel >= 5)
+            PRINT("App " || this->id || ": requesting new joblist\n");
+
+          process->RequestJobListUpdate(PRIVATE this);
+        }
+      }
+
+      CASE "subscribejobupdates"
+      {
+        OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
+
+        IF (NOT ObjectExists(process))
+          this->SendProcessGone(msg.processcode);
+        ELSE
+          process->SetJobListSubscription(PRIVATE this, msg.enabled);
+      }
+
+      CASE "jobconnect"
+      {
+        OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
+
+        IF (NOT ObjectExists(process))
+          this->SendProcessGone(msg.processcode);
+        ELSE
+          process->RequestConnect(PRIVATE this, msg.groupid);
+      }
+
+      CASE "job-terminate"
+      {
+        OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
+
+        IF (NOT ObjectExists(process))
+          this->SendProcessGone(msg.processcode);
+        ELSE
+          process->RequestTerminate(PRIVATE this, msg.groupid);
+      }
+
+      CASE "job-externdisconnect"
+      {
+        OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
+
+        IF (NOT ObjectExists(process))
+          this->SendProcessGone(msg.processcode);
+        ELSE
+        {
+          RECORD pos := RecordLowerBound(process->pvt_attachedjobs, msg, [ "GROUPID" ]);
+          IF (pos.found)
+            process->pvt_attachedjobs[pos.position].job->GotAppMessage(msg, msgid, replyto);
+        }
+      }
+
+      DEFAULT
+      {
+        IF (msg.type LIKE "job-*")
+        {
+          OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
+
+          IF (NOT ObjectExists(process))
+            this->SendProcessGone(msg.processcode);
+          ELSE
+          {
+            RECORD pos := RecordLowerBound(process->pvt_attachedjobs, msg, [ "GROUPID" ]);
+            IF (NOT pos.found)
+            {
+              IF (debuglevel >= 5)
+                PRINT("App " || this->id || ": Could not locate job " || msg.groupid || " in list of attached jobs\n");
+
+              this->pvt_link->SendMessage([ type := "job-disconnected", processcode := process->processcode, groupid := msg.groupid ]);
+            }
+            ELSE
+            {
+              RECORD jobrec := process->pvt_attachedjobs[pos.position];
+              IF (jobrec.app = this)
+                process->pvt_attachedjobs[pos.position].job->GotAppMessage(msg, msgid, replyto);
+              ELSE
+              {
+                IF (debuglevel >= 5)
+                  PRINT("App " || this->id || ": Job is attached by other process\n");
+
+                this->pvt_link->SendMessage([ type := "job-disconnected", processcode := process->processcode, groupid := msg.groupid ]);
+              }
+            }
+          }
+          RETURN;
+        }
+
+        IF (debuglevel >= 5)
+          PRINT("App " || this->id || ": Sending error reply\n");
+
+        this->pvt_link->SendReply(
+            [ type := "error"
+            , msg := "Unknown app message type '" || msg.type || "'"
+            ], msgid);
+      }
+    }
+  }
+
+  /// Called when a joblist arrived for a process where this app requested one
+  MACRO GotJobList(OBJECT process, RECORD ARRAY jobs)
+  {
+    this->pvt_link->SendMessage(
+        [ type :=         "joblist"
+        , processcode :=  process->processcode
+        , gone :=         FALSE
+        , jobs :=         jobs
+        ]);
+  }
+
+  /// Called when a process is started and this app wants live process updates
+  MACRO GotProcessConnected(RECORD rec)
+  {
+    this->pvt_link->SendMessage(
+        [ type :=         "process-connected"
+        , data :=         [ processcode :=  rec.processcode
+                          , clientname :=   rec.clientname
+                          ]
+        ]);
+  }
+
+  /// Called when a process is disconnected and this app wants live process updates
+  MACRO GotProcessDisconnected(RECORD rec)
+  {
+    this->pvt_link->SendMessage(
+        [ type :=         "process-disconnected"
+        , data :=         [ processcode :=  rec.processcode
+                          , clientname :=   rec.clientname
+                          ]
+        ]);
+  }
+
+  /// Called when a job is started in a process with a live joblist subscription from this app
+  MACRO GotJobStarted(OBJECT process, RECORD rec)
+  {
+    IF (debuglevel >= 5)
+      PRINT("App " || this->id || ": sending 'job-started' for " || rec.groupid || "\n");
+
+    this->pvt_link->SendMessage([ type := "job-started", processcode := process->processcode, data := rec ]);
+  }
+
+  /// Called when a job is terminated in a process with a connection or a live joblist subscription from this app
+  MACRO GotJobTerminated(OBJECT process, RECORD rec)
+  {
+    IF (debuglevel >= 5)
+      PRINT("App " || this->id || ": sending 'job-terminated' for " || rec.groupid || "\n");
+
+    this->pvt_link->SendMessage([ type := "job-terminated", processcode := process->processcode, data := rec ]);
+  }
+
+  /// Called when a zombie job is removed from the job list
+  MACRO GotJobRemoved(OBJECT process, STRING groupid)
+  {
+    IF (debuglevel >= 5)
+      PRINT("App " || this->id || ": sending 'job-removed' for " || groupid || "\n");
+
+    this->pvt_link->SendMessage([ type := "job-removed", processcode := process->processcode, groupid := groupid ]);
+  }
+
+  MACRO GotJobConnectFail(OBJECT process, STRING groupid, STRING reason)
+  {
+    IF (debuglevel >= 5)
+      PRINT("App " || this->id || ": sending 'job-connectfail' for " || groupid || "\n");
+
+    this->pvt_link->SendMessage([ type := "job-connectfail", processcode := process->processcode, groupid := groupid, reason := reason ]);
+  }
+
+  MACRO GotJobConnect(OBJECT job, RECORD addmetadata)
+  {
+    IF (debuglevel >= 5)
+      PRINT("App " || this->id || ": sending 'job-connected' for " || job->groupid || "\n");
+
+    this->pvt_link->SendMessage([ type := "job-connected", processcode := job->process->processcode, groupid := job->groupid, status := job->status, metadata := addmetadata ]);
+  }
+
+  MACRO GotJobDisconnect(OBJECT job)
+  {
+    IF (debuglevel >= 5)
+      PRINT("App " || this->id || ": sending 'job-disconnected' for " || job->groupid || "\n");
+
+    this->pvt_link->SendMessage([ type := "job-disconnected", processcode := job->process->processcode, groupid := job->groupid ]);
+  }
+
+  MACRO GotJobStateChange(OBJECT job, RECORD status)
+  {
+    IF (debuglevel >= 5)
+      PRINT("App " || this->id || ": sending 'job-statechange' message for " || job->groupid || "\n");
+
+    this->pvt_link->SendMessage([ type := "job-statechange", processcode := job->process->processcode, groupid := job->groupid, status := status ]);
+  }
+
+  MACRO GotJobConnectedStatusChange(OBJECT job, BOOLEAN connected)
+  {
+    IF (debuglevel >= 5)
+      PRINT("App " || this->id || ": sending 'job-connectedchange' message for " || job->groupid || "\n");
+
+    this->pvt_link->SendMessage([ type := "job-connectedchange", processcode := job->process->processcode, groupid := job->groupid, connected := connected ]);
+  }
+
+  MACRO SendProcessGone(INTEGER64 processcode)
+  {
+    IF (debuglevel >= 5)
+      PRINT("App " || this->id || ": sending processgone message for " || processcode || "\n");
+
+    this->pvt_link->SendMessage([ type := "process-gone", processcode := processcode ]);
+  }
+>;
+
+
+RECORD ARRAY options :=
+  [ [ name := "v", type := "stringopt" ]
+  ];
+
+RECORD args := ParseArguments(GetConsoleArguments(), options);
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: runscript debugmgr.whscr [ -v 0-9 ]\n");
+  RETURN;
+}
+
+debuglevel := ToInteger(args.v, 0);
+
+OBJECT mgr := NEW DebugManager;
+RunEventLoop();

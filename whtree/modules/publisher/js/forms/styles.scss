@@ -1,0 +1,158 @@
+// NOTES:
+
+// Difference in layout:
+//     - Webkit browsers will have the label next to a textarea at the bottom.
+//       FF, IE and Edge correctly use baseline alignment (to the first line in the textarea).
+
+// Workarounds used:
+//     - Unlike Webkit browsers (Chrome, Safari) and Edge the Gecko engine(Firefox)
+//       only merges the baseline of inline-flex containers with their flex parent containers.
+//       (so .wh-form__fiedline must use display: inline-flex; + width: 100%; instead of display: flex;)
+//
+//     - IE10/11 doesn't have working wrapping in .wh-form-optiondata unless we set width: 0;
+//
+//     - For IE10 we have to set some elements which are inline by default to inline-block.
+//       (IE10 fails to treat inline content as part of the flex container)
+
+@mixin wh-form-hideonsubmit
+{
+  //Obsolete, will be removed in the future
+}
+
+@mixin wh-form-flex
+{
+  .wh-form__fieldgroup:not(.wh-form__fieldgroup--hidden)
+  {
+    display: flex;
+  }
+
+  // outer flex container
+  .wh-form__fieldgroup
+  {
+    // keep the first line of each element within aligned to eachother
+    align-items: baseline;
+
+    // NOTE: don't use flex-wrap here, this would result in the browser trying
+    // to prevent any content in  children to wrap by not showing them side-by-side.
+  }
+
+  //  .wh-form__fieldline > input + label
+    .wh-form__label
+  , .wh-form__optiondata
+  , .wh-form__optionlabel
+  , .wh-form__subfieldlabel
+  {
+    display: inline-block; // IE10 doesn't treat inline elements as part of the flex flow
+  }
+
+  .wh-form__label
+  {
+    flex-shrink: 0;
+  }
+  .wh-form__fields
+  {
+    flex: 1 0 0px;
+  }
+
+  .wh-form__fieldline
+  {
+    width: 100%; // take 100% width like normal 'flex'
+
+    // merge the baseline of our children with our previousSibling (label)
+    align-items: baseline;
+
+    flex-wrap: wrap;
+  }
+  .wh-form__fieldline:not(.wh-form__fieldline--hidden)
+  {
+    display: inline-flex; // FF won't merge baselines in our parent flex if we use flex here
+  }
+
+
+  // Some lines, for example lines containing a checkbox or radiobutton beside optiondata should never wrap.
+  // In those cases content within optiondata should wrap, but the optiondata container should never wrap below the checkbox/radiobutton).
+  .wh-form__fieldline--nowrap:not(.wh-form__fieldline--hasinfotext)
+  {
+    flex-wrap: nowrap;
+  }
+
+  .wh-form__fieldgroup--horizontal
+  {
+    .wh-form__fields
+    {
+      display: flex;
+      flex-wrap: wrap;
+    }
+
+    .wh-form__fieldline
+    {
+      flex: none;
+      width: auto;
+      max-width: 100%;
+    }
+  }
+
+  .wh-form__infotextwrapper
+  {
+    flex: 0 0 100%;
+  }
+
+  .wh-form__optiondata
+  {
+    display: inline-flex; // FF won't merge baselines in our parent flex if we use flex here
+    width: 100%; // take 100% width like normal 'flex'
+
+    // merge the baseline of our children with our previousSibling (label)
+    align-items: baseline;
+
+    flex-grow: 1;
+
+    flex-wrap: wrap;
+
+    &--vertical
+    {
+      // Workaround for IE10/11 not wrapping text with default width: auto;
+      // Flex overrides the width property on any other browser, so they won't mind this.
+      width: 0;
+    }
+  }
+
+  .wh-form__subfield
+  {
+    display: flex;
+
+    flex-grow: 1;
+
+    // merge the baseline of our children with our previousSibling (label)
+    align-items: baseline;
+  }
+
+
+  // Workaround for a Webkit bug or feature where checkboxes and radiobuttons
+  // don't get a specific size and shrink to fit their container.
+  // We only prevent this from happening in case the default form HTML
+  // doesn't get a custom styling. (which would hide this input and style the input + span > label::before instead)
+    .wh-form__fieldline > input[type="checkbox"]
+  , .wh-form__fieldline > input[type="radio"]
+  {
+    flex-shrink: 0;
+  }
+
+  .wh-form__fieldline > textarea
+  {
+    resize: vertical;
+  }
+}
+
+@mixin wh-form-hidenativecontrol
+{
+  // display: none or visibility: hidden; will prevent focus!! so we can't use thsoe
+  position: absolute !important; // to not mess with flex containers
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  opacity: 0;
+  margin:0;
+}

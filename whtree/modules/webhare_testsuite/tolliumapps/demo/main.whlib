@@ -1,0 +1,152 @@
+<?wh
+
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/backend/apps.whlib";
+
+
+RECORD ARRAY component_demoscreens :=
+    [ [ path := "mod::webhare_testsuite/tolliumapps/demo/components/publisher.xml" ]
+    , [ path := "mod::webhare_testsuite/tolliumapps/demo/components/tollium.xml"   ]
+    ];
+
+/** apps of which the start screen matches this will automatically show up in the list of 'Demo apps'
+    FIXME: alternatives would be
+     - tag demo apps with an istolliumdemoapp="true", just like we have isdeveloperapp="true"
+     - have a custom tag in the moduledefinition to specify demos
+     - have an appgroup and give app groups the ability to be hidden
+       (so we can create an tolliumdemos app group which won't clutter the start menu)
+**/
+STRING demoapps_mask := "*/tolliumapps/demo/*";
+
+
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  RECORD ARRAY apps;
+  RECORD ARRAY componentexamples;
+
+  MACRO Init()
+  {
+    this->type->rows :=
+        [ [ rowkey := "demoapps",         title := "Demo apps" ]
+        /*
+        , [ rowkey := "devapps",          title := "Development apps" ]
+        , [ rowkey := "componentgallery", title := "Component gallery" ]
+        , [ rowkey := "testsuites",       title := "Testsuites" ]
+        , [ rowkey := "documentation",    title := "Documentation" ]
+        */
+        ];
+    this->type->value := "demoapps";
+  }
+
+  MACRO EnsureAppsList()
+  {
+    this->apps :=
+        SELECT *
+          FROM GetAllApplications(this->tolliumuser)
+         WHERE apprec.isdeveloperapp
+            OR apprec.screen LIKE demoapps_mask;
+  }
+
+  MACRO EnsureComponentsExamplesList()
+  {
+    // ADDME: implement. scan screens from our components source list...
+    //        or provide a way for modules to register their component demos (or have a common path in the module to do this)
+  }
+
+  MACRO DoRefreshDemoList()
+  {
+    SWITCH(this->type->value)
+    {
+      CASE "demoapps"
+      {
+        this->EnsureAppsList();
+        this->list->rows :=
+            SELECT title
+                 , tag := name
+              FROM this->apps
+             WHERE apprec.screen LIKE demoapps_mask
+               AND apprec.name != "webhare_testsuite:demo"; // hide ourself
+      }
+      CASE "devapps"
+      {
+        this->EnsureAppsList();
+        this->list->rows :=
+            SELECT title
+                 , tag := name
+              FROM this->apps
+             WHERE apprec.isdeveloperapp;
+      }
+      CASE "componentgallery"
+      {
+        this->EnsureComponentsExamplesList();
+        this->list->rows :=
+            SELECT *
+              FROM this->componentexamples;
+      }
+      DEFAULT
+      {
+        this->list->rows := DEFAULT RECORD ARRAY;
+      }
+    }
+  }
+
+  MACRO DoOpenItem()
+  {
+    RECORD sel := this->list->selection;
+    RECORD apprec := SELECT * FROM this->apps WHERE name = sel.tag;
+    this->tolliumcontroller->StartApplication(apprec.name, DEFAULT RECORD, DEFAULT RECORD, [ reusemode := "never" ]);
+  }
+
+  MACRO DoOpenTest()
+  {
+/*
+    SWITCH(this->displaymethod->value)
+    {
+      CASE "modaldialog"
+      {
+        //OBJECT screen := this->LoadScreen();
+      }
+
+      CASE "panel"
+      {
+      }
+
+      CASE "apptab"
+      {
+      }
+
+      CASE "browsertab"
+      {
+      }
+    }
+*/
+  }
+
+  MACRO DoShowTestURL()
+  {
+
+  }
+>;
+
+
+RECORD ARRAY FUNCTION GetScreensFrom(STRING screenpath)
+{
+  BLOB xmlfile := GetWebhareResource(screenpath);
+  OBJECT document := MakeXMLDocument(xmlfile);
+
+  RECORD ARRAY testscreens;
+  FOREVERY(OBJECT screen FROM document->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "screen")->GetCurrentElements())
+  {
+    INSERT [ resourcepath := screenpath
+           , flags      := screen->GetAttribute("flags")
+           , name       := screen->GetAttribute("name")
+           , title      := screen->GetAttribute("title")
+           ] INTO testscreens AT END;
+  }
+
+  RETURN testscreens;
+}

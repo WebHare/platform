@@ -1,0 +1,25 @@
+<?wh
+/** @topic widgets/widgets
+*/
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+/** @short Webtool form widget
+    @long Implements embedded forms (http://www.webhare.net/xmlns/publisher/formwidget)
+*/
+PUBLIC OBJECTTYPE FormWidgetBase EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    Print("Form\n"); //FIXME
+  }
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    IF(this->whfsfileid = 0)
+      THROW NEW Exception("A formwidget expects to be a FS object, it cannot be directly embedded into a RTD");
+
+    OBJECT form := this->context->OpenWebtoolForm(OpenWHFSObject(this->whfsfileid));
+    form->RenderForm();
+  }
+>;

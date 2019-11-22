@@ -1,0 +1,568 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/debugger/profilingsupport.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** List of profiles
+      @cell when Time profile was reported
+      @cell data Profile data
+      @cell data.type Type (memoryprofile, functionprofile)
+      @cell data.rawdata Raw profiledata
+  */
+  RECORD ARRAY pvt_profiles;
+
+  OBJECT port;
+
+  OBJECT whmanagerconn;
+
+  INTEGER counter;
+
+  OBJECT ARRAY links;
+
+  RECORD basecolumns;
+
+  OBJECT currenthandler;
+
+  STRING lasttype;
+
+  RECORD ARRAY states;
+
+  RECORD lastselectedfunction;
+
+  RECORD lastselectedname;
+
+  STRING profiledir;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->basecolumns :=
+        [ functionslist :=  this->functionslist->columns
+        , childrencalls :=  this->childrencalls->columns
+        , parentcalls :=    this->parentcalls->columns
+        , nameslist :=      this->nameslist->columns
+        ];
+
+    IF (CellExists(data, "FROMDEBUGGER"))
+    {
+      this->pvt_profiles :=
+          SELECT TEMPORARY handler := this->GetHandler(type)
+               , id :=          #profiles + 1
+               , when
+               , source
+               , command
+               , type
+               , info :=        handler->GetInfoFromRawData(rawdata)
+               , processed :=   FALSE
+               , rawdata :=     rawdata
+               , handler :=     handler
+            FROM data.profiles;
+
+      DELETE FROM this->profileslist->columns WHERE name = "source";
+
+      this->RefreshProfileList();
+      this->profileslist->value := LENGTH(this->pvt_profiles);
+    }
+    ELSE IF (Detokenize(data.params, " ") != "" AND Detokenize(data.params, " ") NOT LIKE "profile-meta")
+    {
+      this->profiledir := data.params[0] LIKE "/*"
+          ? data.params[0]
+          : MergePath(MergePath(GetWebhareConfiguration().ephemeralroot, "profiles"), data.params[0]);
+      this->diskprofilelistener->masks := [ "system:storedprofile." || data.params[0] ];
+      this->UpdateProfilesFromDisk();
+      this->profileslist->value := 1;
+    }
+    ELSE
+    {
+      STRING portname := "system:profiles";
+      STRING reportportname := "system:profiles-meta";
+/*
+      FOREVERY (STRING param FROM data.params)
+        IF (param LIKE "meta*")
+        {
+          INTEGER metanr := ToInteger(SubString(param, 4), 1) + 1;
+          portname := portname || "-" || param;
+          reportportname := "system:profiles-meta" || metanr;
+        }
+*/
+      __SetProfilingPortname(reportportname);
+
+      IF (NOT this->GetExclusiveAccess([ systemprofiles := portname ], [ onbeforesteal := PTR this->GotUnload ]))
+        RETURN;
+
+      this->port := CreateIPCPort(portname);
+      this->whmanagerconn := ConnectToIPCPort("system:whmanager");
+      this->whmanagerconn->SendMessage([ type := "register", port := portname ]);
+
+      RECORD res := this->whmanagerconn->ReceiveMessage(MAX_DATETIME);
+      IF (res.status != "ok" OR NOT res.msg.success)
+      {
+        this->port->Close();
+        THROW NEW Exception("Could not register profile monitor global port");
+      }
+
+      this->port->userdata := [ reg := RegisterHandleReadCallback(this->port->handle, PTR this->OnIncomingConnection()) ];
+    }
+  }
+
+  MACRO GotUnload()
+  {
+    IF (ObjectExists(this->whmanagerconn))
+    {
+      this->whmanagerconn->Close();
+      this->whmanagerconn := DEFAULT OBJECT;
+    }
+    IF (ObjectExists(this->port))
+    {
+      UnregisterCallback(this->port->userdata.reg);
+      this->port->Close();
+      this->port := DEFAULT OBJECT;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnIncomingConnection()
+  {
+    OBJECT link := this->port->Accept(DEFAULT DATETIME);
+    IF (ObjectExists(link))
+    {
+      link->userdata := [ reg := RegisterHandleReadCallback(link->handle, PTR this->OnLinkSignalled(link)) ];
+      INSERT link INTO this->links AT END;
+    }
+  }
+
+
+  MACRO OnLinkSignalled(OBJECT link)
+  {
+    RECORD res := link->ReceiveMessage(DEFAULT DATETIME);
+    SWITCH (res.status)
+    {
+      CASE "timeout"
+      {
+        RETURN;
+      }
+      CASE "gone"
+      {
+        UnregisterCallback(link->userdata.reg);
+        link->Close();
+        INTEGER pos := SearchElement(this->links, link);
+        DELETE FROM this->links AT pos;
+        RETURN;
+      }
+      CASE "ok"
+      {
+        SWITCH (res.msg.task)
+        {
+          CASE "addprofile"
+          {
+            // Send immediately
+            link->SendReply([ type := "ack" ], res.msgid);
+
+            OBJECT handler := this->GetHandler(res.msg.type);
+
+            this->counter := this->counter + 1;
+            RECORD rec :=
+                [ id :=             this->counter
+                , when :=           res.msg.start
+                , source :=         res.msg.source
+                , command :=        res.msg.command
+                , type :=           res.msg.type
+                , info :=           handler->GetInfoFromRawData(res.msg.rawdata)
+                , processed :=      FALSE
+                , rawdata :=        res.msg.rawdata
+                , handler :=        handler
+                ];
+
+            INSERT rec INTO this->pvt_profiles AT END;
+            this->RefreshProfileList();
+          }
+        }
+      }
+    }
+  }
+
+  MACRO OnNewStoredProfile(RECORD ARRAY events)
+  {
+    this->UpdateProfilesFromDisk();
+  }
+
+  MACRO OnProfileSelected()
+  {
+    this->RefreshMainLists();
+  }
+
+  MACRO OnFunctionSelected()
+  {
+    this->parentcalls->ReloadList();
+    this->childrencalls->ReloadList();
+
+    IF (RecordExists(this->functionslist->selection))
+    {
+      INSERT this->functionslist->value INTO this->parentcalls->expanded AT END;
+      INSERT this->functionslist->value INTO this->childrencalls->expanded AT END;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List refreshes
+  //
+
+  MACRO UpdateProfilesFromDisk()
+  {
+    UPDATE this->pvt_profiles SET exists := FALSE;
+
+    RECORD ARRAY files;
+    IF (this->profiledir NOT LIKE "*.tar.gz")
+      files := ReadDiskDirectory(this->profiledir, "*.prof");
+    ELSE
+    {
+      files :=
+          SELECT *
+               , path := MergePath(path, name)
+            FROM UnpackArchive(GetDiskResource(this->profiledir))
+           WHERE name LIKE "*.prof";
+    }
+    FOREVERY (RECORD rec FROM files)
+    {
+      RECORD pos := RecordLowerBound(this->pvt_profiles, rec, [ "path" ]);
+      IF (pos.found)
+      {
+        this->pvt_profiles[pos.position].exists := TRUE;
+        CONTINUE;
+      }
+
+      BLOB filedata := CellExists(rec, "data") ? rec.data : GetDiskResource(rec.path);
+      STRING firstline := BlobToString(filedata, 4 * 65536);
+      INTEGER nlpos := SearchSubString(firstline, "\n");
+
+      RECORD scriptdata := DecodeJSON(Left(firstline, nlpos));
+      RECORD profiledata;
+      TRY
+      {
+        profiledata := DecodeHSONBlob(MakeComposedBlob([ CELL[ data := filedata, start := nlpos + 1 ] ]));
+      }
+      CATCH(OBJECT e)
+      {
+        CONTINUE; //FIXME report
+      }
+
+      OBJECT handler := this->GetHandler(scriptdata.type);
+      INSERT CELL
+          [ id :=           #rec + 1
+          , path :=         rec.path
+          , when :=         MakeDateFromText(scriptdata.profilingstart)
+          , source :=       scriptdata.script
+          , command :=      scriptdata.script
+          , type :=         scriptdata.type
+          , info :=         handler->GetInfoFromRawData(profiledata)
+          , processed :=    FALSE
+          , rawdata :=      profiledata
+          , handler
+          , exists :=       TRUE
+          ] INTO this->pvt_profiles AT pos.position;
+    }
+
+    DELETE FROM this->pvt_profiles WHERE NOT exists;
+    this->RefreshProfileList();
+  }
+
+  MACRO RefreshProfileList()
+  {
+    this->profileslist->rows :=
+        SELECT rowkey := id
+             , when := GetMsecondCount(when)
+             , source
+             , command
+             , type
+             , info :=          info.text
+             , infosortval :=   info.sortval
+          FROM this->pvt_profiles;
+
+    IF (RecordExists(this->profileslist->selection))
+      this->RefreshMainLists();
+  }
+
+
+  MACRO RefreshMainLists()
+  {
+    RECORD row := this->profileslist->selection;
+    IF (NOT RecordExists(row))
+    {
+      this->currenthandler := DEFAULT OBJECT;
+      this->childrencalls->visible := FALSE;
+      this->parentcalls->visible := FALSE;
+      this->functionslist->ReloadList();
+      this->nameslist->ReloadList();
+      this->lasttype := "";
+    }
+    ELSE
+    {
+      RECORD profdata := SELECT * FROM this->pvt_profiles WHERE id = row.rowkey;
+      IF (NOT profdata.processed)
+      {
+        // Init with profiling data, then destroy that data
+        profdata.handler->InitWithRawData(profdata.rawdata);
+        UPDATE this->pvt_profiles
+           SET rawdata :=   DEFAULT RECORD
+             , processed := TRUE
+         WHERE id = row.rowkey;
+      }
+
+      IF (this->functionslist->visible AND RecordExists(this->functionslist->selection))
+        this->lastselectedfunction := this->functionslist->selection;
+      IF (this->nameslist->visible AND RecordExists(this->nameslist->selection))
+        this->lastselectedname := this->nameslist->selection;
+
+      this->currenthandler := profdata.handler;
+      IF (this->lasttype != this->currenthandler->GetType())
+      {
+        STRING ARRAY lists := this->currenthandler->GetShownLists();
+        this->nameslist->visible := "names" IN lists;
+        this->functionslist->visible := "functions" IN lists;
+        this->childrencalls->visible := "children" IN lists;
+        this->parentcalls->visible := "parents" IN lists;
+
+        IF (this->lasttype != "")
+          this->SaveInterfaceState(this->lasttype);
+        this->lasttype := this->currenthandler->GetType();
+
+        IF ("children" IN lists)
+          this->ReconfigureList("childrencalls", "children");
+        IF ("parents" IN lists)
+          this->ReconfigureList("parentcalls", "parents");
+        IF ("functions" IN lists)
+          this->ReconfigureList("functionslist", "functions");
+        IF ("names" IN lists)
+          this->ReconfigureList("nameslist", "names");
+      }
+      ELSE
+      {
+        IF (this->functionslist->visible)
+          this->functionslist->ReloadList();
+        IF (this->nameslist->visible)
+          this->nameslist->ReloadList();
+        IF (this->childrencalls->visible)
+          this->childrencalls->ReloadList();
+        IF (this->parentcalls->visible)
+          this->parentcalls->ReloadList();
+      }
+    }
+
+    this->functionslistpart->visible := this->functionslist->visible;
+    this->nameslistpart->visible := this->nameslist->visible;
+    this->relationspart->visible := this->childrencalls->visible OR this->parentcalls->visible;
+
+    this->profileslist->borders.bottom := NOT this->relationspart->visible;
+    this->nameslist->borders.bottom := NOT this->relationspart->visible;
+    this->functionslist->borders.bottom := NOT this->relationspart->visible;
+
+    IF (RecordExists(this->lastselectedfunction) AND this->functionslist->visible)
+    {
+      this->functionslist->selection :=
+          SELECT *
+            FROM this->functionslist->rows
+           WHERE functionname = this->lastselectedfunction.functionname
+             AND library = this->lastselectedfunction.library;
+    }
+    IF (RecordExists(this->lastselectedname) AND this->nameslist->visible)
+    {
+      this->nameslist->selection :=
+          SELECT *
+            FROM this->nameslist->rows
+           WHERE name = this->lastselectedname.name AND depth = 0
+           LIMIT 1;
+    }
+  }
+
+  MACRO SaveInterfaceState(STRING handlertype)
+  {
+    DELETE FROM this->states WHERE COLUMN handlertype = VAR handlertype;
+    FOREVERY (STRING compname FROM [ "functionslist", "childrencalls", "parentcalls", "nameslist" ])
+    {
+      INSERT
+          [ handlertype :=    handlertype
+          , compname :=       compname
+          , sortcolumn :=     GetMember(this, compname)->sortcolumn
+          , sortascending :=  GetMember(this, compname)->sortascending
+          ] INTO this->states AT END;
+    }
+  }
+
+  MACRO ReconfigureList(STRING compname, STRING nameforhandler)
+  {
+    RECORD ARRAY columns := GetCell(this->basecolumns, compname);
+    OBJECT comp := GetMember(this, compname);
+
+    RECORD config := this->currenthandler->GetListConfig(nameforhandler);
+
+    columns := columns CONCAT config.datacolumns;
+    IF (config.istree)
+      columns[0].tree := TRUE;
+
+    comp->columns := columns;
+
+    RECORD sortconfig := SELECT * FROM this->states WHERE handlertype = this->currenthandler->GetType() AND COLUMN compname = VAR compname;
+    IF (NOT RecordExists(sortconfig))
+      sortconfig := config;
+
+    comp->sortcolumn := CellExists(sortconfig, "SORTCOLUMN") ? sortconfig.sortcolumn : (config.datacolumns ?? columns)[0].name;
+    comp->sortascending := CellExists(sortconfig, "SORTASCENDING") ? sortconfig.sortascending : FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List refresh callbacks
+  //
+
+  RECORD ARRAY FUNCTION GetFunctionListRows(RECORD parentrow)
+  {
+    IF (NOT ObjectExists(this->currenthandler) OR NOT this->functionslist->visible)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN this->currenthandler->GetFunctionsListChildren(parentrow);
+  }
+
+  RECORD ARRAY FUNCTION GetNamesListRows(RECORD parentrow)
+  {
+    IF (NOT ObjectExists(this->currenthandler) OR NOT this->nameslist->visible)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN this->currenthandler->GetNamesListChildren(parentrow);
+  }
+
+  RECORD ARRAY FUNCTION GetParentListRows(RECORD parentrow)
+  {
+    RECORD funcsel := this->functionslist->selection;
+    IF (NOT ObjectExists(this->currenthandler) OR NOT RecordExists(funcsel) OR NOT this->parentcalls->visible)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN this->currenthandler->GetParentsListChildren(funcsel, parentrow);
+  }
+
+  RECORD ARRAY FUNCTION GetChildrenListRows(RECORD parentrow)
+  {
+    RECORD funcsel := this->functionslist->selection;
+    IF (NOT ObjectExists(this->currenthandler) OR NOT RecordExists(funcsel) OR NOT this->childrencalls->visible)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN this->currenthandler->GetChildrenListChildren(funcsel, parentrow);
+  }
+
+  STRING ARRAY FUNCTION GetGenericPath(STRING rowkey)
+  {
+    STRING ARRAY elts := Tokenize(rowkey, "-");
+    STRING ARRAY paths;
+    FOR (INTEGER i := LENGTH(elts); i > 0; i := i - 1)
+      INSERT Detokenize(ArraySlice(elts, 0, i), "-") INTO paths AT END;
+    RETURN paths;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION GetHandler(STRING type)
+  {
+    SWITCH (type)
+    {
+      CASE "functionprofile"  { RETURN NEW DisplayedFunctionProfile; }
+      CASE "memoryprofile"    { RETURN NEW DisplayedMemoryProfile; }
+      CASE "memorysnapshot"   { RETURN NEW DisplayedMemorySnapshot; }
+      CASE "objectsnapshot"   { RETURN NEW DisplayedObjectsSnapshot; }
+      CASE "blobreferences"   { RETURN NEW DisplayedBlobReferences; }
+    }
+    THROW NEW Exception("Unknown rawdata type '" || type || "'");
+  }
+
+  MACRO OpenInEditor(RECORD selection)
+  {
+    STRING library := GetResourceNameFromDiskPath(selection.library, [ allowdiskpath := TRUE ]);
+    RECORD posinfo := SELECT * FROM DescribeCompiledLibrary(library).functions WHERE mangledname = selection.functionname;
+    IF(RecordExists(posinfo))
+      this->contexts->controller->ExecuteClientCall("OpenInEditor", library, posinfo);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoChildOpen()
+  {
+    this->functionslist->value := this->childrencalls->selection.openrowkey;
+  }
+
+  MACRO DoEditSource()
+  {
+    this->OpenInEditor(this->functionslist->selection);
+  }
+
+  MACRO DoEditChildrenCallSource()
+  {
+    this->OpenInEditor(this->childrencalls->selection);
+  }
+
+  MACRO DoEditParentCallSource()
+  {
+    this->OpenInEditor(this->parentcalls->selection);
+  }
+
+  MACRO DoParentOpen()
+  {
+    this->functionslist->value := this->parentcalls->selection.openrowkey;
+  }
+
+  MACRO DoClearList()
+  {
+    IF (this->profiledir != "")
+    {
+      IF (this->RunSimpleScreen("confirm", this->GetTid(".suredeleteprofiles")) != "yes")
+        RETURN;
+      RECORD ARRAY files := ReadDiskDirectory(this->profiledir, "*.prof");
+      FOREVERY (RECORD rec FROM files)
+        DeleteDiskFile(rec.path);
+    }
+
+    this->pvt_profiles := DEFAULT RECORD ARRAY;
+    this->RefreshProfileList();
+  }
+
+  MACRO DoWebserverAdhocCache()
+  {
+    this->LoadScreen("system:sysmgmt/adhoccache.status")->RunModal();
+  }
+
+  MACRO DoClearAllCaches()
+  {
+    BroadcastEvent("system:clearcaches", DEFAULT RECORD);
+    this->RunMessageBox(".allcachescleared");
+  }
+
+>;

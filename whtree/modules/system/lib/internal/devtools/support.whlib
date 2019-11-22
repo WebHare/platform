@@ -1,0 +1,286 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+
+PUBLIC OBJECT FUNCTION GetAndValidateXML(STRING path)
+{
+  //avoid blob cache
+
+  INTEGER infile := OpenDiskFile(path,FALSE);
+  IF(infile<=0)
+    RETURN DEFAULT OBJECT;
+  STRING data := ReadFromFile(infile, 1*1024*1024);
+  CloseDiskFile(infile);
+
+  IF(Length(data) >= 1*1024*1024)
+    RETURN DEFAULT OBJECT; //we simply refuse to validate 1MB+ files for now
+
+  OBJECT doc := MakeXMLDocument(StringToBlob(data));
+  IF(Length(doc->GetParseErrors()) > 0)
+    RETURN DEFAULT OBJECT;
+
+  RETURN doc;
+}
+
+MACRO InstantiateTemplateFolder(STRING sourcefolder, STRING destfolder, RECORD data)
+{
+  FOREVERY(RECORD path FROM ReadDiskDirectory(sourcefolder, "*"))
+  {
+    STRING srcpath := MergePath(sourcefolder, path.name);
+    STRING destpath;
+
+    IF(path.name LIKE '*[*') //looks like it's witty
+    {
+      OBJECT inwitty := NEW WittyTemplate("TEXT");
+      inwitty->LoadCodeDirect(path.name);
+      destpath := MergePath(destfolder, inwitty->RunToString(data));
+    }
+    ELSE
+    {
+      destpath := MergePath(destfolder, path.name);
+    }
+
+    IF(destpath LIKE "*@.witty")
+      destpath := Left(destpath, Length(destpath)-7); //strip the extension
+
+    IF(path.type = 1) //it' s a folder
+    {
+      CreateDiskDirectory(destpath, TRUE);
+      InstantiateTemplateFolder(srcpath, destpath, data);
+    }
+    ELSE IF(path.name LIKE "*@.witty")
+    {
+      STRING format := "TEXT";
+      IF(path.name LIKE "*.xml@.witty")
+        format := "XML";
+
+      OBJECT indata := NEW WittyTemplate(format);
+      indata->LoadBlob(GetDiskResource(srcpath),"");
+      BLOB output := indata->RunToBlob(data);
+
+      StoreDiskFile(destpath, output);
+    }
+    ELSE
+    {
+      StoreDiskFile(destpath, GetDiskResource(srcpath));
+    }
+  }
+}
+
+PUBLIC BOOLEAN FUNCTION IsValidModuleDirectory(STRING path)
+{
+  IF(path NOT LIKE "*/")
+    RETURN FALSE; //we expect a path with a terminating slash
+
+  FOREVERY(STRING moduledir FROM GetWebHareConfiguration().moduledirs)
+  {
+    IF(#moduledir=0) //builtin dir
+      CONTINUE;
+
+    IF(ToUppercase(path) = ToUppercase(moduledir) OR ToUppercase(GetDirectoryFromPath(Left(path,Length(path)-1))) = ToUppercase(moduledir))
+      RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+
+PUBLIC BOOLEAN FUNCTION IsValidModuleName(STRING modulename)
+{
+  IF(NOT NEW RegEx("^[a-z][a-z0-9_]+[a-z0-9]$")->Test(modulename)) //also enforces 3+ chars and lowercase
+    RETURN FALSE;
+  IF(modulename LIKE "wh_*" OR modulename LIKE "system_*")
+    RETURN FALSE;
+  IF(modulename != ToLowercase(modulename))
+    RETURN FALSE;
+  RETURN TRUE;
+}
+
+PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ gitinit := TRUE
+                             , defaultlanguage := "en"
+                             , description := ""
+                             , aftermodulecreation := DEFAULT MACRO PTR
+                             ], options);
+
+  IF(subpath != "" AND (NOT IsValidWHFSName(subpath, FALSE) OR ToLowercase(subpath) != subpath))
+    THROW NEW Exception(`Illegal subpath '${subpath}'`);
+
+  IF(NOT IsValidWHFSName(modulename, FALSE) OR NOT IsValidModuleName(modulename))
+    THROW NEW Exception(`Illegal module name name '${modulename}'`);
+
+  STRING destpath := MergePath(IsPathAbsolute(subpath) ? subpath : GetWebHareConfiguration().varroot || "installedmodules/" || subpath, modulename);
+  IF(RecordExists(GetDiskFileProperties(destpath)))
+    THROW NEW Exception("This module already exists");
+
+  RECORD data := [ modulename := modulename
+                 , destpath := destpath || "/"
+                 , defaultlanguage := options.defaultlanguage
+                 , description := options.description
+                 , creationdate := FormatDatetime("%Y-%m-%d", GetCurrentDatetime())
+                 , servername := GetServerName()
+                 ];
+
+  CreateDiskDirectoryRecursive(destpath, TRUE);
+  IF(options.gitinit)
+  {
+    RECORD gitresult := ExecuteGitCommand(['init',destpath]);
+    IF(gitresult.exitcode != 0)
+      THROW NEW Exception(`git init failed, exit code ${gitresult.exitcode}: ${Left(gitresult.output,120)}`);
+  }
+
+  InstantiateTemplateFolder(GetModuleInstallationRoot("system") || "data/devtools/templates/module/", destpath, data);
+
+  IF(options.aftermodulecreation != DEFAULT MACRO PTR)
+    options.aftermodulecreation( [ moduleroot := destpath || "/" ]);
+
+  ActivateInstalledModule(modulename, destpath);
+
+  RETURN data;
+}
+
+PUBLIC RECORD FUNCTION SetupWebDesign(STRING template, STRING module, STRING designname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ title := ""
+                              , domainname := "www.example.org"
+                              , overwrite := FALSE
+                              , deletefirst := FALSE
+                              , defaultlanguage := ""
+                              , aftercompiletask := ""
+                              , siteprofile := ""
+                              ], options);
+
+  RECORD srcdesign;
+  IF(template != "")
+  {
+    srcdesign := SELECT * FROM GetAvailableWebDesigns(TRUE) WHERE rowkey = VAR template;
+    IF(NOT RecordExists(srcdesign))
+      ABORT("No such webdesign template '" || template || "'");
+  }
+
+  IF(NOT IsValidWHFSName(designname, FALSE))
+    THROW NEW Exception(`Invalid design name '${designname}'`);
+
+  STRING modulexmlres := GetModuleDefinitionXMLResourceName(module);
+  STRING modulexmlpath := GetWebHareResourceDiskPath(modulexmlres);
+  OBJECT modulexml := GetAndValidateXML(modulexmlpath);
+  IF(NOT IsValidHostname(options.domainname))
+    THROW NEW Exception(`Invalid domainname '${options.domainname}'`);
+
+  IF(NOT ObjectExists(modulexml))
+    THROW NEW Exception("The moduledefinition.xml '" || modulexmlres || "' did not validate");
+
+  STRING moduleroot := GetModuleInstallationRoot(module);
+  IF(moduleroot = "")
+    THROW NEW Exception("Unable to trace root for module '" || module || "'");
+
+  STRING pathname := ToLowercase(designname);
+  STRING designresourcebase := moduleroot || "webdesigns/" || pathname || "/";
+  IF(options.deletefirst)
+    DeleteDiskDirectoryRecursive(designresourcebase);
+
+  IF(RecordExists(GetDiskFileProperties(designresourcebase)) AND NOT options.overwrite)
+    THROW NEW Exception(`The folder for webdesign '${designname}' already exists`);
+
+  CreateDiskDirectoryRecursive(designresourcebase, TRUE);
+
+  STRING moduledefns := "http://www.webhare.net/xmlns/system/moduledefinition";
+  OBJECT sitedesignsnode := modulexml->documentelement->GetChildElementsByTagNameNS(moduledefns,"publisher")->Item(0);
+  OBJECT designnode;
+
+  IF(NOT Objectexists(sitedesignsnode))
+  {
+    sitedesignsnode := modulexml->CreateElementNS(moduledefns,"publisher");
+    modulexml->documentelement->AppendChild(sitedesignsnode);
+  }
+  ELSE IF(options.overwrite)
+  {
+    FOREVERY(OBJECT node FROM sitedesignsnode->childnodes->GetCurrentELements())
+    {
+      IF(node->GetAttribute("name") = pathname)
+        designnode := node;
+    }
+  }
+
+  IF(NOT ObjectExists(designnode))
+  {
+    designnode := modulexml->CreateElementNS(moduledefns, "webdesign");
+    sitedesignsnode->AppendChild(designnode);
+  }
+  designnode->SetAttribute("name", pathname);
+  IF(options.title != "")
+    designnode->SetAttribute("title", options.title);
+
+  RECORD data := [ designname := designname
+                 , designname_lc := pathname
+                 , domainname := options.domainname
+                 , designobjectname := designname || "Design"
+                 , moduleroot := moduleroot
+                 , defaultlanguage := options.defaultlanguage
+                 , designresourcebase := designresourcebase
+                 ];
+
+  IF(data.defaultlanguage = "")
+  {
+    OBJECT defaultlanguagefile := MakeXMLDocument(GetWebhareResource(`mod::${module}/language/default.xml`));
+    IF(ObjectExists(defaultlanguagefile->documentelement))
+      data.defaultlanguage := defaultlanguagefile->documentelement->GetAttribute("xml:lang");
+
+    IF(data.defaultlanguage = "")
+      THROW NEW Exception(`No default language for module '${module}'`);
+  }
+
+  OBJECT assetpack := modulexml->CreateELementNS(moduledefns, "assetpack");
+  assetpack->SetAttribute("entrypoint", `webdesigns/${data.designname_lc}/${data.designname_lc}.es`);
+  assetpack->SetAttribute("supportedlanguages", data.defaultlanguage);
+  IF(options.aftercompiletask != "")
+    assetpack->SetAttribute("aftercompiletask", options.aftercompiletask);
+  designnode->AppendChild(assetpack);
+
+  IF(RecordExists(srcdesign))
+  {
+    OBJECT inwitty := NEW WittyTemplate("TEXT");
+    inwitty->LoadCodeDirect(srcdesign.siteprofiles[0]);
+    designnode->SetAttribute("siteprofile", inwitty->RunToString(data));
+  }
+  ELSE IF(options.siteprofile != "")
+  {
+    designnode->SetAttribute("siteprofile", options.siteprofile);
+  }
+
+  BLOB xmlresult := modulexml->GetDocumentBlob(TRUE);
+  StoreDiskFile(modulexmlpath, xmlresult, [ overwrite := TRUE ]);
+
+  IF(RecordExists(srcdesign))
+    InstantiateTemplateFolder(GetWebHareResourceDiskPath(srcdesign.designroot), designresourcebase, data);
+
+  RETURN data;
+}
+
+PUBLIC BLOB FUNCTION GenerateWHConnectFile(STRING requesturl, INTEGER trustduration, STRING pathtype, STRING systempath)
+{
+  IF (pathtype NOT IN [ "webdav", "fs" ])
+    THROW NEW Exception(`Illegal path type: '${pathtype}', allowed: 'webdav'/'fs'`);
+
+  DATETIME expires := AddTimeToDate(trustduration, GetCurrentDatetime());
+  RECORD info :=
+      CELL[ editorservice :=    ResolveToAbsoluteURL(requesturl, "/wh_services/system/editorservice")
+          , accesstoken :=      EncryptForThisServer("system:editorservice", [ trusteditoruntil := expires ])
+          , translateinfo :=    EncryptForThisServer("system:translateinfo", CELL[ pathtype , systempath ])
+          , validuntil :=       GetUnixTimestamp(expires)
+          , serviceversion :=   1
+          ];
+
+  RETURN StringToBlob(EncodeJSON(info) || "\n");
+}

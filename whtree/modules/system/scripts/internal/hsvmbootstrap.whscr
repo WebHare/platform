@@ -1,0 +1,7 @@
+<?wh
+/* This script is run on EVERY startup of a WebHare Harescript environment, ie
+   webserver, runscript etc all invoke this script once.
+
+   Keep it short and fast */
+
+//PrintTo(2,"hsvmbootstrap says hi\n");

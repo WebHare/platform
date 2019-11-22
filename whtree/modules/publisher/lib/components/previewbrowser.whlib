@@ -1,0 +1,811 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/preview.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+BOOLEAN FUNCTION IsPreviewableWidget(INTEGER widgetid)
+{
+  //Only preview widgets that have a RTDTYPE
+  RECORD settings := GetRTDSettingsForFile(widgetid);
+  RETURN settings.namespace != "";
+}
+
+PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING lastsethtmlvalue;
+  INTEGER previewfileid;
+  ///Actual URL we want to show
+  STRING currenturl;
+  ///Suppress page rendering?
+  BOOLEAN suppressrendering;
+
+  INTEGER devicewidth;
+  INTEGER deviceheight;
+
+  STRING commit;
+
+  BOOLEAN refresh_unpublished;
+  RECORD ARRAY previewmessages;
+
+  BOOLEAN pvt_showversionactions;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables and properties
+  //
+
+  PUBLIC MACRO PTR onurlchange;
+
+  /** Whether to show versioning status and actions
+  */
+  PUBLIC PROPERTY showversionactions(pvt_showversionactions, SetShowVersionActions);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD data)
+  {
+    TolliumFragmentBase::StaticInit(data);
+    this->onurlchange := data.onurlchange;
+    this->pvt_showversionactions := data.showversionactions;
+
+    // If we have a commit (production build), use that for unwanted cache prevention of browserframe.html/preview.js,
+    // otherwise (development build) use current timestamp
+    this->commit := GetWebhareVersionInfo().committag ?? FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE);
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->browserframe->data := [ src := "", width := 0, height := 0, fill := FALSE, previewpdf := FALSE, dontnavigate := FALSE ];
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    TolliumFragmentBase::PostInitComponent();
+
+    RECORD ARRAY devices;
+    devices := [ [ title := GetTid("publisher:components.previewbrowser.devices.phone")
+                 // iPhone 4
+                 , width := 320, height := 480, pixelratio := 2
+                 ]
+               , [ title := GetTid("publisher:components.previewbrowser.devices.phone")
+                 // iPhone 6(s)+
+                 , width := 414, height := 736, pixelratio := 3
+                 ]
+               , [ title := GetTid("publisher:components.previewbrowser.devices.tablet")
+                 // iPad landscape
+                 , width := 1024, height := 768, pixelratio := 2
+                 ]
+               , [ title := GetTid("publisher:components.previewbrowser.devices.tablet")
+                 // iPad portrait
+                 , width := 768, height := 1024, pixelratio := 2
+                 ]
+               , [ title := GetTid("publisher:components.previewbrowser.devices.desktop")
+                 // Desktop 4:3
+                 , width := 1280, height := 960, pixelratio := 1
+                 ]
+               , [ title := GetTid("publisher:components.previewbrowser.devices.desktop")
+                 // Desktop HD
+                 , width := 1920, height := 1080, pixelratio := 1
+                 ]
+               ];
+
+
+    devices := SELECT *
+                    , rowkey := "d-" || width || "x" || height
+                    , title := title || " (" || width || "x" || height || ")"
+                 FROM devices;
+
+    INSERT [ rowkey := "f"
+           , title := GetTid("publisher:components.previewbrowser.devices.fill")
+           ] INTO devices AT 0;
+    INSERT [ isdivider := TRUE ] INTO devices AT 1;
+    INSERT [ rowkey := "c"
+           , title := GetTid("publisher:components.previewbrowser.devices.custom")
+           ] INTO devices AT END;
+
+    STRING selected := this->tolliumuser->GetRegistryKey("publisher.previewbrowser.device", "f");
+    IF (selected LIKE "c-*")
+      INSERT [ rowkey := selected
+             , title := GetTid("publisher:components.previewbrowser.devices.customsize") || " (" || Tokenize(selected, "-")[1] || ")"
+             ] INTO devices AT END;
+
+    this->deviceselect->options := devices;
+    this->deviceselect->value := selected;
+
+    this->previewmessage->linkactions :=
+        [ [ url := "preview:showsite"
+          , action := this->viewsite
+          ]
+        , [ url := "preview:showexternallink"
+          , action := this->showexternallink
+          ]
+        ];
+
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetShowVersionActions(BOOLEAN newvalue)
+  {
+    this->pvt_showversionactions := newvalue;
+    this->FillVersioningMessages();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO CheckHTTP()
+  {
+    IF (this->owner->tolliumcontroller->secure AND this->currenturl LIKE "http://*")
+    {
+      INSERT [ level := 0
+             , message := GetTid("publisher:components.previewbrowser.nonsecuresite") || ' <a href="preview:showsite">' || GetTid("publisher:components.previewbrowser.clickviewsite") || '</a>'
+             ] INTO this->previewmessages AT END;
+      this->suppressrendering := TRUE; // Cannot show unsecure content within secure WebHare, show default page
+    }
+  }
+
+  RECORD FUNCTION GetPreviewURLForFile(RECORD selectedfile)
+  {
+    IF(NOT RecordExists(selectedfile))
+      RETURN DEFAULT RECORD;
+
+    RECORD typedata := SELECT generatepreview
+                            , previewlibrary
+                            , previewobjectname
+                         FROM system.fs_types
+                        WHERE id = selectedfile.type;
+
+    BOOLEAN has_custom_preview := RecordExists(typedata) AND typedata.previewlibrary != "" AND typedata.previewobjectname != "";
+    IF (has_custom_preview)
+    {
+      OBJECT previewobject;
+      TRY
+      {
+        previewobject := MakeObject(typedata.previewlibrary, typedata.previewobjectname);
+      }
+      CATCH {}
+
+      IF (ObjectExists(previewobject) AND previewobject EXTENDSFROM PreviewObjectBase)
+      {
+        STRING url := previewobject->GetPreviewUrl(selectedfile.id);
+        IF (url != "")
+        {
+          this->currenturl := url;
+          this->refresh_unpublished := TRUE;
+        }
+        //INSERT CELL previewobject := previewobject INTO typedata;
+      }
+      ELSE
+      {
+        INSERT [ level := 0
+               , message := GetTid("publisher:components.previewbrowser.nopreviewobject", typedata.previewlibrary, typedata.previewobjectname)
+               ] INTO this->previewmessages AT END;
+        this->suppressrendering := TRUE; // Nothing to show
+      }
+    }
+    RETURN typedata;
+  }
+
+  RECORD FUNCTION GetPreviewData(INTEGER fileid)
+  {
+    RECORD selectedfile := SELECT id, url, type, published, filelink, externallink FROM system.fs_objects WHERE id = VAR fileid;
+    IF(NOT RecordExists(selectedfile))
+      RETURN DEFAULT RECORD;
+
+    this->currenturl := selectedfile.url;
+    RECORD data := [ fileid := fileid
+                   ];
+
+    IF(selectedfile.type IN [ 19, 20 ])
+    {
+      // Find internal or content link target
+      RECORD target := SELECT type, published, parentsite, indexurl, fullpath FROM system.fs_objects WHERe id = selectedfile.filelink AND isactive;
+      IF(RecordExists(target))
+      {
+        // Show link target
+        RECORD site := SELECT name FROM system.sites WHERE id = target.parentsite;
+        STRING message := selectedfile.type = 19 ? (target.indexurl = "" ? GetTid("publisher:components.previewbrowser.internallink-unpublished", (RecordExists(site) ? site.name || ":" : "") || target.fullpath)
+                                                                         : GetTid("publisher:components.previewbrowser.internallink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath))
+                                                 : GetTid("publisher:components.previewbrowser.contentlink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath);
+        INSERT [ level := 0
+               , message := message
+               ] INTO this->previewmessages AT END;
+
+        IF (selectedfile.type = 19)
+        {
+          IF (GetErrorFromPublished(target.published) NOT IN [ 0, 112 ]) // Ignore 'locked site' errors
+          {
+            // Publication errors
+            INSERT [ level := 2
+                   , message := GetTid("publisher:components.previewbrowser.errors") || ' <a href="preview:showerrors">' || GetTid("publisher:components.previewbrowser.clickerrors") || '</a>'
+                   ] INTO this->previewmessages AT END;
+
+            IF (GetOncePublishedFromPublished(target.published))
+            {
+              INSERT [ level := 0
+                     , message := GetTid("publisher:components.previewbrowser.internallink-cachedversion")
+                     ] INTO this->previewmessages AT END;
+            }
+            ELSE
+            {
+              this->suppressrendering := TRUE; // Never published, nothing to show
+            }
+          }
+          ELSE IF(TestFlagFromPublished(target.published, 400000))
+          {
+            // Publication warnings
+            INSERT [ level := 1
+                   , message := GetTid("publisher:components.previewbrowser.warnings") || ' <a href="preview:showwarnings">' || GetTid("publisher:components.previewbrowser.clickwarnings") || '</a>'
+                   ] INTO this->previewmessages AT END;
+
+          }
+        }
+      }
+      ELSE
+      {
+        // Internal link not found
+        INSERT [ level := 1
+               , message := GetTid("publisher:components.previewbrowser.internallink-broken")
+               ] INTO this->previewmessages AT END;
+      }
+    }
+    ELSE IF(selectedfile.type = 18)
+    {
+      // Show external link target
+      INSERT [ level := 0
+             , message := GetTid("publisher:components.previewbrowser.externallink", EncodeHTML(selectedfile.externallink)) || ' <a href="preview:showexternallink">' || GetTid("publisher:components.previewbrowser.clickexternallink") || '</a>'
+             ] INTO this->previewmessages AT END;
+      this->suppressrendering := TRUE; // Don't show the external link within the preview browser
+    }
+
+    this->refresh_unpublished := FALSE;
+    //IF(selectedfile.type != 0)
+    RECORD typedata := this->GetPreviewURLForFile(selectedfile);
+    BOOLEAN has_custom_preview := RecordExists(typedata) AND typedata.previewlibrary != "" AND typedata.previewobjectname != "" AND selectedfile.type != 0;
+    this->CheckHTTP();
+
+    IF (NOT has_custom_preview AND GetErrorFromPublished(selectedfile.published) = 0 AND NOT GetOncePublishedFromPublished(selectedfile.published))
+    {
+      IF (RecordExists(typedata) AND typedata.generatepreview AND IsPreviewableWidget(fileid))
+      {
+        // The selected file is a widget preview
+        INSERT [ level := 0
+               , message := GetTid("publisher:components.previewbrowser.widgetpreview")
+               ] INTO this->previewmessages AT END;
+
+        this->currenturl := CreateWidgetPreviewLink(AddTimeToDate(publisher_settings.widget_preview_expiry, GetCurrentDateTime()), "", fileid, fileid);
+        this->refresh_unpublished := TRUE;
+      }
+      ELSE
+      {
+        // The selected file is not published
+        INSERT [ level := 0
+               , message := GetTid("publisher:components.previewbrowser.notpublished")
+               ] INTO this->previewmessages AT END;
+        this->suppressrendering := TRUE; // Nothing to show
+      }
+    }
+    ELSE IF (GetErrorFromPublished(selectedfile.published) NOT IN [ 0, 112 ] AND NOT IsQueuedForPublication(selectedfile.published)) // Ignore 'locked site' errors
+    {
+      // Publication errors
+      INSERT [ level := 2
+             , message := GetTid("publisher:components.previewbrowser.errors") || ' <a href="preview:showerrors">' || GetTid("publisher:components.previewbrowser.clickerrors") || '</a>'
+             ] INTO this->previewmessages AT END;
+
+      IF (GetOncePublishedFromPublished(selectedfile.published))
+      {
+        INSERT [ level := 0
+               , message := GetTid("publisher:components.previewbrowser.internallink-cachedversion")
+               ] INTO this->previewmessages AT END;
+      }
+      ELSE
+      {
+        this->suppressrendering := TRUE; // Never published, nothing to show
+      }
+    }
+    ELSE IF(TestFlagFromPublished(selectedfile.published, 400000))
+    {
+      // Publication warnings
+      INSERT [ level := 1
+             , message := GetTid("publisher:components.previewbrowser.warnings") || ' <a href="preview:showwarnings">' || GetTid("publisher:components.previewbrowser.clickwarnings") || '</a>'
+             ] INTO this->previewmessages AT END;
+
+    }
+
+    IF (GetScheduledFromPublished(selectedfile.published))
+    {
+      // There are tasks defined for the selected file, display the first one
+      RECORD task := SELECT * FROM publisher.schedule WHERE file = fileid ORDER BY when;
+      IF (RecordExists(task))
+      {
+        SWITCH (task.event)
+        {
+          CASE 1
+          {
+            INSERT [ level := 0
+                   , message := GetTid("publisher:components.previewbrowser.scheduledpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   ] INTO this->previewmessages AT END;
+          }
+          CASE 2
+          {
+            INSERT [ level := 0
+                   , message := GetTid("publisher:components.previewbrowser.scheduledunpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   ] INTO this->previewmessages AT END;
+          }
+          CASE 3
+          {
+            INSERT [ level := 0
+                   , message := GetTid("publisher:components.previewbrowser.scheduledmove", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   ] INTO this->previewmessages AT END;
+          }
+          CASE 4
+          {
+            INSERT [ level := 0
+                   , message := GetTid("publisher:components.previewbrowser.scheduleddelete", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   ] INTO this->previewmessages AT END;
+          }
+        }
+      }
+      ELSE
+      {
+        INSERT [ level := 0
+               , message := GetTid("publisher:components.previewbrowser.scheduled")
+               ] INTO this->previewmessages AT END;
+      }
+    }
+
+    RETURN data;
+  }
+
+  MACRO ShowErrors()
+  {
+    IF(this->previewfileid != 0)
+    {
+      INTEGER fileid := SELECT AS INTEGER filelink FROM system.fs_objects WHERE id = this->previewfileid AND type = 19;
+      IF (fileid = 0)
+        fileid := this->previewfileid;
+      OBJECT faultinfo := this->owner->LoadScreen("publisher:filemgrdialogs.failedpublish", [ id := fileid ]);
+      faultinfo->RunModal();
+    }
+  }
+
+  MACRO FillVersioningMessages()
+  {
+    BOOLEAN have_messages;
+    IF (this->previewfileid != 0 AND this->pvt_showversionactions)
+    {
+      // Need at least a parent site and a public draft
+      OBJECT sourceitem := OpenWHFSObject(this->previewfileid);
+      IF (sourceitem->parentsite != 0 AND TestFlagFromPublished(sourceitem->published, PublishedFlag_HasPublicDraft))
+      {
+        OBJECT policy := GetVersioningPolicyForFileObject(sourceitem);
+        IF (ObjectExists(policy))
+        {
+          RECORD data :=
+              [ id :=         sourceitem->id
+              , isfolder :=   sourceitem->isfolder
+              , published :=  sourceitem->published
+              ];
+
+          data := policy->EnrichWithObjectPolicy([ data ]);
+          have_messages := TRUE;
+          IF (data.draftlocked)
+          {
+            this->withdrawrequest->visible := data.draftlockedby_authobjectid = this->tolliumuser->authobjectid;
+            this->revertdraft->visible := FALSE;
+            this->submitdraft->visible := FALSE;
+            this->versioningmessage->value := GetTid("publisher:versioning.preview.haspendingrequestforapproval");
+          }
+          ELSE
+          {
+            STRING warntype := GetVersioningDraftWarning(sourceitem);
+            SWITCH (warntype)
+            {
+              CASE "normal"     { this->versioningmessage->value := GetTid("publisher:versioning.preview.hasversioneddraft"); }
+              CASE "justdenied" { this->versioningmessage->value := GetTid("publisher:versioning.preview.hasjustdeniedversioneddraft"); }
+              DEFAULT           { THROW NEW Exception(`Unhandled draft warn type '${warntype}'`); }
+            }
+            this->withdrawrequest->visible := FALSE;
+            this->revertdraft->visible := warntype = "justdenied";
+            this->submitdraft->visible := warntype != "justdenied";
+          }
+
+          this->versioneventslistener->masks := [ "system:versionevent." || sourceitem->parentsite || "." || sourceitem->id ];
+        }
+      }
+    }
+    this->versioninginfo->visible := have_messages;
+    IF (NOT have_messages)
+      this->versioneventslistener->masks := DEFAULT STRING ARRAY;
+  }
+
+  // Load browser frame if needed
+  MACRO LoadBrowserFrame()
+  {
+    STRING src := NOT this->suppressrendering ? UpdateURLVariables(ResolveToAbsoluteUrl(this->currenturl, "/.publisher/common/preview/browserframe.html"),
+                                                   [ "__whpub_commit_" := this->commit ])
+                                             : "?showmessage=1&msg=nopreview&lang=" || EncodeURL(this->owner->tolliumuser->language);
+
+    // (Re)load the browserframe if the src changed
+    IF (src != this->browserframe->src)
+      this->browserframe->src := src;
+  }
+
+  // Refresh browser frame contents, only if changed or forced
+  MACRO RefreshBrowserFrame(BOOLEAN force, BOOLEAN was_iframe_interaction)
+  {
+    this->LoadBrowserFrame();
+    this->previewurl->value := this->currenturl;
+
+    this->lastsethtmlvalue := Detokenize((SELECT AS STRING ARRAY message FROM this->previewmessages), '<br />');
+    this->previewmessage->htmlvalue := this->lastsethtmlvalue;
+    this->info->visible := Length(this->previewmessages) > 0;
+
+    IF (NOT force AND Tokenize(this->browserframe->data.src, "?")[0] = this->currenturl)
+      RETURN;
+
+    STRING src := this->suppressrendering ? ""
+                : UpdateURLVariables(this->currenturl,
+                      [ "__whpub_lang_" := this->owner->tolliumuser->language
+                      , "__whpub_clock_" := FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE)
+                      ]);
+
+    //ADDME cache this
+    BOOLEAN previewpdf := this->owner->tolliumuser->GetRegistryKey("system.prefs.showpdfpreview", FALSE);
+    this->browserframe->data := MakeUpdatedRecord(this->browserframe->data, CELL[ src, previewpdf, dontnavigate := was_iframe_interaction ]);
+  }
+
+  MACRO ReloadCurrent(BOOLEAN reloadmessages, BOOLEAN reloadsource)
+  {
+    IF(this->previewfileid = 0 AND this->currenturl != "" )
+    {
+      this->RefreshBrowserFrame(reloadsource, FALSE);
+    }
+    ELSE
+    {
+      this->SetFileId(this->previewfileid, reloadmessages, reloadsource, FALSE);
+    }
+  }
+
+  // Set the currently previewed file
+  MACRO SetFileId(INTEGER fileid, BOOLEAN reloadmessages, BOOLEAN reloadsource, BOOLEAN was_iframe_interaction)
+  {
+    IF (fileid = this->previewfileid AND NOT reloadmessages AND NOT reloadsource)
+    {
+      // Always update the versioning messages, a save of a denied draft changes its message
+      this->FillVersioningMessages();
+      RETURN;
+    }
+
+    this->currenturl := ""; //reset for building new url
+
+    RECORD baseinfo;
+    IF(fileid>0)
+      baseinfo := SELECT id, name, type, parent, indexdoc, url, isfolder, parentsite FROM system.fs_objects WHERE id = fileid AND (isactive OR parent = 17);/// Allow history
+
+    // Test if site isn't locked (but allow history entries)
+    IF (RecordExists(baseinfo) AND baseinfo.parent != 17)
+    {
+      RECORD site := SELECT locked FROM system.sites WHERE id = baseinfo.parentsite;
+      IF (NOT RecordExists(site) OR site.locked)
+        baseinfo := DEFAULT RECORD;
+    }
+
+    RECORD typedata := this->GetPreviewURLForFile(baseinfo);
+    STRING url := this->currenturl ?? RecordExists(baseinfo) ? baseinfo.url : "";
+    this->ClearForNewURL(url);
+
+    RECORD previewfile; // The file we're actually viewing (e.g. index document of selected folder)
+
+    IF(RecordExists(baseinfo))
+      IF(baseinfo.isfolder)
+        previewfile := SELECT id, type, parent, COLUMN url FROM system.fs_objects WHERE id = baseinfo.indexdoc AND isactive;
+      ELSE
+        previewfile := baseinfo;
+
+    IF(RecordExists(previewfile) AND previewfile.id != 0)
+    {
+      RECORD previewdata := this->GetPreviewData(previewfile.id);
+      this->previewfileid := previewdata.fileid;
+
+      INTEGER warninglevel := SELECT AS INTEGER MAX(level) FROM this->previewmessages;
+      //STRING previewicon := [ "messageboxes/information", "status/warning", "status/serious_error"][warninglevel];
+      //this->previewicon->SetImageSrc("tollium:" || previewicon, "");
+
+      this->previewlistener->masks := [ "system:whfs.folder." || previewfile.parent, "publisher:publish.folder." || previewfile.parent ];
+    }
+    ELSE
+    {
+      IF(url != "" AND RecordExists(baseinfo))
+      {
+        INSERT [ level := 0
+               , message := GetTid("publisher:components.previewbrowser.folderwithoutindex", baseinfo.name)
+               ] INTO this->previewmessages AT END;
+      }
+      this->previewfileid := 0;
+      this->previewlistener->masks := DEFAULT STRING ARRAY;
+      this->suppressrendering := TRUE;
+    }
+
+    this->FillVersioningMessages();
+    this->RefreshBrowserFrame(reloadsource, was_iframe_interaction);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnBrowserFrameCallback(RECORD data)
+  {
+    SWITCH (data.type)
+    {
+      CASE "urlloaded"
+      {
+        this->browserframe->data.src := data.src;
+        // Strip hash and query
+        this->currenturl := Tokenize(Tokenize(data.src, "#")[0], "?")[0];
+        IF(this->onurlchange != DEFAULT MACRO PTR)
+          this->onurlchange(this->currenturl);
+      }
+      CASE "navigationprevented"
+      {
+        IF (data.uri = "")
+          RETURN;
+
+        this->owner->RunMessageBox("publisher:components.cannotshowinsecurecontent", data.uri);
+      }
+    }
+  }
+
+  MACRO OnDeviceChange()
+  {
+    STRING selected := this->deviceselect->value;
+    IF (selected LIKE "d-*")
+    {
+      RECORD selection := this->deviceselect->selection;
+      DELETE FROM this->deviceselect->options WHERE rowkey LIKE "c-*";
+
+      this->devicewidth := selection.width;
+      this->deviceheight := selection.height;
+      this->browserframe->data := MakeUpdatedRecord(this->browserframe->data, [ width := this->devicewidth, height := this->deviceheight, fill := FALSE ]);
+    }
+    ELSE IF (selected LIKE "c*")
+    {
+      IF (selected LIKE "c-*")
+      {
+        RECORD selection := this->deviceselect->selection;
+        this->devicewidth := selection.width;
+        this->deviceheight := selection.height;
+      }
+      ELSE
+      {
+        DELETE FROM this->deviceselect->options WHERE rowkey LIKE "c-*";
+
+        OBJECT dlg := this->owner->LoadScreen("publisher:components.previewbrowsercustom");
+        dlg->width->value := this->devicewidth;
+        dlg->height->value := this->deviceheight;
+        IF (dlg->RunModal() = "ok" AND dlg->width->value > 0 AND dlg->height->value > 0)
+        {
+          this->devicewidth := dlg->width->value;
+          this->deviceheight := dlg->height->value;
+          selected := "c-" || this->devicewidth || "x" || this->deviceheight;
+          INSERT [ rowkey := selected
+                 , title := GetTid("publisher:components.previewbrowser.devices.customsize") || " (" || this->devicewidth || "x" || this->deviceheight || ")"
+                 , width := this->devicewidth
+                 , height := this->deviceheight
+                 ] INTO this->deviceselect->options AT END;
+          this->deviceselect->value := selected;
+        }
+        ELSE
+        {
+          this->deviceselect->value := this->tolliumuser->GetRegistryKey("publisher.previewbrowser.device", "f");
+          RETURN;
+        }
+      }
+
+      this->browserframe->data := MakeUpdatedRecord(this->browserframe->data, [ width := this->devicewidth, height := this->deviceheight, fill := FALSE ]);
+    }
+    ELSE IF (selected = "f")
+    {
+      DELETE FROM this->deviceselect->options WHERE rowkey LIKE "c-*";
+      this->devicewidth := 0;
+      this->deviceheight := 0;
+      this->browserframe->data := MakeUpdatedRecord(this->browserframe->data, [ width := -1, height := -1, fill := TRUE ]);
+    }
+    ELSE
+    {
+      selected := "";
+    }
+
+    IF (selected != "")
+    {
+      IF (NOT IsDatabaseReadOnly())
+        this->tolliumuser->DelayedSetRegistryKey("publisher.previewbrowser.device", selected);
+      this->ReloadCurrent(TRUE, FALSE); //force reresh of the error messages
+    }
+  }
+
+  MACRO OnPreviewMessageClick(STRING href)
+  {
+    IF (href LIKE "preview:*")
+    {
+      href := Substring(href, 8);
+      SWITCH (href)
+      {
+        /*ADDME: To open a new browser window, the windowopenaction must be triggered by the user directly. Maybe we can
+                 somehow link the preview message link to the action client-side?
+        CASE "showexternallink"
+        {
+          IF (RecordExists(this->filelist->selection) AND this->filelist->selection.externallink != "")
+            this->frame->OpenBrowserWindow(this->filelist->selection.externallink, this->previewbrowsername); //FIXME use windowopenaction
+        }
+        CASE "viewsite"
+        {
+        }
+        */
+        CASE "showwarnings", "showerrors"
+        {
+          this->ShowErrors();
+        }
+      }
+    }
+  }
+
+  MACRO OnPreviewUpdateEvents(RECORD ARRAY events)
+  {
+    BOOLEAN file_updated;
+    FOREVERY (RECORD event FROM events)
+      FOREVERY (RECORD file FROM event.data.files)
+      {
+        IF (file.file = this->previewfileid)
+        {
+          file_updated := file_updated OR "update" IN file.events;
+          IF ((this->refresh_unpublished AND "update" IN file.events)
+              OR (NOT this->refresh_unpublished AND "pub" IN file.events))
+          {
+            this->ReloadCurrent(TRUE, TRUE); //force reresh of both frame and the error messages
+            RETURN;
+          }
+        }
+      }
+
+    // ReloadCurrent will also call FillVersioningMessages
+    IF (file_updated)
+      this->FillVersioningMessages();
+  }
+
+  MACRO OnPreviewVersionEvents(RECORD ARRAY events)
+  {
+    this->FillVersioningMessages();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoShowExternalLink(OBJECT handler)
+  {
+    RECORD fsobj := SELECT externallink FROM system.fs_objects WHERE id = this->previewfileid;
+
+    IF (RecordExists(fsobj) AND fsobj.externallink != "")
+      handler->SendURL(fsobj.externallink);
+  }
+
+  MACRO DoViewSite(OBJECT handler)
+  {
+    IF(this->currenturl != "")
+      handler->SendURL(this->currenturl);
+  }
+
+  MACRO DoPreviewRefresh()
+  {
+    this->SetFileId(this->previewfileid, TRUE, TRUE, FALSE); //force reresh of both frame and the error messages
+  }
+
+  MACRO ClearForNewURL(STRING url)
+  {
+    this->previewmessages := DEFAULT RECORD ARRAY;
+    this->currenturl := url;
+    this->suppressrendering := url = "";
+  }
+
+  MACRO DoSubmitForApproval()
+  {
+    OBJECT source := OpenWHFSObject(this->previewfileid);
+    RECORD approval := GetSubmitRequestApprovalMetadata(this->owner, source);
+    IF (RecordExists(approval))
+    {
+      OBJECT work := this->owner->BeginUnvalidatedWork();
+      SubmitApprovalRequestFromMetadata(work, source, approval);
+      work->Finish();
+    }
+  }
+
+  MACRO DoCancelDraft()
+  {
+    IF (this->owner->RunMessageBox("commondialogs/objectprops.confirmcanceldraft") = "yes")
+    {
+      OBJECT work := this->owner->BeginUnvalidatedWork();
+
+      OBJECT source := OpenWHFSObject(this->previewfileid);
+      OBJECT draft := GetPublicDraft(source->id);
+      draft->DeleteSelf();
+      work->Finish();
+    }
+  }
+
+  MACRO DoCancelRequest()
+  {
+    IF (this->owner->RunMessageBox("commondialogs/objectprops.confirmcancelrequest") = "yes")
+    {
+      OBJECT work := this->owner->BeginUnvalidatedWork();
+      OBJECT source := OpenWHFSObject(this->previewfileid);
+      OBJECT draft := GetPublicDraft(source->id);
+      CancelApprovalRequestForDraft(draft);
+      work->Finish();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SetPreview(INTEGER objid, BOOLEAN was_iframe_interaction DEFAULTSTO FALSE)
+  {
+    this->SetFileId(objid, FALSE, FALSE, was_iframe_interaction); //if not changed, do nothing
+  }
+
+  PUBLIC MACRO SetPreviewURL(STRING newurl)
+  {
+    this->previewfileid := 0;
+    this->ClearForNewURL(newurl);
+    this->CheckHTTP();
+    this->RefreshBrowserFrame(FALSE, FALSE);
+  }
+
+  PUBLIC RECORD FUNCTION GetPreviewState() //introspection needed for testing
+  {
+    RETURN [ displayurl := this->previewurl->value
+           , browserurl := this->browserframe->data.src
+           , showingmessages := this->info->visible
+           , messages := this->info->visible ? this->lastsethtmlvalue : ""
+           , messagecomp := this->previewmessage
+           , previewrefresh := this->previewrefresh
+           ];
+  }
+>;

@@ -1,0 +1,3573 @@
+﻿<?wh
+/** @topic tollium-components/base */
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib" EXPORT GetTid;
+LOADLIB "mod::tollium/lib/internal/support.whlib" EXPORT TolliumException;
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/listtreehelper.whlib";
+
+PUBLIC RECORD __pvt_nextcomponentinfo;
+
+/** @short AutoSuggest handler object
+    @long Extend this objecttype and update the GetValues function for autosuggestion support in a textedit component.
+*/
+PUBLIC STATIC OBJECTTYPE TolliumAutoSuggestBase
+<
+  MACRO NEW(RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+
+  }
+
+  /** @short Get autosuggest values for the given text
+      @param curtext The text currently entered in the textedit
+  */
+  PUBLIC RECORD ARRAY FUNCTION Lookup(STRING curtext)
+  {
+    THROW NEW Exception("TolliumAutoSuggestBase::Lookup must be overridden");
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_owner;
+  /*FIXME: PRIVATE*/PUBLIC OBJECT pvt_parent;
+
+  /*FIXME: PRIVATE*/PUBLIC RECORD ARRAY pvt_subcomponents;
+  OBJECT pvt_supercomponent;
+  STRING pvt_toddname;
+
+  PUBLIC BOOLEAN pvt_havepreshown;
+
+  /** Keeps whether the preinit for this component has already been called
+  */
+  BOOLEAN pvt_havepreinited;
+
+  /** Keeps whether the postinit for this component has already been called
+  */
+  BOOLEAN pvt_havepostinited;
+
+  /** Subcomponent that is activated when the title of this component is clicked on.
+  */
+  OBJECT pvt_titleforsubcomponent;
+
+  BOOLEAN pvt_blockelement;
+
+  OBJECT pvt_defaultbutton;
+
+  BOOLEAN pvt_invisibletitle;
+
+  BOOLEAN pvt_required;
+
+  /** Keeps whether this component is enabled
+  */
+  BOOLEAN pvt_enabled;
+
+  /** Keeps whether this component is visible
+  */
+  BOOLEAN pvt_visible;
+
+  /** Keeps whether this component is readonly
+  */
+  BOOLEAN pvt_readonly;
+
+  /** Keeps the title for this component
+  */
+  STRING pvt_title;
+
+  /** Keeps the hint for this component
+  */
+  STRING pvt_hint;
+
+  /// Preferred width of the component
+  STRING pvt_width;
+
+  /// Preferred height of the component
+  STRING pvt_height;
+
+  /// Absolute minimum width of the component
+  STRING pvt_minwidth;
+
+  /// Absolute minimum height of the component
+  STRING pvt_minheight;
+
+  //FIXME I fear we should make a proper distinction between messages and requests... one is always asynchronous, the other synchronous...
+  RECORD ARRAY pvt_queuedmessages;
+
+  /** Dirty flags. Record exists? -> dirty
+  */
+  RECORD dirtyflags;
+
+  /** Whether the component is really visible at the moment. Usually the following rules are observed:
+      - Has an owner (always)
+      - Parent exists and is also nowvisible (ignored for special components)
+      - If the component has a supercomponent it must also be nowvisible
+      This value is updated recursively when the visibility/parent/owner of a component changes.
+  */
+  BOOLEAN pvt_isnowvisible;
+
+  /** If true, this compomnent may not be rendered, even if it is nowvisible and dirty.
+  */
+  BOOLEAN pvt_suppressrender;
+
+  STRING pvt_errorlabel;
+
+  STRING pvt_fragmentgid;
+
+  STRING pvt_elementtype;
+
+  FUNCTION PTR pvt_onfocusin;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Events we don't wish to be immediately informed about */
+  PUBLIC STRING ARRAY delay_events;
+
+  /** The parent container of this component.
+  */
+  PUBLIC PROPERTY parent(pvt_parent, -);
+
+  /** Screen that owns this component.
+  */
+  PUBLIC PROPERTY owner(pvt_owner, -);
+
+  /** Name of this component.
+  */
+  PUBLIC PROPERTY name(GetLocalName, -);
+
+  /** Todd name of this component.
+  */
+  PUBLIC PROPERTY toddname(pvt_toddname, -);
+
+  /// @type(object %TolliumContexts) Contexts
+  PUBLIC PROPERTY contexts(this->pvt_owner->contexts, -);
+
+  PUBLIC STRING componenttype;
+
+  PUBLIC STRING formfieldtype;
+
+  /// List of components this component controls
+  PUBLIC PROPERTY subcomponents(GetSubComponents, -);
+
+  /// Component that controls this component (may only be set once)
+  PUBLIC PROPERTY supercomponent(pvt_supercomponent, SetSuperComponent);
+
+  /** Sets the subcomponent that will be activated when the label of this component
+      is clicked on. For internal use only.
+  */
+  PUBLIC PROPERTY titleforsubcomponent(pvt_titleforsubcomponent, SetTitleForSubcomponent);
+
+  PUBLIC PROPERTY required(pvt_required, SetRequired);
+
+  PUBLIC PROPERTY errorlabel(pvt_errorlabel, pvt_errorlabel);
+
+  /** The parent panel of this component.
+  */
+  PUBLIC PROPERTY parentpanel(GetParentPanel, -); //FIXME what's the rationale for this?
+
+  /// Whether this component is enabled
+  PUBLIC PROPERTY enabled(pvt_enabled, SetEnabled);
+
+  /// Whether this component is visible
+  PUBLIC PROPERTY visible(pvt_visible, SetVisible);
+
+  /// Whether this component is readonly
+  PUBLIC PROPERTY readonly(pvt_readonly, SetReadonly);
+
+  /// Title of this component
+  PUBLIC PROPERTY title(pvt_title, SetTitle);
+
+  /// Title of the component as rendered
+  PUBLIC PROPERTY renderedtitle(pvt_title, -);
+
+  /// Hint for the component
+  PUBLIC PROPERTY hint(pvt_hint, SetHint);
+
+  /// Whether this component hides its title. Should only be set in NEW(). May be deprecatd inthe future
+  PUBLIC PROPERTY invisibletitle(pvt_invisibletitle, pvt_invisibletitle);
+
+  /// Button that must be activated when this component is focused and enter is pushed.
+  PUBLIC PROPERTY defaultbutton(pvt_defaultbutton, SetDefaultButton);
+
+  /// Is this a blockelement?
+  PUBLIC PROPERTY blockelement(pvt_blockelement, -);
+
+  /// Preferred width of the component
+  PUBLIC PROPERTY width(pvt_width, pvt_width);
+
+  /// Preferred height of the component
+  PUBLIC PROPERTY height(pvt_height, pvt_height);
+
+  /// Absolute minimum width of the component
+  PUBLIC PROPERTY minwidth(pvt_minwidth, pvt_minwidth);
+
+  /// Absolute minimum height of the component
+  PUBLIC PROPERTY minheight(pvt_minheight, pvt_minheight);
+
+  /// Whether the component and its (grand*)parents are visible
+  PUBLIC PROPERTY isnowvisible(pvt_isnowvisible, -);
+
+  PUBLIC PROPERTY tolliumweb_dirty(TolliumGetDirty, -);
+
+  /// XML Element type, either the localname or namespace#localname if not a tollium screens component
+  PUBLIC PROPERTY elementtype(pvt_elementtype, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  MACRO NEW()
+  {
+    IF(NOT RecordExists(__pvt_nextcomponentinfo))
+      THROW NEW Exception("Tollium components may only be created through ScreenManager::CreateComponent");
+
+    this->pvt_owner := __pvt_nextcomponentinfo.owner;
+    this->pvt_toddname := this->pvt_owner->tolliumscreenid || ":" || __pvt_nextcomponentinfo.name;
+    this->pvt_fragmentgid := __pvt_nextcomponentinfo.gid;
+    this->pvt_elementtype := __pvt_nextcomponentinfo.elementtype;
+    this->pvt_visible := TRUE;
+    this->pvt_enabled := TRUE;
+
+    this->componenttype := "component";
+  }
+  PUBLIC MACRO __tollium_afternew()
+  {
+    //we call this here, to ensure we get the proper implementations of overriden functions
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.fully := TRUE;
+    this->RecursiveUpdateIsNowVisible();
+  }
+
+  PUBLIC MACRO __tollium_setrendersuppression(BOOLEAN newval)
+  {
+    IF (newval != this->pvt_suppressrender)
+    {
+      this->pvt_suppressrender := newval;
+      IF (this->pvt_isnowvisible AND RecordExists(this->dirtyflags))
+        this->pvt_owner->TolliumSetComponentVisibleDirtyness(this, NOT newval);
+    }
+  }
+
+  MACRO StaticInitIsComposable(RECORD definition) //composable hook
+  {
+  }
+
+  MACRO StaticInitCanMakeDirty(RECORD definition) //canmakedirty hook
+  {
+  }
+
+  //FIXME temp function get rid of it when compiler is fixed to properly allow base calls
+  MACRO TolliumComponentBase_StaticInit(RECORD def)
+  {
+    this->StaticInitIsComposable(def);
+    this->StaticInitCanMakeDirty(def);
+
+    this->pvt_enabled := def.enabled;
+    this->pvt_readonly := def.readonly;
+    this->pvt_visible := def.visible;
+
+    this->width := def.width;
+    this->height := def.height;
+    this->minwidth := def.minwidth;
+    this->minheight := def.minheight;
+
+    this->pvt_defaultbutton := def.defaultbutton;
+
+    this->pvt_required := CellExists(def, 'required') AND def.required; //FIXME avoid CellExists...
+    IF(CellExists(def, 'errorlabel')) //FIXME avoid CellExists...
+      this->errorlabel := def.errorlabel;
+
+    IF(CellExists(def,'title') AND this->pvt_title="")
+      this->pvt_title := def.title;
+
+    this->pvt_hint := def.hint;
+
+    this->RecursiveUpdateIsNowVisible();
+  }
+
+  STRING FUNCTION GetLocalName()
+  {
+    RETURN Tokenize(this->pvt_toddname,':')[1];
+  }
+
+  PUBLIC RECORD FUNCTION GetComponentOutline(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ visibleonly := TRUE ], options);
+    IF(NOT options.visibleonly AND NOT this->IsNowVisible())
+      RETURN DEFAULT RECORD;
+
+    RECORD ARRAY children := SELECT AS RECORD ARRAY child->GetComponentOutline(options)
+                               FROM ToRecordArray(this->GetChildComponents(),'child');
+    DELETE FROM children WHERE NOT RecordExists(children);
+
+    RETURN [ id := this->GetComponentIdentification()
+           , title := this->title ?? this->errorlabel
+           , children := children
+           ];
+  }
+
+  PUBLIC STRING FUNCTION GetComponentIdentification()
+  {
+    RETURN `${this->elementtype} ${this->name} in ${ObjectExists(this->owner) ? this->owner->frame->screenname : 'unknown'}`;
+  }
+
+  PUBLIC MACRO StaticInit(RECORD def)
+  {
+    this->TolliumComponentBase_StaticInit(def);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsShowingOwnContents()
+  {
+    RETURN TRUE;
+  }
+
+  BOOLEAN FUNCTION CalculateIsNowVisible()
+  {
+    RETURN ObjectExists(this->pvt_owner)
+           AND ObjectExists(this->pvt_parent)
+           AND this->pvt_parent->IsShowingOwnContents()
+           AND this->pvt_parent->isnowvisible
+           AND this->pvt_visible
+           AND (NOT Objectexists(this->pvt_supercomponent) OR this->pvt_supercomponent->isnowvisible);
+  }
+
+  PUBLIC MACRO RecursiveUpdateIsNowVisible()
+  {
+    BOOLEAN newvisible := this->CalculateIsNowVisible();
+
+    IF (this->pvt_isnowvisible != newvisible)
+    {
+      this->pvt_isnowvisible := newvisible;
+      IF (RecordExists(this->dirtyflags) AND ObjectExists(this->pvt_owner) AND NOT this->pvt_suppressrender)
+        this->pvt_owner->TolliumSetComponentVisibleDirtyness(this, newvisible); // component is dirty!
+
+      FOREVERY (OBJECT comp FROM this->GetChildComponents())
+        IF (ObjectExists(comp))
+          comp->RecursiveUpdateIsNowVisible();
+      FOREVERY (RECORD comp FROM this->pvt_subcomponents)
+        IF (ObjectExists(comp.comp))
+          comp.comp->RecursiveUpdateIsNowVisible();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init functions
+  //
+
+  //ADDME: Private, but we need to rename when creating a replaceable panel :-/
+  /*FIXME: PRIVATE*/PUBLIC MACRO EnsurePreInit()
+  {
+    IF(NOT this->pvt_havepreinited)
+    {
+      this->pvt_havepreinited:=TRUE;
+      this->PreInitComponent();
+    }
+
+    FOREVERY(OBJECT comp FROM this->GetChildComponents())
+      comp->EnsurePreInit();
+  }
+
+  /*FIXME: PRIVATE*/PUBLIC BOOLEAN FUNCTION EnsurePreShow()
+  {
+    IF(this->pvt_havepreshown)
+      RETURN FALSE;
+    IF(Objectexists(this->parent) AND NOT this->parent->pvt_havepreshown)
+      this->parent->EnsurePreShow();
+
+    this->pvt_havepreshown:=TRUE;
+    this->PreShowComponent();
+    RETURN TRUE;
+  }
+
+  /*FIXME: PRIVATE*/PUBLIC MACRO EnsurePostInit()
+  {
+    IF(NOT this->pvt_havepostinited AND (Objectexists(this->parent) OR Memberexists(this, "__is_tollium_frame") ))
+    {
+      this->pvt_havepostinited:=TRUE;
+      this->PostInitComponent();
+    }
+
+    FOREVERY(OBJECT comp FROM this->GetChildComponents())
+      comp->EnsurePostInit();
+  }
+
+  // Initialize the component. This function is invoked after any StaticInit, but may be before Screen::Init
+  MACRO PreInitComponent()
+  {
+  }
+
+  // Initialize the component. This function is invoked after any StaticInit, PreInitComponent and Screen::Init. Overriding PostInitComponent is deprecated!
+  MACRO PostInitComponent()
+  {
+  }
+
+  MACRO PreShowComponent()
+  {
+  }
+
+  // This function is invoked when the frame is unloaded. The component MAY still be reloaded after this!
+  PUBLIC MACRO OnUnloadComponent()
+  {
+    FOREVERY(OBJECT comp FROM this->GetChildComponents())
+      comp->OnUnloadComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  OBJECT ARRAY FUNCTION GetSubComponents()
+  {
+    RETURN SELECT AS OBJECT ARRAY comp FROM this->pvt_subcomponents;
+  }
+
+  MACRO SetSuperComponent(OBJECT newsupercomponent)
+  {
+    IF (newsupercomponent = DEFAULT OBJECT)
+    {
+      IF (this->pvt_supercomponent = DEFAULT OBJECT)
+        RETURN;
+      IF (this IN this->pvt_supercomponent->subcomponents)
+        THROW NEW TolliumException(this, "May not reset the supercomponent to default object when it is still registered as subcomponent");
+      this->pvt_supercomponent := DEFAULT OBJECT;
+      this->RecursiveUpdateIsNowVisible();
+      RETURN;
+    }
+    //Verify we're not building a loop... following the supercomponent chain may not bring us back to this
+    FOR(OBJECT chaseparent := newsupercomponent; ObjectExists(chaseparent); chaseparent := chaseparent->supercomponent)
+      IF(chaseparent = this)
+        THROW NEW TolliumException(this, "Trying to form a loop of supercomponents setting up component '" || this->name || "'");
+
+    IF(this->pvt_supercomponent != DEFAULT OBJECT AND this->pvt_supercomponent != newsupercomponent)
+    {
+      THROW NEW TolliumException(this, "You cannot change the supercomponent of a tollium component when it already has a supercomponent setting up component '" || this->name || "' (old super: " || this->pvt_supercomponent->name || ", new super: " || newsupercomponent->name || ")");
+    }
+
+    this->pvt_supercomponent := newsupercomponent;
+    this->RecursiveUpdateIsNowVisible();
+  }
+
+  MACRO SetTitleForSubcomponent(OBJECT newcomp) /* FIXME should this stay?*/
+  {
+    IF (this->pvt_titleforsubcomponent = newcomp)
+      RETURN;
+
+    IF (ObjectExists(newcomp) AND newcomp->supercomponent != this)
+      THROW NEW TolliumException(this, "Trying to point the title of component '"||this->name||"' to component '"||newcomp->name||"', that hasn't been marked as a subcomponent (yet)");
+
+    this->pvt_titleforsubcomponent := newcomp;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetRequired(BOOLEAN new_required)
+  {
+    IF (this->pvt_required = new_required)
+      RETURN;
+
+    this->pvt_required := new_required;
+    this->ExtUpdatedComponent();
+
+    FOREVERY (OBJECT comp FROM this->subcomponents)
+      comp->required := new_required;
+  }
+
+  OBJECT FUNCTION GetParentPanel()
+  {
+    OBJECT comp := this->parent;
+
+    WHILE (ObjectExists(comp))
+    {
+      IF (comp->componenttype IN [ "panel", "inlineblock" ])
+        RETURN comp;
+
+      IF (comp->componenttype = "tabs" AND this IN comp->line)
+        RETURN comp;
+
+      comp := comp->pvt_parent;
+    }
+
+    IF (NOT ObjectExists(this->parent))
+      THROW NEW Exception("Component '" || this->name || "' does not have a parent (while looking for the parent panel)");
+    THROW NEW Exception("Component '" || this->name || "' does not have a panel as parent, but a " || this->parent->componenttype);
+  }
+
+  MACRO SetEnabled(BOOLEAN newstate)
+  {
+    IF (this->pvt_enabled = newstate)
+      RETURN;
+
+    this->pvt_enabled := newstate;
+    this->ExtUpdatedEnabled();
+
+    FOREVERY (RECORD subcomp FROM this->pvt_subcomponents)
+    {
+      IF(newstate = TRUE AND subcomp.direct_disabled)
+        CONTINUE; //Don't make components recursively enabled if they were explicitly made disabled
+      IF(newstate = FALSE AND NOT subcomp.direct_disabled AND subcomp.comp->enabled = FALSE)
+      {
+        this->pvt_subcomponents[#subcomp].direct_disabled := TRUE;
+        CONTINUE;
+      }
+      subcomp.comp->enabled := newstate;
+    }
+    this->UpdateComponentsEnabled();
+  }
+
+  MACRO SetVisible(BOOLEAN newstate)
+  {
+    IF(this->pvt_visible = newstate)
+      RETURN;
+
+    this->pvt_visible := newstate;
+
+    this->RecursiveUpdateIsNowVisible();
+
+    IF (ObjectExists(this->parent)) //parents deal with visibility, not the components themselves
+      this->parent->ChildVisibilityChanged(this);
+/*
+    FOREVERY (RECORD subcomp FROM this->pvt_subcomponents)
+    {
+      IF (subcomp.comp EXTENDSFROM TolliumSpecialComponent)
+        CONTINUE;
+      IF(newstate = TRUE AND subcomp.direct_invisible)
+        CONTINUE; //Don't make components recursively visible if they were explicitly made invisible
+      IF(newstate = FALSE AND NOT subcomp.direct_invisible AND subcomp.comp->visible = FALSE)
+      {
+        this->pvt_subcomponents[#subcomp].direct_invisible := TRUE;
+        CONTINUE;
+      }
+      subcomp.comp->visible := newstate;
+    }*/
+  }
+
+  MACRO SetReadonly(BOOLEAN newstate)
+  {
+    IF (this->pvt_readonly = newstate)
+      RETURN;
+
+    this->pvt_readonly := newstate;
+    this->ExtUpdatedComponent();
+
+    FOREVERY (RECORD subcomp FROM this->pvt_subcomponents)
+    {
+      IF(newstate = FALSE AND subcomp.direct_readonly)
+        CONTINUE; //Don't make components recursively writable if they were explicitly made readonly
+      IF(newstate = TRUE AND NOT subcomp.direct_readonly AND subcomp.comp->readonly = TRUE)
+      {
+        this->pvt_subcomponents[#subcomp].direct_readonly := TRUE;
+        CONTINUE;
+      }
+      subcomp.comp->readonly := newstate;
+    }
+  }
+
+  MACRO SetTitle(STRING data)
+  {
+    IF (this->pvt_title = data)
+      RETURN;
+
+    this->pvt_title := data;
+    this->ExtUpdatedTitle();
+  }
+
+  MACRO SetHint(STRING newhint)
+  {
+    IF (this->pvt_hint = newhint)
+      RETURN;
+
+    this->pvt_hint := newhint;
+    this->ExtUpdatedHint();
+  }
+
+  MACRO SetDefaultButton(OBJECT defaultbutton)
+  {
+    IF (this->pvt_defaultbutton != defaultbutton)
+    {
+      this->pvt_defaultbutton := defaultbutton;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsFocused()
+  {
+    OBJECT frame := this->owner->frame;
+    WHILE (TRUE)
+    {
+      IF (frame->pvt_focused_component = this
+          OR (frame->pvt_focused_component IN this->GetSubcomponentsRecursive()))
+        RETURN TRUE;
+
+      IF (frame->containingpanel = DEFAULT OBJECT)
+        RETURN FALSE;
+      frame := frame->containingpanel->owner->tolliumscreenmanager->frame;
+    }
+  }
+
+  BOOLEAN FUNCTION TolliumGetDirty()
+  {
+    RETURN RecordExists(this->dirtyflags);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Component management
+  //
+
+  PUBLIC MACRO SetSubcomponentPosition(OBJECT component, OBJECT insertpos, BOOLEAN do_after, BOOLEAN break_inbetween)
+  {
+    RECORD savecomp := SELECT * FROM this->pvt_subcomponents WHERE comp = component;
+    IF(NOT RecordExists(savecomp))
+      THROW NEW TolliumException(this, "SetSubcomponentPosition received but subcomponent is not part of this component");
+    DELETE FROM this->pvt_subcomponents WHERE comp = component;
+
+    INTEGER position :=
+      (SELECT AS INTEGER #pvt_subcomponents + 1
+         FROM this->pvt_subcomponents
+        WHERE comp = insertpos) - 1;
+
+    IF (do_after)
+    {
+      IF (position = -1)
+        position := LENGTH(this->pvt_subcomponents);
+      ELSE
+        position := position + 1;
+    }
+
+    savecomp.has_break := break_inbetween;
+    INSERT savecomp INTO this->pvt_subcomponents AT END;
+  }
+
+  PUBLIC MACRO ResetParentRecursive()
+  {
+    IF (ObjectExists(this->pvt_parent))
+      this->pvt_parent->__RemoveChildComponent(this);
+    this->pvt_parent := DEFAULT OBJECT;
+    this->RecursiveUpdateIsNowVisible();
+
+    FOREVERY (RECORD subcomp FROM this->pvt_subcomponents)
+      IF (ObjectExists(subcomp.comp->parent))
+        subcomp.comp->ResetParentRecursive();
+  }
+
+  /// Returns all objects top-down
+  PUBLIC OBJECT ARRAY FUNCTION GetTopDownAllComponents()
+  {
+    OBJECT ARRAY results := [ this ];
+    FOREVERY (OBJECT child FROM this->GetChildComponents())
+      results := results CONCAT child->GetTopDownAllComponents();
+
+    RETURN results;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsUpdateable()
+  {
+    RETURN this->isnowvisible AND this->enabled AND NOT this->readonly;
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetTopDownUpdatableComponents()
+  {
+    IF (NOT this->IsUpdateable())
+      RETURN DEFAULT OBJECT ARRAY;
+
+    OBJECT ARRAY results := [ this ];
+    FOREVERY (OBJECT child FROM this->GetChildComponents())
+      results := results CONCAT child->GetTopDownUpdatableComponents();
+
+    RETURN results;
+  }
+
+  /// Returns all subcomponents (recursive), subcomponents before their supercomponent
+  PUBLIC OBJECT ARRAY FUNCTION GetSubcomponentsRecursive()
+  {
+    OBJECT ARRAY result;
+    FOREVERY (RECORD subcomp FROM this->pvt_subcomponents)
+      result := result CONCAT [OBJECT(subcomp.comp)] CONCAT subcomp.comp->GetSubcomponentsRecursive();
+    RETURN result;
+
+  }
+
+  PUBLIC OBJECT FUNCTION CreateSubComponent(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    OBJECT comp := this->owner->CreateTolliumComponent(type, options);
+    this->MarkAsSubcomponent(comp);
+    RETURN comp;
+  }
+
+  PUBLIC OBJECT FUNCTION CreateCustomSubComponent(STRING namespace, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    OBJECT comp := this->owner->CreateCustomComponent(namespace, type, options);
+    this->MarkAsSubcomponent(comp);
+    RETURN comp;
+  }
+
+  PUBLIC MACRO MarkAsSubcomponent(OBJECT component)
+  {
+    component->supercomponent := this;
+    INSERT [ comp := component
+           , direct_disabled := component->enabled = FALSE
+           //, direct_invisible := component->visible = FALSE
+           , direct_readonly := component->readonly = TRUE
+           , insertpos := Length(this->pvt_subcomponents)
+           , has_break := FALSE //will be filled later
+           ]
+      INTO this->pvt_subcomponents AT END;
+
+  //  IF(this->visible = FALSE AND component NOT EXTENDSFROM TolliumSpecialComponent)
+  //    component->visible := FALSE;
+    IF(this->enabled = FALSE)
+      component->enabled := FALSE;
+    IF(this->readonly = TRUE)
+      component->readonly := TRUE;
+
+    component->RecursiveUpdateIsNowVisible();
+  }
+
+  PUBLIC MACRO UnmarkAsSubcomponent(OBJECT component)
+  {
+    IF (component->supercomponent != this)
+      THROW NEW TolliumException(this, "Trying to unmark a non-subcomponent as subcomponent");
+
+    DELETE FROM this->pvt_subcomponents WHERE comp = component;
+
+    IF (this->titleforsubcomponent = component)
+      this->titleforsubcomponent := DEFAULT OBJECT;
+
+    component->supercomponent := DEFAULT OBJECT;
+  }
+
+  PUBLIC INTEGER FUNCTION GetSubcomponentIndex(OBJECT findcomponent)
+  {
+    IF (findcomponent->supercomponent != this)
+      THROW NEW TolliumException(this, "Component is not a subcomponent");
+    RETURN SELECT AS INTEGER insertpos FROM this->pvt_subcomponents WHERE comp = findcomponent;
+  }
+
+  /** @short Delete a component.
+      @long Removes the component from its parent and its owner form. Although HareScript doesn't
+            offer explicit object destruction, the disassociation allows this component to be garbage
+            collected even it its former parent screen is still around */
+  PUBLIC MACRO DeleteComponent()
+  {
+    this->IsComposableDeleteComponent();
+    this->CanMakeDirtyDeleteComponent();
+    this->RemoveFromParent();
+
+    // Delete subcomponents, remove as subcomponent
+    FOREVERY (RECORD subcomp FROM this->pvt_subcomponents)
+      subcomp.comp->DeleteComponent();
+
+    IF(this->supercomponent != DEFAULT OBJECT)
+      this->supercomponent->UnmarkAsSubcomponent(this);
+
+    // Remove dirty marking for special components
+    IF (this->pvt_isnowvisible AND RecordExists(this->dirtyflags))
+    {
+      IF(NOT this->pvt_suppressrender)
+        this->pvt_owner->TolliumSetComponentVisibleDirtyness(this, FALSE);
+    }
+
+    // Mark as invisible, and suppress further rendering
+    this->pvt_visible := FALSE;
+    this->pvt_isnowvisible := FALSE;
+
+    //Remove ourselves, consider ourselves destroyed!
+    IF(ObjectExists(this->pvt_owner))
+    {
+      this->owner->tolliumscreenmanager->UnregisterComponent(this);
+      this->pvt_owner := DEFAULT OBJECT;
+    }
+  }
+
+  MACRO CanMakeDirtyDeleteComponent() //canmakedirty hook
+  {
+  }
+
+  // Override this function to clear internal state if the dirtylistener was cleared
+  PUBLIC MACRO DirtyCleared() //canmakedirty hook
+  {
+  }
+
+  PUBLIC MACRO __RemoveChildComponent(OBJECT comp)
+  {
+    THROW NEW TolliumException(this, `Parent ${GetObjectTypeName(this)} ${this->name} of ${GetObjectTypeName(comp)} ${comp->name} does not implement __RemoveChildComponent`);
+  }
+
+  /** @short Remove a component from its parent */
+  PUBLIC MACRO RemoveFromParent()
+  {
+    IF(this->pvt_parent = DEFAULT OBJECT)
+      RETURN;
+
+    // Explicit delete of subcomponent -> delete it from subcomponent order
+    IF(this->supercomponent != DEFAULT OBJECT)
+    {
+      this->supercomponent->UnmarkAsSubcomponent(this);
+    }
+
+    //Tell the container to handle it
+    this->parent->__RemoveChildComponent(this);
+
+    // Remove all subcomponents
+    FOREVERY (RECORD rec FROM this->pvt_subcomponents)
+    {
+      IF (ObjectExists(rec.comp->parent))
+        rec.comp->ResetParentRecursive();
+    }
+
+    this->pvt_parent := DEFAULT OBJECT;
+    this->RecursiveUpdateIsNowVisible();
+  }
+
+  MACRO TolliumHandleAfterInsert()
+  {
+    IF (this->owner->pvt_tolliumframepreinits) // Only execute postinit when frame init has been run
+      FOREVERY(OBJECT comp FROM this->GetChildComponents())
+        comp->EnsurePreInit();
+    IF (this->owner->pvt_tolliumframeinitrun) // Only execute postinit when frame init has been run
+      FOREVERY(OBJECT comp FROM this->GetChildComponents())
+        comp->EnsurePostInit();
+
+    this->ExtUpdatedComponent();
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    RETURN DEFAULT OBJECT ARRAY;
+  }
+
+  /** @short Is this component a subcomponent of a given component?
+      @long This function returns if this object is equal to the given object or if it is a direct or indirect subcomponent
+            of the object. This does not check for parent-child relations, only for components marked as subcomponents.
+  */
+  PUBLIC BOOLEAN FUNCTION IsPartOf(OBJECT comp)
+  {
+    IF (comp = this)
+      RETURN TRUE; // This is the requested component
+    IF(this->supercomponent = DEFAULT OBJECT)
+      RETURN FALSE; // Not a subcomponent
+    RETURN this->supercomponent->IsPartOf(comp);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Component state
+  //
+
+  /** @short Is the component currently visible?
+      @long For the base class, this just returns the visibility flag, but it is overridden in panels which are hidden if
+            all child components are invisible.
+  */
+  PUBLIC BOOLEAN FUNCTION IsVisible()
+  {
+    RETURN this->pvt_visible;
+  }
+
+  /** Should this component accept external input? */
+  PUBLIC BOOLEAN FUNCTION AllowExternalUpdates()
+  //ADDME: Todd should simply not parse for disabled items and do recursive checking
+  {
+    RETURN this->enabled AND NOT this->readonly AND this->isnowvisible;
+  }
+
+  /** Returns true if the component is currently displayed to the user (ie a client-side 'now visible') */
+  PUBLIC BOOLEAN FUNCTION IsNowDisplayed()
+  {
+    IF (MemberExists(this, "containingpanel") AND ObjectExists(this->containingpanel))
+      RETURN this->containingpanel->IsNowDisplayed();
+    ELSE
+      RETURN this->visible AND (NOT ObjectExists(this->parent) OR this->parent->IsNowDisplayed());
+  }
+
+  MACRO UpdateComponentsEnabled()
+  {
+  }
+
+  /// Are we currently enabled ? (consider enablecomponents)
+  PUBLIC BOOLEAN FUNCTION IsCurrentlyEnabled()
+  {
+    IF(this->readonly OR NOT this->enabled)
+      RETURN FALSE;
+    //ADDME this->enabled shouldn't be updated server-side, soi we should actually be checking who has us on enabledcomponents list...
+    RETURN TRUE;
+  }
+
+  PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    // FIXME: can we THROW an exception here or would we break something?
+    //        if someone uses enableon on a component which doesn't support it, shouldn't they get any warning?
+    // THROW NEW Exception("Not supporting enabled on for this component");
+    RETURN FALSE;
+  }
+
+  /** Returns the component that should be checked for enableons
+  */
+  PUBLIC OBJECT FUNCTION GetEnableOnComponent()
+  {
+    RETURN this;
+  }
+
+  PUBLIC STRING FUNCTION GetSaveStateKey()
+  {
+    STRING keyname;
+    IF (ObjectExists(this->supercomponent))
+    {
+      // This is a subcomponent of another component, use the supercomponent's savestatekey...
+      keyname := this->supercomponent->GetSaveStateKey();
+      // ...and add the index of this subcomponent within the list of subcomponents (more stable than using the (generated)
+      // anonymous component name)
+      IF (keyname != "")
+        RETURN keyname || "/" || this->supercomponent->GetSubcomponentIndex(this);
+    }
+
+    // Add page file name and screen name
+    keyname := this->owner->frame->savestatebasekey || "." || this->name;
+    RETURN keyname;
+  }
+
+  PUBLIC MACRO SaveComponentState()
+  {
+    FOREVERY(OBJECT comp FROM this->GetChildComponents())
+      comp->SaveComponentState();
+  }
+
+  PUBLIC MACRO RestoreComponentState()
+  {
+    FOREVERY(OBJECT comp FROM this->GetChildComponents())
+      comp->RestoreComponentState();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Component value
+  //
+
+  /** @short Should we use the value of this component in updates?
+      @long This function tells whether the value of a component should be used in updates. Examples of fields
+            which are normally excluded are disabled fields, and unmodified password fields
+      @return Whether the value of this component should be used in updates.
+  */
+  PUBLIC BOOLEAN FUNCTION IsUpdateValue()
+  {
+    RETURN this->enabled;
+  }
+
+  /** @short Get the update value
+      @long Return the value of this component, but remove any values in non-update fields of any compositions
+      @return Update value
+  */
+  PUBLIC VARIANT FUNCTION GetUpdateValue()
+  {
+    RETURN this->value;
+  }
+
+  /** @short Validate a value for the component
+      @long This function should be overridden by components which supply a value property. It should check if the given
+            value is a valid value for the component and should return FALSE if settings this value would cause an error,
+            e.g. if the type does not match or if setting the value would cause no options to be selected for a single
+            select component (radiobutton, pulldown, etc.). This function is used by ComposedRecord to check the record
+            values before applying them. It should not check for required values.
+      @param value Value to validate
+      @return TRUE if this value is a valid value for this component.
+  */
+  PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TRUE;
+  }
+
+  /** @short Set the value for this component, if the value is acceptable
+      @long This function tests the given value with IsValidValue before applying it to the value property
+      @param newvalue Value to set
+      @return TRUE if the value was acceptable.
+  */
+  PUBLIC BOOLEAN FUNCTION SetValueIfValid(VARIANT newvalue)
+  {
+    IF(NOT this->IsValidValue(newvalue))
+      RETURN FALSE;
+
+    this->value := newvalue;
+    RETURN TRUE;
+  }
+
+  /** Called by BeginWork, after work has been started, must be used to validate values
+      @param work Work object
+  */
+  PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    FOREVERY(OBJECT child FROM this->GetChildComponents())
+      IF (NOT ObjectExists(child->supercomponent))
+        child->ValidateValue(work);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Component dimensions
+  //
+
+  PUBLIC STRING FUNCTION GetDefaultMinimumHeight()
+  {
+    RETURN "";
+  }
+
+  PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "";
+  }
+
+  PUBLIC STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "";
+  }
+
+  PUBLIC STRING FUNCTION GetMinimumWidth()
+  {
+    RETURN this->minwidth;
+  }
+
+  PUBLIC STRING FUNCTION GetMinimumHeight()
+  {
+    RETURN this->minheight != "" ? this->minheight : this->GetDefaultMinimumHeight();
+  }
+
+  PUBLIC STRING FUNCTION GetWidth()
+  {
+    RETURN this->width != "" ? this->width : this->GetDefaultWidth();
+  }
+
+  PUBLIC STRING FUNCTION GetHeight()
+  {
+    RETURN this->height != "" ? this->height : this->GetDefaultHeight();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Drag and drop
+  //
+
+  PUBLIC RECORD FUNCTION LookupDownload(RECORD data)
+  {
+    IF (this EXTENDSFROM TolliumDownloadKeeper)
+      RETURN this->LookupDownloadFromKeeper(data);
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC RECORD FUNCTION LookupDragout(RECORD draginfo)
+  {
+    RETURN this->owner->tolliumcontroller->HandleDragout(draginfo);
+  }
+
+  /** @param rawitems
+      @cell rawitems.rowkey
+      @return
+      @cell return.type
+      @cell return.rowkey
+      @cell return.data
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetDraggedItems(RECORD ARRAY rawitems)
+  {
+    THROW NEW Exception("The component offering drag & drop is missing a GetDraggedItems function");
+  }
+
+  /** @param dropdata
+      @cell dropdata.source
+      @cell dropdata.sourcecomp
+      @cell dropdata.items
+      @cell dropdata.dropeffect
+  */
+  PUBLIC RECORD FUNCTION VerifyDrop(RECORD acceptdrops, RECORD dropdata, RECORD target, STRING ARRAY alltargetflags)
+  {
+    IF(dropdata.dropeffect NOT IN ["copy","move","link"])
+      THROW NEW Exception(`Incorrect drop effect '${dropdata.dropeffect}'`);
+    IF(dropdata.droplocation NOT IN ["ontarget","appendchild","insertbefore","oncell"])
+      THROW NEW Exception(`Incorrect drop location '${dropdata.droplocation}'`);
+
+    // First verify the dragged items
+    IF (dropdata.source = "local")
+    {
+      // Get the dropped items
+      OBJECT comp := GetTopLevelScreen(this->owner)->tolliumscreenmanager->GetToddComponentNoFail(dropdata.sourcecomp);
+      //IF (NOT ObjectExists(comp))
+      //  THROW NEW Exception("Could not resolve sourcecomponent of local drag");
+
+      DELETE CELL sourcecomp FROM dropdata;
+      INSERT CELL sourcecomp := comp INTO dropdata;
+
+      dropdata.items := comp->GetDraggedItems(dropdata.items);
+    }
+    ELSE IF (dropdata.source = "files")
+    {
+      IF (RecordExists(SELECT FROM RECORD ARRAY(dropdata.items) WHERE type != "file"))
+        THROW NEW Exception("Only files allowed in drop items when dropsource is 'files'");
+
+      DELETE CELL sourcecomp FROM dropdata;
+      INSERT CELL sourcecomp := DEFAULT OBJECT INTO dropdata;
+
+//      THROW NEW Exception("File drop not supported yet");
+    }
+    ELSE
+      RETURN DEFAULT RECORD;
+
+//    LogDebug("verifydrop", "init");
+
+    RECORD ARRAY check_noloops;
+
+    FOREVERY (RECORD item FROM RECORD ARRAY(dropdata.items))
+    {
+//      LogDebug("verifydrop", " item " || item.type);
+      BOOLEAN found := FALSE;
+      FOREVERY (RECORD type FROM acceptdrops.accepttypes)
+      {
+//        LogDebug("verifydrop", "  at " || type.type);
+        IF (item.type != type.type)
+          CONTINUE;
+
+        IF ((dropdata.droplocation = "ontarget" AND "ontarget" NOT IN type.locations)
+            OR (dropdata.droplocation IN [ "appendchild", "insertbefore" ] AND "position" NOT IN type.locations))
+        {
+//          LogDebug("verifydrop", "  drop location " || dropdata.droplocation || " not allowed (allowed: " || Detokenize(type.locations, ", ") || ")");
+          CONTINUE;
+        }
+
+        IF (Length(type.frameflags) > 0 AND NOT this->owner->frame->EnabledOn(1, 1, type.frameflags, "all"))
+        {
+//          LogDebug("verifydrop", "  fails frameflags [" || Detokenize(type.frameflags, ", ") || "]");
+          CONTINUE;
+        }
+
+        IF (type.requiretarget AND NOT RecordExists(target))
+        {
+//          LogDebug("verifydrop", "  requires a target");
+          CONTINUE;
+        }
+
+//        LogDebug("verifydrop", "  de " || dropdata.dropeffect || " IN " || Detokenize(type.dropeffects, "|"));
+        IF (dropdata.dropeffect NOT IN type.dropeffects AND 'all' NOT IN type.dropeffects)
+          CONTINUE;
+
+        SWITCH (dropdata.droplocation)
+        {
+          CASE "ontarget"
+          {
+            IF (RecordExists(target) AND NOT CheckEnabledFlags([ target ], alltargetflags, type.targetflags, 1, 1, "all"))
+            {
+//              LogDebug("verifydrop", "  fails targetflags [" || Detokenize(type.targetflags, ", ") || "]");
+              CONTINUE;
+            }
+          }
+          CASE "appendchild"
+          {
+            IF (RecordExists(target) AND NOT CheckEnabledFlags([ target ], alltargetflags, type.appendchildflags, 1, 1, "all"))
+            {
+//              LogDebug("verifydrop", "  fails appendchildflags [" || Detokenize(type.appendchildflags, ", ") || "]");
+              CONTINUE;
+            }
+          }
+          CASE "insertbefore"
+          {
+            // With insertbefore we require a target
+            IF (NOT RecordExists(target) OR NOT CheckEnabledFlags([ target ], alltargetflags, type.insertbeforeflags, 1, 1, "all"))
+            {
+//              LogDebug("verifydrop", "  fails insertbeforeflags [" || Detokenize(type.insertbeforeflags, ", ") || "]");
+              CONTINUE;
+            }
+          }
+        }
+
+        // FIXME: use actual flags of type for allowed flags
+        IF (item.type != "file" AND NOT CheckEnabledFlags([ RECORD(item.data) ], type.sourceflags, type.sourceflags, 1, 1, "all"))
+        {
+//          LogDebug("verifydrop", "  fails sourceflags [" || Detokenize(type.sourceflags, ", ") || "]");
+          CONTINUE;
+        }
+
+        IF (type.noloops)
+          INSERT item INTO check_noloops AT END;
+
+        found := TRUE;
+        BREAK;
+      }
+      IF (NOT found)
+        RETURN DEFAULT RECORD;
+    }
+
+    IF (dropdata.sourcecomp = this
+        AND RecordExists(target)
+        AND LENGTH(check_noloops) != 0
+        AND this->IsAnyAncestorOf(check_noloops, target))
+    {
+//      LogDebug("verifydrop", " fails noloops test");
+      RETURN DEFAULT RECORD;
+    }
+
+    RETURN dropdata;
+  }
+
+  /** Determines if rowkey is of target, or an ancester thereof. Needed for noloops drop check.
+  */
+  BOOLEAN FUNCTION IsAnyAncestorOf(RECORD ARRAY items, RECORD target)
+  {
+    RETURN FALSE;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Uploads and downloads
+  //
+
+  STRING FUNCTION GetFileTransferUrl(STRING type, RECORD data, RECORD options)
+  {
+    RETURN this->owner->tolliumcontroller->GetComponentFileTransferUrl(PRIVATE this, type, data, options);
+  }
+
+  PUBLIC STRING ARRAY FUNCTION PrepareUpload(RECORD incoming)
+  {
+    THROW NEW Exception("Unexpected PrepareUpload call");
+  }
+
+  RECORD FUNCTION ProcessUpload(RECORD msgdata)
+  {
+    RETURN msgdata;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Communications
+  //
+
+  //Execute URL path actions
+  PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    THROW NEW TolliumException(this, `Did not understand path action '${path ?? "<default>"}${IsDTAPLive() ? "" : ` (component type: ${Detokenize(GetObjectExtendNames(this), ", ")})`}`);
+  }
+
+  /** Queue an inbound message. This is called as soon as the message arrives and can be used to preinspect, modify or drop messages.
+      The actual handling of the message should usually be delayed to ProcessInboundMessage, as any waits here will block all event
+      processing, and trying to start a modal dialog will deadlock the message loop */
+  PUBLIC MACRO QueueInboundMessage(STRING type, RECORD msgdata)
+  {
+    this->owner->tolliumscreenmanager->QueueEvent(this, "inboundmessage", [ type := type, data := msgdata ]);
+  }
+
+  PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH (type)
+    {
+      CASE "focusin"
+      {
+        IF (this->pvt_onfocusin != DEFAULT FUNCTION PTR)
+          this->pvt_onfocusin();
+        RETURN;
+      }
+    }
+    THROW NEW TolliumException(this, `Unhandled inbound message of type '${type}'${IsDTAPLive() ? "" : ` (component type: ${Detokenize(GetObjectExtendNames(this), ", ")})`}`);
+  }
+
+  PUBLIC MACRO QueueOutboundMessage(STRING type, RECORD msgdata)
+  {
+    INSERT [ type := type, data := msgdata ] INTO this->pvt_queuedmessages AT END;
+    this->ExtUpdatedQueuedMessages();
+  }
+
+  PUBLIC MACRO TolliumDispatchEvent(STRING type, RECORD data)
+  {
+    SWITCH(type)
+    {
+      CASE "inboundmessage"
+      {
+        this->ProcessInboundMessage(data.type,data.data);
+      }
+      CASE "click"
+      {
+        IF(this->owner->tolliumscreenmanager->frame->IsWindowEnabled())
+          this->tolliumclick();
+        ELSE
+          this->owner->tolliumcontroller->LogDebug("Ignoring click for '" || this->name || "' - the frame appears to be disabled");
+      }
+      CASE "clicklink"
+      {
+        IF(this->owner->tolliumscreenmanager->frame->IsWindowEnabled() AND this->onclicklink != DEFAULT FUNCTION PTR)
+          this->onclicklink(data.href);
+        ELSE
+          this->owner->tolliumcontroller->LogDebug("Ignoring clicklink for '" || this->name || "' - the frame appears to be disabled");
+      }
+      CASE "set"
+      {
+        IF(this->onset != DEFAULT FUNCTION PTR)
+          this->onset();
+      }
+      CASE "select"
+      {
+        IF(this->onselect != DEFAULT FUNCTION PTR)
+          this->onselect();
+      }
+      CASE "windowclose"
+      {
+        IF(this->onwindowclose != DEFAULT FUNCTION PTR)
+          this->onwindowclose();
+      }
+      CASE "change"
+      {
+        IF(this->onchange != DEFAULT FUNCTION PTR)
+          this->onchange();
+      }
+      CASE "legacy" //FIXME Kill this!
+      {
+        this->TolliumWeb_ParseEvent(data.action, data.param);
+      }
+      CASE "todd"
+      {
+        this->TolliumWeb_ParseToddEvent(data.eventtype, data.params);
+      }
+      DEFAULT
+      {
+        THROW NEW TolliumException(this, `unrecognized event '${type}'`);
+      }
+    }
+  }
+
+  PUBLIC MACRO TolliumWeb_ParseEvent(STRING action, STRING param)
+  {
+    SWITCH(action)
+    {
+      CASE "click", "change", "select", "windowmove", "windowsavestate", "interval"
+      {
+        this->owner->tolliumscreenmanager->QueueEvent(this, action, DEFAULT RECORD);
+      }
+      CASE "clicklink"
+      {
+        this->owner->tolliumscreenmanager->QueueEvent(this, action, [ href := param ]);
+      }
+      CASE "clickrule"
+      {
+        this->owner->tolliumscreenmanager->QueueEvent(this, action, [ rule := param ]);
+      }
+      DEFAULT
+      {
+        THROW NEW TolliumException(this, `Unrecognized event '${action}'`);
+      }
+    }
+  }
+
+  UPDATE PUBLIC MACRO TolliumWeb_ParseToddEvent(STRING eventtype, RECORD data)
+  {
+    THROW NEW Exception("Unrecognized event type '" || eventtype || "'");
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Extend functions
+  //ADDME: These were once the ExtendComponent functions. Rename to something more descriptive? Merge into some generic
+  //       messaging system?
+  //
+
+  /** @short This component has been updated
+      @param trigger Name of the object triggering this update (either a child or self)
+  */
+  PUBLIC MACRO ExtUpdatedComponent()
+  {
+    // Public because it may be called by the ScreenManager or Controller to mark the component dirty
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.fully := TRUE;
+  }
+
+  MACRO ExtUpdatedEnabled()
+  {
+    this->ExtUpdatedComponent();
+  }
+
+  /// Called when title or invisibletitle changes
+  MACRO ExtUpdatedTitle()
+  {
+    // Usually, the parent is responsible for drawing the title.
+    IF (ObjectExists(this->parent))
+      this->parent->ExtUpdatedComponent();
+    ELSE
+      this->ExtUpdatedComponent();
+  }
+
+  MACRO ExtUpdatedHint()
+  {
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO ExtUpdatedQueuedMessages()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.messages := TRUE;
+  }
+
+  // Public because it may be called by the ScreenManager or Controller to mark the component dirty
+  PUBLIC MACRO ExtUpdatedComponentList()
+  {
+    IF(this->containingpanel != DEFAULT OBJECT)
+      this->containingpanel->ExtUpdatedComponent(this->containingpanel);
+
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.components := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Composable components
+  //ADDME: Could these be moved to TolliumIsComposable?
+  //
+
+  MACRO IsComposableDeleteComponent() //required hook for composable components
+  {
+  }
+
+  PUBLIC MACRO CompositionMetadataIsUpdated()
+  {
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Uncategorized rest
+  //
+
+  /** Returns the component for which our title is the label (either the current
+      component or a subcomponent)
+  */
+  PUBLIC OBJECT FUNCTION GetTitleForComponent()
+  {
+    OBJECT curr := this;
+    WHILE (ObjectExists(curr->titleforsubcomponent))
+    {
+      OBJECT next := curr->titleforsubcomponent;
+      IF (NOT ObjectExists(next))
+        BREAK;
+      curr := next;
+    }
+    RETURN curr;
+  }
+
+  /** Called when a field has been registered as dependent on another component's value
+      for that field, and the dependent value has changed.
+  */
+  PUBLIC MACRO UpdatedDependentField(STRING fieldname)
+  {
+  }
+
+  PUBLIC MACRO ChildVisibilityChanged(OBJECT child)
+  {
+    // Usually, we need to redraw when the visibility of a child changes
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO EnsureFilledDirtyFlags()
+  {
+    IF (NOT RecordExists(this->dirtyflags))
+    {
+      this->dirtyflags := this->GetExtraDirtyFlags();
+      INSERT CELL fully := FALSE INTO this->dirtyflags;
+      INSERT CELL messages := FALSE INTO this->dirtyflags;
+
+      IF (this->pvt_isnowvisible AND NOT this->pvt_suppressrender)
+        this->pvt_owner->TolliumSetComponentVisibleDirtyness(this, TRUE);
+    }
+  }
+
+  MACRO SetDirtyFlags(RECORD upd)
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags := MakeUpdatedRecord(this->dirtyflags, upd);
+  }
+
+  /// Fully & messages are default
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO TolliumWebRender()
+  {
+    IF (LENGTH(this->pvt_queuedmessages) != 0)
+    {
+      this->ToddUpdate([ type := "messages", messages := this->pvt_queuedmessages ]);
+      this->pvt_queuedmessages := DEFAULT RECORD ARRAY;
+    }
+
+    IF (this->pvt_isnowvisible AND NOT this->pvt_suppressrender AND RecordExists(this->dirtyflags))
+      this->pvt_owner->TolliumSetComponentVisibleDirtyness(this, FALSE);
+
+    this->dirtyflags := DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO TolliumWebReadOnly(STRING value, BOOLEAN wordwrap)
+  {
+    this->owner->tolliumcontroller->SendComponentReadonly(this, value, wordwrap);
+
+    IF (this->pvt_isnowvisible AND NOT this->pvt_suppressrender AND RecordExists(this->dirtyflags))
+      this->pvt_owner->TolliumSetComponentVisibleDirtyness(this, FALSE);
+
+    this->dirtyflags := DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO ToddUpdate(RECORD updinfo)
+  {
+    this->owner->tolliumcontroller->SendComponentUpdate(this, updinfo);
+  }
+
+  PUBLIC RECORD FUNCTION GetStandardAttributes(STRING type)
+  {
+    RECORD retval := [ window := this->owner->frame->instancename
+                     , type := type
+                     , target := this->toddname
+                     ];
+
+    //bare components should not require any width/height
+    IF(type!="component")
+    {
+      IF (MemberExists(this, "GETMINIMUMHEIGHT"))
+        INSERT CELL minheight := this->GetMinimumHeight() INTO retval;
+      IF (MemberExists(this, "GETMINIMUMWIDTH"))
+        INSERT CELL minwidth := this->GetMinimumWidth() INTO retval;
+      IF (MemberExists(this, "GETHEIGHT"))
+        INSERT CELL height := this->GetHeight() INTO retval;
+      IF (MemberExists(this, "GETWIDTH"))
+        INSERT CELL width := this->GetWidth() INTO retval;
+    }
+    IF (MemberExists(this, "DEFAULTBUTTON") AND this->defaultbutton != DEFAULT OBJECT)
+      INSERT CELL defaultbutton := this->defaultbutton->toddname INTO retval;
+    INSERT CELL enabled := this->enabled INTO retval;
+
+    RETURN retval;
+  }
+
+  PUBLIC RECORD FUNCTION Web_PrintAcceptDrops(RECORD acceptdrops)
+  {
+    IF(NOT RecordExists(acceptdrops))
+      RETURN DEFAULT RECORD;
+
+    RETURN
+        [ accepttypes :=
+              (SELECT type
+                    , imageaction := CellExists(accepttypes, "imageaction") ? accepttypes.imageaction : ""
+                    , imgsize := CellExists(accepttypes, "imgsize") ? accepttypes.imgsize : DEFAULT RECORD
+                    , requiretarget
+                    , dropeffects
+                    , sourceflags
+                    , targetflags
+                    , frameflags
+                    , insertbeforeflags
+                    , appendchildflags
+                    , allowontarget := "ontarget" IN locations
+                    , allowposition := "position" IN locations
+                    , noloops
+                    , acceptmultiple := CellExists(acceptdrops, "acceptmultiple") ? acceptdrops.acceptmultiple : TRUE
+                 FROM acceptdrops.accepttypes)
+        ];
+  }
+
+  /// Invalidate the content
+  PUBLIC MACRO Invalidate()
+  {
+  }
+
+>;
+
+
+/////////////////////////////////////////////////////////////////////
+// Base class for option sources
+
+PUBLIC STATIC OBJECTTYPE TolliumOptionSourceBase EXTEND TolliumComponentBase
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN optionsuptodate;
+
+  /** If the type of the option rowkeys is known without options being defined, this member may be set. It can be used by
+      selects to determine their rowkeytype if there are no options, so reading the value of an empty select does not throw
+      an error. It may be left to 0 if the type is not known.
+  */
+  INTEGER pvt_rowkeytype;
+
+  /** Callback function called when the current option set changes
+  */
+  PUBLIC FUNCTION PTR pvt_onoptionschange;
+
+
+  RECORD ARRAY pvt_options;
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY options(GetOptions, SetOptions);
+
+  PUBLIC PROPERTY rowkeytype(pvt_rowkeytype, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO InvalidateCurrentOptions()
+  {
+    this->optionsuptodate := FALSE;
+    IF(this->pvt_onoptionschange != DEFAULT FUNCTION PTR)
+      this->pvt_onoptionschange(); //inform my select
+  }
+  MACRO RegenerateOptions()
+  {
+    //override this function to support on-demand option generation
+  }
+
+  RECORD ARRAY FUNCTION GetOptions()
+  {
+    IF(NOT this->optionsuptodate)
+      this->RegenerateOptions();
+    RETURN this->pvt_options;
+  }
+
+  MACRO SetOptions(RECORD ARRAY newopts)
+  {
+    FOREVERY (RECORD opt FROM newopts)
+    {
+      IF (NOT CellExists(opt, "title"))
+        THROW NEW TolliumException(this, "Required cell 'title' not found in option");
+      IF (NOT CellExists(opt, "hint"))
+        INSERT CELL hint := "" INTO opt;
+      IF (NOT CellExists(opt, "enabled"))
+        INSERT CELL enabled := TRUE INTO opt;
+      newopts[#opt] := opt;
+    }
+    this->pvt_options := newopts;
+    this->optionsuptodate := TRUE;
+
+    IF(this->pvt_onoptionschange != DEFAULT FUNCTION PTR)
+      this->pvt_onoptionschange(); //inform my select
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumIsComposableListener
+<
+  OBJECT pvt_composition;
+  OBJECT pvt_composition_forwardto;
+
+  /// The composition we are a part of
+  PUBLIC PROPERTY composition(pvt_composition, SetComposition);
+
+  UPDATE PUBLIC MACRO StaticInitIsComposable(RECORD definition)
+  {
+    IF(NOT CellExists(definition,"composition"))
+      THROW NEW TolliumException(this, "'composition' member expected but not passed to component");
+    this->composition := definition.composition;
+  }
+
+  MACRO SetComposition(OBJECT newcomp)
+  {
+    IF(newcomp = this->pvt_composition)
+      RETURN;
+
+    IF(ObjectExists(this->pvt_composition_forwardto))
+      this->pvt_composition_forwardto->composition := newcomp;
+    IF(ObjectExists(this->pvt_composition))
+    {
+      this->pvt_composition->RemoveFromComposition(this);
+    }
+    IF(ObjectExists(newcomp))
+    {
+      newcomp->AddToComposition(this);
+    }
+    this->pvt_composition := newcomp;
+  }
+
+  UPDATE PUBLIC MACRO IsComposableDeleteComponent()
+  {
+    this->composition := DEFAULT OBJECT;
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumIsComposable EXTEND TolliumIsComposableListener
+<
+  STRING pvt_cellname;
+
+  /// Our cellname in that composition
+  PUBLIC PROPERTY cellname(pvt_cellname, SetCellName);
+
+  UPDATE PUBLIC MACRO StaticInitIsComposable(RECORD definition)
+  {
+    TolliumIsComposableListener::StaticInitIsComposable(definition);
+    this->pvt_cellname := definition.cellname;
+  }
+
+  MACRO SetCellName(STRING name)
+  {
+    this->pvt_cellname := name;
+
+    IF(ObjectExists(this->pvt_composition) AND this->pvt_cellname != "")
+      this->CompositionMetadataIsUpdated();
+  }
+  UPDATE MACRO SetComposition(OBJECT newcomp)
+  {
+    IF(newcomp = this->pvt_composition)
+      RETURN;
+    TolliumIsComposableListener::SetComposition(newcomp);
+    IF(ObjectExists(this->pvt_composition) AND this->pvt_cellname != "")
+      this->CompositionMetadataIsUpdated();
+  }
+
+>;
+
+PUBLIC OBJECTTYPE TolliumIsDirtyable
+<
+  OBJECT pvt_dirtylistener;
+
+  PUBLIC PROPERTY dirtylistener(pvt_dirtylistener, SetDirtyListener);
+
+  UPDATE PUBLIC MACRO StaticInitCanMakeDirty(RECORD definition)
+  {
+    IF (NOT CellExists(definition,"dirtylistener"))
+      THROW NEW TolliumException(this, "'dirtylistener' member expected but not passed to component");
+    IF (NOT ObjectExists(this->dirtylistener))
+      this->dirtylistener := definition.dirtylistener;
+  }
+
+  MACRO SetDirtyListener(OBJECT newcomp)
+  {
+    IF (newcomp = this->pvt_dirtylistener)
+      RETURN;
+
+    IF (ObjectExists(this->pvt_dirtylistener))
+      this->pvt_dirtylistener->RemoveFromDirtyListener(this);
+    IF (ObjectExists(newcomp))
+      newcomp->AddToDirtyListener(this);
+    this->pvt_dirtylistener := newcomp;
+  }
+
+  UPDATE MACRO CanMakeDirtyDeleteComponent()
+  {
+    this->dirtylistener := DEFAULT OBJECT;
+  }
+
+  MACRO SetDirty()
+  {
+    IF (Objectexists(this->pvt_dirtylistener))
+      this->pvt_dirtylistener->SetDirtyComponent(this);
+  }
+
+  MACRO ClearDirty()
+  {
+    IF (Objectexists(this->pvt_dirtylistener))
+      this->pvt_dirtylistener->ClearDirtyComponent(this);
+  }
+>;
+
+/////////////////////////////////////////////////////////////////////
+//
+PUBLIC OBJECTTYPE TolliumComposableComponentWithLabelBase EXTEND TolliumComponentBase
+<
+  PUBLIC PROPERTY label(GetLabel, SetLabel);
+  OBJECT labelcomp;
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->label := def.label;
+  }
+
+  STRING FUNCTION GetLabel()
+  {
+    RETURN ObjectExists(this->labelcomp) ? this->labelcomp->value : "";
+  }
+
+  MACRO SetLabel(STRING newlabel)
+  {
+    IF(newlabel="")
+    {
+      IF(ObjectExists(this->labelcomp))
+      {
+        this->labelcomp->DeleteComponent();
+        this->labelcomp := DEFAULT OBJECT;
+      }
+    }
+    ELSE
+    {
+      IF(NOT ObjectExists(this->labelcomp))
+      {
+        this->labelcomp := this->CreateSubComponent("text");
+        this->labelcomp->labelfor := this;
+        this->labelcomp->hint := this->hint;
+
+        IF(ObjectExists(this->parent))
+          this->parentpanel->InsertComponentAfter(this->labelcomp, this, FALSE);
+      }
+      this->labelcomp->value := newlabel;
+    }
+  }
+
+  UPDATE MACRO SetHint(STRING newhint)
+  {
+    TolliumComponentBase::SetHint(newhint);
+    IF (ObjectExists(this->labelcomp))
+      this->labelcomp->hint := this->hint;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    TolliumComponentBase::PreInitComponent();
+  }
+
+  UPDATE PUBLIC MACRO PostInitComponent()
+  {
+    TolliumComponentBase::PostInitComponent();
+    IF(ObjectExists(this->labelcomp) AND NOT ObjectExists(this->labelcomp->pvt_parent)) //insert if needed, but only if not inserted yet
+      this->parentpanel->InsertComponentAfter(this->labelcomp, this, FALSE);
+  }
+>;
+
+
+PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// List of components that have registered with this composition
+  OBJECT ARRAY pvt_cells;
+
+  // List of compositions whose value we should merge
+  PUBLIC OBJECT ARRAY mergecompositions;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Access components by cellname through ^
+  PUBLIC PROPERTY ^(GetHatComponent, -);
+  /// Current value of the composition
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  /// Cells that make up the value
+  PUBLIC PROPERTY cells(GetVisibleCells, -);
+  /// Extra cells that will be directly merged into the records GetValue but cannot be set using setvalue
+  PUBLIC RECORD extradata;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsDirtyable;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium init
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    this->TolliumComponentBase_StaticInit(def);
+    this->mergecompositions := def.mergecompositions; //ADDME make property and guard against loops and doubly-claimed cells. ensure the merged ones are compositions too
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT ARRAY FUNCTION GetVisibleCells()
+  {
+    OBJECT ARRAY retval;
+    FOREVERY(OBJECT cellobj FROM this->pvt_cells)
+      IF(cellobj EXTENDSFROM TolliumIsComposable)
+        INSERT cellobj INTO retval AT END;
+
+    FOREVERY(OBJECT mergedobj FROM this->mergecompositions)
+      retval := retval CONCAT mergedobj->cells;
+
+    RETURN retval;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Internal API
+  //
+
+  /** @short Allows objects to add themselves to a composition
+      @long This function adds an object to the composition. You should not invoke this function directly, but set an object's composition property
+  */
+  PUBLIC MACRO AddToComposition(OBJECT obj)
+  {
+    IF (obj NOT IN this->pvt_cells)
+    {
+      INSERT obj INTO this->pvt_cells AT END;
+      IF (ObjectExists(this->dirtylistener))
+        obj->dirtylistener := this->dirtylistener;
+    }
+  }
+
+
+  /** @short Allows objects to add themselves to a composition
+      @long This function adds an object to the composition. You should not invoke this function directly, but set an object's composition property
+  */
+  PUBLIC MACRO RemoveFromComposition(OBJECT obj)
+  {
+    INTEGER atpos := SearchElement(this->pvt_cells,obj);
+    IF(atpos!=-1)
+    {
+      IF (ObjectExists(this->dirtylistener))
+        this->pvt_cells[atpos]->dirtylistener := DEFAULT OBJECT;
+      DELETE FROM this->pvt_cells AT atpos;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+
+
+  MACRO SetValue(RECORD contents)
+  {
+    IF(NOT RecordExists(contents)) //allow := DEFAULT RECORD to reset all values
+    {
+      FOREVERY(OBJECT subcell FROM this->cells)
+        subcell->value := GetTypeDefaultValue(TypeId(subcell->value));
+      FOREVERY(OBJECT mergecomp FROM this->mergecompositions)
+        mergecomp->value := DEFAULT RECORD;
+
+      RETURN;
+    }
+
+    FOREVERY(OBJECT subcell FROM this->cells)
+    {
+      IF(subcell->cellname="")
+        CONTINUE; //we're not getting these either, so kill
+
+      IF (NOT CellExists(contents, subcell->cellname))
+        CONTINUE; //partial sets should not be our problem
+
+      IF(NOT MemberExists(subcell, "VALUE"))
+        THROW NEW TolliumException(this, "Composite member '" || subcell->name || "' does not have a value property");
+
+      IF (NOT subcell->IsValidValue(GetCell(contents, subcell->cellname)))
+      {
+        // Not throwing here, because that would cause site profile property editors to be completely ignored when just the
+        // selected options are not available or the value type has changed.
+        // However, this is causing other issues to leak through too, so we need to start blocking this
+        STRING err := `Record composition ${this->name}: Invalid value for cell '${subcell->cellname}' for component '${subcell->GetComponentIdentification()}'`;
+        LogWarning("tollium:compositionbase", err, [data := GetCell(contents, subcell->cellname)]);
+        //ADDME We're not really ready to start rejecting this, not even in dev - a lot of siteprofiles break and we must
+        //      offer alternatives first, eg. a 'fallback rowkey' to map empty values to an existing <option>
+        //IF(GetDtapStage()="development")
+        //  THROW NEW TolliumException(this, err);
+        CONTINUE;
+      }
+      IF (TypeID(subcell->value) != TypeID(GetCell(contents, subcell->cellname)))
+        THROW NEW TolliumException(this, "Cell '" || subcell->cellname || "' for composite member '"
+                                   || this->name || "' is of type '"
+                                   || GetTypeName(TypeID(GetCell(contents, subcell->cellname)))
+                                   || "' but the component expected type '"
+                                   || GetTypeName(TypeID(subcell->value)) || "'" );
+      subcell->value := GetCell(contents, subcell->cellname);
+    }
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    RECORD rec := this->extradata;
+
+    FOREVERY(OBJECT subcell FROM this->cells)
+    {
+      // A composition from a roweditscreen might also be registered here (so it can get up to date site specific information).
+      // Since it's not a cell in the composition it's cellname is empty.
+      IF (subcell->cellname = "")
+        CONTINUE;
+
+      IF (CellExists(rec, subcell->cellname))
+        THROW NEW TolliumException(this, "Cell name '"||subcell->cellname||"' used twice, second time in component '" || subcell->name || "'");
+
+      rec := CellInsert(rec, subcell->cellname, subcell->value);
+    }
+
+    RETURN rec;
+  }
+
+  UPDATE PUBLIC VARIANT FUNCTION GetUpdateValue()
+  {
+    RECORD rec := CELL[];
+
+    FOREVERY(OBJECT subcell FROM this->cells)
+      IF(subcell->IsUpdateValue())
+      {
+        IF (subcell->cellname = "")
+          CONTINUE;
+
+        IF (CellExists(rec, subcell->cellname))
+          THROW NEW TolliumException(this, "Cell name '"||subcell->cellname||"' used twice, second time in component '" || subcell->name || "'");
+        rec := CellInsert(rec, subcell->cellname, subcell->value);
+      }
+
+    RETURN rec;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Signal to all cells that the composition metadata (not the data) has changed
+  MACRO SignalUpdatedCompositionMetadata()
+  {
+    FOREVERY(OBJECT subcell FROM this->pvt_cells) //use pvt_cells as we need listeners too
+      subcell->CompositionMetadataIsUpdated();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Returns whether a value is a valid value for this composition
+      @param value Value to validate
+      @return TRUE if the specified value is a valid value
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(RECORD);
+  }
+
+
+  /** Returns the component for a specific cell
+      @param name Cellname (must be filled in)
+      @return(object %TolliumComponentBase) Component, DEFAULT OBJECT if not found
+  */
+  PUBLIC OBJECT FUNCTION GetComponent(STRING name)
+  {
+    FOREVERY(OBJECT subcell FROM this->cells)
+     IF(subcell->cellname != "" AND ToUppercase(subcell->cellname) = ToUppercase(name))
+        RETURN subcell;
+
+    FOREVERY(OBJECT mergecomp FROM this->mergecompositions)
+    {
+      OBJECT subcell := mergecomp->GetComponent(name);
+      IF(ObjectExists(subcell))
+        RETURN subcell;
+    }
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  OBJECT FUNCTION GetHatComponent(STRING name)
+  {
+    name := Substring(name,1);
+
+    OBJECT comp := this->GetComponent(name);
+    IF(NOT ObjectExists(comp))
+      THROW NEW TolliumException(this, `No member with cellname '${name}'`);
+    RETURN comp;
+  }
+
+  /** Return all the cell names that are used by components
+      @return List of cell names
+  */
+  PUBLIC STRING ARRAY FUNCTION GetComposedCellnames()
+  {
+    STRING ARRAY retval;
+    FOREVERY(OBJECT cellobj FROM this->pvt_cells)
+      IF(cellobj EXTENDSFROM TolliumIsComposable)
+        INSERT cellobj->cellname INTO retval AT END;
+
+    FOREVERY(OBJECT mergedobj FROM this->mergecompositions)
+      retval := retval CONCAT mergedobj->GetComposedCellNames();
+
+    RETURN retval;
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumOverlaysComponentBase EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+
+BOOLEAN tempignoreupdates; // FIXME: rather we don't need this
+
+  // Listtreehelper storing overlay records
+  OBJECT storage;
+
+  // Overlay flags
+  STRING ARRAY pvt_flags;
+
+  // Type of rowkey in overlay
+  INTEGER pvt_overlay_rowkey_type;
+
+  // Last autonumber for overlay rowkeys
+  INTEGER pvt_overlay_rowkey_autonumber;
+
+  /// If overlays can be created by dragging, callback which receives the selected area and must return the overlay RECORD to use or DEFAULT RECORD to cancel the new overlay
+  FUNCTION PTR pvt_oncreateoverlay;
+
+  FUNCTION PTR pvt_onselectoverlays;
+
+  FUNCTION PTR pvt_onchangeoverlays;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY overlays(GetOverlays, SetOverlays);
+
+  PUBLIC PROPERTY selection(GetSelection, SetSelection);
+
+  PUBLIC PROPERTY flags(pvt_flags, SetFlags);
+
+  PUBLIC FUNCTION PTR onselect;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+
+    this->flags := def.flags;
+    this->onselect := def.onselect;
+    this->pvt_onchangeoverlays := def.onchangeoverlays;
+    this->pvt_oncreateoverlay := def.oncreateoverlay;
+  }
+
+/*
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    // not safe to initialize anything here,
+    // when dynamically creating a component the preinit will only be called after it's inserted
+  }
+*/
+
+  MACRO EnsureOverlayStorage()
+  {
+    IF (ObjectExists(this->storage))
+      RETURN;
+
+//IF (NOT MemberExists(this, "GetComponentIdentification"))
+//  ABORT("SCREWED");
+
+    this->storage := NEW ListTreeHelper();
+    this->storage->callback := PRIVATE this; // FIXME: must extend ListTreeCallback OR be sure to implement the required members!
+    this->storage->selectmode := "single";
+
+//IF (NOT MemberExists(this->storage->callback, "GetComponentIdentification"))
+//  ABORT("SCREWED2");
+
+    this->storage->required_cells := this->GetRequiredOverlayCells();
+    FOREVERY(STRING flag FROM this->pvt_flags)
+    {
+      INSERT [ name := flag
+             , type := TypeID(BOOLEAN)
+             ] INTO this->storage->required_cells AT END;
+
+    }
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ overlays := FALSE
+        , selection := FALSE
+        ];
+  }
+
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    // If updating fully, the component is already sent by the extending component, so just send our settings as updates
+
+    IF (this->dirtyflags.fully OR this->dirtyflags.overlays)
+    {
+      RECORD ARRAY overlays := this->RenderOverlays(this->overlays);
+/*
+      // Make sure the required ListTreeHelper cells are present
+      FOREVERY (RECORD overlay FROM overlays)
+      {
+        RECORD input := SELECT * FROM this->overlays WHERE rowkey = overlay.rowkey;
+        IF (NOT RecordExists(input))
+          THROW NEW TolliumException(this, `Rendered overlay #${#overlay} was not found in original list of overlays`);
+        FOREVERY (STRING cellname FROM [ "enabled", "tolliumselected", "listrowclasses" ])
+          IF (NOT CellExists(overlay, cellname))
+            overlay := CellInsert(overlay, cellname, GetCell(input, cellname));
+        overlays[#overlay] := overlay;
+      }
+*/
+      // FIXME: for now flags are handled by the component. should we in the future call RenderOverlays and then here in componentbase.whlib enrich it with flags???
+      IF (Length(this->flags) > 0 AND Length(overlays) > 0 AND NOT CellExists(overlays[0], "flags"))
+        THROW NEW Exception("This component does not support flags for overlays (It's RenderOverlays method doesn't return flags)");
+
+      this->ToddUpdate(
+          [ type := "overlays"
+          , overlays :=
+                SELECT *
+                     , rowkey :=        TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey))
+                     , tollium_newid := CellExists(overlays, "TOLLIUM_NEWID") ? tollium_newid : 0
+                  FROM overlays
+          ]);
+    }
+    IF (   (this->dirtyflags.fully AND ObjectExists(this->storage))
+        OR this->dirtyflags.selection)
+    {
+      STRING ARRAY newselection := SELECT AS STRING ARRAY TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey))
+                                     FROM this->storage->rows
+                                    WHERE tolliumselected;
+      this->ToddUpdate([type:="selection", selection:=newselection]);
+    }
+
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING eventtype, RECORD data)
+  {
+    SWITCH (eventtype)
+    {
+      CASE "overlays"
+      {
+        RECORD ARRAY newareas := SELECT * FROM RECORD ARRAY(data.overlays) ORDER BY rowkey;
+        RECORD ARRAY newrows;
+
+        this->EnsureOverlayStorage();
+
+        this->tempignoreupdates := TRUE;
+
+        // FIXME: Mark says: doesn't this code both UPDATE and ADD an overlay?? check this...
+
+        FOREVERY (RECORD row FROM this->storage->rows)
+        {
+          RECORD pos := RecordLowerBound(newareas, [ rowkey := TypeToString(row.rowkey, TypeId(row.rowkey)) ], [ "ROWKEY" ]);
+          IF (pos.found)
+          {
+            row.area := newareas[pos.position].area;
+            INSERT row INTO newrows AT END;
+          }
+        }
+
+        newrows := this->CheckOverlays(newrows);
+        this->storage->SetStaticRows(newrows);
+
+        this->tempignoreupdates := FALSE;
+
+        IF (this->pvt_onchangeoverlays != DEFAULT FUNCTION PTR)
+          this->pvt_onchangeoverlays();
+
+        RETURN;
+      }
+
+      CASE "selection"
+      {
+        // FIXME: can the client send a selection when the server thinks there is not overlay available??
+        //this->EnsureOverlayStorage();
+
+        this->tempignoreupdates := TRUE;
+
+        RECORD ARRAY selection :=
+            SELECT *
+              FROM this->storage->rows
+             WHERE TypeToString(rowkey, TypeId(rowkey)) IN data.rowkeys;
+        this->storage->SetSelectionByRecords(selection, FALSE);
+
+        this->tempignoreupdates := FALSE;
+
+        IF (this->onselect != DEFAULT FUNCTION PTR)
+          this->onselect();
+
+        RETURN;
+      }
+
+      CASE "newoverlay"
+      {
+        this->EnsureOverlayStorage();
+
+        RECORD newoverlay := RECORD(this->pvt_oncreateoverlay(data.area));
+        IF (RecordExists(newoverlay))
+        {
+          RECORD ARRAY newrows := this->CheckOverlays([ newoverlay ]);
+          INSERT CELL tollium_newid := data.newid INTO newrows[0];
+
+          this->storage->SetStaticRows(this->storage->rows CONCAT newrows);
+          this->storage->SetSelectionByRecords(newrows, TRUE);
+
+          IF (this->pvt_onchangeoverlays != DEFAULT FUNCTION PTR)
+            this->pvt_onchangeoverlays();
+        }
+        ELSE
+        {
+          // force resending overlays so the temporary user-drawn overlay will be deleted
+          // (NOTE that any updated component in the screen will trigger a relayout which will wipe any newid overlays which aren't in the current set of overlays)
+          this->ExtUpdatedOverlays();
+        }
+
+        RETURN;
+      }
+    }
+    TolliumComponentBase::ProcessInboundMessage(eventtype, data);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Communications
+  //
+
+  MACRO ExtUpdatedOverlays()
+  {
+    IF (this->tempignoreupdates)
+      RETURN;
+
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.overlays := TRUE;
+  }
+
+  MACRO ExtUpdatedSelection()
+  {
+    IF (this->tempignoreupdates)
+      RETURN;
+
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.selection := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  RECORD ARRAY FUNCTION GetOverlays()
+  {
+    RETURN ObjectExists(this->storage) ? this->storage->rows : DEFAULT RECORD ARRAY;
+  }
+
+  MACRO SetOverlays(RECORD ARRAY overlays)
+  {
+    this->EnsureOverlayStorage();
+
+    overlays := this->CheckOverlays(overlays);
+    this->storage->SetStaticRows(overlays);
+
+    this->ExtUpdatedOverlays();
+  }
+
+  VARIANT FUNCTION GetSelection()
+  {
+    IF (NOT ObjectExists(this->storage))
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN this->storage->selection;
+  }
+
+  MACRO SetSelection(VARIANT selection)
+  {
+    // The storage is created when there's actual date to storage.
+    // So if the storage exists, there is nothing to select.
+    // Like in lists we silently ignore attempts to select a non-existant row/rowkey.
+    IF (NOT ObjectExists(this->storage))
+      RETURN;
+
+    this->storage->SetSelectionByAPI(selection);
+    this->ExtUpdatedSelection();
+  }
+
+  MACRO SetFlags(STRING ARRAY flags)
+  {
+    // If it's the same flag list, ignore
+    // (which also means so long as we never had any flags, we won't be the one calling EnsureOverlayStorage)
+    IF (Length(flags) = Length(this->pvt_flags))
+    {
+      BOOLEAN anychange := FALSE;
+      FOREVERY (STRING flag FROM flags)
+        IF (flag NOT IN this->pvt_flags)
+        {
+          anychange := TRUE;
+          BREAK;
+        }
+      IF (NOT anychange)
+        RETURN;
+    }
+
+    this->pvt_flags := flags;
+
+    this->EnsureOverlayStorage();
+
+    // Force the user of the component to specify all flags for all overlays
+    this->storage->required_cells :=
+        SELECT name := ToUppercase(name)
+             , type := TypeID(BOOLEAN)
+          FROM ToRecordArray(this->pvt_flags, "NAME");
+
+    // The flags changed
+    IF (Length(this->storage->rows) != 0)
+      THROW NEW TolliumException(this, "Cannot change the valid set of flags if overlays are still active");
+  }
+
+  MACRO SetOnCreateOverlay(FUNCTION PTR oncreateoverlay)
+  {
+    IF (oncreateoverlay != this->pvt_oncreateoverlay)
+    {
+      this->pvt_oncreateoverlay := oncreateoverlay;
+      this->ExtUpdatedOverlaysActive();
+    }
+  }
+
+  MACRO SetOnChangeOverlays(FUNCTION PTR onchangeoverlays)
+  {
+    IF (onchangeoverlays != this->pvt_onchangeoverlays)
+    {
+      this->pvt_onchangeoverlays := onchangeoverlays;
+      //this->ExtUpdatedOverlaysActive();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks from the storage
+  //
+
+  // Called when all rows have been invalidated
+  UPDATE MACRO LTH_UpdatedAllRows()
+  {
+//ABORT(1);
+    this->ExtUpdatedOverlays();
+  }
+
+  // Called when a single row has been updated
+  UPDATE MACRO LTH_UpdatedRow(RECORD row)
+  {
+//ABORT(2);
+
+    this->ExtUpdatedOverlays();
+  }
+
+  // Called when the selection changes
+  UPDATE MACRO LTH_UpdatedSelection(BOOLEAN frontend_change, BOOLEAN auto_change)
+  {
+    IF (frontend_change AND NOT auto_change)
+      this->ExtUpdatedSelection();
+  }
+
+  // Called when the list of child nodes of a row has been replaced.
+  UPDATE MACRO LTH_UpdatedChildnodes(RECORD parentrow, RECORD ARRAY children)
+  {
+    // Won't be called, it's not a tree
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updatable functions
+  //
+
+  /// Update this to return required overlay cells
+  RECORD ARRAY FUNCTION GetRequiredOverlayCells()
+  {
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  /// Update this function to check or extend overlays before storing them
+  RECORD ARRAY FUNCTION CheckOverlays(RECORD ARRAY overlays)
+  {
+    RETURN overlays;
+  }
+
+  /// Update this function to get the overlays ready to send to the client
+  RECORD ARRAY FUNCTION RenderOverlays(RECORD ARRAY overlays)
+  {
+    RETURN overlays;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+/*
+  RECORD ARRAY FUNCTION SetRowkeysInOverlayRows(RECORD ARRAY rows)
+  {
+    FOREVERY(RECORD row FROM rows)
+    {
+      // Validate the rowkey
+      IF (NOT CellExists(row, "ROWKEY"))
+      {
+        // No rowkey present. See if we may insert
+        IF (this->pvt_overlay_rowkey_autonumber = 0) // No missing rowkey seen yet. The first rowkey may be missing
+        {
+          // If the first row ever seen had a rowkey, ALL rows must have a rowkey.
+          IF (this->pvt_overlay_rowkey_type != 0)
+            THROW NEW TolliumException(this, "Detected an item with missing rowkey in overlay list. Please add a cell named 'rowkey', containing an unique value.");
+
+          this->pvt_overlay_rowkey_type := TYPEID(INTEGER);
+        }
+
+        this->pvt_overlay_rowkey_autonumber := this->pvt_overlay_rowkey_autonumber + 1;
+        INSERT CELL rowkey := this->pvt_overlay_rowkey_autonumber INTO rows[#row];
+      }
+      ELSE
+      {
+        IF (this->pvt_overlay_rowkey_type = 0)
+          this->pvt_overlay_rowkey_type := TYPEID(row.rowkey);
+        ELSE
+          IF (this->pvt_overlay_rowkey_type != TYPEID(row.rowkey))
+            THROW NEW TolliumException(this, "Detected mixing of rowkey types in overlay list! The rows contain rowkeys of type " || GetTypeName(this->pvt_overlay_rowkey_type) || ", while trying to insert a rowkey of type " || GetTypeName(TypeId(row.rowkey)) || ".");
+      }
+    }
+    RETURN rows;
+  }
+*/
+>;
+
+PUBLIC OBJECTTYPE TolliumDownloadKeeper
+<
+  RECORD ARRAY pvt_embeddedfiles;
+
+  MACRO NEW ()
+  {
+  }
+
+  PUBLIC STRING FUNCTION AddInlineDownload(BLOB data, STRING mimetype, STRING filename)
+  {
+    STRING id := GenerateUFS128BitId();
+    STRING link := this->GetFileTransferUrl("download",
+        [ t := "embed"
+        , i := id
+        ],
+        [ filename := filename
+        ]);
+
+    RECORD newfile := [ id :=           id
+                      , link :=         link
+                      , data :=         data
+                      , modtime :=      GetCurrentDatetime()
+                      , mimetype :=     mimetype
+                      , filename :=     filename
+                      , disposition :=  "inline"
+                      ];
+    INSERT newfile INTO this->pvt_embeddedfiles AT RecordUpperBound(this->pvt_embeddedfiles, newfile, ["ID"]);
+    RETURN link;
+  }
+
+  PUBLIC MACRO RemoveDownload(STRING dellink)
+  {
+    DELETE
+      FROM this->pvt_embeddedfiles
+     WHERE link = dellink;
+  }
+
+  PUBLIC RECORD FUNCTION GetDownloadByURL(STRING link)
+  {
+    RETURN
+        SELECT data
+             , mimetype
+          FROM this->pvt_embeddedfiles
+         WHERE COLUMN link = VAR link;
+  }
+
+  PUBLIC MACRO ResetDownloads()
+  {
+    this->pvt_embeddedfiles := DEFAULT RECORD ARRAY;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION LookupDownloadFromKeeper(RECORD data)
+  {
+    IF (CellExists(data, "T") AND data.t = "embed")
+    {
+      RECORD pos := RecordLowerBound(this->pvt_embeddedfiles, [ id := data.i ], [ "ID" ]);
+      IF (pos.found)
+        RETURN this->pvt_embeddedfiles[pos.position];
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumFileDropAccepter
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// For accepting file uploads
+  RECORD ARRAY uploads;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Uploads and downloads
+  //
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION PrepareUpload(RECORD incoming)
+  {
+    STRING token := GenerateUFS128BitId();
+    RECORD rec :=
+        [ token :=  token
+        , data :=   [ data := incoming.data
+                    , mimetype := incoming.mimetype
+                    , filename := incoming.filename
+                    ]
+        ];
+
+    INSERT rec INTO this->uploads AT RecordLowerBound(this->uploads, rec, [ "TOKEN" ]).position;
+    RETURN [ token ];
+  }
+
+  UPDATE RECORD FUNCTION ProcessUpload(RECORD msgdata)
+  {
+    FOREVERY (RECORD item FROM RECORD ARRAY(msgdata.items))
+      IF (item.type = "file")
+      {
+        RECORD pos := RecordLowerBound(this->uploads, item, [ "TOKEN" ]);
+        IF (pos.found)
+        {
+          msgdata.items[#item] := this->uploads[pos.position].data;
+          INSERT CELL type := "file" INTO msgdata.items[#item];
+          IF (CellExists(item, "name"))
+            msgdata.items[#item].filename := item.name;
+
+          INSERT CELL extradata := CellExists(item, "extradata") ? item.extradata : DEFAULT RECORD
+                    , fullpath := CellExists(item,"fullpath") ? item.fullpath : ""
+                 INTO msgdata.items[#item];
+          DELETE FROM this->uploads AT pos.position;
+        }
+      }
+    RETURN msgdata;
+  }
+
+>;
+
+/* Components extended by TolliumInvisibleComponent are always owned by the frame
+*/
+PUBLIC OBJECTTYPE TolliumSpecialComponent EXTEND TolliumComponentBase
+<
+  /** For special components, visibility is calculated per-component */
+  UPDATE BOOLEAN FUNCTION CalculateIsNowVisible()
+  {
+    RETURN FALSE;
+  }
+>;
+
+/* Internal component which serves as a proxy component to handle enableon/visibleon client-side */
+PUBLIC OBJECTTYPE TolliumProxyComponent EXTEND TolliumSpecialComponent
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// List of components to check
+  OBJECT ARRAY pvt_checkcomponents;
+
+  /// Component to pass enableon checks to
+  OBJECT pvt_passthrough;
+
+  RECORD ARRAY pvt_rows;
+
+  STRING ARRAY pvt_flags;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY passthrough(pvt_passthrough, SetPassthrough);
+
+  /// Additional rows (only when passthrough = DEFAULT OBJECT)
+  PUBLIC PROPERTY rows(pvt_rows, SetRows);
+
+  /// Additional flags (only when passthrough = DEFAULT OBJECT)
+  PUBLIC PROPERTY flags(pvt_flags, SetFlags);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium init
+  //
+
+  MACRO NEW()
+  {
+    this->componenttype := "proxy";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->pvt_passthrough := def.passthrough;
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ config := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    IF (Objectexists(this->pvt_passthrough))
+      RETURN this->pvt_passthrough->GetEnableOnComponent()->EnabledOn(min, max, flags, selectionmatch);
+
+    IF (LENGTH(this->pvt_rows) = 0 AND LENGTH(this->pvt_flags) = 0)
+    {
+      RECORD ARRAY rows;
+      STRING ARRAY rowflags;
+
+      FOREVERY (OBJECT checkcomponent FROM this->pvt_checkcomponents)
+        IF (checkcomponent->value)
+          INSERT checkcomponent->pvt_flags INTO rows AT END;
+
+      IF (LENGTH(rows) > 0)
+        rowflags := SELECT AS STRING ARRAY name FROM UnpackRecord(rows[0]);
+
+      RETURN CheckEnabledFlags(rows, rowflags, flags, min, max, selectionmatch);
+    }
+
+    RETURN CheckEnabledFlags(this->pvt_rows, this->pvt_flags, flags, min, max, selectionmatch);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overrides
+  //
+
+  UPDATE BOOLEAN FUNCTION CalculateIsNowVisible()
+  {
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetPassthrough(OBJECT newval)
+  {
+    IF (this->pvt_passthrough = newval)
+      RETURN;
+
+    this->pvt_passthrough := newval;
+    this->SetDirtyFlags([ config := TRUE ]);
+  }
+
+  MACRO SetRows(RECORD ARRAY rows)
+  {
+    this->pvt_rows := rows;
+    this->SetDirtyFlags([ config := TRUE ]);
+  }
+
+  MACRO SetFlags(STRING ARRAY flags)
+  {
+    this->pvt_flags := flags;
+    this->SetDirtyFlags([ config := TRUE ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO AddCheckComponent(OBJECT comp)
+  {
+    IF (comp NOT IN this->pvt_checkcomponents)
+    {
+      INSERT comp INTO this->pvt_checkcomponents AT END;
+      this->SetDirtyFlags([ config := TRUE ]);
+    }
+  }
+
+  PUBLIC MACRO RemoveCheckComponent(OBJECT comp)
+  {
+    IF (comp IN this->pvt_checkcomponents)
+    {
+      DELETE FROM this->pvt_checkcomponents AT SearchElement(this->pvt_checkcomponents, comp);
+      this->SetDirtyFlags([ config := TRUE ]);
+    }
+  }
+
+  PUBLIC MACRO ResetCheckComponents()
+  {
+    this->pvt_checkcomponents := DEFAULT OBJECT ARRAY;
+    this->SetDirtyFlags([ config := TRUE ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Communication
+  //
+
+  RECORD ARRAY FUNCTION RenderFlagRows()
+  {
+    RECORD ARRAY result;
+    FOREVERY (RECORD row FROM this->pvt_rows)
+    {
+      RECORD flags;
+      FOREVERY (STRING flag FROM this->pvt_flags)
+      {
+        IF (NOT CellExists(row, flag))
+          THROW NEW TolliumException(this, "Missing cell '" || EncodeJava(flag) || "' in row #" || #row);
+        VARIANT flagdata := GetCell(row, flag);
+        IF (TypeID(flagdata) != TypeID(BOOLEAN))
+          THROW NEW TolliumException(this, "Flag cell '" || EncodeJava(flag) || "' is not a BOOLEAN in row #" || #row);
+        flags := CellInsert(flags, flag, flagdata);
+      }
+      INSERT flags INTO result AT END;
+    }
+    RETURN result;
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD compinfo :=
+          [ checkcomponents :=    GetComponentNames(this->pvt_checkcomponents)
+          , passthrough :=        ObjectExists(this->pvt_passthrough) ? GetComponentName(this->pvt_passthrough->GetEnableOnComponent()) : ""
+          , rows :=               this->RenderFlagRows()
+          , usecheckcomponents := LENGTH(this->pvt_rows) = 0 AND LENGTH(this->pvt_flags) = 0
+          ];
+
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.config)
+      {
+        this->ToddUpdate(
+            [ type := "config"
+            , checkcomponents :=    GetComponentNames(this->pvt_checkcomponents)
+            , passthrough :=        ObjectExists(this->pvt_passthrough) ? GetComponentName(this->pvt_passthrough->GetEnableOnComponent()) : ""
+            , rows :=               this->RenderFlagRows()
+            , usecheckcomponents := LENGTH(this->pvt_rows) = 0 AND LENGTH(this->pvt_flags) = 0
+            ]);
+      }
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumLinkHandlerBase EXTEND TolliumComponentBase
+<
+  MACRO NEW()
+  {
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    this->TolliumComponentBase_StaticInit(def);
+  }
+
+  PUBLIC BOOLEAN FUNCTION TrySetValue(OBJECT rte, STRING inlink)
+  {
+    RETURN FALSE;
+  }
+  PUBLIC OBJECT ARRAY FUNCTION CreateComponents(OBJECT screen)
+  {
+    RETURN DEFAULT OBJECT ARRAY;
+  }
+  PUBLIC STRING FUNCTION GetValue(OBJECT rte)
+  {
+    THROW NEW Exception("TolliumRTELinkBase::GetValue not implemented"); //you'll need to override this
+  }
+  PUBLIC MACRO DestroyComponents()
+  {
+  }
+>;
+
+//FIXME should probably move this to a private library
+PUBLIC OBJECTTYPE TolliumLinesContainerBase EXTEND TolliumComponentBase
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  // Called recursively for panels with screen contents
+  PUBLIC RECORD ARRAY FUNCTION TolliumWebDoLines()
+  {
+    RECORD ARRAY outlines;
+
+    FOREVERY(RECORD line FROM ExplainLines(this, this->lines))
+    {
+      RECORD outline := [ layout   := line.isblock ? "block" : line.layout
+                        , title    := ObjectExists(line.linelabelfor) ? line.linetitle : ""
+                        , labelfor := GetComponentName(line.linelabelfor)
+                        , items    := DEFAULT RECORD ARRAY
+                        , height := line.height
+                        ];
+
+      FOREVERY(RECORD item FROM line.items)
+      {
+        IF(item.title != "" AND NOT line.isblock)
+          INSERT
+              [ title := item.title
+              , labelfor := GetComponentName(this->GetActiveComponent(item.obj->GetTitleForComponent()))
+              ] INTO outline.items AT END;
+        INSERT
+            [ item := item.obj->toddname
+            ] INTO outline.items AT END;
+      }
+      INSERT outline INTO outlines AT END;
+    }
+
+    RETURN outlines;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** @short Insert a set of lines before an existing component
+    @param lines Lines to insert
+    @param before Component whose line these lines should precede (use DEFAULT OBJECT to add the lines to the beginning of the panel) */
+  PUBLIC MACRO InsertLinesBefore(RECORD ARRAY lines, OBJECT before)
+  {
+    this->DoInsertLines(lines,before,FALSE);
+  }
+
+  /** @short Insert a set of lines after an existing component
+      @param lines Lines to insert
+      @param before Component whose line these lines should follow (use DEFAULT OBJECT to add the lines to the end of the panel) */
+  PUBLIC MACRO InsertLinesAfter(RECORD ARRAY lines, OBJECT after)
+  {
+    this->DoInsertLines(lines,after,TRUE);
+  }
+
+  /** @short Extract all lines
+      @long Remove all lines from this panel and return them, making them available for InsertLines */
+  PUBLIC RECORD ARRAY FUNCTION ExtractAllLines()
+  {
+    RECORD ARRAY returnlines := this->lines;
+    this->lines := DEFAULT RECORD ARRAY;
+
+    FOREVERY(RECORD line FROM returnlines)
+      FOREVERY(OBJECT item FROM line.items)
+        item->RemoveFromParent();
+
+    RETURN returnlines;
+  }
+
+  /** @short Insert a new component before an existing component
+    @param component Component to insert
+    @param before Component which this component should precede (use DEFAULT OBJECT to add the component to the beginning of the panel)
+    @param break_inbetween Insert a break after the newly created component */
+  PUBLIC MACRO InsertComponentBefore(OBJECT component, OBJECT before, BOOLEAN break_inbetween)
+  {
+    this->DoInsertComponent(component, before, break_inbetween, false);
+  }
+
+  /** @short Insert a new component after an existing component
+    @param component Component to insert
+    @param after Component which this component should follow (use DEFAULT OBJECT to add the component to the end of the panel)
+    @param break_inbetween Insert a break before the newly created component */
+  PUBLIC MACRO InsertComponentAfter(OBJECT component, OBJECT after, BOOLEAN break_inbetween)
+  {
+    this->DoInsertComponent(component, after, break_inbetween, true);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // Return the given component if it exists, is enabled and visible and not read-only
+  OBJECT FUNCTION GetActiveComponent(OBJECT comp)
+  {
+    //ADDME: Does not work with dynamically updated components, so disabled right now
+    RETURN ObjectExists(comp) /*AND comp->enabled AND comp->visible AND NOT comp->readonly*/ ? comp : DEFAULT OBJECT;
+  }
+
+  RECORD FUNCTION GetComponentPosition(OBJECT component)
+  {
+    FOREVERY(RECORD line FROM this->lines)
+      FOREVERY(OBJECT item FROM line.items)
+        IF(item = component)
+          RETURN [ line := #line, pos := #item ];
+
+    RETURN DEFAULT RECORD;
+  }
+
+  OBJECT FUNCTION GetComponentAfter(OBJECT component)
+  {
+    BOOLEAN next := FALSE;
+    FOREVERY(RECORD line FROM this->lines)
+      FOREVERY(OBJECT item FROM line.items)
+      {
+        IF (next)
+          RETURN item;
+        ELSE IF(item = component)
+          next := TRUE;
+      }
+    RETURN DEFAULT OBJECT;
+  }
+
+  MACRO DoInsertComponent(OBJECT component, OBJECT insertpos, BOOLEAN break_inbetween, BOOLEAN doafter)
+  {
+    //PRINT("Inserting component '"||component->name||"' after:"||(doafter?"yes":"no")|| " break:"||(break_inbetween?"yes":"no")||"\n");
+    //IF(component->name="youtubecomponent$textedit") ABORT("!");
+
+    IF(component = DEFAULT OBJECT)
+      THROW NEW TolliumException(this, "No component to insert has been specified");
+    IF(NOT (component EXTENDSFROM TolliumComponentBase))
+      THROW NEW TolliumException(this, "Only components deriving from TolliumComponentBase can be added to a panel");
+    IF(component->pvt_parent!=DEFAULT OBJECT)
+      THROW NEW TolliumException(this, "The component '" || component->name || "' you are trying to insert as a child of " || this->name || " has already been inserted into " || component->pvt_parent->name);
+    IF(component->owner=DEFAULT OBJECT)
+      THROW NEW TolliumException(this, "The component you are trying to insert has already been deleted");
+    IF(component->owner!=this->owner)
+      THROW NEW TolliumException(this, "The component you are trying to insert is not owned by the same screen as the panel receiving it");
+
+    OBJECT old_insertpos := insertpos;
+
+    // Adding subcomponents has some restrictions -> can only use supercomponent or its direct subcomponents as insertpos
+    IF (component->supercomponent != DEFAULT OBJECT AND this = component->supercomponent->pvt_parent)
+    {
+      OBJECT supercomponent := component->supercomponent;
+
+      IF (insertpos = DEFAULT OBJECT)
+      {
+        // insertpos is default: use positioning relative to supercomponent ('insert before' inserts just after supercomponent, 'insert after' inserts after last subcomponent)
+        IF (doafter)
+        {
+          // after: insert after last subcomponent (and it's subcomponents, recursive)
+          insertpos := supercomponent;
+
+          // Return last component (starting at first after supercomponent) that is a (recursive) subcomponent. Insert after that one.
+          OBJECT ARRAY subs := supercomponent->GetSubcomponentsRecursive();
+          WHILE (TRUE)
+          {
+            OBJECT next := this->GetComponentAfter(insertpos);
+            IF (next = DEFAULT OBJECT OR next NOT IN subs)
+              BREAK;
+            insertpos := next;
+          }
+        }
+        ELSE
+        {
+          // Insert before default means insert just after the supercomponent.
+          doafter := TRUE;
+          insertpos := supercomponent;
+        }
+      }
+      ELSE
+      {
+        IF (insertpos != supercomponent AND
+                insertpos NOT IN supercomponent->subcomponents AND
+                this NOT IN supercomponent->subcomponents)
+          THROW NEW TolliumException(this, "When inserting subcomponents, you may only refer to the supercomponent or it's subcomponents as insert location");
+
+        IF (doafter)
+        {
+          // When inserting after a component, skip all of it's subcomponents.
+          OBJECT ARRAY subs := insertpos->GetSubcomponentsRecursive();
+          WHILE (TRUE)
+          {
+            OBJECT next := this->GetComponentAfter(insertpos);
+            IF (next = DEFAULT OBJECT OR next NOT IN subs)
+              BREAK;
+            insertpos := next;
+          }
+        }
+      }
+
+      // Record the new position of the subcomponent
+      supercomponent->SetSubcomponentPosition(component, insertpos, doafter, break_inbetween);
+    }
+    ELSE
+    {
+      // Not a subcomponent: skip all subcomponents of insertpos if inserting after
+      IF (insertpos != DEFAULT OBJECT AND doafter AND LENGTH(insertpos->subcomponents) > 0)
+      {
+        OBJECT ARRAY subs := insertpos->GetSubcomponentsRecursive();
+        WHILE (TRUE)
+        {
+          OBJECT next := this->GetComponentAfter(insertpos);
+          IF (next = DEFAULT OBJECT OR next NOT IN subs)
+            BREAK;
+          insertpos := next;
+        }
+      }
+    }
+
+//PRINT(" Supercomponent: " || (component->supercomponent != DEFAULT OBJECT ? "'"||component->supercomponent->name||"'": "none") || "\n");
+//PRINT(" Old insertpos: " || (old_insertpos != DEFAULT OBJECT ? "'"||old_insertpos->name||"'": "none") || "\n");
+//PRINT(" New insertpos: " || (insertpos != DEFAULT OBJECT ? "'"||insertpos->name||"'": "none") || "\n");
+//PRINT(" Current lines: \n");
+//FOREVERY (RECORD rec FROM this->lines)
+//{
+//  STRING ARRAY s;
+//  FOREVERY (OBJECT o FROM rec.items) INSERT o->name INTO s AT END;
+//  PRINT("  Line "||RIGHT("00"||#rec,3)||": Layout: "||rec.layout ||" items: "||Detokenize(s, ", ")||"\n");
+//}
+
+    INTEGER linenum, objpos;
+    IF(ObjectExists(insertpos))
+    {
+      RECORD pos := this->GetComponentPosition(insertpos);
+      IF(NOT RecordExists(pos))
+      {
+        IF (ObjectExists(insertpos->parentpanel))
+        {
+          IF (insertpos->parentpanel != this)
+            THROW NEW TolliumException(this, "Cannot insert component '" || component->name || "' into panel '" || this->name || "' at insert position '" || insertpos->name || "': the insert position is child of panel '" || insertpos->parentpanel->name || "')");
+          ELSE
+            THROW NEW TolliumException(this, "Cannot insert component '" || component->name || "' into panel '" || this->name || "' at insert position '" || insertpos->name || "': the insert component is not found in the panel lines'");
+        }
+        ELSE
+          THROW NEW TolliumException(this, "Component '" || insertpos->name || "' is not part of this panel (" || this->name || ")");
+      }
+
+      linenum := pos.line;
+      objpos := pos.pos;
+    }
+    ELSE IF(doafter AND Length(this->lines)>0) //there are lines..
+    {
+      linenum := Length(this->lines)-1;
+      objpos := Length(this->lines[linenum].items)-1;
+      IF(objpos<0)
+        objpos:=0;
+    }
+
+    IF(break_inbetween AND Length(this->lines)>0)
+    {
+      IF(doafter)
+      {
+        //Create a new line. All items following our insert position should be moved here too
+        RECORD orgline := this->lines[linenum];
+        RECORD newline := [ items := [component] CONCAT ArraySlice(orgline.items, objpos+1, Length(orgline.items) - (objpos+1))
+                          , linesettings := this->lines[linenum].linesettings
+                          ];
+        this->lines[linenum].items := ArraySlice(orgline.items, 0, objpos+1);
+        INSERT newline INTO this->lines AT linenum+1; //insert the new line behind the original line
+      }
+      ELSE
+      {
+        //Create a new line, all items before our insert position shuld be moved here too
+        RECORD orgline := this->lines[linenum];
+        RECORD newline := [ items := ArraySlice(orgline.items, 0, objpos) CONCAT [component]
+                          , linesettings := this->lines[linenum].linesettings
+                          ];
+        this->lines[linenum].items := ArraySlice(orgline.items, objpos);
+        INSERT newline INTO this->lines AT linenum; //insert the new line before the original line
+      }
+    }
+    ELSE
+    {
+      IF(Length(this->lines)=0)
+        INSERT [ items := DEFAULT OBJECT ARRAY
+               , linesettings := [ layout := this->layout
+                                 ]
+               ] INTO this->lines AT END;
+      INSERT component INTO this->lines[linenum].items AT (doafter AND Length(this->lines[linenum].items)>0) ? objpos + 1 : objpos;
+    }
+
+//PRINT(" New lines: \n");
+//FOREVERY (RECORD rec FROM this->lines)
+//{
+//  STRING ARRAY s;
+//  FOREVERY (OBJECT o FROM rec.items) INSERT o->name INTO s AT END;
+//  PRINT("  Line "||RIGHT("00"||#rec,3)||": Layout: "||rec.layout ||" items: "||Detokenize(s, ", ")||"\n");
+//}
+//PRINT("\n");
+
+    component->pvt_parent := this;
+    component->RecursiveUpdateIsNowVisible();
+
+    // Also insert all subcomponents (but not those already inserted or special once)
+    // Do that before init, it might insert the components again
+    FOREVERY (RECORD rec FROM component->pvt_subcomponents)
+      IF (NOT ObjectExists(rec.comp->pvt_parent) AND rec.comp NOT EXTENDSFROM TolliumSpecialComponent)
+        this->DoInsertComponent(rec.comp, DEFAULT OBJECT, rec.has_break, TRUE);
+
+    this->TolliumHandleAfterInsert();
+  }
+
+  MACRO DoInsertLines(RECORD ARRAY lines, OBJECT insertpos, BOOLEAN doafter)
+  {
+    INTEGER linenum;
+
+    IF(ObjectExists(insertpos))
+    {
+      RECORD pos := this->GetComponentPosition(insertpos);
+      IF(NOT RecordExists(pos))
+        IF(ObjectExists(insertpos->parentpanel))
+          THROW NEW TolliumException(this, "Component " || insertpos->name || " is part of panel " || insertpos->parentpanel->name || " , not part of this panel (" || this->name || ")");
+        ELSE
+          THROW NEW TolliumException(this, "Component " || insertpos->name || " is not part of this panel (" || this->name || ")");
+      linenum := pos.line + (doafter ? 1 : 0);
+    }
+    ELSE
+    {
+      linenum := doafter ? Length(this->lines) : 0;
+    }
+
+    FOREVERY(RECORD line FROM lines)
+    {
+      RECORD linesettings := [ layout := CellExists(line,'layout') ? line.layout : ""
+                             ];
+
+      IF(CellExists(line,'linesettings'))
+        line.linesettings := MakeUpdatedRecord(linesettings, line.linesettings);
+      ELSE
+        INSERT CELL linesettings := linesettings INTO line;
+
+      INSERT line INTO this->lines AT linenum + #line;
+    }
+
+    FOREVERY(RECORD line FROM lines)
+      FOREVERY(OBJECT item FROM line.items)
+      {
+        item->pvt_parent := this;
+        item->RecursiveUpdateIsNowVisible();
+      }
+
+    this->TolliumHandleAfterInsert();
+  }
+
+>;
+
+PUBLIC OBJECTTYPE TolliumExtendableLinesContainerBase EXTEND TolliumLinesContainerBase
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Extra components to offer to extensions
+  PUBLIC RECORD ARRAY extendcomponents;
+
+  /// Extra handlers to offer to extensions
+  PUBLIC RECORD ARRAY extendhandlers;
+
+  /** @return The component. Can still be a DEFAULT OBJECT if nothing was inserted!  */
+  PUBLIC OBJECT FUNCTION GetExtendComponent(STRING objname)
+  {
+    RECORD hit := SELECT * FROM this->extendcomponents WHERE ToUppercase(name)=ToUppercase(objname);
+    IF(NOT RecordExists(hit))
+      THROW NEW Exception(`No extendcompontent '${objname}' available to this extension`);
+    RETURN hit.component;
+  }
+>;
+
+/** @short Base class for custom column types. Extend from this class if you want
+    to create one.
+*/
+PUBLIC OBJECTTYPE TolliumListColumnBase
+<
+  PUBLIC OBJECT list;
+
+  PUBLIC STRING FUNCTION GetComponentIdentification()
+  {
+    //ADDME: Column-specific identification?
+    RETURN this->list->GetComponentIdentification();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions to override
+  //
+
+
+
+  /** @short Called when the column is created
+      @param colinfo Column record
+  */
+  PUBLIC MACRO SetupColumn(RECORD colinfo)
+  {
+  }
+
+
+  /** @short Called after setup with the data for this object
+      @param data Data passed in customtype.data
+  */
+  PUBLIC MACRO StaticColumnInit(RECORD data)
+  {
+  }
+
+
+  /** @short Translates a value to value expected by for the base type of this column (eg integers for type 'integer',
+      records for type 'image'.
+      @param invalue Value present in the row for this column
+  */
+  PUBLIC VARIANT FUNCTION TranslateValue(VARIANT invalue)
+  {
+    RETURN invalue;
+  }
+
+
+  /** @short Must return the (HareScript) type of expected input to TranslateValue
+  */
+  PUBLIC INTEGER FUNCTION GetExpectedInputType()
+  {
+    RETURN 0;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE TolliumEventListenerBase EXTEND TolliumSpecialComponent
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Mask to listen to
+      @cell callbackid
+      @cell mask
+  */
+  RECORD ARRAY pvt_masks;
+
+  /// Whether to defer events (events received before staticinit are deferred, and handled at postinit)
+  BOOLEAN defer_events;
+
+  /** List of pending events
+      @cell event
+      @cell(record array) data
+  */
+  RECORD ARRAY pvt_pending;
+
+  /// minimum interval between grouped calls to onevent
+  INTEGER pvt_groupinterval;
+
+  /// Last time events were fired
+  DATETIME lasteventfire;
+
+  /// Timed callback for interval
+  INTEGER intervalcb;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** LIKE-masks for events to listen on. Reordered and made distinct upon set.
+  */
+  PUBLIC PROPERTY masks(GetMasks, SetMasks);
+
+  /** Minimum interval between groups of callbacks
+  */
+  PUBLIC PROPERTY groupinterval(pvt_groupinterval, SetMinInterval);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_invisibletitle := TRUE;
+    this->componenttype := "eventlistener";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumComponentBase::StaticInit(definition);
+
+    // Defer delivery until postinit when created via static definition
+    this->defer_events := TRUE;
+
+    this->pvt_groupinterval := definition.groupinterval;
+  }
+
+  UPDATE MACRO PostInitComponent() //FIXME preshow would be better but does not get invoked for specialcomponents
+  {
+    // Fire all deferred events
+    this->defer_events := FALSE;
+    this->FirePendingEvents();
+  }
+
+  UPDATE PUBLIC MACRO DeleteComponent()
+  {
+    this->OnUnloadComponent();
+    TolliumComponentBase::DeleteComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  UPDATE STRING ARRAY FUNCTION GetMasks()
+  {
+    RETURN SELECT AS STRING ARRAY mask FROM this->pvt_masks;
+  }
+
+  UPDATE MACRO SetMasks(STRING ARRAY masks)
+  {
+    // List of masks
+    RECORD ARRAY newmasks := SELECT mask, callbackid := 0 FROM ToRecordArray(masks, "MASK") GROUP BY mask ORDER BY mask;
+
+    FOREVERY (RECORD mask FROM newmasks)
+    {
+      RECORD pos := RecordLowerBound(this->pvt_masks, mask, [ "MASK" ]);
+      IF (pos.found)
+      {
+        newmasks[#mask] := this->pvt_masks[pos.position];
+        DELETE FROM this->pvt_masks AT pos.position;
+      }
+      ELSE
+        newmasks[#mask].callbackid := RegisterMultiEventCallback(mask.mask, PTR this->GotEvent, [ eventmetadata := TRUE ]);
+    }
+
+    FOREVERY (RECORD mask FROM this->pvt_masks)
+      UnregisterCallback(mask.callbackid);
+
+    this->pvt_masks := newmasks;
+
+    // Remove pending events that do not match anymore
+    DELETE FROM this->pvt_pending WHERE NOT this->MatchesMasks(event);
+  }
+
+  MACRO SetMinInterval(INTEGER newvalue)
+  {
+    this->pvt_groupinterval := newvalue;
+    IF (this->intervalcb != 0)
+    {
+      UnregisterCallback(this->intervalcb);
+
+      DATETIME nextfire := AddTimeToDate(this->pvt_groupinterval, this->lasteventfire);
+      this->intervalcb := RegisterTimedCallback(nextfire, PTR this->GotIntervalEnd);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  UPDATE PUBLIC MACRO OnUnloadComponent()
+  {
+    FOREVERY (RECORD mask FROM this->pvt_masks)
+      UnregisterCallback(mask.callbackid);
+    this->pvt_masks := DEFAULT RECORD ARRAY;
+    TolliumSpecialComponent::OnUnloadComponent();
+  }
+
+  MACRO GotEvent(STRING event, RECORD ARRAY data)
+  {
+    BOOLEAN issync := RecordExists(SELECT FROM data WHERE issynchronous);
+    INSERT [ event := event, data := (SELECT AS RECORD ARRAY msg FROM data) ] INTO this->pvt_pending AT END;
+
+    IF (NOT this->defer_events)
+    {
+      IF(issync)
+        this->lasteventfire := DEFAULT DATETIME; //ensure events get processed immediately, as sync events cannot wait
+      IF(this->intervalcb = 0 OR issync)
+        this->FirePendingEvents(); //see if we need to set a schedule or process the events
+    }
+  }
+
+  MACRO GotIntervalEnd()
+  {
+    this->intervalcb := 0;
+    this->FirePendingEvents();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO FirePendingEvents()
+  {
+    DATETIME now := GetCurrentDateTime();
+
+    IF(this->intervalcb != 0) //still had a callback pending
+    {
+      UnregisterCallback(this->intervalcb);
+      this->intervalcb := 0;
+    }
+
+    DATETIME nextfire := AddTimeToDate(this->pvt_groupinterval, this->lasteventfire);
+    IF (nextfire > now)
+    {
+      IF (this->intervalcb = 0)
+        this->intervalcb := RegisterTimedCallback(nextfire, PTR this->GotIntervalEnd);
+
+      RETURN;
+    }
+    IF(NOT this->enabled)
+    {
+      this->pvt_pending := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    // Fire all deferred events
+    BOOLEAN have_pending := LENGTH(this->pvt_pending) != 0;
+
+    IF (have_pending)
+      this->lasteventfire := now;
+
+    RECORD ARRAY pendingevents;
+    FOREVERY (RECORD rec FROM this->pvt_pending)
+      FOREVERY (RECORD data FROM rec.data)
+        INSERT [ event := rec.event, data := data ] INTO pendingevents AT END;
+    this->pvt_pending := DEFAULT RECORD ARRAY;
+    IF(length(pendingevents)=0)
+      RETURN;
+
+    // Block events when processing new events
+    this->defer_events := TRUE;
+    TRY
+    {
+      this->ProcessEvents(pendingevents);
+    }
+    FINALLY
+    {
+      this->defer_events := FALSE;
+    }
+  }
+
+  BOOLEAN FUNCTION MatchesMasks(STRING event)
+  {
+    FOREVERY (RECORD mask FROM this->pvt_masks)
+      IF (event LIKE mask.mask)
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  MACRO ProcessEvents(RECORD ARRAY events)
+  {
+    THROW NEW Exception("ProcessEvents not overridden");
+  }
+>;

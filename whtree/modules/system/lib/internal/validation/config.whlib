@@ -1,0 +1,80 @@
+<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+
+
+PUBLIC RECORD validationoptions := [ perfectcompile := FALSE
+                                   , nomissingtids := FALSE
+                                   , nowarnings := FALSE
+                                   , documentation := FALSE
+                                   , eslintmasks := STRING[]
+                                   ];
+
+/** Returns the validation configuration for a module
+    @param modname Name of the module
+    @return Validation configuration for the specified module
+    @cell(record array) return.excludemasks List of masks for files to exclude from validation
+    @cell(boolean) return.futuremodule Contains TRUE when this module isn't allowed to run on this webhare installation
+    @cell(string) return.futuremodulewhy Explains why the module isn't allowed to run on this webhare installation
+    @cell(boolean) return.perfectcompile Whether to fail validation when any harescript file has a warning
+    @cell(boolean) return.nomissingtids Whether to fail validation when any tids are missing
+    @cell(boolean) return.nowarnings Whether to fail validation when any warnings are found
+    @cell(boolean) return.documentation Whether to validate documentation
+    @cell(string array) return.eslintmasks List of masks for files to validate with eslint
+    @topic testframework/validation
+    @public
+    @loadlib mod::system/lib/validation.whlib
+*/
+PUBLIC RECORD FUNCTION GetModuleValidationConfig(STRING modname)
+{
+  RECORD retval := [ excludemasks := RECORD[]
+                   , futuremodule := FALSE
+                   , futuremodulewhy := ""
+                   , ...validationoptions
+                   ];
+
+  IF (modname = "")
+    RETURN retval;
+
+  //parse the moduledef and get any exclusions
+  OBJECT moduledef := GetModuleDefinitionXML(modname);
+  OBJECT validation := moduledef->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "validation")->Item(0);
+  IF(Objectexists(validation))
+  {
+    //ADDME warn or fail about unknown options to prevent typos? but only if we know we are 'develop' and have perfect knowledge of acceptable options
+    //Document options here in moduledefinition.xsd
+    STRING ARRAY options := ParseXSList(validation->GetAttribute("options"));
+    retval.perfectcompile := "perfectcompile" IN options;
+    retval.nomissingtids := "nomissingtids" IN options;
+    retval.nowarnings := "nowarnings" IN options;
+
+    FOREVERY(OBJECT excl FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "exclude")->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(excl))
+        CONTINUE;
+      INSERT [ mask := TrimWhitespace(excl->GetAttribute("mask"))
+             , why := excl->GetAttribute("why")
+             , permanent := ParseXSBoolean(excl->GetAttribute("permanent"))
+             ] INTO retval.excludemasks AT END;
+    }
+
+    FOREVERY(OBJECT excl FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "eslint")->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(excl))
+        CONTINUE;
+      INSERT TrimWhitespace(excl->GetAttribute("mask")) INTO retval.eslintmasks AT END;
+    }
+  }
+
+  OBJECT packaging := moduledef->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "packaging")->Item(0);
+  IF(Objectexists(packaging))
+  {
+    retval.futuremodulewhy := GetApplicabilityError(GetMyApplicabilityInfo(), ReadApplicableToWebHareNode(packaging));
+    retval.futuremodule := retval.futuremodulewhy != "";
+  }
+
+  RETURN retval;
+}

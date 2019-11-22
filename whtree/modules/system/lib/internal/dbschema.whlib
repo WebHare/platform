@@ -1,0 +1,383 @@
+<?wh
+LOADLIB "wh::dbase/transaction.whlib";
+
+
+/** System database schema
+    @schemadef system
+*/
+PUBLIC SCHEMA
+  < TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , INTEGER "parent" NULL := 0
+    , DATETIME "creationdate"
+    , DATETIME "deletiondate"
+    , INTEGER "type"
+    , STRING "guid"
+    ; KEY id
+    > authobjects
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "role" NULL := 0
+    , INTEGER "grantee" NULL := 0
+    , INTEGER "grantor" NULL := 0
+    , DATETIME "creationdate"
+    , STRING "comment"
+    , STRING "grantordata"
+    ; KEY id
+    > rolegrants
+  , TABLE
+    < INTEGER "id"
+    , STRING "mimetype"
+    , STRING "extension"
+    , INTEGER "parsetype"
+    , BOOLEAN "forcedispositionattachment"
+    ; KEY id
+    > mimetypes
+  , TABLE
+    < INTEGER "id"
+    , STRING "ip"
+    , INTEGER "port"
+    , BOOLEAN "virtualhost"
+    , INTEGER "keypair" NULL := 0
+    , STRING "description"
+    ; KEY id
+    > ports
+  , TABLE
+    < INTEGER "id"
+    , STRING "url"
+    , STRING "password"
+    , STRING "description"
+    , STRING "proxy_ips"
+    , STRING "status"
+    , STRING "reverseaddress"
+    , DATETIME "lastregistration"
+    , BLOB "registrationresultdata"
+    , STRING "lasterror"
+    , STRING "hostswhitelist"
+    ; KEY id
+    > proxies
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "type"
+    , STRING "diskfolder"
+    , STRING "baseurl"
+    , STRING "outputextension"
+    , INTEGER "port" NULL := 0
+    , INTEGER parent NULL := 0
+    , STRING title
+    , DATETIME "lastseen"
+    , DATETIME "lastcheck"
+    , STRING "lastcheckerror"
+    , INTEGER "stricttransportsecurity"
+    ; KEY id
+    > webservers
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "webserver" NULL := 0
+    , STRING "path"
+    , STRING "description"
+    , BOOLEAN "disablecaching"
+    , INTEGER "matchtype"
+    , STRING "errorpath"
+    , INTEGER "authtype"
+    , BOOLEAN "authrequirement"
+    , INTEGER "hostingsrc"
+    , STRING "hostingpath"
+    , BOOLEAN "authlist"
+    , STRING "authscript"
+    , INTEGER 'redirectcode'
+    , BOOLEAN fixcase
+    , INTEGER maxage
+    , INTEGER applysource NULL := 0
+    , BOOLEAN disabled
+    ; KEY id
+    > access
+  , TABLE
+    < INTEGER "accessid" NULL := 0
+    , STRING "mask"
+    , BOOLEAN "is_allow"
+    > access_ips
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "webserver" NULL := 0
+    , STRING "hostname"
+    , BOOLEAN "explicit"
+    , DATETIME "lastseen"
+    , DATETIME "lastcheck"
+    , STRING "lastcheckerror"
+    ; KEY id
+    > webservers_aliases
+  , TABLE
+    < INTEGER "accessid" NULL := 0
+    , STRING "username"
+    , STRING "userpassword"
+    , STRING "description"
+    > access_externalusers
+  , TABLE
+    < INTEGER 'id'
+    , DATETIME creationdate
+    , DATETIME nextattempt
+    , DATETIME finished
+    , STRING tasktype
+    , INTEGER workertype
+    , STRING taskdata
+    , BLOB auxdata
+    , STRING lasterrors
+    , STRING stacktrace
+    , STRING shortretval
+    , BLOB longretval
+    , INTEGER iterations
+    , BOOLEAN "iscancelled"
+    , INTEGER failures
+    , INTEGER priority
+    ; KEY id
+    > managedtasks
+  , TABLE
+    < INTEGER id
+    , INTEGER task NULL := 0
+    , STRING metakey
+    , STRING metavalue
+    ; KEY id
+    > managedtasksmeta
+  , TABLE
+    < INTEGER "id"
+    , BOOLEAN "autoadded"
+    , BOOLEAN "enabled"
+    , STRING "description"
+    , STRING "script"
+    , DATETIME "currentstart"
+    , DATETIME "lastrun"
+    , DATETIME "nexttime"
+    , STRING "tag"
+    , STRING "parameters"
+    , INTEGER "repeatcount"
+    , BOOLEAN "runatstartup"
+    , INTEGER "repeatinterval"
+    , INTEGER "repeatintervaltype"
+    , STRING "error"
+    , INTEGER "workerthreads"
+    , INTEGER "timeout"
+    , STRING "inapplicable"
+    ; KEY id
+    > tasks
+  , TABLE
+    < INTEGER "id"
+    , STRING "tag"
+    , STRING "mask"
+    , STRING "sendermask"
+    , STRING "serverurl"
+    , INTEGER "ordering"
+    , STRING "outgoingmailaddress"
+    , BOOLEAN "outgoingaddressrewrite"
+    , STRING "description"
+    , STRING "originmask"
+    , INTEGER "ruletype"
+    , INTEGER "suggestionfuzz"
+    ; KEY id
+    > mailqueue_route
+  , TABLE
+    < INTEGER "id"
+    , STRING "foldername"
+    , STRING "diskfolder"
+    , BOOLEAN "forcelowercase"
+    ; KEY id
+    > webdav_datafolders
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , STRING "namehash" __ATTRIBUTES__(BINARY)
+    , STRING "nodehash" __ATTRIBUTES__(BINARY)
+    , STRING "data"
+    , BLOB "blobdata"
+    , DATETIME "modificationdate"
+    ; KEY id
+    > flatregistry
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , DATETIME "modificationdate"
+    ; KEY id
+    > modules
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , STRING "tablename"
+    , STRING "storagetable"
+    , INTEGER "module" NULL := 0
+    , STRING "primarykey"
+    , STRING "parentfield"
+    , STRING "describer"
+    , STRING "icon"
+    ; KEY id
+    > module_objecttypes
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , INTEGER "objtype" NULL := 0
+    , INTEGER "module" NULL := 0
+    ; KEY id
+    > module_rights
+
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "right" NULL := 0
+    , INTEGER "impliedby" NULL := 0
+    , STRING "fieldname"
+    ; KEY id
+    > module_impliedbys
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "namespace"
+    , BOOLEAN "isfoldertype"
+    , BOOLEAN "isfiletype"
+    , BOOLEAN "cloneoncopy"
+    , BOOLEAN "orphan"
+    , BOOLEAN "isacceptableindex"
+    , BOOLEAN "needstemplate"
+    , BOOLEAN "needsprofile"
+    , BOOLEAN "ispublishedassubdir"
+    , BOOLEAN "isdynamicexecution"
+    , BOOLEAN "ispublishable"
+    , BOOLEAN "generatepreview"
+    , BOOLEAN "capturesubpaths"
+    , STRING "previewlibrary"
+    , STRING "previewobjectname"
+    , STRING "searchprovider"
+    ; KEY id
+    > fs_types
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , INTEGER "fs_type" NULL := 0
+    , INTEGER "type"
+    , BOOLEAN "publish"
+    , BOOLEAN "orphan"
+    , INTEGER "parent" NULL := 0
+    ; KEY id
+    > fs_members
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "fs_instance" NULL := 0
+    , INTEGER "fs_member" NULL := 0
+    , STRING "setting"
+    , BLOB "blobdata"
+    , INTEGER "fs_object" NULL := 0
+    , INTEGER "parent" NULL := 0
+    , INTEGER "instancetype" NULL := 0
+    , INTEGER "ordering"
+    ; KEY id
+    > fs_settings
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "fs_type" NULL := 0
+    , INTEGER "fs_object" NULL := 0
+    ; KEY id
+    > fs_instances
+  , TABLE
+    < INTEGER id
+    , INTEGER fs_object NULL := 0
+    , INTEGER user NULL := 0
+    , INTEGER type
+    , DATETIME when
+    , INTEGER currentparent NULL := 0
+    , STRING currentname
+    ; KEY id
+    > fs_history
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "fs_site" NULL := 0
+    , DATETIME "when"
+    , INTEGER "live_object" NULL := 0
+    , INTEGER "draft_object" NULL := 0
+    , INTEGER "user" NULL := 0
+    , STRING "comment"
+    , STRING "tag"
+    , INTEGER "eventtype"
+    , BOOLEAN "iscurrent"
+    , INTEGER "ordering"
+    , STRING "orgfullpath"
+    , STRING "orgurl"
+    , STRING "newfullpath"
+    , STRING "newurl"
+    , BOOLEAN "isdelete"
+    , INTEGER "newflags"
+    , DATETIME "finished"
+    , INTEGER "previousrequest" NULL := 0
+    , STRING "versionnumber"
+    , DATETIME "expirydate"
+    ; KEY id
+    > fs_versionevents
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "module" NULL := 0
+    , STRING "name"
+    , STRING "descriptiontid"
+    , BOOLEAN "defaultenabled"
+    ; KEY id
+    > towl_notifications
+
+  , TABLE
+    < INTEGER id
+    , INTEGER owner NULL := 0
+    , STRING pathhash __ATTRIBUTES__(BINARY)
+    , STRING path
+    , DATETIME created
+    , INTEGER type
+    , BLOB data
+    ; KEY id
+    > webdav_diversions
+
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "webserver" NULL := 0
+    , DATETIME "time"
+    , INTEGER "hits"
+    , INTEGER "serverfails"
+    , INTEGER "clientfails"
+    , INTEGER "highpagetime"
+    , INTEGER "failips"
+    , INTEGER64 "download"
+    , INTEGER64 "upload"
+    , INTEGER64 "sumpagetime"
+    ; KEY id
+    > "webservers_usage"
+
+  , TABLE
+    < INTEGER 'id'
+    , DATETIME 'created'
+    , DATETIME 'lastuse'
+    , STRING 'designfolder'
+    , STRING 'entrypoint'
+    , STRING 'bundleconfig'
+    , STRING 'outputtag'
+    ; KEY id
+    > assetpacks
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "hash"
+    , STRING "func"
+    , STRING "state"
+    , STRING "keydatahsonstr"
+    , BLOB "keydatahsonblob"
+    , STRING "valuehsonstr"
+    , BLOB "valuehsonblob"
+    , STRING "settingshsonstr"
+    , DATETIME "lastuse"
+    ; KEY id
+    > precalccache
+
+  > system_internal;
+
+MACRO BindSystemInternalTables(INTEGER transaction)
+{
+  system_internal := BindTransactionToSchema(transaction, "system");
+}
+
+SetupPrimaryTransactionBinder(PTR BindSystemInternalTables);

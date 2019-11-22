@@ -1,0 +1,6 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+OpenPrimary();
+TryUserLogin("RPC");

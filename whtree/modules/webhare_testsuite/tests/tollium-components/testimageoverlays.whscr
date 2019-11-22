@@ -1,0 +1,14 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+ASYNC MACRO TestImageOverlays()
+{
+  OBJECT screen := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+                                                   [ component := "image"
+                                                   ]);
+  screen->comp->flags := ["rood","wit","blauw"];
+}
+
+RunTestframework([ PTR TestImageOverlays
+                 ]);

@@ -1,0 +1,467 @@
+<?wh
+/** @topic publisher-apps/tollium
+*/
+
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/tolliumapps/filemanager/objecteditor.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+/** Run the tag manager
+    @param parentscreen Screen invoking us
+    @param tagfolder Tag folder
+    @param options Options
+*/
+PUBLIC MACRO RunManageTagsDialog(OBJECT parentscreen, INTEGER tagfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+  parentscreen->RunScreen("mod::publisher/tolliumapps/tagmanager/tagmanager.xml#tagmanager", [ tagfolder := tagfolder ]);
+}
+
+/** Run the 'browse for object' dialog
+    @param parentscreen Screen invoking us
+    @cell(integer array) options.roots Root folders to show
+    @cell(string array) options.accepttypes List of acceptable WHFS types for selection
+    @return Selected object, or 0 if the dialog was cancelled */
+PUBLIC INTEGER FUNCTION RunBrowseForFSObjectDialog(OBJECT parentscreen, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ roots := INTEGER[]
+                              , accepttypes := STRING[]
+                              ], options, [ optional := ["roots"] ]);
+
+  OBJECT dialog := CreateBrowseForWHFSObjectDialog(parentscreen);
+
+  IF(CellExists(options,'roots'))
+  {
+    IF(Length(options.roots) = 0)
+      THROW NEW Exception("List of root folders to show is empty");
+
+    dialog->roots := options.roots;
+  }
+
+  dialog->accepttypes := options.accepttypes;
+  IF (dialog->RunModal() = "ok")
+    RETURN dialog->value;
+
+  RETURN 0;
+}
+
+/** Run the 'create new object' flow
+    @long This function invokes the standard 'new object' flow (which currently starts with a type selection and then runs the objectproperties dialog)
+    @param parentscreen Screen invoking us
+    @param parentfolder Folder which will receive the new object
+    @cell options.template If not 0, duplicate this object. (isfolder and type options are ignored)
+    @cell options.issite If true, create a site
+    @cell options.isfolder If true, create a folder
+    @cell options.type Type to create. If not set, this flow may launch a 'select type' dialog
+    @return ID of the newly generated fsobject, 0 if creation was cancelled
+*/
+PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parentfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  //TODO should we fail or ignore if 'isfolder' is inconsistent with 'type' ?
+
+  //We will require 'isfolder' for now, but may drop that in the future if we're not going to require either
+  options := ValidateOptions([ isfolder := FALSE
+                             , issite := FALSE
+                             , type := 0
+                             , template := 0
+                             , __v2 := FALSE
+                             ], options, [ optional := [ "type" ], required := [ "isfolder" ] ]);
+
+  IF(options.issite AND NOT options.isfolder)
+    THROW NEW Exception("A site MUST be a folder");
+  IF(options.issite AND options.template != 0) //are you duplicating a site, cloning a non-site folder as a site, or... ? need use case
+    THROW NEW Exception("Site duplication is not supported");
+
+  INTEGER createtype, template;
+  IF(options.template != 0)
+  {
+    template := options.template;
+    createtype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = options.template;
+  }
+  ELSE IF(CellExists(options,'type'))
+  {
+    createtype := options.type;
+  }
+  ELSE IF(options.__v2)
+  {
+    RECORD sel := parentscreen->RunScreen("mod::publisher/tolliumapps/filemanager/types.xml#selecttype", [ parent := parentfolder ]);
+    IF(NOT RecordExists(sel))
+      RETURN 0;
+
+    createtype := sel.createtype;
+    template := sel.template;
+  }
+  ELSE IF(NOT options.issite)
+  {
+    //Then we'll need to trigger the Select Type flow
+    OBJECT typesdialog := parentscreen->LoadScreen("publisher:filemgrdialogs.selecttype", [ parent := parentfolder
+                                                                                          , foldertypes := options.isfolder
+                                                                                          ]);
+
+    IF (typesdialog->RunModal() != "ok")
+      RETURN 0;
+
+    createtype := typesdialog->selectedtype;
+    template := typesdialog->selectedtemplate;
+  }
+
+  OBJECT creationdialog := __CreateHistoryPropsDialog(parentscreen
+                                                     , [ why := template !=0 ? "duplicate" : options.issite ? "newsite" : options.isfolder ? "newfolder" : "newfile"
+                                                       , parentfolder := parentfolder
+                                                       , type := createtype
+                                                       , fsobj := template
+                                                       ], options.issite ? "publisher:commondialogs/siteprops.siteprops"
+                                                                         : "publisher:commondialogs/objectprops.objectprops");
+
+  IF(creationdialog->RunModal() != "ok")
+    RETURN 0;
+
+  RETURN creationdialog->objectid;
+}
+
+/** Run the 'delete object' flow
+    @param parentscreen Screen invoking us
+    @param fsobjects List of fsobjects to delete
+    @cell options.checkpins Prevent deletion of pinned objects. Defaults to TRUE
+    @cell options.confirm Request confirmation. Defaults to TRUE
+    @return True if the deletion succeeded
+*/
+PUBLIC BOOLEAN FUNCTION RunDeleteFSObjectsDialog(OBJECT parentscreen, INTEGER ARRAY fsobjects, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ confirm := TRUE
+                             , checkpins := TRUE
+                             ], options);
+
+  // Filter out all already deleted objects
+  RECORD ARRAY todelete := SELECT id
+                                , name
+                                , isfolder
+                                , inrecyclebin := IsRecycleBinWHFSPath(whfspath)
+                                , parentsite
+                                , published
+                                , ispinned
+                             FROM system.fs_objects
+                            WHERE id IN fsobjects;
+
+  IF (Length(todelete) = 0)
+    RETURN FALSE;
+
+  IF (options.checkpins AND RecordExists(SELECT FROM todelete WHERE ispinned))
+  {
+    STRING msg := Length(todelete) = 1 ? GetTid("publisher:filemanager.main.messageboxes.cannotdeletepinned")
+                                       : GetTid("publisher:filemanager.main.messageboxes.cannotdeletesomepinned");
+    parentscreen->RunSimpleScreen("error", msg);
+    RETURN FALSE;
+  }
+
+  // First, check if we are deleting any sites (we have to do this first, because we cannot ask for user confirmation
+  // while having a work open
+  RECORD ARRAY analysis := AnalyzeContents(SELECT AS INTEGER ARRAY ID FROM todelete);
+  IF(RecordExists(SELECT FROM analysis WHERE errorcode = "CONTAINSSITEOUTPUT"))
+  {
+    //The deletion cannot be carried out. Currently, this implies that any of the folders contain a site
+    STRING  sitenames := Detokenize((SELECT AS STRING ARRAY DISTINCT errordata
+                                            FROM analysis
+                                           WHERE errorcode="CONTAINSSITEOUTPUT"
+                                                 AND errordata != ""), "\n- ");
+    IF(Length(sitenames)>0)
+    {
+      parentscreen->RunSimpleScreen("error", GetTid("publisher:commondialogs.messageboxes.failrecyclefortheseoutputsites", "- " || sitenames || "\n"));
+    }
+    ELSE
+    {
+      parentscreen->RunSimpleScreen("error", GetTid("publisher:commondialogs.messageboxes.failrecycleforotheroutputsites"));
+    }
+    RETURN FALSE;
+  }
+
+  IF(options.confirm)
+  {
+    IF(RecordExists(SELECT FROM analysis WHERE errorcode = "CONTAINSSITEROOT"))
+    {
+      STRING deletesitenames := Detokenize((SELECT AS STRING ARRAY DISTINCT errordata
+                                              FROM analysis
+                                             WHERE errorcode="CONTAINSSITEROOT"
+                                                   AND errordata != ""), "\n- ");
+      STRING res;
+      IF(parentscreen->RunSimpleScreen("confirm", GetTid("publisher:commondialogs.messageboxes.recyclesitesconfirm", "- " || deletesitenames || "\n")) != "yes")
+        RETURN FALSE;
+    }
+    ELSE
+    {
+      STRING filename;
+      STRING foldername;
+      BOOLEAN anyactive := RecordExists(SELECT FROM todelete WHERE NOT inrecyclebin);
+      IF(Length(todelete)=1)
+      {
+        filename := todelete[0].isfolder ? "" : todelete[0].name;
+        foldername := todelete[0].isfolder ? todelete[0].name : "";
+      }
+
+      IF(anyactive)
+      {
+        IF (parentscreen->RunSimpleScreen("confirm", GetTid("publisher:commondialogs.messageboxes.movetotrashconfirm", ToString(Length(todelete)), filename, foldername)) != "yes")
+          RETURN FALSE;
+      }
+      ELSE
+      {
+        IF (parentscreen->RunSimpleScreen("confirm", GetTid("publisher:commondialogs.messageboxes.deleteconfirm", ToString(Length(todelete)), filename, foldername)) != "yes")
+          RETURN FALSE;
+      }
+    }
+  }
+
+  OBJECT work := parentscreen->BeginUnvalidatedWork();
+
+  RECORD vrec := TestSelectionForVersioningUpdates(work, todelete, [ "parent" ]);
+  IF (NOT RecordExists(vrec))
+    RETURN work->Finish();
+
+  INTEGER ARRAY todraft := SELECT AS INTEGER ARRAY id FROM todelete WHERE id NOT IN vrec.direct;
+  INTEGER ARRAY totrash := SELECT AS INTEGER ARRAY id FROM todelete WHERE NOT inrecyclebin AND id IN vrec.direct;
+  INTEGER ARRAY tokill := SELECT AS INTEGER ARRAY id FROM todelete WHERE inrecyclebin AND id IN vrec.direct;
+
+
+  IF (LENGTH(todraft) != 0)
+  {
+    FOREVERY (INTEGER id FROM todraft)
+    {
+      OBJECT liveobject := OpenWHFSObject(id);
+      OBJECT sitepolicy := GetVersioningPolicyForFileObject(liveobject);
+      UpdateMetadataForPolicy(sitepolicy, liveobject, [ parent := 0 ]);
+    }
+  }
+
+  IF(Length(totrash)>0)
+    RunAnyDelete(totrash, "publisher:app");
+
+  IF(Length(tokill)>0)
+  {
+    // Move versioned items to whfs-versionarchive
+    INTEGER ARRAY with_history :=
+        SELECT AS INTEGER ARRAY DISTINCT live_object
+          FROM system.fs_versionevents
+         WHERE live_object IN tokill;
+
+    INTEGER ARRAY to_delete;
+
+    FOREVERY(INTEGER id FROM tokill)
+      IF (id IN with_history)
+        OpenWHFSObject(id)->MoveTo(OpenWHFSObject(18), ToString(id));
+      ELSE
+        INSERT id INTO to_delete AT END;
+
+    DELETE FROM system.fs_objects WHERE id IN to_delete;
+  }
+
+  RETURN work->Finish();
+
+}
+
+/** Run the 'edit object properties' dialog
+    @param parentscreen Screen invoking us
+    @param objectid Object to edit
+    @cell options.assumereadaccess Don't check for read access, just ssume the user has it*/
+PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[ assumereadaccess := FALSE], options);
+
+  IF (NOT options.assumereadaccess AND NOT parentscreen->contexts->user->HasRightOn("system:fs_browse", objectid))
+  {
+    parentscreen->RunSimpleScreen("error", GetTid("publisher:commondialogs.messageboxes.norightstoviewfile"));
+    RETURN;
+  }
+
+  OBJECT dlg;
+  TRY
+  {
+    dlg := CreateWHFSObjectPropsDialog(parentscreen, objectid);
+  }
+  CATCH(OBJECT err)
+  {
+    // don't crash on any exception, we can just choose to not open the properties dialog
+    // which is better than to crash the whole Publisher
+    RunExceptionReportDialog(parentscreen, err);
+    RETURN;
+  }
+
+  IF(dlg->RunModal()="ok")
+  {
+    OBJECT work := parentscreen->BeginUnvalidatedWork();
+    IF ( (SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = VAR objectid))
+      RunEditFolderHooks(DEFAULT RECORD, objectid);
+    ELSE
+      RunEditFileHooks(DEFAULT RECORD, objectid);
+    work->Finish();
+  }
+}
+
+
+/** @short Launch an editor for the specified file
+           This can be an:
+          - objecteditor (application screen
+          - hardcoded inbuild publisher dialogs (for .tpl, forums, archives, int/ext/content-links and contentlistings)
+          - embeddedobjecttype editfragment
+
+    @param parentscreen Screen invoking us
+    @param objectid Object to edit
+    @cell(boolean) options.forceintegrated Do not launch a separate application
+    @cell(boolean) options.assumereadaccess Assume the user has write access (requires forceintegrated)
+    @cell(boolean) options.assumewriteaccess Assume the user has write access (requires forceintegrated)
+    @cell(integer array) options.limitlinksroots Limit RTE links to these subfolders (requires forceintegrated)
+*/
+PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ forceintegrated := FALSE
+                             , assumereadaccess := FALSE
+                             , assumewriteaccess := FALSE
+                             , limitlinksroots := INTEGER[]
+                             ], options);
+
+  OBJECT fileobj := OpenWHFSObject(objectid);
+  IF(NOT ObjectExists(fileobj) OR fileobj->isfolder)
+    RETURN;
+
+  IF(options.assumewriteaccess)
+    options.assumereadaccess := TRUE; //implied
+
+  //INTEGER siteid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=objectid;
+  OBJECT applytester := GetApplyTesterForObject(objectid);
+  RECORD editorinfo := applytester->GetLastValueForCell("SETOBJECTEDITOR");
+  RECORD objeditor;
+  IF(RecordExists(editorinfo) AND editorinfo.name != "")
+    objeditor := GetObjectEditor(editorinfo.name);
+
+  BOOLEAN haswriteaccess;
+  IF(NOT options.assumewriteaccess AND (NOT RecordExists(objeditor) OR NOT objeditor.supportsreadonly))
+  {
+    IF (NOT parentscreen->contexts->user->HasRightOn("system:fs_fullaccess", objectid))
+    {
+      parentscreen->RunMessageBox("publisher:commondialogs.norightstoeditfile");
+      RETURN;
+    }
+    haswriteaccess := TRUE;
+  }
+
+  IF(NOT haswriteaccess AND NOT options.assumereadaccess)
+  {
+    IF (NOT options.assumereadaccess AND NOT parentscreen->contexts->user->HasRightOn("system:fs_browse", objectid))
+    {
+      parentscreen->RunSimpleScreen("error", GetTid("publisher:commondialogs.messageboxes.norightstoviewfile"));
+      RETURN;
+    }
+  }
+
+  IF(options.forceintegrated = FALSE
+     AND ((RecordExists(editorinfo) AND editorinfo.separateapp)
+          OR (RecordExists(objeditor) AND objeditor.documenteditor != "")))
+  {
+    //restart as separate application
+    parentscreen->contexts->controller->SendApplicationMessage("publisher:edit", [ id := objectid ], DEFAULT RECORD, TRUE);
+    RETURN;
+  }
+
+  IF(RecordExists(editorinfo))
+  {
+    IF (NOT editorinfo.supportsversioning AND RecordExists(SELECT FROM system.fs_objects
+                                                                     , system.sites
+                                                                 WHERE fs_objects.id = objectid
+                                                                   AND sites.id = fs_objects.parentsite
+                                                                   AND versioningpolicy != ""))
+      // File is in a versioned site
+    {
+      parentscreen->RunMessageBox("publisher:commondialogs.editordoesnotsupportversionedsites");
+      RETURN;
+    }
+
+    IF(editorinfo.screen != "")
+    {
+      StartObjectEditor(parentscreen, [ calltype := "embedded", target := [ id := objectid ]]);
+      RETURN;
+    }
+
+    //Look up the editor
+    IF(RecordExists(objeditor))
+    {
+      //Launchable, go for it!
+      IF (parentscreen->contexts->controller->__DoIntegratedAppLaunch(parentscreen, objeditor, CELL[ ...options
+                                                                                       , calltype := "objecteditor"
+                                                                                       , id := objectid
+                                                                                       , objeditor
+                                                                                       ]))
+        RETURN;
+    }
+
+    //FIXME If developer, warn we did a fallback
+    IF(parentscreen->tolliumuser->HasRight("system:sysop"))
+    {
+      parentscreen->RunMessageBox("publisher:commondialogs.cannotfindobjecteditor", editorinfo.name);
+      RETURN;
+    }
+  }
+
+  //ADDME Move WebDav handling HERE so we objecteditors have a chance at overriding it ? Or make an 'overrideevenwebdav' property?
+
+  IF(fileobj->type=29)
+  {
+    OBJECT editprofilescreen := parentscreen->LoadScreen("publisher:conversionprofile.editor", [fileid:=objectid]);
+    editprofilescreen->RunModal();
+    RETURN;
+  }
+
+  IF(fileobj->type=32)
+  {
+    //Ook hier. Integreren met algemene property editor (forum voegt dan tabbladden toe) of aparte dialogs of... ?
+    OBJECT editforumscreen := parentscreen->LoadScreen("publisher:forum.editforum", [forumid:=objectid]);
+    editforumscreen->RunModal();
+    RETURN;
+  }
+  IF(fileobj->type = 14 OR fileobj->typens = "http://www.webhare.net/xmlns/publisher/webharearchivefile") //targz/zip
+  {
+    OBJECT extractdialog := parentscreen->LoadScreen('publisher:fd-archive.extracthere', [fileid:=objectid]);
+    extractdialog->RunModal();
+    RETURN;
+  }
+  IF(fileobj->type IN [18,19,20])
+  {
+    parentscreen->RunMessageBox("publisher:commondialogs.cannotopenlink");
+    RETURN;
+  }
+  IF(fileobj->type = 24)
+  {
+    parentscreen->RunMessageBox("publisher:commondialogs.cannotopencontentlisting");
+    RETURN;
+  }
+
+  //Get the siteprofile information about this type
+  RECORD ARRAY typedefs := LookupContentTypes(fileobj->typens);
+  IF(RecordExists(typedefs) AND Length(typedefs)=1 AND typedefs[0].isembeddedobjecttype)
+  {
+    RECORD data := fileobj->GetInstanceData(fileobj->typens);
+    RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, fileobj->typens, data, fileobj, applytester, TRUE);
+    IF(RecordExists(embobj)) // was the data editted? ('Cancel' returns a DEFAULT RECORD)
+    {
+      GetPrimary()->BeginWork();
+      //FIXME: verify that file is still available, writeable atc - although we actually -should-
+      // be given suhc notifications in __editEmbeddedObject's SUBMIT handler.
+      fileobj->SetInstanceData(fileobj->typens, embobj);
+      fileobj->UpdateData(DEFAULT BLOB); // trigger republish, hook callbacks and all magic associated to changing metadata
+      GetPrimary()->CommitWork();
+    }
+    RETURN;
+  }
+  RunFSObjectPropertiesDialog(parentscreen, objectid, [assumereadaccess := TRUE]); //we already check readaccess, don't redo it
+}

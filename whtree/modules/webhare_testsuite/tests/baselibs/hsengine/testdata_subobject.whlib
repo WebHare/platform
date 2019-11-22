@@ -1,0 +1,6 @@
+<?wh
+LOADLIB "test::testdata_objects.whlib";
+
+PUBLIC OBJECTTYPE subtest EXTEND basetest
+<
+>;

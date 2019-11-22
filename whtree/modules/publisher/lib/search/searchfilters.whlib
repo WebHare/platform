@@ -1,0 +1,634 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/search/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+// The Consilio fields that are searched when no explicit field is given, with weight factors
+RECORD ARRAY defaultsearchfields :=
+    [ [ field := "name",        boost := 2 ]
+    , [ field := "title",       boost := 1 ]
+    , [ field := "description", boost := .5 ]
+    , [ field := "keywords",    boost := .5 ]
+    , [ field := "body",        boost := 1 ]
+    , [ field := "whfspath",    boost := .25 ]
+    ];
+
+PUBLIC __CONSTREF RECORD ARRAY matchtypetext :=
+    [ [ rowkey := "contains",    title := GetTid("publisher:filemanager.search.filtertypes.text-contains") ]
+    //, [ rowkey := "notcontains", title := GetTid("publisher:filemanager.search.filtertypes.text-notcontains") ]
+    //, [ rowkey := "startswith",  title := GetTid("publisher:filemanager.search.filtertypes.text-startswith") ]
+    //, [ rowkey := "endswith",    title := GetTid("publisher:filemanager.search.filtertypes.text-endswith") ]
+    //, [ rowkey := "equals",      title := GetTid("publisher:filemanager.search.filtertypes.text-equals") ]
+    //, [ rowkey := "notequals",   title := GetTid("publisher:filemanager.search.filtertypes.text-notequals") ]
+    ];
+
+PUBLIC __CONSTREF RECORD ARRAY matchtypevalue :=
+    [ [ rowkey := "equal",          title := GetTid("publisher:filemanager.search.filtertypes.value-equal") ]
+    , [ rowkey := "notequal",       title := GetTid("publisher:filemanager.search.filtertypes.value-notequal") ]
+    , [ rowkey := "less",           title := GetTid("publisher:filemanager.search.filtertypes.value-less") ]
+    , [ rowkey := "lessorequal",    title := GetTid("publisher:filemanager.search.filtertypes.value-lessorequal") ]
+    , [ rowkey := "greater",        title := GetTid("publisher:filemanager.search.filtertypes.value-greater") ]
+    , [ rowkey := "greaterorequal", title := GetTid("publisher:filemanager.search.filtertypes.value-greaterorequal") ]
+    ];
+
+PUBLIC __CONSTREF RECORD ARRAY matchtypedate :=
+    [ [ rowkey := "past",   title := GetTid("publisher:filemanager.search.filtertypes.date-past") ]
+    , [ rowkey := "future", title := GetTid("publisher:filemanager.search.filtertypes.date-future") ]
+    , [ rowkey := "after",  title := GetTid("publisher:filemanager.search.filtertypes.date-after") ]
+    , [ rowkey := "before", title := GetTid("publisher:filemanager.search.filtertypes.date-before") ]
+    , [ rowkey := "exact",  title := GetTid("publisher:filemanager.search.filtertypes.date-exact") ]
+    ];
+
+PUBLIC DATETIME FUNCTION GetDateQueryRefDate(RECORD datequery, BOOLEAN future DEFAULTSTO FALSE)
+{
+  IF (NOT CellExists(datequery, "unit") OR NOT CellExists(datequery, "period") OR datequery.period < 0)
+    RETURN DEFAULT DATETIME;
+
+  DATETIME refdate := GetCurrentDateTime();
+  SWITCH (datequery.unit)
+  {
+    CASE "days"
+    {
+      refdate := AddDaysToDate((future ? 1 : -1) * datequery.period, refdate);
+    }
+    CASE "weeks"
+    {
+      refdate := AddDaysToDate((future ? 1 : -1) * 7 * datequery.period, refdate);
+    }
+    CASE "months"
+    {
+      refdate := AddMonthsToDate((future ? 1 : -1) * datequery.period, refdate);
+    }
+    CASE "years"
+    {
+      refdate := AddYearsToDate((future ? 1 : -1) * datequery.period, refdate);
+    }
+    DEFAULT
+    {
+      RETURN DEFAULT DATETIME;
+    }
+  }
+
+  // Round to start of day (for future search to start of next day), so e.g. a search for 'the last 1 day' will give results
+  // for the whole day yesterday
+  refdate := GetRoundedDateTime(refdate, 24*60*60*1000);
+  IF (future)
+    refdate := AddDaysToDate(1, refdate);
+  RETURN refdate;
+}
+
+/** Search filter context
+*/
+PUBLIC OBJECTTYPE SearchFilterContext
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN pvt_showdeveloper;
+  OBJECT pvt_filterscreen;
+  RECORD ARRAY pvt_filtertypes;
+  RECORD ARRAY pvt_whfstypes;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// A reference to the filter screen object
+  PUBLIC PROPERTY filterscreen(GetFilterScreen, -);
+
+  /// The current user
+  PUBLIC PROPERTY tolliumuser(this->pvt_filterscreen->tolliumuser, -);
+
+  /// If developer options are shown
+  PUBLIC PROPERTY showdeveloper(pvt_showdeveloper, -);
+
+  /// All filter types
+  PUBLIC PROPERTY filtertypes(pvt_filtertypes, -);
+
+  /// WHFS types visible to the current user
+  PUBLIC PROPERTY whfstypes(GetWHFSTypes, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT filterscreen)
+  {
+    this->pvt_filterscreen := filterscreen;
+    this->pvt_showdeveloper := this->tolliumuser->HasRight("system:supervisor");
+    this->InitFilterTypes();
+  }
+
+  MACRO InitFilterTypes()
+  {
+    this->pvt_filtertypes := DEFAULT RECORD ARRAY;
+    STRING ARRAY basemodules := [ "publisher", "consilio" ];
+    FOREVERY (RECORD module FROM SELECT * FROM GetWebHareModules() ORDER BY name NOT IN basemodules, SearchElement(basemodules, name))
+    {
+      FOREVERY (RECORD filter FROM module.searchfilters)
+      {
+        IF (NOT DoAccessCheckFor(filter.accesscheck, this->tolliumuser))
+          CONTINUE;
+
+        RECORD curprops := __searchfilterprops;
+        __searchfilterprops := [ context := this ];
+        OBJECT filterobject := MakeObject(filter.filterobjname);
+        __searchfilterprops := curprops;
+
+        IF (filterobject NOT EXTENDSFROM BaseSearchFilter)
+          THROW NEW Exception(`Search filter ${filter.name} object '${filter.filterobjname}' does not derive from BaseSearchFilter`);
+
+        RECORD filtertype :=
+            [ rowkey := module.name || ":" || filter.name
+            , title := GetTid(filter.title)
+            , description := GetTid(filter.description)
+            , filterobject := filterobject
+            , ...filterobject->GetFields() // Already validated by moduledefparser
+            ];
+
+        IF (module.name NOT IN basemodules
+            AND RecordExists(this->pvt_filtertypes)
+            AND NOT RecordExists(SELECT FROM this->pvt_filtertypes WHERE CellExists(pvt_filtertypes, "isdivider") ? isdivider : FALSE))
+          INSERT [ isdivider := TRUE ] INTO this->pvt_filtertypes AT END;
+        INSERT filtertype INTO this->pvt_filtertypes AT END;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Call this function to add a filter
+      @param after_filter The filter below which the new filter should be inserted
+  */
+  PUBLIC MACRO AddFilter(OBJECT after_filter)
+  {
+    this->pvt_filterscreen->AddFilter(after_filter);
+  }
+
+  /** @short Call this function to delete a filter
+      @param filter The filter to delete
+  */
+  PUBLIC MACRO DeleteFilter(OBJECT filter)
+  {
+    this->pvt_filterscreen->DeleteFilter(filter);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  OBJECT FUNCTION GetFilterScreen()
+  {
+    RETURN MakePublicObjectReference(this->pvt_filterscreen);
+  }
+
+  RECORD ARRAY FUNCTION GetWHFSTypes()
+  {
+    IF (RecordExists(this->pvt_whfstypes))
+      RETURN this->pvt_whfstypes;
+
+    RECORD csp := GetCachedSiteProfiles();
+
+    BOOLEAN showall := this->tolliumuser->HasRightOn("system:fs_browse", 0);
+    RECORD ARRAY whfstypes :=
+        SELECT TEMPORARY typedef := RecordExists(filetype) ? filetype : foldertype
+             , *
+             , tolliumicon := typedef.tolliumicon
+             , isdevelopertype := typedef.isdevelopertype
+             , title := typedef.title
+          FROM csp.contenttypes AS types
+         WHERE RecordExists(filetype) OR RecordExists(foldertype);
+    this->pvt_whfstypes :=
+        SELECT *
+          FROM whfstypes
+         WHERE (this->pvt_showdeveloper OR NOT isdevelopertype)
+               AND (showall OR NOT CellExists(whfstypes, "ishidden") OR NOT ishidden);
+
+    // Get all folders this user has rights on
+    RECORD query;
+
+    INTEGER ARRAY rootobjects := this->tolliumuser->GetRootObjectsForRights([ "system:fs_browse" ]);
+    IF (0 IN rootobjects)
+      rootobjects := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE isactive AND parent = 0;
+    query := CQMatch("whfstree", "IN", rootobjects);
+
+    // Search for objects within those folders, retrieve their types
+    RECORD res := RunConsilioSearch(whconstant_consilio_catalog_whfs, query, [ mapping := [ whfstype := 0 ]
+                                                                             , summary_length := 0
+                                                                             , count := -1
+                                                                             ]);
+
+    // Only keep types that will yield results
+    INTEGER ARRAY types :=
+        SELECT AS INTEGER ARRAY DISTINCT whfstype
+          FROM res.results;
+
+    this->pvt_whfstypes :=
+        SELECT *
+             , selected := FALSE
+             , ishidden := (CellExists(pvt_whfstypes, "ishidden") AND ishidden) OR id NOT IN types
+          FROM this->pvt_whfstypes
+         WHERE showall OR id IN types;
+
+    RETURN this->pvt_whfstypes;
+  }
+>;
+
+
+/** @short An object that provides a search filter to the Publisher search interface
+*/
+PUBLIC STATIC OBJECTTYPE BaseSearchFilter
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// The SearchFilterContext
+  OBJECT context;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    // Don't change the error message, it's used in moduledefparser.whlib!
+    IF (NOT RecordExists(__searchfilterprops))
+      THROW NEW Exception("Search filters cannot be instantiated directly");
+
+    this->context := __searchfilterprops.context;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Member functions to override
+  //
+
+  /** @short Return the list of filter fields
+      @long The return value determines which filter fields are presented to the user; if a cell is present, the associated
+          field is presented to the user. All fields are optional (if none are returned, only the filter type is shown). At
+          most one 'query' field can be presented.
+      @return The fields definition
+      @cell(string) return.matchlabel Text between filter type and match type
+      @cell(record array) return.matchtype
+      @cell(string) return.matchtype.rowkey
+      @cell(string) return.matchtype.title
+      @cell return.textquery Show a simple text field, currently only string value supported
+      @cell(record) return.datequery Show a date picker field
+      @cell(record array) return.valuequery Show a pulldown field with the given options
+      @cell(string) return.valuequery.rowkey
+      @cell(string) return.valuequery.title
+      @cell(record) return.selectquery Show a select dialog field, SelectQuery is called when the user wants to select a value
+  */
+  PUBLIC RECORD FUNCTION GetFields()
+  {
+    THROW NEW Exception("GetFields should be updated in search filter");
+  }
+
+  /** @short Maybe update the filter value if the matchtype changed
+      @long This function can be used to update the filter value if the matchtype changes.
+      @param value The current filter value
+      @return The new filter value, or DEFAULT RECORD if nothing was changed
+  */
+  PUBLIC RECORD FUNCTION OnSelectMatchType(RECORD value)
+  {
+    RETURN value;
+  }
+
+  /** @short Update the filter value if the user clicks the 'select' button of the select dialog field
+      @long The incoming value is the filter value. It contains a cell for each field that is present. As this function is
+          called, there is at least a 'selectquery' cell, which is a record that stores the selected value. It must contain a
+          'showvalue' cell which contains the value to show to the user. This function should open some selection dialog and
+          update the 'selectquery' value.
+      @param value The current filter value
+      @return The new filter value, or DEFAULT RECORD if selection was cancelled
+  */
+  PUBLIC RECORD FUNCTION SelectQuery(RECORD value)
+  {
+    THROW NEW Exception("SelectQuery should be updated in search filter");
+  }
+
+  PUBLIC RECORD FUNCTION GetCustomValue()
+  {
+    THROW NEW Exception("GetCustomValue should be updated in search filter");
+  }
+
+  PUBLIC MACRO SetCustomValue(RECORD value)
+  {
+    THROW NEW Exception("SetCustomValue should be updated in search filter");
+  }
+
+  /** @short Return a Consilio query for this filter
+      @param value The current filter value
+      @return A Consilio query
+  */
+  PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    THROW NEW Exception("GetQuery should be updated in search filter");
+  }
+>;
+
+
+PUBLIC OBJECTTYPE TextFilter EXTEND BaseSearchFilter
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN [ textquery := "" ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (value.textquery != "")
+      RETURN CQParseUserQuery(value.textquery, [ defaultfields := defaultsearchfields ]);
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE NameFilter EXTEND BaseSearchFilter
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ matchtype := matchtypetext
+        , textquery := ""
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (value.textquery != "")
+    {
+      IF (value.matchtype = "contains")
+        RETURN CQMatch("name", "CONTAINS", value.textquery);
+    }
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE WHFSObjectFilter EXTEND BaseSearchFilter
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ matchlabel := GetTid("publisher:filemanager.search.filtertypes.is")
+        , valuequery :=
+            [ [ rowkey := "",       title := GetTid("publisher:filemanager.search.filtertypes.whfsobject-both") ]
+            , [ rowkey := "file",   title := GetTid("publisher:filemanager.search.filtertypes.whfsobject-files") ]
+            , [ rowkey := "folder", title := GetTid("publisher:filemanager.search.filtertypes.whfsobject-folders") ]
+            ]
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (value.valuequery != "")
+      RETURN CQMatch("whfsobject", "=", value.valuequery);
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE CreationDateFilter EXTEND BaseSearchFilter
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ matchtype := (SELECT *, selected := rowkey = "past" FROM matchtypedate WHERE rowkey != "future")
+        , datequery := [ period := 30, unit := "days" ]
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (RecordExists(value.datequery))
+    {
+      IF (value.matchtype = "past")
+        RETURN CQMatch("creation", ">=", GetDateQueryRefDate(value.datequery));
+      ELSE IF (value.matchtype = "after")
+      {
+        // 'after' search doesn't include the chosen date itself, so start at next day
+        DATETIME day := AddDaysToDate(1, GetRoundedDateTime(value.datequery.date, 24*60*60*1000));
+        RETURN CQMatch("creation", ">=", day);
+      }
+      ELSE IF (value.matchtype = "before")
+      {
+        // 'before' search doesn't include the chosen date itself, so stop just before the chosen day
+        DATETIME day := GetRoundedDateTime(value.datequery.date, 24*60*60*1000);
+        RETURN CQMatch("creation", "<", value.datequery.date);
+      }
+      ELSE IF (value.matchtype = "exact")
+      {
+        // Search for all times between 0:00 (inclusive) and 24:00 (exclusive) on the chosen day
+        DATETIME day := GetRoundedDateTime(value.datequery.date, 24*60*60*1000);
+        RETURN CQAnd([ CQMatch("creation", ">=", day)
+                     , CQMatch("creation", "<", AddDaysToDate(1, day))
+                     ]);
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE ModificationDateFilter EXTEND BaseSearchFilter
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ matchtype := (SELECT *, selected := rowkey = "past" FROM matchtypedate WHERE rowkey != "future")
+        , datequery := [ period := 30, unit := "days" ]
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (RecordExists(value.datequery))
+    {
+      IF (value.matchtype = "past")
+        RETURN CQMatch("modification", ">=", GetDateQueryRefDate(value.datequery));
+      ELSE IF (value.matchtype = "after")
+      {
+        // 'after' search doesn't include the chosen date itself, so start at next day
+        DATETIME day := AddDaysToDate(1, GetRoundedDateTime(value.datequery.date, 24*60*60*1000));
+        RETURN CQMatch("modification", ">=", day);
+      }
+      ELSE IF (value.matchtype = "before")
+      {
+        // 'before' search doesn't include the chosen date itself, so stop just before the chosen day
+        DATETIME day := GetRoundedDateTime(value.datequery.date, 24*60*60*1000);
+        RETURN CQMatch("modification", "<", value.datequery.date);
+      }
+      ELSE IF (value.matchtype = "exact")
+      {
+        // Search for all times between 0:00 (inclusive) and 24:00 (exclusive) on the chosen day
+        DATETIME day := GetRoundedDateTime(value.datequery.date, 24*60*60*1000);
+        RETURN CQAnd([ CQMatch("modification", ">=", day)
+                     , CQMatch("modification", "<", AddDaysToDate(1, day))
+                     ]);
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE WHFSFolderFilter EXTEND BaseSearchFilter
+<
+  RECORD ARRAY rootobjects;
+
+  MACRO NEW()
+  {
+    IF (ObjectExists(this->context))
+    {
+      IF (this->context->tolliumuser->HasRightOn("system:fs_browse", 0))
+        this->rootobjects := [ [ id := 0, name := "" ] ];
+      ELSE
+        this->rootobjects :=
+            SELECT id
+                 , name
+              FROM system.fs_objects
+             WHERE id IN this->context->tolliumuser->GetRootObjectsForRights([ "system:fs_browse" ]);
+    }
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ matchtype :=
+            [ [ rowkey := "site",     title := GetTid("publisher:filemanager.search.filtertypes.whfsfolder-site") ]
+            , [ rowkey := "ancestor", title := GetTid("publisher:filemanager.search.filtertypes.whfsfolder-ancestor") ]
+            , [ rowkey := "parent",   title := GetTid("publisher:filemanager.search.filtertypes.whfsfolder-parent") ]
+            ]
+        , selectquery := DEFAULT RECORD
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION OnSelectMatchType(RECORD value)
+  {
+    // If the matchtype changes to site, change the value to the current folder's parent site
+    IF (RecordExists(value.selectquery))
+      RETURN [ ...value, selectquery := this->GetUpdatedValue(value, value.selectquery.whfsfolder) ];
+    RETURN DEFAULT RECORD;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION SelectQuery(RECORD value)
+  {
+    OBJECT dlg;
+    IF (value.matchtype = "site")
+    {
+      dlg := CreateSiteSelectDialog(this->context->filterscreen);
+    }
+    ELSE
+    {
+      dlg := CreateBrowseForWHFSObjectDialog(this->context->filterscreen);
+      dlg->acceptfiles := FALSE;
+      dlg->acceptfolders := TRUE;
+    }
+    IF (CellExists(value.selectquery, "whfsfolder"))
+      dlg->value := value.selectquery.whfsfolder;
+    IF (dlg->RunModal() = "ok")
+      RETURN [ ...value, selectquery := this->GetUpdatedValue(value, dlg->value) ];
+    RETURN DEFAULT RECORD;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (RecordExists(value.selectquery))
+    {
+      IF (value.matchtype = "parent")
+        RETURN CQMatch("whfsparent", "=", value.selectquery.whfsfolder);
+      ELSE
+        RETURN CQMatch("whfstree", "CONTAINS", value.selectquery.whfsfolder);
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION GetUpdatedValue(RECORD value, INTEGER folderid)
+  {
+    OBJECT folder := OpenWHFSObject(folderid);
+    IF (NOT ObjectExists(folder))
+      RETURN DEFAULT RECORD;
+    STRING showvalue;
+    IF (value.matchtype = "site")
+    {
+      OBJECT site := OpenSite(folder->parentsite);
+      IF (ObjectExists(site))
+        RETURN [ whfsfolder := site->id, showvalue := site->name ];
+      ELSE
+        RETURN DEFAULT RECORD;
+    }
+    ELSE
+    {
+      RETURN [ whfsfolder := folder->id, showvalue := CalculateFSObjectFullPathFromRoots(folder->id, this->rootobjects) ];
+    }
+  }
+>;
+
+
+PUBLIC OBJECTTYPE WHFSTypeFilter EXTEND BaseSearchFilter
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ matchlabel := GetTid("publisher:filemanager.search.filtertypes.is")
+        , selectquery := DEFAULT RECORD
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION SelectQuery(RECORD value)
+  {
+    OBJECT dlg := this->context->filterscreen->LoadScreen("mod::publisher/tolliumapps/filemanager/search.xml#selecttype");
+    IF (CellExists(value.selectquery, "whfstypes"))
+      dlg->value := value.selectquery.whfstypes;
+    IF (dlg->RunModal() = "ok")
+    {
+      RECORD ARRAY types := SELECT * FROM this->context->whfstypes WHERE id IN dlg->value;
+      IF (RecordExists(types))
+        RETURN
+            CELL[ ...value
+                , selectquery :=
+                    [ whfstypes := (SELECT AS INTEGER ARRAY types.id FROM types)
+                    , showvalue := Detokenize((SELECT AS STRING ARRAY GetTid(types.title) FROM types), ", ")
+                    ]
+                ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (RecordExists(value.selectquery))
+      RETURN CQMatch("whfstype", "IN", value.selectquery.whfstypes);
+    RETURN DEFAULT RECORD;
+  }
+>;

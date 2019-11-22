@@ -1,0 +1,61 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+/** A read only view of an URL, with copy and qr buttons */
+PUBLIC OBJECTTYPE TolliumURL EXTEND TolliumFragmentBase
+<
+  /** Currently displayed URL */
+  PUBLIC PROPERTY value (GetValue, SetValue);
+
+  UPDATE PUBLIC PROPERTY title(GetTitle, SetTitle);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    // The border attribute (inherited from panel) is not read, insert a border record
+    //INSERT CELL border := [ top := FALSE, right := FALSE, bottom := FALSE, left := FALSE ] INTO def;
+    TolliumFragmentBase::StaticInit(def);
+    this->value := def.value;
+    this->title := def.title;
+    ^previewurl->width := def.width;
+    ^previewurl->minwidth := def.minwidth;
+  }
+
+  STRING FUNCTION GetValue()
+  {
+    RETURN ^previewurl->value;
+  }
+
+  MACRO SetValue(STRING value)
+  {
+    ^previewurl->value := value;
+    ^qrbutton->visible := ^previewurl->value != "";
+    ^copybutton->visible := ^previewurl->value != "";
+  }
+
+  MACRO DoQRLink()
+  {
+    CreateQRPromise(this->owner)->Then(PTR this->OpenQRLink(#1, ^previewurl->value));
+  }
+
+  MACRO OpenQRLink(OBJECT handler, STRING url)
+  {
+    handler->SendURL(url);
+  }
+
+  STRING FUNCTION GetTitle()
+  {
+    RETURN ^previeuwrl->title;
+  }
+  UPDATE MACRO SetTitle(STRING newtitle)
+  {
+    ^previewurl->title := newtitle;
+  }
+>;

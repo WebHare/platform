@@ -1,0 +1,48 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::tollium/lib/rtd/embeddedobject.whlib";
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+
+PUBLIC OBJECTTYPE EmbedVideoObject EXTEND EmbeddedObjectBase
+<
+  UPDATE PUBLIC MACRO RenderPreview()
+  {
+    Print('<div style="height:110px">');
+
+    RECORD thumbnail := WrapCachedImage(this->data.thumbnail, [ method := "fit", setwidth := 120, setheight:=90 ]);
+    IF(RecordExists(thumbnail))
+      Print('<img class="wh-rtd-color-on-hover" src="' || EncodeValue(thumbnail.link) || '" style="position:absolute;left:10px;top:10px;border-radius:5px;" width="' || thumbnail.width ||'" height="' || thumbnail.height || '" />');
+    Print('<div style="position:absolute;left:140px;right:60px;top:10px;bottom:10px;overflow:hidden">');
+    Print('<div style="font-weight:bold;font-size:120%">' || EncodeHTML(this->data.title) || '</div>');
+
+    Print('<div style="margin-bottom:5px">' || FormatDatetime("%d-%m-%Y", this->data.creationdate) || " " || (this->data.duration/60) || ":" || Right("0"||(this->data.duration%60),2) || "</div>");
+    Print(EncodeHTML(DecodeHTML(this->data.description)));
+
+    Print('</div>');
+    Print('</div>');
+  }
+
+  UPDATE PUBLIC MACRO RenderObject(OBJECT webdesign)
+  {
+    STRING aspectclass := ABS(4f/3f - this->data.playratio) < 0.1 ? "aspect_4_3 wh-video--aspect_4_3" : "aspect_16_9 wh-video--aspect_16_9";
+    Print('<div class="wh-video ' || aspectclass || '" data-video="' || EncodeValue(EncodeJSON(GetVideoEmbedInfo(this->data))) || '"></div>');
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    RECORD ARRAY videosettings := webdesign->targetapplytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "videowidget");
+    IF(Length(videosettings) > 0)
+      THROW NEW Exception("<videowidget> requires that the rendering uses widgets, not legacy embedded objects. You probably need to set a <rtdtype>.");
+
+    IF(webdesign->IsUsingModuleDesign())
+      RETURN;
+
+    INTEGER v := SELECT AS INTEGER version FROM webdesign->GetDesignRepositories() WHERE ToUppercase(repository) = "PUBLIC";
+    IF(v > 0 AND v < 1429)
+      THROW NEW Exception("This page tries to use embedded videos, but its designfiles version is too old to support it");
+
+    webdesign->AddDesignLoad("wh.media.embedvideo");
+  }
+>;

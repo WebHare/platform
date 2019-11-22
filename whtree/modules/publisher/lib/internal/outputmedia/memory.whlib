@@ -1,0 +1,55 @@
+<?wh
+/** @short In-memory publication output
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmedia/base.whlib";
+
+PUBLIC OBJECTTYPE MemoryOutputMedia EXTEND OutputMediaBase
+<
+  PUBLIC OBJECT lastom;
+
+  UPDATE PUBLIC OBJECT FUNCTION CreatePublicationOutput(STRING _filename,
+                                                      BOOLEAN all_subdir,
+                                                      BOOLEAN is_index,
+                                                      BOOLEAN capturesubpaths,
+                                                      STRING ARRAY _defaultpages,
+                                                      STRING _outputroot,
+                                                      BOOLEAN _stripextension)
+  {
+    this->lastom := NEW MemoryOutputPublication;
+    RETURN this->lastom;
+  }
+>;
+
+PUBLIC OBJECTTYPE MemoryOutputPublication EXTEND OutputPublicationBase
+<
+  PUBLIC RECORD ARRAY files;
+
+  PUBLIC BOOLEAN FUNCTION AnyError()
+  {
+    RETURN FALSE;
+  }
+
+  PUBLIC INTEGER FUNCTION OpenOutput(STRING filename)
+  {
+    INTEGER streamid := CreateStream();
+    INSERT [ stream := streamid, name := filename, data := DEFAULT BLOB ] INTO this->files AT END;
+    RETURN streamid;
+  }
+
+  PUBLIC BOOLEAN FUNCTION CloseOutput(INTEGER outputid)    // from CloseRawOutput
+  {
+    INTEGER openedfile := SELECT AS INTEGER #files FROM this->files WHERE stream=outputid;
+    this->files[openedfile].data := MakeBlobFromStream(outputid);
+    this->files[openedfile].stream := 0;
+    RETURN TRUE;
+  }
+  PUBLIC MACRO Finish()
+  {
+  }
+
+  UPDATE PUBLIC MACRO SetCaptureSubPaths(BOOLEAN capturesubpaths)
+  {
+  }
+>;

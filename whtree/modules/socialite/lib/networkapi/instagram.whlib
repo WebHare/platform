@@ -1,0 +1,343 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+
+/*
+
+NOTES:
+
+- API documentation can be found at:
+  https://www.instagram.com/developer/
+
+- This API will be shut down early 2020.
+  This was reported on 30 januari 2018:
+  https://developers.facebook.com/blog/post/2018/01/30/instagram-graph-api-updates/
+
+- There are 2 rights left (there was much more possible through the API before)
+  - "public content"
+    Alows to read public posts (not possible to get this right anymore, but it
+    will stay available to apps which already had it until 11-dec-2018)
+
+  - "basic"
+    To read the posts from the logged in user
+    will stay available until early 2020
+
+-----------------------------------------------------------------------------
+
+- Instagram wants user_id's and not the user name
+  (You can always change your user name, so it seems logic to force people to use the user_id to prevent usage of user_name which might break)
+
+- Determining user id
+
+  - Log in and use /users/self
+
+  - The /users/search endpoint doesn't exist anymore!!
+
+  - use the non-official https://www.instagram.com/<user-name>/?__a=1 JSON file
+    DecodeJSONBlob it and use .user.id
+
+  - use the non-official https://www.instagram.com/web/search/topsearch/?query=username
+    (used by the desktop websites for user searches)
+
+  - read the user's page, search for <script type="text/javascript">window._sharedData = and for </script>
+    DecodeJSON the content inbetween and read the media.nodes[0].owner.id ??
+
+  - Use a website/service that returns the id when given the user name
+
+- Only these endpoints are available in sandbox mode
+
+  - /users/self
+  - /users/<user-id> (if id of current user)
+  - /users/self/media/recent
+  - /users/<user-id>/media/recent (if id of current user)
+
+*/
+
+
+STRING restapiurl := "https://api.instagram.com/v1/";
+
+// Permissions aren't relevant anymore.
+// Only old apps can have "public_content" rights (up till 1 december 2018)
+RECORD ARRAY instagram_permissions;
+
+
+PUBLIC OBJECTTYPE InstagramConnection EXTEND OauthNetworkConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+   MACRO NEW()
+  : OauthNetworkConnection("2.0", instagram_permissions)
+  {
+    this->SetMode("instagram");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  /// Returns the redirect page for web-based logins
+  UPDATE PUBLIC STRING FUNCTION GetCallbackURL(STRING serverurl)
+  {
+    RETURN ResolveToAbsoluteURL(serverurl, "/tollium_todd.res/socialite/callbacks/instagram.shtml");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns an URI the client needs to be redirected to. The client can then authorize the
+      app, and will be redirected to the Instagram redirect page. The redirect url must
+      then be passed to FinishLogin
+      @param callbackurl Custom callback url, will be ignored when the callback host is set in the app settings
+      @param force_authorization Force authorization
+      @return Login data
+      @cell(string) sessiontoken Session token (must be given to FinishLogin)
+      @cell(string) authorize_uri URI to show to the user
+  */
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY permissions, STRING state)
+  {
+    RETURN this->GetV2AuthorizationCodeURI("https://api.instagram.com/oauth/authorize/", permissions, callbackurl);
+  }
+
+  /** Finish the login sequence, using the uri that facebook redirected to after login
+      @param sessiontoken Sessiontoken returned by StartLogin
+      @param returned_uri URI that facebook redirected the user to
+      @return Undef
+  */
+  PUBLIC RECORD FUNCTION FinishLogin(STRING sessiontoken, STRING returned_uri)
+  {
+    STRING code := GetVariableFromURL(returned_uri, "code");
+
+    RECORD res := this->DoV2AccessTokenRequest("https://api.instagram.com/oauth/access_token", sessiontoken, code);
+
+    RETURN res;
+  }
+
+
+  /** \defgroup REST_api REST api calls
+      @{
+  */
+
+  /// See http://instagram.com/developer/endpoints/tags/
+  PUBLIC RECORD ARRAY FUNCTION RawGetTagRecentMedia(STRING tag)
+  {
+    STRING finalurl := restapiurl || "tags/" || tag || "/media/recent";
+    this->browser->GotoWebPage(finalurl);
+
+    RECORD response := DecodeJSONBlob(this->browser->content);
+    RETURN CellExists(response, "DATA") ? response.data : DEFAULT RECORD ARRAY;
+  }
+
+  // http://instagram.com/developer/endpoints/users/#get_users_media_recent
+  PUBLIC RECORD ARRAY FUNCTION RawGetUserRecentMedia(STRING userid, RECORD options)
+  {
+    STRING finalurl := restapiurl || "users/" || userid || "/media/recent";
+    IF (CellExists(options, "COUNT"))
+      finalurl := AddVariableToURL(finalurl, "count", options.count||"");
+    IF (CellExists(options, "MIN_ID") AND options.min_id != "")
+      finalurl := AddVariableToURL(finalurl, "min_id", options.min_id||"");
+    IF (CellExists(options, "MAX_ID") AND options.max_id != "")
+      finalurl := AddVariableToURL(finalurl, "max_id", options.max_id||"");
+
+    this->browser->GotoWebPage(finalurl);
+
+    RECORD response := DecodeJSONBlob(this->browser->content);
+    RETURN CellExists(response, "DATA") ? RECORD ARRAY(response.data) : DEFAULT RECORD ARRAY;
+  }
+
+  PUBLIC RECORD FUNCTION RawGetMedia(STRING mediaid)
+  {
+    STRING finalurl := `${restapiurl}media/shortcode/${mediaid}`;
+    this->browser->GotoWebPage(finalurl);
+
+    RECORD response := DecodeJSONBlob(this->browser->content);
+    RETURN CellExists(response, "DATA") ? response.data : DEFAULT RECORD;
+  }
+
+
+
+  PUBLIC RECORD ARRAY FUNCTION GetInstagramPostsFromUser(STRING userid)
+  {
+    RECORD ARRAY posts := this->RawGetUserRecentMedia(userid, DEFAULT RECORD);
+    RETURN this->__GetStandardizedPosts(posts);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetInstagramPostsByTag(STRING tag)
+  {
+    RECORD ARRAY posts := this->RawGetTagRecentMedia(tag);
+    RETURN this->__GetStandardizedPosts(posts);
+  }
+
+  /** @short Search for users by query
+  */
+  PUBLIC RECORD ARRAY FUNCTION SearchUsers(STRING query)
+  {
+    STRING finalurl := restapiurl || "users/search";
+    finalurl := AddVariableToURL(finalurl, "q", query);
+
+    this->browser->GotoWebPage(finalurl);
+
+    RECORD response := DecodeJSONBlob(this->browser->content);
+    RETURN CellExists(response, "DATA") ? RECORD ARRAY(response.data) : DEFAULT RECORD ARRAY;
+  }
+
+
+  /** @short Search for only the specified username (with fallback for sandboxed applications)
+  */
+  PUBLIC RECORD FUNCTION SearchUser(STRING username)
+  {
+    IF (username = "")
+      RETURN DEFAULT RECORD;
+
+    STRING finalurl := restapiurl || "users/search";
+    finalurl := AddVariableToURL(finalurl, "q", username);
+
+    this->browser->GotoWebPage(finalurl);
+    //LogWebBrowser(this->browser, [ title := "Instagram->SearchUsers" ]);
+
+    RECORD response := DecodeJSONBlob(this->browser->content);
+
+    IF (CellExists(response, "DATA"))
+    {
+      // Find the user which exactly (case-insensitive) matches the name we are looking for
+      RECORD user := SELECT * FROM response.data WHERE ToUpperCase(COLUMN username) = ToUpperCase(VAR username);
+      RETURN user; // .username, .first_name, .profile_picture, .id, .last_name
+    }
+    ELSE IF (CellExists(response, "META") AND response.meta.code = 400)
+    {
+      /*
+      We don't have the public_content right so we cannot use the users/search endpoint
+      We got this message:
+
+      {"meta": {"code": 400, "error_type": "OAuthPermissionsException", "error_message": "This request requires scope=public_content, but this access token is not authorized with this scope. The user must re-authorize your application with scope=public_content to be granted this permissions."}}
+
+      However we cannot assume our user interfaces and users to handle raw user-id's just
+      because the app is in sandbox mode. Therefore we need to fall back to a non-official API
+      to convert the username to id (and/or to get the profile image)
+      */
+
+      OBJECT browser := NEW WebBrowser();
+      browser->GotoWebpage("https://www.instagram.com/"||EncodeURL(username)||"/?__a=1");
+      RECORD data := DecodeJSONBlob(browser->content);
+
+      IF (browser->GetHTTPStatus().code = 404)
+        RETURN DEFAULT RECORD;
+
+      RECORD user :=
+          [ username        := data.user.id
+          , id              := data.user.id
+          , profile_picture := data.user.profile_pic_url_hd
+          , first_name      := ""
+          , last_name       := ""
+          ];
+
+      RETURN user;
+    }
+    ELSE
+      THROW NEW Exception("Unknown error, expected a DATA or META field to be returned by Instagram.");
+  }
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // Get the recent user media in the same format as Facebook GetPublicWallPosts() and Twitter
+  RECORD ARRAY FUNCTION __GetStandardizedPosts(RECORD ARRAY posts)
+  {
+    posts :=
+      SELECT id
+           , postedby_userid   := user.id // or use .owner.id ?
+           , postedby_username := user.username
+           , message           := RecordExists(caption) ? caption.text : ""
+
+           // If the type is 'carousel', this post contains multiple media.
+           // For simplicity we give the post the type of the first media item.
+           , type              := (type = "carousel"
+                                      ? carousel_media[0].type = "video" ? "video" : "photo"
+                                      : type = "video" ? "video" : "photo"
+                                  )
+           , creationdate      := MakeDateTimeFromUnixTimestamp(ToInteger(created_time, 0))
+           , imagelink         := images.standard_resolution.url // (in case of a video this is the poster and can be used as the thumbnail)
+           , videolink         := type = "video" ? videos.standard_resolution.url : ""
+           , link //              := `https://www.instagram.com/p/${code}/?taken-by=${user.username}`
+
+           /*
+           !! Works, but commented out for now until we decide how to handle these issues:
+              - We don't get an (poster) image for video's in this array
+              - Decide on a generic structure so we can also use it for Facebook
+
+           , media := type = "carousel"
+                          ? (SELECT type // "image", "video" ?
+                                  , image := type = "image" ? images.standard_resolution : DEFAULT RECORD
+                                  , video := type = "video" ? videos.standard_resolution : DEFAULT RECORD
+                                  //, users_in_photo := Length(users_in_photo) > 0 ? users_in_photo : DEFAULT RECORD ARRAY
+                               FROM carousel_media)
+                          : [ [ type := type
+                              , image := images.standard_resolution
+                              , video := type = "video" ? videos.standard_resolution.url : ""
+                            ] ]
+           */
+
+           // likecount := likes.count
+           // commentscount := comments.count
+           // tags := tags
+           // location .id/latitude/.longitude/.name
+
+           , raw               := posts[#post]
+        FROM posts AS post;
+
+    RETURN posts;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __ExecuteFeedQuery(STRING query, INTEGER maxnum)
+  {
+    IF(query LIKE "user:*")
+      query := Substring(query,5);
+
+    RECORD ARRAY feeditems := this->RawGetUserRecentMedia(query, DEFAULT RECORD);
+    RECORD ARRAY results :=
+        SELECT messageid := id
+             , created := MakeDatetimeFromUnixTimestamp(ToMoney(created_time,0.0))
+             , data := [ link := link
+                       , imageurl := RecordExists(images.standard_resolution) ? images.standard_resolution.url : ""
+                       , images := images // records containing width, height and url: low_resolution, standard_resolution, thumbnail
+                       , nr_comments := comments.count
+                       , nr_likes := likes.count
+                       , caption := RecordExists(caption) ? caption.text : ""
+                       ]
+         FROM feeditems;
+
+    RETURN [ format := "instagram"
+           , entries := results
+           ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION DecodeFeedItems(STRING format, RECORD ARRAY initems)
+  {
+    RETURN SELECT *
+                , link := initems.data.link
+                , imageurl := initems.data.imageurl
+                , images := initems.data.images
+                , nr_comments := initems.data.nr_comments
+                , nr_likes := initems.data.nr_likes
+                , caption := initems.data.caption
+             FROM initems;
+  }
+
+>;

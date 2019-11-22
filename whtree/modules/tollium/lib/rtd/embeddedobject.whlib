@@ -1,0 +1,131 @@
+<?wh
+/** @private EmbeddedObjectBase has been deprecated - please use WidgetBase */
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
+
+PUBLIC STATIC OBJECTTYPE EmbeddedObjectBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Callbacks. Do NOT use, for internal use for GetTID only!
+  PUBLIC RECORD __pvt_callbacks;
+  OBJECT __pvt_basefsobject;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Current presentation language code (eg 'en', 'nl')
+  PUBLIC STRING languagecode;
+
+  /// Base object for which this object is rendered
+  PUBLIC PROPERTY basefsobject(__GetBaseFSObject, this->__pvt_basefsobject);
+
+  PUBLIC RECORD data;
+
+  // ---------------------------------------------------------------------------
+  //
+  // API for use by RTE
+  //
+
+  /// Get the preview from RenderPreview as blob
+  PUBLIC RECORD FUNCTION GetPreview()
+  {
+    RETURN [ htmltext := BlobToString(GetPrintedAsBlob(PTR this->RenderPreview)) ];
+  }
+
+  OBJECT FUNCTION __GetBaseFSObject()
+  {
+    RETURN this->__pvt_basefsobject;
+  }
+  // ---------------------------------------------------------------------------
+  //
+  // Public API for user
+  //
+
+  /** Lookup tid (from the place where the render library & objectname were set, either the definition of the embedded object
+      or the apply rule with 'setembeddedobjectrenderer').
+  */
+  PUBLIC STRING FUNCTION GetTID(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    RETURN this->__pvt_callbacks.gettid(this->languagecode, tid, p1, p2, p3, p4);
+  }
+
+  PUBLIC OBJECT FUNCTION MakePreviewRTD(RECORD richdoc, STRING structuredefpath)
+  {
+    IF(structuredefpath NOT LIKE "*::*" AND structuredefpath NOT LIKE "/*")
+    {
+      RECORD designinfo := GetApplyTesterForObject(this->basefsobject->id)->GetWebDesignObjinfo();
+      IF(RecordExists(designinfo))
+        structuredefpath := designinfo.designfolder || structuredefpath;
+      ELSE
+        THROW NEW Exception(IsDTAPLive() ? "Preview not available outside a site"
+                                         : `Preview not available outside a site, or more exactly, without a website - MakePreviewRTD is given a relative path '${structuredefpath}' which cannot be resolved without knowing the design. Switch to more recent APIs (widgets and rtdtype) or assign a webdesign`);
+    }
+
+    OBJECT rtd := NEW PublishableRichDocument;
+    rtd->ImportFromRecord(richdoc);
+    rtd->pvt_baseobject := this->basefsobject;
+    IF(ObjectExists(this->basefsobject))
+      rtd->pvt_applytester := GetApplyTesterForObject(this->basefsobject->id);
+    rtd->webdesign := DEFAULT OBJECT;
+
+    BLOB structuredef := GetWebHareResource(structuredefpath);
+    rtd->ApplyStructureDefinition(LoadClassicStructureDef(structuredef));
+    rtd->previewcontext := NEW PreviewContext(rtd->pvt_baseobject, rtd->pvt_applytester, GetRTDTypeFromClassicStructureDef(rtd->pvt_structure));
+    RETURN rtd;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Stuff to override by user
+  //
+
+  /** Shared prepare (both preview and object) after data and language are set */
+  PUBLIC MACRO Prepare()
+  {
+
+  }
+
+  /** Print preview HTML
+  */
+  PUBLIC MACRO RenderPreview()
+  {
+  }
+
+  /** Prepare webdesign before rendering (eg. add required css & js) - this is NOT invoked for RTDType docs
+  */
+  PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+  }
+
+  /** Render contents. Prints to stream 0 will be picked up (eg by using witty EmbedComponent).
+  */
+  PUBLIC MACRO RenderObject(OBJECT webdesign)
+  {
+  }
+
+  /** Cleanup data received from frontend code */
+  PUBLIC RECORD FUNCTION CleanupFrontendInstance(RECORD data)
+  {
+    RETURN data;
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
+  {
+    RETURN DEFAULT OBJECT ARRAY;
+  }
+>;

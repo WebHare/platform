@@ -1,0 +1,88 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
+
+OBJECT ASYNC FUNCTION TestAddRoleToUsers()
+{
+  OBJECT unit := testfw->GetUnit();
+
+  OBJECT usr := testfw->GetUserObject("user1");
+  TestEQ(TRUE, usr->ExistsInDatabase());
+
+  // Grant to a single user
+  OBJECT scr := GetTestController()->LoadScreen("system:userrights/dialogs/addroletousers.addroletousers",
+      [ grantees := [ OBJECT(testfw->GetUserObject("user1")) ] ]);
+  TestEq(TRUE, ObjectExists(scr));
+
+  scr->unit := unit;
+  scr->^selectuserrole->value := testfw->GetRoleObject("role1");
+  scr->^comment->value := "WebHareTestSuite is testing this";
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEQ(TRUE, testfw->GetUserObject("user1")->HasRole(testfw->GetRoleObject("role1")));
+  TestEQ(FALSE, testfw->GetUserObject("user1")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
+
+  //TODO open actual usermanagement to blackbox test this
+  TestEq("WebHareTestSuite is testing this", ExplainRoleGrantedTo(testfw->GetRoleObject("role1")->authobjectid, usr->authobject).comment);
+  TestEq("sysop@beta.webhare.net", ExplainRoleGrantedTo(testfw->GetRoleObject("role1")->authobjectid, usr->authobject).grantordata.login);
+
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->RevokeRoleFrom(testfw->GetRoleObject("role1"), testfw->GetUserObject("user1"));
+  testfw->CommitWork();
+
+  // Grant to multiple users
+  scr := GetTestController()->LoadScreen("system:userrights/dialogs/addroletousers.addroletousers",
+      [ grantees := [ OBJECT(testfw->GetUserObject("user1")), testfw->GetUserObject("user2") ] ]);
+  TestEq(TRUE, ObjectExists(scr));
+
+  scr->unit := unit;
+  scr->^selectuserrole->value := testfw->GetRoleObject("role1");
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEQ(TRUE, testfw->GetUserObject("user1")->HasRole(testfw->GetRoleObject("role1")));
+  TestEQ(TRUE, testfw->GetUserObject("user2")->HasRole(testfw->GetRoleObject("role1")));
+  TestEQ(FALSE, testfw->GetUserObject("user1")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
+  TestEQ(FALSE, testfw->GetUserObject("user2")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
+
+  //Test the export
+  RECORD ARRAY userexport := ListRightsAndRolesForExport(testfw->userapi);
+  dumpvalue(userexport,'boxed');
+  RECORD ARRAY grants := SELECT * FROM userexport WHERE type = "GRANT";
+
+  TestEq(1,Length(grants)); //this is the initial assignment by testfw
+  TestEq("Granted by RunTestframework", grants[0].comment);
+  TestEq("", grants[0].grantor);
+  TestEq(TRUE, grants[0].withgrantoption);
+
+  RECORD ARRAY rolegrants := SELECT * FROM userexport WHERE type = "ROLEGRANT";
+  TestEq(2,Length(rolegrants));
+  TestEq(TRUE, RecordExists(rolegrants[0].grantordata));
+  TestEq("sysop@beta.webhare.net", rolegrants[0].grantor);
+  TestEq(FALSE, rolegrants[0].withgrantoption);
+
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->RevokeRoleFrom(testfw->GetRoleObject("role1"), testfw->GetUserObject("user1"));
+  testfw->GetUserObject("sysop")->RevokeRoleFrom(testfw->GetRoleObject("role1"), testfw->GetUserObject("user2"));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->RevokeRoleFrom(testfw->GetRoleObject("role1"), testfw->GetUserObject("user1"));
+  testfw->CommitWork();
+
+  RETURN TRUE;
+}
+
+RunTestframework( [ PTR TestAddRoleToUsers
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ,[ login := "user1"]
+                                    ,[ login := "user2"]
+                                    ]
+                     , testroles := [[ role := "role1" ]]
+                     ]
+                  );

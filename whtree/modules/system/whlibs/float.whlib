@@ -1,0 +1,462 @@
+﻿<?wh
+/** @short Mathematic and floating point utility functions
+    @long The floating point library offers 64-bit floating point calculations.
+          You do not need to load this library to use the FLOAT type, but the library
+          does provide a lot of useful functions to work with FLOAT values
+    @topic harescript-core/float
+*/
+
+FLOAT FUNCTION __HS_TOFLOAT(VARIANT val) __ATTRIBUTES__(EXTERNAL);
+INTEGER FUNCTION __HS_TOINTEGER(VARIANT val) __ATTRIBUTES__(EXTERNAL);
+STRING FUNCTION __HS_FloatToString(FLOAT val, INTEGER digits) __ATTRIBUTES__(EXTERNAL);
+FLOAT FUNCTION __HS_StringToFloat(STRING val, FLOAT defval) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Formats a FLOAT value and returns the resulting STRING.
+    @long This function creates a STRING from a FLOAT value using the given number of decimals.
+          When the decimals parameter is less than 0 or greater than 20, a default number of 20
+          decimals will be shown. When the actual number of decimals is less than the requested
+          number of decimals, zeroes will be added to return the requested number of decimals.
+          When the actual number of decimals is greater than the requested number of decimals,
+          the value is rounded to the requested number of decimals.
+    @param value    The FLOAT value to format
+    @param decimals The INTEGER number of decimals (range 0 to 20)
+    @return The @italic value in string format
+    @see FloatToInteger, FloatToMoney, ToFloat
+    @example
+// This will print: 3.14159265
+PRINT (FormatFloat(3.14159265, 8));
+
+// This will print: 3.1415926500. Two zeroes are added to get the
+// requested 10 decimals (the FLOAT value only has 8 decimals)
+PRINT (FormatFloat(3.14159265, 10));
+
+// This will print: 3.142
+// The value is rounded to 3 decimals.
+PRINT (FormatFloat(3.14159265, 3));
+*/
+PUBLIC STRING FUNCTION FormatFloat(FLOAT value, INTEGER decimals)
+{
+  IF ((decimals < 0) OR (decimals > 20))
+    decimals := 20;
+
+  RETURN __HS_FloatToString(value, decimals);
+}
+
+
+
+
+
+/** @short Creates a FLOAT value from a string.
+    @long This function creates a FLOAT value from a string. The function automatically
+          determines the decimal separator by searching the string for a '.' or ',' decimal
+          separator. When no separator is found, the decimal point is assumed to be at
+          the end of the string.
+          When the string could not be converted, the default value @italic defval is returned.
+    @param value The STRING value to read the FLOAT value from
+    @param defval The FLOAT value to return when the string could not be converted
+    @return The FLOAT value read from @italic value
+    @see FormatFloat
+    @example
+// The FLOAT value f will be: 1345.4
+FLOAT f := ToFloat("1345,4", 0);
+
+// The FLOAT value f will be: 1.5e-6
+FLOAT f := ToFloat(".0000015", 0);
+
+// The FLOAT value f will be: 0.0 (duplicate decimal separator ',')
+FLOAT f := ToFloat("1,234,567", 0);
+
+// The FLOAT value f will be: 0.0 ("e" is not valid in float strings)
+FLOAT f := ToFloat("1.5e-6", 0);
+*/
+PUBLIC FLOAT FUNCTION ToFloat(STRING value, FLOAT defval)
+{
+  IF (value NOT LIKE "*.*")
+    value := Substitute(value, ",", ".");
+
+  RETURN __HS_StringToFloat(value, defval);
+}
+
+
+
+
+/** @short Converts a FLOAT value to an INTEGER value.
+    @long This function can be used to convert a FLOAT to a INTEGER value. Make sure that the FLOAT value
+          is in the INTEGER range to avoid an overflow. The INTEGER type does not support decimals, thus the
+          FLOAT value will be truncated.
+    @param value The FLOAT value to be converted
+    @return The INTEGER value of @italic value
+    @see IntegerToMoney, MoneyToFloat
+    @example
+// The INTEGER value will be 17
+INTEGER i := FloatToInteger(17.0);
+
+// The INTEGER value will be 17. As an INTEGER doesn't support
+// decimals, the decimals in the FLOAT value are lost.
+INTEGER i := FloatToInteger(17.5);
+
+// The INTEGER value will be -2147483648. Because the FLOAT value
+// is outside of the INTEGER range, the INTEGER value will flow over.
+INTEGER i := FloatToInteger(2147483648.);
+*/
+PUBLIC INTEGER FUNCTION FloatToInteger(FLOAT value)
+{
+  RETURN __HS_ToInteger(value);
+}
+
+
+
+
+//------------------------------------------------------------------------------
+// The usual mathematical functions
+//-----------------------------------------------------------------------------
+
+/** @short The value of Pi (3.141592653589793238)
+    @long Public float pi is for use in mathemetical functions
+    @example
+// The FLOAT value will be 9.4247779769379714
+FLOAT number := 3*PI;
+*/
+PUBLIC CONSTANT FLOAT PI := 3.141592653589793238;
+
+
+
+/** @short Returns the smallest integer FLOAT value larger than a value.
+    @long The FLOAT value is rounded up to the smallest whole number (integer) larger than the value.
+          The result is also a FLOAT value.
+    @param value The FLOAT value to be rounded up
+    @return The rounded up value of @italic value
+    @see Floor, ModF
+    @example
+// The FLOAT value will be 2.0
+FLOAT f := Ceil(1.1);
+
+// The FLOAT value will be -5.0
+FLOAT f := Ceil(-5.6)
+*/
+PUBLIC FLOAT FUNCTION Ceil(FLOAT value)
+{
+  FLOAT fvalue := Floor(value);
+  RETURN ((value - fvalue) > 0) ? fvalue+1 : fvalue;
+}
+
+
+
+
+/** @short Returns the largest integer FLOAT value smaller than a value.
+    @long The FLOAT value is rounded down to the largest whole number (integer) smaller than the value.
+          The result is also a FLOAT value.
+    @param value The FLOAT value to rounded down
+    @return The rounded down value of @italic value
+    @see Ceil, ModF
+    @example
+// The FLOAT value will be 1.0
+FLOAT f := Floor(1.9);
+
+// The FLOAT value will be -6.0
+FLOAT f := Floor(-5.4)
+*/
+PUBLIC FLOAT FUNCTION Floor(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Returns the square root of a value.
+    @param value The FLOAT value from which to determine the square root
+    @return The square root of @italic value
+    @example
+// The FLOAT value will be 2.0
+FLOAT f := Sqrt(4);
+*/
+PUBLIC FLOAT FUNCTION Sqrt(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Calculates a value of a power equation.
+    @long This function calculates the result of @italic value to the power of @italic exp. If value = 0 and exp < 0 or
+          if value < 0 and exp is not a whole number, an errors occurs.
+    @param value The FLOAT value which is the base of the calculation
+    @param exp   The FLOAT value which is the exponent of the calculation
+    @return @italic value to the power of @italic exp
+    @see Exp, Log, Log10
+    @example
+// The FLOAT value will be 243.0
+FLOAT f := Pow(9, 2.5);
+*/
+PUBLIC FLOAT FUNCTION Pow(FLOAT value, FLOAT exp) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the cosine of a value.
+    @param value The FLOAT value (in radians) from which to determine the cosine
+    @return The cosine of @italic value
+    @see Sin, Tan, ACos, CosH
+    @example
+// The FLOAT value will be 0.0
+FLOAT f := Cos(0.5 * PI);
+*/
+PUBLIC FLOAT FUNCTION Cos(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the sine of a value.
+    @param value The FLOAT value (in radians) from which to determine the sine
+    @return The sine of @italic value
+    @see Cos, Tan, ASin, SinH
+    @example
+// The FLOAT value will be 1.0
+FLOAT f := Sin(0.5 * PI);
+*/
+PUBLIC FLOAT FUNCTION Sin(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Returns the tangent of a value.
+    @param value The FLOAT value (in radians) from which to determine the tangent
+    @return The tangent of @italic value
+    @see Cos, Sin, ATan, ATan2, TanH
+    @example
+// The FLOAT value will be 1.5574...
+FLOAT f := Tan(1.0);
+*/
+PUBLIC FLOAT FUNCTION Tan(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the arccosine of a value.
+    @param value The FLOAT value from which to determine the arccosine
+    @return The arccosine of @italic value in radians
+    @see ASin, ATan, Cos, CosH
+    @example
+// The FLOAT value will be 1.5707...
+FLOAT f := ACos(0.0);
+*/
+PUBLIC FLOAT FUNCTION ACos(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the arcsine of a value.
+    @param value The FLOAT value from which to determine the arcsine
+    @return The arcsine of @italic value in radians
+    @see ACos, ATan, Sin, SinH
+    @example
+// The FLOAT value will be 1.5707...
+FLOAT f := ASin(1.0);
+*/
+PUBLIC FLOAT FUNCTION ASin(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the arctangent of a value.
+    @param value The FLOAT value from which to determine the arctangent
+    @return The arctangent of @italic value in radians
+    @see ATan2, ACos, ASin, Tan, TanH
+    @example
+// The FLOAT value will be 0.7853...
+FLOAT f := ATan(1.0);
+*/
+PUBLIC FLOAT FUNCTION ATan(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the arctangent of a value divided by another value.
+    @long This functions calculates the division of value1 and value2 and returns the
+          arctangent of the result. The result is even valid when value2 = 0 (i.e. when
+          the resulting angle is PI/2 radians). When both value1 and value2 are 0, an
+          argument out of domain error is given.
+    @param value1 The first FLOAT value
+    @param value2 The second FLOAT value
+    @return The arctangent of @italic value1 / @italic value2 in radians
+    @see ATan, ACos, ASin, Tan, TanH
+    @example
+// The FLOAT value will be 0.4636...
+FLOAT f := ATan2(1.25, 2.5);
+*/
+PUBLIC FLOAT FUNCTION ATan2(FLOAT value1, FLOAT value2) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the hyperbolic cosine of a value.
+    @param value The FLOAT value from which to determine the hyperbolic cosine
+    @return The hyperbolic cosine of @italic value
+    @see SinH, TanH, Cos, ACos
+    @example
+// The FLOAT value will be 1.1276...
+FLOAT f := CosH(0.5);
+*/
+PUBLIC FLOAT FUNCTION CosH(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the hyperbolic sine of a value.
+    @param value The FLOAT value from which to determine the hyperbolic sine
+    @return The hyperbolic sine of @italic value
+    @see CosH, TanH, Sin, ASin
+    @example
+// The FLOAT value will be 0.5210...
+FLOAT f := SinH(0.5);
+*/
+PUBLIC FLOAT FUNCTION SinH(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the hyperbolic tangent of a value.
+    @param value The FLOAT value from which to determine the hyperbolic tangent
+    @return The hyperbolic tangent of @italic value
+    @see CosH, SinH, Tan, ATan
+    @example
+// The FLOAT value will be 0.4621...
+FLOAT f := TanH(0.5);
+*/
+PUBLIC FLOAT FUNCTION TanH(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns @italic e raised to the power of a value.
+    @param value The FLOAT value is the exponent applied to the base @italic e
+    @return The exponential of @italic value
+    @see Log, Log10, Pow
+    @example
+// The FLOAT value will be 2.7182... (the value of e)
+FLOAT f := Exp(1.0);
+*/
+PUBLIC FLOAT FUNCTION Exp(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the natural logarithm of a value.
+    @long This function calculates the natural logarithm of value. The base for this
+          calculation is @italic e.
+    @param value The FLOAT value from which to determine the natural logarithm. It must be larger than zero.
+    @return The natural logarithm of @italic value
+    @see Log10, Exp, Pow
+    @example
+// The FLOAT value will be 1.0
+FLOAT f := Log(e);
+*/
+PUBLIC FLOAT FUNCTION Log(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Returns the logarithm of a value, using base 10.
+    @long This function calculates the logarithm of value. The base for this
+          calculation is @italic 10.
+    @param value The FLOAT value from which to determine the base-10 logarithm. It must be larger than zero.
+    @return The base-10 logarithm of @italic value
+    @see Log, Exp, Pow
+    @example
+// The FLOAT value will be 3.0
+FLOAT f := Log10(1000.0);
+*/
+PUBLIC FLOAT FUNCTION Log10(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Splits a value into an integral and a fractional part.
+    @long This function returns a RECORD containing the integral part of value (the
+          part before the decimal point) and the fractional part of value (the part
+          after the decimal point).
+    @param value The FLOAT value to split
+    @return A RECORD containing the splitted @italic value
+    @cell return.intpart The FLOAT integral part
+    @cell return.fracpart The FLOAT fractional part
+    @see Ceil, Floor
+    @example
+// modf_rec.intpart = 3.0, modf_rec.fracpart = 0.1415...
+RECORD modf_rec := ModF(PI);
+*/
+PUBLIC RECORD FUNCTION ModF(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Splits a value into a mantissa and an exponent
+    @long This function calculates and returns a mantissa and an exponent in a RECORD, so that
+          value = mantissa * pow(2, exponent).
+    @param value The FLOAT value to take the mantissa and exponent from
+    @return               A RECORD containing the mantissa and exponent of @italic value
+    @cell return.mantissa A FLOAT fraction in the range [.5,1>
+    @cell return.exponent An INTEGER exponent
+    @see LdExp
+    @example
+// frexp_rec.mantissa = .75, frexp_rec.exponent = 2
+RECORD frexp_rec := FrExp(3);
+*/
+PUBLIC RECORD FUNCTION FrExp(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+
+/** @short Returns the floating-point remainder of a value divided by another value.
+    @long This functions calculates the division of value1 and value2 and returns
+          the remainder.
+    @param value1 The first FLOAT value
+    @param value2 The second FLOAT value. Cannot be zero.
+    @return The remainder of @italic value1 / @italic value2
+    @example
+// The FLOAT value will be 1.75
+FLOAT f := FMod(7.75, 3);
+*/
+PUBLIC FLOAT FUNCTION FMod(FLOAT value1, FLOAT value2) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Calculates mantissa * pow(2, exponent).
+    @param mantissa The FLOAT mantissa
+    @param exponent The FLOAT exponent
+    @return @italic mantissa * pow(2, @italic exponent)
+    @see FrExp
+    @example
+// The FLOAT value will be 3.0
+FLOAT f := LdExp(0.75, 2.0);
+*/
+PUBLIC FLOAT FUNCTION LdExp(FLOAT mantissa, INTEGER exponent) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Converts degrees to radians.
+    @param degrees The degrees value to be converted
+    @return The radians value
+    @see RadiansToDegrees
+    @example
+// The resulting float will be 1.5708.... (90 degrees is PI/2 radians)
+FLOAT r := DegreesToRadians(90);
+*/
+PUBLIC FLOAT FUNCTION DegreesToRadians(FLOAT degrees)
+{
+  RETURN (degrees * PI) / 180;
+}
+
+
+
+
+/** @short Converts radians to degrees.
+    @param radians The radians value to be converted
+    @return The degrees value
+    @see DegreesToRadians
+    @example
+// The resulting float will be 90 (90 degrees is PI/2 radians)
+FLOAT d := RadiansToDegrees(PI/2);
+*/
+PUBLIC FLOAT FUNCTION RadiansToDegrees(FLOAT radians)
+{
+  RETURN (radians / PI) * 180;
+}

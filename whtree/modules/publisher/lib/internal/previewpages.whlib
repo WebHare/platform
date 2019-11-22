@@ -1,0 +1,93 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+PUBLIC MACRO ResetSecurityHeadersForPreviewPanel()
+{
+  //Strip frame options that might prevent us from showing our message
+  AddHTTPHeader("X-Frame-Options", "", FALSE);
+  //Limit scripts to self AND the WebHare UI (TODO: consider allowing only webhare ui to host scripts for our pages?
+  AddHTTPHeader("Content-Security-Policy", `script-src ${UnpackURL(GetPrimaryWebhareInterfaceURL()).origin}`, FALSE);
+}
+
+PUBLIC OBJECTTYPE ShowMessagePage EXTEND DynamicPageBase
+<
+  STRING url;
+  STRING msg;
+  STRING type;
+  STRING location;
+  STRING lang;
+  RECORD opts;
+
+  MACRO NEW(STRING lang, STRING url, STRING msg, STRING type, STRING location, RECORD opts DEFAULTSTO DEFAULT RECORD)
+  {
+    this->opts := ValidateOptions([ pdflink := "" ], opts);
+    this->url := url;
+    this->msg := msg;
+    this->type := type;
+    this->location := location;
+    this->lang:=lang;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    //ADDME share directly with applicationportal.whlib
+    INSERT "previewframe" INTO webdesign->htmlclasses AT END;
+
+    IF(this->opts.pdflink != "")
+      webdesign->InsertHTML('<wh-pdf url="' || EncodeValue(this->opts.pdflink) || '"></wh-pdf>','dependencies-top');
+  }
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    IF(this->lang!="")
+      SetTIDLanguage(this->lang);
+
+    STRING title;
+    STRING message;
+    STRING urlmessage;
+    BOOLEAN urltarget;
+    SWITCH (this->msg)
+    {
+      CASE "nopreview"
+      {
+        // Shown when not inside a site, when a folder without index document is selected or when an unpublished file is selected
+      }
+      CASE "notviewable"
+      {
+        // Shown when a file is selected with a MIME type which is not directly viewable within the browser (i.e. not an image or
+        // text)
+        title := GetTid("publisher:components.previewbrowser.showmessage.notviewable-title");
+        message := GetTid("publisher:components.previewbrowser.showmessage.notviewable-message", this->type);
+        urlmessage := GetTid("publisher:components.previewbrowser.showmessage.notviewable-urlmessage");
+        urltarget := TRUE;
+      }
+      CASE "redirection"
+      {
+        // Shown when a previewed file redirects to another location
+        STRING location := this->location;
+        title := GetTid("publisher:components.previewbrowser.showmessage.redirection-title");
+        message := GetTid("publisher:components.previewbrowser.showmessage.redirection-message", location);
+        urlmessage := GetTid("publisher:components.previewbrowser.showmessage.redirection-urlmessage");
+        this->url := location; // The url link should open the new location
+      }
+    }
+
+     ?><div id="bg"></div>
+    <?wh IF (message != "") { ?>
+      <div id="msg">
+        <h1><?wh Print(EncodeHtml(title)); ?></h1>
+        <p><?wh Print(EncodeHtml(message)); ?></p>
+        <?wh IF (urlmessage != "") { ?>
+          <p><a href="<?wh Print(EncodeValue(this->url)); ?>" <?wh IF (urltarget) Print('target="_blank"'); ?>><?wh Print(EncodeHtml(urlmessage)); ?></a></p>
+        <?wh } ?>
+      </div>
+    <?wh }
+  }
+>;

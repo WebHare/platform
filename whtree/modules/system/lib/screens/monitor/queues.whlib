@@ -1,0 +1,375 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+DATETIME FUNCTION DecodeDateTimeString(STRING dt)
+{
+  STRING ARRAY parts := Tokenize(dt,"\t");
+  IF (Length(parts) != 2)
+    RETURN DEFAULT DATETIME;
+  RETURN MakeDateFromParts(ToInteger(parts[0],0),ToInteger(parts[1],0));
+}
+
+STRING FUNCTION DescribeFile(INTEGER objid)
+{
+  STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id=objid;
+  IF(path="")
+    path := "#" || objid;
+  RETURN path;
+}
+
+STRING FUNCTION DescribeConsilioTask(RECORD worker, RECORD ARRAY contentproviders)
+{
+  STRING workerstatus;
+  IF (RecordExists(worker.curitem))
+  {
+    STRING command := GetTid("system:monitor.queues.workerstatus.unknown");
+    STRING ARRAY additional;// := [ STRING(this->tolliumuser->FormatTimespan(0, worker.curitem.workingtime)) ];
+    IF (worker.curitem.numpages > 0)
+      INSERT GetTid("system:monitor.queues.workerstatus.workerpages", ToString(worker.curitem.numpages)) INTO additional AT 0;
+
+    RECORD data := GetQueueDataFromCommand(worker.curitem.command);
+    IF (RecordExists(data))
+    {
+      STRING indexname := CellExists(data, "indexid") ? SELECT AS STRING name FROM consilio.indices WHERE id = data.indexid : "";
+      STRING contentsource;
+      IF(CellExists(data, "contentsourceid"))
+        contentsource := SELECT AS STRING tag FROM consilio.contentsources WHERE id=VAR data.contentsourceid;
+
+      STRING groupname := CellExists(data, "groupid") ? data.groupid : "";
+      RECORD file := SELECT name, fullpath, parentsite FROM system.fs_objects WHERE id = ToInteger(groupname, 0);
+      IF (RecordExists(file))
+      {
+        STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = file.parentsite;
+        groupname := (sitename != "" ? sitename || ":" : "") || file.fullpath;
+      }
+
+      STRING objectname := CellExists(data, "objectid") ? data.objectid : "";
+
+      SWITCH (data.action)
+      {
+        CASE "CHECKINDEXSTATE"
+        {
+          command := GetTid("system:monitor.queues.workerstatus.checkindexstate");
+        }
+        CASE "CHECKINDEX"
+        {
+          IF(contentsource="")
+            command := GetTid("system:monitor.queues.workerstatus.checkindex", indexname);
+          ELSE
+            command := GetTid("system:monitor.queues.workerstatus.checkindexsource", indexname, contentsource);
+        }
+        CASE "UPDATEINDEX"
+        {
+          IF(contentsource="")
+            command := GetTid("system:monitor.queues.workerstatus.updateindex", indexname);
+          ELSE
+            command := GetTid("system:monitor.queues.workerstatus.updateindexsource", indexname, contentsource);
+        }
+        CASE "FASTCHECKGROUP"
+        {
+          command := GetTid("system:monitor.queues.workerstatus.fastcheckgroup", groupname, indexname);
+        }
+        CASE "CHECKGROUP"
+        {
+          command := GetTid("system:monitor.queues.workerstatus.checkgroup", groupname, indexname);
+        }
+        CASE "UPDATEGROUP"
+        {
+          command := GetTid("system:monitor.queues.workerstatus.updategroup", groupname, indexname);
+        }
+        CASE "DEACTIVATEGROUP"
+        {
+          command := GetTid("system:monitor.queues.workerstatus.deactivategroup", groupname, indexname);
+        }
+        CASE "DELETEGROUP"
+        {
+          command := GetTid("system:monitor.queues.workerstatus.deletegroup", groupname, indexname);
+        }
+        CASE "CHECKOBJECT"
+        {
+          command := GetTid("system:monitor.queues.workerstatus.checkobject", objectname, indexname);
+        }
+        CASE "DELETEOBJECT"
+        {
+          command := GetTid("system:monitor.queues.workerstatus.deleteobject", objectname, indexname);
+        }
+        CASE "CLEANUPINDEX"
+        {
+          command := GetTid("system:monitor.queues.workerstatus.cleanupindex", indexname);
+        }
+      }
+    }
+    workerstatus := GetTid("system:monitor.queues.workerstatus.workertask", command, Detokenize(additional, ", "));
+  }
+  ELSE IF (NOT worker.available)
+    workerstatus := GetTid("system:monitor.queues.workerstatus.unavailable");
+  ELSE
+    workerstatus := GetTid("system:monitor.queues.workerstatus.idle");
+  RETURN workerstatus;
+}
+
+PUBLIC OBJECTTYPE Queues EXTEND MonitorPanelBase
+<
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    this->workers->rows := this->GetConsilioWorkers() CONCAT this->GetPublisherWorkers();
+    this->tasks->rows := this->GetTasks();
+  }
+
+  PUBLIC MACRO OnMessage(RECORD message)
+  {
+    IF (CellExists(message, "TASKID") AND message.taskid > 0)
+      this->tasks->value := message.taskid;
+  }
+
+  INTEGER FUNCTION GetTaskIcon(RECORD task)
+  {
+    STRING iconname;
+
+    IF (NOT task.enabled)
+      iconname := "tollium:status/negative";
+    ELSE IF(task.nexttime != DEFAULT DATETIME AND task.nexttime < GetCurrentDatetime())
+      iconname := "tollium:status/wait";
+    ELSE IF (task.error != "")
+      iconname := "tollium:status/serious_error";
+    ELSE
+      iconname := "tollium:status/checked";
+
+    RETURN this->tasks->GetIcon(iconname);
+  }
+
+  RECORD ARRAY FUNCTION GetTasks()
+  {
+    RECORD ARRAY newlist := SELECT error
+                                 , running :=     currentstart = DEFAULT DATETIME ? 0 : this->tasks->GetIcon("tollium:status/neutral")
+                                 , currentstart
+                                 , nexttime
+                                 , script
+                                 , description
+                                 , rowkey := id
+                                 , enabled
+                                 , style := enabled ? "" : "disabled"
+                              FROM system_internal.tasks;
+
+    RETURN SELECT *, icon := this->GetTaskIcon(newlist) FROM newlist;
+  }
+
+  RECORD ARRAY FUNCTION GetConsilioWorkers()
+  {
+    RECORD ARRAY statusrows;
+    FOREVERY (RECORD indexmanager FROM SELECT id, name, type FROM consilio.indexmanagers)
+    {
+      RECORD status := GetIndexManagerStatus(indexmanager.id);
+      Print("IndexManager status:\n" || AnyToString(status, "tree"));
+      IF (status.status = SearchOk)
+      {
+        RECORD statusrow :=
+            [ name := indexmanager.name
+            , type := this->indexmanagers->GetIcon(GetIndexManagerIcon(indexmanager.type))
+            , indexstatus := this->GetTid(".indexmanagerstatus.unknown")
+            , janitor_nexttask := DEFAULT DATETIME
+            ];
+        FOREVERY (STRING msgline FROM status.msg)
+        {
+          STRING ARRAY parts := Tokenize(msgline,"=");
+          SWITCH (parts[0])
+          {
+            CASE "indexstatus"
+            {
+              SWITCH (parts[1])
+              {
+                CASE "0" {}
+                CASE "1" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.available"); }
+                CASE "2" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.checking"); }
+                CASE "3" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.optimizing"); }
+                CASE "4" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.offline"); }
+                CASE "5" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.unauthorized"); }
+                DEFAULT  { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.unknown"); }
+              }
+            }
+            CASE "janitor.nexttask"
+            {
+              statusrow.janitor_nexttask := this->DecodeDateTimeString(parts[1]);
+            }
+            CASE "disk.available"
+            {
+            }
+            CASE "disk.total"
+            {
+            }
+            CASE "disk.watermark"
+            {
+              // If the watermark is a percentage, it triggers if the disk is filled that percentage, otherwise it triggers
+              // if the empty disk space is less than the threshold
+              SWITCH (parts[1])
+              {
+                CASE "false" {}
+                CASE "ok"    {}
+                CASE "low"   { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.low_watermark", parts[2], parts[2] LIKE "*%" ? "more" : "less"); }
+                CASE "high"  { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.high_watermark", parts[2], parts[2] LIKE "*%" ? "more" : "less"); }
+                CASE "flood" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.flood_watermark", parts[2], parts[2] LIKE "*%" ? "more" : "less"); }
+                DEFAULT  { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.unknown"); }
+              }
+            }
+          }
+        }
+        INSERT statusrow INTO statusrows AT END;
+      }
+    }
+    this->indexmanagers->rows := statusrows;
+
+
+    RECORD ARRAY contentproviders := SELECT *
+                                         , title := GetTid(title)
+                                         , settingsscreen := DEFAULT OBJECT
+                                      FROM GetContentProviders();
+
+    RECORD status := __ConsilioGetQueueManagerStatus();
+    IF(NOT RecordExists(status))
+      RETURN DEFAULT RECORD ARRAY;
+
+
+    //Print("QueueManager status:\n" || AnyToString(status, "tree"));
+    this->consilioqueuelength->value := ToString(status.queuelength);
+
+    RECORD contentsourceinfo :=
+        SELECT total := Sum(contentsources.status >= 0 ? 1 : 0)
+             , idle := Sum(contentsources.status = 0 ? 1 : 0)
+             , disabled := Sum(contentsources.status < 0 ? 1 : 0)
+          FROM consilio.contentsources
+         WHERE tag NOT LIKE "$consilio$deleted$*";
+    IF (RecordExists(contentsourceinfo))
+      this->contentsources->value := GetTid("system:monitor.queues.contentsources-desc", ToString(contentsourceinfo.total), ToString(contentsourceinfo.idle), ToString(contentsourceinfo.disabled));
+
+    RECORD ARRAY workerlist := SELECT rowkey := "consilio" || #workers
+                                    , name := "consilio " || #workers + 1
+                                    , currenttask := DescribeConsilioTask(workers, contentproviders)
+                                    , currenttaskhint := RecordExists(curitem) ? curitem.command : ""
+                                    , time := RecordExists(curitem) ? this->tolliumuser->FormatTimespan(0,curitem.workingtime) : ""
+                                    , starttime := RecordExists(curitem) ? this->tolliumuser->FormatTime(curitem.starttime, "seconds", TRUE) : ""
+                                    , deadline := RecordExists(curitem) ? this->tolliumuser->FormatTime(curitem.maxtime, "seconds", TRUE) : ""
+                                 FROM status.workers;
+    RETURN workerlist;
+  }
+
+  DATETIME FUNCTION DecodeDateTimeString(STRING dt)
+  {
+    STRING ARRAY parts := Tokenize(dt,"\t");
+    IF (Length(parts) != 2)
+      RETURN DEFAULT DATETIME;
+    RETURN MakeDateFromParts(ToInteger(parts[0],0),ToInteger(parts[1],0));
+  }
+
+  RECORD ARRAY FUNCTION GetPublisherWorkers()
+  {
+    IF (IsDatabaseReadonly())
+      RETURN DEFAULT RECORD ARRAY;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    RECORD state := GetPublisherState();
+    //printrecordto(0,state,'boxed');
+    work->Cancel();
+
+    IF(NOT RecordExists(state))
+      RETURN DEFAULT RECORD ARRAY;
+
+    this->queuelength->value := ToString(state.total);
+
+    INTEGER totaltime := state.workers = 0 ? 0 : state.totaltime / (state.workers);
+    INTEGER percentage_measured := state.measured = 0 ? 0 : (state.total * 100) / state.measured;
+    INTEGER estimated_time := (( (totaltime+500) / 1000) * percentage_measured) / 100;
+
+    IF(state.total=0 OR estimated_time=0)
+    {
+      this->estimatedcompletion->value := GetTid("system:monitor.queues.estimate_unavailable");
+    }
+    ELSE
+    {
+      DATETIME eta := AddTimeToDate(estimated_time*1000, GetCurrentDatetime());
+      DATETIME now := GetCurrentDatetime();
+      IF(GetDayCount(this->tolliumuser->UTCToLocal(eta)) != GetDayCount(this->tolliumuser->UTCToLocal(now))) //tomorrow? (from user's perspective)
+        this->estimatedcompletion->value := this->tolliumuser->FormatDatetime(eta, "minutes", TRUE, TRUE);
+      ELSE
+        this->estimatedcompletion->value := this->tolliumuser->FormatTime(eta, "minutes", TRUE);
+    }
+
+    this->analyzerqueuelength->value := ToString(state.analyzerqueuelength);
+
+    RECORD ARRAY procs := SELECT * FROM state.processes ORDER BY processnum;
+
+    RECORD ARRAY workerlist := SELECT rowkey := "publisher" || #procs
+                                    , name := "publisher " || #procs+1
+                                    , currenttask := DescribeFile(fileid)
+                                    , currenttaskhint := "#" || fileid
+                                    , time := this->tolliumuser->FormatTimespan(0, seconds*1000)
+                                    , starttime := ""
+                                    , deadline := ""
+                                 FROM procs;
+    RETURN workerlist;
+  }
+
+  MACRO DoTaskProperties()
+  {
+    this->LoadScreen(".taskproperties", [ id := this->tasks->value ])->RunModal();
+    this->RefreshMonitorPanel();
+  }
+
+  MACRO DoScheduleTaskNow()
+  {
+    OBJECT work := this->BeginWork();
+    UPDATE system_internal.tasks SET nexttime := GetCurrentDatetime() WHERE id = this->tasks->value;
+    GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
+    work->Finish();
+    this->RefreshMonitorPanel();
+
+    this->RunMessageBox(".taskscheduled");
+  }
+>;
+
+PUBLIC OBJECTTYPE taskproperties EXTEND TolliumScreenBase
+<
+  INTEGER id;
+
+  MACRO Init(RECORD data)
+  {
+    this->id := data.id;
+
+    RECORD taskinfo := SELECT * FROM system_internal.tasks WHERE id=data.id;
+    this->scriptname->value := taskinfo.script;
+    this->description->value := taskinfo.description;
+    this->parameters->value := taskinfo.parameters;
+    this->tag->value := taskinfo.tag;
+    this->lastmessages->value := taskinfo.error;
+    this->nexttime->value := taskinfo.nexttime;
+    ^enabled->enabled := taskinfo.enabled OR taskinfo.inapplicable = "";
+    ^enabled->value := taskinfo.enabled;
+    ^inapplicable->value := taskinfo.inapplicable;
+    ^inapplicable->visible := taskinfo.inapplicable != "";
+
+    this->timeout->value := taskinfo.timeout > 0 ? taskinfo.timeout || " " || GetTid("tollium:common.units.minutes")
+                                                 : this->GetTid(".defaulttimeout", ReadRegistryKey("system.tasks.defaulttimeout") || " " || GetTid("tollium:common.units.minutes"));
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    UPDATE system_internal.tasks
+           SET nexttime := this->nexttime->value
+             , enabled := this->enabled->value
+           WHERE id=this->id;
+    GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
+    RETURN work->Finish();
+  }
+>;

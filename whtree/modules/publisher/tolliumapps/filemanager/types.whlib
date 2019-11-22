@@ -1,0 +1,103 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
+<
+  OBJECT foldertester;
+  OBJECT filetester;
+  BOOLEAN isnew;
+  BOOLEAN isfolder;
+  RECORD ARRAY filetypes;
+  RECORD ARRAY foldertypes;
+
+  MACRO Init(RECORD data)
+  {
+    data := ValidateOptions([ parent := 0
+                            , foldertypes := FALSE
+                            , fsobjects := INTEGER[]
+                            ], data);
+
+    this->isnew := TRUE;
+    IF(this->isnew)
+    {
+      this->foldertester := GetApplyTesterForFakeObject(data.parent, TRUE, 0);
+      this->filetester := GetApplyTesterForFakeObject(data.parent, FALSE, 0);
+
+      this->RefreshTypes();
+      ^typesgroup->value := "files";
+    }
+    ELSE
+    {
+      RECORD initialinfo := SELECT isfolder, type FROM system.fs_objects WHERE id = VAR data.fsobjects[0];
+      this->isfolder := initialinfo.isfolder;
+      this->foldertester := GetApplyTesterForObject(data.fsobjects[0]); //FIXME deal properly with multiselect..
+      this->filetester := this->foldertester;
+
+      this->RefreshTypes();
+    }
+
+  }
+  MACRO RefreshTypes()
+  {
+    //Load groups and types
+    BOOLEAN showdeveloper;
+    BOOLEAN showalltypes;
+
+    IF(ObjectExists(this->filetester))
+      this->filetypes := GetFileTypes(this->filetester, this->tolliumuser->language, showdeveloper, showalltypes, this->isnew);
+
+    IF(ObjectExists(this->foldertester))
+      this->foldertypes := GetFolderTypes(this->filetester, this->tolliumuser->language, showdeveloper, showalltypes);
+  }
+
+  MACRO OnGroupSelect()
+  {
+    ^types->Invalidate();
+  }
+
+  RECORD ARRAY FUNCTION OnGetGroups()
+  {
+    RETURN [[ rowkey := "folders"
+            , isfolder := TRUE
+            , title := "New folder"
+            , icon := 0
+            ]
+           ,[ rowkey := "files"
+            , isfolder := FALSE
+            , title := "New file"
+            , icon := 0
+            ]
+           ];
+  }
+
+  RECORD ARRAY FUNCTION OnGetTypes()
+  {
+    BOOLEAN showdeveloper;
+    BOOLEAN showalltypes;
+    RECORD ARRAY types;
+    BOOLEAN forfolder :=  RecordExists(^typesgroup->selection) AND ^typesgroup->selection.isfolder;
+
+    types := forfolder ? this->foldertypes : this->filetypes;
+
+    RETURN SELECT rowkey := id || "x"
+                , title := GetTid(title)
+                , icon := 0
+                , template := 0
+                //, namespace
+                , type := id
+             FROM types;
+  }
+
+  RECORD FUNCTION Submit()
+  {
+    RECORD sel :=  ^types->selection;
+    RETURN CELL[ createtype := sel.type, template := sel.template ];
+  }
+>;

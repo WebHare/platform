@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="testmain.whscr" />
+  <test script="test_wrdrichdocument.whscr" />
+</group>

@@ -1,0 +1,133 @@
+<?wh
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
+LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+PUBLIC OBJECTTYPE ScreensFileValidator EXTEND ResourceValidationBase
+<
+  STRING lastlib;
+  RECORD lastlibdescr;
+
+  RECORD FUNCTION GetLibDescription(STRING libname)
+  {
+    IF(this->lastlib != libname)
+    {
+      this->lastlib := libname;
+      IF(libname != "")
+      {
+        this->lastlibdescr := DescribeCompiledLibrary(libname);
+      }
+      ELSE
+      {
+        this->lastlibdescr := DEFAULT RECORD;
+      }
+    }
+    RETURN this->lastlibdescr;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  {
+    RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
+
+    // try to load each <screen> in the screens document to catch all errors
+    // which can't be picked up by validating using the XSD.
+
+    // We use the document to know which screens are availabe,
+    // but make the controller/resourcemanager load the screen.
+    FOREVERY(OBJECT topnode FROM doc->documentelement->childnodes->GetCurrentElements())
+    {
+      IF(topnode->localname="messageboxes")
+      {
+        FOREVERY(OBJECT messagebox FROM topnode->childnodes->GetCurrentElements())
+          GetMessageBoxFromNode(messagebox, GetModuleNameFromResourcePath(resourcename));
+      }
+      ELSE IF(topnode->localname IN ["screen","fragment","propertyeditor","tabsextension"]) //FIXME validate namespaces. note that propertyeditor is a hack and is from a different namespace!
+      {
+        RECORD savescreenbuildinfo := __screenbuildinfo;
+        TRY
+        {
+          RECORD parsedelement := ParseFoundXMLPage(resourcename, topnode, topnode->localname = "screen" ? "screen" : "fragment", doc->documentelement->GetAttribute("gid"));
+          result.warnings := result.warnings CONCAT parsedelement.warnings;
+
+          INTEGER elline := parsedelement.rootnode.tolliumscope.line;
+          STRING ARRAY objtoks := Tokenize(parsedelement.objtype,'#');
+          RECORD lib := this->GetLibDescription(objtoks[0]);
+          IF(NOT RecordExists(lib))
+          {
+            INSERT CELL[ resourcename, line := elline, col := 0, message := `No such library '${objtoks[0]}' (looking for '${objtoks[1]}')` ]
+                   INTO result.errors AT END;
+            CONTINUE;
+          }
+          IF(NOT RecordExists(SELECT FROM lib.functions WHERE name = ToUppercase(objtoks[1] || "#NEW")))
+          {
+            INSERT CELL[ resourcename, line := elline, col := 0, message := `Object '${objtoks[1]}' not found in '${objtoks[0]}'` ]
+                   INTO result.errors AT END;
+            CONTINUE;
+          }
+          //any errors would throw a RetrieveResourceException
+
+          //FIXME can all objects be processed by screenbuilder?
+          //FIXME simplify and share core with pvt_loadscreen
+          IF(topnode->localname = "screen" AND tidsonly = FALSE) //only screen is complete enough for a sensible internal consistency valiadtion
+          {
+            __screenbuildinfo := [ options := [ appcontexts := DEFAULT RECORD ARRAY, contexts := DEFAULT RECORD ]
+                                 , parent := DEFAULT OBJECT
+                                 , controller := DEFAULT OBJECT
+                                 , privateptr := DEFAULT OBJECT
+                                 , initdata := DEFAULT RECORD
+                                 , contextparent := DEFAULT OBJECT
+                                 ];
+            OBJECT builder := NEW __ScreenBuilder(DEFAULT OBJECT, parsedelement, FALSE);
+            OBJECT screen := __screenbuildinfo.privateptr;
+            RECORD ARRAY allcomponents := screen->DoLoadComponents(parsedelement.formobjects, builder);
+            allcomponents := screen->tolliumscreenmanager->ScopeFormObjects(allcomponents);
+
+            FOREVERY(RECORD objinfo FROM allcomponents)
+            {
+              TRY
+              {
+                objinfo.data := builder->ReprocessData(DEFAULT OBJECT, objinfo.data, objinfo.data.__xml_fields);
+              }
+              CATCH(OBJECT e)
+              {
+                builder->AddError(objinfo.data.tolliumscope, e->what);
+              }
+            }
+            result.errors := result.errors CONCAT builder->GetErrors();
+          }
+        }
+        CATCH(OBJECT< RetrieveResourceException > e)
+        {
+          IF(Length(e->xmlerrors) > 0)
+            result.errors := result.errors CONCAT e->xmlerrors;
+          ELSE
+            result.errors := result.errors CONCAT [[ line         := 0
+                                 , col          := 0
+                                 , message      := e->mainerror
+                                 , resourcename := e->resourcename
+                                ]];
+        }
+        CATCH(OBJECT< HarescriptErrorException > e)
+        {
+          result.errors := result.errors CONCAT SELECT resourcename := VAR resourcename, line, col, message FROM e->errors;
+        }
+        CATCH(OBJECT e)
+        {
+          result.errors := result.errors CONCAT [[ line    := 0
+                               , col     := 0
+                               , message := e->what
+                               , resourcename := resourcename
+                              ]];
+        }
+        FINALLY
+        {
+          __screenbuildinfo := savescreenbuildinfo;
+        }
+      }
+    }
+    RETURN result;
+  }
+>;

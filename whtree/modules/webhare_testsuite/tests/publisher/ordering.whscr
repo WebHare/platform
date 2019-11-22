@@ -1,0 +1,143 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+OBJECT ASYNC FUNCTION FolderOrdering()
+{
+  testfw->SetTestUser("lisa");
+
+  testfw->BeginWork();
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), GetTestsuiteTempFolder()->id, FALSE, TRUE);
+
+  GetTestsuiteTempFolder()->CreateFile([ name := "a", title := "Alpha",   publish := TRUE ]);//, ordering := 1 ]);
+  GetTestsuiteTempFolder()->CreateFile([ name := "b", title := "Bravo",   publish := TRUE ]);//, ordering := 2 ]);
+  GetTestsuiteTempFolder()->CreateFile([ name := "c", title := "Charlie", publish := TRUE ]);//, ordering := 3 ]);
+  GetTestsuiteTempFolder()->CreateFile([ name := "d", title := "Delta",   publish := TRUE ]);//, ordering := 4 ]);
+  GetTestsuiteTempFolder()->EnsureOrdering(TRUE);
+  testfw->CommitWork();
+
+  //http://webhare.willie.sf.b-lex.com/?app=publisher(/webhare_testsuite.site/ordering)&openas=webhare_testsuite.lisa&language=debug
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[GetTestsuiteTempFolder()->whfspath], target := DEFAULT RECORD ]));
+
+  //Set the controller for modals to our new handler:
+  TestEq("tmp", TT("foldertree")->selection.name);
+  // Display the filelist in 'ordering' mode:
+  TT("sortorderselect")->value := "ordering";
+
+  //first test: klopt initiele display
+  TestEq([ "a", "b", "c", "d" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+
+  // Create a new file and test if the filtering is reset and the file is displayed
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE contenttype="http://www.webhare.net/xmlns/publisher/richdocumentfile" AND template=0;
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+  TT("name")->value := "e";
+  TT("title")->value := "Echo";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq([ "a", "b", "c", "d", "e" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+  TestEq(1, Length(TT("filelist")->selection));
+  TestEq("e", TT("filelist")->selection[0].name, "Selection was not set to newly created file");
+
+  // Create a new folder and test if the filtering is reset and the file is displayed
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TT("types")->value := "type:0";//standard folder
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+  TT("name")->value := "f";
+  TT("title")->value := "Foxtrot";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq([ "a", "b", "c", "d", "e", "f" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+  TestEq(1, Length(TT("filelist")->selection));
+  TestEq("f", TT("filelist")->selection[0].name, "Selection was not set to newly created folder");
+
+  // Create a bunch of files with ordering manually set to 0 WITHOUT user interaction
+  testfw->BeginWork();
+  GetTestsuiteTempFolder()->CreateFile([ name := "1", title := "One", publish := TRUE, ordering := 0 ]);
+  GetTestsuiteTempFolder()->CreateFile([ name := "2", title := "Two", publish := TRUE, ordering := 0 ]);
+  GetTestsuiteTempFolder()->CreateFile([ name := "3", title := "Three", publish := TRUE, ordering := 0 ]);
+  GetTestsuiteTempFolder()->CreateFile([ name := "4", title := "Four", publish := TRUE, ordering := 0 ]);
+  GetTestsuiteTempFolder()->CreateFile([ name := "5", title := "Five", publish := TRUE, ordering := 0 ]);
+  testfw->CommitWork();
+
+  // Test if the old behaviour is still functional for files created outside of the interface:
+  TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "d", "e", "f" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly displayed by the filelist");
+  TestEq("f", TT("filelist")->selection[0].name, "Selection changed even though the files were created without the user asking for them");
+
+  // Forcing ordering should NOT change the way the user sees the list:
+  testfw->BeginWork();
+  GetTestsuiteTempFolder()->EnsureOrdering(TRUE);
+  testfw->CommitWork();
+
+  TestEq(11, Length(TT("filelist")->rows));
+  TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "d", "e", "f" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly displayed by the filelist after forced reorder");
+  TestEq("f", TT("filelist")->selection[0].name, "Selection changed though no action was explicitly requested by the user");
+
+  // Test behaviour when recycling and restoring ordered files:
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE contenttype="http://www.webhare.net/xmlns/publisher/richdocumentfile" AND template=0;
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+  TT("name")->value := "recycle1";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  // It should now be at position 12:
+  TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "d", "e", "f", "recycle1" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly displayed by the filelist after creating a new file");
+  TestEq("recycle1", TT("filelist")->selection[0].name, "Selection changed though no action was explicitly requested by the user");
+  // Now let's move it up three positions:
+  TestEq(TRUE, TT("moveupbutton")->enabled);
+  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
+  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
+  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
+
+  //DumpValue((SELECT AS STRING ARRAY name FROM TT("filelist")->rows), 'tree');
+  TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "recycle1", "d", "e", "f" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly displayed by the filelist after explicitly reordering");
+  TestEq("recycle1", TT("filelist")->selection[0].name, "Selection changed after the user moved the selected item with the ordering buttons");
+
+  // Now let's restore the first file:
+  testfw->BeginWork();
+  OBJECT file1 := GetTestsuiteTempFolder()->OpenByPath("recycle1");
+  file1->RecycleSelf();
+  testfw->CommitWork();
+
+  TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "d", "e", "f" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly displayed by the filelist after recycling an ordered file");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE contenttype="http://www.webhare.net/xmlns/publisher/richdocumentfile" AND template=0;
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+  TT("name")->value := "recycle2";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  // It should now be at position 12:
+  TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "d", "e", "f", "recycle2" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly displayed by the filelist after creating a new file");
+  TestEq("recycle2", TT("filelist")->selection[0].name, "Selection changed though no action was explicitly requested by the user");
+  // Now let's move it up three positions:
+  TestEq(TRUE, TT("moveupbutton")->enabled);
+  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
+  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
+  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
+
+  TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "recycle2", "d", "e", "f" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly displayed by the filelist after explicitly reordering");
+  TestEq("recycle2", TT("filelist")->selection[0].name, "Selection changed after the user moved the selected item with the ordering buttons");
+
+  // Now let's restore the removed file:
+  testfw->BeginWork();
+  file1->RestoreSelf();
+  testfw->CommitWork();
+
+  TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "recycle1", "recycle2", "d", "e", "f" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly set after restoring a file from recyclebin");
+  TestEq("recycle2", TT("filelist")->selection[0].name, "Selection changed after the testframework (NOT the user) restored a file from the recyclebin");
+
+  // ADDME: Walk through the upload and replace procedures and test the relevant behaviours
+//  TestEq(TRUE, topscreen->uploadbutton->TolliumClick());
+//  TestEq(TRUE, topscreen->replacebutton->TolliumClick());
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  RETURN TRUE;
+}
+
+RunTestframework([ PTR FolderOrdering
+                 ], [ testusers := [[ login := "lisa" ]
+                                   ]
+                    ]);

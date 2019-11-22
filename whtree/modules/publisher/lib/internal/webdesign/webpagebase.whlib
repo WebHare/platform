@@ -1,0 +1,60 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
+
+
+/** @topic sitedev/webdesign
+    @public
+    @loadlib mod::publisher/lib/webdesign.whlib
+*/
+PUBLIC OBJECTTYPE WebPageBase
+<
+  RECORD __pageinfo;
+
+  ///Marker that we're the 'new' WebPageBase - used to quickly recognize us in some code paths
+  PUBLIC BOOLEAN __is_newstyle_pagebase;
+
+  /// @type(object %WebDesignbase) Current webdesign
+  PUBLIC PROPERTY webdesign(this->__pageinfo.webdesign, -);
+
+  /// @type(string) The full URL up to the current file
+  PUBLIC PROPERTY absolutebaseurl(this->__pageinfo.absolutebaseurl, -);
+
+  ///  @type(string) The remainder of the URL, excluding any variables.
+  PUBLIC PROPERTY subpath(this->__pageinfo.subpath, -);
+
+  /// Constructs a new WebPageBase object
+  MACRO NEW()
+  {
+    //FIXME get information from currently hit accessrules so that we can even work properly with server-side folder rewrites
+    IF(CellExists(__pageinfo,"__instantiatedesign"))
+      __pageinfo.__instantiatedesign();
+
+    //__pageinfo is from support.whlib, communicated by the systemnredirect.whlib
+    this->__pageinfo := __pageinfo ?? [ absolutebaseurl := "", subpath := "", append := "" ];
+  }
+
+  ///@private GatherSuggestedAnchorsForFile is deprecated - we want to stop doing this preparation phase
+  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors()
+  {
+    RETURN DEFAULT OBJECT ARRAY;
+  }
+
+  /** Update this function to return the macro ptr that renders the page body
+      @return Page body rendering function
+  */
+  PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    THROW NEW Exception("This page did not yet update the PUBLIC MACRO PTR GetPageBody()");
+  }
+
+  /** Override GetDynamicPageCacheSettings to set your own cache settings. The page
+      must already have been marked as cacheable (ie have a cachettl)
+      @return Cache settings
+  */
+  PUBLIC RECORD FUNCTION GetDynamicPageCacheSettings()
+  {
+    RETURN DEFAULT RECORD;
+  }
+>;
+

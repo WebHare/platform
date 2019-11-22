@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <rect id="maskcanvas" width="32px" height="32px" fill="#ffffff"/>
+    <mask id="circlemask">
+      <use xlink:href="#maskcanvas"/>
+      <circle cx="16" cy="16" r="12" transform="scale(0.6) translate(24 24)" stroke="#000000" stroke-width="3"/>
+    </mask>
+    <mask id="plusmask">
+      <use xlink:href="#maskcanvas"/>
+      <path d="M21.78,14.625h-4.346v-4.426c0-0.386-0.321-0.699-0.718-0.699h-1.434c-0.397,0-0.719,0.313-0.719,0.699v4.426h-4.346c-0.397,0-0.718,0.313-0.718,0.699v1.308c0,0.386,0.321,0.699,0.718,0.699h4.346v4.471c0,0.385,0.322,0.698,0.719,0.698h1.434c0.397,0,0.718-0.313,0.718-0.698v-4.471h4.346c0.397,0,0.72-0.312,0.72-0.699v-1.308C22.5,14.938,22.178,14.625,21.78,14.625z" fill="#000000"/>
+    </mask>
+    <path id="folder-outline" d="M30,4H19l-4,6H2c-1,0-2,0.5-2,1.5v16C0,29,1,30,2,30c0,0,27,0,28,0s2-1,2-2V6C32,5,31,4,30,4zM2,28V12h14l4-6h10v22H2z"/>
+    <path id="folder-tab" d="M2,5C1.016,5,1,6,1,6v2h12.5l2-3C15.5,5,3,5,2,5z"/>
+  </defs>
+  <g>
+    <use xlink:href="#folder-outline" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" style="mask:url(&quot;#circlemask&quot;);"/>
+    <use xlink:href="#folder-tab" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <circle cx="16" cy="16" r="12" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" style="mask:url(&quot;#plusmask&quot;);" transform="scale(0.6) translate(24 24)"/>
+  </g>
+</svg>

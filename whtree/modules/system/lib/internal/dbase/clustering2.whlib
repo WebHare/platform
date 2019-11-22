@@ -1,0 +1,601 @@
+﻿<?wh
+
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+/* New clustering code which also consolidates sections with low fill percentage
+*/
+
+/** Do a scan of a table, to enable janitor to execute cleanup hints
+    @param tablename Table to scan
+    @param fullscan Whether to do a full scan
+    @param ids List of ids to select if no full scan is selected
+*/
+MACRO ScanTable(STRING tablename, BOOLEAN fullscan, INTEGER ARRAY ids)
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+  TABLE < INTEGER id > mytable := BindTransactionToTable(GetPrimary()->id, tablename);
+  SELECT FROM mytable WHERE fullscan ? TRUE : id IN ids;
+}
+
+/** Make sure old expired records are deleted by the janitor - and wait for that
+    @param tablename Table to scan
+    @param fullscan Whether to do a full scan
+    @param ids List of ids to select if no full scan is selected
+*/
+MACRO EnsureJanitorDestroysOldRecords(STRING tablename, BOOLEAN fullscan, INTEGER ARRAY ids)
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  GetPrimary()->BeginWork();
+  INTEGER ARRAY transactions :=
+        SELECT AS INTEGER ARRAY transid
+          FROM __SendWHDBCommand(GetPrimary()->id, "SHOW TRANSACTIONS");
+  GetPrimary()->RollbackWork();
+
+  WHILE (TRUE)
+  {
+    PRINT("Waiting for running transactions to finish... ");
+    Sleep(1000);
+    GetPrimary()->BeginWork();
+    INTEGER ARRAY stillrunning :=
+        SELECT AS INTEGER ARRAY transid
+          FROM __SendWHDBCommand(GetPrimary()->id, "SHOW TRANSACTIONS")
+          WHERE transid IN transactions;
+    GetPrimary()->RollbackWork();
+    IF (LENGTH(stillrunning) = 0)
+    {
+      PRINT("all finished   \n");
+      BREAK;
+    }
+    PRINT(LENGTH(stillrunning) || " running\r");
+  }
+
+  PRINT("Touching moved records to start cleanups\n");
+  ScanTable(tablename, fullscan, ids);
+
+  WHILE (TRUE)
+  {
+    PRINT("Waiting for janitor... ");
+    GetPrimary()->BeginWork();
+    RECORD data := __SendWHDBCommand(GetPrimary()->id, "SHOW JANITOR");
+    GetPrimary()->RollbackWork();
+    IF (data.numhints = 0)
+    {
+      PRINT("finished             \n");
+      BREAK;
+    }
+    PRINT(data.numhints || " sections left  \r");
+    Sleep(1000);
+  }
+}
+
+RECORD default_sectioninfo :=
+    [ blocks :=         0
+    , posses :=         INTEGER[]
+    , overshared :=     FALSE
+    , isfinalrewrite := FALSE
+    ];
+
+
+PUBLIC STATIC OBJECTTYPE DBClusterEngine
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING tablename;
+  STRING groupkey;
+
+  /** Records for all sections (index by section id, no recordlowerbound necessary)
+      @cell
+  */
+  RECORD ARRAY sectioninfo;
+
+  /** All records, sorted on group
+      @cell id Record id
+      @cell sorton Group cell
+      @cell __internal_recordid Current recordid of the record in the DB
+      @cell section Current section (=__internal_recordid/512)
+      @cell blocks Nr of blocks this record uses
+      @cell pos Indix within this array
+      @cell needrewrite Whether this record needs to be reclustered
+  */
+  RECORD ARRAY sortedrecords;
+
+  /// List of records that are below small_section_size. Empty and reclustered sections are not in this list
+  INTEGER ARRAY nearempty_sections;
+
+  // Nr of records to rewrite
+  INTEGER rewrite_records;
+
+  // Small section threshold in blocks (calculated from small_section_fill_perc)
+  INTEGER small_section_size;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  // Minimum fill percentage for sections. Sections smaller than this are merged
+  PUBLIC INTEGER small_section_fill_perc;
+
+  /** Max nr of shared sections for groups. If a group has more shared sections than
+      this number, those sections are rewritten. Default: 4. Set higher to cluster
+      only the worst fragmented groups
+  */
+  PUBLIC INTEGER max_shared_sections;
+
+  /// Set to true to just rewrite the whole table
+  PUBLIC BOOLEAN rewriteall;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->small_section_fill_perc := 40;
+    this->max_shared_sections := 4;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Returns all visible records, sorted on recordsid
+  RECORD ARRAY FUNCTION GetAllVisibleRecords()
+  {
+    OBJECT q := NEW DynamicQuery;
+    q->AddTable("RECORDS", GetPrimary()->id, this->tablename, [ "ID", "__INTERNAL_RECORDID", this->groupkey ]);
+
+    PRINT("Get all visible records\n");
+    RECORD ARRAY allvisible :=
+        SELECT AS RECORD ARRAY records
+          FROM q->Execute();
+
+    PRINT("Sorting on recordid\n");
+    STRING groupkey := this->groupkey;
+    allvisible :=
+        SELECT *
+             , section :=       __internal_recordid / 512
+             , blocks :=        1
+             , sorton :=        GetCell(allvisible, groupkey)
+             , needrewrite :=   FALSE
+             , pos :=           0
+          FROM allvisible
+      ORDER BY __internal_recordid;
+
+    PRINT(`Total records: ${LENGTH(allvisible)}\n`);
+    RETURN allvisible;
+  }
+
+  /** Enrich visible records with record size, initializes sectioninfo
+      @param allvisible Visible records, sorted on recordid
+      @param sectionlist dbfile_sections list
+      @return Visible records with blocksize set
+  */
+  RECORD ARRAY FUNCTION EnrichVisibleRecordWithSize(RECORD ARRAY allvisible, RECORD ARRAY sectionlist)
+  {
+    INTEGER av_pos := 0;
+    INTEGER av_len := LENGTH(allvisible);
+
+    RECORD ARRAY sections;
+    FOREVERY (RECORD section FROM sectionlist)
+    {
+      PRINT(`Get lengths ${#section}/${LENGTH(sectionlist)}\r`);
+      RECORD ARRAY sectiondata := __SendWHDBCommand(GetPrimary()->id, `SHOW SECTIONHEADERS ${section.id}`);
+      IF (av_pos != av_len)
+      {
+        FOREVERY (RECORD rec FROM sectiondata)
+        {
+          WHILE (allvisible[av_pos].__internal_recordid < rec.__rec)
+          {
+            av_pos := av_pos + 1;
+            IF (av_pos = av_len)
+              BREAK;
+          }
+
+          IF (allvisible[av_pos].__internal_recordid = rec.__rec)
+          {
+            INTEGER blocks := (rec.__len + 127) / 128;
+            allvisible[av_pos].blocks := blocks;
+            av_pos := av_pos + 1;
+            IF (av_pos = av_len)
+              BREAK;
+          }
+        }
+      }
+    }
+
+    RETURN allvisible;
+  }
+
+  MACRO InitSectionInfoRefs()
+  {
+    this->small_section_size := this->small_section_fill_perc * 448 / 100;
+
+    PRINT("Recording records in sectionfo\n");
+    FOREVERY (RECORD rec FROM this->sortedrecords)
+    {
+      INSERT #rec INTO this->sectioninfo[rec.section].posses AT END;
+      this->sectioninfo[rec.section].blocks := this->sectioninfo[rec.section].blocks + rec.blocks;
+    }
+
+    FOREVERY (RECORD rec FROM this->sectioninfo)
+      IF (rec.blocks > 0 AND rec.blocks < this->small_section_size)
+        INSERT #rec INTO this->nearempty_sections AT END;
+
+    PRINT(`Nearempty sections: ${LENGTH(this->nearempty_sections)}\n`);
+  }
+
+  MACRO MarkUnclusteredGroups()
+  {
+    INTEGER recordcount := LENGTH(this->sortedrecords);
+
+    IF (this->rewriteall)
+    {
+      PRINT("Marking all records for rewrite\n");
+      FOR (INTEGER i := 0; i < recordcount; i := i + 1)
+        this->sortedrecords[i].needrewrite := TRUE;
+
+      this->rewrite_records := recordcount;
+      PRINT(`Records to rewrite: ${this->rewrite_records}\n`);
+      RETURN;
+    }
+
+    INTEGER ARRAY groupcounts := RepeatElement(0, LENGTH(this->sectioninfo));
+
+    RECORD ARRAY allvisible := this->sortedrecords;
+
+    PRINT("Calculating groups per section\n");
+    INTEGER groupstart := 0;
+    WHILE (groupstart != recordcount)
+    {
+      VARIANT sorton := this->sortedrecords[groupstart].sorton;
+
+      INTEGER ARRAY sections := INTEGER[ allvisible[groupstart].section ];
+      INTEGER grouplimit := groupstart + 1;
+      WHILE (grouplimit != recordcount AND allvisible[grouplimit].sorton = sorton)
+      {
+        INTEGER section := allvisible[grouplimit].section;
+        IF (section NOT IN sections)
+          INSERT section INTO sections AT END;
+        grouplimit := grouplimit + 1;
+      }
+
+      FOREVERY (INTEGER section FROM sections)
+        groupcounts[section] := groupcounts[section] + 1;
+
+      groupstart := grouplimit;
+    }
+
+    PRINT("Calculating overshared sections\n");
+    groupstart := 0;
+    WHILE (groupstart != recordcount)
+    {
+      VARIANT sorton := allvisible[groupstart].sorton;
+
+      INTEGER ARRAY sections := INTEGER[ allvisible[groupstart].section ];
+      INTEGER grouplimit := groupstart + 1;
+      WHILE (grouplimit != recordcount AND allvisible[grouplimit].sorton = sorton)
+      {
+        INTEGER section := allvisible[grouplimit].section;
+        IF (section NOT IN sections)
+          INSERT section INTO sections AT END;
+        grouplimit := grouplimit + 1;
+      }
+
+      INTEGER ARRAY shared_sections;
+      FOREVERY (INTEGER section FROM sections)
+        IF (groupcounts[section] > 1)
+          INSERT section INTO shared_sections AT END;
+
+      IF (LENGTH(shared_sections) > this->max_shared_sections)
+      {
+        FOREVERY (INTEGER section FROM shared_sections)
+          this->sectioninfo[section].overshared := TRUE;
+      }
+
+      groupstart := grouplimit;
+    }
+
+    PRINT("Marking records to rewrite\n");
+    INTEGER rewrite_records;
+    FOR (INTEGER i := 0; i < recordcount; i := i + 1)
+      IF (this->sectioninfo[this->sortedrecords[i].section].overshared)
+      {
+        this->sortedrecords[i].needrewrite := TRUE;
+        rewrite_records := rewrite_records + 1;
+      }
+
+    this->rewrite_records := rewrite_records;
+    PRINT(`Records to rewrite: ${rewrite_records}\n`);
+  }
+
+  MACRO AdjustSectionCounts(RECORD rec, BOOLEAN add, BOOLEAN isfinalrewrite)
+  {
+    // Ensure the sectioninfo exists
+    IF (rec.section >= LENGTH(this->sectioninfo))
+      this->sectioninfo := this->sectioninfo CONCAT RepeatElement(default_sectioninfo, rec.section - LENGTH(this->sectioninfo) + 1);
+
+    INTEGER oldsize := this->sectioninfo[rec.section].blocks;
+    BOOLEAN was_small := oldsize < this->small_section_size AND oldsize != 0 AND NOT this->sectioninfo[rec.section].isfinalrewrite;
+
+    IF (add)
+    {
+      INSERT rec.pos INTO this->sectioninfo[rec.section].posses AT Upperbound(this->sectioninfo[rec.section].posses, rec.pos);
+      this->sectioninfo[rec.section].blocks := this->sectioninfo[rec.section].blocks + rec.blocks;
+      this->sectioninfo[rec.section].isfinalrewrite := TRUE;
+    }
+    ELSE
+    {
+
+      DELETE FROM this->sectioninfo[rec.section].posses AT LowerBound(this->sectioninfo[rec.section].posses, rec.pos).position;
+      this->sectioninfo[rec.section].blocks := oldsize - rec.blocks;
+
+      //PRINT(`Remove ${rec.blocks} to section ${rec.section}, recs from ${LENGTH(this->sectioninfo[rec.section].posses)}\n`);
+    }
+
+    BOOLEAN is_small := this->sectioninfo[rec.section].blocks < this->small_section_size AND this->sectioninfo[rec.section].blocks != 0 AND NOT this->sectioninfo[rec.section].isfinalrewrite;
+    IF (is_small != was_small)
+    {
+      IF (is_small)
+        INSERT rec.section INTO this->nearempty_sections AT Upperbound(this->nearempty_sections, rec.section);
+      ELSE
+        DELETE FROM this->nearempty_sections AT LowerBound(this->nearempty_sections, rec.section).position;
+    }
+  }
+
+  INTEGER ARRAY FUNCTION RewriteRecords(RECORD ARRAY records, BOOLEAN isfinalrewrite)
+  {
+    TABLE < INTEGER id, INTEGER __internal_recordid > mytable := BindTransactionToTable(GetPrimary()->id, this->tablename);
+
+    IF (LENGTH(records) = 0)
+      RETURN INTEGER[];
+
+    INTEGER ARRAY rewriteids := SELECT AS INTEGER ARRAY id FROM records;
+
+    INTEGER recordcount := LENGTH(records);
+    RECORD ARRAY sections := [ [ startpos := 0, limitpos := recordcount ] ];
+
+    // Break up in blocks no more than 440 blocks in size
+    INTEGER sectionblocks := records[0].blocks;
+    FOR (INTEGER i := 1, e := LENGTH(records); i < e; i := i + 1)
+    {
+      sectionblocks := sectionblocks + records[i].blocks;
+      IF (sectionblocks > 440)
+      {
+        sections[END-1].limitpos := i;
+        INSERT [ startpos := i, limitpos := recordcount ] INTO sections AT END;
+        sectionblocks := records[i].blocks;
+      }
+    }
+
+    GetPrimary()->BeginWork();
+
+    INTEGER done;
+    INTEGER ARRAY totouch;
+    FOREVERY (RECORD section FROM sections)
+    {
+      IF (#section % 4 = 0 AND #section != 0)
+      {
+        GetPrimary()->CommitWork();
+        SELECT FROM mytable WHERE id IN totouch;
+        totouch := INTEGER[];
+        GetPrimary()->BeginWork();
+      }
+
+      PRINT(Right("    " || done, 5) || "\r");
+
+      RECORD ARRAY sectionrecords := ArraySlice(records, section.startpos, section.limitpos - section.startpos);
+      INTEGER ARRAY sectionids := SELECT AS INTEGER ARRAY id FROM sectionrecords ORDER BY id;
+      UPDATE mytable SET id := id WHERE id IN sectionids;
+      done := done + LENGTH(sectionids);
+      totouch := totouch CONCAT sectionids;
+    }
+    GetPrimary()->CommitWork();
+
+    // sort records for quick recordlowerbound access
+    records := SELECT * FROM records ORDER BY id;
+
+    RECORD ARRAY result := SELECT id, __internal_recordid FROM mytable WHERE id IN rewriteids;
+    FOREVERY (RECORD resrec FROM result)
+    {
+      RECORD rec := records[RecordLowerBound(records, resrec, [ "ID" ]).position];
+      INTEGER newsection := resrec.__internal_recordid / 512;
+
+      this->AdjustSectionCounts(this->sortedrecords[rec.pos], FALSE, isfinalrewrite);
+
+      this->sortedrecords[rec.pos].__internal_recordid := resrec.__internal_recordid;
+      this->sortedrecords[rec.pos].section := newsection;
+
+      this->AdjustSectionCounts(this->sortedrecords[rec.pos], TRUE, isfinalrewrite);
+    }
+
+    SELECT FROM mytable WHERE id IN rewriteids;
+    RETURN rewriteids;
+  }
+
+  INTEGER ARRAY FUNCTION TryConsolidateSmallSections(BOOLEAN deferdestroy)
+  {
+    INTEGER ARRAY rewritten;
+    INTEGER ARRAY todestroy;
+    INTEGER sections;
+
+    WHILE (LENGTH(this->nearempty_sections) > 16)
+    {
+      // rewrite first sections first, need room at front of DB
+      INTEGER ARRAY rewrite_sections := ArraySlice(this->nearempty_sections, 0, 16);
+
+      PRINT(`Nearempty sections now: ${LENGTH(this->nearempty_sections)}, rewriting ${LENGTH(rewrite_sections)}\n`);
+
+      sections := sections + LENGTH(rewrite_sections);
+
+      // Gather positions of all records to rewrite
+      INTEGER ARRAY rewrite_posses;
+      FOREVERY (INTEGER section FROM rewrite_sections)
+        rewrite_posses := rewrite_posses CONCAT this->sectioninfo[section].posses;
+
+      // Place them in sort order, to try and group stuff together.
+      // Improves fragmentation a bit, don't want to make it worse during cleanup
+      rewrite_posses := GetSortedSet(rewrite_posses);
+
+      RECORD ARRAY torewrite;
+      FOREVERY (INTEGER pos FROM rewrite_posses)
+        INSERT this->sortedrecords[pos] INTO torewrite AT END;
+
+      rewritten := rewritten CONCAT this->RewriteRecords(torewrite, FALSE);
+
+      // in this 2-round cleaning regime, a max temp db growth of 2*320*128kb = 80mb is expected
+      IF (LENGTH(rewritten) > 32 * 1024 OR sections >= 320)
+      {
+        IF (LENGTH(todestroy) != 0)
+          EnsureJanitorDestroysOldRecords(this->tablename, FALSE, todestroy);
+
+        // Hint the janitor again to start cleaning the previously rewritten records
+        todestroy := rewritten;
+        rewritten := INTEGER[];
+
+        sections := 0;
+      }
+    }
+
+    todestroy := todestroy CONCAT rewritten;
+    IF (LENGTH(todestroy) > 0 AND NOT deferdestroy)
+    {
+      EnsureJanitorDestroysOldRecords(this->tablename, FALSE, todestroy);
+      todestroy := INTEGER[];
+    }
+    RETURN todestroy;
+  }
+
+  MACRO ReclusterAll()
+  {
+    // ADDME: should the initially merged records also be marked for reclustering?
+    this->TryConsolidateSmallSections(FALSE);
+
+    INTEGER recordcount := LENGTH(this->sortedrecords);
+
+    INTEGER rewrite_records := this->rewrite_records;
+
+    INTEGER ARRAY rewritten;
+    INTEGER ARRAY todestroy;
+
+    RECORD ARRAY torewrite;
+    FOR (INTEGER pos := 0; pos < recordcount; pos := pos + 1)
+    {
+      IF (this->sortedrecords[pos].needrewrite)
+        INSERT this->sortedrecords[pos] INTO torewrite AT END;
+
+      IF (LENGTH(torewrite) >= 32000)
+      {
+        rewrite_records := rewrite_records - LENGTH(torewrite);
+        PRINT(`Rewriting ${LENGTH(torewrite)} records, left: ${rewrite_records}\n`);
+        rewritten := rewritten CONCAT this->RewriteRecords(torewrite, TRUE);
+        torewrite := RECORD[];
+
+        IF (LENGTH(todestroy) != 0)
+        {
+          EnsureJanitorDestroysOldRecords(this->tablename, FALSE, todestroy);
+          rewritten := rewritten CONCAT this->TryConsolidateSmallSections(TRUE);
+        }
+
+        todestroy := rewritten;
+        rewritten := INTEGER[];
+      }
+    }
+
+    IF (LENGTH(torewrite) > 0)
+    {
+      rewrite_records := rewrite_records - LENGTH(torewrite);
+      PRINT(`Rewriting ${LENGTH(torewrite)} records, left: ${rewrite_records}\n`);
+      rewritten := rewritten CONCAT this->RewriteRecords(torewrite, TRUE);
+    }
+
+    todestroy := todestroy CONCAT rewritten;
+    IF (LENGTH(todestroy) > 0)
+    {
+      EnsureJanitorDestroysOldRecords(this->tablename, FALSE, todestroy);
+      this->TryConsolidateSmallSections(FALSE);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Recluster a table, put all records with the same value for the groupkey together
+      @param tablename Table to cluster ('schemaname.tablename')
+      @param groupkey Table column to cluster on.
+  */
+  PUBLIC MACRO ClusterTable(STRING tablename, STRING groupkey, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ justcompact :=    FALSE
+        ], options);
+
+    this->tablename := ToUppercase(tablename);
+    this->groupkey := ToUppercase(groupkey);
+
+    IF (this->groupkey = "")
+    {
+      IF (NOT options.justcompact)
+        THROW NEW Exception("Need groupkey for clustering");
+      this->groupkey := "ID";
+    }
+
+    PRINT("Sweeping table before starting clustering\n");
+    EnsureJanitorDestroysOldRecords(this->tablename, TRUE, INTEGER[]);
+
+    GetPrimary()->BeginWork();
+
+    // Get list of all sections for the table to cluster
+    RECORD ARRAY sectionlist := __SendWHDBCommand(GetPrimary()->id, "SHOW DBFILE_SECTIONS");
+    sectionlist := SELECT * FROM sectionlist WHERE `${schemaname}.${COLUMN tablename}` = this->tablename;
+
+    IF (LENGTH(sectionlist) = 0)
+    {
+      GetPrimary()->RollbackWork();
+      RETURN;
+    }
+
+    // Get all visible records for the table
+    RECORD ARRAY allvisible2 := this->GetAllVisibleRecords();
+
+    // Initialize the sectioninfo
+    this->sectioninfo := RepeatElement(default_sectioninfo, sectionlist[END-1].id + 1);
+
+    // Enrich with record size from the section tables
+    allvisible2 := this->EnrichVisibleRecordWithSize(allvisible2, sectionlist);
+
+    // Sort the record list on the group they're in
+    PRINT("Sorting on groups\n");
+    allvisible2 := SELECT * FROM allvisible2 ORDER BY sorton, id;
+    FOR (INTEGER i := 0, e := LENGTH(allvisible2); i < e; i := i + 1)
+      allvisible2[i].pos := i;
+    this->sortedrecords := allvisible2;
+
+    // Fill sectioninfo (create them, init block fill)
+    this->InitSectionInfoRefs();
+
+    IF (NOT options.justcompact)
+      this->MarkUnclusteredGroups();
+
+//    DumpValue(SELECT * FROM this->sectioninfo WHERE used);
+//    DumpValue(this->nearempty_sections);
+
+    GetPrimary()->RollbackWork();
+
+    this->ReclusterAll();
+    PRINT("Reclustering complete\n");
+  }
+
+>;
+

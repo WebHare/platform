@@ -1,0 +1,362 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+
+BLOB smallbobjpg := GetHarescriptResource("mod::webhare_testsuite/data//test/smallbob.jpg");
+
+//based on actual html-block from pthu site
+RECORD pthuhtml := [ htmltext := StringToBlob('<div><p>Protestantse Theologische Universiteit</p><p><b>PThU</b><br/></p><p>Postbus 5021<br/>8260 GA Kampen<br/>T (088) 3371 600</p><p>&#187; <a href="http://www.pthu.nl/over_pthu/contact.doc/">Contactformulier</a><br/><br/>Bekijk ook onze kanalen op:</p><p><a href="http://www.facebook.com/PThUnl"><img src="cid:imagecid-81400"/><img src="cid:imagecid-81399"/></a></p></div>')
+                     , embedded := [[ contentid := "imagecid-81400"
+                                    , data := smallbobjpg
+                                    , mimetype := "image/jpeg"
+                                    , width := 15
+                                    , height := 15
+                                    , filename := "81400"
+                                    , extension := "jpg"
+                                    ]
+                                   ,[ contentid := "imagecid-81399"
+                                    , data := smallbobjpg
+                                    , mimetype := "image/jpeg"
+                                    , width := 15
+                                    , height := 15
+                                    , filename := "81399"
+                                    , extension := "jpg"
+                                    ]
+                                   ]
+                     ];
+
+
+RECORD truncatedoc := [ htmltext := StringToBlob('<html><body>'
+                                               || '<h2 class="heading2">Heading 2</h2>'
+                                               || '<div style="width:100px" class="wh-rtd-embeddedobject" data-instanceid="inst1"></div>'
+                                               || '</body></html>')
+                     , embedded := DEFAULT RECORD ARRAY
+                     , instances :=
+                            [ [ instanceid :=   "inst1"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
+                                        , html := "<b>BOLD</b> HTML"
+                                        ]
+                              ]
+                            ]
+                     ];
+
+RECORD emptyenddoc := [ htmltext := StringToBlob('<html><body>'
+                                               || '<h1 class="heading1">Heading 1</h1><p class="normal"></p><h2 class="heading2">&nbsp;</h2>'
+                                               || '</body></html>')
+                     , embedded := DEFAULT RECORD ARRAY
+                     , instances := DEFAULT RECORD ARRAY
+                     ];
+RECORD emptyenddoc2 := [ htmltext := StringToBlob('<html><body>'
+                                               || '<h1 class="heading1">Heading 1</h1><p class="normal"></p><h2 class="heading2"><br/></h2>'
+                                               || '</body></html>')
+                     , embedded := DEFAULT RECORD ARRAY
+                     , instances := DEFAULT RECORD ARRAY
+                     ];
+
+//simple doc with blocks
+RECORD blocksdoc := [ htmltext := StringToBlob('<html><body>'
+                                               || '<h2 class="heading2">Heading 2</h2>'
+                                               || '<div style="width:100px" class="wh-rtd-embeddedobject" data-instanceid="inst1"><b>*ruis*</b></div>'
+                                               || '<p class="normal">following <strike>struck</strike> paragraph</p>'
+                                               || '</body></html>')
+                     , embedded := DEFAULT RECORD ARRAY
+                     , instances :=
+                            [ [ instanceid :=   "inst1"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
+                                        , html := "<b>BOLD</b> HTML"
+                                        ]
+                              ]
+                            ]
+                     ];
+
+RECORD imageonlydoc := [ htmltext := StringToBlob('<img src="cid:imagecid-81400"/>')
+                       , embedded := [[ contentid := "imagecid-81400"
+                                    , data := smallbobjpg
+                                    , mimetype := "image/jpeg"
+                                    , width := 15
+                                    , height := 15
+                                    , filename := "81400"
+                                    , extension := "jpg"
+                                    ]
+                                   ]
+                       ];
+
+RECORD imageonlyrtd := [ htmltext := StringToBlob('<html><body><h1 class="heading1"><img src="cid:imagecid-81400"/><h1></body></html>')
+                       , embedded := [[ contentid := "imagecid-81400"
+                                    , data := smallbobjpg
+                                    , mimetype := "image/jpeg"
+                                    , width := 15
+                                    , height := 15
+                                    , filename := "81400"
+                                    , extension := "jpg"
+                                    ]
+                                   ]
+                       ];
+
+MACRO RTEDocumentTypes()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.autotest1");
+
+  //The RTE should initially return an empty value.
+
+  scr->testrte->type := "html-block";
+  TestEq(FALSE, RecordExists(scr->testrte->value));
+  scr->testrte->type := "html";
+  TestEq(FALSE, RecordExists(scr->testrte->value));
+  scr->testrte->type := "html-inline";
+  TestEq(FALSE, RecordExists(scr->testrte->value));
+  scr->testrte->type := "flash";
+  TestEq(FALSE, RecordExists(scr->testrte->value));
+  scr->testrte->type := "email";
+  TestEq(FALSE, RecordExists(scr->testrte->value));
+
+  scr->testrte->type := "html";
+  scr->testrte->value := DEFAULT RECORD;
+  TestEq(DEFAULT RECORD, scr->testrte->value);
+
+  //Test HTML's setting and rebuilding. Stabilize some behaviours users may depend on
+  scr->testrte->type := "html";
+  scr->testrte->value := [ htmltext := StringToBlob("<html><head></head><body></body></html>")
+                         , embedded := DEFAULT RECORD ARRAY
+                         ];
+  TestEq(FALSE, RecordExists(scr->testrte->value));
+
+  scr->testrte->value := [ htmltext := StringToBlob("<html><head></head><body>Hoi</body></html>")
+                         , embedded := DEFAULT RECORD ARRAY
+                         ];
+
+  TestEq("<html><body>Hoi</body></html>", BlobToString(scr->testrte->value.htmltext,-1));
+
+  scr->testrte->value := [ htmltext := StringToBlob("<html><title>Getiteld</title><body>Hoi</body></html>")
+                         , embedded := DEFAULT RECORD ARRAY
+                         ];
+
+  TestEq("<html><body>Hoi</body></html>", BlobToString(scr->testrte->value.htmltext,-1));
+
+  scr->testrte->value := [ htmltext := StringToBlob("<html><body><p>Paragraaf 1</p><p>Paragraaf 2</p></body></html>")
+                         , embedded := DEFAULT RECORD ARRAY
+                         ];
+
+  TestEq("<html><body><p>Paragraaf 1</p><p>Paragraaf 2</p></body></html>", BlobToString(scr->testrte->value.htmltext,-1));
+  scr->testrte->type := "html-block";
+  TestEq("<p>Paragraaf 1</p><p>Paragraaf 2</p>", BlobToString(scr->testrte->value.htmltext, -1));
+  scr->testrte->trimwhitespace := FALSE;
+  scr->testrte->type := "html-inline";
+  TestEq("Paragraaf 1<br/>Paragraaf 2<br/>", BlobToString(scr->testrte->value.htmltext, -1));
+  scr->testrte->value := scr->testrte->value;
+  TestEq("Paragraaf 1<br/>Paragraaf 2<br/>", BlobToString(scr->testrte->value.htmltext, -1));
+  scr->testrte->type := "html-block";
+  TestEq("<p>Paragraaf 1<br/>Paragraaf 2<br/></p>", BlobToString(scr->testrte->value.htmltext,-1));
+  scr->testrte->type := "html";
+  TestEq("<html><body><p>Paragraaf 1<br/>Paragraaf 2<br/></p></body></html>", BlobToString(scr->testrte->value.htmltext,-1));
+
+  scr->testrte->type := "html-block";
+  scr->testrte->value := pthuhtml;
+  TestEq(2,Length(scr->testrte->value.embedded));
+
+  scr->testrte->type := "html";
+}
+
+MACRO TestStructuredRTE()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.autotest2");
+
+  RECORD whrte := scr->testrte->GetWHRTEStructure();
+  TestEq("NORMAL", whrte.defaultblockstyle);
+  TestEq(5, Length(whrte.blockstyles));
+  TestEq("Heading 1", whrte.blockstyles[0].title);
+  //FIXME ought to have 'cleaner' css styling
+  TestEq("font: bold 16px Verdana;margin: 10px 0;color: #111111;padding:0;margin:0;color: #000000;", whrte.blockstyles[0].toolbarcss);
+
+  // Test for default values
+  scr->testrte->value := DEFAULT RECORD;
+  TestEq(DEFAULT RECORD, scr->testrte->value);
+
+  // bogus br
+  scr->testrte->value :=
+      [ htmltext := StringToBlob('<p class=\"normal\"><br data-wh-rte=\"bogus\"></p>')
+      , links :=  DEFAULT RECORD ARRAY
+      , embedded :=  DEFAULT RECORD ARRAY
+      ];
+  TestEq(DEFAULT RECORD, scr->testrte->value);
+
+  // Lots of intersprinkled whitespace
+  scr->testrte->value :=
+      [ htmltext := StringToBlob('<html>\n  <body>\n    <p class=\"normal\">\n      <br data-wh-rte=\"bogus\"/>\n    </p>\n  </body>\n</html>\n')
+      , links :=  DEFAULT RECORD ARRAY
+      , embedded :=  DEFAULT RECORD ARRAY
+      ];
+  TestEq(DEFAULT RECORD, scr->testrte->value);
+
+  // Add an applytester, which also has an opinion about link handlers
+  testfw->BeginWork();
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT testrtd := testloc->CreateFile( [ name := "lvl1.rtd", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile" ]);
+  testfw->CommitWork();
+
+  OBJECT applytester := GetApplyTesterForObject(testrtd->id);
+  scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.autotest2", DEFAULT RECORD, [ contexts := [ applytester := applytester ]]);
+}
+
+MACRO TestRegressionTruncation()
+{
+  //A rtd containing a blockelement at the end got destroyed
+
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.autotest2");
+  scr->testrte->trimwhitespace := TRUE;
+  scr->testrte->value := truncatedoc;
+
+  OBJECT doc := MakeXMLDocumentFromHTML(StringToBlob(scr->testrte->GetRenderValue()));
+  OBJECT blockcomp := doc->GetElementsByTagName("div")->Item(0);
+  TestEq(TRUE, ObjectExists(blockcomp));
+  TestEq("wh-rtd-embeddedobject wh-rtd-embeddedobject--editable wh-rtd-embeddedobject--block", blockcomp->GetAttribute("class"));
+
+  scr->testrte->value := emptyenddoc;
+  doc := MakeXMLDocumentFromHTML(scr->testrte->value.htmltext);
+
+  OBJECT ARRAY paras := doc->GetElementsByTagName("body")->item(0)->childnodes->GetCurrentElements();
+  TestEq(1, Length(paras));
+  TestEq("h1", paras[0]->tagname);
+
+  scr->testrte->value := emptyenddoc2;
+  doc := MakeXMLDocumentFromHTML(scr->testrte->value.htmltext);
+
+  paras := doc->GetElementsByTagName("body")->item(0)->childnodes->GetCurrentElements();
+  TestEq(1, Length(paras));
+  TestEq("h1", paras[0]->tagname);
+}
+
+MACRO TestRequired()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.autotest1");
+  scr->testrte->required := TRUE;
+  scr->testrte->value := imageonlydoc;
+
+  //if we get a RunModal or controller failure, the code tried to open a popup, warning about the required value
+  TestEq(TRUE, scr->TolliumExecuteSubmit());
+
+  scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.autotest2");
+  scr->testrte->required := TRUE;
+  scr->testrte->value := imageonlyrtd;
+
+  //if we get a RunModal or controller failure, the code tried to open a popup, warning about the required value
+  TestEq(TRUE, scr->TolliumExecuteSubmit());
+}
+
+MACRO TestStructuredBlocksRTE()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.autotest2");
+  RECORD whrte := scr->testrte->GetWHRTEStructure();
+//  TestEq(3, Length(whrte.blocktypes));
+
+  scr->testrte->value := blocksdoc;
+  OBJECT doc := MakeXMLDocumentFromHTML(scr->testrte->value.htmltext);
+  OBJECT blockcomp := doc->GetElementsByTagName("div")->Item(0);
+
+  TestEq("wh-rtd-embeddedobject", blockcomp->GetAttribute("class"));
+  TestEq("inst1", blockcomp->GetAttribute("data-instanceid"));
+  Testeq(FALSE, blockcomp->HasAttribute("style"), blockcomp->outerxml);
+  Testeq(FALSE, ObjectExists(blockcomp->firstchild));
+
+  doc := MakeXMLDocumentFromHTML(StringToBlob(scr->testrte->GetRenderValue()));
+  blockcomp := doc->GetElementsByTagName("div")->Item(0);
+  TestEq(FALSE, ObjectExists(blockcomp->firstchild));
+  TestEqLike("*BOLD*HTML*", blockcomp->GetAttribute("data-innerhtml-contents"));
+  TestEq(TRUE, blockcomp->HasAttribute("data-widget-typetext")); //no type texts offered for legacy components
+  TestEq("", blockcomp->GetAttribute("data-widget-typetext")); //no type texts offered for legacy components
+
+  OBJECT paracomp := doc->GetElementsByTagName("p")->Item(0);
+  OBJECT strikearea := paracomp->GetElementsByTagName("strike")->Item(0); //at some point <strike> was forgottne. we should probably do this in a generic 'test whether structure is applied' test, not here
+  TestEq(TRUE, ObjectExists(strikearea));
+
+  //now test with a modern video component
+  scr->testrte->value.instances[0].data := MakeVideoEmbedInstance("youtube", "BAf7lcYEXag");
+  doc := MakeXMLDocumentFromHTML(StringToBlob(scr->testrte->GetRenderValue()));
+  blockcomp := doc->GetElementsByTagName("div")->Item(0);
+  TestEq(FALSE, ObjectExists(blockcomp->firstchild));
+  TestEqLike("*the most beloved hounds*", blockcomp->GetAttribute("data-innerhtml-contents"));
+  TestEq("YouTube video", blockcomp->GetAttribute("data-widget-typetext"));
+  TestEq(FALSE, blockcomp->HasAttribute("data-widget-wide"));
+
+  //now test with a modern WIDE component
+  scr->testrte->value.instances[0].data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1" ];
+  doc := MakeXMLDocumentFromHTML(StringToBlob(scr->testrte->GetRenderValue()));
+  blockcomp := doc->GetElementsByTagName("div")->Item(0);
+  TestEq(TRUE, blockcomp->HasAttribute("data-widget-wide"));
+}
+
+MACRO TagFilterKeepBR()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.allowformat");
+  TestEq(DEFAULT RECORD, scr->myrte->value);
+  TestEq("<html><body></body></html>", scr->myrte->GetRenderValue());
+
+  scr->myrte->value := [ htmltext := StringToBlob("abc<br>def")
+                       , embedded := DEFAULT RECORD ARRAY
+                       ];
+
+  OBJECT doc := MakeXMLDocumentFromHTML(scr->myrte->value.htmltext);
+  OBJECT br := doc->GetElementsByTagName("br")->Item(0);
+  TestEQ(TRUE, ObjectExists(br)); //BR should exist, even if not listed in tagfilter
+  TestEq("abc", br->previoussibling->nodevalue);
+  TestEq("def", br->nextsibling->nodevalue);
+
+  scr->myrte->value := [ htmltext := StringToBlob("<ul><li>def</li></ul>") //LI is not explicitly in filter, but UL is, so LI should be auto-added
+                       , embedded := DEFAULT RECORD ARRAY
+                       ];
+
+  doc := MakeXMLDocumentFromHTML(scr->myrte->value.htmltext);
+  OBJECT ul := doc->GetElementsByTagName("ul")->Item(0);
+  TestEQ(TRUE, ObjectExists(ul));
+  OBJECT li := doc->GetElementsByTagName("li")->Item(0);
+  TestEQ(TRUE, ObjectExists(li));
+
+  scr->myrte->value := DEFAULT RECORD;
+
+  scr->myrte->value := [ htmltext := StringToBlob("") ];
+  TestEq(DEFAULT RECORD, scr->myrte->value);
+  TestEq("<html><body></body></html>", scr->myrte->GetRenderValue());
+
+  scr->myrte->value := [ htmltext := StringToBlob("Hallo allen") ];
+  TestEq("<p>Hallo allen</p>", BlobToSTring(scr->myrte->value.htmltext));
+  TestEq("<html><body><p>Hallo allen</p></body></html>", scr->myrte->GetRenderValue());
+
+  scr->myrte->trimwhitespace := FALSE;
+  scr->myrte->value := [ htmltext := StringToBlob("<p>Block #1: <b>bold</b></p><p>Block #2: <u><i>italic underline</i></u></p>") ];
+  TestEq("<p>Block #1: <b>bold</b></p><p>Block #2: <i>italic underline</i></p>", BlobToSTring(scr->myrte->value.htmltext), "Underline should be stripped");
+
+  scr->myrte->type := "html-inline";
+  TestEq("Block #1: <b>bold</b><br/>Block #2: <i>italic underline</i><br/>", BlobToSTring(scr->myrte->value.htmltext), "p->br");
+  scr->myrte->trimwhitespace := TRUE;
+  TestEq("Block #1: <b>bold</b><br/>Block #2: <i>italic underline</i>", BlobToSTring(scr->myrte->value.htmltext), "p->br and last br stripped");
+}
+
+MACRO TagFilterKeepNewLines()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.allowformat");
+  scr->myrte->type := "html-block";
+  scr->myrte->tagfilter := ["b","i","u","ul","ol","li","a-href","img"];
+  scr->myrte->value := [ htmltext := StringToBlob("<div>Hoi</div><div><br></div><div>allemaal!</div>") ];
+  TestEq("Hoi<br/><br/>allemaal!", BlobToSTring(scr->myrte->value.htmltext));
+
+  scr->myrte->value := [ htmltext := StringToBlob("geen lege regel<div>hierboven</div><div><br></div><div>maar wel hierboven</div><div>hierboven weer niet</div>") ];
+  TestEq("geen lege regel<br/>hierboven<br/><br/>maar wel hierboven<br/>hierboven weer niet", BlobToSTring(scr->myrte->value.htmltext));
+}
+
+RunTestFramework( [ PTR TestRequired
+                  , PTR RTEDocumentTypes
+                  , PTR TestRegressionTruncation
+                  , PTR TEstStructuredRTE
+                  , PTR TestStructuredBlocksRTE
+                  , PTR TagFilterKeepBR
+                  , PTR TagFilterKeepNewLines
+                  ]);

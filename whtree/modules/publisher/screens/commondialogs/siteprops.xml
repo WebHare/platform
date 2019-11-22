@@ -1,0 +1,69 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/commondialogs/siteprops.whlib"
+         gid="commondialogs">
+
+  <screen name="siteprops" gid=".siteprops" allowresize="true" savestate="size" minwidth="70x" width="100x" height="40x" flags="ispinned">
+    <actions>
+      <action name="addsiteprofile" tid="tollium:common.actions.add" onexecute="doaddsiteprofile" />
+      <action name="deletesiteprofile" tid="tollium:common.actions.delete" onexecute="dodeletesiteprofile">
+        <enableon source="siteprofiles" min="1" max="1" />
+      </action>
+    </actions>
+    <compositions>
+      <p:whfsinstance name="sitesettings" typedef="http://www.webhare.net/xmlns/publisher/sitesettings" />
+    </compositions>
+    <body layout="form" height="1pr" spacers="none">
+      <tabs name="maintabs" height="1pr">
+        <tab tid=".sitesettingstab">
+          <textedit name="name" tid="~name" required="true" width="1pr" maxlength="256" validationchecks="whfsname" />
+          <textarea composition="sitesettings" cellname="comments" tid="~comments" width="1pr" height="4gr" maxlength="4096" />
+          <heading tid=".output" />
+          <select name="outputweb" type="pulldown" rowkeytype="integer" onchange="OutputWebSelected" />
+          <combobox name="outputfolder" value="/" maxlength="256" width="1pr" />
+          <textedit name="cdnbaseurl" validationchecks="http-url" maxlength="1024" width="1pr" />
+          <textedit composition="sitesettings" cellname="productionurl" width="1pr" validationchecks="http-url"/>
+          <heading name="locksite" checkbox="true" enablecomponents="lockreason" />
+          <line layout="left">
+            <textarea name="lockreason" title="" height="2x" width="1pr" maxlength="1024"/>
+          </line>
+        </tab>
+        <tab tid=".sitedesigntab">
+          <heading tid=".sitedesignbox" />
+          <select name="sitedesign" type="pulldown" onchange="onsitedesignchange">
+            <option rowkey="" tid=".sitedesign-none" />
+          </select>
+          <heading tid=".webfeatures" />
+          <list name="webfeatures" emptytid=".nowebfeatures" width="1pr" height="1pr" rowkeytype="string">
+            <column name="feature" type="text" checkboxname="featurechecked" />
+            <column name="module" type="text" />
+          </list>
+        </tab>
+        <tab tid=".siteprofilestab">
+          <grid height="1pr" >
+            <col width="1pr" />
+            <col />
+            <row height="1pr">
+              <cell height="1pr">
+                <list name="siteprofiles"
+                      selectmode="single"
+                      emptytid=".nositeprofiles"
+                      width="1pr" height="1pr" minheight="10x">
+                  <p:whfsrefcolumn name="rowkey" tid=".profilename" />
+                </list>
+              </cell>
+              <cell>
+                <button action="addsiteprofile" width="1pr" />
+                <button action="deletesiteprofile" width="1pr" />
+              </cell>
+            </row>
+          </grid>
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

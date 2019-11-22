@@ -1,0 +1,83 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="components/imgedit.whlib"
+         gid="tollium:components.imgedit">
+
+  <fragment name="tolliumimgedit">
+    <actions>
+      <imageaction name="act_upload" imageactiontype="upload" onupload="onuploadimage" tid="~upload" />
+      <action name="act_publisher" onexecute="publisherimage" title="" />
+      <action name="act_medialibrary" onexecute="medialibraryimage" title="" />
+      <action name="properties" onexecute="doproperties" tid="~properties" ellipsis="true" />
+      <action name="edit" onexecute="editimage" title="" />
+      <downloadaction name="download" ondownload="downloadimage" tid="~download" />
+      <action name="clear" onexecute="clearimage" title="" />
+      <imageaction name="editaction" imageactiontype="edit" onupload="onuploadimage" onresend="resetimage" title="" />
+    </actions>
+    <menus>
+      <menu name="otheractions" gid="tollium:components.imgedit">
+        <item action="properties" disablemode="hidden" />
+        <item action="act_upload" disablemode="hidden" tid=".replace-upload" />
+        <item action="act_publisher" disablemode="hidden" tid=".replace-publisher"/>
+        <item action="act_medialibrary" disablemode="hidden" tid=".replace-medialibrary" />
+        <item action="download" disablemode="hidden" />
+      </menu>
+    </menus>
+    <contents>
+      <inlineblock name="preview" borders="all" title="">
+        <panel backgroundcolor="#ffffffcc" borders="bottom" spacers="left">
+          <line layout="tabs-space">
+            <text name="sizehint" title="" value="" width="1pr" />
+            <buttongroup layout="horizontal" borders="left">
+              <button name="uploadbutton"
+                      action="act_upload"
+                      hinttid=".add_image" title=""
+                      type="icon" icon="tollium:filemgr/uploadfile" />
+              <button name="publisherbutton"
+                      action="act_publisher"
+                      hinttid=".select_image" title=""
+                      type="icon" icon="tollium:actions/open" />
+              <button name="medialibrarybutton"
+                      action="act_medialibrary"
+                      hinttid=".media_library" title=""
+                      type="icon" icon="tollium:folders/photoalbum" />
+              <button name="editbutton"
+                      action="edit"
+                      hinttid=".edit_image" title=""
+                      type="icon" icon="tollium:actions/edit" />
+              <button name="clearbutton"
+                      action="clear"
+                      hinttid=".clear_image" title=""
+                      type="icon" icon="tollium:actions/delete" />
+              <button name="otherbutton"
+                      menu="otheractions"
+                      hinttid=".other_actions" title=""
+                      type="icon" icon="tollium:objects/ellipsis" />
+            </buttongroup>
+          </line>
+        </panel>
+        <panel name="droptarget" height="1pr" width="1pr">
+          <acceptdrops ondrop="onfiledrop" acceptmultiple="false">
+            <acceptfile imageactiontype="edit" />
+          </acceptdrops>
+        </panel>
+        <panel backgroundcolor="#ffffffcc" borders="top" spacers="left right" layout="left">
+          <line>
+            <text name="filename" title="" value="tollium:components.imgedit.no_image" ellipsis="true" width="1pr" />
+            <text name="dimensions" title="" value="" />
+          </line>
+        </panel>
+      </inlineblock>
+    </contents>
+  </fragment>
+
+  <screen name="properties" tid="~properties">
+    <body>
+      <textedit name="filename" required="true" width="1pr" />
+      <coloredit name="dominantcolor" showedit="true" />
+    </body>
+    <footer>
+      <defaultformbuttons name="buttons" buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

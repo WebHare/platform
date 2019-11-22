@@ -1,0 +1,252 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+
+/** This component can be used to have a callback function called when a certain URL is requested.
+*/
+
+PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY components;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// The function that is called when the screen becomes dirty, i.e. when the first registered component is changed
+  PUBLIC FUNCTION PTR ondirty;
+
+  /// If the screen is dirty
+  PUBLIC PROPERTY dirty(GetDirty, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & Init
+  //
+
+  MACRO NEW()
+  {
+    this->componenttype := "dirtylistener";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumComponentBase::StaticInit(definition);
+    this->ondirty := definition.ondirty;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium communication
+  //
+
+  UPDATE BOOLEAN FUNCTION CalculateIsNowVisible()
+  {
+    RETURN TRUE;
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ checkcomponents := FALSE
+        , dirtycomponents := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD compinfo :=
+          [ checkcomponents := GetComponentNames(SELECT AS OBJECT ARRAY comp FROM this->components)
+          , dirtycomponents := GetComponentNames(SELECT AS OBJECT ARRAY comp FROM this->components WHERE isdirty)
+          ];
+
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.checkcomponents)
+      {
+        this->ToddUpdate(
+            [ type := "checkcomponents"
+            , checkcomponents := GetComponentNames(SELECT AS OBJECT ARRAY comp FROM this->components)
+            ]);
+      }
+      IF (this->dirtyflags.dirtycomponents)
+      {
+        this->ToddUpdate(
+            [ type := "dirtycomponents"
+            , dirtycomponents := GetComponentNames(SELECT AS OBJECT ARRAY comp FROM this->components WHERE isdirty)
+            ]);
+      }
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH(type)
+    {
+      CASE "dirtycomponent"
+      {
+        OBJECT comp := GetTopLevelScreen(this->owner)->tolliumscreenmanager->GetToddComponentNoFail(msgdata.component);
+        IF (this->SetDirtyInternal(comp) AND this->ondirty != DEFAULT FUNCTION PTR)
+          this->ondirty();
+      }
+      DEFAULT
+      {
+        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /// Don't call directly, use a component's dirtylistener property instead
+  PUBLIC MACRO AddToDirtyListener(OBJECT obj)
+  {
+    IF (NOT RecordExists(SELECT FROM this->components WHERE comp = obj))
+    {
+      INSERT [ comp := obj, isdirty := FALSE ] INTO this->components AT END;
+      this->ExtUpdatedCheckComponents();
+    }
+  }
+
+  /// Don't call directly, use a component's dirtylistener property instead
+  PUBLIC MACRO RemoveFromDirtyListener(OBJECT obj)
+  {
+    IF (RecordExists(SELECT FROM this->components WHERE comp = obj))
+    {
+      DELETE FROM this->components WHERE comp = obj;
+      this->ExtUpdatedCheckComponents();
+    }
+  }
+
+  PUBLIC MACRO SetDirty()
+  {
+    IF (RecordExists(SELECT FROM this->components WHERE NOT isdirty))
+    {
+      UPDATE this->components
+         SET isdirty := TRUE;
+
+      this->ExtUpdatedDirtyComponents();
+      IF (this->ondirty != DEFAULT FUNCTION PTR)
+        this->ondirty();
+    }
+  }
+
+  PUBLIC MACRO ClearDirty()
+  {
+    IF (this->dirty)
+    {
+      FOREVERY (RECORD comp FROM this->components)
+      {
+        IF (comp.isdirty)
+        {
+          this->components[#comp].isdirty := FALSE;
+          comp.comp->DirtyCleared();
+        }
+      }
+      this->ExtUpdatedDirtyComponents();
+      IF (this->ondirty != DEFAULT FUNCTION PTR)
+        this->ondirty();
+    }
+  }
+
+  PUBLIC MACRO SetDirtyComponent(OBJECT obj)
+  {
+    IF (this->SetDirtyInternal(obj))
+    {
+      this->ExtUpdatedDirtyComponents();
+      IF (this->ondirty != DEFAULT FUNCTION PTR)
+        this->ondirty();
+    }
+  }
+
+  PUBLIC MACRO ClearDirtyComponent(OBJECT obj)
+  {
+    IF (this->ClearDirtyInternal(obj))
+    {
+      this->ExtUpdatedDirtyComponents();
+      IF (this->ondirty != DEFAULT FUNCTION PTR)
+        this->ondirty();
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+  BOOLEAN FUNCTION IsDirtyInternal(OBJECT obj)
+  {
+    RETURN SELECT AS BOOLEAN isdirty FROM this->components WHERE comp = obj;
+  }
+  BOOLEAN FUNCTION SetDirtyInternal(OBJECT obj)
+  {
+    IF (RecordExists(SELECT FROM this->components WHERE comp = obj AND NOT isdirty))
+    {
+      UPDATE this->components
+         SET isdirty := TRUE
+       WHERE comp = obj;
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  BOOLEAN FUNCTION ClearDirtyInternal(OBJECT obj)
+  {
+    IF (RecordExists(SELECT FROM this->components WHERE comp = obj AND isdirty))
+    {
+      UPDATE this->components
+         SET isdirty := FALSE
+       WHERE comp = obj;
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  BOOLEAN FUNCTION GetDirty()
+  {
+    RETURN RecordExists(SELECT FROM this->components WHERE isdirty);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedCheckComponents()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.checkcomponents := TRUE;
+  }
+
+  MACRO ExtUpdatedDirtyComponents()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.dirtycomponents := TRUE;
+  }
+>;

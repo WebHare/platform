@@ -1,0 +1,279 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+PUBLIC OBJECTTYPE ClusteredServiceBase
+<
+  OBJECT __link;
+  RECORD ARRAY __promises;
+  RECORD ARRAY __calllist;
+  INTEGER __listener;
+  FUNCTION PTR ARRAY __onclose;
+
+  /** @private
+      @param description Service description
+      @param(object wh::internal/jobs.whlib#IPCLinkEndPoint) link Connection IPC link
+  */
+  MACRO NEW(RECORD description, OBJECT link)
+  {
+    this->__link := link;
+    ReconstructInvokables(this, description, PTR this->__AsyncRemotingFunc);
+    this->__listener := RegisterHandleReadCallback(link->handle, PTR this->__IncomingResult);
+  }
+
+  /** Calls a remote function asynchronously
+      @param tocall Function to call
+      @param args Arguments
+      @return Promise for the result
+  */
+  ASYNC FUNCTION __AsyncRemotingFunc(STRING tocall, VARIANT ARRAY args) __ATTRIBUTES__(SKIPTRACE, VARARG)
+  {
+    IF (NOT ObjectExists(this->__link))
+      THROW NEW Exception("Connection to the clustered service was already lost.");
+
+    RECORD req := CreateDeferredPromise();
+
+    RECORD outmsg := [ call := tocall, args := args ];
+
+    RECORD res := this->__link->SendMessage(outmsg);
+
+    IF(res.status != "ok")
+      THROW NEW ServiceDisconnectException;
+
+    // Add a waiting registration
+    RECORD reg := [ replyto := res.msgid, resolve := req.resolve, reject := req.reject ];
+    INSERT reg INTO this->__calllist AT RecordUpperBound(this->__calllist, reg, [ "REPLYTO" ]);
+
+    // Wait for the response
+    RECORD msg := AWAIT req.promise;
+    RETURN msg.result;
+  }
+
+  MACRO __IncomingResult()
+  {
+    RECORD msg := this->__link->ReceiveMessage(DEFAULT DATETIME);
+
+    IF (msg.status = "timeout") // Spurious wakeup
+      RETURN;
+
+    IF (msg.status = "gone")
+    {
+      //Uh oh. We are doomed. Reject all promises
+      this->CloseService();
+      RETURN;
+    }
+
+    IF (msg.replyto != 0)
+    {
+      RECORD pos := RecordLowerBound(this->__calllist, msg, [ "REPLYTO" ]);
+      IF (NOT pos.found)
+      {
+        ABORT("Received unexpected reply to " || msg.replyto);
+      }
+
+      RECORD hit := this->__calllist[pos.position];
+      DELETE FROM this->__calllist AT pos.position;
+
+      IF (CellExists(msg.msg, "__EXCEPTION"))
+        hit.reject(DecodeReceivedException(msg.msg));
+      ELSE IF (CellExists(msg.msg, "__PROMISESEQ"))
+      {
+        RECORD defer := CreateDeferredPromise();
+        RECORD rec := [ __promiseseq := msg.msg.__promiseseq, resolve := defer.resolve, reject := defer.reject ];
+        INSERT rec INTO this->__promises AT RecordUpperBound(this->__promises, rec, [ "__PROMISESEQ"]);
+
+        hit.resolve([ result := defer.promise ]);
+      }
+      ELSE
+      {
+        hit.resolve(msg.msg);
+      }
+
+      RETURN;
+    }
+
+    //Then it must be a promise hit
+    RECORD pos := RecordLowerBound(this->__promises, msg.msg, [ "__PROMISESEQ" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("Received unexpected promise reply for promise #" || msg.msg.__promiseseq);
+
+    RECORD hit := this->__promises[pos.position];
+    DELETE FROM this->__promises AT pos.position;
+
+    IF (msg.msg.type = "resolve-exception")
+      hit.resolve(DecodeReceivedException(msg.msg.value));
+    ELSE IF (msg.msg.type = "resolve")
+      hit.resolve(msg.msg.value);
+    ELSE IF (msg.msg.type = "reject")
+      hit.reject(DecodeReceivedException(msg.msg.value));
+    ELSE
+      ABORT("Unknown fulfillment type '" || msg.msg.type || "'");
+  }
+
+  PUBLIC MACRO __ScheduleCallbackOnServiceClose(FUNCTION PTR onclose)
+  {
+    INSERT onclose INTO this->__onclose AT END;
+  }
+
+  /// Closes the service
+  PUBLIC MACRO CloseService()
+  {
+    IF (this->__listener != 0)
+      UnregisterCallback(this->__listener);
+    this->__listener := 0;
+    FOREVERY(RECORD toreject FROM this->__calllist CONCAT this->__promises)
+      toreject.reject(NEW ServiceDisconnectException);
+    FOREVERY (FUNCTION PTR f FROM this->__onclose)
+      f();
+    IF (ObjectExists(this->__link))
+      this->__link->Close();
+    this->__link := DEFAULT OBJECT;
+    RETURN;
+  }
+>;
+
+/** Exception thrown when the connection to a service was lost
+    @topic modules/services
+    @public
+    @loadlib mod::system/lib/services.whlib
+*/
+PUBLIC OBJECTTYPE ServiceDisconnectException EXTEND Exception
+<
+  /// @private
+  MACRO NEW() : Exception("Connection to cluster service lost")
+  {
+
+  }
+>;
+
+/** Exception thrown when a service is unavailable
+    @topic modules/services
+    @public
+    @loadlib mod::system/lib/services.whlib
+*/
+PUBLIC OBJECTTYPE ServiceUnavailableException EXTEND Exception
+< /** @private
+      @param servicename Name of the service
+  */
+  MACRO NEW(STRING servicename) : Exception("Service '" || servicename || "' is unavailable")
+  {
+
+  }
+>;
+
+PUBLIC MACRO ReconstructInvokables(OBJECT targetobject, RECORD description, FUNCTION PTR remotingfunc)
+{
+  OBJECT privptr := __HS_INTERNAL_MakeObjectReferencePrivileged(targetobject);
+
+  FOREVERY (RECORD method FROM description.methods)
+  {
+    RECORD ARRAY params :=
+        [ [ source :=       0
+          , value :=        method.name
+          ]
+        ];
+
+    FOREVERY (RECORD methodparam FROM method.signdata.params)
+    {
+      RECORD param;
+      IF (methodparam.type != 0)
+        INSERT CELL type := methodparam.type INTO param;
+      INSERT CELL source := methodparam.has_default ? -#methodparam - 1 : #methodparam + 1 INTO param;
+      INSERT param INTO params AT END;
+    }
+
+    BOOLEAN is_vararg := method.signdata.excessargstype != 0;
+    FUNCTION PTR rebound := __HS_REBINDFUNCTIONPTR2(
+        remotingfunc,
+        params,
+        LENGTH(method.signdata.params) + 1,
+        is_vararg);
+
+    MemberInsert(privptr, method.name, FALSE, rebound);
+  }
+}
+
+PUBLIC RECORD FUNCTION DescribePublicInterface(OBJECT inobj)
+{
+  RECORD ARRAY methods := __INTERNAL_DescribeObjectStructure(inobj).methods;
+  methods := SELECT name
+                  , signdata := GetRawFunctionPtrSignature(GetObjectMethodPtr(inobj, name))
+               FROM methods
+              WHERE is_public
+                    AND name != "ONCLOSE"
+                    AND name NOT LIKE "__*";
+  RETURN [ methods := methods ];
+}
+
+MACRO GotServiceStartEvent(FUNCTION PTR resolve, STRING event, RECORD data)
+{
+  resolve(TRUE);
+}
+
+
+PUBLIC OBJECT ASYNC FUNCTION CreateServiceStartWait(STRING service, INTEGER timeout)
+{
+  RECORD defer := CreateDeferredPromise();
+  RegisterTimedCallback(AddTimeToDate(timeout, GetCurrentDateTime()), PTR defer.resolve(FALSE));
+  INTEGER event_cb := RegisterEventCallback("system:webhareservice." || service || ".start", PTR GotServiceStartEvent(defer.resolve, #1, #2));
+
+  BOOLEAN retval := AWAIT defer.promise;
+
+  // We'll ignore the timer, it will remove itself after firing
+  UnregisterCallback(event_cb);
+
+  RETURN retval;
+}
+
+/** Open a WebHare service
+    @param servicename Name of the service (should follow the 'module:tag' pattern)
+    @param arguments Arguments for the service
+    @return A proxy offering ASYNC versions of the service API
+    @topic modules/services
+    @public
+    @loadlib mod::system/lib/services.whlib
+*/
+PUBLIC OBJECT ASYNC FUNCTION OpenWebHareService(STRING servicename, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG)
+{
+  //FIXME don't assume servicename matches servicetag... we should be looking up the <internalservice tag=".... "
+  OBJECT mgrport := ConnectToGlobalIPCPort("webhareservice:" || servicename);
+  IF (NOT ObjectExists(mgrport))
+  {
+    // Start a listen to the start event (async function but listener registration is synchronous)
+    OBJECT startpromise := CreateServiceStartWait(servicename, 30000);
+
+    // Check for the port to exist (it might have been created before the event listen started)
+    mgrport := ConnectToGlobalIPCPort("webhareservice:" || servicename);
+    IF (NOT ObjectExists(mgrport))
+    {
+      AWAIT startpromise;
+      mgrport := ConnectToGlobalIPCPort("webhareservice:" || servicename);
+      IF (NOT ObjectExists(mgrport))
+        THROW NEW ServiceUnavailableException(servicename);
+    }
+  }
+
+  mgrport->autothrow := TRUE;
+  RECORD response := AWAIT mgrport->AsyncDoRequest( [ __new := arguments ] );
+  IF(response.status="gone")
+    THROW NEW ServiceDisconnectException;
+
+  RETURN NEW ClusteredServiceBase(response.msg, mgrport);
+}
+
+/** Schedules a function to be called when a service closes
+    @param service Service
+    @param onclose Function to call when the service closes
+    @topic modules/services
+    @public
+    @loadlib mod::system/lib/services.whlib
+*/
+PUBLIC MACRO ScheduleCallbackOnServiceClose(OBJECT service, FUNCTION PTR onclose)
+{
+  service->__ScheduleCallbackOnServiceClose(onclose);
+}
+

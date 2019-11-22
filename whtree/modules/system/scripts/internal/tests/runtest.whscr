@@ -1,0 +1,999 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testfw/runtest.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+
+MACRO __SYSTEM_SETSYSTEMCONFIG(RECORD data) __ATTRIBUTES__(EXTERNAL);
+
+// -----------------------------------------------------------------------------
+//
+// Constants
+//
+
+// Timeout after 15 mins
+INTEGER timeout_minutes := 15;
+
+// -----------------------------------------------------------------------------
+//
+// Variables
+//
+
+STRING moduledir;
+
+RECORD ARRAY testdefs;
+BOOLEAN print_output;
+BOOLEAN print_errors;
+BOOLEAN quiet_mode;
+BOOLEAN break_on_error;
+BOOLEAN use_jobs;
+BOOLEAN autotests;
+STRING runtype;
+OBJECT testrunner;
+BOOLEAN reduceverboseness;
+OBJECT jstestrunner;
+STRING ARRAY testtypes;
+STRING chromeurl;
+BOOLEAN keepsessions;
+STRING coverage; // "none", "script", "system"
+BOOLEAN jscoverage;
+
+
+MACRO MyPrint(STRING message)
+{
+  IF (NOT quiet_mode)
+    PRINT(message);
+}
+
+MACRO DisplayAndStoreReportErrors(RECORD testinfo, RECORD report)
+{
+  DATETIME now := GetCurrentDateTime();
+  IF (RecordExists(report.logdata))
+  {
+    CreateDiskDirectoryRecursive("/tmp/jstests/", TRUE);
+
+    STRING consolelog := `Console log:\n`;
+    FOREVERY (RECORD rec FROM report.logdata)
+      consolelog := consolelog || "> " || Substitute(rec.line, "\n", "\n> ") || "\n";
+
+    STRING filename := `/tmp/jstests/${testinfo.testname}.${FormatISO8601DateTime(now, "", "", "", FALSE)}.console.log`;
+    MyPrint(consolelog);
+    StoreDiskFile(filename, StringToBlob(consolelog));
+  }
+
+  IF (RecordExists(report.screenshot))
+  {
+    CreateDiskDirectoryRecursive("/tmp/jstests/", TRUE);
+    STRING filename := `/tmp/jstests/${testinfo.testname}.${FormatISO8601DateTime(now, "", "", "", FALSE)}.screenshot.${GetExtensionFromPath(report.screenshot.filename)}`;
+    MyPrint(`Screenshot saved as ${filename}\n`);
+    StoreDiskFile(filename, report.screenshot.data);
+  }
+}
+
+MACRO DisplayLogs(RECORD report)
+{
+  STRING consolelog := `Console log:\n`;
+  FOREVERY (RECORD rec FROM report.logdata)
+    consolelog := consolelog || "> " || Substitute(rec.line, "\n", "\n> ") || "\n";
+  MyPrint(consolelog);
+}
+
+/** @return
+    @cell(string) return.status ok/fail/none
+    @cell(record array) return.failed string array of failed tests
+    @cell(string) return.failed.test Name of the failed test
+    @cell(string array) return.executed string array of executed tests
+*/
+RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRING ARRAY skips)
+{
+  RECORD result :=
+      [ status :=       "none"
+      , failed :=       DEFAULT RECORD ARRAY
+      , executed :=     DEFAULT STRING ARRAY
+      ];
+
+  IF (testrunner->print_debug)
+    Print("; RunTest(" || testinfo.type || ", " || testinfo.testname || ")\n");
+
+  SWITCH (testinfo.type)
+  {
+    CASE "file"
+    {
+      STRING name := testinfo.testname;
+
+      IF (autotests AND testinfo.skipauto)
+      {
+        IF (testrunner->print_debug)
+          Print("; Skipping test: " || testinfo.testname || "\n");
+
+        result.status := "ok";
+        RETURN result;
+      }
+
+      FOREVERY (STRING skip FROM skips)
+        IF (ToUppercase(name) LIKE ToUppercase(skip) OR ToUppercase(name) LIKE ToUppercase(name || ".*"))
+        {
+          IF (testrunner->print_debug)
+            Print("; Skipping group: " || testinfo.testname || "\n");
+
+          result.status := "ok";
+          RETURN result;
+        }
+
+      RECORD ARRAY tests := testrunner->GatherTests(testinfo.path, testinfo.testname, [ testmask ], DEFAULT STRING ARRAY, testinfo.folder, FALSE);
+
+      FOREVERY (RECORD test FROM tests)
+      {
+        RECORD localresult := RunTest(test, testmask, FALSE, skips);
+        result.executed := result.executed CONCAT localresult.executed;
+        IF (localresult.status = "fail")
+        {
+          result.status := "fail";
+          result.failed := result.failed CONCAT localresult.failed;
+          IF (runtype = "BREAK")
+            BREAK;
+        }
+        ELSE IF (localresult.status = "ok" AND result.status = "none")
+          result.status := "ok";
+      }
+    }
+
+    CASE "test", "mochanodetest"
+    {
+      IF ("backend" NOT IN testtypes)
+        RETURN result;
+
+      IF (autotests AND testinfo.skipauto)
+      {
+        IF (testrunner->print_debug)
+          Print("; Skipping test: " || testinfo.testname || "\n");
+
+        result.status := "ok";
+        RETURN result;
+      }
+
+      FOREVERY (STRING skip FROM skips)
+        IF (testinfo.testname LIKE skip)
+        {
+          IF (testrunner->print_debug)
+            Print("; Skipping test: " || testinfo.testname || "\n");
+
+          result.status := "ok";
+          RETURN result;
+        }
+
+      STRING runner;
+      STRING ARRAY arguments;
+      STRING script;
+      BOOLEAN run_in_job;
+
+      IF (testinfo.type = "test")
+      {
+        IF (IsAbsoluteResourcePath(testinfo.script))
+          script := testinfo.script;
+        ELSE
+        {
+          script :=
+              SELECT AS STRING MergePath(value, testinfo.script)
+                FROM testinfo.params
+               WHERE name = "scriptpath";
+        }
+
+        runner := (SELECT value FROM testinfo.params WHERE name = "runscript").value;
+
+        IF (testrunner->print_debug)
+          Print("; Running test: " || testinfo.testname || "\n");
+
+        IF (moduledir != "")
+        {
+          INSERT "--moduledir" INTO arguments AT END;
+          INSERT moduledir INTO arguments AT END;
+        }
+
+        arguments := arguments CONCAT testinfo.runscriptarguments CONCAT [ script ] CONCAT testinfo.arguments;
+
+        run_in_job := testinfo.runmode = "process"
+            ? FALSE
+            : testinfo.runmode = "job"
+                  ? TRUE
+                  : use_jobs;
+      }
+      ELSE IF (testinfo.type = "mochanodetest")
+      {
+        runner := MergePath(GetInstallationRoot(), "bin/wh");
+        script := testinfo.testscript.scriptpath;
+
+        STRING path := GetWebHareResourceDiskPath(script);
+        STRING colors := (GetEnvironmentVariable("TERM") LIKE "*color*") ? "-c" : "-C";
+
+        arguments := [ "mocharun", colors, path ];
+      }
+
+      MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Test " || testinfo.testname || (testinfo.xfail? " (xfailed)" : "") || "\n");
+
+      INSERT testinfo.testname INTO result.executed AT END;
+      BOOLEAN success;
+
+      // Try flaky tests for 3 times
+      FOR (INTEGER tries := 0; tries < 3; tries := tries + 1)
+      {
+        IF (tries != 0)
+          MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Retry failed flaky test " || testinfo.testname  || " (try " || tries + 1 || ")\n");
+        success := run_in_job ? RunTestJob(testinfo.testname, runner, testinfo.arguments, script, testinfo.xfail) : RunTestProcess(testinfo.testname, runner, arguments, script, testinfo.xfail);
+        IF (success OR NOT testinfo.flaky)
+          BREAK;
+      }
+
+      //BOOLEAN success := RunTestProcess(runner, arguments, script, testinfo.xfail);
+      IF (NOT success)
+      {
+        INSERT
+            [ test :=     SubStitute(testinfo.testname, ".all", "")
+            ] INTO result.failed AT END;
+        result.status := "fail";
+      }
+      ELSE
+        result.status := "ok";
+
+      RETURN result;
+    }
+
+    CASE "fail"
+    {
+      IF ("backend" NOT IN testtypes)
+        RETURN result;
+
+      MyPrint("\nRunning test " || testinfo.testname || ": " || testinfo.script || "\n");
+      MyPrint("Test definition error: " || testinfo.errormsg || "\n");
+
+      INSERT SubStitute(testinfo.testname, ".all", "") INTO result.executed AT END;
+      INSERT
+         [ test :=  SubStitute(testinfo.testname, ".all", "")
+         ] INTO result.failed AT END;
+      result.status := "fail";
+      RETURN result;
+    }
+
+    CASE "jstest"
+    {
+      IF ("frontend" NOT IN testtypes)
+        RETURN result;
+
+      IF (autotests AND testinfo.skipauto)
+      {
+        IF (testrunner->print_debug)
+          Print("; Skipping test: " || testinfo.testname || "\n");
+
+        result.status := "ok";
+        RETURN result;
+      }
+
+      FOREVERY (STRING skip FROM skips)
+        IF (testinfo.testname LIKE skip)
+        {
+          IF (testrunner->print_debug)
+            Print("; Skipping test: " || testinfo.testname || "\n");
+
+          result.status := "ok";
+          RETURN result;
+        }
+
+      MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Test " || testinfo.testname || (testinfo.xfail? " (xfailed)" : "") || "\n");
+
+      IF (testrunner->print_debug)
+        Print("; Running test: " || testinfo.testname || "\n");
+
+      INSERT testinfo.testname INTO result.executed AT END;
+
+      IF(NOT ObjectExists(jstestrunner)) //not initialized yet
+      {
+        jstestrunner := NEW ChromeDevtoolsTestRunner("chrome",
+            [ devtoolsurl := chromeurl
+            , debug := testrunner->print_debug
+            , keepsessions := keepsessions
+            , screenshotonfail := TRUE
+            , coverage := jscoverage
+            ]);
+      }
+
+      IF (coverage = "system")
+      {
+        __SYSTEM_SETSYSTEMCONFIG(CELL
+            [ ...GetSystemConfigurationRecord()
+            , debugconfig :=  [ tags :=           [ "cov" ]
+                              , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
+                              , context :=        testinfo.testname
+                              ]
+            ]);
+      }
+
+      OBJECT itr := jstestrunner->RunTest(testinfo);
+      WHILE (TRUE)
+      {
+        RECORD res := WaitForPromise(itr->Next());
+        IF (res.done)
+        {
+          IF (res.value.status != "finished")
+          {
+            MyPrint("Test error: " || res.value.msg || "\n");
+            INSERT [ test := testinfo.testname ] INTO result.failed AT END;
+            result.status := "fail";
+
+            IF (RecordExists(res.value.report))
+              DisplayAndStoreReportErrors(testinfo, res.value.report);
+          }
+          ELSE IF (NOT RecordExists(res.value.report) OR LENGTH(res.value.report.tests) = 0)
+          {
+            MyPrint("Test error: Could not load test\n");
+            INSERT [ test := testinfo.testname ] INTO result.failed AT END;
+            result.status := "fail";
+
+            IF (RecordExists(res.value.report))
+              DisplayAndStoreReportErrors(testinfo, res.value.report);
+          }
+          ELSE
+          {
+            RECORD report := res.value.report;
+            RECORD test := report.tests[0];
+            BOOLEAN failed;
+            IF (LENGTH(test.fails) != 0)
+            {
+              MyPrint("Test error: " || test.fails[0].text || "\n" || test.fails[0].stack || "\n");
+              failed := TRUE;
+            }
+            ELSE IF (NOT report.finished)
+            {
+              MyPrint("Test timeout\n");
+              failed := TRUE;
+            }
+
+            IF (failed)
+            {
+              DisplayAndStoreReportErrors(testinfo, report);
+              INSERT [ test := testinfo.testname ] INTO result.failed AT END;
+              result.status := "fail";
+            }
+            ELSE
+            {
+              IF (print_output AND NOT reduceverboseness)
+                DisplayLogs(report);
+
+              result.status := "ok";
+            }
+          }
+          BREAK;
+        }
+      }
+
+      IF (coverage = "system")
+      {
+        __SYSTEM_SETSYSTEMCONFIG(CELL
+            [ ...GetSystemConfigurationRecord()
+            , DELETE debugconfig
+            ]);
+      }
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unrecognized test type '${testinfo.type}'`);
+    }
+  }
+
+  RETURN result;
+}
+
+
+BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail)
+{
+  BOOLEAN success := TRUE;
+
+  IF (testrunner->print_debug)
+  {
+    Print("; Using command: " || runner);
+    FOREVERY (STRING argument FROM arguments)
+      Print(" " || argument);
+    Print("\n");
+  }
+
+  // Ensure the BABEL_CACHE_PATH is set for babel-node
+  RECORD ARRAY env := GetEnvironment();
+  INSERT
+      [ name :=     "BABEL_CACHE_PATH"
+      , value :=    GetEnvironmentVariable("WEBHARE_BABELCACHE") ?? MergePath(GetWebHareConfiguration().varroot, "ephemeral/babelcache/babel-node")
+      ] INTO env AT END;
+
+  IF (coverage != "")
+  {
+    DELETE FROM env WHERE name = "WEBHARE_DEBUG";
+    IF (coverage = "system")
+    {
+      __SYSTEM_SETSYSTEMCONFIG(CELL
+          [ ...GetSystemConfigurationRecord()
+          , debugconfig :=  [ tags :=           [ "cov" ]
+                            , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
+                            , context :=        testname
+                            ]
+          ]);
+    }
+    ELSE
+      env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := "cov" ], [ name := "WEBHARE_DEBUGCONTEXT", value := testname ] ];
+  }
+
+  OBJECT process;
+  TRY
+  {
+    process := CreateProcess(runner, arguments, FALSE, TRUE, TRUE, FALSE);
+    process->SetEnvironment(env);
+    process->Start();
+  }
+  CATCH (OBJECT e)
+  {
+    Print("Could not start runscript: " || runner || "\n");
+    IF (runtype = "BREAK")
+      RETURN FALSE;
+    success := FALSE;
+    RETURN FALSE;
+  }
+
+  INTEGER procid := process->handle;
+
+  BOOLEAN delay_output := xfail OR reduceverboseness;
+
+  STRING alloutput;
+  STRING currtype := "";
+
+  INTEGER outputstream := delay_output ? CreateStream() : 0;
+
+  DATETIME timeout := AddTimeToDate(timeout_minutes * 60 * 1000, GetCurrentDateTime());
+  BOOLEAN is_timeout;
+
+  WHILE (TRUE)
+  {
+    INTEGER waitmsecs := GetDateTimeDifference(GetCurrentDateTime(), timeout).msecs;
+    IF (waitmsecs <= 0)
+    {
+      is_timeout := TRUE;
+      BREAK;
+    }
+
+    WaitForProcessOutput (procid, waitmsecs);
+    BOOLEAN any_output := FALSE;
+    WHILE (TRUE)
+    {
+      STRING output := ReadProcessOutput(procid);
+      IF (output = "")
+        BREAK;
+      IF (print_output)
+      {
+        any_output := TRUE;
+        IF (currtype = "err")
+          PrintTo(outputstream, "\n");
+        ELSE IF (currtype != "out")
+          PrintTo(outputstream, "> ");
+        output := Substitute(output, "\r", "\r> ");
+        output := Substitute(output, "\n", "\n> ");
+        IF (output LIKE "*\n> ")
+        {
+          currtype := "";
+          output := LEFT(output, LENGTH(output) - 2);
+        }
+        ELSE
+          currtype := "out";
+        PrintTo(outputstream, output);
+      }
+    }
+
+    WHILE (TRUE)
+    {
+      STRING output := ReadProcessErrors(procid);
+      IF (output = "")
+        BREAK;
+      IF (print_errors)
+      {
+        any_output := TRUE;
+        IF (currtype = "out")
+          PrintTo(outputstream, "\n");
+        ELSE IF (currtype != "err")
+          PrintTo(outputstream, "! ");
+        output := Substitute(output, "\n", "\n! ");
+        IF (output LIKE "*\n! ")
+        {
+          currtype := "";
+          output := LEFT(output, LENGTH(output) - 2);
+        }
+        ELSE
+          currtype := "err";
+        PrintTo(outputstream, output);
+      }
+    }
+
+    IF (NOT any_output AND NOT IsProcessrunning(procid))
+      BREAK;
+  }
+
+  IF (currtype != "")
+    PrintTo(outputstream, "\n");
+
+  STRING delayed_output := delay_output ? BlobToString(MakeBlobFromStream(outputstream), -1) : "";
+
+  INTEGER exitcode;
+  IF (is_timeout)
+    TerminateProcess(procid);
+  ELSE
+    exitcode := GetProcessExitCode(procid);
+
+  CloseProcess(procid);
+
+  IF (coverage = "system")
+  {
+    __SYSTEM_SETSYSTEMCONFIG(CELL
+        [ ...GetSystemConfigurationRecord()
+        , DELETE debugconfig
+        ]);
+  }
+
+  IF (timeout <= GetCurrentDateTime())
+  {
+    PRINT(delayed_output);
+    Print("Script timed out after " || timeout_minutes || " minutes\n");
+    RETURN FALSE;
+  }
+
+  IF (exitcode != 0)
+  {
+    // Script failed
+    IF (xfail)
+    {
+      Print("Script failed: "|| script || " (exitcode = "|| exitcode || "), as expected (XFAIL)\n");
+    }
+    ELSE
+    {
+      PRINT(delayed_output);
+      Print("Script failed: "|| script || " (exitcode = "|| exitcode || ")\n");
+    }
+  }
+  ELSE
+  {
+    IF (xfail)
+    {
+      PRINT(delayed_output);
+      Print("Script succeeded unexpectedly, it was marked with XFAIL\n");
+    }
+  }
+
+  RETURN (exitcode = 0) != xfail;
+}
+
+BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail)
+{
+  BOOLEAN success := TRUE;
+
+  IF (testrunner->print_debug)
+  {
+    Print("; Using command: " || runner);
+    FOREVERY (STRING argument FROM arguments)
+      Print(" " || argument);
+    Print("\n");
+  }
+
+  RECORD jobrec := CreateJob(script);
+
+  IF (NOT ObjectExists(jobrec.job))
+  {
+    Print("Could not start job: " || script || "\n" || FormatHarescriptErrors(jobrec.errors));
+    IF (runtype = "BREAK")
+      RETURN xfail;
+
+    RETURN xfail;
+  }
+
+  BOOLEAN delay_output := xfail OR reduceverboseness;
+
+  OBJECT job := jobrec.job;
+  INTEGER outputstream := delay_output ? CreateStream() : 0;
+  INTEGER joboutput := job->CaptureOutput();
+  job->SetConsoleArguments(arguments);
+  IF (coverage != "")
+  {
+    RECORD ARRAY env := SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_DEBUG";
+    IF (coverage = "system")
+    {
+      // needed to remove WEBHARE_DEBUG from env, that overrides the system configuration record
+      __SYSTEM_SETSYSTEMCONFIG(CELL
+          [ ...GetSystemConfigurationRecord()
+          , debugconfig :=  [ tags :=           [ "system-cov" ]
+                            , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
+                            , context :=        testname
+                            ]
+          ]);
+    }
+    ELSE
+      env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := "cov" ], [ name := "WEBHARE_DEBUGCONTEXT", value := testname ] ];
+
+    job->SetEnvironment(env);
+  }
+  job->Start();
+  STRING alloutput;
+  STRING currtype := "";
+
+  DATETIME timeout := AddTimeToDate(timeout_minutes * 60 * 1000, GetCurrentDateTime());
+  BOOLEAN is_timeout;
+
+  WHILE (TRUE)
+  {
+    INTEGER handle := WaitForMultipleUntil([joboutput], DEFAULT INTEGER ARRAY, timeout);
+    IF (handle = -1 AND timeout <= GetCurrentDateTime()) // timeout
+    {
+      is_timeout := TRUE;
+      BREAK;
+    }
+
+    BOOLEAN any_output := FALSE;
+    WHILE (TRUE)
+    {
+      STRING output := ReadFrom(joboutput, -16384);
+      IF (output = "")
+        BREAK;
+      IF (print_output)
+      {
+        any_output := TRUE;
+        IF (currtype = "err")
+          PrintTo(outputstream, "\n");
+        ELSE IF (currtype != "out")
+          PrintTo(outputstream, "> ");
+        output := Substitute(output, "\r", "\r> ");
+        output := Substitute(output, "\n", "\n> ");
+        IF (output LIKE "*\n> ")
+        {
+          currtype := "";
+          output := LEFT(output, LENGTH(output) - 2);
+        }
+        ELSE
+          currtype := "out";
+        PrintTo(outputstream, output);
+      }
+    }
+
+    /*WHILE (TRUE)
+    {
+      STRING output := ReadProcessErrors(procid);
+      IF (output = "")
+        BREAK;
+      IF (print_errors)
+      {
+        any_output := TRUE;
+        IF (currtype = "out")
+          PrintTo(outputstream, "\n");
+        ELSE IF (currtype != "err")
+          PrintTo(outputstream, "! ");
+        output := Substitute(output, "\n", "\n! ");
+        IF (output LIKE "*\n! ")
+        {
+          currtype := "";
+          output := LEFT(output, LENGTH(output) - 2);
+        }
+        ELSE
+          currtype := "err";
+        PrintTo(outputstream, output);
+      }
+    }
+*/
+    IF (NOT any_output AND job->IsSignalled())
+      BREAK;
+  }
+
+  IF (NOT delay_output AND currtype != "")
+    PrintTo(outputstream, "\n");
+
+  STRING delayed_output := delay_output ? BlobToString(MakeBlobFromStream(outputstream), -1) : "";
+
+  RECORD ARRAY errors;
+  INTEGER exitcode;
+
+  IF (job->IsSignalled()) // Getting errors blocks when not signalled
+  {
+    errors := job->GetErrors();
+    exitcode := job->GetConsoleExitCode();
+
+    IF (LENGTH(errors) != 0)
+      LogHarescriptErrors(errors, [ script := "direct::" || script ]);
+  }
+
+  BOOLEAN hasfailed := Length(errors)>0 OR exitcode != 0;
+
+  job->Close();
+
+  IF (coverage = "system")
+  {
+    __SYSTEM_SETSYSTEMCONFIG(CELL
+        [ ...GetSystemConfigurationRecord()
+        , DELETE debugconfig
+        ]);
+  }
+
+  IF (timeout <= GetCurrentDateTime())
+  {
+    PRINT(delayed_output);
+    Print("Script timed out after " || timeout_minutes || " minutes\n");
+    RETURN xfail;
+  }
+
+  IF (hasfailed)
+  {
+    // Script failed
+    IF (xfail)
+    {
+      Print("Script failed: "|| script || " (exitcode = "|| exitcode || "), as expected (XFAIL)\n");
+    }
+    ELSE
+    {
+      PRINT(delayed_output);
+      printrecordarrayto(0,errors,'boxed');
+      Print("Script failed: "|| script || " (exitcode = "|| exitcode || ")\n");
+    }
+  }
+  ELSE
+  {
+    IF (xfail)
+    {
+      PRINT(delayed_output);
+      Print("Script succeeded unexpectedly, it was marked with XFAIL\n");
+    }
+  }
+
+  RETURN hasfailed = xfail;
+}
+
+MACRO PrintSyntax()
+{//     | <- The room between these pipe symbols is exactly 80 characters - - - - - - -> |
+  Print("Usage: runtest [-deoqj] --installroot=path\n");
+  Print("               [--type=break|continue] [--loop] [--skip=mask]\n");
+  Print("               all|testname[.group] [params]\n");
+  Print("\n");
+  Print("  -d               Print test debug information\n");
+  Print("  -e               Print test script errors\n");
+  Print("  -o               Print test script output\n");
+  Print("  -q               Runs the test in quiet mode. Only error messages will be\n");
+  Print("                   displayed\n");
+  Print("  -p               Use processes instead of jobs\n");
+  Print("  --installroot    WebHare installation root (overrides automatically\n");
+  Print("                   determined installation root)\n");
+  Print("  --moduledir=..   Directory for HSM files (eg R:\\whbuild\\bin");
+  Print("  --type=break     Break on first failing test\n");
+  Print("  --type=continue  Continue with next test after failing test\n");
+  Print("  --loop           After all test are finished, start again with first test\n");
+  Print("  --tag=..         Specify tags to require or exclude (eg: --tags=forms,-external)\n");
+  Print("  --skip=mask      Skip test that match the mask (can be used multiple times)\n");
+  Print("  --outputdir      Save output files to this directory\n");
+  Print("  --testtype=...   Types of tests to run ('all', 'frontend', 'backend')\n");
+  Print("  --chromeurl=...  URL on which chrome debugger is listening, for frontend tests\n");
+  Print("  --keepsessions   Do not close Chrome sessions\n");
+  Print("  all              Run the group 'all' in all known tests\n");
+  Print("  testname         Run the test with this name (may be a comma separated list)\n");
+  Print("  group            Run only the given group within a test. If this parameter is\n");
+  Print("                   omitted, the group 'all' is run\n");
+  Print("  params           A list of name=value variables. Standard variables which can\n");
+  Print("                   be overridden on the command line or in testinfo.xml are:\n");
+  Print("                   runscript  Path and name of the executable used to run the\n");
+  Print("                              test scripts, defaults to runscript.exe in the\n");
+  Print("                              bin directory of your WebHare installation\n");
+  Print("                   scriptpath The path to the folder with the test scripts,\n");
+  Print("                              defaults to the path of the testinfo.xml file\n");
+  Print("\n");
+  Print("Please read doc/runtest.md for more information\n");
+}
+
+MACRO SyntaxError(STRING str)
+{
+  IF (str != "")
+    PRINT(str || "\n\n");
+  PrintSyntax();
+  SetConsoleExitCode(1);
+  TerminateScript();
+}
+
+BOOLEAN FUNCTION CheckAgainstTags(STRING ARRAY testtags, STRING ARRAY requiretags, STRING ARRAY excludetags)
+{
+  IF(Length(requiretags)>0)
+  {
+    FOREVERY(STRING tag FROM requiretags)
+      IF(tag NOT IN testtags)
+        RETURN FALSE;
+  }
+  IF(Length(excludetags)>0)
+  {
+    FOREVERY(STRING tag FROM excludetags)
+      IF(tag IN testtags)
+        RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+// -----------------------------------------------------------------------------
+//
+// Main code
+//
+
+RECORD parsedargs := ParseArguments(GetConsoleArguments(),
+                                    [ [name := "o", type := "switch", defaultvalue := TRUE]
+                                    , [name := "e", type := "switch", defaultvalue := TRUE]
+                                    , [name := "d", type := "switch", defaultvalue := FALSE]
+                                    , [name := "q", type := "switch", defaultvalue := FALSE]
+                                    , [name := "p", type := "switch", defaultvalue := FALSE]
+                                    , [name := "jscoverage", type := "switch"]
+                                    , [name := "coverage", type := "switch" ]
+                                    , [name := "systemcoverage", type := "switch" ]
+                                    , [name := "chromeurl", type := "stringopt"]
+                                    , [name := "moduledir", type := "stringopt"]
+                                    , [name := "skip", type := "stringlist"]
+                                    , [name := "type", type := "stringopt"]
+                                    , [name := "tag", type := "stringopt"]
+                                    , [name := "testtype", type := "stringlist"]
+                                    , [name := "outputdir", type := "stringopt"]
+                                    , [name := "loop", type := "switch"]
+                                    , [name := "autotests", type := "switch"]
+                                    , [name := "keepsessions", type := "switch"]
+                                    , [name := "terse", type := "switch"]
+                                    , [name := "testname", type := "param" ]
+                                    , [name := "params", type := "paramlist"]
+                                    ]);
+
+IF (NOT RecordExists(parsedargs))
+  SyntaxError("Parameter syntax error");
+
+OpenPrimary();
+
+// Make sure the site profiles are compiled (for ci server - shouldn't need it as TS should be properly set up?)
+//RecompileSiteProfiles();
+
+testrunner := NEW RunTests([ outputdir := parsedargs.outputdir ]);
+
+STRING testgroup := "all";
+STRING testname := "all";
+testtypes := parsedargs.testtype;
+IF ("all" IN testtypes OR Length(testtypes)=0)
+  testtypes := [ ...testtypes, "frontend", "backend" ];
+runtype := ToUppercase(parsedargs.type);
+IF (runtype = "")
+  runtype := "CONTINUE";
+print_output := parsedargs.o;
+print_errors := parsedargs.e;
+testrunner->print_debug := parsedargs.d;
+quiet_mode := parsedargs.q;
+use_jobs := NOT parsedargs.p;
+break_on_error := runtype != "CONTINUE";
+moduledir := parsedargs.moduledir;
+autotests := parsedargs.autotests;
+reduceverboseness := parsedargs.terse;
+chromeurl := parsedargs.chromeurl;
+keepsessions := parsedargs.keepsessions;
+coverage := parsedargs.systemcoverage ? "system" : parsedargs.coverage ? "script" : "";
+jscoverage := parsedargs.jscoverage;
+
+STRING ARRAY requiretags, excludetags;
+FOREVERY(STRING tag FROM Tokenize(parsedargs.tag,','))
+  IF(tag LIKE "-*")
+    INSERT Substring(tag,1) INTO excludetags AT END;
+  ELSE IF(tag != "")
+    INSERT tag INTO requiretags AT END;
+
+FOREVERY (STRING testtype FROM testtypes)
+  IF (testtype NOT IN [ "all", "frontend", "backend" ])
+    SyntaxError(`Illegal testtype '${testtype}', allowed are: 'all', 'frontend', 'backend'`);
+
+IF (quiet_mode)
+{
+  IF (testrunner->print_debug)
+  {
+    Print("Quiet mode should not be used in combination with either 'Print test debug information' or 'Print test script output'\n");
+    RETURN;
+  }
+
+  // Disable showing output in quiet mode. Required since output option is true by default
+  print_output := FALSE;
+}
+
+// Parse params
+
+FOREVERY (STRING param FROM parsedargs.params)
+{
+  INTEGER eq := SearchSubstring(param, '=');
+  IF (eq > 0)
+    INSERT [name := Left(param, eq), value := Right(param, Length(param)-eq-1)] INTO testrunner->cmdparams AT END;
+  ELSE IF (eq < 0 AND Length(param) > 0)
+    INSERT [name := param, value := ""] INTO testrunner->cmdparams AT END;
+}
+
+IF (parsedargs.testname = "")
+  parsedargs.testname := "all";
+
+WHILE (TRUE)
+{
+  RECORD ARRAY tests := testrunner->GatherAllTests(Tokenize(parsedargs.testname,','), DEFAULT STRING ARRAY);
+  BOOLEAN seenanytest := FALSE;
+
+  RECORD ARRAY failed_tests;
+
+  FOREVERY (RECORD test FROM tests)
+  {
+    IF(NOT CheckAgainstTags(test.tags, requiretags, excludetags))
+      CONTINUE;
+
+    seenanytest := TRUE;
+    IF (autotests AND test.skipauto) //still counts as a match for the purposes of detecting invalid wh runtest invocations
+      CONTINUE;
+
+    // Top-level tests don't honor --type=break
+    RECORD localresult := RunTest(test, "*", TRUE, parsedargs.skip);
+
+    STRING ARRAY failed_tests_names :=
+        SELECT AS STRING ARRAY COLUMN test
+          FROM localresult.failed;
+
+    IF (test.testname LIKE "wh.hscore.test.*")
+    {
+      // Special processing for self test (whether failure detection in process/job code works ok)
+      BOOLEAN is_error;
+      FOREVERY (STRING str FROM localresult.executed)
+        IF ((str LIKE "*.fail.*") != (str IN failed_tests_names))
+        {
+          is_error := TRUE;
+          INSERT test INTO failed_tests AT END;
+        }
+    }
+    ELSE
+    {
+      IF (localresult.status = "fail")
+      {
+        INSERT test INTO failed_tests AT END;
+      }
+    }
+    IF (localresult.status = "none")
+      THROW NEW Exception("Unexpected status 'none'");
+  }
+
+  IF (NOT seenanytest)
+  {
+    Print(`\nError: No test matched the name '${parsedargs.testname}'\n`);
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+
+  MyPrint("\n\n+=====================================================================\n");
+  MyPrint("| TEST RESULTS\n");
+  MyPrint("+=====================================================================\n\n");
+
+  IF (LENGTH(failed_tests) = 0)
+    MyPrint("All tests succeeded\n");
+  ELSE
+  {
+    //Report failed tests
+    Print("The following modules failed:\n");
+    FOREVERY (RECORD failure FROM failed_tests)
+    {
+      Print(' - ' || failure.testname);
+      IF(failure.type="jstest")
+        Print(' (' || UpdateURLVariables("https://my.webhare.dev/" || UnpackURL(failure.baseurl).urlpath, [ mask := failure.testname ]) || ")");
+      Print('\n');
+    }
+
+    SetConsoleExitCode(1);
+  }
+
+  IF (NOT parsedargs.loop OR (Length(failed_tests)>0 AND break_on_error))
+    BREAK;
+}
+
+IF (ObjectExists(jstestrunner))
+  WaitForPromise(jstestrunner->Close());

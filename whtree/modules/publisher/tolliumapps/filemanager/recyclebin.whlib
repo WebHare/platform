@@ -1,0 +1,96 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/hooks.whlib";
+
+
+PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
+<
+  INTEGER searchuserid;
+  INTEGER overridefilter;
+
+  PUBLIC MACRO __SetSearch(INTEGER userid, STRING username) //used by tests. if this crashes, we might simply be out of sync with the xml
+  {
+    this->searchuseron->value := TRUE;
+    this->searchuserid := userid;
+    this->searchuser->value := userid;
+  }
+
+  UPDATE PUBLIC MACRO ResetFilter()
+  {
+    this->searchsiteon->value := FALSE;
+    this->searchnameon->value := FALSE;
+    this->searchuseron->value := TRUE;
+    this->searchstartdateon->value := FALSE;
+    this->searchenddateon->value := FALSE;
+
+    this->searchsite->value := 0;
+    this->searchname->value := "";
+    this->searchuserid := GetEffectiveUserId();
+    this->searchuser->value := GetEffectiveUserId();
+    this->searchstartdate->value := DEFAULT DATETIME;
+    this->searchenddate->value := DEFAULT DATETIME;
+
+
+    this->searchstartdateon->value := TRUE;
+    this->searchstartdate->value := AddDaysToDate(-7,GetCurrentDateTime());
+    this->overridefilter := 0;
+  }
+
+  INTEGER FUNCTION OnSelectSite(INTEGER currentsite)
+  {
+    OBJECT dialog := CreateSiteSelectDialog(this);
+    dialog->value := currentsite;
+    RETURN dialog->RunModal() = "ok" ? dialog->value : currentsite;
+  }
+
+  STRING FUNCTION OnMapSite(INTEGER site)
+  {
+    RETURN site = 0 ? "" : SELECT AS STRING name FROM system.fs_objects WHERE id = site;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RunFilter(RECORD options)
+  {
+    RECORD res;
+
+    // Check the original location site
+    INTEGER site;
+    IF (this->searchsiteon->value)
+      site := this->searchsite->value;
+
+    // Read other search options
+    STRING name;
+    IF (this->searchnameon->value)
+      name := this->searchname->value;
+    DATETIME fromdate;
+    IF (this->searchstartdateon->value)
+      fromdate := this->searchstartdate->value;
+    DATETIME todate;
+    IF (this->searchenddateon->value)
+      todate := this->searchenddate->value;
+
+    // Search the recycle bin
+    RECORD ARRAY results := SearchRecycleBin(
+        [ owner :=          this->searchuseron->value ? this->searchuserid : 0
+        , site :=           site
+        , namecontains :=   name
+        , fromdate :=       fromdate
+        , todate :=         todate
+        ]);
+
+    RETURN [ numresults := Length(results)
+           , moreresults := Length(results) > 100
+           , showresults := (SELECT id, parent FROM results LIMIT 100)
+           ];
+  }
+
+  MACRO OnUserSelected()
+  {
+    this->searchuserid := this->searchuser->value;
+  }
+>;

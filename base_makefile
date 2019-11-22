@@ -1,0 +1,878 @@
+################################################
+#
+NEED_MAKE_VERSION=3.81
+ifneq ($(firstword $(sort $(MAKE_VERSION) $(NEED_MAKE_VERSION))),$(NEED_MAKE_VERSION))
+	$(error This makefile requires version $(NEED_MAKE_VERSION), you have $(MAKE_VERSION)))
+endif
+
+################################################
+#
+# Extensions & paths
+
+SRCDIR ?= .
+PREFIX ?= $(SRCDIR)/whtree
+WHBUILD_BUILDYEAR ?= $(shell date +%Y)
+WHBUILD_PLATFORM ?= $(shell uname | tr A-Z a-z)
+HSTEST ?= all
+
+export WHBUILD_SRCDIR=$(abspath $(SRCDIR))
+export WHBUILD_PREFIX=$(abspath $(PREFIX))
+export WHBUILD_BUILDDIR=$(abspath $(shell pwd))
+WHBUILD_INSTANTCLIENTROOT ?= /usr/local/instantclient/
+
+export HSTEST
+
+CPPFLAGS += -DWHBUILD_BUILDYEAR=$(WHBUILD_BUILDYEAR)
+
+ifeq ($(DEBUGMAKE),1)
+	HIDE=
+else
+	HIDE=@
+endif
+
+ifeq ($(WHBUILD_PLATFORM),darwin)
+	BUILDSYSTEM ?= llvm
+	BREWPREFIX ?= $(shell brew --prefix)
+	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/libxml2/lib/pkgconfig/
+	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
+
+	ifneq ($(WHBUILD_INSTANTCLIENT_URL),)
+	  CPPFLAGS += -I$(WHBUILD_INSTANTCLIENTROOT)/sdk/include
+		GLOBALLDFLAGS += -L$(WHBUILD_INSTANTCLIENTROOT)
+	endif
+else
+	BUILDSYSTEM ?= gcc
+	PKGCONFIGPATHS = /usr/lib/x86_64-linux-gnu/pkgconfig/:/usr/local/ssl/lib/pkgconfig/:/usr/local/lib/pkgconfig:/usr/lib64/pkgconfig/
+	# Set LD_LIBRARY_PATH for tests
+	LD_LIBRARY_PATH := $(WHBUILD_BUILDDIR)/lib:/usr/local/lib:/usr/local/ssl/lib/:$(LD_LIBRARY_PATH)
+	SYSLIBDIRSUFFIX=64
+
+	# FIXME not sure if we're allowed to ship OCI in the default builds. we should probably see if we can build oci completely separately so the buildimage doesn't need the OCI stuff
+	ifneq ($(WHBUILD_INSTANTCLIENT_URL),)
+	  CPPFLAGS += -I/usr/include/oracle/12.1/client64
+		GLOBALLDFLAGS += -L/usr/lib/oracle/12.1/client64/lib
+	endif
+
+	CPPFLAGS += -I/usr/include/postgresql/
+endif
+
+PKGCONFIG = PKG_CONFIG_PATH=$(PKGCONFIGPATHS) pkg-config
+
+ifeq ($(WHBUILD_PLATFORM),darwin)
+	DLL_SUFFIX=.dylib
+	DLL_SUFFIXPATTERN=*.dylib
+else
+	DLL_SUFFIX=.so
+	DLL_SUFFIXPATTERN=.so*
+endif
+
+vpath %.cpp $(SRCDIR)
+vpath %.c $(SRCDIR)
+vpath %.h $(SRCDIR)
+vpath %.S $(SRCDIR)
+vpath %.pc $(PKGCONFIGPATHS)
+
+ifeq ($(NOTEST),1)
+	BuildAndTest = build.$1
+else
+	BuildAndTest = success.$1
+endif
+
+export WHBUILD_PLATFORM
+export PREFIX
+export DLL_SUFFIX
+export LD_LIBRARY_PATH
+
+################################################
+#
+# Compiler/linker configuration
+#
+
+ifneq ($(DISABLE_PCH),1)
+	CPP_PCH_FLAGS=-Igch -Winvalid-pch
+endif
+
+
+PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libxml-2.0
+CPPFLAGS += -I$(SRCDIR)
+
+PKGCONFIGCFLAGS = $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
+CXXFLAGS += $(PKGCONFIGCFLAGS) -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -fPIC -pedantic -fvisibility=hidden
+
+GLOBALLDFLAGS += $(shell $(PKGCONFIG) --libs $(PKGCONFIG_PACKAGES))
+ifeq ($(WHBUILD_PLATFORM),linux)
+  CPPFLAGS += -I/opt/libjpeg-turbo/include
+  GLOBALLDFLAGS += -L/opt/libjpeg-turbo/lib64/
+endif
+
+GLOBALLDFLAGS += -Llib -L/usr/local/lib$(SYSLIBDIRSUFFIX) $(CROSSLIBDIR)
+
+ifeq ($(BUILDSYSTEM),gcc)
+    CXXFLAGS+=-std=c++17 -Wno-deprecated-declarations
+else
+	CXXFLAGS+=-std=c++17 -Wno-deprecated-declarations
+	ifeq ($(WHBUILD_PLATFORM),darwin)
+		CXXFLAGS+=-stdlib=libc++
+		GLOBALLDFLAGS+=-stdlib=libc++
+	else
+		CXXFLAGS+=-Wno-unknown-attributes
+	endif
+endif
+
+ifeq ($(WHBUILD_DEBUG),1)
+	CPPFLAGS += -DDEBUG -fno-omit-frame-pointer
+	CXXFLAGS += -O0
+else
+	CXXFLAGS += -DNDEBUG -O3
+	ifeq ($(BUILDSYSTEM),gcc)
+		CXXFLAGS += -fno-implement-inlines -ffast-math -finline-functions
+	else
+		ifeq ($(BUILDSYSTEM),llvm)
+		  ifneq ($(WHBUILD_PLATFORM),linux)
+		    # -ffast-math gives compilation errors on Fedora 18
+		    CXXFLAGS += -ffast-math
+		  endif
+		endif
+	endif
+	ifeq ($(PROFILE),1)
+		CXXFLAGS += -fno-omit-frame-pointer
+	endif
+endif
+
+ifeq ($(BUILDSYSTEM),llvm)
+	ifeq ($(WHBUILD_PLATFORM),darwin)
+		# Warnings coming from boost headers
+		CXXFLAGS += -Wno-unknown-warning-option -Wno-unused-parameter -Wno-parentheses-equality -Wno-char-subscripts -Wno-unused-function -Wno-deprecated-register -Wno-unused-local-typedef -Wno-keyword-macro
+		# For webhare (too many false positives)
+		CXXFLAGS += -Wno-unused-private-field
+	else
+		# Warnings coming from boost headers
+		CXXFLAGS += -Wno-unknown-warning-option -Wno-unused-parameter -Wno-parentheses-equality -Wno-char-subscripts -Wno-unused-function
+		# For webhare (too many false positives)
+		CXXFLAGS += -Wno-unused-private-field
+	endif
+else
+	# Warnings coming from boost headers
+	CXXFLAGS += -Wno-unused-function
+endif
+
+GLOBALLDFLAGS += -rdynamic
+
+ifeq ($(WHBUILD_PLATFORM),darwin)
+	CXXFLAGS += -mmacosx-version-min=10.7
+	GLOBALLDFLAGS += -mmacosx-version-min=10.7
+
+	ifneq ($(BUILDSYSTEM),llvm)
+		GLOBALLDFLAGS += -pthread
+	endif
+else
+	GLOBALLDFLAGS += -pthread
+endif
+
+ifneq ($(SANITIZE),)
+	CXXFLAGS += -fsanitize=$(SANITIZE)
+	GLOBALLDFLAGS += -fsanitize=$(SANITIZE)
+endif
+
+BLEX_SSL_LIBS=ssl crypto
+
+ICU_LIBS = icui18n icudata icuuc
+BLEX_BASE_LIBS=xml2 z $(ICU_LIBS) $(BLEX_SSL_LIBS)
+DRAWLIB_BASE_LIBS=freetype png tiff gif pixman-1
+DRAWLIB_STATIC_LIBS=
+
+DRAWLIB_BASE_LIBS+=jpeg
+
+ifeq ($(BUILDSYSTEM),gcc)
+	ifeq ($(CXX),clang++)
+		# Allow override - CXX is always set to system C++ compiler
+		CXX=g++
+	endif
+	CXX?=g++
+	LD_APP?=g++
+else
+	ifeq ($(BUILDSYSTEM),llvm)
+		ifeq ($(CXX),g++)
+			# Allow override - CXX is always set to system C++ compiler
+			CXX=clang++
+		endif
+		CXX?=clang++
+		LD_APP?=clang++
+	else
+		$(error Unsupported build system $(BUILDSYSTEM))
+	endif
+endif
+
+ifeq ($(WHBUILD_NOCCACHE),)
+	CXX:=ccache ${CXX}
+	ifneq ($(DISTCC_HOSTS),)
+		export CCACHE_PREFIX=distcc
+	endif
+else
+	ifneq ($(DISTCC_HOSTS),)
+		export CXX:=distcc ${CXX}
+	endif
+endif
+
+WHLDFLAGS=$(GLOBALLDFLAGS)
+ifeq ($(WHBUILD_PLATFORM),darwin)
+	WHLDFLAGS += -Wl,-rpath '-Wl,@loader_path/../lib'
+	CPPFLAGS += -DHAVE_LIBGIT=1
+  harescript_HsMod_git_AddLibs = git2
+else
+	WHLDFLAGS += -Wl,-rpath '-Wl,/usr/local/lib' -Wl,-rpath '-Wl,$$ORIGIN/../lib'
+	CPPFLAGS += -DUSE_VALGRIND=1 # not supported on darwin
+	CPPFLAGS += -DHAVE_LIBGIT=1
+  harescript_HsMod_git_AddLibs = git2
+endif
+
+LDFLAGS_SHARED=-shared
+LDFLAGS_MODULE=
+LDFLAGS_EXE=
+
+# CPP_PCH_FLAGS_XXX MUST be first in list, gcc bug or so.
+Compile = $(HIDE)echo "- Compiling $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_COMPILE) $3 -o$2 -c $1
+GenerateDeps = $(HIDE)echo "- Generate deps for $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -M -MP -MT "$2 $(subst .d,.o,$2)" $3 -o $2 -c $1
+GeneratePCHDeps = $(HIDE)echo "- Generate deps for header $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -x c++-header -M -MP -MT "$2 $(subst .d,.gch,$2)" $3 -o $2 -c $1
+
+define GeneratePrecompiledHeader
+		  $(HIDE)echo "- Precompiling $2"
+		  $(HIDE)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header $4 -o$3 -c $2
+endef #end define GeneratePrecompiledHeader
+
+ifeq ($(WHBUILD_PLATFORM),darwin)
+ 	LinkShared	   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+ 	LinkModule	   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) $(LDFLAGS_MODULE) -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+ 	LinkExecutable   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_EXE) -o $2 $1 $(addprefix -l,$3)
+else
+	LinkShared	   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) -o $2 $1 $(addprefix -l,$3)
+	LinkModule	   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) $(LDFLAGS_MODULE) -o $2 $1 $(addprefix -l,$3)
+	LinkExecutable   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_EXE) -o $2 $1 $(addprefix -l,$3)
+endif
+
+BLEX_BASE_LIBS += z dl
+BLEX_HSVM_LIBS = $(ICU_LIBS)
+ifneq ($(WHBUILD_PLATFORM),darwin)
+	BLEX_BASE_LIBS += rt            # cap
+	# For asynchronous DNS
+	BLEX_BASE_LIBS += anl
+endif
+
+harescript_HsMod_oci_AddLibs = clntsh
+harescript_HsMod_odbc_AddLibs = odbc
+harescript_HsMod_pgsql_AddLibs = pq
+
+FullPath=$(if $(filter /%,$(1)),$(1),$(abspath $(shell pwd)/$(1)))
+
+################################################
+#
+# Other useful internal variables
+
+HSENGINE_SUBPROJECTS=blex harescript drawlib parsers
+WHAP_SUBPROJECTS=blex harescript drawlib parsers ap
+SUBPROJECTS=$(sort $(HSENGINE_SUBPROJECTS) $(WHAP_SUBPROJECTS))
+
+GetSrcFiles=$(subst $(SRCDIR)/,,$(wildcard $(SRCDIR)/$1))
+Src2ObjFiles=$(addprefix ,$(subst .cpp,.o,$1))
+GetObjFiles=$(call Src2ObjFiles,$(call GetSrcFiles,$1))
+
+ALLBUILDDIRS=$(ALLOBJDIRS) bin lib
+
+ifneq ($(DISABLE_PCH),1)
+ALLBUILDDIRS += $(ALLPCHDIRS)
+endif
+
+EXTRAINSTALLDIR=dbase log output tmp var lib
+
+# Create all directories
+ALLDIRS=$(ALLBUILDDIRS) $(ALLINSTALLDIRS)
+
+#################################################
+##
+## File listings
+##
+
+# BLEX
+
+blex_DEPLOYABLES_HSENGINE=lib/libblex_base$(DLL_SUFFIX)
+blex_DEPLOYABLES_WHAP=$(blex_DEPLOYABLES_HSENGINE) bin/dumpcomplexfslog
+blex_DEPLOYABLES=$(blex_DEPLOYABLES_WHAP)
+
+blex_SRCDIRS=tests tools
+
+BLEX_LIBS=blex_base $(BLEX_BASE_LIBS)
+PCH_HEADERS+=blex/blexlib.h
+
+LIBBLEX_FILES= $(call GetSrcFiles,blex/*.cpp)
+
+ifeq ($(BLEXTEST),)
+	BLEXTESTS=$(call GetSrcFiles,blex/tests/test*.cpp)
+	RUNTEST=runtest
+else
+	BLEXTESTS=blex/tests/test$(BLEXTEST).cpp
+	RUNTEST=runtest-$(BLEXTEST)
+endif
+
+BLEXTEST_FILES=blex/tests/blextest.cpp $(BLEXTESTS)
+blex_CPPFILES=$(LIBBLEX_FILES) $(BLEXTEST_FILES)
+blex_OBJFILES=$(call Src2ObjFiles, $(blex_CPPFILES))
+
+# HARESCRIPT
+
+HS_SUBPROJECTS = compiler vm
+HS_HS_MODULES = witty xml icu selfcompile git odbc pgsql
+
+HS_LIBS=blex_hscompiler blex_hsvm $(BLEX_LIBS)
+
+PCH_HEADERS+=harescript/vm/allincludes.h
+
+PCH_HEADERS+=harescript/compiler/allincludes.h
+
+ifneq ($(WHBUILD_INSTANTCLIENT_URL),)
+	HS_HS_MODULES += oci
+endif
+
+HS_DEPLOYABLES_PREP=\
+	$(addprefix lib/hsm_wh_,$(addsuffix $(DLL_SUFFIX),$(HS_HS_MODULES)))
+
+harescript_SRCDIRS=compiler modules $(addprefix modules/,$(HS_HS_MODULES)) tests vm vmtest utils
+
+harescript_DEPLOYABLES_BASE=lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX) $(HS_DEPLOYABLES_PREP)
+
+harescript_DEPLOYABLES_HSENGINE_EXTRAS=bin/hsrun
+harescript_DEPLOYABLES_WHAP_EXTRAS=bin/libdumper
+
+harescript_DEPLOYABLES_HSENGINE=$(harescript_DEPLOYABLES_BASE) $(harescript_DEPLOYABLES_HSENGINE_EXTRAS)
+harescript_DEPLOYABLES_WHAP=$(harescript_DEPLOYABLES_BASE) $(harescript_DEPLOYABLES_WHAP_EXTRAS)
+harescript_DEPLOYABLES=$(harescript_DEPLOYABLES_BASE) $(harescript_DEPLOYABLES_HSENGINE_EXTRAS) $(harescript_DEPLOYABLES_WHAP_EXTRAS)
+
+LIBHSVM_FILES = $(call GetSrcFiles,harescript/vm/*.cpp)
+LIBHSCOMPILER_FILES = $(call GetSrcFiles,harescript/compiler/*.cpp)
+HARESCRIPTVMTEST_FILES = $(call GetSrcFiles,harescript/vmtest/*.cpp)
+
+harescript_CPPFILES = $(LIBHSVM_FILES) $(LIBHSCOMPILER_FILES) $(HARESCRIPTVMTEST_FILES)
+# (the list of harescript_CPPFILES is expanded later)
+
+# DRAWLIB
+drawlib_DEPLOYABLES_HSENGINE = lib/libblex_draw$(DLL_SUFFIX) lib/hsm_whmod_graphics$(DLL_SUFFIX)
+drawlib_DEPLOYABLES_WHAP = $(drawlib_DEPLOYABLES_HSENGINE)
+drawlib_DEPLOYABLES = $(drawlib_DEPLOYABLES_HSENGINE)
+DRAWLIB_FILES = $(call GetSrcFiles,drawlib/drawlibv2/*.cpp)
+
+ifeq ($(DRAWLIBTEST),)
+	DRAWLIBTEST_FILES = $(call GetSrcFiles,drawlib/drawlibv2_test/*.cpp)
+	RUNDRAWLIBTEST=drawlibv2_test
+else
+	DRAWLIBTEST_FILES = drawlib/drawlibv2_test/$(DRAWLIBTEST).cpp drawlib/drawlibv2_test/helperfuncs.cpp drawlib/drawlibv2_test/drawlibv2.cpp
+	RUNDRAWLIBTEST=drawlibv2_test-$(DRAWLIBTEST)
+endif
+
+DRAWLIBHSINTERFACE_FILES = $(call GetSrcFiles,drawlib/harescript/*.cpp)
+
+PCH_HEADERS+=drawlib/drawlibv2/allincludes.h
+
+DRAWLIB_LIBS = blex_draw pixman-1
+
+drawlib_CPPFILES = $(DRAWLIB_FILES) $(DRAWLIBTEST_FILES) $(DRAWLIBHSINTERFACE_FILES)
+drawlib_SRCDIRS = drawlibv2 harescript $(RUNDRAWLIBTEST)
+
+# PARSERS
+PARSERS_baselib = lib/libblex_parser_base$(DLL_SUFFIX)
+PARSERS_escherlib = lib/libblex_parser_office_escher$(DLL_SUFFIX)
+PARSERS_MODULES = $(filter-out .svn,$(notdir $(wildcard $(SRCDIR)/parsers/modules/*)))
+parsers_SRCDIRS = base office_escher modules $(addprefix modules/,$(PARSERS_MODULES))
+parsers_DEPLOYABLES_HSENGINE = \
+	$(PARSERS_baselib) \
+	$(PARSERS_escherlib) \
+	$(addprefix lib/hsm_,$(addsuffix $(DLL_SUFFIX),$(PARSERS_MODULES)))
+
+parsers_DEPLOYABLES_WHAP = $(parsers_DEPLOYABLES_HSENGINE)
+parsers_DEPLOYABLES = $(parsers_DEPLOYABLES_WHAP)
+
+# AP
+AP_DEPLOYABLES_SERVERS = dbserver webserver publisher appserver consilio whmanager
+AP_DEPLOYABLES_UTILS = backup runscript whcompile webhare dumprawtable # oleexplode  consiliotool
+AP_CONSILIO_TESTS = consiliotest
+ap_DEPLOYABLES_WHAP = \
+	$(AP_libwebhare) \
+	lib/hsm_system_geoip$(DLL_SUFFIX) \
+	$(addprefix bin/,$(addsuffix ,$(AP_DEPLOYABLES_SERVERS) $(AP_DEPLOYABLES_UTILS) ))
+
+ap_DEPLOYABLES = $(ap_DEPLOYABLES_WHAP)
+AP_libwebhare = lib/libblex_webhare$(DLL_SUFFIX)
+
+dumprawtable_EXTRALINKFILES = $(addprefix ,ap/dbserver/dbase_diskio.o ap/dbserver/dbase_trans.o ap/dbserver/dbase_blobmgr.o)
+consiliotool_EXTRALINKFILES = $(filter-out $(call GetObjFiles,ap/consilio/consilio_*.cpp),$(call GetObjFiles,ap/consilio/*.cpp))
+
+PCH_HEADERS+=ap/libwebhare/allincludes.h
+
+ap_SRCDIRS = addons addons/system_geoip appserver consilio consilio/tests dbserver libwebhare publisher utils webserver whmanager
+
+# Global stuff
+# forevery project, take project_SRCDIRS, create $(SRCDIR)/project/$(SUBDIR) entries
+ALLSRCDIRS=$(SRCDIR)/blex $(foreach sub,$(SUBPROJECTS),$(addprefix $(SRCDIR)/$(sub)/,$($(sub)_SRCDIRS)))
+ALLOBJDIRS=$(addprefix ,$(subst $(SRCDIR)/,,$(ALLSRCDIRS)))
+ALLCPPSRCS_IN=$(foreach sub,$(ALLSRCDIRS),$(wildcard $(sub)/*.cpp))
+ALLSRCS_IN=$(ALLCPPSRCS_IN)
+ALLOBJS=$(addprefix ,$(subst .cpp,.o,$(subst $(SRCDIR)/,,$(ALLCPPSRCS_IN))))
+HSENGINE_DEPLOYABLES = $(foreach sub,$(HSENGINE_SUBPROJECTS),$($(sub)_DEPLOYABLES_HSENGINE))
+WHAP_DEPLOYABLES = $(foreach sub,$(WHAP_SUBPROJECTS),$($(sub)_DEPLOYABLES_WHAP))
+
+ALL_DEPLOYABLES = $(sort $(HSENGINE_DEPLOYABLES) $(WHAP_DEPLOYABLES))
+ALL_DEPLOYABLES_SETUP = $(foreach sub,$(SUBPROJECTS),$($(sub)_DEPLOYABLES_SETUP))
+
+#################################################
+##
+## File listing post processing
+##
+
+# Build up the output lists
+LIBBLEX_OBJS = $(addprefix ,$(LIBBLEX_FILES:.cpp=.o))
+BLEXTEST_OBJS = $(addprefix ,$(BLEXTEST_FILES:.cpp=.o))
+
+LIBHSCOMPILER_OBJS = $(addprefix ,$(LIBHSCOMPILER_FILES:.cpp=.o))
+LIBHSVM_OBJS = $(addprefix ,$(LIBHSVM_FILES:.cpp=.o))
+HARESCRIPTVMTEST_OBJS = $(addprefix ,$(HARESCRIPTVMTEST_FILES:.cpp=.o))
+
+DRAWLIB_OBJS = $(addprefix ,$(DRAWLIB_FILES:.cpp=.o))
+DRAWLIBTEST_OBJS = $(addprefix ,$(DRAWLIBTEST_FILES:.cpp=.o))
+DRAWLIBHSINTERFACE_OBJS = $(addprefix ,$(DRAWLIBHSINTERFACE_FILES:.cpp=.o))
+
+#################################################
+##
+## Precompiled header processing
+##
+
+ifneq ($(DISABLE_PCH),1)
+ALLPCHDIRS=$(addprefix gch/,$(foreach hdr,$(PCH_HEADERS),$(dir $(hdr))))
+ALLPCHS=$(addsuffix .gch,$(addprefix gch/,$(PCH_HEADERS)))
+endif
+
+#################################################
+##
+## Build instructions
+##
+
+
+# GLOBAL
+all: $(addsuffix -all,$(SUBPROJECTS))
+
+clean-libs:
+	rm -f -- $(ALL_DEPLOYABLES) $(BUILDDIRPREFIX)blex/tests/dynamic$(DLL_SUFFIX)
+
+clean: clean-libs
+	rm -f -- $(ALL_INSTALLABLES_CLEAN) $(ALLOBJS) $(ALLPCHS) $(ALL_DEPLOYABLES_SETUP) $(ALL_TESTFILES) $(EXTRA_DIRS_TARGET) success.* build.*
+
+clean-pch:
+	rm -f -- $(ALLPCHS)
+
+%.o: %.cpp | $(ALLPCHS)
+	$(call Compile,$<,$@)
+
+$(ALLPCHS) : gch/%.gch : % | dirs
+	$(call GeneratePrecompiledHeader,,$<,$@,)
+
+#
+# BLEX
+#
+
+blex-all: $(call BuildAndTest,blex)
+
+blex-clean:
+	rm -rf -- blex $(blex_DEPLOYABLES) blex/tests/dynamiclib.o
+
+build.blex: $(blex_DEPLOYABLES)
+	>build.blex
+
+success.blex blex-test: bin/$(RUNTEST) blex/tests/dynamic$(DLL_SUFFIX) build.blex
+	ulimit -n 1024 && $(TESTRUNNER) bin/$(RUNTEST) test bin/$(RUNTEST) blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data $(BLEXTESTOPTS) 1
+ifeq ($(BLEXTEST),)
+	>success.blex
+endif
+
+# Link a shared library
+
+lib/libblex_base$(DLL_SUFFIX): $(LIBBLEX_OBJS) | $(LINKCONFIG)
+	$(call LinkShared,$^,$@,$(BLEX_BASE_LIBS) $(BLEX_STATIC_LIBS))
+
+blex/tests/dynamic$(DLL_SUFFIX): blex/tests/dynamiclib.o | icu-i18n.pc
+	$(call LinkModule,$^,$@)
+
+bin/$(RUNTEST): $(BLEXTEST_OBJS) lib/libblex_base$(DLL_SUFFIX)
+	$(call LinkExecutable,$(BLEXTEST_OBJS),$@,$(BLEX_LIBS))
+
+ALL_TESTFILES+=bin/$(RUNTEST)
+
+bin/dumpcomplexfslog: blex/tools/dumpcomplexfslog.o lib/libblex_base$(DLL_SUFFIX)
+	$(call LinkExecutable,$<,$@,$(BLEX_LIBS))
+
+#
+# HARESCRIPT
+#
+harescript-all: $(call BuildAndTest,harescript)
+
+harescript-clean:
+	rm -rf -- harescript $(harescript_DEPLOYABLES)
+
+build.harescript: $(harescript_DEPLOYABLES)
+	>build.harescript
+
+ifeq ($(WEBHARE_IN_DOCKER),1)
+
+success.harescript: build.drawlib build.harescript build.parsers
+	> success.harescript
+
+else
+
+success.harescript harescript-test: build.drawlib build.harescript build.parsers bin/hsrun # we need hsrun for selftests, but don't need to deploy it for WHAP
+	$(SRCDIR)/whtree/modules/webhare_testsuite/tests/baselibs/hsengine/runtests.sh $(abspath $(SRCDIR)) $(abspath .)
+ifeq ($(HSTEST),all)
+	> success.harescript
+endif
+
+endif
+
+build.harescriptvm: build.blex lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX)
+	>build.harescriptvm
+
+success.harescriptvm harescript-testvm: bin/vmtest build.harescriptvm
+	$(TESTRUNNER) bin/vmtest --srcdir $(SRCDIR) --moduledir lib $(HARESCRIPTVMTESTOPTS)
+	> success.harescriptvm
+
+ALL_TESTFILES+=bin/vmtest
+
+lib/libblex_hsvm$(DLL_SUFFIX): $(call BuildAndTest,blex) $(LIBHSVM_OBJS)
+	$(call LinkShared,$(LIBHSVM_OBJS),$@,blex_base $(BLEX_HSVM_LIBS))
+
+lib/libblex_hscompiler$(DLL_SUFFIX): $(LIBHSCOMPILER_OBJS) lib/libblex_hsvm$(DLL_SUFFIX)
+	$(call LinkShared,$(LIBHSCOMPILER_OBJS),$@,blex_hsvm $(BLEX_LIBS))
+
+bin/hsrun: harescript/utils/hsrun.o lib/libblex_hscompiler$(DLL_SUFFIX) $(call BuildAndTest,harescriptvm)
+	$(call LinkExecutable,$<,$@,blex_hscompiler blex_hsvm $(BLEX_LIBS))
+
+bin/vmtest: $(HARESCRIPTVMTEST_OBJS) lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX)
+	$(call LinkExecutable,$(HARESCRIPTVMTEST_OBJS),$@,blex_hscompiler blex_hsvm $(BLEX_LIBS))
+
+bin/libdumper: harescript/utils/LibDumper.o lib/libblex_hscompiler$(DLL_SUFFIX)
+	$(call LinkExecutable,$<,$@,blex_hsvm $(BLEX_LIBS))
+
+# Create module compilation target.
+# $1=module name, $2=library prefix (wh_ or nothing), $3=subfolder (parsers or harescript)
+define HsModTarget
+
+$3_$2$1_CPPFILES = $(call GetSrcFiles,$3/modules/$1/*.cpp)
+$3_CPPFILES += $$($3_$2$1_CPPFILES)
+
+$3_$2$1_OBJFILES = $$(call Src2ObjFiles, $$($3_$2$1_CPPFILES))
+
+lib/hsm_$2$1$(DLL_SUFFIX): $$($3_$2$1_OBJFILES) $$($3_HsMod_AddDeps) $$($3_HsMod_$1_AddDeps)
+	$$(call LinkModule,$$($3_$2$1_OBJFILES),$$@,$$($3_HsMod_AddLibs) $$($3_HsMod_$1_AddLibs) $(HS_LIBS))
+
+endef
+
+harescript_HsMod_AddDeps = lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX)
+harescript_HsMod_AddLibs = $(HS_LIBS)
+$(foreach mod,$(HS_HS_MODULES),$(eval $(call HsModTarget,$(mod),wh_,harescript)))
+
+clean-icu-provider:
+	rm harescript/modules/icu/icu_provider.o
+
+#
+# DRAWLIB
+#
+drawlib-all: $(call BuildAndTest,drawlib)
+
+drawlib-clean:
+	rm -rf -- drawlib $(drawlib_DEPLOYABLES)
+
+build.drawlib: $(drawlib_DEPLOYABLES)
+	>build.drawlib
+
+success.drawlib drawlib-test: bin/$(RUNDRAWLIBTEST)
+	$(TESTRUNNER) bin/$(RUNDRAWLIBTEST) $(SRCDIR)/drawlib/drawlibv2_test/data $(SRCDIR)/whtree/fonts
+ifeq ($(DRAWLIBTEST),)
+	> success.drawlib
+endif
+
+lib/libblex_draw$(DLL_SUFFIX): $(call BuildAndTest,blex) $(DRAWLIB_OBJS)
+	$(call LinkShared,$(DRAWLIB_OBJS),$@,$(DRAWLIB_STATIC_LIBS) $(DRAWLIB_BASE_LIBS)  $(BLEX_LIBS) )
+
+bin/$(RUNDRAWLIBTEST): $(DRAWLIBTEST_OBJS) lib/libblex_draw$(DLL_SUFFIX)
+	$(call LinkExecutable,$(DRAWLIBTEST_OBJS),$@,$(DRAWLIB_LIBS) $(DRAWLIB_BASE_LIBS) $(BLEX_LIBS))
+
+ALL_TESTFILES+=bin/$(RUNDRAWLIBTEST)
+
+lib/hsm_whmod_graphics$(DLL_SUFFIX): $(DRAWLIBHSINTERFACE_OBJS) lib/libblex_draw$(DLL_SUFFIX) build.harescript
+	$(call LinkModule,$(DRAWLIBHSINTERFACE_OBJS),$@,$(DRAWLIB_LIBS) $(HS_LIBS) $(BLEX_LIBS)  )
+
+coffee:
+	$(error Coffee not yet implemented)
+#
+# PARSERS
+#
+parsers-all: $(call BuildAndTest,parsers)
+
+parsers-clean:
+	rm -rf -- parsers $(parsers_DEPLOYABLES)
+
+build.parsers: $(parsers_DEPLOYABLES)
+	>build.parsers
+
+success.parsers: build.parsers
+	> success.parsers
+
+parsers_HsMod_parser_office_msword_AddDeps = $(PARSERS_escherlib)
+parsers_HsMod_parser_office_msword_AddLibs = blex_parser_office_escher
+parsers_HsMod_parser_office_powerpoint_AddDeps = $(PARSERS_escherlib)
+parsers_HsMod_parser_office_powerpoint_AddLibs = blex_parser_office_escher
+
+parsers_baselib_CPPFILES = $(call GetSrcFiles,parsers/base/*.cpp)
+parsers_baselib_OBJFILES = $(call Src2ObjFiles, $(parsers_baselib_CPPFILES))
+
+parsers_office_escher_CPPFILES = $(call GetSrcFiles,parsers/office_escher/*.cpp)
+parsers_office_escher_OBJFILES = $(call Src2ObjFiles, $(parsers_office_escher_CPPFILES))
+
+$(PARSERS_baselib): $(parsers_baselib_OBJFILES) $(call BuildAndTest,drawlib) build.harescript
+	$(call LinkShared,$(parsers_baselib_OBJFILES),$@,$(DRAWLIB_LIBS) $(HS_LIBS))
+
+$(PARSERS_escherlib): $(parsers_office_escher_OBJFILES) $(PARSERS_baselib)
+	$(call LinkShared,$(parsers_office_escher_OBJFILES),$@,blex_parser_base $(DRAWLIB_LIBS) $(HS_LIBS))
+
+parsers_CPPFILES = $(parsers_baselib_OBJFILES) $(parsers_office_escher_OBJFILES)
+
+parsers_HsMod_AddDeps = $(PARSERS_baselib)
+parsers_HsMod_AddLibs = blex_parser_base $(DRAWLIB_LIBS) $(HS_LIBS)
+$(foreach mod,$(PARSERS_MODULES),$(eval $(call HsModTarget,$(mod),,parsers)))
+
+#
+# AP
+#
+ap-all: parsers-all $(call BuildAndTest,ap)
+
+ap-clean:
+	rm -rf -- ap $(ap_DEPLOYABLES)
+
+build.ap: $(ap_DEPLOYABLES) $(ap_NONDEPLOYABLES)
+	>build.ap
+
+success.ap ap-test: bin/consiliotest build.ap
+  ifneq ($(SKIPCONSILIOTEST),1)
+		$(SRCDIR)/ap/consilio/tests/runconsiliotest.sh $(SRCDIR)/ap/consilio/tests/data
+  endif
+	> success.ap
+
+ap_libwebhare_CPPFILES = $(call GetSrcFiles,ap/libwebhare/*.cpp)
+ap_libwebhare_OBJFILES = $(call Src2ObjFiles, $(ap_libwebhare_CPPFILES))
+
+HSM_SYSTEM_GEOIP_OBJS = $(HSM_SYSTEM_GEOIP_CPP_OBJS) $(HSM_SYSTEM_GEOIP_C_OBJS)
+HSM_SYSTEM_GEOIP_CPP_OBJS = ap/addons/system_geoip/geoipdriver.o
+
+$(AP_libwebhare): $(ap_libwebhare_OBJFILES) $(call BuildAndTest,harescript)
+	$(call LinkShared,$(ap_libwebhare_OBJFILES),$@,$(HS_LIBS) $(BLEX_LIBS))
+
+lib/hsm_system_geoip$(DLL_SUFFIX): $(HSM_SYSTEM_GEOIP_OBJS) $(AP_libwebhare)
+	$(call LinkModule,$(HSM_SYSTEM_GEOIP_OBJS),$@,maxminddb $(HS_LIBS) $(BLEX_LIBS))
+
+define ApServerTarget
+bin/$(1): $(call GetObjFiles,ap/$1/*.cpp) $(AP_libwebhare)
+	$$(call LinkExecutable,$(call GetObjFiles,ap/$1/*.cpp),$$@,blex_webhare $(HS_LIBS))
+endef
+
+define ApUtilTarget
+ifneq ($(STATIC_LIBWEBHARE)-$(WHBUILD_DEBUG),1-1)
+bin/$(1): ap/utils/$1.o $($(1)_EXTRALINKFILES) $(AP_libwebhare)
+	$$(call LinkExecutable,$$< $($(1)_EXTRALINKFILES),$$@,blex_webhare $(HS_LIBS))
+else
+bin/$(1): ap/utils/$1.o $($(1)_EXTRALINKFILES) $(ap_libwebhare_OBJFILES) lib/libblex_hsvm$(DLL_SUFFIX)
+	$$(call LinkExecutable,$$< $(ap_libwebhare_OBJFILES) $($(1)_EXTRALINKFILES),$$@,$(HS_LIBS))
+endif
+endef
+
+define ApConsilioTestTarget
+bin/$(1): $2/$1.o $(filter-out $(call GetObjFiles,ap/consilio/consilio_*.cpp),$(call GetObjFiles,ap/consilio/*.cpp)) $(filter-out $(call GetObjFiles,ap/consilio/tests/consilio*.cpp),$(call GetObjFiles,ap/consilio/tests/*.cpp)) $(AP_libwebhare)
+	$$(call LinkExecutable,$2/$1.o $(filter-out $(call GetObjFiles,ap/consilio/consilio_*.cpp),$(call GetObjFiles,ap/consilio/*.cpp)) $(filter-out $(call GetObjFiles,ap/consilio/tests/consilio*.cpp),$(call GetObjFiles,ap/consilio/tests/*.cpp)),$$@,blex_webhare $(HS_LIBS))
+ALL_TESTFILES+=bin/$(1)
+endef
+
+$(foreach mod,$(AP_DEPLOYABLES_SERVERS),$(eval $(call ApServerTarget,$(mod))))
+$(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
+$(foreach mod,$(AP_CONSILIO_TESTS),$(eval $(call ApConsilioTestTarget,$(mod),ap/consilio/tests)))
+
+
+#################################################
+##
+## Installation
+##
+
+$(PREFIX)/include/hsvm_dllinterface.h: $(SRCDIR)/harescript/vm/hsvm_dllinterface.h
+	[ -h $@ ] || mkdir -p $(dir $@)
+	cp -f $< $@  #cp 1
+
+uninstall:
+ifeq ($(WHBUILD_PLATFORM),darwin)
+	-rm -rf -- $(subst .dylib,.*.dylib,$(addprefix $(PREFIX)/,$(ALL_DEPLOYABLES)))
+else
+	-rm -rf -- $(addprefix $(PREFIX)/,$(ALL_DEPLOYABLES))
+endif
+
+ALLBUILDANDTEST=$(foreach file,$(SUBPROJECTS),$(call BuildAndTest,${file}))
+
+define InstallOurDeployable
+$(PREFIX)/$(1): $(1) | $(ALLBUILDANDTEST)
+	rm -f $$@; cp -af $$< $$(dir $$@)  #cp 2
+endef
+
+$(foreach dep,$(ALL_DEPLOYABLES), $(eval $(call InstallOurDeployable,$(dep))))
+
+#################################################
+##
+## Misc stuff
+##
+
+$(addprefix $(PREFIX)/,$(EXTRAINSTALLDIR)):
+	[ -h $@ ] || mkdir -p $@
+
+# Call installables, with .debug files in 'symbols' dir, and .debug links
+HSENGINE_INSTALLABLES_DEBUG = $(FINAL_EXTERNAL_LIBS) $(HSENGINE_DEPLOYABLES)
+WHAP_INSTALLABLES_DEBUG = $(WHAP_DEPLOYABLES)
+
+HSENGINE_INSTALLABLES = $(HSENGINE_DEPLOYABLES) $(FINAL_EXTERNAL_LIBS)
+WHAP_INSTALLABLES = $(WHAP_DEPLOYABLES)
+
+# For cleaning, also include the .debug stuff
+ALL_INSTALLABLES_CLEAN = $(HSENGINE_INSTALLABLES_DEBUG) $(WHAP_INSTALLABLES_DEBUG)
+
+# Rule to generate dependencies for object files
+ifneq ($(WHBUILD_NODEPS),1)
+  $(subst .o,.d,$(ALLOBJS)): %.d: %.cpp | dirs
+		$(call GenerateDeps,$<,$@,)
+
+  $(subst .gch,.d,$(ALLPCHS)) : gch/%.d : % | dirs
+		$(call GeneratePCHDeps,$<,$@,)
+endif
+
+sandwich:
+	@if [ "`id -u`" != "0" ]; then echo "What? Make it yourself."; else echo "Nice try. It's open source, make it yourself."; fi
+
+#################################################
+##
+## File listings
+##
+
+install: $(addprefix $(PREFIX)/,$(EXTRAINSTALLDIR)) postinstall | \
+	$(call BuildAndTest,blex) \
+	$(call BuildAndTest,harescript) \
+	$(call BuildAndTest,drawlib) \
+	$(PREFIX)/include/hsvm_dllinterface.h \
+	$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES)) \
+	$(call BuildAndTest,ap) $(ALLINSTALLDIRS)
+
+ifeq ($(WEBHARE_IN_DOCKER),1)
+
+postuninstall:
+
+postinstall:
+
+else #WEBHARE_IN_DOCKER
+
+# FIXME nativedeps mode should just not bother with a local node install and use the system's main node
+
+postuninstall:
+	# Cleanup node modules (except linked modules)
+	find $(PREFIX)/node_modules -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 rm -rf
+	rm -f success.node
+
+postinstall: success.node
+
+success.node: \
+			$(PREFIX)/package.json \
+			$(PREFIX)/package-lock.json \
+			$(PREFIX)/modules/tollium/webdesigns/webinterface/package.json \
+			$(PREFIX)/modules/tollium/webdesigns/webinterface/package-lock.json \
+			$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES))
+	$(HIDE)LDFLAGS="$(GLOBALLDFLAGS)" CFLAGS="$(CPPFLAGS) $(PKGCONFIGCFLAGS)" PATH=$(abspath $(PREFIX))/lib:$$PATH $(PREFIX)/modules/system/scripts/internal/fixup_modules.sh
+	touch $@
+
+endif #WEBHARE_IN_DOCKER
+
+clean-install:
+	@rm -f $(addprefix $(PREFIX)/,$(ALL_INSTALLABLES_CLEAN))
+
+#####################################################################
+#
+# Dependencies
+#
+
+-include $(ALLPCHS:%.gch=%.d) $(ALLOBJS:%.o=%.d)
+
+# Directories dependency - but if a symlink exists(docker build) don't create it
+$(sort $(ALLDIRS)):
+	[ -h $@ ] || mkdir -p $@
+
+# Make all directories in one
+dirs: $(ALLDIRS)
+
+deps: dirs $(ALLPCHS:%.gch=%.d) $(ALLOBJS:%.o=%.d)
+
+clean-deps:
+	rm -f -- $(ALLPCHS:%.gch=%.d) $(ALLOBJS:%.o=%.d)
+
+####################################################################
+#
+# Homebrew explicit dependencies
+#
+
+ifeq ($(WHBUILD_PLATFORM),darwin)
+harescript/modules/git/git.o: /usr/local/lib/libgit2.dylib
+endif
+
+#####################################################################
+#
+# Escrow setup
+#
+escrow:
+	VERSION=$(shell (awk -- '/define BLEX_BRANDING_PRODUCT_VERSION / { print $$3 }' < $(SRCDIR)/blex/branding.h) | tr -d \") $(SRCDIR)/addons/create_escrow.sh
+
+###
+# Aliases for easy building
+#
+
+#ADDME autogenerate lists below
+BIN_ALIASES = consilio webserver dbserver dumprawtable webhare runscript $(RUNTEST) whmanager vmtest whcompile appserver hsrun
+MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher hsm_parser hsm_parser_office_msword hsm_parser_office_powerpoint hsm_parser_adobe_pdf hsm_wh_xml hsm_wh_odbc hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html hsm_wh_oci
+
+showtargets:
+	@echo $(BIN_ALIASES)
+	@echo $(MOD_ALIASES)
+	@echo wordconv pptconv oci
+	@echo "Above targets can be combined with -overwrite and -uninstall"
+
+#Convenience overwrite targets
+wordconv-overwrite: libblex_parser_office_escher-overwrite hsm_parser_office_msword-overwrite libblex_draw-overwrite
+wordconv-uninstall: libblex_parser_office_escher-uninstall hsm_parser_office_msword-uninstall
+pptconv-overwrite: libblex_parser_office_escher-overwrite hsm_parser_office_powerpoint-overwrite
+pptconv-uninstall: libblex_parser_office_escher-uninstall hsm_parser_office_powerpoint-uninstall
+oci-overwrite: hsm_wh_oci-overwrite
+
+define GenerateBinAlias
+$1: bin/$1
+$1-install: $(PREFIX)/bin/$1
+$1-uninstall:
+	rm $(PREFIX)/bin/$1
+
+$1-overwrite: bin/$1
+	cp -f $$< $(PREFIX)/bin/$1 #cp 8
+endef
+
+define GenerateModAlias
+$1: lib/$1$(DLL_SUFFIX)
+$1-install: $(PREFIX)/lib/$1$(DLL_SUFFIX)
+$1-uninstall:
+	rm $(PREFIX)/lib/$1$(DLL_SUFFIX)
+
+$1-overwrite: lib/$1$(DLL_SUFFIX)
+	cp $$< $(PREFIX)/lib/$1$(DLL_SUFFIX) #cp 9
+endef
+
+$(foreach bin,$(BIN_ALIASES),$(eval $(call GenerateBinAlias,$(bin))))
+$(foreach mod,$(MOD_ALIASES),$(eval $(call GenerateModAlias,$(mod))))

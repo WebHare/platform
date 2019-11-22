@@ -1,0 +1,522 @@
+﻿<?wh
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEqualInteger,
+                                       TestEqualMoney,
+                                       TestEqualFloat,
+                                       TestEqualString,
+                                       TestEqualBoolean,
+                                       TestEqualDateTime,
+                                       TestEqualRecord,
+                                       TestEqualRecordArray,
+                                       TestEqual,
+                                       TestEq,
+                                       TestEqLike,
+                                       TestEqFloat,
+                                       TestThrows,
+                                       TestThrowsLike,
+                                       TestEqCanvas,
+                                       OpenTest,
+                                       CurrentTest,
+                                       CloseTest,
+                                       max_float_dev_in_recordarray,
+                                       show_test_progress
+                                       ;
+
+RECORD ARRAY FUNCTION DoCompile(STRING filename) __ATTRIBUTES__(EXTERNAL "wh_selfcompile");
+RECORD FUNCTION DoRun(STRING filename, STRING ARRAY args) __ATTRIBUTES__(EXTERNAL "wh_selfcompile");
+
+STRING whtree := GetEnvironmentVariable("WHTREE");
+IF(whtree="" AND GetEnvironmentVariable("WEBHARE_CHECKEDOUT_TO") != "")
+  whtree := GetEnvironmentVariable("WEBHARE_CHECKEDOUT_TO") || "/whtree";
+IF(whtree="")
+  whtree := GetEnvironmentVariable("WEBHARE_DIR");
+IF(whtree="")
+  ABORT("WHTREE variable unset");
+
+PUBLIC STRING selftests_hsengine_tests_dir := CollapsePath(whtree || "/modules/webhare_testsuite/tests/baselibs/hsengine") || "/";
+IF (GetEnvironmentVariable("WEBHARE_IN_DOCKER") = "1")
+  selftests_hsengine_tests_dir := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "installedmodules/webhare_testsuite/tests/baselibs/hsengine") || "/";
+PUBLIC STRING selftests_whtree_dir := whtree;
+
+STRING compilefilename_whlib := GenerateTemporaryPathname() || ".whlib";
+STRING compilefilename_script := GenerateTemporaryPathname() || ".whscr";
+STRING testdata_basepath;
+
+
+// Standard libraries that will be included in all tests
+STRING standard_loadlibs := "<?wh "
+  || "LOADLIB \"wh::datetime.whlib\";"
+  || "LOADLIB \"wh::money.whlib\";"
+  || "LOADLIB \"wh::float.whlib\";"
+  || " ?>";
+
+SetTestDataDirectory(selftests_hsengine_tests_dir || "data/");
+
+/*****************************************
+ * ContainsErrors, Returns if any errors are in a messages list
+ * @param messages list of records with messages
+ *****************************************/
+BOOLEAN FUNCTION ContainsErrors(RECORD ARRAY messages)
+{
+  RETURN RecordExists(SELECT FROM messages WHERE iserror);
+}
+
+/*****************************************
+ * ContainsWarnings, Returns if any errors are in a messages list
+ * @param messages list of records with messages
+ *****************************************/
+BOOLEAN FUNCTION ContainsWarnings(RECORD ARRAY messages)
+{
+  RETURN RecordExists(SELECT FROM messages WHERE NOT iserror);
+}
+
+RECORD ARRAY FUNCTION ParseWarningsErrors(STRING data)
+{
+  RECORD ARRAY messages;
+
+  //Parse the error messages we received
+  data := Substitute(data,"\r","");
+  FOREVERY (STRING msg FROM Tokenize(data,"\n"))
+  {
+    BOOLEAN is_error := LEFT(msg,7) = "Error: ";
+    BOOLEAN is_warning := LEFT(msg,9) = "Warning: ";
+
+    IF (NOT is_error AND NOT is_warning)
+      CONTINUE;
+
+    //Skip the filename (eat everything till the '(')
+    msg := SubString(msg,SearchSubstring(msg,'(')+1,Length(msg));
+
+    STRING line := SubString(msg,0,SearchSubstring(msg,','));
+    STRING colum := SubString(msg,SearchSubstring(msg,',')+1,255);
+    colum := SubString(colum,0,SearchSubstring(colum,')'));
+    STRING message := SubString(msg,SearchSubstring(msg,')') + 3,Length(msg));
+
+    INSERT INTO messages(iserror,line,col,message) VALUES(is_error,ToInteger(line,-1),ToInteger(colum,-1),message) AT END;
+  }
+  RETURN messages;
+}
+
+/*****************************************
+ * TestCompilePrimitive, compiles a script and returns the errors it produced. Does not loadlib system.whlib.
+ * @param script    piece of HareScript that should be tested
+ * @result          array of message records:
+ *        .iserror  true if this message is an error, else warning
+ *        .error    The actual error message
+ *****************************************/
+
+
+PUBLIC RECORD ARRAY FUNCTION TestCompilePrimitive(STRING script, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([aslibrary := FALSE],options);
+  //Write the passed script to a file on disk
+  STRING usefilename := options.aslibrary ? compilefilename_whlib : compilefilename_script;
+  DeleteDiskFile(usefilename);
+  INTEGER newfile := CreateDiskFile(usefilename, FALSE, TRUE);
+  IF (newfile = 0)
+    ABORT("Unable to create compilation temporary file: " || usefilename);
+
+  SetDiskFilelength(newfile, 0);
+  PrintTo(newfile, script);
+  IF (NOT CloseDiskFile(newfile))
+    ABORT("Unable to create compilation temporary file: " || usefilename);
+
+  //Run the compiler
+  RETURN DoCompile("direct::" || usefilename);
+}
+
+/*****************************************
+ * TestCompile, compiles a script and returns the errors it produced. Automatically loads standard libs
+ * @param script    piece of HareScript that should be tested
+ * @result          array of message records:
+ *        .iserror  true if this message is an error, else warning
+ *        .code     error/warning number (see language files)
+ *        .param1   first error parameter (%0)
+ *        .param2   second error parameter (%1)
+ *****************************************/
+PUBLIC RECORD ARRAY FUNCTION TestCompile(STRING script, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ addloadlibs :=      TRUE
+      , aslibrary :=        FALSE
+      ], options);
+
+  RETURN TestCompilePrimitive(options.addloadlibs ? standard_loadlibs || script : script, CELL[ options.aslibrary ]);
+}
+
+/*****************************************
+ * TestCompileAndRunPrimitive, compiles and runs a script and returns the output it produced (and the errors of the compile), without loadlibbing system.whlib.
+ * @param script    piece of HareScript that should be tested
+ * @result          Results of compile and run:
+ *        .compileok contains true if compile finished without errors
+ *        .errors   array of message records:
+ *              .iserror  true if this message is an error, else warning
+ *              .error    the actual error message
+ *        .output   output produced by script
+ *****************************************/
+PUBLIC RECORD FUNCTION TestCompileAndRunPrimitive(STRING script)
+{
+  RECORD retval := [ script := script, errors := TestCompilePrimitive(script), output := "" ];
+  INSERT CELL compileok := NOT ContainsErrors(retval.errors) INTO retval;
+
+  IF (retval.compileok)
+  {
+    RECORD result := DoRun("direct::"||compilefilename_script, DEFAULT STRING ARRAY);
+    retval.errors := retval.errors CONCAT result.errors;
+    retval.output := result.output;
+  }
+  RETURN retval;
+}
+
+/*****************************************
+ * TestCompileAndRunPrimitive, compiles and runs a script and returns the output it produced (and the errors of the compile), without loadlibbing system.whlib.
+ * @param script    piece of HareScript that should be tested
+ * @result          Results of compile and run:
+ *        .compileok contains true if compile finished without errors
+ *        .errors   array of message records:
+ *              .iserror  true if this message is an error, else warning
+ *              .message  the actual message
+ *        .output   output produced by script
+ *****************************************/
+PUBLIC RECORD FUNCTION TestCompileAndRun(STRING script)
+{
+  RETURN TestCompileAndRunPrimitive(standard_loadlibs || script);
+}
+
+
+
+/*****************************************
+ * TestCleanCompile, runs a script and produces a message when errors occur
+ * @param testno  number of the current running test
+ *        script  piece of HareScript that should be tested
+ *****************************************/
+PUBLIC MACRO TestCleanCompile(INTEGER testno, STRING script)
+{
+  RECORD ARRAY messages := TestCompile(script);
+  IF (ContainsErrors(messages))
+     ReportError("Compiling of test yielded errors:", messages,"");
+}
+
+/*****************************************
+ * TestCleanResult, produces a message when errors occured, based on errors array
+ * Useful in combination with the .errors result of TestCompileAndRun(script).
+ * Note: "errors := TestCompile(script); TestCleanResult(errors);" produces the
+ * exact same output as "TestCleanCompile(script);".
+ * @param testno  number of the current running test
+ *        errors  array of error records (see TestCompile)
+ *****************************************/
+PUBLIC MACRO TestCleanResult(INTEGER testno, RECORD ARRAY messages)
+{
+  IF (ContainsErrors(messages))
+     ReportError("Compiling of test yielded errors:", messages, "");
+}
+
+/*****************************************
+ * MayNotContainWarnings, produces a message when warnings occured, based on messages array
+ * Useful in combination with the .errors result of TestCompileAndRun(script).
+ * @param testno  number of the current running test
+ *        errors  array of error records (see TestCompile)
+ *****************************************/
+PUBLIC MACRO MayNotContainWarnings(INTEGER testno, RECORD ARRAY messages)
+{
+  IF (ContainsWarnings(messages))
+     ReportError("Compiling of test yielded unexpected warnings:", messages,"");
+}
+
+/*****************************************
+ * MustContainError, searches a list of errors for a given error with parameters
+ * @param testno   number of the current running test
+ *        errors   array of error records (see TestCompile)
+ *        errorno  error number which should be found
+ *        param1   first error parameter (%0), may be omitted when empty
+ *        param2   second error parameter (%1), may be omitted when empty and param1 is also empty
+ *****************************************/
+PUBLIC MACRO MustContainError(INTEGER testno, RECORD ARRAY errors, INTEGER errorno, STRING param1 DEFAULTSTO '', STRING param2 DEFAULTSTO '')
+{
+  STRING look_for_message := GetHarescriptMessageText(TRUE, errorno, param1, param2);
+  STRING report;
+
+  IF (NOT RecordExists(SELECT FROM errors
+                              WHERE iserror AND message = look_for_message))
+
+  {
+    //Accept 'did you mean' errors blindly...
+    IF(errorno=9 AND RecordExists(SELECT FROM errors WHERE iserror AND message LIKE GetHarescriptMessageText(TRUE, 85, param1, '*')))
+      RETURN;
+    IF(errorno=92 AND RecordExists(SELECT FROM errors WHERE iserror AND message LIKE GetHarescriptMessageText(TRUE, 86, param1, '*')))
+      RETURN;
+    IF(errorno=139 AND RecordExists(SELECT FROM errors WHERE iserror AND message LIKE GetHarescriptMessageText(TRUE, 88, param1, '*')))
+      RETURN;
+
+    report := "Expected error \"" || look_for_message || "\", got ";
+    IF (Length(errors) > 0)
+      report := report || "errors:";
+    ELSE
+      report := report || "no errors.";
+    ReportError(report, errors,"");
+  }
+}
+
+/*****************************************
+ * MustContainWarnings, searches a list of messages for a given warning with parameters
+ * @param testno   number of the current running test
+ *        messages array of error records (see TestCompile)
+ *        warningno  warning number which should be found
+ *        param1   first error parameter (%0), may be omitted when empty
+ *        param2   second error parameter (%1), may be omitted when empty and param1 is also empty
+ *****************************************/
+PUBLIC MACRO MustContainWarning(INTEGER testno, RECORD ARRAY messages, INTEGER warningno, STRING param1 DEFAULTSTO  '', STRING param2 DEFAULTSTO  '')
+{
+  BOOLEAN found := FALSE;
+  STRING report;
+  STRING look_for_message := GetHarescriptMessageText(FALSE, warningno, param1, param2);
+
+  IF (NOT RecordExists(SELECT FROM messages
+                              WHERE NOT iserror AND message = look_for_message))
+  {
+    report := "Expected warning \"" || look_for_message || "\", got ";
+    IF (Length(messages) > 0)
+      report := report || "messages:";
+    ELSE
+      report := report || "no messages.";
+    ReportError(report, messages,"");
+  }
+}
+
+/*****************************************
+ * MustNotContainWarnings, searches a list of messages for a given warning with parameters
+ * @param testno   number of the current running test
+ *        messages array of error records (see TestCompile)
+ *        warningno  warning number which should be found
+ *        param1   first error parameter (%0), may be omitted when empty
+ *        param2   second error parameter (%1), may be omitted when empty and param1 is also empty
+ *****************************************/
+PUBLIC MACRO MustNotContainWarning(INTEGER testno, RECORD ARRAY messages, INTEGER warningno, STRING param1 DEFAULTSTO  '', STRING param2 DEFAULTSTO '')
+{
+  STRING look_for_message := GetHarescriptMessageText(FALSE, warningno, param1, param2);
+  STRING report;
+
+  IF (RecordExists(SELECT FROM messages
+                              WHERE NOT iserror AND message = look_for_message))
+  {
+    report := "Did not expect warning \"" || look_for_message || "\", got ";
+    IF (Length(messages) > 0)
+      report := report || "messages:";
+    ELSE
+      report := report || "no messages.";
+    ReportError(report, messages,"");
+  }
+}
+
+STRING ARRAY FUNCTION TokenizeArguments(STRING arguments)
+{
+  IF (arguments = "")
+    RETURN DEFAULT STRING ARRAY;
+
+  OBJECT parser := NEW StringParser(arguments);
+  STRING ARRAY result;
+
+  WHILE (NOT parser->eof)
+  {
+    parser->ParseWhileInSet(" ");
+    IF (parser->current = "#")
+      BREAK;
+
+    STRING part;
+    IF (parser->current = "\"")
+    {
+      parser->Next();
+      WHILE (parser->current NOT IN [ "", "\"" ])
+      {
+        part := part || parser->ParseWhileNotInSet("\"\\");
+        IF (parser->TryParse("\\"))
+          part := part || parser->ParseN(1);
+      }
+      parser->Next();
+      IF (parser->current = " ")
+        parser->Next();
+    }
+    ELSE
+    {
+      part := parser->ParseWhileNotInSet(" \\");
+      WHILE (parser->TryParse("\\")) // Escaped?
+      {
+        part := part || parser->ParseN(1);
+        part := part || parser->ParseWhileNotInSet(" \\");
+      }
+      parser->Next();
+    }
+
+    INSERT part INTO result AT END;
+  }
+  RETURN result;
+}
+
+RECORD ARRAY FUNCTION ParseAnnotation(STRING test)
+{
+  IF (test LIKE "\n*")
+    test := SubString(test, 1);
+
+  OBJECT rex := NEW RegEx("^(( *)// *)(\\^|<-) *(E|W):([0-9]+) *(.*)");
+  RECORD ARRAY ares;
+
+  INTEGER line;
+  FOREVERY (STRING linetext FROM Tokenize(test, "\n"))
+  {
+    RECORD ARRAY matches := rex->Exec(linetext);
+    //DumpValue(CELL[ linetext, matches ]);
+    IF (RecordExists(matches))
+    {
+      INTEGER col := matches[3].value = "<-"
+          ? matches[2].len + 1
+          : matches[1].len + 1;
+      STRING type := matches[4].value;
+      INTEGER code := ToInteger(matches[5].value, 0);
+
+      STRING ARRAY args := TokenizeArguments(matches[6].value) CONCAT [ "", "" ];
+
+      STRING message := GetHareScriptMessageText(type = "E", code, args[0], args[1]);
+
+      INSERT CELL
+          [ type :=     "message"
+          , iserror :=  type = "E"
+          , code
+          , message
+          , line
+          , col
+          ] INTO ares AT END;
+    }
+    ELSE IF (linetext LIKE "*//*ignore rest")
+      INSERT CELL [ type := "ignore", errors := TRUE, warnings := TRUE ] INTO ares AT END;
+    ELSE IF (linetext LIKE "*//*ignore errors")
+      INSERT CELL [ type := "ignore", errors := TRUE, warnings := FALSE ] INTO ares AT END;
+    ELSE IF (linetext LIKE "*//*ignore warnings")
+      INSERT CELL [ type := "ignore", errors := FALSE, warnings := TRUE ] INTO ares AT END;
+    ELSE IF (linetext LIKE "*//*ignore*")
+      ABORT(`Cannot parse comment line: ${linetext}`);
+    ELSE
+    {
+      line := line + 1;
+      INSERT CELL[ type := "line", line, linetext ] INTO ares AT END;
+    }
+  }
+
+  RETURN ares;
+}
+
+STRING FUNCTION EncodeParam(STRING param, BOOLEAN required)
+{
+  IF (param = "" AND NOT required)
+    RETURN "";
+
+  RETURN ((param LIKE `* *`) OR (param LIKE `*"*`))
+    ? `"${Substitute(param, `"`, `\\"`)}" `
+    : `${param} `;
+}
+
+STRING FUNCTION GetAnnotatedResults(STRING test, RECORD ARRAY messages)
+{
+  RECORD ARRAY parsed := ParseAnnotation(test);
+  STRING res;
+
+  FOREVERY (RECORD rec FROM parsed)
+  {
+    IF (rec.type = "line")
+    {
+      RECORD ARRAY relevant_messages :=
+          SELECT *
+            FROM messages
+           WHERE line = rec.line;
+
+      // Skip empty first line
+      IF (#rec = 0 AND rec.linetext = "" AND NOT RecordExists(relevant_messages))
+        CONTINUE;
+
+      res := res || rec.linetext || "\n";
+      FOREVERY (RECORD msg FROM relevant_messages)
+        res := res || (msg.col < 3 ? Left("  ", msg.col - 1) || "// <-" : "//" || RepeatText(" ", msg.col - 3) || "^ ") ||
+            `${msg.iserror ? "E" : "W"}:${msg.code} ${EncodeParam(msg.param1, msg.param2 != "")}${EncodeParam(msg.param1, FALSE)}# ${msg.message}\n`;
+    }
+  }
+
+  RETURN res;
+}
+
+/** Tests compilation, annotate like this:
+
+STRING test~
+//         ^ E:90
+*/
+PUBLIC MACRO TestAnnotatedCompile(STRING test, VARIANT options DEFAULTSTO DEFAULT RECORD)
+{
+  IF (TypeID(options) = TypeID(STRING))
+    options := [ annotation := "" ];
+
+  options := ValidateOptions(
+      [ annotation :=     ""
+      , addloadlibs :=    FALSE
+      , aslibrary :=      FALSE
+      ], options);
+
+  RECORD ARRAY parsed := ParseAnnotation(test);
+
+  STRING script := Detokenize((SELECT AS STRING ARRAY linetext || "\n" FROM parsed WHERE type = "line"), "");
+
+  RECORD ARRAY compileerrors := TestCompile(script, CELL[ options.addloadlibs, options.aslibrary ]);
+  RECORD ARRAY lefterrors := compileerrors;
+
+  STRING report;
+
+  FOREVERY (RECORD rec FROM parsed)
+    SWITCH (rec.type)
+    {
+      CASE "message"
+      {
+        INTEGER pos :=
+           (SELECT AS INTEGER #lefterrors + 1
+              FROM lefterrors
+             WHERE iserror = rec.iserror
+               AND message = rec.message
+               AND line = rec.line
+               AND col = rec.col) -1;
+
+        IF (pos = -1)
+          report := `Expected warning '${rec.message}' at (${rec.line}:${rec.col})\n`;
+        ELSE
+          DELETE FROM lefterrors AT pos;
+      }
+      CASE "ignore"
+      {
+        IF (rec.errors)
+          DELETE FROM lefterrors WHERE iserror;
+        IF (rec.warnings)
+          DELETE FROM lefterrors WHERE NOT iserror;
+      }
+    }
+
+  IF (LENGTH(lefterrors) != 0 AND report = "")
+    report := `Got unexpected warnings/errors:\n`;
+
+  IF (report != "")
+    ReportError(report || `Expected:\n${test}\nGot:\n${GetAnnotatedResults(test, compileerrors)}`, compileerrors, options.annotation);
+}
+
+PUBLIC MACRO SetTestDataDirectory(STRING testdatadir)
+{
+  IF(IsPathAbsolute(testdatadir))
+    testdata_basepath := testdatadir;
+  ELSE
+    testdata_basepath := CollapsePath(GetCurrentPath() || "/" || testdatadir);
+}
+PUBLIC STRING FUNCTION GetTestFilePath(STRING name)
+{
+  RETURN MergePath(testdata_basepath,name);
+}
+PUBLIC BLOB FUNCTION OpenTestFile(STRING name)
+{
+  RETURN GetDiskResource(GetTestFilePath(name));
+}

@@ -1,0 +1,28 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE AnchorWidget EXTEND TolliumTabsExtensionBase
+<
+  BOOLEAN FUNCTION CheckAnchorName(STRING name)
+  {
+    /* ID and NAME tokens must begin with a letter ([A-Za-z]) and may be followed by any number of letters, digits ([0-9]),
+       hyphens ("-"), underscores ("_"), colons (":"), and periods ("."). */
+    STRING letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    STRING characters := letters || "0123456789-_:.";
+
+    FOR (INTEGER i := 0; i < Length(name); i := i + 1)
+      IF (SearchSubstring(i = 0 ? letters : characters, Substring(name, i, 1)) = -1)
+        RETURN FALSE;
+
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT feedback)
+  {
+    TolliumTabsExtensionBase::ValidateValue(feedback);
+    IF (NOT this->CheckAnchorName(^anchorname->value))
+      feedback->AddErrorFor(^anchorname, GetTid("publisher:widgets.anchorwidget.invalidname", ^anchorname->value));
+  }
+>;

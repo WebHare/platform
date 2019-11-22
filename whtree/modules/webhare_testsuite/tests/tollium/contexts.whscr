@@ -1,0 +1,152 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
+
+OBJECTTYPE MyContextType
+<
+  PUBLIC STRING id;
+  MACRO NEW(STRING id) { this->id := id; }
+>;
+
+ASYNC MACRO TestContexts()
+{
+  OBJECT applytester := GetApplyTesterForObject(1);
+  OBJECT applytester2 := GetApplyTesterForObject(10);
+  OBJECT applytester_backend := GetApplyTesterForObject(16);
+
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/tolliumcontexts.contexttest");
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+
+  // tollium default contexts
+  TestEQ(GetTestController(), scr->contexts->controller);
+  TestEQ(scr, scr->contexts->screen);
+  TestEQ(scr->tolliumuser, scr->contexts->user);
+
+  // non-set default contexts
+  TestEq(DEFAULT OBJECT, scr->contexts->applytester);
+  TestEQ(DEFAULT OBJECT, scr->contexts->editdocumentapi);
+  TestEQ(DEFAULT OBJECT, scr->contexts->formcomponentapi);
+  TestEQ(DEFAULT OBJECT, scr->contexts->webshop);
+  TestEq(DEFAULT OBJECT, scr->contexts->wrdschema);
+
+  // non-set hat contexts
+  TestEQ(DEFAULT OBJECT, scr->contexts->^certainlynotusedyet);
+
+  // set hat
+  OBJECT ctx := NEW MyContextType("1");
+  scr->contexts->^mycontext := ctx;
+  TestEQ(ctx, scr->contexts->^mycontext);
+  TestEQ(ctx, scr->contexts->^mycontext);
+
+  // overwrite context
+  scr->contexts->^mycontext := NEW MyContextType("2");
+  TestEQ("2", scr->contexts->^mycontext->id);
+
+  OBJECT scr2 := scr->LoadScreen("webhare_testsuite:tests/tolliumcontexts.contexttest");
+  AWAIT ExpectScreenChange(+1, PTR scr2->RunModal());
+
+  // All contexts inherited/changed?
+  TestEQ(GetTestController(), scr2->contexts->controller);
+  TestEQ(scr2, scr2->contexts->screen);
+  TestEQ(scr2->tolliumuser, scr2->contexts->user);
+  TestEQ("2", scr2->contexts->^mycontext->id);
+
+  // overwrite parent context - doesn't modify children context
+  scr->contexts->^mycontext := NEW MyContextType("3");
+  TestEQ("3", scr->contexts->^mycontext->id);
+  TestEQ("2", scr2->contexts->^mycontext->id);
+
+  // overwrite child context - doesn't modify parent context
+  scr2->contexts->^mycontext := NEW MyContextType("4");
+  TestEQ("3", scr->contexts->^mycontext->id);
+  TestEQ("4", scr2->contexts->^mycontext->id);
+
+  // Legacy stuff (allow setting 'state' and 'app')
+  scr2->contexts->UpdateContext("state", NEW MyContextType("5"));
+  TestEQ("5", scr2->contexts->state->id);
+  scr2->contexts->UpdateContext("app", NEW MyContextType("6"));
+  TestEQ("6", scr2->contexts->app->id);
+  scr2->contexts->UpdateContext("app", NEW MyContextType("7"));
+  TestEQ("7", scr2->contexts->app->id);
+
+  // legacy updates for wrdschema
+  scr2->contexts->UpdateContext("wrdschema", testfw->GetWRDSchema());
+  TestEQ(testfw->GetWRDSchema(), scr2->contexts->wrdschema);
+  scr2->contexts->UpdateContext("applytester", applytester);
+  TestEQ(applytester, scr2->contexts->applytester);
+  scr2->contexts->applytester := applytester2;
+  TestEQ(applytester2, scr2->contexts->applytester);
+
+  // legacy members also inherited?
+  OBJECT scr3 := scr2->LoadScreen("webhare_testsuite:tests/tolliumcontexts.contexttest");
+  AWAIT ExpectScreenChange(+1, PTR scr3->RunModal());
+  TestEQ("7", scr3->contexts->app->id);
+  TestEQ(applytester2, scr3->contexts->applytester);
+
+  AWAIT ExpectScreenChange(-1, PTR scr3->TolliumExecuteCancel());
+  AWAIT ExpectScreenChange(-1, PTR scr2->TolliumExecuteCancel());
+  scr3 := DEFAULT OBJECT;
+
+  scr2 := scr->LoadScreen("webhare_testsuite:tests/tolliumcontexts.contexttest");
+  AWAIT ExpectScreenChange(+1, PTR scr2->RunModal());
+  TestEQ(DEFAULT OBJECT, scr2->contexts->applytester); // throws
+
+  // initial set via property
+  scr2->contexts->applytester := applytester;
+  TestEQ(applytester, scr2->contexts->applytester);
+  scr2->contexts->wrdschema := testfw->GetWRDSchema();
+  TestEQ(testfw->GetWRDSchema(), scr2->contexts->wrdschema);
+
+  // ADDME: type validation for editdocumentapi/formcomponentapi/webshop
+  scr2->contexts->editdocumentapi := NEW MyContextType("a1");
+  TestEQ("a1", scr2->contexts->editdocumentapi->id);
+  scr2->contexts->formcomponentapi := NEW MyContextType("a2");
+  TestEQ("a2", scr2->contexts->formcomponentapi->id);
+  scr2->contexts->webshop := NEW MyContextType("a3");
+  TestEQ("a3", scr2->contexts->webshop->id);
+
+  AWAIT ExpectScreenChange(-1, PTR scr2->TolliumExecuteCancel());
+
+  scr2 := scr->LoadScreen("webhare_testsuite:tests/tolliumcontexts.contexttest");
+  AWAIT ExpectScreenChange(+1, PTR scr2->RunModal());
+
+  // Test automatic wrd schema
+  TestEQ(DEFAULT OBJECT, scr2->contexts->wrdschema);
+  scr2->contexts->applytester := applytester;
+  TestEQ(DEFAULT OBJECT, scr2->contexts->wrdschema);
+  scr2->contexts->applytester := applytester_backend;
+  TestEQ(FALSE, scr2->contexts->wrdschema = DEFAULT OBJECT);
+  OBJECT backend_wrdschema := scr2->contexts->wrdschema;
+  scr2->contexts->applytester := applytester;
+  TestEQ(DEFAULT OBJECT, scr2->contexts->wrdschema);
+
+  // fixed wrdschema must not be overriden by applytester
+  scr2->contexts->wrdschema := testfw->GetWRDSchema();
+  scr2->contexts->applytester := applytester_backend;
+  TestEQ(testfw->GetWRDSchema(), scr2->contexts->wrdschema);
+  scr2->contexts->wrdschema := DEFAULT OBJECT;
+  // same tag, need not to be the same object
+  TestEQ(backend_wrdschema->tag, scr2->contexts->wrdschema->tag);
+
+  // Fixed wrdschema in parent schema is auto in child context
+  scr2->contexts->wrdschema := testfw->GetWRDSchema();
+
+  scr3 := scr2->LoadScreen("webhare_testsuite:tests/tolliumcontexts.contexttest");
+  AWAIT ExpectScreenChange(+1, PTR scr3->RunModal());
+
+  TestEQ(testfw->GetWRDSchema(), scr3->contexts->wrdschema);
+  scr3->contexts->applytester := applytester_backend;
+  TestEQ(backend_wrdschema->tag, scr3->contexts->wrdschema->tag);
+
+  AWAIT ExpectScreenChange(-1, PTR scr3->TolliumExecuteCancel());
+  AWAIT ExpectScreenChange(-1, PTR scr2->TolliumExecuteCancel());
+  AWAIT ExpectScreenChange(-1, PTR scr->TolliumExecuteCancel());
+}
+
+RunTestFramework([ PTR TestContexts ]);

@@ -1,0 +1,62 @@
+<?wh
+LOADLIB "wh::os.whlib";
+
+BOOLEAN console_eof, console_quit;
+STRING inputbuffer;
+STRING ARRAY commands;
+
+BOOLEAN FUNCTION DoConsoleIO(BOOLEAN wait)
+{
+  INTEGER handle := WaitForMultiple([0],DEFAULT INTEGER ARRAY,wait ? -1 : 0);
+  IF(handle = 0)
+  {
+    STRING ch := ReadFrom(0,1);
+    IF(ch="" AND IsAtEndOfStream(0))
+    {
+      console_eof := TRUE;
+      RETURN TRUE; //Got data
+    }
+    IF(ch='\n')
+    {
+      INSERT inputbuffer INTO commands AT END;
+      IF(ToUppercase(inputbuffer)="QUIT")
+      {
+        console_quit := TRUE;
+      }
+      inputbuffer:="";
+    }
+    ELSE
+    {
+      inputbuffer := inputbuffer || ch;
+    }
+    RETURN TRUE;
+  }
+  RETURN FALSE; //no data
+}
+
+PUBLIC BOOLEAN FUNCTION GotConsoleQuit()
+{
+  //Pop any buffered events
+  WHILE(NOT (console_eof OR console_quit) AND DoConsoleIO(FALSE))
+    /* repeat waiting */ ;
+  RETURN console_eof OR console_quit;
+}
+
+PUBLIC STRING FUNCTION GetConsoleLine()
+{
+  WHILE(TRUE)
+  {
+    IF(console_eof OR console_quit)
+      RETURN "";
+    IF(Length(commands)>0)
+    {
+      STRING cmd := commands[0];
+      DELETE FROM commands AT 0;
+      RETURN cmd;
+    }
+    FlushOutputBuffer();
+    DoConsoleIO(TRUE);
+  }
+}
+
+SetConsoleLineBuffered(FALSE);

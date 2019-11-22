@@ -1,0 +1,60 @@
+<?wh
+/** @private Format parser. (may be replaced with tika at some point) */
+
+
+LOADLIB "wh::parser/pdf.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
+
+/** @short Parse a PDF document
+    @param pdfblob The document to parse
+    @return Information for the PDF document
+    @cell return.success If page was parsed
+    @cell return.errormsg If not parse, the error message
+    @cell return.index_page This page should be indexed (always TRUE for PDF)
+    @cell return.title The page title
+    @cell return.keywords Keywords for the page
+    @cell return.description Description for the page (using the PDF Subject)
+    @cell return.links The links found in this page (none in PDF)
+    @cell return.text The plaint text contents of the page */
+PUBLIC RECORD FUNCTION ParsePDFDoc(BLOB pdfblob)
+{
+  INTEGER pdfdoc := OpenPDFFile(pdfblob);
+  IF (pdfdoc = 0)
+    RETURN [ success := FALSE, errormsg := "Could not open PDF file" ];
+
+  // Read PDF document
+  IF (NOT DoPDFConversion(pdfdoc))
+    RETURN [ success := FALSE, errormsg := GetLastPDFError() ];
+
+  RECORD parsed_page := CreateParsedPage();
+  parsed_page.type_ext := "pdf";
+  parsed_page.follow_links := FALSE;
+
+  // Read document meta data
+  RECORD pdf_meta := GetPDFMetaInfo(pdfdoc);
+  parsed_page.title := CleanWhitespace(pdf_meta.title);
+  parsed_page.keywords := CleanWhitespace(pdf_meta.keywords);
+  parsed_page.description := CleanWhitespace(pdf_meta.subject);
+
+  STRING body;
+  // Set document language, if known
+  IF (pdf_meta.lang != "")
+  {
+    pdf_meta.lang := ToUppercase(Left(TrimWhitespace(pdf_meta.lang), 2));
+    IF (pdf_meta.lang IN [ "DA", "DE", "EN", "ES", "FR", "IT", "NL", "PT" ])
+      body := "\x1E" || pdf_meta.lang || "\x1E";
+  }
+
+  // Get all body text
+  INTEGER num_pages := GetNumberOfPDFPages(pdfdoc);
+  FOR (INTEGER page := 1; page <= num_pages; page := page + 1)
+    body := body || " " || GetTextOnPDFPage(pdfdoc, page);
+  parsed_page.text := CleanWhitespace(body);
+
+  /* FIXME There may still be errors! Check GetLastPDFError() and if its non-zero, we should be
+           able to do something like 'indexed, but with errors' so we can pick and fix failures
+           without ruining the indexing proces */
+
+  RETURN parsed_page;
+}

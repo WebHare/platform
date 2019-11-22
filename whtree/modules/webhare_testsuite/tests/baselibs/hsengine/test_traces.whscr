@@ -1,0 +1,184 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+LOADLIB "test::testdata_traces_a.whlib";
+
+
+STRING ARRAY FUNCTION GetTraceFunctions(RECORD ARRAY trace, STRING ARRAY stopat)
+{
+  STRING ARRAY result;
+  FOREVERY (RECORD r FROM trace)
+  {
+    IF (Substitute(r.func, " (async)", "") IN stopat)
+      BREAK;
+
+    INSERT r.func INTO result AT END;
+  }
+  RETURN result;
+}
+
+
+MACRO TestTraces()
+{
+  TestEq([ "TEST4", "TEST3", "TEST2", "TEST1" ], GetTraceFunctions(Test1("trace"), ["TESTTRACES"]));
+
+  TRY
+  {
+    Test1("throw");
+  }
+  CATCH (OBJECT e)
+  {
+    TestEq([ "TEST4", "TEST3", "TEST2", "TEST1" ], GetTraceFunctions(e->trace, ["TESTTRACES"]));
+  }
+
+  TRY
+  {
+    Test1("throw2", [ [ filename := "a", line := 1, col := 2, func := "TEST5" ] ]);
+  }
+  CATCH (OBJECT e)
+  {
+    TestEq([ "TEST5", "TEST4", "TEST3", "TEST2", "TEST1" ], GetTraceFunctions(e->trace, ["TESTTRACES"]));
+  }
+
+  {
+    RECORD jres := CreateJob("test::testdata_traces_a.whlib", "");
+    TestEq(TRUE, ObjectExists(jres.job));
+    RECORD res := jres.job->ipclink->SendMessage([ type := "abort" ]);
+    TestEq("ok", res.status);
+
+    jres.job->Start();
+    jres.job->Wait(MAX_DATETIME);
+
+    INTEGER errorline := SELECT AS INTEGER line FROM jres.job->GetErrors() WHERE iserror;
+    TestEq(TRUE, errorline >= 10 AND errorline <= 18);
+
+    RECORD ARRAY trace := SELECT * FROM jres.job->GetErrors() WHERE istrace;
+    TestEq([ "TEST4", "TEST3", "TEST2", "TEST1" ], GetTraceFunctions(trace, [":INITFUNCTION"]));
+
+    TestEQ(jres.job->GetErrors(), __HS_ERRORSBYGROUPID(jres.job->groupid).messages);
+
+    TestEQ(DEFAULT RECORD, __HS_ERRORSBYGROUPID("fail"));
+
+    jres.job->Close();
+  }
+
+  {
+    RECORD jres := CreateJob("test::testdata_traces_a.whlib", "");
+    TestEq(TRUE, ObjectExists(jres.job));
+    RECORD res := jres.job->ipclink->SendMessage([ type := "throw" ]);
+    TestEq("ok", res.status);
+
+    jres.job->Start();
+    jres.job->Wait(MAX_DATETIME);
+
+    INTEGER errorline := SELECT AS INTEGER line FROM jres.job->GetErrors() WHERE iserror;
+    TestEq(TRUE, errorline >= 10 AND errorline <= 18);
+
+    RECORD ARRAY trace := SELECT * FROM jres.job->GetErrors() WHERE istrace;
+    TestEq([ "TEST4", "TEST3", "TEST2", "TEST1" ], GetTraceFunctions(trace, [":INITFUNCTION"]));
+
+    TestEQ(jres.job->GetErrors(), __HS_ERRORSBYGROUPID(jres.job->groupid).messages);
+
+    jres.job->Close();
+  }
+}
+
+OBJECT FUNCTION AsyncGenContext1(INTEGER skipelts)
+{
+  RETURN AsyncGenContext2(skipelts);
+}
+
+OBJECT FUNCTION AsyncGenContext2(INTEGER skipelts)
+{
+  RETURN NEW __HS_INTERNAL_ASYNCCONTEXT(skipelts);
+}
+
+STRING ARRAY FUNCTION RunAsyncCall(OBJECT ctx, INTEGER skipdeep)
+{
+  __WITHASYNCCONTEXT(ctx, skipdeep)
+    RETURN AsyncCallContext1();
+}
+
+STRING ARRAY FUNCTION AsyncCallContext1(RECORD defer DEFAULTSTO DEFAULT RECORD, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  RETURN AsyncCallContext2(defer);
+}
+
+STRING ARRAY FUNCTION AsyncCallContext2(RECORD defer)
+{
+  STRING ARRAY res := GetTraceFunctions(GetAsyncStackTrace(), [ "TESTASYNCTRACE" ]);
+  IF (RecordExists(defer))
+    defer.resolve(res);
+  RETURN res;
+}
+
+OBJECT ASYNC FUNCTION InnerAsyncTest(RECORD defer)
+{
+  AWAIT 1;
+  AsyncCallContext1(defer);
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION TestCallback(STRING type, RECORD data DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD defer := CreateDeferredPromise();
+  INTEGER id;
+  SWITCH (type)
+  {
+    CASE "timed"      { RegisterTimedCallback(GetCurrentDateTime(), PTR AsyncCallContext1(defer)); }
+    CASE "event"      {
+                        id := RegisterEventCallback("hs-test.event", PTR AsyncCallContext1(defer, #1, #2));
+                        BroadcastEvent("hs-test.event", DEFAULT RECORD);
+                      }
+    CASE "microtask"  { ScheduleMicroTask(PTR AsyncCallContext1(defer)); }
+    CASE "promise"    { CreateResolvedPromise(TRUE)->Then(PTR AsyncCallContext1(defer)); }
+    CASE "asyncfunction" { InnerAsyncTest(defer); }
+    CASE "read"       { id := RegisterHandleReadCallback(data.read, PTR AsyncCallContext1(defer)); }
+    CASE "write"      { id := RegisterHandleWriteCallback(data.write, PTR AsyncCallContext1(defer)); }
+    DEFAULT           { ABORT(type); }
+  }
+
+  VARIANT result := AWAIT defer.promise;
+  IF (id != 0)
+    UnregisterCallback(id);
+  RETURN result;
+}
+
+OBJECT ASYNC FUNCTION TestAsyncTrace()
+{
+  OBJECT context;
+
+  context := AsyncGenContext1(0);
+  TestEQ([ "ASYNCCALLCONTEXT2", "ASYNCCALLCONTEXT1 (async)", "ASYNCGENCONTEXT2", "ASYNCGENCONTEXT1" ], RunAsyncCall(context, 0));
+
+  context := AsyncGenContext1(1);
+  TestEQ([ "ASYNCCALLCONTEXT2", "ASYNCCALLCONTEXT1 (async)", "ASYNCGENCONTEXT1" ], RunAsyncCall(context, 0));
+
+  context := AsyncGenContext1(0);
+  TestEQ([ "ASYNCCALLCONTEXT2 (async)", "ASYNCGENCONTEXT2", "ASYNCGENCONTEXT1" ], RunAsyncCall(context, 1));
+
+  TestEQ([ "ASYNCCALLCONTEXT2", "ASYNCCALLCONTEXT1 (async)", "TESTCALLBACK" ], AWAIT TestCallback("timed"));
+  TestEQ([ "ASYNCCALLCONTEXT2", "ASYNCCALLCONTEXT1 (async)", "TESTCALLBACK" ], AWAIT TestCallback("event"));
+  TestEQ([ "ASYNCCALLCONTEXT2", "ASYNCCALLCONTEXT1 (async)", "TESTCALLBACK" ], AWAIT TestCallback("microtask"));
+  TestEQ([ "ASYNCCALLCONTEXT2", "ASYNCCALLCONTEXT1 (async)", "TESTCALLBACK" ], AWAIT TestCallback("promise"));
+  TestEQ([ "ASYNCCALLCONTEXT2", "ASYNCCALLCONTEXT1", "INNERASYNCTEST (async)", "TESTCALLBACK" ], AWAIT TestCallback("asyncfunction"));
+
+  RECORD pipeset := CreatePipeSet();
+  PrintTo(pipeset.write, "1"); // make read end read signalled, write end of a pipe is always write signalled
+  TestEQ([ "ASYNCCALLCONTEXT2", "ASYNCCALLCONTEXT1 (async)", "TESTCALLBACK" ], AWAIT TestCallback("write", pipeset));
+  TestEQ([ "ASYNCCALLCONTEXT2", "ASYNCCALLCONTEXT1 (async)", "TESTCALLBACK" ], AWAIT TestCallback("read", pipeset));
+  ClosePipe(pipeset.write);
+  ClosePipe(pipeset.read);
+
+  RETURN DEFAULT RECORD;
+}
+
+PRINT("\n === Running TestTraces\n");
+TestTraces();
+WaitForPromise(TestAsyncTrace());

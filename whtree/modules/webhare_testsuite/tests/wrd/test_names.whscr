@@ -1,0 +1,61 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::wrd/lib/names.whlib";
+
+//ADDME support https://www.vernoeming.nl/aliasnamen-2-de-76-achternamen-met-tussenvoegsels-als-genaamd-genoemd-en-gezegd
+
+MACRO TestGenerateName()
+{
+  TestEq("Pietje Precies", FormatWRDNameField("WRD_FULLNAME", [ wrd_firstname := "Pietje", wrd_lastname := "Precies" ]));
+  TestEq("Precies", FormatWRDNameField("WRD_FORMALNAME", [ wrd_firstname := "Pietje", wrd_lastname := "Precies" ]));
+  TestEq("Mr. Precies", FormatWRDNameField("WRD_FORMALNAME", [ wrd_firstname := "Pietje", wrd_lastname := "Precies", wrd_gender := 1 ]));
+  TestEq("Mevr. Precies", FormatWRDNameField("WRD_FORMALNAME", [ wrd_firstname := "Pietje", wrd_lastname := "Precies", wrd_gender := 2 ], [ language := "nl"]));
+}
+
+MACRO TestSplit()
+{
+  BLOB indata := GetWebhareResource("moduleroot::webhare_testsuite/tests/wrd/testdata/namelist.csv");
+  RECORD ARRAY inlines := ExcelTextParser(BlobToSTring(indata,-1), "","ISO-8859-1",TRUE);
+
+  STRING ARRAY headers := inlines[0].tokens;
+  DELETE FROM inlines AT 0;
+  RECORD ARRAY names := TokenArrayParser(headers, inlines);
+
+  FOREVERY(RECORD row FROM names)
+  {
+    RECORD split := SplitWRDName(row.name);
+    STRING ARRAY mismatchfields;
+    FOREVERY(STRING tocheck FROM headers)
+    {
+      IF(#tocheck = 0)
+        CONTINUE;
+      IF(TypeID(GetCell(split,tocheck)) = TypeID(INTEGER))
+      {
+        IF(ToString(GetCell(split,tocheck)) != Getcell(row,tocheck))
+          INSERT tocheck INTO mismatchfields AT END;
+      }
+      ELSE
+      {
+        IF(GetCell(split,tocheck) != Getcell(row,tocheck))
+          INSERT tocheck INTO mismatchfields AT END;
+      }
+    }
+    IF(Length(mismatchfields)>0)
+    {
+      Print("Expected:\n");
+      DELETE CELL name FROM row;
+      PrintRecordTo(0, row, 'boxed');
+      Print("Actual:\n");
+      PrintRecordTo(0, split, 'boxed');
+      ABORT("Mismatch on fields: " || Detokenize(mismatchfields,", "));
+    }
+  }
+}
+
+RunTestframework([ PTR TestGenerateName
+                 , PTR TestSplit
+                 ]);
+

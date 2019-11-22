@@ -1,0 +1,30 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         library="spraypay.whlib"
+         gid="tolliumapps.payments.spraypay">
+
+  <tabsextension name="configspraypay" implementation="lib">
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <textedit composition="methodsettings" cellname="methodtitle" required="true" tid="~title" />
+      <textedit composition="methodsettings" cellname="webshopid" required="true" valuetype="integer" />
+      <textedit composition="methodsettings" cellname="apikey" tid="~apikey" />
+      <checkbox composition="methodsettings" cellname="testmode" title="" labeltid="tolliumapps.payments.common.testmode" name="testmode" />
+    </insert>
+  </tabsextension>
+
+  <screen name="payinfo" title="">
+    <body>
+      <!-- <text name="transactionid" /> -->
+<!--       <text name="orderid" selectable="true" />
+      <text name="paymentid" selectable="true" />
+      <text name="paymentmethod" />
+      <text name="brand" />
+      <text name="status" />
+      <text name="ncerror" />
+ -->    </body>
+  </screen>
+
+</screens>

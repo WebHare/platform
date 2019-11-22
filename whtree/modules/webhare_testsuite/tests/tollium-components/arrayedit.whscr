@@ -1,0 +1,83 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+INTEGER testhits;
+
+RECORD ARRAY FUNCTION AddDummy(RECORD ARRAY rows)
+{
+  IF(RecordExists(SELECT FROM rows WHERE CellExists(rows,'dummy')))
+    ABORT("DUMMY ALREADY EXISTS ?!");
+  RETURN SELECT *, dummy := TRUE FROM rows;
+}
+
+MACRO DuplicateAction()
+{
+  INSERT CELL[ ...topscreen->comp->selection, text := "Duplicated" ] INTO topscreen->comp->value AT END;
+  topscreen->comp->SetSelectedRows([Length(topscreen->comp->value)-1]);
+}
+
+OBJECT ASYNC FUNCTION TestArrayEdit()
+{
+  OBJECT browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+                                                   [ component := "arrayedit"
+                                                   , settings := DEFAULT RECORD
+                                                   ]);
+  AWAIT ExpectScreenChange(+1, PTR browser->RunModal());
+  TestEq(1, browser->onchangecount->value, 'Expecting 1 onchange for when we initialized our value');
+
+  TestEq([TRUE],SELECT AS BOOLEAN ARRAY checkbox FROM topscreen->comp->value);
+
+  topscreen->comp->onmaprows := PTR AddDummy;
+  TestEq(1, browser->onchangecount->value, 'onmapsrows may not trigger onchange');
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->comp->addbutton->tolliumclick());
+  TT("text")->value := "My new row";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq(["Row 1","My new row"],SELECT AS STRING ARRAY text FROM topscreen->comp->value);
+  TestEq([TRUE,FALSE],SELECT AS BOOLEAN ARRAY checkbox FROM topscreen->comp->value);
+  Testeq("My new row", topscreen->comp->selection.text);
+  TestEq(2, browser->onchangecount->value, 'Expecting 2 onchanges, +1 for added row');
+
+  //ADDME: This relies on the internal list message formats
+  topscreen->comp->list->TolliumWeb_FormUpdate("c2\tcheckbox\ttrue");
+  topscreen->comp->list->TolliumWeb_ParseEvent("check", "2 checkbox");
+
+  TestEq([TRUE,TRUE],SELECT AS BOOLEAN ARRAY checkbox FROM topscreen->comp->value);
+  TestEq(3, browser->onchangecount->value, 'Expecting 3 onchanges');
+
+  topscreen->frame->focused := topscreen->comp;
+  Testeq("My new row", topscreen->comp->value[END-1].text);
+  topscreen->comp->SetSelectedRows(INTEGER[Length(topscreen->comp->value)-1]);
+  TestEq(INTEGER[Length(topscreen->comp->value)-1], topscreen->comp->GetSelectedRows());
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->comp->deletebutton->TolliumClick());
+  TestEq(4, browser->onchangecount->value, 'Expecting 3 onchanges');
+  TestEq(1, Length(topscreen->comp->rows));
+
+  topscreen->comp->SetSelectedRows([0]);
+
+  //Test custom actions
+  INTEGER duplicate := topscreen->comp->AddAction("duplicate", PTR DuplicateAction);
+  TestEq(TRUE, topscreen->comp->ExecuteAddedAction(duplicate));
+  TestEq(2, Length(topscreen->comp->rows));
+  TestEq([[rowkey := 2, checkbox := TRUE, text := "Duplicated"]], topscreen->comp->selection);
+
+  //Test adding with a prefilled dialog
+  AWAIT ExpectScreenChange(+1, PTR topscreen->comp->RunAddRow([ text := "Superrow"], [ insertat := 1]));
+  TestEq("Superrow", TT("text")->value);
+  TT("text")->value := "Superrow!!!";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq(3, Length(topscreen->comp->rows));
+  TestEq([1], topscreen->comp->GetSelectedRows()); //verify insert pos
+  TestEq("Superrow!!!", topscreen->comp->selection.text);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->tolliumexecutecancel());
+
+  RETURN TRUE;
+}
+
+RunTestframework([ PTR TestArrayEdit
+                 ]);

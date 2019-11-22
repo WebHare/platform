@@ -1,0 +1,18 @@
+<?wh
+/** @short WRD authentication
+    @topic wrdauth/api
+*/
+
+LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib" EXPORT WRDAuthSupportBase;
+LOADLIB "mod::wrd/lib/internal/userapi.whlib" EXPORT GetWRDAuthUserAPI;
+
+/** @short Get the authentication plugin for the specified url
+    @long This function looks up the fsobject for the url (using LookupPublisherURL) and then obtains the wrdauth plugin object, if ant
+    @param url URL to look up
+    @return The auth plugin. Throws an exception if no plugin is registered */
+PUBLIC OBJECT FUNCTION GetWRDAuthPlugin(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ clientwebserver := -1 ], options);
+  RETURN GetAuthIntegrationPlugin(url, options.clientwebserver);
+}
+

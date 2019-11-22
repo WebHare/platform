@@ -1,0 +1,16 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/human.whlib">
+
+  <screen name="main">
+    <actions>
+      <action name="print" onexecute="doprint" title="Print something" />
+    </actions>
+    <body>
+      <line>
+        <text value="Test if printing works:" />
+        <button action="print" />
+      </line>
+    </body>
+  </screen>
+</screens>

@@ -1,0 +1,108 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
+
+RECORD info := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "check",   type := "switch" ]
+                              , [ name := "clean",   type := "switch" ]
+                              , [ name := "verbose", type := "switch" ]
+                              , [ name := "filter",  type := "stringopt" ]
+                              ]);
+
+IF(NOT RecordExists(info) OR (NOT info.check AND NOT info.clean))
+{
+  Print("Syntax: clean_urlhistory.whscr [--check] [--clean] [--filter=example.org]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary();
+
+PRINT("Gathering outdated and invalid history entries...\n");
+
+RECORD ARRAY outdated := SELECT id, url, fsobject
+                           FROM publisher.urlhistory
+                          WHERE url LIKE "*" || info.filter || "*"
+                            AND (Substring(url, 0, 2) != "//" OR GetSHA1Hash(url) != urlhash);
+
+IF(Length(outdated) = 0)
+{
+  PRINT("No faults were found" || (info.clean ? "; halting.\n" : ".\n"));
+  RETURN;
+}
+ELSE
+  PRINT("Processing " || Length(outdated) || " history entries...\n");
+
+trans->BeginWork();
+
+INTEGER updated, removed;
+RECORD ARRAY domains;
+
+FOREVERY(RECORD entry FROM outdated)
+{
+  IF(NOT IsValidURL(entry.url) AND NOT IsValidURL("http:" || entry.url))/// Take into account that IsValidURL requires a scheme
+  {
+    IF(info.verbose)
+      PRINT((info.clean ? "Removing" : "Found") || " invalid url '" || entry.url || "'...\n");
+
+    IF(info.clean)
+      RemoveURLHistoryEntry(entry.id);
+
+    removed := removed + 1;
+    CONTINUE;
+  }
+
+  RECORD urlinfo := UnpackURL(entry.url);
+  IF(urlinfo.origin NOT IN SELECT AS STRING ARRAY domain FROM domains)
+    INSERT [ domain := urlinfo.origin, num := 1 ] INTO domains AT END;
+  ELSE
+    UPDATE domains SET num := num + 1 WHERE domain = urlinfo.origin;
+
+  STRING normalized := NormalizeHistoryURL(entry.url);
+
+  IF(info.verbose)
+  {
+    PRINT((info.clean ? "Updating" : "Found") || " outdated url '" || entry.url || "'\n");
+    IF(info.clean)
+      PRINT("                   to '" || normalized || "'\n");
+  }
+
+  IF(info.clean)
+  {
+    IF(RecordExists(SELECT FROM publisher.urlhistory WHERE urlhash = GetSHA1Hash(normalized)))
+    {
+      IF(info.verbose)
+        PRINT("The URL '" || normalized || "' already exists in the history; removing the reference as it is no longer needed.\n");
+
+      RemoveURLHistoryEntry(entry.id);
+    }
+    ELSE
+    {
+      UPDATE publisher.urlhistory SET url := normalized, urlhash := GetSHA1Hash(normalized) WHERE id = entry.id;
+    }
+  }
+
+  updated := updated + 1;
+}
+
+IF(info.clean)
+{
+  PRINT("Finished; updated " || updated || " outdated entries.\n");
+  IF(removed > 0)
+    PRINT("          removed " || removed || " invalid entries.\n");
+}
+ELSE IF(info.check)
+{
+  PRINT("Found " || updated || " outdated entries and " || removed || " invalid entries.\n");
+}
+
+PRINT("\nThe domains containing faults were: \n");
+FOREVERY(RECORD domaininfo FROM domains)
+  PRINT("\t" || domaininfo.domain || " (" || domaininfo.num || " errors)\n");
+
+trans->CommitWork();

@@ -1,0 +1,428 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+
+/** Handles exlusive opening of tollium screens (or locking for actions), with support for
+    stealing acccess by other users
+    @param screen Screen opening the exclusive access
+    @param identifier Identifies the unique resource whith to protect
+    @param options Options
+    @cell(function ptr) options.onbeforesteal Callback called just before the screen is stolen
+    @cell(function ptr) options.onsteal Callback called after the screen has been stolen
+    @cell(record) options.subscreensonly Close only subscreens of the opening screen
+*/
+PUBLIC STATIC OBJECTTYPE ExclusivityHandler
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Exclusively opened screen
+  OBJECT screen;
+
+  /// Identifier (for encoding multiple instances, eg for edited entities)
+  STRING identifier;
+
+  /// Port (name dependent on identifier, so 1-port-per-process policy handles exclusivity)
+  OBJECT port;
+
+  /// List of connected comm links
+  OBJECT ARRAY links;
+
+  /// List of close requests
+  RECORD ARRAY pvt_requests;
+
+  /// Counter for close request ids
+  INTEGER requestid_counter;
+
+  /// Opened 'can we close?' dialog
+  OBJECT askclosedialog;
+
+  /// Takeover dialogs at requester's side
+  OBJECT takeoverdialog;
+
+  /** Options
+      @cell(function ptr) onbeforesteal Callback called just before the screen is stolen
+      @cell(function ptr) onsteal Callback called after the screen has been stolen
+      @cell(record) subscreensonly Close only subscreens of the opening screen
+  */
+  RECORD options;
+
+  /** Steal exitmessage
+      @cell(boolean) showmessage
+      @cell(record) closedby Identity data for the user that stole the screen (login, realname)
+      @cell(string) closedby.login
+      @cell(string) closedby.realname
+  */
+  RECORD exitmessage;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** List of current takeover requests
+      @cell id Id of request
+      @cell login Login name of takeover user
+      @cell realname Real name of takeover user
+      @cell date Date of takeover request
+      @cell deadline Time the requester will take over automatically
+  */
+  PUBLIC PROPERTY requests(GetRequests, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT screen, STRING identifier, RECORD options)
+  {
+    this->screen := screen;
+    this->identifier := identifier;
+    this->options :=  ValidateOptions(
+        [ onstolen :=         DEFAULT FUNCTION PTR
+        , onbeforesteal :=    DEFAULT FUNCTION PTR
+        , subscreensonly :=   FALSE
+        ], options);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  RECORD ARRAY FUNCTION GetRequests()
+  {
+    RETURN SELECT *, DELETE link, DELETE msgid FROM this->pvt_requests;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  /// Got an incoming comm link
+  MACRO OnLink()
+  {
+    OBJECT link := this->port->Accept(DEFAULT DATETIME);
+    IF (ObjectExists(link))
+    {
+      link->userdata :=
+          [ cb :=         RegisterHandleReadCallback(link->handle, PTR this->OnLinkMessage(link))
+          , requestid :=  0
+          ];
+
+      INSERT link INTO this->links AT END;
+    }
+  }
+
+  /** Incoming comm link is signalled
+      Warning: this can be called from WITHIN the signaltakeover dialog!!!
+  */
+  MACRO OnLinkMessage(OBJECT link)
+  {
+    RECORD rec := link->ReceiveMessage(DEFAULT DATETIME);
+    IF (rec.status = "timeout")
+      RETURN; // Spurious wakeup, ignore
+
+    // Other link is gone.
+    IF (rec.status = "gone")
+    {
+      this->CloseLink(link);
+      RETURN;
+    }
+
+    SWITCH (rec.msg.type)
+    {
+      CASE "identify"
+      {
+        // Identification request
+        link->SendReply(
+            [ login :=    this->screen->tolliumuser->login
+            , realname := this->screen->tolliumuser->realname
+            , entityid := this->screen->tolliumuser->entityid
+            , groupid :=  GetCurrentGroupId()
+            ], rec.msgid);
+      }
+      CASE "close"
+      {
+        // Already winding down for a forced close? Ignore next close requests
+        IF (RecordExists(this->exitmessage))
+          RETURN;
+
+        // Set the exit message - this will prevent closes from other sources
+        this->exitmessage := [ showmessage := TRUE, closedby := rec.msg ];
+
+        IF (CellExists(this->options, "ONBEFORESTEAL") AND this->options.onbeforesteal != DEFAULT FUNCTION PTR)
+          this->options.onbeforesteal();
+
+        // forced close by other side
+        link->SendReply([ success := TRUE ], rec.msgid);
+
+        // Give the other side an (little) advantage to the other links
+        this->ClosePort();
+
+        // Close the handler, show messages and do callback
+        this->Close();
+      }
+      CASE "requestclose"
+      {
+        // Only one pending request per link
+        IF (link->userdata.requestid != 0)
+        {
+          link->SendExceptionReply(NEW Exception("Already a close request pending on this link"));
+          this->CloseLink(link);
+          RETURN;
+        }
+
+        // Allocate a request id
+        this->requestid_counter := this->requestid_counter + 1;
+        link->userdata.requestid := this->requestid_counter;
+
+        // Register the request
+        INSERT CELL
+            [ id :=       this->requestid_counter
+            , date :=     GetCurrentDateTime()
+            , rec.msg.login
+            , rec.msg.realname
+            , rec.msg.deadline
+            , rec.msgid
+            , link :=     link
+            ] INTO this->pvt_requests AT END;
+
+        // Open the ask dialog if not open yet (if already open, we called from within its modal loop!)
+        IF (NOT ObjectExists(this->askclosedialog))
+        {
+          // Run the askclosedialog
+          this->askclosedialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.signaltakeover", CELL[ control := this ]);
+          STRING dres := this->askclosedialog->RunModal();
+
+          // Erase the reference immediately!
+          this->askclosedialog := DEFAULT OBJECT;
+
+          // Did the user consent to the takeover (say ok, or let it timeout)
+          BOOLEAN close_screen := dres IN [ "ok", "timeout" ];
+
+          // Yes: give a positive answer to the first request (if present)
+          IF (close_screen AND LENGTH(this->pvt_requests) != 0)
+          {
+            IF (CellExists(this->options, "ONBEFORESTEAL") AND this->options.onbeforesteal != DEFAULT FUNCTION PTR)
+              this->options.onbeforesteal();
+
+            this->pvt_requests[0].link->SendReply([ success := TRUE ], this->pvt_requests[0].msgid);
+            this->CloseLink(this->pvt_requests[0].link);
+
+            // Give the other side an (little) advantage to the other links
+            Sleep(100);
+          }
+
+          // Deny all other requests
+          FOREVERY (RECORD req FROM this->pvt_requests)
+            req.link->SendReply([ success := FALSE ], req.msgid);
+
+          // Close the screen anyway (even if no requests are pending. We want to be predictable, not have users
+          // expect that the screen will stay open anyway when they have clicked to close)
+          IF (close_screen)
+          {
+            this->exitmessage := [ showmessage := dres = "timeout", closedby := rec.msg ];
+
+            // Relinquish exclusivity
+            this->Close();
+          }
+        }
+        ELSE // Got another request, update the signaltakeover dialog
+          this->askclosedialog->GotUpdate();
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Close the exclusivity port
+  MACRO ClosePort()
+  {
+    IF (ObjectExists(this->port))
+    {
+      UnregisterCallback(this->port->userdata.cb);
+      this->port->Close();
+      this->port := DEFAULT OBJECT;
+    }
+  }
+
+  /// Close a comm link
+  MACRO CloseLink(OBJECT link)
+  {
+    // Cancel requests from this link
+    DELETE
+      FROM this->pvt_requests
+     WHERE id = link->userdata.requestid;
+
+    // Remove callback, close link & remove from links list
+    UnregisterCallback(link->userdata.cb);
+    link->Close();
+    INTEGER pos := SearchElement(this->links, link);
+    IF (pos != -1)
+      DELETE FROM this->links AT pos;
+
+    // If the dialog is open, update its state
+    IF (ObjectExists(this->askclosedialog))
+      this->askclosedialog->GotUpdate();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  PUBLIC BOOLEAN FUNCTION Start()
+  {
+    // Wait loop
+    WHILE (TRUE)
+    {
+      TRY
+      {
+        // Try to register our port. Only one port with the same name can be active in a process (webserver).
+        // Throws upon failure
+        this->port := CreateIPCPort("tollium:exclusive_access." || this->identifier);
+
+        // Listen to incoming takeover requests
+        this->port->userdata := [ cb := RegisterHandleReadCallback(this->port->handle, PTR this->OnLink) ];
+        RETURN TRUE;
+      }
+      CATCH (OBJECT e)
+      {
+        // Port already existed. Connect to it.
+        OBJECT link := ConnectToIPCPort("tollium:exclusive_access." || this->identifier);
+        IF (NOT ObjectExists(link)) // Might have gone already.
+          CONTINUE;
+
+        TRY
+        {
+          // Ask for the identity of the other side (ADDME: timeout for unresponse processes?)
+          // Do an async call to make sure an exclusivity handler in the same job doesn't deadlock the system
+          RECORD res := WaitForPromise(link->AsyncDoRequest([ type := "identify" ]));
+
+          // If the request failed, the other side is probably gone. Retry getting the port.
+          IF (res.status = "ok")
+          {
+            IF (res.msg.groupid = GetCurrentGroupId())
+              THROW NEW Exception("Recursive exclusive access lock detected!");
+
+            // Is this a tab of the current user?
+            IF (res.msg.entityid = this->screen->tolliumuser->entityid)
+            {
+              // Ask what to do
+              OBJECT dialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.stealdialog",
+                  [ msg := res.msg
+                  , link := link
+                  , isown := TRUE
+                  , title := this->screen->frame->title
+                  ]);
+
+              STRING dres := dialog->RunModal();
+
+              // Other side disappeared? Retry loop
+              IF (dres = "linkbroken")
+                CONTINUE;
+
+              // Got a license to kill from the user?
+              IF (dres = "ok")
+              {
+                link->DoRequest(
+                    [ type := "close"
+                    , login :=    this->screen->tolliumuser->login
+                    , realname := this->screen->tolliumuser->realname
+                    ]);
+                CONTINUE;
+              }
+            }
+            ELSE
+            {
+              // Ask if user wants to take over dialog from other user
+              OBJECT dialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.stealdialog",
+                  [ msg := res.msg
+                  , link := link
+                  , isown := FALSE
+                  , title := this->screen->frame->title
+                  ]);
+
+              STRING dres := dialog->RunModal();
+              IF (dres = "ok")
+              {
+                // Yes, user wants to. Run screen waitforreply, it will do the request
+                dialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.runtakeoverrequest",
+                    [ msg := res.msg
+                    , link := link
+                    , title := this->screen->frame->title
+                    ]);
+                dres := dialog->RunModal();
+
+                IF (dres = "ok")
+                  CONTINUE;
+                ELSE IF (dres = "denied")
+                {
+                  this->screen->tolliumcontroller->RunMessageBox("tollium:exclusive.takeoverdenied", this->screen->frame->title);
+                  RETURN FALSE;
+                }
+              }
+              ELSE IF (dres = "linkbroken")
+                CONTINUE;
+            }
+
+            // Asked for license to close, but didn't get it
+            IF (NOT this->options.subscreensonly)
+              this->screen->tolliumcontroller->MarkScreenAsStolen(this->screen);
+
+            // Cleanup resources
+            this->Close();
+            RETURN FALSE;
+          }
+        }
+        FINALLY
+          link->Close();
+      }
+    }
+    RETURN FALSE;
+  }
+
+  PUBLIC MACRO Check()
+  {
+    IF (RecordExists(this->exitmessage))
+      THROW NEW OperationCancelledException();
+  }
+
+  /// Close the exclusivity handler (release lock)
+  PUBLIC MACRO Close()
+  {
+    this->ClosePort();
+
+    // If forced closing, give our closer a bit of head-start to open its own port
+    IF (RecordExists(this->exitmessage))
+      Sleep(100);
+
+    WHILE (LENGTH(this->links) != 0)
+      this->CloseLink(this->links[0]);
+
+    IF (RecordExists(this->exitmessage))
+    {
+      IF (this->exitmessage.showmessage)
+        this->screen->RunMessageBox("tollium:exclusive.dialogstolen", this->exitmessage.closedby.login, this->exitmessage.closedby.realname);
+
+      // Close the relevant screens
+      IF (this->options.subscreensonly)
+        this->screen->tolliumcontroller->MarkChildrenScreensAsStolen(this->screen);
+      ELSE
+        this->screen->tolliumcontroller->MarkScreenAsStolen(this->screen);
+
+      IF (CellExists(this->options, "ONSTOLEN") AND this->options.onstolen != DEFAULT FUNCTION PTR)
+        this->options.onstolen();
+
+      this->exitmessage := DEFAULT RECORD;
+    }
+  }
+>;

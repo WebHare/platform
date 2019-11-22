@@ -1,0 +1,1141 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+
+/* Saving logic:
+   Always:
+    autosave -> save to private draft
+
+   File not in versioned site:
+      File not published
+         save -> save to live object
+         publish -> save to live object, publish the live file
+      File published
+         save -> save to draft object
+         publish -> save draft to live object
+
+   File in versioned site:
+      Contenttype not in versioned data
+         save -> save to live object
+         publish -> save to live object, create draft (+publish), ask 'submit for publicaction'
+
+      Contenttype in versioned data
+         locked? Exit now
+         save -> save to public draft
+         publish -> save to public draft, add (+publish), ask 'submit for publicaction'
+*/
+
+CONSTANT STRING ARRAY requiredapiproperties :=  [ "onsetenabled", "onloaddata", "onstoredata" ];
+
+STATIC OBJECTTYPE EditDocumentAPI
+<
+  OBJECT editscreen;
+
+  RECORD ARRAY instancedatacache;
+
+  RECORD ARRAY extensiondata;
+
+  // The content types that are edited by this editor (only these types are read/written through GetInstanceData/SetInstanceData)
+  PUBLIC STRING ARRAY editcontenttypes;
+
+  /// Callback to mark us as readonly
+  PUBLIC MACRO PTR onsetenabled;
+
+  /// Callback invoked when the editor should (re)load the edited object's instance data using GetInstanceData
+  PUBLIC MACRO PTR onloaddata;
+
+  /// Callback invoked when the editor should write the edited object's instance data using SetInstanceData
+  PUBLIC MACRO PTR onstoredata;
+
+  /// Callback BOOLEAN FUNCTION(BOOLEAN ispublish) invoked to verify whether the save should happen. ispublish is FALSE if we're saving as draft (currently incompatible with versioning!)
+  PUBLIC MACRO PTR onconfirmsave;
+
+  /// Callback invoked with a feedback object for validation before explicit save
+  PUBLIC MACRO PTR onvalidate;
+
+  /// Callback MACRO (OBJECT work, BOOLEAN ispublish) invoked when we've saved the document. ispublish is FALSE if we're saving as draft (currently incompatible with versioning!)
+  PUBLIC MACRO PTR onsave;
+
+  /// Root folders to add for internal link dialogs
+  PUBLIC INTEGER ARRAY limitlinksroots;
+
+  PUBLIC PROPERTY baseobject(GetBaseObject, -);
+  PUBLIC PROPERTY editobject(GetEditObject, -);
+
+  PUBLIC PROPERTY readonly(this->editscreen->readonly, -);
+
+  MACRO NEW(OBJECT editscreen)
+  {
+    this->editscreen := editscreen;
+  }
+
+  /// Should be invoked by editors to mark the document as dirty, is implicitly called when using SetInstanceData
+  PUBLIC MACRO MarkDocumentAsDirty()
+  {
+    //DumpValue(GetStackTrace(), [ name := "BE DIRTY!"]);
+    this->editscreen->frame->flags.isdirty := TRUE;
+    this->editscreen->RefreshState();
+  }
+
+  /// Get instance data of a given type from the object being edited (containing last changes)
+  PUBLIC RECORD FUNCTION GetInstanceData(STRING type)
+  {
+    IF (type NOT IN this->editcontenttypes)
+      THROW NEW Exception(`Type '${type}' is not edited by this screen`);
+
+    RECORD originaldata := this->editscreen->GetInstanceObject()->GetInstanceData(type);
+    RECORD cached := SELECT * FROM this->instancedatacache WHERE namespace = type;
+    IF (RecordExists(cached))
+      RETURN CELL[...originaldata, ...cached.data];
+
+    RETURN originaldata;
+  }
+
+  /** Write instance data of a given type to the object being edited. We store any cell modified, but shouldn't 'save and continously replace' a cell that was never touched by the editor
+  */
+  PUBLIC MACRO SetInstanceData(STRING type, RECORD data)
+  {
+    IF (type NOT IN this->editcontenttypes)
+      THROW NEW Exception(`Type '${type}' is not edited by this screen`);
+
+    IF (NOT RecordExists(SELECT FROM this->instancedatacache WHERE namespace = type))
+    {
+      INSERT [ namespace := type, data := data ]
+        INTO this->instancedatacache AT END;
+    }
+    ELSE
+    {
+      UPDATE this->instancedatacache
+         SET data := CELL[...COLUMN data, ...VAR data]
+       WHERE namespace = type;
+    }
+    this->MarkDocumentAsDirty();
+  }
+
+  PUBLIC MACRO __FlushInstanceData(OBJECT targetobject)
+  {
+    this->onstoredata();
+    FOREVERY (RECORD cached FROM this->instancedatacache)
+    {
+      targetobject->SetInstanceData(cached.namespace, cached.data);
+    }
+
+    this->instancedatacache := DEFAULT RECORD ARRAY;
+  }
+
+  INTEGER FUNCTION GetBaseObject()
+  {
+    RETURN this->editscreen->GetBaseFSObject()->id;
+  }
+
+  INTEGER FUNCTION GetEditObject()
+  {
+    RETURN this->editscreen->GetInstanceObject()->id;
+  }
+>;
+
+PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Id of the file we're editing
+  INTEGER fileid;
+
+  /// Last modificationdate of the published version (inited when opened)
+  DATETIME lastmod;
+
+  /// Rich document file instancedata
+  RECORD filedata;
+
+  /// Current autosave object
+  OBJECT currentautosave;
+
+  /// Current draft object
+  OBJECT currentdraft;
+
+  /// When autosave may start working (set to TRUE when is RTE initialized, set to FALSE after 'Save on close: NO')
+  BOOLEAN canautosave;
+
+  /// Whether or not to show the draft bar during this session
+  BOOLEAN showdraftbar;
+
+  /// Whether to assume the user has write access
+  BOOLEAN assumewriteaccess;
+
+  // Versioning policy for the current site
+  OBJECT siteversioningpolicy;
+
+  /// Type of the file being edited
+  INTEGER filetype;
+
+  OBJECT editdocapi;
+
+  /// If the user only has read-only access to this file (fs_browse)
+  BOOLEAN readonly;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->editdocapi := NEW EditDocumentAPI(PRIVATE this);
+    this->frame->flags.isdeveloper := this->contexts->user->ShowDeveloperOptions();
+    this->frame->flags.isdirty := FALSE;
+    this->developersmenu->visible := this->frame->flags.isdeveloper;
+    this->contexts->editdocumentapi := this->editdocapi;
+
+    this->frame->flags.canedit := FALSE;
+    this->frame->flags.canpublish := FALSE;
+
+    IF(CellExists(data,'assumewriteaccess'))
+      this->assumewriteaccess := data.assumewriteaccess;
+
+    this->editdocapi->limitlinksroots := data.limitlinksroots;
+    this->fileid := data.id;
+    this->readonly := NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid);
+    IF(this->readonly AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->fileid)) //not even browse access?
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+    IF (NOT this->GetExclusiveAccess([ id := this->fileid ], [ onbeforesteal := PTR this->GotScreenStolen ]))
+      RETURN;
+
+    this->SetupForFileEdit(this->fileid, data.objeditor);
+
+    this->showdraftbar := TRUE;
+
+    //ADDME deal with cases where users already make other modifications while we're stil opening ?
+
+    OBJECT fsobject := OpenWHFSObject(this->fileid);
+    IF(NOT ObjectExists(fsobject))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    this->frame->flags.canpreview := fsobject->parentsite != 0 AND OpenSite(fsobject->parentsite)->outputweb != 0;
+
+    this->filedata := [ name := fsobject->name, modificationdate := fsobject->modificationdate ];
+    this->filetype := fsobject->type;
+
+    this->publicationlistener->masks := [ "system:whfs.folder." || fsobject->parent, "publisher:publish.folder." || fsobject->parent ];
+    this->frame->title := this->filedata.name;
+
+    RECORD ARRAY drafts := GetDrafts(fsobject->id);
+    IF(Length(SELECT FROM drafts WHERE ispublic)>1)
+      THROW NEW Exception("Multiple public drafts");
+
+    /* Public draft present?
+          Submitted for approval?
+              Say so, exit
+          Someone else created it?
+              Say so, exit if user wants to exit
+
+        Private draft present for current user?
+            Open it, ask if user wants to resume
+                No->revert to default version
+                Yes->keep private draft as current version
+    */
+
+    STRING savemode := this->GetSaveMode();
+    IF (savemode NOT IN [ "versioned-locked-editlive", "versioned-editlive" ])
+    {
+      //ADDME: Add a way for read-only users to switch between draft en live?
+      IF (NOT this->readonly)
+      {
+        RECORD currentdraft := SELECT * FROM drafts WHERE ispublic;
+        IF(RecordExists(currentdraft))
+        {
+          this->currentdraft := OpenDraft(fsobject->id, currentdraft.id);
+          IF(NOT ObjectExists(this->currentdraft))
+            THROW NEW Exception("Failed to open single draft #" || currentdraft.id);
+        }
+      }
+    }
+    ELSE
+    {
+      // The rich document data is not versioned, so we should ignore the draft
+      DELETE FROM drafts WHERE ispublic;
+    }
+
+
+    RECORD otherdraft := SELECT * FROM drafts WHERE ispublic AND NOT mine ORDER BY creationdate DESC LIMIT 1;
+    IF(NOT this->readonly AND RecordExists(otherdraft) AND savemode != "versioned-locked")
+    {
+      STRING user := this->contexts->userapi->GetUserDisplayName(otherdraft.user);
+      STRING when := this->tolliumuser->FormatDatetime(otherdraft.creationdate, "minutes", TRUE, FALSE);
+
+      IF (this->RunMessageBox(".otherhasdraft", user, when) != "ok")
+      {
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+//      ABORT(otherdraft);
+    //Gebruiker XX / Een andere gebruiker heeft een conceptversie van dit document opgeslagen. Deze conceptversie wordt nu ge-opend. U kunt dit concept aanpassen en opslaan en publiceren. Eventueel kunt u ook de conceptversie verwijderen en teruggaan naar de gepubliceerde versie.
+    }
+
+    BOOLEAN mustloadrte := TRUE;
+    IF (savemode != "versioned-locked")
+    {
+      RECORD myautosave := SELECT * FROM drafts WHERE mine AND NOT ispublic ORDER BY creationdate DESC LIMIT 1;
+      IF(RecordExists(myautosave))
+      {
+        this->currentautosave := OpenDraft(fsobject->id, myautosave.id);
+        this->ReloadRTEContents();
+
+        STRING response := this->RunMessageBox(".resumeautosave");
+        IF(response != "yes" AND response != "no")
+        {
+          this->tolliumresult := "cancel";
+          RETURN;
+        }
+
+        IF(response = "yes")
+        {
+          mustloadrte := FALSE;
+          this->frame->flags.isdirty := TRUE;
+        }
+        ELSE
+        {
+          this->currentautosave := DEFAULT OBJECT;
+          OBJECT work := this->BeginUnvalidatedWork();
+          CleanupMyPrivateDrafts(fsobject->id);
+          work->Finish();
+        }
+      }
+    }
+
+    this->lastmod := this->filedata.modificationdate;
+    //this->historybtn->pressed := this->historypart->visible ;
+
+    IF(mustloadrte)
+      this->ReloadRTEContents();
+
+    // Can start autosaving when RTE is initialized (not before, would save empty document)
+    this->canautosave := NOT this->readonly;
+
+    this->RefreshState();
+
+    RegisterTimedCallback(AddTimeToDate(1, GetCurrentDatetime()), PTR this->CalculateInitialDirty);
+  }
+
+  MACRO SetupForFileEdit(INTEGER objectid, RECORD objecteditor)
+  {
+    OBJECT applytester := GetApplyTesterForObject(objectid);
+    IF(NOT ObjectExists(applytester))
+      THROW NEW Exception("Unable to build an applytester");
+
+    IF(objecteditor.documenteditor = "")
+      objecteditor.documenteditor := "mod::tolliumapps/rtdedit/rtdedit.xml#richdoc";
+
+    this->contexts->applytester := applytester;
+    this->siteversioningpolicy := applytester->GetVersioningPolicy();
+
+    OBJECT filehandler := this->LoadScreen(objecteditor.documenteditor);
+
+    FOREVERY(STRING requiredprop FROM requiredapiproperties)
+      IF(IsDefaultValue(GetMember(this->editdocapi, requiredprop)))
+        THROW NEW Exception(`Document editor ${objecteditor.documenteditor} must implement '${requiredprop}'`);
+
+    this->doceditor->contents := filehandler;
+
+    // Merge document editor toolbar
+    IF(Length(this->doceditor->contents->frame->toolbars) > 0)
+      this->toolbar->items := this->toolbar->items CONCAT this->doceditor->contents->frame->toolbars[0]->items;
+
+    // Merge document editor main menu
+    IF (ObjectExists(this->doceditor->contents->frame->menubar))
+      this->MergeIntoMainMenu(this->frame->menubar, this->doceditor->contents->frame->menubar->items);
+  }
+
+  MACRO MergeIntoMainMenu(OBJECT mymenu, RECORD ARRAY newitems)
+  {
+    // Is there an 'editdocumentmenu' insertion point?
+    INTEGER pos :=
+        (SELECT AS INTEGER #items + 1
+           FROM mymenu->items
+          WHERE NOT isdivider
+                AND menuitem->title = "#####") - 1;
+    IF (pos < 0)
+      pos := Length(mymenu->items);
+
+    FOREVERY (RECORD newitem FROM newitems)
+    {
+      // Check if a submenu with the new item's name already exists (to merge submenus)
+      OBJECT existing := NOT newitem.isdivider AND newitem.menuitem->name NOT LIKE "tollium_*$*" AND RecordExists(newitem.menuitem->items)
+          ? SELECT AS OBJECT menuitem
+              FROM mymenu->items
+             WHERE NOT isdivider
+                   AND menuitem->name NOT LIKE "tollium_*$*"
+                   AND ToUppercase(menuitem->name) = ToUppercase(newitem.menuitem->name)
+                   AND RecordExists(menuitem->items)
+          : DEFAULT OBJECT;
+      IF (ObjectExists(existing))
+      {
+        this->MergeIntoMainMenu(existing, newitem.menuitem->items);
+      }
+      ELSE
+      {
+        INSERT newitem INTO mymenu->items AT pos;
+        pos := pos + 1;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO CalculateInitialDirty()
+  {
+    // Need the client state at this moment, so require a sync.
+    STRING res := this->tolliumcontroller->GetClientState(
+          [ timeout := AddTimeToDate(30000, GetCurrentDateTime())
+          ]);
+    IF (res != "ok")
+      RETURN;
+
+    this->RefreshState();
+  }
+
+  MACRO ReloadRTEContents()
+  {
+    this->editdocapi->onloaddata();
+    this->RefreshState();
+  }
+
+  MACRO RefreshState()
+  {
+    // Do we have a published version?
+    OBJECT fsobj := OpenWHFSObject(this->fileid);
+    IF (ObjectExists(fsobj))
+    {
+      BOOLEAN canpublish := fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0;
+      this->frame->flags.canview := GetOncePublishedFromPublished(fsobj->published) AND canpublish;
+    }
+    ELSE
+      this->frame->flags.canview := FALSE;
+    this->readonly := NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid);
+
+    this->frame->flags.canrevertdraft := ObjectExists(this->currentautosave ?? this->currentdraft) AND this->frame->flags.canedit AND NOT this->readonly;
+    this->frame->flags.cancancelrequest := ObjectExists(this->currentautosave ?? this->currentdraft) AND NOT this->frame->flags.canedit AND NOT this->readonly;
+
+    //ADDME: Show draft if no published version available
+    IF(ObjectExists(this->currentdraft) AND this->showdraftbar AND NOT this->readonly)
+    {
+      STRING when := this->tolliumuser->FormatDatetime(this->currentdraft->when, "minutes", TRUE, FALSE);
+      INTEGER modifiedby := this->currentdraft->user;
+      STRING basetext;
+      IF(modifiedby = this->tolliumuser->authobjectid)
+      {
+        basetext := this->GetTid(".draftmode-by-you", when);
+      }
+      ELSE
+      {
+        STRING user := this->contexts->userapi->GetUserDisplayName(modifiedby);
+        basetext := this->GetTid(".draftmode-by-other", user, when);
+      }
+
+      this->draftmode->htmlvalue := EncodeHTML(basetext);
+      this->draftbar_canceldraft->visible := this->frame->flags.canrevertdraft;
+      this->draftbar_cancelrequest->visible := FALSE;
+
+      this->draftbar->visible := TRUE;
+    }
+    ELSE
+      this->draftbar->visible := FALSE;
+
+    STRING savemode := this->GetSaveMode();
+    IF (savemode = "versioned-locked")
+    {
+      this->editdocapi->onsetenabled(FALSE);
+      this->frame->flags.canedit := FALSE;
+      this->frame->flags.canpublish := FALSE;
+
+      STRING basetext := this->readonly ? this->GetTid(".request-for-approval-readonly") : this->GetTid(".request-for-approval");
+      this->draftbar->visible := TRUE;
+      this->draftmode->htmlvalue := EncodeHTML(basetext);
+      this->draftbar_canceldraft->visible := FALSE;
+      this->draftbar_cancelrequest->visible := this->frame->flags.cancancelrequest;
+    }
+    ELSE IF (savemode = "versioned-locked-editlive")
+    {
+      this->editdocapi->onsetenabled(NOT this->readonly);
+      this->frame->flags.canedit := NOT this->readonly;
+      this->frame->flags.canpublish := FALSE;
+
+      this->draftbar->visible := TRUE;
+      STRING basetext := this->readonly ? this->GetTid(".request-for-approval-editlive-readonly") : this->GetTid(".request-for-approval-editlive");
+      this->draftmode->htmlvalue := EncodeHTML(basetext);
+      this->draftbar_canceldraft->visible := FALSE;
+      this->draftbar_cancelrequest->visible := FALSE;
+    }
+    ELSE
+    {
+      this->editdocapi->onsetenabled(NOT this->readonly);
+      this->frame->flags.canedit := NOT this->readonly;
+      this->frame->flags.canpublish := NOT this->readonly;
+
+      IF (savemode IN [ "versioned-editdraft", "versioned-editlive" ])
+      {
+        STRING warntype := GetVersioningDraftWarning(OpenWHFSObject(this->fileid));
+        SWITCH (warntype)
+        {
+          CASE "normal" // Keep usual texts
+          {
+          }
+          CASE "justdenied"
+          {
+            this->draftbar->visible := TRUE;
+            this->draftmode->htmlvalue := EncodeHTML(GetTid("publisher:versioning.editingjustdeniedversioneddraft"));
+            this->draftbar_canceldraft->visible := FALSE;
+            this->draftbar_cancelrequest->visible := FALSE;
+          }
+          DEFAULT
+          {
+            THROW NEW Exception(`Unhandled draft warn type '${warntype}'`);
+          }
+        }
+      }
+    }
+
+    RECORD state;
+
+    IF (this->frame->flags.isdirty)
+    {
+      state :=
+          [ icon :=   "tollium:status/unknown"
+          , text :=   this->GetTid(".documenthasunsavedchanges")
+          ];
+    }
+    ELSE IF (ObjectExists(this->currentdraft))
+    {
+      state :=
+          [ icon :=   "tollium:actions/edit"
+          , text :=   this->GetTid(".documenthasunpublishedchanges")
+          ];
+    }
+    ELSE
+    {
+      // Get published file FS object
+      IF (ObjectExists(fsobj))
+      {
+        BOOLEAN canpublish := fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0;
+
+        INTEGER published := fsobj->published;
+        IF (fsobj->lastpublishdate > AddTimeToDate(-1000, GetCurrentDateTime()))
+        {
+          published := ConvertToWillPublish(published, FALSE, FALSE, PubPrio_DirectEdit);
+          RegisterTimedCallback(AddTimeToDate(500, GetCurrentDateTime()), PTR this->RefreshState());
+        }
+
+        STRING publishedat := this->tolliumuser->FormatDateTime(fsobj->modificationdate, "minutes", TRUE, TRUE);
+        state := GetFileStatusFromPublished(published, canpublish, publishedat, DEFAULT RECORD);
+      }
+      ELSE
+      {
+        state := GetFileStatusFromPublished(0, FALSE, "", DEFAULT RECORD);
+      }
+    }
+
+    BOOLEAN havesomethingtopublish := ObjectExists(this->currentdraft) OR (ObjectExists(fsobj) AND NOT fsobj->publish);
+    this->publish->enabled := this->frame->flags.isdirty OR havesomethingtopublish;
+    this->frame->flags.havesomethingtopublish := havesomethingtopublish;
+
+    this->filestatusicon->SetImageSrc(state.icon);
+    this->filestatustext->value := state.text;
+
+    this->publishmenu->visible := NOT this->readonly;
+    this->savemenu->visible := NOT this->readonly;
+    this->canceldraftmenu->visible := NOT this->readonly;
+    this->cancelrequestmenu->visible := NOT this->readonly;
+    this->publishbutton->visible := NOT this->readonly;
+    this->saveasdraftbutton->visible := NOT this->readonly;
+  }
+
+  OBJECT FUNCTION GetEditingSourceObject()
+  {
+    RETURN ObjectExists(this->currentautosave) ? this->currentautosave->fsobject : this->GetBaseSourceObject();
+  }
+
+  OBJECT FUNCTION GetBaseSourceObject()
+  {
+    RETURN ObjectExists(this->currentdraft) ? this->currentdraft->fsobject : OpenWHFSObject(this->fileid);
+  }
+
+  MACRO OnDraftmodeclick(STRING link)
+  {
+    IF(link LIKE "*#publish")
+      this->DoPublish();
+    ELSE IF(link LIKE "*#cancel")
+      this->DoCanceldraft();
+  }
+
+  /** Return the savemode for the current document, and calculates frame->flags.cancancelrequest
+      @return savemode
+      "unversioned-published": Site is not versioned, file is now published.
+      "unversioned-unpublished": Site is not versioned, file is now not published
+      "versioned-locked": Site is versioned, file has a pending request for approval and rtd data is now locked
+      "versioned-locked-editlive": Site is versioned, file has a pending request for approval, but rtd data can be edited in live object
+      "versioned-editlive": Site is versioned, rtd data is not protected (can be edited in live object)
+      "versioned-editdraft": Site is versioned, rtd data is protected, must be edited in draft
+  */
+  STRING FUNCTION GetSaveMode()
+  {
+    // See if the current draft is locked for
+    IF (NOT ObjectExists(this->siteversioningpolicy))
+    {
+      this->frame->flags.cancancelrequest := FALSE;
+      IF (SELECT AS BOOLEAN IsPublish(published) FROM system.fs_objects WHERE id = this->fileid)
+        RETURN "unversioned-published";
+      ELSE
+        RETURN "unversioned-unpublished";
+    }
+
+    RECORD data := SELECT id, isfolder, parent, published FROM system.fs_objects WHERE id = this->fileid;
+    data := this->siteversioningpolicy->EnrichWithObjectPolicy([ data ], [ returnpolicyafteraccept := TRUE ])[0];
+
+    RECORD fields := data.policy->GetFields();
+
+    // If the draft is locked and the rich document metadata is versioned in the current or the new policy,
+    // the document mey not be edited
+    IF (data.draftlocked)
+    {
+      this->frame->flags.cancancelrequest := data.draftlockedby_authobjectid = this->tolliumuser->authobjectid;
+      RECORD fields_after_accept := data.policyafteraccept->GetFields();
+
+      IF (this->filetype IN fields.versioned_contenttypes
+          OR this->filetype IN fields_after_accept.versioned_contenttypes)
+        RETURN "versioned-locked";
+    }
+
+    this->frame->flags.cancancelrequest := FALSE;
+    IF (this->filetype IN fields.versioned_contenttypes)
+      RETURN "versioned-editdraft";
+
+    RETURN data.draftlocked ? "versioned-locked-editlive" : "versioned-editlive";
+  }
+
+  BOOLEAN FUNCTION ExecuteSave(BOOLEAN withpublish, RECORD approval_metadata)
+  {
+    this->UpdateAutosave();
+    IF(NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid))
+    {
+      Print("save aborted - not privileged\n");
+      RETURN FALSE; //FIXME report
+    }
+
+    IF (this->editdocapi->onvalidate != DEFAULT MACRO PTR)
+    {
+      OBJECT feedback := this->BeginFeedback();
+      this->editdocapi->onvalidate(feedback);
+      IF(NOT feedback->Finish())
+        RETURN FALSE;
+    }
+
+    IF(this->editdocapi->onconfirmsave != DEFAULT FUNCTION PTR AND NOT this->editdocapi->onconfirmsave(withpublish))
+      RETURN FALSE; //aborted because some warning was scary enough
+
+    OBJECT old_currentautosave := this->currentautosave;
+    OBJECT old_currentdraft := this->currentdraft;
+
+    OBJECT work := this->BeginWork();
+    STRING savemode;
+    IF (NOT work->HasFailed())
+    {
+      savemode := this->GetSaveMode();
+      STRING savetarget;
+      SWITCH (savemode)
+      {
+        CASE "versioned-locked"         { RETURN FALSE; }
+        CASE "unversioned-unpublished"
+        {
+          // File is not published now. If publishing, save to live
+          // Otherwise, save to the draft only if there is one.
+          savetarget := withpublish OR NOT ObjectExists(this->currentdraft) ? "live" : "draft";
+        }
+        CASE "unversioned-published"
+        {
+          // File is published now. If not publishing, always save to the draft
+          savetarget := withpublish ? "live" : "draft";
+        }
+        CASE "versioned-editlive", "versioned-locked-editlive"
+        {
+          // File is versioned, but we can save to live data. Save to a draft is there is one
+          // If publishing, save normally first, and create a draft after that
+          savetarget := "versioned-live";
+        }
+        CASE "versioned-editdraft"
+        {
+          // File is versioned, can't save to live data.
+          savetarget := "draft";
+        }
+      }
+
+      IF (savetarget = "draft")
+      {
+        IF (ObjectExists(this->currentautosave))
+        {
+          // Ensure the public draft exists if we're actually saving something
+          IF (NOT ObjectExists(this->currentdraft))
+            this->currentdraft := CreateDraft(OpenWHFSObject(this->fileid), TRUE);
+
+          this->currentautosave->SaveToPublicDraft(
+              [ basefields :=   [ "DATA" ]
+              , contenttypes := this->editdocapi->editcontenttypes
+              ]);
+        }
+      }
+      ELSE // savetarget = "live" or savetarget = "versioned-live"
+      {
+        OBJECT source := this->currentautosave ?? this->currentdraft;
+        IF (ObjectExists(source))
+        {
+          // Deletes the autosave and the public draft too (but keep it when it's versioned, will probably contain other data)
+          source->SaveAsFinal(
+              [ basefields :=   [ "DATA" ]
+              , contenttypes := this->editdocapi->editcontenttypes
+              , keeppublicdraft := savetarget = "versioned-live"
+              ]);
+
+          this->currentdraft := DEFAULT OBJECT;
+        }
+      }
+
+      this->currentautosave := DEFAULT OBJECT;
+
+      IF (withpublish)
+      {
+        IF (savemode IN [ "unversioned-unpublished", "unversioned-published" ])
+        {
+          OBJECT fsobj := OpenWHFSObject(this->fileid);
+          BOOLEAN canpublish := fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0;
+          IF (NOT canpublish)
+            work->AddWarning(this->GetTid(".sitenotpublished"));
+          fsobj->UpdateMetadata([ publish := TRUE ]);
+        }
+        ELSE IF (savemode IN [ "versioned-editlive", "versioned-editdraft" ])
+        {
+          // Make sure there is a draft to submit.
+          OBJECT fsobj := OpenWHFSObject(this->fileid);
+          IF (NOT ObjectExists(this->currentdraft))
+            this->currentdraft := GetPublicDraft(fsobj->id) ?? CreateDraft(fsobj, TRUE);
+
+          // Set the 'published' flag of the draft (in the draftmetadata) to published.
+          RECORD testdraft_draftdata := this->currentdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+          testdraft_draftdata.flags := testdraft_draftdata.flags BITOR DraftFlag_Publish;
+          this->currentdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata);
+
+          // Submit for approval
+          SubmitApprovalRequestFromMetadata(work, fsobj, approval_metadata);
+        }
+        ELSE IF (savemode = "versioned-locked-editlive")
+          THROW NEW Exception("Cannot publish draft when already submitted for approval");
+      }
+    }
+
+    IF (NOT work->HasFailed() AND this->editdocapi->onsave != DEFAULT FUNCTION PTR)
+      this->editdocapi->onsave(work, withpublish);
+
+    IF (NOT work->Finish())
+    {
+      this->currentautosave := old_currentautosave;
+      this->currentdraft := old_currentdraft;
+      RETURN FALSE;
+    }
+
+    this->frame->flags.isdirty := FALSE;
+    //DumpValue(GetStackTrace(), [ name := "BE CLEAN!"]);
+    this->RefreshState();
+
+    // Warn that the current document needs to be submitted for approval to be published
+    IF (savemode = "versioned-editdraft")
+    {
+      IF (withpublish)
+      {
+        IF (this->RunMessageBox(".closeeditorafterversionedpublish") = "yes")
+          this->tolliumresult := "ok";
+      }
+      ELSE
+        this->RunMessageBox(".publishversionedfiletoapplychanges");
+    }
+
+    RETURN TRUE;
+  }
+
+  BOOLEAN FUNCTION UpdateAutosave()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    IF (this->frame->flags.isdirty)
+    {
+      IF (NOT ObjectExists(this->currentautosave))
+        this->currentautosave := CreateDraft(OpenWHFSObject(this->fileid), FALSE);
+
+      this->editdocapi->__FlushInstanceData(this->currentautosave->fsobject);
+    }
+    ELSE IF (ObjectExists(this->currentautosave))
+    {
+      // Object isn't dirty anymore, remove last autosave
+      this->currentautosave->DeleteSelf();
+      this->currentautosave := DEFAULT OBJECT;
+    }
+
+    work->Finish();
+    RETURN ObjectExists(this->currentautosave);
+  }
+
+  OBJECT FUNCTION GetInstanceObject()
+  {
+    RETURN ObjectExists(this->currentautosave)
+        ? this->currentautosave->fsobject
+        : this->GetEditingSourceObject();
+  }
+
+  OBJECT FUNCTION GetBaseFSObject()
+  {
+    RETURN OpenWHFSObject(this->fileid);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotUnload()
+  {
+    IF (NOT this->canautosave)
+      RETURN;
+
+    // Just save what we have
+    this->UpdateAutosave();
+  }
+
+  MACRO OnInterval()
+  {
+    IF (NOT this->canautosave)
+      RETURN;
+
+    // Request client state. Wait max 30 secs for client reply, else don't save.
+    // Don't need to lock the client to wait for our updates
+    STRING res := this->tolliumcontroller->GetClientState(
+          [ timeout := AddTimeToDate(30000, GetCurrentDateTime())
+          ]);
+    IF (res != "ok")
+      RETURN;
+
+    this->UpdateAutosave();
+  }
+
+  MACRO GotFolderChangeEvents(RECORD ARRAY events)
+  {
+    BOOLEAN have_change;
+    FOREVERY (RECORD event FROM events)
+    {
+      IF (RecordLowerBound(event.data.files, [ file := this->fileid ], [ "FILE" ]).found)
+        have_change := TRUE;
+    }
+
+    IF (have_change)
+      this->RefreshState();
+  }
+
+  MACRO GotScreenStolen()
+  {
+    // Screen was stolen, don't save changes on onload
+    this->canautosave := FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoSave()
+  {
+    IF (NOT this->ExecuteSave(FALSE, DEFAULT RECORD))
+      RETURN;
+
+    this->RefreshState();
+  }
+
+  MACRO DoPublish()
+  {
+    RECORD metadata;
+    STRING savemode := this->GetSaveMode();
+    IF (savemode IN [ "versioned-editlive", "versioned-editdraft" ])
+    {
+      metadata := GetSubmitRequestApprovalMetadata(this, OpenWHFSObject(this->fileid));
+      IF (NOT RecordExists(metadata))
+        RETURN;
+    }
+    ELSE IF (savemode = "versioned-locked-editlive")
+    {
+      this->RunMessageBox(".alreadysubmittedforapproval");
+      RETURN;
+    }
+    ELSE
+    {
+      IF(this->RunMessageBox(".confirmsaveandpublish") != "yes")
+        RETURN;
+    }
+    this->ExecuteSave(TRUE, metadata);
+  }
+
+  MACRO DoSendPreviewLink()
+  {
+    this->LoadScreen(".sendpreviewlink")->RunModal();
+  }
+
+  PUBLIC STRING FUNCTION CreatePreviewLink(DATETIME validuntil, STRING password, BOOLEAN autosave)
+  {
+    this->UpdateAutosave();
+
+    RETURN CreatePreviewLink(validuntil, password, this->fileid, autosave
+          ? this->GetEditingSourceObject()->id
+          : this->GetBaseSourceObject()->id);
+  }
+
+  MACRO DoPreviewCurrentContent(OBJECT openhandler)
+  {
+    //ADDME Can we create a previewurl that ONLY works for the currentuser, as long as he's logged in ?
+    STRING url := this->CreatePreviewLink(AddDaysTodate(1, GetCurrentDatetime()), "", TRUE);
+    IF(url != "")
+      openhandler->SendURL(url);
+  }
+
+  MACRO DoPreviewdraft(OBJECT openhandler)
+  {
+    //ADDME Can we create a previewurl that ONLY works for the currentuser, as long as he's logged in ?
+    STRING url := this->CreatePreviewLink(AddDaysTodate(1, GetCurrentDatetime()), "", FALSE);
+    IF(url != "")
+      openhandler->SendURL(url);
+  }
+
+  MACRO DoViewPublished(OBJECT openhandler)
+  {
+    openhandler->SendURL(OpenWHFSObject(this->fileid)->url);
+  }
+
+  BOOLEAN FUNCTION Cancel()
+  {
+    this->DoClose();
+    RETURN this->tolliumresult != "";
+  }
+
+  MACRO DoClose()
+  {
+    IF (this->frame->flags.isdirty)
+    {
+      STRING res := this->RunMessageBox(".savebeforeclose", OpenWHFSObject(this->fileid)->name);
+      SWITCH (res)
+      {
+        CASE "yes"
+        {
+          IF (this->ExecuteSave(FALSE, DEFAULT RECORD))
+            this->tolliumresult := "ok";
+        }
+        CASE "no"
+        {
+          OBJECT work := this->BeginUnvalidatedWork();
+          CleanupMyPrivateDrafts(this->fileid);
+          this->currentautosave := DEFAULT OBJECT;
+          work->Finish();
+
+          // No autosave upon unload!
+          this->canautosave := FALSE;
+          this->tolliumresult := "ok";
+        }
+      }
+    }
+    ELSE
+      this->tolliumresult := "ok";
+  }
+
+  MACRO DoCanceldraft()
+  {
+    IF (this->RunMessageBox(".confirmcanceldraft") != "yes")
+      RETURN;
+
+    OBJECT old_currentautosave := this->currentautosave;
+    OBJECT old_currentdraft := this->currentdraft;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    IF (ObjectExists(this->currentautosave))
+    {
+      this->currentautosave->DeleteSelf();
+      this->currentautosave := DEFAULT OBJECT;
+    }
+    IF (ObjectExists(this->currentdraft))
+    {
+      this->currentdraft->DeleteSelf();
+      this->currentdraft := DEFAULT OBJECT;
+    }
+
+    IF (work->Finish())
+    {
+      this->ReloadRTEContents();
+      this->RefreshState();
+
+      this->RunMessageBox(".draftcancelled");
+    }
+    ELSE
+    {
+      this->currentautosave := old_currentautosave;
+      this->currentdraft := old_currentdraft;
+    }
+  }
+
+  MACRO DoCancelRequest()
+  {
+    IF (this->GetSaveMode() IN [ "versioned-locked" ]
+        AND ObjectExists(this->currentdraft)
+        AND this->RunMessageBox(".confirmcancelrequest") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+
+      CancelApprovalRequestForDraft(this->currentdraft);
+
+      IF (work->Finish())
+      {
+        this->RefreshState();
+        this->RunMessageBox(".requestcancelled");
+      }
+    }
+  }
+
+  MACRO DoHidedraftbar()
+  {
+    this->showdraftbar := FALSE;
+    this->draftbar->visible := FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns whether the RTE is dirty wrt the current draft (or the published file if no draft exists).
+      Autosaves are ignored.
+  PUBLIC BOOLEAN FUNCTION IsDirty()
+  {
+    OBJECT targetfile := this->GetBaseSourceObject();
+    IF(NOT ObjectExists(targetfile))
+      RETURN FALSE;
+
+    // Started from an autosave?
+    IF (NOT RecordExists(this->reprocessedoriginalvalue))
+      RETURN TRUE;
+
+//    RECORD olddata := targetfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+    RECORD changes := OpenwHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->CompareInstanceDataUpdates([ data := this->reprocessedoriginalvalue], [ data := this->rte->value ]);
+/*
+    IF (this->tolliumcontroller->debugging AND RecordExists(changes))
+    {
+      IF (NOT RecordExists(olddata.data) OR NOT RecordExists(updates.data))
+        PRINT("Document is dirty - either old or new data does not exist\n");
+      ELSE
+      {
+        PRINT("Document is dirty\n");
+        IF (BlobToString(olddata.data.htmltext) != BlobToString(updates.data.htmltext))
+        {
+          PRINT("Old html\n" || BlobToString(olddata.data.htmltext) || "\n");
+          PRINT("New html\n" || BlobToString(updates.data.htmltext) || "\n");
+          PRINT("Structured xml-based diff\n" || SimpleTextDiff(
+              BlobToString(MakeXMLDocumentFromHTML(olddata.data.htmltext)->GetDocumentBlob(TRUE)),
+              BlobToString(MakeXMLDocumentFromHTML(updates.data.htmltext)->GetDocumentBlob(TRUE))));
+        }
+        ELSE
+        {
+          PRINT("HTML has no modifications\n" || BlobToString(olddata.data.htmltext) || "\n");
+          olddata.data.embedded := SELECT *, DELETE hash, DELETE link, DELETE settingid, DELETE __blobsource FROM olddata.data.embedded;
+          updates.data.embedded := SELECT *, DELETE hash, DELETE link, DELETE settingid, DELETE __blobsource FROM updates.data.embedded;
+
+          PRINT("Old RTE data\n" || AnyToString(olddata.data, "tree"));
+          PRINT("New RTE data\n" || AnyToString(updates.data, "tree"));
+          PRINT("Diff\n" || SimpleTextDiff(AnyToString(olddata.data, "tree"), AnyToString(updates.data, "tree")));
+        }
+      }
+    }
+    /*
+    LogDebug("publisher", "document test dirty", RecordExists(changes), this->rte->dirty, changes, olddata);
+    IF (RecordExists(changes) AND RecordExists(olddata) AND RecordExists(changes.data) AND RecordExists(updates.data))
+    {
+      //note: this debug code crashes when data is a default record
+      LogDebug("publisher", "old html", BlobToString(olddata.data.htmltext));
+      LogDebug("publisher", "new html", BlobToString(updates.data.htmltext));
+    }
+    * /
+    RETURN RecordExists(changes) OR this->rte->dirty;
+  }
+  */
+
+  MACRO DoInspectAutosave()
+  {
+    IF(ObjectExists(this->currentautosave))
+      CreateWHFSObjectInspectDialog(this, this->currentautosave->id)->RunModal();
+    ELSE
+      this->RunSimpleScreen("info", "No autosave present");
+  }
+  MACRO DoInspectDraft()
+  {
+    IF(ObjectExists(this->currentdraft))
+      CreateWHFSObjectInspectDialog(this, this->currentdraft->id)->RunModal();
+    ELSE
+      this->RunSimpleScreen("info", "No draft present");
+  }
+  MACRO DoInspectFinal()
+  {
+    CreateWHFSObjectInspectDialog(this, this->fileid)->RunModal();
+  }
+>;
+
+PUBLIC OBJECTTYPE SendPreviewLink EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    //round up to next hour, 7 days away
+    this->validuntil->value := GetRoundedDatetime(AddTimeToDate(60*60000, AddDaysToDate(7, GetCurrentDateTime())), 60*60000);
+  }
+  BOOLEAN FUNCTION OnShareNext()
+  {
+    OBJECT work := this->BeginUnvalidatedFeedback();
+    work->Validate(this->sharepage);
+    IF(this->validuntil->value < GetCurrentDatetime())
+      work->AddErrorFor(this->validuntil, this->GetTid(".validinthepast"));
+
+    RETURN work->Finish();
+  }
+  MACRO InitFinishPage(RECORD data)
+  {
+    this->link->value := this->tolliumparent->CreatePreviewLink(this->validuntil->value, this->passwordprotect->value ? this->password->value : "", FALSE);
+
+    STRING mailbody := this->GetTid(".mailbodypreview") || "\n\n" || this->link->value || "\n\n" || this->GetTid(".mailbodypreview2");
+    STRING mailsubject := this->GetTid(".mailbodysubject");
+    this->maillink->htmlvalue := '<a href="mailto:?to=&subject=' || EncodeURL(mailsubject) || '&body=' || EncodeURL(mailbody) || '">' || EncodeHTML(this->GetTid(".maillink")) || '</a>';
+  }
+>;

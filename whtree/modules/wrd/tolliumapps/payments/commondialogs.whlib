@@ -1,0 +1,322 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/dialogs.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/psps.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+
+PUBLIC OBJECTTYPE PaymentProviders EXTEND TolliumScreenBase
+<
+  OBJECT paymentapi;
+  RECORD options;
+
+  MACRO Init(RECORD data)
+  {
+    this->options := ValidateOptions( [ configextensions := "" ], data.options);
+    this->paymentapi := data.paymentapi;
+    this->providers->eventmasks := this->paymentapi->providertype->GetEventMasks();
+  }
+  RECORD ARRAY FUNCTION GetProviders()
+  {
+    RECORD ARRAY types := GetAvailablePSPs();
+    RECORD ARRAY methods := this->paymentapi->providertype->RunQuery
+      ([ outputcolumns := [ id := "WRD_ID"
+                          , tag := "WRD_TAG"
+                          ]
+      ]);
+
+    FOREVERY(RECORD method FROM methods)
+    {
+      OBJECT psp := this->paymentapi->__InstantiatePSP(method.id);
+      INSERT CELL psp := psp
+                , title := Detokenize( (SELECT AS STRING ARRAY title FROM psp->GetPaymentOptions( [ getissuers := FALSE ])),', ')
+             INTO method;
+      methods[#method] := method;
+    }
+
+    RETURN SELECT rowkey := id
+                , title
+                , type := (SELECT AS STRING title FROM types WHERE ToUppercase(types.tag) = ToUppercase(methods.psp->psptype))
+                , tag
+                , psptype := methods.psp->psptype
+                , psp
+             FROM methods;
+  }
+
+  MACRO DoAdd()
+  {
+    STRING psptype := this->Runscreen("#selectpaymentprovider");
+    IF(psptype="")
+      RETURN;
+
+    INTEGER newmethod := this->RunScreen("#paymentprovider", [ paymentapi := this->paymentapi
+                                                             , id := 0
+                                                             , type := psptype
+                                                             , options := this->options
+                                                             ]);
+    IF(newmethod!=0)
+      this->providers->SetValueIfValid(newmethod);
+  }
+  MACRO DoEdit()
+  {
+    OBJECT scr := this->LoadScreen("#paymentprovider", [ paymentapi := this->paymentapi
+                                                       , id := this->providers->value
+                                                       , type := this->providers->selection.psptype
+                                                       , options := this->options
+                                                       ]);
+    scr->RunModal();
+  }
+  MACRO DoDelete()
+  {
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".deletepaymentprovider")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->paymentapi->providertype->GetEntity(this->providers->value)->CloseOrDeleteEntity();
+    work->Finish();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE SelectPaymentprovider EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->methods->options := SELECT rowkey := tag
+                                   , title
+                                FROM GetAvailablePSPs()
+                            ORDER BY ToUppercase(title);
+  }
+
+  PUBLIC STRING FUNCTION Submit()
+  {
+    RETURN this->methods->value;
+  }
+>;
+
+PUBLIC OBJECTTYPE PaymentProvider EXTEND TolliumScreenBase
+<
+  OBJECT paymentapi;
+  RECORD pspinfo;
+  PUBLIC OBJECT contextextension;
+  PUBLIC OBJECT paymentextension;
+  STRING psptype;
+
+  MACRO Init(RECORD data)
+  {
+    this->paymentapi := data.paymentapi;
+    this->psptype := data.type;
+    this->providertabs->insertpoints := [[ name := "providertab", component := this->providertab ]];
+    this->providertabs->extendcomponents := [[ name := "providerentity", component := this->provider ]];
+    this->provider->wrdtype := this->paymentapi->providertype;
+
+    this->pspinfo := GetPSPInfo(this->psptype);
+    IF(NOT RecordExists(this->pspinfo))
+      THROW NEW Exception(`Unrecnogized payment provider '${this->psptype}'`);
+
+    this->helpaction->manual := this->pspinfo.manual;
+    this->helpaction->languages := this->pspinfo.manuallanguages;
+    this->helpaction->accesstoken := this->pspinfo.manualaccesstoken;
+    this->helpbutton->visible := this->pspinfo.manual != "";
+
+    IF(data.options.configextensions != "")
+    {
+      this->contextextension := this->providertabs->LoadTabsExtension(data.options.configextensions).extension;
+    }
+    IF(this->pspinfo.configextensions != "")
+    {
+      this->paymentextension := this->providertabs->LoadTabsExtension(this->pspinfo.configextensions).extension;
+      IF(NOT (this->paymentextension EXTENDSFROM PSPSettingsExtensionBase))
+        THROW NEW Exception("PSP screens MUST derive from PSPSettingsExtensionBase");
+    }
+
+    this->provider->Load(data.id);
+    IF(data.id!=0 AND ObjectExists(this->paymentextension))
+    {
+      RECORD paymentprovider := this->provider->wrdentity->GetField(this->paymentapi->providerattribute);
+      paymentprovider := ValidateOptions(this->pspinfo.metadataoptions, paymentprovider.__paymentprovider.meta, [ passthroughin := "__discard" ] );
+      DELETE CELL __discard FROM paymentprovider;
+      this->paymentextension->SetPaymentProviderValue(paymentprovider);
+    }
+
+    ^providertabs->RunExtensionsPostInit();
+  }
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    //FIXME audit changes? use history mode?
+    IF(work->HasFailed())
+    {
+      work->Finish();
+      RETURN 0;
+    }
+
+    RECORD paymentprovider := MakePaymentProviderValue(this->psptype, ObjectExists(this->paymentextension) ? this->paymentextension->GetPaymentProviderValue() : DEFAULT RECORD);
+    RECORD extradata := CellInsert(CELL[], this->paymentapi->providerattribute, paymentprovider);
+    INTEGER entityid := this->provider->Store(work, [ extradata := extradata ]);
+    RETURN work->Finish() ? entityid : 0;
+  }
+
+  /** @short Describe selected payment provider
+      @return PSP provider
+      @cell(string) return.tag Tag of this provider, eg wrd:mollie
+      @cell(string) return.title Title of this provider, 'Mollie' */
+  PUBLIC RECORD FUNCTION DescribePaymentProvider()
+  {
+    RECORD info := GetPSPInfo(this->psptype);
+    RETURN CELL[info.tag, info.title];
+  }
+
+  /** @short Get the methods offered by the current payment provider
+      @cell options.getissuers Get issuer information too
+      @return List of payment methods @includecelldef PaymentProvider::GetPaymentOptions */
+  PUBLIC RECORD ARRAY FUNCTION GetPaymentOptions(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ getissuers := FALSE ], options);
+
+    TRY
+    {
+      //Don't even try if feedback fails
+      OBJECT work := this->BeginFeedback();
+      IF(work->HasFailed())
+       RETURN RECORD[];
+
+      work->Cancel();
+
+      OBJECT psp := OpenPSPHandler(this->psptype, ObjectExists(this->paymentextension) ? this->paymentextension->GetPaymentProviderValue() : DEFAULT RECORD);
+      RETURN psp->GetPaymentOptions([ getissuers := options.getissuers ]);
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      RETURN RECORD[];
+    }
+  }
+>;
+
+STRING FUNCTION MapPaymentStatus(STRING status)
+{
+  SWITCH(status)
+  {
+    CASE "pending"  { RETURN GetTid("wrd:tolliumapps.payments.common.pending"); }
+    CASE "approved" { RETURN GetTid("wrd:tolliumapps.payments.common.approved"); }
+    CASE "failed"   { RETURN GetTid("wrd:tolliumapps.payments.common.failed"); }
+    DEFAULT         { RETURN status; }
+  }
+}
+
+PUBLIC STATIC OBJECTTYPE PaymentInfo EXTEND TolliumScreenBase
+<
+  INTEGER paymententity;
+  OBJECT paymentapi;
+
+  MACRO Init(RECORD data)
+  {
+    data := ValidateOptions( [ entity := 0
+                             , options := DEFAULT RECORD
+                             , paymentapi := DEFAULT OBJECT
+                             ], data, [ required := ["entity", "paymentapi" ], title := "data" ]);
+
+    RECORD options := ValidateOptions([canmanagepayments := FALSE], data.options);
+
+    this->frame->flags.canmanagepayments := options.canmanagepayments OR this->contexts->user->HasRight("system:supervisor");
+    this->paymententity := data.entity;
+    this->paymentapi := data.paymentapi;
+
+    this->Refresh();
+  }
+
+  MACRO Refresh()
+  {
+    RECORD paymentdata := this->paymentapi->GetPaymentData(this->paymententity);
+    OBJECT payment := this->paymentapi->__OpenPSP(paymentdata, DEFAULT DATETIME, "");
+
+    ^amountpayable->value := this->contexts->user->FormatMoney(paymentdata.amountpayable, 2, FALSE);
+    ^paymentstatus->value := MapPaymentStatus(paymentdata.status);
+    ^paymentreference->value := paymentdata.paymentref;
+    ^paymentdate->value := this->contexts->user->FormatDatetime(paymentdata.paymentdate, "seconds", TRUE, FALSE);
+    this->frame->flags.ispending := paymentdata.status = "pending";
+
+    RECORD pspinfo := GetPSPInfo(payment->psptype);
+    IF(NOT RecordExists(pspinfo))
+      THROW NEW Exception(`The payment provider '${payment->psptype}' is unknown`);
+
+    ^paymentprovider->value := pspinfo.title;
+    IF(pspinfo.payinfoscreen != "")
+    {
+      OBJECT payinfoscreen := this->LoadScreen(pspinfo.payinfoscreen, [ payment := payment ]);
+      ^paymentinfo->contents := payinfoscreen;
+    }
+  }
+
+  MACRO DoRecheckPayment()
+  {
+    this->paymentapi->ForceRecheckPayment(this->paymententity);
+    this->Refresh();
+    this->RunSimpleScreen("info", this->GetTid(".recheckedpayment"));
+  }
+
+  MACRO DoCancelPayment()
+  {
+    IF(this->RunSimpleScreen("verify", this->GetTid(".surecancelpayment")) != "yes")
+      RETURN;
+
+    this->paymentapi->CancelPendingPayment(this->paymententity);
+    this->Refresh();
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE PendingPayments EXTEND TolliumScreenBase
+<
+  RECORD options;
+
+  MACRO Init(RECORD data)
+  {
+    this->options := ValidateOptions(CELL[ wrdschema := DEFAULT OBJECT ], data);
+    IF(ObjectExists(this->options.wrdschema))
+      this->contexts->wrdschema := this->options.wrdschema;
+    IF(NOT ObjectExists(this->contexts->wrdschema))
+      THROW NEW Exception("No WRD schema specified");
+  }
+  RECORD ARRAY FUNCTION OnGetPendingPayments()
+  {
+    RECORD ARRAY payments := SELECT pendingpayments.*
+                               FROM wrd.pendingpayments, wrd.attrs, wrd.types
+                              WHERE pendingpayments.paymentattr = attrs.id
+                                    AND attrs.type = types.id
+                                    AND types.wrd_schema = this->contexts->wrdschema->id;
+
+    //ADDME group stuff for more efficiency! this will work okay-ish until we get above 20 or so payments
+    payments := SELECT *
+                     , reinstated := ReinstantiatePaymentFromRecord(payments)
+                  FROM payments;
+
+    //Limit to what we want to expose
+    payments := SELECT rowkey := id
+                     , paymententity
+                     , amountpayable := reinstated.payment->amountpayable
+                     , status := reinstated.payment->status
+                     , paymentref := reinstated.payment->paymentref
+                     , paymentoptiontag := reinstated.payment->paymentoptiontag
+                     , creationdate
+                  FROM payments;
+
+    RETURN payments;
+  }
+  MACRO DoOpenPaymentEntity()
+  {
+    INTEGER toopen := ^pendingpayments->selection.paymententity;
+    OBJECT targettype := this->contexts->wrdschema->GetTypeById(DescribeWRDEntity(toopen).wrdtype);
+    RunWRDEntityEditDialog(this, targettype, toopen);
+  }
+>;

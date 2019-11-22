@@ -1,0 +1,45 @@
+<?wh
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+PUBLIC OBJECTTYPE SiteProfileCheck EXTEND CustomCheckBase
+<
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetIssues()
+  {
+    RECORD csp := GetCachedSiteProfiles();
+    RETURN SELECT AS STRING ARRAY resourcename || "(" || line || "): " || message FROM csp.errors;
+  }
+>;
+
+PUBLIC OBJECTTYPE AssetpackCheck EXTEND CustomCheckBase
+<
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetIssues()
+  {
+    STRING ARRAY errors;
+    OBJECT assetpackcontrol;
+    IF(ReadRegistryKey("publisher.bundledassets.suspendautocompile"))
+    {
+      INSERT "Automatic compilation of out-of-date production assets has been disabled" INTO errors AT END;
+    }
+    ELSE
+    {
+      TRY
+      {
+        assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+        RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+        errors := SELECT AS STRING ARRAY `Assetpack ${outputtag} is reporting errors`
+                    FROM status.bundles
+                   WHERE haserrors
+                         AND NOT iscompiling
+                         AND outputtag NOT LIKE "*.dev" //don't warn about dev modules
+                         AND GetModuleInstallationRoot(Tokenize(outputtag,':')[0]) != ""; //don't warn about uninstalled modules
+      }
+      CATCH(OBJECT e)
+      {
+        INSERT `Could not connect to the assetpackcontrol: ${e->what}` INTO errors AT END;
+      }
+    }
+    RETURN errors;
+  }
+>;

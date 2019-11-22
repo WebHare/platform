@@ -1,0 +1,910 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/commonxml.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/backend/apps.whlib";
+LOADLIB "mod::system/lib/internal/backend/newsapi.whlib";
+LOADLIB "mod::system/lib/internal/backend/users.whlib";
+LOADLIB "mod::system/lib/internal/backend/preview.whlib";
+LOADLIB "mod::system/lib/internal/checks/checker.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/todd/internal/actions.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+
+
+RECORD FUNCTION GetRawAppLaunchInstruction(STRING appname)
+{
+  RETURN [ type := "appmessage"
+         , app := appname
+         , target := DEFAULT RECORD
+         , message := DEFAULT RECORD
+         , reuse_instance := TRUE
+         ];
+}
+RECORD FUNCTION GetAppLaunchInstruction(STRING manualbaseurl, RECORD app)
+{
+  IF(app.apprec.iswindowopen)
+  {
+    RETURN [ type := "windowopen"
+           , link := app.apprec.link
+           ];
+  }
+  IF(app.apprec.ismanual)
+  {
+    RETURN [ type := "windowopen"
+           , link := UpdateURLVariables(manualbaseurl, [ app := app.apprec.name ])
+           ];
+  }
+
+  RETURN [ type := "appmessage"
+         , app := app.name
+         , target := DEFAULT RECORD
+         , message := DEFAULT RECORD
+         , reuse_instance := NOT app.openmultipleinstances
+         ];
+}
+
+DATETIME FUNCTION GetMaxModificationDate(STRING path)
+{
+  RECORD ARRAY items := ReadDiskDirectory(path,"*");
+  UPDATE items SET modified := GetMaxModificationDate(path || "/" || name) WHERE type=1;
+  RETURN SELECT AS DATETIME MAX(modified) FROM items;
+}
+
+RECORD FUNCTION GetCacheableUIFilesKey()
+{
+  STRING basedir := GetModuleInstallationRoot("tollium");
+  DATETIME maxdate := GetMaxModificationDate(basedir || "web/ui");
+  RETURN [ ttl := 60 * 60 * 1000
+         , value := FormatDatetime("%Y%m%d%H%M", maxdate)
+         ];
+}
+
+PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
+<
+  PUBLIC STRING initialskin;
+  PUBLIC STRING faviconurl;
+  PUBLIC STRING title;
+  PUBLIC STRING toddroot;
+  //Root for assets that should remain as static as possible, even without allow jscache
+  PUBLIC STRING toddstaticroot;
+  PUBLIC RECORD appserviceparams;
+  PUBLIC BOOLEAN frontendmode;
+  PUBLIC BOOLEAN intolerant;
+
+  PUBLIC BOOLEAN debugging;
+  PUBLIC BOOLEAN profiling;
+  PUBLIC BOOLEAN memoryprofiling;
+  PUBLIC STRING addedheaders;
+
+  PUBLIC STRING frontendid;
+
+  INTEGER impersonatedentity;
+  OBJECT wrdauthplugin;
+  OBJECT currentuser;
+  RECORD launchuserinfo;
+  ///Use RequireWebhareUserlogin - use the user set by access rules
+  BOOLEAN useexternalwebharelogin;
+  ///Use wrdauth's login mechanism instead of a login app (will usually redirect you to a wrdauth configured login page)
+  BOOLEAN usewrdauthloginpage;
+  ///Are we overriding? Don't run unimportant paths (eg newsitems) if we're apparently doing tricky/lowlevel stuff
+  BOOLEAN isoverriding;
+
+  BOOLEAN allowinframe;
+  STRING personalsettingsapp;
+  BOOLEAN dashboard;
+  BOOLEAN disablenotifications;
+
+  RECORD ARRAY loginmethods;
+  STRING ARRAY apps;
+  RECORD ARRAY initialinstructions;
+  RECORD rundata;
+  STRING ARRAY applicationmasks;
+  STRING ARRAY dashboardmenuupdaters;
+  BOOLEAN runwebhareinstall;
+
+  MACRO NEW()
+  {
+    this->dashboard := TRUE;
+    this->initialskin := "default";
+    this->title := "WebHare Platform";
+    this->frontendid := GenerateUFS128BitId();
+
+    this->personalsettingsapp := "system:personalsettings";
+  }
+
+  RECORD FUNCTION GetRunData()
+  {
+    STRING sharedworker_bundletag := "tollium:sharedworker" || (IsWHDebugOptionSet("tol") ? ".dev" : "");
+    DATETIME sharedworker_lastmod := GetBundleLastModDate(sharedworker_bundletag);
+    IF (sharedworker_lastmod = DEFAULT DATETIME)
+    {
+      // The bundle did not exist yet, wait for compilation
+      OBJECT assetpackcontroller := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+      WaitForPromise(assetpackcontroller->WaitForCompile(sharedworker_bundletag, TRUE));
+      assetpackcontroller->CloseService();
+      sharedworker_lastmod :=GetBundleLastModDate(sharedworker_bundletag);
+    }
+
+    //FIXME even caching servers should still serve a 'fixed' moddtime for js versions
+    RECORD config :=
+      [ toddroot         := this->toddroot
+      , toddservice      := "/wh_services/tollium/todd"
+      , initialinstructions := this->initialinstructions
+      , appserviceparams := this->appserviceparams
+      , shorttid         := IsWHDebugOptionSet('sht')
+      , profiling        := this->profiling
+      , memoryprofiling  := this->memoryprofiling
+      , frontendmode     := this->frontendmode
+      , intolerant       := this->intolerant
+      , frontendid       := this->frontendid
+      , checkered_background := checkered_background
+      , sharedworker     := "/.ap/" || Substitute(sharedworker_bundletag, ":", ".") || "/ap.js?ts=" || FormatISO8601Datetime(sharedworker_lastmod)
+      , allowinframe     := this->allowinframe
+      ];
+
+    RECORD data :=
+      [ toddroot         := this->toddroot
+      , faviconurl       := this->faviconurl
+      , title            := this->title
+      , tolliumconfig    := EncodeJSON(config)
+      , config := config
+      , frontendmode     := this->frontendmode
+
+      , addedheaders     := this->addedheaders
+      , initialskin      := this->initialskin
+      , version          := GetWebhareVersion()
+    ];
+    RETURN data;
+  }
+
+  MACRO SetupPortal(OBJECT webdesign)
+  {
+    //TODO switch to proper plugin so settings can cache etc and just keep most boring settings inside a config record
+    BOOLEAN allowwebhareinstall;
+    FOREVERY(RECORD setting FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/tollium", "portal", webdesign->targetobject->id))
+    {
+      IF(setting.node->HasAttribute("allowwebhareinstall"))
+        allowwebhareinstall := ParseXSBoolean(setting.node->GetAttribute("allowwebhareinstall"));
+      IF(setting.node->HasAttribute("allowinframe"))
+        this->allowinframe := ParseXSBoolean(setting.node->GetAttribute("allowinframe"));
+      IF(setting.node->HasAttribute("dashboard"))
+        this->dashboard := ParseXSBoolean(setting.node->GetAttribute("dashboard"));
+      IF(setting.node->HasAttribute("useexternalwebharelogin"))
+        this->useexternalwebharelogin := ParseXSBoolean(setting.node->GetAttribute("useexternalwebharelogin"));
+      IF(setting.node->HasAttribute("usewrdauthloginpage"))
+        this->usewrdauthloginpage := ParseXSBoolean(setting.node->GetAttribute("usewrdauthloginpage"));
+      IF(setting.node->HasAttribute("personalsettingsapp"))
+        this->personalsettingsapp := setting.node->GetAttribute("personalsettingsapp");
+      IF(setting.node->HasAttribute("dashboardmenuupdater"))
+        INSERT MakeAbsoluteResourcePath(setting.siteprofile->name, setting.node->GetAttribute("dashboardmenuupdater")) INTO this->dashboardmenuupdaters AT END;
+      IF(setting.node->HasAttribute("applicationmasks"))
+        this->applicationmasks := ParseXSList(setting.node->GetAttribute("applicationmasks"));
+
+      FOREVERY(OBJECT forceapp FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "forceapp")->GetCurrentElements())
+        INSERT forceapp->GetAttribute("name") INTO this->apps AT END;
+
+      FOREVERY(OBJECT loginmethod FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "loginmethod")->GetCurrentElements())
+      {
+        STRING gid := DetermineNodeGid(setting.siteprofile->name, loginmethod);
+
+        SWITCH (loginmethod->GetAttribute("type"))
+        {
+          CASE "password"
+          {
+            DELETE FROM this->loginmethods WHERE type = "password";
+            INSERT
+                [ type :=       "password"
+                , ordering :=   -1
+                , tid :=        ":"
+                , loginprompt := loginmethod->GetAttribute("loginprompt")
+                ] INTO this->loginmethods AT END;
+          }
+          CASE "saml"
+          {
+            STRING sp_tag := loginmethod->GetAttribute("tag");
+            IF (sp_tag != "")
+            {
+              DELETE FROM this->loginmethods WHERE type = "saml" AND COLUMN sp_tag = VAR sp_tag;
+              INSERT
+                  [ type :=       "saml"
+                  , sp_tag :=     sp_tag
+                  , ordering :=   ToInteger(loginmethod->GetAttribute("ordering"), 99999)
+                  , autologin :=  loginmethod->GetAttribute("autologin") IN [ "true", "1" ]
+                  , tid :=        setting.siteprofile->ParseTextPointer(loginmethod, "title", gid)
+                  , icon :=       loginmethod->GetAttribute("icon")
+                  , allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"))
+                  , loginprompt := loginmethod->GetAttribute("loginprompt")
+                  ] INTO this->loginmethods AT END;
+            }
+          }
+        }
+      }
+    }
+
+    this->loginmethods :=
+       SELECT *
+         FROM this->loginmethods
+     ORDER BY type != "saml", ordering;
+
+    STRING overridetoken := GetWebVariable('overridetoken');
+    STRING openas := GetWebVariable("openas");
+    STRING language := GetWebVariable("language");
+
+    IF(this->useexternalwebharelogin)
+    {
+      this->currentuser := RequireLoggedinWebHareUser();
+    }
+    ELSE
+    {
+      this->wrdauthplugin := webdesign->GetWRDAuthPlugin();
+      IF(ObjectExists(this->wrdauthplugin) AND this->wrdauthplugin->HasFailed())
+        this->wrdauthplugin := DEFAULT OBJECT;
+      IF(ObjectExists(this->wrdauthplugin))
+      {
+        IF(this->usewrdauthloginpage AND overridetoken = "") //Override tokens should not go through external WRD
+          this->currentuser := this->wrdauthplugin->RequireLoggedinUser();
+        ELSE
+          this->currentuser := this->wrdauthplugin->GetCurrentWebhareUser();
+      }
+    }
+
+    BOOLEAN forceprimaryuserapi;
+    INTEGER loggedin;
+    STRING loggedin_name;
+    IF(this->useexternalwebharelogin)
+    {
+      loggedin := this->currentuser->entityid;
+      loggedin_name := this->currentuser->login;
+      forceprimaryuserapi := TRUE;
+    }
+    ELSE
+    {
+      this->isoverriding := overridetoken != "";
+      IF(this->isoverriding AND NOT VerifyOverrideToken(overridetoken))
+        THROW NEW Exception("The specified overridetoken is not, or no longer, valid");
+
+      IF(this->isoverriding)
+      {
+        loggedin := -1;
+        loggedin_name := "<overrideuser>";
+        this->currentuser := GetMagicSysopObject("<overrideuser>");
+      }
+      ELSE IF(ObjectExists(this->wrdauthplugin))
+      {
+        IF(this->wrdauthplugin->HasFailed())
+          THROW NEW Exception("The authplugin could not load: " || this->wrdauthplugin->GetFailReason());
+        IF(NOT this->wrdauthplugin->wrdschema->__iswrdapi2017)
+          THROW NEW Exception("The applicationportal pages in 4.09 and up require an 'api2017' wrd schema");
+
+        IF(NOT this->isoverriding)
+          loggedin := this->wrdauthplugin->GetLoggedinEntity();
+      }
+
+      IF(loggedin != 0 AND loggedin != -1)
+      {
+        RECORD res := this->wrdauthplugin->userapi->GetTolliumUserByIdAndImpersonation(loggedin, openas);
+        IF(NOT ObjectExists(res.userobject))
+        {
+          //never force a logout on development... we generally just want the actual failure reason when developing
+          IF(GetDtapStage() = "development")
+            THROW NEW Exception(res.error);
+
+          this->wrdauthplugin->Logout();
+          Redirect(GetRequestURL());
+        }
+
+        this->currentuser := res.userobject;
+        this->impersonatedentity := res.impersonatedentity;
+        loggedin_name := this->currentuser->login;
+      }
+    }
+
+    this->runwebhareinstall := allowwebhareinstall AND ReadRegistryKey("system.backend.security.needsysop") AND NOT this->isoverriding;
+
+    this->launchuserinfo := [ loggedin := loggedin, loggedin_name := loggedin_name, openas := openas, forceprimaryuserapi := forceprimaryuserapi ];
+
+    STRING lang := language ?? ObjectExists(this->currentuser) ? this->currentuser->language : GetSiteLanguage(webdesign->targetobject->id);
+
+    SetTidLanguage(lang);
+    webdesign->languagecode := lang;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    IF(GetWebVariable("wrdauth_proof") != "" ) //Eg. UT login triggers this, wrdauth_proof isn't cleared because we're logging in on same host. wrdauth should be suppressing this, not us!
+      Redirect(UpdateURLVariables(GetRequestURL(), [ wrdauth_proof := "" ]));
+    IF(NOT webdesign->IsUsingModuleDesign())
+      THROW NEW Exception("Application portals and frontend apps require a moduledesign");
+
+    webdesign->InsertHTML('<meta name="google" value="notranslate" />', 'dependencies-top');
+
+    STRING ARRAY profiletoks := Tokenize(GetWebVariable("profile"),",");
+    this->profiling := GetWebVariable("profile") IN ["1","true"] OR IsWHDebugOptionSet("apr");
+    this->memoryprofiling := GetWebVariable("profile") = "memory";
+    this->intolerant := GetWebVariable("intolerant") IN ["1","true"];
+
+    IF (GetWebVariable("oauth_responseid") != "")
+    {
+      BroadcastEvent("tollium:oauth_response",
+          [ responseid :=       GetWebVariable("oauth_responseid")
+          , responsetype :=     GetWebVariable("responsetype")
+          , version :=          ToInteger(GetWebVariable("version"), 0)
+          , token :=            GetWebVariable("token")
+          , scopes :=           GetWebVariable("scopes") = "" ? DEFAULT STRING ARRAY : Tokenize(GetWebVariable("scopes"), ",")
+          , error :=            GetWebVariable("error")
+          , expires :=          MakeDatetimeFromUnixTimestamp(ToInteger(GetWebVariable("expires"), 0))
+          ]);
+
+      ExecuteSubmitInstruction([ type := "close" ]);
+    }
+
+    IF (GetWebVariable("proxy_test") != "")
+    {
+      IF (GetWebVariable("proxy_test") = ReadRegistryKey("system.webserver.global.proxyservers.verificationcode"))
+        SendWebFile(StringToBlob("ok"));
+
+      AddHTTPHeader("Status", "500 Wrong proxy verification code", FALSE);
+      SendWebFile(StringToBlob("Wrong proxy verification code"));
+    }
+
+    this->SetupPortal(webdesign);
+
+    IF (GetWebVariable("language") != "")
+      webdesign->languagecode := GetWebVariable("language");
+
+    this->appserviceparams := [ overridetoken := ""
+                              , openas := ""
+                              , language := webdesign->languagecode
+                              , debug := IsWHDebugOptionSet("tol")
+                              ];
+
+    this->appserviceparams.overridetoken := GetWebVariable('overridetoken');
+    this->appserviceparams.openas := GetWebVariable("openas");
+
+    IF(this->runwebhareinstall)
+    {
+      this->initialinstructions := [ GetRawAppLaunchInstruction("system:needsysop") ];
+    }
+    ELSE
+    {
+      // Starting with single ?app=manualname? Then redirect to that manual
+      STRING ARRAY apps := SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) = "APP";
+      IF (LENGTH(apps) = 1)
+      {
+        FOREVERY (RECORD grp FROM this->GetApplications())
+        {
+          RECORD app := SELECT * FROM grp.apps WHERE name = VAR apps[0] AND (apprec.ismanual OR apprec.iswindowopen);
+          IF (RecordExists(app))
+          {
+            Redirect(app.apprec.iswindowopen
+                ? app.apprec.link
+                : GenerateProtectedManualURL(app.apprec.manual, app.apprec.accesstoken, webdesign->languagecode, app.apprec.supportedlanguages));
+          }
+        }
+      }
+
+      RECORD ARRAY appinstructions;
+      FOREVERY(STRING app FROM this->apps)
+        INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+
+      FOREVERY(STRING app FROM SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) IN [ "APP", "MANUAL" ])
+        INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+
+      appinstructions := SELECT *, inbackground := #instr != Length(appinstructions)-1 FROM appinstructions AS instr;
+
+      this->initialinstructions := this->initialinstructions CONCAT appinstructions;
+    }
+
+    STRING filekey := GetAdhocCached([type := "uifileskey"], PTR GetCacheableUIFilesKey());
+    this->toddstaticroot := "/.tollium/ui/!" || filekey || "/";
+    this->toddroot := this->toddstaticroot;
+
+    this->rundata := this->GetRunData();
+    webdesign->jsobjconfig := this->rundata.config;
+
+    INSERT "wh-tollium--app" INTO webdesign->htmlclasses AT END; //this is a trigger for templates who need to do extra work for our interface
+
+    //do not allow us to be embedded into iframes
+    IF(NOT this->allowinframe)
+    {
+      AddHTTPHeader("X-Frame-Options", "DENY", FALSE);
+      AddHTTPHeader("X-WebharePreview-Frame-Options", "DENY", FALSE);
+    }
+    AddHTTPHeader("X-Robots-Tag", "noindex, nofollow", FALSE);
+  }
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    EmbedWittyComponent("module::tollium/todd/internal/webpage.witty:main", this->rundata);
+  }
+
+  RECORD FUNCTION ParseAppName(STRING appname)
+  {
+    // Parses appname of form appname(parameter1,parameter2(bla\)bla),parameter3)/inapppath1,inapppath2
+    STRING ARRAY parameters;
+    STRING ARRAY inapppath;
+
+    OBJECT s := NEW StringParser(appname);
+    appname := s->ParseWhileNotInSet("/(");
+    IF (s->TryParse("("))
+    {
+      STRING params;
+      INTEGER depth := 1;
+      WHILE (depth > 0 AND NOT s->eof)
+      {
+        params := params || s->ParseWhileNotInSet("()\\");
+        IF (s->TryParse("("))
+        {
+          params := params || "(";
+          depth := depth + 1;
+        }
+        ELSE IF (s->TryParse(")"))
+        {
+          depth := depth - 1;
+          IF (depth != 0)
+            params := params || ")";
+        }
+        ELSE IF (s->TryParse("\\"))
+        {
+          params := params || s->ParseN(1);
+        }
+      }
+      parameters := Tokenize(params, ",");
+    }
+    IF (s->TryParse("/"))
+      inapppath := Tokenize(s->remaining_data, "/");
+
+    RETURN CELL[ appname, parameters, inapppath];
+  }
+
+  //Get user specific event groups.
+  STRING ARRAY FUNCTION GetEventGroups()
+  {
+    STRING ARRAY groups := [ GetBroadcastAllTarget() ];
+    IF(ObjectExists(this->currentuser)) //ADDME use impersonated or our user ?
+    {
+      STRING groupname:= this->currentuser->GetBroadcastTarget();
+      IF (groupname != "")
+        INSERT groupname INTO groups AT END;
+    }
+    RETURN groups;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetApplications()
+  {
+    IF(NOT ObjectExists(this->currentuser))
+      RETURN DEFAULT RECORD ARRAY;
+
+    BOOLEAN showdeveloperapps := this->currentuser->ShowDeveloperOptions();
+
+    RECORD ARRAY grouped := GetAllInstalledApplications();
+    FOREVERY(RECORD appgroup FROM grouped)
+    {
+      appgroup.apps := SELECT *
+                         FROM appgroup.apps
+                        WHERE (apprec.isdeveloperapp = FALSE OR showdeveloperapps)
+                              AND IsApplicationAccessible(this->currentuser, apprec);
+
+      grouped[#appgroup] := appgroup;
+    }
+
+    RETURN grouped;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetPersonalShortcuts(RECORD ARRAY appgroups)
+  {
+    IF(NOT ObjectExists(this->currentuser))
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY favorites := this->currentuser->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    IF(Length(favorites) = 0)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY allapps;
+    FOREVERY(RECORD appgroup FROM appgroups)
+      allapps := allapps CONCAT appgroup.apps;
+
+    RECORD ARRAY menuitems;
+    FOREVERY(RECORD favorite FROM favorites)
+    {
+      RECORD matchingapp := SELECT * FROM allapps WHERE allapps.name = favorite.app;
+
+      IF(NOT RecordExists(matchingapp))
+        CONTINUE;
+
+      INSERT [ title := favorite.title
+             , instr := [ type := "appmessage"
+                        , app := favorite.app
+                        , target  := favorite.target
+                        , message := favorite.message
+                        , reuse_instance := NOT matchingapp.openmultipleinstances
+                        ]
+             , icon := matchingapp.icon
+             , link := matchingapp.link
+             ] INTO menuitems AT END;
+    }
+    RETURN menuitems;
+  }
+
+  RECORD ARRAY FUNCTION GetAppMenu(OBJECT webcontext)
+  {
+    STRING addvars := this->appserviceparams.openas != "" ? "&openas=" || EncodeURL(this->appserviceparams.openas) : "";
+    RECORD ARRAY allapps := SELECT *
+                                 , apps := (SELECT *, link := "?app=" || EncodeURL(name) || addvars FROM apps)
+                              FROM this->GetApplications();
+
+    STRING manualbaseurl := `?language=${EncodeURL(GetTidLanguage())}`;
+    RECORD ARRAY appmenu := SELECT title := GetTid(tid)
+                                 , apps := (SELECT TEMPORARY translatedtitle := GetTid(title)
+                                                 , title := translatedtitle
+                                                 , instr := GetAppLaunchInstruction(manualbaseurl, apps)
+                                                 , link
+                                                 , icon
+                                                 , shortcut
+                                              FROM appgroups.apps
+                                             WHERE title != ""
+                                                   AND (Length(this->applicationmasks) = 0 OR MatchCommonXMLWildcardMasks(name,this->applicationmasks))
+                                          ORDER BY ToUppercase(translatedtitle))
+                                 , groupname := name
+                              FROM allapps AS appgroups
+                             WHERE tid != "";
+    DELETE FROM appmenu WHERE Length(apps) = 0;
+
+    RECORD ARRAY personalmenu := this->GetPersonalShortcuts(allapps);
+    IF(Length(personalmenu) > 0)
+    {
+      // For editing favorites, open the personal settings app if it's not opened yet and send a message to open the 'startmenu' tab
+      RECORD editinstr := GetRawAppLaunchInstruction(this->personalsettingsapp);
+      editinstr.message := [ opentab := "startmenu" ];
+
+      INSERT [ title := GetTid("tollium:shell.personalmenu")
+             , apps := personalmenu
+             , editinstr := editinstr
+             , edittitle := GetTid("tollium:shell.editfavorites")
+             , groupname := "system:favorites"
+             ] INTO appmenu AT 0;
+    }
+
+    FOREVERY(STRING updater FROM this->dashboardmenuupdaters)
+      appmenu := MakeFunctionPtr(updater)(appmenu, [ user := this->currentuser ]);
+
+    RETURN SELECT *, DELETE groupname FROM appmenu;
+  }
+
+  RECORD FUNCTION GetDashboardBackground()
+  {
+    OBJECT dashboardbg := OpenWHFSObjectByPath("/webhare-private/system/backend/dashboardbackground");
+    RETURN ObjectExists(dashboardbg) ? WrapCachedImage(dashboardbg->GetWrapped(), [ method := "none" ]) : DEFAULT RECORD;
+  }
+  RECORD FUNCTION GetLoginBackground()
+  {
+    OBJECT loginbg := OpenWHFSObjectByPath("/webhare-private/system/backend/loginbackground");
+    RETURN ObjectExists(loginbg) ? WrapCachedImage(loginbg->GetWrapped(), [ method := "none" ]) : DEFAULT RECORD;
+  }
+
+  STRING FUNCTION GetTabBarImage()
+  {
+    OBJECT tabbarimg := OpenWHFSObjectByPath("/webhare-private/system/backend/tabbarimage");
+    IF(ObjectExists(tabbarimg))
+      RETURN GetCachedFSImageURL("", tabbarimg->id, [ method := "none" ]);
+    RETURN "";
+  }
+
+  STRING FUNCTION RenderNewsItem(OBJECT webdesign, RECORD input)
+  {
+    OBJECT renderer := webdesign->OpenRTD(input);
+    RETURN renderer->RenderAllToString();
+  }
+
+  RECORD ARRAY FUNCTION GetNewsItems(OBJECT webdesign)
+  {
+    //Don't gather newsitems if not logged in or if there may be config issues (we don't want to harden newsapi against all possible failures)
+    IF (NOT ObjectExists(this->currentuser) OR NOT ObjectExists(this->wrdauthplugin) OR this->isoverriding)
+      RETURN RECORD[];
+
+    INTEGER ARRAY units := INTEGER[ this->currentuser->GetParentUnitId() ];
+
+    RECORD ARRAY newsitems := GetCurrentNewsItemsForUnits(this->wrdauthplugin->userapi, units);
+    newsitems := FilterHiddenNewsItems(this->wrdauthplugin->userapi, this->currentuser->entityid, newsitems);
+
+    newsitems := SELECT title
+                      , html := this->RenderNewsItem(webdesign, text)
+                      , creationdate := this->currentuser->FormatDateTime(creationdate, "minutes", TRUE, FALSE)
+                      , publicationdate := this->currentuser->FormatDateTime(publish_from, "minutes", TRUE, FALSE)
+                      , id
+                      , author
+                   FROM newsitems
+                  WHERE lang IN [ "nlen", this->currentuser->language ];
+    RETURN newsitems;
+  }
+
+  RECORD FUNCTION GetCurrentShellSettings(OBJECT webcontext)
+  {
+    BOOLEAN issysop := ObjectExists(this->currentuser) AND this->currentuser->HasRight("system:sysop");
+    BOOLEAN issupervisor := issysop OR (ObjectExists(this->currentuser) AND this->currentuser->HasRight("system:supervisor"));
+
+    RECORD portalsettings :=
+            [ skin := "default"
+            , lang := GetTidLanguage()
+            , eventgroups := this->GetEventGroups()
+            , now := FormatISO8601Datetime(GetCurrentDatetime(), "day", "milliseconds")
+            , version := GetWebhareVersionInfo()
+            , servername := GetServerName()
+            , apps := this->GetAppMenu(webcontext)
+            , newsitems := this->GetNewsItems(webcontext)
+
+            , dashboard := this->dashboard AND NOT this->runwebhareinstall
+            , dashboardbg := this->GetDashboardBackground()
+            , loginbg := this->GetLoginBackground()
+            , allowpasswordreset := ReadRegistryKey("system.backend.security.allowpasswordreset")
+            , displayimage := ""
+            , displayname := ""
+            , personalsettings := GetRawAppLaunchInstruction(this->personalsettingsapp)
+            , userdisplayname :=    ObjectExists(this->currentuser) ? this->currentuser->realname ?? this->currentuser->login : ""
+            , browsertitleprefix := ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.browsertitleprefix", "") : ""
+            , allowlogout :=        ObjectExists(this->wrdauthplugin) AND this->wrdauthplugin->IsLogoutAllowed()
+            , openinfo := ""
+            , checkinterval := issupervisor ? 5 * 60 * 1000 : 0
+            , issysop := issysop
+            , reloadonexit := this->runwebhareinstall
+            , notificationslocation := GetWebVariable("notifications") IN ["0","off"] ? "none" : ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.shownotifications", "desktop") : "desktop"
+            ];
+
+    IF(this->impersonatedentity != 0) //no images, no layout title
+    {
+      STRING username := this->wrdauthplugin->GetWRDAuthDomain()->GetUserLogin(this->impersonatedentity);
+      portalsettings.openinfo := GetTid("tollium:shell.openedas", username ?? "#" || this->impersonatedentity);
+    }
+    ELSE
+    {
+      OBJECT tabbarimg := OpenWHFSObjectByPath("/webhare-private/system/backend/tabbarimage");
+      IF(ObjectExists(tabbarimg))  //image takes precedence over layout title
+        portalsettings.displayimage := GetCachedImageLink(tabbarimg->GetWrapped(),  [ method := "fit", setheight := 72 ]); //2x apptabs height
+      ELSE  //show the (configurable) system title
+        portalsettings.displayname := ReadRegistryKey("system.backend.layout.title");
+    }
+    RETURN portalsettings;
+  }
+
+  PUBLIC RECORD FUNCTION WDS_GetCurrentShellSettings(OBJECT webcontext, RECORD options)
+  {
+    //this->SetupPortal(webcontext); //no need to SetupPortal in a WDS_ ... PrepareForRendering has done it
+    RETURN this->GetCurrentShellSettings(webcontext);
+  }
+
+  PUBLIC RECORD FUNCTION WDS_StartPortal(OBJECT webcontext, RECORD options, STRING browsertriplet)
+  {
+    // ADDME   IF(ToUppercase(authplugin->GetWRDAuthDomain()->emailfieldtag) = ToUppercase(authplugin->GetWRDAuthDomain()->loginfieldtag))  emailadres ipv username tonen
+    //this->SetupPortal(webcontext);  //no need to SetupPortal in a WDS_ ... PrepareForRendering has done it
+
+    //FIXME Get the actual loginmethod and restrictions from the specified appservice
+
+    RECORD params;
+    IF(CellExists(options, "params"))
+      params := options.params;
+
+    IF(ObjectExists(this->wrdauthplugin) AND ObjectExists(this->wrdauthplugin->userapi) AND NOT ObjectExists(this->currentuser))
+    {
+      RECORD ARRAY methods := this->loginmethods ??
+          [ [ type :=         "password"
+            , ordering :=     -1
+            , tid :=          ":"
+            ]
+          ];
+
+      // Password always first in list
+      methods :=
+          SELECT *
+               , title :=     GetTid(tid)
+            FROM methods
+        ORDER BY type != "password", ordering;
+/*
+      // SAML only functions when run on the same host as the site that hosts the SP endpoint
+      // (this disqualifies alternative interface servers)
+      IF (ResolveToAbsoluteURL(GetRequestURL(), "/") = ResolveToAbsoluteURL(webcontext->targetfolder->url, "/"))
+      {
+        INSERT
+            [ type :=         "saml"
+            , sp_tag :=       "MOE"
+            , title :=        "SAML login"
+            , autologin :=    TRUE
+            ] INTO methods AT 0;
+      }
+*/
+
+      IF(NOT this->runwebhareinstall)
+      {
+        RETURN [ isloggedin := FALSE
+               , settings := this->GetCurrentShellSettings(webcontext)
+               , loginconfig := [ methods   := methods
+                                , infotext  := ReadRegistryKey("system.backend.layout.infotext")
+                                , infotitle := ReadRegistryKey("system.backend.layout.infotitle")
+                                ]
+               ];
+      }
+    }
+
+    RETURN [ isloggedin := TRUE
+           , settings := this->GetCurrentShellSettings(webcontext)
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION WCS_StartApplication(OBJECT webcontext, STRING appname, RECORD options, STRING browsertriplet, RECORD __unused) //for compat with unrecompiled developers, we can remove it soon
+  {
+    RETURN this->WCS_StartApp(webcontext, appname, CELL[ ...options, browser := browsertriplet, DELETE onappbar, DELETE fixedonappbar, DELETE container, DELETE inbackground ]);
+
+  }
+  //marking params as unused as dropping them can give JS errors when updating, and webhareconnect doesn't make a material difference for anyone
+  PUBLIC RECORD FUNCTION WCS_StartApp(OBJECT webcontext, STRING appname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ frontendid := ""
+                               , params := DEFAULT RECORD
+                               , shorttid := FALSE
+                               , highpriority := FALSE
+                               , jsprofile := FALSE
+                               , target := DEFAULT RECORD
+                               , message := DEFAULT RECORD
+                               , intolerant := FALSE
+                               , webvars := RECORD[]
+                               , hasconnect := FALSE
+                               , goparam := ""
+                               , browser := ""
+                               ], EnforceStructure([webvars := RECORD[]], options));
+
+    this->SetupPortal(webcontext);
+    STRING toddbase := ResolveToAbsoluteURL(GetRequestURL(), "/tollium_todd/");
+
+    IF(Length(this->applicationmasks) > 0 AND NOT MatchCommonXMLWildcardMasks(appname, this->applicationmasks))
+      THROW NEW Exception(`Application '${appname}' is not permitted by this portal's applicationmasks`);
+
+    IF(ObjectExists(this->wrdauthplugin)
+       AND NOT ObjectExists(this->currentuser)
+       AND appname != "system:forgotpassword"
+       AND appname != "system:resetpassword"
+       AND (appname != "system:needsysop" OR NOT this->runwebhareinstall))
+      THROW NEW Exception("You are not logged in");
+
+    RECORD parsedappname := this->ParseAppName(appname);
+
+
+    IF (options.frontendid = "")
+      THROW NEW Exception("Missing frontendid");
+
+    RECORD invoke := CELL[ ...options
+                         , app :=          parsedappname.appname
+                         , parameters :=   parsedappname.parameters
+                         , inapppath :=    parsedappname.inapppath
+                         , url :=          GetClientRequestURL()
+                         , browsertriplet := options.browser
+                         , debug :=        IsWHDebugOptionSet("tol")
+                         , commhost :=     ResolveToAbsoluteURL(toddbase, "/")
+                         , profile :=      IsWHDebugOptionSet("apr")
+                         , memoryprofile := GetWebVariable("profile") = "memory"
+                         , requestdata :=
+                            [ remoteip :=     GetClientRemoteIP()
+                            , remoteport :=   GetClientRemotePort()
+                            , localip :=      GetClientLocalIP()
+                            , localport :=    GetClientLocalPort()
+                            , webserver :=    GetClientWebserver()
+                            , proxyid :=      ToInteger(GetWebVariable("X-WebHare-Proxy"),0)
+                            ]
+                         , launchuserinfo := this->launchuserinfo
+                         , lang := GetTidLanguage()
+                         ];
+
+    OBJECT link := ConnectToManagedPort("tollium:appstarter", "webserver");
+    IF (NOT ObjectExists(link))
+      THROW NEW Exception("No application starter present (unable to connect to tollium:appstarter)");
+
+    //Request the appstarter to create an app hosting the final application
+    link->autothrow := TRUE;
+
+    RECORD rec := link->DoRequest([ task := "startapp"
+                                  , invoke := invoke
+                                  ]);
+    IF (rec.status != "ok")
+    {
+      THROW NEW Exception("Application starter failed");
+    }
+
+    IF(debug_logtransport)
+      LogDebug("todd-comm" , "Prepping initial response", anytostring(rec.msg,'tree'));
+
+    RECORD finalmsg := rec.msg;
+    INSERT CELL commhost := invoke.commhost INTO finalmsg;
+    RETURN finalmsg;
+  }
+
+  PUBLIC RECORD FUNCTION WCS_CompleteLogin(OBJECT webcontext, STRING data)
+  {
+    this->SetupPortal(webcontext);
+    RECORD logindata := DecryptForThisServer("tollium:applicationportal", data);
+    RECORD result := this->wrdauthplugin->__CompleteLogin(logindata);
+    IF(result.success)
+      RETURN [ success := TRUE ];
+    THROW NEW Exception("Login failed: " || anytostring(result,'tree'));
+  }
+
+  PUBLIC RECORD FUNCTION WCS_GetCheckResult(OBJECT webcontext)
+  {
+    this->SetupPortal(webcontext);
+    BOOLEAN issupervisor := ObjectExists(this->currentuser) AND this->currentuser->HasRight("system:supervisor");
+    IF(NOT issupervisor)
+      RETURN [ privileged := FALSE ];
+
+    RECORD ARRAY messages := RunChecks();
+    DELETE FROM messages WHERE snoozed;
+    IF(Length(messages)>0)
+      RETURN [ privileged := TRUE, numleft := Length(messages) - 1, firstmessage := GetTid(messages[0].msg) ];
+    ELSE
+      RETURN [ privileged := TRUE, numleft := 0, firstmessage := "" ];
+  }
+
+  ///Execute an action through the portal
+  PUBLIC RECORD FUNCTION WCS_ExecuteAction(OBJECT webcontext, RECORD action)
+  {
+    this->SetupPortal(webcontext);
+    IF(NOT ObjectExists(this->currentuser))
+      THROW NEW Exception("Unknown user");
+
+    RETURN ExecuteAction(this->wrdauthplugin->userapi, this->currentuser, action);
+  }
+
+  PUBLIC RECORD FUNCTION WCS_ExecuteLoginChallenge(OBJECT webcontext, RECORD data)
+  {
+    RETURN webcontext->GetWRDAuthPlugin()->__SolveLoginChallenge(data.challenge, data.returnto);
+  }
+>;
+
+MACRO RunThePage()
+{
+  IF(GetWebVariable("showmessage")="1")
+  {
+    NEW ShowMessagePage(GetWebVariable("lang"),GetWebVariable("url"),GetWebVariable("msg"),GetWebVariable("type"),GetWebVariable("location"))->Runpage();
+    RETURN;
+  }
+
+  STRING overridetoken := GetWebVariable("overridetoken");
+  IF(overridetoken != "" AND NOT VerifyOverrideToken(overridetoken))
+  {
+    Print("The specified overridetoken is not, or no longer, valid");
+    RETURN;
+  }
+
+  OBJECT interfacepage := NEW TolliumInterfacePage();
+  interfacepage->RunPage();
+}
+
+PUBLIC MACRO RunApplicationPortal()
+{
+  // Show a generic preview page for Safari Top Sites or Opera Speed Dial
+  IF (GeneratePreview())
+    RETURN;
+  RunThePage();
+}

@@ -1,0 +1,28 @@
+<?wh
+
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+
+PUBLIC OBJECTTYPE ResultsFieldWidget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    IF (NOT ObjectExists(this->mergefields))
+      THROW NEW Exception("No merge fields context available");
+
+    Print(GetTid("publisher:webtools.resultsfield.previewtext"));
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    IF (NOT ObjectExists(this->mergefields))
+      THROW NEW Exception("No merge fields context available");
+
+    // We're embedding this within the mail witty context, which contains the required data
+    EmbedWittyComponent("mod::publisher/lib/internal/forms/defaultmail.html.witty:resultstable");
+  }
+>;

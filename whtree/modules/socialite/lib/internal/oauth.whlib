@@ -1,0 +1,892 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::socialite/lib/internal/support.whlib"; //GetNodeText
+LOADLIB "mod::socialite/lib/internal/networkconnectionbase.whlib" EXPORT NetworkConnectionBase;
+
+OBJECT lockmgr;
+
+OBJECT FUNCTION GetLockManager()
+{
+  IF (NOT ObjectExists(lockmgr))
+    lockmgr := OpenLockManager();
+  RETURN lockmgr;
+}
+
+PUBLIC OBJECTTYPE OauthNetworkConnection EXTEND NetworkConnectionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_browser;
+
+  /// Default host for the authorization callbacks
+  STRING pvt_authcallbackhosturl;
+
+  STRING oauth_version;
+
+  STRING pvt_mode; // '', 'facebook', 'youtube'
+
+  PUBLIC PROPERTY mode(pvt_mode,-);
+  PUBLIC PROPERTY browser(pvt_browser,-);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(STRING type, RECORD ARRAY permissionmap)
+  : NetworkConnectionBase(permissionmap)
+  {
+    SWITCH (type)
+    {
+    CASE "1.0" { this->pvt_browser := NEW OauthWebBrowser; }
+    CASE "2.0" { this->pvt_browser := NEW OauthV2WebBrowser; }
+    }
+    this->pvt_browser->timeout := 30000;
+    this->oauth_version := type;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Internal functions, for use by overrides
+  //
+
+  MACRO SetMode(STRING mode)
+  {
+    this->pvt_mode := mode;
+    this->browser->mode := this->pvt_mode;
+  }
+
+  RECORD FUNCTION StartOauthLogin(STRING callbackurl, STRING requesttokenuri, STRING authorizebaseuri, INTEGER ARRAY perms, BOOLEAN callback_in_requesttoken, RECORD ARRAY extravars DEFAULTSTO DEFAULT RECORD ARRAY)
+  {
+    IF (this->oauth_version != "1.0")
+      THROW NEW Exception("StartOauthLogin only allowed for Oauth 1.0");
+
+    IF (this->pvt_authcallbackhosturl != "")
+    {
+      STRING srhid := GetVariableFromURL(callbackurl, "srhid");
+      callbackurl := this->GetCallbackURL(this->pvt_authcallbackhosturl);
+      IF (srhid != "")
+        callbackurl := AddVariableToURL(callbackurl, "srhid", srhid);
+    }
+    ELSE IF (callbackurl = "")
+      THROW NEW Exception("No callback URL passed, and no callback host configured");
+
+    RECORD requesttoken := this->browser->RequestOauthRequestToken(requesttokenuri, callback_in_requesttoken ? callbackurl : "", extravars); //ADDME why doesn't callbcak here work?
+
+    //FIXME May overflow 4K buffers, so store this in database or find a more efficient encoding?
+    INSERT CELL reqperms := perms INTO requesttoken;
+
+    RETURN [ sessiontoken := EncodeJSON(requesttoken)
+           , authorize_uri := authorizebaseuri
+                             || "oauth_token=" || EncodeURL(requesttoken.token)
+                             || (callback_in_requesttoken ? "" : "&oauth_callback=" || EncodeURL(callbackurl))
+           , callbackurl := callbackurl
+           ];
+  }
+
+  RECORD FUNCTION FinishOauthLogin(STRING accesstokenuri, STRING sessiontoken, STRING verifyurl)
+  {
+    IF (this->oauth_version != "1.0")
+      THROW NEW Exception("FinishOauthLogin only allowed for Oauth 1.0");
+
+    RECORD requesttoken := DecodeJSON(sessiontoken);
+    this->accesstok := this->browser->RequestOauthAccessToken( accesstokenuri
+                                                             , requesttoken
+                                                             , GetVariableFromUrl(verifyurl, "oauth_verifier")
+                                                             );
+    INSERT CELL perms := requesttoken.reqperms INTO this->accesstok;
+    this->ExtUpdatedAccesstoken();
+
+    RETURN [ extra_fields := this->browser->GetExtraOAuthResponseFields() ];
+  }
+
+  RECORD FUNCTION StartOauthReverseAuth(STRING requesttokenuri, INTEGER ARRAY perms, RECORD ARRAY extravars DEFAULTSTO DEFAULT RECORD ARRAY)
+  {
+    IF (this->oauth_version != "1.0")
+      THROW NEW Exception("StartOauthReverseAuth only allowed for Oauth 1.0");
+
+    RECORD requesttoken := this->browser->RequestOauthReverseToken(requesttokenuri, extravars);
+    INSERT CELL reqperms := perms INTO requesttoken;
+
+    RETURN [ sessiontoken := EncodeJSON(requesttoken)
+           , signature := requesttoken.signature
+           ];
+  }
+
+  RECORD FUNCTION FinishOauthReverseAuth(STRING sessiontoken, STRING verifyresponse)
+  {
+    IF (this->oauth_version != "1.0")
+      THROW NEW Exception("FinishOauthLogin only allowed for Oauth 1.0");
+
+    // Since 4 feb 2010, hyves returns a bootstraperror when a verification id is passed...
+    RECORD requesttoken := DecodeJSON(sessiontoken);
+    this->accesstok := this->browser->ParseOauthReverseVerifier(requesttoken,
+                                                                verifyresponse);
+    INSERT CELL perms := requesttoken.reqperms INTO this->accesstok;
+    this->ExtUpdatedAccesstoken();
+
+    RETURN [ extra_fields := this->browser->GetExtraOAuthResponseFields() ];
+  }
+
+
+  RECORD FUNCTION GetV2AuthorizationCodeURI(STRING authorizeuri, STRING ARRAY perms, STRING callbackurl, STRING state DEFAULTSTO "")
+  {
+    IF (this->oauth_version != "2.0")
+      THROW NEW Exception("GetV2AuthorizationCodeURI only allowed for Oauth 2.0");
+
+    IF(state != "")
+    {
+      authorizeuri := AddVariableToURL(authorizeuri, "state", state);
+    }
+    ELSE IF (this->pvt_authcallbackhosturl != "")
+    {
+      // If the callbackurl has been set in the app, use the srhid from the passed callbackurl
+      STRING srhid := GetVariableFromURL(callbackurl, "srhid");
+      callbackurl := this->GetCallbackURL(this->pvt_authcallbackhosturl);
+      IF (srhid != "")
+      {
+        IF (this->pvt_mode NOT IN [ "youtube", "youku", "facebook" ])
+          callbackurl := AddVariableToURL(callbackurl, "srhid", srhid);
+        ELSE
+          callbackurl := AddVariableToURL(callbackurl, "state", "__socialite_srhid:" || srhid);
+      }
+    }
+    ELSE IF (callbackurl = "")
+      THROW NEW Exception("No callback URL passed, and no callback host configured");
+
+    authorizeuri := AddVariableToURL(authorizeuri, "response_type", "code");
+    authorizeuri := AddVariableToURL(authorizeuri, "client_id", this->browser->client_id);
+    authorizeuri := AddVariableToURL(authorizeuri, "redirect_uri", callbackurl);
+    IF (LENGTH(perms) != 0)
+      authorizeuri := AddVariableToURL(authorizeuri, "scope", Detokenize(perms, " "));
+    ELSE IF (this->pvt_mode IN [ "youtube" ]) // youtube requires non-empty scope parameter
+      THROW NEW Exception("Selecting some permissions is required for youtube");
+
+    RETURN
+        [ sessiontoken := EncodeJSON(
+              [ callbackurl :=  callbackurl
+              ])
+        , authorize_uri :=  authorizeuri
+        ];
+  }
+
+  RECORD FUNCTION DoV2AccessTokenRequest(STRING accesstokenrequesturi, STRING sessiontoken, STRING code)
+  {
+    IF (this->oauth_version != "2.0")
+      THROW NEW Exception("DoV2AccessTokenRequest only allowed for Oauth 2.0");
+
+    RECORD sessiondata := DecodeJSON(sessiontoken);
+
+    RECORD ARRAY postvars :=
+        [ [ name := "grant_type", value := "authorization_code" ]
+        , [ name := "code", value := code ]
+        , [ name := "redirect_uri", value := sessiondata.callbackurl ]
+        ];
+
+    BOOLEAN retval := this->browser->PostWebPage(accesstokenrequesturi, postvars, "application/x-www-form-urlencoded");
+    /*
+    LogWithContext([ postvars := postvars
+                   , content := this->browser->content
+                   , responseheaders := this->browser->responseheaders
+                   ], [ title := "DoV2AccessTokenRequest" ]);
+    */
+
+
+    RECORD data := DecodeJSONBlob(this->browser->content);
+    IF (CellExists(data, "ERROR"))
+    {
+      IF (this->pvt_mode = "facebook") // Facebook...
+        THROW NEW Exception("Authentication failed: " || data.error.message);
+      ELSE
+      {
+        STRING description := CellExists(data, "ERROR_DESCRIPTION") ? " - " || data.error_description : "";
+        THROW NEW Exception("Authentication failed: " || data.error || description);
+      }
+    }
+    IF (CellExists(data, "EXPIRES_IN") AND NOT CellExists(data, "EXPIRES"))
+    {
+      INTEGER expires_in := TypeID(data.expires_in) = TypeID(STRING) ? ToInteger(data.expires_in, 0) : data.expires_in;
+      INSERT CELL expires := GetUnixTimestamp(AddTimeToDate(expires_in * 1000, GetCurrentDateTime())) INTO data;
+    }
+
+    // NOTE: Vimeo can return '401 Unauthorized - Invalid consumer key - The consumer key passed was not valid.'
+    //       Should we handle this?
+
+    this->accesstok := data;
+
+
+    IF (this->accesstok.access_token = "")
+      THROW NEW Exception("Unknown failure.. should have access token");
+
+
+    this->ExtUpdatedAccesstoken();
+
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC BOOLEAN FUNCTION DoV2RefreshTokenIfNeeded(STRING refreshtokenrequesturi, INTEGER minvalidseconds)
+  {
+    DATETIME min_expires := AddTimeToDate(minvalidseconds * 1000, GetCurrentDateTime());
+
+    IF (CellExists(this->accesstok, "EXPIRES") AND this->accesstok.expires < GetUnixTimeStamp(min_expires))
+    {
+      IF (CellExists(this->accesstok, "REFRESH_TOKEN"))
+      {
+        STRING refresh_token := this->accesstok.refresh_token;
+        this->accesstok := DEFAULT RECORD;
+        this->ExtUpdatedAccesstoken();
+
+        RECORD ARRAY postvars :=
+            [ [ name := "refresh_token", value := refresh_token ]
+            , [ name := "grant_type", value := "refresh_token" ]
+            ];
+
+        BOOLEAN retval := this->browser->PostWebPage(refreshtokenrequesturi, postvars, "application/x-www-form-urlencoded");
+        RECORD data := DecodeJSON(BlobToString(this->browser->content, -1));
+        IF (NOT retval OR CellExists(data, "ERROR"))
+        {
+          STRING description := CellExists(data, "ERROR_DESCRIPTION") ? " - " || data.error_description : "";
+          THROW NEW Exception("Authentication failed: " || (CellExists(data, "ERROR") ? data.error : EncodeJSON(this->browser->GetHTTPStatus())) || description);
+        }
+
+        IF (CellExists(data, "EXPIRES_IN") AND NOT CellExists(data, "EXPIRES"))
+          INSERT CELL expires := GetUnixTimestamp(AddTimeToDate(data.expires_in * 1000, GetCurrentDateTime())) INTO data;
+        IF (NOT CellExists(data, "REFRESH_TOKEN"))
+          INSERT CELL refresh_token := refresh_token INTO data;
+
+        this->accesstok := data;
+        this->ExtUpdatedAccesstoken();
+
+        RETURN TRUE;
+      }
+      ELSE
+        THROW NEW Exception("Token has expired, but no refresh token present. Please re-login.");
+    }
+
+    RETURN FALSE;
+  }
+
+  PUBLIC MACRO DoV2RefreshPersistentSessionIfNeeded(STRING refreshtokenrequesturi, INTEGER minvalidseconds)
+  {
+    INTEGER sessionid := this->GetCurrentPersistentSession();
+    IF (sessionid = 0)
+      THROW NEW Exception("Can only refresh persistent sessions");
+
+    OBJECT mutex := GetLockManager()->LockMutex("socialite:oauthv2.tokenrefresh." || sessionid);
+    TRY
+    {
+      GetPrimaryWebhareTransactionObject()->BeginWork();
+      this->ReloadStoredAccessToken();
+      IF (this->DoV2RefreshTokenIfNeeded(refreshtokenrequesturi, minvalidseconds))
+        this->UpdateStoredAccessToken(sessionid);
+      mutex->Close();
+      GetPrimaryWebhareTransactionObject()->CommitWork();
+    }
+    CATCH (OBJECT e)
+    {
+      GetPrimaryWebhareTransactionObject()->RollbackWork();
+      mutex->Close();
+      THROW e;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  UPDATE MACRO ExtUpdatedAccesstoken()
+  {
+    this->browser->SetOauthAccessToken(this->accesstok);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO EnableRPCLogging(STRING logsource, STRING sourcetracker)
+  {
+    LogRPCForWebbrowser(logsource, sourcetracker, this->browser);
+  }
+  /// Set the host url for authorization callbacks
+  PUBLIC MACRO SetAuthCallbackHostURL(STRING authcallbackhosturl)
+  {
+    this->pvt_authcallbackhosturl := authcallbackhosturl;
+  }
+
+  PUBLIC MACRO SetApplicationAuthKeys(STRING consumerkey, STRING secretkey)
+  {
+    this->consumer := consumerkey;
+    this->secret := secretkey;
+    this->browser->SetKeys(consumerkey, secretkey);
+  }
+
+  PUBLIC MACRO SetSocialiteToken(STRING token)
+  {
+    RECORD split := SplitSecureToken(token);
+    IF(NOT RecordExists(split))
+      THROW NEW SocialiteException("INVALIDARG", "Not a valid socialite token");
+
+    IF(NOT this->SetSecureEncryptedHandle(split.encryptedhandle))
+      THROW NEW SocialiteException("INVALIDARG", "Invalid token");
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    IF(ObjectExists(this->browser))
+      this->browser->Close();
+    this->pvt_browser := DEFAULT OBJECT;
+  }
+
+  /// Returns the redirect page for oauth apps
+  UPDATE PUBLIC STRING FUNCTION GetCallbackURL(STRING serverurl)
+  {
+    RETURN ResolveToAbsoluteURL(serverurl, "/tollium_todd.res/socialite/callbacks/generic.shtml");
+  }
+>;
+
+RECORD ARRAY FUNCTION ReadFormEncodedVars(STRING indata)
+{
+  IF (indata = "")
+    RETURN DEFAULT RECORD ARRAY;
+
+  STRING ARRAY encoded_vars := Tokenize(indata, "&");
+  RECORD ARRAY vars;
+  FOREVERY (STRING v FROM encoded_vars)
+  {
+    INTEGER eqpos := SearchSubstring(v, "=");
+    IF (eqpos = -1)
+    {
+      INSERT
+          [ name :=         DecodeURL(v)
+          , value :=        ""
+          ] INTO vars AT END;
+    }
+    ELSE
+    {
+      INSERT
+          [ name :=         DecodeURL(Left(v, eqpos))
+          , value :=        DecodeURL(SubString(v, eqpos + 1))
+          ] INTO vars AT END;
+    }
+  }
+  RETURN vars;
+}
+
+
+STRING FUNCTION XorString(STRING text, STRING newdata)
+{
+  STRING outstr;
+  FOR(INTEGER i := 0; i<Length(text); i := i + 1)
+    outstr := outstr || ByteToString(GetByteValue(Substring(text,i,1)) BITXOR GetByteValue(Substring(newdata,i,1)));
+  RETURN outstr;
+}
+STRING FUNCTION GetHmacSHA1(STRING text, STRING authkey)
+{
+  STRING ipad := RepeatText("\x36", 64);
+  STRING opad := RepeatText("\x5C", 64);
+
+  IF(Length(authkey)>64) //too large keyes, self-hash 'm first
+    authkey := GetSHA1Hash(authkey);
+  IF(Length(authkey)<64) //too small keys, 0pad
+    authkey := authkey || RepeatText("\0",64-Length(authkey));
+
+  //SHA1(authkey XOR opad || SHA1(authkey XOR ipad || text))
+  STRING intermediate_hash := GetSHA1Hash(XorString(ipad, authkey) || text);
+  RETURN GetSHA1Hash(XorString(opad, authkey) || intermediate_hash);
+}
+
+PUBLIC STRING FUNCTION OAuthEncodeURL(STRING indata)
+{
+  STRING outdata;
+  FOR (INTEGER i := 0, e := LENGTH(indata); i < e; i := i + 1)
+  {
+    STRING char := SuBString(indata, i, 1);
+    IF (SearchSubstring("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~", char) = -1)
+      outdata := outdata || "%" || ToUppercase(EncodeBase16(char));
+    ELSE
+      outdata := outdata || char;
+  }
+  RETURN outdata;
+/*
+  indata := EncodeURL(indata);
+  indata := Substitute(indata,":","%3A");
+  indata := Substitute(indata,"/","%2F");
+
+  IF (indata != outdata)
+    ABORT(outdata || "-" || indata);
+  RETURN indata;
+*/
+}
+
+MACRO OauthDebug(INTEGER level, STRING data)
+{
+  //PRINT(data || "\n");
+}
+
+PUBLIC STRING FUNCTION GetOauthSignature(STRING method, STRING uri, RECORD ARRAY vars, STRING secretkey)
+{
+  OauthDebug(6, "Signature vars:\n" || AnyToString(vars, "boxed"));
+
+  vars := SELECT * FROM vars ORDER BY name,value;
+  STRING requestparams := Detokenize((SELECT AS STRING ARRAY OAuthEncodeURL(name) || "=" || OAuthEncodeURL(value) FROM vars),"&");
+  STRING hashbase := OAuthEncodeURL(method) || "&" || OAuthEncodeURL(uri) || "&" || OAuthEncodeURL(requestparams);
+
+  OauthDebug(6, "Base string: " || SubStitute(hashbase, "%26", "\n %26"));
+
+  RETURN EncodeBase64(GetHmacSha1(hashbase, secretkey));
+}
+
+PUBLIC STRING FUNCTION GetOauthHeader(STRING method, STRING uri, RECORD ARRAY oauth_headervars, RECORD ARRAY othervars, STRING secretkey)
+{
+  OauthDebug(6, "secret key: " ||secretkey);
+  STRING sig := GetOauthSignature(method, uri, oauth_headervars CONCAT othervars, secretkey);
+
+  INSERT INTO oauth_headervars(name,value) VALUES("oauth_signature", sig) AT END;
+  STRING oauthheader := 'OAuth ' || Detokenize((SELECT AS STRING ARRAY OAuthEncodeURL(name) || '="' || OAuthEncodeURL(value) || '"' FROM oauth_headervars),", ");
+  RETURN oauthheader;
+}
+
+PUBLIC OBJECTTYPE OauthWebBrowser EXTEND WebBrowser
+<
+  STRING oauth_consumerkey;
+  STRING oauth_secretkey;
+
+  RECORD oauth_token;
+  RECORD ARRAY oauth_addvars;
+
+  INTEGER nonce_counter;
+
+  PUBLIC RECORD ARRAY oauth_response_parts;
+  PUBLIC BOOLEAN request_use_oauth_urlencode;
+
+  MACRO NEW()
+  {
+  }
+
+  PUBLIC MACRO SetKeys(STRING consumerkey, STRING secretkey)
+  {
+    this->oauth_consumerkey := consumerkey;
+    this->oauth_secretkey := secretkey;
+  }
+
+  //FIXME proper nonce generation
+  STRING FUNCTION GetNewNonce()
+  {
+    this->nonce_counter := this->nonce_counter + 1;
+    STRING token_salt := RecordExists(this->oauth_token) ? Left(EncodeBase64(GetMD5Hash(this->oauth_token.token)), 6) || "-" : "";
+
+    RETURN ToString(GetMsecondCount(GetCurrentDatetime())) || "-" || token_salt || this->nonce_counter;
+  }
+
+  STRING FUNCTION GetTimeStamp()
+  {
+    RETURN ToString(GetUnixTimestamp(GetCurrentDatetime()));
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RequestFilter(RECORD indata)
+  {
+    IF(this->oauth_secretkey="")
+      RETURN indata; //not configured yet, don't touch it (public unauthorized api request?)
+
+    //Sign the requests with our OAUTH
+    STRING signkey := OAuthEncodeURL(this->oauth_secretkey) || "&";
+    IF(signkey="&")
+      THROW NEW SocialiteException("INVALIDARG","No application secret key specified");
+
+    RECORD ARRAY vars := [[ name := "oauth_consumer_key", value := this->oauth_consumerkey ]
+                         ,[ name := "oauth_nonce", value := this->GetNewNonce() ]
+                         ,[ name := "oauth_signature_method", value := "HMAC-SHA1" ]
+                         ,[ name := "oauth_timestamp", value := this->GetTimeStamp() ]
+                         ,[ name := "oauth_version", value := "1.0" ]
+                         ];
+    vars := vars CONCAT this->oauth_addvars;
+    IF(RecordExists(this->oauth_token))
+    {
+      INSERT [ name := "oauth_token", value := this->oauth_token.token ] INTO vars AT END;
+      signkey := signkey || OAuthEncodeURL(this->oauth_token.secret);
+    }
+
+    STRING url := indata.url;
+    RECORD ARRAY othervars;
+
+    // Remove fragment part from url
+    INTEGER fragment_pos := SearchSubstring(url, "#");
+    IF(fragment_pos!=-1)
+      url := Left(url,fragment_pos);
+
+    // Parse the body for variables, but ONLY if it is application/x-www-form-urlencoded
+    STRING bodytype := SELECT AS STRING value FROM indata.headers WHERE ToUppercase(field)="CONTENT-TYPE";
+    OauthDebug(6, "Body type: " || bodytype);
+    IF(TOUppercase(Tokenize(bodytype,';')[0]) = "APPLICATION/X-WWW-FORM-URLENCODED")
+    {
+      STRING bodyvars := BlobToString(indata.body, Length(indata.body));
+      othervars := othervars CONCAT ReadFormEncodedVars(bodyvars);
+      OauthDebug(6, "Postvars:\n" || BlobToString(indata.body, -1) || "\nvars:\n" || AnyToString(othervars, "boxed"));
+
+      IF (this->request_use_oauth_urlencode)
+      {
+        // Twitter doesn't like when we don't url-encode '!' (authentication then fails)
+        RECORD ARRAY reencode_vars := SELECT * FROM othervars ORDER BY name,value;
+        indata.body := StringToBlob(Detokenize((SELECT AS STRING ARRAY OAuthEncodeURL(name) || "=" || OAuthEncodeURL(value) FROM reencode_vars),"&"));
+      }
+    }
+
+    //Get the 'URL' part
+    INTEGER question_mark := SearchSubstring(url, "?");
+    IF (question_mark != -1)
+    {
+      //Tokenize the variables part
+      STRING encoded_vars := Substring(url, question_mark + 1, Length(url));
+      url := Left(url, question_mark);
+      othervars := othervars CONCAT ReadFormEncodedVars(encoded_vars);
+    }
+
+    STRING oauthheader := GetOauthHeader(indata.method, url, vars, othervars, signkey);
+    INSERT [ field := "Authorization", value := oauthheader ] INTO indata.headers AT END;
+
+    OauthDebug(6, "Org url: " || indata.url);
+    OauthDebug(6, "Oauth");
+    OauthDebug(6, " method: " || indata.method);
+    OauthDebug(6, " vars:\n" || AnyToString(vars, "boxed"));
+    OauthDebug(6, " othervars:\n" || AnyToString(othervars, "boxed"));
+    OauthDebug(6, " authorization:\n" || AnyToString(oauthheader, "boxed"));
+
+    RETURN indata;
+  }
+
+  MACRO ParseOauthResponseParts(BLOB responsebody)
+  {
+    this->oauth_response_parts := DEFAULT RECORD ARRAY;
+
+    STRING restext := BlobToString(responsebody,16384);
+    STRING ARRAY resvars := Tokenize(restext,'&');
+    FOREVERY(STRING resvar FROM resvars)
+    {
+      STRING ARRAY parts := Tokenize(resvar,'=');
+      IF(Length(parts)=2)
+        INSERT INTO this->oauth_response_parts(field,value) VALUES(DecodeURL(parts[0]), DecodeURL(parts[1])) AT END;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION RequestOauthRequestToken(STRING requesttokenurl, STRING callbackurl, RECORD ARRAY extravars)
+  {
+    RECORD ARRAY save_addvars := this->oauth_addvars;
+    RECORD ARRAY postvars := extravars;
+
+    IF(callbackurl!="")
+      INSERT [ name := "oauth_callback", value := callbackurl ] INTO this->oauth_addvars AT END;
+
+    this->PostWebPage(requesttokenurl, postvars, "application/x-www-form-urlencode", "utf-8");
+    this->oauth_addvars := save_addvars;
+
+    this->ParseOauthResponseParts(this->content);
+
+    STRING oauthtoken := SELECT AS STRING value FROM this->oauth_response_parts WHERE field = "oauth_token";
+    STRING oauthsecret := SELECT AS STRING value FROM this->oauth_response_parts WHERE field = "oauth_token_secret";
+
+    IF(oauthtoken != "" AND oauthsecret != "")
+      RETURN [ token := oauthtoken
+             , secret := oauthsecret
+             ];
+
+    THROW NEW OAuthException(this, "Unrecognized oauth response: " || BlobToString(this->content,1024));
+  }
+
+  PUBLIC RECORD FUNCTION RequestOauthReverseToken(STRING requesttokenurl, RECORD ARRAY extravars)
+  {
+    // The x_auth_mode=reverse_auth must be added as a web variable
+    RECORD ARRAY postvars := [ [ name := "x_auth_mode", value := "reverse_auth" ] ]
+                             CONCAT extravars;
+
+    this->PostWebPage(requesttokenurl, postvars, "application/x-www-form-urlencode", "utf-8");
+
+    STRING signature := BlobToString(this->content, 16384);
+    IF (signature LIKE "OAuth oauth_?*=?*")
+      RETURN [ signature := signature ];
+
+    THROW NEW OAuthException(this, "Unrecognized oauth response: " || BlobToString(this->content,1024));
+  }
+
+  PUBLIC RECORD FUNCTION RequestOauthAccessToken(STRING accesstokenurl, RECORD requesttoken, STRING oauth_verifier)
+  {
+    RECORD ARRAY save_addvars := this->oauth_addvars;
+    RECORD save_token := this->oauth_token;
+
+    this->oauth_token := requesttoken;
+    IF(oauth_verifier!="")
+      INSERT [ name := "oauth_verifier", value := oauth_verifier ] INTO this->oauth_addvars AT END;
+
+    this->PostWebPage(accesstokenurl, DEFAULT RECORD ARRAY, "application/x-www-form-urlencode", "utf-8");
+
+    this->oauth_token := save_token;
+    this->oauth_addvars := save_addvars;
+
+    this->ParseOauthResponseParts(this->content);
+
+    STRING oauthtoken := SELECT AS STRING value FROM this->oauth_response_parts WHERE field = "oauth_token";
+    STRING oauthsecret := SELECT AS STRING value FROM this->oauth_response_parts WHERE field = "oauth_token_secret";
+
+    IF(oauthtoken != "" AND oauthsecret != "")
+      RETURN [ token := oauthtoken
+             , secret := oauthsecret
+             ];
+
+    THROW NEW OAuthException(this, "Unrecognized oauth response: " || BlobToString(this->content,1024));
+  }
+
+  PUBLIC RECORD FUNCTION ParseOauthReverseVerifier(RECORD requesttoken, STRING oauth_verifier)
+  {
+    this->ParseOauthResponseParts(StringToBlob(oauth_verifier));
+
+    STRING oauthtoken := SELECT AS STRING value FROM this->oauth_response_parts WHERE field = "oauth_token";
+    STRING oauthsecret := SELECT AS STRING value FROM this->oauth_response_parts WHERE field = "oauth_token_secret";
+
+    IF(oauthtoken != "" AND oauthsecret != "")
+      RETURN [ token := oauthtoken
+             , secret := oauthsecret
+             ];
+
+    THROW NEW OAuthException(this, "Unrecognized oauth response: " || oauth_verifier);
+  }
+
+  PUBLIC MACRO SetOauthAccessToken(RECORD token)
+  {
+    this->oauth_token := token;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetExtraOAuthResponseFields()
+  {
+    RETURN SELECT * FROM this->oauth_response_parts WHERE field NOT LIKE "oauth_*";
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE OauthV2WebBrowser EXTEND WebBrowser
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING pvt_oauthv2_client_id;
+  STRING pvt_oauthv2_client_secret;
+  STRING pvt_mode; // '', 'facebook', 'youtube'
+  RECORD oauth_token;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY client_id(pvt_oauthv2_client_id, -);
+  PUBLIC PROPERTY client_secret(pvt_oauthv2_client_secret, -);
+  PUBLIC PROPERTY mode(pvt_mode, pvt_mode);
+
+
+  PUBLIC STRING FUNCTION GetOauthAccessToken()
+  {
+    RETURN this->oauth_token.access_token;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overrides
+  //
+
+  UPDATE RECORD FUNCTION RequestFilter(RECORD indata)
+  {
+    IF (NOT RecordExists(this->oauth_token))
+    {
+      IF(this->mode = "youtube") //apparently wants the apiid in the ?key= variable
+      {
+        indata.url := AddVariableToURL(indata.url, "key", this->pvt_oauthv2_client_id);
+        RETURN indata;
+      }
+      IF (indata.method = "GET")
+      {
+        indata.url := AddVariableToURL(indata.url, "client_id", this->pvt_oauthv2_client_id);
+        indata.url := AddVariableToURL(indata.url, "client_secret", this->pvt_oauthv2_client_secret);
+        OauthDebug(6, "Updated non-authorized Oauth2 request to\n" || AnyToString(indata, "tree"));
+        RETURN indata;
+      }
+
+      // All API docs are quite clear on that we MUST add this header or you fall back to API V1,
+      // however the field doesn't seem to have any effect at all.
+      IF (this->pvt_mode = "linkedinv2")
+        INSERT [ field := "X-Restli-Protocol-Version", value := "2.0.0" ] INTO indata.headers AT END;
+
+      IF ((SELECT AS STRING value
+             FROM indata.headers
+            WHERE ToUppercase(field) = "CONTENT-TYPE") NOT LIKE "application/x-www-form-urlencoded*")
+      {
+        // Can't modify
+//        PRINT(AnyToString(indata, "tree"));
+        RETURN indata;
+      }
+
+      STRING bodyvars := BlobToString(indata.body, Length(indata.body));
+      RECORD ARRAY vars;
+      IF(this->pvt_mode!="vimeo")
+      {
+        vars :=
+          [ [ name := "client_id", value := this->pvt_oauthv2_client_id ]
+          , [ name := "client_secret", value := this->pvt_oauthv2_client_secret ]
+          ];
+      }
+      vars := vars CONCAT ReadFormEncodedVars(bodyvars);
+
+      RECORD newreq := CreateHTTPUrlencodedRequest(vars);
+      indata.body := newreq.body;
+      DELETE FROM indata.headers WHERE ToUppercase(field) = "CONTENT-TYPE";
+      indata.headers := indata.headers CONCAT newreq.headers;
+      indata.method := "POST";
+
+      IF(this->pvt_mode="vimeo")
+        INSERT [ field := "Authorization", value := "Basic " || EncodeBase64(this->pvt_oauthv2_client_id || ":" || this->pvt_oauthv2_client_secret) ] INTO indata.headers AT END;
+
+      OauthDebug(6, "Updated non-authorized Oauth2 request to\n" || AnyToString(indata, "tree"));
+
+//      PRINT(AnyToString(indata, "tree"));
+//      PRINT("Body:\n" || BlobToString(indata.body, -1) || "\n");
+
+      RETURN indata;
+    }
+
+    IF (NOT CellExists(this->oauth_token, "access_token"))
+      Abort("No such cell 'access_token', so cannot replace in URL '" || indata.url || "'");
+
+    //NOTE Prefer yammer/pinterest/moneybird path when possible. those are standard oauth v2 routes...
+    IF (this->pvt_mode = "facebook")
+      indata.url := ReplaceVariableInURL(indata.url, "access_token", this->oauth_token.access_token);
+    ELSE IF (this->pvt_mode = "instagram")
+    {
+      indata.url := ReplaceVariableInURL(indata.url, "client_id", this->pvt_oauthv2_client_id);
+      indata.url := ReplaceVariableInURL(indata.url, "access_token", this->oauth_token.access_token);
+    }
+    ELSE IF (this->pvt_mode = "youku")
+    {
+      indata.url := ReplaceVariableInURL(indata.url, "client_id", this->pvt_oauthv2_client_id);
+      indata.url := ReplaceVariableInURL(indata.url, "oauth_token", this->oauth_token.access_token);
+    }
+    ELSE IF (this->pvt_mode IN ["yammer","pinterest","google","moneybird","vimeo","linkedin","linkedinv2"])
+    {
+      INSERT [ field := "Authorization", value := "Bearer " || this->oauth_token.access_token ] INTO indata.headers AT END;
+    }
+    ELSE IF (this->pvt_mode != "youtube")
+      indata.url := ReplaceVariableInURL(indata.url, "oauth_token", this->oauth_token.access_token);
+    ELSE // youtube. Sigh.
+    {
+      IF (indata.url LIKE "http://uploads.*" OR indata.url LIKE "https://uploads.*")
+        INSERT [ field := "Authorization", value := "Bearer " || this->oauth_token.access_token ] INTO indata.headers AT END;
+      ELSE
+        indata.url := ReplaceVariableInURL(indata.url, "access_token", this->oauth_token.access_token);
+    }
+
+    OauthDebug(6, "Updated authorized Oauth2 request to\n" || AnyToString(indata, "tree"));
+
+    RETURN indata;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SetKeys(STRING client_id, STRING client_secret)
+  {
+    this->pvt_oauthv2_client_id := client_id;
+    this->pvt_oauthv2_client_secret := client_secret;
+  }
+
+  PUBLIC MACRO SetOauthAccessToken(RECORD token)
+  {
+    this->oauth_token := token;
+  }
+>;
+
+
+/** Object thrown on oauth exception
+*/
+PUBLIC OBJECTTYPE OAuthException EXTEND Exception
+< /// Oauth browser that has the error pages
+  PUBLIC OBJECT oauthbrowser;
+
+  /// Construct a new OAuthException
+  MACRO NEW(OBJECT oauthbrowser, STRING what)
+  : Exception(what)
+  {
+    this->oauthbrowser := oauthbrowser;
+  }
+>;
+
+PUBLIC OBJECTTYPE OauthV2NetworkConnection EXTEND OauthNetworkConnection
+<
+  /// URL for token authorization
+  STRING pvt_authenticateurl;
+
+  /// URL for token authorization, with forced authorization (no fast redirect when permission has already been given)
+  STRING pvt_authorizeurl;
+
+  /// URL for getting the access token
+  STRING pvt_accesstokenurl;
+
+  MACRO NEW(RECORD ARRAY permissionmap)
+  : OauthNetworkConnection("2.0", permissionmap)
+  {
+  }
+
+
+  /** Refresh access token for a persistent session if not valid for minvalidseconds. Locked, so only one refresh call can be
+      in flight per session. A youtube access token is valid for 1 hour. Please set minvalidseconds somewhat (much)
+      lower to avoid excessive refreshing. Throws on failure to refresh. Requires the primary webhare transaction to be an
+      autotransaction, and no work may be open.
+      @param minvalidseconds Refresh the access token if not valid for this many seconds.
+  */
+  PUBLIC MACRO RefreshPersistentSessionIfNeeded(INTEGER minvalidseconds)
+  {
+    this->DoV2RefreshPersistentSessionIfNeeded(this->pvt_accesstokenurl, minvalidseconds);
+  }
+
+  /** Finish the login sequence, using the uri that facebook redirected to after login
+      @param sessiontoken Sessiontoken returned by StartLogin
+      @param returned_uri URI that facebook redirected the user to
+      @return Undef
+  */
+  PUBLIC RECORD FUNCTION FinishLogin(STRING sessiontoken, STRING returned_uri)
+  {
+    STRING code := GetVariableFromURL(returned_uri, "code");
+    RECORD res := this->DoV2AccessTokenRequest(this->pvt_accesstokenurl, sessiontoken, code);
+    RETURN res;
+  }
+
+  /** Get a client authorization key. FIXME this code is vimeo specific, but other oauths have something similar.. refactor ? */
+  PUBLIC STRING FUNCTION GetClientAuthorizationToken(STRING ARRAY scopes)
+  {
+    RECORD ARRAY postvars :=
+        [ [ name := "grant_type", value := "client_credentials" ]
+        , [ name := "scopes", value := Detokenize(scopes,' ') ]
+        ];
+
+    IF(NOT this->browser->PostWebPage(this->pvt_authorizeurl || "/client", postvars, "application/x-www-form-urlencoded"))
+    {
+
+      THROW NEW exception("Authorization failure");
+    }
+
+    this->accesstok := DecodeJSON(BlobToString(this->browser->content, -1));
+    this->browser->SetOauthAccessToken(this->accesstok);
+    RETURN this->accesstok.access_token;
+  }
+>;
+

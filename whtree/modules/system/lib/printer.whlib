@@ -1,0 +1,376 @@
+<?wh
+/** @topic witty/api */
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::publisher/lib/engines/chromepdf.whlib";
+LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
+
+
+/** Get a screenshot of a page
+    @param url URL to take a screenshot of
+    @cell(boolean) options.debug Enable debug mode
+    @cell(string) options.media Media to use - 'screen' (default) or 'print'
+    @cell(integer) options.delay How much milliseconds to wait after setting the url before taking a screenshot
+    @cell(boolean) options.getlog Return the browser log
+    @cell(integer) options.screenheight Override the screen height (default: 1080)
+    @cell(integer) options.screenwidth Set the screen width (default: 1920)
+    @cell(boolean) options.withalpha Take two screenshots, with different background colors on the body element. Calculates the
+        alpha channel from the difference.
+    @cell(record array) options.cutouts Cutouts. If set, returnvalue with look like [ screenshot := ..., cutouts := ... ]
+    @cell(string) options.cutouts.strategy Element lookup strategy ('css selector', 'xpath')
+    @cell(string) options.cutouts.selector
+    @return Promise that resolve to a wrapped blob with the screenshot
+    @cell return.screenshot Wrapped blob with the screenshot
+    @cell return.cutouts Informatation about the cutouts
+    @cell return.cutouts.strategy Selected element lookup strategy
+    @cell return.cutouts.selector Selector
+    @cell(float) return.cutouts.x When found, the x-position of the element
+    @cell(float) return.cutouts.y When found, the y-position of the element
+    @cell(float) return.cutouts.width When found, the width of the element
+    @cell(float) return.cutouts.height When found, the heigth of the element
+    @cell(boolean) return.cutouts.found Wether the element was found
+    @cell(record) return.cutouts.image Wrapped blob with image (if the coordinates are (partially) within the screenshot)
+    @cell return.log Browser log (if requested via options.getlog)
+    @cell(string) return.log.level 'INFO', 'WARNING'
+    @cell(string) return.log.message
+    @cell(datetime) return.log.timestamp
+*/
+PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFAULTSTO CELL[])
+{
+  options := ValidateOptions([ cutouts := RECORD[]
+                             , getlog := FALSE
+                             , delay := 0
+                             , withalpha := FALSE
+                             , media := "screen"
+                             , debug := FALSE
+                             , screenwidth := 1920
+                             , screenheight := 1080
+                             ], options);
+
+  IF(NOT IsAbsoluteURL(url))
+    THROW NEW Exception("Invalid URL to screenshot: " || url);
+  BOOLEAN withalpha := options.withalpha;
+  BOOLEAN getlog :=  options.getlog;
+  IF (withalpha)
+    INSERT CELL adjustbackground := TRUE INTO options;
+
+  IF (Length(options.cutouts) > 0)
+  {
+    //FIXME validate cutouts but we should we bother with 'strategy' parameters?  what if a cutout resolves to multiple elements?
+
+    // Test the strategies. 'css selector' has been tested, don't know yet which ones
+    FOREVERY (RECORD cutout FROM options.cutouts)
+      IF (cutout.strategy NOT IN [ "css selector"/*, "xpath"*/ ])
+        THROW NEW Exception("Lookup strategy '" || cutout.strategy || "' not supported");
+  }
+
+  OBJECT pdfgen := NEW ChromePDFAPI([ debug := options.debug]);
+  RECORD response := WaitForPromise( pdfgen->GenerateScreenshotFromURL(url, CELL[ options.media
+                                                                                , options.delay
+                                                                                , options.cutouts
+                                                                                , options.screenwidth
+                                                                                , options.screenheight
+                                                                                , printbackground := NOT withalpha
+                                                                                ]) );
+
+  IF (NOT CellExists(options, "CUTOUTS"))
+    RETURN response;
+
+  OBJECT finalimage;
+  RECORD retval :=
+      [ screenshot :=   DEFAULT RECORD
+      , cutouts :=      DEFAULT RECORD ARRAY
+      , log :=          DEFAULT RECORD ARRAY
+      ];
+
+  //IF (withalpha)
+  //{
+  //  RECORD rec := CalculateTransparencyFromImages(response.black, response.white);
+  //  finalimage := rec.canvas;
+  //  retval.screenshot := rec.data;
+  //}
+  //ELSE
+  {
+    finalimage := CreateCanvasFromBlob(response.screenshot.data);
+    IF(NOT ObjectExists(finalimage))
+      THROW NEW Exception("Unable to open final image " );
+    retval.screenshot := response.screenshot;
+  }
+
+  IF (Length(options.cutouts) > 0)
+  {
+    RECORD ARRAY cutouts := response.cutouts;
+
+    FOREVERY (RECORD rec FROM cutouts)
+    {
+      RECORD image;
+      IF (rec.found)
+      {
+        // Don't pass coordinates outside the canvas, CreateCroppedCanvas doesn't like that
+        INTEGER x := INTEGER(rec.x);
+        INTEGER y := INTEGER(rec.y);
+        INTEGER rightlimit := INTEGER(rec.x + rec.width);
+        INTEGER bottomlimit := INTEGER(rec.y + rec.height);
+
+        IF (x < 0) x := 0;
+        IF (y < 0) y := 0;
+        IF (rightlimit >= finalimage->width)
+          rightlimit := finalimage->width;
+        IF (bottomlimit >= finalimage->height)
+          bottomlimit := finalimage->height;
+
+        IF (x < finalimage->width AND rightlimit > x AND y < finalimage->height AND bottomlimit > y)
+        {
+          OBJECT cutoutcanvas := finalimage->CreateCroppedCanvas(x, y, rightlimit, bottomlimit);
+          image := WrapBlob(cutoutcanvas->ExportAsPNG(FALSE), "cutout_" || #rec || ".png");
+          cutoutcanvas->Close();
+        }
+        ELSE
+          rec.message := "Element is not visible within the viewport";
+      }
+      INSERT CELL image := image INTO cutouts[#rec];
+    }
+
+    retval.cutouts := cutouts;
+  }
+
+  IF (getlog)
+    retval.log := response.log;
+
+  finalimage->Close();
+
+  // Done
+  RETURN retval;
+}
+
+/** @short Generate a PDF from a witty record
+    @param data Witty data
+    @cell options.pdfengine PDF Engine to use. 'chrome' (default)
+    @cell options.printbackground Print backgrounds too? (defaults to true)
+    @cell options.filename Output filename, will be genrated from the wittypath if not set
+    @cell options.wittypath Path to witty template to use. If not set but the data contains a 'wittypath' variable, that one is used instead
+    @cell options.getsource Get a full dump of the data that will be used for the PDF. Used for debugging, may be removed in the future
+    @cell(string) options.media Media to use - 'screen' (default) or 'print'
+    @cell(boolean) options.debug Enable debug mode
+    @cell(integer) options.delay How much milliseconds to wait after setting the url before taking a screenshot
+    @return Wrapped file containing the PDF (or ZIP, if getsource is used)
+*/
+PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[])
+{
+  options := ValidateOptions([ filename := ""
+                             , pdfengine := "chrome"
+                             , wittypath := ""
+                             , debug := FALSE
+                             , printbackground := TRUE
+                             , media := "screen"
+                             , getsource := FALSE
+                             , delay := 0
+                             , lookupresource := DEFAULT FUNCTION PTR
+                             ], options, [ enums := [ pdfengine := ["chrome"]
+                                                    , media := ["print","screen"]
+                                                    ]
+                                         ]);
+
+  IF(options.wittypath = "" AND NOT CellExists(data,'wittypath'))
+    THROW NEW Exception(`Wittypath was not explicitly specified and not passed as part of the data record either`);
+
+  STRING wittypath := options.wittypath ?? data.wittypath;
+  STRING extension := options.getsource ? ".zip" : ".pdf";
+  IF(options.filename = "")
+  {
+    options.filename := GetSafeFileName(GetNameFromPath(wittypath)) || extension;
+  }
+  ELSE IF(options.filename NOT LIKE `*${extension}`)
+  {
+    options.filename := GetSafeFileName(options.filename) || extension;
+  }
+
+  IF(options.pdfengine = "chrome")
+  {
+    OBJECT pdfgenerator := NEW ChromePDFAPI([ debug := options.debug
+                                            , printbackground := options.printbackground
+                                            ]);
+    pdfgenerator->LoadRichBody(wittypath,"text/html");
+    pdfgenerator->mergerecord := data;
+    pdfgenerator->lookupresource := options.lookupresource;
+
+    BLOB pdfdata := options.getsource ? pdfgenerator->GenerateSource() : WaitForPromise(pdfgenerator->GeneratePDF());
+    RETURN WrapBlob(pdfdata, options.filename);
+  }
+
+  THROW NEW Exception("GeneratePDF failed");
+}
+
+/** @short Generate a PDF from a URL
+    @param link URL to generate a PDF for
+    @cell options.pdfengine PDF Engine to use. Defaults to 'chrome' and is currently the only available one
+    @cell options.printbackground Print backgrounds too? (defaults to true)
+    @cell options.media Media to use - 'screen' or 'print' (default)
+    @cell options.filename Output filename.
+    @cell(integer) options.delay How much milliseconds to wait after setting the url before taking a screenshot
+    @return Wrapped file containing the PDF
+*/
+PUBLIC RECORD FUNCTION GeneratePDFFromURL(STRING link, RECORD options DEFAULTSTO CELL[])
+{
+  options := ValidateOptions([ pdfengine := "chrome"
+                             , printbackground := TRUE
+                             , media := "print"
+                             , filename := "output.pdf"
+                             , delay := 0
+                             ], options, [ enums := [ pdfengine := ["chrome"]
+                                                    , media := ["print","screen"]
+                                                    ]
+                                         ]);
+
+  OBJECT pdfgen := NEW ChromePDFAPI();
+  BLOB pdfdata := WaitForPromise( pdfgen->GeneratePDFFromURL(link, [ media := options.media ]) );
+  RETURN WrapBlob(pdfdata, options.filename);
+}
+
+PUBLIC MACRO SendGeneratedPDF(OBJECT filereceiver, RECORD data, RECORD options DEFAULTSTO CELL[]) __ATTRIBUTES__(DEPRECATED "This function will be be removed. Just use filereceiver->SendWrappeDFile(GeneratePDF(...")
+{
+  IF (filereceiver NOT EXTENDSFROM TolliumAsyncDownloadBase AND filereceiver NOT EXTENDSFROM TolliumAsyncWindowOpenBase)
+   THROW NEW Exception("SendGeneratedPDF requires filereceiver to be a download or windowopen handler");
+
+  RECORD result := GeneratePDF(data,options);
+  filereceiver->SendFile(result.data, result.mimetype, result.filename);
+}
+
+// https://pdfbox.apache.org/2.0/commandline.html
+RECORD FUNCTION RunPDFBox(STRING ARRAY instructions)
+{
+  STRING app;
+  FOREVERY(STRING javapath FROM ["/usr/local/bin/java", "/usr/bin/java"])
+    IF(RecordExists(GetDiskFileProperties(javapath)))
+    {
+      app := javapath;
+      BREAK;
+    }
+
+  STRING ARRAY args := ["-jar", GetWebHareResourceDiskPath("mod::system/data/engines/pdfbox-app.jar"), ...instructions ];
+
+  OBJECT proc := CreateProcess(app, args, FALSE, TRUE, FALSE, FALSE);
+
+  INTEGER str := CreateStream();
+  STRING output;
+  proc->Start();
+  WHILE(proc->IsRunning())  //FIXME need nicer way to wait..
+    output := output || ReadFrom(proc->output_handle,16384);
+
+  WHILE(TRUE)
+  {
+    STRING data := ReadFrom(proc->output_handle,16384);
+    IF(data="")
+      BREAK;
+    output := output || data;
+  }
+
+  INTEGER exitcode := proc->exitcode;
+  proc->Close();
+
+  RETURN [ cmdline := Detokenize(args,' ')
+         , output := output
+         , exitcode := exitcode
+         ];
+}
+
+//Warning - this API may move or go away entirely (what kind of guarantees would we want to give to an API like this)
+PUBLIC RECORD ARRAY FUNCTION __ExtractPDFImages(BLOB inpdf)
+{
+  STRING pdftemp := GenerateTemporaryPathname();
+  StoreDiskFile(pdftemp, inpdf, [ exclusive := TRUE ]);
+  STRING outputbase := GenerateTemporaryPathname() || "-";
+  RECORD res := RunPDFBox(["PDFToImage", "-dpi", "96", "-outputPrefix", outputbase, pdftemp]);
+
+  RECORD ARRAY diskfiles := ReadDiskDirectory(GetDirectoryFromPath(outputbase), GetNameFromPath(outputbase) || "*");
+  //order by the number between '-' and '.extension' (first take everything behind the last '-', then remove the dot)
+  diskfiles := SELECT * FROM diskfiles ORDER BY ToInteger(Tokenize(Tokenize(name,'-')[END-1],'.')[0],0);
+
+  RECORD ARRAY images;
+  IF(res.exitcode = 0)
+  {
+    images   := SELECT data := StringToBlob(BlobToString(GetDiskResource(path))) FROM diskfiles;
+    images := SELECT AS RECORD ARRAY WrapBlob(data, "") FROM images;
+    images := SELECT *, filename := "page-" || (#images+1) || extension FROM images;
+  }
+
+  DeleteDiskFile(pdftemp);
+  FOREVERY (RECORD file FROM diskfiles)
+    DeleteDiskFile(file.path);
+
+  IF(res.exitcode > 0)
+    THROW NEW Exception(`PDF image extraction failed with exitcode ${res.exitcode}`);
+
+  RETURN images;
+}
+
+/** @short Overlay one PDF on top of another
+    @param inputpdf Original PDF
+    @param overlaypdf PDF to overlay (will become the background)
+    @return Combined pdf */
+PUBLIC BLOB FUNCTION ApplyOverlayToPDF(BLOB inputpdf, BLOB overlaypdf)
+{
+  STRING inputpdfpath := GenerateTemporaryPathname();
+  StoreDiskFile(inputpdfpath, inputpdf, [ exclusive := TRUE ]);
+
+  STRING overlaypdfpath := GenerateTemporaryPathname();
+  StoreDiskFile(overlaypdfpath, overlaypdf, [ exclusive := TRUE ]);
+
+  STRING outputpath := GenerateTemporaryPathname();
+  RECORD res := RunPDFBox(["OverlayPDF", inputpdfpath, "-position", "background", overlaypdfpath, outputpath]);
+  BLOB result;
+
+  IF(res.exitcode = 0)
+    result := StringToBlob(BlobToString(GetDiskResource(outputpath)));
+
+  DeleteDiskFile(inputpdfpath);
+  DeleteDiskFile(overlaypdfpath);
+  DeleteDiskFile(outputpath);
+
+  IF(res.exitcode > 0)
+    THROW NEW Exception(`Applying overlay to PDF failed with exitcode ${res.exitcode}`);
+
+  RETURN result;
+}
+
+/** @short Concatenate PDFs together
+    @param pdfs PDFs to merge
+    @return Combined PDFs */
+PUBLIC BLOB FUNCTION ConcatenatePDFs(BLOB ARRAY pdfs)
+{
+  IF(Length(pdfs) = 0)
+    THROW NEW Exception(`Empty PDF list passed to ConcatenatePDFs`);
+
+  IF(Length(pdfs) = 1) //let's not bother with that
+    RETURN pdfs[0];
+
+  STRING ARRAY inpaths;
+  FOREVERY(BLOB pdf FROM pdfs)
+  {
+    STRING inputpdfpath := GenerateTemporaryPathname();
+    StoreDiskFile(inputpdfpath, pdf, [ exclusive := TRUE ]);
+    INSERT inputpdfpath INTO inpaths AT END;
+  }
+
+  STRING outputpath := GenerateTemporaryPathname();
+  RECORD res := RunPDFBox(["PDFMerger", ...inpaths, outputpath]);
+  BLOB result;
+
+  IF(res.exitcode = 0)
+    result := StringToBlob(BlobToString(GetDiskResource(outputpath)));
+
+  DeleteDiskFile(outputpath);
+  FOREVERY(STRING path FROM inpaths)
+    DeleteDiskFile(path);
+
+  IF(res.exitcode > 0)
+    THROW NEW Exception(`Concatenating PDFs failed with exitcode ${res.exitcode}`);
+
+  RETURN result;
+}

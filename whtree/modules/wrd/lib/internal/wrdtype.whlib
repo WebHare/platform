@@ -1,0 +1,3772 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internet/smtp.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/enrichment.whlib";
+
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/attributes.whlib";
+LOADLIB "mod::wrd/lib/internal/queries.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/support2.whlib";
+LOADLIB "mod::wrd/lib/internal/setentity.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdentity.whlib";
+LOADLIB "mod::wrd/lib/internal/whfs-service.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
+LOADLIB "mod::wrd/lib/names.whlib";
+
+
+/*
+Terminology:
+- fields and attributes are often the same
+*/
+
+STRING ARRAY warnings_per_vm;
+PUBLIC BOOLEAN  __wrdtest_disable_updateat_throw; //we need to be able to test updateat ignoring history on live
+
+INTEGER ARRAY FUNCTION GetChildTypes(INTEGER wrdtypeid)
+{
+  INTEGER ARRAY output, worklist := [wrdtypeid];
+  WHILE(Length(worklist) > 0)
+  {
+    worklist := SELECT AS INTEGER ARRAY id FROM wrd.types WHERE parenttype IN worklist;
+    output := output CONCAT worklist;
+  }
+  RETURN output;
+}
+
+RECORD FUNCTION RemoveSettingIds(RECORD inrec)
+{
+  DELETE CELL wrd_settingid FROM inrec;
+  FOREVERY(RECORD cellrec FROM UnpackRecord(inrec))
+  {
+    IF(TYPEID(cellrec.value) = TYPEID(RECORD ARRAY))
+      inrec := CellUpdate(inrec, cellrec.name, SELECT AS RECORD ARRAY RemoveSettingIds(rec) FROM cellrec.value AS rec);
+  }
+  RETURN inrec;
+}
+
+VARIANT FUNCTION GetROField2(RECORD entity, OBJECT wrdschema, STRING wrdtag, VARIANT dummy DEFAULTSTO 0) //dummy value, but generator callbacks need it...
+{
+  SWITCH(wrdtag)
+  {
+    CASE"WRD_GUID"
+    {
+      RETURN EncodeWRDGUID(entity.guid);
+    }
+    CASE "WRD_FORMALNAME", "WRD_FULLNAME", "WRD_SALUTE_FORMAL", "WRD_ADDRESS_FORMAL"
+    {
+      RETURN FormatWRDNameField(wrdtag, entity, [ language := wrdschema->__GetCurrentLanguageCode() ]);
+    }
+    DEFAULT
+    {
+      ABORT("GetROField: unrecognized tag " || wrdtag);
+    }
+  }
+}
+
+RECORD FUNCTION GetWRDGuidQueryEngineData(STRING value, BOOLEAN match_case)
+{
+  RECORD result :=
+      [ cellname                := "guid"
+      , value                   := ""
+      , valid                   := TRUE
+      , sufficient              := FALSE
+      , match_case              := TRUE
+      , need_afterfiltering     := TRUE
+      ];
+
+  IF (NOT ValidateWRDGuid(value))
+    RETURN result;
+
+  IF (match_case)
+  {
+    // Check case of the GUID
+    IF (LEFT(value, 4) != "wrd:")
+      RETURN result;
+    STRING guid_part := SubString(value, 4);
+    IF (ToUppercase(guid_part) != guid_part)
+      RETURN result;
+  }
+
+  result.valid := TRUE;
+  result.need_afterfiltering := FALSE;
+  result.value := DecodeWRDGuid(value);
+
+  RETURN result;
+}
+
+INTEGER FUNCTION BuildLinkFSObject(INTEGER wrdschema, RECORD linkrec, OBJECT whfsmapper)
+{
+  INTEGER fsobject;
+  SWITCH (linkrec.linktype)
+  {
+    CASE 0  { fsobject := StoreRTDInWHFS(wrdschema, linkrec.whfsdata, whfsmapper); }
+    CASE 1  { fsobject := StoreInstanceInWHFS(wrdschema, linkrec.whfsdata, whfsmapper); }
+    CASE 2  { fsobject := linkrec.whfsdata; }
+  }
+  RETURN fsobject;
+}
+
+STRING FUNCTION HandleInvalidUTF8(STRING attrname, STRING val, STRING decodeinvalidutf8as)
+{
+  IF(decodeinvalidutf8as != "")
+  {
+    val := DecodeInvalidUTF8Chars(val, decodeinvalidutf8as);
+    IF(IsValidUTF8(val))
+      RETURN val;
+
+    THROW NEW Exception(`Trying to set a non-UTF8 value for field '${attrname}' (and not able to correct it)`);
+  }
+  THROW NEW Exception(`Trying to set a non-UTF8 value for field '${attrname}'`);
+}
+
+RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, RECORD ARRAY newsets, INTEGER ARRAY linkcheckattrs, INTEGER ARRAY whfslinkattrs, OBJECT whfsmapper)
+{
+  INTEGER ARRAY updatedsettings;
+  INTEGER ARRAY linkchecksettings;
+  INTEGER ARRAY deletedsettings;
+  INTEGER ARRAY updatedattrs;
+
+  RECORD ARRAY settingupdates;
+
+  // Sort current settings on id for quick lookup
+  current :=
+      SELECT *
+           , used :=    FALSE
+        FROM current
+    ORDER BY id;
+
+  RECORD ARRAY linksets;
+  FOREVERY (RECORD rec FROM newsets)
+  {
+    // Extract whfslink data from the settings
+    IF (CellExists(rec, "WHFSDATA"))
+    {
+      IF (NOT IsDefaultValue(rec.whfsdata))
+        INSERT CELL[ rec.id, rec.whfsdata, rec.linktype, rec.attribute ] INTO linksets AT END;
+      DELETE CELL whfsdata, linktype FROM rec;
+    }
+
+    // Consistency checks
+    IF (Length(rec.rawdata) > 4096)
+      THROW NEW Exception(`Attempting to insert ${length(rec.rawdata)} bytes of data into rawdata`);
+
+    // Is this a reuse?
+    BOOLEAN isupdate;
+    RECORD pos := RecordLowerBound(current, rec, [ "ID" ]);
+    IF (pos.found)
+    {
+      RECORD cur := current[pos.position];
+      IF (cur.used)
+        ABORT(`WRD setting reused twice!`);
+
+      // Update if needed
+      current[pos.position].used := TRUE;
+      BOOLEAN settingmodified;
+      IF (cur.setting != rec.setting
+         OR cur.entity != rec.entity
+         OR cur.rawdata != rec.rawdata
+         OR cur.unique_rawdata != rec.unique_rawdata
+         OR cur.parentsetting != rec.parentsetting
+         OR cur.ordering != rec.ordering
+         OR cur.attribute != rec.attribute
+         OR NOT AreBlobsEqual(cur.blobdata, rec.blobdata))
+      {
+        UPDATE wrd.entity_settings
+           SET setting := rec.setting
+             , entity := rec.entity
+             , rawdata := rec.rawdata
+             , unique_rawdata := rec.unique_rawdata
+             , blobdata := rec.blobdata
+             , parentsetting := rec.parentsetting
+             , ordering := rec.ordering
+             , attribute := rec.attribute
+         WHERE id = rec.id;
+
+        INSERT rec INTO settingupdates AT END;
+      }
+    }
+    ELSE
+    {
+      INSERT rec INTO wrd.entity_settings;
+      INSERT rec INTO settingupdates AT END;
+    }
+  }
+
+  FOREVERY (RECORD rec FROM settingupdates)
+  {
+    INSERT rec.id INTO updatedsettings AT END;
+    INSERT rec.attribute INTO updatedattrs AT END;
+    IF (rec.attribute IN linkcheckattrs)
+      INSERT rec.id INTO linkchecksettings AT END;
+  }
+
+  FOREVERY (RECORD rec FROM current)
+    IF (NOT rec.used)
+    {
+      INSERT rec.id INTO deletedsettings AT END;
+      INSERT rec.attribute INTO updatedattrs AT END;
+    }
+
+  IF (LENGTH(deletedsettings) != 0)
+    DELETE FROM wrd.entity_settings WHERE id IN deletedsettings;
+
+  INTEGER ARRAY linkchecks :=
+      SELECT AS INTEGER ARRAY id
+        FROM current
+       WHERE used
+         AND (attribute IN whfslinkattrs
+              OR rawdata = "WHFS"
+              OR rawdata = "WHFS:*");
+
+  linkchecks := linkchecks CONCAT SELECT AS INTEGER ARRAY id FROM linksets;
+  IF (LENGTH(linkchecks) != 0)
+  {
+    RECORD ARRAY linkupdates;
+
+    RECORD ARRAY currlinks :=
+        SELECT *
+             , used :=    FALSE
+          FROM wrd.entity_settings_whfslink
+         WHERE id IN linkchecks
+      ORDER BY id;
+
+    FOREVERY (RECORD rec FROM linksets)
+    {
+      RECORD pos := RecordLowerBound(currlinks, rec, [ "ID" ]);
+      IF (pos.found)
+      {
+        currlinks[pos.position].used := TRUE;
+        RECORD currlink := currlinks[pos.position];
+
+        BOOLEAN isequal := currlink.linktype = rec.linktype;
+        IF (isequal)
+        {
+          SWITCH (rec.linktype)
+          {
+            CASE 0
+            {
+              isequal := IsRTDEqualToRTDInWHFS(currlink.fsobject, rec.whfsdata, whfsmapper);
+            }
+            CASE 1
+            {
+              isequal := IsInstanceEqualToInstanceInWHFS(currlink.fsobject, rec.whfsdata, whfsmapper);
+            }
+            CASE 2  { isequal := currlink.fsobject = rec.whfsdata; }
+          }
+        }
+
+        IF (NOT isequal)
+        {
+          INTEGER fsobject := BuildLinkFSObject(wrdschema, rec, whfsmapper);
+
+          UPDATE wrd.entity_settings_whfslink
+             SET fsobject := VAR fsobject
+               , linktype := rec.linktype
+           WHERE id = rec.id;
+          INSERT rec INTO linkupdates AT END;
+        }
+      }
+      ELSE
+      {
+        INTEGER fsobject := BuildLinkFSObject(wrdschema, rec, whfsmapper);
+
+        INSERT CELL[ ...rec, fsobject, DELETE attribute, DELETE whfsdata ] INTO wrd.entity_settings_whfslink;
+        INSERT rec INTO linkupdates AT END;
+      }
+    }
+
+    INTEGER ARRAY deletelinks :=
+        SELECT AS INTEGER ARRAY id
+          FROM currlinks
+         WHERE NOT used;
+
+    IF (LENGTH(deletelinks) != 0)
+    {
+      // Need to get from current because we need the attribute of the corresponding setting
+      FOREVERY (INTEGER id FROM deletelinks)
+        INSERT current[RecordLowerBound(current, CELL[ id ], [ "ID" ]).position] INTO linkupdates AT END;
+
+      DELETE FROM wrd.entity_settings_whfslink WHERE id IN deletelinks;
+    }
+
+    FOREVERY (RECORD rec FROM linkupdates)
+    {
+      INSERT rec.id INTO updatedsettings AT END;
+      INSERT rec.attribute INTO updatedattrs AT END;
+      IF (rec.attribute IN linkcheckattrs)
+        INSERT rec.id INTO linkchecksettings AT END;
+    }
+
+    updatedsettings := GetSortedSet(updatedsettings);
+    linkchecksettings := GetSortedSet(linkchecksettings);
+  }
+
+  RETURN CELL
+      [ updatedsettings
+      , deletedsettings
+      , updatedattrs :=       GetSortedSet(updatedattrs)
+      , linkchecksettings
+      ];
+}
+
+/** Handles re-use of existing settings given the generated settings for an attribute
+    @param setentity ID of entity
+    @param attr Attribute info record
+    @param allcurrent List of settings to re-use, sorted on: attribute, parentsetting, id
+    @param newsets New settings (not needed for arrays)
+    @param subs Array rows
+    @cell(record array) subs.settings Data for cells within the row
+    @cell(record) subs.settings.attr Attribute info record
+    @cell(record array) subs.settings.newsets New entity settings
+    @cell(record array) subs.settings.subs Array rows (only when attributetype = 13), see param subs for recursive definition
+    @param parentsetting Parent array setting
+    @return Settings with id set
+    @cell(record array) return.newsets New settings
+    @cell(integer) return.newsets.id Id of setting to update/create. 0 to create, otherwise id to update
+    @cell(integer) return.newsets.entity Entity
+    @cell(integer) return.newsets.attribute Attribute id
+    @cell(integer) return.newsets.parentsetting parentsetting
+    @cell(string) return.newsets.rawdata Value for rawdata field
+    @cell(string) return.newsets.unique_rawdata Value for unique_rawdata field
+    @cell(blob) return.newsets.blobdata Value for blobdata field
+    @cell(integer) return.newsets.setting Value for setting field
+    @cell(integer) return.newsets.ordering Value for ordering field
+*/
+RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD ARRAY allcurrent, RECORD ARRAY newsets, RECORD ARRAY subs, INTEGER parentsetting)
+{
+  // Id of the attribute to update
+  INTEGER setattribute := attr.id;
+
+  // Get the list of current settings
+  RECORD ARRAY current;
+  IF (IsValueSet(allcurrent))
+    current := RecordRange(allcurrent, CELL[ attribute := setattribute, parentsetting ], [ "ATTRIBUTE", "PARENTSETTING" ]);
+
+  IF (LENGTH(subs) != 0 AND attr.attributetype != 13)
+    ABORT(`Not expecting subs in non-arrays!`);
+
+  // Generate newsets for array rows
+  IF (attr.attributetype = 13) // Array
+  {
+    current :=
+        SELECT *
+             , used :=      FALSE
+          FROM current
+      ORDER BY id;
+
+    RECORD defval := CELL[ rawdata := "", unique_rawdata := "", blobdata := DEFAULT BLOB, setting := 0 ];
+    newsets :=
+        SELECT id :=                orgsettingid
+             , entity :=            setentity
+             , attribute :=         setattribute
+             , parentsetting :=     parentsetting
+             , rawdata :=           ""
+             , unique_rawdata :=    ""
+             , blobdata :=          DEFAULT BLOB
+             , setting :=           0
+             , ordering :=          1 + #subs // Array has ordering base 1
+          FROM subs;
+
+    FOREVERY (RECORD rec FROM newsets)
+    {
+      RECORD pos := RecordLowerBound(current, rec, [ "ID" ]);
+      IF (pos.found AND NOT current[pos.position].used)
+        current[pos.position].used := TRUE;
+      ELSE
+        newsets[#rec].id := 0;
+    }
+  }
+  ELSE
+  {
+    current :=
+        SELECT TEMPORARY lookupkey := rawdata || "\t" || setting
+             , *
+             , used :=        FALSE
+             , lookupkey :=   lookupkey
+          FROM current
+      ORDER BY lookupkey;
+
+    newsets :=
+        SELECT *
+             , id :=                0
+             , entity :=            setentity
+             , attribute :=         setattribute
+             , parentsetting :=     parentsetting
+             , ordering :=          #newsets
+          FROM newsets;
+
+    // Re-use matching settings with the same `rawdata || setting`
+    FOREVERY (RECORD rec FROM newsets)
+    {
+      RECORD pos := RecordLowerBound(current, [ lookupkey := rec.rawdata || "\t" || rec.setting ], [ "LOOKUPKEY" ]);
+      IF (pos.found AND NOT current[pos.position].used)
+      {
+        current[pos.position].used := TRUE;
+        newsets[#rec].id := current[pos.position].id;
+      }
+      ELSE
+        newsets[#rec].id := 0;
+    }
+  }
+
+  // Re-use unused settings
+  INTEGER ARRAY curids := SELECT AS INTEGER ARRAY id FROM current WHERE NOT used ORDER BY id;
+  FOREVERY (RECORD rec FROM newsets)
+  {
+    IF (rec.id = 0)
+    {
+      IF (LENGTH(curids) != 0)
+      {
+        newsets[#rec].id := curids[0];
+        DELETE FROM curids AT 0;
+      }
+      ELSE
+        newsets[#rec].id := MakeAutonumber(wrd.entity_settings, "id");
+    }
+  }
+
+  // Recurse for arrays
+  IF (attr.attributetype = 13)
+  {
+    FOREVERY (RECORD sub FROM subs)
+      FOREVERY (RECORD setting FROM sub.settings)
+      {
+        RECORD res := GenerateNewSettingList(setentity, setting.attr, newsets[#sub].id = 0 ? RECORD[] : allcurrent, setting.newsets, setting.subs, newsets[#sub].id);
+        newsets := newsets CONCAT res.newsets;
+      }
+  }
+
+  RETURN CELL[ newsets ];
+}
+
+// FIXME: also sets the members immediately, but calculation of attributes must have childids set
+RECORD FUNCTION GetCachableTypeData(RECORD typerec, STRING langcode)
+{
+  RECORD ARRAY __final_attrs := __SelectAttributes(typerec, langcode);
+  INTEGER ARRAY __childtypeids := GetChildTypes(typerec.id);
+  INTEGER ARRAY __consiliolinkcheckattrs :=
+      SELECT AS INTEGER ARRAY id
+       FROM __final_attrs
+      WHERE attributetype IN [ 17, 20, 21 ] OR checklinks;
+  INTEGER ARRAY __whfslinkattrs :=
+      SELECT AS INTEGER ARRAY id
+       FROM __final_attrs
+      WHERE attributetypename IN [ "PAYMENTPROVIDER" ];
+
+  RETURN
+      [ ttl := ttl_wrdschemacache
+      , eventmasks := [ "wrd:schema." || typerec.wrd_schema || ".change" ]
+      , value := CELL
+            [ __childtypeids
+            , __final_attrs
+            , __consiliolinkcheckattrs
+            , __whfslinkattrs
+            ]
+      ];
+}
+
+/** Maps a value to another
+    @param mapping Mapping, must be sorted on inval
+    @cell mapping.inval Value to process
+    @cell mapping.outvak Value to map to
+    @param inval Value to map
+    @param fallback Value returned if the inval doesn't exist in the mapping array
+    @return Mapped value
+*/
+VARIANT FUNCTION MapValue(RECORD ARRAY mapping, VARIANT inval, VARIANT fallback)
+{
+  RECORD pos := RecordLowerBound(mapping, CELL[ inval ], [ "INVAL" ]);
+  RETURN pos.found ? mapping[pos.position].outval : fallback;
+}
+
+BLOB FUNCTION MapBlob(RECORD ARRAY blobmapping, RECORD change, RECORD setting)
+{
+  IF(NOT CellExists(setting,'blobseqnr')) //LEGACY value
+    RETURN SELECT AS BLOB data FROM blobmapping WHERE id = setting.blobdata;
+
+  RECORD match  := RecordLowerBound(blobmapping, [ change := change.id, seqnr := setting.blobseqnr ], [ "CHANGE", "SEQNR" ]);
+  RETURN match.found ? blobmapping[match.position].data : DEFAULT BLOB;
+}
+
+
+PUBLIC STATIC OBJECTTYPE WRDTypeBase
+<
+  OBJECT pvt_wrdschema;
+  RECORD typerec;
+  BOOLEAN domainvalues_cached;
+  RECORD ARRAY domainvalues;
+
+  PUBLIC RECORD ARRAY __final_attrs; //query api needs raw access
+  //'official' attribute list
+  RECORD ARRAY attributelist;
+  PUBLIC INTEGER ARRAY __childtypeids;
+  INTEGER ARRAY __consiliolinkcheckattrs;
+  INTEGER ARRAY __whfslinkattrs;
+
+  /// @type(integer) ID of this type
+  PUBLIC PROPERTY id(this->typerec.id, -);
+
+  /// @type(string) Title of this type
+  PUBLIC PROPERTY title(this->typerec.title, -);
+
+  /// @type(string) Tag of this type
+  PUBLIC PROPERTY tag(this->typerec.tag, -);
+
+  /// @type(object %WRDSchema2017) WRD schema object
+  PUBLIC PROPERTY wrdschema(pvt_wrdschema, -);
+
+  /// @type(boolean) Whether this type is an object
+  PUBLIC PROPERTY isobject(GetIsObject, -);
+
+  /// @type(boolean) Whether this type is a domain
+  PUBLIC PROPERTY isdomain(GetIsDomain, -);
+
+  /// @type(boolean) Whether this type is a link
+  PUBLIC PROPERTY islink(GetIsLink, -);
+
+  /// @type(boolean) Whether this type is a attachment
+  PUBLIC PROPERTY isattachment(GetIsAttachment, -);
+
+  PUBLIC PROPERTY isabstract(this->typerec.abstract, -);
+  PUBLIC PROPERTY linkfrom(this->typerec.requiretype_left, -);
+  PUBLIC PROPERTY linkto(this->typerec.requiretype_right, -);
+  PUBLIC PROPERTY parent(this->typerec.parenttype, -);
+  PUBLIC PROPERTY metatype(this->typerec.metatype, -);
+
+  PUBLIC PROPERTY keephistorydays(this->typerec.keephistorydays, -);
+
+  PUBLIC PROPERTY linkfromtype(GetLinkFromType, -);
+  PUBLIC PROPERTY linktotype(GetLinkToType, -);
+  PUBLIC PROPERTY parenttype(GetParentType, -);
+
+
+  MACRO NEW(OBJECT wrdschema, RECORD typerec)
+  {
+    this->pvt_wrdschema := wrdschema;
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+  //
+  // Type level metadata
+  //
+  RECORD FUNCTION LoadType(RECORD typerec)
+  {
+    this->typerec := typerec;
+
+    RECORD data;
+    STRING langcode := this->pvt_wrdschema->__GetCurrentLanguageCode();
+    IF (NOT disablewrdcache)
+      data := GetAdhocCached([ type := this->typerec.id, lang := langcode ], PTR GetCachableTypeData(this->typerec, langcode));
+    ELSE
+      data := GetCachableTypeData(this->typerec,langcode).value;
+
+    this->__childtypeids := data.__childtypeids;
+    this->__consiliolinkcheckattrs := data.__consiliolinkcheckattrs;
+    this->__whfslinkattrs := data.__whfslinkattrs;
+    this->__final_attrs := this->ApplyGeneratorAndDecoders(data.__final_attrs);
+    this->attributelist := SELECT *
+                                , tag := ToUppercase(tag)
+                                , localtag := ToUppercase(localtag)
+                                , DELETE ishiddenbyparent, DELETE __reftype, DELETE cellname, DELETE cellnames, DELETE isgenerated
+                                , DELETE __localtag, DELETE generatetag, DELETE __selectattributeids
+                                , DELETE __typeinfo, DELETE __typewrdid
+                             FROM data.__final_attrs
+                            WHERE NOT ishiddenbyparent
+                         ORDER BY ToUppercase(tag);
+    RETURN data;
+  }
+  BOOLEAN FUNCTION GetIsObject()
+  {
+    RETURN this->typerec.metatype = 1;
+  }
+  BOOLEAN FUNCTION GetIsLink()
+  {
+    RETURN this->typerec.metatype = 2;
+  }
+  BOOLEAN FUNCTION GetIsAttachment()
+  {
+    RETURN this->typerec.metatype = 3;
+  }
+  BOOLEAN FUNCTION GetIsDomain()
+  {
+    RETURN this->typerec.metatype = 4;
+  }
+
+  INTEGER ARRAY FUNCTION GetValidTypeIDs()
+  {
+    RETURN INTEGER[this->typerec.id] CONCAT this->__childtypeids;
+  }
+
+  PUBLIC MACRO __ReloadType()
+  {
+    //InvalidateAdhocCached([ type := this->typerec.id, lang := this->currentlanguage ]); //needed? I don't see anything else invalidating types...
+    this->LoadType(SELECT * FROM wrd.types WHERE id = this->typerec.id);
+  }
+  PUBLIC MACRO __ReloadTypeAndChildren()
+  {
+    // Need to reload this type first so this->__childtypeids is set correctly
+    this->__ReloadType();
+    FOREVERY(OBJECT typ FROM this->pvt_wrdschema->__GetTypeIfcached(this->GetValidTypeIDs()))
+      IF (typ != this)
+        typ->__ReloadType();
+  }
+  OBJECT FUNCTION GetLinkFromType()
+  {
+    RETURN this->typerec.requiretype_left != 0 ? this->pvt_wrdschema->GetTypeById(this->typerec.requiretype_left) : DEFAULT OBJECT;
+  }
+  OBJECT FUNCTION GetLinkToType()
+  {
+    RETURN this->typerec.requiretype_right != 0 ? this->pvt_wrdschema->GetTypeById(this->typerec.requiretype_right) : DEFAULT OBJECT;
+  }
+  OBJECT FUNCTION GetParentType()
+  {
+    RETURN this->typerec.parenttype != 0 ? this->pvt_wrdschema->GetTypeById(this->typerec.parenttype) : DEFAULT OBJECT;
+  }
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    STRING ARRAY masks := [ "wrd:type." || this->typerec.id || ".change" ]
+           CONCAT this->pvt_wrdschema->GetEventMasks();
+
+    FOREVERY (INTEGER childid FROM this->__childtypeids)
+      INSERT "wrd:type." || childid || ".change" INTO masks AT END;
+
+    RETURN masks;
+  }
+  PUBLIC INTEGER ARRAY FUNCTION __GetOrgTypeIds()
+  {
+    //FIXME use the cache!
+    INTEGER ARRAY orgids;
+    INTEGER orgtypeid := SELECT AS INTEGER id FROM wrd.types WHERE wrd_schema = this->pvt_wrdschema->id AND ToUppercase(tag)="WRD_ORGANIZATION";
+    IF(orgtypeid!=0)
+      orgids := [orgtypeid] CONCAT GetChildTypes(orgtypeid);
+    RETURN orgids;
+  }
+  /** Returns all values in this domain
+      @return List of domain values
+      @cell return.id Domain value WRD id
+      @cell return.title Translated title
+      @cell return.tag Tag
+      @cell return.ordering Ordering
+      @cell return.guid GUID
+      @cell return.creationdate Creation date
+      @cell return.limitdate Limit date
+  */
+  PUBLIC RECORD ARRAY FUNCTION __GetAndCacheDomvals()
+  {
+    IF(NOT this->domainvalues_cached)
+    {
+      this->domainvalues := this->RunQuery(
+        [ outputcolumns := [ id := "WRD_ID"
+                           , title := "WRD_TITLE"
+                           , tag := "WRD_TAG"
+                           , ordering := "WRD_ORDERING"
+                           , guid := "WRD_GUID"
+                           , creationdate := "WRD_CREATIONDATE"
+                           , limitdate := "WRD_LIMITDATE"
+                           ]
+        , historymode := "all"
+        ]);
+      this->domainvalues := SELECT *
+                                 , tag := ToUppercase(tag)
+                              FROM this->domainvalues ORDER BY ToUppercase(tag), id; //Our callers expect tag,id ordering for optimizations
+      this->domainvalues_cached := TRUE;
+    }
+    RETURN this->domainvalues;
+  }
+  PUBLIC INTEGER ARRAY FUNCTION __GetAcceptableParentTypes()
+  {
+    IF(this->tag IN ["WRD_PERSON","WRD_ORGANIZATION"]) //WRD_RELATION is the only acceptible parent for WRD_PERSON/WRD_ORGANIZATION
+    {
+      INTEGER relid := SELECT AS INTEGER id FROM this->pvt_wrdschema->ListTypes() WHERE tag = "WRD_RELATION";
+      RETURN [relid]; //Note: so we return 0 if WRD_RELATION does not exist
+    }
+    IF(this->tag = "WRD_RELATION")
+      RETURN [0]; //WRD_RELATION does not accept a parent
+
+    RECORD ARRAY alltypes := this->pvt_wrdschema->ListTypes();
+
+    // Enumerate (grand-)*children of the current type
+    INTEGER ARRAY blocked;
+    INTEGER ARRAY worklist := [ INTEGER(this->id) ];
+    WHILE (LENGTH(worklist) != 0)
+    {
+      blocked := blocked CONCAT worklist;
+      worklist := SELECT AS INTEGER ARRAY id FROM alltypes WHERE parenttype IN worklist;
+    }
+
+    // Require the same metatype and the same left/right types. Don't allow cycles.
+    RETURN [0]
+           CONCAT
+           SELECT AS INTEGER ARRAY id
+             FROM alltypes
+            WHERE id != this->id
+                  AND metatype = this->typerec.metatype
+                  AND linkfrom = this->typerec.requiretype_left
+                  AND linkto = this->typerec.requiretype_right
+                  AND id NOT IN blocked;
+  }
+
+
+  PUBLIC MACRO UpdateMetadata(RECORD newmetadata)
+  {
+    newmetadata := ValidateOptions(
+        [ parenttype :=     0
+        , abstract :=       FALSE
+        , title :=          ""
+        , tag :=            ""
+        , linkfrom :=       0
+        , linkto :=         0
+        , description :=    ""
+        , keephistorydays :=   0
+        ], newmetadata,
+        [ optional := [ "parenttype", "abstract", "title", "tag", "linkfrom", "linkto", "description", "keephistorydays" ]
+        ]);
+
+    OBJECT ARRAY typestoreload := [ this ];
+
+    //FIXME Validate requiretype changes
+    IF(CellExists(newmetadata,"tag"))
+    {
+      IF(newmetadata.tag="")
+        THROW NEW Exception("The tag was not filled in");
+
+      // Check whether the tag is unique
+      RECORD ARRAY alltypes := SELECT COLUMN tag
+                                 FROM this->wrdschema->ListTypes()
+                                WHERE id != this->id /* skip the current type */;
+
+      IF (RecordExists(SELECT FROM alltypes WHERE ToUpperCase(alltypes.tag) = ToUpperCase(newmetadata.tag)))
+        THROW NEW Exception("The tag of this type is not unique for its WRD schema");
+    }
+
+    IF(CellExists(newmetadata, "PARENTTYPE") AND newmetadata.parenttype != this->typerec.parenttype)
+    {
+      OBJECT parenttype := this->wrdschema->GetTypeById(newmetadata.parenttype);
+      IF(newmetadata.parenttype NOT IN this->__GetAcceptableParentTypes())
+        THROW NEW Exception("Unacceptable parent type '" || (ObjectExists(parenttype) ? parenttype->tag : "#" || newmetadata.parenttype) || "' for type '" || this->tag || "'");
+      IF(this->typerec.parenttype != 0)
+        INSERT this->pvt_wrdschema->GetTypeById(this->typerec.parenttype) INTO typestoreload AT END;
+      IF(newmetadata.parenttype != 0)
+        INSERT this->pvt_wrdschema->GetTypeById(newmetadata.parenttype) INTO typestoreload AT END;
+    }
+
+    IF(CellExists(newmetadata,'linkfrom'))
+    {
+      INSERT CELL requiretype_left := newmetadata.linkfrom INTO newmetadata;
+      DELETE CELL linkfrom FROM newmetadata;
+    }
+
+    IF(CellExists(newmetadata,'linkto'))
+    {
+      INSERT CELL requiretype_right := newmetadata.linkto INTO newmetadata;
+      DELETE CELL linkto FROM newmetadata;
+    }
+
+    IF (CellExists(newmetadata, "keephistorydays") AND newmetadata.keephistorydays < 0)
+      THROW NEW Exception(`Cannot keep changes for a negative time period`);
+
+    UPDATE wrd.types SET RECORD newmetadata WHERE id = this->typerec.id;
+    this->pvt_wrdschema->__SignalMetadataChanged();
+    FOREVERY(OBJECT type FROM typestoreload)
+      type->__ReloadTypeAndChildren();
+  }
+
+
+  /////////////////////////////////////////////////////////////////////////////
+  //
+  // Attribute  metadata management
+  //
+  RECORD ARRAY FUNCTION ApplyGeneratorAndDecoders(RECORD ARRAY attrlist)
+  {
+    attrlist := SELECT *
+                     , generator := generatetag = "WRD_RELATION_TITLE" ? PTR GetROField2(#1, this->pvt_wrdschema, "WRD_FULLNAME")
+                                    : generatetag != "" ? PTR GetROField2(#1, this->pvt_wrdschema, generatetag)
+                                    : DEFAULT MACRO PTR
+                     , decoder :=   generatetag = "WRD_GUID" ? PTR GetWRDGuidQueryEngineData(#1, #2) : DEFAULT MACRO PTR
+                  FROM attrlist;
+    RETURN attrlist;
+  }
+
+  /** @short Does this type have this attribute ?
+      @param tag Tag of the attribute
+      @return Whether an attribute with the specified tag exists in this type
+  */
+  PUBLIC BOOLEAN FUNCTION HasAttribute(STRING tag)
+  {
+    RETURN RecordExists(this->GetAttribute(tag));
+  }
+
+  /** Get the description of a single attribute
+      @param find_tag Attribute to look up
+      @return Description if attribute is found, DEFAULT RECORD otherwise @includecelldef #ListAttributes.return */
+  PUBLIC RECORD FUNCTION GetAttribute(STRING find_tag)
+  {
+  //printrecordarrayto(0,this->__final_attrs,'boxed');
+    INTEGER pos := RecordBinaryFind(this->attributelist, [ tag := ToUppercase(find_tag) ], ["TAG"]);
+    RETURN pos = -1 ? DEFAULT RECORD : this->attributelist[pos];
+  }
+
+  /** Get the description of a single attribute By id
+      @param attrid ID of the attribute
+      @return Description if attribute is found, DEFAULT RECORD otherwise @includecelldef #ListAttributes.return */
+  PUBLIC RECORD FUNCTION GetAttributeById(INTEGER attrid)
+  {
+  //printrecordarrayto(0,this->__final_attrs,'boxed');
+    RETURN SELECT * FROM this->attributelist WHERE id = attrid;
+  }
+
+  /** Returns description of all attributes in this type
+      @param fromparent Get child attributes of this parent. Use 0 for the toplevel attributes or -1 to get ALL attributes (recursively)
+      @return Record per attribute (not all described)
+      @cell return.__localtag
+      @cell return.__reftype
+      @cell(integer) return.id Id of attribute (0 for base attributes)
+      @cell(integer) return.attributetype WRD attribute type id of this attribute
+      @cell(string) return.attributetypename WRD attribute type name of this attribute
+      @cell(boolean) return.base Whether this is a base attribute
+      @cell(string) return.description (not available for internal attributes)
+      @cell(integer) return.domain If this a domain attribute, id of the domain this attribute refers to
+      @cell(boolean) return.isalternative
+      @cell(boolean) return.iscustom
+      @cell(boolean) return.isgenerated Whether this attribute is
+      @cell(boolean) return.isreadonly Whether this is a read-only attribute
+      @cell(boolean) return.isrequired Whether this a required attribute
+      @cell(boolean) return.isunique Whether values in this attribute must be unique (when present)
+      @cell(boolean) return.isupdateable
+      @cell(boolean) return.isinherited
+      @cell(integer) return.keephistorydays
+      @cell(string) return.localtag
+      @cell(integer) return.maxlength
+      @cell(boolean) return.checklinks
+      @cell(boolean) return.multiline
+      @cell(integer) return.ordering
+      @cell(integer) return.parent Parent attribute
+      @cell(string) return.tag Tag
+      @cell(string) return.title Translated title of this attribute
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListAttributes(INTEGER fromparent)
+  {
+    RETURN SELECT *
+             FROM this->attributelist
+            WHERE fromparent = -1 ? TRUE : parent = fromparent;
+  }
+
+  /** Updates an attribute, does not reload types
+      @param tag Tag of the attribute to update
+      @param newsettings Updates to the attribute metadata @includecelldef #__InternalUpdateAttribute.newsettings
+      @return Whether the settings did actually change (FALSE if no settuing was modified)
+  */
+  PUBLIC BOOLEAN FUNCTION UpdateAttribute(STRING tag, RECORD newsettings)
+  {
+    IF (NOT this->__InternalUpdateAttribute(tag, newsettings))
+      RETURN FALSE;
+
+    this->pvt_wrdschema->__SignalMetadataChanged();
+    this->__ReloadTypeAndChildren();
+    RETURN TRUE;
+  }
+
+  /** Updates an attribute, does not reload types
+      @param tag Tag of the attribute to update
+      @param newsettings Updates to the attribute metadata
+      @cell newsettings.checklinks
+      @cell newsettings.multiline
+      @cell newsettings.isunique Whether the value of this attribute must be unique among the active entities.
+      @cell newsettings.isrequired Whether a value for this attribute is required
+      @cell newsettings.isordered
+      @cell newsettings.tag Tag of the attribute
+      @cell newsettings.title Title of the attribute
+      @cell newsettings.description Description of the attribute
+      @cell newsettings.allowedvalues List of allowed values for this attribute (for enumerations)
+      @cell newsettings.attributetypename Type of the attribute
+      @return Whether the settings did actually change (FALSE if no settuing was modified)
+  */
+  BOOLEAN FUNCTION __InternalUpdateAttribute(STRING tag, RECORD newsettings)
+  {
+    newsettings := ValidateOptions([ checklinks := FALSE
+                                   , multiline := FALSE
+                                   , isunique := FALSE
+                                   , isrequired := FALSE
+                                   , isordered := FALSE
+                                   , tag := ""
+                                   , title := ""
+                                   , description := ""
+                                   , allowedvalues := DEFAULT STRING ARRAY
+                                   , attributetypename := ""
+                                   ], newsettings
+                                    , [ optional := ["CHECKLINKS","MULTILINE","ISUNIQUE","ISREQUIRED","ISORDERED","TAG","TITLE","ALLOWEDVALUES"]
+                                      , title := "attribute settings"
+                                      ]);
+
+    RECORD ARRAY matches := SELECT * FROM this->__final_attrs WHERE ToUppercase(__final_attrs.tag) = ToUppercase(VAR tag);
+    RECORD attr := SELECT * FROM matches WHERE NOT isinherited;
+    IF(NOT RecordExists(attr))
+    {
+      IF(Length(matches)>0)
+        THROW NEW Exception(`Attribute '${tag}' is inherited in type '${this->tag}' and cannot be modified through a child type`);
+      ELSE
+        THROW NEW Exception(`No such attribute '${tag}' in type '${this->tag}'`);
+    }
+
+    IF(newsettings.attributetypename = "")
+      newsettings.attributetypename := attr.attributetypename;
+
+    RECORD toset;
+    RECORD attrinfo := DescribeAttributeType(newsettings.attributetypename);
+    IF(newsettings.attributetypename != attr.attributetypename)
+    {
+      RECORD sourceattrinfo := DescribeAttributeType(attr.attributetypename);
+      IF(newsettings.attributetypename NOT IN sourceattrinfo.canchangeto)
+        THROW NEW Exception(`Cannot change attributes ${tag} from type ${attr.attributetypename} to ${newsettings.attributetypename} in type '${this->tag}'`);
+
+      INSERT CELL attributetype := attrinfo.attributetype INTO toset;
+    }
+
+    newsettings := BaseAttributeValidation(newsettings);
+
+    //check valid options
+    FOREVERY(STRING opt FROM ['isunique','isordered','checklinks','multiline','allowedvalues'])
+      IF(CellExists(newsettings,opt) AND opt NOT IN attrinfo.options AND NOT IsDefaultValue(GetCell(newsettings,opt)))
+        THROW NEW Exception(`The option '${opt}' cannot be set on attributes of type '${newsettings.attributetypename}' for attribute ${tag} in type '${this->tag}'`);
+
+    FOREVERY(STRING booleanopt FROM ['isrequired','isunique','isordered','checklinks','multiline'])
+      IF(CellExists(newsettings,booleanopt))
+        toset := CellInsert(toset, booleanopt, GetCell(newsettings, booleanopt));
+
+    IF(CellExists(newsettings,'tag'))
+    {
+      IF(RecordExists(SELECT FROM wrd.attrs WHERE attrs.tag = ToUppercase(newsettings.tag) AND parent=attr.parent AND type=this->id AND id != attr.id))
+        THROW NEW Exception(`An attribute with tag '${newsettings.tag}' already exists in type '${this->tag}'`);
+      INSERT CELL tag := newsettings.tag INTO toset;
+    }
+    IF(CellExists(newsettings,'title'))
+      INSERT CELL title := newsettings.title INTO toset;
+    IF(CellExists(newsettings,'description'))
+      INSERT CELL description := newsettings.description INTO toset;
+
+    IF(CellExists(newsettings,'checklinks') AND newsettings.checklinks != attr.checklinks)
+      GetWRDCommitHandler()->AddAttrWithLinkCheckChange(attr.id);
+
+    IF(CellExists(newsettings,'allowedvalues'))
+      INSERT CELL allowedvalues := GetAllowedValuesFordatabase(newsettings.allowedvalues) INTO toset;
+
+    IF(cellExists(toset,'isrequired'))
+    {
+      INSERT CELL required := toset.isrequired INTO toset;
+      DELETE CELL isrequired FROM toset;
+    }
+    IF(cellExists(toset,'isordered'))
+    {
+      INSERT CELL ordered := toset.isordered INTO toset;
+      DELETE CELL isordered FROM toset;
+    }
+
+    // See if the updated values differ from their current values. If so, ignore the update (reloading isn't cheap)
+    RECORD orgvals := MakeReplacedRecord(toset, SELECT * FROM wrd.attrs WHERE id = attr.id);
+    IF (EncodeHSON(orgvals) = EncodeHSON(toset))
+      RETURN FALSE;
+
+    UPDATE wrd.attrs SET RECORD toset WHERE id = attr.id;
+    RETURN TRUE;
+  }
+
+  BOOLEAN FUNCTION TagInUse(INTEGER parentattr, STRING parenttag)
+  {
+    RETURN RecordExists(SELECT FROM this->__final_attrs WHERE parent=parentattr AND localtag=parenttag);
+  }
+
+  /** Generate a tag for a new attribute
+      @param parent Parent attribute (leave empty for top level)
+      @param suggestion Suggested tag
+      @return A unique and still available attribute tag */
+  PUBLIC STRING FUNCTION GenerateUniqueAttributeTag(STRING parent, STRING suggestion)
+  {
+    RECORD parentattribute;
+    IF(parent != "")
+    {
+      parentattribute := this->GetAttribute(parent);
+      IF(NOT RecordExists(parentattribute))
+        THROW NEW Exception(`No such attribute '${parent}'`);
+    }
+
+    RETURN GetSafeWRDTag(suggestion, PTR this->TagInUse(RecordExists(parentattribute) ? parentattribute.id : 0, #1));
+  }
+
+  PUBLIC MACRO __DoCreateAttribute (STRING attributetype, STRING attributetitle, STRING description, STRING attributetag, INTEGER domain)
+  {
+    RECORD base := BaseAttributeValidation([tag := attributetag]);
+
+    RECORD match := SELECT * FROM this->__final_attrs WHERE ToUppercase(__final_attrs.tag) = ToUppercase(attributetag);
+    IF(RecordExists(match))
+      THROW NEW Exception(`An attribute named '${attributetag}' already exists in type '${this->tag}'`);
+
+    INTEGER attributetypeid := GetAttributeTypeIdByTypeName(ToUpperCase(attributetype), this->wrdschema->__iswrdapi2017);
+    IF(attributetypeid=0)
+      THROW NEW Exception(`Unknown attribute type '${attributetype}' for field '${attributetag}' in type '${this->tag}'`);
+
+    attributetype := GetAttributeTypeNameByTypeId(attributetypeid);
+    RECORD attrinfo := DescribeAttributeType(attributetype);
+
+    // If it's a domain attribute, domaintag may not be empty
+    IF ("domain" IN attrinfo.options)
+    {
+      IF (domain = 0)
+        THROW NEW Exception("The domain tag may not be empty when adding a domain attribute");
+    }
+    ELSE IF (domain != 0)
+      THROW NEW Exception("The domain tag must be empty when adding a non-domain attribute");
+
+    //Figure out the parent
+    INTEGER attrparent := 0;
+    IF(base.tag LIKE "*.*")
+    {
+      STRING parenttag := Left(base.tag,SearchLastSubstring(base.tag,'.'));
+      RECORD parentattr := this->GetAttribute(parenttag);
+      IF(NOT RecordExists(parentattr))
+        THROW NEW Exception(`The parent attribute for '${base.tag}' in type '${this->tag}' hasn't been created yet`);
+      IF(parentattr.attributetypename != "ARRAY")
+        THROW NEW Exception(`The parent attribute for '${base.tag}' in type '${this->tag}' must be of type ARRAY but is a ${parentattr.attributetypename}`);
+    }
+    STRING mytag := base.tag;
+    WHILE(TRUE)
+    {
+      INTEGER dot := SearchSubstring(mytag,'.');
+      IF(dot=-1)
+        BREAK;
+
+      STRING find := Left(mytag, dot);
+      mytag := Substring(mytag, dot+1, Length(mytag));
+
+      attrparent := SELECT AS INTEGER id
+                         FROM wrd.attrs
+                        WHERE type=this->typerec.id
+                              AND parent=attrparent
+                              AND Touppercase(attrs.tag)=ToUppercase(find)
+                              AND attrs.attributetype=13;
+      IF(attrparent=0)
+        ABORT("Cannot locate the proper array parent to create attribute '" || base.tag || "'");
+    }
+
+    IF (RecordExists(SELECT FROM wrd.attrs WHERE type=this->typerec.id AND parent=attrparent AND Touppercase(attrs.tag)=ToUppercase(mytag)))
+      ABORT(`An attribute with tag '${base.tag}' already exists in type '${this->tag}'`);
+
+    // Convert domaintag to the correct id
+    INTEGER newid := MakeAutonumber(wrd.attrs,"id");
+
+    INSERT INTO wrd.attrs(id, domain, attributetype, type, title, description, tag, parent)
+           VALUES(newid, domain, attributetypeid, this->id, attributetitle, description, mytag, attrparent);
+
+    // Re-initialize the type and return this attribute (FIXME: Properly reinitialize US instead of creating a new type)
+    this->pvt_wrdschema->__SignalMetadataChanged();
+    this->__ReloadTypeAndChildren();
+  }
+
+  PUBLIC MACRO __DoCreateAttributes(RECORD ARRAY attributes)
+  {
+    FOREVERY (RECORD attr FROM attributes)
+    {
+      attr := ValidateOptions(
+          [ tag :=            ""
+          , attributetype :=  ""
+          , title :=          ""
+          , description :=    ""
+          , domain :=         0
+          , domaintag :=      ""
+          , isunique :=       FALSE
+          , isrequired :=     FALSE
+          , checklinks :=     FALSE
+          , allowedvalues :=  DEFAULT STRING ARRAY
+          , isordered :=      FALSE
+          , multiline :=      FALSE
+          ],
+          attr,
+          [ optional := ["checklinks"]
+          , required := [ "tag", "attributetype" ]
+          ]);
+
+      INTEGER attributetypeid := GetAttributeTypeIdByTypeName(ToUpperCase(attr.attributetype), this->wrdschema->__iswrdapi2017);
+      IF (attributetypeid=0)
+        THROW NEW Exception(`Unknown attribute type '${attr.attributetype}' for field '${attr.tag}' in type '${this->tag}'`);
+
+      IF (attr.domaintag != "")
+      {
+        OBJECT targettype := this->wrdschema->GetType(attr.domaintag);
+        IF(NOT ObjectExists(targettype))
+          THROW NEW Exception(`No such domain ${attr.domaintag} for attribute '${attr.tag}' in type '${this->tag}'`);
+        attr.domain := targettype->id;
+      }
+
+      // If it's a domain attribute, domaintag may not be empty
+      RECORD attrinfo := DescribeAttributeType(attr.attributetype);
+      IF ("domain" IN attrinfo.options)
+      {
+        IF (attr.domain = 0)
+          THROW NEW Exception("The domain tag may not be empty when adding a domain attribute");
+      }
+      ELSE IF (attr.domain != 0)
+        THROW NEW Exception("The domain tag must be empty when adding a non-domain attribute");
+
+      IF (NOT CellExists(attr, "checklinks")
+          AND attr.attributetype IN attrtypes
+          AND "checklinks" IN attrinfo.defaults)
+        INSERT CELL checklinks := TRUE INTO attr;
+
+      // Validate metadata
+      attr := BaseAttributeValidation(attr);
+
+      // Look in current list of attributes (for inherited attributes)
+      RECORD match := SELECT * FROM this->__final_attrs WHERE ToUppercase(__final_attrs.tag) = ToUppercase(attr.tag);
+      IF(RecordExists(match))
+        THROW NEW Exception(`An attribute named '${attr.tag}' already exists in type '${this->tag}'`);
+
+      INTEGER parentattrid;
+      STRING ARRAY tagparts := Tokenize(attr.tag, ".");
+      FOREVERY (STRING part FROM ArraySlice(tagparts, 0, LENGTH(tagparts) - 1))
+      {
+        RECORD parentattr :=
+            SELECT id
+                 , attributetype
+              FROM wrd.attrs
+             WHERE type = this->typerec.id
+                   AND parent = parentattrid
+                   AND Touppercase(attrs.tag) = ToUppercase(part);
+
+        IF (NOT RecordExists(parentattr))
+          THROW NEW Exception(`The parent attribute for '${Detokenize(ArraySlice(tagparts, 0, #part + 1), ".")}' in type '${this->tag}' hasn't been created yet`);
+        IF (parentattr.attributetype != 13)
+          THROW NEW Exception(`The parent attribute for '${Detokenize(ArraySlice(tagparts, 0, #part + 1), ".")}' in type '${this->tag}' must be of type ARRAY but is a ${attrtypes[parentattr.attributetype]??"UNKNOWN"}`);
+
+        parentattrid := parentattr.id;
+      }
+
+      STRING mytag := tagparts[END - 1];
+      IF (RecordExists(SELECT FROM wrd.attrs WHERE type = this->typerec.id AND parent = parentattrid AND Touppercase(attrs.tag) = ToUppercase(mytag)))
+        THROW NEW Exception(`An attribute with tag '${attr.tag}' already exists in type '${this->tag}'`);
+
+      // Convert domaintag to the correct id
+      INTEGER newid := MakeAutonumber(wrd.attrs,"id");
+
+      INSERT INTO wrd.attrs(id, domain, attributetype, type, title, description, tag, parent)
+            VALUES(newid, attr.domain, attributetypeid, this->id, attr.title, attr.description, mytag, parentattrid);
+
+      // Minimal administration __InternalUpdateAttribute needs
+      INSERT CELL[ id :=                newid
+                 , tag :=               attr.tag
+                 , isinherited :=       FALSE
+                 , attributetypename := attr.attributetype
+                 , checklinks :=        FALSE
+                 ] INTO this->__final_attrs AT END;
+
+      attributes[#attr] := attr;
+    }
+
+    IF (LENGTH(attributes) != 0)
+    {
+      FOREVERY (RECORD attr FROM attributes)
+      {
+        STRING tag := attr.tag;
+
+        RECORD updates := CELL
+            [ ...attr
+            , DELETE tag
+            , DELETE attributetype
+            , DELETE title
+            , DELETE description
+            , DELETE domain
+            , DELETE domaintag
+            ];
+
+        this->__InternalUpdateAttribute(attr.tag, updates);
+      }
+
+      this->pvt_wrdschema->__SignalMetadataChanged();
+      this->__ReloadTypeAndChildren();
+    }
+  }
+
+  PUBLIC MACRO DeleteAttribute(STRING tag)
+  {
+    RECORD attrinfo := this->GetAttribute(tag);
+    IF(NOT RecordExists(attrinfo))
+      THROW NEW Exception("No such attribute '" || tag || "'");
+    IF(attrinfo.base)
+      THROW NEW Exception("Cannot delete base attribute '" || tag || "'");
+
+    DELETE FROM wrd.attrs WHERE id = attrinfo.id;
+    this->pvt_wrdschema->__SignalMetadataChanged();
+    this->__ReloadTypeAndChildren();
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+  //
+  // Domain attribute support
+  //
+
+  STRING FUNCTION GetDomValX(STRING attribute_tag, INTEGER valid, STRING field)
+  {
+    IF(valid=0)
+      RETURN "";
+
+    RECORD res := this->GetAllDomVals(attribute_tag);
+    IF(NOT res.isdom)
+    {
+      IF(NOT res.type->HasAttribute(field))
+        RETURN "";
+      RECORD rec := res.type->GetEntityFields(valid, [field]);
+      RETURN RecordExists(rec) ? GetCell(rec, field) : "";
+    }
+
+    RECORD match := SELECT * FROM res.vals WHERE id=valid;
+    IF(NOT RecordExists(match))
+      THROW NEW Exception("No such domain value #" || valid || " in domain for attribute '" || attribute_tag || "'"); //ADDME give title or tag for the domain
+
+    RETURN GetCell(match,Substring(field, 4));//use substring to strip WRD_
+  }
+
+  RECORD FUNCTION GetAllDomVals(STRING findtag)
+  {
+    INTEGER attrid := SELECT AS INTEGER (#attrs + 1) FROM this->__final_attrs AS attrs WHERE ToUppercase(tag)=ToUppercase(findtag);
+    IF(attrid=0)
+      THROW NEW Exception("No such attribute '" || findtag || "'");
+
+    IF(findtag="WRD_GENDER")
+    {
+      RECORD lang := GetLangTexts(this->pvt_wrdschema->__GetCurrentLanguageCode());
+      RETURN [ isdom := TRUE
+             , vals := (SELECT * FROM GetGenderOptions(DEFAULT RECORD, lang, "WRD_GENDER") WHERE tag!="" ORDER BY ToUppercase(tag))
+             ];
+    }
+
+    IF(this->__final_attrs[attrid-1].attributetype NOT IN [1,8])
+      THROW NEW Exception("Attribute '" || findtag || "' is not of a single or multiple domain type");
+
+    OBJECT typeobj := this->__final_attrs[attrid-1].__reftype;
+    IF(NOT ObjectExists(typeobj))
+    {
+      typeobj := this->pvt_wrdschema->GetTypeById(this->__final_attrs[attrid-1].domain);
+      IF(NOT ObjectExists(typeobj))
+        THROW NEW Exception("Type #" || this->__final_attrs[attrid-1].domain || " referred to by attribute '" || findtag || "' no longer exists");
+      this->__final_attrs[attrid-1].__reftype := typeobj;
+    }
+    IF(NOT typeobj->isdomain)
+      RETURN [ isdom := FALSE, vals := DEFAULT RECORD ARRAY, type := typeobj ];
+
+    RETURN [ isdom := TRUE, vals := typeobj->__GetAndCacheDomvals() ];
+  }
+
+  INTEGER ARRAY FUNCTION __GetDomVals(STRING attribute_tag, STRING ARRAY valtags)
+  {
+    RECORD res := this->GetAllDomVals(attribute_tag);
+    INTEGER ARRAY value;
+    IF(NOT res.isdom)
+    {
+      FOREVERY(STRING valtag FROM valtags)
+      {
+        INTEGER curval := res.type->Search("WRD_TAG", valtag, [matchcase := FALSE]);
+        IF(curval = 0 AND ValidateWRDGuid(valtag))
+          curval := res.type->Search("WRD_GUID", valtag);
+        IF (curval = 0)
+          THROW NEW Exception(`No such entity with tag '${valtag}' for attribute '${attribute_tag}' in type '${this->tag}'`);
+        INSERT curval INTO value AT END;
+      }
+      RETURN value;
+    }
+
+    DATETIME when := GetCurrentDatetime();
+    RECORD ARRAY domvals := SELECT * FROM res.vals WHERE creationdate <= when AND when < limitdate;
+
+    RECORD lookup;
+
+    FOREVERY(STRING valtag FROM valtags)
+    {
+      lookup := RecordLowerBound(domvals, [ tag := ToUppercase(valtag) ], ["TAG"]);
+      IF(lookup.found)
+      {
+        INSERT domvals[lookup.position].id INTO value AT END;
+        CONTINUE;
+      }
+
+      //ADDME is it worth the trouble to generate a sorted-by-guid list?
+      IF(ValidateWRDGuid(valtag))
+      {
+         INTEGER tryguid := SELECT AS INTEGER id FROM domvals WHERE guid = valtag;
+         IF(tryguid != 0)
+         {
+           INSERT tryguid INTO value AT END;
+           CONTINUE;
+         }
+      }
+      THROW NEW Exception(`No such domain value '${valtag}' in domain for attribute '${attribute_tag}' in type '${this->tag}'`);
+    }
+    RETURN value;
+  }
+
+  /** Lookup a domain value by tag or wrd:guid
+      @param attribute_tag Tag of an attribute pointing to a domain
+      @param valtag Tag or wrd:guid of value to look up.
+      @return Entity id of the domain value, 0 if `valtag` is empty. Throws if the entity is not found */
+  PUBLIC INTEGER FUNCTION GetDomVal(STRING attribute_tag, STRING valtag)
+  {
+    IF(valtag="")
+      RETURN 0;
+    RETURN this->__GetDomVals(attribute_tag, [valtag])[0];
+  }
+
+  /** Get the tag for a domain value
+      @param attribute_tag Tag of an attribute pointing to a domain
+      @param valid Entity id to look up
+      @return Tag of the requested entity, `""` if `valid` is 0. Throws if the entity is not found */
+  PUBLIC STRING FUNCTION GetDomValTag(STRING attribute_tag, INTEGER valid)
+  {
+    RETURN this->GetDomValX(attribute_tag, valid, "WRD_TAG");
+  }
+
+  /** Get the tags for multiple domain values
+      @param attribute_tag Tag of an attribute pointing to a domain
+      @param vals Entity ids to look up
+      @return The tags of the requested entity. Throws if an entity is not found */
+  PUBLIC STRING ARRAY FUNCTION GetDomValTags(STRING attribute_tag, INTEGER ARRAY vals)
+  {
+    STRING ARRAY retval;
+    FOREVERY(INTEGER val FROM vals)
+      INSERT this->GetDomValX(attribute_tag, val, "WRD_TAG") INTO retval AT END;
+    RETURN retval;
+  }
+
+  /** Get the title for a domain value
+      @param attribute_tag Tag of an attribute pointing to a domain
+      @param valid Entity id to look up
+      @return Title of the requested entity, `""` if `valid` is 0. Throws if the entity is not found */
+  PUBLIC STRING FUNCTION GetDomValTitle(STRING attribute_tag, INTEGER valid)
+  {
+    RETURN this->GetDomValX(attribute_tag, valid, "WRD_TITLE");
+  }
+
+  /** Get the titles for multiple domain values
+      @param attribute_tag Tag of an attribute pointing to a domain
+      @param vals Entity ids to look up
+      @return The titles of the requested entities. Throws if an entity is not found */
+  PUBLIC STRING ARRAY FUNCTION GetDomValTitles(STRING attribute_tag, INTEGER ARRAY vals)
+  {
+    STRING ARRAY retval;
+    FOREVERY(INTEGER val FROM vals)
+      INSERT this->GetDomValX(attribute_tag, val, "WRD_TITLE") INTO retval AT END;
+    RETURN retval;
+  }
+
+  /** Get all descendants below a specified parent id (if wrd_leftentity links back to us)
+      @param startparent Starting point (if 0, returns all entities)
+      @return IDs of descendants not including starting point */
+  PUBLIC INTEGER ARRAY FUNCTION GetDescendantIds(INTEGER startparent)
+  {
+    INTEGER ARRAY allsubs;
+    INTEGER ARRAY currentlevel := [ startparent ];
+    INTEGER maximumdepth := 32; //safety against corrupted databases
+
+    DATETIME now := GetCurrentDatetime();
+    INTEGER ARRAY typeids := this->GetValidTypeIDs();
+    IF(NOT this->isdomain AND this->linkfrom NOT IN typeids)
+      THROW NEW Exception(`Type '${this->tag}' does not link to itself`);
+
+    WHILE(maximumdepth >= 1 AND Length(currentlevel) > 0)
+    {
+      currentlevel := SELECT AS INTEGER ARRAY id
+                        FROM wrd.entities
+                       WHERE creationdate <= now
+                             AND now < limitdate
+                             AND type IN typeids
+                             AND leftentity IN currentlevel;
+
+      allsubs := allsubs CONCAT currentlevel;
+      maximumdepth := maximumdepth - 1;
+    }
+
+    RETURN allsubs;
+  }
+
+  /** Returns all domain values for the domain referenced in an attribute
+      @param findtag Tag of attribute that references the domain
+      @return Array containing currently allowed domain values
+      @cell(integer) return.id Entity id for this domain value
+      @cell(string) return.title Translated title
+      @cell(string) return.tag Value tag
+      @cell(integer) return.ordering Relative ordering
+      @cell(string) return.guid Value wrd:guid
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListDomVals(STRING findtag)
+  {
+    RECORD res := this->GetAllDomvals(findtag);
+    IF(NOT res.isdom)
+    {
+      RETURN SELECT *
+                  , ordering := 0
+               FROM res.type->RunQuery( [ outputcolumns := [ id := "WRD_ID"
+                                                    , title := "WRD_TITLE"
+                                                    , tag := "WRD_TAG"
+                                                    , guid := "WRD_GUID"
+                                                    ]
+                                 ]);
+    }
+    DATETIME when := GetCurrentDatetime();
+    RETURN SELECT * FROM res.vals WHERE creationdate <= when AND when < limitdate;
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+  //
+  // Queries
+  //
+
+  /** Search for an entity with a specifit value for in an attribute
+      @param tagname Attribute to search
+      @param tagval Value to search for
+      @cell options.matchcase Whether case must be matched, defaults to TRUE
+      @cell options.ignoreallowedvalues Whether to ignore invalid values for enumeration, defaults to FALSE
+      @cell options.historymode History mode, defaults to 'now'
+      @return Id of first matching entity (0 if not found)
+  */
+  PUBLIC INTEGER FUNCTION Search(STRING tagname, VARIANT tagval, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ matchcase :=           TRUE
+                               , ignoreallowedvalues := FALSE
+                               , historymode :=         "now"
+                               ], options);
+    RECORD ARRAY results := this->RunQuery( [ filters := [ [ field := tagname
+                                                           , match_type := "="
+                                                           , value := tagval
+                                                           , matchcase := options.matchcase
+                                                           , ignoreallowedvalues := options.ignoreallowedvalues
+                                                           ]
+                                                         ]
+                                            , outputcolumns := [ id := "WRD_ID" ]
+                                            , historymode := options.historymode
+                                            , resultlimit := 1
+                                            ]);
+    RETURN Length(results) > 0 ? results[0].id : 0;
+  }
+
+  /** @short Grab a list of fields, given a list of ids to gather
+      @param ids Ids of the entities to retrieve (only when 'returnall' is false)
+      @param returnall If TRUE, return all active entities
+      @param uppercase_ignore Ignored
+      @param outputcolumns @includecelldef #RunQuery.querydata.outputcolumns
+      @param historymode @includecelldef #RunQuery.querydata.historymode
+      @return Query result
+  */
+  PUBLIC RECORD ARRAY FUNCTION __GetBulkFields(INTEGER ARRAY ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, RECORD outputcolumns, STRING historymode)
+  {
+    RETURN this->RunQuery([ outputcolumns := outputcolumns
+                          , filters := returnall ? DEFAULT RECORD ARRAY : [[ field := "WRD_ID", matchtype := "IN", value := ids ]]
+                          , historymode := historymode
+                          ]);
+  }
+  /** @short Grab a list of fields, given a list of ids to gather
+      @param ids Ids of the entities to retrieve (only when 'returnall' is false)
+      @param outputcolumns @includecelldef #RunQuery.querydata.outputcolumns
+      @return Query result
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetBulkFields(INTEGER ARRAY ids, RECORD outputcolumns)
+  {
+    RETURN this->__GetBulkFields(ids, FALSE, FALSE, outputcolumns,"all");
+  }
+
+  /** @short Enrich an array with fields from this type
+      @param inrows Rows to enrich
+      @param idcellname Name of the cell containing the id (eg WRD_ID, ID, ROWKEY). Append '[]' if the cell is an array of values.
+      @param addcolumns Output columns to add
+      @cell(string) options.historymode Historymode for this enrich, allowed values are 'now' and 'all'. Defaults to 'all'!
+      @cell(boolean) options.rightouterjoin Insert default values for missing matches, instead of deleting them from the result
+      @cell(record) options.leftouterjoin Default values to insert for left side missing matches, instead of deleting them from the result
+      @cell(string) options.wrapfields If not empty, wrap the enriched fields in a cell with this name (when the idcell is an array, insert enriched values into this cell).
+      @cell(string) options.joinfield Field on which we will be joining ourselves with the input rows. Defaults to WRD_ID
+      @cell options.presentfield If set, this field will contain 'left', 'right' or 'both' depending on which records were present
+      @return The enriched records, in their original order. Any records which could not be enriched, are removed from the output array */
+  PUBLIC RECORD ARRAY FUNCTION Enrich(RECORD ARRAY inrows, STRING idcellname, RECORD addcolumns, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ historymode := "all"
+                               , joinfield := "WRD_ID"
+                               ], options, [ passthrough := TRUE ]);
+
+    //ADDME reuse existing id cells
+    INSERT CELL __joinid := options.joinfield INTO addcolumns;
+    FUNCTION PTR getfields := PTR this->__GetBulkFields(#1, #2, #3, addcolumns, options.historymode);
+    DELETE CELL joinfield, historymode FROM options;
+    RETURN ExecuteEnrichment(inrows, idcellname, options, getfields, PTR GetDefaultJoinRecord(this, addcolumns));
+  }
+
+  /** Execute a query on this type
+    ` @param querydata Query specification
+      @cell querydata.outputcolumns @includecelldef #RunWRDQuery.querydata.sources.outputcolumns
+      @cell(string) querydata.outputcolumn If set, return an array with the contents of this attribute
+      @cell querydata.filters @includecelldef #RunWRDQuery.querydata.sources.filters
+      @cell querydata.resultlimit @includecelldef #RunWRDQuery.querydata.resultlimit
+      @cell querydata.typefilter @includecelldef #RunWRDQuery.querydata.sources.resultlimit
+      @cell querydata.historymode @includecelldef #RunWRDQuery.querydata.sources.historymode
+      @cell querydata.when @includecelldef #RunWRDQuery.querydata.sources.when
+      @cell querydata.when_start @includecelldef #RunWRDQuery.querydata.sources.when_start
+      @cell querydata.when_limit @includecelldef #RunWRDQuery.querydata.sources.when_limit
+      @cell(integer) querydata.cachettl If set, use the adhoccache to cache the results for this number of milliseconds. The cache is invalidated when changes to this type are committed.
+        Do not use within a same transaction that also modifies this WRD type.
+      @return Query results
+  */
+  PUBLIC VARIANT FUNCTION RunQuery(RECORD querydata)
+  {
+    IF(CellExists(querydata,'cachettl'))
+    {
+      INTEGER cachettl := querydata.cachettl;
+      IF(cachettl <= 0)
+        THROW NEW Exception("Illegal cachettl");
+
+      STRING queryhash := "type:" || this->id || EncodeHSON(querydata);
+      DELETE CELL cachettl FROM querydata;
+
+      RETURN GetAdhocCached([ queryhash := queryhash ]
+                            , PTR this->RunCacheableQuery(querydata, cachettl)
+                            );
+    }
+    ELSE
+    {
+      RETURN this->RunCacheableQuery(querydata, 0);
+    }
+  }
+
+  VARIANT FUNCTION RunCacheableQuery(RECORD querydata, INTEGER cachettl)
+  {
+    INTEGER resultlimit := -1;
+    OBJECT whfsmapper;
+    BOOLEAN singlecolumn;
+    IF (CellExists(querydata, "resultlimit"))
+    {
+      resultlimit := querydata.resultlimit;
+      DELETE CELL resultlimit FROM querydata;
+    }
+    IF (CellExists(querydata, "whfsmapper"))
+    {
+      whfsmapper := querydata.whfsmapper;
+      DELETE CELL whfsmapper FROM querydata;
+    }
+    IF(CellExists(querydata, "outputcolumn"))
+    {
+      IF(CellExists(querydata,'outputcolumns'))
+        THROW NEW Exception("outputcolumn and outputcolumns are mutually exclusive");
+      IF(TYPEID(querydata.outputcolumn) != TYPEID(STRING))
+        THROW NEW Exception("outputcolumn must be of type STRING");
+
+      singlecolumn := TRUE;
+      querydata := CELL[...querydata, outputcolumns := [ retval := querydata.outputcolumn ], DELETE outputcolumn ];
+    }
+
+    RECORD wrdquery := [ sources := [ CELL[...querydata, type := this] ]];
+    IF (resultlimit >= 0)
+      INSERT CELL resultlimit := resultlimit INTO wrdquery;
+    IF (NOT IsDefaultValue(whfsmapper))
+      INSERT CELL whfsmapper := whfsmapper INTO wrdquery;
+
+    OBJECT wrd_query := MakeWRDQuery(wrdquery);
+    VARIANT returnvalue := wrd_query->Execute(DEFAULT RECORD);
+    IF(singlecolumn)
+    {
+      VARIANT returnlist := GetTypeDefaultArray(wrd_query->GetTypeForOutputcolumn("RETVAL"));
+      FOREVERY(RECORD res FROM returnvalue)
+        INSERT res.retval INTO returnlist AT END;
+      returnvalue := returnlist;
+    }
+    IF(cachettl > 0)
+    {
+      returnvalue := [ value := returnvalue
+                     , ttl := cachettl
+                     , eventmasks := this->GetEventMasks()
+                     ];
+    }
+    RETURN returnvalue;
+  }
+
+  PUBLIC INTEGER ARRAY FUNCTION FindIds(RECORD querydata)
+  {
+    IF(CellExists(querydata,'outputcolumns'))
+      THROW NEW Exception("Outputcolumns cannot be specified in a FindIds query");
+
+    INSERT CELL outputcolumns := [ id := "WRD_ID" ] INTO querydata;
+    RETURN SELECT AS INTEGER ARRAY id FROM this->RunQuery(querydata);
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+  //
+  // Single entity manipulation
+  //
+
+  OBJECT FUNCTION __CreateEntityObject(RECORD entityrec)
+  {
+    THROW NEW Exception("__CreateEntityObject must be overridden");
+  }
+
+  /** @short Get an entity by ID
+    @long Get an entity of this type, looking it up by id
+    @param find_id ID to look up
+    @return The entity object, or a default object if no entity was found */
+  PUBLIC OBJECT FUNCTION GetEntity(INTEGER find_id)
+  {
+    INTEGER ARRAY validtypeids := [INTEGER(this->typerec.id)] CONCAT this->__childtypeids;
+    RECORD entityrec := SELECT *
+                          FROM wrd.entities
+                         WHERE id = find_id
+                               AND type IN validtypeids;
+
+    IF(NOT RecordExists(entityrec))
+      RETURN DEFAULT OBJECT;
+
+    OBJECT entity := this->__CreateEntityObject(entityrec);
+    RETURN entity;
+  }
+
+  /** @short returns all requested fields of the entity with the given find_id
+      @param find_id id of the entity
+      @param fields Names of the fields to return as a STRING ARRAY or a RECORD
+      @return Record with a cell for each requested field
+  */
+  PUBLIC RECORD FUNCTION GetEntityFields(INTEGER find_id, VARIANT fields, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(find_id=0)
+      RETURN DEFAULT RECORD; //Will never match, avoid the query construction
+
+    options := ValidateOptions( [ querytime := DEFAULT DATETIME
+                                , historymode := "__getfields"
+                                ], options, [ optional := ["QUERYTIME"]]);
+
+    RECORD ARRAY filters := [ [ field := "WRD_ID", value := find_id ] ];
+
+    //note: getentityfields sees ALL entities, but returns values as they were at 'when'.
+    OBJECT query := MakeWRDQuery([ sources := [[ type := this
+                                               , filters := filters
+                                               , outputcolumns := fields
+                                               , historymode := options.historymode
+                                               ]
+                                              ]
+                                 ]);
+    query->current_time := CellExists(options,'querytime') ? options.querytime : GetCurrentDatetime();
+    RETURN query->Execute();
+  }
+
+  PUBLIC VARIANT FUNCTION GetEntityField(INTEGER find_id, STRING field, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ querytime := DEFAULT DATETIME
+                                , historymode := "__getfields"
+                                ], options, [ optional := ["QUERYTIME"]]);
+
+    RECORD ARRAY filters := [ [ field := "WRD_ID", value := find_id ] ];
+
+    RECORD map := [ result := field ];
+
+    //note: getentityfields sees ALL entities, but returns values as they were at 'when'.
+    OBJECT query := MakeWRDQuery([ sources := [[ type := this
+                                               , filters := filters
+                                               , outputcolumns := map
+                                               , historymode := options.historymode
+                                               ]
+                                              ]
+                                 ]);
+
+    query->current_time := CellExists(options,'querytime') ? options.querytime : GetCurrentDatetime();
+    RECORD row := query->Execute() ?? GetDefaultJoinRecord(this, map);
+    RETURN row.result;
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+  //
+  // Entity updating
+  //
+
+  MACRO ValidateReferredType(INTEGER ARRAY entitiestocheck, INTEGER requiredtype, STRING fieldname)
+  {
+    IF(requiredtype =0 AND fieldname="WRD_GENDER")
+    {
+      FOREVERY(INTEGER ent FROM entitiestocheck)
+        IF(ent NOT IN [0,1,2])
+          THROW NEW Exception("Entity #" || ent || " that was set for '" || this->tag || "." || fieldname || "' does not exist");
+      RETURN;
+    }
+
+    RECORD ARRAY typeinrecs := SELECT id, type FROM wrd.entities WHERE id IN entitiestocheck;
+    IF(Length(typeinrecs) != Length(entitiestocheck))
+    {
+      INTEGER ARRAY foundentities := SELECT AS INTEGER ARRAY DISTINCT id FROM typeinrecs ORDER BY id;
+      INTEGER ARRAY missingentities := SELECT AS INTEGER ARRAY id FROM ToRecordArray(entitiestocheck, "id") WHERE BinaryFind(foundentities, id) = -1;
+      IF(Length(missingentities) > 0)
+        THROW NEW Exception(`Entity #${entitiestocheck[0]} that was set for '${this->tag}.${fieldname}' does not exist`);
+
+      THROW NEW Exception("Internal error - ValidateReferredType should be invoked with DISTINCT entitiestocheck, this list contained duplicates");
+    }
+
+    DELETE FROM typeinrecs WHERE type = requiredtype;
+    IF(Length(typeinrecs)=0)
+      RETURN;
+
+    OBJECT expectedtype := this->wrdschema->GetTypeById(requiredtype);
+    IF(NOT ObjectExists(expectedtype))
+      THROW NEW Exception("Unable to query type #" || requiredtype || " for validation of '" || this->tag || "." || fieldname || "' - attribute metadata must be inconsistent");
+
+    DELETE FROM typeinrecs WHERE type IN expectedtype->__childtypeids;
+    IF(Length(typeinrecs)=0)
+      RETURN;
+
+    OBJECT mismatchtype := this->wrdschema->GetTypeById(typeinrecs[0].type);
+    IF(NOT ObjectExists(mismatchtype))
+      THROW NEW Exception("Entity #" || typeinrecs[0].id || " set for '" || this->tag || "." || fieldname || "' is of invalid type #" || typeinrecs[0].type || " - attempt to create a cross schema reference?");
+
+    THROW NEW Exception("Entity #" || typeinrecs[0].id || " is of type '" || mismatchtype->tag || "' but field '" || this->tag || "." || fieldname || "' must refer to an entity of type '" || expectedtype->tag || "'");
+  }
+
+  RECORD FUNCTION EnsureRecord(RECORD attr, VARIANT val)
+  {
+    IF(TypeID(val) = TypeID(RECORD ARRAY)) //the usual harescript cast
+      val := PickFirst(val);
+    IF(TypeId(val) != TYPEID(RECORD))
+      THROW NEW Exception(`Value for attribute '${attr.tag}' must be of type record`);
+    RETURN val;
+  }
+  /** Returns attributes. Columns:
+    - tag
+    - base
+    - attributetype
+    - ordering
+    - cellname
+    - title
+    - domain
+    - __reftype
+    - cellnames
+    - isgenerated
+    - isreadonly
+    - isrequired
+    - issnesitive
+    - isunique
+    - iscustom
+    - isupdateable
+    - attributeid
+    - generator
+    - decoder
+    - parent
+    - checklinks
+    - multiline
+    */
+  RECORD FUNCTION ParseAttr(RECORD attr, VARIANT val, BOOLEAN isv2api, FUNCTION PTR onmapdomvalue, OBJECT whfsmapper, STRING decodeinvalidutf8as)
+  {
+    RECORD ARRAY newsets;
+    RECORD ARRAY subs;
+
+    IF(TYPEID(val) = TYPEID(STRING) AND NOT IsValidUTF8(val))
+      val := HandleInvalidUTF8(attr.tag, val, decodeinvalidutf8as);
+
+    SWITCH(attr.attributetype)
+    {
+      CASE 3 /* Address */
+      {
+        IF(TypeId(val) != TYPEID(RECORD))
+          THROW NEW Exception(attr.tag || " value must be of type record");
+        IF(RecordExists(val))
+        {
+          STRING rawdata;
+          IF(NOT CellExists(val, 'country'))
+            THROW NEW Exception(attr.tag || " value must have a country field");
+
+          FOREVERY(RECORD field FROM UnpackRecord(val))
+            rawdata := rawdata || EncodeJava(field.name) || "=" || EncodeJava(field.value) || "\n";
+          INSERT [ setting := 0, rawdata := rawdata, blobdata := DEFAULT BLOB ] INTO newsets AT END;
+        }
+      }
+      CASE 2 /* Free text */, 4 /*Email*/, 5 /* Telephone  */, 21 /* URL */
+      {
+        IF(TypeId(val) != TYPEID(STRING))
+          THROW NEW Exception(attr.tag || " value must be of type string");
+
+        //FIXME: Check (e-mail) format, report errors through a 'nice' api. (it's not an invalid argument)
+        IF(val!="")
+          INSERT [ setting := 0, rawdata := val, blobdata := DEFAULT BLOB ] INTO newsets AT END;
+      }
+      CASE 6, 12 /* Date and datetime types */
+      {
+        IF(TypeId(val) != TYPEID(DATETIME))
+          THROW NEW Exception(attr.tag || " value must be of type datetime");
+
+        IF(val != DEFAULT DATETIME)
+          INSERT [ setting := 0, rawdata := GetDayCount(val) || "," || GetMsecondCount(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
+      }
+      CASE 16 /* Boolean */
+      {
+        IF(TypeId(val) != TYPEID(BOOLEAN))
+          THROW NEW Exception(attr.tag || " value must be of type boolean");
+
+        IF(val)
+          INSERT [ setting := 0, rawdata := "1", blobdata := DEFAULT BLOB ] INTO newsets AT END;
+      }
+      CASE 7 /* Password */
+      {
+        IF(TypeId(val) != TYPEID(STRING))
+          THROW NEW Exception(attr.tag || " value must be of type string");
+
+        IF(val NOT LIKE "MD5:????????????????"
+           AND val NOT LIKE "SSHA1:????????????????????????????"
+           AND val NOT LIKE "XSHA1:????????????????????????????????????????"
+           AND val NOT LIKE "WHBF:????????????????????????????????????????????????????????????"
+           AND val NOT LIKE "NETASP-SHA1:????????????????????*"
+           AND val NOT LIKE "LCR:???*"
+           AND val NOT LIKE "PLAIN:?*"
+           AND val != "*"
+           AND val != "")
+        {
+          IF(isv2api)
+            THROW NEW Exception("Field '" || attr.tag || "' is receiving an unhashed password value - CreateWebharePasswordHash should have been invoked on the value");
+
+          val := CreateWebharePasswordHash(val);
+        }
+
+        IF(val!="")
+          INSERT [ setting := 0, rawdata := val, blobdata := DEFAULT BLOB ] INTO newsets AT END;
+      }
+      CASE 9 /* Image */
+      {
+        IF(TypeID(val) = TypeID(BLOB))
+          IF(isv2api)
+            THROW NEW Exception("Field '" || attr.tag || "' is receiving a blob - please pass the original image record, or use WrapBlob on the value");
+          ELSE
+            val := Length(val) > 0 ? WrapBlob(val,"") : DEFAULT RECORD;
+
+        IF(TypeId(val) != TYPEID(RECORD))
+          THROW NEW Exception(attr.tag || " value must be of type record");
+
+        IF(RecordExists(val) AND (val.width = 0 OR val.height = 0))
+          THROW NEW Exception("Field '" || attr.tag || "' received an invalid image");
+
+        IF(RecordExists(val))
+        {
+          RECORD newinfo := MappedJoinBlobSetting(val, whfsmapper);
+          INSERT
+              [ setting := 0
+              , whfsdata := newinfo.fs_object
+              , rawdata := (newinfo.fs_object = 0 ? "" : "WHFS:") || newinfo.rawdata
+              , blobdata := val.data
+              , linktype := 2
+              ] INTO newsets AT END;
+        }
+      }
+      CASE 14 /* Money */
+      {
+        IF(TypeId(val) NOT IN[ TYPEID(INTEGER), TYPEID(MONEY) ])
+          THROW NEW Exception(attr.tag || " value must be of type money");
+        IF(val!=0)
+          INSERT [ setting := 0, rawdata := FormatMoney(val,0,'.','',FALSE), blobdata := DEFAULT BLOB ] INTO newsets AT END;
+      }
+
+      CASE 11,15 /* Time, Integer */
+      {
+        IF(TypeId(val) != TYPEID(INTEGER))
+          THROW NEW Exception(attr.tag || " value must be of type integer");
+        IF(val!=0)
+          INSERT [ setting := 0, rawdata := ToString(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
+      }
+      CASE 18 /* Integer64 */
+      {
+        IF(TypeId(val) NOT IN [ TYPEID(INTEGER), TYPEID(INTEGER64) ])
+          THROW NEW Exception(attr.tag || " value must be of type integer64");
+        IF(val!=0)
+          INSERT [ setting := 0, rawdata := ToString(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
+      }
+      CASE 1 /* single select*/
+      {
+        IF(TypeId(val) = TYPEID(STRING))
+        {
+          IF(NOT isv2api)
+            THROW NEW Exception(attr.tag || " value must be of type integer. CreateEntity2 and UpdateFields2 would permit passing a STRING with a tag");
+
+          INTEGER entityid := onmapdomvalue(attr.tag, val);
+          IF(entityid!=0)
+            INSERT [ setting := entityid, rawdata := "", blobdata := DEFAULT BLOB ] INTO newsets AT END;
+        }
+        ELSE IF(TypeId(val) = TYPEID(INTEGER))
+        {
+          IF(val!=0)
+            INSERT [ setting := val, rawdata := "", blobdata := DEFAULT BLOB ] INTO newsets AT END;
+        }
+        ELSE
+        {
+          IF(TypeId(val) != TYPEID(INTEGER))
+            THROW NEW Exception(`${attr.tag} value must be of type integer but is of type ${GetTypeName(TypeID(val))}`);
+        }
+      }
+      CASE 8 /* multiple select*/
+      {
+        IF(TypeId(val) = TYPEID(STRING ARRAY))
+        {
+          IF(NOT isv2api)
+            THROW NEW Exception(attr.tag || " value must be of type integer array. CreateEntity2 and UpdateFields2 would permit passing a STRING ARRAY of tags");
+
+          newsets := SELECT setting := Any(onmapdomvalue(attr.tag, setting))
+                          , rawdata := ""
+                          , blobdata := DEFAULT BLOB
+                       FROM ToRecordArray(val, "setting")
+                      WHERE setting != ""
+                   GROUP BY setting;
+        }
+        ELSE IF(TypeId(val) = TYPEID(INTEGER ARRAY))
+        {
+          newsets := SELECT setting := setting, rawdata := "", blobdata := DEFAULT BLOB
+                       FROM ToRecordArray(val,"setting")
+                      WHERE setting != 0
+                   GROUP BY setting; //eliminate dupes
+        }
+        ELSE
+        {
+          THROW NEW Exception(attr.tag || " value must be of type integer array");
+        }
+      }
+      CASE 13
+      {
+        IF(TypeId(val) != TYPEID(RECORD ARRAY))
+          THROW NEW Exception(attr.tag || " value must be of type record array");
+
+        FOREVERY(RECORD row FROM val)
+        {
+          RECORD outputrow := [ settings := DEFAULT RECORD ARRAY, orgsettingid := 0 ];
+          FOREVERY(RECORD subval FROM UnpackRecord(row))
+          {
+            IF (subval.name = "WRD_SETTINGID")
+            {
+              outputrow.orgsettingid := subval.value;
+              CONTINUE;
+            }
+
+            //ADDME: Special cell handling (WRD_CREATIONDATE et al ?!)
+            RECORD subattr := this->GetAttribute(attr.tag || "." || subval.name);
+            IF(NOT RecordExists(subattr))
+              THROW NEW Exception("No such array subcell '" || subval.name || "' in '" || this->tag || "." || attr.tag || "'");
+
+            INSERT this->ParseAttr(subattr, subval.value, isv2api, onmapdomvalue, whfsmapper, decodeinvalidutf8as) INTO outputrow.settings AT END;
+          }
+          INSERT outputrow INTO subs AT END;
+        }
+      }
+      CASE 10 /* File */
+      {
+        //ADDME: Return a record like this or simply a blob? Use JoinBlobSetting?
+
+        IF(TypeId(val) != TYPEID(RECORD))
+          THROW NEW Exception(attr.tag || " value must be of type record");
+
+        //ADDME: Compensate missing fields
+        IF (RecordExists(val))
+        {
+          RECORD newinfo := MappedJoinBlobSetting(val, whfsmapper);
+          INSERT
+              [ setting :=    0
+              , whfsdata :=   newinfo.fs_object
+              , rawdata :=    (newinfo.fs_object = 0 ? "" : "WHFS:") || newinfo.rawdata
+              , blobdata :=   val.data
+              , linktype :=   2
+              ] INTO newsets AT END;
+        }
+      }
+      CASE 17 /* rich */
+      {
+        IF(TypeId(val) != TYPEID(RECORD))
+          THROW NEW Exception(attr.tag || " value must be of type record");
+
+        val := __ValidateRichDocumentLike(val, TRUE, NOT IsDefaultValue(whfsmapper));
+
+        IF(RecordExists(val))
+        {
+          //do we need to use WHFS to store this document ?
+          BOOLEAN inwhfs := (CellExists(val,"LINKS") AND Length(val.links)>0)
+                            OR (CellExists(val,"INSTANCES") AND Length(val.instances)>0);
+
+          IF(inwhfs)
+          {
+            //FIXME Reuse existing documents/settings
+            INSERT [ setting := 0, rawdata := "WHFS", blobdata := DEFAULT BLOB, whfsdata := val/*StoreRTDInWHFS(this->wrdschema->id, val, whfsmapper)*/, linktype := 0 ] INTO newsets AT END;
+          }
+          ELSE
+          {
+            INSERT [ setting := 0, rawdata := JoinBlobSetting([ width := 0
+                                                              , height := 0
+                                                              , mimetype := "text/html"
+                                                              , filename := "rd1.html"
+                                                              , data := val.htmltext
+                                                              , rotation := 0
+                                                              , mirrored := FALSE
+                                                              , refpoint := DEFAULT RECORD
+                                                              ]).rawdata, blobdata := val.htmltext] INTO newsets AT END;
+
+            FOREVERY(RECORD embed FROM val.embedded)
+            {
+              //ADDME safe/restore hash?
+              DELETE CELL filename FROM embed;
+              INSERT CELL filename := embed.contentid INTO embed;
+
+              RECORD newinfo := MappedJoinBlobSetting(embed, whfsmapper);
+              INSERT
+                  [ setting := 0
+                  , whfsdata := newinfo.fs_object
+                  , rawdata := (newinfo.fs_object = 0 ? "" : "WHFS:") || newinfo.rawdata
+                  , blobdata := embed.data
+                  , linktype := 2
+                  ] INTO newsets AT END;
+            }
+          }
+        }
+      }
+      CASE 19 /* whfs instance */
+      {
+        IF(RecordExists(val))
+          INSERT [ setting := 0, rawdata := "WHFS", blobdata := DEFAULT BLOB, whfsdata := val/*StoreInstanceInWHFS(this->wrdschema->id, val, whfsmapper)*/, linktype := 1 ] INTO newsets AT END;
+      }
+      CASE 20 /* intextlink */
+      {
+        val := this->EnsureRecord(attr, val);
+
+        IF(RecordExists(val))
+        {
+          FOREVERY(STRING cellname FROM ["INTERNALLINK","EXTERNALLINK","APPEND"])
+            IF(NOT CellExists(val,cellname))
+              THROW NEW Exception("Intextlink is missing cell '" || cellname || "'");
+
+          IF (NOT IsDefaultValue(whfsmapper))
+            val := CELL[ ...val, internallink := whfsmapper->UnmapWHFSRef(val.internallink) ];
+
+          IF(val.externallink != "")
+            INSERT [ setting := 0, rawdata := "*" || val.externallink, blobdata := DEFAULT BLOB ] INTO newsets AT END;
+          ELSE IF(val.internallink != 0 AND val.append != "")
+            INSERT [ setting := 0, rawdata := "WHFS:" || val.append, blobdata := DEFAULT BLOB, whfsdata := val.internallink, linktype := 2 ] INTO newsets AT END;
+          ELSE IF(val.internallink != 0)
+            INSERT [ setting := 0, rawdata := "WHFS", blobdata := DEFAULT BLOB, whfsdata := val.internallink, linktype := 2 ] INTO newsets AT END;
+        }
+      }
+      CASE 22 //RECORD (HSON)
+      {
+        IF(TypeId(val) != TYPEID(RECORD))
+          THROW NEW Exception(attr.tag || " value must be of type record");
+
+        IF(RecordExists(val))
+        {
+          STRING data := EncodeHSON(val);
+          IF(Length(data) <= 4096)
+            INSERT [ setting := 0, rawdata := data, blobdata := DEFAULT BLOB ] INTO newsets AT END;
+          ELSE
+            INSERT [ setting := 0, rawdata := "", blobdata := StringToBlob(data) ] INTO newsets AT END;
+        }
+      }
+      CASE 23 //ENUM
+      {
+        IF(TypeId(val) != TYPEID(STRING))
+          THROW NEW Exception(attr.tag || " value must be of type string");
+
+        IF(val!="")
+        {
+          IF(NOT IsAllowedEnumValue(val, attr.allowedvalues))
+            THROW NEW Exception(`Value '${val}' is not an acceptable value for attribute '${attr.tag}'`);
+
+          INSERT [ setting := 0, rawdata := val, blobdata := DEFAULT BLOB ] INTO newsets AT END;
+        }
+      }
+      CASE 24 //ENUMARRAY
+      {
+        IF(TypeId(val) != TYPEID(STRING ARRAY))
+          THROW NEW Exception(`'${attr.tag}' value must be of type string array, got '${GetTypeName(TYPEID(val))}'`);
+
+        IF(Length(val)>0)
+        {
+          STRING ARRAY outvals;
+          FOREVERY(STRING setval FROM val)
+          {
+            IF(NOT IsAllowedEnumValue(setval, attr.allowedvalues))
+              THROW NEW Exception(`Illegal value ${setval} for attribute '${attr.tag}'`);
+
+            RECORD lb := LowerBound(outvals, setval);
+            IF(lb.found) //duplicate
+              THROW NEW Exception(`Setting duplicate value ${setval} for attribute '${attr.tag}'`);
+
+            INSERT setval INTO outvals AT lb.position;
+          }
+          INSERT [ setting := 0, rawdata := Detokenize(outvals,'\t'), blobdata := DEFAULT BLOB ] INTO newsets AT END;
+        }
+      }
+      CASE 25 //PAYMENTPROVIDER
+      {
+        val := this->EnsureRecord(attr, val);
+
+        IF(RecordExists(val))
+        {
+          IF(NOT CellExists(val,"__paymentprovider") OR Length(UnpackRecord(val)) != 1 OR TypeID(val.__paymentprovider) != TYPEID(RECORD))
+          {
+            THROW NEW Exception(`Invalid provider value for attribute '${attr.tag}'`);
+          }
+
+          INTEGER keypair := IsDefaultValue(whfsmapper)
+              ? val.__paymentprovider.meta.keypair
+              : whfsmapper->UnmapWHFSRef(val.__paymentprovider.meta.keypair);
+          DELETE CELL keypair FROM val.__paymentprovider.meta;
+
+          INSERT [ setting := 0, rawdata := EncodeHSON(val.__paymentprovider), blobdata := DEFAULT BLOB, whfsdata := keypair, linktype := 2 ] INTO newsets AT END;
+        }
+      }
+      CASE 26 //PAYMENT
+      {
+        val := this->EnsureRecord(attr, val);
+        IF(RecordExists(val))
+        {
+          RECORD setval := ValidatePaymentValue(val);
+          IF(NOT RecordExists(setval))
+            THROW NEW Exception(`Invalid payment value for attribute '${attr.tag}'`);
+          val := setval;
+       }
+
+        IF(RecordExists(val))
+          FOREVERY(RECORD payment FROM val.payments)
+            INSERT [ setting := payment.paymentprovider, rawdata := EncodeHSON(payment.__paymentdata), blobdata := DEFAULT BLOB, ordering := #payment + 1 ] INTO newsets AT END;
+      }
+      CASE 27 //SUPPORTECORD
+      {
+        val := this->EnsureRecord(attr, val);
+        IF(RecordExists(val))
+        {
+          IF(NOT CellExists(val,'status') OR TYPEID(val.status)!=TYPEID(STRING))
+           THROW NEW Exception(`Missing status field for attribute '${attr.tag}'`);
+
+          STRING status := val.status;
+          IF(NOT IsAllowedEnumValue(status, attr.allowedvalues))
+            THROW NEW Exception(`Status '${status}' is not an acceptable value for attribute '${attr.tag}'`);
+
+          val := CELL[...val, DELETE status ];
+
+          //storage format:  "status" "\t" ["hson data"] - we always store a tab so we can easily LIKE match
+          STRING data := EncodeHSON(val);
+          IF(Length(data) <= 4095 - Length(status)) //status bytes plus tab
+            INSERT [ setting := 0, rawdata := status || "\t" || data, blobdata := DEFAULT BLOB ] INTO newsets AT END;
+          ELSE
+            INSERT [ setting := 0, rawdata := status || "\t", blobdata := StringToBlob(data) ] INTO newsets AT END;
+
+        }
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Attribute '${attr.tag}' type ${attr.attributetypename} not yet supported`);
+      }
+    }
+
+    IF(NOT this->wrdschema->__disableintegritychecks AND attr.attributetype IN [1,8,26]) //domain, payment fields
+    {
+      INTEGER ARRAY tocheck := SELECT AS INTEGER ARRAY DISTINCT setting FROM newsets WHERE setting != 0; // payments can have null paymentprovider
+      this->ValidateReferredType(tocheck, attr.domain, attr.tag);
+    }
+
+    newsets :=
+        SELECT *
+             , unique_rawdata := attr.isunique ? rawdata : ""
+          FROM newsets;
+
+    RETURN [ attr    := attr
+           , newsets := newsets
+           , subs    := subs
+           ];
+  }
+
+  BOOLEAN FUNCTION ValidateSettings(RECORD ARRAY insettings, INTEGER currententityid, INTEGER currentattribute, BOOLEAN isv2api, RECORD options)
+  {
+    BOOLEAN anyerror;
+    RECORD ARRAY errors;
+    STRING ARRAY seentags;
+
+    FOREVERY(RECORD toset FROM insettings)
+    {
+      INSERT ToUppercase(toset.attr.tag) INTO seentags AT END;
+      IF (toset.attr.isrequired AND Length(toset.newsets)=0 AND NOT options.importmode AND NOT options.temp)
+      {
+        options.errorcallback([tag := toset.attr.tag, code := "REQUIRED"]);
+        anyerror := TRUE;
+      }
+
+      IF(toset.attr.attributetype = 13)//array, validate subs
+      {
+        FOREVERY(RECORD arrayelement FROM toset.subs)
+          IF(NOT this->ValidateSettings(arrayelement.settings, currententityid, toset.attr.id, isv2api, options))
+            anyerror := TRUE;
+      }
+
+      //all the following checks only apply if there is data
+      IF(Length(toset.newsets)=0)
+        CONTINUE;
+      IF(Length(toset.newsets)>1 AND toset.attr.attributetype NOT IN [8,13,17,26])
+        THROW NEW Exception("Internal error, attribute " || toset.attr.tag || " of type #" || toset.attr.attributetype || " may not have " ||Length(toset.newsets) || " settings");
+
+      IF ((toset.attr.attributetype = 4 AND NOT IsValidEmailAddress(toset.newsets[0].rawdata))
+          OR (toset.attr.attributetype = 21 AND NOT IsValidURL(toset.newsets[0].rawdata)))
+      {
+        options.errorcallback([tag := toset.attr.tag, code := "INVALIDVALUE", setvalue := toset.newsets[0].rawdata ]);
+        anyerror := TRUE;
+      }
+
+      BOOLEAN size_error := toset.attr.maxlength != 0 AND Length(toset.newsets[0].rawdata) > toset.attr.maxlength;
+      IF (size_error)
+      {
+        options.errorcallback([tag := toset.attr.tag, code := "TOOLARGE", maxlength := toset.attr.maxlength, triedlength := Length(toset.newsets[0].rawdata)]);
+        anyerror := TRUE;
+        size_error := TRUE; // Don't go searching for too-long data
+      }
+      IF (toset.attr.isunique AND NOT size_error AND NOT options.importmode)
+      {
+        IF(toset.attr.attributetype NOT IN [2,4,15,18])
+          THROW NEW Exception("Internal error, attribute " || toset.attr.tag || " of type #" || toset.attr.attributetype || " incorrectly marked as isunique");
+
+        VARIANT findvalue;
+        IF(toset.attr.attributetype = 15)
+          findvalue := ToInteger(toset.newsets[0].rawdata,0);
+        ELSE IF(toset.attr.attributetype = 18)
+          findvalue := ToInteger64(toset.newsets[0].rawdata,0);
+        ELSE
+          findvalue := toset.newsets[0].rawdata;
+
+        RECORD ARRAY filters := [ [ field := toset.attr.tag
+                                  , matchtype := currentattribute = 0 ? "=" : "MENTIONS"
+                                  , value := findvalue
+                                  , matchcase := toset.attr.attributetype IN [15,18]
+                                  ]
+                                ];
+        IF (currententityid != 0)
+          INSERT [ field := "WRD_ID", match_type := "!=", value := currententityid ] INTO filters AT END;
+
+        OBJECT wrd_query := MakeWRDQuery(
+            [ sources := [ [ type := this
+                           , filters := filters
+                           , outputcolumns := [ id := "WRD_ID" ]
+                           ] ] ]);
+        RECORD ARRAY res := wrd_query->Execute();
+        IF (RecordExists(res))
+        {
+          options.errorcallback([ message := `Unique value conflict with entity #${res[0].id} on attribute '${toset.attr.tag}' (${findvalue})`
+                        , tag := toset.attr.tag
+                        , code := "NOTUNIQUE"
+                        ]);
+          anyerror := TRUE;
+        }
+      }
+    }
+
+    IF ((currententityid=0 OR currentattribute != 0) AND NOT options.importmode AND NOT options.temp) //existing settings only persist at root, so validate required when creating new entity or any array row
+      FOREVERY(RECORD requiredfield FROM SELECT * FROM this->__final_attrs WHERE isrequired AND parent = VAR currentattribute)
+        IF(ToUppercase(requiredfield.tag) NOT IN seentags)
+        {
+          options.errorcallback([tag := requiredfield.tag, code := "REQUIRED"]);
+          anyerror := TRUE;
+        }
+
+    RETURN NOT anyerror;
+  }
+
+  RECORD FUNCTION DoSplitEntityData(RECORD fieldsdata, STRING typetag, RECORD ARRAY __final_attrs, BOOLEAN isv2api, RECORD options)
+  {
+    //ADDME: Beter samenwerken met de __final_attrs array, daar staat veel info waardoor we special cases weg kunnen halen
+    //FIXME: Controleer bij een nieuw object ook isrequired op base attributes, ook als ze niet in fieldsdata zitten
+
+    RECORD entityrec := CELL[];
+    RECORD ARRAY settings, leftovers, base_fields, final_base_fields;
+
+    BOOLEAN  isorg       := typetag = "WRD_ORGANIZATION";
+    BOOLEAN  isperson    := typetag = "WRD_PERSON";
+
+    IF (CellExists(fieldsdata, "WRD_TAG"))
+      fieldsdata.wrd_tag := Substitute(fieldsdata.wrd_tag," ","_");
+
+    IF (NOT CellExists(fieldsdata, "WRD_MODIFICATIONDATE"))
+      INSERT CELL modificationdate := DEFAULT DATETIME INTO entityrec;
+
+
+    FOREVERY(RECORD attr FROM SELECT * FROM this->__final_attrs WHERE parent=0)
+      IF(attr.base = TRUE AND CellExists(fieldsdata, attr.tag))
+      {
+        IF (attr.isreadonly)
+          THROW NEW Exception("Trying to set attribute '" || attr.tag || "', which is readonly");
+
+        VARIANT toset := GetCell(fieldsdata, attr.tag);
+        IF(attr.tag != "WRD_GUID" AND TYPEID(toset) = TYPEID(STRING) AND NOT IsValidUTF8(toset))
+          toset := HandleInvalidUTF8(attr.tag, toset, options.decodeinvalidutf8as);
+
+        INSERT [ tag := attr.tag
+               , value := toset
+               , cellname := attr.cellname
+               ] INTO base_fields AT END;
+        fieldsdata := CellDelete(fieldsdata, attr.tag);
+      }
+
+    // Construct entity record (for base fields)
+    RECORD pos_rec;
+    FOREVERY (RECORD field FROM base_fields)
+    {
+      entityrec := CellInsert(entityrec, field.cellname, field.value);
+      pos_rec := CellInsert(pos_rec, field.tag, #field);
+    }
+
+    // Process custom attributes
+    FOREVERY(RECORD attr FROM __final_attrs)
+    {
+      IF(attr.ishiddenbyparent)
+        CONTINUE;
+
+      IF (CellExists(pos_rec, attr.tag))
+      {
+        RECORD rec := base_fields[GetCell(pos_rec, attr.tag)];
+        RECORD ARRAY newsets;
+
+        SWITCH (attr.attributetype)
+        {
+          CASE 1 /*domain_single*/
+          {
+            RECORD parsed := this->ParseAttr(attr, rec.value, isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as);
+            entityrec := CellDelete(entityrec, attr.cellname);
+            //make sure any string in eg wrd_leftentity is converted to integer
+            entityrec := CellInsert(entityrec, attr.cellname, Length(parsed.newsets) > 0 ? parsed.newsets[0].setting : 0);
+            newsets := parsed.newsets;
+          }
+          CASE 2 /*free*/
+          {
+            IF(rec.value!="")
+              newsets := [[ rawdata := rec.value ]];
+          }
+          CASE 6/*date*/, 12 /*datetime*/
+          {
+            IF(rec.value != DEFAULT DATETIME)
+              newsets := [[ rawdata := GetDayCount(rec.value) || "," || GetMsecondCount(rec.value) ]];
+          }
+          CASE 15/*int*/, 18 /*int64*/
+          {
+            IF(rec.value!=0)
+              newsets := [[ rawdata := ToString(rec.value) ]];
+          }
+        }
+
+        INSERT CELL newsets := newsets INTO rec;
+        INSERT CELL attr := attr INTO rec;
+        INSERT rec INTO final_base_fields AT END;
+        CONTINUE;
+      }
+
+      IF(NOT CellExists(fieldsdata, attr.tag))
+        CONTINUE;
+
+      INSERT this->ParseAttr(attr, GetCell(fieldsdata, attr.tag), isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as) INTO settings AT END;
+      fieldsdata := CellDelete(fieldsdata, attr.tag);
+    }
+
+    RECORD result :=
+        [ entityrec   := entityrec
+        , settings    := settings
+        , leftovers   := fieldsdata
+        , checked_base_fields := final_base_fields
+        ];
+
+    RETURN result;
+  }
+
+  PUBLIC RECORD FUNCTION GetDefaultValues(STRING ARRAY fields)
+  {
+    //FIXME: Code delen met conditions.whilib / support.whlib ?
+    RECORD result := CELL[];
+    FOREVERY(STRING fieldname FROM fields)
+    {
+      RECORD attr := this->GetAttribute(fieldname);
+      VARIANT newval;
+
+      IF(attr.attributetypename = "PAYMENT")
+        newval := CreatePaymentRecord(RECORD[]);
+      ELSE
+        newval := GetTypeDefaultValue(GetAttributeHSType(attr.attributetype));
+
+      result := CellInsert(result, fieldname, newval);
+    }
+    RETURN result;
+  }
+
+  PUBLIC OBJECT FUNCTION __DoCreateEntity(RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD res := this->__internal_updentity(entitydata, 0, TRUE, options);
+    this->domainvalues_cached := FALSE;
+    IF(res.entityid=0)
+      RETURN DEFAULT OBJECT;
+    RETURN this->GetEntity(res.entityid);
+  }
+
+  /** @short Get an entity, create if it doesn't exist.
+      @param requiredmetadata The required metadata. Any required and set unique fields are used to look up the existing entity
+      @param optionalmetadata Optional metadata, to apply if the entity is created
+      @return The entity */
+  PUBLIC OBJECT FUNCTION EnsureEntity(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD ARRAY filters;
+    FOREVERY(RECORD cellrec FROM UnpackRecord(requiredmetadata))
+    {
+      RECORD attr := this->GetAttribute(cellrec.name);
+      IF(NOT RecordExists(attr))
+        THROW NEW Exception(`No such attribute '${cellrec.name}' in type '${this->tag}'`);
+
+      IF(attr.isrequired OR (attr.isunique AND NOT IsDefaultvalue(cellrec.value)))
+        INSERT [ field := cellrec.name, value := cellrec.value ] INTO filters AT END;
+    }
+
+    IF(Length(filters)=0)
+      THROW NEW Exception("No filter sufficient to establish uniqueness");
+
+    RECORD ARRAY matches := this->RunQuery([ outputcolumns := [ id := "WRD_ID" ], filters := filters]);
+    IF(Length(matches)>1)
+      THROW NEW Exception("Multiple matches for ensured data");
+
+    IF(Length(matches)=0)
+      RETURN this->__DoCreateEntity(MakeMergedREcord(requiredmetadata, optionalmetadata));
+
+    OBJECT match := this->GetEntity(matches[0].id);
+    match->UpdateEntity(requiredmetadata);
+    RETURN match;
+  }
+
+  PUBLIC MACRO UpdateEntity(INTEGER entityid, RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->__internal_updentity(entitydata, entityid, TRUE, options);
+  }
+
+  /** Allocate a new change set
+      @return Change set id
+  */
+  PUBLIC INTEGER FUNCTION CreateChangeSet()
+  {
+    RETURN this->pvt_wrdschema->CreateChangeSet();
+  }
+
+  /** Returns a list of all the changesets that made changes to an entity
+      @param entityid Id of the entity
+      @return List of changesets
+      @cell(integer) return.id Id of the changeset
+      @cell(datetime) return.creationdate Creation date of the changeset
+      @cell(integer) return.entity Id of the entity that created the changeset
+      @cell(record) return.userdata Userdata Userdata of the user that created the changeset @includecelldef %Tolliumuser::GetUserDataForLogging.return
+      @cell(string array) return.summaries List of summaries for the changes in the changeset
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListChangesets(INTEGER entityid)
+  {
+    RETURN
+        SELECT TEMPORARY creationdate := Any(changesets.creationdate)
+             , TEMPORARY userdata := Any(changesets.userdata)
+             , changesets.id
+             , creationdate :=  VAR creationdate
+             , entity :=        Any(changesets.entity)
+             , userdata :=      VAR userdata = "" ? DEFAULT RECORD : DecodeHSON(VAR userdata)
+             , summaries :=     GroupedValues(summary)
+          FROM wrd.changesets
+             , wrd.changes
+             , wrd.entities
+         WHERE entities.id = entityid
+               AND entities.type = this->typerec.id
+               AND changes.entity = entities.guid
+               AND changes.changeset = changesets.id
+      GROUP BY changesets.id
+      ORDER BY VAR creationdate;
+  }
+
+  /** Returns all the changes for a specific changeset
+      @param changesetid Id of the changeset
+      @cell options.allfieldsinoriginal Return all original fields, instead of only the ones that have been modified
+      @cell options.mergechanges Merge multiple changes to the same entity
+      @return List of changes for this changeset
+      @cell(integer) return.id Change id
+      @cell(datetime) return.when Date of the change
+      @cell return.oldsettings Contents of old entity, reconstructed as much as possible
+      @cell return.modifications Modified values, reconstructed as much as possible
+      @cell(record) return.source Optional source data
+      @cell(string) return.changetype Type of change: 'new': new entity, 'edit': modification, 'close': closing of entity, 'newclose': new entity that was closed in the same change
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetChanges(INTEGER changesetid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ allfieldsinoriginal :=    FALSE
+        , mergechanges :=           FALSE
+        , __debug :=                FALSE
+        ], options);
+
+    // Get the changes and decode the raw data
+    RECORD ARRAY changes :=
+        SELECT *
+             , oldsettings :=   DecodeHSON(BlobToString(oldsettings_blob) ?? oldsettings)
+             , modifications := DecodeHSON(BlobToString(modifications_blob) ?? modifications)
+             , source :=        source != "" ? DecodeHSON(source) : LENGTH(source_blob) != 0 ? DecodeHSONBlob(source_blob) : DEFAULT RECORD
+          FROM wrd.changes
+         WHERE changeset = changesetid
+               AND type = this->typerec.id
+         ORDER BY creationdate;
+
+    IF (NOT RecordExists(changes))
+      RETURN RECORD[];
+
+    // Calculate the top-level normal attributes that were changed (settings added or deleted)
+    changes :=
+        SELECT *
+             , modifiedattrs :=   (SELECT AS STRING ARRAY DISTINCT TEMPORARY topattr := Tokenize(attribute, ".")[0]
+                                        , topattr
+                                     FROM modifications.settings CONCAT (SELECT * FROM oldsettings.settings WHERE id IN changes.modifications.deletedsettings)
+                                 ORDER BY topattr)
+          FROM changes;
+
+    // Map types and settings back to local ids, and get the blobs too
+    changes := this->MapChangesRefsToIds(changes);
+    changes := this->LoadEntitySettingAttachments(changes);
+
+    OBJECT linkgetter := NEW WRDChangesLinkGetter;
+
+    // Get the accessors for all current attributes
+    RECORD acc := GetAccessors(this,
+       (SELECT name :=        tag
+             , attr :=        __final_attrs
+             , sourcename :=  "rowdata"
+             , subselect :=   STRING[]
+             , wrapper := DEFAULT RECORD
+          FROM this->__final_attrs), linkgetter, DEFAULT OBJECT);
+
+    FOREVERY (RECORD change FROM changes)
+    {
+      RECORD oldentityrec := change.oldsettings.entityrec;
+      RECORD entityrecmods := change.modifications.entityrec;
+      RECORD modentityrec := CELL[ ...oldentityrec, ...entityrecmods ];
+
+      INTEGER ARRAY expiredsettings :=
+          (SELECT AS INTEGER ARRAY id FROM change.modifications.settings) CONCAT
+          change.modifications.deletedsettings;
+
+      // Reconstruct all the list of new settings (mods + old - deletes)
+      RECORD ARRAY newsettings :=
+          change.modifications.settings CONCAT
+          SELECT * FROM change.oldsettings.settings WHERE id NOT IN expiredsettings;
+
+      RECORD ARRAY orgwhfslinks;
+      RECORD ARRAY newwhfslinks;
+      IF (CellExists(change.modifications, "whfslinks"))
+      {
+        orgwhfslinks := change.oldsettings.whfslinks;
+        newwhfslinks :=
+            change.modifications.whfslinks CONCAT
+            SELECT * FROM change.oldsettings.whfslinks WHERE id NOT IN expiredsettings;
+      }
+
+      // Get all changed attributes for this change
+      RECORD ARRAY modified_attrs :=
+          SELECT *
+            FROM acc.fields
+           WHERE tag IN change.modifiedattrs;
+
+      // Detect which base fields have been modified
+      RECORD ARRAY modified_basefields;
+      FOREVERY (RECORD rec FROM acc.base_fields)
+      {
+        IF (rec.isreadonly AND rec.tag != "WRD_ID")
+          CONTINUE;
+
+        IF (CellExists(entityrecmods, rec.cellname))
+        {
+          INSERT rec INTO modified_basefields AT END;
+          CONTINUE;
+        }
+
+        FOREVERY (STRING s FROM rec.cellnames)
+          IF (CellExists(entityrecmods, s))
+          {
+            INSERT rec INTO modified_basefields AT END;
+            BREAK;
+          }
+      }
+
+      RECORD ARRAY org_attrs := options.allfieldsinoriginal ? acc.fields : modified_attrs;
+
+      // rebuild modified attributes
+      RECORD modifications := CELL
+          [ ...this->ParseSettings(modified_attrs, newsettings, newwhfslinks, linkgetter, [ rowdata := modentityrec ])
+          , ...GenerateBaseFields(modified_basefields, modentityrec)
+          ];
+
+      RECORD oldsettings;
+      IF (RecordExists(oldentityrec))
+      {
+        RECORD ARRAY org_basefields := options.allfieldsinoriginal ? acc.base_fields : modified_basefields;
+        oldsettings := CELL
+            [ ...this->ParseSettings(org_attrs, change.oldsettings.settings, orgwhfslinks, linkgetter, [ rowdata := oldentityrec ])
+            , ...GenerateBaseFields(org_basefields, oldentityrec)
+            ];
+      }
+
+      changes[#change] := CELL
+          [ change.id
+          , change.entity
+          , when :=       change.creationdate
+          , oldsettings
+          , modifications
+          , changetype := CellExists(modifications, "wrd_limitdate") AND modifications.wrd_limitdate != MAX_DATETIME
+                              ? CellExists(modifications, "wrd_id")
+                                  ? "newclose"
+                                  : "close"
+                              : CellExists(modifications, "wrd_id")
+                                  ? "new"
+                                  : "edit"
+          , ...(options.__debug ? [ __debug := change.source ] : DEFAULT RECORD)
+          ];
+    }
+
+    IF (options.mergechanges)
+    {
+      changes :=
+          SELECT TEMPORARY merged := MergeChanges(GroupedValues(changes))
+               , id :=              Any(id)
+               , entity
+               , when :=            Any(when)
+               , changetype :=      CellExists(merged.modifications, "wrd_limitdate") AND merged.modifications.wrd_limitdate != MAX_DATETIME
+                                        ? CellExists(merged.modifications, "wrd_id")
+                                            ? "newclose"
+                                            : "close"
+                                        : CellExists(merged.modifications, "wrd_id")
+                                            ? "new"
+                                            : "edit"
+               , oldsettings :=     merged.oldsettings
+               , modifications :=   merged.modifications
+            FROM changes
+        GROUP BY entity
+        ORDER BY Any(when);
+    }
+
+    RETURN changes;
+  }
+
+  RECORD FUNCTION ParseSettings(RECORD ARRAY attrs, RECORD ARRAY settings, RECORD ARRAY whfslinks, OBJECT linkgetter, RECORD rowdata)
+  {
+    settings :=
+        SELECT *
+          FROM settings
+      ORDER BY parentsetting, attribute, ordering;
+
+    linkgetter->links := SELECT * FROM whfslinks ORDER BY id;
+
+    RECORD result;
+    FOREVERY (RECORD attr FROM attrs)
+    {
+      INTEGER lpos := RecordLowerBound(settings, [ parentsetting := 0, attribute := attr.id ], [ "PARENTSETTING", "ATTRIBUTE" ]).position;
+      INTEGER rpos := RecordUpperBound(settings, [ parentsetting := 0, attribute := attr.id ], [ "PARENTSETTING", "ATTRIBUTE" ]);
+      result := CellInsert(result, attr.tag, attr.accessor->GetValue(settings, lpos, rpos, rowdata));
+    }
+    RETURN result;
+  }
+
+  PUBLIC RECORD FUNCTION __internal_updentity(RECORD entitydata, INTEGER entityid, BOOLEAN isv2api, RECORD options)
+  {
+    options := ValidateOptions([ errorcallback := PTR OnThrowEntityError
+                               , onmapdomvalue := PTR this->GetDomVal(#1,#2)
+                               , updateat := DEFAULT DATETIME
+                               , importmode := FALSE
+                               , whfsmapper := DEFAULT OBJECT
+                               , temp := FALSE
+                               , changeset := 0
+                               , decodeinvalidutf8as := ""
+                               ], options);
+
+    IF(entityid = 0 AND options.updateat != DEFAULT DATETIME)
+      THROW NEW Exception("'updateat' not supported when creating an entity");
+
+    IF(options.temp)
+    {
+      IF(entityid != 0)
+        THROW NEW Exception("Only new entities may be marked as temporary");
+      IF(CellExists(entitydata,"wrd_creationdate") OR CellExists(entitydata,"wrd_limitdate"))
+        THROW NEW Exception("Temporary entities may not have a creationdate or limitdate set");
+      entitydata := CELL[ ...entitydata
+                        , wrd_creationdate := MAX_DATETIME
+                        , wrd_limitdate := AddDaysToDate(7, GetCurrentDatetime())
+                        ];
+    }
+
+    IF(options.updateat != DEFAULT DATETIME)
+    {
+      IF(NOT IsDtapLive() AND NOT __wrdtest_disable_updateat_throw)
+        THROW NEW Exception(`Setting updateat when invoking UpdateEntity (or a similar function) is no longer supported!`);
+
+      options.updateat := DEFAULT DATETIME;
+
+      IF(this->tag NOT IN warnings_per_vm)
+      {
+        INSERT this->tag INTO warnings_per_vm AT END;
+        RECORD ARRAY trace := GetStackTrace();
+        STRING file := SELECT AS STRING filename FROM trace WHERE filename NOT LIKE "mod::wrd/*" AND filename NOT LIKE "module::wrd/*";
+        LogError("wrd:updateentity", `${file ?? "unknown"} invoked UpdateEntity (or a similar function) for type ${this->tag} with an UpdateAt parameter. This parameter is no longer supported!`, CELL[filename:=file, trace]);
+      }
+    }
+
+    BOOLEAN anyerror;
+    RECORD result := [ entityid := entityid
+                     ];
+
+    INTEGER ARRAY allsettingids, deletedsettingids;
+
+    BOOLEAN is_new := entityid=0;
+    STRING setguid;
+    IF(CellExists(entitydata, "WRD_ID"))
+    {
+      IF(NOT is_new AND entityid != entitydata.wrd_id)
+      {
+        options.errorcallback([ tag := "WRD_ID", code := "NOUPDATE" ]);
+        anyerror := TRUE;
+      }
+      ELSE IF(is_new)
+      {
+        IF (RecordExists(SELECT FROM wrd.entities WHERE id = entitydata.wrd_id))
+          THROW NEW Exception("Cannot create an entity with this WRD_ID value, another entity with that WRD_ID already exists");
+
+        entityid := entitydata.wrd_id;
+      }
+      DELETE CELL wrd_id FROM entitydata;
+    }
+    IF(CellExists(entitydata, "WRD_GUID"))
+    {
+      setguid := DecodeWRDGUID(entitydata.wrd_guid);
+      IF(entitydata.wrd_guid != "" AND setguid="")
+      {
+        options.errorcallback([ tag := "WRD_GUID", code := "INVALIDVALUE", setvalue := setguid ]);
+        anyerror := TRUE;
+      }
+
+      // Find other entity with the same GUID (in the same schema)
+      INTEGER otherentity :=
+          SELECT AS INTEGER entities.id
+            FROM wrd.types
+               , wrd.entities
+           WHERE guid = setguid
+             AND entities.id != entityid
+             AND type = types.id
+             AND types.wrd_schema = this->pvt_wrdschema->id;
+
+      IF (isv2api)
+      {
+        // v2 api: allowed to update WRD_GUID
+        IF (otherentity != 0)
+          THROW NEW Exception(`The new WRD_GUID value '${entitydata.wrd_guid}' is not unique in this schema, it conflicts with entity #${otherentity}`);
+      }
+      ELSE IF (NOT is_new)
+      {
+        STRING curguid := SELECT AS STRING guid FROM wrd.entities WHERE entities.id=entityid;
+        IF (curguid != setguid)
+        {
+          options.errorcallback([tag := "WRD_GUID", code := "NOUPDATE"]);
+          anyerror := TRUE;
+        }
+      }
+
+      entitydata.wrd_guid := setguid;
+    }
+
+    RECORD splitdata := this->DoSplitEntityData(entitydata, this->typerec.tag, this->__final_attrs, isv2api, options);
+
+    //Discover datetime limits for entity settings (they must be mapped to DEFAULT/MAX if they exceed or match the entity's lifetime)
+    DATETIME entity_creation, entity_limit;
+    IF(CellExists(splitdata.entityrec, "creationdate"))
+    {
+      IF(splitdata.entityrec.creationdate = DEFAULT DATETIME)
+      {
+        options.errorcallback([tag := "WRD_CREATIONDATE", code := "REQUIRED" ]);
+        anyerror := TRUE;
+      }
+      entity_creation := splitdata.entityrec.creationdate;
+    }
+
+    IF(CellExists(splitdata.entityrec, "limitdate"))
+      entity_limit := splitdata.entityrec.limitdate;
+
+    RECORD entity_base_info;
+    IF(NOT is_new)
+      entity_base_info := SELECT creationdate, limitdate FROM wrd.entities WHERE id=entityid;
+
+    BOOLEAN is_temp_coming_alive := entity_creation != DEFAULT DATETIME AND entity_creation != MAX_DATETIME AND NOT is_new AND entity_base_info.creationdate = MAX_DATETIME;
+
+    IF(entity_creation = DEFAULT DATETIME OR entity_limit = DEFAULT DATETIME)
+    {
+      IF(entity_creation = DEFAULT DATETIME)
+        entity_creation := RecordExists(entity_base_info) ? entity_base_info.creationdate : GetCurrentDatetime();
+      IF(entity_limit = DEFAULT DATETIME)
+        entity_limit := RecordExists(entity_base_info) ? entity_base_info.limitdate : MAX_DATETIME;
+    }
+
+    BOOLEAN allow_unique_rawdata := entity_limit = MAX_DATETIME OR entity_limit > GetCurrentDatetime();
+
+
+    IF(this->typerec.metatype IN [2,3,4] AND (is_new OR CellExists(splitdata.entityrec,"leftentity")))
+    {
+      IF(NOT options.temp AND (NOT CellExists(splitdata.entityrec,"leftentity") OR splitdata.entityrec.leftentity=0))
+      {
+        IF(this->typerec.metatype != 4) //for domains its optional
+        {
+          options.errorcallback([tag := "WRD_LEFTENTITY", code := "REQUIRED" ]);
+          anyerror := TRUE;
+        }
+      }
+      ELSE IF(CellExists(splitdata.entityrec,"leftentity") AND splitdata.entityrec.leftentity = entityid)
+      {
+        options.errorcallback([tag := "WRD_LEFTENTITY", code := "CANNOTPOINTTOSELF" ]);
+        anyerror := TRUE;
+      }
+      ELSE IF(CellExists(splitdata.entityrec,"leftentity") AND NOT this->wrdschema->__disableintegritychecks) //ADDME try to skip validation check if the entity didn't actually change
+      {
+        this->ValidateReferredType([INTEGER(splitdata.entityrec.leftentity)], this->typerec.metatype=4 ? this->typerec.id : this->typerec.requiretype_left, "WRD_LEFTENTITY");
+      }
+    }
+
+    IF(this->typerec.metatype = 2 AND (is_new OR CellExists(splitdata.entityrec,"rightentity")))
+    {
+      IF(NOT options.temp AND (NOT CellExists(splitdata.entityrec,"rightentity") OR splitdata.entityrec.rightentity=0))
+      {
+        options.errorcallback([tag := "WRD_RIGHTENTITY", code := "REQUIRED" ]);
+        anyerror := TRUE;
+      }
+      ELSE IF(CellExists(splitdata.entityrec,"rightentity") AND splitdata.entityrec.rightentity = entityid)
+      {
+        options.errorcallback([tag := "WRD_RIGHTENTITY", code := "CANNOTPOINTTOSELF" ]);
+        anyerror := TRUE;
+      }
+      ELSE IF(CellExists(splitdata.entityrec,"rightentity") AND NOT this->wrdschema->__disableintegritychecks) //ADDME try to skip validation check if the entity didn't actually change
+      {
+        this->ValidateReferredType([INTEGER(splitdata.entityrec.rightentity)], this->typerec.requiretype_right, "WRD_RIGHTENTITY");
+      }
+    }
+
+    IF(is_temp_coming_alive)
+    { //check any required unset attributes, if they are really set
+      //TODO also recurse into arrays and verify them, if they have required fields
+      STRING ARRAY set_attributes := (SELECT AS STRING ARRAY tag FROM splitdata.checked_base_fields)
+                                     CONCAT
+                                     (SELECT AS STRING ARRAY attr.tag FROM splitdata.settings);
+      STRING ARRAY check_attributes := SELECT AS STRING ARRAY tag FROM this->ListAttributes(0) WHERE isrequired AND tag NOT IN set_attributes;
+      IF(Length(check_attributes) > 0)
+      {
+        RECORD currentvalues := this->GetEntityFields(entityid, check_attributes);
+        FOREVERY(STRING attr FROM check_attributes)
+          IF(IsDefaultvalue(GetCell(currentvalues,attr)))
+            options.errorcallback([tag := attr, code := "REQUIRED" ]);
+      }
+    }
+
+    IF(NOT this->ValidateSettings(splitdata.settings CONCAT splitdata.checked_base_fields
+                                  ,is_new ? 0 : entityid
+                                  ,0
+                                  ,isv2api
+                                  ,options))
+      anyerror := TRUE;
+    // Validate the settings (FIXME: Validate settings inside arrays too)
+
+    // "Date of death's" cannot be in the future
+
+    IF (CellExists(splitdata.entityrec, "DATEOFDEATH") AND splitdata.entityrec.dateofdeath > GetCurrentDatetime())
+    {
+      options.errorcallback([tag := "WRD_DATEOFDEATH", code := "DATEOFDEATH_IN_FUTURE" ]);
+      anyerror := TRUE;
+    }
+
+    IF(CellExists(splitdata.entityrec, "GENDER"))
+    {
+      IF(TypeID(GetCell(splitdata.entityrec, "GENDER")) != TypeID(INTEGER))
+        THROW NEW Exception("The gender field must be of type 'integer'");
+      IF(splitdata.entityrec.gender < 0 OR splitdata.entityrec.gender > 2)
+        THROW NEW Exception("Invalid value '" || splitdata.entityrec.gender || "' for gender");
+    }
+
+    //ADDME: Get current dateofbirth/dateofdeath if only one of the two is being set?
+    IF(CellExists(splitdata.entityrec, "DATEOFBIRTH")
+       AND CellExists(splitdata.entityrec, "DATEOFDEATH")
+       AND splitdata.entityrec.dateofbirth != DEFAULT DATETIME
+       AND splitdata.entityrec.dateofdeath != DEFAULT DATETIME
+       AND splitdata.entityrec.dateofbirth > splitdata.entityrec.dateofdeath)
+    {
+      options.errorcallback([tag := "WRD_DATEOFDEATH", code := "DATEOFDEATH_BEFORE_BIRTH" ]);
+      anyerror := TRUE;
+    }
+
+    IF(CellExists(splitdata.entityrec, "LIMITDATE") AND splitdata.entityrec.limitdate = DEFAULT DATETIME)
+    {
+      options.errorcallback([tag := "WRD_LIMITDATE", code := "INVALIDVALUE" ]);
+      anyerror := TRUE;
+    }
+    IF(CellExists(splitdata.entityrec, "CREATIONDATE")
+       AND CellExists(splitdata.entityrec, "LIMITDATE")
+       AND splitdata.entityrec.creationdate > splitdata.entityrec.limitdate
+       AND NOT options.importmode
+       AND NOT options.temp)
+    {
+      options.errorcallback([tag := "WRD_LIMITDATE", code := "LIMITDATE_BEFORE_CREATIONDATE" ]);
+      anyerror := TRUE;
+    }
+
+    INTEGER ARRAY checklinks_settingids;
+
+    IF (NOT anyerror)
+    {
+      IF(is_new)
+      {
+        IF(entityid = 0)
+          entityid := MakeAutonumber(wrd.entities,"id");
+        result.entityid := entityid;
+      }
+
+      RECORD ARRAY cursettings;
+
+      /* There are three relevant timestamps
+         - updatedat: Update datetime. If default, update current values and don't care about history.
+                                       If not default, close existing values and use the specified time for the new values
+         - viewdate: The relevant date for the current values. Equal to updatedat, but if updatedat = dewfault, set to now
+         - changedate: The entity date change, used as a quick way to see whether the entity's data was updaated
+      */
+
+      DATETIME now := GetCurrentDatetime();
+
+      //If modification date is not made explicit, use now. (never use updatedat, we can't have lastmodifieds in the future)
+      IF(splitdata.entityrec.modificationdate = DEFAULT DATETIME)
+        splitdata.entityrec.modificationdate := now;
+
+      IF(is_new)
+      {
+        STRING tag  := CellExists(entitydata, "WRD_TAG") ? entitydata.wrd_tag : "";
+        IF(setguid="")
+          setguid := CreateGUID();
+
+        splitdata.entityrec := CELL
+            [ id :=                 result.entityid
+            , type :=               this->typerec.id
+            , creationdate :=       splitdata.entityrec.modificationdate
+            , limitdate :=          MAX_DATETIME
+            , guid :=               setguid
+            , modificationdate :=   splitdata.entityrec.modificationdate
+            , ...splitdata.entityrec
+            ];
+      }
+      ELSE
+      {
+        IF (CellExists(splitdata.entityrec, "limitdate") AND NOT allow_unique_rawdata)
+        {
+          // When setting the limitdate to now or past, delete the materialized unique data
+          UPDATE wrd.entity_settings
+            SET unique_rawdata := ""
+          WHERE entity = entityid;
+        }
+
+        INTEGER ARRAY relevant_attrids;
+        FOREVERY (RECORD setting FROM splitdata.settings)
+          relevant_attrids := relevant_attrids CONCAT setting.attr.__selectattributeids;
+
+        //ADDME: Might have settings cached? safely with an invalidate-on-rollback bit ?
+        cursettings :=
+            SELECT *
+              FROM wrd.entity_settings
+             WHERE entity = result.entityid
+               AND attribute IN relevant_attrids
+          ORDER BY attribute, parentsetting;
+      }
+
+      // If changing the GUID, also update the corresponding authobject
+      IF (CellExists(splitdata.entityrec, "GUID"))
+      {
+        // Find the old GUID
+        STRING oldguid :=
+            SELECT AS STRING EncodeWRDGUID(guid)
+              FROM wrd.entities
+             WHERE id = result.entityid;
+
+        // Calculate the new one (from the decoded data, want sanitized data)
+        STRING newguid := EncodeWRDGUID(splitdata.entityrec.guid);
+
+        // Update the authobject guid only if there is no other authobject with that guid
+        IF (NOT RecordExists(SELECT FROM system.authobjects WHERE guid = newguid))
+        {
+          UPDATE system.authobjects
+             SET guid := EncodeWRDGUID(splitdata.entityrec.guid)
+           WHERE guid = oldguid;
+        }
+      }
+
+      RECORD orgentityrec;
+      RECORD ARRAY orgwhfslinks;
+
+      BOOLEAN historydebugging := IsDebugTagEnabled("wrd:forcehistory");
+      IF (is_new)
+        INSERT splitdata.entityrec INTO wrd.entities;
+      ELSE
+      {
+        IF (this->typerec.keephistorydays > 0 OR historydebugging)
+        {
+          orgentityrec := SELECT * FROM wrd.entities WHERE id = result.entityid;
+          orgwhfslinks := this->GetWHFSLinksForChanges(SELECT AS INTEGER ARRAY id FROM cursettings);
+        }
+
+        RECORD currentinfo := orgentityrec ?? RECORD(SELECT type FROM wrd.entities WHERE id = result.entityid);
+        IF(NOT RecordExists(currentinfo))
+          THROW NEW Exception(`Trying to update non-existing entity #${result.entityid}`);
+        ELSE IF(currentinfo.type != this->id AND currentinfo.type NOT IN this->__childtypeids)
+          THROW NEW Exception(`Trying to update entity #${result.entityid} of type #${currentinfo.type} but we are type #${this->id}`);
+
+        UPDATE wrd.entities SET RECORD splitdata.entityrec WHERE id = result.entityid;
+      }
+
+      RECORD ARRAY current, newsets;
+      FOREVERY (RECORD toset FROM splitdata.settings)
+      {
+        RECORD res := GenerateNewSettingList(
+            result.entityid,
+            toset.attr,
+            cursettings,
+            toset.newsets,
+            toset.subs,
+            0);
+
+        newsets := newsets CONCAT res.newsets;
+      }
+
+      IF(NOT allow_unique_rawdata)
+        UPDATE newsets SET unique_rawdata := "";
+
+      RECORD updateres := HandleSettingsUpdates(this->pvt_wrdschema->id, cursettings, newsets, this->__consiliolinkcheckattrs, this->__whfslinkattrs, options.whfsmapper);
+      checklinks_settingids := updateres.linkchecksettings;
+      allsettingids := allsettingids CONCAT updateres.updatedsettings;
+      deletedsettingids := deletedsettingids CONCAT updateres.deletedsettings;
+
+      STRING ARRAY changed_attrs :=
+          SELECT AS STRING ARRAY attr.tag
+            FROM splitdata.settings
+           WHERE ArraysIntersect(attr.__selectattributeids, updateres.updatedattrs);
+
+      IF (this->typerec.keephistorydays > 0 OR historydebugging)
+      {
+        RECORD newrec := CELL[ ...orgentityrec, ...splitdata.entityrec ];
+        IF (newrec.creationdate != MAX_DATETIME) // Entity is now not temporary?
+        {
+          IF (is_temp_coming_alive) // Treat a previously temp entity as completely new
+          {
+            is_new := TRUE;
+            setguid := orgentityrec.guid;
+            orgentityrec := DEFAULT RECORD;
+            splitdata.entityrec := newrec;
+          }
+
+          // Get all modified entity record fields
+          RECORD entityrecchanges;
+          IF (is_new)
+          {
+            FOREVERY (RECORD field FROM UnpackRecord(splitdata.entityrec))
+              IF (NOT IsDefaultvalue(field.value))
+                entityrecchanges := CellInsert(entityrecchanges, field.name, field.value);
+          }
+          ELSE
+          {
+            FOREVERY (RECORD field FROM UnpackRecord(splitdata.entityrec))
+              IF (field.value != GetCell(orgentityrec, field.name))
+                entityrecchanges := CellInsert(entityrecchanges, field.name, field.value);
+          }
+
+          FOREVERY (RECORD rec FROM this->__final_attrs)
+          {
+            IF (NOT rec.base OR (rec.isreadonly AND rec.tag != "WRD_ID") OR rec.tag = "WRD_MODIFICATIONDATE")
+              CONTINUE;
+            IF (CellExists(entityrecchanges, rec.cellname))
+            {
+              INSERT rec.tag INTO changed_attrs AT END;
+              CONTINUE;
+            }
+            FOREVERY (STRING s FROM rec.cellnames)
+              IF (CellExists(entityrecchanges, s))
+              {
+                INSERT rec.tag INTO changed_attrs AT END;
+                BREAK;
+              }
+          }
+
+          IF (LENGTH(changed_attrs) != 0)
+          {
+            INTEGER changeid := MakeAutoNumber(wrd.changes, "id");
+
+            RECORD changes :=
+                [ oldsettings :=
+                      [ entityrec :=        orgentityrec
+                      , settings :=         RECORD[]
+                      , whfslinks :=        RECORD[]
+                      ]
+                , modifications :=
+                      [ entityrec :=        entityrecchanges
+                      , settings :=         RECORD[]
+                      , whfslinks :=        RECORD[]
+                      , deletedsettings :=  deletedsettingids
+                      ]
+                ];
+
+            IF (is_temp_coming_alive)
+            {
+              changes.modifications.settings := this->SaveEntitySettingAttachments(changeid, SELECT * FROM wrd.entity_settings WHERE entity = result.entityid);
+            }
+            ELSE
+            {
+              changes.oldsettings.settings := this->SaveEntitySettingAttachments(changeid, cursettings);
+              changes.modifications.settings := this->SaveEntitySettingAttachments(changeid, SELECT * FROM wrd.entity_settings WHERE id IN allsettingids);
+            }
+
+            changes.oldsettings.whfslinks := orgwhfslinks;
+            changes.modifications.whfslinks := this->GetWHFSLinksForChanges(SELECT AS INTEGER ARRAY id FROM changes.modifications.settings);
+
+            changes := this->MapChangesIdsToRefs(changes);
+
+            STRING encoded_oldsettings := EncodeHSON(changes.oldsettings);
+            STRING encoded_modifications := EncodeHSON(changes.modifications);
+
+            STRING encoded_source;
+            IF (historydebugging)
+              encoded_source := EncodeHSON([ stacktrace := GetAsyncStackTrace() ]);
+
+            INTEGER changeset := options.changeset ?? GetWRDCommitHandler()->GetAutoChangeSet(this->typerec.wrd_schema);
+            IF (changeset = 0)
+            {
+              changeset := this->CreateChangeSet();
+              GetWRDCommitHandler()->SetAutoChangeSet(this->typerec.wrd_schema, changeset);
+            }
+
+            INSERT CELL
+                [ id :=                 changeid
+                , creationdate :=       now
+                , changeset
+                , type :=               this->typerec.id
+                , entity :=             is_new ? setguid : changes.oldsettings.entityrec.guid
+                , oldsettings :=        Length(encoded_oldsettings) <= 4096 ? encoded_oldsettings : ""
+                , oldsettings_blob :=   Length(encoded_oldsettings) > 4096 ? StringToBlob(encoded_oldsettings) : DEFAULT BLOB
+                , modifications :=      Length(encoded_modifications) <= 4096 ? encoded_modifications : ""
+                , modifications_blob := Length(encoded_modifications) > 4096 ? StringToBlob(encoded_modifications) : DEFAULT BLOB
+                , source :=             Length(encoded_source) <= 4096 ? encoded_source : ""
+                , source_blob :=        Length(encoded_source) > 4096 ? StringToBlob(encoded_source) : DEFAULT BLOB
+                , summary :=            Detokenize(GetSortedSet(changed_attrs), ",")
+                ] INTO wrd.changes;
+          }
+        }
+      }
+
+      IF (is_new)
+        GetWRDCommitHandler()->EntityCreated(this->typerec.wrd_schema, this->typerec.id, entityid);
+      ELSE
+        GetWRDCommitHandler()->EntityUpdated(this->typerec.wrd_schema, this->typerec.id, entityid);
+    }
+
+    RECORD ARRAY unpacked_leftovers := UnpackRecord(splitdata.leftovers);
+    IF(Length(unpacked_leftovers)=1)
+    {
+      THROW NEW Exception(`The field '${unpacked_leftovers[0].name}' that you were trying to set does not exist in type '${this->tag}'`);
+    }
+    IF(Length(unpacked_leftovers)>0)
+    {
+      STRING ARRAY mention_leftovers := SELECT AS STRING ARRAY name FROM unpacked_leftovers LIMIT 3;
+      STRING describe_leftovers := Detokenize(mention_leftovers,', ');
+      IF(Length(mention_leftovers) < Length(unpacked_leftovers))
+        describe_leftovers := describe_leftovers || " and " || Length(unpacked_leftovers) - Length(mention_leftovers) || " more";
+
+      THROW NEW Exception(`Some fields that you were trying to set do not exist in type '${this->tag}': ${describe_leftovers}`);
+    }
+
+    GetWRDCommitHandler()->AddLinkCheckedSettings(checklinks_settingids);
+    this->domainvalues_cached := FALSE;
+    RETURN result;
+  }
+
+  RECORD ARRAY FUNCTION SaveEntitySettingAttachments(INTEGER changeid, RECORD ARRAY settings)
+  {
+    FOREVERY (RECORD setting FROM settings)
+    {
+      INTEGER attachid;
+      IF (Length(setting.blobdata) > 0)
+      {
+        attachid := MakeAutonumber(wrd.change_attachments, "id");
+        INSERT [ id := attachid
+               , change := changeid
+               , data := setting.blobdata
+               , seqnr := attachid
+               ] INTO wrd.change_attachments;
+      }
+      settings[#setting] :=
+          CELL[ ...setting
+              , blobseqnr := attachid
+              , DELETE blobdata
+              , DELETE entity
+              ];
+    }
+    RETURN settings;
+  }
+
+  /** Maps all DB references (types and entities)in a changes record
+      @param changes
+      @param attrmapping
+      @cell attrmapping.inval
+      @cell attrmapping.outval
+      @param settingmapping
+      @cell settingmapping.inval
+      @cell settingmapping.outval
+      @param defaultvalue
+      @return Changes record with types and settings mapped
+  */
+  RECORD FUNCTION MapChangesRefs(RECORD changes, RECORD ARRAY attrmapping, RECORD ARRAY settingmapping, VARIANT defaultvalue)
+  {
+    IF (CellExists(changes, "entity"))
+      changes := CELL[ ...changes, entity := MapValue(settingmapping, changes.entity, defaultvalue) ];
+    IF (CellExists(changes.oldsettings.entityrec, "leftentity"))
+      changes.oldsettings.entityrec := CELL[ ...changes.oldsettings.entityrec, leftentity := MapValue(settingmapping, changes.oldsettings.entityrec.leftentity, defaultvalue) ];
+    IF (CellExists(changes.oldsettings.entityrec, "rightentity"))
+      changes.oldsettings.entityrec := CELL[ ...changes.oldsettings.entityrec, rightentity := MapValue(settingmapping, changes.oldsettings.entityrec.rightentity, defaultvalue) ];
+
+    changes.oldsettings.settings :=
+        SELECT *
+             , attribute :=   MapValue(attrmapping, attribute, defaultvalue)
+             , setting :=     MapValue(settingmapping, setting, defaultvalue)
+          FROM changes.oldsettings.settings;
+
+    IF (CellExists(changes.modifications.entityrec, "leftentity"))
+      changes.modifications.entityrec := CELL[ ...changes.modifications.entityrec, leftentity := MapValue(settingmapping, changes.modifications.entityrec.leftentity, defaultvalue) ];
+    IF (CellExists(changes.modifications.entityrec, "rightentity"))
+      changes.modifications.entityrec := CELL[ ...changes.modifications.entityrec, rightentity := MapValue(settingmapping, changes.modifications.entityrec.rightentity, defaultvalue) ];
+
+    changes.modifications.settings :=
+        SELECT *
+             , attribute :=   MapValue(attrmapping, attribute, defaultvalue)
+             , setting :=     MapValue(settingmapping, setting, defaultvalue)
+          FROM changes.modifications.settings;
+
+    RETURN changes;
+  }
+
+  // Gathers all entity referenecs from a changes record
+  VARIANT FUNCTION GatherEntitiesFromChanges(RECORD changes, VARIANT list)
+  {
+    VARIANT defaultval := GetArrayTypeDefaultElement(TypeID(list));
+    IF (CellExists(changes, "entity"))
+      INSERT changes.entity INTO list AT END;
+    FOREVERY (RECORD rec FROM changes.oldsettings.settings CONCAT changes.modifications.settings)
+      IF (rec.setting != defaultval)
+        INSERT rec.setting INTO list AT END;
+    IF (CellExists(changes.oldsettings.entityrec, "leftentity"))
+      INSERT changes.oldsettings.entityrec.leftentity INTO list AT END;
+    IF (CellExists(changes.oldsettings.entityrec, "rightentity"))
+      INSERT changes.oldsettings.entityrec.rightentity INTO list AT END;
+    IF (CellExists(changes.modifications.entityrec, "leftentity"))
+      INSERT changes.modifications.entityrec.leftentity INTO list AT END;
+    IF (CellExists(changes.modifications.entityrec, "rightentity"))
+      INSERT changes.modifications.entityrec.rightentity INTO list AT END;
+    RETURN list;
+  }
+
+  // Converts all types and entity references in a changes record to strings
+  RECORD FUNCTION MapChangesIdsToRefs(RECORD changes)
+  {
+    // Attribute mapping
+    RECORD ARRAY attrmapping :=
+        SELECT inval :=     id
+             , outval :=    tag
+          FROM this->__final_attrs
+      ORDER BY id;
+
+    // Entity setting mapping to raw guid
+    INTEGER ARRAY allids := this->GatherEntitiesFromChanges(changes, INTEGER[]);
+    RECORD ARRAY mapping :=
+        SELECT inval := id
+             , outval := guid
+          FROM wrd.entities
+         WHERE entities.id IN allids
+      ORDER BY id;
+
+    RETURN this->MapChangesRefs(changes, attrmapping, mapping, "");
+  }
+
+  // Converts all types and entity references in a changes record from strings back to ids (if possible)
+  RECORD ARRAY FUNCTION MapChangesRefsToIds(RECORD ARRAY changes)
+  {
+    // Attribute mapping
+    RECORD ARRAY attrmapping :=
+        SELECT inval :=     tag
+             , outval :=    id
+          FROM this->__final_attrs
+      ORDER BY tag;
+
+    STRING ARRAY allrawguids;
+    FOREVERY (RECORD change FROM changes)
+      allrawguids := this->GatherEntitiesFromChanges(change, allrawguids);
+
+    // Map raw guids to ids (1 at a time, whdb can't handle IN STRING ARRAY efficiently)
+    allrawguids := GetSortedSet(allrawguids);
+
+    RECORD ARRAY mapping;
+    FOREVERY (STRING rawguid FROM allrawguids)
+    {
+      INTEGER id :=
+          SELECT AS INTEGER entities.id
+            FROM wrd.entities, wrd.types
+           WHERE entities.guid = rawguid
+             AND entities.type = types.id
+             AND types.wrd_schema = this->pvt_wrdschema->id;
+
+      INSERT [ inval := rawguid, outval := id ] INTO mapping AT END;
+    }
+
+    mapping := SELECT * FROM mapping ORDER BY inval;
+
+    FOREVERY (RECORD change FROM changes)
+      changes[#change] := this->MapChangesRefs(change, attrmapping, mapping, 0);
+
+    RETURN changes;
+  }
+
+  /// Translate blob references in a array of change records back to blobs
+  RECORD ARRAY FUNCTION LoadEntitySettingAttachments(RECORD ARRAY changes)
+  {
+    INTEGER ARRAY blobids;
+    FOREVERY (RECORD change FROM changes)
+    {
+      blobids := blobids CONCAT SELECT AS INTEGER ARRAY blobdata
+                                  FROM (change.oldsettings.settings CONCAT change.modifications.settings) AS settings
+                                 WHERE CellExists(settings,'blobdata') AND GetCell(settings,'blobdata') != 0; //GetCell to avoid optimization warning
+    }
+
+    INTEGER ARRAY changeids := SELECT AS INTEGER ARRAY id FROM changes;
+    RECORD ARRAY blobmapping :=
+        SELECT id
+             , data
+             , seqnr
+             , change
+          FROM wrd.change_attachments
+         WHERE change IN changeids
+      ORDER BY change,seqnr;
+
+    FOREVERY (RECORD change FROM changes)
+    {
+      change.oldsettings.settings :=
+          SELECT *
+               , blobdata :=    MapBlob(blobmapping, change, settings)
+               , entity :=      0
+            FROM change.oldsettings.settings;
+      change.modifications.settings :=
+          SELECT *
+               , blobdata :=    MapBlob(blobmapping, change, settings)
+               , entity :=      0
+            FROM change.modifications.settings;
+      changes[#change] := change;
+    }
+
+    RETURN changes;
+  }
+
+  RECORD ARRAY FUNCTION GetWHFSLinksForChanges(INTEGER ARRAY ids)
+  {
+    RECORD ARRAY links :=
+        SELECT id
+             , fsobject
+             , linktype
+          FROM wrd.entity_settings_whfslink
+         WHERE id IN ids
+      ORDER BY id;
+
+    OBJECT whfs_mapper := NEW WHFSResourceNameMapper;
+
+    FOREVERY (RECORD link FROM links)
+    {
+      SWITCH (link.linktype)
+      {
+        CASE 0 // RTD
+        {
+          links[#link] := CELL
+              [ link.id
+              , link.linktype
+              , data :=     RetrieveRTDInWHFS(link.id, whfs_mapper)
+              ];
+        }
+        CASE 1 // instance data
+        {
+          links[#link] := CELL
+              [ link.id
+              , link.linktype
+              , data :=     RetrieveInstanceInWHFS(link.id, whfs_mapper)
+              ];
+        }
+        CASE 2 // FS object
+        {
+          links[#link] := CELL
+              [ link.id
+              , link.linktype
+              , data :=     whfs_mapper->MapWHFSRef(link.fsobject)
+              ];
+        }
+      }
+    }
+    RETURN links;
+  }
+
+  PUBLIC MACRO DeleteSelf()
+  {
+    this->DeleteAllEntities();
+
+    DELETE FROM wrd.types WHERE id IN [INTEGER(this->id)] CONCAT this->__childtypeids;
+    this->pvt_wrdschema->__SignalMetadataChanged();
+    this->pvt_wrdschema->__RefreshFromDB();
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION __pvt_GetAllAttrs()
+  {
+    RETURN this->__final_attrs;
+  }
+
+  PUBLIC BOOLEAN FUNCTION __DeleteAllEntities(DATETIME deadline)
+  {
+    this->domainvalues_cached := FALSE;
+    GetWRDCommitHandler()->EntityInvalidateAll(this->typerec.wrd_schema, this->typerec.id);
+
+    IF(NOT KillEntities(this->GetValidTypeIDs(), deadline ?? MAX_DATETIME, FALSE, FALSE))
+      RETURN FALSE;
+    RETURN TRUE;
+  }
+
+  PUBLIC MACRO DeleteAllEntities()
+  {
+    this->__DeleteAllEntities(DEFAULT DATETIME);
+  }
+
+  /** Generate and reserve a new entity ID in the current transaction*/
+  PUBLIC INTEGER FUNCTION GetNewEntityId()
+  {
+    IF(NOT GetPrimary()->IsWorkOpen())
+      THROW NEW Exception("GetNewEntityID requires an open transaction");
+    RETURN MakeAutonumber(wrd.entities, "id");
+  }
+  /** Generate and reserve a new GUID in the current transaction*/
+  PUBLIC STRING FUNCTION GetNewEntityGUID()
+  {
+    RETURN EncodeWRDGUID(CreateGUID());
+  }
+
+  /** Delete an entity if not referred, close it otherwise
+      @param entityid Entity to close or delete */
+  PUBLIC MACRO CloseOrDeleteEntity(INTEGER entityid)
+  {
+    this->GetEntity(entityid)->CloseOrDeleteEntity();
+  }
+
+  /** Close an entity by id
+      @param entityid Entity to close */
+  PUBLIC MACRO CloseEntity(INTEGER entityid)
+  {
+    this->GetEntity(entityid)->CloseEntity();
+  }
+
+  /** Delete an entity by id
+      @param entityid Entity to close */
+  PUBLIC MACRO DeleteEntity(INTEGER entityid)
+  {
+    this->DeleteEntities([entityid]);
+  }
+
+  /** Delete multiple entities by their id
+      @param entityids IDs of entities to delete */
+  PUBLIC MACRO DeleteEntities(INTEGER ARRAY entityids)
+  {
+    INTEGER ARRAY validtypes := this->GetValidTypeIDs();
+    this->domainvalues_cached := FALSE;
+
+    INTEGER batchsize := 250;
+    FOR (INTEGER idx := 0; idx < LENGTH(entityids); idx := idx + batchsize)
+    {
+      INTEGER ARRAY killset := ArraySlice(entityids, idx, batchsize);
+      DELETE FROM wrd.entities WHERE id IN killset AND type IN validtypes;
+    }
+
+    IF(Length(entityids) < 100)
+    {
+      FOREVERY(INTEGER ent FROM entityids)
+        GetWRDCommitHandler()->EntityDeleted(this->typerec.wrd_schema, this->typerec.id, ent);
+    }
+    ELSE
+    {
+      GetWRDCommitHandler()->EntityInvalidateAll(this->typerec.wrd_schema, this->typerec.id);
+    }
+  }
+>;
+
+/** WRD Type
+    @topic wrd/api
+    @public
+*/
+PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
+<
+  /** @private
+      @param wrdschema WRD schema
+      @param typerec Database record of this type
+  */
+  PUBLIC MACRO NEW(OBJECT wrdschema, RECORD typerec)
+  : WRDTypeBase(wrdschema, typerec)
+  {
+    this->LoadType(typerec);
+  }
+
+  UPDATE OBJECT FUNCTION __CreateEntityObject(RECORD entityrec)
+  {
+    RETURN NEW WRDEntity2017(this, entityrec);
+  }
+
+  /** Create a new attribute
+      @param attributetag
+      @param attributetype
+      @param options
+      @cell(string) options.title
+      @cell(string) options.description
+      @cell(string) options.domain
+      @cell(boolean) options.isunique
+      @cell(boolean) options.isrequired
+      @cell(boolean) options.checklinks
+  */
+  PUBLIC MACRO CreateAttribute(STRING attributetag, STRING attributetype, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->__DoCreateAttributes([ CELL[ tag := attributetag, attributetype, ...options ] ]);
+  }
+
+  /** Create a new entity
+      @param entitydata Initial field settings
+      @cell options.onmapdomvalue
+      @cell options.updateat
+      @cell(boolean) options.temp Create a temporary entity (expires after up to 24 hours, never returned in queries)
+      @return The newly created entity
+  */
+  PUBLIC OBJECT FUNCTION CreateEntity(RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->__DoCreateEntity(entitydata, options);
+  }
+
+  /** @short Import data
+      @long This function can be used to bulk import rows into an entity. It will update existing records based on the joincell, and can remove unmatched entities.
+            It will revive closed entities if they would match the joinfield
+      @param inrows Rows to synchronize with - we want our entities to look like this. All imported records should have the same structure
+      @param joincell Field on which we will be joining ourselves with the input rows, eg WRD_ID or WRD_TAG
+      @cell options.deletemode How to handle unmatched entitites. Empty = no delete of existing , or delete, close, delete-closereferred
+      @cell options.debug Print debug info during sync
+      @cell options.debugupdates Print update details during sync
+      @cell options.filters Filters to apply to the list of entries we will be updating
+      @return Lists of affected entities
+      @cell return.created IDs of entities created
+      @cell return.updated IDs of entities updated
+      @cell return.removed IDs of entities removed (or were candidates for removal if no deletemode was specified)
+      @cell return.matched IDs of entities matched but not changed
+  */
+  PUBLIC RECORD FUNCTION ImportEntities(STRING joincell, RECORD ARRAY inrows, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD retval := [ created := INTEGER[]
+                     , updated := INTEGER[]
+                     , removed := INTEGER[]
+                     , matched := INTEGER[]
+                     ];
+    options := ValidateOptions( [ filters := DEFAULT RECORD ARRAY
+                                //, comparefunction := PTR CompareUsingHSON
+                                , debug := FALSE
+                                , debugupdates := FALSE
+                                , deletemode := ""
+                                ], options);
+
+    RECORD baserec := [ wrd_id := 0, current := DEFAULT RECORD, wrd_limitdate := DEFAULT DATETIME ];
+
+    IF(options.deletemode != "")
+      ValidateDeleteMode(options.deletemode);
+
+    RECORD ARRAY current := this->RunQuery(
+      [ outputcolumns := [ wrd_id := "WRD_ID"
+                         , wrd_limitdate := "WRD_LIMITDATE"
+                         , current := SELECT AS STRING ARRAY name FROM UnpackRecord(inrows) WHERE ToUppercase(name) != ToUppercase(joincell)
+                         , joinfield := joincell
+                         ]
+      , filters := options.filters
+      , historymode := "all"
+      ]);
+
+    BOOLEAN have_wanted_data := Length(inrows) > 0 AND Length(UnpackRecord(inrows[0]))>1;
+    DATETIME now := GetCurrentDatetime();
+
+    //restructure [joinfield,a,b,c] to [joinfield,wanted:=[a,b,c]]
+    FOREVERY(RECORD inrow FROM inrows)
+      inrows[#inrow] := [ joinfield := GetCell(inrow,joincell), wanted := CellDelete(inrow,joincell) ];
+
+    FOREVERY(RECORD todo FROM JoinArrays(inrows, "JOINFIELD", current, baserec,
+                                         [ rightouterjoin := TRUE
+                                         , leftouterjoin := [ wanted := DEFAULT RECORD ]
+                                         , presentfield := "present"
+                                         ]))
+    {
+      IF(todo.present = "left")
+      {
+        IF(options.debug)
+          Print(`adding ${this->tag} (${todo.joinfield})\n`);
+
+        RECORD tocreate := CellExists(todo,'wanted') ? todo.wanted : DEFAULT RECORD;
+        tocreate := CellInsert(tocreate, joincell, todo.joinfield);
+
+        OBJECT newentity := this->CreateEntity(tocreate);
+        INSERT newentity->id INTO retval.created AT END;
+      }
+      ELSE IF(todo.present = "right")
+      {
+        IF(todo.wrd_limitdate <= now) //already closed
+        {
+          INSERT todo.wrd_id INTO retval.matched AT END;
+          CONTINUE;
+        }
+
+        INSERT todo.wrd_id INTO retval.removed AT END;
+
+        IF(options.deletemode="")
+        {
+          IF(options.debug)
+            Print(`ignoring unseen ${this->tag} (${todo.joinfield})\n`);
+          CONTINUE;
+        }
+
+        IF(options.debug)
+          Print(`removing ${this->tag} (${todo.joinfield}) (deletemode=${options.deletemode})\n`);
+
+        IF(NOT this->GetEntity(todo.wrd_id)->RemoveEntity(options.deletemode))
+          THROW NEW Exception(`Unable to remove entity ${todo.wrd_id}, it is still referred`);
+      }
+      ELSE
+      {
+        RECORD wanted;
+        IF(have_wanted_data)
+          wanted := todo.wanted;
+
+        IF(NOT CellExists(wanted, 'WRD_LIMITDATE') AND todo.wrd_limitdate <= now ) // closed!
+          INSERT CELL wrd_limitdate := MAX_DATETIME INTO wanted; //resurrect then!
+
+        IF(RecordExists(wanted))
+        {
+          //FIXME optimize? predetect arrays and skip if unneeded? support file/image/rtd types safely?
+          todo.current := RemoveSettingIds(todo.current);
+
+          IF(EncodeHSON(wanted) != EncodeHSON(todo.current)) //not sure how to make comparefunctions work with Removesettinidgs and debugupdates //options.comparefunction(todo.wanted,todo.current))
+          {
+            INSERT todo.wrd_id INTO retval.updated AT END;
+
+            IF(options.debug OR options.debugupdates)
+              Print(`updating ${this->tag} (${todo.joinfield})\n`);
+            IF(options.debugupdates)
+            {
+              RECORD updates;
+              FOREVERY(RECORD inputrecord FROM UnpackRecord(wanted))
+              {
+                VARIANT currentvalue := inputrecord.name="WRD_LIMITDATE" ? todo.wrd_limitdate : GetCell(todo.current, inputrecord.name);
+                IF(EncodeHSON(inputrecord.value) != EncodeHSON(currentvalue))
+                  updates := CellInsert(updates, inputrecord.name, [ current := currentvalue, wanted := inputrecord.value ]);
+              }
+              DumpValue(updates);
+            }
+
+            this->UpdateEntity(todo.wrd_id, wanted);
+            CONTINUE;
+          }
+        }
+        INSERT todo.wrd_id INTO retval.matched AT END;
+      }
+    }
+    RETURN retval;
+  }
+
+  /** Lookup multiple domain values by tag or wrd:guid
+      @param attribute_tag Tag of an attribute pointing to a domain
+      @param valtags Tags or wrd:guids of the values to look up.
+      @return Entity ids of the domain values Throws if an entity is not found */
+  PUBLIC INTEGER ARRAY FUNCTION GetDomVals(STRING attribute_tag, STRING ARRAY valtags)
+  {
+    RETURN this->__GetDomVals(attribute_tag, valtags);
+  }
+
+>;
+
+RECORD FUNCTION MergeChanges(RECORD ARRAY changes)
+{
+  RECORD retval := changes[0];
+  FOR (INTEGER i := 1, e := LENGTH(changes); i < e; i := i + 1)
+  {
+    RECORD change := changes[i];
+    retval.oldsettings := CELL[ ...change.oldsettings, ...retval.oldsettings ];
+    retval.modifications := CELL[ ...retval.modifications, ...change.modifications ];
+  }
+  RETURN retval;
+}
+
+PUBLIC STATIC OBJECTTYPE WRDChangesLinkGetter
+<
+  OBJECT _whfsmapper;
+
+  PUBLIC RECORD ARRAY links;
+
+  MACRO NEW()
+  {
+    this->_whfsmapper := NEW WHFSResourceNameMapper;
+  }
+
+  VARIANT FUNCTION GetData(INTEGER id, INTEGER linktype, VARIANT fallback)
+  {
+    RECORD pos := RecordLowerBound(this->links, CELL[ id ], [ "ID" ]);
+    IF (NOT pos.found OR this->links[pos.position].linktype != linktype)
+      RETURN fallback;
+    RETURN this->links[pos.position].data;
+  }
+
+
+  PUBLIC RECORD FUNCTION GetRichDocument(INTEGER id, OBJECT whfsmapper)
+  {
+    RECORD data := this->GetData(id, 0, DEFAULT RECORD);
+    IF (NOT RecordExists(data))
+      RETURN data;
+
+    OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+    RETURN RunInSeparatePrimary(PTR ImExportInstanceData(rtdtype, this->_whfsmapper, whfsmapper, CELL[ data ])).data;
+  }
+
+  PUBLIC RECORD FUNCTION GetInstance(INTEGER id, OBJECT whfsmapper)
+  {
+    RECORD data := this->GetData(id, 1, DEFAULT RECORD);
+    IF (NOT RecordExists(data))
+      RETURN data;
+
+    OBJECT instancetype := OpenWHFSType("http://www.webhare.net/xmlns/wrd/instancefile");
+    RETURN RunInSeparatePrimary(PTR ImExportInstanceData(instancetype, this->_whfsmapper, whfsmapper, [ instance := data ])).instance;
+  }
+
+  PUBLIC INTEGER FUNCTION GetLink(INTEGER id)
+  {
+    STRING link := this->GetData(id, 2, "");
+    RETURN link = "" ? 0 : this->_whfsmapper->UnmapWHFSRef(link);
+  }
+>;
+
+RECORD FUNCTION ImExportInstanceData(OBJECT whfstype, OBJECT inmapper, OBJECT outmapper, RECORD data)
+{
+  GetPrimary()->BeginWork();
+  OBJECT file := OpenWHFSObject(whconstant_whfsid_private_system)->CreateFile([ name := "wrd-instance-temp" ]);
+  TRY
+  {
+    whfstype->ImportInstanceData(file->id, data, inmapper, FALSE, [ isvisibleedit := FALSE ]);
+    data := whfstype->ExportInstanceData(file->id, outmapper, FALSE);
+  }
+  CATCH
+    data := DEFAULT RECORD;
+  GetPrimary()->RollbackWork();
+  RETURN data;
+}

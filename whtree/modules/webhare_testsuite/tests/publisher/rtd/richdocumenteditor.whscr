@@ -1,0 +1,468 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::webhare_testsuite/lib/publisher/versioning.whlib";
+
+
+STRING testsiteprofile :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+  || '<apply>'
+    || '<to type="file" filetype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />'
+    || '<richdocumenteditor>'
+    || '  <structuredefinition fullpath="/custompage.structure.xml" />'
+    //       <css fullpath="mod::publisher/data/default.structure.css" />
+    || '</richdocumenteditor>'
+    || '</apply>'
+|| '</siteprofile>';
+
+OBJECT FUNCTION Rte()
+{
+  RETURN TT("doceditor")->contents->rte;
+}
+
+
+MACRO Create()
+{
+  SetTidLanguage("debug");
+  testfw->BeginWork();
+
+  testfw->SetupTestWebdesignWebsite(testsiteprofile);
+
+  // Grant read-only right on the test site to user 'reader'
+  testfw->GetUserObject("writer")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("reader"), testfw->GetTestSite()->id, FALSE);
+
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  siteroot->CreateFile(
+      [ name := "custompage.structure.xml"
+      , data := GetHarescriptResource("mod::webhare_testsuite/data/test/custompage.structure.xml")
+      ]);
+
+  testfw->CommitWork();
+}
+
+OBJECT ASYNC FUNCTION TestReadOnly()
+{
+  BOOLEAN clicked;
+
+  testfw->BeginWork();
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT testfile := siteroot->CreateFile(
+      [ name :=   "readonly.rtd"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
+  testfw->CommitWork();
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// writer
+
+  // Open rich document editor
+  testfw->SetTestUser("writer");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // It should be writeable
+  TestEq(FALSE, topscreen->contexts->editdocumentapi->readonly);
+
+  // Add some text and save draft
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
+  RTE()->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
+  clicked := AWAIT ExpectNoScreenChange(PTR topscreen->save->TolliumClick());
+  TestEq(TRUE, clicked);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// reader
+
+  // Open rich document editor
+  testfw->SetTestUser("reader");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // It should be read-only
+  TestEq(TRUE, topscreen->contexts->editdocumentapi->readonly);
+  TestEQLike("*This is the document*", BlobToString(RTE()->value.htmltext));
+
+  // Save and publish should not be available
+  clicked := AWAIT ExpectNoScreenChange(PTR TTClick("save", [ allowfailure := TRUE ]));
+  TestEq(FALSE, clicked);
+  clicked := AWAIT ExpectNoScreenChange(PTR TTClick("publish", [ allowfailure := TRUE ]));
+  TestEq(FALSE, clicked);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// writer
+
+  // Open rich document editor
+  testfw->SetTestUser("writer");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // Publish the document
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*confirmsaveandpublish*" ]);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// reader
+
+  // Open rich document editor
+  testfw->SetTestUser("reader");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // We should still see the published document
+  TestEQLike("*This is the document*", BlobToString(RTE()->value.htmltext));
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// writer
+
+  // Open rich document editor
+  testfw->SetTestUser("writer");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // Edit the text and save draft
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the draft</p>');
+  RTE()->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
+  clicked := AWAIT ExpectNoScreenChange(PTR topscreen->save->TolliumClick());
+  TestEq(TRUE, clicked);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// reader
+
+  // Open rich document editor
+  testfw->SetTestUser("reader");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // We should still see the published document
+  TestEQLike("*This is the document*", BlobToString(RTE()->value.htmltext));
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// writer
+
+  // Open rich document editor
+  testfw->SetTestUser("writer");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // Publish the document
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*confirmsaveandpublish*" ]);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION TestReadOnlyVersioned()
+{
+  RECORD rec;
+  BOOLEAN clicked;
+
+  testfw->BeginWork();
+  EnableSiteVersionHistory(testfw->GetTestSite(), testfw->GetUserObject("writer"), "publisher:default");
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT testfile := siteroot->CreateFile(
+      [ name :=   "versioned.rtd"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
+  testfw->CommitWork();
+
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// writer
+
+  // Open rich document editor
+  testfw->SetTestUser("writer");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // It should be writeable
+  TestEq(FALSE, topscreen->contexts->editdocumentapi->readonly);
+
+  // Add some text
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is new content saved to live</p>');
+  RTE()->__debug_simulatedirty();
+
+  // Save to live
+  AWAIT ExpectNoScreenChange(PTR topscreen->save->TolliumClick());
+
+  // Test: unversioned file saved as draft must be saved directly to the existing file
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// reader
+
+  // Open rich document editor
+  testfw->SetTestUser("reader");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // It should be read-only
+  TestEq(TRUE, topscreen->contexts->editdocumentapi->readonly);
+  TestEQLike("*saved to live*", BlobToString(RTE()->value.htmltext));
+
+  // The draft banner should not be visible
+  TestEq(FALSE, topscreen->draftbar->visible);
+
+  // Save and publish should not be available
+  clicked := AWAIT ExpectNoScreenChange(PTR TTClick("save", [ allowfailure := TRUE ]));
+  TestEq(FALSE, clicked);
+  clicked := AWAIT ExpectNoScreenChange(PTR TTClick("publish", [ allowfailure := TRUE ]));
+  TestEq(FALSE, clicked);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// writer
+
+  // Open rich document editor
+  testfw->SetTestUser("writer");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // Publish, and submit for approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick());
+  topscreen->descriptiontext->value := "test";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  // The draft banner should be visible
+  TestEq(TRUE, topscreen->draftbar->visible);
+  // We want to test the htmlvalue, but htmlvalue is write-only and pvt_htmlvalue is private, so make the object reference privileged
+  TestEqLike("*request-for-approval}", __HS_INTERNAL_MakeObjectReferencePrivileged(topscreen->draftmode)->pvt_htmlvalue);
+
+  // See if the rte is now readonly and a request for approval has been sent
+  TestEQ(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+  INTEGER draftid := GetPublicDraft(testfile->id)->id;
+  TestEQ(TRUE, RTE()->readonly);
+  TestEQ(TRUE, policy->HasApprovalRequest(testfile));
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// reader
+
+  // Open rich document editor
+  testfw->SetTestUser("reader");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // We should still see the saved document
+  TestEQLike("*saved to live*", BlobToString(RTE()->value.htmltext));
+
+  // The draft banner should be visible
+  TestEq(TRUE, topscreen->draftbar->visible);
+  // Test if the correct draft message is displayed
+  TestEqLike("*request-for-approval-readonly}", __HS_INTERNAL_MakeObjectReferencePrivileged(topscreen->draftmode)->pvt_htmlvalue);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// writer
+
+  // Deny the request
+  testfw->SetTestUser("writer");
+  testfw->BeginWork();
+  DenyApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := GetEffectiveUser(), message := "Denied" ]);
+  testfw->CommitWork();
+
+  // No public draft anymore, the draft was denied
+  TestEq(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+
+  // Open editdocument again.
+  // Now, the file is versioned but not published, so save should go to live version
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is new content saved again to live</p>');
+  RTE()->__debug_simulatedirty();
+
+  // Save to live version
+  AWAIT ExpectNoScreenChange(PTR topscreen->save->TolliumClick());
+
+  // Test: unversioned file saved as draft must be saved directly to the existing file must leave the draft alone
+  TestEq(TRUE, OBjectExists(GetPublicDraft(testfile->id)));
+  RECORD rtd := GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  TestEQLike("*saved to live*", BlobToString(rtd.data.htmltext)); // draft should not be updated
+  rtd := testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  TestEQLike("*saved again to live*", BlobToString(rtd.data.htmltext)); // live version should be
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// reader
+
+  // Open rich document editor
+  testfw->SetTestUser("reader");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // We should see the saved document
+  TestEQLike("*saved again to live*", BlobToString(RTE()->value.htmltext));
+
+  // The draft banner should not be visible, the draft isn't submitted for approval yet
+  TestEq(FALSE, topscreen->draftbar->visible);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// writer
+
+  testfw->SetTestUser("writer");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // Publish, and submit for approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick());
+  topscreen->descriptiontext->value := "test";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  // See if the rte is now readonly and a request for approval has been sent
+  TestEQ(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+  // The new draft object should be different from the old draft object
+  TestEq(FALSE, draftid = GetPublicDraft(testfile->id)->id);
+  TestEQ(TRUE, RTE()->readonly);
+  TestEQ(TRUE, policy->HasApprovalRequest(testfile));
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := GetEffectiveUser(), message := "Accepted" ]);
+  testfw->CommitWork();
+
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// reader
+
+  // Open rich document editor
+  testfw->SetTestUser("reader");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // We should still see the saved document
+  TestEQLike("*saved again to live*", BlobToString(RTE()->value.htmltext));
+
+  // The draft banner should no longer be visible
+  TestEq(FALSE, topscreen->draftbar->visible);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// writer
+
+  // Open editdocument again.
+  // Now, the file is versioned and published, so save should go to draft
+  testfw->SetTestUser("writer");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This change should trigger a second draft</p>');
+  RTE()->__debug_simulatedirty();
+
+  // Save, should go to draft
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->save->TolliumClick(), [ messagemask := "*publishversionedfiletoapplychanges*" ]);
+  TestEQ(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+
+  // The draft banner should be visible
+  TestEq(TRUE, topscreen->draftbar->visible);
+  // Test if the correct draft message is displayed
+  TestEqLike("*draftmode-by-you|*", __HS_INTERNAL_MakeObjectReferencePrivileged(topscreen->draftmode)->pvt_htmlvalue);
+
+  // Publish, and submit for approval
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick());
+  topscreen->descriptiontext->value := "test";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectAndAnswerMessageBox("no", DEFAULT FUNCTION PTR, [ messagemask := "*closeeditorafterversionedpublish*" ]);
+  AWAIT rec.expectcallreturn();
+
+  AWAIT ExpectNoScreenChange(DEFAULT FUNCTION PTR); // shouldn't close the app
+
+  // See if the rte is now readonly and a request for approval has been sent
+  TestEQ(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+  TestEQ(TRUE, RTE()->readonly);
+  TestEQ(TRUE, policy->HasApprovalRequest(testfile));
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// reader
+
+  // Open rich document editor
+  testfw->SetTestUser("reader");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // We should still see the published file
+  TestEQLike("*saved again to live*", BlobToString(RTE()->value.htmltext));
+
+  // The draft banner should be visible
+  TestEq(TRUE, topscreen->draftbar->visible);
+  // Test if the correct draft message is displayed
+  TestEqLike("*request-for-approval-readonly}", __HS_INTERNAL_MakeObjectReferencePrivileged(topscreen->draftmode)->pvt_htmlvalue);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+
+  RETURN DEFAULT RECORD;
+}
+
+
+RunTestFramework(
+    [ PTR Create
+    , PTR TestReadOnly
+    , PTR TestReadOnlyVersioned
+    ],
+    [ testusers := [ [ login := "writer", grantrights := ["system:sysop"] ]
+                   , [ login := "reader", grantrights := DEFAULT STRING ARRAY ]
+                   ]
+    , debug := TRUE
+    ]);

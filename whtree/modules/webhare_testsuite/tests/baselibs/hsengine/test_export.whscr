@@ -1,0 +1,39 @@
+<?wh
+/// @short Export tests
+
+LOADLIB "test::testdata_export_middlelib.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+
+MACRO BasicTest()
+{
+  OpenTest("TestExport: BasicTest");
+  TestEqualInteger(1, 42, i);
+  CloseTest("TestExport: BasicTest");
+}
+
+MACRO GlobalsTest()
+{
+  OpenTest("TestExport: GlobalsTest");
+
+  Activate1();
+  Activate2();
+
+  TestEqualBoolean(1, TRUE, activated1);
+  IF ((NOT activated1) OR (NOT IsActivated2()))
+    ABORT("Error: non-constant macro-call optimized away");
+
+  CloseTest("TestExport: GlobalsTest");
+}
+
+MACRO DeprecatingTest()
+{
+  RECORD result := TestCompileAndRun('<?wh LOADLIB "test::testdata_export_middlelib.whlib"; PRINT(""||i2); ?>');
+  TestCleanResult(1, result.errors);
+  MustContainWarning(2, result.errors, 18, "I2");
+  TestEqualString(3, "43", result.output);
+}
+
+PRINT("\n === Running TestExport\n");
+BasicTest();
+GlobalsTest();
+DeprecatingTest();

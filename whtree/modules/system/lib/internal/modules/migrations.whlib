@@ -1,0 +1,94 @@
+<?wh
+//Migrations and runonce
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/internal/validation/support.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+CONSTANT STRING ARRAY whens :=
+        [ "afterschemacreation"
+        , "aftertablesbeforerights"
+        , "aftertablecreation"
+        , "afterregistryupdate"
+        , "poststart"
+        ];
+
+RECORD ARRAY FUNCTION ParseModuleDefRunonceModuleDef(OBJECT doc)
+{
+  INTEGER last_runonce_whentype;
+  RECORD ARRAY scripts;
+
+  FOREVERY(OBJECT runonce FROM doc->xml->ListElements("http://www.webhare.net/xmlns/system/moduledefinition","runonce"))
+  {
+    STRING when := runonce->GetAttribute("when") ?? "aftertablecreation";
+
+    // Check ordering
+    INTEGER when_type := SearchElement(whens, when);
+    IF (when_type = -1)
+    {
+      doc->AddError(runonce, "Unknown runonce script ordering, got '" || when || "'");
+    }
+    ELSE IF (last_runonce_whentype > when_type)
+    {
+      doc->AddError(runonce, "Illegal runonce script ordering, found '" || whens[when_type] || "' after a '" || whens[last_runonce_whentype] || "'");
+      last_runonce_whentype := -1;
+    }
+    ELSE IF (last_runonce_whentype != -1)
+      last_runonce_whentype := when_type;
+
+    IF(runonce->HasAttribute("at"))
+      doc->AddError(runonce, "Support for at=install or at=upgrade has been removed in WebHare 4.19");
+
+    INSERT
+      [ tag    := doc->GetModuleName() || ":" || runonce->GetAttribute("tag")
+      , script := doc->GetVerifyPath(runonce, "script", MakeAbsoluteResourcePath(doc->respath,"scripts/"), [ warnversion := 42300 ])
+      , when   := when
+      ] INTO scripts AT END;
+   }
+
+   RETURN scripts;
+}
+
+RECORD ARRAY FUNCTION ParseModuleDefRunonceFromDisk(OBJECT doc)
+{
+  RECORD ARRAY scripts;
+  STRING basepath := `mod::${doc->GetModuleName()}/migrations/`;
+
+  FOREVERY(STRING stage FROM whens)
+  {
+    STRING scanpath := basepath || stage || "/";
+    FOREVERY(RECORD entry FROM ReadWebHareResourceFolder(scanpath))
+    {
+      IF(entry.isfolder OR entry.name NOT LIKE "?*-?*.whscr")
+      {
+        doc->AddError(DEFAULT OBJECT, `Illegal migration entry '${entry.name}' in ${scanpath}`);
+        CONTINUE;
+      }
+
+      STRING dtstring := Tokenize(entry.name,'-')[0];
+      STRING scriptname := Substring(entry.name, Length(dtstring)+1);
+
+      DATETIME dt := MakeDateFromText(dtstring);
+      IF(dt = DEFAULT DATETIME)
+      {
+        doc->AddError(DEFAULT OBJECT, `Did not recognize timestamp '${dtstring}' for '${scriptname}' in ${scanpath}`);
+        CONTINUE;
+      }
+
+      INSERT [ tag := doc->GetModuleName() || ":" || stage || "." || FormatISO8601Datetime(dt,"day","milliseconds","UTC",FALSE) || "." || scriptname
+             , script := entry.resourcepath
+             , when := stage
+             ] INTO scripts AT END;
+    }
+  }
+  RETURN SELECT * FROM scripts ORDER BY tag; //will be automatically when,datetime sorted because of tag's structure
+}
+
+PUBLIC RECORD ARRAY FUNCTION ParseModuleDefRunonce(OBJECT doc)
+{
+  RETURN ParseModuleDefRunonceModuleDef(doc)
+         CONCAT
+         ParseModuleDefRunonceFromDisk(doc);
+}

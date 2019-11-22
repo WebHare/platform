@@ -1,0 +1,532 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+/*
+
+API documentation:      http://www.flickr.com/services/api/
+Feeds documentation:    http://www.flickr.com/services/feeds/
+
+Note:
+  - to use the API you need an API key
+    Get one at: http://www.flickr.com/services/api/misc.api_keys.html
+
+API overview:
+  - ID's must be treated as STRINGs!
+  - the format of ID's can change over time
+
+Feeds:
+  - giving a wrong id for collection or user results in a 'page not found' error
+
+Implementation:
+  - 'flickr.collections.getInfo' is unuseable, it only works for the collection owner when authenicated,
+    so we resort to using the collection's RSS feed
+
+Flickr terminology:
+
+  - collections      a user's photo's arranged in 'sets'
+
+  - sets             multiple photos
+
+  - galleries        a collection of photos which can be from other users
+                     than the user who created the gallery.
+                     A gallery can contain up to 18 photos.
+
+
+Usage:
+  - the userid must be an NSID
+    An NSID looks like this: '47784272@N07'
+    To see your NSID, log in at Flickr and go to the following URL:
+    http://www.flickr.com/services/api/explore/?method=flickr.people.getInfo
+
+    Or open the pulldown on someone's avatar and copy&paste the
+    'Add ... as a contact?' URL. This URL ends with the NSID of the user.
+
+
+
+flickr.people.getPhotosOf
+        api_key  (required)
+        user_id  (required)
+        extras   (optional)
+        per_page (optional)
+        page     (optional)
+
+*/
+
+PUBLIC OBJECTTYPE FlickrSupport
+< STRING apiurl_feeds;
+  STRING apiurl_feeds_photoset;
+  STRING apikey;
+
+  MACRO NEW(STRING apikey)
+  {
+    this->apikey := apikey;
+    this->apiurl_feeds := 'http://api.flickr.com/services/rest/';
+    this->apiurl_feeds_photoset := 'http://api.flickr.com/services/feeds/photoset.gne';
+
+    /*
+    * http://api.flickr.com/services/rest/
+    * http://api.flickr.com/services/soap/
+    * http://api.flickr.com/services/xmlrpc/
+    * http://api.flickr.com/services/upload/
+    * http://api.flickr.com/services/replace/
+    */
+  }
+
+  /** @short get's the userid based on the username
+      @param username accountname of the user
+      @result userid which is used needed for API calls to Flickr
+  */
+  PUBLIC STRING FUNCTION GetUserIDByName(STRING username)
+  {
+    RECORD response := this->Request('flickr.people.findByUsername',
+                                    [ [ username := username
+                                    ] ]);
+
+    OBJECT root := response.document->documentelement; // <rsp>
+    OBJECT user := root->GetElementsByTagName('user')->GetCurrentNodes()[0];
+    STRING nsid := user->GetAttribute('nsid');
+
+    RETURN nsid;
+  }
+
+  /** @short gets the list of the user's photo-collections and -sets.
+      @param userid id of the user you want to get photos from. Give an empty userid to get photos of the current user.
+  */
+  PUBLIC RECORD FUNCTION getCollectionList(STRING userid)
+  {
+    RECORD response := this->Request('flickr.collections.getTree',
+                                        [ [ user_id  := userid
+                                          , collection_id := 0 // root
+                                        ] ]);
+
+    OBJECT root := response.document->documentelement; // <collections>
+
+    OBJECT ARRAY collnodes := root->GetElementsByTagName('collection')->GetCurrentNodes();
+
+    RECORD ARRAY collections;
+    FOREVERY(OBJECT collnode FROM collnodes)
+    {
+      RECORD ARRAY sets;
+      FOREVERY(OBJECT setnode FROM collnode->GetElementsByTagName('set')->GetCurrentNodes())
+      {
+        INSERT [ id := setnode->GetAttribute('id')
+               , title := setnode->GetAttribute('title')
+               , description := setnode->GetAttribute('description')
+               ] INTO sets AT END;
+      }
+
+      INSERT [ id          := collnode->GetAttribute('id')
+             , title       := collnode->GetAttribute('title')
+             , description := collnode->GetAttribute('description')
+             , iconsmall   := collnode->GetAttribute('iconsmall')
+             , iconlarge   := collnode->GetAttribute('iconlarge')
+             , sets        := sets
+             ] INTO collections AT END;
+    }
+
+    RETURN [ collections := collections
+           ];
+  }
+
+  /** @short get information on a collection, including photos in the collection
+  */
+  PUBLIC RECORD FUNCTION getCollection(STRING userid, STRING collectionid)
+  {
+    // Since the 'flickr.collections.getInfo' call currently ownly works
+    // for the collection owner (with authentication), we must resort
+    // to the RSS feed for the collection instead.
+
+    RECORD fields := [ "set" := collectionid
+                     , nsid  := userid
+                     //, lang := "en-us"
+                     ];
+
+    RECORD response := this->SendRequest('GET', this->apiurl_feeds_photoset, fields);
+
+    IF (response.browser->GetHTTPStatus().code = 404)
+      RETURN [ photos := DEFAULT RECORD ARRAY
+             , errors := ['Page not found']
+             ];
+
+    OBJECT root := response.document->documentElement;
+
+    OBJECT ARRAY entries := root->getElementsByTagName('entry')->getCurrentElements();
+    RECORD ARRAY photos;
+    FOREVERY(OBJECT entry FROM entries)
+    {
+      STRING ARRAY tags;
+      OBJECT ARRAY categories := entry->getElementsByTagName('category')->getCurrentElements();
+      FOREVERY(OBJECT category FROM categories)
+      {
+        //IF (category->GetAttribute('http://www.flickr.com/photos/tags/'))
+        STRING tag := category->GetAttribute('term');
+
+        IF(tag!='')
+          INSERT tag INTO tags AT END;
+      }
+
+      INSERT
+        [ id          := this->GetValueOfFirstElementWithTagName(entry, 'id')
+        , title       := this->GetValueOfFirstElementWithTagName(entry, 'title')
+        , url         := this->GetValueOfFirstElementWithTagName(entry, 'link')
+        , published   := MakeDateFromText(this->GetValueOfFirstElementWithTagName(entry, 'published'))
+        , updated     := MakeDateFromText(this->GetValueOfFirstElementWithTagName(entry, 'updated'))
+        , taken       := MakeDateFromText(this->GetValueOfFirstElementWithTagName(entry, 'dc:date.Taken'))
+        //, description := ''
+        , tags        := tags
+        ] INTO photos AT END;
+    }
+
+    RETURN [ title       := this->GetValueOfFirstElementWithTagName(root, 'title')
+           , description := this->GetValueOfFirstElementWithTagName(root, 'description')
+           , updated     := MakeDateFromText(this->GetValueOfFirstElementWithTagName(root, 'updated'))
+           // id
+           , photos      := photos
+           , errors := DEFAULT STRING ARRAY
+           ];
+  }
+
+  /** @short get a list of public photos of a user
+      @param userid id of the user you want to get photos from. Give an empty userid to get photos of the current user.
+      @param extrafields
+      @param resultsperpage
+      @param page
+  */
+  PUBLIC RECORD FUNCTION getPhotosOf(STRING userid, STRING extrafields, INTEGER resultsperpage, INTEGER page)
+  {
+    IF (userid='')
+      userid := 'me';
+
+    IF (extrafields = '')
+      extrafields := 'url_sq,url_t,url_s,url_m,url_o';
+
+    //RECORD response := this->Request('flickr.people.getPhotosOf',
+    RECORD response := this->Request('flickr.people.getPublicPhotos',
+                                    [ [ user_id  := userid
+                                      , extras   := extrafields
+                                      , per_page := resultsperpage
+                                      , page     := page
+                                    ] ]);
+
+    OBJECT root := response.document->documentelement; // <photos>
+
+    OBJECT ARRAY photonodes := root->GetElementsByTagName('photo')->GetCurrentNodes();
+
+    RECORD ARRAY photos;
+    FOREVERY(OBJECT photonode FROM photonodes)
+    {
+      INSERT [ id       := photonode->GetAttribute('id')
+             , owner    := photonode->GetAttribute('owner')
+             , secret   := photonode->GetAttribute('secret')
+             , server   := photonode->GetAttribute('secret')
+             , title    := photonode->GetAttribute('title')
+             , ispublic := photonode->GetAttribute('ispublic')
+             , isfriend := photonode->GetAttribute('isfriend')
+             , isfamily := photonode->GetAttribute('isfamily')
+
+             // square thumbnail
+             , pic_sq   := [ url    := photonode->GetAttribute('url_sq')
+                           , width  := photonode->GetAttribute('width_sq')
+                           , height := photonode->GetAttribute('height_sq')
+                           ]
+
+             // thumbnail
+             , pic_t    := [ url    := photonode->GetAttribute('url_t')
+                           , width  := photonode->GetAttribute('width_t')
+                           , height := photonode->GetAttribute('height_t')
+                           ]
+
+             // small
+             , pic_s    := [ url    := photonode->GetAttribute('url_s')
+                           , width  := photonode->GetAttribute('width_s')
+                           , height := photonode->GetAttribute('height_s')
+                           ]
+
+             // medium
+             , pic_m    := [ url    := photonode->GetAttribute('url_m')
+                           , width  := photonode->GetAttribute('width_m')
+                           , height := photonode->GetAttribute('height_m')
+                           ]
+
+             // original
+             , pic_o    := [ url    := photonode->GetAttribute('url_o')
+                           , width  := photonode->GetAttribute('width_o')
+                           , height := photonode->GetAttribute('height_o')
+                           ]
+
+             ] INTO photos AT END;
+    }
+
+    RETURN [ page           := root->GetAttribute('page')
+           , hasnextpage    := (root->GetAttribute('has_next_page') = '1')
+           , resultsperpage := root->GetAttribute('perpage')
+           , photos         := photos
+           ];
+  }
+
+  /** @short get a list of all photos uploaded by the given user
+      @param userid id of the user you want to get photos from. Give an empty userid to get photos of the current user.
+      @param extrafields
+  */
+  PUBLIC RECORD FUNCTION getAllPhotosOf(STRING userid, STRING extrafields)
+  {
+    INTEGER resultsperpage := 20; // max 500
+    INTEGER page := 1;
+    BOOLEAN finished;
+    INTEGER maxpages := 10;
+
+    RECORD ARRAY photos;
+
+    WHILE(NOT finished AND page <= maxpages)
+    {
+      RECORD result := this->getPhotosOf(userid, extrafields, resultsperpage, page);
+      photos := photos CONCAT result.photos;
+
+      finished := result.hasnextpage;
+      page := page + 1;
+    }
+
+    RETURN photos;
+  }
+
+  /** @short gets the list of the user galleries (which is somewhat like a collection, but consists of photos from other users)
+      @param userid id of the user you want to get the list of galleries from
+      @param resultsperpage how many results to fetch (Flickr defaults to 100 and allows up to 500)
+      @param page which page of results to return
+  */
+  PUBLIC RECORD FUNCTION getGalleries(STRING userid, INTEGER resultsperpage, INTEGER page)
+  {
+    IF (userid='')
+      userid := 'me';
+
+    RECORD response := this->Request('flickr.galleries.getList',
+                                    [ [ user_id  := userid
+                                      , per_page := resultsperpage
+                                      , page     := page
+                                    ] ]);
+
+    RETURN this->InternalParseGalleries(response);
+  }
+
+  PUBLIC RECORD FUNCTION getGalleriesWithPhoto(STRING photoid, INTEGER resultsperpage, INTEGER page)
+  {
+    RECORD response := this->Request('flickr.galleries.getListForPhoto',
+                                    [ [ photo_id := photoid
+                                      , per_page := resultsperpage
+                                      , page     := page
+                                    ] ]);
+
+    RETURN this->InternalParseGalleries(response);
+  }
+
+  RECORD FUNCTION InternalParseGalleries(RECORD response)
+  {
+    OBJECT root := response.document->documentelement; // <rsp>
+
+    OBJECT galleriesroot := this->GetFirstChildWithTagName(root, 'galleries');
+
+    OBJECT ARRAY gallerynodes := galleriesroot->GetElementsByTagName('gallery')->GetCurrentNodes();
+
+    RECORD ARRAY galleries;
+    FOREVERY(OBJECT gallerynode FROM gallerynodes)
+    {
+      INSERT [ id          := gallerynode->GetAttribute('id')
+             , title       := this->GetFirstChildWithTagName(gallerynode, 'title')
+             , description := this->GetFirstChildWithTagName(gallerynode, 'description')
+
+             , url      := gallerynode->GetAttribute('url')
+             , owner    := gallerynode->GetAttribute('owner')
+             , date_create := this->ParseUnixTimestamp(gallerynode->GetAttribute('date_create'))
+             , date_update := this->ParseUnixTimestamp(gallerynode->GetAttribute('date_update'))
+             , count_photos := ToInteger(gallerynode->GetAttribute('count_photos'), 0)
+             , count_videos := ToInteger(gallerynode->GetAttribute('count_videos'), 0)
+             , primary_photo_id := gallerynode->GetAttribute('primary_photo_id')
+             //primary_photo_server
+             //primary_photo_farm
+             //primary_photo_secret
+             ] INTO galleries AT END;
+    }
+
+    INTEGER thispage := ToInteger(galleriesroot->GetAttribute('page'), 0);
+    INTEGER thispages := ToInteger(galleriesroot->GetAttribute('pages'), 0);
+
+    RETURN [ total       := ToInteger(galleriesroot->GetAttribute('total'), 0)
+           , perpage     := ToInteger(galleriesroot->GetAttribute('per_page'), 0)
+           , page        := thispage
+           , pages       := thispages
+           , hasnextpage := (thispages >= thispage)
+           , galleries   := galleries
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION GetPhotosBySet(STRING setid)
+  {
+    RECORD response := this->Request('flickr.photosets.getPhotos',
+                                    [ [ extras   := 'url_sq,url_t,url_s,url_m,url_o,date_upload'
+                                      , per_page := 500
+                                      , photoset_id := setid
+                                      //
+                                    ] ]);
+
+    OBJECT root := response.document->documentelement; // <photoset>
+
+    OBJECT ARRAY photonodes := root->GetElementsByTagName('photo')->GetCurrentNodes();
+
+    RECORD ARRAY photos;
+    //FIXME: General (helper) function? Something like ->GetPhotosByPhotoNodes?
+    FOREVERY(OBJECT photonode FROM photonodes)
+    {
+      INSERT [ id         := photonode->GetAttribute('id')
+             , owner      := photonode->GetAttribute('owner')
+             , secret     := photonode->GetAttribute('secret')
+             , server     := photonode->GetAttribute('secret')
+             , title      := photonode->GetAttribute('title')
+             , ispublic   := photonode->GetAttribute('ispublic')
+             , isfriend   := photonode->GetAttribute('isfriend')
+             , isfamily   := photonode->GetAttribute('isfamily')
+             , dateupload := MakeDatetimeFromUnixTimestamp(ToInteger(photonode->GetAttribute('dateupload'),0)) // you'd expect 'date_upload'... but no
+
+             // square thumbnail
+             , pic_sq   := [ url    := photonode->GetAttribute('url_sq')
+                           , width  := photonode->GetAttribute('width_sq')
+                           , height := photonode->GetAttribute('height_sq')
+                           ]
+
+             // thumbnail
+             , pic_t    := [ url    := photonode->GetAttribute('url_t')
+                           , width  := photonode->GetAttribute('width_t')
+                           , height := photonode->GetAttribute('height_t')
+                           ]
+
+             // small
+             , pic_s    := [ url    := photonode->GetAttribute('url_s')
+                           , width  := photonode->GetAttribute('width_s')
+                           , height := photonode->GetAttribute('height_s')
+                           ]
+
+             // medium
+             , pic_m    := [ url    := photonode->GetAttribute('url_m')
+                           , width  := photonode->GetAttribute('width_m')
+                           , height := photonode->GetAttribute('height_m')
+                           ]
+
+             // original
+             , pic_o    := [ url    := photonode->GetAttribute('url_o')
+                           , width  := photonode->GetAttribute('width_o')
+                           , height := photonode->GetAttribute('height_o')
+                           ]
+
+             ] INTO photos AT END;
+    }
+
+    RETURN [ page           := root->GetAttribute('page')
+           , hasnextpage    := (root->GetAttribute('has_next_page') = '1')
+           , resultsperpage := root->GetAttribute('perpage')
+           , photos         := photos
+           ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  PUBLIC RECORD FUNCTION Request(STRING method, RECORD fields)
+  {
+    INSERT CELL method  := method INTO fields;
+    INSERT CELL api_key := this->apikey INTO fields;
+
+    RETURN this->SendRequest('POST', this->apiurl_feeds, fields);
+  }
+
+  // get first element with <tagname> which is a child of node
+  STRING FUNCTION GetValueOfFirstElementWithTagName(OBJECT parentnode, STRING tagname)
+  {
+    OBJECT node := this->GetFirstChildWithTagName(parentnode, tagname);
+
+    IF (NOT ObjectExists(node))
+      RETURN '';
+    ELSE
+      RETURN node->childrentext;
+  }
+
+  /** @short get the first childnode which has the given tagname
+      @param parentnode of which node the to be found node must be a child
+      @param tagname name of the node to find
+      @result OBJECT with the xmlnode
+  */
+  OBJECT FUNCTION GetFirstChildWithTagName(OBJECT parentnode, STRING tagname)
+  {
+    OBJECT ARRAY elements := parentnode->GetElementsByTagName(tagname)->getCurrentElements();
+
+    OBJECT firstfound;
+    FOREVERY(OBJECT node FROM elements)
+    {
+      IF (node->parentNode->IsSameNode(parentnode))
+      {
+        firstfound := node;
+        BREAK;
+      }
+    }
+
+    RETURN firstfound;
+  }
+
+  PUBLIC DATETIME FUNCTION ParseUnixTimestamp(STRING text)
+  {
+    INTEGER dt := ToInteger(text, -1);
+    RETURN AddTimeToDate((dt % 86400) * 1000, AddDaysToDate(dt / 86400, MakeDate(1970, 1, 1)));
+  }
+
+  RECORD FUNCTION SendRequest(STRING type, STRING url, RECORD args)
+  {
+    OBJECT browser := NEW WEBBrowser;
+    browser->timeout := 8 * 1000;
+
+    IF (ToUpperCase(type) = 'GET')
+    {
+      //Do an GET request with the arguments in the URL
+      RECORD ARRAY unpargs := UnpackRecord(args);
+
+      FOREVERY (RECORD arg FROM unpargs)
+      {
+        IF (TypeId(arg.value) = TypeId(INTEGER))
+          url := AddVariableToUrl(url, ToLowerCase(arg.name), ToString(arg.value));
+        ELSE
+          url := AddVariableToUrl(url, ToLowerCase(arg.name), arg.value);
+      }
+
+      browser->GotoWebPage(url);
+    }
+
+    IF (ToUpperCase(type) = 'POST')
+    {
+      RECORD ARRAY argsarr;
+      FOREVERY(RECORD arg FROM UnpackRecord(args))
+      {
+        IF (TypeId(arg.value) = TypeID(INTEGER))
+          INSERT [ name := ToLowerCase(arg.name), value := ToString(arg.value) ] INTO argsarr AT END;
+        ELSE
+          INSERT [ name := ToLowerCase(arg.name), value := arg.value ] INTO argsarr AT END;
+      }
+
+      browser->PostWebPage(url, argsarr, "", "utf-8");
+    }
+
+    // PostWebPage uses Content-Type application/x-www-form-urlencoded;charset=utf-8
+    //browser->PostWebPage(url, variables, "text/xml", "utf-8");
+
+    // PostWebPageBlob allows you to post a RAW body
+    //browser->PostWebPageBlob(url, headers, data);
+
+    //SendBlobTo(0, browser->content);
+
+    //SendBlobTo(0, browser->document->GetDocumentBlob(TRUE)); // dump with nice identation
+
+    RETURN [ document := browser->document
+           , browser  := browser
+           ];
+  }
+>;

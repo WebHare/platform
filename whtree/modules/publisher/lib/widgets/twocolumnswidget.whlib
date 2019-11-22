@@ -1,0 +1,30 @@
+<?wh
+/** @topic widgets/widgets
+*/
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+/** @short Two columns widget
+    @long Implements a two-column widget (http://www.webhare.net/xmlns/publisher/widgets/twocolumns)
+*/
+PUBLIC OBJECTTYPE TwoColumnsWidgetBase EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    MACRO PTR ARRAY columns := MACRO PTR[ this->GetRTDBody(this->data.rtdleft)
+                                        , this->GetRTDBody(this->data.rtdright)
+                                        ];
+    this->RenderMultiColumnPreview(columns);
+  }
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    this->EmbedWittyComponent([ rtdleft := this->GetRTDBody(this->data.rtdleft)
+                              , rtdright := this->GetRTDBody(this->data.rtdright)
+                              ]);
+  }
+>;

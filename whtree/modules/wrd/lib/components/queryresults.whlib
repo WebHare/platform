@@ -1,0 +1,114 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/components/runquery.whlib";
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// Get WRD query results to use as options
+//
+PUBLIC STATIC OBJECTTYPE QueryResults EXTEND WRDQueryBase
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_wrdschema;
+
+  OBJECT pvt_wrdquery;
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY wrdschema(pvt_wrdschema, -);
+
+  PUBLIC PROPERTY wrdquery(pvt_wrdquery, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    WRDQueryBase::StaticInit(def);
+
+    // Read and validate attributes
+    //ADDME: Should we provide a way to (statically) specify an owner entity id?
+    IF(NOT this->owner->tolliumcontroller->isvalidation)
+    {
+      IF(def.wrdcontext != "")
+      {
+        OBJECT wrdschema := this->owner->GetAppContext(def.wrdcontext);
+        IF(NOT ObjectExists(wrdschema))
+          THROW NEW TolliumException(this, "No WRD schema associated with context '" || def.wrdcontext || "'");
+
+        // Try to load the stored query
+        this->pvt_wrdquery := wrdschema->GetStoredQueryByTag(0, def.querytag);
+        IF (NOT ObjectExists(this->pvt_wrdquery))
+          THROW NEW TolliumException(this, "Could not find stored query '" || def.querytag || "' in WRD schema '" || wrdschema->tag || "'");
+      }
+      ELSE IF (def.wrdschema != "")
+        this->SetStoredQuery(def.wrdschema, 0, def.querytag);
+      ELSE
+      {
+        IF (ObjectExists(this->contexts->wrdschema))
+          this->SetStoredQuery(this->contexts->wrdschema->tag, 0, def.querytag);
+        ELSE
+          THROW NEW TolliumException(this, "Either wrdcontext or wrdschema must be provided to this component");
+      }
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Set the WRD schema and read the query for the given entity
+      @param wrdschema The name of the WRD schema to open
+      @param entityid Owner of the stored query, of 0 for global queries
+      @param querytag The tag of the (globally) stored WRD query within the schema
+  */
+  PUBLIC MACRO SetStoredQuery(STRING wrdschema, INTEGER entityid, STRING querytag)
+  {
+    // Try to open the WRD schema
+    TRY
+    {
+      this->pvt_wrdschema := OpenWRDSchemaByName(wrdschema, ObjectExists(this->owner->tolliumuser) ? this->owner->tolliumuser->language : "en");
+    }
+    CATCH (OBJECT e)
+    {
+      THROW NEW TolliumException(this, "Could not open WRD schema '" || wrdschema || "': " || e->what);
+    }
+    IF (NOT ObjectExists(this->pvt_wrdschema))
+      THROW NEW TolliumException(this, "Could not open WRD schema '" || wrdschema || "'");
+
+    // Try to load the stored query
+    this->pvt_wrdquery := this->pvt_wrdschema->GetStoredQueryByTag(entityid, querytag);
+    IF (NOT ObjectExists(this->pvt_wrdquery))
+      THROW NEW TolliumException(this, "Could not find stored query '" || querytag || "' in WRD schema '" || wrdschema || "'");
+
+    this->InvalidateCurrentOptions();
+  }
+
+  UPDATE RECORD ARRAY FUNCTION ExecuteWRDQuery()
+  {
+    RECORD ARRAY parameters;//ADDME: Probably unused...
+    IF (ObjectExists(this->wrdquery))
+    {
+      this->eventlistener->masks := this->wrdquery->GetEventMasks();
+      RETURN this->wrdquery->Execute(parameters);
+    }
+
+    this->eventlistener->masks := DEFAULT STRING ARRAY;
+    RETURN DEFAULT RECORD ARRAY;
+  }
+>;

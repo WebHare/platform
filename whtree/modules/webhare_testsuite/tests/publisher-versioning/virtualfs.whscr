@@ -1,0 +1,175 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/virtualfs/api.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+
+INTEGER initialnumentries;
+
+MACRO Prepare()
+{
+  testfw->BeginWork();
+
+  testfw->SetupTestWebsite(DEFAULT BLOB);
+
+  testfw->CommitWork();
+}
+
+MACRO Create()
+{
+  testfw->BeginWork();
+
+  EnableSiteVersionHistory(testfw->GetTestSite(), testfw->GetUserObject("sysop"), "publisher:default");
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+
+  OBJECT root := testfw->GetTestSite()->rootobject;
+
+  INTEGER file_externallink := root->OpenByName("externallink.shtml")->id;
+  INTEGER file_index_html := root->OpenByName("index.html")->id;
+
+  initialnumentries := Length(SELECT FROM system.fs_objects WHERE parent = root->id);
+
+  // External links should not be initially versioned
+  TestEQ([ file_index_html ], policy->GetPossibleVersionedObjects([ file_index_html, file_externallink ]));
+
+  TestEq(TRUE, policy->HasVersionEvents(root->OpenByName("index.html")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("externallink.shtml")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("internallink-published.shtml")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("dynfolder")));
+  TestEq(FALSE, policy->HasVersionEvents(root->OpenByName("emptyfilefolder")));
+
+  testfw->CommitWork();
+}
+
+MACRO TestVirtualFS()
+{
+  OBJECT vfs := OpenVirtualFS();
+  OBJECT testsite := testfw->GetTestSite();
+
+  STRING basepath := "/publisher" || testsite->rootobject->whfspath;
+
+  RECORD ARRAY entries;
+  OBJECT ex;
+
+  //Expect the testfolder to be empty
+  entries := vfs->GetDirectoryListing(basepath);
+  TestEq(initialnumentries, Length(entries));
+
+  //Create a file in the testfolder (throws)
+  ex := TestThrows(PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Dit is gf1.txt"), FALSE));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
+
+  // Create the file directly
+  testfw->BeginWork();
+  testsite->rootobject->CreateFile([ name := "gf1.txt", data := StringToBlob("Dit is gf1.txt") ]);
+  testfw->CommitWork();
+
+  //Verify it arrived
+  TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
+
+  //Try to create a new file with the same name but without the overwrite flag. Should throw a VirtualFSException
+  ex := TestThrows(PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Dit is een geupdate gf1"), FALSE));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException);
+  TestEq(TRUE, ex->IsAccessDenied());
+
+  TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
+
+  ex := TestThrows(PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Deze overwite mag niet lukken"), TRUE));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException);
+  TestEq(TRUE, ex->IsAccessDenied());
+  TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
+
+  //Read a nonexisting file
+  ex := TestThrows(PTR vfs->GetFile(basepath || "gf2.txt"));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException);
+  TestEq(FALSE, ex->IsAlreadyExists());
+  TestEq(TRUE, ex->IsBadPath());
+
+  //Verify the complete directory listing for our testfolder
+  entries := SELECT * FROM vfs->GetDirectoryListing(basepath) ORDER BY name NOT LIKE "gf*", name;
+  TestEq(initialnumentries + 1, Length(entries));
+  TestEq("gf1.txt", entries[0].name);
+  TestEq(Length64("Dit is gf1.txt"), entries[0].size);
+  TestEq(TRUE, entries[0].read);
+  TestEq(0, entries[0].type);
+  TestEq(FALSE, entries[0].write);
+
+  //Test IsValidDirectory
+  TestEq(FALSE, vfs->IsValidDirectory(basepath||"gf1.txt")); //is a file
+  TestEq(FALSE, vfs->IsValidDirectory(basepath||"blabla.txt")); //doesn't exist at all
+
+  //In-folder rename
+  TestEq(TRUE, Recordexists(vfs->GetPathInfo(basepath||"gf1.txt")));
+  TestEq(FALSE, Recordexists(vfs->GetPathInfo(basepath||"gf2.txt")));
+  ex := TestThrows(PTR vfs->Move(basepath||"gf1.txt", basepath||"gf2.txt", FALSE));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
+  TestEq(TRUE, Recordexists(vfs->GetPathInfo(basepath||"gf1.txt")));
+  TestEq(FALSE, Recordexists(vfs->GetPathInfo(basepath||"gf2.txt")));
+
+  TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
+
+  //In-folder copy
+  ex := TestThrows(PTR vfs->Copy(basepath||"gf1.txt", basepath||"gf2.txt", FALSE));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
+  TestEq(FALSE, Recordexists(vfs->GetPathInfo(basepath||"gf2.txt")));
+
+  //Make us a directory!
+  TestEq(FALSE, vfs->IsValidDirectory(basepath||"newdir"));
+  ex := TestThrows(PTR vfs->MakeDir(basepath || "newdir"));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
+
+  // Create the folder directly
+  testfw->BeginWork();
+  OBJECT folder_newdir := testsite->rootobject->CreateFolder([ name := "newdir" ]);
+  testfw->CommitWork();
+
+  TestEq(TRUE, vfs->IsValidDirectory(basepath||"newdir"));
+
+  //Delete a directory
+  ex := TestThrows(PTR vfs->DeletePath(basepath||"newdir"));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
+  TestEq(TRUE, vfs->IsValidDirectory(basepath||"newdir"));
+
+  testfw->BeginWork();
+  folder_newdir->DeleteSelf();
+  testfw->CommitWork();
+
+  TestEq(FALSE, vfs->IsValidDirectory(basepath||"newdir"));
+
+  //Set a modification date on gf1.txt
+  ex := TestThrows(PTR vfs->SetMetadata(basepath||"gf1.txt", [ modificationdate := MakeDate(2010,6,15) ]));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
+
+  //Delete gf1
+  ex := TestThrows(PTR vfs->DeletePath(basepath||"gf1.txt"));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
+
+  entries := vfs->GetDirectoryListing(basepath);
+  TestEq(initialnumentries + 1, Length(entries));
+
+  // ------
+  // Test: cannot delete the parent of a versioned site
+
+  STRING parentpath := "/publisher" || testsite->rootobject->parentobject->whfspath;
+  ex := TestThrows(PTR vfs->DeletePath(parentpath));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
+}
+
+RunTestFramework(
+    [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
+    , PTR Create
+    , PTR TestVirtualFS
+    ],
+    [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ] ]
+    ]);

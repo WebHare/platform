@@ -1,0 +1,269 @@
+<?wh
+LOADLIB "mod::publisher/lib/harescriptfile-v2.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/tools/gallery.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "wh::datetime.whlib";
+
+// ************************************************************************** //
+// * Photoalbum ************************************************************* //
+// ************************************************************************** //
+MACRO MakePhotoalbumNavLink(string partname, string alttext)
+{
+  IF (partname != "")
+  {
+    PRINT('<a href="');
+    InsertPartLink(partname);
+    PRINT('">' || EncodeHTML(alttext) ||'</a>');
+  }
+  ELSE
+  {
+    PRINT(EncodeHTML(alttext));
+  }
+}
+
+// print the navigation
+MACRO PrintThumbnailPageButtons(INTEGER curThumbpage, INTEGER TotalThumbpages, RECORD albumsettings)
+{
+  IF (NOT (TotalThumbpages > 1))
+    RETURN;
+
+  INTEGER thumbs_per_page := albumsettings.rows * albumsettings.columns;
+
+  PRINT('<table width="100%" cellpadding="0" cellspacing="0" border="0">\n');
+  PRINT('  <tr>\n');
+  PRINT('<td width="33%" align="left">\n');
+
+  IF (curThumbpage > 1)
+    MakePhotoalbumNavLink(GetThumbnailPartName((curThumbpage-1) * (thumbs_per_page)),"<<");
+  ELSE
+    MakePhotoalbumNavLink("","<<");
+  PRINT('</td>\n');
+  PRINT('<td width="33%" align="center">\n');
+  FOR (integer i := 1; i <= TotalThumbpages; i:= i + 1)
+  {
+    IF (i != CurThumbPage)
+    {
+      PRINT('<a href="');
+      InsertPartLink(GetThumbnailPartName(i * thumbs_per_page));
+      PRINT('">' || i || '</a>&nbsp;&nbsp;');
+    }
+    ELSE
+    {
+      PRINT(i || '&nbsp;&nbsp;');
+    }
+  }
+  PRINT('</td>\n');
+  PRINT('<td width="33%" align="right">\n');
+  IF (curThumbpage < TotalThumbpages)
+    MakePhotoalbumNavLink(GetThumbnailPartName((curthumbpage+1) * thumbs_per_page),">>");
+  ELSE
+    MakePhotoalbumNavLink("",">>");
+  PRINT('</td>\n');
+  PRINT('  </tr>\n');
+  PRINT('</table>\n');
+}
+
+MACRO PrintPhotoPageButtons(INTEGER curPhotopage, INTEGER TotalPhotos)
+{
+  IF (NOT (TotalPhotos > 1))
+    RETURN;
+
+  PRINT('<table width="100%" cellpadding="0" cellspacing="0" border="0">\n');
+  PRINT('  <tr>\n');
+  PRINT('<td width="33%" align="left">\n');
+
+  IF (curphotopage > 1)
+    MakePhotoalbumNavLink(GetPhotoPartName(curphotopage-1),"<<");
+  ELSE
+    MakePhotoalbumNavLink("","<<");
+  PRINT('</td>\n');
+
+  PRINT('<td width="33%" align="center">\n');
+    MakePhotoalbumNavLink(GetThumbnailPartName(curphotopage),"^");
+  PRINT('</td>\n');
+
+  PRINT('<td width="33%" align="right">\n');
+  IF (curphotopage < totalphotos)
+    MakePhotoalbumNavLink(GetPhotoPartName(curphotopage+1),">>");
+  ELSE
+    MakePhotoalbumNavLink("",">>");
+  PRINT('</td>\n');
+  PRINT('  </tr>\n');
+  PRINT('</table>\n');
+
+}
+
+IF (folder.type=3)
+{
+  RECORD photoalbum_props := GetPhotoalbumProps(folder.id);
+  INTEGER thumbs_per_page := photoalbum_props.rows * photoalbum_props.columns;
+
+  //pass information  -on how many thumbnails there are per page- on to the album-generator.
+  SetThumbnailsPerPage(thumbs_per_page);
+
+  RECORD ARRAY photopages := GetPhotoPages();        //get all the photo records
+
+  RECORD ARRAY thumbnailpages := GetThumbnailPages();    //get all the thumbnail pages
+                                                         //the number of thumbnails has to be set,
+                                                         //or else the deafult of 9 will be used.
+
+  integer NumberOfPhotos := length(photopages);          //calculate the number of photos. If it
+                                                         //is smaller than 1 (i.e. 0) then nothing has to be done.
+  if (NumberOfPhotos<1)   //if no sensible record array is passed print a decent message.
+  {
+      OpenPart();
+      ClosePart();
+      RETURN;
+  }
+
+  FOREVERY (RECORD thumbnailpage FROM thumbnailpages)   //walk thourgh the thumbailpages
+  {
+    OpenThumbnailPart(thumbnailpage);                 //opens a thumbnailpage
+    PRINT('<div class="whp_contentlisting">\n');
+
+    INTEGER count:=0;                                 //counter used to make tablerows
+
+    IF (file.title != "")
+     PRINT('<h2>'|| EncodeHTML(file.title) ||'</h2>');
+
+      PrintThumbnailPageButtons(thumbnailpage.pageid, LENGTH(thumbnailpages), photoalbum_props);
+    PRINT('<table cellspacing="0" cellpadding="0" border="0" width="100%">\n');
+    PRINT('<tr>\n<td>&nbsp;</td>\n</tr>\n');
+    FOREVERY (RECORD thumbnail FROM thumbnailpage.thumbnails) //walk through the thumbnails of this page
+    {
+      IF (count % photoalbum_props.columns = 0)  //if we start a new row, HTML it!
+        PRINT("  <tr>\n");
+
+      PRINT('    <td width="' || (100 / photoalbum_props.columns) || '%" valign="middle" align="center">'); //print a table cell filled with a thumbnail
+      PrintThumbnail(thumbnail);
+      PRINT("    </td>");
+
+      count := count + 1; //increase the count
+
+      IF (count % photoalbum_props.columns = 0)   //if we are the last thumbnail in the row, close the row
+        PRINT("  </tr>\n");
+    }
+    PRINT("\n</tr>\n<tr>\n<td>&nbsp;</td>\n</tr>\n</table>"); //close the table.
+
+    PrintThumbnailPageButtons(thumbnailpage.pageid,LENGTH(thumbnailpages), photoalbum_props);
+
+    PRINT('</div>\n');
+    CloseThumbnailPart(thumbnailpage); //close the thumbnailpage
+  }
+
+  FOREVERY (RECORD photopage FROM photopages)                     //walk through the photos
+  {
+    OpenPhotoPart(photopage);
+    PRINT('<div class="whp_contentlisting">\n');
+
+    IF (photopage.title != "")
+       PRINT('<h2>'|| EncodeHTMl(photopage.title) ||'</h2>');
+    ELSE
+       PRINT('<h2>'|| EncodeHTMl(file.title) ||'</h2>');
+
+    PrintPhotoPageButtons(photopage.photoid,LENGTH(photopages));
+    PRINT('<table cellspacing="0" cellpadding="0" border="0" width="100%">\n');
+    PRINT('<tr>\n<td>&nbsp;</td>\n</tr>\n');
+    PRINT('<tr>\n');
+    PRINT('<td width="100%" align="center">');
+    PrintPhoto(photopage);
+    PRINT('</td>\n</tr>\n');
+    IF (photopage.description != "")
+      PRINT('<tr><td>' || ENCODEHTML(photopage.description) || '</td>\n</tr>\n');
+
+    PRINT('<tr>\n<td>&nbsp;</td>\n</tr>\n</table>'); //close the table.
+    PrintPhotoPageButtons(photopage.photoid,LENGTH(photopages));
+
+    PRINT('</div>\n');
+    ClosePhotoPart(photopage);
+  }
+}
+ELSE //Plain index
+{
+  // This file creates an overview of all available files and folders in the current folder
+  // Only folders of the standard type (Folder.type=0)
+  RECORD ARRAY allfolders := SELECT id,
+                                    name,
+                                    title,
+                                    url := indexurl
+                               FROM system.fs_objects
+                              WHERE isfolder = FALSE
+                                AND parent=folder.id
+                                AND indexurl != ""
+                           ORDER BY ordering, ToUppercase(name);
+
+  RECORD ARRAY allfiles := SELECT id,
+                                  name,
+                                  title,
+                                  url,
+                                  modificationdate
+                             FROM system.fs_objects
+                            WHERE isfolder = FALSE
+                              AND parent=folder.id
+                              AND publish
+                         ORDER BY ordering, ToUppercase(name);
+
+  OpenPart();
+
+  PRINT('<div class="whp_contentlisting">\n');
+  IF (site.root != folder.id)
+  {
+    STRING parentfolderurl := SELECT AS STRING link FROM system.fs_objects WHERE id = folder.parent;
+    IF(parentfolderurl != "")
+      PRINT('<p><a href="' || EncodeValue(parentfolderurl) || '">' || parentfolderurl || '</a></p>\n');
+  }
+
+  IF (LENGTH(allfolders)>0)
+  {
+    PRINT('<table width="100%" cellpadding="0" cellspacing="0">\n');
+    PRINT('  <tr>\n');
+    PRINT('    <th align="left" width="25%">');
+    PRINT('      Folders</th>\n');
+    PRINT('    <th align="left" width="75%">');
+    PRINT('      Title</th>\n');
+    PRINT('  </tr>\n');
+    FOREVERY (RECORD currentfolder FROM allfolders)
+    {
+      PRINT('<tr>\n');
+      PRINT('  <td align="left">');
+      PRINT('    <a href="' || EncodeValue(currentfolder.url) || '">' || EncodeHTML(CURRENTFOLDER.NAME) || '</a></td>\n');
+      PRINT('  <td align="left">');
+      PRINT(     EncodeHTML(CURRENTFOLDER.TITLE) || '</td>\n');
+      PRINT('</tr>\n');
+    }
+    PRINT('</table>\n');
+  }
+
+  Print('<br />');
+
+  IF (LENGTH(allfiles)>0)
+  {
+    PRINT('<table width="100%" cellpadding="0" cellspacing="0">\n');
+    PRINT('  <tr>\n');
+    PRINT('    <th align="left" width="25%">');
+    PRINT('      Files</th>\n');
+    PRINT('    <th align="left" width="50%">');
+    PRINT('      Title</th>\n');
+    PRINT('    <th align="left" width="25%">');
+    PRINT('      Modified</th>\n');
+    PRINT('  </tr>\n');
+    FOREVERY (RECORD CURRENTFILE FROM ALLFILES)
+    {
+      PRINT('<tr>\n');
+      PRINT('  <td align="left">');
+      PRINT('    <a href="' || EncodeValue(CURRENTFILE.URL) || '">' || EncodeHTML(CURRENTFILE.NAME) || '</a></td>\n');
+      PRINT('  <td align="left">');
+      PRINT(     EncodeHTML(CURRENTFILE.TITLE) || '</td>\n');
+      PRINT('  <td align="left">');
+      PRINT(     FormatDateTime("%d-%m-%Y %H:%M:%S", CURRENTFILE.MODIFICATIONDATE, "") || '</td>\n');
+      PRINT('</tr>\n');
+    }
+    PRINT('</table>\n');
+  }
+
+  PRINT('</div>\n');
+
+
+  ClosePart();
+}

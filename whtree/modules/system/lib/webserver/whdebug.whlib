@@ -1,0 +1,73 @@
+﻿<?wh
+/** @topic sitedev/dynamic
+*/
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+STRING ARRAY debugsettings;
+BOOLEAN outputtoolsactive;
+BOOLEAN didsetupprofiling;
+
+MACRO ProcessWHDebugVariables(BOOLEAN skipchecks)
+{
+  STRING debugcookie := GetWebCookie("wh-debug");
+  IF(debugcookie != "")
+  {
+    STRING ARRAY toks := Tokenize(debugcookie,'.');
+    STRING hash := toks[END-1];
+    IF(skipchecks OR ValidateSignatureForThisServer("publisher:wh-debug", Left(debugcookie, Length(debugcookie) - Length(hash) - 1), Substring(hash,4)))
+      debugsettings := ArraySlice(toks, 0, Length(toks)-1);
+  }
+
+  STRING debugvars := GetWebVariable("wh-debug");
+  iF(debugvars != "")
+  {
+    FOREVERY(STRING opt FROM Tokenize(debugvars,','))
+      IF(skipchecks OR opt IN whconstant_whdebug_publicflags) //we permit -some- URL flags, most specifically 'apr'
+        INSERT opt INTO debugsettings AT END;
+  }
+
+  IF("apr" IN debugsettings AND NOT didsetupprofiling)
+  {
+    didsetupprofiling := TRUE;
+    IF(__HS_INTERNAL_OVERRIDEEXECUTELIBRARY("") NOT LIKE "*/modules/publisher/web/view.shtml") //do not profile view.shtml, causes many dupes
+      SetupFunctionProfiling("webserver", GetRequestMethod() || " " || GetRequestUrl());
+  }
+}
+
+/** Generate a signed debug setting string, suitable for the wh-debug cookie */
+PUBLIC STRING FUNCTION GetSignedWHDebugOptions(STRING ARRAY opts)
+{
+  IF(Length(opts) = 0)
+    RETURN "";
+
+  STRING debugcookie := Detokenize(opts,'.');
+  RETURN debugcookie|| ".sig=" || GetSignatureForThisServer("publisher:wh-debug",debugcookie); //adding .sig is backwards compatible with old dompacks, as it tokenizes on '.'
+}
+
+/** Explicitly accept wh-debug settings without checking. Should only be used for testing, as this can cause eg information leaks and captcha avoidance! */
+PUBLIC MACRO ProcessWHDebugVariablesUnchecked()
+{
+  ProcessWHDebugVariables(TRUE);
+}
+
+/** Test whether the specific debug option is set */
+PUBLIC BOOLEAN FUNCTION IsWHDebugOptionSet(STRING opt)
+{
+  IF(NOT IsRequest())
+    THROW NEW NotAShtmlContextException;
+  RETURN ToLowercase(opt) IN debugsettings;
+}
+
+/** Test whether the output tools are enabled (the green reload box) */
+PUBLIC BOOLEAN FUNCTION AreOutputToolsActive()
+{
+  RETURN GetWebCookie("__whpub_preview") = "debug" OR GetWebCookie("__passedon_whpub_preview") = "debug"; //view.shtml renames it
+}
+
+IF(IsRequest())
+  ProcessWHDebugVariables(FALSE);
+

@@ -1,0 +1,60 @@
+<?wh
+
+STRING FUNCTION ParseLanguageNode(OBJECT textnode)
+{
+  STRING text;
+  FOREVERY (OBJECT node FROM textnode->childnodes->GetCurrentNodes())
+  {
+    IF (node->nodetype = node->TEXT_NODE)
+    {
+      text := text || node->nodevalue;
+    }
+    ELSE IF (node->nodetype = node->ELEMENT_NODE)
+    {
+      // <param p="1"/> <ifparam p="1" value="1">second<else/>seconds</ifparam>
+      // %1 [IF %1="1"]second[ELSE]seconds[/IF]
+      SWITCH (node->nodename)
+      {
+        CASE "param"
+        {
+          text := text || "%" || node->GetAttribute("p");
+        }
+        CASE "ifparam"
+        {
+          text := text || "[IF %" || node->GetAttribute("p") || "=\"" || EncodeJava(node->GetAttribute("value")) || "\"]" || ParseLanguageNode(node) || "[/IF]";
+        }
+        CASE "else"
+        {
+          text := text || "[ELSE]";
+        }
+      }
+    }
+  }
+  RETURN text;
+}
+
+
+
+PUBLIC RECORD ARRAY FUNCTION ReadLanguageStrings(OBJECT textgroup, STRING gid, BOOLEAN usespaces DEFAULTSTO FALSE)
+{
+  RECORD ARRAY texts;
+  FOREVERY (OBJECT node FROM textgroup->childnodes->GetCurrentElements())
+  {
+    SWITCH (node->nodename)
+    {
+      CASE "text"
+      {
+        STRING tid := node->GetAttribute("tid");
+        IF (usespaces)
+          tid := Substitute(tid, "_", " ");
+        INSERT [ name := gid || tid, value := ParseLanguageNode(node) ] INTO texts AT END;
+      }
+      CASE "textgroup"
+      {
+        texts := texts CONCAT ReadLanguageStrings(node, gid || node->GetAttribute("gid") || ".", usespaces);
+      }
+    }
+  }
+  RETURN texts;
+}
+

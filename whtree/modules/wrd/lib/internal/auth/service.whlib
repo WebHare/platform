@@ -1,0 +1,51 @@
+﻿<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
+
+
+PUBLIC RECORD FUNCTION RPC_Login(STRING url, STRING login, STRING password, BOOLEAN persistent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+    IF(cellrec.name NOT IN [ "CHALLENGE", "RETURNTO", "SAMLIDPREQ" ])
+      THROW NEW Exception("Unrecognized option '" || cellrec.name || "'");
+
+  STRING challenge := CellExists(options, "CHALLENGE") ? options.challenge : "";
+  STRING returnto := CellExists(options, "RETURNTO") ? options.returnto : "";
+
+  OBJECT wrdauthplugin := GetAuthIntegrationPlugin(GetWebOriginURL(url), GetClientWebserver());
+  IF(persistent)
+    wrdauthplugin->wrdauth->persistentcookie := TRUE;
+
+  RECORD result := wrdauthplugin->Login(login, password,
+        [ challenge := challenge
+        , returnto := returnto
+        , samlidpreq := CellExists(options, "SAMLIDPREQ") ? options.samlidpreq : ""
+        ]);
+  IF(result.success)
+  {
+    RECORD userinfo := wrdauthplugin->GetUserInfo();
+    IF(RecordExists(userinfo))
+      INSERT CELL userinfo := userinfo INTO result;
+  }
+  RETURN result;
+}
+
+PUBLIC RECORD FUNCTION RPC_StartSAMLLogin(STRING url, STRING samlsptag, RECORD options)
+{
+  OBJECT wrdauthplugin := GetAuthIntegrationPlugin(url, GetClientWebserver());
+  RECORD reqoptions :=
+      [ action :=       CellExists(options, "ACTION") ? options.action : "redirect"
+      , passive :=      CellExists(options, "PASSIVE") AND options.passive
+      , forcelogin :=   CellExists(options, "FORCELOGIN") AND options.forcelogin
+      , allowlogout :=  NOT CellExists(options, "ALLOWLOGOUT") OR options.allowlogout
+      ];
+
+  // Remove wrdauth_returned variable from url we return to, it isn't reset in the return path
+  STRING redirectto := DeleteVariableFromURL(url, "wrdauth_returned");
+
+  RETURN wrdauthplugin->GenerateSAMLLoginRequest(samlsptag, redirectto, reqoptions);
+}

@@ -1,0 +1,3 @@
+﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="precalcprovider.whlib">
+  <test script="testprecalc.whscr" />
+</group>

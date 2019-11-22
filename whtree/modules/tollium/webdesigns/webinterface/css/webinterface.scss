@@ -1,0 +1,154 @@
+/* Global page, HTML5 setup, style reset */
+html, body, p, h1, h2, h3, h4, h5, h6, form { padding:0; margin:0; }
+img { border:none; }
+article, aside, details, figcaption, figure, footer, header, hgroup, main, nav, section, summary { display: block; }
+audio, canvas, video { display: inline-block; }
+datalist, template { display:none; }
+
+*
+{
+  -webkit-box-sizing: border-box; /* Android 2.3 still requires this */
+  -moz-box-sizing: border-box; /* For people still running firefox 24ESR */
+  box-sizing: border-box;
+}
+
+html
+{
+  font: 12px Roboto, Helvetica, Arial, sans-serif;
+  background-color: #ffffff;
+  color: #333333;
+  -webkit-font-smoothing: antialiased;
+  width: 100%;
+  height: 100%;
+}
+html.wh-tollium--app body
+{
+  height:100%;
+  overflow: hidden; /* Prevent 'bumping' the whole interface when scrolling beyond limits (if scrolling with momentum) */
+  border-bottom: 12px solid #3b3b3b;
+}
+/* Top bar, also trigger for debug mode */
+html.wh-tollium--app #topbar
+{
+  height: 12px;
+  width: 100%;
+  background-color: #000000;
+  transition: background-color 300ms;
+}
+html.wh-tollium--app #topbar.topbar--play
+{
+  background-color:#52aefe;
+  transition: none;
+}
+
+html.wh-tollium--app main
+{
+  height: calc(100% - 12px);
+}
+
+body
+{
+  -webkit-text-size-adjust: none;
+  -ms-text-size-adjust: none;
+  -moz-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+html.previewframe h1
+{
+  font-weight: bold;
+}
+html.previewframe h1,
+html.previewframe p
+{
+  margin:1em 0;
+}
+
+
+/* Navigation */
+header
+{
+  margin-bottom: 10px;
+}
+header div.navlevel
+{
+  color: #eeeeee;
+  height: 36px;
+  padding: 0px 15px 0 0;
+  background-color: #3b3b3b;
+  font-size: 12px;
+  box-shadow: 0 1px 1px rgba(0,0,0,.4);
+}
+header div.navlevel h1
+{
+  color:inherit;
+  font-weight:inherit;
+}
+header div.navlevel > *
+{
+  display:inline-block;
+  vertical-align: middle;
+  padding: 5px 15px 5px 15px;
+  height: 36px;
+  line-height: 26px;
+}
+header div.navlevel + div.navlevel
+{
+  background-color: #2e2e2e;
+}
+header div.navlevel + div.navlevel + div.navlevel
+{
+  background-color: #212121;
+}
+header div.navlevel + div.navlevel + div.navlevel + div.navlevel
+{
+  background-color: #141414;
+}
+
+header div.navlevel label
+{
+  min-width:120px;
+  border-right:1px solid rgba(0,0,0,.2);
+  background:rgba(255,255,255,.05);
+}
+header div.navlevel nav
+{
+  display:inline-block;
+  list-style: none;
+}
+header div.navlevel nav li
+{
+  display:inline-block;
+}
+header div.navlevel nav li a
+{
+  display:inline-block;
+  color:inherit;
+  text-decoration: none;
+  padding:0 10px;
+  color: #c8c8c8;
+}
+header div.navlevel nav li a.selected
+{
+  background:rgba(255,255,255,.1);
+  border-radius:5px;
+  color:#eeeeee;
+}
+
+cite
+{
+  width: 300px;
+  position: fixed;
+  padding: 10px;
+  top: 0px;
+  right: 0px;
+  border: 1px solid #ADADAD;
+  border-radius: 8px;
+  background-color: rgba(70, 70, 70, .9);
+  color: #FFFFFF;
+}
+
+/*main
+{
+  padding:5px 15px;
+}*/

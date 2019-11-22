@@ -1,0 +1,49 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+
+STRING srhid := GetWebVariable("srhid");
+IF (srhid = "")
+{
+  srhid := GetWebVariable("state");
+  IF (srhid LIKE "srhid:*")
+  {
+    srhid := Substring(srhid, 6);
+    srhid := DecryptForThisServer("socialite:authorize", srhid);
+  }
+}
+ELSE IF (srhid NOT LIKE "__socialite_srhid:*")
+  srhid := DecryptForThisServer("socialite:authorize", srhid);
+
+/* ADDME ?
+IF (srhid = "")
+{
+  PRINT('<html>\n');
+  PRINT('  <body>\n');
+  PRINT('    <script type="text/javascript">\n');
+  PRINT('      if (window.opener && window.opener.authenticated_foursquare)\n');
+  PRINT('        window.opener.authenticated_foursquare(window.location.href);\n');
+  PRINT('      window.close();\n');
+  PRINT('    </script>\n');
+  PRINT('  </body>\n');
+  PRINT('</html>\n');
+  RETURN;
+}
+*/
+BroadcastEvent("socialite:config.authorize",
+    [ srhid :=          srhid
+    , href :=           GetRequestURL()
+    ]);
+
+PRINT('<html>\n');
+PRINT('  <body>\n');
+PRINT('    Authentication completed, thank you.\n');
+PRINT('    <script type="text/javascript">\n');
+PRINT('      window.close();\n');
+PRINT('    </script>\n');
+PRINT('  </body>\n');
+PRINT('</html>\n');

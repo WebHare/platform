@@ -1,0 +1,460 @@
+<?wh
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::formatter/output.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+
+//FIXME privatize hsxml, we only use it for internal tests and its format is quite flaky...
+
+RECORD FUNCTION __GETPARSERDEFAULTS() __ATTRIBUTES__(EXTERNAL "parser_format_hsxml");
+INTEGER FUNCTION __CREATECALLBACKFORMATOUTPUT(OBJECT pagebase) __ATTRIBUTES__(EXTERNAL "parser_format_hsxml");
+MACRO __CloseCallbackFormatOutput(INTEGER outputid) __ATTRIBUTES__(EXTERNAL "parser_format_hsxml");
+
+STRING FUNCTION EncodePoints100(INTEGER val)
+{
+  IF(val=0)
+    RETURN "0";
+  STRING retval := FormatMoney(val/100m,0,".","",FALSE) || "pt";
+  IF(retval LIKE "0.*")
+    retval:=Substring(retval,1);
+  RETURN retval;
+}
+
+STRING FUNCTION ToColorCode(INTEGER hspixelcode) //note: drawlib stores U32 pixels as ABGR, but the translation layer already made it ARGB
+{
+  RETURN "#"||Right("00000"||ToString(hspixelcode,16),6);
+}
+
+STRING FUNCTION ExplainHAlign(INTEGER jc)
+{
+  RETURN ["left","center","right","justified"][jc];
+}
+STRING FUNCTION ExplainValign(INTEGER valign)
+{
+  RETURN ["top","middle","bottom"][valign];
+}
+STRING FUNCTION ExplainListtype(INTEGER listtype)
+{
+  RETURN ["none","inline_bullet","sidebyside_bullet"][listtype];
+}
+
+STRING FUNCTION ExplainCharacter(RECORD data)
+{
+  STRING retval := "<charprops";
+  FOREVERY(STRING prop FROM ["bold","italic","strikethrough","blink","smallcaps","doublestrike"
+                            ,"shadow","emboss","imprint","outline","overline","insertion","deletion"])
+    IF(GetCell(data,prop))
+      retval := retval || " " || prop || "='1'";
+
+  IF(data.subsuper=1)
+    retval := retval || " script='sub'";
+  ELSE IF(data.subsuper=2)
+    retval := retval || " script='super'";
+  ELSE IF(data.subsuper!=0)
+    THROW NEW Exception("Unknown sub/super setting #" || data.subsuper);
+
+  IF(data.underline=1)
+    retval := retval || " underline='single'";
+  ELSE IF(data.underline!=0)
+    THROW NEW Exception("Unknown underlining setting #" || data.underline);
+
+  IF( (data.color BITAND 0xFF000000) != 0) //not fully transparent
+    retval := retval || " fgcolor='" || ToColorCode(data.color) || "'";
+  IF( (data.bgcolor BITAND 0xFF000000) != 0) //not fully transparent
+    retval := retval || " bgcolor='" || ToColorCode(data.bgcolor) || "'";
+
+  IF(data.fontface != "")
+  {
+    retval := retval || " fontface='" || EncodeValue(data.fontface) || "'"
+                     || " fontoverride='" || (data.fontallowoverride ? "ok" : "never") || "'";
+  }
+
+  STRING fontsize := FormatFloat(data.fontsize,1);
+  IF(fontsize LIKE "*.0")
+    fontsize := Left(fontsize,LEngth(fontsize)-2);
+
+  retval := retval || " fontsize='" || fontsize || "'";
+  retval := retval || "/>";
+  RETURN retval;
+}
+
+STRING FUNCTION ExplainPadding(RECORD data) //FIXME this shoudl be in TWIPS too, just like image padding is now
+{
+  RETURN "[distance:top=" || data.top || ",right=" || data.right || ",bottom=" || data.bottom || ",left=" || data.left || "]";
+}
+
+STRING FUNCTION ExplainParagraph(RECORD data)
+{
+  RETURN "<paraprops"
+        || " firstindent='" || data.textindent || "'"
+        || " padding='" || ExplainPadding(data.padding) || "'"
+        || " jc='" || ExplainHalign(data.halign) || "'"
+        || "/>";
+}
+
+STRING FUNCTION ExplainBorder(RECORD bordertype)
+{
+  RETURN " color='" || ToColorCode(bordertype.color)
+         || "' thickness_twips='" || bordertype.thickness
+         || "' overlapped='" || (bordertype.overlapped?"yes":"no")
+        || "'";
+}
+/*std::ostream& operator || (std::ostream &str, Table::CellTypes celltype)
+{
+        switch(celltype)
+        {
+        case Table::Open: str || "open"; break;
+        case Table::Data: str || "data"; break;
+        case Table::OverlappedStartLower: str || "overlappedstartlower"; break;
+        case Table::OverlappedRemainder: str || "overlappedremainder"; break;
+        case Table::OutsideTable: str || "outsidetable"; break;
+        default: str || "unknown celltype?";
+        }
+        return str;
+}*/
+STRING FUNCTION ExplainTableCell(RECORD format)
+{
+  IF(NOT RecordExists(format))
+  {
+    //this is one of the 'overlapped' types
+    RETURN "<cellformat />\n";
+  }
+
+  STRING celltype := format.isopen ? "open" : "data";
+  STRING retval := "<cellformat type='" || celltype || "'";
+  IF(NOT format.isopen)
+  {
+    IF( (format.bgcolor BITAND 0xFF000000) != 0) //not fully transparent
+      retval := retval || " bgcolor='" || ToColorCode(format.bgcolor) || "'";
+    retval := retval || " valign='" || EXplainValign(format.valign)
+              || "' rowspan='" || format.rowspan
+              || "' colspan='" || format.colspan
+              || "' padding='" || ExplainPadding(format.padding)
+              || "'";
+  }
+  retval := retval || ">";
+  IF(NOT format.isopen)
+  {
+    retval := retval || "<topborder" || ExplainBorder(format.bordertop) || " />";
+    retval := retval || "<rightborder" || ExplainBorder(format.borderright) || " />";
+    retval := retval || "<bottomborder" || ExplainBorder(format.borderbottom) || " />";
+    retval := retval || "<leftborder" || ExplainBorder(format.borderleft) || " />";
+  }
+  retval := retval || "</cellformat>\n";
+  RETURN retval;
+}
+
+STRING FUNCTION ExplainTable(RECORD format)
+{
+  STRING retval := "\n<tableinfo rows='" || Length(format.rows)
+                    || "' cols='" || Length(format.cols)
+                    || "' tablepadding='" || ExplainPadding(format.padding)
+                    || "' defaultcellpadding='" || ExplainPadding(format.cellpadding)
+                    || "' cellspacing='" || format.cellspacing
+                    || "' halign='" || ExplainHalign(format.halign)
+                    || "'>\n";
+
+  retval := retval || "<widths>";
+  FOREVERY(RECORD col FROM format.cols)
+    retval := retval || "<column width=\"" || col.width || "\" />";
+  retval := retval || "</widths>\n";
+  retval := retval || "<grid>\n";
+  FOREVERY(RECORD gridrow FROM format.gridrows)
+  {
+    retval := retval || "<gridrow>\n";
+    FOREVERY(RECORD cellrec FROM gridrow.cells)
+      retval := retval || ExplainTableCell(cellrec);
+    retval := retval || "</gridrow>\n";
+  }
+  retval := retval || "</grid>\n";
+  retval := retval || "</tableinfo>\n";
+  RETURN retval;
+}
+
+
+//FIXME call it an output, a page, or... ?
+PUBLIC STATIC OBJECTTYPE __CallbackFormatterPageBase EXTEND FormattingPageBase
+<
+  //base character formatting (when nothing specifically is set)
+  RECORD base_character;
+  //base paragraph formatting (when nothing specifically is set)
+  RECORD base_paragraph;
+
+  MACRO NEW(OBJECT formatteroutput, INTEGER streamid)
+  : FormattingPageBase(formatteroutput, streamid, 0, PTR __CREATECALLBACKFORMATOUTPUT(#1))
+  {
+    RECORD def := __GETPARSERDEFAULTS();
+    this->base_character := def.character;
+    this->base_paragraph := def.paragraph;
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    __CloseCallbackFormatOutput(this->id);
+    FormattingPageBase::Close();
+  }
+
+  UPDATE PUBLIC MACRO PrintParserObject(INTEGER parserobjectid)
+  {
+    FormattingPageBase::PrintParserObject(parserobjectid);
+  }
+
+  INTEGER FUNCTION PredefineStyle(STRING suggestedname, RECORD paragraph, RECORD character)
+  {
+    RETURN 0;
+  }
+  MACRO StartParagraph(RECORD parainfo)
+  {
+
+  }
+  MACRO EnterParaText()
+  {
+
+  }
+  MACRO EndParagraph()
+  {
+
+  }
+  MACRO ChangeFormatting(RECORD newformatting)
+  {
+
+  }
+  MACRO SetAnchor(STRING anchorname)
+  {
+
+  }
+
+  MACRO StartTable(RECORD tableformat)
+  {
+
+  }
+  MACRO StartTableRow()
+  {
+
+  }
+  MACRO StartTableCell(INTEGER row, INTEGER col, RECORD cellformat)
+  {
+
+  }
+  MACRO EndTableCell()
+  {
+
+  }
+  MACRO EndTableRow()
+  {
+
+  }
+  MACRO EndTable()
+  {
+
+  }
+  MACRO StartHyperlink(RECORD linkdata)
+  {
+
+  }
+  MACRO EndHyperlink()
+  {
+
+  }
+>;
+
+STATIC OBJECTTYPE HSXMLFormatterPage EXTEND __CallbackFormatterPageBase
+<
+  RECORD actual_character;
+  RECORD official_character;
+  RECORD ARRAY pvt_images;
+
+  PUBLIC PROPERTY images(pvt_images, -);
+
+  MACRO NEW(OBJECT formatteroutput, INTEGER streamid) __ATTRIBUTES__(DEPRECATED "The HSXML formatter has been deprecated in favour of the RTD format")
+  : __CallbackFormatterPageBase(formatteroutput, streamid)
+  {
+    this->official_character := this->base_character;
+  }
+
+  UPDATE INTEGER FUNCTION PredefineStyle(STRING suggestedname, RECORD paragraph, RECORD character)
+  {
+    PrintTo(this->outputstream, "<!-- predefine style "
+                                || suggestedname || ", "
+                                || ExplainParagraph(paragraph) || ", "
+                                || ExplainCharacter(character) || " -->");
+    RETURN 0;
+  }
+
+  UPDATE MACRO StartParagraph(RECORD parainfo)
+  {
+    PrintTo(this->outputstream,"\n<paragraph xmlns='http://www.webhare.net/xmlns/harescript/hsxml'"
+                               || " listtype='" || ExplainListtype(parainfo.listtype) || "'"
+                               || " predefstyle='" || parainfo.styleid || "'"
+                               || (parainfo.paragraph.headinglevel != 0 ? " headinglevel='" || parainfo.paragraph.headinglevel || "'" : "")
+                               || ">\n"
+                               || ExplainParagraph(parainfo.paragraph)
+                               || "\n");
+    this->actual_character := this->base_character;
+  }
+  UPDATE MACRO EnterParaText()
+  {
+    PrintTo(this->outputstream,"\n<enterparatext />\n");
+  }
+  UPDATE MACRO EndParagraph()
+  {
+    PrintTo(this->outputstream,"</paragraph>\n");
+  }
+  UPDATE MACRO ChangeFormatting(RECORD newformatting)
+  {
+    this->official_character := newformatting;
+  }
+  MACRO EnsureFormattingUptodate()
+  {
+    //quick check for changes
+    IF(EncodeJSON(this->official_character) = EncodeJSON(this->actual_character))
+      RETURN;
+
+    this->actual_character := this->official_character;
+    PrintTo(this->outputstream, ExplainCharacter(this->actual_character) || "\n");
+  }
+
+  UPDATE MACRO ExecuteImageCallback(RECORD img)
+  {
+    this->EnsureFormattingUptodate();
+
+    OBJECT imgcanvas := CreateEmptyCanvas(img.lenx,img.leny,img.bgcolor);
+    img.renderimage(imgcanvas->canvasid, 0, 0, img.lenx, img.leny);
+    INSERT INTO this->pvt_images(pngdata) VALUES(imgcanvas->ExportAsPNG(FALSE)) AT END;
+    imgcanvas->Close();
+
+    //ADDME a general version should combine with redirector code in the base?
+    PrintTo(this->outputstream,
+            "<image"
+            || (img.align=1 ? " text-align='left'" : "")
+            || (img.align=2 ? " text-align='right'" : "")
+            || " src='" || img.uniqueid || "'"
+            || " width='" || img.lenx || "px'"
+            || " height='" || img.leny || "px'"
+            || " bgcolor='" || ToColorCode(img.bgcolor) || "'"
+            || " is_known_photo='" || (img.is_known_photo?"1":"0") || "'"
+            //FIXME we should be referring a standard 'padding'structure
+            || " margintop='" || EncodePoints100(img.padding.top*5) || "'"
+            || " marginright='" || EncodePoints100(img.padding.right*5) || "'"
+            || " marginbottom='" || EncodePoints100(img.padding.bottom*5) || "'"
+            || " marginleft='" || EncodePoints100(img.padding.left*5) || "'"
+            || " alttag='" || EncodeValue(img.alttag) || "'"
+            || " title='" ||EncodeValue(img.title) || "'"
+            || " animated_gif='" || EncodeBase16(BlobToString(img.animated_gif,-1)) || "'"
+            || "/>");
+  }
+
+  UPDATE MACRO SetAnchor(STRING anchor)
+  {
+    PrintTo(this->outputstream, "<anchor name='" || EncodeValue(anchor) || "' />\n");
+  }
+
+  UPDATE MACRO WriteText(STRING text)
+  {
+    this->EnsureFormattingUptodate();
+    PrintTo(this->outputstream,EncodeValue(text));
+  }
+
+  UPDATE MACRO StartTable(RECORD tableformat)
+  {
+    PrintTo(this->outputstream,
+            "<table xmlns='http://www.webhare.net/xmlns/harescript/hsxml'>\n"
+            || ExplainTable(tableformat)
+            || "<body>\n");
+
+  }
+  UPDATE MACRO StartTableRow()
+  {
+    PrintTo(this->outputstream, "<tablerow>\n");
+  }
+  UPDATE MACRO StartTableCell(INTEGER row, INTEGER col, RECORD cellformat)
+  {
+    PrintTo(this->outputstream,
+             "<tablecell"
+             || " border-style='solid'"
+             || " padding-top='" || EncodePoints100(cellformat.padding.top*5)
+             || "' padding-bottom='" || EncodePoints100(cellformat.padding.bottom*5)
+             || "' padding-left='" || EncodePoints100(cellformat.padding.left*5)
+             || "' padding-right='" || EncodePoints100(cellformat.padding.right*5)
+             || "'");
+
+    IF(cellformat.bordertop.thickness = cellformat.borderleft.thickness
+      AND cellformat.borderleft.thickness = cellformat.borderright.thickness
+      AND cellformat.borderright.thickness = cellformat.borderbottom.thickness)
+    {
+      PrintTo(this->outputstream, " border-width='" || EncodePoints100(cellformat.bordertop.thickness*5) || "'");
+    }
+    ELSE
+    {
+      PrintTo(this->outputstream,
+              " border-top-width='" || EncodePoints100(cellformat.bordertop.thickness*5)
+              || "' border-bottom-width='" || EncodePoints100(cellformat.borderbottom.thickness*5)
+              || "' border-left-width='" || EncodePoints100(cellformat.borderleft.thickness*5)
+              || "' border-right-width='" || EncodePoints100(cellformat.borderright.thickness*5)
+              || "'");
+    }
+
+    IF(cellformat.bordertop.color = cellformat.borderleft.color
+       AND cellformat.borderleft.color = cellformat.borderright.color
+       AND cellformat.borderright.color = cellformat.borderbottom.color)
+    {
+      PrintTo(this->outputstream, " border-color='" || ToColorCode(cellformat.bordertop.color) || "'");
+    }
+    ELSE
+    {
+      PrintTo(this->outputstream,
+              " border-top-color='" || ToColorCode(cellformat.bordertop.color)
+              || "' border-bottom-color='" || ToColorCode(cellformat.borderbottom.color)
+              || "' border-left-color='" || ToColorCode(cellformat.borderleft.color)
+              || "' border-right-color='" || ToColorCode(cellformat.borderright.color)
+              || "'");
+    }
+
+    IF( (cellformat.bgcolor BITAND 0xFF000000) != 0) //not fully transparent
+      PrintTo(this->outputstream," background-color='" || ToColorCode(cellformat.bgcolor) || "'");
+
+    PrintTo(this->outputstream,
+             " number-columns-spanned='" || cellformat.colspan || "'"
+             || " number-rows-spanned='" || cellformat.rowspan || "'"
+             || ">\n");
+  }
+  UPDATE MACRO EndTableCell()
+  {
+    PrintTo(this->outputstream, "</tablecell>\n");
+  }
+  UPDATE MACRO EndTableRow()
+  {
+    PrintTo(this->outputstream, "</tablerow>\n");
+  }
+  UPDATE MACRO EndTable()
+  {
+    PrintTo(this->outputstream, "</body>\n</table>\n");
+  }
+  UPDATE MACRO StartHyperlink(RECORD hyperlink)
+  {
+    PrintTo(this->outputstream,
+            "<hyperlink object='" || (hyperlink.objectid = 0 ? -1 : hyperlink.objectid) || "'"
+            || " target='" || EncodeValue(hyperlink.target) || "'"
+            || " title='" || EncodeValue(hyperlink.title )|| "'"
+            || " data='" || EncodeValue(hyperlink.href) || "'"
+            || " >\n");
+  }
+  UPDATE MACRO EndHyperlink()
+  {
+    PrintTo(this->outputstream, "</hyperlink>\n");
+  }
+>;
+
+PUBLIC OBJECTTYPE HSXMLFormatterOutput EXTEND FormattingOutputBase
+<
+  MACRO NEW() __ATTRIBUTES__(DEPRECATED "The HSXML formatter has been deprecated in favour of the RTD format")
+  {
+
+  }
+  PUBLIC OBJECT FUNCTION CreatePage(INTEGER outputstream)
+  {
+    RETURN NEW HSXMLFormatterPage(this, outputstream);
+  }
+>;
+

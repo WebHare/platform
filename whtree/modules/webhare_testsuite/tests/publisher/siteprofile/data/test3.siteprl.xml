@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/test3">
+  </contenttype>
+  <foldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/test3">
+  </foldertype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/test3">
+  </contenttype>
+
+  <apply>
+    <to type="all" />
+    <blub xmlns="http://www.webhare.net/xmlns/webhare_testsuite/blub" blubber="2" />
+  </apply>
+
+  <sitesettings>
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+      <webrule path="/testrule" match="initial" applyruleset="system:webdav" wrdschema="wrd:testschema" />
+    </webruleset>
+  </sitesettings>
+
+  <sitesettings sitename="SomeOtherSite">
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+      <webrule path="/someothersite" match="initial" applyruleset="system:webdav" wrdschema="wrd:testschema" />
+    </webruleset>
+  </sitesettings>
+
+</siteprofile>

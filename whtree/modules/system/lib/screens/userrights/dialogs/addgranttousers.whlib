@@ -1,0 +1,260 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+
+/** This dialog adds a grant (global right, or one or more objects) to pre-chosen users
+*/
+PUBLIC OBJECTTYPE AddGrantToUsers EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Right info
+  OBJECT rightsinfo;
+
+  /// Grantee data
+  OBJECT ARRAY pvt_grantees;
+
+  /// Grantable value for remembering during selection of system:sysop
+  BOOLEAN nonsysop_grantoption;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Currently selected right
+  PUBLIC PROPERTY rightname(GetSelectedRight, -);
+
+  /// Currently withgrantoption
+  PUBLIC PROPERTY withgrantoption(GetWithGrantOption, -);
+
+  /// Currently user/role to grant to
+  PUBLIC PROPERTY grantees(pvt_grantees, -);
+
+  /// Currently selected object
+  PUBLIC PROPERTY objectids(GetObjectIds, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  /** @param data
+      @cell data.grantee
+  */
+  MACRO Init(RECORD data)
+  {
+    // Get right info
+    this->rightsinfo := GetRightsInfoObject(this->tolliumuser);
+    this->pvt_grantees := OBJECT ARRAY(data.grantees);
+
+    this->objecttree->borders.right := FALSE;
+    this->objecttree->selectmode := "multiple";
+    this->objecttree->onselect := PTR this->OnObjectListSelect;
+    this->OnObjectListSelect();
+
+    IF (LENGTH(this->pvt_grantees) = 1)
+    {
+      IF (this->pvt_grantees[0]->type = 3)
+        this->frame->title := GetTid('system:userrights.commondialogs.granttitles.titletorole', this->pvt_grantees[0]->GetUserRightsName());
+      ELSE
+        this->frame->title := GetTid('system:userrights.commondialogs.granttitles.titletouser', this->pvt_grantees[0]->GetUserRightsName());
+    }
+    ELSE
+      this->frame->title := GetTid('system:userrights.commondialogs.granttitles.titletomultiple');
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other tollium stuff
+  //
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    IF (NOT RecordExists(this->rightslist->selection))
+    {
+      work->AddError(GetTid("system:userrights.dialogues.needselectright"));
+      RETURN work->Finish();
+    }
+    STRING right_name := this->rightslist->value;
+    BOOLEAN withgrantoption := this->grantwithgrantoption->value;
+
+    INTEGER ARRAY objectids := this->objecttree->value.objectids;
+
+    FOREVERY (OBJECT obj FROM this->pvt_grantees)
+      IF (NOT obj->ExistsInDatabase())
+      {
+        IF (obj->type = 3)
+          work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", obj->GetUserRightsName()));
+        ELSE
+          work->AddError(GetTid("system:userrights.commondialogs.errors.userhasbeendeleted", obj->GetUserRightsName()));
+
+        this->tolliumresult := "error";
+      }
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    RECORD ARRAY valid_grantee_data;
+
+    FOREVERY (OBJECT obj FROM this->pvt_grantees)
+    {
+      INTEGER ARRAY valid_objectids;
+
+      // Check all objects for existing grants
+      FOREVERY (INTEGER objectid FROM objectids)
+      {
+        BOOLEAN shown_warning;
+
+        // See if there are existing grants (take grantoption into account)
+        RECORD ARRAY existing_grants :=
+            SELECT *
+              FROM ExplainRightGrantedToOn(right_name, obj->authobject, objectid, TRUE)
+             WHERE VAR withgrantoption ? COLUMN withgrantoption : TRUE;
+
+        IF (RecordExists(existing_grants))
+        {
+          // ADDME: show object!
+          IF (shown_warning)
+            CONTINUE;
+          shown_warning := TRUE;
+
+          IF (obj->type = 3)
+            work->AddWarning(GetTid("system:userrights.errors.rolealreadyhasgrantforright", obj->GetUserRightsName(), this->rightsinfo->GetRightTitle(right_name)));
+          ELSE
+            work->AddWarning(GetTid("system:userrights.errors.useralreadyhasgrantforright", obj->GetUserRightsName(), this->rightsinfo->GetRightTitle(right_name)));
+        }
+        ELSE
+          INSERT objectid INTO valid_objectids AT END;
+      }
+
+      INSERT
+          [ obj :=      obj
+          , objectids := valid_objectids
+          ] INTO valid_grantee_data AT END;
+    }
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    FOREVERY (RECORD rec FROM valid_grantee_data)
+    {
+      IF (LENGTH(rec.objectids) != 0)
+        TolliumGrantRightTo(work, this->rightsinfo, this->tolliumuser, rec.obj, right_name, rec.objectids, withgrantoption, ^comment->value);
+    }
+    RETURN work->Finish();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  STRING FUNCTION GetSelectedRight()
+  {
+    IF (RecordExists(this->rightslist->selection))
+      RETURN this->rightslist->value;
+    RETURN "";
+  }
+
+  BOOLEAN FUNCTION GetWithGrantOption()
+  {
+    RETURN this->grantwithgrantoption->value;
+  }
+
+  INTEGER ARRAY FUNCTION GetObjectIds()
+  {
+    IF (RecordExists(this->objecttree->value))
+    {
+      IF (CellExists(this->objecttree->value, "OBJECTID"))
+        ABORT(this->objecttree->value);
+      RETURN this->objecttree->value.objectids;
+    }
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO OnObjectListSelect()
+  {
+    IF (NOT RecordExists(this->objecttree->value))
+    {
+      this->rightslist->empty := GetTid("system:userrights.commondialogs.errors.needselectgrouporobject");
+      this->rightslist->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    IF (this->objecttree->typesmixed)
+    {
+      this->rightslist->empty := GetTid("system:userrights.commondialogs.errors.needselectonetypepofobject");
+      this->rightslist->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    RECORD ARRAY rows :=
+        SELECT rowkey       := name
+             , name
+             , title
+             , description
+             , isglobal
+             , ordering := Right("0000000000" || ordering, 10) || "_" || title
+          FROM this->objecttree->relevantrights;
+
+    FOREVERY (RECORD row FROM rows)
+    {
+      BOOLEAN canmanage := TRUE;
+      IF (row.isglobal)
+        canmanage := this->tolliumuser->CanManageRight(row.name);
+      ELSE
+      {
+        FOREVERY (INTEGER objectid FROM this->objectids)
+          canmanage := canmanage AND this->tolliumuser->CanManageRightOn(row.name, objectid);
+      }
+
+      INSERT CELL canmanage := canmanage INTO rows[#row];
+    }
+
+    this->rightslist->rows :=
+        SELECT *
+          FROM rows
+         WHERE canmanage
+      ORDER BY ordering;
+
+    this->rightslist->empty := GetTid("system:userrights.commondialogs.errors.norelevantrights");
+    this->rightslist->selection := DEFAULT RECORD ARRAY;
+  }
+
+  MACRO OnRightSelect()
+  {
+    // Grant option is disabled for system:sysop
+    BOOLEAN now_enabled := this->rightslist->value != "system:sysop";
+    IF (this->grantwithgrantoption->enabled != now_enabled)
+    {
+      IF (now_enabled)
+        this->grantwithgrantoption->value := this->nonsysop_grantoption;
+      ELSE
+      {
+        this->nonsysop_grantoption := this->grantwithgrantoption->value;
+        this->grantwithgrantoption->value := TRUE;
+      }
+      this->grantwithgrantoption->enabled := now_enabled;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+>;

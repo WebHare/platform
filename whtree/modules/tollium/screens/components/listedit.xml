@@ -1,0 +1,80 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="components/listedit.whlib">
+
+  <fragment name="listedit">
+    <actions>
+      <action name="moveup">
+        <enableon source="list" min="1" checkflags="__arrayedit_canmoveup" onexecute="moveupvalue" />
+      </action>
+      <action name="movedown">
+        <enableon source="list" min="1" checkflags="__arrayedit_canmovedown" onexecute="movedownvalue" />
+      </action>
+      <action name="add" onexecute="addvalue" />
+      <action name="edit">
+        <enableon source="list" min="1" max="1" onexecute="editvalue" />
+      </action>
+      <action name="delete">
+        <enableon source="list" min="1" onexecute="deletevalue" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="selectionmenu">
+        <item action="edit" tid="~edit" disablemode="hidden" />
+        <item action="delete" tid="~delete" disablemode="hidden" />
+        <divider />
+        <item action="moveup" name="moveupitem" tid="~up" visible="false"/>
+        <item action="movedown" name="movedownitem" tid="~down" visible="false" />
+        <divider/>
+        <!-- added actions appear here -->
+      </menu>
+      <menu name="noselectionmenu">
+        <item action="add" tid="common.actions.add" />
+      </menu>
+    </menus>
+    <contents>
+      <grid name="maingrid">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="list"
+                  selectmode="single"
+                  openaction="edit"
+                  width="1pr" height="1pr"
+                  selectcontextmenu="selectionmenu"
+                  newcontextmenu="noselectionmenu"
+                  oncheck="gotlistcheck"
+                  >
+            </list>
+          </cell>
+          <cell name="buttoncell">
+            <button name="addbutton" tid="common.actions.add" action="add" width="1pr" />
+            <button name="editbutton" tid="common.actions.edit" action="edit" width="1pr" />
+            <button name="deletebutton" tid="common.actions.delete" action="delete" width="1pr" />
+
+            <panel spacers="top">
+              <button name="moveupbutton" tid="common.actions.up" action="moveup" width="1pr" visible="false"/>
+              <button name="movedownbutton" tid="common.actions.down" action="movedown" width="1pr" visible="false"/>
+            </panel>
+            <panel spacers="top" name="extrabuttons" visible="false">
+            </panel>
+          </cell>
+        </row>
+      </grid>
+    </contents>
+  </fragment>
+
+
+  <screen name="arrayedit_addscreen" gid="components.listedit.arrayedit_addscreen" tid=".windowtitle">
+    <actions>
+    </actions>
+    <body>
+      <select name="rowtype" type="radio" public="true" title="" />
+
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

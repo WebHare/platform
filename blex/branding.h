@@ -1,0 +1,16 @@
+#ifndef blex_branding
+#define blex_branding
+
+#define BLEX_BRANDING_PRODUCT_BASENAME          "WebHare Platform"
+
+#define BLEX_BRANDING_PRODUCT_VERSION_NUMBER    42700
+#define BLEX_BRANDING_PRODUCT_VERSION           "4.27.0" //Semantic version of the above number
+
+#define BLEX_BRANDING_STRINGIFY(x) #x
+#define BLEX_BRANDING_INTTOSTRING(x) BLEX_BRANDING_STRINGIFY(x)
+
+#define BLEX_BRANDING_COPYRIGHT        "Copyright WebHare bv 1999-" BLEX_BRANDING_INTTOSTRING(WHBUILD_BUILDYEAR) ". Released under MPL 2.0."
+
+#define BLEX_BRANDING_PRODUCT_FULLNAME BLEX_BRANDING_PRODUCT_BASENAME " " BLEX_BRANDING_PRODUCT_VERSION
+
+#endif

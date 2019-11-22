@@ -1,0 +1,201 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+RECORD FUNCTION GetCacheableMailRoutes()
+{
+  STRING filter := ReadRegistryKey("system.services.smtp.mailrulefilter") ?? "*";
+  RETURN [ value := [ routes := (SELECT * FROM system.mailqueue_route WHERE ToUppercase(tag) LIKE Touppercase(filter) ORDER BY ordering, id)
+                    , defaultserver := ReadRegistryKey("system.services.smtp.defaultmailroute")
+                    ]
+         , ttl := 60 * 1000 * 1000
+         , eventmasks := [ "system:internal/mailroutechange"
+                         , "system:registry.system.services.smtp"
+                         ]
+         ];
+}
+
+/** Returns the list of mail routes, ordered on ordering, id
+    @return E-mail routes
+    @cell(integer) return.id Route ID
+    @cell(string) return.mask Space-separated list of receiver address LIKE-masks
+    @cell(integer) return.ordering Ordering of this route
+    @cell(string) return.sendermask Space-separated list of sender address LIKE-masks
+    @cell(string) return.originmask Space-separated list of orgin LIKE-masks
+    @cell(string) return.serverurl Server URL
+    @cell(string) return.outgoingmailaddress Outgoing e-mail address to use
+    @cell(boolean) return.outgoingaddressrewrite If TRUE, rewrite the receiver
+      address into the outgoingemailaddress (using '+' after the mailbox name)
+    @cell(integer) return.ruletype Rule type
+      - 0: smtp route
+      - 1: sender whitelist
+      - 2: receiver whitelist
+      - 3: E-mail suggestion (for correcting invalid addresses)
+      - 4: E-mail blocks (for denying specific addresses)
+    @cell(integer) return.suggestionfuzz Fuzz factor for destination suggestions
+*/
+RECORD FUNCTION GetMailRoutes()
+{
+  RETURN GetAdhocCached([ type := "mailroutes" ], PTR GetCacheableMailRoutes);
+}
+
+/** Returns the list of e-mail SMTP routes, ordered on ordering, id
+    @return E-mail routes @includecelldef #GetMailRoutes.return
+    @cell(integer) return.ruletype Always 0
+*/
+RECORD ARRAY FUNCTION GetSMTPRoutes()
+{
+  RECORD routedata := GetMailroutes();
+  RECORD ARRAY mailroutes := [[ id := -1
+                               , mask := "*@beta.webhare.net *@*.beta.webhare.net"
+                               , ordering := -999
+                               , sendermask := "*"
+                               , originmask := "*"
+                               , serverurl := "infinitedelay"
+                               , outgoingmailaddress := ""
+                               , outgoingaddressrewrite := FALSE
+                               , ruletype := 0
+                              ]] CONCAT
+                              SELECT *
+                                   , serverurl := serverurl ?? routedata.defaultserver
+                                FROM routedata.routes
+                               WHERE ruletype = 0;
+
+  mailroutes := SELECT * FROM mailroutes ORDER BY ordering, id; //some tests inject routes with ordering < -999 which need to be above!
+  RETURN mailroutes;
+}
+
+BOOLEAN FUNCTION IsAllowedEmail(STRING email, INTEGER checkruletype)
+{
+  RECORD ARRAY whitelist := SELECT mask FROM GetMailroutes().routes WHERE ruletype = VAR checkruletype;
+  IF(Length(whitelist) = 0)
+    RETURN TRUE;
+
+  IF(RecordExists(SELECT FROM whitelist WHERE IsInLikeUC(email, whitelist.mask)))
+    RETURN TRUE;
+
+  IF(email LIKE "*+*@*")
+  {
+    email := Tokenize(email,'+')[0] || '@' || Tokenize(email,'@')[1];
+    IF(RecordExists(SELECT FROM whitelist WHERE IsInLikeUC(email, whitelist.mask)))
+      RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+
+PUBLIC BOOLEAN FUNCTION IsAllowedEmailSender(STRING email)
+{
+  RETURN IsAllowedEmail(email, 1);
+}
+
+PUBLIC BOOLEAN FUNCTION IsAllowedEmailReceiver(STRING email)
+{
+  RETURN IsAllowedEmail(email, 2);
+}
+
+PUBLIC BOOLEAN FUNCTION HasMailroutes()
+{
+  RETURN Length(GetSMTPRoutes()) > 1;//more than the default
+}
+/** Returns the relevant mailroute for a sender, receiver and origin
+    @param sender Sender address
+    @param receiver Receiver address
+    @param origin Origin
+    @return Mail route @includecelldef #GetSMTPRoutes.return
+*/
+PUBLIC RECORD FUNCTION GetMailroute(STRING sender, STRING receiver, STRING origin DEFAULTSTO "")
+{
+  RETURN SELECT *
+           FROM GetSMTPRoutes() AS mailroutes
+          WHERE IsInLikeUC(sender, mailroutes.sendermask)
+                AND IsInLikeUC(receiver, mailroutes.mask)
+                AND (originmask="" OR ToUppercase(VAR origin) LIKE ToUppercase(originmask));
+}
+PUBLIC RECORD ARRAY FUNCTION GetMailSuggestionList()
+{
+  RETURN SELECT mask, outgoingmailaddress, suggestionfuzz, isblock := ruletype = 4
+           FROM GetSMTPRoutes().routes
+          WHERE ruletype IN [3,4]
+       ORDER BY ordering;
+}
+BOOLEAN FUNCTION IsInLikeUC(STRING lookfor, STRING list)
+{
+  FOREVERY(STRING tok FROM Tokenize(list,' '))
+    IF(Touppercase(lookfor) LIKE ToUppercase(tok))
+      RETURN TRUE;
+
+  INTEGER pluspos := SearchSubstring(lookfor,'+');
+  INTEGER atpos := SearchSubstring(lookfor,'@');
+  IF(pluspos > 0 AND pluspos < atpos) //try matching without the '+...@' part
+  {
+    lookfor := Left(lookfor,pluspos) || Substring(lookfor,atpos);
+
+    FOREVERY(STRING tok FROM Tokenize(list,' '))
+      IF(Touppercase(lookfor) LIKE ToUppercase(tok))
+        RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+
+/** @short Suggest improvement to given suggestion
+    @topic witty/api
+    @public
+    @loadlib mod::system/lib/mailer.whlib
+    @param email Email to check (in 'user@domain' format)
+    @return A default record if no suggestion is made
+    @cell(string) return.suggestion Suggested better email address
+    @cell(boolean) return.force If true, just fix the email address instead of merely suggesting
+    @cell(boolean) return.blocked If true, do not accept this email address at all */
+PUBLIC RECORD FUNCTION GetEmailAutocorrection(STRING email)
+{
+  RECORD ARRAY correctionrules := SELECT * FROM GetMailroutes().routes WHERE ruletype IN [3,4];
+  IF(Length(correctionrules) = 0)
+    RETURN DEFAULT RECORD;
+
+  STRING ARRAY toks := Tokenize(email,'@');
+  IF(Length(toks) != 2)
+    RETURN DEFAULT RECORD;
+
+  FOREVERY(RECORD rule FROM correctionrules)
+  {
+    IF(rule.ruletype = 3 AND Left(rule.outgoingmailaddress,2)="*@")
+    {
+      IF(IsInLikeUC(email, rule.mask))
+      {
+        RETURN [ suggestion := toks[0] || Substring(rule.outgoingmailaddress,1)
+               , force := TRUE
+               , blocked := FALSE
+               ];
+      }
+
+      STRING domain := ToUppercase(toks[1]);
+      STRING matchdomain := ToUppercase(Substring(rule.outgoingmailaddress,2));
+      IF(rule.suggestionfuzz > 0 AND domain != matchdomain)
+      {
+        INTEGER distance := CalculateLevenshteinDistance(domain, matchdomain);
+        IF(distance <= rule.suggestionfuzz)
+        {
+          RETURN [ suggestion := toks[0] || Substring(rule.outgoingmailaddress,1)
+                 , force := FALSE
+                 , blocked := FALSE
+                 ];
+        }
+      }
+    }
+    ELSE IF(rule.ruletype = 4)
+    {
+      IF(IsInLikeUC(email, rule.mask))
+      {
+        RETURN [ suggestion := ""
+               , force := TRUE
+               , blocked := TRUE
+               ];
+      }
+    }
+  }
+  RETURN DEFAULT RECORD;
+}

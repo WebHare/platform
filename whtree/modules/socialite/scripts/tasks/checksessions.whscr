@@ -1,0 +1,64 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::socialite/lib/api.whlib";
+LOADLIB "mod::socialite/lib/database.whlib";
+
+/* Checks all persistent sessions with 'emailwhenexpired' set. When expired, emails
+   users with rights granted to that account.
+*/
+
+OBJECT trans := OpenPrimary();
+
+RECORD ARRAY sessions :=
+    SELECT sessions.id
+         , application
+         , account
+         , accounttag :=        accounts.tag
+         , accounttitle :=      accounts.title
+         , applicationtag :=    applications.tag
+         , applicationtitle :=  applications.title
+         , sessiontag :=        sessions.tag
+      FROM socialite.sessions
+         , socialite.applications
+         , socialite.accounts
+     WHERE sessions.application = applications.id
+       AND applications.account = accounts.id
+       AND expirationwarning;
+
+FOREVERY (RECORD sess FROM sessions)
+{
+  OBJECT conn;
+  TRY
+  {
+    //PRINT("Check " || sess.applicationtag || "." || sess.sessiontag || "\n");
+    conn := OpenSocialiteConnectionById(sess.application);
+  }
+  CATCH (OBJECT e)
+  {
+    PRINT("Can't open connection '" || sess.accounttitle || "':'" || sess.applicationtitle || ": " || e->what || "\n");
+    CONTINUE;
+  }
+
+  BOOLEAN mustrelogin := FALSE;
+
+  IF(NOT conn->HasSessionEverLoggedIn(sess.id))
+  {
+    mustrelogin := TRUE;
+  }
+  ELSE IF(conn->SupportsValidityCheck())
+  {
+    conn->OpenPersistentSession(sess.id);
+    mustrelogin := NOT conn->IsAccessTokenValid();
+  }
+
+  IF(NOT mustrelogin)
+  {
+    trans->BeginWork();
+    UPDATE socialite.sessions SET verifiedat := GetCurrentDatetime() WHERE id = sess.id;
+    trans->CommitWork();
+  }
+  conn->Close();
+}

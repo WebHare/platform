@@ -1,0 +1,408 @@
+<?wh
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
+
+/** @topic consilio/api
+*/
+
+// Does this page use <!--wh_consilio_content-->
+BOOLEAN consilio_comments;
+// Only linkcheck links within wh_consilio_content?
+BOOLEAN content_links_only;
+// Structure to hold the parsed page
+RECORD parsed_page;
+// Path from current element [0] to the root element [END]
+STRING ARRAY element_path;
+// Language for each of the elements of element_path
+STRING ARRAY element_lang;
+// Last printed language (used in detecting language changes while not outputting text)
+STRING curlang;
+// Are we parsing the page's text? (Text within <!--wh_consilio_content-->
+// if found, within <body></body> otherwise)
+BOOLEAN parsing_body;
+// Actually adding text to body
+BOOLEAN adding_text;
+// Previous callback was Text
+BOOLEAN previous_text;
+// Currently processed hyperlink
+STRING cur_link_href;
+STRING cur_link_text;
+// Frameset documents we've already seen
+STRING ARRAY frameset_docs;
+// Image links we've already seen
+STRING ARRAY image_links;
+
+// All HTML elements to be separated by spaces
+STRING ARRAY separating_tags := [
+  // Block level elements
+  "P", "H1", "H2", "H3", "H4", "H5", "H6", "OL", "UL", "PRE", "DL", "DIV",
+  "NOSCRIPT", "BLOCKQUOTE", "FORM", "HR", "TABLE", "FIELDSET", "ADDRESS",
+  // Other elements
+  "BR", "TH", "TD", "LI"
+];
+// Don't index text within these tags
+STRING ARRAY skip_tags := [
+  "SCRIPT", "STYLE", "INPUT", "TEXTAREA"
+];
+
+/** @short Parse an HTML file
+    @param htmlpage The page to parse
+    @param contentlinksonly Only linkcheck links within wh_consilio_content?
+    @return Information for the HTML page
+    @cell return.success If page was parsed
+    @cell return.errormsg If not parse, the error message
+    @cell return.index_page This page should be indexed
+    @cell return.title The page title
+    @cell return.keywords Keywords for the page (from <meta name="keywords">)
+    @cell return.description Description for the page (from <meta name="description">)
+    @cell return.links The links found in this page
+    @cell return.links.link The URL of the link
+    @cell return.links.text The link text
+    @cell return.links.type The link type, see mod::consilio/lib/parsers/parser_support.whlib for a list of values
+    @cell return.isdynamic This is a dynamic page (i.e. not cached)
+    @cell return.text The plain text contents of the page */
+PUBLIC RECORD FUNCTION ParseHTMLPage(BLOB htmlpage, BOOLEAN contentlinksonly DEFAULTSTO FALSE)
+{
+  // Default values
+  consilio_comments := FALSE;
+  content_links_only := contentlinksonly;
+  element_path := DEFAULT STRING ARRAY;
+  element_lang := DEFAULT STRING ARRAY;
+  curlang := "";
+  parsing_body := FALSE;
+  adding_text := FALSE;
+  image_links := DEFAULT STRING ARRAY;
+
+  // Default parsed page
+  parsed_page := CreateParsedPage();
+  parsed_page.type_ext := "html";
+
+  ParsePage(htmlpage);
+
+  // Clean whitespace from string fields
+  parsed_page.title := CleanWhitespace(parsed_page.title);
+  parsed_page.keywords := CleanWhitespace(parsed_page.keywords);
+  parsed_page.description := CleanWhitespace(parsed_page.description);
+  parsed_page.text := CleanWhitespace(parsed_page.text);
+  RETURN parsed_page;
+}
+
+/* This function does the actual parsing (calls the XML parser with
+   our own event MACROs). */
+MACRO ParsePage(BLOB page)
+{
+  ParseHTMLAsXMLWithCallbacks(page,
+    [ start_element := PTR ElementStart
+    , end_element := PTR ElementEnd
+    , text_node := PTR Text
+    , comment_node := PTR Comment
+    ], "UTF-8");
+  FlushTextOnPage();
+}
+
+STRING textbuffer;
+MACRO AddTextToPage(STRING text)
+{
+  /* FIXME: Triggers a worst-case scenario for betagraphics.doc, CM nieuw.doc
+  // Add plain text to page text
+  parsed_page.text := parsed_page.text || text;
+  */
+
+  /* Code below seems to do somewhart better, but it takes ages and pagefaults >2M - didn't witness a completion, it seemed to trigger a timeout (not logged?)
+  STRING temp := parsed_page.text;
+  parsed_page.text := "";
+  temp := temp || text;
+  parsed_page.text := temp;
+  */
+
+  textbuffer := textbuffer || text;
+  IF (Length(textbuffer) > 16384) //limit # of small merges to a big string
+  {
+    parsed_page.text := parsed_page.text || textbuffer;
+    textbuffer := "";
+  }
+}
+
+MACRO FlushTextOnPage()
+{
+  parsed_page.text := parsed_page.text || textbuffer;
+  textbuffer := "";
+}
+
+MACRO AddLinkToPage(STRING link, STRING text)
+{
+  INSERT [ link := link, text := text ] INTO parsed_page.links AT END;
+}
+
+/* A new element is found. */
+MACRO ElementStart(STRING elementname, RECORD ARRAY attrs)
+{
+  // Uppercase attribute names
+  attrs := SELECT field := ToUppercase(field), value FROM attrs;
+
+  previous_text := FALSE;
+
+  // Add the element to the element path
+  INSERT ToUppercase(elementname) INTO element_path AT 0;
+
+  // Add element language
+  STRING lang := SELECT AS STRING ToUppercase(value) FROM attrs WHERE field = "LANG";
+  IF (lang != "")
+  {
+    IF (adding_text AND (Length(element_lang) = 0 OR lang != element_lang[0]))
+    {
+      AddTextToPage("\x1E" || lang || "\x1E");
+      curlang := lang;
+    }
+
+    INSERT lang INTO element_lang AT 0;
+  }
+  ELSE IF (Length(element_lang) > 0)
+    INSERT element_lang[0] INTO element_lang AT 0; // Copy current language
+  ELSE
+    INSERT "" INTO element_lang AT 0;
+
+  IF (element_path[0] = "META")
+  {
+    // We found meta information, check if we need it
+    STRING name := SELECT AS STRING ToUppercase(value) FROM attrs WHERE field = "NAME";
+    STRING http_equiv := SELECT AS STRING ToUppercase(value) FROM attrs WHERE field = "HTTP-EQUIV";
+    STRING content := SELECT AS STRING value FROM attrs WHERE field = "CONTENT";
+
+    // Search robot access control
+    IF (name = "ROBOTS")
+    {
+      // The content attribute looks is "ALL" | "NONE" | "[NO]INDEX,[NO]FOLLOW".
+      STRING ARRAY robottags := Tokenize(ToUppercase(content), ",");
+      FOREVERY (STRING robottag FROM robottags)
+      {
+        SWITCH (TrimWhitespace(robottag))
+        {
+          CASE "ALL"
+          {
+            parsed_page.index_page := TRUE;
+            parsed_page.follow_links := TRUE;
+          }
+          CASE "NONE"
+          {
+            parsed_page.index_page := FALSE;
+            parsed_page.follow_links := FALSE;
+          }
+          CASE "INDEX"
+          {
+            parsed_page.index_page := TRUE;
+          }
+          CASE "NOINDEX"
+          {
+            parsed_page.index_page := FALSE;
+          }
+          CASE "FOLLOW"
+          {
+            parsed_page.follow_links := TRUE;
+          }
+          CASE "NOFOLLOW"
+          {
+            parsed_page.follow_links := FALSE;
+          }
+        }
+      }
+    }
+    // Additional keywords for the page
+    ELSE IF (name = "KEYWORDS")
+    {
+      content := TrimWhitespace(content);
+      IF (content != "")
+      {
+        IF (parsed_page.keywords != "")
+          parsed_page.keywords := parsed_page.keywords || " ";
+        // Check if these are language-specific keywords
+        IF (lang != "")
+          content := "\x1E" || lang || "\x1E" || content || "\x1E\x1E";
+        parsed_page.keywords := parsed_page.keywords || content;
+      }
+    }
+    // Page description
+    ELSE IF (name = "DESCRIPTION")
+    {
+      parsed_page.description := content;
+    }
+    // This could be a dynamic page
+    ELSE IF (http_equiv = "PRAGMA" OR http_equiv = "CACHE-CONTROL")
+    {
+      parsed_page.isdynamic := parsed_page.isdynamic OR ToUppercase(content) = "NO-CACHE";
+    }
+    ELSE IF(name LIKE "CONSILIO-*")
+    {
+      INSERT [ name := ToLowercase(Substring(name,9))
+             , value := content
+             ] INTO parsed_page.extrafields AT END;
+    }
+  }
+  ELSE IF (element_path[0] = "LINK")
+  {
+    STRING rel := SELECT AS STRING ToLowercase(value) FROM attrs WHERE field = "REL";
+    STRING href := SELECT AS STRING value FROM attrs WHERE field = "HREF";
+    IF (href != "")
+    {
+      IF (rel NOT IN ["stylesheet","canonical"])
+        AddLinkToPage(href, "[link: " || rel || "]");
+    }
+  }
+  ELSE IF (element_path[0] = "A")
+  {
+    // Found a hyperlink, add it to the list of links
+    STRING href := SELECT AS STRING value FROM attrs WHERE field = "HREF";
+    STRING rel := SELECT AS STRING value FROM attrs WHERE field = "REL";
+    IF (href != "" AND ToUppercase(rel) NOT LIKE "*NOFOLLOW*")
+      cur_link_href := href;
+
+    // Add "this is hyperlink text" indicator
+    IF (adding_text)
+      AddTextToPage("\x1F");
+  }
+  ELSE IF (element_path[0] = "FRAME")
+  {
+    // Found a frameset document
+    STRING src := SELECT AS STRING value FROM attrs WHERE ToUppercase(field) = "SRC";
+    STRING name := SELECT AS STRING value FROM attrs WHERE ToUppercase(field) = "NAME";
+    IF (src != "" AND src NOT IN frameset_docs)
+    {
+      AddLinkToPage(src, "[frame" || (name != "" ? ": " || name : "") || "]");
+      INSERT src INTO frameset_docs AT END;
+    }
+  }
+  ELSE IF (element_path[0] = "IMG")
+  {
+    STRING src := SELECT AS STRING value FROM attrs WHERE field = "SRC";
+    STRING alt := SELECT AS STRING value FROM attrs WHERE field = "ALT";
+    IF (src != "" AND src NOT IN image_links)
+    {
+      // Get file name from image src
+      STRING fname := Right(src, Length(src) - (SearchLastSubstring(src, "/") + 1));
+      INSERT src INTO image_links AT END;
+      IF (cur_link_href != "")
+        cur_link_text := cur_link_text || "[img: " || fname || "]";
+    }
+  }
+  ELSE IF (element_path[0] = "BODY")
+  {
+    // Start parsing the body text, if page is not using comment
+    IF (NOT consilio_comments)
+    {
+      // We were not adding text, we have a language and it differs from the last outputted language
+      IF (NOT adding_text AND element_lang[0] != curlang)
+      {
+        AddTextToPage("\x1E" || element_lang[0] || "\x1E");
+        curlang := element_lang[0];
+      }
+      parsing_body := TRUE;
+      adding_text := TRUE;
+    }
+  }
+  IF (adding_text AND (element_path[0] IN separating_tags))
+  {
+    // Add space for separating tags if we're adding body text
+    AddTextToPage(" ");
+  }
+  IF (element_path[0] IN skip_tags)
+  {
+    // Don't add text for tags we don't want to index
+    adding_text := FALSE;
+  }
+}
+
+/* An element is closed. */
+MACRO ElementEnd(STRING name)
+{
+  previous_text := FALSE;
+
+  IF (element_path[0] = "BODY")
+  {
+    // Stop parsing at end of body, even if we have consilio comments
+    parsing_body := FALSE;
+    adding_text := FALSE;
+  }
+  ELSE IF (element_path[0] = "A")
+  {
+    IF (adding_text)
+      // Add "this was hyperlink text" indicator
+      AddTextToPage("\x1F");
+    IF (cur_link_href != "")
+      AddLinkToPage(cur_link_href, cur_link_text);
+    cur_link_text := "";
+    cur_link_href := "";
+  }
+
+  // If the closed element was a skipped tag, re-enable adding of text
+  // (the parser parses tags within these tags as text, so we can safely
+  // assume no other tags were opened)
+  IF (element_path[0] IN skip_tags)
+  {
+    adding_text := parsing_body;
+  }
+
+  // Reset language text if needed
+  DELETE FROM element_lang AT 0;
+  // We are adding text, we have a language left and it differs from the last outputted language
+  IF (adding_text AND Length(element_lang) > 0 AND element_lang[0] != curlang)
+  {
+    AddTextToPage("\x1E" || element_lang[0] || "\x1E");
+    curlang := element_lang[0];
+  }
+
+  // Remove element from element path
+  DELETE FROM element_path AT 0;
+}
+
+/* Plain element text. */
+MACRO Text(STRING text)
+{
+  IF (Length(element_path) = 0)
+    RETURN; // Not parsing elements yet
+
+  IF (Length(element_path) = 3 AND element_path[0] = "TITLE" AND element_path[1] = "HEAD" AND element_path[2] = "HTML")
+    // We're currently parsing the document title
+    parsed_page.title := parsed_page.title || (previous_text OR parsed_page.title = "" ? "" : " ") || text;
+
+  IF (adding_text)
+    // Add plain text to page text
+    AddTextToPage(text);
+  IF (cur_link_href != "")
+    cur_link_text := cur_link_text || (previous_text OR cur_link_text = "" ? "" : " ") || text;
+
+  previous_text := TRUE;
+}
+
+/* An HTML <!--comment-->. */
+MACRO Comment(STRING text)
+{
+  previous_text := FALSE;
+
+  IF (ToUppercase(text) = "WH_CONSILIO_CONTENT")
+  {
+    IF (NOT consilio_comments) // Hey, we're parsing a page with consilio comment tags!
+    {
+      parsed_page.text := "";
+      textbuffer := "";
+      consilio_comments := TRUE;
+
+      // We were adding text, re-output language tag
+      IF (Length(element_lang) > 0)
+      {
+        AddTextToPage("\x1E" || element_lang[0] || "\x1E");
+        curlang := element_lang[0];
+      }
+    }
+    parsing_body := TRUE;
+    adding_text := TRUE;
+  }
+  ELSE IF (ToUppercase(text) = "/WH_CONSILIO_CONTENT")
+  {
+    IF (consilio_comments)
+    {
+      parsing_body := FALSE;
+      adding_text := FALSE;
+    }
+  }
+}

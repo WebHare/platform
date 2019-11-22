@@ -1,0 +1,630 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internet/smtp.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/validation.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+//ADDME: passthrough_formeditorextension_options can be removed if all extendformeditor extendobjects are migrated to paextensions
+PUBLIC RECORD passthrough_formeditorextension_options;
+
+PUBLIC CONSTANT STRING xmlns_forms := "http://www.webhare.net/xmlns/publisher/forms";
+
+PUBLIC CONSTANT STRING ARRAY supported_fieldtypes :=
+    [ "string", "integer", "money", "float", "boolean", "datetime", "record"
+    , "stringarray", "integerarray", "moneyarray", "floatarray", "booleanarray", "datetimearray", "recordarray"
+    , "email", "whfsref"
+    , "emailarray", "whfsrefarray"
+    , "options", "file", "rtd", "address"
+    ];
+
+PUBLIC INTEGER FUNCTION GetFieldTypeID(STRING ARRAY fieldtypes)
+{
+  FOREVERY (STRING fieldtype FROM fieldtypes)
+  {
+    STRING basetype := fieldtype;
+    BOOLEAN isarray := basetype LIKE "*array";
+    IF (isarray)
+      basetype := Left(basetype, Length(basetype) - 5);
+
+    IF (basetype IN [ "string", "integer", "money", "float", "boolean", "datetime", "record" ])
+      RETURN GetHarescriptTypeIdByName(ToUppercase(basetype || (isarray ? " array" : "")));
+
+    SWITCH (basetype)
+    {
+      CASE "email"
+      {
+        RETURN isarray ? TypeID(STRING ARRAY) : TypeID(STRING);
+      }
+      CASE "whfsref"
+      {
+        RETURN isarray ? TypeID(INTEGER ARRAY) : TypeID(INTEGER);
+      }
+      CASE "options", "file", "rtd", "address"
+      {
+        CONTINUE;
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unknown field types '${Detokenize(fieldtypes, ", ")}'`);
+      }
+    }
+  }
+  RETURN 0;
+}
+
+PUBLIC STRING FUNCTION GetFieldColumnType(STRING ARRAY fieldtypes)
+{
+  FOREVERY (STRING fieldtype FROM fieldtypes)
+  {
+    STRING basetype := fieldtype;
+    BOOLEAN isarray := basetype LIKE "*array";
+    IF (isarray)
+    {
+      basetype := Left(basetype, Length(basetype) - 5);
+      RETURN "text";
+    }
+
+    IF (basetype IN [ "integer", "money", "float", "email" ])
+      RETURN basetype;
+
+    SWITCH (basetype)
+    {
+      CASE "string"
+      {
+        RETURN "text";
+      }
+      CASE "datetime" // (date)time?
+      {
+        RETURN "date";
+      }
+      CASE "boolean"
+      {
+        RETURN "icon";
+      }
+      CASE "whfsref"
+      {
+        RETURN "integer";
+      }
+      CASE "record", "options", "file", "rtd", "address"
+      {
+        CONTINUE;
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unknown field types '${Detokenize(fieldtypes, ", ")}'`);
+      }
+    }
+  }
+  RETURN "";
+}
+
+STRING FUNCTION StripRight(STRING value, STRING char)
+{
+  WHILE (UCRight(value, 1) = char)
+    value := UCLeft(value, UCLength(value) - 1);
+  RETURN value;
+}
+
+PUBLIC VARIANT FUNCTION FormatFieldForColumnType(VARIANT value, STRING columntype, OBJECT tolliumuser DEFAULTSTO DEFAULT OBJECT)
+{
+  INTEGER valuetype := TypeID(value);
+  SWITCH (columntype)
+  {
+    CASE "text"
+    {
+      IF (IsTypeIDArray(valuetype))
+      {
+        IF (Length(value) = 0)
+          RETURN "";
+        SWITCH (TypeID(value[0]))
+        {
+          CASE TypeID(STRING)
+          {
+            RETURN Detokenize(value, ", ");
+          }
+          CASE TypeID(INTEGER)
+          {
+            RETURN Detokenize((
+                SELECT AS STRING ARRAY ToString(val)
+                  FROM ToRecordArray(value, "val")), ", ");
+          }
+          CASE TypeID(MONEY)
+          {
+            RETURN Detokenize((
+                SELECT AS STRING ARRAY ObjectExists(tolliumuser)
+                           ? tolliumuser->FormatMoney(val, 0, FALSE)
+                           : FormatMoney(val, 0, ".", "", FALSE)
+                  FROM ToRecordArray(value, "val")), ", ");
+          }
+          CASE TypeID(FLOAT)
+          {
+            RETURN Detokenize((
+                SELECT AS STRING ARRAY ObjectExists(tolliumuser)
+                           ? StripRight(tolliumuser->FormatFloat(val, -1), "0") // strip trailing zeroes
+                           : StripRight(FormatFloat(val, -1), "0") // strip trailing zeroes
+                  FROM ToRecordArray(value, "val")), ", ");
+          }
+        }
+      }
+      ELSE IF (CanCastTypeTo(valuetype, TypeID(STRING)))
+        RETURN value;
+      RETURN "";
+    }
+    CASE "integer"
+    {
+      IF (CanCastTypeTo(valuetype, TypeID(INTEGER)))
+        RETURN value;
+      RETURN 0;
+    }
+    CASE "money"
+    {
+      IF (CanCastTypeTo(valuetype, TypeID(MONEY)))
+        RETURN value;
+      RETURN 0m;
+    }
+    CASE "float"
+    {
+      IF (CanCastTypeTo(valuetype, TypeID(FLOAT)))
+        RETURN value;
+      RETURN 0f;
+    }
+    CASE "datetime"
+    {
+      IF (valuetype = TypeID(DATETIME))
+        RETURN value;
+      RETURN DEFAULT DATETIME;
+    }
+    CASE "email"
+    {
+      IF (valuetype = TypeID(STRING) AND IsValidEmailAddress(value))
+        RETURN value;
+      RETURN "";
+    }
+    CASE "icon"
+    {
+      IF (valuetype = TypeID(BOOLEAN))
+        RETURN value ? 1 : 2;
+      RETURN 0;
+    }
+  }
+  RETURN value;
+}
+
+RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulename, STRING resourcename, RECORD matchattribute)
+{
+  RECORD ARRAY errors, warnings;
+  RECORD elrec := [ name := element.name
+                  , namespace := element.namespaceuri
+                  , matchattribute := matchattribute
+                  , icon := compinfo->GetAttribute("tolliumicon")
+                  , linecomponent := ParseXSBoolean(compinfo->GetAttribute("linecomponent"))
+                  , title := ParseXMLTidPtr(modulename, "", compinfo, "title")
+                  , description := ParseXMLTidPtr(modulename, "" , compinfo, "description")
+                  , editextension := ""
+                  , editdefaults := DEFAULT STRING ARRAY
+                  , defaultvaluetypes := [ "string" ]
+                  , supportedvaluesfunc := ""
+                  , parserfunc := ""
+                  , fieldobject := ""
+                  , ordering := ParseXSInt(compinfo->GetAttribute("ordering"))
+                  , parsertype := ""
+                  ];
+  //Print(elrec.name||"\n");
+
+  IF (elrec.title != "" AND elrec.title NOT LIKE "*:*")
+    elrec.title := modulename || ":" || elrec.title;
+  IF(element.namespaceuri = "http://www.webhare.net/xmlns/publisher/forms")
+    elrec.parsertype := elrec.name; //legacy parser support
+
+  IF (compinfo->HasAttribute("editextension"))
+    elrec.editextension := MakeAbsoluteScreenReference(resourcename, compinfo->GetAttribute("editextension"));
+  IF (compinfo->HasAttribute("editdefaults"))
+    elrec.editdefaults :=
+        SELECT AS STRING ARRAY attr
+          FROM ToRecordArray(ParseXSList(compinfo->GetAttribute("editdefaults")), "attr")
+         WHERE attr IN VAR whconstant_forms_valideditdefaults;
+
+  IF (compinfo->GetAttribute("parserfunc") LIKE "*#*")
+  {
+    STRING parserlib := Tokenize(compinfo->GetAttribute("parserfunc"), "#")[0];
+    STRING parserfunc := Substring(compinfo->GetAttribute("parserfunc"), Length(parserlib) + 1);
+    parserlib := MakeAbsoluteResourcePath(resourcename, parserlib);
+    elrec.parserfunc := parserlib || "#" || parserfunc;
+  }
+  IF (compinfo->HasAttribute("defaultvalue"))
+  {
+    elrec.defaultvaluetypes := ParseXSList(compinfo->GetAttribute("defaultvalue"));
+    STRING ARRAY invalidvalue := ArrayDelete(elrec.defaultvaluetypes, supported_fieldtypes);
+    IF (Length(invalidvalue) > 0)
+    {
+      INSERT CELL[ resourcename
+                 , line := compinfo->line
+                 , col := 0
+                 , message := `Unknown defaultvalue value${Length(invalidvalue) != 1 ? "s" : ""} '${Detokenize(invalidvalue, "', '")}' in ${resourcename}:${compinfo->linenum}`
+                 ] INTO errors AT END;
+    }
+  }
+  ELSE IF (compinfo->GetAttribute("supportedvaluesfunc") LIKE "*#*")
+  {
+    STRING supportedvalueslib := Tokenize(compinfo->GetAttribute("supportedvaluesfunc"), "#")[0];
+    STRING supportedvaluesfunc := Substring(compinfo->GetAttribute("supportedvaluesfunc"), Length(supportedvalueslib) + 1);
+    supportedvalueslib := MakeAbsoluteResourcePath(resourcename, supportedvalueslib);
+    elrec.supportedvaluesfunc := supportedvalueslib || "#" || supportedvaluesfunc;
+    elrec.defaultvaluetypes := DEFAULT STRING ARRAY;
+  }
+
+  IF (compinfo->GetAttribute("fieldobject") LIKE "*#*")
+  {
+    STRING fieldlib := Tokenize(compinfo->GetAttribute("fieldobject"), "#")[0];
+    STRING fieldobject := Substring(compinfo->GetAttribute("fieldobject"), Length(fieldlib) + 1);
+    fieldlib := MakeAbsoluteResourcePath(resourcename, fieldlib);
+    elrec.fieldobject := fieldlib || "#" || fieldobject;
+  }
+  ELSE IF(element.namespaceuri != "http://www.webhare.net/xmlns/publisher/forms" OR element.name NOT IN ["page","customfield"])
+  {
+    INSERT CELL[ resourcename
+               , line := compinfo->linenum
+               , col := 0
+               , message := `Invalid fieldobject reference '${compinfo->GetAttribute("fieldobject")}' in ${resourcename}:${compinfo->linenum}`
+               ] INTO errors AT END;
+  }
+
+  RETURN CELL[ errors, warnings, el := elrec ];
+}
+
+RECORD FUNCTION ParseHandler(RECORD element, OBJECT handler, STRING modulename, STRING resourcename)
+{
+  RECORD ARRAY errors, warnings;
+  RECORD elrec := [ name := element.name
+                  , namespace := element.namespaceuri
+                  , icon := handler->GetAttribute("tolliumicon")
+                  , title := ParseXMLTidPtr(modulename, "", handler, "title")
+                  , description := ParseXMLTidPtr(modulename, "" , handler, "description")
+                  , editextension := ""
+                  , editdefaults := STRING[]
+                  , parserfunc := ""
+                  , handlerobject := ""
+                  , handlertask := handler->GetAttribute("handlertask")
+                  , handlertaskfor := ParseXSList(handler->HasAttribute("handlertaskfor") ? handler->GetAttribute("handlertaskfor") : "submit")
+                  , ordering := ParseXSInt(handler->GetAttribute("ordering"))
+                  ];
+  //Print(elrec.name||"\n");
+
+  IF (elrec.handlertask != "" AND elrec.handlertask NOT LIKE "*:*")
+    elrec.handlertask := modulename || ":" || elrec.handlertask;
+
+  IF (handler->HasAttribute("editextension"))
+    elrec.editextension := MakeAbsoluteScreenReference(resourcename, handler->GetAttribute("editextension"));
+  IF (handler->HasAttribute("editdefaults"))
+    elrec.editdefaults :=
+        SELECT AS STRING ARRAY attr
+          FROM ToRecordArray(ParseXSList(handler->GetAttribute("editdefaults")), "attr")
+         WHERE attr IN VAR whconstant_forms_validhandlereditdefaults;
+
+  IF (handler->GetAttribute("parserfunc") LIKE "*#*")
+  {
+    STRING parserlib := Tokenize(handler->GetAttribute("parserfunc"), "#")[0];
+    STRING parserfunc := Substring(handler->GetAttribute("parserfunc"), Length(parserlib) + 1);
+    parserlib := MakeAbsoluteResourcePath(resourcename, parserlib);
+    elrec.parserfunc := parserlib || "#" || parserfunc;
+  }
+  IF (handler->GetAttribute("handlerobject") LIKE "*#*")
+  {
+    STRING handlerlib := Tokenize(handler->GetAttribute("handlerobject"), "#")[0];
+    STRING handlerobject := Substring(handler->GetAttribute("handlerobject"), Length(handlerlib) + 1);
+    handlerlib := MakeAbsoluteResourcePath(resourcename, handlerlib);
+    elrec.handlerobject := handlerlib || "#" || handlerobject;
+  }
+
+  RETURN CELL[ errors, warnings, el := elrec ];
+}
+
+RECORD FUNCTION GetAnnotiationUserDocumentation(OBJECT node)
+{
+  RECORD comment := [ line := node->source_xml_node->linenum, col := 0, text := "" ];
+
+  FOREVERY (OBJECT annotation FROM node->annotations)
+    FOREVERY (OBJECT userinfo FROM annotation->user_information)
+      IF (TrimWhitespace(userinfo->textcontent) != "")
+        comment := [ line := userinfo->linenum, col := 0, text := TrimWhitespace(userinfo->textcontent) ];
+
+  RETURN comment;
+}
+
+PUBLIC RECORD FUNCTION ParseFormDefComponents(STRING resourcename, OBJECT doc, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+        [ domimpl :=      DEFAULT OBJECT
+        , withcomments := FALSE
+        ], options);
+
+  STRING modulename := GetModuleNameFromResourcePath(resourcename);
+  STRING targetns := doc->documentelement->GetAttribute("targetNamespace");
+
+  OBJECT domimpl := options.domimpl ?? GetWebhareXMLDOMImplementation();
+  OBJECT parser := CreateXSD2001Parser(domimpl);
+  ParseXSDSchema(parser, doc->documentelement, resourcename);
+
+  RECORD commentdata;
+  IF (options.withcomments)
+  {
+    commentdata :=
+        [ comment :=  GetAnnotiationUserDocumentation(parser->schema_information)
+        ];
+  }
+
+  RECORD ARRAY components, handlers, errors, warnings;
+
+  FOREVERY (RECORD element FROM parser->elements)
+  {
+    IF (element.namespaceuri != targetns)
+      CONTINUE; //don't parse imported elements, as that's not what we're being asked to do right now
+
+    OBJECT ARRAY node_priority_list := [ OBJECT(element.node) ];
+
+    //Process typedef and any extensions
+    OBJECT walkext := element.node->type_definition;
+    WHILE (ObjectExists(walkext))
+    {
+      INSERT walkext INTO node_priority_list AT END;
+      IF (walkext->type="SIMPLETYPE" OR walkext->derivation_method!='extension')
+        BREAK;
+
+      walkext := walkext->base_type_definition;
+    }
+
+    RECORD ARRAY nodecomponents;
+    FOREVERY (OBJECT node FROM node_priority_list)
+    {
+      FOREVERY (OBJECT annotation FROM node->annotations)
+        FOREVERY (OBJECT appinfo FROM annotation->application_information)
+        {
+          OBJECT ARRAY compinfos := appinfo->GetElementsByTagNameNS(xmlns_forms, "formcomponent")->GetCurrentElements();
+          OBJECT ARRAY handlerinfos := appinfo->GetElementsByTagNameNS(xmlns_forms, "formhandler")->GetCurrentElements();
+
+          IF(Length(compinfos) + Length(handlerinfos) = 0)
+            CONTINUE;
+          IF(Length(handlerinfos) > 1 OR (Length(handlerinfos) = 1 AND Length(compinfos) >= 1))
+          {
+            INSERT CELL [ resourcename
+                        , line := handlerinfos[END-1]->linenum
+                        , col := 0
+                        , message := `Multiple formcomponent/formhandler definitions in ${resourcename}:${appinfo->linenum}`
+                        ] INTO errors AT END;
+          }
+
+          IF(Length(handlerinfos)=1)
+          {
+            RECORD handlernode := ParseHandler(element, handlerinfos[0], modulename, resourcename);
+            errors := errors CONCAT handlernode.errors;
+            warnings := warnings CONCAT handlernode.warnings;
+            IF(Length(handlernode.errors) = 0)
+            {
+              IF (options.withcomments)
+                INSERT CELL comment := GetAnnotiationUserDocumentation(node), componenttype := "formhandler", componentxsdnode := element.node INTO handlernode.el;
+
+              INSERT handlernode.el INTO handlers AT END;
+            }
+          }
+
+          FOREVERY(OBJECT compinfo FROM compinfos)
+          {
+            STRING matchattributestr := compinfo->GetAttribute("matchattribute");
+            RECORD matchattribute := matchattributestr != "" ? DecodeHSON(matchattributestr) : DEFAULT RECORD;
+
+            IF (RecordExists(SELECT FROM nodecomponents WHERE COLUMN matchattributestr = VAR matchattributestr))
+            {
+              INSERT CELL [ resourcename
+                          , line := compinfo->linenum
+                          , col := 0
+                          , message := `Duplicate {${xmlns_forms}}formcomponent${ RecordExists(matchattribute) ? Substring(EncodeHSON(matchattribute), 5) : ""} in element`
+                          ] INTO errors AT END;
+            }
+
+            RECORD componentnode := ParseComponent(element, compinfo, modulename, resourcename, matchattribute);
+            errors := errors CONCAT componentnode.errors;
+            warnings := warnings CONCAT componentnode.warnings;
+            IF(Length(componentnode.errors) = 0)
+            {
+              IF (options.withcomments)
+                INSERT CELL comment := GetAnnotiationUserDocumentation(node), componenttype := "formcomponent", componentxsdnode := element.node INTO componentnode.el;
+
+              INSERT componentnode.el INTO components AT END;
+              INSERT CELL[ ...componentnode.el, matchattributestr ] INTO nodecomponents AT END;
+            }
+          }
+        }
+    }
+  }
+
+  STRING ARRAY invalidation_masks := GetResourceEventMasks([resourcename]);
+  RETURN CELL[ invalidation_masks := invalidation_masks
+             , components
+             , handlers
+             , errors
+             , warnings
+             ,...commentdata
+             ];
+}
+
+RECORD FUNCTION GetCacheableFormComponentsForFormDef(STRING resourcename)
+{
+  BLOB xsdfile := GetWebHareResource(resourcename);
+  OBJECT doc := MakeXMLDocument(xsdfile);
+  RECORD parseres := ParseFormDefComponents(resourcename, doc);
+
+  RETURN [ value := CELL[ parseres.invalidation_masks
+                        , parseres.components
+                        , parseres.handlers
+                        ]
+         , eventmasks := parseres.invalidation_masks
+         ];
+}
+
+RECORD FUNCTION GetFormComponentsForFormDef(STRING namespace)
+{
+  RETURN GetAdhocCached([ xsd := namespace ], PTR GetCacheableFormComponentsForFormDef(namespace));
+}
+
+RECORD FUNCTION GetCacheableNamespaceMap()
+{
+  STRING ARRAY invalidation_masks := [ "system:modulesupdate" ];
+
+  RECORD ARRAY map;
+  FOREVERY (RECORD mod FROM GetWebHareModules())
+    FOREVERY (RECORD xsdrec FROM mod.formcomponents)
+      INSERT CELL[ ns := xsdrec.uri, xsd := xsdrec.xsd ] INTO map AT END;
+
+  map := SELECT * FROM map ORDER BY ns;
+  RETURN [ value := map
+         , eventmasks := invalidation_masks
+         ];
+}
+
+RECORD ARRAY FUNCTION GetFormNamespaceResourceMapping()
+{
+  RETURN GetAdhocCached([ type := "mapping" ], PTR GetCacheableNamespaceMap);
+}
+
+RECORD FUNCTION GetCacheableFormComponents()
+{
+  // Invalidate cache upon soft reset and module update, event masks for the individual form XSD files are added as well
+  STRING ARRAY invalidation_masks := [ "system:modulesupdate" ];
+
+  RECORD ARRAY components, handlers;
+  FOREVERY (RECORD xsdrec FROM GetFormNamespaceResourceMapping())
+  {
+    RECORD result := GetFormComponentsForFormDef(xsdrec.xsd);
+    invalidation_masks := invalidation_masks CONCAT result.invalidation_masks;
+    components := components CONCAT result.components;
+    handlers := handlers CONCAT result.handlers;
+  }
+
+  RETURN
+      [ value := CELL[ components, handlers ]
+      , eventmasks := invalidation_masks
+      ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetAllFormComponents()
+{
+  RETURN GetAdhocCached([ getall := TRUE ], PTR GetCacheableFormComponents).components;
+}
+PUBLIC RECORD ARRAY FUNCTION GetAllFormHandlers()
+{
+  RETURN GetAdhocCached([ getall := TRUE ], PTR GetCacheableFormComponents).handlers;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetFormComp(BOOLEAN ishandler, STRING namespace, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ nofail := FALSE ], options);
+
+  // Infer namespace from type if not explicity specified
+  IF(namespace = "")
+  {
+    IF(type LIKE "*#*")
+    {
+      namespace := Left(type, SearchSubstring(type,'#'));
+      type := Substring(type, Length(namespace) + 1);
+    }
+    ELSE
+    {
+      namespace := "http://www.webhare.net/xmlns/publisher/forms";
+    }
+  }
+
+  // Remove matchattribute specifier
+  type := Tokenize(type, "?")[0];
+
+  RECORD ARRAY mapping := GetFormNamespaceResourceMapping();
+  INTEGER pos := RecordBinaryFind(mapping, [ ns := namespace ], ["NS"]);
+  IF(pos >= 0)
+  {
+    RECORD defs := GetFormComponentsForFormDef(mapping[pos].xsd);
+    RECORD ARRAY source := ishandler ? defs.handlers : defs.components;
+    RECORD ARRAY results :=  SELECT * FROM source WHERE source.namespace = VAR namespace AND source.name = VAR type;
+
+    IF(NOT RecordExists(results) AND options.nofail)
+      THROW NEW Exception(`Unknown ${ishandler ? "handler" : "component"} '${namespace}#${type}'`);
+
+    RETURN results;
+  }
+
+  IF(options.nofail)
+    THROW NEW Exception(`No formdefinition is claiming the namespace for ${ishandler ? "handler" : "component"} '${ishandler ? "handler" : "component"} '${namespace}#${type}'`);
+
+  RETURN RECORD[];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetFormComponentDef(STRING namespace, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN GetFormComp(FALSE, namespace, type, options);
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetFormHandlerDef(STRING namespace, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN GetFormComp(TRUE, namespace, type, options);
+}
+
+PUBLIC RECORD FUNCTION GetFormComponentDefByNode(OBJECT compnode, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ nofail := FALSE ], options);
+
+  RECORD ARRAY matches := GetFormComp(FALSE, compnode->namespaceuri, compnode->localname, options);
+  FOREVERY(RECORD match FROM matches)
+    IF (ComponentMatches(compnode, match))
+      RETURN match;
+
+  IF(options.nofail)
+    THROW NEW Exception(`Unable to match specific version of '${compnode->namespaceuri}#${compnode->localname}'`);
+
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC BOOLEAN FUNCTION ComponentMatches(OBJECT compnode, RECORD compdef)
+{
+  FOREVERY (RECORD attr FROM UnpackRecord(compdef.matchattribute))
+  {
+    IF (IsTypeIDArray(TypeID(attr.value)))
+    {
+      IF (compnode->GetAttribute(ToLowercase(attr.name)) NOT IN attr.value)
+        RETURN FALSE;
+    }
+    ELSE
+    {
+      IF (compnode->GetAttribute(ToLowercase(attr.name)) != attr.value)
+        RETURN FALSE;
+    }
+  }
+  RETURN TRUE;
+}
+
+PUBLIC BOOLEAN FUNCTION AttributesMatch(RECORD attributes, RECORD compdef)
+{
+  FOREVERY (RECORD attr FROM UnpackRecord(compdef.matchattribute))
+  {
+    IF (IsTypeIDArray(TypeID(attr.value)))
+    {
+      IF (NOT CellExists(attributes, attr.name) OR GetCell(attributes, attr.name) NOT IN attr.value)
+        RETURN FALSE;
+    }
+    ELSE
+    {
+      IF (NOT CellExists(attributes, attr.name) OR GetCell(attributes, attr.name) != attr.value)
+        RETURN FALSE;
+    }
+  }
+  RETURN TRUE;
+}

@@ -1,0 +1,14 @@
+<?wh
+/// @short record optimizer tests support library
+
+PUBLIC RECORD public1;
+INSERT CELL name := "test" INTO public1;
+
+PUBLIC RECORD ARRAY public2;
+RECORD a;
+INSERT a INTO public2 AT END;
+INSERT CELL name := "test" INTO public2[0];
+
+PUBLIC RECORD public3;
+INSERT CELL nested := a INTO public3;
+INSERT CELL name := "test" INTO public3.nested;

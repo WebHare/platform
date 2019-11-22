@@ -1,0 +1,60 @@
+<?wh
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+PUBLIC OBJECTTYPE SeoTabPlugin EXTEND WebDesignPluginBase
+<
+  RECORD config;
+  RECORD seosettings;
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ features := ParseXSList(node->GetAttribute("features"))
+           ];
+  }
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD config)
+  {
+    this->config := config;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    this->seosettings := webdesign->targetobject->GetInstanceData("http://www.webhare.net/xmlns/socialite/seotab");
+    IF(this->HasFeature("robots") AND (this->seosettings.noindex OR this->seosettings.nofollow OR this->seosettings.noarchive))
+    {
+      OBJECT robotsplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/consilio", "robots");
+      IF(NOT ObjectExists(robotsplugin))
+      {
+        webdesign->AddPublicationWarning("The SEO-tab could not apply its settings because the robots plugin is missing");
+      }
+      ELSE
+      {
+        IF(this->seosettings.noindex)
+          robotsplugin->noindex := TRUE;
+        IF(this->seosettings.nofollow)
+          robotsplugin->nofollow := TRUE;
+        IF(this->seosettings.noarchive)
+          robotsplugin->noarchive := TRUE;
+      }
+    }
+
+    IF(this->HasFeature("canonicalurl") AND RecordExists(this->seosettings.canonical))
+    {
+      webdesign->canonicalurl := GetIntextlinkTarget(this->seosettings.canonical);
+    }
+  }
+
+  UPDATE PUBLIC MACRO HookObjectProps(OBJECT objectprops)
+  {
+    IF(objectprops->applytester->IsTypeNeedsTemplate())
+      objectprops->AddTabsExtension("moduleroot::socialite/screens/plugins/seotab.xml#seotab", "http://www.webhare.net/xmlns/socialite/seotab");
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasFeature(STRING feature)
+  {
+    //this wrapper allows us to implement meta-features in the future (eg one feature enabling 10 small ones)
+    RETURN feature IN this->config.features;
+  }
+
+>;

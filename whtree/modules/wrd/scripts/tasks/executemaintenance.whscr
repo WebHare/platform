@@ -1,0 +1,59 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/tasks.whlib";
+
+OBJECT trans;
+
+MACRO RequeueWRDCleanups()
+{
+  RECORD ARRAY killschemas := SELECT id,name FROM wrd.schemas WHERE ToUppercase(name) LIKE "$WRD$DELETED$*";
+  FOREVERY(RECORD killschema FROM killschemas)
+  {
+    Print("WRD schema #" || killschema.id || " was deleted, requeuing cleanup\n");
+    ScheduleManagedTask("wrd:deletetask", [ id := killschema.id ]);
+  }
+
+  INTEGER ARRAY existingschemas := SELECT AS INTEGER ARRAY id FROM wrd.schemas WHERE ToUppercase(name) NOT LIKE "$WRD$DELETED$*";
+  DELETE FROM system.fs_objects
+        WHERE parent = 13
+              AND name LIKE "s*"
+              AND ToInteger(Substring(name,1),-1) NOT IN existingschemas;
+
+}
+
+MACRO CleanupAuditLogs()
+{
+  FOREVERY(RECORD schemarec FROM ListWRDSchemas())
+  {
+   //TODO schema specific retentions?
+    DATETIME cutoff := AddDaysToDate(-ReadRegistryKey("wrd.globalconfig.keepauditlogdays"), GetCurrentdatetime());
+    trans->BeginWork();
+    DELETE FROM wrd.auditevents WHERE wrdschema = schemarec.id AND creationdate < cutoff;
+    trans->CommitWork();
+  }
+
+}
+
+trans := OpenPrimary();
+
+trans->BeginWork();
+RequeueWRDCleanups();
+trans->CommitWork();
+
+trans->BeginWork();
+CleanupAllWRDTemporaries();
+trans->CommitWork();
+
+trans->BeginWork();
+CleanupOutdatedChanges();
+trans->CommitWork();
+
+CleanupAuditLogs();

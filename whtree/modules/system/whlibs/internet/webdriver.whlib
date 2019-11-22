@@ -1,0 +1,830 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE WebDriverCapabilities
+< RECORD ARRAY list;
+  STRING ARRAY translations;
+
+  MACRO NEW(STRING browser)
+  {
+    IF (browser != "")
+      this->InitDefault(browser);
+  }
+
+  PUBLIC MACRO InitDefault(STRING browsername)
+  {
+    SWITCH (ToLowerCase(browsername))
+    {
+      CASE "firefox"
+      {
+        this->SetKey("browserName", "firefox");
+        this->SetKey("version", "");
+        this->SetKey("platform", "ANY");
+        this->SetKey("javascriptEnabled", true);
+      }
+      CASE "chrome"
+      {
+        this->SetKey("browserName", "chrome");
+        this->SetKey("version", "");
+        this->SetKey("platform", "ANY");
+        this->SetKey("javascriptEnabled", true);
+
+        this->SetKey("loggingPrefs",
+                      [ "driver" := "ALL"
+                      , "browser" := "ALL"
+                      ]);
+
+        // Get process killing problems without this one
+        this->SetKey("chromeOptions",
+                      [ "args" :=        [ "no-sandbox" ]
+                      , "extensions" :=  DEFAULT STRING ARRAY
+                      ]);
+      }
+      CASE "ie8"
+      {
+        this->SetKey("browserName", "internet explorer");
+        this->SetKey("version", "8");
+        this->SetKey("platform", "ANY");
+        this->SetKey("javascriptEnabled", true);
+      }
+      CASE "ie9"
+      {
+        this->SetKey("browserName", "internet explorer");
+        this->SetKey("version", "9");
+        this->SetKey("platform", "ANY");
+        this->SetKey("javascriptEnabled", true);
+      }
+      CASE "ie10"
+      {
+        this->SetKey("browserName", "internet explorer");
+        this->SetKey("version", "10");
+        this->SetKey("platform", "ANY");
+        this->SetKey("javascriptEnabled", true);
+      }
+      CASE "ie11"
+      {
+        this->SetKey("browserName", "internet explorer");
+        this->SetKey("version", "11");
+        this->SetKey("platform", "ANY");
+        this->SetKey("javascriptEnabled", true);
+      }
+      CASE "edge"
+      {
+        this->SetKey("browserName", "MicrosoftEdge");
+        this->SetKey("platform", "ANY");
+        this->SetKey("javascriptEnabled", true);
+      }
+      CASE "safari"
+      {
+        this->SetKey("browserName", "safari");
+        this->SetKey("version", "");
+        this->SetKey("platform", "ANY");
+        this->SetKey("javascriptEnabled", true);
+      }
+      CASE "phantomjs"
+      {
+        this->SetKey("browserName", "phantomjs");
+        this->SetKey("version", "");
+        this->SetKey("platform", "ANY");
+        this->SetKey("javascriptEnabled", true);
+      }
+      DEFAULT
+      {
+        ABORT("default capability '" || browsername || "' not implemented");
+      }
+    }
+  }
+
+  PUBLIC VARIANT FUNCTION GetKey(STRING name)
+  {
+    RECORD pos := RecordLowerBound(this->list, [ name := name ], [ "NAME" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("No such capability " || name);
+    RETURN this->list[pos.position].value;
+  }
+
+  PUBLIC MACRO SetKey(STRING name, VARIANT value)
+  {
+    RECORD rec := [ name := name, value := value ];
+    RECORD pos := RecordLowerBound(this->list, rec, [ "NAME" ]);
+    IF (pos.found)
+      DELETE FROM this->list AT pos.position;
+    INSERT rec INTO this->list AT pos.position;
+  }
+
+  PUBLIC RECORD FUNCTION GetObject()
+  {
+    RECORD rec := CELL[];
+    FOREVERY (RECORD r FROM this->list)
+      rec := CellInsert(rec, r.name, r.value);
+    RETURN rec;
+  }
+
+  PUBLIC MACRO AddTranslations(STRING ARRAY translations)
+  {
+    this->translations := this->translations CONCAT translations;
+  }
+
+  PUBLIC STRING ARRAY FUNCTION GetTranslations()
+  {
+    RETURN this->translations CONCAT SELECT AS STRING ARRAY name FROM this->list;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE SeleniumException EXTEND Exception
+<
+  RECORD ARRAY pvt_stacktrace;
+
+  PUBLIC PROPERTY stacktrace(pvt_stacktrace, -);
+
+  MACRO NEW(STRING what, RECORD ARRAY stacktrace)
+  : Exception(what)
+  {
+    this->pvt_stacktrace := stacktrace;
+  }
+>;
+
+/** Reference to a selenium element
+*/
+PUBLIC OBJECTTYPE SeleniumElementReference
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  STRING pvt_id;
+
+  OBJECT pvt_session;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Internal ID of the element
+  PUBLIC PROPERTY id(pvt_id, -);
+
+  /// Session of this element reference
+  PUBLIC PROPERTY session(pvt_session, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  MACRO NEW(OBJECT session, STRING id)
+  {
+    this->pvt_id := id;
+    this->pvt_session := session;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE WebDriverConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Base URL for this webdriver connection
+  STRING pvt_baseurl;
+
+  /** List of active sessions
+  */
+  RECORD ARRAY sessions;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties and variables
+  //
+
+  PUBLIC PROPERTY baseurl(pvt_baseurl, pvt_baseurl);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Construct a new WebDriver connection
+      @param baseurl Base URL of the selenium host (urlpart is ignored)
+  */
+  MACRO NEW(STRING baseurl)
+  {
+    this->pvt_baseurl := baseurl;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION DecodeResponse(OBJECT browser, BOOLEAN success)
+  {
+    IF (LENGTH(browser->content) = 0)
+    {
+      IF (NOT RecordExists(browser->GetHTTPStatus()))
+        THROW NEW Exception("Could not connect to Selenium, is it running and reachable?");
+      THROW NEW Exception("Selenium HTTP request problem " || AnyToString(browser->GetHTTPStatus(), "tree"));
+    }
+
+    RECORD rec := DecodeJSONBlob(browser->content);
+    IF (NOT RecordExists(rec))
+      THROW NEW Exception("Selenium server did not return valid JSON:\n" || BlobToString(browser->content));
+    IF (rec.status = 0)
+      RETURN rec;
+    ELSE
+    {
+      RECORD ARRAY stacktrace;
+      IF (CellExists(rec.value, "STACKTRACE"))
+        IF (TypeID(rec.value.stacktrace) = TypeID(RECORD ARRAY))
+          stacktrace := rec.value.stacktrace;
+
+      IF (TypeID(rec.value.message) = TypeID(STRING))
+        THROW NEW SeleniumException(rec.value.message, stacktrace);
+      THROW NEW SeleniumException("Selenium internal error: " || rec.value."class", stacktrace);
+    }
+  }
+
+  MACRO RemoveSession(STRING sessionid)
+  {
+    RECORD pos := RecordLowerBound(this->sessions, [ sessionid := sessionid ], [ "SESSIONID" ]);
+    IF (pos.found)
+      DELETE FROM this->sessions AT pos.position;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Internal API
+  //
+
+  /** Tests whether a selenium session still exists
+      @param sessionid Session id to test
+      @return Promise that resolves to an unknown value
+  */
+  OBJECT ASYNC FUNCTION DoSeleniumSessionTest(STRING sessionid)
+  {
+    OBJECT browser := NEW WebBrowser;
+    TRY
+    {
+      STRING url := ResolveToAbsoluteUrl(this->pvt_baseurl, "/grid/api/testsession?session=" || sessionid);
+      BOOLEAN res := browser->AsyncGotoWebPage(url); // ignore success, 500 response can also carry info
+
+      IF (LENGTH(browser->content) = 0)
+      {
+        IF (NOT RecordExists(browser->GetHTTPStatus()))
+          THROW NEW Exception("Could not connect to Selenium, is it running and reachable?");
+        THROW NEW Exception("Selenium HTTP request problem " || AnyToString(browser->GetHTTPStatus(), "tree"));
+      }
+
+      RETURN DecodeJSONBlob(browser->content);
+    }
+    FINALLY
+    {
+      browser->Close();
+    }
+  }
+
+  /** Executes a GET command
+      @param cmd Command URL to execute. Use :name for url parts that have ids, substituted from the ids record.
+      @param ids Ids to place in the URL
+      @return Promise that resolves to the return value for this command
+  */
+  OBJECT ASYNC FUNCTION GetCommand(STRING cmd, RECORD ids DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING newcmd;
+    FOREVERY (STRING part FROM Tokenize(cmd, "/"))
+    {
+      IF (part LIKE ":*")
+        part := "" || GetCell(ids, SubString(part, 1));
+      newcmd := newcmd || (#part != 0 ? "/" : "") || part;
+    }
+
+    STRING url := ResolveToAbsoluteUrl(this->pvt_baseurl, newcmd);
+
+    OBJECT browser := NEW WebBrowser;
+    TRY
+    {
+      BOOLEAN res := AWAIT browser->AsyncGotoWebPage(url); // ignore success, 500 response can also carry info
+      RETURN this->DecodeResponse(browser, res);
+    }
+    FINALLY
+    {
+      browser->Close();
+    }
+  }
+
+  /** Executes a POST command
+      @param cmd Command URL to execute. Use :name for url parts that have ids, substituted from the ids record.
+      @param ids Ids to place in the URL
+      @param data Data to send in the POST body
+      @param translations JSON name translations to execute
+      @return Promise that resolves to the return value for this command
+  */
+  OBJECT ASYNC FUNCTION PostCommand(STRING cmd, RECORD ids DEFAULTSTO DEFAULT RECORD, RECORD data DEFAULTSTO DEFAULT RECORD, STRING ARRAY translations DEFAULTSTO DEFAULT STRING ARRAY)
+  {
+    RECORD transl := [ __webdriver_element := "ELEMENT" ];
+    FOREVERY (STRING s FROM translations)
+      IF (NOT CellExists(transl, s))
+        transl := CellInsert(transl, s, s);
+      ELSE IF (GetCell(transl, s) != s)
+        ABORT("Conflicting string '" || s || "' vs '" || GetCell(transl, s) || "'");
+
+    BLOB request := EncodeJSONBlob(data ?? CELL[], transl);
+
+    STRING newcmd;
+    FOREVERY (STRING part FROM Tokenize(cmd, "/"))
+    {
+      IF (part LIKE ":*")
+        part := "" || GetCell(ids, SubString(part, 1));
+      newcmd := newcmd || (#part != 0 ? "/" : "") || part;
+    }
+
+    RECORD ARRAY headers :=
+        [ [ field := "Content-Type", value := "application/json;charset=UTF-8" ]
+        ];
+
+    STRING url := ResolveToAbsoluteUrl(this->pvt_baseurl, newcmd);
+    OBJECT browser := NEW WebBrowser;
+    TRY
+    {
+      BOOLEAN res := AWAIT browser->AsyncPostWebPageBlob(url, headers, request); // ignore success, 500 response can also carry info
+      VARIANT v :=  this->DecodeResponse(browser, res);
+      RETURN v;
+    }
+    FINALLY (OBJECT e)
+    {
+      IF (ObjectExists(e))
+        PRINT("Got exception when calling " || cmd || ", exception: " || e->what || "\n");
+      browser->Close();
+    }
+  }
+
+  /** Executes a DELETE command
+      @param cmd Command URL to execute. Use :name for url parts that have ids, substituted from the ids record.
+      @param ids Ids to place in the URL
+      @return Promise that resolves to the return value for this command
+  */
+  OBJECT ASYNC FUNCTION DeleteCommand(STRING cmd, RECORD ids DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING newcmd;
+    FOREVERY (STRING part FROM Tokenize(cmd, "/"))
+    {
+      IF (part LIKE ":*")
+        part := "" || GetCell(ids, SubString(part, 1));
+      newcmd := newcmd || (#part != 0 ? "/" : "") || part;
+    }
+
+    STRING url := ResolveToAbsoluteUrl(this->pvt_baseurl, newcmd);
+
+    OBJECT browser := NEW WebBrowser;
+    TRY
+    {
+      BOOLEAN res := AWAIT browser->AsyncSendRawRequest("DELETE", url, DEFAULT RECORD ARRAY, DEFAULT BLOB);
+      this->DecodeResponse(browser, res);
+    }
+    FINALLY
+    {
+      browser->Close();
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Create a new session
+      @param capabilities Capabilities object
+  */
+  PUBLIC OBJECT ASYNC FUNCTION CreateSession(OBJECT capabilities)
+  {
+    RECORD rec := AWAIT this->PostCommand("session", DEFAULT RECORD,
+        [ desiredCapabilities :=  capabilities->GetObject()
+        , requiredCapabilities := capabilities->GetObject()
+        ], [ "desiredCapabilities", "requiredCapabilities" ] CONCAT capabilities->GetTranslations());
+
+    RECORD pos := RecordLowerBound(this->sessions, rec, [ "SESSIONID" ]);
+    IF (NOT pos.found)
+    {
+      INSERT
+          [ sessionid := rec.sessionid
+          , session := NEW WebDriverSession(PRIVATE this, rec.sessionid, rec.value)
+          ] INTO this->sessions AT pos.position;
+    }
+    RETURN this->sessions[pos.position].session;
+  }
+
+  /** Open an existing session
+  */
+  PUBLIC OBJECT FUNCTION OpenExistingSession(STRING sessionid)
+  {
+    RECORD pos := RecordLowerBound(this->sessions, [ sessionid := sessionid ], [ "SESSIONID" ]);
+    IF (NOT pos.found)
+    {
+      INSERT
+          [ sessionid :=  sessionid
+          , session :=    NEW WebDriverSession(PRIVATE this, sessionid, DEFAULT RECORD)
+          ] INTO this->sessions AT pos.position;
+    }
+    RETURN this->sessions[pos.position].session;
+  }
+>;
+
+STATIC OBJECTTYPE WebDriverSession
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Webdriver connection object
+  OBJECT webdriver;
+
+  /// Id of this session
+  STRING pvt_sessionid;
+
+  /// Capabilities record
+  RECORD pvt_capabilities;
+
+  /// Current state
+  RECORD pvt_state;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Session id of this session
+  PUBLIC PROPERTY sessionid(pvt_sessionid, -);
+
+  /// Record with all capabilities
+  PUBLIC PROPERTY capabilities(pvt_capabilities, -);
+
+  /// Current state
+  PUBLIC PROPERTY state(pvt_state, SetState);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT webdriver, STRING sessionid, RECORD capa)
+  {
+    this->webdriver := webdriver;
+    this->pvt_sessionid := sessionid;
+    this->pvt_capabilities := capa;
+    this->state := DEFAULT RECORD; // reset with default
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  MACRO SetState(RECORD newstate)
+  {
+    this->pvt_state := newstate ??
+        [ knownelements :=    DEFAULT STRING ARRAY
+        , frame :=            DEFAULT STRING ARRAY
+        ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT ASYNC FUNCTION GetCommand(STRING cmd, RECORD ids DEFAULTSTO DEFAULT RECORD)
+  {
+    INSERT CELL sessionid := this->sessionid INTO ids;
+    RETURN this->webdriver->GetCommand(cmd, ids);
+  }
+
+  OBJECT ASYNC FUNCTION PostCommand(STRING cmd, RECORD ids DEFAULTSTO DEFAULT RECORD, RECORD data DEFAULTSTO DEFAULT RECORD, STRING ARRAY translations DEFAULTSTO DEFAULT STRING ARRAY)
+  {
+    INSERT CELL sessionid := this->sessionid INTO ids;
+    RETURN this->webdriver->PostCommand(cmd, ids, data, translations);
+  }
+
+  OBJECT ASYNC FUNCTION DeleteCommand(STRING cmd, RECORD ids DEFAULTSTO DEFAULT RECORD)
+  {
+    INSERT CELL sessionid := this->sessionid INTO ids;
+    this->webdriver->DeleteCommand(cmd, ids);
+    RETURN DEFAULT RECORD;
+  }
+
+  STRING FUNCTION ValidateSeleniumElementReference(OBJECT obj)
+  {
+    IF (obj NOT EXTENDSFROM SeleniumElementReference)
+      ABORT("Expected an element reference, got " || GetObjectTypeName(obj));
+    IF (obj->session != this)
+      THROW NEW Exception("Used an element id from another webdriver session");
+
+    RETURN obj->id;
+  }
+
+  OBJECT ASYNC FUNCTION SelectFrame(STRING framename)
+  {
+    VARIANT id := framename;
+    IF (framename = "")
+      id := DEFAULT RECORD; // null -> resets frame to default
+    ELSE IF (framename LIKE "selenium:*")
+      id := [ element := SubString(framename, 9) ];
+
+    AWAIT this->PostCommand("session/:sessionId/frame", DEFAULT RECORD, [ id := id ]);
+    RETURN DEFAULT RECORD;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Test whether this session is still alive (selenium only)
+  */
+  PUBLIC OBJECT FUNCTION TestSeleniumSession()
+  {
+    RETURN this->webdriver->DoSessionTest(this->pvt_sessionid);
+  }
+
+  /** Returns the capabilities for this session
+  */
+  PUBLIC OBJECT FUNCTION GetCapabilities()
+  {
+    RETURN this->GetCommand("session/:sessionId");
+  }
+
+  /** Closes this session
+  */
+  PUBLIC OBJECT ASYNC FUNCTION Close()
+  {
+    AWAIT this->DeleteCommand("session/:sessionId");
+    this->webdriver->RemoveSession(this->pvt_sessionid);
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Detach this session (unregister it, don't close it)
+  */
+  PUBLIC MACRO Detach()
+  {
+    this->webdriver->RemoveSession(this->pvt_sessionid);
+  }
+
+  /** Returns the current URL of this session
+      @return Returns a promise that resolves to the URL
+  */
+  PUBLIC OBJECT ASYNC FUNCTION GetURL()
+  {
+    RETURN (AWAIT this->GetCommand("session/:sessionId/url")).value;
+  }
+
+  /** Set the current URL in the browser
+      @param url URL to set
+      @return Promise that resolves when the URL has been set
+  */
+  PUBLIC OBJECT ASYNC FUNCTION SetURL(STRING url)
+  {
+    AWAIT this->PostCommand("session/:sessionId/url", DEFAULT RECORD, [ url := url ]);
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Executes a javascript script
+      @param script Script to execute
+      @param arguments Arguments to send to the script.
+  */
+  PUBLIC OBJECT FUNCTION ExecuteScript(STRING script, VARIANT ARRAY arguments)
+  {
+    // ADDME: recursive translation
+    FOREVERY (VARIANT elt FROM arguments)
+      IF (TypeID(elt) = TypeID(STRING) AND elt LIKE "selenium:*")
+        arguments[#elt] := [ __webdriver_element := SubString(elt, 9) ];
+
+    RETURN this->PostCommand("session/:sessionId/execute", DEFAULT RECORD, [ script := script, args := arguments ]);
+  }
+
+  /** Executes a javascript script asynchronously. The variable 'done' must be used to return the result, with 'done(result)'
+      @param script Script to execute
+      @param arguments Arguments to send to the script.
+  */
+  PUBLIC OBJECT FUNCTION ExecuteAsyncScript(STRING script, VARIANT ARRAY arguments)
+  {
+    // ADDME: recursive translation
+    FOREVERY (VARIANT elt FROM arguments)
+      IF (TypeID(elt) = TypeID(STRING) AND elt LIKE "selenium:*")
+        arguments[#elt] := [ __webdriver_element := SubString(elt, 9) ];
+
+    script := "var callback = arguments[" || LENGTH(arguments) || "];" || script;
+    RETURN this->PostCommand("session/:sessionId/execute_async", DEFAULT RECORD, [ script := script, args := arguments ]);
+  }
+
+  PUBLIC OBJECT FUNCTION WaitForPageLoad()
+  {
+    RETURN this->ExecuteAsyncScript("if(document.readyState === 'complete') callback('frame'); else window.addEventListener('load',function(){callback('frame')})" , DEFAULT VARIANT ARRAY);
+  }
+
+  /** Sets the timeout of async scripts in milliseconds
+      @param ms Number of milliseconds
+      @return Promise that resolves when the command has executed
+  */
+  PUBLIC OBJECT ASYNC FUNCTION SetTimeoutsAsyncScript(INTEGER ms)
+  {
+    AWAIT this->PostCommand("session/:sessionId/timeouts/async_script", DEFAULT RECORD, [ ms := ms ]);
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Get the supported log types
+      @return Promise that resolves to the log types
+  */
+  PUBLIC OBJECT ASYNC FUNCTION GetLogTypes()
+  {
+    RECORD res := AWAIT this->GetCommand("session/:sessionId/log/types", DEFAULT RECORD);
+    RETURN STRING ARRAY(res.value);
+  }
+
+  /** Sets the timeout of async scripts in milliseconds
+      @param logtype Type of log (common log types are 'client', 'driver', 'browser', 'server')
+      @return Promise that resolves to the log data
+      @cell(string) return.level 'INFO', "WARNING"
+      @cell(string) return.message
+      @cell(datetime) return.timestamp
+  */
+  PUBLIC OBJECT ASYNC FUNCTION GetLog(STRING logtype)
+  {
+    RECORD retval := AWAIT this->PostCommand("session/:sessionId/log", DEFAULT RECORD, [ type := logtype ]);
+    RETURN
+        SELECT level
+             , message
+             , timestamp :=   MakeDatetimeFromUnixTimestamp(MONEY(timestamp) / 1000)
+          FROM RECORD ARRAY(retval.value);
+  }
+
+  /** Returns the current window size
+      @return Promise that resolves to the window size
+  */
+  PUBLIC OBJECT FUNCTION GetWindowSize()
+  {
+    RETURN this->GetCommand("session/:sessionId/window/current/size", DEFAULT RECORD);
+  }
+
+  PUBLIC OBJECT ASYNC FUNCTION SetWindowSize(INTEGER width, INTEGER height)
+  {
+    AWAIT this->PostCommand("session/:sessionId/window/current/size", DEFAULT RECORD, [ width := width, height := height ]);
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Returns a screenshot of the entire page (or the part that is actually visible)
+  */
+  PUBLIC OBJECT ASYNC FUNCTION TakeScreenshot()
+  {
+    RECORD rec := AWAIT this->GetCommand("session/:sessionId/screenshot", DEFAULT RECORD);
+    RETURN WrapBlob(StringToBlob(DecodeBase64(rec.value)), "");
+  }
+
+  /** Returns a screenshot of an element
+  */
+  PUBLIC OBJECT ASYNC FUNCTION TakeScreenshotOfElement(OBJECT elementreference)
+  {
+    /*  PhantomJS doesn't support taking a screenshot of an elemnt, returns an entire screenshot
+        ADDME: find out which browsers can handle it
+    */
+    RECORD wrapped := AWAIT this->TakeScreenshot();
+
+    RECORD location := AWAIT this->GetElementLocation(elementreference);
+    RECORD size := AWAIT this->GetElementSize(elementreference);
+
+    OBJECT canvas := CreateCanvasFromBlob(wrapped.data);
+    OBJECT result := CreateEmptyCanvas(size.value.width, size.value.height, 0);
+    result->DrawCanvas(canvas, -location.value.x, -location.value.y);
+
+    RETURN WrapBlob(result->ExportAsPNG(FALSE), "");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API: Frame selection
+  //
+
+  PUBLIC OBJECT ASYNC FUNCTION ResetFrame()
+  {
+    AWAIT this->SelectFrame("");
+    this->pvt_state.frame := DEFAULT STRING ARRAY;
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC OBJECT ASYNC FUNCTION SelectFrameByPath(STRING ARRAY framepath)
+  {
+    // Current frame isn't prefix of framepath? Reset current frame
+    IF (Detokenize(ArraySlice(this->pvt_state.frame, 0, LENGTH(framepath)), " ") != Detokenize(framepath, " "))
+      AWAIT this->ResetFrame();
+
+    FOR (INTEGER i := LENGTH(this->pvt_state.frame); i < LENGTH(framepath); i := i + 1)
+    {
+      AWAIT this->SelectFrame(framepath[i]);
+      INSERT framepath[i] INTO this->pvt_state.frame AT END;
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API: Element lookup & manipulation
+  //
+
+  /** Returns a reference to an element
+      @param strategy Lookup strategy:
+        * class name  Returns an element whose class name contains the search value; compound class names are not permitted.
+        * css selector  Returns an element matching a CSS selector.
+        * id  Returns an element whose ID attribute matches the search value.
+        * name  Returns an element whose NAME attribute matches the search value.
+        * link text Returns an anchor element whose visible text matches the search value.
+        * partial link text Returns an anchor element whose visible text partially matches the search value.
+        * tag name  Returns an element whose tag name matches the search value.
+        * xpath Returns an element matching an XPath expression.
+      @param value Query (interpreted following the strategy)
+      @param options
+      @cell options.framepath Frame path to set first
+  */
+  PUBLIC OBJECT ASYNC FUNCTION LookupElement(STRING strategy, STRING value, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF (CellExists(options, "FRAMEPATH"))
+      AWAIT this->SelectFrameByPath(options.framepath);
+
+    RECORD res := AWAIT this->PostCommand("session/:sessionId/element", DEFAULT RECORD, [ "using" := strategy, value := value ]);
+    IF ((CellExists(res, "STATUS") AND res.status = 0) OR res.state = "success")
+    {
+      INSERT res.value.element INTO this->pvt_state.knownelements AT END;
+
+      // Prefix id, don't want to mix stuff
+      RETURN NEW SeleniumElementReference(this, res.value.element);
+    }
+
+    THROW NEW Exception("Could not locate element");
+  }
+
+  /** Returns the tag name of an element
+      @param elementreference Previous looked up element
+      @return Promise that resolves to the tag of the element
+  */
+  PUBLIC OBJECT FUNCTION GetElementTagName(OBJECT elementreference)
+  {
+    RETURN this->GetCommand("session/:sessionId/element/:id/name", [ id := this->ValidateSeleniumElementReference(elementreference) ]);
+  }
+
+  /** Returns the location of an element
+      @param elementreference Previous looked up element
+      @return Promise that resolves to the location of the element
+      @cell return.x X-coordinate
+      @cell return.y Y-coordinate
+  */
+  PUBLIC OBJECT FUNCTION GetElementLocation(OBJECT elementreference)
+  {
+    RETURN this->GetCommand("session/:sessionId/element/:id/location", [ id := this->ValidateSeleniumElementReference(elementreference) ]);
+  }
+
+  /** Returns the size of an element
+      @param elementreference Previous looked up element
+      @return Promise that resolves to the location of the element
+      @cell return.width Width in pixels
+      @cell return.height Width in pixels
+  */
+  PUBLIC OBJECT FUNCTION GetElementSize(OBJECT elementreference)
+  {
+    RETURN this->GetCommand("session/:sessionId/element/:id/size", [ id := this->ValidateSeleniumElementReference(elementreference) ]);
+  }
+
+  /** Clicks on an element
+      @param elementreference Previous looked up element
+      @return Promise that resolves to the location of the element
+  */
+  PUBLIC OBJECT ASYNC FUNCTION ClickElement(OBJECT elementreference)
+  {
+    AWAIT this->PostCommand("session/:sessionId/element/:id/click", [ id := this->ValidateSeleniumElementReference(elementreference) ]);
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Send key strokes to a page
+  */
+  PUBLIC OBJECT ASYNC FUNCTION SendKeys(STRING ARRAY keys)
+  {
+    AWAIT this->PostCommand("session/:sessionId/keys", DEFAULT RECORD, [ value := keys ]);
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Send key strokes to an element
+  */
+  PUBLIC OBJECT ASYNC FUNCTION SendKeysToElement(OBJECT elementreference, STRING ARRAY keys)
+  {
+    AWAIT this->PostCommand("session/:sessionId/element/:id/value", [ id := this->ValidateSeleniumElementReference(elementreference) ], [ value := keys ]);
+    RETURN DEFAULT RECORD;
+  }
+>;

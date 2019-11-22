@@ -1,0 +1,2 @@
+<?wh
+LOADLIB "mod::wrd/lib/country/nl.whlib" EXPORT SplitNLNrDetail, JoinNLNrDetail, NormalizeNLZipCode;

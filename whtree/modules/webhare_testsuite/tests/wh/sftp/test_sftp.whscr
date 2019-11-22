@@ -1,0 +1,77 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/networking/ssh.whlib";
+
+
+BOOLEAN debug := "-d" IN GetConsoleArguments();
+
+ASYNC MACRO RunCommand(STRING cmd, STRING ARRAY args, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ allowfailure :=   FALSE
+      ], options);
+
+  INTEGER exitcode;
+  OBJECT proc := CreateProcess(cmd, args, FALSE, TRUE, TRUE, TRUE, FALSE);
+  proc->Start();
+  OBJECT itr := MakeProcessAsyncIterator(proc);
+  WHILE (TRUE)
+  {
+    RECORD rec := AWAIT itr->Next();
+    IF (rec.done)
+      BREAK;
+    IF (rec.value.type = "close")
+      exitcode := rec.value.exitcode;
+    IF (debug)
+      DumpValue(rec);
+  }
+  IF (exitcode != 0 AND NOT options.allowfailure)
+    THROW NEW Exception(`Command ${cmd} ${Detokenize(args, " ")} failed with exit code ${exitcode}`);
+}
+
+ASYNC MACRO TestSFTP()
+{
+  /* Starts an SFTP server in the docker, and tries to connect with it
+     May only run in a docker
+  */
+
+  // Enable password authentication by adding 'ChallengeResponseAuthentication yes' to sshd config
+  BLOB data := GetDiskResource("/etc/ssh/sshd_config");
+  StoreDiskFile("/etc/ssh/sshd_config", MakeComposedBlob([ CELL[ data ], [ data := StringToBlob("\nChallengeResponseAuthentication yes\n" ) ] ]), [ overwrite := TRUE ]);
+
+  // Add a user. Password is 'sftp_password' (ecrypted by 'echo "sftp_password" | openssl passwd -1 -stdin')
+  AWAIT RunCommand("/usr/sbin/useradd", [ "-p", "$1$Iz.Iwwsd$7oFU2qgP0BfGvxs/FKZ5h.", "sftp_user" ]);
+
+  // Initialize the host keys for the ssh server
+  AWAIT RunCommand("/usr/sbin/dpkg-reconfigure", [ "openssh-server" ]);
+
+  // Start the ssh server
+  AWAIT RunCommand("/usr/sbin/service", [ "ssh", "start" ]);
+
+  BLOB content1 := StringToBlob("123");
+  BLOB content2 := StringToBlob("1234");
+
+  OBJECT conn := MakeSFTPConnection("127.0.0.1:22", "sftp_user", "sftp_password", [ ignorecertificate := TRUE ]);
+  conn->debug := debug;
+  conn->PutFile("/tmp/test-remote.txt", StringToBlob("123"));
+  TestEQ(content1, GetDiskResource("/tmp/test-remote.txt"));
+
+  conn->PutFile("/tmp/test-remote.txt", content2); // overwrite
+  TestEQ(content2, conn->GetFile("/tmp/test-remote.txt"));
+
+  // Stop the ssh server
+  AWAIT RunCommand("/usr/sbin/service", [ "ssh", "stop" ]);
+}
+
+IF (GetEnvironmentVariable("WEBHARE_IN_DOCKER") != "1")
+{
+  PRINT(`Skipping test, can only be run in docker\n`);
+  RETURN;
+}
+
+RunTestFramework([ PTR TestSFTP
+                 ]);

@@ -1,0 +1,344 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/saml.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::publisher/lib/analytics.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
+
+
+MACRO CheckAssertionConditions(RECORD conditions, STRING spentityid)
+{
+  DATETIME now := GetCurrentDateTime();
+
+  // Tolerate a difference of 10 seconds
+  IF (now < AddTimeToDate(-10000, conditions.notbefore))
+    THROW NEW Exception("The SAML assertion is not yet valid (" || (GetDatetimeDifference(now, conditions.notbefore).msecs) + 10000 || ")");
+  IF (now >= conditions.notonorafter)
+    THROW NEW Exception("The SAML assertion is not valid anymore");
+  IF (LENGTH(conditions.audiencerestriction) != 0)
+  {
+    BOOLEAN sp_found;
+    FOREVERY (RECORD rec FROM conditions.audiencerestriction)
+      sp_found := spentityid IN rec.audience;
+
+    IF (NOT sp_found)
+      THROW NEW Exception("This assertion is not meant for this SAML service provider");
+  }
+}
+
+PUBLIC MACRO RunSAMLSpEndpoint()
+{
+  RECORD pageparams := GetDynamicPageParameters();
+
+  STRING filename := SELECT AS STRING name FROM system.fs_objects WHERE id = GetStoredScriptProperty("FILEID");
+  IF (filename NOT LIKE "saml-sp-*")
+    THROW NEW Exception("This file's name must be like 'saml-sp-<tag>");
+
+  STRING tag := ToUppercase(SubString(filename, 8));
+
+  OBJECT authplugin := GetAuthIntegrationPlugin(pageparams.absolutebaseurl);
+  OBJECT wrd_samlidp := authplugin->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
+  IF (NOT ObjectExists(wrd_samlidp))
+    THROW NEW Exception("SAML is not configured for this authentication domain");
+
+  RECORD sp_data := wrd_samlidp->RunQuery(
+      [ filters :=
+            [ [ field := "WRD_LEFTENTITY", value := authplugin->wrdauth->id ]
+            , [ field := "WRD_TAG", value := tag ]
+            ]
+      , outputcolumns :=
+            [ "WRD_ID"
+            ]
+      ]);
+
+  IF (NOT RecordExists(sp_data))
+    THROW NEW Exception("No such SP with tag '" || tag || "' configured for this authentication domain");
+
+  OBJECT sp := NEW SAMLServiceProvider(authplugin->wrdschema, sp_data.wrd_id);
+
+  IF (pageparams.subpath NOT LIKE "!/*")
+    Redirect(pageparams.absolutebaseurl || "!/metadata/");
+
+  SWITCH (Tokenize(pageparams.subpath, "/")[1])
+  {
+    CASE "metadata"
+    {
+      OBJECT keypair := sp->GetKeyPair();
+
+      RECORD contactdata := sp->GetContactData();
+
+      RECORD organization :=
+          [ organizationname:=          contactdata.organization_name
+          , organizationdisplayname:=   contactdata.organization_displayname
+          , organizationurl:=           contactdata.organization_url
+          ];
+
+      RECORD ARRAY contacts :=
+          SELECT company
+              , givenname
+              , surname
+              , emailaddress :=        email
+              , telephonenumber :=     telephone
+              , contacttype :=         type
+            FROM contactdata.contacts;
+
+      RECORD descriptor :=
+          [ entityid :=           sp->GetSAMLEntityId()
+          , organization :=       organization
+          , contactperson :=      contacts
+          , idpssodescriptor :=   DEFAULT RECORD ARRAY
+          , spssodescriptor :=    [ [ protocolSupportEnumeration :=   [ "urn:oasis:names:tc:SAML:2.0:protocol" ]
+                                    , keydescriptor :=                EncodeCertificateToSAMLKeyDescriptor(keypair->certificate)
+                                    , singlelogoutservice :=          DEFAULT RECORD ARRAY
+                                    , nameidformat :=
+                                            [ "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
+                                            , "urn:oasis:names:tc:SAML:2.0:nameid-format:transient"
+                                            ]
+                                    , assertionconsumerservice :=
+                                            [ [ binding :=      "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                                              , location :=     pageparams.absolutebaseurl || "!/acservice"
+                                              , "index" :=      1 // keep in sync with assertionconsumerserviceindex in GenerateSAMLLoginRequest
+                                              ]
+                                            ] CONCAT (sp->IsRedirectBindingAllowed()
+                                                  ? [ [ binding :=      "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+                                                      , location :=     pageparams.absolutebaseurl || "!/acservice"
+                                                      , "index" :=      2
+                                                      ]
+                                                    ]
+                                                  : DEFAULT RECORD ARRAY)
+                                    ]
+                                  ]
+          ];
+
+      RECORD data :=
+          [ type :=                 "EntitiesDescriptor"
+          , entitydescriptor :=     [ descriptor ]
+          ];
+
+      OBJECT coder := NEW SAMLCoder;
+      OBJECT doc := coder->CodeMetadataDocument(data);
+      doc->documentelement->NormalizeNamespaces();
+
+      RECORD ARRAY errors := VerifySAMLMetadataDocument(doc);
+      IF (LENGTH(errors) != 0)
+        ABORT(AnyToString(errors, "boxed"));
+
+      AddHTTPHeader("Content-Type", "text/xml", FALSE);
+      SendWebFile(doc->GetDocumentBlob(TRUE));
+    }
+
+    CASE "acservice"
+    {
+      STRING binding;
+      IF (GetRequestMethod() = "GET")
+        binding := "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect";
+      ELSE IF (GetRequestMethod() = "POST")
+        binding := "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST";
+      ELSE
+        THROW NEW Exception("Cannot figure out used binding");
+
+      IF (binding = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" AND NOT sp->IsRedirectBindingAllowed())
+        THROW NEW Exception("SAML HTTP-Redirect binding is not allowed for this service");
+
+      RECORD webdata := GetSAMLDataFromWebData(binding);
+      RECORD instr := DecryptForThisServer("wrd:samlauth", webdata.relaystate);
+
+      STRING transid;
+      IF (RecordExists(instr))
+        transid := instr.id;
+
+      IF (IsRPCTrafficLogged("wrd:saml"))
+        LogRPCTraffic("wrd:saml", "acservice", FALSE, GetClientRemoteIp(), transid, CELL[...webdata, DELETE requestdoc, DELETE responsedoc]);
+
+      RECORD resdata := DecodeSAMLMessage(webdata, FALSE);
+      RECORD response := resdata.message;
+
+      TRY
+      {
+        IF (NOT RecordExists(response.issuer))
+          THROW NEW Exception("No issuer present, that field is mandatory");
+
+        OBJECT idp := sp->GetConnectedIDP();
+        IF (response.issuer.value != idp->GetSAMLEntityId())
+          THROW NEW Exception("Response wasn't issued by the configured IDP");
+
+        // Check signature
+        resdata.validate(idp->GetCertificates());
+
+        IF (NOT RecordExists(response) OR response.type != "Response")
+          THROW NEW Exception("Only Response allowed here, but got a '" || response.type || "'");
+
+        IF (LENGTH(response.assertion) != 1)
+          THROW NEW Exception("Not exactly one assertion found in response");
+
+        IF (NOT RecordExists(response.assertion[0].subject))
+          THROW NEW Exception("No subject found in SAML response");
+
+        IF (NOT RecordExists(response.assertion[0].subject.nameid))
+          THROW NEW Exception("No subject NameID found in SAML response");
+
+        IF (RecordExists(response.assertion[0].conditions))
+          CheckAssertionConditions(response.assertion[0].conditions, sp->GetSAMLEntityId());
+
+        RECORD ARRAY attributes;
+        IF (CellExists(response.assertion[0], "ATTRIBUTESTATEMENT") AND LENGTH(response.assertion[0].attributestatement) = 1)
+        {
+          attributes :=
+              SELECT name
+                  , value := (SELECT AS STRING value FROM attributevalue)
+                FROM response.assertion[0].attributestatement[0].attribute;
+        }
+
+        RECORD statement :=
+            [ subject :=    response.assertion[0].subject
+            , attributes := attributes
+            ];
+
+        OBJECT spsupport := authplugin->GetSAMLSPConfig(sp->GetTag());
+
+        RECORD loginres := spsupport->ProcessAuthenticationStatement(statement);
+        RECORD userdata;
+        IF (authplugin->wrdschema->usermgmt AND loginres.entityid != 0)
+        {
+          RECORD authobj := LookupAuthobjectByEntityId(loginres.entityid);
+          IF (RecordExists(authobj))
+          {
+            userdata :=
+                [ authobjectid :=     authobj.id
+                , login :=            authobj.name
+                ];
+          }
+        }
+
+        LogAuditEventBy("wrd:auth", userdata
+                       , [ type :=           "login:saml:" || ToLowercase(loginres.code)
+                         , wrdschema :=      authplugin->wrdschema->tag
+                         , sitetag :=        authplugin->sitetag
+                         , sp_tag :=         sp->GetTag()
+                         , name :=           loginres.name
+                         , entityid :=       loginres.entityid
+                         , clientip :=       IsRequest() ? GetClientRemoteIp() : ""
+                         , clientcountry :=  IsRequest() ? GetGeoIPCountryForIP(GetClientRemoteIp()) : ""
+                         ]);
+
+        RECORD submitinstr;
+
+        SWITCH (instr.t)
+        {
+          CASE "r" // Login, reload
+          {
+            STRING url := instr.u;
+            IF (loginres.code != "ok")
+              url := ReplaceVariableInURL(url, "wrdauth_returned", ToLowercase(loginres.code));
+            ELSE
+            {
+              RECORD trylogin := authplugin->LoginById(loginres.entityid, FALSE, [ allowlogout := instr.lo ]);
+              IF (NOT trylogin.success)
+                url := ReplaceVariableInURL(url, "wrdauth_returned", ToLowercase(trylogin.code));
+            }
+
+            submitinstr := [ type := "redirect", url := url ];
+          }
+          CASE "p" // postmessage
+          {
+            STRING code := "loggedin";
+            IF (loginres.code != "ok")
+              code := ToLowercase(loginres.code);
+            ELSE
+            {
+              RECORD trylogin := authplugin->LoginById(loginres.entityid, FALSE, [ allowlogout := instr.lo ]);
+              IF (NOT trylogin.success)
+                code := ToLowercase(trylogin.code);
+            }
+
+            submitinstr :=
+                [ type := "postmessage"
+                , message :=  EncodeJSON(
+                                  [ id := instr.id
+                                  , status := code
+                                  ])
+                ];
+          }
+          CASE "e" // external redirect with proof, no cookie save
+          {
+            STRING url := instr.u;
+            IF (loginres.code != "ok")
+              url := ReplaceVariableInURL(url, "wrdauth_returned", ToLowercase(loginres.code));
+            ELSE
+            {
+              RECORD trylogin := authplugin->LoginById(loginres.entityid, FALSE, [ allowlogout := instr.lo, setcookies := FALSE ]);
+              IF (NOT trylogin.success)
+                url := ReplaceVariableInURL(url, "wrdauth_returned", ToLowercase(trylogin.code));
+              ELSE
+                url := authplugin->__GenerateLoginProofRedirect(url, "wrdauth-nocookies", DEFAULT RECORD, DEFAULT RECORD).url;
+            }
+            submitinstr := [ type := "redirect", url := url ];
+          }
+        }
+
+        IF (RecordExists(submitinstr))
+        {
+          IF (IsRPCTrafficLogged("wrd:saml"))
+            LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
+
+          ExecuteSubmitInstruction(submitinstr);
+        }
+
+      }
+      CATCH (OBJECT e)
+      {
+        // might be all kinds of errors, such as a 'signature mismatch', no or a bad response, etc..
+        LogHarescriptException(e);
+
+        RECORD subinstr := DecryptForThisServer("wrd:samlauth", resdata.relaystate);
+
+        RECORD submitinstr;
+        SWITCH (subinstr.t)
+        {
+          CASE "r" // Login, reload
+          {
+            STRING url := subinstr.u;
+            url := ReplaceVariableInURL(url, "wrdauth_returned", "error");
+            submitinstr := [ type := "redirect", url := url ];
+          }
+          CASE "p" // postmessage
+          {
+            submitinstr :=
+                [ type := "postmessage"
+                , message :=  EncodeJSON(
+                                  [ id := subinstr.id
+                                  , status := "error"
+                                  ])
+                ];
+          }
+          CASE "e" // external redirecto with login proof
+          {
+            STRING url := subinstr.u;
+            url := ReplaceVariableInURL(url, "wrdauth_returned", "error");
+            submitinstr := [ type := "redirect", url := url ];
+          }
+        }
+
+        IF (IsRPCTrafficLogged("wrd:saml"))
+          LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
+
+        ExecuteSubmitInstruction(submitinstr);
+      }
+    }
+    DEFAULT
+    {
+      Redirect(pageparams.absolutebaseurl || "!/metadata/");
+    }
+  }
+}

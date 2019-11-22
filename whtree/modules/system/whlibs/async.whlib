@@ -1,0 +1,282 @@
+<?wh
+
+LOADLIB "wh::promise.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE WaitableConditionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Deferred promise
+  RECORD wait;
+
+  /// Whether the condition is signalled
+  BOOLEAN pvt_signalled;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// name of this waitable condition, for debugging purposes
+  PUBLIC STRING name;
+
+  PUBLIC PROPERTY signalled(pvt_signalled, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /// @param name Name of this condition variable
+  MACRO NEW(STRING name DEFAULTSTO "<unnamed>")
+  {
+    this->name := name;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION WaitSignalledInternal(BOOLEAN negate)
+  {
+    // Is the signalled state already what the user wants?
+    if (this->pvt_signalled != negate)
+      RETURN CreateResolvedPromise(this);
+
+    // Create a promise to wait for if there isn't one yet for the next signalled status change
+    IF (NOT RecordExists(this->wait))
+      this->wait := CreateDeferredPromise();
+
+    return this->wait.promise;
+  }
+
+  /// Updates the current signalled status (internal function, for use by derived objects
+  MACRO SetSignalled(BOOLEAN signalled)
+  {
+    if (this->pvt_signalled = signalled)
+      RETURN;
+
+    this->pvt_signalled := signalled;
+    IF (RecordExists(this->wait))
+    {
+      this->wait.resolve(this);
+      this->wait := DEFAULT RECORD;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  // Returns a promise that be resolved when the status is or becomes signalled
+  PUBLIC OBJECT FUNCTION WaitSignalled()
+  {
+    RETURN this->WaitSignalledInternal(FALSE);
+  }
+
+  // Returns a promise that be resolved when the status is or becomes not signalled
+  PUBLIC OBJECT FUNCTION WaitNotSignalled()
+  {
+    RETURN this->WaitSignalledInternal(TRUE);
+  }
+>;
+
+STATIC OBJECTTYPE PermissionLock
+<
+  RECORD defer;
+  MACRO NEW(RECORD defer)
+  {
+    this->defer := defer;
+  }
+
+  PUBLIC MACRO Close()
+  {
+    this->defer.resolve(DEFAULT RECORD);
+  }
+>;
+
+ASYNC FUNCTION WaitOnPromise(RECORD startdefer, OBJECT waitlock, OBJECT promise)
+{
+  startdefer.resolve(waitlock);
+  RETURN promise;
+}
+
+/** Helper class that serializes call to functions (optionally coalescing them)
+*/
+STATIC OBJECTTYPE CallSerializer EXTEND WaitableConditionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // Max concurrent runners
+  INTEGER maxconcurrent;
+
+  /// Number of runners
+  INTEGER running;
+
+  /** List of queued calls
+      @cell func
+      @cell options
+      @cell options.coalescetag
+      @cell args
+      @cell promise
+      @cell resolve
+      @cell reject
+  */
+  RECORD ARRAY queue;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD options)
+  {
+    options := ValidateOptions(
+        [ maxconcurrent :=    1
+        ], options);
+
+    this->maxconcurrent := options.maxconcurrent;
+    this->SetSignalled(TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Handle new call
+  OBJECT FUNCTION GotCall(RECORD data, VARIANT ARRAY ...args)
+  {
+    IF (data.options.coalescetag != "")
+    {
+      RECORD rec :=
+          SELECT *
+            FROM this->queue
+           WHERE options.coalescetag = data.options.coalescetag;
+
+      IF (RecordExists(rec))
+        RETURN rec.promise;
+    }
+
+    IF (data.options.ignoreparameters)
+      args := VARIANT[];
+
+    RECORD item := CELL[ ...CreateDeferredPromise(), ...data, args ];
+    INSERT item INTO this->queue AT END;
+    this->SetSignalled(FALSE);
+    this->RunQueue();
+    RETURN item.promise;
+  }
+
+  /// Dispatch pending calls
+  ASYNC MACRO RunQueue()
+  {
+    IF (this->running < this->maxconcurrent AND NOT IsDefaultValue(this->queue))
+    {
+      this->running := this->running + 1;
+
+      // Ensure that the calls are run in the next tick, so RunQueue returns immediately
+      AWAIT 1;
+
+      // Multiple runners can run this at the same time, so pop items from the queue without waits inbetween
+      WHILE (NOT IsDefaultValue(this->queue))
+      {
+        RECORD item := this->queue[0];
+        DELETE FROM this->queue AT 0;
+
+        TRY
+          item.resolve(AWAIT CallAnyPtrVA(item.func, item.args));
+        CATCH (OBJECT e)
+          item.reject(e);
+      }
+
+      this->running := this->running - 1;
+      this->SetSignalled(this->running = 0); // INV: queue is empty && running = 0
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Wrap a function pointer, returns a proxy that will ensure the function will be called in
+      a serialized manner.
+      @param func Function to wrap
+      @param options Options
+      @cell options.coalescetag If not empty, coalesce multiple pending calls to one call (if a call is running, a new call is still scheduled). If not empty, the returned function
+          does not take any parameters (unless ignoreparameters is set)
+      @cell options.ignoreparameters If set, ignore parameters passed to the returned function, and call the passed function without any parameters.
+  */
+  PUBLIC FUNCTION PTR FUNCTION Wrap(FUNCTION PTR func, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ coalescetag :=        ""
+        , ignoreparameters :=   FALSE
+        ], options);
+
+    IF (options.coalescetag != "")
+    {
+      IF (NOT ValidateFunctionPtr(func, 0, INTEGER[]))
+        THROW NEW Exception("Can only coalesce functions that take no arguments");
+    }
+
+    // Bind first 4 params, 5th is options (optional)
+    RECORD ARRAY params :=
+        [ [ source :=       0
+          , value :=        CELL[ func, options ]
+          ]
+        ];
+
+    RETURN __HS_REBINDFUNCTIONPTR2(PTR this->GotCall, params, 1, options.coalescetag = "" OR options.ignoreparameters);
+  }
+
+  /** Call a function through the serializer, returns a promise for the function. The function will be called in
+      a serialized manner.
+      @param func Function to call
+      @param args Arguments to the function
+      @return Promise for the function result
+  */
+  PUBLIC OBJECT FUNCTION Call(FUNCTION PTR func, VARIANT ARRAY ...args)
+  {
+    RECORD data :=
+        [ func :=     func
+        , options :=  [ coalescetag := "", ignoreparameters := FALSE ]
+        ];
+
+    RETURN CallAnyPtrVA(PTR this->GotCall, VARIANT[ data, ...args ]);
+  }
+
+  /** Get serialized run permission. Returns a running lock, call `Close` on that lock to release it.
+  */
+  PUBLIC OBJECT FUNCTION GetRunPermission()
+  {
+    RECORD waitlock := CreateDeferredPromise();
+    OBJECT lock := NEW PermissionLock(waitlock);
+
+    RECORD startpromise := CreateDeferredPromise();
+
+    this->GotCall(
+        [ func :=     PTR WaitOnPromise(startpromise, lock, waitlock.promise)
+        , options :=  [ coalescetag := "", ignoreparameters := FALSE ]
+        ]);
+
+    RETURN startpromise.promise;
+  }
+>;
+
+/** Returns a class that helps with serializing functions
+    @param options
+    @cell options.maxconcurrent Maximum number of calls to run concurrently, defaults to 1.
+*/
+PUBLIC OBJECT FUNCTION MakeCallSerializer(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN NEW CallSerializer(options);
+}

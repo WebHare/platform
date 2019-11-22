@@ -1,0 +1,158 @@
+<?wh
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/backend/users.whlib";
+
+RECORD FUNCTION GetAuthObjectById(RECORD ARRAY allobjs, INTEGER authobjectid)
+{
+  RECORD authobjectpos := RecordLowerBound(allobjs, [ id := authobjectid ], ["ID"]);
+  IF(NOT authobjectpos.found)
+    RETURN DEFAULT RECORD;
+  RETURN allobjs[authobjectpos.position];
+}
+
+RECORD FUNCTION GetGrantee(RECORD ARRAY allusers, RECORD ARRAY allobjs, INTEGER authobjectid)
+{
+  RECORD authobject := GetAuthObjectById(allobjs, authobjectid);
+  IF(NOT RecordExists(authobject))
+    RETURN DEFAULT RECORD;
+
+  RECORD userobjpos := RecordLowerBound(allusers, [ guid := authobject.guid ], [ "GUID" ]);
+  IF(NOT userobjpos.found)
+    RETURN DEFAULT RECORD;
+
+  RECORD userrec := allusers[userobjpos.position];
+  RETURN CELL[ login := authobject.name
+             , userrec.realname
+             , userrec.email
+             , authobject.unitid
+             , authobject.unitname
+             ];
+}
+
+STRING FUNCTION GetGrantor(RECORD ARRAY allobjs, RECORD grant, RECORD grantordata)
+{
+  RECORD grantorrec;
+  IF(grant.grantor = grant.grantee) //self grant!
+    RETURN ""; //dont report a user with these, we want them to stand out
+
+  IF(grant.grantor != 0 AND grant.grantor != grant.grantee)
+  {
+    grantorrec := GetAuthObjectById(allobjs, grant.grantor);
+    IF(RecordExists(grantorrec))
+      RETURN grantorrec.name ?? grantorrec.guid;
+  }
+
+  //TODO present data from grantordata, but need testcases
+  RETURN "#" || grant.grantor;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
+{
+  RECORD ARRAY allusers :=
+      SELECT *
+        FROM userapi->accounttype->RunQuery(
+                  [ outputcolumns :=
+                        [ id :=         "WRD_ID"
+                        , realname :=   "WRD_TITLE"
+                        , login :=      userapi->wrdschema->accountlogintag
+                        , email :=      userapi->wrdschema->accountemailtag
+                        , guid  :=      "WRD_GUID"
+                        ]
+                  ])
+    ORDER BY guid;
+
+/*
+TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
+                               , realname :=  up.found ? allusers[up.position].realname : "<other schema>"
+                               , email :=     up.found ? allusers[up.position].email : "<other schema>"
+                               ,
+                               , otherschema := NOT up.found
+
+*/
+
+  RECORD ARRAY allobjs := SELECT authobjects.id
+                               , authobjects.name
+                               , authobjects.guid
+                               , unitid := units.id
+                               , unitname := units.name
+                            FROM system.authobjects, system.authobjects as units
+                           WHERE units.id = authobjects.parent
+                        ORDER BY authobjects.id;
+
+  //DELETE FROM allobjs WHERE otherschema;
+
+  RECORD ARRAY allrights := GetListOfRights();
+  GetPrimary()->BeginWork();
+  OBJECT user := EnsureCreatedMagicSysop("<overrideuser>");
+  GetPrimary()->CommitWork();
+
+  RECORD ARRAY allrows;
+
+  //Gather the rights
+  FOREVERY(RECORD r FROM allrights)
+  {
+    RECORD ARRAY grants := GetDirectGrantsForRight(r.rightname);
+    FOREVERY(RECORD grant FROM grants)
+    {
+      RECORD granteerec := GetGrantee(allusers, allobjs, grant.grantee);
+      IF(NOT RecordExists(granteerec))
+        CONTINUE;
+
+      STRING objecttypename;
+      INTEGER objectid;
+      STRING ARRAY objectpath;
+
+      IF(NOT r.isglobal)
+      {
+        RECORD pathrec := user->GetObjectPath(r.objecttypename, grant."object");
+        IF (NOT RecordExists(pathrec) OR NOT pathrec.visible)
+          CONTINUE;
+
+        objecttypename := r.objecttypename;
+        objectid := grant."object";
+        objectpath := SELECT AS STRING ARRAY name FROM pathrec.path WHERE id != 0;
+      }
+
+      INSERT CELL[ type := "GRANT"
+                 , ...granteerec
+                 , r.rightname
+                 , grant.withgrantoption
+                 , objecttypename
+                 , objectid
+                 , objectpath
+                 , grant.comment
+                 , grant.grantordata
+                 , grant.creationdate
+                 , grantor := GetGrantor(allobjs, grant, grant.grantordata)
+                 ] INTO allrows AT END;
+    }
+  }
+
+  //Gather the role grants
+  RECORD ARRAY rolegrants := SELECT * FROM system.rolegrants;
+  FOREVERY(RECORD grant FROM rolegrants)
+  {
+    RECORD granteerec := GetGrantee(allusers, allobjs, grant.grantee);
+    RECORD roleinfo := GetAuthObjectById(allobjs, grant.role);
+    IF(NOT RecordExists(granteerec) OR NOT RecordExists(roleinfo))
+      CONTINUE;
+
+    RECORD grantordata := grant.grantordata != "" ? DecodeHSON(grant.grantordata) : DEFAULT RECORD;
+    INSERT CELL[ type := "ROLEGRANT"
+               , ...granteerec
+               , rightname := ""
+               , withgrantoption := FALSE
+               , objecttypename := "role"
+               , objectid := roleinfo.id
+               //FIXME show full role path
+               , objectpath := STRING[roleinfo.name]
+               , grant.comment
+               , grantordata
+               , grant.creationdate
+               , grantor := GetGrantor(allobjs, grant, grantordata)
+               ] INTO allrows AT END;
+  }
+  RETURN allrows;
+}

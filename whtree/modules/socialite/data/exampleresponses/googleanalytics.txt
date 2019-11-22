@@ -1,0 +1,61 @@
+https://analyticsreporting.googleapis.com/v4/reports:batchGet response
+{
+  "reports": [
+    {
+      "columnHeader": {
+        "dimensions": [
+          "ga:dimension1",
+          "ga:pagePath"
+        ],
+        "metricHeader": {
+          "metricHeaderEntries": [
+            {
+              "name": "ga:sessions",
+              "type": "INTEGER"
+            }
+          ]
+        }
+      },
+      "data": {
+        "rows": [
+          {
+            "dimensions": [
+              " gak1q4ozSt3hEGXKuGGWjapjx0mjlsG",
+              "/programma/?guid=+gak1q4ozSt3hEGXKuGGWjapjx0mjlsG"
+            ],
+            "metrics": [
+              {
+                "values": [
+                  "1"
+                ]
+              }
+            ]
+          } .........................
+        ],
+        "totals": [
+          {
+            "values": [
+              "566"
+            ]
+          }
+        ],
+        "rowCount": 523,
+        "minimums": [
+          {
+            "values": [
+              "1"
+            ]
+          }
+        ],
+        "maximums": [
+          {
+            "values": [
+              "6"
+            ]
+          }
+        ],
+        "isDataGolden": true
+      }
+    }
+  ]
+}

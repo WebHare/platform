@@ -1,0 +1,64 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+MACRO RecurseSetIndex(INTEGER startfolder, BOOLEAN overwrite)
+{
+  FOREVERY(RECORD sub FROM SELECT id,indexdoc FROM system.fs_objects WHERE parent = startfolder AND isfolder)
+  {
+    IF(overwrite OR sub.indexdoc = 0)
+      AddDefaultIndexToFolder(sub.id);
+
+    RecurseSetIndex(sub.id, overwrite);
+  }
+}
+
+RECORD info := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "recursive", type := "switch" ]
+                              , [ name := "overwrite", type := "switch" ]
+                              , [ name := "path", type := "param", required := TRUE ]
+                              ]);
+IF(NOT RecordExists(info))
+{
+  Print("Syntax: create_indexfiles [--recursive] [--overwite] whfs_path\n");
+  Print("  --recursive: Recurse through subfolders of the specified path\n");
+  Print("  --overwrite: Overwrite existing indexdocuments\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+OBJECT path := OpenWHFSObjectByPath(info.path);
+IF(NOT ObjectExists(path))
+{
+  Print("Cannot find path: " || info.path || "\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+IF(NOT path->isfolder)
+{
+  Print("Path is not a folder: " || info.path || "\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+//ADDME: configurable owner
+INTEGER owner := 1;
+BOOLEAN anychange;
+IF(info.overwrite OR path->indexdoc = 0)
+{
+  AddDefaultIndexToFolder(path->id);
+}
+
+IF(info.recursive)
+  RecurseSetIndex(path->id, info.overwrite);
+
+ScheduleFolderRepublish(path->id, TRUE);
+trans->CommitWork();

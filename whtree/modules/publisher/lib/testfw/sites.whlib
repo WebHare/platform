@@ -1,0 +1,80 @@
+<?wh
+/** @topic testframework/publisher */
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/devtools/support.whlib";
+
+/** @short Setup a website for continuous integration tests
+    @param webdesigntemplate Name of the webdesign to use, eg "mysite:mydesign"
+    @cell(string) options.sitename Site name to use, defaults to "webhare_testsuite.site"
+    @cell(string) options.cdnhost CDN base url
+    @cell(boolean) options.istemplate If true, instantiate from the webdesign as a template (will create the webhare_testsuite_temp module to store this webdesign)
+    @cell(string array) options.webfeatures Additional webfeatures to activate
+    @cell(boolean) options.waitwebserver Wait for the webserver configuration to reload (so settings from siteprofiles can apply to the output)
+    @return Newly created site
+    */
+PUBLIC OBJECT FUNCTION SetupTestWebsite(STRING webdesigntemplate, RECORD options  DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ sitename :=     ""
+      , cdnhost :=      ""
+      , istemplate :=   FALSE
+      , webfeatures :=  DEFAULT STRING ARRAY
+      , waitwebserver := FALSE
+      //, aftercompiletask := ""
+      ], options,
+      [ optional := [ "SITENAME" ]
+      ]);
+
+  IF(NOT IsModuleInstalled(testfw_testmodule) AND (webdesigntemplate LIKE testfw_testmodule || ":*" OR options.istemplate))
+    testfw->SetupTestModule();
+
+  testfw->BeginWork();
+
+  RECORD siteopts :=
+      [ sitetype := 0
+      , outputpath := "site"
+      ];
+
+  IF (CellExists(options, "SITENAME"))
+  {
+    INSERT CELL sitename := options.sitename INTO siteopts;
+    siteopts.outputpath := Substitute(options.sitename, "<prefix>", "");
+  }
+
+  OBJECT newsite := testfw->SetupTestWebdesignWebsite("", siteopts); //ADDME merge this into us?
+
+  IF(options.istemplate)
+    SetupWebDesign(webdesigntemplate, testfw_testmodule, "TestDesign", [ aftercompiletask := "webhare_testsuite:aftercompile"] );
+
+  RECORD meta := [ sitedesign := options.istemplate ? `${testfw_testmodule}:testdesign` : webdesigntemplate
+                 , webfeatures := options.webfeatures
+                 ];
+
+  IF(options.cdnhost != "")
+  {
+    RECORD url := UnpackURL(newsite->webroot);
+    url.host := options.cdnhost;
+    INSERT CELL cdnbaseurl := RepackURL(url) INTO meta;
+  }
+
+  newsite->UpdateSiteMetadata(meta);
+
+  OBJECT configreload;
+  IF (options.waitwebserver)
+    configreload := testfw->AsyncWaitForEvent("system:internal.webserver.didconfigreload");
+
+  testfw->CommitWork();
+
+  IF (options.waitwebserver)
+  {
+    IF (testfw->debug)
+      PRINT("- waiting for webserver config reload\n");
+    WaitForPromise(configreload);
+  }
+
+  RETURN newsite;
+}
+

@@ -1,0 +1,37 @@
+<?wh
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::publisher/lib/template-v2.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+IF (file.type=19) //internal link
+{
+  RECORD linkedfile := SELECT publish FROM system.fs_objects WHERE id=file.filelink;
+  IF (NOT RecordExists(linkedfile))
+    AddPublicationWarning("This link does not refer to an existing document");
+  ELSE IF (NOT linkedfile.publish)
+    AddPublicationWarning("The document this link refers to is currently not being published");
+}
+
+RenamePage(1,'index.shtml');
+STRING url := MakeRelativeLinkFromURL(GetCurrentPageUrl(), file.url);
+STRING header := '<!-- <?wh LOADLIB "mod::system/lib/webserver.whlib"; Redirect("' || EncodeJava(url) || '"); ?> -->';
+OpenFile(1);
+
+?><!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"><?wh PrintTrustedCode(header); ?>
+<html>
+<head>
+  <title>
+    <?wh PRINT(GetWebhareVersion()); ?> link
+  </title>
+  <meta http-equiv="refresh" content="0; url=<?wh PRINT(EncodeValue(url)); ?>">
+  <script type="text/javascript" language="javascript">
+    location.href = '<?wh print(EncodeJava(url)); ?>';
+  </script>
+</head>
+<body>
+  Please refer to <a href="<?wh print(EncodeValue(url)); ?>"><?wh print(EncodeHTML(url)); ?></a> for the requested page (your browser should have redirected you automatically).
+</body>
+</html>
+<?wh
+CloseFile();

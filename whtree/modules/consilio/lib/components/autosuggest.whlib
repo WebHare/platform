@@ -1,0 +1,54 @@
+<?wh
+LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/components/autosuggest.whlib";
+
+PUBLIC OBJECTTYPE ConsilioAutoSuggestComponent EXTEND TolliumAutoSuggestComponent
+< STRING matches;
+  INTEGER count;
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumAutoSuggestComponent::StaticInit(CELL[...def
+                                                ,suggestobjectname := Resolve("#ConsilioAutoComplete")
+                                                ]);
+    this->matches := def.matches;
+    this->count := def.count;
+    this->SetSearchCatalog(def.catalog);
+  }
+
+  PUBLIC MACRO SetSearchCatalog(STRING catalog)
+  {
+    this->data := [ catalog := catalog
+                  , doccount := this->matches
+                  , count := this->count
+                  ];
+  }
+>;
+
+PUBLIC OBJECTTYPE ConsilioAutoComplete EXTEND TolliumAutoSuggestBase
+<
+  OBJECT suggest;
+  INTEGER count;
+
+  MACRO NEW(RECORD data)
+  {
+    this->suggest := OpenSuggestObject(data.catalog);
+    this->suggest->document_count := data.doccount;
+    this->count := data.count;
+  }
+
+  PUBLIC UPDATE RECORD ARRAY FUNCTION Lookup(STRING curtext)
+  {
+    RECORD ARRAY words;
+
+    FOREVERY (RECORD suggestion FROM this->suggest->GetSuggestions(curtext, this->count))
+    {
+      INSERT [ value := suggestion.text
+             , append := (suggestion.count > 0 ? (" (" || suggestion.count || ")") : "")
+             ] INTO words AT END;
+    }
+
+    RETURN words;
+  }
+>;

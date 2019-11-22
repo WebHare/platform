@@ -1,0 +1,1240 @@
+﻿<?wh
+LOADLIB "wh::float.whlib";
+
+INTEGER FUNCTION __DRAWLIB_V2_VALIDATEDRAWID(INTEGER id) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+INTEGER FUNCTION __DRAWLIB_V2_VALIDATEFONTID(INTEGER id) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+
+//////////////////////////////////////////////////////////////////////////
+// Internal functions
+PUBLIC MACRO __DRAWLIB_V2_BLURCANVAS(INTEGER drawid, INTEGER xsize, INTEGER ysize) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_GRAYSCALECANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_ALPHACANVAS(INTEGER drawid, FLOAT multiply) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_ALPHACANVASADD(INTEGER drawid, INTEGER toadd) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_INVERTCANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_MULTIPLYCANVAS(INTEGER drawid1, INTEGER drawid2) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_APPLYCOLORMAPPING(INTEGER drawid1, RECORD ARRAY colormap) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_MAKECANVAS(INTEGER width, INTEGER height, INTEGER color) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_EASTEREGG(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DRAWLINE(INTEGER drawid, INTEGER startx, INTEGER starty, INTEGER endx, INTEGER endy) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DRAWRECTANGLE(INTEGER drawid, INTEGER leftx, INTEGER topy, INTEGER rightx, INTEGER bottomy) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DRAWRECTANGLEBORDER(INTEGER drawid, INTEGER leftx, INTEGER topy, INTEGER rightx, INTEGER bottomy) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DRAWELLIPSE(INTEGER drawid, INTEGER centerx, INTEGER centery, INTEGER widthx, INTEGER heighty) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DRAWELLIPSEBORDER(INTEGER drawid, INTEGER centerx, INTEGER centery, INTEGER widthx, INTEGER heighty) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DRAWPIXEL(INTEGER drawid, INTEGER xpos, INTEGER ypos, INTEGER packedcolor) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DRAWPATH(INTEGER drawid, RECORD ARRAY path, BOOLEAN stroke, BOOLEAN fill, FLOAT ARRAY matrix) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETPIXEL(INTEGER drawid, INTEGER xpos, INTEGER ypos) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DRAWCANVAS(INTEGER drawid, INTEGER drawfid, INTEGER xpos, INTEGER ypos) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DRAWTEXT(INTEGER drawid, INTEGER fontid, INTEGER xpos, INTEGER ypos, STRING text) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETTEXTWIDTH(INTEGER fontid, STRING text) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETTEXTHEIGHT(INTEGER fontid, STRING text) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC RECORD ARRAY FUNCTION __DRAWLIB_V2_GETAVAILABLEFONTS() __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_MAKEFONT(STRING fontname, STRING fontstyle, INTEGER pointsize) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETFONTCOLOR(INTEGER fontid, INTEGER packedcolor) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETFONTSIZE(INTEGER fontid, INTEGER size) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETFONTANTIALIASMODE(INTEGER fontid, INTEGER rendermode) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETFONTALIGNMENT(INTEGER fontid, INTEGER horizontal, INTEGER vertical) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETFONTORIENTATION(INTEGER fontid, INTEGER baseline, INTEGER glyph) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETFONTLETTERSPACING(INTEGER fontid, FLOAT letterspacing) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETFILLCOLOR(INTEGER drawid, INTEGER packedcolor) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETFILLMODE(INTEGER drawid, INTEGER mode) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETFILLTEXTURE(INTEGER drawid, INTEGER textureid, INTEGER offsetx, INTEGER offsety) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETFILLTHREEDTEXTURE(INTEGER drawid, INTEGER textureid, FLOAT sua, FLOAT sub, FLOAT suc, FLOAT sva, FLOAT svb, FLOAT svc, FLOAT sza, FLOAT szb, FLOAT szc) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETOUTLINECOLOR(INTEGER drawid, INTEGER packedcolor) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETOUTLINEMODE(INTEGER drawid, INTEGER mode) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETOUTLINEWIDTH(INTEGER drawid, INTEGER width) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETOUTLINETHREEDTEXTURE(INTEGER drawid, INTEGER textureid, FLOAT sua, FLOAT sub, FLOAT suc, FLOAT sva, FLOAT svb, FLOAT svc, FLOAT sza, FLOAT szb, FLOAT szc) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETALPHAMODE(INTEGER drawid, INTEGER alphamode) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETPIXELMODE(INTEGER drawid, INTEGER pixelmode) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETALPHAMODE(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETPIXELMODE(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_CLEAR(INTEGER drawid, INTEGER packedcolor) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_CREATECANVASFROMFILE(BLOB gifblob) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_CREATERESIZEDCANVASFROMFILE(BLOB gifblob, INTEGER canvaswidth, INTEGER canvasheight) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETCANVASWIDTH(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETCANVASHEIGHT(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_RESIZECANVAS(INTEGER drawid, INTEGER newwidth, INTEGER newheight) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_ROTATECANVAS(INTEGER drawid, BOOLEAN rotate_right) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_MIRRORCANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_SHEARCANVAS(INTEGER drawid, FLOAT scale_x, FLOAT scale_y) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_DUPLICATECANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_MAKECANVASFROMCANVAS(INTEGER drawid, INTEGER left, INTEGER top, INTEGER width, INTEGER height) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DESTROYCANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_DESTROYFONT(INTEGER fontid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC BLOB FUNCTION __DRAWLIB_V2_CREATEPNGBLOBFROMCANVAS(INTEGER drawid, BOOLEAN palleted, BOOLEAN discard_alpha) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC BLOB FUNCTION __DRAWLIB_V2_CREATEJPGBLOBFROMCANVAS(INTEGER drawid, INTEGER quality) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC BLOB FUNCTION __DRAWLIB_V2_CREATEGIFBLOBFROMCANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC BLOB FUNCTION __DRAWLIB_V2_CREATERAWBLOBFROMCANVAS(INTEGER drawid, STRING format) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_CREATECANVASFROMRAWBLOB(BLOB raw, INTEGER width, INTEGER height, STRING FORMAT, BOOLEAN premultiplied) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_CREATEDIFFERENCECANVAS(INTEGER drawid1, INTEGER drawid2) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC FLOAT   FUNCTION __DRAWLIB_V2_COMPARECANVASES(INTEGER drawid1, INTEGER drawid2) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC RECORD FUNCTION __DRAWLIB_V2_RGBTOHSV(INTEGER rgb) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_HSVTORGB(FLOAT h, FLOAT s, FLOAT v) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC MACRO __DRAWLIB_V2_SETCANVASMARSHALLER(OBJECT canvasobj) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+
+/**
+@short          Count the number of colors and alpha values in the canvas
+@param canvas_id The ID of the canvas to count
+@param minalpha Minimum alpha value that a pixel must have to be considered visible (range 0-255)
+@return         Record with color information
+@cell return.alphas Number of transparant pixels
+@cell return.colors Number of counted colors
+*/
+PUBLIC RECORD FUNCTION GfxCountCanvasColors(INTEGER canvas_id, INTEGER minalpha) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+PUBLIC RECORD ARRAY FUNCTION __DRAWLIB_V2_GETKMEANSQUANTIZEDPALETTE(INTEGER canvasid, INTEGER clustercount, INTEGER minalpha, INTEGER naxitercount, FLOAT initial) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+
+PUBLIC CONSTANT STRING ARRAY __alphamodes := [ "BLEND255", "COPYALPHA", "COPYALL", "MINALPHA", "MAXALPHA", "LINEARBURN"
+                                             , "CUTOUTALPHA", "COLORBURN", "COLORDODGE", "DARKEN", "DIFFERENCE", "EXCLUSION"
+                                             , "HARDLIGHT", "LIGHTEN", "LINEARDODGE", "MULTIPLY", "OVERLAY", "SCREEN", "DIFFERENCEALL"
+                                             ];
+PUBLIC CONSTANT STRING ARRAY __pixelmodes := ["DEFAULT","AND","OR","XOR","NOP"];
+PUBLIC CONSTANT STRING ARRAY __valigns := ["BASELINE","TOP","BOTTOM","CENTER","BASELINE","ASCENDER","DESCENDER"];
+PUBLIC CONSTANT STRING ARRAY __haligns := ["LEFT","CENTER","RIGHT"];
+
+/**
+@short          Convert a HareScript colour HSV coulour space
+@long           The HareScript colour is converted to HSV colour space.
+                The result is a RECORD with with three FLOATs:
+                H (hue from 0.0 to 360.0), S (saturation from 0.0 to 1.0) and V (value from 0.0 to 1.0)
+
+@param RGB  HareScript colour
+@return the colour in HSV as a RECORD of the FLOATs H, S and V
+*/
+
+PUBLIC RECORD FUNCTION GfxRGB2HSV(INTEGER rgb)
+{
+  RETURN __DRAWLIB_V2_RGBTOHSV(rgb);
+}
+
+/**
+@short          Convert a colour in HSV coulour space to a HareScript colour
+@long           Converts the three FLOATs:
+                H (hue from 0.0 to 360.0), S (saturation from 0.0 to 1.0) and V (value from 0.0 to 1.0)
+                to a HareScript colour.
+
+
+@param H Hue from 0.0 to 360.0
+@param S Saturation from 0.0 to 1.0
+@param V Value from 0.0 to 1.0
+@return the HareScript colour
+*/
+PUBLIC INTEGER FUNCTION GfxHSV2RGB(FLOAT h, FLOAT s, FLOAT v)
+{
+  RETURN __DRAWLIB_V2_HSVTORGB(h, s, v);
+}
+
+/**
+@short          Convert a colour in HSL coulor space to a HareScript color
+@long           Converts the three FLOATs:
+                H (hue from 0.0 to 360.0), S (saturation from 0.0 to 1.0) and L (lightness from 0.0 to 1.0)
+                to a HareScript color.
+
+
+@param H Hue from 0.0 to 360.0
+@param S Saturation from 0.0 to 1.0
+@param L Lightness from 0.0 to 1.0
+@return the HareScript color
+*/
+PUBLIC INTEGER FUNCTION GfxHSL2RGB(FLOAT h, FLOAT s, FLOAT l)
+{
+  // The algorithm expects all values to be in the range [0,1]
+  h := h / 360;
+
+  /* ABC code from CSS3 color spec: http://www.w3.org/TR/css3-color/#hsl-color
+
+    HOW TO RETURN hsl.to.rgb(h, s, l):
+       SELECT:
+          l<=0.5: PUT l*(s+1) IN m2
+          ELSE: PUT l+s-l*s IN m2
+       PUT l*2-m2 IN m1
+       PUT hue.to.rgb(m1, m2, h+1/3) IN r
+       PUT hue.to.rgb(m1, m2, h    ) IN g
+       PUT hue.to.rgb(m1, m2, h-1/3) IN b
+       RETURN (r, g, b)
+  */
+
+  FLOAT m2 := l <= .5f ? l * (s + 1f) : l + s - l * s;
+  FLOAT m1 := l * 2f - m2;
+
+  INTEGER r := Hue2RGB(m1, m2, h + (1f/3));
+  INTEGER g := Hue2RGB(m1, m2, h);
+  INTEGER b := Hue2RGB(m1, m2, h - (1f/3));
+
+  RETURN GfxCreateColor(r, g, b);
+}
+
+INTEGER FUNCTION Hue2RGB(FLOAT m1, FLOAT m2, FLOAT h)
+{
+  /* ABC code from CSS3 color spec: http://www.w3.org/TR/css3-color/#hsl-color
+
+    HOW TO RETURN hue.to.rgb(m1, m2, h):
+       IF h<0: PUT h+1 IN h
+       IF h>1: PUT h-1 IN h
+       IF h*6<1: RETURN m1+(m2-m1)*h*6
+       IF h*2<1: RETURN m2
+       IF h*3<2: RETURN m1+(m2-m1)*(2/3-h)*6
+       RETURN m1
+  */
+
+  IF (h < 0)
+    h := h + 1;
+  IF (h > 1)
+    h := h - 1;
+
+  IF (h * 6 < 1)
+    RETURN FloatToInteger(Floor((m1 + (m2 - m1) * h * 6) * 255 + .5));
+  IF (h * 2 < 1)
+    RETURN FloatToInteger(Floor(m2 * 255 + .5));
+  IF (h * 3 < 2)
+    RETURN FloatToInteger(Floor((m1 + (m2 - m1) * (2f/3 - h) * 6) * 255 + .5));
+  RETURN FloatToInteger(Floor(m1 * 255 + .5));
+}
+
+/** Unpacks a color-integer value into RGBA channels
+    @param color Value to unpack
+    @return Unpacked color value
+    @cell(integer) return.r Red channel value, 0-255
+    @cell(integer) return.g Green channel value, 0-255
+    @cell(integer) return.b Blue channel value, 0-255
+    @cell(integer) return.a Alpha channel value, 0-255
+*/
+PUBLIC RECORD FUNCTION GfxUnpackColor(INTEGER color)
+{
+  RETURN
+      [ r := (color BITRSHIFT 16) BITAND 0xFF
+      , g := (color BITRSHIFT 8) BITAND 0xFF
+      , b := color BITAND 0xFF
+      , a := (color BITRSHIFT 24) BITAND 0xFF
+      ];
+}
+
+PUBLIC INTEGER FUNCTION GfxColorAlpha(INTEGER color, INTEGER alpha)
+{
+        IF ((alpha<0) OR (alpha>255)) Abort("Alpha value out-of-range");
+
+        RETURN (color BITAND 0x00ffffff) BITOR (alpha BITLSHIFT 24);
+}
+
+/**   @short          Creates a color-integer from red, green and blue values.
+      @long           A color consists of 3 levels, the level of red, the level of green, and the level of blue.
+                      These levels may vary from 0 to 255. The value of <code>color</code>
+                      is calculate as follows: <code>color = 65536 * red + 256 * green + blue
+      @param red      The value of the red channel (must be in the range 0-255)
+      @param green    The value of the green channel (must be in the range 0-255)
+      @param blue     The value of the blue channel (must be in the range 0-255)
+      @param alpha    The optional value of the alpha channel (must be in the range 0-255)
+      @return         The calculated color integer.
+*/
+PUBLIC INTEGER FUNCTION GfxCreateColor(INTEGER red, INTEGER green, INTEGER blue, INTEGER alpha DEFAULTSTO 255)
+{
+        IF ((alpha<0) OR (alpha>255)) THROW NEW Exception("Alpha value out-of-range");
+        IF ((red  <0) OR (red  >255)) THROW NEW Exception("Red value out-of-range");
+        IF ((green<0) OR (green>255)) THROW NEW Exception("Green value out-of-range");
+        IF ((blue <0) OR (blue >255)) THROW NEW Exception("Blue value out-of-range");
+
+        RETURN  (red BITLSHIFT 16) BITOR (green BITLSHIFT 8) BITOR blue BITOR (alpha BITLSHIFT 24);
+}
+
+/**   @short          Creates a color-integer from a CSS value.
+      @long           Currently, CSS Color Module Level 4 named colors and RGB values in rgb(), rgba(), hsl(), hsla() or hex
+                      notation (3-, 4-, 6- and 8-digit) notations. See https://drafts.csswg.org/css-color/ for an explanation
+                      about the supported values.
+      @param value    The CSS value to use for creating the color
+      @return         The calculated color integer.
+*/
+PUBLIC INTEGER FUNCTION GfxCreateColorFromCSS(STRING value)
+{
+  STRING color := TrimWhitespace(ToUppercase(value));
+  IF (color LIKE "#???")
+  {
+    INTEGER red := ToInteger(Substring(color, 1, 1) || Substring(color, 1, 1), -1, 16);
+    INTEGER green := ToInteger(Substring(color, 2, 1) || Substring(color, 2, 1), -1, 16);
+    INTEGER blue := ToInteger(Substring(color, 3, 1) || Substring(color, 3, 1), -1, 16);
+    RETURN GfxCreateColor(red, green, blue);
+  }
+  IF (color LIKE "#????")
+  {
+    INTEGER red := ToInteger(Substring(color, 1, 1) || Substring(color, 1, 1), -1, 16);
+    INTEGER green := ToInteger(Substring(color, 2, 1) || Substring(color, 2, 1), -1, 16);
+    INTEGER blue := ToInteger(Substring(color, 3, 1) || Substring(color, 3, 1), -1, 16);
+    INTEGER alpha := ToInteger(Substring(color, 4, 1) || Substring(color, 4, 1), -1, 16);
+    RETURN GfxCreateColor(red, green, blue, alpha);
+  }
+  ELSE IF (color LIKE "#??????")
+  {
+    INTEGER red := ToInteger(Substring(color, 1, 2), -1, 16);
+    INTEGER green := ToInteger(Substring(color, 3, 2), -1, 16);
+    INTEGER blue := ToInteger(Substring(color, 5, 2), -1, 16);
+    RETURN GfxCreateColor(red, green, blue);
+  }
+  ELSE IF (color LIKE "#????????")
+  {
+    INTEGER red := ToInteger(Substring(color, 1, 2), -1, 16);
+    INTEGER green := ToInteger(Substring(color, 3, 2), -1, 16);
+    INTEGER blue := ToInteger(Substring(color, 5, 2), -1, 16);
+    INTEGER alpha := ToInteger(Substring(color, 7, 2), -1, 16);
+    RETURN GfxCreateColor(red, green, blue, alpha);
+  }
+  ELSE IF (color LIKE "RGB(*,*,*)" OR color LIKE "RGBA(*,*,*,*)")
+  {
+    STRING ARRAY parts := color LIKE "RGB(*" ? Tokenize(Substring(color, 4, Length(color) - 5), ",")
+                                             : Tokenize(Substring(color, 5, Length(color) - 6), ",");
+    IF ((color LIKE "RGB(*" AND Length(parts) = 3) OR (color LIKE "RGBA(*" AND Length(parts) = 4))
+    {
+      INTEGER red := ParseRgbColorPart(parts[0]);
+      INTEGER green := ParseRgbColorPart(parts[1]);
+      INTEGER blue := ParseRgbColorPart(parts[2]);
+      INTEGER alpha := Length(parts) > 3 ? ParseRgbAlphaPart(parts[3]) : 255;
+      RETURN GfxCreateColor(red, green, blue, alpha);
+    }
+  }
+  ELSE IF (color LIKE "HSL(*,*,*)" OR color LIKE "HSLA(*,*,*,*)")
+  {
+    STRING ARRAY parts := color LIKE "HSL(*" ? Tokenize(Substring(color, 4, Length(color) - 5), ",")
+                                             : Tokenize(Substring(color, 5, Length(color) - 6), ",");
+    IF ((color LIKE "HSL(*" AND Length(parts) = 3) OR (color LIKE "HSLA(*" AND Length(parts) = 4))
+    {
+      FLOAT h := ParseHslColorPart(parts[0]);
+      FLOAT s := ParseHslColorPart(parts[1]);
+      FLOAT l := ParseHslColorPart(parts[2]);
+      INTEGER alpha := Length(parts) > 3 ? ParseRgbAlphaPart(parts[3]) : 255;
+      RETURN GfxColorAlpha(GfxHSL2RGB(h, s, l), alpha);
+    }
+  }
+  ELSE
+  {
+    SWITCH (color)
+    {
+      // https://drafts.csswg.org/css-color/#named-colors
+      CASE "TRANSPARENT"          { RETURN GfxCreateColor(0, 0, 0, 0); }
+      CASE "ALICEBLUE"            { RETURN GfxCreateColor(240, 248, 255); }
+      CASE "ANTIQUEWHITE"         { RETURN GfxCreateColor(250, 235, 215); }
+      CASE "AQUA"                 { RETURN GfxCreateColor(0, 255, 255); }
+      CASE "AQUAMARINE"           { RETURN GfxCreateColor(127, 255, 212); }
+      CASE "AZURE"                { RETURN GfxCreateColor(240, 255, 255); }
+      CASE "BEIGE"                { RETURN GfxCreateColor(245, 245, 220); }
+      CASE "BISQUE"               { RETURN GfxCreateColor(255, 228, 196); }
+      CASE "BLACK"                { RETURN GfxCreateColor(0, 0, 0); }
+      CASE "BLANCHEDALMOND"       { RETURN GfxCreateColor(255, 235, 205); }
+      CASE "BLUE"                 { RETURN GfxCreateColor(0, 0, 255); }
+      CASE "BLUEVIOLET"           { RETURN GfxCreateColor(138, 43, 226); }
+      CASE "BROWN"                { RETURN GfxCreateColor(165, 42, 42); }
+      CASE "BURLYWOOD"            { RETURN GfxCreateColor(222, 184, 135); }
+      CASE "CADETBLUE"            { RETURN GfxCreateColor(95, 158, 160); }
+      CASE "CHARTREUSE"           { RETURN GfxCreateColor(127, 255, 0); }
+      CASE "CHOCOLATE"            { RETURN GfxCreateColor(210, 105, 30); }
+      CASE "CORAL"                { RETURN GfxCreateColor(255, 127, 80); }
+      CASE "CORNFLOWERBLUE"       { RETURN GfxCreateColor(100, 149, 237); }
+      CASE "CORNSILK"             { RETURN GfxCreateColor(255, 248, 220); }
+      CASE "CRIMSON"              { RETURN GfxCreateColor(220, 20, 60); }
+      CASE "CYAN"                 { RETURN GfxCreateColor(0, 255, 255); }
+      CASE "DARKBLUE"             { RETURN GfxCreateColor(0, 0, 139); }
+      CASE "DARKCYAN"             { RETURN GfxCreateColor(0, 139, 139); }
+      CASE "DARKGOLDENROD"        { RETURN GfxCreateColor(184, 134, 11); }
+      CASE "DARKGRAY"             { RETURN GfxCreateColor(169, 169, 169); }
+      CASE "DARKGREEN"            { RETURN GfxCreateColor(0, 100, 0); }
+      CASE "DARKGREY"             { RETURN GfxCreateColor(169, 169, 169); }
+      CASE "DARKKHAKI"            { RETURN GfxCreateColor(189, 183, 107); }
+      CASE "DARKMAGENTA"          { RETURN GfxCreateColor(139, 0, 139); }
+      CASE "DARKOLIVEGREEN"       { RETURN GfxCreateColor(85, 107, 47); }
+      CASE "DARKORANGE"           { RETURN GfxCreateColor(255, 140, 0); }
+      CASE "DARKORCHID"           { RETURN GfxCreateColor(153, 50, 204); }
+      CASE "DARKRED"              { RETURN GfxCreateColor(139, 0, 0); }
+      CASE "DARKSALMON"           { RETURN GfxCreateColor(233, 150, 122); }
+      CASE "DARKSEAGREEN"         { RETURN GfxCreateColor(143, 188, 143); }
+      CASE "DARKSLATEBLUE"        { RETURN GfxCreateColor(72, 61, 139); }
+      CASE "DARKSLATEGRAY"        { RETURN GfxCreateColor(47, 79, 79); }
+      CASE "DARKSLATEGREY"        { RETURN GfxCreateColor(47, 79, 79); }
+      CASE "DARKTURQUOISE"        { RETURN GfxCreateColor(0, 206, 209); }
+      CASE "DARKVIOLET"           { RETURN GfxCreateColor(148, 0, 211); }
+      CASE "DEEPPINK"             { RETURN GfxCreateColor(255, 20, 147); }
+      CASE "DEEPSKYBLUE"          { RETURN GfxCreateColor(0, 191, 255); }
+      CASE "DIMGRAY"              { RETURN GfxCreateColor(105, 105, 105); }
+      CASE "DIMGREY"              { RETURN GfxCreateColor(105, 105, 105); }
+      CASE "DODGERBLUE"           { RETURN GfxCreateColor(30, 144, 255); }
+      CASE "FIREBRICK"            { RETURN GfxCreateColor(178, 34, 34); }
+      CASE "FLORALWHITE"          { RETURN GfxCreateColor(255, 250, 240); }
+      CASE "FORESTGREEN"          { RETURN GfxCreateColor(34, 139, 34); }
+      CASE "FUCHSIA"              { RETURN GfxCreateColor(255, 0, 255); }
+      CASE "GAINSBORO"            { RETURN GfxCreateColor(220, 220, 220); }
+      CASE "GHOSTWHITE"           { RETURN GfxCreateColor(248, 248, 255); }
+      CASE "GOLD"                 { RETURN GfxCreateColor(255, 215, 0); }
+      CASE "GOLDENROD"            { RETURN GfxCreateColor(218, 165, 32); }
+      CASE "GRAY"                 { RETURN GfxCreateColor(128, 128, 128); }
+      CASE "GREEN"                { RETURN GfxCreateColor(0, 128, 0); }
+      CASE "GREENYELLOW"          { RETURN GfxCreateColor(173, 255, 47); }
+      CASE "GREY"                 { RETURN GfxCreateColor(128, 128, 128); }
+      CASE "HONEYDEW"             { RETURN GfxCreateColor(240, 255, 240); }
+      CASE "HOTPINK"              { RETURN GfxCreateColor(255, 105, 180); }
+      CASE "INDIANRED"            { RETURN GfxCreateColor(205, 92, 92); }
+      CASE "INDIGO"               { RETURN GfxCreateColor(75, 0, 130); }
+      CASE "IVORY"                { RETURN GfxCreateColor(255, 255, 240); }
+      CASE "KHAKI"                { RETURN GfxCreateColor(240, 230, 140); }
+      CASE "LAVENDER"             { RETURN GfxCreateColor(230, 230, 250); }
+      CASE "LAVENDERBLUSH"        { RETURN GfxCreateColor(255, 240, 245); }
+      CASE "LAWNGREEN"            { RETURN GfxCreateColor(124, 252, 0); }
+      CASE "LEMONCHIFFON"         { RETURN GfxCreateColor(255, 250, 205); }
+      CASE "LIGHTBLUE"            { RETURN GfxCreateColor(173, 216, 230); }
+      CASE "LIGHTCORAL"           { RETURN GfxCreateColor(240, 128, 128); }
+      CASE "LIGHTCYAN"            { RETURN GfxCreateColor(224, 255, 255); }
+      CASE "LIGHTGOLDENRODYELLOW" { RETURN GfxCreateColor(250, 250, 210); }
+      CASE "LIGHTGRAY"            { RETURN GfxCreateColor(211, 211, 211); }
+      CASE "LIGHTGREEN"           { RETURN GfxCreateColor(144, 238, 144); }
+      CASE "LIGHTGREY"            { RETURN GfxCreateColor(211, 211, 211); }
+      CASE "LIGHTPINK"            { RETURN GfxCreateColor(255, 182, 193); }
+      CASE "LIGHTSALMON"          { RETURN GfxCreateColor(255, 160, 122); }
+      CASE "LIGHTSEAGREEN"        { RETURN GfxCreateColor(32, 178, 170); }
+      CASE "LIGHTSKYBLUE"         { RETURN GfxCreateColor(135, 206, 250); }
+      CASE "LIGHTSLATEGRAY"       { RETURN GfxCreateColor(119, 136, 153); }
+      CASE "LIGHTSLATEGREY"       { RETURN GfxCreateColor(119, 136, 153); }
+      CASE "LIGHTSTEELBLUE"       { RETURN GfxCreateColor(176, 196, 222); }
+      CASE "LIGHTYELLOW"          { RETURN GfxCreateColor(255, 255, 224); }
+      CASE "LIME"                 { RETURN GfxCreateColor(0, 255, 0); }
+      CASE "LIMEGREEN"            { RETURN GfxCreateColor(50, 205, 50); }
+      CASE "LINEN"                { RETURN GfxCreateColor(250, 240, 230); }
+      CASE "MAGENTA"              { RETURN GfxCreateColor(255, 0, 255); }
+      CASE "MAROON"               { RETURN GfxCreateColor(128, 0, 0); }
+      CASE "MEDIUMAQUAMARINE"     { RETURN GfxCreateColor(102, 205, 170); }
+      CASE "MEDIUMBLUE"           { RETURN GfxCreateColor(0, 0, 205); }
+      CASE "MEDIUMORCHID"         { RETURN GfxCreateColor(186, 85, 211); }
+      CASE "MEDIUMPURPLE"         { RETURN GfxCreateColor(147, 112, 219); }
+      CASE "MEDIUMSEAGREEN"       { RETURN GfxCreateColor(60, 179, 113); }
+      CASE "MEDIUMSLATEBLUE"      { RETURN GfxCreateColor(123, 104, 238); }
+      CASE "MEDIUMSPRINGGREEN"    { RETURN GfxCreateColor(0, 250, 154); }
+      CASE "MEDIUMTURQUOISE"      { RETURN GfxCreateColor(72, 209, 204); }
+      CASE "MEDIUMVIOLETRED"      { RETURN GfxCreateColor(199, 21, 133); }
+      CASE "MIDNIGHTBLUE"         { RETURN GfxCreateColor(25, 25, 112); }
+      CASE "MINTCREAM"            { RETURN GfxCreateColor(245, 255, 250); }
+      CASE "MISTYROSE"            { RETURN GfxCreateColor(255, 228, 225); }
+      CASE "MOCCASIN"             { RETURN GfxCreateColor(255, 228, 181); }
+      CASE "NAVAJOWHITE"          { RETURN GfxCreateColor(255, 222, 173); }
+      CASE "NAVY"                 { RETURN GfxCreateColor(0, 0, 128); }
+      CASE "OLDLACE"              { RETURN GfxCreateColor(253, 245, 230); }
+      CASE "OLIVE"                { RETURN GfxCreateColor(128, 128, 0); }
+      CASE "OLIVEDRAB"            { RETURN GfxCreateColor(107, 142, 35); }
+      CASE "ORANGE"               { RETURN GfxCreateColor(255, 165, 0); }
+      CASE "ORANGERED"            { RETURN GfxCreateColor(255, 69, 0); }
+      CASE "ORCHID"               { RETURN GfxCreateColor(218, 112, 214); }
+      CASE "PALEGOLDENROD"        { RETURN GfxCreateColor(238, 232, 170); }
+      CASE "PALEGREEN"            { RETURN GfxCreateColor(152, 251, 152); }
+      CASE "PALETURQUOISE"        { RETURN GfxCreateColor(175, 238, 238); }
+      CASE "PALEVIOLETRED"        { RETURN GfxCreateColor(219, 112, 147); }
+      CASE "PAPAYAWHIP"           { RETURN GfxCreateColor(255, 239, 213); }
+      CASE "PEACHPUFF"            { RETURN GfxCreateColor(255, 218, 185); }
+      CASE "PERU"                 { RETURN GfxCreateColor(205, 133, 63); }
+      CASE "PINK"                 { RETURN GfxCreateColor(255, 192, 203); }
+      CASE "PLUM"                 { RETURN GfxCreateColor(221, 160, 221); }
+      CASE "POWDERBLUE"           { RETURN GfxCreateColor(176, 224, 230); }
+      CASE "PURPLE"               { RETURN GfxCreateColor(128, 0, 128); }
+      CASE "REBECCAPURPLE"        { RETURN GfxCreateColor(102, 51, 153); }
+      CASE "RED"                  { RETURN GfxCreateColor(255, 0, 0); }
+      CASE "ROSYBROWN"            { RETURN GfxCreateColor(188, 143, 143); }
+      CASE "ROYALBLUE"            { RETURN GfxCreateColor(65, 105, 225); }
+      CASE "SADDLEBROWN"          { RETURN GfxCreateColor(139, 69, 19); }
+      CASE "SALMON"               { RETURN GfxCreateColor(250, 128, 114); }
+      CASE "SANDYBROWN"           { RETURN GfxCreateColor(244, 164, 96); }
+      CASE "SEAGREEN"             { RETURN GfxCreateColor(46, 139, 87); }
+      CASE "SEASHELL"             { RETURN GfxCreateColor(255, 245, 238); }
+      CASE "SIENNA"               { RETURN GfxCreateColor(160, 82, 45); }
+      CASE "SILVER"               { RETURN GfxCreateColor(192, 192, 192); }
+      CASE "SKYBLUE"              { RETURN GfxCreateColor(135, 206, 235); }
+      CASE "SLATEBLUE"            { RETURN GfxCreateColor(106, 90, 205); }
+      CASE "SLATEGRAY"            { RETURN GfxCreateColor(112, 128, 144); }
+      CASE "SLATEGREY"            { RETURN GfxCreateColor(112, 128, 144); }
+      CASE "SNOW"                 { RETURN GfxCreateColor(255, 250, 250); }
+      CASE "SPRINGGREEN"          { RETURN GfxCreateColor(0, 255, 127); }
+      CASE "STEELBLUE"            { RETURN GfxCreateColor(70, 130, 180); }
+      CASE "TAN"                  { RETURN GfxCreateColor(210, 180, 140); }
+      CASE "TEAL"                 { RETURN GfxCreateColor(0, 128, 128); }
+      CASE "THISTLE"              { RETURN GfxCreateColor(216, 191, 216); }
+      CASE "TOMATO"               { RETURN GfxCreateColor(255, 99, 71); }
+      CASE "TURQUOISE"            { RETURN GfxCreateColor(64, 224, 208); }
+      CASE "VIOLET"               { RETURN GfxCreateColor(238, 130, 238); }
+      CASE "WHEAT"                { RETURN GfxCreateColor(245, 222, 179); }
+      CASE "WHITE"                { RETURN GfxCreateColor(255, 255, 255); }
+      CASE "WHITESMOKE"           { RETURN GfxCreateColor(245, 245, 245); }
+      CASE "YELLOW"               { RETURN GfxCreateColor(255, 255, 0); }
+      CASE "YELLOWGREEN"          { RETURN GfxCreateColor(154, 205, 50); }
+    }
+  }
+  THROW NEW Exception("Invalid color '" || value || "'");
+}
+
+INTEGER FUNCTION ParseRgbColorPart(STRING part)
+{
+  part := TrimWhitespace(part);
+
+  INTEGER value;
+  IF (part LIKE "*%")
+    value := FloatToInteger(255f * ToInteger(Left(part, Length(part) - 1), 0) / 100);
+  ELSE
+    value := ToInteger(part, 0);
+
+  IF (value < 0)
+    value := 0;
+  ELSE IF (value > 255)
+    value := 255;
+
+  RETURN value;
+}
+
+INTEGER FUNCTION ParseRgbAlphaPart(STRING part)
+{
+  FLOAT value := ToFloat(TrimWhitespace(part), 0);
+
+  IF (value < 0)
+    value := 0;
+  ELSE IF (value > 1)
+    value := 1;
+
+  RETURN FloatToInteger(Floor(value * 255 + .5));
+}
+
+FLOAT FUNCTION ParseHslColorPart(STRING part)
+{
+  part := TrimWhitespace(part);
+
+  FLOAT value;
+  IF (part LIKE "*%")
+  {
+    value := 1f * ToFloat(Left(part, Length(part) - 1), 0) / 100;
+    IF (value < 0)
+      value := 0;
+    ELSE IF (value > 1)
+      value := 1;
+  }
+  ELSE
+  {
+    value := ToFloat(part, 0);
+    // Limit value to range [0,360] (cannot use mod on floats)
+    WHILE (value > 360)
+      value := value - 360;
+    WHILE (value < 0)
+      value := value + 360;
+  }
+
+  RETURN value;
+}
+
+/**
+* Checks if width and height are in valid range
+*/
+PUBLIC  MACRO ValidateWidthHeight(INTEGER width, INTEGER height)
+{
+  IF (width * 1m * height >= 128*1024*1024 )
+    ABORT("Maximum canvas width exceeded. (max = 128 megapixels)");
+
+  IF (width < 1 )
+    ABORT("Canvas width is zero or negative.");
+
+  IF (height< 1 )
+    ABORT("Canvas height is zero or negative.");
+}
+
+/**
+* Checks the validity of the drawid. It should not be out of range or destroyed already.
+*/
+PUBLIC  MACRO ValidateDrawID(INTEGER id)
+{
+        INTEGER result := __DRAWLIB_V2_ValidateDrawId(id);
+
+        if (result=0 ) return;
+
+        if (result=-1) //canvas does not exist
+          ABORT("Tried to use a non-existing canvas.");
+
+        if (result=-2) //canvas is destroyed.
+          ABORT("Tried to use canvas that has been destroyed.");
+
+}
+
+PUBLIC MACRO ValidateFontID(INTEGER id)
+{
+  INTEGER result := __DRAWLIB_V2_ValidateFontId(id);
+
+  if (result=0 )
+    return;
+
+  if (result=-1)
+    ABORT("Tried to use a font that does not exist.");
+}
+
+/** Validates an image resize method
+    @param method Image resize method
+    @cell(string) method.method Method to use. One of "none", "fit", "fitcanvas", "scale", "scalecanvas", "fill", "stretch", "stretch-x", "stretch-y", "crop", "cropcanvas".
+    @cell(integer) method.setwidth
+    @cell(integer) method.setheight
+    @cell(string) method.format Output format One of "", "image/png", "image/jpeg", "image/gif".
+    @cell method.bgcolor Background color (either STRING or INTEGER, will be transformed to INTEGER)
+    @cell method.noforce
+    @cell(integer) method.quality Quality (0-100)
+    @cell method.grayscale
+    @cell method.fixorientation
+    @cell(function ptr) method.postprocessor Post processing function
+    @cell(integer) method.hblur Horizontal blur (0-32767)
+    @cell(integer) method.vblur Vertical blur (0-32767)
+    @return Validated resize method, with missing cells added @includecelldef #ValidateResizeMethod.method
+*/
+PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
+{
+  IF(NOT CellExists(method,'method'))
+    THROW NEW Exception("Missing required cell 'method'");
+
+  IF(method.method NOT IN ["none","fit","fitcanvas","scale","scalecanvas","fill","stretch","stretch-x","stretch-y","crop","cropcanvas"])
+    THROW NEW Exception("Unknown resize method '" || method.method || "'");
+
+  FOREVERY(RECORD cellrec FROM UnpackRecord(method))
+    IF(cellrec.name NOT IN ["METHOD","SETWIDTH","SETHEIGHT","FORMAT","BGCOLOR","NOFORCE","QUALITY","GRAYSCALE","FIXORIENTATION","POSTPROCESSOR","HBLUR","VBLUR"])
+      THROW NEW Exception("Invalid cell '" || cellrec.name || "' in resize method");
+
+  IF(CellExists(method, "setwidth"))
+  {
+    IF(method.setwidth < 0 OR (method.setwidth = 0 AND method.method = "stretch-x"))
+      THROW NEW Exception("Invalid width '" || method.setwidth || "' in resize method");
+  }
+  IF(CellExists(method, "setheight"))
+  {
+    IF(method.setheight < 0 OR (method.setheight = 0 AND method.method = "stretch-y"))
+      THROW NEW Exception("Invalid height '" || method.setheight || "' in resize method");
+
+    IF(method.setheight = 0 AND CellExists(method, "setwidth") AND method.setwidth=0)
+      method.method := "none"; //no-op
+  }
+
+  IF (method.method = "crop" OR method.method = "cropcanvas")
+  {
+    IF (NOT CellExists(method, "setwidth"))
+      THROW NEW Exception("Missing width in resize method");
+    ELSE IF (method.setwidth <= 0)
+      THROW NEW Exception("Invalid width '" || method.setwidth || "' in resize method");
+    IF (NOT CellExists(method, "setheight"))
+      THROW NEW Exception("Missing height in resize method");
+    ELSE IF (method.setheight <= 0)
+      THROW NEW Exception("Invalid height '" || method.setheight || "' in resize method");
+  }
+
+  IF(CellExists(method, "quality") AND (method.quality <= 0 OR method.quality > 100))
+    THROW NEW Exception("Invalid quality " || method.quality || " in resize method - must be in the range 1-100");
+  ELSE IF(NOT CellExists(method,'quality'))
+    INSERT CELL quality := 85 INTO method;
+
+  IF(CellExists(method, "format") AND method.format NOT IN ["","image/png","image/jpeg","image/gif"])
+    THROW NEW Exception("Invalid output format '" || method.format || "' in resize method");
+  ELSE IF(NOT CellExists(method, "format"))
+    INSERT CELL format := "" INTO method;
+
+  IF(NOT CellExists(method,'noforce'))
+    INSERT CELL noforce := TRUE INTO method;
+  IF(NOT CellExists(method,'postprocessor'))
+    INSERT CELL postprocessor := DEFAULT MACRO PTR INTO method;
+  IF(NOT CellExists(method,'grayscale'))
+    INSERT CELL grayscale := FALSE INTO method;
+  IF(NOT CellExists(method,'fixorientation'))
+    INSERT CELL fixorientation := (method.method NOT IN ["none"]) INTO method;
+
+  IF(CellExists(method,'bgcolor') AND TypeID(method.bgcolor) = TypeID(STRING))
+  {
+    INTEGER bgcolor := method.bgcolor="" ? 0x00FFFFFF : GfxCreateColorFromCSS(method.bgcolor);
+    DELETE CELL bgcolor FROM method;
+    INSERT CELL bgcolor := bgcolor INTO method;
+  }
+  ELSE IF(NOT CellExists(method,'bgcolor'))
+  {
+    INSERT CELL bgcolor := 0x00FFFFFF INTO method;
+  }
+
+  IF (CellExists(method, "hblur") AND (method.hblur < 0 OR method.hblur > 32767))
+    THROW NEW Exception("Invalid hblur " || method.hblur || " in resize method - must be in the range 0-32767");
+  ELSE IF(NOT CellExists(method, "hblur"))
+    INSERT CELL hblur := 0 INTO method;
+  IF (CellExists(method, "vblur") AND (method.vblur < 0 OR method.vblur > 32767))
+    THROW NEW Exception("Invalid vblur " || method.vblur || " in resize method - must be in the range 0-32767");
+  ELSE IF(NOT CellExists(method, "vblur"))
+    INSERT CELL vblur := 0 INTO method;
+
+  RETURN method;
+}
+
+/** @topic graphics/canvas
+    @short Explain how this image will be processed
+    @public
+    @loadlib wh::graphics/canvas.whlib
+    @param scannedblob Scanned blob
+    @param method Image resize method @includecelldef #ValidateResizeMethod.method
+    @return Impage processing instructions
+    @cell(integer) return.rotation Rotation to apply to the image (0,90,180 or 270)
+    @cell(boolean) return.mirror Mirror the image horizontally, after applying rotation
+*/
+PUBLIC RECORD FUNCTION ExplainImageProcessing(RECORD scannedblob, RECORD method)
+{
+  method := ValidateResizeMethod(method);
+
+  INTEGER quality := CellExists(method, "quality") ? method.quality : 85;
+  INTEGER hblur := CellExists(method, "hblur") ? method.hblur : 0;
+  INTEGER vblur := CellExists(method, "vblur") ? method.vblur : 0;
+  STRING forcetype := CellExists(method, "format") ? method.format : "";
+  STRING outtype := forcetype != "" ? forcetype : scannedblob.mimetype = "image/x-bmp" ? "image/png" : scannedblob.mimetype = "image/tiff" ? "image/jpeg" : scannedblob.mimetype;
+  INTEGER rotate;
+  BOOLEAN mirror;
+  BOOLEAN issideways;
+
+  //First figure out how to undo the rotation on the image, if any
+  IF(method.fixorientation)
+  {
+    IF(scannedblob.rotation IN [90,180,270])
+      rotate := 360 - scannedblob.rotation;
+    mirror := scannedblob.mirrored;
+    issideways := rotate IN [90,270];
+  }
+
+  INTEGER width  := issideways ? scannedblob.height : scannedblob.width;
+  INTEGER height := issideways ? scannedblob.width  : scannedblob.height;
+
+  RECORD instr := [ outwidth := width
+                  , outheight := height
+                  , outtype := outtype
+                  , renderx := 0
+                  , rendery := 0
+                  , renderwidth := width
+                  , renderheight := height
+                  , bgcolor := method.bgcolor
+                  , noforce := method.noforce
+                  , quality := method.quality
+                  , grayscale := method.grayscale
+                  , rotate := rotate
+                  , mirror := mirror
+                  , hblur := hblur
+                  , vblur := vblur
+                  , refpoint := CellExists(scannedblob, "REFPOINT") ? scannedblob.refpoint : DEFAULT RECORD
+                  , postprocessor := method.postprocessor
+                  ];
+
+  instr := GetResizeInstruction(instr, method);
+  RETURN instr;
+}
+
+RECORD FUNCTION GetResizeInstruction(RECORD baseinstruction, RECORD method)
+{
+  INTEGER width  := baseinstruction.outwidth;
+  INTEGER height := baseinstruction.outheight;
+
+  IF(method.method = "none")
+    RETURN baseinstruction;
+
+/*  IF(method.method = "rotate") Rotate is temporarily
+  {
+    // After ValidateResizeMethod, if method = "rotate", there is a cell "angle" (otherwise the method would've been reset to
+    // "none"), which is either 0, 90, 180 or 270
+    RETURN [ outwidth := method.angle IN [ 0, 180 ] ? width : height
+           , outheight := method.angle IN [ 0, 180 ] ? height : width
+           , outtype := outtype
+           , renderx := 0
+           , rendery := 0
+           , renderwidth := method.angle IN [ 0, 180 ] ? width : height
+           , renderheight := method.angle IN [ 0, 180 ] ? height : width
+           , bgcolor := method.bgcolor
+           , noforce := method.noforce
+           , quality := method.quality
+           , grayscale := method.grayscale
+           , rotation := method.angle
+           ];
+  }
+*/
+  INTEGER setwidth := CellExists(method, "setwidth") ? method.setwidth : 0;
+  INTEGER setheight := CellExists(method, "setheight") ? method.setheight : 0;
+
+  IF(method.method = "stretch" AND setwidth > 0 AND setheight > 0) //simple resize
+  {
+    IF (RecordExists(baseinstruction.refpoint))
+    {
+      baseinstruction.refpoint.x := baseinstruction.refpoint.x * setwidth / baseinstruction.outwidth;
+      baseinstruction.refpoint.y := baseinstruction.refpoint.y * setheight / baseinstruction.outheight;
+    }
+    baseinstruction.outwidth := setwidth;
+    baseinstruction.outheight := setheight;
+    baseinstruction.renderwidth := setwidth;
+    baseinstruction.renderheight := setheight;
+    RETURN baseinstruction;
+  }
+
+  IF (method.method = "crop" OR method.method = "cropcanvas") // simple crop, no resizing
+  {
+    IF (method.method = "crop")
+    {
+      IF (setwidth > width)
+        setwidth := width;
+      IF (setheight > height)
+        setheight := height;
+    }
+
+    baseinstruction.outwidth := setwidth;
+    baseinstruction.outheight := setheight;
+    baseinstruction.renderwidth := width;
+    baseinstruction.renderheight := height;
+    baseinstruction.renderx := (setwidth - width) / 2;
+    baseinstruction.rendery := (setheight - height) / 2;
+
+    IF (RecordExists(baseinstruction.refpoint))
+    {
+      INTEGER hw := INTEGER(Ceil(FLOAT(width) / 2));
+      INTEGER dx := INTEGER(Floor(FLOAT(baseinstruction.refpoint.x - hw) * baseinstruction.renderx / hw));
+      baseinstruction.renderx := baseinstruction.renderx + dx;
+
+      INTEGER hh := INTEGER(Ceil(FLOAT(height) / 2));
+      INTEGER dy := INTEGER(Floor(FLOAT(baseinstruction.refpoint.y - hh) * baseinstruction.rendery / hh));
+      baseinstruction.rendery := baseinstruction.rendery + dy;
+
+      baseinstruction.refpoint.x := baseinstruction.refpoint.x + baseinstruction.renderx;
+      baseinstruction.refpoint.y := baseinstruction.refpoint.y + baseinstruction.rendery;
+    }
+    RETURN baseinstruction;
+  }
+
+
+  /* dx = input image width / method setwidth    (dx < 1: input image is smaller than requested by method)
+     dy = input image height / method setheight
+
+     scale: make the image fit, scale up or down to cover at least one of the full width/height if needed
+            renderwidth /= max(dx,dy)  renderheight /= min(dx,dy)
+
+     fit: like scale, but do not grow the image
+          if(dx>1 || dy>1): scale
+          else: noop
+
+     fill: resize the image to its smallest size still covering the entire canvas
+            renderwidth /= min(dx,dy)   renderheight /= min(dx,dy)
+
+     stretch: resize exactly to the specified dimensions
+     stretch-x: resize x-axis, constrain y to setwidth
+     stretch-y: resize y-axis, constrain x to setwidth
+     */
+
+  BOOLEAN infx := setwidth = 0, infy := setheight = 0;
+  FLOAT dx := infx ? 0f : width / FLOAT(setwidth);
+  FLOAT dy := infy ? 0f : height / FLOAT(setheight);
+  INTEGER renderwidth, renderheight;
+
+  //print("w " || width || " h " || height || " sw " || setwidth || " sh " || setheight || " dx " || formatfloat(dx,3) || " dy " || formatfloat(dy,3) || "\n");
+
+  FLOAT scale := 1;
+  IF(method.method = "stretch-x" OR (method.method="stretch" AND setheight=0))
+  {
+    renderwidth := INTEGER(Ceil(width/dx));
+    renderheight := INTEGER(Ceil(height/dx));
+    IF(setheight != 0 AND renderheight > setheight)
+      renderheight := setheight;
+  }
+  ELSE IF(method.method = "stretch-y" OR (method.method="stretch" AND setwidth=0))
+  {
+    renderwidth := INTEGER(Ceil(width/dy));
+    renderheight := INTEGER(Ceil(height/dy));
+    IF(setwidth != 0 AND renderwidth > setwidth)
+      renderwidth := setwidth;
+  }
+  ELSE IF((method.method="fit" OR method.method="fitcanvas") AND dx <= 1 AND dy <= 1) //no-op, it already fits
+  {
+    renderwidth := width;
+    renderheight := height;
+  }
+  ELSE
+  {
+    IF(infx)
+      scale := dy;
+    ELSE IF(infy)
+      scale := dx;
+    ELSE IF(method.method = "fill") //min dx,dy
+      scale := dx < dy ? dx : dy;
+    ELSE //max dx,dy
+      scale := dx > dy ? dx : dy;
+
+    renderwidth := INTEGER(Ceil(width/scale));
+    renderheight := INTEGER(Ceil(height/scale));
+  }
+
+  //print(method.method || " rw " || renderwidth || " rh " || renderheight || "\n");
+
+  IF(method.method IN ["fitcanvas","scalecanvas","fill"]) //output must be setwith/setheight
+  {
+    baseinstruction.outwidth  := infx ? renderwidth : method.setwidth;
+    baseinstruction.outheight := infy ? renderheight : method.setheight;
+    baseinstruction.renderx := infx ? 0 : (method.setwidth - renderwidth) / 2;
+    baseinstruction.rendery := infy ? 0 : (method.setheight - renderheight) / 2;
+  }
+  ELSE
+  {
+    baseinstruction.outwidth := renderwidth;
+    baseinstruction.outheight := renderheight;
+  }
+
+  baseinstruction.renderwidth := renderwidth;
+  baseinstruction.renderheight := renderheight;
+
+  IF (RecordExists(baseinstruction.refpoint))
+  {
+    baseinstruction.refpoint.x := INTEGER(Ceil(FLOAT(baseinstruction.refpoint.x) / scale));
+    IF (baseinstruction.outwidth > baseinstruction.renderwidth)
+      baseinstruction.refpoint.x := baseinstruction.refpoint.x + (baseinstruction.outwidth - baseinstruction.renderwidth) / 2;
+    baseinstruction.refpoint.y := INTEGER(Ceil(FLOAT(baseinstruction.refpoint.y) / scale));
+    IF (baseinstruction.outheight > baseinstruction.renderheight)
+      baseinstruction.refpoint.y := baseinstruction.refpoint.y + (baseinstruction.outheight - baseinstruction.renderheight) / 2;
+  }
+
+  IF (method.method = "fill" AND RecordExists(baseinstruction.refpoint))
+  {
+    baseinstruction.renderx := ((baseinstruction.refpoint.x * baseinstruction.outwidth) / baseinstruction.renderwidth) - baseinstruction.refpoint.x;
+    baseinstruction.rendery := ((baseinstruction.refpoint.y * baseinstruction.outheight) / baseinstruction.renderheight) - baseinstruction.refpoint.y;
+
+    // move the refpoint to within the cropped area
+    baseinstruction.refpoint.x := baseinstruction.refpoint.x + baseinstruction.renderx;
+    baseinstruction.refpoint.y := baseinstruction.refpoint.y + baseinstruction.rendery;
+  }
+
+  RETURN baseinstruction;
+}
+
+/** Return the intersection of the lines p1-p2 and p3-p4.
+    If the lines are parallel, returns DEFAULT RECORD/
+    @param p1 First point of line p1-p2
+    @cell(float) p1.x
+    @cell(float) p1.y
+    @param p2 Second point of line p1-p2
+    @cell(float) p2.x
+    @cell(float) p2.y
+    @param p3 First point of line p3-p4
+    @cell(float) p3.x
+    @cell(float) p3.y
+    @param p4 Second point of line p3-p4
+    @cell(float) p4.x
+    @cell(float) p4.y
+    @return Intersection point, DEFAULT RECORD if lines do not intersect.
+    @cell(float) return.x
+    @cell(float) return.y
+*/
+PUBLIC RECORD FUNCTION GetLineIntersection(RECORD p1, RECORD p2, RECORD p3, RECORD p4)
+{
+  // http://stackoverflow.com/questions/385305/efficient-maths-algorithm-to-calculate-intersections
+  RECORD d12 := [ x := FLOAT(p1.x) - p2.x, y := FLOAT(p1.y) - p2.y ];
+  RECORD d34 := [ x := FLOAT(p3.x) - p4.x, y := FLOAT(p3.y) - p4.y ];
+
+  FLOAT c :=  d12.x * d34.y - d12.y * d34.x;
+
+  IF (c < 0.00001 AND c > -0.00001)
+    RETURN DEFAULT RECORD;
+
+  FLOAT a := FLOAT(p1.x) * p2.y - FLOAT(p1.y) * p2.x;
+  FLOAT b := FLOAT(p3.x) * p4.y - FLOAT(p3.y) * p4.x;
+
+  RETURN
+      [ x := (a * d34.x - b * d12.x) / c
+      , y := (a * d34.y - b * d12.y) / c
+      ];
+}
+
+/** Generates a function f(z)= ax+by+c from three points (x,y,z)
+*/
+PUBLIC RECORD FUNCTION ComputeFunctionFromThreePoints(RECORD ARRAY pts, STRING resultcell)
+{
+  // See http://paulbourke.net/geometry/planeeq/ for the general idea of 3 points -> plane equation
+
+  // First, calculate the plane ax + by + cz + d = 0
+  // Then, z = (a/c)x + (b/c)y + (d/c) (allowed when (x,y) are different for all points)
+
+  RECORD d12 := [ x := pts[1].x - pts[0].x, y := pts[1].y - pts[0].y, z := GetCell(pts[1], resultcell) - GetCell(pts[0], resultcell) ];
+  RECORD d13 := [ x := pts[2].x - pts[0].x, y := pts[2].y - pts[0].y, z := GetCell(pts[2], resultcell) - GetCell(pts[0], resultcell) ];
+
+  FLOAT plane_a := d12.y * d13.z - d12.z * d13.y;
+  FLOAT plane_b := d12.z * d13.x - d12.x * d13.z;
+  FLOAT plane_c := d12.x * d13.y - d12.y * d13.x;
+
+  FLOAT eq_a := -plane_a / plane_c;
+  FLOAT eq_b := -plane_b / plane_c;
+
+  // It is cheaper to not calculate plane_d, and just use one of the points to calculate eq_c
+  RETURN
+      [ a :=      eq_a
+      , b :=      eq_b
+      , c :=      GetCell(pts[0], resultcell) - eq_a * pts[0].x - eq_b * pts[0].y
+      ];
+}
+
+/** Given a function ax+by+c, return the result value for a certain (x,y)
+*/
+FLOAT FUNCTION GetFunctionResult(RECORD func, RECORD pt)
+{
+  RETURN func.a * pt.x + func.b * pt.y + func.c;
+}
+
+/** Given a projected square (projected toward (0,0,0) on z=1) get the projection functions for perspective
+    correct
+    @param lt Left top
+    @cell (float) lt.x Projected x coordinate
+    @cell (float) lt.y Projected y coordinate
+    @cell (float) lt.u Texture x coordinate
+    @cell (float) lt.v Texture y coordinate
+    @param rt Right top
+    @cell (float) rt.x Projected x coordinate
+    @cell (float) rt.y Projected y coordinate
+    @cell (float) rt.u Texture x coordinate
+    @cell (float) rt.v Texture y coordinate
+    @param lb Left bottom
+    @cell (float) lb.x Projected x coordinate
+    @cell (float) lb.y Projected y coordinate
+    @cell (float) lb.u Texture x coordinate
+    @cell (float) lb.v Texture y coordinate
+    @param rb Right bottom
+    @cell (float) rb.x Projected x coordinate
+    @cell (float) rb.y Projected y coordinate
+    @cell (float) rb.u Texture x coordinate
+    @cell (float) rb.v Texture y coordinate
+    @return Projection functions, for use in threedtexture rendering
+    @cell(record) return.szfunc
+    @cell(record) return.sufunc
+    @cell(record) return.svfunc
+*/
+PUBLIC RECORD FUNCTION GetProjectionFunctionsFromProjectedSquare(RECORD lt, RECORD rt, RECORD lb, RECORD rb)
+{
+  INSERT CELL z := 1f INTO lt;
+  INSERT CELL sz := 1f INTO lt;
+  INSERT CELL su := lt.u INTO lt;
+  INSERT CELL sv := lt.v INTO lt;
+
+  // We assume the left-top point has z=1 (lt.x, lt.y, 1) (sz = 1/1 = 1)
+  // We know that at the vanishing points, z->+inf, so 1/z->+0
+  // In projection-space, z changes linearly with (x,y)
+
+  RECORD ARRAY zplane_pts := [ lt ];
+
+  /* Have intersection? If yes, add (inter.x, inter,y, inf) (sz = 1/inf = 0). If no, the
+     z does not change over this line, and is 1 at (rt.x, rt.y), so add (rt.x, rt.y, 1)
+  */
+  RECORD tb_intersect := GetLineIntersection(lt, rt, lb, rb);
+  IF (RecordExists(tb_intersect))
+  {
+    INSERT CELL sz := 0f INTO tb_intersect;
+    INSERT tb_intersect INTO zplane_pts AT END;
+  }
+  ELSE
+    INSERT CellInsert(rt, "SZ", 1f) INTO zplane_pts AT END;
+
+  // The same for the other lines
+  RECORD lr_intersect := GetLineIntersection(lt, lb, rt, rb);
+  IF (RecordExists(lr_intersect))
+  {
+    INSERT CELL sz := 0f INTO lr_intersect;
+    INSERT lr_intersect INTO zplane_pts AT END;
+  }
+  ELSE
+    INSERT CellInsert(lb, "SZ", 1f) INTO zplane_pts AT END;
+
+  // Get the linear function to calculate sz in screen coordinates
+  RECORD szfunc := ComputeFunctionFromThreePoints(zplane_pts, "SZ");
+
+  // Calculate the sz=(1/z), su(=u/z*sz) and sv(=v/z=v*sz) for all points
+  RECORD ARRAY pts := [ lt, rt, lb, rb ];
+  FOR (INTEGER i := 1; i < 4; i := i + 1)
+  {
+    // Just apply the sz function to get the sz for the projected (x, y)
+    FLOAT sz := GetFunctionResult(szfunc, pts[i]);
+    INSERT CELL sz := sz INTO pts[i];
+
+    // Then use that sz to calculate the su and sv
+    INSERT CELL su := pts[i].u * sz INTO pts[i];
+    INSERT CELL sv := pts[i].v * sz INTO pts[i];
+  }
+
+  // Calculate the su and sv functions & return them
+  RETURN
+      [ szfunc := szfunc
+      , sufunc := ComputeFunctionFromThreePoints(pts, "SU")
+      , svfunc := ComputeFunctionFromThreePoints(pts, "SV")
+      ];
+}
+
+PUBLIC RECORD FUNCTION GfxGetProjectionFunctionsFromProjectedCanvas(INTEGER canvas, RECORD lt, RECORD rt, RECORD lb, RECORD rb)
+{
+  FLOAT canvas_width := __DRAWLIB_V2_GETCANVASWIDTH(canvas);
+  FLOAT canvas_height := __DRAWLIB_V2_GETCANVASHEIGHT(canvas);
+
+  INSERT CELL u := 0f INTO lt;
+  INSERT CELL v := 0f INTO lt;
+
+  INSERT CELL u := canvas_width - 1f INTO rt;
+  INSERT CELL v := 0f INTO rt;
+
+  INSERT CELL u := 0f INTO lb;
+  INSERT CELL v := canvas_height - 1f INTO lb;
+
+  INSERT CELL u := canvas_width - 1f INTO rb;
+  INSERT CELL v := canvas_height - 1f INTO rb;
+
+  RETURN GetProjectionFunctionsFromProjectedSquare(lt, rt, lb, rb);
+}
+
+
+INTEGER FUNCTION GetTypeID(STRING type)
+{
+  SWITCH (ToUpperCase(type))
+  {
+    CASE "CLOSEPATH" { RETURN 0; }
+    CASE "MOVETO" { RETURN 1; }
+    CASE "LINETO" { RETURN 2; }
+    CASE "BEZIERTO" { RETURN 3; }
+    CASE "ARCTO" { RETURN 4; }
+    CASE "ARCTOR" { RETURN 5; }
+
+    CASE "DEFAULT" { RETURN -1; }
+    DEFAULT { ABORT("Unknown path entry '" || type || "'"); }
+  }
+}
+PUBLIC RECORD ARRAY FUNCTION fixuppath(RECORD ARRAY path)
+{
+  RECORD ARRAY newpath;
+  FOREVERY (RECORD element FROM path)
+  {
+    INTEGER typenr := GetTypeID(element.type);
+    DELETE CELL type FROM element;
+    INSERT CELL type := typenr INTO element;
+
+    INSERT element INTO newpath AT END;
+  }
+  RETURN newpath;
+}
+
+PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETREFCOUNT(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
+
+
+
+//source http://www.codeproject.com/KB/graphics/BezierSpline.aspx
+/** @short Get open-ended Bezier Spline Control Points.
+    @param knots Input Knot Bezier spline points. Must contain at least two points
+*/
+PUBLIC RECORD FUNCTION GetCurveControlPoints(RECORD ARRAY knots)
+{
+  //ADDME return or add to a path
+
+  RECORD ARRAY firstcontrolpoints;
+  RECORD ARRAY secondcontrolpoints;
+
+  INTEGER n := Length(knots)-1;
+  IF(n<1)
+    THROW NEW Exception("At least two knot points are required");
+
+  IF(n=1) // Special case: Bezier curve should be a straight line.
+  {
+    firstcontrolpoints := [[ x := (2 * knots[0].X + knots[1].X) / 3
+                           , y := (2 * knots[0].Y + knots[1].Y) / 3
+                           ]
+                          ];
+    secondcontrolpoints := [[ x := firstControlPoints[0].X - knots[0].X
+                            , y := secondControlPoints[0].Y = 2 * firstControlPoints[0].Y - knots[0].Y
+                            ]
+                           ];
+  }
+
+  // Calculate first Bezier control points
+  // Right hand side vector
+  FLOAT ARRAY rhs;
+  FOR(INTEGER i := 0; i < n; i:=i+1)
+    INSERT 0f INTO rhs AT END;
+
+  // Set right hand side X values
+  FOR(INTEGER i := 1; i < n - 1; i := i + 1)
+    rhs[i] := 4 * knots[i].x + 2 * knots[i + 1].x;
+  rhs[0] := knots[0].x + 2 * knots[1].x;
+  rhs[n-1] := (8 * knots[n-1].x + knots[n].x) / 2.0;
+
+  // Get first control points X-values
+  FLOAT ARRAY x := GetFirstControlPoints(rhs);
+
+  // Set right hand side Y values
+  FOR(INTEGER i := 1; i < n - 1; i := i + 1)
+    rhs[i] := 4 * knots[i].Y + 2 * knots[i + 1].Y;
+  rhs[0] := knots[0].Y + 2 * knots[1].Y;
+  rhs[n-1] := (8 * knots[n - 1].Y + knots[n].Y) / 2.0;
+
+  // Get first control points Y-values
+  FLOAT ARRAY y := GetFirstControlPoints(rhs);
+
+  // Fill output arrays.
+  FOR(INTEGER i := 0; i < n; i := i + 1)
+  {
+    // First control point
+    INSERT [ x := x[i], y := y[i] ] INTO firstcontrolpoints AT END;
+    IF(i < n - 1)
+    {
+      INSERT [ x := 2 * knots [i + 1].X - x[i + 1]
+             , y :=  2 * knots[i + 1].Y - y[i + 1]
+             ] INTO secondcontrolpoints AT END;
+    }
+    ELSE
+    {
+      INSERT [ x := (knots[n].X + x[n - 1]) / 2
+             , y := (knots[n].Y + y[n - 1]) / 2
+             ] INTO secondcontrolpoints AT END;
+    }
+  }
+  RETURN [ firstcontrolpoints := firstcontrolpoints
+         , secondcontrolpoints := secondcontrolpoints
+         ];
+}
+
+/// <summary>
+/// Solves a tridiagonal system for one of coordinates (x or y)
+/// of first Bezier control points.
+/// </summary>
+/// <param name="rhs">Right hand side vector.</param>
+/// <returns>Solution vector.</returns>
+FLOAT ARRAY FUNCTION GetFirstControlPoints(FLOAT ARRAY rhs)
+{
+  INTEGER n := Length(rhs);
+  FLOAT ARRAY x := rhs; // Solution vector.
+  FLOAT ARRAY tmp := rhs; // Temp workspace.
+
+  FLOAT b := 2;
+  x[0] := rhs[0] / b;
+  FOR(INTEGER i:=1;i<n;i:=i+1) // Decomposition and forward substitution.
+  {
+    tmp[i] := 1 / b;
+    b := (i < n - 1 ? 4.0 : 3.5) - tmp[i];
+    x[i] := (rhs[i] - x[i - 1]) / b;
+  }
+  FOR(INTEGER i := 1; i < n; i := i + 1)
+  {
+    x[n-i-1] := x[n-i-1] - tmp[n - i] * x[n - i]; // Backsubstitution.
+  }
+  RETURN x;
+}
+PUBLIC MACRO Gfx3dTextureFillPath(INTEGER canvas_id, INTEGER texture_id, RECORD projectionfuncs, RECORD ARRAY path)
+{
+  __DRAWLIB_V2_SetFillThreeDTexture(canvas_id, texture_id,
+      projectionfuncs.sufunc.a,
+      projectionfuncs.sufunc.b,
+      projectionfuncs.sufunc.c,
+      projectionfuncs.svfunc.a,
+      projectionfuncs.svfunc.b,
+      projectionfuncs.svfunc.c,
+      projectionfuncs.szfunc.a,
+      projectionfuncs.szfunc.b,
+      projectionfuncs.szfunc.c);
+  __DRAWLIB_V2_SetFillMode (canvas_id, 2); //3d texture fill
+
+    FLOAT ARRAY matrix :=
+      [ 1f, 0f, 0f
+      , 0f, 1f, 0f
+      , 0f, 0f, 1f];
+
+  RECORD ARRAY newpath;
+  FOREVERY (RECORD element FROM path)
+  {
+    INTEGER typenr := GetTypeID(element.type);
+    DELETE CELL type FROM element;
+    INSERT CELL type := typenr INTO element;
+
+    INSERT element INTO newpath AT END;
+  }
+
+  __DRAWLIB_V2_DrawPath(canvas_id, newpath, FALSE, TRUE, matrix); // no outline
+
+  __DRAWLIB_V2_SetFillMode (canvas_id, 0); //reset to solid fill
+}

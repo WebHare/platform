@@ -1,0 +1,644 @@
+﻿<?wh
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::devsupport.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/remoting/transportbase.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+LOADLIB "mod::system/lib/internal/remoting/objremoter.whlib";
+LOADLIB "mod::system/lib/internal/remoting/xml_encoding.whlib";
+
+/*
+<whremoting encoding="http://www.webhare.net/remoting/wh_remoting/20091029"/>
+  <functioncall>
+    <params>... encoded parameters ...</params>
+  </functioncall>
+</whremoting>
+
+<whremoting encoding="http://www.webhare.net/remoting/wh_remoting/20091029/">
+  <unknownencoding>
+    <accepted>...accepted encoding uri</accepted>
+  </unknownencoding>
+</whremoting>
+
+<whremoting encoding="http://www.webhare.net/remoting/wh_remoting/20091029/">
+  <sessionclose />
+</whremoting>
+
+<whremoting encoding="http://www.webhare.net/remoting/wh_remoting/20091029/">
+  <response sessionid="sessionid"(optional) >
+    ... encoded value ...
+  </response>
+</whremoting>
+
+<whremoting encoding="http://www.webhare.net/remoting/wh_remoting/20091029/">
+  <objectcall object="id" method="echo">
+    <params>... encoded parameters ...</params>
+  </response>
+</whremoting>
+
+<whremoting encoding="http://www.webhare.net/remoting/wh_remoting/20091029/">
+  <exception>
+    <what>text</what>
+    <trace> (<location></location>)* </trace> (optional)
+  </exception>
+</whremoting>
+*/
+
+STRING remoting_namespace := "urn:webhare:remoting:wh_remoting:20091029";
+
+
+OBJECTTYPE WHRemotingWrongEncoding EXTEND Exception
+< MACRO NEW(STRING ns) : Exception(ns) { }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE WHRemotingTransport EXTEND Transport
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_remoter;
+
+
+  OBJECT codec;
+
+
+  OBJECT persist_port;
+
+
+  FUNCTION PTR pvt_get_session_errors;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY remoter(pvt_remoter, -);
+
+
+  PUBLIC PROPERTY get_session_errors(pvt_get_session_errors, pvt_get_session_errors);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(BOOLEAN is_initiator)
+  : Transport("whremoting")
+  {
+    this->pvt_remoter := CreateObjectRemoter(is_initiator);
+    this->codec := CreateRemotingXMLCodec(this->pvt_remoter);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION GetMessageNode(BLOB body)
+  {
+    // Readonly document
+    OBJECT xmldoc := MakeXMLDocument(body, "", TRUE);
+    IF (NOT ObjectExists(xmldoc) OR NOT ObjectExists(xmldoc->documentelement))
+      THROW NEW RPCInvalidArgsException("Malformed WHRemoting request: not xml");
+
+    OBJECT rootnode := xmldoc->documentelement;
+    IF (rootnode->nodename != "whremoting")
+      THROW NEW RPCInvalidArgsException("Malformed WHRemoting request: missing whremoting root node");
+
+    STRING encoding := rootnode->GetAttribute("encoding");
+
+    // Here: test for accepted encodings
+    IF (encoding != remoting_namespace)
+      THROW NEW WHRemotingWrongEncoding(encoding);
+
+    // Get message element
+    OBJECT node := rootnode->firstchild;
+    WHILE (ObjectExists(node) AND node->nodetype != XmlElementNode)
+      node := node->nextsibling;
+
+    IF (NOT ObjectExists(node))
+      THROW NEW RPCInvalidArgsException("Malformed WHRemoting request: missing message node");
+
+    RETURN
+        [ encoding :=   encoding
+        , node :=       node
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION PersistInternal() __ATTRIBUTES__(SKIPTRACE)
+  {
+    WHILE (TRUE)
+    {
+      DATETIME wait_until := AddTimeToDate(5 * 60 * 1000, GetCurrentDateTime());
+      OBJECT link := this->persist_port->Accept(wait_until);
+      IF (NOT ObjectExists(link))
+        BREAK;
+
+      WHILE (TRUE)
+      {
+        RECORD msg := link->ReceiveMessage(wait_until);
+        IF (msg.status != "ok")
+        {
+          link->Close();
+          BREAK;
+        }
+
+        DATETIME start;
+        IF (debugconfig.profile)
+        {
+          ResetFunctionProfile();
+          start := GetCurrentDateTime();
+          EnableFunctionProfile();
+        }
+
+        IF (debugconfig.log_decoded_requests)
+          LogDebug("system:console", "Incoming request:\n" || AnyToString(msg.msg, "tree"));
+
+        RECORD response;
+
+        TRY
+        {
+          RECORD rec := msg.msg;
+          SWITCH (rec.type)
+          {
+          CASE "functioncall"   { THROW NEW Exception("Remoting message type 'functioncall' not allowed here"); }
+          CASE "exception"
+            {
+              OBJECT e := NEW Exception(rec.what);
+              e->trace := rec.trace;
+              THROW e;
+            }
+          CASE "methodcall"
+            {
+              OBJECT obj := this->remoter->GetRemoteObject(rec.objectid);
+
+              FUNCTION PTR method := GetObjectMethodPtr(obj, rec.methodname);
+              RECORD res := DoCheckedVarArgsCall(method, rec.args, rec.methodname);
+
+             response := [ type := "result", is_macro := res.is_macro, result := res.result ];
+
+              link->SendReply(this->EncodeResponse(res.is_macro, res.result, "", DEFAULT RECORD), msg.msgid);
+            }
+          CASE "response"
+            {
+              THROW NEW Exception("Responses not implemented");
+            }
+          CASE "sessionclose"
+            {
+              response := [ type := "sessionclose" ];
+
+              link->SendReply(this->EncodeResponse(TRUE, FALSE, "", DEFAULT RECORD), msg.msgid);
+              TerminateScript();
+            }
+          DEFAULT
+            {
+              THROW NEW Exception("Unimplemented message type '"||rec.type||"'");
+            }
+          }
+        }
+        CATCH (OBJECT e)
+        {
+          response := [ type := "exception", what := e->what ];
+
+          link->SendReply(this->EncodeExceptionInternal(e, TRUE), msg.msgid);
+        }
+
+        IF (debugconfig.profile)
+        {
+          DisableFunctionProfile();
+
+          ReportFunctionProfile(
+              "webserver",
+              msg.msg.type || (CellExists(msg.msg, "METHODNAME") ? " " || msg.msg.methodname : "") || " " || GetRequestURL(),
+              [ start := start ]);
+        }
+
+        IF (debugconfig.log_decoded_responses)
+          LogDebug("system:console", "Outgoing response:\n" || AnyToString(response, "tree"));
+      }
+    }
+    RETURN [ is_macro := TRUE, result := TRUE ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION DecodeRequest(BLOB body, STRING functionname)
+  {
+    RECORD rec := this->GenericDecode(body);
+
+    IF (rec.type != "functioncall")
+      THROW NEW RPCInvalidArgsException("Malformed WHRemoting request: expected message type 'functioncall'");
+
+    INSERT CELL functionname := functionname INTO rec;
+    INSERT CELL requesttoken := DEFAULT RECORD INTO rec;
+
+    RETURN rec;
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeResponse(BOOLEAN is_macro, VARIANT response, STRING srhid, RECORD requesttoken)
+  {
+    INTEGER str := CreateStream();
+
+    PrintTo(str, '<whremoting encoding="' || remoting_namespace || '"><response>');
+    IF (NOT is_macro)
+      this->codec->EncodeVariableTo(str, response);
+    BOOLEAN persist := this->pvt_remoter->HasRemoted();
+    IF (persist AND srhid != "")
+    {
+      PrintTo(str, '<session>' || srhid || '</session>');
+      this->persist_port := CreateIPCPort("wh:wh_remoting." || srhid);
+    }
+    PrintTo(str, '</response></whremoting>');
+
+    RETURN
+        [ headers :=        [ [ field := "Content-Type", value := "text/xml" ] ]
+        , data :=           MakeBlobFromStream(str)
+        , keeprunning :=    persist
+        ];
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeSessionClose()
+  {
+    INTEGER str := CreateStream();
+    PrintTo(str, '<whremoting encoding="' || remoting_namespace || '"><sessionclose /></whremoting>');
+    RETURN
+        [ headers :=        [ [ field := "Content-Type", value := "text/xml" ] ]
+        , data :=           MakeBlobFromStream(str)
+        , keeprunning :=    FALSE
+        ];
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeExceptionInternal(OBJECT e, BOOLEAN keep_running)
+  {
+    INTEGER str := CreateStream();
+
+    PrintTo(str, '<whremoting encoding="' || remoting_namespace || '"><exception><what>');
+    PrintTo(str, EncodeValue(e->what) || '</what><trace>');
+    FOREVERY (RECORD rec FROM e->trace)
+      PrintTo(str, '<location><file>'||EncodeValue(rec.filename)||'</file><line>'||rec.line||'</line><col>'||rec.col||'</col><function>'||EncodeValue(rec.func)||'</function></location>');
+    PrintTo(str, '</trace></exception></whremoting>');
+
+    RETURN
+        [ headers :=        [ [ field := "Content-Type", value := "text/xml" ] ]
+        , data :=           MakeBlobFromStream(str)
+        , keeprunning :=    keep_running
+        ];
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeException(OBJECT e, RECORD requesttoken)
+  {
+    IF (ToUppercase(GetObjectTypeName(e)) = "WHREMOTINGWRONGENCODING")
+    {
+      INTEGER str := CreateStream();
+
+      PrintTo(str, '<whremoting encoding="' || remoting_namespace || '"><unknownencoding><accepted>' || remoting_namespace || '</accepted></unknownencoding></whremoting>');
+
+      RETURN
+          [ headers :=        [ [ field := "Content-Type", value := "text/xml" ] ]
+          , data :=           MakeBlobFromStream(str)
+          , keeprunning :=    FALSE
+          ];
+    }
+    RETURN this->EncodeExceptionInternal(e, FALSE);
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeErrors(RECORD ARRAY errors, RECORD requesttoken)
+  {
+    INTEGER str := CreateStream();
+
+    PrintTo(str, '<whremoting encoding="' || remoting_namespace || '"><errors><msgs>');
+    FOREVERY (RECORD rec FROM errors)
+      IF (rec.code > 0)
+      {
+        PrintTo(str, '<error><code>'||rec.code||'</code>');
+        IF (rec.message != "")
+          PrintTo(str, '<message>'||EncodeValue(rec.param1)||'</message>');
+        IF (rec.param1 != "")
+          PrintTo(str, '<param1>'||EncodeValue(rec.param1)||'</param1>');
+        IF (rec.param2 != "")
+          PrintTo(str, '<param2>'||EncodeValue(rec.param2)||'</param2>');
+        PrintTo(str, '<file>'||EncodeValue(rec.filename)||'</file><line>'||rec.line||'</line><col>'||rec.col||'</col><function>'||EncodeValue(rec.func)||'</function></error>');
+      }
+    PrintTo(str, '</msgs><trace>');
+    FOREVERY (RECORD rec FROM errors)
+      IF (rec.code <= 0)
+        PrintTo(str, '<location><code>'||rec.code||'</code><file>'||EncodeValue(rec.filename)||'</file><line>'||rec.line||'</line><col>'||rec.col||'</col><function>'||EncodeValue(rec.func)||'</function></location>');
+    PrintTo(str, '</trace></errors></whremoting>');
+
+    RETURN
+        [ headers :=        [ [ field := "Content-Type", value := "text/xml" ] ]
+        , data :=           MakeBlobFromStream(str)
+        , keeprunning :=    FALSE
+        ];
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeRequest(VARIANT ARRAY args)
+  {
+    INTEGER str := CreateStream();
+
+    PrintTo(str, '<whremoting encoding="' || remoting_namespace || '"><functioncall><params>');
+    FOREVERY (VARIANT v FROM args)
+      this->codec->EncodeVariableTo(str, v);
+    PrintTo(str, '</params></functioncall></whremoting>');
+
+    RETURN
+        [ headers :=        [ [ field := "Content-Type", value := "text/xml" ] ]
+        , data :=           MakeBlobFromStream(str)
+        ];
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeMethodCall(OBJECT obj, STRING methodname, VARIANT ARRAY args)
+  {
+    RECORD rec := this->remoter->GetObjectId(obj);
+    IF (NOT rec.seen)
+      THROW NEW Exception("Calling a method on an unknown remote object");
+
+    INTEGER str := CreateStream();
+
+    PrintTo(str, '<whremoting encoding="' || remoting_namespace || '"><methodcall object="'||rec.id||'" method="'||EncodeValue(methodname)||'"><params>');
+    FOREVERY (VARIANT v FROM args)
+      this->codec->EncodeVariableTo(str, v);
+    PrintTo(str, '</params></methodcall></whremoting>');
+
+    RETURN
+        [ headers :=        [ [ field := "Content-Type", value := "text/xml" ] ]
+        , data :=           MakeBlobFromStream(str)
+        ];
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeFunctionCall(VARIANT ARRAY args)
+  {
+    INTEGER str := CreateStream();
+
+    PrintTo(str, '<whremoting encoding="' || remoting_namespace || '"><functioncall><params>');
+    FOREVERY (VARIANT v FROM args)
+      this->codec->EncodeVariableTo(str, v);
+    PrintTo(str, '</params></functioncall></whremoting>');
+
+    RETURN
+        [ headers :=        [ [ field := "Content-Type", value := "text/xml" ] ]
+        , data :=           MakeBlobFromStream(str)
+        ];
+  }
+
+
+  PUBLIC RECORD FUNCTION GenericDecode(BLOB body)
+  {
+    RECORD rec := this->GetMessageNode(body);
+
+    STRING nodename := rec.node->nodename;
+    SWITCH (nodename)
+    {
+    CASE "functioncall", "methodcall"
+      {
+        OBJECT params := rec.node->firstchild;
+        WHILE (ObjectExists(params) AND params->nodetype != XmlElementNode)
+          params := params->nextsibling;
+
+        IF (NOT ObjectExists(params))
+          THROW NEW RPCInvalidArgsException("Malformed WHRemoting request: missing parameters");
+
+        VARIANT ARRAY args;
+        FOREVERY (OBJECT node FROM params->childnodes->GetCurrentElements())
+          INSERT this->codec->DecodeVariable(node) INTO args AT END;
+
+        IF (nodename = "functioncall")
+          RETURN
+              [ type :=         nodename
+              , args :=         args
+              ];
+        RETURN
+            [ type :=       nodename
+            , args :=       args
+            , objectid :=   ToInteger(rec.node->GetAttribute("object"), 0)
+            , methodname := rec.node->GetAttribute("method")
+            ];
+      }
+    CASE "response"
+      {
+        OBJECT r := rec.node->firstchild;
+        WHILE (ObjectExists(r) AND r->nodetype != XmlElementNode)
+          r := r->nextsibling;
+
+        VARIANT value := TRUE;
+        BOOLEAN have_value := FALSE;
+        STRING session;
+
+        IF (ObjectExists(r) AND r->nodename != "session")
+        {
+          have_value := TRUE;
+          value :=      this->codec->DecodeVariable(r);
+
+          r := r->nextsibling;
+          WHILE (ObjectExists(r) AND r->nodetype != XmlElementNode)
+            r := r->nextsibling;
+        }
+        IF (ObjectExists(r) AND r->nodename = "session")
+          session := r->textcontent;
+
+        RETURN
+            [ type :=             nodename
+            , have_value :=       have_value
+            , value :=            value
+            , session :=          session
+            ];
+      }
+    CASE "unknownencoding"
+      {
+        STRING ARRAY accepted;
+
+        FOREVERY (OBJECT node FROM rec.node->childnodes->GetCurrentElements())
+          IF (node->nodename = "accepted")
+            INSERT node->textcontent INTO accepted AT END;
+
+
+        RETURN
+            [ type :=       nodename
+            , accepted :=   accepted
+            ];
+      }
+    CASE "sessionclose"
+      {
+        RETURN
+            [ type :=       nodename
+            ];
+      }
+    CASE "exception"
+      {
+        RECORD result :=
+            [ type :=       nodename
+            , what :=       ""
+            , trace :=      DEFAULT RECORD ARRAY
+            ];
+
+        FOREVERY (OBJECT node FROM rec.node->childnodes->GetCurrentElements())
+        {
+          SWITCH (node->nodename)
+          {
+          CASE "what"   { result.what := node->textcontent; }
+          CASE "trace"
+            {
+              FOREVERY (OBJECT lnode FROM node->childnodes->GetCurrentElements())
+              {
+                RECORD loc :=
+                    [ filename := ""
+                    , line :=     0
+                    , col :=      0
+                    , func :=     ""
+                    ];
+
+                FOREVERY (OBJECT cnode FROM lnode->childnodes->GetCurrentElements())
+                {
+                  SWITCH (cnode->nodename)
+                  {
+                  CASE "file"     { loc.filename := cnode->textcontent; }
+                  CASE "function" { loc.func := cnode->textcontent; }
+                  CASE "line"     { loc.line := ToInteger(cnode->textcontent, 0); }
+                  CASE "col"      { loc.col := ToInteger(cnode->textcontent, 0); }
+                  }
+                }
+                INSERT loc INTO result.trace AT END;
+              }
+            }
+          }
+        }
+        RETURN result;
+      }
+    CASE "errors"
+      {
+        RECORD result :=
+            [ type :=       nodename
+            , what :=       ""
+            , errors :=     DEFAULT RECORD ARRAY
+            ];
+
+        INTEGER tracenr := 0;
+
+        FOREVERY (OBJECT node FROM rec.node->childnodes->GetCurrentElements())
+        {
+          SWITCH (node->nodename)
+          {
+          CASE "msgs", "trace"
+            {
+              FOREVERY (OBJECT lnode FROM node->childnodes->GetCurrentElements())
+              {
+                RECORD loc :=
+                    [ filename := ""
+                    , line :=     0
+                    , col :=      0
+                    , func :=     ""
+                    , code :=     tracenr
+                    , message :=  ""
+                    , param1 :=   ""
+                    , param2 :=   ""
+                    , iserror :=  node->nodename = "msgs"
+                    , istrace :=  node->nodename = "trace"
+                    , iswarning :=FALSE
+                    ];
+                tracenr := tracenr - 1;
+                BOOLEAN have_message;
+
+                FOREVERY (OBJECT cnode FROM lnode->childnodes->GetCurrentElements())
+                {
+                  SWITCH (cnode->nodename)
+                  {
+                  CASE "code"     { loc.code := ToInteger(cnode->textcontent, 0); }
+                  CASE "param1"   { loc.param1 := cnode->textcontent; }
+                  CASE "param2"   { loc.param2 := cnode->textcontent; }
+                  CASE "file"     { loc.filename := cnode->textcontent; }
+                  CASE "function" { loc.func := cnode->textcontent; }
+                  CASE "line"     { loc.line := ToInteger(cnode->textcontent, 0); }
+                  CASE "col"      { loc.col := ToInteger(cnode->textcontent, 0); }
+                  CASE "message"  { loc.message := cnode->textcontent; have_message := TRUE; }
+                  }
+                }
+
+                IF (NOT have_message AND loc.code >= 0)
+                  loc.message := GetHareScriptMessageText(loc.iserror, loc.code, loc.param1, loc.param2);
+
+                INSERT loc INTO result.errors AT END;
+              }
+            }
+          }
+        }
+        RETURN result;
+      }
+    DEFAULT
+      {
+        THROW NEW RPCInvalidArgsException("Malformed WHRemoting request: unknown message type '"||nodename||"'");
+      }
+    }
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION HandlePersistentSessions(BLOB requestbody, STRING whs_srh)
+  {
+    IF (whs_srh = "")
+      RETURN DEFAULT RECORD;
+
+    OBJECT link;
+    TRY
+    {
+      RECORD rec;
+      link := ConnectToIPCPort("wh:wh_remoting." || whs_srh);
+      IF (ObjectExists(link))
+      {
+        RECORD decoded_msg := this->GenericDecode(requestbody);
+
+        rec := link->DoRequest(decoded_msg);
+      }
+      IF (NOT RecordExists(rec) OR rec.status != "ok")
+      {
+        RECORD ARRAY errors;
+        IF (this->pvt_get_session_errors != DEFAULT FUNCTION PTR)
+          errors := this->pvt_get_session_errors(whs_srh);
+        IF (LENGTH(errors) > 0)
+          THROW NEW HarescriptErrorException(errors);
+        ELSE
+          THROW NEW Exception("Could not contact persistent session, no errors found");
+      }
+
+      link->Close();
+      RETURN rec.msg;
+    }
+    CATCH (OBJECT e)
+    {
+      IF (ObjectExists(link))
+        link->Close();
+
+      RETURN this->EncodeException(e, DEFAULT RECORD);
+    }
+  }
+
+
+  UPDATE PUBLIC MACRO Persist()
+  {
+    Transport::Persist();
+    this->PersistInternal();
+  }
+>;
+
+
+
+PUBLIC OBJECT FUNCTION CreateRequestWHRemotingTransport()
+{
+  RETURN NEW WHRemotingTransport(TRUE);
+}

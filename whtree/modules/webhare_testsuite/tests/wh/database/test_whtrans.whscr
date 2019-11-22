@@ -1,0 +1,172 @@
+﻿<?wh
+
+LOADLIB "wh::dbase/dynquery.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+
+MACRO Cleanup()
+{
+  OpenPrimary();
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  testfw->BeginWork();
+  IF (trans->SchemaExists("beta_dbtests"))
+    trans->DropSchema("beta_dbtests", [ cascade := TRUE ]);
+  testfw->CommitWork();
+
+  GetPrimary()->Close();
+}
+
+MACRO TestPrimary()
+{
+  OBJECT trans := OpenPrimary();
+
+  // Work status
+  TestEQ(TRUE, trans->HasWorkSupport());
+  TestEQ(FALSE, trans->IsWorkOpen());
+
+  // GetPrimary works?
+  TestEQ(trans->id, GetPrimary()->id);
+
+  // Privielged
+  TestEQ(TRUE, -1 IN trans->GetEnabledRoles());
+
+  // No nested primary transactions
+  TestThrows(PTR OpenPrimary);
+
+  // Work (commit)
+  trans->BeginWork();
+  TestEQ(trans->id, GetPrimaryWebhareTransaction());
+  TestEQ(TRUE, trans->IsWorkOpen());
+  TestEQ(DEFAULT RECORD ARRAY, trans->CommitWork());
+  TestEQ(FALSE, trans->IsWorkOpen());
+
+  TestEQ(trans->id, GetPrimaryWebhareTransaction());
+
+  // Work (rollback)
+  trans->BeginWork();
+  TestEQ(trans->id, GetPrimaryWebhareTransaction());
+  TestEQ(TRUE, trans->IsWorkOpen());
+  trans->RollbackWork();
+  TestEQ(FALSE, trans->IsWorkOpen());
+
+  TestEQ(trans->id, GetPrimaryWebhareTransaction());
+  TestEQ(trans->id, GetPrimary()->id);
+
+  // Close (must 0 primary transaction)
+  trans->Close();
+  TestEQ(0, GetPrimaryWebhareTransaction());
+  TestThrows(PTR GetPrimary);
+}
+
+MACRO TestWorkLocks()
+{
+  OBJECT trans := OpenPrimary();
+  trans->BeginLockedWork("webhare_testsuite:worklock");
+  TestThrows(PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  trans->RollbackWork();
+
+  OBJECT lock := OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME);
+  TestEQ(TRUE, ObjectExists(lock));
+  lock->Close();
+
+  trans->BeginLockedWork("webhare_testsuite:worklock");
+  TestThrows(PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  trans->CommitWork();
+
+  lock := OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME);
+  TestEQ(TRUE, ObjectExists(lock));
+  lock->Close();
+
+  trans->BeginLockedWork("webhare_testsuite:worklock");
+  TestThrows(PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  trans->Close();
+
+  lock := OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME);
+  TestEQ(TRUE, ObjectExists(lock));
+  lock->Close();
+}
+
+MACRO TestCommitErrors()
+{
+  TABLE <INTEGER id, INTEGER int2> beta_tableA;
+
+  OBJECT trans := OpenPrimary();
+
+  // Prepare table for commit error
+  trans->BeginWork();
+  IF (GetPrimaryWebhareTransactionObject()->SchemaExists("beta_dbtests"))
+    trans->DropSchema("beta_dbtests");
+  trans->CreateSchema("beta_dbtests", "DEFINITION_SCHEMA", "_SYSTEM");
+
+  __LegacyCreateTable(trans, "beta_dbtests", "tableA",
+      [ cols := [ [ column_name :=      "id"
+                  , data_type :=        "INTEGER"
+                  //FIXME make all this optional for a nicer user api
+                  , autonumber_start := 0
+                  , nullable :=         TRUE
+                  , isunique :=         TRUE // <-- used to generate error
+                  , noupdate :=         FALSE
+                  , referenced_table_name := ""
+                  , referenced_table_schema := ""
+                  , on_delete :=        "cascade"
+                  ]
+                , [ column_name :=      "int2"
+                  , data_type :=        "INTEGER"
+                  , autonumber_start := 0
+                  , nullable :=         FALSE // can't be TRUE when isunique is also on
+                  , isunique :=         TRUE // <-- used to generate error
+                  , noupdate :=         FALSE
+                  , referenced_table_name := ""
+                  , referenced_table_schema := ""
+                  , on_delete :=        "cascade"
+                  ]
+                ]
+      , primarykey := "id"
+      ]);
+
+  trans->CommitWork();
+
+  trans->BeginWork();
+  beta_tableA := BindTransactionToTable(trans->id,"beta_dbtests.tableA");
+
+  INSERT INTO beta_tableA(id, int2) VALUES (1, 2);
+  INSERT INTO beta_tableA(id, int2) VALUES (1, 3);
+  TestThrows(PTR trans->CommitWork());
+  TestEQ(FALSE, trans->IsWorkOpen());
+
+  trans->BeginWork();
+  beta_tableA := BindTransactionToTable(trans->id,"beta_dbtests.tableA");
+  INSERT INTO beta_tableA(id,int2) VALUES (1, 2);
+  INSERT INTO beta_tableA(id,int2) VALUES (2, 3);
+
+  TestEq( [[ id := 1, outint2 := 2, x := 42 ]]
+        , EnrichWithTable([ [ id := 1, x := 42] ]
+                         , "ID", beta_tableA, [ outint2 := "int2" ]));
+
+  TestEq( [[id := 1, outint2 := 2, x := 42 ]]
+        , EnrichWithTable([ [ id := 1, x := 42 ]
+                          , [ id := 5, x := 47 ]
+                          ]
+                          , "ID", beta_tableA, [ outint2 := "int2" ]));
+
+  TestEq([[ id := 1, outint2 := 2, x := 42 ]
+         ,[ id := 5, outint2 := 0, x := 47 ]
+         ]
+        , EnrichWithTable([ [ id := 1, x := 42 ]
+                          , [ id := 5, x := 47 ]
+                          ]
+                          , "ID", beta_tableA, [ outint2 := "int2" ], [ rightouterjoin := TRUE ]));
+
+  trans->Close();
+}
+
+RunTestFramework([ PTR Cleanup
+                 , PTR TestPrimary
+                 , PTR TestWorkLocks
+                 , PTR TestCommitErrors
+                 ], [ usedatabase := FALSE ]);

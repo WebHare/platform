@@ -1,0 +1,538 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
+VARIANT FUNCTION DecodeJSONOrHSON(STRING inval)
+{
+  RETURN inval LIKE "hson:*" ? DecodeHSON(inval) : DecodeJSON(inval);
+}
+
+PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
+<
+  PUBLIC OBJECT comp;
+  BOOLEAN longoptions;
+  RECORD ARRAY props;
+  RECORD userdata;
+
+  MACRO Init(RECORD data)
+  {
+    IF(CellExists(data,'readvalue')) //defaults to true
+      this->frame->flags.readvalue := data.readvalue;
+
+    STRING namespace := data.component LIKE "*:*"
+                          ? Left(data.component, SearchLastSubstring(data.component,':'))
+                          : "";
+    STRING component := namespace != "" ? Substring(data.component,Length(namespace) + 1) : data.component;
+    STRING type;
+    IF(component LIKE '*-*')
+    {
+      type := Substring(component, SearchSubstring(component, '-') + 1);
+      component := Tokenize(component, "-")[0];
+    }
+
+    IF(namespace="wrd")
+      namespace:="http://www.webhare.net/xmlns/wrd/components";
+    ELSE IF(namespace="test")
+      namespace:="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents";
+
+    this->comp := namespace != "" ? this->CreateCustomComponent(namespace, component, [ namebase := "thecomponent" ]) : this->CreateTolliumComponent(component, [ namebase := "thecomponent" ]);
+    this->comp->title := "<title:" || component || (type!="" ? "-" || type : "") || ">";
+
+    IF(CellExists(data,'settings'))
+    {
+      TRY
+        PRINT("Opening AnyComponent screen: " || GetPrimaryWebhareInterfaceURL() || `?app=webhare_testsuite:anycomponent(${namespace}:${component},${EncodeURL(EncodeJSON(data.settings))})/\n`);
+      CATCH (OBJECT e)
+        PRINT(`Opening AnyComponent screen: no URL available: ${e->what}\n`);
+
+      IF(CellExists(data.settings,'__splitside'))
+      {
+        IF(data.settings.__splitside = "right")
+        { //swap slider parts to fully right align
+          ^splith->parts := OBJECT[^splith->parts[1],^splith->parts[0]];
+        }
+        DELETE CELL __splitside FROM data.settings;
+      }
+
+      IF(CellExists(data.settings,'__splitpage'))
+      {
+        IF(data.settings.__splitpage = "bottom")
+        { //swap test parts
+          ^controlpanel->RemoveFromParent();
+          ^body->InsertComponentBefore(^controlpanel, DEFAULT OBJECT, TRUE);
+
+          ^splitv->parts[1]->height := "1pr";
+          ^splitv->parts := OBJECT[^splitv->parts[1],^splitv->parts[0]];
+        }
+        DELETE CELL __splitpage FROM data.settings;
+      }
+
+      STRING ARRAY ordersettings := ["columns","rows"];
+      RECORD ARRAY toset := SELECT * FROM UnpackRecord(data.settings) ORDER BY SearchElement(ReverseArray(ordersettings), ToLowercase(name)) DESC;
+      FOREVERY (RECORD rec FROM toset)
+      {
+        IF (TypeID(GetMember(this->comp, rec.name)) = TypeID(OBJECT))
+        {
+          // Get components from the local screen
+          IF (rec.value LIKE "comp:*")
+            rec := [ name := rec.name, value := GetMember(this, SubString(rec.value, 5)) ];
+          IF (rec.value LIKE "wrdschema:*")
+            rec := [ name := rec.name, value := OpenWRDSchema(SubString(rec.value, 10)) ];
+        }
+        ELSE IF (TypeID(GetMember(this->comp, rec.name)) = TypeID(FUNCTION PTR) AND TypeID(rec.value) = TypeID(STRING))
+        {
+          rec := [ name := rec.name, value := GetObjectMethodPtr(this, rec.value) ];
+        }
+        MemberUpdate(this->comp, rec.name, rec.value);
+      }
+    }
+
+    this->title->value := this->comp->title;
+
+    IF(MemberExists(this->comp, "placeholder"))
+      this->comp->placeholder := "the-placeholder";
+    IF(MemberExists(this->comp, "autocomplete"))
+      this->comp->autocomplete := ["organization-title"];
+    IF(MemberExists(this->comp, "defaultbutton"))
+      this->comp->defaultbutton := this->alternatedefault;
+
+
+    this->frame->flags.readselection := MemberExists(this->comp,"selection");
+    IF(MemberExists(this->comp,"onselect"))
+      this->comp->onselect := PTR this->OnCompSelect;
+    IF(MemberExists(this->comp,"onchange"))
+      this->comp->onchange := PTR this->OnCompChange;
+
+    this->frame->flags.readoverlays := MemberExists(this->comp,"overlays");
+    this->overlaypanel->visible := this->frame->flags.readoverlays;
+    IF(this->frame->flags.readoverlays)
+    {
+      this->comp->onchangeoverlays := PTR this->onchangeoverlays;
+    }
+
+    this->value->enabled := this->frame->flags.readvalue;
+    this->label->enabled := MemberExists(this->comp, "LABEL");
+    this->updatelabel->enabled := this->label->enabled;
+    this->updateoptions->enabled := MemberExists(this->comp, "OPTIONS");
+    this->enableontarget1_include->enabled := MemberExists(this->comp, "ENABLECOMPONENTS") OR MemberExists(this->comp, "OPTIONS");
+    this->enableontarget2_include->enabled := MemberExists(this->comp, "ENABLECOMPONENTS") OR MemberExists(this->comp, "OPTIONS");
+
+    //Component specific stuff
+    SWITCH(component)
+    {
+      CASE"select"
+      {
+        this->SetOptions();
+      }
+      CASE"progress"
+      {
+        this->comp->max := 100;
+      }
+      CASE"arrayedit"
+      {
+        this->comp->columns := [[ type := "text", name := "text", title := "Text", checkboxname := "checkbox" ]];
+        this->comp->value := [[ text := "Row 1", checkbox := TRUE ]];
+        this->comp->roweditscreen := "webhare_testsuite:tests/anycomponent.roweditor";
+      }
+      CASE "textedit", "textarea"
+      {
+        this->AddComponents(
+            [ [ membername := "maxlength"
+              , type :=       "textedit-integer"
+              ]
+            , [ membername := "showcounter"
+              , type :=       "checkbox"
+              ]
+            , [ membername := "maxlengthmeasure"
+              , type :=       "pulldown"
+              , options :=    [ [ rowkey := "bytes" ], [ rowkey := "characters" ] ]
+              ]
+            ]);
+
+        IF (component = "textedit")
+        {
+          OBJECT btn := this->CreateTolliumComponent("button");
+          btn->type := "icon";
+          btn->icon := "tollium:objects/qr";
+          INSERT btn INTO this->comp->buttons AT END;
+        }
+      }
+      CASE "image"
+      {
+        IF (type = "overlays")
+        {
+          this->comp->width := "512px";
+          this->comp->height := "384px";
+          this->comp->value := WrapBlob(GetWebhareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), "rangetestfile.jpg");
+          this->AddComponents(
+              [ [ membername := "oncreateoverlay"
+                , type :=       "optional-handler"
+                , value :=      PTR this->OnCreateOverlay
+                ]
+              , [ membername := "add_overlay"
+                , type :=       "button"
+                , onclick :=    PTR this->AddImageOverlay
+                ]
+              , [ membername := "clear_overlays"
+                , type :=       "button"
+                , onclick :=    PTR this->ClearImageOverlays
+                ]
+              , [ membername := "selection"
+                , type :=       "button"
+                , onclick :=    PTR this->SetImageSelection
+                ]
+              ], [receiver := this->overlaypanel ]);
+
+          this->userdata := [ counter := SELECT AS INTEGER Max(rowkey) FROM this->comp->overlays ];
+        }
+      }
+      CASE "imgedit"
+      {
+        OBJECT testsite := OpenTestsuiteSite();
+        this->comp->publisher := TRUE;
+        this->comp->publisherroots := [ INTEGER(testsite->id) ];
+      }
+      CASE "slider"
+      {
+        this->comp->width := "500px";
+      }
+    }
+
+    this->componentpanel->InsertComponentAfter(this->comp, DEFAULT OBJECT, FALSE);
+  }
+
+  RECORD FUNCTION OnCreateOverlay(RECORD area)
+  {
+    IF (NOT RecordExists(this->userdata))
+      this->userdata := [ counter := 0 ];
+    this->userdata.counter := this->userdata.counter + 1;
+
+    IF(area.height <= 10)
+      RETURN DEFAULT RECORD; //too small!
+
+    RETURN
+        [ area :=   area
+       , testdata := [ test := "Overlay " || (Length(this->comp->overlays) + 1) ]
+       , rowkey := this->userdata.counter
+       ];
+  }
+
+  MACRO onchangeoverlays()
+  {
+    this->onchangeoverlayscount->value := this->onchangeoverlayscount->value+1;
+    this->DoReadoverlays();
+  }
+
+  MACRO OnCompSelect()
+  {
+    this->onselectcount->value := this->onselectcount->value+1;
+    this->doreadselection();
+  }
+
+  MACRO OnCompChange()
+  {
+    this->onchangecount->value := this->onchangecount->value+1;
+    this->DoReadValue();
+  }
+
+  MACRO DoReadSelection()
+  {
+    IF (MemberExists(this->comp, "SELECTION"))
+      this->selection->value := EncodeJSON(this->comp->selection);
+  }
+  MACRO DoWriteSelection()
+  {
+    IF (MemberExists(this->comp, "SELECTION"))
+      this->comp->selection := DecodeJSONOrHSON(this->selection->value);
+  }
+  MACRO DoReadoverlays()
+  {
+    this->overlays->value:=EncodeJSON(this->comp->overlays);
+  }
+  MACRO DoWriteoverlays()
+  {
+    this->comp->overlays := DecodeJSONOrHSON(this->overlays->value);
+  }
+
+  MACRO AddImageOverlay()
+  {
+    IF (NOT RecordExists(this->userdata))
+      this->userdata := [ counter := 0 ];
+    this->userdata.counter := this->userdata.counter + 1;
+
+    // Add a 200x200 overlay 50 pixels lower and 50px right of the last overlay
+    INTEGER newtop := (Length(this->comp->overlays) + 1) * 50;
+    INTEGER newleft := Length(this->comp->overlays) * 250 + 50;
+
+    INSERT [ area :=
+                [ type := "rectangle"
+                , top := newtop
+                , left := newleft
+                , width := 200
+                , height := 200
+                ]
+           , testdata := [ test := "Overlay " || (Length(this->comp->overlays) + 1) ]
+           , rowkey := this->userdata.counter
+           ] INTO this->comp->overlays AT END;
+  }
+
+  MACRO ClearImageOverlays()
+  {
+    this->comp->overlays := DEFAULT RECORD ARRAY;
+  }
+
+  MACRO SetImageSelection()
+  {
+    //now more like 'next' overlay selection
+    INTEGER currentselection := RecordExists(this->comp->selection) ? (SELECT AS INTEGER #overlays + 1 FROM this->comp->overlays WHERE rowkey = this->comp->selection.rowkey) -1 : -1;
+    INTEGER toselect := currentselection=Length(this->comp->overlays) ? 0 : currentselection + 1;
+    this->comp->selection := toselect < Length(this->comp->overlays) ? this->comp->overlays[toselect] : DEFAULT RECORD;
+
+    /* FIXME images default to SINGLE mode so we can't do this yet until multiselect mode is properly implemented and tested
+    // Add the next overlay to the selection, if all are already selected, clear selection
+    INTEGER numselected := Length(this->comp->selection) + 1;
+    IF (numselected > Length(this->comp->overlays))
+      numselected := 0;
+    this->comp->selection := SELECT * FROM this->comp->overlays WHERE #overlays < numselected;
+    */
+  }
+
+  MACRO OnVisibleChange()
+  {
+    this->comp->visible := this->visible->value;
+  }
+  MACRO OnEnableChange()
+  {
+    this->comp->enabled := this->enable->value;
+  }
+  MACRO OnRequiredChange()
+  {
+    this->comp->required := this->required->value;
+  }
+  MACRO OnReadonlyChange()
+  {
+    this->comp->readonly := ^readonly->value;
+  }
+  MACRO GotCallback(STRING type)
+  {
+    LogDebug("tollium:anycomponent", "onchange/onset", type, GetStackTrace());
+    STRING ARRAY parts := STRING[ ...Tokenize(this->onchangecounter->value, ", "), "" ];
+    STRING ARRAY newparts;
+    BOOLEAN havepart;
+    FOREVERY (STRING part FROM parts)
+      IF (part != "" AND part NOT LIKE type || ": *")
+        INSERT part INTO newparts AT END;
+      ELSE IF (NOT havepart)
+      {
+        INSERT type || ": " || (ToInteger(SubString(part, SearchSubstring(part, ": ") + 2), 0) + 1) INTO newparts AT END;
+        havepart := TRUE;
+      }
+    this->onchangecounter->value := Detokenize(newparts, ", ");
+  }
+  MACRO OnUpdateEnableComponents()
+  {
+    IF (MemberExists(this->comp, "ENABLECOMPONENTS"))
+    {
+      OBJECT ARRAY list;
+      IF (this->enableontarget1_include->value)
+        INSERT this->enableontarget1 INTO list AT END;
+      IF (this->enableontarget2_include->value)
+        INSERT this->enableontarget2 INTO list AT END;
+      this->comp->enablecomponents := list;
+    }
+    ELSE
+      this->SetOptions();
+  }
+  MACRO DoUpdateOptions()
+  {
+    this->longoptions := NOT this->longoptions;
+    this->SetOptions();
+  }
+  MACRO SetOptions()
+  {
+    RECORD ARRAY options;
+    IF(this->longoptions)
+    {
+      options :=
+          [ [ rowkey := "first",  title := "A very long first option" ]
+          , [ rowkey := "second", title := "Another long option, but the second" ]
+          , [ rowkey := "third", title := "This is the third available option" ]
+          , [ isdivider := TRUE ]
+          , [ rowkey := "fourth", title := "This is the fourth available option" ]
+          ];
+    }
+    ELSE
+    {
+      options :=
+          [ [ rowkey := "first",  title := "First option" ]
+          , [ rowkey := "second", title := "Second option" ]
+          ];
+    }
+
+    IF (this->enableontarget1_include->value OR this->enableontarget2_include->value)
+      options := SELECT *, enablecomponents := DEFAULT OBJECT ARRAY FROM options;
+
+
+    IF (this->enableontarget1_include->value)
+    {
+      INSERT this->enableontarget1 INTO options[0].enablecomponents AT END;
+      INSERT this->enableontarget1 INTO options[1].enablecomponents AT END;
+    }
+    IF (this->enableontarget2_include->value)
+      INSERT this->enableontarget2 INTO options[1].enablecomponents AT END;
+
+    this->comp->options := options;
+  }
+  MACRO DoUpdateTitle()
+  {
+    this->comp->title := this->title->value;
+  }
+  MACRO DoUpdateLabel()
+  {
+    this->comp->label := this->label->value;
+  }
+  MACRO DoListenOnchange()
+  {
+    IF (MemberExists(this->comp, "ONCHANGE"))
+      this->comp->onchange := this->listenonchange->value ? PTR this->GotCallback("change") : DEFAULT FUNCTION PTR;
+    ELSE IF (MemberExists(this->comp, "ONSET"))
+      this->comp->onset := this->listenonchange->value ? PTR this->GotCallback("set") : DEFAULT FUNCTION PTR;
+  }
+  MACRO DoReadValue()
+  {
+    TRY
+    {
+      VARIANT value := this->comp->value;
+      IF (TypeID(value) = TypeID(DATETIME))
+        this->value->value := EncodeHSON(value);
+      ELSE
+        this->value->value := EncodeJSON(value);
+    }
+    CATCH(OBJECT e)
+    {
+      this->value->value := "EXCEPTION: " || e->what;
+    }
+  }
+  MACRO DoWriteValue()
+  {
+    this->comp->value := DecodeJSONOrHSON(this->value->value);
+  }
+  MACRO DoValidateValue()
+  {
+    OBJECT work := this->BeginFeedback();
+    this->comp->ValidateValue(work);
+    work->Finish();
+  }
+
+  MACRO AddComponents(VARIANT ARRAY props, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([receiver := this->mainprops] , options);
+    BOOLEAN breakafter;
+    FOREVERY (VARIANT prop FROM props)
+    {
+      IF(typeid(prop)=typeid(string) AND prop="break")
+      {
+        breakafter := TRUE;
+        CONTINUE;
+      }
+
+      SWITCH (prop.type)
+      {
+        CASE "textedit-integer"
+        {
+          OBJECT comp := this->CreateTolliumComponent("textedit");
+          INSERT CELL comp := comp INTO prop;
+          comp->valuetype := "integer";
+          comp->title := prop.membername;
+          comp->onchange := PTR this->OnPropChange(prop);
+          options.receiver->InsertComponentAfter(comp, DEFAULT OBJECT, breakafter);
+        }
+        CASE "checkbox", "optional-handler"
+        {
+          OBJECT comp := this->CreateTolliumComponent("checkbox", [ namebase := prop.membername ]);
+          INSERT CELL comp := comp INTO prop;
+          comp->title := prop.membername;
+          comp->onchange := PTR this->OnPropChange(prop);
+          options.receiver->InsertComponentAfter(comp, DEFAULT OBJECT, breakafter);
+        }
+        CASE "pulldown"
+        {
+          OBJECT comp := this->CreateTolliumComponent("pulldown");
+          INSERT CELL comp := comp INTO prop;
+          comp->title := prop.membername;
+          comp->onselect := PTR this->OnPropChange(prop);
+          comp->options :=
+              SELECT rowkey
+                   , title :=   CellExists(options, "TITLE") ? title : rowkey
+                FROM prop.options;
+          options.receiver->InsertComponentAfter(comp, DEFAULT OBJECT, breakafter);
+        }
+        CASE "button"
+        {
+          OBJECT comp := this->CreateTolliumComponent("button");
+          INSERT CELL comp := comp INTO prop;
+          comp->title := prop.membername;
+          comp->action := this->CreateTolliumComponent("action");
+          comp->action->onexecute := prop.onclick;
+          options.receiver->InsertComponentAfter(comp, DEFAULT OBJECT, breakafter);
+        }
+      }
+      INSERT prop INTO this->props AT END;
+      breakafter := FALSe;
+    }
+    this->UpdateProps();
+  }
+
+  MACRO OnPropChange(RECORD prop)
+  {
+    VARIANT value := prop.comp->value;
+    IF (prop.type = "optional-handler")
+      value := value ? prop.value : DEFAULT FUNCTION PTR;
+    MemberUpdate(this->comp, prop.membername, value);
+  }
+
+  MACRO UpdateProps()
+  {
+    FOREVERY (RECORD prop FROM this->props)
+    {
+      SWITCH (prop.type)
+      {
+        CASE "textedit-integer", "checkbox", "pulldown"
+        {
+          prop.comp->value := GetMember(this->comp, prop.membername);
+        }
+        CASE "optional-handler"
+        {
+          prop.comp->value := GetMember(this->comp, prop.membername) != DEFAULT FUNCTION PTR;
+        }
+      }
+    }
+  }
+
+>;
+
+PUBLIC MACRO RunAnyComponent(OBJECT controller, RECORD data)
+{
+  controller->user->timezone := "CET";
+
+  RECORD settings;
+  IF (LENGTH(data.params) > 1)
+  {
+    STRING input := Detokenize(ArraySlice(data.params, 1), ",");
+    settings := DecodeJSON(input);
+    IF(NOT RecordExists(settings) AND input != "null")
+      ABORT("Failed to parse parameters: " || input);
+  }
+
+  controller->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent", [ component := data.params[0], settings := settings ])->RunModal();
+}

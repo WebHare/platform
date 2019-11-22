@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <path id="lock-hole" d="M15,17.998C13,17.996,13,19,13,21v5h4v-5C17,19,17,18,15,17.998z"/>
+    <path id="lock-outline" d="M25,12h-3V8.363c0-4.079-3.324-7.54-7.398-7.354C10.31,1.205,8,4.587,8,9v3H6c0,0-3,0-3,3v13c0,0,0,3,3,3h19c3,0,3-3,3-3V15C28,15,28,12,25,12zM10,12V8c0-3,2.774-5,5-5c2.226,0,5,2,5,5v4M26,27c0,2-2,2-2,2H7c-2,0-2-2-2-2V16c0,0,0-2,2-2h17c2,0,2,2,2,2V27z"/>
+  </defs>
+  <g>
+    <use xlink:href="#lock-hole" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+    <use xlink:href="#lock-outline" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+  </g>
+</svg>

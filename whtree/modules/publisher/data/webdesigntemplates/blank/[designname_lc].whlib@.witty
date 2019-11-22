@@ -1,0 +1,23 @@
+[! Careful here, any subscript operators that should still be present in the
+   final library file must be double escaped: [[ (but not ]])
+
+do not add a newline between comment close and the <?wh tag !]<?wh
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+PUBLIC OBJECTTYPE [designobjectname] EXTEND WebDesignBase
+<
+  MACRO NEW()
+  {
+  }
+
+  /*
+  UPDATE PUBLIC RECORD FUNCTION GetPageConfig()
+  {
+  }
+  */
+>;
+

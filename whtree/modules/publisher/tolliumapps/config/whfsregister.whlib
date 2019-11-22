@@ -1,0 +1,74 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/register.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE WHFSRegister EXTEND TolliumScreenBase
+<
+  RECORD ARRAY FUNCTION OnGetSlots()
+  {
+    RETURN SELECT rowkey := name
+                , name
+                , title := GetTid(title)
+                , listrowclasses := isorphan ? ["grayedout"] : STRING[]
+                , currentpath
+                , canedit := NOT isorphan
+             FROM GetAllWHFSRegisterSlots();
+  }
+
+  MACRO OnSlotEdit(RECORD row)
+  {
+    this->RunScreen("#editrow", [ name := row.name ]);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditRow EXTEND TolliumScreenBase
+<
+  STRING slotname;
+
+  MACRO Init(RECORD data)
+  {
+    this->slotname := data.name;
+    RECORD info := DescribeWHFSRegisterSlot(this->slotname);
+
+    this->^name->value := this->slotname;
+    this->^title->value := GetTid(info.title);
+    this->^description->value := GetTid(info.description);
+
+    INTEGER currentvalue;
+    TRY
+    {
+      currentvalue := LookupInWHFSRegister(this->slotname);
+    }
+    CATCH(OBJECT ignore)
+    {
+      //we don't care if the object is eg deleted
+    }
+
+    IF(info.type = "site")
+    {
+      this->^value->visible := FALSE;
+      this->^site->required := TRUE;
+      this->^site->value := SELECT AS STRING name FROM system.sites WHERE id = currentvalue;
+      this->^site->options := SELECT title := name
+                               FROM system.sites
+                           ORDER BY ToUppercase(name);
+    }
+    ELSE
+    {
+      this->^site->visible := FALSE;
+      this->^value->required := TRUE;
+      this->^value->value := currentvalue;
+      this->^value->acceptfiles := info.type = "file";
+      this->^value->acceptfolders := info.type != "file";
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    INTEGER setvalue := this->^value->visible ? this->^value->value : (SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(name) = ToUppercase(this->^site->value));
+    SetWHFSRegisterSlot(this->slotname, setvalue);
+    RETURN work->Finish();
+  }
+>;

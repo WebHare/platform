@@ -1,0 +1,117 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+MACRO ExpectCommitException(OBJECT e, STRING pattern)
+{
+  IF (GetPrimary()->IsWorkOpen())
+    GetPrimary()->RollbackWork();
+
+  IF (e EXTENDSFROM TestFailException)
+    THROW e;
+  TestEQLike(pattern, e->what);
+}
+
+
+MACRO TestUnique()
+{
+  OBJECT schemaobj := testfw->GetWRDSchema();
+
+  testfw->BeginWork();
+
+  OBJECT dom_obj := schemaobj->CreateDomain("TEST_UNIQUES");
+
+  dom_obj->CreateAttribute("TEST_FREE",        "FREE",      [ isunique := TRUE, isrequired := FALSE, title := "Unique FREE" ]);
+  dom_obj->CreateAttribute("TEST_EMAIL",       "EMAIL",     [ isunique := TRUE, isrequired := FALSE, title := "Unique EMAIL" ]);
+  dom_obj->CreateAttribute("TEST_INTEGER",     "INTEGER",   [ isunique := TRUE, isrequired := FALSE, title := "Unique INTEGER" ]);
+  dom_obj->CreateAttribute("TEST_INTEGER64",   "INTEGER64", [ isunique := TRUE, isrequired := FALSE, title := "Unique INTEGER64" ]);
+  TestTHrows(PTR dom_obj->CreateAttribute("TEST_ARRAY",       "ARRAY",     [ isunique := TRUE, isrequired := FALSE, title := "Array with unique stuff" ]));
+  dom_obj->CreateAttribute("TEST_ARRAY.EMAIL", "EMAIL",     [ isunique := TRUE, isrequired := FALSE, title := "Unique EMAIL" ]);
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+
+  dom_obj->CreateEntity([ test_free := "1", test_email := "2@a.com", test_integer := 3, test_integer64 := 4, test_array := [[ email := "pietje@example.com" ]] ]);
+  TestThrows(PTR dom_obj->CreateEntity([ test_free := "1" ]));
+  TestThrows(PTR dom_obj->CreateEntity([ test_email := "2@a.com" ]));
+  TestThrows(PTR dom_obj->CreateEntity([ test_integer := 3 ]));
+  TestThrows(PTR dom_obj->CreateEntity([ test_integer64 := 4 ]));
+  TestThrows(PTR dom_obj->CreateEntity([ test_array := [[ email := "pietje@example.com" ]] ]));  //Issue #479
+
+  testfw->CommitWork();
+
+
+  testfw->BeginWork();
+
+  OBJECT old_primary := GetPrimary();
+  SetPrimaryWebhareTransaction(0);
+
+  OBJECT sub_primary := OpenPrimary();
+  sub_primary->BeginWork();
+  dom_obj->CreateEntity([ test_free := "2xx6" ]);
+  sub_primary->CommitWork();
+  sub_primary->Close();
+
+  SetPrimaryWebhareTransaction(old_primary->id);
+
+  TRY
+  {
+    // Need to insert after the subtransaction, or the subtransaction commit will wait on the old primary to commit
+    dom_obj->CreateEntity([ test_free := "2xx6" ]);
+
+    RECORD ARRAY errors := testfw->CommitWorkReturnErrors();
+    TestEQ(
+        [ [ code :=       1
+          , columnname := ""
+          , message :=    "Value in WRD.ENTITY_SETTINGS:UNIQUE_RAWDATA is not unique"
+          , tablename :=  "ENTITY_SETTINGS"
+          ]
+        ], errors);
+  }
+  CATCH (OBJECT e)
+    ExpectCommitException(e, "Unique value conflict*");
+
+  testfw->BeginWork();
+  dom_obj->CreateEntity([ test_free := "UNIQUEFREE", wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MakeDate(2018,1,1)]);
+  dom_obj->CreateEntity([ test_free := "UNIQUEFREE", wrd_creationdate := MakeDate(2018,1,1)]);
+  testfw->CommitWork();
+}
+
+MACRO TestEnsureEntity()
+{
+  testfw->BeginWork();
+
+  OBJECT whunit := testfw->GetWRDSchema()->GetType("WHUSER_UNIT");
+  TestEq(0, Length(whunit->Runquery(DEFAULT RECORD)));
+
+  TestThrows(PTR whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tagxxx := "FIRSTUNIT" ], [ wrd_title := "Unit #1"]));
+  TestThrows(PTR whunit->EnsureEntity( [ wrd_leftentity := 0 ], [ wrd_title := "Unit #1"]));
+
+
+  OBJECT firstunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT" ], [ wrd_title := "Unit #1"]);
+  OBJECT secondunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "SECONDUNIT" ], [ wrd_title := "Unit #2"]);
+  TestEq(2, Length(whunit->Runquery(DEFAULT RECORD)));
+  TestEq(TRUE, ObjectExists(firstunit));
+  TestEq("Unit #1", firstunit->Getfield("WRD_TITLE"));
+
+  firstunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT" ], [ wrd_title := "Unit #1b"]);
+  TestEq(2, Length(whunit->Runquery(DEFAULT RECORD)));
+  TestEq("Unit #1", firstunit->Getfield("WRD_TITLE")); //shouldn't have changed
+
+  firstunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT", wrd_title := "Unit #1b" ]);
+  TestEq(2, Length(whunit->Runquery(DEFAULT RECORD)));
+  TestEq("Unit #1b", firstunit->Getfield("WRD_TITLE")); //shouldn't have changed
+
+  TestThrows(PTR firstunit->UpdateEntity( [ wrd_leftentity := firstunit->id ]));
+
+  testfw->CommitWork();
+}
+
+RunTestframework([ PTR TestUnique
+                 , PTR TestEnsureEntity
+                 ]);

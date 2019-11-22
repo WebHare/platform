@@ -1,0 +1,1534 @@
+﻿<?wh
+
+/** @short HareScript Library processing
+    @long This library offers the DocGenerator calls, which allows you to use HareScript to document
+          your own HareScript libraries.
+    @private Out of scope for now. The documentation standard is changing and things here are soon obsolete. And the HS tokenization might not be something we want to have to standardize
+*/
+
+LOADLIB "wh::util/stringparser.whlib";
+
+
+PUBLIC INTEGER FUNCTION OpenHareScriptFile(BLOB hsfile) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO CloseHarescriptFile(INTEGER id) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Grab a token from a HareScript file
+    @param id ID of HareScript file to read
+    @return Token, or a non-existing record if EOF has been reached
+    @cell return.rawtoken Raw token text
+    @cell return.token Processed token text (converted newlines, etc.)
+    @cell return.iswhitespace True if this token is only whitespace
+    @cell return.istype True if this token is a harescript type
+    @cell return.isexternaldata True if this token contains data outside <?wh processor tags
+    @cell return.line Linenumber of this token
+    @cell return.col Column position of this token
+*/
+PUBLIC RECORD FUNCTION GetHareScriptFileToken(INTEGER id) __ATTRIBUTES__(EXTERNAL);
+
+/////////////////////////////////////////////////////////////////////
+//
+// Ported docgen
+//
+BOOLEAN FUNCTION IsTokenString(STRING tok)
+{
+  RETURN Left(tok,1) IN ['"', '\''];
+}
+STRING FUNCTION DecodeTokenString(STRING tok)
+{
+  RETURN DecodeJava(Substring(tok, 1, length(tok)-2));
+}
+
+STATIC OBJECTTYPE ParseContext
+<
+  BOOLEAN formathtml;
+
+  PUBLIC PROPERTY FormatAsHTML(formathtml, formathtml);
+
+  PUBLIC MACRO NEW(INTEGER hsfile)
+  {
+    this->hsfile := hsfile;
+  }
+
+  STRING FUNCTION ParseExpression()
+  {
+    STRING ARRAY terminators;
+    STRING value;
+
+    WHILE (TRUE)
+    {
+      RECORD tok := this->GetNextHareScriptToken(TRUE, FALSE);
+      IF(NOT RecordExists(tok))
+        BREAK;
+
+      IF (LENGTH(terminators) = 0)
+      {
+        IF (tok.token=',' OR tok.token=')')
+          BREAK;
+      }
+      ELSE IF (tok.token = terminators[0])
+        DELETE FROM terminators AT 0;
+
+      IF (tok.token = "(")
+        INSERT ")" INTO terminators AT 0;
+      ELSE IF (tok.token = "[")
+        INSERT "]" INTO terminators AT 0;
+      ELSE IF (tok.token = "${")
+        INSERT "}" INTO terminators AT 0;
+
+      value := value || tok.token;
+    }
+    RETURN TrimWhitespace(value);
+  }
+
+  /* @short Formats comments as HTML if the FormatAsHTML property is set to TRUE.
+     @long Formats comments as HTML using a very naive method of tokenizing, replacing parts and retokenizing... The only nice thing about it is that it normalizes and trims whitespace ;)
+     @param(STRING) comment The comment text to format
+     @return(STRING) The formatted comment
+  */
+  STRING FUNCTION FormatCommentToHTML(STRING comment)
+  {
+    IF(NOT this->formathtml)
+      RETURN comment;
+
+    BOOLEAN findclosingbracket;
+    //comment := NormalizeWhitespace(TrimWhitespace(comment));
+    STRING ARRAY parts := Tokenize(comment, " ");
+    FOREVERY(STRING part FROM parts)
+    {
+      SWITCH(ToUpperCase(part))
+      {
+        CASE "@ITALIC"
+        {
+          parts[#part + 1] := "<i>" || NormalizeWhitespace(parts[#part + 1]) || "</i>";
+          parts[#part] := "";
+        }
+        CASE "@BOLD"
+        {
+          parts[#part + 1] := "<b>" || NormalizeWhitespace(parts[#part + 1]) || "</b>";
+          parts[#part] := "";
+        }
+        CASE "@UNDERLINE"
+        {
+          parts[#part + 1] := "<u>" || NormalizeWhitespace(parts[#part + 1]) || "</u>";
+          parts[#part] := "";
+        }
+        CASE "@STRIKE"
+           , "@STRIKETHROUGH"
+        {
+          parts[#part + 1] := "<s>" || NormalizeWhitespace(parts[#part + 1]) || "</s>";
+          parts[#part] := "";
+        }
+        CASE "{@PRE"
+        {
+          parts[#part] := "<pre>";
+          findclosingbracket := TRUE;
+        }
+        CASE "}"
+        {
+          IF(findclosingbracket)
+          {
+            parts[#part] := "</pre>";
+            findclosingbracket := FALSE;
+          }
+        }
+        CASE "\n"
+        {
+          IF(findclosingbracket)
+            parts[#part] := "<br />";
+        }
+      }
+    }
+    RETURN Detokenize(parts, " ");
+  }
+
+  // ADDME: Filter out ADDME & FIXME comments and return them as separate cells (STRING ARRAYs)
+  /** @cell short Short comment
+      @cell long Long comment
+      @cell name Name
+      @cell example Example
+      @cell result Returned stuff
+      @cell see See also
+      @cell author Author
+      @cell copyright Copyright
+      @cell version Version
+      @cell deprecated Deprecated
+      @cell arguments List of arguments
+      @cell arguments.type Type of the argument
+      @cell arguments.name Name of the argument
+      @cell arguments.short Short description of the argument
+      @cell arguments.cells List of cells in the argument
+      @cell returncells List of cells in the returned value
+  */
+  RECORD FUNCTION ParseComment(INTEGER linenum, INTEGER col, STRING name, STRING commenttext, STRING returntype, RECORD ARRAY params, BOOLEAN is_function)
+  {
+    RECORD comment := [ short := ""
+                      , long := ""
+                      , name := name
+                      , example := ""
+                      , result := ""
+                      , see := DEFAULT STRING ARRAY
+                      , doc := DEFAULT STRING ARRAY
+                      , include := DEFAULT STRING ARRAY
+                      , exclude := DEFAULT STRING ARRAY
+                      , author := ""
+                      , copyright := ""
+                      , version := ""
+                      , deprecated := ""
+                      , arguments := DEFAULT RECORD ARRAY//params
+                      , returncells := DEFAULT RECORD ARRAY
+                      , line := linenum
+                      , col := col
+                      , commenttext := TrimWhitespace(commenttext)
+                      ];
+
+    RECORD ARRAY raw_returncells;
+    RECORD ARRAY raw_arguments := params;
+    STRING baseaddress := "";
+
+    FOREVERY(RECORD line FROM SplitComment(commenttext))
+    {
+      IF(line.data="")
+      {
+        /// Modifier?
+        IF(line.word = "documentexports")
+          INSERT CELL documentexports := TRUE INTO comment;
+
+        /// Ensure the rest of the loop is skipped:
+        CONTINUE;
+      }
+
+      STRING word := line.word;
+      STRING data := line.data;
+
+      IF(word="param")
+      {
+        INTEGER next_wsp := SearchSubstring(data, ' ');
+        IF(next_wsp=-1)
+          CONTINUE;
+
+        STRING paramname := Left(data, next_wsp);
+        STRING descr := TrimWhitespace(Substring(data,next_wsp+1,Length(data)));
+
+        INTEGER paramnum := SELECT AS INTEGER (#arguments+1) FROM raw_arguments AS arguments WHERE ToUppercase(arguments.name)=ToUppercase(paramname);
+        IF(paramnum=0)
+        {
+          INSERT INTO this->errors(data,name,error) VALUES(linenum, name, "Function has no parameter " || paramname) AT END;
+          CONTINUE;
+        }
+
+        raw_arguments[paramnum-1].short := descr;
+      }
+      ELSE IF(word="cell" OR word LIKE "cell(*)")
+      {
+        STRING celltype;
+        IF(word LIKE "cell(*)")
+        {
+          celltype := ToUppercase(TrimWhitespace(Substring(word, 5, Length(word)-6)));
+        }
+
+        INTEGER next_wsp := SearchSubstring(data, ' ');
+        STRING descr := next_wsp=-1 ? "" : TrimWhitespace(Substring(data,next_wsp+1,Length(data)));
+        STRING cellname := next_wsp=-1 ? data : Left(data, next_wsp);
+        STRING ARRAY cellparts := Tokenize(cellname,'.');
+        IF((is_function AND Length(cellparts) < 2) OR cellname = "")
+        {
+          INSERT INTO this->errors(data,name,error) VALUES(linenum, name, "Unrecognized cell " || cellname) AT END;
+          CONTINUE;
+        }
+
+        IF(ToUppercase(cellparts[0])="RETURN" OR NOT is_function)
+        {
+          IF(ToUppercase(returntype)!="RECORD" AND ToUppercase(returntype)!="RECORD ARRAY")
+          {
+            INSERT INTO this->errors(data,name,error) VALUES(linenum, name, "Return cells specified, but function does not return a record (array)") AT END;
+            CONTINUE;
+          }
+          INSERT INTO raw_returncells(line, col, names, short, type) VALUES(linenum, 0, cellparts, descr, celltype) AT END;
+        }
+        ELSE
+        {
+          INTEGER paramnum := SELECT AS INTEGER (#arguments+1) FROM raw_arguments AS arguments WHERE ToUppercase(arguments.name)=ToUppercase(cellparts[0]);
+          IF(paramnum=0)
+          {
+            INSERT INTO this->errors(data,name,error) VALUES(linenum, name, "Function has no parameter " || cellparts[0]) AT END;
+            CONTINUE;
+          }
+          IF(ToUppercase(raw_arguments[paramnum-1].type) NOT IN ["RECORD", "RECORD ARRAY"])
+          {
+            INSERT INTO this->errors(data,name,error) VALUES(linenum, name, "Return cells specified, but function does not return a record (array)") AT END;
+            CONTINUE;
+          }
+          INSERT INTO raw_arguments[paramnum-1].cells(line, col, names, short, type) VALUES(linenum, 0, cellparts, descr, celltype) AT END;
+        }
+      }
+      ELSE IF (word="return" OR word = "result")
+      {
+        comment.result := this->FormatCommentToHTML(data);
+      }
+      ELSE IF (word = "see")// Allow 0-n occurrences of @see; no reason not to parse multiple references.
+      {
+        /// The @see directives will require post-processing in a broader scope, as context is a necessity.
+        IF(data LIKE "*,*")
+          IF(CellExists(comment, "SEE"))
+            comment.see := comment.see CONCAT Tokenize(Substitute(data, " ", ""), ",");
+          ELSE
+            INSERT CELL see := Tokenize(Substitute(data, " ", ""), ",") INTO comment;
+        ELSE
+          INSERT data INTO comment.see AT END;
+      }
+      ELSE IF (word = "include")
+      {
+        comment.include := comment.include CONCAT Tokenize(Substitute(data, " ", ""), ",");
+      }
+      ELSE IF (word = "exclude")
+      {
+        comment.exclude := comment.exclude CONCAT Tokenize(Substitute(data, " ", ""), ",");
+      }
+      ELSE IF( word = "returntype")
+      {
+        IF(NOT CellExists(comment, "RETURNTYPE"))
+          INSERT CELL returntype := data INTO comment;
+        ELSE
+          comment.returntype := data;/// Overwrite; only one definition allowed as only one returntype can be correct
+      }
+      ELSE IF(word = "addme")
+      {
+        IF(NOT CellExists(comment, "ADDME"))
+          INSERT CELL addme := [ data ] INTO comment;
+        ELSE
+          INSERT data INTO comment.addme AT END;
+      }
+      ELSE IF(word = "fixme")
+      {
+        IF(NOT CellExists(comment, "FIXME"))
+          INSERT CELL fixme := [ data ] INTO comment;
+        ELSE
+          INSERT data INTO comment.fixme AT END;
+      }
+      ELSE IF(word = "todo")
+      {
+        IF(NOT CellExists(comment, "TODO"))
+          INSERT CELL todo := [ data ] INTO comment;
+        ELSE
+          INSERT data INTO comment.todo AT END;
+      }
+      ELSE IF(word = "documentexports")
+      {
+        /// Technically a bit of a syntax error, but let's just absorb it:
+        IF(NOT CellExists(comment, "DOCUMENTEXPORTS"))
+          INSERT CELL documentexports := TRUE INTO comment;
+      }
+      ELSE IF (word = "doc")// Allow 0-n occurrences of @doc; no reason not to parse multiple references.
+      {
+        /// Process here to ensure URL, if a baseaddress is set:
+        IF(ToUpperCase(Left(data, 4)) = "HTTP")
+          INSERT data INTO comment.doc AT END;
+        ELSE
+          INSERT baseaddress || data INTO comment.doc AT END;
+      }
+      ELSE
+      {
+        // Pickup the first item (before an @) as @short comment
+        IF (word = '')
+          comment.short := this->FormatCommentToHTML(data || comment.short);
+        ELSE
+        {
+          IF(CellExists(comment, word))
+            comment := CellUpdate(comment, word, this->FormatCommentToHTML(data));
+        }
+      }
+    }
+
+    FOREVERY (RECORD rec FROM raw_arguments)
+    {
+      rec.cells := this->CoalesceCells(rec.cells, 1, linenum);
+      INSERT rec INTO comment.arguments AT END;
+    }
+    comment.returncells := this->CoalesceCells(raw_returncells, is_function ? 1 : 0, linenum);
+
+    //ADDME: Report lack of documentation errors
+    RETURN comment;
+  }
+
+  RECORD ARRAY FUNCTION CoalesceCells(RECORD ARRAY cells, INTEGER pos, INTEGER linenum)
+  {
+    cells := SELECT * FROM cells ORDER BY LENGTH(names);
+
+    STRING ARRAY handled;
+    RECORD ARRAY results;
+
+    FOREVERY (RECORD rec FROM cells)
+    {
+      STRING name := rec.names[pos];
+      STRING uname := ToUppercase(name);
+      IF (uname IN handled)
+        CONTINUE;
+
+      BOOLEAN direct_ok := LENGTH(rec.names) = pos + 1;
+      IF (NOT direct_ok)
+      {
+        STRING ARRAY names;
+        FOR (INTEGER i := 0; i <= pos; i := i + 1)
+          INSERT rec.names[i] INTO names AT END;
+        INSERT INTO this->errors(data,name,error) VALUES(linenum, name, "Could not find description of cell "||Detokenize(names, ".")) AT END;
+      }
+
+      RECORD ARRAY subcells :=
+        SELECT *
+          FROM cells
+         WHERE LENGTH(names) > pos + 1
+           AND ToUppercase(names[pos]) = uname;
+
+      INSERT
+        [ name  := name
+        , short := direct_ok ? rec.short : ""
+        , cells := this->CoalesceCells(subcells, pos + 1, linenum)
+        , type := rec.type
+        ] INTO results AT END;
+
+      INSERT uname INTO handled AT END;
+    }
+    RETURN results;
+  }
+
+  RECORD FUNCTION ProcessFunction(STRING comment, BOOLEAN is_public, BOOLEAN is_update, BOOLEAN is_async, STRING returntype)
+  {
+    // Get the name of the function
+    RECORD tok := this->GetInterestingHSToken(TRUE);
+    IF(NOT RecordExists(tok))
+      RETURN DEFAULT RECORD;
+
+    BOOLEAN is_generator := tok.token = "*";
+    IF (is_generator) // Generator (Syntax: FUNCTION* generatorname)
+      tok := this->GetInterestingHSToken(TRUE);
+    IF(NOT RecordExists(tok))
+      RETURN DEFAULT RECORD;
+
+    INTEGER linenum := tok.line;
+    INTEGER colnum := tok.col;
+    STRING funcname := tok.token;
+    tok := this->GetInterestingHSToken(TRUE); //Skip the opening parenthesis
+
+    RECORD ARRAY params;
+    BOOLEAN isvararg;
+
+    WHILE(TRUE) //Loop through the arguments
+    {
+      tok := this->GetInterestingHSToken(TRUE);
+      IF(NOT RecordExists(tok) OR NOT tok.istype)
+        BREAK;
+
+      STRING type := ToUppercase(tok.token);
+      tok := this->GetInterestingHSToken(TRUE);
+      IF(NOT RecordExists(tok))
+        BREAK;
+
+      IF (tok.token = "...")
+      {
+        isvararg := TRUE;
+        tok := this->GetInterestingHSToken(TRUE);
+        IF(NOT RecordExists(tok))
+          BREAK;
+      }
+
+      STRING argname := tok.token;
+
+      tok := this->GetInterestingHSToken(TRUE);
+
+      STRING defaultvalue;
+      IF (ToUpperCase(tok.token) IN [ "DEFAULTSTO", ":=" ])
+      {
+        defaultvalue := this->ParseExpression();
+        tok := this->currenttoken;
+      }
+      ELSE
+      {
+        //Loop until ',' or ')'
+        WHILE(TRUE)
+        {
+          IF(NOT RecordExists(tok) OR tok.token=',' OR tok.token=')')
+            BREAK;
+
+          tok := this->GetInterestingHSToken(TRUE);
+        }
+      }
+
+      INSERT INTO params(type, name, short, cells, defaultvalue)
+             VALUES(type, argname, "", DEFAULT RECORD ARRAY, defaultvalue)
+             AT END;
+
+      IF(tok.token=')') //this was the last argument
+        BREAK;
+    }
+
+    IF (tok.token = ")")
+      this->GetNextHareScriptToken(TRUE);
+
+    //ADDME: Count and skip to last } ? Deal with attributes? DEPRECATED?
+
+    //Now that we have the arguments and type info, create a comment
+  //  PrintRecordArrayTo(0, params, "tree");
+    RECORD funcinfo := this->ParseComment(linenum, colnum, funcname, comment, returntype, params, TRUE);
+    INSERT CELL isasync := is_async INTO funcinfo;
+    INSERT CELL isgenerator := is_generator INTO funcinfo;
+    INSERT CELL ispublic := is_public INTO funcinfo;
+    INSERT CELL isupdate := is_update INTO funcinfo;
+    INSERT CELL isfunction := returntype!="" INTO funcinfo;
+    INSERT CELL type := returntype INTO funcinfo;
+    INSERT CELL isvararg := isvararg INTO funcinfo;
+
+    funcinfo := this->ParseAttributes(funcinfo);
+
+    RETURN funcinfo;
+  }
+
+  RECORD FUNCTION ProcessVariable(INTEGER linenum, INTEGER col, STRING name, STRING comment, BOOLEAN is_public, STRING returntype, BOOLEAN is_constant, BOOLEAN is_constref)
+  {
+    RECORD varinfo := this->ParseComment(linenum, col, name, comment, returntype, DEFAULT RECORD ARRAY, FALSE);
+    INSERT CELL ispublic := is_public INTO varinfo;
+    INSERT CELL isconstant := is_constant INTO varinfo;
+    INSERT CELL isconstref := is_constant OR is_constref INTO varinfo;
+    INSERT CELL type := returntype INTO varinfo;
+    RETURN varinfo;
+  }
+
+  RECORD FUNCTION ProcessProperty(INTEGER linenum, INTEGER col, STRING name, STRING comment, BOOLEAN is_public, BOOLEAN is_update)
+  {
+    RECORD propinfo := this->ParseComment(linenum, col, name, comment, "", DEFAULT RECORD ARRAY, FALSE);
+
+    INSERT CELL ispublic := is_public INTO propinfo;
+    INSERT CELL isupdate := is_update INTO propinfo;
+
+    RECORD tok := this->GetInterestingHSToken(TRUE);
+    propinfo.line := tok.line;
+    propinfo.col := tok.col;
+    IF(tok.token!="(")
+      RETURN propinfo; // ???
+
+    tok := this->GetInterestingHSToken(TRUE);
+    INSERT CELL getter := tok.token='-'?'':tok.token INTO propinfo;
+
+    tok := this->GetInterestingHSToken(TRUE);
+    IF(tok.token!=",")
+      RETURN propinfo; // ???
+
+    tok := this->GetInterestingHSToken(TRUE);
+    INSERT CELL setter := tok.token='-'?'':tok.token INTO propinfo;
+
+    //INSERT CELL short := comment INTO propinfo;
+//ABORT(AnyToString(tok,'tree'));
+/*
+      IF(NOT RecordExists(tok) OR NOT tok.istype)
+        BREAK;
+*/
+
+    RETURN propinfo;
+  }
+
+  RECORD FUNCTION ProcessObjectType(STRING comment, BOOLEAN is_public, BOOLEAN is_static, STRING returntype)
+  {
+    RECORD nametoken := this->GetNextHareScriptToken(TRUE);
+    IF (NOT RecordExists(nametoken))
+      RETURN DEFAULT RECORD;
+    RECORD objinfo := this->ParseComment(nametoken.line, nametoken.col, nametoken.token, comment, returntype, DEFAULT RECORD ARRAY, FALSE);
+    INSERT CELL functions := DEFAULT RECORD ARRAY INTO objinfo;
+    INSERT CELL variables := DEFAULT RECORD ARRAY INTO objinfo;
+    INSERT CELL properties := DEFAULT RECORD ARRAY INTO objinfo;
+    INSERT CELL ispublic := is_public INTO objinfo;
+    INSERT CELL isstatic := is_static INTO objinfo;
+
+    INSERT CELL linestart := nametoken.line INTO objinfo; // for module checker
+
+    RECORD token := this->GetNextHareScriptToken(TRUE);
+    STRING baseobject;
+    IF (ToUppercase(token.token) = "EXTEND")
+    {
+      token := this->GetNextHareScriptToken(TRUE);
+      baseobject := RecordExists(token) ? token.token : "";
+      token := this->GetNextHareScriptToken(TRUE);
+    }
+    INSERT CELL base := baseobject INTO objinfo;
+
+    objinfo := this->ParseAttributes(objinfo);
+    token := this->currenttoken;
+
+    STRING lastcomment;
+    BOOLEAN is_update;
+    WHILE (TRUE)
+    {
+      RECORD oldtoken := token;
+      token := this->GetInterestingHSToken(FALSE);
+      IF (NOT RecordExists(token) OR token.token = ">")
+      {
+        INSERT CELL lineend := RecordExists(token) ? token.line : oldtoken.line INTO objinfo; // for module checker
+        BREAK;
+      }
+
+      // We're expecting a function, property or function here (or a comment)
+      IF (LEFT(token.token, 2) IN [ "/*", "//" ])
+      {
+        IF (SubString(token.token, 1, 1) = SubString(token.token, 2, 1))
+          lastcomment := token.token;
+        ELSE
+          lastcomment := "";
+        CONTINUE;
+      }
+
+      STRING tok := ToUppercase(token.token);
+
+      IF (tok IN [ "PUBLIC", "PRIVATE" ])
+      {
+        is_public := tok = "PUBLIC";
+        CONTINUE;
+      }
+      // functions and properties in an OBJECTTYPE can have an UPDATE
+      IF (tok = "UPDATE")
+      {
+        is_update := TRUE;
+        CONTINUE;
+      }
+
+       //Might have an upcoming FUNCTION definition!
+      IF(token.istype)
+      {
+        STRING type := tok;
+        token := this->GetInterestingHSToken(TRUE);
+        IF(NOT RecordExists(token))
+          BREAK;
+
+        tok:=ToUppercase(token.token);
+        BOOLEAN is_async;
+        IF(tok="AGGREGATE")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          IF(NOT RecordExists(token))
+            BREAK;
+          tok:=ToUppercase(token.token);
+        }
+        IF(tok="ASYNC")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          IF(NOT RecordExists(token))
+            BREAK;
+          tok:=ToUppercase(token.token);
+          is_async := TRUE;
+        }
+        IF(tok="FUNCTION")
+        {
+          RECORD func := this->ProcessFunction(lastcomment, is_public, is_update, is_async, type);
+          INSERT CELL objectname := nametoken.token INTO func;
+          IF (RecordExists(func))
+            INSERT func INTO objinfo.functions AT END;
+        }
+        ELSE
+        {
+          RECORD variable := this->ProcessVariable(token.line, token.col, token.token, lastcomment, is_public, type, FALSE, FALSE);
+          INSERT CELL objectname := nametoken.token INTO variable;
+          IF (RecordExists(variable))
+            INSERT variable INTO objinfo.variables AT END;
+        }
+      }
+      ELSE IF (tok="MACRO")
+      {
+        RECORD func := this->ProcessFunction(lastcomment, is_public, is_update, FALSE, "");
+        IF(ToUppercase(func.name)="NEW")
+          func.ispublic := TRUE;
+        INSERT CELL objectname := nametoken.token INTO func;
+        IF (RecordExists(func))
+          INSERT func INTO objinfo.functions AT END;
+      }
+      ELSE IF (tok="ASYNC")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (ToUppercase(token.token) IN [ "MACRO", "FUNCTION" ])
+        {
+          RECORD func := this->ProcessFunction(lastcomment, is_public, is_update, TRUE, "OBJECT");
+          INSERT CELL objectname := nametoken.token INTO func;
+          IF (RecordExists(func))
+            INSERT func INTO objinfo.functions AT END;
+        }
+      }
+      ELSE IF (tok="PROPERTY")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF(NOT RecordExists(token))
+          BREAK;
+
+        RECORD prop := this->ProcessProperty(token.line, token.col, token.token, lastcomment, is_public, is_update);
+        INSERT CELL objectname := nametoken.token INTO prop;
+        IF (RecordExists(prop))
+          INSERT prop INTO objinfo.properties AT END;
+      }
+      lastcomment := "";
+      is_update := FALSE;
+      is_public := FALSE;
+
+      this->SkipDeclarationRest();
+    }
+
+    RETURN objinfo;
+  }
+
+  RECORD FUNCTION ParseAttributes(RECORD info)
+  {
+    IF (NOT RecordExists(this->currenttoken) OR this->currenttoken.token != "__ATTRIBUTES__")
+      RETURN info;
+
+    // Parse '('
+    this->GetNextHareScriptToken(TRUE);
+
+    // Loop
+    RECORD tok := this->GetNextHareScriptToken(TRUE);
+    WHILE (RecordExists(tok) AND tok.token != ")")
+    {
+      SWITCH (ToUpperCase(tok.token))
+      {
+        CASE "DEPRECATED"
+        {
+          tok := this->GetNextHareScriptToken(TRUE);
+          IF (tok.token LIKE "'*" OR tok.token LIKE "\"*") // string token?
+            info.deprecated := DecodeJSON(tok.token);
+          ELSE
+          {
+            info.deprecated := "Deprecated";
+            CONTINUE;
+          }
+        }
+        CASE "VARARG"
+        {
+          info.isvararg := TRUE;
+        }
+      }
+
+      tok := this->GetNextHareScriptToken(TRUE);
+    }
+
+    // Eat ')'
+    IF (RecordExists(tok))
+      this->GetNextHareScriptToken(TRUE);
+
+    RETURN info;
+  }
+
+  /** Returns next harescript token, skips whitespace and external data, gives back comments
+      @return Record describing next token
+      @cell return.token Token text
+      @cell return.iswhitespace True if this token is only whitespace
+      @cell return.istype True if this token is a harescript type
+      @cell return.isexternaldata True if this token contains data outside <?wh processor tags
+      @cell return.line Linenumber of this token
+      @cell return.col Column position of this token
+  */
+  RECORD FUNCTION GetNextHareScriptToken(BOOLEAN skip_comments, BOOLEAN skip_whitespace DEFAULTSTO TRUE)
+  {
+    RECORD tok;
+    WHILE(TRUE)
+    {
+      IF(RecordExists(this->savedtoken))
+      {
+        tok := this->savedtoken;
+        this->savedtoken := DEFAULT RECORD;
+      }
+      ELSE
+        tok := GetHareScriptFileToken(this->hsfile);
+      IF(RecordExists(tok) AND (tok.isexternaldata OR (tok.iswhitespace AND skip_whitespace)))
+        CONTINUE;
+      IF (skip_comments AND RecordExists(tok) AND LEFT(tok.token, 2) IN [ "/*", "//" ])
+        CONTINUE;
+      this->currenttoken := tok;
+      RETURN tok;
+    }
+  }
+
+  RECORD FUNCTION GetInterestingHSToken(BOOLEAN skip_comments)
+  {
+    RECORD tok;
+    WHILE(TRUE)
+    {
+      tok := this->GetNextHareScriptToken(skip_comments);
+      IF(RecordExists(tok) AND ToUppercase(tok.token) IN ["MACRO", "FUNCTION"]) //this may be a type
+      {
+        RECORD tok2 := this->GetNextHareScriptToken(TRUE);
+        IF(ToUppercase(tok2.token)!="PTR")
+        {
+          //Too bad
+          this->savedtoken := tok2;
+          this->currenttoken := tok;
+          RETURN tok;
+        }
+        tok.token := tok.token || " " || tok2.token;
+        tok.istype := TRUE;
+
+        //Very interesting, this is a MACRO or FUNCTION PTR ... Perhaps even an array?
+        tok2 := this->GetNextHareScriptToken(TRUE);
+        IF(ToUppercase(tok2.token)!="ARRAY")
+        {
+          this->savedtoken := tok2;
+          this->currenttoken := tok;
+          RETURN tok;
+        }
+
+        tok.token := tok.token || " " || tok2.token;
+        this->currenttoken := tok;
+        RETURN tok;
+      }
+
+      IF(RecordExists(tok) AND tok.istype)
+      {
+        //Harescript simple types... but perhaps it's an ARRAY version of that type
+        RECORD tok2 := this->GetNextHareScriptToken(TRUE);
+        IF(ToUppercase(tok2.token)!="ARRAY")
+        {
+          //Too bad
+          this->savedtoken := tok2;
+          this->currenttoken := tok;
+          RETURN tok;
+        }
+        tok.token := tok.token || " " || tok2.token;
+      }
+
+      this->currenttoken := tok;
+      RETURN tok;
+    }
+  }
+
+  /** Skips the rest of the declaration/function definition (until the ';' or last '}')
+      @param token Current token
+  */
+  MACRO SkipDeclarationRest()
+  {
+    RECORD token := this->currenttoken;
+
+    INTEGER bracedepth := 0;
+    WHILE (RecordExists(token))
+    {
+      IF ((token.token = ";" AND bracedepth = 0) OR (token.token = "}" AND bracedepth = 1))
+        BREAK;
+
+      IF (token.token = "{" OR token.token = "${")
+        bracedepth := bracedepth + 1;
+      ELSE IF (token.token = "}")
+        bracedepth := bracedepth - 1;
+      token := this->GetInterestingHSToken(TRUE);
+    }
+  }
+
+  PUBLIC MACRO Execute()
+  {
+    this->libcomment := this->ParseComment(0, 0, "", "", "", DEFAULT RECORD ARRAY, FALSE);
+
+    STRING lastcomment;
+
+    /* First grab a library comment */
+    RECORD token := this->GetInterestingHSToken(FALSE);
+    IF(RecordExists(token) AND Left(token.token,2) IN ["/*","//"] AND Substring(token.token,1,1) = Substring(token.token,2,1)) //a docgen comment
+      this->libcomment := this->ParseComment(token.line, token.col, "", token.token,  "", DEFAULT RECORD ARRAY, FALSE);
+    BOOLEAN first_pass := TRUE;
+
+    /* And now parse the file itself */
+    WHILE(TRUE)
+    {
+      IF (NOT first_pass)
+        token := this->GetInterestingHSToken(FALSE);
+      ELSE
+        first_pass := FALSE;
+      IF(NOT RecordExists(token)) //EOF
+        BREAK;
+
+      STRING tok := ToUppercase(token.token);
+
+      IF(tok = "LOADLIB")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        RECORD lltoken := token;
+
+        IF (IsTokenString(lltoken.token))
+        {
+          RECORD ARRAY exports;
+
+          token := this->GetInterestingHSToken(TRUE);
+          IF (RecordExists(token) AND ToUppercase(token.token) = "EXPORT")
+          {
+            WHILE (TRUE)
+            {
+              token := this->GetInterestingHSToken(TRUE);
+
+              IF (RecordExists(token))
+              {
+                RECORD info :=
+                    [ name :=       token.token
+                    , line :=       token.line
+                    , col :=        token.col
+                    , deprecated := ""
+                    ];
+
+                token := this->GetInterestingHSToken(TRUE);
+
+                info := this->ParseAttributes(info);
+                token := this->currenttoken;
+
+                INSERT info INTO exports AT END;
+              }
+              ELSE
+                token := this->GetInterestingHSToken(TRUE);
+
+              IF (NOT RecordExists(token) OR token.token != ",")
+                BREAK;
+            }
+          }
+
+          //INSERT INTO this->loadlibs(name) VALUES(DecodeTokenString(token.token)) AT END;
+          INSERT [ name := DecodeTokenString(lltoken.token)
+                 , line := lltoken.line
+                 , col := lltoken.col
+                 //, col     := token.col
+                 , exports := exports
+                 ] INTO this->loadlibs AT END;
+        }
+
+        lastcomment := "";
+        IF (token.token != ";")
+          this->SkipDeclarationRest();
+        CONTINUE;
+      }
+
+      IF(Left(tok,2) IN ["/*","//"])
+      {
+        //if not a real docgen comment (start with /** or ///) , skip it!
+        IF (Substring(tok,1,1) = Substring(tok,2,1))
+          lastcomment := token.token;
+        ELSE
+          lastcomment := "";
+
+        //token := GetHareScriptFileToken(this->hsfile);
+        CONTINUE;
+      }
+
+      //Try to eat a PUBLIC or PRIVATE here..
+      BOOLEAN is_public := tok = "PUBLIC";
+      IF (is_public OR tok = "PRIVATE")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF(NOT RecordExists(token))
+          BREAK;
+        tok:=ToUppercase(token.token);
+      }
+
+      BOOLEAN is_constant := tok = "CONSTANT", is_constref := tok = "__CONSTREF";
+      IF (is_constant OR is_constref)
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF(NOT RecordExists(token))
+          BREAK;
+        tok:=ToUppercase(token.token);
+      }
+
+       //Might have an upcoming FUNCTION definition!
+      IF(token.istype)
+      {
+        STRING type := tok;
+        token := this->GetInterestingHSToken(TRUE);
+        IF(NOT RecordExists(token))
+          BREAK;
+
+        BOOLEAN is_async;
+        tok:=ToUppercase(token.token);
+        IF(tok="AGGREGATE")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          IF(NOT RecordExists(token))
+            BREAK;
+          tok:=ToUppercase(token.token);
+        }
+        IF(tok="ASYNC")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          IF(NOT RecordExists(token))
+            BREAK;
+          tok:=ToUppercase(token.token);
+          is_async := TRUE;
+        }
+        IF(tok="FUNCTION")
+        {
+          RECORD func := this->ProcessFunction(lastcomment, is_public, FALSE, is_async, type);
+          IF (RecordExists(func))
+            INSERT func INTO this->functions AT END;
+        }
+        ELSE
+        {
+          // Skip table/schema definitions
+          IF (tok = "<")
+          {
+            INTEGER depth := 1;
+            WHILE (TRUE)
+            {
+              token := this->GetInterestingHSToken(TRUE);
+              IF(NOT RecordExists(token) OR depth = 0)
+                BREAK;
+              IF (token.token = ">")
+                depth := depth - 1;
+              ELSE IF (token.token = "<")
+                depth := depth + 1;
+            }
+          }
+
+          IF (RecordExists(token))
+          {
+            RECORD variable := this->ProcessVariable(token.line, token.col, token.token, lastcomment, is_public, type, is_constant, is_constref);
+            IF (RecordExists(variable))
+              INSERT variable INTO this->variables AT END;
+          }
+        }
+      }
+      ELSE IF (tok="MACRO")
+      {
+        RECORD func := this->ProcessFunction(lastcomment, is_public, FALSE, FALSE, "");
+        IF (RecordExists(func))
+          INSERT func INTO this->functions AT END;
+      }
+      ELSE IF (tok="ASYNC")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (ToUppercase(token.token) IN [ "MACRO", "FUNCTION" ])
+        {
+          RECORD func := this->ProcessFunction(lastcomment, is_public, FALSE, TRUE, "OBJECT");
+          IF (RecordExists(func))
+            INSERT func INTO this->functions AT END;
+        }
+      }
+      ELSE IF (tok="STATIC")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF(NOT RecordExists(token))
+          BREAK;
+        tok:=ToUppercase(token.token);
+        IF (tok="OBJECTTYPE")
+        {
+          RECORD objtype := this->ProcessObjectType(lastcomment, is_public, TRUE, "");
+          IF (RecordExists(objtype))
+            INSERT objtype INTO this->objecttypes AT END;
+        }
+      }
+      ELSE IF (tok="OBJECTTYPE")
+      {
+        RECORD objtype := this->ProcessObjectType(lastcomment, is_public, FALSE, "");
+        IF (RecordExists(objtype))
+          INSERT objtype INTO this->objecttypes AT END;
+      }
+      this->SkipDeclarationRest();
+      lastcomment := "";
+    }
+  }
+
+  /** @cell data
+      @cell name
+      @cell error
+  */
+  PUBLIC RECORD ARRAY errors;
+
+  /** @cell short Short comment
+      @cell long Long comment
+      @cell name Name
+      @cell example Example
+      @cell result Returned stuff
+      @cell see See also
+      @cell author Author
+      @cell copyright Copyright
+      @cell version Version
+      @cell deprecated Deprecated
+      @cell arguments List of arguments
+      @cell arguments.type Type of the argument
+      @cell arguments.name Name of the argument
+      @cell arguments.short Short description of the argument
+      @cell arguments.cells List of cells in the argument
+      @cell return.cells List of cells in the returned value
+      @cell ispublic TRUE if the function is public
+      @cell isfunction TRUE if the function is a function (and not a macro)
+      @cell type Return type of the function
+  */
+  PUBLIC RECORD ARRAY functions;
+
+  /** @cell short Short comment
+      @cell long Long comment
+      @cell name Name
+      @cell example Example
+      @cell result Returned stuff
+      @cell see See also
+      @cell author Author
+      @cell copyright Copyright
+      @cell version Version
+      @cell deprecated Deprecated
+      @cell arguments List of arguments
+      @cell arguments.type Type of the argument
+      @cell arguments.name Name of the argument
+      @cell arguments.short Short description of the argument
+      @cell arguments.cells List of cells in the argument
+      @cell returncells List of cells in the returned value
+  */
+  PUBLIC RECORD ARRAY objecttypes;
+
+  /** @cell short Short comment
+      @cell long Long comment
+      @cell name Name
+      @cell example Example
+      @cell result Returned stuff
+      @cell see See also
+      @cell author Author
+      @cell copyright Copyright
+      @cell version Version
+      @cell deprecated Deprecated
+      @cell arguments List of arguments
+      @cell arguments.type Type of the argument
+      @cell arguments.name Name of the argument
+      @cell arguments.short Short description of the argument
+      @cell arguments.cells List of cells in the argument
+      @cell returncells List of cells in the returned value
+      @cell ispublic TRUE if the variable is public
+      @cell type Type of the variable
+  */
+  PUBLIC RECORD ARRAY variables;
+
+  /** @cell name Name of the loadlib
+      @cell line Number of the line on which the loadlib appears
+      @cell col Column of the loadlib token
+  */
+  PUBLIC RECORD ARRAY loadlibs;
+
+  PUBLIC RECORD libcomment;
+
+  PRIVATE RECORD savedtoken;
+  PRIVATE RECORD currenttoken;
+  PRIVATE INTEGER hsfile;
+>;
+
+//MACRO ParseContext::NEW(INTEGER hsfile)
+
+STRING ARRAY terminators := ["@short","@long","@return","@see","@author","@copyright","@version","@deprecated","@param","@cell","@example", "@include", "@exclude", "@documentexports", "@addme", "@fixme", "@todo", "@returntype" ];
+STRING ARRAY modifiers := ["@strong","@bold","@italic","@strike","@underline"];
+STRING ARRAY paired := [ "@table", "@pre", "@list" ];
+
+RECORD ARRAY FUNCTION SplitComment(STRING commenttext)
+{
+  RECORD ARRAY lines;
+  BOOLEAN inpair;
+
+  //Strip comment characters
+  IF(Left(commenttext,2)="/*")
+    commenttext := Substring(commenttext, 3, Length(commenttext)-5);
+  ELSE
+    commenttext := Substring(commenttext, 3, Length(commenttext));
+
+  //Life is a lot easier if we can look for " @" as starts of comments, and all whitespace is reduced to " " and "\n"
+  commenttext := Substitute(commenttext,"\r","");
+  commenttext := Substitute(commenttext,"\t"," ");
+
+  STRING curdirective;
+  STRING curdata;
+  STRING hold;
+  BOOLEAN skipadd;
+
+  OBJECT p := NEW StringParser(commenttext);
+  WHILE (NOT p->eof)
+  {
+    // Add rest of line
+    curdata := curdata || p->ParseWhileNotInSet(" \n");
+    curdata := curdata || p->ParseN(1);
+
+    // Directive?
+    IF (NOT p->TryParse("@"))
+    {
+      IF(NOT p->TryParse("{@"))
+        CONTINUE;
+
+      inpair := TRUE;
+      hold := curdata;
+      curdata := "";
+    }
+
+    STRING newdirective_word := p->ParseWhileNotInSet(" \n(");
+    STRING newdirective := newdirective_word;
+
+    IF(curdirective IN paired AND NOT inpair)
+      curdirective := newdirective;
+
+    IF (p->TryParse("("))
+    {
+      newdirective := newdirective || "(" || p->ParseWhileNotInSet(")");
+      newdirective := newdirective || p->ParseN(1);
+    }
+
+    IF ("@" || newdirective_word IN terminators)
+    {
+      INSERT
+          [ word :=   curdirective
+          , data :=   TrimWhitespace(curdata)
+          ] INTO lines AT END;
+
+      curdirective := newdirective;
+      curdata := "";
+    }
+    ELSE IF("@" || newdirective_word IN modifiers)
+    {
+      /// ADDME: Currently does not support nesting of tags; not sure if that's relevant though, so no prio.
+      STRING tag;
+      SWITCH(ToUpperCase(newdirective_word))
+      {
+        CASE "STRONG"
+        {
+          tag := "strong";
+        }
+        CASE "BOLD"
+        {
+          tag := "b";
+        }
+        CASE "ITALIC"
+        {
+          tag := "i";
+        }
+        CASE "STRIKE"
+        {
+          tag := "s";
+        }
+        CASE "UNDERLINE"
+        {
+          tag := "u";
+        }
+      }
+
+      p->ParseN(1);
+      curdata := curdata || "<" || tag || ">" || p->ParseWhileNotInSet(" \t\n") || "</" || tag || ">";
+    }
+    ELSE IF(inpair AND "@" || newdirective_word IN paired)
+    {
+      STRING ARRAY curlines;
+      /// It's a paired directive, meaning it is opened and closed; we should parse until we see "}\n"
+      INSERT curdata INTO curlines AT END;
+      STRING curline;
+      STRING ch;
+      WHILE(NOT (p->PeekN(2) = "}\n") AND NOT p->eof)
+      {
+        ch := p->ParseN(1);
+        curline := curline || ch;
+        IF(ch = "\n")
+        {
+          INSERT curline INTO curlines AT END;
+          curline := "";
+        }
+      }
+      /// Actually format the data and append it to the output
+      STRING outputline;
+      SWITCH(ToUpperCase(newdirective))
+      {
+        CASE "PRE"
+        {
+          /// Wrap the whole thing in a <pre> tag:
+          outputline := "<pre>\n";
+          FOREVERY(STRING line FROM curlines)
+          {
+            IF(#line = 1)
+              line := TrimWhitespace(line) || "\n";/// The first line will always have extra whitespace before it
+
+            outputline := outputline || line;
+          }
+          outputline := outputline || "</pre>";
+        }
+        CASE "EXAMPLE"
+        {
+          /// Don't wrap, but leave it well enough alone otherwise:
+          FOREVERY(STRING line FROM curlines)
+          {
+            IF(#line = 1)
+              line := TrimWhitespace(line) || "\n";/// The first line will always have extra whitespace before it
+
+            outputline := outputline || Substitute(Substitute(line, "&", "&amp;"), "<", "&lt;");
+          }
+        }
+        CASE "TABLE"
+        {
+          /// Assume CSV-style cells; interpret lines as rows:
+          outputline := "<table>";
+          FOREVERY(STRING line FROM curlines)
+          {
+            IF(#line = 0)
+              line := "<tr><th>" || Substitute(";", "</th><th>", line) || "</th></tr>";
+            ELSE
+              line := "<tr><td>" || Substitute(";", "</td><td>", line) || "</td></tr>";
+            outputline := outputline || line;
+          }
+          outputline := outputline || "</table>";
+        }
+        CASE "LIST"
+        {
+          /// Assume each list item on it's own line:
+          outputline := "<ul>";
+          FOREVERY(STRING line FROM curlines)
+            IF(TrimWhiteSpace(line) != "")
+              IF(Left(TrimWhiteSpace(line), 1) = "-")/// Strip it
+                outputline := outputline || "<li>" || Right(TrimWhiteSpace(line), Length(TrimWhitespace(line)) - 1) || "</li>";
+              ELSE
+                outputline := outputline || "<li>" || line || "</li>";
+
+          outputline := outputline || "</ul>";
+        }
+      }
+
+      /// Get rid of the literal "}\n" that ends the pair:
+      p->ParseN(2);
+
+      IF(ToLowerCase("@" || newdirective) NOT IN paired)
+      {
+        /// This is an entity of its own; don't append it to the last entity.
+        INSERT [ word := newdirective
+               , data := /*hold || */outputline
+               ] INTO lines AT END;
+        skipadd := TRUE;
+      }
+      ELSE
+        curdata := hold || outputline;
+
+      inpair := FALSE;
+      hold := "";
+    }
+    ELSE
+      curdata := curdata || "@" || newdirective;
+  }
+
+  IF(NOT skipadd)
+  {
+    INSERT
+        [ word :=   curdirective
+        , data :=   TrimWhitespace(curdata)
+        ] INTO lines AT END;
+    skipadd := FALSE;
+  }
+
+  RETURN lines;
+}
+
+//RECORD FUNCTION ParseContext::GetNextHareScriptToken()
+//RECORD FUNCTION ParseContext::GetInterestingHSToken()
+
+//RECORD FUNCTION ParseContext::ParseComment(INTEGER linenum, STRING name, STRING commenttext, STRING returntype, RECORD ARRAY params)
+//MACRO ParseContext::ProcessFunction(STRING comment, BOOLEAN is_public, STRING returntype)
+
+//MACRO ParseContext::ProcessVariable(INTEGER linenum, STRING name, STRING comment, BOOLEAN is_public, STRING returntype)
+
+/** @short Parse a library and extract its documentation
+    @param(BLOB) library Blob containing the library to parse
+    @param(BOOLEAN) parsehtml Wether or not to parse the comments into HTML (defaults to FALSE)
+    @return Data about the parsed
+    @cell return.functions Record array of functions inside the parsed script
+    @cell return.variables
+    @cell return.loadlibs Record array of direct loadlibs of the parsed script
+    @cell return.errors An array of (line,error) records describing any parse errors found
+    @cell return.objecttypes
+    @cell return.libinfo Describes the library
+*/
+PUBLIC RECORD FUNCTION ParseHareScriptFileDocumentation(BLOB library, BOOLEAN parsehtml DEFAULTSTO FALSE)
+{
+  INTEGER hsfile := OpenHareScriptFile(library);
+
+  OBJECT parser := NEW ParseContext(hsfile);
+  parser->FormatASHTML := parsehtml;
+  parser->Execute();
+  CloseHarescriptFile(hsfile);
+
+  RETURN [ functions := parser->functions
+         , variables := parser->variables
+         , errors := parser->errors
+         , loadlibs := parser->loadlibs
+         , objecttypes := parser->objecttypes
+         , libinfo := parser->libcomment
+         ];
+}
+
+/** @short Get a function's calling syntax
+    @param funcrec Function record
+    @return String with full function calling syntax */
+PUBLIC STRING FUNCTION GetFunctionCallSyntax(RECORD funcrec)
+{
+  STRING syntax;
+
+  syntax := funcrec.ispublic ? "PUBLIC " : "PRIVATE ";
+  syntax := syntax || (funcrec.isfunction ? funcrec.type || " FUNCTION " : "MACRO ");
+  syntax := syntax || funcrec.name || "(";
+
+  BOOLEAN IsFirst:=TRUE;
+  FOREVERY (RECORD funcarg FROM funcrec.arguments)
+  {
+    if (isFirst)
+      syntax := syntax || funcarg.type || ' ' || tolowercase(funcarg.name);
+    else
+      syntax := syntax || ', ' || funcarg.type || ' ' || tolowercase(funcarg.name);
+
+    IF (funcarg.defaultvalue != "")
+      syntax := syntax || " DEFAULTSTO " || funcarg.defaultvalue;
+
+    isFirst := FALSE;
+  }
+  RETURN syntax || ')';
+}
+
+RECORD ARRAY FUNCTION GetArguments(RECORD input, STRING ARRAY excludefields, INTEGER ARRAY includetypes DEFAULTSTO [ TypeID(STRING), TypeID(STRING ARRAY) ])
+{
+  RETURN SELECT *
+           FROM UnpackRecord(input)
+          WHERE TypeID(value) IN includetypes
+            AND ToUpperCase(name) NOT IN excludefields;
+}
+
+PUBLIC RECORD FUNCTION GetFunctionDocumentation(RECORD funcrec)
+{
+  RECORD ARRAY args := GetArguments(funcrec, [ "NAME", "OBJECTNAME" ]);
+  //SELECT * FROM UnPackRecord(funcrec) WHERE GetTypeName(TypeID(value)) = "STRING" AND ToUpperCase(name) NOT IN [ "NAME", "OBJECTNAME" ];
+  RECORD output;
+  FOREVERY(RECORD arg FROM args)
+    IF(arg.name NOT IN ["line", "col"])
+      output := CellInsert(output, arg.name, arg.value);
+  RETURN output;
+}
+
+PUBLIC RECORD FUNCTION GetObjectDocumentation(RECORD classrec)
+{
+  RECORD ARRAY args := GetArguments(classrec, [ "NAME", "OBJECTNAME", "BASE" ]);
+  //SELECT * FROM UnPackRecord(classrec) WHERE GetTypeName(TypeID(value)) = "STRING" AND ToUpperCase(name) NOT IN [ "NAME", "OBJECTNAME", "BASE" ];
+  RECORD output;
+  FOREVERY(RECORD arg FROM args)
+    IF(arg.name NOT IN ["line", "col"])
+      output := CellInsert(output, arg.name, arg.value);
+  RETURN output;
+}
+
+PUBLIC RECORD FUNCTION GetPropertyDocumentation(RECORD proprec)
+{
+  RECORD ARRAY args := GetArguments(proprec, [ "NAME", "OBJECTNAME", "BASE" ]);
+  //SELECT * FROM UnPackRecord(proprec) WHERE GetTypeName(TypeID(value)) = "STRING" AND ToUpperCase(name) NOT IN [ "NAME", "OBJECTNAME", "BASE" ];
+  RECORD output;
+  FOREVERY(RECORD arg FROM args)
+    IF(arg.name NOT IN ["line", "col"])
+      output := CellInsert(output, arg.name, arg.value);
+  RETURN output;
+}
+
+PUBLIC RECORD FUNCTION GetMemberDocumentation(RECORD memberrec)
+{
+  RECORD ARRAY args := GetArguments(memberrec, [ "NAME", "OBJECTNAME", "BASE" ]);
+  //SELECT * FROM UnPackRecord(memberrec) WHERE GetTypeName(TypeID(value)) = "STRING" AND ToUpperCase(name) NOT IN [ "NAME", "OBJECTNAME", "BASE" ];
+  RECORD output;
+  FOREVERY(RECORD arg FROM args)
+    IF(arg.name NOT IN ["line", "col"])
+      output := CellInsert(output, arg.name, arg.value);
+  RETURN output;
+}
+
+
+PUBLIC RECORD FUNCTION GetVariableDocumentation(RECORD varrec)
+{
+  RECORD ARRAY args := GetArguments(varrec, [ "NAME", "OBJECTNAME", "BASE", "ARGUMENTS" ]);
+  //SELECT * FROM UnPackRecord(varrec) WHERE GetTypeName(TypeID(value)) = "STRING" AND ToUpperCase(name) NOT IN [ "NAME", "OBJECTNAME", "BASE", "ARGUMENTS" ];
+  RECORD output;
+  FOREVERY(RECORD arg FROM args)
+    IF(arg.name NOT IN ["line", "col"])
+      output := CellInsert(output, arg.name, arg.value);
+  RETURN output;
+}
+
+PUBLIC RECORD FUNCTION GetFunctionInfo(RECORD funcrec)
+{
+  RETURN [ type := (funcrec.isfunction)? "Function" : "Macro"
+         , isfunction := funcrec.isfunction
+         , isupdate := funcrec.isupdate
+         , ispublic := funcrec.ispublic
+         , isdeprecated := funcrec.deprecated != ""
+         , doccomplete := funcrec.short != "" AND funcrec.long != "" AND funcrec.type != "" AND funcrec.result != ""
+         , isundocumented := funcrec.short = "" AND funcrec.long = "" AND funcrec.result = ""
+         , hasexample := funcrec.example != ""
+         , line := funcrec.line
+         , col := funcrec.col
+         , arguments := funcrec.arguments
+         , cells := funcrec.returncells
+         , name := funcrec.name
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetObjectInfo(RECORD classrec)
+{
+  RETURN [ type := (classrec.base != "")? "Base" : "Extension"
+         , ispublic := classrec.ispublic
+         , isdeprecated := classrec.deprecated != ""
+         , defined := classrec.linestart
+         , doccomplete := classrec.short != "" AND classrec.long != ""
+         , isundocumented := classrec.short = "" AND classrec.long = ""
+         , hasexample := classrec.example != ""
+         , line := classrec.line
+         , col := classrec.col
+         , name := classrec.name
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetPropertyInfo(RECORD proprec)
+{
+  RETURN [ ispublic := proprec.ispublic
+         , isupdate := proprec.isupdate
+         , isdeprecated := proprec.deprecated != ""
+         , hasgetter := proprec.getter != ""
+         , hassetter := CellExists(proprec, "setter") AND proprec.setter != ""
+         , doccomplete := proprec.short != "" AND proprec.long != "" AND proprec.result != ""
+         , isundocumented := proprec.short = "" AND proprec.long = "" AND proprec.result = ""
+         , hasexample := proprec.example != ""
+         , line := proprec.line
+         , col := proprec.col
+         , cells := proprec.returncells
+         , name := proprec.name
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetMemberInfo(RECORD memberrec)
+{
+  RETURN [ ispublic := memberrec.ispublic
+         , isdeprecated := memberrec.deprecated != ""
+         , doccomplete := memberrec.short != "" AND memberrec.long != "" AND memberrec.result != ""
+         , isundocumented := memberrec.short = "" AND memberrec.long = "" AND memberrec.result = ""
+         , hasexample := memberrec.example != ""
+         , line := memberrec.line
+         , col := memberrec.col
+         , cells := memberrec.returncells
+         , name := memberrec.name
+         ];
+}
+
+
+PUBLIC RECORD FUNCTION GetVariableInfo(RECORD varrec)
+{
+  RETURN [ ispublic := varrec.ispublic
+         , doccomplete := varrec.short != "" AND varrec.long != "" AND varrec.result != ""
+         , isundocumented := varrec.short = "" AND varrec.long = "" AND varrec.result = ""
+         , hasexample := varrec.example != ""
+         , line := varrec.line
+         , col := varrec.col
+         , cells := varrec.returncells
+         , name := varrec.name
+         ];
+}
+
+PUBLIC STRING FUNCTION GetObjectConstructorSyntax(RECORD typerec)
+{
+  STRING syntax;
+
+  syntax := "NEW " || typerec.name;
+  //RECORD funcdata := SELECT * FROM typerec.functions;
+  IF(Length(SELECT * FROM typerec.functions WHERE ToUpperCase(name) = "NEW" AND NOT isfunction) > 0)
+  {
+    STRING ARRAY args;
+    syntax := syntax || "(";
+    FOREVERY(RECORD arg FROM SELECT AS RECORD ARRAY arguments FROM typerec.functions WHERE ToUpperCase(name) = "NEW" AND NOT isfunction)
+      IF(RecordExists(arg))
+        INSERT arg.type || " " || ToLowerCase(arg.name) INTO args AT END;
+
+    IF(Length(args) = 0)
+      RETURN Substring(syntax, 0, Length(syntax) - 1);
+
+    syntax := syntax || Detokenize(args, ", ") || ")";
+  }
+  RETURN syntax;
+}

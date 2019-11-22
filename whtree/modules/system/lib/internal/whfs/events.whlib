@@ -1,0 +1,523 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
+LOADLIB "mod::system/lib/internal/fsctypes.whlib";
+LOADLIB "mod::system/lib/internal/tasks/queueapi.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
+LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
+
+//debuglevel, set using envvar WEBHARE_DEBUGEVENTS. 0 = not yet read, -1 = no debugging, 1 = log actions, 3 = and traces too
+INTEGER debuglevel;
+OBJECT siteproflock;
+INTEGER counter;
+
+STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY items;
+  RECORD ARRAY completions;
+  INTEGER ARRAY emptyupdates;
+  RECORD ARRAY analyzertasks;
+
+  RECORD ARRAY historyitems;
+  BOOLEAN recompilesiteprofiles;
+  BOOLEAN scancompilables;
+
+  INTEGER ARRAY linkcheckedremovedsettings;
+  INTEGER ARRAY linkcheckedsettings;
+
+  RECORD ARRAY deferredindexpromises;
+  INTEGER eventcallback;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  INTEGER FUNCTION GetEntry(INTEGER id, BOOLEAN ispub)
+  {
+    RECORD pos := RecordLowerBound(this->items, [ folder := id, ispub := ispub ], [ "FOLDER", "ISPUB" ]);
+    IF (NOT pos.found)
+    {
+      INSERT
+          [ folder :=           id
+          , ispub :=            ispub
+          , files :=            DEFAULT RECORD ARRAY
+          , events :=           DEFAULT STRING ARRAY
+          , sites :=            DEFAULT INTEGER ARRAY
+          ] INTO this->items AT pos.position;
+    }
+    RETURN pos.position;
+  }
+
+
+  MACRO AddEvent(INTEGER site, INTEGER folderid, INTEGER fileid, STRING event)
+  {
+    IF(debuglevel >= 1)
+    {
+      Print(`WHFS Event: ${event}: site=${site}, folderid=${folderid}, fileid=${fileid}\n`);
+      IF(debuglevel >= 3)
+        PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
+    }
+
+    // 'pub' events don't trigger publisher:site events, and have a different broadcast name
+    INTEGER itempos := this->GetEntry(folderid, event = "pub");
+    RECORD rec := this->items[itempos];
+
+    IF(site != 0 AND site NOT in rec.sites AND event != "pub")
+      INSERT site INTO this->items[itempos].sites AT END;
+
+    IF (folderid = fileid)
+    {
+      IF (event NOT IN rec.events)
+        INSERT event INTO this->items[itempos].events AT END;
+    }
+    ELSE
+    {
+      RECORD fpos := RecordLowerBound(rec.files, [ file := fileid ], [ "FILE" ]);
+      IF (NOT fpos.found)
+        INSERT [ file := fileid, events := [ event ] ] INTO this->items[itempos].files AT fpos.position;
+      ELSE
+        IF (event NOT IN rec.files[fpos.position].events)
+          INSERT event INTO this->items[itempos].files[fpos.position].events AT END;
+    }
+  }
+
+  MACRO AddAnalyzerTask(INTEGER folderid, BOOLEAN recursive)
+  {
+    IF(debuglevel >= 1)
+    {
+      Print(`WHFS Event: Analyze: folderid=${folderid}, recursive=${recursive ? "true" : "false"}\n`);
+      IF(debuglevel >= 3)
+        PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
+    }
+
+    RECORD pos := RecordLowerBound(this->analyzertasks, CELL[ folderid ], [ "FOLDERID" ]);
+    IF (NOT pos.found)
+      INSERT CELL[ action := "SCAN", folderid, recursive ] INTO this->analyzertasks AT pos.position;
+    ELSE IF (recursive AND NOT this->analyzertasks[pos.position].recursive)
+      this->analyzertasks[pos.position].recursive := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overridden functions
+  //
+
+  UPDATE PUBLIC MACRO OnPreCommit(OBJECT transaction)
+  {
+    FOREVERY (INTEGER id FROM this->emptyupdates)
+      PerformEmptyWHFSMetadataUpdate(id, [ republish := TRUE ]);
+    IF (LENGTH(this->linkcheckedremovedsettings) != 0)
+      __OpenLocalService("system:__systemservice")->ProcessRemovedLinkCheckedSettings(this->linkcheckedremovedsettings);
+    IF (LENGTH(this->linkcheckedsettings) != 0)
+      __OpenLocalService("system:__systemservice")->ProcessLinkCheckedSettings(this->linkcheckedsettings);
+
+    IF(this->recompilesiteprofiles)
+    {
+      /* Set a lock so no new publish processes will run until we've prepared
+         the new siteprofiles */
+      IF(ObjectExists(siteproflock))
+        ABORT("Dupe onprecommit detected");
+      siteproflock := OpenLockManager()->LockMutex("system:siteprofrecompile"); //Lock to indicate we'll be recompiling siteprofiles
+    }
+
+    IF(this->scancompilables)
+      ScanAllCompilables(FALSE);
+  }
+
+  UPDATE PUBLIC MACRO OnRollback()
+  {
+    IF(debuglevel >= 1)
+    {
+      Print(`WHFS Event: Rollback!\n`);
+      IF(debuglevel >= 3)
+        PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
+    }
+
+    IF(ObjectExists(siteproflock))
+    {
+      siteproflock->Close();
+      siteproflock := DEFAULT OBJECT;
+    }
+  }
+
+  /** Called when the transaction has committed
+  */
+  UPDATE PUBLIC MACRO OnCommit()
+  {
+    IF(debuglevel >= 1)
+    {
+      Print(`WHFS Event: Commit!\n`);
+      IF(debuglevel >= 3)
+        PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
+    }
+
+    INTEGER ARRAY sites;
+
+    OBJECT firstexception;
+
+    //Script update completions must be handled before anything that could synchronously use them, and ideally, before even directly scheduled republished can run
+    TRY
+      ScanLimitedCompilables(SELECT AS INTEGER ARRAY DISTINCT id FROM this->completions WHERE type IN ["addfile","replacefile"]);
+    CATCH (OBJECT e)
+      firstexception := e;
+
+    IF(ObjectExists(siteproflock))
+    {
+      OBJECT savelock := siteproflock;
+      siteproflock := DEFAULT OBJECT;
+
+      TRY
+        MakeFunctionPtr("mod::publisher/lib/internal/siteprofiles/compiler.whlib#RecompileSiteprofiles")();
+      CATCH (OBJECT e)
+        firstexception := firstexception ?? e;
+
+      savelock->Close();
+      this->recompilesiteprofiles := FALSE;
+    }
+
+    IF (uncommitted_fstypes_changes)
+    {
+      BroadcastEvent("system:whfs.types", DEFAULT RECORD);
+      uncommitted_fstypes_changes := FALSE;
+    }
+
+    RECORD ARRAY to_reindex;
+    RECORD ARRAY to_republish;
+
+    FOREVERY (RECORD rec FROM this->items)
+    {
+      RECORD data :=
+          [ folder :=   rec.folder
+          , events :=   rec.events
+          , files :=    rec.files
+          ];
+
+      IF (rec.ispub)
+      {
+        BroadcastEvent("publisher:publish.folder." || rec.folder, data);
+      }
+      ELSE
+      {
+        BroadcastEvent("system:whfs.folder." || rec.folder, data);
+        sites := sites CONCAT rec.sites;
+
+        IF ("del" IN data.events)
+          INSERT
+              [ id := data.folder
+              , isfolder := TRUE
+              , isdelete := TRUE
+              , events := data.events
+              ] INTO to_reindex AT END;
+
+        IF ("fullrep" IN data.events)
+        {
+          to_republish := to_republish CONCAT
+            SELECT id
+              FROM system.fs_objects
+             WHERE parent = rec.folder
+               AND IsQueuedForPublication(published);
+        }
+
+        FOREVERY (RECORD obj FROM data.files)
+        {
+          IF (ArraysIntersect(obj.events, [ "create", "update", "rename", "move", "del" ]))
+            INSERT
+                [ id := obj.file
+                , isfolder := (SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = obj.file)
+                , isdelete := "del" IN obj.events
+                , events := obj.events
+                ] INTO to_reindex AT END;
+
+          IF("rep" IN obj.events)
+            INSERT [ id := obj.file
+                   ] INTO to_republish AT END;
+        }
+      }
+    }
+
+    FOREVERY(INTEGER site FROM GetSortedSet(sites))
+      BroadcastEvent("system:whfs.site." || site, DEFAULT RECORD);
+
+    IF(Length(to_republish) > 0 AND UseNewPublisher())
+    {
+      SchedulePersistentTask("publisher:publication", "SCHEDULEMULTIPLE", [ tasks := to_republish ]);
+    }
+
+    IF(Length(this->completions)>0)
+    {
+      OBJECT eventcompletionlink := ConnectToManagedPort("system:eventcompletion", "webserver");
+      IF(ObjectExists(eventcompletionlink))
+      {
+        eventcompletionlink->SendMessage( [ type := "newcompletions",  data := this->completions ]);
+        eventcompletionlink->Close();
+      }
+      ELSE //handle the completions locally
+      {
+        /* FIXME Do this, but in a weblet (or perhaps elevated service call?)
+                 because we don't want to corrupt local (transaction) state....
+        WHILE(Length(this->completions)>0)
+          this->completions := HandleCompletions(this->completions);
+          */
+      }
+    }
+
+    IF (Length(this->analyzertasks) > 0 AND UseNewPublisher())
+      SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULEMULTIPLE", [ tasks := this->analyzertasks ]);
+
+    IF (Length(to_reindex) > 0)
+    {
+      counter := counter + 1;
+      STRING eventid := `${GetCurrentGroupId()}.${counter}`;
+      IF (Length(this->deferredindexpromises) > 0)
+        this->eventcallback := RegisterEventCallback(`system:whfs.index.response.${eventid}`, PTR this->ResolveIndexPromises);
+
+      BroadcastEvent(`system:whfs.index.request.${eventid}`, [ to_reindex := to_reindex ]);
+    }
+    ELSE
+    {
+      FOREVERY (RECORD deferred FROM this->deferredindexpromises)
+        deferred.resolve(DEFAULT RECORD);
+    }
+
+    IF (ObjectExists(firstexception))
+      THROW firstexception;
+  }
+
+  MACRO ResolveIndexPromises(STRING event, RECORD msg)
+  {
+    IF(this->eventcallback != 0)
+    {
+      UnregisterCallback(this->eventcallback);
+      this->eventcallback := 0;
+    }
+    FOREVERY (RECORD deferred FROM this->deferredindexpromises)
+      deferred.resolve(msg);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // 'Public' API - (code outside core modules is still not supposed to interact with the commit handler)
+  //
+
+  PUBLIC MACRO FilePublicationFinished(INTEGER parentsite, INTEGER folderid, INTEGER fileid)
+  {
+    this->AddEvent(parentsite, folderid, fileid, "pub");
+  }
+
+  PUBLIC MACRO FolderRepublish(INTEGER parentsite, INTEGER objectid)
+  {
+    this->AddEvent(parentsite, objectid, objectid, "fullrep");
+  }
+
+  PUBLIC MACRO FileRepublish(INTEGER parentsite, INTEGER folderid, INTEGER fileid)
+  {
+    this->AddEvent(parentsite, folderid, fileid, "rep");
+  }
+
+  PUBLIC MACRO ObjectCreate(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  {
+    this->AddEvent(parentsite, folderid, objectid, "create");
+  }
+
+  PUBLIC MACRO ObjectUpdate(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  {
+    this->AddEvent(parentsite, folderid, objectid, "update");
+  }
+
+  PUBLIC MACRO ObjectRename(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  {
+    this->AddEvent(parentsite, folderid, objectid, "rename");
+    this->AddAnalyzerTask(folderid, SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = objectid);
+  }
+
+  PUBLIC MACRO ObjectMove(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  {
+    this->AddEvent(parentsite, folderid, objectid, "move");
+    this->AddAnalyzerTask(folderid, SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = objectid);
+  }
+
+  PUBLIC MACRO ObjectMoved(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  {
+    this->AddEvent(parentsite, folderid, objectid, "moved");
+  }
+
+  PUBLIC MACRO ObjectDelete(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  {
+    this->AddEvent(parentsite, folderid, objectid, "del");
+    this->AddAnalyzerTask(folderid, SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = objectid);
+  }
+
+  PUBLIC MACRO Unpublished(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  {
+    this->AddEvent(parentsite, folderid, objectid, "unp");
+    this->AddAnalyzerTask(folderid, FALSE);
+  }
+
+  PUBLIC MACRO ObjectReordered(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  {
+    this->AddEvent(parentsite, folderid, objectid, "order");
+  }
+
+  PUBLIC MACRO FolderIndexDocUpdated(INTEGER folderid)
+  {
+    this->AddAnalyzerTask(folderid, FALSE);
+  }
+
+  PUBLIC MACRO SiteUpdated(INTEGER siteid)
+  {
+    this->AddAnalyzerTask(siteid, TRUE);
+  }
+
+  PUBLIC MACRO AddCompletionEvent(RECORD data)
+  {
+    INSERT data INTO this->completions AT END;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsSiteProfileRecompileOnCommitTriggered()
+  {
+    RETURN this->recompilesiteprofiles;
+  }
+  PUBLIC MACRO TriggerSiteProfileRecompileOnCommit()
+  {
+    IF(this->recompilesiteprofiles)
+      RETURN; //already set
+
+    IF(debuglevel >= 1)
+    {
+      Print(`WHFS Event: TriggerSiteProfileRecompileOnCommit\n`);
+      IF(debuglevel >= 3)
+        PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
+    }
+    this->recompilesiteprofiles := TRUE;
+  }
+  PUBLIC MACRO TriggerScanCompilables()
+  {
+    this->scancompilables := TRUE;
+  }
+
+  PUBLIC MACRO RemoveLinkCheckedSettings(INTEGER ARRAY settingids)
+  {
+    this->linkcheckedremovedsettings := this->linkcheckedremovedsettings CONCAT settingids;
+  }
+
+  PUBLIC MACRO AddLinkCheckedSettings(INTEGER ARRAY settingids)
+  {
+    this->linkcheckedsettings := this->linkcheckedsettings CONCAT settingids;
+  }
+
+  PUBLIC MACRO FSTypesChanged()
+  {
+    uncommitted_fstypes_changes := TRUE;
+  }
+
+  PUBLIC OBJECT FUNCTION WaitForChangesIndexed()
+  {
+    RECORD deferred := CreateDeferredPromise();
+    INSERT deferred INTO this->deferredindexpromises AT END;
+    RETURN deferred.promise;
+  }
+
+  PUBLIC MACRO TriggerEmptyUpdateOnCommit(INTEGER fsobj)
+  {
+    RECORD pos := LowerBound(this->emptyupdates, fsobj);
+    IF (NOT pos.found)
+      INSERT fsobj INTO this->emptyupdates AT pos.position;
+  }
+
+  PUBLIC MACRO DoDeleteOrRecycle(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN is_recycle)
+  {
+    this->ObjectDelete(parentsite, folderid, objectid);
+
+    IF(is_recycle)
+    {
+      //Create the recycle action
+      RECORD res := __OpenLocalService("system:whfs")->Recycle([ objectid ]);
+      FOREVERY(RECORD repub FROM res.repubbedfiles)
+        this->FileRepublish(repub.parentsite, repub.parent, repub.file);
+    }
+    ELSE
+    {
+      DELETE FROM system.fs_objects WHERE id = objectid;
+    }
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetWHFSCommitHandler()
+{
+  OBJECT this_trans := __INTERNAL_GetSystemSchemaBinding();
+
+  OBJECT handler := this_trans->GetFinishHandler("system:whfs");
+  IF (NOT ObjectExists(handler))
+  {
+    IF(debuglevel = 0)
+     debuglevel := ToInteger(GetEnvironmentVariable("WEBHARE_DEBUGEVENTS"), 0) ?? -1;
+
+    handler := NEW WHFSCommitHandler;
+    this_trans->SetFinishHandler("system:whfs", handler);
+  }
+  RETURN handler;
+}
+
+PUBLIC MACRO PerformEmptyWHFSMetadataUpdate(INTEGER fsobj, RECORD options)
+{
+  options := ValidateOptions(
+      [ republish :=      FALSE
+      ], options);
+
+  RECORD oldversion :=
+      SELECT id
+           , parentsite
+           , parent
+           , published
+           , type
+           , isfolder
+        FROM system.fs_objects
+       WHERE id = fsobj;
+
+  IF(NOT RecordExists(oldversion))
+    RETURN;
+
+  OBJECT commithandler := GetWHFSCommitHandler();
+
+  INTEGER newpublished := oldversion.published;
+  IF (IsPublish(oldversion.published) AND options.republish) //may need to republish
+  {
+    newpublished := ConvertToWillpublish(newpublished, FALSE, FALSE, PubPrio_DirectEdit);
+    commithandler->FileRepublish(oldversion.parentsite, oldversion.parent, fsobj);
+  }
+
+  RECORD newmetadata :=
+      [ modificationdate := GetCurrentDatetime()
+      , modifiedby :=       GetEffectiveUserID()
+      , published :=        newpublished
+      ];
+
+  RunModuleHookTarget(oldversion.isfolder ? "system:whfs_folder_aftermetadataupdate" : "system:whfs_file_aftermetadataupdate"
+                         , [ id :=        fsobj
+                           , oldtype :=   oldversion.type
+                           , newtype :=   oldversion.type
+                           ]);
+
+  UPDATE system.fs_objects SET RECORD newmetadata WHERE id = fsobj;
+  commithandler->ObjectUpdate(oldversion.parentsite, oldversion.parent, fsobj);
+
+  IF (NOT oldversion.isfolder)
+    commithandler->AddCompletionEvent( [ type := "replacefile", id := fsobj ]);
+}

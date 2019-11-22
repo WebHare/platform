@@ -1,0 +1,4 @@
+<?wh loadlib "mod::system/lib/webserver.whlib";
+if(getwebvariable("customstatus")!="")
+  addhttpheader("Status", getwebvariable("customstatus"), FALSE);
+  ?>A custom 404!

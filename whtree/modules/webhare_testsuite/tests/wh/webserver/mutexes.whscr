@@ -1,0 +1,94 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+STRING testfile_diskbase := GetModuleInstallationRoot("webhare_testsuite") || "web/resources/";
+STRING testfile := "tests/mutexes.shtml";
+
+MACRO WebserverMutexes()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING resbaseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/";
+
+  RECORD unp_resbaseurl := UnpackUrL(resbaseurl || testfile);
+  INTEGER http := OpenHTTPServer(unp_resbaseurl.host, unp_resbaseurl.port);
+  RECORD req;
+
+  TestEq(TRUE, http>0);
+
+  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", DEFAULT RECORD ARRAY, DEFAULT BLOB);
+  TestEq(200, req.code);
+  TestEq("DONE", BlobToString(req.content,-1));
+}
+
+MACRO RunscriptMutexes()
+{
+  OBJECT lockmgr := OpenLockManager();
+
+  OBJECT mutex := lockmgr->LockMutex("webhare_testsuite:test.mutex1");
+  TestEQ(TRUE, ObjectExists(mutex));
+  TestEQ(TRUE, lockmgr->HasLockedMutex("webhare_testsuite:test.mutex1"));
+
+  OBJECT m2 := lockmgr->TryLockMutex("webhare_testsuite:test.mutex2", DEFAULT DATETIME);
+  TestEQ(TRUE, ObjectExists(m2));
+  TestEQ(TRUE, lockmgr->HasLockedMutex("webhare_testsuite:test.mutex2"));
+  TestThrows(PTR lockmgr->LockMutex("webhare_testsuite:test.mutex1"));
+
+  mutex->Close();
+  m2->Close();
+}
+
+MACRO RunscriptInterlockingMutexes()
+{
+  OBJECT job_a := CreateJob("module::webhare_testsuite/system/mutexes.whlib").job;
+  OBJECT job_b := CreateJob("module::webhare_testsuite/system/mutexes.whlib").job;
+
+  job_a->Start();
+  job_b->Start();
+
+  OBJECT link_a := job_a->ipclink;
+  link_a->autothrow := TRUE;
+  OBJECT link_b := job_b->ipclink;
+  link_b->autothrow := TRUE;
+
+  TestEQ(DEFAULT RECORD, link_a->DoRequest([ type := "lock", mutexname := "webhare_testsuite:test.mutex1" ]).msg);
+  TestEQ([ locked := TRUE ], link_a->DoRequest([ type := "haslocked", mutexname := "webhare_testsuite:test.mutex1" ]).msg);
+
+  TestEQ([ locked := FALSE ], link_b->DoRequest([ type := "trylock", mutexname := "webhare_testsuite:test.mutex1", waituntil := DEFAULT DATETIME ]).msg);
+  TestEQ([ locked := FALSE ], link_b->DoRequest([ type := "haslocked", mutexname := "webhare_testsuite:test.mutex1" ]).msg);
+
+  DATETIME waituntil := AddTimeToDate(500, GetCurrentDateTime());
+  TestEQ([ locked := FALSE ], link_b->DoRequest([ type := "trylock", mutexname := "webhare_testsuite:test.mutex1", waituntil := waituntil ]).msg);
+  TestEQ(TRUE, GetCurrentDateTime() >= waituntil);
+
+  DATETIME releaseat := AddTimeToDate(500, GetCurrentDateTime());
+  link_a->SendMessage([ type := "unlock", mutexname := "webhare_testsuite:test.mutex1", runat := releaseat ]);
+
+  TestEQ(DEFAULT RECORD, link_b->DoRequest([ type := "lock", mutexname := "webhare_testsuite:test.mutex1" ]).msg);
+  TestEQ(TRUE, GetCurrentDateTime() >= releaseat);
+
+  // Receive unlock message
+  TestEQ(DEFAULT RECORD, link_a->ReceiveMessage(MAX_DATETIME).msg);
+
+  TestThrows(PTR link_b->DoRequest([ type := "lock", mutexname := "webhare_testsuite:test.mutex1" ]));
+
+  job_a->Close();
+  job_b->Close();
+}
+
+
+
+RunTestframework([ PTR RunscriptInterlockingMutexes
+                 , PTR RunscriptMutexes
+                 , PTR WebserverMutexes
+                 ]);

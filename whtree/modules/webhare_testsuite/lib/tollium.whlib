@@ -1,0 +1,31 @@
+﻿<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+
+PUBLIC MACRO RunScreen(OBJECT controller, RECORD data)
+{
+  IF ("allowtestfw" NOT IN data.params)
+    DisallowFrameWorkUsage("Please use the parameter 'allowtestfw', or place exclusive='true' in the info of the current javascript test");
+
+  controller->user->timezone := "CET";
+  controller->LoadScreen("webhare_testsuite:" || data.params[0], [ params := ArraySlice(data.params, 1) ])->RunModal();
+}
+
+PUBLIC RECORD ARRAY FUNCTION UpdateDashboardMenu(RECORD ARRAY appmenu, RECORD context)
+{
+  INTEGER systemmenu := (SELECT AS INTEGER #appmenu + 1 FROM appmenu WHERE title = "System")-1;
+  IF(systemmenu = -1) //menu not present yet? (eg Login!)
+    RETURN appmenu;
+
+  RECORD dashboardapp := SELECT * FROM appmenu[systemmenu].apps WHERE title = "Dashboard";
+  IF(NOT RecordExists(dashboardapp))
+    ABORT("Cannot find dashboard");
+
+  DELETE FROM appmenu[systemmenu].apps WHERE title = dashboardapp.title;
+
+  INSERT [ groupname := "webhare_testsuite:testgroup"
+         , title := "TEST GROUP"
+         , apps := [dashboardapp]
+         ] INTO appmenu AT END;
+
+  RETURN appmenu;
+}

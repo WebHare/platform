@@ -1,0 +1,56 @@
+<?wh
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
+<
+  MACRO NEW()
+  {
+    //We sometimes run in weird contexts and wrdauth plugins can confuse us... kill any if present
+    IF(IsRequest() AND UnpackURL(GetRequestURL()).urlpath LIKE ".publisher/debug/*")
+    {
+      OBJECT wrdauth := this->GetWRDAuthPlugin();
+      IF(ObjectExists(wrdauth))
+        wrdauth->__disableintegration := TRUE;
+    }
+  }
+  UPDATE PUBLIC MACRO PrepareErrorPage(INTEGER errorcode, RECORD harescriptinfo, STRING url)
+  {
+    STRING requrl := Tokenize(url,'?')[0];
+    IF(errorcode IN [404,500] AND UnpackURL(requrl).urlpath = UnpackURL(this->targetsite->webroot).urlpath)
+    {
+      RECORD data := [ errors := RECORD[] ];
+
+      TRY
+      {
+        IF(NOT IsDtapLive() AND RecordExists(harescriptinfo))
+          data.errors := SELECT message := filename || ":" || line || ":" || col || ": " || message FROM harescriptinfo.allerrors;
+      }
+      CATCH(OBJECT e)
+      {
+
+      }
+
+      this->pagewitty->RunComponent("rootfailure", data);
+      TerminateScript();
+    }
+    WebDesignBase::PrepareErrorPage(errorcode, harescriptinfo, url);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE TolliumWRDAuthSupport EXTEND WRDAuthSupportBase
+<
+  UPDATE PUBLIC RECORD FUNCTION IsLoginDenied(INTEGER userid, RECORD options)
+  {
+    RECORD userinfo := this->plugin->accounttype->GetEntityFields(userid, ["WHUSER_DISABLED"]);
+    IF(userinfo.whuser_disabled)
+      RETURN [ code := "DISABLED" ];
+
+    RETURN DEFAULT RECORD;
+  }
+>;

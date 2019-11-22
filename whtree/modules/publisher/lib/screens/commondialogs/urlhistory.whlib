@@ -1,0 +1,208 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+BOOLEAN FUNCTION ValidateReplaceURLs(OBJECT owner, STRING ARRAY urls, INTEGER currentfile)
+{
+  FOREVERY(STRING url FROM urls)
+  {
+    STRING useurl := NormalizeHistoryURL(url);
+    RECORD historyinfo := GetURLHistoryRedirect(useurl, TRUE, FALSE);
+    IF(RecordExists(historyinfo))
+    {
+      IF(historyinfo.destid = currentfile)
+      {
+        owner->RunSimpleScreen("error", GetTid("publisher:urlhistory.urlnotunique", url));
+        RETURN FALSE;
+      }
+      //TODO combine error with multiple URLS
+      //TODO don't ask this if we're going to deny it later on anyway (stealing url from existing site)
+      IF(owner->RunSimpleScreen("confirm", GetTid("publisher:urlhistory.confirmreplace", historyinfo.desturl)) != "yes") // Ask the user if it's OK to move the reference to this file:
+        RETURN FALSE;
+    }
+  }
+  RETURN TRUE;
+}
+
+RECORD FUNCTION DoReplaceURLs(OBJECT owner, STRING ARRAY urls, INTEGER currentfile)
+{
+  RECORD retval := [ errors := STRING[]
+                   , newids := INTEGER[]
+                   ];
+
+  INTEGER oursite := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE fs_objects.id = currentfile;
+  FOREVERY(STRING url FROM urls)
+  {
+    STRING useurl := NormalizeHistoryURL(url);
+    RECORD existing := LookupPublisherURL(url);
+    IF(existing.site = 0 AND existing.webserver = 0)
+      INSERT GetTid("publisher:urlhistory.sitenotfound", UnpackURL(url).origin) INTO retval.errors AT END;
+    ELSE IF(NOT owner->contexts->user->HasRightOn("system:fs_fullaccess", existing.folder))
+    {
+      url := (SELECT AS STRING objecturl FROM system.fs_objects WHERE id = existing.folder) ?? url;
+      INSERT GetTid("publisher:urlhistory.nowriteaccess", url) INTO retval.errors AT END;
+    }
+
+    IF(Length(retval.errors) = 0) //not broken yet ?
+    {
+      INTEGER newid := AddURLHistoryEntry(currentfile, useurl);
+      INSERT newid INTO retval.newids AT END;
+    }
+  }
+  RETURN retval;
+}
+
+PUBLIC STATIC OBJECTTYPE URLHistory EXTEND TolliumScreenBase
+<
+  INTEGER id;
+
+  MACRO Init(RECORD data)
+  {
+    this->id := data.id;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetChildren(RECORD data)
+  {
+    RETURN SELECT rowkey := id
+                , date := creationdate
+                , url := PrepareHistoryURLForDisplay(url)
+             FROM GetURLHistoryData(this->id);
+  }
+
+  MACRO DoRowDelete(RECORD data)
+  {
+    this->DoRowsDelete([data]);
+  }
+
+  MACRO DoRowsDelete(RECORD ARRAY data)
+  {
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".areyousure")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    FOREVERY(RECORD entry FROM data)
+      RemoveURLHistoryEntry(entry.rowkey);
+
+    work->Finish();
+    ^history->Invalidate();
+  }
+
+  MACRO DoRowEdit(RECORD row)
+  {
+    INTEGER newrowid := this->RunScreen("#editurlhistoryentrydlg", CELL[ id := this->id, row ]);
+    ^history->ReloadList();
+    ^history->SetValueIfValid(newrowid);
+  }
+
+  MACRO DoBulkImport()
+  {
+    this->RunScreen("#inputbulkhistorydlg", [ id := this->id ]);
+    ^history->Invalidate();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditURLHistoryEntryDlg EXTEND TolliumScreenBase
+<
+  INTEGER id;
+  INTEGER editid;
+  STRING origurl;
+
+  MACRO Init(RECORD data)
+  {
+    this->id := data.id;
+    IF(RecordExists(data.row))
+    {
+      this->editid := data.row.rowkey;
+      this->origurl := data.row.url;
+      ^url->value := this->origurl;
+    }
+  }
+
+  PUBLIC INTEGER FUNCTION Submit()
+  {
+    IF(this->origurl = ^url->value) //nothing changed
+      RETURN this->editid;
+    IF(NOT ValidateReplaceURLs(this, STRING[^url->value], this->id))
+      RETURN 0;
+
+    OBJECT work := this->BeginWork();
+    INTEGER newid;
+    IF(NOT work->HasFailed())
+    {
+      RECORD replaceres := DoReplaceURLs(this, STRING[^url->value], this->id);
+
+      IF(Length(replaceres.errors) > 0)
+      {
+        work->AddErrorFor(^url, replaceres.errors[0]);
+      }
+      ELSE
+      {
+        newid := replaceres.newids[0];
+        IF(this->editid != 0)
+          RemoveURLHistoryEntry(this->editid);
+      }
+    }
+    RETURN work->Finish() ? newid : 0;
+  }
+>;
+
+PUBLIC OBJECTTYPE InputBulkHistoryDlg EXTEND TolliumScreenBase
+<
+  INTEGER id;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->id := data.id;
+  }
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+
+    STRING ARRAY tosplit := Tokenize(this->urls->value, "");
+    STRING ARRAY urls;
+    STRING current;
+    FOREVERY(STRING char FROM tosplit)
+    {
+      /// Cheat: We just split the URLs on control characters; should get rid of the cross-platform copy/paste crud when pasting from Excel
+      IF(GetByteValue(char) > 30)
+      {
+        current := current || char;
+        IF(#char < Length(tosplit) - 1)
+          CONTINUE;
+      }
+      IF(IsValidURL(current))
+      {
+        INSERT current INTO urls AT END;
+        current := "";
+      }
+      ELSE IF(Length(current) > 0)/// No reason to disallow empty lines (or, technically, a sequence of control characters like \r\n)
+      {
+        work->AddErrorFor(this->urls, this->GetTid(".urlinvalid", current));
+      }
+      CONTINUE;
+    }
+
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    /// Deduplicate:
+    urls := SELECT AS STRING ARRAY DISTINCT "https:" || NormalizeHistoryURL(url) FROM ToRecordArray(urls,"url");
+
+    IF(NOT ValidateReplaceURLs(this, urls, this->id))
+      RETURN FALSE;
+
+    STRING ARRAY faults;
+    work := this->BeginWork();
+
+    RECORD replaceres := DoReplaceURLs(this, urls, this->id);
+    FOREVERY(STRING err FROM ArraySlice(replaceres.errors,0,10))
+      work->AddError(err);
+
+    RETURN work->Finish();
+  }
+>;

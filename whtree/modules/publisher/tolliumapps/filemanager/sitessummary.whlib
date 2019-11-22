@@ -1,0 +1,141 @@
+﻿<?wh
+
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+RECORD FUNCTION GetFolderSummary(RECORD datasummary, INTEGER whichfolder)
+{
+  RECORD ARRAY localfiles := SELECT published
+                                  , outputsize := lastpublishsize
+                                  , inputsize := Length(data)
+                               FROM system.fs_objects
+                              WHERE isfolder=FALSE AND parent=whichfolder;
+  RECORD ARRAY localfolders := SELECT id FROM system.fs_objects WHERE isfolder=TRUE AND parent=whichfolder;
+
+  FOREVERY(RECORD file FROM localfiles)
+  {
+    datasummary.inputsize := datasummary.inputsize + file.inputsize;
+    datasummary.outputsize := datasummary.outputsize + file.outputsize;
+    INTEGER status := GetErrorFromPublished(file.published);
+    BOOLEAN warning := TestFlagFromPublished(file.published, PublishedFlag_Warning);
+    IF (warning AND status = 0)
+      datasummary.pubwarnings := datasummary.pubwarnings + 1;
+    ELSE IF (status > 100 AND status != 112/*site locked*/)
+      datasummary.puberrors := datasummary.puberrors + 1;
+  }
+  FOREVERY(RECORD folder FROM localfolders)
+  {
+    datasummary := GetFolderSummary(datasummary,folder.id);
+  }
+
+  datasummary.files :=   datasummary.files + Length(localfiles);
+  datasummary.folders := datasummary.folders + Length(localfolders);
+
+  RETURN datasummary;
+}
+
+INTEGER FUNCTION GetBrokenLinkCountForSite(INTEGER siteid)
+{
+  INTEGER ARRAY relevant_fs_objects := GetWHFSDescendantIds(siteid, FALSE, TRUE);
+
+  // Get all links for the requested site
+  INTEGER ARRAY ids :=
+      SELECT AS INTEGER ARRAY DISTINCT checked_objectlinks.link
+        FROM consilio.checked_objectlinks
+           , system.fs_settings
+           , system.fs_instances
+           , system.fs_objects
+       WHERE checked_objectlinks.system_fs_setting = fs_settings.id
+         AND fs_settings.fs_instance = fs_instances.id
+         AND fs_instances.fs_object = fs_objects.id
+         AND fs_objects.id IN relevant_fs_objects
+         AND fs_objects.publish;
+
+  RETURN LENGTH(
+      SELECT
+        FROM consilio.checked_links
+       WHERE id IN ids
+         AND status > 0          // link is already checked
+         AND status != 200);     // and is broken
+}
+
+// Get all links for this report's site with some extra information
+RECORD ARRAY FUNCTION GetSiteSummary()
+{
+  RECORD ARRAY results;
+
+  FOREVERY(RECORD site FROM SELECT * FROM system.sites)
+  {
+    RECORD summary := [ files := 0, folders := 1, inputsize := 0i64, outputsize := 0i64, puberrors := 0, pubwarnings := 0 ];
+    summary := GetFolderSummary(summary, site.root);
+
+    INSERT
+        [ id :=               site.id
+        , name :=             site.name
+        , root :=             site.root
+        , numfiles :=         summary.files
+        , numfolders :=       summary.folders
+        , inputbytes :=       summary.inputsize
+        , outputbytes :=      summary.outputsize
+        , puberrors :=        summary.puberrors
+        , pubwarnings :=      summary.pubwarnings
+        , brokenlinks :=      site.outputweb != 0 ? GetBrokenLinkCountForSite(site.id) : 0
+        , published :=        site.outputweb != 0
+        ] INTO results AT END;
+  }
+  RETURN results;
+}
+
+PUBLIC OBJECTTYPE SitesSummary EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->RefreshList();
+  }
+
+  MACRO RefreshList()
+  {
+    RECORD ARRAY total := SELECT * FROM GetSiteSummary() ORDER BY ToUppercase(name);
+    this->summary->rows := SELECT name
+                                , files := numfiles
+                                , files_sort := Right("0000000000" || numfiles, 10) || ToUppercase(name)
+                                , folders := numfolders
+                                , folders_sort := Right("0000000000" || numfolders, 10) || ToUppercase(name)
+                                , inputsize := this->tolliumuser->FormatFileSize(inputbytes, 0, FALSE)
+                                , inputsize_sort := Right("0000000000000" || inputbytes, 19) || ToUppercase(name)
+                                , outputsize := published ? this->tolliumuser->FormatFileSize(outputbytes, 0, FALSE) : "-"
+                                , outputsize_sort := (published ? "1" : "0") || Right("0000000000000" || outputbytes, 19) || ToUppercase(name)
+                                , puberrors := published ? puberrors : -1
+                                , puberrors_sort := (published ? "1" : "0") || Right("0000000000" || puberrors, 10) || ToUppercase(name)
+                                , pubwarnings := published ? pubwarnings : -1
+                                , pubwarnings_sort := (published ? "1" : "0") || Right("0000000000" || pubwarnings, 10) || ToUppercase(name)
+                                , brokenlinks := published AND brokenlinks >= 0 ? brokenlinks : -1
+                                , brokenlinks_sort := (published AND brokenlinks >= 0 ? "1" : "0") || Right("0000000000" || brokenlinks, 10) || ToUppercase(name)
+                                , root
+                             FROM total;
+
+    this->summary->footerrows :=
+        SELECT name := ""
+             , files := SUM(numfiles)
+             , folders := SUM(numfolders)
+             , inputsize := this->tolliumuser->FormatFileSize(SUM(INTEGER64(inputbytes)), 0, FALSE)
+             , outputsize := this->tolliumuser->FormatFileSize(SUM(INTEGER64(outputbytes)), 0, FALSE)
+             , puberrors := SUM(puberrors)
+             , pubwarnings := SUM(pubwarnings)
+             , brokenlinks := SUM(brokenlinks)
+          FROM total;
+  }
+
+  MACRO DoEditSite()
+  {
+    IF (RecordExists(this->summary->selection))
+      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid:= this->summary->selection.root ], DEFAULT RECORD, FALSE);
+  }
+>;

@@ -1,0 +1,2867 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/listtreehelper.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+CONSTANT STRING ARRAY validlistclasses := [ "", "verticaltabs" ];
+
+INTEGER FUNCTION GetTypeIdForListColumnType(STRING coltype)
+{
+  IF(coltype IN ["date","datetime"])
+    RETURN TYPEID(DATETIME);
+  ELSE IF(coltype IN ["integer","icon","time"])
+    RETURN TYPEID(INTEGER);
+  ELSE IF(coltype IN ["integer64"])
+    RETURN TYPEID(INTEGER64);
+  ELSE IF(coltype IN ["icons"])
+    RETURN TYPEID(INTEGER ARRAY);
+  ELSE IF(coltype IN ["blobrecord","richdocument"])
+    RETURN TYPEID(RECORD);
+  ELSE IF(coltype = "money")
+    RETURN TYPEID(MONEY);
+  ELSE IF(coltype = "float")
+    RETURN TYPEID(FLOAT);
+  ELSE IF(coltype = "boolean")
+    RETURN TYPEID(BOOLEAN);
+  ELSE
+    RETURN TYPEID(STRING);
+}
+
+PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// The language doc at init time to support gid-mapped columns FIXME probably move to compnoentbase
+  // FIXME PUBLIC OBJECT pvt_initialization_languagedoc;
+
+  /** The list/tree storage object for this list (type: ListTreeHelper)
+  */
+  OBJECT storage;
+
+
+  /// List of flags
+  STRING ARRAY pvt_flags;
+
+
+  /// Accept drops spec
+  RECORD pvt_acceptdrops;
+
+
+  /// Column list
+  RECORD ARRAY pvt_columns;
+
+  RECORD pvt_borders;
+
+  PUBLIC PROPERTY borders(pvt_borders, SetBorders);
+
+  /// Name of currently selected row layout
+  STRING pvt_rowlayout;
+
+
+  /// List of defined row layouts
+  RECORD ARRAY pvt_rowlayouts;
+
+
+  /// List of flags that need to be enabled for a row to be selectable
+  STRING ARRAY pvt_selectableflags;
+
+
+  /// List of style defintions
+  RECORD ARRAY pvt_styles;
+
+
+  /// is the list initially loaded
+  BOOLEAN pvt_loaded;
+
+
+  /// Name of cell with row icon
+  STRING pvt_rowiconname;
+
+  /// Name of cell with row icon hint
+  STRING pvt_rowiconhintname;
+
+  /// Name of cell with highlight name
+  STRING pvt_highlightname;
+
+  /// List of icons
+  STRING ARRAY pvt_icons;
+
+
+  /// Name of icon shown when dragging one row
+  STRING pvt_dragsingleicon;
+
+
+  /// Name of icon shown when dragging multiple rows
+  STRING pvt_dragmultipleicon;
+
+
+  /// Name of column on which the list is sorted, or '<ordered>' to use default ordering from rows array.
+  STRING pvt_sortcolumn;
+
+
+  /// Is the table sortable?
+  BOOLEAN pvt_sortable;
+
+  /// Whether the list is sortiing in an ascending order
+  BOOLEAN pvt_sortascending;
+
+
+  /// Text to show when the list is empty
+  STRING pvt_empty;
+
+
+  /// Action triggered when the user double-clicks on a row
+  OBJECT pvt_openaction;
+
+
+  /// Types of state to save
+  STRING ARRAY pvt_savestate;
+
+  /// Footer rows
+  RECORD ARRAY pvt_footerrows;
+
+  /// The default rowlayout
+  RECORD defaultrowlayout;
+
+  PUBLIC OBJECT valuecontext; //experimental: the context in which this list is a value, for finding the arrayedit of a list..
+
+  /// Firing mode of selectevent (synchronous/asynchronous)
+  STRING pvt_selectevent;
+
+  OBJECT pvt_eventlistener;
+
+  /// Selected listclass
+  STRING __class;
+
+
+  PUBLIC RECORD ARRAY debugactions;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** @short Returns the rowkey(s) of the current selected element. Throws if rowkey type is unknown.
+      @long For single-select lists, this property returns the rowkey of the current selected row. If no
+            row is selected, the default value for the rowkey type is returned (0 for integer rowkeys, ""
+            for string rowkeys). For multiple-select lists, an array with the rowkeys of the currently
+            selected rows is returned.
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+
+  /** @short Contains all the rows.
+      @long This property contains the rows in the list. Write to this property to replace the rows (only
+            allowed for static lists
+            If you want to replace only one row, please use UpdateSingleRow instead.
+      @example rowkey Rowkey of the row
+               enabled Whether the row is enabled
+  */
+  PUBLIC PROPERTY rows(GetRows, SetRows);
+
+
+  /** @short Contains footer rows.
+      @long This property contains the footer rows in the list. Write to this property to replace the rows
+  */
+  PUBLIC PROPERTY footerrows(GetFooterRows, SetFooterRows);
+
+  /** @short Get or set the currently selected rows
+      @long If you use this property to update the selection on a dynamic list, you should make sure that
+            the records you send are complete (ie: they contain all the necessary cells). For static lists,
+            the selection property only uses the rowkey cell to match the selection, it does not actually
+            copy the row
+  */
+  PUBLIC PROPERTY selection(GetSelection, SetListSelection);
+
+
+  /** @short List of columns in the list. Setting this property clears the current rows, as well as the row layouts
+      @example type Type of the column ('icon', 'text', 'email', 'image', 'time', 'date', 'datetime', 'integer', 'integer64', 'blobrecord', 'money', 'url') (mandatory)
+               title Title of the column
+               selecticonname Name of the row cell in which the id of the column icon is placed that must be shown when the row is selected (instead of the normal icon specified in iconname)
+               iconname Name of the row cell in which the id of the column icon is placed (empty if no icon is present)
+               iconoverlayname Name of the row cell in which the id of the overlay for the column icon is placed (empty if no icon overlay is present)
+               iconlink Whether the icon in this column is clickable for oniconclick (only for columns of type 'icon') (default: FALSE). FIXME: not implemented
+               name Name of the row cell which contains the data for this column. (mandatory)
+               width Preferred with of the column. May be fixed or proportional.
+               minwidth Minimum width of the column, fixed only.
+               storeutc Whether the data/datetime stored in the row is stored as UTC, and must be converted to the users' timezone (default: FALSE).
+               sortkeyname Name of the row cell which contains the value to be used when sorting (default: use the shown value)
+               precision Precision used to show time/datetime. Possible values: 'minutes', 'seconds', 'milliseconds' (optional, default: 'minutes')
+               checkboxname Name of the column that contains the value of the column checkbox for a row. If empty, no checkbox is shown.
+               checkboxenabled Name of the column that specifies whether the column checkbox is enabled in that row. If empty, all checkboxes are enabled.
+               checkboxvisible Name of the column that specifies whether the column checkbox is visible in that row. If empty, all checkboxes are shown.
+               tree TRUE when this column is a tree column. (optional, default: FALSE)
+               align Alignment for this column. Possible values: 'left', 'center', 'right'. (optional, default: 'left')
+               sortable Whether this column is sortable. (optional, default: TRUE)
+               hintname Name of cell containing the hint for a row
+               style Name of style for this row (see property 'styles')
+               show Type of data to show for blobrecord columns. Possible values: 'info', 'filename', 'mimetype', 'filesize'. (optional, default: 'filename')
+               customtype For custom column types, record with reference to translation object type. The object type must extend TolliumListColumnBase (optional)
+               customtype.objtype Library + name of the objecttype
+               customtype.data Data to pass to the object
+               position Position of this column. Columns are shown ordered on the position (optional).
+               edittype Editor type for this column (Currently '' or 'textedit' supported)
+               round Whether to round money values to the specified number of decimals (default: false)
+               decimals Number of decimals to display (default: 0)
+               emptyvalueisset If TRUE, if the displayed column value is equal to the value in emptyvalue, an empty column is displayed (default: false)
+               emptyvalue When emptyvalueisset is TRUE, an empty column is displayed when the column value is equal to this value
+  */
+  PUBLIC PROPERTY columns(pvt_columns, SetColumns);
+
+
+  /** Contains the name of the current row layout (empty for default layout). Set to the name
+      of another row layout from rowlayouts to select another row layout
+  */
+  PUBLIC PROPERTY rowlayout(pvt_rowlayout, SetRowLayout);
+
+
+  /** @short List of row layouts
+      @example name Name for this row layout. Mandatory.
+               columns List of columns to use for headers
+               columns.coldef Name of the column
+               rows List of rows
+               rows.cells List of cells in a row.
+               rows.cells.coldef Name of column to show in this cell
+               rows.cells.colspan Colspan for this cell (optional)
+               rows.cells.rowspan Rowspan for this cell (optional)
+  */
+  PUBLIC PROPERTY rowlayouts(pvt_rowlayouts, SetRowLayouts);
+
+
+  /** @short Name of the cell which contains the id of the row icon (may be empty)
+  */
+  PUBLIC PROPERTY rowiconname(pvt_rowiconname, SetRowIconName);
+
+  /** @short Name of the cell which contains the id of the row icon (may be empty)
+  */
+  PUBLIC PROPERTY rowiconhintname(pvt_rowiconhintname, SetRowIconHintName);
+
+  /** @short Name of the cell which contains the highlight indicator for a row
+  */
+  PUBLIC PROPERTY highlightname(pvt_highlightname, SetHighlightName);
+
+  /** @short List of icons for this list. The first icon in this list can be referred to with id 1, the second
+      with id 2, etc.
+  */
+  PUBLIC PROPERTY icons(pvt_icons, SetIcons);
+
+
+  /** @short Name of the icon to show when a single row is dragged
+  */
+  PUBLIC PROPERTY dragsingleicon(pvt_dragsingleicon, SetDragSingleIcon);
+
+
+  /** @short Name of the icon to show when a multiple rows are dragged
+  */
+  PUBLIC PROPERTY dragmultipleicon(pvt_dragmultipleicon, SetDragMultipleIcon);
+
+
+  /** @short List of styles
+      @example name Name of this style (optional, default: '')
+               bold Bold (optional, default: FALSE)
+               italic Italic (optional, default: FALSE)
+               backgroundcolor Background color (optional)
+               textcolor Text color (optional)
+  */
+  PUBLIC PROPERTY styles(pvt_styles, SetStyles);
+
+
+  /** Name of the column on which the list is currently sorted
+  */
+  PUBLIC PROPERTY sortcolumn(pvt_sortcolumn, SetSortColumn);
+
+
+  /** Whether the list is sorted in an ascending order
+  */
+  PUBLIC PROPERTY sortascending(pvt_sortascending, SetSortAscending);
+
+
+  /** Text to show when the list doesn't contain rows
+  */
+  PUBLIC PROPERTY empty(pvt_empty, SetEmpty);
+
+
+  /** List of flags that must be enabled for a component to be selectable
+  */
+  PUBLIC PROPERTY selectableflags(pvt_selectableflags, SetSelectableFlags);
+
+
+  /** Callback for dynamic trees that must return the rowkeys of path to an item in the tree.
+      A dynamic tree only works when ongetpath and ongetchildren are both set. If the item
+      doesn't exist anymore, an empty array must be returned. Otherwise, an array of rowkeys
+      must be returned with the path, starting with the rowkey of the root of the tree, ending
+      with the rowkey of the requested element.
+      Signature: STRING ARRAY FUNCTION ongetpath(STRING rowkey) for rowkeys of type STRING,
+      INTEGER ARRAY FUNCTION ongetpath(INTEGER rowkey) for rowkeys of type INTEGER.
+  */
+  PUBLIC PROPERTY ongetpath(this->storage->getpath, SetOnGetPath);
+
+
+  /** Callback for dynamic trees that must return the children rows of a row in the tree. Called
+      with a DEFAULT RECORD as parameter when the root items need to be retrieved.
+      Signature: RECORD ARRAY FUNCTION ongetchildren(RECORD parentrow)
+  */
+  PUBLIC PROPERTY ongetchildren(this->storage->getitems, SetOnGetChildren);
+
+
+  /** Callback for dynamic lists that must return all rows. If both ongetrows and ongetchildren are set,
+      ongetrows takes priority.
+
+      Signature: RECORD ARRAY FUNCTION ongetrows()
+  */
+  PUBLIC PROPERTY ongetrows(this->storage->getallitems, SetOnGetRows);
+
+
+  /** Contains the HareScript type of rowkeys in this list. Possible values: TypeID(INTEGER), TypeID(STRING)
+      Set when you have created a new list that doesn't contain any rows, yet you want to use the property
+      'value'.
+  */
+  PUBLIC PROPERTY rowkeytype(GetRowkeyType, SetRowkeyType);
+
+  //// The class for this list, eg 'verticaltabs'
+  PUBLIC PROPERTY class(__class, SetClass);
+
+  /** Called when the selection changes.
+      Signature: MACRO onselect()
+  */
+  PUBLIC FUNCTION PTR onselect;
+
+  /** Called when a cell is edited
+      Signature: BOOLEAN FUNCTION oncelledit(RECORD row, STRING cellname, STRING newvalue)
+  */
+  PUBLIC FUNCTION PTR oncelledit;
+
+  /** Called when the a checkbox or a radio button is checked. The row and the name of the
+      check box/radio button are given back as parameters (NOT the column name)
+      Signature: MACRO oncheck(RECORD row, STRING elementname)
+  */
+  PUBLIC FUNCTION PTR oncheck;
+
+
+  /** Called when the user clicks on the column of type 'icon' which has iconlink set to TRUE.
+      Signature: MACRO oncheck(RECORD row, STRING columnname)
+  */
+  PUBLIC FUNCTION PTR oniconclick;
+
+  /** Called when the user changes the sort order. The new sort order is recorded in the sortcolumn
+      and sortascending members.
+      Signature: MACRO onsortorderchange()
+  */
+  PUBLIC FUNCTION PTR onsortorderchange;
+
+  /** Called when the list gets focus
+      Signature: MACRO onfocusin()
+  */
+  PUBLIC PROPERTY onfocusin(pvt_onfocusin, pvt_onfocusin);
+
+  /** Called when restoring component state with the list of rowkeys to expand, can be used
+      to filter/expand that list.
+      Signature: VARIANT FUNCTION onrestoreexpand(VARIANT rowkeys)
+  */
+  PUBLIC FUNCTION PTR onrestoreexpand;
+
+  PUBLIC PROPERTY acceptdrops(pvt_acceptdrops, SetAcceptDrops);
+
+
+  /** Action called when a row is opened
+  */
+  PUBLIC PROPERTY openaction(pvt_openaction, SetOpenAction);
+
+
+  /** Deprecated
+  */
+  PUBLIC BOOLEAN rowselect;
+
+
+  /** Context menu shown when the user right-clicks on empty space
+  */
+  PUBLIC OBJECT newcontextmenu;
+
+
+  /** Context menu shown when the user right-clicks on a row
+  */
+  PUBLIC OBJECT selectcontextmenu;
+
+
+  /** Whether the column headers must be shown
+  */
+  PUBLIC BOOLEAN columnheaders;
+
+
+  /** List of flag cells in the rows list
+  */
+  PUBLIC PROPERTY flags(pvt_flags, SetFlags);
+
+
+  /** List of rowkeys of all expanded rows. The rowkeytype must be known before accessing this property.
+  */
+  PUBLIC PROPERTY expanded(this->storage->expanded, this->storage->expanded);
+
+
+  /** Row selectmode. Possible values: '', 'single', 'multiple'
+  */
+  PUBLIC PROPERTY selectmode(GetSelectMode, SetSelectMode);
+
+
+  /** Whether this list is sortable
+  */
+  PUBLIC PROPERTY sortable(pvt_sortable, SetSortable);
+
+
+  /** Containts the type of state to save. Allowed states: 'expanded','selection'.
+  */
+  PUBLIC PROPERTY savestate(pvt_savestate, SetSaveState);
+
+
+  /** Firing mode of the select event ('synchronous'/'asynchronous')
+  */
+  PUBLIC PROPERTY selectevent(pvt_selectevent, SetSelectEvent);
+
+  /// Event masks we should listen to
+  PUBLIC PROPERTY eventmasks(GetEventMasks, SetEventMasks);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposableListener;
+    EXTEND this BY TolliumIsDirtyable;
+    EXTEND this BY TolliumFileDropAccepter;
+
+    this->pvt_blockelement := TRUE;
+    this->componenttype := "list";
+    //this->height := "1pr";
+    //this->width := "1pr";
+    this->columnheaders := TRUE;
+    this->sortable := TRUE;
+    this->pvt_sortascending := TRUE;
+    this->pvt_dragsingleicon := "tollium:actions/dragsingle";
+    this->pvt_dragmultipleicon := "tollium:actions/dragmultiple";
+    this->pvt_selectevent := "asynchronous";
+
+    this->storage := NEW ListTreeHelper;
+    this->storage->callback := PRIVATE this;
+
+    this->formfieldtype := "string";
+    this->pvt_borders := [ top := TRUE, right := TRUE, bottom := TRUE, left := TRUE ];
+  }
+
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    OBJECT ARRAY comps;
+    IF(ObjectExists(this->newcontextmenu) AND this->newcontextmenu->visible)
+      INSERT this->newcontextmenu INTO comps AT END;
+    IF(ObjectExists(this->selectcontextmenu) AND this->selectcontextmenu->visible)
+      INSERT this->selectcontextmenu INTO comps AT END;
+    IF(ObjectExists(this->pvt_eventlistener))
+      INSERT this->pvt_eventlistener INTO comps AT END;
+
+    RETURN comps;
+  }
+
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "1pr";
+  }
+
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+
+    this->storage->SetupHelper(FALSE, def.ongetpath, def.ongetchildren, def.ongetrows);
+    this->storage->selectmode := def.selectmode;
+    this->onselect := def.onselect;
+    this->onfocusin := def.onfocusin;
+    this->oncelledit := def.oncelledit;
+    this->oncheck := def.oncheck;
+    this->oniconclick := def.oniconclick;
+    this->onsortorderchange := def.onsortorderchange;
+    this->pvt_acceptdrops := def.acceptdrops;
+
+    this->selectevent := def.selectevent;
+
+    this->openaction := def.openaction;
+
+    this->newcontextmenu := def.newcontextmenu;
+    this->selectcontextmenu := def.selectcontextmenu;
+
+    this->columnheaders := def.columnheaders;
+    this->pvt_empty := def.empty;
+    this->sortable := def.sortable;
+    this->pvt_selectableflags := def.selectableflags;
+
+    this->pvt_flags := def.flags;
+    this->pvt_icons := def.icons;
+    this->pvt_rowiconname := def.rowiconname;
+    this->pvt_rowiconhintname := def.rowiconhintname;
+    this->pvt_dragsingleicon := def.dragsingleicon;
+    this->pvt_dragmultipleicon := def.dragmultipleicon;
+    this->pvt_borders := def.borders;
+    this->__class := def.class;
+
+    //FIXME: Use an icon list instead of transferring all individual icon names!
+    this->columns := def.columns;
+    this->SetRowLayouts(def.rowlayouts);
+    this->SetRowLayout(def.rowlayout);
+    this->sortcolumn := def.sortcolumn;
+    this->pvt_styles := def.styles;
+    this->sortascending := def.sortascending;
+    this->highlightname := def.highlightname;
+
+    this->savestate := def.savestate;
+    IF (def.rowkeytype != "")
+      this->storage->rowkeytype := ParseRowKeyType(def.rowkeytype);
+
+    IF (NOT this->storage->isdynamic)
+      this->storage->SetStaticRows(def.rows);
+    this->eventmasks := def.eventmasks;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    VARIANT sel := this->selection;
+    RECORD ARRAY sellist;
+    IF (TypeID(sel) = TypeID(RECORD))
+      sellist := RecordExists(sel) ? [ RECORD(sel) ] : DEFAULT RECORD ARRAY;
+    ELSE
+      sellist := sel;
+
+    RETURN this->EnabledOnwith(min, max, flags, sellist, selectionmatch);
+  }
+
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN this->storage->IsValidValue(value);
+  }
+
+
+  UPDATE PUBLIC MACRO SaveComponentState()
+  {
+    IF (Length(this->savestate) = 0)
+      RETURN;
+
+    RECORD state;
+
+    IF (RecordExists(this->rows))
+    {
+      INSERT CELL rowkeytype := this->rowkeytype INTO state;
+
+      // Save expanded state if there are any rows
+      IF ("expanded" IN this->savestate AND this->storage->istree)
+      {
+        // We only want currently visible nodes (subnodes of currently collapsed nodes can still be expanded)
+        RECORD ARRAY visible_nodes := this->rows;
+        INTEGER i := 0;
+        INTEGER level := 0; // Expecting nodes from this (or higher) level
+        WHILE (i < Length(visible_nodes))
+        {
+          IF (visible_nodes[i].level > level)
+          {
+            // Level too low, this node is not visible
+            DELETE FROM visible_nodes AT i;
+          }
+          ELSE
+          {
+            IF (visible_nodes[i].level = level AND visible_nodes[i].expanded)
+            {
+              // This is an actual expanded node, we can expect nodes from a deeper level
+              level := level + 1;
+            }
+            ELSE IF (visible_nodes[i].level < level)
+            {
+              // This is a node on a higer level, switch to (sub)level of this node
+              level := visible_nodes[i].level + (visible_nodes[i].expanded ? 1 : 0);
+            }
+            // Check next node
+            i := i + 1;
+          }
+        }
+        STRING ARRAY visible_rowkeys := SELECT AS STRING ARRAY TypeToString(rowkey, this->rowkeytype) FROM visible_nodes;
+
+        // Only save visible expanded nodes
+        STRING ARRAY expanded_nodes;
+        FOREVERY (STRING rowkey FROM (SELECT AS STRING ARRAY TypeToString(value, this->rowkeytype) FROM ToRecordArray(this->expanded, 'value')))
+          IF (rowkey IN visible_rowkeys)
+            INSERT rowkey INTO expanded_nodes AT END;
+
+        INSERT CELL expanded := Detokenize(expanded_nodes, ' ') INTO state;
+      }
+
+      IF("selection" IN this->savestate AND this->rowkeytype IN [TYPEID(INTEGER),TYPEID(STRING)])
+      {
+        INSERT CELL selection := this->value INTO state;
+      }
+    }
+
+    this->owner->tolliumuser->SetComponentState(this->GetSaveStateKey(), state);
+  }
+
+
+  UPDATE PUBLIC MACRO RestoreComponentState()
+  {
+    BOOLEAN restore_expanded := "expanded" IN this->savestate;
+    BOOLEAN restore_selection := "selection" IN this->savestate AND NOT this->storage->receivedexplicitvalue;
+
+    IF (NOT (restore_expanded OR restore_selection))
+      RETURN;
+
+    RECORD state := this->owner->tolliumuser->GetComponentState(this->GetSaveStateKey());
+    IF (NOT RecordExists(state))
+      RETURN;
+
+    IF (CellExists(state, 'rowkeytype') AND RecordExists(this->rows) AND this->rowkeytype = state.rowkeytype)
+    {
+      // Restore expanded state
+      IF (restore_expanded AND CellExists(state, 'expanded') AND this->storage->istree)
+      {
+        // Note that we only _add_ to the state (and apply filters to the state) to preserve autoexpansion caused by new messages, items, inits, etc
+        VARIANT currently_expanded := this->expanded;
+        VARIANT extra_expand := GetTypeDefaultArray(this->rowkeytype);
+
+        FOREVERY (STRING rowkey FROM Tokenize(state.expanded, ' '))
+        {
+          VARIANT expandvalue := StringToType(rowkey, this->rowkeytype);
+          IF(expandvalue IN currently_expanded)
+            CONTINUE; //this was already expanded specifically, cannot filter it out
+          INSERT expandvalue INTO extra_expand AT END;
+        }
+
+        IF(Length(extra_expand) > 0 AND this->onrestoreexpand != DEFAULT MACRO PTR)
+          extra_expand := this->onrestoreexpand(extra_expand); //cleanup hook, eg to remove expensive whfs-private expansions
+        IF(Length(extra_expand) > 0)
+          this->expanded := currently_expanded CONCAT extra_expand;
+      }
+      IF(restore_selection AND CellExists(state,'selection') AND this->rowkeytype IN [TYPEID(INTEGER),TYPEID(STRING)])
+      {
+        BOOLEAN storedismultple := IsTypeidArray(TypeID(state.selection));
+        IF( (this->selectmode = "single" AND NOT storedismultple) OR (this->selectmode = "multiple" AND storedismultple) )
+        {
+          this->SetValueIfValid(state.selection);
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks from the storage
+  //
+
+  /** Called when all rows have been invalidated
+  */
+  MACRO LTH_UpdatedAllRows()
+  {
+    this->ExtUpdatedRows();
+  }
+
+
+  /** Called when a single row has been updated
+      @param row Row that has been updated
+      @cell rowkey Rowkey of the row
+  */
+  MACRO LTH_UpdatedRow(RECORD row)
+  {
+    this->ExtUpdatedRow(row.rowkey);
+  }
+
+
+  /** Called when the selection changes
+  */
+  MACRO LTH_UpdatedSelection(BOOLEAN frontend_change, BOOLEAN auto_change)
+  {
+    IF (frontend_change AND NOT auto_change)
+      this->ExtUpdatedSelection();
+    IF (this->onselect != DEFAULT FUNCTION PTR)
+    {
+      IF (frontend_change)
+        this->onselect(); // FIXME: what should we do? queue or direct execution
+      ELSE
+        this->owner->tolliumscreenmanager->QueueEvent(this, "select", DEFAULT RECORD);
+    }
+  }
+
+
+  /** Called when the list of child nodes of a row has been replaced.
+      @param parent Parent row
+      @param children Children rows
+  */
+  MACRO LTH_UpdatedChildnodes(RECORD parentrow, RECORD ARRAY children)
+  {
+    this->ExtUpdatedChildnodes(parentrow, children);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+
+  STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN ObjectExists(this->pvt_eventlistener) ? this->pvt_eventlistener->masks : DEFAULT STRING ARRAY;
+  }
+
+  MACRO SetEventMasks(STRING ARRAY eventmasks)
+  {
+    IF (LENGTH(eventmasks) = 0)
+    {
+      IF (ObjectExists(this->pvt_eventlistener))
+      {
+        this->pvt_eventlistener->masks := eventmasks;
+        this->pvt_eventlistener->DeleteComponent();
+        this->pvt_eventlistener := DEFAULT OBJECT;
+      }
+    }
+    ELSE
+    {
+      IF (NOT ObjectExists(this->pvt_eventlistener))
+      {
+        this->pvt_eventlistener := this->CreateSubComponent("eventlistener");
+        this->pvt_eventlistener->groupinterval := 1000;
+        this->pvt_eventlistener->onevents := PTR this->GotUpdateEvents;
+      }
+      this->pvt_eventlistener->masks := eventmasks;
+    }
+  }
+
+  MACRO GotUpdateEvents(RECORD ARRAY events)
+  {
+    this->Invalidate();
+  }
+
+  MACRO SetBorders(RECORD newborders)
+  {
+    this->pvt_borders := newborders;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetDropTarget(RECORD newdroptarget)
+  {
+  }
+
+  MACRO SetAcceptDrops(RECORD newacceptdrops)
+  {
+    this->pvt_acceptdrops := FixAcceptDrops(newacceptdrops);
+    this->ExtDropTargetUpdate();
+  }
+
+  MACRO SetOnGetPath(FUNCTION PTR newgetpath)
+  {
+    IF(newgetpath = this->storage->getpath)
+      RETURN;
+    this->storage->SetupHelper(this->storage->istree, newgetpath, this->storage->getitems, this->storage->getallitems);
+  }
+
+  MACRO SetOnGetChildren(FUNCTION PTR newgetchildren)
+  {
+    IF(newgetchildren = this->storage->getitems)
+      RETURN;
+    this->storage->SetupHelper(this->storage->istree, this->storage->getpath, newgetchildren, this->storage->getallitems);
+  }
+  MACRO SetOnGetRows(FUNCTION PTR newgetrows)
+  {
+    IF(newgetrows = this->storage->getallitems)
+      RETURN;
+    this->storage->SetupHelper(this->storage->istree, this->storage->getpath, this->storage->getitems, newgetrows);
+  }
+
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN this->storage->value;
+  }
+
+
+  MACRO SetValue(VARIANT keys)
+  {
+    this->storage->value := keys;
+  }
+
+
+  RECORD ARRAY FUNCTION GetRows()
+  {
+    RETURN this->storage->rows;
+  }
+
+  RECORD ARRAY FUNCTION GetFooterRows()
+  {
+    RETURN this->pvt_footerrows;
+  }
+
+  MACRO SetRows(RECORD ARRAY newrows)
+  {
+    this->storage->SetStaticRows(newrows);
+  }
+
+  MACRO SetFooterRows(RECORD ARRAY newrows)
+  {
+    this->pvt_footerrows := this->storage->CheckNewRows(newrows, TRUE);
+    this->ExtUpdatedFooterRows();
+  }
+
+
+  VARIANT FUNCTION GetSelection()
+  {
+    RETURN this->storage->selection;
+  }
+
+
+  MACRO SetListSelection(VARIANT rows)
+  {
+    this->storage->SetSelectionByAPI(rows);
+  }
+
+
+  MACRO SetColumns(RECORD ARRAY columns)
+  {
+    //ADDME: Overwrite columns, clear selection and list
+    RECORD ARRAY finalcols;
+    VARIANT default_emptyval := ""; // ?: operator coerces to known type, so both of them MUST be variant.
+
+    FOREVERY(RECORD col FROM columns)
+    {
+      RECORD newcol :=  [ type               := col.type
+                        , title              := CellExists(col, "title") ? col.title : col.name
+                        , gid                := CellExists(col, "gid") ? col.gid : ""
+                        , titlefromrowkey    := CellExists(col, "titlefromrowkey") AND col.titlefromrowkey
+                        , optiongid          := CellExists(col, "optiongid") ? col.optiongid : ""
+                        , selecticonname     := CellExists(col, "selecticonname") ? col.selecticonname : ""
+                        , iconname           := CellExists(col, "iconname") ? col.iconname : ""
+                        , iconoverlayname    := CellExists(col, "iconoverlayname") ? col.iconoverlayname : ""
+                        , iconlink           := CellExists(col, "iconlink") AND col.iconlink
+                        , name               := col.name
+                        , collapsedname      := CellExists(col, "collapsedname") ? col.collapsedname : ""
+                        , width              := CellExists(col, "width") ? col.width : ""
+                        , minwidth           := CellExists(col, "minwidth") ? col.minwidth : ""
+                        , storeutc           := CellExists(col, "storeutc") AND col.storeutc
+                        , sortkeyname        := CellExists(col, "sortkeyname") AND ToUppercase(col.sortkeyname) != ToUppercase(col.name) ? col.sortkeyname : ""
+                        , precision          := CellExists(col, "precision") ? col.precision : "minutes"
+                        , checkboxname       := CellExists(col, "checkboxname") ? col.checkboxname : ""
+                        , checkboxenabled    := CellExists(col, "checkboxenabled") ? col.checkboxenabled : ""
+                        , checkboxvisible    := CellExists(col, "checkboxvisible") ? col.checkboxvisible : ""
+                        , onmapvalue         := CellExists(col, "onmapvalue") ? col.onmapvalue : DEFAULT FUNCTION PTR
+                        , tree               := CellExists(col, "tree") ? col.tree : FALSE
+                        , align              := CellExists(col, "align") ? col.align : "left"
+                        , sortable           := CellExists(col, "sortable") ? col.sortable : TRUE
+                        , hintname           := CellExists(col, "hintname") ? col.hintname : ""
+                        , linkname           := CellExists(col, "linkname") ? col.linkname : ""
+                        , style              := CellExists(col, "style") ? col.style : ""
+                        , show               := CellExists(col, "show") ? col.show : "filename"
+                        , resolverobject     := CellExists(col, "resolverobject") ? col.resolverobject : DEFAULT OBJECT
+                        , position           := CellExists(col, "position") ? col.position : 0x7FFFFFFF
+                        , edittype           := CellExists(col, "edittype") ? col.edittype : ""
+                        , round              := CelLExists(col, "round") ? col.round : FALSE
+                        , decimals           := CellExists(col, "decimals") ? col.decimals : 0
+                        , emptyvalueisset    := CellExists(col, "emptyvalueisset") ? col.emptyvalueisset : FALSE
+                        , emptyvalue         := CellExists(col, "emptyvalue") ? col.emptyvalue : default_emptyval
+                        , dataidx            := -1
+                        , hintidx            := -1
+                        , linkidx            := -1
+                        , sortidx            := -1
+                        , checkboxidx        := -1
+                        , checkboxenabledidx := -1
+                        , iconidx            := -1
+                        , overlayidx         := -1
+                        , collapsedidx       := -1
+                        , mapping            := CellExists(col, "mapping") ? col.mapping : DEFAULT RECORD
+                        , objtype            := CellExists(col, "objtype") ? col.objtype : ""
+                        ];
+
+      IF(newcol.objtype != "" AND NOT ObjectExists(newcol.resolverobject))
+      {
+        newcol.resolverobject := MakeObject(newcol.objtype);
+        IF(NOT Objectexists(newcol.resolverobject))
+          THROW NEW Exception("Cannot resolve custom type " || newcol.objtype);
+
+        IF (NOT (newcol.resolverobject EXTENDSFROM TolliumListColumnBase))
+          THROW NEW Exception(`Custom type '${newcol.objtype}' does not extend TolliumListColumnBase`);
+
+        newcol.resolverobject->list := this;
+        newcol.resolverobject->SetupColumn(newcol);
+        newcol.resolverobject->StaticColumnInit(col);
+      }
+      INSERT newcol INTO finalcols AT END;
+    }
+
+    // Calculate final column ordering
+    STRING ARRAY colorder :=
+        SELECT AS STRING ARRAY name
+          FROM finalcols
+      ORDER BY position;
+
+    // Update column ordering to match calculated ordering
+    UPDATE finalcols
+       SET position := SearchElement(colorder, name);
+    // And reorder them (bit cumbersome, but after the above code the numbering might be wrong if there were duplicate positions
+    finalcols := SELECT * FROM finalcols ORDER BY position;
+
+    this->pvt_columns := finalcols;
+
+    // Recalculate the default row layout
+    this->defaultrowlayout := this->CheckRowLayout(
+        [ name := ""
+        , columns := (SELECT coldef := name
+                           , combinewithnext := FALSE
+                        FROM this->pvt_columns)
+        , rows := [ [ cells := (SELECT coldef := name FROM this->pvt_columns) ] ]
+        ], FALSE);
+
+    this->SetRowLayouts(DEFAULT RECORD ARRAY);
+    this->SetRowLayout("");
+
+    // FIXME: clear out the rows, refill requiredcells
+    //this->UpdateRows(DEFAULT RECORD ARRAY, FALSE, TRUE);
+    this->ExtColumnsUpdate();
+    this->FixColumns();
+  }
+
+
+  MACRO SetRowLayout(STRING layoutname)
+  {
+    IF (layoutname != "" AND NOT RecordExists(SELECT FROM this->pvt_rowlayouts WHERE ToUppercase(name) = ToUppercase(layoutname)))
+      THROW NEW TolliumException(this, "Row layout with name '"||layoutname||"' does not exist");
+
+    IF (this->pvt_rowlayout = layoutname)
+      RETURN;
+
+    this->pvt_rowlayout := layoutname;
+
+    STRING pre_sortcolumn := this->pvt_sortcolumn;
+
+    // Re-set the sort column, must be sure that the sortcolumn is one that is a main column in the rowlayout
+    this->SetSortColumn(this->pvt_sortcolumn);
+
+    // Update the whole component
+    this->ExtUpdatedComponent();
+  }
+
+
+  MACRO SetRowLayouts(RECORD ARRAY newlayouts)
+  {
+    FOREVERY (RECORD rec FROM newlayouts)
+      newlayouts[#rec] := this->CheckRowLayout(rec, TRUE);
+
+    IF (RecordExists(SELECT FROM newlayouts GROUP BY name HAVING Count(*) >= 2))
+      THROW NEW TolliumException(this, "Row layout must all have a unique name");
+
+    this->pvt_rowlayouts := newlayouts;
+    this->pvt_rowlayout := ""; // Reset to default
+
+    // Update the whole component
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetRowIconName(STRING name)
+  {
+    IF (this->pvt_rowiconname != name)
+    {
+      IF(Length(this->storage->rows)!=0)
+        THROW NEW TolliumException(this, "Cannot change the row icon name if rows are still active");
+      this->pvt_rowiconname := name;
+      this->FixColumns(); //update the internal list of columns to check
+    }
+  }
+
+  MACRO SetRowIconHintName(STRING name)
+  {
+    IF (this->pvt_rowiconhintname != name)
+    {
+      IF(Length(this->storage->rows)!=0)
+        THROW NEW TolliumException(this, "Cannot change the row icon hint name if rows are still active");
+      this->pvt_rowiconhintname := name;
+      this->FixColumns(); //update the internal list of columns to check
+    }
+  }
+
+  MACRO SetHighlightName(STRING name)
+  {
+    IF (this->pvt_highlightname != name)
+    {
+      IF(Length(this->storage->rows)!=0)
+        THROW NEW TolliumException(this, "Cannot change the highlight name if rows are still active");
+
+      this->pvt_highlightname := name;
+      this->FixColumns();
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetIcons(STRING ARRAY newicons)
+  {
+    this->pvt_icons := newicons;
+
+    this->SetDirtyFlags([ icons := TRUE ]);
+  }
+
+  MACRO SetDragSingleIcon(STRING newicon)
+  {
+    this->pvt_dragsingleicon := newicon;
+
+    //ADDME: A somewhat more selective update event, this replaces the entire component.
+    this->ExtUpdatedComponent();
+  }
+
+
+  MACRO SetDragMultipleIcon(STRING newicon)
+  {
+    this->pvt_dragmultipleicon := newicon;
+
+    //ADDME: A somewhat more selective update event, this replaces the entire component.
+    this->ExtUpdatedComponent();
+  }
+
+
+  MACRO SetSortColumn(STRING newsortcolumn)
+  {
+    STRING orgsortcol := newsortcolumn;
+    RECORD layout := this->GetCurrentRowLayout();
+
+    IF (newsortcolumn != "<ordered>")
+    {
+      BOOLEAN found := FALSE;
+      FOREVERY(RECORD col FROM layout.columns)
+      {
+        IF (col.combinewithnext AND #col != LENGTH(layout.columns) - 1)
+          CONTINUE;
+
+        IF (col.coldef = newsortcolumn)
+        {
+          found := SELECT AS BOOLEAN sortable FROM this->pvt_columns WHERE name = col.coldef;
+          BREAK;
+        }
+      }
+      IF (NOT found AND this->sortable)
+      {
+        // Find first sortable column
+        FOREVERY(RECORD col FROM layout.columns)
+        {
+          IF (col.combinewithnext AND #col != LENGTH(layout.columns) - 1)
+            CONTINUE;
+
+          IF (SELECT AS BOOLEAN sortable FROM this->pvt_columns WHERE name = col.coldef)
+          {
+            newsortcolumn := col.coldef;
+            found := TRUE;
+            BREAK;
+          }
+        }
+      }
+      //else there are no sortable columns, use ordering
+      IF (NOT found)
+        newsortcolumn := "<ordered>";
+    }
+
+    IF (newsortcolumn != this->pvt_sortcolumn)
+    {
+      this->pvt_sortcolumn := newsortcolumn;
+      this->ExtSortOrderUpdate();
+    }
+  }
+
+
+  MACRO SetSortAscending(BOOLEAN newascending)
+  {
+    IF (this->pvt_sortascending != newascending)
+    {
+      this->pvt_sortascending := newascending;
+      this->ExtSortOrderUpdate();
+    }
+  }
+
+
+  MACRO SetEmpty(STRING newempty)
+  {
+    this->pvt_empty := newempty;
+    this->ExtEmptyTextUpdate();
+  }
+
+
+  MACRO SetOpenAction(OBJECT action)
+  {
+    this->pvt_openaction := action;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetStyles(RECORD ARRAY newstyles)
+  {
+    RECORD ARRAY finalstyles;
+    FOREVERY (RECORD style FROM newstyles)
+      INSERT [ name :=         CellExists(style, 'name') ? style.name : ""
+             , bold :=         CellExists(style, 'bold') AND style.bold
+             , italic :=       CellExists(style, 'italic') AND style.italic
+             , backgroundcolor := CellExists(style, 'backgroundcolor') ? style.backgroundcolor : ""
+             , textcolor :=    CellExists(style, 'textcolor') ? style.textcolor : ""
+             ] INTO finalstyles AT END;
+    this->pvt_styles := finalstyles;
+    //ADDME: Handle update
+  }
+
+
+  MACRO SetSelectableFlags(STRING ARRAY flags)
+  {
+    this->pvt_selectableflags := flags;
+    this->ExtUpdatedComponent();
+  }
+
+
+  MACRO SetFlags(STRING ARRAY newflags)
+  {
+    IF(EncodeHSON(SortArray(newflags)) = EncodeHSON(SortArray(this->pvt_flags)))
+      RETURN;
+
+    this->pvt_flags := newflags;
+    this->FixColumns(); //update the internal list of columns to check
+  }
+
+
+  STRING FUNCTION GetSelectMode()
+  {
+    RETURN this->storage->selectmode;
+  }
+
+
+  MACRO SetSelectMode(STRING newselectmode)
+  {
+    IF(this->storage->selectmode = newselectmode)
+      RETURN;
+
+    this->storage->selectmode := newselectmode;
+    this->ExtUpdatedComponent();
+  }
+
+
+  MACRO SetSortable(BOOLEAN newsortable)
+  {
+    IF (newsortable != this->pvt_sortable)
+    {
+      this->pvt_sortable := newsortable;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+
+  INTEGER FUNCTION GetRowkeyType()
+  {
+    RETURN this->storage->rowkeytype;
+  }
+
+
+  MACRO SetRowkeyType(INTEGER newtype)
+  {
+    this->storage->rowkeytype := newtype;
+  }
+
+
+  MACRO SetSaveState(STRING ARRAY savestate)
+  {
+    this->pvt_savestate := DEFAULT STRING ARRAY;
+    IF ("expanded" IN savestate)
+      INSERT "expanded" INTO this->pvt_savestate AT END;
+    IF ("selection" IN savestate)
+      INSERT "selection" INTO this->pvt_savestate AT END;
+  }
+
+  MACRO SetSelectEvent(STRING newtype)
+  {
+    IF (newtype NOT IN [ "synchronous", "asynchronous" ])
+      THROW NEW TolliumException(this, "Invalid event firing mode: '" || EncodeJava(newtype) || "'");
+
+    this->pvt_selectevent := newtype;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetClass(STRING class)
+  {
+    IF(class = this->class)
+      RETURN;
+    IF(class NOT IN validlistclasses)
+      THROW NEW Exception(`Invalid list class, supported classes are: '${Detokenize(validlistclasses,"', '")}'`);
+
+    this->class := class;
+    this->ExtUpdatedComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  /** Called when a single row is updated using UpdateSingleRow (fast path
+      to avoid complete resend of all rows).
+      @param rowkey Rowkey of the updated row
+  */
+  MACRO ExtUpdatedRow(VARIANT rowkey)
+  {
+//    PRINT("Extendlist: ExtUpdatedRow '"||rowkey||"'\n");
+//    PRINT(AnyToString(this->storage->rows[this->storage->GetPositionByRowkey(rowkey)], "boxed"));
+
+    this->EnsureFilledDirtyFlags();
+
+    // If a full update is scheduled, no need to do partial updates
+    IF (NOT this->dirtyflags.rows)
+    {
+      RECORD pos := LowerBound(this->dirtyflags.rowkeys, rowkey);
+      IF (NOT pos.found)
+      {
+        IF (LENGTH(this->dirtyflags.rowkeys) = 0)
+        {
+          // Replace the rowkeys cell; assignment doesn't change the type from VARIANT ARRAY, and it is more efficient to search in a typed array.
+          DELETE CELL rowkeys FROM this->dirtyflags;
+          INSERT CELL rowkeys := GetTypeDefaultArray(TYPEID(rowkey)) INTO this->dirtyflags;
+        }
+        INSERT rowkey INTO this->dirtyflags.rowkeys AT pos.position;
+      }
+    }
+  }
+
+
+
+  /** Called when the footerrows property has been updated in HareScript
+  */
+  MACRO ExtUpdatedFooterRows()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.footerrows := TRUE;
+  }
+
+  /** Called when the rows property has been updated in HareScript
+  */
+  MACRO ExtUpdatedRows()
+  {
+    //PRINT("Extendlist: ExtUpdatedRows\n");
+    //this->ExtUpdatedComponent();
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.rows := TRUE;
+  }
+
+
+
+  /** Called when the selection has been changed in HareScript
+  */
+  MACRO ExtUpdatedSelection()
+  {
+//    PRINT("Extendlist: ExtUpdatedSelection\n");
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.selection := TRUE;
+  }
+
+
+
+  /** Called when the children rows of a row have changed (dynamic tree only) in HareScript
+      @param parent Parent row
+      @param childnodes Children rows
+  */
+  MACRO ExtUpdatedChildnodes(RECORD parent, RECORD ARRAY childrows)
+  {
+//    PRINT("Extendlist: ExtUpdatedChildnodes\n");
+    this->ExtUpdatedRows();/*disabled
+    this->EnsureFilledDirtyFlags();
+    INSERT [ parent := parent, childnodes := childnodes ] INTO this->dirtyflags.childnodes AT END;
+    */
+  }
+
+
+
+  /** Called when the list of columns has changed in HareScript
+  */
+  MACRO ExtColumnsUpdate()
+  {
+    //FIXME: Invoke parent update function (and perhaps even do away with todd's manual list column updater)
+    this->ExtUpdatedComponent();
+  }
+
+
+  /** Called when the sort order is changed in HareScript
+  */
+  MACRO ExtSortOrderUpdate()
+  {
+//    PRINT("Extendlist: ExtSortOrderUpdate\n");
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.sortorder := TRUE;
+  }
+
+
+  /** Called when the empty text has been updated in HareScript
+  */
+  MACRO ExtEmptyTextUpdate()
+  {
+//    PRINT("Extendlist: ExtEmptyTextUpdate\n");
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.emptytext := TRUE;
+  }
+
+
+  /** Called to signal completed handling of an inline edit */
+  MACRO ExtEditComplete(VARIANT rowkey, INTEGER cellidx, BOOLEAN accept)
+  {
+    this->EnsureFilledDirtyFlags();
+    INSERT [ rowkey := TypeToString(rowkey, TypeID(rowkey))
+           , cellidx := cellidx
+           , accept := accept
+           ] INTO this->dirtyflags.editcompletions AT END;
+  }
+
+
+  /** Called when the droptarget has been changes */
+  // FIXME: implement updating without marking the component fully dirty
+  MACRO ExtDropTargetUpdate()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.fully := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Returns the current row layout
+      @cell name Name of layout
+      @cell isdefault Whether this is the default layout
+  */
+  RECORD FUNCTION GetCurrentRowLayout()
+  {
+    RECORD layout;
+    IF (this->rowlayout = "")
+      RETURN this->defaultrowlayout;
+
+    layout :=
+        SELECT *
+          FROM this->pvt_rowlayouts
+         WHERE ToUppercase(name) = ToUppercase(this->pvt_rowlayout);
+
+    IF(NOT RecordExists(layout))
+      THROW NEW Exception("Invalid rowlayout '" || this->pvt_rowlayout || "'");
+
+    RETURN layout;
+  }
+
+
+  RECORD ARRAY FUNCTION CheckRowLayoutRows(RECORD ARRAY rows, INTEGER ARRAY rowspans)
+  {
+    //ADDME: Check colspans and rowspans
+    FOREVERY (RECORD row FROM rows)
+    {
+      IF (NOT CellExists(row, "cells"))
+        THROW NEW TolliumException(this, "Row layout row #" || #row || " without cells");
+
+      INTEGER curcol;
+
+      FOREVERY (RECORD rowcell FROM row.cells)
+      {
+        FOR (; curcol < Length(rowspans); curcol := curcol + 1)
+        {
+          IF (rowspans[curcol] = 0)
+            BREAK;
+          ELSE
+            rowspans[curcol] := rowspans[curcol] - 1;
+        }
+        IF (curcol >= Length(rowspans))
+        {
+          THROW NEW TolliumException(this, "Row layout row #" || #row || " has no unspanned columns for cell #" || #rowcell || " - more column headers may be needed");
+        }
+
+        INTEGER cellnum := (SELECT AS INTEGER #pvt_columns + 1 FROM this->pvt_columns WHERE ToUppercase(name) = ToUppercase(rowcell.coldef))-1;
+        IF(cellnum = -1)
+          THROW NEW TolliumException(this, "Row layout row #" || #row || " cell #" || #rowcell || " referring to non-existing coldef '" || rowcell.coldef || "'");
+
+        IF (NOT CellExists(rowcell, "coldef"))
+          THROW NEW TolliumException(this, "Row layout row #" || #row || " cell #" || #rowcell || " without coldef");
+        IF (NOT CellExists(rowcell, "colspan"))
+          INSERT CELL colspan := 1 INTO rows[#row].cells[#rowcell];
+        IF (NOT CellExists(rowcell, "rowspan"))
+          INSERT CELL rowspan := 1 INTO rows[#row].cells[#rowcell];
+
+        DELETE CELL layoutcolumn, cellnum FROM rows[#row].cells[#rowcell];
+        INSERT CELL layoutcolumn := curcol INTO rows[#row].cells[#rowcell];
+        INSERT CELL cellnum := cellnum INTO rows[#row].cells[#rowcell];
+
+        FOR (INTEGER spannedcol := 0; spannedcol < rows[#row].cells[#rowcell].colspan; spannedcol := spannedcol + 1)
+        {
+          IF (curcol >= Length(rowspans))
+            THROW NEW TolliumException(this, "Row layout row #" || #row || " has too many spanned columns");
+
+          IF (rowspans[curcol] > 0)
+            THROW NEW TolliumException(this, "Row layout row #" || #row || " cell #" || #rowcell || " spans over rowspanned column");
+
+          rowspans[curcol] := rows[#row].cells[#rowcell].rowspan - 1;
+
+          curcol := curcol + 1;
+        }
+        WHILE (curcol < Length(rowspans) AND rowspans[curcol] > 0)
+        {
+          rowspans[curcol] := rows[#row].cells[#rowcell].rowspan - 1;
+
+          curcol := curcol + 1;
+        }
+      }
+      IF (curcol < Length(rowspans))
+        THROW NEW TolliumException(this, "Row layout row #" || #row || " not spanning over all columns");
+    }
+
+    FOREVERY (INTEGER rowspan FROM rowspans)
+      IF (rowspan > 0)
+        THROW NEW TolliumException(this, "Row layout column #" || #rowspan || " has too many spanned rows");
+
+    RETURN rows;
+  }
+
+  /* Validates a row layout record. Throws on error.
+  */
+  RECORD FUNCTION CheckRowLayout(RECORD newlayout, BOOLEAN requirenonemptyname)
+  {
+    IF (NOT CellExists(newlayout, "NAME"))
+      THROW NEW TolliumException(this, "Row layout must have a name");
+    IF (requirenonemptyname AND newlayout.name = "")
+      THROW NEW TolliumException(this, "Row layout must have a non-empty name");
+
+    // Constraint checking
+    INTEGER ARRAY rowspans, dragrowspans;
+    IF (NOT CellExists(newlayout, "columns"))
+      THROW NEW TolliumException(this, "Row layout without columns");
+
+    BOOLEAN have_dragcolumns := CellExists(newlayout, "DRAGCOLUMNS");
+    STRING ARRAY dragcolumns := have_dragcolumns ? newlayout.dragcolumns : DEFAULT STRING ARRAY;
+
+    FOREVERY (RECORD col FROM newlayout.columns)
+    {
+      IF (NOT CellExists(col, "coldef"))
+        THROW NEW TolliumException(this, "Row layout column #" || #col || " without coldef");
+      IF (NOT RecordExists(SELECT FROM this->pvt_columns WHERE ToUppercase(name) = ToUppercase(col.coldef)))
+        THROW NEW TolliumException(this, "Row layout column #" || #col || " referring to non-existing coldef '" || col.coldef || "'");
+
+      IF (NOT have_dragcolumns)
+        INSERT col.coldef INTO dragcolumns AT END;
+
+      BOOLEAN indraglayout := col.coldef IN dragcolumns;
+      DELETE CELL indraglayout FROM newlayout.columns[#col];
+      INSERT CELL indraglayout := indraglayout INTO newlayout.columns[#col];
+
+      IF (NOT CellExists(col, "COMBINEWITHNEXT"))
+        INSERT CELL combinewithnext := FALSE INTO newlayout.columns[#col];
+
+      INSERT 0 INTO rowspans AT END;
+      IF (indraglayout)
+        INSERT 0 INTO dragrowspans AT END;
+    }
+
+    IF (NOT have_dragcolumns)
+    {
+      IF (CellExists(newlayout, "DRAGROWS"))
+        THROW NEW TolliumException(this, "Setting dragcolumns is required when dragrows has been set in a rowlayout");
+      INSERT CELL dragcolumns := dragcolumns INTO newlayout;
+    }
+    ELSE IF (NOT CellExists(newlayout, "DRAGROWS"))
+      THROW NEW TolliumException(this, "Setting dragrows is required when dragcolumns has been set in a rowlayout");
+
+    /* fails on the multirow layout of the issue tracker
+    IF (this->sortable AND this->pvt_sortcolumn != "" AND NOT RecordExists(SELECT FROM newlayout.columns WHERE ToUppercase(coldef) = ToUppercase(this->pvt_sortcolumn)))
+    {
+      THROW NEW TolliumException(this, "Sort column '" || this->pvt_sortcolumn || "' for list '" || this->name || "' is not used in row layout");
+      PRINT("Sort column '" || this->pvt_sortcolumn || "' for list '" || this->name || "' is not used in row layout\n");
+    }*/
+/*
+    STRING dragcolumnswanted := Detokenize(newlayout.dragcolumns, " ");
+    STRING dragcolumnsinlayout := Detokenize((SELECT AS STRING ARRAY coldef FROM newlayout.columns WHERE indraglayout), " ");
+    IF (dragcolumnswanted != dragcolumnsinlayout)
+      THROW NEW TolliumException(this, "Draglayout columns may only reference columns declared layout, in the same order (wanted=" || dragcolumnswanted || ", inlayout=" || dragcolumnsinlayout || ")");
+*/
+    newlayout.rows := this->CheckRowLayoutRows(newlayout.rows, rowspans);
+    IF (NOT CellExists(newlayout, "DRAGROWS"))
+      INSERT CELL dragrows := newlayout.rows INTO newlayout;
+    ELSE
+      newlayout.dragrows := this->CheckRowLayoutRows(newlayout.dragrows, dragrowspans);
+
+    RETURN newlayout;
+  }
+
+  PUBLIC VARIANT FUNCTION GetDefaultValueForColumnType(STRING coltype)
+  {
+    RETURN GetTypeDefaultValue(GetTypeIdForListColumnType(coltype));
+  }
+
+  /** Walks the column list, updates the list tree helper to check for required columns
+  */
+  MACRO FixColumns() //run after column update to fix sorting etc info
+  {
+    BOOLEAN istree;
+
+    this->storage->required_cells := DEFAULT RECORD ARRAY;
+    this->storage->updateable_cells := DEFAULT STRING ARRAY;
+
+    IF (this->rowiconname != "")
+    {
+      INSERT [ name := this->rowiconname, type := TypeID(INTEGER), allowdupe := TRUE ] INTO this->storage->required_cells AT END;
+    }
+    IF (this->rowiconhintname != "")
+    {
+      INSERT [ name := this->rowiconhintname, type := TypeID(STRING), allowdupe := TRUE ] INTO this->storage->required_cells AT END;
+    }
+    IF (this->highlightname != "")
+    {
+      INSERT [ name := this->highlightname, type := TypeID(BOOLEAN), allowdupe := TRUE ] INTO this->storage->required_cells AT END;
+    }
+
+    BOOLEAN foundsortcolumn := FALSE;
+    FOREVERY(RECORD col FROM this->pvt_columns)
+    {
+      IF(col.width="") //need to assign a width?
+      {
+        IF(col.type="icon")
+          this->pvt_columns[#col].width:="16px";
+        ELSE
+          this->pvt_columns[#col].width:="1pr";
+      }
+
+      IF(col.tree)
+        istree := TRUE;
+
+      INTEGER coltype;
+      IF(ObjectExists(col.resolverobject))
+        coltype := col.resolverobject->GetExpectedInputType();
+      ELSE
+        coltype := GetTypeIdForListColumnType(col.type);
+
+      // for onmapvalue override to check the result of onmapvalue to be the correct valuetype for the representation type
+      // and then pass the correct type of the input for onmapvalue (so CheckNewRows() in listtreehelper can correctly check rows)
+      IF(CellExists(col, "onmapvalue") AND col.onmapvalue != DEFAULT FUNCTION PTR)
+      {
+        // the required_cell which the listtreehelper will check must be the of the type the input is
+        // NOT the type which will be output
+        /*
+        RECORD functiondesc := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(col.onmapvalue);
+        IF (functiondesc.returntype != coltype)
+          THROW NEW Exception("onmapvalue doesn't return the value required for the listcolumn's type"); // ADDME: add the expected typename
+
+        coltype := functiondesc.parameters[1].type; // (parameter[0] is the screen the function is within)
+        */
+        RECORD functiondesc := GetRawFunctionPtrSignature(col.onmapvalue);
+        IF (functiondesc.returntype != coltype)
+          THROW NEW TolliumException(this, `onmapvalue expected to return '${GetTypeName(coltype)}' (to match the list column's type), but got a '${GetTypeName(functiondesc.returntype)}' instead (column '${col.name}')`);
+
+        IF (Length(functiondesc.params) != 1 OR functiondesc.params[0].has_default)
+          THROW NEW TolliumException(this, `onmapvalue requires one parameter (column '${col.name})')`);
+
+        coltype := functiondesc.params[0].type;
+      }
+      ELSE IF(RecordExists(col.mapping))
+      {
+        coltype := GetTypeIdForListColumnType(col.mapping.sourcetype);
+      }
+
+      INSERT [ name := col.name
+             , type := coltype
+             , allowdupe := FALSE
+             ] INTO this->storage->required_cells AT END;
+
+      IF (col.iconname != "")
+        INSERT [ name := col.iconname, type := TypeID(INTEGER), allowdupe := TRUE ] INTO this->storage->required_cells AT END;
+      IF (col.selecticonname != "")
+        INSERT [ name := col.selecticonname, type := TypeID(INTEGER), allowdupe := TRUE ] INTO this->storage->required_cells AT END;
+      IF (col.iconoverlayname != "")
+        INSERT [ name := col.iconoverlayname, type := TypeID(INTEGER), allowdupe := TRUE ] INTO this->storage->required_cells AT END;
+      IF (col.sortkeyname != "")
+        INSERT [ name := col.sortkeyname, type := 0, allowdupe := TRUE ] INTO this->storage->required_cells AT END;
+      IF (col.collapsedname != "")
+        INSERT [ name := col.collapsedname, type := 0, allowdupe := TRUE ] INTO this->storage->required_cells AT END;
+      IF (col.hintname != "")
+        INSERT [ name := col.hintname, type := TypeID(STRING), allowdupe := TRUE ] INTO this->storage->required_cells AT END;
+      IF (col.linkname != "")
+        INSERT [ name := col.linkname, type := TypeID(STRING), allowdupe := TRUE ] INTO this->storage->required_cells AT END;
+
+      IF (col.checkboxname != "")
+      {
+        INSERT [ name := col.checkboxname
+               , type := TYPEID(BOOLEAN)
+               , allowdupe := FALSE
+               ] INTO this->storage->required_cells AT END;
+
+        INSERT ToUppercase(col.checkboxname) INTO this->storage->updateable_cells AT END;
+
+        IF (col.checkboxenabled != "")
+          INSERT [ name := col.checkboxenabled
+                 , type := TYPEID(BOOLEAN)
+                 , allowdupe := TRUE
+                 ] INTO this->storage->required_cells AT END;
+
+        IF (col.checkboxvisible != "")
+          INSERT [ name := col.checkboxvisible
+                 , type := TYPEID(BOOLEAN)
+                 , allowdupe := TRUE
+                 ] INTO this->storage->required_cells AT END;
+      }
+
+      IF(col.sortable AND col.name = this->pvt_sortcolumn)
+        foundsortcolumn := TRUE;
+    }
+    FOREVERY(STRING flag FROM this->pvt_flags)
+    {
+      INSERT [ name := flag
+             , type := TypeID(BOOLEAN)
+             , allowdupe := FALSE
+             ] INTO this->storage->required_cells AT END;
+    }
+
+    IF(this->sortable AND NOT foundsortcolumn AND Length(this->pvt_columns)>0 AND this->pvt_sortcolumn != "<ordered>")
+      this->pvt_sortcolumn := this->pvt_columns[0].name;
+
+    STRING dupename := SELECT AS STRING Any(name)
+                         FROM this->storage->required_cells
+                        WHERE allowdupe=FALSE
+                     GROUP BY ToUppercase(name)
+                       HAVING Count(*)>=2;
+    IF(dupename!="")
+      THROW NEW TolliumException(this, "Duplicate cellname '" || dupename || "' in the list"); //ADDME Which one?
+
+    this->storage->SetupHelper(istree, this->storage->getpath, this->storage->getitems, this->storage->getallitems);
+  }
+
+
+  ///Is this list really sortable, considering 'sortable' and the column definitions
+  BOOLEAN FUNCTION IsActuallySortable()
+  {
+    RETURN this->sortable AND this->columnheaders AND NOT this->storage->istree;
+  }
+
+
+  /** Checks if a selection matches an enableon
+      @param min Minimum number of selected rows
+      @param max Maximum number of selected rows
+      @param flags Flags that must match the selection
+      @param sellist List of selected rows
+      @param selectionmatch Type of match. Possible values: 'all', 'any'
+      @return Whether the selection passes the test successfully.
+  */
+  BOOLEAN FUNCTION EnabledOnWith(INTEGER min, INTEGER max, STRING ARRAY flags, RECORD ARRAY sellist, STRING selectionmatch)
+  {
+    IF (this->storage->selectmode != "")
+    {
+      // Selectmode is single or multiple, use selection
+      RETURN CheckEnabledFlags(sellist, this->pvt_flags, flags, min, max, selectionmatch);
+    }
+    ELSE
+    {
+      // Selectmode is none, use checkbox columns instead
+      FOREVERY (RECORD col FROM this->columns)
+      {
+        sellist := DEFAULT RECORD ARRAY;
+
+        IF (col.checkboxname != "")
+          FOREVERY (RECORD row FROM this->storage->rows)
+            IF (GetCell(row, col.checkboxname))
+              INSERT row INTO sellist AT END;
+
+        IF (CheckEnabledFlags(sellist, this->pvt_flags, flags, min, max, selectionmatch))
+          RETURN TRUE;
+      }
+      RETURN FALSE;
+    }
+  }
+
+  STRING FUNCTION GetSortKeyForvalue(RECORD coldef, VARIANT sortval, STRING formattedvalue)
+  {
+    SWITCH(TypeId(sortval))
+    {
+      CASE TypeId(INTEGER)
+      {
+        IF(sortval>=0)
+          RETURN "1" || Right("000000000" || sortval,10);
+        RETURN "0" || Right("000000000" || (sortval+0x80000000),10);
+      }
+      CASE TypeId(INTEGER64)
+      {
+        IF(sortval>=0)
+          RETURN "1" || Right("000000000000000000" || sortval,19);
+        RETURN "0" || Right("000000000000000000" || (sortval+(-9223372036854775808i64)),19);
+      }
+      CASE TypeId(MONEY)
+      {
+        IF(sortval>=0)
+          RETURN "1" || Right("000000000000000000" || FormatMoney(sortval,-1,'','',FALSE),20);
+        RETURN "0" || Right("000000000000000000" || FormatMoney(92233720368547.75807m+sortval,-1,'','',FALSE),20);
+      }
+      CASE TypeId(FLOAT)
+      {
+        // Get exponent and mantissa. Mind that if sortval = 0, both exponent and mantissa are 0!
+        RECORD parts := FrExp(sortval);
+
+        // For negative numbers, the bigger the exponent, the smaller the sortkey
+        IF (parts.mantissa < 0)
+          parts.exponent := 0x7fffffff - parts.exponent;
+
+        // First, encode the exponent (an integer)
+        STRING exp;
+        IF (parts.exponent >= 0)
+          exp := (parts.mantissa <= 0 ? "0" : "1") || Right("000000000" || parts.exponent,10);
+        ELSE
+          exp := (parts.mantissa <= 0 ? "1" : "0") || Right("000000000" || parts.exponent+0x80000000,10);
+
+        // Then encode the mantissa (a float in the range [.5,1>)
+        IF (parts.mantissa >= 0)
+          RETURN "1" || exp || FormatFloat(parts.mantissa, -1);
+        RETURN "0" || exp || FormatFloat(Abs(parts.mantissa), -1);
+      }
+      CASE TypeId(DATETIME)
+      {
+        RETURN Right("000000000" || GetDayCount(sortval),10) || Right("000000000" || GetMsecondCount(sortval),10);
+      }
+      CASE TypeID(BOOLEAN)
+      {
+        RETURN sortval ? '1' : '0';
+      }
+      CASE TypeID(STRING)
+      {
+        // Only resolve tid if the sort column is not explicitly given (ADDME or let javascript do localeCompare?)
+        RETURN coldef.sortkeyname != "" ? NormalizeText(sortval, this->owner->tolliumuser->language)
+                                        : NormalizeText(formattedvalue /*this->GetParsedListCellTid(coldef, sortval)*/, this->owner->tolliumuser->language);
+      }
+      DEFAULT
+      {
+        RETURN "";
+      }
+    }
+  }
+
+  /** Function that converts a value into a sortable (by javascript) value
+
+      @cell formattedvalue the title that was generated using GetFormattedListCell, used for values of type STRING to sort (without needing to know specifics on titlefromrowkey or optiongid)
+  */
+  STRING FUNCTION GetSortableListCell(RECORD coldef, RECORD listrow, STRING formattedvalue)
+  {
+    //Exceptions first
+    IF(coldef.sortkeyname="")
+    {
+      IF(coldef.type="image")
+        RETURN ""; //don't sort an image, just break if someone did not specify an explicit sorting key.
+    }
+
+    STRING takecell := coldef.sortkeyname != "" ? coldef.sortkeyname : coldef.name;
+    IF(NOT CellExists(listrow, takecell))
+      THROW NEW TolliumException(this, "A row passed to list '" || this->name || "' does not have a required cell named '" || takecell || "'");
+
+    VARIANT basevalue := GetCell(listrow, takecell);
+    VARIANT mappedvalue := coldef.sortkeyname="" ? this->GetColumnMappedValue(coldef,basevalue) : basevalue;
+    VARIANT sortval := ObjectExists(coldef.resolverobject) AND coldef.sortkeyname="" ? coldef.resolverobject->TranslateValue(mappedvalue) : mappedvalue;
+
+    IF(IsTypeidArray(TypeId(sortval))) //sort-of fix for arrays, eg icon lists. STRING ARRAYs will still confuse things because of the odd formattedvalue handling
+    {
+      STRING result;
+      FOREVERY(VARIANT el FROM sortval)
+        result := (#el=0 ? "" : result || "\t") || this->GetSortKeyForvalue(coldef, el, formattedvalue);
+      RETURN result;
+    }
+    RETURN this->GetSortKeyForvalue(coldef, sortval, formattedvalue);
+  }
+
+
+  /** Returns whether a row is expandable
+      @param rows List of rows
+      @param rownum Index of row to check
+  */
+  BOOLEAN FUNCTION IsRowExpandable(RECORD ARRAY rows, INTEGER rownum)
+  {
+    IF(this->storage->isdynamic)
+      RETURN rows[rownum].expandable;
+    ELSE
+      RETURN rownum < Length(rows)-1 AND rows[rownum].level < rows[rownum+1].level;
+  }
+
+  STRING FUNCTION GetParsedListCellTid(RECORD coldef, STRING val)
+  {
+    IF (val = "")
+      RETURN "";
+
+    IF (coldef.optiongid != "")
+      RETURN GetTid(coldef.optiongid || "." || val); // optiongid.columnvalue
+    ELSE
+      RETURN GetTid(coldef.gid || "." || coldef.name || "-" || val); // gid.name/tid.columnvalue
+  }
+
+  VARIANT FUNCTION GetColumnMappedValue(RECORD coldef, VARIANT basevalue)
+  {
+    IF(coldef.onmapvalue != DEFAULT FUNCTION PTR)
+      RETURN coldef.onmapvalue(basevalue);
+
+    IF(RecordExists(coldef.mapping))
+    {
+      FOREVERY(RECORD mapvalue FROM coldef.mapping.mapvalues)
+        IF(mapvalue.value = basevalue)
+        {
+          IF(coldef.mapping.istid)
+            RETURN GetTid(mapvalue.result);
+          RETURN mapvalue.result;
+        }
+
+      RETURN this->GetDefaultValueForColumnType(coldef.type);
+    }
+    RETURN basevalue;
+  }
+
+  /** Get the formatted value of a list cell
+      @param coldef Column
+      @param listrow Row
+  */
+  STRING FUNCTION GetFormattedListCell(RECORD coldef, RECORD listrow, STRING cellname)
+  {
+    IF(NOT CellExists(listrow,cellname))
+      RETURN ""; //footer cells may be missing
+
+    VARIANT basevalue := GetCell(listrow, cellname);
+    IF (coldef.emptyvalueisset AND basevalue = coldef.emptyvalue)
+      RETURN "";
+
+    VARIANT mappedvalue := this->GetColumnMappedValue(coldef, basevalue);
+
+    VARIANT displayval := ObjectExists(coldef.resolverobject) ? coldef.resolverobject->TranslateValue(mappedvalue) : mappedvalue;
+
+    SWITCH(coldef.type)
+    {
+      CASE "text","email","url"
+      {
+        IF (coldef.titlefromrowkey OR coldef.optiongid != "")
+          RETURN this->GetParsedListCellTid(coldef, displayval);
+        ELSE
+          RETURN displayval;
+      }
+      CASE "float"
+      {
+        RETURN this->owner->tolliumuser->FormatFloat(displayval, coldef.decimals);
+      }
+      CASE "money"
+      {
+        RETURN this->owner->tolliumuser->FormatMoney(displayval, coldef.decimals, coldef.round);
+      }
+      CASE "image"
+      {
+        RETURN "";
+      }
+      CASE "time"
+      {
+        INTEGER time := displayval;
+        RETURN this->owner->tolliumuser->FormatTimestamp(time, coldef.precision);
+      }
+      CASE "date", "datetime"
+      {
+        DATETIME date := displayval;
+        IF(date!=DEFAULT DATETIME AND date!=MAX_DATETIME)
+        {
+          IF (coldef.type = "date")
+            RETURN this->owner->tolliumuser->FormatDate(date, coldef.storeutc, TRUE);
+          IF (coldef.type = "datetime")
+            RETURN this->owner->tolliumuser->FormatDateTime(date, coldef.precision, coldef.storeutc, TRUE);
+        }
+        RETURN "";
+      }
+      CASE "integer", "integer64"
+      {
+        IF (coldef.titlefromrowkey OR coldef.optiongid != "")
+          RETURN this->GetParsedListCellTid(coldef, ToString(displayval));
+        ELSE
+          RETURN ToString(displayval);
+      }
+      CASE "icon"
+      {
+        RETURN ToString(displayval);
+      }
+      CASE "icons"
+      {
+        STRING retval;
+        FOREVERY (INTEGER icon FROM displayval)
+          retval := retval || " " || icon;
+        RETURN SubString(retval, 1);
+      }
+      CASE "blobrecord"
+      {
+        SWITCH (coldef.show)
+        {
+          CASE "info",""
+          {
+            IF (CellExists(displayval, "filename") AND CellExists(displayval, "data"))
+              RETURN GetTid("tollium:components.fileedit.filename",
+                            displayval.filename,
+                            this->owner->tolliumuser->FormatFilesize(Length(displayval.data), 0));
+          }
+          CASE "filename", "mimetype"
+          {
+            IF (CellExists(displayval, coldef.show))
+              RETURN GetCell(displayval, coldef.show);
+          }
+          CASE "filesize"
+          {
+            IF (CellExists(displayval, "data"))
+              RETURN this->owner->tolliumuser->FormatFileSize(Length(displayval.data), 0, FALSE);
+          }
+        }
+        RETURN "";
+      }
+      CASE "richdocument"
+      {
+        STRING ARRAY lines := RecordExists(displayval) ? Tokenize(BlobToString(ConvertHTMLToPlainText(displayval.htmltext, 0, "utf-8", DEFAULT FUNCTION PTR)), "\n") : STRING[];
+        // Return the first line (trim any '\r'), append with ellipsis if there are more lines
+        RETURN Length(lines) > 0 ? (TrimWhitespace(lines[0]) || (Length(lines) > 1 ? " \u2026" : "")) : "";
+      }
+      DEFAULT
+      {
+        THROW NEW TolliumException(this, "Unknown list column type '" || coldef.type || "'");
+      }
+    }
+  }
+
+  RECORD FUNCTION GetRowByToddRowkey(STRING encoded_rowkey)
+  {
+    INTEGER current_rowkeytype := RecordExists(this->storage->rows) ? TypeId(this->storage->rows[0].rowkey) : 0;
+    IF (current_rowkeytype = 0) // Rowkey type not known, so no rows available anyway
+      RETURN DEFAULT RECORD;
+
+    VARIANT myrowkey := StringToType(encoded_rowkey, current_rowkeytype);
+    INTEGER rowid := this->storage->GetPositionByRowkey(myrowkey);
+    IF(rowid<0)
+      RETURN DEFAULT RECORD;
+
+    RETURN this->storage->rows[rowid];
+  }
+
+  UPDATE BOOLEAN FUNCTION IsAnyAncestorOf(RECORD ARRAY items, RECORD target)
+  {
+    IF(NOT this->storage->istree)
+      RETURN FALSE;
+    items := SELECT * FROM items WHERE CellExists(items, "PVT_ROWKEY");
+    IF (Length(items) = 0)
+      throw new exception("no rowkeys");//RETURN FALSE;
+
+    WHILE (RecordExists(target))
+    {
+      IF (RecordExists(SELECT FROM items WHERE pvt_rowkey = target.rowkey))
+        RETURN TRUE;
+
+      target := this->GetParentRow(target.rowkey);
+    }
+
+    RETURN FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC INTEGER FUNCTION GetRowFlatPosition(VARIANT rowkey)
+  {
+    RETURN this->storage->GetPositionByRowkey(rowkey);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsAncestorOf(VARIANT parent, VARIANT suspectedchild)
+  {
+    IF(NOT this->storage->istree)
+      RETURN FALSE;
+
+    WHILE(TRUE)
+    {
+      RECORD trynode := this->GetParentRow(suspectedchild);
+      IF(NOT RecordExists(trynode))
+        RETURN FALSE;
+      IF(trynode.rowkey = parent) //same row!
+        RETURN TRUE;
+      suspectedchild := trynode.rowkey;
+    }
+  }
+
+  /** Get the parent row of a specific row in a tree
+      @param rowkey Rowkey of child row
+      @return Parent row, or DEFAULT RECORD if the parent does not exist.
+  */
+  PUBLIC RECORD FUNCTION GetParentRow(VARIANT rowkey)
+  {
+    IF(NOT this->storage->istree)
+      RETURN DEFAULT RECORD;
+
+    INTEGER rownum := this->storage->GetPositionByRowkey(rowkey);
+    IF(rownum<0)
+      RETURN DEFAULT RECORD;
+
+    INTEGER curlevel := this->storage->rows[rownum].level;
+    rownum:=rownum-1; //-1 to immediately head for our parent row
+    WHILE(rownum >= 0)
+    {
+      IF(this->storage->rows[rownum].level < curlevel)
+        RETURN this->storage->rows[rownum];
+      rownum:=rownum-1;
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Get the path until the specified rowkey. Does not include the specified row */
+  PUBLIC RECORD ARRAY FUNCTION GetPathRows(VARIANT rowkey)
+  {
+    RECORD ARRAY retval;
+    WHILE(TRUE)
+    {
+      RECORD parent := this->GetParentRow(rowkey);
+      IF(NOT RecordExists(parent))
+        BREAK;
+      INSERT parent INTO retval AT 0;
+      rowkey := parent.rowkey;
+    }
+    RETURN retval;
+  }
+
+  /** Get the direct children of a specific row
+      @param rowkey Key of parent
+      @return Children of the parent
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetChildRows(VARIANT rowkey)
+  {
+    RETURN this->storage->GetChildRows(rowkey);
+  }
+
+
+  /** Updates a single row in the rows list
+      @param row Updated row data
+      @param row.rowkey Rowkey of the row to update (mandatory)
+  */
+  PUBLIC BOOLEAN FUNCTION UpdateSingleRow(RECORD row)
+  {
+    RETURN this->storage->UpdateSingleRow(row);
+  }
+
+
+  /** Triggers a list reload for dynamic lists
+  */
+  PUBLIC MACRO ReloadList() // reload complete list
+  {
+    this->storage->Invalidate();
+    this->storage->rows; //and make sure the rows are loaded
+  }
+
+
+  /** Triggers a list reload for dynamic lists
+  */
+  UPDATE PUBLIC MACRO Invalidate()
+  {
+    this->storage->Invalidate();
+  }
+
+  /** Get the root rows (unindented rows) of the list
+      @return Root rows
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetRootRows()
+  {
+    RETURN this->storage->GetRootRows();
+  }
+
+
+  /** @short Get the id of an icon
+      @long This function looks up an icon in the list of available icons for the list, and returns the id of the icon
+            for use as the icon or selectedicon in rows. If the requested icon is not found in the list, it is added and
+            the new id is returned.
+  */
+  PUBLIC INTEGER FUNCTION GetIcon(STRING iconpath)
+  {
+    IF (iconpath = "")
+      RETURN 0;
+    INTEGER idx := SearchElement(this->pvt_icons, iconpath);
+    IF (idx < 0)
+    {
+      idx := Length(this->pvt_icons);
+      INSERT iconpath INTO this->icons AT END;
+    }
+    RETURN idx + 1;//Icon positions are 1-based
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Unsorted stuff
+  //
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetDraggedItems(RECORD ARRAY rawitems)
+  {
+    RECORD ARRAY result;
+    FOREVERY (RECORD rawitem FROM rawitems)
+    {
+      RECORD row := this->GetRowByToddRowkey(rawitem.id);
+      IF (CellExists(row, "DRAGINFO") AND CellExists(row.draginfo, "TYPE") AND row.draginfo.type != "")
+      {
+        INSERT
+            [ pvt_rowkey := row.rowkey
+            , type := row.draginfo.type
+            , data := row.draginfo.data
+            ] INTO result AT END;
+      }
+    }
+    RETURN result;
+  }
+
+  PUBLIC RECORD FUNCTION SimulateDrag()
+  {
+    RETURN [ items := SELECT AS RECORD ARRAY CellInsert(draginfo, "ID", rowkey) FROM this->rows WHERE tolliumselected
+           , source := this
+           ];
+  }
+  //FIXME merge this with ExecuteListDragDrop
+  PUBLIC MACRO SimulateDrop(STRING type, RECORD drag, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ droplocation := "ontarget"
+                               , target := "" ], options, [ optional := ["target"], notypecheck := ["target"]]);
+
+    RECORD msg := [ dropeffect := type
+                  , droplocation := options.droplocation
+                  , source := "local"
+                  , sourcecomp := drag.source->toddname
+                  , items := drag.items
+                  ];
+    IF(CellExists(options,'target'))
+      INSERT CELL target := TypeToString(options.target, TypeId(options.target)) INTO msg;
+    this->ProcessInboundMessage("acceptdrop", msg);
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH(type)
+    {
+      CASE "acceptdrop"
+      {
+        msgdata := this->ProcessUpload(msgdata);
+
+        RECORD droptarget;
+
+        IF (CellExists(msgdata, "TARGET"))
+          droptarget := this->GetRowByToddRowkey(msgdata.target);
+
+        // FIXME: noloops serverside check
+        RECORD dropdata := this->VerifyDrop(this->pvt_acceptdrops, msgdata, droptarget, this->pvt_flags);
+        IF (RecordExists(dropdata) AND this->pvt_acceptdrops.ondrop != DEFAULT FUNCTION PTR)
+          this->pvt_acceptdrops.ondrop([ items := dropdata.items ], droptarget, msgdata.droplocation, msgdata.dropeffect);
+      }
+
+      CASE "sortorder"
+      {
+        this->pvt_sortcolumn := msgdata.columnname;
+        this->pvt_sortascending := msgdata.ascending;
+
+        IF (this->onsortorderchange != DEFAULT FUNCTION PTR)
+          this->onsortorderchange();
+      }
+
+      CASE "celledit"
+      {
+        RECORD row := this->GetRowByToddRowkey(msgdata.rowkey);
+        BOOLEAN success;
+
+        IF(RecordExists(row) AND msgdata.cellidx < Length(this->columns))
+        {
+          IF(this->oncelledit != DEFAULT MACRO PTR)
+            success := this->oncelledit(row, this->columns[msgdata.cellidx].name, TrimWhitespace(msgdata.newvalue));
+        }
+
+        //this->ExtEditComplete(msgdata.rowkey, msgdata.cellidx, success);
+      }
+      CASE "magicaction"
+      {
+        RECORD row := this->GetRowByToddRowkey(msgdata.rowkey);
+        IF(RecordExists(row))
+          this->ExecuteMagicAction(msgdata.type, row);
+      }
+
+      DEFAULT
+      {
+        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+  MACRO ExecuteMagicAction(STRING type, RECORD row)
+  {
+    IF (NOT this->contexts->user->hasRight("system:sysop") AND GetDTAPStage() != "development")
+      RETURN;
+
+    IF(type="inspectrow")
+    {
+      Reflect(row);
+      RETURN;
+    }
+    IF(type LIKE "debugaction:*")
+    {
+      INTEGER actionid := ToInteger(Substring(type,12),-1);
+      IF(actionid < 0 OR actionid >= Length(this->debugactions))
+        RETURN;
+
+      ExecuteDebugAction(this->owner, this->debugactions[actionid], GetCell(row, this->debugactions[actionid].cellname));
+    }
+  }
+
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    RECORD row := this->GetRowByToddRowkey(path);
+    IF(NOT RecordExists(row) AND path LIKE '[*]')
+    {
+      IF(path='[open]')
+      {
+        IF(ObjectExists(this->openaction))
+        {
+          this->openaction->TolliumClick();
+          RETURN;
+        }
+        THROW NEW TolliumException(this, `No open action defined`);
+      }
+
+      //ADDME order by default sort before selecting the row
+      INTEGER seqnr := ToInteger(Substring(path, 1, Length(path)-2),-1);
+      IF(seqnr >= 0 AND seqnr < Length(this->rows))
+        row := this->rows[seqnr];
+    }
+    IF(NOT RecordExists(row))
+      THROW NEW TolliumException(this, `Did not find a row with rowkey '${path}'`);
+
+    this->selection := [row];
+    this->owner->frame->focused := this;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION LookupDownload(RECORD data)
+  {
+    IF (CellExists(data, "TYPE"))
+    {
+      SWITCH (data.type)
+      {
+        CASE "dragout"
+          {
+            RECORD source := this->GetRowByToddRowkey(data.rowkey);
+            RETURN this->LookupDragout(source.draginfo);
+          }
+      }
+    }
+
+    RETURN TolliumComponentBase::LookupDownload(data);
+  }
+
+  RECORD stylerec;
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ selection  := FALSE
+        , rows       := FALSE
+        , footerrows := FALSE
+        , sortorder  := FALSE
+        , emptytext  := FALSE
+        , icons      := FALSE
+        , childnodes := DEFAULT RECORD ARRAY
+        , rowkeys    := DEFAULT VARIANT ARRAY
+        , editcompletions := DEFAULT RECORD ARRAY
+        ];
+  }
+
+  RECORD ARRAY FUNCTION CleanupRowLayout(RECORD ARRAY inrows)
+  {
+    RETURN SELECT cells := (SELECT COLUMN cellnum, colspan, rowspan FROM inrow.cells) FROM inrows AS inrow;
+  }
+
+  RECORD ARRAY FUNCTION GetColHeaders(RECORD ARRAY columns)
+  {
+    RETURN
+        SELECT col :=       (SELECT AS INTEGER #pvt_columns + 1 FROM this->pvt_columns WHERE pvt_columns.name = columns.coldef) - 1
+             , indraglayout
+             , combinewithnext
+          FROM columns;
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    this->stylerec := DEFAULT RECORD;
+    FOREVERY (RECORD style FROM this->styles)
+      this->stylerec := CellInsert(this->stylerec, style.name, style);
+
+    IF (this->dirtyflags.fully)
+    {
+      STRING ARRAY unmask := GetUnmask(this,["select","check","iconclick","celledit","focusin"]);
+      IF (this->storage->isdynamic)
+        INSERT "expand" INTO unmask AT END;
+
+      RECORD layout := this->GetCurrentRowLayout();
+      RECORD ARRAY rowlayout, dragrowlayout;
+      RECORD ARRAY colheaders;
+
+      rowlayout := this->CleanupRowLayout(layout.rows);
+      dragrowlayout := this->CleanupRowLayout(layout.dragrows);
+      colheaders := this->GetColHeaders(layout.columns);
+
+      IF(this->pvt_rowiconname != "")
+      {
+        //If a rowicon is set, columns is hacked by Web_listColumns() to add an extra column for the rowicon. update rowlayout and colheaders too
+        FOREVERY(RECORD row FROM rowlayout)
+          UPDATE rowlayout[#row].cells SET cellnum := cellnum + 1;
+        INSERT [ cellnum := 0, rowspan := Length(rowlayout), colspan := 1 ] INTO rowlayout[0].cells AT 0;
+
+        // Also adjust celllnr in draglayout, but don't add the column
+        FOREVERY(RECORD row FROM dragrowlayout)
+          UPDATE dragrowlayout[#row].cells SET cellnum := cellnum + 1;
+
+        FOREVERY(RECORD colheader FROM colheaders)
+          colheaders[#colheader].col := colheaders[#colheader].col + 1;
+
+        INSERT [ col := 0, indraglayout := FALSE, combinewithnext := FALSE ] INTO colheaders AT 0;
+      }
+
+      RECORD listinfo := [ selectmode        := this->storage->selectmode
+                         , newcontextmenu    := GetComponentName(this->newcontextmenu)
+                         , selectcontextmenu := GetComponentName(this->selectcontextmenu)
+                         , openaction        := GetComponentName(this->openaction)
+                         , empty             := this->empty
+                         , columnheaders     := this->columnheaders
+                         , sortable          := this->IsActuallySortable()
+                         , isatree           := this->storage->istree
+                         , selectableflags   := Detokenize(this->selectableflags," ")
+                         , unmasked_events   := unmask
+                         //, rowiconname       := this->rowiconname
+                         , dragsingleicon    := ParseIconPointer(this->owner->frame->module, this->dragsingleicon)
+                         , dragmultipleicon  := ParseIconPointer(this->owner->frame->module, this->dragmultipleicon)
+                         , columns           := this->Web_ListColumns()
+                         , rowlayout         := rowlayout
+                         , dragrowlayout     := dragrowlayout
+                         , colheaders        := colheaders
+                         , rows              := this->Web_RenderRows(this->rows, TRUE)
+                         , footerrows        := this->Web_RenderRows(this->footerrows, FALSE)
+                         , acceptdrops       := this->Web_PrintAcceptDrops(this->pvt_acceptdrops)
+                         , borders           := this->borders
+                         , highlightidx      := this->highlightname != "" ? 4 : -1
+                         , syncselect        := this->selectevent = "synchronous"
+                         , sortcolumn        := this->pvt_sortcolumn
+                         , debugactions      := this->debugactions
+                         , class             := this->class
+                         ];
+
+      // Parse icons AFTER webrenderrows, allow onmapvalue to add icons
+      STRING ARRAY icons;
+      FOREVERY(STRING icon FROM this->icons)
+        INSERT ParseIconPointer(this->owner->frame->module, icon) INTO icons AT END;
+
+      INSERT CELL icons := icons INTO listinfo;
+
+      this->owner->tolliumcontroller->SendComponent(this, listinfo);
+    }
+    ELSE
+    {
+      // Send icons first, rendering rows depend on the correct icons being present
+      IF (this->dirtyflags.icons)
+      {
+        // Parse icons AFTER webrenderrows, allow onmapvalue to add icons
+        STRING ARRAY icons;
+        FOREVERY(STRING icon FROM this->icons)
+          INSERT ParseIconPointer(this->owner->frame->module, icon) INTO icons AT END;
+
+        this->ToddUpdate([ type:="icons", icons := icons ]);
+      }
+      IF (this->dirtyflags.rows)
+      {
+        this->ToddUpdate([type:="rows", rows := this->Web_RenderRows(this->rows, TRUE)]);
+      }
+      ELSE
+      {
+        // We must FIRST send childnodes, because a partial update on 'expanded' can cause them to be retrieved
+        IF (LENGTH(this->dirtyflags.childnodes) > 0)
+        {
+          FOREVERY (RECORD upd FROM this->dirtyflags.childnodes)
+          {
+            STRING rowkey := TypeToString(upd.parent.rowkey, TypeID(upd.parent.rowkey));
+            this->ToddUpdate([type:="children", parent:=rowkey, rows :=  this->Web_RenderRows(upd.childnodes, TRUE) ]);
+          }
+        }
+
+        IF (LENGTH(this->dirtyflags.rowkeys) > 0)
+        {
+          VARIANT ARRAY newrows;
+          FOREVERY(VARIANT rowkey FROM this->dirtyflags.rowkeys)
+          {
+            INTEGER row := this->storage->GetPositionByRowkey(rowkey);
+            IF (row != -1)
+              INSERT this->Web_RenderRow(this->storage->rows[row], this->storage->rows, row, TRUE) INTO newrows AT END;
+          }
+
+          this->ToddUpdate([type:="partialrows", rows := newrows]);
+        }
+      }
+      IF (this->dirtyflags.footerrows)
+      {
+        this->ToddUpdate([ type:= "footerrows", footerrows := this->Web_RenderRows(this->footerrows, FALSE) ]);
+      }
+      IF (this->dirtyflags.selection)
+      {
+        STRING ARRAY newselection := SELECT AS STRING ARRAY TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey))
+                                       FROM this->storage->rows
+                                      WHERE tolliumselected;
+        this->ToddUpdate([type:="selection", selection:=newselection]);
+      }
+      IF (this->dirtyflags.sortorder)
+      {
+        this->ToddUpdate([ type:="sortorder"
+                         , col := this->pvt_sortcolumn
+                         , ascending := this->pvt_sortascending
+                         ]);
+      }
+      IF (this->dirtyflags.emptytext)
+      {
+        this->ToddUpdate([type:="emptytext", text := this->empty]);
+      }
+      IF (Length(this->dirtyflags.editcompletions)>0)
+        this->ToddUpdate([type:="editcompletions", completions := this->dirtyflags.editcompletions]);
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(STRING inp)
+  //NOTE: Dupe of ExtendSelect
+  {
+    STRING ARRAY toks := Tokenize(inp, " ");
+  //  RECORD ARRAY toupdate;
+
+    INTEGER current_rowkeytype := RecordExists(this->storage->rows) ? TypeId(this->storage->rows[0].rowkey) : 0;
+
+    // Position is always normalized, so just add a lot to put unreferenced columns at the end
+    UPDATE this->pvt_columns
+       SET position := 0x70000000 + position;
+
+    INTEGER current_col_pos := -1;
+
+    //FIXME: This code scales terribly! Eg, a 'select all' on 1000 nodes...
+    RECORD ARRAY updates;
+    FOREVERY(STRING tok FROM toks)
+    {
+      IF (tok = "")
+        CONTINUE;
+
+      /*
+      a =
+      c = checked
+      d =
+      e = expanded
+      l =
+      s = selected
+      */
+
+      SWITCH (LEFT(tok, 1))
+      {
+
+
+      CASE "l"
+        {
+          current_col_pos := current_col_pos + 1;
+
+          UPDATE this->pvt_columns
+             SET position := current_col_pos
+           WHERE name = SubString(tok, 1);
+        }
+      CASE "d", "a"
+        {
+          this->pvt_sortcolumn := SELECT AS STRING name FROM this->pvt_columns WHERE name = SubString(tok, 1);
+          this->pvt_sortascending := LEFT(tok, 1) = "a";
+        }
+      CASE "s", "e", "c"
+        {
+          STRING type := Left(tok,1);
+          STRING ARRAY vals := Tokenize(Right(tok, Length(tok)-1), '\t');
+
+          IF (current_rowkeytype = 0)
+          {
+            Print("EXTENDLIST: Unable to match " || vals[0] || " in an empty list\n");
+            CONTINUE;
+          }
+          VARIANT myrowkey := StringToType(vals[0], current_rowkeytype);
+          INTEGER rowpos := this->storage->GetPositionByRowkey(myrowkey);
+
+          IF (rowpos = -1)
+          {
+            Print("EXTENDLIST: Unable to match " || vals[0] || "\n");
+            print(anytostring(myrowkey,'tree'));
+            CONTINUE;
+          }
+          INTEGER pos := __HS_SQL_GetGroupPosition(updates, [ "0" := myrowkey ]);
+          IF (pos < 0)
+          {
+            pos := -pos - 1;
+            INSERT [ "0" := myrowkey
+                   , rowkey := myrowkey
+                   , nowselect := FALSE
+                   , nowexpand := FALSE
+                   , updates := DEFAULT RECORD ARRAY
+                   ] INTO updates AT pos;
+
+          }
+          SWITCH (type)
+          {
+            CASE 's'
+            {
+              updates[pos].nowselect := TRUE;
+            }
+            CASE 'e'
+            {
+              updates[pos].nowexpand := TRUE;
+            }
+            CASE 'c'
+            {
+              // Checkboxes/radios
+              // FIXME: this code won't prevent multiple radios from being enabled.
+              INSERT [ name := vals[1], value := vals[2] = 'true' ] INTO updates[pos].updates AT END;
+            }
+          }
+        }
+      }
+    }
+
+    // Calculate final column ordering (ADDME prolly unneeded with rowlayouts)
+    STRING ARRAY colorder :=
+        SELECT AS STRING ARRAY name
+          FROM this->pvt_columns
+      ORDER BY position;
+
+    // Update column ordering to match calculated ordering
+    UPDATE this->pvt_columns
+       SET position := SearchElement(colorder, name);
+
+//    this->UpdateSelection2(SELECT * FROM updates WHERE nowselect OR nowexpand OR Length(checkboxes) > 0);
+    this->storage->SetSelectionByRecords((SELECT * FROM updates WHERE nowselect), FALSE);
+    this->storage->ExpandRowsByRecords((SELECT * FROM updates WHERE nowexpand), TRUE, FALSE);
+    this->storage->UpdateRowCells((SELECT * FROM updates WHERE LENGTH(updates.updates) != 0), FALSE);
+  }
+
+  UPDATE PUBLIC MACRO TolliumWeb_ParseEvent(STRING action, STRING param)
+  {
+    IF(action = 'expand') //ADDME: Make implicit if an already known item is requested (eg: split into an 'expand' event (sent as array) and a 'download new items' event)
+    {
+      RECORD ARRAY expanding := SELECT *
+                                  FROM this->storage->rows
+                                 WHERE TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey)) = param;
+      this->storage->ExpandRowsByRecords(expanding, FALSE, FALSE);
+      RETURN;
+    }
+    ELSE IF(action = 'sortchange') //ADDME: Make implicit too!   FIXME No need to inform the server about every sort chnage!
+    {
+      STRING ARRAY params := Tokenize(param,' ');
+      this->pvt_sortcolumn := params[0];
+      this->pvt_sortascending := params[1] = '+';
+      RETURN;
+    }
+    ELSE IF(action="check")
+    {
+      STRING ARRAY params := Tokenize(param,' ');
+      IF (Length(params) >= 2 AND this->oncheck != DEFAULT FUNCTION PTR)
+      {
+        RECORD row := SELECT *
+                        FROM this->storage->rows
+                       WHERE TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey)) = params[0];
+        this->oncheck(row, params[1]);
+      }
+    }
+    ELSE IF(action="iconclick")
+    {
+      STRING ARRAY params := Tokenize(param,' ');
+      IF (Length(params) >= 2 AND this->oniconclick != DEFAULT FUNCTION PTR)
+      {
+        RECORD row := SELECT *
+                        FROM this->storage->rows
+                       WHERE TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey)) = params[0];
+
+        IF(RecordExists(row))
+          this->oniconclick(row, params[1]);
+      }
+    }
+    ELSE
+    {
+      TolliumComponentBase::TolliumWeb_ParseEvent(action, param);
+    }
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION TolliumGetRecordsForTags(STRING ARRAY tags)
+  {
+    RETURN SELECT *
+             FROM this->storage->rows
+            WHERE TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey)) IN tags;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION Web_ListColumns()
+  {
+    RECORD ARRAY cols := SELECT name
+                              , width
+                              , minwidth
+                              , sort := this->sortable AND name = this->pvt_sortcolumn ? this->pvt_sortascending ? 'asc' : 'desc' : ''
+                              , type
+                              , title
+                              , iconlink := iconlink
+                              , tree
+                              , checkbox := checkboxname
+                              , checkboxtype := checkboxname != "" ? "check" : ""
+                              , align
+                              , sortable := this->sortable AND sortable
+                              , style
+                              , edittype
+                              , dataidx
+                              , hintidx
+                              , linkidx
+                              , checkboxidx
+                              , checkboxenabledidx
+                              , iconidx
+                              , overlayidx
+                              , collapsedidx
+                              , sortidx
+                           FROM this->columns;
+
+    INTEGER datapos := 4;
+    IF(this->highlightname != "")
+      datapos := datapos + 1;
+    IF(this->rowiconname != "")
+    {
+      datapos := datapos + 1;
+      IF(this->rowiconhintname != "")
+        datapos := datapos + 1;
+    }
+
+    FOREVERY (RECORD col FROM cols)
+    {
+      IF (CellExists(this->stylerec, col.style))
+      {
+        RECORD style := GetCell(this->stylerec, col.style);
+        INSERT CELL stylebold := style.bold INTO col;
+        INSERT CELL styleitalic := style.italic INTO col;
+        INSERT CELL stylebackgroundcolor := style.backgroundcolor INTO col;
+        INSERT CELL styletextcolor := style.textcolor INTO col;
+      }
+
+      col.dataidx := datapos;
+      datapos := datapos + 1;
+
+      IF (this->columns[#col].hintname != "")
+      {
+        col.hintidx := datapos;
+        datapos := datapos + 1;
+      }
+      IF (this->columns[#col].linkname != "")
+      {
+        col.linkidx := datapos;
+        datapos := datapos + 1;
+      }
+      IF(this->columns[#col].checkboxname != "")
+      {
+        col.checkboxidx := datapos;
+        datapos := datapos + 1;
+        IF(this->columns[#col].checkboxenabled != "")
+        {
+          col.checkboxenabledidx := datapos;
+          datapos := datapos + 1;
+        }
+      }
+      IF(this->columns[#col].iconname != "")
+      {
+        col.iconidx := datapos;
+        datapos := datapos + 1;
+      }
+      IF(this->columns[#col].iconoverlayname != "")
+      {
+        col.overlayidx := datapos;
+        datapos := datapos + 1;
+      }
+      IF(this->columns[#col].collapsedname != "")
+      {
+        col.collapsedidx := datapos;
+        datapos := datapos + 1;
+      }
+      //IF(newcol.sortkeyname != "")  //ADDME don't send a sortable key if we don't really need it and can handle it on JS side with the original value
+      {
+        col.sortidx := datapos;
+        datapos := datapos + 1;
+      }
+
+      DELETE CELL style FROM col;
+      cols[#col] := col;
+    }
+
+    IF(this->rowiconname != "")
+    {
+      //FIXME need to be able to mark a column unmovable?
+      INTEGER incr := this->highlightname = "" ? 0 : 1;
+      INSERT [ dataidx := 4 + incr
+             , title := ""
+             , type := "icon"
+             , hintidx := this->rowiconhintname != "" ? 5 + incr : -1
+             ] INTO cols AT 0;
+    }
+
+    RETURN cols;
+  }
+
+  PUBLIC VARIANT ARRAY FUNCTION Web_RenderRows(RECORD ARRAY rows, BOOLEAN fullrows) //FIXME: should be private, but the optiongid.whscr test needs access to the 'final' values. We need queuedmessages interception
+  {
+    VARIANT ARRAY outrows;
+    FOREVERY(RECORD row FROM rows)
+      INSERT this->Web_renderrow(row, rows, #row, fullrows ) INTO outrows AT END;
+    RETURN outrows;
+  }
+
+  VARIANT ARRAY FUNCTION Web_RenderRow(RECORD row, RECORD ARRAY allrows, INTEGER rownum, BOOLEAN fullrow)
+  {
+    RECORD outrow := [ cells := DEFAULT VARIANT ARRAY
+                     , rowicon := 0
+                     ];
+
+    RECORD meta := [ rowkey := ""
+                   , flags := DEFAULT RECORD
+                   , highlight := FALSE
+                   ];
+
+    IF(fullrow)
+    {
+      meta.rowkey := TypeToString(row.rowkey, TypeId(row.rowkey));
+      meta.flags := StoredAttrsJSON(row, this->flags);
+
+      IF(Length(row.listrowclasses) > 0 )
+        INSERT CELL classes := row.listrowclasses INTO meta;
+
+      /* FIXME
+      IF(this->IsActuallySortable())
+        FOREVERY(RECORD col FROM this->columns)
+          outrow := CellInsert(outrow, "sortkey" || #col, this->GetSortableListCell(col,row,this->GetFormattedListCell(col,row,col.name)) || "\t" || rowkey); //append rowkey to ensure stability
+      */
+    }
+
+    INSERT meta INTO outrow.cells AT END;
+
+    //FIXME insert default record if unselectable
+    INSERT row.tolliumselected INTO outrow.cells AT END;
+    IF(this->storage->istree AND this->IsRowExpandable(allrows, rownum))
+      INSERT row.expanded INTO outrow.cells AT END;
+     ELSE
+      INSERT DEFAULT RECORD INTO outrow.cells AT END;
+
+    INSERT this->storage->istree AND fullrow ? row.level : 0 INTO outrow.cells AT END;
+
+    IF (this->pvt_highlightname != "")
+      INSERT fullrow ? GetCell(row, this->pvt_highlightname) : FALSE INTO outrow.cells AT END;
+
+    IF(this->rowiconname != "")
+    {
+      IF(fullrow)
+        INSERT GetCell(row, this->rowiconname) INTO outrow.cells AT END;
+      ELSE //FIXME Are we sure footers can't have rowicons ?
+        INSERT 0 INTO outrow.cells AT END;
+      IF(this->rowiconhintname != "")
+      {
+        IF(fullrow)
+          INSERT GetCell(row, this->rowiconhintname) INTO outrow.cells AT END;
+        ELSE //FIXME Are we sure footers can't have rowicons ?
+          INSERT "" INTO outrow.cells AT END;
+      }
+    }
+
+    RECORD toddprops;
+    IF (CellExists(row, "STYLE") AND CellExists(this->stylerec, row.style))
+    {
+      RECORD style := GetCell(this->stylerec, row.style);
+      INSERT CELL stylebold := style.bold INTO outrow.cells[0];
+      INSERT CELL styleitalic := style.italic INTO outrow.cells[0];
+      INSERT CELL stylebackgroundcolor := style.backgroundcolor INTO outrow.cells[0];
+      INSERT CELL styletextcolor := style.textcolor INTO outrow.cells[0];
+    }
+
+    IF (CellExists(row, "DRAGINFO") AND RecordExists(row.draginfo) AND row.draginfo.type != "")
+    {
+      RECORD rec := this->owner->GetDragType(row.draginfo.type);
+      RECORD draginfo :=
+          [ type := row.draginfo.type
+          , data := row.draginfo.data
+          , candownload := rec.candownloadflags != "" AND GetCell(row.draginfo.data, rec.candownloadflags)
+          ];
+      INSERT CELL draginfo := draginfo INTO outrow.cells[0];
+    }
+
+    FOREVERY(RECORD col FROM this->columns)
+    {
+      VARIANT cellvalue := this->GetFormattedListCell(col,row,col.name);
+
+      INSERT cellvalue INTO outrow.cells AT END;
+
+      IF(col.hintname != "")
+        INSERT CellExists(row, col.hintname) ? GetCell(row, col.hintname) : "" INTO outrow.cells AT END;
+      IF(col.linkname != "")
+        INSERT CellExists(row, col.linkname) ? GetCell(row, col.linkname) : "" INTO outrow.cells AT END;
+
+      IF(col.checkboxname!="")
+      {
+        IF(fullrow = FALSE OR (col.checkboxvisible!="" AND NOT GetCell(row, col.checkboxvisible)))
+          INSERT DEFAULT RECORD INTO outrow.cells AT END;
+        ELSE
+          INSERT GetCell(row, col.checkboxname) INTO outrow.cells AT END;
+
+        IF (col.checkboxenabled != "")
+        {
+          IF (fullrow = FALSE OR (col.checkboxvisible != "" AND NOT GetCell(row, col.checkboxvisible)))
+            INSERT DEFAULT RECORD INTO outrow.cells AT END;
+          ELSE
+            INSERT GetCell(row, col.checkboxenabled) INTO outrow.cells AT END;
+        }
+      }
+
+      IF(col.iconname!="")
+      {
+        IF(fullrow = FALSE)
+          INSERT 0 INTO outrow.cells AT END;
+        ELSE
+          INSERT GetCell(row, col.iconname) INTO outrow.cells AT END;
+      }
+
+      IF(col.iconoverlayname!="")
+      {
+        IF(fullrow = FALSE)
+          INSERT 0 INTO outrow.cells AT END;
+        ELSE
+          INSERT GetCell(row, col.iconoverlayname) INTO outrow.cells AT END;
+      }
+
+      IF(col.collapsedname != "")
+      {
+        IF(CellExists(row, col.collapsedname))
+          INSERT this->GetFormattedListCell(col,row,col.collapsedname) INTO outrow.cells AT END;
+        ELSE
+          INSERT DEFAULT RECORD INTO outrow.cells AT END;
+      }
+
+      IF(fullrow) //IF(col.sortkeyname != "")
+      {
+        INSERT this->GetSortableListCell(col, row, cellvalue) INTO outrow.cells AT END;
+      }
+      ELSE
+      {
+        INSERT 0 INTO outrow.cells AT END;
+      }
+    }
+
+    RETURN outrow.cells;
+  }
+>;

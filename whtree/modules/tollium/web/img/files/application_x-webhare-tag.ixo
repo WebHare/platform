@@ -1,0 +1,7 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <backgroundlayer src="tollium:backgrounds/file" color="b" size="24px"/>
+  <backgroundlayer src="tollium:backgrounds/file" color="c" size="24px"/>  
+  <backgroundlayer src="tollium:objects/file" size="24px"/>
+  <layer src="tollium:overlays/filetypes/tag" size="24px"/>
+  <layer src="tollium:objects/tag" size="16px"/>  
+</icon>

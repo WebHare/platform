@@ -1,0 +1,1052 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/updateschema.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/support2.whlib" ;
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/queries.whlib" ;
+LOADLIB "mod::wrd/lib/internal/wrdtype.whlib";
+LOADLIB "mod::wrd/lib/internal/exchange.whlib";
+
+INTEGER FUNCTION GetAccountAttrId(OBJECT intype, STRING tag)
+{
+  IF(tag="")
+    RETURN 0;
+  IF(NOT ObjectExists(intype))
+    THROW NEW Exception("Cannot specify account field '" ||tag || "' if no accounttype is set");
+
+  RECORD field := intype->GetAttribute(tag);
+  IF(NOT RecordExists(field))
+    THROW NEW Exception("No such field '" ||tag || "' in type '" || intype->tag || "'");
+
+  RETURN field.id;
+}
+
+RECORD FUNCTION GetCachableTypeRecById(INTEGER schemaid, INTEGER type_id)
+{
+  RETURN
+      [ ttl := ttl_wrdschemacache
+      , eventmasks := [ "wrd:schema." || schemaid || ".change" ]
+      , value :=    SELECT *
+                      FROM wrd.types
+                     WHERE id = type_id
+                       AND wrd_schema = schemaid
+      ];
+}
+
+STRING FUNCTION FixupKeyName(STRING keyname)
+{
+  IF(keyname NOT LIKE "?*:?*" OR keyname LIKE "* *" OR keyname LIKE "*."
+     OR keyname LIKE ".*" OR keyname LIKE "*..*" OR keyname LIKE "*:*:*"
+     OR keyname LIKE "*:.*" OR keyname LIKE "*.*:*")
+    THROW NEW Exception(`Illegal key name '${keyname}'`);
+  RETURN ToUppercase(keyname);
+}
+
+STATIC OBJECTTYPE BulkCreator
+<
+  OBJECT wrdschema;
+  RECORD result;
+  RECORD existing;
+  RECORD idmap;
+
+  MACRO NEW(OBJECT wrdschema, RECORD existing)
+  {
+    this->wrdschema := wrdschema;
+    this->existing := existing;
+  }
+
+  INTEGER FUNCTION MapValue(OBJECT type, STRING attr, STRING val)
+  {
+    IF(val LIKE ":*")
+    {
+      STRING entityname := Substring(val,1);
+      IF(CellExists(this->result, entityname)) //already created!
+        RETURN GetCell(this->result, entityname)->id;
+      IF(CellExists(this->idmap, entityname)) //it's in the plan!
+        RETURN GetCell(this->idmap, entityname);
+
+      THROW NEW Exception(`No entity named '${entityname}' inserted`);
+    }
+    RETURN type->GetDomVal(attr,val);
+  }
+
+  RECORD FUNCTION ParseCreateAction(RECORD act)
+  {
+    act := ValidateOptions([ create := ""
+                           , entities := RECORD[]
+                           , defaults := CELL[]
+                           ], act, [ title := "creations" ]);
+
+    OBJECT type := this->wrdschema->GetType(act.create);
+    IF(NOT ObjectExists(type))
+      THROW NEW Exception(`No such type '${act.create}'`);
+
+    RECORD ARRAY items;
+    FOREVERY(RECORD item FROM act.entities)
+    {
+      item := CELL[ ...act.defaults, ...item ];
+
+      STRING outputname;
+      IF(CellExists(item,'_name'))
+      {
+        outputname := item._name;
+        DELETE CELL _name FROM item;
+      }
+
+      INSERT CELL[ outputname, data := item ] INTO items AT END;
+    }
+    RETURN CELL[ type, items ];
+  }
+
+  RECORD FUNCTION ParseModifyAction(RECORD act)
+  {
+    act := ValidateOptions([ modify := ""
+                           , entities := RECORD[]
+                           , defaults := CELL[]
+                           ], act, [ title := "modifications" ]);
+
+    OBJECT type := this->wrdschema->GetType(act.modify);
+    IF(NOT ObjectExists(type))
+      THROW NEW Exception(`No such type '${act.modify}'`);
+
+    RECORD ARRAY items;
+    FOREVERY(RECORD item FROM act.entities)
+    {
+      item := CELL[ ...act.defaults, ...item ];
+
+      STRING outputname;
+      IF (NOT CellExists(item,'_name'))
+        THROW NEW Exception(`Modify item found without '_name' cell`);
+
+      outputname := item._name;
+      DELETE CELL _name FROM item;
+
+      INSERT CELL[ outputname, data := item] INTO items AT END;
+    }
+    RETURN CELL[ type, items ];
+  }
+
+
+  PUBLIC RECORD FUNCTION Run(RECORD ARRAY actions)
+  {
+    BOOLEAN save_integritycheck;
+    TRY
+    {
+      save_integritycheck := this->wrdschema->__disableintegritychecks;
+      this->wrdschema->__disableintegritychecks := TRUE;
+
+      this->result := this->existing;
+
+      //Generate IDs first
+      FOREVERY(RECORD act FROM actions)
+        IF(CellExists(act,'create'))
+        {
+          RECORD parsed := this->ParseCreateAction(act);
+          FOREVERY(RECORD item FROM parsed.items)
+          {
+            IF(item.outputname != "")
+              this->idmap := CellInsert(this->idmap, item.outputname, parsed.type->GetNewEntityId());
+          }
+        }
+
+
+      FOREVERY(RECORD act FROM actions)
+      {
+        IF(CellExists(act,'create'))
+        {
+          RECORD parsed := this->ParseCreateAction(act);
+          OBJECT type := parsed.type;
+
+          FUNCTION PTR onmapdomvalue := PTR this->MapValue(type, #1, #2);
+
+          FOREVERY(RECORD item FROM parsed.items)
+          {
+            STRING outputname := item.outputname;
+            TRY
+            {
+              IF(outputname != "")
+                INSERT CELL wrd_id := GetCell(this->idmap, outputname) INTO item.data;
+
+              OBJECT entity := type->CreateEntity(item.data, [ onmapdomvalue := onmapdomvalue ]);
+              IF(outputname != "")
+                this->result := CellInsert(this->result, outputname, entity);
+            }
+            CATCH(OBJECT e)
+            {
+              IF(outputname != "")
+                e->what := e->what || ` (creating entity '${outputname})'`;
+              ELSE
+                e->what := e->what || ` (creating entity #${#item} of action block #${#act}`;
+              THROW;
+            }
+          }
+        }
+      }
+
+      FOREVERY(RECORD act FROM actions)
+      {
+        IF(CellExists(act,'modify'))
+        {
+          RECORD parsed := this->ParseModifyAction(act);
+          OBJECT type := parsed.type;
+
+          FUNCTION PTR onmapdomvalue := PTR this->MapValue(type, #1, #2);
+
+          FOREVERY(RECORD item FROM parsed.items)
+          {
+            STRING outputname := item.outputname;
+            IF (NOT CellExists(this->result, item.outputname))
+              THROW NEW Exception(`No such item '${item.outputname}' found in type '${act.modify}'`);
+
+            TRY
+            {
+              GetCell(this->result, item.outputname)->UpdateEntity(item.data, [ onmapdomvalue := onmapdomvalue ]);
+            }
+            CATCH(OBJECT e)
+            {
+              e->what := e->what || ` (modifying entity '${outputname})'`;
+              THROW;
+            }
+          }
+        }
+      }
+
+      RETURN this->result;
+    }
+    FINALLY
+    {
+      this->wrdschema->__disableintegritychecks := save_integritycheck;
+    }
+  }
+>;
+
+/** @topic wrd/api
+    @public
+    @loadlib mod::wrd/lib/api.whlib
+    @short Read a WRD schema setting
+    @param wrdschemaid Id of the WRD schema
+    @param keyname Name of the setting to retrieve
+    @param options Options
+    @cell options.fallback Fallback value
+    @return Returns key value, throws if the key does not exist and no fallback was supplied
+*/
+PUBLIC VARIANT FUNCTION GetWRDSchemaSetting(INTEGER wrdschemaid, STRING keyname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ fallback := "" ], options, [ optional := ["fallback"], notypecheck := ["fallback" ]]);
+  keyname := FixupKeyName(keyname);
+
+  RECORD storevalue :=
+      SELECT *
+        FROM wrd.keyvaluestore
+       WHERE wrd_schema = wrdschemaid
+             AND name = keyname;
+
+  IF (NOT RecordExists(storevalue))
+    IF(CellExists(options,'fallback'))
+      RETURN options.fallback;
+    ELSE
+      THROW NEW Exception(`Cannot find key ${keyname} and no fallback value set`);
+
+  RETURN ReadAnyFromDatabase(storevalue.data, storevalue.blobdata);
+}
+
+/** @topic wrd/api
+    @public
+    @loadlib mod::wrd/lib/api.whlib
+    @short Sets a WRD schema setting
+    @param wrdschemaid Id of the WRD schema
+    @param keyname Name of the setting to retrieve
+    @param value Value to store
+*/
+PUBLIC MACRO SetWRDSchemaSetting(INTEGER wrdschemaid, STRING keyname, VARIANT value)
+{
+  keyname := FixupKeyName(keyname);
+
+  RECORD parts := PrepareAnyForDatabase(value);
+  INTEGER storeid :=
+      SELECT AS INTEGER id
+        FROM wrd.keyvaluestore
+       WHERE wrd_schema = wrdschemaid
+             AND name = keyname;
+
+  IF (storeid > 0)
+  {
+    UPDATE wrd.keyvaluestore
+       SET data := parts.stringpart
+         , blobdata := parts.blobpart
+     WHERE id = storeid;
+  }
+  ELSE
+  {
+    INSERT INTO wrd.keyvaluestore(wrd_schema, name, data, blobdata)
+         VALUES(wrdschemaid, keyname, parts.stringpart, parts.blobpart);
+  }
+
+  // ADDME: specialized metadata event?
+  GetWRDCommitHandler()->SettingsChanged(wrdschemaid);
+}
+
+/** @topic wrd/api
+    @public
+    @loadlib mod::wrd/lib/api.whlib
+    @short Removes a WRD schema setting
+    @param wrdschemaid Id of the WRD schema
+    @param keyname Name of the setting to remove
+*/
+PUBLIC MACRO RemoveWRDSchemaSetting(INTEGER wrdschemaid, STRING keyname)
+{
+  keyname := FixupKeyName(keyname);
+  DELETE FROM wrd.keyvaluestore
+   WHERE wrd_schema = wrdschemaid
+         AND name = keyname;
+
+  GetWRDCommitHandler()->SettingsChanged(wrdschemaid);
+}
+
+/** Returns all schema settings for a specific WRD schema
+    @param wrdschemaid Id of the schema
+    @return List of all schema settings
+    @cell return.name Name of the key
+    @cell return.value Name of the value
+*/
+RECORD ARRAY FUNCTION ListWRDSchemaSettings(INTEGER wrdschemaid)
+{
+  RETURN
+      SELECT name :=      ToLowercase(name)
+           , value :=     ReadAnyFromDatabase(data, blobdata)
+        FROM wrd.keyvaluestore
+       WHERE wrd_schema = wrdschemaid
+    ORDER BY ToLowercase(name);
+}
+
+PUBLIC STATIC OBJECTTYPE WRDSchemaBase
+<
+  RECORD schemarec;
+  RECORD ARRAY typecache;
+  OBJECT pvt_types;
+
+  //true if we're in the new api. will disppear if migration is ever complete, and gives an easily greppable identifier
+  PUBLIC BOOLEAN __iswrdapi2017;
+
+  /// dynamic hat property resolver, for types
+  PUBLIC PROPERTY ^(GetTypeByHatProperty, -);
+
+  /// @type(integer) Id of this schema
+  PUBLIC PROPERTY id(this->schemarec.id, -);
+
+  /// @type(string) Tag of this schema
+  PUBLIC PROPERTY tag(this->schemarec.name, -);
+
+  /// @type(string) Title of this schema
+  PUBLIC PROPERTY title(this->schemarec.title, -);
+
+  /// @type(string) Description of this schema
+  PUBLIC PROPERTY description(this->schemarec.description, -);
+
+  /// @type(datetime) Creation date, if known
+  PUBLIC PROPERTY creationdate(this->schemarec.creationdate, -);
+  /// @type(string) Creation source, if known
+  PUBLIC PROPERTY creationsource(this->schemarec.creationsource, -);
+
+  /// @type(boolean) Whether this schema is protected against deleting and overwriting
+  PUBLIC PROPERTY protected(this->schemarec.protected, -);
+
+  /// @type(boolean) Whether this schema is a source for usermgmt
+  PUBLIC PROPERTY usermgmt(this->schemarec.usermgmt, -);
+
+  /// Set to true to disable integrity checks during insertions that require additional database queries (ie, performance before correctness). This option may be removed in the future
+  PUBLIC BOOLEAN __disableintegritychecks;
+
+  /// @type(object #WRDType2017) Get the type used for accounts
+  PUBLIC PROPERTY accounttype(GetAccountType, -);
+  /// @type(string) Get the tag of the login attribute
+  PUBLIC PROPERTY accountlogintag(GetAccountLoginTag, -);
+  /// @type(string) Get the tag of the email attribute
+  PUBLIC PROPERTY accountemailtag(GetAccountemailTag, -);
+  /// @type(string) Get the tag of the password attribute
+  PUBLIC PROPERTY accountpasswordtag(GetAccountpasswordTag, -);
+
+  /** @private Should not be constructed directly
+      @param schemarec Contents of database schema record
+  */
+  PUBLIC MACRO NEW(RECORD schemarec)
+  {
+    this->schemarec := schemarec;
+  }
+
+
+
+  //////////////////////////////////////////
+  //
+  // Schema metadata
+  //
+  PUBLIC MACRO __SignalMetadataChanged()
+  {
+    disablewrdcache := TRUE;
+    GetWRDCommitHandler()->MetadataChanged(this->schemarec.id);
+    this->pvt_types := DEFAULT OBJECT;
+  }
+
+  PUBLIC MACRO __RefreshFromDB()
+  {
+    this->schemarec := SELECT * FROM wrd.schemas WHERE id = this->schemarec.id;
+
+    IF(Length(this->typecache) > 0)
+    {
+      INTEGER ARRAY existingtypeids := SELECT AS INTEGER ARRAY id FROM wrd.types WHERE types.wrd_schema = this->schemarec.id;
+      DELETE FROM this->typecache WHERE id NOT IN existingtypeids;
+    }
+  }
+
+  PUBLIC STRING FUNCTION __GetCurrentLanguageCode()
+  {
+    THROW NEW Exception("__GetCurrentLanguageCode() not implemented");
+  }
+
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN [ "wrd:schema." || this->schemarec.id || ".change" ];
+  }
+
+  PUBLIC STRING ARRAY FUNCTION GetSettingsEventMasks()
+  {
+    RETURN [ "wrd:schema." || this->schemarec.id || ".settingschange" ];
+  }
+
+  /** @short Delete this schema */
+  PUBLIC MACRO DeleteSelf()
+  {
+    IF(this->protected)
+      THROW NEW Exception("The schema is currently protected and cannot be deleted");
+
+    UPDATE wrd.schemas SET name := "$wrd$deleted$" || id
+                       WHERE id = this->schemarec.id;
+
+    ScheduleManagedTask("wrd:deletetask", [ id := this->schemarec.id ]);
+    this->__SignalMetadataChanged();
+    GetWRDCommitHandler()->SchemaNameChanged(this->schemarec.id);
+    RETURN;
+  }
+
+  PUBLIC MACRO UpdateMetadata(RECORD newsettings)
+  {
+    FOREVERY(RECORD cellrec FROM UnpackRecord(newsettings))
+      IF (cellrec.name NOT IN
+            [ "LANGUAGES", "DESCRIPTION", "NAME", "TAG", "PROTECTED", "USERMGMT"
+            , "ACCOUNTTYPE", "ACCOUNTLOGIN", "ACCOUNTPASSWORD", "ACCOUNTEMAIL", "ACCOUNTLOGINTAG"
+            , "ACCOUNTPASSWORDTAG", "ACCOUNTEMAILTAG", "TITLE", "CREATIONDATE", "CREATIONSOURCE"
+            ])
+      {
+        THROW NEW Exception("Updating '" || cellrec.name || "' using UpdateMetadata not supported");
+      }
+
+    RECORD toset;
+    IF(CellExists(newsettings,'tag'))
+      INSERT CELL name := newsettings.tag INTO toset;
+    ELSE IF(CellExists(newsettings,'name'))
+      INSERT CELL name := newsettings.name INTO toset;
+    IF(CellExists(newsettings,'title'))
+      INSERT CELL title := newsettings.title INTO toset;
+    IF(CellExists(newsettings,'languages'))
+      THROW NEW Exception("The cell 'languages' is no longer supported");
+    IF(CellExists(newsettings,'description'))
+      INSERT CELL description := newsettings.description INTO toset;
+    IF(CellExists(newsettings,'protected'))
+      INSERT CELL protected := newsettings.protected INTO toset;
+
+    IF(CellExists(newsettings,'accounttype'))
+      INSERT CELL accounttype := newsettings.accounttype INTO toset;
+
+    IF(CellExists(newsettings,'accountlogintag') OR CellExists(newsettings,'accountpasswordtag') OR CellExists(newsettings,'accountemailtag'))
+    {
+      OBJECT accounttype := CellExists(toset,"accounttype") ? this->GetTypeById(toset.accounttype) : this->accounttype;
+      IF(CellExists(newsettings,'accountlogintag'))
+        INSERT CELL accountlogin := GetAccountAttrId(accounttype, newsettings.accountlogintag) INTO toset;
+      IF(CellExists(newsettings,'accountpasswordtag'))
+        INSERT CELL accountpassword := GetAccountAttrId(accounttype, newsettings.accountpasswordtag) INTO toset;
+      IF(CellExists(newsettings,'accountemailtag'))
+        INSERT CELL accountemail := GetAccountAttrId(accounttype, newsettings.accountemailtag) INTO toset;
+
+    }
+
+    IF(CellExists(newsettings,'accountlogin'))
+      INSERT CELL accountlogin := newsettings.accountlogin INTO toset;
+
+    IF(CellExists(newsettings,'accountpassword'))
+      INSERT CELL accountpassword := newsettings.accountpassword INTO toset;
+    IF(CellExists(newsettings,'accountemail'))
+      INSERT CELL accountemail := newsettings.accountemail INTO toset;
+    IF(CellExists(newsettings,'usermgmt') AND newsettings.usermgmt != this->usermgmt)
+    {
+      //ADDME Schedule fixusers?
+      INSERT CELL usermgmt := newsettings.usermgmt INTO toset;
+    }
+    IF(CellExists(newsettings,'creationdate'))
+      INSERT CELL creationdate := newsettings.creationdate INTO toset;
+    IF(CellExists(newsettings,'creationsource'))
+      INSERT CELL creationsource := newsettings.creationsource INTO toset;
+
+    UPDATE wrd.schemas SET RECORD toset WHERE id = this->id;
+    this->__RefreshFromDB();
+    this->__SignalMetadataChanged();
+    IF (CellExists(toset, "name"))
+      GetWRDCommitHandler()->SchemaNameChanged(this->id);
+    //ADDME schedule a fixusers
+  }
+
+  //////////////////////////////////////////
+  //
+  // Opening/listing types
+  //
+
+  /** Dynamic property resolving for wrdschema->^typetag
+      @param propname Property name (`^` + WRD type name)
+      @return(object #WRDType2017) WRD type object
+  */
+  OBJECT FUNCTION GetTypeByHatProperty(STRING propname) __ATTRIBUTES__(SKIPTRACE)
+  {
+    STRING tag := SubString(propname, 1);
+    OBJECT wrdtype := this->__GetTypeByTag(tag, TRUE); //'->^typetag' is ALWAYS a 2017 definition
+    IF (NOT ObjectExists(wrdtype))
+      THROW NEW Exception(`No such type '${tag}' exists in this schema`);
+    // Save for quick re-access
+    MemberInsert(this, propname, FALSE, wrdtype);
+    RETURN wrdtype;
+  }
+
+  /** Load a type, but only if it's in the cache
+      @param typeids List of types to get
+      @return Type objects that are in the type cache
+  */
+  PUBLIC OBJECT ARRAY FUNCTION __GetTypeIfcached(INTEGER ARRAY typeids)
+  {
+    RETURN SELECT AS OBJECT ARRAY obj FROM this->typecache WHERE id IN typeids;
+  }
+
+  /** Returns list of all types
+      @return Record array with description of all types
+      @cell return.id Id of this type
+      @cell return.tag Tag of this type
+      @cell return.metatype Metatype of this type (1=entity,2=link,3=classification, 4=domain)
+      @cell return.title Translated title of this type
+      @cell return.original_title Original (untranslated) title of this type
+      @cell return.description Description of this type
+      @cell return.is_entity Whether this type is an entity
+      @cell return.is_link Whether this type is a link
+      @cell return.is_attachment Whether this type is a attachment
+      @cell return.is_domain Whether this type is a domain
+      @cell return.requiretype_left Tag of type that must be in wrd_leftentity for this type
+      @cell return.requiretype_right Tag of type that must be in wrd_rightentity for this type
+      @cell return.parenttype ID of the parent type
+      @cell return.keephistorydays Nr of days to keep history
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListTypes()
+  {
+    RETURN SELECT id
+                , tag := ToUppercase(tag)
+                , metatype
+                , title
+                , description
+                , isobject := metatype=1
+                , islink := metatype=2
+                , isattachment := metatype=3
+                , isdomain := metatype=4
+                , linkfrom := requiretype_left
+                , linkto := requiretype_right
+                , parenttype
+                , keephistorydays
+             FROM wrd.types
+            WHERE wrd_schema = this->schemarec.id;
+  }
+
+  PUBLIC OBJECT FUNCTION GetTypeById(INTEGER type_id)
+  {
+    BOOLEAN useapi2017 := this->__iswrdapi2017;
+    OBJECT savedtype := SELECT AS OBJECT obj FROM this->typecache WHERE id=type_id AND api2017 = useapi2017;
+    IF(ObjectExists(savedtype))
+      RETURN savedtype;
+
+    FUNCTION PTR cachecall := PTR GetCachableTypeRecById(this->id, type_id);
+    RECORD typerec := disablewrdcache = FALSE ? GetAdhocCached([ type := "typerecbyid", wrdschema := this->id, id := type_id ], cachecall) : cachecall().value;
+    IF(NOT RecordExists(typerec))
+      RETURN DEFAULT OBJECT;
+
+    OBJECT thetype := this->__CreateTypeObject(typerec);
+    INSERT INTO this->typecache(id, obj, tag, api2017) VALUES(type_id, thetype, typerec.tag, useapi2017) AT END;
+    RETURN thetype;
+  }
+
+  /** Get a type
+      @param findtag Tag of the type
+      @param forceapi2017 If TRUE, always get a [WRDType2017](%WRDType2017) type object
+      @return(object %WRDType2017) WRD type object
+  */
+  PUBLIC OBJECT FUNCTION __GetTypeByTag(STRING findtag, BOOLEAN forceapi2017 DEFAULTSTO FALSE)
+  {
+    BOOLEAN useapi2017 := forceapi2017 OR this->__iswrdapi2017;
+    OBJECT savedtype := SELECT AS OBJECT obj FROM this->typecache WHERE ToUppercase(tag)=ToUppercase(findtag) AND api2017 = useapi2017;
+    IF(ObjectExists(savedtype))
+      RETURN savedtype;
+
+    RECORD typerec;
+    IF(disablewrdcache)
+      typerec := this->GetCachableTypeRecByName(findtag).value;
+    ELSE
+      typerec := GetAdhocCached([ type := "typerecbyname", wrdschema := this->id, tag := findtag ], PTR this->GetCachableTypeRecByName(findtag));
+
+    IF(NOT RecordExists(typerec))
+      RETURN DEFAULT OBJECT;
+
+    OBJECT thetype := forceapi2017 ? NEW WRDType2017(this,typerec) : this->__CreateTypeObject(typerec);
+    INSERT INTO this->typecache(id, obj, tag, api2017) VALUES(typerec.id, thetype, typerec.tag, useapi2017) AT END;
+    RETURN thetype;
+  }
+
+
+
+  //////////////////////////////////////////
+  //
+  // Managing types
+  //
+  OBJECT FUNCTION __CreateTypeObject(RECORD typerec)
+  {
+    THROW NEW Exception("__CreateTypeObject not implemented");
+  }
+  RECORD FUNCTION GetCachableTypeRecByName(STRING findtag)
+  {
+    RETURN
+        [ ttl :=        ttl_wrdschemacache
+        , eventmasks := [ "wrd:schema." || this->schemarec.id || ".change" ]
+        , value :=      SELECT *
+                          FROM wrd.types
+                         WHERE wrd_schema = this->schemarec.id
+                           AND ToUppercase(tag) = ToUppercase(findtag)
+        ];
+  }
+
+  // This function handles the 4 Create<type>Type functions below
+  OBJECT FUNCTION __DoCreateType(RECORD typerecord)
+  {
+    typerecord := MakeUpdatedRecord([ title := "", description := "", tag := ""
+                                    , requiretype_left := 0, requiretype_right := 0, metatype := 1
+                                    , parenttype := 0, abstract := FALSE, keephistorydays := 0
+                                    ], typerecord);
+    typerecord.tag := ToUppercase(typerecord.tag);
+
+    BOOLEAN builtintype := typerecord.tag IN ["WRD_PERSON","WRD_ORGANIZATION"];
+
+    IF (typerecord.tag = "")
+      THROW NEW Exception("The tag was not filled in");
+
+    // Check whether the title & tag are unique
+    RECORD ARRAY alltypes := SELECT COLUMN tag
+                               FROM this->ListTypes();
+
+    IF (RecordExists(SELECT FROM alltypes WHERE ToUpperCase(tag) = ToUpperCase(typerecord.tag)))
+      THROW NEW Exception("The tag of this type is not unique for its WRD schema");
+
+    INTEGER parent := typerecord.parenttype;
+
+    INTEGER newtypeid := MakeAutonumber(wrd.types,"id");
+    INSERT INTO wrd.types (id, wrd_schema, title, description, tag, metatype
+                         , requiretype_left, requiretype_right, abstract, parenttype, keephistorydays)
+                   VALUES (newtypeid, this->id, typerecord.title, typerecord.description, typerecord.tag, typerecord.metatype
+                         , typerecord.requiretype_left, typerecord.requiretype_right, typerecord.abstract, parent, typerecord.keephistorydays);
+
+    this->__SignalMetadataChanged();
+
+    IF(typerecord.tag="WRD_RELATION")
+    {
+      FOREVERY(STRING attachtype FROM ["WRD_PERSON","WRD_ORGANIZATION"])
+      {
+        OBJECT typeobj := this->__GetTypeByTag(attachtype);
+        IF(ObjectExists(typeobj))
+          typeobj->UpdateTypeMetadata( [ parenttype := newtypeid ] );
+      }
+    }
+
+    OBJECT thetype := this->GetTypeById(newtypeid);
+    IF(NOT ObjectExists(thetype))
+      THROW NEW Exception("Internal error, creation of type #" || newtypeid || " (" || typerecord.tag || ") failed");
+
+    IF(typerecord.metatype=4)
+    {
+      thetype->__DoCreateAttribute("FREE", "Title", "", "WRD_TITLE", 0);
+    }
+    ELSE IF(typerecord.tag="WRD_ORGANIZATION")
+    {
+      thetype->__DoCreateAttribute("FREE", "Organization name", "", "WRD_ORGNAME", 0);
+    }
+
+    IF(parent != 0)
+      this->GetTypeById(parent)->__ReloadTypeAndChildren();
+
+    RETURN thetype;
+  }
+
+  PUBLIC MACRO __InstallCoreTypes() //FIXME we've done this since 2014. we can probably get rid of it now
+  {
+    OBJECT reltag := this->__DoCreateType( [ abstract := TRUE, tag := "WRD_RELATION", metatype := 1, title := GetLangTexts(this->__GetCurrentLanguageCode()).attrlabels.wrd_relation ]);
+    this->__DoCreateType( [ tag := "WRD_PERSON", parenttype := reltag->id, metatype := 1, title := GetLangTexts(this->__GetCurrentLanguageCode()).attrlabels.wrd_person ]);
+    this->__DoCreateType( [ tag := "WRD_ORGANIZATION", parenttype := reltag->id, metatype := 1, title := GetLangTexts(this->__GetCurrentLanguageCode()).attrlabels.wrd_organization ]);
+  }
+
+  /** Create a complete copy of a schema
+      @param targetname Target schema name
+  */
+  PUBLIC MACRO CopySchemaTo(STRING targetname)
+  {
+    IF(RecordExists(SELECT FROM wrd.schemas WHERE ToUpperCase(schemas.name) = ToUppercase(targetname)))
+      THROW NEW Exception(`Schema '${targetname}' already exists!`);
+
+    OBJECT importer := NEW WRDImExport(this, [ renameto := targetname ]);
+    importer->RunCopy();
+  }
+
+  /** Create a new type
+      @param tag Tag for the new type
+      @cell options.title Title for the new type
+      @cell options.description Description for the new type
+      @cell options.linkfrom Type this type links from
+      @cell options.linkto Type the new type links to (if set, 'linkfrom' is required)
+      @return New type
+  */
+  PUBLIC OBJECT FUNCTION CreateType (STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ title := "", description := "", linkfrom := 0, linkto := 0, keephistorydays := 0 ], options);
+    IF(options.linkfrom = 0 AND options.linkto != 0)
+      THROW NEW Exception("Cannot set 'linkto' without setting 'linkfrom'");
+    IF (options.keephistorydays < 0)
+      THROW NEW Exception(`Cannot keep changes for a negative time period`);
+
+    INSERT CELL tag := tag
+              , metatype := options.linkto != 0 ? 2 : options.linkfrom != 0 ? 3 : 1
+              , requiretype_left := options.linkfrom
+              , requiretype_right := options.linkto
+           INTO options;
+    RETURN this->__DoCreateType(options);
+  }
+
+  /** Create a new domain type
+      @param tag Tag for the new type
+      @cell options.title Title for the new type
+      @cell options.description Description for the new type
+      @return New type
+  */
+  PUBLIC OBJECT FUNCTION CreateDomain (STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ title := "", description := "", keephistorydays := 0 ], options);
+    IF (options.keephistorydays < 0)
+      THROW NEW Exception(`Cannot keep changes for a negative time period`);
+
+    INSERT CELL tag := tag
+              , metatype := 4
+           INTO options;
+    RETURN this->__DoCreateType(options);
+  }
+
+  //////////////////////////////////////////
+  //
+  // Queries
+  //
+
+  PUBLIC OBJECT FUNCTION __GetStoredQueryByTag(STRING query_tag)
+  {
+    RECORD rec :=
+        SELECT *
+          FROM wrd.storedqueries
+         WHERE ToUppercase(tag) = ToUppercase(query_tag)
+           AND wrd_schema = this->id;
+
+    IF (NOT RecordExists(rec))
+      RETURN DEFAULT OBJECT;
+
+    RETURN NEW WRDStoredQuery(this, rec, FALSE);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION RunQuery(RECORD querydata)
+  {
+    INSERT CELL wrdschema := this INTO querydata;
+    RETURN RunWRDQuery(querydata);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION RunStoredQuery(STRING query_tag, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ parameters := DEFAULT RECORD ], options);
+    OBJECT query := this->__GetStoredQueryByTag(query_tag);
+    IF(NOT ObjectExists(query))
+      THROW NEW Exception(`No such stored query '${query_tag}' in schema '${this->tag}'`);
+
+    RETURN query->Execute(options.parameters);
+  }
+
+
+  //////////////////////////////////////////
+  //
+  // Schema setting
+  //
+
+  /** Read a WRD schema setting
+      @param keyname Key of value to returned
+      @param options Options
+      @cell options.fallback Fallback value (used if key does not exist)
+      @return Returns key value, throws if the key does not exist and no fallback was supplied
+  */
+  PUBLIC VARIANT FUNCTION GetSchemaSetting(STRING keyname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN GetWRDSchemaSetting(this->schemarec.id, keyname, options);
+  }
+
+  /** Set a WRD schema setting
+      @param keyname Key to set
+      @param value Valute to store with the key
+  */
+  PUBLIC MACRO SetSchemaSetting(STRING keyname, VARIANT value)
+  {
+    SetWRDSchemaSetting(this->schemarec.id, keyname, value);
+  }
+
+  /** Removes a WRD schema setting
+      @param keyname Key to delete
+  */
+  PUBLIC MACRO RemoveSchemaSetting(STRING keyname)
+  {
+    RemoveWRDSchemaSetting(this->schemarec.id, keyname);
+  }
+
+  /** Returns the list of schema settings
+      @return @includecelldef #ListWRDSchemaSettings.return
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListSchemaSettings()
+  {
+    RETURN ListWRDSchemaSettings(this->schemarec.id);
+  }
+
+  //////////////////////////////////////////
+  //
+  // Authentication support
+  //
+
+  OBJECT FUNCTION GetAccountType()
+  {
+    RETURN this->schemarec.accounttype != 0 ? this->GetTypeById(this->schemarec.accounttype) : DEFAULT OBJECT;
+  }
+
+  STRING FUNCTION GetAccountField(INTEGER fieldid)
+  {
+    IF(this->schemarec.accountlogin = 0)
+      RETURN "";
+
+    OBJECT acctype := this->accounttype;
+    IF(NOT ObjectExists(acctype))
+      RETURN "";
+
+    RECORD attr := acctype->GetAttributeById(fieldid);
+    IF(NOT RecordExists(attr))
+      RETURN "";
+
+    RETURN attr.tag;
+  }
+
+  STRING FUNCTION GetAccountLoginTag()
+  {
+    RETURN this->GetAccountField(this->schemarec.accountlogin);
+  }
+
+  STRING FUNCTION GetAccountEmailTag()
+  {
+    RETURN this->GetAccountField(this->schemarec.accountemail);
+  }
+
+  STRING FUNCTION GetAccountPasswordTag()
+  {
+    RETURN this->GetAccountField(this->schemarec.accountpassword);
+  }
+
+  PUBLIC INTEGER FUNCTION CreateChangeSet()
+  {
+    OBJECT user := GetEffectiveUser();
+    INTEGER id := MakeAutonumber(wrd.changesets, "id");
+    INSERT CELL
+        [ id
+        , creationdate :=   GetCurrentDatetime()
+        , wrdschema :=      this->id
+        , entity :=         ObjectExists(user) ? user->entityid : 0
+        , userdata :=       ObjectExists(user) ? EncodeHSON(user->GetUserDataForLogging()) : ""
+        ] INTO wrd.changesets;
+    RETURN id;
+  }
+>;
+
+/** WRD schema object
+    @topic wrd/api
+    @public
+*/
+PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
+<
+  /** @private
+      @param schemarec Database schema record
+  */
+  MACRO NEW(RECORD schemarec)
+  : WRDSchemaBase(schemarec)
+  {
+    this->__iswrdapi2017 := TRUE;
+  }
+
+  BOOLEAN FUNCTION TestSchemaResourcesChanged(STRING schemaresource)
+  {
+    RECORD orgupdate := this->GetSchemaSetting("wrd:schemaresources", [ fallback := DEFAULT RECORD ]);
+    IF (RecordExists(orgupdate))
+    {
+      orgupdate :=
+          [ schemaresource :=   ""
+          , resources :=        RECORD[]
+          , ...orgupdate
+          ];
+
+      IF (orgupdate.schemaresource = schemaresource)
+      {
+        BOOLEAN all_same := TRUE;
+        FOREVERY (RECORD rec FROM orgupdate.resources)
+        {
+          rec := CELL[ resourcename := "", modified := DEFAULT DATETIME, ...rec ];
+          IF (rec.resourcename = "" OR rec.modified = DEFAULT DATETIME)
+          {
+            PRINT(`Resource '${rec.resourcename}' has illegal source data\n`);
+            all_same := FALSE;
+            BREAK;
+          }
+          RECORD resource := RetrieveWebhareResource(rec.resourcename, [ allowmissing := TRUE ]);
+          IF (NOT RecordExists(resource) OR resource.modified != rec.modified)
+          {
+            //PRINT(`Resource ${rec.resourcename} has been modified\n`);
+            all_same := FALSE;
+            BREAK;
+          }
+        }
+        IF (all_same)
+          RETURN FALSE;
+      }
+    }
+    RETURN TRUE;
+  }
+
+
+  UPDATE PUBLIC STRING FUNCTION __GetCurrentLanguageCode()
+  {
+    RETURN GetTidLanguage() ?? "en";
+  }
+  UPDATE OBJECT FUNCTION __CreateTypeObject(RECORD typerec)
+  {
+    RETURN NEW WRDType2017(this, typerec);
+  }
+
+  /** Get the WRD type oobject for a type
+      @param tag Tag of the type to return
+      @return(object %WRDType2017) WRD type
+  */
+  PUBLIC OBJECT FUNCTION GetType(STRING tag)
+  {
+    RETURN this->__GetTypeByTag(tag);
+  }
+
+  /** Update this WRD schema's metadata
+      @cell(string) options.schemaresource Schema resource to use (if not set, we'll use the moduldedefinition's specified schema)
+      @cell(boolean) options.force Always update, even if the schema resources haven't changed
+  */
+  PUBLIC MACRO ApplySchemaDefinition(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ schemaresource := ""
+                               , force := FALSE
+                               ], options);
+
+    IF(this->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ]) = "")
+      this->SetSchemaSetting("wrd:auth.domainsecret", GenerateUFS128BitId() || GenerateUFS128BitId());
+
+    STRING schemaresource := options.schemaresource;
+    IF(schemaresource = "")
+    {
+      RECORD schemadef := GetModuleWRDSchemaDefinition(this->tag, TRUE); //legacy lookup: also find name mismatches
+      IF(NOT RecordExists(schemadef))
+        THROW NEW Exception(`No WRD schema definition for schema '${this->tag}'`);
+
+      IF(schemadef.isexact AND ToUppercase(this->tag) = ToUppercase(schemadef.originalname))
+      {
+        IF(RecordExists(SELECT FROM wrd.schemas WHERE ToUppercase(name) = ToUppercase(schemadef.tag)))
+          THROW NEW Exception(`Trying to rename '${schemadef.originalname}' to '${schemadef.tag}' but that schema already exists. Perhaps '${schemadef.originalname}' got recreated after being renamed?`);
+        this->UpdateMetadata([ tag := schemadef.tag ]); //time to rename to the proper name!
+      }
+
+      schemaresource := schemadef.definitionfile;
+
+      IF(schemadef.title != "" AND this->title != schemadef.title)
+        this->UpdateMetadata([ title := schemadef.title ]);
+    }
+
+    IF (NOT options.force AND NOT this->TestSchemaResourcesChanged(schemaresource))
+      RETURN;
+
+    RECORD schemadef := OpenWRDSchemaDefFile(schemaresource);
+    UpdateSchema(this, schemadef);
+  }
+
+  /** Setup entities in the schema,
+      @param commands A list Entity creation commands
+      @cell(string) commands.create Tag of the wrdtype to create
+      @cell(record) commands.defaults Default values for unspecified entity cells
+      @cell(record array) commands.entities A list of CreateEntity records. Will be merged with 'defaults' and any referencing field containing `:<name>`` as a value will be looked up internally
+      @cell(string) commands.entities._name Name for the entity, used for references and in the return record
+      @cell(record) options.continuesetup An earlier SetupEntities result which we will be allowed to reference and will be merged into our result
+      @return A record containing the created entities by their _name */
+  PUBLIC RECORD FUNCTION SetupEntities(RECORD ARRAY commands, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ continuesetup := DEFAULT RECORD ], options);
+    RETURN NEW BulkCreator(this, options.continuesetup)->Run(commands);
+  }
+>;
+
+PUBLIC RECORD FUNCTION GetCacheableSchemaRecByName(STRING findname)
+{
+  RECORD schemarec :=
+      SELECT *
+        FROM wrd.schemas
+        WHERE ToUppercase(name) = ToUppercase(findname);
+
+  RETURN
+      [ ttl :=        ttl_wrdschemacache
+      , eventmasks := RecordExists(schemarec)
+                            ? [ "wrd:schema." || schemarec.id || ".change" ]
+                            : [ "wrd:schema.list" ]
+      , value := schemarec
+      ];
+}
+PUBLIC RECORD FUNCTION GetCacheableSchemaRec(INTEGER findid)
+{
+  RECORD schemarec :=
+      SELECT *
+        FROM wrd.schemas
+        WHERE id = findid;
+
+  RETURN
+      [ ttl :=        ttl_wrdschemacache
+      , eventmasks := RecordExists(schemarec)
+                            ? [ "wrd:schema." || schemarec.id || ".change" ]
+                            : [ "wrd:schema.list" ]
+      , value := schemarec
+      ];
+}
+

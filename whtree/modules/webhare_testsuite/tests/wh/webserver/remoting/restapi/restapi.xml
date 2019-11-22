@@ -1,0 +1,101 @@
+<restapi xmlns="http://www.webhare.net/xmlns/system/restapi" library="mod::webhare_testsuite/tests/wh/webserver/remoting/restapi/restapi.whlib"
+         objecttype="TestRestAPI"
+         logsource="webhare_testsuite:restapi"
+         security="wrdauth">
+
+  <types>
+    <record name="RecordTest" passthrough="user_*">
+      <integer64 name="i64" defaultvalue="999999999999999" optional="true">
+        <description>An integer 64</description>
+      </integer64>
+      <datetime name="dt" defaultvalue="2018-08-07T11:14:00" optional="true">
+        <description>A datetime</description>
+      </datetime>
+      <blob name="bob" defaultvalue="This is a B(l)ob" optional="true">
+        <description>A blob</description>
+      </blob>
+      <boolean name="norequire" optional="true">
+        <description>Require dt, bob and i64</description>
+      </boolean>
+      <array name="intarray" optional="true"><integer/></array>
+    </record>
+  </types>
+
+  <endpoint path="/testtypes">
+    <get function="TestTypes(dt,i64,bob)">
+      <description>Test types</description>
+      <params>
+        <datetime name="dt" defaultvalue="2018-08-07T11:14:00" optional="true">
+          <description>A datetime</description>
+        </datetime>
+        <integer64 name="i64" defaultvalue="999999999999999" optional="true">
+          <description>An integer 64</description>
+        </integer64>
+        <blob name="bob" defaultvalue="This is a B(l)ob" optional="true">
+          <description>A blob</description>
+        </blob>
+      </params>
+      <returns>
+        <record ref="RecordTest">
+          <string name="incomingcontenttype" />
+        </record>
+      </returns>
+    </get>
+
+    <post function="TestTypes(dt,i64,bob)">
+      <description>Test types</description>
+      <params>
+        <datetime name="dt" defaultvalue="2018-08-07T11:14:00" optional="true">
+          <description>A datetime</description>
+        </datetime>
+        <integer64 name="i64" defaultvalue="999999999999999" optional="true">
+          <description>An integer 64</description>
+        </integer64>
+        <blob name="bob" defaultvalue="This is a B(l)ob" optional="true">
+          <description>A blob</description>
+        </blob>
+      </params>
+      <returns>
+        <record ref="RecordTest">
+          <string name="incomingcontenttype" />
+        </record>
+      </returns>
+    </post>
+  </endpoint>
+
+  <endpoint path="/testemptyrecord">
+    <post function="TestEmptyRecord()"/>
+  </endpoint>
+
+  <endpoint path="/testrecord">
+    <post function="TestRecord(rec)">
+      <description>Test record</description>
+      <params>
+        <record name="rec" ref="RecordTest" passthrough="ping only_in"/>
+      </params>
+      <returns>
+        <record ref="RecordTest" passthrough="pong"/>
+      </returns>
+    </post>
+  </endpoint>
+
+  <endpoint path="/testrecords">
+    <post function="TestRecords(rec)">
+      <description>Test records</description>
+      <params>
+        <array name="rec">
+          <record ref="RecordTest" passthrough="ping only_in">
+          </record>
+        </array>
+      </params>
+      <returns>
+        <record>
+          <array name="recs">
+            <record ref="RecordTest" passthrough="pong"/>
+          </array>
+        </record>
+      </returns>
+    </post>
+  </endpoint>
+
+</restapi>

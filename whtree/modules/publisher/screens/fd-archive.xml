@@ -1,0 +1,29 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/fd-archive.whlib"
+         gid="filedialogs">
+
+  <messageboxes gid="dialogs">
+    <messagebox name="warnreplace" buttons="ok cancel" dontshowagain="ok" />
+  </messageboxes>
+
+  <screen name="extracthere" gid=".archive" title="">
+    <body layout="left">
+      <heading tid=".formtitle" />
+      <select type="radio" name="unpack_options" title="">
+        <option rowkey="overwrite" tid=".unpack_options-overwrite" />
+        <option rowkey="replace" tid=".unpack_options-replace" />
+        <option rowkey="dont_overwrite" selected="true" tid=".unpack_options-dont_overwrite" />
+      </select>
+
+      <!-- FIXME: Should we add the option "delete all files/folders which are not overwritten"?
+      <checkbox name="delete_old" tid="upload.archive.delete_old" />
+      -->
+      <panel layout="left">
+        <checkbox name="delete_archive" labeltid=".delete_archive" title="" />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+</screens>

@@ -1,0 +1,41 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+
+BLOB input := GetSTDINAsBlob();
+OBJECT moduledef := MakeXMLDocument(input);
+RECORD ARRAY addedmodules;
+
+FOREVERY (OBJECT pack FROM moduledef->documentelement->GetElements("meta > packaging"))
+{
+  IF (NOT IsNodeApplicableToThisWebHare(pack))
+    Print(`MODULENOTAPPLICABLE=1\n`);
+}
+
+FOREVERY (OBJECT dependency FROM moduledef->documentelement->GetElements("meta > packaging > dependency")
+                                 CONCAT
+                                 moduledef->documentelement->GetElements("meta > validation > fetchmodule"))
+{
+  IF(NOT IsNodeApplicableToThisWebHare(dependency))
+    CONTINUE;
+
+  STRING depname := dependency->GetAttribute("module");
+  IF(depname IN whconstant_builtinmodules OR RecordExists(SELECT FROM addedmodules WHERE module = depname))
+    CONTINUE;
+
+  INSERT CELL[ module := depname
+             , repository := dependency->GetAttribute("repository") ?? "webhare/" || depname
+             , branch := dependency->GetAttribute("branch")
+             ] INTO addedmodules AT END;
+}
+
+FOREVERY(RECORD mod FROM addedmodules)
+{
+  Print(`EXPLAIN_DEPMODULE[${#mod}]=${mod.module}\n`);
+  Print(`EXPLAIN_DEPREPOSITORY[${#mod}]=${mod.repository}\n`);
+  Print(`EXPLAIN_DEPBRANCH[${#mod}]=${mod.branch}\n`);
+}

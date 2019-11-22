@@ -1,0 +1,1343 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+
+
+/// Counter for unique filter ids
+INTEGER f_counter;
+
+/** Source object for keeping all data for a single source
+*/
+OBJECTTYPE Source
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// WRD type for this source
+  PUBLIC OBJECT wrdtype;
+
+
+  /// Root filter
+  PUBLIC OBJECT rootfilter;
+
+
+  /** List of selected fields for this source
+      @cell tag
+      @cell rename
+  */
+  PUBLIC RECORD ARRAY columns;
+>;
+
+
+/** Contains the data for a filter
+*/
+OBJECTTYPE Filter
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Id for this filter (from c_counter)
+  PUBLIC INTEGER id;
+
+
+  /// Source
+  PUBLIC OBJECT source;
+
+
+  /// Type ('and'/'or'/'')
+  PUBLIC STRING type;
+
+
+  /// Parent filter (parent must be an 'and' or 'or'
+  PUBLIC OBJECT parentfilter;
+
+
+  /// Children of this filter (only for 'and and 'or' filters)
+  PUBLIC OBJECT ARRAY children;
+
+
+  /// Tag of field this filter operates on
+  PUBLIC STRING fieldtag;
+
+
+  /// Base attribute this filter operates on
+  PUBLIC RECORD attr;
+
+
+  /// Condition ('=', '>', '<=', 'LIKE', etc.) + 'CONTAINS' (shorthand for LIKE "*" || value || "*"
+  PUBLIC STRING matchtype;
+
+
+  /// Condition readable title
+  PUBLIC STRING matchtypetitle;
+
+
+  /// Whether this filter is case sensitives
+  PUBLIC BOOLEAN matchcase;
+
+
+  /// Whether this filter is fixed
+  PUBLIC BOOLEAN isfixed;
+
+
+  /** Value container
+      @cell value
+  */
+  PUBLIC RECORD data;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(STRING type)
+  {
+    f_counter := f_counter + 1;
+    this->id := f_counter;
+    this->type := type;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE SimpleQueryBuilder EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Current wrd schema
+  OBJECT pvt_wrdschema;
+
+
+  /// Current source object
+  OBJECT pvt_sourceobj;
+
+
+  /// Name of source object in query
+  STRING pvt_sourcename;
+
+
+  /// Is the wrd type selection box shown?
+  BOOLEAN pvt_show_wrdtype;
+
+
+  /// Is the wrd column selection box shown?
+  BOOLEAN pvt_show_columns;
+
+
+  /// List of fixed (non-editable) columns
+  STRING ARRAY pvt_fixedcolumns;
+
+
+  /// Whether in dialog mode
+  BOOLEAN pvt_isdialog;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// if in dialog mode an "ok" and "cancel" button will be shown
+  PUBLIC PROPERTY isdialog(pvt_isdialog, SetIsDialog);
+
+
+  /// WRD schema. Setting this resets everything
+  PUBLIC PROPERTY wrdschema(pvt_wrdschema, SetWRDSchema);
+
+
+  /// WRD type. Setting this resets everything
+  PUBLIC PROPERTY wrdtype(GetWRDType, SetWRDType);
+
+
+  /// Currently set filters
+  PUBLIC PROPERTY filters(GetFilters, SetFilters);
+
+
+  /// Output columns
+  PUBLIC PROPERTY outputcolumns(GetOutputColumns, SetOutputColumns);
+
+
+  /// Query (throws when setting non-parsable query)
+  PUBLIC PROPERTY query(GetQuery, SetQuery);
+
+
+  /// Show choice of wrd type
+  PUBLIC PROPERTY show_wrdtype(pvt_show_wrdtype, SetShowWRDType);
+
+
+  /// Show choice of columns to select
+  PUBLIC PROPERTY show_columns(pvt_show_columns, SetShowColumns);
+
+
+  /// String array with output names of columns that may not be altered
+  PUBLIC PROPERTY fixed_columns(pvt_fixedcolumns, SetFixedColumns);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init()
+  {
+    this->wrdschema := this->contexts->wrdschema;
+    this->isdialog := TRUE;
+    this->pvt_sourcename := "__source0";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetIsDialog(BOOLEAN isdialog)
+  {
+    this->pvt_isdialog := isdialog;
+    this->dialogbuttons->visible := isdialog;
+  }
+
+
+  MACRO SetWRDSchema(OBJECT wrdschema)
+  {
+    this->pvt_wrdschema := wrdschema;
+    this->RefreshTypes();
+    this->OnTypeChange();
+  }
+
+
+  OBJECT FUNCTION GetWRDType()
+  {
+    RETURN this->pvt_sourceobj->wrdtype;
+  }
+
+
+  MACRO SetWRDType(OBJECT wrdtype)
+  {
+    IF (this->pvt_wrdschema != wrdtype->wrdschema)
+      this->wrdschema := wrdtype->wrdschema;
+
+    this->types->value := wrdtype->tag;
+  }
+
+
+  RECORD ARRAY FUNCTION GetFilters()
+  {
+    RETURN this->EncodeFilter(this->pvt_sourceobj->rootfilter).filters;
+  }
+
+
+  MACRO SetFilters(RECORD ARRAY filters)
+  {
+    this->pvt_sourceobj->rootfilter := this->ParseFilter(DEFAULT OBJECT, this->pvt_sourceobj, [ type := 'and', filters := filters ]);
+    // FIXME: normalizing step
+
+    this->RefreshFilters();
+
+    // Expand new filters
+    this->filterlist->expanded := SELECT AS INTEGER ARRAY rowkey FROM this->filterlist->rows;
+  }
+
+
+  RECORD FUNCTION GetOutputColumns()
+  {
+    RECORD result;
+    FOREVERY (RECORD rec FROM this->pvt_sourceobj->columns)
+      result := CellInsert(result, rec.rename, rec.tag);
+
+    RETURN result;
+  }
+
+
+  MACRO SetOutputColumns(RECORD rec)
+  {
+    RECORD ARRAY cols :=
+        SELECT rename :=        name
+             , tag :=           value
+             , title :=         "???"
+          FROM UnpackRecord(rec);
+
+    FOREVERY (RECORD colrec FROM cols)
+    {
+      IF (SearchSubString(colrec.tag, ".") != -1)
+        THROW NEW Exception("No complex column selection stuff allowed yet");
+
+      RECORD attr := this->wrdtype->GetAttribute(colrec.tag);
+      IF (RecordExists(attr))
+        cols[#colrec].title := attr.title;
+    }
+
+    this->pvt_sourceobj->columns := cols;
+    this->RefreshColumns();
+  }
+
+
+  MACRO SetShowWRDType(BOOLEAN newvisible)
+  {
+    this->pvt_show_wrdtype := newvisible;
+    this->sourcebox->visible := newvisible;
+  }
+
+
+  /// Show choice of columns to select
+  MACRO SetShowColumns(BOOLEAN newvisible)
+  {
+    this->pvt_show_columns := newvisible;
+    this->columnsbox->visible := newvisible;
+  }
+
+
+  MACRO SetFixedColumns(STRING ARRAY names)
+  {
+    FOREVERY (STRING n FROM names)
+      names[#n] := ToUppercase(n);
+
+    this->pvt_fixedcolumns := names;
+    this->RefreshColumns();
+  }
+
+
+  RECORD FUNCTION GetQuery()
+  {
+    RETURN
+        [ sources :=    [ [ type :=             this->pvt_sourceobj->wrdtype->tag
+                          , name :=             this->pvt_sourcename
+                          , filters :=          this->filters
+                          , outputcolumns :=    this->outputcolumns
+                          ]
+                        ]
+        ];
+  }
+
+
+  MACRO SetQuery(RECORD query)
+  {
+    IF (CellExists(query, "LINKS") OR CellExists(query, "PARAMS") OR CellExists(query, "RESULTLIMIT"))
+      THROW NEW Exception("Cannot parse complicated queries #1");
+
+    IF (LENGTH(query.sources) != 1)
+      THROW NEW Exception("Cannot parse complicated queries #2");
+
+    RECORD s := query.sources[0];
+
+    IF (CellExists(s, "HISTORYMODE"))
+      THROW NEW Exception("Cannot parse complicated queries #3");
+
+    this->pvt_sourcename := CellExists(s, "NAME") ? s.name : "__source0";
+
+    this->wrdtype := TYPEID(s.type) = TYPEID(STRING) ? this->wrdschema->__GetTypeByTag(s.type) : s.type;
+
+    IF (CellExists(s, "FILTERS"))
+      this->filters := s.filters;
+    IF (CellExists(s, "OUTPUTCOLUMNS"))
+      this->outputcolumns := s.outputcolumns;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnShow()
+  {
+    IF (NOT ObjectExists(this->wrdschema))
+      THROW NEW Exception("WRD schema or type MUST be set before showing this dialog");
+  }
+
+
+  MACRO OnTypeChange()
+  {
+    this->pvt_sourceobj := NEW Source;
+    this->pvt_sourceobj->wrdtype := this->wrdschema->GetType(this->types->value);
+    this->pvt_sourceobj->rootfilter:= NEW Filter("and");
+
+    this->RefreshFilters();
+    this->RefreshColumns();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List refreshes
+  //
+
+  MACRO RefreshTypes()
+  {
+    this->types->options :=
+        SELECT rowkey :=        tag
+             , title :=         title || " (" || tag || ")"
+          FROM this->wrdschema->ListTypes();
+  }
+
+
+  MACRO RefreshFilters()
+  {
+    RECORD ARRAY level := this->BuildTreeLevel(this->pvt_sourceobj->rootfilter, TRUE);
+    this->filterlist->rows := level;
+  }
+
+
+  MACRO RefreshColumns()
+  {
+    this->columns->rows :=
+        SELECT rowkey :=        rename
+             , title :=         title
+             , tag :=           tag
+             , rename :=        rename
+             , caneditcolumn := rename NOT IN this->pvt_fixedcolumns
+          FROM this->pvt_sourceobj->columns;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION BuildTreeLevel(OBJECT root, BOOLEAN return_only_children)
+  {
+    RECORD node :=
+        [ rowkey :=             root->id
+        , title :=              ""
+        , specifics :=          ""
+        , canaddalternative  := FALSE
+        , node :=               root
+        , canedit :=            FALSE
+        , candelete :=          ObjectExists(root->parentfilter) AND NOT root->isfixed
+        , style :=              root->isfixed ? "fixed" : ""
+        ];
+
+    RECORD ARRAY children;
+
+    SWITCH (root->type)
+    {
+    CASE "and"
+      {
+        node.title := GetTid("wrd:commondialogs.simplequerybuilder.nodes.and");
+        node.specifics := GetTid("wrd:commondialogs.simplequerybuilder.nodes.and-specifics");
+      }
+    CASE "or"
+      {
+        node.title := GetTid("wrd:commondialogs.simplequerybuilder.nodes.or");
+        node.specifics := GetTid("wrd:commondialogs.simplequerybuilder.nodes.or-specifics");
+        node.canaddalternative := TRUE;
+      }
+    DEFAULT
+      {
+        RECORD ft := this->GetFilterTitle(root);
+
+        node.title := ft.title;
+        node.specifics := ft.encode;
+        node.canedit := NOT root->isfixed;
+        node.canaddalternative := NOT root->isfixed;
+      }
+    }
+
+    FOREVERY (OBJECT n FROM root->children)
+    {
+      IF (n->parentfilter != root)
+        THROW NEW Exception("Internal consistency error: filter parent doesn't point to its real parent");
+      children := children CONCAT this->BuildTreeLevel(n, FALSE);
+    }
+
+    IF (NOT return_only_children)
+    {
+      UPDATE children
+         SET title :=           "\u00A0\u00A0\u00A0" || title
+           , specifics :=       "\u00A0\u00A0\u00A0" || specifics;
+    }
+
+    RETURN return_only_children ? children : [ node ] CONCAT children;
+  }
+
+
+  OBJECT FUNCTION ParseFilter(OBJECT parent, OBJECT source, RECORD filter)
+  {
+    STRING type := CellExists(filter, "TYPE") ? ToLowercase(filter.type) : "free";
+    SWITCH (type)
+    {
+    CASE "and", "or"
+      {
+        OBJECT f := NEW Filter(type);
+        f->parentfilter := parent;
+        f->source := source;
+        f->isfixed := CellExists(filter, "ISFIXED") ? filter.isfixed : FALSE;
+        FOREVERY (RECORD rec FROM filter.filters)
+          INSERT this->ParseFilter(f, source, rec) INTO f->children AT END;
+
+        RETURN f;
+      }
+    CASE "not"
+      {
+        OBJECT f := this->ParseFilter(parent, source, filter.filter);
+        IF (f->type != "")
+          THROW NEW Exception("Parsing 'not'-filters with which contain 'and'- or 'or'-filters not implemented");
+        SWITCH (f->matchtype)
+        {
+        CASE ">"          { f->matchtype := "<="; }
+        CASE ">="         { f->matchtype := "<"; }
+        CASE "="          { f->matchtype := "!="; }
+        CASE "!=", "<>"   { f->matchtype := "="; }
+        CASE "<"          { f->matchtype := ">="; }
+        CASE "<="         { f->matchtype := ">"; }
+        CASE "CONTAINS"   { f->matchtype := "NOTCONTAINS"; }
+        CASE "LIKE"       { f->matchtype := "NOTLIKE"; }
+        CASE "NOTCONTAINS"{ f->matchtype := "CONTAINS"; }
+        CASE "NOTLIKE"    { f->matchtype := "LIKE"; }
+        CASE "MENTIONSANY" { f->matchtype := "MENTIONSANY"; }
+        DEFAULT           { THROW NEW Exception("Matchtype '" || f->matchtype || "' not supported for 'not'-filters"); }
+        }
+        RETURN f;
+      }
+    CASE "domain"
+      {
+        THROW NEW Exception("Parsing 'domain'-filters not implemented yet");
+      }
+    CASE "free"
+      {
+        IF (CellExists(filter, "VALUE_P"))
+          THROW NEW Exception("Parsing parameters not implemented yet");
+
+        RECORD attr := this->wrdtype->GetAttribute(filter.field);
+        IF (NOT RecordExists(attr))
+          THROW NEW Exception("Cannot find attribute '" || filter.field || "' in wrd type '" || parent->source->wrdtype->tag || "'");
+
+        OBJECT f := NEW Filter('');
+        f->parentfilter := parent;
+        f->source := source;
+        f->isfixed := CellExists(filter, "ISFIXED") ? filter.isfixed : FALSE;
+
+        f->fieldtag := filter.field;
+        f->attr := attr;
+        f->matchcase :=
+            CellExists(filter, "MATCHCASE") ?
+                filter.matchcase :
+                CellExists(filter, "MATCH_CASE") ?
+                  filter.match_case :
+                  attr.attributetype NOT IN [ 0, 2, 3, 4, 5 ];
+        f->matchtype :=
+            CellExists(filter, "MATCHTYPE") ?
+                filter.matchtype :
+                CellExists(filter, "MATCH_TYPE") ?
+                    filter.match_type :
+                    "=";
+        f->data := [ value := filter.value ];
+
+        // Auto-convert like '*value*' to contains 'value'
+        IF (f->matchtype = "LIKE" AND TypeID(filter.value) = TypeID(STRING) AND LENGTH(filter.value) >= 2
+          AND Left(filter.value, 1) = "*" AND Right(filter.value, 1) = "*")
+        {
+          f->matchtype := "CONTAINS";
+          f->data.value := SubString(filter.value, 1, LENGTH(filter.value) - 2);
+        }
+
+        RETURN f;
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Unparsable filter type " || type);
+      }
+    }
+  }
+
+
+  RECORD FUNCTION EncodeFilter(OBJECT filter)
+  {
+    SWITCH (filter->type)
+    {
+    CASE "and", "or"
+      {
+        RECORD result :=
+            [ type :=           filter->type
+            , filters :=        DEFAULT RECORD ARRAY
+            ];
+
+        FOREVERY (OBJECT child FROM filter->children)
+          INSERT this->EncodeFilter(child) INTO result.filters AT END;
+
+        RETURN result;
+      }
+
+    CASE ""
+      {
+        VARIANT value := filter->data.value;
+        STRING matchtype := ToUppercase(filter->matchtype);
+
+        IF (ToUppercase(filter->matchtype) = "CONTAINS")
+        {
+          value := "*" || value || "*";
+          matchtype := "LIKE";
+        }
+        IF (ToUppercase(filter->matchtype) = "NOTCONTAINS")
+        {
+          value := "*" || value || "*";
+          matchtype := "NOTLIKE";
+        }
+
+        BOOLEAN encase_in_not;
+        IF (matchtype LIKE "NOT*")
+        {
+          encase_in_not := TRUE;
+          matchtype := SubString(matchtype, 3);
+        }
+
+        RECORD filterrec :=
+            [ type :=       "free"
+            , field :=      filter->fieldtag
+            , matchtype :=  matchtype
+            , value :=      value
+            , isfixed :=    filter->isfixed
+            ];
+
+        IF (filter->attr.attributetype IN [ 0, 2, 4, 5 ])
+          INSERT CELL matchcase :=  filter->matchcase INTO filterrec;
+
+        IF (encase_in_not)
+        {
+          RETURN
+              [ type :=     "not"
+              , filter :=   filterrec
+              ];
+        }
+
+        RETURN filterrec;
+      }
+
+    DEFAULT
+      {
+        THROW NEW Exception("Error encoding filters, unknown type '"||filter->type||"'");
+      }
+    }
+  }
+
+
+  STRING FUNCTION EncodeFilterValue(OBJECT filter, BOOLEAN is_contains)
+  {
+    VARIANT value := filter->data.value;
+    IF (IsTypeIDArray(TypeID(value)))
+    {
+      STRING ARRAY vals;
+      FOREVERY (VARIANT val FROM value)
+        INSERT this->EncodeSingleFilterValue(filter, val, is_contains) INTO vals AT END;
+      RETURN LENGTH(vals) = 0 ? `[]` : `[ ${Detokenize(vals, ", ")} ]`;
+    }
+
+    RETURN this->EncodeSingleFilterValue(filter, value, is_contains);
+  }
+
+  STRING FUNCTION EncodeSingleFilterValue(OBJECT filter, VARIANT value, BOOLEAN is_contains)
+  {
+    IF (filter->attr.attributetype IN [ 1, 8 ])
+    {
+      IF (value = 0)
+        RETURN "0";
+
+      IF (filter->attr.tag = "WRD_GENDER")
+      {
+        RETURN
+            SELECT AS STRING title
+              FROM filter->source->wrdtype->ListDomVals("WRD_GENDER")
+             WHERE id = value;
+      }
+      ELSE
+      {
+        STRING ARRAY showfields := [ "WRD_TITLE", "WRD_FULLNAME", "WRD_ORGNAME", "WRD_TAG" ];
+
+        OBJECT domtype := filter->source->wrdtype->wrdschema->GetTypeById(filter->attr.domain);
+
+        STRING showname :=
+            SELECT AS STRING tag
+              FROM domtype->ListAttributes(0)
+             WHERE tag IN showfields
+          ORDER BY SearchElement(showfields, tag);
+
+        OBJECT entity := domtype->GetEntity(value);
+        IF (ObjectExists(entity))
+          RETURN "'" || entity->GetField(showname) || "'";
+        ELSE
+          RETURN "* no such entity *: " || value;
+      }
+    }
+
+    RECORD opt := GetFilterOptions(filter->attr);
+    SWITCH (opt.valuetype)
+    {
+    CASE "integer", "integer64"
+      {
+        RETURN ToString(value);
+      }
+    CASE "string"
+      {
+        IF (is_contains)
+          value := "*"||value||"*";
+
+        RETURN "'" || Substitute(value, "'", "\\'") || "'";
+      }
+    CASE "money"
+      {
+        RETURN FormatMoney(value, 0, ".", "", FALSE);
+      }
+    CASE "date"
+      {
+        RETURN FormatDateTime("%Y-%m-%d", value);
+      }
+    CASE "datetime"
+      {
+        RETURN FormatDateTime("%Y-%m-%d %H:%M:%S.%Q", value);
+      }
+    CASE "boolean"
+      {
+        RETURN (value ? "TRUE" : "FALSE");
+      }
+    DEFAULT
+      {
+        RETURN "Cannot encode " || opt.valuetype;
+      }
+    }
+  }
+
+
+
+  RECORD FUNCTION GetFilterTitle(OBJECT filter)
+  {
+    STRING enc_fieldname := filter->fieldtag;
+    STRING mc_text := "";
+    IF (filter->matchcase AND filter->attr.attributetype IN [ 2, 4, 5 ])
+    {
+//      enc_fieldname := "ToUppercase(" || filter->fieldtag || ")";
+      mc_text := " " || GetTid("wrd:commondialogs.simplequerybuilder.filters.casesensitive");
+    }
+
+    SWITCH (filter->matchtype)
+    {
+    CASE "CONTAINS"
+      { // Always a string
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.contains", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " LIKE " || this->EncodeFilterValue(filter, TRUE) || mc_text
+            ];
+      }
+
+    CASE "NOTCONTAINS"
+      { // Always a string
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.notcontains", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " NOT LIKE " || this->EncodeFilterValue(filter, TRUE) || mc_text
+            ];
+      }
+
+    CASE "LIKE"
+      { // Always a string
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.like", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " LIKE " || this->EncodeFilterValue(filter, FALSE) || mc_text
+            ];
+      }
+
+    CASE "NOTLIKE"
+      { // Always a string
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.notlike", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " NOT LIKE " || this->EncodeFilterValue(filter, FALSE) || mc_text
+            ];
+      }
+
+    CASE "="
+      {
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.equal", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " = " || this->EncodeFilterValue(filter, FALSE) || mc_text
+            ];
+      }
+
+    CASE "!="
+      {
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.unequal", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " != " || this->EncodeFilterValue(filter, FALSE) || mc_text
+            ];
+      }
+
+    CASE ">"
+      {
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.larger", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " > " || this->EncodeFilterValue(filter, FALSE) || mc_text
+            ];
+      }
+
+    CASE ">="
+      {
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.largerequal", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " >= " || this->EncodeFilterValue(filter, FALSE) || mc_text
+            ];
+      }
+
+    CASE "<"
+      {
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.smaller", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " < " || this->EncodeFilterValue(filter, FALSE) || mc_text
+            ];
+      }
+
+    CASE "<="
+      {
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.smallerrequal", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " <= " || this->EncodeFilterValue(filter, FALSE) || mc_text
+            ];
+      }
+    CASE "MENTIONSANY"
+      {
+        RETURN
+            [ title :=  GetTid("wrd:commondialogs.simplequerybuilder.filters.mentionsany", filter->attr.title, this->EncodeFilterValue(filter, FALSE)) || mc_text
+            , encode := enc_fieldname || " MENTIONSANY " || this->EncodeFilterValue(filter, TRUE) || mc_text
+            ];
+      }
+
+    DEFAULT
+      {
+        THROW NEW Exception("Unhandled matchtype " || filter->matchtype);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAddFilter()
+  {
+    OBJECT selected := RecordExists(this->filterlist->selection) ? this->filterlist->selection.node : this->pvt_sourceobj->rootfilter;
+
+    OBJECT screen := this->LoadScreen(".addeditfilter",
+        [ source :=         this->pvt_sourceobj
+        , parent :=         selected
+        , orgfilter :=      DEFAULT OBJECT
+        , addalternative := FALSE
+        ]);
+
+    IF (ObjectExists(screen) AND screen->RunModal() = "ok")
+    {
+      this->RefreshFilters();
+      INSERT screen->node->id INTO this->filterlist->expanded AT END;
+      this->filterlist->value := screen->node->id;
+      this->frame->focused := this->filterlist;
+    }
+  }
+
+
+  MACRO DoAddAlternative()
+  {
+    OBJECT selected := RecordExists(this->filterlist->selection) ? this->filterlist->selection.node : this->pvt_sourceobj->rootcondition;
+
+    OBJECT screen := this->LoadScreen(".addeditfilter",
+        [ source :=         this->pvt_sourceobj
+        , parent :=         selected
+        , orgfilter :=      DEFAULT OBJECT
+        , addalternative := TRUE
+        ]);
+
+    IF (ObjectExists(screen) AND screen->RunModal() = "ok")
+    {
+      this->RefreshFilters();
+      INSERT screen->node->id INTO this->filterlist->expanded AT END;
+      this->filterlist->value := screen->node->id;
+      this->frame->focused := this->filterlist;
+    }
+  }
+
+
+  MACRO DoEditFilter()
+  {
+    OBJECT selected := RecordExists(this->filterlist->selection) ? this->filterlist->selection.node : this->pvt_sourceobj->rootcondition;
+
+    OBJECT screen := this->LoadScreen(".addeditfilter",
+        [ source :=         this->pvt_sourceobj
+        , parent :=         selected->parentfilter
+        , orgfilter :=      selected
+        , addalternative := FALSE
+        ]);
+
+    IF (ObjectExists(screen) AND screen->RunModal() = "ok")
+    {
+      this->RefreshFilters();
+    }
+  }
+
+  MACRO DoDeleteFilter()
+  {
+    OBJECT node := this->filterlist->selection.node;
+    OBJECT multinode := node->parentfilter;
+    OBJECT toselect := multinode;
+
+    INTEGER p := SearchElement(multinode->children, node);
+    DELETE FROM multinode->children AT p;
+
+    IF (p > 0)
+      toselect := multinode->children[p-1];
+
+    IF (LENGTH(multinode->children) = 1 AND ObjectExists(multinode->parentfilter))
+    {
+      p := SearchElement(multinode->parentfilter->children, multinode);
+      multinode->parentfilter->children[p] := multinode->children[0];
+      multinode->children[0]->parentfilter := multinode->parentfilter;
+      toselect := multinode->children[0];
+    }
+
+    this->RefreshFilters();
+    this->filterlist->value := toselect->id;
+    this->frame->focused := this->filterlist;
+  }
+
+
+  MACRO DoAddColumn()
+  {
+    OBJECT screen := this->LoadScreen(".addeditcolumn",
+        [ source :=     this->pvt_sourceobj
+        , rename :=     ""
+        ]);
+
+    IF (ObjectExists(screen) AND screen->RunModal() = "ok")
+    {
+      this->RefreshColumns();
+      this->columns->value := [ STRING(screen->newname) ];
+      this->frame->focused := this->columns;
+    }
+  }
+
+
+  MACRO DoEditColumn()
+  {
+    OBJECT screen := this->LoadScreen(".addeditcolumn",
+        [ source :=     this->pvt_sourceobj
+        , rename :=     this->columns->value[0]
+        ]);
+
+    IF (ObjectExists(screen) AND screen->RunModal() = "ok")
+    {
+      this->RefreshColumns();
+      this->columns->value := [ STRING(screen->newname) ];
+      this->frame->focused := this->columns;
+    }
+  }
+
+
+  MACRO DoDeleteColumn()
+  {
+    DELETE
+      FROM this->pvt_sourceobj->columns
+     WHERE rename IN this->columns->value;
+
+    this->RefreshColumns();
+    this->frame->focused := this->columns;
+  }
+
+>;
+
+
+PUBLIC OBJECTTYPE AddEditColumn EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT source;
+
+
+  RECORD orgrec;
+
+
+  STRING newrename;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY newname(newrename, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->source := data.source;
+    this->field->options :=
+        SELECT rowkey :=        tag
+             , title :=         title || " (" || tag || ")"
+             , realtitle :=     title
+             , tag :=           tag
+          FROM this->source->wrdtype->ListAttributes(0)
+      ORDER BY NormalizeText(title, GetTidLanguage());
+
+    this->orgrec :=
+        SELECT *
+          FROM this->source->columns
+         WHERE rename = data.rename;
+
+    IF (NOT RecordExists(this->orgrec))
+      this->frame->title := GetTid("wrd:commondialogs.simplequerybuilder.addeditcolumn.title_addcolumn");
+    ELSE
+    {
+      this->frame->title := GetTid("wrd:commondialogs.simplequerybuilder.addeditcolumn.title_editcolumn", this->orgrec.title);
+      this->field->value := this->orgrec.tag;
+      IF (this->orgrec.rename != this->orgrec.tag)
+        this->rename->value := this->orgrec.rename;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Submit
+  //
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+
+    this->newrename := ToUppercase(this->rename->value = "" ? this->field->value : this->rename->value);
+
+    RECORD existingval :=
+        SELECT *
+          FROM this->source->columns
+         WHERE rename = this->newrename;
+
+    IF (RecordExists(existingval) AND (NOT RecordExists(this->orgrec) OR this->orgrec.rename != this->newrename))
+    {
+      work->AddError(GetTid("wrd:commondialogs.simplequerybuilder.addeditcolumn.renamealreadyexists", this->newrename));
+      RETURN work->Finish();
+    }
+
+    IF (RecordExists(this->orgrec))
+      DELETE FROM this->source->columns WHERE rename = this->orgrec.rename;
+
+    INSERT
+        [ tag :=                this->field->value
+        , title :=              this->field->selection.realtitle
+        , rename :=             this->newrename
+        ] INTO this->source->columns AT END;
+
+    RETURN work->Finish();
+  }
+
+>;
+
+
+PUBLIC OBJECTTYPE AddEditFilter EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT source;
+
+  OBJECT wrdfield;
+
+  STRING wrdfieldtype;
+
+  RECORD data;
+
+  OBJECT parent;
+  OBJECT orgfilter;
+
+
+  BOOLEAN addalternative;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY node(orgfilter, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->source := data.source;
+    this->parent := data.parent;
+    this->orgfilter := data.orgfilter;
+    this->addalternative := data.addalternative;
+
+    RECORD ARRAY fields :=
+        SELECT rowkey :=        tag
+             , attr :=          attr
+             , opts :=          GetFilterOptions(attr)
+          FROM this->source->wrdtype->ListAttributes(0) AS attr
+      ORDER BY NormalizeText(title, GetTidLanguage());
+
+    this->field->options :=
+        SELECT *
+             , title :=         attr.title || " (" || rowkey || ")"
+          FROM fields
+         WHERE opts.valuetype != "";
+
+    IF (ObjectExists(data.orgfilter))
+    {
+      PRINT("Selecting fieldtag: " || data.orgfilter->fieldtag);
+      this->field->value := data.orgfilter->fieldtag;
+      this->condition->value := data.orgfilter->matchtype;
+      this->wrdfield->value := data.orgfilter->data.value;
+      this->casesensitive->value := data.orgfilter->matchcase;
+    }
+    ELSE IF (this->addalternative AND this->parent->type = "")
+      this->field->value := this->parent->fieldtag;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnFieldChange()
+  {
+    this->data := DEFAULT RECORD;
+    IF (NOT RecordExists(this->field->selection))
+      THROW NEW Exception("No field selection!");
+    this->InitForField(this->field->selection);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO InitForField(RECORD rec)
+  {
+    // FIXME: update possible values for wrd:field if it's a pulldown instead of regenerating?
+    IF (this->wrdfieldtype = rec.opts.valuetype AND this->wrdfieldtype != "wrd:field")
+      RETURN;
+
+    this->wrdfieldtype := rec.opts.valuetype;
+    this->filterentity->wrdtype := this->source->wrdtype;
+
+    IF (ObjectExists(this->wrdfield))
+      this->wrdfield->DeleteComponent();
+
+    SWITCH (rec.opts.valuetype)
+    {
+    CASE "wrd:field"
+      {
+        this->wrdfield := this->CreateCustomComponent("http://www.webhare.net/xmlns/wrd/components", "field");
+
+        this->wrdfield->height := "1pr";
+        this->wrdfield->autotitle := FALSE;
+        this->wrdfield->title := GetTid("wrd:commondialogs.simplequerybuilder.value");
+        this->wrdfield->composition := this->filterentity;
+        this->wrdfield->cellname := rec.attr.tag;
+
+        this->casesensitive->pvt_parent->InsertComponentAfter(this->wrdfield, this->casesensitive, TRUE);
+
+        this->casesensitive->visible := FALSE;
+      }
+    CASE "integer", "integer64", "string", "money"
+      {
+        this->wrdfield := this->CreateTolliumComponent("textedit");
+        this->wrdfield->valuetype := rec.opts.valuetype;
+        this->wrdfield->title := GetTid("wrd:commondialogs.simplequerybuilder.value");
+        this->casesensitive->pvt_parent->InsertComponentAfter(this->wrdfield, this->casesensitive, TRUE);
+        this->casesensitive->visible := rec.opts.valuetype = "string";
+        IF (rec.opts.valuetype = "string")
+          this->wrdfield->width := "1pr";
+      }
+    CASE "date"
+      {
+        this->wrdfield := this->CreateTolliumComponent("datetime");
+        this->wrdfield->title := GetTid("wrd:commondialogs.simplequerybuilder.value");
+        this->wrdfield->type := "date";
+        this->casesensitive->pvt_parent->InsertComponentAfter(this->wrdfield, this->casesensitive, TRUE);
+        this->casesensitive->visible := FALSE;
+      }
+    CASE "datetime"
+      {
+        this->wrdfield := this->CreateTolliumComponent("datetime");
+        this->wrdfield->title := GetTid("wrd:commondialogs.simplequerybuilder.value");
+        this->casesensitive->pvt_parent->InsertComponentAfter(this->wrdfield, this->casesensitive, TRUE);
+        this->casesensitive->visible := FALSE;
+      }
+    CASE "boolean"
+      {
+        this->wrdfield := this->CreateTolliumComponent("checkbox");
+        this->wrdfield->label := GetTid("wrd:commondialogs.simplequerybuilder.value");
+        this->casesensitive->pvt_parent->InsertComponentAfter(this->wrdfield, this->casesensitive, TRUE);
+        this->casesensitive->visible := FALSE;
+      }
+    }
+
+    IF (RecordExists(this->data))
+      this->wrdfield->value := this->data.value;
+
+    this->condition->options := this->field->selection.opts.allowed_conditions;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Submit
+  //
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT feedback := this->BeginFeedback();
+
+    IF (NOT ObjectExists(this->orgfilter))
+    {
+      STRING wanttype := this->addalternative ? "or" : "and";
+
+      IF (this->parent->type != wanttype AND ObjectExists(this->parent->parentfilter) AND this->parent->parentfilter->type = wanttype)
+        this->parent := this->parent->parentfilter;
+      ELSE IF (this->parent->type != wanttype)
+      {
+        IF (ObjectExists(this->parent->parentfilter))
+        {
+          OBJECT orc := NEW Filter(wanttype);
+          orc->source := this->parent->source;
+          orc->parentfilter := this->parent->parentfilter;
+
+          INTEGER p := SearchElement(this->parent->parentfilter->children, this->parent);
+          this->parent->parentfilter->children[p] := orc;
+          this->parent->parentfilter := orc;
+          orc->children := [ this->parent ];
+
+          this->parent := orc;
+        }
+      }
+
+      this->orgfilter := NEW Filter('');
+      this->orgfilter->source := this->parent->source;
+      this->orgfilter->parentfilter := this->parent;
+      INSERT this->orgfilter INTO this->parent->children AT END;
+    }
+
+    this->orgfilter->fieldtag := this->field->value;
+    this->orgfilter->attr := this->field->selection.attr;
+    this->orgfilter->matchtype := this->condition->value;
+    this->orgfilter->data := [ value := this->wrdfield->value ];
+    this->orgfilter->matchcase := this->casesensitive->value;
+
+    RETURN feedback->Finish();
+  }
+>;
+
+// ---------------------------------------------------------------------------
+//
+// Global helper functions
+//
+
+RECORD FUNCTION GetFilterOptions(RECORD attr)
+{
+  RECORD ARRAY contains :=
+      [ [ rowkey := "CONTAINS",       title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.contains") ]
+      , [ rowkey := "NOTCONTAINS",    title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.notcontains") ]
+      , [ rowkey := "LIKE",           title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.like") ]
+      , [ rowkey := "NOTLIKE",        title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.notlike") ]
+      ];
+
+  RECORD ARRAY mentions :=
+      [ [ rowkey := "MENTIONSANY",    title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.mentionsany") ]
+      ];
+
+  RECORD ARRAY equal    :=
+        [ [ rowkey := "=",            title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.equal") ]
+        , [ rowkey := "!=",           title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.unequal") ]
+        ];
+
+  RECORD ARRAY compare  :=
+        [ [ rowkey := ">",            title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.larger") ]
+        , [ rowkey := ">=",           title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.largerequal") ]
+        , [ rowkey := "<",            title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.smaller") ]
+        , [ rowkey := "<=",           title := GetTid("wrd:commondialogs.simplequerybuilder.conditions.smallerequal") ]
+        ];
+
+  RECORD ARRAY allowed_conditions;
+  STRING valuetype;
+  BOOLEAN casesensitive;
+  SWITCH (attr.attributetype)
+  {
+  CASE 1 // Single select
+    {
+      valuetype := "wrd:field";
+      allowed_conditions := equal CONCAT mentions;
+    }
+  CASE 8 // Multiple select, not matchable
+    {
+      valuetype := "wrd:field";
+      allowed_conditions := equal CONCAT mentions;
+    }
+  CASE 2 // Free text
+     , 4 // Email
+     , 5 // Telephone
+     , 21 // URL
+    {
+      valuetype := "string";
+      allowed_conditions := equal CONCAT compare CONCAT contains;
+      casesensitive := TRUE;
+    }
+  CASE 3 // Address, not matchable
+     , 9 // Image, not matchable
+     , 10 // File, not matchable
+     , 13 // Array, not matchable
+    {
+      valuetype := "";
+    }
+  CASE 7 // Password
+    {
+      valuetype := "string";
+      allowed_conditions := equal;
+    }
+  CASE 11 // Time
+     , 15 // Integer
+    {
+      valuetype := "integer";
+      allowed_conditions := equal CONCAT compare;
+    }
+  CASE 6 // Date
+    {
+      valuetype := "date";
+      allowed_conditions := equal CONCAT compare;
+    }
+  CASE 12 // Datetime
+    {
+      valuetype := "datetime";
+      allowed_conditions := equal CONCAT compare;
+    }
+  CASE 14 // Money
+    {
+      valuetype := "money";
+      allowed_conditions := equal CONCAT compare;
+    }
+  CASE 16 // Boolean
+    {
+      valuetype := "boolean";
+      allowed_conditions := equal;
+    }
+  CASE 18 // Integer64
+    {
+      valuetype := "integer64";
+      allowed_conditions := equal CONCAT compare;
+    }
+  }
+  IF (attr.tag = "WRD_GUID")
+  {
+    valuetype := "string";
+    allowed_conditions := equal;
+  }
+
+  RETURN
+      [ allowed_conditions := allowed_conditions
+      , valuetype :=          valuetype
+      , casesensitive :=      casesensitive
+      ];
+}

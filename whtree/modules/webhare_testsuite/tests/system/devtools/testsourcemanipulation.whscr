@@ -1,0 +1,179 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/devtools/sourcemanipulation.whlib";
+
+
+MACRO TestSingleOrdering(RECORD expected, STRING liba, STRING libb)
+{
+  TestEQ(expected, CompareLoadLibs(liba, libb));
+  expected.position := -expected.position;
+  TestEQ(expected, CompareLoadLibs(libb, liba));
+}
+
+
+MACRO TestLoadLibOrdering()
+{
+  // ordering of groups
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "wh::a.whlib", "module::system/a.whlib");
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "module::system/a.whlib", "module::a/a.whlib");
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "module::a/a.whlib", "site::a/a.whlib");
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "module::system/a.whlib", "site::a/a.whlib");
+
+  // intra-group ordering (wh)
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "wh::a.whlib", "wh::b.whlib");
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "wh::b.whlib", "wh::a/a.whlib");
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "wh::z/z.whlib", "wh::internal/a.whlib");
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "wh::a/b.whlib", "wh::a/a/a.whlib");
+
+  // intra-module (mod first)
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "mod::a/lib/a.whlib", "module::a/a.whlib");
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "mod::a/scripts/a.whlib", "moduleroot::a/a.whlib");
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "mod::a/lib/zzz/a.whlib", "mod::a/lib/internal/a.whlib");
+
+  // currently no ordering within non-builting modules
+  TestSingleOrdering([ same_group := FALSE, position := 0 ], "mod::a/a.whlib", "mod::b/a.whlib");
+
+  // currently no ordering within builtin modules
+  TestSingleOrdering([ same_group := FALSE, position := 0 ], "mod::consilio/a.whlib", "mod::system/a.whlib");
+
+  // unknown prefixes
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "mod::ext/a.whlib", "invalid::system/a.whlib");
+
+  // unknown syntax
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "invalid::system/a.whlib", "totally invalid");
+}
+
+MACRO TestLoadlibPositionData()
+{
+  // normal operation
+  TestEQ(
+      [ allowed_lines :=  [ 2, 3, 4, 5, 6, 7, 8 ]
+      , minline :=        2
+      , maxline :=        8
+      , empty_lines :=    [ 2, 5, 7 ]
+      , loadlibs :=       [ [ line := 3, path := "a" ], [ line := 4, path := "b" ], [ line := 6, path := "c" ] ]
+      ], GetLoadlibPositionData(
+`<?wh
+
+LOADLIB "a";
+LOADLIB "b"; // blabla
+
+LOADLIB "c";
+
+MACRO code() {}`));
+
+  // no valid insert positions
+  TestEQ(
+      [ allowed_lines :=  DEFAULT INTEGER ARRAY
+      , minline :=        2
+      , maxline :=        1
+      , empty_lines :=    DEFAULT INTEGER ARRAY
+      , loadlibs :=       [ [ line := 1, path := "a" ] ]
+      ], GetLoadlibPositionData(
+`<?wh LOADLIB "a"; MACRO code() {}`));
+
+  // lines that don't start in whitespace
+  TestEQ(
+      [ allowed_lines :=  [ 2, 3, 5, 6 ]
+      , minline :=        2
+      , maxline :=        6
+      , empty_lines :=    [ 2, 5 ]
+      , loadlibs :=       [ [ line := 4, path := "a" ] ]
+      ], GetLoadlibPositionData(
+`<?wh
+
+/*
+*/LOADLIB "a";
+
+MACRO code() {}`));
+
+  // shebacg
+  TestEQ(
+      [ allowed_lines :=  [ 3, 4, 5, 6 ]
+      , minline :=        3
+      , maxline :=        6
+      , empty_lines :=    [ 3, 5 ]
+      , loadlibs :=       [ [ line := 4, path := "a" ] ]
+      ], GetLoadlibPositionData(
+`#!/blabla
+<?wh
+
+LOADLIB "a";
+
+MACRO code() {}`));
+}
+
+MACRO SingleTestLoadlibInsert(STRING source, STRING path, STRING expectinsert)
+{
+  STRING subst_source := Substitute(source, "*", "");
+  RECORD res := InsertLoadLibStatement(subst_source, path);
+  TestEQ(expectinsert != "", res.success);
+  IF (res.success)
+    TestEQ(Substitute(source, "*", expectinsert), res.data);
+}
+
+MACRO TestInsertLoadLib()
+{
+  // place after existing
+  SingleTestLoadLibInsert(
+`<?wh
+
+LOADLIB "wh::a.whlib";
+*
+MACRO Test() {}`, "wh::b.whlib", 'LOADLIB "wh::b.whlib";\n\n');
+
+  // other group, with spacing before and after
+  SingleTestLoadLibInsert(
+`<?wh
+
+LOADLIB "wh::a.whlib";
+*
+MACRO Test() {}`, "mod::b/c.whlib", '\nLOADLIB "mod::b/c.whlib";\n\n');
+
+  // within second group
+  SingleTestLoadLibInsert(
+`<?wh
+
+LOADLIB "wh::a.whlib";
+
+LOADLIB "mod::a/a.whlib";
+*LOADLIB "mod::a/c.whlib";
+
+MACRO Test() {}`, "mod::a/b.whlib", 'LOADLIB "mod::a/b.whlib";\n');
+
+  // existing lib
+  SingleTestLoadLibInsert(
+`<?wh
+
+LOADLIB "wh::a.whlib";
+
+MACRO Test() {}`, "wh::a.whlib", '');
+}
+
+MACRO TestRemoveLoadLib()
+{
+  TestEq(`<?wh\n\nLOADLIB "wh::b.whlib";`, RemoveLoadlibStatement(`<?wh\n\nLOADLIB "wh::a.whlib"; // Remove\nLOADLIB "wh::b.whlib";`, "wh::a.whlib").data);
+  TestEq(`<?wh\nLOADLIB "wh::c.whlib";\n\n//b;\n`, RemoveLoadlibStatement(`<?wh\nLOADLIB "wh::c.whlib";\n\nLOADLIB "wh::a.whlib";\n\n//b;\n`, "wh::a.whlib").data);
+  TestEq(`<?wh\n//a\n\n//b;\n`, RemoveLoadlibStatement(`<?wh\n//a\n\nLOADLIB "wh::a.whlib";\n\n//b;\n`, "wh::a.whlib").data);
+  TestEq(`<?wh\n//a\n\n//b;\n`, RemoveLoadlibStatement(`<?wh\n//a\nLOADLIB "wh::a.whlib";\n\n//b;\n`, "wh::a.whlib").data);
+}
+
+MACRO TestRewriteLib()
+{
+  TestEq([anychanges := FALSE, data := `<?wh //hi\n\nLOADLIB "wh::b.whlib";` ],
+         RewriteModuleLoadlibsToMod(`<?wh //hi\n\nLOADLIB "wh::b.whlib";`));
+  TestEq([anychanges := TRUE, data := `<?wh\n\nLOADLIB "mod::system/lib/database.whlib" EXPORT x;` ],
+         RewriteModuleLoadlibsToMod(`<?wh\n\nLOADLIB "module::system/database.whlib" EXPORT x;`));
+  TestEq([anychanges := TRUE, data := `<?wh\n\nLOADLIB "mod::system/lib/database.whlib"; //stupid lib\n` ],
+         RewriteModuleLoadlibsToMod(`<?wh\n\nLOADLIB "module::system/database.whlib"; //stupid lib\n`));
+  TestEq([anychanges := TRUE, data := `<?wh\n\nLOADLIB "mod::system/lib/database.whlib";\n` ],
+         RewriteModuleLoadlibsToMod(`<?wh\n\nLOADLIB "module::system/database.whlib";\n`));
+}
+
+RunTestFramework([ PTR TestLoadLibOrdering
+                 , PTR TestLoadlibPositionData
+                 , PTR TestInsertLoadLib
+                 , PTR TestRemoveLoadLib
+                 , PTR TestRewriteLib
+                 ]);

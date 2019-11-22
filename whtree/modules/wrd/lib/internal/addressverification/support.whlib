@@ -1,0 +1,23 @@
+<?wh
+
+/** Normalize a NL zipcode
+    @return Zipcode in "NNNN XX" form, with uppercase letters, or an empty string if this is not a valid NL zip code */
+PUBLIC STRING FUNCTION FixupZipCodeNL(STRING incode)
+{
+  incode:=ToUppercase(Substitute(incode,' ',''));
+  IF(incode LIKE "NL-*")
+    incode := Substring(incode,3);
+
+  IF(Length(incode)!=6)
+    RETURN ""; //invalid
+
+  IF(ToInteger(Left(incode,4),-1) < 1000)
+    RETURN "";
+  FOR(INTEGER pos := 4; pos < 6; pos := pos + 1)
+    IF(Substring(incode,pos,1) < "A" OR Substring(incode,pos,1) > "Z")
+      RETURN "";
+
+  /* https://www.postnl.nl/versturen/brief-of-kaart-versturen/hoe-verstuur-ik-een-brief-of-kaart/brief-adresseren/
+     Schrijfwijze postcode: 1 spatie tussen de cijfers en letters van de postcode */
+  RETURN Left(incode,4) || " " || Right(incode,2);
+}

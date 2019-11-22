@@ -1,0 +1,55 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+STRING savelastmod;
+DATETIME nextsecond;
+STRING embeddableurl;
+
+MACRO TestEmbedGTM()
+{
+  TestThrows(PTR DownloadEmbeddableScript("GTM", "TN7QQM"));
+
+  DeleteEmbeddableScript("GTM", ourgtmtestcontainer); //GTM-TN7QMM is managed by WebHare bv's GTM account
+
+  embeddableurl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), GetEmbeddableScriptURL("GTM", ourgtmtestcontainer));
+  TestEq(FALSE, testfw->browser->GotoWebPage(embeddableurl));
+
+  DownloadEmbeddableScript("GTM", ourgtmtestcontainer);
+  TestEq(TRUE, testfw->browser->GotoWebPage(embeddableurl));
+  savelastmod := SELECT AS STRING value FROM testfw->browser->responseheaders WHERE ToUppercase(field)="LAST-MODIFIED";
+  nextsecond := GetRoundedDatetime(AddTimeToDate(999, GetCurrentDatetime()), 1000);
+
+  TestEq("public, max-age=600", SELECT AS STRING value FROM testfw->browser->responseheaders WHERE ToUppercase(field)="CACHE-CONTROL");
+
+  TestEq(TRUE, IsEmbeddableScriptIntercepted("GTM", ourgtmtestcontainer));
+
+  //Test file republish of static version - should not menthion google by script
+  RECORD publishres := RunFilePublish(OpentestsuiteSite()->OpenByPath("testpages/staticpage")->id, FALSE);
+  TestEq(TRUE, publishres.success, "Publication failed");
+
+  STRING output := BlobToString(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+  TestEq(FALSE, output LIKE `*googletagmanager.com/gtm.js*`, "Direct GTM should not be present");
+  //but it should be in the vars - q&d test as this format should never change without a good reason (as you'd need a full republsih)
+  TestEq(TRUE, output LIKE `*socialite:gtm*${ourgtmtestcontainer}*`);
+}
+
+MACRO TestNoRedownload()
+{
+  //ensure we don't redownload by checking lastmod
+  WaitUntil(CELL[], nextsecond);
+  DownloadEmbeddableScript("GTM", ourgtmtestcontainer);
+  TestEq(TRUE, testfw->browser->GotoWebPage(embeddableurl));
+  TestEq(savelastmod, SELECT AS STRING value FROM testfw->browser->responseheaders WHERE ToUppercase(field)="LAST-MODIFIED");
+}
+
+RunTestframework([ PTR TestEmbedGTM
+                 , PTR TestNoRedownload
+                 ]);

@@ -1,0 +1,164 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC MACRO DoRecompileSiteProfiles(OBJECT parent)
+{
+  RECORD result := RecompileSiteProfiles();
+  IF (Length(result.errors) > 0 OR Length(result.warnings) > 0)
+  {
+    // Group errors by file, show fatal errors first, order by line number
+    RECORD ARRAY messages := (SELECT *, iserror := TRUE FROM result.errors)
+                             CONCAT
+                             (SELECT *, iserror := FALSE FROM result.warnings);
+
+    parent->RunScreen("mod::publisher/tolliumapps/filemanager/siteprofiles.xml#ctypeerrors", CELL[messages]);
+  }
+  ELSE
+  {
+    parent->RunMessageBox("mod::publisher/tolliumapps/filemanager/siteprofiles.xml#siteprofilesrecompiled");
+  }
+}
+
+PUBLIC OBJECTTYPE ManageCTypes EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->RefreshList();
+  }
+
+  MACRO DoRecompile()
+  {
+    DoRecompileSiteProfiles(this);
+    this->RefreshList();
+  }
+
+  MACRO RefreshList()
+  {
+    //Gather our information..
+    STRING mask := this->filter->value != "" ? Substitute("*" || Substitute(TrimWhitespace(NormalizeWhitespace(this->filter->value)), " ", "*") || "*", "**", "*") : "*";
+    RECORD ARRAY contenttypes := ListFSContentTypes([ mask := mask ]);
+    this->types->rows := SELECT *
+                              , rowkey := id
+                              , listrowclasses:= candelete ? ["grayedout"] : STRING[]
+                              , typeicon := tolliumicon != "" ? this->types->GetIcon(tolliumicon) : 0
+                           FROM contenttypes;
+  }
+
+  MACRO GotFilterChange()
+  {
+    this->RefreshList();
+  }
+
+  MACRO DoViewType()
+  {
+    OBJECT ctypescreen := this->LoadScreen(".ctypemembers", [ ctypeid := this->types->value, namespace := this->types->selection.namespace ]);
+    ctypescreen->RunModal();
+  }
+
+  MACRO DoDelete()
+  {
+    IF (this->RunMessageBox(".deletectypeconfirm", this->types->selection.namespace) = "yes")
+    {
+      OBJECT work := this->BeginWork();
+
+      DELETE FROM system.fs_types WHERE id = this->types->value;
+      GetWHFSCommitHandler()->FSTypesChanged();
+
+      IF (work->Finish())
+        this->RefreshList();
+    }
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE CTypeMembers EXTEND TolliumScreenBase
+<
+  INTEGER ctypeid;
+  INTEGER parentid;
+
+  MACRO Init(RECORD data)
+  {
+    RECORD type := DescribeContentTypeById(data.ctypeid);
+    this->ctypeid := data.ctypeid;
+
+    IF (RecordExists(type))
+    {
+      ^siteprofile->value := type.siteprofile;
+      ^linenum->value := ToString(type.line);
+    }
+    ELSE
+    {
+      ^locationbox->visible := FALSE;
+    }
+  }
+
+  RECORD ARRAY FUNCTION GetMembers(INTEGER ctypeid, INTEGER parentid)
+  {
+    RECORD ARRAY ctypemembers := SELECT rowkey := id
+                                      , name
+                                      , type
+                                      , typename := GetFSMemberTypeName(type) ?? "#" || type
+                                      , publish
+                                      , candelete := orphan
+                                      , expanded := FALSE
+                                   FROM system.fs_members
+                                  WHERE fs_type = ctypeid
+                                        AND fs_members.parent = parentid
+                               ORDER BY ToUpperCase(name);
+
+    RETURN SELECT *
+                , expandable := type = 12
+                , listrowclasses:= candelete ? ["grayedout"] : STRING[]
+                , publishicon := type = 5 ? (publish ? 2 : 1) : 0
+             FROM ctypemembers;
+  }
+
+  RECORD ARRAY FUNCTION OnGetChildren(RECORD baserow)
+  {
+    IF (NOT RecordExists(baserow))
+      RETURN this->GetMembers(this->ctypeid, 0);
+
+    RETURN this->GetMembers(this->ctypeid, baserow.rowkey);
+  }
+
+  INTEGER ARRAY FUNCTION OnGetPath(INTEGER rowkey)
+  {
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+
+  MACRO DoDelete()
+  {
+    IF (this->RunMessageBox(".deletectypememberconfirm", ^members->selection.name) = "yes")
+    {
+      OBJECT work := this->BeginWork();
+
+      DELETE FROM system.fs_members WHERE id = ^members->value;
+      GetWHFSCommitHandler()->FSTypesChanged();
+
+      IF (work->Finish())
+        ^members->ReloadList();
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE CTypeErrors EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^messagelist->rows := SELECT TEMPORARY file := GetNameFromPath(resourcename)
+                               , file := file
+                               , fullpath := resourcename
+                               , line
+                               , message
+                               , icon := iserror ? 2 : 1
+                            FROM data.messages
+                        ORDER BY ToUppercase(file), line, col;
+  }
+>;

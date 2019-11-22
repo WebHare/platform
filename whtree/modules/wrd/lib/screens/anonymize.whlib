@@ -1,0 +1,576 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/backgroundtask.whlib";
+
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/names.whlib";
+
+RECORD examplenames :=
+    [ firstnames_female :=
+          ['Aaf', 'Aafje', 'Aafke', 'Aagje', 'Aaike', 'Aaltje', 'Abby', 'Abbey', 'Abiga', 'Abke', 'Ada', 'Ade', 'Adelia', 'Adelheid', 'Adelinde', 'Adinda', 'Adriana', 'Adrie', 'Afina', 'Afke', 'Afra', 'Agaat', 'Agatha', 'Aicha', 'Aida', 'Aim', 'Aisha', 'Aja', 'Akke', 'Akkelien', 'Alberte', 'Albertine', 'Albertina', 'Aleida', 'Aletta', 'Alexandra', 'Alexia', 'Alexis', 'Alice', 'Alicia', 'Alida', 'Alie', 'Alieke', 'Alieske', 'Aline', 'Alissa', 'Alke', 'Allegonde', 'Amalia', 'Amanda', 'Amber', 'Amie', 'Amelia', 'Amira', 'An', 'Anastacia', 'Anca', 'Ancilla', 'Anda', 'Andrea', 'Andromeda', 'Angela', 'Angelica', 'Angelique', 'Angenita', 'Anika', 'Aniek', 'Anique', 'Anina', 'Anita', 'Anja', 'Ank', 'Anke', 'Ankie', 'Ann', 'Anna', 'Annabel', 'Annabet', 'Annamaria', 'Anne', 'Anne', 'Mar', 'Anne', 'Sophie', 'Anne', 'Wil', 'Annebeth', 'Annechien', 'Anneke', 'Anneleen', 'Annelie', 'Annelies', 'Anneloes', 'Annelous', 'Annemarie', 'Annemie', 'Annemiek', 'Annemieke', 'Annemien', 'Annerie', 'Annet', 'Annette', 'Annetta', 'Annick', 'Annie', 'Anniek', 'Annigje', 'Annika', 'Anouk', 'Anouschka', 'Ans', 'Antje', 'Antoinette', 'Antonia', 'Aranka', 'Ariadne', 'Ariane', 'Ariaan', 'Arianna', 'Arda', 'Arja', 'Arlette', 'Arri', 'Asha', 'Ashley', 'Astrid', 'Athalie', 'Ati', 'Atie', 'Attie', 'Audrey', 'Aukelien', 'Aukje', 'Aurelie', 'Aurelien', 'Aurora', 'Aurore', 'Armelle', 'Aylin', 'Axelle', 'Babette', 'Barbara', 'Bartke', 'Baukje', 'Bauwina', 'Beatrijs', 'Beatrix', 'Beaudine', 'Becky', 'Beddie', 'Beertje', 'Belinda', 'Belle', 'Bedicte', 'Bente', 'Bep', 'Berber', 'Berdien', 'Berendien', 'Berendina', 'Bernadette', 'Bernadine', 'Bernardine', 'Bernice', 'Bertha', 'Bette', 'Betty', 'Bianca', 'Bibi', 'Bibianne', 'Bie', 'Bieke', 'Birgit', 'Blancefloor', 'Blanche', 'Bo', 'Boudelot', 'Boukje', 'Bouwina', 'Brenda', 'Bregje', 'Bridget', 'Brigit', 'Brigith', 'Brigitte', 'Britt', 'Brunhilde', 'Bryan', 'Bryonde', 'Calista', 'Cameron', 'Camilia', 'Camilla', 'Camille', 'Canisha', 'Cara', 'Caren', 'Carice', 'Carin', 'Carina', 'Carla', 'Carlien', 'Carly', 'Carmen', 'Caro', 'Carol', 'Carola', 'Carleen', 'Carlijn', 'Carolien', 'Caroline', 'Catharina', 'Cathine', 'Cathy', 'Catrien', 'Caty', 'Cecile', 'Cecilia', 'Celesta', 'Cine', 'Celine', 'Ceres', 'Challyne', 'Chantal', 'Charda', 'Charissa', 'Charlotte', 'Chemne', 'Cherilyn', 'Cher', 'Cheyenne', 'Chlo', 'Chris', 'Christa', 'Christel', 'Christi', 'Christiane', 'Christianne', 'Christina', 'Christine', 'Ciel', 'Cilla', 'Cinderella', 'Cindy', 'Ciska', 'Cissy', 'Claire', 'Clara', 'Claudia', 'Claudine', 'Clementine', 'Cleo', 'Coby', 'Colette', 'Conny', 'Cora', 'Corine', 'Cornelia', 'Cornelie', 'Corry', 'Cristina', 'Cyndi', 'Cynthia', 'Dagmar', 'Daisy', 'Dana', 'Danile', 'Daniek', 'Danila', 'Danique', 'Danischa', 'Danitsja', 'Daphne', 'Darcy', 'Davina', 'Dawon', 'Debbie', 'Deborah', 'Debra', 'Dehlayla', 'Delfine', 'Denise', 'Desi', 'Desir', 'Destiny', 'Dewi', 'Dian', 'Diane', 'Dianne', 'Diana', 'Diede', 'Dien', 'Dieneke', 'Dieuwertje', 'Dimphy', 'Dina', 'Dineke', 'Dini', 'Dinie', 'Dionne', 'Dirkje', 'Doeshka', 'Doeska', 'Doetje', 'Doewina', 'Dolly', 'Dolores', 'Dominique', 'Donna', 'Door', 'Doortje', 'Dora', 'Dorcas', 'Doret', 'Dorien', 'Dorine', 'Doris', 'Doro', 'Dorothea', 'Dorothy', 'Dot', 'Dottie', 'Doutzen', 'Durkina', 'Dushanthi', 'Dymfna', 'Ebeltje', 'Edith', 'Edm', 'Edsilia', 'Eefje', 'Ela', 'Elaine', 'Elena', 'Eleonora', 'Elianne', 'Eline', 'Elisabeth', 'Elise', 'Elize', 'Elja', 'Elke', 'Ella', 'Elle', 'Elleke', 'Ellemieke', 'Ellen', 'Elles', 'Ellis', 'Elly', 'Elodie', 'Eloise', 'Els', 'Elsbeth', 'Elske', 'Elvira', 'Elyan', 'Elzelien', 'Emilie', 'Emanuelle', 'Emma', 'Emmelie', 'Emmy', 'Enith', 'Erica', 'Erika', 'Eshley', 'Esm', 'Esmeralda', 'Esmeralde', 'Estelle', 'Ester', 'Esther', 'Eva', 'Evelien', 'Eveline', 'Everdina', 'Evi', 'Evita', 'Fabiola', 'Famke', 'Fatima', 'Faya', 'Felicia', 'Felicity', 'Feljana', 'Femke', 'Fenna', 'Fia', 'Fie', 'Fieke', 'Fien', 'Fieneke', 'Fiep', 'Finne', 'Fiona', 'Fiorella', 'Fitna', 'Fleur', 'Floor', 'Flor', 'Florence', 'Florentine', 'Florianne', 'Florien', 'Foekje', 'Fokkelien', 'Foukje', 'Fran', 'Francesca', 'Francine', 'Francis', 'Franka', 'Fransien', 'Frauke', 'Fraukje', 'Frederika', 'Frederike', 'Frederique', 'Freekje', 'Frouke', 'Froukje', 'Gabrile', 'Gale', 'Gaite', 'G', 'Gea', 'Geerke', 'Geertje', 'Geertrui', 'Geertruida', 'Geesje', 'Geeske', 'Gemma', 'Georgia', 'Georgina', 'Geralde', 'Geraldine', 'Gerda', 'Gerdien', 'Gerdienke', 'Gerlinde', 'Germ', 'Gerrie', 'Gerry', 'Gertie', 'Gertrude', 'Gesina', 'Getty', 'Gien', 'Gijsje', 'Gina', 'Ginette', 'Gitte', 'Ghiselaine', 'Gisela', 'Glynis', 'Godelieve', 'Goedele', 'Gonneke', 'Gonnie', 'Gr', 'Greet', 'Greta', 'Gretha', 'Gretta', 'Griet', 'Grietje', 'Gudrun', 'Guusje', 'Guusta', 'Gwen', 'Gwenda', 'Gwendoline', 'Hachit', 'Hadassah', 'Hadewig', 'Hadewyn', 'Haitske', 'Haminke', 'Hanja', 'Hanka', 'Hanna', 'Hannah', 'Hanne', 'Hanneke', 'Hannelore', 'Hannie', 'Hansje', 'Hante', 'Harmke', 'Hayat', 'Hedda', 'Heddy', 'Hedi', 'Hedie', 'Hedwig', 'Hedy', 'Heike', 'Heiltje', 'Heintje', 'Heleen', 'Helen', 'Helena', 'Hele', 'Helga', 'Hella', 'Helna', 'Hendrika', 'Henna', 'Hennie', 'Henny', 'Henrieke', 'Henrite', 'Hermien', 'Hester', 'Hettie', 'Hetty', 'Hilda', 'Hilde', 'Hildegard', 'Hilly', 'Hine', 'Hotske', 'Hubertina', 'Hylke', 'Ianthe', 'Iboya', 'Ibrich', 'Ida', 'Itske', 'Ietje', 'Ietske', 'Iki', 'Ilayda', 'Ildiko', 'Ilena', 'Ilja', 'Ilona', 'Ilonka', 'Ilse', 'Imle', 'Imme', 'Ina', 'Indy', 'Ine', 'Ineke', 'Inge', 'Ingeborg', 'Ingrid', 'Iorinde', 'Irene', 'Irina', 'Iris', 'Irit', 'Irliana', 'Irma', 'Isa', 'Isabel', 'Isabella', 'Isabelle', 'Isis', 'Ismene', 'Isolde', 'Iteke', 'Ivana', 'Ivanca', 'Jacoba', 'Jacobien', 'Jacolien', 'Jacomien', 'Jacqueline', 'Jade', 'Jana', 'Jane', 'Janey', 'Janice', 'Janine', 'Janis', 'Janke', 'Janna', 'Janne', 'Janneke', 'Jannie', 'Jansje', 'Jantina', 'Jantine', 'Jasmijn', 'Jeanet', 'Jeanette', 'Jeanine', 'Jeanne', 'Jeannette', 'Jeanny', 'Jellie', 'Jelske', 'Jeltje', 'Jennie', 'Jenne', 'Jennifer', 'Jenny', 'Jeske', 'Jessica', 'Jessie', 'Jessy', 'Jet', 'Jetty', 'Jetske', 'Jetta', 'Jetteke', 'Jildau', 'Jill', 'Jilly', 'Jip', 'Jitse', 'Jitske', 'Jo', 'Jocelyn', 'Jochebeth', 'Jole', 'Joeske', 'Johanna', 'Johanneke', 'Jojanneke', 'Joke', 'Jola', 'Jolanda', 'Jolande', 'Jolien', 'Joline', 'Jolijn', 'Jomanda', 'Joni', 'Jonieke', 'Jonna', 'Jonneke', 'Joop', 'Jorane', 'Jordy', 'Jorien', 'Jorin', 'Jorinda', 'Jorinde', 'Jorieke', 'Jorik', 'Jorne', 'Jos', 'Jos', 'Josefien', 'Josephine', 'Josien', 'Josine', 'Josje', 'Joyce', 'Joycelyn', 'Joyra', 'Jozefa', 'Jozefien', 'Judith', 'Julia', 'Juliana', 'Julie', 'Juliet', 'Juliette', 'Justa', 'Justine', 'Juultje', 'Kaat', 'Kai', 'Kamila', 'Karen', 'Karin', 'Karina', 'Karlien', 'Karolien', 'Kate', 'Kathleen', 'Kathlyn', 'Kati', 'Katie', 'Katja', 'Katlijn', 'Katrien', 'Katrijn', 'Kayleigh', 'Kaylee', 'Kelly', 'Kelsey', 'Ketie', 'Kiki', 'Kim', 'Kimberley', 'Kimberly', 'Kira', 'Kirsten', 'Kitty', 'Klaartje', 'Klaasje', 'Klarinda', 'Klasien', 'Klasina', 'Koenrada', 'Krimhilde', 'Kris', 'Krista', 'Kristel', 'Kristen', 'Kristien', 'Kristina', 'Kylie', 'Kyra', 'Laetitia', 'Laila', 'Lammegje', 'Lana', 'Lara', 'Latifa', 'Laura', 'Lauren', 'Laurence', 'Laurentien', 'Laurette', 'Laurian', 'Laurien', 'Lea', 'Leen', 'Leentje', 'Leida', 'Lena', 'Lenette', 'Lenka', 'Lente', 'Leonie', 'Leonora', 'Leontine', 'Leora', 'Letitia', 'Letty', 'Lexi', 'Lian', 'Lianne', 'Lidia', 'Lidwien', 'Lidwina', 'Liedeke', 'Liedewij', 'Lieke', 'Lien', 'Lieneke', 'Lienke', 'Lies', 'Liesa', 'Liesbet', 'Liesbeth', 'Liesel', 'Lieselot', 'Lieve', 'Lijntje', 'Like', 'Lilia', 'Lilian', 'Lily', 'Lincy', 'Linda', 'Linde', 'Lindi', 'Lindsay', 'Lindsey', 'Lindy', 'Linet', 'Linsey', 'Lisa', 'Lisanne', 'Lisbeth', 'Lisette', 'Liv', 'Liz', 'Lizan', 'Lize', 'Lizzy', 'Ljoedmila', 'Lobke', 'Loeloedji', 'Loes', 'Loesje', 'Lois', 'Lola', 'Lonneke', 'Lonnie', 'Lore', 'Lotje', 'Lotte', 'Louisa', 'Louise', 'Lousewies', 'Luana', 'Lubarta', 'Luca', 'Lucia', 'Lucy', 'Ludwina', 'Ludmilla', 'Lummechiena', 'Lummegje', 'Luna', 'Lutske', 'Lyn', 'Lynn', 'Lynne', 'Lysanne', 'Lyzetta', 'Maaike', 'Maarit', 'Maartje', 'Mabel', 'Mackenna', 'Maddy', 'Madelijn', 'Madeleine', 'Madelene', 'Madelon', 'Madison', 'Madzy', 'Magda', 'Magdalena', 'Maike', 'Mairi', 'Maj', 'Maja', 'Malin', 'Malou', 'Mandy', 'Manita', 'Manja', 'Manon', 'Manouk', 'Manuela', 'Marcella', 'Marchien', 'Marcia', 'Mar', 'Marga', 'Margareta', 'Margaux', 'Margit', 'Margje', 'Margie', 'Margien', 'Margo', 'Margot', 'Margriet', 'Marguerita', 'Marguerite', 'Maria', 'Marian', 'Marianne', 'Marianthy', 'Marie', 'Marie', 'Jeanne', 'Mariek', 'Marieke', 'Marile', 'Marite', 'Marije', 'Marijke', 'Marijn', 'Marile', 'Marilyn', 'Marina', 'Marion', 'Marisca', 'Mariska', 'Marissa', 'Marit', 'Marja', 'Marjan', 'Marjet', 'Marjo', 'Marjolein', 'Marjolijn', 'Marleen', 'Marlene', 'Marlenny', 'Marlice', 'Marlies', 'Marlijn', 'Marlissa', 'Marloes', 'Marlotte', 'Marlous', 'Marnies', 'Marrie', 'Marsha', 'Marte', 'Martha', 'Marthe', 'Martien', 'Martina', 'Martine', 'Maruschka', 'Mathilde', 'Matty', 'Maud', 'Maureen', 'Maxima', 'Maxime', 'May', 'Maya', 'Mayke', 'Medy', 'Mei', 'Meike', 'Melanie', 'Melianne', 'Meline', 'Melis', 'Melissa', 'Melly', 'Melody', 'Mendy', 'Menke', 'Merel', 'Merijn', 'Merle', 'Meta', 'Mette', 'Mia', 'Michelle', 'Mick', 'Mieke', 'Mien', 'Miep', 'Mijntje', 'Mildred', 'Milena', 'Milou', 'Mimi', 'Mina', 'Mink', 'Minke', 'Mira', 'Miranda', 'Mireille', 'Mirelle', 'Mirian', 'Miriam', 'Mirjam', 'Mirte', 'Mirthe', 'Moira', 'Monica', 'Moniek', 'Monique', 'Moon', 'Morgan', 'Mylou', 'Myrrhe', 'Myrte', 'Myrthe', 'Nachali', 'Nadette', 'Nadia', 'Nadina', 'Nadine', 'Nadja', 'Nal', 'Nana', 'Nancy', 'Nanda', 'Nandi', 'Nanneke', 'Nanouk', 'Naoual', 'Naomi', 'Natacha', 'Natalie', 'Natasja', 'Natesse', 'Nathalie', 'Neelie', 'Neeltje', 'Nel', 'Nele', 'Neli', 'Nelleke', 'Nellie', 'Nelly', 'Nemi', 'Nena', 'Neqin', 'Nevine', 'Nica', 'Nicky', 'Nicole', 'Nienke', 'Nieske', 'Niessien', 'Nina', 'Nini', 'Niobe', 'Nirene', 'Nola', 'Noor', 'Noortje', 'Nora', 'Norali', 'Nore', 'Nova', 'Noud', 'Nynke', 'Odette', 'Odilia', 'Odyle', 'Oksana', 'Olena', 'Olga', 'Olijfje', 'Olivia', 'Orchana', 'Ottelien', 'Pam', 'Pamela', 'Patricia', 'Patsy', 'Patty', 'Paola', 'Pascalle', 'Paula', 'Paulette', 'Paulien', 'Pauline', 'Pauliska', 'Pernilla', 'Pernille', 'Petra', 'Petronella', 'Phebe', 'Philicia', 'Philippa', 'Philippina', 'Pia', 'Pien', 'Pieternel', 'Pietertje', 'Piret', 'Pleun', 'Poodja', 'Priscilla', 'Puck', 'Queeny', 'Quincey', 'Quincy', 'Quinta', 'Quinty', 'Quirien', 'Quirina', 'Quirine', 'Quelly', 'Rachel', 'Rachelle', 'Ramanda', 'Ramona', 'Raymonde', 'Rebecca', 'Rebekka', 'Regina', 'Reina', 'Reini', 'Renella', 'Ren', 'Reniella', 'Renske', 'Reowin', 'Ria', 'Rian', 'Rianne', 'Ricarda', 'Riek', 'Riemkje', 'Rieneke', 'Riet', 'Rihanna', 'Rika', 'Rikje', 'Rikst', 'Rini', 'Riny', 'Rita', 'Rivka', 'Rixt', 'Robby', 'Robina', 'Robiene', 'Rochelle', 'Richelle', 'Robin', 'Robina', 'Roelinda', 'Roelinde', 'Romkje', 'Romy', 'Roos', 'Roosmarijn', 'Rosa', 'Rosalie', 'Rosan', 'Rosanna', 'Rosanne', 'Roselle', 'Rosie', 'Rosita', 'Rowan', 'Roxanna', 'Roxanne', 'Roxy', 'Ruby', 'Runa', 'Ra', 'Ruth', 'Saar', 'Sabina', 'Sabine', 'Sabrina', 'Saerkin', 'Saa', 'Saidja', 'Sakura', 'Salima', 'Sally', 'Salma', 'Samia', 'Samantha', 'San', 'Sandra', 'Sandrine', 'Sandy', 'Sanna', 'Sanne', 'Sara', 'Sarah', 'Sascha', 'Sasja', 'Saskia', 'Seline', 'Selma', 'Senait', 'Senta', 'Seray', 'Severine', 'Shaheena', 'Shana', 'Shanady', 'Shanna', 'Sharda', 'Sharon', 'Shenyce', 'Sherhonte', 'Shirley', 'Shivani', 'Shjanya', 'Siegrid', 'Sien', 'Sietske', 'Sigrid', 'Sigyn', 'Silke', 'Silvia', 'Silvy', 'Simone', 'Simonne', 'Siobh', 'Sira', 'Siri', 'Siska', 'Sjenna', 'Sjoerdtje', 'Sjoukje', 'Soenia', 'Soetkin', 'Sofia', 'Sofie', 'Solveig', 'Sondra', 'Sonia', 'Sonja', 'Sonsaray', 'Sophie', 'Soraya', 'Stannie', 'Stef', 'Stefanie', 'Steffi', 'Stella', 'Stephanie', 'Sterre', 'Stien', 'Suleika', 'Susan', 'Susanna', 'Suus', 'Suzan', 'Suzann', 'Suzanna', 'Suzanne', 'Sylvia', 'Sylva', 'Sylvana', 'Sylvie', 'Synneva', 'Sytske', 'Svetlana', 'Swaen', 'Swanhilde', 'Swinda', 'Swopkje', 'Tabita', 'Tacelia', 'Tacili', 'Tadjana', 'Tamar', 'Tamira', 'Tamara', 'Tanja', 'Tara', 'Tea', 'Teatske', 'Tekla', 'Telma', 'Tessa', 'Tha', 'Thalia', 'Thea', 'Theodora', 'Thera', 'The', 'Theresia', 'Thessa', 'Thirza', 'Tianna', 'Tieneke', 'Tietje', 'Tiffany', 'Tijta', 'Tijtje', 'Tilly', 'Tina', 'Tine', 'Tineke', 'Tiny', 'Tirza', 'Titia', 'Tjitske', 'Toa', 'Tonia', 'Tonneke', 'Tonnie', 'Toos', 'Tooske', 'Tora', 'Tosca', 'Tracy', 'Trees', 'Trijnie', 'Trijntje', 'Trineke', 'Trix', 'Trudi', 'Trudie', 'Trudy', 'Trui', 'Truus', 'Tugba', 'Twinky', 'Ula', 'Ulinda', 'Ulke', 'Ulla', 'Ulrike', 'Uma', 'Ursula', 'Ursy', 'Uschi', 'Valerie', 'Valeska', 'Vanessa', 'Veerle', 'Venna', 'Venus', 'Vera', 'Veronique', 'Veroniek', 'Vicky', 'Victoria', 'Vinanda', 'Viola', 'Violet', 'Virginia', 'Vivian', 'Vivien', 'Vivienne', 'Waltraut', 'Wanda', 'Wanita', 'Welmoed', 'Wendan', 'Wendela', 'Wendelien', 'Wendy', 'Wies', 'Wieteke', 'Wietske', 'Wijnie', 'Wil', 'Wilhelmina', 'Wiljan', 'Willeke', 'Willemien', 'Willemijn', 'Willianne', 'Willie', 'Willy', 'Wilma', 'Wina', 'Winnie', 'Winny', 'Woppe', 'Xandee', 'Xandra', 'Xanne', 'Xanthe', 'Xantippe', 'Xaviera', 'Xiomara', 'Xenia', 'Xylia', 'Yael', 'Yana', 'Yanniek', 'Yanieke', 'Yanou', 'Yara', 'Yasemin', 'Yasmin', 'Yasmina', 'Yasmine', 'Yati', 'Yeni', 'Yentel', 'Yenthe', 'Yentl', 'Yfke', 'Yke', 'Ylona', 'Yltje', 'Ymkje', 'Ynje', 'Ynske', 'Yolanda', 'Yulanne', 'Yurani', 'Yvette', 'Yvonne', 'Yska', 'Zakia', 'Zandra', 'Zarah', 'Zaza', 'Zefanja', 'Zelda', 'Zeliha', 'Zina', 'Zita', 'Zo', 'Zonhilde', 'Zosja', 'Zwaantje', 'Zwanda', 'Zwanet', 'Zwanie', 'Zwaniek', 'Zwanique', 'Zwany']
+    , firstnames_male :=
+          ['Aad', 'Aart', 'Aon', 'Aat', 'Ab', 'Abdelatief', 'Abe', 'Abdel', 'Abel', 'Abraham', 'Abram', 'Achilles', 'Ad', 'Adelbert', 'Adger', 'Adolf', 'Adri', 'Adrie', 'Adriaan', 'Adrianus', 'Aernout', 'Afonso', 'Alain', 'Alberik', 'Albert', 'Ale', 'Alec', 'Alex', 'Alexander', 'Alexei', 'Alexio', 'Alfons', 'Ali', 'Allard', 'Almer', 'Alper', 'Alte', 'Amadeus', 'Ambroos', 'Amelis', 'Andert', 'Andras', 'Andr', 'Andreas', 'Andrei', 'Andries', 'Andy', 'Angelo', 'Angelos', 'Anthony', 'Antoine', 'Anton', 'Anwar', 'Arco', 'Ard', 'Arend', 'Arie', 'Arjan', 'Arjen', 'Ari', 'Arlo', 'Arne', 'Arnie', 'Arno', 'Arnon', 'Arnold', 'Arnoud', 'Arnout', 'Aron', 'Arthur', 'Arvid', 'Arwin', 'Ashwin', 'Ate', 'Auke', 'Avo', 'Avram', 'Axel', 'Balthasar', 'Baptist', 'Barend', 'Barry', 'Bart', 'Bas', 'Basil', 'Bastiaan', 'Bastijn', 'Bauke', 'Bavo', 'Beau', 'Ben', 'Benjamin', 'Berend', 'Berg', 'Berimah', 'Bernhard', 'Berry', 'Bert', 'Bertrand', 'Bertram', 'Bessel', 'Bill', 'Bing', 'Bjn', 'Bo', 'Bob', 'Boris', 'Boudewijn', 'Bouke', 'Bouwe', 'Boy', 'Bram', 'Bran', 'Branko', 'Brecht', 'Brent', 'Brian', 'Bruno', 'Bryan', 'Cameron', 'Camille', 'Carel', 'Carl', 'Carle', 'Carlo', 'Carlos', 'Carol', 'Carolus', 'Cas', 'Casimir', 'Caspar', 'Casper', 'Cedric', 'Cric', 'Ceel', 'Cees', 'Charles', 'Charlie', 'Chiel', 'Chriet', 'Chris', 'Christiaan', 'Christo', 'Christophe', 'Christoffel', 'Cisse', 'Claus', 'Clement', 'Clint', 'Coen', 'Constantijn', 'Cor', 'Corn', 'Cornel', 'Cornelis', 'Curt', 'Curzio', 'Daan', 'Damian', 'Damien', 'Daniel', 'Dani', 'Danilo', 'Danny', 'Danyel', 'Dave', 'David', 'Davy', 'Dennis', 'Denny', 'Derk', 'Derek', 'Di', 'Jo', 'Dick', 'Diederick', 'Diederik', 'Dietwin', 'Dieter', 'Dimitri', 'Dinand', 'Dirk', 'Dion', 'Dmitri', 'Dolf', 'Dolfy', 'Dominic', 'Dominiek', 'Dominik', 'Dominique', 'Don', 'Donald', 'Donovan', 'Dorus', 'Douglas', 'Douwe', 'Drewes', 'Driek', 'Dries', 'Durk', 'Dylan', 'Dyon', 'Earnest', 'Ed', 'Eddie', 'Eddy', 'Edgar', 'Edson', 'Eduard', 'Edward', 'Edwin', 'Eeuwout', 'Egbert', 'Egon', 'Elbert', 'Eelco', 'Elco', 'Eli', 'Elja', 'Elmar', 'Elmo', 'Elouan', 'Elroy', 'Elton', 'Elvis', 'Elwin', 'Emanuel', 'Emiel', 'Emmanuel', 'Engbert', 'Enserio', 'Eoghan', 'Erben', 'Eric', 'Eric Jan', 'Erik', 'Ernst', 'Erwin', 'Esli', 'Espen', 'Esra', 'Etienne', 'Euge', 'Evan', 'Everhardus', 'Evert', 'Ewalt', 'Ewart', 'Ewoud', 'Ewout', 'Fabian', 'Fabrice', 'Faisal', 'Faisel', 'Faris', 'Fedde', 'Feike', 'Felix', 'Ferre', 'Ferdinand', 'Fernand', 'Ferdy', 'Ferry', 'Filemon', 'Filip', 'Finn', 'Florian', 'Floris', 'Foefke', 'Foeke', 'Fokke', 'Folken', 'Folkert', 'Folmer', 'Fons', 'Foppe', 'Francesco', 'Franciscus', 'Frank', 'Franklin', 'Frans', 'Fred', 'Freddie', 'Frederik', 'Frens', 'Frido', 'Friso', 'Frits', 'Frode', 'Gabor', 'Gabri', 'Gaetan', 'Gareth', 'Gary', 'Geerolf', 'Geert', 'Geerten', 'Geoffrey', 'Geoffry', 'George', 'Ger', 'Gerard', 'Gard', 'Gerardus', 'Gerbrand', 'Gerben', 'Gerd', 'Gerdo', 'Gerhard', 'Gerk', 'Gerolf', 'Geron', 'Gerrie', 'Gerrit', 'Gert', 'Gertjan', 'Gerwin', 'Gert', 'Jan', 'Ghislain', 'Giancarlo', 'Gideon', 'Gido', 'Gidon', 'Giel', 'Gijs', 'Gijsbert', 'Gilles', 'Gino', 'Giovanny', 'Gjalt', 'Glenn', 'Godart', 'Godfried', 'Gommaar', 'Goran', 'Govert', 'Graad', 'Gradus', 'Graham', 'Gregory', 'Grietus', 'Guido', 'Guillaume', 'Gther', 'Gus', 'Gust', 'Gustaaf', 'Guus', 'Guy', 'Haakon', 'Haije', 'Hakan', 'Halvard', 'Han', 'Hannes', 'Hans', 'Har', 'Harald', 'Harco', 'Harm', 'Harmen', 'Haroen', 'Harold', 'Harrie', 'Harro', 'Has', 'Herwig', 'Harro', 'Harry', 'Heerke', 'Heike', 'Heiko', 'Hein', 'Helmut', 'Hendrik', 'Henk', 'Henk Jan', 'Hennie', 'Henri', 'Henry', 'Herbert', 'Herman', 'Hermen', 'Herv', 'Hessel', 'Hionymus', 'Hilco', 'Hinne', 'Hotze', 'Hubert', 'Hugo', 'Hn', 'Hyltsje', 'Ian', 'Ibrahim', 'Ids', 'Idse', 'Idsert', 'Igor', 'IJsbrand', 'Ilan', 'Ilja', 'Imco', 'Imme', 'Isa', 'Isaac', 'Iza', 'Ischa', 'Isidoor', 'Ivan', 'Ivar', 'Ivo', 'Iwan', 'Jaap', 'Jacco', 'Jaco', 'Jack', 'Jacob', 'Jacques', 'Jaimy', 'Jake', 'Jamai', 'James', 'Jan', 'Janko', 'Jan Jaap', 'Jannes', 'Jan', 'Willem', 'Jarich', 'Jarl', 'Jarno', 'Jarvey', 'Jason', 'Jasper', 'Javier', 'Jay', 'Jayden', 'Jean', 'Jean', 'Paul', 'Jef', 'Jeff', 'Jeffrey', 'Jelis', 'Jelle', 'Jelmar', 'Jelmer', 'Jelte', 'Jens', 'Jent', 'Jentsje', 'Jeremy', 'Jeroen', 'Jerome', 'Jesse', 'Jielis', 'Jihan', 'Jim', 'Jip', 'Jo', 'Joachim', 'Joan', 'Job', 'Jochem', 'Jochen', 'Jo', 'Joe', 'Joep', 'Joeri', 'Joes', 'Joey', 'Joffrey', 'Johan', 'Johannes', 'John', 'Johnny', 'Jon', 'Jonas', 'Jonathan', 'Jonny', 'Joop', 'Joost', 'Jop', 'Joppe', 'Joram', 'Joran', 'Jordi', 'Jordy', 'Joren', 'Jorg', 'Jorin', 'Joris', 'Jorn', 'Jorrit', 'Jort', 'Jos', 'Joshua', 'Jouke', 'Jozef', 'Jozias', 'Jozua', 'Judas', 'Julian', 'Julius', 'Jules', 'Julien', 'Jurgen', 'Jurjen', 'Jurn', 'Jurre', 'Jurrian', 'Just', 'Justin', 'Justus', 'Juul', 'Juust', 'Jyrki', 'Kaeso', 'Kai', 'Kamiel', 'Kalle', 'Karel', 'Karim', 'Karinus', 'Karl', 'Kasper', 'Keanu', 'Kees', 'Keith', 'Kelvin', 'Ken', 'Kenji', 'Kenneth', 'Kenny', 'Kenzo', 'Kevin', 'Khalid', 'Kiano', 'Kick', 'Kik', 'Klaas', 'Klemen', 'Knut', 'Ko', 'Kobus', 'Koen', 'Koenraad', 'Koert', 'Kofi', 'Koos', 'Krelis', 'Krijn', 'Kris', 'Kristan', 'Kristof', 'Kuno', 'Kurt', 'Kwinten', 'Kyrell', 'Lammert', 'Lancelot', 'Lander', 'Lard', 'Lars', 'Laurens', 'Laurent', 'Laurents', 'Laurenz', 'Leander', 'Leen', 'Leendert', 'Leense', 'Lennaert', 'Lennard', 'Lennart', 'Lennert', 'Leo', 'Leon', 'Leonard', 'Leopold', 'Leroy', 'Lesley', 'Lester', 'Levenez', 'Levi', 'Lex', 'Liam', 'Lieven', 'Lieuwe', 'Lindsay', 'Lode', 'Lodewijk', 'Logan', 'Lorenz', 'Lou', 'Louie', 'Louis', 'Louw', 'Luc', 'Luca', 'Lucas', 'Ludo', 'Luk', 'Luke', 'Luuc', 'Luuk', 'Lux', 'Maarten', 'Machiel', 'Manuel', 'Marc', 'Marc', 'Marie', 'Marco', 'Marcel', 'Marcus', 'Marek', 'Marjo', 'Mark', 'Marijn', 'Marinus', 'Mario', 'Marius', 'Markus', 'Jan', 'Marnix', 'Mart', 'Marten', 'Martijn', 'Martin', 'Martinus', 'Mathias', 'Mathieu', 'Mathij', 'Mats', 'Matthew', 'Matthias', 'Matthijs', 'Mattijn', 'Matty', 'Maurice', 'Maurits', 'Max', 'Maxim', 'Maxime', 'Maximiliaan', 'Mees', 'Melle', 'Mels', 'Melroy', 'Menno', 'Merijn', 'Mica', 'Micil', 'Micha', 'Michael', 'Michel', 'Michiel', 'Mick', 'Mickey', 'Mien', 'Miguel', 'Mijndert', 'Mike', 'Milan', 'Mink', 'Miquel', 'Miroslav', 'Mirano', 'Misha', 'Misja', 'Mitch', 'Mitchel', 'Mitis', 'Mohammed', 'Moreno', 'Morgens', 'Morris', 'Moussa', 'Mustafa', 'Mylan', 'Myron', 'Nabil', 'Naftali', 'Nasir', 'Nasser', 'Nathani', 'Neal', 'Nelis', 'Nelson', 'Nick', 'Nico', 'Nicolaas', 'Nicolas', 'Niek', 'Niel', 'Niele', 'Niels', 'Nigel', 'Nikita', 'Niko', 'Nikolaas', 'Nikolai', 'Nilesh', 'Nils', 'Nino', 'Noah', 'Norbert', 'Norwin', 'Noud', 'Octaaf', 'Oguz', 'Oguzhan', 'Okan', 'Okke', 'Olaf', 'Olav', 'Ole', 'Oleg', 'Olger', 'Oliver', 'Olivier', 'Olkanson', 'Olov', 'Onno', 'Oscar', 'Oskar', 'Oswin', 'Othman', 'Ot', 'Otto', 'Ovidius', 'Owen', 'kar', 'Paavo', 'Pablo', 'Paco', 'Paolo', 'Pascal', 'Patrick', 'Paul', 'Pavel', 'Peer', 'Pelle', 'Pepijn', 'Percy', 'Peter', 'Peterpaul', 'Philip', 'Philippe', 'Phillip', 'Pier', 'Pierre', 'Piet', 'Pieter', 'Pieterjan', 'Pieter', 'Bas', 'Pieter', 'Jan', 'Pim', 'Piter', 'Pjetr', 'Pjotr', 'Pleun', 'Pleuni', 'Pol', 'Primo', 'Puck', 'Quentin', 'Quido', 'Quincy', 'Quinten', 'Quintus', 'Quirein', 'Quirijn', 'Raf', 'Rafael', 'Rakesh', 'Rakke', 'Ralf', 'Ramesa', 'Ramesh', 'Ramon', 'Ramses', 'Randal', 'Raymon', 'Raymond', 'Reginald', 'Reimert', 'Rein', 'Reindert', 'Reiner', 'Reinhard', 'Reinier', 'Reinout', 'Remco', 'Remi', 'Remy', 'Renaldo', 'Ren', 'Renger', 'Rens', 'Ricardo', 'Ricco', 'Richard', 'Rick', 'Ricky', 'Rico', 'Riekele', 'Riemer', 'Rien', 'Ries', 'Rijk', 'Rik', 'Rinke', 'Rinse', 'Rinus', 'Riny', 'Rinze', 'Roald', 'Rob', 'Robbert', 'Robert', 'Roberto', 'Robin', 'Robrecht', 'Roderick', 'Rodney', 'Rodrigo', 'Roel', 'Roeland', 'Roelof', 'Roger', 'Rogier', 'Rokus', 'Rol', 'Roland', 'Rolf', 'Rolof', 'Roman', 'Ron', 'Ronald', 'Ronnie', 'Ronny', 'Rover', 'Roy', 'Ruben', 'Rudi', 'Rudiger', 'Rudolf', 'Rutger', 'Ruth', 'Rudy', 'Runar', 'Rune', 'Ruslan', 'Russell', 'Ruud', 'Ruurd', 'Ryan', 'Said', 'Salvador', 'Salvator', 'Samson', 'Sam', 'Sander', 'Sandro', 'Sandrijn', 'Santinho', 'Sape', 'Sathya', 'Satish', 'Scato', 'Scott', 'Smus', 'Sean', 'Sebastiaan', 'Sem', 'Senne', 'Seppe', 'Serge', 'Sergei', 'Serkan', 'Serafim', 'Servien', 'Severinus', 'Seto', 'Shanna', 'Sharo', 'Sibert', 'Sibren', 'Siebe', 'Siebren', 'Siegfried', 'Siem', 'Sierk', 'Sietse', 'Sigmund', 'Sijmen', 'Simon', 'Sjaak', 'Sjef', 'Sjeng', 'Sjerp', 'Sjimmie', 'Sjoerd', 'Sjors', 'Solee', 'Sonny', 'Splinter', 'Stan', 'Stanley', 'Stef', 'Stefaan', 'Stefan', 'Steff', 'Steffen', 'Stephan', 'Stephanos', 'Steve', 'Steven', 'Stijn', 'Stoffel', 'Sus', 'Sudesh', 'Sven', 'Sylvain', 'Sylvester', 'Sylvio', 'Sytze', 'Squanto', 'Taco', 'Tarkan', 'Ted', 'Teije', 'Terence', 'Teun', 'Teus', 'Theo', 'Theodoor', 'Theodorus', 'Theofiel', 'Theunis', 'Thibaut', 'Thieu', 'Thijs', 'Thom', 'Thomas', 'Thoon', 'Thor', 'Thorben', 'Tido', 'Tiemo', 'Tigo', 'Tijmen', 'Tim', 'Timothy', 'Timmy', 'Tinus', 'Tjalling', 'Tjalle', 'Tjeerd', 'Tjerk', 'Tjor', 'Tobias', 'Toine', 'Tom', 'Tomas', 'Tommy', 'Ton', 'Tony', 'Toon', 'Trinko', 'Tristan', 'Tsjitse', 'Tuomas', 'Twan', 'Tycho', 'Tyree', 'Tyrone', 'Udo', 'Ulco', 'Uli', 'Ulrich', 'Umit', 'Urbanus', 'Uri', 'Ursul', 'Uwe', 'Valentijn', 'Vale', 'Vasco', 'Vic', 'Victor', 'Viggo', 'Vik', 'Viktor', 'Vincent', 'Vittore', 'Vladimir', 'Volan', 'Volkan', 'Volkert', 'Volko', 'Walt', 'Walter', 'Wannes', 'Ward', 'Warner', 'Warre', 'We', 'Wendelin', 'Werner', 'Wesley', 'Wessel', 'Wibi', 'Wiebe', 'Wieger', 'Wien', 'Wietse', 'Wijnand', 'Wijnant', 'Wilbert', 'Wilco', 'Wilfred', 'Wilfried', 'Wilhelm', 'Wilke', 'Wilko', 'Willem', 'William', 'Wim', 'Wim Jan', 'Winand', 'Winsley', 'Winston', 'Wiro', 'Wladimir', 'Wodan', 'Wolfgang', 'Wolter', 'Wout', 'Wouter', 'Wybe', 'Wybke', 'Wybo', 'Wybren', 'Xander', 'Xaveer', 'Xavier', 'Xin', 'Xenius', 'Yann', 'Yannick', 'Yasin', 'Yde', 'Yent', 'Yorick', 'Younes', 'Youssef', 'Youp', 'Youri', 'Ype', 'Yte', 'Ytsen', 'Yuri', 'Yvan', 'Yvo', 'Yoran', 'Yorit', 'Yoey', 'Yoeri', 'Yoerie', 'Yorrit', 'Yourie', 'Yousri', 'Zacharias', 'Zac', 'Zander', 'Zdenek', 'Zeger', 'Zeno', 'Zenon', 'Zinedine', 'Zolt', 'Zorba']
+    , lastnames :=
+          ['Ahlers', 'Aldenhel', 'Amato', 'Anderson', 'Andres', 'Andriessen', 'Antenbrink', 'Antonie', 'Antvelink', 'Armstrong', 'Augustin', 'Augustine', 'Aumann', 'Austrup', 'Begers', 'Beuningmann', 'Backhuijs', 'Bacon', 'Baer', 'Baier', 'Bailey', 'Baker', 'Balestra', 'Barcus', 'Barendse', 'Barkhaus', 'Barklow', 'Barkmeijer', 'Bartelme', 'Bauman', 'Baumann', 'Baumgartner', 'Beekman', 'Beneke', 'Benesch', 'Benishek', 'Bennik', 'Benson', 'Berkhout', 'Berkhuijsen', 'Berkhuysen', 'Bernhard', 'Bess', 'Beugelink', 'Beukers', 'Beverly', 'Bielemeier', 'Bigel', 'Bijleveld', 'Bilderbock', 'Binemann', 'Bjerg', 'Blach', 'Blackmer', 'Blanche', 'Blankenship', 'Blassum', 'Bleser', 'Bock', 'Bokma', 'Bolee', 'Bolleman', 'Bonekamp', 'Bonenkamp idictus Brgen', 'Boynton', 'Brl', 'Brkmann', 'Bremann', 'Bringhoff gnt. Deiters', 'Braams', 'Brand', 'Branderhorst', 'Braun', 'Braus', 'Brazzale', 'Brezoni', 'Broekhuizen', 'Brouwer', 'Bruning', 'Bubb', 'Bultmann', 'Bultmann gen. Horstmann', 'Burns', 'Burry', 'Bushman', 'Bushnell', 'Busmann genannt Kruse', 'Buzing', 'Canaday', 'Carey', 'Casbers', 'Casbers genannt Falcke', 'Cassteele', 'Caulfield', 'Chase', 'Classen', 'Clements', 'Clinkenbeard', 'Clouthier', 'Compton', 'Conover', 'Cornelisse', 'Corporan', 'Cost', 'Courtney', 'Craney', 'Cras', 'Crommett', 'Cross', 'Crowell', 'Crusius', 'Cunningham', 'Curetchut', 'Daalhuysen', 'Daam', 'Dahlhoff', 'Daldrup', 'Dallaire', 'Dank', 'Davis', 'Dekker', 'Delann', 'Delsman', 'Delsmann', 'Delsmann genannt Frey', 'Delsmann genannt Spahn', 'Delsmann gnt. Bremann', 'Denneman', 'Derjeu', 'Deters', 'DiSalvo', 'Dieckmann', 'Dircks', 'Dirksen', 'Dobbinga', 'Doets', 'Donlon', 'Dorlas', 'Eades', 'Edwards', 'Eggert', 'Eggink', 'Eickhoff', 'Eimers', 'Ekker', 'Elizalde', 'Eller', 'Emmones', 'Engelhardt', 'Entrup', 'Esser', 'Ferree', 'Feucht', 'Fickinger', 'Fidler', 'Fiess', 'Fisher', 'Flechter', 'Flechter genannt', 'Fletcher', 'Fok', 'Ford', 'Frazee', 'Freisfeld', 'Frey', 'Friesen', 'Frund', 'Gke', 'Gdenhovet', 'Gaemers', 'Gentry', 'Gerritse', 'Gerritsen', 'Gilbraith', 'Gilmann genannt Delann', 'Gnade', 'Graafhuis', 'Graff', 'Graham', 'Greif', 'Greive', 'Grimaldi', 'Gro Boes', 'Groenendaal', 'Groenewegen', 'Grootveld', 'Guenther', 'Guettinger', 'Hne', 'Hscher', 'Haase', 'Hagelschuer', 'Hakman', 'Hall', 'Halpin', 'Hansen', 'Harders', 'Haring', 'Harrington', 'Harris', 'Harrison', 'Harteveld', 'Hayes', 'Headlund', 'Heckenkamp', 'Heiming', 'Hein', 'Heitkemper', 'Helfrich', 'Hellweg', 'Hendry', 'Henzen', 'Hessel', 'Hesselmann', 'Heuckmann', 'Hiddes', 'Hilger', 'Hilgersom', 'Hillebrandt', 'Hoenderdos', 'Hoff', 'Hogl', 'Hoitinga', 'Holdorf', 'Holleman', 'Holschbach', 'Holsen', 'Homan', 'Hommes', 'Hornyak', 'Horstmann', 'Hrese', 'Huetinck', 'Hughes', 'Hunger', 'Hunt', 'Iler', 'Jacobson', 'Jansen', 'Janssen', 'Janssing', 'Jay', 'Jelkmann', 'Jenezon', 'Johnson', 'Joseph', 'Kaasbergen', 'Kampers', 'Kanzelberger', 'Katstra', 'Kaufmann', 'Keepes', 'Kehoe', 'Kelley', 'Kelling', 'Kelly', 'Kenselaar', 'Kerscher', 'Kerver', 'Keune', 'Kinnegin', 'Kirk', 'Klaverkamp', 'Klavers', 'Kleine Weischer', 'Klene', 'Klopmeijer', 'Knox', 'Koch', 'Kochan', 'Kock', 'Kokamp', 'Konnewalt', 'Koops', 'Kop', 'Kopetsky', 'Koppens', 'Kornely', 'Kortens', 'Korver', 'Krer', 'Kramer', 'Kresmer', 'Kries', 'Kroezen', 'Kuijpers', 'Kutil', 'Kvitek', 'Kyle', 'Lensteijn', 'LaFond', 'LaSalle', 'Laffertu', 'Lammers', 'Landess', 'Landrum', 'Lange', 'Lankhaar', 'Lapp', 'Laughlin', 'Laveck', 'Lavell', 'Laverty', 'Lawler', 'Lee', 'Leenen', 'Lemstra', 'Lente', 'Liantz', 'Lieverst', 'Lionberger', 'Lockhorst', 'Lohmann', 'Lohoff', 'Lohove', 'Lommers', 'Louwsma', 'Lowe', 'Lowry', 'Lucero', 'Luebke', 'Lukkes', 'Lutter', 'Mlemann', 'Mlenhoff', 'Mlenhoff Witwe Schte', 'Maag', 'MacDonald', 'Maerten', 'Mak', 'Mallee', 'Martell', 'Martin', 'Masterlark', 'Mathis', 'Matze', 'Maurer', 'Mayerl', 'Mayfield', 'McCarthy', 'McCauley', 'McClellan', 'McCormack', 'McCulley', 'McDonald', 'McNair', 'Meads', 'Meany', 'Meehan', 'Megale', 'Meier', 'Meijer', 'Merindo', 'Meriwether', 'Messerie', 'Messner', 'Meyer', 'Middendorp', 'Mihlbauer', 'Mijnhout', 'Miles', 'Millar', 'Miller', 'Mitchell', 'Morrison', 'Morthland', 'Moser', 'Muiser', 'Mulder', 'Mulholland', 'Mullen', 'Mullikin', 'Murphy', 'Nadorp', 'Neijenhuis', 'Nellen', 'Nelsen', 'New', 'Niedermeyer', 'Niemann', 'Niemantsverdriet', 'Nieuwland', 'Nijman', 'Nikolai', 'Noch', 'Nordstrum', 'Norman', 'Novacaski', 'Novak', 'Nussberger', 'O\'Heren', 'Olemiczak', 'Onstein', 'Oosterkamp', 'Oosterveld', 'Orth', 'Ortner', 'Osborn', 'Oudshoorn', 'Outman', 'Overroeder', 'Pasewalk', 'Paszkiewicz', 'Paul', 'Peeperkorn', 'Peijpers', 'Peltz', 'Penn', 'Penney', 'Pentrup', 'Pepping', 'Perk', 'Perkes', 'Persoon', 'Peters', 'Peterson', 'Pferdekamp', 'Phair', 'Pitsch', 'Planelp', 'Poelsma', 'Pol', 'Pollock', 'Pool', 'Popphoff', 'Posedel', 'Pot', 'Powell', 'Preijde', 'Prins', 'Prsha', 'Pruimers', 'Quinton', 'Rcke', 'Rae', 'Rahe', 'Rank', 'Ras', 'Rehmann', 'Rehrauer', 'Reijke', 'Reijnders', 'Reimerink', 'Remmerswaal', 'Reynolds', 'Rezek', 'Ribbers', 'Ribisi', 'Rice', 'Ridt', 'Robben', 'Robinson', 'Roels', 'Rojo', 'Rolemann', 'Rosecrans', 'Rosinsky', 'Ross', 'Rozmarynosky', 'Running', 'Rusch', 'Sander', 'Sandifort', 'Savage', 'Scher', 'Schmann', 'Schaakerman', 'Schaap', 'Schaffstein', 'Schapmann', 'Scheidemantel', 'Schilstra', 'Schltermann', 'Schmidt', 'Schneider', 'Schnobbel', 'Scholten', 'Schoute', 'Schouwenaar', 'Schuddeboom', 'Schuling', 'Schulte Krmann', 'Schulte im Busch', 'Schulze Holsen', 'Schwab', 'Schwartz', 'Schweizer', 'Scolari', 'Scott', 'Seibert', 'Seidel', 'Seikel', 'Sendker', 'Shanda', 'Shigorof', 'Shipley', 'Simmons', 'Simpson', 'Singelenberg', 'Sinke', 'Skinkis', 'Slaten', 'Smeddink', 'Smid', 'Smit', 'Smith', 'Smits', 'Snaterse', 'Sneek', 'Snyder', 'Solleveld', 'Spaan', 'Spahn', 'Specht', 'Speckmann', 'Spengemann', 'Spiering', 'Spinola', 'Spooner', 'Stadler', 'Stark', 'Stead', 'Steiling', 'Steven', 'Stevens', 'Stiefvater', 'Storey', 'Stork', 'Storp', 'Strer', 'Straatman', 'Strattmann', 'Streich', 'Stricher', 'Stroeve', 'Stroomberg', 'Strouf', 'Stummer', 'Suiker', 'Sundrup', 'Suurbier', 'Swope', 'Tammerijn', 'Tankink', 'Taylor', 'Teeken', 'Teermann', 'Tembrock', 'Ten Ham', 'Terhorst', 'Terlinnen', 'Tetenburg', 'Tetteroo', 'Thibeau', 'Thomas', 'Thompson', 'Threadgill', 'Titzing', 'Truttmann', 'Turner', 'Tuschl', 'Uhlenbrock', 'Unrast', 'Vanderbeck', 'Velders', 'Velker', 'Verbeek', 'Verburg', 'Vink', 'Visser', 'Vlielander', 'Volbert', 'Volkmann', 'Vonk', 'Vossenberg', 'Vranken', 'Wstz', 'Wagner', 'Ward', 'Warns', 'Weischedel', 'Welner', 'Wesselmann', 'Westfall', 'Westhues', 'Wezenbeek', 'Wibbertmann', 'Wickensack', 'Wickes', 'Wieja', 'Wiggelaar', 'Wilda', 'Wiley', 'Wilfert', 'Wilhelmina', 'Wilkerson', 'Willemsz', 'Willermann', 'Williams', 'Wilson', 'Wise', 'Withoff', 'Witt', 'Wittkamp', 'Wittkamp genannt Frey', 'Wockert', 'Wouters', 'Wylde', 'Yntema', 'Young', 'Yurkovich', 'Zaal', 'Zengota', 'Zimmerman', 'Zipperer', 'de Ball', 'de Boer', 'de Bruin', 'de Groot', 'de Haan', 'de Kat', 'de Krijger', 'de Moor', 'de Ruijter', 'de Visscher', 'de Wit', 'de With', 'ten Hope', 'tho Delsing', 'van \'t Woudt', 'van Adrichem', 'van Aken', 'van Assel', 'van Baalen', 'van Berkel', 'van Bohemen', 'van Broekhuisen', 'van Cattenburgh', 'van Donselaar', 'van Dorp', 'van Dort', 'van Drongelen', 'van Duijn', 'van Eck', 'van Egeren', 'van Golen', 'van Hensbergen', 'van Heusden', 'van Hilte', 'van Kleeff', 'van Koutrik', 'van Laarhoven', 'van Lankeren', 'van Maanen', 'van Ombergen', 'van Oosten', 'van Os', 'van Rijn', 'van Roemburg', 'van Rooijen', 'van Roosendaal', 'van Veluwen', 'van Velzen', 'van Vliet', 'van Vulpen', 'van Wessel', 'van Wijk', 'van Zanten', 'van de Bruinhorst', 'van de Veen', 'van den Broek', 'van den Santheuvel', 'van der Arend', 'van der Burch', 'van der Erf', 'van der Knoop', 'van der Kuy', 'van der Neut', 'van der Reijken', 'van der Sloot', 'van der Sman', 'van der Toorn', 'van der Toorn Vrijthoff', 'van der Ven', 'van der Water', 'van der Werf', 'van der Zandt', 'zu Delsink', 'zu Hoykink', 'zu Vrenkink', 'zum Hsbusch']
+    , citynames :=
+          [ "Aadorp", "Aagtdorp", "Aagtekerke", "Aalbeek", "Aalburg", "Aalden", "Aalsmeer", "Aalsmeerderbrug", "Aalst (Gelderland)", "Aalst (Noord-Brabant)", "Aalsum (Friesland)", "Aalsum (Groningen)", "Aalten", "Aan de Rijksweg", "Aardenburg", "Aarlanderveen", "Aarle-Rixtel", "Aartswoud", "Aasterberg"
+          , "Abbega", "Abbekerk", "Abbenbroek", "Abbenes", "Abcoude", "Absdale", "Abshoven"
+          , "Achlum", "Acht", "Achterberg", "Achterste Erm", "Achterveld", "Achthuizen", "Achtmaal", "Achttienhoven (Utrecht)", "Achttienhoven (Zuid-Holland)", "Acquoy"
+          , "Adorp", "Aduard", "Aduarderzijl", "Aegum", "Aerdenhout", "Aerdt", "Afferden (Gelderland)", "Afferden (Limburg)", "Agelo", "Aijen", "Akersloot", "Akkrum", "Akmarijp"
+          , "Albergen", "Alblasserdam", "Alem", "Alkmaar", "Allingawier", "Almelo", "Almen", "Almere", "Almkerk", "Alphen aan den Rijn", "Alphen (Gelderland)", "Alphen (Noord-Brabant)", "Alteveer (Noordenveld)", "Alteveer (De Wolden)", "Alteveer (Stadskanaal)", "Altforst", "Alverna"
+          , "Ameide", "Amen", "America", "Amerongen", "Amersfoort", "Ammerstol", "Ammerzoden", "Amstelhoek", "Amstelveen", "Amstenrade", "Amsterdam", "Amsweer"
+          , "Andel", "Andelst", "Anderen", "Andijk", "Ane", "Anerveen", "Anevelde", "Angeren", "Angerlo", "Anjum", "Ankeveen", "Ankum", "Anloo", "Anna Jacobapolder", "Anna Paulowna", "Annen", "Annerveenschekanaal", "Ansen"
+          , "Apeldoorn", "Appelscha", "Appeltern", "Appingedam"
+          , "Arcen", "Archem", "Arensgenhout", "Arkel", "Armhoede", "Arnemuiden", "Arnhem", "Arriën", "Arriërveld", "Arum -"
+          , "Asch", "Asperen", "Assel", "Asselt", "Assen", "Assendelft", "Assum", "Asten"
+          , "Augsbuurt", "Augustinusga", "Austerlitz", "Avenhorn", "Avest", "Axel", "Azelo", "Azewijn"
+          , "Baaiduinen", "Baak", "Baakhoven", "Baambrugge", "Baard", "Baardwijk", "Baarland", "Baarle", "Baarlo (Limburg)", "Baarlo (Steenwijkerland)", "Baarlo (Zwartewaterland)", "Baarn", "Baars (gehucht)", "Baarschot (Deurne)", "Baarschot (Hilvarenbeek)", "Baarschot (Oosterhout)", "Baarsdorpermeer", "Babberich", "Babyloniënbroek", "Badhoevedorp", "Baexem", "Baflo", "Baijum", "Bakel", "Bakhuizen", "Bakkeveen", "Bakkum", "Balgoij", "Balinge", "Balk", "Balkbrug", "Balloërveld", "Balloo", "Ballum", "Baneheide", "Banholt", "Bant", "Bantega", "Barchem", "Barendrecht", "Bareveld", "Barger-Compascuum", "Barger-Oosterveld", "Barlo", "Barneveld", "Barnflair", "Barrier (Klimmen)", "Barsingerhorn", "Bartlehiem", "Basse", "Batenburg", "Bath", "Bathmen", "Bavel"
+          , "Beckum", "Bedum", "Beegden", "Beek en Donk", "Beek (Limburg)", "Beek (Montferland)", "Beek (Ubbergen)", "Beekbergen", "Beemte-Broekland", "Beers (Friesland)", "Beers (Noord-Brabant)", "Beerta", "Beerze", "Beerzerveld", "Beesd", "Beesel", "Beetgum", "Beetgumermolen", "Beets", "Beetsterzwaag", "Beilen", "Beinsdorp", "Bekveld", "Belfeld", "Bellingwolde", "Beltrum", "Belt-Schutsloot", "Bemelen", "Bemmel", "Beneden-Leeuwen", "Bennebroek", "Bennekom", "Benneveld", "Benningbroek", "Benschop", "Bentelo", "Benthuizen", "Bentveld", "Berg", "Berg aan de Maas", "Berg en Dal", "Bergambacht", "Bergen aan Zee", "Bergen (Limburg)", "Bergen (Noord-Holland)", "Bergen op Zoom", "Bergenhuizen", "Bergentheim", "Bergeijk", "Bergharen", "Berghem", "Berghuizen (De Wolden)", "Berghuizen (Heerde)", "Berghuizen (West Maas en Waal)", "Bergschenhoek", "Bergum", "Beringe", "Berkel en Rodenrijs", "Berkelaar", "Berkel-Enschot", "Berkenwoude", "Berkhout", "Berkmeer", "Berkum", "Berlicum", "Berlikum", "Bern", "Besoyen", "Best", "Besthmen", "Beugen", "Beuningen (Gelderland)", "Beuningen (Overijssel)", "Beusichem", "Beutenaken", "Beverwijk"
+          , "Biddinghuizen", "Bierum", "Biervliet", "Biest-Houtakker", "Biezelinge", "Biezenmortel", "Biggekerke", "Bilderdam", "Bilthoven", "Bingelrade", "Bingerden", "Binnenwijzend", "Birdaard"
+          , "Blaaksedijk", "Bladel", "Blankenham", "Blaricum", "Blauwe Hand", "Blauwhuis", "Bleijerheide", "Bleiswijk", "Blerick", "Blesdijke", "Bleskensgraaf", "Blessum", "Blija", "Blijham", "Blitterswijck", "Bloemendaal", "Blokhuizen", "Blokker", "Blokzijl"
+          , "Bobeldijk", "Bocholtz", "Bocholtzerheide", "Bodegraven", "Boekel (Noord-Brabant)", "Boekel (Noord-Holland)", "Boekend", "Boekelo", "Boelenslaan", "Boer", "Boerakker", "Boerdonk", "Boerenhol", "Boerhaar", "Boesingheliede", "Boijl", "Bokhoven", "Boksum", "Bokt", "Bollingawier", "Bolnes", "Bolsward", "Bontebok", "Boornbergum", "Boornzwaag", "Borculo", "Borger", "Borgercompagnie", "Borgharen", "Borgsweer", "Borkel", "Born", "Borne", "Bornerbroek", "Bornwird", "Borssele", "Bosch en Duin", "Boschoord", "Boskamp", "Boskoop", "Bosschenhoofd", "Bosschenhuizen", "Boukoul", "Bourtange", "Boven-Hardinxveld", "Bovenkarspel", "Bovenkerk (Amstelveen)", "Bovenkerk (Vlist)", "Boven-Leeuwen", "Bovensmilde", "Boxmeer", "Boxtel", "Bozum"
+          , "Braamt", "Brachterbeek", "Brakel", "Brandwijk", "Brantgum", "Breda", "Bredevoort", "Breedenbroek", "Breezand", "Breezanddijk", "Breklenkamp", "Breskens", "Breugel", "Breukelen", "Breukeleveen", "Brielle", "Briltil", "Brinkheurne", "Britsum", "Britswerd", "Broek (Alphen-Chaam)", "Broek (Brummen)", "Broek (De Marne)", "Broek (Gulpen-Wittem)", "Broek (Kessel)", "Broek (Laarbeek)", "Broek (Scharsterland)", "Broek (Zederik)", "Broek in Waterland", "Broek op Langedijk", "Broekerhaven", "Broekhuizen (Dalfsen)", "Broekhuizen (Horst aan de Maas)", "Broekhuizen (Drenthe)", "Broekhuizenvorst", "Broekland", "Broeksterwoude", "Bronkhorst", "Bronneger", "Bronnegerveen", "Brouwershaven", "Brouwhuis", "Bruchem", "Brucht", "Bruchterveld", "Bruggen", "Bruinehaar", "Bruinisse", "Brummen", "Brunssum", "Bruntinge"
+          , "Buchten", "Budel", "Budel-Dorplein", "Budel-Schoot", "Buggenum", "Buiksloot", "Buinen", "Buinerveen", "Buitenkaag", "Buitenpost", "Bunde", "Bunne", "Bunnik", "Bunschoten-Spakenburg", "Buren (Friesland)", "Buren (Gelderland)", "Burgerbrug", "Burgerveen", "Burgervlotbrug", "Burgh", "Burgum", "Burgwerd", "Burum", "Bussum", "Buurmalsen", "Buurse"
+          , "Cadier en Keer", "Cadzand", "Callantsoog", "Camerig", "Camperduin", "Capelle", "Capelle aan den IJssel", "Castelré", "Castenray", "Casteren", "Castricum", "Catrijp", "Catsop -"
+          , "Chaam", "Clinge -"
+          , "Coevorden", "Colijnsplaat", "Collendoorn", "Colmont", "Colmschate", "Corle", "Cornjum", "Cornwerd", "Cortenoever", "Cothen", "Cottessen"
+          , "Craubeek", "Creil", "Cromvoirt", "Cruquius", "Cuijk", "Culemborg"
+          , "Daarle", "Daarlerveen", "Dale", "Dalem", "Dalen", "Dalerend", "Dalerpeel", "Dalerveen", "Dalfsen", "Dalmsholte", "Damwoude", "Daniken", "Darp"
+          , "De Bilt", "De Blesse", "De Bult (Bellingwedde)", "De Bult (Steenwijkerland)- De Cocksdorp", "De Glind", "De Goorn", "De Groeve", "De Haukes", "De Heen", "De Heurne (Aalten)", "De Heurne (Berkelland)", "De Hoef", "De Hoek", "De Hoeve", "De Hulk (Hoorn)", "De Kar", "De Kiel", "De Klencke", "De Klomp (Ede)", "De Klomp (Weesp)", "De Knijpe", "De Koog", "De Kooy", "De Krim (Apeldoorn)", "De Krim (Driebergen-Rijsenburg)", "De Krim (Hardenberg)", "De Kwakel", "De Lier", "De Lutte", "De Marshoek", "De Meern", "De Moer", "De Mortel", "De Pol (Avereest)", "De Pol (Drenthe)", "De Pol (Steenwijkerland)", "De Pollen", "De Poppe", "De Punt", "De Rijp", "De Schiphorst", "De Stapel", "De Steeg", "De Stolpen", "De Tike", "De Valom (Friesland)", "De Vecht", "De Veenhoop", "De Waal", "De Weere (Opmeer)", "De Weere (Niedorp)", "de Wijk (Drenthe)", "De Wijk (Gelderland)", "De Wilgen", "De Wilp", "De Woude", "De Zande", "De Zilk", "Dedemsvaart", "Dedgum", "Deelen", "Deersum", "Deest", "Deil", "Deinum", "Delden", "Deldenerbroek", "Delfgauw", "Delfstrahuizen", "Delft", "Delfzijl", "Delwijnen", "Demen", "Den Andel", "Den Bommel", "Den Burg", "Den Dolder", "Den Dungen", "Den Haag", "Den Ham (Zuidhorn)", "Den Ham (Overijssel)", "Den Helder", "Den Hoorn (Midden-Delfland)", "Den Hoorn (Texel)", "Den Hoorn (Zoetermeer)", "Den Horn", "Den Hout", "Den Hulst", "Den Ilp", "Den Kaat", "Den Nul", "Den Oever", "Den Velde", "Denekamp", "Dennenburg", "Deurne", "Deurningen", "Deursen", "Deurze", "Deventer"
+          , "Dichteren", "Didam", "Diefdijk (Geldermalsen, Leerdam en Vianen)", "Diefdijk (Leerdam)", "Diemen", "Diepenheim", "Diepenveen", "Dieren (Gelderland)", "Diessen (Noord-Brabant)", "Dieteren", "Diever", "Dieverbrug", "Diffelen", "Dijken", "Dijkerhoek", "Dijkhuizen (De Wolden)", "Dijkhuizen (Epe)", "Dinteloord", "Dinther", "Dinxperlo", "Diphoorn", "Dirkshorn", "Dirksland"
+          , "Dodewaard", "Doenrade", "Doesburg", "Doetinchem", "Doeveren", "Doezum", "Dokkum", "Dokkumer Nieuwe Zijlen", "Doldersum", "Domburg", "Dommelen", "Donderen", "Dongen", "Dongjum", "Doniaga", "Donk (Limburg)", "Donk (Noord-Brabant)", "Donkerbroek", "Doodstil", "Doorn", "Doornenburg", "Doornhoek (Veghel)", "Doornhoek (Sint Michielsgestel)", "Doornspijk", "Doorwerth", "Dordrecht", "Dorkwerd", "Dorregeest", "Dorst", "Dortherhoek", "Douvergenhout"
+          , "Draaibrug", "Drachten", "Drachtstercompagnie", "Dreischor", "Drempt", "Dreumel", "Drie", "Driebergen-Rijsenburg", "Drieborg", "Driebruggen", "Driehuis (Uden)", "Driehuis (Velsen)", "Driehuizen (Baarle-Nassau)", "Driehuizen (Eersel)", "Driehuizen (Hilvarenbeek)", "Driehuizen (Schermer)", "Driehuizen (Texel)", "Driehuizen (Veghel)", "Driel", "Driemond", "Driesum", "Driewegen", "Drijber", "Drimmelen", "Drogeham", "Drogteropslagen", "Drongelen", "Dronrijp", "Dronten", "Drouwen", "Drouwenermond", "Drouwenerveen", "Drumpt", "Drunen", "Druten -"
+          , "Dubbeldam", "Duistervoorde", "Duiven", "Duivendrecht", "Duizel", "Dulder", "Durgerdam", "Dussen", "Duur -"
+          , "Dwarsgracht (Giethoorn)", "Dwingeloo"
+          , "Echt", "Echteld", "Echten (Drenthe)", "Echten (Friesland)", "Echtenerbrug", "Echterbosch", "Eck en Wiel", "Eckelrade"
+          , "Edam", "Ede", "Edens", "Ederveen"
+          , "Ee (Dongeradeel)", "Ee (Littenseradeel)", "Eede", "Eefde", "Eelde", "Eelderwolde", "Eemdijk", "Eemnes", "Eemshaven", "Eemster", "Een", "Eenigenburg", "Eenrum", "Eenum", "Een-West", "Eerbeek", "Eerde (Noord-Brabant)", "Eerde (Overijssel)", "Eernewoude", "Eersel", "Eerste Exloërmond", "Ees", "Eese", "Eesergroen", "Eeserveen", "Eesterga", "Eestrum", "Eesveen", "Eethen", "Eext", "Eexterveen", "Eexterveenschekanaal", "Eexterzandvoort"
+          , "Egchel", "Egmond aan den Hoef", "Egmond aan Zee", "Egmond-Binnen", "Egmondermeer", "Eibergen", "Eierland", "Eijsden", "Eindhoven", "Einighausen", "Ekehaar Engeland"
+          , "Elahuizen", "Elburg", "Elden", "Eldersloo", "Eldrik", "Eleveld", "Elim", "Elkenrade", "Elkerzee", "Ell", "Ellecom", "Ellemeet", "Ellerhuizen", "Ellertshaar", "Ellewoutsdijk", "Elp", "Elsen", "Elsendorp", "Elshof", "Elshout", "Elsloo (Friesland)", "Elsloo (Limburg)", "Elspeet", "Elst (Gelderland)", "Elst (Utrecht) -"
+          , "Emmaberg", "Emmeloord", "Emmen", "Emmer-Compascuum", "Empe", "Empel", "Emst"
+          , "Engelbert", "Engelen", "Engelum", "Engwierum", "Enkhuizen", "Ens", "Enschede", "Enspijk", "Enter", "Enumatil"
+          , "Epe", "Epen", "Eperheide", "Eppenhuizen", "Epse"
+          , "Erica", "Erichem", "Erlecom", "Erm", "Ermelo", "Erp"
+          , "Esbeek", "Esch", "Escharen", "Espel", "Espelo", "Essen", "Est"
+          , "Etenaken", "Etsberg", "Etten", "Etten-Leur", "Etzenrade"
+          , "Eursinge (De Wolden)", "Eursinge (Midden-Drenthe)", "Eursinge (Westerveld)", "Euverem", "Everdingen", "Evertsoord", "Ewijk", "Exel", "Exloërveen", "Exloo", "Exmorra", "Eygelshoven", "Eys", "Eyserheide", "Ezinge", "Ezumazijl"
+          , "Farmsum", "Feerwerd", "Ferwerd", "Ferwoude", "Fijnaart", "Finkum", "Finsterwolde", "Firdgum", "Fleringen", "Fluitenberg"
+          , "Fochteloo", "Follega", "Folsgare", "Formerum", "Fort (De Wolden)", "Fort (Terneuzen)", "Foudgum", "Foxham", "Foxhol", "Foxwolde"
+          , "Franeker", "Frederiksoord", "Friens", "Frieschepalen", "Froombosch"
+          , "Gaanderen", "Gaarkeuken", "Gaast", "Gaastmeer", "Galder", "Gameren", "Gammelke", "Gapinge", "Garderen", "Garijp", "Garmerwolde", "Garminge", "Garnwerd", "Garrelsweer", "Garsthuizen", "Gassel", "Gasselte", "Gasselterboerveen", "Gasselterboerveenschemond", "Gasselternijveen", "Gasselternijveenschemond", "Gastel", "Gasteren", "Gasthuis", "Gauw"
+          , "Gebroek", "Geelbroek", "Geersbroek", "Geersdijk", "Geertruidenberg", "Geervliet", "Gees", "Geesbrug", "Geesteren (Gelderland)", "Geesteren (Overijssel)", "Geeuwenbrug", "Geffen", "Gelderingen", "Geldermalsen", "Gelderswoude", "Geldrop", "Geleen", "Gellicum", "Gelselaar", "Gemert", "Gemonde", "Genderen", "Gendringen", "Gendt", "Genemuiden", "Genhout", "Gennep", "Genum", "Gerkesklooster", "Gerner", "Gersloot", "Gerwen", "Geulhem", "Geulle", "Geulle aan de Maas", "Geverik", "Geysteren"
+          , "Giekerk", "Giesbeek", "Giessen", "Giessenburg", "Giessendam", "Gieten", "Gieterveen", "Giethmen", "Giethoorn", "Gilze"
+          , "Glane", "Glanerbrug", "Glimmen"
+          , "Godlinze", "Goedereede", "Goënga", "Goëngahuizen", "Goes", "Goingarijp", "Goirle", "Goor", "Gorinchem", "Gorpeind", "Gorredijk", "Gorssel", "Gortel", "Gouda", "Goudriaan", "Goudswaard", "Gouderak", "Goutum"
+          , "Graauw", "Graetheide", "Grafhorst", "Graft", "Gramsbergen", "Grashoek", "Grathem", "Grave", "Greffelkamp", "Greonterp", "'s Grevelduin-Capelle", "Grevenbicht", "Griendtsveen", "Grijpskerk", "Grijpskerke", "Grijzegrubben", "Groede", "Groenekan", "Groeningen", "Groenlo", "Groenveld (Harenkarspel)", "Groenveld (Venlo))", "Groesbeek", "Groessen", "Groet", "Groetpolder", "Grolloo", "Groningen", "Gronsveld", "Groot-Abeele", "Groot Dochteren", "Groot Haasdal", "Groot-Ammers", "Groote Keeten", "Grootebroek", "Grootegast", "Grootschermer", "Grosthuizen", "Grouw", "Grubbenvorst"
+          , "Gulpen", "Guttecoven"
+          , "Haaften", "Haaksbergen", "Haakswold", "Haalderen", "Haamstede", "Haanwijk", "Haaren", "Haarle (Hellendoorn)", "Haarle (Tubbergen)", "Haarlem", "Haarlemmerliede", "Haarlo", "Haarsteeg", "Haart (Aalten)", "Haart (Boxmeer)", "Haarzuilens", "Haastrecht", "Haelen", "Haerst", "Hagestein", "Haghorst", "Haler", "Halfweg (Beemster)", "Halfweg (Emmen)", "Halfweg (Haarlemmerliede en Spaarnwoude)", "Halfweg (Lisse)", "Halfweg (Noordwijkerhout)", "Halfweg (Staphorst)", "Halfweg (Terschelling)", "Hall", "Halle", "Hallum", "Halsteren", "Hamert", "Hamingen", "Handel", "Hank", "Hansweert", "Hantum", "Hantumeruitburen", "Hantumhuizen", "Hapert", "Haps", "Harbrinkhoek", "Harculo", "Hardegarijp", "Hardenberg", "Harderwijk (De Weere)", "Harderwijk (Gelderland)", "Haren (Groningen)", "Haren (Noord-Brabant)", "Harenermolen", "Harfsen", "Hargen", "Harich", "Haringhuizen", "Harkema", "Harkstede", "Harlingen", "Harmelen", "Harreveld", "Harskamp", "Hartwerd", "Haskerdijken", "Haskerhorne", "Hasselo", "Hasselt", "Hattem", "Hattemerbroek", "Haule", "Haulerwijk", "Hauwert", "Havelte", "Havelterberg", "Hazerswoude-Dorp", "Hazerswoude-Rijndijk"
+          , "Hedel", "Hedikhuizen", "Hee", "Heeg", "Heek", "Heel", "Heelsum", "Heelweg", "Heemserveen", "Heemskerk", "Heemstede", "Heenvliet", "Heer", "Heerde", "Heerenveen", "Heerewaarden", "Heerhugowaard", "Heerjansdam", "Heerle", "Heerlen", "Heerlerbaan", "Heerlerheide", "Heesbeen", "Heesch", "Heeseind", "Heesselt", "Heeswijk-Dinther", "Heeten", "Heeze", "Hegelsom", "Hei- en Boeicop", "Heibloem", "Heide (Boekel)", "Heide (Boxmeer)", "Heide (Haelen)", "Heide (Helden)", "Heide (Heumen)", "Heide (Heythuysen)", "Heide (Roggel)", "Heide (Scharsterland)", "Heide (Susteren)", "Heide (Swalmen)", "Heide (Venray)", "Heidenhoek", "Heijen", "Heijenrath", "Heijningen", "Heikant", "Heilig Landstichting", "Heiligerlee", "Heiloo", "Heinenoord", "Heinkenszand", "Heino", "Heistraat (Oosterhout)", "Heistraat (buurtschap in Eindhoven)", "Hekelingen", "Hekendorp", "Helden", "Helenaveen", "Helkant", "Hellendoorn", "Hellevoetsluis", "Hellouw", "Hellum", "Helmond", "Helvoirt", "Helwijk", "Hem (Drechterland)", "Hem (Leeuwarden)", "Hemelum", "Hemmen", "Hemrik", "Hendrik-Ido-Ambacht", "Hengelo (Gelderland)", "Hengelo (Overijssel)", "Hengevelde", "Hengforden", "Hengstdijk", "Hennaard", "Hensbroek", "Henxel", "Herbaijum", "Herkenbosch", "Herkenrade", "Herkingen", "Hernen", "Herpen", "Herpt", "Herten", "Hertme", "Herveld", "Herwen", "Herwijnen", "Herxen", "Hessum", "Het Heidenschap", "Het Koegras", "Het Loo", "Het Woud", "Heteren", "Heugem", "Heukelom (Limburg)", "Heukelom (Noord-Brabant)", "Heukelum", "Heumen", "Heusden", "Heusden (Asten)", "Heveadorp", "Heveskes", "Heythuysen", "Hezingen"
+          , "Hiaure", "Hichtum", "Hidaard", "Hien", "Hierden", "Hieslum", "Hijken", "Hijkersmilde", "Hijlaard", "Hijum", "Hillegom", "Hilleshagen", "Hilvarenbeek", "Hilversum", "Hindeloopen", "Hintham", "Hippolytushoef", "Hitzum"
+          , "Hobrede", "Hoedekenskerke", "Hoek (Beuningen)", "Hoek (Leeuwarden)", "Hoek (Roggel en Neer)", "Hoek (Terneuzen)", "Hoek (Veghel)", "Hoek van Holland", "Hoenderloo", "Hoensbroek", "Hoenzadriel", "Hoevelaken", "Hoeven", "Hoge Hexel", "Hogebeintum", "Hogeveen", "Hogeweg", "Hollandsche Rading", "Hollandscheveld", "Hollum", "Holset", "Holsloot", "Holten", "Holterberg", "Holthees", "Holtheme", "Holthone", "Holtum", "Holwerd", "Holwierde", "Holysloot", "Hommert", "Hommerts", "Homoet", "Hongerige Wolf", "Honselersdijk", "Honthem", "Hoofddorp", "Hoofdplaat", "Hoog Soeren", "Hoogblokland", "Hoogcruts", "Hooge Mierde", "Hooge Zwaluwe", "Hoogeloon", "Hoogengraven", "Hoogenweg", "Hoogerheide", "Hoogersmilde", "Hoogeveen", "Hoogezand", "Hooghalen", "Hoogkarspel", "Hoog-Keppel", "Hoogkerk", "Hoogland", "Hooglanderveen", "Hoogmade", "Hoogvliet", "Hoogwoud", "Hoonhorst", "Hoorn (Noord-Holland)", "Hoorn (Terschelling)", "Hoornaar", "Hoornsterzwaag", "Hopel", "Horn (Limburg)", "Horn (Noord-Holland)", "Hornhuizen", "Horssen", "Horst (Gelderland)", "Horst (Limburg)", "Hout", "Houthem", "Hout-Blerick", "Houten", "Houtigehage", "Houwerzijl"
+          , "Huijbergen", "Huinen", "Huins", "Huis ter Heide (Drenthe)", "Huis ter Heide (Utrecht)", "Huisduinen", "Huisseling", "Huissen", "Huizen", "Huizinge", "Hulhuizen", "Huls", "Hulsberg", "Hulsel", "Hulsen (Meerssen)", "Hulsen (Overijssel)", "Hulsen (Nederweert)", "Hulshorst", "Hulst", "Hulten", "Hummelo", "Hunnecum", "Hunsel", "Huppel", "Hupsel", "Hurwenen"
+          , "Idaard", "Idsegahuizum", "Idskenhuizen", "Idzega", "IJhorst", "IJlst", "IJmuiden", "IJsbrechtum", "IJsselham", "IJsselmuiden", "IJsselstein", "IJzendijke", "IJzendoorn", "IJzeren", "IJzerlo", "IJzevoorde", "Illikhoven", "Ilpendam", "Indijk (Harmelen)", "Indijk (Littenseradeel)", "Indijk (Tietjerksteradeel)", "Indijk (Wonseradeel)", "Indijk (Wymbritseradeel)", "Ingber", "Ingen", "Irnsum", "Itens", "Itteren", "Ittersum", "Ittervoort"
+          , "Jaarsveld", "Jabeek", "Janum", "Jellum", "Jelsum", "Jipsingboermussel", "Jipsingboertange", "Jipsinghuizen", "Jislum", "Jisp", "Eestrum", "Jonkersland", "Jonkersvaart", "Joppe", "Jorwerd", "Joure", "Jouswier", "Jubbega", "Julianadorp", "Julianadorp aan Zee", "Junne", "Jutphaas", "Jutrijp"
+          , "Kaag", "Kaart", "Kaatsheuvel", "Kadoelen", "Kalenberg", "Kallenkote", "Kalverdijk", "Kamerik", "Kampen", "Kampereiland", "Kamperland", "Kamperveen", "Kamperzeedijk-Oost", "Kamperzeedijk-West", "Kantens", "Kapel-Avezaath", "Kapelle", "Kapellebrug", "Katlijk", "Kats", "Kattendijke", "Katwijk aan den Rijn", "Katwijk aan Zee", "Katwijk (Noord-Brabant)", "Katwijk (Zuid-Holland)", "Katwoude"
+          , "Kedichem", "Keent", "Keijenborg", "Keinsmerbrug", "Kekerdom", "Keldonk", "Kelmond", "Kelpen-Oler", "Kerk-Avezaath", "Kerkbuurt (Andijk)", "Kerkbuurt (Assendelft)", "Kerkbuurt (Schiedam)", "Kerkbuurt (Tuitjenhorn)", "Kerkbuurt (Waterland)", "Kerkdriel", "Kerkenveld", "Kerkrade", "Kerkwerve", "Kerkwijk", "Kessel (Limburg)", "Kessel (Noord-Brabant)", "Kesseleik", "Kesteren", "Ketelhaven", "Kethel", "Keutenberg"
+          , "Kibbelveen", "Kiel-Windeweer", "Kijkduin", "Kijkuit", "Kilder", "Kimswerd", "Kinderdijk", "Kinnum"
+          , "Klaaswaal", "Klarenbeek", "Klazienaveen", "Klein Bedaf", "Klein Dochteren", "Klein Haasdal", "Klein Koolwijk", "Klein Zundert", "Klein Ulsda", "Kleingenhout", "Kleine Huisjes", "Kleverskerke", "Klijndijk", "Klimmen", "Kloetinge", "Kloosterburen", "Kloosterdijk", "Kloosterhaar", "Klooster-Lidlum", "Kloosterzande", "Klundert"
+          , "Knegsel"
+          , "Kockengen", "Koedijk", "Koekange", "Koewacht", "Kogerpolder", "Kolderveen", "Kolderveense Bovenboer", "Kolderwolde", "Kolham", "Kolhorn", "Kollum", "Kollumerpomp", "Kollumerzwaag", "Kommerzijl", "Koningsbosch", "Koningslust", "Koog aan de Zaan", "Koolwijk (Oss)", "Koolwijk (Vlist)", "Kootstertille", "Kootwijk", "Kootwijkerbroek", "Kornhorn", "Kornwerderzand", "Kortehemmen", "Kortenhoef", "Kortgene", "Kostverloren (Groningen)", "Kostverloren (Reiderland)", "Kotten", "Koudekerk aan den Rijn", "Koudekerke", "Koudum", "Koufurderigge"
+          , "Krabbendam", "Krabbendijke", "Krachtighuizen", "Kraggenburg", "Kranenburg", "Kreileroord", "Krewerd", "Krimpen aan de Lek", "Krimpen aan den IJssel", "Krommenie", "Krommeniedijk", "Kronenberg", "Kropswolde", "Kruiningen", "Kruisdijk", "Kruisland", "Kruisstraat", "Kruisweg (Groningen)", "Kruisweg (Zuid-Holland)"
+          , "Kubaard", "Kudelstaart", "Kuinre", "Kuitaart", "Kunrade"
+          , "Kwadendamme", "Kwadijk", "Kwintsheul"
+          , "Laag-Keppel", "Laag-Soeren", "Laag-Zuthem", "Laaghalen", "Laaghalerveen", "Laar (Cranendonck)", "Laar (Gerwen)", "Laar (Laarbeek)", "Laar (Maarheeze)", "Laar (Maasbree)", "Laar (Nuth)", "Laar (Sint-Michielsgestel)", "Laar (Tilburg)", "Laar (Weert)", "Lage Mierde", "Lage Vuursche", "Lage Zwaluwe", "Lageland", "Lambertschaag", "Lamswaarde", "Landerum", "Landhorst", "Landsmeer", "Langbroek", "Langedijke", "Langelille", "Langelo (Drenthe)", "Langelo (Overijssel)", "Langenboom", "Langeraar", "Langerak", "Langeveen", "Langeweg", "Langezwaag", "Langweer", "Lankhorst", "Lansingerland", "Laren (Gelderland)", "Laren (Noord-Holland)", "Lathum", "Lattrop-Breklenkamp", "Lauwersoog", "Lauwerzijl"
+          , "Ledeacker", "Leek", "Leende", "Leens", "Leerbroek", "Leerdam", "Leermens", "Leersum", "Leesten", "Leeuwarden", "Leeuwen", "Legemeer", "Leggeloo", "Leiden", "Leiderdorp", "Leidschendam", "Leimuiden", "Leimuiderbrug", "Lekkerkerk", "Lekkum", "Lellens", "Lelystad", "Lemele", "Lemelerveld", "Lemiers", "Lemmer", "Lemselo", "Lengel", "Lent", "Lenthe", "Lepelstraat", "Lerop", "Lettelbert", "Lettele", "Leuken", "Leunen", "Etten", "Leusden", "Leuth", "Leutingewolde", "Leuvenheim", "Leuvenum", "Leveroy", "Lewedorp", "Lexmond"
+          , "Lhee", "Lheebroek"
+          , "Lichtaard", "Lichtenvoorde", "De Lichtmis", "Liempde", "Lienden", "Lierderholthuis", "Lieren", "Lierop", "Lies (Friesland)", "Lies (Noord-Brabant)", "Lieshout", "Liessel", "Lievelde", "Lieveren", "Lijnden", "Limbricht", "Limmel", "Limmen", "Linde (De Wolden)", "Linde (Deventer)", "Linde (Bronckhorst)", "Linde (Twenterand)", "Linden", "Linne", "Linschoten", "Lintelo", "Lintvelde", "Lioessens", "Lions", "Lippenhuizen", "Lisse", "Lisserbroek", "Lith", "Lithoijen", "Limmerkoog"
+          , "Lobith", "Lochem", "Loenen aan de Vecht", "Loenen (Apeldoorn)", "Loenersloot", "Loënga", "Loerbeek", "Loil", "Lollum", "Lomm", "Longerhouw", "Lonneker", "Loo (Berkelland)", "Loo (Bernheze)", "Loo (Deventer)", "Loo (Duiven)", "Loo (Helden)", "Loo (Uden)", "Loon (Assen)", "Loon (Deurne)", "Loon (Waalre)", "Loon op Zand", "Loosbroek", "Loosdrecht", "Loosduinen", "Loozen", "Lopik", "Lopikerkapel", "Loppersum", "Losdorp", "Losser", "Lottum", "Loveren (Baarle-Nassau)", "Loveren (Vught)"
+          , "Lucaswolde", "Luddeweer", "Luinjeberd", "Lunteren", "Lutjebroek", "Lutjegast", "Lutjewinkel", "Lutkewierum", "Luttelgeest", "Lutten", "Luttenberg", "Luxwoude", "Luyksgestel"
+          , "Maarheeze", "Maarn", "Maarsbergen", "Maarssen", "Maarssenbroek", "Maarsseveen", "Maartensdijk", "Maasband", "Maasbommel", "Maasbracht", "Maasbree", "Maasdam", "Maasdijk", "Maashees", "Maaskantje", "Maasland", "Maasniel", "Maassluis", "Maastricht", "Maasvlakte", "Macharen", "Made", "Makkinga", "Makkum", "Malden", "Maliskamp", "Mamelis", "Mander", "Manderveen", "Mantgum", "Mantinge", "Maren-Kessel", "Margraten", "Mariaheide", "Maria-Hoop", "Mariahout", "Mariaparochie", "Mariënberg", "Mariënheem", "Mariënvelde", "Marijenkampen", "Markelo", "Marken", "Markenbinnen", "Marknesse", "Markvelde", "Marle (Hellendoorn)", "Marle (Olst-Wijhe)", "Marrum", "Marssum", "Martenshoek", "Marum", "Marwijksoord", "Mastenbroek", "Matsloot", "Maurik"
+          , "Mechelen", "Medemblik", "Meddo", "Meeden", "Meedhuizen", "Meerkerk", "Meerlo", "Meers", "Meerssen", "Meerveld", "Meerveldhoven", "Meerwijk", "Meeuwen", "Megchelen", "Megen", "Meijel", "Melderslo", "Melick", "Meliskerke", "Melissant", "Menaldum", "Mensingeweer", "Meppel", "Meppen", "Merk", "Merkelbeek", "Merselo", "Merum (Loppersum)", "Merum (Roermond)", "Mesch", "Meteren", "Meterik", "Metslawier"
+          , "Mheer"
+          , "Middelaar", "Middelbeers", "Middelbert", "Middelburg", "Middelharnis", "Middelie", "Middelrode", "Middelstum", "Middenbeemster", "Middenmeer", "Midlaren", "Midlum", "Midsland", "Midwolda", "Midwolde", "Midwoud", "Miedum (Franekeradeel)", "Miedum (Leeuwarden)", "Mierlo", "Mierlo-Hout", "Mijdrecht", "Mijnsheerenland", "Mildam", "Milheeze", "Mill", "Millingen aan de Rijn", "Milsbeek", "Minnertsga", "Mirns", "Miste"
+          , "Moddergat", "Moerdijk", "Moergestel", "Moerkapelle", "Moerstraten", "Molenaarsgraaf", "Molenend", "Molenhoek", "Molenrij", "Molenschot", "Molkwerum", "Molsberg", "Monnickendam", "Monster", "Montfoort", "Montfort", "Mook", "Mookhoek", "Moordrecht", "Moorveld", "Morra"
+          , "Muggenbeet", "Muiden", "Muiderberg", "Munein", "Munnekeburen", "Munnekemoer", "Munnekezijl", "Munstergeleen", "Muntendam", "Mussel", "Musselkanaal"
+          , "Naaldwijk", "Naarden", "Nagele", "Nattenhoven"
+          , "Neck", "Neder-Hardinxveld", "Nederasselt", "Nederhemert", "Nederhorst den Berg", "Nederland", "Nederweert", "Nederweert-Eind", "Nederwetten", "Neede", "Neer", "Neerbeek", "Neerijnen", "Neeritter", "Neerkant", "Neerloon", "Nes aan de Amstel", "Nes (Ameland)", "Nes (Boornsterhem)", "Nes (Dongeradeel)", "Nes (Schagen)", "De Nes", "Nessersluis", "Netersel", "Nettelhorst", "Netterden"
+          , "Niawier", "Nibbixwoud", "Niebert", "Niehove", "Niekerk (De Marne)", "Niekerk (Grootegast)", "Nierhoven", "Niersen", "Nietap", "Nieuwaal", "Nieuw- en Sint Joosland", "Nieuw-Amsterdam", "Nieuw-Annerveen", "Nieuw-Balinge", "Nieuw-Beerta", "Nieuw-Beijerland", "Nieuw-Bergen", "Nieuw-Buinen", "Nieuw-Dordrecht", "Nieuw-Heeten", "Nieuw-Helvoet", "Nieuw-Lekkerland", "Nieuw-Loosdrecht", "Nieuw-Milligen", "Nieuw-Namen", "Nieuw-Roden", "Nieuw-Scheemda", "Nieuw-Schoonebeek", "Nieuw-Vennep", "Nieuw-Vossemeer", "Nieuw-Weerdinge", "Nieuw-Wehl", "Nieuw-Zwinderen", "Nieuwdorp", "Nieuwe Krim", "Nieuwe Meer", "Nieuwe Niedorp", "Nieuwe Pekela", "Nieuwe Wetering", "Nieuwe-Tonge", "Nieuwebildtzijl", "Nieuwebrug (Friesland)", "Nieuwebrug (Noord-Holland)", "Nieuwebrug (Overijssel)", "Nieuwerbrug Nieuwediep", "Nieuwegein", "Nieuwehorne", "Nieuwendam", "Nieuwendijk (Amsterdam)", "Nieuwendijk (Werkendam)", "Nieuwendijk (Zuid-Holland)", "Nieuwenhagen", "Nieuwenhoorn", "Nieuwer ter Aa", "Nieuwerbrug", "Nieuwerkerk aan den IJssel", "Nieuwerkerk", "Nieuweroord", "Nieuwersluis", "Nieuweschans", "Nieuweschild", "Nieuweschoot", "Nieuwkoop", "Nieuwkuijk", "Nieuwland (Dongeradeel)", "Nieuwland (Sluis)", "Nieuwland (Zederik)", "Nieuwlande", "Nieuwleusen", "Nieuwolda", "Nieuwpoort (Noord-Holland)", "Nieuwpoort (Zuid-Holland)", "Nieuwstadt", "Nieuwveen", "Nieuwvliet", "Niezijl", "Niftrik", "Nigtevecht", "Nij Beets", "Nijbroek", "Nijeberkoop", "Nijega", "Nijehaske", "Nijeholtpade", "Nijeholtwolde", "Nijelamer", "Nijemirdum", "Nijensleek", "Nijetrijne", "Nijeveen", "Nijeveense Bovenboer", "Nijezijl", "Nijhoven", "Nijhuizum", "Nijkerk", "Nijkerkerveen", "Nijland", "Nijlande", "Nijmegen", "Nijnsel", "Nijswiller", "Nijverdal", "Nispen", "Nisse", "Nistelrode"
+          , "Nooitgedacht (Aa en Hunze)", "Noorbeek", "Noord Deurningen", "Noordbeemster", "Noordbergum", "Noordbroek", "Noorddijk (Groningen)", "Noorddijk (Ursem)", "Noordeinde (Graft)", "Noordeinde (Liemeer)", "Noordeinde (Oldebroek)", "Noordeinde (Oostzaan)", "Noordeinde (Waddinxveen)", "Noordeloos", "Noorden", "Noordgouwe", "Noordhoek (Moerdijk)", "Noordhoek (Rucphen)", "Noordhorn", "Noordijk", "Noordlaren", "Noord-Scharwoude", "Noord-Sleen", "Noordscheschut", "Noordwelle", "Noordwijk (Drenthe)", "Noordwijk (Groningen)", "Noordwijk (Zuid-Holland)", "Noordwijk aan Zee", "Noordwijk-Binnen", "Noordwijkerhout", "Noordwolde (Friesland)", "Noordwolde (Groningen)", "Nootdorp", "Norg", "Notter"
+          , "Nuenen", "Nuis", "Nuland", "Numansdorp", "Nunhem", "Nunspeet", "Nuth", "Nutter"
+          , "Obbicht", "Obdam", "Ochten", "Odijk", "Odiliapeel", "Odoorn", "Odoornerveen"
+          , "Oeffelt", "Oegstgeest", "Oeken", "Oene", "Oenkerk", "Oensel (Schimmert)", "Oensel (Zaltbommel)", "Oentsjerk", "Oerle"
+          , "Offingawier", "Ohé en Laak", "Oijen (Limburg)", "Oijen (Noord-Brabant)", "Oirlo", "Oirsbeek", "Oirschot", "Oisterwijk", "Okkenbroek"
+          , "Olburgen", "Oldeberkoop", "Oldeboorn", "Oldebroek", "Oldeholtpade", "Oldeholtwolde", "Oldehove", "Oldekerk", "Oldelamer", "Oldemarkt", "Oldenzaal", "Oldenzijl (Eemsmond)", "Oldenzijl (Winsum)", "Oldeouwer", "Oldetrijne", "Oler", "Olland", "Olst", "Olterterp"
+          , "Ommel", "Ommen", "Ommeren", "Ommerschans"
+          , "Onderdijk", "Onderdendam", "Onna", "Onnen", "Onstwedde"
+          , "Ooij (Neder-Betuwe)", "Ooij (Ubbergen)", "Ooij (Zevenaar)", "Ooijen", "Ool", "Oolde", "Ooltgensplaat", "Oost-Graftdijk", "Oost-Maarland", "Oost-Souburg", "Oost-Vlieland", "Oostburg", "Oostdijk (Reimerswaal)", "Oostdijk (Zuid-Holland)", "Oosteind", "Oosteinde (Aalsmeer)", "Oosteinde (Wester-Koggenland)", "Oosteinde (Eemsmond)", "Oosteinde (De Wolden)", "Oostelbeers", "Oostendam", "Oosterbeek", "Oosterbierum", "Oosterblokker", "Oosterend (Littenseradeel)", "Oosterend (Texel)", "Oosterend (Terschelling)", "Oosterhesselen", "Oosterhout (Gelderland)", "Oosterhout", "Oosterhuizen", "Oosterland (Noord-Holland)", "Oosterland (Zeeland)", "Oosterleek", "Oosterlittens", "Oostermeer", "Oosternieland", "Oosternijkerk", "Oosterstreek", "Oosterwierum", "Oosterwijk", "Oosterwijtwerd", "Oosterwolde (Friesland)", "Oosterwolde (Gelderland)", "Oosterzee", "Oosthem", "Oosthuizen", "Oostkapelle", "Oostknollendam", "Oostmahorn", "Oostrum (Friesland)", "Oostrum (Limburg)", "Oostvoorne", "Oostwold (Leek)", "Oostwold (Oldambt)", "Oostwoud", "Oostzaan", "Ootmarsum"
+          , "Opeinde", "Opende", "Ophemert", "Opheusden", "Ophoven", "Opijnen", "Oploo", "Opmeer", "Oppenhuizen", "Opperdoes"
+          , "Oranje", "Oranjedorp", "Oranjewoud", "Orvelte"
+          , "Osingahuizen", "Ospel", "Oss", "Ossendrecht", "Ossenisse", "Ossenwaard", "Ossenzijl"
+          , "Oterdum", "Oterleek", "Othene", "Otterlo", "Ottersum", "Ottoland"
+          , "Oud Ade", "Oud Avereest", "Oud Gastel", "Oud Ootmarsum", "Oud Osdorp", "Oud Sabbinge", "Oud-Alblas", "Oud-Annerveen", "Oud-Beijerland", "Oud-Leusden", "Oud-Loosdrecht", "Oud-Milligen", "Oud-Valkenburg", "Oud-Vossemeer", "Oud-Zevenaar", "Oud-Zuilen", "Ouddorp", "Oudebildtzijl", "Oude Leede", "Oude Leije", "Oude Meer", "Oude Niedorp", "Oude Pekela", "Oude Wetering", "Oude Willem (Ooststellingwerf)", "Oude Willem (Westerveld)", "Oude-Tonge", "Oudega (Gaasterland-Sloten)", "Oudega (Smallingerland)", "Oudega (Wymbritseradeel)", "Oudehaske", "Oudehorne", "Oudelande", "Oudemirdum", "Oudemolen (Drenthe)", "Oudemolen (Noord-Brabant)", "Oudenbosch", "Oudendijk (Noord-Brabant)", "Oudendijk (Noord-Holland)", "Oudenhoorn", "Ouderkerk aan de Amstel", "Ouderkerk aan den IJssel", "Oudeschans", "Oudeschild", "Oudeschip", "Oudeschoot", "Oudesluis (Cromstrijen)", "Oudesluis (Ouwerkerk)", "Oudesluis (Zijpe)", "Oudewater", "Oudezijl", "Oudkarspel", "Oudkerk", "Oudorp", "Oudwoude", "Ouwerkerk", "Ouwsterhaule", "Ouwster-Nijega"
+          , "Overasselt", "Overberg", "Overdinkel", "Overlangel", "Overloon", "Overschild", "Overslag", "Overveen", "Ovezande"
+          , "Paarlo", "Paasloo", "Padhuis", "Paesens", "Palmstad", "Panheel", "Pannerden", "Panningen", "Papekop", "Papendrecht", "Papenhoven", "Papenveer", "Papenvoort (Drenthe)", "Papenvoort (Noord-Brabant)", "Parrega", "Partij-Wittem", "Paterswolde", "Peelo", "Peest", "Peins", "Peize", "Peizermade", "Pelikaan", "Peperga", "Pernis", "Persingen", "Pesse", "Petten", "Pey", "Philippine", "Piaam", "Piershil", "Pieterburen", "Pietersbierum", "Pieterzijl", "Pijnacker", "Pikveld", "Pingjum", "Plasmolen", "Poederoijen", "Poeldijk", "Poeldonk", "Polsbroek", "Polsbroekerdam", "Poortugaal", "Poortvliet", "Poppingawier", "Posterholt", "Prinsenbeek", "Puiflijk", "Punthorst", "Purmer", "Purmerend", "Purmerland", "Putbroek", "Puth", "Putte", "Putten", "Puttershoek"
+          , "Raalte", "Raamsdonk", "Raamsdonksveer", "Raar", "Raard", "Raath", "Radewijk", "Radio Kootwijk", "Ramspol", "Randwijk", "Ransdaal", "Ransdorp", "Rasquert", "Ratum", "Rauwerd", "Ravenstein", "Ravenswaaij", "Ravenswoud", "Rechteren", "Rectum", "Roordahuizum", "Reek", "Reeuwijk", "Reijmerstok", "Reitsum", "Rekken", "Remmerden", "Renesse", "Renkum", "Renswoude", "Ressen", "Retersbeek", "Retranchement", "Reusel", "Reutum", "Reuver", "Rha", "Rheden", "Rhederveld (Bellingwedde)", "Rhederveld (Vlagtwedde)", "Rhee", "Rheeze", "Rheezerveen", "Rhenen", "Rhenoy", "Rhienderen", "Rhoon", "Ridderkerk", "Ried", "Riel", "Rien", "Riethoven", "Rietmolen", "Rijckholt", "Rijen", "Rijkevoort", "Rijnsaterwoude", "Rijnsburg", "Rijperkerk", "Rijpwetering", "Rijs", "Rijsbergen", "Rijsenburg", "Rijsenhout", "Rijsoord", "Rijssen", "Rijswijk (Gelderland)", "Rijswijk (Noord-Brabant)", "Rijswijk (Zuid-Holland)", "Rilland", "Rimburg", "Rinnegom", "Rinsumageest", "De Rips", "Rockanje", "Roden", "Roderesch", "Roderwolde", "Roelofarendsveen", "Roermond", "Rogat", "Roggel", "Rohel (Scharsterland)", "Rolde", "Roodeschool", "Roodhuis", "Roodkerk", "Roordahuizum", "Roosendaal", "Roosteren", "Rooth", "'t Rooth", "Rosmalen", "Rossum (Gelderland)", "Rossum (Overijssel)", "Roswinkel", "Rothem", "Rotstergaast", "Rotsterhaule", "Rotterdam", "Rotterdam Albrands", "Rottevalle", "Ritthem", "Rottum (Friesland)", "Rottum (Groningen)", "Rouveen", "Rozenburg (Noord-Holland)", "Rozenburg (Zuid-Holland)", "Rozendaal", "Rucphen", "Ruigahuizen", "Ruigezand", "Ruigoord", "Ruinen", "Ruinerwold", "Ruischerbrug", "Rumpen", "Rumpt", "Rustenburg", "Rutten", "Ruurlo"
+          , "Saaksum", "Saasveld", "Saaxumhuizen", "Sambeek", "Sandfirden", "Santpoort-Noord", "Santpoort-Zuid", "Sappemeer", "Sas van Gent", "Sasput", "Sassenheim", "Sauwerd"
+          , "Schaarsbergen", "Schaesberg", "Schaft", "Schagen", "Schagerbrug", "Schagerwaard", "Schaijk", "Schalkhaar", "Schalkwijk", "Schalsum", "Schandelo", "Schardam", "Scharendijke", "Scharmer", "Scharnegoutum", "Scharsterbrug", "Scharwoude", "Schaveren", "Scheemda", "Scheerwolde", "Schelle", "Schellingwoude", "Schellinkhout", "Schelluinen", "Schermerhorn", "Scherpenisse", "Scherpenzeel (Friesland)", "Scherpenzeel (Gelderland)", "Schettens", "Scheulder", "Scheveningen", "Schiedam", "Schiermonnikoog", "Schietecoven", "Schijf", "Schijndel", "Schilberg (Echt-Susteren)", "Schilberg (Noorbeek)", "Schildwolde", "Schimmert", "Schin op Geul", "Schingen", "Schinnen", "Schinveld", "Schipborg", "Schiphol", "Schiphol-Centrum", "Schiphol-Oost", "Schiphol-Rijk", "Schipluiden", "Schipperskerk", "Schoonbron", "Schoondijke", "Schoonebeek", "Schoonheten", "Schoonhoven", "Schoonloo", "Schoonoord (Drenthe)", "Schoonoord (Noord-Brabant)", "Schoonrewoerd", "Schoorl", "Schoorldam", "Schore", "Schoterzijl", "Schouwerzijl", "Schraard", "Schuddebeurs (Schouwen-Duiveland)", "Schuddebeurs (Hulst)", "Schuilenburg (Friesland)", "Schuilenburg (Overijssel)", "Schuilingsoord", "Schuinesloot", "Schweiberg"
+          , "Sebaldeburen", "Seerijp", "Sellingen", "Serooskerke (Schouwen-Duiveland)", "Serooskerke (Veere)", "Sevenum", "Sexbierum"
+          , "'s-Graveland", "'s-Gravendeel", "'s-Gravenhage", "'s-Gravenmoer", "'s-Gravenpolder", "'s-Gravenzande"
+          , "'s-Heer Abtskerke", "'s-Heer Arendskerke", "'s-Heer Hendrikskinderen", "'s-Heerenberg", "'s-Heerenbroek", "'s-Heerenhoek", "'s-Hertogenbosch"
+          , "Sibbe", "Sibculo", "Siddeburen", "Siebengewald", "Siegerswoude (Opsterland)", "Siegerswoude (Tietjerksteradeel)", "Sijbekarspel", "Sijbrandaburen", "Sijbrandahuis", "Silvolde", "Simonshaven", "Simpelveld", "Sinderen (Oude IJsselstreek)", "Sinderen (Voorst)", "Sint Agatha", "Sint Anna ter Muiden", "Sint-Annaland", "Sint Annaparochie", "Sint Annen", "Sint Anthonis", "Sint Geertruid", "Sint Gerlach", "Sint Hubert", "Sint Isidorushoeve", "Sint-Jacobiparochie", "Sint Jansklooster", "Sint Jansteen", "Sint Johannesga", "Sint Joost", "Sint Kruis", "Sint Laurens", "Sint Maarten", "Sint Maartensbrug", "Sint-Maartensdijk", "Sint Maartensvlotbrug", "Sint Maartenszee", "Sint Michielsgestel", "Sint Nicolaasga", "Sint Odiliënberg", "Sint-Oedenrode", "Sint Pancras", "Sint Philipsland", "Sint Willebrord", "Sintjohannesga", "Sirjansland", "Sittard"
+          , "Slagharen", "Slangenburg", "Slappeterp", "Sleen", "Sleeuwijk", "Slek", "Slenaken", "Sliedrecht", "Sliffert", "Slijkenburg", "Slijk-Ewijk", "Slikkerveer", "Slochteren", "Slootdorp", "Sloterdijk (Amsterdam)", "Sloten (Amsterdam)", "Sloten (Friesland)", "Sluis", "Sluiskil"
+          , "Smakt", "Smalle Ee", "Smallebrugge", "Smilde"
+          , "Snakkerburen", "Sneek", "Snelrewaard", "Snikzwaag"
+          , "Soerendonk", "Soest", "Soestdijk", "Soestduinen", "Soesterberg", "Someren", "Sommelsdijk", "Son", "Sondel", "Sonnega"
+          , "Spaarndam", "Spaarndam-West", "Spaarnwoude", "Spakenburg", "Spanbroek", "Spanga", "Spankeren", "Spannum", "Spaubeek", "Spekhoek", "Speuld", "Spier", "Spierdijk", "Spijk (Aalburg)", "Spijk (Delfzijl)", "Spijk (Lingewaal)", "Spijk (Rijnwaarden)", "Spijkenisse", "Spijkerboor (Drenthe)", "Spijkerboor (Noord-Holland)", "Spoolde", "Sprang-Capelle", "Sprundel", "Spui"
+          , "Stad aan 't Haringvliet", "Stadskanaal", "Stampersgat", "Standdaarbuiten", "Staphorst", "Starnmeer", "Startenhuizen", "Stavenisse", "Staverden", "Stavoren", "Stedum", "Steenbergen", "Steenbergen (De Wolden)", "Steenbergen (Noordenveld)", "Steendam", "Steenderen", "Steenenkamer", "Steensel", "Steenwijk", "Steenwijkerwold", "Steenwijksmoer", "Stegeren", "Steggerda", "Stein", "Stellendam", "Stepelo", "Sterksel", "Stevensbeek", "Stevensweert", "Steyl", "Stieltjeskanaal", "Stiens", "Stiphout", "Stitswerd", "Stokhem", "Stokkum (Montferland)", "Stokkum (Overijssel)", "Stolpervlotbrug", "Stolwijk", "Stompetoren", "Stompwijk", "Stoutenburg", "Stramproy", "Streefkerk", "Strijbeek", "Strijen", "Strijensas", "Stroe (Gelderland)", "Stroe (Overijssel)", "Stroet", "Stroobos", "Strucht", "Stuifzand"
+          , "Suameer", "Suawoude", "Surhuisterveen", "Surhuizum", "Susteren"
+          , "Swalmen", "Swartbroek", "Sweikhuizen", "Swichum", "Swier", "Swifterbant", "Swolgen"
+          , "'t Buurtje", "'t Goy", "'t Haagje", "'t Haantje (Drenthe)", "'t Haantje (Zuid-Holland)", "'t Harde", "'t Loo", "'t Rooth", "'t Veld", "'t Waar", "'t Zand (Alphen-Chaam)", "'t Zand (Boxmeer)", "'t Zand (Drimmelen)", "'t Zand (Nijmegen)", "'t Zand (Werkendam)", "'t Zand (Zijpe)", "'t Zandt", "Taarlo", "Teeffelen", "Teerns", "Tegelen", "Ten Arlo", "Ten Boer", "Ten Esschen", "Ten Post", "Ter Aar", "Ter Aard", "Ter Apel", "Ter Apelkanaal", "Ter Heijde", "Ter Idzard", "Terband", "Terblijt", "Terborg", "Terdiek", "Tergracht", "Terheijden", "Terheijl", "Terhole", "Terhorne", "Terhorst", "Terkaple", "Terlinden", "Termaar (Voerendaal)", "Termaar (Margraten)", "Termunten", "Termunterzijl", "Ternaard", "Terneuzen", "Teroele", "Terschuur", "Terzool", "Tervoorst", "Terwispel", "Terwolde", "Terziet", "Terzool", "Teteringen", "Teuge", "Thesinge", "Thij", "Tholen", "Thorn", "Thull", "Tibma", "Tiel", "Tiendeveen", "Tienhoven (Maarssen)", "Tienhoven (Texel)", "Tienhoven (Vianen)", "Tienhoven (Zederik)", "Tienray", "Tietjerk", "Tijnje", "Tilburg", "Tilligte", "Tinallinge", "Tinte", "Tirns", "Tjalhuizum", "Tjalleberd", "Tjarnsweer", "Tjerkgaast", "Tjerkwerd", "Tjuchem", "Tolbert", "Tolduik", "Tolkamer", "Tollebeek", "Tommel", "Tonden", "Tongeren (Gelderland)", "Tongeren (Noord-Brabant)", "Tongeren (Overijssel)", "Tongerlo (Maasbree)", "Tongerlo (Sevenum)", "Toornwerd", "Treebeek", "Tricht", "Triemen", "Trimunt", "Trintelen", "Tripscompagnie", "Tubbergen", "Tuil", "Tuindorp (Rijnwaarden)", "Tuitjenhorn", "Tuk", "Tull en 't Waal", "Tungelroy", "Tweede Exloërmond", "Tweede Valthermond", "Twello", "Twijzel", "Twijzelerheide", "Twisk", "Tynaarlo", "Tzum", "Tzummarum"
+          , "Ubachsberg", "Ubbenga", "Ubbergen", "Uddel", "Uden", "Udenhout", "Uffelte", "Ugchelen", "Uitdam", "Uitgeest", "Uithoorn", "Uithuizen", "Uithuizermeeden", "Uitwellingerga", "Uitwierde", "Uitwijk", "Ulestraten", "Ulft", "Ulicoten", "Ulrum", "Ulsda", "Ulvenhout", "Ureterp", "Urk", "Urmond", "Ursem", "Usquert", "Usselo", "Utrecht"
+          , "Vaals", "Vaassen", "Vaesrade", "Valburg", "Valkenburg (Limburg)", "Valkenburg (Zuid-Holland)", "Valkenswaard", "Valkkoog", "Valthe", "Valthermond", "Van Ewijcksluis", "Varik", "Varsen", "Varssel", "Varsselder", "Varsseveld", "Vasse", "Veelerveen", "Veen", "Veendam", "Veenendaal", "Veenhuizen (Coevorden)", "Veenhuizen (Heerhugowaard)", "Veenhuizen (Noordenveld)", "Veenhuizen (Stadskanaal)", "Veeningen", "Veenklooster", "Veenoord", "Veenwouden", "Veere", "Veessen", "Vegelinsoord", "Veghel", "Velddriel", "Velden", "Veldhoven", "Veldhunten", "Velp (Gelderland)", "Velp (Noord-Brabant)", "Velsen-Noord", "Velsen-Zuid", "Velserbroek", "Velswijk", "Veltum", "Venebrugge", "Venhorst", "Venhuizen", "Venlo", "Venray", "Ven-Zelderheide", "Verwolde", "Vessem", "Vethuizen", "Veulen", "Vianen (Noord-Brabant)", "Vianen (Utrecht)", "Vierakker", "Vierhouten", "Vierhuizen", "Vierlingsbeek", "Vierpolders", "Vijfhuizen", "Vijlen", "Vilsteren", "Vilt", "Vinkega", "Vinkel", "Vinkenbuurt", "Vinkeveen", "Visserweert", "Visvliet", "Vlaardingen", "Vlagtwedde", "Vledder", "Vledderveen (Drenthe)", "Vledderveen (Groningen)", "Vleuten", "Vlieghuis", "Vlierden", "Vlijmen", "Vlissingen", "Vlist", "Vlodrop", "Voerendaal", "Vogelenzang", "Vogelwaarde", "Volendam", "Volkel", "Vollenhove", "Volthe", "Vondelingenplaat", "Voorburg", "Voorhout", "Voorschoten", "Voorst", "Voorst (Oude IJsselstreek)", "Voorstonden", "Voorthuizen", "Vorchten", "Vorden", "Vorstenbosch", "Vortum-Mullem", "Voulwames", "Vragender", "Vredenheim", "Vredepeel", "Vreeland", "Vreeswijk", "Vries", "Vriescheloo", "Vriezenveen", "Vriezenveensewijk", "Vrijhoeve-Capelle", "Vroomshoop", "Vrouwenakker", "Vrouwenparochie", "Vrouwenpolder", "Vught", "Vuile Riete", "Vuren"
+          , "Waal", "Waalre", "Waalwijk", "Waarde", "Waardenburg", "Waarder", "Waardhuizen", "Waarland", "Waaxens (Dongeradeel)", "Waaxens (Littenseradeel)", "Wachtum", "Waddinxveen", "Wadenoijen", "Wadway", "Wagenberg", "Wagenborgen", "Wageningen", "Wahlwiller", "Walem", "Walsoorden", "Wamberg", "Wamel", "Wanneperveen", "Wanroij", "Wanssum", "Wanswerd", "Wapenveld", "Wapse", "Wapserveen", "Warder", "Warffum", "Warfhuizen", "Warfstermolen", "Warga", "Warken", "Warm", "Warmenhuizen", "Warmond", "Warns", "Warnsveld", "Warstiens", "Wartena", "Waskemeer", "Waspik", "Wassenaar", "Wateren", "Watergang", "Waterhuizen", "Wateringen", "Waterlandkerkje", "Waubach", "Waver", "Waverveen"
+          , "Wechterholt", "Wedde", "Wedderveer", "Weebosch", "Weerdinge", "Weerselo", "Weert", "Weert (Meerssen)", "Weesp", "Wehe-Den Hoorn", "Wehl", "Weidum", "Weijerswold", "Weiteveen", "Weiwerd", "Wekerom", "Welberg", "Well (Gelderland)", "Well (Limburg)", "Wellerlooi", "Welsrijp", "Welsum (Dalfsen)", "Welsum (Olst-Wijhe)", "Welten", "Wemeldinge", "Wengelo", "Wenum-Wiesel", "Werkendam", "Werkhoven", "Wernhout", "Wervershoof", "Wesepe", "Wessem", "West-Graftdijk", "West-Knollendam", "West-Souburg", "West-Terschelling", "Westbeemster", "Westbroek (Limburg)", "Westbroek (Utrecht)", "Westdorp", "Westdorpe", "Westelbeers", "Westendorp", "Westenholte", "Westenschouwen", "Westerbeek", "Westerblokker", "Westerbork", "Westerbroek", "Westeremden", "Westergeest (Friesland)", "Westergeest (Noord-Holland)", "Westerhaar-Vriezenveensewijk", "Westerhoven", "Westerklief", "Westerland", "Westerlee (Groningen)", "Westerlee (Zuid-Holland)", "Westernieland", "Westervelde", "Westervoort", "Westerwijtwerd", "Westhem", "Westhoek (Duiveland)", "Westhoek (Het Bildt)", "Westhoek (Walcheren)", "Westkapelle", "West-Knollendam", "Westlaren", "Westmaas", "Westwoud", "Westzaan", "Wetering", "Weteringbrug", "Wetsens", "Wetsinge", "Weurt", "Weustenrade", "Wezep", "Wezup", "Wezuperbrug"
+          , "Wichmond", "Wieken (IJsselstreek)", "Wieldrecht", "Wiene", "Wier", "Wierden", "Wieringerwaard", "Wieringerwerf", "Wierum (Groningen)", "Wierum (Overijssel)", "Wiesel", "Wieuwerd", "Wijbosch", "Wijchen", "Wijckel", "Wijdenes", "Wijdewormer", "Wijhe", "Wijk aan Zee", "Wijk bij Duurstede", "Wijk en Aalburg", "Wijlre", "Wijnaldum", "Wijnandsrade", "Wijnbergen", "Wijngaarden", "Wijnjewoude", "Wijns", "Wijnvoorden", "Wijster", "Wijtgaard", "Wijthmen", "Wilbertoord", "Wildenborch", "Wildervanksterdallen", "Wildervank", "Wilhelminadorp", "Wilhelminaoord", "Willemsdorp", "Willemsoord", "Willemstad", "Willeskop", "Willige Langerak", "Wilnis", "Wilp", "Wilsum", "Winde", "Windesheim", "Windraak", "Winkel", "Winneweer", "Winschoten", "Winssen", "Winsum (Friesland)", "Winsum (Groningen)", "Wintelre", "Winterswijk", "Winthagen", "Wirdum (Friesland)", "Wirdum (Groningen)", "Wissenkerke", "Witharen", "Witmarsum", "Witte Paarden", "Wittelte", "Witten", "Witteveen", "Wittewierum"
+          , "Woensdrecht", "Woerden", "Woerdense Verlaat", "Woeste Hoeve", "Woezik", "Wogmeer", "Wognum", "Woldendorp", "Wolfhaag", "Wolfhagen", "Wolfheze", "Wolphaartsdijk", "Wolsum", "Woltersum", "Wolvega", "Wommels", "Wons", "Woold", "Workum", "Wormer", "Wormerveer", "Woubrugge", "Woudbloem", "Woudenberg", "Woudrichem", "Woudsend", "Wouterswoude", "Wouw", "Wouwse Plantage"
+          , "Yde", "Yerseke", "Ypelo", "Ypecolsga", "Ysselsteyn"
+          , "Zaamslag", "Zaandam", "Zaandijk", "Zalk", "Zaltbommel", "Zandberg", "Zandeweer", "Zandhuizen (Friesland)", "Zandpol", "Zandstraat", "Zandvoort", "Zeddam", "Zeegse", "Zeeland", "Zeelst", "Zeerijp", "Zeewolde", "Zegge", "Zegveld", "Zeijen", "Zeijerveen", "Zeijerveld", "Zeilberg", "Zeist", "Zeldam", "Zelhem", "Zenderen", "Zennewijnen", "Zetten", "Zevenaar", "Zevenbergen", "Zevenbergschen Hoek", "Zevenhoven", "Zevenhuizen (Kaag en Braassem)", "Zevenhuizen (Bunschoten)", "Zevenhuizen (Eemsmond)", "Zevenhuizen (Heeze-Leende)", "Zevenhuizen (Kollumerland en Nieuwkruisland)", "Zevenhuizen (Leek)", "Zevenhuizen (Moerdijk)", "Zevenhuizen (Texel)", "Zevenhuizen (Tietjerksteradeel)", "Zevenhuizen (Zevenhuizen-Moerkapelle)", "Zevenhuisjes", "Zierikzee", "Zieuwent", "Zijderveld", "Zijdewind", "Zijldijk", "Zijpersluis", "Zijtaart", "Zoelen", "Zoelmond", "Zoetermeer", "Zoeterwoude", "Zonnemaire", "Zorgvlied", "Zoutelande", "Zoutkamp", "Zuid-Beijerland", "Zuidbroek (Groningen)", "Zuidbroek (Noord-Holland)", "Zuiddorpe", "Zuideinde", "Zuiderflevo", "Zuidermeer", "Zuiderwoude", "Zuidhorn", "Zuidlaarderveen", "Zuidland", "Zuidlaren", "Zuidoostbeemster", "Zuid-Scharwoude", "Zuidschermer", "Zuidveen", "Zuidveld", "Zuidvelde", "Zuidwolde (Drenthe)", "Zuidwolde (Groningen)", "Zuidzande", "Zuidzange", "Zuidzijde (Bodegraven)", "Zuidzijde (Korendijk)", "Zuidzijde (Oostflakkee)", "Zuilichem", "Zuna", "Zunderdorp", "Zundert", "Zurich", "Zutphen", "Zuurdijk", "Zwaag", "Zwaagdijk", "Zwaagwesteinde", "Zwaanshoek", "Zwagerbosch", "Zwammerdam", "Zwanenburg", "Zwartsluis", "Zwartebroek", "Zwarte Haan", "Zwartemeer", "Zwartewaal", "Zweeloo", "Zweins", "Zwiep", "Zwiggelte", "Zwingelspaan", "Zwijndrecht", "Zwinderen", "Zwolle"
+          ]
+    , countrycodes :=
+          [ "AD","AE","AF","AG","AI","AL","AM","AN","AO","AQ","AR","AS","AT","AU","AW","AX"
+          , "AZ","BA","BB","BD","BE","BF","BG","BH","BI","BJ","BL","BM","BN","BO","BR","BS"
+          , "BT","BV","BW","BY","BZ","CA","CC","CD","CF","CG","CH","CI","CK","CL","CM","CN"
+          , "CO","CR","CU","CV","CX","CY","CZ","DE","DJ","DK","DM","DO","DZ","EC","EE","EG"
+          , "EH","ER","ES","ET","FI","FJ","FK","FM","FO","FR","GA","GB","GD","GE","GF","GG"
+          , "GH","GI","GL","GM","GN","GP","GQ","GR","GS","GT","GU","GW","GY","HK","HM","HN"
+          , "HR","HT","HU","ID","IE","IL","IM","IN","IO","IQ","IR","IS","IT","JE","JM","JO"
+          , "JP","KE","KG","KH","KI","KM","KN","KP","KR","KW","KY","KZ","LA","LB","LC","LI"
+          , "LK","LR","LS","LT","LU","LV","LY","MA","MC","MD","ME","MF","MG","MH","MK","ML"
+          , "MM","MN","MO","MP","MQ","MR","MS","MT","MU","MV","MW","MX","MY","MZ","NA","NC"
+          , "NE","NF","NG","NI","NL","NO","NP","NR","NU","NZ","OM","PA","PE","PF","PG","PH"
+          , "PK","PL","PM","PN","PR","PS","PT","PW","PY","QA","RE","RO","RS","RU","RW","SA"
+          , "SB","SC","SD","SE","SG","SH","SI","SJ","SK","SL","SM","SN","SO","SR","ST","SV"
+          , "SY","SZ","TC","TD","TF","TG","TH","TJ","TK","TL","TM","TN","TO","TR","TT","TV"
+          , "TW","TZ","UA","UG","UM","US","UY","UZ","VA","VC","VE","VG","VI","VN","VU","WF"
+          , "WS","YE","YT","ZA","ZM","ZW"
+          ]
+    , streetnames :=
+          [ "'t Blok", "'t Haantje", "'t Hoekske", "'t Hofflandt", "'t Vlot", "'t Zand", "Aanstede", "Aardrijk", "Aardstraat"
+          , "Abdij van Thornstraat", "Abdisstraat", "Abelenbroek", "Acaciadreef", "Achter Emer", "Achtererf", "Achterste Havervelden"
+          , "Achterste Rithweg", "Adelaarsvaren", "Adriaan Oomenstraat", "Akeleituin", "Akkerlaan", "Akkerstraat", "Akkerveld"
+          , "Akkerviool", "Alexberg", "Aluminiumstraat", "Ambachtsweg", "Amstelweide", "Anneville-laan", "Arenberglaan", "Arnold Janssenlaan"
+          , "Arnold van Leuvenstraat", "Asterddijk", "Asterdkraag", "Asterdse Sluis", "Baanakker", "Baayewei", "Bagven Park"
+          , "Bagvensestraat", "Banierstraat", "Baroniestraat", "Bavelse Hei", "Bavelse Leij", "Beekakker", "Beekdal", "Beekhof"
+          , "Beekse Stationsweg", "Beeksestraat", "Beemd", "Begijnenakker", "Benedenmoeren", "Benedictastraat", "Bergakker"
+          , "Bergdreef", "Bergse Pad", "Bergslagen", "Berkenakker", "Berkendreef", "Berkenhof", "Berkenlaan", "Berkenlaar", "Bertelsberg"
+          , "Bessertpad", "Beukenhof", "Beukenlaan", "Biesvaren", "Biezenstraat", "Biezenveen", "Bijenhof", "Bijenlaar", "Bijgaard"
+          , "Bijloopwegje", "Bijster", "Bingelkruid", "Binnen Hil", "Binnenweg", "Binnenwei", "Bladerstraat", "Blauwe Baan", "Blauwhoefsedreef"
+          , "Blauwvoet", "Bleekwei", "Blokmoeren", "Bochtakker", "Bochtmoeren", "Boekentveld", "Boerenerf", "Bolbergseweg", "Bolderstraat"
+          , "Bollaard", "Bongerd", "Boom", "Boonakker", "Boonhof", "Bosbeemd", "Bosdaldreef", "Bosloop", "Bosmuizenlaar", "Bosrand"
+          , "Bosveen", "Bosweide", "Boterakker", "Boterbloemstraat", "Boterstafweg", "Bouwluststraatje", "Bovenmoeren", "Braakdonk"
+          , "Brabantstraat", "Bramentuin", "Brandebeemd", "Branderij", "Brechtenstede", "Brede Slagen", "Bredestraat", "Breeschot"
+          , "Brembos", "Bremhorst", "Bremtuin", "Brielsedreef", "Brigidahof", "Brigidastraat", "Bronkruid", "Brouwersbos", "Buiten Hil"
+          , "Buitenerf", "Buitenwal", "Bunderbeemd", "Burgemeester Baetenspark", "Burgstsedreef", "Buurtschap Effen", "Buurtschap Vuchtschoot"
+          , "Cadettenkamp", "Cannaertserf", "Chaamse Baan", "Chaamseweg", "Cijnsbroek", "Clemensberg", "Craenlaer", "Daalakker"
+          , "Daalakkerpad", "Dassenlaar", "Davidsberg", "De Boeding", "De Bongard", "De Bunders", "De Gemetjes", "De Heze"
+          , "De Hillen", "De Lind", "De Roskam", "Deken Dr.Dirckxweg", "Deken Fickstraat", "Deken Maeslaan", "Den Dogdreef", "Den Elst"
+          , "Dennenbroek", "Dennenweg", "Diderica Mijnssenstraat", "Dielishoek", "Diep Zand", "Digit Park", "Dijkbeemd", "Dijkslagen"
+          , "Dippert", "Distelveld", "Distelvink", "Doelenpad", "Domeinakker", "Donk", "Donkerstraat", "Donkslagen", "Donkweg"
+          , "Dopheide", "Dorpsplein", "Dorpstraat", "Dorstseweg", "Dorsvlegel", "Dotterbloem", "Dr. Hein Hoeben laan", "Driehoek"
+          , "Driehoven", "Drielindendreef", "Dries", "Duivenlaar", "Dwarsdijk", "Dwarskootsestraat", "Dwergkroos", "Echbronk", "Edwardsberg"
+          , "Eekhoorntjeslaar", "Effenseweg", "Egeltjeslaar", "Eglantier", "Eikakker", "Eikbergseweg", "Eikendreef", "Eindoord"
+          , "Elfenlaantje", "Elise van Calcarstraat", "Elleboog", "Elsdonk", "Elshoutseweg", "Elzenbroek", "Elzenburgstraat", "Elzendreef"
+          , "Emerparklaan", "Espakker", "Essendonk", "Essendreef", "Everdonk", "Everzwijnenpad", "Fazantenlaar", "Fazantlaan", "Felixberg"
+          , "Fonteinkruid", "Frankenlaan", "Franse Akker", "Gaarshof", "Gageldonk", "Gageldonksepad", "Gageldonksestraat", "Galgestraat"
+          , "Ganzendreef", "Ganzerik", "Gareelstraat", "Gebuurdreef", "Geerakker", "Geererf", "Geersbroekseweg", "Geestland"
+          , "Gertrudis van Sombreffestraat", "Gertrudislaan", "Gertrudisoord", "Gildelaar", "Gilzeweg", "Gouddonk", "Gouden Regen"
+          , "Gouwstraat", "Gravin van Leeuwensteinstraat", "Gravin van Stauffenstraat", "Gravin van Sulzbachstraat", "Gravin van der Marckstraat"
+          , "Grensoord", "Grimhuijsenstraat", "Grintweg", "Groene Hil", "Groenstraat", "Groot Zand", "Grote Bogerd", "Grote Dijk"
+          , "Grote Dries", "Guda van Rennenbergstraat", "Haamstraat", "Haanakker", "Haarbeemd", "Haardries", "Haenenburgh"
+          , "Haenenveld", "Halseweg", "Hambroeklaan", "Hameie", "Hameldonk", "Hamplein", "Hanendreef", "Harmonielaan", "Haverdijk"
+          , "Havik", "Hazardweg", "Hazelaar", "Heerdgang", "Heertgank", "Heesterbos", "Heesterbospad", "Heiackerdreef", "Heiakker"
+          , "Heibloempad", "Heidehof", "Heideveen", "Heideveld", "Heienlangdonk", "Heikantsestraat", "Heining", "Heinoord"
+          , "Heisprong", "Heistraat", "Heistuk", "Heiveld", "Hekoord", "Heksenakker", "Heksendans", "Heksenkring", "Heksenkruid"
+          , "Heksenrij", "Heksenwaag", "Heksenwiellaan", "Hekven", "Helmkruid", "Herdershof", "Herfst", "Herikaard", "Hertenhoek"
+          , "Hertenlaar", "Hertenroep", "Hertespoor", "Hesseling", "Hilbergsedreef", "Hilsondisstraat", "Hoefke", "Hoekakker"
+          , "Hoenderparkweg", "Hoenderweg", "Hoevebroek", "Hoeveneind", "Hof", "Hofpad", "Hoge Akker", "Hoge Daalakker", "Hoge Gouw"
+          , "Hoge Hil", "Hoge Mosten", "Hoge Stee", "Hoge Weide", "Hoge Zijde", "Hogendries", "Hogestuift", "Honderdbunder"
+          , "Hondsdonk", "Hoog Zand", "Hoogdonk", "Hooglaarsestraat", "Hoogsteen", "Hooijdonkseweg", "Hooimade", "Hoolbeemd"
+          , "Hoolstraat", "Houtwal", "Huisakker", "Huisdreef", "Huiserf", "IJsbrandsberg", "IJsvogel", "Iepenbroek", "Iependreef"
+          , "Immenhof", "J.F. Kellyweg", "Jachtlaan", "Jack van Gilsplein", "Jacoba van Heinsbergstraat", "Jagerpad", "Jan Oomenstraat"
+          , "Jan de Wijsestraat", "Jan van de Lekstraat", "Jeannette Houwingstraat", "Jeugdland", "Johanna Reintjesstraat"
+          , "Johanna Ufkesstraat", "Johansberg", "Juliana de Lannoystraat", "Julianalaan", "Julie Claeysstraat", "Jupiterlaan"
+          , "Kalverenblok", "Kalverwei", "Kampakker", "Kamvaren", "Kantenbeemd", "Kanunnikstraat", "Kapelstraat", "Kapittelhof"
+          , "Katerdonk", "Keislagen", "Kerkdreef", "Kerkeind", "Kerkepad", "Kerkewei", "Kerkstraat", "Kerkuil", "Kesterendreef"
+          , "Kesterenlaan", "Kettingdreef", "Klarenberg", "Klaverveld", "Klein Wolfslaar", "Klein Zand", "Kleine Bogerd", "Kleine Haan"
+          , "Kleine Hil", "Kloosterhof", "Kloosterstraat", "Kluisstraat", "Knopherik", "Koeienblok", "Koeieweide", "Koekelberg"
+          , "Koekoeksbloem", "Komoord", "Koningsvaren", "Kooiakker", "Koolhof", "Koolmees", "Koolpad", "Koperstraat", "Korenbloem"
+          , "Korenbocht", "Korenmaat", "Korenpad", "Kort Zand", "Korte Akker", "Korte Bunder", "Korte Dreef", "Korte Hil"
+          , "Korte Slagen", "Korte Vore", "Kortendonk", "Kouter", "Kouterstraat", "Kraaijenbergsestraat", "Kraanvogel", "Krekelweg"
+          , "Kriekenveld", "Kromme Slagen", "Krommedijk", "Kroontjeskruid", "Kruispad", "Kwikstaart", "Laag Zand", "Laagbos"
+          , "Laagerf", "Laaghamlaan", "Laan der Continenten", "Laanzichtweg", "Laarakker", "Laathof", "Lage Aard", "Lage Daalakker"
+          , "Lage Heijning", "Lage Mosten", "Lage Stee", "Lage Weg", "Lage Zijde", "Lagestuift", "Lammertiend", "Langdonk", "Lange Akker"
+          , "Lange Bunder", "Lange Hil", "Lange Slagen", "Lange Vore", "Lange Voren", "Langelaar", "Langeweg", "Laurentiusstraat"
+          , "Lavendelhof", "Leliehof", "Lente", "Lepelaar", "Leursebaan", "Leyweg", "Liesbosdreef", "Liesboslaan", "Liesdreef"
+          , "Liesenbeemd", "Liesgras", "Liesstraat", "Lijndonkseweg", "Lijsterhof", "Lijsterpad", "Lindenhove", "Liniewal", "Lisdodde"
+          , "Logtenburg", "Loo-akker", "Loopakker", "Loopstraat", "Louise Stratenusstraat", "Louwersdonk", "Luchtmachtplein", "Lunetstraat"
+          , "Ma Ueberfeldtstraat", "Maaibeemd", "Margareta van Brederodestraat", "Margarethastraat", "Maria Koijenhof", "Maria Rabbonistraat"
+          , "Mariastraat", "Markdal", "Markhek", "Markkade", "Markt", "Markusberg", "Markweg", "Marsstraat", "Mastdreef", "Mastenbroek"
+          , "Mastlanddreef", "Mattenbies", "Mechteldis van Hornestraat", "Meerberg", "Meerkoet", "Meers", "Meester Bierensweg"
+          , "Meester Van Meelstraat", "Meidoorn", "Mercuriuslaan", "Merlijnshof", "Merlingsakker", "Merodelaan", "Meulenspie", "Meulenspiepad"
+          , "Mgr.Van Dijkstraat", "Mgr.Van Hooijdonkstraat", "Middeltiend", "Middenakker", "Middenerf", "Middenweg", "Mijkenbroek"
+          , "Missiehuisstraat", "Moeraszegge", "Moerdijkje", "Moerdijkse Postbaan", "Moerenpad", "Molen De Beerstraat", "Molenakker"
+          , "Moleneind", "Molenstraat", "Montenshoeve", "Mortelweg", "Mosdonk", "Moskesbaan", "Mouterijstraat", "Muizenberglaan"
+          , "Mulderspad", "Nachtegaalslaantje", "Nassaustraat", "Neelstraat", "Neerhof", "Nelly Boudewijnsstraat", "Neteltuin"
+          , "Nicoline Swijgmanstraat", "Nieuw Asterd", "Nieuw Baarswijk", "Nieuw Krijtenburg", "Nieuw Putoor", "Nieuw Wolfslaarlaan"
+          , "Nieuw Zonzeel", "Nieuw Zwartenberg", "Nieuwe Beekhoek", "Nieuwe Dreef", "Nieuwedijkje", "Nieuwland", "Nieuwstraat"
+          , "Nieuwveerweg", "Nijvelstraat", "Nijverheidsweg", "Nikkelstraat", "Niklaasberg", "Noortberghmoeren", "Notenkraker"
+          , "Oeverzegge", "Olmenbroek", "Omloop", "Oosterhoutseweg", "Oppermoeren", "Ossenblok", "Oude Beekhoek", "Oude Bredaseweg"
+          , "Oude Liesboslaan", "Oude Molenweg", "Oude Rijsbergsebaan", "Ouderf", "Oudlandstraatje", "Overbroek", "Overemer"
+          , "Overkroetenlaan", "Overveldsestraat", "Paantjensstraat", "Paardeweide", "Pachtbroek", "Padakker", "Papegaai", "Paradijslaan"
+          , "Parklaan", "Pasquelaan", "Pastoor Anssemsstraat", "Pastoor Doensstraat", "Pastoor Leijtenstraat", "Pastoor Lemmensstraat"
+          , "Pastoor Loosstraat", "Pastoor Oomenlaan", "Pastoor Vermuntstraat", "Pater Rommelaan", "Pater Verschurenstraat"
+          , "Paterswei", "Patrijspad", "Patrijzenlaar", "Peerdsbroek", "Pelikaan", "Pennendijk", "Peperbos", "Peppelhof", "Peppelsbroek"
+          , "Perzikkruid", "Petronella Moensstraat", "Pieter van Ginnekenstr", "Pieternel Koomansstraat", "Pietersberg", "Pijpersmoeren"
+          , "Pius XII straat", "Plantsoen", "Platte Akker", "Pluimzegge", "Polderweg", "Polderzicht", "Poort Hil", "Poortakker"
+          , "Postbaan", "Posthoorn", "Poststraat", "Priemkruid", "Prinsenboschlaan", "Prinsendreef", "Prinses van Lotharingenstraat"
+          , "Prinses van Polenstraat", "Procureursdreef", "Promenade", "Putakker", "Pyramidedreef", "Raaimoeren", "Raak", "Raamschoorseweg"
+          , "Rakehof", "Ramshoorn", "Randoord", "Randweg", "Rechte Slagen", "Reeperf", "Reeënlaar", "Regenwulp", "Reiendonk"
+          , "Residentie Azurée", "Rieblok", "Riekeschot", "Rietdijk", "Rietveen", "Rijsbergseweg", "Rijtseweg", "Ripaertsbeemd"
+          , "Rithsestraat", "Rode Baan", "Roerdomp", "Ronde Hil", "Ronde Slagen", "Rooiakker", "Rooibraak", "Roosbergseweg"
+          , "Rouppe van der Voortlaan", "Rudonk", "Ruissenbeemd", "Saturnusstraat", "Schalkeveld", "Schapendreef", "Schapenweide"
+          , "Scheperij", "Scherp Zand", "Scherpenakker", "Schijfkamille", "Schijfstraat", "Schippersdonk", "Schippersslagen"
+          , "Scholekster", "Schoolpad", "Schoolstraat", "Schotenhof", "Schoutenlaan", "Schouwslagen", "Schutsboom", "Schutsestraat"
+          , "Seminarieweg", "Simonsberg", "Sinopelhof", "Sintelweg", "Sleutelbloem", "Slotenakker", "Slotlaan", "Sluisblok", "Smalle Slagen"
+          , "Smidsheining", "Somerweide", "Spank", "Sparrenlaan", "Spekenblok", "Spieakker", "Spiebos", "Spinnewiel", "Spinveld"
+          , "Spoorstraat", "Sporenweide", "Sprundelsebaan", "St. Annadreef", "St. Josephstraat", "Steedreef", "Steenbergen"
+          , "Steenbroek", "Steenhof", "Steenland", "Sterrenkroos", "Sterreschans", "Sterstraat", "Stidstraat", "Stippelvaren"
+          , "Stormvogel", "Straatweide", "Strijbeekseweg", "Strijpenlaan", "Strijpenseweg", "Stuift", "Tervoortseweg", "Thomasberg"
+          , "Thoornseweg", "Thornstraat", "Tienbunder", "Tiendweg", "Tilburgse Baan", "Tinstraat", "Titulaerlaan", "Tolakker"
+          , "Tolweg", "Tommerdwei", "Tongerloodreef", "Tongvaren", "Torendreef", "Tournooiveld", "Tuintjes", "Twaalfbunder"
+          , "Tweegelandenbrugweg", "Tweeschaar", "Uitoord", "Uranusstraat", "Vaandelstraat", "Vaareindseweg", "Vaartwegje"
+          , "Valdijk", "Valkenlaar", "Valkenstraat", "Vallei", "Valveeken", "Van Schermbeeklaan", "Vang", "Varendonk", "Veenakker"
+          , "Veenstraat", "Veerdonk", "Veertienbunder", "Vekenoord", "Veldekens", "Veldmoeren", "Veldpad", "Veldstraat", "Veldweg"
+          , "Veldzuring", "Velsgoed", "Vennekes", "Venneweide", "Venuslaan", "Verlengde Witmoeren", "Verloren Hoek", "Vianendreef"
+          , "Vierbunder", "Vijftigbunder", "Vijverstraat", "Viktorsberg", "Vinkenberg", "Vinkenbos", "Vinkenburgseweg", "Vlaggestraat"
+          , "Vlasaard", "Vlierenbroek", "Vliet", "Vogelbos", "Vogelsanck", "Vogelwikke", "Volgermoeren", "Voorerf", "Voorste Havervelden"
+          , "Voortakker", "Vormslagen", "Vorsterstraat", "Vossenberg", "Vossendreef", "Vossenlaar", "Vraggelse Baan", "Vroente"
+          , "Vuchtschootseweg", "Walbroek", "Wandelakker", "Wasbeemd", "Waterakker", "Waterkers", "Waterlelie", "Watermunt"
+          , "Waterviolier", "Waterweegbree", "Wederiktuin", "Weefraam", "Weegbladtuin", "Weerdeel", "Weerdstraat", "Weidehek"
+          , "Weideslagen", "Weimersedreef", "Werfblok", "Werftseweg", "Wervenschotsebaan", "Westbroek", "Westergouw", "Westerhagelaan"
+          , "Westerkim", "Westrik", "Westrikseweg", "Weth van der Westenplein", "Weversdries", "Wevershof", "Wiek", "Wielewaal"
+          , "Wikketuin", "Wikkeveld", "Wildbraak", "Wildhage", "Wildzang", "Wilgenbroek", "Wilgenhof", "Wilhelminaplein", "Willebrordstraat"
+          , "Willem-Alexanderplein", "Winter", "Withof", "Witmoeren", "Witpoel", "Witte Baan", "Woestenbergseweg", "Wolfsakker"
+          , "Wolfsdonk", "Wolfsputten", "Wolvenhoek", "Woutersberg", "Wouwerbeekseweg", "Zanddreef", "Zandgouw", "Zandslagen"
+          , "Zeggeveen", "Zesbunder", "Zicht", "Zilverhof", "Zilvermeeuw", "Zilverstede", "Zinkstraat", "Zoete Inval", "Zomer"
+          , "Zoudtlandseweg", "Zuidlaan", "Zuringveld", "Zuster Boomaarsstraat", "Zwanebloem", "Zwarte Dijk", "Zwarthek", "Zwartmoeren"
+          , "de Gouw", "de Toom", "den Deel"
+          ]
+    ];
+
+
+INTEGER FUNCTION From64(INTEGER64 i) { RETURN ToInteger(ToString(i),0); }
+
+/** Generate random user fields
+    @param entityid
+    @param seed
+    @param options
+    @cell options.with_unknown_gender
+    @cell options.base_email_address rob@example.net will generate email like rob+entityid-seed@example.net
+*/
+PUBLIC RECORD FUNCTION GenerateRandomNameFields(INTEGER entityid, INTEGER seed, RECORD options) //ADDME if this returns in the public API, fix its name and make it more options-like
+{
+  INTEGER64 finalnr := INTEGER64(entityid) * 12809 + INTEGER64(seed) * 14341;
+
+  STRING ARRAY base_email := Tokenize(CellExists(options, "BASE_EMAIL_ADDRESS") ? options.base_email_address : "", "@");
+
+  INTEGER gender, namegender;
+  INTEGER64 gendernr := finalnr % (CellExists(options, "WITH_UNKNOWN_GENDER") AND options.with_unknown_gender ? 10 : 8);
+
+  SWITCH (entityid % 5)
+  {
+  CASE 0, 1, 2, 3  { gender := 1; namegender := 1; }
+  CASE 4, 5, 6, 7  { gender := 2; namegender := 2; }
+  CASE 8           { gender := 0; namegender := 1; }
+  CASE 9           { gender := 0; namegender := 2; }
+  }
+
+  STRING ARRAY firstnames := namegender = 1 ? examplenames.firstnames_male : examplenames.firstnames_female;
+
+  STRING firstname := firstnames[From64(((finalnr + 5309) * 61703) % LENGTH(firstnames))];
+  STRING lastname := examplenames.lastnames[From64(((finalnr + 5) * 65519) % LENGTH(examplenames.lastnames))];
+  STRING cityname := examplenames.citynames[From64(((finalnr + 11) * 48859) % LENGTH(examplenames.citynames))];
+
+  STRING initials;
+  FOR (INTEGER i := 0; i < 1 + From64(((finalnr + 1327) * 421) % 3); i := i + 1)
+    initials := initials || (i != 0 ? " " : "") || Left(firstnames[From64(((finalnr + 5309 + i * 7043) * 61703) % LENGTH(firstnames))], 1) || ".";
+
+  RECORD nl_address :=
+      [ street :=     examplenames.streetnames[From64(((finalnr + 10211) * 11909) % LENGTH(examplenames.streetnames))]
+      , nr_detail :=  ToString(1 + From64(((finalnr + 12739) * 23813) % 499))
+      , country :=    "nl"
+      , city :=       cityname
+      , zipcode :=    1000 + From64(((finalnr + 19237) * 22709) % 8999)
+                        || ByteToString(65 + From64(((finalnr + 619) * 4079) % 26))
+                        || ByteToString(65 + From64(((finalnr + 1709) * 9103) % 26))
+      ];
+
+  STRING email := LENGTH(base_email) = 2 ? base_email[0] || "+" || entityid || "-" || seed || "@" || base_email[1] : "";
+  STRING phone := "060000" || RIGHT("000" || (((finalnr + 22283) * 19727) % 9973), 4);
+  STRING countrycode := examplenames.countrycodes[From64(((INTEGER64(entityid) + 4969) * 33479) % LENGTH(examplenames.countrycodes))];
+
+  RECORD parsedname := SplitWRDName("Richard " || lastname);
+
+  RETURN
+      [ wrd_gender :=           gender
+      , realgender :=           namegender //FIXME just always use real gender ?
+      , wrd_firstname :=        firstname
+      , wrd_firstnames :=       firstname
+      , wrd_infix :=            parsedname.wrd_infix
+      , wrd_lastname :=         parsedname.wrd_lastname
+      , countrycode :=          countrycode
+      , wrd_contact_address :=  nl_address
+      , wrd_contact_email :=    email
+      , wrd_contact_phone :=    phone
+      , wrd_initials :=         initials
+      ];
+}
+
+PUBLIC STATIC OBJECTTYPE AnonymizeBGTask EXTEND TolliumBackgroundTask
+< RECORD data;
+  INTEGER seeder;
+  RECORD name_opts;
+
+  MACRO Init(RECORD data)
+  {
+    this->data := data;
+    this->name_opts := [ base_email_address := "invalid@example.org" ];
+  }
+
+  MACRO Run()
+  {
+    OBJECT work := this->BeginWork();
+
+    OBJECT wrdschema := OpenWRDSchemaByName(this->data.wrdschema);
+
+    this->seeder := 0;
+
+    // Remove unused fields
+    DELETE FROM this->data.processing
+     WHERE LENGTH(instrs.array_attrs) = 0
+       AND LENGTH(instrs.relevant_attrs) = 0;
+
+    FOREVERY (RECORD rec FROM this->data.processing)
+    {
+      this->status :=
+          [ progress := 100 * #rec / LENGTH(this->data.processing)
+          , status := GetTid("wrd:browser.anonymize.status.getentities", rec.type)
+          ];
+
+      STRING ARRAY fields := [ "WRD_ID" ];
+
+      fields := fields CONCAT
+          SELECT AS STRING ARRAY tag
+            FROM rec.instrs.array_attrs;
+
+      fields := fields CONCAT
+          SELECT AS STRING ARRAY attr.tag
+            FROM rec.instrs.relevant_attrs;
+
+      RECORD oc;
+      FOREVERY (STRING f FROM fields)
+        oc := CellInsert(oc, f, f);
+
+      OBJECT type := wrdschema->GetType(rec.type);
+
+      RECORD ARRAY entities :=
+         type->RunQuery([ outputcolumns := oc, historymode := "all" ]);
+
+      FOREVERY (RECORD entity FROM entities)
+      {
+        IF ((#entity % 10) = 0)
+        {
+          this->status :=
+              [ progress := (100 * #rec + 100 * #entity / LENGTH(entities)) / LENGTH(this->data.processing)
+              , status := GetTid("wrd:browser.anonymize.status.converting", rec.type, ToString(100 * #entity / LENGTH(entities)))
+              ];
+        }
+
+        entity := this->AnonymizeRecord(entity.wrd_id, entity, rec.instrs, 0);
+        type->UpdateEntity(entity.wrd_id, CELL[...entity, DELETE wrd_id]);
+      }
+    }
+
+    work->Finish();
+  }
+
+  RECORD FUNCTION AnonymizeRecord(INTEGER entityid, RECORD rec, RECORD instrs, INTEGER ignoretaglen)
+  {
+    FOREVERY (RECORD arr FROM instrs.array_attrs)
+    {
+      RECORD ARRAY elements := GetCell(rec, SubString(arr.tag, ignoretaglen));
+      FOREVERY (RECORD elt FROM elements)
+        elements[#elt] := this->AnonymizeRecord(entityid, elt, arr, LENGTH(arr.tag) + 1);
+      rec := CellUpdate(rec, SubString(arr.tag, ignoretaglen), elements);
+    }
+
+    IF (LENGTH(instrs.relevant_attrs) != 0)
+    {
+      this->seeder := this->seeder + 1;
+
+      RECORD fields := GenerateRandomNameFields(entityid, this->seeder, this->name_opts);
+
+      FOREVERY (RECORD instr FROM instrs.relevant_attrs)
+      {
+        VARIANT data := GetCell(rec, SubString(instr.attr.tag, ignoretaglen));
+        SWITCH (instr.atype)
+        {
+        CASE "initials"   { data := fields.wrd_initials; }
+        CASE "firstname"  { data := fields.wrd_firstname; }
+        CASE "firstnames" { data := fields.wrd_firstnames; }
+        CASE "infix"      { data := fields.wrd_infix; }
+        CASE "lastname"   { data := fields.wrd_lastname; }
+        CASE "email"      { data := fields.wrd_contact_email; }
+        CASE "phone"      { data := fields.wrd_contact_phone; }
+        CASE "gender"     { data := fields.wrd_gender; }
+        CASE "address"    { data := fields.wrd_contact_address; }
+        }
+        rec := CellUpdate(rec, SubString(instr.attr.tag, ignoretaglen), data);
+      }
+    }
+
+    RETURN rec;
+  }
+
+
+>;
+
+PUBLIC OBJECTTYPE Anonymize EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT wrdschema;
+
+  RECORD ARRAY to_anonymize_attrs;
+
+  RECORD ARRAY processing;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->wrdschema := data.currentschema;
+    this->frame->title := GetTid("wrd:browser.anonymize.title", this->wrdschema->tag);
+
+    this->AnalyzeSchema();
+
+    IF (this->wrdschema->protected)
+    {
+      this->RunMessageBox(".schema_protected");
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION AnalyzeAttrs(OBJECT type, INTEGER parentattr)
+  {
+    RECORD ARRAY array_attrs;
+    RECORD ARRAY relevant_attrs;
+
+    RECORD ARRAY attrs :=
+        SELECT attributetype
+             , id
+             , tag
+          FROM type->ListAttributes(parentattr);
+
+    FOREVERY (RECORD attr FROM attrs)
+    {
+      IF (attr.attributetype = 4 OR attr.tag = "EMAIL" OR attr.tag LIKE "*_EMAIL")
+        INSERT [ type := type->tag, attr := attr, atype := "email" ] INTO relevant_attrs AT END;
+      IF (attr.attributetype = 5 OR attr.tag = "PHONE" OR attr.tag LIKE "*_PHONE")
+        INSERT [ type := type->tag, attr := attr, atype := "phone" ] INTO relevant_attrs AT END;
+      IF (attr.tag LIKE "*INITIALS")
+        INSERT [ type := type->tag, attr := attr, atype := "initials" ] INTO relevant_attrs AT END;
+      IF (attr.tag LIKE "*FIRSTNAME")
+        INSERT [ type := type->tag, attr := attr, atype := "firstname" ] INTO relevant_attrs AT END;
+      IF (attr.tag LIKE "*FIRSTNAMES")
+        INSERT [ type := type->tag, attr := attr, atype := "firstnames" ] INTO relevant_attrs AT END;
+      IF (attr.tag LIKE "*INFIX")
+        INSERT [ type := type->tag, attr := attr, atype := "infix" ] INTO relevant_attrs AT END;
+      IF (attr.tag LIKE "*LASTNAME")
+        INSERT [ type := type->tag, attr := attr, atype := "lastname" ] INTO relevant_attrs AT END;
+      IF (attr.tag LIKE "WRD_GENDER")
+        INSERT [ type := type->tag, attr := attr, atype := "gender" ] INTO relevant_attrs AT END;
+      IF (attr.attributetype = 3)
+        INSERT [ type := type->tag, attr := attr, atype := "address" ] INTO relevant_attrs AT END;
+
+      IF (attr.attributetype = 13)
+      {
+        RECORD rec := this->AnalyzeAttrs(type, attr.id);
+        INSERT CELL tag := attr.tag INTO rec;
+        INSERT rec INTO array_attrs AT END;
+      }
+    }
+
+    this->to_anonymize_attrs := this->to_anonymize_attrs CONCAT relevant_attrs;
+
+    RETURN
+        [ array_attrs :=      array_attrs
+        , relevant_attrs :=   relevant_attrs
+        ];
+  }
+
+  MACRO AnalyzeSchema()
+  {
+    FOREVERY (RECORD rectype FROM this->wrdschema->ListTypes())
+    {
+      OBJECT type := this->wrdschema->GetType(rectype.tag);
+      INSERT
+          [ type :=     type->tag
+          , instrs :=   this->AnalyzeAttrs(type, 0)
+          ] INTO this->processing AT END;
+    }
+
+    this->attrlist->rows :=
+        SELECT type := type
+             , attr := attr.tag
+             , atype
+          FROM this->to_anonymize_attrs;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAnonymize()
+  {
+    IF (this->RunMessageBox(".sure_anonymize", this->wrdschema->tag) != "yes")
+      RETURN;
+
+    OBJECT task := CreateProgressDialog(
+        this,
+        "module::wrd/screens/anonymize.whlib",
+        "AnonymizeBGTask",
+        [ wrdschema := this->wrdschema->tag
+        , processing := this->processing
+        ]);
+
+    IF (task->RunModal() = "ok")
+    {
+      this->RunMessageBox(".schema_anonymized");
+      this->tolliumresult := "ok";
+    }
+  }
+>;

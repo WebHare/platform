@@ -1,0 +1,815 @@
+﻿<?wh
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+STRING conversionprofile_namespace := "http://www.webhare.net/xmlns/publisher/conversionprofile";
+
+RECORD ARRAY wordstyles;
+STRING ARRAY availablefonts;
+
+
+RECORD FUNCTION CreateWordStyle(STRING name, INTEGER wordid, INTEGER toclevel)
+{
+  RETURN [ name := name, wordid := wordid, toclevel := toclevel ];
+}
+
+RECORD ARRAY FUNCTION GetBuiltInWordStyles()
+{
+  RECORD ARRAY retval;
+
+  INSERT CreateWordStyle("Normal",0,0) INTO retval AT END;
+  INSERT CreateWordStyle("Heading 1",1,1) INTO retval AT END;
+  INSERT CreateWordStyle("Heading 2",2,2) INTO retval AT END;
+  INSERT CreateWordStyle("Heading 3",3,3) INTO retval AT END;
+  INSERT CreateWordStyle("Heading 4",4,4) INTO retval AT END;
+  INSERT CreateWordStyle("Heading 5",5,5) INTO retval AT END;
+  INSERT CreateWordStyle("Heading 6",6,6) INTO retval AT END;
+  INSERT CreateWordStyle("Heading 7",7,7) INTO retval AT END;
+  INSERT CreateWordStyle("Heading 8",8,8) INTO retval AT END;
+  INSERT CreateWordStyle("Heading 9",9,9) INTO retval AT END;
+  INSERT CreateWordStyle("Index 1",10,0) INTO retval AT END;
+  INSERT CreateWordStyle("Index 2",11,0) INTO retval AT END;
+  INSERT CreateWordStyle("Index 3",12,0) INTO retval AT END;
+  INSERT CreateWordStyle("Index 4",13,0) INTO retval AT END;
+  INSERT CreateWordStyle("Index 5",14,0) INTO retval AT END;
+  INSERT CreateWordStyle("Index 6",15,0) INTO retval AT END;
+  INSERT CreateWordStyle("Index 7",16,0) INTO retval AT END;
+  INSERT CreateWordStyle("Index 8",17,0) INTO retval AT END;
+  INSERT CreateWordStyle("Index 9",18,0) INTO retval AT END;
+  INSERT CreateWordStyle("TOC 1",19,0) INTO retval AT END;
+  INSERT CreateWordStyle("TOC 2",20,0) INTO retval AT END;
+  INSERT CreateWordStyle("TOC 3",21,0) INTO retval AT END;
+  INSERT CreateWordStyle("TOC 4",22,0) INTO retval AT END;
+  INSERT CreateWordStyle("TOC 5",23,0) INTO retval AT END;
+  INSERT CreateWordStyle("TOC 6",24,0) INTO retval AT END;
+  INSERT CreateWordStyle("TOC 7",25,0) INTO retval AT END;
+  INSERT CreateWordStyle("TOC 8",26,0) INTO retval AT END;
+  INSERT CreateWordStyle("TOC 9",27,0) INTO retval AT END;
+  INSERT CreateWordStyle("Normal Indent",28,0) INTO retval AT END;
+  INSERT CreateWordStyle("Footnote Text",29,0) INTO retval AT END;
+  INSERT CreateWordStyle("Annotation Text",30,0) INTO retval AT END;
+  INSERT CreateWordStyle("Header",31,0) INTO retval AT END;
+  INSERT CreateWordStyle("Footer",32,0) INTO retval AT END;
+  INSERT CreateWordStyle("Index Heading",33,0) INTO retval AT END;
+  INSERT CreateWordStyle("Caption",34,0) INTO retval AT END;
+  INSERT CreateWordStyle("Table of Figures",35,0) INTO retval AT END;
+  INSERT CreateWordStyle("Envelope Address",36,0) INTO retval AT END;
+  INSERT CreateWordStyle("Envelope Return",37,0) INTO retval AT END;
+  INSERT CreateWordStyle("Footnote Reference",38,0) INTO retval AT END;
+  INSERT CreateWordStyle("Annotation Reference",39,0) INTO retval AT END;
+  INSERT CreateWordStyle("Line Number",40,0) INTO retval AT END;
+  INSERT CreateWordStyle("Page Number",41,0) INTO retval AT END;
+  INSERT CreateWordStyle("Endnote Reference",42,0) INTO retval AT END;
+  INSERT CreateWordStyle("Endnote Text",43,0) INTO retval AT END;
+  INSERT CreateWordStyle("Table of Authorities",44,0) INTO retval AT END;
+  INSERT CreateWordStyle("Macro Text",45,0) INTO retval AT END;
+  INSERT CreateWordStyle("TOA Heading",46,0) INTO retval AT END;
+  INSERT CreateWordStyle("List",47,0) INTO retval AT END;
+  INSERT CreateWordStyle("List 2",50,0) INTO retval AT END;
+  INSERT CreateWordStyle("List 3",51,0) INTO retval AT END;
+  INSERT CreateWordStyle("List 4",52,0) INTO retval AT END;
+  INSERT CreateWordStyle("List 5",53,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Bullet",48,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Bullet 2",54,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Bullet 3",55,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Bullet 4",56,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Bullet 5",57,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Number",49,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Number 2",58,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Number 3",59,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Number 4",60,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Number 5",61,0) INTO retval AT END;
+  INSERT CreateWordStyle("Title",62,1) INTO retval AT END;
+  INSERT CreateWordStyle("Closing",63,0) INTO retval AT END;
+  INSERT CreateWordStyle("Signature",64,0) INTO retval AT END;
+  INSERT CreateWordStyle("Default Paragraph Font",65,0) INTO retval AT END;
+  INSERT CreateWordStyle("Body Text",66,0) INTO retval AT END;
+  INSERT CreateWordStyle("Body Text Indent",67,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Continue",68,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Continue 2",69,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Continue 3",70,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Continue 4",71,0) INTO retval AT END;
+  INSERT CreateWordStyle("List Continue 5",72,0) INTO retval AT END;
+  INSERT CreateWordStyle("Message Header",73,0) INTO retval AT END;
+  INSERT CreateWordStyle("Subtitle",74,2) INTO retval AT END;
+  INSERT CreateWordStyle("Salutation",75,0) INTO retval AT END;
+  INSERT CreateWordStyle("Date",76,0) INTO retval AT END;
+  INSERT CreateWordStyle("Body Text First Indent",77,0) INTO retval AT END;
+  INSERT CreateWordStyle("Body Text First Indent 2",78,0) INTO retval AT END;
+  INSERT CreateWordStyle("Note Heading",79,0) INTO retval AT END;
+  INSERT CreateWordStyle("Body Text 2",80,0) INTO retval AT END;
+  INSERT CreateWordStyle("Body Text 3",81,0) INTO retval AT END;
+  INSERT CreateWordStyle("Body Text Indent 2",82,0) INTO retval AT END;
+  INSERT CreateWordStyle("Body Text Indent 3",83,0) INTO retval AT END;
+  INSERT CreateWordStyle("Block Text",84,0) INTO retval AT END;
+  INSERT CreateWordStyle("Hyperlink",85,0) INTO retval AT END;
+  INSERT CreateWordStyle("Followed Hyperlink",86,0) INTO retval AT END;
+  INSERT CreateWordStyle("Strong",87,0) INTO retval AT END;
+  INSERT CreateWordStyle("Emphasis",88,0) INTO retval AT END;
+  INSERT CreateWordStyle("Document Map",89,0) INTO retval AT END;
+  INSERT CreateWordStyle("Plain Text",90,0) INTO retval AT END;
+
+  RETURN retval;
+}
+
+STRING FUNCTION GetStyleName(OBJECT style)
+{
+  INTEGER mswordid := ToInteger(style->GetAttribute("mswordstyleid"),-1);
+
+  IF(style->HasAttribute("mswordstyleid"))
+    RETURN SELECT AS STRING name FROM wordstyles WHERE wordid = mswordid;
+  IF(style->HasAttribute("mswordcustomstyle"))
+    RETURN style->GetAttribute("mswordcustomstyle");
+  IF(style->HasAttribute("implicit"))
+    RETURN GetTid("publisher:profileeditor.implicit");
+
+  RETURN GetTid('publisher:profileeditor.unknown');
+}
+
+STRING FUNCTION GetStyleType(OBJECT style)
+{
+  IF(style->HasAttribute("mswordstyleid"))
+    RETURN GetTid('publisher:profileeditor.builtin');
+  IF(style->HasAttribute("mswordcustomstyle"))
+    RETURN GetTid('publisher:profileeditor.custom');
+  IF(style->HasAttribute("implicit"))
+    RETURN GetTid('publisher:profileeditor.implicit');
+
+  RETURN GetTid('publisher:profileeditor.unknown');
+}
+
+RECORD ARRAY FUNCTION StringArrayToOptions(STRING ARRAY strarray)
+{
+  RETURN SELECT rowkey := title, title FROM ToRecordArray(strarray,'title');
+}
+
+RECORD FUNCTION GetSizeAndUnit(STRING size)
+{
+  IF(size='')
+    RETURN [ value    := 0
+           , valuestr := ''
+           , unit     := ''
+           ];
+
+  // (maybe faster to check bytevalue, but that way might not work well with unicode??)
+  // (using GetByteValue())
+  STRING ARRAY numchars := ['0','1','2','3','4','5','6','7','8','9'];
+  INTEGER unitstart := -1;
+  INTEGER readpos := 0;
+  INTEGER strlen := Length(size);
+
+  // find first non-numeric char
+  WHILE(unitstart=-1 AND readpos < strlen)
+  {
+    IF (NOT (SubString(size,readpos,1) IN numchars))
+      unitstart := readpos;
+
+    readpos := readpos + 1;
+  }
+
+  // string only contains a number
+  IF (unitstart = -1)
+    RETURN [ value    := ToInteger(size,-1)
+           , valuestr := size
+           , unit     := ''
+           ];
+
+  // string only contains letters (the unit)
+  IF (unitstart = 0)
+    RETURN [ value    := 0
+           , valuestr := ''
+           , unit     := size
+           ];
+
+  RETURN   [ value    := ToInteger(SubString(size,0,unitstart),10)
+           , valuestr := SubString(size,0,unitstart)
+           , unit     := SubString(size,unitstart,strlen-unitstart)
+           ];
+}
+
+// makes sure the hex color string are made of # and six digits
+STRING FUNCTION FixHexColorString(STRING str)
+{
+  // strip the #
+  IF (SubString(str, 0, 1) = '#')
+    str := SubString(str, 1, Length(str)-1);
+
+  IF (Length(str) > 6)
+    RETURN ''; // invalid color code
+  ELSE IF (Length(str) = 6)
+    RETURN '#'||str;
+  ELSE
+    RETURN '#'||Right("000000" || str,6);
+}
+
+
+
+PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
+< INTEGER fileid;               // fileid in publisher (for saving)
+  OBJECT  profile;              // XML document
+  OBJECT  root;                 // documentelement
+
+  MACRO Init(RECORD initdata)
+  {
+    wordstyles := SELECT * FROM GetBuiltInWordStyles() ORDER BY name;
+
+    availablefonts := ["Arial"
+                      ,"Helvetica"
+                      ,"Verdana"
+                      ,"Comic Sans MS"
+                      ,"Times"
+                      ,"Times New Roman"
+                      ,"Garamond"
+
+                      ,"Arial, Verdana, Helvetica, sans-serif"
+                      ,"Verdana,Helvetica,Swiss,Arial,sans-serif"
+                      ,"Times, New Century Schoolbook, Palatino, serif"
+                      ,"Schoolbook, Times New Roman, Times, serif"
+                      ,"Garamond, Times New Roman, Times, serif"
+
+                      ,"Serif"
+                      ,"Sans-serif"
+                      ,"Cursive"
+                      ,"Fantasy"
+                      ,"Monospace"
+                      ];
+
+    //niet conversionprofiles.whlib gebruiken als parser, want round-trip conversie zou toekomstige 'extra' data vernietigen
+
+    this->fileid  := initdata.fileid;
+
+    BLOB profiledata := SELECT AS BLOB data FROM system.fs_objects WHERE id=initdata.fileid AND type=29;
+
+    IF (Length(profiledata) = 0)
+    {
+      // create new profile
+      OBJECT impl := new XmlDOMImplementation();
+      this->profile := impl->CreateDocument(conversionprofile_namespace, "profile", DEFAULT OBJECT);
+
+      this->root := this->profile->documentelement;
+      this->root->SetAttribute("nolonelytitle"  , "false");
+      this->root->SetAttribute("emptydocobjects", "false");
+
+      this->profile->documentelement->NormalizeNamespaces();
+    }
+    ELSE
+    {
+      // convert blob to a XML document
+      this->profile := MakeXMLDocument(profiledata);
+      this->root    := this->profile->documentelement;
+    }
+
+    // check if this is a profile
+    IF(NOT ObjectExists(this->profile)
+        OR NOT ObjectExists(this->profile->documentelement)
+        OR this->profile->documentelement->nodename!="profile"
+        OR this->profile->documentelement->namespaceuri != conversionprofile_namespace)
+    {
+      //What to do?
+      this->RunMessageBox(".profilecorrupted");
+      this->tolliumresult:="cancel";
+      RETURN;
+    }
+
+    this->chknolonelytitle->value   := this->profile->documentelement->GetAttribute('nolonelytitle')='true'?true:false;
+    this->chkemptydocobjects->value := this->profile->documentelement->GetAttribute('emptydocobjects')='true'?false:true;
+
+    RECORD ARRAY styles;
+
+    // generate rows for <list> with styles
+    FOREVERY(OBJECT style FROM this->profile->documentelement->childnodes->GetCurrentElements())
+    {
+      // add object to the list if it's an ELEMENT with the name style
+      IF(style->nodetype=style->ELEMENT_NODE AND style->nodename="style")
+        INSERT this->GetStyleRow(style, FALSE) INTO styles AT END;
+    }
+
+    this->styles->rows := styles;
+
+  }
+
+  STRING FUNCTION FormatTag(STRING Tag)
+  {
+    IF (tag ="")
+      RETURN "";
+
+    RETURN "<" || toUppercase(Tag) || ">";
+
+  }
+
+  RECORD FUNCTION GetStyleRow(OBJECT style, BOOLEAN isnew)
+  {
+    RETURN [ name      := GetStyleName(style)
+           , type      := GetStyleType(style)
+           , split     := style->GetAttribute("split") IN ["true","1"] ? 2 : 1
+           , toc       := style->GetAttribute("toclevel")
+           , tag       := this->FormatTag(style->GetAttribute("tag"))
+           , styledata := style // keep reference to the DOM object
+           , "new"     := isnew
+           ];
+  }
+
+  MACRO DoAddStyle()
+  {
+    OBJECT newstyle := this->profile->CreateElementNS(conversionprofile_namespace, "style");
+
+
+    OBJECT styleeditor := this->LoadScreen(".styleeditor",[ styleid   := 0
+                                                          , styleobj  := newstyle
+                                                          , origstyle := DEFAULT OBJECT
+                                                          , profile   := this->profile
+                                                          ]);
+
+    IF (styleeditor->RunModal() = 'ok')
+    {
+      this->root->AppendChild(newstyle);
+      this->SaveProfile();
+
+      INSERT this->GetStyleRow(newstyle, TRUE) INTO this->styles->rows AT END;
+
+      // find new rowkey
+      INTEGER rowkey := SELECT AS INTEGER #rownr FROM this->styles->rows AS rownr WHERE COLUMN "new" = TRUE;
+
+      RECORD selectedrow := this->styles->rows[rowkey];
+      this->styles->selection := [selectedrow]; // directly select the new style
+
+      UPDATE this->styles->rows
+         SET "new" := FALSE
+       WHERE COLUMN "new" = TRUE;
+    }
+  }
+
+  MACRO DoEditStyle()
+  {
+    RECORD selection := this->styles->selection;
+
+    IF (NOT RecordExists(selection))
+      RETURN;
+
+    OBJECT newstyle := selection.styledata->cloneNode(TRUE);
+
+    OBJECT styleeditor := this->LoadScreen(".styleeditor",[ styleid   := selection.rowkey
+                                                          , styleobj  := newstyle
+                                                          , origstyle := selection.styledata
+                                                          , profile   := this->profile
+                                                          ]);
+
+    IF (styleeditor->RunModal() = 'ok')
+    {
+      // store new profile configuration and info that is shown in the list
+      INTEGER rownr := SELECT AS INTEGER #rownr FROM this->styles->rows AS rownr WHERE rowkey = styleeditor->styleid;
+      this->styles->rows[rownr] := this->GetStyleRow(newstyle, FALSE);
+      // FIXME: list loses selection (is this a Tollium bug or intended?)
+
+      this->root->ReplaceChild(newstyle, selection.styledata); // replace old style definition with the updated version
+      this->SaveProfile();
+    }
+  }
+
+  MACRO DoDeleteStyle()
+  {
+    IF (NOT RecordExists(this->styles->selection))
+      RETURN;
+
+    OBJECT ARRAY stylestodelete := SELECT AS OBJECT ARRAY styledata FROM this->styles->rows WHERE tolliumselected = TRUE;
+
+    IF (this->RunMessageBox(".warningdeletestyle",Length(stylestodelete)||'',GetStyleName(stylestodelete[0])) != 'yes')
+      RETURN;
+
+    FOREVERY (OBJECT style FROM stylestodelete)
+      this->root->RemoveChild(style);
+
+    DELETE FROM this->styles->rows WHERE tolliumselected = TRUE;
+
+    this->SaveProfile();
+  }
+
+  MACRO DoUpdateNoEmpty()
+  {
+    this->profile->documentelement->SetAttribute('nolonelytitle', this->chknolonelytitle->value?'true':'false');
+    this->SaveProfile();
+  }
+
+  MACRO DoUpdateEmptyDocObjects()
+  {
+    this->profile->documentelement->SetAttribute('emptydocobjects', this->chkemptydocobjects->value=false?'true':'false');
+    this->SaveProfile();
+  }
+
+  MACRO SaveProfile()
+  {
+    // Save the BLOB containing the XML with our new profile
+    BLOB newprofilestr := this->profile->GetDocumentBlob(TRUE);
+
+    OBJECT work := this->BeginWork();
+
+    OBJECT fileobj := OpenWHFSObject(this->fileid);
+    fileobj->UpdateMetaData([data := newprofilestr]);
+
+    BOOLEAN transactionsuccess := work->Finish();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE StyleEditor EXTEND TolliumScreenBase
+< PUBLIC OBJECT stdata;
+  PUBLIC INTEGER styleid;
+
+  OBJECT profile;
+  OBJECT origstyle; // reference to uneditted style
+
+  MACRO Init(RECORD data)
+  {
+    this->wordstyleid->options := SELECT rowkey := wordid
+                                       , title  := name
+                                    FROM wordstyles;
+
+    this->fontfamily->options := StringArrayToOptions(availablefonts);
+
+    OBJECT stdata;
+    this->stdata    := data.styleobj;
+    this->styleid   := data.styleid;
+
+    this->origstyle := data.origstyle;
+    this->profile   := data.profile;
+    stdata          := data.styleobj;
+
+    // GENERAL tab
+
+    IF (stdata->HasAttribute('mswordcustomstyle'))
+    {
+      this->linkedstyle->value             := 'custom';
+      this->customstylename->value         := stdata->GetAttribute('mswordcustomstyle');
+    }
+    ELSE IF (stdata->HasAttribute('implicit') /* temp */ OR stdata->HasAttribute('implied') /* temp */)
+    {
+      this->linkedstyle->value             := 'allother'; // implicit
+    }
+    ELSE IF (stdata->HasAttribute('mswordstyleid'))
+    {
+      this->linkedstyle->value             := 'existing';
+      this->wordstyleid->value             := ToInteger(stdata->GetAttribute('mswordstyleid'),10);
+    }
+
+    IF (stdata->HasAttribute('split'))
+      this->chksplit->value                := (stdata->GetAttribute('split')='true'?TRUE:FALSE);
+
+    IF (stdata->HasAttribute('tag'))
+      this->tag->value                     := stdata->GetAttribute('tag');
+
+    // FONT & EFFECTS tab
+
+    IF (stdata->HasAttribute('fontfamily'))
+    {
+      STRING fontfamily := stdata->GetAttribute('fontfamily');
+      this->fontfamily->value         := stdata->GetAttribute('fontfamily');
+      this->overridefontfamily->value := TRUE;
+    }
+
+    IF (stdata->HasAttribute('fontsize'))
+    {
+      RECORD fontsetting := GetSizeAndUnit(stdata->GetAttribute('fontsize'));
+      this->fontsize->value           := ToString(fontsetting.value,10);
+      this->overridefontsize->value   := TRUE;
+    }
+
+    IF (stdata->HasAttribute('fgcolor'))
+    {
+      this->fontcolor->value           := FixHexColorString(stdata->GetAttribute('fgcolor'));
+      this->overridefontcolor->value   := TRUE;
+    }
+
+    IF (stdata->HasAttribute('bgcolor'))
+    {
+      this->bgcolor->value             := FixHexColorString(stdata->GetAttribute('bgcolor'));
+      this->overridebgcolor->value     := TRUE;
+    }
+
+    // -     = document
+    // TRUE  = always
+    // FALSE = never
+
+    IF (stdata->HasAttribute('bold'))
+    {
+      this->optbold->value := stdata->GetAttribute('bold')='true'?'always':'never';
+      this->overridebold->value := TRUE;
+    }
+
+    IF (stdata->HasAttribute('italic'))
+    {
+      this->optitalic->value := stdata->GetAttribute('italic')='true'?'always':'never';
+      this->overrideitalic->value := TRUE;
+    }
+
+    IF (stdata->HasAttribute('underline'))
+    {
+      this->optunderline->value := stdata->GetAttribute('underline')='true'?'always':'never';
+      this->overrideunderline->value := TRUE;
+    }
+
+    // followdoc, allcaps, small, never
+    IF (stdata->HasAttribute('smallcaps'))
+    {
+      this->optcaps->value := stdata->GetAttribute('smallcaps');
+      this->overridecaps->value := TRUE;
+    }
+
+    // PARAGRAPH tab
+
+    IF (stdata->HasAttribute('align'))
+    {
+      this->optalign->value := stdata->GetAttribute('align');
+      this->overridealignment->value := TRUE;
+    }
+
+    STRING value;
+
+    value := GetSizeAndUnit(stdata->GetAttribute('leftindent')).valuestr;
+    IF (value!='')
+    {
+      this->leftindentation->value     := value;
+      this->overrideleftindent->value  := TRUE;
+    }
+
+    value := GetSizeAndUnit(stdata->GetAttribute('rightindent')).valuestr;
+    IF (value!='')
+    {
+      this->rightindentation->value    := value;
+      this->overriderightindent->value := TRUE;
+    }
+
+    value := GetSizeAndUnit(stdata->GetAttribute('firstindent')).valuestr;
+    IF (value!='')
+    {
+      this->firstlineindentation->value    := value;
+      this->overridefirstlineindent->value := TRUE;
+    }
+
+    value := GetSizeAndUnit(stdata->GetAttribute('vertspacebefore')).valuestr;
+    IF (value!='')
+    {
+      this->vertspaceabove->value      := value;
+      this->overridespaceabove->value  := TRUE;
+    }
+
+    value := GetSizeAndUnit(stdata->GetAttribute('vertspaceafter')).valuestr;
+    IF (value!='')
+    {
+      this->vertspacebelow->value      := value;
+      this->overridespacebelow->value  := TRUE;
+    }
+
+    // ADVANCED tab
+
+    // in XML -> hide
+    // in interface -> this->dontpublish
+    // in old profiles -> hidedocobject
+    IF (stdata->HasAttribute('hide'))
+      this->dontpublish->value := stdata->GetAttribute('hide')='true'? TRUE : FALSE;
+
+    IF (stdata->HasAttribute('showhiddentext'))
+      this->optshowhidden->value := stdata->GetAttribute('showhiddentext')='true'? TRUE : FALSE;
+
+    IF (stdata->HasAttribute('hidenumbering'))
+      this->opthidenumbering->value := stdata->GetAttribute('hidenumbering')='true'? TRUE : FALSE;
+
+    IF (stdata->HasAttribute('toclevel'))
+      this->toclevel->value                := stdata->GetAttribute('toclevel');
+
+    IF (stdata->HasAttribute('istableheader'))
+      this->chkistableheader->value        := (stdata->GetAttribute('istableheader')='true'?TRUE:FALSE);
+
+    this->UpdateRequired();
+  }
+
+  MACRO UpdateRequired()
+  {
+    this->fontfamily->required   := this->overridefontfamily->value;
+    this->fontsize->required     := this->overridefontsize->value;
+
+    this->fontcolor->required    := this->overridefontcolor->value;
+    this->bgcolor->required      := this->overridebgcolor->value;
+
+    this->optbold->required      := this->overridebold->value;
+    this->optitalic->required    := this->overrideitalic->value;
+    this->optunderline->required := this->overrideunderline->value;
+    this->optcaps->required      := this->overridecaps->value;
+    this->optalign->required     := this->overridealignment->value;
+
+    this->leftindentation->required := this->overrideleftindent->value;
+    this->rightindentation->required := this->overriderightindent->value;
+
+    this->firstlineindentation->required := this->overridefirstlineindent->value;
+
+    this->vertspaceabove->required := this->overridespaceabove->value;
+    this->vertspacebelow->required := this->overridespacebelow->value;
+  }
+
+  // - non-destructive (keep unknown style attributes)
+  // - don't specify attributes which have the default value
+  MACRO SetStyleOption(STRING name, STRING value, STRING defaultvalue)
+  {
+    IF (value != defaultvalue)
+      this->stdata->SetAttribute(name, value);
+    ELSE
+      IF (this->stdata->HasAttribute(name))
+        this->stdata->RemoveAttribute(name);
+  }
+
+  MACRO SetStyleOverride(STRING name, BOOLEAN override, STRING value)
+  {
+    IF (override)
+      this->stdata->SetAttribute(name, value);
+    ELSE
+      IF (this->stdata->HasAttribute(name))
+        this->stdata->RemoveAttribute(name);
+  }
+
+  //  document, never, always
+/*MACRO SetStyleBool(STRING name, STRING value)
+  {
+    IF (value = 'followdoc')
+    {
+      IF (this->stdata->HasAttribute(name))
+        this->stdata->RemoveAttribute(name);
+
+      RETURN;
+    }
+
+    STRING bvalue := value='always'?'true':'false';
+
+    this->stdata->SetAttribute(name, bvalue);
+  }
+*/
+
+  MACRO SetStyleBool(STRING name, BOOLEAN override, BOOLEAN value)
+  {
+    IF (NOT override)
+    {
+      // remove attribute so setting from word document is used
+      IF (this->stdata->HasAttribute(name))
+        this->stdata->RemoveAttribute(name);
+
+      RETURN;
+    }
+
+    this->stdata->SetAttribute(name, value=TRUE?'true':'false');
+  }
+
+  MACRO UpdateStyleDOM()
+  {
+    // TAB 'General'
+
+    this->stdata->RemoveAttribute('mswordstyleid');
+    this->stdata->RemoveAttribute('mswordcustomstyle');
+    this->stdata->RemoveAttribute('implicit');
+
+    SWITCH (this->linkedstyle->value)
+    {
+      CASE 'existing'
+      {
+        this->SetStyleOption('mswordstyleid', ToString(this->wordstyleid->value,10), '');
+      }
+      CASE 'custom'
+      {
+        this->SetStyleOption('mswordcustomstyle', this->customstylename->value, '');
+      }
+      CASE 'allother'
+      {
+        this->SetStyleBool('implicit', TRUE, TRUE);
+      }
+    }
+
+    this->SetStyleBool('split', this->chksplit->value, TRUE);
+
+    this->SetStyleOverride('tag',      this->tag->value!='',      this->tag->value);
+
+    // TAB 'Font & Effects'
+
+    this->SetStyleOverride('fontfamily', this->overridefontfamily->value, this->fontfamily->value);
+    this->SetStyleOverride('fontsize',   this->overridefontsize->value,   this->fontsize->value||'px');
+    this->SetStyleOverride('fgcolor',    this->overridefontcolor->value,  this->fontcolor->value);
+    this->SetStyleOverride('bgcolor',    this->overridebgcolor->value,    this->bgcolor->value);
+
+    this->SetStyleBool('bold',        this->overridebold->value,      this->optbold->value='always');
+    this->SetStyleBool('italic',      this->overrideitalic->value,    this->optitalic->value='always');
+    this->SetStyleBool('underline',   this->overrideunderline->value, this->optunderline->value='always');
+    this->SetStyleOption('smallcaps', this->overridecaps->value?this->optcaps->value:'followdoc', 'followdoc');    // allcaps, small, never
+
+    // TAB 'Paragraph'
+
+    this->SetStyleOption('align', this->overridealignment->value?this->optalign->value:'followdoc', 'followdoc');
+
+    this->SetStyleOverride('leftindent',  this->overrideleftindent->value,      this->leftindentation->value||'pt');
+    this->SetStyleOverride('rightindent', this->overriderightindent->value,     this->rightindentation->value||'pt');
+    this->SetStyleOverride('firstindent', this->overridefirstlineindent->value, this->firstlineindentation->value||'pt');
+
+    this->SetStyleOverride('vertspacebefore', this->overridespaceabove->value,   this->vertspaceabove->value||'pt');
+    this->SetStyleOverride('vertspaceafter', this->overridespacebelow->value,   this->vertspacebelow->value||'pt');
+
+    // TAB 'Advanced'
+    this->SetStyleBool('hide',           this->dontpublish->value,      TRUE);
+    this->SetStyleBool('showhiddentext', this->optshowhidden->value,   TRUE);
+    this->SetStyleBool('hidenumbering',  this->opthidenumbering->value, TRUE);
+
+    this->SetStyleOverride('toclevel', this->toclevel->value!='', this->toclevel->value);
+
+    this->SetStyleBool('istableheader', this->chkistableheader->value, TRUE);
+  }
+
+  MACRO DoCheckFontFamily()
+  {
+    IF (this->fontfamily->value='Other')
+      this->alternativefontfamily->enabled := TRUE;
+    ELSE
+      this->alternativefontfamily->enabled := FALSE;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    STRING linkedstyle := this->linkedstyle->value;
+    STRING stylename;
+
+    // check if linked style is set (standard word style, user-defined or implicit)
+    IF (linkedstyle = '')
+    {
+      this->tabs->selectedtab := this->general;
+      this->RunMessageBox(".nostylelinked");
+      RETURN FALSE;
+    }
+
+    IF (linkedstyle = 'custom' AND this->customstylename->value = '')
+    {
+      this->tabs->selectedtab := this->general;
+      this->RunMessageBox(".nocustomstylenamegiven");
+      RETURN FALSE;
+    }
+
+    this->UpdateStyleDOM();
+
+    // check whether there already is another style linked to the style that is selected
+    BOOLEAN skipexistcheck;
+
+    IF (this->origstyle != DEFAULT OBJECT) {
+      IF (this->origstyle->HasAttribute('mswordcustomstyle') AND this->stdata->HasAttribute('mswordcustomstyle')
+          AND this->origstyle->GetAttribute('mswordcustomstyle')=this->stdata->GetAttribute('mswordcustomstyle'))
+        skipexistcheck := TRUE;
+
+      IF (this->origstyle->HasAttribute('implicit') AND this->stdata->HasAttribute('implicit'))
+        skipexistcheck := TRUE;
+
+      IF (this->origstyle->HasAttribute('mswordstyleid') AND this->stdata->HasAttribute('mswordstyleid')
+          AND this->origstyle->GetAttribute('mswordstyleid')=this->stdata->GetAttribute('mswordstyleid'))
+        skipexistcheck := TRUE;
+    }
+
+    IF (NOT skipexistcheck)
+    {
+      BOOLEAN alreadyexists;
+      FOREVERY(OBJECT style FROM this->profile->documentelement->childnodes->GetCurrentElements())
+      {
+        IF( (style->nodetype=style->ELEMENT_NODE AND style->nodename="style" /*style != this->origstyle*/ )
+           AND ((linkedstyle="allother" AND style->HasAttribute('implicit'))
+            OR ((linkedstyle="existing" AND style->GetAttribute('mswordstyleid')=ToString(this->wordstyleid->value,10)))
+            OR ((linkedstyle="custom" AND style->GetAttribute('mswordcustomstyle')=this->customstylename->value)) ) )
+          alreadyexists := TRUE;
+      }
+
+      IF (alreadyexists)
+      {
+        this->tabs->selectedtab := this->general;
+        this->RunMessageBox(".alreadylinkedtothisstyle");
+        RETURN FALSE;
+      }
+
+    }
+
+    OBJECT work := this->BeginWork();
+
+    // numeric ('money' or 'integer') textedit fields default to '0' (visual and in ->value),
+    // but we need '' (which means 'not overriden').
+    // So therefore we use valuetype 'text' and check whether they are numeric ourself
+    OBJECT ARRAY numericfields := [ OBJECT(this->fontsize)
+                                         , this->toclevel
+                                         , this->leftindentation
+                                         , this->rightindentation
+                                         , this->firstlineindentation
+                                         , this->vertspaceabove
+                                         , this->vertspacebelow
+                                         ];
+
+    INTEGER nullvalue := -9999999;
+
+    FOREVERY(OBJECT field FROM numericfields)
+    {
+      IF (field->value = '')
+        CONTINUE;
+
+      IF (ToInteger(field->value, nullvalue, 10) = nullvalue)
+        work->AddError(GetTid("publisher:profileeditor.dialogues.invalidvaluefor", field->title));
+    }
+
+    RETURN work->Finish();
+  }
+>;

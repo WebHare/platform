@@ -1,0 +1,150 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+INTEGER testrtdfileid;
+
+MACRO PrepIt()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  testfw->BeginWork();
+  OBJECT testloc := testfw->GetTestSite()->rootobject->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT testrtd := testloc->CreateFile( [ name := "lvl1.rtd", type := richdoctype->id, publish := TRUE ]);
+  testrtdfileid := testrtd->id;
+  testfw->CommitWork();
+}
+
+OBJECT FUNCTION Rte()
+{
+  RETURN TT("doceditor")->contents->rte;
+}
+
+OBJECT ASYNC FUNCTION CreateDoc()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+
+  BLOB inputimg := GetWebhareResource("moduleroot::webhare_testsuite/data/test/landscape_5.jpg");
+  Rte()->InsertImage(inputimg, "landscape_5.jpg");
+
+  RECORD insertedimageinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertImage";
+  TestEq(TRUE, RecordExists(insertedimageinstr), "Unable to find the InsertImage instruction in the outgoing instruction stream #1");
+
+  RECORD imginfo := insertedimageinstr.messages[0].data;
+  TestEqLike('http*', imginfo.link);
+  //expecting rotation fix
+  TestEq(600,imginfo.width);
+  TestEq(450,imginfo.height);
+  //Do what the client would do...
+  STRING corevalue := '<p class="normal">This is an image: <img src="' || EncodeValue(imginfo.link) || '" width="' || imginfo.width || '" height="' || imginfo.height || '"/></p>';
+  Rte()->TolliumWeb_FormUpdate('<html><body>' || corevalue || '</body></html>');
+
+  TestEqLike('*<img*src="http*', Rte()->GetRenderValue()); //should not be sending CID: links to the client
+  //DumpValue(Rte()->value,'tree');
+  TestEq(1, Length(Rte()->value.embedded), "Image got stripped from output - src not found?");
+
+  //Verify if the image sent back to the client has proper dimensions and rotation stripped
+  TestEq(TRUE, testfw->browser->GotoWebPage(imginfo.link), imginfo.link);
+  RECORD fileinfo := ScanBlob(testfw->browser->content);
+  TEstEq(600, fileinfo.width);
+  TEstEq(450, fileinfo.height);
+  TEstEq(0, fileinfo.rotation);
+  TEstEq(FALSE, fileinfo.mirrored);
+
+  //ADDME What do we expect for the rotation? Extra debugging?
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties", [ type := "img", src := imginfo.link, alttext := "", align := "", width := imginfo.width, height := imginfo.height, targetid := "xx", link := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  Rte()->__debug_simulatedirty();
+
+  RECORD richvalue := Rte()->value;
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(richvalue.htmltext);
+  OBJECT ARRAY imgs := htmldoc->QuerySelectorAll("img")->GetCurrentElements();
+
+  TestEq(1,Length(imgs));
+  TestEqLike("cid:*", imgs[0]->GetAttribute("src"));
+
+  RECORD srcimg := SELECT * FROM richvalue.embedded WHERE contentid = Substring(imgs[0]->GetAttribute("src"),4);
+  TestEq(inputimg,srcimg.data);
+
+  GetTestController()->GrabInstructions(); //flush
+
+  //Create a simple HTML BLOCK
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+  topscreen->contenttypes->selection := SELECT * FROM topscreen->contenttypes->rows WHERE title = "Raw HTML code";
+  TestEq(TRUE, RecordExists(topscreen->contenttypes->selection), "cannot find embedhtml widget type");
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+  TT(":HTML code")->value := "Test!";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
+  TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream");
+  STRING instanceref := insertedobjectinstr.messages[0].data.instanceref;
+
+  STRING newvalue := corevalue || '<div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(instanceref) || '"></div>';
+  Rte()->TolliumWeb_FormUpdate('<html><body>' || newvalue || '</body></html>');
+  TestEq("Test!", Rte()->value.instances[0].data.html);
+
+  //Edit it
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties", [ type := "embeddedobject", subaction := "edit", instanceref := instanceref, targetid := "XX" ]));
+  TestEq('Test!', TT(":HTML code")->value);
+  TT(":HTML code")->value := "<p>1</p><p>2</p>";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps";
+  TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the UpdateProps instruction in the outgoing instruction stream");
+  instanceref := insertedobjectinstr.messages[0].data.newdata.data.instanceref;
+
+  newvalue := corevalue || '<div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(instanceref) || '"></div>';
+  Rte()->TolliumWeb_FormUpdate('<html><body>' || newvalue || '</body></html>');
+  TestEq("<p>1</p><p>2</p>", Rte()->value.instances[0].data.html);
+
+  //save the RTE
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION TestDoc()
+{
+  // If the namemask fails, we probably got an 'use autosave' msgbox, which means the rte output format isn't stable
+  // (dirty after publish)
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]),
+      [ namemask := "*editdocument/editdocument.xml#editdocumentapp"
+      ]);
+
+  //DumpValue(Rte()->value,'tree');
+  TestEq(1, Length(Rte()->value.embedded), "Image got stripped from output - src not found?");
+  TestEq(1, Length(Rte()->value.instances));
+
+  OBJECT dom := MakeXMLDocumentFromHTML(StringToBlob(Rte()->GetRenderValue()));
+  OBJECT img := dom->GetElement("img");
+  Testeq(TRUE, ObjectExists(img));
+  TestEq("600",img->GetAttribute("width"));
+  TestEq("450",img->GetAttribute("height"));
+
+  TestEq(TRUE, IsAbsoluteURL(img->GetAttribute("src"),FALSE));
+  TestEq(TRUE, testfw->browser->GotoWebPage(img->GetAttribute("src")));
+  RECORD fileinfo := ScanBlob(testfw->browser->content);
+  TEstEq(600, fileinfo.width);
+  TEstEq(450, fileinfo.height);
+  TEstEq(0, fileinfo.rotation);
+  TEstEq(FALSE, fileinfo.mirrored);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  RETURN TRUE;
+}
+
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, waitpublish := FALSE])
+                 , PTR PrepIt
+                 , PTR CreateDoc
+                 , PTR TestDoc
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

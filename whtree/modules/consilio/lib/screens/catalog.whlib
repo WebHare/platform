@@ -1,0 +1,1671 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::regex.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+// Maximum number of characters to display on one line in search result field values
+INTEGER maxfieldlength := 80;
+
+// Maximum number of results to show initially
+INTEGER searchlimit := 100;
+
+// Fields that are not indexed, but do get returned with search results
+STRING ARRAY resultfieldnames := [ "ID", "_SCORE", "_SUMMARY" ];
+
+CONSTANT RECORD baserow := [ catalog := FALSE
+                           , standardcatalog := FALSE
+                           , isupdateorrebuild := FALSE
+                           ];
+
+STRING FUNCTION GetStatusIcon(INTEGER status)
+{
+  SWITCH (status)
+  {
+    CASE -1 // Catalog is temporarily disabled
+    {
+      RETURN "tollium:status/negative";
+    }
+    CASE 0 // Catalog is idle
+    {
+      RETURN "tollium:status/checked";
+    }
+    CASE 1 // Catalog is being updated
+    {
+      RETURN "tollium:status/neutral";
+    }
+    CASE 2 // Catalog is being rebuilt
+    {
+      RETURN "tollium:tools/tools";
+    }
+    CASE 3 // Catalog is unavailable
+    {
+      RETURN "tollium:status/neutral";
+    }
+    CASE 4 // Error
+    {
+      RETURN "tollium:status/error";
+    }
+    DEFAULT
+    {
+      RETURN "";
+    }
+  }
+}
+STRING FUNCTION GetStatusHint(INTEGER status)
+{
+  SWITCH (status)
+  {
+    CASE -1 // Catalog is temporarily disabled
+    {
+      RETURN GetTid("consilio:catalogstatus.disabled");
+    }
+    CASE 0 // Catalog is idle
+    {
+      RETURN GetTid("consilio:catalogstatus.idle");
+    }
+    CASE 1 // Catalog is being checked
+    {
+      RETURN GetTid("consilio:catalogstatus.beingupdated");
+    }
+    CASE 2 // Catalog should be checked
+    {
+      RETURN GetTid("consilio:catalogstatus.beingrebuilt");
+    }
+    CASE 3 // Catalog is unavailable
+    {
+      RETURN GetTid("consilio:catalogstatus.unavailable");
+    }
+    CASE 4 // Error
+    {
+      RETURN GetTid("consilio:catalogstatus.error");
+    }
+    DEFAULT
+    {
+      RETURN "";
+    }
+  }
+}
+
+RECORD FUNCTION GetErrorIconAndHint(BOOLEAN have_error)
+{
+  RETURN have_error
+      ? [ icon := "tollium:status/error"
+        , hint := GetTid("consilio:catalogerrors.errors")
+        , haserrors := TRUE
+        ]
+      : [ icon := ""//tollium:status/checked"
+        , hint := GetTid("consilio:catalogerrors.none")
+        , haserrors := FALSE
+        ];
+}
+
+PUBLIC RECORD FUNCTION GetConsilioStatus()
+{
+  OpenPrimary();
+
+  RECORD status := [ catalogsizes := DEFAULT RECORD
+                   , connectionfailed := FALSE
+                   , lasterrors := RECORD[]
+                   ];
+
+  FOREVERY (RECORD catalog FROM SELECT id, name FROM consilio.indices WHERE type != whconstant_consilio_catalogtype_fieldgroup AND name NOT LIKE "$consilio$deleted$*")
+    status.catalogsizes := CellInsert(status.catalogsizes, catalog.name, GetIndexManagerSize(catalog.id));
+  IF (NOT RecordExists(status.catalogsizes))
+  {
+    status.connectionfailed := TRUE;
+    RETURN status;
+  }
+
+  RECORD r := __ConsilioGetErrors();
+  IF(RecordExists(r))
+    status.lasterrors := r.errors;
+
+  RETURN status;
+}
+
+
+PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
+<
+  RECORD ARRAY contentproviders;
+  RECORD laststatus;
+
+  MACRO Init(RECORD data)
+  {
+    this->contentproviders := SELECT *
+                                   , title := GetTid(title)
+                                   , settingsscreen := DEFAULT OBJECT
+                                FROM GetContentProviders();
+
+    this->RefreshActionVisibility();
+    this->PollConsilioStatus();
+
+    IF (CellExists(data, "calltype") AND data.calltype = "direct")
+    {
+      IF (CellExists(data.message, "catalog"))
+        ^catalogs->value := [ "catalog_" || data.message.catalog ];
+      ELSE IF (CellExists(data.message, "source"))
+        ^catalogs->value := [ "source_" || data.message.source.id ];
+
+      IF (CellExists(data.message, "action"))
+      {
+        SWITCH (data.message.action)
+        {
+          CASE "options"
+          {
+            this->DoOptions();
+          }
+          CASE "blacklist"
+          {
+            this->DoBlacklist();
+          }
+          CASE "restart"
+          {
+            this->DoRestart();
+          }
+          CASE "properties"
+          {
+            IF (LENGTH(^catalogs->selection) = 1)
+            {
+              IF (^catalogs->selection[0].catalog)
+                this->DoEditCatalog();
+              ELSE IF (^catalogs->selection[0].contentsource)
+                this->DoEditContentSource();
+            }
+          }
+          CASE "errors"
+          {
+            IF (LENGTH(^catalogs->selection) = 1
+                AND ^catalogs->selection[0].contentsource)
+              this->DoShowErrors();
+          }
+          CASE "update"
+          {
+            this->DoUpdateCatalog(); // Will update content source if selected
+          }
+          CASE "rebuild"
+          {
+            this->DoRebuildCatalog(); // Will rebuild content source if selected
+          }
+        }
+      }
+      ^buttons->visible := FALSE; // Hide default form buttons when called directly
+    }
+    ELSE
+    {
+      ^exit->enabled := FALSE; // Hide 'Exit' menu item when called from within another app
+    }
+  }
+
+  MACRO DoRefresh()
+  {
+    ^catalogs->Invalidate();
+  }
+
+  MACRO DoOptions()
+  {
+    this->LoadScreen(".options")->RunModal();
+  }
+
+  MACRO DoBlacklist()
+  {
+    this->LoadScreen(".blacklist")->RunModal();
+  }
+
+  MACRO DoManageIndexmanagers()
+  {
+    this->RunScreen("/tolliumapps/indexmanagers.xml#indexmanagers");
+  }
+
+  MACRO DoRestart()
+  {
+    IF (this->RunMessageBox(".confirmrestart") = "yes")
+      IF (NOT __ConsilioRestartQueueManager())
+        this->RunMessageBox(".sendingcommandfailed");
+  }
+
+  MACRO DoAddCatalog()
+  {
+    INTEGER newcatalog := this->RunScreen("#catalogeditor");
+    IF(newcatalog != 0)
+      ^catalogs->selection := SELECT * FROM ^catalogs->rows WHERE COLUMN catalog AND id = newcatalog;
+  }
+
+  MACRO DoAddContentSource()
+  {
+    IF (RecordExists(^catalogs->selection) AND ^catalogs->selection.catalog)
+    {
+      OBJECT dlg := this->LoadScreen(".contentsourceeditor", [ contentproviders := this->contentproviders ]);
+      IF (dlg->RunModal() = "ok")
+      {
+        RECORD src := dlg->contentsource;
+        RECORD data := dlg->contentproviderdata;
+
+        OBJECT work := this->BeginWork();
+        INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
+        BOOLEAN publishercontent := SELECT AS BOOLEAN COLUMN publishercontent FROM this->contentproviders WHERE name = src.contentprovider;
+        INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, tag, data, maxgroupobjects, discardsummaries)
+               VALUES(srcid, ^catalogs->selection.id, src.contentprovider, publishercontent, src.tag, EncodeHSON(data), src.maxgroupobjects, src.discardsummaries);
+        this->UpdateContentSourceFields(work, srcid, src, data);
+
+        IF (work->Finish())
+        {
+          BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
+          ^catalogs->selection := SELECT * FROM ^catalogs->rows
+                                        WHERE contentsource
+                                              AND id = srcid;
+          IF (NOT UpdateConsilioContentSource(srcid))
+            this->RunMessageBox(".sendingcommandfailed");
+        }
+      }
+    }
+  }
+
+  MACRO DoEditContentSource()
+  {
+    IF (RecordExists(^catalogs->selection) AND ^catalogs->selection.contentsource)
+    {
+      OBJECT dlg := this->LoadScreen(".contentsourceeditor", [ contentproviders := this->contentproviders
+                                                             , contentsource := ^catalogs->selection
+                                                             ]);
+      IF (dlg->RunModal() = "ok")
+      {
+        INTEGER srcid := ^catalogs->selection.id;
+        RECORD src := dlg->contentsource;
+        RECORD newdata := dlg->contentproviderdata;
+
+        OBJECT work := this->BeginWork();
+        UPDATE consilio.contentsources
+           SET tag := src.tag
+             , data := EncodeHSON(newdata)
+             , maxgroupobjects := src.maxgroupobjects
+             , discardsummaries := src.discardsummaries
+         WHERE id = srcid;
+        this->UpdateContentSourceFields(work, ^catalogs->selection.id, src, newdata);
+
+        IF (^catalogs->selection.srcinactive != src.disablesource)
+        {
+          LogDebug("consilio", "ContentSourceStatus",
+              SELECT id
+                   , status := src.disablesource ? -1 : 0
+                FROM consilio.contentsources
+               WHERE id = srcid);
+          UPDATE consilio.contentsources
+             SET status := src.disablesource ? -1 : 0
+           WHERE id = srcid;
+        }
+
+        IF (work->Finish())
+        {
+          BroadcastEvent("consilio:contentsource." || srcid, DEFAULT RECORD);
+          BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
+          IF (NOT CheckConsilioContentSource(srcid))
+            this->RunMessageBox(".sendingcommandfailed");
+        }
+      }
+    }
+  }
+
+  MACRO UpdateContentSourceFields(OBJECT work, INTEGER contentsourceid, RECORD contentsource, RECORD data)
+  {
+    GetPrimary()->ScheduleTask("consilio:cleanupindices", DEFAULT DATETIME); //update contentsource fields async
+  }
+
+  MACRO DoEditCatalog()
+  {
+    IF (RecordExists(^catalogs->selection) AND ^catalogs->selection.catalog)
+    {
+      INTEGER oldlevel := ^catalogs->selection.loglevel;
+      this->RunScreen("#catalogeditor", ^catalogs->selection);
+    }
+  }
+
+  MACRO DoDelete()
+  {
+    RECORD ARRAY killcatalogs := SELECT * FROM ^catalogs->selection WHERE catalog;
+    RECORD ARRAY killsources := SELECT * FROM ^catalogs->selection WHERE contentsource;
+
+    IF(Length(killcatalogs) = 0 AND Length(killsources) = 1)
+    {
+      IF(this->RunSimpleScreen("verify", GetTid("consilio:catalog.messages.confirmdeletecontentsource", killsources[0].title ?? killsources[0].tag)) != "yes")
+        RETURN;
+    }
+    ELSE IF(Length(killcatalogs) = 1 AND Length(killsources) = 0)
+    {
+      IF(this->RunSimpleScreen("verify", GetTid("consilio:catalog.messages.confirmdeletecatalog", killcatalogs[0].title ?? killcatalogs[0].tag)) != "yes")
+        RETURN;
+    }
+    ELSE
+    {
+      IF(this->RunSimpleScreen("verify", GetTid("consilio:catalog.messages.confirmdeleteselection")) != "yes")
+        RETURN;
+    }
+
+    OBJECT work := this->BeginWork();
+    FOREVERY (RECORD catalog FROM killcatalogs)
+      OpenConsilioCatalogById(catalog.id)->DeleteSelf();
+    //remove cascades from our deletion list
+    DELETE FROM killsources WHERE parent IN (SELECT AS INTEGER ARRAY id FROM killcatalogs);
+    FOREVERY (RECORD catalog FROM SELECT id := parent, sources := GroupedValues(killsources) FROM killsources GROUP BY parent)
+    {
+      OBJECT obj := OpenConsilioCatalogById(catalog.id);
+      FOREVERY (RECORD source FROM catalog.sources)
+        obj->OpenContentSourceById(source.id)->DeleteSelf();
+    }
+    GetPrimary()->BroadcastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
+    work->Finish();
+  }
+
+  MACRO DoPreviewCatalog()
+  {
+    IF (RecordExists(^catalogs->selection) AND ^catalogs->selection.previewable)
+    {
+      OBJECT dlg := this->LoadScreen(".catalogpreview", ^catalogs->selection);
+      dlg->RunModal();
+    }
+  }
+
+  MACRO DoQueryReport()
+  {
+    this->RunScreen("report.xml#queries", [ catalogid := ^catalogs->selection.id ]);
+  }
+
+  MACRO DoMarkCatalogAsComplete()
+  {
+    GetPrimary()->BeginWork();
+    UPDATE consilio.contentsources SET status := 0 WHERE id = ^catalogs->selection.id;
+    GetPrimary()->CommitWork();
+    ^catalogs->Invalidate();
+    //TODO remove from queue, but for now you'll just have to restart the queue
+  }
+
+  MACRO DoUpdateCatalog()
+  {
+    IF (RecordExists(^catalogs->selection))
+    {
+      IF (this->RunMessageBox(".confirmupdatecatalog", ^catalogs->selection.title ?? ^catalogs->selection.tag) = "yes")
+      {
+        IF (^catalogs->selection.catalog AND NOT UpdateConsilioIndex(^catalogs->selection.id))
+          this->RunMessageBox(".sendingcommandfailed");
+        ELSE IF (^catalogs->selection.contentsource AND NOT UpdateConsilioContentSource(^catalogs->selection.id))
+          this->RunMessageBox(".sendingcommandfailed");
+        ELSE
+          ^catalogs->Invalidate();
+      }
+    }
+  }
+
+  MACRO DoRebuildCatalog()
+  {
+    IF (RecordExists(^catalogs->selection))
+    {
+      IF (this->RunMessageBox(".confirmrebuildcatalog", ^catalogs->selection.title ?? ^catalogs->selection.tag) = "yes")
+      {
+        IF (^catalogs->selection.catalog AND NOT CheckConsilioIndex(^catalogs->selection.id))
+          this->RunMessageBox(".sendingcommandfailed");
+        ELSE IF (^catalogs->selection.contentsource AND NOT CheckConsilioContentSource(^catalogs->selection.id))
+          this->RunMessageBox(".sendingcommandfailed");
+        ELSE
+          ^catalogs->Invalidate();
+      }
+    }
+  }
+
+  MACRO DoCatalogThesaurus()
+  {
+    IF (RecordExists(^catalogs->selection))
+    {
+      this->LoadScreen(".thesaurus", [ indexid := ^catalogs->selection.id ])->RunModal();
+      //IF (NOT __ConsilioUpdateConfiguration([ "indexmanager", "thesaurus" ]))
+      //  this->RunMessageBox(".sendingcommandfailed");
+    }
+  }
+
+  MACRO DoShowErrors()
+  {
+    RECORD ARRAY lasterrors := __ConsilioGetErrors().errors;
+
+    INTEGER contentsourceid := ^catalogs->selection.contentsourceid;
+
+    OBJECT screen := this->LoadScreen(".contentsourceerrors",
+        [ contentsourceid :=    contentsourceid
+        , errors :=
+             (SELECT *
+                FROM lasterrors
+               WHERE COLUMN contentsourceid = VAR contentsourceid)
+        ]);
+
+    screen->RunModal();
+    ^catalogs->Invalidate();
+  }
+
+  MACRO DoExit()
+  {
+    this->tolliumresult := "close";
+  }
+
+  MACRO RefreshActionVisibility()
+  {
+    this->frame->flags.issysop := this->tolliumuser->HasRight("system:sysop");
+    this->frame->flags.ismanager := this->tolliumuser->HasRightOnAny("consilio:manage");
+    this->frame->flags.iseditor := this->tolliumuser->HasRightOnAny("consilio:metadata");
+
+    // Adding, editing, deleting, rebuilding catalogs and content sources
+    ^addcontentsource_menu->visible := this->frame->flags.ismanager;
+    ^edititem_menu->visible := this->frame->flags.ismanager;
+    ^deleteitem_menu->visible := this->frame->flags.ismanager;
+    ^updatecatalog_menu->visible := this->frame->flags.ismanager;
+    ^rebuildcatalog_menu->visible := this->frame->flags.ismanager;
+    ^showerrors_menu->visible := this->frame->flags.ismanager;
+
+    ^edititem_contextmenu->visible := this->frame->flags.ismanager;
+    ^updatecatalog_contextmenu->visible := this->frame->flags.ismanager;
+    ^rebuildcatalog_contextmenu->visible := this->frame->flags.ismanager;
+    ^showerrors_contextmenu->visible := this->frame->flags.ismanager;
+
+    ^addmenu_button->visible := this->frame->flags.ismanager;
+    ^edititem_button->visible := this->frame->flags.ismanager;
+    ^deleteitem_button->visible := this->frame->flags.ismanager;
+    ^checkcatalog_button->visible := this->frame->flags.ismanager;
+
+    // Editing catalog properties
+    ^catalogthesaurus_menu->visible := this->frame->flags.iseditor;
+    ^catalogthesaurus_contextmenu->visible := this->frame->flags.iseditor;
+  }
+
+  ASYNC MACRO PollConsilioStatus()
+  {
+    this->laststatus := AWAIT AsyncCallFunctionFromJob(Resolve("#GetConsilioStatus"));
+    ^catalogs->Invalidate();
+    RegisterTimedCallback(AddTimeToDate(5000, GetCurrentDateTime()), PTR this->PollConsilioStatus);
+  }
+
+  RECORD ARRAY FUNCTION OnGetCatalogs()
+  {
+    // Use a work to prevent flushes in the database after each select
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    RECORD ARRAY sources := SELECT contentsources.*
+                                 , iconname := ""
+                                 , module := ""
+                                 , failed := TRUE
+                                 , catalogtag := indices.name
+                              FROM consilio.contentsources, consilio.indices
+                             WHERE contentsources.indexid = indices.id
+                                   AND indices.name NOT LIKE "$consilio$deleted$"
+                                   AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+
+    RECORD ARRAY rows;
+    RECORD ARRAY lasterrors;
+    IF(RecordExists(this->laststatus))
+      lasterrors := this->laststatus.lasterrors;
+
+    IF (this->tolliumuser->HasRight("system:sysop"))
+    {
+      RECORD ARRAY globalerrors := SELECT FROM lasterrors WHERE contentsourceid = 0;
+      IF (LENGTH(globalerrors) != 0)
+      {
+        RECORD errorrec := GetErrorIconAndHint(TRUE);
+
+        INSERT CELL[...baserow
+            , id :=               0
+            , rowkey :=           "global"
+            , title :=             ""
+            , icon :=             ^catalogs->GetIcon("tollium:filemgr/mydocuments")
+            , tag :=              GetTid("consilio:catalog.publisher")
+            , size :=             ""
+            , status :=           0
+            , previewable :=      FALSE
+            , editable :=         FALSE
+            , manageable :=       FALSE
+            , inactive :=         FALSE
+            , readonly :=         TRUE
+            , style :=            "readonly"
+            , statushint :=       ""
+            , error :=            ^catalogs->GetIcon(errorrec.icon)
+            , errorhint :=        errorrec.hint
+            , haserrors :=        TRUE
+            , expanded :=         FALSE
+            , parent :=           0
+            , contentsource :=    FALSE
+            , hascontents :=      FALSE
+            , contentsourceid :=  0
+            , priority :=         0
+            , definedby :=        ""
+            ] INTO rows AT END;
+      }
+    }
+
+    RECORD ARRAY accessible_indices :=
+        SELECT *
+          FROM consilio.indices
+         WHERE id > 0
+               AND type != whconstant_consilio_catalogtype_fieldgroup
+               AND this->tolliumuser->HasRightOn("consilio:read", id)
+               AND name NOT LIKE "$consilio$deleted$*"
+         ORDER BY ToUppercase(name), id;
+
+    FOREVERY (RECORD catalog FROM accessible_indices)
+    {
+      RECORD ARRAY catalogsources := SELECT *
+                                          , rowkey := "source_" || id
+                                          , icon := catalog.id < 0 ? ^catalogs->GetIcon("consilio:consilio") : iconname != "" ? ^catalogs->GetIcon(iconname) : 0
+                                          , tag := tag ?? title
+                                          , title
+                                          , size := ""
+                                          , statushint := GetStatusHint(status)
+                                          , expanded := FALSE
+                                          , catalog := FALSE
+                                          , parent := indexid
+                                          , contentsource := TRUE
+                                          , hascontents := FALSE
+                                          , isupdateorrebuild := status IN [ 1, 2 ]
+                                          , level := 1
+                                          , srcinactive := status < 0
+                                          , errorrec := GetErrorIconAndHint(RecordExists(SELECT FROM lasterrors WHERE contentsourceid = sources.id))
+                                          , error := 0
+                                          , errorhint := ""
+                                          , haserrors := FALSE
+                                          , contentsourceid := id
+                                          , definedby := definedby
+                                          , style := orphansince != DEFAULT DATETIME ? "inactive" : ""
+                                       FROM sources
+                                      WHERE indexid = catalog.id
+                                      ORDER BY (status < 0), failed // Show active sources first, then failed sources
+                                             , ToUppercase(title)
+                                             , id;
+      UPDATE catalogsources
+         SET status := ^catalogs->GetIcon(GetStatusIcon(status))
+           , error := ^catalogs->GetIcon(errorrec.icon)
+           , errorhint := errorrec.hint
+           , haserrors := errorrec.haserrors;
+
+      //BOOLEAN inactive := catalog.status < 0;
+      BOOLEAN inactive := catalog.type = 0 AND Length(SELECT FROM catalogsources WHERE NOT srcinactive)=0;
+      STRING catalogsize := "";
+      IF (catalog.indexmanager > 0 AND RecordExists(this->laststatus) AND RecordExists(this->laststatus.catalogsizes) AND CellExists(this->laststatus.catalogsizes, catalog.name))
+        catalogsize := ToString(GetCell(this->laststatus.catalogsizes, catalog.name));
+
+      INSERT CELL[...baserow
+             , id := catalog.id
+             , rowkey := "catalog_" || catalog.id
+             , title := catalog.description
+             , loglevel := catalog.loglevel
+             , icon := ^catalogs->GetIcon(GetIndexManagerIcon(catalog.indexmanager))
+             , tag := catalog.name
+             , size := catalogsize
+             , status := 0
+             , previewable := catalog.id > 0 AND NOT inactive
+             , editable := catalog.id > 0 AND NOT inactive AND this->tolliumuser->HasRightOn("consilio:metadata", catalog.id)
+             , manageable := this->tolliumuser->HasRightOn("consilio:manage", catalog.id)
+             , inactive := inactive
+             , readonly := catalog.id < 0
+             , style := catalog.id < 0 ? "readonly" : inactive ? "inactive" : ""
+             , priority := catalog.priority
+             , statushint := ""
+             , error := 0
+             , errorhint := ""
+             , haserrors := FALSE
+             , expanded := NOT inactive //FIXME: Not working?
+             , catalog := TRUE
+             , standardcatalog := catalog.type = 0
+             , parent := 0
+             , contentsource := FALSE
+             , hascontents := Length(catalogsources) > 0
+             , subnodes := this->tolliumuser->HasRightOn("consilio:manage", catalog.id)
+                 ? (SELECT AS RECORD ARRAY
+                     CELL[ ...baserow
+                         , ...src
+                         , previewable := catalog.id < 0 AND NOT VAR inactive
+                         , editable := TRUE
+                         , manageable := TRUE
+                         , inactive := inactive OR srcinactive
+                         , readonly := catalog.id < 0
+                         , style := catalog.id < 0 ? "readonly" : (inactive OR srcinactive) ? "inactive" : ""
+                         ] FROM catalogsources AS src)
+                 : RECORD[]
+             , contentsourceid := 0
+             , definedby := ""
+             ] INTO rows AT END;
+    }
+    work->Cancel();
+
+    RETURN rows;
+
+
+    //IF (connectionfailed) //FIXME there may be multiple indexmanagers ?, and make a yellow bar out of this. Or just show me the status per index manager
+    //  this->RunMessageBox(".indexmanagerconnectionfailed");
+  }
+>;
+
+PUBLIC OBJECTTYPE Options EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->queuemanager->ReadFromRegistry();
+    this->debuglevel_indexmanager->value := ReadRegistryKey("consilio.indexmanager.loglevel");
+    this->enablelinkchecker->value := ReadRegistryKey("consilio.linkchecker.enabled");
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    STRING command;
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN work->Cancel();
+
+    this->queuemanager->WriteToRegistry();
+    WriteRegistryKey("consilio.indexmanager.loglevel", this->debuglevel_indexmanager->value);
+    WriteRegistryKey("consilio.linkchecker.enabled", this->enablelinkchecker->value);
+
+    BOOLEAN finished := work->Finish();
+    IF (finished)
+    {
+      // Signal the IndexManager that the configuration has changed
+      this->tolliumcontroller->BroadcastAppEvent("consilio:indexmanager.config",
+          [ loglevel :=     this->debuglevel_indexmanager->value
+          ]);
+
+      // Send new configuration to the QueueManager
+      IF (NOT __ConsilioUpdateConfiguration([ "debuglevel", ToString(this->debuglevel_queuemanager->value)
+                                            , "numworkers", ToString(this->numworkers->value)
+                                            , "maxtasktime", ToString(this->maxtasktime->value)
+                                            , "maxgroupobjects", ToString(this->maxgroupobjects->value)
+                                            ]))
+        this->RunMessageBox(".sendingcommandfailed");
+    }
+
+    RETURN finished;
+  }
+>;
+
+PUBLIC OBJECTTYPE Blacklist EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->RefreshList();
+  }
+
+  MACRO DoAddPattern()
+  {
+    OBJECT dlg := this->LoadScreen(".blacklistpattern");
+    IF (dlg->RunModal() = "ok")
+    {
+      BroadcastEvent("consilio:blacklistchanged", DEFAULT RECORD);
+      this->RefreshList();
+    }
+  }
+
+  MACRO DoEditPattern()
+  {
+    IF (RecordExists(this->blacklist->selection))
+    {
+      OBJECT dlg := this->LoadScreen(".blacklistpattern", this->blacklist->selection);
+      IF (dlg->RunModal() = "ok")
+      {
+        BroadcastEvent("consilio:blacklistchanged", DEFAULT RECORD);
+        this->RefreshList();
+      }
+    }
+  }
+
+  MACRO DoDeletePattern()
+  {
+    IF (RecordExists(this->blacklist->selection))
+    {
+      IF (this->RunMessageBox(".confirmpatterndelete", this->blacklist->selection.pattern) = "yes")
+      {
+        OBJECT work := this->BeginWork();
+        DELETE FROM consilio.blacklist WHERE id = this->blacklist->value;
+        IF (work->Finish())
+        {
+          BroadcastEvent("consilio:blacklistchanged", DEFAULT RECORD);
+          this->RefreshList();
+        }
+      }
+    }
+  }
+
+  MACRO RefreshList()
+  {
+    this->blacklist->rows := SELECT *
+                                  , rowkey := id
+                                  , noindex_icon := noindex ? 1 : 0
+                                  , nofollow_icon := nofollow ? 1 : 0
+                                  , nolinkcheck_from_icon := nolinkcheck_from ? 1 : 0
+                                  , nolinkcheck_to_icon := nolinkcheck_to ? 1 : 0
+                               FROM consilio.blacklist;
+  }
+>;
+
+PUBLIC OBJECTTYPE BlacklistPattern EXTEND TolliumScreenBase
+< INTEGER patternid;
+
+  MACRO Init(RECORD data)
+  {
+    IF (RecordExists(data))
+    {
+      this->frame->title := GetTid("consilio:catalog.blacklistpattern.title-edit");
+      this->patternid := data.id;
+      this->pattern->value := data.pattern;
+      STRING ARRAY options;
+      IF (data.noindex)
+        INSERT "noindex" INTO options AT END;
+      IF (data.nofollow)
+        INSERT "nofollow" INTO options AT END;
+      IF (data.nolinkcheck_from)
+        INSERT "nolinkcheck_from" INTO options AT END;
+      IF (data.nolinkcheck_to)
+        INSERT "nolinkcheck_to" INTO options AT END;
+      this->options->value := options;
+    }
+    ELSE
+    {
+      this->frame->title := GetTid("consilio:catalog.blacklistpattern.title-new");
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (RecordExists(SELECT FROM consilio.blacklist WHERE pattern = this->pattern->value AND id != this->patternid))
+      work->AddError("", this->pattern->value);
+    IF (NOT work->HasFailed())
+    {
+      IF (this->patternid != 0)
+      {
+        // Editing
+        UPDATE consilio.blacklist
+           SET pattern := this->pattern->value
+             , noindex := "noindex" IN this->options->value
+             , nofollow := "nofollow" IN this->options->value
+             , nolinkcheck_from := "nolinkcheck_from" IN this->options->value
+             , nolinkcheck_to := "nolinkcheck_to" IN this->options->value
+         WHERE id = this->patternid;
+      }
+      ELSE
+      {
+        // Adding
+        INSERT INTO consilio.blacklist(pattern, noindex, nofollow, nolinkcheck_from, nolinkcheck_to)
+               VALUES(this->pattern->value, "noindex" IN this->options->value, "nofollow" IN this->options->value, "nolinkcheck_from" IN this->options->value, "nolinkcheck_to" IN this->options->value);
+      }
+    }
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
+<
+  INTEGER catalogid;
+
+  MACRO Init(RECORD data)
+  {
+    ^indexmanager->options := ^indexmanager->options CONCAT SELECT rowkey := id, title := name, address FROM consilio.indexmanagers ORDER BY ToUppercase(name);
+
+    IF (RecordExists(data))
+    {
+      this->catalogid := data.id;
+
+      RECORD catalog := SELECT * FROM consilio.indices WHERE id = this->catalogid;
+      this->id->value := ToString(this->catalogid);
+      ^name->value := catalog.name;
+      this->description->value := catalog.description;
+      this->debuglevel->value := catalog.loglevel;
+      this->frame->title := GetTid("consilio:catalog.catalogeditor.title-edit", catalog.name);
+      this->priority->value := catalog.priority;
+      ^indexmanager->value := catalog.indexmanager;
+      ^type->value := catalog.type;
+      ^indexname->value := catalog.indexname;
+    }
+    ELSE
+    {
+      this->id->visible := FALSE;
+      this->debuglevel->visible := FALSE;
+      this->frame->title := GetTid("consilio:catalog.catalogeditor.title-new");
+      ^indexmanager->value := GetDefaultIndexManager();
+    }
+  }
+
+  MACRO OnIndexManagerChange()
+  {
+    RECORD indexmgr := SELECT * FROM consilio.indexmanagers WHERE id = ^indexmanager->value;
+    ^indexname->visible := RecordExists(indexmgr) AND indexmgr.type = whconstant_consilio_indexmanager_elasticsearch;
+    ^indexname->required := ^indexname->visible;
+    IF(^indexname->value = "" AND ^indexname->visible) //lets suggest one
+      ^indexname->value := Substitute(^name->value, ":", whconstant_consilio_module_sep);
+  }
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    IF (NOT work->HasFailed())
+    {
+      IF (RecordExists(SELECT FROM consilio.indices
+                        WHERE ToUppercase(name) = ToUppercase(^name->value)
+                              AND id != this->catalogid))
+      {
+        work->AddErrorFor(^name, GetTid("consilio:catalog.messages.catalognameexists", ^name->value));
+      }
+    }
+
+    //we can always relax restrictions.. but for now we specifically allow only one __ and no - (and just forbid most things just in case)
+    IF(^indexname->visible AND NOT NEW RegEx("^[a-z][_a-z0-9]*$")->Test(^indexname->prefix || ^indexname->value))
+      work->AddErrorFor(^indexname, this->GetTid(".invalidindexname"));
+
+    RECORD catalog := [ name := ^name->value
+                      , description := ^description->value
+                      , loglevel := ^debuglevel->value
+                      , priority := ^priority->value
+                      , indexmanager := ^indexmanager->value
+                      , type := ^type->value
+                      , indexname := ^indexname->visible ? ^indexname->value : ""
+                      ];
+
+    INTEGER newcatalogid;
+    IF(this->catalogid = 0)
+    {
+      newcatalogid := MakeAutonumber(consilio.indices, "id");
+      INSERT CELL [ ...catalog, id := newcatalogid ] INTO consilio.indices;
+    }
+    ELSE
+    {
+      UPDATE consilio.indices
+         SET RECORD catalog
+       WHERE id = this->catalogid;
+    }
+
+    IF(NOT work->Finish())
+      RETURN 0;
+
+    BroadcastEvent("consilio:fetchers.config", DEFAULT RECORD);
+    BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
+    RETURN newcatalogid ?? this->catalogid;
+  }
+>;
+
+RECORD previewbasefields :=
+  [ indexid         := 0
+  , objectid        := ""
+  , date_indexed    := DEFAULT DATETIME
+  , contentprovider := ""
+  , contentsource   := 0
+  , _score           := 0f
+  , _summary         := ""
+  , date_indexdate  := DEFAULT DATETIME
+  ];
+
+//inspect a single item in consilio
+PUBLIC BOOLEAN FUNCTION RunConsilioInspectDialog(OBJECT parent, STRING catalogname, STRING tag, STRING objectid)
+{
+  INTEGER catalogid := (SELECT AS INTEGER id FROM consilio.indices WHERE name = whconstant_consilio_catalog_whfs);
+  RECORD res := GetPreviewResults(parent->contexts->user, catalogid,0,whconstant_consilio_catalog_whfs,1, "+objectid:" || objectid);
+  //FIXME if totalcount > 1, forward to CatalogPreview
+  IF(res.totalcount = 0)
+    RETURN FALSE;
+
+  parent->contexts->screen->RunScreen("mod::consilio/screens/catalog.xml#catalogpreviewitem", res.results[0]);
+  RETURN TRUE;
+}
+
+RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER contentsourceid, STRING catalog_name, INTEGER maxresults, STRING query)
+{
+  RECORD ARRAY mgrs := GetIndexManagersForIndex(catalogid);
+  IF(Length(mgrs)=0)
+    RETURN DEFAULT RECORD;
+
+  IF(mgrs[0].type = whconstant_consilio_indexmanager_legacybackend)
+  {
+    RECORD ARRAY srcfields := GetIndexMapping(catalogid);
+    OBJECT searcher := OpenSearchObject(user->language, catalog_name);
+    RECORD search_fields := previewbasefields; // Default search fields
+
+    // Add catalog result fields
+    FOREVERY (RECORD field FROM srcfields)
+    {
+      IF(field.defaultvalue="")
+        CONTINUE;
+      IF (NOT CellExists(search_fields, field.name))
+        search_fields := CellInsert(search_fields, field.name, DecodeHSON(field.defaultvalue));
+    }
+
+    searcher->empty_result_record := search_fields;
+    searcher->save_searches := TRUE;
+    searcher->session_tag := "__consilio_preview";
+    RETURN searcher->Search(query ?? "indexid:" || catalogid, 0, maxresults);
+  }
+  ELSE
+  {
+    RECORD tosend := DecodeJSON(query);
+    IF(NOT RecordExists(tosend))
+      THROW NEW Exception("Do not understand query (invalid JSON)");
+    tosend := EnforceStructure([method := "", path := "", body := DEFAULT RECORD], tosend);
+
+    RECORD res := SendRawJSONToElasticsearch(mgrs[0].id, tosend.method, tosend.path, tosend.body);
+    Reflect(res);
+    RETURN res;
+  }
+}
+
+PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
+< INTEGER catalog_id;
+  STRING catalog_name;
+  RECORD ARRAY consiliorecords;
+  INTEGER contentsourceid;
+
+  MACRO Init(RECORD catalog)
+  {
+    IF (catalog.catalog)
+    {
+      this->catalog_name := catalog.tag;
+      //the ?? hack is needed for dashboard query view... we should probably just log the index ids
+      this->catalog_id := catalog.id ?? (SELECT AS INTEGER id FROM consilio.indices WHERE ToUppercase(name) = ToUppercase(catalog.tag));
+
+      this->frame->title := GetTid("consilio:catalog.catalogpreview.title", this->catalog_name);
+      this->^query->value := CellExists(catalog,'query') ? catalog.query : '';
+    }
+
+    ^consilio_autosuggest->SetSearchCatalog(this->catalog_name);
+  }
+
+  MACRO DoSearch(BOOLEAN showall DEFAULTSTO FALSE)
+  {
+    this->^resultsinfo->visible := FALSE;
+
+    DATETIME starttime := GetCurrentDateTime();
+    INTEGER numresults := showall ? -1 : searchlimit;
+    RECORD search;
+    TRY
+    {
+      search := GetPreviewResults(this->tolliumuser, this->catalog_id, this->contentsourceid, this->catalog_name, numresults, this->^query->value);
+    }
+    CATCH (OBJECT<SearchException> error)
+    {
+      Print("Search exception: " || error->what || "\n");
+      this->RunMessageBox(".searcherror", GetErrorMessage(error->errorcode));
+      this->^status->value := GetTid("consilio:catalog.catalogpreview.error");
+      this->^results->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+    CATCH (OBJECT e)
+    {
+      Print("Search exception: " || e->what || "\n");
+      this->RunMessageBox(".searcherror", e->what);
+      this->^status->value := GetTid("consilio:catalog.catalogpreview.error");
+      this->^results->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    DATETIME endtime := GetCurrentDateTime();
+    INTEGER searchtime := GetMSecsDifference(starttime, endtime);
+
+    IF (search.totalcount > searchlimit AND NOT showall)
+    {
+      this->^resultsinfo->visible := TRUE;
+      this->^resultsmessage->htmlvalue := GetTid("consilio:catalog.catalogpreview.toomanyresults", this->tolliumuser->FormatMoney(searchlimit, 0, TRUE)) || ' <a href="preview:showallresults">' || GetTid("consilio:catalog.catalogpreview.clickallresults", this->tolliumuser->FormatMoney(search.totalcount, 0, TRUE)) || '</a>';
+    }
+
+    this->consiliorecords := SELECT *
+                                  , id := #results + 1
+                               FROM search.results;
+
+    this->^status->value := GetTid("consilio:catalog.catalogpreview.numresults", this->tolliumuser->FormatMoney(Length(search.results), 0, TRUE), this->tolliumuser->FormatMoney(searchtime, 0, TRUE));
+    this->^results->rows := SELECT rowkey := id
+                                , id
+                                , url := objectid
+                                , score := this->tolliumuser->FormatFloat(_score, 5)
+                                , indexid := this->catalog_id
+                                , objectid
+                             FROM this->consiliorecords;
+    this->^results->empty := GetTid("consilio:catalog.catalogpreview.noresults");
+  }
+
+  MACRO DoViewItem()
+  {
+    RECORD result := SELECT *
+                       FROM this->consiliorecords
+                      WHERE id = this->^results->value;
+    IF (RecordExists(result))
+      this->LoadScreen(".catalogpreviewitem", result)->RunModal();
+  }
+
+  MACRO OnMessageClick(STRING href)
+  {
+    IF (href LIKE "preview:*")
+    {
+      href := Right(href, Length(href) - 8);
+      IF (href = "showallresults")
+        this->DoSearch(TRUE);
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
+<
+  OBJECT ARRAY emptyfields;
+
+  MACRO Init(RECORD result)
+  {
+    RECORD ARRAY otherlines;
+    RECORD ARRAY resultlines;
+
+    // Show all Consilio fields
+    FOREVERY (RECORD field FROM SELECT * FROM UnpackRecord(result) ORDER BY name)
+    {
+      STRING fieldname := field.name;
+      STRING fieldvalue;
+      SWITCH (TypeID(field.value))
+      {
+        CASE TypeID(INTEGER)
+        {
+          fieldvalue := ToString(field.value);
+        }
+        CASE TypeID(DATETIME)
+        {
+          fieldvalue := field.value != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(field.value, "milliseconds", FALSE, TRUE) || " UTC (" || DateTimeToString(field.value) || ")" : "";
+        }
+        CASE TypeID(FLOAT)
+        {
+          fieldvalue := this->tolliumuser->FormatFloat(field.value, -1);
+        }
+        CASE TypeID(STRING)
+        {
+          fieldvalue := field.value;
+        }
+        CASE TypeID(BOOLEAN)
+        {
+          fieldvalue := field.value ? "true" : "false";
+        }
+        DEFAULT
+        {
+          fieldvalue := "unrecognized type #" || TypeID(field.value);
+        }
+      }
+      STRING fieldhint;
+      FUNCTION PTR fieldlink;
+
+      IF (fieldname = "INDEXID")
+      {
+        IF (fieldvalue = "-1")
+        {
+          this->^indexid->visible := FALSE;
+          CONTINUE;
+        }
+      }
+      ELSE IF (fieldname = "SUMMARY")
+      {
+        IF (fieldvalue = "")
+          CONTINUE;
+
+        // Replace leading and trailing "..." with ellipsis characters in the summary
+        IF (UCLeft(fieldvalue, 3) = "...")
+          fieldvalue := "&#8230;" || UCRight(fieldvalue, UCLength(fieldvalue) - 3);
+        IF (UCRight(fieldvalue, 3) = "...")
+          fieldvalue := UCLeft(fieldvalue, UCLength(fieldvalue) - 3) || "&#8230;";
+      }
+      ELSE IF (fieldname = "GROUPID")
+      {
+        // If the groupid value is a positive integer, it is a WebHare file id, link it to the publisher
+        INTEGER groupid := ToInteger(fieldvalue, 0);
+        IF (groupid > 0)
+          fieldlink := PTR this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := groupid ], DEFAULT RECORD, FALSE);
+      }
+      ELSE IF (fieldname = "SIZE")
+      {
+        // If the field name is "size", assume the value contains a number of bytes, format it
+        fieldvalue := this->tolliumuser->FormatFileSize(ToInteger(fieldvalue, 0), 2, TRUE);
+      }
+      ELSE IF (fieldvalue LIKE "http://*" OR fieldvalue LIKE "https://*")
+      {
+        // If the field value contains a URL, make it clickable
+        fieldlink := PTR this->frame->OpenBrowserWindow(fieldvalue, "WebHareConsilioPreview");
+      }
+
+      // If this field has a standard field text, use it, otherwise create and append a new text
+      OBJECT text;
+      IF (fieldname IN ["INDEXID","OBJECTID","DATE_INDEXED","CONTENTPROVIDER"])
+      {
+        text := GetMember(this, "^" || fieldname);
+//        text->visible ;= TRUE;
+      }
+      ELSE
+      {
+        // Create a new text component and add it to the appropriate fields group
+        text := this->CreateTolliumComponent("text");
+        text->selectable := TRUE;
+
+        IF (fieldname IN resultfieldnames)
+          INSERT [ items := [ text ], layout := "form" ] INTO resultlines AT END;
+        ELSE
+          INSERT [ items := [ text ], layout := "form" ] INTO otherlines AT END;
+      }
+
+      // If maximum field value length is exceeded, truncate url's and word-wrap other fields
+      IF (UCLength(fieldvalue) > maxfieldlength)
+      {
+        IF (fieldlink != DEFAULT FUNCTION PTR)
+        {
+          fieldhint := fieldvalue;
+          INTEGER numchars := (maxfieldlength - 3) / 2;
+          fieldvalue := UCLeft(fieldvalue, numchars) || "..." || UCRight(fieldvalue, numchars);
+        }
+        ELSE
+        {
+          text->width := "1pr";
+          text->wordwrap := TRUE;
+        }
+      }
+
+      text->title := ToLowercase(fieldname);
+      IF(fieldvalue = "")
+        INSERT text INTO this->emptyfields AT END;
+      ELSE
+        text->htmlvalue := '<span>' || this->HighlightSearchWords(EncodeHTML(fieldvalue)) || '</span>';
+      text->hint := fieldhint;
+      IF (fieldlink != DEFAULT FUNCTION PTR)
+      {
+        OBJECT action := this->CreateTolliumComponent("action");
+        action->onexecute := fieldlink;
+        text->action := action;
+      }
+    }
+
+    this->^otherfields->visible := Length(otherlines) > 0;
+    this->^body->InsertLinesAfter(otherlines, this->^otherfields);
+    this->^resultfields->visible := Length(resultlines) > 0;
+    this->^body->InsertLinesAfter(resultlines, this->^resultfields);
+
+    this->OnShowEmptyChange();
+  }
+
+  STRING FUNCTION HighlightSearchWords(STRING text)
+  {
+    text := Substitute(text, "\x1D", '<b>');
+    text := Substitute(text, "\x1C", '</b>');
+
+    RETURN text;
+  }
+
+  MACRO OnShowEmptyChange()
+  {
+    FOREVERY(OBJECT field FROM this->emptyfields)
+      field->visible := this->^showempty->value;
+  }
+>;
+
+PUBLIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
+< RECORD ARRAY contentproviders;
+  OBJECT cursettings;
+  STRING contentprovider;
+
+  PUBLIC PROPERTY contentsource(GetContentSource, -);
+
+  PUBLIC PROPERTY contentproviderdata(GetContentProviderData, -);
+
+  RECORD FUNCTION GetContentSource()
+  {
+    RETURN [ contentprovider := Length(this->types->options) > 0 ? this->types->value : this->contentprovider
+           , tag := ToUppercase(this->tag->value)
+           , maxgroupobjects := this->maxgroupobjects->value
+           , discardsummaries := this->discardsummaries->value
+           , disablesource := this->disablesource->value
+           ];
+  }
+
+  RECORD FUNCTION GetContentProviderData()
+  {
+    IF (ObjectExists(this->providersettings->contents))
+    {
+      IF (TypeID(this->cursettings->settings) = TypeID(OBJECT))
+        RETURN this->providersettings->contents->settings->value; // Composition
+      ELSE
+        RETURN this->providersettings->contents->settings; // Property
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO Init(RECORD data)
+  {
+    this->contentproviders := data.contentproviders;
+
+    IF (CellExists(data, "contentsource"))
+    {
+      // Editing content source, load content provider settings screen
+      this->contentprovider := data.contentsource.contentprovider;
+      RECORD provdata := DecodeHSON(data.contentsource.data);
+      this->cursettings := this->LoadProviderSettings(this->contentprovider, provdata);
+      IF (ObjectExists(this->cursettings))
+      {
+        // Initialize settings and show screen on settings tab
+        IF (TypeID(this->cursettings->settings) = TypeID(OBJECT))
+        {
+          // Not all composition fields may be present in the content source data, update default value with content source fields
+          RECORD value := this->cursettings->settings->value;
+          FOREVERY (RECORD field FROM UnpackRecord(provdata)) // Not using MakeUpdatedRecord because RECORD fields won't get updated from default record to non-existing record
+            value := CellUpdate(value, field.name, field.value);
+          this->cursettings->settings->value := value;
+        }
+        ELSE
+          this->cursettings->settings := provdata; // Property
+
+        this->providersettings->contents := this->cursettings;
+        this->providerbox->title := SELECT AS STRING title FROM this->contentproviders WHERE name = this->contentprovider;
+
+        this->id->value := ToString(data.contentsource.id);
+        this->tag->value := data.contentsource.tag;
+        this->maxgroupobjects->value := data.contentsource.maxgroupobjects;
+        this->discardsummaries->value := data.contentsource.discardsummaries;
+        this->disablesource->value := data.contentsource.srcinactive;
+
+        // Select the settings tab and focus its first component
+        this->tabs->selectedtab := this->settingstab;
+        this->frame->focused := this->providersettings->GetChildComponents()[0];
+
+        // This is no longer a wizard, hide the previous button and set the title of the next button to "Ok"
+        this->settingsprev->visible := FALSE;
+        this->settingsnext->title := GetTid("tollium:common.actions.ok");
+      }
+      ELSE
+        THROW NEW Exception("Could not load settings screen");
+
+      this->frame->title := GetTid("consilio:catalog.contentsourceeditor.title-edit");
+    }
+    ELSE
+    {
+      // New content source, fill list of content providers
+      this->types->options := SELECT rowkey := name
+                                   , title
+                                FROM this->contentproviders
+                               ORDER BY name != "publisher:webhare" // Make the WebHare folder the first choice
+                                      , ToUppercase(title);
+
+      this->id->visible := FALSE;
+      this->disablesource->visible := FALSE;
+
+      // This is a wizard, set the title of the next button to "Finish"
+      this->settingsnext->title := GetTid("tollium:common.actions.finish");
+
+      this->frame->title := GetTid("consilio:catalog.contentsourceeditor.title-new");
+    }
+  }
+
+  MACRO DoNext()
+  {
+    IF (this->tabs->selectedtab = this->providertab)
+    {
+      // Try to load the settings screen for the selected provider
+      this->cursettings := this->LoadProviderSettings(this->types->value, DEFAULT RECORD);
+      IF (ObjectExists(this->cursettings))
+      {
+        // Show the screen on the settings tab
+        this->providersettings->contents := this->cursettings;
+        this->providerbox->title := SELECT AS STRING title FROM this->contentproviders WHERE name = this->types->value;
+
+        // Select the settings tab and focus its first component
+        this->tabs->selectedtab := this->settingstab;
+        this->frame->focused := this->providersettings->GetChildComponents()[0];
+      }
+      ELSE
+      {
+        // Cannot load settings, show a message
+        this->providersettings->contents := DEFAULT OBJECT;
+        this->RunMessageBox(".cannotloadsettings", this->types->selection.title);
+      }
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    // If the current provider's settings screen has a Validate function, call it to validate the entered settings
+    IF (NOT work->HasFailed()
+          AND ObjectExists(this->cursettings) // Should exist, but checking anyway...
+          AND GetMemberType(this->cursettings, "Validate") = "FUNCTION")
+      this->cursettings->Validate(work);
+
+    BOOLEAN result := work->Finish();
+    BroadcastEvent("consilio:fetchers.config", DEFAULT RECORD);
+    RETURN result;
+  }
+
+  MACRO DoPrevious()
+  {
+    IF (this->tabs->selectedtab = this->settingstab)
+    {
+      // Select the providers tab and focus its first component
+      this->tabs->selectedtab := this->providertab;
+      this->frame->focused := this->providertab->GetChildComponents()[0];
+    }
+  }
+
+  OBJECT FUNCTION LoadProviderSettings(STRING contentprovider, RECORD contentsourcedata)
+  {
+    RECORD cp := SELECT * FROM this->contentproviders WHERE name = contentprovider;
+    IF (RecordExists(cp))
+    {
+      // Did we already load this screen?
+      IF (ObjectExists(cp.settingsscreen))
+        RETURN cp.settingsscreen;
+
+      // Load the provider's settings screen
+      OBJECT settings := this->LoadScreen(cp.settings, contentsourcedata);
+      IF (ObjectExists(settings))
+      {
+        // Check if it has a "settings" member which we can access
+        STRING settingstype := GetMemberType(settings, "settings");
+        IF (settingstype IN [ "VARIABLE", "PROPERTY" ])
+        {
+          UPDATE this->contentproviders
+             SET settingsscreen := settings
+           WHERE name = contentprovider;
+          RETURN settings;
+        }
+        ELSE
+          Print("The settings screen '" || cp.settings || "' does not have an accessible 'settings' member (" || settingstype || ")\n");
+      }
+      ELSE
+        Print("The settings screen '" || cp.settings || "' could not be loaded\n");
+    }
+    ELSE
+      Print("Unknown content provider '" || contentprovider || "'\n");
+    RETURN DEFAULT OBJECT;
+  }
+>;
+
+BOOLEAN FUNCTION ArrayLike(STRING ARRAY value, STRING mask, BOOLEAN case_sensitive DEFAULTSTO FALSE)
+{
+  FOREVERY (STRING val FROM value)
+    IF ((NOT case_sensitive AND ToUppercase(val) LIKE ToUppercase(mask))
+        OR (case_sensitive AND val LIKE mask))
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+PUBLIC STATIC OBJECTTYPE Thesaurus EXTEND TolliumScreenBase
+< INTEGER indexid;
+  RECORD ARRAY wordgroups;
+
+  MACRO Init(RECORD data)
+  {
+    this->indexid := data.indexid;
+    this->frame->title := GetTid("consilio:catalog.thesaurus.title",
+        (SELECT AS STRING name
+           FROM consilio.indices
+          WHERE id = this->indexid));
+    ^words->value :=
+        SELECT rowkey := wordgroup
+             , wordgroupid := wordgroup
+             , words := GroupedValues(word)
+          FROM consilio.thesaurus
+         WHERE indexid = this->indexid
+         GROUP BY wordgroup;
+  }
+
+  MACRO DoSearchWords()
+  {
+    /*ADDME: How to filter in an arrayedit?
+    IF (Length(^words->rows) = 0)
+      RETURN;
+
+    IF (match <= 0)
+      this->RunMessageBox(".wordnotfound", ^search->value);
+    */
+  }
+
+  RECORD ARRAY FUNCTION MapWordGroups(RECORD ARRAY wordgroups)
+  {
+    RETURN
+        SELECT TEMPORARY sorted_words :=
+                   (SELECT AS STRING ARRAY w
+                      FROM ToRecordArray(words, "w")
+                     ORDER BY w)
+             , *
+             , wordgroup := Detokenize(sorted_words, ", ")
+          FROM wordgroups;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    FOREVERY (RECORD row FROM ^words->value)
+    {
+      INTEGER wordgroupid := CellExists(row, "wordgroupid")
+          ? row.wordgroupid
+          : (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
+
+      RECORD ARRAY oldwordgroup := SELECT id, word FROM consilio.thesaurus WHERE wordgroup = wordgroupid;
+      STRING ARRAY newwordgroup := row.words;
+
+      // Delete old words that are not in the new words group
+      FOREVERY (RECORD todelete FROM oldwordgroup)
+        IF (todelete.word NOT IN newwordgroup)
+          DELETE FROM consilio.thesaurus WHERE id = todelete.id;
+
+      // Add new words that are not in the old words group
+      STRING ARRAY toadd := ArrayDelete(newwordgroup, SELECT AS STRING ARRAY word FROM oldwordgroup);
+      FOREVERY (STRING word FROM toadd)
+        INSERT INTO consilio.thesaurus(indexid, word, wordgroup)
+               VALUES(this->indexid, word, wordgroupid);
+    }
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ThesaurusWords EXTEND TolliumRowEditScreenBase
+<
+  PUBLIC PROPERTY curwords(this->"^wordgroup"->value, -);
+
+  UPDATE MACRO Init(RECORD data)
+  {
+    TolliumRowEditScreenBase::Init(data);
+
+    IF (RecordExists(data.row))
+      ^words->value := ToRecordArray(data.row.words, "word");
+  }
+
+  RECORD ARRAY FUNCTION MapWords(RECORD ARRAY words)
+  {
+    RETURN SELECT * FROM words ORDER BY word;
+  }
+
+  MACRO OnWordsChange()
+  {
+    this->UpdateWordGroup(SELECT AS STRING ARRAY word FROM ^words->value);
+  }
+
+  MACRO UpdateWordGroup(STRING ARRAY words)
+  {
+    ^wordgroup->options := SELECT rowkey := word , title := "" FROM ToRecordArray(words, "word");
+    ^wordgroup->value := SELECT AS STRING ARRAY rowkey FROM ^wordgroup->options;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ThesaurusWord EXTEND TolliumRowEditScreenBase
+<
+  STRING initialword;
+
+  UPDATE MACRO Init(RECORD data)
+  {
+    TolliumRowEditScreenBase::Init(data);
+    IF (RecordExists(data.row))
+      this->initialword := data.row.word;
+  }
+
+  UPDATE BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    ^word->value := NormalizeText(^word->value, "en");
+    IF (^word->value != this->initialword AND ^word->value IN this->tolliumparent->curwords)
+      work->AddError(GetTid("consilio:catalog.messages.wordalreadyonlist", ^word->value));
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE ContentSourceErrors EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER contentsourceid;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->contentsourceid := data.contentsourceid;
+    this->errors->rows :=
+        SELECT error :=         what != "" ? what : error
+             , errorloc :=      error
+             , what :=          what
+             , linetext :=      ""
+             , coltext :=       ""
+             , func :=          ""
+             , expanded :=      FALSE
+             , trace :=         this->DecodeTrace(trace)
+             , subnodes :=
+                   SELECT filename
+                        , what :=       errors.what
+                        , errorloc :=   errors.error
+                        , line
+                        , col
+                        , func
+                        , error :=      filename
+                        , linetext :=   ToString(line)
+                        , coltext :=    ToString(col)
+                        , expanded :=   FALSE
+                     FROM this->DecodeTrace(trace)
+          FROM data.errors;
+    IF (RecordExists(this->errors->rows))
+      this->errors->selection := this->errors->rows[0];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnSelect()
+  {
+    RECORD sel := this->errors->selection;
+    IF (NOT RecordExists(sel) OR sel.linetext = "")
+    {
+      IF (NOT RecordExists(sel) OR LENGTH(sel.trace) = 0)
+      {
+        this->file->value := "";
+        this->source->value := "";
+        RETURN;
+      }
+      sel := sel.trace[0];
+    }
+
+    STRING file := this->GetDiskFileName(sel.filename);
+
+    this->file->value := sel.filename;
+    this->what->value := this->errors->selection.what;
+    this->what->visible := this->what->value != "";
+    this->errorloc->value := this->errors->selection.errorloc;
+    this->source->value := BlobToString(GetDiskResource(file, [ allowmissing := TRUE ]), -1);
+    this->source->GotoLine(sel.line);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION DecodeTrace(STRING ARRAY trace)
+  {
+    RECORD ARRAY result;
+
+    FOREVERY (STRING t FROM trace)
+    {
+      // Parse format: <file>(<line>,<col>)[ (<func>) ]
+      STRING ARRAY parts := Tokenize(t, "(");
+
+      RECORD rec :=
+          [ filename := TrimWhitespace(parts[0])
+          , line :=     1
+          , col :=      1
+          , func :=     ""
+          ];
+
+      IF (LENGTH(parts) >= 2)
+      {
+        STRING ARRAY posparts := Tokenize(Tokenize(parts[1], ")")[0] || ",", ",");
+        rec.line := ToInteger(posparts[0], 1);
+        rec.col := ToInteger(posparts[1], 1);
+      }
+
+      IF (LENGTH(parts) >= 3)
+        rec.func := Tokenize(parts[2], ")")[0];
+
+      INSERT rec INTO result AT END;
+    }
+    RETURN result;
+  }
+
+
+  STRING FUNCTION GetDiskFileName(STRING uri)
+  {
+    STRING prefix := uri;
+    INTEGER ddpos := SearchSubString(prefix, "::");
+    STRING rest := SubString(prefix, ddpos + 2);
+    prefix := LEFT(prefix, ddpos);
+
+    STRING module;
+    IF (prefix != "wh")
+    {
+      module := rest;
+      INTEGER spos := SearchSubString(module, "/");
+      rest := SubString(rest, spos + 1);
+      module := LEFT(module, spos);
+    }
+
+    STRING subdir;
+    SWITCH (prefix)
+    {
+    CASE "wh"             { module := "system"; subdir := "whlibs/"; }
+    CASE "module"         { subdir := "include/"; }
+    CASE "modulescript"   { subdir := "scripts/"; }
+    }
+
+    RETURN GetModuleInstallationRoot(module) || subdir || rest;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoClear()
+  {
+    IF (this->RunMessageBox(".confirmclearerrors") = "yes")
+    {
+      __ConsilioClearErrors(this->contentsourceid);
+      this->tolliumresult := "cancel";
+    }
+  }
+>;

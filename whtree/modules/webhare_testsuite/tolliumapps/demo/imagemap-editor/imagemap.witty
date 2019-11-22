@@ -1,0 +1,12 @@
+[component imagemap]
+<html>
+  <body>
+    <map name="imagemap">
+      [forevery overlays]
+        <area shape="rect" coords="[left],[top],[right],[bottom]" href="[url]" title="[title]" alt="[title]" />
+      [/forevery]
+    </map>
+    <img src="[imagefilename]" usemap="#imagemap" />
+  </body>
+</html>
+[/component]

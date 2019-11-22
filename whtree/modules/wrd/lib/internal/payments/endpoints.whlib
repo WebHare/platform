@@ -1,0 +1,79 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+
+RECORD FUNCTION GetPaymentByUUID(STRING finduuid)
+{
+  RECORD ARRAY paymentdetails := SELECT * FROM wrd.pendingpayments WHERE uuid = finduuid;
+  IF(Length(paymentdetails) = 0)
+    THROW NEW Exception(`Invalid payment id '${finduuid}'`);
+  IF(Length(paymentdetails) > 1)
+    THROW NEW Exception(`Multiple payments with id '${finduuid}'`);
+
+  RETURN paymentdetails[0];
+}
+
+PUBLIC MACRO UpdatePaymentMetadata(STRING paymenttok, RECORD updatedata)
+{
+  RECORD paymentdetails := GetPaymentByUUID(paymenttok);
+
+  RECORD paymententityinfo := DescribeWRDEntity(paymentdetails.paymententity);
+  OBJECT paymentschema := OpenWRDSchemaById(paymententityinfo.wrdschema);
+  OBJECT paymenttype := paymentschema->GetTypeById(paymententityinfo.wrdtype);
+  RECORD paymentattr := paymenttype->GetAttributeById(paymentdetails.paymentattr);
+  OBJECT paymententity := paymenttype->GetEntity(paymentdetails.paymententity);
+  RECORD paymentdata := paymententity->GetField(paymentattr.tag);
+
+  INTEGER pos := (SELECT AS INTEGER #payments + 1 FROM paymentdata.payments WHERE __paymentdata.u = paymenttok)-1;
+  IF(pos<0)
+    THROW NEW Exception(`Cannot find payment status '${paymenttok}' in entity #${paymententity->id}`);
+
+  paymentdata.payments[pos].__paymentdata.m := CELL[...paymentdata.payments[pos].__paymentdata.m, ...updatedata];
+  paymententity->UpdateEntity(CellInsert(CELL[], paymentattr.tag, paymentdata));
+}
+
+PUBLIC RECORD FUNCTION ReinstantiatePayment(STRING paymenttok)
+{
+  RECORD paymentdetails := GetPaymentByUUID(paymenttok);
+  RETURN ReinstantiatePaymentFromRecord(paymentdetails);
+}
+
+PUBLIC RECORD FUNCTION ReinstantiatePaymentFromRecord(RECORD paymentdetails)
+{
+  RECORD paymententityinfo := DescribeWRDEntity(paymentdetails.paymententity);
+
+  OBJECT paymentschema := OpenWRDSchemaById(paymententityinfo.wrdschema);
+  OBJECT paymenttype := paymentschema->GetTypeById(paymententityinfo.wrdtype);
+  OBJECT paymententity := paymenttype->GetEntity(paymentdetails.paymententity);
+
+  RECORD paymentattr := paymenttype->GetAttributeById(paymentdetails.paymentattr);
+  RECORD paymentdata := paymententity->GetField(paymentattr.tag);
+
+  OBJECT providertype := paymentschema->GetTypeById(paymentattr.domain);
+  RECORD providerfield := providertype->GetAttributeById(paymentdetails.providerattr);
+
+  OBJECT paymentapi := GetPaymentAPI(paymentschema, [ providertypeid := paymentattr.domain
+                                                    , providerfield := providerfield.tag
+                                                    , paymenttypeid := paymententityinfo.wrdtype
+                                                    , paymentfield := paymentattr.tag
+                                                    ]);
+
+  OBJECT payment := paymentapi->__OpenPSP(paymentdata, paymentdetails.creationdate, paymentdetails.uuid);
+  STRING returnurl;
+  IF(paymentdetails.returnurl != "")
+    returnurl := UpdateURLVariables(paymentdetails.returnurl, [ _p := EncryptForThisServer("wrd:payments-endpoint", [ e := paymentdetails.paymententity ]) ]);
+
+  RETURN CELL[ payment
+             , paymentapi
+             , paymententity
+             , paymentattr
+             , returnurl
+             ];
+}
+

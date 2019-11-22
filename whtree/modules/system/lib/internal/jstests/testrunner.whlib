@@ -1,0 +1,23 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi.whlib";
+
+
+PUBLIC OBJECT FUNCTION GetJSTestDepsolver()
+{
+  RETURN GetInternalDepsolver(FALSE);
+}
+
+PUBLIC MACRO PrintDesignFilesHeaders(STRING ARRAY moduleassets)
+{
+  OBJECT trans := OpenPrimary();
+
+  OBJECT depsolver := GetJSTestDepsolver();
+  FOREVERY(STRING asset FROM moduleassets)
+    depsolver->AddLoad(asset);
+  depsolver->PrintHeaders();
+
+  trans->Close();
+}

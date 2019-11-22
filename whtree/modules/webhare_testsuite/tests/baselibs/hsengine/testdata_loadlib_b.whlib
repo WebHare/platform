@@ -1,0 +1,12 @@
+<?wh
+/// @short Loadlib test; sublibrary B
+
+LOADLIB "test::testdata_loadlib_c.whlib" EXPORT deep_func1, deep_var1, deep_objecttype1, deep_objecttype2;
+
+PUBLIC INTEGER FUNCTION func1() { RETURN 0; }
+PUBLIC MACRO mac1() { }
+PUBLIC INTEGER int1;
+
+PUBLIC OBJECTTYPE objecttype3ext EXTEND deep_objecttype3
+<
+>;

@@ -1,0 +1,60 @@
+<?wh
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+
+
+PUBLIC RECORD FUNCTION ScanWittyForTids(OBJECT wittytemplate, STRING resourcename)
+{
+  STRING modulename := GetModuleNameFromResourcePath(resourcename);
+  IF (modulename="")
+    THROW NEW Exception(`Cannot determine module for ${resourcename}`);
+
+  RECORD ARRAY texts;
+
+  RECORD ARRAY parts := wittytemplate->__GetTidsRawData();
+
+  FOREVERY (RECORD part FROM parts)
+  {
+    IF (part.type = "tid" OR part.type = "htmltid")
+    {
+      INSERT CELL[ resourcename
+                 , part.line
+                 , col := part.col + LENGTH(part.type) + 3 + 1 // add 'get' and a space
+                 , tid := IsAbsoluteTid(part.data) ? part.data : modulename || ":" || part.data
+                 ] INTO texts AT END;
+    }
+    ELSE IF (part.type = "content")
+    {
+      STRING data := Substitute(part.data, `'`, `"`);
+      INTEGER pos := 0;
+      WHILE (TRUE)
+      {
+        INTEGER idx := SearchSubstring(data, `data-texttid=`, pos);
+        IF (idx = -1)
+          BREAK;
+
+        pos := idx + 13;
+        STRING res := SubString(data, pos) || `"`;
+        STRING attr := TrimWhitespace(res);
+        IF (attr NOT LIKE `"*`)
+          CONTINUE;
+
+        // compensate for eaten whitespace
+        idx := idx + LENGTH(res) - LENGTH(attr);
+        attr := Tokenize(attr, `"`)[1];
+
+        STRING ARRAY lines := Tokenize(Substitute(Substitute(Left(data, idx), "\r\n", "\n"), "\r", ""), "\n");
+        INSERT CELL[ resourcename
+                   , line :=        part.line + LENGTH(lines) - 1
+                   , col :=         (LENGTH(lines) = 1 ? part.col : 1) + LENGTH(lines[END - 1])
+                   , tid :=         attr
+                   ] INTO texts AT END;
+        pos := idx + LENGTH(attr) + 2;
+      }
+    }
+  }
+
+  RETURN
+      [ tids :=         texts
+      ];
+}

@@ -1,0 +1,178 @@
+<?wh
+/// @short Internet functions test
+
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+
+RECORD result;
+RECORD ARRAY errors;
+
+MACRO SyntaxTest()
+{
+  OpenTest("TestLoadlib: SyntaxTest");
+
+  //No relative paths
+  errors := TestCompile('<?wh LOADLIB "test::../testdata_loadlib_a.whlib"; ?>');
+  MustContainError(2, errors, 184);
+
+  //No backslashes relative paths
+  errors := TestCompile('<?wh LOADLIB "wh::internet\\\\ftp.whlib"; ?>');
+  MustContainError(3, errors, 184);
+
+  //No terminating spaces or dots
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib "; ?>');
+  MustContainError(4, errors, 184);
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib."; ?>');
+  MustContainError(5, errors, 184);
+
+  //No spaces and dots inside paths
+  errors := TestCompile('<?wh LOADLIB "test::a /testdata_loadlib_a.whlib"; ?>');
+  MustContainError(6, errors, 184);
+  errors := TestCompile('<?wh LOADLIB "test::b./testdata_loadlib_a.whlib"; ?>');
+  MustContainError(7, errors, 184);
+
+  //Once got harescript crashing with missing lib and no export
+  errors := TestCompile('<?wh LOADLIB "test::\x80.whlib" EXPORT i; ?>');
+  MustContainError(8, errors, 184);
+
+  CloseTest("TestLoadlib: SyntaxTest");
+}
+
+MACRO ExportTest()
+{
+  OpenTest("TestLoadlib: ExportTest");
+
+  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; deep_func1(); ?>');
+  TestCleanResult(1, result.errors);
+
+  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; deep_var1 := ""; ?>');
+  TestCleanResult(2, result.errors);
+
+  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; OBJECT x := NEW deep_objecttype1; PRINT(""||x->memberx); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "0", result.output);
+
+  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; OBJECT x := NEW deep_objecttype2; PRINT(""||x->memberx); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "7", result.output);
+
+  CloseTest("TestLoadlib: ExportTest");
+}
+
+MACRO AmbiguityTest()
+{
+  OpenTest("TestLoadlib: AmbiguityTest");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; LOADLIB "test::testdata_loadlib_b.whlib"; func1(); ?>');
+  MustContainError(1, errors, 114, "FUNC1");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; LOADLIB "test::testdata_loadlib_b.whlib"; int1; ?>');
+  MustContainError(2, errors, 114, "INT1");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; LOADLIB "test::testdata_loadlib_b.whlib"; mac1(); ?>');
+  MustContainError(3, errors, 114, "MAC1");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; LOADLIB "test::testdata_loadlib_b.whlib"; deep_func1(); ?>');
+  TestCleanResult(4, errors);
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_c.whlib" EXPORT deep_func1; LOADLIB "test::testdata_loadlib_b.whlib";  ?>');
+  TestCleanResult(5, errors);
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; LOADLIB "test::testdata_loadlib_c.whlib" EXPORT deep_func1;  ?>');
+  TestCleanResult(6, errors);
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_c.whlib"; LOADLIB "wh::datetime.whlib" EXPORT deep_func1;  ?>');
+  MustContainError(7, errors, 9, "DEEP_FUNC1");
+
+  CloseTest("TestLoadlib: AmbiguityTest");
+}
+
+MACRO CirularReferenceTest()
+{
+  OpenTest("TestLoadlib: CircularReferenceTest");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_circ_a.whlib";  ?>');
+  MustContainError(1, errors, 179, "test::testdata_loadlib_circ_a.whlib");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_circ_b.whlib";  ?>');
+  MustContainError(2, errors, 179, "test::testdata_loadlib_circ_b.whlib");
+
+  CloseTest("TestLoadlib: CircularReferenceTest");
+}
+
+MACRO DeinitTest()
+{
+  OpenTest("TestLoadlib: DeinitTest");
+
+  errors := TestCompile('<?wh PUBLIC INTEGER FUNCTION Test1() __ATTRIBUTES__(DEINITMACRO) { RETURN 0; }');
+  MustContainError(1, errors, 20);
+  errors := TestCompile('<?wh PUBLIC MACRO Test1(INTEGER a) __ATTRIBUTES__(DEINITMACRO) { }');
+  MustContainError(2, errors, 20);
+  errors := TestCompile('<?wh PUBLIC MACRO Test1() __ATTRIBUTES__(DEINITMACRO) { } PUBLIC MACRO Test2() __ATTRIBUTES__(DEINITMACRO) { }');
+  MustContainError(3, errors, 21);
+  errors := TestCompile('<?wh PUBLIC MACRO Test1() __ATTRIBUTES__(DEINITMACRO) { } PUBLIC MACRO Test2() __ATTRIBUTES__(DEINITMACRO) { }');
+  MustContainError(4, errors, 21);
+
+  result := TestCompileAndRun('<?wh PUBLIC MACRO Test1() __ATTRIBUTES__(DEINITMACRO) { PRINT ("Testing 1 2 3"); }');
+  TestCleanResult(5,result.errors);
+  TestEqualString(6, "Testing 1 2 3", result.output);
+
+  CloseTest("TestLoadlib: DeinitTest");
+}
+
+MACRO NoDirectLoadlibtest()
+{
+  OpenTest("TestLoadlib: DirectLoadlibTest");
+
+//  errors := TestCompile('<?wh LOADLIB "direct::' || hsengine_tests_dir || '/tests/testdata_loadlib_a.whlib"; ');
+//  MustContainError(1, errors, 1, "direct::" || hsengine_tests_dir || "/tests/testdata_loadlib_a.whlib");
+
+  CloseTest("TestLoadlib: DirectLoadlibTest");
+}
+
+MACRO TranslateLibraryPath()
+{
+  STRING whpath := MergePath(selftests_whtree_dir, "modules/system/whlibs/");
+  STRING whrespath := MergePath(selftests_whtree_dir, "modules/system/whres/");
+
+  TestEq("wh::internal/formatter.whlib", __HS_INTERNAL_TRANSLATELIBRARYPATH(whpath || "/internal/formatter.whlib"));
+  TestEq("whres::asn1/ldap.asn1", __HS_INTERNAL_TRANSLATELIBRARYPATH(whrespath || "/asn1/ldap.asn1"));
+}
+
+MACRO ObjectStructures()
+{
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; STATIC OBJECTTYPE test EXTEND objecttype3ext < MACRO NEW() { this->memberx3 := 0; } >; ?>');
+  TestCleanResult(0, errors);
+}
+
+MACRO ConstantTest()
+{
+  TestAnnotatedCompile(`<?wh LOADLIB "wh::float.whlib"; LOADLIB "wh::datetime.whlib";
+pi := 3f;
+// <- E:261
+MAX_DATETIME := MakeDate(2000, 1, 1);
+// <- E:261`);
+
+  result := TestCompileAndRun('<?wh PUBLIC MACRO Test(FLOAT x DEFAULTSTO pi) { PRINT(FormatFloat(x, 2)); } Test();');
+  TestCleanResult(5,result.errors);
+  TestEqualString(6, "3.14", result.output);
+
+  TestAnnotatedCompile(`<?wh LOADLIB "wh::float.whlib";
+CONSTANT FLOAT my_pi := pi;
+`);
+}
+
+PRINT("\n === Running TestLoadlib\n");
+DeinitTest();
+SyntaxTest();
+ExportTest();
+AmbiguityTest();
+CirularReferenceTest();
+NoDirectLoadlibtest();
+DeinitTest();
+TranslateLibraryPath();
+ObjectStructures();
+ConstantTest();

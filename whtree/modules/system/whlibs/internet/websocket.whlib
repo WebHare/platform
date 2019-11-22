@@ -1,0 +1,619 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+FUNCTION PTR logdebug;
+
+PUBLIC BOOLEAN __debugwebsockets := FALSE;
+
+PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // Input data buffer
+  STRING inbuffer;
+
+  /// packet data
+  INTEGER datastream;
+  INTEGER64 datastreamlen;
+
+  // Whether this is ide is the client
+  BOOLEAN localisclient;
+
+  // Whether instream is closed (by receiving connection close / connection terminated)
+  BOOLEAN inclosed;
+
+  // Whether outstream is closed (by sending connection close)
+  BOOLEAN outclosed;
+
+  // Current packet (for reassembly)
+  RECORD curpacket;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(BOOLEAN localisclient)
+  {
+    this->localisclient := localisclient;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Data getting & setting (to override)
+  //
+
+  MACRO InternalSend(STRING data)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  VARIANT FUNCTION InternalWaitInputSignalled(DATETIME wait_until)
+  {
+    RETURN TRUE;
+  }
+
+  RECORD FUNCTION InternalReceive(INTEGER bytes)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  MACRO InternalFlush()
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO Log(VARIANT ARRAY data) __ATTRIBUTES__(VARARG)
+  {
+    VARIANT ARRAY prefix := [ "system:websockets", this->localisclient ? "client" : "server" ];
+    IF (logdebug = DEFAULT FUNCTION PTR)
+      logdebug := MakeFunctionPtr("mod::system/lib/cluster.whlib", "LogDebug");
+    CallMacroPtrVA(logdebug, prefix CONCAT data);
+  }
+
+  VARIANT FUNCTION WaitReadSignalledHelper(INTEGER handle, DATETIME wait_until)
+  {
+    // Quick test to avoid async functions overhead
+    IF (WaitForMultipleUntil([ handle ], DEFAULT INTEGER ARRAY, DEFAULT DATETIME) = handle)
+      RETURN TRUE;
+
+    RECORD defer := CreateDeferredPromise();
+    defer.promise->userdata :=
+        [ signal_cb :=  RegisterHandleReadCallback(handle, PTR this->IsReadSignalled(defer, TRUE))
+        , timeout_cb := wait_until = MAX_DATETIME ? 0 : RegisterTimedCallback(wait_until, PTR this->IsReadSignalled(defer, FALSE))
+        ];
+    RETURN defer.promise;
+  }
+
+  MACRO IsReadSignalled(RECORD defer, BOOLEAN signalled)
+  {
+    UnregisterCallback(defer.promise->userdata.signal_cb);
+    IF (signalled AND defer.promise->userdata.timeout_cb != 0)
+      UnregisterCallback(defer.promise->userdata.timeout_cb);
+
+    defer.resolve(signalled);
+  }
+
+  /// Returns frame header & mask
+  RECORD FUNCTION GetFrameHeader(INTEGER op, INTEGER64 datalen)
+  {
+    IF (__debugwebsockets)
+      this->Log("Send frame, op " || op || ", " || datalen || " bytes");
+
+    STRING res := ByteToString(128+op); // FIN + op
+    IF (datalen < 126)
+      res := res || ByteToString(INTEGER(datalen) + (this->localisclient ? 128 : 0));
+    ELSE IF (datalen < 65536)
+      res := res || (this->localisclient ? ByteToString(254) : "\u007E") || EncodePacket("payload:N", [ payload := INTEGER(datalen) ]);
+    ELSE
+      res := res || (this->localisclient ? ByteToString(255) : "\u007F") || EncodePacket("payload:D", [ payload := datalen ]);
+
+    STRING mask;
+    IF (this->localisclient)
+      mask := ByteToString(Random(0, 255)) || ByteToString(Random(0, 255)) || ByteToString(Random(0, 255)) || ByteToString(Random(0, 255));
+
+    RETURN [ header := res || mask, mask := mask ];
+  }
+
+  RECORD FUNCTION DecodePacketHeader()
+  {
+    IF (this->inclosed)
+      RETURN [ status := "gone" ];
+
+    INTEGER buflen := LENGTH(this->inbuffer);
+    IF (buflen < 2)
+      RETURN [ status := "incomplete", needbytes := 2i64 - buflen + (this->localisclient ? 0 : 4) ]; // 1 header, maybe mask
+    RECORD res := DecodePacket("op:C,payload:C", Left(this->inbuffer, 2));
+
+    BOOLEAN fin := (res.op BITAND 128) != 0;
+    INTEGER resv := (res.op / 16) BITAND 7;
+    INTEGER op := res.op BITAND 15;
+    BOOLEAN mask := (res.payload BITAND 128) != 0;
+    INTEGER64 payloadlen64 := res.payload BITAND 127;
+
+    INTEGER pos := 2;
+    IF (payloadlen64 = 126)
+    {
+      IF (buflen < 4)
+        RETURN [ status := "incomplete", needbytes := 4i64 - buflen + (this->localisclient ? 0 : 4) ];
+      payloadlen64 := DecodePacket("payload:N", SubString(this->inbuffer, 2, 2)).payload;
+      pos := pos + 2;
+    }
+    ELSE IF (payloadlen64 = 127)
+    {
+      IF (buflen < 10)
+        RETURN [ status := "incomplete", needbytes := 10i64 - buflen + (this->localisclient ? 0 : 4) ];
+      payloadlen64 := DecodePacket("payload:D", SubString(this->inbuffer, 2, 8)).payload;
+      pos := pos + 8;
+    }
+
+    IF (payloadlen64 > 2147483647)
+      THROW NEW Exception("Can't handle >2GB websocket frames");
+
+    INTEGER payloadlen := INTEGER(payloadlen64);
+
+    STRING maskingkey;
+    IF (mask)
+    {
+      IF (buflen < pos + 4)
+        RETURN [ status := "incomplete", needbytes := pos + 4i64 - buflen ];
+      maskingkey := SubString(this->inbuffer, pos, 4);
+      pos := pos + 4;
+    }
+
+    RETURN CELL[ status := "complete", headerlen := pos, maskingkey, payloadlen := payloadlen64, fin, op ];
+  }
+
+  MACRO AddToDataStream(STRING data)
+  {
+    IF (LENGTH(data) = 0)
+      RETURN;
+
+    IF (this->datastream = 0)
+      this->datastream := CreateStream();
+
+    PrintTo(this->datastream, data);
+    this->datastreamlen := this->datastreamlen + LENGTH(data);
+  }
+
+  BLOB FUNCTION RemoveDataFromStream()
+  {
+    IF (this->datastream = 0)
+      RETURN DEFAULT BLOB;
+
+    BLOB retval := MakeBlobFromStream(this->datastream);
+    this->datastreamlen := 0;
+    this->datastream := 0;
+    RETURN retval;
+  }
+
+  RECORD FUNCTION DecodePacket()
+  {
+    RECORD header := this->DecodePacketHeader();
+    IF (header.status != "complete")
+    {
+      IF (this->datastreamlen != 0)
+      {
+        this->inbuffer := this->inbuffer || BlobToString(this->RemoveDataFromStream());
+        header := this->DecodePacketHeader();
+      }
+
+      IF (header.status != "complete")
+        RETURN header;
+    }
+
+    // Move extra data from the input buffer into the stream
+    IF (LENGTH(this->inbuffer) > header.headerlen)
+    {
+      this->AddToDataStream(SubString(this->inbuffer, header.headerlen));
+      this->inbuffer := Left(this->inbuffer, header.headerlen);
+    }
+
+    IF (this->datastreamlen < header.payloadlen)
+      RETURN [ status := "incomplete", needbytes := header.payloadlen - this->datastreamlen ];
+
+    // Packet complete
+    BLOB packetdata := this->RemoveDataFromStream();
+
+    // Move extra data into the inbuffer
+    this->inbuffer := BlobToString(MakeComposedBlob([ CELL[ data := packetdata, start := header.payloadlen ] ]));
+
+    // Get data for this packet
+    STRING data := BlobToString(MakeComposedBlob([ CELL[ data := packetdata, len := header.payloadlen ] ]));
+
+    IF (IsValueSet(header.maskingkey))
+      data := Encrypt_Xor(header.maskingkey, data);
+
+    RECORD packet := CELL
+        [ status :=     "ok"
+        , header.fin
+        , header.op
+        , data :=       data
+        ];
+
+    IF (header.op = 8)
+    {
+      INTEGER code := 1006; // missing code (7.1.5)
+      IF (LENGTH(packet.data) >= 2)
+        code := DecodePacket("code:N", packet.data).code;
+      INSERT CELL code := code INTO packet;
+      INSERT CELL reason := SubString(packet.data, 2) INTO packet;
+    }
+
+    IF (this->localisclient = IsValueSet(header.maskingkey))
+      packet.status := "maskerror";
+
+    RETURN packet;
+  }
+
+  MACRO SendFrame(INTEGER op, STRING data)
+  {
+    IF (this->outclosed)
+      RETURN;
+
+    RECORD headerdata := this->GetFrameHeader(op, LENGTH(data));
+    this->InternalSend(headerdata.header || (headerdata.mask = "" ? data : Encrypt_Xor(headerdata.mask, data)));
+    this->InternalFlush();
+
+    IF (op = 8)
+      this->outclosed := TRUE;
+  }
+
+  MACRO SendFrameBlob(INTEGER op, BLOB data)
+  {
+    IF (this->outclosed)
+      RETURN;
+
+    RECORD headerdata := this->GetFrameHeader(op, LENGTH64(data));
+
+    INTEGER blobfile := OpenBlobAsFile(data);
+
+    WHILE (TRUE)
+    {
+      STRING buffer;
+      WHILE (blobfile != 0 AND LENGTH(buffer) < 16384)
+      {
+        STRING part := ReadFrom(blobfile, 16384 - LENGTH(buffer));
+        buffer := buffer || part;
+        IF (part = "")
+        {
+          CloseBlobFile(blobfile);
+          blobfile := 0;
+          BREAK;
+        }
+      }
+
+      IF (LENGTH(buffer) = 0)
+        BREAK;
+
+      // INV LENGTH(buffer) = 16384 XOR blobfile = 0
+      this->InternalSend(headerdata.header || (headerdata.mask = "" ? buffer : Encrypt_Xor(headerdata.mask, buffer)));
+      headerdata.header := "";
+    }
+
+    this->InternalFlush();
+  }
+
+  OBJECT ASYNC FUNCTION ReceiveRawPacketInternal(DATETIME wait_until)
+  {
+    RECORD rec := this->DecodePacket();
+    WHILE (rec.status = "incomplete")
+    {
+      INTEGER64 needbytes := rec.needbytes;
+      WHILE (needbytes > 0)
+      {
+        IF (__debugwebsockets)
+          this->Log("Enter wait\n");
+
+        VARIANT waitval := this->InternalWaitInputSignalled(wait_until);
+        IF (TypeID(waitval) = TypeID(OBJECT))
+          waitval := AWAIT waitval;
+
+        IF (NOT waitval)
+          RETURN rec;
+
+        IF (__debugwebsockets)
+          this->Log("Wait satisfied\n");
+
+        INTEGER readbytes := INTEGER(needbytes > 65536 ? 65536i64 : needbytes);
+        RECORD res := this->InternalReceive(readbytes);
+        IF (res.status != 0 OR res.data = "")
+        {
+          IF (res.status = -13) // Spurious wakeup?
+            CONTINUE;
+
+          this->inclosed := TRUE;
+          this->ReleaseDataStream();
+
+          IF (__debugwebsockets)
+            this->Log("Connection closed without error frame");
+
+          // Fake a 1006 close code
+          RETURN [ status := "ok", fin := TRUE, op := 8, data := "", code := 1006, reason := "" ];
+        }
+
+        this->AddToDataStream(res.data);
+        needbytes := needbytes - LENGTH(res.data);
+      }
+
+      rec := this->DecodePacket();
+    }
+
+    IF (rec.status = "gone")
+      RETURN rec;
+
+    IF (__debugwebsockets)
+      this->Log("Got frame, op " || rec.op || (rec.op in [1,2]?(", " ||LENGTH(rec.data) || " bytes"):""));
+
+    // Send close - will terminate the websocket connection
+    IF (rec.status = "ok" AND rec.op = 8)
+    {
+      this->inclosed := TRUE;
+      this->ReleaseDataStream();
+
+      this->SendClose(1000, "Close received, bye bye");
+    }
+    ELSE IF (rec.status = "maskerror")
+    {
+      IF (this->localisclient)
+      {
+        this->SendClose(1002, "Received frame with mask");
+        RETURN [ status := "ok", fin := TRUE, op := 8, data := "", code := 1002, reason := "Server frame was masked" ];
+      }
+      {
+        this->SendClose(1002, "Received frame without mask");
+        RETURN [ status := "ok", fin := TRUE, op := 8, data := "", code := 1002, reason := "Client frame was not masked" ];
+      }
+    }
+
+    RETURN rec;
+  }
+
+  OBJECT ASYNC FUNCTION ReceivePacketInternal(DATETIME wait_until)
+  {
+    IF (RecordExists(this->curpacket) AND this->curpacket.fin)
+    {
+      RECORD answer := this->curpacket;
+      this->curpacket := DEFAULT RECORD;
+      DELETE CELL fin FROM answer;
+      IF (answer.status = "incomplete")
+        answer.status := "timeout";
+      RETURN answer;
+    }
+
+    WHILE (TRUE)
+    {
+      RECORD packet := AWAIT this->ReceiveRawPacketInternal(wait_until);
+      IF (packet.status != "ok")
+        RETURN packet;
+
+      IF (NOT packet.fin)
+      {
+        IF (NOT RecordExists(this->curpacket))
+          this->curpacket := packet;
+        ELSE IF (packet.op = 0)
+          this->curpacket.data := this->curpacket.data || packet.data;
+        ELSE
+        {
+          RECORD answer := [ status := "error", msg := "Error during reassembly" ];
+          this->curpacket := packet;
+          RETURN answer;
+        }
+
+        CONTINUE;
+      }
+
+      IF (packet.op = 0 AND RecordExists(this->curpacket))
+      {
+        this->curpacket.data := this->curpacket.data || packet.data;
+        packet := this->curpacket;
+        this->curpacket := DEFAULT RECORD;
+      }
+
+      DELETE CELL fin FROM packet;
+      IF (packet.status = "incomplete")
+        packet.status := "timeout";
+      RETURN packet;
+    }
+  }
+
+  MACRO ReleaseDataStream()
+  {
+    IF (this->datastream != 0)
+    {
+      MakeBlobFromStream(this->datastream);
+      this->datastream := 0;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Receives a packet
+      @return
+      @cell(string) return.status 'ok', 'timeout', 'gone'
+      @cell(integer) return.op 1: data, 2: binary, 8: connection close, 9: ping, 10:pong
+      @cell(string) return.data Packet data
+      @cell(integer) return.code Connection close code (only for op 8, see rfc 6455 11.7)
+      @cell(string) return.reason Connection close reason text
+  */
+  PUBLIC RECORD FUNCTION ReceivePacket(DATETIME wait_until)
+  {
+    RETURN WaitForPromise(this->ReceivePacketInternal(wait_until));
+  }
+
+  PUBLIC RECORD FUNCTION ReceivePacketBlob(DATETIME wait_until)
+  {
+    // ADDME break 2 GB frontier
+    RECORD rec := WaitForPromise(this->ReceivePacketInternal(wait_until));
+    IF (CellExists(rec, "DATA"))
+    {
+      STRING data := rec.data;
+      DELETE CELL data FROM rec;
+      INSERT CELL data := StringToBlob(data) INTO rec;
+    }
+    RETURN rec;
+  }
+
+  /** Asynchronously receives a packet
+      @return
+      @cell(string) return.status 'ok', 'timeout', 'gone'
+      @cell(integer) return.op 1: data, 2: binary, 8: connection close, 9: ping, 10:pong
+      @cell(string) return.data Packet data
+      @cell(integer) return.code Connection close code (only for op 8, see rfc 6455 11.7)
+      @cell(string) return.reason Connection close reason text
+  */
+  PUBLIC OBJECT ASYNC FUNCTION AsyncReceivePacket(DATETIME wait_until)
+  {
+    RETURN this->ReceivePacketInternal(wait_until);
+  }
+
+  PUBLIC OBJECT ASYNC FUNCTION AsyncReceivePacketBlob(DATETIME wait_until)
+  {
+    RECORD rec := AWAIT this->ReceivePacketInternal(wait_until);
+    IF (CellExists(rec, "DATA"))
+    {
+      STRING data := rec.data;
+      DELETE CELL data FROM rec;
+      INSERT CELL data := StringToBlob(data) INTO rec;
+    }
+    RETURN rec;
+  }
+
+  PUBLIC MACRO SendData(STRING data)
+  {
+    this->SendFrame(1, data);
+  }
+
+  PUBLIC MACRO SendDataBlob(BLOB data)
+  {
+    this->SendFrameBlob(1, data);
+  }
+
+  PUBLIC MACRO SendBinaryData(STRING data)
+  {
+    this->SendFrame(2, data);
+  }
+
+  PUBLIC MACRO SendBinaryDataBlob(BLOB data)
+  {
+    this->SendFrameBlob(2, data);
+  }
+
+  PUBLIC MACRO SendClose(INTEGER code, STRING reason)
+  {
+    this->SendFrame(8, code != 0 ? EncodePacket("code:N", [ code := code ]) || reason : "");
+  }
+
+  PUBLIC MACRO SendPing(STRING data)
+  {
+    this->SendFrame(9, data);
+  }
+
+  PUBLIC MACRO SendPong(STRING data)
+  {
+    this->SendFrame(10, data);
+  }
+
+  /** Releases resources, won't send a close packet
+  */
+  PUBLIC MACRO Close()
+  {
+    this->ReleaseDataStream();
+    this->inclosed := TRUE;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE WebSocketClientConnection EXTEND WebSocketConnectionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER stream;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY handle(stream, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER stream)
+  : WebSocketConnectionBase(TRUE)
+  {
+    this->stream := stream;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Data getting & setting (to override)
+  //
+
+  UPDATE MACRO InternalSend(STRING data)
+  {
+    IF (__debugwebsockets)
+    {
+      IF (LENGTH(data) > 24)
+        this->Log("WS Send: " || Left(EncodeBase16(data), 24) || "..." || Right(EncodeBase16(data), 24) || " (" || LENGTH(data) || ")\n");
+      ELSE
+        this->Log("WS Send: " || EncodeBase16(data) || " (" || LENGTH(data) || ")\n");
+    }
+    PrintTo(this->stream, data);
+  }
+
+  UPDATE VARIANT FUNCTION InternalWaitInputSignalled(DATETIME wait_until)
+  {
+    IF (__debugwebsockets)
+      this->Log("WS wait signalled\n");
+
+    RETURN this->WaitReadSignalledHelper(this->stream, wait_until);
+  }
+
+  UPDATE RECORD FUNCTION InternalReceive(INTEGER bytes)
+  {
+    IF (__debugwebsockets)
+      this->Log("WS Recv want " || bytes || " bytes\n");
+
+    // If this returns -13 (WOULDBLOCK) the handle will become signalled when NEW data is available!
+    RECORD rec := __HS_INTERNAL_ReceiveFrom(this->stream, -bytes, FALSE, FALSE, FALSE);
+    IF (__debugwebsockets)
+    {
+      IF (rec.status != 0)
+        this->Log("WS Recv status " || rec.status || "\n");
+      ELSE IF (LENGTH(rec.data) > 24)
+        this->Log("WS Recv: " || Left(EncodeBase16(rec.data), 24) || "..." || Right(EncodeBase16(rec.data), 24) || " (" || LENGTH(rec.data) || ")\n");
+      ELSE
+        this->Log("WS Recv: " || EncodeBase16(rec.data) || " (" || LENGTH(rec.data) || ")\n");
+    }
+    RETURN rec;
+  }
+
+  UPDATE MACRO InternalFlush()
+  {
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    WebSocketConnectionBase::Close();
+    CloseSocket(this->stream);
+  }
+>;

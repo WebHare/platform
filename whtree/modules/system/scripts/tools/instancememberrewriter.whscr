@@ -1,0 +1,65 @@
+﻿<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/conversion.whlib";
+
+
+MACRO DidYouMean(STRING intext, STRING ARRAY options)
+{
+  RECORD ARRAY best_matches := SELECT text, distance := CalculateLevenshteinDistance(ToUppercase(intext), ToUppercase(text))
+                                 FROM ToRecordArray(options, "text");
+  RECORD bestmatch := SELECT * FROM best_matches WHERE distance <= 2 ORDER BY distance DESC LIMIT 1;
+  IF(RecordExists(bestmatch))
+    Print(", did you mean '" || bestmatch.text || "' ?");
+}
+
+MACRO ReportMissing(STRING typenamespace)
+{
+  Print("Unknown namespace '" || typenamespace || "'");
+  DidYouMean(typenamespace, SELECT AS STRING ARRAY namespace FROM system.fs_types);
+  Print("\n");
+  SetConsoleExitCode(1);
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "srctype", type := "param" ]
+                                                     , [ name := "srcmember", type := "param" ]
+                                                     , [ name := "desttype", type := "param" ]
+                                                     , [ name := "destmember", type := "param" ]
+                                                     ]);
+
+IF (NOT RecordExists(args)
+    OR args.srctype = "" OR args.srcmember = ""
+    OR args.desttype = "" OR args.destmember = "")
+{
+  Print("Usage: instancememberrewriter.whscr <srctype> <srcmember> <desttype> <destmember>\n");
+  Print("       srctype    Source contenttype URL\n");
+  Print("       srcmember  Source contenttype member\n");
+  Print("       desttype   Destination contenttype URL\n");
+  Print("       destmember Destination contenttype member\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+OBJECT srctype := OpenWHFSType(args.srctype);
+IF(NOT ObjectExists(srctype))
+{
+  ReportMissing(args.srctype);
+  RETURN;
+}
+
+OBJECT desttype := OpenWHFSType(args.desttype);
+IF(NOT ObjectExists(desttype))
+{
+  ReportMissing(args.desttype);
+  RETURN;
+}
+
+CopyAndConvertWHFSMembers(srctype, args.srcmember, desttype, args.destmember);
+trans->CommitWork();

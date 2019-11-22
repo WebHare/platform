@@ -1,0 +1,66 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/tagmanager.whlib";
+
+PUBLIC OBJECTTYPE TagManager EXTEND TolliumScreenBase
+<
+  OBJECT tagmanager;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->tagmanager := OpenSimpleTagManager(OpenWHFSObject(data.tagfolder));
+    this->tags->ReloadList();
+  }
+  PUBLIC RECORD ARRAY FUNCTION LoadTags(RECORD parent)
+  {
+    RETURN SELECT *
+                , rowkey := id
+             FROM this->tagmanager->GetAllTagData();
+  }
+
+  PUBLIC MACRO DeleteRow(RECORD row)
+  {
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".suredelete", row.tag)) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    OBJECT tag := this->tagmanager->GetTagById(row.id);
+    tag->DeleteSelf();
+    work->Finish();
+  }
+
+  PUBLIC MACRO EditRow(RECORD row)
+  {
+    this->RunScreen("#tagedit", [ id := row.id, tag := row.tag, mgr := this->tagmanager ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE TagEdit EXTEND TolliumScreenBase
+<
+  PUBLIC RECORD value;
+
+  UPDATE MACRO Init(RECORD data)
+  {
+    this->value := data;
+    this->tag->value := this->value.tag;
+  }
+
+  UPDATE BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    OBJECT mgr := this->value.mgr;
+    OBJECT existingtag := mgr->GetTag(this->tag->value);
+    IF(ObjectExists(existingtag) AND existingtag->id != this->value.id)
+      work->AddErrorFor(this->tag, this->GetTid(".alreadyexists"));
+
+    IF(NOT work->HasFailed())
+    {
+      OBJECT tag := mgr->GetTagById(this->value.id);
+      tag->RenameTo(this->tag->value);
+    }
+    RETURN work->Finish();
+  }
+>;

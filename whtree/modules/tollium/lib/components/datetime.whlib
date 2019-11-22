@@ -1,0 +1,414 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+  // FIXME: value/type/precision changes should truncate the value to the current precision
+
+/////////////////////////////////////////////////////////////////////
+// Date&time field
+PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
+<
+  /// Types of state to save
+  STRING ARRAY pvt_savestate;
+  DATETIME pvt_value;
+
+  BOOLEAN pvt_invaliddate;
+  BOOLEAN pvt_invalidtime;
+  BOOLEAN pvt_invalidyear;
+  BOOLEAN pvt_storeutc;
+  STRING pvt_type;
+  STRING pvt_precision;
+  STRING pvt_compmargin;
+  INTEGER pvt_cutoffyear;
+
+  INTEGER start_year;
+  INTEGER end_year;
+
+
+  /** Contains the type of state to save. Allowed states: 'value'.
+  */
+  PUBLIC PROPERTY savestate(pvt_savestate, SetSaveState);
+  PUBLIC PROPERTY startyear(start_year, SetStartYear);
+  PUBLIC PROPERTY endyear(end_year, SetEndYear);
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY localtzvalue(GetLocalTZValue, SetLocalTZValue);
+
+  PUBLIC PROPERTY type(pvt_type, SetType);                    ///< Allowed values: 'datetime'/'date'/'time'
+  PUBLIC PROPERTY precision(pvt_precision, SetPrecision);     ///< Allowed values: 'minutes'/'seconds'/'milliseconds'
+  PUBLIC PROPERTY invaliddate(pvt_invaliddate, -);
+  PUBLIC PROPERTY invalidtime(pvt_invalidtime, -);
+  PUBLIC PROPERTY invalidyear(pvt_invalidyear, -);
+  PUBLIC PROPERTY cutoffyear(pvt_cutoffyear, SetCutoffYear);
+
+  PUBLIC DATETIME emptyvalue;
+  PUBLIC MACRO PTR onselect;
+  PUBLIC PROPERTY storeutc(pvt_storeutc, SetStoreUTC);
+
+  // Initialization stuff
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->pvt_type := "datetime";
+    this->pvt_precision := "seconds";
+    this->pvt_compmargin := "0px";
+    this->pvt_cutoffyear := 70;
+    this->componenttype := "datetime";
+    this->formfieldtype := "string";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    IF(NOT CellExists(def,'storeutc')) //we're a <date>
+    {
+      this->pvt_type := "date";
+    }
+    ELSE
+    {
+      this->pvt_storeutc := def.storeutc;
+      this->pvt_type := def.type;
+      this->pvt_precision := def.precision;
+      this->emptyvalue := def.emptyvalue = "max_datetime" ? MAX_DATETIME : DEFAULT DATETIME;
+    }
+    IF (def.cutoffyear >= -1 AND def.cutoffyear <= 100)
+      this->pvt_cutoffyear := def.cutoffyear;
+
+    this->pvt_required := def.required;
+    this->errorlabel := def.errorlabel;
+    this->onselect := def.onselect;
+    this->savestate := def.savestate;
+  }
+
+  MACRO SetStoreUTC(BOOLEAN newutc)
+  {
+    IF(this->pvt_storeutc=newutc)
+      RETURN;
+
+    this->pvt_storeutc := newutc;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetStartYear(INTEGER startyear)
+  {
+    this->start_year := startyear;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetEndYear(INTEGER endyear)
+  {
+    this->end_year := endyear;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetSaveState(STRING ARRAY savestate)
+  {
+    this->pvt_savestate := DEFAULT STRING ARRAY;
+    IF ("value" IN savestate)
+      INSERT "value" INTO this->pvt_savestate AT END;
+  }
+  // Getter-setter functions
+
+  BOOLEAN FUNCTION GetInvalidTime()
+  {
+    RETURN ObjectExists(this->timecomp) AND this->timecomp->invalidtime;
+  }
+
+  DATETIME FUNCTION GetLocalTZValue()
+  {
+    IF (this->pvt_storeutc AND this->type = "date" AND NOT IsDTAPLive())
+      THROW NEW TolliumException(this, `UTC stored values are not supported for datetime components of type "date"`);
+    RETURN this->pvt_storeutc ? this->owner->tolliumuser->UTCToLocal(this->value) : this->value;
+  }
+  MACRO SetLocalTZValue(DATETIME newval)
+  {
+    IF (this->pvt_storeutc AND this->type = "date" AND NOT IsDTAPLive())
+      THROW NEW TolliumException(this, `UTC stored values are not supported for datetime components of type "date"`);
+    this->value := this->pvt_storeutc ? this->owner->tolliumuser->LocalToUTC(this->value) : this->value;
+  }
+
+  DATETIME FUNCTION GetValue()
+  {
+    RETURN this->pvt_value != DEFAULT DATETIME ? this->pvt_value : this->emptyvalue;
+  }
+  DATETIME FUNCTION ClampValue(DATETIME inval)
+  {
+    IF (inval = MAX_DATETIME)
+    {
+      IF (this->emptyvalue != MAX_DATETIME)
+        THROW NEW TolliumException(this, "Cannot represent a MAX_DATETIME, add emptyvalue='max_datetime' first");
+    }
+    ELSE IF (inval > MakeDate(9999,12,31))
+    {
+      RECORD up := UnpackDateTime(inval);
+      inval := MakeDateTime(9999, up.month, up.dayofmonth, up.hour, up.minute, up.second, up.msecond);
+    }
+
+    IF(this->type="date") //only storing dates
+      RETURN GetRoundedDatetime(inval, 86400*1000);
+
+    IF(this->precision="minutes")
+      RETURN GetRoundedDatetime(inval, 60*1000);
+    IF(this->precision="seconds")
+      RETURN GetRoundedDatetime(inval, 1000);
+    RETURN inval;
+  }
+  MACRO SetValue(DATETIME newval)
+  {
+    DATETIME oldvalue := this->pvt_value;
+
+    this->pvt_value := this->ClampValue(newval);
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(DATETIME);
+  }
+
+  MACRO SetType(STRING newtype)
+  {
+    if (this->pvt_type = newtype)
+      RETURN;
+
+    this->pvt_type := newtype;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetPrecision(STRING newprecision)
+  {
+    IF (this->pvt_precision = newprecision)
+      RETURN;
+
+    this->pvt_precision := newprecision;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetCutoffYear(INTEGER year)
+  {
+    IF (year < -1 OR year > 100)
+      RETURN;
+    IF (year != this->pvt_cutoffyear)
+    {
+      this->pvt_cutoffyear := year;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  // Getter-setter functions
+  BOOLEAN FUNCTION GetInvalidDate()
+  {
+    this->ExtDateGet();
+    RETURN this->pvt_invaliddate;
+  }
+  BOOLEAN FUNCTION GetInvalidYear()
+  {
+    this->ExtDateGet();
+    RETURN this->pvt_invalidyear;
+  }
+
+  MACRO TryParseStringDate(STRING indate)
+  {
+    this->pvt_invalidyear := false;
+    this->pvt_invaliddate := false;
+
+    //Tokenize the date
+    indate := Substitute(indate,'-',' ');
+    indate := Substitute(indate,'.',' ');
+    indate := Substitute(indate,'/',' ');
+    IF(TrimWhitespace(indate)="")
+    {
+      this->pvt_curval := DEFAULT DATETIME;
+      RETURN;
+    }
+
+    INTEGER day := -1, month := -1, year := -1;
+    STRING ARRAY datetoks;
+    FOREVERY(STRING tok FROM Tokenize(indate,' '))
+      IF(tok!="" AND ToInteger(tok,-1)!=-1)
+        INSERT tok INTO datetoks AT END;
+
+    IF(Length(datetoks)=3) //Exactly 3 parts is a start
+    {
+      FOR(INTEGER i:=0;i<Length(this->owner->tolliumuser->longdateformat) AND Length(datetoks)>0;i:=i+1)
+      {
+        STRING tok := Substring(this->owner->tolliumuser->longdateformat,i,1);
+        SWITCH(tok)
+        {
+          CASE "D","N"
+          {
+            day := ToInteger(datetoks[0],-1);
+            DELETE FROM datetoks AT 0;
+          }
+          CASE "B","M"
+          {
+            month := ToInteger(datetoks[0],-1);
+            DELETE FROM datetoks AT 0;
+          }
+          CASE "Y"
+          {
+            IF(Length(datetoks[0])<4)
+            {
+              this->pvt_invalidyear := TRUE;
+              this->pvt_invaliddate := TRUE;
+            }
+            year := ToInteger(datetoks[0],-1);
+            DELETE FROM datetoks AT 0;
+          }
+        }
+      }
+    }
+    this->pvt_curval := MakeDate(year,month,day);
+    IF(this->pvt_curval != DEFAULT DATETIME)
+      RETURN;
+    this->pvt_invaliddate := TRUE;
+  }
+
+  STRING FUNCTION GetReadonlyDate(DATETIME when)
+  {
+    IF(this->type="datetime")
+      RETURN this->owner->tolliumuser->FormatDateTime(when, this->precision, FALSE, FALSE);
+    ELSE IF(this->type="date")
+      RETURN this->owner->tolliumuser->FormatDate(when, FALSE, FALSE);
+    ELSE
+      RETURN this->owner->tolliumuser->FormatTime(when, this->precision, FALSE);
+  }
+
+  UPDATE PUBLIC MACRO RestoreComponentState()
+  {
+    IF (Length(this->savestate) > 0 AND "value" IN this->savestate)
+    {
+      RECORD state := this->owner->tolliumuser->GetComponentState(this->GetSaveStateKey());
+      IF (RecordExists(state))
+      {
+        this->value := state.value;
+      }
+    }
+    TolliumComponentBase::RestoreComponentState();
+  }
+
+  UPDATE PUBLIC MACRO SaveComponentState()
+  {
+    IF (Length(this->savestate) > 0 AND "value" IN this->savestate)
+    {
+      this->owner->tolliumuser->SetComponentState(this->GetSaveStateKey(), [ value := this->value ]);
+    }
+    TolliumComponentBase::SaveComponentState();
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel!="" ? this->errorlabel : this->title;
+    IF(fieldtitle = '' AND OBjectExists(this->supercomponent))
+      fieldtitle := this->supercomponent->errorlabel!="" ? this->supercomponent->errorlabel : this->supercomponent->title;
+
+    IF(this->invalidtime)
+      work->AddErrorFor(this, GetTid("tollium:common.errors.invalid_time", fieldtitle));
+
+    IF(this->required AND (this->value = DEFAULT DATETIME OR this->invalidtime))
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+
+    IF (this->invaliddate)
+    {
+      IF (this->invalidyear)
+        work->AddErrorFor(this, GetTid("tollium:common.errors.invalid_year", fieldtitle));
+      ELSE
+        work->AddErrorFor(this, GetTid("tollium:common.errors.invalid_date", fieldtitle));
+    }
+    ELSE IF (this->required AND this->value = DEFAULT DATETIME)
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+    }
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      IF(this->readonly)
+      {
+        this->TolliumWebReadOnly(this->GetReadonlyDate(this->localtzvalue), FALSE);
+        RETURN;
+      }
+
+      STRING sendvalue;
+      IF (this->value = MAX_DATETIME)
+      {
+        IF (this->value != this->emptyvalue)
+          THROW NEW TolliumException(this, "Cannot represent a MAX_DATETIME, add emptyvalue='max_datetime'");
+      }
+      ELSE
+      {
+        DATETIME dt := this->localtzvalue;
+        IF (dt != this->emptyvalue)
+        {
+          // In time-only mode, just send the time, ignore the days (day 0 isn't handled very well by FormatISO8601Datetime)
+          IF (this->type = "time")
+            dt := MakeDateFromParts(1, GetMsecondCount(dt));
+
+          sendvalue := FormatISO8601Datetime(dt, "day", "milliseconds", "", FALSE);
+        }
+      }
+
+      RECORD compinfo := [ comptype := "datetime"
+                         , password := FALSE
+                         , required := this->required
+                         , maxlength := 16
+                         , value := sendvalue
+                         , dateformat := GetDateFormatString(this->owner->tolliumuser->shortdateformat, TRUE, TRUE)
+                         , placeholder := this->owner->tolliumuser->shortdateplaceholder
+                         , hint := this->hint
+                         , fieldtype := this->type
+                         , precision := this->precision
+                         , cutoffyear := this->cutoffyear
+
+                         , startyear := this->startyear
+                         , endyear   := this->endyear
+                         ];
+
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(STRING inp)
+  {
+    DATETIME intime;
+    IF(inp="MAX_DATETIME")
+    {
+      intime := MAX_DATETIME;
+    }
+    ELSE IF (inp = "")
+    {
+      intime := DEFAULT DATETIME;
+    }
+    ELSE
+    {
+      intime := MakeDateFromText(inp);
+
+      IF (this->type = "time")
+        intime := MakeDateFromParts(GetDayCount(this->localtzvalue), GetMsecondCount(intime));
+
+      IF (this->pvt_storeutc)
+        intime := this->owner->tolliumuser->LocalToUTC(intime);
+    }
+
+    DATETIME oldvalue := this->pvt_value;
+    this->pvt_value := intime;
+
+    IF (oldvalue != intime AND this->onselect != DEFAULT FUNCTION PTR)
+      this->owner->tolliumscreenmanager->QueueEvent(this, "select", DEFAULT RECORD);
+  }
+>;

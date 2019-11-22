@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="de" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="testfallback">   <!-- testfallback -->
+    <text tid="anothertext">Ein anderer Text</text>
+  </textgroup>
+</language>

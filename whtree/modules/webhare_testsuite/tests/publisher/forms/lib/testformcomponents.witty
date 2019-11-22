@@ -1,0 +1,7 @@
+[component tscustomcompfield]
+  <p>
+    <input type="checkbox" id="[firstid]-1" name="[name]" value="val1" class="wh-form__checkbox" [if c1]checked[/if]/><label for="[firstid]-1"></label><label for="[firstid]-1"> Checkbox 1</label><br/>
+    <input type="checkbox" id="[firstid]-2" name="[name]" value="val2" class="wh-form__checkbox" [if c2]checked[/if]/><label for="[firstid]-2"></label><label for="[firstid]-2"> Checkbox 2</label><br/>
+    <input name="[name].sub" value="[subvalue]">
+  </p>
+[/component]

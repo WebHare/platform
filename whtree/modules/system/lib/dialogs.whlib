@@ -1,0 +1,171 @@
+<?wh
+/** @topic modules/integration */
+
+LOADLIB "mod::publisher/lib/rtd.whlib";
+LOADLIB "mod::system/lib/internal/composer.whlib";
+
+/** @short Run a witty tester/developers dialog
+    @param parent Screen or controller loading this dialog
+    @param data Witty merge data. Should contain the record for the Witty datra to use
+    @cell(string) data.wittypath If set and not overridden, path to the Witty
+    @cell(boolean) options.pdf If true, generate PDF from the witty
+    @cell(string) options.wittypath Witty to use. Overrides any wittypath passed in the data
+    @cell(blob) options.pdfbackground PDF background
+*/
+PUBLIC MACRO RunWittyTestDialog(OBJECT parent, RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ pdf := FALSE
+                             , pdfengine := "chrome"
+                             , pdfbackground := DEFAULT BLOB
+                             , wittypath := ""
+                             ], options);
+
+  IF(options.wittypath = "" AND NOT CellExists(data,'wittypath'))
+    THROW NEW Exception(`Wittypath was not explicitly specified and not passed as part of the data record either`);
+
+  STRING wittypath := options.wittypath ?? data.wittypath;
+
+  parent->contexts->opener->RunScreen("mod::system/tolliumapps/commondialogs/wittytest.xml#wittytest",
+   [ wittypath := wittypath
+   , data := data
+   , options := options
+   ]);
+}
+
+/** @short Run a dialog to (pre)view a single mail
+    @param parent Screen or controller loading this dialog
+    @param email Email (as message/rfc822, also known as .EML)
+    @param options No options available yet
+*/
+PUBLIC MACRO RunEmailViewDialog(OBJECT parent, BLOB email, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  parent->RunScreen("mod::system/screens/commondialogs.xml#mailviewer", [ mailblob := email ]);
+}
+
+/** @short Run a dialog to test and preview %PrepareMailWitty email
+    @param parent Screen or controller loading this dialog
+    @param email Email to test
+    @param options No options available yet
+*/
+PUBLIC MACRO RunEmailTestDialog(OBJECT parent, OBJECT email, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  parent->contexts->opener->RunScreen("mod::system/tolliumapps/commondialogs/wittytest.xml#emailtest",
+   [ email := email
+   , options := options
+   ]);
+}
+
+/** @short Run a mailqueue monitoir
+    @long This is an alternative filtered view to the mailqueue monitor panel from the dashboard suitable for non-supervisors
+    @param parent Screen or controller loading this dialog
+    @param filter The filter for the mail source, interpreted as a LIKE filter.
+    @param options No options available yet
+ */
+PUBLIC MACRO RunMailQueueDialog(OBJECT parent, STRING filter, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  parent->RunScreen("mod::system/screens/commondialogs.xml#mailqueuedialog", [ sourcefilter := filter ]);
+}
+
+/** @short Run a dialog to select a remote WebHare to establish a peering connection with
+    @param parent Screen or controller loading this dialog
+    @param options No options available yet
+    @return The selected WebHare peer. DEFAULT OBJECT is no selection is made
+*/
+PUBLIC OBJECT FUNCTION RunConnectRemoteWebHareDialog(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  OBJECT scr := parent->contexts->screen->LoadScreen("mod::system/tolliumapps/commondialogs/webharepeers.xml#peerservers");
+  IF(scr->RunModal()="ok")
+    RETURN scr->result;
+  RETURN DEFAULT OBJECT;
+}
+
+/** @short Run a dialog in which the user can compose a (rich) mail
+    @param parent Screen or controller loading this dialog
+    @cell(object) options.mailfrom Suggested mail sender
+    @cell(object) options.mailto Suggested mail receiver
+    @cell(object) options.mailcc Suggested mail CC
+    @cell(object) options.mailbcc Suggested mail BCC
+    @cell(object) options.subject Suggested mail subject
+    @cell(object) options.email Email created using %PrepareMailWitty which will be used as the base
+    @cell(record array) options.attachments Attachments to add to the mail. Should be a list of wrapped blob records (%WrapBlob)
+    @cell(macro ptr) options.onqueuedmail Callback that will receive the queued mail
+*/
+PUBLIC MACRO RunSendEmailDialog(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ mailfrom := ""
+                              , mailto := STRING[]
+                              , mailcc := STRING[]
+                              , mailbcc := STRING[]
+                              , subject := ""
+                              , email := DEFAULT OBJECT
+                              , onqueuedmail := DEFAULT MACRO PTR
+                              , attachments := RECORD[]
+                              ], options, [ optional := ["mailfrom","mailto","mailcc","mailbcc","subject"]]);
+
+  OBJECT screen := parent->LoadScreen("mod::system/screens/commondialogs.xml#mailer");
+  IF(ObjectExists(options.email))
+  {
+    //FIXME should avoid the EML step and directly process the composer
+    IF(NOT MemberExists(options.email, "__PrepareContent"))
+      THROW NEW Exception("The email passed to RunSendEmailDialog should be created using PrepareMailWitty");
+
+    RECORD prep := options.email->__PrepareContent();
+    screen->mailfrom := prep.mailfrom;
+    screen->mailto := GetMailRecipients(prep.mailto);
+    screen->mailcc := GetMailRecipients(prep.mailcc);
+    screen->mailbcc := GetMailRecipients(prep.mailbcc);
+    screen->mailsubject := prep.subject;
+    FOREVERY(RECORD attach FROM prep.attachments)
+      screen->AddAttachment(attach.data, attach.name, attach.contenttype);
+
+    screen->SetFromRTD(ValidateRichDocument([ htmltext := prep.htmlversion
+                                            , embedded := SELECT *, contentid := Substring(contentid, 1, Length(contentid)-2)  //strip < and > ... used in EML but not in RTD
+                                                            FROM prep.embeddedassets
+                                            ]));
+  }
+
+  IF(CellExists(options, 'mailfrom'))
+    screen->mailfrom := options.mailfrom;
+  IF(CellExists(options, 'mailto'))
+    screen->mailto := GetMailRecipients(options.mailto);
+  IF(CellExists(options, 'mailcc'))
+    screen->mailcc := GetMailRecipients(options.mailcc);
+  IF(CellExists(options, 'mailbcc'))
+    screen->mailbcc := GetMailRecipients(options.mailbcc);
+  IF(CellExists(options, 'subject'))
+    screen->mailsubject := options.subject;
+
+  FOREVERY(RECORD attach FROM options.attachments)
+    screen->AddAttachment(attach.data, attach.filename, attach.mimetype);
+
+  screen->onqueuedmail := options.onqueuedmail;
+  screen->RunModal();
+}
+
+/** @short Run a dialog that will run a module script
+    @param parent Screen or controller loading this dialog
+    @param script Script to run (name must start with mod::)
+    @param arguments Arguments to pass to the script
+    @cell options.inputenabled Enable input to the script (eq sql client) */
+PUBLIC MACRO RunModuleScriptDialog(OBJECT parent, STRING script, STRING ARRAY arguments, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(script NOT LIKE "mod::*")
+    THROW NEW Exception("The script to run MUST be inside a module");
+  options := ValidateOptions([ inputenabled := FALSE
+                             ], options);
+
+  OBJECT screen := parent->LoadScreen("mod::system/tolliumapps/commondialogs/runscript.xml#runscriptdialog", DEFAULT RECORD);
+  screen->inputenabled := options.inputenabled;
+  screen->script := script;
+  screen->arguments := arguments;
+  screen->Start();
+  screen->RunModal();
+}

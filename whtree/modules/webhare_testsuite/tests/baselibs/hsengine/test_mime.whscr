@@ -1,0 +1,358 @@
+<?wh
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/imap.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+
+RECORD ARRAY errors;
+RECORD result;
+
+MACRO MimeDecodeTest()
+{
+  INTEGER mimeid;
+  RECORD final;
+  RECORD ARRAY headers;
+
+  OpenTest("TestMime: MimeDecodeTest");
+
+  final := DecodeMIMEMessage(StringToBlob('Return-path: <""@>\r\nX-Original-To: <test1@linux039.utsp.utwente.nl>\r\nDelivered-To: test1@alumnus.utwente.net\r\nReceived: from 127.0.0.1\r\n        by 127.0.0.1 (Webhare MTP) with MTP id a41f009ce865d0e5066dd48be6ceeda4\r\n        for <test1@linux039.utsp.utwente.nl>; Mon, 26 Nov 2007 14:41:11 -0000 (UTC)\r\ntestje'));
+  TestEqual(1, 308, final.data.ofs_bodystart);
+  testEqual(2, 5, Length(final.headers));
+  testEqual(3, 0, Length(final.data.data));
+
+  CloseTest("TestMime: MimeDecodeTest");
+}
+
+MACRO MimeDecodeTest2()
+{
+  OpenTest("TestMime: MimeDecodeTest2");
+
+  RECORD ARRAY headers := [ [ field := "Content-Type", value := "Multipart/Mixed; boundary=Message-Boundary-8915" ] ];
+  INTEGER mimeid := CreateMimeDecoder(headers,"text/plain");
+//  SendBlobTo(mimeid, MakeBlobFromDiskfile(testdata_dir || "mime2.txt"));
+  SendBlobTo(mimeid, OpenTestFile("mime2.txt"));
+  RECORD final := FinishMimeData(mimeid);
+
+  TestEqual(1, 2, Length(final.subparts));
+  TestEqual(2, 2, Length(final.subparts[0].subparts));
+  TestEqual(3, "3B6A0B96BF690BA458655DDC2DBB9CB2", EncodeBase16(GetMD5Hash(BlobToString(final.subparts[0].subparts.data,65536))));
+  TestEqual(4, 1061, final.subparts[0].subparts[0].ofs_partstart);
+  TestEqual(5, 1180, final.subparts[0].subparts[0].ofs_bodystart);
+  TestEqual(6, 1421, final.subparts[0].subparts[0].ofs_partend);
+  TestEqual(7, 1421, final.subparts[0].subparts[0].ofs_bodyend);
+  TestEqual(8, 2699, final.subparts[1].ofs_bodystart);
+  TestEqual(9, 140221, final.subparts[1].ofs_bodyend);
+
+/* FIXME: Add test code
+  printrecordto(0,final,"tree");
+  sendblobto(0,final.subparts[0].subparts[0].data);
+
+//
+*/
+  CloseTest("TestMime: MimeDecodeTest2");
+}
+
+MACRO MimeDecodeTest2Sliced()
+{
+  OpenTest("TestMime: MimeDecodeTest2Sliced");
+
+  RECORD ARRAY headers := [ [ field := "Content-Type", value := "Multipart/Mixed; boundary=Message-Boundary-8915" ] ];
+  INTEGER mimeid := CreateMimeDecoder(headers,"text/plain");
+//  SendBlobTo(mimeid, MakeBlobFromDiskfile(testdata_dir || "mime2.txt"));
+  SendBlobTo(mimeid, MakeSlicedBlob(OpenTestFile("mime2.txt"), 0, 1800)); //1800 slices halfway the text/html part
+  RECORD final := FinishMimeData(mimeid);
+
+
+  TestEqual(1, 1, Length(final.subparts));
+  TestEqual(2, 2, Length(final.subparts[0].subparts));
+  TestEqual(3, "3B6A0B96BF690BA458655DDC2DBB9CB2", EncodeBase16(GetMD5Hash(BlobToString(final.subparts[0].subparts.data,65536))));
+  TestEqual(4, 1061, final.subparts[0].subparts[0].ofs_partstart);
+  TestEqual(5, 1180, final.subparts[0].subparts[0].ofs_bodystart);
+  TestEqual(6, 1421, final.subparts[0].subparts[0].ofs_partend);
+  TestEqual(7, 1421, final.subparts[0].subparts[0].ofs_bodyend);
+
+/* FIXME: Add test code
+  printrecordto(0,final,"tree");
+  sendblobto(0,final.subparts[0].subparts[0].data);
+//
+*/
+  CloseTest("TestMime: MimeDecodeTest2Sliced");
+}
+
+
+MACRO MimeEncodeDecodeQPTest()
+{
+  OpenTest("TestMime: MimeEncodeDecodeQPTest");
+
+  // Special characters
+  TestEqual(1, "=00=01=0A=0D=1F =3D\175\176=7F=80=FF", EncodeQP("\0\1\12\15\37 =\175\176\177\200\377"));
+  TestEqual(2, "\0\1\12\15\37 =\175\176\177\200\377", DecodeQP("=00=01=0A=0D=1F =3D\175\176=7F=80=FF"));
+
+  // too long lines
+  TestEqual(5, "01234567890123456789012345678901234567890123456789012345678901234567890=\r\n123", EncodeQP("01234567890123456789012345678901234567890123456789012345678901234567890123"));
+  TestEqual(6, "01234567890123456789012345678901234567890123456789012345678901234567890123", DecodeQP("01234567890123456789012345678901234567890123456789012345678901234567890=\r\n123"));
+
+  TestEqual(7, "0123456789012345678901234567890123456789012345678901234567890123456789=0A=\r\n123", EncodeQP("0123456789012345678901234567890123456789012345678901234567890123456789\n123"));
+  TestEqual(8, "0123456789012345678901234567890123456789012345678901234567890123456789\n123", DecodeQP("0123456789012345678901234567890123456789012345678901234567890123456789=0A=\r\n123"));
+  TestEqual(9, "01234567890123456789012345678901234567890123456789012345678901234567890=\r\n=0A123", EncodeQP("01234567890123456789012345678901234567890123456789012345678901234567890\n123"));
+  TestEqual(10, "01234567890123456789012345678901234567890123456789012345678901234567890\n123", DecodeQP("01234567890123456789012345678901234567890123456789012345678901234567890=\r\n=0A123"));
+  TestEqual(11, "01234567890123456789012345678901234567890123456789012345678901234567890\n123", DecodeQP("01234567890123456789012345678901234567890123456789012345678901234567890=0A=\r\n123"));
+
+  CloseTest("TestMime: MimeEncodeDecodeQPTest");
+}
+
+
+MACRO EncodedWordsTest()
+{
+  OpenTest("TestMime: EncodedWords");
+
+  /* Test the decoder with corrupted data to make sure it doesn't cause HS errors. */
+  TestEq(TRUE, Length(DecodeMIMEEncodedWords("=?ISO-8859-1?B?aGk=?=")) >= 0);
+
+  //We depend on blextest to fully test the mime decoder - here we simply check some basic functionality
+  //and ensure that parameter passing is working correctly
+  TestEq("a",          DecodeMIMEEncodedWords("=?ISO-8859-1?Q?a?="));
+  TestEq("=?UTF-8?Q?=E2=82=ACuro?=",EncodeMIMEWords("€uro"));
+  TestEq("=?UTF-8?Q?=E2=82=AC=2Euro?=",EncodeMIMEWords("€.uro"));
+  //https://www.rfc-editor.org/errata/eid506 for the true list of rfc2047 especials
+  TestEq("=?ISO-8859-1?Q?=EB=28=29=3C=3E=40=2C=3B=3A=5C=22=3C=2F=5B=5D=3F=2E=3D?=",EncodeMIMEWords(`ë()<>@,;:\\"</[]?.=`));
+
+  CloseTest("TestMime: EncodedWords");
+}
+
+MACRO MimeHeadersTest()
+{
+  OpenTest("TestMime: Headers");
+
+  BLOB testblob := OpenTestFile("mime3.txt");
+  INTEGER len := LENGTH(testblob);
+  STRING data := BlobToString(testblob, len);
+
+  RECORD ARRAY header := DecodeMIMEHeader(data);
+
+  STRING ARRAY connectionfields := __internal_CombineMIMEHeaders(header, "Connection");
+
+  // Test the MIMEGetHeaderFields function
+  TestEqualInteger( 2, 3, Length(connectionfields));
+  TestEqualString( 3, "hey", connectionfields[2]);
+
+  CloseTest("TestMime: Headers");
+}
+
+MACRO AddressParseTest()
+{
+  OpenTest("TestMime: AddressParseTest");
+
+  TestEq([ route             := DEFAULT STRING ARRAY
+         , name              := "sysop"
+         , email             := "tollium@example.net"
+         , mailbox_local     := 'tollium'
+         , mailbox_domain    := 'example.net'
+         ],
+         SplitEmailName("\"sysop\" <tollium@example.net>"));
+
+  TestEq([ route             := DEFAULT STRING ARRAY
+         , name              := "Mail Delivery System"
+         , email             := "MAILER-DAEMON@example.net"
+         , mailbox_local     := 'MAILER-DAEMON'
+         , mailbox_domain    := 'example.net'
+         ],
+         SplitEmailName("MAILER-DAEMON@example.net (Mail Delivery System)"));
+
+  // US-ASCII decoder maps control characters to '?'
+  TestEQMembers(
+      [ name :=     'rob ?tester'
+      , email :=    "rob@example.net"
+      ], SplitEmailName('\"=?US-ASCII?Q?rob_=09tester?=\" <rob@example.net>'), "*");
+
+  TestEQMembers(
+      [ name :=     'Lt. Gr\u00FCber'
+      , email :=    "lt@example.net"
+      ], SplitEmailName('=?ISO-8859-1?Q?Lt._Gr=FCber?= <lt@example.net>'), "*");
+
+  TestEQMembers(
+      [ name :=     'Lt. Gr\u00FCber \uD83D\uDE00' // last is \u1f600 (unicode: grinning face)
+      , email :=    "lt@example.net"
+      ], SplitEmailName('\"=?UTF-8?Q?Lt._Gr=C3=BCber_=F0=9F=98=80?=\" <lt@example.net>'), "*");
+
+  CloseTest("TestMime: AddressParseTest");
+}
+
+MACRO AddressGenerateTest()
+{
+  OpenTest("TestMime: AddressGenerateTest");
+
+  TestEq("<r@b.com>", MakeEmailAddress("", "r@b.com", FALSE));
+  TestEq("<r@b.com>", MakeEmailAddress("", "r@b.com", FALSE));
+  TestEq("name <r@b.com>", MakeEmailAddress("name", "r@b.com", FALSE));
+  TestEq("\"name\" <r@b.com>", MakeEmailAddress("name", "r@b.com", TRUE));
+  TestEq("\"<>\" <r@b.com>", MakeEmailAddress("<>", "r@b.com", FALSE));
+  TestEq("\"<>\" <r@b.com>", MakeEmailAddress("<>", "r@b.com", TRUE));
+  TestEq('\"=?US-ASCII?Q?rob_=09tester?=\" <rob@example.net>', MakeEmailAddress('rob \ttester', "rob@example.net", TRUE));
+  TestEq('=?ISO-8859-1?Q?Lt=2E_Gr=FCber?= <lt@example.net>', MakeEmailAddress('Lt. Gr\u00FCber', "lt@example.net", FALSE));
+  TestEq('\"=?UTF-8?Q?Lt=2E_Gr=C3=BCber_=F0=9F=98=80?=\" <lt@example.net>', MakeEmailAddress('Lt. Gr\u00FCber \uD83D\uDE00', "lt@example.net", TRUE));
+
+  CloseTest("TestMime: AddressGenerateTest");
+}
+
+
+MACRO TestMailAddresses()
+{
+  OpenTest("TestMime:  TestMailAddresses");
+
+  // Examples from RFC 2822
+  STRING lista := "Pete(A wonderful \\) chap) <pete(his account)@silly.test(his host)>";
+  STRING listb := "A Group(Some people)\r\n"
+               || "  :Chris Jones <c@(Chris's host.)public.example>,\r\n"
+               || "      joe@example.org,\r\n"
+               || "John <jdoe@one.test> (my dear friend); (the end of the group)";
+  STRING listc := "(Empty list)(start)Undisclosed recipients  :(nobody(that I know))  ;";
+  STRING listd := '"mr" <mr@example.com>, "mr2" <mr2@example.com>';
+
+  TestEq(      [ [ original := "Pete(A wonderful \\) chap) <pete(his account)@silly.test(his host)>"
+                 , type := "ADDRESS"
+                 , name := "Pete(A wonderful \\) chap)"
+                 , email := "pete(his account)@silly.test(his host)"
+                 , mailbox_local := "pete"
+                 , mailbox_domain := "silly.test"
+                 , route := DEFAULT STRING ARRAY
+                 ]
+               ], TokenizeEmailAddressList(lista, FALSE));
+
+  TestEq(      [ [ original := "Chris Jones <c@(Chris's host.)public.example>"
+                 , type := "ADDRESS"
+                 , name := "Chris Jones"
+                 , email := "c@(Chris's host.)public.example"
+                 , mailbox_local := "c"
+                 , mailbox_domain := "public.example"
+                 , route := DEFAULT STRING ARRAY
+                 ]
+               , [ original := "joe@example.org"
+                 , type := "ADDRESS"
+                 , name := ""
+                 , email := "joe@example.org"
+                 , mailbox_local := "joe"
+                 , mailbox_domain := "example.org"
+                 , route := DEFAULT STRING ARRAY
+                 ]
+               , [ original := "John <jdoe@one.test> (my dear friend)"
+                 , type := "ADDRESS"
+                 , name := "John"
+                 , email := "jdoe@one.test"
+                 , mailbox_local := "jdoe"
+                 , mailbox_domain := "one.test"
+                 , route := DEFAULT STRING ARRAY
+                 ]
+               ], TokenizeEmailAddressList(listb, FALSE));
+
+  TestEq(      [ [ original := "A Group(Some people)"
+                 , type := "GROUP"
+                 , name := "A Group(Some people)"
+                 , entries :=
+                   [ [ original := "Chris Jones <c@(Chris's host.)public.example>"
+                     , type := "ADDRESS"
+                     , name := "Chris Jones"
+                     , email := "c@(Chris's host.)public.example"
+                     , mailbox_local := "c"
+                     , mailbox_domain := "public.example"
+                     , route := DEFAULT STRING ARRAY
+                     ]
+                   , [ original := "joe@example.org"
+                     , type := "ADDRESS"
+                     , name := ""
+                     , email := "joe@example.org"
+                     , mailbox_local := "joe"
+                     , mailbox_domain := "example.org"
+                     , route := DEFAULT STRING ARRAY
+                     ]
+                   , [ original := "John <jdoe@one.test> (my dear friend)"
+                     , type := "ADDRESS"
+                     , name := "John"
+                     , email := "jdoe@one.test"
+                     , mailbox_local := "jdoe"
+                     , mailbox_domain := "one.test"
+                     , route := DEFAULT STRING ARRAY
+                     ]
+                   ]
+                  ]
+               ], TokenizeEmailAddressList(listb, TRUE));
+
+  TestEq(      DEFAULT RECORD ARRAY, TokenizeEmailAddressList(listc, FALSE));
+
+  TestEq(      [ [ original := "(Empty list)(start)Undisclosed recipients"
+                 , type := "GROUP"
+                 , name := "(Empty list)(start)Undisclosed recipients"
+                 , entries := DEFAULT RECORD ARRAY
+               ] ] , TokenizeEmailAddressList(listc, TRUE));
+
+  TestEq(      [ [ original := '"mr" <mr@example.com>'
+                 , type := "ADDRESS"
+                 , name := "mr"
+                 , email := "mr@example.com"
+                 , mailbox_local := "mr"
+                 , mailbox_domain := "example.com"
+                 , route := DEFAULT STRING ARRAY
+                 ]
+               , [ original := '"mr2" <mr2@example.com>'
+                 , type := "ADDRESS"
+                 , name := "mr2"
+                 , email := "mr2@example.com"
+                 , mailbox_local := "mr2"
+                 , mailbox_domain := "example.com"
+                 , route := DEFAULT STRING ARRAY
+                 ]
+               ], TokenizeEmailAddressList(listd, FALSE));
+  Closetest("TestMime:  TestMailAddresses");
+}
+
+RECORD FUNCTION ParseImapParts(STRING line)
+{
+  OBJECT parser := NEW StringParser(line);
+  STRING ARRAY parts := ParseLinePartsFromParser(parser);
+  RETURN [ data := parts, remain := parser->remaining_data ];
+}
+
+MACRO TestImapPartParser()
+{
+  OpenTest("TestMime:  TestImapPartParse");
+  TestEq(      [ data := ['1','2','3"','(4)', '(5 "6")' ]
+               , remain := ")"
+               ], ParseImapParts('1 "2" "3\\"" (4) (5 "6"))'));
+
+  TestEq(      [ data := ['("1\\\"")','( (2) )', '(((' ]
+               , remain := ""
+               ], ParseImapParts('("1\\\"") ( (2) ) "((("'));
+
+  TestEq(      [ data := ['("' ]
+               , remain := ""
+               ], ParseImapParts('("'));
+
+  TestEq(      [ data := ['["' ]
+               , remain := ""
+               ], ParseImapParts('["'));
+
+  TestEq(      [ data := ['' ]
+               , remain := ""
+               ], ParseImapParts('"'));
+
+  TestEq(      [ data := ['RFC822.SIZE','317' ]
+               , remain := ")"
+               ], ParseImapParts('RFC822.SIZE 317)'));
+  CloseTest("TestMime:  TestImapPartParse");
+}
+
+PRINT("\n === Running TestMime\n");
+MimeDecodeTest();
+MimeDecodeTest2();
+MimeDecodeTest2Sliced();
+MimeEncodeDecodeQPTest();
+EncodedWordsTest();
+MimeHeadersTest();
+AddressGenerateTest();
+AddressParseTest();
+TestMailAddresses();
+TestImapPartParser();

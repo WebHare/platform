@@ -1,0 +1,315 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+
+
+MACRO __HS_MARSHALPACKETWRITETO(INTEGER stream, VARIANT v) __ATTRIBUTES__(EXTERNAL);
+VARIANT FUNCTION __HS_MARSHALPACKETREADFROMBLOB(BLOB data) __ATTRIBUTES__(EXTERNAL);
+
+STATIC OBJECTTYPE RemotingBinaryCodec
+<
+  OBJECT pvt_remoter;
+
+  RECORD ARRAY pvt_objecttypes;
+  RECORD ARRAY pvt_objects;
+  RECORD ARRAY pvt_blobs;
+
+  PUBLIC PROPERTY remoter(pvt_remoter, -);
+
+  MACRO NEW(OBJECT remoter)
+  {
+    this->pvt_remoter := remoter;
+  }
+
+  RECORD FUNCTION PrepareObject(OBJECT value)
+  {
+    RECORD rec := this->pvt_remoter->GetObjectId(value);
+    IF (NOT rec.seentype)
+    {
+      RECORD trec :=
+          [ type :=     rec.type
+          , methods :=  rec.methods
+          ];
+
+      INSERT trec INTO this->pvt_objecttypes AT RecordUpperBound(this->pvt_objecttypes, trec, [ "TYPE" ]);
+    }
+    IF (NOT rec.seen)
+    {
+      RECORD trec :=
+          [ id :=     rec.id
+          , type :=   rec.type
+          ];
+      INSERT trec INTO this->pvt_objects AT RecordUpperBound(this->pvt_objects, trec, [ "ID" ]);
+    }
+    RETURN
+        [ isoverridden := TRUE
+        , value :=        DEFAULT OBJECT
+        , override :=     [ type := "object", id := rec.id ]
+        ];
+  }
+
+  RECORD FUNCTION PrepareBlob(BLOB value)
+  {
+    INTEGER id := LENGTH(this->pvt_blobs) + 1;
+    INSERT
+        [ id :=     id
+        , data :=   value
+        ] INTO this->pvt_blobs AT END;
+
+    RETURN
+        [ isoverridden := TRUE
+        , value :=        DEFAULT BLOB
+        , override :=     [ type := "blob", id := id ]
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION EncodeForRemoting(VARIANT value)
+  {
+    this->pvt_objecttypes := DEFAULT RECORD ARRAY;
+    this->pvt_objects := DEFAULT RECORD ARRAY;
+    this->pvt_blobs := DEFAULT RECORD ARRAY;
+
+    RECORD res := this->EncodeForRemotingRecursive(value);
+
+    INSERT CELL objecttypes := this->pvt_objecttypes INTO res;
+    INSERT CELL objects := this->pvt_objects INTO res;
+    INSERT CELL blobs := this->pvt_blobs INTO res;
+
+    RETURN res;
+  }
+
+  PUBLIC BLOB ARRAY FUNCTION EncodePackets(VARIANT value)
+  {
+    RECORD encoded := this->EncodeForRemoting(value);
+    BLOB ARRAY packets := this->EncodeRecordToPackets(encoded);
+
+    RETURN packets;
+  }
+
+  BLOB ARRAY FUNCTION EncodeRecordToPackets(RECORD valueencode)
+  {
+    BLOB ARRAY packets :=
+        [ DEFAULT BLOB ];
+
+    // Put large blobs into separate packets - and small ones
+    // too once we cross 32MB of inline blobs.
+    INTEGER64 inlinebloblen;
+    FOREVERY (RECORD rec FROM valueencode.blobs)
+    {
+      INTEGER64 len := LENGTH64(rec.data);
+      IF (len >= 4096 OR inlinebloblen + len >= 32 * 1024 * 1024) // big enough blob to put in separate packet?
+      {
+        INTEGER chunksize := 65536;
+        RECORD ARRAY parts;
+        FOR (INTEGER64 i := 0; i < len; i := i + chunksize)
+        {
+          INSERT [ packetnr := LENGTH(packets) ] INTO parts AT END;
+          INSERT MakeComposedBlob([ [ data := rec.data, start := i, length := chunksize ] ]) INTO packets AT END;
+        }
+
+        INSERT CELL parts := parts INTO valueencode.blobs[#rec];
+        DELETE CELL data FROM valueencode.blobs[#rec];
+      }
+      ELSE
+      {
+        // Keeping blob inline, keep count of inline blob bytes
+        inlinebloblen := inlinebloblen + len;
+      }
+    }
+
+    INSERT CELL packetcount := LENGTH(packets) INTO valueencode;
+
+    INTEGER str := CreateStream();
+    __HS_MARSHALPACKETWRITETO(str, valueencode);
+    packets[0] := MakeBlobFromStream(str);
+
+    RETURN packets;
+  }
+
+  PUBLIC RECORD FUNCTION EncodeForRemotingRecursive(VARIANT value)
+  {
+    SWITCH (TypeID(value))
+    {
+      CASE TypeID(OBJECT)
+      {
+        IF (NOT ObjectExists(value))
+          RETURN [ isoverridden := FALSE, value := value, override := DEFAULT RECORD ];
+
+        RETURN this->PrepareObject(value);
+      }
+      CASE TypeID(BLOB)
+      {
+        IF (LENGTH64(value) = 0)
+          RETURN [ isoverridden := FALSE, value := value, override := DEFAULT RECORD ];
+
+        RETURN this->PrepareBlob(value);
+      }
+      CASE TypeID(FUNCTION PTR)
+      {
+        IF (value = DEFAULT FUNCTION PTR)
+          RETURN [ isoverridden := FALSE, value := value, override := DEFAULT RECORD ];
+
+        THROW NEW Exception("Can't transfer active function ptrs");
+      }
+      CASE TypeID(RECORD)
+      {
+        RECORD overrideresult;
+        FOREVERY (RECORD rec FROM UnpackRecord(value))
+        {
+          RECORD fieldres := this->EncodeForRemotingRecursive(rec.value);
+          IF (fieldres.isoverridden)
+          {
+            overrideresult := CellInsert(overrideresult, rec.name, fieldres.override);
+            value := CellUpdate(value, rec.name, fieldres.value);
+          }
+        }
+
+        RETURN
+            [ isoverridden := RecordExists(overrideresult)
+            , value :=        value
+            , override :=     overrideresult
+            ];
+      }
+      CASE TYPEID(FUNCTION PTR ARRAY)
+      {
+        FOREVERY (FUNCTION PTR v FROM value)
+          IF (value != DEFAULT FUNCTION PTR)
+            THROW NEW Exception("Can't transfer active function ptrs");
+
+        RETURN
+            [ isoverridden := FALSE
+            , value :=        value
+            , override :=     DEFAULT RECORD ARRAY
+            ];
+      }
+      CASE TypeID(VARIANT ARRAY), TypeID(OBJECT ARRAY), TypeID(BLOB ARRAY), TYPEID(RECORD ARRAY)
+      {
+        BOOLEAN isoverridden;
+        VARIANT defaultvalue := DEFAULT RECORD ARRAY;
+        IF (TypeID(value) = TypeID(VARIANT ARRAY))
+          defaultvalue := DEFAULT VARIANT ARRAY;
+        VARIANT overrideresult := defaultvalue;
+        FOREVERY (VARIANT v FROM value)
+        {
+          RECORD fieldres := this->EncodeForRemotingRecursive(v);
+          IF (fieldres.isoverridden)
+          {
+            isoverridden := TRUE;
+            value[#v] := fieldres.value;
+          }
+          INSERT fieldres.override INTO overrideresult AT END;
+        }
+        RETURN
+            [ isoverridden := isoverridden
+            , value :=        value
+            , override :=     isoverridden ? overrideresult : defaultvalue
+            ];
+      }
+      DEFAULT
+      {
+        IF (IsTypeidArray(TypeID(value)))
+        {
+          RETURN
+              [ isoverridden :=   FALSE
+              , value :=          value
+              , override :=       DEFAULT RECORD ARRAY
+              ];
+        }
+
+        RETURN
+            [ isoverridden :=   FALSE
+            , value :=          value
+            , override :=       DEFAULT RECORD
+            ];
+      }
+    }
+  }
+
+  PUBLIC RECORD FUNCTION AnalyzeFirstPacket(BLOB packet)
+  {
+    RECORD rec := __HS_MARSHALPACKETREADFROMBLOB(packet);
+    RETURN
+        [ packetcount :=  rec.packetcount
+        , internal :=     rec
+        ];
+  }
+
+  PUBLIC VARIANT FUNCTION DecodePackets(RECORD analyzeresult, BLOB ARRAY packets)
+  {
+    RECORD encoded := analyzeresult.internal;
+    IF (encoded.packetcount != LENGTH(packets))
+      THROW NEW Exception("Did not get wanted nr of packets");
+
+    FOREVERY (RECORD rec FROM encoded.blobs)
+    {
+      IF (NOT CellExists(rec, "DATA"))
+      {
+        FOREVERY (RECORD part FROM rec.parts)
+        {
+          IF (NOT CellExists(part, "DATA"))
+            INSERT CELL data := packets[part.packetnr] INTO rec.parts[#part];
+        }
+        INSERT CELL data := MakeComposedBlob(rec.parts) INTO encoded.blobs[#rec];
+      }
+    }
+
+    RETURN this->DecodeForRemoting(encoded);
+  }
+
+  PUBLIC VARIANT FUNCTION DecodeForRemoting(RECORD encoded)
+  {
+    FOREVERY (RECORD rec FROM encoded.objecttypes)
+      this->pvt_remoter->RegisterType(rec.type, rec.methods);
+    FOREVERY (RECORD rec FROM encoded.objects)
+      this->pvt_remoter->InstantiateRemoteObject(rec.id, rec.type);
+
+    this->pvt_blobs := encoded.blobs;
+
+    RETURN this->DecodeForRemotingRecursive(encoded.value, encoded.override);
+  }
+
+  VARIANT FUNCTION DecodeForRemotingRecursive(VARIANT value, VARIANT override)
+  {
+    IF (IsTypeIdArray(TypeID(override)))
+    {
+      IF (LENGTH(override) = 0)
+        RETURN value;
+
+      FOREVERY (VARIANT o FROM override)
+        value[#o] := this->DecodeForRemotingRecursive(value[#o], o);
+
+      RETURN value;
+    }
+    IF (NOT RecordExists(override))
+      RETURN value;
+
+    SWITCH (TypeID(value))
+    {
+      CASE TypeID(RECORD)
+      {
+        FOREVERY (RECORD field FROM UnpackRecord(override))
+          value := CellUpdate(value, field.name, this->DecodeForRemotingRecursive(GetCell(value, field.name), field.value));
+        RETURN value;
+      }
+      CASE TypeID(OBJECT)
+      {
+        RETURN this->pvt_remoter->GetRemoteObject(override.id);
+      }
+      CASE TypeID(BLOB)
+      {
+        RECORD pos := RecordLowerBound(this->pvt_blobs, override, [ "ID" ]);
+        IF (NOT pos.found)
+          THROW NEW Exception("Could not locate blob #" || override.id);
+        RETURN this->pvt_blobs[pos.position].data;
+      }
+    }
+    THROW NEW Exception("Override inconsistency");
+  }
+>;
+
+PUBLIC OBJECT FUNCTION CreateRemotingBinaryCodec(OBJECT remoter)
+{
+  RETURN NEW RemotingBinaryCodec(remoter);
+}

@@ -1,0 +1,100 @@
+﻿<?wh
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+
+LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
+
+
+RECORD AGGREGATE FUNCTION GetFirstSetting(RECORD ARRAY data)
+{
+  // For richdocument attributes, there may be more than one setting per
+  // attribute: the base document has ordering 0 and embedded files have
+  // ordering > 0
+  RETURN SELECT * FROM data ORDER BY ordering;
+}
+
+PUBLIC MACRO UpdateCheckedLinksForSettings(INTEGER ARRAY settingids)
+{
+  // This function is called after each update of the settings. For an updated
+  // attribute, a new setting is created, the old one is deleted (and the
+  // checked_objectlinks record is also deleted), so we can just add the new
+  // setting, if it's not a default blob.
+
+  IF (LENGTH(settingids) = 0)
+    RETURN;
+
+  RECORD ARRAY tocheck :=
+        SELECT AS RECORD ARRAY GetFirstSetting(entity_settings)
+          FROM wrd.entity_settings
+         WHERE id IN settingids
+      GROUP BY entity, attribute, parentsetting;
+
+  RECORD ARRAY objs;
+
+  FOREVERY (RECORD setting FROM tocheck)
+  {
+    RECORD ARRAY links;
+    IF (Length(setting.blobdata) > 0)
+    {
+      // Parse the HTML blob
+      RECORD parsed := ParseHTMLPage(setting.blobdata);
+      // Keep only http and https links
+      links := SELECT *
+                    , url := Tokenize(link, "#")[0]
+                 FROM parsed.links
+                WHERE IsValidURL(link);
+    }
+    ELSE IF(setting.rawdata != "")
+    {
+      STRING rawdata := setting.rawdata;
+      // Intextlink is stored as '*<url>', just accept that format
+      IF (Left(rawdata, 1) = "*")
+        rawdata := SubString(rawdata, 1);
+
+      IF (IsValidURL(rawdata))
+      {
+        INSERT [ link := rawdata
+                , url := Tokenize(rawdata, "#")[0]
+                , text := rawdata
+                , type := 0 // Normal hyperlink
+                ] INTO links AT END;
+      }
+    }
+
+    INSERT
+        [ system_fs_setting :=  0
+        , wrd_entity_setting := setting.id
+        , links :=              links
+        ] INTO objs AT END;
+  }
+
+  SetObjectsCheckedLinks(objs, TRUE);
+}
+
+PUBLIC MACRO UpdateCheckedLinksForAttribute(INTEGER attributeid)
+{
+  // This function is called when the checklinks flag of an existing attribute
+  // is changed. When no longer checking links, just delete the
+  // checked_objectslinks for settings for the attribute, otherwise update the
+  // checked links.
+
+  RECORD attr := SELECT * FROM wrd.attrs WHERE id = attributeid;
+  IF (NOT RecordExists(attr))
+    RETURN;
+
+  // Retrieve all settings for this attribute and update checked links for all of them
+  INTEGER ARRAY settingids := SELECT AS INTEGER ARRAY id
+                                FROM wrd.entity_settings
+                               WHERE attribute = attributeid;
+
+  IF (NOT attr.checklinks)
+  {
+    DeleteCheckedObjectLinks(settingids, DEFAULT INTEGER ARRAY);
+  }
+  ELSE
+  {
+    UpdateCheckedLinksForSettings(settingids);
+  }
+}

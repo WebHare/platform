@@ -1,0 +1,11 @@
+<?wh
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::system/lib/testfw/testpage.whlib";
+
+MACRO RunBody(OBJECT testcontext)
+{
+  LoadWittyLibrary(testcontext->basefolder || "page.witty","HTML")->Run(DEFAULT RECORD);
+}
+
+InvokeTestPage(PTR RunBody, [ jsfile := "page.es"
+                             ]);

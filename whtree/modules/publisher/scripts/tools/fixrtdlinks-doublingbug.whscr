@@ -1,0 +1,103 @@
+<?wh
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+
+OBJECT trans := OpenPrimary();
+OBJECT richdocumentfile := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+/** Find all settings of RTD members in rich document files
+*/
+RECORD ARRAY tocheck_whfs := SELECT fs_settings.id, blobdata
+                               FROM system.fs_members
+                                  , system.fs_settings
+                              WHERE fs_members.type = 15 //richdocument
+                                    AND fs_settings.fs_member = fs_members.id
+                                    AND fs_settings.ordering = 0 //body text
+                                    AND Length(fs_settings.blobdata) > 0;
+
+RECORD ARRAY tocheck_wrd := SELECT entity_settings.id, blobdata, rawdata
+                               FROM wrd.attrs
+                                  , wrd.entity_settings
+                              WHERE attrs.attributetype = 17 //richdocument
+                                    AND entity_settings.attribute = attrs.id
+                                    AND entity_settings.ordering=0
+                                    AND Length(entity_settings.blobdata) > 0;//;
+
+BLOB FUNCTION FixUP(BLOB blobdata)
+{
+  OBJECT indoc := MakeXMLDocumentFromHTML(blobdata);
+  OBJECT ARRAY links := indoc->GetElements("a");
+  IF(Length(links)=0)
+    RETURN DEFAULT BLOB;
+
+  BOOLEAN anychange;
+  FOREVERY(OBJECT link FROM links)
+  {
+    BOOLEAN linkchange;
+    STRING href := link->getattribute("href");
+    IF(href NOT LIKE "http*")
+      CONTINUE;
+
+    INTEGER firstslash := SearchSubstring(href,'?');
+    INTEGER firsthash := SearchSubstring(href,'#');
+    INTEGER firstcut := Length(href);
+    IF(firstslash != -1)
+      firstcut := firstslash;
+    IF(firsthash != -1 AND firsthash < firstcut)
+      firstcut := firsthash;
+    IF(firstcut=Length(href))
+      CONTINUE;
+
+    STRING initialpart := Left(href,firstcut);
+    STRING remainder := Substring(href,firstcut);
+
+    WHILE(Length(remainder) > 1 AND Left(remainder,Length(remainder)/2) = Right(remainder,Length(remainder)/2))
+    {
+      remainder := Left(remainder,Length(remainder)/2);
+      linkchange := TRUE;
+    }
+
+    IF(linkchange)
+    {
+      Print("Fixed link from " || href||"\n");
+      href := initialpart||remainder;
+      Print("to "|| href||"\n");
+      link->SetAttribute("href", href);
+      anychange := TRUE;
+    }
+  }
+
+  IF(NOT anychange)
+    RETURN DEFAULT BLOB;
+  RETURN indoc->GetDocumentBlob(TRUE);
+}
+
+FOREVERY(RECORD doc FROM tocheck_wrd)
+{
+  BLOB fixedversion := Fixup(doc.blobdata);
+  // Write back the new data to the setting
+  IF (Length(fixedversion)>0)
+  {
+    trans->BeginWork();
+    UPDATE wrd.entity_settings
+       SET blobdata := VAR fixedversion
+     WHERE id = doc.id;
+    trans->CommitWork();
+  }
+}
+
+FOREVERY(RECORD doc FROM tocheck_whfs)
+{
+  BLOB fixedversion := Fixup(doc.blobdata);
+  // Write back the new data to the setting
+  IF (Length(fixedversion)>0)
+  {
+    trans->BeginWork();
+    UPDATE system.fs_settings
+       SET blobdata := VAR fixedversion
+     WHERE id = doc.id;
+    trans->CommitWork();
+  }
+}

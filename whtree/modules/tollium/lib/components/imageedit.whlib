@@ -1,0 +1,484 @@
+<?wh
+LOADLIB "mod::tollium/lib/components/panel.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/filters.whlib";
+
+OBJECTTYPE __TolliumImageResizerBase
+<
+  // Image resizing reference size
+  INTEGER pvt_imagesetwidth;
+  INTEGER pvt_imagesetheight;
+  // Image resizing method
+  STRING pvt_imageresizemethod;
+
+
+  PUBLIC STRING conversionbackground;
+
+  // Image resizing reference size
+  PUBLIC PROPERTY imagesetwidth(pvt_imagesetwidth, SetImageSetWidth);
+  PUBLIC PROPERTY imagesetheight(pvt_imagesetheight, SetImageSetHeight);
+  PUBLIC BOOLEAN preserveifunchanged;
+
+  // Image resizing method
+  PUBLIC PROPERTY imageresizemethod(pvt_imageresizemethod, SetImageResizeMethod);
+
+  // Convert the value to this image MIME type
+  PUBLIC STRING imageforcetype;
+
+  MACRO NEW()
+  {
+    this->conversionbackground := "#ffffff";
+    this->pvt_imageresizemethod := "none";
+  }
+
+  MACRO TolliumImageResizerBase_StaticInit(RECORD def)
+  {
+    this->pvt_imagesetwidth := CalcFixedSize(def.imagesetwidth);
+    this->pvt_imagesetheight := CalcFixedSize(def.imagesetheight);
+    this->pvt_imageresizemethod := ToLowercase(def.imageresizemethod);
+    this->conversionbackground := def.conversionbackground;
+
+    this->imageforcetype := def.imageforcetype;
+    this->preserveifunchanged := def.preserveifunchanged;
+  }
+
+  MACRO TolliumImageResizerBase_Fixup()
+  {
+    IF (this->pvt_imagesetwidth < 0)
+      this->pvt_imagesetwidth := 0;
+    IF (this->pvt_imagesetheight < 0)
+      this->pvt_imagesetheight := 0;
+    IF (this->pvt_imageresizemethod NOT IN [ "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill", "stretch" ])
+      this->pvt_imageresizemethod := "none";
+  }
+
+  //Force image constraints on the given image (if any) and return
+  RECORD FUNCTION ForceConstraints(RECORD imginfo)
+  {
+    IF (NOT RecordExists(imginfo))
+      RETURN DEFAULT RECORD;
+
+    RECORD resized := GfxResizeImageBlobWithMethod(imginfo.data, [ method := this->pvt_imageresizemethod
+                                                                 , setwidth := this->pvt_imagesetwidth
+                                                                 , setheight := this->pvt_imagesetheight
+                                                                 , format := this->imageforcetype
+                                                                 , bgcolor := this->conversionbackground
+                                                                 , noforce := this->preserveifunchanged
+                                                                 ]);
+    IF (NOT RecordExists(resized))
+      RETURN DEFAULT RECORD;
+
+    imginfo := WrapBlob(resized.data,imginfo.filename);
+
+    // Fix extensions
+    STRING needed_extension := resized.mimetype = "image/jpeg" ? "jpg" : resized.mimetype = "image/png" ? "png" : resized.mimetype = "image/gif" ? "gif" : "";
+    IF(needed_extension!="")
+    {
+      IF(imginfo.extension != "")
+        imginfo.extension := needed_extension;
+
+      STRING ext := Substring(GetExtensionFromPath(imginfo.filename),1);
+      IF(ext!="" AND ext != needed_extension)
+        imginfo.filename := Left(imginfo.filename, Length(imginfo.filename) - Length(GetExtensionFromPath(imginfo.filename)) + 1) || needed_extension;
+    }
+    RETURN imginfo;
+  }
+
+  MACRO SetImageSetWidth(INTEGER width)
+  {
+    IF (width < 0)
+      width := 0;
+    IF (width != this->pvt_imagesetwidth)
+    {
+      this->pvt_imagesetwidth := width;
+      this->SetPanelValue(this->orgval);
+    }
+  }
+
+  MACRO SetImageSetHeight(INTEGER height)
+  {
+    IF (height < 0)
+      height := 0;
+    IF (height != this->pvt_imagesetheight)
+    {
+      this->pvt_imagesetheight := height;
+      this->SetPanelValue(this->orgval);
+    }
+  }
+
+
+  MACRO SetImageResizeMethod(STRING method)
+  {
+    IF (method NOT IN [ "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill", "stretch" ])
+      RETURN;
+    IF (method != this->pvt_imageresizemethod)
+    {
+      this->pvt_imageresizemethod := method;
+      this->SetPanelValue(this->orgval);
+    }
+  }
+
+
+>;
+
+/////////////////////////////////////////////////////////////////////
+// The image edit component
+
+PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // Subcomponents
+  OBJECT img;
+  OBJECT replace;
+  OBJECT save;
+  OBJECT remove;
+
+  // Original (non-resized) value
+  RECORD orgval;
+
+  // Value
+  RECORD curval;
+
+  // Placeholder image
+  STRING pvt_placeholder;
+
+  // Initial value
+  STRING firstimage;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  // Width/height of image subcomponent
+  PUBLIC STRING imagewidth;
+  PUBLIC STRING imageheight;
+
+  // The value (uploaded image)
+  UPDATE PUBLIC PROPERTY value(GetPanelValue, SetPanelValue);
+
+  // Placeholder image
+  PUBLIC PROPERTY placeholder(GetPlaceholder, SetPlaceholder);
+
+  // If the user has changed the value
+  PUBLIC BOOLEAN user_updated;
+
+  // Called when value has changed
+  PUBLIC FUNCTION PTR onchange;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY __TolliumImageResizerBase;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    this->TolliumComponentBase_StaticInit(def);
+    this->TolliumImageResizerBase_StaticInit(def);
+    this->imagewidth := def.imagewidth;
+    this->imageheight := def.imageheight;
+
+    this->pvt_placeholder := def.placeholder;
+    this->firstimage := def.value;
+
+    this->required := def.required;
+    this->errorlabel := def.errorlabel;
+
+    this->onchange := def.onchange;
+
+    // Check old attributes for backwards compatibility
+    IF (def.imageforcewidth != "" OR def.imageforceheight != ""
+      OR def.imagemaxwidth != "" OR def.imagemaxheight != "")
+    {
+      INTEGER imageforcewidth := CalcFixedSize(def.imageforcewidth);
+      INTEGER imageforceheight := CalcFixedSize(def.imageforceheight);
+      INTEGER imagemaxwidth := CalcFixedSize(def.imagemaxwidth);
+      INTEGER imagemaxheight := CalcFixedSize(def.imagemaxheight);
+      IF (imageforcewidth != 0 OR imageforceheight != 0)
+      {
+        this->pvt_imagesetwidth := imageforcewidth;
+        this->pvt_imagesetheight := imageforceheight;
+        this->pvt_imageresizemethod := "stretch";
+      }
+      ELSE IF (imagemaxwidth != 0 OR imagemaxheight != 0)
+      {
+        this->pvt_imagesetwidth := imagemaxwidth;
+        this->pvt_imagesetheight := imagemaxheight;
+        this->pvt_imageresizemethod := "fit";
+      }
+    }
+
+    this->TolliumImageResizerBase_Fixup();
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel!="" ? this->errorlabel : this->title;
+
+    //FIXME: handle when labels are not present!
+    IF(this->required AND NOT RecordExists(this->img->value))
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // Create subcomponents
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    OBJECT imgpanel := this->CreateSubComponent("panel");
+    imgpanel->minwidth := "50px";
+    imgpanel->minheight := "50px";
+    imgpanel->vscroll := TRUE;
+    this->InsertComponentAfter(imgpanel, DEFAULT OBJECT, FALSE);
+
+    this->img := this->CreateSubComponent("image");
+    this->img->width := this->imagewidth;
+    this->img->height := this->imageheight;
+    this->img->hint := this->hint;
+    this->img->placeholder := this->pvt_placeholder;
+
+    IF (this->firstimage != "")
+    {
+      // First image specified as tollium image path, set it using SetImageSrc and use the resulting image as the original
+      // image value, resize it if necessary and set the resized image as current value
+      this->img->SetImageSrc(this->firstimage, "");
+      this->orgval := this->img->value;
+      this->curval := this->img->value;
+    }
+    ELSE
+    {
+      // Use current value as img value (it is already resized by SetPanelValue)
+      this->img->value := this->curval;
+    }
+    imgpanel->InsertComponentAfter(this->img, DEFAULT OBJECT, FALSE);
+
+    OBJECT lastcomponent := this->img;
+    //ADDME: If this component's readonly status is set or reset after it was
+    //       first initialized, the breaks between the image and the buttons may
+    //       have to be changed. Solution for now: don't change the readonly
+    //       property after the imageedit was rendered.
+    IF (NOT this->readonly)
+    {
+      this->replace := this->CreateSubComponent("button");
+      this->replace->type := "icon";
+      this->InsertComponentAfter(this->replace, imgpanel, TRUE);
+
+      OBJECT action := this->CreateSubComponent("uploadaction");
+      action->onupload := PTR this->UploadImage;
+      this->replace->action := action;
+
+      lastcomponent := this->replace;
+    }
+
+    IF (NOT this->readonly)
+    {
+      this->save := this->CreateSubComponent("button");
+      this->save->title := GetTid("tollium:common.actions.save");
+      this->save->hint := GetTid("tollium:components.imgedit.hints.save_image");
+      this->save->icon := "tollium:actions/save";
+      this->save->enabled := RecordExists(this->curval);
+      this->save->type := "icon";
+
+      OBJECT action := this->CreateSubComponent("downloadaction");
+      action->ondownload := PTR this->DownloadImage;
+      this->save->action := action;
+
+      this->InsertComponentAfter(this->save, this->replace, this->readonly);
+
+      lastcomponent := this->save;
+    }
+
+    IF (NOT this->readonly)
+    {
+      this->remove := this->CreateSubComponent("button");
+      this->remove->title := GetTid("tollium:common.actions.delete");
+      this->remove->hint := GetTid("tollium:components.imageedit.delete_image");
+      this->remove->icon := "tollium:actions/delete";
+      this->remove->enabled := RecordExists(this->curval);
+      this->remove->type := "icon";
+
+      OBJECT action := this->CreateSubComponent("action");
+      action->onexecute := PTR this->RemoveImage;
+      this->remove->action := action;
+      this->InsertComponentAfter(this->remove, this->save, FALSE);
+
+      lastcomponent := this->remove;
+    }
+    ELSE IF (ObjectExists(this->remove))
+      this->remove := DEFAULT OBJECT;
+
+    this->UpdateButtonState();
+
+    TolliumPanel::PreInitComponent();
+  }
+
+  // 'replace' button action callback
+  MACRO UploadImage(RECORD newphoto)
+  {
+    IF(NOT this->AllowExternalUpdates())
+      RETURN;
+
+    this->img->SetImage(newphoto.data, newphoto.filename);
+    this->orgval := this->img->value;
+    this->img->value := this->ForceConstraints(this->orgval);
+    this->curval := this->img->value;
+    this->user_updated := TRUE;
+    this->UpdateButtonState();
+    IF (this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
+  }
+
+  // 'save' button action callback
+  MACRO DownloadImage(OBJECT downloadhandler)
+  {
+    IF (RecordExists(this->img->value))
+    {
+      STRING filename := this->img->value.filename;
+      IF(filename="" AND this->img->value.extension!="")
+        filename := "image." || this->img->value.extension;
+      downloadhandler->SendFile(this->img->value.data, this->img->value.mimetype, filename);
+    }
+  }
+
+  // 'remove' button action callback
+  MACRO RemoveImage()
+  {
+    IF (NOT RecordExists(this->img->value) OR NOT this->AllowExternalUpdates())
+      RETURN; // No image to remove
+
+    IF (this->owner->RunMessageBox("tollium:commondialogs.remove_image_confirmation", "") = "yes")
+    {
+      this->img->value := DEFAULT RECORD;
+      this->orgval := DEFAULT RECORD;
+      this->curval := DEFAULT RECORD;
+      this->user_updated := TRUE;
+      this->UpdateButtonState();
+      IF (this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
+    }
+  }
+
+  // Set button titles and enabled states (after value has changed)
+  MACRO UpdateButtonState()
+  {
+    IF (ObjectExists(this->img) AND RecordExists(this->img->value))
+    {
+      IF (ObjectExists(this->replace))
+      {
+        this->replace->title := GetTid("tollium:common.actions.replace");
+        this->replace->hint := GetTid("tollium:components.imageedit.replace_image");
+        this->replace->icon := "tollium:actions/replace";
+      }
+
+      IF (ObjectExists(this->save))
+        this->save->enabled := TRUE;
+      IF (ObjectExists(this->remove))
+        this->remove->enabled := TRUE;
+    }
+    ELSE
+    {
+      IF (ObjectExists(this->replace))
+      {
+        this->replace->title := GetTid("tollium:common.actions.add");
+        this->replace->hint := GetTid("tollium:components.imgedit.hints.add_image");
+        this->replace->icon := "tollium:actions/add";
+      }
+
+      IF (ObjectExists(this->save))
+        this->save->enabled := FALSE;
+      IF (ObjectExists(this->remove))
+        this->remove->enabled := FALSE;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  RECORD FUNCTION GetPanelValue()
+  {
+    //img may not be created yet
+    RETURN ObjectExists(this->img) ? this->img->value : this->curval;
+  }
+
+  MACRO SetPanelValue(RECORD newval)
+  {
+    this->orgval := newval;
+
+    IF(ObjectExists(this->img))
+    {
+      // newval requires a width and height cell, otherwise ForceConstraints will crash
+      IF (RecordExists(this->orgval) AND NOT CellExists(this->orgval, "width"))
+        THROW NEW Exception("Missing width in imginfo, did you use an file field instead of image field in WRD ?"); //||AnyToString(this->orgval,"tree"));
+
+      this->img->value := this->ForceConstraints(this->orgval);
+      IF (NOT this->readonly)
+      {
+        IF (RecordExists(this->img->value))
+        {
+          this->replace->title := GetTid("tollium:common.actions.replace");
+          this->replace->icon := "tollium:actions/replace";
+        }
+        ELSE
+        {
+          this->replace->title := GetTid("tollium:common.actions.add");
+          this->replace->icon := "tollium:actions/add";
+        }
+
+        IF (ObjectExists(this->save))
+          this->save->enabled := RecordExists(this->img->value);
+
+        IF (ObjectExists(this->remove))
+          this->remove->enabled := RecordExists(this->img->value);
+      }
+    }
+    ELSE
+      this->curval := this->ForceConstraints(this->orgval);
+  }
+
+  STRING FUNCTION GetPlaceholder()
+  {
+    RETURN ObjectExists(this->img) ? this->img->placeholder : this->pvt_placeholder;
+  }
+
+  MACRO SetPlaceholder(STRING placeholder)
+  {
+    this->pvt_placeholder := placeholder;
+    IF (ObjectExists(this->img))
+      this->img->placeholder := placeholder;
+  }
+  UPDATE MACRO SetEnabled(BOOLEAN newstate)
+  {
+    TolliumPanel::SetEnabled(newstate);
+    IF (ObjectExists(this->replace))
+      this->replace->enabled := newstate;
+    IF (ObjectExists(this->save))
+      this->save->enabled := newstate AND RecordExists(this->img->value);
+    IF (ObjectExists(this->remove))
+      this->remove->enabled := newstate AND RecordExists(this->img->value);
+  }
+>;

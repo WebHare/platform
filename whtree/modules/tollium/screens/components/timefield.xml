@@ -1,0 +1,11 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="module::tollium/components/time.whlib">
+
+  <fragment name="tolliumtime">
+    <contents>
+      <line>
+        <datetime name="dt" title="" type="time" storeutc="false" />
+      </line>
+    </contents>
+  </fragment>
+
+</screens>

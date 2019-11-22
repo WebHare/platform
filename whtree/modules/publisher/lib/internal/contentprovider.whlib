@@ -1,0 +1,533 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/pagelists.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+/* IMPORTANT: If changes are made to this screen, make sure all other 'publishercontent' contentproviders are still compatible! */
+
+// Content provider for WebHare documents
+PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
+< INTEGER rootfolder;
+  STRING http_username;
+  STRING http_password;
+  OBJECT boostwords_type;
+
+  // File types we're not fetching (e.g. image files, zip archives, internal/external links)
+  INTEGER ARRAY nofetch_types;
+
+  /* The cached files records contain the following data:
+     id                  The groupid, i.e. ToString(file.id)
+     file                The file record from the database
+     file.id             The objectid for the first page, i.e. file.objecturl
+     filterurl           The URL used for filtering subpage url's
+     objects             The pages (object ids) within the file (group)
+  */
+  RECORD ARRAY cachedfiles;
+
+  RECORD ARRAY cachedtypes;
+
+  UPDATE PUBLIC STRING FUNCTION GetContentSourceTitle()
+  {
+    RETURN SELECT AS STRING whfspath FROM system.fs_objects WHERE id = this->rootfolder;
+  }
+
+  RECORD FUNCTION CreateCachedFile(STRING groupid)
+  {
+    INTEGER fileid := ToInteger(groupid, 0);
+    IF (fileid <= 0)
+      THROW NEW Exception("Illegal file id '" || groupid || "'");
+
+    this->DebugLog(ConsilioDebugAll, "File " || groupid || ": Create cached file record");
+
+    // Delete any cached information
+    DELETE FROM this->cachedfiles WHERE id = groupid;
+
+    // Select the file from the database
+    RECORD file :=
+        SELECT objecturl
+             , name
+             , title
+             , parent
+             , type
+             , link
+             , modificationdate
+             , publish
+             , published
+             , lastpublishdate
+          FROM system.fs_objects
+         WHERE id = fileid
+               AND NOT isfolder
+               AND indexurl != "";
+    IF (NOT RecordExists(file))
+      THROW NEW ConsilioIgnoredException(ConsilioDebugInfo, "File with id '" || groupid || "' not found, maybe it was deleted");
+
+    // Get parent record (with url for initialfilter)
+    RECORD parentrec :=
+        SELECT objecturl
+             , parent
+             , title
+             , indexdoc
+          FROM system.fs_objects
+         WHERE id = file.parent;
+
+    // Get path to root
+    INTEGER ARRAY parentids;
+    IF (RecordExists(parentrec))
+    {
+      INSERT file.parent INTO parentids AT END;
+
+      INTEGER parentid := parentrec.parent;
+      WHILE (parentid > 0)
+      {
+        INSERT parentid INTO parentids AT 0;
+        parentid := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = parentid;
+      }
+    }
+
+    // Check if we're actually responsible for this file
+    IF (this->rootfolder NOT IN parentids)
+      THROW NEW ConsilioIgnoredException(ConsilioDebugInfo, "Not responsible for file with id '" || groupid || "'");
+
+    // Get the initialfilter value (the file's parent's url)
+    STRING initialfilter := parentrec.objecturl;
+
+    // Get the file's type info
+    RECORD typeinfo := SELECT * FROM this->cachedtypes WHERE id = file.type;
+    IF (NOT RecordExists(typeinfo))
+    {
+      typeinfo := file.type = 0 ? LookupContentTypeByName("http://www.webhare.net/xmlns/publisher/unknownfile")
+                                : LookupContentTypeById(file.type);
+
+      IF (RecordExists(typeinfo) AND RecordExists(typeinfo.filetype))
+      {
+        RECORD typedetails := [ isdynamic := RecordExists(typeinfo.filetype.dynamicexecution) ];
+
+        OBJECT pagelistprovider;
+        IF (typeinfo.filetype.pagelistprovider != "")
+          pagelistprovider := MakeObject(typeinfo.filetype.pagelistprovider, typedetails);
+
+        typeinfo := CELL
+            [ typeinfo.id
+            , typeinfo.fstype
+            , pagelistprovider
+            , pagelistprovidername := typeinfo.filetype.pagelistprovider
+            ];
+        INSERT typeinfo INTO this->cachedtypes AT END;
+      }
+    }
+
+    // Create a URL filter for this file, if there is no pagelistprovider for this file
+    STRING filterurl;
+    IF (NOT RecordExists(typeinfo) OR NOT ObjectExists(typeinfo.pagelistprovider))
+    {
+      filterurl := GetFileSubpageURL(fileid, "") || "*";
+      this->DebugLog(ConsilioDebugAll, "Using filter URL " || filterurl);
+    }
+    ELSE
+    {
+      this->DebugLog(ConsilioDebugAll, "Using pagelistprovider " || typeinfo.pagelistprovidername);
+    }
+
+    // Create a cachedfile record
+    RECORD cachedfile :=
+        CELL[ id := groupid
+            , fileid
+            , file :=
+                CELL[ id := file.objecturl
+                    , title := file.title ?? (RecordExists(parentrec) AND parentrec.indexdoc = fileid ? parentrec.title : "")
+                    , file.type
+                    , file.modificationdate
+                    , file.publish
+                    , file.lastpublishdate
+                    ]
+            , filterurl
+            , subpagebaseurl := RecordExists(typeinfo) ? __GetSubpageBaseUrl(typeinfo, CELL[ ...file, isindex := fileid = parentrec.indexdoc ]) : ""
+            , file.link
+            //, pagelistprovider := RecordExists(typeinfo) ? typeinfo.pagelistprovider : DEFAULT OBJECT
+            , initialfilter
+            , parentids
+            , objects := DEFAULT STRING ARRAY
+            , havesetsubfiles := FALSE
+            , subfiles := RECORD[]
+            ];
+
+    IF (RecordExists(typeinfo) AND ObjectExists(typeinfo.pagelistprovider))
+    {
+      RECORD ARRAY subfiles := typeinfo.pagelistprovider->GetSitemapLinks(CELL
+          [ id := cachedfile.fileid
+          , cachedfile.file.type
+          , cachedfile.file.title
+          , cachedfile.link
+          , cachedfile.subpagebaseurl
+          , cachedfile.file.modificationdate
+          ]);
+
+      cachedfile.havesetsubfiles := TRUE;
+      cachedfile.subfiles := SELECT id :=               link
+                                  , title
+                                  , type :=             cachedfile.file.type
+                                  , modificationdate := modificationdate ?? cachedfile.file.modificationdate
+                                  , publish :=          cachedfile.file.publish
+                                  , lastpublishdate :=  cachedfile.file.lastpublishdate
+                                  , consiliofields := CellExists(subfiles,'consiliofields') ? subfiles.consiliofields : DEFAULt RECORD
+                               FROM subfiles;
+    }
+
+    INSERT cachedfile INTO this->cachedfiles AT END;
+    RETURN cachedfile;
+  }
+
+  RECORD FUNCTION GetCachedFile(STRING groupid)
+  {
+    // Do we have a cache record for this groupid?
+    RECORD cachedfile := SELECT * FROM this->cachedfiles
+                          WHERE id = groupid;
+    IF (RecordExists(cachedfile))
+    {
+      this->DebugLog(ConsilioDebugAll, "File " || groupid || ": Returning cached file record");
+      RETURN cachedfile;
+    }
+
+    this->DebugLog(ConsilioDebugAll, "File " || groupid || ": File record not found");
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO UpdateCachedFile(STRING groupid, RECORD cachedfile)
+  {
+    INTEGER i := (SELECT AS INTEGER #cachedfiles + 1
+                    FROM this->cachedfiles
+                   WHERE id = groupid) - 1;
+    IF (i >= 0)
+      this->cachedfiles[i] := cachedfile;
+  }
+
+  // Recursively create a list of all files in a folder and its subfolders
+  RECORD ARRAY FUNCTION GetFileList(INTEGER folderid)
+  {
+    // Only publishable types can be indexed
+    INTEGER ARRAY indexabletypes := SELECT AS INTEGER ARRAY id
+                                      FROM system.fs_types
+                                     WHERE ispublishable
+                                           AND isfiletype;
+    INSERT 0 INTO indexabletypes AT 0;
+
+    // Get indexable files
+    RECORD ARRAY filelist := SELECT id := ToString(id)
+                                  , url
+                               FROM system.fs_objects
+                              WHERE NOT isfolder
+                                    AND parent = folderid
+                                    AND type IN indexabletypes
+                                    AND publish = TRUE;
+
+    // Add foreign folders which are not serving as output folder for a site
+    filelist := filelist CONCAT SELECT id := ToString(id)
+                                     , url
+                                  FROM system.fs_objects
+                                 WHERE isfolder
+                                       AND parent = folderid
+                                       AND type = 1 // foreign folder
+                                       AND NOT RecordExists(SELECT FROM system.sites
+                                                             WHERE webroot = fs_objects.url);
+
+    // Get subfolders to scan
+    INTEGER ARRAY subfolders := SELECT AS INTEGER ARRAY id
+                                  FROM system.fs_objects
+                                 WHERE isfolder
+                                       AND parent = folderid
+                                       AND type != 1; // skip foreign folders
+    FOREVERY (INTEGER subfolder FROM subfolders)
+      filelist := filelist CONCAT this->GetFileList(subfolder);
+
+    RETURN filelist;
+  }
+
+  MACRO InitializeFileTypes()
+  {
+    this->nofetch_types :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_types
+         WHERE namespace IN [ "http://www.webhare.net/xmlns/publisher/imagefile"
+                            , "http://www.webhare.net/xmlns/publisher/multimediafile"
+                            , "http://www.webhare.net/xmlns/publisher/mp3audiofile"
+                            , "http://www.webhare.net/xmlns/publisher/flvvideofile"
+                            , "http://www.webhare.net/xmlns/publisher/targzfile"
+                            , "http://www.webhare.net/xmlns/publisher/zipfile"
+                            , "http://www.webhare.net/xmlns/publisher/archivefile"
+                            , "http://www.webhare.net/xmlns/publisher/internallink"
+                            , "http://www.webhare.net/xmlns/publisher/externallink"
+                            ];
+  }
+
+  /*  @param contentsource The content source record which contains the configuration for the content provider
+      @cell contentsource.data(record) Initialization data
+      @cell contentsource.data.folder(integer) WebHare folder id of the index root folder
+      @cell contentsource.data.http_username(string) User name to use if the output url is login-protected (optional)
+      @cell contentsource.data.http_password(string) Password to use if the output url is login-protected (optional)
+  */
+  UPDATE PUBLIC MACRO Init(RECORD contentsource)
+  {
+    ConsilioContentProvider::Init(contentsource);
+
+    // Set and check root folder id
+    IF (NOT CellExists(contentsource.data, "folder"))
+      THROW NEW Exception("Tried to initialize without folder");
+    this->rootfolder := SELECT AS INTEGER id
+                          FROM system.fs_objects
+                         WHERE isfolder AND isactive
+                               AND id = contentsource.data.folder;
+    IF (this->rootfolder = 0)
+      THROW NEW Exception("Tried to initialize with non-existing folder, maybe it was deleted");
+
+    // HTTP login data
+    this->http_username := CellExists(contentsource.data, "http_username") ? contentsource.data.http_username : "";
+    this->http_password := this->http_username != "" AND CellExists(contentsource.data, "http_password") ? contentsource.data.http_password : "";
+
+    // Initialize file types
+    this->InitializeFileTypes();
+    this->boostwords_type := OpenWHFSType("http://www.webhare.net/xmlns/consilio/boostwords");
+
+    this->DebugLog(ConsilioDebugInfo, "Initialized with root folder " || this->rootfolder);
+    IF (this->http_username != "")
+      this->DebugLog(ConsilioDebugInfo, "Initialized with http login '" || this->http_username || "'/'" || this->http_password || "'");
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetIdentifier()
+  {
+    RECORD folder := SELECT parentsite, fullpath
+                       FROM system.fs_objects
+                      WHERE id = this->rootfolder;
+    IF (RecordExists(folder))
+    {
+      RECORD site := SELECT name
+                       FROM system.sites
+                      WHERE id = folder.parentsite;
+      RETURN RecordExists(site) ? site.name || ":" || folder.fullpath : folder.fullpath;
+    }
+    RETURN "webhare:" || ToString(this->rootfolder);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetEmptySearchRecord()
+  {
+    RECORD emptyrec := ConsilioContentProvider::GetEmptySearchRecord();
+    INSERT CELL filetype := "" INTO emptyrec;
+    INSERT CELL date_whmodification := DEFAULT DATETIME INTO emptyrec;
+    INSERT CELL size := 0 INTO emptyrec;
+    RETURN emptyrec;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION ListGroups(DATETIME commanddate)
+  {
+    IF (this->rootfolder = 0)
+      THROW NEW Exception("Content source root folder " || this->rootfolder || " not found");
+
+    RECORD ARRAY allfiles := this->GetFileList(this->rootfolder);
+
+    this->DebugLog(ConsilioDebugInfo, "ListGroups: Returning " || Length(allfiles) || " documents");
+    RETURN allfiles;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION ListObjects(DATETIME commanddate, STRING groupid)
+  {
+    RECORD cachedfile := this->CreateCachedFile(groupid);
+
+    IF (NOT cachedfile.file.publish)
+      THROW NEW ConsilioIgnoredException(ConsilioDebugInfo, "Not fetching group '" || groupid || "': file is not published");
+
+    IF(cachedfile.havesetsubfiles)
+    {
+      this->DebugLog(ConsilioDebugInfo, `ListObjects: Returning ${Length(cachedfile.subfiles)} urls`);
+      RETURN cachedfile.subfiles;
+    }
+
+    this->DebugLog(ConsilioDebugInfo, "ListObjects: Returning url " || cachedfile.file.id);
+
+    /* Only returning the main URL for now, subsequent URL's will be returned by FetchObject
+       And because of the spidering, we can't use requiredindexdate here. ADDME: organize the spidering
+       in such a way that you can know when a group has been spidered completely
+    */
+    RETURN RECORD[ cachedfile.file ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid, RECORD options)
+  {
+    RECORD cachedfile := this->GetCachedFile(groupid);
+    IF (NOT RecordExists(cachedfile))
+      cachedfile := this->CreateCachedFile(groupid);
+    IF (objectid IN cachedfile.objects)
+    {
+      this->DebugLog(ConsilioDebugSkipped, "FetchObject: File " || groupid || ": already fetched URL '" || objectid || "'");
+      THROW NEW ConsilioIgnoredException(ConsilioDebugInfo, "Not fetching '" || objectid || "': already fetched");
+    }
+    ELSE IF (Length(cachedfile.objects) >= this->maxgroupobjects)
+    {
+      this->DebugLog(ConsilioDebugSkipped, "FetchObject: File " || groupid || ": not fetching URL '" || objectid || "', too many pages in file (" || Length(cachedfile.objects) || " >= " || this->maxgroupobjects || ")");
+      THROW NEW Exception("Not fetching '" || objectid || "': too many pages in file");
+    }
+
+    // Don't index files we cannot parse
+    IF (cachedfile.file.type IN this->nofetch_types)
+    {
+      this->DebugLog(ConsilioDebugSkipped, "FetchObject: File " || groupid || ": not fetching type " || cachedfile.file.type);
+      THROW NEW ConsilioIgnoredException(ConsilioDebugInfo, "Not fetching '" || objectid || "': not fetching type " || cachedfile.file.type);
+    }
+
+    // Fetch the page
+    this->DebugLog(ConsilioDebugInfo, "FetchObject: File " || groupid || ": fetching URL '" || objectid || "'");
+    RECORD page := this->FetchAndParseUrl(TRUE, objectid, [ consilioauth := TRUE ]);
+
+    RECORD fields; // Left empty if page may not be indexed
+    STRING body; // Left empty if page may not be indexed
+    DATETIME object_indexdate;
+
+    IF (page.parsed_page.index_page) //not NOINDEX
+    {
+      RECORD subfileinfo := SELECT * FROM cachedfile.subfiles WHERE subfiles.id = VAR objectid;
+
+      // Make a document record
+      this->DebugLog(ConsilioDebugAll, "Received " || Length(page.parsed_page.text) || " bytes of body text");
+      fields := [ initialfilter := cachedfile.initialfilter
+                , whfspath := Detokenize((SELECT AS STRING ARRAY ToString(id) FROM ToRecordArray(cachedfile.parentids, "id")), "/")
+                , size := ToString(Length(page.fetched_page.content))
+                , title := (RecordExists(subfileinfo) ? subfileinfo.title : cachedfile.file.title) ?? page.parsed_page.title
+                ];
+
+      IF (page.parsed_page.keywords != "")
+        INSERT CELL keywords := page.parsed_page.keywords INTO fields;
+      IF (page.parsed_page.description != "")
+        INSERT CELL description := page.parsed_page.description INTO fields;
+      IF (page.parsed_page.type_ext != "")
+        INSERT CELL filetype := page.parsed_page.type_ext INTO fields;
+
+      // Modification date/time
+      DATETIME filemodificationdate;
+      DATETIME lastmodified := commanddate;
+      RECORD lastmodheader := SELECT * FROM page.fetched_page.headers WHERE ToUppercase(field) = "LAST-MODIFIED";
+      IF (RecordExists(lastmodheader)) // This might be static content, see if we have a timestamp
+      {
+        filemodificationdate := MakeDateFromText(lastmodheader.value);
+        IF (filemodificationdate != DEFAULT DATETIME)
+          lastmodified := filemodificationdate;
+
+        IF (cachedfile.file.type != 7) // HareScript files are semi-dynamic content, don't store a moddate
+        {
+          filemodificationdate := cachedfile.file.modificationdate;
+          object_indexdate := cachedfile.file.lastpublishdate;
+        }
+      }
+      IF (filemodificationdate != DEFAULT DATETIME)
+        INSERT CELL date_whmodification := filemodificationdate INTO fields;
+      IF (NOT page.fetched_page.nocache OR page.parsed_page.isdynamic) // Don't remember modification date for dynamic pages, forces Fetcher to refetch them
+        INSERT CELL date_modified := lastmodified INTO fields;
+      ELSE
+        object_indexdate := DEFAULT DATETIME;
+
+      // Generate suggest terms for body, title, keywords and description
+      INSERT CELL suggestfields := "body title keywords description" INTO fields;
+
+      // Extra fields
+      FOREVERY(RECORD fld FROM page.parsed_page.extrafields)
+      {
+        IF(NOT CellExists(fields, fld.name))
+          fields := CellInsert(fields, fld.name, fld.value);
+      }
+
+      IF(RecordExists(subfileinfo))
+        fields := CELL[...fields, ...subfileinfo.consiliofields];
+
+      // Use parsed text as document body
+      body := page.parsed_page.text;
+
+      // Add boost keywords
+      STRING ARRAY boostwords := this->boostwords_type->GetInstanceData(cachedfile.fileid).words;
+      IF (Length(boostwords) > 0)
+      {
+        IF (NOT CellExists(fields, "keywords"))
+          INSERT CELL keywords := Detokenize(boostwords, " ") INTO fields;
+        ELSE
+          fields.keywords := fields.keywords || " " || Detokenize(boostwords, " ");
+      }
+    }
+
+    // Add this object to the list of fetched objects for this file
+    INSERT objectid INTO cachedfile.objects AT END;
+
+    this->UpdateCachedFile(groupid, cachedfile);
+
+    IF (NOT page.parsed_page.follow_links)
+      page.parsed_page.links := DEFAULT RECORD ARRAY;
+
+    RETURN [ document_fields := fields
+           , document_body := body
+           , objects := cachedfile.havesetsubfiles ? RECORD[]
+                                                   : this->FilterObjects(page.parsed_page.links, objectid, cachedfile.file.id, cachedfile.filterurl)
+           , links := page.parsed_page.links //TODO probably obsolete? the linkchecker should be using RTD links directly says Kris
+           , indexdate := object_indexdate
+           ];
+  }
+>;
+
+PUBLIC OBJECTTYPE WebHare EXTEND TolliumScreenBase
+<
+  PUBLIC PROPERTY settings(this->mysettings->value, SetSettings);
+
+  MACRO Init(RECORD data)
+  {
+    IF (CellExists(data, "http_username") AND CellExists(data, "http_password") AND (data.http_username != "" OR data.http_password != ""))
+      this->loginrequired->value := TRUE;
+  }
+
+  PUBLIC MACRO Validate(OBJECT work)
+  {
+    // Try to initialize a WebHare content provider with the current settings
+    OBJECT cp := NEW WebHareContentProvider();
+    RECORD cs := [ id := 0
+                 , data := [ folder := this->folder->value
+                           ]
+                 ];
+    TRY
+    {
+      cp->Init(cs);
+    }
+    CATCH (OBJECT e)
+    {
+      work->AddError(GetTid("publisher:contentproviders.webhare.messages.invalidfolder"));
+    }
+
+    IF (NOT work->HasFailed())
+    {
+      IF (this->loginrequired->value AND this->username->value = "" AND this->password->value = "")
+        this->loginrequired->value := FALSE;
+      ELSE IF (NOT this->loginrequired->value)
+      {
+        this->username->value := "";
+        this->password->value := "";
+      }
+    }
+  }
+
+  MACRO SetSettings(RECORD settings)
+  {
+    // Insert lastcontentscheck if it does not exist yet
+    IF (CellExists(settings, "lastcontentscheck"))
+    {
+      DATETIME lastcontentscheck := StringToDateTime(settings.lastcontentscheck);
+      this->lastcontentscheck->value := lastcontentscheck != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(lastcontentscheck, "minutes", TRUE, FALSE) : GetTid("publisher:contentproviders.webhare.never");
+    }
+    ELSE
+      this->lastcontentscheck->visible := FALSE;
+
+    this->mysettings->value := settings;
+  }
+>;

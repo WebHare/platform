@@ -1,0 +1,865 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+STRING testsiteprofile :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/actionstest">'
+      || '<member name="s" type="string" />'
+    || '</contenttype>'
+  || '</siteprofile>';
+
+STRING testsiteprofile2 :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/actionstest">'
+      || '<member name="s" type="string" />'
+      || '<member name="s2" type="string" />'
+    || '</contenttype>'
+  || '</siteprofile>';
+
+STRING testsiteprofile3 :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/actionstest">'
+      || '<member name="s2" type="string" />'
+    || '</contenttype>'
+  || '</siteprofile>';
+
+STRING repub_testhtml_siteprofile :=
+'<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+  || '<apply>'
+    || '<to type="file" pathmask="*/test.html" />'
+    || '<republish folder="/" mask="blabla.html" recursive="false" />'
+  || '</apply>'
+  || '<apply>'
+    || '<to type="file" pathmask="*/test2.html" />'
+    || '<republish mask="blabla2.html" />'
+  || '</apply>'
+|| '</siteprofile>';
+
+
+MACRO SiteprofAssignTest()
+{
+  testfw->StartTrans("~webhare",TRUE);
+  testfw->BeginWork();
+
+  //Make sure the siteprofile system is in a clean state
+  TestSiteProfilesNoErrors();
+
+  testfw->SetupTestWebdesignWebsite("");
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
+
+  //Verify that extracting an archive containing site profiles, causes a siteprofile recompilation
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
+  siteprof->RecycleSelf();
+  testfw->CommitWork();
+
+  testfw->EndTrans();
+}
+
+MACRO SiteRenameTest()
+{
+  testfw->StartTrans("~webhare", TRUE);
+  testfw->BeginWork();
+
+  OBJECT testsite := testfw->GetTestSite();
+  STRING savename := testsite->rootobject->name;
+
+  testsite->rootobject->MoveTo(testsite->rootobject->parentobject, savename || ".xxx");
+  TestEq(TRUE, Objectexists(OpenSiteByName(savename || ".xxx")));
+  TestEq(savename || ".xxx", OpenSiteByName(savename || ".xxx")->rootobject->name);
+
+  testfw->CommitWork();
+  testfw->BeginWork();
+  OpenSiteByName(savename || ".xxx")->rootobject->UpdateMetadata([name := savename]);
+  TestEq(TRUE, Objectexists(OpenSiteByName(savename)));
+
+  testfw->CommitWork();
+  testfw->EndTrans();
+}
+
+MACRO DeleteTest()
+{
+  RECORD ARRAY analysis;
+
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT ffolder := testsite->rootobject->CreateFolder( [ name := "foreign", type := 1 ]);
+  OBJECT fshortfolder := testsite->rootobject->CreateFolder( [ name := "for", type := 0 ]); //test against bug that didn't allow us to delete 'for' if 'foreign' was present
+  OBJECT nfolder := testsite->rootobject->CreateFolder( [ name := "normal", type := 0 ]);
+
+  testfw->GetUserObject("deleter")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("deleter"), testsite->root, FALSE, TRUE);
+
+  OBJECT innersite1root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_innersite1"]);
+  OBJECT innersite1 := CreateSiteFromFolder(innersite1root->id);
+  innersite1root->CreateFolder([name:="innersite2",type:=1]);
+  innersite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"foreign/");
+
+  analysis := AnalyzeContents([ INTEGER(testfw->GetWHFSTestRoot()->id) ]);
+  TestEq( [[ id := testfw->GetWHFSTestRoot()->id
+           , errorcode := "CONTAINSSITEROOT"
+           , errordata := testsite->name
+           , isfatal := FALSE
+           ]
+          ,[ id := testfw->GetWHFSTestRoot()->id
+           , errorcode := "CONTAINSSITEROOT"
+           , errordata := innersite1->name
+           , isfatal := FALSE
+           ]
+          ], analysis);
+
+  OBJECT innersite2root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_innersite2"]);
+  OBJECT innersite2 := CreateSiteFromFolder(innersite2root->id);
+  innersite2->SetPrimaryOutput(testfw->GetTestOutputServer(), testsite->outputfolder||"foreign/innersite2/");
+  testfw->GetUserObject("deleter")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("deleter"), innersite2->root, FALSE, TRUE);
+
+  //Try to set up deletion of normal and foreign.
+  analysis := SELECT * FROM AnalyzeContents([ INTEGER(ffolder->id), INTEGER(fshortfolder->id), INTEGER(nfolder->id) ]) ORDER BY errordata;
+
+  //This should complain about innersite1 and innersite2
+  TestEq( [[ id := ffolder->id
+           , errorcode := "CONTAINSSITEOUTPUT"
+           , errordata := innersite1->name
+           , isfatal := TRUE
+           ]
+          ,[ id := ffolder->id
+           , errorcode := "CONTAINSSITEOUTPUT"
+           , errordata := innersite2->name
+           , isfatal := TRUE
+           ]
+          ], analysis);
+
+  //Delete the deepest site, i want no complaints about CONTAINSSITEOUTPUT
+  analysis := AnalyzeContents([ INTEGER(innersite2root->id) ]);
+  TestEq([[ id := innersite2root->id
+           , errorcode := "CONTAINSSITEROOT"
+           , errordata := innersite2->name
+           , isfatal := FALSE
+           ]]
+           , analysis);
+
+  testfw->Commit();
+
+  //now try with limited rights, shouldn't see site innersite1
+  testfw->StartTrans("deleter",FALSE);
+
+  analysis := SELECT * FROM AnalyzeContents([ INTEGER(testfw->GetWHFSTestRoot()->id), INTEGER(fshortfolder->id), INTEGER(ffolder->id), INTEGER(nfolder->id) ]) ORDER BY isfatal,errordata;
+  TestEq( [[ id := testfw->GetWHFSTestRoot()->id
+           , errorcode := "CONTAINSSITEROOT"
+           , errordata := ""
+           , isfatal := FALSE
+           ]
+          ,[ id := testfw->GetWHFSTestRoot()->id
+           , errorcode := "CONTAINSSITEROOT"
+           , errordata := testsite->name
+           , isfatal := FALSE
+           ]
+          ,[ id := testfw->GetWHFSTestRoot()->id
+           , errorcode := "CONTAINSSITEROOT"
+           , errordata := innersite2->name
+           , isfatal := FALSE
+           ]
+          ,[ id := ffolder->id
+           , errorcode := "CONTAINSSITEOUTPUT"
+           , errordata := ""
+           , isfatal := TRUE
+           ]
+          ,[ id := ffolder->id
+           , errorcode := "CONTAINSSITEOUTPUT"
+           , errordata := innersite2->name
+           , isfatal := TRUE
+           ]
+          ], analysis);
+
+  testfw->Commit();
+
+}
+
+MACRO TypeChangeTest()
+{
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT testsite := testfw->GetTestSite();
+
+  //test removing publish when changing a file from a publishable type to non publishable (e.g a webdav uploaded file gaining its proper type)
+
+  OBJECT testfile := testsite->rootobject->CreateFile([name := "testpublish.whlib", type := 5, publish := TRUE]);
+  TestEq(TRUE, testfile->publish);
+  testfile->UpdateMetadata([type := 16]);
+  TestEq(FALSE, testfile->publish);
+
+  //test applying profile/template when changing a type
+  OBJECT changetestfolder := testsite->rootobject->CreateFolder([name := "typechangetest"]);
+  OBJECT mytpl := changetestfolder->CreateFile([name := "my.tpl", type := 28 ]);
+  OBJECT myprl := changetestfolder->CreateFile([name := "my.prl", type := 29 ]);
+  changetestfolder->UpdateMetadata ( [ template := mytpl->id, profile := myprl->id ]); //set the defaults
+
+  OBJECT datafile := changetestfolder->CreateFile([name := "data.doc", type := 13 ]);
+  TestEq(0, datafile->template);
+  TestEq(0, datafile->profile);
+
+  datafile->UpdateMetadata( [ type := 5 ]); //make it a HTML file
+  TestEq(mytpl->id, datafile->template);
+  TestEq(0, datafile->profile);
+
+  datafile->UpdateMetadata( [ type := 4 ]); //make it a word doc
+  TestEq(mytpl->id, datafile->template);
+  TestEq(myprl->id, datafile->profile);
+
+  datafile->UpdateMetadata( [ type := 5 ]); //back to HTML
+  TestEq(mytpl->id, datafile->template);
+  TestEq(0, datafile->profile);
+
+  datafile->UpdateMetadata( [ type := 13 ]); //back to multimedia
+  TestEq(0, datafile->template);
+  TestEq(0, datafile->profile);
+
+  testfw->EndTrans();
+}
+
+MACRO MultipleSiteprofileDefinitionsTest()
+{
+  testfw->StartTrans("~webhare", TRUE);
+  testfw->BeginWork();
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
+
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT testtype := OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest");
+  TestEq(TRUE, ObjectExists(testtype));
+  TestEq(1, Length(testtype->members));
+
+  OBJECT siteprof2 := testsite->rootobject->CreateFile([name:="test2.siteprl", data := StringToBlob(testsiteprofile2)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof2->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  testtype := OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest");
+  TestEq(TRUE, ObjectExists(testtype));
+  TestEq(1, Length(testtype->members));
+
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id)); //ADDME shouldn't need this, RecycleSelf should do
+  siteprof->RecycleSelf();
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT siteprof3 := testsite->rootobject->CreateFile([name:="test3.siteprl", data := StringToBlob(testsiteprofile3)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof3->id));
+  siteprof2->RecycleSelf();
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof2->id)); //ADDME shouldn't need this, RecycleSelf should do
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  testtype := OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest");
+  TestEq(TRUE, ObjectExists(testtype));
+  TestEq(1, Length(testtype->members));
+  TestEq("s2", testtype->members[0].name);
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof3->id)); //ADDME shouldn't need this, RecycleSelf should do
+  siteprof3->RecycleSelf();
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
+  testfw->CommitWork();
+  testfw->EndTrans();
+}
+
+MACRO SiteOutputContainTest()
+{
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT subsite1root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_subsite1"]);
+  OBJECT subsite1 := CreateSiteFromFolder(subsite1root->id);
+
+  RECORD cansetoutput;
+
+  //create a new site at the same location as an old site
+  cansetoutput := TestSiteOutputAvailability(0, testsite->outputweb, testsite->outputfolder);
+  TestEq(FALSE, cansetoutput.success);
+  TestEq(testsite->id, cansetoutput.siteonlocation);
+  TestEq(0, cansetoutput.sitecontaininglocation);
+
+  //place the new site inside the testsite (will fail, need subloc foreign folder)
+  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc");
+  TestEq(FALSE, cansetoutput.success);
+  TestEq(testsite->outputfolder||"subloc/", cansetoutput.outputfolder);
+  TestEq(0, cansetoutput.siteonlocation);
+  TestEq(testsite->id, cansetoutput.sitecontaininglocation);
+  TestEq( [[ parent := testsite->root, id:=0, name := "subloc", site := 0 ]], cansetoutput.neededfolders);
+
+  //place the new site a bit deeper inside the testsite (will still fail, needing subloc foreign folder)
+  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
+  TestEq(FALSE, cansetoutput.success);
+  TestEq(0, cansetoutput.siteonlocation);
+  TestEq(testsite->id, cansetoutput.sitecontaininglocation);
+  TestEq( [[ parent := testsite->root, id:=0, name := "subloc", site := 0 ]], cansetoutput.neededfolders);
+
+  //well, let's create it, but as a file, so that there is no way to fix this. it'll still complain about subloc
+  OBJECT sublocfile := OpenWHFSObject(cansetoutput.neededfolders[0].parent)->CreateFile( [ name := cansetoutput.neededfolders[0].name ]);
+  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
+  TestEq(FALSE, cansetoutput.success);
+  TestEq(0, cansetoutput.siteonlocation);
+  TestEq(testsite->id, cansetoutput.sitecontaininglocation);
+  TestEq( [[ parent := testsite->root, id:=sublocfile->id, name := "subloc", site := 0 ]], cansetoutput.neededfolders);
+
+  //okay okay, make it a folder, but forget the type. it will now need a 'subsubloc' inside subloc
+  sublocfile->DeleteSelf();
+  OBJECT sublocfolder := OpenWHFSObject(cansetoutput.neededfolders[0].parent)->CreateFolder( [ name := cansetoutput.neededfolders[0].name ]);
+
+  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
+  TestEq(FALSE, cansetoutput.success);
+  TestEq(0, cansetoutput.siteonlocation);
+  TestEq(testsite->id, cansetoutput.sitecontaininglocation);
+  TestEq( [[ parent := sublocfolder->id, name := "subsubloc", site := 0, id := 0 ]], cansetoutput.neededfolders);
+
+  //create subsubloc then, wrong type again
+  OBJECT subsublocfolder := OpenWHFSObject(cansetoutput.neededfolders[0].parent)->CreateFolder( [ name := cansetoutput.neededfolders[0].name ]);
+  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
+  TestEq(FALSE, cansetoutput.success);
+  TestEq(0, cansetoutput.siteonlocation);
+  TestEq(testsite->id, cansetoutput.sitecontaininglocation);
+  TestEq( [[ parent := sublocfolder->id, name := "subsubloc", site := 0, id := subsublocfolder->id ]], cansetoutput.neededfolders);
+
+  //fix subsubloc's type
+  subsublocfolder->UpdateMetadata([type:=1]);
+  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
+  TestEq(TRUE, cansetoutput.success);
+  TestEq(0, cansetoutput.siteonlocation);
+  TestEq(0, cansetoutput.sitecontaininglocation);
+  TestEq(DEFAULT RECORD ARRAY, cansetoutput.neededfolders);
+
+  //get the site out of here again
+  cansetoutput := subsite1->SetPrimaryOutput(0, "");
+  TestEq(TRUE, cansetoutput.success);
+  TestEq(0, cansetoutput.siteonlocation);
+  TestEq(0, cansetoutput.sitecontaininglocation);
+  TestEq(DEFAULT RECORD ARRAY, cansetoutput.neededfolders);
+
+  testfw->Commit();
+}
+
+MACRO SiteOutputForeignTest()
+{
+  RECORD cansetoutput;
+
+  testfw->StartTrans("~webhare",FALSE);
+
+  /* create (testsite->outputfolder)/foreigntest as a foreign folder
+     create a site ft1 on (testsite->outputfolder)/foreigntest/a
+     create a site ft2 on (testsite->outputfolder)/foreigntest/b/c/d
+  */
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT foreigntest := testsite->rootobject->CreateFolder([name:="foreigntest",type:=1]);
+
+  OBJECT ft1root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_ft1"]);
+  OBJECT ft1 := CreateSiteFromFolder(ft1root->id);
+  TestEq(TRUE, ft1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder || "foreigntest/a").success);
+
+  OBJECT ft2root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_ft2"]);
+  OBJECT ft2 := CreateSiteFromFolder(ft2root->id);
+  TestEq(TRUE, ft2->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder || "foreigntest/b/c/d/").success);
+
+  /* create a site ft3 (testsite->outputfolder)/foreigntest
+     this should confllict */
+  OBJECT ft3root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_ft3"]);
+  OBJECT ft3 := CreateSiteFromFolder(ft3root->id);
+
+  /* if we'd create a (testsite->outputfolder)/foreigntest, what conflict would this cause?  */
+  cansetoutput := TestSiteOutputAvailability(0, testsite->outputweb, testsite->outputfolder || "foreigntest");
+  TestEq(FALSE, cansetoutput.success);
+  TestEq(0, cansetoutput.siteonlocation);
+  TestEq(0, cansetoutput.sitecontaininglocation);
+  TestEq( [[ parent := 0, name := "a", id := 0, site := ft1->id ]
+          ,[ parent := 0, name := "b", id := 0, site := ft2->id ]
+          ], cansetoutput.neededfolders);
+
+  /* if we'd tell you about our site, i want to see a more detailed plan */
+  cansetoutput := TestSiteOutputAvailability(ft3->id, testsite->outputweb, testsite->outputfolder || "foreigntest");
+  TestEq(FALSE, cansetoutput.success);
+  TestEq(0, cansetoutput.siteonlocation);
+  TestEq(0, cansetoutput.sitecontaininglocation);
+  TestEq( [[ parent := ft3root->id, name := "a", id := 0, site := ft1->id ]
+          ,[ parent := ft3root->id, name := "b", id := 0, site := ft2->id ]
+          ], cansetoutput.neededfolders);
+
+  /* if i create b as a normal folder , what else do i need ? */
+  OBJECT ft3_b := ft3root->CreateFolder([name:="b"]);
+  cansetoutput := TestSiteOutputAvailability(ft3->id, testsite->outputweb, testsite->outputfolder || "foreigntest");
+  TestEq(FALSE, cansetoutput.success);
+  TestEq(0, cansetoutput.siteonlocation);
+  TestEq(0, cansetoutput.sitecontaininglocation);
+  TestEq( [[ parent := ft3root->id, name := "a", id := 0, site := ft1->id ]
+          ,[ parent := ft3_b->id, name := "c", id := 0, site := ft2->id ]
+          ], cansetoutput.neededfolders);
+
+  testfw->Commit();
+}
+
+
+
+//FIXME test the various copy/move error conditions
+
+MACRO CopyMoveTest()
+{
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT source1 := testsite->rootobject->CreateFolder([name:="source1"]);
+  OBJECT testhtml := source1->CreateFile([name:="test.html", data := StringToBlob("<html><title>Testfile</title></html>"), publish := true]);
+  OBJECT testindex := source1->CreateFile([name:="folder-index.html", data := StringToBlob("<html><title>Index</title></html>"), publish := true]);
+  OBJECT testintlink := source1->CreateFile([name:="intlink.html", type := 19, filelink := testhtml->id, publish := true]);
+  OBJECT testcontentlink := source1->CreateFile([name:="contentlink.html", type := 20, filelink := testhtml->id, publish := true]);
+  OBJECT textextlink := source1->CreateFile([name:="extlink.html", type := 18, externallink := "http://example.net/", publish := true]);
+
+  OBJECT testrootindex := testsite->rootobject->CreateFile([name:="folder-index.html", data := StringToBlob("<html><title>Index</title></html>"), publish := true]);
+  OBJECT testrootblabla := testsite->rootobject->CreateFile([name:="blabla.html", data := StringToBlob("<html><title>Bla Bla</title></html>"), publish := true]);
+
+  testsite->rootobject->UpdateMetadata([indexdoc := testrootblabla->id]);
+  source1->UpdateMetadata([indexdoc := testhtml->id]);
+
+  //A few sanity checks
+
+  TestEq(testrootblabla->id, testsite->rootobject->indexdoc);
+  TestEq(TRUE, IsBeingPublished(testindex->id));
+  TestEq(TRUE, IsBeingPublished(testrootindex->id));
+  TestEq(TRUE, IsBeingPublished(testrootblabla->id));
+  MarkasPublished(testindex->id, TRUE);
+  MarkasPublished(testrootindex->id, TRUE);
+  MarkasPublished(testrootblabla->id, TRUE);
+
+  TestEq(FALSE, IsBeingPublished(testindex->id));
+  TestEq(FALSE, IsBeingPublished(testrootindex->id));
+  TestEq(FALSE, IsBeingPublished(testrootblabla->id));
+
+
+  testsite->rootobject->UpdateMetadata([indexdoc:=testrootindex->id]);
+  source1->UpdateMetadata([indexdoc:=testindex->id]);
+  TestEq(TRUE, IsBeingPublished(testrootindex->id));
+  TestEq(TRUE, IsBeingPublished(testindex->id));
+  TestEq(TRUE, IsBeingPublished(testrootblabla->id));
+  MarkasPublished(testindex->id, TRUE);
+  MarkasPublished(testrootindex->id, TRUE);
+  MarkasPublished(testrootblabla->id, TRUE);
+
+  //Copy 'source1' to 'dest1'
+
+  OBJECT dest1 := testsite->rootobject->CreateFolder([name:="dest1"]);
+  OBJECT dest1_index := dest1->CreateFile([name:="folder-index.html", data := StringToBlob("<html><title>Index</title></html>"), publish := true]);
+  dest1->UpdateMetadata([indexdoc:=dest1_index->id]);
+  MarkasPublished(dest1_index->id, TRUE);
+
+  OBJECT cm := NEW ObjectCopyMover("copy", dest1->id);
+  cm->AddSourceById(testhtml->id);
+  cm->Go(testfw->GetUserObject("sysop"));
+
+  OBJECT dest1_testhtml := dest1->OpenByPath("test.html");
+  TestEq(TRUE, ObjectExists(dest1_testhtml));
+  TestEq(testhtml->data, dest1_testhtml->data);
+  TestEq(TRUE, dest1_testhtml->publish);
+  TestEq(TRUE, IsBeingPublished(dest1_testhtml->id));
+
+  //dest1_index should be queued, because a new file appeared as a sibling
+  TestEq(TRUE, IsBeingPublished(dest1_index->id));
+  MarkAsPublished(dest1_index->id, TRUE);
+  TestEq(TRUE, IsBeingPublished(testrootindex->id)); //publisher standard site profile takes care of this: <to type="folder" /><republish folder=".." indexonly="true" />
+  TestEq(FALSE, IsBeingPublished(testrootblabla->id)); //no reason blabla should be published, unless a real stupid global siteprofile is active
+
+
+
+
+  //Copy 'source1' to 'destlinks' as a bunch of contentlinks
+  OBJECT destlinks := testsite->rootobject->CreateFolder([name:="destlinks"]);
+
+  cm := NEW ObjectCopyMover("contentlink", destlinks->id);
+  cm->AddSourceById(source1->id);
+  cm->Go(testfw->GetUserObject("sysop"));
+
+  OBJECT destlinks_testhtml := destlinks->OpenByPath("source1/test.html");
+  TestEq(TRUE, ObjectExists(destlinks_testhtml));
+  TestEq(DEFAULT BLOB, destlinks_testhtml->data);
+  TestEq(20, destlinks_testhtml->type);
+  TestEq(testhtml->id, destlinks_testhtml->filelink);
+  TestEq(TRUE, destlinks_testhtml->publish);
+  TestEq(TRUE, IsBeingPublished(destlinks_testhtml->id));
+
+  OBJECT destlinks_contentlink := destlinks->OpenByPath("source1/contentlink.html");
+  TestEq(TRUE, ObjectExists(destlinks_contentlink));
+  TestEq(DEFAULT BLOB, destlinks_contentlink->data);
+  TestEq(20, destlinks_contentlink->type);
+  TestEq(destlinks_testhtml->id, destlinks_contentlink->filelink);
+  TestEq(TRUE, destlinks_contentlink->publish);
+  TestEq(TRUE, IsBeingPublished(destlinks_contentlink->id));
+
+  OBJECT destlinks_intlink := destlinks->OpenByPath("source1/intlink.html");
+  TestEq(TRUE, ObjectExists(destlinks_intlink));
+  TestEq(DEFAULT BLOB, destlinks_intlink->data);
+  TestEq(19, destlinks_intlink->type);
+  TestEq(destlinks_testhtml->id, destlinks_intlink->filelink);
+  TestEq(TRUE, destlinks_intlink->publish);
+  TestEq(TRUE, IsBeingPublished(destlinks_intlink->id));
+
+  OBJECT destlinks_extlink := destlinks->OpenByPath("source1/extlink.html");
+  TestEq(TRUE, ObjectExists(destlinks_extlink));
+  TestEq(DEFAULT BLOB, destlinks_extlink->data);
+  TestEq(18, destlinks_extlink->type);
+  TestEq(0, destlinks_extlink->filelink);
+  TestEq("http://example.net/", destlinks_extlink->externallink);
+  TestEq(TRUE, destlinks_extlink->publish);
+  TestEq(TRUE, IsBeingPublished(destlinks_extlink->id));
+
+
+
+  //Copy 'source1' to 'destlinks' as a bunch of internal links
+  OBJECT destintlinks := testsite->rootobject->CreateFolder([name:="destintlinks"]);
+
+  cm := NEW ObjectCopyMover("internallink", destintlinks->id);
+  cm->AddSourceById(source1->id);
+  cm->Go(testfw->GetUserObject("sysop"));
+
+  OBJECT destintlinks_testhtml := destintlinks->OpenByPath("source1/test.html");
+  TestEq(TRUE, ObjectExists(destintlinks_testhtml));
+  TestEq(DEFAULT BLOB, destintlinks_testhtml->data);
+  TestEq(19, destintlinks_testhtml->type);
+  TestEq(testhtml->id, destintlinks_testhtml->filelink);
+  TestEq(TRUE, destintlinks_testhtml->publish);
+  TestEq(TRUE, IsBeingPublished(destintlinks_testhtml->id));
+
+  OBJECT destintlinks_contentlink := destintlinks->OpenByPath("source1/contentlink.html");
+  TestEq(TRUE, ObjectExists(destintlinks_contentlink));
+  TestEq(DEFAULT BLOB, destintlinks_contentlink->data);
+  TestEq(20, destintlinks_contentlink->type);
+  TestEq(destintlinks_testhtml->id, destintlinks_contentlink->filelink);
+  TestEq(TRUE, destintlinks_contentlink->publish);
+  TestEq(TRUE, IsBeingPublished(destintlinks_contentlink->id));
+
+  OBJECT destintlinks_intlink := destintlinks->OpenByPath("source1/intlink.html");
+  TestEq(TRUE, ObjectExists(destintlinks_intlink));
+  TestEq(DEFAULT BLOB, destintlinks_intlink->data);
+  TestEq(19, destintlinks_intlink->type);
+  TestEq(destintlinks_testhtml->id, destintlinks_intlink->filelink);
+  TestEq(TRUE, destintlinks_intlink->publish);
+  TestEq(TRUE, IsBeingPublished(destintlinks_intlink->id));
+
+  OBJECT destintlinks_extlink := destintlinks->OpenByPath("source1/extlink.html");
+  TestEq(TRUE, ObjectExists(destintlinks_extlink));
+  TestEq(DEFAULT BLOB, destintlinks_extlink->data);
+  TestEq(18, destintlinks_extlink->type);
+  TestEq(0, destintlinks_extlink->filelink);
+  TestEq("http://example.net/", destintlinks_extlink->externallink);
+  TestEq(TRUE, destintlinks_extlink->publish);
+  TestEq(TRUE, IsBeingPublished(destintlinks_extlink->id));
+
+
+
+  //Move 'source1' to dest2'
+  OBJECT dest2 := testsite->rootobject->CreateFolder([name:="dest2"]);
+  OBJECT dest2_index := dest2->CreateFile([name:="folder-index.html", data := StringToBlob("<html><title>Index</title></html>"), publish := true]);
+  dest2->UpdateMetadata([indexdoc:=dest2_index->id]);
+  MarkAsPublished(dest2_index->id, TRUE);
+  TestEq(FALSE, IsBeingPublished(dest2_index->id));
+
+  cm := NEW ObjectCopyMover("move", dest2->id);
+  cm->AddSourceById(testhtml->id);
+  cm->Go(testfw->GetUserObject("sysop"));
+
+  TestEq(TRUE, IsBeingPublished(dest2_index->id));
+  MarkAsPublished(dest2_index->id, TRUE);
+  TestEq(TRUE, IsBeingPublished(testrootindex->id));
+  MarkAsPublished(testrootindex->id, TRUE);
+
+  //Undo the move
+  testhtml->MoveTo(testsite->rootobject, "");
+
+  //Create a siteprofile to repub everything whenever a file named "test.html" is changed (and a move sounds like a change)
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="repubtesthtml.siteprl", data := StringToBlob(repub_testhtml_siteprofile)]);
+  testsite->AssignSiteProfile(siteprof->id);
+  testfw->Commit(); //flush the siteprofile updates, since the siteprofiles cache uses a weblet, which doesn't live in our transaction :(  FIXME fix that! weblet should SHARE our tranasction
+
+  testfw->StartTrans("~webhare",FALSE);
+
+  cm := NEW ObjectCopyMover("copy", dest2->id);
+  cm->AddSourceById(testhtml->id);
+  cm->Go(testfw->GetUserObject("sysop"));
+
+  TestEq(TRUE, IsBeingPublished(testrootindex->id)); //should be republished either way
+  TestEq(TRUE, IsBeingPublished(testrootblabla->id)); //now it SHOULD be republished
+
+  /* A different problem:
+     - moving a file from folder a/b to folder /c, does not run the republish rules for the OLD location */
+  OBJECT movesource := testsite->rootobject->CreateFolder([name:="movesource"]);
+  OBJECT movesourcedeeper := movesource->CreateFolder([name:="movesourcedeeper"]);
+  OBJECT movedest := testsite->rootobject->CreateFolder([name:="movedest"]);
+
+  OBJECT movingfile := movesourcedeeper->CreateFile([name:="test2.html", publish := true]);
+  OBJECT sourceblabla := movesourcedeeper->CreateFile([name:="blabla2.html", data := StringToBlob("<html><title>Bla Bla</title></html>"), publish := true]);
+  OBJECT destblabla := movedest->CreateFile([name:="blabla2.html", data := StringToBlob("<html><title>Bla Bla</title></html>"), publish := true]);
+  MarkAsPublished(movingfile->id, TRUE);
+  MarkAsPublished(sourceblabla->id, TRUE);
+  MarkAsPublished(destblabla->id, TRUE);
+
+  cm := NEW ObjectCopyMover("move", movedest->id);
+  cm->AddSourceById(movingfile->id);
+  cm->Go(testfw->GetUserObject("sysop"));
+
+  TestEq(TRUE, IsBeingPublished(destblabla->id));
+  TestEq(TRUE, IsBeingPublished(sourceblabla->id));
+
+  testsite->UnassignSiteProfile(siteprof->id);
+  testfw->Commit();
+}
+
+
+STRING actionstest_siteprofile :=
+'<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+  || '<apply>'
+    || '<to type="file" pathmask="*/action.html" />'
+    || '<scheduletimedtask task="webhare_testsuite:singleshottest" />'
+  || '</apply>'
+  || '<apply>'
+    || '<to type="file" pathmask="*/badtask.html" />'
+    || '<scheduletimedtask task="webhare_testsuite:nosuchtask" />'
+  || '</apply>'
+|| '</siteprofile>';
+
+
+MACRO SiteProfActionsTest()
+{
+  testfw->StartTrans("~webhare",TRUE);
+  testfw->BeginWork();
+
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="actionstest.siteprl", data := StringToBlob(actionstest_siteprofile)]);
+  testsite->AssignSiteProfile(siteprof->id);
+  testfw->CommitWork(); //flush the siteprofile updates
+
+  TestSiteProfilesNoErrors();
+
+  DATETIME should_run_after := GetCurrentDatetime();
+  RECORD betatask := SELECT lastrun, currentstart, nexttime FROM system_internal.tasks WHERE tag="webhare_testsuite.singleshottest";
+  TestEq(TRUE, RecordExists(betatask));
+  TestEq(TRUE, betatask.lastrun < should_run_after AND betatask.nexttime < should_run_after AND betatask.currentstart = DEFAULT DATETIME); //sanity check
+
+  testfw->BeginWork();
+  OBJECT testhtml := testsite->rootobject->CreateFile([name:="action.html", data := StringToBlob("<html><title>Testfile</title></html>"), publish := true]);
+  RunAddFileHooks(testhtml->id);
+
+  //Verify a non-existing task doesn't crash us
+  OBJECT badhtml := testsite->rootobject->CreateFile([name:="badtask.html", data := StringToBlob("<html><title>Testfile</title></html>"), publish := true]);
+  RunAddFileHooks(badhtml->id);
+  testfw->CommitWork();
+
+  // Wait some time for the effects to pick up
+  Sleep(1000);
+
+  betatask := SELECT lastrun, currentstart, nexttime FROM system_internal.tasks WHERE tag="webhare_testsuite.singleshottest";
+  IF(betatask.lastrun < should_run_after AND betatask.nexttime < should_run_after AND betatask.currentstart = DEFAULT DATETIME)
+  {
+    dumpvalue(betatask,'tree');
+    dumpvalue(should_run_after,'tree');
+  }
+  TestEq(FALSE, betatask.lastrun < should_run_after AND betatask.nexttime < should_run_after AND betatask.currentstart = DEFAULT DATETIME);
+
+  testfw->EndTrans();
+}
+
+
+STRING testreferences_siteprofile :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/referencestest">'
+      || '<member name="whfsref" type="whfsref" />'
+      || '<member name="whfsrefarray" type="whfsrefarray" />'
+    || '</contenttype>'
+    || '<apply>'
+    || '  <to type="file" parentmask="/referred2/" />'
+    || '  <republish scope="references" />'
+    || '</apply>'
+  || '</siteprofile>';
+
+//Note: invoking UpdateData/RunEditFileHooks as that's currently the trigger other paths would use too to trigger republish events.
+MACRO DoPublisherEdit(INTEGER fileid) //do an edit on a file like the publisher interface would
+{
+  ScheduleFileRepublish(fileid);
+  RunEditFileHooks((SELECT * FROM system.fs_objects WHERE id=VAR fileid), fileid);
+}
+
+MACRO TestReferences()
+{
+  testfw->StartTrans("~webhare",TRUE);
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="references.siteprl", data := StringToBlob(testreferences_siteprofile)]);
+  testsite->AssignSiteProfile(siteprof->id);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT refstype := OpenWHFSType("http://www.webhare.net/xmlns/beta/referencestest");
+
+  /* We create this structure:
+     - haswhfsref
+     - haslink
+     - referred (renamed to referred2 to activate the republish rule later)
+
+     Each folder has 2 files, the 'direct' file (which should be republished no matter what) and an 'indirect' file (which should only be republished if republish rule is in effect)
+  */
+
+  OBJECT folder_haswhfsref := testsite->rootobject->CreateFolder([name:="haswhfsref"]);
+  OBJECT folder_haslink := testsite->rootobject->CreateFolder([name:="haslink"]);
+  OBJECT folder_referred := testsite->rootobject->CreateFolder([name:="referred"]);
+
+  OBJECT direct_referred := folder_referred->CreateFile([name:="direct_referred.html",publish:=TRUE,type:=22]);
+  OBJECT indirect_referred := folder_referred->CreateFile([name:="indirect_haslink.html",publish:=TRUE,type:=22]);
+
+  OBJECT direct_whfsref := folder_haswhfsref->CreateFile([name:="direct_whfsref.html",publish:=TRUE,type:=22]);
+  OBJECT indirect_whfsref := folder_haswhfsref->CreateFile([name:="indirect_whfsref.html",publish:=TRUE,type:=22]);
+  refstype->SetInstanceData(direct_whfsref->id, [ whfsref := direct_referred->id ]);
+  refstype->SetInstanceData(indirect_whfsref->id, [ whfsref := indirect_referred->id ]);
+
+  OBJECT direct_haslink := folder_haslink->CreateFile([name:="direct_haslink.html",publish:=TRUE, type:=20, filelink := direct_referred->id]);
+  OBJECT indirect_haslink := folder_haslink->CreateFile([name:="indirect_haslink.html",publish:=TRUE, type:=20, filelink := indirect_referred->id]);
+
+  MarkasPublished(direct_referred->id, TRUE);
+  MarkasPublished(indirect_referred->id, TRUE);
+  MarkasPublished(direct_whfsref->id, TRUE);
+  MarkasPublished(indirect_whfsref->id, TRUE);
+  MarkasPublished(direct_haslink->id, TRUE);
+  MarkasPublished(indirect_haslink->id, TRUE);
+  testfw->CommitWork();
+
+  //FIXME? Await siteprofile recompilation, it seems racy?
+
+
+  //Modify direct_referred. Should trigger its deps to repub,but nothing else
+  testfw->BeginWork();
+
+  //Cleanup publish statusses in the background
+  MarkasPublished(direct_referred->id, TRUE);
+  MarkasPublished(indirect_referred->id, TRUE);
+  MarkasPublished(direct_whfsref->id, TRUE);
+  MarkasPublished(indirect_whfsref->id, TRUE);
+  MarkasPublished(direct_haslink->id, TRUE);
+  MarkasPublished(indirect_haslink->id, TRUE);
+
+  DoPublisherEdit(direct_referred->id);
+  TestEq(TRUE, IsBeingPublished(direct_referred->id));
+  TestEq(FALSE, IsBeingPublished(indirect_referred->id));
+  TestEq(TRUE, IsBeingPublished(direct_haslink->id));
+  TestEq(FALSE, IsBeingPublished(indirect_haslink->id));
+  TestEq(TRUE, IsBeingPublished(direct_whfsref->id));
+  TestEq(FALSE, IsBeingPublished(indirect_whfsref->id));
+  testfw->RollbackWork();
+
+  //Now try with deletion. Should trigger its deps to repub,but nothing else
+  testfw->BeginWork();
+
+  //Cleanup publish statusses in the background
+  MarkasPublished(direct_referred->id, TRUE);
+  MarkasPublished(indirect_referred->id, TRUE);
+  MarkasPublished(direct_whfsref->id, TRUE);
+  MarkasPublished(indirect_whfsref->id, TRUE);
+  MarkasPublished(direct_haslink->id, TRUE);
+  MarkasPublished(indirect_haslink->id, TRUE);
+
+  RunFileDelete(direct_referred->id, 0);
+  TestEq(FALSE, IsBeingPublished(indirect_referred->id));
+  TestEq(TRUE, IsBeingPublished(direct_haslink->id));
+  TestEq(FALSE, IsBeingPublished(indirect_haslink->id));
+  TestEq(TRUE, IsBeingPublished(direct_whfsref->id));
+  TestEq(FALSE, IsBeingPublished(indirect_whfsref->id));
+  testfw->RollbackWork();
+
+  //Enable the hooks by renaming our dir
+  testfw->BeginWork();
+  folder_referred->UpdateMetadata([name := "referred2"]);
+  testfw->CommitWork();
+
+  //Modify direct_referred. Should trigger its deps to repub now too
+  testfw->BeginWork();
+
+  //Cleanup publish statusses in the background
+  MarkasPublished(direct_referred->id, TRUE);
+  MarkasPublished(indirect_referred->id, TRUE);
+  MarkasPublished(direct_whfsref->id, TRUE);
+  MarkasPublished(indirect_whfsref->id, TRUE);
+  MarkasPublished(direct_haslink->id, TRUE);
+  MarkasPublished(indirect_haslink->id, TRUE);
+
+  DoPublisherEdit(direct_referred->id);
+  TestEq(TRUE, IsBeingPublished(direct_referred->id));
+  TestEq(FALSE, IsBeingPublished(indirect_referred->id));
+  TestEq(TRUE, IsBeingPublished(direct_haslink->id));
+  TestEq(TRUE, IsBeingPublished(indirect_haslink->id));
+  TestEq(TRUE, IsBeingPublished(direct_whfsref->id));
+  TestEq(TRUE, IsBeingPublished(indirect_whfsref->id));
+  testfw->RollbackWork();
+
+  //Delete direct_referred. Should trigger its deps to repub now too
+  testfw->BeginWork();
+
+  //Cleanup publish statusses in the background
+  MarkasPublished(direct_referred->id, TRUE);
+  MarkasPublished(indirect_referred->id, TRUE);
+  MarkasPublished(direct_whfsref->id, TRUE);
+  MarkasPublished(indirect_whfsref->id, TRUE);
+  MarkasPublished(direct_haslink->id, TRUE);
+  MarkasPublished(indirect_haslink->id, TRUE);
+
+  RunFileDelete(direct_referred->id, 0);
+  TestEq(FALSE, IsBeingPublished(indirect_referred->id));
+  TestEq(TRUE, IsBeingPublished(direct_haslink->id));
+  TestEq(TRUE, IsBeingPublished(indirect_haslink->id));
+  TestEq(TRUE, IsBeingPublished(direct_whfsref->id));
+  TestEq(TRUE, IsBeingPublished(indirect_whfsref->id));
+  testfw->RollbackWork();
+
+  testfw->EndTrans();
+}
+
+
+RunTestframework( [ PTR SiteprofAssignTest
+                  , PTR SiteRenameTest
+                  , PTR SiteProfActionsTest
+                  , PTR DeleteTest
+                  , PTR TypeChangeTest
+                  , PTR SiteOutputContainTest //deletetest must appear before siteoutput tes
+                  , PTR SiteOutputForeignTest //deletetest must appear before siteoutput tes
+                  , PTR MultipleSiteprofileDefinitionsTest
+                  , PTR CopyMoveTest
+                  , PTR TestReferences
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ,[ login := "deleter"]
+                                    ]
+                     ]);

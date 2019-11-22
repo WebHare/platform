@@ -1,0 +1,415 @@
+﻿<?wh
+/** @short Exception tests */
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "test::testdata_loadlib_c.whlib";
+
+VARIANT FUNCTION Throws()
+{
+  THROW NEW Exception("Throws");
+}
+
+MACRO BasicTest()
+{
+  OpenTest("TestExceptions: BasicTest");
+
+  RECORD result;
+  RECORD ARRAY errors;
+
+  // Normal throw
+  result := TestCompileAndRun('<?wh TRY { THROW DEFAULT OBJECT; PRINT("NOTHROW"); } CATCH (OBJECT e) { PRINT("CATCH"); } ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "CATCH", result.output);
+
+  // Catch and another throw
+  result := TestCompileAndRun('<?wh TRY { TRY { THROW DEFAULT OBJECT; PRINT("NOTHROW1"); } CATCH (OBJECT e) { PRINT("CATCH1"); THROW DEFAULT OBJECT; PRINT("NOTHROW2"); } } CATCH (OBJECT e) { PRINT("CATCH2"); } ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "CATCH1CATCH2", result.output);
+
+  // Catch variable check
+  result := TestCompileAndRun('<?wh OBJECTTYPE ot < PUBLIC STRING a; >; OBJECT o := NEW ot; o->a := "3"; TRY { THROW o; } CATCH (OBJECT a) { PRINT(a->a); } ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "3", result.output);
+
+  // Rethrow variable check
+  result := TestCompileAndRun('<?wh OBJECTTYPE ot < PUBLIC STRING a; >; OBJECT o := NEW ot; o->a := "3"; TRY { TRY { THROW o; } CATCH (OBJECT a) { THROW a; } } CATCH (OBJECT b) { PRINT(b->a); } ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "3", result.output);
+
+  // Uncaught exception (only tests TestCompileAndRun function!!!)
+  result := TestCompileAndRun('<?wh THROW DEFAULT OBJECT; ?>');
+  MustContainError(9, result.errors, 197, "DEFAULT OBJECT");
+
+  result := TestCompileAndRun('<?wh THROW NEW Exception("YEEY"); ?>');
+  MustContainError(10, result.errors, 203, "EXCEPTION", "YEEY");
+
+  errors := TestCompile('<?wh TRY { } CATCH(Exception e) { }; ?>');
+  MustContainError(11, errors, 134);
+
+  errors := TestCompile('<?wh TRY { } CATCH(INTEGER e) { }; ?>');
+  MustContainError(12, errors, 62, "OBJECT", "INTEGER");
+
+  errors := TestCompile('<?wh TRY { } FINALLY(INTEGER e) { }; ?>');
+  MustContainError(12, errors, 62, "OBJECT", "INTEGER");
+
+  // Throw in a property getter for a called property
+  result := TestCompileAndRun('<?wh OBJECTTYPE x < public property d(gfp, -); public FUNCTION PTR FUNCTION gfp() { THROW NEW Exception("a"); } >; TRY { PRINT("Result: " || (NEW x)->d()); } CATCH (OBJECT o) { PRINT("E!"); } ?>');
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "E!", result.output);
+
+  result := TestCompileAndRun('<?wh TRY { } ?>');
+  MustContainError(15, result.errors, 221);
+
+  INTEGER a := 0;
+  TRY a := Throws(); CATCH a := 1;
+  TestEQ(a, 1);
+
+  CloseTest("TestExceptions: BasicTest");
+}
+
+STRING result;
+MACRO XMLEltStart(STRING node, RECORD ARRAY attrs)
+{
+  result := result || ("<"||node||">");
+}
+MACRO XMLEltEnd (STRING node)
+{
+  result := result || ("</"||node||">");
+}
+MACRO XMLEltText (STRING node)
+{
+  IF (node="THROW")
+    THROW DEFAULT OBJECT;
+  result := result || (node);
+}
+MACRO XMLEltComment (STRING node)
+{
+  IF (node="THROW")
+    THROW DEFAULT OBJECT;
+  result := result || ("<!--"||node||"-->");
+}
+RECORD XMLCallbacks :=
+    [ start_element := PTR XMLEltStart
+    , end_element := PTR XMLEltEnd
+    , text_node := PTR XMLEltText
+    , comment_node := PTR XMLEltComment
+    ];
+
+MACRO CCallTest()
+{
+  OpenTest("TestExceptions: CCallTest");
+
+  BLOB xmlblob;
+
+  TRY
+  {
+    xmlblob := StringToBlob("<a><b></b>THROW<c></c></a>");
+    result := "";
+    ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
+    TestEq(TRUE, FALSE);
+  }
+  CATCH (OBJECT e)
+  {
+    TestEq("<a><b></b>", result);
+  }
+
+  TRY
+  {
+    xmlblob := StringToBlob("<a><b></b><!--THROW--><c></c></a>");
+    result := "";
+    ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
+    TestEq(TRUE, FALSE);
+  }
+  CATCH (OBJECT e)
+  {
+    TestEq("<a><b></b>", result);
+  }
+
+  CloseTest("TestExceptions: CCallTest");
+}
+
+OBJECTTYPE base_type < >;
+OBJECTTYPE obj_1_type EXTEND base_type < >;
+OBJECTTYPE obj_2_type EXTEND base_type < >;
+OBJECTTYPE obj_3_type EXTEND base_type < >;
+OBJECTTYPE obj_4_type < >;
+OBJECTTYPE a < >;
+
+MACRO TypeTest()
+{
+  OpenTest("TestExceptions: TypeTest");
+
+  STRING result;
+
+  TRY { THROW NEW base_type; }
+  CATCH (OBJECT< obj_1_type > e) { result := "1"; }
+  CATCH (OBJECT< obj_2_type > e) { result := "2"; }
+  CATCH (OBJECT< base_type > e) { result := "b"; }
+  CATCH (OBJECT e) { result := "o"; }
+
+  TestEqual(1, "b", result);
+
+  TRY { THROW NEW obj_1_type; }
+  CATCH (OBJECT< obj_1_type > e) { result := "1"; }
+  CATCH (OBJECT< obj_2_type > e) { result := "2"; }
+  CATCH (OBJECT< base_type > e) { result := "b"; }
+  CATCH (OBJECT e) { result := "o"; }
+
+  TestEqual(2, "1", result);
+
+  TRY { THROW NEW obj_2_type; }
+  CATCH (OBJECT< obj_1_type > e) { result := "1"; }
+  CATCH (OBJECT< obj_2_type > e) { result := "2"; }
+  CATCH (OBJECT< base_type > e) { result := "b"; }
+  CATCH (OBJECT e) { result := "o"; }
+
+  TestEqual(3, "2", result);
+
+  TRY { THROW NEW obj_3_type; }
+  CATCH (OBJECT< obj_1_type > e) { result := "1"; }
+  CATCH (OBJECT< obj_2_type > e) { result := "2"; }
+  CATCH (OBJECT< base_type > e) { result := "b"; }
+  CATCH (OBJECT e) { result := "o"; }
+
+  TestEqual(4, "b", result);
+
+  TRY { THROW NEW obj_4_type; }
+  CATCH (OBJECT< obj_1_type > e) { result := "1"; }
+  CATCH (OBJECT< obj_2_type > e) { result := "2"; }
+  CATCH (OBJECT< base_type > e) { result := "b"; }
+  CATCH (OBJECT e) { result := "o"; }
+
+  TestEqual(5, "o", result);
+
+  // See if matching works only on object type name
+  TRY
+  {
+    ThrowAnAObject();
+  }
+  CATCH (OBJECT< a > e) { result := "a"; }
+  CATCH (OBJECT e) { result := "o"; }
+
+  TestEqual(6, "o", result);
+
+  // See if when no catch applies the exception will not be eaten
+  RECORD rresult := TestCompileAndRun('<?wh OBJECTTYPE ot < >; OBJECTTYPE ot2 < >; OBJECT o := NEW ot; TRY { THROW o; } CATCH (OBJECT<ot2> a) { } ?>');
+  MustContainError(7, rresult.errors, 197, "OT");
+
+  CloseTest("TestExceptions: TypeTest");
+}
+
+RECORD ARRAY acts;
+
+INTEGER FUNCTION Test(INTEGER t)
+{
+  WHILE (TRUE)
+  {
+    TRY
+    {
+      INSERT [ s := "s", t := t - 1 ] INTO acts AT END;
+      t := t - 1;
+      IF (t = 2)
+        THROW NEW Exception("BOEM");
+      IF (t = 1)
+        CONTINUE;
+      IF (t = 0)
+        BREAK;
+      IF (t = -1)
+        RETURN 666;
+    }
+    FINALLY
+    {
+      INSERT [ s := "f", t := t, e := "-" ] INTO acts AT END;
+    }
+    IF (t < 0)
+      t := 0;
+  }
+  RETURN -4;
+}
+
+MACRO TestM(INTEGER t)
+{
+  WHILE (TRUE)
+  {
+    TRY
+    {
+      INSERT [ s := "s", t := t - 1 ] INTO acts AT END;
+      t := t - 1;
+      IF (t = 2)
+        THROW NEW Exception("BOEM");
+      IF (t = 1)
+        CONTINUE;
+      IF (t = 0)
+        BREAK;
+      IF (t = -1)
+        RETURN;
+    }
+    FINALLY
+    {
+      INSERT [ s := "f", t := t, e := "-" ] INTO acts AT END;
+    }
+    IF (t < 0)
+      t := 0;
+  }
+  RETURN;
+}
+
+INTEGER FUNCTION TestFinallyWithException(INTEGER t)
+{
+  WHILE (TRUE)
+  {
+    TRY
+    {
+      INSERT [ s := "s", t := t - 1 ] INTO acts AT END;
+      t := t - 1;
+      IF (t = 2)
+        THROW NEW Exception("BOEM");
+      IF (t = 1)
+        CONTINUE;
+      IF (t = 0)
+        BREAK;
+      IF (t = -1)
+        RETURN 666;
+    }
+    FINALLY (OBJECT e)
+    {
+      INSERT [ s := "f", t := t, e := ObjectExists(e) ? e->what : "" ] INTO acts AT END;
+    }
+    IF (t < 0)
+      t := 0;
+  }
+  RETURN -4;
+}
+
+RECORD ARRAY FUNCTION CalculateExpect(INTEGER t, BOOLEAN with_e)
+{
+  RECORD ARRAY res;
+  WHILE (TRUE)
+  {
+    t := t - 1;
+    INSERT [ s := "s", t := t ] INTO res AT END;
+    INSERT [ s := "f", t := t, e := with_e ? t = 2 ? "BOEM" : "" : "-" ] INTO res AT END;
+    IF (t = 2 OR t = 0 OR t = -1)
+      BREAK;
+    IF (t < 0)
+      t := 0;
+  }
+  RETURN res;
+}
+
+MACRO FinallyNest(INTEGER depth)
+{
+  TRY
+  {
+    IF (depth = 0)
+      THROW NEW Exception("BOEM");
+    FinallyNest(depth - 1);
+  }
+  FINALLY
+  {
+    INSERT [ depth := depth ] INTO acts AT 0;
+  }
+}
+
+INTEGER FUNCTION FinallyReturnOther() { TRY { RETURN 0; } FINALLY { RETURN 1; } }
+INTEGER FUNCTION FinallyThrowOther() { TRY { THROW NEW Exception("1"); } FINALLY { THROW NEW Exception("2"); } }
+
+
+BOOLEAN FUNCTION FinallyTestLoopBreak()
+{
+  BOOLEAN a := FALSE;
+  TRY
+  {
+    WHILE (TRUE)
+      BREAK; // Was originally always picked up by finally, also for loops completely within try-finally
+    a := TRUE;
+  }
+  FINALLY
+  {
+    RETURN a;
+  }
+}
+
+
+MACRO FinallyTest()
+{
+  OpenTest("TestExceptions: FinallyTest");
+
+  INTEGER i;
+  TRY
+  {
+    FOR (i := -3; i < 4; i := i + 1)
+    {
+      acts := DEFAULT RECORD ARRAY;
+
+      INTEGER x := Test(i);
+      TestEQ(CalculateExpect(i, FALSE), acts);
+      TestEQ(i <= 0 ? 666 : -4, x);
+    }
+    TestEQ(TRUE, FALSE);
+  }
+  CATCH (OBJECT e)
+  {
+    TestEQ(3, i);
+    TestEQ("BOEM", e->what);
+  }
+
+  TRY
+  {
+    FOR (i := -3; i < 4; i := i + 1)
+    {
+      acts := DEFAULT RECORD ARRAY;
+      TestM(i);
+      TestEQ(CalculateExpect(i, FALSE), acts);
+    }
+    TestEQ(TRUE, FALSE);
+  }
+  CATCH (OBJECT e)
+  {
+    TestEQ(3, i);
+    TestEQ("BOEM", e->what);
+  }
+
+  TRY
+  {
+    FOR (i := -3; i < 4; i := i + 1)
+    {
+      acts := DEFAULT RECORD ARRAY;
+      TestFinallyWithException(i);
+      TestEQ(CalculateExpect(i, TRUE), acts);
+    }
+    TestEQ(TRUE, FALSE);
+  }
+  CATCH (OBJECT e)
+  {
+    TestEQ(3, i);
+    TestEQ("BOEM", e->what);
+  }
+
+  TestEQ(TRUE, FinallyTestLoopBreak());
+
+  acts := DEFAULT RECORD ARRAY;
+  TestThrows(PTR FinallyNest(3));
+  TestEQ([ [ depth := 3 ], [ depth := 2 ], [ depth := 1 ], [ depth := 0 ] ], acts);
+
+  TestEQ(1, FinallyReturnOther());
+  TestThrowsLike("2", PTR FinallyThrowOther);
+
+  // not-returning try
+  RECORD result;
+
+  result := TestCompileAndRun('<?wh INTEGER a; RECORD FUNCTION x() { TRY { ABORT("X"); a; } FINALLY {} } x(); ?>');
+  MustContainError(9, result.errors, 182, "X");
+  result := TestCompileAndRun('<?wh INTEGER a; RECORD FUNCTION x() { TRY { ABORT(); a; } FINALLY {} } x(); ?>');
+  MustContainError(9, result.errors, 211);
+
+  CloseTest("TestExceptions: FinallyTest");
+}
+
+PRINT("\n === Running TestExceptions\n");
+BasicTest();
+CCallTest();
+TypeTest();
+FinallyTest();

@@ -1,0 +1,892 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/import.whlib";
+
+STRING ARRAY FUNCTION __GetSetFields(RECORD simpleresults)
+{
+  IF(CellExists(simpleresults,'__formmeta'))
+    RETURN simpleresults.__formmeta.setfields;
+  ELSE //pre-4.17 submission, assume allfields are set
+    RETURN SELECT AS STRING ARRAY name FROM UnpackRecord(simpleresults);
+}
+
+
+RECORD ARRAY FUNCTION GatherToConvertList(RECORD ARRAY rows, RECORD field)
+{
+  VARIANT fallback := GetTypeDefaultValue(TYPEID(field.obj->value));
+
+  RECORD ARRAY conversionlist;
+  FOREVERY(RECORD row FROM rows)
+    INSERT [ formresult := row.id
+           , value := CellExists(row.__resultrow, field.storename) ? GetCell(row.__resultrow, field.storename) : fallback
+           ] INTO conversionlist AT END;
+
+  RETURN conversionlist;
+}
+
+RECORD ARRAY FUNCTION GetAllRows(INTEGER fsobjectid, STRING formname, BOOLEAN showpendingresults, BOOLEAN showexpiredresults, INTEGER ARRAY limitresultids)
+{
+  DATETIME now := GetCurrentDateTime();
+  RETURN SELECT id
+              , when
+              , guid
+            //, status
+              , ipaddress
+              , useragent
+              , url
+              , ipcountrycode
+              , __languagecode := languagecode
+              , __resultrow := ReadAnyFromDatabase(results, blobresults)
+              , __expired := expiration <= now
+              , __pending := status = 5
+          FROM publisher.formresults
+         WHERE form_fsobject = VAR fsobjectid
+               AND form_name = VAR formname
+               AND (Length(limitresultids) > 0 ? id IN limitresultids : TRUE)
+               AND (showexpiredresults OR expiration > now)
+               AND (status = 1 OR (showpendingresults AND status = 5))
+         ORDER BY when;
+}
+
+STATIC OBJECTTYPE FormResultExporter
+<
+  RECORD ARRAY formfields;
+  RECORD ARRAY pvt_columns;
+  RECORD exportoptions;
+  STRING formname;
+  INTEGER fsobjectid;
+  OBJECT whfsform;
+
+  PUBLIC BOOLEAN showpendingresults;
+  PUBLIC BOOLEAN showexpiredresults;
+
+  PUBLIC PROPERTY columns(GetColumns, -);
+
+  MACRO NEW(OBJECT whfsform, RECORD ARRAY formfields, RECORD ARRAY cols, RECORD exportoptions, INTEGER fsobjectid, STRING formname, BOOLEAN showpendingresults, BOOLEAN showexpiredresults)
+  {
+    this->whfsform := whfsform;
+    this->formfields := formfields;
+    this->pvt_columns := cols;
+    this->exportoptions := exportoptions;
+    this->fsobjectid := fsobjectid;
+    this->formname := formname;
+    this->showpendingresults := showpendingresults;
+    this->showexpiredresults := showexpiredresults;
+  }
+
+  RECORD ARRAY FUNCTION GetColumns()
+  {
+    // Don't export 'attachment' columns to the outside
+    RETURN
+        SELECT *
+             , type :=    type = "attachment" ? "text" : type
+          FROM this->pvt_columns;
+  }
+
+  PUBLIC STRING FUNCTION NameByTitle(STRING title)
+  {
+    INTEGER colidx;
+    FOREVERY(RECORD incol FROM this->formfields)
+    {
+      IF(ToUppercase(GetTid(incol.title)) = ToUppercase(title))
+        RETURN "out" || colidx;
+
+      colidx := colidx + Length(incol.outcolumns);
+    }
+    RETURN "";
+  }
+  PUBLIC STRING FUNCTION NameByTag(STRING tag)
+  {
+    INTEGER colidx;
+    FOREVERY(RECORD incol FROM this->formfields)
+    {
+      IF(ToUppercase(incol.name) = ToUppercase(VAR tag))
+        RETURN "out" || colidx;
+
+      colidx := colidx + Length(incol.outcolumns);
+    }
+    RETURN "";
+  }
+  PUBLIC RECORD ARRAY FUNCTION ExportAllResults(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ resultids := INTEGER[] ], options);
+    RECORD ARRAY rows := GetAllRows(this->fsobjectid, this->formname, this->showpendingresults, this->showexpiredresults, options.resultids);
+    IF (Length(rows) = 0)
+      RETURN DEFAULT RECORD ARRAY;
+
+    //Group by language, so we can process as much of them per translated form
+    RECORD ARRAY rowsperlang := SELECT __languagecode, rows := GroupedValues(rows) FROM rows GROUP BY __languagecode;
+    rows := RECORD[];
+
+    FOREVERY(RECORD lang FROM rowsperlang)
+    {
+      RECORD ARRAY langformfields := this->whfsform->__OpenAsLiveForm(lang.__languagecode)->ListFields();
+
+      FOREVERY (RECORD field FROM langformfields)
+      {
+        //Get the export definitino
+        RECORD ourmatch := SELECT * FROM this->formfields WHERE formfields.name = field.name;
+        IF(NOT RecordExists(ourmatch) OR NOT CellExists(ourmatch,"storename"))
+          CONTINUE; // No stored results for this field
+
+        //ADDME optimize away? worth the effort? have a basic fallback but negotiate with the class ?
+        RECORD ARRAY conversionlist := GatherToConvertList(lang.rows, ourmatch);
+        conversionlist := field.obj->EnrichWithFormattedResults(ourmatch.exportoptions, conversionlist);
+
+        FOREVERY(RECORD row FROM lang.rows)
+        {
+          FOREVERY(RECORD col FROM ourmatch.outcolumns)
+            row := Cellinsert(row, col.name, GetCell(conversionlist[#row], col.inputname));
+
+          lang.rows[#row]:=row;
+        }
+      }
+
+      rows := rows CONCAT lang.rows;
+    }
+
+    rows := SELECT *, __rowmeta := [ setfields := __GetSetFields(__resultrow) ] FROM rows;
+
+    rows := SELECT *, DELETE __resultrow, DELETE __languagecode FROM rows ORDER BY when;
+    IF (NOT this->showpendingresults)
+      rows := SELECT *, DELETE __pending FROM rows;
+    IF (NOT this->showexpiredresults)
+      rows := SELECT *, DELETE __expired FROM rows;
+    RETURN rows;
+  }
+
+  /** Returns rows and attachments
+      @return
+      @cell rows
+      @cell attachments
+      @cell attachments.path
+      @cell attachments.file File record
+  */
+  PUBLIC RECORD FUNCTION ExportAllResultsWithAttachments(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD ARRAY rows := this->ExportAllResults(options);
+    RECORD ARRAY attachments;
+
+    FOREVERY (RECORD col FROM this->pvt_columns)
+    {
+      SWITCH (col.type)
+      {
+        CASE "attachment"
+        {
+          STRING colname := GenerateColumnName(#col);
+          FOREVERY (RECORD row FROM rows)
+          {
+            RECORD celldata := GetCell(row, col.name);
+            STRING path;
+            IF (RecordExists(celldata))
+            {
+              path := "uploads/" || Right("000000" || #row + 2, 6) || "-" || colname || "-" || GetSafeFileName(celldata.filename);
+              INSERT
+                  [ path :=   path
+                  , file :=   celldata
+                  ] INTO attachments AT END;
+            }
+
+            rows[#row] := CELL[ ...row, ...CellInsert(CELL[], col.name, path) ];
+          }
+        }
+      }
+    }
+
+    RETURN CELL
+        [ columns :=      this->columns
+        , rows
+        , attachments
+        ];
+  }
+>;
+
+STATIC OBJECTTYPE WHFSForm
+<
+  OBJECT whfsobject;
+  STRING formname;
+  //RECORD ARRAY formfields;
+  OBJECT formdef;
+  RECORD liveperlang;
+
+  PUBLIC BOOLEAN showpendingresults;
+  PUBLIC BOOLEAN showexpiredresults;
+
+  MACRO NEW(OBJECT whfsobject, STRING formname, /*RECORD ARRAY formfields,*/ OBJECT formdef)
+  {
+    this->whfsobject := whfsobject;
+    this->formname := formname;
+    //this->formfields := formfields;
+    this->formdef := formdef;
+  }
+
+  PUBLIC OBJECT FUNCTION GetStorageObject()
+  {
+    RETURN this->whfsobject;
+  }
+
+  PUBLIC INTEGER FUNCTION GetResultsCount(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ showpendingresults := this->showpendingresults
+        , showexpiredresults := this->showexpiredresults
+        ], options);
+    RETURN
+        SELECT AS INTEGER Count(*)
+          FROM publisher.formresults
+         WHERE formresults.form_fsobject = this->whfsobject->id
+               AND formresults.form_name = this->formname
+               AND (options.showexpiredresults OR expiration > GetCurrentDatetime())
+               AND (status = 1 OR (options.showpendingresults AND status = 5));
+  }
+
+  PUBLIC RECORD FUNCTION GetSingleResultById(INTEGER resultid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ showpendingresults := this->showpendingresults
+        , showexpiredresults := this->showexpiredresults
+        ], options);
+    //ADDME verify it's the right form
+    RECORD storedresult :=
+        SELECT *
+          FROM publisher.formresults
+         WHERE id = resultid
+               AND (options.showexpiredresults OR expiration > GetCurrentDatetime())
+               AND (status = 1 OR (options.showpendingresults AND status = 5));
+    IF(NOT RecordExists(storedresult))
+      RETURN DEFAULT RECORD;
+
+    RETURN this->PresentResult(storedresult, DEFAULT OBJECT);
+  }
+
+  /** @param guid Guid of the form results
+      @cell options.allowcancelled Also allow us to retrieve a cancelled result
+      @return @includecelldef #PresentResult.return
+  */
+  PUBLIC RECORD FUNCTION GetSingleResult(STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    //we won't return non-final results unless you explicitly opt in to that
+    options := ValidateOptions(
+        [ allowcancelled := FALSE
+        , allowpending := FALSE
+        , showexpiredresults := this->showexpiredresults
+        , dontresolve := FALSE // Set to true to get the result with the given guid, instead of chasing the last version
+        , __form := DEFAULT OBJECT //form object to use. may want to remove this and just merge out internal getsingleresult calls into separate functions
+        ], options);
+
+    INTEGER ARRAY validstatus := [1];
+    IF(options.allowcancelled)
+      INSERT 3 INTO validstatus AT END;
+    IF(options.allowpending)
+      INSERT 5 INTO validstatus AT END;
+
+    RECORD storedresults := this->GetFinalResult(guid, options.dontresolve, options.showexpiredresults);
+    IF(NOT RecordExists(storedresults) OR storedresults.status NOT IN validstatus)
+      RETURN DEFAULT RECORD;
+
+    RETURN this->PresentResult(storedresults, options.__form);
+  }
+
+  PUBLIC RECORD FUNCTION __LoadIntoForm(RECORD storedresults, OBJECT actualform)
+  {
+    RECORD simpleresults := ReadAnyFromDatabase(storedresults.results, storedresults.blobresults);
+    RECORD ARRAY attachments := SELECT * FROM publisher.formattachments WHERE formattachments.formresult = storedresults.id;
+
+    FOREVERY(RECORD field FROM actualform->ListFields())
+    {
+      //In the database, we prefer to store by guid in case people start renaming. But in the API, name is preferred if available
+      STRING storename := field.guid ?? field.name;
+
+      VARIANT setval;
+      IF(CellExists(simpleresults, storename) AND TYPEID(GetCell(simpleresults,storename)) = TYPEID(field.obj->value))
+        setval := GetCell(simpleresults, storename);
+      ELSE
+        setval := GetTypeDefaultValue(TYPEID(field.obj->value));
+
+      RECORD ARRAY files := SELECT AS RECORD ARRAY CELL[...SplitBlobSetting(metadata,file,0), __blobsource := "r" || id]
+                              FROM attachments
+                             WHERE attachments.question = storename ORDER BY id;
+      field.obj->SetFromStorage(setval, files);
+    }
+    RETURN simpleresults;
+  }
+
+  /** @param storedresults
+      @param actualform
+      @return Form result
+      @cell return.guid GUID of the result
+      @cell return.response Field values, as a packed record
+      @cell return.pagedata
+      @cell return.status Form status (either '', 'pending', 'final', 'cancelled')
+      @cell return.url Submission URL
+      @cell return.when Original submission time
+      @cell return.modified Modification date
+      @cell return.languagecode Language code
+      @cell return.ipaddress IP address of the user
+      @cell return.ipcountrycode Country code of the user from IP-based lookup
+      @cell return.idfield
+      @cell return.useragent User agent of the user
+      @cell return.wrdguid
+      @cell return.submittype Submit type (either 'new', 'cancel', 'confirm' or 'change')
+      @cell return.ischange TRUE if the submit type is 'change'
+      @cell return.iscancel TRUE if the submit type is 'cancel'
+      @cell return.setfields
+  */
+  RECORD FUNCTION PresentResult(RECORD storedresults, OBJECT actualform)
+  {
+    IF(NOT ObjectExists(actualform))
+    {
+      actualform := this->__OpenAsLiveForm(storedresults.languagecode); //makes sure controls match the result's language
+      actualform->selecthistoricvalues := TRUE; //then we assume we're not being loaded by editexistingresult, and it's okay to add deleted options back to selects
+    }
+
+    RECORD simpleresults := this->__LoadIntoForm(storedresults, actualform);
+
+    RECORD response := CELL[];
+    FOREVERY(RECORD field FROM actualform->ListFields())
+    {
+      //In the database, we prefer to store by guid in case people start renaming. But in the API, name is preferred if available
+      STRING cellname := field.name ?? field.guid;
+      response := CellInsert(response, cellname, field.obj->value);
+    }
+
+    STRING ARRAY setfields := __GetSetFields(simpleresults);
+
+    //return the fields in a subrecord to ease namespace conerns
+    STRING submittype := "new";
+    IF (storedresults.status = 3)
+      submittype := "cancel";
+    ELSE
+    {
+      RECORD prevresult := SELECT status FROM publisher.formresults WHERE formresults.replacedby = storedresults.id;
+      IF (RecordExists(prevresult))
+        submittype := prevresult.status = 6 ? "confirm" : "change";
+    }
+
+    RETURN CELL[ storedresults.guid
+               , response
+               //, fieldtitles
+               //, optiontitles
+               , pagedata := CellExists(simpleresults,'pagedata') ? simpleresults.pagedata : DEFAULT RECORD //TODO shouln't pagedata be inside __formmeta ?
+               , status := storedresults.status = 1 ? "final" : storedresults.status = 3 ? "cancelled" : storedresults.status = 5 ? "pending" : ""
+               , storedresults.url
+               , storedresults.when
+               , storedresults.modified
+               , storedresults.languagecode
+               , storedresults.ipaddress
+               , storedresults.ipcountrycode
+               , storedresults.idfield
+               , storedresults.useragent
+               , wrdguid := EncodeWRDGuid(storedresults.wrdguid)
+               , submittype
+               , ischange := submittype = "change"
+               , iscancel := submittype = "cancel"
+               , setfields
+               ];
+  }
+  PUBLIC MACRO CancelResult(STRING guid) //user cancel
+  {
+    RECORD existingresult := this->GetFinalResult(guid, FALSE, FALSE);
+    IF(NOT RecordExists(existingresult) OR existingresult.status NOT IN [1,3])
+      THROW NEW Exception("Cannot cancel result");
+
+    UPDATE publisher.formresults
+       SET status := 3
+         , modified := GetCurrentDatetime()
+     WHERE id = existingresult.id;
+  }
+
+  PUBLIC MACRO DeleteResultsById(INTEGER ARRAY deleteids)
+  {
+    DELETE FROM publisher.formresults
+           WHERE id IN deleteids AND form_fsobject = this->whfsobject->id AND form_name = this->formname;
+    GetPrimary()->BroadcastOnCommit(`publisher:formwebtoolresult.${this->whfsobject->id}.${this->formname}`, DEFAULT RECORD);
+  }
+  PUBLIC MACRO DeleteAllResults()
+  {
+    DELETE FROM publisher.formresults
+           WHERE form_fsobject = this->whfsobject->id AND form_name = this->formname;
+    GetPrimary()->BroadcastOnCommit(`publisher:formwebtoolresult.${this->whfsobject->id}.${this->formname}`, DEFAULT RECORD);
+  }
+  RECORD FUNCTION GetFinalResult(STRING guid, BOOLEAN dontresolve, BOOLEAN showexpiredresults)
+  {
+    RECORD storedresults := SELECT *
+                              FROM publisher.formresults
+                             WHERE form_fsobject = this->whfsobject->id
+                                   AND COLUMN guid = VAR guid
+                                   AND form_name = this->formname
+                                   AND (showexpiredresults OR expiration > GetCurrentDatetime());
+    IF (NOT dontresolve)
+    {
+      WHILE (RecordExists(storedresults) AND storedresults.status = 4/*replaced*/)
+        storedresults := SELECT *
+                           FROM publisher.formresults
+                          WHERE id = storedresults.replacedby
+                                AND (showexpiredresults OR expiration > GetCurrentDatetime());
+    }
+
+    RETURN storedresults;
+  }
+
+  PUBLIC RECORD FUNCTION MatchFormCondition(RECORD condition, RECORD result)
+  {
+    OBJECT actualform := this->__OpenAsLiveForm(result.languagecode);
+    RETURN MatchFormCondition(condition, result, actualform->ListFields());
+  }
+
+  /** Return the list of events to listen to to pick up result changes
+      @return Event masks
+  */
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN [ `publisher:formwebtoolresult.${this->whfsobject->id}.${this->formname}` ];
+  }
+
+  /** Export form results
+      @cell options.fsobjectid ID of whfsobject containing results, needed if this formdef is based on eg a draft form
+      @return(object #FormResultExporter) Form result exporter
+  */
+  PUBLIC OBJECT FUNCTION CreateExporter(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ language := GetTidLanguage()
+                               , isfullexport := TRUE
+                               , formfields := RECORD[]
+                               , withattachments := FALSE
+                               , inlineattachments := FALSE
+                               , showpendingresults := this->showpendingresults
+                               , showexpiredresults := this->showexpiredresults
+                               , showsensitivefields := TRUE
+                               ], options, [ optional := ["formfields"]]);
+
+    RECORD ARRAY formfields := CellExists(options,'formfields') ? options.formfields : this->__OpenAsLiveForm(options.language)->ListFields();
+
+    RECORD ARRAY columns :=
+        [ [ name := "url"
+          , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.url")
+          , type := "text"
+          , storename := ""
+          ]
+        , [ name := "when"
+          , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.when")
+          , type := "datetime"
+          , storeutc := TRUE
+          , storename := ""
+          ]
+        , [ name := "ipaddress"
+          , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.ipaddress")
+          , type := "text"
+          , storename := ""
+          ]
+        , [ name := "useragent"
+          , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.useragent")
+          , type := "text"
+          , storename := ""
+          ]
+        , [ name := "ipcountrycode"
+          , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.ipcountrycode")
+          , type := "text"
+          , storename := ""
+          ]
+        ];
+
+    IF(NOT options.showsensitivefields)
+      DELETE FROM columns WHERE name IN ["ipaddress","useragent","url"];
+
+    RECORD ARRAY resultcolumns;
+    FOREVERY (RECORD field FROM formfields)
+    {
+      STRING storename := field.guid ?? field.name;
+      RECORD exportoptions := CELL[...options, storename ];
+      RECORD ARRAY outcolumns := field.obj->GetResultColumns(exportoptions);
+      IF(Length(outcolumns)=0) //nothing to export?
+        CONTINUE;
+
+      outcolumns := SELECT *, inputname := name, name := "out" || Length(resultcolumns) + #outcolumns, storename := VAR storename FROM outcolumns;
+      resultcolumns := resultcolumns CONCAT outcolumns;
+
+      field := CELL[ ...field
+                   , storename
+                   , outcolumns
+                   , exportoptions
+                   ];
+      formfields[#field] := field;
+    }
+
+    columns := columns CONCAT SELECT *, DELETE inputname FROM resultcolumns;
+    RETURN NEW FormResultExporter(this, formfields, columns, options, this->whfsobject->id, this->formname, options.showpendingresults, options.showexpiredresults);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListResults(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ outputcolumns := DEFAULT RECORD
+                               , isfullexport := TRUE
+                               , showpendingresults := this->showpendingresults
+                               , showexpiredresults := this->showexpiredresults
+                               , language := GetTidLanguage()
+                               ], options);
+
+    RECORD ARRAY getfields;
+    RECORD ARRAY outputcolumns := UnpackRecord(options.outputcolumns);
+    RECORD ARRAY formfields := this->__OpenAsLiveForm(options.language)->ListFields();
+    FOREVERY(RECORD cellrec FROM outputcolumns)
+    {
+      RECORD matchfield := SELECT * FROM formfields WHERE ToUppercase(name) = ToUppercase(cellrec.value);
+      //IF(NOT RecordExists(matchfield)) //FIXME why.....!??!
+      //  matchfield := SELECT * FROM this->formfields WHERE ToUppercase(GetTid(title)) = ToUppercase(cellrec.value);
+      IF(NOT RecordExists(matchfield))
+        THROW NEW Exception(`Unable to find field '${cellrec.value}'`);
+
+      INSERT matchfield INTO getfields AT END;
+    }
+
+    RECORD ARRAY rows := GetAllRows(this->whfsobject->id, this->formname, options.showpendingresults, options.showexpiredresults, INTEGER[]);
+    IF (Length(rows) = 0)
+      RETURN DEFAULT RECORD ARRAY;
+
+    //Group by language, so we can process as much of them per translated form
+    RECORD ARRAY rowsperlang := SELECT __languagecode, rows := GroupedValues(rows) FROM rows GROUP BY __languagecode;
+    rows := RECORD[];
+
+    FOREVERY(RECORD lang FROM rowsperlang)
+    {
+      RECORD ARRAY langformfields := this->__OpenAsLiveForm(lang.__languagecode)->ListFields();
+
+      FOREVERY(RECORD field FROM getfields)
+      {
+        RECORD langmatch := SELECT * FROM langformfields WHERE langformfields.name = field.name;
+        STRING resultcellname := outputcolumns[#field].name;
+        RECORD exportoptions := CELL[ isfullexport := options.isfullexport
+                                    , storename := field.guid ?? field.name
+                                    , withattachments := FALSE
+                                    , inlineattachments := FALSE
+                                    ];
+
+        RECORD ARRAY outcolumns := langmatch.obj->GetResultColumns(exportoptions);
+        IF (Length(outcolumns) = 0)
+          CONTINUE; // No results for this field
+
+        RECORD ARRAY conversionlist := GatherToConvertList(lang.rows, CELL[...langmatch, storename := exportoptions.storename ]);
+        conversionlist := langmatch.obj->EnrichWithFormattedResults(exportoptions, conversionlist);
+
+        IF(Length(outcolumns) = 1)
+        {
+          STRING celltoget := outcolumns[0].name;
+          lang.rows := SELECT AS RECORD ARRAY CellInsert(CellDelete(rows, resultcellname)
+                                                        ,resultcellname
+                                                        ,GetCell(conversionlist[#rows], celltoget))
+                              FROM lang.rows AS rows;
+        }
+        ELSE //we're going to create records with all the outcolumns
+        {
+          lang.rows := SELECT AS RECORD ARRAY CellInsert(CellDelete(rows, resultcellname)
+                                                        ,resultcellname
+                                                        ,conversionlist[#rows])
+                              FROM lang.rows AS rows;
+        }
+      }
+      rows := rows CONCAT lang.rows;
+    }
+
+    rows := SELECT *, DELETE __resultrow, DELETE __languagecode FROM rows ORDER BY when;
+    IF (NOT options.showpendingresults)
+      rows := SELECT *, DELETE __pending FROM rows;
+    IF (NOT options.showexpiredresults)
+      rows := SELECT *, DELETE __expired FROM rows;
+    RETURN rows;
+  }
+
+  PUBLIC OBJECT FUNCTION __OpenAsLiveForm(STRING langcode)
+  {
+    IF(CellExists(this->liveperlang, langcode))
+      RETURN GetCell(this->liveperlang, langcode);
+
+    STRING resourcename := ObjectExists(this->whfsobject) ? this->whfsobject->GetResourceName() : "";
+    RECORD formdef := ParseFormDef(this->formdef->node, this->formname, resourcename, "", this->formdef->formdefinitions,
+                                   [ webtoolformid := ObjectExists(this->whfsobject) ? this->whfsobject->id : 0 ]);
+    OBJECT form := OpenFormByDef(formdef, [ forcewebtoolformbase := TRUE, languagecode := langcode ]);
+    RETURN form;
+  }
+
+  PUBLIC RECORD FUNCTION GetWittyResultData(RECORD singleresult)
+  {
+    //FIXME GetWittyResultData is currently inefficient, because you've already used GetSingleResult and that one has used a temporary form too
+    OBJECT actualform := this->__OpenAsLiveForm(singleresult.languagecode); //makes sure controls match the result's language
+    actualform->PrefillWithSingleResult(singleresult);
+    //actualform->PresentResult(singleresult, actualform);
+
+    RECORD wittydata := actualform->GetWittyResultData( [ language := singleresult.languagecode, submittedfields := singleresult.setfields ]);
+    //We set them, to make sure the cells also existed in the base witty
+    wittydata.url := singleresult.url;
+    wittydata.ipaddress := singleresult.ipaddress;
+    wittydata.ipcountrycode := singleresult.ipcountrycode;
+    wittydata.useragent := singleresult.useragent;
+    wittydata.pagedata := singleresult.pagedata;
+    wittydata.ischange := singleresult.submittype = "change";
+    wittydata.iscancel := singleresult.submittype = "cancel";
+
+    //ADDME configurable timezone, time format/precision
+    wittydata.submitdate := FormatDatetime("%#d %b %Y", UTCToLocal(singleresult.when,"CET"), singleresult.languagecode);
+    wittydata.submittime := FormatDatetime("%H:%M:%S", UTCToLocal(singleresult.when,"CET"), singleresult.languagecode);
+    RETURN wittydata;
+  }
+
+  PUBLIC RECORD FUNCTION PrepareFormDataForComposer(OBJECT mailcomposer, RECORD singleresult, RECORD options DEFAULTSTO DEFAULT RECORD) //mailcomposer will receive attachments
+  {
+    //ADDME cache between calls ?
+    options := ValidateOptions([ attachfiles := FALSE ], options);
+    RECORD wittydata := this->GetWittyResultData(singleresult);
+
+    IF(options.attachfiles)
+      ApplyWittyToComposer(mailcomposer,  wittydata);
+
+    RETURN wittydata;
+  }
+
+>;
+
+PUBLIC OBJECT FUNCTION OpenWebtoolFormResultsForFormdef(OBJECT whfsobject, /*RECORD ARRAY formfields,*/ STRING formname, OBJECT formdef)
+{
+  RETURN NEW WHFSForm(whfsobject, formname, /*formfields,*/ formdef);
+}
+
+PUBLIC OBJECT FUNCTION OpenWebtoolFormResultsForLiveForm(OBJECT whfsobject, RECORD ARRAY formfields, STRING formname)
+{
+  RETURN NEW WHFSForm(whfsobject, formname, /*formfields,*/ DEFAULT OBJECT);
+}
+
+PUBLIC INTEGER FUNCTION GetFormExpectedExpiredResults(OBJECT applytester, INTEGER formid, RECORD instancedata)
+{
+  RECORD settings := GetFormResultsExpirationDaysByInstance(applytester, instancedata);
+  DATETIME now := GetCurrentDatetime();
+  //the new cutoff date is storeresults dats before now
+  DATETIME new_expiration_cutoff := AddDaysToDate(-settings.storeresults, now);
+  //all results with expiration date currently in the future, but with creationdate behind the new cutoff, would disappear
+  RETURN Length(SELECT FROM publisher.formresults WHERE form_fsobject = formid AND expiration >= now AND when <= new_expiration_cutoff);
+}
+
+PUBLIC INTEGER FUNCTION GetFormDefaultStoreResults(RECORD formsettings)
+{
+  INTEGER storedays := RecordExists(formsettings) AND formsettings.defaultstoredays >=0 ? formsettings.defaultstoredays : ReadRegistryKey("publisher.forms.storeresults");
+  IF(RecordExists(formsettings) AND formsettings.maxstoredays >= 0 AND storedays > formsettings.maxstoredays)
+    storedays := formsettings.maxstoredays;
+  RETURN storedays;
+}
+
+PUBLIC RECORD FUNCTION GetFormResultsExpirationDaysByInstance(OBJECT applytester, RECORD instancedata)
+{
+  // If storeresults = 0, use the default value; if storeresults is -1, use 0 (as we cannot differentiate between explicit 0 and 'default')
+  RECORD formsettings := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+  INTEGER storeresults   := instancedata.storeresults < 0 ? 0 : (instancedata.storeresults ?? GetFormDefaultStoreResults(formsettings));
+  INTEGER processresults := RecordExists(formsettings) AND formsettings.processdays >= 0 ? formsettings.processdays : ReadRegistryKey("publisher.forms.processresults");
+
+  // Site profiles can also maximize storage settings
+  IF(RecordExists(formsettings) AND formsettings.maxstoredays >= 0 AND storeresults > formsettings.maxstoredays)
+    storeresults := formsettings.maxstoredays;
+
+  // Delete after storeresults days, but keep at least processresults days
+  processresults := Max[]([ processresults, storeresults ]);
+  IF(processresults < 1)
+    processresults := 1; //we have no support yet for retaining results 'for the most minimum amount of time'. we probably need task dependencides for that
+
+  RETURN CELL[ storeresults, processresults ];
+}
+
+PUBLIC RECORD FUNCTION GetFormResultsExpirationDays(INTEGER formid)
+{
+  RECORD instancedata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formwebtool")->GetInstanceData(formid);
+  RETURN GetFormResultsExpirationDaysByInstance(GetApplyTesterForObject(formid), instancedata);
+}
+
+PUBLIC MACRO RecalculateFormResultsExpirationDates(INTEGER formid)
+{
+  RECORD days := GetFormResultsExpirationDays(formid);
+  DATETIME now := GetCurrentDatetime();
+
+  /* We don't mind updating the deletion date, but we will only update expiration
+     if it's in the future - you're not allowed to 'resurrect' items we only
+     stored for further processing and not for visibility */
+  UPDATE publisher.formresults
+     SET expiration := expiration > now ? AddDaysToDate(days.storeresults, when) : expiration
+       , deletion :=   AddDaysToDate(days.processresults, when)
+   WHERE form_fsobject = formid;
+
+  FOREVERY (STRING formname FROM SELECT AS STRING ARRAY DISTINCT form_name FROM publisher.formresults WHERE form_fsobject = formid)
+    GetPrimary()->BroadcastOnCommit(`publisher:formwebtoolresult.${formid}.${formname}`, DEFAULT RECORD);
+}
+
+PUBLIC RECORD ARRAY FUNCTION DeleteExpiredFormResults(INTEGER formid)
+{
+  RECORD ARRAY todelete :=
+      SELECT id, form_fsobject, form_name
+        FROM publisher.formresults
+   WHERE deletion != DEFAULT DATETIME
+         AND deletion < GetCurrentDatetime()
+         AND (formid = 0 OR form_fsobject = formid);
+  DELETE FROM publisher.formresults
+   WHERE id IN SELECT AS INTEGER ARRAY todelete.id FROM todelete;
+
+  todelete :=
+      SELECT id := form_fsobject
+           , name := form_name
+           , deleted := Length(GroupedValues(todelete))
+        FROM todelete
+       GROUP BY form_fsobject, form_name;
+
+  FOREVERY (RECORD form FROM todelete)
+    GetPrimary()->BroadcastOnCommit(`publisher:formwebtoolresult.${form.id}.${form.name}`, DEFAULT RECORD);
+
+  RETURN todelete;
+}
+
+PUBLIC RECORD FUNCTION ExportFormResults(INTEGER formid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ formname := "webtoolform" ], options);
+  RECORD ARRAY results := SELECT * FROM publisher.formresults WHERE form_fsobject = formid AND form_name = options.formname;
+  IF (NOT RecordExists(results))
+    RETURN DEFAULT RECORD;
+
+  INTEGER ARRAY resultids := SELECT AS INTEGER ARRAY id FROM results;
+  RECORD ARRAY attachments := SELECT * FROM publisher.formattachments WHERE formresult IN resultids;
+
+  RECORD metadata :=
+      SELECT whfspath
+        FROM system.fs_objects
+       WHERE id = formid;
+
+  OBJECT encoder := NEW __INTERNAL_XMLDataEncoder;
+  encoder->allowseparateblobs := TRUE;
+  INTEGER str := CreateStream();
+  encoder->EncodeRecordTo(str, "formresults",
+      CELL[ ...metadata
+          , options.formname
+          , results
+          , attachments
+          ]);
+
+  OBJECT archive := CreateNewArchive("application/zip");
+  DATETIME now := GetCurrentDatetime();
+  archive->AddFile("formresults.xml", MakeBlobFromstream(str), now);
+  FOREVERY (RECORD blobfile FROM encoder->blobs)
+    archive->AddFile(blobfile.name, blobfile.data, now);
+  BLOB data := archive->MakeBlob();
+  archive->Close();
+  RETURN WrapBlob(data, `formexport-${formid}-${FormatDatetime("%Y%m%d", now)}.zip`);
+}
+
+PUBLIC RECORD FUNCTION ImportFormResults(BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ ignoreexisting := FALSE
+      , basepath := ""
+      , formid := 0
+      ], options);
+  RECORD ARRAY files := UnpackArchive(data);
+
+  RECORD status :=
+      [ success := FALSE
+      , error := ""
+      , messages := STRING[]
+      , numresults := 0
+      , formid := 0
+      ];
+  INTEGER xmldata := ParseXML((SELECT AS BLOB files.data FROM files WHERE name = "formresults.xml"), "");
+  IF (xmldata <= 0)
+    RETURN CELL[ ...status, error := "Could not find formresults archive" ];
+
+  OBJECT decoder := NEW __INTERNAL_XMLDataDecoder;
+  decoder->blobs :=
+      SELECT name
+           , size := Length(files.data)
+           , files.data
+           , dirid := ""
+           , getdataptr := DEFAULT FUNCTION PTR
+        FROM files
+       WHERE name != "formresults.xml";
+  RECORD result := decoder->DecodeHareScriptRecordFromXPathQuery(xmldata, "/formresults");
+  IF (NOT RecordExists(result))
+    RETURN CELL[ ...status, error := "Invalid formresults archive" ];
+
+  OBJECT formobject;
+  IF (options.formid != 0)
+  {
+    formobject := OpenWHFSObject(options.formid);
+    IF (NOT ObjectExists(formobject))
+      RETURN CELL[ ...status, error := `No form file found with id ${options.formid}` ];
+  }
+  ELSE
+  {
+    STRING path := result.whfspath;
+    IF (options.basepath != "")
+      path := MergePath(options.basepath, result.whfspath);
+    formobject := OpenWHFSObjectByPath(result.whfspath);
+    IF (NOT ObjectExists(formobject))
+      RETURN CELL[ ...status, error := `No form file found with WHFS path '${result.whfspath}'` || (options.basepath != "" ? `(using base path '${options.basepath}')` : "") ];
+  }
+  IF (formobject->isfolder)
+    RETURN CELL[ ...status, error := "Cannot import form results into a folder" ];
+  status.formid := formobject->id;
+
+  RECORD ARRAY idmapping;
+  FOREVERY (RECORD res FROM result.results)
+  {
+    IF (RecordExists(SELECT FROM publisher.formresults WHERE form_fsobject = formobject->id AND guid = res.guid))
+    {
+      IF (options.ignoreexisting)
+      {
+        INSERT `Skipping existing result with guid '${res.guid}'` INTO status.messages AT END;
+        CONTINUE;
+      }
+      RETURN CELL[ ...status, error := `A result with guid '${res.guid}' already exists` ];
+    }
+
+    INTEGER id := MakeAutonumber(publisher.formresults, "id");
+
+    RECORD resmapping := [ oldid := res.id, newid := id ];
+    RECORD pos := RecordLowerBound(idmapping, resmapping, [ "oldid" ]);
+    INSERT resmapping INTO idmapping AT pos.position;
+
+    INSERT CELL[ ...res, id, form_fsobject := status.formid ] INTO publisher.formresults;
+    FOREVERY (RECORD attachment FROM SELECT * FROM result.attachments WHERE formresult = res.id)
+      INSERT CELL[ ...attachment, formresult := id, DELETE id ] INTO publisher.formattachments;
+
+    INSERT CELL __newid := id INTO result.results[#res];
+
+    status.numresults := status.numresults + 1;
+  }
+  // Update id references
+  FOREVERY (RECORD res FROM result.results)
+  {
+    IF (res.replacedby != 0)
+    {
+      RECORD pos := RecordLowerBound(idmapping, [ oldid := res.replacedby ], [ "oldid" ]);
+      IF (NOT pos.found)
+        THROW NEW Exception(`Could not resolve replacedby value ${res.replacedby} for result with id ${res.id}`);
+      UPDATE publisher.formresults SET replacedby := idmapping[pos.position].newid WHERE id = res.__newid;
+    }
+  }
+
+  GetPrimary()->BroadcastOnCommit(`publisher:formwebtoolresult.${status.formid}.${result.formname}`, DEFAULT RECORD);
+  RETURN CELL[ ...status, success := TRUE ];
+}

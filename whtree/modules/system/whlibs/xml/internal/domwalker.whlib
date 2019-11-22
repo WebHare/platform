@@ -1,0 +1,93 @@
+﻿<?wh
+
+/** This file contains some helper functions to walk a XML DOM
+*/
+
+PUBLIC OBJECT FUNCTION SkipTextNodes(OBJECT node)
+{
+  WHILE (ObjectExists(node) AND node->nodename IN ["#text","#comment"])
+    node := node->nextsibling;
+  RETURN node;
+}
+
+PUBLIC OBJECT FUNCTION GetFirstChildElement(OBJECT node)
+{
+  RETURN SkipTextNodes(node->firstchild);
+}
+
+PUBLIC OBJECT FUNCTION GetNextSiblingElement(OBJECT node)
+{
+  RETURN SkipTextNodes(node->nextsibling);
+}
+
+PUBLIC STRING FUNCTION GetXMLNodePrettyName(OBJECT node)
+{
+  IF (ObjectExists(node))
+  {
+    IF (node->namespaceuri = "")
+      RETURN "{}" || node->nodename;
+    ELSE
+      RETURN "{" || node->namespaceuri || "}" || node->localname;
+  }
+  ELSE
+    RETURN "NULL";
+}
+
+PUBLIC BOOLEAN FUNCTION IsSpecificElement(OBJECT node, STRING ns, STRING name)
+{
+  IF (NOT ObjectExists(node))
+    RETURN FALSE;
+
+  IF (ns = "")
+    RETURN node->namespaceuri = "" AND node->nodename = name;
+  ELSE
+    RETURN node->namespaceuri = ns AND node->localname = name;
+}
+
+PUBLIC MACRO EnsureXMLNodeNonExisting(OBJECT node)
+{
+  IF (ObjectExists(node))
+    THROW NEW Exception("Encountered unexpected node " || GetXMLNodePrettyName(node));
+}
+
+PUBLIC RECORD FUNCTION ResolveQNameFromXMLNode(STRING qname, OBJECT xml_node)
+{
+  STRING namespaceuri, localname;
+  IF (qname != "")
+  {
+    INTEGER colonpos := SearchSubString(qname, ":");
+    STRING prefix := LEFT(qname, colonpos);
+    localname := RIGHT(qname, LENGTH(qname) - colonpos - 1);
+    namespaceuri := xml_node->lookupNamespaceURI(prefix);
+    IF (prefix != "" AND namespaceuri = "")
+      THROW NEW Exception("Cannot locate prefix '" || prefix || "'");
+  }
+  RETURN [ namespaceuri := namespaceuri, localname := localname ];
+}
+
+PUBLIC STRING FUNCTION CleanWhitespace(STRING text)
+{
+  IF (text = "")
+    RETURN "";
+
+  // Change newlines/tabs to spaces
+  text := Substitute(text, "\r", " ");
+  text := Substitute(text, "\n", " ");
+  text := Substitute(text, "\t", " ");
+
+  // Remove all extra spaces
+  text := Substitute(text, "\xC2\xA0", " ");  // C2 A0 is the UTF-8 sequence for the &#160; character (non-breaking space)
+  WHILE (SearchSubString(text, "  ") >= 0)
+    text := Substitute(text, "  ", " ");
+
+  RETURN TrimWhitespace(text);
+}
+
+/// Get list of tokens from string
+PUBLIC STRING ARRAY FUNCTION GetTokenListFromString(STRING text)
+{
+  text := CleanWhitespace(text);
+  IF (text = "")
+    RETURN DEFAULT STRING ARRAY;
+  RETURN Tokenize(text, " ");
+}

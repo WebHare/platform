@@ -1,0 +1,27 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+
+/* Tests mutex implementation
+*/
+OBJECT lockmgr1, lockmgr2;
+OBJECT lock, lock2;
+
+lockmgr1 := OpenLockManager();
+lock := lockmgr1->LockMutex("beta: mutextest 1");
+
+TRY
+{
+  lock2 := lockmgr1->TryLockMutex("beta: mutextest 1", AddTimeToDate(100, GetCurrentDateTime()));
+  PRINT("FAIL-relock\n");
+}
+CATCH (OBJECT e)
+{
+}
+lock->Close();
+
+lockmgr2 := OpenLockManager();
+lock := lockmgr2->LockMutex("beta: mutextest 2");
+lock->Close();
+
+PRINT("DONE");

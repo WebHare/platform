@@ -1,0 +1,83 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/printer.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+
+STRING ARRAY cmdlineargs := GetConsoleArguments() ?? ["27x27x2", "flags", "/tmp/result"];
+
+RECORD args := ParseArguments(cmdlineargs,
+    [ [ name := "dimensions", type := "param", required := TRUE ]
+    , [ name := "classbase", type := "param", required := TRUE ]
+    , [ name := "outputbase", type := "param", required := TRUE ]
+    ]);
+
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: wh publisher:generateflags <dimensions> <classbase> <outputbase>\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+IF(args.dimensions NOT LIKE "?*x?*x?*")
+  TerminateScriptWithError("Dimensions must be of the form <width>x<height>x<pixelratio>, eg 24x32x1");
+
+INTEGER width := ToInteger(Tokenize(args.dimensions,'x')[0],0);
+INTEGER height := ToInteger(Tokenize(args.dimensions,'x')[1],0);
+INTEGER pixelratio := ToInteger(Tokenize(args.dimensions,'x')[2],0);
+
+BOOLEAN debug := TRUE;
+
+STRING flagdir := "common/countryflags/1x1/";
+STRING flagbasedir := "mod::publisher/web/" || flagdir;
+RECORD ARRAY flags := SELECT name := GetBasenameFromPath(name)
+                        FROM ReadWebHareResourceFolder(flagbasedir)
+                       WHERE name LIKE "*.svg"
+                    ORDER BY ToUppercase(name);
+
+flags := SELECT *
+              , position := -width * #flags
+           FROM flags;
+
+STRING flaginstruction := EncryptForThisServer("publisher:flags",
+  CELL[ args.classbase
+      , args.outputbase
+      , width
+      , height
+      , pixelratio
+      , flagdir
+      , flags := (SELECT AS STRING ARRAY name FROM flags)
+      ]);
+
+STRING flagurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.publisher/backend/flags/?f=" || flaginstruction);
+Print("Flag URL: " || flagurl || '\n');
+
+RECORD screenshotresult := GenerateBrowserScreenshot(flagurl, [ screenwidth := width * pixelratio * Length(flags), screenheight := height*pixelratio]);
+StoreDiskFile(`${args.outputbase}.png`, screenshotresult.screenshot.data, [overwrite := TRUE]);
+Print(`Written ${args.outputbase}.png\n`);
+
+OBJECT csswitty := LoadWittyLibrary("mod::publisher/lib/internal/commonassets/flags.css.witty","HTML-NI");
+OBJECT witty := LoadWittyLibrary("mod::publisher/lib/internal/commonassets/flags.html.witty","HTML-NI");
+RECORD wittydata := CELL[ filebase := GetBasenameFromPath(args.outputbase)
+                        , classbase := args.classbase
+                        , flags
+                        , cmdline := `wh publisher:generateflags ${args.dimensions}`
+                        , when := FormatISO8601Datetime(GetCurrentDatetime())
+                        , onversion := GetWebhareVersionNumber()
+                        , width
+                        , height
+                        , renderwidth := width * Length(flags)
+                        , renderheight := height
+                        ];
+
+StoreDiskFile(`${args.outputbase}.css`,  csswitty->RunComponentToBlob("flagcss", wittydata), [overwrite := TRUE]);
+Print(`Written ${args.outputbase}.css\n`);
+
+StoreDiskFile(`${args.outputbase}.html`, witty->RunComponentToBlob("flagtest", wittydata), [overwrite := TRUE]);
+Print(`Written test page ${args.outputbase}.html\n`);

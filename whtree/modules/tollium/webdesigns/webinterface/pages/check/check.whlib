@@ -1,0 +1,169 @@
+<?wh
+/* To test this page: https://my.webhare.dev/webhare/check/
+   eg https://my.webhare.dev/webhare/check/?type=rolesrights
+*/
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/stats.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
+
+STRING ARRAY warning_messages;
+STRING ARRAY error_messages;
+
+RECORD FUNCTION GetAuth()
+{
+  STRING auth := GetWebHeader("Authorization");
+  IF(auth="" OR ToUppercase(auth) NOT LIKE "BASIC *")
+    RETURN DEFAULT RECORD;
+  STRING ARRAY authtoks := Tokenize(DecodeBase64(Tokenize(auth,' ')[1]),':');
+  IF(Length(authtoks)!=2)
+    RETURN DEFAULT RECORD;
+
+  RETURN [ login := authtoks[0]
+         , password := authtoks[1]
+         ];
+}
+
+BOOLEAN FUNCTION HandleAccessControl()
+{
+  //Verify IP
+  BOOLEAN anymatch := FALSE;
+  STRING ARRAY ipmasks := Tokenize(ReadRegistryKey("system.backend.check.ipallowmask")," ");
+  IF(GetWebVariable("ignoreip") != "yes") //for debugging, allows us to force an access check
+  {
+    FOREVERY(STRING mask FROM ipmasks)
+      IF(GetClientRemoteIp() LIKE mask)
+        RETURN TRUE;
+  }
+
+  OBJECT authplugin := GetWRDAuthPlugin(GetRequestURL());
+  IF(NOT ObjectExists(authplugin))
+    THROW NEW Exception("No wrdauth plugin for the check page");
+
+  IF(authplugin->RequireRight("system:sysop"))
+    RETURN TRUE;
+
+  AddHTTPHeader("Status","403 The check page requires sysop privileges",FALSE);
+  RETURN FALSE;
+}
+
+MACRO SendResponse(RECORD response)
+{
+  STRING contenttype := GetWebVariable("text") IN [ "1", "true" ] ? "text/plain" : "";
+  IF(GetWebVariable("format")="json")
+  {
+    AddHTTPHeader("Content-Type", contenttype ?? "application/json",FALSE);
+    Print(EncodeJSON(response));
+    RETURN;
+  }
+
+  AddHTTPHeader("Content-Type", contenttype ?? "application/x-hson",FALSE);
+  Print(EncodeHSON(response));
+}
+
+RECORD ARRAY FUNCTION GetUploadableLogFiles(STRING logname, DATETIME startdate)
+{
+  STRING logroot := GetWebHareConfiguration().logroot;
+  RECORD ARRAY logfiles := ReadDiskDirectory(logroot, `${logname}.*.log`);
+
+  logfiles :=
+      SELECT TEMPORARY date := MakeDateFromText(Tokenize(name,'.')[END-2] || "T000000Z")
+           , name
+           , path :=      MergePath(logroot, name)
+           , date :=      date
+           , size64
+        FROM logfiles
+       WHERE name LIKE "*.????????.log"
+    ORDER BY date;
+
+  DELETE FROM logfiles WHERE date < startdate;
+
+  RETURN
+      SELECT name
+           , size64
+        FROM logfiles;
+}
+
+PUBLIC MACRO RunDynamicPage()
+{
+  IF(ObjectExists(GetPrimary()))
+  {
+    IF(NOT HandleAccessControl())
+      RETURN;
+
+    SWITCH (GetWebVariable("type"))
+    {
+      CASE "usagestats"
+      {
+        RECORD response := GetRawWebserverUsageStats(MakeDateFromText(GetWebVariable("rangestart"))
+                                                    ,MakeDateFromText(GetWebVariable("rangelimit")) ?? MAX_DATETIME
+                                                    );
+
+        SendResponse(response);
+      }
+      CASE "rolesrights"
+      {
+        //TODO export all userapi schemas, but currently no production servers have this
+        RECORD response := [ rolesrights := ListRightsAndRolesForExport(GetPrimaryWebhareUserAPI())
+                           ];
+
+        SendResponse(response);
+      }
+      CASE "logs"
+      {
+        STRING log := GetWebVariable("log");
+        DATETIME startdate := MakeDateFromText(GetWebVariable("startdate"));
+
+        RECORD response :=
+            [ files :=    GetUploadableLogFiles(log, startdate)
+            ];
+
+        SendResponse(response);
+      }
+      CASE "logfile"
+      {
+        STRING name := GetWebVariable("name");
+        INTEGER64 start := ToInteger64(GetWebVariable("start"), 0i64);
+
+        IF (name LIKE "*/*" OR name LIKE ".*" OR name NOT LIKE "*.log")
+          AbortWithHTTPError(400);
+
+        STRING logroot := GetWebHareConfiguration().logroot;
+        BLOB resource := GetDiskResource(MergePath(logroot, name));
+
+        BLOB response := MakeComposedBlob([ CELL[ data := resource, start ] ]);
+
+        STRING contenttype := GetWebVariable("text") IN [ "1", "true" ] ? "text/plain" : "";
+        AddHTTPHeader("Content-Type", contenttype ?? "application/octet-stream", FALSE);
+        SendWebFile(response);
+      }
+      CASE "installedmodules"
+      {
+        RECORD ARRAY installed := SELECT * FROM GetInstalledModulesOverview(FALSE) WHERE isinstalled;
+        RECORD response :=
+            [ modules :=
+                  SELECT name
+                       , version
+                       , source_repository_url
+                       , source_repository_uuid
+                       , source_revision
+                    FROM EnrichInstalledModulesWithManifests(installed)
+            ];
+
+        SendResponse(response);
+      }
+      DEFAULT
+      {
+        AbortWithHTTPError(400);
+      }
+    }
+  }
+}

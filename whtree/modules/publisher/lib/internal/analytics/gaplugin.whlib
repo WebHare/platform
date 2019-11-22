@@ -1,0 +1,97 @@
+<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+PUBLIC STATIC OBJECTTYPE GoogleAnalyticsPlugin EXTEND WebDesignPluginBase
+<
+  PUBLIC STRING account;
+  BOOLEAN tracklinks;
+  BOOLEAN sendpageview;
+  BOOLEAN anonymizeip;
+  OBJECT webdesign;
+  RECORD ARRAY universalsets;
+  STRING userid;
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ account := node->GetAttribute("account")
+           , tracklinks := node->HasAttribute("tracklinks") ? ParseXSBoolean(node->GetAttribute("tracklinks")) : TRUE
+           , sendpageview := node->HasAttribute("sendpageview") ? ParseXSBoolean(node->GetAttribute("sendpageview")) : TRUE
+           , anonymizeip := node->HasAttribute("anonymizeip") ? ParseXSBoolean(node->GetAttribute("anonymizeip")) : TRUE
+           ];
+  }
+
+  MACRO ValidateCode(STRING code)
+  {
+    IF(code != "" AND code NOT LIKE "UA-*-*")
+      THROW NEW Exception(`Code '${code}' is not a valid Universal Analytics code`);
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
+  {
+    this->webdesign := webdesign;
+
+    //Check the registry for an override
+    STRING usecode := ReadRegistryKey("socialite.localoverrides.universalanalytics");
+    IF(usecode = "")//not overridden
+      usecode := config.account;
+
+    this->account := usecode;
+
+    this->tracklinks := config.tracklinks;
+    this->sendpageview := config.sendpageview;
+    this->anonymizeip := config.anonymizeip;
+  }
+
+  PUBLIC MACRO SetCustomDimension(INTEGER dimension, STRING value)
+  {
+    DELETE FROM this->universalsets WHERE name = "dimension"  || dimension;
+    INSERT [ name := "dimension" || dimension, value := value ] INTO this->universalsets AT END;
+  }
+  PUBLIC MACRO SetCustomMetric(INTEGER metric, INTEGER value)
+  {
+    DELETE FROM this->universalsets WHERE name = "metric"  || metric;
+    INSERT [ name := "metric" || metric, value := value ] INTO this->universalsets AT END;
+  }
+  PUBLIC MACRO SetUserID(STRING userid)
+  {
+    this->userid := userid;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    webdesign->InsertWithCallback(PTR this->DoUniversal(webdesign), "dependencies-top");
+  }
+
+  MACRO DoUniversal(OBJECT webdesign)
+  {
+    IF(this->account="")
+      RETURN;
+
+    this->ValidateCode(this->account);
+
+    BOOLEAN compact := webdesign->wittyencoding LIKE "*-NI";
+    STRING code := '<script>'
+                   || "(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){"
+                   || "(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),"
+                   || "m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)"
+                   || "})(window,document,'script','//www.google-analytics.com/analytics.js','ga');"
+                   //|| "ga('create', 'UA-12057153-3', 'b-lex.com');" //ADDME domain name?
+                   || "ga('create','" || EncodeJava(this->account) || "');";
+    IF(this->userid!='')
+      code := code || `ga('set','userid',${EncodeJSON(this->userid)});`;
+    FOREVERY(RECORD toset FROM this->universalsets)
+      code := code || `ga('set',${EncodeJSON(toset.name)},${EncodeJSON(toset.value)});`;
+    IF(this->anonymizeip)
+      code := code || "ga('set','anonymizeIp', true);";
+    IF(this->sendpageview)
+      code := code || "ga('send','pageview');";
+    code := code || "</script>" || (compact?'':'\n');
+    Print(code);
+  }
+>;
+

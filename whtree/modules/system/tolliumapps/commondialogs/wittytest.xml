@@ -1,0 +1,68 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="wittytest.whlib"
+         gid="tolliumapps.commondialogs.wittytest">
+
+  <screen name="wittytest" allowresize="true" savestate="size" width="130x" height="24x" onunload="GotUnload">
+    <compositions>
+      <eventlistener name="wittylistener" onevents="onwittyupdate" />
+    </compositions>
+    <body spacers="none">
+      <tabs height="1pr" savestate="selectedtab">
+        <tab name="data">
+          <hsvalue name="value" height="1pr" />
+        </tab>
+        <tab name="htmlsourcetab" spacers="none">
+          <codeedit name="htmlsource" width="1pr" height="1pr" enabled="false" />
+        </tab>
+        <tab name="html">
+          <panel height="1pr">
+            <iframe name="htmlframe" width="1pr" height="1pr" />
+          </panel>
+        </tab>
+        <tab name="pdf">
+          <panel height="1pr">
+            <iframe name="pdfframe" width="1pr" height="1pr" />
+          </panel>
+          <textarea name="pdflog" width="1pr" height="8x" />
+        </tab>
+      </tabs>
+      <textedit name="wittypath" width="1pr" enabled="false" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="emailtest" allowresize="true" savestate="size" width="130x" height="24x">
+    <compositions>
+      <eventlistener name="wittylistener" onevents="onwittyupdate" />
+    </compositions>
+    <body spacers="none">
+      <tabs height="1pr" savestate="selectedtab">
+        <tab name="data">
+          <hsvalue name="value" height="1pr" />
+        </tab>
+        <tab name="htmlsourcetab" spacers="none">
+          <panel height="1gr"  backgroundcolor="#FEFFDE" spacers="left right">
+            <text valuetid=".htmlapproximation" />
+          </panel>
+          <codeedit name="htmlsource" width="1pr" height="1pr" enabled="false" />
+        </tab>
+        <tab name="emailtab" spacers="none">
+          <emailcontents name="email" />
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <grid>
+        <cell width="1pr">
+          <textedit name="wittypath" width="1pr" enabled="false" />
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="close" />
+        </cell>
+      </grid>
+    </footer>
+  </screen>
+
+</screens>

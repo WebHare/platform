@@ -1,0 +1,84 @@
+<?wh
+/** @short Utility library for static publications
+    @long  This library contains functions for creating static publications
+*/
+LOADLIB "mod::publisher/lib/template-v2.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+RECORD ARRAY intercepted;
+MACRO PTR rewriter;
+STRING rewrite_url_limit;
+
+PUBLIC STRING FUNCTION RewriteToRelativePath(STRING inlink)
+{
+  IF(rewrite_url_limit != "" AND Left(inlink,Length(rewrite_url_limit)) != rewrite_url_limit)
+    RETURN inlink;
+
+  inlink := MakeRelativeLinkFromURL(GetCurrentPageUrl(), inlink);
+  RETURN inlink;
+}
+
+MACRO RewriteLinksToRelative(STRING baseurl, OBJECT checkattr)
+{
+  IF(Left(checkattr->nodevalue, Length(baseurl)) = baseurl)
+    checkattr->nodevalue := MakeRelativeLinkFromURL(GetCurrentPageURL(), checkattr->nodevalue);
+}
+
+INTEGER FUNCTION Interceptor(BOOLEAN is_open, STRING name, INTEGER page, INTEGER newfile)
+{
+  IF(name NOT LIKE "*.html" AND name NOT LIKE "*.htm" AND name NOT LIKE "*.shtml")
+    RETURN newfile;
+
+  IF (is_open)
+  {
+    //Store the file into a stream
+    INTEGER stream := CreateStream();
+    INSERT INTO intercepted(id, origfile) VALUES(stream, newfile) AT END;
+    RETURN stream;
+  }
+  ELSE
+  {
+    RECORD orig := SELECT * FROM intercepted WHERE id=newfile;
+    OBJECT finaldoc := MakeXMLDocumentFromHTML(MakeBlobFromStream(newfile),"UTF-8");
+
+    OBJECT rewritecontext := GetHTMLOutputRewriter();
+    rewritecontext->RewriteAllLinks(finaldoc, rewriter);
+    SendBlobTo(orig.origfile, rewritecontext->GenerateHTML(finaldoc));
+
+    DELETE FROM intercepted WHERE id=newfile;
+    RETURN orig.origfile;
+  }
+}
+
+/** @short Control the automatic page rewriter
+    @param enable Set to true to rewrite all pages with '.html' and '.htm' extensions to have relative links */
+PUBLIC MACRO SetRewriteHTMLToRelativePaths(BOOLEAN enable, STRING url_limit DEFAULTSTO "")
+{
+  IF(GetCurrentPageUrl()!="")
+    Abort("SetRewriteHTMLToRelativePaths settings may not be modified while a page is open");
+
+  rewrite_url_limit := url_limit;
+  IF(enable)
+  {
+    rewriter := PTR RewriteLinksToRelative(rewrite_url_limit, #2);
+    __publisher_newfile_intercept := PTR Interceptor;
+  }
+  ELSE
+    __publisher_newfile_intercept := DEFAULT MACRO PTR;
+}
+
+PUBLIC MACRO SetRewriteHTMLLinks(BOOLEAN enable, MACRO PTR customrewriter)
+{
+  IF(GetCurrentPageUrl()!="")
+    Abort("SetRewriteHTMLToRelativePaths settings may not be modified while a page is open");
+
+  IF(enable)
+  {
+    rewriter := customrewriter;
+    __publisher_newfile_intercept := PTR Interceptor;
+  }
+  ELSE
+    __publisher_newfile_intercept := DEFAULT MACRO PTR;
+}

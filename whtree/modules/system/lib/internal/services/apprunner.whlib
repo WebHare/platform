@@ -1,0 +1,149 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+STRING ARRAY FUNCTION ParseCmdLine(STRING cmdline)
+{
+  OBJECT parser := NEW StringParser(TrimWhitespace(cmdline));
+
+  STRING ARRAY args;
+  IF (parser->eof)
+    RETURN args;
+
+  STRING arg;
+  WHILE (TRUE)
+  {
+    arg := arg || parser->ParseWhileNotInSet(' "');
+    IF (parser->current = "" OR parser->current = " ")
+    {
+      IF (arg LIKE '"*"')
+        arg := SubString(arg, 1, LENGTH(arg) - 2);
+
+      INSERT arg INTO args AT END;
+      IF (parser->eof)
+        BREAK;
+
+      arg := "";
+      parser->ParseWhileInSet(" ");
+      CONTINUE;
+    }
+    arg := arg || parser->ParseN(1);
+    WHILE (NOT parser->eof AND parser->current != '"')
+    {
+      arg := arg || parser->ParseWhileNotInSet('\\"');
+      IF (parser->current = '\\')
+      {
+        parser->Next();
+        arg := arg || parser->ParseN(1);
+      }
+    }
+    arg := arg || parser->ParseN(1);
+  }
+  RETURN args;
+}
+
+
+RECORD ARRAY FUNCTION GetAppsFromRegistry()
+{
+  RECORD ARRAY apps;
+  FOREVERY (RECORD regkey FROM ReadRegistryNode("system.services.apps"))
+  {
+    STRING cmdline := regkey.data;
+
+    // FIXME: this is a hack, but doing it right requires restructuring registry storage
+    IF (cmdline LIKE "!*")
+      CONTINUE;
+
+    STRING ARRAY args := ParseCmdLine(cmdline);
+    IF (LENGTH(args) = 0)
+    {
+      PRINT(`Service ${regkey.subkey} has an wrongly formatted command line`);
+    }
+    ELSE
+    {
+      INSERT [ app := args[0]
+             , args := ArraySlice(args,1)
+             , name := regkey.subkey
+             , runatsoftreset := FALSE
+             , module := ""
+             ] INTO apps AT END;
+    }
+  }
+
+  RETURN apps;
+}
+
+RECORD ARRAY FUNCTION GetModuleApps()
+{
+  RECORD ARRAY apps;
+  RECORD ARRAY nodes := GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "apprunnerconfig");
+
+  FOREVERY (RECORD node FROM nodes)
+  {
+    STRING library := node.node->GetAttribute("library");
+    STRING func := node.node->GetAttribute("configfunction");
+
+    IF(library = "")
+    {
+      func := MakeAbsoluteResourcePath(node.resource, func);
+    }
+    ELSE
+    {
+      library := library LIKE "*::*" ? library : MergePath("mod::" || node.module || "/lib/", library);
+      func := library || "#" || func;
+    }
+
+    RECORD ARRAY scripts;
+    TRY
+    {
+      // FIXME: the contents of the return should be checked within the job...
+      scripts := CallFunctionFromJob(func);
+
+      FOREVERY (RECORD script FROM scripts)
+      {
+        STRING ARRAY args := CellExists(script,"args") ? script.args : ParseCmdLine(script.cmdline);
+        IF (LENGTH(args) = 0)
+        {
+          PRINT("Service " || script.name || " from module " || node.module || " has an wrongly formatted command line\n");
+          CONTINUE;
+        }
+
+        STRING ARRAY databasemodes := CellExists(script, "databasemodes")
+            ? script.databasemodes
+            : [ "readonly", "online" ];
+
+        IF ("readonly" NOT IN databasemodes AND IsDatabaseReadOnly())
+          CONTINUE;
+
+        INSERT [ name := script.name
+               , app := args[0]
+               , args := ArraySlice(args,1)
+               , runatsoftreset   := CellExists(script, "RUNATSOFTRESET") AND script.runatsoftreset
+               , module := node.module
+               ] INTO apps AT END;
+      }
+    }
+    CATCH (OBJECT e)
+    {
+      // FIXME: to harescript-errors log
+      PRINT("Could not get apprunner config from module " || node.module || ", lib " || library || " func " || func);
+      LogHarescriptException(e);
+    }
+  }
+
+  RETURN apps;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ListExpectedApps()
+{
+  RECORD ARRAY apps := RunInSeparatePrimary(PTR GetAppsFromRegistry()) CONCAT GetModuleApps();
+  UPDATE apps SET app := GetInstallationRoot() || "bin/" || app WHERE SearchSubString(app, "/") = -1;
+  RETURN apps;
+}

@@ -1,0 +1,345 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/any.whlib";
+LOADLIB "wh::internal/graphs.whlib";
+
+
+// Counter for local blob reusage
+PUBLIC INTEGER __sync_reusedblobs;
+
+PUBLIC RECORD ARRAY FUNCTION GenerateProcessingInstructions(OBJECT type, INTEGER parentattr, STRING ARRAY selectattrs)
+{
+  RECORD ARRAY result;
+
+  RECORD ARRAY attrs := type->ListAttributes(parentattr);
+  FOREVERY (RECORD attr FROM attrs)
+  {
+    IF (NOT __MatchesAnyMask(attr.tag, selectattrs))
+      CONTINUE;
+
+    STRING domaintag;
+    IF (attr.domain != 0)
+      domaintag := type->wrdschema->GetTypeById(attr.domain)->tag;
+    INSERT CELL domaintag := domaintag INTO attr;
+
+    IF (attr.attributetypename IN [ "DOMAIN", "DOMAINARRAY", "PAYMENT", "FILE", "IMAGE", "RICHDOCUMENT" ] AND attr.tag != "WRD_GENDER")
+    {
+      INSERT CELL __haveblob := attr.attributetypename IN [ "FILE", "IMAGE", "RICHDOCUMENT" ] INTO attr;
+      INSERT attr INTO result AT END;
+    }
+    ELSE IF (attr.attributetypename = "ARRAY")
+    {
+      RECORD ARRAY fields := GenerateProcessingInstructions(type, attr.id, [ "*" ]);
+      IF (LENGTH(fields) = 0)
+        CONTINUE;
+
+      BOOLEAN __haveblob := RecordExists(SELECT FROM fields WHERE COLUMN __haveblob);
+      INSERT CELL[ attr.attributetypename, attr.localtag, fields, __haveblob ] INTO result AT END;
+    }
+  }
+
+  RETURN result;
+}
+
+PUBLIC RECORD FUNCTION RetrieveLinks(RECORD retval, RECORD ARRAY attrs, RECORD ARRAY data)
+{
+  FOREVERY (RECORD attr FROM attrs)
+  {
+    INTEGER ARRAY alllinks;
+    IF (attr.attributetypename = "FILE" OR attr.attributetypename = "IMAGE")
+    {
+      // ADDME: SOURCE_FSOBJECT?
+      CONTINUE;
+    }
+    ELSE IF (attr.attributetypename = "DOMAIN")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        INTEGER link := GetCell(rec, attr.localtag);
+        IF (link != 0)
+          INSERT link INTO alllinks AT END;
+      }
+    }
+    ELSE IF (attr.attributetypename = "DOMAINARRAY")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        INTEGER ARRAY links := GetCell(rec, attr.localtag);
+        IF (NOT IsDefaultValue(links))
+          alllinks := alllinks CONCAT links;
+      }
+    }
+    ELSE IF (attr.attributetypename = "PAYMENT")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD payment := GetCell(rec, attr.localtag);
+        IF (RecordExists(payment))
+          INSERT payment.paymentprovider INTO alllinks AT END;
+      }
+    }
+    ELSE IF (attr.attributetypename = "ARRAY")
+    {
+      RECORD ARRAY allelts;
+      FOREVERY (RECORD rec FROM data)
+        allelts := allelts CONCAT GetCell(rec, attr.localtag);
+      retval := RetrieveLinks(retval, attr.fields, allelts);
+      CONTINUE;
+    }
+    ELSE
+      CONTINUE;
+
+    IF (CellExists(retval, attr.domaintag))
+    {
+      alllinks := GetCell(retval, attr.domaintag) CONCAT alllinks;
+      retval := CellUpdate(retval, attr.domaintag, alllinks);
+    }
+    ELSE
+      retval := CellInsert(retval, attr.domaintag, alllinks);
+  }
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION ResolveLinks(OBJECT wrdschema, RECORD links, STRING mode)
+{
+  IF (mode NOT IN [ "guid", "id-guid" ])
+    THROW NEW Exception(`Illegal mode`);
+
+  RECORD outputcolumns := mode = "guid"
+      ? CELL[ "wrd_id", data := "wrd_guid" ]
+      : CELL[ "wrd_id", data := [ "wrd_id", "wrd_guid" ] ];
+
+  RECORD retval := CELL[];
+  FOREVERY (RECORD rec FROM UnpackRecord(links))
+  {
+    OBJECT type := wrdschema->GetType(rec.name);
+    RECORD ARRAY result :=
+        SELECT *
+          FROM type->RunQuery(CELL
+                  [ outputcolumns
+                  , filters := [ [ field := "WRD_ID", matchtype := "IN", value := rec.value ]
+                               ]
+                  , historymode :=    "__getfields" //we need to import temps too
+                  ])
+      ORDER BY wrd_id;
+
+    retval := CellInsert(retval, rec.name, result);
+  }
+  RETURN retval;
+}
+
+/** Filters out setting ids from exported instancedata. FIXME: Use member data about the structure
+*/
+RECORD FUNCTION FilterSettingIds(RECORD idata)
+{
+  DELETE CELL settingid FROM idata;
+  DELETE CELL fs_settingid FROM idata;
+  DELETE CELL __blobsource FROM idata;
+
+  FOREVERY (RECORD rec FROM UnpackRecord(idata))
+  {
+    SWITCH (TypeID(rec.value))
+    {
+    CASE TypeID(RECORD)
+      {
+        idata := CellUpdate(idata, rec.name, FilterSettingIds(rec.value));
+      }
+    CASE TypeID(RECORD ARRAY)
+      {
+        idata := CellUpdate(idata, rec.name,
+            SELECT AS RECORD ARRAY FilterSettingIds(value)
+              FROM rec.value);
+      }
+    }
+  }
+  RETURN idata;
+}
+
+VARIANT FUNCTION LookupWRDId(RECORD ARRAY map, INTEGER lookingfor)
+{
+  RECORD pos := RecordLowerBound(map, [ wrd_id := lookingfor ], [ "WRD_ID" ]);
+  IF(NOT pos.found)
+    THROW NEW Exception(`Cannot find link #${lookingfor}`);
+
+  RETURN map[pos.position].data;
+}
+
+//convert entity ids to guids
+PUBLIC RECORD ARRAY FUNCTION RewriteLinks(RECORD retval, RECORD ARRAY attrs, RECORD ARRAY data, BOOLEAN excludeallblobs, STRING ARRAY knownblobs, VARIANT defaultlink)
+{
+  FOREVERY (RECORD attr FROM attrs)
+  {
+    IF (attr.attributetypename IN [ "IMAGE", "FILE" ])
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD filerec := GetCell(rec, attr.localtag);
+        IF (RecordExists(filerec))
+        {
+          data[#rec] := DEFAULT RECORD;
+          IF (excludeallblobs OR LowerBound(knownblobs, filerec.hash).found)
+            DELETE CELL data FROM filerec;
+          data[#rec] := CellUpdate(rec, attr.localtag, CELL[ ...filerec, DELETE __blobsource, DELETE fileid, DELETE imageid ]);
+        }
+      }
+      CONTINUE;
+    }
+
+    IF (attr.attributetypename = "RICHDOCUMENT")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD docrec := GetCell(rec, attr.localtag);
+        IF (RecordExists(docrec))
+        {
+          data[#rec] := DEFAULT RECORD;
+          FOREVERY (RECORD embed FROM docrec.embedded)
+          {
+            IF (excludeallblobs OR LowerBound(knownblobs, embed.hash).found)
+              DELETE CELL data FROM docrec.embedded[#embed];
+            DELETE CELL wrd_settingid, settingid, __blobsource FROM docrec.embedded[#embed];
+          }
+          FOREVERY (RECORD instance FROM docrec.instances)
+            docrec.instances[#instance].data := FilterSettingIds(CELL[ ...docrec.instances[#instance].data, DELETE whfssettingid, DELETE whfsfileid ]);
+          data[#rec] := CellUpdate(rec, attr.localtag, docrec);
+        }
+      }
+      CONTINUE;
+    }
+
+    IF (attr.attributetypename = "ARRAY")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD ARRAY elts := GetCell(rec, attr.localtag);
+        FOR (INTEGER i := 0, e := LENGTH(elts); i < e; i := i + 1)
+          DELETE CELL wrd_settingid FROM elts[i];
+        data[#rec] := DEFAULT RECORD;
+        data[#rec] := CellUpdate(rec, attr.localtag, RewriteLinks(retval, attr.fields, elts, excludeallblobs, knownblobs, defaultlink));
+      }
+      CONTINUE;
+    }
+
+    // domain or domain array
+    RECORD ARRAY map := GetCell(retval, attr.domaintag);
+
+    INTEGER ARRAY alllinks;
+    IF (attr.attributetypename = "DOMAIN")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        INTEGER link := GetCell(rec, attr.localtag);
+        data[#rec] := DEFAULT RECORD;
+        rec := CellDelete(rec, attr.localtag);
+
+        VARIANT rewrite := link = 0 ? defaultlink : LookupWRDId(map, link);
+        data[#rec] := CellInsert(rec, attr.localtag, rewrite);
+      }
+    }
+    ELSE IF (attr.attributetypename = "DOMAINARRAY")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        data[#rec] := DEFAULT RECORD;
+        INTEGER ARRAY links := GetCell(rec, attr.localtag);
+        STRING ARRAY rewrite;
+
+        FOREVERY (INTEGER link FROM links)
+          INSERT LookupWRDId(map, link) INTO rewrite AT END;
+
+        rec := CellDelete(rec, attr.localtag);
+        data[#rec] := CellInsert(rec, attr.localtag, rewrite);
+      }
+    }
+    ELSE IF (attr.attributetypename = "PAYMENT")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD payment := GetCell(rec, attr.localtag);
+        IF (RecordExists(payment))
+        {
+          data[#rec] := DEFAULT RECORD;
+
+          VARIANT rewrite := payment.paymentprovider = 0 ? defaultlink : LookupWRDId(map, payment.paymentprovider);
+          payment := CELL[ ...payment, paymentprovider := rewrite, DELETE __bestpayment ];
+          FOREVERY (RECORD prec FROM payment.payments)
+          {
+            VARIANT prewrite := prec.paymentprovider = 0 ? defaultlink : LookupWRDId(map, prec.paymentprovider);
+            payment.payments[#prec] := CELL[ ... prec, paymentprovider := rewrite ];
+          }
+          data[#rec] := CellUpdate(rec, attr.localtag, payment);
+        }
+      }
+    }
+
+  }
+
+  RETURN data;
+}
+
+PUBLIC RECORD ARRAY FUNCTION SortWRDTypesOnDependencies(RECORD ARRAY unsorted, RECORD options)
+{
+  options := ValidateOptions([ forinsert := FALSE ], options);
+
+  // Create new graph
+  OBJECT graph := NEW GraphObject;
+
+  unsorted := SELECT * FROM unsorted ORDER BY id;
+
+  // Create vertices for every record
+  FOREVERY (RECORD rec FROM unsorted)
+  {
+    OBJECT vertex := NEW GraphVertex;
+    vertex->data := rec;
+    INSERT CELL vertex := vertex INTO unsorted[#rec];
+    graph->AddVertex(vertex);
+  }
+
+  // Add edges for every dependency (edge must point from depencency to dependent to use normal topological ordering)
+  FOREVERY (RECORD rec FROM unsorted)
+  {
+    FOREVERY(STRING checkfield FROM [ "LINKFROM", "LINKTO", "PARENTTYPE" ])
+      IF (GetCell(rec, checkfield) != 0)
+      {
+        RECORD pos := RecordLowerBound(unsorted, [ id := GetCell(rec, checkfield) ], [ "id" ]);
+        IF (pos.found)
+        {
+          IF (checkfield != "PARENTTYPE" OR NOT options.forinsert)
+            unsorted[pos.position].vertex->AddSimpleEdge(rec.vertex);
+          ELSE
+            rec.vertex->AddSimpleEdge(unsorted[pos.position].vertex);
+        }
+      }
+  }
+
+  // Get the topological ordering and return the sorted list
+  RETURN
+      SELECT AS RECORD ARRAY vertex->data
+        FROM ToRecordArray(TopologicalSort(graph), "vertex");
+}
+
+PUBLIC RECORD ARRAY FUNCTION SortInDomainTreeOrder(RECORD ARRAY updates)
+{
+  INTEGER ARRAY ids := SELECT AS INTEGER ARRAY wrd_id FROM updates;
+  INTEGER ARRAY parents := SELECT AS INTEGER ARRAY DISTINCT wrd_leftentity FROM updates WHERE wrd_leftentity NOT IN ids;
+  INTEGER ARRAY allparents;
+
+  RECORD ARRAY result;
+  WHILE (LENGTH(parents) != 0)
+  {
+    allparents := allparents CONCAT parents;
+    RECORD ARRAY layer := SELECT * FROM updates WHERE wrd_leftentity IN parents;
+    result := result CONCAT layer;
+
+    parents := SELECT AS INTEGER ARRAY wrd_id FROM layer;
+
+    IF (NOT IsDefaultValue(ArrayIntersection(allparents, parents)))
+      THROW NEW Exception("Got loop in domains");
+  }
+
+  FOR (INTEGER i := 0, e := LENGTH(result); i < e; i := i + 1)
+    DELETE CELL wrd_id FROM result[i];
+
+  RETURN result;
+}

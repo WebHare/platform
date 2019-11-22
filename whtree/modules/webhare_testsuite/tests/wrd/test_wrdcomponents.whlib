@@ -1,0 +1,25 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE TestRunQuery EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+
+  }
+>;
+
+PUBLIC OBJECTTYPE TestEntitiesEdit EXTEND TolliumScreenBase
+<
+  PUBLIC INTEGER ARRAY __lastchangeorderlist;
+
+  MACRO GotChangeOrder(OBJECT wrdtype, INTEGER ARRAY rowkeys)
+  {
+    this->__lastchangeorderlist := rowkeys;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    FOREVERY (INTEGER rowkey FROM rowkeys)
+      wrdtype->UpdateEntity(rowkey, [ wrd_ordering := #rowkey + 1 ]);
+    work->Finish();
+  }
+>;

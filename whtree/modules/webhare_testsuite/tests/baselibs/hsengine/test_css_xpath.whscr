@@ -1,0 +1,390 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+MACRO TestCSSRuleXPath()
+{
+  OpenTest("TestCSSRuleXPath");
+
+  TestEq("//*[local-name()='FOO']", RewriteCSSSelectorToXpath("FOO"));
+  TestEq("//*[@id='test']", RewriteCSSSelectorToXpath("#test"));
+
+  // FIXME fails:  TestEq("//*[@id='test']", RewriteSelectorToXpath("#test:not(FOO)"));
+  // FIXME fails:  TestEq("//*[@a='1']", RewriteCSSSelectorToXpath("[a=1]"));
+
+  BLOB htmlfile := OpenTestFile("corporate.html");
+  OBJECT dom := MakeXMLDocumentFromHTML(htmlfile);
+  BLOB css := StringToBlob(dom->GetElementsByTagName('style')->textcontent);
+  OBJECT cssom := MakeCSSStyleSheet(css);
+
+  TestEq("//*[local-name()='body']|//*[local-name()='p']|//*[local-name()='span']|//*[local-name()='a']", cssom->cssrules->item(0)->__XPathQuery);
+  TestEq("//*[local-name()='td']|//*[local-name()='th']", cssom->cssrules->item(23)->__XPathQuery);
+  TestEq("//*[contains(concat(' ',@class,' '),' maintable ')]", cssom->cssrules->item(31)->__XPathQuery);
+  TestEq("//*[contains(concat(' ',@class,' '),' agenda ')]", cssom->cssrules->item(33)->__XPathQuery);
+  //*[contains(concat(\' \',@class,\' \'),\' footertable \')]//a[contains(concat(\' \',@class,\' \'),\' u \')]nsubscribelink
+  TestEq("//*[contains(concat(' ',@class,' '),' footertable ')]//*[local-name()='a'][contains(concat(' ',@class,' '),' unsubscribelink ')]", cssom->cssrules->item(40)->__XPathQuery);
+  TestEq("//*[contains(concat(' ',@class,' '),' introtext ')]", cssom->cssrules->item(43)->__XPathQuery);
+
+  TestEq("//*[local-name()='td'][not(@class)]", cssom->cssrules->item(53)->__XPathQuery);
+  TestEq("//*[local-name()='td'][not(@align='left')]", cssom->cssrules->item(54)->__XPathQuery);
+
+  CloseTest("TestCSSRuleXPath");
+}
+
+MACRO TestDomStyleRewriter()
+{
+  OpenTest("TestDomStyleRewriter");
+
+  BLOB htmlfile := OpenTestFile("corporate.html");
+  OBJECT dom := MakeXMLDocumentFromHTML(htmlfile);
+  BLOB css := StringToBlob(dom->GetElementsByTagName('style')->textcontent);
+  OBJECT cssom := MakeCSSStyleSheet(css);
+
+  dom := cssom->RewriteDomStyles(dom);
+
+  // Serialize and retest:
+  OBJECT rewriter := NEW HtmlRewriterContext;
+  BLOB htmlblob := rewriter->GenerateHTML(dom);
+
+  OBJECT newdom := MakeXMLDocumentFromHTML(htmlblob);
+  css := StringToBlob(dom->GetElementsByTagName('style')->item(0)->ChildrenText);
+  cssom := MakeCSSStyleSheet(css);
+  newdom := cssom->RewriteDomStyles(newdom);
+  newdom->GetElementsByTagName('style')->item(0)->NodeValue := BlobToString(cssom->GetDocumentBlob(TRUE));
+  BLOB newhtmlblob := rewriter->GenerateHTML(newdom);
+  dom->GetElementsByTagName('style')->item(0)->NodeValue := BlobToString(cssom->GetDocumentBlob(TRUE));
+  htmlblob := rewriter->GenerateHTML(dom);
+
+  TestEqTextBlob(htmlblob, newhtmlblob);
+  //PRINT(cssom->cssrules->item(8)->__XPathQuery || "\n");
+  OBJECT node := dom->QuerySelector("body.scheme1 .schemecolor");
+  TestEQ("testlink", node->GetAttribute("id"));
+
+  //DumpValue(nodelist, 'tree');
+  //PRINT("\n" || nodelist->Length);
+//  PRINT(nodelist->item(0)->getAttribute("style") || "\n");
+  TestEq('text-decoration: underline; margin: 0; padding: 0; font-size: 15px; line-height: 22px; font-family: Arial, Helvetica, Sans-Serif; color: #c60c30 !important;', node->getAttribute("style"));
+
+
+  CloseTest("TestDomStyleRewriter");
+}
+
+MACRO TestQuerySelector()
+{
+  OpenTest("TestQuerySelector");
+
+  BLOB htmlfile := OpenTestFile("corporate.html");
+  OBJECT dom := MakeXMLDocumentFromHTML(htmlfile);
+  OBJECT node := dom->querySelector(".tdalign");
+
+  TestEq("td", node->nodeName);
+  OBJECT nodelist := dom->querySelectorAll(".tdalign");
+  TestEq(4, nodeList->Length);
+  nodelist := dom->querySelectorAll(".glark");
+  TestEq(0, nodeList->length);
+
+  CloseTest("TestQuerySelector");
+}
+
+MACRO TestRewriterPrecedence()
+{
+  OpenTest("TestRewriterPrecedence");
+
+  BLOB newcss := StringToBlob("table { border-collapse: collapse; }\n"
+                           || "table { border-spacing: 0; border-collapse: collapse; margin: 0 auto; border: 0; }\n"
+                           || ".maintable { width: 620px; background-color: #3d92b6; }\n"
+                           || ".maintable { background-color: pink !important; }\n"
+                           || ".maintable { background-color: black; }\n"
+                           || ".maintable { background-color: blue !important; }\n"
+                           || ".scheme1 .maintable { background-color: red !important; }\n"
+                           );
+  BLOB html := StringToBlob('<html>\n\t<body class="scheme1">\n\t\t<table width="620" class="maintable">\n\t\t\t<!-- an empty table :-) -->\n\t\t</table>\n\t</body>\n</html>');
+  OBJECT dom := MakeXMLDocumentFromHTML(html);
+  OBJECT cssom := MakeCSSStyleSheet(newcss);
+  OBJECT newdom := cssom->RewriteDomStyles(dom);
+
+  TestEq("background-color: blue !important;", cssom->cssrules->item(5)->__DeclarationString);
+  TestEq("background-color: red !important;", cssom->cssrules->item(6)->__DeclarationString);
+  TestEq("border-spacing: 0; margin: 0 auto; border: 0; border-collapse: collapse; width: 620px; background-color: red !important;", newdom->GetElementsByTagName("table")->item(0)->getAttribute("style"));
+
+  CloseTest("TestRewriterPrecedence");
+}
+
+MACRO TestComplexCSSRuleXPath()
+{
+  OpenTest("TestComplexCSSRuleXPath");
+
+  BLOB cssfile := StringToBlob(
+    "html, body { margin: 0; padding: 0; }\n"
+    || ".logoarea:first-child { border: 1px solid #FF0000; }\n"
+    || ".pathbar:nth-child(0)[border=0] { margin: 5px; }\n"
+    || ".img:hover { border: 1px solid red; }\n"
+    || "div > a.whatever { display: none; }\n"
+    || ":scope > a.whatever { display: none; }\n"
+    || "> a.whatever { display: none; }\n"
+    || "#someid ul > li:nth-last-of-type(3) { text-decoration: none; }\n"
+    || "span ~ img[src='image.jpg'] { background-color: #000; }\n"
+    || "span + img:empty { border: 1px solid fuchsia; }\n"
+    || "th ~ td > span.iconContainer:first-child:empty { display: none!important; }\n"
+    || "div.window { background-image: url(path/to/image.png); }\n"
+    || "*|div { border: none; }\n"
+    || "body |div { border: none; }\n"
+    || "body|div { border: none; }\n"
+    || "*[src], *[href] { display: block; }\n"
+    || ".type-cta > tr > td { color: ugly; }\n"
+    || ".type-cta tr:first-child td:first-child { display: none; }\n"
+    || "[data-whatever] { font-size: 1pt; }\n"
+    || "html * { font-size: 2pt; }\n"
+    );
+  BLOB htmlfile := OpenTestFile("test.html");
+  OBJECT cssom;
+  cssom := MakeCSSStyleSheet(cssfile);
+  OBJECT dom;
+  dom := MakeXMLDocumentFromHTML(htmlfile);
+
+  TestEq("/*[local-name()='html']|//*[local-name()='body']", cssom->cssrules->item(0)->__XPathQuery);
+  TestEq("margin: 0; padding: 0;", cssom->cssrules->item(0)->__DeclarationString);
+
+  TestEq("//*[contains(concat(' ',@class,' '),' logoarea ')][1]", cssom->cssrules->item(1)->__XPathQuery);
+  TestEq("border: 1px solid #FF0000;", cssom->cssrules->item(1)->__DeclarationString);
+
+  TestEq("//*[0][contains(concat(' ',@class,' '),' pathbar ')][@border='0']", cssom->cssrules->item(2)->__XPathQuery);
+  TestEq("margin: 5px;", cssom->cssrules->item(2)->__DeclarationString);
+
+  TestEq("", cssom->cssrules->item(3)->__XPathQuery);
+  TestEq("border: 1px solid red;", cssom->cssrules->item(3)->__DeclarationString);
+
+  TestEq("//*[local-name()='div']/*[local-name()='a'][contains(concat(' ',@class,' '),' whatever ')]", cssom->cssrules->item(4)->__XPathQuery);
+  TestEq("display: none;", cssom->cssrules->item(4)->__DeclarationString);
+
+  TestEq("//*"||"/a[contains(concat(' ',@class,' '),' whatever ')]", cssom->cssrules->item(5)->__XPathQuery);
+  TestEq("display: none;", cssom->cssrules->item(5)->__DeclarationString);
+
+  TestEq("//*"||"/a[contains(concat(' ',@class,' '),' whatever ')]", cssom->cssrules->item(6)->__XPathQuery);
+  TestEq("display: none;", cssom->cssrules->item(6)->__DeclarationString);
+
+  TestEq("//*[@id='someid']//*[local-name()='ul']/*[local-name()='li'][last()-2]", cssom->cssrules->item(7)->__XPathQuery);
+  TestEq("text-decoration: none;", cssom->cssrules->item(7)->__DeclarationString);
+
+  TestEq("//*[local-name()='span']/following-sibling::img[@src='image.jpg']", cssom->cssrules->item(8)->__XPathQuery);
+  TestEq("background-color: #000;", cssom->cssrules->item(8)->__DeclarationString);
+
+  TestEq("//*[local-name()='span']/following-sibling::*[1][local-name()='img'][count(*)=0]", cssom->cssrules->item(9)->__XPathQuery);
+  TestEq("border: 1px solid fuchsia;", cssom->cssrules->item(9)->__DeclarationString);
+
+  TestEq("//*[local-name()='th']/following-sibling::td/*[local-name()='span'][contains(concat(' ',@class,' '),' iconContainer ')][1][count(*)=0]", cssom->cssrules->item(10)->__XPathQuery);
+  TestEq("display: none !important;", cssom->cssrules->item(10)->__DeclarationString);
+
+  TestEq("//*[local-name()='div'][contains(concat(' ',@class,' '),' window ')]", cssom->cssrules->item(11)->__XPathQuery);
+  TestEq("background-image: url(\"path/to/image.png\");", cssom->cssrules->item(11)->__DeclarationString);
+
+  TestEq("//*[local-name()='div']", cssom->cssrules->item(12)->__XPathQuery);
+  TestEq("border: none;", cssom->cssrules->item(12)->__DeclarationString);
+
+  TestEq("//*[local-name()='body']//*[local-name()='div']", cssom->cssrules->item(13)->__XPathQuery);
+  TestEq("border: none;", cssom->cssrules->item(13)->__DeclarationString);
+
+  TestEq("//*[local-name()='body']:div", cssom->cssrules->item(14)->__XPathQuery);
+  TestEq("border: none;", cssom->cssrules->item(14)->__DeclarationString);
+
+  TestEq("//*[@src]|//*[@href]", cssom->cssrules->item(15)->__XPathQuery);
+  TestEq("display: block;", cssom->cssrules->item(15)->__DeclarationString);
+
+  TestEq("//*[contains(concat(' ',@class,' '),' type-cta ')]/*[local-name()='tr']/*[local-name()='td']", cssom->cssrules->item(16)->__XPathQuery);
+  TestEq("color: ugly;", cssom->cssrules->item(16)->__DeclarationString);
+
+  TestEq("//*[contains(concat(' ',@class,' '),' type-cta ')]//*[local-name()='tr'][1]//*[local-name()='td'][1]", cssom->cssrules->item(17)->__XPathQuery);
+  TestEq("display: none;", cssom->cssrules->item(17)->__DeclarationString);
+
+  TestEq("//*[@data-whatever]", cssom->cssrules->item(18)->__XPathQuery);
+  TestEq("font-size: 1pt;", cssom->cssrules->item(18)->__DeclarationString);
+
+  /* Issue #433  TestEq("//*[local-name()='html']//*", cssom->cssrules->item(19)->__XPathQuery);*/
+  TestEq("font-size: 2pt;", cssom->cssrules->item(19)->__DeclarationString);
+
+  CloseTest("TestComplexCSSRuleXPath");
+}
+
+MACRO TestCommaBehaviour()
+{
+  OpenTest("TestCommaBehaviour");
+
+  BLOB css := StringToBlob("  .type-news\n"
+                           || ", .type-news-noimages\n"
+                           || "{\n"
+                           || "  background-color: #f5faff;\n"
+                           || "}\n"
+                           || "  .wh-rtd ul\n"
+                           || ", .wh-rtd li\n"
+                           || "{\n"
+                           || " color: #ffffff;\n"
+                           || "}\n"
+                           || "  .type-news,\n"
+                           || "  .type-news-noimages\n"
+                           || "{\n"
+                           || "  background-color: #f5faff;\n"
+                           || "}\n"
+                           || "  .wh-rtd ul,\n"
+                           || "  .wh-rtd li\n"
+                           || "{\n"
+                           || " color: #ffffff;\n"
+                           || "}\n"                          );
+  OBJECT cssom := MakeCSSStylesheet(css);
+
+  TestEq("//*[contains(concat(' ',@class,' '),' type-news ')]|//*[contains(concat(' ',@class,' '),' type-news-noimages ')]", cssom->cssrules->item(0)->__XPathQuery);
+  TestEq("//*[contains(concat(' ',@class,' '),' type-news ')]|//*[contains(concat(' ',@class,' '),' type-news-noimages ')]", cssom->cssrules->item(2)->__XPathQuery);
+
+  TestEq("//*[contains(concat(' ',@class,' '),' wh-rtd ')]//*[local-name()='ul']|//*[contains(concat(' ',@class,' '),' wh-rtd ')]//*[local-name()='li']", cssom->cssrules->item(1)->__XPathQuery);
+  TestEq("//*[contains(concat(' ',@class,' '),' wh-rtd ')]//*[local-name()='ul']|//*[contains(concat(' ',@class,' '),' wh-rtd ')]//*[local-name()='li']", cssom->cssrules->item(3)->__XPathQuery);
+
+  CloseTest("TestCommaBehaviour");
+}
+
+INTEGER FUNCTION GetFirstSelectorSpecificity(OBJECT rule)
+{
+  RETURN rule->__GetSelectors()[0].specificity;
+}
+
+MACRO TestCSSSpecificity()
+{
+  OpenTest("TestCSSSpecificity");
+
+  BLOB css := StringToBlob("a { color: red; }\n"
+                        || "body .schemecolor { color: green; }\n"
+                        || "* { border: none; }\n"
+                        || "LI { display: inline-block; }\n"
+                        || "UL LI { display: block; }\n"
+                        || "UL OL+LI { display: table-cell; }\n"
+                        || "H1 + *[REL=up] { color: black; }\n"
+                        || "UL OL LI.red { color: red; }\n"
+                        || "LI.red.level { border: 1px solid magento; }\n"
+                        || "#x34y { border: none; }\n"
+                        || "#s12:not(FOO) { color: purple; }\n"
+                          );
+
+  BLOB html := StringToBlob("<html>\n"
+                          || "\t<head>\n"
+                          || "\t\t<title>whatever</title>\n"
+                          || "\t</head>\n"
+                          || "\t<body>\n"
+                          || "\t\t<a class=\"schemecolor\" href=\"#\" style=\"color: #0094b3;\">bla</a>\n"
+                          || "\t</body>\n"
+                          || "</html>\n"
+                           );
+
+  OBJECT cssom := MakeCSSStyleSheet(css);
+  OBJECT dom := MakeXMLDocumentFromHTML(html);
+  OBJECT xpath := dom->CreateXPathQuery();
+
+  dom := cssom->RewriteDomStyles(dom);
+  OBJECT a := xpath->ExecuteQuery("//a")->item(0);
+  TestEq("border: none; color: #0094b3;", a->getAttribute("style"));
+  TestEq(0, GetFirstSelectorSpecificity(cssom->cssrules->item(2)));
+//  TestEq([ a:= 0, b := 0, c:= 0 ], cssom->cssrules->item(2)->__Specificity);
+  TestEq(1, GetFirstSelectorSpecificity(cssom->cssrules->item(3)));
+//  TestEq([ a:= 0, b := 0, c:= 1 ], cssom->cssrules->item(3)->__Specificity);
+  TestEq(2, GetFirstSelectorSpecificity(cssom->cssrules->item(4)));
+//  TestEq([ a:= 0, b := 0, c:= 2 ], cssom->cssrules->item(4)->__Specificity);
+  TestEq(3, GetFirstSelectorSpecificity(cssom->cssrules->item(5)));
+//  TestEq([ a:= 0, b := 0, c:= 3 ], cssom->cssrules->item(5)->__Specificity);
+  TestEq(11, GetFirstSelectorSpecificity(cssom->cssrules->item(6)));
+//  TestEq([ a:= 0, b := 1, c:= 1 ], cssom->cssrules->item(6)->__Specificity);
+  TestEq(13, GetFirstSelectorSpecificity(cssom->cssrules->item(7)));
+//  TestEq([ a:= 0, b := 1, c:= 3 ], cssom->cssrules->item(7)->__Specificity);
+  TestEq(21, GetFirstSelectorSpecificity(cssom->cssrules->item(8)));
+//  TestEq([ a:= 0, b := 2, c:= 1 ], cssom->cssrules->item(8)->__Specificity);
+  TestEq(100, GetFirstSelectorSpecificity(cssom->cssrules->item(9)));
+//  TestEq([ a:= 1, b := 0, c:= 0 ], cssom->cssrules->item(9)->__Specificity);
+  TestEq(101, GetFirstSelectorSpecificity(cssom->cssrules->item(10)));
+//  TestEq([ a:= 1, b := 0, c:= 1 ], cssom->cssrules->item(10)->__Specificity);
+
+  CloseTest("TestCSSSpecificity");
+}
+
+MACRO TestCSSRuleXPathNamespaced()
+{
+  OpenTest("TestCSSRuleXPathNamespaced");
+
+  BLOB xml := StringToBlob('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sub:subjects xmlns:sub="http://www.utwente.nl/types/portal/subject/"><sub:subject><sub:subjectId>education</sub:subjectId><sub:isActive>true</sub:isActive><sub:dateCreated>2015-07-06T00:00:00+02:00</sub:dateCreated><sub:dateModified>2015-07-06T00:00:00+02:00</sub:dateModified><sub:title lang="EN">Education</sub:title><sub:title lang="NL">Onderwijs</sub:title></sub:subject><sub:subject><sub:subjectId>research</sub:subjectId><sub:isActive>true</sub:isActive><sub:dateCreated>2015-05-29T00:00:00+02:00</sub:dateCreated><sub:dateModified>2015-06-26T00:00:00+02:00</sub:dateModified><sub:title lang="NL">Onderzoek</sub:title><sub:title lang="EN">Research</sub:title></sub:subject></sub:subjects>');
+  OBJECT dom := MakeXMLDocument(xml);
+
+  TestEq(2, Length(dom->QuerySelectorAll("isActive")->GetCurrentElements()));
+  TestEq(2, Length(dom->QuerySelectorAll("dateCreated")->GetCurrentElements()));
+  TestEq(4, Length(dom->QuerySelectorAll("title")->GetCurrentElements()));
+
+  CloseTest("TestCSSRuleXPathNamespaced");
+}
+
+MACRO TestRewriteDomStyles()
+{
+  BLOB input := OpenTestFile("css/rewritedomstyles.html");
+  OBJECT dom := MakeXMLDocumentFromHTML(input);
+  INTEGER numstyles := dom->GetElementsByTagName('style')->Length;
+  INTEGER i;
+  FOR(i := 0; i < numstyles; i := i + 1)
+  {
+    STRING style := dom->GetElementsByTagName('style')->item(i)->ChildrenText;
+    OBJECT cssom := MakeCSSStyleSheet(StringToBlob(style));
+    dom := cssom->RewriteDomStyles(dom);
+    //dom->GetElementsByTagName('style')->item(i)->NodeValue := BlobToString(cssom->GetDocumentBlob(TRUE));
+  }
+
+  //BLOB output := NEW HtmlRewriterContext->GenerateHTML(dom);  SendBlobTo(0,output);
+  OBJECT shouldhave560 := dom->GetElementById("shouldhave560");
+  TestEq("width: 560px;", shouldhave560->GetAttribute("style"));
+
+  OBJECT shouldhavepadding20 := dom->GetElementById("shouldhavepadding20");
+  TestEq("padding-right: 20px;", shouldhavepadding20->GetAttribute("style"));
+
+  OBJECT shouldbebold := dom->GetElementById("shouldbebold");
+  //a merged style would be even better, but we mnust enusre that font: precedes font-weight
+  TestEqLike("*font:*font-weight:*", shouldbebold->GetAttribute("style"));
+}
+
+MACRO TestXPATHComparators()
+{
+  OpenTest("TestXPATHComparators");
+  STRING selectors := "a[href='http://example.org/']";
+  OBJECT cssom := MakeCSSStyleSheet(StringToBlob(selectors || " { margin: 0; }"));
+  STRING query := cssom->cssrules->item(0)->__XPathQuery;
+  TestEq("//*[local-name()='a'][@href='http://example.org/']", query);
+
+  selectors := "a[href~='http://example.org/']";
+  cssom := MakeCSSStyleSheet(StringToBlob(selectors || " { margin: 0; }"));
+  query := cssom->cssrules->item(0)->__XPathQuery;
+  TestEq("//*[local-name()='a'][contains(concat(' ',@href,' '),'http://example.org/')]", query);
+
+  selectors := "a[href$='http://example.org/']";
+  cssom := MakeCSSStyleSheet(StringToBlob(selectors || " { margin: 0; }"));
+  query := cssom->cssrules->item(0)->__XPathQuery;
+  TestEq("//*[local-name()='a'][ends-with(@href,'http://example.org/')]", query);
+
+  selectors := "a[href^='http://example.org/']";
+  cssom := MakeCSSStyleSheet(StringToBlob(selectors || " { margin: 0; }"));
+  query := cssom->cssrules->item(0)->__XPathQuery;
+  TestEq("//*[local-name()='a'][starts-with(@href,'http://example.org/')]", query);
+
+  selectors := "a[href*='http://example.org/']";
+  cssom := MakeCSSStyleSheet(StringToBlob(selectors || " { margin: 0; }"));
+  query := cssom->cssrules->item(0)->__XPathQuery;
+  TestEq("//*[local-name()='a'][contains(@href,'http://example.org/')]", query);
+
+  CloseTest("TestXPATHComparators");
+}
+
+PRINT("\n === Running TestCSS_XPath\n");
+TestCSSRuleXPath();
+TestCommaBehaviour();
+TestComplexCSSRuleXPath();
+TestCSSRuleXpathNamespaced();
+TestQuerySelector();
+TestDomStyleRewriter();
+TestRewriterPrecedence();
+TestCSSSpecificity();
+TestRewriteDomStyles();
+TestXPATHComparators();

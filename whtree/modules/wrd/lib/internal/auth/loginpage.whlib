@@ -1,0 +1,47 @@
+﻿<?wh
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+PUBLIC OBJECTTYPE Loginpage EXTEND DynamicPageBase
+<
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    OBJECT authplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/wrd", "wrdauth");
+    IF (NOT ObjectExists(authplugin))
+      THROW NEW Exception("No wrd auth plugin has been applied to this page");
+
+    //ADDME Redirect and force-login facilities?
+
+    RECORD forminfo :=
+          [ feedbackurl :=  GetRequestURL()
+          , login :=        GetWebVariable("login")
+          , samlidpreq :=   GetWebVariable("samlidpreq")
+          , challenge :=    GetWebVariable("wrdauth_challenge")
+          , returnto :=     GetWebVariable("wrdauth_returnto")
+          ];
+
+    IF(IsRequestPost() AND GetWebVariable("login") != "")
+    {
+      RECORD result := authplugin->Login(
+          forminfo.login,
+          GetWebVariable("password"),
+          [ samlidpreq := GetWebVariable("samlidpreq")
+          , challenge :=  GetWebVariable("wrdauth_challenge")
+          , returnto :=   GetWebVariable("wrdauth_returnto")
+          ]);
+
+      IF(result.success)
+      {
+        IF (RecordExists(result.submitinstruction))
+          ExecuteSubmitInstruction(result.submitinstruction);
+      }
+    }
+
+    // Rebuild the state cookie to make sure we don't get redirected to restoresession.shtml (state cookies are a side effect of updateuserinfo)
+    authplugin->UpdateUserInfo();
+
+    EmbedWittyComponent("module::wrd/internal/auth/loginpage.witty:loginpage", forminfo);
+  }
+>;

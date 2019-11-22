@@ -1,0 +1,174 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+LOADLIB "mod::socialite/lib/internal/support.whlib";
+
+PUBLIC OBJECTTYPE FourSquareConnection EXTEND OauthNetworkConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Base url for API requests
+  STRING pvt_apiurl;
+
+  /// URL for token authorization
+  STRING pvt_authenticateurl;
+
+  /// URL for token authorization, with forced authorization (no fast redirect when permission has already been given)
+  STRING pvt_authorizeurl;
+
+  /// URL for getting the access token
+  STRING pvt_accesstokenurl;
+
+
+ // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY apiurl(pvt_apiurl, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW() : OauthNetworkConnection("2.0", DEFAULT RECORD ARRAY)
+  {
+    this->pvt_apiurl := "https://api.foursquare.com/v2/";
+    this->pvt_authenticateurl := "https://foursquare.com/oauth2/authenticate";
+    this->pvt_accesstokenurl := "https://foursquare.com/oauth2/access_token";
+  }
+
+  /// Returns the redirect page for oauth apps
+  UPDATE PUBLIC STRING FUNCTION GetCallbackURL(STRING serverurl)
+  {
+    RETURN ResolveToAbsoluteURL(serverurl, "/tollium_todd.res/socialite/callbacks/foursquare.shtml");
+  }
+
+  RECORD FUNCTION ParseResponse()
+  {
+    RECORD rec := DecodeJSON(BlobToString(this->browser->content, -1));
+    IF (NOT RecordExists(rec))
+      THROW NEW Exception("Could not contact the foursquare servers");
+
+    IF (rec.meta.code != 200)
+      THROW NEW Exception("Foursquare returned error " || rec.meta.code || "-" || rec.meta.errortype || ": " || rec.meta.errordetail);
+
+    RETURN rec.response;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns an URI the client needs to be redirected to. The client can then authorize the
+      app, and will be redirected to the foursquare redirect page. The redirect url must
+      then be passed to FinishLogin
+      @param callbackurl Custom callback url, will be ignored when the callback host is set in the app settings
+      @param force_authorization Force authorization
+      @return URI
+  */
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY permissions, STRING state, BOOLEAN force_authorization DEFAULTSTO FALSE)
+  {
+    STRING authorizeuri := force_authorization ? this->pvt_authorizeurl : this->pvt_authenticateurl;
+
+    RETURN this->GetV2AuthorizationCodeURI(authorizeuri, DEFAULT STRING ARRAY, callbackurl);
+  }
+
+  /** Finish the login sequence
+      @param callbackurl Callbackurl passed to startlogin
+      @param returned_uri
+      @return Undef
+  */
+  PUBLIC RECORD FUNCTION FinishLogin(STRING callbackurl, STRING returned_uri)
+  {
+    STRING code := GetVariableFromURL(returned_uri, "code");
+
+    RECORD res := this->DoV2AccessTokenRequest(this->pvt_accesstokenurl, callbackurl, code);
+
+    RETURN res;
+  }
+
+  /** Get user checkings
+      @param opts
+      @cell opts.limit Number of results to return, up to 250.
+      @cell opts.offset Used to page through results.
+      @url https://developer.foursquare.com/docs/users/checkins.html
+  */
+  PUBLIC RECORD FUNCTION UsersCheckinsSelf(RECORD opts)
+  {
+    STRING url := this->pvt_apiurl || "users/self/checkins";
+    IF (CellExists(opts, "LIMIT"))
+      url := AddVariableToUrl(url, "LIMIT", opts."LIMIT");
+    IF (CellExists(opts, "OFFSET"))
+      url := AddVariableToUrl(url, "OFFSET", opts."OFFSET");
+
+    BOOLEAN success := this->browser->GotoWebPage(url);
+    RETURN this->ParseResponse();
+  }
+
+  /** Search venues
+      @param lat
+      @param lng
+      @param opts
+      @cell opts.limit Defaults to 10, max 50.
+      @cell opts.intent 'checkin'(default), 'match' (needs cell 'query'), 'specials'
+      @cell opts.query Name query
+      @url https://developer.foursquare.com/docs/venues/search.html
+      @return
+      @cell(record array) return.groups
+      @cell(string) return.groups.name Name of group
+      @cell(string) return.groups.type Type of group, eg. 'favorites', 'trending', or 'nearby'
+      @cell(record array) return.groups.items Venues
+      @cell(string) return.groups.items.id
+      @cell(string) return.groups.items.name
+      @cell(boolean) return.groups.items.verified
+      @cell(record) return.groups.items.contact
+      @cell(record) return.groups.items.location Location of the address. All fields are optional.
+      @cell(string) return.groups.items.location.address Street address
+      @cell(string) return.groups.items.location.crossStreet
+      @cell(string) return.groups.items.location.city
+      @cell(string) return.groups.items.location.state
+      @cell(string) return.groups.items.location.postalCode
+      @cell(string) return.groups.items.location.country
+      @cell(float) return.groups.items.location.lat
+      @cell(float) return.groups.items.location.lng
+      @cell(integer) return.groups.items.location.distance
+      @cell(record array) return.groups.items.categories
+      @cell(string) return.groups.items.categories.id Category id
+      @cell(string) return.groups.items.categories.icon Category icon
+      @cell(string array) return.groups.items.categories.parents Category parent category names
+      @cell(boolean) return.groups.items.categories.primary Primary category (optional, only available in primary category)
+  */
+  PUBLIC RECORD FUNCTION VenuesSearch(FLOAT lat, FLOAT lng, RECORD opts)
+  {
+    STRING url := this->pvt_apiurl || "venues/search";
+    url := AddVariableToUrl(url, "ll", FormatFloat(lat, 7) || "," || FormatFloat(lng, 7));
+    IF (CellExists(opts, "QUERY"))
+      url := AddVariableToUrl(url, "query", opts.query);
+    IF (CellExists(opts, "LIMIT"))
+      url := AddVariableToUrl(url, "limit", ToString(opts."LIMIT"));
+    IF (CellExists(opts, "INTENT"))
+      url := AddVariableToUrl(url, "intent", opts.intent);
+
+    BOOLEAN success := this->browser->GotoWebPage(url);
+    RECORD rec := this->ParseResponse();
+
+    RETURN
+       [ groups :=
+            (SELECT *
+                  , items :=
+                       (SELECT *
+                             , categories := CastVAToRA(categories)
+                          FROM CastVAToRA(items))
+               FROM CastVAToRA(rec.groups))
+       ];
+  }
+>;

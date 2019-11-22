@@ -1,0 +1,43 @@
+[component main]
+  <script>
+    // Check for old IE versions (<= 10)
+    if (document.all)
+      document.write('<p class="tollium-unsupported"><img src="/.tollium/ui/img/warning.png" width="24" height="24" style="float: left;" />&nbsp;<b>Unsupported browser</b><br /><br />Internet Exporer versions older than 11 are not supported.</p>');
+    // Check for other old browsers (not supporting the <progress> element)
+    else if (!("max" in document.createElement("progress")))
+      document.write('<p class="tollium-unsupported"><img src="/.tollium/ui/img/warning.png" width="24" height="24" style="float: left;" />&nbsp;<b>Unsupported browser</b><br /><br />Chrome versions older than 8, Firefox versions older than 6 and Safari versions older than 6 are not supported.</p>');
+  </script>
+  <noscript>
+    <p class="tollium-unsupported">
+      <img src="/.tollium/ui/img/warning.png" width="24" height="24" style="float: left;" />&nbsp;<b>Unsupported browser</b><br /><br />
+      Your browser is not supported. You may need to enable JavaScript if you have manually disabled it.<br/><br/>
+    </p>
+  </noscript>
+
+  <div id="tolliumbody" spellcheck="false">
+    [if not frontendmode]
+      <div class="t-apptabs" id="t-apptabs">
+        <div id="openinfo"></div>
+        <div class="t-apptabs__fixed"></div>
+        <div class="t-apptabs__dynamic">
+          <div class="t-apptabs__content"></div>
+          <span class="t-apptabs__leftscroll"></span>
+          <span class="t-apptabs__rightscroll"></span>
+          <span class="t-apptabs__navtab"></span>
+          <div class="t-apptabs__optionaltext" id="dashboard-display-name"></div>
+        </div>
+      </div>
+    [/if]
+    <div id="mainarea">
+      <div id="desktop"></div>
+    </div>
+  </div>
+
+  <div id="todd-measurements">
+  </div>
+
+  <div id="todd-font-loading" style="position:absolute; bottom:0; right:0; opacity:0; width:0; height:0; pointer-events: none; overflow: hidden">
+    <span style="font-family: Roboto">0A</span>
+    <span style="font-family: 'Roboto Mono'">0A</span>
+  </div>
+[/component]

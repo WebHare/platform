@@ -1,0 +1,28 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE PrebuiltPage EXTEND TolliumTabsExtensionBase
+<
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    this->contexts->objectpropsapi->AddOnPinnedListener(PTR this->OnPinnedUpdate);
+
+    RECORD ARRAY prebuiltopts := SELECT rowkey := tag, title := GetTid(title) ?? tag FROM this->contexts->applytester->GetPrebuiltPages();
+    prebuiltopts := SELECT * FROM prebuiltopts ORDER BY ToUppercase(title);
+    this->pagetype->options := [[ rowkey := "", invalidselection := TRUE, title := "" ]]
+                               CONCAT
+                               prebuiltopts;
+
+    this->pagetype->readonly := NOT this->contexts->user->HasRight("system:sysop");
+  }
+
+  MACRO OnPinnedUpdate(BOOLEAN newpinnedsetting)
+  {
+    this->pagetype->enabled := NOT newpinnedsetting;
+  }
+
+  MACRO GotPageTypeChange()
+  {
+    this->contexts->objectpropsapi->OnChange();
+  }
+>;

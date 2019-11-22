@@ -1,0 +1,94 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
+
+STRING FUNCTION CreateSiteProf(BOOLEAN withdynexec)
+{
+  STRING dynexec;
+  IF(withdynexec)
+    dynexec := '<dynamicexecution library="module::webhare_testsuite/publisher/testsitedesign.whlib" webpageobjectname="WebPage" />';
+
+  RETURN
+  `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/testdynamicexecution" />
+     <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/testdynamicexecution" blobiscontent="false" ispublishable="true" ispublishedassubdir="true">
+       ${dynexec}
+     </filetype>
+   </siteprofile>`;
+}
+
+MACRO MyPrepare()
+{
+  // Hard cleanup for all referenced types
+  testfw->BeginWork();
+  OBJECT whfs_type := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/testdynamicexecution", [ openorphans := TRUE ]);
+  IF (ObjectExists(whfs_type))
+  {
+    DELETE FROM system.fs_objects WHERE COLUMN type = whfs_type->id;
+    DELETE FROM system.fs_types WHERE COLUMN id = whfs_type->id;
+  }
+  testfw->CommitWork();
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/testdynamicexecution", [ openorphans := TRUE ])));
+
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE ]);
+}
+
+MACRO TestFixDynamicExecution()
+{
+  testfw->BeginWork();
+  OBJECT siteprof := testfw->GetTestSite()->rootobject->CreateFile([name := "fixdynamicexecution.siteprl", data := StringToBlob(CreateSiteProf(FALSE))]);
+  TestEq(TRUE, testfw->GetTestSite()->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT workfolder := testfw->GetTestSite()->rootobject->CreateFolder([name := "dynexectests"]);
+  OBJECT emptyfile :=  workfolder->CreateFile([name := "emptyfile",  typens := "http://www.webhare.net/xmlns/webhare_testsuite/testdynamicexecution", publish := TRUE ]);
+  OBJECT emptyindex := workfolder->CreateFile([name := "emptyindex", typens := "http://www.webhare.net/xmlns/webhare_testsuite/testdynamicexecution", publish := TRUE ]);
+  workfolder->UpdateMetadata([ indexdoc := emptyindex->id ]);
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(testfw->GetTestSite()->id);
+
+  testfw->BeginWork();
+  RECORD ARRAY issues := ScanSingleFolderForTestFW(workfolder->id);
+  TestEq(RECORD[], issues, "There shouldn't be any issues yet");
+  testfw->RollbackWork();
+
+  Testeq(TRUE, testfw->browser->GotoWebPage(emptyfile->url));
+  TestEq(0, Length(testfw->browser->content));
+  Testeq(TRUE, testfw->browser->GotoWebPage(workfolder->url));
+  TestEq(0, Length(testfw->browser->content));
+
+  testfw->BeginWork();
+  siteprof->UpdateData(StringToBlob(CreateSiteProf(TRUE)));
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(workfolder->id);
+
+  testfw->BeginWork();
+  issues := ScanSingleFolderForTestFW(workfolder->id);
+
+  TestEq(2, Length(issues));
+
+  TestEqLike("Republishing*emptyfile*expected index.shtml*", issues[0].msg);
+  TestEqLike("Republishing*emptyindex*not named*index.shtml*", issues[1].msg);
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(workfolder->id);
+
+  Testeq(TRUE, testfw->browser->GotoWebPage(emptyfile->url));
+  TestEq(TRUE, Length(testfw->browser->content) > 200, "There should be data from the file now");
+  Testeq(TRUE, testfw->browser->GotoWebPage(workfolder->url));
+  TestEq(TRUE, Length(testfw->browser->content) > 200, "There should be data from the index file now");
+
+  testfw->BeginWork();
+  issues := ScanSingleFolderForTestFW(workfolder->id);
+  TestEq(RECORD[], issues, "There shouldn't be any issues left after the scans");
+  testfw->RollbackWork();
+}
+
+RunTestframework([ PTR MyPrepare
+                 , PTR TestFixDynamicExecution
+                 ]);

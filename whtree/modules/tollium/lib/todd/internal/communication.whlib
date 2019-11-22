@@ -1,0 +1,726 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+
+BOOLEAN log_communication := FALSE;
+
+INTEGER ack_timeout_msecs := 100; // Ack every message after at most 100ms
+
+
+PUBLIC STATIC OBJECTTYPE ToddMessageLinkEndpoint
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Timeout in seconds
+  INTEGER pvt_timeout;
+
+  /// Counter for messages
+  INTEGER msgcounter;
+
+  /// Last sent message seqnr over current link
+  INTEGER lastsentseqnr;
+
+  /// Seqnr of last received message (seqnr from other side!)
+  INTEGER lastreceivedseqnr;
+
+  /// Queued messages
+  RECORD ARRAY pvt_queuedmessages;
+
+  /// Id of the link endpoint
+  STRING pvt_linkid;
+
+  /// Frontend group (only one link per group allowed)
+  STRING pvt_frontendid;
+
+  /// Dispatcher for this endpoint
+  OBJECT dispatcher;
+
+  /// Current transport
+  OBJECT transport;
+
+  /// Timeout callback
+  INTEGER timeoutcb;
+
+  /// End of last contact
+  DATETIME lastcontactend;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC PROPERTY timeout(pvt_timeout, SetTimeout);
+
+  /// Called when a message arrives
+  PUBLIC FUNCTION PTR onmessage;
+
+  /// Called after 5 minutes without contact
+  PUBLIC FUNCTION PTR ontimeout;
+
+  /// List of messages not ack'ed yet
+  PUBLIC PROPERTY queuedmessages(pvt_queuedmessages, -);
+
+  /// Id of this link
+  PUBLIC PROPERTY linkid(pvt_linkid, -);
+
+  /// Frontend group this endpoint belongs to (only one connected transport at a time allowed per frontend group)
+  PUBLIC PROPERTY frontendid(pvt_frontendid, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT dispatcher, STRING linkid, STRING frontendid)
+  {
+    this->dispatcher := dispatcher;
+    this->pvt_linkid := linkid;
+    this->pvt_frontendid := frontendid;
+
+    this->lastcontactend := GetCurrentDateTime();
+    this->pvt_timeout := 5 * 60;
+
+    IF (log_communication)
+      this->LogDebug("Create new link endpoint");
+
+    this->dispatcher->RegisterEndpoint(PRIVATE this);
+    this->timeoutcb := RegisterTimedCallback(AddTimeToDate(this->pvt_timeout * 1000, GetCurrentDateTime()), PTR this->GotTimeout);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetTimeout(INTEGER newtimeout)
+  {
+    this->pvt_timeout := newtimeout;
+    IF (this->timeoutcb != 0)
+    {
+      UnregisterCallback(this->timeoutcb);
+      this->timeoutcb := RegisterTimedCallback(AddTimeToDate(this->pvt_timeout * 1000, GetCurrentDateTime()), PTR this->GotTimeout);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO LogDebug(STRING message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  {
+    //PRINT("ng-endpoint " || this->pvt_linkid || " " || message || (LENGTH(args) = 0 ? "" : " " || EncodeHSON(args)) || "\n");
+    INSERT message INTO args AT 0;
+    INSERT "ng-endpoint " || this->pvt_linkid INTO args AT 0;
+    CallMacroPTRVA(PTR LogDebug, args);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Dispatcher API
+  //
+
+  RECORD FUNCTION PrepareWireMessage()
+  {
+    INTEGER pos := RecordUpperBound(this->pvt_queuedmessages, [ seqnr := this->lastsentseqnr ], [ "SEQNR" ]);
+    IF (log_communication)
+      this->LogDebug("Preparing wiremessage with message seqnrs " || this->lastsentseqnr || "-" || this->msgcounter);
+    this->lastsentseqnr := this->msgcounter;
+
+    RETURN
+        [ linkid :=     this->linkid
+        , messages :=   ArraySlice(this->pvt_queuedmessages, pos)
+        , ack :=        this->lastreceivedseqnr
+        , status :=     "response"
+        ];
+  }
+
+  BOOLEAN FUNCTION ProcessWireMessage(RECORD data)
+  {
+    DELETE
+      FROM this->pvt_queuedmessages
+     WHERE seqnr <= data.ack;
+
+    FOREVERY (RECORD msg FROM RECORD ARRAY(data.messages))
+    {
+      IF (msg.seqnr != this->lastreceivedseqnr + 1)
+      {
+        // ERROR!
+        CONTINUE;
+      }
+
+      IF (log_communication)
+        this->LogDebug("Deliver message", msg);
+
+      TRY
+      {
+        IF (this->onmessage != DEFAULT FUNCTION PTR)
+          this->onmessage(msg.data, msg.seqnr);
+        IF (log_communication)
+          this->LogDebug("Deliver message completed");
+      }
+      CATCH(OBJECT e)
+      {
+        this->LogDebug("Deliver message caused exception: " || e->what);
+        THROW;
+      }
+      FINALLY // FIXME: what to do?
+      {
+        this->lastreceivedseqnr := this->lastreceivedseqnr + 1;
+      }
+    }
+
+    IF (log_communication)
+      this->LogDebug("Processed wire message, nr of msgs left: " || LENGTH(this->pvt_queuedmessages));
+    RETURN LENGTH(this->pvt_queuedmessages) != 0;
+  }
+
+  MACRO GotTimeout()
+  {
+    this->timeoutcb := 0;
+    IF (this->ontimeout != DEFAULT FUNCTION PTR)
+      this->ontimeout();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Transport API
+  //
+
+  MACRO SetTransport(OBJECT transport)
+  {
+    this->transport := transport;
+    IF (this->timeoutcb != 0)
+    {
+      UnregisterCallback(this->timeoutcb);
+      this->timeoutcb := 0;
+    }
+
+    IF (log_communication)
+      this->LogDebug("Reset transport");
+
+    // Need to resend everything over the new transport
+    this->lastsentseqnr := 0;
+  }
+
+  MACRO ResetTransport()
+  {
+    this->transport := DEFAULT OBJECT;
+    IF (this->timeoutcb != 0)
+      UnregisterCallback(this->timeoutcb);
+
+    this->lastcontactend := GetCurrentDateTime();
+    this->timeoutcb := RegisterTimedCallback(AddTimeToDate(this->pvt_timeout * 1000, GetCurrentDateTime()), PTR this->GotTimeout);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Queues a message
+  */
+  PUBLIC INTEGER FUNCTION QueueMessage(RECORD data)
+  {
+    this->msgcounter := this->msgcounter + 1;
+    INSERT
+        [ seqnr :=          this->msgcounter
+        , data :=           data
+        ] INTO this->pvt_queuedmessages AT END;
+
+    IF (log_communication)
+      this->LogDebug("Queued message with seqnr " || this->msgcounter || (ObjectExists(this->transport) ? ", have transport" : ", no transport"));
+
+    IF (ObjectExists(this->transport))
+      this->transport->SendResponse();
+
+    RETURN this->msgcounter;
+  }
+
+  /** Gets initial messages, and erases them from the queue
+  */
+  PUBLIC RECORD FUNCTION GetInitialMessage()
+  {
+    RECORD result := this->PrepareWireMessage();
+    IF (log_communication)
+      this->LogDebug("Prepared initial messages until seqnr " || this->msgcounter);
+    this->pvt_queuedmessages := DEFAULT RECORD ARRAY;
+    RETURN result;
+  }
+
+  PUBLIC MACRO Close()
+  {
+    IF (ObjectExists(this->transport))
+      this->transport->HandleEndPointGone(this->pvt_linkid, this->pvt_frontendid);
+    this->transport := DEFAULT OBJECT;
+
+    IF (this->timeoutcb != 0)
+      UnregisterCallback(this->timeoutcb);
+    this->timeoutcb := 0;
+
+    IF (ObjectExists(this->dispatcher))
+      this->dispatcher->UnregisterEndpoint(this);
+    this->dispatcher := DEFAULT OBJECT;
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasMessagesInQueue()
+  {
+    RETURN LENGTH(this->pvt_queuedmessages) != 0;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE TransportLink
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT dispatcher;
+
+  OBJECT link;
+
+  INTEGER handle;
+
+  STRING ARRAY frontendids;
+
+  BOOLEAN linkispersistent;
+
+  // Current subscribed endpoints
+  OBJECT ARRAY subscribed_endpoints;
+
+  BOOLEAN signalled;
+
+  BOOLEAN waitsend;
+
+  RECORD ARRAY gonemessages;
+
+  BOOLEAN nocancelatclose;
+
+  INTEGER pvt_handle;
+
+  INTEGER ack_timeout;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT dispatcher, OBJECT link, STRING ARRAY frontendids, BOOLEAN linkispersistent)
+  {
+    this->dispatcher := dispatcher;
+    this->link := link;
+    this->frontendids := frontendids;
+    this->linkispersistent := linkispersistent;
+    this->handle := link->handle;
+
+    this->dispatcher->AddTransport(PRIVATE this);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper stuff
+  //
+
+  MACRO LogDebug(STRING message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  {
+    //PRINT("transport " || Detokenize(this->frontendids,",") || " " || message || (LENGTH(args) = 0 ? "" : " " || EncodeHSON(args)) || "\n");
+    INSERT message INTO args AT 0;
+    INSERT "transport " || this->dispatcher->dispid || ":" || Detokenize(this->frontendids,",") INTO args AT 0;
+    CallMacroPTRVA(PTR LogDebug, args);
+  }
+
+  MACRO ResetSubscriptions()
+  {
+    IF (log_communication)
+      this->LogDebug("ResetSubscriptions");
+    FOREVERY (OBJECT endpoint FROM this->subscribed_endpoints)
+      endpoint->ResetTransport();
+
+    this->subscribed_endpoints := DEFAULT OBJECT ARRAY;
+    this->gonemessages := DEFAULT RECORD ARRAY;
+  }
+
+  MACRO SubscribeToEndpoint(OBJECT endpoint)
+  {
+    IF (log_communication)
+      this->LogDebug("Subscribe " || endpoint->linkid);
+    IF (endpoint->transport != this)
+    {
+      // 2 subscriptions on same endpoint! FIXME signal
+      IF (endpoint->transport != DEFAULT OBJECT)
+      {
+        INTEGER pos := SearchElement(endpoint->transport->subscribed_endpoints, endpoint);
+        DELETE FROM endpoint->transport->subscribed_endpoints AT pos;
+      }
+
+      INSERT endpoint INTO this->subscribed_endpoints AT END;
+      endpoint->SetTransport(PRIVATE this);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotAckTimeout()
+  {
+    IF (log_communication)
+      this->LogDebug("Ack send timeout triggered, forced sending reply");
+
+    this->ack_timeout := 0;
+    this->signalled := TRUE;
+
+    IF (NOT this->waitsend)
+      this->SendResponse(TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Endpoint API
+  //
+
+  MACRO HandleEndPointGone(STRING linkid, STRING frontendid)
+  {
+    INSERT
+        [ status := "gone"
+        , linkid := linkid
+        , frontendid := frontendid
+        , messages := DEFAULT RECORD ARRAY
+        , ack := 0
+        ] INTO this->gonemessages AT END;
+
+    FOREVERY (OBJECT endpoint FROM this->subscribed_endpoints)
+      IF (endpoint->linkid = linkid)
+      {
+        DELETE FROM this->subscribed_endpoints AT #endpoint;
+        BREAK;
+      }
+
+    this->SendResponse();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Dispatcher API
+  //
+
+  MACRO ProcessSingleLinkMessage(RECORD msg)
+  {
+    RECORD pos := RecordLowerBound(this->dispatcher->endpoints, [ linkid := msg.linkid ], [ "LINKID" ]);
+    IF (pos.found)
+    {
+      OBJECT endpoint := this->dispatcher->endpoints[pos.position].endpoint;
+      this->SubscribeToEndpoint(endpoint);
+      IF (endpoint->ProcessWireMessage(msg))
+        this->signalled := TRUE;
+      ELSE IF (msg.needack AND this->ack_timeout = 0)
+      {
+        IF (log_communication)
+          this->LogDebug("Schedule timeout for ack send");
+        this->ack_timeout := RegisterTimedCallback(AddTimeToDate(ack_timeout_msecs, GetCurrentDateTime()), PTR this->GotAckTimeout);
+      }
+    }
+    ELSE
+      this->HandleEndPointGone(msg.linkid, msg.frontendid);
+  }
+
+  PUBLIC MACRO ProcessMessage(RECORD msg)
+  {
+    IF (log_communication)
+      this->LogDebug("ProcessMessage", msg);
+    IF (msg.type = "linkmessages")
+    {
+      IF (NOT this->linkispersistent)
+        this->ResetSubscriptions();
+
+      IF (log_communication)
+        this->LogDebug("ENTERING loop");
+      this->waitsend := TRUE;
+      FOREVERY (RECORD linkmsg FROM msg.data)
+      {
+        IF (log_communication)
+          this->LogDebug("send msg");
+        this->ProcessSingleLinkMessage(linkmsg);
+      }
+      IF (log_communication)
+        this->LogDebug("EXIT loop");
+      this->waitsend := FALSE;
+
+      IF (this->signalled)
+        this->SendResponse();
+    }
+  }
+
+  MACRO SendResponse(BOOLEAN force DEFAULTSTO FALSE)
+  {
+    IF (this->waitsend)
+    {
+      IF (log_communication)
+        this->LogDebug("Scheduling response while messages are dispatched");
+      this->signalled := TRUE;
+      RETURN;
+    }
+
+    // Force send when we still need to ack a message
+    IF (this->ack_timeout != 0)
+    {
+      UnregisterCallback(this->ack_timeout);
+      this->ack_timeout := 0;
+      force := TRUE;
+    }
+
+    RECORD result :=
+        [ type := "linkmessages"
+        , data := DEFAULT RECORD ARRAY
+        , forcesend := LENGTH(this->gonemessages) != 0 OR force
+        ];
+
+    FOREVERY (OBJECT endpoint FROM this->subscribed_endpoints)
+    {
+      RECORD msg := endpoint->PrepareWireMessage();
+      result.forcesend := result.forcesend OR LENGTH(msg.messages) != 0;
+      INSERT msg INTO result.data AT END;
+    }
+
+    // Add gone messages to the end
+    result.data := result.data CONCAT this->gonemessages;
+
+    IF (log_communication)
+      this->LogDebug("Sent link messages");
+
+    this->link->SendMessage(result);
+    this->signalled := FALSE;
+
+    // When messages are present on a non-persistent transport, we can close the link.
+    IF (NOT this->linkispersistent AND result.forcesend)
+    {
+      IF (log_communication)
+        this->LogDebug("Closed non-persistent link");
+      this->nocancelatclose := TRUE;
+      this->Close();
+    }
+  }
+
+  MACRO HandleSignalled()
+  {
+    RECORD rec := this->link->ReceiveMessage(DEFAULT DATETIME);
+    IF (rec.status = "ok")
+      this->ProcessMessage(rec.msg);
+    ELSE IF (rec.status = "gone")
+      this->Close();
+  }
+
+  MACRO Close()
+  {
+    IF (NOT this->nocancelatclose)
+      this->link->SendMessage([ type := "cancel", forcesend := TRUE ]);
+
+    IF (this->ack_timeout != 0)
+    {
+      UnregisterCallback(this->ack_timeout);
+      this->ack_timeout := 0;
+    }
+
+    this->ResetSubscriptions();
+    this->dispatcher->RemoveTransport(PRIVATE this);
+    this->link->Close();
+    this->link := DEFAULT OBJECT;
+  }
+
+>;
+
+PUBLIC OBJECTTYPE ToddLinkDispatcher
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Identification of this dispatcher
+  STRING pvt_dispid;
+
+  /** Mappping from frontendid to transport
+      @cell frontendid (index)
+      @cell transport
+  */
+  RECORD ARRAY transportlinks;
+
+  /** List of endpoints
+      @cell linkid (index)
+      @cell frontendid
+      @cell endpoint
+      @cell didsendoncurrentlink
+  */
+  RECORD ARRAY endpoints;
+
+  INTEGER ARRAY pvt_handles;
+  OBJECT ARRAY transports;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY dispid(pvt_dispid, -);
+
+  PUBLIC PROPERTY handles(pvt_handles, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(STRING dispid)
+  {
+    this->pvt_dispid := dispid;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO LogDebug(STRING message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  {
+    //PRINT("disp " || message || (LENGTH(args) = 0 ? "" : " " || EncodeHSON(args)) || "\n");
+    INSERT message INTO args AT 0;
+    INSERT "ng-disp " || this->dispid INTO args AT 0;
+    CallMacroPTRVA(PTR LogDebug, args);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // TransportLink API
+  //
+
+  MACRO AddTransport(OBJECT transport)
+  {
+    FOREVERY (STRING frontendid FROM transport->frontendids)
+    {
+      RECORD rec := [ frontendid := frontendid, transport := transport ];
+      RECORD pos := RecordLowerBound(this->transportlinks, rec, [ "FRONTENDID" ]);
+      INSERT rec INTO this->transportlinks AT pos.position;
+    }
+
+    INTEGER pos := LowerBound(this->pvt_handles, transport->handle).position;
+    INSERT transport->handle INTO this->pvt_handles AT pos;
+    INSERT transport INTO this->transports AT pos;
+  }
+
+  MACRO RemoveTransport(OBJECT transport)
+  {
+    FOREVERY (STRING frontendid FROM transport->frontendids)
+    {
+      RECORD pos := RecordLowerBound(this->transportlinks, [ frontendid := frontendid ], [ "FRONTENDID" ]);
+      IF (pos.found)
+        DELETE FROM this->transportlinks AT pos.position;
+    }
+
+    INTEGER pos := LowerBound(this->pvt_handles, transport->handle).position;
+    DELETE FROM this->pvt_handles AT pos;
+    DELETE FROM this->transports AT pos;
+  }
+
+  MACRO UpdateTransportFrontendIds(OBJECT transport)
+  {
+    this->RemoveTransport(transport);
+    this->AddTransport(transport);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Endpoint API
+  //
+
+  /// Registers the endpoint. Must be a PRIVATE this ptr to the endpoint
+  PUBLIC MACRO RegisterEndpoint(OBJECT endpoint)
+  {
+    IF (log_communication)
+      this->LogDebug("Register endpoint " || endpoint->linkid);
+    RECORD pos := RecordLowerBound(this->endpoints, [ linkid := endpoint->linkid ], [ "LINKID" ]);
+    IF (pos.found)
+      THROW NEW Exception("Endpoint already registered");
+
+    endpoint->dispatcher := PRIVATE this;
+
+    INSERT
+        [ linkid := endpoint->linkid
+        , frontendid := endpoint->frontendid
+        , endpoint := endpoint
+        , didsendoncurrentlink := FALSE
+        ] INTO this->endpoints AT pos.position;
+  }
+
+  MACRO UnregisterEndpoint(OBJECT endpoint)
+  {
+    IF (log_communication)
+      this->LogDebug("Unregister endpoint " || endpoint->linkid);
+    RECORD pos := RecordLowerBound(this->endpoints, [ linkid := endpoint->linkid ], [ "LINKID" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("Endpoint not registered");
+
+    DELETE FROM this->endpoints AT pos.position;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // TransportLink API
+  //
+
+  /** Accept a link with a linkmessages message, take ownership of the link. Process the message too.
+  */
+  PUBLIC MACRO RegisterLink(OBJECT link, RECORD msg)
+  {
+    FOREVERY (STRING frontendid FROM msg.frontendids)
+    {
+      RECORD pos := RecordLowerBound(this->transportlinks, [ frontendid := frontendid ], [ "FRONTENDID" ]);
+      IF (pos.found)
+      {
+        IF (log_communication)
+          this->LogDebug("Closing transport with frontendid " || frontendid);
+        this->transportlinks[pos.position].transport->Close();
+      }
+    }
+
+    IF (log_communication)
+      this->LogDebug("Create new transport with frontendids", msg.frontendids);
+    OBJECT transport := NEW TransportLink(PRIVATE this, link, msg.frontendids, msg.ispersistentlink);
+    transport->ProcessMessage(msg);
+    link->userdata := [ transport := transport ];
+  }
+
+  PUBLIC MACRO ProcessSignalledHandle(INTEGER handle)
+  {
+    RECORD pos := LowerBound(this->pvt_handles, handle);
+    IF (pos.found)
+      this->transports[pos.position]->HandleSignalled();
+  }
+
+  PUBLIC MACRO ProcessAllSignalled()
+  {
+    WHILE (TRUE)
+    {
+      INTEGER handle := WaitForMultipleUntil(this->pvt_handles, DEFAULT INTEGER ARRAY, DEFAULT DATETIME);
+      IF (handle <= 0)
+        RETURN;
+      this->ProcessSignalledHandle(handle);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO Close()
+  {
+    FOREVERY (OBJECT transport FROM this->transports)
+      transport->Close();
+  }
+>;

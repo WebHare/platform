@@ -1,0 +1,296 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::publisher/lib/common-v2.whlib";
+LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+RECORD publishfile;
+
+PUBLIC RECORD __publishwebdesign_callbacks;
+
+//Is the first page in a different directory than the rest? (Indexdocs and non-word documents)
+PUBLIC BOOLEAN separate_first_page;
+//Name of the first converted page
+PUBLIC STRING firstpagename;
+//Must the first converted page have the name of a site default page?
+PUBLIC BOOLEAN firstmustbeindex;
+
+RECORD ARRAY handledata;
+
+//Has the 'first' page ever been opened
+BOOLEAN opened_first_page;
+STRING ARRAY opened_pages;
+STRING ARRAY opened_db_pages;
+
+//URL part to add to the baseurl to get to the subfolder, which contins all but the first page
+PUBLIC STRING subfolder_url;
+
+//URL of file.parent
+PRIVATE STRING base_destfolder_url;
+
+/** @cell outputid
+    @cell id
+    @cell code
+*/
+RECORD ARRAY substitutions;
+
+PUBLIC STRING FUNCTION DoMakeFileLinkByName(INTEGER startpageid, STRING filename)
+{
+  IF(NOT IsValidWHFSName(filename,FALSE))
+    THROW NEW Exception("'" || filename || "' is not a valid filename for a published file");
+  BOOLEAN link_to_firstpage := IsFirstPagename(filename);
+
+  STRING url;
+  IF (startpageid = -1) //an absolute link has been requested
+  {
+    url := base_destfolder_url;
+    IF (NOT (link_to_firstpage AND separate_first_page))
+      url := url || subfolder_url;
+  }
+  ELSE //link relatively to destpage
+  {
+    IF (NOT link_to_firstpage OR startpageid != 1)
+    {
+      IF(startpageid = 1 AND separate_first_page)
+        url := subfolder_url; //ENTER subfolder
+      ELSE IF (link_to_firstpage AND separate_first_page)
+        url := "../"; //LEAVE subfolder
+    }
+  }
+  RETURN url || EncodeURL(filename);
+}
+
+
+INTEGER FUNCTION PUBLISHER_OPENOUTPUT(STRING filename, BOOLEAN dbfile, BOOLEAN isfirstpage, BOOLEAN isshtml)
+{
+  IF(NOT dbfile)
+  {
+    //Check for an illegal name
+    IF (SearchSUbstring(filename,'/') != -1
+        OR SearchSUbstring(filename,'\\') != -1
+        OR TrimWhitespace(filename)=""
+        OR Length(filename)>250)
+      ABORT("Illegal filename '" || filename || "'");
+  }
+
+  BOOLEAN sanitize;
+
+  // Only sanitize when the source data wasn't from a scriptable file type
+  IF (NOT publishsourceisscriptable)
+  {
+    // Does the output file indicate a scripted type?
+    STRING ext := Substring(GetExtensionFromPath(filename), 1);
+    sanitize := RecordExists(SELECT FROM system.mimetypes WHERE ToUppercase(extension) = ToUppercase(ext) AND parsetype != 0);
+  }
+
+  RECORD rec := publishingbackendlink->DoRequest(
+      [ type := "OPENOUTPUT"
+      , filename := filename
+      , dbfile := dbfile
+      , sanitize_output := sanitize
+      , isshtml := isshtml
+      ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+
+  INTEGER pipe := rec.msg.pipe->pipe;
+  INTEGER id := rec.msg.id;
+
+  INSERT [ id := id, pipe := pipe, isdbfile := dbfile, isfirstpage := isfirstpage, sanitized := sanitize ] INTO handledata AT END;
+
+  RETURN pipe;
+}
+
+PUBLIC BOOLEAN FUNCTION PUBLISHER_CLOSEOUTPUT(INTEGER outputid)
+{
+  INTEGER pos := (SELECT AS INTEGER #handledata + 1 FROM handledata WHERE pipe = outputid) - 1;
+  IF (pos = -1)
+    ABORT("Cannot close a non-existing output");
+  INTEGER id := handledata[pos].id;
+  ClosePipe(handledata[pos].pipe);
+  DELETE FROM handledata AT pos;
+
+  //FIXME HUH ?!  why would we need to do this ? FlushOutputBuffer();
+
+  RECORD rec := publishingbackendlink->DoRequest(
+      [ type := "CLOSEOUTPUT"
+      , id := id
+      , substitutions := (SELECT * FROM substitutions WHERE COLUMN outputid = VAR outputid)
+      , fileid := publishfile.id
+      ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+
+  RETURN TRUE;
+}
+
+PUBLIC MACRO PUBLISHER_SetCaptureSubPaths(BOOLEAN capturesubpaths)
+{
+  RECORD rec := publishingbackendlink->DoRequest(CELL
+      [ type := "SETCAPTURESUBPATHS"
+      , capturesubpaths
+      ]);
+
+  IF (rec.status != "ok")
+    ABORT("Messaging error");
+
+  IF (NOT rec.msg.success)
+    THROW NEW Exception(rec.msg.errordata);
+}
+
+PUBLIC MACRO PrintTrustedCodeTo(INTEGER outputid, STRING code)
+{
+  INTEGER pos := (SELECT AS INTEGER #handledata + 1 FROM handledata WHERE pipe = outputid) - 1;
+  IF (pos = -1)
+    ABORT("Cannot write to a non-existing output");
+
+  IF (handledata[pos].sanitized)
+  {
+    STRING marker := "<!-- HSID:" || GenerateUFS128BitId() || "-->";
+    PrintTo(outputid, marker);
+
+    INSERT
+        [ outputid :=     outputid
+        , toreplace :=    marker
+        , replacewith :=  code
+        ] INTO substitutions AT END;
+  }
+  ELSE
+    PrintTo(outputid, code);
+}
+
+PUBLIC BOOLEAN FUNCTION IsDefaultPagename(STRING filename)
+{
+  FOREVERY(STRING page FROM cached_publish_info.outputsettings.defaultpages)
+    IF(ToUppercase(filename)=ToUppercase(page))
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+BOOLEAN FUNCTION IsFirstPagename(STRING filename)
+{
+  IF (firstmustbeindex)
+    RETURN IsDefaultPagename(filename);
+  ELSE
+    RETURN filename = firstpagename;
+}
+
+PUBLIC INTEGER FUNCTION OpenDBOutputFile(STRING filename)
+{
+  IF (ToUppercase(filename) IN opened_db_pages)
+    ABORT("Filename '" || filename || "' has already been used during this publication");
+  INSERT ToUppercase(filename) INTO opened_db_pages AT END;
+
+  INTEGER id := PUBLISHER_OPENOUTPUT(filename, TRUE, FALSE, FALSE);
+  RETURN id;
+}
+
+PUBLIC INTEGER FUNCTION OpenOutputFile(STRING filename, BOOLEAN systemredirect)
+{
+  //Check for a dupe name
+  BOOLEAN isfirstpage := IsFirstPagename(filename);
+  IF (isfirstpage)
+  {
+    IF (opened_first_page)
+      ABORT("Filename '" || filename || "' is a name for the first output file, but the first file has already been created");
+    opened_first_page := TRUE;
+  }
+  ELSE
+  {
+    IF (ToUppercase(filename) IN opened_pages)
+      ABORT("Filename '" || filename || "' has already been used during this publication");
+    INSERT ToUppercase(filename) INTO opened_pages AT END;
+  }
+
+
+  STRING ext := Substring(GetExtensionFromPath(filename),1);
+  BOOLEAN isshtml := ToUppercase(ext) IN autofileidextensions;
+  INTEGER id := PUBLISHER_OPENOUTPUT(filename, FALSE, isfirstpage, isshtml);
+  //Check for auto fileid filename
+
+  IF(ext!="")
+  {
+    IF(isshtml)
+    {
+      PrintTrustedCodeTo(id,"<?wh (*SCRIPTPROPERTY'FILEID'" || publishfile.id || "*)?>");
+      PrintTrustedCodeTo(id,"<?wh (*SCRIPTPROPERTY'FILECREATIONDATE'" || GetDayCount(publishfile.creationdate) || ' ' || GetMsecondCount(publishfile.creationdate) || "*)?>");
+      IF (systemredirect)
+        PrintTrustedCodeTo(id,"<?wh (*SCRIPTPROPERTY'SYSTEMREDIRECT'*)?>");
+    }
+    ELSE IF (systemredirect)
+      THROW NEW Exception("File '" || filename || "' must have an .shtml extension");
+  }
+  ELSE IF (systemredirect)
+    THROW NEW Exception("File '" || filename || "' must have an .shtml extension");
+
+  RETURN id;
+}
+
+
+
+IF(ObjectExists(publishingbackendlink) AND cached_publish_info.istemplaterun)
+{
+  publishfile := file;
+
+  /* Sanity checking. Stuff that should never happen, but can still be accomplished by really messing up in the WebHare interface */
+  contentfiletypeprops := GetFileTypeProps(contentfile.type);
+
+  /******************************************************************************
+  * Figure out how we can create links between files                            *
+  *                                                                             *
+  * Our template is actually a bit more intelligent than the publisher module,  *
+  * as we need to tell the publisher how to create URLs. If we fail to call the *
+  * __WHP_SetupCrossLinker function, printing objects won't work                *
+  *                                                                             *
+  ******************************************************************************/
+  separate_first_page := NOT contentfiletypeprops.ispublishedassubdir OR file.id=folder.indexdoc;
+
+  //Figure out naming conventions and requirements
+  firstmustbeindex :=  contentfiletypeprops.ispublishedassubdir OR file.id=folder.indexdoc;
+
+  IF (contentfiletypeprops.ispublishedassubdir)
+  {
+    firstpagename := whconstant_webserver_indexbasename || cached_publish_info.outputsettings.outputextension;
+  }
+  ELSE IF (file.id=folder.indexdoc) //folder index
+  {
+    //Find a match with the same extension
+    STRING myext := ToUppercase(GetExtensionFromPath(file.name));
+    FOREVERY(STRING page FROM cached_publish_info.outputsettings.defaultpages)
+      IF (ToUppercase(GetExtensionFromPath(page)) = myext)
+      {
+        firstpagename := page;
+        BREAK;
+      }
+    IF(firstpagename="")
+      firstpagename := whconstant_webserver_indexbasename || cached_publish_info.outputsettings.outputextension;
+  }
+  ELSE
+  {
+    firstpagename := file.name;
+  }
+
+  //Validate whether the user's specified naming and site settings matches our requirements
+  IF (IsDefaultPagename(file.name) AND folder.indexdoc != file.id)
+    ABORT("File is named after an index, but not marked as index document. Rename the file or mark it as index.");
+
+  //Configure the cross-linker
+  STRING BASEURL := SITE.WEBROOT;
+  BASEURL := LEFT(BASEURL,LENGTH(BASEURL)-1); //Strip the slash after site.webroot
+  STRING filename := cached_publish_info.outputsettings.stripextension ? GetBasenameFromPath(file.name) : file.name;
+
+  //Subdirectory for all but the first file
+  subfolder_url := ENCODEURL(contentfiletypeprops.ispublishedassubdir ? filename : '^' || filename) || '/';
+  //Base publication url
+  base_destfolder_url := BASEURL || ENCODEURL(FOLDER.FULLPATH);
+}

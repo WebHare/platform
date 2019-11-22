@@ -1,0 +1,70 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+  lib="screens/entity.whlib">
+
+  <screen name="edit" gid="main.entityeditor" allowresize="true">
+    <compositions>
+      <wrd:entity name="entity" />
+      <radiogroup name="limitdatesetting" />
+    </compositions>
+    <body spacers="none">
+      <tabs type="regular" height="1pr">
+        <tab name="basedata">
+          <panel name="basedatapanel" />
+          <heading name="availabilitybox" />
+          <datetime name="creationdate" type="datetime" precision="minutes" tid=".available_since" required="true" storeutc="true" />
+          <line>
+            <radiobutton group="limitdatesetting" rowkey="nolimitdate" onset="onlimitdateset" tid=".limitdatesetting" name="nolimitdatesetting" />
+            <text valuetid=".nolimitdate" labelfor="nolimitdatesetting" />
+          </line>
+          <line>
+            <radiobutton group="limitdatesetting" rowkey="limitdate_date" onset="onlimitdateset" title="" />
+
+            <!-- FIXME: Want to do without title="", but it crashes tollium: "Child not inside the panel is trying to replace itself" -->
+            <datetime name="limitdate" type="datetime" precision="minutes" title="" storeutc="true" />
+          </line>
+        </tab>
+        <tab name="fields">
+        </tab>
+        <tab name="history">
+        </tab>
+        <tab name="linkcheck" layout="left">
+          <includefragment fragment="consilio:report.objectreport" name="objectreport" />
+        </tab>
+        <tab name="developers">
+          <textedit enabled="false" composition="entity" cellname="wrd_id" width="10x" valuetype="integer" />
+          <textedit enabled="false" composition="entity" cellname="wrd_guid" width="40x" />
+          <datetime name="wrd_modificationdate" type="datetime" precision="milliseconds" readonly="true" storeutc="true" /> <!-- not part of the composition, to avoid overwriting when submitting -->
+          <wrd:field entity="entity" field="wrd_tag" name="tagfield" />
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="updatelink" gid="links.update" minheight="250px" minwidth="300px">
+    <compositions>
+      <wrd:entity name="entitytype" />
+      <wrd:entity name="linkobj" />
+    </compositions>
+    <body spacers="none">
+      <wizard name="wizard">
+        <page name="linktypepage" onnext="onlinktypenext">
+          <select name="linktypes" type="radio" rowkeytype="integer" required="true" />
+        </page>
+        <page name="linkpropertiespage" onnext="onlinkpropertiesnext" isfinish="true">
+          <box name="linkproperties">
+            <text name="dummy" visible="false" title="" />
+            <wrd:field entity="entitytype" field="wrd_leftentity" required="true" tid=".leftentity" errorlabeltid=".leftentity"/>
+            <text name="linkname" value="" title="" />
+            <wrd:field entity="entitytype" field="wrd_rightentity" required="true" tid=".rightentity" errorlabeltid=".rightentity"/>
+          </box>
+          <box name="extraproperties">
+          </box>
+        </page>
+      </wizard>
+    </body>
+  </screen>
+</screens>

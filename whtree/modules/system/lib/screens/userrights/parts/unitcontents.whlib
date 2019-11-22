@@ -1,0 +1,513 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+
+LOADLIB "mod::system/lib/internal/webserver/support.whlib";
+
+
+PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER cbid;
+
+  OBJECT pvt_unit;
+
+  /// Filter on type (0 to show all)
+  INTEGER pvt_filterontype;
+
+  BOOLEAN pvt_only_grantable_roles;
+
+  STRING column_mode;
+
+  INTEGER ARRAY selected_objects;
+
+  RECORD ARRAY all_columns;
+
+  BOOLEAN anygrantablerights;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC FUNCTION PTR onselect;
+
+  PUBLIC PROPERTY unit(pvt_unit, SetUnit);
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /** Filter on type (0 to show roles & users, 1 for only users, 3 for only roles)
+  */
+  PUBLIC PROPERTY filterontype(pvt_filterontype, SetFilterOnType);
+
+  PUBLIC PROPERTY selectmode(GetSelectMode, SetSelectMode);
+
+  PUBLIC PROPERTY only_grantable_roles(pvt_only_grantable_roles, SetOnlyGrantableRoles);
+
+  PUBLIC PROPERTY borders(this->userandrolelist->borders, this->userandrolelist->borders);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium registration
+  //
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->all_columns := this->userandrolelist->columns;
+    this->SetColumnMode("unit");
+    this->anygrantablerights := this->contexts->user->HasAnyGrantableRight();
+
+    IF(NOT this->anygrantablerights)
+    {
+      this->addrighttousers->enabled := FALSE;
+    }
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->cbid := RegisterMultiEventCallback("system:rights.change", PTR this->OnUpdateEvent);
+    this->ReloadList();
+  }
+
+  UPDATE PUBLIC MACRO OnUnloadComponent()
+  {
+    IF (this->cbid != 0)
+      UnregisterCallback(this->cbid);
+    this->cbid := 0;
+    TolliumFragmentBase::OnUnloadComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetUnit(OBJECT unit)
+  {
+    IF (ObjectExists(this->pvt_unit) AND ObjectExists(unit) AND this->pvt_unit->entityid = unit->entityid)
+      RETURN;
+
+    this->pvt_unit := unit;
+    this->newuser->enabled := ObjectExists(unit);
+    this->newrole->enabled := ObjectExists(unit) AND unit->authobjectid != 0;
+
+    IF (NOT this->SetColumnMode("unit"))
+      this->ResetColumns();
+    this->ReloadList();
+  }
+
+  VARIANT FUNCTION GetValue()
+  {
+    IF (this->userandrolelist->selectmode = "single")
+    {
+      RECORD sel := this->userandrolelist->selection;
+      IF (RecordExists(sel))
+      {
+        OBJECT retval := sel.type = 1 ? this->contexts->userapi->GetUser(sel.wrd_id) : this->contexts->userapi->GetRole(sel.wrd_id);
+        RETURN retval;
+      }
+      RETURN DEFAULT OBJECT;
+    }
+
+    RETURN
+        SELECT AS OBJECT ARRAY type = 1 ? this->contexts->userapi->GetUser(wrd_id) : this->contexts->userapi->GetRole(wrd_id)
+          FROM this->userandrolelist->selection;
+  }
+
+  MACRO SetValue(VARIANT newvalue)
+  {
+    IF (this->userandrolelist->selectmode = "single")
+      this->userandrolelist->value := ObjectExists(newvalue) ? newvalue->entityid : 0;
+    ELSE
+      this->userandrolelist->value := SELECT AS INTEGER ARRAY obj->entityid FROM ToRecordArray(OBJECT ARRAY(newvalue), "OBJ");
+  }
+
+  MACRO SetFilterOnType(INTEGER newtype)
+  {
+    IF (newtype NOT IN [0, 1, 3])
+      THROW NEW TolliumException(this, "Illegal filterontype value specified: " || newtype);
+
+    this->pvt_filterontype := newtype;
+
+    this->ReloadList();
+  }
+
+  STRING FUNCTION GetSelectMode()
+  {
+    RETURN this->userandrolelist->selectmode;
+  }
+
+  MACRO SetSelectMode(STRING selectmode)
+  {
+    this->userandrolelist->selectmode := selectmode;
+  }
+
+  MACRO SetOnlyGrantableRoles(BOOLEAN newval)
+  {
+    this->pvt_only_grantable_roles := newval;
+    this->ReloadList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnUpdateEvent(STRING event, RECORD ARRAY data)
+  {
+    this->ReloadList();
+  }
+
+  MACRO OnSelectHandler()
+  {
+    IF (this->onselect != DEFAULT FUNCTION PTR)
+      this->onselect();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ResetColumns()
+  {
+    RECORD ARRAY newcolumns :=
+        SELECT *
+          FROM this->all_columns
+         WHERE name IN (this->column_mode = "unit"
+                                ? [ "name", "fullname", "email", "lastlogin", "online" ]
+                                : [ "name", "fullname", "email", "unitpath", "online" ]);
+
+    // For mode 'unit', use rights on the current unit, otherwise rights on root unit
+    OBJECT unit := this->column_mode = "unit" ? this->pvt_unit : DEFAULT OBJECT;
+    BOOLEAN can_manage := this->tolliumuser->HasRightOn("system:manageunit", ObjectExists(unit) ? unit->authobjectid : 0);
+
+    // Hide email if emailcolumn matches logincolumn
+    IF(this->contexts->userapi->wrdschema->accountemailtag = this->contexts->userapi->wrdschema->accountlogintag)
+      DELETE FROM newcolumns WHERE name="email";
+
+    // Only reset the list when needed
+    STRING ARRAY currentnames := SELECT AS STRING ARRAY name FROM this->userandrolelist->columns;
+    STRING ARRAY newnames := SELECT AS STRING ARRAY name FROM newcolumns;
+    IF (Detokenize(currentnames, ",") = Detokenize(newnames, ","))
+      RETURN;
+
+    /// Prevent roles without names because the user can't see the 'name' column by copying the 'name' to the 'fullname' column:
+    IF (NOT RecordExists(SELECT FROM newcolumns WHERE name = "name"))
+    {
+      /// Put the icon on the correct column:
+      UPDATE newcolumns SET iconname := "icon" WHERE name = "fullname";
+      UPDATE newcolumns SET iconname := "" WHERE name = "name";
+    }
+
+    this->userandrolelist->columns := newcolumns;
+  }
+
+  MACRO ReloadList()
+  {
+    IF (NOT ObjectExists(this->contexts->userapi))
+      RETURN;
+
+    IF(NOT ObjectExists(this->pvt_unit) AND this->column_mode="unit")
+    {
+      this->userandrolelist->empty := GetTid("system:userrights.empty.usersinunits");
+      this->userandrolelist->rows := RECORD[];
+      RETURN;
+    }
+
+    INTEGER ARRAY onlineusers := GetOnlineUsersIDs();
+    INTEGER unit_authobjectid := ObjectExists(this->pvt_unit) ? this->pvt_unit->authobjectid : 0;
+    INTEGER unit_entityid := ObjectExists(this->pvt_unit) ? this->pvt_unit->entityid : 0;
+
+    RECORD ARRAY usersbyunit;
+    RECORD ARRAY rolesbyunit;
+
+    IF (this->pvt_filterontype IN [0, 1])
+    {
+      IF (this->column_mode = "unit")
+      {
+        usersbyunit := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WHUSER_UNIT", value := unit_entityid ] ], this->owner->tolliumuser);
+      }
+      ELSE
+      {
+        usersbyunit := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := this->selected_objects ] ], this->owner->tolliumuser);
+        usersbyunit := EnrichWithUnitPath(usersbyunit, this->owner->tolliumuser);
+      }
+    }
+
+    IF (this->pvt_filterontype IN [0, 3])
+    {
+      IF (this->column_mode = "unit")
+        rolesbyunit := GetRolesByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_LEFTENTITY", value := unit_entityid ] ], this->owner->tolliumuser);
+      ELSE
+      {
+        rolesbyunit := GetRolesByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := this->selected_objects ] ], this->owner->tolliumuser);
+        rolesbyunit := EnrichWithUnitPath(rolesbyunit, this->owner->tolliumuser);
+      }
+
+      IF (this->pvt_only_grantable_roles)
+      {
+        INTEGER ARRAY all_roles := SELECT AS INTEGER ARRAY authobjectid FROM rolesbyunit;
+        INTEGER ARRAY manageble := this->owner->tolliumuser->HasRightOnMultiple("system:manageroles", all_roles);
+
+        rolesbyunit := SELECT *
+                            , selectable := authobjectid IN manageble
+                            , listrowclasses := authobjectid NOT IN manageble ? ["grayedout"] : STRING[]
+                         FROM rolesbyunit;
+      }
+    }
+
+    /// Prevent roles without names because the user can't see the 'name' column by copying the 'name' to the 'fullname' column:
+    IF (NOT RecordExists(SELECT FROM this->userandrolelist->columns WHERE name = "name"))
+    {
+      UPDATE rolesbyunit
+         SET fullname := name
+       WHERE fullname = "";
+    }
+
+    RECORD ARRAY usersandroles := SELECT *
+                                       , online := wrd_id IN onlineusers ? 7 : 0
+                                    FROM usersbyunit CONCAT rolesbyunit;
+
+    usersandroles := EnrichWithOpenAs(usersandroles, this->contexts->user);
+
+    ^userandrolelist->rows := usersandroles;
+
+    IF (this->column_mode = "unit")
+      ^userandrolelist->empty := GetTid("system:userrights.empty.usersinunits-none");
+    ELSE
+      ^userandrolelist->empty := GetTid("system:userrights.empty.searchresults");
+  }
+
+  /// Get objects of selected users/roles, always an array
+  OBJECT ARRAY FUNCTION GetSelectedWRDAuthobjects()
+  {
+    VARIANT value := this->GetValue();
+    IF (TypeID(value) = TypeID(OBJECT))
+      RETURN ObjectExists(value) ? [ OBJECT(value) ] : DEFAULT OBJECT ARRAY;
+    RETURN value;
+  }
+
+  /// Get objects of selected users/roles
+  OBJECT FUNCTION GetSelectedWRDAuthobject()
+  {
+    OBJECT ARRAY list := this->GetSelectedWRDAuthobjects();
+    RETURN LENGTH(list) = 1 ? list[0] : DEFAULT OBJECT;
+  }
+
+  MACRO SetSelectedWRDAuthObjects(VARIANT newval)
+  {
+    // Convert into list
+    IF (TypeID(newval) = TypeID(OBJECT))
+      newval := ObjectExists(newval) ? [ OBJECT(newval) ] : DEFAULT OBJECT ARRAY;
+
+    IF (this->selectmode = "single")
+      this->value := LENGTH(newval) = 0 ? DEFAULT OBJECT : newval[0];
+    ELSE
+      this->value := newval;
+  }
+
+  BOOLEAN FUNCTION SetColumnMode(STRING newmode)
+  {
+    IF (this->column_mode = newmode) // always reset for unit changes
+      RETURN FALSE;
+
+    this->column_mode := newmode;
+    this->ResetColumns();
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnTypedDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
+  {
+    FOREVERY(RECORD tomove FROM dragdata.items)
+    {
+      SWITCH(tomove.type)
+      {
+        CASE "system:user"
+        {
+          this->contexts->userapi->UpdateUser(tomove.data.id, [ whuser_unit := this->unit->entityid ]);
+        }
+        CASE "system:role"
+        {
+          this->contexts->userapi->UpdateRole(tomove.data.id, [ wrd_leftentity := this->unit->entityid ]);
+        }
+      }
+    }
+    this->ReloadList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAddUser()
+  {
+    OBJECT dialog := MakeAddEditUserDialog(this->owner, DEFAULT OBJECT, this->pvt_unit);
+    IF (dialog->RunModal() = "ok")
+      this->SetSelectedWRDAuthObjects(dialog->user);
+  }
+
+  MACRO DoAddRole()
+  {
+    OBJECT dialog := MakeAddEditRoleDialog(this->owner, DEFAULT OBJECT, this->pvt_unit);
+    IF (dialog->RunModal() = "ok")
+      this->SetSelectedWRDAuthObjects(dialog->roleobj);
+  }
+
+
+  MACRO DoMoveItemsToAnotherUnit()
+  {
+    OBJECT ARRAY authobjects := this->GetSelectedWRDAuthobjects();
+    OBJECT screen := this->owner->LoadScreen("system:userrights/dialogs.selectunit", [ selectright := "system:manageunit", canselectroot := FALSE ]);
+    STRING result := screen->RunModal();
+    IF(result = "ok" AND ObjectExists(screen->value))
+    {
+      OBJECT unit := screen->value;
+      IF(NOT ObjectExists(unit) OR unit->entityid = 0)
+        RETURN;// Not moving an object to it's own parent unit
+
+      FOREVERY(OBJECT authobject FROM authobjects)
+      {
+        IF(authobject->type = 1)// user
+          this->contexts->userapi->UpdateUser(authobject->entityid, [ whuser_unit := unit->entityid ]);
+        ELSE IF(authobject->type = 3)// role
+          this->contexts->userapi->UpdateRole(authobject->entityid, [ wrd_leftentity := unit->entityid ]);
+      }
+
+      this->ReloadList();
+    }
+  }
+
+  MACRO DoOpenAs(OBJECT openhandler)
+  {
+    OBJECT obj := this->GetSelectedWRDAuthobject();
+    STRING overridetoken := SELECT AS STRING value FROM this->contexts->controller->webvariables WHERE name = "overridetoken";
+    openhandler->SendURL(UpdateURLVariables(this->tolliumcontroller->baseurl, [ openas := obj->entity->guid
+                                                                     , overridetoken := overridetoken
+                                                                     ]));
+  }
+
+  MACRO DoEditRole()
+  {
+    MakeAddEditRoleDialog(this->owner, this->GetSelectedWRDAuthobject(), this->pvt_unit)->RunModal();
+  }
+
+  MACRO DoEditUser()
+  {
+    MakeAddEditUserDialog(this->owner, this->GetSelectedWRDAuthobject(), this->pvt_unit)->RunModal();
+  }
+
+  MACRO DoAddRoleToUsers()
+  {
+    MakeAddGrantOfSelectableRoleToUserDialog(this->owner, this->GetSelectedWRDAuthobjects())->RunModal();
+  }
+
+  MACRO DoAddRightToUsers()
+  {
+    MakeAddGrantToUsersDialog(this->owner, this->GetSelectedWRDAuthobjects())->RunModal();
+  }
+
+  MACRO DoAddUsersToRole()
+  {
+    MakeAddGrantOfRoleToSelectableUsersDialog(this->owner, this->GetSelectedWRDAuthobject())->RunModal();
+  }
+
+  MACRO DoDeleteUserOrRole()
+  {
+    MakeDeleteDialog(this->owner, this->GetSelectedWRDAuthobjects())->RunModal();
+  }
+
+  MACRO DoGetResetLink()
+  {
+    RECORD policy := GetPolicyForUser(this->contexts, this->GetSelectedWRDAuthobject()->entityid);
+    IF(NOT policy.haspassword)
+    {
+      this->RunSimpleScreen("info", GetTid("system:userrights.dialogues.cannotresetunmanageduser"));
+      RETURN;
+    }
+
+    this->contexts->screen->RunScreen("mod::system/screens/userrights/parts/unitcontents.xml#prepareresetlink", [ user := this->GetSelectedWRDAuthobject()->entityid ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Modify menus and actions to make this fragment usable for a common dialog
+  */
+  PUBLIC MACRO InitForCommonDialog()
+  {
+    this->userandrolelist->selectcontextmenu := DEFAULT OBJECT;
+    this->userandrolelist->newcontextmenu := DEFAULT OBJECT;
+    this->userandrolelist->openaction := DEFAULT OBJECT;
+  }
+
+  /** Show specific users/roles
+  */
+  PUBLIC MACRO ShowSearchResults(INTEGER ARRAY wrdids)
+  {
+    this->selected_objects := wrdids;
+    this->pvt_unit := DEFAULT OBJECT;
+
+    this->SetColumnMode("search");
+    this->ReloadList();
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE PrepareResetLink EXTEND TolliumScreenBase
+<
+  INTEGER userid;
+
+  MACRO Init(RECORD data)
+  {
+    this->userid := data.user;
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    OBJECT authplugin := this->contexts->controller->wrdauthplugin;
+    authplugin->LogCustomAuditEvent("wrd:getresetlink",
+        [ account := this->userid
+        , isimpersonation := TRUE
+        , message := [ resettype := ^resettype->value ]
+        ]);
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    this->RunScreen("#getresetlink", [ user := this->userid, resettype := ^resettype->value ]);
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE GetResetLink EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    OBJECT authplugin := this->contexts->controller->wrdauthplugin;
+    STRING resetpage := authplugin->__GetLoginPageURL() ?? this->contexts->controller->baseurl;
+    RECORD resetlink := authplugin->CreatePasswordResetLink(resetpage, data.user, [ routerpage := "resetpassword"
+                                                                                  , verifierstart := "VC"
+                                                                                  ]);
+    ^resetlink->value := data.resettype = "directresetlink" ? resetlink.verifiedlink : resetlink.entrylink;
+    ^resetcode->visible := data.resettype = "codedresetlink";
+    ^resetcode->value := resetlink.verifier;
+  }
+>;

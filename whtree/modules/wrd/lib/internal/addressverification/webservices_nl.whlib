@@ -1,0 +1,288 @@
+<?wh
+
+LOADLIB "wh::internet/soap.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/components/addressvalidation.whlib";
+
+/** This library contains hardcoded webservices address verification calls
+
+    Documentation: https://webview.webservices.nl/documentation/files/service_address-php.html
+    Request account: http://www.webservices.nl/contact/formulieren/testclient-aanvragen/
+*/
+
+PUBLIC STATIC OBJECTTYPE WebservicesAPI EXTEND WRDNLAddressVerificationBase
+<
+  STRING user;
+  STRING reactid;
+  OBJECT soapclient;
+  OBJECT service;
+
+  MACRO NEW(RECORD settings)
+  {
+    settings := ValidateOptions( [ user := "", password := "" ], settings, [ required := [ "user", "password" ]]);
+    IF (settings.user = "")
+      THROW NEW Exception("Empty username");
+    IF (settings.password = "")
+      THROW NEW Exception("Empty password");
+
+    this->user := settings.user;
+    this->SoapClient := NEW SoapClient;
+    //LogRPCForSoapClient("wrd:webservices.nl", "", this->soapclient);
+    this->soapclient->LoadWSDLFromURL("https://ws1.webservices.nl/address/soap_doclit?wsdl");
+
+    RECORD ARRAY services := this->soapclient->GetServices();
+    OBJECT service := this->soapclient->GetServiceNS(services[0].namespace, services[0].name);
+    RECORD ARRAY ports := service->GetPorts();
+    OBJECT port := service->GetPortNS(ports[0].namespace, ports[0].name);
+    this->service := port->GetObjectInterface();
+
+
+    IF(settings.user="loopback" AND settings.password="loopback")
+       RETURN;
+
+    this->reactid := this->Login(settings.user, settings.password);
+    IF (this->reactid = "")
+      THROW NEW Exception("Could not login");
+  }
+
+  STRING FUNCTION Login(STRING username, STRING password)
+  {
+    RECORD response := this->service->Login([ body := [ parameters := [ username := username, password := password ]]]);
+    RETURN response.body.parameters.reactid;
+  /*
+    OBJECT node := DoSOAPRequest(CreateLoginRequest(username, password));
+    IF (NOT ObjectExists(node))
+      RETURN "";
+
+    IF (NOT IsSpecificElement(node, ns_webservices, "loginResponse"))
+      THROW NEW Exception("Didn't receive the expected loginResponse message");
+
+    STRING reactid := CleanWhiteSpace(GetFirstChildElement(node)->textcontent);
+    IF (debug_output)
+      PrintTo(debug_output_stream, "Reactid: " || reactid || "\n");
+
+    RETURN reactid;*/
+  }
+
+  UPDATE RECORD FUNCTION __LookupNLAddressByAddress(STRING city, STRING street, INTEGER houseno, STRING housenoaddition)
+  {
+    IF (ToUppercase(city) = "ENSCHEDE" AND houseno = 296 AND street = "Hengelosestraat")
+      RETURN [ status := "ok"
+             , street := "Hengelosestraat"
+             , zip    := "7521 AM"
+             , city   := "ENSCHEDE" //webservices uppercaset steden altijd
+             , iscached := TRUE
+             ];
+
+    RECORD data := this->AddressReeksParameterSearch(city, street, houseno, housenoaddition, 1);
+    IF (data.paging.numresults = 0)
+      RETURN [ status := "address_not_found" ];
+
+    RECORD reeks := data.results[0];
+    RETURN [ status       := "ok"
+           , city         := reeks.plaatsnaam
+           , street       := reeks.straatnaam
+           , zip          := reeks.wijkcode || " " || reeks.lettercombinatie
+           ];
+  }
+
+  UPDATE RECORD FUNCTION __LookupNLAddressByZip(STRING zip, INTEGER houseno)
+  {
+    // B-Lex is built-in so we can test that without having to sign up for address valiadtion
+    IF (ToUppercase(zip) = "7521 AM" AND houseno < 1000 AND (houseno % 2) = 0)
+      RETURN [ status := "ok"
+             , street := "Hengelosestraat"
+             , zip    := "7521 AM"
+             , city   := "ENSCHEDE" //webservices uppercaset steden altijd
+             , iscached := TRUE
+             ];
+
+    TRY
+    {
+      RECORD reeks := this->AddressReeksPostcodeSearch(zip, houseno);
+
+      IF (NOT RecordExists(reeks))
+        RETURN [ status := "zip_not_found" ];
+
+      RETURN [ status       := "ok"
+             , street       := reeks.straatnaam
+             , zip          := reeks.wijkcode || " " || reeks.lettercombinatie
+             , city         := reeks.plaatsnaam
+             ];
+    }
+    CATCH
+    {
+      RETURN [ status := "lookup_failed" ];
+    }
+  }
+
+  /** Lookup addresses given a city, street, houseno, and houseno addition
+      @param city City
+      @param street Street
+      @param houseno House number
+      @param housenoaddition Addition to the house number
+      @param page Page nr
+      @return Data describing the matching addresses
+      @cell return.paging Data describing the number of pages
+      @cell return.paging.curpage Number of current page
+      @cell return.paging.perpage Number of results per page
+      @cell return.paging.numpages Total number of pages
+      @cell return.paging.numresults Total number of results
+      @cell return.paging.maxresults Maximum number of results returned
+      @cell return.extra Returned search parts
+      @cell return.extra.huisnr House nr.
+      @cell return.extra.toevoeging House nr. addition
+      @cell return.extra.wijkcode District code (numeral part of zip)
+      @cell return.extra.lettercombinatie Letter-part of the zip-code
+      @cell return.extra.straat Street
+      @cell return.extra.plaats City
+      @cell return.extra.gemeente Municipality
+      @cell return.extra.provincie Province
+      @cell return.extra.reeksindicatie ?Seriesindication?
+      @cell return.results Array of matches
+      @cell return.results.reeksid Id van de postcode reeks
+      @cell return.results.huisnr_van Start van de huisnummer reeks
+      @cell return.results.huisnr_tm Einde van de huisnummer reeks
+      @cell return.results.wijkcode Wijkcode (eerste deel van de postcode)
+      @cell return.results.lettercombinatie Letter-deel van de postcode
+      @cell return.results.reeksindicatie Postcode range type ('0': oneven, '1': even, '2': huisboten, '3': trailers, '' vacant
+      @cell return.results.straatid Id van de straat
+      @cell return.results.straatnaam Straatnaam volgens 'gemeentelijk raadsbesluit', afgekort tot 43 tekens. Is 'Postbus' voor postbussen.
+      @cell return.results.straatnaam_nen Straatnaam volgens NEN 5825, afgekort tot 24 tekens. Is 'POSTBUS' voor postbussen
+      @cell return.results.straatnaam_ptt Straatnaam volgens TPG Post, in hoofdletters, afgekort tot 17 tekens, Is 'POSTBUS' voor postbussen
+      @cell return.results.straatnaam_extract 5-letterige afkorting volgens TPG Post, in hoofdletters.
+      @cell return.results.plaatsid Id van de plaats
+      @cell return.results.plaatsnaam Officiele plaatsnaam volgens NEN 5825, in hoofdletters, afgekort tot 24 tekens.
+      @cell return.results.plaatsnaam_ptt Plaatsnaam volgens PTT standaard, in hoofdletters, afgekort tot 18 letters
+      @cell return.results.plaatsnaam_extract 4-letterige afkorting volgens TPG Post, hoofdletters.
+      @cell return.results.gemeenteid Id van de gemeente
+      @cell return.results.gemeentenaam Gemeentenaam.
+      @cell return.results.gemeentecode CBS (Centraal Bureau Statistiek) gemeentecode
+      @cell return.results.cebucocode CeBuCo (Centraal Bureau voor Courantenpubliciteit) gemeentecode
+      @cell return.results.provinciecode Id van de provincie
+      @cell return.results.provincienaam Officiele naam van de provincie.
+  */
+  PUBLIC RECORD FUNCTION AddressReeksParameterSearch(STRING city, STRING street, INTEGER houseno, STRING housenoaddition, INTEGER page)
+  {
+    // Not logging the query, becomes too much PII when combining with 4 ZIP digits for later validation
+    LogAccountingHit("wrd:checkaddress." || this->type,
+                       CELL[ account := this->user
+                           , source := this->accountingsource
+                           , extra := CELL[ method := "addressReeksParameterSearch" ]
+                           , cached := FALSE
+                           ]);
+
+    RECORD result := this->service->addressReeksParameterSearch(
+                        [ headers := [ headerauthenticate :=
+                                       [ reactid := this->reactid
+                                       ]
+                                     ]
+                        , body := [ parameters := [ province := ""
+                                                  , district := ""
+                                                  , city := city
+                                                  , street := street
+                                                  , houseno := houseno
+                                                  , houseNoAddition := houseNoAddition
+                                                  , page := page
+                                                  ]
+                                  ]
+                        ]);
+
+    RECORD base := result.body.parameters.out;
+    RETURN [ extra := base.extra
+           , paging := base.paging
+           , results := base.results.item
+           ];
+  }
+
+  /** Get data for a postcode
+      @param postcode Postcode, in the form "1234AB"
+      @param houseno House number, use 0 for houseboats and trailers
+      @return Data over de reeks waarin de postcode/nr in valt. Default record als niet gevonden.
+      @cell return.reeksid Id van de postcode reeks
+      @cell return.huisnr_van Start van de huisnummer reeks
+      @cell return.huisnr_tm Einde van de huisnummer reeks
+      @cell return.wijkcode Wijkcode (eerste deel van de postcode)
+      @cell return.lettercombinatie Letter-deel van de postcode
+      @cell return.reeksindicatie Postcode range type ('0': oneven, '1': even, '2': huisboten, '3': trailers, '' vacant
+      @cell return.straatid Id van de straat
+      @cell return.straatnaam Straatnaam volgens 'gemeentelijk raadsbesluit', afgekort tot 43 tekens. Is 'Postbus' voor postbussen.
+      @cell return.straatnaam_nen Straatnaam volgens NEN 5825, afgekort tot 24 tekens. Is 'POSTBUS' voor postbussen
+      @cell return.straatnaam_ptt Straatnaam volgens TPG Post, in hoofdletters, afgekort tot 17 tekens, Is 'POSTBUS' voor postbussen
+      @cell return.straatnaam_extract 5-letterige afkorting volgens TPG Post, in hoofdletters.
+      @cell return.plaatsid Id van de plaats
+      @cell return.plaatsnaam Officiele plaatsnaam volgens NEN 5825, in hoofdletters, afgekort tot 24 tekens.
+      @cell return.plaatsnaam_ptt Plaatsnaam volgens PTT standaard, in hoofdletters, afgekort tot 18 letters
+      @cell return.plaatsnaam_extract 4-letterige afkorting volgens TPG Post, hoofdletters.
+      @cell return.gemeenteid Id van de gemeente
+      @cell return.gemeentenaam Gemeentenaam.
+      @cell return.gemeentecode CBS (Centraal Bureau Statistiek) gemeentecode
+      @cell return.cebucocode CeBuCo (Centraal Bureau voor Courantenpubliciteit) gemeentecode
+      @cell return.provinciecode Id van de provincie
+      @cell return.provincienaam Officiele naam van de provincie.
+  */
+  PUBLIC RECORD FUNCTION AddressReeksPostcodeSearch(STRING postcode, INTEGER houseno)
+  {
+    TRY
+    {
+      //Logging just country + first 4 ZIP characters shouldn't be PII but still gives us a general idea if calls are being dupplicated
+      STRING zip4 := "NL-" || Left(postcode, 4);
+
+      LogAccountingHit("wrd:checkaddress." || this->type,
+                         CELL[ account := this->user
+                             , source := this->accountingsource
+                             , extra := CELL[ method := "AddressReeksPostcodeSearch", zip4 ]
+                             , cached := FALSE
+                             ]);
+
+      RECORD result := this->service->addressReeksPostcodeSearch(
+                        [ headers := [ headerauthenticate :=
+                                       [ reactid := this->reactid
+                                       ]
+                                     ]
+                        , body := [ parameters := [ address := postcode || houseno ]
+                                  ]
+                        ]);
+
+      RETURN result.body.parameters.out;
+    }
+    CATCH(OBJECT e)
+    {
+      RETURN DEFAULT RECORD;
+    }
+  }
+
+  PUBLIC MACRO Logout()
+  {
+    this->service->Logout(
+    [ headers := [ headerauthenticate :=
+                   [ reactid := this->reactid
+                   ]
+                 ]
+    , body := [ parameters := DEFAULT RECORD
+              ]
+    ]);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE WebservicesSettings EXTEND WRDAddressVerificationExtensionBase
+<
+  UPDATE RECORD FUNCTION GetValue()
+  {
+    RETURN [ user := ^login->value, password := ^password->value ];
+  }
+
+  UPDATE MACRO SetValue(RECORD value)
+  {
+    ^login->value := value.user;
+    ^password->value := value.password;
+  }
+
+  MACRO DoShowMoreInfo(OBJECT openhandler)
+  {
+    openhandler->SendUrl("https://companyinfo.nl/bedrijfsinformatie/adresgegevens/adressen-valideren-en-verrijken");
+  }
+>;

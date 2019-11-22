@@ -1,0 +1,95 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:webapis="http://www.webhare.net/xmlns/system/webapis"
+         gid="tolliumcomponents.webapis"
+         library="webapis.whlib">
+
+  <fragment name="oauth2client">
+    <actions>
+      <action name="configureclient" onexecute="doconfigureclient"/>
+    </actions>
+    <contents>
+      <line>
+        <textedit name="clientid" enabled="false" width="1pr" />
+        <button action="configureclient" />
+      </line>
+    </contents>
+  </fragment>
+
+  <screen name="configureclient">
+    <body>
+      <textedit name="clientid" minwidth="60x" width="1pr" required="true" />
+      <textedit name="clientsecret" width="1pr" required="true" />
+      <textedit name="callbackurl" width="1pr" enabled="false" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <fragment name="oauth2authorization">
+    <actions>
+      <windowopenaction name="authorize" onwindowopen="doauthorize"/>
+    </actions>
+    <contents>
+      <line>
+        <textedit name="authorization" enabled="false" width="1pr" />
+        <button action="authorize" />
+      </line>
+    </contents>
+  </fragment>
+
+  <screen name="oauth2wait">
+    <body>
+      <text valuetid=".waiting" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="cancel" />
+    </footer>
+  </screen>
+
+  <fragment name="timezoneedit" gid=".timezoneedit">
+    <actions>
+      <action name="edit" title="" onexecute="doedit" />
+      <action name="clear" title="" onexecute="doclear" />
+    </actions>
+    <contents>
+      <line>
+        <textedit name="current" title="" enabled="false" width="1pr" />
+        <button action="edit"  type="icon" icon="tollium:actions/edit" />
+        <button action="clear" type="icon" icon="tollium:actions/delete" />
+      </line>
+    </contents>
+  </fragment>
+
+  <screen name="timezoneeditscreen"
+          gid=".timezoneedit"
+          tid=".timezoneeditscreen"
+          onmessage="onmessage">
+    <actions>
+      <action name="retrievelocation" onexecute="doretrievelocation" />
+      <action name="search" onexecute="dosearch" />
+    </actions>
+    <body>
+      <panel name="geonames" layout="left">
+        <heading tid=".auto" />
+        <button action="retrievelocation" />
+        <heading tid=".manual" />
+        <line>
+          <textedit name="query" defaultbutton="searchbutton" />
+          <button name="searchbutton" title="" action="search" type="icon" icon="tollium:actions/search" />
+        </line>
+        <select name="results" type="pulldown" visible="false" onchange="onresultselected" />
+        <heading tid=".selected" />
+        <text name="selected" title="" valuetid=".noselection" width="1pr" />
+      </panel>
+      <panel name="manual" visible="false">
+        <select name="country" type="pulldown" onchange="oncountryselected" />
+        <select name="timezone" type="pulldown" onchange="ontimezoneselected" />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

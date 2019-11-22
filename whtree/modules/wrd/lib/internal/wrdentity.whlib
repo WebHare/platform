@@ -1,0 +1,560 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/any.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+// ---------------------------------------------------------------------------
+//
+// Global entity registry node cache
+//
+
+/** @cell entity
+    @cell parent
+    @cell name
+    @cell id
+*/
+RECORD ARRAY registrynodecache;
+
+INTEGER registrynodecache_binding_gen;
+
+INTEGER FUNCTION LookupRegistryNodeFromCache(INTEGER entity, INTEGER parent, STRING uname)
+{
+  IF (registrynodecache_binding_gen != __system_binding_gen)
+    ClearRegistryNodeCache();
+
+  RECORD lookup := RecordLowerBound(registrynodecache,
+      [ entity := entity
+      , parent := parent
+      , uname := uname
+      ], [ "ENTITY", "PARENT", "UNAME" ]);
+
+  IF (lookup.found)
+    RETURN registrynodecache[lookup.position].id;
+
+  RETURN 0;
+}
+
+
+MACRO ClearRegistryNodeCache()
+{
+  registrynodecache_binding_gen := __system_binding_gen;
+  registrynodecache := DEFAULT RECORD ARRAY;
+}
+
+
+MACRO RegistryNodeCacheCommitHandler(BOOLEAN iscommit)
+{
+  // Clear cache upon rollback
+  IF (NOT iscommit)
+    ClearRegistryNodeCache();
+}
+
+
+MACRO InsertRegistryNodeInCache(INTEGER entity, INTEGER parent, STRING uname, INTEGER id, BOOLEAN is_dbase_insert)
+{
+  IF (registrynodecache_binding_gen != __system_binding_gen)
+    ClearRegistryNodeCache();
+
+  RECORD cacherec :=
+      [ entity :=       entity
+      , parent :=       parent
+      , uname :=        uname
+      , id :=           id
+      ];
+
+  RECORD lookup := RecordLowerBound(registrynodecache, cacherec, [ "ENTITY", "PARENT", "UNAME" ]);
+  IF (lookup.found)
+    registrynodecache[lookup.position].id := id;
+  ELSE
+    INSERT cacherec INTO registrynodecache AT lookup.position;
+
+  IF (is_dbase_insert)
+    __INTERNAL_GetSystemSchemaBinding()->RegisterCommitHandler("wrd:objectapi.registrynodecache", PTR RegistryNodeCacheCommitHandler);
+}
+
+STATIC OBJECTTYPE WRDEntityDuplicator
+<
+
+  /** @cell recursetypes Process the links and attachments linking to duplicated entities too
+  */
+  RECORD options;
+
+  OBJECT wrdschema;
+
+  /** List of types
+      @cell id Type id
+      @cell obj Type object
+      @cell links Types to scan for links
+      @cell links.obj Type
+      @cell links.field Field to search
+      @cell attrs List of attributes to process for remapping
+      @cell attrs.attributetype
+      @cell attrs.localtag
+      @cell attrs.domain
+      @cell attrs.subfields List of sub-attributes for arrays, same structure
+  */
+  RECORD ARRAY types;
+
+  /** Sorted mapping of ids, sorted on id
+      @cell type Entity type id
+      @cell id
+      @cell toid Remapping
+      @cell updates Updates for entity data
+  */
+  RECORD ARRAY mapping;
+
+  /** List of entities to analyze
+      @cell type
+      @cell id
+  */
+  RECORD ARRAY analyzeworklist;
+
+  MACRO NEW(RECORD options)
+  {
+    this->options := options;
+  }
+
+  RECORD ARRAY FUNCTION GetLinkTypes(OBJECT type)
+  {
+    // Get all parent types of the type for links to the parent
+    INTEGER ARRAY linktypes;
+    FOR (OBJECT typeitr := type; ObjectExists(typeitr); typeitr := typeitr->parenttype)
+      INSERT typeitr->id INTO linktypes AT END;
+
+    RECORD ARRAY types := this->wrdschema->ListTypes();
+
+    RECORD ARRAY results;
+    FOREVERY (RECORD t FROM types)
+    {
+      IF (NOT __MatchesAnyMask(t.tag, this->options.recursetypes))
+        CONTINUE;
+
+      IF ((t.islink OR t.isattachment) AND t.linkfrom IN linktypes)
+        INSERT [ obj := this->wrdschema->GetTypeById(t.id), field := "wrd_leftentity" ] INTO results AT END;
+      IF (t.islink AND t.linkto IN linktypes)
+        INSERT [ obj := this->wrdschema->GetTypeById(t.id), field := "wrd_rightentity" ] INTO results AT END;
+    }
+
+    RETURN results;
+  }
+
+  /// Get the list of attributes that must be processed for remapping
+  RECORD ARRAY FUNCTION GetProcessAttributes(OBJECT type, INTEGER parent)
+  {
+    RECORD ARRAY result;
+
+    FOREVERY (RECORD rec FROM type->ListAttributes(parent))
+    {
+      SWITCH (rec.attributetype)
+      {
+        CASE 1, 8 // domain, domainarray
+        {
+          INSERT CELL
+              [ rec.attributetype
+              , rec.localtag
+              , rec.domain
+              , subfields :=    RECORD[]
+              ] INTO result AT END;
+        }
+        CASE 13
+        {
+          INSERT CELL
+              [ rec.attributetype
+              , rec.localtag
+              , domain :=       0
+              , subfields :=    this->GetProcessAttributes(type, rec.id)
+              ] INTO result AT END;
+        }
+      }
+    }
+    RETURN result;
+  }
+
+  /// Get type data by type id
+  RECORD FUNCTION ProcessType(INTEGER type)
+  {
+    RECORD pos := RecordLowerBound(this->types, [ id := type ], [ "ID" ]);
+    IF (NOT pos.found)
+    {
+      OBJECT wrdtype := this->wrdschema->GetTypeById(type);
+      IF (NOT ObjectExists(wrdtype))
+        ABORT(`No such type #${type}`);
+      INSERT
+          [ id :=         type
+          , obj :=        wrdtype
+          , attrs :=      this->GetProcessAttributes(wrdtype, 0)
+          , links :=      this->GetLinkTypes(wrdtype)
+          ] INTO this->types AT pos.position;
+    }
+
+    RETURN this->types[pos.position];
+  }
+
+  /** Get the mapping of an id
+      @param type Entity type.
+      @param id
+      @param accurate_type If the type is accurate (if not, should be a parent type)
+      @param forceduplication If TRUE, force duplication
+  */
+  INTEGER FUNCTION GetMapping(INTEGER type, INTEGER id, BOOLEAN accurate_type, BOOLEAN forceduplication)
+  {
+    IF (id = 0)
+      RETURN id;
+
+    RECORD rec := CELL
+        [ type
+        , id
+        , toid :=       0
+        , updates :=    DEFAULT RECORD
+        ];
+
+    RECORD pos := RecordLowerBound(this->mapping, rec, [ "id" ]);
+    IF (pos.found)
+      RETURN this->mapping[pos.position].toid;
+
+    IF (NOT forceduplication)
+      RETURN id;
+
+    RECORD typerec := this->ProcessType(type);
+    IF (NOT accurate_type)
+    {
+      type := typerec.obj->GetEntityField(id, "wrd_type");
+      typerec := this->ProcessType(type);
+    }
+
+    rec.toid := typerec.obj->GetNewEntityId();
+    INSERT rec INTO this->mapping AT pos.position;
+    INSERT CELL[ type, id ] INTO this->analyzeworklist AT END;
+    RETURN rec.toid;
+  }
+
+  /// Remap all the links in attribute data
+  RECORD FUNCTION ProcessData(RECORD rec, RECORD ARRAY fields)
+  {
+    FOREVERY (RECORD field FROM fields)
+    {
+      VARIANT value := GetCell(rec, field.localtag);
+      SWITCH (field.attributetype)
+      {
+        CASE 1 // domain
+        {
+          value := this->GetMapping(field.domain, value, FALSE, FALSE);
+        }
+        CASE 8 // domain array
+        {
+          FOREVERY (INTEGER elt FROM value)
+            value[#elt] := this->GetMapping(field.domain, elt, FALSE, FALSE);
+        }
+        CASE 13 // array
+        {
+          FOREVERY (RECORD elt FROM value)
+            value[#elt] := this->ProcessData(elt, field.subfields);
+        }
+        DEFAULT { ABORT(field.attributetype); }
+      }
+
+      rec := CellUpdate(rec, field.localtag, value);
+    }
+    RETURN rec;
+  }
+
+  /// Gather all linking/attached entities
+  MACRO GatherConversionWeb()
+  {
+    FOR (INTEGER i := 0; i < LENGTH(this->analyzeworklist); i := i + 1)
+    {
+      RECORD rec := this->analyzeworklist[i];
+      RECORD typerec := this->ProcessType(rec.type);
+
+      FOREVERY (RECORD link FROM typerec.links)
+      {
+        RECORD ARRAY entities := link.obj->RunQuery(
+            [ outputcolumns := [ "wrd_id", "wrd_type" ]
+            , filters := [ CELL[ link.field, value := rec.id ] ]
+            ]);
+
+        FOREVERY (RECORD entity FROM entities)
+          this->GetMapping(entity.wrd_type, entity.wrd_id, TRUE, TRUE);
+      }
+    }
+  }
+
+  /// Duplicate all discovered entities
+  MACRO CreateEntities()
+  {
+    // First create all entities in discovery order - this will make sure the left/right entities exist
+    RECORD ARRAY updates;
+
+    TRY
+    {
+      FOR (INTEGER i := 0; i < LENGTH(this->analyzeworklist); i := i + 1)
+      {
+        RECORD rec := this->analyzeworklist[i];
+        RECORD typerec := this->ProcessType(rec.type);
+        STRING ARRAY getfields := SELECT AS STRING ARRAY tag FROM typerec.obj->ListAttributes(0) WHERE NOT isreadonly;
+        RECORD data := GetCloneableEntityFields(typerec.obj->GetEntityFields(rec.id, getfields));
+
+        RECORD mappingdata := this->mapping[RecordLowerBound(this->mapping, rec, [ "id" ]).position];
+        RECORD newdata := this->ProcessData(data, typerec.attrs);
+        newdata := CELL[ ...newdata, ...mappingdata.updates ];
+
+        RECORD createdata := CELL
+            [ wrd_id :=       mappingdata.toid
+            , ...(CellExists(newdata, "wrd_leftentity") ? CELL[ newdata.wrd_leftentity ] :  CELL[])
+            , ...(CellExists(newdata, "wrd_rightentity") ? CELL[ newdata.wrd_rightentity ] :  CELL[])
+            ];
+
+        RECORD updatedata := (newdata);
+
+        // Create with only wrd_id, left and right entity. Use importmode so the rest can be omitted
+        OBJECT entity := typerec.obj->CreateEntity(createdata, [ importmode := TRUE ]);
+        INSERT CELL[ entity, updatedata ] INTO updates AT END;
+      }
+
+      FOREVERY (RECORD upd FROM updates)
+        upd.entity->UpdateEntity(upd.updatedata);
+    }
+    CATCH(OBJECT e)
+    {
+      //Rollback the duplicated entities
+      FOREVERY(RECORD upd FROM ReverseArray(updates))
+        upd.entity->DeleteEntity();
+
+      THROW;
+    }
+  }
+
+  PUBLIC OBJECT FUNCTION Run(OBJECT wrdentity)
+  {
+    this->wrdschema := wrdentity->wrdtype->wrdschema;
+    INTEGER finalid := this->GetMapping(wrdentity->wrdtype->id, wrdentity->id, TRUE, TRUE);
+    this->mapping[0].updates := this->options.updates;
+
+    this->GatherConversionWeb();
+    this->CreateEntities();
+
+    RETURN wrdentity->wrdtype->GetEntity(finalid);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE WRDEntityBase
+<
+  RECORD entityrec;
+  OBJECT pvt_wrdtype;
+
+  PUBLIC PROPERTY wrdschema(this->pvt_wrdtype->wrdschema,-);
+  PUBLIC PROPERTY wrdtype(pvt_wrdtype, -);
+  PUBLIC PROPERTY leftentity(this->entityrec.leftentity, -);
+  PUBLIC PROPERTY rightentity(this->entityrec.rightentity, -);
+  PUBLIC PROPERTY guid(GetGuid,-);
+  PUBLIC PROPERTY id(this->entityrec.id, -);
+
+  PUBLIC MACRO NEW(OBJECT wrdtype, RECORD entityrec)
+  {
+    this->pvt_wrdtype := wrdtype;
+    this->entityrec := entityrec;
+  }
+
+  STRING FUNCTION GetGuid()
+  {
+    RETURN EncodeWRDGUID(this->entityrec.guid);
+  }
+  /** @short Update this entity
+    @param entitydata A record containing the fields to update */
+  PUBLIC MACRO UpdateEntity(RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->pvt_wrdtype->UpdateEntity(this->entityrec.id, entitydata, options);
+  }
+
+
+  /** @short returns all requested fields of the entity with the given find_id
+      @param fields Names of the fields to return as a STRING ARRAY or a RECORD
+      @return Record with a cell for each requested field (not all described)
+  */
+  PUBLIC RECORD FUNCTION GetFields(VARIANT fields, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->pvt_wrdtype->GetEntityFields(this->entityrec.id, fields, options);
+  }
+  /** @short Get a single field
+      @param field Tag of field to grab
+  */
+  PUBLIC VARIANT FUNCTION GetField(STRING field)
+  {
+    RETURN GetCell(this->pvt_wrdtype->GetEntityFields(this->entityrec.id, [field]), field);
+  }
+
+  /** @short Is the entity referenced?
+      @long Check whether any entity refers to this one, including historical references. This function is
+            mainly intended as a 'safe to delete' check. Events, registry entries and direct self-references
+            are ignored, but a circular reference (through another entity) is still counted as a reference. */
+  PUBLIC BOOLEAN FUNCTION IsReferenced()
+  {
+    RETURN RecordExists(SELECT FROM wrd.entities WHERE leftentity = this->entityrec.id AND id!=this->entityrec.id)
+           OR RecordExists(SELECT FROM wrd.entities WHERE rightentity = this->entityrec.id AND id!=this->entityrec.id)
+           OR RecordExists(SELECT FROM wrd.entity_settings WHERE setting = this->entityrec.id AND entity != this->entityrec.id );
+  }
+
+
+  // Returns TRUE if 'testvalue' is the correct password; can be used on password attributes and free text attributes
+  PUBLIC BOOLEAN FUNCTION VerifyPassword(STRING attrtag, STRING testvalue)
+  {
+    // Find the current password of this entity, based on the attribute
+    RECORD attr := this->wrdtype->GetAttribute(attrtag);
+    IF (NOT RecordExists(attr))
+      ABORT("No such attribute '" || attrtag || "' in type '" || this->wrdtype->tag || "'");
+
+    IF (attr.attributetype NOT IN [2,7])
+      ABORT("Attribute '" || attrtag || "' is not of type 'Free' or 'Password'");
+
+    // Can't use GetEntityFields (returns ****), so we need to use the database directly (ADDME: Or is there an other way?)
+    DATETIME now := GetCurrentDatetime();
+    STRING rawvalue := SELECT AS STRING rawdata
+                         FROM wrd.entity_settings
+                        WHERE entity = this->entityrec.id
+                              AND attribute = attr.id;
+
+    IF (attr.attributetype = 7) /* Password: Test hash */
+      RETURN VerifyWebHarePasswordHash(testvalue,rawvalue);
+    ELSE
+      RETURN rawvalue = testvalue;
+  }
+
+  /** Filters out attribute cells that have the same value as the currently stored entity has.
+  */
+  PUBLIC RECORD FUNCTION FilterFieldUpdates(RECORD updates)
+  {
+    RECORD ARRAY unpcells := UnpackRecord(updates);
+    STRING ARRAY fields;
+    FOREVERY (RECORD rec FROM unpcells)
+      INSERT rec.name INTO fields AT END;
+
+    RECORD edata := this->GetFields(fields);
+    RECORD filtered;
+    FOREVERY (RECORD rec FROM unpcells)
+    {
+      IF (NOT CompareSettingValues(GetCell(edata, rec.name), rec.value, TRUE, TRUE))
+        filtered := CellInsert(filtered, rec.name, rec.value);
+    }
+
+    RETURN filtered;
+  }
+
+  /** Delete the entity if not referred, close it otherwise */
+  PUBLIC MACRO CloseOrDeleteEntity()
+  {
+    IF(NOT this->IsReferenced())
+      this->DeleteEntity();
+    ELSE
+      this->UpdateEntity([ wrd_limitdate := GetCurrentDatetime() ]);
+  }
+  /** Delete the entity, cascading any references */
+  PUBLIC MACRO DeleteEntity()
+  {
+    // ADDME: Log entries?
+    // ADDME: Error checking! (references errors for example)
+    DELETE FROM wrd.entities WHERE id = this->entityrec.id;
+    GetWRDCommitHandler()->EntityDeleted(this->pvt_wrdtype->wrdschema->id, this->pvt_wrdtype->id, this->entityrec.id);
+  }
+
+  /** Remove entity according to a delete mode
+      @param deletemode "delete"/"close"/"delete-closereferred"/"delete-denyreferred"/"close-denyreferred"
+      @return True if the entity was deleted as requested, false if a reference blocked deletion */
+  PUBLIC BOOLEAN FUNCTION RemoveEntity(STRING deletemode)
+  {
+    ValidateDeleteMode(deletemode);
+    IF (deletemode = "delete-closereferred")
+      this->CloseOrDeleteEntity();
+    ELSE
+    {
+      IF (deletemode LIKE "*-denyreferred" AND this->IsReferenced()) // "delete-denyreferred"/"close-denyreferred"
+        RETURN FALSE;
+
+      IF(deletemode LIKE "close*")
+        this->UpdateEntity([ wrd_limitdate := GetCurrentDatetime() ]); //CloseEntity();
+      ELSE
+        this->DeleteEntity();
+    }
+    RETURN TRUE;
+  }
+
+  /** Duplicate a WRD entity, and optionally attachments / links
+      @cell options.recursetypes Attachments and link types to recurse into
+      @cell options.updates Update the duplicated entity with these values
+      @return Duplicated entity
+  */
+  PUBLIC OBJECT FUNCTION DuplicateEntity(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ recursetypes :=   STRING[]
+        , updates :=        DEFAULT RECORD
+        ], options);
+
+    RETURN NEW WRDEntityDuplicator(options)->Run(this);
+  }
+
+  PUBLIC MACRO MergeEntityInto(INTEGER destentity)
+  {
+    RECORD entity := SELECT type FROM wrd.entities WHERE id = destentity;
+    IF(NOT RecordExists(entity))
+      THROW NEW Exception("No such entity #" || destentity);
+    IF(entity.type != this->wrdtype->id)
+      THROW NEW Exception("Entity #" || destentity || " is of a different type");
+
+    RECORD renumberresult := GetPrimary()->RenumberForeignKey("wrd", "entities", this->entityrec.id, destentity,
+          [ exceptions :=           [ [ schemaname := "wrd", tablename := "entity_settings", columnname := "entity" ] ]
+          , reportmodifications :=  [ [ schemaname := "wrd", tablename := "entity_settings", returncolumns := [ "entity" ] ]
+                                    , [ schemaname := "wrd", tablename := "entities", returncolumns := [ "id" ] ]
+                                    ]
+          ]);
+
+    // Gather the list of updated entities
+    INTEGER ARRAY updated_entities;
+    FOREVERY (RECORD rec FROM renumberresult.modifications)
+    {
+      SWITCH (ToUppercase(rec.tablename))
+      {
+        CASE "ENTITIES"         { updated_entities := updated_entities CONCAT SELECT AS INTEGER ARRAY id FROM rec.rows; }
+        CASE "ENTITY_SETTINGS"  { updated_entities := updated_entities CONCAT SELECT AS INTEGER ARRAY COLUMN entity FROM rec.rows; }
+      }
+    }
+
+    IF (LENGTH(updated_entities) != 0)
+    {
+      // Get rid of duplicates
+      updated_entities := GetSortedSet(updated_entities);
+
+      // Update the modificationdates for all affected entities, send out update events
+      DATETIME now := GetCurrentDatetime();
+      UPDATE wrd.entities SET modificationdate := now WHERE id IN updated_entities;
+
+      ScheduleUpdateEventsForEntities(updated_entities);
+    }
+  }
+
+  /** @short Is the entity currently existing, considering creationdate/limitdate */
+  PUBLIC BOOLEAN FUNCTION IsLive()
+  {
+    DATETIME now := GetCurrentDatetime();
+    RECORD entityinfo := SELECT creationdate, limitdate FROM wrd.entities WHERE id = this->entityrec.id;
+    RETURN RecordExists(entityinfo) AND entityinfo.creationdate <= now AND now < entityinfo.limitdate;
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE WRDEntity2017 EXTEND WRDEntityBase
+<
+  PUBLIC MACRO NEW(OBJECT wrdtype, RECORD entityrec)
+  : WRDEntityBase(wrdtype, entityrec)
+  {
+  }
+
+  PUBLIC MACRO CloseEntity()
+  {
+    this->UpdateEntity([ wrd_limitdate := GetCurrentDatetime() ]);
+  }
+>;

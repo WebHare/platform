@@ -1,0 +1,40 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="components"
+         lib="screens/components/sharedblocks.whlib">
+
+  <messageboxes gid=".dialogs">
+    <messagebox name="nosharedblocksources" icon="error" buttons="ok" />
+  </messageboxes>
+
+  <fragment name="sharedblocks" gid=".sharedblocks">
+    <contents>
+      <box name="overridetypebox" tid=".overridetype">
+        <select type="radio"
+                title=""
+                name="overridetype"
+                flags="showblocks"
+                rowkeytype="integer"
+                onchange="onoverridetypechange"
+                >
+          <option rowkey="0" title=""><!-- inherit from parent -->
+            <text name="inheritfrom" title="" />
+          </option>
+          <option rowkey="1" /><!-- no blocks -->
+          <option rowkey="2" flags="showblocks" /> <!-- use blocks -->
+        </select>
+      </box>
+      <tabs name="tabs" type="server" height="1pr">
+        <tab name="emptytab" title="" />
+        <tab name="blockstab" title="">
+          <heading tid=".sharedblocks" />
+          <arrayedit name="sharedblocks" width="1pr" height="1pr" minheight="5gr" minwidth="45x" orderable="true" onmaprows="onmaprows" onrowedit="onrowedit" onchange="onchange">
+            <column name="title" type="text" />
+            <column name="type" type="text" />
+          </arrayedit>
+        </tab>
+      </tabs>
+    </contents>
+  </fragment>
+
+</screens>

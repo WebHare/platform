@@ -1,0 +1,14 @@
+<?wh
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::tollium/lib/internal/icons.whlib";
+
+STRING name := GetWebVariable("n");
+INTEGER width := ToInteger(GetWebVariable("w"), 0);
+INTEGER height := ToInteger(GetWebVariable("h"), 0);
+STRING overlayname := GetWebVariable("o");
+STRING color := GetWebVariable("c");
+RECORD data := GetImage(name, width, height, overlayname, color);
+
+AddHTTPHeader("Cache-Control", "max-age=3600, public", FALSE);
+AddHTTPHeader("Content-Type", data.type, FALSE);
+SendWebFile(data.data);

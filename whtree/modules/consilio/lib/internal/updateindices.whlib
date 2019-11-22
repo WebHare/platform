@@ -1,0 +1,535 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+
+PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ reportmissing := FALSE ], options);
+
+  OBJECT trans := GetPrimary();
+  IF(NOT trans->ColumnExists("consilio","indexmanagers","id"))
+    RETURN; //consilio is not initialized yet!
+
+
+  RECORD ARRAY contentproviders := GetContentProviders();
+  INTEGER builtin_indexmanager := GetDefaultIndexManager();
+
+  trans->BeginWork();
+
+  //-------------------------------------------------------------------------------------------------------------------------
+  //
+  // Site profile content sources
+
+  RECORD ARRAY tohandle := GetCustomSiteProfileGlobalSettings("http://www.webhare.net/xmlns/consilio", "index");
+  INTEGER ARRAY unreferredsources := SELECT AS INTEGER ARRAY id FROM consilio.contentsources;
+  FOREVERY (RECORD indexrule FROM tohandle)
+  {
+    // Create the index if needed
+    STRING indexname := indexrule.node->GetAttribute("name");
+    IF (indexname = "")
+    {
+      Print("No name specified for <index> in " || indexrule.siteprofile->name || ":" || indexrule.node->linenum || "\n");
+      CONTINUE;
+    }
+    RECORD indexrec := SELECT * FROM consilio.indices WHERE ToUppercase(name) = ToUppercase(VAR indexname);
+    INTEGER setpriority := ParseXSInt(indexrule.node->Getattribute("priority"));
+    INTEGER settype := ParseXSInt(indexrule.node->Getattribute("type"));
+    IF (NOT RecordExists(indexrec))
+    {
+      IF(builtin_indexmanager = 0) //cant create
+        CONTINUE;
+
+      indexrec := [ id := MakeAutonumber(consilio.indices, "id") ];
+      INSERT INTO consilio.indices(id, name, description, indexmanager, priority, type)
+             VALUES(indexrec.id, indexname, "", builtin_indexmanager, setpriority, settype);
+    }
+    ELSE
+    {
+      IF (indexrec.priority != setpriority OR indexrec.type != settype)
+      {
+        UPDATE consilio.indices
+           SET priority := setpriority
+             , type := settype
+         WHERE id = indexrec.id;
+      }
+    }
+
+    INTEGER indexid := indexrec.id;
+    OBJECT catalog := OpenConsilioCatalogById(indexid);
+
+    // <index> nodes have <contentsource> subnodes
+    FOREVERY (OBJECT subnode FROM indexrule.node->childnodes->GetCurrentElements())
+    {
+      STRING definedby := indexrule.siteprofile->name || ":" || subnode->linenum;
+      IF (ToLowercase(subnode->localname) != "contentsource")
+      {
+        Print(`<index> subnode <${subnode->localname}> not recognized in ${definedby}\n`);
+        CONTINUE;
+      }
+
+      // Get the content source type and check if it's valid
+      STRING type := subnode->GetAttribute("type");
+      RECORD contentprovider := SELECT * FROM contentproviders WHERE name = type;
+      IF (NOT RecordExists(contentprovider))
+      {
+        Print("Unknown content provider type '" || type || "' in " || definedby || "\n");
+        CONTINUE;
+      }
+
+      // Read the content source settings. The following attributes are stored directly with the content source: 'tag',
+      // 'maxgroupobjects', 'discardsummaries'.
+      // The 'type' attribute is used to determine the content provider and stored as the content source's 'contentprovider'
+      // attribute. All other attributes are stored in the 'data' attribute of the content source record. If the
+      // <contentsource> tag has a 'folder' attribute, then it's treated as a FS path string (e.g. "site::path/to/folder")
+      // and resolved to a folder id. See the documentation of the content provider's Init function to see which attributes
+      // are required and supported.
+      RECORD data;
+      STRING tag;
+      INTEGER maxgroupobjects;
+      BOOLEAN discardsummaries;
+      BOOLEAN haserrors;
+      STRING whfspath;
+      FOREVERY (OBJECT attr FROM subnode->attributes->GetCurrentNodes())
+      {
+        SWITCH (ToLowercase(attr->nodename))
+        {
+          CASE "type"
+          {
+            CONTINUE;
+          }
+          CASE "tag"
+          {
+            tag := attr->nodevalue;
+            IF (Length(tag) > 64)
+            {
+              Print("Invalid tag value '" || tag || "' in " || definedby || "\n");
+              haserrors := TRUE;
+              BREAK;
+            }
+          }
+          CASE "maxgroupobjects"
+          {
+            maxgroupobjects := ParseXSInt(attr->nodevalue);
+          }
+          CASE "discardsummaries"
+          {
+            discardsummaries := attr->nodevalue IN [ "true", "1" ];
+          }
+          CASE "folder"
+          {
+            whfspath := indexrule.siteprofile->ParseFSPathString(attr->nodevalue);
+            OBJECT folder := OpenWHFSObjectByPath(whfspath);
+            IF (NOT ObjectExists(folder))
+            {
+              IF(options.reportmissing)
+                Print("Could not find folder '" || attr->nodevalue || "' in " || definedby || "\n");
+              haserrors := TRUE;
+              BREAK;
+            }
+            ELSE IF (folder->parentsite NOT IN indexrule.siteids AND NOT indexrule.allsites)
+            {
+              Print("Folder '" || attr->nodevalue || "' not assigned in site in " || definedby || "\n");
+              haserrors := TRUE;
+              BREAK;
+            }
+            INSERT CELL folder := folder->id INTO data;
+          }
+          CASE "contentcheckinterval"
+          {
+            data := CellInsert(data, attr->nodename, ParseXSInt(attr->nodevalue));
+          }
+          DEFAULT
+          {
+            data := CellInsert(data, attr->nodename, attr->nodevalue);
+          }
+        }
+      }
+      IF (haserrors)
+        CONTINUE;
+
+      // If a folder was specified, check if it's not already covered within the index
+      RECORD existing;
+      INTEGER ARRAY obsoletesources; // Sources for folders contained by the new folder, can be removed after this content source is added
+      IF (CellExists(data, "folder"))
+      {
+        FOREVERY (RECORD contentsource FROM (
+            SELECT id, COLUMN tag, data := DecodeHSON(COLUMN data)
+              FROM consilio.contentsources
+             WHERE COLUMN indexid = VAR indexid
+                   AND COLUMN contentprovider = VAR contentprovider.name
+                   AND publishercontent
+                   AND contentsources.tag NOT LIKE "$consilio$deleted$*"))
+        {
+          IF (NOT RecordExists(contentsource.data))
+            CONTINUE;
+
+          IF (ToUppercase(contentsource.tag) = ToUppercase(tag) OR (contentsource.data.folder = data.folder) OR IsFolderAncestorOf(contentsource.data.folder, data.folder)) // folder is already covered by searchroot
+          {
+            existing := SELECT * FROM consilio.contentsources WHERE id = contentsource.id AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+            BREAK;
+          }
+          ELSE IF (IsFolderAncestorOf(data.folder, contentsource.data.folder)) // folder contains searchroot
+          {
+            INSERT contentsource.id INTO obsoletesources AT END;
+          }
+        }
+      }
+
+      // Check if we're updating an existing content source with the same tag (if another content source isn't already
+      // indexing the requested publisher folder)
+      IF (NOT RecordExists(existing) AND tag != "")
+      {
+        existing :=
+            SELECT *
+              FROM consilio.contentsources
+             WHERE COLUMN indexid = VAR indexid
+               AND ToUppercase(COLUMN tag) = ToUppercase(VAR tag);
+      }
+      // Check if the existing content source has the same tag
+      ELSE IF (tag != "")
+      {
+        INTEGER existingtagid :=
+            SELECT AS INTEGER id
+              FROM consilio.contentsources
+             WHERE COLUMN indexid = VAR indexid
+               AND ToUppercase(COLUMN tag) = ToUppercase(VAR tag);
+        IF (existingtagid != 0 AND existingtagid != existing.id)
+        {
+          Print("A content source for publisher folder '" || whfspath || "' already exists with tag '" || existing.tag || "'; trying to add tag '" || tag || "' for " || definedby || "\n");
+          CONTINUE;
+        }
+        // We're updating the folder of an existing content source; it doesn't have to be deleted
+        IF (existingtagid IN obsoletesources)
+          obsoletesources := SELECT AS INTEGER ARRAY id
+                               FROM ToRecordArray(obsoletesources, "id")
+                              WHERE id != existingtagid;
+      }
+
+      INTEGER srcid;
+      IF (RecordExists(existing))
+      {
+        // Add the existing username and password to the new data
+        RECORD existingdata := DecodeHSON(existing.data);
+        IF (CellExists(existingdata, "http_username"))
+          INSERT CELL http_username := existingdata.http_username INTO data;
+        IF (CellExists(existingdata, "http_password"))
+          INSERT CELL http_password := existingdata.http_password INTO data;
+
+        srcid := existing.id;
+        IF(srcid IN unreferredsources)
+          DELETE FROM unreferredsources AT SearchElement(unreferredsources,srcid);
+
+        // Update the existing content source
+        IF (existing.contentprovider != contentprovider.name
+            OR existing.publishercontent != contentprovider.publishercontent
+            OR ToUppercase(existing.tag) != ToUppercase(tag)
+            OR existing.data != EncodeHSON(data)
+            OR existing.maxgroupobjects != maxgroupobjects
+            OR existing.discardsummaries != discardsummaries
+            OR existing.orphansince != DEFAULT DATETIME
+            OR existing.definedby != definedby)
+        {
+          UPDATE consilio.contentsources
+             SET contentprovider :=  VAR contentprovider.name
+               , publishercontent := VAR contentprovider.publishercontent
+               , tag :=              ToUppercase(VAR tag)
+               , data :=             EncodeHSON(VAR data)
+               , maxgroupobjects :=  VAR maxgroupobjects
+               , discardsummaries := VAR discardsummaries
+               , orphansince :=      DEFAULT DATETIME
+               , definedby :=        VAR definedby
+           WHERE id = srcid;
+        }
+      }
+      ELSE
+      {
+        // Add the content source
+        srcid := MakeAutonumber(consilio.contentsources, "id");
+        INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, tag, data, maxgroupobjects, discardsummaries, definedby)
+              VALUES(srcid, indexid, contentprovider.name, contentprovider.publishercontent, ToUppercase(tag), EncodeHSON(data), maxgroupobjects, discardsummaries, definedby);
+      }
+
+      // Remove obsolete content sources
+      UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id WHERE id IN obsoletesources;
+    }
+  }
+
+
+  //-------------------------------------------------------------------------------------------------------------------------
+  //
+  // Site profile site settings
+
+  RECORD siteprofs := GetCachedSiteProfiles();
+  FOREVERY (RECORD addtoindex FROM siteprofs.addtoindices)
+  {
+    // Create the index if needed
+    STRING indexname := addtoindex.name;
+    STRING definedby := addtoindex.siteprofile || ":" || addtoindex.line;
+    IF (indexname = "")
+    {
+      Print("No name specified for <addtoindex> in " || definedby || "\n");
+      CONTINUE;
+    }
+    INTEGER indexid := SELECT AS INTEGER id FROM consilio.indices WHERE ToUppercase(name) = ToUppercase(VAR indexname);
+    IF (indexid = 0)
+    {
+      IF(builtin_indexmanager = 0) //cant create
+        CONTINUE;
+
+      indexid := MakeAutonumber(consilio.indices, "id");
+      INSERT INTO consilio.indices(id, name, description, indexmanager)
+             VALUES(indexid, indexname, "", builtin_indexmanager);
+    }
+
+    OBJECT catalog := OpenConsilioCatalogById(indexid);
+
+    FOREVERY (INTEGER siteid FROM addtoindex.siteids)
+    {
+      // Read the content source settings. The following attributes are stored directly with the content source: 'tag',
+      // 'maxgroupobjects', 'discardsummaries'.
+      // The 'type' attribute is used to determine the content provider and stored as the content source's 'contentprovider'
+      // attribute. All other attributes are stored in the 'data' attribute of the content source record. If the
+      // <contentsource> tag has a 'folder' attribute, then it's treated as a FS path string (e.g. "site::path/to/folder")
+      // and resolved to a folder id. See the documentation of the content provider's Init function to see which attributes
+      // are required and supported.
+      RECORD data := [ folder := siteid ];
+      IF (Length(addtoindex.tag) > 64 OR addtoindex.tag LIKE "*:*")
+      {
+        Print("Invalid tag value '" || addtoindex.tag || "' in " || definedby || "\n");
+        CONTINUE;
+      }
+      STRING whfspath := OpenWHFSObject(siteid)->whfspath;
+      FOREVERY (STRING field FROM [ "http_username", "http_password" ])
+        IF (GetCell(addtoindex, field) != "")
+          data := CellInsert(data, field, GetCell(addtoindex, field));
+
+      // If a folder was specified, check if it's not already covered within the index
+      RECORD existing;
+      INTEGER ARRAY obsoletesources; // Sources for folders contained by the new folder, can be removed after this content source is added
+      IF (CellExists(data, "folder"))
+      {
+        FOREVERY (RECORD contentsource FROM (
+            SELECT id, COLUMN tag, data := DecodeHSON(COLUMN data)
+              FROM consilio.contentsources
+             WHERE COLUMN indexid = VAR indexid
+                   AND contentprovider = "publisher:webhare"
+                   AND publishercontent
+                   AND contentsources.tag NOT LIKE "$consilio$deleted$*"))
+        {
+          IF (NOT RecordExists(contentsource.data))
+            CONTINUE;
+
+          IF (ToUppercase(contentsource.tag) = ToUppercase(addtoindex.tag) OR (contentsource.data.folder = data.folder) OR IsFolderAncestorOf(contentsource.data.folder, data.folder)) // folder is already covered by searchroot
+          {
+            existing := SELECT * FROM consilio.contentsources WHERE id = contentsource.id AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+            BREAK;
+          }
+          ELSE IF (IsFolderAncestorOf(data.folder, contentsource.data.folder)) // folder contains searchroot
+          {
+            INSERT contentsource.id INTO obsoletesources AT END;
+          }
+        }
+      }
+
+      // Try to instantiate the content provider with the provided data
+      RECORD contentprovider := SELECT * FROM contentproviders WHERE name = "publisher:webhare";
+      OBJECT cp := contentprovider.createcontentprovider();
+      IF (ObjectExists(cp))
+      {
+        TRY
+        {
+          cp->Init([ id := 0, data := data ]);
+        }
+        CATCH (OBJECT e)
+        {
+          LogHarescriptException(e);
+          Print("Could not instantiate content provider for " || definedby || ": " || e->what || "\n");
+          CONTINUE;
+        }
+
+        // Check if we're updating an existing content source with the same tag (if another content source isn't already
+        // indexing the requested publisher folder)
+        IF (NOT RecordExists(existing) AND addtoindex.tag != "")
+        {
+          existing :=
+              SELECT *
+                FROM consilio.contentsources
+               WHERE COLUMN indexid = VAR indexid
+                 AND ToUppercase(tag) = ToUppercase(addtoindex.tag);
+        }
+        // Check if the existing content source has the same tag
+        ELSE IF (addtoindex.tag != "")
+        {
+          INTEGER existingtagid :=
+              SELECT AS INTEGER id
+                FROM consilio.contentsources
+               WHERE COLUMN indexid = VAR indexid
+                 AND ToUppercase(tag) = ToUppercase(addtoindex.tag);
+          IF (existingtagid != 0 AND existingtagid != existing.id)
+          {
+            Print("A content source for publisher folder '" || whfspath || "' already exists with tag '" || existing.tag || "'; trying to add tag '" || addtoindex.tag || "' for " || definedby || "\n");
+            CONTINUE;
+          }
+          // We're updating the folder of an existing content source; it doesn't have to be deleted
+          IF (existingtagid IN obsoletesources)
+            obsoletesources := SELECT AS INTEGER ARRAY id
+                                 FROM ToRecordArray(obsoletesources, "id")
+                                WHERE id != existingtagid;
+        }
+
+        INTEGER srcid;
+        IF (RecordExists(existing))
+        {
+          // Add the existing username and password to the new data
+          RECORD existingdata := DecodeHSON(existing.data);
+          IF (CellExists(existingdata, "http_username"))
+            INSERT CELL http_username := existingdata.http_username INTO data;
+          IF (CellExists(existingdata, "http_password"))
+            INSERT CELL http_password := existingdata.http_password INTO data;
+
+          // Update the existing content source
+          IF (existing.contentprovider != contentprovider.name
+              OR existing.publishercontent != contentprovider.publishercontent
+              OR ToUppercase(existing.tag) != ToUppercase(addtoindex.tag)
+              OR existing.data != EncodeHSON(data)
+              OR existing.maxgroupobjects != addtoindex.maxgroupobjects
+              OR existing.discardsummaries != addtoindex.discardsummaries
+              OR existing.orphansince != DEFAULT DATETIME
+              OR existing.definedby != definedby)
+          {
+            srcid := existing.id;
+            UPDATE consilio.contentsources
+               SET contentprovider :=  VAR contentprovider.name
+                 , publishercontent := VAR contentprovider.publishercontent
+                 , tag :=              ToUppercase(addtoindex.tag)
+                 , data :=             EncodeHSON(VAR data)
+                 , maxgroupobjects :=  addtoindex.maxgroupobjects
+                 , discardsummaries := addtoindex.discardsummaries
+                 , orphansince :=      DEFAULT DATETIME
+                 , definedby :=        VAR definedby
+             WHERE id = srcid;
+
+            IF(srcid IN unreferredsources)
+              DELETE FROM unreferredsources AT SearchElement(unreferredsources,srcid);
+          }
+        }
+        ELSE
+        {
+          // Add the content source
+          srcid := MakeAutonumber(consilio.contentsources, "id");
+          INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, tag, data, maxgroupobjects, discardsummaries, definedby)
+                VALUES(srcid, indexid, contentprovider.name, contentprovider.publishercontent, ToUppercase(addtoindex.tag), EncodeHSON(data), addtoindex.maxgroupobjects, addtoindex.discardsummaries, definedby);
+        }
+
+        // Remove obsolete content sources
+        UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id WHERE id IN obsoletesources;
+      }
+    }
+  }
+
+
+  //-------------------------------------------------------------------------------------------------------------------------
+  //
+  // Other custom content sources
+
+
+  //Mark unseen but defined sources as unreferred
+  UPDATE consilio.contentsources
+         SET orphansince := GetCurrentDatetime()
+         WHERE id IN unreferredsources //still unreferred
+               AND definedby LIKE "mod::*" //defined at some point
+               AND orphansince = DEFAULT DATETIME //no orphan date yet
+               AND contentsources.tag NOT LIKE "$consilio$deleted$*"; //not deleted
+
+  ScheduleTimedTask("consilio:cleanupindices", [ allowmissing := TRUE ]); //remove stale indices ASAP. but we may be invoked during webhare init, so task may not yet exist
+  trans->CommitWork();
+
+
+  // Broadcast indexfields event to reset cached module index fields (publisher search)
+  BroadcastEvent("consilio:indexfields", DEFAULT RECORD);
+}
+
+PUBLIC MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ modules := STRING[]
+      , reportmissing := FALSE
+      ], options);
+
+  OBJECT trans := GetPrimary();
+  IF (NOT trans->ColumnExists("consilio", "indexmanagers", "id"))
+    RETURN; //consilio is not initialized yet!
+
+  trans->BeginWork();
+  DELETE FROM consilio.indices WHERE type = whconstant_consilio_catalogtype_fieldgroup; //clear any 4.25 created fieldgroups
+
+  //gather requested indices
+  RECORD ARRAY allindices;
+  FOREVERY (STRING mod FROM GetInstalledModuleNames())
+  {
+    IF (Length(options.modules) > 0 AND mod NOT IN options.modules)
+      CONTINUE;
+
+    OBJECT xmldoc := GetModuleDefinitionXML(mod);
+    IF (NOT ObjectExists(xmldoc))
+      CONTINUE;
+
+    FOREVERY(OBJECT consilionode FROM xmldoc->documentelement->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "consilio"))
+      FOREVERY(OBJECT indexnode FROM consilionode->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "index"))
+      {
+        STRING indexname := mod || ":" || indexnode->GetAttribute("tag");
+        INTEGER setpriority := ParseXSInt(indexnode->Getattribute("priority"));
+
+        // Update or create the index
+        RECORD indexrec := SELECT * FROM consilio.indices WHERE ToUppercase(name) = ToUppercase(VAR indexname);
+        IF (RecordExists(indexrec))
+        {
+          IF (indexrec.type != whconstant_consilio_catalogtype_moduleindex)
+          {
+            PrintTo(2,`There already is an index named '${indexname}', which is not a module index\n`);
+            SetConsoleExitCode(1);
+            CONTINUE;
+          }
+          /* Nothing to update (yet?)
+          UPDATE consilio.indices
+             SET
+           WHERE id = indexrec.id;*/
+        }
+        ELSE
+        {
+          indexrec :=
+              [ id := MakeAutonumber(consilio.indices, "id")
+              , type := whconstant_consilio_catalogtype_moduleindex
+              , name := indexname
+              , priority := setpriority
+              ];
+          INSERT indexrec INTO consilio.indices;
+        }
+        INSERT CELL[ indexrec.id, indexrec.name ] INTO allindices AT END;
+      }
+  }
+
+  trans->CommitWork();
+  // Broadcast indexfields event to reset cached module index fields (publisher search)
+//  BroadcastEvent("consilio:indexfields", DEFAULT RECORD);
+}

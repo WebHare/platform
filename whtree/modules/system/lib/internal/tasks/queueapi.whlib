@@ -1,0 +1,18 @@
+<?wh
+//We've split most important APIs here to improve compilation time (eg events.whlib needs this lib so don't put too much in it, long recompiles!)
+
+LOADLIB "wh::ipc.whlib";
+
+// IPC port name prefix
+PUBLIC CONSTANT STRING command_portname := "system:persistentqueue.";
+
+PUBLIC MACRO SchedulePersistentTask(STRING tasktype, STRING action, RECORD task)
+{
+  OBJECT link := ConnectToGlobalIPCPort(`${command_portname || tasktype}`);
+  IF (ObjectExists(link))
+  {
+    link->SendMessage(CELL[ action, task ]);
+  }
+  ELSE
+    THROW NEW Exception(`Could not connect to ${tasktype}`);
+}

@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html data-link="[link]" data-challenge="[challenge]" data-returnto="[returnto]">
+  <head>
+    <script src="[loginscript]"></script>
+  </head>
+  <body>
+    Checking for login...
+  </body>
+</html>

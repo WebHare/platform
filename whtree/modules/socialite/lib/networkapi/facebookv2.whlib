@@ -1,0 +1,2289 @@
+<?wh
+///@private
+/*
+NOTES:
+- FQL was discontinued on 8 aug 2016
+- To get wall posts change 'read_stream' to 'user_posts' or your app will stop working 10 july 2017
+- For 'user_posts' permission you need to submit your app for review
+
+
+
+To see which API versions are available:
+https://developers.facebook.com/docs/apps/changelog?locale=nl_NL
+
+Get info on which calls you have
+https://developers.facebook.com/tools/api_versioning/<appid>/
+
+Available permissions:
+https://developers.facebook.com/docs/facebook-login/permissions/
+
+Debug accesstoken:
+https://developers.facebook.com/tools/debug/accesstoken/
+
+
+
+EXPIRATION OF TOKENS
+https://stackoverflow.com/questions/10149065/find-expire-time-for-an-access-token
+
+Get a new token for a page: https://graph.facebook.com/PAGEID?fields=access_token&access_token=USER_ACCESS_TOKEN
+
+https://graph.facebook.com/debug_token?input_token=INPUT_TOKEN&access_token=ACCESS_TOKEN
+(access token is APP_ID|APP_SECRET)
+
+
+Posts on a user's wall (feed)
+https://developers.facebook.com/docs/graph-api/reference/v2.5/user/feed
+
+/{user-id}/feed all posts on a user's wall
+/{user-id}/posts shows only the posts that were published by this person.
+/{user-id}/tagged shows only the posts that this person was tagged in.
+
+*/
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::socialite/lib/internal/support.whlib";
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+
+
+INTEGER cachettl_constants := 15*60*1000; //cache things that never change for 15 minutes (ie a userid associated with a secure session)
+
+
+STRING FUNCTION GetStrField(RECORD indata, STRING cellname)
+{
+  IF(NOT CellExists(indata,cellname))
+    RETURN "";
+  VARIANT val := Getcell(indata,cellname);
+  IF(TypeID(Val)=TypeID(RECORD) AND NOT RecordExists(val)) // null
+    RETURN "";
+  IF(TypeID(val)=TypeID(INTEGER) OR TypeID(val)=TypeID(INTEGER64))
+    RETURN ToString(val);
+  IF(TypeID(val)=TypeID(STRING))
+    RETURN val;
+  IF(TypeID(val)=TypeID(BOOLEAN))
+    RETURN val ? "1" : "0";
+  THROW NEW Exception("Unexpected type " || GetTypeName(TypeID(val)) || " for cell '" || cellname || "'" || anytostring(val,'tree'));
+}
+
+// 27-jun-2017: removed permissions which aren't mentioned anymore
+// https://developers.facebook.com/docs/facebook-login/permissions/
+RECORD ARRAY facebook_permissions :=
+    [ [ name :=   "ads_management" ]
+    , [ name :=   "create_event" ] // ?? maybe from an very old Graph API version?? -> 'It is not possible to create events via the Graph API.'
+    , [ name :=   "email" ]
+    , [ name :=   "manage_pages" ]
+    //, [ name :=   "offline_access" ] // deprecated in oct 2012
+    //, [ name :=   "publish_checkins" ] // replaced with 'publish_actions', which in turn is deprecated and shutdown 1 aug 2018
+    //, [ name :=   "publish_stream" ] // replaced with 'publish_actions', which in turn is deprecated and shutdown 1 aug 2018
+    //, [ name :=   "read_friendlists" ] // replaced with 'read_custom_friendlists' ??
+    , [ name :=   "read_insights" ]
+    //, [ name :=   "read_mailbox" ] // deprecated? (only for pages there is 'read_page_mailboxes')
+    //, [ name :=   "read_requests" ]
+    , [ name :=   "read_stream" ] // only available for apps using Graphg API up till v2.3 .. replaced by "user_posts"
+    , [ name :=   "rsvp_event" ]
+    , [ name :=   "user_about_me" ]
+    //, [ name :=   "user_activities" ] // deprecated in V2.3
+    , [ name :=   "user_birthday" ]
+    //, [ name :=   "user_checkins" ] // ?? replaced with 'user_tagged_places' ??
+    , [ name :=   "user_education_history" ]
+    , [ name :=   "user_events" ]
+    //, [ name :=   "user_groups" ] // Facebook doesn't expose groups anymore after V2.3 ?
+    , [ name :=   "user_hometown" ]
+    //, [ name :=   "user_interests" ] // deprecated in V2.3 (23 jun 2015)
+    , [ name :=   "user_likes" ]
+    , [ name :=   "user_location" ]
+    , [ name :=   "user_photos" ]
+    , [ name :=   "user_posts" ] // needed to get posts from the wall of a user (replaced "read_stream")
+    , [ name :=   "user_relationship_details" ]
+    , [ name :=   "user_relationships" ]
+    , [ name :=   "user_religion_politics" ]
+    , [ name :=   "user_status" ]
+    , [ name :=   "user_videos" ]
+    , [ name :=   "user_website" ]
+    , [ name :=   "user_work_history" ]
+    ];
+
+STRING restapiurl := "https://api.facebook.com/method/";
+
+RECORD FUNCTION GetFields(STRING type)
+{
+  /* Formats
+     Base: id, url, string, boolean, datetime, float, money
+     Special processing: permissions
+     Unknown object with type field: *
+     Annotations
+     - :xxx: data is within cell xxx, return the contents of that cell instead
+     - ? cell is only available when mentioned in fields to get
+     - [xxx] array of type xxx
+     Records with facebook typenames (so without a '-') have their type inserted into them as cell TYPE
+     (so a [comments] array will all have TYPE='comment')
+     The contents of the spec _TYPE cell will be used to insert/overwrite type
+  */
+  SWITCH (type)
+  {
+  // Custom helper types
+  CASE "custom-idname", "custom-like", "custom-language", "custom-tag", "custom-friendlist"
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          ];
+    }
+
+  CASE "custom-checkin-place" // for checkin: http://developers.facebook.com/docs/reference/api/checkin/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "location" :=       "custom-location"
+          ];
+    }
+
+  CASE "custom-comments" // for video, status, post, etc. Not like documentation, that says that comments is an array
+    {
+      RETURN
+          [ "count" :=          "integer"
+          , "data" :=           "[comment]"
+          ];
+    }
+
+  CASE "custom-fieldlikes" // for video, status, post, etc. Not like documentation, that says that likes is an array
+    {
+      RETURN
+          [ "count" :=          "integer"
+          , "data" :=           "[custom-like]"
+          ];
+    }
+
+  CASE "custom-fieldshares" // for video, status, post, etc.
+    {
+      RETURN
+          [ "data" :=           "[post]"
+          ];
+    }
+
+  CASE "custom-location" // for checkin:place:location, page:location, http://developers.facebook.com/docs/reference/api/checkin/
+    {
+      RETURN // FIXME: determine how street & postal code is encoded
+          [ "latitude" :=       "float"
+          , "longitude" :=      "float"
+          ];
+    }
+
+  CASE "custom-insight-value"
+    {
+      RETURN
+          [ "value" :=          "integer"
+          , "end_time" :=       "datetime"
+          ];
+    }
+
+  CASE "custom-photo-tag" // http://developers.facebook.com/docs/reference/api/photo/, check a tagged photo
+    {
+      RETURN
+          [ "x" :=              "float"
+          , "y" :=              "float"
+          ];
+    }
+
+  CASE "custom-photo-images"
+    {
+      RETURN
+          [ "height" :=         "integer"
+          , "width" :=          "integer"
+          , "source" :=         "url"
+          ];
+    }
+
+  CASE "custom-picture"
+    {
+      RETURN
+          [ "url" :=            "url"
+          , "is_silhouette" :=  "boolean"
+          ];
+    }
+  CASE "custom-post-properties"
+    {
+      RETURN
+          [ "name" :=           "string"
+          , "text" :=           "string"
+          ];
+    }
+
+  CASE "custom-post-actions"
+    {
+      RETURN
+          [ "name" :=           "string"
+          , "link" :=           "url"
+          ];
+    }
+
+  CASE "custom-thread-tag"
+    {
+      RETURN
+          [ "name" :=           "string"
+          ];
+    }
+
+  CASE "custom-thread-participant", "custom-thread-sender"
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "email" :=          "string"
+          ];
+    }
+
+  CASE "custom-education"
+    {
+      RETURN
+          [ "year" :=           "custom-idname"
+          , "school" :=         "custom-idname"
+          , "concentration" :=  "[custom-idname]"
+          , "classes" :=        "[custom-idname]"
+          , "degree" :=         "custom-idname"
+          , "type" :=           "string"
+          , "with" :=           "[custom-idname]"
+          ];
+    }
+
+  CASE "custom-work"
+    {
+      RETURN
+          [ "employer" :=       "custom-idname"
+          , "position" :=       "custom-idname"
+          , "with" :=           "[custom-idname]"
+          , "start_date" :=     "date"
+          , "end_date" :=       "date"
+          ];
+    }
+
+  CASE "custom-video_upload_limits"
+    {
+      RETURN
+          [ "length" :=         "integer"
+          , "size" :=           "integer"
+          ];
+    }
+
+  CASE "custom-paging"
+    {
+      RETURN
+          [ "next" :=           "url"
+          , "previous" :=       "url"
+          ];
+    }
+
+  CASE "custom-account" // application/accounts, user/accounts
+    {
+      // application/accounts has id, access_token, login_url
+      // user/accounts has id, name, category
+      // Using the superset here
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "category" :=       "string"
+          , "access_token" :=   "string"
+          , "login_url" :=      "url"
+          ];
+    }
+
+  CASE "custom-rsvpstatus" // event/noreply
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "rsvp_status" :=    "string"
+          ];
+    }
+
+  CASE "custom-translation"
+    {
+      RETURN
+          [ "native_strng" :=   "string"
+          , "description" :=    "string"
+          ];
+    }
+
+  CASE "custom-doc"
+    {
+      RETURN
+          [ "id" :=             "string"
+          , "from" :=           "custom-idname"
+          , "message" :=        "string"
+          , "icon" :=           "string"
+          , "updated_time" :=   "datetime"
+          , "revision" :=       "string" // must be converted from integer64, test 195466193802264/docs
+          , "can_edit" :=       "boolean"
+          , "can_delete" :=     "boolean"
+          ];
+    }
+
+  CASE "custom-setting"
+    {
+      RETURN
+          [ "setting" :=        "string"
+          , "value" :=          "string"
+          ];
+    }
+
+  CASE "custom-group" // in page/groups, user/groups
+    {
+      // page/groups has group id, version, name, ?unread? (rob: can't believe unread, don't know its type, don't trust it)
+      // user/groups has version, namne, id, administrator, bookmark_order
+      // Using the superset here
+      RETURN
+          [ _type :=            "group"
+          , "id" :=             "id"
+          , "name" :=           "string"
+          , "version" :=        "integer"
+          , "administrator" :=  "boolean"
+          , "bookmark_order" := "integer"
+          ];
+    }
+
+  CASE "custom-attendingevent" // page/events
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "location" :=       "string"
+          , "start_time" :=     "datetime"
+          , "end_time" :=       "datetime"
+          , "rsvp_status" :=    "string"
+          ];
+    }
+
+  CASE "custom-tab" // page/tabs
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "link" :=           "url"
+          , "application" :=    "custom-idname"
+          , "custom_name" :=    "string"
+          , "is_permanent" :=   "boolean"
+          , "position" :=       "integer"
+          , "is_non_connection_landing_tab" := "boolean"
+          ];
+    }
+
+  CASE "custom-participant", "custom-sender" // thread/participants, thread/former_participants, thread/senders
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "email" :=          "string"
+          ];
+    }
+
+  CASE "custom-activity" // user/activities
+     , "custom-book" // user/books
+     , "custom-game" // user/games
+     , "custom-interest" // user/interests
+     , "custom-likes" // user/likes
+     , "custom-movie" // user/movies
+     , "custom-music" // user/music
+     , "custom-television" // user/television
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "category" :=       "string"
+          , "create_time" :=    "datetime"
+          ];
+    }
+
+  CASE "custom-relationship" // user/family
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "relationship" :=   "string"
+          ];
+    }
+
+  CASE "custom-poke" // user/pokes
+    {
+      RETURN
+          [ "to" :=             "custom-idname"
+          , "from" :=           "custom-idname"
+          , "created_time" :=   "datetime"
+          , "type" :=           "string"
+          ];
+    }
+
+  CASE "custom-payment" // user/payments
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "to" :=             "custom-idname"
+          , "from" :=           "custom-idname"
+          , "amount" :=         "money"
+          , "application" :=    "custom-idname"
+          , "created_time" :=   "datetime"
+          , "updated_time" :=   "datetime"
+          ];
+    }
+
+  CASE "custom-privacy"
+    {
+      RETURN
+          [ "value" :=          "string"
+          , "description" :=    "string"
+          ];
+    }
+
+  // Looks like connection-friends standard gives back id & name, but it seems that all users fields can be used
+  // Keep synced with "user"
+  CASE "custom-connection-friends"
+    {
+      RETURN
+          [ _type :=            "user"
+          , "id" :=             "id"
+          , "name" :=           "string"
+          , "first_name" :=     "?string"
+          , "middle_name" :=    "?string"
+          , "last_name" :=      "?string"
+          , "gender" :=         "?gender"
+          , "locale" :=         "?string"
+          , "languages" :=      "?[custom-language]"
+          , "link" :=           "?url"
+          , "username" :=       "?string"
+          , "third-party_id" := "?id" // only when requested with fields
+          , "timezone" :=       "?integer"
+          , "updated_time" :=   "?datetime"
+          , "verified" :=       "?boolean"
+          , "birthday" :=       "?datemdy"
+          , "education" :=      "?[custom-education]"
+          , "email" :=          "?string"
+          , "hometown" :=       "?custom-idname"
+          , "interested_in" :=  "?[gender]"
+          , "location" :=       "?custom-idname"
+          , "political" :=      "?string"
+          , "favorite_athletes" := "?[custom-idname]"
+          , "favorite_teams" := "?[custom-idname]"
+          , "quotes" :=         "?string"
+          , "religion" :=       "?string"
+          , "significant_other" := "?custom-idname"
+          , "video_upload_limits" := "?custom-video_upload_limits" // only when requested with fields
+          , "website" :=        "?url"
+          , "work" :=           "?[custom-work]"
+          , "picture" :=        "?:data:custom-picture" // only when requested with fields
+          ];
+    }
+
+  CASE "custom-connection-location-place","custom-place" // for connection-location
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "location" :=       "custom-location"
+          ];
+    }
+
+  CASE "custom-connection-location"
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "type" :=           "string"
+          , "place" :=          "custom-connection-location-place"
+          , "created_time" :=   "datetime"
+          , "application" :=    "custom-idname"
+          , "tags" :=           ":data:[custom-tag]" // Never seen, no documentation.
+          , "from" :=           "custom-idname"
+          ];
+    }
+
+  // Root types as mentioned on http://developers.facebook.com/docs/reference/api/Review/
+  CASE "album" // http://developers.facebook.com/docs/reference/api/album/
+    {
+      RETURN
+          [ _type :=            "album" // Albums have 'type' field with different meaning, overwriting it here. ADDME: rename the fb field to album_type
+          , "id" :=             "id"
+          , "from" :=           "custom-idname"
+          , "name" :=           "string"
+          , "description" :=    "string"
+          , "location" :=       "string"
+          , "link" :=           "url"
+          , "cover_photo" :=    "id"
+          , "privacy" :=        "custom-privacy"
+          , "count" :=          "integer"
+          , "created_time" :=   "datetime"
+          , "updated_time" :=   "datetime"
+          ];
+    }
+
+  CASE "application" // http://developers.facebook.com/docs/reference/api/application/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "description" :=    "string"
+          , "category" :=       "string"
+          , "subcategory" :=    "string"
+          , "link" :=           "url"
+          ];
+    }
+
+  CASE "checkin" // http://developers.facebook.com/docs/reference/api/checkin/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "from" :=           "custom-idname"
+          , "tags" :=           "[custom-idname]"
+          , "category" :=       "custom-checkin-place"
+          , "subcategory" :=    "string"
+          , "link" :=           "url"
+          ];
+    }
+
+  CASE "comment" // http://developers.facebook.com/docs/reference/api/Comment/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "from" :=           "custom-idname"
+          , "message" :=        "string"
+          , "created_time" :=   "datetime"
+          , "likes" :=          "integer"
+          , "user_likes" :=     "boolean"
+          ];
+    }
+
+  CASE "domain" // http://developers.facebook.com/docs/reference/api/domain/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          ];
+    }
+
+  CASE "event" // http://developers.facebook.com/docs/reference/api/event/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          ];
+    }
+
+  CASE "friendlist" // http://developers.facebook.com/docs/reference/api/FriendList/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "list_type" :=      "string"
+          ];
+    }
+
+  CASE "group" // http://developers.facebook.com/docs/reference/api/group/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "icon" :=           "url"
+          , "owner" :=          "custom-idname"
+          , "name" :=           "string"
+          , "description" :=    "string"
+          , "link" :=           "url"
+          , "privacy" :=        "custom-privacy"
+          , "updated_time" :=   "datetime"
+          , "email" :=          "string"
+          ];
+    }
+
+  CASE "insights" // http://developers.facebook.com/docs/reference/api/insights/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "period" :=         "string"
+          , "values" :=         "[custom-insight-value]"
+          , "description" :=    "string"
+          ];
+    }
+
+  CASE "link" // http://developers.facebook.com/docs/reference/api/link/
+    {
+      RETURN
+          [ "id" :=             "string"
+          , "from" :=           "custom-idname"
+          , "link" :=           "url"
+          , "name" :=           "string"
+          , "comments" :=       "custom-comments"
+          , "likes" :=          "custom-fieldlikes"
+          , "description" :=    "string"
+          , "icon" :=           "url"
+          , "picture" :=        "url"
+          , "message" :=        "string"
+          , "created_time" :=   "datetime"
+          ];
+    }
+
+  CASE "message" // http://developers.facebook.com/docs/reference/api/message/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "created_time" :=   "datetime"
+          , "from" :=           "custom-idname"
+          , "to" :=             "custom-idname"
+          , "message" :=        "string"
+          ];
+    }
+
+  CASE "note" // http://developers.facebook.com/docs/reference/api/note/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "from" :=           "custom-idname"
+          , "subject" :=        "string"
+          , "message" :=        "string"
+          , "comments" :=       "custom-comments"
+          , "created_time" :=   "datetime"
+          , "updated_time" :=   "datetime"
+          , "icon" :=           "url"
+          ];
+    }
+
+  CASE "page" // http://developers.facebook.com/docs/reference/api/page/
+    {
+      // See http://developers.facebook.com/tools/explorer/?method=GET&path=19292868552
+      // Not mentioned in doc: picture, username, founded, company_overview, mission, website, which are available on facebook platform page
+      //       , "picture", "username", "founded", "company_overview", "mission", "website"
+
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "link" :=           "url"
+          , "category" :=       "string"
+          , "likes" :=          "integer"
+          , "location" :=       "custom-location"
+          , "phone" :=          "string"
+          , "checkins" :=       "integer"
+          , "access_token" :=   "string"
+          ];
+    }
+
+  CASE "photo" // http://developers.facebook.com/docs/reference/api/photo/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "from" :=           "custom-idname"
+          , "tags" :=           ":data:[custom-photo-tag]"
+          , "name" :=           "string"
+          , "message" :=        "string"
+          , "icon" :=           "url"
+          , "picture" :=        "url"
+          , "source" :=         "url"
+          , "height" :=         "integer"
+          , "width" :=          "integer"
+          , "images" :=         "[custom-photo-images]"
+          , "created_time" :=   "datetime"
+          , "updated_time" :=   "datetime"
+          , "position" :=       "integer"
+          , "comments" :=       "custom-comments"
+          , "likes" :=          "custom-fieldlikes"
+          , "sharedposts" :=    "custom-fieldshares"
+          , "place" :=          "custom-place"
+          ];
+    }
+
+  CASE "post" // http://developers.facebook.com/docs/reference/api/post/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "from" :=           "custom-idname"
+          , "to" :=             ":data:[custom-idname]"
+          , "message" :=        "string"
+          , "picture" :=        "url"
+          , "link" :=           "url"
+          , "name" :=           "string"
+          , "caption" :=        "string"
+          , "source" :=         "url"
+          , "properties" :=     "[custom-post-properties]"
+          , "icon" :=           "url"
+          , "actions" :=        "[custom-post-actions]"
+          , "privacy" :=        "custom-privacy"
+          , "likes" :=          "custom-fieldlikes"
+          , "comments" :=       "custom-comments"
+          , "object_id" :=      "id"
+          , "application" :=    "custom-idname"
+          , "created_time" :=   "datetime"
+          , "updated_time" :=   "datetime"
+//          , "targeting" :=      "???"
+          , "story" :=          "string"
+          , "sharedposts" :=    "custom-fieldshares"
+          ];
+    }
+
+  CASE "review" // http://developers.facebook.com/docs/reference/api/Review/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "from" :=           "custom-idname"
+          , "to" :=             "custom-idname"
+          , "message" :=        "string"
+          , "rating" :=         "integer"
+          , "created_time" :=   "datetime"
+          ];
+    }
+
+  CASE "status" // http://developers.facebook.com/docs/reference/api/status/
+    {
+      // Rob: found fields to, created_time, likes, comments, actions in a directed post to me.
+      // Normal statuses don't have those, though.
+      RETURN
+          [ "id" :=             "id"
+          , "from" :=           "custom-idname"
+          , "to" :=             "custom-idname"
+          , "message" :=        "string"
+          , "created_time" :=   "datetime"
+          , "updated_time" :=   "datetime"
+          , "likes" :=          "custom-fieldlikes"
+          , "comments" :=       "custom-comments"
+          , "actions" :=        "[custom-post-actions]"
+          , "place" :=          "custom-place"
+          ];
+    }
+
+  CASE "thread" // http://developers.facebook.com/docs/reference/api/thread/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "snippet" :=        "string"
+          , "updated_time" :=   "datetime"
+          , "message_count" :=  "integer"
+          , "unread_count" :=   "integer"
+          , "tags" :=           "[custom-thread-tag]"
+          , "participants" :=   "[custom-thread-participant]"
+          , "former_participants" := "[custom-thread-participant]"
+          , "senders" :=        "[custom-thread-sender]"
+          , "messages" :=       "[message]"
+          ];
+    }
+
+  // Keep synced with "custom-connection-friends"
+  CASE "user" // http://developers.facebook.com/docs/reference/api/user/
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "name" :=           "string"
+          , "first_name" :=     "string"
+          , "middle_name" :=    "string"
+          , "last_name" :=      "string"
+          , "gender" :=         "gender"
+          , "locale" :=         "string"
+          , "languages" :=      "[custom-language]"
+          , "link" :=           "url"
+          , "username" :=       "string"
+          , "third-party_id" := "?id" // only when requested with fields
+          , "timezone" :=       "integer"
+          , "updated_time" :=   "datetime"
+          , "verified" :=       "boolean"
+          , "birthday" :=       "datemdy"
+          , "education" :=      "[custom-education]"
+          , "email" :=          "string"
+          , "hometown" :=       "custom-idname"
+          , "interested_in" :=  "[gender]"
+          , "location" :=       "custom-idname"
+          , "political" :=      "string"
+          , "favorite_athletes" := "[custom-idname]"
+          , "favorite_teams" := "[custom-idname]"
+          , "quotes" :=         "string"
+          , "religion" :=       "string"
+          , "significant_other" := "custom-idname"
+          , "video_upload_limits" := "?custom-video_upload_limits" // only when requested with fields
+          , "website" :=        "url"
+          , "work" :=           "[custom-work]"
+          , "picture" :=        "?:data:custom-picture" // only when requested with fields
+          , "friends" :=        "?:data:[custom-idname]" // only when requested with fields
+          , "mutualfriends" :=  "?:data:[custom-idname]" // only when requested with fields
+          ];
+    }
+
+  CASE "video" // http://developers.facebook.com/docs/reference/api/video
+     , "swf" // Flash
+     , "music"
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "from" :=           "custom-idname"
+          , "tags" :=           ":data:[custom-tag]"
+          , "name" :=           "string"
+          , "message" :=        "string"
+          , "description" :=    "string"
+          , "picture" :=        "url"
+          , "embed_html" :=     "url"
+          , "icon" :=           "url"
+          , "source" :=         "url"
+          , "created_time" :=   "datetime"
+          , "updated_time" :=   "datetime"
+          , "comments" :=       "custom-comments"
+          , "likes" :=          "custom-fieldlikes"
+          ];
+    }
+
+  // All connection types
+  CASE "connection-attending" // event
+    {
+      RETURN
+          [ "data" :=           "[custom-rsvp_status]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-accounts" // application, user
+    {
+      // Warning: incompatible formats!
+      RETURN
+          [ "data" :=           "[custom-account]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-activities" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-activity]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-albums" // application, page, user
+    {
+      RETURN
+          [ "data" :=           "[album]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-books" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-book]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  //CASE "connection-apprequests" // user ADDME: no documentation!
+
+  CASE "connection-checkins" // page
+    {
+      RETURN
+          [ "data" :=           "[checkin]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-comments" // album, checking, link, note, photo, post, status
+    {
+      RETURN
+          [ "data" :=           "[comment]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-declined" // event
+    {
+      RETURN
+          [ "data" :=           "[custom-rsvp_status]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-docs" // group
+    {
+      RETURN
+          [ "data" :=           "[custom-doc]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-events" // page, user
+    {
+      RETURN
+          [ "data" :=           "[custom-attendingevent]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-family" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-relationship]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-feed" // application, event, page, user
+    {
+      RETURN
+          [ "data" :=           "[*]" // has type field
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-former_participants" // thread
+    {
+      RETURN
+          [ "data" :=           "[custom-participant]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-friendlists" // user
+    {
+      RETURN
+          [ "data" :=           "[friendlist]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-friends" // event
+    {
+      RETURN
+          [ "data" :=           "[custom-connection-friends]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-games" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-game]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-groups" // page, user
+    {
+      RETURN
+          [ "data" :=           "[custom-group]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-home" // user
+    {
+      RETURN
+          [ "data" :=           "[*]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+/*
+  CASE "connection-inbox" // user
+    {
+      // Does not work correctly, documentation of message/thread is very wrong (20110727)
+      RETURN
+          [ "data" :=           "[custom-*]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+*/
+  CASE "connection-interests" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-interest]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-insights" // application
+    {
+      RETURN
+          [ "data" :=           "[insights]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-invited" // event
+    {
+      RETURN
+          [ "data" :=           "[custom-rsvp_status]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-likes" // album, checkin, comment, link, note, photo, post, status
+    {
+      RETURN
+          [ "data" :=           "[custom-like]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-links" // application, page, user
+    {
+      RETURN
+          [ "data" :=           "[link]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-locations" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-connection-location]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-maybe" // event
+    {
+      RETURN
+          [ "data" :=           "[custom-rsvp_status]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-members" // friendlist, group
+    {
+      // FIXME: group members can also have administrator field, now omitted.
+      RETURN
+          [ "data" :=           "[custom-idname]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-messages" // thread
+    {
+      RETURN
+          [ "data" :=           "[message]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-movies" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-movie]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-music" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-music]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-mutualfriends"
+    {
+      RETURN
+          [ "data" :=           "[custom-idname]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-notes" // page
+    {
+      RETURN
+          [ "data" :=           "[note]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-noreply" // event
+    {
+      RETURN
+          [ "data" :=           "[custom-rsvp_status]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-participants" // thread
+    {
+      RETURN
+          [ "data" :=           "[custom-participant]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-payments" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-payment]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-permissions" // user
+    {
+      RETURN
+          [ "data" :=           "permissions"
+          ];
+    }
+
+  CASE "connection-photos", "connection-photos/uploaded" // album, page, user
+    {
+      RETURN
+          [ "data" :=           "[photo]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-pokes" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-poke]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-posts" // application, page, user
+    {
+      RETURN
+          [ "data" :=           "[post]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-reviews" // application
+    {
+      RETURN
+          [ "data" :=           "[reviews]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-senders" // thread
+    {
+      RETURN
+          [ "data" :=           "[custom-sender]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-settings" // page
+    {
+      RETURN
+          [ "data" :=           "[custom-setting]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-statuses" // application, page, user
+    {
+      RETURN
+          [ "data" :=           "[status]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-subscriptions" // application
+    {
+      RETURN
+          [ "data" :=           "[subscription]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-tabs" // page
+    {
+      RETURN
+          [ "data" :=           "[custom-tab]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-tags" // photo, thread
+    {
+      // Thread tag do not have an id, but that isn't too bad
+      RETURN
+          [ "data" :=           "[custom-tag]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-tagged" // application, page, user
+    {
+      RETURN
+          [ "data" :=           "[*]" // has type field
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-television" // user
+    {
+      RETURN
+          [ "data" :=           "[custom-television]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+  CASE "connection-translations" // application
+    {
+      RETURN
+          [ "data" :=           "[custom-translation]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+
+/*  CASE "connection-updates" // user
+    {
+      // does not work - says it returns 'threads' which look more like messages...
+      // documentation is completely wrong.
+      RETURN
+          [ "data" :=           "[*]" // has type field
+          , "paging" :=         "custom-paging"
+          ];
+    }
+*/
+  CASE "connection-videos" // page
+    {
+      RETURN
+          [ "data" :=           "[video]"
+          , "paging" :=         "custom-paging"
+          ];
+    }
+  CASE "apprequest"
+    {
+      RETURN
+          [ "id" :=             "id"
+          , "created_time" :=   "datetime"
+          , "data" :=           "string"
+          ];
+    }
+  CASE "question"
+    {
+      RETURN
+          [ "id" :=             "string"
+          , "from" :=           "custom-idname"
+          , "story" :=          "string"
+          , "comments" :=       "custom-comments"
+          , "likes" :=          "custom-fieldlikes"
+          , "icon" :=           "url"
+          , "created_time" :=   "datetime"
+          , "application" :=    "custom-idname"
+          ];
+    }
+  CASE "data" // FIXME: Not sure what to return, but this one is triggered by retrieving apprequests
+    {
+      RETURN DEFAULT RECORD;
+    }
+
+  DEFAULT
+    {
+      THROW NEW Exception("Don't have a specification for objects of type '" || type || "'");
+    }
+  }
+}
+
+/** Parses the webvariables from a canvas page to get accesstoken facebook POSTs to it.
+    @param signed_request The signed_request variable
+    @return Accesstoken if found
+    @cell(boolean) have_login Whether the accesstoken was present
+    @cell(string) accesstoken Access token
+    @cell(string) app_data Data passed to the facebook page with urlvariable app_data
+    @cell(record) page Data describing the current page
+    @cell(string) page.id Id of the current page
+    @cell(boolean) page.liked Whether the user has liked the current page
+*/
+PUBLIC RECORD FUNCTION ParseSignedRequest(STRING signed_request)
+{
+  RECORD result :=
+  [ have_login :=   FALSE
+  , accesstoken :=  ""
+  , pageid :=       ""
+  , liked :=        FALSE
+  , app_data :=     ""
+  , uid :=          ""
+  ];
+
+  IF(signed_request="")
+    RETURN DEFAULT RECORD;
+
+  INTEGER dpos := SearchSubString(signed_request, ".");
+  STRING signature := Left(signed_request, dpos);
+  STRING payload := SubString(signed_request, dpos + 1);
+  RECORD data := DecodeJSON(MyDecodeURLBin64(payload));
+
+  IF (data.algorithm != "HMAC-SHA256")
+    THROW NEW Exception("Cannot verify requests signed with algorithm '" || data.algorithm || "'");
+
+  // FIXME: verify request, get other data like user id
+
+  IF (CellExists(data, "APP_DATA"))
+    result.app_data := data.app_data;
+
+  IF (CellExists(data, "USER_ID"))
+    result.uid := data.user_id;
+
+  IF (CellExists(data, "OAUTH_TOKEN"))
+  {
+    result.have_login := TRUE;
+    result.accesstoken := EncodeJSON(
+                          [ access_token :=   data.oauth_token
+                          , expires :=        0
+                          , v :=              1
+                          ]);
+  }
+
+  // Page record - contains page id, admin, liked.
+  IF (CellExists(data, "PAGE"))
+  {
+    result.pageid := data.page.id;
+    result.liked := TRUE; //this is no longer supported by facebook, so force it to true not to break anything ( eg https://www.facebook.com/utwente/app_1375281799385304 )
+  }
+
+  RETURN result;
+}
+
+RECORD FUNCTION DecodeFacebookField(RECORD value, STRING type, STRING ARRAY requested_fields, STRING path, BOOLEAN filterfields)
+{
+  // Type is unknown? Deduce it from the type field
+  IF (type = "*")
+  {
+    IF (NOT CellExists(value, "TYPE"))
+      THROW NEW Exception("Missing field 'TYPE' at '" || path || "'");
+    type := value.type;
+  }
+
+  // Add the type to the path, for easy debugging
+  path := path || "<" || type || ">";
+
+  // Get the specification for this type
+  RECORD spec := GetFields(type);
+
+  // Is this a custom/connection type, and know the type of this record from the spec? If so, set it in the record to decode
+  IF (CellExists(spec, "_TYPE"))
+  {
+    IF (NOT CellExists(value, "TYPE"))
+      INSERT CELL type := spec._type INTO value;
+    ELSE
+      value.type := spec._type;
+    DELETE CELL _type FROM spec; // Don't want _type to leak down
+  }
+  ELSE IF (type NOT LIKE "*-*" AND NOT CellExists(value, "TYPE"))
+  {
+    // We know the type by name, and it's not a custom type
+    INSERT CELL type := type INTO value;
+  }
+
+  // Type present? Add it to the spec.
+  IF (CellExists(value, "TYPE") AND NOT CellExists(spec, "TYPE"))
+    INSERT CELL type := "string" INTO spec;
+
+  // Decode using the spec
+  RETURN DecodeFacebookFieldBySpec(value, spec, requested_fields, path, filterfields);
+}
+
+RECORD FUNCTION DecodeFacebookFieldBySpec(RECORD value, RECORD spec, STRING ARRAY requested_fields, STRING path, BOOLEAN filterfields)
+{
+  RECORD result;
+
+  // Process every spec field
+  FOREVERY (RECORD field FROM UnpackRecord(spec))
+  {
+    // Field only available if specifically requested in requested_fields?
+    IF (Left(field.value, 1) = "?")
+    {
+      IF (field.name NOT IN requested_fields)
+        CONTINUE;
+      field.value := SubString(field.value, 1);
+    }
+    ELSE
+    {
+      // See if field must be filtered out (data and paging are used in /?ids=a,b,c,d, must be ignored)
+      IF (filterfields AND field.name NOT IN requested_fields AND field.name NOT IN [ "DATA", "PAGING" ])
+        CONTINUE;
+    }
+
+    VARIANT checkval := value;
+    VARIANT fieldval := "";
+    STRING orgfieldname := field.name;
+
+    // Use a subcell of the value (like ':data:[comments]' with comments := [ count := 0, data := *use this*[comments] ])
+    IF (field.value LIKE ":*:*")
+    {
+      INTEGER lastcolon := SearchSubString(field.value, ":", 1);
+      STRING cellname := SubString(field.value, 1, lastcolon - 1);
+      field.value := SubString(field.value, lastcolon + 1);
+      IF (CellExists(checkval, field.name))
+      {
+        checkval := GetCell(checkval, field.name);
+        field.name := cellname;
+      }
+    }
+
+    IF (field.value LIKE "[*]") // array?
+    {
+      IF (TypeID(checkval) != TypeID(RECORD))
+        THROW NEW Exception("Expected a record to decode array '" || field.name || "' at '" || path || "'");
+
+      STRING subtype := SubString(field.value, 1, LENGTH(field.value) - 2);
+      SWITCH (subtype)
+      {
+      CASE "id", "url", "string"    { fieldval := DEFAULT STRING ARRAY; }
+      CASE "integer", "gender"      { fieldval := DEFAULT INTEGER ARRAY; }
+      CASE "boolean"                { fieldval := DEFAULT BOOLEAN ARRAY; }
+      CASE "date", "datemdy", "datetime" { fieldval := DEFAULT DATETIME ARRAY; }
+      CASE "float"                  { fieldval := DEFAULT FLOAT ARRAY; }
+      CASE "money"                  { fieldval := DEFAULT MONEY ARRAY; }
+      DEFAULT                       { fieldval := DEFAULT RECORD ARRAY; }
+      }
+
+      IF (CellExists(checkval, field.name))
+      {
+        // Array of records?
+        IF (TypeID(fieldval) = TypeID(RECORD ARRAY))
+        {
+          IF(TypeID(GetCell(checkval, field.name)) != TypeID(RECORD ARRAY))
+            THROW NEW Exception("Expected field '" || field.name || "' at '"||path||"' of type " || field.value || " to be a record array, got " || GetTypeName(TypeID(GetCell(checkval, field.name))));
+
+          FOREVERY (VARIANT v FROM GetCell(checkval, field.name))
+          {
+            STRING subpath := path || "[" || #v || "]";
+
+            IF (TypeId(v) != TypeID(RECORD))
+              THROW NEW Exception("Expected field '" || field.name || "' at '"||path||"' of type " || field.value || " to be an array, got " || GetTypeName(TypeID(GetCell(checkval, field.name))));
+
+            // ADDME: type check!
+            INSERT DecodeFacebookField(v, subtype, requested_fields, subpath, filterfields AND field.name = "DATA") INTO fieldval AT END;
+          }
+        }
+        ELSE
+        {
+          // Array of non-record elements - place all elements in their own record, then decode them
+          RECORD ARRAY todecode := ToRecordArray(GetCell(checkval, field.name), "DATA");
+
+          FOREVERY (RECORD rec FROM todecode)
+          {
+            STRING subpath := path || "[" || #rec || "]";
+
+            RECORD res := DecodeFacebookFieldBySpec(rec, [ data := subtype ], requested_fields, subpath, FALSE);
+
+            // ADDME: type check!
+            INSERT res.data INTO fieldval AT END;
+          }
+        }
+      }
+    }
+    ELSE
+    {
+      // Decode values of built-in types
+      SWITCH (field.value)
+      {
+      CASE "id", "url", "string"
+        {
+          fieldval := GetStrField(value, field.name);
+        }
+      CASE "integer"
+        {
+          fieldval := ToInteger(GetStrField(value, field.name),0);
+        }
+      CASE "gender"
+        {
+          fieldval := 0;
+          SWITCH (ToUppercase(GetStrField(value, field.name)))
+          {
+            CASE "MALE"     { fieldval := 1; }
+            CASE "FEMALE"   { fieldval := 2; }
+          }
+        }
+      CASE "boolean"
+        {
+          fieldval := ToUppercase(GetStrField(value, field.name)) IN ["1","TRUE"];
+        }
+      CASE "datetime"
+        {
+          fieldval := MakeDateFromText(GetStrField(value, field.name));
+        }
+      CASE "date" // Decode YYYY-MM-DD
+        {
+          fieldval := DEFAULT DATETIME;
+          STRING val := GetStrField(value, field.name);
+          IF (val NOT LIKE "0000*")
+            fieldval := MakeDate(ToInteger(SubString(val, 0, 4), 1), ToInteger(SubString(val, 5, 2), 1), ToInteger(SubString(val, 8, 2), 1));
+        }
+      CASE "datemdy" // Decode MM/DD/YYYY
+        {
+          fieldval := DEFAULT DATETIME;
+          STRING val := GetStrField(value, field.name);
+          IF (val != "" AND val NOT LIKE "*0000")
+            fieldval := MakeDate(ToInteger(SubString(val, 6, 4), 1), ToInteger(SubString(val, 0, 2), 1), ToInteger(SubString(val, 3, 2), 1));
+        }
+      CASE "float"
+        {
+          fieldval := CellExists(value,field.name) ? FLOAT(GetCell(value,field.name)) : FLOAT(0);
+        }
+      CASE "money"
+        {
+          fieldval := ToMoney(GetStrField(value, field.name), 0);
+        }
+      CASE "permissions"
+        {
+          fieldval := DEFAULT STRING ARRAY;
+          IF (CellExists(value, field.name))
+          {
+            RECORD perms := GetCell(value, field.name);
+            FOREVERY (RECORD r FROM facebook_permissions)
+              IF (CellExists(perms, r.name) AND GetCell(perms, r.name) = 1)
+                INSERT r.name INTO fieldval AT END;
+          }
+        }
+      DEFAULT
+        {
+          IF (CellExists(checkval, field.name))
+          {
+            // sometimes, location is a string...
+            //FIXME: Not sure what to do, RETURN DEFAULT RECORD is good enough for now
+            IF(ToUpperCase(field.name) = "LOCATION" AND TypeID(GetCell(checkval, field.name)) != TypeID(RECORD))
+              RETURN DEFAULT RECORD;
+
+            // Special case 'custom-privacy', can't handle all cases with standard machinery
+            IF(field.value = "custom-privacy" AND TypeID(GetCell(checkval, field.name))=TypeID(STRING)) //Sigh, it can be a string..
+            {
+              fieldval := [ value := GetCell(checkval, field.name)
+                          , description := ""
+                          ];
+            }
+            ELSE
+            {
+              // Record with specified type, decode that
+              IF(TypeID(GetCell(checkval, field.name)) != TypeID(RECORD))
+                ABORT("unexpected type for '" || field.name || "' " || AnyToString(value,'tree'));
+
+              STRING subpath := path || "." || field.name;
+
+              fieldval := DecodeFacebookField(GetCell(checkval, field.name), field.value, requested_fields, subpath, filterfields AND field.name = "DATA");
+            }
+          }
+          ELSE
+          {
+            // No value present, use RECORD without values to decode it (so all sub-record fields always exist)
+            STRING subpath := path || "." || field.name;
+
+            fieldval := DecodeFacebookField(DEFAULT RECORD, field.value, requested_fields, subpath, filterfields AND field.name = "DATA");
+          }
+        }
+      }
+    }
+
+    result := CellInsert(result, orgfieldname, fieldval);
+  }
+
+  RETURN result;
+}
+
+DATETIME FUNCTION ParseOGDate(STRING indate)
+{
+  STRING ARRAY toks:=Tokenize(indate,'/');
+  IF(Length(toks)!=3)
+    RETURN DEFAULT DATETIME;
+  RETURN MakeDate(TOInteger(toks[2],0), TOInteger(toks[0],0), ToInteger(toks[1],0));
+}
+
+PUBLIC OBJECTTYPE FacebookV2Connection EXTEND OauthNetworkConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC BOOLEAN fixup_graph_output; //FIXME remove when apps no longer depend on being able to set it
+
+  PUBLIC PROPERTY applicationid(GetApplicationId, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+   MACRO NEW()
+  : OauthNetworkConnection("2.0", facebook_permissions)
+  {
+    this->pvt_newpermissionmodel := TRUE;
+    this->SetMode("facebook");
+  }
+
+  STRING FUNCTION GetApplicationId()
+  {
+    RETURN this->pvt_publickey;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION SupportsValidityCheck()
+  {
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsAccessTokenValid()
+  {
+    TRY
+    {
+      this->Graph_Get("me", "");
+      RETURN TRUE;
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN FALSE;
+    }
+  }
+
+  /** @short get information on the current access token such as expirency and it's permissions
+  */
+  PUBLIC RECORD FUNCTION GetAccessTokenInfo()
+  {
+    this->browser->GotoWebPage(   "https://graph.facebook.com/debug_token"
+                               || "?input_token=" || this->browser->GetOauthAccessToken())
+                               || ";access_token=" || this->GetApplicationId() || "|" || this->secret;
+
+    RECORD response := DecodeJSONBlob(this->browser->content);
+    /*
+    +RECORD
+     +DATA: RECORD
+      +APPLICATION: 'Spellcoder'
+      +APP_ID: '511673615542352'
+      +EXPIRES_AT: 1504439722
+      +ISSUED_AT: 1499255722
+      +IS_VALID: TRUE
+      +USER_ID: '10207269304611228'
+      +SCOPES: ['user_posts', 'public_profile']
+    */
+
+    //STRING apiversion  := (SELECT AS STRING value FROM this->browser->responseheaders WHERE field = "facebook-api-version");
+
+    //https://graph.facebook.com/debug_token?input_token=INPUT_TOKEN&access_token=ACCESS_TOKEN
+    RETURN [ application := response.data.application
+           , app_id := response.data.app_id
+           , expires_at := MakeDatetimeFromUnixTimestamp(response.data.expires_at)
+           , issued_at := MakeDatetimeFromUnixTimestamp(response.data.issued_at)
+           , is_valid := response.data.is_valid
+           , user_id := response.data.user_id
+           , scopes := response.data.scopes // the permissions the user has
+           , raw := response
+           //, httpheader_apiversion := apiversion
+           ];
+
+    RETURN response;
+  }
+
+
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Convert all timestamps to DATETIME, convert VARIANT ARRAY to RECORD ARRAY
+  VARIANT FUNCTION NormalizeDecodedJSON(VARIANT data)
+  {
+    IF (TypeID(data) = TypeID(RECORD))
+    {
+      RECORD newrec;
+      FOREVERY (RECORD rec FROM UnpackRecord(data))
+      {
+        newrec := CellInsert(newrec, rec.name, this->NormalizeDecodedJSON(rec.value));
+      }
+      RETURN newrec;
+    }
+    IF (TypeID(data) = TypeID(RECORD ARRAY))
+      FOREVERY (RECORD r FROM data)
+        data[#r] := this->NormalizeDecodedJSON(r);
+    IF (TypeID(data) = TypeID(VARIANT ARRAY))
+      RETURN DEFAULT RECORD ARRAY;
+    RETURN data;
+  }
+
+  VARIANT FUNCTION ParseGraphAPIResult()
+  {
+    STRING browsercontent := BlobToString(this->browser->content, -1);
+    IF (ToUpperCase(browsercontent) = "FALSE")
+      RETURN DEFAULT RECORD;
+
+    VARIANT data := this->NormalizeDecodedJSON(DecodeJSON(browsercontent));
+    IF (TypeID(data) = TypeID(RECORD) AND CellExists(data, "ERROR"))
+    {
+      /*
+      Some errors that you might receive:
+      - "Error validating access token: Session has expired on Tuesday, 27-Jun-17 04:00:00 PDT. The current time is Thursday, 29-Jun-17 01:04:24 PDT."
+      - "(#803) Cannot query users by their username (spellcoder)"
+      */
+      THROW NEW SocialiteException("TRANSPORT", data.error.message);
+    }
+    RETURN data;
+  }
+
+  VARIANT FUNCTION FixupGraphOutput(RECORD data, STRING ARRAY fields, STRING connection_type, BOOLEAN multipleids)
+  {
+    IF(NOT RecordExists(data))
+      RETURN DEFAULT RECORD;
+    //PRINT("Decoding raw data\n" || AnyToString(data, "tree"));
+
+    IF (multipleids)
+    {
+      RECORD ARRAY result;
+      FOREVERY (RECORD rec FROM UnpackRecord(data))
+      {
+        INSERT this->FixupGraphOutput(rec.value, fields, "", FALSE) INTO result AT END;
+      }
+      RETURN result;
+    }
+
+    STRING type;
+    IF (connection_type != "")
+      type := "connection-" || connection_type;
+    ELSE IF (CellExists(data, "METADATA") AND CellExists(data.metadata,'TYPE'))
+      type := data.metadata.type;
+    ELSE IF (CellExists(data, "TYPE"))
+      type := data.type;
+    ELSE
+      THROW NEW Exception("No type field available");
+
+    FOREVERY (STRING field FROM fields)
+      fields[#field] := ToUppercase(field);
+
+    RECORD rec := DecodeFacebookField(data, type, fields, "", LENGTH(fields) != 0);
+    IF (connection_type != "")
+      RETURN rec.data;
+    ELSE
+      RETURN rec;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns an URI the client needs to be redirected to. The client can then authorize the
+      app, and will be redirected to the foursquare redirect page. The redirect url must
+      then be passed to FinishLogin
+      @param callbackurl Custom callback url, will be ignored when the callback host is set in the app settings
+      @param force_authorization Force authorization
+      @return Login data
+      @cell(string) sessiontoken Session token (must be given to FinishLogin)
+      @cell(string) authorize_uri URI to show to the user
+  */
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY permissions, STRING state)
+  {
+    STRING url := UpdateURLVariables("https://www.facebook.com/dialog/oauth", [ state := state ]);
+    RETURN this->GetV2AuthorizationCodeURI(url, permissions, callbackurl);
+  }
+
+  /** Finish the login sequence, using the uri that facebook redirected to after login
+      @param sessiontoken Sessiontoken returned by StartLogin
+      @param returned_uri URI that facebook redirected the user to
+      @return Undef
+  */
+  PUBLIC RECORD FUNCTION FinishLogin(STRING sessiontoken, STRING returned_uri)
+  {
+    STRING code := GetVariableFromURL(returned_uri, "code");
+
+    RECORD res := this->DoV2AccessTokenRequest("https://graph.facebook.com/v2.9/oauth/access_token", sessiontoken, code);
+
+    RETURN res;
+  }
+
+  /** Set a socialite token as returned by the FacebookSDK APIs*/
+  UPDATE PUBLIC MACRO SetSocialiteToken(STRING token)
+  {
+    IF(token NOT LIKE "tradein:*")
+    {
+      OauthNetworkConnection::SetSocialiteToken(token);
+      RETURN;
+    }
+
+    STRING ARRAY parts := Tokenize(token,":");
+    this->accesstoken := EncodeJSON(
+                          [ access_token :=   parts[1]
+                          , expires :=        0 //FIXME it should be in parts[2] and we should start supporting it in socialite
+                          , v :=              1
+                          ]);
+
+  }
+
+  /** Parses the webvariables from a canvas page to get accesstoken facebook POSTs to it.
+      @param webvariables List of webvariables (get with GetAllWebVariables())
+      @param permissions No longer needed. Used to be the list of permissions this page has
+      @return Accesstoken if found
+      @cell(boolean) have_login Whether the accesstoken was present
+      @cell(string) accesstoken Access token
+      @cell(string) app_data Data passed to the facebook page with urlvariable app_data
+      @cell(record) pageid Id of the current page
+      @cell(boolean) liked Whether the user has liked the current page
+  */
+  PUBLIC RECORD FUNCTION ParseCanvasPageWebVariables(RECORD ARRAY webvariables, STRING ARRAY permissions DEFAULTSTO DEFAULT STRING ARRAY) __ATTRIBUTES__(DEPRECATED "working on an alternative...")
+  {
+    STRING signed_request := SELECT AS STRING value FROM webvariables WHERE name = "signed_request";
+    RECORD retval := ParseSignedRequest(signed_request);
+    IF(NOT RecordExists(retval))
+      RETURN [ have_login :=   FALSE
+             , accesstoken :=  ""
+             , pageid :=       ""
+             , liked :=        FALSE
+             , app_data :=     ""
+             , uid :=          ""
+             , page := [ id := "", liked := FALSE ]
+             ];
+    this->accesstoken := retval.accesstoken;
+    INSERT CELL page := [ id := retval.pageid, liked := retval.liked ] INTO retval; //backwards compatibility
+    RETURN retval;
+  }
+
+
+  /** \defgroup REST_api REST api calls
+      @{
+  */
+
+  RECORD FUNCTION GetCachedUserId()
+  {
+    RECORD me := this->GetLoggedinUserFields(["id"]);
+    IF (NOT RecordExists(me))
+      THROW NEW Exception("Unable to retrieve the user id");
+
+    RETURN [ value := me.id
+           , ttl := cachettl_constants
+           ];
+  }
+
+  /** Returns the UID of the currently logged in user
+  */
+  PUBLIC STRING FUNCTION GetLoggedInUser()
+  {
+    STRING tok := this->accesstoken;
+    IF(tok="")
+      RETURN "";
+
+    TRY
+    {
+      RETURN GetAdhocCached([tok:=tok], PTR this->GetCachedUserId);
+    }
+    CATCH(OBJECT e)
+    {
+      RETURN "";
+    }
+  }
+
+  PUBLIC RECORD FUNCTION GetLoggedInUserFields(STRING ARRAY wantfields)
+  {
+    RECORD me := this->Graph_Get("me", "", [ fields := wantfields ]);
+    RETURN me;
+  }
+
+  /** @short Get the friends of a user.
+      @long Grants an app permission to access a list of friends that also use said app. This permission is restricted to a limited set of partners and usage requires prior approval by Facebook.
+            In order for a person to show up in another's friend list, both people must have shared their list of friends with the app and not disabled this permission during login.
+      @param uid User, leave empty to get the loggedin user's friends
+      @param wantfields List of fields to retrieve:
+          uid (string), first_name (string), middle_name (string), last_name (string), name (string): full name
+          pic_small (string) URL to the small-sized profile picture. Maximum width 50px, maximum height 150px, optional.
+          pic_big (string) URL to the largest-sized profile picture. Maximum width of 200px, maximum height 600px, optional.
+          pic_square (string) URL to the square profile picture. Maximum width 50px, maximum and height 50px, optional.
+          pic (string) URL to the medium-sized profile picture. Maximum width of 100px, maximum height 300px, optional.
+          affiliations (array) The networks to which the user being queried belongs
+          profile_update_time (time) The time the profile of the user being queried was most recently updated. If the user's profile has not been updated in the past three days, this value will be 0.
+          timezone (string) The time zone where the user being queried is located.
+          religion (string) The religion of the user being queried.
+          birthday (string) The birthday of the user being queried. The format of this date varies based on the user's locale.
+          sex (string) The sex of the user being queried. Starting February 7, 2010, this field will only return results in English. For more information, see Roadmap User(FQL).
+          hometown_location (array) The home town (and state) of the user being queried.
+          meeting_sex (array) A list of the genders the user being queried wants to meet.
+          meeting_for (array) A list of the reasons the user being queried wants to meet someone.
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetFriendsOfUser(STRING uid, STRING ARRAY wantfields)
+  {
+    RECORD ARRAY friends := this->Graph_Get(uid != "" ? uid : "me", "friends");
+
+    STRING ARRAY frienduids := SELECT AS STRING ARRAY id FROM friends;
+    RECORD ARRAY friendsdata := this->Graph_GetMultiple(frienduids, [ fields := wantfields ]);
+    RECORD ARRAY myfriends;
+    FOREVERY (RECORD f FROM friendsdata)
+      INSERT f.data INTO myfriends AT END;
+
+    RETURN myfriends;
+  }
+
+  /** @short Search for graph objects
+      @param query
+      @param type Type of object to search for
+      @param params
+      @cell(string array) params.fields Optional list of fields
+      @cell(integer) params.limit
+      @cell(integer) params.offset
+      @cell(datetime) params.until Filter on date
+      @cell(datetime) params.since
+  */
+  PUBLIC RECORD FUNCTION Graph_Search(STRING query, STRING type DEFAULTSTO "", RECORD params DEFAULTSTO DEFAULT RECORD)
+  {
+    INSERT CELL q := query INTO params;
+    INSERT CELL type := type INTO params;
+    RETURN this->Graph_Get("search", "", params);
+  }
+
+  /** @short GET a graph object. If connection_type = "picture", returns an (image) blob
+      @param id  Id of graph object to get (required, use 'me' for current user)
+      @param params
+      @cell(string array) params.fields Optional list of fields
+      @cell(string) params.connection_type Optional type of connection to get (eg friends, likes, feed, photos, albums, etc. )
+      @cell(integer) params.limit
+      @cell(integer) params.offset
+      @cell(datetime) params.until Filter on date
+      @cell(datetime) params.since
+      @cell(string) params.type For pictures, set this to 'large' to return a large image (about 200 pixels wide, variable height)
+      @cell(boolean) params.withmetadata
+  */
+  PUBLIC VARIANT FUNCTION Graph_Get(STRING id, STRING connection_type DEFAULTSTO "", RECORD params DEFAULTSTO DEFAULT RECORD)
+  {
+    BOOLEAN want_metadata := CellExists(params, "WITHMETADATA") AND params.withmetadata;
+    STRING ARRAY fields := CellExists(params, "FIELDS") ? params.fields : DEFAULT STRING ARRAY;
+
+    // Fields we send to facebook
+    STRING ARRAY fbfields := fields;
+
+    fields := SELECT AS STRING ARRAY Tokenize(field, ".")[0] FROM ToRecordArray(fields, "field");
+
+    IF (LENGTH(fbfields) != 0)
+    {
+      // Field ID is required to make metadata=1 work
+      IF (want_metadata AND "id" NOT IN fbfields)
+        INSERT "id" INTO fbfields AT 0;
+
+      // Type field must be given back if requested
+      IF (want_metadata AND "type" NOT IN fields)
+        INSERT "type" INTO fields AT 0;
+
+      // type field must be specified for some connections
+      IF (connection_type IN [ "home", "feed", "tagged" ] AND "type" NOT IN fbfields)
+        INSERT "type" INTO fbfields AT END;
+    }
+
+    STRING uri := "https://graph.facebook.com/";
+    uri := uri || id;
+    IF (connection_type != "")
+      uri := uri || "/" || connection_type;
+    IF (CellExists(params, "LIMIT"))
+      uri := AddVariableToURL(uri, "limit", params."LIMIT");
+    IF (CellExists(params, "OFFSET"))
+      uri := AddVariableToURL(uri, "offset", params."OFFSET");
+    IF (CellExists(params, "UNTIL"))
+      uri := AddVariableToURL(uri, "until", FormatISO8601DateTime(params.until));
+    IF (CellExists(params, "SINCE"))
+      uri := AddVariableToURL(uri, "since", FormatISO8601DateTime(params.since));
+    IF (CellExists(params, "WITH"))
+      uri := AddVariableToURL(uri, "with", params.with);
+    IF (Length(fbfields)>0)
+      uri := AddVariableToURL(uri, "fields", Detokenize(fbfields, ","));
+    IF (id = "search")//FIXME: Use Graph_Search then?
+    {
+      uri := AddVariableToURL(uri, "q", params.q);
+      uri := AddVariableToURL(uri, "type", params.type);
+    }
+    ELSE IF (CellExists(params, "TYPE"))
+    {
+      uri := AddVariableToURL(uri, "type", params.type);
+    }
+    uri := AddVariableToURL(uri, "metadata", "1");
+
+    //PRINT("Request uri: " || uri || "\n");
+
+    this->browser->GotoWebPage(uri);
+
+    IF (ToUpperCase(connection_type) = "PICTURE") // FB is returning an image
+      RETURN this->browser->content;
+
+    RECORD result := this->ParseGraphAPIResult();
+    VARIANT fixedup := this->FixupGraphOutput(result, fields, connection_type, FALSE);
+
+    // If the return value is a record, add the metadata if present
+    IF (want_metadata AND TypeID(fixedup) = TypeID(RECORD))
+    {
+      IF (CellExists(result, "METADATA"))
+        INSERT CELL metadata := result.metadata INTO fixedup;
+    }
+
+    RETURN fixedup;
+  }
+
+  /** @short GET multiple graph objects
+      @param ids Ids of graph object to get (required, use 'me' for current user)
+      @param params
+      @cell(string array) params.fields Optional list of fields
+      @cell(string) params.connection_type Optional type of connection to get (eg friends, likes, feed, photos, albums, etc. )
+      @cell(integer) params.limit
+      @cell(integer) params.offset
+      @cell(datetime) params.until Filter on date
+      @cell(datetime) params.since
+      @return List of objects, with all the selected cells
+  */
+  PUBLIC RECORD ARRAY FUNCTION Graph_GetMultiple(STRING ARRAY ids, RECORD params DEFAULTSTO DEFAULT RECORD)
+  {
+    IF (Length(ids) = 0)
+      RETURN DEFAULT RECORD ARRAY;
+
+    STRING ARRAY fields := CellExists(params, "FIELDS") ? params.fields : DEFAULT STRING ARRAY;
+    STRING uri := "https://graph.facebook.com/";
+    uri := uri || "?ids=" || Detokenize(ids, ",");
+    IF (CellExists(params, "LIMIT"))
+      uri := AddVariableToURL(uri, "limit", params."LIMIT");
+    IF (CellExists(params, "OFFSET"))
+      uri := AddVariableToURL(uri, "offset", params."OFFSET");
+    IF (CellExists(params, "UNTIL"))
+      uri := AddVariableToURL(uri, "until", FormatISO8601DateTime(params.until));
+    IF (CellExists(params, "SINCE"))
+      uri := AddVariableToURL(uri, "since", FormatISO8601DateTime(params.since));
+    IF (CellExists(params, "WITH"))
+      uri := AddVariableToURL(uri, "with", params.with);
+    IF (Length(fields)>0)
+      uri := AddVariableToURL(uri, "fields", Detokenize(fields, ","));
+
+    uri := AddVariableToURL(uri, "metadata", "1");
+
+    this->browser->GotoWebPage(uri);
+
+    // Facebook returns a record with object ids as cellnames. Parse that first
+    RECORD rawresult := this->ParseGraphAPIResult();
+    RETURN this->FixupGraphOutput(rawresult, fields, "", TRUE);
+  }
+
+
+  /** @short POST a new graph object (post, link, feed, note)
+      @param id  Id of graph object to post to (required, use 'me' for current user)
+      @param params See http://developers.facebook.com/docs/reference/api/ for arguments of graph object types
+  */
+  PUBLIC VARIANT FUNCTION Graph_Post(STRING id, STRING connection_type, RECORD params DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING ARRAY fields;
+    STRING permission;
+    SWITCH (connection_type)
+    {
+    CASE "feed"       { fields := [ "message", "picture", "link", "name", "caption", "description", "source", "actions" ]; permission := "publish_stream"; }
+    CASE "comments"   { fields := [ "message" ]; permission := "publish_stream"; }
+    CASE "likes"      { permission := "publish_stream"; }
+    CASE "notes"      { fields := [ "message", "subject" ]; permission := "publish_stream"; }
+    CASE "links"      { fields := [ "link", "message", "picture", "name", "caption", "description" ]; permission := "publish_stream"; }
+    CASE "events"     { fields := [ "name", "start_time", "end_time", "description", "location" ]; permission := "create_event"; }
+    CASE "attending"  { permission := "rsvp_event"; }
+    CASE "maybe"      { permission := "rsvp_event"; }
+    CASE "declined"   { permission := "rsvp_event"; }
+    CASE "albums"     { fields := [ "name", "message" ]; permission := "publish_stream"; }
+    CASE "photos"     { fields := [ "message", "source" ]; permission := "publish_stream"; } // Photos within an album
+    CASE "photo"      { fields := [ "message", "source" ]; permission := "publish_stream"; }
+    CASE "checkins"   { fields := [ "coordinates", "place", "message", "tags" ]; permission := "publish_checkins"; }
+    DEFAULT { THROW NEW Exception("Unsupported POST connection_type " || connection_type); }
+    }
+
+//    IF(CellExists(params,'picture') AND CellExists(params,'source'))
+//      THROW NEW SocialiteException("INVALIDARG", "You cannot specify both 'picture' and 'source'");
+
+
+    STRING uri := "https://graph.facebook.com/";
+    uri := uri || id || "/" || connection_type;
+
+    STRING enctype := "application/x-www-form-urlencoded";
+    RECORD ARRAY vars;
+    FOREVERY (STRING field FROM fields)
+      IF (CellExists(params, field))
+      {
+        IF (field LIKE "*_time")
+          INSERT [ name := field, value := FormatISO8601DateTime(GetCell(params, field)) ] INTO vars AT END;
+        ELSE IF (TypeID(GetCell(params, field)) = TypeID(BLOB))
+        {
+          // If we encounter a BLOB field, switch to multipart/form-data encoding and set a longer timeout
+          enctype := "multipart/form-data";
+          //ADDME: It would be nicer to save the old timeout, but that's currently not possible, as timeout is a write-only property...
+          this->browser->timeout := 60000;
+
+          BLOB file := GetCell(params, field);
+          RECORD filetype := ScanBlob(file, "");
+          INSERT [ name := field, value := GetCell(params, field), filename := "upload." || filetype.extension, type := filetype.mimetype ] INTO vars AT END;
+        }
+        ELSE IF (TypeID(GetCell(params, field)) IN [TypeID(RECORD ARRAY), TypeID(RECORD)])
+        {
+          INSERT [ name := field, value := EncodeJSON(GetCell(params, field)) ] INTO vars AT END;
+        }
+        ELSE
+          INSERT [ name := field, value := GetCell(params, field) ] INTO vars AT END;
+      }
+
+    this->browser->PostWebPage(uri, vars, enctype);
+
+    VARIANT result := this->ParseGraphAPIResult();
+    IF (TypeID(result) = TypeID(BOOLEAN))
+      RETURN [ result := result ];
+    RETURN result;
+  }
+
+  /** @short Delete a graph object
+      @param id Id of object to delete
+      @param connection_type Connection type to delete (use 'likes' to delete a like)
+  */
+  PUBLIC RECORD FUNCTION Graph_Delete(STRING id, STRING connection_type DEFAULTSTO "")
+  {
+    STRING uri := "https://graph.facebook.com/" || id;
+    IF (connection_type = "likes")
+      uri := uri || "/" || connection_type;
+
+    uri := AddVariableToURL(uri, "method", "delete");
+    this->browser->PostWebPage(uri, DEFAULT RECORD ARRAY, "application/x-www-form-urlencoded");
+
+    VARIANT result := this->ParseGraphAPIResult();
+    IF (TypeID(result) = TypeID(BOOLEAN))
+      RETURN [ result := result ];
+    RETURN result;
+  }
+
+  /** @}*/
+
+  /** @short Delete a request
+      @param requestid ID of request to delete
+      @param userid ID of user for which to delete the request (if left empty or set to 'me', delete for current user) */
+  PUBLIC MACRO DeleteRequest(STRING requestid, STRING userid)
+  {
+    IF(userid = "" OR userid = "me")
+      userid := this->GetLoggedInUser();
+    this->Graph_Delete(requestid || "_" || userid);
+  }
+
+  PUBLIC STRING FUNCTION GetRedirectAuthURL(STRING canvasurl, STRING ARRAY permissions)
+  {
+    STRING url := "https://www.facebook.com/dialog/oauth?client_id=" || EncodeURL(this->applicationid) || "&redirect_uri=" || EncodeURL(canvasurl);
+    IF(Length(permissions)>0)
+      url := url || "&scope=" || EncodeURL(Detokenize(permissions,","));
+    RETURN url;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Video upload
+  //
+  PUBLIC MACRO UploadVideo(BLOB video, STRING title, STRING description)
+  {
+    //https://developers.facebook.com/blog/post/493/
+    STRING posturl := "https://graph-video.facebook.com/me/videos?title=" || EncodeURL(title) || "&description=" || EncodeURL(description) || "&" || this->browser->GetOauthAccessToken();
+
+     RECORD ARRAY postvars :=
+      [ [ name:="file", value := video, filename := "oneill.m4v" ]
+      ];
+
+    this->browser->PostWebPage(posturl, postvars, "multipart/form-data");
+  }
+
+  // Replace tags like [[user:id]] and http:// and https:// links with nicely formatted links
+  STRING FUNCTION FormatBody(STRING parsed)
+  {
+    OBJECT parser := NEW StringParser(parsed);
+    STRING whitespace_set := " \t\r\n";
+    STRING formatted;
+
+    WHILE (NOT parser->eof)
+    {
+      formatted := formatted || EncodeHTML(parser->ParseWhileNotInSet("hw"));
+
+      STRING c := parser->current;
+      SWITCH (c)
+      {
+        CASE "h", "w"
+        {
+          // Check for hyperlink
+          IF (parser->PeekN(6) = "ttp://" OR parser->PeekN(7) = "ttps://" OR parser->PeekN(3) = "ww.")
+          {
+            STRING url := parser->ParseWhileNotInSet(whitespace_set);
+            // Assume url's don't end with a '.'
+            STRING not_url;
+            IF (url LIKE "*.")
+            {
+              not_url := Right(url, 1);
+              url := Left(url, Length(url) - 1);
+            }
+            STRING text := url;
+            IF (url LIKE "www.*")
+              url := "http://" || url;
+            formatted := formatted || '<a href="' || EncodeValue(url) || '" class="facebook-link">' || EncodeHTML(text) || '</a>' || EncodeHTML(not_url);
+          }
+          ELSE
+          {
+            formatted := formatted || EncodeHTML(c);
+            parser->Next();
+          }
+        }
+      }
+    }
+    RETURN formatted;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __ExecuteFeedQuery(STRING query, INTEGER maxnum)
+  {
+    STRING feedtype := "feed";
+    IF(query LIKE "photos:*")
+    {
+      feedtype := "photos";
+      query := Substring(query,7);
+    }
+
+    RECORD ARRAY feeditems := this->Graph_Get(query,feedtype);
+    RECORD ARRAY results;
+    IF(feedtype="feed")
+    {
+      results := SELECT messageid := id
+                      , created := created_time
+                      , data := [ fromuser := feeditems."from".name
+                                , fromuserid := feeditems."from".id
+                                , touser := ""
+                                , touserid := ""
+                                , text := message
+                                , picture := CellExists(feeditems, "picture") ? feeditems.picture : ""
+                                , source := ""
+                                ]
+                   FROM feeditems;
+    }
+    ELSE
+    {
+      results := SELECT messageid := id
+                      , created := created_time
+                      , data := [ fromuser := feeditems."from".name
+                                , fromuserid := feeditems."from".id
+                                , touser := ""
+                                , touserid := ""
+                                , text := name
+                                , picture := picture
+                                , source := source
+                                ]
+                   FROM feeditems;
+    }
+
+    RETURN [ format := "facebook"
+           , entries := results
+           ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION DecodeFeedItems(STRING format, RECORD ARRAY initems)
+  {
+    RETURN SELECT *
+                , text := initems.data.text
+                , richtext := this->FormatBody(initems.data.text)
+                , fromuser := initems.data.fromuser
+                , fromuserid := initems.data.fromuserid
+                , fromuseravatar := GetFacebookAvatarURL(initems.data.fromuserid, "large")
+                , picture := initems.data.picture
+                , source := initems.data.source
+             FROM initems
+            WHERE CellExists(data,'text'); //ignore legacy feed items which lack 'text'
+  }
+
+  PUBLIC STRING FUNCTION GetAvatarURL(STRING type)
+  {
+    RETURN GetFacebookAvatarURL(this->GetLoggedInUser(), type);
+  }
+>;
+
+/** @param userid User id from which to get the avatar
+    @param type Avatar type to get (square (50x50), small (50px wide), normal (100 px wide), large (200 px wide) */
+PUBLIC STRING FUNCTION GetFacebookAvatarURL(STRING userid, STRING type)
+{
+  IF(type NOT IN ["square","small","normal","large"])
+    THROW NEW Exception("Invalid avatar picture type '" || type || "'");
+  IF(ToInteger64(userid,-1) = -1)
+    RETURN "";
+
+  RETURN "https://graph.facebook.com/" || EncodeURL(userid) || "/picture?type=" || EncodeURL(type);
+}

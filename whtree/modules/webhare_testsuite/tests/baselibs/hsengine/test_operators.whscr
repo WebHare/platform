@@ -1,0 +1,935 @@
+﻿<?wh
+/// @short Operators tests
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+RECORD ARRAY errors;
+RECORD result;
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// When the expected output is other than '', the expected output is specified.
+// When an error should be reported, the outout is undefined.
+
+// The basic datatypes are assumed to be working correctly
+
+// Assigning DATETIME, RECORD, BLOB and ARRAY values can't be done
+// without using library functions which should be tested first.
+// Operator tests for these data types are not included.
+
+// ArithmeticTest also tests the unary + and - operators.
+
+// The Operator precedence test doesn't test all of the operators, it just runs
+// a number of tests using some of the operators.
+
+/*** Logical operators [21] ***/
+MACRO LogicalTest()
+{
+  OpenTest("TestOperators: LogicalTest");
+
+  TestEqualBoolean(1, TRUE, TRUE);
+  TestEqualBoolean(2, FALSE, FALSE);
+
+  TestEqualBoolean(3, FALSE, NOT TRUE);
+  TestEqualBoolean(4, TRUE, NOT FALSE);
+
+  TestEqualBoolean(5, TRUE, TRUE AND TRUE);
+  TestEqualBoolean(6, FALSE, TRUE AND FALSE);
+  TestEqualBoolean(7, FALSE, FALSE AND TRUE);
+  TestEqualBoolean(8, FALSE, FALSE AND FALSE);
+
+  TestEqualBoolean(9, TRUE, TRUE OR TRUE);
+  TestEqualBoolean(10, TRUE, TRUE OR FALSE);
+  TestEqualBoolean(11, TRUE, FALSE OR TRUE);
+  TestEqualBoolean(12, FALSE, FALSE OR FALSE);
+
+  TestEqualBoolean(13, FALSE, TRUE XOR TRUE);
+  TestEqualBoolean(14, TRUE, TRUE XOR FALSE);
+  TestEqualBoolean(15, TRUE, FALSE XOR TRUE);
+  TestEqualBoolean(16, FALSE, FALSE XOR FALSE);
+
+  errors := TestCompile('<?wh BOOLEAN b := 1 AND "x"; ?>');
+  MustContainError(17, errors, 62, 'INTEGER', 'BOOLEAN');
+  MustContainError(18, errors, 62, 'STRING', 'BOOLEAN');
+
+  errors := TestCompile('<?wh BOOLEAN b := 1 OR "x"; ?>');
+  MustContainError(19, errors, 62, 'INTEGER', 'BOOLEAN');
+  MustContainError(20, errors, 62, 'STRING', 'BOOLEAN');
+
+  errors := TestCompile('<?wh BOOLEAN b := 1 XOR "x"; ?>');
+  MustContainError(21, errors, 62, 'INTEGER', 'BOOLEAN');
+  MustContainError(22, errors, 62, 'STRING', 'BOOLEAN');
+
+  errors := TestCompile('<?wh BOOLEAN b := NOT 1; ?>');
+  MustContainError(23, errors, 62, 'INTEGER', 'BOOLEAN');
+  errors := TestCompile('<?wh BOOLEAN b := NOT "x"; ?>');
+  MustContainError(24, errors, 62, 'STRING', 'BOOLEAN');
+
+  TestEqualBoolean(25, TRUE, NOT NOT NOT NOT (FALSE OR TRUE));
+
+  errors := TestCompile('<?wh BOOLEAN b := TRUE NOT AND FALSE; ?>');
+  MustContainError(26, errors, 27);
+  errors := TestCompile('<?wh BOOLEAN b := TRUE NOT OR FALSE; ?>');
+  MustContainError(27, errors, 27);
+  errors := TestCompile('<?wh BOOLEAN b := TRUE NOT XOR FALSE; ?>');
+  MustContainError(28, errors, 27);
+
+
+  CloseTest("TestOperators: LogicalTest");
+}
+
+/*** Conditional operator [22] ***/
+MACRO ConditionalTest()
+{
+  OpenTest("TestOperators: ConditionalTest");
+
+  INTEGER i;
+  MONEY m;
+  FLOAT f;
+  STRING s;
+  BOOLEAN b;
+
+  i := TRUE ? 1 : 2;
+  TestEqualInteger(1, 1, i);
+  i := FALSE ? 1 : 2;
+  TestEqualInteger(2, 2, i);
+
+  m := TRUE ? 1 : 2;
+  TestEqualMoney(3, 1, m);
+  m := FALSE ? 1 : 2;
+  TestEqualMoney(4, 2, m);
+
+  f := TRUE ? 1 : 2;
+  TestEqualFloat(5, 1, f);
+  f := FALSE ? 1 : 2;
+  TestEqualFloat(6, 2, f);
+
+  s := TRUE ? "x" : "y";
+  TestEqualString(7, "x", s);
+  s := FALSE ? "x" : "y";
+  TestEqualString(8, "y", s);
+
+  b := TRUE ? TRUE : FALSE;
+  TestEqualBoolean(9, TRUE, b);
+  b := FALSE ? TRUE : FALSE;
+  TestEqualBoolean(10, FALSE, b);
+
+  b := TRUE;
+  i := b ? 1 : 2;
+  TestEqualInteger(11, 1, i);
+  b := FALSE;
+  i := b ? 1 : 2;
+  TestEqualInteger(12, 2, i);
+
+  errors := TestCompile('<?wh 1 ? 1 : 2; ?>');
+  MustContainError(13, errors, 123);
+
+  errors := TestCompile('<?wh "x" ? 1 : 2; ?>');
+  MustContainError(14, errors, 123);
+
+  CloseTest("TestOperators: ConditionalTest");
+}
+
+/*** Assignment operator [22] ***/
+MACRO AssignmentTest()
+{
+  OpenTest("TestOperators: AssignmentTest");
+
+  INTEGER i;
+  MONEY m;
+  FLOAT f;
+  STRING s;
+  BOOLEAN b;
+
+  i := 1;
+  TestEqualInteger(1, 1, i);
+
+  m := 1;
+  TestEqualMoney(2, 1, m);
+  m := 1.23456;
+  TestEqualMoney(3, 1.23456, m);
+  m := .12345;
+  TestEqualMoney(4, 0.12345, m);
+  m := 1.;
+  TestEqualMoney(5, 1, m);
+
+  f := 1;
+  TestEqualFloat(6, 1, f);
+  f := 1.23456;
+  TestEqualFloat(7, 1.23456, f);
+  f := .12345;
+  TestEqualFloat(8, 0.12345, f);
+  f := 1.;
+  TestEqualFloat(9, 1, f);
+  f := 1.2345678;
+  TestEqualFloat(10, 1.2345678, f);
+  f := .12345678;
+  TestEqualFloat(11, 0.12345678, f);
+
+  s := "x";
+  TestEqualString(12, "x", s);
+
+  b := TRUE;
+  TestEqualBoolean(13, TRUE, b);
+
+  CloseTest("TestOperators: AssignmentTest");
+}
+
+/*** Comparison operators [23] ***/
+MACRO ComparisonTest()
+{
+  OpenTest("TestOperators: ComparisonTest");
+
+  TestEqualBoolean(1, TRUE, 1 = 1);
+  TestEqualBoolean(2, FALSE, 1 = 2);
+
+  TestEqualBoolean(3, TRUE, 92233720368547.75807 = 92233720368547.75807);
+  TestEqualBoolean(4, FALSE, 0.00001 = 92233720368547.75807);
+
+  TestEqualBoolean(5, TRUE, .00000001 = .00000001);
+  TestEqualBoolean(6, FALSE, .00000001 = .00000002);
+
+  TestEqualBoolean(7, TRUE, "x" = "x");
+  TestEqualBoolean(8, FALSE, "x" = "y");
+
+  TestEqualBoolean(9, TRUE, TRUE = TRUE);
+  TestEqualBoolean(10, FALSE, TRUE = FALSE);
+
+  TestEqualBoolean(11, TRUE, 2 >= 1);
+  TestEqualBoolean(12, TRUE, 1 >= 1);
+  TestEqualBoolean(13, FALSE, 1 >= 2);
+
+  TestEqualBoolean(14, TRUE, 92233720368547.75807 >= 0.00001);
+  TestEqualBoolean(15, TRUE, 92233720368547.75807 >= 92233720368547.75807);
+  TestEqualBoolean(16, FALSE, 0.00001 >= 92233720368547.75807);
+
+  TestEqualBoolean(17, TRUE, .00000002 >= .00000001);
+  TestEqualBoolean(18, TRUE, .00000001 >= .00000001);
+  TestEqualBoolean(19, FALSE, .00000001 >= .00000002);
+
+  TestEqualBoolean(20, TRUE, "y" >= "x");
+  TestEqualBoolean(21, TRUE, "x" >= "x");
+  TestEqualBoolean(22, FALSE, "x" >= "y");
+  TestEqualBoolean(23, TRUE, TRUE >= TRUE);
+
+  TestEqualBoolean(24, TRUE, 1 <= 2);
+  TestEqualBoolean(25, TRUE, 1 <= 1);
+  TestEqualBoolean(26, FALSE, 2 <= 1);
+
+  TestEqualBoolean(27, TRUE, 0.00001 <= 92233720368547.75807);
+  TestEqualBoolean(28, TRUE, 92233720368547.75807 <= 92233720368547.75807);
+  TestEqualBoolean(29, FALSE, 92233720368547.75807 <= 0.00001);
+
+  TestEqualBoolean(30, TRUE, .00000001 <= .00000002);
+  TestEqualBoolean(31, TRUE, .00000001 <= .00000001);
+  TestEqualBoolean(32, FALSE, .00000002 <= .00000001);
+
+  TestEqualBoolean(33, TRUE, "x" <= "y");
+  TestEqualBoolean(34, TRUE, "x" <= "x");
+  TestEqualBoolean(35, FALSE, "y" <= "x");
+  TestEqualBoolean(36, TRUE, TRUE <= TRUE);
+
+  TestEqualBoolean(37, TRUE, 2 > 1);
+  TestEqualBoolean(38, FALSE, 1 > 1);
+  TestEqualBoolean(39, FALSE, 1 > 2);
+
+  TestEqualBoolean(40, TRUE, 92233720368547.75807 > 0.00001);
+  TestEqualBoolean(41, FALSE, 92233720368547.75807 > 92233720368547.75807);
+  TestEqualBoolean(42, FALSE, 0.00001 > 92233720368547.75807);
+
+  TestEqualBoolean(43, TRUE, .00000002 > .00000001);
+  TestEqualBoolean(44, FALSE, .00000001 > .00000001);
+  TestEqualBoolean(45, FALSE, .00000001 > .00000002);
+
+  TestEqualBoolean(46, TRUE, "y" > "x");
+  TestEqualBoolean(47, FALSE, "x" > "x");
+  TestEqualBoolean(48, FALSE, "x" > "y");
+  TestEqualBoolean(49, FALSE, TRUE > TRUE);
+  TestEqualBoolean(50, TRUE, 1 < 2);
+  TestEqualBoolean(51, FALSE, 1 < 1);
+  TestEqualBoolean(52, FALSE, 2 < 1);
+
+  TestEqualBoolean(53, TRUE, 0.00001 < 92233720368547.75807);
+  TestEqualBoolean(54, FALSE, 92233720368547.75807 < 92233720368547.75807);
+  TestEqualBoolean(55, FALSE, 92233720368547.75807 < 0.00001);
+
+  TestEqualBoolean(56, TRUE, .00000001 < .00000002);
+  TestEqualBoolean(57, FALSE, .00000001 < .00000001);
+  TestEqualBoolean(58, FALSE, .00000002 < .00000001);
+
+  TestEqualBoolean(59, TRUE, "x" < "y");
+  TestEqualBoolean(60, FALSE, "x" < "x");
+  TestEqualBoolean(61, FALSE, "y" < "x");
+  TestEqualBoolean(62, FALSE, TRUE < TRUE);
+
+  TestEqualBoolean(63, FALSE, 1 <> 1);
+  TestEqualBoolean(64, TRUE, 1 <> 2);
+
+  TestEqualBoolean(65, FALSE, 92233720368547.75807 <> 92233720368547.75807);
+  TestEqualBoolean(66, TRUE, 0.00001 <> 92233720368547.75807);
+
+  TestEqualBoolean(67, FALSE, .00000001 <> .00000001);
+  TestEqualBoolean(68, TRUE, .00000001 <> .00000002);
+
+  TestEqualBoolean(69, FALSE, "x" <> "x");
+  TestEqualBoolean(70, TRUE, "x" <> "y");
+
+  TestEqualBoolean(71, FALSE, TRUE <> TRUE);
+  TestEqualBoolean(72, TRUE, TRUE <> FALSE);
+
+  TestEqualBoolean(73, FALSE, 1 != 1);
+  TestEqualBoolean(74, TRUE, 1 != 2);
+
+  TestEqualBoolean(75, FALSE, 92233720368547.75807 != 92233720368547.75807);
+  TestEqualBoolean(76, TRUE, 0.00001 != 92233720368547.75807);
+
+  TestEqualBoolean(77, FALSE, .00000001 != .00000001);
+  TestEqualBoolean(78, TRUE, .00000001 != .00000002);
+
+  TestEqualBoolean(79, FALSE, "x" != "x");
+  TestEqualBoolean(80, TRUE, "x" != "y");
+
+  TestEqualBoolean(81, FALSE, TRUE != TRUE);
+  TestEqualBoolean(82, TRUE, TRUE != FALSE);
+
+  errors := TestCompile('<?wh record array x; if (x = default record array) abort("yeay"); ');
+  MustContainError(83, errors, 225, 'RECORD ARRAY');
+
+  errors := TestCompile('<?wh BOOLEAN b := 4 NOT = 4; ?>');
+  MustContainError(84, errors, 27);
+  errors := TestCompile('<?wh BOOLEAN b := 4 NOT != 4; ?>');
+  MustContainError(85, errors, 27);
+  errors := TestCompile('<?wh BOOLEAN b := 4 NOT < 4; ?>');
+  MustContainError(86, errors, 27);
+
+  RECORD a := [ v_int := 0, v_mon := 0m, v_flo := 0f ];
+  TestEqual(87, TRUE, a.v_int = 0);
+  TestEqual(88, TRUE, 0 = a.v_int);
+
+  TestEqual(89, TRUE, a.v_mon = 0);
+  TestEqual(90, TRUE, 0 = a.v_mon);
+
+  TestEqual(91, TRUE, a.v_flo = 0);
+  TestEqual(92, TRUE, 0 = a.v_flo);
+
+  CloseTest("TestOperators: ComparisonTest");
+}
+
+/*** Arithmetic operators [24] ***/
+MACRO ArithmeticTest()
+{
+  OpenTest("TestOperators: ArithmeticTest");
+
+  TestEqualInteger(1, 1, +1);
+  TestEqualMoney(2, 1.1, +1.1);
+  TestEqualFloat(3, .00000001, +.00000001);
+
+  TestEqualInteger(4, 5, 2 + 3);
+  TestEqualInteger(5, 1, -2 + 3);
+  TestEqualInteger(6, -1, 2 + -3);
+  TestEqualInteger(7, -5, -2 + -3);
+
+  TestEqualMoney(8, 5.2, 2.1 + 3.1);
+  TestEqualMoney(9, 1.1, -2.1 + 3.2);
+  TestEqualMoney(10, -1.1, 2.1 + -3.2);
+  TestEqualMoney(11, -5.2, -2.1 + -3.1);
+
+  TestEqualFloat(12, .00000005, .00000002 + .00000003);
+  TestEqualFloat(13, .00000001, -.00000002 + .00000003);
+  TestEqualFloat(14, -.00000001, .00000002 + -.00000003);
+  TestEqualFloat(15, -.00000005, -.00000002 + -.00000003);
+
+  TestEqualInteger(16, 1, 3 - 2);
+  TestEqualInteger(17, -1, 2 - 3);
+  TestEqualInteger(18, -5, -3 - 2);
+  TestEqualInteger(19, 5, 3 - -2);
+  TestEqualInteger(20, -1, -3 - -2);
+
+  TestEqualMoney(21, 1.1, 3.2 - 2.1);
+  TestEqualMoney(22, -1.1, 2.1 - 3.2);
+  TestEqualMoney(23, -5.2, -3.1 - 2.1);
+  TestEqualMoney(24, 5.2, 3.1 - -2.1);
+  TestEqualMoney(25, -1.1, -3.2 - -2.1);
+
+  TestEqualFloat(26, .00000001, .00000003 - .00000002);
+  TestEqualFloat(27, -.00000001, .00000002 - .00000003);
+  TestEqualFloat(28, -.00000005, -.00000003 - .00000002);
+  TestEqualFloat(29, .00000005, .00000003 - -.00000002);
+  TestEqualFloat(30, -.00000001, -.00000003 - -.00000002);
+
+  TestEqualInteger(31, 6, 2 * 3);
+  TestEqualInteger(32, -6, -2 * 3);
+  TestEqualInteger(33, -6, 2 * -3);
+  TestEqualInteger(34, 6, -2 * -3);
+
+  TestEqualMoney(35, 6.51, 2.1 * 3.1);
+  TestEqualMoney(36, -6.51, -2.1 * 3.1);
+  TestEqualMoney(37, -6.51, 2.1 * -3.1);
+  TestEqualMoney(38, 6.51, -2.1 * -3.1);
+
+  TestEqualFloat(39, .000000000006, .000002 * .000003);
+  TestEqualFloat(40, -.000000000006, -.000002 * .000003);
+  TestEqualFloat(41, -.000000000006, .000002 * -.000003);
+  TestEqualFloat(42, .000000000006, -.000002 * -.000003);
+
+  TestEqualInteger(43, 2, 6 / 3);
+  TestEqualInteger(44, 2, 7 / 3);
+  TestEqualInteger(45, 2, 8 / 3);
+  TestEqualInteger(46, -2, -6 / 3);
+  TestEqualInteger(47, -2, 6 / -3);
+  TestEqualInteger(48, 2, -6 / -3);
+
+  TestEqualMoney(49, 2.1, 6.51 / 3.1);
+  TestEqualMoney(50, 2.33333, 7. / 3);
+  TestEqualMoney(51, 2.66667, 8. / 3);
+  TestEqualMoney(52, -2.1, -6.51 / 3.1);
+  TestEqualMoney(53, -2.1, 6.51 / -3.1);
+  TestEqualMoney(54, 2.1, -6.51 / -3.1);
+
+  TestEqualFloat(55, .000002, .000000000006 / .000003);
+  TestEqualFloat(56, .00000233333333333333333, .000000000007 / .000003);
+  TestEqualFloat(57, .00000266666666666666667, .000000000008 / .000003);
+  TestEqualFloat(58, -.000002, -.000000000006 / .000003);
+  TestEqualFloat(59, -.000002, .000000000006 / -.000003);
+  TestEqualFloat(60, .000002, -.000000000006 / -.000003);
+
+  TestEqualInteger(61, 0, 6 % 3);
+  TestEqualInteger(62, 1, 7 % 3);
+  TestEqualInteger(63, 2, 8 % 3);
+  TestEqualInteger(64, -1, -7 % 3);
+  TestEqualInteger(65, 1, 7 % -3);
+  TestEqualInteger(66, -1, -7 % -3);
+
+  TestEqualInteger(67, -2147483648, 2147483647 + 1);
+  TestEqualInteger(68, -2147483648, -2147483647 - 1);
+  TestEqualInteger(69, 2147483647, -2147483648 - 1);
+
+  errors := TestCompile('<?wh INTEGER i := 1073741824 * 2; ?>');
+  TestCleanResult(70, errors);
+
+  errors := TestCompile('<?wh INTEGER i := -1073741825 * 2; ?>');
+  TestCleanResult(71, errors);
+
+  errors := TestCompile('<?wh INTEGER i := 1 / 0; ?>');
+  MustContainError(72, errors, 57);
+
+  errors := TestCompile('<?wh INTEGER i := 1 % 0; ?>');
+  MustContainError(73, errors, 57);
+
+  errors := TestCompile('<?wh INTEGER i := "x" + TRUE; ?>');
+  MustContainError(74, errors, 169, "STRING");
+  MustContainError(75, errors, 169, "BOOLEAN");
+
+  errors := TestCompile('<?wh INTEGER i := "x" - TRUE; ?>');
+  MustContainError(76, errors, 169, "STRING");
+  MustContainError(77, errors, 169, "BOOLEAN");
+
+  errors := TestCompile('<?wh INTEGER i := "x" * TRUE; ?>');
+  MustContainError(78, errors, 169, "STRING");
+  MustContainError(79, errors, 169, "BOOLEAN");
+
+  errors := TestCompile('<?wh INTEGER i := "x" / TRUE; ?>');
+  MustContainError(80, errors, 169, "STRING");
+  MustContainError(81, errors, 169, "BOOLEAN");
+
+  errors := TestCompile('<?wh INTEGER i := 2.1 % .000002; ?>');
+  MustContainError(82, errors, 219, 'MONEY');
+  MustContainError(83, errors, 219, 'FLOAT');
+
+  errors := TestCompile('<?wh INTEGER i := "x" % TRUE; ?>');
+  MustContainError(84, errors, 219, 'STRING');
+  MustContainError(85, errors, 219, 'BOOLEAN');
+
+  //Test unary operators
+  TestEqualInteger(86, -1, -(1*1));
+  TestEqualMoney(87, -1.1, -(1*1.1));
+  TestEqualFloat(88, -.00000001, -(1*.00000001));
+
+  errors := TestCompile('<?wh INTEGER b := 4 NOT + 4; ?>');
+  MustContainError(89, errors, 27);
+  errors := TestCompile('<?wh INTEGER b := 4 NOT * 4; ?>');
+  MustContainError(90, errors, 27);
+  errors := TestCompile('<?wh INTEGER b := 4 NOT - 4; ?>');
+  MustContainError(91, errors, 27);
+
+  errors := TestCompile('<?wh INTEGER i := 1 / 0; ?>');
+  MustContainError(92, errors, 57);
+
+  errors := TestCompile('<?wh INTEGER i := 1 % 0; ?>');
+  MustContainError(93, errors, 57);
+
+  errors := TestCompile('<?wh RECORD r := [ a := 2, b := 0]; INTEGER c := r.a / r.b; IF (c = 0) PRINT("0"); ELSE PRINT("1"); ?>');
+  TestCleanResult(94, errors);
+
+  result := TestCompileAndRun('<?wh RECORD r := [ a := 2, b := 0]; INTEGER c := r.a / r.b; IF (c = 0) PRINT("0"); ELSE PRINT("1"); ?>');
+  MustContainError(95, result.errors, 57);
+
+  result := TestCompile('<?wh RECORD r := [ a := 2m, b := 0m]; MONEY c := r.a / r.b; IF (c = 0) PRINT("0"); ELSE PRINT("1"); ?>');
+  TestCleanResult(96, errors);
+
+  result := TestCompileAndRun('<?wh RECORD r := [ a := 2m, b := 0m]; MONEY c := r.a / r.b; IF (c = 0) PRINT("0"); ELSE PRINT("1"); ?>');
+  MustContainError(97, result.errors, 57);
+
+  result := TestCompile('<?wh RECORD r := [ a := 2f, b := 0f]; FLOAT c := r.a / r.b; IF (c = 0) PRINT("0"); ELSE PRINT("1"); ?>');
+  TestCleanResult(98, errors);
+
+  result := TestCompileAndRun('<?wh RECORD r := [ a := 2f, b := 0f]; FLOAT c := r.a / r.b; IF (c = 0) PRINT("0"); ELSE PRINT("1"); ?>');
+  MustContainError(99, result.errors, 57);
+
+  result := TestCompileAndRun('<?wh PRINT(""||(15+[test:="abc"].test)); ?>');
+  MustContainError(100, result.errors, 62, 'STRING', 'INTEGER');
+
+  // int64 arithmetic
+  TestEqual(111, 1020000000000204i64, 10000000000002i64 * 102i64);
+  TestEqual(112, 1000000000000005i64, 1000000000000003i64 + 2i64);
+  TestEqual(113, 1000000000000001i64, 1000000000000003i64 - 2i64);
+  TestEqual(114, 580860888638633i64, 232344355455453333i64 / 400i64);
+  TestEqual(115, 4354366851221i64, 232344355455453333i64 % 17592186044416i64);
+
+  TestEqual(120, TRUE,  1000000000000003i64 <  1000000000000004i64);
+  TestEqual(121, FALSE, 1000000000000003i64 <= 1000000000000002i64);
+  TestEqual(122, TRUE,  1000000000000003i64 >        2147483647i64);
+  TestEqual(123, FALSE,       2147483647i64 >= 1000000000000004i64);
+  TestEqual(124, TRUE,  1000000000000003i64 =  1000000000000003i64);
+  TestEqual(125, FALSE, 1000000000000003i64 != 1000000000000003i64);
+  TestEqual(126, TRUE,        2147483647i64 !=       6442450943i64);
+  TestEqual(127, FALSE,       2147483647i64 =        6442450943i64);
+
+  result := TestCompileAndRun('<?wh DumpValue(-[a:=""].a);');
+  MustContainError(2, result.errors, 169, "STRING");
+
+  CloseTest("TestOperators: ArithmeticTest");
+}
+
+/*** String merge operator ***/
+MACRO StringMergeTest()
+{
+  OpenTest("TestOperators: StringMergeTest");
+
+  TestEqualString(1, "ab", "a" || "b");
+
+  TestEqualString(2, "a1", "a" || 1);
+
+  TestEqualString(3, "12", 1 || 2);
+
+  TestEqualString(4, "-1-2", -1 || -2);
+
+  STRING decls;
+  decls := decls || 'STRING s16 := "abcdefghijklmnop";\n';
+  decls := decls || 'STRING s32 := s16 || s16;\n';
+  decls := decls || 'STRING s64 := s32 || s32;\n';
+  decls := decls || 'STRING s128 := s64 || s64;\n';
+  decls := decls || 'STRING s256 := s128 || s128;\n';
+  decls := decls || 'STRING s512 := s256 || s256;\n';
+  decls := decls || 'STRING s1024 := s512 || s512;\n';
+  decls := decls || 'STRING s2048 := s1024 || s1024;\n';
+
+  TestCleanCompile(5, '<?wh ' || decls || 'STRING s := s2048 || s2048; PRINT(s); ?>');
+
+  TestCleanCompile(6, '<?wh ' || decls || 'STRING s := s2048 || s2048 || "a"; PRINT(s); ?>');
+
+  errors := TestCompile('<?wh PRINT(1.1 || ""); ?>');
+  MustContainError(7, errors, 62, 'MONEY', 'STRING');
+
+  errors := TestCompile('<?wh PRINT(.000001 || ""); ?>');
+  MustContainError(8, errors, 62, 'FLOAT', 'STRING');
+
+  errors := TestCompile('<?wh STRING b := 4 NOT || 4; ?>');
+  MustContainError(9, errors, 27);
+
+  CloseTest("TestOperators: StringMergeTest");
+}
+
+/*** Cell operator ***/
+MACRO CellTest()
+{
+  OpenTest("TestOperators: CellTest");
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; PRINT (r.a || ""); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1.1 INTO r; PRINT (FormatMoney(r.a, 0, ".", ",", false)); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "1.1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1.000001 INTO r; PRINT (FormatFloat(r.a, 6)); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "1.000001", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:="HareScript" INTO r; PRINT (r.a); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "HareScript", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=TRUE INTO r; PRINT (r.a ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "TRUE", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:="HareScript" INTO r; PRINT (r.b); ?>');
+  MustContainError(11, result.errors, 92, 'B');
+
+  result := TestCompileAndRun('<?wh RECORD r; r.a := "HareScript"; PRINT(r.a); ?>');
+  MustContainError(12, result.errors, 47, 'A');
+
+  /* Bug @19-5-2006:
+     macro test() {}
+     test.id := 1;
+     makes compiler crash instead of returning an error */
+  errors := TestCompile('<?wh macro test() {} test.id := 1;');
+  MustContainError(13, errors, 152, "TEST");
+
+  CloseTest("TestOperators: CellTest");
+}
+
+/*** Operator precedence [25] ***/
+MACRO PrecedenceTest()
+{
+  OpenTest("TestOperators: PrecedenceTest");
+
+  TestEqualInteger(1, -10, 2 + 3 * -4);
+  TestEqualInteger(2, 1, 4 - 6 / +2);
+  TestEqualInteger(3, 4, 8 + -9 % 5);
+
+  TestEqualInteger(4, -20, (2 + 3) * -4);
+  TestEqualInteger(5, -1, (4 - 6) / +2);
+  TestEqualInteger(6, -1, (8 + -9) % 5);
+
+  TestEqualBoolean(7, TRUE, 2 + 3 * -4 < 4 - 6 / +2);
+  TestEqualBoolean(8, FALSE, 4 - 6 / +2 >= 8 + -9 % 5);
+  TestEqualBoolean(9, TRUE, (4 - 6) / +2 >= (8 + -9) % 5);
+  TestEqualBoolean(10, TRUE, 8 + -9 % 5 != 2 + 3 * -4);
+
+  TestEqualBoolean(11, TRUE, 2 + 3 * -4 < 4 - 6 / +2 AND 8 + -9 % 5 != 2 + 3 * -4);
+  TestEqualBoolean(12, TRUE, 4 - 6 / +2 >= 8 + -9 % 5 XOR 2 + 3 * -4 < 4 - 6 / +2);
+  TestEqualBoolean(13, TRUE, (4 - 6) / +2 >= (8 + -9) % 5 OR 4 - 6 / +2 >= 8 + -9 % 5);
+
+  TestEqualBoolean(14, FALSE, TRUE AND TRUE != FALSE AND FALSE);
+  TestEqualBoolean(15, TRUE, (TRUE AND TRUE) != (FALSE AND FALSE));
+
+  TestEqualBoolean(16, FALSE, "A" = "B" || "C");
+  TestEqualString(17, "ABC", "A" || (TRUE ? "B" : "X") || "C");
+  TestEqualString(18, "B", TRUE ? "B" : "X" || "C");
+
+  CloseTest("TestOperators: PrecedenceTest");
+}
+
+/*** Bit-wise operators ***/
+MACRO BitOperatorTest()
+{
+  OpenTest("TestOperators: BitOperatorTest");
+
+  TestEqualInteger( 1, 0, 0 BITAND 0);
+  TestEqualInteger( 2, 0, 0 BITAND 1);
+  TestEqualInteger( 3, 0, 1 BITAND 0);
+  TestEqualInteger( 4, 1, 1 BITAND 1);
+  TestEqualInteger( 5, -2147483648i, -2147483648i BITAND -2147483648i);
+  TestEqualInteger( 6, 0, -2147483648i BITAND 2147483647i);
+  TestEqualInteger( 7, -2147483648i, -1 BITAND -2147483648i);
+
+  TestEqualInteger( 8, 0, 0 BITOR 0);
+  TestEqualInteger( 9, 1, 0 BITOR 1);
+  TestEqualInteger(10, 1, 1 BITOR 0);
+  TestEqualInteger(11, 1, 1 BITOR 1);
+  TestEqualInteger(12, -2147483648i, -2147483648i BITOR -2147483648i);
+  TestEqualInteger(13, -1, -2147483648i BITOR 2147483647i);
+  TestEqualInteger(14, -1, -1 BITOR -2147483648i);
+
+  TestEqualInteger(15, 0, 0 BITXOR 0);
+  TestEqualInteger(16, 1, 0 BITXOR 1);
+  TestEqualInteger(17, 1, 1 BITXOR 0);
+  TestEqualInteger(18, 0, 1 BITXOR 1);
+  TestEqualInteger(19, 0, -2147483648i BITXOR -2147483648i);
+  TestEqualInteger(20, -1, -2147483648i BITXOR 2147483647i);
+  TestEqualInteger(21, 2147483647i, -1 BITXOR -2147483648i);
+
+  TestEqualInteger(22, -2, BITNEG 1);
+  TestEqualInteger(23, 1, BITNEG -2);
+  TestEqualInteger(24, -1, BITNEG 0);
+  TestEqualInteger(25, 0, BITNEG -1);
+  TestEqualInteger(26, -2147483648i, BITNEG 2147483647i);
+  TestEqualInteger(27, 2147483647i, BITNEG -2147483648i);
+
+  TestEqualInteger(28, 1, 1 BITLSHIFT -1);
+  TestEqualInteger(29, 1, 1 BITLSHIFT 0);
+  TestEqualInteger(30, 2, 1 BITLSHIFT 1);
+  TestEqualInteger(31, 640, 5 BITLSHIFT 7);
+  TestEqualInteger(32, 1073741824, 1 BITLSHIFT 30);
+  TestEqualInteger(33, -2147483648i, 1 BITLSHIFT 31);
+  TestEqualInteger(34, 0, -2147483648i BITLSHIFT 1);
+  TestEqualInteger(35, 2, -2147483647i BITLSHIFT 1);
+
+  TestEqualInteger(36, 2, 2 BITRSHIFT -1);
+  TestEqualInteger(37, 2, 2 BITRSHIFT 0);
+  TestEqualInteger(38, 1, 2 BITRSHIFT 1);
+  TestEqualInteger(39, 5, 640 BITRSHIFT 7);
+  TestEqualInteger(40, 1, 1073741824 BITRSHIFT 30);
+  TestEqualInteger(41, -1, -2147483648i BITRSHIFT 31);
+  TestEqualInteger(42, -1073741824i, -2147483648i BITRSHIFT 1);
+  TestEqualInteger(43, 1073741823i, 2147483647i BITRSHIFT 1);
+
+  INTEGER64 x40x41 := 3i64 BITLSHIFT 40;
+  INTEGER64 x40 := 1i64 BITLSHIFT 40;
+  INTEGER64 x41 := 2i64 BITLSHIFT 40;
+
+  TestEqual( 50, 3298534883328i64, x40x41);
+  TestEqual( 51, x40x41,      x40 BITOR x41);
+  TestEqual( 52, x40,         x40 BITAND x40x41);
+  TestEqual( 53, x41,         x40 BITXOR x40x41);
+  TestEqual( 54, 0i64,        x40 BITAND (BITNEG x40));
+  TestEqual( 55, BITNEG 0i64, x40 BITOR  (BITNEG x40));
+  TestEqual( 56, BITNEG 0i64, x40 BITXOR (BITNEG x40));
+  TestEqual( 57, x41,         x40 BITLSHIFT 1);
+  TestEqual( 58, x40,         x41 BITRSHIFT 1);
+
+
+  errors := TestCompile('<?wh INTEGER b := 4 NOT BITAND 4; ?>');
+  MustContainError(60, errors, 27);
+  errors := TestCompile('<?wh INTEGER b := 4 NOT BITXOR 4; ?>');
+  MustContainError(61, errors, 27);
+  errors := TestCompile('<?wh INTEGER b := 4 NOT BITRSHIFT 4; ?>');
+  MustContainError(62, errors, 27);
+
+  CloseTest("TestOperators: BitOperatorTest");
+}
+
+/*** IN and CONCAT operators  ***/
+MACRO InCONCATTest()
+{
+  OpenTest("TestOperators: InCONCATTest");
+
+  errors := TestCompile('<?wh 2 IN 5;  ?>');
+  MustContainError(2, errors, 130); //rhs must be array type
+
+  errors := TestCompile('<?wh 2 IN ["abc"];  ?>');
+  MustContainError(3, errors, 62, "INTEGER", "STRING"); //conversion error
+
+  TestEqualBoolean(4, FALSE, 2 IN [3,4,5]);
+  TestEqualBoolean(5, TRUE, 2 IN [2,4,5]);
+  TestEqualBoolean(6, TRUE, "abc" IN ["abc","def"]);
+  TestEqualBoolean(7, TRUE, DEFAULT DATETIME IN [ DEFAULT DATETIME,GetCurrentDateTime() ]);
+
+  TestEqualInteger(8, 4, LENGTH([1,2] CONCAT [3,4]));
+  TestEqualInteger(9, 4, LENGTH([1,2] CONCAT [1,2])); //no dupe elimination!
+
+  TestEqualBoolean(10, TRUE, 3 IN ([1,2] CONCAT [3,4]));
+  TestEqualBoolean(11, FALSE, 3 IN ([1,2] CONCAT [1,2]));
+  TestEqualBoolean(12, TRUE, 3 IN ([1,2] CONCAT [3,4]));
+  TestEqualBoolean(13, TRUE, 1 IN ([1,2] CONCAT [1,2]));
+
+  TestEqualBoolean(14, FALSE, 2 IN [5]);
+  TestEqualBoolean(15, TRUE,  2 IN [5,2]);
+  TestEqualBoolean(16, TRUE,  2 IN [2.5,2.8,2]);
+  TestEqualBoolean(17, FALSE,  2.1 IN ([2.5f,2.8f] CONCAT [2f]));
+
+
+  errors := TestCompile('<?wh 2 NOT IN 5;  ?>');
+  MustContainError(18, errors, 130); //rhs must be array type
+
+  errors := TestCompile('<?wh 2 NOT IN ["abc"];  ?>');
+  MustContainError(19, errors, 62, "INTEGER", "STRING"); //conversion error
+
+  TestEqualBoolean(20, TRUE, 2 NOT IN [3,4,5]);
+  TestEqualBoolean(21, FALSE, 2 NOT IN [2,4,5]);
+  TestEqualBoolean(22, FALSE, "abc" NOT IN ["abc","def"]);
+  TestEqualBoolean(23, FALSE, DEFAULT DATETIME NOT IN [ DEFAULT DATETIME,GetCurrentDateTime() ]);
+
+  TestEqualBoolean(24, TRUE, 2 NOT IN [5]);
+  TestEqualBoolean(25, FALSE,  2 NOT IN [5,2]);
+  TestEqualBoolean(26, FALSE,  2 NOT IN [2.5,2.8,2]);
+  TestEqualBoolean(27, TRUE,  2.1 NOT IN ([2.5f,2.8f] CONCAT [2f]));
+
+  // cross-type IN
+  TestEQ(TRUE, 2 IN [ 2m ] AND 3 NOT IN [ 2m ]);
+  TestEQ(TRUE, 2 IN [ 2f ] AND 3 NOT IN [ 2f ]);
+  TestEQ(TRUE, 2 IN [ 2i64 ] AND 3 NOT IN [ 2i64 ]);
+  TestEQ(TRUE, 2m IN [ 2f ] AND 3m NOT IN [ 2f ]);
+  TestEQ(TRUE, 2i64 IN [ 2f ] AND 3i64 NOT IN [ 2f ]);
+
+  errors := TestCompile('<?wh 2m IN [ 2 ]; ?>');
+  MustContainError(0, errors, 62, "MONEY", "INTEGER");
+  errors := TestCompile('<?wh 2m IN [ 2i64 ]; ?>');
+  MustContainError(0, errors, 62, "MONEY", "INTEGER64");
+  errors := TestCompile('<?wh 2i64 IN [ 2 ]; ?>');
+  MustContainError(0, errors, 62, "INTEGER64", "INTEGER");
+  errors := TestCompile('<?wh 2i64 IN [ 2m ]; ?>');
+  MustContainError(0, errors, 62, "INTEGER64", "MONEY");
+  errors := TestCompile('<?wh 2f IN [ 2 ]; ?>');
+  MustContainError(0, errors, 62, "FLOAT", "INTEGER");
+  errors := TestCompile('<?wh 2f IN [ 2m ]; ?>');
+  MustContainError(0, errors, 62, "FLOAT", "MONEY");
+  errors := TestCompile('<?wh 2f IN [ 2i64 ]; ?>');
+  MustContainError(0, errors, 62, "FLOAT", "INTEGER64");
+
+  errors := TestCompile('<?wh 3m NOT IN [ 2 ]; ?>');
+  MustContainError(0, errors, 62, "MONEY", "INTEGER");
+  errors := TestCompile('<?wh 3m NOT IN [ 2i64 ]; ?>');
+  MustContainError(0, errors, 62, "MONEY", "INTEGER64");
+  errors := TestCompile('<?wh 3i64 NOT IN [ 2 ]; ?>');
+  MustContainError(0, errors, 62, "INTEGER64", "INTEGER");
+  errors := TestCompile('<?wh 3i64 NOT IN [ 2m ]; ?>');
+  MustContainError(0, errors, 62, "INTEGER64", "MONEY");
+  errors := TestCompile('<?wh 3f NOT IN [ 2 ]; ?>');
+  MustContainError(0, errors, 62, "FLOAT", "INTEGER");
+  errors := TestCompile('<?wh 3f NOT IN [ 2m ]; ?>');
+  MustContainError(0, errors, 62, "FLOAT", "MONEY");
+  errors := TestCompile('<?wh 3f NOT IN [ 2i64 ]; ?>');
+  MustContainError(0, errors, 62, "FLOAT", "INTEGER64");
+
+
+  errors := TestCompile('<?wh INTEGER ARRAY b := [4] NOT CONCAT [4]; ?>');
+  MustContainError(28, errors, 27);
+
+  CloseTest("TestOperators: InCONCATTest");
+}
+
+/*** LIKE operator  ***/
+MACRO LikeTest()
+{
+  OpenTest("TestOperators: LikeTest");
+  errors := TestCompile('<?wh 1 LIKE "*";  ?>');
+  MustContainError(1, errors, 62, "INTEGER", "STRING"); //conversion error
+  errors := TestCompile('<?wh "*" LIKE TRUE;  ?>');
+  MustContainError(2, errors, 62, "BOOLEAN", "STRING"); //conversion error
+
+  TestEq(TRUE,  "testje" LIKE "test*");
+  TestEq(TRUE,  "testje" LIKE "test??");
+  TestEq(FALSE, "testje" LIKE "tess*");
+  TestEq(TRUE,  "testje" LIKE "*je");
+  TestEq(TRUE,  "testje" LIKE "****");
+  TestEq(TRUE,  "testje" LIKE "t?stj?");
+  TestEq(TRUE,  "a" LIKE "?*");
+  TestEq( FALSE,  "" LIKE "?*");
+
+  errors := TestCompile('<?wh 1 NOT LIKE "*";  ?>');
+  MustContainError(11, errors, 62, "INTEGER", "STRING"); //conversion error
+
+  TestEq( FALSE,  "testje" NOT LIKE "test*");
+  TestEq( FALSE,  "testje" NOT LIKE "test??");
+  TestEq( TRUE,   "testje" NOT LIKE "tess*");
+  TestEq( FALSE,  "testje" NOT LIKE "*je");
+  TestEq( FALSE,  "testje" NOT LIKE "****");
+  TestEq( FALSE,  "testje" NOT LIKE "t?stj?");
+  TestEq( FALSE,  "a" NOT LIKE "?*");
+  TestEq( TRUE,  "" NOT LIKE "?*");
+
+  CloseTest("TestOperators: LikeTest");
+}
+
+OBJECTTYPE x < PUBLIC INTEGER a; MACRO NEW(INTEGER a) { this->a := a; } >;
+
+INTEGER FUNCTION Id(INTEGER x) { RETURN x; }
+
+   /*** Conditional operator [22] ***/
+MACRO NullCoalesceTest()
+{
+  OpenTest("TestOperators: NullCoalesceTest");
+
+  TestEQ(FALSE, FALSE ?? FALSE);
+  TestEQ(TRUE, TRUE ?? TRUE);
+  TestEQ(TRUE, FALSE ?? TRUE);
+  TestEQ(TRUE, TRUE ?? FALSE);
+
+  TestEQ("", "" ?? "");
+  TestEQ("b", "" ?? "b");
+  TestEQ("a", "a" ?? "b");
+
+  TestEQ(2, 0 ?? 2);
+  TestEQ(1, 1 ?? 2);
+
+  TestEQ(2m, 0m ?? 2m);
+  TestEQ(1m, 1m ?? 2m);
+
+  RECORD ARRAY errors := TestCompile('<?wh PRINT(AnyToString(0 ?? 1m, "tree"));  ?>');
+  MustContainError(1, errors, 133, "INTEGER", "MONEY");
+  errors := TestCompile('<?wh PRINT(AnyToString(1m ?? 2, "tree"));  ?>');
+  MustContainError(1, errors, 133, "MONEY", "INTEGER");
+
+  TestEQ(1f, 0f ?? 1f);
+  TestEQ(1f, 1f ?? 2f);
+
+  errors := TestCompile('<?wh PRINT(AnyToString(0 ?? 1f, "tree"));  ?>');
+  MustContainError(1, errors, 133, "INTEGER", "FLOAT");
+  errors := TestCompile('<?wh PRINT(AnyToString(0m ?? 1f, "tree"));  ?>');
+  MustContainError(1, errors, 133, "MONEY", "FLOAT");
+  errors := TestCompile('<?wh PRINT(AnyToString(1f ?? 2m, "tree"));  ?>');
+  MustContainError(1, errors, 133, "FLOAT", "MONEY");
+
+  TestEQ(1i64, 0i64 ?? 1i64);
+  TestEQ(1i64, 1i64 ?? 2i64);
+
+  errors := TestCompile('<?wh PRINT(AnyToString(1i64 ?? 2, "tree"));  ?>');
+  MustContainError(1, errors, 133, "INTEGER64", "INTEGER");
+  errors := TestCompile('<?wh PRINT(AnyToString(1 ?? 2i64, "tree"));  ?>');
+  MustContainError(1, errors, 133, "INTEGER", "INTEGER64");
+
+  RECORD nrs0 := [ i := 0, m := 0m, f := 0f, i64 := 0i64 ];
+  RECORD nrs1 := [ i := 1, m := 1m, f := 1f, i64 := 1i64 ];
+
+  TestEQ(1, nrs0.i ?? 1);
+  TestEQ(1m, nrs0.m ?? 1m);
+  TestEQ(1f, nrs0.f ?? 1f);
+  TestEQ(1i64, nrs0.i64 ?? 1i64);
+  TestEQ(1, 0 ?? nrs1.i);
+  TestEQ(1m, 0m ?? nrs1.i);
+  TestEQ(1m, 0m ?? nrs1.m);
+  TestEQ(1f, 0f ?? nrs1.i);
+  TestEQ(1f, 0f ?? nrs1.m);
+  TestEQ(1f, 0f ?? nrs1.f);
+  TestEQ(1i64, 0i64 ?? nrs1.i);
+  TestEQ(1i64, 0i64 ?? nrs1.i64);
+
+  RECORD result := TestCompileAndRun('<?wh RECORD x := [ a := 1m ]; PRINT((0 ?? x.a) || "");  ?>');
+  MustContainError(2, result.errors, 62, "MONEY", "INTEGER");
+  result := TestCompileAndRun('<?wh RECORD x := [ a := 1f ]; PRINT((0 ?? x.a) || "");  ?>');
+  MustContainError(2, result.errors, 62, "FLOAT", "INTEGER");
+  result := TestCompileAndRun('<?wh RECORD x := [ a := 1i64 ]; PRINT((0 ?? x.a) || "");  ?>');
+  MustContainError(2, result.errors, 62, "INTEGER64", "INTEGER");
+
+  errors := TestCompile('<?wh PRINT(AnyToString(DEFAULT RECORD ?? [[a:=1]], "tree"));  ?>');
+  MustContainError(1, errors, 133, "RECORD", "RECORD ARRAY");
+
+  TestEQ([ a := 1 ], DEFAULT RECORD ?? [ a := 1]);
+  TestEQ([ a := 2 ], [ a := 2 ] ?? [ a := 1]);
+
+  TestEQ(2, (DEFAULT OBJECT ?? NEW x(2))->a);
+  TestEQ(1, (NEW x(1) ?? NEW x(2))->a);
+
+  TestEQ([ [ a := 2 ] ], DEFAULT RECORD ARRAY ?? [ [ a := 2 ] ]);
+  TestEQ([ [ a := 1 ] ], [ [ a := 1 ] ] ?? [ [ a := 2 ] ]);
+
+  TestEQ([ 2 ], DEFAULT INTEGER ARRAY ?? [ 2 ]);
+  TestEQ([ 1 ], [ 1 ] ?? [ 2 ]);
+
+  TestEQ(1, (DEFAULT FUNCTION PTR ?? PTR Id(1))());
+  TestEQ(2, ((PTR Id(2)) ?? PTR Id(1))());
+
+  TestEQ("2", BlobToString(DEFAULT BLOB ?? StringToBlob("2"), -1));
+  TestEQ("1", BlobToString(StringToBlob("1") ?? StringToBlob("2"), -1));
+
+  TestEQ(MakeDate(2002, 1, 2), DEFAULT DATETIME ?? MakeDate(2002, 1, 2));
+  TestEQ(MakeDate(2002, 1, 1), MakeDate(2002, 1, 1) ?? MakeDate(2002, 1, 2));
+
+  errors := TestCompile('<?wh 1 ?? "a";  ?>');
+  MustContainError(2, errors, 133, "INTEGER", "STRING");
+
+  errors := TestCompile('<?wh RECORD r := [ a := 1 ] ?? "a";  ?>');
+  MustContainError(2, errors, 133, "RECORD", "STRING");
+
+  CloseTest("TestOperators: NullCoalesceTest");
+}
+
+PRINT("\n === Running TestOperators\n");
+NullCoalesceTest();
+InCONCATTest();
+BitOperatorTest();
+LogicalTest();
+ConditionalTest();
+AssignmentTest();
+ComparisonTest();
+ArithmeticTest();
+StringMergeTest();
+CellTest();
+PrecedenceTest();
+LikeTest();

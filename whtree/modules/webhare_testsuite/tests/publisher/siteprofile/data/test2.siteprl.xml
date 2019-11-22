@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+  <apply>
+    <to type="all" />
+    <blub xmlns="http://www.webhare.net/xmlns/webhare_testsuite/blub" blubber="2" />
+  </apply>
+  <applysiteprofile path="test3.siteprl.xml" />
+</siteprofile>

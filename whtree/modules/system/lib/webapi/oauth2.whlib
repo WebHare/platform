@@ -1,0 +1,358 @@
+<?wh
+/** @topic webapis/oauth2 */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+PUBLIC CONSTANT RECORD oauth2options := [ clientid := ""
+                                        , clientsecret := ""
+                                        , clientcomponent := DEFAULT OBJECT
+                                        , clientregistrykey := ""
+                                        , authorizeurl := ""
+                                        , authtokenurl := ""
+                                        , redirecturl := ""
+                                        , rpclogsource := ""
+                                        ];
+
+PUBLIC STATIC OBJECTTYPE Oauth2Connection
+<
+  RECORD oauthconfig;
+  OBJECT __browser;
+  RECORD __token;
+
+  PUBLIC PROPERTY browser(__browser, -);
+  PUBLIC PROPERTY token(__token,SetToken);
+
+  ///Some providers (eg Zoho) requirer a different token than "Bearer" as authorization type
+  PUBLIC STRING authorization_header_type;
+  ///Some providers (eg Zoho) set a wrong unit for 'expires_in'
+  PUBLIC BOOLEAN expires_in_msecs;
+
+  /** options.redirectto Where to redirect after authorization */
+  MACRO NEW(RECORD options)
+  {
+    this->oauthconfig := ValidateOptions(oauth2options, options, [ required := [ "clientid","authorizeurl","authtokenurl" ], passthroughin := "ignored" ]);
+
+    IF(ObjectExists(this->oauthconfig.clientcomponent))
+    {
+      IF(NOT MemberExists(this->oauthconfig.clientcomponent, "__isOauth2Client"))
+        THROW NEW Exception("The object passed to 'clientcomponent' must be an Oauth2Client Tollium component");
+
+      IF(RecordExists(this->oauthconfig.clientcomponent->value))
+      {
+        IF(this->oauthconfig.clientid = "")
+          this->oauthconfig.clientid := this->oauthconfig.clientcomponent->value.clientid;
+        IF(this->oauthconfig.clientsecret = "")
+          this->oauthconfig.clientsecret := this->oauthconfig.clientcomponent->value.clientsecret;
+      }
+    }
+
+    IF(this->oauthconfig.clientregistrykey != "")
+    {
+      RECORD keyinfo := ReadRegistryKey(this->oauthconfig.clientregistrykey, [fallback := DEFAULT RECORD]);
+      IF(RecordExists(keyinfo))
+      {
+        keyinfo := EnforceStructure([clientid := "", clientsecret := ""],keyinfo);
+        IF(this->oauthconfig.clientid = "")
+          this->oauthconfig.clientid := keyinfo.clientid;
+        IF(this->oauthconfig.clientsecret = "")
+          this->oauthconfig.clientsecret := keyinfo.clientsecret;
+      }
+    }
+
+    DELETE CELL ignored, clientcomponent, clientregistrykey FROM this->oauthconfig;
+
+    this->authorization_header_type := "Bearer";
+    this->__browser := NEW WebBrowser;
+    this->__browser->onrequest := PTR this->OnBrowserRequest(#1, this->__browser->onrequest);
+    IF(options.rpclogsource != "")
+      LogRPCForWebbrowser(options.rpclogsource, "", this->__browser);
+  }
+
+  MACRO SetToken(RECORD token)
+  {
+    IF(RecordExists(token))
+      ValidateOptions([ "access_token" := ""
+                      , "request_token" := ""
+                      ], token, [ title := "token", required := ["access_token"], passthroughin := "x" ]);
+    this->__token := token;
+  }
+
+  RECORD FUNCTION OnBrowserRequest(RECORD req, FUNCTION PTR nextinchain)
+  {
+    IF(RecordExists(this->token))
+    {
+      DELETE FROM req.headers WHERE ToUppercase(field)="AUTHORIZATION";
+      INSERT [ field := "Authorization", value := this->authorization_header_type || " " || this->token.access_token ] INTO req.headers AT END;
+    }
+    RETURN nextinchain(req);
+  }
+
+  //https://www.oauth.com/oauth2-servers/oauth2-clients/server-side-apps/
+  //request an authorization code you can trade in later
+  STRING FUNCTION GetAuthorizationCodeURL(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ scopes := STRING[]
+                               , state := ""
+                               , access_type := "online"
+                               , extraparameters := DEFAULT RECORD
+                               ], options, [ enums := [ access_type := ["offline","online"] ]]);
+
+    STRING redirectto := this->oauthconfig.redirecturl;
+    IF(redirectto = "")
+      redirectto := GetDefaultOauth2RedirectURL();
+
+    STRING url := UpdateURLVariables(this->oauthconfig.authorizeurl,
+      [ client_id := this->oauthconfig.clientid
+      , response_type := "code"
+      , scope := Detokenize(options.scopes,' ')
+      , redirect_uri := redirectto
+      , state := options.state
+      , access_type := options.access_type
+      , ...options.extraparameters
+      ]);
+    RETURN url;
+  }
+
+  /** @short Prepare the data needed to start an authorization flow
+      @long Like %AuthorizeClient this function starts an authentication flow, but gathers data for eg Tollium to handle the actual flow
+      @cell(string array) options.scopes Requested scopes
+      @cell(string) options.access_type 'offline' to request a refresh_token. defaults to 'online'
+      @cell(record) options.extraparameters Any extra parameters, eg [ prompt := "consent" ]
+      @return Record with authorization flow info
+  */
+
+  PUBLIC RECORD FUNCTION GetAuthorizeContext(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(CellExists(options,'state'))
+      THROW NEW Exception("The 'state' option is reserved by StartRedirectAuthorizationFlow and cannot be used");
+
+    IF(this->oauthconfig.clientsecret = "")
+      THROW NEW Exception("Cannot start an authorization flow without a client secret");
+
+    RETURN [ __oauth2_authflow := [ url := this->GetAuthorizationCodeURL(CELL[ ...options ])
+                                  , state := [ oauthconfig := this->oauthconfig
+                                             , tokeninfo := DEFAULT RECORD
+                                             , requeststart := GetCurrentDatetime()
+                                             ]
+                                  ]
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION __CreateFinalToken(RECORD sessdata)
+  {
+    IF(CellExists(sessdata.tokeninfo,"access_token"))
+    {
+      RETURN CELL[ ...sessdata.tokeninfo
+                         , __meta := [ requeststart := sessdata.requeststart ]
+                         ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  /** @short Start a redirecting authorization flow from the current page
+      @long This function is designed to run the same webpage twice - first it will notice the oauthsession2= variable
+            missing and redirect to the oauth pages. Oauth will then redirect back to the page, and we will return the token
+      @cell(string array) options.scopes Requested scopes
+      @cell(string) options.access_type 'offline' to request a refresh_token. defaults to 'online'
+      @cell(record) options.extraparameters Any extra parameters, eg [ prompt := "consent" ]
+      @return Success information
+      @cell(boolean) return.success True if we've succesfully authorized the client. AuthorizeClient redirects to the oauth2 flow if we don't have the token yet */
+  PUBLIC RECORD FUNCTION AuthorizeClient(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING sessid := GetWebVariable("oauth2session");
+    IF(sessid != "")
+    {
+      RECORD sessdata := GetWebSessionData(sessid, "system:oauth2");
+      RECORD tok := this->__CreateFinalToken(sessdata);
+      IF(RecordExists(tok))
+      {
+        this->token := tok;
+        RETURN [ success := TRUE ];
+      }
+      RETURN [ success := FALSE ];
+    }
+
+    RECORD authcontext := this->GetAuthorizeContext(options);
+    INSERT CELL finalreturnurl := GetRequestURL() INTO authcontext.__oauth2_authflow.state;
+    STRING oauth2session := CreateWebSession("system:oauth2", authcontext.__oauth2_authflow.state, 90, FALSE);
+    Redirect(UpdateURLVariables(authcontext.__oauth2_authflow.url, [ state := oauth2session ]));
+  }
+
+  /** @short Is this token still usable?
+      @cell options.validuntil Check if the token is valid until this time, by default we'll check if the token will work for at least 5 more minutes
+      @return True if the token has expired
+  */
+  PUBLIC BOOLEAN FUNCTION IsAccessTokenExpired(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ validuntil := DEFAULT DATETIME ], options);
+    IF(NOT RecordExists(this->token))
+      RETURN TRUE;//an empty token is always expired
+
+    IF(NOT CellExists(this->token,'expires_in'))
+      THROW NEW Exception("Access token lacks information to determine expiration");
+
+    DATETIME expiry := AddTimeToDate(INTEGER64(this->token.expires_in) * (this->expires_in_msecs ? 1 : 1000), this->token.__meta.requeststart);
+    DATETIME until := options.validuntil ?? AddTimetoDate(5*60*1000, GetCurrentDatetime());
+    RETURN expiry <= until;
+  }
+
+  /** @short Get a new accesstoken using our refresh token. This call updates this->token if succesful
+      @cell return.success Whether the renewal failed
+      @cell return.message Error message
+   */
+  PUBLIC RECORD FUNCTION RefreshAccessToken()
+  {
+    IF(NOT RecordExists(this->token)) //no token set at all
+      RETURN [ success := FALSE, message := "No token set" ];
+
+    DATETIME requeststart := GetCurrentDatetime();
+    BLOB body := CreateHTTPUrlencodedRequest(
+                  [[ name := "refresh_token", value := this->token.refresh_token ]
+                  ,[ name := "client_id",     value := this->oauthconfig.clientid ]
+                  ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
+                  ,[ name := "grant_type",    value := "refresh_token" ]
+                  ]).body;
+
+    IF(NOT this->browser->SendRawRequest("POST", this->oauthconfig.authtokenurl,
+        [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]], body))
+    {
+      RETURN [ success := FALSE, message := `Unable to retrieve request token: ${this->browser->GetHTTPStatusText()}` ];
+    }
+
+    RECORD newtoken := DecodeJSONBlob(this->browser->content);
+    IF(CellExists(newtoken,"access_token"))
+    {
+      this->token := CELL[ ...this->token  //keep any refresh_token
+                         , ...newtoken
+                           , __meta := [ requeststart := requeststart ]
+                         ];
+      RETURN [ success := TRUE, message := "" ];
+    }
+    RETURN [ success := FALSE, message := "No new accesstoken received" ];
+  }
+
+  /** @short Start an oauth2 authorization
+      @return options.promise Promise that will resolve when the oauth2 process is complete
+      @return options.url URL for the user to visit */
+  //PUBLIC RECORD FUNCTION StartOauth2Authorization(RECORD options DEFAULTSTO DEFAULT RECORD)
+  //{
+  //  IF(CellExists(options,'state'))
+  //    THROW NEW Exception("The 'state' option is reserved by StartOauth2Authorization and cannot be used");
+
+  //  //TODO use something more persistent and more flexible than a websession
+  //  RECORD defer := CreateDeferredPromise();
+  //  STRING oauth2session := CreateWebSession("system:oauth2", DEFAULT RECORD, 90, FALSE);
+  //  options := CELL [ ...options, state := oauth2session];
+
+  //  RETURN [ promise := defer.promise
+  //         , url := this->GetAuthorizationCodeURL(options)
+  //         ];
+  //}
+
+  //trade in the authorization code for a request token
+  PUBLIC RECORD FUNCTION RequestToken(STRING code)
+  {
+    STRING redirectto := this->oauthconfig.redirecturl;
+    IF(redirectto = "")
+      redirectto := GetDefaultOauth2RedirectURL();
+
+    BLOB body := CreateHTTPUrlencodedRequest(
+                  [[ name := "code",          value := code ]
+                  ,[ name := "client_id",     value := this->oauthconfig.clientid ]
+                  ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
+                  ,[ name := "redirect_uri",  value := redirectto ]
+                  ,[ name := "grant_type",    value := "authorization_code" ]
+                  ]).body;
+
+    IF(NOT this->browser->SendRawRequest("POST", this->oauthconfig.authtokenurl,
+        [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]], body))
+      THROW NEW Exception(`Unable to retrieve request token: ${this->browser->GetHTTPStatusText()}`);
+
+    RECORD token := EnforceStructure([ access_token := "", refresh_token := "", expires_in := 0, token_type := "" ], DecodeJSONBLob(this->browser->content));
+    RETURN token;
+  }
+
+  /// Grab a token from a registry key, extending it if necessary
+  PUBLIC RECORD FUNCTION SetupTokenUsingRegistryKey(STRING keyname)
+  {
+    IF(GetPrimary()->IsWorkOpen())
+      THROW NEW Exception("SetupTokenUsingRegistryKey cannot be used with open work"); //we need control, plus shouldn't do remote requests with open transactions
+
+    this->token := ReadRegistryKey(keyname);
+
+    IF(this->IsAccessTokenExpired())
+    {
+      RECORD refreshres := this->RefreshAccessToken();
+      IF(refreshres.success)
+      {
+        GetPrimary()->BeginWork();
+        WriteRegistryKey(keyname, this->token);
+        GetPrimary()->CommitWork();
+      }
+      RETURN refreshres;
+    }
+    RETURN [ success := TRUE ];
+  }
+>;
+
+/** Get the default landing page for this WebHare
+    @return URL to the landing page */
+PUBLIC STRING FUNCTION GetDefaultOauth2RedirectURL()
+{
+  RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.system/endpoints/oauth2.shtml");
+}
+
+/** @short Run the oauth2 landing page (normally hosted as /.system/endpoints/oauth2.shtml
+    @param options No options available yet
+*/
+PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  STRING sessid := GetWebVariable("state");
+  IF(sessid = "")
+    THROW NEW Exception(`Missing 'state' variable`);
+
+  RECORD sessdata;
+  OBJECT connection;
+  IF(sessid LIKE "ipc:*")
+  {
+    connection := ConnectToIPCPort(Substring(sessid,4));
+    IF(NOT ObjectExists(connection))
+      THROW NEW Exception(`Your session has expired`); //you already did this probably
+
+    RECORD msg := connection->ReceiveMessage(MAX_DATETIME); //get state
+    sessdata := msg.msg.__oauth2_authflow.state;
+  }
+  ELSE
+  {
+    sessdata := GetWebSessionData(sessid, "system:oauth2");
+    IF(NOT RecordExists(sessdata))
+      THROW NEW Exception(`Your session has expired`); //TODO do 'something' nice here, although our options are limited especially on the generic landing page!
+  }
+
+  OBJECT oauthconnection := NEW Oauth2Connection(sessdata.oauthconfig);
+  RECORD tokeninfo := oauthconnection->RequestToken(GetWebVariable("code"));
+
+  sessdata := CELL[...sessdata, tokeninfo := tokeninfo ];
+
+  IF(ObjectExists(connection))
+  {
+    connection->SendMessage(oauthconnection->__CreateFinalToken(sessdata));
+    Print("<script>window.close();</script>");
+  }
+  ELSE
+  {
+    StoreWebSessionData(sessid, "system:oauth2", sessdata);
+    Redirect(UpdateURLVariables(sessdata.finalreturnurl, [ oauth2session := sessid ]));
+  }
+}

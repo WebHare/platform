@@ -1,0 +1,45 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+OBJECT ASYNC FUNCTION RunModalScreen()
+{
+  RECORD rec;
+
+  rec := AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml#modalresult")->RunModal);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TestEq("ok", AWAIT rec.expectcallreturn());
+
+  rec := AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml#modalresult")->RunModal);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  TestEq("cancel", AWAIT rec.expectcallreturn());
+
+  rec := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml#modalresult"));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TestEq("ok", AWAIT rec.expectcallreturn());
+
+  rec := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml#modalresult"));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  TestEq("cancel", AWAIT rec.expectcallreturn());
+
+  rec := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml#stringresult"));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TestEq("positive-result", AWAIT rec.expectcallreturn());
+
+  rec := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml#stringresult"));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  TestEq("", AWAIT rec.expectcallreturn());
+
+  rec := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml#booleanresult"));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TestEq("ok", AWAIT rec.expectcallreturn());
+
+  rec := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml#booleanresult"));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  TestEq("cancel", AWAIT rec.expectcallreturn());
+
+  RETURN TRUE;
+}
+
+RunTestFramework([ PTR RunModalScreen
+                 ]);

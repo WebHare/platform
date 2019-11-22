@@ -1,0 +1,679 @@
+﻿<?wh
+/** @short WebHare webserver
+    @long This library allows access to the webserver's environment and to data
+          about the current connection, such as variables passed over the URL.
+          This library should only be loaded by scripts implementing server-parsed (SHTML) pages.
+    @topic sitedev/dynamic
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internet/http.whlib" EXPORT FormatHttpDateTime;
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/internal/webserver/support.whlib" EXPORT NotAShtmlContextException;
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+
+
+/** @short Are we in a dynamic page?
+    @long Tests if the current HareScript job is handling a dynamic page request and calls like %GetWebVariable are safe to make
+    @return True if we're running in a webserver context*/
+PUBLIC BOOLEAN FUNCTION IsRequest()
+{
+  //ADDME nicer implementation
+  TRY
+  {
+    GetWebVariable("X");
+    RETURN TRUE;
+  }
+  CATCH(OBJECT e)
+  {
+    RETURN FALSE;
+  }
+}
+
+/** @short Redirect the user to a page
+    @long Reset the response and redirect the user to the specified page. This function does not return.
+    @param url The URL of the page to redirect the user to.
+               Instead of a URL a relative path may also be used.
+    @param redirectcode Redirect code to use (303 = Temporary redirect, 301 = Permanent redirect). Defaults to 303.
+@example
+// A redirect to a specified URL, including a parameter
+STRING param := EncodeURL( GetWebVariable("searchstring") );
+Redirect("http://www.searchengine.com/index.shtml?search=" || param);
+
+// A redirect to a relative path
+Redirect("../../document.doc/index.html");
+
+// A Redirect to the root of the site
+Redirect("/");
+
+// Redirect to the current page, deleting all parameters from the url (if any)
+// and adding parameter 'step=2'
+Redirect("?step=2")
+*/
+PUBLIC MACRO Redirect(STRING url, INTEGER redirectcode DEFAULTSTO 303) __ATTRIBUTES__(TERMINATES)
+{
+  IF(redirectcode NOT IN [301,302,303,307])
+    ABORT("Invalid redirect status code '" || redirectcode || "'"); //Must use abort, as we're a __terminates__
+
+  url := ResolveToAbsoluteURL(GetClientRequestUrl(), url);
+  AddHTTPHeader("Status", ToString(redirectcode), FALSE);
+  AddHTTPHeader("Location", url, FALSE);
+  ResetWebResponse();
+  PrepareHTTPResponse(); //flush add headers
+  TerminateScript();
+}
+
+/** @short Abort with the specified HTTP error
+    @long Send the proper error page. Any reason is transmitted with the response (for browser consoles) but nothing about the request is logged to the error.log
+    @param errorcode HTTP Error status code
+    @param reason Optional reason to send with the status code
+    @cell(string) options.htmlbody Override HTML body to send with the error*/
+PUBLIC MACRO AbortWithHTTPError(INTEGER errorcode, STRING reason DEFAULTSTO "", RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(TERMINATES)
+{
+  options := ValidateOptions([ htmlbody := ""], options);
+
+  IF( (errorcode < 400 OR errorcode > 599) AND errorcode != 304)
+    ABORT("Invalid HTTP error code '" || errorcode || "'"); //Must use abort, as we're a __terminates__
+  IF(errorcode = 401 AND NOT RecordExists(SELECT FROM sendhttpheaders WHERE ToUppercase(header)="WWW-AUTHENTICATE"))
+    ABORT("A 401 response requires a WWW-AUTHENTICATE header");
+  IF(errorcode = 407 AND NOT RecordExists(SELECT FROM sendhttpheaders WHERE ToUppercase(header)="PROXY-AUTHENTICATE"))
+    ABORT("A 407 response requires a PROXY-AUTHENTICATE header");
+
+  ResetWebResponse();
+  AddHTTPHeader("Status", reason != "" ? errorcode || " " || reason : ToString(errorcode), FALSE);
+  IF(options.htmlbody != "")
+  {
+    AddHTTPHeader("Content-Type", "text/html; charset=utf-8", FALSE);
+    Print(options.htmlbody);
+  }
+  PrepareHTTPResponse(); //flush add headers
+  TerminateScript();
+}
+
+/** @short Send a file to the web client
+    @long Reset the response and send the specified file to the user. This function does not return, but the VM, including any database transactions, will remain open until the file transfer is complete.
+    @param data File to send */
+PUBLIC MACRO SendWebFile(BLOB data) __ATTRIBUTES__(TERMINATES)
+{
+  PrepareHTTPResponse(); //flush add headers
+  IF (LENGTH(data) = 0)
+    TerminateScript();
+
+  IF(__OnBeforeTerminateScript != DEFAULT FUNCTION PTR)
+    __OnBeforeTerminateScript(); //coverage analysis hook
+  __WHS_SendWebFile(data);
+}
+
+/** @short Send a wrapped blob to the web client
+    @long Reset the response and send the specified file to the user. This function does not return, but the VM, including any database transactions, will remain open until the file transfer is complete.
+    @param filerec File to send, compatible with WrapBlob output
+    @cell filerec.mimetype The file's mime type
+    @cell filerec.filename The filename to use
+    @cell filerec.data The blob to send
+    @cell options.inline Set to TRUE to try to display the file inline instead of always downloading it
+*/
+PUBLIC MACRO SendWrappedWebFile(RECORD filerec, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ inline := FALSE ], options);
+  AddHTTPHeader('Content-Type', filerec.mimetype, FALSE);
+  AddHTTPHeader('Content-disposition', (options.inline ? 'inline' : 'attachment') || ';filename="' || filerec.filename || '"', FALSE);
+  SendWebFile(filerec.data);
+}
+
+/** @short Return the header from the http request
+    @param name Name of the header to return (eg 'User-agent')
+    @return Contents of requested header
+    @see GetAllWebHeaders */
+PUBLIC STRING FUNCTION GetWebHeader(STRING name) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get request's origin URL
+    @long Determine the full origin URL based on the hostname from Origin and Referer header if available, and on requesturl otherwise
+    @param path Local path as specified by app, may be a full url, start with slash, or be empty
+    @return The origin URL (never ends with a slash, eg https://beta.webhare.net)
+*/
+PUBLIC STRING FUNCTION GetWebOriginURL(STRING path)
+{
+  STRING origin := GetWebHeader("Origin");
+  IF(origin = "")
+  {
+    STRING referrer := GetWebHeader("Referer");
+    IF(referrer != "")
+      origin := UnpackURL(referrer).origin;
+  }
+  IF(origin="")
+    origin := UnpackURL(GetRequestURL()).origin;
+
+  IF(IsAbsoluteURL(path, FALSE))
+    path := UnpackURL(path).urlpath;
+  IF(path NOT LIKE "/*")
+    path := "/" || path;
+  RETURN origin || path;
+}
+
+
+/** @short Return a variable from the query
+    @param name Name of a variable passed through the URL or a POST request
+    @return Contents of requested variable, truncated to 4096 bytes
+    @see GetAllWebVariables */
+PUBLIC STRING FUNCTION GetWebVariable(STRING name) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Return file from the query
+    @param name Name of a variable passed through the URL or a POST request
+    @long Interprets the web variable as a file, and returns it as a blob.
+          This function must be used to deal with uploaded files and variables
+          longer than 4096 bytes.
+          Make sure your form tag has an 'enctype="multipart/form-data"' attribute to receive uploads
+    @return The uploaded file
+    @see GetWebVariable, GetWebVariableLength, GetWebVariableFilename*/
+PUBLIC BLOB FUNCTION GetWebBlobVariable(STRING name)
+{
+  IF(NOT downloaded_webvarcache)
+    GetWebvars();
+  RETURN SELECT AS BLOB data FROM webvarcache WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name);
+}
+
+/** @short Get the total length of the contents of a variable
+    @long GetWebVariableLength() is used to find the length of the contents of a
+          variable passed through the URL or a POST request. This function can be very usefull
+          to check whether a variable's content is bigger than 4096 bytes, in which case the GetWebVariable()
+          function is of no use, and the GetWebBlobVariable() function should be used.
+    @param name Name of a variable passed through the URL or a POST request
+    @return The length of the contents of the variable, in bytes
+    @see GetWebVariable, GetWebBlobVariable*/
+PUBLIC INTEGER FUNCTION GetWebVariableLength(STRING name)
+{
+  IF(NOT downloaded_webvarcache)
+    GetWebvars();
+  RETURN SELECT AS INTEGER Length(data) FROM webvarcache WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name);
+}
+
+/** @short Get the filename of an uploaded file, if available
+    @param name Name of a variable passed through the URL or a POST request
+    @return The name the user's browser gave for this file
+    @see GetWebVariable, GetWebBlobVariable, GetWebVariableLength*/
+PUBLIC STRING FUNCTION GetWebVariableFilename(STRING name)
+{
+  IF(NOT downloaded_webvarcache)
+    GetWebvars();
+  RETURN SELECT AS STRING filename FROM webvarcache WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name);
+}
+
+/** @short Get all query variables
+    @long GetAllWebVariables() returns a record array containing the names and values of all variables
+          passed through the URL or a POST request.
+    @return Record array of query variables
+    @cell(string) return.name Name of the query variable
+    @cell(string) return.value Value of the query variable (the first 4096 characters)
+    @cell(string) return.data The data of the query variable as a blob
+    @cell(string) return.filename The suggested filename for this variable, if any
+    @cell(boolean) return.ispost This variable was passed through the body of a POST message (not on the URL)
+    @see GetWebVariable, GetWebBlobVariable */
+PUBLIC RECORD ARRAY FUNCTION GetAllWebVariables()
+{
+  IF(NOT downloaded_webvarcache)
+    GetWebvars();
+  RETURN webvarcache;
+}
+
+/** @short Get all request headers
+    @long GetAllWebHeaders() returns a record array containing the headers passed with the current request
+    @return Record array of request headers
+    @cell return.field Name of the request header
+    @cell return.value Value of the request header
+    @see GetWebHeader */
+PUBLIC RECORD ARRAY FUNCTION GetAllWebHeaders() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the port the client connects to
+    @long This function returns the local TCP port to which the client connected (ie, one of the webserver's listening ports)
+    @return The TCP port number, a number between 1 - 65535 */
+PUBLIC integer FUNCTION GetClientLocalPort() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the ip the client connects to
+    @long This function returns the local IP address to which the client connected (ie, one of the webserver's IP addresses)
+    @return The dotted-quad IPV4 address as a string */
+PUBLIC string FUNCTION GetClientLocalIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the ID of the webserver the client connects to
+    @return The webserver's id in the system.webservers table */
+public integer function GetClientWebserver() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the ID of the port the client connected to
+    @return The port's id in the system.ports table (0 for connections via the trusted port) */
+PUBLIC INTEGER FUNCTION GetClientBinding() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short For virtual hosting, returns the hostname of the webserver, otherwise the IP of the server webserver
+        the client connects to.
+    @return The name of the webserver */
+PUBLIC string FUNCTION GetClientLocalAddress() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the ip the client connects from
+    @long This function returns the remote IP address from which the client connected (ie, his IP address)
+    @return The dotted-quad IPV4 address as a string */
+public string function GetClientRemoteIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the port the client connects from
+    @long  This function returns the remote TCP port from which the client connected
+    @return The TCP port number, a number between 1 - 65535 */
+public integer function GetClientRemotePort() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the client's username
+    @long This function returns the displayed username stored for this client's authentication
+    @return The username */
+PUBLIC STRING FUNCTION GetClientUsername() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Check whether the current HTTP request was a POST request
+    @return true if the current request was a Post request.
+    @example
+// Is this was a post request? If so, process the input
+IF ( isRequestPost() )
+{
+  // get all variables
+  RECORD ARRAY allVariables := GetAllWebVariables();
+
+  // loop through data and make sure no variable was left empty
+  FOREVERY (RECORD theVariable FROM allVariables)
+  {
+    IF (theVariable.value = "")
+      Abort("Variable " || theVariable.name || " was left empty");
+  }
+}
+*/
+PUBLIC BOOLEAN FUNCTION IsRequestPost()
+{
+  RETURN GetRequestMethod()="POST";
+}
+
+/** @short Get the HTTP request method used in this request
+    @return The HTTP method, eg "GET", "POST", "HEAD", "PUT"
+    @see IsRequestPost */
+public string function GetRequestMethod() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the requested URL
+    @return The complete requested URL, including http:// part and any variables and their values*/
+PUBLIC STRING FUNCTION GetRequestURL() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the requested URL
+    @return The complete requested URL, including http:// part and any variables and their values*/
+PUBLIC STRING FUNCTION GetClientRequestURL() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Add a HTTP header
+    @long Add a HTTP header to this response. The caller is responsible for not violating
+          the HTTP spec
+    @param header Name of the header to add
+    @param data Data to add inside the header
+    @param always_add If true, add this header line. If false, replace the header line if it was already set
+    @example
+//Replace the content type of this document with 'plain text'
+AddHTTPHeader("Content-Type","text/plain",FALSE);
+
+//Add an X-Trace header, supplementing any existing headers
+AddHTTPHeader("X-Trace", "My Harescript file",TRUE);
+*/
+
+PUBLIC MACRO AddHTTPHeader(STRING header, STRING data, BOOLEAN always_add)
+{
+  IF(sentresponse)
+    THROW NEW Exception("Cannot AddHeader after flushing the response");
+  IF(NOT always_add)
+    DELETE FROM sendhttpheaders WHERE ToUppercase(sendhttpheaders.header) = ToUppercase(VAR header);
+  INSERT INTO sendhttpheaders(header, data, always_add) VALUES(header, data, always_add) AT END;
+
+  /*
+  IF(
+
+  IF (redirect_addheader = DEFAULT FUNCTION PTR)
+    __WHS_AddHTTPHeader(header, data, always_add);
+  ELSE
+    redirect_addheader(header, data, always_add);*/
+}
+
+/** @short Get all cookies
+    @long This returns all the cookies originally sent by the client. They are not decrypted and do not include
+          updates made to the cookies during the current page
+    @return The cookies
+    @cell(string) return.name Cookie name
+    @cell(string) return.value Cookie content */
+PUBLIC RECORD ARRAY FUNCTION GetAllWebCookies()
+{
+  RECORD ARRAY outcookies;
+  FOREVERY(RECORD hdr FROM GetAllWebHeaders())
+  {
+    IF(ToUppercase(hdr.field)!="COOKIE")
+      CONTINUE;
+
+    STRING ARRAY cookies := Tokenize(hdr.value,";");
+    FOREVERY(STRING cookietok FROM cookies)
+    {
+      cookietok := TrimWhitespace(cookietok);
+
+      STRING cookiename := Left(cookietok, SearchSubstring(cookietok, '='));
+      STRING cookievalue := Substring(cookietok, Length(cookiename)+1);
+      IF(cookievalue LIKE '"*"') //classic value
+        cookievalue := DecodeJava(Substring(cookievalue, 1, Length(cookievalue)-2));
+      ELSE
+        cookievalue := DecodeURL(cookievalue);
+
+      INSERT [ name := cookiename
+             , value := cookievalue
+             ] INTO outcookies AT END;
+    }
+  }
+  RETURN outcookies;
+}
+
+/** @short Get a cookie from the client
+    @param name Name of the cookie
+    @return The contents of the cookie, or an empty string if no cookie with the specified name was submitted*/
+PUBLIC STRING FUNCTION GetWebCookie(STRING name)
+{
+  FOREVERY(RECORD cookie FROM GetAllWebCookies())
+  {
+    IF(ToUppercase(cookie.name) = ToUppercase(name))
+      RETURN cookie.value;
+  }
+  RETURN "";
+}
+
+/** @short Get an encrypted cookie from the client
+    @param name Name of the cookie
+    @param secretkey The secret encryption key to use. If empty, the server generated key will be used
+    @return The contents of the cookie, if we succesfully decrypted and verified it */
+PUBLIC STRING FUNCTION GetDecryptedWebCookie(STRING name, STRING secretkey DEFAULTSTO "")
+{
+  STRING value := GetWebCookie(name);
+  IF(value NOT LIKE "X-*") //signature to mark the algorithm, in case of future algorithm changes
+    RETURN "";
+
+  value:=Substring(value,2);
+  IF(secretkey != "")
+  {
+    value := DecryptSignedData(value, "SHA-1,BLOWFISH+CBC,8", secretkey);
+    IF(value="") //try fallback algorithm, but ECB is less safe
+      value := DecryptSignedData(value, "SHA-1,BLOWFISH+ECB,8", secretkey);
+  }
+  ELSE
+    value := DecryptForThisServer(ToLowercase("system:webserver-cookie:" || name), value);
+
+  RETURN value;
+}
+
+/** @short Set or update a cookie on the client
+    @long This function will set or update the value of a cookie on the client. Using this macro does not directly affect GetWebCookie, but should affect it on the next call.
+    @param name Cookie name
+    @param value Cookie value. If left empty, the existing cookie with the name will be deleted. Setting non-ASCII data is not recommended for unencrypted cookies
+    @param options Cookie options
+    @cell(integer) options.lifetime Cookie lifetime in seconds. If 0, the cookie will be a session cookie (the default)
+    @cell(string) options.domain Cookie domain. Defaults to empty, in which case the cookie will be valid for the current host only
+    @cell(string) options.path Cookie path. Defaults to "/", making the cookie available for all URLs on this domain
+    @cell(boolean) options.secure If true, mark a cookie to only be transferred over secure connections.
+    @cell(boolean) options.httponly If true, mark a cookie as 'httponly', making it invisible to Javascript and helping to mitigate the damage of XSS attacks. Defaults to true
+    @cell(boolean) options.encrypt If true, the cookie will be encrypted. Defaults to false
+    @cell(string) options.secretkey The secret encryption key to use. If empty, a server generated key will be used.
+    @cell(string) options.samesite SameSite setting (empty, 'none', lax' or 'strict')
+*/
+PUBLIC MACRO UpdateWebCookie(STRING name, STRING value, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ lifetime := 0
+                              , domain := ""
+                              , path := "/"
+                              , secure := FALSE
+                              , httponly := TRUE
+                              , encrypt := FALSE
+                              , secretkey := ""
+                              , samesite := ""
+                              ], options, [ enums := [ samesite := [ "", "none", "lax", "strict" ]
+                                                     ]
+                                          ]);
+
+  IF(value != "" AND options.encrypt)
+  {
+    IF(options.secretkey != "")
+      value := "X-" || EncryptAndSignData(value, "SHA-1,BLOWFISH+CBC,8", options.secretkey);
+    ELSE
+      value := "X-" || EncryptForThisServer(ToLowercase("system:webserver-cookie:" || name), value);
+  }
+  ELSE IF(value!="")
+    value := EncodeURL(value);
+
+  name := TrimWhitespace(name);
+
+  STRING cookieline := name || '=' || value;
+  IF(value="")
+    options.lifetime := -86400;
+
+  IF (value="" OR options.lifetime>0)
+  {
+    // Calculate expiration date
+    INTEGER days := options.lifetime / (24*3600);
+    INTEGER secs := options.lifetime % (24*3600);
+    DATETIME expirationdate := AddTimeToDate(secs * 1000,GetCurrentDateTime());
+    expirationdate := AddDaysToDate(days, expirationdate);
+
+    cookieline := cookieline || ";Max-Age=" || options.lifetime
+                             || ";Expires=" || FormatHttpDateTime(expirationdate);
+  }
+
+  IF(options.path="")
+    options.path:="/";
+  cookieline := cookieline || ";Path=" || EncodeJava(options.path);
+
+  IF (options.domain!="")
+    cookieline := cookieline || ";Domain=" || EncodeJava(options.domain);
+
+  IF(options.httponly)
+    cookieline := cookieline || ";HttpOnly";
+  IF(options.secure)
+    cookieline := cookieline || ";Secure";
+  IF (options.samesite != "")
+    cookieline := cookieline || ";SameSite=" || options.samesite;
+
+  DELETE
+    FROM sendhttpheaders
+   WHERE header="Set-Cookie"
+     AND ToUppercase(data) LIKE ToUppercase(name||"=*")
+     AND ("Path=" || EncodeJava(options.path) IN Tokenize(data, ";"))
+     AND (("Domain=" || EncodeJava(options.domain) IN Tokenize(data, ";")) = (options.domain != ""));
+
+  AddHTTPHeader("Set-Cookie",cookieline, TRUE);
+}
+
+/** @short Create a new session
+    @long Create a session, and set its initial data and expiry time. Note that a sesson can't expire while any scripts that referred to it are still running
+    @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
+    @param sessdata Initial session data
+    @param maxidle_minutes Time without references to pass after which this session expire, in minutes
+    @param limit_to_server True if this session should only be available for requests to this webserver
+    @return A random session id which can be used to refer to the session
+    @see GetWebSessionData CloseWebSession
+*/
+PUBLIC STRING FUNCTION CreateWebSession(STRING scope, RECORD sessdata, INTEGER maxidle_minutes, BOOLEAN limit_to_server) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Store data into a session
+    @param sessid Session ID to open
+    @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
+    @param sessdata Data to store
+    @see CreateWebSession GetWebSessionData */
+PUBLIC MACRO StoreWebSessionData(STRING sessid, STRING scope, RECORD sessdata) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get session data from an active session, extending its lifetime if necessary
+    @param sessid Session ID to open
+    @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
+    @return The data last stored with CreateWebSession or StoreWebSessionData or a non-existing record if the session doesn't exist
+    @see CreateWebSession StoreWebSessionData */
+PUBLIC RECORD FUNCTION GetWebSessionData(STRING sessid, STRING scope) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short End a session, deleting any data stored for the session
+    @param sessid Session ID to close
+    @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
+    @see GetWebSessionData CreateWebSession */
+PUBLIC MACRO CloseWebSession(STRING sessid, STRING scope) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the full undecoded request body
+    @long This function gets the full request body, if the body was not a form submission body.
+    @return The request body as a blob */
+PUBLIC BLOB FUNCTION GetRequestBody() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Flush all server output so far (EXPERIMENTAL!)
+    @param waituntil Time to wait for the flush to complete
+    @return Non-existing record on failure
+    */
+PUBLIC RECORD FUNCTION FlushWebResponse(DATETIME waituntil)
+{
+  PrepareHTTPResponse(); //flush add headers
+  sentresponse := TRUE;
+  RETURN __WHS_FlushWebResponse(waituntil);
+}
+
+/** @short Reset the response
+    @long Clear all buffered data (ie everything already PRINT-ed to the webserver output), allowing you to restart rendering the webpage from the beginning. This function is mainly useful for exception handling, to prevent printing a half-rendered page
+*/
+PUBLIC MACRO ResetWebResponse() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get and parse the accept-language header
+    @return Accepted languages, sorted by preference
+    @cell(string) return.language Language code (eg 'nl', '`
+    @cell(string) return.country Countrycode
+    @cell(integer) return.quality Quality (preference, from 0 to 100. 100 is most preferred) */
+PUBLIC RECORD ARRAY FUNCTION GetWebAcceptLanguage()
+{
+  RECORD ARRAY languages;
+ /*
+ Examples: 'en-us,en;q=0.5'
+          'da, en-gb;q=0.8, en;q=0.7'
+ */
+
+  STRING ARRAY preferlang := Tokenize(GetWebHeader('Accept-Language'), ',');
+  FOREVERY(STRING lang FROM preferlang)
+  {
+    RECORD langrec := [language := '', country := '*', quality := 100];
+
+    STRING ARRAY langprops := Tokenize(ToLowercase(lang), ';');
+    IF(LENGTH(langprops) > 0)
+    {
+      langrec.language := langprops[0];
+      STRING ARRAY countrycheck := Tokenize(langrec.language, '-');
+      IF(LENGTH(countrycheck)>0)
+        langrec.language := countrycheck[0];
+      IF(LENGTH(countrycheck)>1)
+        langrec.country := countrycheck[1];
+    }
+
+    IF(LENGTH(langprops) > 1)
+    {
+      STRING ARRAY qualityparts := Tokenize(langprops[1], '=');
+      IF(LENGTH(qualityparts) > 1)
+      {
+        STRING q := TrimWhiteSpace(qualityparts[1]);
+        INTEGER pointpos := SearchSubstring(q,'.');
+        IF(pointpos > -1)
+        {
+          langrec.quality := ToInteger(SubString(q,0,pointpos),0) * 100;
+          langrec.quality := langrec.quality + ToInteger(SubString(q,pointpos+1,2),0);
+        }
+        ELSE
+        {
+          langrec.quality := ToInteger(q,0) * 100;
+        }
+
+      }
+    }
+
+    IF(langrec.language != '')
+      INSERT langrec INTO languages AT END;
+  }
+
+  RETURN SELECT * FROM languages ORDER BY quality DESC;
+}
+
+/** @short Execute a submit instruction
+    @long Executes a reload, redirect, form submission or a message to the parent window<br>
+    <br>
+    Types of instruction:<br>
+    <ul>
+      <li><em>reload</em><br>Reloads the current page (redirect to GetRequestURL())</li>
+      <li><em>redirect</em><br>Redirect to a specific target URL</li>
+      <li><em>form</em><br>Submits a form to an URL (client-side)</li>
+      <li><em>postmessage</em><br>Posts a message to the window.parent</li>
+    </ul>
+    @param instr Submitinstruction
+    @cell(string) instr.type Instruction type ('reload', 'redirect', 'form', 'postmessage')
+    @cell(string) instr.url Redirect URL (only for type 'redirect')
+    @cell(record) instr.form Form data (only for type 'form')
+    @cell(string) instr.form.method Form method (allowed values: 'GET', 'POST')
+    @cell(string) instr.form.action Form action URI
+    @cell(record array) instr.form.vars Form variables to post
+    @cell(string) instr.form.vars.name Name of the variable
+    @cell(string) instr.form.vars.value Value of the variable
+*/
+PUBLIC MACRO ExecuteSubmitInstruction(RECORD instr)
+{
+  AddHTTPHeader("Cache-Control", "no-cache, no-store", FALSE);
+  AddHTTPHeader("Pragma", "no-cache", FALSE);
+
+  SWITCH (instr.type)
+  {
+    CASE "reload"     { Redirect(GetRequestURL()); }
+    CASE "redirect"   { Redirect(instr.url); }
+    CASE "form"
+    {
+      OBJECT witty := NEW WittyTemplate("HTML");
+      witty->LoadCodeDirect(
+          '<html><body><form id="repostform" action="[action]" method="[method]">' ||
+          '[forevery vars]<input name="[name]" type="hidden" value="[value]"></input>[/forevery]' ||
+          '<input id="submitbutton" type="submit" value="Submit"></input></form>' ||
+          '<script type="text/javascript">document.getElementById("submitbutton").style.display="none";document.getElementById("repostform").submit()</script>' ||
+          '</body></html>');
+
+      BLOB data := witty->RunToBlob([ action := instr.form.action, method := instr.form.method, vars := instr.form.vars ]);
+      SendWebFile(data);
+    }
+    CASE "postmessage"
+    {
+      STRING target := "parent";
+      IF (CellExists(instr, "TARGET"))
+      {
+        IF (instr.target NOT IN [ "opener", "parent"])
+          THROW NEW Exception("Only allowed postmessage targets are 'parent' and 'opener'");
+        target := instr.target;
+      }
+
+      OBJECT witty := NEW WittyTemplate("HTML");
+      witty->LoadCodeDirect(
+          '<html><body>' ||
+          '<script type="text/javascript">' || target || '.postMessage([message:none], "*");' ||
+          (target = "opener" ? "window.close();" : "") ||
+          '</script></body></html>');
+
+      BLOB data := witty->RunToBlob([ message := EncodeJSON(instr.message) ]);
+      SendWebFile(data);
+    }
+    CASE "close"
+    {
+      PRINT(
+          '<html><body>' ||
+          '<script type="text/javascript">window.close();</script>' ||
+          '</body></html>');
+      TerminateScript();
+    }
+  }
+  ABORT("Unknown form instruction " || instr.type);
+}
+
+/** @short Log the current request to the RPC log
+    @param source Log source */
+PUBLIC MACRO LogCurrentRequestToRPCLog(STRING source)
+{
+  LogRPCTraffic(source, GetRequestMethod() || " " || GetRequestURL(), FALSE, GetClientRemoteIP(), "",
+                 [ headers := GetAllWebHeaders()
+                 , body := MakeSlicedBlob(GetRequestBody(), 0, 4096)
+                 , bodylength := Length(GetRequestBody())
+                 ]);
+}
+

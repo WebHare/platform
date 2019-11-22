@@ -1,0 +1,64 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+RECORD ARRAY calls;
+
+MACRO GotUnhandledReject(RECORD data)
+{
+  INSERT [ name := "__UnhandledRejection", data := data ] INTO calls AT END;
+}
+
+MACRO GotRejectionHandled(RECORD data)
+{
+  INSERT [ name := "__RejectionHandled", data := data ] INTO calls AT END;
+}
+
+MACRO Dummy()
+{
+}
+
+
+MACRO UnhandledRejectionsTest()
+{
+  FUNCTION PTR old__UnhandledRejection := __UnhandledRejection;
+  FUNCTION PTR old__RejectionHandled := __RejectionHandled;
+
+  __UnhandledRejection := PTR GotUnhandledReject;
+  __RejectionHandled := PTR GotRejectionHandled;
+
+  OBJECT e := NEW Exception("test");
+
+  RECORD defer := CreateDeferredPromise();
+  defer.reject(e);
+
+  // unhandled rejection is sent after 100 ms, wait at least 110
+  WaitUntil(DEFAULT RECORD, AddTimeToDate(110, GetCurrentDateTime()));
+  FOR (INTEGER i := 0; LENGTH(calls) = 0 AND i < 10; i := i + 1) // wait some more for flakyness
+    WaitUntil(DEFAULT RECORD, AddTimeToDate(100, GetCurrentDateTime()));
+
+  TestEq(1, LENGTH(calls));
+  INTEGER64 promise_id := calls[0].data.promise_id;
+
+  TestEq(calls, [ [ name := "__UnhandledRejection", data := [ promise := defer.promise, promise_id := promise_id, e := e ] ] ]);
+  calls := DEFAULT RECORD ARRAY;
+
+  defer.promise->OnError(PTR Dummy);
+
+  WaitUntil(DEFAULT RECORD, AddTimeToDate(1, GetCurrentDateTime()));
+
+  TestEq(calls, [ [ name := "__RejectionHandled", data := [ promise := defer.promise, promise_id := promise_id ] ] ]);
+
+  __UnhandledRejection := old__UnhandledRejection;
+  __RejectionHandled := old__RejectionHandled;
+}
+
+RunTestframework([ PTR UnhandledRejectionsTest
+                 ],
+                 [ usedatabase := FALSE
+                 ]);

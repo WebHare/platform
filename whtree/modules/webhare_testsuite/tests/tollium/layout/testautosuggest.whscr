@@ -1,0 +1,29 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+ASYNC MACRO TestAutoSuggest()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:runscreen", [ calltype := "direct", params := [ "tests/layout.layouttest" ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTCLick("openautosuggest"));
+
+  //Note: we are NOT testing the static combobox version, as that one's only implemented client-side for speed
+  RECORD ARRAY results := AWAIT TT("combodynamic")->LookupForAutosuggest("Text");
+  TestEq(11, Length(results));
+  TestEq("Text1", results[0].value);
+  TestEq("", results[0].append);
+  TestEq("Text2", results[1].value);
+  TestEq("(2)", results[1].append);
+
+  //Test whether user context was carried over succesfully
+  results := AWAIT TT("combodynamic")->LookupForAutosuggest("user:");
+  TestEq("user:sysop@beta.webhare.net", results[0].value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework( [ PTR TestAutoSuggest
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ]
+                     ]);

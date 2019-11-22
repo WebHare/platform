@@ -1,0 +1,101 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/adhoccache_alternate.whlib";
+
+PUBLIC INTEGER ARRAY seenvalues;
+
+RECORD FUNCTION CalcData(INTEGER inval)
+{
+  IF(verify_vm!="OK")
+    ABORT("Huh? I'm in a different VM?"); //you never know...
+
+  IF(inval IN seenvalues)
+    ABORT("GetData re-invoked for value " || inval || ", cache was ineffective");
+
+  INSERT inval INTO seenvalues AT END;
+  RETURN [ value := inval * 2
+         , ttl := inval=10 ? 1 : 5000
+         ];
+}
+RECORD FUNCTION CalcData_AbsTTL(INTEGER inval)
+{
+  IF(verify_vm!="OK")
+    ABORT("Huh? I'm in a different VM?"); //you never know...
+
+  INSERT inval INTO seenvalues AT END;
+  RETURN [ value := inval * 2
+         , ttl := AddTimeToDate(inval=10 ? 1 : inval=-1 ? -5000 : 5000, GetCurrentDatetime())
+         ];
+}
+
+RECORD FUNCTION CalcDataWithEvent(INTEGER inval)
+{
+  IF(inval = -1)
+    RETURN CELL[...CalcData(inval), eventmasks := STRING[], DELETE ttl ];
+  RETURN CellInsert(CalcData(inval), "EVENTMASKS", [ "beta:adhoccache_event" ]);
+}
+
+PUBLIC INTEGER FUNCTION GetData(INTEGER id)
+{
+  RETURN GetAdhocCached([id:=id], PTR CalcData(id));
+}
+PUBLIC INTEGER FUNCTION GetData_absttl(INTEGER id)
+{
+  RETURN GetAdhocCached([id:=id], PTR CalcData_absttl(id));
+}
+
+PUBLIC MACRO SetData(INTEGER id, INTEGER ttl)
+{
+  StoreAdhocCached([id:=id], [ ttl := ttl, value := id ]);
+}
+
+PUBLIC INTEGER FUNCTION GetDataWithEventInvalidation(INTEGER id)
+{
+  RETURN GetAdhocCached([id:=id], PTR CalcDataWithEvent(id));
+}
+
+PUBLIC MACRO InvalidateData(INTEGER id)
+{
+  InvalidateAdhocCache();
+  DELETE FROM seenvalues AT SearchElement(seenvalues,id);
+}
+PUBLIC MACRO InvalidateAllData()
+{
+  InvalidateAdhocCache();
+  seenvalues := DEFAULT INTEGER ARRAY;
+}
+
+RECORD FUNCTION DummyData()
+{
+  // Long TTL to push everything else out of the cache
+  RETURN
+      [ ttl :=    10000
+      , value :=  ""
+      ];
+}
+
+PUBLIC MACRO FillUpCache(INTEGER count)
+{
+  FOR (INTEGER id := 0; id < count; id := id + 1)
+    GetAdhocCached([ type := "fillup", id := id ], PTR DummyData());
+}
+
+RECORD FUNCTION GetSlowCachableData()
+{
+  Sleep(10);
+  RETURN
+      [ value :=    [ v := 1 ]
+      , ttl :=      1 // very low timeout, so some requests will have it gone after semafore unlock
+      ];
+}
+
+PUBLIC RECORD FUNCTION LockedSlowCache()
+{
+  RECORD rec := GetAdhocCached([ type := "slow" ], PTR GetSlowCachableData);
+
+  RETURN rec;
+}

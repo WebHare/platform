@@ -1,0 +1,17 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="HareScript core"
+       shortdescription="HareScript builtin functions and core libraries"
+       docorder="">
+  <section name="builtins" title="Builtin functions" />
+  <section name="datetime" title="Date and time manipulation" description="These functions all manipulate dates and times in various ways.
+The functions can be used to create calendars, set timestamps for publications and so forth.
+Please note that these functions are not suited for historic calculations, using dates that
+predate the introduction of the Gregorian Calendar." />
+  <section name="float" title="Mathematic and floating point utility functions" />
+  <section name="money" title="Money type utility functions" />
+  <section name="promises" title="Promises and cancellation" />
+  <section name="regex" title="Regular expressions" />
+  <section name="os" title="Filesystem and process management" />
+  <section name="ipc" title="Inter-process communication and jobs" />
+  <section name="crypto" title="Cryptographic operations" />
+</topic>

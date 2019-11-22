@@ -1,0 +1,85 @@
+@mixin tollium-downarrow
+{
+  display: inline-block;
+  content: '\25bc';
+  font-size: 70%;
+
+  pointer-events:none;
+}
+
+@mixin tollium-skinicon
+{
+  display: inline-block;
+  content: '';
+  width: 16px;
+  height: 16px;
+  background: 50% 50%/16px 16px no-repeat ;
+  vertical-align: middle;
+}
+
+//FIXME might be nicer to use the above arrow everywhere... but we can't easily style the native select pulldown arrow with fonts
+@mixin tollium-pulldownarrow
+{
+  @include tollium-skinicon;
+  background-image: url(pulldown-arrow.svg);
+}
+@mixin tollium-skinicon-datepicker
+{
+  @include tollium-skinicon;
+  background-image: url(datepicker.16x16.b.svg);
+}
+@mixin tollium-skinicon-reset
+{
+  @include tollium-skinicon;
+  background-image: url(reset.16x16.b.svg);
+}
+
+@mixin tollium-defaultbutton
+{
+  background-image: linear-gradient(to bottom, #0098EE 0%, #0285CF 100%);
+  color: #ffffff;
+
+  &:hover
+  {
+    background-image: linear-gradient(to top, #0098EE 0%, #0285CF 100%);
+  }
+}
+
+@mixin tollium-input-focused
+{
+  border-color: $focused-border-color;
+}
+
+@mixin tollium-input-required
+{
+  background-color: $required-background-color;
+  border-color: $required-border-color;
+
+  &:focus
+  {
+    border-color: $focused-border-color;
+  }
+}
+
+@mixin tollium-input-disabled
+{
+  border-color: #b3b3b3;
+  color: rgba(0,0,0,.5);
+  background: url("bgdisabled.svg") 0 0/48px 48px;
+
+  &:focus
+  {
+    border-color: #b3b3b3;
+  }
+}
+
+@mixin tollium-input-error
+{
+  background: #fff2f2; /* Old browsers */
+  border-color: #e77d7d;
+
+  &:focus
+  {
+    border-color: #b3b3b3;
+  }
+}

@@ -1,0 +1,122 @@
+﻿<?wh
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+
+//__webbrowser_debugall := TRUE;
+
+STRING restapiurl := "https://api.pinterest.com/v1/";
+
+RECORD ARRAY pinterest_permissions :=
+    [ [ name :=   "read_public" ]
+    , [ name :=   "write_public" ]
+    , [ name :=   "read_relationships" ]
+    , [ name :=   "write_relationships" ]
+    ];
+
+PUBLIC OBJECTTYPE PinterestConnection EXTEND OauthV2NetworkConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+   MACRO NEW()
+  : OauthV2NetworkConnection(pinterest_permissions)
+  {
+    this->pvt_newpermissionmodel := TRUE;
+    this->SetMode("pinterest");
+    this->pvt_accesstokenurl := "https://api.pinterest.com/v1/oauth/token";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Returns an URI the client needs to be redirected to. The client can then authorize the
+      app, and will be redirected to the Pinterest redirect page. The redirect url must
+      then be passed to FinishLogin
+      @param callbackurl Custom callback url, will be ignored when the callback host is set in the app settings
+      @param permissions String array of permissions (read_public, write_public, read_relationships, write_relationships)
+      @param state
+      @return Login data
+      @cell(string) sessiontoken Session token (must be given to FinishLogin)
+      @cell(string) authorize_uri URI to show to the user
+  */
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY permissions, STRING state)
+  {
+    STRING url := UpdateURLVariables("https://api.pinterest.com/oauth/", [ state := state ]);
+    RETURN this->GetV2AuthorizationCodeURI(url, permissions, callbackurl);
+  }
+
+  /** Set a socialite token as returned by the FacebookSDK APIs*/
+  UPDATE PUBLIC MACRO SetSocialiteToken(STRING token)
+  {
+    IF(token NOT LIKE "tradein:*")
+    {
+      OauthNetworkConnection::SetSocialiteToken(token);
+      RETURN;
+    }
+
+    STRING ARRAY parts := Tokenize(token,":");
+    this->accesstoken := EncodeJSON(
+                          [ access_token :=   parts[1]
+                          , expires :=        0 //FIXME it should be in parts[2] and we should start supporting it in socialite
+                          , v :=              1
+                          ]);
+
+  }
+
+  PUBLIC RECORD FUNCTION GetLoggedinUserData()
+  {
+    RECORD data := this->ReturnPinterestData(restapiurl || "me/?fields=first_name,id,last_name,url,account_type,created_at,image,username,counts", DEFAULT RECORD);
+    IF (NOT RecordExists(data))
+      RETURN DEFAULT RECORD;
+
+    // 'created_at' is "semi" ISO: '2015-04-03T16:13:13', missing the timezone, so we'll just assume 'Z' for now
+    // remove the string version of created_at and add a datetime version
+    STRING created_at := data.created_at;
+    data := CellDelete(data, "created_at");
+    data := CellInsert(data, "created_at", this->GenerateDateTimeByString(created_at));
+
+    RETURN data;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetMyBoards()
+  {
+    RETURN this->ReturnPinterestData(restapiurl || "me/boards/?fields=id,name,url", DEFAULT RECORD ARRAY);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetPinsByBoard(STRING boardid)
+  {
+    RETURN SELECT *
+                , created_at := this->GenerateDateTimeByString(created_at)
+             FROM this->ReturnPinterestData(restapiurl || "boards/" || boardid || "/pins/?fields=id,link,note,url,board,created_at,creator,counts,color,original_link,media,image", DEFAULT RECORD ARRAY);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private functions
+  //
+  VARIANT FUNCTION ReturnPinterestData(STRING path, VARIANT defaultreturn)
+  {
+    this->browser->GotoWebPage(path);
+
+    RECORD response := DecodeJSONBlob(this->browser->content);
+
+    RETURN CellExists(response, "data") ? response.data : defaultreturn;
+  }
+
+  DATETIME FUNCTION GenerateDateTimeByString(STRING created_at)
+  {
+    // set real date time; if Pinterest is going to add the 'Z', there's no need to add it
+    RETURN MakeDateFromText(created_at) ?? MakeDateFromText(created_at || "Z");
+  }
+
+
+>;

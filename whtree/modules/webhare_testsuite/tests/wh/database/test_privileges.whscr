@@ -1,0 +1,416 @@
+﻿<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/db/test_funcs.whlib";
+
+
+INTEGER testsequencenumber := 0;
+INTEGER runonly := 0;
+
+BOOLEAN FUNCTION RunTest(STRING testname)
+{
+  testsequencenumber := testsequencenumber + 1;
+  IF (runonly != 0 AND testsequencenumber != runonly)
+    RETURN false;
+
+  PRINT("Running test " || testsequencenumber || ": " || testname || "\n");
+  RETURN true;
+}
+
+MACRO WaitForIndex(INTEGER transid)
+{
+  SendWHDBCommand(transid,"WAIT INDEX");
+}
+
+MACRO TestCommitSuccess(INTEGER transid)
+{
+  RECORD ARRAY errors := CommitWHDBTransaction(transid);
+  IF(Length(errors)>0)
+  {
+    FOREVERY(RECORD err FROM errors)
+    {
+      PRINT(err.message||"\n");
+    }
+    ABORT("Unexpected commit errors");
+  }
+}
+
+MACRO TestCommitFailure(INTEGER transid)
+{
+  IF(Length(CommitWHDBTransaction(transid))=0)
+    ABORT("Unexpected commit success");
+}
+
+STRING ARRAY args := GetConsoleArguments();
+IF (Length(args)=1)
+  runonly := ToInteger(args[0],-1);
+
+INTEGER test_fp_trans;
+
+MACRO ConsumeRecords(RECORD ARRAY recs)
+{
+}
+
+// Needed cleanup
+{
+  test_fp_trans := OpenTestTrans();
+  RECORD ARRAY existing := SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE "DBTEST_*";
+  FOREVERY (RECORD t FROM existing)
+    SendWHDBCommand(test_fp_trans,"DROP SCHEMA " || t.schema_name);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  RECORD ARRAY roles := SELECT user_name FROM information_schema.users WHERE user_name LIKE "TESTS_*";
+  FOREVERY (RECORD t FROM roles)
+    SendWHDBCommand(test_fp_trans,"DROP USER " || t.user_name);
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Metadata management/references privilege tests"))
+{
+  test_fp_trans := OpenTestTrans();
+
+  STRING user1 := CreateUser(test_fp_trans, "MT_USER_1");
+  STRING user2 := CreateUser(test_fp_trans, "MT_USER_2");
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_2 AUTHORIZATION DEFINITION_SCHEMA." || user2);
+  SendWHDBCommand(test_fp_trans,"ALTER SCHEMA dbtest_1 SET AUTHORIZATION TO DEFINITION_SCHEMA." || user1);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE dbtest_1.test1 (id INTEGER PRIMARY KEY)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE dbtest_2.test2 (id INTEGER PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE dbtest_2.test3 (id INTEGER PRIMARY KEY)");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE dbtest_2.test4 (id INTEGER PRIMARY KEY)");
+  TestCommitSuccess(test_fp_trans);
+
+  // Create a table, but without needed rights
+/* Everybody has all rights now, so this won't fail
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE dbtest_1.test3 (id INTEGER PRIMARY KEY)");
+  TestCommitFailure(test_fp_trans);
+*/
+
+  // Make a hard reference (fails, no privs)
+/* Everybody has all rights now, so this won't fail
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE dbtest_2.test2 ADD COLUMN \"ref4\" INTEGER REFERENCES dbtest_1.test1");
+  TestCommitFailure(test_fp_trans);
+*/
+
+  // Give the needed privileges for hard reference
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT REFERENCES ON TABLE dbtest_1.test1 TO DEFINITION_SCHEMA."||user2||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  // Make a reference (ok)
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE dbtest_2.test2 ADD COLUMN \"ref\" INTEGER REFERENCES dbtest_1.test1");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE REFERENCES ON TABLE dbtest_1.test1 FROM DEFINITION_SCHEMA."||user2||" GRANTED BY _SYSTEM");
+  TABLE< INTEGER ID, INTEGER "ref" AS xref> test_2 := BindTransactionToTable(test_fp_trans,"dbtest_2.test2");
+  INSERT INTO test_2(id, xref) VALUES (1, 1); // Illegal reference, only accepted when referential constraint is dropped.
+  TestCommitSuccess(test_fp_trans);
+
+  // Give the needed privileges for soft reference
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON TABLE dbtest_1.test1 TO DEFINITION_SCHEMA."||user2||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  // Make soft references (ok)
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE dbtest_2.test3 ADD COLUMN \"ref\" INTEGER REFERENCES dbtest_1.test1 ON DELETE SET DEFAULT");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE dbtest_2.test4 ADD COLUMN \"ref\" INTEGER REFERENCES dbtest_1.test1 ON DELETE CASCADE");
+  TestCommitSuccess(test_fp_trans);
+
+  // Insert illegal reference (fail)
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  TABLE< INTEGER ID, INTEGER "ref" AS xref> test_3 := BindTransactionToTable(test_fp_trans,"dbtest_2.test3");
+  INSERT INTO test_3(id, xref) VALUES (1, 1);
+  TestCommitFailure(test_fp_trans);
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  TABLE< INTEGER ID, INTEGER "ref" AS xref> test_4 := BindTransactionToTable(test_fp_trans,"dbtest_2.test4");
+  INSERT INTO test_4(id, xref) VALUES (1, 1);
+  TestCommitFailure(test_fp_trans);
+
+  // Add reference to the referenced table 3 (has set default), this should be ok.
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE dbtest_2.test2 ADD COLUMN \"ref2\" INTEGER REFERENCES dbtest_2.test3");
+  TestCommitSuccess(test_fp_trans);
+
+  // Add reference to the referenced table 4 (has cascade), this will make the soft reference hard, fail
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  SendWHDBCommand(test_fp_trans,"ALTER TABLE dbtest_2.test2 ADD COLUMN \"ref3\" INTEGER REFERENCES dbtest_2.test4");
+  TestCommitFailure(test_fp_trans);
+
+  // Test if reference of test3 is still intact
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  test_3 := BindTransactionToTable(test_fp_trans,"dbtest_2.test3");
+  INSERT INTO test_3(id, xref) VALUES (1, 1);
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  TestCommitSuccess(test_fp_trans);
+  test_fp_trans := OpenTestTransUser("MT_USER_2");
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_2");
+  TestCommitSuccess(test_fp_trans);
+  test_fp_trans := OpenTestTrans();
+  DropUser(test_fp_trans, "MT_USER_1");
+  DropUser(test_fp_trans, "MT_USER_2");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Role management privilege tests"))
+{
+  test_fp_trans := OpenTestTrans();
+  STRING user1 := CreateUser(test_fp_trans, "MT_USER_1");
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION DEFINITION_SCHEMA."||user1);
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_2 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_2.mt_test_dummy");
+  TestCommitSuccess(test_fp_trans);
+
+/* Everybody has all rights now, so this won't fail
+  // Unauthorized create
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_2.mt_test_muhaha");
+  TestCommitFailure(test_fp_trans);
+
+  // Unauthorized drop
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  SendWHDBCommand(test_fp_trans,"DROP ROLE dbtest_2.mt_test_dummy");
+  TestCommitFailure(test_fp_trans);
+*/
+
+  // Authorized create
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.test");
+  TestCommitSuccess(test_fp_trans);
+
+  // Authorized drop
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  SendWHDBCommand(test_fp_trans,"DROP ROLE dbtest_1.test");
+  TestCommitSuccess(test_fp_trans);
+
+  // Cleanup
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_2");
+  DropUser(test_fp_trans, "MT_USER_1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Select privilege tests"))
+{
+  test_fp_trans := OpenTestTrans();
+  STRING user1 := CreateUser(test_fp_trans, "MT_USER_1");
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE dbtest_1.test(id INTEGER, str VARCHAR(256))");
+  RECORD ARRAY results;
+  TABLE < INTEGER id, STRING str > test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  INSERT INTO test(id, str) VALUES (1, "a");
+  TestCommitSuccess(test_fp_trans);
+
+/* Everybody has all rights now, so this won't fail
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  SendWHDBCommand(test_fp_trans, "SET CLIENT CATCH_ERRORS TO ALL");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  results := SELECT * FROM test;
+  IF (LENGTH(results) != 0) ABORT("Allowed to select!");
+  ConsumeRecords(results);
+  TestCommitFailure(test_fp_trans);
+*/
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON dbtest_1.test(id) TO DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  results := SELECT id FROM test;
+  IF (LENGTH(results) != 1) ABORT("Not allowed to select!");
+  ConsumeRecords(results);
+  TestCommitSuccess(test_fp_trans);
+
+/* Everybody has all rights now, so this won't fail
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  SendWHDBCommand(test_fp_trans, "SET CLIENT CATCH_ERRORS TO ALL");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  results := SELECT id, str FROM test WHERE str = "a";
+  IF (LENGTH(results) != 0) ABORT("Allowed to select using WHERE-clause!");
+  ConsumeRecords(results);
+  TestCommitFailure(test_fp_trans);
+*/
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON dbtest_1.test(str) TO DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  results := SELECT id, str FROM test;
+  IF (LENGTH(results) != 1) ABORT("Not allowed to select!");
+  ConsumeRecords(results);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE SELECT ON dbtest_1.test(str) FROM DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"REVOKE SELECT ON dbtest_1.test(id) FROM DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON TABLE dbtest_1.test TO DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  results := SELECT id, str FROM test;
+  IF (LENGTH(results) != 1) ABORT("Not allowed to select!");
+  ConsumeRecords(results);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE SELECT ON TABLE dbtest_1.test FROM DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  results := SELECT id, str FROM test;
+  IF (LENGTH(results) != 1) ABORT("Not allowed to select!");
+  ConsumeRecords(results);
+  TestCommitSuccess(test_fp_trans);
+
+  // Cleanup
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  DropUser(test_fp_trans, "MT_USER_1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Update privilege tests"))
+{
+  test_fp_trans := OpenTestTrans();
+  STRING user1 := CreateUser(test_fp_trans, "MT_USER_1");
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE dbtest_1.test(id INTEGER, str VARCHAR(256))");
+  TABLE < INTEGER id, STRING str > test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  INSERT INTO test(id, str) VALUES (1, "a");
+  TestCommitSuccess(test_fp_trans);
+
+/* Everybody has all rights now, so this won't fail
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  SendWHDBCommand(test_fp_trans, "SET CLIENT CATCH_ERRORS TO ALL");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  UPDATE test SET id := 1, str := "a";
+  TestCommitFailure(test_fp_trans);
+*/
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT UPDATE, SELECT ON dbtest_1.test(id) TO DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  UPDATE test SET id := 1;
+  TestCommitSuccess(test_fp_trans);
+
+/* Everybody has all rights now, so this won't fail
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  SendWHDBCommand(test_fp_trans, "SET CLIENT CATCH_ERRORS TO ALL");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  UPDATE test SET id := 1, str := "a";
+  TestCommitFailure(test_fp_trans);
+*/
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT UPDATE, SELECT ON dbtest_1.test(str) TO DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  UPDATE test SET id := 1, str := "a";
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE UPDATE, SELECT ON dbtest_1.test(str) FROM DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"REVOKE UPDATE, SELECT ON dbtest_1.test(id) FROM DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT UPDATE, SELECT ON TABLE dbtest_1.test TO DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  UPDATE test SET id := 1, str := "a";
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE UPDATE, SELECT ON TABLE dbtest_1.test FROM DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT UPDATE, SELECT ON SCHEMA dbtest_1 TO DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  UPDATE test SET id := 1, str := "a";
+  TestCommitSuccess(test_fp_trans);
+
+  // Cleanup
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  DropUser(test_fp_trans, "MT_USER_1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Insert/delete privilege tests"))
+{
+  test_fp_trans := OpenTestTrans();
+  STRING user1 := CreateUser(test_fp_trans, "MT_USER_1");
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE dbtest_1.test(id INTEGER, str VARCHAR(256))");
+  RECORD ARRAY results;
+  TABLE < INTEGER id, STRING str > test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  INSERT INTO test(id, str) VALUES (1, "a");
+  TestCommitSuccess(test_fp_trans);
+
+/* Everybody has all rights now, so this won't fail
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  INSERT INTO test(id, str) VALUES (2, "b");
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  DELETE FROM test;
+  TestCommitFailure(test_fp_trans);
+*/
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT, INSERT, DELETE ON TABLE dbtest_1.test TO DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  INSERT INTO test(id, str) VALUES (2, "b");
+  DELETE FROM test WHERE id = 2;
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE SELECT, INSERT, DELETE ON TABLE dbtest_1.test FROM DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT, INSERT, DELETE ON SCHEMA dbtest_1 TO DEFINITION_SCHEMA."||user1||" GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_1");
+  test := BindTransactionToTable(test_fp_trans,"DBTEST_1.TEST");
+  INSERT INTO test(id, str) VALUES (2, "b");
+  DELETE FROM test WHERE id = 2;
+  TestCommitSuccess(test_fp_trans);
+
+  // Cleanup
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  DropUser(test_fp_trans, "MT_USER_1");
+  TestCommitSuccess(test_fp_trans);
+}

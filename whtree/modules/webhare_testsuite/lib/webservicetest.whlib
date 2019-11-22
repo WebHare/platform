@@ -1,0 +1,145 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/remoting/remotable.whlib";
+LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
+
+
+OBJECTTYPE TestObject EXTEND RemotableObject
+< UPDATE PUBLIC STRING ARRAY FUNCTION __GetRemotableMethods() { RETURN [ "GetStr1", "CallTest", "Crash" ]; }
+
+  PUBLIC STRING FUNCTION GetStr1()
+  {
+    RETURN "str1";
+  }
+
+  PUBLIC STRING FUNCTION CallTest(INTEGER a, STRING b)
+  {
+    IF (a = 10)
+      THROW NEW Exception("Throwing b: " || b);
+    RETURN a || " " || b;
+  }
+
+  PUBLIC OBJECT FUNCTION GetThis()
+  {
+    RETURN this;
+  }
+
+  PUBLIC MACRO Crash()
+  {
+    ABORT("crash requested");
+  }
+>;
+
+
+/** @short Answer difficult questions by reflecting them to the questioneer */
+PUBLIC STRING FUNCTION Echo(STRING indata)
+{
+  RETURN indata;
+}
+
+PUBLIC OBJECT FUNCTION GetObject()
+{
+  RETURN NEW TestObject;
+}
+
+PUBLIC MACRO IReturnNothing()
+{
+}
+
+PUBLIC INTEGER FUNCTION JSBridge_ITakeNoParams()
+{
+  RETURN 42;
+}
+
+PUBLIC OBJECT FUNCTION ObjectsRule(OBJECT inobj)
+{
+  RETURN inobj;
+}
+
+/** @short Test functions with deep data structures
+    @param x record X
+    @param y Second parameter, a record array with integer 'i' and recordarray 'ra'
+    @return a record
+    @cell(integer) x.i x.i
+    @cell(record array) x.ra x.ra
+    @cell(string) x.ra.s x.ra.s
+    @cell(boolean) x.ra.f x.ra.f
+    @cell(record array) y.ra y.ra
+    @cell(integer) return.i return.i
+    @cell(record array) return.ra return.ra
+    @cell(string array) return.ra.sa return.ra.sa
+*/
+PUBLIC RECORD FUNCTION ComplexResults(RECORD x)
+{
+  RETURN x;
+}
+
+PUBLIC RECORD FUNCTION ComplexResultsSlow(RECORD x)
+{
+  Sleep(1000);
+  RETURN x;
+}
+
+PUBLIC RECORD FUNCTION CrashTest(STRING type)
+{
+  SWITCH (type)
+  {
+    CASE "abort" { ABORT("boem"); }
+    CASE "throw" { THROW NEW Exception("boem"); }
+    CASE "terminate" { TerminateScript(); }
+  }
+  ABORT("Unknown abort type '" || type || "'");
+}
+
+
+/** @param spelergegevens
+   @cell(string) spelergegevens.voornaam Voornaam van de speler
+   @cell(string) spelergegevens.tussenvoegsel
+   @cell(string) spelergegevens.achternaam
+   @cell(string) spelergegevens.geslacht
+   @cell(string) spelergegevens.straatnaam
+   @cell(string) spelergegevens.huisnummer
+   @cell(string) spelergegevens.postcode
+   @cell(string) spelergegevens.woonplaats
+   @cell(string) spelergegevens.emailadres
+   @cell(string) spelergegevens.merkauto
+   @cell(boolean) spelergegevens.inschrijven_newsbrief
+   @return
+   @cell(boolean) return.reedsgespeeld
+   @cell(string) return.code
+   @cell(string) return.speelsessie
+*/
+PUBLIC RECORD FUNCTION RegistreerKrablotSpeler(RECORD spelergegevens)
+{
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION LoginTest()
+{
+  OBJECT rpcuser := GetEffectiveUser();
+  RETURN [ user := ObjectExists(rpcuser) ? rpcuser->entityid : 0 ];
+}
+
+PUBLIC RECORD FUNCTION ManipWebserverSession(STRING action, STRING sessionid, STRING passwd, RECORD newdata)
+{
+  SWITCH (action)
+  {
+    CASE "get"    { RETURN GetWebSessionData(sessionid, passwd); }
+    CASE "set"    { StoreWebSessionData(sessionid, passwd, newdata); RETURN DEFAULT RECORD;  }
+    CASE "close"  { CloseWebSession(sessionid, passwd); RETURN DEFAULT RECORD;  }
+  }
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetWebserverUploadedFiles(STRING ARRAY filetokens)
+{
+  RETURN
+      SELECT *
+           , data :=  EncodeBase16(GetSHA1Hash(BlobToString(data, -1)))
+        FROM GetUploadedFiles(filetokens);
+}

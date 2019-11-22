@@ -1,0 +1,111 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+
+LOADLIB "mod::consilio/lib/queries.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_commands.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+INTEGER publisher_index, publisher_source;
+
+INTEGER ARRAY FUNCTION GetIndexedWHFSObjects(INTEGER folderid)
+{
+  RECORD query := MakeTermQuery("whfstree", ToString(folderid));
+  RECORD result := QueryIndexManager(publisher_index, query, [ count := -1, mapping := [ whfsid := "" ] ]);
+  IF (result.status = SearchOk)
+    RETURN
+        SELECT AS INTEGER ARRAY DISTINCT ToInteger(whfsid, 0)
+          FROM result.results;
+  RETURN DEFAULT INTEGER ARRAY;
+}
+
+PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ eventid := "", debug := FALSE, force := FALSE ], options);
+
+  IF (publisher_index = 0)
+  {
+    publisher_index := GetCatalogIdByName(whconstant_consilio_catalog_whfs);
+    IF(publisher_index = -1) //not available yet, bootstrap? it's racy to wait for siteprofiles to generate the index
+      THROW NEW Exception(`Publisher index '${whconstant_consilio_catalog_whfs}' not available`);
+
+    publisher_source := GetContentSourceIdByTag("publisher:fsobjects");
+
+  }
+
+  INTEGER ARRAY to_update, to_delete;
+  to_reindex := EnrichWithTable(to_reindex, "id", system.fs_objects, CELL[ "whfspath" ], [ rightouterjoin := TRUE]);
+  FOREVERY (RECORD obj FROM to_reindex)
+  {
+    IF(obj.whfspath LIKE "/webhare-private/whfs-autosaves/*")
+      CONTINUE; //never index autosaves, they always get Delete()d and often conflict
+
+    IF (obj.isfolder)
+    {
+      // This will re-index the folder object contents recursively
+      FOREVERY (INTEGER subobjid FROM GetIndexedWHFSObjects(obj.id))
+      {
+        IF (subobjid = 0)
+          CONTINUE;
+        // Reindexing an inactive group will delete it from content sources no longer responsible for it
+        IF (obj.isdelete)
+          INSERT subobjid INTO to_delete AT END;
+        ELSE
+          INSERT subobjid INTO to_update AT END;
+      }
+    }
+
+    // This will re-index the folder or file object itself
+    IF (obj.isdelete)
+      INSERT obj.id INTO to_delete AT END;
+    ELSE
+      INSERT obj.id INTO to_update AT END;
+  }
+
+  to_update := GetSortedSet(to_update);
+  to_delete := GetSortedSet(to_delete);
+
+  IF (options.debug)
+    Print(`To update: ${AnyToString(to_update, "tree")}To Delete: ${AnyToString(to_delete, "tree")}`);
+
+  DATETIME now := GetCurrentDateTime();
+  FOREVERY (INTEGER objid FROM to_delete)
+  {
+    RECORD data :=
+        [ action := "DELETEGROUP"
+        , commanddate := now
+        , indexid := publisher_index
+        , contentsourceid := publisher_source
+        , groupid := "fsobj_" || objid
+        ];
+
+    DeleteGroup(data, [ refresh := TRUE ]);
+  }
+  FOREVERY (INTEGER objid FROM to_update)
+  {
+    RECORD data :=
+        [ action := "CHECKGROUP"
+        , commanddate := now
+        , indexid := publisher_index
+        , contentsourceid := publisher_source
+        , groupid := "fsobj_" || objid
+        ];
+
+    RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP"
+                                      , refresh := TRUE
+                                      , force := options.force
+                                      ]);
+    IF(Length(result.errors) > 0 AND options.debug)
+      DumpValue(result);
+  }
+
+  IF (options.eventid != "")
+    BroadcastEvent(`system:whfs.index.response.${options.eventid}`, [ deleted := to_delete, updated := to_update ]);
+}

@@ -1,0 +1,139 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+/** This dialog adds a pre-chosen role to selectable users
+*/
+PUBLIC STATIC OBJECTTYPE GiveUsersRoleGrant EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Role to grant
+  */
+  OBJECT pvt_roleobj;
+
+  /// Select user/role panel
+  OBJECT selectuserrolepanel;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Currently selected unit
+  PUBLIC PROPERTY unit(GetUnit, SetUnit);
+
+  /// Current selected users
+  PUBLIC PROPERTY grantees(GetGrantees, SetGrantees);
+
+  /// Role to grant
+  PUBLIC PROPERTY roleobj(pvt_roleobj, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  /** @param data
+      @cell data.grantee
+  */
+  MACRO Init(RECORD data)
+  {
+    this->pvt_roleobj := data.roleobj;
+
+    ^selectuserrole->InitForCommonDialog();
+    ^selectuserrole->filterontype := 1;
+    ^selectuserrole->selectmode := "multiple";
+    ^selectuserrole->unit := this->contexts->userapi->GetUnitOf(this->pvt_roleobj);
+
+    this->frame->title := GetTid('system:userrights.commondialogs.granttitles.titlespecificroletousers', this->pvt_roleobj->GetUserRightsName());
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other tollium stuff
+  //
+
+  MACRO UserRoleClicked()
+  {
+    IF (this->Submit())
+      this->tolliumresult := "ok";
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    IF (LENGTH(^selectuserrole->value) = 0)
+    {
+      work->AddError(GetTid("system:userrights.commondialogs.errors.needselectuser"));
+      RETURN work->Finish();
+    }
+
+    IF (NOT this->tolliumuser->HasRightOn("system:manageroles", this->pvt_roleobj->authobjectid))
+    {
+      work->AddError(GetTid("system:userrights.commondialogs.errors.norighttomanagerole", this->pvt_roleobj->GetUserRightsName()));
+      RETURN work->Finish();
+    }
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    OBJECT roleunit := this->contexts->userapi->GetUnitOf(this->pvt_roleobj);
+
+    FOREVERY (OBJECT obj FROM this->grantees)
+    {
+      // User either should have the right to browse the new role, or should get it with the new role
+      IF (NOT roleunit->IsVisibleFor(obj) AND NOT roleunit->IsVisibleFor(this->pvt_roleobj))
+      {
+        work->AddWarning(GetTid("system:userrights.commondialogs.errors.usercannotviewunitofrole", obj->GetUserRightsName(), this->pvt_roleobj->GetUserRightsName()));
+      }
+    }
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    FOREVERY (OBJECT obj FROM this->grantees)
+    {
+      TRY
+      {
+        this->tolliumuser->GrantRoleTo(this->pvt_roleobj, obj, [ comment := ^comment->value ]);
+      }
+      CATCH (OBJECT e)
+      {
+        work->AddError(e->what);
+      }
+    }
+    RETURN work->Finish();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  OBJECT ARRAY FUNCTION GetGrantees()
+  {
+    RETURN ^selectuserrole->value;
+  }
+
+  MACRO SetGrantees(OBJECT ARRAY grantees)
+  {
+    ^selectuserrole->value := grantees;
+  }
+
+  OBJECT FUNCTION GetUnit()
+  {
+    RETURN ^selectuserrole->unit;
+  }
+
+  MACRO SetUnit(OBJECT unit)
+  {
+    ^selectuserrole->unit := unit;
+  }
+>;

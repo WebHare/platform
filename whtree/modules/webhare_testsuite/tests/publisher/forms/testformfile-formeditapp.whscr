@@ -1,0 +1,205 @@
+<?wh
+
+/* wh runtest publisher.forms.testformfile-custom
+   ?app=publisher(/WebHare%20testsuite%20site/webtools/customform)
+*/
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
+
+
+PUBLIC ASYNC MACRO TestBuildCustomForm()
+{
+  testfw->BeginWork();
+
+  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+  OBJECT customformfile := webtoolsfolder->OpenByName("customform");
+  IF(ObjectExists(customformfile))
+    customformfile->RecycleSelf();
+
+  testfw->CommitWork();
+
+  //Build a form using the UI
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "WebHare testsuite customform type";
+  TestEq(TRUE, RecordExists(TT("types")->selection));
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+  TT("name")->value := "customform";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel()); //closes publisher
+
+  //Open form editor
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform" ], target := DEFAULT RECORD ]));
+  customformfile := webtoolsfolder->OpenByName("customform");
+
+  TestEq(FALSE, TTClick("save", [ allowfailure := TRUE ]), "Doc should not be dirty yet");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings"));
+  TT(":Some data")->value := "Here, have some data!";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  //there's no "try" click so we'll just check the raw frame flag
+  TestEq(TRUE, topscreen->frame->flags.isdirty, "Doc should now be dirty");
+  TestEq("", customformfile->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform").somedata, "somedata should NOT be commited yet");
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  TestEq(FALSE, TTClick("save", [ allowfailure := TRUE ]), "Doc should again be undirty");
+
+  testfw->WaitForPublishCompletion(webtoolsfolder->id);
+  TestEq("Here, have some data!", customformfile->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform").somedata);
+
+  //Add a text field
+  TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Text"));
+  TT("tabs")->ListExtensions()[0].extension->^text->value := GetTestRTD();
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEqLike("This docs opens with*",TT("doceditor->questions")->selection.title);
+
+  //Make sure it persists during edits
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
+  RECORD value := TT("tabs")->ListExtensions()[0].extension->^text->value;
+  TestEqLIke("*This docs opens with*", BlobToString(value.htmltext));
+  value.htmltext := StringToBlob(`<html><body><p class="normal">Just another doc</p></body></html>`);
+  TT("tabs")->ListExtensions()[0].extension->^text->value := value;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq("Just another doc",TT("doceditor->questions")->selection.title);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
+  value := TT("tabs")->ListExtensions()[0].extension->^text->value;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq("Just another doc",TT("doceditor->questions")->selection.title);
+
+  //Add a field
+  TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Question", [menuitem := TRUE]));
+  TT("builtincomponents")->selection := RECORD(SELECT * FROM TT("builtincomponents")->rows WHERE name = "Email");
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+  TT("title")->value := "Ëmail plz";
+  TT("name")->value := "email";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq("Ëmail plz",TT("doceditor->questions")->selection.title);
+
+  //Add another field with the same name (tag)
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Question", [menuitem := TRUE]));
+  TT("builtincomponents")->selection := RECORD(SELECT * FROM TT("builtincomponents")->rows WHERE name = "Email");
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+  TT("title")->value := "Ëmail pretty plz";
+  TT("name")->value := "email";
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick(":OK"), [ awaitcall := TRUE ]); //'tag already in use' message box
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Cancel"));
+
+  //Delete the existing email field
+  TestEq("Ëmail plz",TT("doceditor->questions")->selection.title);
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Delete"), [ awaitcall := TRUE ]); //confirm deletion
+
+  //Add another field with the same name (tag) again, should succeed now
+  TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Question", [menuitem := TRUE]));
+  TT("builtincomponents")->selection := RECORD(SELECT * FROM TT("builtincomponents")->rows WHERE name = "Email");
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+  TT("title")->value := "Ëmail pretty plz";
+  TT("name")->value := "email";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq("Ëmail pretty plz",TT("doceditor->questions")->selection.title);
+
+  //Check that the question can be edited (it shouldn't fail on its own tag being there)
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [menuitem := TRUE]));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //Undelete the deleted question
+  INSERT TT("doceditor->questions")->rows[END-1].rowkey INTO TT("doceditor->questions")->expanded AT END; //expand the last node (i.e. open the trash)
+  ExecuteListDragDrop(TT("doceditor->questions"), VARIANT[TT("doceditor->questions")->rows[END-1].rowkey], TT("doceditor->questions"), [ target := TT("doceditor->questions")->rows[0].rowkey, droplocation := "appendchild" ]);
+  TT("doceditor->questions")->selection := RECORD(SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Ëmail plz");
+  TestEq("Ëmail plz",TT("doceditor->questions")->selection.title);
+
+  //Check that restoring the deleted question cleared the tag to avoid duplicate tags, and set a new name
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [menuitem := TRUE]));
+  TestEq("", TT("name")->value);
+  TT("name")->value := "otheremail";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //Delete and undelete the question again
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Delete"), [ awaitcall := TRUE ]); //confirm deletion
+  ExecuteListDragDrop(TT("doceditor->questions"), VARIANT[TT("doceditor->questions")->rows[END-1].rowkey], TT("doceditor->questions"), [ target := TT("doceditor->questions")->rows[0].rowkey, droplocation := "appendchild" ]);
+  TT("doceditor->questions")->selection := RECORD(SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Ëmail plz");
+
+  // Check that the tag isn't cleared now
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [menuitem := TRUE]));
+  TestEq("otheremail", TT("name")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //Delete the question again
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Delete"), [ awaitcall := TRUE ]); //confirm deletion
+
+  // Regression: Empty richtext on non-thankyou page would crash validation
+  TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Text", [menuitem := TRUE]));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  //Add the custom form field
+  TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Question", [menuitem := TRUE]));
+  TT("type")->selectedtab := TT("custom");
+  // Test if allowing questions by matchattribute works
+  TestEq(FALSE, RecordExists(SELECT * FROM TT("customcomponents")->rows WHERE name = "MatchAttributes Type1"));
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("customcomponents")->rows WHERE name = "MatchAttributes Type2 true"));
+  TestEq(FALSE, RecordExists(SELECT * FROM TT("customcomponents")->rows WHERE name = "MatchAttributes Type2 false"));
+  TT("customcomponents")->selection := RECORD(SELECT * FROM TT("customcomponents")->rows WHERE name = "Custom Form Field");
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+  TT("title")->value := "Reverse";
+  TT("name")->value := "reverse";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq("Reverse",TT("doceditor->questions")->selection.title);
+
+  //Add a mail handler
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form handler", [menuitem := TRUE]));
+  TT("builtincomponents")->value := "http://www.webhare.net/xmlns/publisher/forms#mailfeedbackhandler";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+  TT(":Send to")->selection := SELECT * FROM TT(":Send to")->options WHERE title = "email";
+  AWAIT ExpectScreenChange(+1, PTR (TT(":Email contents")->ProcessInboundMessage("buttonclick", [ button := "object-insert" ])));
+  TestEq(2, Length(TT("contenttypes")->rows)); //expecting the merge field and the custom form widget
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/formmergefield";
+  TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+
+  //Expecting "Email" to be offered, along with "Reverse" and "Reverse – Reversed" (the additional custom form field merge field)
+  TestEq(3, Length(TT(":Field")->options));
+  TestEq("Page 1 \u2013 Ëmail pretty plz", TT(":Field")->options[0].title);
+  TestEq("Page 1 \u2013 Reverse", TT(":Field")->options[1].title);
+  TestEq("Page 1 \u2013 Reverse \u2013 Reversed", TT(":Field")->options[2].title);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //Insert the object
+  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
+  TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream #1");
+  RECORD insertdata := insertedobjectinstr.messages[0].data;
+  TestEq(TRUE, insertdata.canedit);
+  TestEqLike("*&#203;mail pretty plz*", insertdata.htmltext);
+
+  TT(":Email contents")->TolliumWeb_FormUpdate('<html><body><p class="normal">Your email is: <span class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.instanceref) || '"></span></p></body></html>');
+  TT(":Email contents")->__debug_simulatedirty();
+  TT(":Sender name")->value := "testformfile-formeditapp";
+  TT(":Sender address")->value := "testformfile-formeditapp@beta.webhare.net";
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  //AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  //testfw->WaitForPublishCompletion(webtoolsfolder->id);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //close form editor
+}
+
+RunTestframework([ PTR TestBuildCustomForm
+                 ]
+                ,[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                ]
+                 ]);

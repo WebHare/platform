@@ -1,0 +1,258 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/registry.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
+
+PUBLIC CONSTANT STRING ARRAY systemservertypes := ["production","acceptance","test","development"];
+
+//List of substitute modules
+PUBLIC STRING ARRAY substitutemodules := [ "blexdev_formsapi", "google" ];
+//As changing dtapstage pretty mcuh requires a softreset, but it's often requested, it should be safe to cache on a  VM-level
+STRING cacheddtapstage;
+//restoration state. 0 if unknown, 1 if not-restore, 2 if restore
+INTEGER restorestate;
+
+/** @short Get the server DTAP type
+    @topic modules/config
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @return "production", "acceptance", "test" or "development"
+*/
+PUBLIC STRING FUNCTION GetDTAPStage()
+{
+  IF(cacheddtapstage = "")
+  {
+    cacheddtapstage := GetEnvironmentVariable("WEBHARE_DTAPSTAGE");
+    IF(cacheddtapstage NOT IN systemservertypes)
+      cacheddtapstage := GetCachedWebHareConfig().servertype;
+  }
+  RETURN cacheddtapstage;
+}
+
+/** @short Is this a restored WebHare
+    @topic modules/config
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @return True if we are a restore and should suppress tasks with external effects, because we may be a clone of a running installation
+*/
+PUBLIC BOOLEAN FUNCTION IsRestoredWebHare()
+{
+  IF(restorestate=0)
+    restorestate := GetEnvironmentVariable("WEBHARE_ISRESTORED") != "" ? 2 : 1;
+
+  RETURN restorestate = 2;
+}
+
+RECORD FUNCTION GetConfigData()
+{
+  RECORD retval :=
+      [ servertype :=     "production"
+      , servername :=     ""
+      , primaryinterfaceurl := ""
+
+      , __eventmasks :=
+          [ "system:registry.system.global"
+          , "system:whfs.sitemeta.16" //site 16 (WebHare backend) tells us where the primaryinterfaceurl is
+          ]
+      ];
+
+  // Might be running before initialization of the registry
+  IF (NOT GetPrimary()->ColumnExists("SYSTEM", "FLATREGISTRY", "ID")
+      OR ReadRegistryKey("system.global.servertype", [fallback := ""])="")
+    RETURN retval;
+
+  retval.servertype := ReadRegistryKey("system.global.servertype");
+  retval.servername := ReadRegistryKey("system.global.servername");
+  retval.primaryinterfaceurl := (SELECT AS STRING webroot FROM system.sites WHERE id = whconstant_whfsid_webharebackend);
+
+  IF(retval.servertype = "alpha")  //No longer available
+    retval.servertype := "development";
+  ELSE IF(retval.servertype NOT IN ["production","test","acceptance","development"])
+    retval.servertype := "production";
+  RETURN retval;
+}
+
+RECORD FUNCTION GetCacheableWebHareConfig()
+{
+  RECORD configdata := RunInSeparatePrimary(PTR GetConfigData());
+
+  RETURN
+      [ value :=        configdata
+      , ttl :=          60 * 60 * 1000
+      , eventmasks :=   [ "system:internal.configdata","system:config.servertype" ] CONCAT configdata.__eventmasks
+      ];
+}
+
+PUBLIC RECORD FUNCTION GetcachedWebHareConfig()
+{
+  RETURN GetAdhocCached([ type := "config" ], PTR GetCacheableWebHareConfig);
+}
+
+PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()
+{
+  RETURN [ versionnum := __SYSTEM_WEBHAREVERSION().versionnum
+         , dtapstage := GetDtapStage()
+         , installationtype := IsRestoredWebHare()  ? "restore" : "production"
+         , servername := GetEnvironmentVariable("WEBHARE_SERVERNAME") ?? GetcachedWebHareConfig().servername
+         ];
+}
+
+PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD restrictions)
+{
+  IF(restrictions.requireversion != 0 AND restrictions.requireversion > webhareversioninfo.versionnum)
+    RETURN `Required version: ${restrictions.requireversion}, current: ${webhareversioninfo.versionnum}`;
+  IF(restrictions.beforeversion != 0 AND webhareversioninfo.versionnum >= restrictions.beforeversion)
+    RETURN `Before version: ${restrictions.beforeversion}, current: ${webhareversioninfo.versionnum}`;
+
+  STRING stage := webhareversioninfo.dtapstage;
+  IF(restrictions.minservertype != "" AND SearchElement(systemservertypes, restrictions.minservertype) < SearchElement(systemservertypes, stage))
+    RETURN `Required minimum dtap stage: '${restrictions.minservertype}', current: '${stage}'`;
+  IF(restrictions.maxservertype != "" AND SearchElement(systemservertypes, restrictions.maxservertype) > SearchElement(systemservertypes, stage))
+    RETURN `Required maximum dtap stage: '${restrictions.maxservertype}', current: '${stage}'`;
+
+  FOREVERY(STRING testvar FROM restrictions.ifenvironset)
+    IF(GetEnvironmentVariable(testvar) = "")
+      RETURN `Required environment variable '${testvar}' not set`;
+  FOREVERY(STRING testvar FROM restrictions.unlessenvironset)
+    IF(GetEnvironmentVariable(testvar) != "")
+      RETURN `Forbidden environment variable '${testvar}' set to '${GetEnvironmentVariable(testvar)}'`;
+
+  IF(Length(restrictions.restrictservers) > 0)
+  {
+    BOOLEAN anymatch;
+    STRING servername := ToUppercase(webhareversioninfo.servername);
+    FOREVERY(STRING servermask FROM restrictions.restrictservers)
+      IF(servername LIKE servermask)
+      {
+        anymatch := TRUE;
+        BREAK;
+      }
+
+    IF(NOT anymatch)
+      RETURN `Restricted to servers: ${ToLowercase(Detokenize(restrictions.restrictservers,", "))}, current: ${webhareversioninfo.servername}`;
+  }
+  RETURN "";
+}
+PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([prefix := ""], options);
+  RETURN [ requireversion :=     ParseXSInt(xmlnode->GetAttribute(options.prefix || "requireversion"))
+         , beforeversion :=      ParseXSInt(xmlnode->GetAttribute(options.prefix || "beforeversion"))
+         , minservertype :=      xmlnode->GetAttribute(options.prefix || "minservertype")
+         , maxservertype :=      xmlnode->GetAttribute(options.prefix || "maxservertype")
+         , restrictservers :=    ParseXSList(ToUppercase(xmlnode->GetAttribute(options.prefix || "restrictservers")))
+         , ifenvironset :=       ParseXSList(xmlnode->GetAttribute(options.prefix || "ifenvironset"))
+         , unlessenvironset :=   ParseXSList(xmlnode->GetAttribute(options.prefix || "unlessenvironset"))
+         ];
+}
+
+/** Returns whether a node with version/servertype/installationtype restrictions is applicable to this WebHare installation
+    @topic modules/config
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @param xmlnode XML node to check
+    @cell options.prefix Prefix to add before attribute names. Eg set to 'data-' by <meta> mailer tags
+    @return Whether the node is applicable to this WebHare installation.
+*/
+PUBLIC BOOLEAN FUNCTION IsNodeApplicableToThisWebHare(OBJECT xmlnode, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN GetApplicabilityError(GetMyApplicabilityInfo(), ReadApplicableToWebHareNode(xmlnode,options)) = "";
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// WebHare-wide state changes
+//
+
+PUBLIC RECORD FUNCTION PollWHServiceState(STRING waitfor)
+{
+  INTEGER file;
+  TRY
+  {
+    file := OpenDiskFile(__SYSTEM_WHCOREPARAMETERS().ephemeralroot || "system.servicestate/" || waitfor, FALSE);
+    IF(file > 0)
+    {
+      STRING data := ReadFrom(file, 16384);
+      IF(data!="")
+        RETURN DecodeHSON(data);
+    }
+  }
+  FINALLY
+  {
+    IF(file>0)
+      CloseDiskFile(file);
+  }
+  RETURN DEFAULT RECORD;
+}
+
+MACRO WHServiceStatePromise(STRING waitfor, MACRO PTR onresolve, MACRO PTR onreject)
+{
+  RECORD data := PollWHServiceState(waitfor);
+  IF(RecordExists(data))
+    onresolve(data);
+
+  //ADDME listen events
+  RegisterTimedCallback(AddTimeToDate(250, GetCurrentDateTime()), PTR WHServiceStatePromise(waitfor, onresolve, onreject));
+}
+PUBLIC OBJECT FUNCTION CreateWHServiceStatePromise(STRING waitfor)
+{
+  RETURN CreatePromise(PTR WHServiceStatePromise(waitfor, #1, #2));
+}
+PUBLIC MACRO SetWHServiceState(STRING waitingfor, RECORD state)
+{
+  StoreDiskFile(__SYSTEM_WHCOREPARAMETERS().ephemeralroot || "system.servicestate/" || waitingfor, EncodeHSONBlob(state), [ overwrite := TRUE ]);
+}
+
+PUBLIC RECORD FUNCTION GetAdhocCacheSettings()
+{
+  RETURN [ minimum_maxentries := 4096
+         , minimum_minperlibrary := 64
+         ];
+}
+PUBLIC MACRO TwistAdhocCacheKnobs(INTEGER maxentries, INTEGER minperlibrary)
+{
+  RECORD settings := GetAdhocCacheSettings();
+  __SYSTEM_SetupAdhocCache(maxentries < settings.minimum_maxentries ? settings.minimum_maxentries : maxentries
+                          ,minperlibrary < settings.minimum_minperlibrary ? settings.minimum_minperlibrary : minperlibrary
+                          );
+}
+
+PUBLIC MACRO UpdateSystemConfigurationRecord(RECORD updates DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD config := GetCacheableWebHareConfig().value;
+
+  STRING dtapstage := GetEnvironmentVariable("WEBHARE_DTAPSTAGE");
+  IF(dtapstage = "" OR dtapstage NOT IN systemservertypes)
+    dtapstage := config.servertype;
+
+  RECORD newconfig := CELL
+      [ ...__SYSTEM_GETSYSTEMCONFIG()
+      , ...config
+      , ...updates
+      , dtapstage
+      ];
+
+  // Log to debug log for now. Copied logdebug because of recursive loadlib problems
+  STRING msg := EncodeJava("system:systemconfig") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData());
+  FOREVERY(VARIANT arg FROM VARIANT["Update systemconfig record", newconfig])
+  {
+    STRING encodedarg := TypeID(arg)=TypeID(STRING) ? EncodeJava(arg) : EncodeHSON(arg);
+    IF(Length(msg) + Length(encodedarg) > 127*1024) //risking passing the log line limit
+      encodedarg := "-";
+    msg := msg || '\t' || encodedarg;
+  }
+  ModuleLog("system:debug", msg);
+
+  // Update the config. Applies immediately to local record, async to rest of processes (and self again)
+  __SYSTEM_SETSYSTEMCONFIG(newconfig);
+  cacheddtapstage := "";
+}

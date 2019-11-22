@@ -1,0 +1,13 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+PUBLIC RECORD FUNCTION PublisherObjectPropsExtensions(RECORD indata)
+{
+  IF(indata.typens != "http://www.webhare.net/xmlns/publisher/designfolder")
+    RETURN indata;
+
+  OBJECT newtab := indata.propertytabs->InsertTabAt(2, GetTid("publisher:filemanager.dependencies.deptab.tabtitle"));
+  newtab->contents := indata.owner->LoadScreen("mod::publisher/tolliumapps/filemanager/dependencies.xml#deptab", [ fsobjectid := indata.objectid ]);
+  RETURN indata;
+}
+

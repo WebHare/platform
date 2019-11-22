@@ -1,0 +1,2527 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:dbschema="http://www.webhare.net/xmlns/whdb/databaseschema"
+  xmlns="http://www.webhare.net/xmlns/system/moduledefinition"
+  xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+  targetNamespace="http://www.webhare.net/xmlns/system/moduledefinition"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" /> <!-- addme cleanup, only needed for WHFSVirtualFilter -->
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/wrd/schemadefinition" schemaLocation="mod::wrd/data/validation/moduleschemadef.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/whdb/databaseschema" schemaLocation="mod::system/data/validation/databaseschema.xsd" />
+
+  <xs:annotation>
+    <xs:documentation>
+      A module is a set of extensions for the WebHare Platform - the module definition file explains to WebHare what the available extensions are.
+    </xs:documentation>
+  </xs:annotation>
+
+  <!-- Standard types -->
+  <xs:simpleType name="Name">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="NameList">
+    <xs:list itemType="Name" />
+  </xs:simpleType>
+
+  <xs:simpleType name="ConsilioWildcardedName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[\p{L}_@\*][\p{L}\p{N}_@\*]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="QNameList">
+    <xs:list itemType="xs:QName" />
+  </xs:simpleType>
+
+  <xs:simpleType name="DateOrNow">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="now(\+\d+d)?"/>
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base="xs:date"/>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+
+  <xs:simpleType name="OptionallyQualifiedName">
+    <xs:annotation>
+      <xs:documentation>
+        This type describes a name in a specific module. The module part is optional,
+        its default is the current module.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*:)?[\p{L}_][\p{L}\p{N}_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="OptionallyQualifiedWildcardedName">
+    <xs:annotation>
+      <xs:documentation>
+        This type describes a name in a specific module, with optional wildcards. The module
+        part is optional, its default is the current module.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*:)?[\p{L}_\*][\p{L}\p{N}_\*]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="OptionallyQualifiedWildcardedNameList">
+    <xs:list itemType="OptionallyQualifiedWildcardedName" />
+  </xs:simpleType>
+
+  <xs:simpleType name="TableName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*)?\.[\p{L}_][\p{L}\p{N}_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="RightName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*:)?[\p{L}_][\p{L}\p{N}_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="RightNameList">
+    <xs:list itemType="RightName" />
+  </xs:simpleType>
+
+  <!-- A tid: ( module ":" (gid ".")+ tid | gid? ("." gid)* ("." tid) ) -->
+  <!-- can't transform (.gid)*(.tid) to (.word)+, libxml treats that as (.word)* ??? -->
+  <xs:simpleType name="SimpleTid">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[-\w_]+:([-_\w]+\.)+[-_\w]+|[-_\w]*(\.[-_\w]+)(\.[-_\w]+)*" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- A gid: ( modulename ":" (gid.)* gid | "."? gid ( "." gid )* | <empty> ) -->
+  <xs:simpleType name="SimpleGid">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([-\w_]+:([-_\w]+\.)*[-_\w]+|\.?[-_\w]+(\.[-_\w]+)*)?" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="UnixPermission">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="0[01234567]?[01234567][01234567][01234567]"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Time">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[012]?[0123456789]:[0123456789][0123456789]"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:attributeGroup name="ApplicabletoWebHare">
+    <xs:attributeGroup ref="sc:ApplicabletoWebHare" />
+  </xs:attributeGroup>
+
+  <xs:simpleType name="RPCTransports">
+    <xs:list>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="whremoting"/>
+          <xs:enumeration value="jsonrpc"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:list>
+  </xs:simpleType>
+
+  <xs:simpleType name="PrimaryTransaction">
+    <xs:list>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="none"/>
+          <xs:enumeration value="auto"/>
+          <xs:enumeration value="normal"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:list>
+  </xs:simpleType>
+
+  <xs:simpleType name="AutodocAccess">
+    <xs:list>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="none"/>
+          <xs:enumeration value="public"/>
+          <xs:enumeration value="private"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:list>
+  </xs:simpleType>
+
+  <!-- An image source link: (modulename ":")? (pathpart "/")* name -->
+  <xs:simpleType name="ImageSrc">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(\c+:)?(\c+/)*\c+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Filename">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[\p{L}\p{N}_-]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CheckFlags">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="!?\c+( !?\c+)*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Module definition -->
+
+  <xs:group name="optionalrootnodes">
+    <xs:choice>
+      <xs:element name="rights" type="Rights" />
+      <xs:element name="servicemanager" type="Servicemanager">
+        <xs:unique name="runoncetags">
+          <xs:selector xpath="./m:runonce" />
+          <xs:field xpath="@tag" />
+        </xs:unique>
+        <xs:unique name="tasktags">
+          <xs:selector xpath="./m:task|./m:ephemeraltask|./m:managedtask" />
+          <xs:field xpath="@tag" />
+        </xs:unique>
+      </xs:element>
+      <xs:element name="appcontexts" type="AppContexts" />
+      <xs:element name="portal" type="Portal">
+        <xs:unique name="appnames">
+          <xs:selector xpath="./m:application" />
+          <xs:field xpath="@name" />
+        </xs:unique>
+      </xs:element>
+      <xs:element name="tollium" type="Tollium" />
+      <xs:element name="backend" type="Backend" />
+      <xs:element name="hooking" type="Hooking" />
+      <xs:element name="databaseschema" type="dbschema:DatabaseSchema" maxOccurs="unbounded" />
+      <xs:element name="publisher" type="Publisher" />
+      <xs:element name="services" type="Services">
+        <xs:unique name="uniquewebservices">
+          <xs:selector xpath="./m:webservice" />
+          <xs:field xpath="@name" />
+        </xs:unique>
+        <xs:unique name="uniquelocalservices">
+          <xs:selector xpath="./m:localservice" />
+          <xs:field xpath="@name" />
+        </xs:unique>
+      </xs:element>
+      <xs:element name="registry" type="Registry" />
+      <xs:element name="moduleregistry" type="RegistryNode" />
+      <xs:element name="consilio" type="Consilio">
+        <xs:unique name="indices">
+          <xs:selector xpath="./m:index|./m:fieldgroup" />
+          <xs:field xpath="@tag" />
+        </xs:unique>
+        <xs:unique name="fields">
+          <xs:selector xpath="./m:index/*" />
+          <xs:field xpath="@name" />
+        </xs:unique>
+      </xs:element>
+      <xs:element name="logging" type="Logging"  />
+      <xs:element name="documentation" /> <!-- ADDME specify this node -->
+      <xs:element name="validation" type="Validation" />
+      <xs:any namespace="##other" processContents="lax"/>
+    </xs:choice>
+  </xs:group>
+
+  <xs:element name="module">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:group ref="optionalrootnodes" minOccurs="0" maxOccurs="unbounded" />
+        <xs:element name="meta" type="Meta" />
+        <xs:group ref="optionalrootnodes" minOccurs="0" maxOccurs="unbounded" />
+      </xs:sequence>
+      <xs:attribute name="gid" type="SimpleGid" use="optional" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="Meta">
+    <xs:annotation>
+      <xs:documentation>
+        The meta section describes the module itself: its name, version (used to recognize it) and how it is packaged (im/export instructions)
+      </xs:documentation>
+    </xs:annotation>
+
+    <xs:all>
+      <xs:element name="version" type="xs:string" minOccurs="0" />
+      <xs:element name="description" type="xs:string" minOccurs="0" />
+      <xs:element name="copyright" type="xs:string" minOccurs="0" />
+      <xs:element name="packaging" type="Packaging" minOccurs="0" />
+      <xs:element name="validation" type="MetaValidation" minOccurs="0" />
+      <xs:element name="author" minOccurs="0">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:extension base="xs:string">
+              <xs:attribute name="href" type="xs:string" />
+            </xs:extension>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:all>
+    <xs:attribute name="configscreen" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Name of the screen which can be called to configure this module
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="AppContexts">
+    <xs:sequence>
+      <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Rights">
+    <xs:annotation>
+      <xs:documentation>
+        The rights section enumerates all the rights that this module defines.
+      </xs:documentation>
+    </xs:annotation>
+
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="rightsgroup">
+          <xs:annotation>
+            <xs:documentation>
+              This element describes a group of rights
+              users on objects of this type.
+            </xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:attribute name="gid" type="SimpleGid" use="optional" />
+            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="tid" type="SimpleTid" />
+            <xs:attribute name="title" type="xs:string" />
+            <xs:attribute name="descriptiontid" type="SimpleTid" />
+            <xs:attribute name="description" type="xs:string" />
+            <xs:attribute name="icon" type="ImageSrc" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="objecttype">
+          <xs:annotation>
+            <xs:documentation>
+              This element describes a type of objects this module has. Rights can be granted to
+              users on objects of this type.
+            </xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="describer" minOccurs="0">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:sequence />  <!-- prevents us from suddenly breaking <describer>  </describer> -->
+                  </xs:sequence>
+                  <xs:attribute name="library" type="xs:string" use="required" />
+                  <xs:attribute name="objectname" type="xs:string" use="required" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="gid" type="SimpleGid" use="optional" />
+            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="rightsgroup" type="OptionallyQualifiedName" />
+            <xs:attribute name="table" type="TableName" use="required" />
+            <xs:attribute name="tid" type="SimpleTid" />
+            <xs:attribute name="title" type="xs:string" />
+            <xs:attribute name="descriptiontid" type="SimpleTid" />
+            <xs:attribute name="description" type="xs:string" />
+            <xs:attribute name="parentfield" type="xs:string" />
+            <xs:attribute name="icon" type="ImageSrc" />
+            <xs:attribute name="describer" type="xs:string" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="right">
+          <xs:annotation>
+            <xs:documentation>
+              Rights are a hierarchy, every right must be implied by another right (and no cycles are
+              allowed!)<br/>
+              The root right, system:sysop, is implied by itself, and is the only right that may do so.
+            </xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:sequence minOccurs="1" maxOccurs="1">
+              <xs:element name="impliedby">
+                <xs:complexType>
+                  <xs:attribute name="right" type="OptionallyQualifiedName" use="required" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="gid" type="SimpleGid" use="optional" />
+            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="rightsgroup" type="OptionallyQualifiedName" use="optional" />
+            <xs:attribute name="tid" type="SimpleTid" />
+            <xs:attribute name="title" type="xs:string" />
+            <xs:attribute name="descriptiontid" type="SimpleTid" />
+            <xs:attribute name="description" type="xs:string" />
+            <xs:attribute name="objecttype" type="OptionallyQualifiedName" use="optional" />
+            <xs:attribute name="showbefore" type="OptionallyQualifiedWildcardedNameList" use="optional" />
+            <xs:attribute name="showafter" type="OptionallyQualifiedWildcardedNameList" use="optional" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="obsoleteobjecttype">
+          <xs:annotation>
+            <xs:documentation>
+              This element describes an obsolete object type, that will be removed from the DB
+            </xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="table" type="TableName" use="required" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="obsoleteright">
+          <xs:annotation>
+            <xs:documentation>
+              This element describes an obsolete right type, that will be removed from the DB
+            </xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:attribute name="name" type="Name" use="required" />
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="gid" type="SimpleGid" use="optional" />
+  </xs:complexType>
+
+  <xs:complexType name="MetaValidation">
+    <xs:annotation>
+      <xs:documentation>
+        Validation settings
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="exclude" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="mask" use="required" />
+          <xs:attribute name="why" use="required" />
+          <xs:attribute name="permanent" type="xs:boolean">
+            <xs:annotation>
+              <xs:documentation>
+                If set, consider this exception permanent (no intention to ever fix). This will suppress warnings about exclusions during validation
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attributeGroup ref="ApplicabletoWebHare" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="eslint" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="mask" use="required" />
+          <xs:attributeGroup ref="ApplicabletoWebHare" />
+        </xs:complexType>
+      </xs:element>
+      <!-- additional modules to fetch during validation -->
+      <xs:element name="fetchmodule" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attributeGroup ref="ApplicabletoWebHare" />
+          <xs:attributeGroup ref="DownloadModuleAttributes" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="options">
+      <xs:annotation>
+        <xs:documentation>
+          Validation settings, as a list of strings. Currently:
+
+          - perfectcompile: No compilation warnings
+          - nomissingtids: All language texts must exist in the default language file
+          - nowarnings: No warnings at all (implies the above options)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:attributeGroup name="DownloadModuleAttributes">
+    <xs:attribute name="module" type="Name" use="required">
+      <xs:annotation>
+        <xs:documentation>Name of required module (without paths)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="branch">
+      <xs:annotation>
+        <xs:documentation>Branch to download (if not the default branch, usually 'master')</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="repository">
+      <xs:annotation>
+        <xs:documentation>Git repository URL. If not set, gitlab.webhare.com/webhare/[modulename] is assumed as base path</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:complexType name="Packaging">
+    <xs:annotation>
+      <xs:documentation>
+        Im/export restrictions on the module, installation instructions and dependencies
+      </xs:documentation>
+    </xs:annotation>
+
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="dependency" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attributeGroup ref="DownloadModuleAttributes" />
+          <xs:attribute name="requireversion" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>Require this version of the dependency (assumes semantic versioning)</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="exclude" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>
+            Exclude files from being packaged if their names (name only, not full path) match the given mask
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="mask" type="xs:string" use="required" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="excludepath" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>
+            Exclude files from being packaged if their paths (relative from the root folder, so not including the root '/'!)
+            match the given mask
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="mask" type="xs:string" use="required" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="unixpermissions" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>
+            Specify permissions (eg execute) that should be set on files when unpacking this module on UNIX(-like) systems
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="path" type="xs:string" use="required">
+            <xs:annotation>
+              <xs:documentation>
+                File path, relative
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="permissions" type="UnixPermission" use="required" />
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+
+    <xs:attribute name="download" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If enabled, sysops can download this module as a tar.gz file
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attributeGroup ref="ApplicabletoWebHare" /> <!-- FIXME actualy implement dtap stage etc, but we need to ensure the attributes are allowed first -->
+  </xs:complexType>
+
+  <xs:complexType name="Servicemanager">
+    <xs:choice minOccurs="0" maxOccurs="unbounded" >
+      <xs:element name="runatstartup">
+        <xs:complexType>
+          <xs:attribute name="script" type="xs:string" use="required" />
+          <xs:attribute name="when">
+            <xs:annotation>
+              <xs:documentation>
+                Specify when to invoke this script. 'afterlaunch' postpones this script until WebHare is online.
+              </xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:enumeration value="afterlaunch"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attributeGroup ref="ApplicabletoWebHare" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="task">
+        <xs:complexType>
+          <xs:attribute name="script" type="xs:string" use="required" />
+          <xs:attribute name="tag" type="Name" use="required" />
+          <xs:attribute name="runatstartup" type="xs:boolean" />
+
+          <xs:attribute name="runat">
+            <xs:annotation>
+              <xs:documentation>Task runtime in %GetNextCronTime format: (eg `*/2 */3 * * *`)</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+
+          <xs:attribute name="runtz">
+            <xs:annotation>
+              <xs:documentation>Timezone for runat. If not specified, UTC is assumed. If set to the special value 'maintenance', the task will be offset $WEBHARE_MAINTENANCE_OFFSET (environment variable) in minutes from UTC </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+
+          <xs:attribute name="runtime" type="Time">
+            <xs:annotation>
+              <xs:documentation>Deprecated, use runat=</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+
+          <xs:attribute name="runinterval" type="xs:integer">
+            <xs:annotation>
+              <xs:documentation>Deprecated, use runat=</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="description" type="xs:string" />
+          <xs:attribute name="timeout" type="xs:integer">
+            <xs:annotation>
+              <xs:documentation>
+                An alternative timeout for this task (in minutes)
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="workerthreads" type="xs:integer">
+            <xs:annotation>
+              <xs:documentation>
+                The number of worker threads to allocate to this task
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attributeGroup ref="ApplicabletoWebHare" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="runonce">
+        <xs:annotation>
+          <xs:documentation>A script specified in this tag is run only once (even it fails). The script is uniquely identified by the combination of the module and the tag. </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="tag" type="Name" use="required">
+            <xs:annotation>
+              <xs:documentation>Tag of the script, this identifies this script, so that is run only once.</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="script" type="xs:string" use="required" >
+            <xs:annotation>
+              <xs:documentation>Path to the script to run, relative to module definition file</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="when" default="aftertablecreation" >
+            <xs:annotation>
+              <xs:documentation>
+                This attribute controls when the script is run:<br/>
+                - After schema creation: the schema of the module exists, but the tables may not<br/>
+                - After table creation: the schema and tables of the module all exist, but obsolete columns where not yet removed<br />
+                - After registry update: the schema is completely up to date. Missing registration keys have been added<br />
+              </xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:enumeration value="afterschemacreation"/>
+                <xs:enumeration value="aftertablecreation"/>
+                <xs:enumeration value="afterregistryupdate"/>
+                <xs:enumeration value="aftertablesbeforerights"/>
+                <xs:enumeration value="poststart"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attributeGroup ref="ApplicabletoWebHare" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="taskcluster">
+        <xs:annotation>
+          <xs:documentation>A separate cluster of task workers. Task types are allocated using the cluster= attribute</xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="tag" type="Name" use="required">
+            <xs:annotation>
+              <xs:documentation>Tag of the cluster</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="harescriptworkers" type="xs:positiveInteger" use="required">
+            <xs:annotation>
+              <xs:documentation>Initial number of harescript workers</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="ephemeraltask">
+        <xs:annotation>
+          <xs:documentation>
+            An ephemeral task (not stored in the database)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attributeGroup ref="ManagedTaskAttrs" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="managedtask">
+        <xs:annotation>
+          <xs:documentation>
+            A task executable by ScheduleManagedTask
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attributeGroup ref="ManagedTaskAttrs" />
+          <xs:attributeGroup ref="ApplicabletoWebHare" />
+          <xs:attribute name="maxfailures" type="xs:nonNegativeInteger">
+            <xs:annotation>
+              <xs:documentation>Maximum number of failures. Set to 0 to never retry. By default tasks are retried indefinitely</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+
+  <xs:attributeGroup name="ManagedTaskAttrs">
+    <xs:attribute name="type" type="Name" use="required">
+      <xs:annotation>
+        <xs:documentation>Tag for this task type. Is combined with the module name (eg `mymodule:mytag)`</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="library">
+      <xs:annotation>
+        <xs:documentation>Library containing code for JavaScript tasks (name must end in '.js' or '.es')</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="objectname">
+      <xs:annotation>
+        <xs:documentation>Object implementing HareScript task</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="cluster" type="OptionallyQualifiedName">
+      <xs:annotation>
+        <xs:documentation>Cluster to use for execution</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="priority">
+      <xs:annotation>
+        <xs:documentation>Task priority, in order from low to high priority:
+          - background: for long running tasks that can wait and should not interfere with a busy system
+          - normal: default priority, should be used for most tasks
+          - interactive: for tasks a user is waiting on (eg password reset mail)
+          - update: for tasks that update the system (waiting too long may break things, eg assetpacks)
+          - updateinteractive: for tasks that would block a developer or sysadmin trying to fix things
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="background" />
+          <xs:enumeration value="normal" />
+          <xs:enumeration value="interactive" />
+          <xs:enumeration value="update" />
+          <xs:enumeration value="updateinteractive" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+
+  </xs:attributeGroup>
+
+  <xs:complexType name="VirtualFS">
+    <xs:sequence>
+      <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" />
+    <xs:attribute name="library" type="xs:string" use="required" />
+    <xs:attribute name="objectname" type="xs:string" use="required" />
+    <xs:attribute name="objecttype" type="xs:string" /> <!-- legacy support -->
+    <xs:attribute name="runmodel" />
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="AccessCheck">
+    <xs:annotation>
+      <xs:documentation>
+        This element specifies rights the current user must have
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="requireright">
+          <xs:complexType>
+            <xs:attribute name="right" type="RightName" use="required" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="requireanygrantableright" />
+        <xs:element name="accesscheck" type="AccessCheck" />
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="combine">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="and"/>
+          <xs:enumeration value="or"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:attributeGroup name="AppAttributes">
+    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attribute name="screen" type="xs:string" />
+    <xs:attribute name="library" type="xs:string" />
+    <xs:attribute name="startmacro" type="xs:string" />
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:attributeGroup>
+
+  <xs:complexType name="Portal">
+    <xs:annotation>
+      <xs:documentation>
+        Specifies the integration of this module into the WebHare portal, eg the registration of applications
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="applicationgroup" minOccurs="0" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>
+            A named group for applications in the startmenu.<br />
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="tid" type="SimpleTid" />
+          <xs:attribute name="name" type="xs:string" />
+          <xs:attribute name="title" type="xs:string" />
+          <xs:attribute name="orderafter" type="OptionallyQualifiedWildcardedNameList">
+            <xs:annotation>
+              <xs:documentation>
+                List of application groups (space separated wildcard masks) after which this application should be ordered, if this application is in a separate group.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="orderbefore" type="OptionallyQualifiedWildcardedNameList">
+            <xs:annotation>
+              <xs:documentation>
+                List of application groups (space separated wildcard masks) before which this application should be ordered, if this application is in a separate group.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="application">
+          <xs:annotation>
+            <xs:documentation>
+              Describes an application in this module. <br />
+              There are two ways to start an application: by screen and by library/startmacro
+            </xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="appcontexts" type="AppContexts" minOccurs="0"/>
+              <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" />
+            </xs:sequence>
+            <xs:attributeGroup ref="AppAttributes" />
+            <xs:attribute name="gid" type="SimpleGid" use="optional" />
+            <xs:attribute name="tid" type="SimpleTid" />
+            <xs:attribute name="title" type="xs:string" />
+            <xs:attribute name="descriptiontid" type="SimpleTid" />
+            <xs:attribute name="description" type="xs:string" />
+            <xs:attribute name="allowuntrustedparams" type="xs:boolean">
+              <xs:annotation>
+                <xs:documentation>
+                  If set, allows non-sysops to specify parameters to applications (eg ?app=publisher(12345)). Servers in
+                  development mode always accept parameters.
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="group" type="xs:string" />
+            <xs:attribute name="icon" type="ImageSrc">
+              <xs:annotation>
+                <xs:documentation>
+                  The icon which is displayed in the start menu for this application.
+                  For screen applications, if no icon is specified, the icon of the application's screen is used.
+                  For startmacro applications, this attribute must be used to display a startmenu icon.
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="openmultipleinstances" type="xs:boolean">
+              <xs:annotation>
+                <xs:documentation>Allow multiple instances to be opened</xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="isdeveloperapp" type="xs:boolean">
+              <xs:annotation>
+                <xs:documentation>This application should only be offered to developers</xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="supportedlanguages">
+              <xs:annotation>
+                <xs:documentation>The list of languages that are supported by this application. If the user is not using any of the supported languages, the first language in this list will be used</xs:documentation>
+              </xs:annotation>
+              <xs:simpleType>
+                <xs:list itemType="xs:string" />
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="shortcut" type="tc:Shortcut">
+              <xs:annotation>
+                <xs:documentation>Shortcut used to launch this application if the dashboard is active</xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="linkapp">
+          <xs:annotation>
+            <xs:documentation>
+              Describes an link to another webpage
+            </xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" />
+            </xs:sequence>
+            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="gid" type="SimpleGid" use="optional" />
+            <xs:attribute name="tid" type="SimpleTid" />
+            <xs:attribute name="title" type="xs:string" />
+            <xs:attribute name="descriptiontid" type="SimpleTid" />
+            <xs:attribute name="description" type="xs:string" />
+            <xs:attribute name="group" type="xs:string" />
+            <xs:attribute name="icon" type="ImageSrc">
+              <xs:annotation>
+                <xs:documentation>
+                  The icon which is displayed in the start menu for this link.
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="isdeveloperapp" type="xs:boolean">
+              <xs:annotation>
+                <xs:documentation>
+                  This link should only be offered to developers
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="link" type="xs:string">
+              <xs:annotation>
+                <xs:documentation>
+                  The link to follow
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="shortcut" type="tc:Shortcut">
+              <xs:annotation>
+                <xs:documentation>
+                  Shortcut used to open this link if the dashboard is active
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="manualapp">
+          <xs:annotation>
+            <xs:documentation>
+              Describes a link to a (private) manual.
+            </xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" />
+            </xs:sequence>
+            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="gid" type="SimpleGid" use="optional" />
+            <xs:attribute name="tid" type="SimpleTid" />
+            <xs:attribute name="title" type="xs:string" />
+            <xs:attribute name="descriptiontid" type="SimpleTid" />
+            <xs:attribute name="description" type="xs:string" />
+            <xs:attribute name="manual" type="xs:string">
+              <xs:annotation>
+                <xs:documentation>
+                  Tag of the manual
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="accesstoken" type="xs:string">
+              <xs:annotation>
+                <xs:documentation>
+                  Access token (shared secret) to access private manuals
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="group" type="xs:string" />
+            <xs:attribute name="icon" type="ImageSrc">
+              <xs:annotation>
+                <xs:documentation>
+                  The icon which is displayed in the start menu for this manual.
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="isdeveloperapp" type="xs:boolean">
+              <xs:annotation>
+                <xs:documentation>
+                  This manual should only be offered to developers
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="supportedlanguages">
+              <xs:annotation>
+                <xs:documentation>
+                  The list of languages that are supported by this manual. If the user is not using any of the supported languages, the first language in this list will be used
+                </xs:documentation>
+              </xs:annotation>
+              <xs:simpleType>
+                <xs:list itemType="xs:string" />
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="shortcut" type="tc:Shortcut">
+              <xs:annotation>
+                <xs:documentation>
+                  Shortcut used to open this manual if the dashboard is active
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+      <xs:element name="monitorgroup" minOccurs="0" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>
+            Add a group for monitoring panels
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="gid" type="SimpleGid" use="optional" />
+          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="tid" type="SimpleTid" />
+          <xs:attribute name="title" type="xs:string" />
+          <xs:attribute name="icon" type="ImageSrc">
+            <xs:annotation>
+              <xs:documentation>
+                The icon displayed for this group
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="orderafter" type="OptionallyQualifiedWildcardedNameList">
+            <xs:annotation>
+              <xs:documentation>
+                List of monitor groups (space separated wildcard masks) after which this group should be ordered
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="orderbefore" type="OptionallyQualifiedWildcardedNameList">
+            <xs:annotation>
+              <xs:documentation>
+                List of monitor groups (space separated wildcard masks) before which this group should be ordered
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="dashboardpanel" type="DashboardPanel" />
+        <xs:element name="monitorpanel" type="DashboardPanel" />
+      </xs:choice>
+
+      <xs:element name="notification" minOccurs="0" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>
+            Register a system notification
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="gid" type="SimpleGid" use="optional" />
+          <xs:attribute name="name" type="xs:string" use="required" />
+          <xs:attribute name="tid" type="SimpleTid" />
+          <xs:attribute name="title" type="xs:string" />
+          <xs:attribute name="descriptiontid" type="SimpleTid" />
+          <xs:attribute name="defaultenabled" type="xs:boolean">
+            <xs:annotation>
+              <xs:documentation>
+                If the notification is enabled by default
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+
+    </xs:sequence>
+    <xs:attribute name="gid" type="SimpleGid" use="optional" />
+  </xs:complexType>
+
+  <xs:complexType name="DashboardPanel">
+    <xs:annotation>
+      <xs:documentation>
+        Specify a panel for the dashboard pplication
+      </xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="group" type="xs:string" />
+    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attribute name="screen" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="DashboardGroup">
+    <xs:annotation>
+      <xs:documentation>
+        Add a group for dashboard panels
+      </xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attribute name="orderafter" type="OptionallyQualifiedWildcardedNameList">
+      <xs:annotation>
+        <xs:documentation>
+          List of monitor groups (space separated wildcard masks) after which this group should be ordered
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="orderbefore" type="OptionallyQualifiedWildcardedNameList">
+      <xs:annotation>
+        <xs:documentation>
+          List of monitor groups (space separated wildcard masks) before which this group should be ordered
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+
+  <xs:complexType name="Tollium">
+    <xs:sequence>
+      <xs:element name="components" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="namespace" type="xs:anyURI" use="required" />
+          <xs:attribute name="xmlschema" type="xs:string" />
+          <xs:attribute name="skipdocumentation" type="xs:boolean" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="dragtype" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="name" type="xs:string" use="required" />
+          <xs:attribute name="library" type="xs:string" use="required" />
+          <xs:attribute name="objectname" type="xs:string" use="required" />
+          <xs:attribute name="flags" type="CheckFlags" />
+          <xs:attribute name="candownloadflags" type="CheckFlags" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="debugaction" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="name" type="xs:string" use="required" />
+          <xs:attribute name="library" type="xs:string" use="required" />
+          <xs:attribute name="startmacro" type="xs:string" use="required" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="AddHeader">
+    <xs:attribute name="header" />
+    <xs:attribute name="value" />
+  </xs:complexType>
+
+  <xs:complexType name="WebRule">
+    <xs:sequence>
+      <xs:element name="addheader" minOccurs="0" maxOccurs="unbounded" type="AddHeader">
+        <xs:annotation>
+          <xs:documentation>
+            Add a custom header line to every file requested through this access rule
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="account" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="username" />
+          <xs:attribute name="password" />
+        </xs:complexType>
+      </xs:element>
+      <xs:sequence minOccurs="0" maxOccurs="unbounded">
+        <xs:choice>
+          <xs:element name="tryfolder">
+            <xs:complexType>
+              <xs:attribute name="resolver">
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <xs:enumeration value="sha256b16"/>
+                    <xs:enumeration value="sha256b16_directory"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+              <xs:attribute name="path" use="required">
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <!-- allow mod::*/*, siteoutput::*/*, whdata::*/*, relative path (without ':') -->
+                    <xs:pattern value="((mod|siteoutput|whdata)::[^/]+/.*|[^:]+)" />
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="tryfile">
+            <xs:complexType>
+              <xs:attribute name="path" use="required">
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <!-- allow mod::*/*, siteoutput::*/*, whdata::*/*, relative path (without ':') -->
+                    <xs:pattern value="((mod|siteoutput|whdata)::[^/]+/.*|[^:]+)" />
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+      </xs:sequence>
+      <xs:element name="accesscheck" type="AccessCheck" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+
+    <xs:attribute name="path" type="xs:string" use="required" />
+    <xs:attribute name="ignorepaths" type="xs:string" />
+    <xs:attribute name="match" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="initial"/>
+          <xs:enumeration value="exact"/>
+          <xs:enumeration value="wildcards"/>
+          <xs:enumeration value="cookie"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="authmode">
+      <xs:annotation>
+        <xs:documentation>If set to 'iporaccess', authentication scripts are not run if the IP address matches the list. 'ipandaccess' is the default</xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="ipandaccess"/>
+          <xs:enumeration value="iporaccess"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="allowips">
+      <xs:annotation>
+        <xs:documentation>List of IP masks to allow even if they are on the deny list. Specify 'consilio:fetcher' to specifically whitelist consilio</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="requirehttpauth" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          Require HTTP authentication for this URL. The specific accounts can be configured in &lt;account&gt; nodes.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="requirewhaccount" type="xs:boolean" />
+    <xs:attribute name="primarytrans" type="PrimaryTransaction">
+      <xs:annotation>
+        <xs:documentation>
+          Whether to set up a primary transaction
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="autotrans" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If enabled, the primary transaction will be an auto transaction (requiring BeginWork/Commit to make modifications).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="expires" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>
+          No longer supported.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="authscript" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Path, relative to modulescript::modulename/, of a script to invoke on every request to verify whether the user has access to the content in this folder
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="cachecontrol" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Cache-control header, if serving with a 2xx or 3xx status code
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="roles" />
+    <xs:attribute name="redirecttoscript" type="xs:string" />
+    <xs:attribute name="handlebyscript" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Path to script which will handle all traffic that hits this access rule. If relative, relative to the current file
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="handlebydir" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Path to directory which will handle all traffic that hits this access rule. If relative, relative to the current file
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="redirecttodir" type="xs:string" />
+    <xs:attribute name="errorpath" type="xs:string" />
+    <xs:attribute name="finalerrorpath" type="xs:boolean" />
+    <xs:attribute name="permissions" />
+    <xs:attribute name="errorpermissions" />
+    <xs:attribute name="allowallmethods" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If set, content matching this access rule will accept all methods (instead of only POST, GET and HEAD).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="matchassubdir" type="xs:boolean" />
+    <xs:attribute name="wrdschema" type="xs:string" />
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+    <xs:attribute name="redirectcode">
+      <xs:simpleType>
+        <xs:restriction base="xs:integer">
+          <xs:enumeration value="301"/>
+          <xs:enumeration value="302"/>
+          <xs:enumeration value="303"/>
+          <xs:enumeration value="307"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="method">
+      <xs:annotation>
+        <xs:documentation>
+          Restricts the methods to which this access rule applies
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="OPTIONS"/>
+              <xs:enumeration value="GET"/>
+              <xs:enumeration value="POST"/>
+              <xs:enumeration value="PROPFIND"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="applyruleset" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="TopLevelWebRule">
+    <xs:complexContent>
+      <xs:extension base="WebRule">
+        <xs:attributeGroup ref="WebRulePriority" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="RestApi">
+    <xs:attribute name="path" type="xs:string" use="required" />
+    <xs:attribute name="apispec" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <xs:complexType name="InternalServiceBase">
+    <xs:attribute name="gid" type="SimpleGid" use="optional" />
+    <xs:attribute name="tag" type="xs:string" use="required" />
+    <xs:attribute name="library" type="xs:string" use="required" />
+    <xs:attribute name="tid" type="SimpleTid" />
+    <xs:attribute name="title" type="xs:string" />
+    <xs:attribute name="portname" type="xs:string" use="required" />
+    <xs:attribute name="portobjectname" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Object implementing the port
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="globalport" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If set to true, the port specified in portname is registered as global, so other processes can also
+          access it. Only allowed when this service is only run in one process (currently only webserver).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="mode" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="alwayson"/>
+          <xs:enumeration value="ondemand"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="screen" type="xs:string" />
+    <xs:attribute name="persistonsoftreset" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If not set to true, the script is restarted when a soft reset event is received. (eg module reload)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="releaseonsoftreset" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If set to true, the script is released when a soft reset event is received. (eg module reload).
+          When accessed again, a new instance of the script is started.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="environment" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Specifies the loading environment. This attribute is for WebHare's internal use only anda will be removed in the future.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="Backend">
+    <xs:sequence minOccurs="0" maxOccurs="unbounded">
+      <xs:choice>
+        <xs:element ref="webruleset" />
+        <xs:element name="webrule" type="TopLevelWebRule" />
+        <xs:element name="restapi" type="RestApi" />
+      </xs:choice>
+      <xs:element name="usermgrextension" type="UserMgrExtension" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:attributeGroup name="WebRulePriority">
+    <xs:attribute name="priority">
+      <xs:simpleType>
+        <xs:union memberTypes="xs:int">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="before" />
+              <xs:enumeration value="after" />
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:union>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:element name="webruleset">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded" >
+          <xs:element name="webrule" type="WebRule" />
+          <xs:element name="restapi" type="RestApi" />
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" />
+      <xs:attribute name="title" type="xs:string" />
+      <xs:attribute name="tid" type="SimpleTid" />
+      <xs:attributeGroup ref="WebRulePriority" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:attributeGroup name="AddActionBaseAttributes">
+    <xs:attribute name="title" type="xs:string"/>
+    <xs:attribute name="tid" type="SimpleTid" />
+    <xs:attribute name="screen" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Screen to open</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="startmacro" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Macro to run</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="windowopenmacro" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Window open macro to run</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:complexType name="UserMgrExtension">
+    <xs:sequence>
+      <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Checks that determine visibility of this option</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="addaction" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:annotation>
+            <xs:documentation>Actions to add</xs:documentation>
+          </xs:annotation>
+          <xs:attributeGroup ref="AddActionBaseAttributes" />
+          <xs:attribute name="addtomenu">
+            <xs:annotation>
+              <xs:documentation>Menu to which to add</xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:enumeration value="exports"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="addrootitem" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="title" type="xs:string"/>
+          <xs:attribute name="tid" type="SimpleTid" />
+          <xs:attribute name="gotoitem" type="xs:string"/>
+          <xs:attribute name="gotoitemtid" type="SimpleTid" />
+          <xs:attribute name="gotoshortcut" type="tc:Shortcut" />
+          <xs:attribute name="filterscreen" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>Screen to open</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="contentmode" type="xs:string" />
+          <xs:attribute name="icon" type="ImageSrc" />
+          <xs:attribute name="forvirtualfilters">
+            <xs:simpleType>
+              <xs:list itemType="s:WHFSVirtualFilter" />
+            </xs:simpleType>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="Registry">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded" >
+        <xs:element name="node" type="ToplevelNode" />
+        <xs:element name="obsoletenode"> <!-- FIXME Implement! Added so we can at least start specifying nodes to kill -->
+          <xs:complexType>
+            <xs:attribute name="name" type="Name" use="required" />
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="owner" type="xs:string"  />
+    <xs:attribute name="view" type="xs:string"  />
+  </xs:complexType>
+
+  <xs:complexType name="RegistryNode">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="node">
+        <xs:complexType>
+          <xs:complexContent>
+            <xs:extension base="RegistryNode">
+              <xs:attribute name="name" type="Name" use="required" />
+              <xs:attribute name="view" type="xs:string" />
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="string">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="description" type="xs:string" />
+          <xs:attribute name="initialval" type="xs:string" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="boolean">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="description" type="xs:string" />
+          <xs:attribute name="initialval" type="xs:boolean" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="integer">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="description" type="xs:string" />
+          <xs:attribute name="initialval" type="xs:integer" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="money">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="description" type="xs:string" />
+          <xs:attribute name="initialval">
+            <xs:simpleType>
+              <xs:restriction base='xs:decimal'>
+                <xs:fractionDigits value='5' />
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="datetime">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="description" type="xs:string" />
+          <xs:attribute name="initialval" type="DateOrNow" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="record">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="description" type="xs:string" />
+          <!-- No initial value for records -->
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="obsoletenode">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="obsoletekey">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required" />
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+
+  <xs:complexType name="SublevelNode">
+    <xs:complexContent>
+      <xs:extension base="RegistryNode">
+        <xs:attribute name="name" type="Name" use="required" />
+        <xs:attribute name="view" type="xs:string" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+
+  <xs:complexType name="ToplevelNode">
+    <xs:complexContent>
+      <xs:extension base="SublevelNode">
+        <xs:attribute name="owner" type="xs:string" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+
+  <!-- ****************************************************
+
+       Publisher
+
+  ***************************************************** -->
+  <xs:complexType name="Publisher">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="webdesignplugin" type="WebDesignPlugin" />
+        <xs:element name="customnode" type="CustomNode" />
+        <xs:element name="webdesign" type="WebDesign" />
+        <xs:element name="addtowebdesign" type="AddToWebDesign" />
+        <xs:element name="addtoassetpack" type="AddToAssetPack" />
+        <xs:element name="webfeature" type="WebFeature" />
+        <xs:element name="virtualfs" type="VirtualFS" />
+        <xs:element name="filemgrextension" type="FileMgrExtension" />
+        <xs:element name="versioningpolicy" type="VersioningPolicy" />
+        <xs:element name="indexfield" type="PublisherIndexField" />
+        <xs:element name="searchfilter" type="SearchFilter" />
+        <xs:element name="siteprofile">
+          <xs:complexType>
+            <xs:attribute name="datafile" type="xs:string" />
+            <xs:attribute name="path" type="xs:string" />
+            <xs:attributeGroup ref="ApplicabletoWebHare" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="objecteditor">
+          <xs:complexType>
+            <xs:attribute name="documenteditor" />
+            <xs:attribute name="supportsreadonly" type="xs:boolean" />
+            <xs:attributeGroup ref="AppAttributes" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="formcomponents" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="namespace" type="xs:anyURI" use="required" />
+            <xs:attribute name="xmlschema" type="xs:string" />
+            <xs:attribute name="skipdocumentation" type="xs:boolean" />
+            <xs:attributeGroup ref="ApplicabletoWebHare" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="registerslot" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="name" use="required" />
+            <xs:attribute name="title" />
+            <xs:attribute name="tid" type="SimpleTid" />
+            <xs:attribute name="description" />
+            <xs:attribute name="descriptiontid" type="SimpleTid" />
+            <xs:attribute name="initialvalue" />
+            <xs:attribute name="type" use="required">
+              <xs:annotation>
+                <xs:documentation>
+                  Specify whether this slot should point to a file, folder or even a site
+                </xs:documentation>
+              </xs:annotation>
+              <xs:simpleType>
+                <xs:restriction base="xs:string">
+                  <xs:enumeration value="site"/>
+                  <xs:enumeration value="folder"/>
+                  <xs:enumeration value="file"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="typemasks" /> <!-- reserved to add further filtering -->
+            <xs:attributeGroup ref="ApplicabletoWebHare" />
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="WebDesignPlugin">
+    <xs:attribute name="name" type="xs:string" use="required" />
+    <xs:attribute name="namespace" type="xs:anyURI" use="required" />
+    <xs:attribute name="library" type="xs:string" />
+    <xs:attribute name="objectname" type="xs:string" use="required" />
+    <xs:attribute name="hooksplugins" type="QNameList" />
+    <xs:attribute name="hooksfeatures">
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="objectprops"/>
+              <xs:enumeration value="debugsettings"/>
+              <xs:enumeration value="preparemail"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="CustomNode">
+    <xs:attribute name="name" type="xs:string" use="required" />
+    <xs:attribute name="namespace" type="xs:anyURI" use="required" />
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="VersioningPolicy">
+    <xs:attribute name="name" type="xs:string" use="required" />
+    <xs:attribute name="library" type="xs:string" use="required" />
+    <xs:attribute name="objectname" type="xs:string" use="required" />
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="PublisherIndexField">
+    <xs:sequence>
+      <xs:element name="arrayfield" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attributeGroup ref="PublisherIndexFieldBase" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="namespace" type="xs:anyURI">
+      <xs:annotation>
+        <xs:documentation>
+          For static indexfields, the namespace of the contenttype from which to
+          retrieve the field contents, only valid if the member attribute is
+          also set. Either namespace/member or fieldfunc must be set.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attributeGroup ref="PublisherIndexFieldBase" />
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:attributeGroup name="PublisherIndexFieldBase">
+    <xs:attribute name="name" type="Name">
+      <xs:annotation>
+        <xs:documentation>
+          The name of this index field. This name is combined with the module
+          name in the search index, so it should be unique within the module.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="member" type="Name">
+      <xs:annotation>
+        <xs:documentation>
+          For static indexfields, the name of the contenttype member that holds
+          the field contents, only valid if the namespace attribute is also set.
+          Either namespace/member or fieldfunc must be set.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="fieldfunc" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          For dynamic indexfields, the field content provider library#function.
+          Either namespace/member or fieldfunc must be set.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="tokenized" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="suggested" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="library" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Deprecated, use fieldfunc instead.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="functionname" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Deprecated, use fieldfunc instead.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:complexType name="SearchFilter">
+    <xs:sequence>
+      <xs:element name="accesscheck" type="AccessCheck" minOccurs="0" />
+    </xs:sequence>
+    <xs:attribute name="name" type="Name" use="required">
+      <xs:annotation>
+        <xs:documentation>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="title" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="tid" type="SimpleTid">
+      <xs:annotation>
+        <xs:documentation>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="description" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="descriptiontid" type="SimpleTid">
+      <xs:annotation>
+        <xs:documentation>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="filterobject" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="WebDesign">
+    <xs:sequence>
+      <xs:element name="assetpack" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="babeltranspile" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="regex" />
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+          <xs:attribute name="name" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>
+                Name for this assetpack. If not set, the webdesign name is used
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="entrypoint" type="xs:string" use="required">
+            <xs:annotation>
+              <xs:documentation>
+                Initial library to load
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="supportedlanguages" use="required">
+            <xs:annotation>
+              <xs:documentation>
+                The list of languages that are supported for client-side getTid calls
+              </xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:list itemType="xs:string" />
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="alwaysincludepolyfill" type="xs:boolean">
+            <xs:annotation>
+              <xs:documentation>
+                If true, the develop versions of this assetpack also include Babel polyfill code. Eg. used for sharedworker scripts.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="webharepolyfills" type="xs:boolean">
+            <xs:annotation>
+              <xs:documentation>Add the WebHare polyfills, mostly for IE11/Edge gaps. Defauls to true</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="environment" default="window">
+            <xs:annotation>
+              <xs:documentation>
+                The context for which this script is compiled. Defaults to 'window', can be set to 'sharedworker'
+              </xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:enumeration value="window"/>
+                <xs:enumeration value="sharedworker"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="aftercompiletask">
+            <xs:annotation>
+              <xs:documentation>Managed task to schedule whenever the assetpack has been successfully recompiled. You can use this to eg push asset updates to a CDN</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required" />
+    <xs:attribute name="path" type="xs:string"/>
+    <xs:attribute name="title" type="xs:string"/>
+    <xs:attribute name="tid" type="SimpleTid" />
+    <xs:attribute name="siteprofile" type="xs:string"/>
+    <xs:attribute name="istemplate" type="xs:boolean"/>
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="WebFeature">
+    <xs:attribute name="name" type="xs:string" use="required" />
+    <xs:attribute name="title" type="xs:string"/>
+    <xs:attribute name="tid" type="SimpleTid" />
+    <xs:attribute name="siteprofile" type="xs:string"/>
+    <xs:attribute name="webdesignmasks" type="sc:WildcardMasks">
+      <xs:annotation>
+        <xs:documentation>A list of webdesign wildcard masks to which this feature may be applied.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="AddToWebDesign">
+    <xs:attribute name="webdesign" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>Webdesign to which we're adding</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="siteprofile" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>Path to siteprofile to add</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="AddToAssetPack">
+    <xs:attribute name="assetpack" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          Assetpack to which we're adding
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="entrypoint" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          Library to add
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="FileMgrExtension">
+    <xs:sequence>
+      <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Checks that determine visibility of this option</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="addaction" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:annotation>
+            <xs:documentation>Actions to add</xs:documentation>
+          </xs:annotation>
+          <xs:attributeGroup ref="AddActionBaseAttributes" />
+          <xs:attribute name="addtomenu">
+            <xs:annotation>
+              <xs:documentation>Menu to which to add</xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:enumeration value="actions"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="requiresselection" type="xs:boolean" />
+          <xs:attribute name="onlydevelopers" type="xs:boolean" />
+          <xs:attribute name="site" type="xs:string" />
+          <xs:attribute name="permissions" type="xs:string" />
+          <xs:attribute name="objecttype" type="xs:string" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="addrootitem" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="title" type="xs:string"/>
+          <xs:attribute name="tid" type="SimpleTid" />
+          <xs:attribute name="gotoitem" type="xs:string"/>
+          <xs:attribute name="gotoitemtid" type="SimpleTid" />
+          <xs:attribute name="gotoshortcut" type="tc:Shortcut" />
+          <xs:attribute name="filterscreen" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>Screen to open</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="contentmode" type="xs:string" />
+          <xs:attribute name="icon" type="ImageSrc" />
+          <xs:attribute name="forvirtualfilters">
+            <xs:simpleType>
+              <xs:list itemType="s:WHFSVirtualFilter" />
+            </xs:simpleType>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <!-- ****************************************************
+
+       Consilio
+
+  ***************************************************** -->
+
+  <xs:simpleType name="StandardAnalyzers">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value=""/>
+      <xs:enumeration value="standard"/>
+      <xs:enumeration value="simple"/>
+      <xs:enumeration value="whitespace"/>
+      <!--
+        See https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-lang-analyzer.html for the complete list
+        of supported languages. For now we only support what is supported by libblex.
+      -->
+      <xs:enumeration value="danish" />
+      <xs:enumeration value="dutch" />
+      <xs:enumeration value="english" />
+      <xs:enumeration value="french" />
+      <xs:enumeration value="german" />
+      <xs:enumeration value="italian" />
+      <xs:enumeration value="portuguese" />
+      <xs:enumeration value="spanish" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="Consilio">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="contentprovider" type="ContentProvider" />
+        <xs:element name="index" type="Index" />
+        <xs:element name="fieldgroup" type="FieldGroup" />
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ContentProvider">
+    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attribute name="tid" type="SimpleTid" />
+    <xs:attribute name="icon" type="ImageSrc" />
+    <xs:attribute name="library" type="xs:string" />
+    <xs:attribute name="contentproviderobject" type="xs:string" />
+    <xs:attribute name="settingsscreen" type="xs:string" />
+    <xs:attribute name="publishercontent" type="xs:boolean" />
+  </xs:complexType>
+
+  <xs:complexType name="Index">
+    <xs:annotation>
+      <xs:documentation>
+        An Elasticsearch index
+      </xs:documentation>
+    </xs:annotation>
+
+    <xs:sequence>
+      <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+
+    <xs:attribute name="tag" type="Name" use="required" />
+    <xs:attribute name="priority" type="xs:integer" />
+  </xs:complexType>
+
+  <xs:complexType name="FieldGroup">
+    <xs:annotation>
+      <xs:documentation>
+        A reusable group of index fields
+      </xs:documentation>
+    </xs:annotation>
+
+    <xs:sequence>
+      <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="tag" type="Name" />
+  </xs:complexType>
+
+  <xs:group name="IndexField">
+    <xs:choice>
+      <xs:element name="addfieldgroup">
+        <xs:annotation>
+          <xs:documentation>
+            A reference to a reusable group of index fields in this or another module
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="ref" type="OptionallyQualifiedName" />
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="text">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing analyzed text which will be tokenized for full-text search (type `text` in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+          <xs:attributeGroup ref="FieldAttributes" />
+          <xs:attribute name="analyzer" type="StandardAnalyzers" default="standard">
+            <xs:annotation>
+              <xs:documentation>
+                The analyzer to use to analyze this field, defaults to `"standard"`
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="search_analyzer" type="StandardAnalyzers">
+            <xs:annotation>
+              <xs:documentation>
+                The analyzer to use when querying this field, defaults to the value of the analyzer field
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="search_quote_analyzer" type="StandardAnalyzers">
+            <xs:annotation>
+              <xs:documentation>
+                The analyzer to use when a phrase is encountered when querying this field, defaults to the value of the
+                search_analyzer field
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="keyword">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing a keyword value (type `keyword` in Elasticsearch). Keywords are not tokenized when indexing (can't search for individual words)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+          <xs:attributeGroup ref="FieldAttributes" />
+          <xs:attribute name="ignore_above" type="xs:integer">
+            <xs:annotation>
+              <xs:documentation>
+                Strings longer than this setting are ignored and will not be indexed (length is counted in UTF-8 characters)
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+
+<!--ADDME: Not enabled for now, this requires specific indexing and searching code
+      <xs:element name="completion">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing completion values (type `completion` in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attributeGroup ref="FieldAttributes" />
+          <xs:attribute name="analyzer" type="StandardAnalyzers" default="simple">
+            <xs:annotation>
+              <xs:documentation>
+                The analyzer to use to analyze this field, defaults to `"simple"`
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="search_analyzer" type="StandardAnalyzers">
+            <xs:annotation>
+              <xs:documentation>
+                The analyzer to use when querying this field, defaults to the value of the analyzer field
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="preserve_separators" type="xs:boolean" default="true">
+            <xs:annotation>
+              <xs:documentation>
+                Set to `false` to be able to find `Foo Fighters` if suggesting for `foof`, defaults to `true`
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+-->
+
+      <xs:element name="integer">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing an INTEGER value (type `integer` in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attributeGroup ref="FieldAttributes" />
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="integer64">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing an INTEGER64 value (type `long` in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attributeGroup ref="FieldAttributes" />
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="float">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing a FLOAT value (type `double` in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attributeGroup ref="FieldAttributes" />
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="datetime">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing a DATETIME value (type `date` in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attributeGroup ref="FieldAttributes" />
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="boolean">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing a BOOLEAN value (type `boolean` in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attributeGroup ref="FieldAttributes" />
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="record">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing RECORD values (object type with properties in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+          <xs:attributeGroup ref="FieldAttributes" />
+          <xs:attribute name="strict" type="xs:boolean" />
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="latlng">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing a geo location with lat and lng fields (type `geo_point` in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attributeGroup ref="FieldAttributes" />
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="ipaddress">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing an IPv4 or IPv6 address (type `ip` in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attributeGroup ref="FieldAttributes" />
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:group>
+
+  <xs:attributeGroup name="FieldAttributes">
+    <xs:attribute name="name" type="ConsilioWildcardedName" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          The field name
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+
+  <!-- ****************************************************
+
+       Hooks
+
+  ***************************************************** -->
+
+  <xs:complexType name="Hooking">
+    <xs:annotation>
+      <xs:documentation>
+        Hooks define hooking points within the Webhare system, to extend behaviour.
+      </xs:documentation>
+    </xs:annotation>
+
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="target" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="integratedonly"  />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="intercept" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+
+          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="target" type="OptionallyQualifiedName" use="required" />
+          <xs:attribute name="runafter" type="OptionallyQualifiedWildcardedNameList" />
+          <xs:attribute name="runbefore" type="OptionallyQualifiedWildcardedNameList" />
+
+          <xs:attribute name="library" type="xs:string" />
+          <xs:attribute name="interceptfunction" type="xs:string" use="required" />
+          <xs:attribute name="runmodel" />
+          <xs:attributeGroup ref="ApplicabletoWebHare" />
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+
+  <!-- ****************************************************
+
+       Services
+
+  ***************************************************** -->
+
+  <xs:complexType name="Services">
+    <xs:annotation>
+      <xs:documentation>
+        Services
+      </xs:documentation>
+    </xs:annotation>
+
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="webservice">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="accesscheck" type="AccessCheck" minOccurs="0" />
+            <xs:element name="addheader" minOccurs="0" maxOccurs="unbounded" type="AddHeader">
+              <xs:annotation>
+                <xs:documentation>
+                  Add a custom header line to add to service requests (eg for Access-Control-Allow-Origin)
+                </xs:documentation>
+              </xs:annotation>
+            </xs:element>
+          </xs:sequence>
+
+          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="transports" type="RPCTransports" use="required" />
+          <xs:attribute name="library" type="xs:string" use="required" />
+          <xs:attribute name="prefix" type="xs:string" />
+
+          <xs:attribute name="requirewhaccount" type="xs:boolean" />
+          <xs:attribute name="primarytrans" type="PrimaryTransaction">
+            <xs:annotation>
+              <xs:documentation>
+                Whether to set up a primary transaction
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+
+          <xs:attribute name="crossdomainorigins">
+            <xs:annotation>
+              <xs:documentation>
+                Allow cross-domain requests for the given origins, or specify "*" for all origins.
+              </xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:list itemType="xs:string" />
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attributeGroup ref="ApplicabletoWebHare" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="localservice">
+        <xs:complexType>
+          <xs:attribute name="name" type="xs:string" use="required" />
+          <xs:attribute name="library" type="xs:string" use="required" />
+          <xs:attribute name="objectname" type="xs:string" use="required" />
+          <xs:attribute name="reuse" type="xs:boolean"  />
+          <xs:attribute name="withtransaction" type="xs:boolean" default="true">
+            <xs:annotation>
+              <xs:documentation>
+                If true, this service receives the caller's transaction. If false, the service will not receive or require a (primary) transaction
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="internalservice">
+        <xs:complexType>
+          <xs:complexContent>
+            <xs:extension base="InternalServiceBase">
+              <xs:attribute name="where" use="required">
+                <xs:annotation>
+                  <xs:documentation>
+                    Specifies in which kind of processes this script must be run.
+                  </xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                  <xs:list>
+                    <xs:simpleType>
+                      <xs:restriction base="xs:string">
+                        <xs:enumeration value="webserver"/>
+                        <xs:enumeration value="appserver"/>
+                      </xs:restriction>
+                    </xs:simpleType>
+                  </xs:list>
+                </xs:simpleType>
+              </xs:attribute>
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="check">
+        <xs:complexType>
+          <xs:annotation>
+            <xs:documentation>Add a custom checks to `wh check`.</xs:documentation>
+          </xs:annotation>
+          <xs:attribute name="library">
+            <xs:annotation>
+              <xs:documentation>Deprecated since v4.23: library containing the object, relative to the module root</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="objectname" use="required">
+            <xs:annotation>
+              <xs:documentation>Object containing the check code, relative to the module definition. Must derive from CustomCheckBase in module::system/configure.whlib</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="apprunnerconfig">
+        <xs:complexType>
+          <xs:attribute name="library" type="xs:string" />
+          <xs:attribute name="configfunction" type="xs:string" use="required" />
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+
+  <!-- ****************************************************
+
+       Logging
+
+  ***************************************************** -->
+
+  <xs:complexType name="Logging">
+    <xs:annotation>
+      <xs:documentation>
+      </xs:documentation>
+    </xs:annotation>
+
+    <xs:sequence minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="log">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required">
+            <xs:annotation>
+              <xs:documentation>
+                Name of this log (use 'modulename:name' for logging)
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="filename" type="Filename" use="required">
+            <xs:annotation>
+              <xs:documentation>
+                Name of the log file (without extension).
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="rotates" type="xs:nonNegativeInteger" use="optional">
+            <xs:annotation>
+              <xs:documentation>
+                Number of days to retain the log (default: 99)
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="mseconds" type="xs:boolean" use="optional">
+            <xs:annotation>
+              <xs:documentation>
+                Whether to include milliseconds in the log time stamp.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="gid" type="SimpleGid" use="optional" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="gid" type="SimpleGid" use="optional" />
+  </xs:complexType>
+
+  <!-- ****************************************************
+
+       Validation
+
+  ***************************************************** -->
+
+
+  <xs:complexType name="Validation">
+    <xs:sequence>
+      <xs:element name="xmlfiletype" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="name" /> <!-- FIXME deprecated - remove when no longer used by external mods -->
+          <xs:attribute name="extensions">
+            <xs:simpleType>
+              <xs:list itemType="xs:string" />
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="namespaceuri" type="xs:anyURI" />
+          <xs:attribute name="rootnodes">
+            <xs:simpleType>
+              <xs:list itemType="xs:string" />
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="library" type="xs:string" /> <!-- FIXME deprecated - remove when no longer used by external mods -->
+          <xs:attribute name="objectname" type="xs:string" /> <!-- FIXME deprecated - remove when no longer used by external mods -->
+          <xs:attribute name="schemalocation" type="xs:string" />
+          <xs:attribute name="validator" type="xs:string" />
+          <xs:attribute name="hastids" type="xs:boolean" /> <!-- FIXME deprecated - remove when no longer used by external mods -->
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="services" type="Services" />
+</xs:schema>

@@ -1,0 +1,39 @@
+<?wh
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+
+
+PUBLIC STRING FUNCTION GetRecaptchaPublicKey(STRING url)
+{
+  IF(url = "mock" AND GetDtapStage() = "development")
+    RETURN "mock";
+
+  RECORD keyinfo :=  LookupAPIKey("google-recaptcha", url);
+  IF(RecordExists(keyinfo))
+    RETURN keyinfo.apikey;
+
+  THROW NEW Exception("Unconfigured URL for recaptcha: " || url);
+}
+PUBLIC BOOLEAN FUNCTION VerifyRecaptchaResponse(STRING url, STRING response)
+{
+  IF(url = "mock" AND GetDtapStage() = "development")
+    RETURN response = "mock";
+
+  RECORD keyinfo :=  LookupAPIKey("google-recaptcha", url);
+  RECORD ARRAY postvars := [[ name := "secret", value := keyinfo.privatekey ]
+                           ,[ name := "response", value := response ]
+                           ];
+
+  OBJECT browser := NEW WebBrowser;
+  IF(NOT browser->PostWebPage("https://www.google.com/recaptcha/api/siteverify", postvars, ""))
+  {
+    LogError("socialite:recaptcha", "Unexpected response from siteverify", [ error := "UNEXPECTED-SITEVERIFY-RESPONSE", secret := keyinfo.privatekey, response := response, status := browser->GetHTTPStatus() ]);
+    THROW NEW Exception("Unexpected response from siteverify");
+  }
+  RECORD result := DecodeJSONBlob(browser->content);
+  //We need to verify the hostname, otherwise a key not locked to sites can be used elsewhere
+  RETURN result.success AND ToUppercase(result.hostname) = ToUppercase(UnpackURL(url).host);
+}

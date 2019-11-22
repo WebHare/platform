@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <rect id="maskcanvas" width="32px" height="32px" fill="#ffffff"/>
+    <path id="filmcell" d="M14,11c0,0.552-0.447,1-1,1H8c-0.552,0-1-0.448-1-1V8c0-0.552,0.448-1,1-1h5c0.553,0,1,0.448,1,1V11z"/>
+    <mask id="videocellmask">
+      <use xlink:href="#maskcanvas"/>
+      <use xlink:href="#filmcell" fill="#000000"/>
+      <use xlink:href="#filmcell" transform="translate(0 7)" fill="#000000"/>
+      <use xlink:href="#filmcell" transform="translate(0 14)" fill="#000000"/>
+    </mask>
+    <path id="filmoutline" d="M17,5H4C3.447,5,3,5.448,3,6v21c0,0.553,0.447,1,1,1h13c0.553,0,1-0.447,1-1V6C18,5.448,17.553,5,17,5zM6,26H4v-2h2V26zM6,23H4v-2h2V23zM6,20H4v-2h2V20zM6,17H4v-2h2V17zM6,14H4v-2h2V14zM6,11H4V9h2V11zM6,8H4V6h2V8zM17,26h-2v-2h2V26zM17,23h-2v-2h2V23zM17,20h-2v-2h2V20zM17,17h-2v-2h2V17zM17,14h-2v-2h2V14zM17,11h-2V9h2V11zM17,8h-2V6h2V8z"/>
+  </defs>
+  <g style="mask:url(&quot;#videocellmask&quot;);">
+    <use xlink:href="#filmoutline" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+  </g>
+</svg>

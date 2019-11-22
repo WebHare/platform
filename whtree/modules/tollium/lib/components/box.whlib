@@ -1,0 +1,143 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// The box component (used to be a TolliumPanel property)
+
+PUBLIC OBJECTTYPE Box EXTEND TolliumFragmentBase
+<
+  OBJECT ARRAY pvt_enablecomponents;
+
+  PUBLIC PROPERTY checkbox(GetCheckBox, SetCheckBox);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY onchange(GetOnChange, SetOnChange);
+  PUBLIC PROPERTY enablecomponents(GetEnableComponents, SetEnableComponents);
+  UPDATE PUBLIC PROPERTY title(GetSubTitle, SetSubTitle);
+  PUBLIC PROPERTY contents(GetContents, SetContents);
+  PUBLIC PROPERTY hr(this->bottomhr->visible, this->bottomhr->visible);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    // The border attribute (inherited from panel) is not read, insert a border record
+    //INSERT CELL border := [ top := FALSE, right := FALSE, bottom := FALSE, left := FALSE ] INTO def;
+    TolliumFragmentBase::StaticInit(def);
+    this->onchange := def.onchange;
+    this->checkbox := def.checkbox;
+    this->value := def.value;
+    this->onchange := def.onchange;
+    this->title := def.title;
+    this->visible := def.visible;
+    this->hr := def.hr;
+
+    /* Because of the init ordering for fragments (fragment component before custom xml contents), we cannot apply
+       the enablecomponents immediately (the referenced components need to be initialized for that)
+       Defer to preinit.
+    */
+    this->pvt_enablecomponents := def.enablecomponents;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+//    this->boxcontents->visible := this->visible;
+    this->boxcontents->width := this->width;
+    this->boxcontents->height := this->height;
+    this->boxcontents->defaultbutton := this->defaultbutton;
+    this->heading->enablecomponents := this->pvt_enablecomponents;
+    this->heading->dirtylistener := this->dirtylistener;
+  }
+
+  BOOLEAN FUNCTION GetCheckbox()
+  {
+    RETURN this->heading->checkbox;
+  }
+
+  MACRO SetCheckBox(BOOLEAN newvalue)
+  {
+    this->heading->checkbox:=newvalue;
+  }
+
+  BOOLEAN FUNCTION GetValue()
+  {
+    RETURN this->heading->value;
+  }
+
+  MACRO SetValue(BOOLEAN newvalue)
+  {
+    this->heading->value:=newvalue;
+  }
+
+  MACRO PTR FUNCTION GetOnChange()
+  {
+    RETURN this->heading->onchange;
+  }
+  MACRO SetOnChange(MACRO PTR onchange)
+  {
+    this->heading->onchange := onchange;
+  }
+
+  OBJECT ARRAY FUNCTION GetEnableComponents()
+  {
+    // At postinit the pvt_enablecomponents is applied. So before that, return pvt_enablecomponents
+    RETURN this->pvt_havepostinited ? this->heading->enablecomponents : this->pvt_enablecomponents;
+  }
+
+  MACRO SetEnableComponents(OBJECT ARRAY comps)
+  {
+    // At postinit the pvt_enablecomponents is applied. So before that, apply to pvt_enablecomponents
+    IF (this->pvt_havepostinited)
+      this->heading->enablecomponents := comps;
+    ELSE
+      this->pvt_enablecomponents := comps;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN this->heading->IsValidValue(value);
+  }
+
+  STRING FUNCTION GetSubTitle()
+  {
+    RETURN this->heading->title;
+  }
+  MACRO SetSubTitle(STRING newtitle)
+  {
+    this->heading->title := newtitle;
+  }
+
+  UPDATE OBJECT FUNCTION GetContents()
+  {
+    RETURN this->boxcontents->contents;
+  }
+  UPDATE MACRO SetContents(OBJECT newcontents)
+  {
+    this->boxcontents->contents := newcontents;
+  }
+
+  PUBLIC MACRO InsertLinesBefore(RECORD ARRAY lines, OBJECT before)
+  {
+    this->boxcontents->InsertLinesBefore(lines, before);
+  }
+  PUBLIC MACRO InsertLinesAfter(RECORD ARRAY lines, OBJECT after)
+  {
+    this->boxcontents->InsertLinesAfter(lines, after);
+  }
+  PUBLIC RECORD ARRAY FUNCTION ExtractAllLines()
+  {
+    RETURN this->boxcontents->ExtractAllLines();
+  }
+  PUBLIC MACRO InsertComponentBefore(OBJECT component, OBJECT before, BOOLEAN break_inbetween)
+  {
+    this->boxcontents->InsertComponentBefore(component, before, break_inbetween);
+  }
+  PUBLIC MACRO InsertComponentAfter(OBJECT component, OBJECT after, BOOLEAN break_inbetween)
+  {
+    this->boxcontents->InsertComponentAfter(component, after, break_inbetween);
+  }
+>;

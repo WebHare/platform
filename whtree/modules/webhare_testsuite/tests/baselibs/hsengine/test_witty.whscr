@@ -1,0 +1,822 @@
+﻿<?wh
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+
+
+RECORD last_witty_error;
+RECORD ARRAY errors;
+RECORD result;
+
+MACRO TestParse(STRING script, STRING encoding)
+{
+  OBJECT tpl := NEW WittyTemplate(encoding);
+  tpl->LoadCodeDirect(script);
+  // FIXME: LEAK!
+}
+
+STRING FUNCTION CaptureRun(OBJECT script, RECORD datarec, STRING component DEFAULTSTO "" )
+{
+  INTEGER str := CreateStream();
+  TRY
+  {
+    script->RunComponentTo(str, component, datarec);
+  }
+  CATCH(OBJECT e)
+  {
+    MakeBlobFromStream(str); //leak prevention
+    THROW e;
+  }
+
+  BLOB data := MakeBlobFromStream(str);
+  RETURN BlobToString(data, Length(data));
+}
+
+STRING FUNCTION CaptureWTE(INTEGER script, RECORD datarec, STRING component DEFAULTSTO "" )
+{
+  SetWittyErrorCallback(DEFAULT FUNCTION PTR);
+  INTEGER str := CreateStream();
+  INTEGER save := redirectoutputto(str);
+  IF (component="")
+    last_witty_error := RunWitty(script,datarec).error;
+  ELSE
+    last_witty_error := RunWittyComponent(script,component,datarec).error;
+  redirectoutputto(save);
+
+  BLOB data := MakeBlobFromStream(str);
+  INTEGER fil := OpenBlobAsFile(data);
+  STRING strdata := ReadFromFile(fil,Length(data));
+  CloseBlobFile(fil);
+  RETURN strdata;
+}
+
+STRING FUNCTION CapturePTR(FUNCTION PTR func)
+{
+  INTEGER stream := CreateStream();
+  INTEGER save := redirectoutputto(stream);
+  TRY
+  {
+    func();
+  }
+  CATCH (OBJECT e)
+  {
+    redirectoutputto(save);
+    MakeBlobFromStream(stream);
+    THROW e;
+  }
+  redirectoutputto(save);
+  RETURN BlobToString(MakeBlobFromStream(stream), -1);
+}
+
+MACRO ForeveryMembersWTE()
+{
+  INTEGER scriptid;
+
+  OpenTest("ForeveryMembersWTE");
+
+  //Test whether WTE works at all
+  scriptid := ParseWitty("Test: [if test][forevery test][if first]F[/if][if last]L[/if][if odd]O[/if][seqnr],[/forevery][/if]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: F0,O1,2,O3,L4,", CaptureWTE(scriptid,[ test := [[x:=0],[x:=0],[x:=0],[x:=0],[x:=0]] ]));
+
+  //Test foreverys through non-record arrays
+  scriptid := ParseWitty("Test: [if test][forevery test][if first]F[/if][if last]L[/if][if odd]O[/if][seqnr][test],[/forevery][/if]","HTML");
+  TestEq("Test: F0a,O1b,2c,O3d,L4e,", CaptureWTE(scriptid,[ test := ["a","b","c","d","e"] ]));
+  scriptid := ParseWitty("Test: [if test.xyz][forevery test.xyz][if first]F[/if][if last]L[/if][if odd]O[/if][seqnr][xyz],[/forevery][/if]","HTML");
+  TestEq("Test: F0a,O1b,2c,O3d,L4e,", CaptureWTE(scriptid,[ test := [ xyz := ["a","b","c","d","e"] ] ]));
+
+  CloseTest("ForeveryMembersWTE");
+}
+
+MACRO PrintWittyVariable(STRING varname)
+{
+  Print(GetWittyVariable(varname));
+
+}
+MACRO TestPrintYZ()
+{
+  Print(GetWittyVariable("y").z);
+}
+
+MACRO SimpleTestWTE()
+{
+  INTEGER scriptid;
+
+  OpenTesT("SimpleTestWTE");
+
+  //Test whether WTE works at all
+  scriptid := ParseWitty("Test: [test1] [test2] [[test]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: 1 2 [test]", CaptureWTE(scriptid,[ test1 := "1", test2 := 2]));
+
+  scriptid := ParseWitty("Test: [if test1][test2][else][test3][/if]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: a", CaptureWTE(scriptid,[ test1 := TRUE, test2 := "a", test3 := "b"]));
+  TestEq("Test: b", CaptureWTE(scriptid,[ test1 := FALSE, test2 := "a", test3 := "b"]));
+
+  scriptid := ParseWitty("Test: [forevery test1][test2][/forevery]:[test2]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: :?", CaptureWTE(scriptid,[ test1 := DEFAULT RECORD ARRAY, test2:="?" ]));
+  TestEq("Test: b:b", CaptureWTE(scriptid,[ test1 := [ [ x := "x1" ] ], test2 := "b" ]));
+  TestEq("Test: bb:b", CaptureWTE(scriptid,[ test1 := [ [ x := "x1" ],[ x := "x2"] ], test2 := "b" ]));
+  TestEq("Test: x1:b", CaptureWTE(scriptid,[ test1 := [ [ test2 := "x1" ] ], test2 := "b" ]));
+  TestEq("Test: x1x2:b", CaptureWTE(scriptid,[ test1 := [ [ test2 := "x1" ],[ test2 := "x2"] ], test2 := "b" ]));
+
+  //Test records and their automatic opening through if
+  scriptid := ParseWitty("Test: [if test1][test2][else][test3][/if]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: x", CaptureWTE(scriptid,[ test1 := [test2:="x"], test2 := "a", test3 := "b"]));
+  TestEq("Test: a", CaptureWTE(scriptid,[ test1 := [test3:="x"], test2 := "a", test3 := "b"]));
+  TestEq("Test: b", CaptureWTE(scriptid,[ test1 := DEFAULT RECORD, test2 := "a", test3 := "b"]));
+
+  //Test encoding overrides
+  STRING testdata := "<>java\'\"&code; </script>";
+
+  scriptid := ParseWitty("[test:java]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq(EncodeJava(testdata), CaptureWTE(scriptid,[ test := testdata]));
+  scriptid := ParseWitty("[test:url]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq(EncodeUrl(testdata), CaptureWTE(scriptid,[ test := testdata]));
+  scriptid := ParseWitty("[test:base16]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq(EncodeBase16(testdata), CaptureWTE(scriptid,[ test := testdata]));
+  scriptid := ParseWitty("[test:base64]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq(EncodeBase64(testdata), CaptureWTE(scriptid,[ test := testdata]));
+  scriptid := ParseWitty("[test:none]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq(testdata, CaptureWTE(scriptid,[ test := testdata]));
+
+  //Test commenting rules
+  scriptid := ParseWitty("Abc def [! ghi ] jkl !] ghi","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Abc def  ghi", CaptureWTE(scriptid,[ test := testdata]));
+  scriptid := ParseWitty("Abc def [! ghi \n \n jkl !] ghi","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Abc def  ghi", CaptureWTE(scriptid,[ test := testdata]));
+  scriptid := ParseWitty("Abc def [! ghi \n \n jkl [! !] !] ghi","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Abc def  !] ghi", CaptureWTE(scriptid,[ test := testdata]));
+
+  scriptid := ParseWitty("Abc def [! ghi \n \n jkl [! ! ] ! ] ghi","HTML");
+  TestEq(TRUE, scriptid=0); //unclosed comment, so error!
+
+  //Test accessing deep records
+  scriptid := ParseWitty("[sub.a] [sub.sub.a] [sub.sub.sub.a]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("ja nee misschien", CaptureWTE(scriptid,[ sub := [ a := "ja", sub := [ a := "nee", sub := [ a := "misschien" ] ] ] ]));
+
+  scriptid := ParseWitty("[forevery sub.x][y.z] [/forevery]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("ja nee misschien ", CaptureWTE(scriptid,[ sub := [ x := [ [y:=[z :="ja"]],[y:=[z :="nee"]],[y:=[z :="misschien"]]]]] ));
+
+  scriptid := ParseWitty("[forevery sub.x][test] [/forevery]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("ja nee misschien ", CaptureWTE(scriptid,[ test := PTR TestPrintYZ, sub := [ x := [ [y:=[z :="ja"]],[y:=[z :="nee"]],[y:=[z :="misschien"]]]]] ));
+
+  //Test BOM stripping
+  scriptid := ParseWitty("\xEF\xBB\xBF Had a BOM, now another one: \xEF\xBB\xBF","HTML");
+  TestEq(FALSE, scriptid=0);
+  Testeq(" Had a BOM, now another one: ", CaptureWTE(scriptid, DEFAULT RECORD));
+
+  //Test ELSEIF
+  scriptid := ParseWitty("Test: [if test1]1[elseif test2]2[elseif test3]3[else]4[/if]x","HTML");
+  //printrecordarrayto(0,GetWittyParseErrors(),'boxed');
+  TestEq(FALSE, scriptid=0);
+
+  TestEq("Test: 1x", CaptureWTE(scriptid,[ test1 := TRUE ]));
+  TestEq("Test: 2x", CaptureWTE(scriptid,[ test1 := FALSE , test2 := TRUE]));
+  TestEq("Test: 3x", CaptureWTE(scriptid,[ test1 := FALSE, test2 := FALSE, test3 := TRUE]));
+  TestEq("Test: 4x", CaptureWTE(scriptid,[ test1 := FALSE, test2 := FALSE, test3 := FALSE]));
+
+  //Test [] is _not_ accepted
+  scriptid := ParseWitty("Test: []","HTML");
+  //printrecordarrayto(0,GetWittyParseErrors(),'boxed');
+  TestEq(TRUE, scriptid=0);
+
+  //if not, elseif not
+  scriptid := ParseWitty("Test: [if not x]1[elseif not y]2[else]3[/if]x","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: 1x", CaptureWTE(scriptid, [ x := FALSE, y := FALSE ]));
+  TestEq("Test: 2x", CaptureWTE(scriptid, [ x := TRUE, y := FALSE ]));
+  TestEq("Test: 3x", CaptureWTE(scriptid, [ x := TRUE, y := TRUE ]));
+
+  scriptid := ParseWitty("Test: [forevery x][if not first]nf[/if][if not last]nl[/if][if not odd]no[/if][if not seqnr]ns[/if] [/forevery]x","HTML");
+  TestEq("Test: nlnons nfnl nfnlno nf x", CaptureWTE(scriptid, [ x := [DEFAULT RECORD,DEFAULT RECORD,DEFAULT RECORD,DEFAULT RECORD] ]));
+  scriptid := ParseWitty("Test: [forevery x][if not first]nf[/if][if not last]nl[/if][if even]no[/if][if not seqnr]ns[/if] [/forevery]x","HTML");
+  TestEq("Test: nlnons nfnl nfnlno nf x", CaptureWTE(scriptid, [ x := [DEFAULT RECORD,DEFAULT RECORD,DEFAULT RECORD,DEFAULT RECORD] ]));
+
+  // Error: record pushed into stack anyway in if not when not existing
+  scriptid := ParseWitty("Test: [if not x][if x]1[else]2[/if][else][c][/if]","HTML");
+  TestEq("Test: 2", CaptureWTE(scriptid, [ x := DEFAULT RECORD ]));
+  TestEq("Test: ", CaptureWTE(scriptid, [ x := [ c := 3 ] ]));
+  TestEq("No such cell 'C'", last_witty_error.text);
+
+  //Test repeat
+  scriptid := ParseWitty("Test: [repeat test][if first]F[/if][if last]L[/if][if odd]O[/if][seqnr],[/repeat]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: F0,O1,2,O3,L4,", CaptureWTE(scriptid,[ test := 5 ]));
+
+  scriptid := ParseWitty("Test: [repeat test][if first]F[/if][if last]L[/if][if even]E[/if][seqnr],[/repeat]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: FE0,1,E2,3,LE4,", CaptureWTE(scriptid,[ test := 5 ]));
+
+  scriptid := ParseWitty("Test: [test\\:2]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: x", CaptureWTE(scriptid,[ "test:2" := "x" ]));
+
+  OBJECT wte;
+
+  wte := NEW WittyTemplate("HTML");
+  wte->LoadCodeDirect("Test: [test\\]2]");
+  TestEQ("Test: x", CaptureRun(wte, [ "test]2" := "x" ]));
+
+  wte := NEW WittyTemplate("HTML");
+  wte->LoadCodeDirect("Test: ['te st]\"2']");
+  TestEQ("Test: x", CaptureRun(wte, [ "te st]\"2" := "x", "'te st]\"2'" := "y" ]));
+
+  scriptid := ParseWitty("Test: [test\\]2]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: x", CaptureWTE(scriptid,[ "test]2" := "x" ]));
+
+  CloseTesT("SimpleTestWTE");
+}
+
+MACRO EncodingSensitivity()
+{
+  INTEGER scriptid;
+
+  OpenTesT("EncodingSensitivity");
+
+  //Test HTML encoding..
+  scriptid := ParseWitty("[test1]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("&#60;", captureWTE(scriptid,[test1:="<"]) );
+  TestEq("<br />", captureWTE(scriptid,[test1:="\n"]) );
+
+  //Test whether the href is properly recognized
+  scriptid := ParseWitty("<a href=[test1]>","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<a href=&#60;>", captureWTE(scriptid,[test1:="<"]) );
+  TestEq("<a href=&#10;>", captureWTE(scriptid,[test1:="\n"]) );
+
+  //Test whether we properly recognize when a '>' falls inside our outside a tag
+  scriptid := ParseWitty("<a href=>[test1]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<a href=><br />", captureWTE(scriptid,[test1:="\n"]) );
+  scriptid := ParseWitty("<a href='>'[test1]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<a href='>'&#10;", captureWTE(scriptid,[test1:="\n"]) );
+  scriptid := ParseWitty("<a href='>\"[test1]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<a href='>\"&#10;", captureWTE(scriptid,[test1:="\n"]) );
+  scriptid := ParseWitty("<a href=\">\'[test1]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<a href=\">'&#10;", captureWTE(scriptid,[test1:="\n"]) );
+  scriptid := ParseWitty("<a href=\">\"[test1]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<a href=\">\"&#10;", captureWTE(scriptid,[test1:="\n"]) );
+  scriptid := ParseWitty("<a href=\">\">[test1]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<a href=\">\"><br />", captureWTE(scriptid,[test1:="\n"]) );
+  scriptid := ParseWitty("<a href=\">\'>[test1]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<a href=\">\'>&#10;", captureWTE(scriptid,[test1:="\n"]) );
+
+  //Test other encodings
+  scriptid := ParseWitty("[test1]","XML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("&#60;", captureWTE(scriptid,[test1:="<"]) );
+  TestEq("&#10;", captureWTE(scriptid,[test1:="\n"]) );
+
+  scriptid := ParseWitty("[test1]","TEXT");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<", captureWTE(scriptid,[test1:="<"]) );
+  TestEq("\n", captureWTE(scriptid,[test1:="\n"]) );
+
+  CloseTest("EncodingSensitivity");
+}
+
+MACRO WittyNI()
+{
+  INTEGER scriptid;
+  scriptid := ParseWitty("<div>\n  <span>[test1]</span>\n</div>\n!", "HTML-NI");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<div><span>yes</span></div>!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));
+
+  scriptid := ParseWitty("<div>\r\n  <span>[test1]</span>\r\n</div>\r\n!", "HTML-NI");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<div><span>yes</span></div>!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));
+
+  scriptid := ParseWitty("<div>\n  <span>keep [test1]</span>\n</div>\n!", "HTML-NI");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<div><span>keep yes</span></div>!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));
+
+  scriptid := ParseWitty("<div>\n  <span attr='1'\nattr='2'\n\n\n   attr='3'>keep [test1]</span>\n</div>\n!", "HTML-NI");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<div><span attr='1' attr='2' attr='3'>keep yes</span></div>!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));
+
+  scriptid := ParseWitty('<div class="site-centered\n bg-dark\n">', "HTML-NI");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<div class=\"site-centered bg-dark \">", CaptureWTE(scriptid,DEFAULT RECORD));
+
+  scriptid := ParseWitty("<div>\n  <span attr='1'\n  [if test1][test2] attr='2'[/if]></span>\n</div>!\n", "HTML-NI");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<div><span attr='1' attr attr='2'></span></div>!", CaptureWTE(scriptid,[ test1 := TRUE, test2 := 'attr' ]));
+}
+
+MACRO WittyRawComponent()
+{
+  INTEGER scriptid;
+  scriptid := ParseWitty("[rawcomponent x]<div>[[\n  <span>[test1]</span>\n</div>\n![/rawcomponent][embed x]", "HTML-NI");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<div>[[\n  <span>[test1]</span>\n</div>\n!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));
+}
+
+MACRO WittyFuncPtrsComponents()
+{
+  INTEGER scriptid;
+
+  //Why the exclamation points at the end? To make sure Witty didn't just 'stop' execution after the macro/embedcall.
+
+  OpenTest("WittyFuncPtrsComponents");
+
+  scriptid := ParseWitty("Test: [test1]!", "HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: yes!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));
+
+  scriptid := ParseWitty("[component repeatable][test1]![/component]Test: [embed repeatable][embed repeatable][embed repeatable]", "HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: yes!yes!yes!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));
+
+  scriptid := ParseWitty("[component repeatable][test1]![/component]Test: [embed repeatable][embed repeatable][embed repeatable]", "HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("yes!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ],"repeatable"));
+
+  scriptid := ParseWitty("[component repeatable][test1]![/component]Test: [body]", "HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: yes!", CaptureWTE(scriptid,[ body := PTR CallWittyComponent("repeatable", [ test1 := PTR Print("yes") ]) ]));
+
+  //Test IF and execution on function pointers
+  scriptid := ParseWitty("Test: [if test1][test1]![else]nope[/if]", "HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: yes!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]) );
+  TestEq("Test: nope", CaptureWTE(scriptid,[ test1 := DEFAULT FUNCTION PTR ]) );
+
+  scriptid := ParseWitty("Test: [test1]!", "HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: yes!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]) );
+  TestEq("Test: !", CaptureWTE(scriptid,[ test1 := DEFAULT FUNCTION PTR ]) );
+
+  CloseTest("WittyFuncPtrsComponents");
+}
+
+MACRO WittyErrorHandling()
+{
+  INTEGER scriptid;
+  RECORD ARRAY errors;
+
+  OpenTest("WittyErrorHandling");
+
+  scriptid := ParseWitty("Test: [first]!", "HTML");
+  TestEq(TRUE, scriptid <= 0);
+  errors := GetWittyPArseErrors();
+  TestEq(1,Length(errors));
+  TestEq(1,errors[0].line);
+  TestEq(5,errors[0].code);
+  TestEq("first",errors[0].arg);
+
+  scriptid := ParseWitty("Test: [test]", "HTML");
+  TestEq(TRUE, scriptid > 0);
+  TestEq("Test: ", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]) );
+  TestEq("TEST", last_witty_error.arg);
+  TestEq(15, last_witty_error.code);
+
+  scriptid := ParseWitty("", "HTML");
+  TestEq(TRUE, scriptid > 0);
+  TestEq("", CaptureWTE(scriptid, CELL[]));
+  scriptid := ParseWittyBlob(DEFAULT BLOB, "HTML");
+  TestEq(TRUE, scriptid > 0);
+  TestEq("", CaptureWTE(scriptid, CELL[]));
+
+  //New style error handling
+  OBJECT script;
+  script := NEW WittyTemplate("HTML");
+
+  TRY
+  {
+    script->LoadCodeDirect("Test: [first]!");
+    ABORT("Shouldn't reach this point #1");
+  }
+  CATCH(OBJECT<WittyParseException> e)
+  {
+    TestEq(script, e->script);
+    TestEq("", e->library);
+    TestEq(1, Length(e->errors));
+    TestEq(1,e->errors[0].line);
+    TestEq(5,e->errors[0].code);
+    TestEq("first",e->errors[0].arg);
+  }
+
+  script := NEW WittyTemplate("HTML");
+  script->LoadCodeDirect("Test: [test]");
+  TRY
+  {
+    CaptureRun(script, [ test1 := PTR Print("yes") ]);
+    ABORT("Shouldn't reach this point #2");
+  }
+  CATCH(OBJECT<WittyRuntimeException> e)
+  {
+    TestEq("TEST", e->error.arg);
+    TestEq(15, e->error.code);
+  }
+
+  TestThrows(PTR TestParse("[/unknown]", "HTML"));
+
+  TestThrows(PTR LoadWittyLibrary("wh::tests/bestaatniet.witty","HTML"));
+
+  TestThrows(PTR TestParse("[:html]", "HTML"));
+  TestThrows(PTR TestParse("[data:]", "HTML"));
+  TestThrows(PTR TestParse("[data : boem]", "HTML"));
+  TestThrows(PTR TestParse("[data:html java]", "HTML"));
+  TestThrows(PTR TestParse("[gettid]", "HTML"));
+  TestThrows(PTR TestParse("[gettid data:html java]", "HTML"));
+  TestThrows(PTR TestParse("[if test test][/if]", "HTML"));
+  TestThrows(PTR TestParse("[if test][elseif test test][/if]", "HTML"));
+  TestThrows(PTR TestParse("[if test][/if test]", "HTML"));
+  TestThrows(PTR TestParse("[seqnr test]", "HTML"));
+  TestThrows(PTR TestParse("[embed]", "HTML"));
+  TestThrows(PTR TestParse("[embed test test]", "HTML"));
+  TestThrows(PTR TestParse("[component]", "HTML"));
+  TestThrows(PTR TestParse("[component test test]", "HTML"));
+  TestThrows(PTR TestParse("[repeat]", "HTML"));
+  TestThrows(PTR TestParse("[repeat test test]", "HTML"));
+  TestThrows(PTR TestParse("[repeat test][/repeat test]", "HTML"));
+  TestThrows(PTR TestParse("[forevery]", "HTML"));
+  TestThrows(PTR TestParse("[forevery test test]", "HTML"));
+  TestThrows(PTR TestParse("[forevery test][/repeat test]", "HTML"));
+  TestThrows(PTR TestParse("[seqnr test]", "HTML"));
+  TestThrows(PTR TestParse("[if odd test]", "HTML"));
+  TestThrows(PTR TestParse("[if even test]", "HTML"));
+  TestThrows(PTR TestParse("[if first test]", "HTML"));
+  TestThrows(PTR TestParse("[if list test]", "HTML"));
+
+  CloseTest("WittyErrorHandling");
+}
+
+MACRO WittyLibrarys()
+{
+  OpenTest("WittyLibrary");
+
+  INTEGER scriptid := ParseWittyLibrary("wh::tests/test.witty","HTML");
+  TEstEq(FALSE, scriptid<=0);
+  TestEq("Test: yes!", TrimWhitespace(CaptureWTE(scriptid,[ bla := "yes!" ])));
+
+  OBJECT script, script2;
+
+  script2 := LoadWittyLibrary("wh::tests/test2.witty","HTML");
+  TestEq("", TrimWhitespace(CaptureRun(script2, [ bla := "yes!" ])));
+
+  script := LoadWittyLibrary("wh::tests/test.witty","HTML");
+  TestEq("Test: yes!", TrimWhitespace(CaptureRun(script, [ bla := "yes!" ])));
+  TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR EmbedWittyComponent("test2.witty:comp") ])));
+  TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR EmbedWittyComponent("wh::tests/test2.witty:comp") ])));
+  TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR script->RunComponent("test2.witty:comp", DEFAULT RECORD) ])));
+  TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR script2->RunComponent("test2.witty:comp", DEFAULT RECORD) ])));
+
+  TestEq(TRUE, script->HasComponent("xyz"));
+  TestEq(TRUE, script->HasComponent("XYZ"));
+  TestEq(TRUE, script->HasComponent("Xyz"));
+  TestEq(FALSE, script->HasComponent(" Xyz"));
+  TestEq(FALSE, script->HasComponent("test.witty:Xyz"));
+  TestEq(FALSE, script->HasComponent("iets"));
+  TestEq(FALSE, script->HasComponent(""));
+
+  TestThrowsLike("*Missing component name*", PTR CaptureRun(script, [ bla := PTR EmbedWittyComponent("wh::tests/test2.witty") ]));
+
+  CloseTesT("WittyLibrary");
+}
+
+MACRO EncodingConfusion()
+{
+  //Make sure the state is 'reset' at a new component, to avoid a html error confusing a whole lot more
+  OpenTest("EncodingConfusion");
+
+  OBJECT witty :=LoadWittyLibrary("wh::tests/encoding.witty","HTML");
+  TestEq("x<br />y", CaptureRun(witty, [ ismaster := TRUE, description := "x\ny",popupid := "",name:="" ], "masterinfo_popup"));
+  CloseTesT("EncodingConfusion");
+}
+STRING FUNCTION MyGetTid(STRING indata, STRING p1 DEFAULTSTO "")
+{
+  IF(p1!="")
+    RETURN "(" || indata || ":" || p1 || ")";
+  IF(indata="html")
+    RETURN "(h&l)";
+  RETURN "(" || indata || ")";
+}
+
+STRING FUNCTION GlobalGetTid(STRING tid)
+{
+  RETURN "globalgettid:" || tid;
+}
+
+STRING FUNCTION GlobalGetHTMLTid(STRING htmltid)
+{
+  RETURN "globalgethtmltid:" || htmltid;
+}
+
+MACRO WittyGetTid()
+{
+  INTEGER scriptid;
+
+  OpenTest("WittyGetTid");
+
+  scriptid := ParseWitty("Test: [gettid bla]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: (bla)", CaptureWTE(scriptid,[ gettid := PTR MyGetTid ]));
+
+  scriptid := ParseWitty("Test: [gettid html]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: (h&#38;l)", CaptureWTE(scriptid,[ gettid := PTR MyGetTid ]));
+
+  scriptid := ParseWitty("Test: [gethtmltid html]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: (h&l)", CaptureWTE(scriptid,[ gethtmltid := PTR MyGetTid ]));
+
+  scriptid := ParseWitty("Test: [gethtmltid html:html]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: (h&#38;l)", CaptureWTE(scriptid,[ gethtmltid := PTR MyGetTid ]));
+
+  scriptid := ParseWitty("Test: [gettid bla test:base16]!","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: 28626C613A7465737431323329!", CaptureWTE(scriptid,[ gettid := PTR MyGetTid, test := "test123" ]));
+
+  scriptid := ParseWitty("Test: [gettid bla test]!","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: (bla:test123)!", CaptureWTE(scriptid,[ gettid := PTR MyGetTid, test := "test123" ]));
+
+  scriptid := ParseWitty("Test: [gettid bla.bla test.test]!","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: (bla.bla:test123)!", CaptureWTE(scriptid,[ gettid := PTR MyGetTid, test := [ test := "test123" ] ]));
+
+  scriptid := ParseWitty("Test: [gettid a\\:bla]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: (a:bla)", CaptureWTE(scriptid,[ gettid := PTR MyGetTid ]));
+
+  scriptid := ParseWitty("Test: [gettid a\\:bla:base16]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: 28613A626C6129", CaptureWTE(scriptid,[ gettid := PTR MyGetTid ]));
+
+  __SETWITTYGETTIDFALLBACK(PTR GlobalGetTid, PTR GlobalGetHTMLTid);
+
+  scriptid := ParseWitty("Test: [gettid test]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: globalgettid:test", CaptureWTE(scriptid, CELL[]));
+  TestEq("Test: (test)", CaptureWTE(scriptid, [ gettid := PTR MyGetTid ]));
+
+  scriptid := ParseWitty("Test: [embed testcomp][component testcomp][gettid test][/component]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: globalgettid:test", CaptureWTE(scriptid, CELL[]));
+  TestEq("Test: (test)", CaptureWTE(scriptid, [ gettid := PTR MyGetTid ]));
+
+  CloseTest("WittyGetTid");
+}
+
+MACRO WittyCallComponent()
+{
+  INTEGER scriptid;
+
+  OpenTest("WittyCallComponent");
+
+  scriptid := ParseWitty("Test: [invoke][component comp](bla)[/component]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: ", CaptureWTE(scriptid,[ invoke := PTR CallWittyComponent("bla", DEFAULT RECORD) ]));
+
+  TestEq("Test: (bla)", CaptureWTE(scriptid,[ invoke := PTR CallWittyComponent("comp", DEFAULT RECORD) ]));
+
+  OBJECT script := LoadWittyLibrary("wh::tests/testsuite.witty","HTML");
+  TestEq("Simple", CaptureRun(script, [ bla := "yes!" ], "simpleembed"));
+  TestEq("subdir", CaptureRun(script, [ bla := "yes!" ], "subdirembed"));
+  TestEq("reverse", CaptureRun(script, [ bla := "yes!" ], "subdirreverseembed"));
+
+  TestEq("yes!", CaptureRun(script, [ bla := "yes!" ], "blatest"));
+  TestEq("yn", CaptureRun(script, [ ra := [[x:=1],[x:=2]] ], "firsttest"));
+  TestEq("01", CaptureRun(script, [ ra := [[x:=1],[x:=2]] ], "seqnrtest"));
+
+  TestEq("(module.appgroups.apps)", CaptureRun(script,[ gettid := PTR MyGetTid ], "gettidtest"));
+
+  TestEq("yes!", CaptureRun(script, [ bla := "yes!", invokewittyvar := PTR PrintWittyVariable("bla") ], "wittyvar"));
+
+  CloseTest("WittyCallComponent");
+}
+
+MACRO WittyResolving()
+{
+  INTEGER scriptid;
+  STRING output;
+
+  OpenTest("WittyResolving");
+
+  scriptid := ParseWitty("Test: [forevery x][forevery x][x][/forevery][/forevery]","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: testtest2", CaptureWTE(scriptid, [ x := [[ x := [[ x := "test" ], [ x:= "test2" ] ] ]] ]));
+
+  /*ADDME: If evaluating [if x.y], both x and y should be pushed to the variable stack, instead of just y
+  scriptid := ParseWitty("Test: [if x.y][forevery y][z][/forevery][/if]","HTML");
+  TestEq(FALSE, scriptid=0);
+  output := CaptureWTE(scriptid, [ x := [ y := [[ z := "test" ], [ z := "test2" ] ]] ]);
+  TestEq(DEFAULT RECORD, last_witty_error);
+  TestEq("Test: testtest2", output);
+
+  scriptid := ParseWitty("Test: [if x.y][embed a][/if][component a][forevery y][z][/forevery][/component]","HTML");
+  TestEq(FALSE, scriptid=0);
+  output := CaptureWTE(scriptid, [ x := [ y := [[ z := "test" ], [ z := "test2" ] ]] ]);
+  TestEq(DEFAULT RECORD, last_witty_error);
+  TestEq("Test: testtest2", output);
+  */
+
+  CloseTest("WittyResolving");
+}
+
+MACRO WittyEncoding()
+{
+  INTEGER scriptid;
+
+  OpenTest("WittyEncoding");
+
+  scriptid := ParseWitty("Test: [bla]", "HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: yeey", CaptureWTE(scriptid,[ bla := "yeey" ]));
+
+  scriptid := ParseWitty("Test: [bla:cdata]", "HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: <![CDATA[yeey]]>", CaptureWTE(scriptid,[ bla := "yeey" ]));
+
+  scriptid := ParseWitty("Test: [bla:cdata]", "HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: <![CDATA[yeey]]]]><![CDATA[>yeey]]>", CaptureWTE(scriptid,[ bla := "yeey]]>yeey" ]));
+
+  scriptid := ParseWitty("Test: [test:json]", "HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq('Test: 42', CaptureWTE(scriptid,[ test := 42 ]));
+  TestEq('Test: "42"', CaptureWTE(scriptid,[ test := "42" ]));
+  TestEq('Test: {"x":42}', CaptureWTE(scriptid,[ test := [ x := 42 ]]));
+  TestEq('Test: {"x":"42"}', CaptureWTE(scriptid,[ test := [ x := "42" ]]));
+
+  scriptid := ParseWitty("Test: [test:jsonvalue]", "HTML");
+  TestEq(EncodeValue('Test: 42'), CaptureWTE(scriptid,[ test := 42 ]));
+  TestEq(EncodeValue('Test: "42"'), CaptureWTE(scriptid,[ test := "42" ]));
+  TestEq(EncodeValue('Test: {"x":42}'), CaptureWTE(scriptid,[ test := [ x := 42 ]]));
+  TestEq(EncodeValue('Test: {"x":"42"}'), CaptureWTE(scriptid,[ test := [ x := "42" ]]));
+
+  CloseTest("WittyEncoding");
+}
+
+MACRO WittyInfiniteCRecursion()
+{
+  OpenTest("WittyInfiniteCRecursion");
+
+  result := TestCompileAndRun(
+        '<?wh LOADLIB "wh::witty.whlib"; LOADLIB "wh::files.whlib"; ' ||
+        'INTEGER scriptid := ParseWittyBlob(StringToBlob("[component test][body][/component]{[body]}"), "HTML");' ||
+        'AbortOnWittyRunError(RunWitty(scriptid, [ body := PTR CallWittyComponent( "test", [ body := PTR CallWittyComponent("test", DEFAULT RECORD) ]) ])); ?>');
+  MustContainError(1, result.errors, 215, "1024");
+
+  CloseTest("WittyInfiniteCRecursion");
+}
+
+MACRO EmptyCall() { }
+
+OBJECTTYPE TailCallExceptionRegression
+<
+  MACRO AddHeaders()
+  {
+  }
+
+  PUBLIC FUNCTION PTR FUNCTION GetAddHeadersMacro()
+  {
+    RETURN PTR this->AddHeaders();
+  }
+>;
+
+MACRO WittyRegression()
+{
+  OpenTest("WittyRegression");
+
+  /* 301 went into an infinite loop with this code; after an error, the tailcall to RunContinue was popped and executed,
+    triggering another call to print cell [fail], until the memory was exhaused. Could not reproduce in 3.02, not sure why.
+  */
+  result := TestCompileAndRun(
+      '<?wh\n'||
+      'LOADLIB "wh::witty.whlib";\n'||
+      'MACRO NeedParameter(STRING param) { }\n'||
+      'STRING wittydata := "[sub][embed e][component e][/component][component f][/component][component sub][embed f][fail][/component]";\n'||
+      'OBJECT witty := NEW WittyTemplate("HTML");\n'||
+      'witty->LoadCodeDirect(wittydata);\n'||
+      'witty->Run([ sub := PTR EmbedWittyComponent("sub", [ fail := PTR NeedParameter ]) ]);\n');
+  MustContainError(1, result.errors, 140, "MACRO NEEDPARAMETER(STRING param)");
+
+  /* If in a tailcall a write to a pipe took place that crossed the yield threshold, and a RET was the next instruction
+     executed after the tail call, the VM yielded before setting the codeptr to SIGNAL. This had the effect that
+     after resuming the instruction after RET was executed, effectively ignoring the RET. This caused very elusive
+     'copying uninitialized variabled' errors.
+  */
+  {
+    STRING wittydata := "[component test][a]b[/component][embed test]";
+
+    RECORD pipeset := CreatePipeSet();
+    SetPipeYieldThreshold(pipeset.write, 1);
+    INTEGER oldout := RedirectOutputTo(pipeset.write);
+    OBJECT witty := NEW WittyTemplate("HTML");
+    witty->LoadCodeDirect(wittydata);
+    witty->Run([ a := PTR EmptyCall() ]); // crashed
+    RedirectOutputTo(oldout);
+    TestEQ("b", ReadFrom(pipeset.read, -4096));
+    ClosePipe(pipeset.read);
+    ClosePipe(pipeset.write);
+  }
+
+  // An exception generated in a VM C-tailcall wasn't processed after the tailcall, but (probably) after the next function call
+  {
+    OBJECT frontendapp := NEW TailCallExceptionRegression;
+    INTEGER wittyid := ParseWittyBlob(StringToBlob('[component runtoddapp][webscriptheaders][if onload]onLoad="[onload]"[/if][/component]'), "HTML");
+
+    RECORD localpageconfig := [ webscriptheaders := frontendapp->GetAddHeadersMacro()
+                              //Missing cell onload
+                              ];
+
+    // Fail when an exception is given back, which should have been caught by the CATCH handler in RunWittyComponent
+    TestEQ(
+        [ success :=  FALSE
+        , error :=    [ arg := "ONLOAD", code := 15, col := 42, line := 1, text := "No such cell 'ONLOAD'" ]
+        ], RunWittyComponent(wittyid, "runtoddapp", localpageconfig));
+  }
+
+
+  CloseTest("WittyRegression");
+}
+
+INTEGER scopedcallbackcounter := 0;
+MACRO ScopedCallback(STRING type)
+{
+  scopedcallbackcounter := scopedcallbackcounter + 1;
+  SWITCH (type)
+  {
+    CASE "throw" { THROW NEW Exception("thrown"); }
+    CASE "test1" { TestEQ("3", GetWittyVariable("a")); }
+    CASE "embed-wittyvar" { EmbedWittyComponent("wittyvar"); }
+  }
+}
+
+INTEGER FUNCTION ScopedCallbackFunc()
+{
+  scopedcallbackcounter := scopedcallbackcounter + 1;
+  RETURN 4;
+}
+
+MACRO TestCallWithScope()
+{
+  OpenTest("CallWithScope");
+
+  OBJECT script := LoadWittyLibrary("wh::tests/testsuite.witty","HTML");
+  TestEQ(-1, script->CallWithScope(PTR ScopedCallback("test1"), [ a := "3" ]));
+  TestEQ(1, scopedcallbackcounter);
+
+  TestEQ(4, script->CallWithScope(PTR ScopedCallbackFunc(), [ a := "3" ]));
+  TestEQ(2, scopedcallbackcounter);
+
+  TestThrows(PTR script->CallWithScope(PTR ScopedCallback("throw"), [ a := "3" ]));
+  TestEQ(3, scopedcallbackcounter);
+
+  TestEQ("yeey", CapturePTR(PTR script->CallWithScope(PTR ScopedCallback("embed-wittyvar"), [ invokewittyvar := "yeey" ])));
+
+  // Test if embed from from embedtest.witty resolves to component 'local' in embedtest.witty
+  TestEQ("local-embed", CapturePTR(PTR script->CallWithScope(PTR ScopedCallback("embed-wittyvar"), [ invokewittyvar := PTR EmbedWittyComponent("local") ])));
+
+  // Test if the CallWithScope to the base script within the context of embedtest.witty resets witty context to the base script
+  TestEQ("local-testsuite", CapturePTR(PTR script->CallWithScope(PTR ScopedCallback("embed-wittyvar"), [ invokewittyvar := PTR script->CallWithScope(PTR EmbedWittyComponent("local"), DEFAULT RECORD) ])));
+
+  CloseTest("CallWithScope");
+}
+
+PRINT("\n === Running TestWTE\n");
+
+SimpleTestWTE();
+ForeveryMembersWTE();
+EncodingSensitivity();
+WittyNI();
+WittyRawComponent();
+WittyGetTid();
+WittyLibrarys();
+WittyFuncPtrsComponents();
+WittyErrorHandling();
+WittyCallComponent();
+WittyResolving();
+WittyEncoding();
+WittyInfiniteCRecursion();
+WittyRegression();
+EncodingConfusion();
+TestCallWithScope();

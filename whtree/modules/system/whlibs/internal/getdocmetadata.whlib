@@ -1,0 +1,123 @@
+<?wh
+/** @short File analysis
+    @long Functions to auto-detect a file's type and discover its properties by a quick examination of its contents
+    @private GetDocumentMetadata should be deprecated/moved to their respective users
+*/
+
+LOADLIB "wh::parser/pdf.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+RECORD FUNCTION GetOOXMLProps(INTEGER zip)
+{
+  OBJECT xmldoc := MakeXMLDocument(UnpackFileFromZipFile(zip, "docProps/core.xml"));
+  RECORD retval := [ title := "", description := "", keywords := "" ];
+
+  IF(ObjectExists(xmldoc))
+  {
+    OBJECT title := xmldoc->GetElementsByTagNameNS("http://purl.org/dc/elements/1.1/", "title")->Item(0);
+    IF(ObjectExists(title) AND ObjectExists(title->firstchild))
+      retval.title := title->firstchild->nodevalue;
+
+    OBJECT description := xmldoc->GetElementsByTagNameNS("http://purl.org/dc/elements/1.1/", "description")->Item(0);
+    IF(ObjectExists(description) AND ObjectExists(description->firstchild))
+      retval.description := description->firstchild->nodevalue;
+
+    OBJECT keywords := xmldoc->GetElementsByTagNameNS("http://purl.org/dc/elements/1.1/", "keywords")->Item(0);
+    IF(ObjectExists(keywords) AND ObjectExists(keywords->firstchild))
+      retval.keywords := keywords->firstchild->nodevalue;
+  }
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION GetDocumentMetadata(RECORD wrappedblob)
+{
+  RECORD metadata := [ title := ""
+                     , description := ""
+                     , keywords := ""
+                     ];
+  IF(wrappedblob.mimetype = "application/pdf")
+  {
+    INTEGER pdffile := OpenPDFFile(wrappedblob.data);
+    IF(pdffile>0 AND DoPDFConversion(pdffile)) //ADDME: Don't do a full conversion just for metainfo ?
+    {
+      RECORD metainfo := GetPDFMetaInfo(pdffile);
+      IF (RecordExists(metainfo))
+      {
+        metadata.title := metainfo.title;
+        metadata.keywords := metainfo.keywords;
+        metadata.description := metainfo.subject;
+        RETURN metadata;
+      }
+      //FIXME: Close the file
+    }
+  }
+  IF(wrappedblob.mimetype IN ["application/msword", "application/vnd.ms-excel", "application/vnd.ms-powerpoint" ])
+  {
+    RECORD oleprops := __HS_UnpackOleProps(wrappedblob.data);
+    RECORD summaryinfo := SELECT * FROM oleprops.propsets WHERE name="\005SummaryInformation";
+    IF (RecordExists(summaryinfo))
+    {
+      RECORD titlefield := SELECT * FROM summaryinfo.sections[0].properties WHERE id=2;
+      IF (RecordExists(Titlefield) AND TypeId(titlefield.data)=TypeId(STRING))
+        metadata.title := Substitute(titlefield.data,"\000","");
+
+      RECORD descrfield := SELECT * FROM summaryinfo.sections[0].properties WHERE id=3;
+      IF (RecordExists(descrfield) AND TypeId(descrfield.data)=TypeId(STRING))
+        metadata.description := Substitute(descrfield.data,"\000","");
+
+      RECORD keywordsfield := SELECT * FROM summaryinfo.sections[0].properties WHERE id=5;
+      IF (RecordExists(keywordsfield) AND TypeId(keywordsfield.data)=TypeId(STRING))
+      {
+        STRING keywords := Substitute(keywordsfield.data,"\r\n",",");
+        metadata.keywords := Substitute(keywords,"\000","");
+      }
+    }
+  }
+  IF(wrappedblob.mimetype LIKE "application/vnd.openxmlformats-officedocument.*")
+  {
+    INTEGER zip := OpenZipFile(wrappedblob.data);
+    IF(zip>=0)
+    {
+      RECORD meta := GetOOXMLProps(zip);
+      IF(RecordExists(meta))
+      {
+        metadata.title := meta.title;
+        metadata.description := meta.description;
+        metadata.keywords := meta.keywords;
+      }
+      CloseZipFile(zip);
+    }
+  }
+  IF(wrappedblob.mimetype = "text/html")
+  {
+    //ADDME: a sax parser which we could abort after a few tags is more efficient?
+    INTEGER htmldoc := ParseHTMLAsXML(wrappedblob.data,"");
+    IF(htmldoc > 0)
+    {
+      RECORD titleinfo := SelectXML(htmldoc,"//title");
+      IF(RecordExists(titleinfo))
+        metadata.title := titleinfo.xml_content;
+
+      RECORD description := SelectXML(htmldoc,"//meta[@name='description']");
+      IF(RecordExists(description) AND CellExists(description,"content"))
+        metadata.description := description.xml_content;
+
+      RECORD keywords := SelectXML(htmldoc,"//meta[@name='keywords']");
+      IF(RecordExists(keywords) AND CellExists(description,"keywords"))
+        metadata.keywords := keywords.xml_content;
+
+      CloseXML(htmldoc);
+    }
+  }
+  /* FIXME restore TIFF support
+    RECORD ARRAY tiff_fields := __ParseTIFFTags(PTR ReadFromTIFF(filehandle, #1, #2));
+  IF(metadata)
+  {
+    filedata.title := TrimWhitespace(SELECT AS STRING singlevalue FROM tiff_fields WHERE tag = 269 AND TypeId(singlevalue)=TypeId(STRING));
+    filedata.description := TrimWhitespace(SELECT AS STRING singlevalue FROM tiff_fields WHERE tag = 270 AND TypeId(singlevalue)=TypeId(STRING));
+  }
+  */
+
+  RETURN metadata;
+}

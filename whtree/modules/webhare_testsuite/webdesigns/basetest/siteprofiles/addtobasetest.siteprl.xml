@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <apply>
+    <to type="folder" pathmask="/tmp/" />
+    <blub xmlns="http://www.webhare.net/xmlns/webhare_testsuite/blub" blubber="1111" />
+  </apply>
+
+</siteprofile>

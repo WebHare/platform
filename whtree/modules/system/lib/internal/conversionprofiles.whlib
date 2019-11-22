@@ -1,0 +1,192 @@
+﻿<?wh
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::float.whlib";                     // used for handling sizes (fontsize/spacing)
+
+PUBLIC RECORD FUNCTION ParseXMLProfile(BLOB profiledata)
+{
+  OBJECT doc := MakeXMLDocument(profiledata);
+  IF(NOT ObjectExists(doc) OR NOT ObjectExists(doc->documentelement))
+    RETURN DEFAULT RECORD;
+  RETURN ParseXMLProfileNode(doc->documentelement);
+}
+
+PUBLIC RECORD FUNCTION ParseXMLProfileNode(OBJECT profilenode)
+{
+  RECORD ARRAY profilestyles;
+
+  // Convert to internal format
+  RECORD iprofile := [ nolonelytitle   := FALSE
+                     , emptydocobjects := FALSE
+                     , styles          := DEFAULT RECORD ARRAY
+                     ];
+
+  // check if this is a profile
+  IF(profilenode->nodename!="profile")
+    RETURN DEFAULT RECORD;
+
+  OBJECT ARRAY styles := profilenode->GetElementsByTagName("style")->GetCurrentElements();
+
+  IF (profilenode->GetAttribute('nolonelytitle')="true")
+    iprofile.nolonelytitle := TRUE;
+
+  IF (profilenode->GetAttribute('emptydocobjects')="true")
+    iprofile.emptydocobjects := TRUE;
+
+  FOREVERY(OBJECT style FROM styles)
+  {
+    RECORD styledata;
+    OBJECT attrlist := style->attributes;
+
+    FOREVERY(OBJECT attr FROM style->attributes->GetCurrentNodes())
+      styledata := CellInsert(styledata, attr->name, DecodeValue(attr->value));
+
+    INSERT styledata INTO profilestyles AT END;
+  }
+
+  FOREVERY(RECORD styledata FROM profilestyles)
+  {
+    // set initial values
+    RECORD istyle :=
+             [ wordid           := -1,
+               name             := DEFAULT STRING,
+               fgcolour         := -1,
+               split            := FALSE,
+               fontface         := DEFAULT STRING,
+               fontsize         := -1,
+               setbold          := -1,
+               setitalic        := -1,
+               setunderline     := -1,
+               setsmallcaps     := -1,
+               setbgcolour      := -1,
+               alignment        := -1,
+               vertspacebefore  := -1,
+               vertspaceafter   := -1,
+               leftindent       := -1,
+               rightindent      := -1,
+               firstindent      := -1,
+               shownumbering    := TRUE,
+               toclevel         := 0,
+               hidedocobject    := FALSE,
+               showhiddentext   := FALSE,
+               istableheader    := FALSE,
+               headinglevel     := 0
+             , embedtype        := CellExists(styledata, "embedtype")  ? styledata.embedtype : ""
+             ];
+
+    // now convert & override the values for attributes set in the XML
+    IF (CellExists(styledata,"mswordstyleid"))
+      istyle.wordid   := ToInteger(styledata.mswordstyleid,-1,10);
+
+    IF (CellExists(styledata,"mswordcustomstyle"))
+      istyle.name     := styledata.mswordcustomstyle;
+
+//    IF (CellExists(styledata,"implicit"))
+//      istyle := CellInsert(istyle, 'implicit', styledata.implicit='TRUE'?1:0);
+// implicit = no mswordstyleid or mswordcustomstyle
+
+    IF (CellExists(styledata,"split"))
+      istyle.split    := styledata.split='true';
+
+    IF (CellExists(styledata,"toclevel"))
+      istyle.toclevel := ToInteger(styledata.toclevel,0,10);
+
+    IF (CellExists(styledata,"hide"))
+      istyle.hidedocobject := styledata.hide='true'?TRUE:FALSE;
+
+    IF (CellExists(styledata,"fgcolor"))
+      istyle.fgcolour      := ToInteger(SubString(styledata.fgcolor,1,6),0,16);
+
+    IF (CellExists(styledata,"bgcolor"))
+      istyle.setbgcolour   := ToInteger(SubString(styledata.bgcolor,1,6),0,16);
+
+    IF (CellExists(styledata,"fontsize"))
+    {
+      FLOAT fontsize := ToFloat(SubString(styledata.fontsize,0,LENGTH(styledata.fontsize)-2),0);
+      istyle.fontsize      := FloatToInteger(fontsize*2);
+    }
+
+    IF (CellExists(styledata,"fontfamily"))
+      istyle.fontface       := styledata.fontfamily;
+
+    IF (CellExists(styledata,"bold"))
+      istyle.setbold        := styledata.bold='true'?1:0;
+
+    IF (CellExists(styledata,"italic"))
+      istyle.setitalic      := styledata.italic='true'?1:0;
+
+    IF (CellExists(styledata,"underline"))
+      istyle.setunderline   := styledata.underline='true'?1:0;
+
+    IF (CellExists(styledata,"showhiddentext"))
+      istyle.showhiddentext := styledata.showhiddentext='true'?TRUE:FALSE;
+
+    IF (CellExists(styledata,"vertspacebefore"))
+    {
+      FLOAT size := ToFloat(SubString(styledata.vertspacebefore,0,LENGTH(styledata.vertspacebefore)-2),0);
+      istyle.vertspacebefore := FloatToInteger(size);
+    }
+
+    IF (CellExists(styledata,"vertspaceafter"))
+    {
+      FLOAT size := ToFloat(SubString(styledata.vertspaceafter,0,LENGTH(styledata.vertspaceafter)-2),0);
+      istyle.vertspaceafter := FloatToInteger(size);
+    }
+
+    IF (CellExists(styledata,"leftindent"))
+    {
+      FLOAT size := ToFloat(SubString(styledata.leftindent,0,LENGTH(styledata.leftindent)-2),0);
+      istyle.leftindent     := FloatToInteger(size);
+    }
+
+    IF (CellExists(styledata,"rightindent"))
+    {
+      FLOAT size := ToFloat(SubString(styledata.rightindent,0,LENGTH(styledata.rightindent)-2),0);
+      istyle.rightindent    := FloatToInteger(size);
+    }
+
+    IF (CellExists(styledata,"firstindent"))
+    {
+      FLOAT size := ToFloat(SubString(styledata.firstindent,0,LENGTH(styledata.firstindent)-2),0);
+      istyle.firstindent    := FloatToInteger(size);
+    }
+
+    IF (CellExists(styledata,"hidenumbering"))
+      istyle.shownumbering := styledata.hidenumbering='true'?FALSE:TRUE;
+
+    IF (CellExists(styledata,"smallcaps"))
+    {
+      STRING lcvalue := ToLowerCase(styledata.smallcaps);
+      INTEGER num;
+      IF (lcvalue = 'never')   num := 0; // or 3 ?
+      IF (lcvalue = 'small')   num := 1;
+      IF (lcvalue = 'allcaps') num := 2;
+      istyle.setsmallcaps  := num;
+    }
+
+    IF (CellExists(styledata,"align"))
+    {
+      STRING lcvalue := ToLowerCase(styledata.align);
+      INTEGER num;
+
+      //SearchElement(alignments,profilestyle.alignment)+1
+//      STRING ARRAY alignments := ['left','center','right'];
+//      istyle.alignment := SearchElement(alignments,profilestyle.alignment)+1;
+
+      IF (lcvalue = 'left')      num := 0;
+      IF (lcvalue = 'center')    num := 1;
+      IF (lcvalue = 'right')     num := 2;
+      IF (lcvalue = 'justified') num := 3;
+      istyle.alignment     := num;
+    }
+
+    IF (CellExists(styledata,"tag"))
+      istyle.headinglevel  := ToInteger(SubString(styledata.tag,1,1),10);
+
+    IF (CellExists(styledata,"istableheader"))
+      istyle.istableheader := styledata.istableheader='true'?TRUE:FALSE;
+
+    INSERT istyle INTO iprofile.styles AT END;
+  }
+
+  RETURN iprofile;
+}

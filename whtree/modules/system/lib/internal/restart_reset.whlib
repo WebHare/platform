@@ -1,0 +1,371 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/modulemanager.whlib";
+LOADLIB "mod::system/lib/internal/serverconfig.whlib";
+LOADLIB "mod::system/lib/internal/logging.whlib";
+LOADLIB "mod::system/lib/internal/backend/users.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql-bootstrap.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/validation/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
+
+BOOLEAN showinfo;
+BOOLEAN any_messages := FALSE;
+
+//RECORD settings;
+
+BOOLEAN FUNCTION ReportOnInit(RECORD result)
+{
+  BOOLEAN any_error;
+  IF(showinfo)
+  {
+    FOREVERY(RECORD msg FROM result.commands)
+    {
+      IF(msg.type="whdb")
+        Print(msg.module || " sql command sent: " || msg.cmd || "\n");
+      any_messages := TRUE;
+    }
+  }
+  FOREVERY(RECORD msg FROM result.commitmessages)
+  {
+    Print(msg.module || " schema update error: " || msg.text || "\n");
+    any_messages := TRUE;
+    any_error := TRUE;
+  }
+  RETURN any_error;
+}
+
+MACRO WaitForIndex()
+{
+  GetPrimary()->BeginWork();
+  __SendWHDBCommand(GetPrimary()->id,"SET CLIENT TIMEOUT TO 7200"); //2 hour timeout, index reoncstruction can take longer than 5 minutes hwn busy
+  __SendWHDBCommand(GetPrimary()->id,"WAIT INDEX");
+  __SendWHDBCommand(GetPrimary()->id,"SET CLIENT TIMEOUT TO 300"); //restore original 5 minute timeout
+  GetPrimary()->RollbackWork();
+}
+
+MACRO HandleRunonceOutput(RECORD module, RECORD ro_result)
+{
+  FOREVERY(STRING msg FROM ro_result.messages)
+  {
+    Print(module.name || " startup script: " || msg || "\n");
+    any_messages := TRUE;
+  }
+}
+
+MACRO WebHareStartup(STRING ARRAY limitmodules, BOOLEAN debug)
+{
+  RECORD ARRAY modlist := GetWebHareModules();
+  modlist := SELECT * FROM modlist WHERE name IN limitmodules;
+
+  IF(debug)
+    Print("Initializing: " || Detokenize((SELECT AS STRING ARRAY name FROM modlist),','));
+  StartupModules(modlist, FALSE); //FIXME when do we ever run with TRUE? what did this break ?
+}
+
+MACRO StartupModules(RECORD ARRAY modlist, BOOLEAN init_all_modules)
+{
+  modlist := SELECT TEMPORARY validator := GetModuleXMLValidator(name)
+                  , *
+                  , databaseschemas := GetModuleDatabaseSchema(name)
+                  , regkeys := GetModuleRegKeys(name)
+                  , runoncescripts := ParseModuleDefRunonce(validator)
+               FROM modlist;
+
+  FOREVERY(RECORD mod FROM modlist)
+    FOREVERY(RECORD dbschema FROM mod.databaseschemas)
+      IF(Length(dbschema.msgs)>0)
+      {
+        FOREVERY(RECORD msg FROM dbschema.msgs)
+          Print("Module " || mod.name || " definition:" || msg.line || ":" || msg.text || "\n");
+      }
+
+  RECORD result := InitModuleIndependents(modlist, init_all_modules, TRUE);
+  BOOLEAN any_db_error := ReportOnInit(result);
+
+  /* Apply registry updates */
+  IF(GetPrimary()->__is_whdb)
+  {
+    GetPrimary()->BeginWork();
+    __SendWHDBCommand(GetPrimary()->id, "GRANT SELECT ON SCHEMA system_rights TO PUBLIC GRANTED BY _SYSTEM");
+    GetPrimary()->CommitWork();
+  }
+
+  //And their startup scripts
+  FOREVERY(RECORD module FROM modlist)
+  {
+    RECORD ro_result := RunRunOnceScripts(module, "afterschemacreation", showinfo);
+
+    FOREVERY(STRING msg FROM ro_result.messages)
+    {
+      Print(module.name || " startup script: " || msg || "\n");
+      any_messages := TRUE;
+    }
+    IF (ro_result.error)
+    {
+      PRINT("Got runonce script error: \n" || AnyToString(ro_result, "tree"));
+    }
+  }
+
+
+  FOREVERY(RECORD module FROM modlist)
+  {
+    IF(showinfo)
+      Print(">> " || module.name || " >> inittables \n");
+    RECORD output := InitModuleTables(module);
+    ReportOnInit(output);
+  }
+
+  FOREVERY(RECORD module FROM modlist)
+  {
+    RECORD ro_result_2 := RunRunOnceScripts(module, "aftertablesbeforerights", showinfo);
+    HandleRunonceOutput(module, ro_result_2);
+  }
+
+  FOREVERY(RECORD module FROM modlist)
+  {
+    IF(showinfo)
+      Print(">> " || module.name || " >> modulerights\n");
+    RECORD output2 := InitModuleRights(module, FALSE);
+    ReportOnInit(output2);
+
+    IF(GetPrimary()->IsWorkOpen())
+    {
+      PRINT("ERROR! Work was still open after InitModuleRights for '" || module.name || "'\n");
+      GetPrimary()->RollbackWork();
+    }
+  }
+
+  FOREVERY(RECORD module FROM modlist)
+  {
+    RECORD ro_result := RunRunOnceScripts(module, "aftertablecreation", showinfo);
+    HandleRunonceOutput(module, ro_result);
+  }
+
+  IF (NOT any_db_error)
+  {
+    IF(showinfo)
+      Print(">> InitModuleIndependents\n");
+
+    result := InitModuleIndependents(modlist, init_all_modules, FALSE); //post updates
+    ReportOnInit(result);
+
+    IF(showinfo)
+      Print(">> InitModuleRegistryKeys\n");
+
+    result := InitModuleRegistryKeys(modlist);
+    ReportOnInit(result);
+  }
+
+  FOREVERY(RECORD module FROM modlist)
+    IF (module.name = "system")
+    {
+      IF(showinfo)
+        Print(">> UpdateSystemConfigurationRecord\n");
+      UpdateSystemConfigurationRecord();
+    }
+
+  FOREVERY(RECORD module FROM modlist)
+  {
+    RECORD ro_result := RunRunOnceScripts(module, "afterregistryupdate", showinfo);
+    HandleRunonceOutput(module, ro_result);
+  }
+}
+
+PUBLIC RECORD ARRAY FUNCTION ValidateModules()
+{
+  STRING ARRAY checkmodules := GetInstalledModuleNames();
+  RECORD ARRAY messages;
+
+  STRING ARRAY moduledefinitions;
+
+  FOREVERY (STRING module FROM checkmodules)
+  {
+    RECORD result := ValidateSingleFile(GetModuleDefinitionXMLResourceName(module));
+    messages := messages CONCAT SELECT *, msg := resourcename || ":" || line || ":" || col || ": " || message FROM result.errors;
+  }
+  RETURN messages;
+}
+
+MACRO BootstrapDatabase()
+{
+  IF (GetDatabaseType() = "postgresql")
+    BootstrapPostgreSQL(GetPrimary());
+
+  GetPrimary()->BeginWork();
+
+  IF(NOT GetPrimary()->SchemaExists("system"))
+    GetPrimary()->CreateSchema("system","system","modulemanager");
+
+  IF(NOT GetPrimary()->ColumnExists("system","flatregistry","id"))
+  {
+    __LegacyCreateTable(GetPrimary(), "system", "flatregistry",
+       [ primarykey := "id"
+       , cols := [[ column_name := "id", data_type := "INTEGER", autonumber_start := 1, nullable := FALSE ]
+                 ,[ column_name := "name", data_type := "VARCHAR", character_octet_length := 512, nullable := FALSE, noupdate := TRUE ]
+                 ,[ column_name := "namehash", data_type := "BYTEA", character_octet_length := 20, nullable := FALSE, isunique := TRUE, noupdate := TRUE ]
+                 ,[ column_name := "nodehash", data_type := "BYTEA", character_octet_length := 20, nullable := FALSE, noupdate := TRUE ]
+                 ,[ column_name := "data", data_type := "VARCHAR", character_octet_length := 4096 ]
+                 ,[ column_name := "blobdata", data_type := "BLOB" ]
+                 ,[ column_name := "modificationdate", data_type := "DATETIME"]
+                 ]
+       ]);
+  }
+  GetPrimary()->CommitWork();
+}
+
+PUBLIC STRING FUNCTION RunRestartReset(BOOLEAN debug)
+{
+  RECORD confinfo := LoadServerConfig();
+  IF(Length(confinfo.errors) > 0)
+  {
+    Print("Parse errors on serverconfig.xml\n");
+    DumpValue(confinfo.errors, 'boxed');
+  }
+
+  showinfo := debug;
+
+  // If not softresetting, configure the logfiles before anything else
+  IF (debug)
+    Print("Reconfiguring log files\n");
+  ReconfigureLogFiles();
+
+  //Make sure installedmodules folder exists
+  CreateDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "installedmodules", TRUE);
+
+  // If the database is in readonly mode, there isn't much we can do anymore
+  IF (IsDatabaseReadonly())
+    RETURN ReloadWebhareConfig2("ALL", [ nowait := TRUE ]);
+
+  //Ensure the index is finished, otherwise we will just interfere and further slow down system startup
+  IF(GetPrimary()->__is_whdb)
+    WaitForIndex();
+
+  //bootstrap chicken&egg tables first
+  IF (debug)
+    Print("WebHare database bootstrap\n");
+  BootstrapDatabase();
+
+  //core modules first
+  IF (debug)
+    Print("WebHare startup rest\n");
+  WebHareStartup(whconstant_builtinmodules, debug);
+
+  //any init_whfs should have resolved now... just make sure we have all the module dirs and an override user!
+  GetPrimary()->BeginWork();
+  EnsureModulePrivateFolders();
+  EnsureCreatedMagicSysop("<overrideuser>");
+  GetPrimary()->CommitWork();
+
+  //then the rest
+  STRING ARRAY modules := SELECT AS STRING ARRAY module FROM ToRecordArray(GetInstalledModuleNames(),'module') WHERE module NOT IN whconstant_builtinmodules;
+  IF(Length(modules) > 0)
+  {
+    IF (debug)
+      Print("WebHare startup other modules\n");
+    WebHareStartup(modules, debug);
+  }
+
+  IF (debug)
+    Print("Fixing module symlinks\n");
+  FixModuleSymlinks(GetInstalledModuleNames(), TRUE);
+
+  //Site profiles already read IsNodeApplicableToThisWebHare, so any change to DTAP must happen here
+  IF(ObjectExists(confinfo.confighandler))
+  {
+    IF(debug)
+      Print("Processing serverconfig.xml configureserver\n");
+    confinfo.confighandler->ConfigServer();
+  }
+
+  IF (debug)
+    Print("WRD schemas\n");
+  UpdateAllModuleSchemas();
+
+  //TODO when installing, initdb_phase2 will have taken care of siteprofile compilation through UpdateBackendSite. we might see if we can have initdb_phase2 stop doing that ?
+  IF (debug)
+    Print("Site profiles\n");
+
+  TRY
+  {
+    RecompileSiteProfiles();
+  }
+  CATCH(OBJECT e)
+  {
+    LogHarescriptException(e);
+    Print("Errors recompiling site profiles: " || e->what || "\n");
+  }
+
+  IF (debug)
+    Print("Reloading WebHare configuration\n");
+
+  STRING softresetid := ReloadWebhareConfig2("ALL", [ nowait := TRUE ]);
+  RETURN softresetid;
+}
+
+PUBLIC MACRO RunSoftReset(BOOLEAN debug)
+{
+  // Reload modules on all processes (updates module installation paths)
+  ReloadWebhareConfig2("MODULES");
+
+  OBJECT validationpromise;
+  validationpromise := AsyncCallFunctionFromJob("module::system/internal/restart_reset.whlib#ValidateModules");
+
+  OBJECT eventmgr := NEW EventManager;
+  eventmgr->RegisterInterest("system:internal.executetasks.softresetdone");
+
+  IF (debug)
+    Print("Running restart/reset\n");
+
+  STRING softresetid := RunRestartReset(debug);
+
+  DATETIME waitlimit := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime());
+
+  // Wait for validation to finish
+  IF(ObjectExists(validationpromise))
+  {
+    IF (debug)
+      Print("Wait for validation\n");
+    RECORD ARRAY messages := WaitForPromise(validationpromise);
+    FOREVERY(RECORD msg FROM messages)
+      Print(`${msg.resourcename}(${msg.line}:${msg.col}): ${msg.msg}\n`);
+  }
+
+  WHILE(TRUE)
+  {
+    IF (debug)
+      Print("Waiting for softresetdone event\n");
+    RECORD event := eventmgr->ReceiveEvent(waitlimit);
+    IF (event.status = "timeout")
+      ABORT("Module upgrade tasks are taking more than 5 minutes to complete");
+    IF (softresetid IN event.msg.softresetids)
+    {
+      IF (debug)
+        Print("Got softresetdone event\n");
+      BREAK;
+    }
+  }
+  eventmgr->Close();
+
+  //ADDME inform other backends, enumerate all userapis, or setup a global global channel
+  IF (debug)
+    Print("Broadcast dashboard refresh\n");
+  BroadcastToAllSessions( [ type := "tollium:shell.refreshdashboard" ]);
+}

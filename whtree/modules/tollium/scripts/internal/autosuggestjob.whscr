@@ -1,0 +1,26 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::wrd/lib/internal/userapi.whlib";
+
+// Open channel to parent
+OBJECT iochan := GetIPCLinkToParent();
+IF (NOT ObjectExists(iochan))
+  THROW NEW Exception("Could not open IPC link to job owner");
+
+RECORD rec := iochan->ReceiveMessage(MAX_DATETIME);
+SetTidLanguage(rec.msg.tidlanguage);
+OpenPrimary(); //ADDME add a no-database mode for suggest jobs ?
+__SetEffectiveUser(ReconstructUserFromMarshallInfo(rec.msg.effectiveuser));
+
+OBJECT autosuggester := MakeObject(rec.msg.suggestobjectname, rec.msg.data);
+
+WHILE(TRUE)
+{
+  rec := iochan->ReceiveMessage(MAX_DATETIME);
+
+  RECORD ARRAY results := autosuggester->Lookup(rec.msg.text);
+  iochan->SendReply([results := results], rec.msgid);
+}

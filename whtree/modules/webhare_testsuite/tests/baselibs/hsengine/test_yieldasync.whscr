@@ -1,0 +1,475 @@
+﻿<?wh
+
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+
+
+STRING callorder;
+
+OBJECT FUNCTION *Generator(INTEGER param1)
+{
+  TRY
+  {
+    callorder := "1";
+
+    // Initial yield (value sent with next is ignored. ADDME: forbid a passed value at that stage?)
+    INTEGER b := YIELD param1; // #1
+
+    callorder := callorder || ",2";
+
+    // Normal yield
+    b := YIELD b; // #2
+
+    callorder := callorder || ",3";
+
+    // Yield* with array (automatically converted to array generator)
+    TestEQ(DEFAULT RECORD, YIELD* [ b, 11, 12, 13 ]); // #3 - array generator returns DEFAULT RECORD as return value
+    b := 88;
+
+    callorder := callorder || ",4";
+
+    // Yield* with generator function
+    b := YIELD* Generator2(b); // #4
+
+    callorder := callorder || ",5";
+
+    RETURN b; // #5 will be 17, retval from Generator2
+  }
+  CATCH (OBJECT e)
+  {
+    callorder := callorder || ",6";
+    INTEGER b := YIELD 5; // #6
+
+    callorder := callorder || ",7";
+    IF (b = 8)
+      RETURN 8; // #7
+    THROW;
+  }
+  FINALLY
+  {
+    callorder := callorder || ",8";
+    YIELD 10; // #8
+    callorder := callorder || ",9";
+  }
+}
+
+FUNCTION *Generator2(INTEGER p)
+{
+  YIELD p;
+  FOREVERY (INTEGER x FROM [ 14, 15, 16 ])
+    YIELD x;
+  RETURN 17;
+}
+
+ASYNC MACRO TestAsyncMacro() { };
+ASYNC MACRO TestAsyncMacro2() { RETURN; };
+ASYNC FUNCTION TestAsyncFunction() { RETURN "X"; };
+
+OBJECTTYPE AsyncType
+< PUBLIC ASYNC MACRO TestAsyncMacro() {  }
+  PUBLIC ASYNC MACRO TestAsyncMacro2() { RETURN; }
+  PUBLIC ASYNC FUNCTION TestAsyncFunction() { RETURN "X"; }
+  PUBLIC OBJECT FUNCTION *Generator1() { RETURN 1; }
+  PUBLIC FUNCTION *Generator2() { RETURN 2; }
+  PUBLIC OBJECT ASYNC FUNCTION *AsyncGenerator1() { RETURN 1; }
+  PUBLIC ASYNC FUNCTION *AsyncGenerator2() { RETURN 2; }
+>;
+
+MACRO TestSyntax()
+{
+  RECORD result;
+
+  result := TestCompileAndRun('<?wh OBJECT ASYNC FUNCTION Test() { RETURN ""; } ?>');
+  TestCleanResult(0, result.errors);
+
+  // OBJECT is optional
+  result := TestCompileAndRun('<?wh ASYNC FUNCTION Test() { RETURN ""; } ?>');
+  TestCleanResult(0, result.errors);
+
+  // return value not optional for functions
+  result := TestCompileAndRun('<?wh ASYNC FUNCTION Test() { RETURN; } ?>');
+  MustContainError(0, result.errors, 99);
+
+  // return value allowed for async macro
+  result := TestCompileAndRun('<?wh ASYNC MACRO Test() { RETURN ""; } ?>');
+  MustContainError(0, result.errors, 98);
+
+  result := TestCompileAndRun('<?wh OBJECTTYPE x< OBJECT ASYNC FUNCTION Test() { RETURN ""; } >;?>');
+  TestCleanResult(0, result.errors);
+
+  // OBJECT is optional
+  result := TestCompileAndRun('<?wh OBJECTTYPE x< ASYNC FUNCTION Test() { RETURN ""; } >; ?>');
+  TestCleanResult(0, result.errors);
+
+  // return value not optional for functions
+  result := TestCompileAndRun('<?wh OBJECTTYPE x< ASYNC FUNCTION Test() { RETURN; } >; ?>');
+  MustContainError(0, result.errors, 99);
+
+  // return value allowed for async macro
+  result := TestCompileAndRun('<?wh OBJECTTYPE x< ASYNC MACRO Test() { RETURN ""; } >; ?>');
+  MustContainError(0, result.errors, 98);
+
+  TestEQ(FALSE, WaitForPromise(TestAsyncMacro()));
+  TestEQ(FALSE, WaitForPromise(TestAsyncMacro2()));
+  TestEQ("X", WaitForPromise(TestAsyncFunction()));
+
+  OBJECT x := NEW AsyncType;
+  TestEQ(FALSE, WaitForPromise(x->TestAsyncMacro()));
+  TestEQ(FALSE, WaitForPromise(x->TestAsyncMacro2()));
+  TestEQ("X", WaitForPromise(x->TestAsyncFunction()));
+  TestEQ([ done := TRUE, value := 1 ], x->Generator1()->Next());
+  TestEQ([ done := TRUE, value := 2 ], x->Generator2()->Next());
+  TestEQ([ done := TRUE, value := 1 ], WaitForPromise(x->AsyncGenerator1()->Next()));
+  TestEQ([ done := TRUE, value := 2 ], WaitForPromise(x->AsyncGenerator2()->Next()));
+}
+
+MACRO TestYield()
+{
+  OBJECT gen;
+
+  // Test nonexceptional flow
+  gen := Generator(1);
+
+  TestEQ("", callorder); // Not started until first yield
+
+  // Initial sent value is ignored
+  TestEQ([ done := FALSE, value := 1 ], gen->Next(999)); // #1
+  TestEQ("1", callorder);
+  TestEQ([ done := FALSE, value := 2 ], gen->Next(2)); // #2
+  TestEQ("1,2", callorder);
+
+  // #3
+  TestEQ([ done := FALSE, value := 3 ], gen->Next(3));
+  TestEQ("1,2,3", callorder);
+  TestEQ([ done := FALSE, value := 11 ], gen->Next());
+  TestEQ([ done := FALSE, value := 12 ], gen->Next());
+  TestEQ([ done := FALSE, value := 13 ], gen->Next());
+  TestEQ("1,2,3", callorder);
+
+  // #4
+  TestEQ([ done := FALSE, value := 88 ], gen->Next(4));
+  TestEQ("1,2,3,4", callorder);
+  TestEQ([ done := FALSE, value := 14 ], gen->Next());
+  TestEQ([ done := FALSE, value := 15 ], gen->Next());
+  TestEQ([ done := FALSE, value := 16 ], gen->Next());
+
+  TestEQ([ done := FALSE, value := 10 ], gen->Next(77)); // # 8
+  TestEQ("1,2,3,4,5,8", callorder);
+  TestEQ([ done := TRUE, value := 17 ], gen->Next()); // # 5
+  TestEQ("1,2,3,4,5,8,9", callorder);
+
+  // Test exception dispatching
+  callorder := "";
+  gen := Generator(1);
+
+  // Initial send to enter the TRY
+  TestEQ([ done := FALSE, value := 1 ], gen->Next(999)); // #1
+  TestEQ("1", callorder);
+  TestEQ([ done := FALSE, value := 5 ], gen->SendThrow(NEW Exception("Yeey"))); // # 6
+  TestEQ("1,6", callorder);
+  // Throw within the CATCH
+  TestEQ([ done := FALSE, value := 10 ], gen->Next(3)); // # 8
+  TestEQ("1,6,7,8", callorder);
+  TestThrows(PTR gen->Next()); // # 8
+  TestEQ("1,6,7,8,9", callorder);
+  TestEQ([ done := TRUE, value := DEFAULT RECORD ], gen->Next(3));
+  TestEQ("1,6,7,8,9", callorder);
+
+  callorder := "";
+  gen := Generator(1);
+
+  // Initial send to enter the TRY
+  TestEQ([ done := FALSE, value := 1 ], gen->Next(999)); // #1
+  TestEQ("1", callorder);
+  TestEQ([ done := FALSE, value := 5 ], gen->SendThrow(NEW Exception("Yeey"))); // # 6
+  TestEQ("1,6", callorder);
+  // Return within the CATCH - the exception is eaten
+  TestEQ([ done := FALSE, value := 10 ], gen->Next(8)); // # 8
+  TestEQ("1,6,7,8", callorder);
+  TestEQ([ done := TRUE, value := 8 ], gen->Next());
+  TestEQ("1,6,7,8,9", callorder);
+
+  // Test return dispatching
+  callorder := "";
+  gen := Generator(1);
+
+  // Initial send to enter the TRY
+  TestEQ([ done := FALSE, value := 1 ], gen->Next(999)); // #1
+  TestEQ("1", callorder);
+  TestEQ([ done := FALSE, value := 10 ], gen->SendReturn(23)); // #8
+  TestEQ("1,8", callorder);
+  TestEQ([ done := TRUE, value := 23 ], gen->Next()); // value sent in SendReturn
+  TestEQ("1,8,9", callorder);
+}
+
+OBJECT ASYNC FUNCTION AsyncFunc(BOOLEAN throwexit)
+{
+  callorder := "1";
+  TestEQ(13, AWAIT CreateResolvedPromise(13));
+  callorder := callorder || ",2";
+
+  TRY
+  {
+    AWAIT CreateRejectedPromise(NEW Exception("throw"));
+    callorder := callorder || ",3";
+    TestEQ(TRUE, FALSE, "Expected a throw");
+  }
+  CATCH
+  {
+    callorder := callorder || ",4";
+  }
+
+  IF (throwexit)
+    THROW NEW Exception("throw");
+
+  callorder := callorder || ",5";
+
+  RETURN [ res := 33 ];
+}
+
+OBJECT ASYNC FUNCTION AsyncCancelFunc1()
+{
+  callorder := "1";
+  OBJECT c := AWAIT GetAsyncControl();
+  callorder := callorder || ",2";
+  AWAIT 1;
+  callorder := callorder || ",3";
+
+  IF (c->canceltoken->IsCancelled())
+    RETURN [ res := 1 ];
+
+  callorder := callorder || ",4";
+  RETURN [ res := 0 ];
+}
+
+OBJECT dp;
+
+OBJECT ASYNC FUNCTION AsyncAutoLinkCancelFunc1()
+{
+  callorder := "1";
+  OBJECT c := AWAIT GetAsyncControl();
+  c->autolinkcancel := TRUE; // cancel AWAIT'ed promises when cancelled.
+  dp := CreateDeferredPromise().promise;
+  dp->rejectoncancel := TRUE; // Reject when cancelled
+  callorder := callorder || ",2";
+  AWAIT dp;
+  callorder := callorder || ",3";
+  RETURN [ res := 0 ];
+}
+
+STRING s;
+
+OBJECT ASYNC FUNCTION RepeatedAwaits()
+{
+  s := s || AWAIT "1";
+  s := s || AWAIT "2";
+  s := s || AWAIT "3";
+  TRY AWAIT CreateRejectedPromise(NEW Exception("4")); CATCH (OBJECT e) s := s || e->what;
+  s := s || AWAIT "5";
+  TRY AWAIT CreateRejectedPromise(NEW Exception("6")); CATCH (OBJECT e) s := s || e->what;
+  s := s || AWAIT "7";
+  TRY AWAIT CreateRejectedPromise(NEW Exception("8")); CATCH (OBJECT e) s := s || e->what;
+  s := s || AWAIT "9";
+  RETURN 10;
+}
+
+MACRO TestAsync()
+{
+  callorder := "";
+  OBJECT func := AsyncFunc(FALSE);
+  TestEQ("1", callorder); // First part must be executed synchronously
+  TestEQ([ res := 33 ], WaitForPromise(func));
+  TestEQ("1,2,4,5", callorder);
+
+  callorder := "";
+  TestThrows(PTR WaitForPromise(AsyncFunc(TRUE)));
+  TestEQ("1,2,4", callorder);
+
+  OBJECT p;
+
+  callorder := "";
+  p := AsyncCancelFunc1();
+  TestEQ("1,2", callorder); // First part must be executed synchronously, await getasynccontrol() does not wait
+  TestEQ([ res := 0 ], WaitForPromise(p));
+  TestEQ("1,2,3,4", callorder);
+
+  callorder := "";
+  p := AsyncCancelFunc1();
+  TestEQ("1,2", callorder); // First part must be executed synchronously, await getasynccontrol() does not wait
+  p->Cancel();
+  TestEQ([ res := 1 ], WaitForPromise(p));
+  TestEQ("1,2,3", callorder);
+
+  callorder := "";
+  p := AsyncAutoLinkCancelFunc1();
+  TestEQ("1,2", callorder); // First part must be executed synchronously, await getasynccontrol() does not wait
+  p->Cancel();
+  TestThrows(PTR WaitForPromise(p));
+  TestEQ("1,2", callorder);
+  TestThrows(PTR WaitForPromise(dp)); // dp should be cancelled by p->Cancel()
+  TestEQ("1,2", callorder);
+
+  TestEQ(10, WaitForPromise(RepeatedAwaits()));
+  TestEQ("123456789", s);
+}
+
+RECORD ARRAY defers;
+
+OBJECT ASYNC FUNCTION *TestAsyncIterator(BOOLEAN withinitialwait)
+{
+  callorder := "1";
+  VARIANT a1 := withinitialwait ? AWAIT defers[0].promise : "d-1";
+  callorder := callorder || ",2";
+  TestEQ("d-1", a1);
+
+  VARIANT v := YIELD [ x := 2 ];
+  callorder := callorder || ",3";
+  TestEQ("b", v);
+
+  VARIANT a2 := AWAIT defers[1].promise;
+  callorder := callorder || ",4";
+
+  IF (a2 = 1)
+    THROW NEW Exception("Exception test");
+
+  VARIANT v2 := YIELD [ x := 3 ];
+  callorder := callorder || ",5";
+  TestEq("c", v2);
+
+  RETURN "retval";
+}
+
+OBJECT ASYNC FUNCTION *TestAsyncIterator2()
+{
+  TRY
+    THROW NEW Exception("1");
+  CATCH
+    RETURN 2;
+  FINALLY
+    THROW NEW Exception("2");
+}
+
+MACRO TestAsyncGenerator()
+{
+  // Serialized mode
+  {
+    defers := [ CreateDeferredPromise(), CreateDeferredPromise() ];
+
+    callorder := "";
+    OBJECT itr := TestAsyncIterator(TRUE);
+    TestEQ("", callorder);
+
+    OBJECT p := itr->Next("a");
+    TestEQ("1", callorder); // run immediately
+
+    // Run microtasks
+    WaitUntil(DEFAULT RECORD, DEFAULT DATETIME);
+
+    TestEQ("1", callorder);
+    defers[0].resolve("d-1");
+
+    TestEQ([ done := FALSE, value := [ x := 2 ] ], WaitForPromise(p));
+    TestEQ("1,2", callorder);
+
+    OBJECT p2 := itr->Next("b"); // run immediately
+    TestEQ("1,2,3", callorder);
+
+    // Run microtasks
+    WaitUntil(DEFAULT RECORD, DEFAULT DATETIME);
+
+    TestEQ("1,2,3", callorder);
+    defers[1].resolve(0);
+
+    TestEQ([ done := FALSE, value := [ x := 3 ] ], WaitForPromise(p2));
+    TestEQ("1,2,3,4", callorder);
+
+    OBJECT p3 := itr->Next("c");
+    TestEQ("1,2,3,4,5", callorder);
+
+    TestEQ([ done := TRUE, value := "retval" ], WaitForPromise(p3));
+    TestEQ("1,2,3,4,5", callorder);
+
+    OBJECT p4 := itr->Next("d");
+    TestEQ([ done := TRUE, value := "retval" ], WaitForPromise(p4));
+  }
+
+  // No-wait mode
+  {
+    defers := [ [ promise := CreateResolvedPromise("d-1") ], [ promise := CreateResolvedPromise(0) ] ];
+    callorder := "";
+    OBJECT itr := TestAsyncIterator(TRUE);
+    OBJECT p := itr->Next("a");
+    TestEQ("1", callorder); // first next must be synchronous!
+    OBJECT p2 := itr->Next("b");
+    OBJECT p3 := itr->Next("c");
+    OBJECT p4 := itr->Next("d");
+
+    TestEQ([ done := TRUE, value := "retval" ], WaitForPromise(p4));
+    TestEQ([ done := TRUE, value := "retval" ], WaitForPromise(p3));
+    TestEQ([ done := FALSE, value := [ x := 3 ] ], WaitForPromise(p2));
+    TestEQ([ done := FALSE, value := [ x := 2 ] ], WaitForPromise(p));
+    TestEQ("1,2,3,4,5", callorder);
+  }
+
+  // No-wait mode, with exception
+  {
+    defers := [ [ promise := CreateResolvedPromise("d-1") ], [ promise := CreateResolvedPromise(1) ] ];
+    callorder := "";
+    OBJECT itr := TestAsyncIterator(TRUE);
+    OBJECT p := itr->Next("a");
+    TestEQ("1", callorder); // first next must be synchronous!
+    OBJECT p2 := itr->Next("b");
+    OBJECT p3 := itr->Next("c");
+    OBJECT p4 := itr->Next("d");
+
+    //TestEQ([ done := TRUE, value := DEFAULT RECORD ], WaitForPromise(p4));
+    //TestEQ([ done := TRUE, value := DEFAULT RECORD ], WaitForPromise(p3));
+    TestThrows(PTR WaitForPromise(p4));
+    TestThrows(PTR WaitForPromise(p3));
+    TestThrows(PTR WaitForPromise(p2));
+    TestEQ([ done := FALSE, value := [ x := 2 ] ], WaitForPromise(p));
+    TestEQ("1,2,3,4", callorder);
+  }
+
+  // Serialized, first action is a yield
+  {
+    callorder := "";
+    OBJECT itr := TestAsyncIterator(FALSE);
+    TestEQ("", callorder);
+
+    OBJECT p := itr->Next("a");
+    TestEQ("1,2", callorder);
+
+    TestEQ([ done := FALSE, value := [ x := 2 ] ], WaitForPromise(p));
+  }
+
+  // Serialized, first action is a throw
+  {
+    defers := [ [ promise := CreateRejectedPromise(NEW Exception("t-1")) ], [ promise := CreateResolvedPromise(0) ] ];
+
+    callorder := "";
+    OBJECT itr := TestAsyncIterator(TRUE);
+    TestEQ("", callorder);
+
+    OBJECT p := itr->Next("a");
+    TestEQ("1", callorder);
+
+    TestThrows(PTR WaitForPromise(p));
+    TestEQ("1", callorder);
+
+    OBJECT p2 := itr->Next("b");
+    TestThrows(PTR WaitForPromise(p2));
+    //TestEQ([ done := TRUE, value := DEFAULT RECORD ], WaitForPromise(p2));
+  }
+
+  // Regression test, triggered error in __HS_INTERNAL_ASYNCGENERATORGENERATOR#GOTEXCEPTION
+  TestThrowsLike("2", PTR WaitForPromise(TestAsyncIterator2()->Next()));
+}
+
+PRINT("\n === Running TestYieldAsync\n");
+TestSyntax();
+TestYield();
+TestAsync();
+TestAsyncGenerator();
+

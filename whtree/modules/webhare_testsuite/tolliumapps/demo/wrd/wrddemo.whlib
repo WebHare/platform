@@ -1,0 +1,57 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  MACRO NEW()
+  {
+    OBJECT testschema := OpenWRDSchema(whconstant_wrd_testschema);
+    IF(NOT ObjectExists(testschema)
+       OR NOT ObjectExists(testschema->^wrd_person)
+       OR NOT RecordExists(testschema->^wrd_person->GetAttribute("RICHIE")))
+    {
+      GetPrimary()->BeginWork();
+      IF(ObjectExists(testschema))
+        testschema->DeleteSelf();
+
+      testschema := CreateWRDSchema(whconstant_wrd_testschema, [ description := "The webhare_testsuite WRD schema"
+                                                               , initialize := TRUE
+                                                               ]);
+      SetupTheWRDTestSchema(testschema);
+      GetPrimary()->CommitWork();
+    }
+
+    this->contexts->wrdschema := testschema;
+  }
+  MACRO DoAddPerson()
+  {
+    //this->LoadScreen(".person", [ id := 0 ]);
+    ^persons->AddRow();
+  }
+  MACRO OnPersonSelect()
+  {
+    ^entity->Load(^persons->value);
+  }
+  MACRO onupdate()
+  {
+    ^autoupdatecount->value := ^autoupdatecount->value + 1;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE Person EXTEND WRDEntityEditScreenBase
+<
+  UPDATE MACRO Init(RECORD data)
+  {
+    ^dom_multi3->tags_domain := this->contexts->wrdschema->^test_domain_2;
+    WRDEntityEditScreenBase::Init(data);
+//    comp->extra_fields := [ langcode := lang ];
+
+  }
+>;

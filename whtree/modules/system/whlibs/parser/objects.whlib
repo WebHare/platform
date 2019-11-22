@@ -1,0 +1,100 @@
+<?wh
+/** @short Global conversion functions
+    @long Contains the base functions to modify the conversion process
+*/
+
+
+RECORD ARRAY parserobjects;
+
+INTEGER FUNCTION __PUBLISHER_REGISTERCUSTOMPARSEROBJECT(OBJECT parserobject) __ATTRIBUTES__(EXTERNAL "parser");
+STRING FUNCTION __PUBLISHER_GETPARSEROBJECTRAWTEXT(INTEGER parserobjectid, INTEGER maxlen, BOOLEAN skip_bulnum) __ATTRIBUTES__(EXTERNAL "parser");
+
+//FIXME lead printparser and printfilteredparser through the proper objects, as not all objects understand C++ invocations
+
+/** @short Print a parsed object
+    @param formatid Formatter ID to which the object must be sent
+    @param parserobjectid ID of the output object to send */
+PUBLIC MACRO PrintParserObject(INTEGER formatid, INTEGER parserobjectid) __ATTRIBUTES__(EXTERNAL "parser", EXECUTESHARESCRIPT);
+/** @short Print a parsed object with an additional filter
+    @param formatid Formatter ID to which the object must be sent
+    @param parserobjectid ID of the output object to send
+    @param filter Output filter to apply*/
+PUBLIC MACRO PrintFilteredParserObject(INTEGER formatid, INTEGER parserobjectid, RECORD filter) __ATTRIBUTES__(EXTERNAL "parser", EXECUTESHARESCRIPT);
+/** @short Get the suggested anchor for a parser object
+    @param parserobjectid ID of the output object whose anchor is requested
+    @return Anchor, if any */
+PUBLIC STRING FUNCTION GetParserObjectAnchor(INTEGER parserobjectid) __ATTRIBUTES__(EXTERNAL "parser");
+/** @short Get the raw text for a parser object
+    @param parserobjectid ID of the output object to get text from
+    @param maxlen Maximum number of bytes to return
+    @param skip_bulnum If true, do not return the bullet or list number with the text
+    @return The raw text, without format codes */
+PUBLIC STRING FUNCTION GetParserObjectRawText(INTEGER parserobjectid, INTEGER maxlen, BOOLEAN skip_bulnum)
+{
+  OBJECT parserobj := SELECT AS OBJECT obj FROM parserobjects WHERE id = parserobjectid;
+  IF(ObjectExists(parserobj))
+    RETURN parserobj->GetrawText(maxlen, skip_bulnum);
+  ELSE
+    RETURN __PUBLISHER_GETPARSEROBJECTRAWTEXT(parserobjectid, maxlen, skip_bulnum);
+}
+
+PUBLIC OBJECTTYPE CustomParserObject
+<
+  INTEGER pvt_id;
+  PUBLIC PROPERTY id(pvt_id, -);
+
+  MACRO NEW()
+  {
+    this->pvt_id := RegisterCustomParserObject(this);
+  }
+
+  PUBLIC STRING FUNCTION GetAnchor()
+  {
+    RETURN "";
+  }
+
+  PUBLIC MACRO Send(INTEGER formatid)
+  {
+  }
+
+  PUBLIC STRING FUNCTION GetRawText(INTEGER maxlen, BOOLEAN skip_bulnum)
+  {
+    RETURN "";
+  }
+>;
+
+PUBLIC INTEGER FUNCTION RegisterCustomParserObjecT(OBJECT parserobject)
+{
+  INTEGER id := __PUBLISHER_REGISTERCUSTOMPARSEROBJECT(parserobject);
+  INSERT [ id := id, obj := parserobject ] INTO parserobjects AT END;
+  RETURN id;
+}
+
+/** @short Get a filter which can be applied to parsed objects
+    @return A standard output filter record, which can be modified and then passed to @link PrintFilteredParserObject
+    @cell return.paragraphformatting Apply paragraph formatting (in HTML: div/p/h1 tags)
+    @cell return.texteffects Apply character level text effects (bold, italics, fonts)
+    @cell return.subsuper Apply sub and superscript
+    @cell return.hyperlinks Apply hyperlinks to the output
+    @cell return.bulletnumbering Apply bullets and list numbering
+    @cell return.anchors Generate inline text anchors in the output (in HTML: 'a name' tags)
+    @cell return.images Generate images and graphics
+    @cell return.tables Generate tables
+    @cell return.softbreaks Generate soft breaks (in HTML: br) */
+PUBLIC RECORD FUNCTION GetBaseFilter()
+{
+  RETURN [ paragraphformatting := TRUE
+         , texteffects := TRUE
+         , subsuper := TRUE
+         , hyperlinks := TRUE
+         , bulletnumbering := TRUE
+         , anchors := TRUE
+         , images := TRUE
+         , tables := TRUE
+         , softbreaks := TRUE
+         ];
+}
+
+PUBLIC OBJECTTYPE ParserObjectSource
+<
+>;

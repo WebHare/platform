@@ -1,0 +1,255 @@
+﻿<?wh
+LOADLIB "wh::util/langspecific.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/commondialogs.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// TolliumWRDArrayBox
+//
+PUBLIC OBJECTTYPE ArrayBox EXTEND TolliumFragmentBase
+<
+  PUBLIC RECORD attrinfo;
+  PUBLIC UPDATE PROPERTY value(GetRows, SetRows);
+
+  PUBLIC PROPERTY hr (this->mybox->hr, this->mybox->hr);
+  PUBLIC PROPERTY columnheaders (this->listobj->columnheaders, this->listobj->columnheaders);
+
+  RECORD ARRAY cols;
+
+  OBJECT wrdtype;
+
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    //this->invisibletitle := TRUE;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+/*    this->parentpanel->InsertComponentAfter(this->mybox, this, FALSE);
+
+    // Can't mark listobj as subcomponent (also not as subcomp of box), because it then will be inserted after the box instead of in.
+    // Doing manual delete in DeleteComponent
+*/
+    //ADDME Allow boxless arrayboxes? split off into a <box> and a wrd:arrayedit?
+
+    IF(NOT ObjectExists(this->wrdtype))
+      RETURN;
+    this->CompleteSetup();
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD description)
+  {
+    TolliumFragmentBase::StaticInit(description);
+    this->hr := description.hr;
+    this->columnheaders := description.columnheaders;
+
+    IF(NOT ObjectExists(this->composition) AND description.entity = "")
+      ABORT("A WRD field requires an entity");
+
+    OBJECT composition := ObjectExists(this->composition) ? this->composition : GetMember(this->owner, description.entity);
+    this->DynamicInit(ObjectExists(this->composition) ? this->cellname : description.field, composition);
+  }
+/*
+  PUBLIC UPDATE MACRO DeleteComponent()
+  {
+    this->listobj->DeleteComponent();
+
+    TolliumFragmentBase::DeleteComponent();
+  }
+*/
+  RECORD FUNCTION GetListColumn(RECORD coldef)
+  {
+    RECORD listcol := [ name := coldef.outputcolumn
+                      , title := coldef.title
+                      , type := "text"
+                      ];
+
+    SWITCH(coldef.attributetype)
+    {
+      CASE 9,10 //image, file
+      {
+        listcol.type := "blobrecord";
+      }
+      CASE 6 //date
+      {
+        listcol.type := "date";
+        INSERT CELL align := "right" INTO listcol;
+      }
+      CASE 12 //datetime
+      {
+        listcol.type := "datetime";
+        INSERT CELL align := "right" INTO listcol;
+      }
+      CASE 15 //integer
+      {
+        listcol.type := "integer";
+        INSERT CELL align := "right" INTO listcol;
+      }
+      CASE 18 //integer64
+      {
+        listcol.type := "integer64";
+        INSERT CELL align := "right" INTO listcol;
+      }
+    }
+    RETURN listcol;
+  }
+
+  MACRO CompleteSetup()
+  {
+    this->listobj->orderable := this->attrinfo.isordered;
+
+    this->cols := SELECT *
+                       , title :=   title ?? localtag
+                       , outputcolumn := "col_" || #attr
+                    FROM this->wrdtype->ListAttributes(this->attrinfo.id) AS attr
+                   WHERE attributetypename NOT IN ["RICHDOCUMENT"]
+                ORDER BY NormalizeText(title, this->owner->tolliumuser->language), id;
+
+    this->listobj->columns := SELECT AS RECORD ARRAY this->GetListColumn(cols) FROM this->cols;
+    this->mybox->title := this->title = "" ? this->attrinfo.title : this->title;
+//    this->mybox->InsertComponentAfter(this->listobj, DEFAULT OBJECT, FALSE);
+  }
+
+  PUBLIC MACRO WRD_Setup(OBJECT wrdtype)
+  {
+    this->wrdtype := wrdtype;
+    IF(NOT ObjectExists(this->listobj))
+      RETURN;
+    this->CompleteSetup();
+  }
+
+  PUBLIC MACRO DynamicInit(STRING tag, OBJECT composition)
+  {
+    this->cellname := tag;
+    this->composition := composition;
+  }
+
+  RECORD FUNCTION CreateRow(RECORD row)
+  {
+    RECORD outrow :=
+        [ rawval := row
+        ];
+
+    FOREVERY(RECORD col FROM this->cols)
+    {
+      RECORD val;
+      VARIANT value := GetCell(row, col.localtag);
+
+      SWITCH(col.attributetype)
+      {
+        CASE 1 // Domain single
+        {
+          val := [ data := this->wrdtype->GetDomValTitle(col.tag, value) ];
+        }
+        CASE 8 // Domain multiple
+        {
+          STRING ARRAY titles;
+          FOREVERY (INTEGER i FROM INTEGER ARRAY(value))
+            INSERT this->wrdtype->GetDomValTitle(col.tag, i) INTO titles AT END;
+          val := [ data := Detokenize(titles, ", ") ];
+        }
+        CASE 2 /* Free text */
+           , 4 /* Email */
+           , 5 /* Telephone  */
+           , 7 /* Password */
+           , 21 /* URL */
+           , 23 /* enum */
+        {
+          val := [ data := STRING(value) ];
+        }
+        CASE 6  /* Date */
+           , 12 /* Datetime */
+           , 15 /* Integer */
+           , 18 /* Integer64 */
+        {
+          val := [ data := value ];
+        }
+        CASE 11 /* Time */
+        {
+          //FIXME: precision?
+          val := [ data := this->owner->tolliumuser->FormatTimestamp(value, "minutes") ];
+        }
+        CASE 14 /* Money */
+        {
+          //FIXME: decimals overridable?
+          val := [ data := this->owner->tolliumuser->FormatMoney(value, 2, TRUE) ];
+        }
+        CASE 16 /* Boolean */
+        {
+          val := [ data := value ? "TRUE" : "FALSE" ];
+        }
+        CASE 3 /* Address */
+        {
+          BOOLEAN has_street := CellExists(value, "street");
+          BOOLEAN has_city := CellExists(value, "city");
+          BOOLEAN has_country := CellExists(value, "country");
+
+          val := [ data := ((has_street ?value.street|| (has_city?", ":"") : "") || (has_city?value.city:"")) || (has_country ? " (" || value.country || ")" : "")];
+        }
+        CASE 9 /* Image */
+        {
+          val := [ data := value ];
+        }
+        CASE 10 /* File */
+        {
+          val := [ data := value ];
+        }
+        CASE 13 /* Array */
+        {
+          val := [ data := "ARRAY" ];
+        }
+        CASE 17 /* Rich document*/
+        {
+          val := [ data := "RICHDOCUMENT" ];
+        }
+        CASE 22 /* Record */
+        {
+          val := [ data := RecordExists(val) ? Left(EncodeHSON(val),400) : "" ];
+        }
+        DEFAULT
+        {
+          ABORT("Unsupported attrtype #" || col.attributetype || " found in setrows");
+        }
+      }
+
+      outrow := CellInsert(outrow, col.outputcolumn, val.data);
+    }
+    RETURN outrow;
+  }
+
+  RECORD ARRAY FUNCTION CreateRows(RECORD ARRAY rawvalues)
+  {
+    RECORD ARRAY outrows;
+    FOREVERY(RECORD row FROM rawvalues)
+      INSERT this->CreateRow(row) INTO outrows AT END;
+
+    RETURN outrows;
+  }
+
+  PRIVATE RECORD ARRAY FUNCTION GetRows()
+  {
+    RETURN SELECT AS RECORD ARRAY rawval FROM this->listobj->value;
+  }
+
+  PRIVATE MACRO SetRows(RECORD ARRAY newrows)
+  {
+    this->listobj->value := this->CreateRows(newrows);
+  }
+
+  RECORD FUNCTION EditRow(RECORD inrow)
+  {
+    OBJECT editor := MakeWRDEditArrayRowDialog(this->owner, this->wrdtype, this->attrinfo.tag);
+
+    IF(RecordExists(inrow))
+      editor->value := inrow.rawval;
+
+    IF (editor->RunDialog() = 0)
+      RETURN DEFAULT RECORD;
+
+    RETURN this->CreateRow(editor->value);
+  }
+>;

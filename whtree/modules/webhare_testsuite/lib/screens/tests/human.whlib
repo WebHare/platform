@@ -1,0 +1,10 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  MACRO DoPrint()
+  {
+    
+  }
+>;

@@ -1,0 +1,191 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+STRING labelxml :=
+    /* thi si the kreuwel label, can't get it to work with render
+`<DieCutLabel Version="8.0" Units="twips">
+  <PaperOrientation>Landscape</PaperOrientation><Id>Address</Id>   <PaperName>30252 Address</PaperName>   <DrawCommands/>   <ObjectInfo>   <TextObject>   <Name>Text</Name>   <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />   <BackColor Alpha="0" Red="255" Green="255" Blue="255" />   <LinkedObjectName></LinkedObjectName>   <Rotation>Rotation0</Rotation>   <IsMirrored>False</IsMirrored>   <IsVariable>True</IsVariable>   <HorizontalAlignment>Left</HorizontalAlignment>   <VerticalAlignment>Middle</VerticalAlignment>   <TextFitMode>ShrinkToFit</TextFitMode>   <UseFullFontHeight>True</UseFullFontHeight>   <Verticalized>False</Verticalized>   <StyledText/>   </TextObject>   <Bounds X="332" Y="150" Width="4455" Height="1260" />   </ObjectInfo>
+</DieCutLabel>`*/
+/*
+` <DieCutLabel Version="8.0" Units="twips">
+ <PaperOrientation>Landscape</PaperOrientation>
+ <Id>Address</Id>
+ <PaperName>30252 Address</PaperName>
+ <DrawCommands/>
+ <ObjectInfo>
+ <TextObject>
+ <Name>Text</Name>
+ <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+ <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+ <LinkedObjectName></LinkedObjectName>
+ <Rotation>Rotation0</Rotation>
+ <IsMirrored>False</IsMirrored>
+ <IsVariable>True</IsVariable>
+ <HorizontalAlignment>Left</HorizontalAlignment>
+ <VerticalAlignment>Middle</VerticalAlignment>
+ <TextFitMode>ShrinkToFit</TextFitMode>
+ <UseFullFontHeight>True</UseFullFontHeight>
+ <Verticalized>False</Verticalized>
+ <StyledText/>
+ </TextObject>
+ <Bounds X="332" Y="150" Width="4455" Height="1260" />
+ </ObjectInfo>
+ </DieCutLabel>
+`*/
+/*
+//an barcode example
+`<?xml version="1.0" encoding="utf-8"?>
+                            <DieCutLabel Version="8.0" Units="twips">
+                              <PaperOrientation>Landscape</PaperOrientation>
+                              <Id>Address</Id>
+                              <PaperName>30252 Address</PaperName>
+                              <DrawCommands>
+                                <RoundRectangle X="0" Y="0" Width="1581" Height="5040" Rx="270" Ry="270" />
+                              </DrawCommands>
+                              <ObjectInfo>
+                                <BarcodeObject>
+                                  <Name>ItemCode</Name>
+                                  <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+                                  <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+                                  <LinkedObjectName></LinkedObjectName>
+                                  <Rotation>Rotation0</Rotation>
+                                  <IsMirrored>False</IsMirrored>
+                                  <IsVariable>True</IsVariable>
+                                  <Text>1234</Text>
+                                  <Type>Code128Auto</Type>
+                                  <Size>Small</Size>
+                                  <TextPosition>Bottom</TextPosition>
+                                  <TextFont Family="Arial" Size="6" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                                  <CheckSumFont Family="Arial" Size="7.3125" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                                  <TextEmbedding>None</TextEmbedding>
+                                  <ECLevel>0</ECLevel>
+                                  <HorizontalAlignment>Center</HorizontalAlignment>
+                                  <QuietZonesPadding Left="0" Top="0" Right="0" Bottom="0" />
+                                </BarcodeObject>
+                                <Bounds X="331" Y="680.31494140625" Width="4622" Height="765.708679199219" />
+                              </ObjectInfo>
+                              <ObjectInfo>
+                                <TextObject>
+                                  <Name>Description</Name>
+                                  <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+                                  <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+                                  <LinkedObjectName></LinkedObjectName>
+                                  <Rotation>Rotation0</Rotation>
+                                  <IsMirrored>False</IsMirrored>
+                                  <IsVariable>True</IsVariable>
+                                  <HorizontalAlignment>Center</HorizontalAlignment>
+                                  <VerticalAlignment>Top</VerticalAlignment>
+                                  <TextFitMode>ShrinkToFit</TextFitMode>
+                                  <UseFullFontHeight>True</UseFullFontHeight>
+                                  <Verticalized>False</Verticalized>
+                                  <StyledText>
+                                    <Element>
+                                      <String>ItemDescription</String>
+                                      <Attributes>
+                                        <Font Family="Arial" Size="12" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+                                      </Attributes>
+                                    </Element>
+                                  </StyledText>
+                                </TextObject>
+                                <Bounds X="331" Y="163" Width="4622" Height="341.566925048828" />
+                              </ObjectInfo>
+                            </DieCutLabel>`
+;//the offical example
+*/
+
+`<?xml version="1.0" encoding="utf-8"?>
+<DieCutLabel Version="8.0" Units="twips">
+  <PaperOrientation>Landscape</PaperOrientation>
+  <Id>Address</Id>
+  <PaperName>30252 Address</PaperName>
+  <DrawCommands>
+    <RoundRectangle X="0" Y="0" Width="1581" Height="5040" Rx="270" Ry="270"/>
+  </DrawCommands>
+  <ObjectInfo>
+    <TextObject>
+      <Name>TEXT</Name>
+      <ForeColor Alpha="255" Red="0" Green="0" Blue="0"/>
+      <BackColor Alpha="0" Red="255" Green="255" Blue="255"/>
+      <LinkedObjectName></LinkedObjectName>
+      <Rotation>Rotation0</Rotation>
+      <IsMirrored>False</IsMirrored>
+      <IsVariable>False</IsVariable>
+      <HorizontalAlignment>Left</HorizontalAlignment>
+      <VerticalAlignment>Middle</VerticalAlignment>
+      <TextFitMode>AlwaysFit</TextFitMode>
+      <UseFullFontHeight>True</UseFullFontHeight>
+      <Verticalized>False</Verticalized>
+      <StyledText>
+        <Element>
+          <String>Click here to enter text</String>
+          <Attributes>
+            <Font Family="Helvetica" Size="13" Bold="False" Italic="False" Underline="False" Strikeout="False"/>
+            <ForeColor Alpha="255" Red="170" Green="170" Blue="170"/>
+          </Attributes>
+        </Element>
+      </StyledText>
+    </TextObject>
+    <Bounds X="331.2" Y="57.59995" Width="4622.4" Height="1435.2"/>
+  </ObjectInfo>
+</DieCutLabel>
+`;
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  RECORD image;
+
+  MACRO Init()
+  {
+    this->dymoiframe->src := "/.tollium/integrations/dymo/";
+    this->printers->options := [[ invalidselection := TRUE, rowkey := "", title := "" ]];
+  }
+
+  MACRO OnDymoMessage(VARIANT msg, STRING origin)
+  {
+    IF(msg.msgtype="dymo.gotprinters")
+    {
+      this->printers->options := SELECT rowkey := name, title := name FROM msg.printerlist;
+      this->printers->visible := TRUE;
+    }
+    ELSE IF(msg.msgtype="dymo.gotrender")
+    {
+      this->renderedresult->SetImage(StringToBlob(DecodeBase64(msg.data)),"image/png");
+    }
+    ELSE
+    REFLECT(CELL[msg,origin]);
+  }
+
+  MACRO DoRender()
+  {
+    this->dymoiframe->PostMessage([ msgtype := "render"
+                                  , labelxml := labelxml
+                                  , labels := [[ fields := [[ name := "TEXT", value := this->labeltext->value]
+                                              ]]]
+                                  , printer := this->printers->value
+                                  ], "*");
+  }
+  MACRO DoPrint()
+  {
+    this->dymoiframe->PostMessage([ msgtype := "print"
+                                  , labelxml := labelxml
+                                  , labels := [[ fields := [[ name := "TEXT", value := this->labeltext->value ]]
+                                              ]]
+                                  , printer := this->printers->value
+                                  ], "*");
+  }
+
+  ASYNC MACRO DoSave()
+  {
+    RECORD getlabel := AWAIT this->dymoiframe->PostRequest([ msgtype := "save"
+                                                           , labelxml := labelxml
+                                                           , labels := [[ fields := [[ name := "TEXT", value := this->labeltext->value]
+                                                                       ]]]
+//                                                           , printer := this->printers->value
+                                                           ], "*");
+    this->frame->SendFileToUser(StringToBlob(getlabel.label), "application/octet-stream", "generated.label", DEFAULT DATETIME);
+  }
+>;

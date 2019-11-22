@@ -1,0 +1,18 @@
+[component forumcomments]
+  <div class="wh-forumcomments wh-forumcomments--notloaded" data-wh-forum="[filetoken]">
+    <div class="wh-forumcomments__posts">
+    </div>
+    <div class="wh-forumcomments__respond">
+      <form class="wh-form wh-styledinput wh-forumcomments__respondform">
+        <div class="wh-form__page">
+          [respondfields]
+        </div>
+        <div class="wh-form__buttongroup wh-form__navbuttons">
+          <button type="submit" class="wh-form__button wh-form__button--submit wh-forumcomments__respondbutton">[gettid site.forum.comments.respond-button]</button>
+        </div>
+      </form>
+    </div>
+  </div>
+[/component]
+
+

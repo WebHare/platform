@@ -1,0 +1,198 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC INTEGER FUNCTION GetTaskStatusIcon(RECORD task)
+{
+  RETURN task.isrunning ? 6 : task.iscancelled ? 4 : task.lasterrors != "" ? 2 : task.finished != DEFAULT DATETIME ? 3 : 1;
+}
+
+PUBLIC OBJECTTYPE Panel EXTEND MonitorPanelBase
+<
+  INTEGER ARRAY runningtasks;
+  BOOLEAN queryloopactive;
+
+  MACRO Init()
+  {
+  }
+
+  PUBLIC MACRO OnMessage(RECORD message)
+  {
+    IF (CellExists(message, "TASKID") AND message.taskid > 0)
+      this->managedtasks->value := message.taskid;
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+
+  /** @short This monitor has been activated, start refreshing */
+  UPDATE PUBLIC MACRO EnableRefresh()
+  {
+    this->listener->enabled := TRUE;
+    this->RunQueryActiveTaskListLoop();
+  }
+  /** @short This monitor has been deactivated, stop refreshing */
+  UPDATE PUBLIC MACRO DisableRefresh()
+  {
+    this->listener->enabled := FALSE;
+  }
+
+  ASYNC MACRO RunQueryActiveTaskListLoop()
+  {
+    // Update list of running task every second while the listener is active, refresh list when it changes
+    IF (this->queryloopactive OR NOT this->listener->enabled)
+      RETURN;
+
+    this->queryloopactive := TRUE;
+    TRY
+    {
+      OBJECT taskservice := AWAIT OpenWebHareService("system:managedqueuemgr", -1);
+      TRY
+      {
+        WHILE (this->listener->enabled)
+        {
+          RECORD ARRAY runningtasks := AWAIT taskservice->GetRunningTasks();
+
+          INTEGER ARRAY nowrunning :=
+              SELECT AS INTEGER ARRAY id
+                FROM runningtasks
+               WHERE NOT isephemeral;
+
+          IF (NOT ArrayIsSetEqual(this->runningtasks, nowrunning))
+          {
+            this->runningtasks := nowrunning;
+            this->RefreshMonitorPanel();
+          }
+
+          RECORD p := CreateDeferredPromise();
+          RegisterTimedCallback(AddTimeToDate(1000, GetCurrentDateTime()), p.resolve);
+          AWAIT p.promise;
+        }
+      }
+      FINALLY
+        taskservice->CloseService();
+    }
+    CATCH; // monitoring app shouldn't fill the logs
+
+    this->queryloopactive := FALSE;
+    this->runningtasks := INTEGER[];
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    RECORD ARRAY rows := SELECT rowkey := managedtasks.id
+                              , nextattempt := finished = DEFAULT DATETIME ? nextattempt : DEFAULT DATETIME
+                              , creationdate
+                              , lasterrors
+                              , tasktype
+                              , finished
+                              , iscancelled
+                              , isrunning := id IN this->runningtasks
+                              , canreschedule := finished != DEFAULT DATETIME OR nextattempt != DEFAULT DATETIME
+                           FROM system.managedtasks
+                          WHERE (this->showcompletedtasks->value ? TRUE : managedtasks.finished = DEFAULT DATETIME);
+
+    rows := SELECT *
+                 , status := GetTaskStatusIcon(rows)
+                 , hasfailed := finished != DEFAULT DATETIME AND lasterrors != ""
+              FROM rows;
+
+    this->managedtasks->rows := rows;
+  }
+
+  MACRO OnManagedTaskEvent(RECORD ARRAY events)
+  {
+    this->RunQueryActiveTaskListLoop();
+    this->RefreshMonitorPanel();
+  }
+
+  MACRO DoFlush()
+  {
+    OBJECT work := this->BeginWork();
+    RetryPendingManagedTasks("*");
+    work->Finish();
+    //this->RefreshMonitorPanel();
+  }
+
+  MACRO DoView()
+  {
+    OBJECT diag := this->LoadScreen(".managedtask", [ id := this->managedtasks->value[0] ]);
+    diag->RunModal();
+  }
+  MACRO DoReschedule()
+  {
+    IF(this->RunMessageBox("system:monitor/managedtasks.confirmrescheduletasks") != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+
+    RECORD ARRAY tasks :=
+        SELECT id, finished, nextattempt
+          FROM system.managedtasks
+         WHERE id IN this->managedtasks->value;
+
+    INTEGER ARRAY finished_ids := SELECT AS INTEGER ARRAY id FROM tasks WHERE finished != DEFAULT DATETIME;
+    INTEGER ARRAY pending_ids := SELECT AS INTEGER ARRAY id FROM tasks WHERE finished = DEFAULT DATETIME AND nextattempt != DEFAULT DATETIME;
+
+    RescheduleManagedTasks(finished_ids);
+    RetryPendingManagedTasksByIds(pending_ids);
+
+    work->Finish();
+  }
+  MACRO DoDelete()
+  {
+    IF(this->RunMessageBox("system:monitor/managedtasks.confirmdeletetasks") != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    DeleteManagedTasks(this->managedtasks->value);
+    work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE ManagedTask EXTEND TolliumScreenBase
+<
+  INTEGER taskid;
+
+  MACRO Init(RECORD data)
+  {
+    this->taskid := data.id;
+    this->listener->masks := [ `system:managedtasks.any.${this->taskid}` ];
+    this->Refresh();
+  }
+
+  MACRO OnChangeEvents(RECORD ARRAY events)
+  {
+    this->Refresh();
+  }
+
+  MACRO Refresh()
+  {
+    RECORD task := DescribeManagedTask(this->taskid);
+    IF(NOT RecordExists(task))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+    this->id->value := ToString(this->taskid);
+    this->creationdate->value := task.creationdate;
+    this->nextattempt->value := task.nextattempt;
+    this->finished->value := task.finished;
+    this->lasterrors->value := task.lasterrors;
+    this->data->value := task.data;
+    this->retval->value := task.retval;
+    this->manualcall->value := "wh tasks run m" || this->taskid;
+    this->metadata->value := task.metadata;
+  }
+>;

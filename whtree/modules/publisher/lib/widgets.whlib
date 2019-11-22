@@ -1,0 +1,455 @@
+<?wh
+/** @topic widgets/widgets
+*/
+
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+
+OBJECT emptywitty;
+OBJECT previewwitty;
+
+CONSTANT RECORD defaultpreviewfieldsetrow :=
+    [ isdivider :=          FALSE
+    , icon :=               ""
+    , istitledescription := FALSE
+    , title :=              ""
+    , description :=        ""
+    , hasicon :=            FALSE
+    , iconrows :=           0
+    ];
+
+CONSTANT RECORD basewidgetoptions :=
+    [ warning := ""
+    , error := ""
+    ];
+
+
+CONSTANT RECORD blockwidgetoptions :=
+    [ ...basewidgetoptions
+    , wide := FALSE
+    ];
+
+/** Base class for widgets (former embedded objects) used for RTD documents which use the new 'rtd type' system */
+PUBLIC OBJECTTYPE WidgetBase
+<
+  RECORD __pvt_widgetsettings;
+  BOOLEAN __pvt_gotanchors;
+  OBJECT ARRAY __pvt_openrtds;
+  PUBLIC BOOLEAN __pvt_renderwide;
+
+  /// Data loaded into the object
+  PUBLIC PROPERTY data(this->__pvt_widgetsettings.data, -);
+  /// My type
+  PUBLIC PROPERTY widgettype(this->__pvt_widgetsettings.type, -);
+  /// RTDType containing us
+  PUBLIC PROPERTY rtdtype(this->__pvt_widgetsettings.rtdtype, -);
+  /// preview/webdesign context
+  PUBLIC PROPERTY context(this->__pvt_widgetsettings.context, -);
+  /// whfs id, if known
+  PUBLIC PROPERTY whfsfileid(this->__pvt_widgetsettings.whfsfileid, -);
+  /// whfs setting id, if known
+  PUBLIC PROPERTY whfssettingid(this->__pvt_widgetsettings.whfssettingid, -);
+  /// Merge fields context (only available within mail RTD's for form handlers and form thank you page richtext RTD's)
+  PUBLIC PROPERTY mergefields(GetMergeFields, -);
+
+  /// Initializes widget properties
+  MACRO NEW()
+  {
+    IF(NOT RecordExists(__pvt_widget_passthrough))
+      THROW NEW Exception("Widgets should only be constructed by the RTD"); //ADDME or publisher apis
+    this->__pvt_widgetsettings := __pvt_widget_passthrough;
+    __pvt_widget_passthrough := DEFAULT RECORD;
+  }
+
+  /** @short Open a rtd document
+      @long You must use OpenRTD on a widget in the preparation phase if you want support anchors inside widgets */
+
+  /** @short Open RTD data using an rtdtype
+      @signature OBJECT FUNCTION OpenRTD(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+      @param richdoc The rich document
+      @cell(string) options.rtdtype Path to structure to use. If not set, the parent RTD type is used
+      @return(object %RichDocument) The requested document */
+  PUBLIC OBJECT FUNCTION OpenRTD(RECORD richdoc, VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(this->__pvt_gotanchors)
+      THROW NEW Exception("It's too late to open RTD documents - should have invoked OpenRTD from NEW");
+
+    IF(TypeID(options) = TypeID(STRING))
+      options := [ rtdtype := options ];
+    options := ValidateOptions([ rtdtype := "" ], options);
+
+    OBJECT rtd := this->context->OpenRTD(richdoc, options);
+    INSERT rtd INTO this->__pvt_openrtds AT END;
+    RETURN rtd;
+  }
+
+  /** @short Return a renderer for a RTD from an instance record
+      @param richdoc The rich document
+      @cell(string) options.rtdtype Path to structure to use. If not set, the parent RTD type is used
+      @return A Function PTR rendering the RTD, or a DEFAULT MACRO PTR if the RTD was empty */
+  PUBLIC MACRO PTR FUNCTION GetRTDBody(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ rtdtype := "" ], options);
+    IF(NOT RecordExists(richdoc))
+      RETURN DEFAULT MACRO PTR;
+
+    OBJECT rtd := this->context->OpenRTD(richdoc, options);
+    RETURN PTR rtd->RenderAllObjects;
+  }
+
+  /** @short Function invoked when the widget should be rendered for a RTD preview */
+  PUBLIC MACRO Render()
+  {
+    IF(this->__pvt_widgetsettings.wittycomponent = "")
+      THROW NEW Exception("A widget must override the Render function if it doesn't specify a witty component");
+    this->EmbedComponent(this->data);
+  }
+  /** @short Function invoked when the widget should be rendered inside the webdesign */
+  PUBLIC MACRO RenderLive()
+  {
+    this->Render();
+  }
+
+  /** @short Run this widget's wittycomponent (as specified in siteprofile) with this data */
+  PUBLIC MACRO EmbedComponent(RECORD data)
+  {
+    IF(this->__pvt_widgetsettings.wittycomponent = "")
+      THROW NEW Exception("WidgetBase::EmbedComponent requires the wittycomponent to be defined on its widgettype");
+
+    IF(this->context->IsRTDPreview())
+    {
+      IF(NOT ObjectExists(emptywitty))
+      {
+        emptywitty := NEW WittyTemplate("HTML-NI"); //we'll guess people will want html-ci from now on...
+        emptywitty->LoadCodeDirect("");
+      }
+
+      STRING wittycomponent := this->__pvt_widgetsettings.previewcomponent ?? this->__pvt_widgetsettings.wittycomponent;
+      emptywitty->CallWithScope(PTR EmbedWittyComponent(wittycomponent, data),
+                                [ languagecode := this->context->languagecode
+                                , isrtdpreview := TRUE
+                                ]
+                                );
+    }
+    ELSE
+    {
+      EmbedWittyComponent(this->__pvt_widgetsettings.wittycomponent, data);
+    }
+  }
+
+  /** @short Get widget type as used in the preview
+      @return Widget type in current language */
+  PUBLIC STRING FUNCTION GetWidgetType()
+  {
+    //check for modern widget
+    RECORD ctypeinfo := LookupContentTypeByName(this->widgettype);
+    IF(NOT RecordExists(ctypeinfo) OR NOT RecordExists(ctypeinfo.filetype))
+      RETURN "";
+
+    //check that its setup in a modern way - either extension or function ('carrot')
+    IF(RecordExists(ctypeinfo.editor) AND ctypeinfo.editor.type NOT IN ["function","extension"])
+      RETURN "";
+
+    RETURN GetTid(ctypeinfo.filetype.title);
+  }
+
+  /** @short Render a block from GetSharedBlocks/ResolveLocalSharedBlocks as a widget */
+  PUBLIC MACRO RenderSharedBlock(RECORD sharedblock)
+  {
+    IF(this->rtdtype="")
+      THROW NEW Exception("No rtdtype setup for the current object");
+
+    RECORD data := sharedblock.data;
+    INSERT CELL whfssettingid := 0
+              , whfsfileid := sharedblock.id
+              , whfstype := sharedblock.type_ns
+           INTO data;
+
+    OBJECT embobj := GetEmbeddedObjectRenderer(DEFAULT OBJECT, this->__pvt_widgetsettings.applytester, this->rtdtype, data, this->context).widget;
+    IF(this->context->IsRTDPreview())
+      embobj->Render();
+    ELSE
+      embobj->RenderLive();
+  }
+
+  /** @short Render a widget directly
+      @param widgetdata Widget instance data
+      @cell(string) options.whfstype WHFS Type of the widget to render */
+  PUBLIC MACRO RenderWidgetInstance(RECORD widgetdata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->context->RenderWidgetInstance(widgetdata, options);
+  }
+
+  ///@private GatherSuggestedAnchors is deprecated - we want to stop doing this preparation phase
+  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
+  {
+    this->__pvt_gotanchors := TRUE;
+
+    OBJECT ARRAY anchors;
+    FOREVERY(OBJECT rtd FROM this->__pvt_openrtds)
+    {
+      anchors := anchors CONCAT rtd->GatherSuggestedAnchors(webdesign);
+    }
+    RETURN anchors;
+  }
+
+  OBJECT FUNCTION GetMergeFields()
+  {
+    IF (this->__pvt_widgetsettings.requiremergefieldscontext)
+      RETURN this->__pvt_widgetsettings.context->__mergefields;
+    RETURN DEFAULT OBJECT;
+  }
+
+  /** Renders a preview with a title and a description
+      @param title Title
+      @param description Description
+      @cell(boolean) options.wide Whether to render the preview wide
+      @cell(string) options.icon Icon name
+  */
+  PUBLIC MACRO RenderTitleDescriptionPreview(STRING title, STRING description, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        CELL[ ...blockwidgetoptions
+            , icon :=         ""
+            ], options);
+
+    this->__pvt_renderwide := options.wide;
+
+    RECORD ARRAY rows :=
+        [ CELL[ ...defaultpreviewfieldsetrow
+              , icon :=               options.icon
+              , istitledescription := TRUE
+              , title :=              title
+              , description :=        description
+              , hasicon :=            options.icon != ""
+              , iconrows :=           1
+              ]
+        ];
+
+    RenderPreviewComponent(this->widgettype, "preview_fieldset", CELL
+        [ rows
+        , options.wide
+        , boxclasses :=   "wh-rtd__preview__box--fieldset"
+        ]);
+  }
+
+  /** Renders a preview with blocks of fieldssets, separated by a divider
+      @param blocks Fieldset blocks (will be separated by a divider)
+      @cell blocks.icon Icon for the block
+      @cell blocks.rows List of rows in the block
+      @cell blocks.rows.title Title
+      @cell blocks.rows.description Description
+      @cell(boolean) options.wide Whether to render the preivew wide
+  */
+  PUBLIC MACRO RenderFieldSetPreview(RECORD ARRAY blocks, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(blockwidgetoptions, options);
+
+    this->__pvt_renderwide := options.wide;
+
+    RECORD ARRAY rows;
+    FOREVERY (RECORD block FROM blocks)
+    {
+      block := ValidateOptions(
+          [ icon :=     ""
+          , rows :=     RECORD[]
+          ], block);
+
+      IF (LENGTH(block.rows) = 0)
+        CONTINUE;
+
+      IF (LENGTH(rows) != 0)
+        INSERT CELL[ ...defaultpreviewfieldsetrow, isdivider := TRUE ] INTO rows AT END;
+
+      rows := rows CONCAT
+          SELECT TEMPORARY validated := ValidateOptions([ title := "", description := ""], rows)
+               , ...defaultpreviewfieldsetrow
+               , ...validated
+               , icon :=                #rows = 0 ? block.icon : ""
+               , hasicon :=             block.icon != ""
+               , iconrows :=            #rows = 0 ? LENGTH(block.rows) : 0
+            FROM block.rows;
+    }
+
+    RenderPreviewComponent(this->widgettype, "preview_fieldset", CELL
+        [ rows :=         rows
+        , options.wide
+        , boxclasses :=   "wh-rtd__preview__box--fieldset"
+        ]);
+  }
+
+  /** Renders a preview with images and a title/description box
+      @param images List of image records
+      @param title Title
+      @param description Description
+      @cell(boolean) options.wide Whether to render the preview wide
+      @cell(string) options.icon Icon name
+  */
+  PUBLIC MACRO RenderImagesPreview(RECORD ARRAY images, STRING title, STRING description, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        CELL[ ...blockwidgetoptions
+            , icon :=         ""
+            ], options);
+
+    this->__pvt_renderwide := options.wide;
+
+    RECORD ARRAY rows :=
+        [ CELL[ ...defaultpreviewfieldsetrow
+              , icon :=               options.icon
+              , istitledescription := TRUE
+              , title :=              title
+              , description :=        description
+              , hasicon :=            options.icon != ""
+              , iconrows :=           1
+              ]
+        ];
+
+    images :=
+        SELECT ...WrapCachedImage(images, [ method := "stretch-y", setheight := 100 ])
+          FROM images
+         WHERE RecordExists(images);
+
+    RenderPreviewComponent(this->widgettype, "preview_images", CELL
+        [ images
+        , rows :=        rows
+        , options.wide
+        , boxclasses :=   "wh-rtd__preview__box--images"
+        ]);
+  }
+
+  /** Renders a preview of a multi-column layout
+      @param columns Function PTR rendering the contents of the columns
+      @cell(boolean) options.wide Whether to render the preview wide
+  */
+  PUBLIC MACRO RenderMultiColumnPreview(FUNCTION PTR ARRAY columns, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(blockwidgetoptions, options);
+
+    this->__pvt_renderwide := options.wide;
+
+    RenderPreviewComponent(this->widgettype, "preview_multicolumn", CELL
+        [ columns
+        , options.wide
+        , widthclass :=   "wh-rtd__preview__columntd--" || LENGTH(columns)
+        ]);
+  }
+
+  /** Renders a preview of an inline widget
+      @param options Options
+  */
+  PUBLIC MACRO RenderInlinePreview(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(basewidgetoptions, options);
+
+    RenderPreviewComponent(this->widgettype, "preview_inline", CELL
+        [
+        ]);
+  }
+>;
+
+/** Render a widget
+    @param widgetinstance Widget instance data. Should include a WHFS type
+    @param basefsobject WHFS object that serves as context for specific renderings. If this object has a rtdtype, it will be used for rendering. If not set, we'll assume a rtdtype.
+    @cell options.rtdtype If present, forces the value of 'rtdtype'. Normally the basefsobject should determine this
+    @cell options.webdesign If present, webdesign or previewcontext to use for rendering. Triggers live rendering if it's a webdesign, preview rendering if it's a preview context
+    @cell options.previewcontext If present, previewcontext to use for rendering. DEPRECATED: Simply pass your previewcontext object as a webdesign
+*/
+PUBLIC MACRO RenderAdhocWidget(RECORD widgetinstance, OBJECT basefsobject, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(DEPRECATED "RenderAdhocWidget widget will be removed, use WebDesign::RenderWidgetInstance")
+{
+  IF(NOT CellExists(widgetinstance,'whfstype'))
+    THROW NEW Exception("The widgetinstance should have a 'whfstype' field");
+  IF(CellExists(widgetinstance,'isrtdtype'))
+    THROW NEW Exception("The 'isrtdtype' parameter is no longer supported. Please set the explicit rtdtype");
+
+  STRING whfstypename := widgetinstance.whfstype;
+  OBJECT applytester;
+  IF(ObjectExists(basefsobject))
+    applytester := GetApplyTesterForObject(basefsobject->id);
+
+  RECORD rtdsettings;
+
+  STRING rtdtype;
+  IF(CellExists(options,'rtdtype'))
+    rtdtype := options.rtdtype;
+  ELSE IF(ObjectExists(basefsobject))
+  {
+    rtdsettings := GetRTDSettingsForFile(basefsobject->id); //ADDME might as well pass the applytester
+    rtdtype := rtdsettings.namespace;
+  }
+
+  RECORD origwidgetinstance := widgetinstance;
+  OBJECT whfstype := OpenWHFSType(whfstypename);
+  IF(NOT ObjectExists(whfstype))
+    THROW NEW Exception("No such whfstype '" || whfstypename || "'");
+  widgetinstance := MakeReplacedRecord(whfstype->defaultinstance, widgetinstance);
+
+  INSERT CELL whfssettingid := CellExists(origwidgetinstance, 'whfssettingid') ? origwidgetinstance.whfssettingid : 0
+            , whfsfileid := CellExists(origwidgetinstance, 'whfsfileid') ? origwidgetinstance.whfsfileid : 0
+            , whfstype := whfstypename
+         INTO widgetinstance;
+
+  OBJECT context := CelLExists(options,'webdesign') ? options.webdesign : CellExists(options,'previewcontext') ? options.previewcontext : NEW PreviewContext(basefsobject, applytester, rtdsettings);
+  OBJECT embobj := GetEmbeddedObjectRenderer(basefsobject, applytester, rtdtype, widgetinstance, context).widget;
+  IF(MemberExists(embobj, "__pvt_widgetsettings")) //Modern widget
+  {
+    IF(ObjectExists(context) AND NOT context->IsRTDPreview())
+    {
+      context->CallWithScope(PTR embobj->RenderLive);
+      RETURN;
+    }
+
+    embobj->Render();
+  }
+  ELSE
+  {
+    IF(ObjectExists(context) AND NOT context->IsRTDPreview())
+    {
+      embobj->PrepareForRendering(options.webdesign);
+      context->CallWithScope(PTR embobj->RenderObject(context));
+    }
+    ELSE
+    {
+      embobj->RenderPreview();
+    }
+  }
+}
+
+/** Get local shared blocks, not considering inheritance */
+PUBLIC RECORD ARRAY FUNCTION ResolveLocalSharedBlocks(RECORD sharedblockinstance)
+{
+  IF(NOT RecordExists(sharedblockinstance))
+    RETURN DEFAULT RECORD ARRAY;
+  RETURN GatherReferredSharedBlocks(sharedblockinstance.blocks);
+}
+
+/** Resolve a single widget */
+PUBLIC RECORD ARRAY FUNCTION ResolveWidgetAsSharedBlock(INTEGER widgetid)
+{
+  RETURN GatherReferredSharedBlocks([[ block := widgetid ]]);
+}
+
+MACRO RenderPreviewComponent(STRING widgettype, STRING component, RECORD data)
+{
+  OBJECT widgettypeobj := OpenWHFSType(widgettype);
+  RECORD description := DescribeContentTypeById(widgettypeobj->id, [ isfolder := FALSE, mockifmissing := TRUE ]);
+  RECORD widgetdata :=
+      [ title :=        GetTid(description.title)
+      , icon :=         description.tolliumicon
+      ];
+
+  IF (NOT ObjectExists(previewwitty))
+    previewwitty := LoadWittyLibrary("mod::publisher/lib/internal/webdesign/widgetpreview.witty", "HTML");
+
+  previewwitty->RunComponent(component, CELL[ ...data, widgetdata ]);
+}

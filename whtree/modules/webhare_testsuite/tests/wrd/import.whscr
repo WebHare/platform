@@ -1,0 +1,486 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/internal/import.whlib";
+
+RECORD ARRAY invalidrows;
+RECORD ARRAY importrows;
+RECORD ARRAY duplicaterows;
+RECORD ARRAY postrejectrows;
+
+OBJECT FUNCTION CreateMyImporter(OBJECT wrdtype)
+{
+  invalidrows := DEFAULT RECORD ARRAY ;
+  importrows := DEFAULT RECORD ARRAY ;
+  duplicaterows := DEFAULT RECORD ARRAY;
+  postrejectrows := DEFAULT RECORD ARRAY;
+
+  OBJECT importer := MakeWRDDataImporter(wrdtype);
+  importer->OnImportRow := PTR OnImportRow;
+  importer->OnInvalidRow := PTR OnInvalidRow;
+  importer->OnDuplicateRow := PTR OnDuplicateRow;
+  importer->OnPostREjectRow := PTR OnPostREjectRow;
+
+  RETURN importer;
+}
+
+MACRO OnImportRow(STRING ARRAY tokens, RECORD rowdata, INTEGER entityid, BOOLEAN isnew)
+{
+  INSERT [ tokens := tokens, rowdata := rowdata, entityid := entityid, isnew := isnew] INTO importrows AT END;
+}
+MACRO OnInvalidRow(STRING ARRAY tokens, RECORD rowdata, RECORD ARRAY errors)
+{
+  INSERT [ errors := errors, tokens := tokens, rowdata := rowdata ] INTO invalidrows AT END;
+}
+MACRO OnDuplicateRow(STRING ARRAY tokens, RECORD rowdata, INTEGER earlier_entityid)
+{
+  INSERT [ tokens := tokens, rowdata := rowdata, earlier_entityid := earlier_entityid ] INTO duplicaterows AT END;
+}
+MACRO OnPostRejectROw(STRING ARRAY tokens, RECORD rowdata, INTEGER failedfilter)
+{
+  INSERT [ tokens := tokens, rowdata := rowdata, failedfilter := failedfilter ] INTO postrejectrows AT END;
+}
+
+MACRO Deps()
+{
+  TestEq("A",GenerateColumnName(0));
+  TestEq("Z",GenerateColumnName(25));
+  TestEq("AA",GenerateColumnName(26));
+  TestEq("AB",GenerateColumnName(26+1));
+  TestEq("AZ",GenerateColumnName(26+26-1));
+  TestEq("BA",GenerateColumnName(26+26));
+  TestEq("ZZ",GenerateColumnName(26+26*26-1));
+  TestEq("AAA",GenerateColumnName(26+26*26));
+  TestEq("ABA",GenerateColumnName(26+26*26+26));
+  TestEq("ZZZ",GenerateColumnName(26+26*26+26*26*26-1));
+  TestEq("AAAA",GenerateColumnName(26+26*26+26*26*26));
+}
+
+MACRO Setup()
+{
+  testfw->BeginWork();
+
+  OBJECT persontype :=  testfw->GetWRDSchema()->^wrd_person;
+
+  //Create a unique/required email field
+  persontype->UpdateAttribute("WRD_CONTACT_EMAIL",[ title := "E-mail", isunique := TRUE, isrequired := TRUE ]);
+  persontype->CreateAttribute("C1", "FREE");
+  persontype->CreateAttribute("EMAILS", "ARRAY");
+  persontype->CreateAttribute("EMAILS.EMAIL", "EMAIL", [ title := "sublist" ]);
+
+  //Add a domain field..
+  OBJECT domtype1 := testfw->GetWRDSchema()->CreateDomain("DOMAINTYPE1");
+  domtype1->CreateEntity([ wrd_title := "First value", wrd_tag := "ONE" ] );
+  domtype1->CreateEntity([ wrd_title := "Second value", wrd_tag := "TWO" ] );
+
+  persontype->CreateAttribute ("DOMAIN1", "DOMAIN", [ title := "Single select domain 1", domaintag := "DOMAINTYPE1"]);
+
+  testfw->CommitWork();
+}
+
+MACRO SimpleImport(STRING inputfile)
+{
+  INTEGER numcsvrows := 8;
+
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
+  persontype->DeleteAllEntities();
+
+  //Let's start the tests
+  OBJECT importer := CreateMyImporter(persontype);
+  importer->distinctcachesize := 5;
+
+  importer->LoadImportData(testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/" || inputfile),"");
+
+  importer->datahasheaders := TRUE;
+  TestEq(numcsvrows,importer->GetNumImportRows());
+  TestEq(6,Length(importer->GetImportColumns()));
+  TestEq("NAME",importer->GetImportColumns()[0].name);
+  TestEq("EMAIL",importer->GetImportColumns()[1].name);
+  TestEq("DESCRIPTION",importer->GetImportColumns()[2].name);
+  TestEq("GENDER",importer->GetImportColumns()[3].name);
+  TestEq("C1",importer->GetImportColumns()[4].name);
+  TestEq("F",importer->GetImportColumns()[5].name);
+
+  importer->datahasheaders := FALSE;
+  TestEq(numcsvrows + 1,importer->GetNumImportRows());
+  TestEq(6,Length(importer->GetImportColumns()));
+  TestEq("A",importer->GetImportColumns()[0].name);
+  TestEq("B",importer->GetImportColumns()[1].name);
+  TestEq("C",importer->GetImportColumns()[2].name);
+
+  TestEq(TRUE, importer->GetImportColumnsIfHeaders(TRUE)[2].distinctoverflow); //description must overflow
+  TestEq(FALSE, importer->GetImportColumnsIfHeaders(TRUE)[3].distinctoverflow); //but our domain test columns shouldn't
+  TestEq(FALSE, importer->GetImportColumnsIfHeaders(TRUE)[4].distinctoverflow);
+  TestEq(FALSE, importer->GetImportColumnsIfHeaders(TRUE)[5].distinctoverflow);
+
+  //Test proper distinct handling. Gender column has [GENDER,]M,mannetje,F,"", so 4 or 5 depending on mode
+  TestEq(4, Length(importer->GetImportColumnsIfHeaders(TRUE)[3].distinctvalues));
+  TestEq(5, Length(importer->GetImportColumnsIfHeaders(FALSE)[3].distinctvalues));
+  //C1 colum has C1,C2 and "". C1 is used twice, both in header and data, so numdistinct should be the same either way
+  TestEq(3, Length(importer->GetImportColumnsIfHeaders(TRUE)[4].distinctvalues));
+  TestEq(3, Length(importer->GetImportColumnsIfHeaders(FALSE)[4].distinctvalues));
+
+  //Set wrong import definitions
+  TestThrows(PTR importer->MapDirectImport(3,"WRD_GENDER",""));
+  TestThrows(PTR importer->MapDomainImport(1,"WRD_FIRSTNAME","",DEFAULT RECORD ARRAY));
+
+  //Set the import definition
+  importer->datahasheaders := TRUE;
+  importer->MapDirectImport(0, "WRD_FIRSTNAME","");
+  importer->MapDirectImport(1, "WRD_CONTACT_EMAIL","");
+  importer->MapDomainImport(3, "WRD_GENDER", "", [[ value := "M", mapsto := 1 ]
+                                                 ,[ value := "F", mapsto := 2 ]
+                                                 ,[ value := "mannetje", mapsto := 0 ]
+                                                 ]);
+  importer->MapDirectImport(4, "C1", "");
+
+  importer->RunImport();
+
+  RECORD ARRAY results := persontype->RunQuery([ outputcolumns := [ firstname := "WRD_FIRSTNAME"
+                                                                  , email := "WRD_CONTACT_EMAIL"
+                                                                  , gender := "WRD_GENDER"
+                                                                  , c1 := "C1"
+                                                                  ]
+                                               ]);
+
+  TestEq(numcsvrows - 4, Length(results)); /* fails: Pukje: dupe email
+                                                     Mindervalide: bad email
+                                                     Geenmail: no email
+                                                     Geenmail2: no email*/
+  TestEq(numcsvrows -4, Length(importrows));
+
+  //test successful imports
+  RECORD res_arnold := SELECT * FROM results WHERE firstname="Arnold";
+  TestEq( [ firstname := "Arnold"
+          , email := "a.hendriks@example.net"
+          , gender := 1
+          , c1 := "C1"
+          ], res_arnold);
+  TestEq("Arnold", persontype->GetEntity(importrows[0].entityid)->GetField("WRD_FIRSTNAME"));
+  TestEq(TRUE, importrows[0].isnew);
+
+  RECORD res_jaapje:= SELECT * FROM results WHERE firstname="Jaapje";
+  TestEq( [ firstname := "Jaapje"
+          , email := "j.tests@example.net"
+          , gender := 0
+          , c1 := "C2"
+          ], res_jaapje);
+
+  RECORD res_pietje := SELECT * FROM results WHERE firstname="Pietje";
+  TestEq( [ firstname := "Pietje"
+          , email := "p.precies@example.net"
+          , gender := 2
+          , c1 := ""
+          ], res_pietje);
+
+  RECORD res_pukje := SELECT * FROM results WHERE firstname="Pukje";
+  TestEq(DEFAULT RECORD, res_pukje);
+
+  RECORD res_ceetwee := SELECT * FROM results WHERE firstname="CeeTwee";
+  TestEq( [ firstname := "CeeTwee"
+          , email := "c2@example.net"
+          , gender := 0
+          , c1 := "C2"
+          ], res_ceetwee);
+
+  //test failed imports
+  TestEq(1, Length(duplicaterows));
+  TestEq("Pukje", duplicaterows[0].tokens[0]);
+  TestEq("Pukje", duplicaterows[0].rowdata.wrd_firstname);
+  TestEq("Pietje", persontype->GetEntity(duplicaterows[0].earlier_entityid)->GetField("WRD_FIRSTNAME"));
+
+  TestEq(3, Length(invalidrows));
+  TestEq("REQUIRED", invalidrows[0].errors[0].code);
+  TestEq("WRD_CONTACT_EMAIL", invalidrows[0].errors[0].tag);
+  TestEq("INVALIDVALUE", invalidrows[1].errors[0].code);
+  TestEq("WRD_CONTACT_EMAIL", invalidrows[1].errors[0].tag);
+
+  testfw->Commit();
+}
+
+MACRO SimpleImport_CSV()
+{
+  SimpleImport("import1.csv");
+}
+MACRO SimpleImport_XLSX()
+{
+  SimpleImport("import1.xlsx");
+}
+
+MACRO UpdateImport()
+{
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
+  OBJECT importer := CreateMyImporter(persontype);
+  persontype->CreateAttribute("AUTOFILL", "FREE");
+
+  /* A new import round.
+       This CSV tries to update all descriptions, but we'll reject any attempt to update a C2 */
+
+  importer->LoadImportData(testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/import2.csv"),"");
+  importer->datahasheaders := TRUE;
+
+  importer->updateprecheckfilters := [[ field := "C1", matchtype := "!=", value := "C2" ]];
+
+  importer->MapDirectImport(0, "WRD_CONTACT_EMAIL","");
+  importer->MapDirectImport(1, "WRD_FIRSTNAME", "");
+  importer->importsetfields := [ autofill := "DONE" ];
+
+  importer->RunImport();
+
+  RECORD ARRAY results := persontype->RunQuery([ outputcolumns := [ firstname := "WRD_FIRSTNAME"
+                                                                  , email := "WRD_CONTACT_EMAIL"
+                                                                  , autofill := "AUTOFILL"
+                                                                  ]
+                                               ]);
+  TestEq(2, Length(SELECT FROM results WHERE autofill="DONE"));
+
+  RECORD res_arnold := SELECT * FROM results WHERE email="a.hendriks@example.net";
+  TestEq( [ firstname := "Arnold-C1"
+          , email := "a.hendriks@example.net"
+          , autofill := "DONE"
+          ], res_arnold);
+
+  TestEq("Arnold-C1", persontype->GetEntity(importrows[0].entityid)->GetField("WRD_FIRSTNAME"));
+  TestEq(FALSE, importrows[0].isnew);
+
+  RECORD res_jaapje:= SELECT * FROM results WHERE email="j.tests@example.net";
+  TestEq( [ firstname := "Jaapje"
+          , email := "j.tests@example.net"
+          , autofill := ""
+          ], res_jaapje);
+
+  testfw->Commit();
+}
+
+MACRO WRDIDUpdate()
+{
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
+  INTEGER personid := persontype->Search("WRD_CONTACT_EMAIL", "c2@example.net");
+  RECORD pfields := persontype->GetEntityFields(personid, ["WRD_GUID"]);
+
+  INTEGER upd := CreateStream();
+  PrintTo(upd, "guid\temail\n");
+  PrintTo(upd, pfields.wrd_guid || "\tc2+update@example.net\n");
+  BLOB updcsv := MakeBlobFromStream(upd);
+
+  OBJECT importer := CreateMyImporter(persontype);
+  importer->LoadImportData(updcsv,"");
+  importer->datahasheaders := TRUE;
+
+  importer->MapDirectImport(0, "WRD_GUID", "");
+  importer->MapDirectImport(1, "WRD_CONTACT_EMAIL", "");
+  importer->RunImport();
+
+  RECORD pfields2 := persontype->GetEntityFields(personid, ["WRD_GUID","WRD_CONTACT_EMAIL"]);
+  TestEq("c2+update@example.net", pfields2.wrd_contact_email);
+  TestEq(pfields.wrd_guid, pfields2.wrd_guid);
+
+  testfw->Commit();
+}
+
+MACRO AddressImport()
+{
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
+  INTEGER personid := persontype->Search("WRD_CONTACT_EMAIL", "a.hendriks@example.net");
+  persontype->CreateAttribute("HOME","ADDRESS");
+
+  OBJECT importer := CreateMyImporter(persontype);
+  importer->LoadImportData(testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/import3.csv"),"");
+  importer->datahasheaders := TRUE;
+  importer->forcecountry := "NL";
+
+  importer->MapDirectImport(0, "WRD_CONTACT_EMAIL", "");
+  importer->MapDirectImport(1, "HOME","STREET");
+  importer->MapDirectImport(2, "HOME","NR_DETAIL");
+  importer->MapDirectImport(3, "HOME","CITY");
+  importer->RunImport();
+
+
+  RECORD fields := persontype->GetEntityFields(personid, ["HOME"]);
+  TestEq("Hengelosestraat", fields.home.street);
+  TestEq("NL", fields.home.country);
+
+  testfw->Commit();
+}
+
+MACRO TypesImport()
+{
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
+  INTEGER personid := persontype->Search("WRD_CONTACT_EMAIL", "a.hendriks@example.net");
+  persontype->CreateAttribute("ANYTIME", "DATETIME");
+
+  OBJECT importer := CreateMyImporter(persontype);
+  importer->datahasheaders := TRUE;
+  importer->LoadImportData(testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/importtypes.xlsx"),"");
+  importer->forcecountry := "NL";
+
+  importer->MapDirectImport(1, "WRD_CONTACT_EMAIL", "");
+  importer->MapDirectImport(2, "WRD_DATEOFBIRTH","");
+  importer->MapDirectImport(3, "ANYTIME","");
+  importer->MapDirectImport(4, "HOME","STREET");
+  importer->MapDirectImport(5, "HOME","NR_DETAIL");
+  importer->RunImport();
+
+  RECORD fields := persontype->GetEntityFields(personid, ["WRD_DATEOFBIRTH","ANYTIME","HOME"]);
+  TestEq(MakeDate(1979,6,13), fields.wrd_dateofbirth);
+  TestEq(MakeDateTime(2013,3,6,12,30,0), fields.anytime);
+  TestEq("87A",fields.home.nr_detail);
+
+  personid := persontype->Search("WRD_CONTACT_EMAIL", "j.tests@example.net");
+  fields := persontype->GetEntityFields(personid, ["WRD_DATEOFBIRTH","ANYTIME","HOME"]);
+  TestEq(MakeDate(1979,6,14), fields.wrd_dateofbirth);
+  TestEq(DEFAULT DATETIME, fields.anytime);
+  TestEq("76",fields.home.nr_detail);
+
+  testfw->Commit();
+
+}
+
+MACRO PostCheckFilters()
+{
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
+  INTEGER personid := persontype->Search("WRD_CONTACT_EMAIL", "a.hendriks@example.net");
+  persontype->DeleteEntity(personid);
+
+  OBJECT importer := CreateMyImporter(persontype);
+  importer->LoadImportData(testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/import3.csv"),"");
+  importer->datahasheaders := TRUE;
+  importer->postfilters := [[ field := "WRD_CONTACT_EMAIL", matchtype := "!=", value := "a.hendriks@example.net" ]];
+
+  importer->MapDirectImport(0, "WRD_CONTACT_EMAIL", "");
+  importer->RunImport();
+
+  TestEq(0,Length(invalidrows));
+  TestEq(1,Length(postrejectrows));
+  TestEq(0,postrejectrows[0].failedfilter);
+
+  testfw->Commit();
+}
+
+/** @param wanted List to sync. Must consist of at least the joincell and optionally a 'wanted' record with the data to overwrite/apply. May NOT be empty
+    @cell options.deletemode empty = no delete, or delete, close, delete-closereferred
+*/
+
+MACRO TestSyncWRDType()
+{
+  RECORD result;
+
+  testfw->BeginWork();
+
+  OBJECT persontype := testfw->GetWRDSchema()->^wrd_person;
+  OBJECT domaintype := testfw->GetWRDSchema()->^domaintype1;
+//  TestThrowsLike("*requires records*", PTR persontype->ImportEntities("wrd_contact_email", DEFAULT RECORD ARRAY, [ debug := true ]));
+
+  RECORD ARRAY domain := SELECT * FROM domaintype->RunQuery([outputcolumns := ["WRD_TITLE","WRD_TAG"], historymode:="all"]) ORDER BY wrd_tag;
+  TestEq([[ wrd_tag:="ONE", wrd_title:="First value"],[ wrd_tag:="TWO", wrd_title := "Second value"]], domain);
+
+  RECORD twoinfo := domaintype->GetEntityFields(domaintype->Search("WRD_TAG","TWO"), ["*"]);
+
+  RECORD ARRAY persons := SELECT * FROM persontype->RunQuery([outputcolumns := ["WRD_ID","WRD_CONTACT_EMAIL"], historymode:="all"]) ORDER BY wrd_contact_email;
+  //Should be: c2+update@example.net, j.tests@, p.precies@
+  //dumpvalue(persons);
+  TestEq(3,Length(persons));
+
+  //Merge some new domain stuff!
+  domaintype->ImportEntities("WRD_TAG", [[ wrd_tag := "THREE" ]]);
+
+  //Should have been added, nothing should be gone
+  domain := SELECT * FROM domaintype->RunQuery([outputcolumns := ["WRD_TITLE","WRD_TAG"]]) ORDER BY wrd_tag;
+  TestEq([[ wrd_tag:="ONE", wrd_title:="First value"],[wrd_tag:="THREE", wrd_title := ""],[ wrd_tag:="TWO", wrd_title := "Second value"]], domain);
+
+  //Update the tag and close the rest
+  TestThrowsLike("*delete mode*typo*", PTR domaintype->ImportEntities("WRD_TAG", [[ wrd_tag := "THREE", wrd_title := "Third" ]], [deletemode := "typo"]));
+  result := domaintype->ImportEntities("WRD_TAG", [[ wrd_tag := "THREE", wrd_title := "Third" ]], [deletemode := "close"]);
+  TestEq(2, Length(result.removed));
+  TestEq(INTEGER[], result.matched);
+  TestEq(1, Length(result.updated));
+
+  domain := SELECT * FROM domaintype->RunQuery([outputcolumns := ["WRD_TITLE","WRD_TAG"], historymode:="all"]) ORDER BY wrd_tag;
+  TestEq([[ wrd_tag:="ONE", wrd_title:="First value"],[wrd_tag:="THREE", wrd_title := "Third"],[ wrd_tag:="TWO", wrd_title := "Second value"]], domain);
+
+  domain := SELECT * FROM domaintype->RunQuery([outputcolumns := ["WRD_TITLE","WRD_TAG"] ]) ORDER BY wrd_tag;
+  TestEq([[wrd_tag:="THREE", wrd_title := "Third"]], domain);
+
+  //Simply repeating the action shouldn't do anything
+  result := domaintype->ImportEntities("WRD_TAG", [[ wrd_tag := "THREE", wrd_title := "Third" ]], [deletemode := "close"]);
+  TestEq(INTEGER[], result.removed);
+  TestEq(3, Length(result.matched));
+  TestEq(INTEGER[], result.updated);
+
+  //restore TWO to live
+  result := domaintype->ImportEntities("WRD_TAG", [[ wrd_tag := "TWO", wrd_title := "Zwei" ]]);
+  TestEq(INTEGER[ twoinfo.wrd_id ], result.updated);
+
+  //should be same entity still
+  TestEq([ wrd_creationdate := twoinfo.wrd_creationdate
+         , wrd_title := "Zwei"
+         , wrd_limitdate := MAX_DATETIME ], domaintype->GetEntityFIelds(twoinfo.wrd_id,["WRD_CREATIONDATE","WRD_TITLE","WRD_LIMITDATE"]));
+
+  //restore ONE to live. don't do any other change to make sure a 'no change' optimization doesn't skip us
+  result := domaintype->ImportEntities("WRD_TAG", [[ wrd_tag := "ONE" ]]);
+
+  //verify we still have three entries
+  TestEq(3,Length(SELECT FROM domaintype->RunQuery(DEFAULT RECORD)));
+
+  //do another destructive delete, but apply a filter that will only apply to TWO and THREE
+  result := domaintype->ImportEntities("WRD_TAG"
+                                      , [[ wrd_tag := "TWO", wrd_title := "Zwei" ]]
+                                      , [ filters := [[ field := "WRD_TAG", matchtype := "LIKE", value := "T*" ]
+                                                     ]
+                                        , deletemode := "delete"
+                                        ]);
+  TestEq(["ONE","TWO"],SELECT AS STRING ARRAY wrd_tag FROM domaintype->RunQuery([historymode := "all", outputcolumns := ["WRD_TAG"]]) ORDER BY wrd_tag);
+
+  //merge new emails into the person list
+  INTEGER pprecies := persontype->Search("WRD_CONTACT_EMAIL","p.precies@example.net");
+  result := persontype->ImportEntities("WRD_CONTACT_EMAIL", [[ wrd_contact_email := "p.precies@example.net", emails := [[ email := "email1@example.net" ], [ email := "email2@example.net"]]]]);
+  TestEq(1, Length(result.updated));
+  TestEq(2, Length(persontype->GetEntityFields(pprecies, ["EMAILS"]).emails));
+
+  result := persontype->ImportEntities("WRD_CONTACT_EMAIL", [[ wrd_contact_email := "p.precies@example.net", emails := [[ email := "email1@example.net" ], [ email := "email2@example.net"]]]]);
+  TestEq(INTEGER[], result.created); //should not create anything
+  TestEq(INTEGER[], result.updated); //should not update anything
+  TestEq([pprecies], result.matched);
+  TestEq((SELECT AS INTEGER ARRAY wrd_id FROM persons WHERE wrd_id != pprecies ORDER BY wrd_id), SortArray(result.removed));
+
+  result := persontype->ImportEntities("WRD_CONTACT_EMAIL", RECORD[]);
+  TestEq(INTEGER[], result.created); //should not create anything
+  TestEq(INTEGER[], result.updated); //should not update anything
+  TestEQ(INTEGER[], result.matched);
+  TestEq((SELECT AS INTEGER ARRAY wrd_id FROM persons ORDER BY wrd_id), SortArray(result.removed));
+  TestEq(3, Length(persontype->RunQuery(CELL[])));
+
+  result := persontype->ImportEntities("WRD_CONTACT_EMAIL", RECORD[], [ deletemode := "close" ]);
+  TestEq((SELECT AS INTEGER ARRAY wrd_id FROM persons ORDER BY wrd_id), SortArray(result.removed));
+  TestEq(0, Length(persontype->RunQuery(CELL[])));
+
+  testfw->RollbackWork();
+}
+
+RunTestFramework([ PTR Deps
+                 , PTR Setup
+                 , PTR SimpleImport_XLSX
+                 , PTR SimpleImport_CSV
+                 , PTR UpdateImport
+                 , PTR WRDIDUpdate
+                 , PTR AddressImport
+                 , PTR TypesImport
+                 , PTR PostCheckFIlters
+                 , PTR TestSyncWRDType
+                 ], [ wrdauth  := FALSE ]);

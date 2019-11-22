@@ -1,0 +1,110 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// WebDav data folders
+//
+PUBLIC OBJECTTYPE Webdav_Data EXTEND TolliumScreenBase
+< PUBLIC MACRO Init()
+  {
+    this->RefreshFolders();
+  }
+
+  PUBLIC MACRO RefreshFolders()
+  {
+    this->folders->rows := SELECT rowkey := id
+                                , foldername
+                                , diskfolder := diskfolder
+                             FROM system.webdav_datafolders;
+  }
+
+  PUBLIC MACRO DoAddFolder()
+  {
+    OBJECT scr := this->LoadScreen(".webdav_folder", DEFAULT RECORD);
+    IF (scr->RunModal()="ok")
+      this->RefreshFolders();
+  }
+
+  PUBLIC MACRO DoEditFolder()
+  {
+    OBJECT scr := this->LoadScreen(".webdav_folder", [ folderid := this->folders->value ]);
+    IF (scr->RunModal()="ok")
+      this->RefreshFolders();
+  }
+
+  PUBLIC MACRO DoDeleteFolder()
+  {
+    STRING foldername := this->folders->selection.foldername;
+
+    IF (this->RunMessageBox(".deletefolder", foldername) = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      DELETE FROM system.webdav_datafolders WHERE id = this->folders->value;
+      work->Finish();
+      this->refreshFolders();
+    }
+  }
+
+  PUBLIC MACRO DoRightsFolder()
+  {
+    OBJECT scr := MakeManageObjectRightsDialog(this, "system:webdav_datafolders", this->folders->value);
+    scr->RunModal();
+  }
+>;
+
+PUBLIC OBJECTTYPE Webdav_Folder EXTEND TolliumScreenBase
+<
+  PUBLIC INTEGER folderid;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->diskfolder->required := TRUE;
+
+    IF(RecordExists(data))
+    {
+      RECORD folderrec := SELECT * FROM system.webdav_datafolders WHERE id=data.folderid;
+      this->folderid := data.folderid;
+      this->foldername->value := folderrec.foldername;
+      this->diskfolder->value := folderrec.diskfolder;
+      this->forcelowercase->value := folderrec.forcelowercase;
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (NOT IsValidWHFSName(this->foldername->value, FALSE))
+    {
+      work->AddError(GetTid("system:sysmgmt.webdav.folder.badname"));
+    }
+
+    STRING diskpath := this->diskfolder->value;
+    IF(this->folderid=0)
+    {
+      INTEGER newid := MakeAutonumber(system.webdav_datafolders, "id");
+      INSERT INTO system.webdav_datafolders(id, foldername, diskfolder, forcelowercase)
+             VALUES(newid, this->foldername->value, this->diskfolder->value, this->forcelowercase->value);
+    }
+    ELSE
+    {
+      UPDATE system.webdav_datafolders SET foldername := this->foldername->value
+                                         , diskfolder := this->diskfolder->value
+                                         , forcelowercase := this->forcelowercase->value
+                                       WHERE id = this->folderid;
+    }
+    RETURN work->Finish();
+  }
+
+  PUBLIC MACRO DoBrowseFolder()
+  {
+    OBJECT browse := CreateBrowseServerPathDialog(this);
+    browse->prettypath := this->diskfolder->value;
+    IF(browse->RunModal()="ok")
+      this->diskfolder->value := browse->prettypath;
+  }
+>;

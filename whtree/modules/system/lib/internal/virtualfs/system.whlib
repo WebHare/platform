@@ -1,0 +1,83 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/virtualfs/base.whlib";
+LOADLIB "mod::system/lib/virtualfs/diskfolder.whlib";
+LOADLIB "mod::system/lib/virtualfs/modular.whlib";
+LOADLIB "mod::system/lib/internal/virtualfs/modules.whlib";
+LOADLIB "mod::system/lib/internal/virtualfs/logs.whlib";
+
+PUBLIC OBJECTTYPE SystemFS EXTEND VirtualModularFSBase
+< RECORD ARRAY cachedlist;
+  BOOLEAN have_list;
+
+  UPDATE OBJECT FUNCTION GetSubfolder(STRING subfolder)
+  {
+    SWITCH (subfolder)
+    {
+    CASE "modules"
+      {
+        IF (NOT GetEffectiveUser()->HasRight("system:sysop"))
+          THROW NEW VirtualFSException("BADPATH", "No such data path");
+        RETURN NEW ModuleFS();
+      }
+    CASE "modules-archive"
+      {
+        IF (NOT GetEffectiveUser()->HasRight("system:sysop"))
+          THROW NEW VirtualFSException("BADPATH", "No such data path");
+        RETURN NEW ModuleArchiveFS();
+      }
+    CASE "logs"
+      {
+        IF (NOT GetEffectiveUser()->HasRight("system:sysop"))
+          THROW NEW VirtualFSException("BADPATH", "No such data path");
+        RETURN NEW LogsFS();
+      }
+    CASE "installedfonts"
+      {
+        IF (NOT GetEffectiveUser()->HasRight("system:sysop"))
+          THROW NEW VirtualFSException("BADPATH", "No such data path");
+        RETURN NEW DiskFolderFS(GetWebHareConfiguration().varroot || "fonts", TRUE, FALSE);
+      }
+    }
+
+    THROW NEW VirtualFSException("BADPATH", "No such data path");
+  }
+
+  UPDATE RECORD ARRAY FUNCTION GetSubfolderListing()
+  {
+    BOOLEAN has_sysop := GetEffectiveUser()->HasRight("system:sysop");
+
+    RECORD ARRAY list :=
+        [ [ name :=   "modules"
+          , read :=   has_sysop
+          , write :=  has_sysop
+          ]
+        , [ name :=   "modules-archive"
+          , read :=   has_sysop
+          , write :=  has_sysop
+          ]
+        , [ name :=   "logs"
+          , read :=   has_sysop
+          , write :=  has_sysop
+          ]
+        , [ name :=   "installedfonts"
+          , read :=   has_sysop
+          , write :=  has_sysop
+          ]
+        ];
+
+    RETURN
+        SELECT name := name
+             , type := 1
+             , size := 0
+             , read
+             , write
+             , modificationdate :=  DEFAULT DATETIME
+             , creationdate :=      DEFAULT DATETIME
+          FROM list
+         WHERE read;
+  }
+
+>;

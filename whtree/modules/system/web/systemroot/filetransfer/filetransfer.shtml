@@ -1,0 +1,297 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
+LOADLIB "mod::system/lib/internal/support.whlib";
+
+
+STRING session_passwd := "system_filetransfer";
+
+RECORD default_session :=
+    [ partcounter :=    0
+    , files :=          DEFAULT RECORD ARRAY
+    ];
+
+
+MACRO HandleFileUpload(STRING type)
+{
+  INTEGER64 fullsize, chunk_offset, chunk_size;
+  STRING sessionid, filename, contenttype, tolliumdata;
+  INTEGER fileid;
+  BLOB data;
+  RECORD result;
+
+  IF (type="download")
+  {
+    //reflect a download back to the user. validate content-types to avoid this becoming a route towards XSS trickery
+    //for now, no reason to allow anything but images
+    RECORD file := PeekUploadedFiles([GetWebVariable("file")]);
+    IF(file.contenttype="")
+      file.contenttype := ScanBlob(file.data, file.filename).mimetype;
+
+    IF(file.contenttype LIKE "image/*")
+    {
+      AddHTTPHeader("Content-Type",file.contenttype,FALSE);
+    }
+    ELSE
+    {
+      AddHTTPHeader("Content-Type","application/octet-stream",FALSE);
+    }
+    SendWebFile(file.data);
+    RETURN;
+  }
+
+  IF (NOT IsRequestPost())
+  {
+    // Must be a POST.
+    AddHTTPHeader("Allow","POST", FALSE);
+    AddHTTPHeader("Status","405", FALSE); // Method not allowed. An 'Allow' header is required.
+    RETURN;
+  }
+
+  SWITCH (type)
+  {
+    CASE "upload-createsession"
+      {
+        // Create a new uploading session (handy when uploading multiple files with multiple streams)
+        sessionid := CreateWebSession(session_passwd, default_session, ttl_updownsession, FALSE);
+
+        // Print the return values
+        PRINT(EncodeJSON(
+            [ sessionid := sessionid
+            ]));
+        RETURN;
+      }
+    CASE "upload-cancelsession"
+      {
+        sessionid := GetWebVariable("sessionid");
+
+        CloseWebSession(sessionid, session_passwd);
+        RETURN;
+      }
+    CASE "upload-html5"
+      {
+        data := GetRequestBody();
+        fullsize := ToInteger64(GetWebVariable("size"), -1);
+        chunk_offset := ToInteger64(GetWebVariable("offset"), -1);
+        chunk_size := ToInteger64(GetWebVariable("chunksize"), -1);
+        sessionid := GetWebVariable("sessionid");
+        fileid := ToInteger(GetWebVariable("fileid"), 0);
+        filename := GetWebVariable("filename");
+        tolliumdata := GetWebVariable("tolliumdata");
+      }
+    DEFAULT
+      {
+        // Unknown type
+        AddHTTPHeader("Status","400 Bad request - unknown type", FALSE);
+        RETURN;
+      }
+  }
+
+  // Check chunk offset & chunk_size for sanity
+  IF (chunk_offset < 0 OR chunk_size != LENGTH(data))
+  {
+    // Illegal request, data length didn't match size. Triggered by chrome when exceeding the 500MB global blob storage.
+    AddHTTPHeader("Status","400 Bad request - illegal chunk length", FALSE);
+    RETURN;
+  }
+
+  IF (sessionid = "" AND (chunk_offset != 0 OR fullsize < chunk_offset + chunk_size))
+  {
+    // No session id? No chunked uploading for you. Create a session first.
+    AddHTTPHeader("Status","400 Bad request - create a session before chunking", FALSE);
+    RETURN;
+  }
+
+  RECORD session;
+  OBJECT lock;
+
+  IF (sessionid != "")
+  {
+    // Serialize access to the session. Process-local lock is enough, sessions only exist in the webserver process.
+    lock := OpenLocalLockManager()->LockLocalMutex("tollium:filemanager." || sessionid);
+
+    session := GetWebSessionData(sessionid, session_passwd);
+    IF (NOT RecordExists(session))
+    {
+      // Session not found
+      AddHTTPHeader("Status","404", FALSE); // timed out?
+      RETURN;
+    }
+  }
+  ELSE
+    session := default_session;
+
+  IF (fileid = 0)
+  {
+    session.partcounter := session.partcounter + 1;
+    fileid := session.partcounter;
+    INSERT
+        [ fileid :=       fileid
+        , filename :=     filename
+        , fullsize :=     fullsize
+        , contenttype :=  contenttype
+        , tolliumdata :=  tolliumdata
+        , chunks :=       DEFAULT RECORD ARRAY
+        , complete :=     FALSE
+        ] INTO session.files AT END;
+  }
+
+  RECORD filepos := RecordLowerBound(session.files, [ fileid := fileid ], [ "FILEID" ]);
+  IF (NOT filepos.found)
+  {
+    AddHTTPHeader("Status","400", FALSE); // no such file / chunk falls out of file bounds
+    RETURN;
+  }
+
+  RECORD file := session.files[filepos.position];
+  IF (file.fullsize < chunk_offset + chunk_size)
+  {
+    AddHTTPHeader("Status","400", FALSE); // no such file / chunk falls out of file bounds
+    RETURN;
+  }
+
+  // Check if chunk offsets don't overlap
+  RECORD pos := RecordLowerBound(file.chunks, [ chunk_offset := chunk_offset ], [ "CHUNK_OFFSET" ]);
+  BOOLEAN error;
+  IF (pos.found)
+    error := TRUE;
+  ELSE
+  {
+    IF (pos.position > 0)
+    {
+      RECORD prev_chunk := file.chunks[pos.position - 1];
+      IF (prev_chunk.chunk_offset + prev_chunk.size > chunk_offset)
+        error := TRUE;
+    }
+    IF (pos.position < LENGTH(file.chunks))
+    {
+      RECORD next_chunk := file.chunks[pos.position];
+      IF (chunk_offset + chunk_size > next_chunk.chunk_offset)
+        error := TRUE;
+    }
+  }
+
+  IF (error)
+  {
+    AddHTTPHeader("Status","400", FALSE); // timed out?
+    RETURN;
+  }
+
+  // Insert chunk
+  INSERT [ chunk_offset := chunk_offset, start := 0, size := chunk_size, data := data ] INTO file.chunks AT pos.position;
+
+  // See if all chunks are now present
+  INTEGER64 complete := 0;
+  FOREVERY (RECORD rec FROM file.chunks)
+    IF (complete = rec.chunk_offset)
+      complete := complete + rec.size;
+    ELSE
+      BREAK;
+
+  file.complete := complete = file.fullsize;
+  STRING tokenoverride;
+
+  // Detect filetype when this was the last chunk
+  RECORD fileinfo;
+  IF (file.complete)
+  {
+    BLOB completefile := MakeComposedBlob(file.chunks);
+    fileinfo := ScanBlob(completefile, file.filename);
+    file.contenttype := fileinfo.mimetype;
+    contenttype := fileinfo.mimetype;
+  }
+
+  // Tollium: send uploaded files to their component when complete
+  IF (file.complete AND file.tolliumdata != "")
+  {
+    RECORD decoded := DecodeJSON(file.tolliumdata);
+
+    STRING portid := decoded.l;
+    STRING window := decoded.w;
+    STRING component := decoded.n;
+
+    BOOLEAN success := FALSE;
+    OBJECT ipclink := ConnectToIPCPort("tollium:link." || portid);
+    IF (ObjectExists(ipclink))
+    {
+      RECORD rec := ipclink->DoRequest(
+          [ type :=         "upload"
+          , window :=       window
+          , component :=    component
+          , data :=         DEFAULT RECORD
+          , incoming :=
+                [ data :=       MakeComposedBlob(file.chunks)
+                , filename :=   file.filename
+                , mimetype :=   file.contenttype
+                ]
+          ]);
+
+      IF (rec.status = "ok" AND RecordExists(rec.msg))
+      {
+        success := TRUE;
+        tokenoverride := rec.msg.tokens[0];
+      }
+    }
+
+    IF (NOT success)
+      AddHTTPHeader("Status", "404 Not found", FALSE);
+
+    DELETE FROM session.files AT filepos.position;
+  }
+  ELSE
+  {
+    // Just store stuff
+    session.files[filepos.position] := file;
+  }
+
+  IF (sessionid = "")
+    sessionid := CreateWebSession(session_passwd, session, ttl_updownsession, FALSE);
+  ELSE
+    StoreWebSessionData(sessionid, session_passwd, session);
+
+  // Free the lock if taken
+  IF (ObjectExists(lock))
+    lock->Close();
+
+  IF (NOT RecordExists(file))
+  {
+    AddHTTPHeader("Status", "404 Not found", FALSE);
+    RETURN;
+  }
+
+  STRING downloadurl;
+  IF(file.complete)
+    downloadurl := UpdateURLVariables(Tokenize(GetRequestURL(), '?')[0]
+                                     , [ type := "download"
+                                       , file := tokenoverride = "" ? sessionid || "/" || fileid : tokenoverride
+                                       , filename := filename
+                                       , size := ToString(fullsize)
+                                       , mimetype := fileinfo.mimetype
+                                       , width := ToString(fileinfo.width)
+                                       , height := ToString(fileinfo.height)
+                                       ]);
+
+  result := CELL[ ...result
+                , sessionid :=  sessionid
+                , fileid :=     fileid
+                , filetoken :=  file.complete
+                                    ? tokenoverride = "" ? sessionid || "/" || fileid : tokenoverride
+                                    : ""
+                , fileinfo :=   fileinfo
+                , complete :=   file.complete
+                , contenttype := contenttype
+                , downloadurl := downloadurl
+                ];
+
+  AddHTTPHeader("Content-type", "application/json", FALSE);
+  // Print the return values
+  PRINT(EncodeJSON(result));
+}
+
+HandleFileUpload(GetWebVariable("type"));

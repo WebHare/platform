@@ -1,0 +1,176 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+//FIXME Create ports using testframework so they can be cleaned ip afterwards!
+MACRO Prepare()
+{
+  testfw->BeginWork();
+
+  testfw->SetupTestWebsite( testfw->GetModuleTestBlob("webhare_testsuite","publisher/testdata/linktest.zip") );
+
+  //move all the items one level up for proper further testing..
+  OBJECT linktestfolder := testfw->GetTestSite()->rootobject->OpenbyName("linktest");
+  TestEq(TRUE, objectExists(linktestfolder));
+  FOREVERY(INTEGER childitem FROM (SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent=linktestfolder->id))
+  {
+    OpenWHFSObject(childitem)->MoveTo(testfw->GetTestSite()->rootobject, "");
+  }
+
+  //fix default.tpl
+  OBJECT defaulttpl := testfw->GetTestSite()->OpenByPath("default.tpl");
+  defaulttpl->UpdateData(StringToBlob(Substitute(BlobToString(defaulttpl->data),'GetPublisherVersion()','"X"')));
+
+  testfw->CommitWork();
+}
+
+MACRO LinkTest()
+{
+  RECORD publishres;
+  OBJECT document;
+  OBJECT links;
+
+  // Wait for publications using default.tpl to complete before modifying it
+  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+
+  // http://127.0.0.1:39124/nonindex/
+  publishres := RunFilePublish(testfw->GetTestSite()->OpenByPath("index.doc")->id, FALSE);
+  IF (NOT publishres.success)
+    DumpValue(publishres, "tree");
+  TestEq(TRUE, publishres.success);
+
+  BLOB filedata := SELECT AS BLOB data FROM publishres.files WHERE name="index.html";
+  document := MakeXMLDocumentFromHTML(filedata);
+  links := document->GetElementsByTagName('a');
+
+  TestEq("./",                       links->Item(0)->getAttribute("href"));
+  TestEq("nonindex/",                links->Item(1)->getAttribute("href"));
+  TestEq("subfolder/",               links->Item(2)->getAttribute("href"));
+  TestEq("subfolder/nonindex/",      links->Item(3)->getAttribute("href"));
+
+  TestEq("./",                       links->Item(4)->getAttribute("href"));
+  TestEq("nonindex/",                links->Item(5)->getAttribute("href"));
+  TestEq("subfolder/",               links->Item(6)->getAttribute("href"));
+  TestEq("subfolder/nonindex/",      links->Item(7)->getAttribute("href"));
+
+  //http://127.0.0.1:39124/nonindex/
+  publishres := RunFilePublish(testfw->GetTestSite()->OpenByPath("nonindex.doc")->id, FALSE);
+  //dumpvalue(publishres,'tree');
+  TestEq(TRUE, publishres.success);
+  //all links should be absolute for the checker
+  TestEq(TRUE, Length(publishres.checkablelinks) > 0);
+  TestEq(DEFAULT RECORD ARRAY, (SELECT * FROM publishres.checkablelinks WHERE NOT IsAbsoluteURL(link, FALSE)));
+  document := MakeXMLDocumentFromHTML( (SELECT AS BLOB data FROM publishres.files WHERE name="index.html") );
+  links := document->GetElementsByTagName('a');
+
+  TestEq("../",                        links->Item(0)->getAttribute("href"));
+  TestEq("./",                         links->Item(1)->getAttribute("href"));
+  TestEq("../subfolder/",              links->Item(2)->getAttribute("href"));
+  TestEq("../subfolder/nonindex/", links->Item(3)->getAttribute("href"));
+
+  TestEq("../",                        links->Item(4)->getAttribute("href"));
+  TestEq("./",                         links->Item(5)->getAttribute("href"));
+  TestEq("../subfolder/",              links->Item(6)->getAttribute("href"));
+  TestEq("../subfolder/nonindex/", links->Item(7)->getAttribute("href"));
+
+  // http://127.0.0.1:39124/subfolder/
+  publishres := RunFilePublish(testfw->GetTestSite()->OpenByPath("subfolder/index.doc")->id, FALSE);
+  TestEq(TRUE, publishres.success);
+  document := MakeXMLDocumentFromHTML( (SELECT AS BLOB data FROM publishres.files WHERE name="index.html") );
+  links := document->GetElementsByTagName('a');
+
+  TestEq("../",              links->Item(0)->getAttribute("href"));
+  TestEq("../nonindex/", links->Item(1)->getAttribute("href"));
+  TestEq("./",               links->Item(2)->getAttribute("href"));
+  TestEq("nonindex/",    links->Item(3)->getAttribute("href"));
+
+  TestEq("../",              links->Item(4)->getAttribute("href"));
+  TestEq("../nonindex/", links->Item(5)->getAttribute("href"));
+  TestEq("./",               links->Item(6)->getAttribute("href"));
+  TestEq("nonindex/",    links->Item(7)->getAttribute("href"));
+
+  // http://127.0.0.1:39124/subfolder/nonindex/
+  publishres := RunFilePublish(testfw->GetTestSite()->OpenByPath("subfolder/nonindex.doc")->id, FALSE);
+  TestEq(TRUE, publishres.success);
+  document := MakeXMLDocumentFromHTML( (SELECT AS BLOB data FROM publishres.files WHERE name="index.html") );
+  links := document->GetElementsByTagName('a');
+
+  TestEq("../../",              links->Item(0)->getAttribute("href"));
+  TestEq("../../nonindex/", links->Item(1)->getAttribute("href"));
+  TestEq("../",                 links->Item(2)->getAttribute("href"));
+  TestEq("./",                  links->Item(3)->getAttribute("href"));
+
+  TestEq("../../",              links->Item(4)->getAttribute("href"));
+  TestEq("../../nonindex/", links->Item(5)->getAttribute("href"));
+  TestEq("../",                 links->Item(6)->getAttribute("href"));
+  TestEq("./",                  links->Item(7)->getAttribute("href"));
+
+  // http://127.0.0.1:39124/linkfixtests/
+  publishres := RunFilePublish(testfw->GetTestSite()->OpenByPath("linkfixtests.doc")->id, FALSE);
+  TestEq(TRUE, publishres.success);
+  document := MakeXMLDocumentFromHTML( (SELECT AS BLOB data FROM publishres.files WHERE name="index.html") );
+  links := document->GetElementsByTagName('a');
+
+  TestEq("../",                                   links->Item(0)->getAttribute("href"));
+  TestEq("../nonindex/",                      links->Item(1)->getAttribute("href"));
+  TestEq("../subfolder/",                         links->Item(2)->getAttribute("href"));
+  TestEq("../subfolder/nonindex/",            links->Item(3)->getAttribute("href"));
+  TestEq("../",                                   links->Item(4)->getAttribute("href"));
+  TestEq("../subfolder/",                         links->Item(5)->getAttribute("href"));
+  TestEq("../subfolder/",                         links->Item(6)->getAttribute("href"));
+  TestEq("../",                                   links->Item(7)->getAttribute("href"));
+  TestEq("../subfolder/",                         links->Item(8)->getAttribute("href"));
+  TestEq("../subfolder/",                         links->Item(9)->getAttribute("href"));
+  TestEq("../subfolder/",                         links->Item(10)->getAttribute("href"));
+  TestEq("../subfolder/nonindex/",            links->Item(11)->getAttribute("href"));
+
+  TestEq("../subfolder/?id=0",                    links->Item(12)->getAttribute("href"));
+  TestEq("../subfolder/#begin",                   links->Item(13)->getAttribute("href"));
+  TestEq("../subfolder/#begin?id=0",              links->Item(14)->getAttribute("href"));
+  TestEq("../subfolder/?id=0#begin",              links->Item(15)->getAttribute("href"));
+  TestEq("../subfolder/nonindex/?id=0",       links->Item(16)->getAttribute("href"));
+  TestEq("../subfolder/nonindex/#begin",      links->Item(17)->getAttribute("href"));
+  TestEq("../subfolder/nonindex/#begin?id=0", links->Item(18)->getAttribute("href"));
+  TestEq("../subfolder/nonindex/?id=0#begin", links->Item(19)->getAttribute("href"));
+}
+
+MACRO SubpageUrlTest()
+{
+  //linktest is also a nice candidate for some GetFileSubpageURL tests
+  OBJECT indexdoc := testfw->GetTestSite()->rootobject->OpenByPath("index.doc");
+  TEstEq(TRUE, ObjectExists(indexdoc));
+
+  TestEq("http://127.0.0.1:39124/index/webhare.css", GetFileSubpageURL(indexdoc->id,"webhare.css"));
+
+  OBJECT linkfixtestsdoc := testfw->GetTestSite()->rootobject->OpenByPath("linkfixtests.doc");
+  TEstEq(TRUE, ObjectExists(linkfixtestsdoc));
+
+  TestEq("http://127.0.0.1:39124/linkfixtests/sub1.html", GetFileSubpageURL(linkfixtestsdoc->id,"sub1.html"));
+  TestEq("http://127.0.0.1:39124/", GetFileSubpageURL(indexdoc->id,"index.html"));
+
+  testfw->BeginWork();
+  OBJECT mesahtml := testfw->GetTestSite()->rootobject->CreateFile([name:="mesa.html", type := 5]);
+  TestEq("http://127.0.0.1:39124/mesa.html", GetFileSubpageURL(mesahtml->id,"mesa.html"));
+  TestEq("http://127.0.0.1:39124/^mesa.html/index.html", GetFileSubpageURL(mesahtml->id,"index.html"));
+
+  testfw->GetTestSite()->rootobject->UpdateMetadata([indexdoc := mesahtml->id]);
+  TestEq("http://127.0.0.1:39124/index/", GetFileSubpageURL(indexdoc->id,"index.html"));
+  TestEq("http://127.0.0.1:39124/", GetFileSubpageURL(mesahtml->id,"index.html"));
+
+  testfw->RollbackWork(); //don't disturb the next linktest_rtd run
+
+  // Wait for the publisher to complete before cleaning up
+  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+}
+
+RunTestFramework( [ PTR Prepare
+                  , PTR LinkTest
+                  , PTR SubpageUrlTest
+                  ], [ requireport := 39124 ]); //the test has hardcoded links

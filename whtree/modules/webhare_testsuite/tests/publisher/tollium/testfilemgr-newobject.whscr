@@ -1,0 +1,127 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+ASYNC MACRO DynFolderIndex() //test issues with dynamic folders not getting the proper index file
+{
+  //Create a dynfodler
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ GetTestsuiteTempFolder()->whfspath ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "webdesign-dynfolder (webhare_testsuite)";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  TT("name")->value := "dynfolder";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  OBJECT indexdoc := OpenWHFSObject(GetTestsuiteTempFolder()->OpenByPath("dynfolder")->indexdoc);
+  TestEq(TRUE, ObjectExists(indexdoc));
+  TestEq("http://www.webhare.net/xmlns/publisher/dynamicfoldercontents", indexdoc->typens);
+
+  tt("frame")->focused := tt("filelist");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("editfileorfoldertype"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Normal folder";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  indexdoc := OpenWHFSObject(GetTestsuiteTempFolder()->OpenByPath("dynfolder")->indexdoc);
+  TestEq("http://www.webhare.net/xmlns/publisher/contentlisting", indexdoc->typens);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("editfileorfoldertype"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "webdesign-dynfolder (webhare_testsuite)";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  indexdoc := OpenWHFSObject(GetTestsuiteTempFolder()->OpenByPath("dynfolder")->indexdoc);
+  TestEq("http://www.webhare.net/xmlns/publisher/dynamicfoldercontents", indexdoc->typens);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("editfileorfoldertype"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "webdesign-dynrouter (webhare_testsuite)";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  indexdoc := OpenWHFSObject(GetTestsuiteTempFolder()->OpenByPath("dynfolder")->indexdoc);
+  TestEq("http://www.webhare.net/xmlns/publisher/dynamicfoldercontents", indexdoc->typens);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+}
+
+ASYNC MACRO CreateUsingTemplates()
+{
+  OBJECT created;
+
+  //Create a file from 'imgeditfile.jpeg'
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ GetTestsuiteTempFolder()->whfspath ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "imgeditfile.jpeg";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  TestEq(TRUE, TT("publish")->value);
+  TT("publish")->value := FALSE;
+  TT("title")->value := "ImgEditFile";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  created := GetTestsuiteTempFolder()->OpenByName("imgeditfile.jpeg");
+  TestEq(TRUE, ObjectExists(created));
+  TestEq(FALSE, created->ispinned); //do not duplicate the pin
+  TestEq(FALSE, created->publish); //not marked as 'publish' as we explicitly disabled it
+  TestEq("ImgEditFile", created->title);
+
+  //Create a file from 'index.rtd'
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "index.rtd";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  TestEq(FALSE, TT("publish")->value);
+  TT("publish")->value := TRUE;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  created := GetTestsuiteTempFolder()->OpenByName("index.rtd");
+  testfw->BeginWork();
+  created->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", [ anyfield := "TestDuplication" ]);
+  testfw->CommitWork();
+  TestEq(TRUE, ObjectExists(created));
+  TestEq(TRUE, created->publish); //marked as 'publish'
+
+  //Create a folder from 'foldertemplate'
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Testsuite Folder Template";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  created := GetTestsuiteTempFolder()->OpenByName("foldertemplate"); //it's still named after the file, even though it had a different title
+  TestEq(TRUE, ObjectExists(created));
+  TestEq(FALSE, created->ispinned); //do not duplicate the pin
+  TestEq(TRUE, ObjectExists(created->OpenByPath("sub")));
+  TestEQ(TRUE, created->indexdoc != 0);
+  TestEq("staticpage", OpenWHFSObject(created->indexdoc)->name);
+  TestEq(created->indexdoc, created->OpenByPath("sub/internallink")->filelink);
+  TestEq(created->indexdoc, created->OpenByPath("sub/contentlink")->filelink);
+  TestEq("https://www.webhare.dev/", created->OpenByPath("sub/externallink")->url);
+
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "index.rtd";
+  topscreen->frame->focused := TT("filelist");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
+  TestEq("index-1.rtd", TT("name")->value);
+  TestEq("TestDuplication", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", "anyfield")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  created := GetTestsuiteTempFolder()->OpenByName("index-1.rtd");
+  TestEq(TRUE, ObjectExists(created));
+
+  // New folder in root (just accessing the dialog, but that already broke in 4.18)
+  topscreen->frame->focused := TT("foldertree");
+  TT("foldertree")->value := 0;
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+
+  // New file in root (just accessing the dialog, but that already broke in 4.18)
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+}
+
+RunTestframework([ PTR DynFolderIndex
+                 , PTR CreateUsingTemplates
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]]);
+

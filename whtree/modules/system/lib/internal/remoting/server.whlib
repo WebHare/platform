@@ -1,0 +1,546 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/errors.whlib";
+LOADLIB "mod::system/lib/internal/remoting/rpclibhandler.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+LOADLIB "mod::system/lib/internal/remoting/transports.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+
+// Methods which are allowed in HTTP access control requests (uppercase!)
+STRING ARRAY accesscontrol_allowedmethods := [ "GET", "HEAD", "POST", "OPTIONS" ];
+
+// Custom headers which are allowed in HTTP access control requests (lowercase!)
+STRING ARRAY accesscontrol_allowedheaders := [ "content-type" // Required for Firefox
+                                             , "origin" // Required for Chrome
+                                             , "accept", "x-request", "x-requested-with" // Sent by the MooTools Request object
+                                             ];
+
+// Headers which may be accessed by the browser requesting a CORS resource, in addition to the 'simple response headers' which
+// are allowed by default (see http://www.w3.org/TR/cors/#simple-response-header): Cache-Control, Content-Language,
+// Content-Type, Expires, Last-Modified and Pragma (case doesn't matter, using lowercase for consistency with
+// accesscontrol_allowedheaders)
+STRING ARRAY accesscontrol_exposedheaders := [ "content-length", "date" ];
+
+OBJECT trans;
+
+MACRO LogFilePrint(STRING prefix, STRING msg)
+{
+  FOREVERY (STRING line FROM Tokenize(msg, "\n"))
+    LogWebserverError(prefix || ": " || line);
+}
+
+MACRO SetupLogging(RECORD servicedef, RECORD callinfo)
+{
+  IF (callinfo.modulename != "" AND callinfo.servicename != "")
+    debugconfig := servicedef.debugsettings;
+}
+
+BOOLEAN FUNCTION HandleRightsAndPermissions(RECORD servicedef, RECORD callinfo)
+{
+  //Verify authentication/authorization, and do rights drop
+  INTEGER userid;
+  RECORD userrec;
+  BOOLEAN success := TRUE;
+  BOOLEAN requireauth := servicedef.require_whauth = TRUE;
+
+  IF(requireauth)
+  {
+    IF(NOT ObjectExists(trans))
+      trans := OpenPrimary();
+
+    INTEGER currententityid := GetAuthenticatedWebhareUserEntityId();
+    IF(currententityid = 0)
+      THROW NEW Exception("Not authenticated");
+
+    OBJECT userapi := GetCurrentUserAPI();
+    __SetEffectiveUser(userapi->GetTolliumUserFromEntityId(currententityid));
+  }
+
+  RECORD switchres;
+
+  // Having a webhare account is enough to access documentation
+  IF(success)
+  {
+    IF(NOT ObjectExists(trans) AND servicedef.keeptrans)
+      trans := OpenPrimary();
+
+    // Access check is already handled by the access control script
+    switchres := ApplyAccessCheck(DEFAULT RECORD, TRUE, GetEffectiveUser());
+    success := RecordExists(switchres) AND switchres.success;
+
+    IF(servicedef.keeptrans)
+    {
+      //IF(NOT ObjectExists(trans))
+      //  trans := OpenPrimary();
+      IF(NOT servicedef.makeautotrans)
+        trans->BeginWork();
+    }
+    ELSE
+    {
+      IF(ObjectExists(trans))
+      {
+        trans->Close();
+        trans := DEFAULT OBJECT;
+        SetPrimaryWebhareTransaction(0);
+      }
+    }
+  }
+
+  IF(NOT success)
+  {
+    IF(requireauth)
+      THROW NEW Exception("Shouldn't have gotten here, rpc.whscr should have prevented access");
+
+    AddHTTPHeader("Status","403",FALSE); //forbidden. no way to get around it, as requirewhaccount is off
+    success := FALSE;
+  }
+
+  RETURN success;
+}
+
+RECORD FUNCTION HandleCrossOriginResourceSharing(RECORD servicedef)
+{
+  // See http://www.w3.org/TR/cors/ and https://developer.mozilla.org/en/http_access_control
+  STRING originheadervalue := GetWebHeader("Origin");
+  IF (originheadervalue = "")
+    RETURN DEFAULT RECORD;
+
+  RECORD result := [ success := FALSE
+                   , origin := ""
+                   , preflight := GetRequestMethod() = "OPTIONS"
+                   , errormsg := ""
+                   ];
+
+  RECORD urlinfo := UnpackURL(GetRequestURL());
+
+  // Check if one the supplied origin is allowed by one of the cross-domain origins
+  // For preflight requests (using method "OPTIONS"), only one origin is permitted
+  FOREVERY (STRING checkorigin FROM result.preflight ? [ originheadervalue ] : Tokenize(originheadervalue, " "))
+  {
+    RECORD origininfo := UnpackURL(checkorigin);
+    // Always allow current host
+    IF(urlinfo.host = origininfo.host AND urlinfo.port = origininfo.port)
+    {
+      result.origin := checkorigin;
+      result.success := TRUE;
+    }
+    ELSE
+    {
+      //rewrite origin to remove default ports
+      checkorigin := origininfo.scheme || "://" || origininfo.host || (origininfo.isdefaultport ? "" : ":" || origininfo.port);
+      STRING checkoriginhostport := origininfo.host || (origininfo.isdefaultport ? "" : ":" || origininfo.port);
+      FOREVERY (STRING originmask FROM servicedef.crossdomainorigins)
+      {
+        IF (ToUppercase(checkorigin) LIKE ToUppercase(originmask) OR ToUppercase(checkoriginhostport) LIKE ToUppercase(originmask))
+        {
+          result.origin := checkorigin;
+          result.success := TRUE;
+          BREAK;
+        }
+      }
+    }
+    IF (result.success)
+      BREAK;
+  }
+  IF (NOT result.success)
+  {
+    result.errormsg := "Cannot match origin '" || originheadervalue || "' with list of origins";
+    RETURN result;
+  }
+
+  IF (result.preflight)
+  {
+    // Check if the requested method is allowd
+    STRING method := GetWebHeader("Access-Control-Request-Method");
+    IF (method = "" OR method NOT IN accesscontrol_allowedmethods)
+    {
+      result.success := FALSE;
+      result.errormsg := "Cannot match request method '" || method || "' with list of methods";
+      RETURN result;
+    }
+
+    // Check if the requested headers are allowed
+    STRING headers := GetWebHeader("Access-Control-Request-Headers");
+    IF (headers != "")
+    {
+      FOREVERY (STRING header FROM Tokenize(headers, ","))
+        IF (ToLowercase(TrimWhitespace(header)) NOT IN accesscontrol_allowedheaders)
+        {
+          result.success := FALSE;
+          result.errormsg := "Cannot match request header '" || TrimWhitespace(header) || "' with list of headers";
+          RETURN result;
+        }
+    }
+  }
+  RETURN result;
+}
+
+RECORD FUNCTION DetermineTransport(RECORD callinfo, STRING contenttype, BLOB request, BOOLEAN iswebsocket)
+{
+  OBJECT transport;
+  BOOLEAN allow_getresource := FALSE;
+
+  IF(ToUppercase(callinfo.functionname)="GETRESOURCE") //this is a special call
+  {
+    transport := GetResourceTransport();
+    allow_getresource := TRUE;
+  }
+  ELSE
+  {
+    transport := GetTransportFromRequest(request, contenttype, iswebsocket);
+  }
+
+  RETURN
+      [ allow_getresource :=    allow_getresource
+      , transport :=            transport
+      ];
+}
+
+
+BOOLEAN FUNCTION ExecuteErrorsReturn(RECORD tp, RECORD callinfo, BLOB request, RECORD ARRAY errors)
+{
+  RECORD encoded_result;
+
+  STRING contenttype := GetMIMEHeaderParameter(GetWebHeader("Content-Type"),"");
+
+  OBJECT transport := tp.transport;
+
+  RECORD reqdata := transport->DecodeRequest(request, callinfo.functionname);
+  encoded_result := transport->EncodeErrors(errors, reqdata.requesttoken);
+
+  FOREVERY (RECORD header FROM encoded_result.headers)
+    AddHTTPHeader(header.field, header.value, FALSE);
+
+  SendBlobTo(0, encoded_result.data);
+  RETURN TRUE;
+}
+
+STRING FUNCTION GetPrintableRawData(BLOB data)
+{
+  INTEGER stream := OpenBlobAsFile(data);
+  STRING ARRAY res;
+
+  WHILE(TRUE)
+  {
+    STRING line := ReadLineFrom(stream, 450,TRUE);
+    IF(line!="")
+      INSERT line INTO res AT END;
+    ELSE IF(IsAtEndOfStream(stream))
+      BREAK;
+  }
+  CloseBlobFile(stream);
+  RETURN Detokenize(res, "\n");
+}
+
+
+STRING FUNCTION FormatExceptionTraceLine(RECORD line)
+{
+  RETURN line.filename || " (" || line.line || "," || line.col || ")" || (line.func = "" ? "" : ": " || line.func);
+}
+
+BOOLEAN FUNCTION ExecuteServiceCall(RECORD tp, RECORD servicedef, RECORD callinfo, BLOB request, BOOLEAN iswebsocket)
+{
+  OBJECT transport;
+  BOOLEAN allow_getresource;
+
+  transport := tp.transport;
+  allow_getresource := tp.allow_getresource;
+
+  IF (ObjectExists(transport))
+  {
+    // Transport exists: handle persistent sessions if needed
+    RECORD encoded_result := transport->HandlePersistentSessions(GetRequestBody(), GetWebVariable("whs-srh"));
+    IF (RecordExists(encoded_result))
+    {
+      IF (debugconfig.log_raw_responses)
+        LogDebug("system:console", "Outgoing raw response:\n" || GetPrintableRawData(encoded_result.data));
+
+      FOREVERY (RECORD header FROM encoded_result.headers)
+        AddHTTPHeader(header.field, header.value, FALSE);
+
+      SendBlobTo(0, encoded_result.data);
+      RETURN TRUE;
+    }
+  }
+
+//  // Setup a transaction
+//  SetupTransaction(servicedef);
+
+  // configure logging
+  SetupLogging(servicedef, callinfo);
+
+  // Load the RPC lib, before the authentication drop (need DB access)
+  OBJECT rpclib := OpenCachedRPCLibrary(callinfo.rpclibname, allow_getresource);
+  IF(NOT ObjectExists(rpclib))
+    THROW NEW Exception(`Unable to open RPC library '${callinfo.rpclibname}'`); //now that we have 'etr' it's save to tell the library
+
+  RECORD reqdata;
+  OBJECT decodeexception;
+
+  TRY
+  {
+    IF (ObjectExists(transport) AND NOT iswebsocket)
+    {
+      reqdata := transport->DecodeRequest(request, callinfo.functionname);
+
+      RECORD authrec := GetAuthenticationRecord();
+      INSERT CELL remoting := [ functionname := reqdata.functionname ] INTO authrec;
+      SetAuthenticationRecord(authrec);
+    }
+  }
+  CATCH (OBJECT<RPCBadRequestException> e)
+  {
+    THROW e;
+  }
+  CATCH (OBJECT e)
+  {
+    decodeexception := e;
+  }
+
+  // Login and privilege drop
+  BOOLEAN rip_result := HandleRightsAndPermissions(servicedef, callinfo);
+  IF (debugconfig.log_raw_requests)
+    LogDebug("system:console", "Incoming raw request:\n" || GetPrintableRawData(GetRequestBody()));
+
+  IF (NOT rip_result)
+    RETURN TRUE;
+
+  IF (NOT ObjectExists(transport))
+  {
+    AddHTTPHeader("Status","400", FALSE);
+    Print("<!DOCTYPE html>\n");
+    Print('<html><head><meta charset="utf-8" />\n');
+    Print('<title>400 Bad request</title></head>\n');
+    Print('<body><h1>400 Bad request</h1>\n');
+    Print('<p>The page you are you trying to open is a <a href="https://en.wikipedia.org/wiki/Web_service">web service</a> and is unfortunately not intended to be accessible or useful to humans.<br/><br/>\n');
+    Print('If you\'re not a human, but an application trying to access this URL, your request was not recognized as a service request and you should probably verify the request method (eg, POST, PUT), Content-Type and message body.</p>\n');
+    Print('\n<!-- SWYgeW91J3J lIG5vdCBhIG h1bWFuIGFu ZCBub3QgYW 4gYXBwbGlj YXRpb24sIH RoaXMgc2Vy dmVyIHNhbH V0ZXMgaXRz IG5ldyBtaWN lIG92ZXJsb 3JkcywgYW5k IHdlIHRoYW5 rIHlvdSBmb 3IgdGhlIGN vbnN0cnVjd GlvbiBvZiBv dXIgZWFydGg --><hr>\n\n');
+    Print("</body></html>" || RepeatText(" ",1024)); //1024 bytes of spaces to avoid MSIE's error suppression
+    RETURN TRUE;
+  }
+
+  IF (ObjectExists(transport) AND iswebsocket)
+    reqdata := transport->DecodeRequest(request, callinfo.functionname);
+
+  BOOLEAN profile := (RecordExists(debugconfig) AND debugconfig.profile) OR "apr" IN Tokenize(GetWebCookie("wh-debug"),".");
+
+  RECORD encoded_result;
+  DATETIME start;
+
+  TRY
+  {
+    IF (ObjectExists(decodeexception))
+      THROW decodeexception;
+
+    IF(profile)
+    {
+      start := GetCurrentDateTime();
+      Enablefunctionprofile();
+    }
+    IF (debugconfig.log_decoded_requests)
+      LogDebug("system:console", "Incoming request:\n" || AnyToString(reqdata, "tree"));
+
+    FUNCTION PTR func := rpclib->LookupFunction(servicedef.prefix || reqdata.functionname);
+
+    IF (IsDefaultValue(func))
+    {
+      LogDebug("system:console", "Function '" || servicedef.prefix || reqdata.functionname || "' not found.\n");
+      encoded_result := transport->EncodeMissingFunction(reqdata.functionname, reqdata.requesttoken);
+    }
+    ELSE
+    {
+      // ADDME: cancastto checks
+      RECORD res := DoCheckedVarArgsCall(func, reqdata.args, servicedef.prefix || reqdata.functionname);
+
+      IF (debugconfig.log_decoded_responses)
+        LogDebug("system:console", "Outgoing response:\n" || AnyToString(res, "tree"));
+
+      encoded_result := transport->EncodeResponse(res.is_macro, res.result, GetCurrentGroupId(), reqdata.requesttoken);
+    }
+  }
+  CATCH (OBJECT<RPCBadRequestException> e)
+  {
+    THROW e;
+  }
+  CATCH (OBJECT e)
+  {
+    STRING lines;
+    IF (debugconfig.log_decoded_responses OR NOT RecordExists(reqdata))
+    {
+      FOREVERY (RECORD line FROM e->trace)
+        lines := lines || "\n#" || #line || " " || FormatExceptionTraceLine(line);
+      lines := lines || "\n";
+    }
+    ELSE
+    {
+      // Show last 5 positions
+      FOREVERY (RECORD line FROM e->trace)//ArraySlice(e->trace, 0, 5))
+        lines := lines || "\n#" || #line || " " || FormatExceptionTraceLine(line);
+    }
+
+    IF (RecordExists(reqdata))
+      LogDebug("system:console", `Exception thrown in call to '${reqdata.functionname}': ${e->what || lines}`);
+    ELSE
+      LogDebug("system:console", `Exception thrown: ${e->what || lines}`);
+
+    IF (e NOT EXTENDSFROM RPCInvalidArgsException)
+      LogHarescriptException(e);
+
+    encoded_result := transport->EncodeException(e, RecordExists(reqdata) ? reqdata.requesttoken : DEFAULT RECORD);
+  }
+
+  IF (debugconfig.log_raw_responses)
+    LogDebug("system:console", "Outgoing raw response:\n" || GetPrintableRawData(encoded_result.data));
+
+  FOREVERY (RECORD header FROM encoded_result.headers)
+    AddHTTPHeader(header.field, header.value, FALSE);
+
+  IF(profile)
+  {
+    DisableFunctionProfile();
+    ReportFunctionProfile(
+          "webserver",
+          GetRequestMethod() || " " || GetRequestUrl(), //FIXME better command for eg JSON
+          [ start := start ]);
+  }
+
+  ResetWebResponse();
+  IF (NOT transport->TrySendResult(encoded_result))
+    SendBlobTo(0, encoded_result.data);
+
+  IF (encoded_result.keeprunning)
+    transport->Persist();
+
+  RETURN TRUE;
+}
+
+PUBLIC MACRO RunRequest(RECORD ARRAY errors, STRING error_groupid, BOOLEAN iswebsocket)
+{
+  // Should not have a primary transaction anymore
+  IF (ObjectExists(GetPrimaryWebhareTransactionObject()))
+    ABORT("Have primary transaction!");
+
+  STRING url := GetRequestURL();
+  IF(SearchSubstring(url,';')!=-1)
+    url:=Left(url, SearchSubstring(url,';'));
+  IF(SearchSubstring(url,'?')!=-1)
+    url:=Left(url, SearchSubstring(url,'?'));
+
+  STRING hostbaseurl; //the URL hosting services, /wh-services/modulename/
+  STRING modulename;
+
+  // Allow .whsock at the end, nginx recognizes websocket connections on that postfix
+  IF (url LIKE "*.whsock")
+    url := Left(url, LENGTH(url) - 7);
+
+  STRING ARRAY urltoks := Tokenize(url,"/");
+
+  IF(Length(urltoks) >= 5)
+    modulename := DecodeURL(urltoks[4]);
+
+  IF(modulename = "")
+  {
+    AddHTTPHeader("Status", "404", FALSE);
+    RETURN;
+  }
+  hostbaseurl := Detokenize(ArraySlice(urltoks, 0, 4),"/") || "/";
+  urltoks := ArraySlice(urltoks, 5);
+
+  //Resolve the module and service provider
+  RECORD callinfo := [ modulename := modulename
+                     , servicename := Length(urltoks) >= 1 ? urltoks[0] : ""
+                     , functionname := Length(urltoks) >= 2 ? urltoks[1] : ""
+                     , rpclibname := ""
+                     ];
+
+  RECORD servicedef := GetServiceDefinition(callinfo.modulename, callinfo.servicename);
+  IF(NOT RecordExists(servicedef))
+  {
+    AddHTTPHeader("Status","404",FALSE);
+    RETURN;
+  }
+
+  // Check if we have to send HTTP access control headers
+  RECORD accesscontrol := HandleCrossOriginResourceSharing(servicedef);
+  IF (RecordExists(accesscontrol))
+  {
+    IF (accesscontrol.success)
+    {
+      // Add the necessary HTTP access control headers
+      AddHTTPHeader("Access-Control-Allow-Origin", accesscontrol.origin, FALSE);
+      AddHTTPHeader("Access-Control-Allow-Methods", Detokenize(accesscontrol_allowedmethods, ", "), FALSE);
+      AddHTTPHeader("Access-Control-Allow-Headers", Detokenize(accesscontrol_allowedheaders, ", "), FALSE);
+      AddHTTPHeader("Access-Control-Expose-Headers", Detokenize(accesscontrol_exposedheaders, ", "), FALSE);
+      AddHTTPHeader("Access-Control-Allow-Credentials", "true", FALSE); // Allow, not require credentials, set just in case authentication is required
+      AddHTTPHeader("Access-Control-Max-Age", ToString(maxservicedefinitionage), FALSE);
+    }
+    ELSE
+    {
+      // We have checked the requested origin, but it's not allowed
+      LogWebserverError(callinfo.modulename || "." || callinfo.servicename || ": Cross domain error: " || accesscontrol.errormsg);
+
+      // If this is a preflight request, add a custom header with the error message for debugging purposes
+      IF (accesscontrol.preflight)
+        AddHTTPHeader("X-WebHare-CORS-Error", accesscontrol.errormsg, FALSE);
+    }
+  }
+
+  //Add any addheaders unconditionally
+  FOREVERY(RECORD hdr FROM servicedef.addheaders)
+    AddHTTPHeader(hdr.field, hdr.value, TRUE);
+
+  // If this is an OPTIONS request, just return an Allow header
+  IF (GetRequestMethod() = "OPTIONS")
+  {
+    AddHTTPHeader("Allow", Detokenize(accesscontrol_allowedmethods, ", "), FALSE);
+  }
+  ELSE
+  {
+    callinfo.rpclibname := servicedef.library;
+
+    RECORD tp;
+    BLOB request := GetRequestBody();
+    STRING contenttype := GetMIMEHeaderParameter(GetWebHeader("Content-Type"),"");
+    tp := DetermineTransport(callinfo, contenttype, request, iswebsocket);
+
+    IF(Length(errors) != 0 AND NOT ObjectExists(tp.transport))
+    {
+      CreateHarescriptErrorPage((SELECT * FROM errors WHERE iserror), (SELECT * FROM errors WHERE istrace));
+    }
+    ELSE IF (ObjectExists(tp.transport) AND tp.transport->transportname != "" AND tp.transport->transportname NOT IN servicedef.transports)
+    {
+      // Allow jsonrpc to query errors for websocket transport
+      IF (LENGTH(errors) = 0 OR tp.transport->transportname != "jsonrpc")
+      {
+        AddHTTPHeader("Status", "403 Transport " || tp.transport->transportname || " not accepted", FALSE);
+        SendWebFile(StringToBlob("The transport " || tp.transport->transportname || " is not accepted by this endpoint"));
+      }
+
+      ExecuteErrorsReturn(tp, callinfo, request, errors);
+    }
+    ELSE
+    {
+      /* FIXME: If a POST request comes in, but Content-Type is not text/xml (or any recognized RPC type)
+                don't respond with documentation, but state the probable error */
+      IF (LENGTH(errors) != 0)
+        ExecuteErrorsReturn(tp, callinfo, request, errors);
+      ELSE
+        ExecuteServiceCall(tp, servicedef, callinfo, request, iswebsocket);
+    }
+  }
+
+  IF (ObjectExists(trans))
+    trans->Close();
+}

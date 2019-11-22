@@ -1,0 +1,541 @@
+﻿<?wh
+/** @topic harescript-utils/comparisons */
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::files.whlib";
+
+
+STATIC OBJECTTYPE DiffPrinter
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN need_intro;
+
+  INTEGER minstart;
+  INTEGER plusstart;
+
+  STRING ARRAY difflines;
+
+  RECORD ARRAY diffs;
+
+  INTEGER contextlen;
+
+  BOOLEAN pvt_trimwhitespace;
+
+  BLOB oldv;
+  BLOB newv;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY context_lines(contextlen, contextlen);
+
+  PUBLIC PROPERTY trimwhitespace(pvt_trimwhitespace, pvt_trimwhitespace);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->contextlen := 3;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC RECORD ARRAY FUNCTION GetDifferences()
+  {
+    this->diffs := DEFAULT RECORD ARRAY;
+
+    STRING ARRAY a;
+    STRING ARRAY b;
+
+    IF (this->pvt_trimwhitespace)
+    {
+      a := Tokenize(BlobToString(this->oldv, Length(this->oldv)), "\n");
+      b := Tokenize(BlobToString(this->newv, Length(this->newv)), "\n");
+
+      FOREVERY (STRING s FROM a)
+        a[#s] := TrimWhiteSpace(s);
+      FOREVERY (STRING s FROM b)
+        b[#s] := TrimWhiteSpace(s);
+    }
+    ELSE
+    {
+      a := Tokenize(SubStitute(BlobToString(this->oldv, Length(this->oldv)), "\r", "\\r"), "\n");
+      b := Tokenize(SubStitute(BlobToString(this->newv, Length(this->newv)), "\r", "\\r"), "\n");
+    }
+
+    this->DoWork(a, b);
+    RETURN this->diffs;
+  }
+
+
+  PUBLIC MACRO LoadOldVersion(BLOB oldversion)
+  {
+    this->oldv := oldversion;
+  }
+
+
+  PUBLIC MACRO LoadNewVersion(BLOB newversion)
+  {
+    this->newv := newversion;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO MoveDiff()
+  {
+    IF (LENGTH(this->difflines) != 0)
+    {
+      INTEGER minl, plusl;
+      FOREVERY (STRING d FROM this->difflines)
+      {
+        IF (d NOT LIKE "+*")
+          minl := minl + 1;
+        IF (d NOT LIKE "-*")
+          plusl := plusl + 1;
+      }
+
+      INSERT
+        [ minstart :=   this->minstart
+        , plusstart :=  this->plusstart
+        , minlines :=   minl
+        , pluslines :=  plusl
+        , lines :=      this->difflines
+        ] INTO this->diffs AT END;
+
+      this->difflines := DEFAULT STRING ARRAY;
+    }
+  }
+
+  MACRO InitIntro(INTEGER xa, INTEGER xb)
+  {
+    this->MoveDiff();
+
+    this->minstart := xa;
+    this->plusstart := xb;
+  }
+
+
+  MACRO DoWork(STRING ARRAY a, STRING ARRAY b)
+  {
+    RECORD ARRAY d := Diff(a, b).path;
+
+    INTEGER xa, xb;
+
+    BOOLEAN need_intro := TRUE;
+    FOREVERY (RECORD r FROM d)
+    {
+      SWITCH (r.type)
+      {
+      CASE "b"
+        {
+          IF (LENGTH(d) != 1)
+          {
+            IF (r.len <= 2* this->contextlen)
+            {
+              IF (need_intro)
+              {
+                this->InitIntro(xa, xb);
+//                PRINT("old: " || xa || ", new: " || xb || "\n");
+                need_intro := FALSE;
+              }
+
+              FOR (INTEGER i := 0; i < r.len; i := i + 1)
+                INSERT "  " || a[xa + i] INTO this->difflines AT END;
+            }
+            ELSE
+            {
+              IF (#r != 0)
+              {
+                FOR (INTEGER i := 0; i < this->contextlen; i := i + 1)
+                  INSERT "  " || a[xa + i] INTO this->difflines AT END;
+              }
+
+              this->InitIntro(xa + r.len - this->contextlen, xb + r.len - this->contextlen);
+//              PRINT("old: " || xa + r.len - this->contextlen || ", new: " || xb + r.len - this->contextlen || "\n");
+              need_intro := FALSE;
+
+              IF (#r != LENGTH(d) - 1)
+              {
+                FOR (INTEGER i := r.len - this->contextlen; i < r.len; i := i + 1)
+                  INSERT "  " || a[xa + i] INTO this->difflines AT END;
+              }
+            }
+          }
+
+          xa := xa + r.len;
+          xb := xb + r.len;
+        }
+      CASE "l"
+        {
+          IF (need_intro)
+          {
+            this->InitIntro(xa, xb);
+//            PRINT("old: " || xa || ", new: " || xb || "\n");
+            need_intro := FALSE;
+          }
+
+          FOR (INTEGER i := 0; i < r.len; i := i + 1)
+            INSERT "- " || a[xa + i] INTO this->difflines AT END;
+          xa := xa + r.len;
+        }
+      CASE "r"
+        {
+          IF (need_intro)
+          {
+            this->InitIntro(xa, xb);
+//            PRINT("old: " || xa || ", new: " || xb || "\n");
+            need_intro := FALSE;
+          }
+
+          FOR (INTEGER i := 0; i < r.len; i := i + 1)
+            INSERT "+ " || b[xb + i] INTO this->difflines AT END;
+          xb := xb + r.len;
+        }
+      }
+    }
+    this->MoveDiff();
+  }
+>;
+
+PUBLIC RECORD FUNCTION Diff(STRING ARRAY m, STRING ARRAY n)
+{
+  // http://www.xmailserver.org/diff2.pdf, Figure 2: the greedy LCS/SES algorithm
+  INTEGER dmax := LENGTH(m) + LENGTH(n);
+
+  RECORD ARRAY v;
+  FOR (INTEGER i := 0; i <= dmax * 2; i := i + 1)
+    INSERT [ val := 0, path := DEFAULT RECORD ARRAY ] INTO v AT END;
+
+  v[ 1 + dmax ].val := 0;
+  BOOLEAN found := FALSE;
+  INTEGER foundlen := -1;
+  FOR (INTEGER d := 0; d <= dmax; d := d + 1)
+  {
+    FOR (INTEGER k := -d; k <= d; k := k + 2)
+    {
+      INTEGER x;
+      // Custom change: ...val + 2 (instead of just 'val') to favor 'l' above 'r', so '-' comes before '+'
+      BOOLEAN firsta := k = -D OR (k != D AND V[k - 1 + dmax].val + 2 < V[k + 1 + dmax].val);
+      RECORD ARRAY newpath;
+      IF (firsta)
+      {
+        newpath := V[k + 1 + dmax].path;
+        x := V[k + 1 + dmax].val;
+      }
+      ELSE
+      {
+        newpath := V[k - 1 + dmax].path;
+        x := V[k - 1 + dmax].val+1;
+      }
+      INTEGER y := x - k;
+      STRING type := firsta ? "l" : "r";
+      IF (LENGTH(newpath) != 0 AND newpath[LENGTH(newpath) - 1].type = type)
+        newpath[LENGTH(newpath) - 1].len := newpath[LENGTH(newpath) - 1].len + 1;
+      ELSE
+        INSERT [ type := type, len := 1 ] INTO newpath AT END;
+      INTEGER di := 0;
+      WHILE (x < LENGTH(N) AND y < LENGTH(M) AND n[x] = m[y])
+      {
+        x := x + 1;
+        y := y + 1;
+        di := di + 1;
+      }
+      V[k + dmax].val := x;
+
+      IF (di != 0)
+        INSERT [ type := "b", len := di ] INTO newpath AT END;
+
+      V[k + dmax].path := newpath;
+      IF (x >= LENGTH(N) and y >= LENGTH(M))
+      {
+        found := TRUE;
+        foundlen := d;
+        RECORD ARRAY path := newpath;
+        path[0].len := path[0].len - 1;
+        IF (path[0].len = 0)
+          DELETE FROM path AT 0;
+        RETURN [ editdistance := d, path := path ];
+        BREAK;
+      }
+    }
+
+    IF (found)
+      BREAK;
+  }
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC OBJECT FUNCTION MakeTextDiffGenerator()
+{
+  RETURN NEW DiffPrinter;
+}
+
+/** Calculates the edit distance between two strings
+    @param sourcestr
+    @param targetstr
+    @return Edit distance (delete = 1, add = 1, adjacent transposition = 1, substitution = 1)
+*/
+PUBLIC INTEGER FUNCTION CalculateLevenshteinDistance(STRING sourcestr, STRING targetstr)
+{
+  /* The standard algorithm works with a table, in which the (s, t) element
+     represents the edit distance for source[0..s> and target[0..t>
+
+     This algorithm only keeps the last two rows of that array, because the
+     rest isn't needed (if it wasn't for detecting substitution, we would only
+     need one row).
+
+     The edit distance (cost) for source[0..s+1> and target[0..t+1> is the minimum of
+     - cost for source[0..s> and target[0..t+1> + 1 (insertion into target)
+     - cost for source[0..s+1> and target[0..t> + 1 (deletion from source)
+     - cost for source[0..s> and target[0..t> (equality), only when source[s+1] = target[t+1]!
+     - cost for source[0..s> and target[0..t> + 1 (substition)
+     - cost for source[0..s-1> and target[0..t-1> + 1 (transposition), only when source[s] = target[t+1] && source[s+1] = target[t]
+
+     The final cost is the cost for source[0..sourcelen+1>, target[0..targetlen+1>.
+  */
+
+  STRING ARRAY source, target;
+  INTEGER sourcelen := LENGTH(sourcestr);
+  INTEGER targetlen := LENGTH(targetstr);
+
+  INTEGER ARRAY lastmatrixline;
+  INTEGER ARRAY matrixline;
+
+  // Store the source string in the source array, initialize the first matrix row
+  FOR (INTEGER i := 0; i < sourcelen; i := i + 1)
+  {
+    INSERT SubString(sourcestr, i, 1) INTO source AT END;
+    INSERT i INTO matrixline AT END;
+  }
+
+  // Add cost for deleting entire source string
+  INSERT sourcelen INTO matrixline AT END;
+
+  // Store the target string in the target array
+  FOR (INTEGER i := 0; i < targetlen; i := i + 1)
+    INSERT SubString(targetstr, i, 1) INTO target AT END;
+
+  // Process every target element
+  FOR (INTEGER ti := 0; ti < targetlen; ti := ti + 1)
+  {
+    // First cost is matrixline[0] + 1 (is always ti + 1)
+    INTEGER ARRAY newmatrixline := [ ti + 1 ];
+
+    INTEGER lastcost := ti + 1;
+    FOR (INTEGER si := 0; si < sourcelen; si := si + 1)
+    {
+      // Delete: +1, Add: +1
+      INTEGER newcost := lastcost + 1;
+      IF (matrixline[si + 1] < newcost)
+        newcost := matrixline[si + 1] + 1;
+
+      // Equal: +0, substitution: +1
+      IF (matrixline[si] < newcost)
+        newcost := matrixline[si] + (source[si] = target[ti] ? 0 : 1);
+
+      // Transposition: +1
+      IF (ti >= 1 AND si >= 1 AND source[si - 1] = target[ti] AND source[si] = target[ti-1])
+      {
+        IF (lastmatrixline[si - 1] < newcost)
+          newcost := lastmatrixline[si - 1] + 1;
+      }
+
+      // Store the cost
+      INSERT newcost INTO newmatrixline AT END;
+      lastcost := newcost;
+    }
+
+    // Row done
+    lastmatrixline := matrixline;
+    matrixline := newmatrixline;
+  }
+  RETURN matrixline[sourcelen];
+}
+
+/** Find the best match for a string fiven a list of alternatives. Defaults to case insensitive match.
+    @param name Name to search
+    @param alternatives Alternatives to choose from
+    @cell options.casesensitive Do a case sensitive compare (defaults to FALSE)
+*/
+PUBLIC STRING FUNCTION GetBestMatch(STRING name, STRING ARRAY alternatives, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+    IF(cellrec.name NOT IN ["CASESENSITIVE"])
+      THROW NEW Exception("Unexpected option '" || cellrec.name || "'");
+
+  BOOLEAN casesensitive := CellExists(options, "CASESENSITIVE") AND options.casesensitive = TRUE;
+
+  STRING ARRAY org_alternatives := alternatives;
+  IF (NOT casesensitive)
+  {
+    FOREVERY (STRING s FROM alternatives)
+      alternatives[#s] := ToUppercase(s);
+    name := ToUppercase(name);
+  }
+
+  INTEGER threshold := LENGTH(name) < 3 ? 1 : 2;
+
+  RECORD ARRAY matches :=
+      SELECT distance :=  CalculateLevenshteinDistance(name, value)
+           , value :=     org_alternatives[#elt]
+        FROM ToRecordArray(alternatives, "VALUE") AS elt;
+
+  STRING bestmatch :=
+      SELECT AS STRING value
+        FROM matches
+       WHERE distance <= threshold
+    ORDER BY distance;
+
+  RETURN bestmatch;
+}
+
+/** Get the length of start/end matches of two strings, ignoring the first two characters
+    @return
+    @cell return.beginlen
+    @cell return.endlen
+*/
+RECORD FUNCTION GetLineStartEndMatch(STRING ll, STRING rl)
+{
+  IF (SubString(ll, 2) = SubString(rl, 2))
+    RETURN DEFAULT RECORD;
+
+  INTEGER beginlen := 2, endlen;
+  WHILE (SubString(ll, 2, beginlen - 1) = SubString(rl, 2, beginlen - 1))
+    beginlen := beginlen + 1;
+  WHILE (Right(ll, endlen + 1) = Right(rl, endlen + 1))
+    endlen := endlen + 1;
+
+  // Correct overlaps
+  IF (LENGTH(ll) - endlen < beginlen)
+    endlen := LENGTH(ll) - beginlen;
+  IF (LENGTH(rl) - endlen < beginlen)
+    endlen := LENGTH(rl) - beginlen;
+
+  RETURN CELL[ beginlen, endlen ];
+}
+
+RECORD ARRAY FUNCTION ColorDiff(RECORD ARRAY diff)
+{
+  FOREVERY (RECORD rec FROM diff)
+  {
+    INTEGER nrlines := LENGTH(rec.lines);
+    FOR (INTEGER i := 0; i < nrlines; i := i + 1)
+    {
+      STRING l := rec.lines[i];
+      IF (l = "" OR l LIKE " *")
+        CONTINUE;
+
+      IF (l LIKE "+ *")
+        diff[#rec].lines[i] := Left(l, 2) || AnsiCMD("back-green,black") || SubString(l, 2) || AnsiCMD("reset");
+      ELSE IF (l LIKE "- *")
+      {
+        INTEGER me := i + 1;
+        WHILE (me < nrlines AND rec.lines[me] LIKE "-*")
+          me := me + 1;
+        INTEGER pe := me;
+        WHILE (pe < nrlines AND rec.lines[pe] LIKE "+*")
+          pe := pe + 1;
+
+        INTEGER mc := me - i;
+        IF (mc = pe - me)
+        {
+          FOR (INTEGER j := i; j < me; j := j + 1)
+          {
+            STRING ll := rec.lines[j];
+            STRING rl := rec.lines[j + mc];
+
+            RECORD match := GetLineStartEndMatch(ll, rl);
+            IF (RecordExists(match))
+              diff[#rec].lines[j] := Left(ll, 2) || AnsiCMD("back-blue,white") || SubString(ll, 2, match.beginlen - 2) || AnsiCMD("back-bblue,white") || SubString(ll, match.beginlen, LENGTH(ll) - match.beginlen - match.endlen) || AnsiCMD("back-blue,white") || Right(ll, match.endlen) || AnsiCMD("reset");
+            ELSE
+              diff[#rec].lines[j] := Left(ll, 2) || AnsiCMD("back-blue,white") || SubString(ll, 2) || AnsiCMD("reset");
+
+            IF (RecordExists(match))
+              diff[#rec].lines[j+mc] := Left(rl, 2) || AnsiCMD("back-green,black") || SubString(rl, 2, match.beginlen - 2) || AnsiCMD("back-bgreen") || SubString(rl, match.beginlen, LENGTH(rl) - match.beginlen - match.endlen) || AnsiCMD("back-green") || Right(rl, match.endlen) || AnsiCMD("reset");
+            ELSE
+              diff[#rec].lines[j+mc] := Left(rl, 2) || AnsiCMD("back-green,black") || SubString(rl, 2) || AnsiCMD("reset");
+          }
+        }
+        ELSE
+        {
+          FOR (INTEGER j := i; j < me; j := j + 1)
+          {
+            STRING jl := rec.lines[j];
+            diff[#rec].lines[j] := Left(jl, 2) || AnsiCMD("back-blue,white") || SubString(jl, 2) || AnsiCMD("reset");
+          }
+          FOR (INTEGER j := me; j < pe; j := j + 1)
+          {
+            STRING jl := rec.lines[j];
+            diff[#rec].lines[j] := Left(jl, 2) || AnsiCMD("back-green,black") || SubString(jl, 2) || AnsiCMD("reset");
+          }
+        }
+        i := pe - 1;
+      }
+    }
+  }
+  RETURN diff;
+}
+
+
+/** Gives a simple text diff between the lines of the texts
+    @param leftfile Original (or expected) text
+    @param rightfile Modified (or actual) text
+    @cell options.color If TRUE, add ANSI-color code to highlight differences
+    @cell options.header If TRUE, add a patch header, if FALSE output the whole file
+    @return Formatted difference between the two texts
+*/
+PUBLIC STRING FUNCTION SimpleTextDiff(STRING leftfile, STRING rightfile, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ color :=  FALSE
+      , header := TRUE
+      ], options);
+
+  OBJECT differ := MakeTextDiffGenerator();
+
+  leftfile := SubStitute(SubStitute(leftfile, "\r\n", "\n"), "\r", "\n");
+  rightfile := SubStitute(SubStitute(rightfile, "\r\n", "\n"), "\r", "\n");
+
+  differ->LoadOldVersion(StringToBlob(leftfile));
+  differ->LoadNewVersion(StringToBlob(rightfile));
+
+  IF (NOT options.header)
+    differ->context_lines := 9999999;
+
+  RECORD ARRAY diff := differ->GetDifferences();
+  IF (options.color)
+    diff := ColorDiff(diff);
+
+  STRING result;
+
+  IF (LENGTH(diff) != 0)
+  {
+    IF (options.header)
+    {
+      result := result || "--- original\n";
+      result := result || "+++ new\n";
+    }
+    FOREVERY (RECORD x FROM diff)
+    {
+      IF (options.header)
+        result := result || "@@ -" || x.minstart + 1 || "," || x.minlines || " +" || x.plusstart + 1 || "," || x.pluslines  || " @@\n";
+      result := result || Detokenize(x.lines, "\n") || "\n\n";
+    }
+  }
+
+  RETURN result;
+}

@@ -1,0 +1,189 @@
+﻿<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/screens/tests/fragments.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+MACRO TestVisibilityScreen()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/fragments.testvisibility");
+  TestEq(TRUE, scr->box->visible);
+  TestEq(FALSE, scr->box->hr);
+}
+
+MACRO TestEnabledOn()
+{
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/fragments.testenableonlinks");
+  TestEq(FALSE, scr->cta_link->enabled);
+  scr->cta_type->value := 2;
+  TestEq(TRUE, scr->cta_type->enabled);
+  TestEq(TRUE, scr->cta_link->linktype->enabled);
+}
+
+MACRO TestScopes()
+{
+  initorder := DEFAULT STRING ARRAY;
+
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/fragments.fragmenttest");
+  TestEq(TRUE, ObjectExists(scr));
+  TestEq(DEFAULT OBJECT, scr->parentscope);
+
+  TestEQ("INIT > " ||
+         "INITEND",
+         Detokenize(initorder," > "));
+}
+
+
+OBJECT ASYNC FUNCTION TestDynamicScopes()
+{
+  initorder := DEFAULT STRING ARRAY;
+
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/fragments.dynfragmenttest");
+  TestEq(TRUE, ObjectExists(scr));
+  TestEq(DEFAULT OBJECT, scr->parentscope);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEqLike('INIT > ' ||
+            'SI:fragment4!fragmentcomposition > ' ||
+            'SI:fragment4!preinit > ' ||
+            'PRE:fragment4 > ' ||
+            'PRE:fragment4!preinit > ' ||
+            'PRE:fragment4!fragmentcomposition > ' ||
+            'INITEND > ' ||
+            'POST:fragment4 > ' ||
+            'POST:fragment4!preinit > ' ||
+            'POST:fragment4!fragmentcomposition > ' ||
+            'ONSHOW',
+            Detokenize(initorder," > "));
+
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION TestLoadFragment()
+{
+  initorder := DEFAULT STRING ARRAY;
+
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/fragments.loadfragmenttest");
+  TestEq(TRUE, ObjectExists(scr));
+  TestEq(DEFAULT OBJECT, scr->parentscope);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq("INIT > " ||
+         "INITEND > " ||
+         "ONSHOW", Detokenize(initorder," > "));
+
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION TestFragComponent()
+{
+  initorder := DEFAULT STRING ARRAY;
+
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/fragments.fragcomponenttest");
+  TestEq(TRUE, ObjectExists(scr));
+  TestEq(0, Length( scr->fragcomp->getchildcomponents() )); //the children are all absored
+
+  //Visible components should simply reparent to the panel
+  TestEq(TRUE, ObjectExists(scr->fragcomp->text1->parent));
+  TestEq("body", scr->fragcomp->text1->parent->name);
+
+  TestEq(TRUE, ObjectExists(scr->fragcomp->preinit->parent));
+  TestEq("body", scr->fragcomp->preinit->parent->name);
+
+  TestEq(TRUE, ObjectExists(scr->fragcomp->fragmentcomposition->parent));
+  TestEq("frame", scr->fragcomp->fragmentcomposition->parent->name);
+
+//  dumpvalue( (select name := obj->name, componenttype := obj->componenttype from torecordarray(scr->body->getchildcomponents(),"obj")),'boxed');
+
+  /* note: PRE and POST orders should match for full static screens
+           compositions of the screen run before body elements
+           fragments run AFTER their contained elements
+  */
+  TestEqLike
+        ("SI:screencomposition > " ||
+         "SI:fragcomp!fragmentcomposition > " ||
+         "SI:fragcomp_in_option!fragmentcomposition > " ||
+         "SI:fragcomp!preinit > " ||
+         "SI:fragcomp > " ||
+         "SI:fragcomp_in_option!preinit > " ||
+         "SI:fragcomp_in_option > " ||
+         "SI:optionsource_in_select_in_option > " ||
+         "SI:emptyfragcomp > " ||
+         "PRE:screencomposition > " ||
+         "PRE:fragcomp!fragmentcomposition > " ||
+         "PRE:fragcomp_in_option!fragmentcomposition > " ||
+         "PRE:fragcomp > " ||
+         "PRE:fragcomp!preinit > " ||
+         "PRE:emptyfragcomp > " ||
+         "PRE:tollium_d$* > " || // component generated for optionsource
+         "INIT > " ||
+         "POST:screencomposition > " ||
+         "POST:fragcomp!fragmentcomposition > " ||
+         "POST:fragcomp_in_option!fragmentcomposition > " ||
+         "POST:fragcomp > " ||
+         "POST:fragcomp!preinit > " ||
+         "POST:emptyfragcomp > " ||
+         "POST:tollium_d$*" // component generated for optionsource
+         , Detokenize(initorder," > "));
+
+  //ABORT(scr->)
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+
+  TestEqLike
+        ("SI:screencomposition > " ||
+         "SI:fragcomp!fragmentcomposition > " ||
+         "SI:fragcomp_in_option!fragmentcomposition > " ||
+         "SI:fragcomp!preinit > " ||
+         "SI:fragcomp > " ||
+         "SI:fragcomp_in_option!preinit > " ||
+         "SI:fragcomp_in_option > " ||
+         "SI:optionsource_in_select_in_option > " ||
+         "SI:emptyfragcomp > " ||
+         "PRE:screencomposition > " ||
+         "PRE:fragcomp!fragmentcomposition > " ||
+         "PRE:fragcomp_in_option!fragmentcomposition > " ||
+         "PRE:fragcomp > " ||
+         "PRE:fragcomp!preinit > " ||
+         "PRE:emptyfragcomp > " ||
+         "PRE:tollium_d$* > " || // component generated for optionsource
+         "INIT > " ||
+         "POST:screencomposition > " ||
+         "POST:fragcomp!fragmentcomposition > " ||
+         "POST:fragcomp_in_option!fragmentcomposition > " ||
+         "POST:fragcomp > " ||
+         "POST:fragcomp!preinit > " ||
+         "POST:emptyfragcomp > " ||
+         "POST:tollium_d$* > " || // component generated for optionsource
+         "ONSHOW > " ||
+         "PRE:fragcomp_in_option > " ||
+         "POST:fragcomp_in_option > " ||
+         "PRE:fragcomp_in_option!preinit > " ||
+         "POST:fragcomp_in_option!preinit > " ||
+         "PRE:optionsource_in_select_in_option > " ||
+         "POST:optionsource_in_select_in_option"
+         , Detokenize(initorder," > "));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  RETURN TRUE;
+}
+
+MACRO TestSubComponentPrePostInit()
+{
+  initorder := DEFAULT STRING ARRAY;
+
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/fragments.subcomponenttest");
+  TestEq(TRUE, ObjectExists(scr));
+
+  TestEqLike( "SI:querysource > PRE:querysource > PRE:tollium_d$* > POST:querysource > POST:tollium_d$*"
+            , Detokenize(initorder," > "));
+}
+
+RunTestFramework([ PTR TestVisibilityScreen
+                 //, PTR TestEnabledOn //FIXME this should work, but direct_disabled is broken
+                 , PTR TestScopes
+                 , PTR TestFragComponent
+                 , PTR TestLoadFragment
+                 , PTR TestDynamicScopes
+                 , PTR TestSubComponentPrePostInit
+                 ]);

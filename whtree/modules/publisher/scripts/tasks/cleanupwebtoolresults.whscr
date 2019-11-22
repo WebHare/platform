@@ -1,0 +1,39 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch" ]
+    , [ name := "checkids", type := "paramlist" ]
+    ]);
+INTEGER ARRAY checkids :=
+    SELECT AS INTEGER ARRAY ToInteger(id, 0)
+      FROM ToRecordArray(args.checkids, "id");
+
+OpenPrimary()->BeginWork();
+
+RECORD ARRAY deletions;
+IF (Length(checkids) = 0)
+  deletions := DeleteExpiredFormResults(0);
+ELSE
+  FOREVERY (INTEGER checkid FROM checkids)
+    deletions := deletions CONCAT DeleteExpiredFormResults(checkid);
+
+IF (args.debug)
+{
+  IF (RecordExists(deletions))
+    FOREVERY (RECORD deletion FROM deletions)
+    {
+      STRING formpath := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = deletion.id;
+      Print(`Deleted ${deletion.deleted} results for ${formpath}#${deletion.name}\n`);
+    }
+  ELSE
+    Print("Nothing deleted\n");
+}
+
+GetPrimary()->CommitWork();

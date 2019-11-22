@@ -1,0 +1,31 @@
+<?wh
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+PUBLIC RECORD FUNCTION GetTestRTD(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ bigstructure := FALSE ], options);
+
+  STRING inputfile := options.bigstructure ? "rte-structure-big.html" : "rte-structure.html";
+  RETURN [ htmltext := GetWebHareResource("mod::webhare_testsuite/data/test/" || inputfile)
+         , embedded := [ [ contentid := "SRCEMBED-4tE8e-B6Eig"
+                         , data := GetWebhareResource("mod::webhare_testsuite/web/tests/pages/rte/header-logo.png")
+                         , width:=27
+                         , height:=26
+                         , mimetype:="image/png"
+                         , filename := "header-logo.png"
+                         ]
+                       ]
+         , instances := [ [ instanceid := "_1ra7ve1TrCw-usGy9kO-g"
+                          , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
+                                    , html := "<b>BOLD</b> HTML"
+                                    ]
+                          ]
+                        , [ instanceid := "inlineobj-Cw-usGy9kO-g"
+                          , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/widgets/inlinehtml"
+                                    , html := "<u>UNDERLINED</u> HTML"
+                                    ]
+                          ]
+                        ]
+         ];
+}

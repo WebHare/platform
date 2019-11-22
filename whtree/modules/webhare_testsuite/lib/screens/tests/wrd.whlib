@@ -1,0 +1,30 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE Edit EXTEND TOlliumScreenBase
+<
+  OBJECT wrdschema;
+
+  MACRO Init(RECORD data)
+  {
+    this->wrdschema := data.wrdschema;
+    this->entity->LoadEntity(this->wrdschema->GetType("WRD_PERSON"), data.id);
+  }
+>;
+
+PUBLIC OBJECTTYPE EntityContext EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    IF(data.create)
+      INSERT CELL wrd_tag := data.tag INTo this->person->extradata;
+    ELSE
+      this->person->Load(this->person->wrdtype->Search("WRD_TAG", data.tag));
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    this->person->Store(work);
+    RETURN work->Finish();
+  }
+>;

@@ -1,0 +1,358 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+/// Lockmanager for this session
+OBJECT lockmgr;
+
+/** Lock object
+*/
+OBJECTTYPE MutexLock
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Private ptr to mutex manager
+  OBJECT mutexmgr;
+
+
+  /// Name of the mutex
+  STRING pvt_name;
+
+  /// Local mutex
+  OBJECT pvt_localmutex;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Name of the mutex
+  PUBLIC PROPERTY name(pvt_name, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT mutexmgr, STRING name, OBJECT localmutex)
+  {
+    this->mutexmgr := mutexmgr;
+    this->pvt_name := name;
+    this->pvt_localmutex := localmutex;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /// Release the lock of the mutex
+  PUBLIC MACRO Release()
+  {
+    this->Close();
+  }
+
+  /// Close this object (and release the lock)
+  PUBLIC MACRO Close()
+  {
+    IF (ObjectExists(this->pvt_localmutex))
+    {
+      this->pvt_localmutex->Close();
+      this->pvt_localmutex := DEFAULT OBJECT;
+    }
+    this->mutexmgr->ReleaseMutex(this->name);
+  }
+>;
+
+
+
+/** Mutual exclusion manager
+    @topic modules/services
+    @public
+*/
+OBJECTTYPE LockManager
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Link to webserver mutexmanager script
+  OBJECT link;
+
+
+  /// Clientname
+  STRING pvt_clientname;
+
+
+  /// List of currently locked mutexes
+  STRING ARRAY pvt_lockedmutexes;
+
+  /// Whether to send stack traces with lock requests
+  BOOLEAN logtraces;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// @type(string) Name to identify this script with
+  PUBLIC PROPERTY clientname(pvt_clientname, SetClientName);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @param clientname Name of the client (to identify this script)
+  */
+  MACRO NEW(STRING clientname)
+  {
+    this->link := ConnectToMutexManager();
+
+    this->clientname := clientname ?? (SELECT AS STRING liburi FROM GetHarescriptLoadedLibraries());
+    RECORD rec := this->DoRequest([ task := "init", clientname := this->clientname, groupid := GetCurrentGroupId() ]);
+    IF (rec.status = "ok")
+      this->logtraces := rec.msg.logtraces;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  MACRO SetClientName(STRING clientname)
+  {
+    IF (this->pvt_clientname != clientname)
+    {
+      this->pvt_clientname := clientname;
+
+      RECORD res := this->link->SendMessage([ task := "setclientname", clientname := clientname, groupid := GetCurrentGroupId() ]);
+      IF (res.status != "ok")
+        THROW NEW Exception("Error sending messages to the mutual exclusion manager");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ReleaseMutex(STRING mutexname)
+  {
+    // Send an unlock request, don't care about the result (it is ignored by our dorequests)
+    this->link->SendMessage([ task := "unlock", mutexname := mutexname ]);
+    RECORD pos := LowerBound(this->pvt_lockedmutexes, mutexname);
+    IF (pos.found)
+      DELETE FROM this->pvt_lockedmutexes AT pos.position;
+  }
+
+  RECORD FUNCTION DoRequest(RECORD message)
+  {
+    RECORD res := this->link->SendMessage(message);
+    IF (res.status != "ok")
+      RETURN res;
+
+    INTEGER64 msgid := res.msgid;
+
+    INTEGER handle;
+
+    WHILE (TRUE)
+    {
+      RECORD rec := this->link->ReceiveMessage(MAX_DATETIME);
+      IF (rec.status != "ok")
+        RETURN rec;
+
+      IF (rec.replyto = 0)
+      {
+        this->HandleRemoteCommand(rec.msg);
+        CONTINUE;
+      }
+      ELSE IF (rec.replyto != msgid)
+        THROW NEW Exception("Received a reply to message " || rec.replyto || " but did DoRequest for " || msgid || ": " || AnyToString(rec, "tree"));
+
+      RETURN rec;
+    }
+  }
+
+  MACRO ProcessRemoteCommands()
+  {
+    WHILE (TRUE)
+    {
+      RECORD res := this->link->ReceiveMessage(DEFAULT DATETIME);
+      IF (res.status = "ok")
+        this->HandleRemoteCommand(res.msg);
+      ELSE
+        BREAK;
+    }
+  }
+
+  MACRO HandleRemoteCommand(RECORD message)
+  {
+    SWITCH (message.task)
+    {
+      CASE "setdebugging"
+      {
+        this->logtraces := message.logtraces;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Locks a mutex
+      @param mutexname Name of mutex to lock
+  */
+  PUBLIC OBJECT FUNCTION LockMutex(STRING mutexname)
+  {
+    RETURN this->TryLockMutex(mutexname, MAX_DATETIME);
+  }
+
+
+  /** Tries to locks a mutex
+      @param mutexname Name of mutex to lock
+      @param wait_until Wait max until this time for the lock.
+  */
+  PUBLIC OBJECT FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
+  {
+    BOOLEAN trylock;
+
+    IF (wait_until = DEFAULT DATETIME)
+    {
+      trylock := TRUE;
+      wait_until := MAX_DATETIME;
+    }
+
+    RECORD pos := LowerBound(this->pvt_lockedmutexes, mutexname);
+    IF (pos.found)
+      THROW NEW Exception("Mutex '" || mutexname || "' has already been locked by this session");
+
+    // First lock the local mutex counterpart
+    OBJECT localmutex := OpenLocalLockManager()->TryLockLocalMutex(mutexname, trylock ? DEFAULT DATETIME : wait_until);
+    IF (NOT ObjectExists(localmutex))
+      RETURN DEFAULT OBJECT;
+
+    this->ProcessRemoteCommands();
+    TRY
+    {
+      RECORD ARRAY trace;
+      IF (this->logtraces)
+        trace := GetAsyncStackTrace();
+
+      RECORD res := this->DoRequest(
+          [ task := "lock"
+          , mutexname := mutexname
+          , trylock := trylock
+          , wait_until := wait_until
+          , trace := trace
+          ]);
+
+      IF (res.status != "ok")
+        THROW NEW Exception("The mutual exclusion manager could not be contacted");
+
+      SWITCH (res.msg.status)
+      {
+      CASE "ok"
+        {
+          // New mutex locked
+          INSERT mutexname INTO this->pvt_lockedmutexes AT pos.position;
+
+          RETURN NEW MutexLock(PRIVATE this, mutexname, localmutex);
+        }
+      CASE "no"
+        {
+          // trylock = true, and mutex was already locked
+          localmutex->Close();
+          RETURN DEFAULT OBJECT;
+        }
+      CASE "error"
+        {
+          localmutex->Close();
+          THROW NEW Exception("Could not lock mutex: " || res.msg.msg);
+        }
+      CASE "timeout"
+        {
+          localmutex->Close();
+          RETURN DEFAULT OBJECT;
+        }
+      }
+
+      localmutex->Close();
+      RETURN DEFAULT OBJECT;
+    }
+    CATCH (OBJECT e)
+    {
+      localmutex->Close();
+      THROW e;
+    }
+  }
+
+
+  PUBLIC RECORD FUNCTION GetStatus()
+  {
+    RECORD res := this->DoRequest([ task := "status" ]);
+    IF (res.status != "ok" OR res.msg.status != "ok")
+      RETURN DEFAULT RECORD;
+
+    RETURN res.msg;
+  }
+
+
+  /** Return whether the current session has locked mutex 'mutexname'
+      @param mutexname Name of mutex
+      @return Returns whether the current session has this mutex locked
+  */
+  PUBLIC BOOLEAN FUNCTION HasLockedMutex(STRING mutexname)
+  {
+    RETURN LowerBound(this->pvt_lockedmutexes, mutexname).found;
+  }
+
+  PUBLIC MACRO SetDebugging(RECORD options)
+  {
+    options := ValidateOptions(
+        [ logtraces :=  FALSE
+        , eventlog :=   FALSE
+        ], options);
+
+    this->DoRequest(MakeMergedRecord([ task := "setdebugging" ], options));
+  }
+
+  /** Noop, kept for legacy purposes.
+  */
+  PUBLIC MACRO Close()
+  {
+  }
+
+>;
+
+
+/** Creates a new mutexmanager object
+    @return(object %LockManager) Lock manager
+    @topic modules/services
+    @public
+    @loadlib mod::system/lib/services.whlib
+    @example
+
+OBJECT lockmgr := OpenLockManager();
+OBJECT lock := lockmgr->LockMutex("mutex:name");
+
+// mutual exclusive stuff
+
+lock->Close();
+*/
+PUBLIC OBJECT FUNCTION OpenLockManager()
+{
+  IF (NOT ObjectExists(lockmgr))
+  {
+    STRING clientname := "";//GetClientRemoteIp() || ":" || GetClientRemotePort() || " " || GetClientUsername();
+    lockmgr := NEW LockManager(clientname);
+  }
+  RETURN lockmgr;
+}

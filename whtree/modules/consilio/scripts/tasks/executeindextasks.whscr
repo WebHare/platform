@@ -1,0 +1,207 @@
+﻿<?wh
+/* This script generates indexing commands for objects that do not
+   generate database notifications when updated, like foreign folders
+   mailboxes and databases. This script runs at certain intervals,
+   making sure the objects get indexed now and then. */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+// Command line settings
+RECORD settings := ParseArguments(GetConsoleArguments(), [ [ name := "debug", type := "switch" ]
+                                                         , [ name := "dryrun", type := "switch" ]
+                                                         ]);
+
+// Open a database transaction and bind tables
+OBJECT trans := OpenPrimary([ clientname := "consilio execute index tasks" ]);
+
+
+// Create CheckIndex commands for each of the Consilio content sources (consilio:external and consilio:custom)
+RECORD ARRAY to_recheck := SELECT contentsources.id
+                                , contentsources.contentprovider
+                                , contentsources.data
+                                , indices.name
+                             FROM consilio.contentsources
+                                , consilio.indices
+                            WHERE contentsources.indexid = indices.id
+                                  AND contentsources.status >= 0
+                                  AND contentprovider IN [ "consilio:external", "consilio:custom" ]
+                                  AND indices.name NOT LIKE "$consilio$deleted$*"
+                                  AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+
+IF (Length(to_recheck) = 0 AND settings.debug)
+{
+  Print("No dynamic content sources to check\n");
+}
+FOREVERY (RECORD contentsource FROM to_recheck)
+{
+  IF (settings.debug)
+    Print(`Checking content source ${contentsource.id} in index '${contentsource.name}' (${contentsource.contentprovider})\n`);
+
+  RECORD data := DecodeHSON(contentsource.data);
+  INTEGER contentcheckinterval := CellExists(data, "contentcheckinterval") ? data.contentcheckinterval : 0;
+  IF (contentcheckinterval < 0)
+    CONTINUE;
+  // Check once per day by default (consilio:external does not have a contentcheckinterval cell (yet), so it will always be
+  // checked once a day)
+  contentcheckinterval := contentcheckinterval ?? 1440;
+
+  // See if this content source has been checked before
+  DATETIME lastcontentscheck := CellExists(data, "lastcontentscheck") ? StringToDateTime(data.lastcontentscheck) : DEFAULT DATETIME;
+  IF (settings.debug AND lastcontentscheck != DEFAULT DATETIME)
+    Print(`Last checked at ${FormatDateTime("%Y-%m-%d %H:%M:%S", lastcontentscheck)}\n`);
+
+  // Only check the content source if the last time was longer than contentcheckinterval minutes ago
+  IF (AddTimeToDate(contentcheckinterval * 60 * 1000, lastcontentscheck) < GetCurrentDateTime())
+  {
+    IF(settings.debug OR settings.dryrun)
+    {
+      Print(`UpdateConsilioContentSource contentsource=${contentsource.id}\n`);
+    }
+
+    IF(NOT settings.dryrun)
+    {
+      BOOLEAN res := UpdateConsilioContentSource(contentsource.id);
+
+      IF (NOT res)
+      {
+        Print(`Could not update content source ${contentsource.id}\n`);
+        CONTINUE;
+      }
+    }
+
+    // Update the lastcontentscheck data field
+    lastcontentscheck := GetCurrentDateTime();
+    IF (CellExists(data, "lastcontentscheck"))
+      data.lastcontentscheck := DateTimeToString(lastcontentscheck);
+    ELSE
+      INSERT CELL lastcontentscheck := DateTimeToString(lastcontentscheck) INTO data;
+
+    IF(settings.dryrun OR settings.debug)
+    {
+      Print(`Updating contentsource #${contentsource.id} set data: ${EncodeHSON(data)}\n`);
+      IF(settings.dryrun)
+        CONTINUE;
+    }
+
+    trans->BeginWork();
+    UPDATE consilio.contentsources
+       SET data := EncodeHSON(VAR data)
+     WHERE id = contentsource.id;
+    trans->CommitWork();
+  }
+  ELSE IF (settings.debug)
+  {
+    Print(`Content source does not have to be checked at the moment (check interval = ${contentcheckinterval})\n`);
+  }
+}
+
+
+// Create CheckIndex commands for dynamic pages in each of the Publisher content sources
+INTEGER ARRAY dynamic_types :=
+    SELECT AS INTEGER ARRAY id
+      FROM system.fs_types
+     WHERE namespace IN [ "http://www.webhare.net/xmlns/publisher/shtmlfile"
+                        , "http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile"
+                        , "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
+                        ];
+to_recheck := SELECT contentsources.id
+                   , contentsources.contentprovider
+                   , contentsources.data
+                   , indices.name
+                FROM consilio.contentsources
+                   , consilio.indices
+               WHERE contentsources.indexid = indices.id
+                     AND contentsources.status >= 0
+                     AND contentprovider = "publisher:webhare"
+                     AND indices.name NOT LIKE "$consilio$deleted$*"
+                     AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+
+IF (Length(to_recheck) = 0 AND settings.debug)
+{
+  Print("No static content sources to check\n");
+}
+FOREVERY (RECORD contentsource FROM to_recheck)
+{
+  IF (settings.debug)
+    Print(`Checking content source ${contentsource.id} in index '${contentsource.name}' (${contentsource.contentprovider})\n`);
+
+  RECORD data := DecodeHSON(contentsource.data);
+
+  // See if this content source has been checked before
+  DATETIME lastcontentscheck := CellExists(data, "lastcontentscheck") ? StringToDateTime(data.lastcontentscheck) : DEFAULT DATETIME;
+  IF (lastcontentscheck != DEFAULT DATETIME)
+  {
+    // Check only once a day (local time, for dynamic pages having new content at a new day)
+    IF (GetDayCount(UTCToLocal(lastcontentscheck, "CET")) >= GetDayCount(UTCToLocal(GetCurrentDateTime(), "CET")))
+    {
+      IF (settings.debug)
+        Print(`Content source does not have to be checked at the moment (already checked today at ${FormatDateTime("%Y-%m-%d %H:%M:%S", lastcontentscheck)})\n`);
+      CONTINUE;
+    }
+    IF (settings.debug)
+      Print(`Last checked at ${FormatDateTime("%Y-%m-%d %H:%M:%S", lastcontentscheck)}\n`);
+  }
+
+  INTEGER ARRAY dynamicpages := CollectDynamicPages(data.folder);
+  IF (settings.debug)
+    Print(`Checking ${Length(dynamicpages)} dynamic pages within folder ${data.folder}\n`);
+  BOOLEAN res := TRUE;
+  FOREVERY (INTEGER page FROM dynamicpages)
+  {
+    IF(settings.dryrun OR settings.debug)
+    {
+      Print(`CheckConsilioGroup contentsourceid=${contentsource.id} page=${page}\n`);
+      IF(settings.dryrun)
+        CONTINUE;
+    }
+    res := CheckConsilioGroup(contentsource.id, ToString(page));
+    IF (NOT res)
+      BREAK;
+  }
+
+  IF (NOT res)
+  {
+    Print(`Could not update content source ${contentsource.id}\n`);
+    CONTINUE;
+  }
+  ELSE
+  {
+    // Update the lastcontentscheck data field
+    lastcontentscheck := GetCurrentDateTime();
+    IF (CellExists(data, "lastcontentscheck"))
+      data.lastcontentscheck := DateTimeToString(lastcontentscheck);
+    ELSE
+      INSERT CELL lastcontentscheck := DateTimeToString(lastcontentscheck) INTO data;
+
+    IF(settings.dryrun OR settings.debug)
+    {
+      Print(`Updating contentsource #${contentsource.id} set data: ${EncodeHSON(data)}\n`);
+      IF(settings.dryrun)
+        CONTINUE;
+    }
+
+    trans->BeginWork();
+    UPDATE consilio.contentsources
+       SET data := EncodeHSON(VAR data)
+     WHERE id = contentsource.id;
+    trans->CommitWork();
+  }
+}
+
+INTEGER ARRAY FUNCTION CollectDynamicPages(INTEGER parent)
+{
+  RECORD ARRAY objects := SELECT id, isfolder, type FROM system.fs_objects WHERE COLUMN parent = VAR parent;
+  INTEGER ARRAY pages :=
+      SELECT AS INTEGER ARRAY id
+        FROM objects
+       WHERE NOT isfolder AND type IN dynamic_types;
+  FOREVERY (RECORD obj FROM SELECT * FROM objects WHERE isfolder)
+    pages := pages CONCAT CollectDynamicPages(obj.id);
+  RETURN pages;
+}

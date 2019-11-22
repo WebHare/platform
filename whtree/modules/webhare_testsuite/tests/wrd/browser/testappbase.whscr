@@ -1,0 +1,19 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+ASYNC MACRO TestSchemaManager()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser"));
+  topscreen->schemas->selection := SELECT * FROM topscreen->schemas->rows WHERE tag = OpenTestsuiteWRDSchema()->tag;
+  AWAIT ExpectScreenChange(+1, PTR topscreen->editschema->TolliumClick);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+RunTestFramework([ PTR CreateWRDTestSchema
+                 , PTR TestSchemaManager
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);

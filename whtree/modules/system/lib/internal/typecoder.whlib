@@ -1,0 +1,513 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/filetypes.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+PUBLIC RECORD FUNCTION PrepareAnyForDatabase(VARIANT data)
+{
+  IF(TypeID(data) = TypeID(RECORD) AND NOT RecordExists(data))
+    RETURN [ blobpart := DEFAULT BLOB, stringpart := ""];
+
+  STRING ashson := EncodeHSON(data);
+  IF(Length(ashson) > 4096)
+    RETURN [ blobpart := StringToBlob(ashson), stringpart := "" ];
+  ELSE
+    RETURN [ blobpart := DEFAULT BLOB, stringpart := ashson ];
+}
+PUBLIC VARIANT FUNCTION ReadAnyFromDatabase(STRING stringpart, BLOB blobpart)
+{
+  IF(stringpart="")
+  {
+    IF(Length(blobpart)=0)
+      RETURN DEFAULT RECORD;
+    RETURN DecodeHSONBlob(blobpart);
+  }
+  RETURN DecodeHSON(stringpart);
+}
+
+/// Test whether two blobs have the same content, optimize by checking database blob ids if possible
+PUBLIC BOOLEAN FUNCTION AreBlobsEqual(BLOB a, BLOB b)
+{
+  IF(Length64(a) != Length64(b))
+    RETURN FALSE;
+
+  IF(IsDefaultValue(a)) //implies B is length 0 too
+    RETURN TRUE;
+
+  INTEGER int_a := __GetWHDBBlobInternalId(a);
+  IF (int_a != 0 AND __GetWHDBBlobInternalId(b) = int_a)
+    RETURN TRUE;
+
+  RETURN GetHashForBlob(a,"SHA-256") = GetHashForBlob(b,"SHA-256");
+}
+
+//code any type to string
+PUBLIC VARIANT FUNCTION AnyTypeFromString(STRING data, INTEGER datatype)
+{
+  SWITCH(datatype)
+  {
+    CASE 2,  //String
+         19  // URL
+    {
+      RETURN data;
+    }
+    CASE 4 //Datetime
+    {
+      STRING ARRAY toks := Tokenize(data,":");
+      IF (Length(toks)!=2)
+        RETURN DEFAULT DATETIME;
+      ELSE
+        RETURN MakeDateFromParts(ToInteger(toks[0],0), ToInteger(toks[1],0));
+    }
+    CASE 6 //Boolean
+    {
+      RETURN data="1" OR data="true";
+    }
+    CASE 7 //Integer
+    {
+      RETURN ToInteger(data,0);
+    }
+    CASE 8 //Float
+    {
+      RETURN ToFloat(data,0);
+    }
+    CASE 9 //Money
+    {
+      RETURN ToMoney(data,0);
+    }
+    CASE 42 //0 breaks a constraint, and reusing 1 seemed dangerous
+    {
+      RETURN DecodeHSON(data);
+    }
+    DEFAULT
+    {
+      ABORT("Unrecognized datatype #" || datatype);
+    }
+  }
+}
+
+PUBLIC RECORD FUNCTION AnyTypeToString(VARIANT data)
+{
+  SWITCH(TypeId(data))
+  {
+    CASE TypeId(STRING)
+    {
+      RETURN [ data := data
+             , type := 2
+             ];
+    }
+    CASE TypeId(DATETIME)
+    {
+      RETURN [ data := data = DEFAULT DATETIME ? "" : GetDayCount(data) || ":" || GetMsecondCount(data)
+             , type := 4
+             ];
+    }
+    CASE TypeId(BOOLEAN)
+    {
+      RETURN [ data := data ? "1" : ""
+             , type := 6
+             ];
+    }
+    CASE TypeId(INTEGER)
+    {
+      RETURN [ data := data != 0 ? ToString(data) : ""
+             , type := 7
+             ];
+    }
+    CASE TypeId(FLOAT)
+    {
+      RETURN [ data := data != 0 ? FormatFloat(data,20) : ""
+             , type := 8
+             ];
+    }
+    CASE TypeId(MONEY)
+    {
+      RETURN [ data := data != 0 ? FormatMoney(data,0,'.','',FALSE) : ""
+             , type := 9
+             ];
+    }
+    DEFAULT
+    {
+      RETURN [ data := EncodeHSON(data), type := 42];
+    }
+  }
+}
+
+PUBLIC VARIANT FUNCTION AnyTypeFromBlobString(STRING data, BLOB blobdata, INTEGER datatype)
+{
+  IF (datatype = 10 OR (datatype = 2 AND Length(blobdata)!=0))
+    RETURN blobdata;
+  ELSE
+    RETURN AnyTypeFromString(data, datatype);
+}
+
+PUBLIC RECORD FUNCTION AnyTypeToBlobString(VARIANT data)
+{
+  IF (TypeId(data) = TypeId(BLOB))
+    RETURN [ data := "", type := 10, blobdata := data ];
+  IF(TypeId(data) = TypeId(STRING) AND Length(data)>=2048) //More than 2K of data
+    RETURN [ data := "", type := 2, blobdata := StringToBlob(data) ];
+
+  RECORD retval := AnyTypeToString(data);
+  INSERT CELL blobdata := DEFAULT BLOB INTO retval;
+
+  RETURN retval;
+}
+
+/** Create the string data for an imginfo record
+    @param imginfo Imageinfo record (may be default)
+    @cell imginfo.filename Filename (required)
+    @cell imginfo.mimetype Mime type (required)
+    @cell imginfo.data Data (required)
+    @cell imginfo.hash Hash of the data (optional, will be recomputed from data if not present)
+    @cell imginfo.width
+    @cell imginfo.height
+    @return
+    @cell return.whfsid Link to WHFS file
+    @cell return.rawdata Joined string data
+    @seealso SplitBlobSetting
+*/
+PUBLIC RECORD FUNCTION JoinBlobSetting(RECORD fileinfo)
+{
+  IF(NOT IsCompleteScanData(fileinfo))
+  {
+    BOOLEAN extractdomcolor := NOT CellExists(fileinfo,"dominantcolor") OR fileinfo.dominantcolor = "";
+    RECORD wrapped := WrapBlob(fileinfo.data, CellExists(fileinfo,'filename') ? fileinfo.filename : ""
+                       , [ extractdominantcolor := extractdomcolor
+                         , generatehash := TRUE
+                         ]);
+
+    IF(NOT extractdomcolor)
+      wrapped.dominantcolor := fileinfo.dominantcolor;
+    IF(CellExists(fileinfo,'refpoint'))
+      wrapped.refpoint := fileinfo.refpoint;
+    IF(CellExists(fileinfo,'source_fsobject'))
+      wrapped.source_fsobject := fileinfo.source_fsobject;
+
+    fileinfo := wrapped;
+  }
+
+  RETURN
+      [ fs_object := fileinfo.source_fsobject
+      , rawdata := EncodeScanData(fileinfo, TRUE)
+      ];
+}
+
+//is the scandata sufficiently complete to not require a scanblob for rebuilding
+PUBLIC BOOLEAN FUNCTION IsCompleteScanData(RECORD scandata)
+{
+  RETURN CellExists(scandata,'hash') AND Length(scandata.hash) = 43
+         AND CellExists(scandata,'width')
+         AND CellExists(scandata,'height')
+         AND CellExists(scandata,'mimetype') AND scandata.mimetype != ""
+         AND CellExists(scandata,'rotation')
+         AND CellExists(scandata,'mirrored')
+         AND (scandata.width > 0 ? CellExists(scandata,'dominantcolor') AND scandata.dominantcolor != "" : TRUE);
+}
+
+//base scan data is what WHFS needs to store (filename is external there)
+PUBLIC STRING FUNCTION EncodeScanData(RECORD scandata, BOOLEAN extendedformat)
+{
+  IF(scandata.hash="")
+    THROW NEW Exception("Empty hash in scandata record");
+
+  RECORD retval;
+  IF(scandata.hash != "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU") //empty file hash
+    INSERT CELL x := scandata.hash INTO retval;
+  IF(scandata.mimetype != "application/octet-stream")
+    INSERT CELL m := scandata.mimetype INTO retval;
+
+  IF(scandata.width > 0 OR scandata.height > 0)
+  {
+    retval := [ ...retval
+              , w := scandata.width
+              , h := scandata.height
+              ];
+    IF(scandata.rotation IN [90,180,270])
+      INSERT CELL r := scandata.rotation INTO retval;
+    IF(scandata.mirrored)
+      INSERT CELL s := TRUE INTO retval;//'s' as in 'spiegel'
+    IF(RecordExists(scandata.refpoint))
+      INSERT CELL p := scandata.refpoint INTO retval;
+    IF(scandata.dominantcolor != "")
+      INSERT CELL d := scandata.dominantcolor INTO retval;
+  }
+  IF(extendedformat)
+  {
+    IF(scandata.filename != "")
+      INSERT CELL f := scandata.filename INTO retval;
+  }
+
+  //When storing an empty blob, we have nothing interesting to store. this happens to a lot of fsobjects
+  RETURN RecordExists(retval) ? EncodeHSON(retval) : "";
+}
+
+PUBLIC RECORD FUNCTION DecodeScanData(STRING encodeddata)
+{
+  RECORD parseddata;
+  IF(encodeddata != "")
+    parseddata := DecodeHSON(encodeddata);
+
+  RECORD retval := basestoredfile;
+  retval.hash := CellExists(parseddata,'x') ? parseddata.x : "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
+  retval.mimetype := CellExists(parseddata, 'm') ? parseddata.m : "application/octet-stream";
+  retval.extension := GetExtensionForMimeType(retval.mimetype);
+
+  IF(CellExists(parseddata,'w')) //'w' implies an image
+  {
+    retval := [ ...retval
+              , width := parseddata.w
+              , height := parseddata.h
+              ];
+    IF(CellExists(parseddata,'r'))
+      retval.rotation := parseddata.r;
+    IF(CellExists(parseddata,'s'))
+      retval.mirrored := parseddata.s;
+    IF(CellExists(parseddata,'p'))
+      retval.refpoint := parseddata.p;
+    IF(CellExists(parseddata,'d'))
+      retval.dominantcolor := parseddata.d;
+  }
+  IF(CellExists(parseddata,'f'))
+    retval.filename := parseddata.f;
+  RETURN retval;
+}
+
+
+/** Given the setting data for a blob field, returns the imginfo record
+    @param setting String field of the setting
+    @param blobdata Blob field of the setting
+    @param fs_object WHFS link field of the setting
+    @return File info record
+    @cell return.extension Extension of the file
+    @cell return.filename Original name of the file
+    @cell return.mimetype Mimetype of the file
+    @cell return.width Width of the image (only for images)
+    @cell return.height Height of the image (only for images)
+    @cell return.hash MD5 hash of the file
+    @cell return.rotation Rotation of the image (only for images)
+    @cell return.mirrored Whether the image has been mirrorred (only for images)
+    @cell return.refpoint Reference point for image crops (only for images)
+    @cell return.refpoint.x
+    @cell return.refpoint.y
+    @cell return.data Data
+    @cell return.source_fsobject Link to the fs_object the blob was originally created from
+*/
+PUBLIC RECORD FUNCTION SplitBlobSetting(STRING setting, BLOB blobdata, INTEGER fs_object)
+{
+  RECORD decodeddata;
+
+  IF(setting LIKE "WHFS:*") //WRD WHFS: prefixes blobsettings if there's a relevant source_fsobject to look up
+    setting := Substring(setting,5);
+
+  IF(setting LIKE "hson:*") //WH 4.10+
+  {
+    decodeddata := DecodeScanData(setting);
+  }
+  ELSE
+  {
+    STRING ARRAY toks := Tokenize(setting,"\t");
+    IF(Length(toks) < 5)
+      RETURN DEFAULT RECORD;
+
+    RECORD refpoint;
+    IF (Length(toks) >= 9 AND toks[8] LIKE "?*,?*")
+    {
+      STRING ARRAY parts := Tokenize(toks[8], ",");
+      IF (Length(parts) = 2)
+      {
+        INTEGER x := ToInteger(parts[0], -1);
+        INTEGER y := ToInteger(parts[1], -1);
+        IF (x >= 0 AND y >= 0)
+          refpoint := [ x := x, y := y ];
+      }
+    }
+    decodeddata := [ ...basestoredfile
+                   , filename := DecodeJava(toks[1])
+                   , mimetype := DecodeJava(toks[2])
+                   , width := ToInteger(toks[3],0)
+                   , height := ToInteger(toks[4],0)
+                   , hash := Length(toks) >= 6 ? toks[5] : ""
+                   , rotation := Length(toks) >= 7 ? ToInteger(toks[6],0) : 0
+                   , mirrored := Length(toks) >= 8 AND toks[7]="M"
+                   , refpoint := refpoint
+                   , extension := GetExtensionForMimeType(toks[1])
+                   ];
+  }
+  RETURN [ ...decodeddata
+         , source_fsobject := fs_object
+         , data := blobdata
+         ];
+}
+
+
+/** Compares two values from WHFS or WRD (or intended to place there) and returns whether these values are equal (ignoring
+    any metadata stored in the values. Warning: when testing in update mode this function should only be used for individual member values, not for the
+    entire record.
+    @param oldvalue
+    @param updatevalue
+    @param checkupdate If TRUE, check if applying the updatevalue would change the oldvalue (cells not in updatevalue must be
+      default in oldvalue for equality). If FALSE, check for full equivalence.
+    @param wrd Use WRD update rules (in wrd, the order of an integer array is not significant)
+    @return Returns TRUE if the oldvalue would not be modified if the updatevalue was applied.
+*/
+PUBLIC BOOLEAN FUNCTION CompareSettingValues(VARIANT oldvalue, VARIANT updatevalue, BOOLEAN checkupdate, BOOLEAN for_wrd)
+{
+  IF (TypeID(oldvalue) != TypeID(updatevalue))
+    RETURN FALSE;
+
+  SWITCH (TypeID(oldvalue))
+  {
+    CASE TypeID(INTEGER), TypeID(INTEGER64), TypeID(BOOLEAN), TypeID(STRING), TypeID(DATETIME), TypeID(MONEY)
+    {
+      RETURN oldvalue = updatevalue;
+    }
+    CASE TypeID(FLOAT)
+    {
+      IF (oldvalue = updatevalue)
+        RETURN TRUE;
+
+      oldvalue := abs(oldvalue);
+      updatevalue := abs(updatevalue);
+
+      // Accept around 4/5u of changes. Our FormatFloat/ToFloat combo isn't stable. Example:
+      // 1.77777777777777838963, use ToFloat(FormatFloat(x, 20), 0) a few times to see 2 changes.
+      FLOAT diff := oldvalue > updatevalue ? (oldvalue - updatevalue) / oldvalue : (updatevalue - oldvalue) / updatevalue;
+
+      RETURN diff < 0.0000000000000005;
+    }
+    CASE TypeID(STRING ARRAY)
+    {
+      // Remove empty strings
+      STRING ARRAY oldvalues := SELECT AS STRING ARRAY DISTINCT id FROM ToRecordArray(oldvalue, "ID") WHERE id != "";
+      STRING ARRAY updatevalues := SELECT AS STRING ARRAY DISTINCT id FROM ToRecordArray(updatevalue, "ID") WHERE id != "";
+
+      IF (LENGTH(oldvalues) != LENGTH(updatevalues))
+        RETURN FALSE;
+
+      FOREVERY (STRING v FROM oldvalues)
+        IF (updatevalues[#v] != v)
+          RETURN FALSE;
+      RETURN TRUE;
+    }
+    CASE TypeID(INTEGER ARRAY)
+    {
+      // Sort and make them distinct. In wrd settings, the order isn't important
+      INTEGER ARRAY oldvalues := oldvalue;
+      INTEGER ARRAY updatevalues := updatevalue;
+
+      IF (for_wrd)
+      {
+        oldvalues := SELECT AS INTEGER ARRAY DISTINCT id FROM ToRecordArray(oldvalue, "ID") ORDER BY id;
+        updatevalues := SELECT AS INTEGER ARRAY DISTINCT id FROM ToRecordArray(updatevalue, "ID") ORDER BY id;
+      }
+
+      IF (LENGTH(oldvalues) != LENGTH(updatevalues))
+        RETURN FALSE;
+
+      FOREVERY (INTEGER v FROM oldvalues)
+        IF (updatevalues[#v] != v)
+          RETURN FALSE;
+
+      RETURN TRUE;
+    }
+    CASE TypeID(BLOB)
+    {
+      RETURN BlobToString(oldvalue, -1) = BlobToString(updatevalue, -1);
+    }
+    CASE TypeID(RECORD ARRAY)
+    {
+      IF (LENGTH(oldvalue) != LENGTH(updatevalue))
+        RETURN FALSE;
+      FOREVERY (RECORD r FROM oldvalue)
+        IF (NOT CompareSettingValues(r, updatevalue[#r], checkupdate, for_wrd))
+          RETURN FALSE;
+      RETURN TRUE;
+    }
+    CASE TypeID(RECORD)
+    {
+      // Remove standard wrd/whfs array fields from records
+      DELETE CELL wrd_settingid,fs_settingid FROM oldvalue;
+      DELETE CELL wrd_settingid,fs_settingid FROM updatevalue;
+
+      IF (CellExists(oldvalue, "WHFSTYPE") AND (CellExists(oldvalue, "WHFSSETTINGID") OR CellExists(oldvalue, "WHFSFILEID")))
+        DELETE CELL whfssettingid, whfsfileid FROM oldvalue;
+      IF (CellExists(updatevalue, "WHFSTYPE") AND (CellExists(updatevalue, "WHFSSETTINGID") OR CellExists(updatevalue, "WHFSFILEID")))
+        DELETE CELL whfssettingid, whfsfileid FROM updatevalue;
+
+      // For files, images, rtds (all have a __blobsource), remove added cells
+      IF (CellExists(oldvalue, "__BLOBSOURCE"))
+      {
+        DELETE CELL fileid
+                  , imageid
+                  , settingid
+                  , __blobsource
+                  , disposition
+                  , lastmod
+                  , hash
+                  , link
+               FROM oldvalue;
+      }
+      IF (CellExists(updatevalue, "__BLOBSOURCE"))
+      {
+        DELETE CELL fileid
+                  , imageid
+                  , settingid
+                  , __blobsource
+                  , disposition
+                  , lastmod
+                  , hash
+                  , link
+               FROM updatevalue;
+      }
+
+      // If we have a 'whfstype' cell, it will be stored in WHFS, so use whfs mode
+      BOOLEAN sub_wrd := for_wrd AND NOT CellExists(oldvalue, "WHFSTYPE");
+
+      // Compare per cell (recursive).
+      RECORD ARRAY oldvalues := UnpackRecord(oldvalue);
+      RECORD ARRAY updatevalues := UnpackRecord(updatevalue);
+
+      // For updates, we'll allow extra cells in oldvalue. At the root all values, non-root only default values,
+      IF (checkupdate)
+      {
+        FOREVERY (RECORD rec FROM updatevalues)
+        {
+          IF (NOT CellExists(oldvalue, rec.name)) // storing extra field, will probably be an error later on
+            RETURN FALSE;
+
+          IF (NOT CompareSettingValues(GetCell(oldvalue, rec.name), rec.value, checkupdate, sub_wrd))
+            RETURN FALSE;
+        }
+
+        // oldvalue has extra cells. If they are not default, they are updated
+        FOREVERY (RECORD rec FROM oldvalues)
+          IF (NOT CellExists(updatevalue, rec.name) AND NOT IsDefaultValue(rec.value))
+            RETURN FALSE;
+      }
+      ELSE
+      {
+        IF (LENGTH(oldvalues) != LENGTH(updatevalues) OR RecordExists(oldvalue) != RecordExists(updatevalue))
+          RETURN FALSE;
+
+        FOREVERY (RECORD rec FROM oldvalues)
+        {
+          IF (NOT CellExists(updatevalue, rec.name))
+            RETURN FALSE;
+          IF (NOT CompareSettingValues(rec.value, GetCell(updatevalue, rec.name), checkupdate, sub_wrd))
+            RETURN FALSE;
+        }
+      }
+
+      RETURN TRUE;
+    }
+    DEFAULT
+    {
+      RETURN EncodeHSON(oldvalue) = EncodeHSON(updatevalue);
+    }
+  }
+}

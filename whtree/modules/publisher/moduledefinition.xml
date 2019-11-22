@@ -1,0 +1,967 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <meta configscreen="screens/sysmgmt/filesystem.xml#filesystem">
+    <description>WebHare Publisher</description>
+
+    <packaging>
+      <dependency module="consilio"/>
+      <dependency module="system"/>
+      <dependency module="wrd"/>
+    </packaging>
+    <validation options="nowarnings">
+      <exclude mask="data/siteprofile_newsletter.xsd" why="Not understood by WebHare" />
+      <eslint mask="web/outputtools/outputtools.js" />
+      <eslint mask="web/common/js/ie.js"/>
+    </validation>
+  </meta>
+
+  <servicemanager>
+    <task runat="53  3 * * *"  runtz="maintenance" tag="maintenance_task" script="scripts/tasks/executemaintenance.whscr" description="Publisher maintenance task"/>
+    <task runat="33  3 * * *"  runtz="maintenance" tag="cleanup_webtool_results" script="scripts/tasks/cleanupwebtoolresults.whscr" description="Cleanup outdated Webtools form results"/>
+    <task runat="17  2 * * *"  runtz="maintenance" tag="archiveoutput" script="scripts/tasks/archiveoutput.whscr" description="Move folders not associated with a site to the archive"/>
+    <task runat="17  4 * * *"  runtz="maintenance" tag="deletearchived" script="scripts/tasks/deletearchived.whscr" description="Cleanup folders that have been archived for 7 or more days"/>
+
+    <task tag="scheduledtasks" script="scripts/tasks/executetasks.whscr" description="Launch a scheduled publisher task (eg move or start publishing a file)"/>
+
+    <taskcluster tag="publicationqueue" harescriptworkers="4" />
+    <ephemeraltask type="assetpackcompile" library="js/internal/assetpackcompile.es" priority="update" />
+    <ephemeraltask type="publication" objectname="lib/internal/publication/publish.whlib#PublishTask" priority="normal" />
+
+    <managedtask type="generatewidgetpreview" objectname="lib/internal/tasks.whlib#generatewidgetpreviewtask" />
+    <managedtask type="mailresults" objectname="lib/webtools/formhandlers/mailhandler.whlib#MailResultsTask" />
+    <managedtask type="mailconfirmation" objectname="lib/webtools/formhandlers/mailhandler.whlib#MailConfirmationTask" />
+    <managedtask type="mailfeedback" objectname="lib/webtools/formhandlers/mailhandler.whlib#MailFeedbackTask" />
+
+    <ephemeraltask type="outputanalyzer" objectname="lib/internal/outputanalyzer.whlib#analyzertask" />
+  </servicemanager>
+
+  <rights>
+    <right name="pinning" rightsgroup="system:fs" tid="publisher:rights.pinning" descriptiontid="rights.pinning-descr">
+      <impliedby right="system:supervisor"/>
+    </right>
+  </rights>
+
+  <portal>
+    <application name="app" group="system:cms" screen="/tolliumapps/filemanager/main.xml#app" tid="filemanager.main.app.apptitle" icon="tollium:filemgr/mydocuments" openmultipleinstances="true" shortcut="ctrl+shift+p" allowuntrustedparams="true">
+      <accesscheck>
+        <requireright right="system:fs_browse"/>
+      </accesscheck>
+    </application>
+    <application name="edit" startmacro="/tolliumapps/filemanager/main.whlib#RunDirectEdit" icon="tollium:applications/editor">
+      <accesscheck/>
+    </application>
+
+    <application name="editobject" startmacro="tolliumappsfilemanager/objecteditor.whlib#StartObjectEditor" icon="tollium:files/fileoutline">
+      <accesscheck/>
+    </application>
+
+    <application name="search" screen="filemanager/search.searchpublisher" icon="tollium:actions/search">
+      <accesscheck/>
+    </application>
+
+    <application name="reportissues" screen="reports/issues.main">
+      <accesscheck>
+        <requireright right="system:supervisor"/>
+      </accesscheck>
+    </application>
+
+    <application name="webtoolform" screen="tolliumapps/formedit/formedit.xml#editor" icon="tollium:files/application_x-webhare-survey">
+      <accesscheck>
+        <requireright right="system:sysop"/>
+      </accesscheck>
+    </application>
+
+    <monitorpanel group="dev" name="assetpackcontrol" tid="monitor.assetpackcontrol.title"
+                  screen="monitor/assetpackcontrol.assetpackcontrolpanel" />
+
+    <monitorpanel group="dev" name="sites" tid="monitor.sites.title"
+                  screen="monitor/sites.sites" />
+  </portal>
+
+  <tollium>
+    <components namespace="http://www.webhare.net/xmlns/publisher/components" xmlschema="components.xsd"/>
+    <components namespace="http://www.webhare.net/xmlns/publisher/siteprofile" xmlschema="siteprofilecomponents.xsd"/><!-- deprecated, use /components instead -->
+  </tollium>
+
+  <backend>
+    <webrule path="allroots:/.publisher/common/" match="initial" handlebydir="web/common/" priority="after">
+      <addheader header="X-Frame-Options" value=""/> <!-- reset X-Frame-Options, our browserframe needs it -->
+    </webrule>
+    <webrule path="allroots:/.publisher/tools/" match="initial" handlebydir="web/common/" priority="after" />  <!-- Joined with /common/ in 4.23 -->
+    <webrule path="allroots:/.publisher/debug/" match="initial" redirecttodir="web:/common/debug/" priority="after" />  <!-- Joined with /common/ in 4.23 -->
+
+    <webrule path="root:/.publisher/backend/" match="initial" handlebydir="web/backend/" />
+
+    <webrule path="allroots:/.publisher/preview/" match="initial" redirecttoscript="web:/preview.shtml" priority="after" />
+    <webrule path="allroots:__whpub_preview"
+             match="cookie"
+             ignorepaths="*.whsock* /wh_services/* /wh_services.whsock/* /wh_events/*"
+             redirecttoscript="web:/view.shtml"
+             priority="after"
+             />
+
+    <webruleset name="allowcorsall" tid="module.webruleset-allowcorsall">
+      <webrule path="/" match="initial">
+        <addheader header="Access-Control-Allow-Origin" value="*"/>
+      </webrule>
+    </webruleset>
+    <webruleset name="varycookie" tid="module.webruleset-varycookie">
+      <webrule path="/" match="initial">
+        <addheader header="Vary" value="Cookie"/>
+      </webrule>
+    </webruleset>
+    <webrule path="allroots:/.publisher/df/" redirecttodir="var:cache/" match="initial" priority="after">
+      <addheader header="Access-Control-Allow-Origin" value="*"/> <!-- ADDME: would be nicer to only permit local known hosts -->
+    </webrule>
+    <webrule path="allroots:/.publisher/cd/" redirecttodir="var:cd/" match="initial" priority="after">
+      <addheader header="Access-Control-Allow-Origin" value="*"/> <!-- ADDME: would be nicer to only permit local known hosts -->
+    </webrule>
+
+    <webrule path="allroots:/.ap/" redirecttodir="var:ap/" match="initial" cachecontrol="public, max-age=900" priority="after"> <!-- Asset pack -->
+      <addheader header="Access-Control-Allow-Origin" value="*"/> <!-- ADDME: would be nicer to only permit local known hosts -->
+    </webrule>
+    <webrule path="allroots:/.ap/*.dev/*" match="wildcards" cachecontrol="public, max-age=0, must-revalidate" priority="after" /> <!-- dev mode assets -->
+    <webrule path="allroots:/.ap/*/st/*" match="wildcards" cachecontrol="public, max-age=31536000, immutable" priority="after" /> <!-- static assets, they are unique by hash, cache for a day -->
+
+    <!-- legacy assetpacks stuff. remove and clear folders after 4.04 -->
+    <webrule path="allroots:/.pd/" redirecttodir="var:pd/" match="initial" priority="after"> <!-- Published Design -->
+      <addheader header="Access-Control-Allow-Origin" value="*"/>
+    </webrule>
+    <webrule path="allroots:/.pb/" redirecttodir="var:pb/" match="initial" priority="after"> <!-- Published Bundle -->
+      <addheader header="Access-Control-Allow-Origin" value="*"/>
+    </webrule>
+  </backend>
+
+
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:role name="webinterface"/>
+    <d:grant permissions="references" schema="system" table="webservers" columns="id" grantee=".moduleowner"/>
+    <d:grant permissions="select" schema="system" table="webservers" grantee=".webinterface"/>
+    <d:grant permissions="select" schema="wrd" table="entities" columns="id" grantee=".moduleowner"/>
+    <d:grant permissions="select" schema="wrd" table="types" columns="id" grantee=".moduleowner"/>
+
+    <d:table name="schedule" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="event" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="file" references="system.fs_objects" ondelete="cascade" nullable="0" noupdate="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="folder" references="system.fs_objects" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="when" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="modifiedby" references="system.authobjects" ondelete="set default">
+        <d:documentation>
+          The id of the user that last modified this task
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="urlhistory" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+          Primary key
+        </d:documentation>
+      </d:integer>
+      <d:integer name="fsobject" references="system.fs_objects" ondelete="cascade" nullable="0">
+        <d:documentation>
+          Original published file
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="creationdate">
+        <d:documentation>
+          When this entry was created (first successful publication)
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="url" maxlength="2048">
+        <d:documentation>
+          The original URL, normalized
+        </d:documentation>
+      </d:varchar>
+      <d:bytea name="urlhash" maxlength="20" unique="true" nullable="false">
+        <d:documentation>
+          SHA1 hash of the normalized URL, used for indexing
+        </d:documentation>
+      </d:bytea>
+      <d:datetime name="expirydate">
+        <d:documentation>
+          The moment this history item expires
+        </d:documentation>
+      </d:datetime>
+    </d:table>
+
+    <d:table name="compileddesigns" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:integer name="designfolder" references="system.fs_objects" ondelete="cascade" nullable="false">
+        <d:documentation>
+          The design folder for which this design is compiled. Allows the deletion of compiled designs for obsolete sites
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="hash" maxlength="64" nullable="false" unique="1">
+        <d:documentation>
+          A hash calculated for this exact dependency set and its configuration, which will be used as the directory name for this compiled design
+        </d:documentation>
+      </d:varchar>
+      <d:datetime name="created" nullable="false">
+        <d:documentation>
+          Creation date of the design files.
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="lastuse" nullable="false">
+        <d:documentation>
+          Last known usage of these design files. Note that compiled versions with old usage date but infrequently/broken republished files, may still cause references to an old compilation
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="datahash" maxlength="64" />
+
+    </d:table>
+
+    <d:table name="blithashcache" primarykey="id">
+      <d:integer name="id" references="system.fs_objects" ondelete="cascade"/>
+      <d:datetime name="modificationdate"/>
+      <d:varchar name="hash" maxlength="64"/>
+      <d:varchar name="contenttype" maxlength="256"/>
+    </d:table>
+
+    <d:table name="blitrepocache" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="hash" maxlength="64"/>
+      <d:integer name="hashhash"/> <!--  integer hash of hash (first 28 bits), because we support integer IN's but not varchar IN -->
+      <d:blob name="data"/>
+      <d:datetime name="expires"/>
+
+      <d:index name="hashhashindex" columns="hashhash"/>
+    </d:table>
+
+
+
+    <!-- NOTE: options are added on demand upon voting.
+               This prevents issue due not covering all routes through which a poll(file) could be created.
+    -->
+    <d:table name="polloptions" primarykey="id">
+      <d:documentation>
+        This table is for internal use (for the poll API) and can also not be relied on to have the complete list of options.
+        Poll options which are votes on are created here by demand (upon voting) to track the amount of votes.
+        The pollwebtool contenttype data contains the full list of options.
+        The amount of votes for each option are cached here.
+      </d:documentation>
+
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+          id used to group pollvotes
+        </d:documentation>
+      </d:integer>
+
+      <d:boolean name="hide">
+        <d:documentation>
+          If set to TRUE this option won't be published and votes on it won't be accepted
+          (any vote casted which includes this option will be result in an exception being thrown.
+        </d:documentation>
+      </d:boolean>
+
+      <d:varchar name="title" maxlength="2048">
+        <d:documentation>
+          Title (to aid in debugging and being able to recognize orphaned options and their votes).
+          An orphaned can be orphaned when returning a poll file to an old/other version by replacing the file by extracting an archive. (and therefore circumventing the 'not allowed to delete a polloption which has votes' policy which is enforced in the poll edit dialog.
+        </d:documentation>
+      </d:varchar>
+
+      <d:integer name="poll_fsobject" references="system.fs_objects" ondelete="cascade" nullable="false">
+        <d:documentation>
+          The fs_object which is the poll file
+          (used so upon permanently deleting fs_objects, associated poll options will also be deleted and for quick lookup of all poll statistics without a guid string lookup)
+        </d:documentation>
+      </d:integer>
+
+      <!-- FIXME: do we want to add a unique check for the poll_fsobject + guid field? -->
+      <d:varchar name="guid" nullable="false" maxlength="60"><!-- fixme: maxlength -->
+        <d:documentation>
+          GUID of the associated option has in the poll file contenttype.
+          It must be unique within the poll.
+          (copying a poll file will result in options with the same GUID, but this is no issue)
+          (FIXME: any rules? can we use a WRD_GUID here for some custom polls which use WRD data?)
+        </d:documentation>
+      </d:varchar>
+
+      <d:integer name="votes">
+        <d:documentation>
+          Total amount of votes for this option
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+
+    <d:table name="pollvoters" primarykey="id">
+      <d:documentation>
+      </d:documentation>
+
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+
+      <d:integer name="poll_fsobject" references="system.fs_objects" ondelete="cascade" nullable="false">
+        <d:documentation>
+          The fs_object which is the poll file
+          (so permanently deleting fs_objects will cleanup poll voters and we can also very quickly lookup who and how many people voted for the poll)
+        </d:documentation>
+      </d:integer>
+
+      <d:varchar name="ipaddress" maxlength="64"><!-- FIXME: maxlength -->
+        <d:documentation>
+          Under which IP address did we receive the vote?
+        </d:documentation>
+      </d:varchar>
+
+      <d:varchar name="useragent" maxlength="512">
+        <d:documentation>
+          What useragent was specified (in the HTTP headers) while casting the vote?
+        </d:documentation>
+      </d:varchar>
+
+      <d:datetime name="when" nullable="false">
+        <d:documentation>
+          When did we receive this vote?
+        </d:documentation>
+      </d:datetime>
+
+      <!--
+      <d:varchar name="userguid" maxlength="255">
+        <d:documentation>
+          The WRD_GUID of the user which casted the vote
+        </d:documentation>
+      </d:varchar>
+      -->
+
+      <!--
+      <d:varchar name="origin">
+        <d:documentation>
+          (for future expansion?)
+        </d:documentation>
+      </d:varchar>
+      -->
+    </d:table>
+
+
+    <d:table name="pollvotes" primarykey="id" parentlinkcolumn="option">
+      <d:documentation>
+        Poll votes are temporary stored for checking and fixing abuse.
+        They may be thrown away after a certain amount of time.
+      </d:documentation>
+
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+
+      <d:integer name="voter" references="publisher.pollvoters" ondelete="cascade" nullable="false">
+        <d:documentation>
+          The voter
+        </d:documentation>
+      </d:integer>
+
+      <d:integer name="option" references="publisher.polloptions" ondelete="cascade" nullable="false">
+        <d:documentation>
+          The poll option this vote is casted on
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="formresults" primarykey="id">
+      <d:documentation>
+      </d:documentation>
+
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+
+      <d:integer name="status" nullable="false">
+        <d:documentation>
+          The status of this result record:
+          1: final result
+          2: intermediary result
+          3: cancelled result (the user has deleted this entry)
+          4: no-longer-valid result. if edited, the 'replacedby' contains the id of
+             the new result. if deleted, replacedby = 0
+          5: pending result, waiting on email confirmation
+          6: confirmed result, the 'replacedby' contains the id of the new result (with confirmed data)
+        </d:documentation>
+      </d:integer>
+
+      <d:integer name="form_fsobject" references="system.fs_objects" nullable="false">
+        <d:documentation>
+          The fs_object which is the form file.
+          These results records aren't automatically deleted (no cascade/set default), so they will have to be deleted
+          explicitly before the form file itself can be deleted.
+        </d:documentation>
+      </d:integer>
+
+      <d:varchar name="form_name" maxlength="64">
+        <d:documentation>
+          The name of the form within the form file.
+        </d:documentation>
+      </d:varchar>
+
+      <d:varchar name="guid" nullable="false" maxlength="22">
+        <d:documentation>
+          GUID of this result, unique within all form results.
+        </d:documentation>
+      </d:varchar>
+
+      <d:integer name="replacedby" references=".formresults" ondelete="cascade">
+        <d:documentation>
+          If this result is replaced by another result (the results are edited), this is the id of the new result record.
+        </d:documentation>
+      </d:integer>
+
+      <d:varchar name="url" maxlength="1024">
+        <d:documentation>
+          The URL of the page on which this result was entered.
+        </d:documentation>
+      </d:varchar>
+
+      <d:varchar name="languagecode" maxlength="16">
+        <d:documentation>
+          The language code of the page on which the result was entered
+        </d:documentation>
+      </d:varchar>
+
+      <d:datetime name="when" nullable="false">
+        <d:documentation>
+          When these results were submitted.
+        </d:documentation>
+      </d:datetime>
+
+      <d:datetime name="modified">
+        <d:documentation>
+          When these results were edited (i.e. status was updated).
+        </d:documentation>
+      </d:datetime>
+
+      <d:datetime name="expiration">
+        <d:documentation>
+          When these results are no longer accesible (when + storeresults days).
+        </d:documentation>
+      </d:datetime>
+
+      <d:datetime name="deletion">
+        <d:documentation>
+          When these results are no longer accesible (when + max(storeresults, processresults) days).
+        </d:documentation>
+      </d:datetime>
+
+      <d:varchar name="ipaddress" maxlength="64"><!-- FIXME: maxlength -->
+        <d:documentation>
+          Under which IP address did we receive the vote?
+        </d:documentation>
+      </d:varchar>
+
+      <d:varchar name="useragent" maxlength="512">
+        <d:documentation>
+          What useragent was specified (in the HTTP headers) while casting the vote?
+        </d:documentation>
+      </d:varchar>
+
+      <d:varchar name="ipcountrycode" maxlength="2">
+        <d:documentation>
+          The user's country code, based on GeoIP
+        </d:documentation>
+      </d:varchar>
+
+      <d:varchar name="results" maxlength="4096">
+        <d:documentation>
+          HSON-encoded results record, containing all plain fields (text, numbers, datetimes, etc.) by question GUID/tag. For
+          extended results (files, records, arrays, etc.) placeholders are stored here, with the actual data being stored in
+          extresults.
+        </d:documentation>
+      </d:varchar>
+
+      <d:blob name="blobresults">
+        <d:documentation>
+          HSON-encoded plain results record if longer than 4096 bytes.
+        </d:documentation>
+      </d:blob>
+
+      <d:varchar name="idfield" maxlength="512">
+        <d:documentation>
+          Field containing some data that can be used to quickly identify the person filling out the form, for example an
+          e-mail address.
+        </d:documentation>
+      </d:varchar>
+
+      <d:bytea name="wrdguid" maxlength="16">
+        <d:documentation>
+          WRD GUID of the person filling out the form, if known.
+        </d:documentation>
+      </d:bytea>
+
+      <d:index name="uniqueguid" columns="form_fsobject guid(22)" unique="true">
+        <d:documentation>
+          GUID should be unique per form
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="formattachments" primarykey="id">
+      <d:documentation>
+      </d:documentation>
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+      <d:integer name="formresult" references=".formresults" ondelete="cascade" nullable="0">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="question" nullable="0" maxlength="64">
+      </d:varchar>
+      <d:varchar name="metadata" maxlength="4096">
+      </d:varchar>
+      <d:blob name="file">
+      </d:blob>
+    </d:table>
+
+     <!--  Forums -->
+    <d:table name="forums" primarykey="id">
+      <d:documentation>
+        A table containing all the forums. Typicially every FS forum object that
+        was activated at least once, has an associated forum object
+      </d:documentation>
+      <d:integer name="id" references="system.fs_objects" ondelete="cascade" nullable="0" unique="true">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="uuid" maxlength="64">
+        <d:documentation>
+          Deprecated
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="postertype" references="wrd.types" ondelete="set default">
+        <d:documentation>
+          WRD type with which posters are associated.
+        </d:documentation>
+      </d:integer>
+      <d:obsoletecolumn name="emailto" />
+    </d:table>
+
+    <d:table name="subforums" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="forum" references=".forums" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="parent" references=".subforums" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="title" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="description" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="numtopics">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="tag" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:datetime name="creationdate" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="ordering">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="newtopics" default="true">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+    </d:table>
+
+    <d:table name="forumtopics" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="subforum" references=".subforums" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="linkedfileid" references="system.fs_objects" ondelete="set default">
+        <d:documentation>
+          File id we're linked to, if any
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="topic" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="firstposting" references=".forumpostings" ondelete="cascade">  <!-- ADDME did't want to set ondelete, but WHDB is unable to cascade deleted forums properly and gets stuck on this criterium -->
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="lastposting" references=".forumpostings" ondelete="cascade">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="ordering">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="numentries">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="sticky">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="tag" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="locked">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:datetime name="creationdate">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="closedate">
+        <d:documentation>
+          Date and time at which to close this topic for further topics
+        </d:documentation>
+      </d:datetime>
+    </d:table>
+
+    <d:table name="forumpostings" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="topic" references=".forumtopics" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="inreplyto" references=".forumpostings" ondelete="set default">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="subject" maxlength="256">
+        <d:documentation>
+          Post's subject, for forums that allow subjects on individual posts
+        </d:documentation>
+      </d:varchar>
+      <d:datetime name="creationdate" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="modificationdate" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="postingtype">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="content" maxlength="4096">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="attachments">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="postersource" maxlength="128">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="postername" maxlength="128">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="posteremail" maxlength="128">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="posteruid" maxlength="512">
+        <d:documentation>
+          Unique identifier identifying this poster, if he somehow logged in (often a WRD GUID)
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="deleted">
+        <d:documentation>
+          True if the post has been marked as deleted
+        </d:documentation>
+      </d:boolean>
+    </d:table>
+
+    <d:table name="forumattachments" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="posting" references=".forumpostings" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:blob name="data">
+        <d:documentation>
+
+        </d:documentation>
+      </d:blob>
+      <d:blob name="displayversion">
+        <d:documentation>
+          Displayable version oft he image
+        </d:documentation>
+      </d:blob>
+      <d:varchar name="mimetype" maxlength="128">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="displaymimetype" maxlength="128">
+        <d:documentation>
+          Mimetype of displayable version
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="filename" maxlength="128">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="description" maxlength="256">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="ordering">
+        <d:documentation>
+          Relative order of this attachment
+        </d:documentation>
+      </d:integer>
+      <d:integer name="type" nullable="0">
+        <d:documentation>
+          Type of this attachment: 1=posting text, 2=image, 3=file
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+
+    <d:grant permissions="all" schema="wrd" grantee=".webinterface"/>
+  </databaseschema>
+
+  <!-- NOTE: for performance and chicken/egg reasons, publisher registry is initialized by system -->
+
+  <consilio>
+    <contentprovider name="webhare" tid="contentproviders.webhare.providertitle" icon="tollium:folders/site" library="internal/contentprovider.whlib" contentproviderobject="WebHareContentProvider" publishercontent="true" settingsscreen="contentproviders.webhare"/>
+  </consilio>
+
+  <publisher>
+    <objecteditor name="editdocument" documenteditor="tolliumapps/rtdedit/rtdedit.xml#richdoc" supportsreadonly="true" />
+    <objecteditor name="webtoolform" documenteditor="tolliumapps/formedit/formedit.xml#editor" supportsreadonly="true" />
+    <objecteditor name="webtoolforum" screen="tolliumapps/forum/forum.xml#editforum" />
+    <objecteditor name="propertydialog" library="screens/commondialogs/objectprops.whlib" startmacro="runpropertydialog" />
+    <objecteditor name="embedded" screen="embeddededitor.editor" />
+    <objecteditor name="texteditor" screen="texteditor.main" />
+
+    <siteprofile path="data/publisher.siteprl.xml"/>
+    <siteprofile path="data/embeddedobjects.siteprl.xml"/>
+    <siteprofile path="data/designfilessiteprofile.siteprl.xml"/>
+    <siteprofile path="data/blitsiteprofile.siteprl.xml"/>
+    <siteprofile path="data/siteprofiles/webtools.siteprl.xml"/>
+    <siteprofile path="widgets/widgets.siteprl.xml"/>
+
+    <virtualfs name="publisher" library="internal/virtualfs-publisher.whlib" objectname="PublisherFSWithNoDefault" >
+      <accesscheck>
+        <requireright right="system:fs_browse"/>
+      </accesscheck>
+    </virtualfs>
+
+    <webdesignplugin name="formintegration" namespace="http://www.webhare.net/xmlns/publisher" objectname="lib/internal/forms/webdesignplugin.whlib#formintegrationplugin"  />
+    <webdesignplugin name="formintegration" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/forms/webdesignplugin.whlib#formintegrationplugin"  />
+    <webdesignplugin name="captchaintegration" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/captcha/webdesignplugin.whlib#captchaintegrationplugin"  />
+    <webdesignplugin name="forumplugin" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/forum/forumplugin.whlib#forumplugin" hooksfeatures="objectprops" />
+    <webdesignplugin name="gtm" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/gtmplugin.whlib#GTMPlugin" hooksfeatures="debugsettings" />
+    <webdesignplugin name="googleanalytics" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/gaplugin.whlib#GoogleAnalyticsPlugin" />
+    <webdesign name="blank" title="Blank webdesign" siteprofile="webdesigns/[designname_lc]/[designname_lc].siteprl.xml" istemplate="true" path="data/webdesigntemplates/blank" />
+    <webdesign name="nodesign" title="No webdesign" siteprofile="webdesigns/nowebdesign/nowebdesign.siteprl.xml" />
+
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="embeddededitor" />
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="setembeddedobjectrenderer" />
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="extendproperties" />
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="richdocumenteditor" />
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="rtddoc" />
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="setwidget" />
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="mswordconversion" />
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="debugsettings" />
+
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="webtools" /> <!-- legacy, remove once webtools/poll is gone -->
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="pollsettings" />
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="extendformeditor" />
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="allowwidgettype" />
+    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="videowidget" />
+
+    <versioningpolicy name="default" library="lib/internal/versioning/defaultpolicy.whlib" objectname="DefaultVersioningPolicy" />
+
+    <filemgrextension>
+      <accesscheck />
+      <addrootitem tid="components.foldertree.fsroot" gotoitemtid="components.foldertree.fsroot" icon="tollium:folders/publisher" contentmode="webhareroot" gotoshortcut="ctrl+shift+h" forvirtualfilters="copytargets movetargets" />
+      <addrootitem tid="terminology.trash" gotoitemtid="terminology.trash" icon="tollium:folders/trash" contentmode="recyclebin" filterscreen="mod::publisher/tolliumapps/filemanager/recyclebin.xml#filterpanel" gotoshortcut="ctrl+shift+t" forvirtualfilters="movetargets" />
+    </filemgrextension>
+
+    <filemgrextension>
+      <accesscheck />
+      <addrootitem tid="terminology.search" gotoitemtid="terminology.search" icon="tollium:folders/search" filterscreen="mod::publisher/tolliumapps/filemanager/search.xml#filterpanel" gotoshortcut="ctrl+shift+s" contentmode="searchresults" />
+    </filemgrextension>
+
+    <filemgrextension>
+      <accesscheck>
+        <requireright right="system:supervisor" />
+      </accesscheck>
+      <addaction tid="module.testforms" windowopenmacro="mod::publisher/lib/internal/forms/hooks.whlib#OpenFormsTest" requiresselection="true" addtomenu="actions" />
+    </filemgrextension>
+
+    <formcomponents namespace="http://www.webhare.net/xmlns/publisher/forms" xmlschema="data/forms/formdef.xsd"/>
+
+    <!-- Search filters for builtin WHFS fields -->
+    <searchfilter name="text" tid="filemanager.search.filtertypes.text" filterobject="lib/search/searchfilters.whlib#textfilter" />
+    <searchfilter name="name" tid="filemanager.search.filtertypes.name" filterobject="lib/search/searchfilters.whlib#namefilter" />
+    <searchfilter name="whfsobject" tid="filemanager.search.filtertypes.whfsobject" filterobject="lib/search/searchfilters.whlib#whfsobjectfilter" />
+    <searchfilter name="creationdate" tid="filemanager.search.filtertypes.creationdate" filterobject="lib/search/searchfilters.whlib#creationdatefilter" />
+    <searchfilter name="modificationdate" tid="filemanager.search.filtertypes.modificationdate" filterobject="lib/search/searchfilters.whlib#modificationdatefilter" />
+    <searchfilter name="whfsfolder" tid="filemanager.search.filtertypes.whfsfolder" filterobject="lib/search/searchfilters.whlib#whfsfolderfilter" />
+    <searchfilter name="whfstype" tid="filemanager.search.filtertypes.whfstype" filterobject="lib/search/searchfilters.whlib#whfstypefilter" />
+
+    <!-- Publisher search fields for documents with draft support (richdocuments and form files) -->
+    <indexfield fieldfunc="lib/internal/consiliocontent.whlib#getitemfield" name="hasdraft"/>
+    <searchfilter name="hasdraft" tid="filemanager.search.filtertypes.hasdraft" filterobject="lib/internal/consiliocontent.whlib#hasdraftfilter">
+      <accesscheck>
+        <requireright right="system:supervisor"/>
+      </accesscheck>
+    </searchfilter>
+
+    <!-- Publisher search fields for form files -->
+    <indexfield fieldfunc="lib/internal/consiliocontent.whlib#getitemfield" name="formfields"/>
+    <searchfilter name="formfields" tid="filemanager.search.filtertypes.formfields" filterobject="lib/internal/consiliocontent.whlib#formfieldsfilter">
+      <accesscheck>
+        <requireright right="system:supervisor"/>
+      </accesscheck>
+    </searchfilter>
+
+    <indexfield fieldfunc="lib/internal/consiliocontent.whlib#getitemfield" name="storeresults"/>
+    <searchfilter name="storeresults" tid="filemanager.search.filtertypes.storeresults" filterobject="lib/internal/consiliocontent.whlib#storeresultsfilter">
+      <accesscheck>
+        <requireright right="system:supervisor"/>
+      </accesscheck>
+    </searchfilter>
+  </publisher>
+
+  <services>
+    <localservice name="depresolver" library="internal/webdesign/depresolver.whlib" objectname="DepResolver" reuse="false" withtransaction="false"/>
+
+    <webservice name="forms" transports="jsonrpc" library="internal/forms/rpc.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
+      <accesscheck/>
+    </webservice>
+
+    <webservice name="designfiles" transports="jsonrpc" library="internal/webdesign/services.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
+      <accesscheck/>
+    </webservice>
+
+    <webservice name="rpc" transports="jsonrpc" library="internal/analytics/analyticsrpc.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
+      <accesscheck/>
+    </webservice>
+
+    <webservice name="poll" transports="jsonrpc" library="webtools/internal/pollrpc.whlib" primarytrans="none" prefix="RPC_" />
+    <webservice name="forum" transports="jsonrpc" library="internal/forum/rpc.whlib" primarytrans="none" prefix="RPC_" />
+
+    <apprunnerconfig configfunction="lib/internal/support.whlib#getpublisherapprunnerconfig" />
+
+    <check objectname="lib/internal/checks.whlib#SiteprofileCheck" />
+    <check objectname="lib/internal/checks.whlib#AssetpackCheck" />
+  </services>
+
+  <hooking>
+    <target name="publisher_objectprops_extensions" /> <!-- Register extensions to the publisher object properties dialog -->
+    <target name="sites_aftercreation" /> <!-- This hook is invoked whenever a site is created -->
+    <target name="findopen" /> <!-- Hooks find and open ('open in publisher') -->
+
+    <intercept name="managedependencies" target="publisher_objectprops_extensions" interceptfunction="lib/internal/webdesign/hooks.whlib#PublisherObjectPropsExtensions"/>
+  </hooking>
+
+  <documentation>
+    <xmlschemas>
+      <xmlschema path="components.xsd" title="Components from the Publisher module"/>
+      <xmlschema path="siteprofile.xsd" title="Site profile specification"/>
+      <xmlschema path="forms/formdef.xsd" title="Form components from the publisher module"/>
+    </xmlschemas>
+  </documentation>
+
+  <validation>
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/publisher/siteprofile" schemalocation="data/siteprofile.xsd" rootnodes="siteprofile" validator="lib/internal/siteprofiles/validation.whlib#SiteprofValidator"/>
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/publisher/forms" schemalocation="x-webhare-builtin-xsd:components.xsd?type=formcomponents" rootnodes="formdefinitions" validator="lib/internal/forms/validation.whlib#FormdefValidator"/>
+  </validation>
+</module>

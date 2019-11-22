@@ -1,0 +1,481 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Current selected urlfragment
+  STRING urlfragment;
+
+  /// Link to main page content in downloadkeeper
+  STRING mainpagelink;
+
+  /// Source url
+  STRING pvt_src;
+
+  /// List of additional components
+  OBJECT ARRAY pvt_additionalcomponents;
+
+  /// Function ptr for clicklink callback
+  FUNCTION PTR pvt_onclicklink;
+
+  /// Function ptr for js callback
+  FUNCTION PTR pvt_oncallback;
+
+  /// Function ptr for data changed callback
+  FUNCTION PTR pvt_ondata;
+
+  /// Submit value
+  RECORD pvt_data;
+
+  /// Zoom value
+  MONEY pvt_zoom;
+
+  /// PostMessage receiver
+  PUBLIC MACRO PTR onmessage;
+
+  /// Pending requests
+  RECORD ARRAY pendingrequests;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  /** Set the current HTML contents of the iframe (string). Write-only.
+  */
+  PUBLIC PROPERTY value(-, SetHTML);
+
+  /** Set the current HTML contents of the iframe (blob). Write-only.
+  */
+  PUBLIC PROPERTY blobvalue(-, SetHTMLBlob);
+
+  /** The source URL for the content
+  */
+  PUBLIC PROPERTY src(pvt_src, SetSource);
+
+  /// Triggered when a link within the iframe is clicked. Signature: MACRO func(STRING href)
+  PUBLIC PROPERTY onclicklink(pvt_onclicklink, SetOnClickLink);
+
+  /// Trigged when javascripts calls DoCallback. Signature: MACRO func(RECORD data)
+  PUBLIC PROPERTY oncallback(pvt_oncallback, SetOnCallback);
+
+  /// Trigged when the data changed. Signature: MACRO func()
+  PUBLIC PROPERTY ondata(pvt_ondata, SetOnData);
+
+  /// Called when enabledon is executed. Signature: BOOLEAN func(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  PUBLIC FUNCTION PTR onenabledon;
+
+  /// List of additional components
+  PUBLIC PROPERTY additionalcomponents(GetAdditionalComponents, SetAdditionalComponents);
+
+  /// Submit value
+  PUBLIC PROPERTY data(pvt_data, SetData);
+
+  /// Todd iframe JavaScript url
+  PUBLIC PROPERTY toddiframeurl(GetToddIframeUrl, -);
+
+  /// Iframe zoom factor (percentage)
+  PUBLIC PROPERTY zoom(pvt_zoom, SetZoom);
+
+  PUBLIC BOOLEAN enablesandbox;
+
+  PUBLIC STRING ARRAY sandbox;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium init
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_blockelement := TRUE;
+    EXTEND this BY TolliumDownloadKeeper;
+    this->componenttype := "iframe";
+    this->formfieldtype := "record";
+    this->pvt_zoom := 100;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->pvt_onclicklink := def.onclicklink;
+    this->pvt_oncallback := def.oncallback;
+    this->pvt_ondata := def.ondata;
+    this->onmessage := def.onmessage;
+    this->enablesandbox := def.enablesandbox;
+    this->sandbox := def.sandbox;
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ content := FALSE
+        , eventmask := FALSE
+        , addcomps := FALSE
+        , data := FALSE
+        , zoom := FALSE
+        ];
+  }
+
+  PUBLIC STRING FUNCTION __GetContentURL()
+  {
+    RETURN this->pvt_src ?? this->mainpagelink;
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    /* FIXME: Security issues with tolliumwebrender: embedded javascript or encoding errors can compromise
+              todd's framework, allowing attacks on other todd application with higher privileges */
+
+    STRING uri := this->__GetContentURL();
+
+    IF (this->dirtyflags.fully)
+    {
+      RECORD comp := [ unmasked_events := GetUnmask(this,["clicklink","callback","data"])
+                     , fragment :=  this->urlfragment
+                     , mainuri :=   uri
+                     , addcomps :=  GetComponentNames(this->pvt_additionalcomponents)
+                     , data :=      this->pvt_data
+                     , zoom :=      this->pvt_zoom
+                     , sandbox :=   Detokenize(this->sandbox,' ')
+                     , enablesandbox := this->enablesandbox
+                     ];
+      this->owner->tolliumcontroller->SendComponent(this, comp);
+    }
+    ELSE
+    {
+      IF(this->dirtyflags.content)
+        this->ToddUpdate(
+            [ type:="content"
+            , mainuri := uri
+            , fragment := this->urlfragment
+            ]);
+
+      IF (this->dirtyflags.eventmask)
+        this->ToddUpdate([ type:="eventmask", unmasked_events := GetUnmask(this,["clicklink", "callback", "data"]) ]);
+
+      IF (this->dirtyflags.addcomps)
+        this->ToddUpdate([ type:="addcomps", addcomps := GetComponentNames(this->pvt_additionalcomponents) ]);
+
+      IF (this->dirtyflags.data)
+        this->ToddUpdate([ type:= "data", data := this->pvt_data ]);
+
+      IF (this->dirtyflags.zoom)
+        this->ToddUpdate([ type:= "zoom", zoom := this->pvt_zoom ]);
+    }
+
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(RECORD data)
+  {
+    this->pvt_data := data;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+  UPDATE PUBLIC STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "1pr";
+  }
+
+  MACRO SetHTML(STRING data)
+  {
+    this->SetHTMLBlob(StringToBlob(data));
+  }
+
+  MACRO SetHTMLBlob(BLOB data)
+  {
+    this->pvt_src := "";
+    this->mainpagelink := this->AddInlineDownload(data, "text/html; charset=utf-8", "download.html");
+    this->ExtUpdatedContent();
+  }
+
+  PUBLIC MACRO SetFile(RECORD wrappedfile)
+  {
+    IF(NOT RecordExists(wrappedfile))
+    {
+      this->SetSource("about:blank");
+      RETURN;
+    }
+    this->pvt_src := "";
+    this->mainpagelink := this->AddInlineDownload(wrappedfile.data, wrappedfile.mimetype, wrappedfile.filename);
+    this->ExtUpdatedContent();
+  }
+
+  MACRO SetSource(STRING href)
+  {
+    IF(this->pvt_src = href)
+      RETURN;
+    this->pvt_src := href;
+    this->ExtUpdatedContent();
+  }
+
+  OBJECT ARRAY FUNCTION GetAdditionalComponents()
+  {
+    RETURN this->pvt_additionalcomponents;
+  }
+
+  MACRO SetAdditionalComponents(OBJECT ARRAY comps)
+  {
+    this->pvt_additionalcomponents := comps;
+    this->ExtUpdatedAdditionalComponents();
+  }
+
+  MACRO SetOnClickLink(FUNCTION PTR onclicklink)
+  {
+    this->pvt_onclicklink := onclicklink;
+    this->ExtUpdatedEventMask();
+  }
+
+  MACRO SetOnCallback(FUNCTION PTR oncallback)
+  {
+    this->pvt_oncallback := oncallback;
+    this->ExtUpdatedEventMask();
+  }
+
+  MACRO SetOnData(FUNCTION PTR ondata)
+  {
+    this->pvt_ondata := ondata;
+    this->ExtUpdatedEventMask();
+  }
+
+  MACRO SetData(RECORD newdata)
+  {
+    // Simple check if data actually changed
+    RECORD ARRAY newfields := UnpackRecord(newdata);
+    IF (Length(newfields) = Length(UnpackRecord(this->pvt_data)))
+    {
+      BOOLEAN changed;
+      FOREVERY (RECORD field FROM newfields)
+      {
+        IF (NOT CellExists(this->pvt_data, field.name)
+            OR TypeID(GetCell(this->pvt_data, field.name)) != TypeID(field.value)
+            OR NOT IsTypeidComparable(TypeID(field.value))
+            OR GetCell(this->pvt_data, field.name) != field.value)
+        {
+          changed := TRUE;
+          BREAK;
+        }
+      }
+      IF (NOT changed)
+        RETURN;
+    }
+
+    this->pvt_data := newdata;
+    this->ExtUpdatedData();
+  }
+
+  STRING FUNCTION GetToddIframeUrl()
+  {
+    RETURN "/.tollium/ui/js/external/toddiframe.js";
+  }
+
+  MACRO SetZoom(MONEY zoom)
+  {
+    // Limit zoom to max factor 10x
+    IF (zoom < 10)
+      zoom := 10;
+    ELSE IF (zoom > 1000)
+      zoom := 1000;
+    IF (zoom != this->pvt_zoom)
+    {
+      this->pvt_zoom := zoom;
+      this->ExtUpdatedZoom();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  // Called when component is unloaded
+  UPDATE PUBLIC MACRO OnUnloadComponent()
+  {
+    this->ResetDownloads();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium overrides
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    IF (this->onenabledon != DEFAULT FUNCTION PTR)
+      RETURN this->onenabledon(min, max, flags, selectionmatch);
+
+    RETURN FALSE;
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH (type)
+    {
+      CASE "clicklink"
+      {
+        IF(this->pvt_onclicklink != DEFAULT FUNCTION PTR)
+          this->pvt_onclicklink(msgdata.href);
+      }
+      CASE "callback"
+      {
+        IF (this->pvt_oncallback != DEFAULT FUNCTION PTR)
+          this->pvt_oncallback(msgdata.parameters);
+      }
+      CASE "data"
+      {
+        this->pvt_data := msgdata.data;
+        IF (this->pvt_ondata != DEFAULT FUNCTION PTR)
+          this->pvt_ondata();
+      }
+      CASE "postmessage"
+      {
+        IF(CellExists(msgdata.data,"__REQUESTTOKEN")) //it's a response
+        {
+          INTEGER matchingrequest := (SELECT AS INTEGER #pendingrequests + 1 FROM this->pendingrequests WHERE pendingrequests.requesttoken = msgdata.data.__requesttoken) - 1;
+          IF(matchingrequest < 0)
+            RETURN;
+
+          DELETE CELL __requesttoken FROM msgdata.data;
+          this->pendingrequests[matchingrequest].defer.resolve(msgdata.data);
+          DELETE FROM this->pendingrequests AT matchingrequest;
+        }
+        ELSE IF(this->onmessage != DEFAULT FUNCTION PTR)
+          this->onmessage(msgdata.data, msgdata.origin);
+      }
+      DEFAULT
+      {
+        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedContent()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.content := TRUE;
+  }
+
+  MACRO ExtUpdatedAdditionalComponents()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.addcomps := TRUE;
+  }
+
+  MACRO ExtUpdatedEventMask()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.eventmask := TRUE;
+  }
+
+  MACRO ExtUpdatedData()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.data := TRUE;
+  }
+
+  MACRO ExtUpdatedZoom()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.zoom := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /// Reset content (iframe page & contents)
+  PUBLIC MACRO ResetContent()
+  {
+    //this->pvt_src := "about:blank";
+    this->mainpagelink := "";
+    this->ResetDownloads();
+  }
+
+  /// Scroll to a fragment (only works when content is updated in the same update round)
+  PUBLIC MACRO ScrollTo(STRING fragment)
+  {
+    this->urlfragment := fragment;
+    this->ExtUpdatedComponent();
+  }
+
+  /** Execute a javascript function within the iframe
+      @param funcname Name of the function to call
+      @param args Arguments
+  */
+  PUBLIC MACRO CallJavascript(STRING funcname, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  {
+    this->QueueOutboundMessage("JS", [ funcname := funcname, args := args ]);
+  }
+
+/** @short Do a callback from todd to the iframe with the given data
+    @param data The data to send with the callback
+*/
+  PUBLIC MACRO DoCallback(RECORD data)
+  {
+    this->QueueOutboundMessage("Callback", data);
+  }
+
+  PUBLIC MACRO PostMessage(VARIANT message, STRING targetorigin)
+  {
+    this->QueueOutboundMessage("PostMessage", CELL[ message, targetorigin ]);
+  }
+
+  PUBLIC OBJECT FUNCTION PostRequest(RECORD message, STRING targetorigin)
+  {
+    //FIXME reject pendingrequest promises on unload
+
+    STRING requesttoken := GenerateUFS128BitId();
+    RECORD defer := CreateDeferredPromise();
+    INSERT CELL __requesttoken := requesttoken INTO message;
+    INSERT CELL [ requesttoken, defer ] INTO this->pendingrequests AT END;
+    this->QueueOutboundMessage("PostMessage", CELL[ message, targetorigin ]);
+    RETURN defer.promise;
+  }
+
+  /// Trigger print
+  PUBLIC MACRO Print()
+  {
+    this->QueueOutboundMessage("Print", DEFAULT RECORD);
+  }
+
+  /** @short Add an embedded object (to which you can refer in your HTML source code)
+      @param data Data to export
+      @param mimetype Mimetype for this object
+      @return The hyperlink to use in your HTML code to refer to this object
+  */
+  PUBLIC STRING FUNCTION AddEmbeddedObject(BLOB data, STRING mimetype)
+  {
+    RETURN this->AddInlineDownload(data, mimetype, "");
+  }
+
+  /** @short Delete an embedded object
+      @param hyperlink Link to the object */
+  PUBLIC MACRO DeleteEmbeddedObject(STRING dellink)
+  {
+    this->RemoveDownload(dellink);
+  }
+>;

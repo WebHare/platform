@@ -1,0 +1,13 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+
+PUBLIC OBJECTTYPE Nowebdesign EXTEND WebdesignBase
+<
+  UPDATE PUBLIC MACRO RunPageWithContents(MACRO PTR contents)
+  {
+    contents();
+  }
+
+>;

@@ -1,0 +1,155 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+
+
+STRING xmlns_serverconfig := "http://www.webhare.net/xmlns/system/serverconfig";
+
+OBJECTTYPE ServerConfigHandler
+<
+  OBJECT doc;
+
+  MACRO NEW(OBJECT doc)
+  {
+    this->doc := doc;
+  }
+
+  PUBLIC RECORD FUNCTION GetIdentity()
+  {
+    RECORD retval := [ has_servername := FALSE
+                     , servername := ""
+
+                     , has_dtapstage := FALSE
+                     , dtapstage := ""
+                     ];
+
+    OBJECT identitynode := this->doc->GetElementsByTagNameNS(xmlns_serverconfig, "identity")->Item(0);
+    IF(NOT ObjectExists(identitynode))
+      RETURN retval;
+
+    retval.has_servername := identitynode->HasAttribute("servername");
+    retval.servername     := identitynode->GetAttribute("servername");
+    retval.has_dtapstage  := identitynode->HasAttribute("dtapstage");
+    retval.dtapstage      := identitynode->GetAttribute("dtapstage");
+    RETURN retval;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetWebservers()
+  {
+    RECORD ARRAY webservers;
+    FOREVERY(OBJECT webservernode FROM this->doc->GetElementsByTagNameNS(xmlns_serverconfig, "addwebserver")->GetCurrentElements())
+    {
+      INSERT [ url := webservernode->GetAttribute("url")
+             , type := webservernode->GetAttribute("type")
+             , bindto := webservernode->GetAttribute("bindto")
+             ] INTO webservers AT END;
+    }
+    RETURN webservers;
+  }
+
+  //FIXME When installing/updating a module after starting, reapply the keys for that module
+  PUBLIC RECORD ARRAY FUNCTION GetRegistryKeys()
+  {
+    RECORD ARRAY keys;
+    FOREVERY(OBJECT keynode FROM this->doc->GetElementsByTagNameNS(xmlns_serverconfig, "setregistrykey")->GetCurrentElements())
+    {
+      INSERT [ module := keynode->GetAttribute("module")
+             , keyname := keynode->GetAttribute("key")
+             , rawvalue := keynode->GetAttribute("value")
+             ] INTO keys AT END;
+    }
+    RETURN keys;
+  }
+
+  PUBLIC MACRO ConfigServer()
+  {
+    GetPrimary()->BeginWork();
+
+    RECORD identity := this->GetIdentity();
+    IF(identity.has_servername)
+      WriteRegistryKey("system.global.servername", identity.servername);
+    IF(identity.has_dtapstage)
+      WriteRegistryKey("system.global.servertype", identity.dtapstage);
+
+    FOREVERY(RECORD keyrec FROM this->GetRegistryKeys())
+    {
+      //FIXME support non-string keys
+      //FIXME warn about non-existing keys if the module does exist?
+      TRY
+      {
+        WriteRegistryKey((keyrec.module!="" ? keyrec.module || "." : "") || keyrec.keyname, keyrec.rawvalue);
+      }
+      CATCH(OBJECT e)
+      {
+        Print("Setting serverconfig key " || (keyrec.module != "" ? keyrec.module || ":" : "") || keyrec.rawvalue || ": " || e->what||'\n');
+      }
+    }
+
+    FOREVERY(RECORD webserver FROM this->GetWebservers())
+    {
+      this->ApplyWebserver(webserver);
+    }
+
+    GetPrimary()->CommitWork();
+    UpdateSystemConfigurationRecord();
+  }
+
+  MACRO ApplyWebserver(RECORD webserver)
+  {
+    INTEGER portid;
+    IF(webserver.bindto != "")
+    {
+      STRING ARRAY bindparts := Tokenize(webserver.bindto,':');
+      IF(Length(bindparts) != 2)
+      {
+        Print("Webserver bindto '" || webserver.bindto || "' must be of the form IP:PORT\n");
+        RETURN;
+      }
+      IF (NOT IsValidIPAddress(bindparts[0]))
+      {
+        Print("Webserver bindto IP address '" || bindparts[0] || "' is not a valid IP address\n");
+        RETURN;
+      }
+      INTEGER port := ToInteger(bindparts[1],0);
+      IF(port<1 OR port>65535)
+      {
+        Print("Webserver bindto IP port '" || bindparts[1] || "' is not a valid port number\n");
+        RETURN;
+      }
+
+      portid := SELECT AS INTEGER id FROM system.ports WHERE ports.port = VAR port AND ports.ip = VAR bindparts[0];
+      IF(portid=0)
+      {
+        portid := MakeAutonumber(system.ports,'id');
+        INSERT INTO system.ports (id, port, ip, description) VALUES(portid, port, bindparts[0], "Created by serverconfig.xml for '" || webserver.url);
+      }
+    }
+
+    RECORD matchserver := SELECT * FROM system.webservers WHERE baseurl = webserver.url;
+    IF(NOT RecordExists(matchserver))
+    {
+      INSERT INTO system.webservers(baseurl, outputextension, type, port)
+                  VALUES(webserver.url, '.html', webserver.type = "interface" ? 1 : 0, portid);
+    }
+  }
+>;
+
+PUBLIC RECORD FUNCTION LoadServerConfig()
+{
+  BLOB res;
+  TRY res := GetDiskResource(GetWebhareConfiguration().varroot || "serverconfig.xml");
+  CATCH RETURN [ success := TRUE, errors := DEFAULT RECORD ARRAY, confighandler := DEFAULT OBJECT ];
+
+  OBJECT doc := MakeXMLDocument(res);
+  IF(Length(doc->GetParseErrors())>0)
+  {
+    RETURN [ success := FALSE, errors := doc->GetParseErrors(), confighandler := DEFAULT OBJECT ];
+  }
+  RETURN [ success := TRUE, errors := DEFAULT RECORD ARRAY, confighandler := NEW ServerConfigHandler(doc) ];
+}

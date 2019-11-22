@@ -1,0 +1,6 @@
+<?wh
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "wh::internal/testdata.whlib";
+
+AddHTTPHeader("Content-Type","text/javascript",FALSE);
+Print("var testdata=" || EncodeJSON(testdata));

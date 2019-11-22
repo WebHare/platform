@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>wh.net.upload</title>
+  </head>
+  <body>
+    <input id="myinput" type="file" multiple="multiple" style="position: absolute; opacity: 0;left: -100px; top:-100px">
+    <a id="doaction2" href="#">Manual upload via HTML5</a><br>
+    <a id="dodialoguploadsingle" href="javascript: return false;">Click-upload (single)</a><br>
+    <a id="dodialoguploadmultiple" href="javascript: return false;">Click-upload (multiple)</a><br>
+    <a id="doabort" href="#">abort</a><br>
+    <div id="status"></div>
+    <div id="time"></div>
+    Tokens:
+    <div id="tokens"></div>
+    Files:
+    <div id="files"></div>
+  </body>
+</html>

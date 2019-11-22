@@ -1,0 +1,162 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="aaa">   <!-- aaa -->
+    <textgroup gid="limitlanguage_en">   <!-- aaa.limitlanguage_en -->
+    </textgroup>
+    <textgroup gid="limitlanguage_nl">   <!-- aaa.limitlanguage_nl -->
+      <text tid="isnlonly">IsNLOnly</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="basetest">   <!-- basetest -->
+    <text tid="title">Basetest title (from NL language file)</text>
+  </textgroup>
+  <textgroup gid="editors">   <!-- editors -->
+  </textgroup>
+  <textgroup gid="jstests">   <!-- jstests -->
+    <text tid="apptitle">Javascript tests</text>
+    <textgroup gid="jstests">   <!-- jstests.jstests -->
+      <text tid="all">* Alle</text>
+      <text tid="allfailed">* Alle gefaalde</text>
+      <text tid="allicon">Gecombineerd</text>
+      <text tid="allnotrun">* Alle niet gedraaide</text>
+      <text tid="applymasks">Toepassen</text>
+      <text tid="apptitle">Javascript tests</text>
+      <text tid="autorunbrowsers">Autorun watches</text>
+      <text tid="browser">Browser</text>
+      <text tid="failures">Gefaald</text>
+      <text tid="jstests">Javascript tests</text>
+      <text tid="masks">Maskers</text>
+      <text tid="noerrors">Geen fouten</text>
+      <text tid="notrun">Niet gedraaid</text>
+      <text tid="result_chrome">Chrome</text>
+      <text tid="result_edge">Edge</text>
+      <text tid="result_firefox">Firefox</text>
+      <text tid="result_ie10">IE 10</text>
+      <text tid="result_ie11">IE 11</text>
+      <text tid="result_ie8">IE 8</text>
+      <text tid="result_ie9">IE 9</text>
+      <text tid="result_safari">Safari</text>
+      <text tid="running">Draait (nog geen rapport)</text>
+      <text tid="runok">Ok</text>
+      <text tid="skips">Overslaan</text>
+      <text tid="stillrunning">draait nog</text>
+      <text tid="testname">Test</text>
+      <textgroup gid="actions">   <!-- jstests.jstests.actions -->
+        <text tid="applymasks">Toepassen</text>
+        <text tid="canceltests">Tests annuleren</text>
+        <text tid="export">Exporteren</text>
+        <text tid="openbrowserresult">Open resultaat</text>
+        <text tid="opengridconsole">Open Selenium grid console</text>
+        <text tid="opentestinbrowser">Open test in browser</text>
+        <text tid="opentestspage">Open tests pagina</text>
+        <text tid="restarttestmgr">Herstart testmanager</text>
+        <text tid="run_all">Draai op alle</text>
+        <text tid="run_chrome">Draai op Chrome</text>
+        <text tid="run_edge">Draai op Edge</text>
+        <text tid="run_firefox">Draai op Firefox</text>
+        <text tid="run_ie10">Draai op IE 10</text>
+        <text tid="run_ie11">Draai op IE 11</text>
+        <text tid="run_ie9">Draai op IE 9</text>
+        <text tid="run_safari">Draai op Safari</text>
+      </textgroup>
+      <textgroup gid="testresults">   <!-- jstests.jstests.testresults -->
+        <text tid="assetpackstatus">Assetpacks</text>
+        <text tid="e">Fout</text>
+        <text tid="failedsteps">Gefaalde teststappen</text>
+        <text tid="log">Log</text>
+        <text tid="recompileassetpacks">Hercompileren</text>
+        <text tid="restart">Herstarten</text>
+        <text tid="stepname">Stapnaam</text>
+        <text tid="stepnr">Stap</text>
+        <text tid="testresults">Test resultaten</text>
+        <text tid="teststatus">Test status</text>
+        <text tid="testurl">Test URL</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- jstests.messageboxes -->
+      <text tid="webhareurlmustbeglobal">De webhare interface URL moet toegankelijk zijn vanaf andere servers (geen localhost/127.0.0.1)</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="localtests">   <!-- localtests -->
+    <text tid="apptitle">Run lokale tests</text>
+  </textgroup>
+  <textgroup gid="module">   <!-- module -->
+    <text tid="eventservertest">Eventserver test message</text>
+    <text tid="eventservertest-desc">Message count: <param p="1"/></text>
+    <text tid="testaction">Testactie</text>
+    <text tid="webruleset">Test webruleset</text>
+    <textgroup gid="testsite">   <!-- module.testsite -->
+    </textgroup>
+  </textgroup>
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="addressform">   <!-- site.addressform -->
+      <text tid="address">Adres</text>
+      <text tid="address-zip">ZIP-code</text>
+    </textgroup>
+    <textgroup gid="coretest">   <!-- site.coretest -->
+      <text tid="disabledpulldown"><html:b>Disabled</html:b> pulldown</text>
+      <text tid="make_a_selection">Maak selectie</text>
+      <text tid="namelijk"><html:u>name</html:u>lijk</text>
+      <text tid="radiotest">Radiotest</text>
+      <text tid="radiotest-2">Option 2</text>
+      <text tid="richtext-tid">&lt;richtext&gt; inhoud vanuit tid</text>
+      <text tid="terms">with the <html:a href="http://www.example.net/terms">terms</html:a>.</text>
+      <text tid="zwei">Z<html:i>wei</html:i></text>
+    </textgroup>
+    <textgroup gid="multipagetest">   <!-- site.multipagetest -->
+      <text tid="lastpage">Last Page</text>
+      <text tid="nextlabeltid">volgende</text>
+      <text tid="nextpage">Next Page</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="system">   <!-- system -->
+    <textgroup gid="mailtest">   <!-- system.mailtest -->
+    </textgroup>
+  </textgroup>
+  <textgroup gid="test">   <!-- test -->
+    <text tid="addedgroup_k2">Added group K2</text>
+    <text tid="beschikbaarheid">Beschikbaarheid</text>
+    <text tid="beschikbaarheid-beschikbaar">Beschikbaar</text>
+    <text tid="beschikbaarheid-binnenkort">Binnenkort</text>
+    <text tid="beschikbaarheid-verkocht">Verkocht</text>
+    <text tid="mainedit">Mainedit</text>
+    <text tid="yattab">Yet Another Tab</text>
+  </textgroup>
+  <textgroup gid="testfallback">   <!-- testfallback -->
+    <text tid="anothertext">This text should be ignored</text>
+    <textgroup gid="sub">   <!-- testfallback.sub -->
+      <text tid="text">Ignore this text</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="testfallbackdefaultrecursion">   <!-- testfallbackdefaultrecursion -->
+    <text tid="text">Can't find me from NL</text>
+  </textgroup>
+  <textgroup gid="testfallbacklocalrecursion">   <!-- testfallbacklocalrecursion -->
+  </textgroup>
+  <textgroup gid="testfallbackrecursion">   <!-- testfallbackrecursion -->
+    <text tid="text">Can't find me</text>
+  </textgroup>
+  <textgroup gid="testtids">   <!-- testtids -->
+    <textgroup gid="fragment">   <!-- testtids.fragment -->
+    </textgroup>
+    <textgroup gid="screen">   <!-- testtids.screen -->
+    </textgroup>
+    <textgroup gid="tabsextension">   <!-- testtids.tabsextension -->
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="demo">   <!-- tolliumapps.demo -->
+      <textgroup gid="wrd">   <!-- tolliumapps.demo.wrd -->
+      </textgroup>
+    </textgroup>
+    <textgroup gid="iconviewer">   <!-- tolliumapps.iconviewer -->
+    </textgroup>
+    <textgroup gid="mapdemo">   <!-- tolliumapps.mapdemo -->
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webtools">   <!-- webtools -->
+    <text tid="testsuitehandlerdesc">TestSuiteHandler beschrijving</text>
+  </textgroup>
+  <textgroup gid="youtubecomponent">   <!-- youtubecomponent -->
+  </textgroup>
+</language>

@@ -1,0 +1,40 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+ASYNC MACRO TestOpenSchema()
+{
+  testfw->BeginWork();
+
+  OBJECT wrdschema2 := CreateWRDSchema("webhare_testsuite:schema2", [ initialize := TRUE
+                                                                    , schemaresource := "mod::system/data/wrdschemas/default.wrdschema.xml"
+                                                                    ]);
+
+  testfw->GetUserObject("sysop")->GrantRightToOn("wrd:readwrite", testfw->GetUserObject("marge"), testfw->GetWRDSchema()->id, FALSE);
+  testfw->GetUserObject("sysop")->GrantRightToOn("wrd:readwrite", testfw->GetUserObject("marge"), wrdschema2->id, FALSE);
+
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser"));
+  TestEq(TRUE, RecordExists(SELECT FROM topscreen->schemas->rows WHERE tag = testfw->GetWRDSchema()->tag));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+ASYNC MACRO TestMarge()
+{
+  testfw->SetTestUser("marge");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser"));
+  TestEq([[ tag := "webhare_testsuite:schema2" ]], SELECT tag FROM TT("schemas")->rows);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+RunTestFramework([ PTR CreateWRDTestSchema
+                 , PTR TestOpenSchema
+                 , PTR TestMarge
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]
+                                   ,[ login := "marge" ]
+                                   ]]);

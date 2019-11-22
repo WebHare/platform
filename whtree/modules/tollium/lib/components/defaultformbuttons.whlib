@@ -1,0 +1,87 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/components/panel.whlib";
+
+STRING ARRAY defaultbuttonpriority := ["ok","close"];
+RECORD ARRAY basebuttons := [[ name := "ok", tolliumresult := "tollium_submit" ]
+                            ,[ name := "yes", tolliumresult := "yes" ]
+                            ,[ name := "yestoall", tolliumresult := "yestoall" ]
+                            ,[ name := "no", tolliumresult := "no" ]
+                            ,[ name := "cancel", tolliumresult := "tollium_cancel" ]
+                            ,[ name := "close", tolliumresult := "close" ]
+                            ];
+
+PUBLIC OBJECTTYPE TolliumDefaultFormButtons EXTEND TolliumPanel
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  RECORD ARRAY pvt_buttons;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties & variables
+  //
+
+  PUBLIC PROPERTY buttons(GetButtons, SetButtons);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium init
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    this->TolliumComponentBase_StaticInit(def);
+    this->layout := "right";
+
+    this->SetButtons(def.buttons, def."default");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  STRING ARRAY FUNCTION GetButtons()
+  {
+    RETURN SELECT AS STRING ARRAY name FROM this->pvt_buttons;
+  }
+
+  MACRO SetButtons(STRING ARRAY buttons, STRING defaultbutton DEFAULTSTO "")
+  {
+    IF (NOT IsDefaultValue(this->pvt_buttons))
+    {
+      FOREVERY (RECORD rec FROM this->pvt_buttons)
+        rec.button->DeleteComponent();
+      this->pvt_buttons := RECORD[];
+    }
+
+    FOREVERY(RECORD button FROM basebuttons)
+    {
+      IF(button.name IN buttons)
+      {
+        OBJECT buttonelement := this->CreateSubComponent("button");
+        buttonelement->tolliumresult := button.tolliumresult;
+        buttonelement->title := GetTid("tollium:common.actions." || button.name);
+
+        this->InsertComponentAfter(buttonelement, DEFAULT OBJECT, FALSE);
+
+        INSERT [ name := button.name
+               , button := buttonelement
+               ] INTO this->pvt_buttons AT END;
+      }
+    }
+
+    FOREVERY(STRING trybutton FROM [ defaultbutton, ...defaultbuttonpriority ])
+    {
+      RECORD matchingbutton := SELECT * FROM this->pvt_buttons WHERE name=trybutton;
+      IF(RecordExists(matchingbutton))
+      {
+        this->owner->frame->defaultbutton := matchingbutton.button;
+        BREAK;
+      }
+    }
+  }
+>;

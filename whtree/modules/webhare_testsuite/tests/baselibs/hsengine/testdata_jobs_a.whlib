@@ -1,0 +1,202 @@
+﻿<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::os.whlib";
+
+OBJECT crash := ConnectToIPCPort("jobcrashfast");
+IF (ObjectExists(crash))
+{
+  crash->SendMessage([ type := "foundyou!" ]); // send a msg, else connection will be removed
+  ABORT("Crashing!");
+}
+
+IF (Detokenize(GetConsoleArguments(), ",") = "overrideexecutelibrary")
+{
+  __HS_INTERNAL_OverrideExecuteLibrary("test::subdir/relativelib.whlib");
+  TRY
+  {
+    MakeFunctionPtr("relative::relativelib.whlib", "test", 0, DEFAULT INTEGER ARRAY)();
+  }
+  CATCH (OBJECT e)
+  {
+    PRINT("Error loading: " || e->what || "\n");
+    THROW e;
+  }
+
+  RETURN;
+}
+
+OBJECT link := GetIPCLinkToParent();
+
+// No link? This is a loadlib for compile-reasons.
+IF (NOT ObjectExists(link))
+  RETURN;
+
+OBJECTTYPE MyExceptionInLL EXTEND Exception
+< PUBLIC STRING extra;
+  MACRO NEW(STRING what, STRING extra)
+  : Exception(what)
+  {
+    this->extra := extra;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeForIPC()
+  {
+    RECORD rec := Exception::EncodeForIPC();
+    rec.type := "myexception";
+      INSERT CELL extra := this->extra INTO rec;
+    RETURN rec;
+  }
+>;
+
+
+OBJECTTYPE TestPortHandler EXTEND IPCPortHandlerBase
+< MACRO NEW(OBJECT port)
+  : IPCPortHandlerBase(port)
+  {
+  }
+
+  UPDATE RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    SWITCH (message.type)
+    {
+    CASE "return"
+      {
+        RETURN
+            [ result :=   "message"
+            , msg :=      [ returned := "rvalue" ]
+            ];
+      }
+    CASE "throw"
+      {
+        THROW NEW Exception("msg1");
+      }
+    CASE "throwmyexception"
+      {
+        THROW NEW MyExceptionInLL("msg2", "ex");
+      }
+    CASE "abort"
+      {
+        ABORT("CRASH!");
+      }
+    }
+    THROW NEW Exception("Unknown message type '"||message.type||"'");
+  }
+>;
+
+INTEGER connecting_socket;
+BOOLEAN break_out := FALSE;
+
+WHILE (NOT break_out)
+{
+  RECORD rec := WaitForPromise(link->AsyncReceiveMessage(MAX_DATETIME));
+  break_out := TRUE;
+  SWITCH (rec.msg.type)
+  {
+  CASE "testmessage"
+    {
+      // 2009/10/02: crash when profiling is on at deinit.
+      EnableFunctionProfile();
+
+      PRINT("job output");
+
+      link->SendReply(
+          [ type := "ack"
+          , args := GetConsoleArguments()
+          , authrec := GetAuthenticationRecord()
+          , env := GetEnvironment()
+          , env_test := GetEnvironmentVariable("test")
+          , env_first := (SELECT AS STRING `${name}:${GetEnvironmentVariable(name)}` FROM GetEnvironment() WHERE value != "")
+          ], rec.msgid);
+      SetAuthenticationRecord([ jobtest := 3 ]);
+      SetConsoleExitCode(42);
+    }
+  CASE "porthandler"
+    {
+      OBJECT port := CreateIPCPort("porthandler");
+      OBJECT handler := NEW TestPortHandler(port);
+      link->SendMessage([ type := "ack" ]);
+      handler->Run();
+    }
+  CASE "porthandler-flat"
+    {
+      OBJECT port := CreateIPCPort("porthandler-flat");
+      OBJECT handler := NEW TestPortHandler(port);
+      handler->flat_responses := TRUE;
+      link->SendMessage([ type := "ack" ]);
+      handler->Run();
+    }
+  CASE "exit"
+    {
+    }
+  CASE "socket-read"
+    {
+      IF (connecting_socket = 0)
+      {
+        connecting_socket := CreateTCPSocket();
+        IF (NOT ConnectSocket(connecting_socket, rec.msg.host, rec.msg.accepting_port))
+          link->SendExceptionReply(NEW Exception("Cannot connect to " || rec.msg.host || ":" || rec.msg.accepting_port), rec.msgid);
+      }
+
+      STRING result;
+      IF (rec.msg.readline)
+        result := ReadLineFrom(connecting_socket, rec.msg.maxnumbytes, rec.msg.striplf);
+      ELSE
+        result := ReadFrom(connecting_socket, rec.msg.maxnumbytes);
+
+      link->SendMessage([ type := "ack", result := result ]);
+      break_out := FALSE;
+    }
+
+  CASE "socket-eatall"
+    {
+      WHILE(TRUE)
+        IF(ReadFrom(connecting_socket, -1000)="" AND IsAtEndOfStream(connecting_socket))
+          BREAK;
+
+      link->SendMessage([ type := "ack" ]);
+    }
+    CASE "socket-servedata"
+    {
+      OBJECT socket := CreateSocket("TCP");
+      socket->Bind("127.0.0.1", 0);
+      socket->Listen();
+      link->SendReply([ accepting_port := socket->localport ], rec.msgid);
+
+      RECORD defer := CreateDeferredPromise();
+
+      socket->userdata := [ cb := RegisterHandleReadcallback(socket->handle, PTR AcceptSocket(socket, rec.msg.data, defer)) ];
+      break_out := FALSE;
+    }
+    CASE "delayedevent"
+    {
+      link->SendMessage([ type := "ack" ]);
+      WaitUntil(DEFAULT RECORD, AddTimeToDate(50, GetCurrentDateTime()));
+      BroadcastEvent("hs:test", [ j := 1 ]);
+    }
+
+  DEFAULT
+    {
+      THROW NEW Exception("Unknown message type '" || rec.type || "'");
+    }
+  }
+}
+
+MACRO AcceptSocket(OBJECT listensocket, STRING serve_data, RECORD defer)
+{
+  OBJECT socket := listensocket->Accept();
+  IF (NOT ObjectExists(socket))
+    RETURN;
+
+  UnregisterCallback(listensocket->userdata.cb);
+
+  socket->Write(serve_data);
+  socket->Close();
+  defer.resolve(TRUE);
+
+  listensocket->Close();
+}

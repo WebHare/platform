@@ -1,0 +1,567 @@
+<?xml version="1.0"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <meta configscreen="screens/catalog.xml#catalogs">
+    <description>Consilio - The WebHare Search Module</description>
+    <packaging>
+      <dependency module="system" />
+    </packaging>
+    <validation options="nowarnings" />
+  </meta>
+
+  <servicemanager>
+    <runonce tag="setupindexmanager" script="scripts/runonce/setupindexmanager.whscr" when="poststart" />
+    <task runat="*/15   * * * *"  tag="indextasks" script="scripts/tasks/executeindextasks.whscr" runatstartup="true" />
+    <task runat="17 */8 * * *"  tag="linkchecker" script="scripts/tasks/executelinkcheck.whscr" description="Check links on indexed pages" /> <!-- even though the script self-schedules, we should regularly retry it if it crashed -->
+    <task runat="27   3 * * *"  runtz="maintenance" tag="maintenance_task" script="scripts/tasks/executemaintenance.whscr" description="Consilio maintenance task" />
+    <task runat="12   3 * * 7"  runtz="maintenance" tag="cleancrashedindices" script="scripts/tasks/cleancrashedindices.whscr" description="Clear any crashed Consilio indices" />
+    <task runat=" 6   3 * * *"  runtz="maintenance" tag="cleanupindices" script="scripts/tasks/cleanupindices.whscr" runatstartup="true" description="Verify and cleanup indices" />
+  </servicemanager>
+
+  <services>
+    <webservice name="search" transports="jsonrpc whremoting" library="internal/rpc_search.whlib" primarytrans="auto" prefix="RPC_">
+      <accesscheck />
+    </webservice>
+
+    <apprunnerconfig configfunction="lib/internal/support.whlib#getconsilioapprunnerconfig" />
+  </services>
+
+  <backend>
+    <webrule path="allroots:/tollium_todd.res/consilio/auth_elastic.shtml"
+             match="exact"
+             authscript="internal/auth_elastic.whscr"
+             priority="before" />
+
+    <webrule path="allroots:/.px/" handlebyscript="web/resources/pxl.txt" match="initial">
+      <addheader header="Content-Type" value="text/plain" />
+    </webrule>
+  </backend>
+
+  <tollium>
+    <!-- Entry point for our component parser -->
+    <components namespace="http://www.webhare.net/xmlns/consilio/components"
+                xmlschema="components.xsd" />
+  </tollium>
+
+  <rights>
+    <objecttype
+        name="catalog"
+        table=".indices"
+        tid="rights.catalogs"
+        icon="consilio:consilio">
+      <describer library="internal/rights.whlib" objectname="catalogobjecttypedescriber" />
+    </objecttype>
+
+    <right name="manage" objecttype="catalog" tid="rights.manage" descriptiontid="rights.manage_descr" >
+      <impliedby right="system:sysop" />
+    </right>
+    <right name="metadata" objecttype="catalog" showafter="manage" tid="rights.metadata" descriptiontid="rights.metadata_descr" >
+      <impliedby right="manage" />
+    </right>
+    <right name="read" objecttype="catalog" showafter="readwrite" tid="rights.read" descriptiontid="rights.read_descr" >
+      <impliedby right="metadata" />
+    </right>
+  </rights>
+
+  <portal>
+    <application group="system:setup" name="config" tid="catalog.catalogs.apptitle" screen="catalog.catalogs" icon="consilio:consilio">
+      <accesscheck>
+        <requireright right="read"/>
+      </accesscheck>
+    </application>
+
+    <!-- elastic search mgr. under development so not in the menus yet -->
+    <application name="esmgr" screen="tolliumapps/elasticsearch.xml#esmgr" icon="consilio:consilio">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+
+    <monitorpanel group="dev" name="queries" tid="monitor.queries.title" screen="monitor.queries" />
+
+    <notification name="notifications.catalog_uptodate" tid="notifications.catalog_uptodate" descriptiontid="notifications.catalog_uptodate-desc" />
+  </portal>
+
+  <publisher>
+    <siteprofile path="data/consilio.siteprl.xml" />
+    <webdesignplugin name="robots" namespace="http://www.webhare.net/xmlns/consilio" library="internal/webdesignplugin.whlib" objectname="robotsplugin"  />
+
+    <indexfield fieldfunc="lib/internal/publishersearch.whlib#getitemfield" name="linksto" />
+    <indexfield fieldfunc="lib/internal/publishersearch.whlib#getitemfield" name="internallink" />
+    <indexfield fieldfunc="lib/internal/publishersearch.whlib#getitemfield" name="externallink" tokenized="false" />
+    <searchfilter name="linksto" tid="publishersearch.linksto" filterobject="lib/internal/publishersearch.whlib#linkstofilter" />
+  </publisher>
+
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+  <!-- FIXME switch to roles! -->
+    <d:role name="indexer" />
+    <d:grant permissions="all" grantee="public" />
+    <d:grant permissions="select" schema="wrd" table="entity_settings" columns="id" grantee=".moduleowner" />
+
+    <!-- Indexing -->
+    <d:table name="indices" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="indexmanager" references=".indexmanagers" ondelete="set default">
+        <d:documentation>
+          The index manager that is responsible for this catalog
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="description" maxlength="4096">
+        <d:documentation>
+          Catalog description
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="name" unique="1" nullable="0" maxlength="256">
+        <d:documentation>
+          Tag to identify this catalog (should be in the form "module:tag")
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="loglevel">
+        <d:documentation>
+          Log level for this catalog: 0 errors only, 1 skipped documents, 2 general information, 3 all debugging information
+        </d:documentation>
+      </d:integer>
+      <d:integer name="priority">
+        <d:documentation>
+          Priority in the range -9 to 9 (0 is default priority, 9 is highest priority)
+        </d:documentation>
+      </d:integer>
+      <d:boolean name="rebuild">
+        <d:documentation>
+          The catalog should be rebuilt completely (its Elasticsearch document type definition cannot be updated in-place)
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="type">
+        <d:documentation>
+          Type of index: 0 regular index, 1 module index, 2 fieldgroup
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="indexname" maxlength="128">
+        <d:documentation>Index name (elasticsearch)</d:documentation>
+      </d:varchar>
+    </d:table>
+
+    <d:table name="contentsources" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="contentprovider" maxlength="64">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="data" maxlength="4096">
+        <d:documentation>
+          HSON encoded
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="discardsummaries">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="indexid" references=".indices" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="maxgroupobjects">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="tag" maxlength="64">
+        <d:documentation>Tag assigned to the source</d:documentation>
+      </d:varchar>
+      <d:varchar name="title" maxlength="256">
+        <d:documentation>Title for the content source</d:documentation>
+      </d:varchar>
+      <d:integer name="status">
+        <d:documentation>
+          -1 disabled, 0 idle, 1 being updated, 2 being rebuild, 3 unavailable, 4 error
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="last_indexed">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="orphansince">
+        <d:documentation>
+          When did we last see this contentsource mentioned in a siteprofile ?
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="definedby" maxlength="512">
+        <d:documentation>Source where we last saw this contentsource</d:documentation>
+      </d:varchar>
+      <d:boolean name="publishercontent">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+    </d:table>
+
+    <d:obsoletetable name="mapping" />
+
+    <d:table name="contentsourcefields" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="contentsourceid" references=".contentsources" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="name" maxlength="64">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="defaultvalue" maxlength="4096">
+        <d:documentation>
+          HSON-encoded default value
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="tokenized">
+        <d:documentation>
+          If the field should be tokenized when indexed, or if it should be treated as keyword field
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="suggested">
+        <d:documentation>
+          If the contents of the field is used for suggestions
+        </d:documentation>
+      </d:boolean>
+    </d:table>
+
+    <!-- Link checking -->
+    <d:table name="checked_links" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:datetime name="checked">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="checktime">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="hashed_url_int">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:datetime name="last_referred">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="nextcheck">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:integer name="status">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="url" nullable="0" maxlength="1024">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:index name="nextchecks" columns="nextcheck">
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+      <d:index name="hashed_url_int" columns="hashed_url_int">
+        <d:documentation>
+          Index to quickly search hashed_url_int
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="checked_objectlinks" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="link" references=".checked_links" ondelete="cascade" nullable="0" noupdate="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="wrd_entity_setting" references="wrd.entity_settings" ondelete="cascade" nullable="1" noupdate="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="system_fs_setting" references="system.fs_settings" ondelete="cascade" nullable="1" noupdate="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="text" maxlength="90">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="url" nullable="0" maxlength="1024">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar><!-- Original, non-normalized URL -->
+      <d:index name="objectslinks" columns="wrd_entity_setting system_fs_setting link" unique="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="checked_servers" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:datetime name="down_since">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:datetime name="nextcheck">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+      <d:varchar name="server" nullable="0" maxlength="262">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="status">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:index name="servers" columns="server(52)" unique="1" uppercase="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <!-- Searching -->
+    <d:table name="query_results" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="indexid" references=".indices" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:integer name="pages">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="query" nullable="0" maxlength="1024">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="results">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="sess" unique="1" nullable="0" noupdate="1" maxlength="32">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="site" references="system.sites" ondelete="set default">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="tag" maxlength="64">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:datetime name="when">
+        <d:documentation>
+
+        </d:documentation>
+      </d:datetime>
+    </d:table>
+
+    <d:table name="query_clicks" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="query" references=".query_results" ondelete="cascade" nullable="0" noupdate="1">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="url" nullable="0" maxlength="1024">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+    </d:table>
+
+    <!-- Settings -->
+    <d:table name="indexmanagers" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="name" unique="1" nullable="0" maxlength="256">
+        <d:documentation>
+          The name of the index manager
+        </d:documentation>
+      </d:varchar>
+      <d:obsoletecolumn name="prefix" />
+      <d:integer name="type" nullable="0">
+        <d:documentation>
+          1: consilio, 2: elasticsearch
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="address" unique="1" nullable="0" maxlength="512">
+        <d:documentation>
+          Connect url, including username and password, if necessary (may be "builtin" for type 1)
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="enablestemming">
+        <d:documentation>
+          Enable stemming functionality (type 1)
+        </d:documentation>
+      </d:boolean>
+      <d:integer name="loglevel">
+        <d:documentation>
+          0: fatal errors, 1: statistics, 2: debug (type 1)
+        </d:documentation>
+      </d:integer>
+
+      <d:boolean name="secure">
+        <d:documentation>
+          DEPRECATED in favor of using full HTTP urls
+        </d:documentation>
+      </d:boolean>
+    </d:table>
+
+    <d:table name="thesaurus" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="indexid" references=".indices" ondelete="cascade" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="word" nullable="0" maxlength="512">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:integer name="wordgroup" nullable="0">
+        <d:documentation>
+
+        </d:documentation>
+      </d:integer>
+    </d:table>
+
+    <d:table name="blacklist" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:boolean name="nofollow">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="noindex">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="nolinkcheck_from">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="nolinkcheck_to">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+      <d:varchar name="pattern" unique="1" nullable="0" maxlength="1024">
+        <d:documentation>
+
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="pattern_regex">
+        <d:documentation>
+
+        </d:documentation>
+      </d:boolean>
+    </d:table>
+  </databaseschema>
+
+  <moduleregistry>
+    <node name="queuemanager">
+      <integer name="loglevel" initialval="0" description="Logging level" />
+      <integer name="maxfetchtime" initialval="180" description="Maximum time (in seconds) fetching a document may take" />
+      <integer name="maxgroupobjects" initialval="500" description="Default maximum number of objects per group (may be overridden in a content source)" />
+      <integer name="workers" initialval="2" description="Number of parallel workers to start" />
+    </node>
+    <node name="linkchecker">
+      <boolean name="enabled" initialval="true" description="Enable link checking" />
+      <boolean name="contentlinksonly" initialval="true" description="Only check links within indexed content" />
+      <integer name="keeplinks" initialval="3" description="Number of days after which unreferenced links are removed" />
+    </node>
+    <node name="options">
+      <integer name="keepsearchterms" initialval="30" description="Number of days to keep searched terms" />
+    </node>
+    <node name="builtinelasticsearch">
+      <integer name="initialmemorypool" description="Initial size of the Java memory pool for the built-in ElasticSaerch in MB (-Xms)" />
+      <integer name="maximummemorypool" description="Maximum size of the Java memory pool for the built-in ElasticSaerch in MB (-Xmx)" />
+    </node>
+    <!-- Migrated to consilio.indexmanagers -->
+    <node name="indexmanager">
+      <boolean name="enablestemming" initialval="true" description="Enable stemming functionality" />
+      <integer name="loglevel" initialval="0" description="Logging level" />
+      <string name="servername" initialval="127.0.0.1" description="IP address for the index manager process" />
+      <integer name="serverport" initialval="7524" description="TCP port for the index manager process" />
+    </node>
+    <node name="suggest">
+      <integer name="maxconcurrent" initialval="10" description="Maximum of concurrent suggest queries" />
+      <integer name="maxwait" initialval="200" description="Maximum queue wait time for suggest queries" />
+    </node>
+  </moduleregistry>
+
+  <consilio>
+    <contentprovider
+      name="external" tid="contentproviders.external.providertitle" icon="tollium:filemgr/site"
+      library="contentproviders/externalcontent.whlib" contentproviderobject="ExternalContentProvider"
+      settingsscreen="contentproviders.external"
+    />
+    <contentprovider
+      name="custom" tid="contentproviders.custom.providertitle" icon="tollium:database/database"
+      library="contentproviders/customcontent.whlib" contentproviderobject="CustomContentProvider"
+      settingsscreen="contentproviders.custom"
+    />
+
+    <fieldgroup tag="pxl_data">
+      <keyword name="ds_*" />
+      <float name="dn_*" />
+      <boolean name="db_*" />
+    </fieldgroup>
+
+    <!-- Fieldgroups used in reference test -->
+    <fieldgroup tag="test_reference_group">
+      <text name="consilio" />
+      <addfieldgroup ref="webhare_testsuite:test_reference_group" />
+    </fieldgroup>
+    <fieldgroup tag="circular_test_reference_group">
+      <text name="consilio" />
+      <addfieldgroup ref="webhare_testsuite:circular_test_reference_group" />
+    </fieldgroup>
+  </consilio>
+
+  <hooking>
+    <target name="fetcher_blacklist" /> <!-- Register extensions to fetcher blacklisting -->
+
+    <intercept name="blacklist" target="fetcher_blacklist" interceptfunction="lib/internal/fetcher_blacklisting.whlib#BlacklistIntercept" />
+  </hooking>
+
+  <logging>
+    <log name="searches" filename="consilio_searches" mseconds="true" />
+  </logging>
+
+</module>

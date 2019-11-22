@@ -1,0 +1,224 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+STRING FUNCTION FormatStringList(STRING ARRAY items, STRING type, STRING language)
+{
+  type := ToUppercase(type);
+  IF (type NOT IN [ "AND", "OR" ])
+    RETURN "";
+
+  SWITCH (ToLowercase(Tokenize(language, "-")[0]))
+  {
+    CASE "nl"
+    {
+      STRING value;
+      FOREVERY (STRING item FROM items)
+      {
+        IF (#item > 0 AND #item != Length(items) - 1)
+          value := value || ", ";
+        value := value || item;
+        IF (#item = Length(items) - 2)
+          value := value || (type = "AND" ? " en " : " of ");
+      }
+      RETURN value;
+    }
+    DEFAULT
+    {
+      STRING value;
+      FOREVERY (STRING item FROM items)
+      {
+        IF (#item > 0 AND #item != Length(items) - 1)
+          value := value || ", ";
+        value := value || item;
+        IF (#item = Length(items) - 2)
+          value := value || (type = "AND" ? " and " : " or ");
+      }
+      RETURN value;
+    }
+  }
+}
+
+/** API to the form editor for custom form components and handlers
+    @topic forms/extensions */
+PUBLIC STATIC OBJECTTYPE FormComponentAPI
+<
+  OBJECT editscreen;
+
+  PUBLIC PROPERTY languagecode(this->editscreen->uselanguage, -);
+  PUBLIC BOOLEAN showadvanced;
+  PUBLIC PROPERTY canedit(this->editscreen->frame->flags.canedit, -);
+  PUBLIC PROPERTY canviewresults(this->editscreen->frame->flags.canviewresults, -);
+  PUBLIC PROPERTY integrationsettings(this->editscreen->integrationsettings, -);
+
+  MACRO NEW(OBJECT editscreen)
+  {
+    this->editscreen := editscreen;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetConditionSources()
+  {
+    RETURN this->editscreen->GetConditionSources();
+  }
+  PUBLIC RECORD ARRAY FUNCTION GetFieldsForTypes(STRING ARRAY types)
+  {
+    RETURN this->editscreen->GetFieldsForTypes(types);
+  }
+  PUBLIC RECORD FUNCTION DescribeField(STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := CELL[ ...options, this->languagecode ];
+    RETURN this->editscreen->curform->DescribeField(guid, options);
+  }
+
+  PUBLIC RECORD FUNCTION GetField(STRING guid)
+  {
+    RETURN this->editscreen->GetField(guid);
+  }
+  PUBLIC RECORD FUNCTION GetFieldByTag(STRING tag)
+  {
+    RETURN this->editscreen->GetFieldByTag(tag);
+  }
+
+  PUBLIC RECORD FUNCTION GetInstance(STRING id)
+  {
+    RETURN this->editscreen->formdefsfile->GetInstance(id);
+  }
+
+  PUBLIC INTEGER FUNCTION GetLinkRef(STRING tag)
+  {
+    RETURN this->editscreen->formdefsfile->GetLinkRef(tag);
+  }
+
+  PUBLIC STRING FUNCTION CreateLinkRef(INTEGER newlinkref)
+  {
+    RETURN this->editscreen->formdefsfile->CreateLinkRef(newlinkref);
+  }
+
+  PUBLIC STRING FUNCTION CreateInstance(RECORD data)
+  {
+    RETURN this->editscreen->formdefsfile->CreateInstance(data);
+  }
+
+  PUBLIC MACRO SetInstance(STRING id, RECORD data)
+  {
+    this->editscreen->formdefsfile->SetInstance(id, data);
+  }
+
+  PUBLIC RECORD FUNCTION GetConditionAttribute(OBJECT node, STRING attributename)
+  {
+    RETURN this->editscreen->formdefsfile->GetConditionAttribute(node, attributename);
+  }
+
+  PUBLIC MACRO SetConditionAttribute(OBJECT node, STRING attributename, RECORD cond)
+  {
+    this->editscreen->formdefsfile->SetConditionAttribute(node, attributename, cond);
+  }
+
+  PUBLIC STRING FUNCTION __CreateGUID(STRING prefix)
+  {
+    RETURN this->editscreen->formdefsfile->__CreateGUID(prefix);
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetHandlers(STRING handlertype)
+  {
+    IF(handlertype NOT LIKE "*#*")
+      handlertype := "http://www.webhare.net/xmlns/publisher/forms#" || handlertype;
+
+    OBJECT ARRAY handlers;
+    FOREVERY(OBJECT handler FROM this->editscreen->curform->GetHandlers())
+      IF(handler->namespaceuri || "#" || handler->localname = handlertype)
+        INSERT handler INTO handlers AT END;
+
+    RETURN handlers;
+  }
+
+  /** @short Format a condition for user display
+      @param condition The condition to format
+      @param negative Format the condition as a NOT subcondition
+      @return A readable condition description. Empty if an empty condition was passed */
+  PUBLIC STRING FUNCTION FormatFormCondition(RECORD condition, BOOLEAN negative DEFAULTSTO FALSE)
+  {
+    IF (NOT RecordExists(condition))
+      RETURN "";
+
+    RECORD ARRAY sources := this->GetConditionSources();
+    IF(condition.matchtype IN ["AND","OR"])
+    {
+      //Cue: I just dropped in to see what condition my condition was in
+      STRING ARRAY subconditions := SELECT AS STRING ARRAY this->FormatFormCondition(conditions, negative) FROM condition.conditions;
+      STRING joiner := condition.matchtype = (negative ? "OR" : "AND")
+          ? GetTid("publisher:webtools.formconditions.condition-and")
+          : GetTid("publisher:webtools.formconditions.condition-or");
+      RETURN Detokenize(subconditions, " " || joiner || " ");
+    }
+    IF (condition.matchtype = "NOT")
+      RETURN this->FormatFormCondition(condition.condition, TRUE);
+
+    RECORD field := SELECT * FROM sources WHERE sources.rowkey = condition.field;
+    IF(NOT RecordExists(field))
+      RETURN "";
+
+    STRING fieldname := field.title ?? field.rowkey;
+    IF(condition.matchtype = "HASVALUE")
+    {
+      IF (negative)
+        condition.value := NOT condition.value;
+      RETURN condition.value ? GetTid("publisher:webtools.formconditions.condition-hasvalue", fieldname)
+                             : GetTid("publisher:webtools.formconditions.condition-novalue", fieldname);
+    }
+
+    //field := field.parsedfield();
+
+    // Check if the stored and available rowkeys have the same type
+    RECORD ARRAY options := field.options;
+    IF (Length(options) > 0 AND Length(condition.value) > 0
+        AND CanCastTypeTo(TypeID(condition.value[0]), TypeID(options[0].rowkey)))
+    {
+      // Get titles for selected options
+      STRING ARRAY value :=
+          SELECT AS STRING ARRAY title
+            FROM options
+           WHERE rowkey IN condition.value;
+      DELETE CELL value FROM condition;
+      INSERT CELL value := value INTO condition;
+
+      SWITCH (condition.matchtype)
+      {
+        CASE "IN" // Contains (at least) one of the values
+        {
+          IF (Length(condition.value) = 1)
+            RETURN negative
+                ? GetTid("publisher:webtools.formconditions.condition-notcontains", fieldname, condition.value[0])
+                : GetTid("publisher:webtools.formconditions.condition-contains", fieldname, condition.value[0]);
+          RETURN negative
+              ? GetTid("publisher:webtools.formconditions.condition-notcontainsone", fieldname, FormatStringList(condition.value, "OR", GetTidLanguage()))
+              : GetTid("publisher:webtools.formconditions.condition-containsone", fieldname, FormatStringList(condition.value, "OR", GetTidLanguage()));
+        }
+        CASE "HAS" // Contains (at least) all of these values
+        {
+          IF (Length(condition.value) = 1)
+            RETURN negative
+                ? GetTid("publisher:webtools.formconditions.condition-notcontains", fieldname, condition.value[0])
+                : GetTid("publisher:webtools.formconditions.condition-contains", fieldname, condition.value[0]);
+          RETURN negative
+              ? GetTid("publisher:webtools.formconditions.condition-notcontainsall", fieldname, FormatStringList(condition.value, "AND", GetTidLanguage()))
+              : GetTid("publisher:webtools.formconditions.condition-containsall", fieldname, FormatStringList(condition.value, "AND", GetTidLanguage()));
+        }
+        CASE "IS" // Contains exactly these values
+        {
+          IF (Length(condition.value) = 1)
+            RETURN negative
+                ? GetTid("publisher:webtools.formconditions.condition-notisexactlyone", fieldname, condition.value[0])
+                : GetTid("publisher:webtools.formconditions.condition-isexactlyone", fieldname, condition.value[0]);
+          RETURN negative
+              ? GetTid("publisher:webtools.formconditions.condition-notisexactly", fieldname, FormatStringList(condition.value, "AND", GetTidLanguage()))
+              : GetTid("publisher:webtools.formconditions.condition-isexactly", fieldname, FormatStringList(condition.value, "AND", GetTidLanguage()));
+        }
+      }
+      THROW NEW Exception(`Don't know how to format '${condition.matchtype}' condition`);
+    }
+
+    RETURN "";
+  }
+>;
+

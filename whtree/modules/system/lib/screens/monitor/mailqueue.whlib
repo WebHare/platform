@@ -1,0 +1,182 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/mime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/screens/monitor/managedtasks.whlib";
+LOADLIB "mod::system/lib/internal/mail/tasks.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE MailqueuePanel EXTEND MonitorPanelBase
+<
+  STRING filterorigin;
+
+  MACRO Init(RECORD data)
+  {
+    IF(CellExists(data, "RUNEMBEDDED") AND data.runembedded)
+    {
+      this->"new"->enabled := FALSE;
+      this->flush->enabled := FALSE;
+      this->"delete"->enabled := FALSE;
+      this->requeue->enabled := FALSE;
+      this->newbutton->visible := FALSE;
+      this->flushbutton->visible := FALSE;
+      this->deletebutton->visible := FALSE;
+      this->showsentmail->value := TRUE;
+      this->RefreshMonitorPanel();
+    }
+    IF(CellExists(data, "FILTER"))
+      this->filterorigin := data.filter;
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+  /** @short This monitor has been activated, start refreshing */
+  UPDATE PUBLIC MACRO EnableRefresh()
+  {
+    this->listener->enabled := TRUE;
+  }
+  /** @short This monitor has been deactivated, stop refreshing */
+  UPDATE PUBLIC MACRO DisableRefresh()
+  {
+    this->listener->enabled := FALSE;
+  }
+
+  MACRO OnManagedTaskEvent(RECORD ARRAY events)
+  {
+    this->RefreshMonitorPanel();
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    RECORD ARRAY rows := SELECT rowkey := managedtasks.id
+                              , nextattempt := finished = DEFAULT DATETIME ? nextattempt : DEFAULT DATETIME
+                              , creationdate
+                              , taskdata := DecodeHSON(taskdata)
+                              , shortretval := shortretval != "" ? DecodeHSON(shortretval) : DEFAULT RECORD
+                              , lasterrors
+                              , finished
+                              , iscancelled
+                              , isrunning := FALSE
+                          FROM system.managedtasks
+                         WHERE tasktype="system:outgoingmail"
+                               AND (this->showsentmail->value ? TRUE : managedtasks.finished = DEFAULT DATETIME);
+    /// Apply pre-user filtering if needed:
+    IF(this->filterorigin != "")
+      DELETE FROM rows WHERE ToUpperCase(taskdata.origin) NOT LIKE ToUpperCase(this->filterorigin);
+
+    rows := SELECT *
+                 , sender := taskdata.senderemail
+                 , receiver := taskdata.receiver
+                 , subject := taskdata.subject
+                 , status := GetTaskStatusIcon(rows)
+                 , isfinished := finished != DEFAULT DATETIME
+                 , hasresult := finished != DEFAULT DATETIME OR lasterrors != ""
+              FROM rows;
+
+    IF(this->filter->value != "")
+      rows := SELECT * FROM rows WHERE ToUppercase(sender || " " || receiver || " " || subject) LIKE ToUppercase("*" || this->filter->value || "*");
+
+    this->mailqueue->rows := rows;
+
+  }
+
+  STRING ARRAY FUNCTION GetMailTo()
+  {
+    IF(this->tolliumuser->emailaddress = "")
+      RETURN STRING[];
+
+    RETURN this->tolliumuser->realname != ""
+             ? STRING[MakeEmailAddress(this->tolliumuser->realname, this->tolliumuser->emailaddress, FALSE)]
+             : STRING[this->tolliumuser->emailaddress];
+  }
+
+  MACRO DoNew()
+  {
+    RunSendEmailDialog(this, [ subject := this->GetTid(".testmailsubject", GetServerName())
+                             , mailto := this->GetMailTo()
+                             ]);
+  }
+
+  MACRO DoFlush()
+  {
+    OBJECT work := this->BeginWork();
+    RetryPendingManagedTasks("system:outgoingmail");
+    work->Finish();
+  }
+
+  MACRO DoReQueue()
+  {
+    IF(this->RunMessageBox("system:monitor/mailqueue.confirmrequeuemail") != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    RescheduleManagedTasks(this->mailqueue->value);
+    work->Finish();
+  }
+  MACRO DoForward()
+  {
+    RECORD ARRAY selection := this->mailqueue->selection;
+    RECORD ARRAY attachments;
+
+    FOREVERY(RECORD mail FROM selection)
+    {
+      RECORD task := DescribeManagedTask(mail.rowkey);
+      IF(NOT RecordExists(task))
+        CONTINUE;
+
+      STRING name := Length(selection) = 0 ? "originalmessage.eml" : "originalmessage-" || #mail + 1 || ".eml";
+      BLOB msgblob := GetEMLFromMailTask(task.data);
+      INSERT WrapBlob(msgblob, name, [ mimetype := "message/rfc822" ]) INTO attachments AT END;
+    }
+
+    RunSendEmailDialog(this, [ subject := "Fwd: " || selection[0].subject
+                             , mailto := this->GetMailTo()
+                             , attachments := attachments
+                             ]);
+  }
+  MACRO DoViewMessage()
+  {
+    RECORD task := DescribeManagedTask(this->mailqueue->value[0]);
+    IF(NOT RecordExists(task))
+      RETURN;
+
+    BLOB msgblob := GetEMLFromMaiLTask(task.data);
+    RunEmailViewDialog(this, msgblob);
+  }
+  MACRO DoResult()
+  {
+    OBJECT screen := this->LoadScreen(".result", [ id := this->mailqueue->value[0] ]);
+    screen->RunModal();
+  }
+  MACRO DoDelete()
+  {
+    IF(this->RunMessageBox("system:monitor/mailqueue.confirmdeletemail") != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    DeleteManagedTasks(this->mailqueue->value);
+    work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE Result EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD task := DescribeManagedTask(data.id);
+    this->lasterror->value := task.lasterrors;
+    this->serverip->value := CellExists(task.retval, "serverip") ? task.retval.serverip : "";
+    this->route->value := CellExists(task.retval, "route") ? task.retval.route : "";
+    this->response->value := CellExists(task.retval, "response") ? task.retval.response : "";
+    this->sender->value := CellExists(task.retval, "sender") ? task.retval.sender : "";
+    this->finalreceiver->value := CellExists(task.retval, "finalreceiver") ? task.retval.finalreceiver : "";
+  }
+>;

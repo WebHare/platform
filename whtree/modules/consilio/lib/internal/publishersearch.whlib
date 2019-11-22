@@ -1,0 +1,210 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objid)
+{
+  SWITCH (fieldname)
+  {
+    CASE "linksto"
+    {
+      STRING ARRAY links :=
+          SELECT AS STRING ARRAY DISTINCT ToString(checked_objectlinks.link)
+            FROM consilio.checked_objectlinks
+               , system.fs_settings
+               , system.fs_instances
+           WHERE checked_objectlinks.system_fs_setting = fs_settings.id
+                 AND fs_settings.fs_instance = fs_instances.id
+                 AND fs_instances.fs_object = objid
+           ORDER BY checked_objectlinks.link;
+      RETURN Detokenize(links, " ");
+    }
+    CASE "internallink"
+    {
+      STRING link :=
+          SELECT AS STRING ToString(filelink)
+            FROM system.fs_objects
+           WHERE id = objid
+                 AND type = 19;
+      RETURN link;
+    }
+    CASE "externallink"
+    {
+      STRING link :=
+          SELECT AS STRING externallink
+            FROM system.fs_objects
+           WHERE id = objid
+                 AND type = 18;
+      RETURN link;
+    }
+  }
+  THROW NEW Exception("Unknown item field '" || fieldname || "'");
+}
+
+PUBLIC OBJECTTYPE LinksToFilter EXTEND BaseSearchFilter
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN [ textquery := "" ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (value.textquery != "")
+    {
+      BOOLEAN exact_match := value.textquery LIKE "\"*\"";
+      IF (exact_match)
+        value.textquery := Substring(value.textquery, 1, Length(value.textquery) - 2);
+
+      RECORD ARRAY matchqueries;
+
+      // Find RTD links to the url
+      INTEGER ARRAY matchlinks := NEW LinkFinder()->FindLinks(value.textquery, NOT exact_match);
+      IF (Length(matchlinks) > 0)
+      {
+        matchqueries := matchqueries CONCAT
+            SELECT AS RECORD ARRAY CQMatch("linksto@consilio", "IN", GroupedValues(link))
+              FROM ToRecordArray(matchlinks, "link") AS links
+             GROUP BY #links / 1000; // Consilio max boolean query clause count is 1024, which is the default for Elasticsearch as well
+      }
+
+      // Find internal links to the url
+      RECORD matchfile := LookupPublisherURL(value.textquery);
+      IF (matchfile.file != 0)
+      {
+        STRING ARRAY links := [ ToString(matchfile.file) ];
+        // If the file is the index document of the folder, look for the folder as well
+        IF (RecordExists(SELECT FROM system.fs_objects WHERE id = matchfile.folder AND indexdoc = matchfile.file))
+          INSERT ToString(matchfile.folder) INTO links AT 0;
+        INSERT CQMatch("internallink@consilio", "IN", links) INTO matchqueries AT END;
+      }
+
+      // Find external links to the url
+      INSERT CQMatch("externallink@consilio", "=", value.textquery) INTO matchqueries AT END;
+
+      IF (Length(matchqueries) > 0)
+        RETURN CQOr(matchqueries);
+    }
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+STATIC OBJECTTYPE LinkFinder
+<
+  STRING ARRAY processed_urls;
+
+  PUBLIC BOOLEAN debug;
+
+  PUBLIC INTEGER ARRAY FUNCTION FindLinks(STRING forurl, BOOLEAN fuzzy_match)
+  {
+    this->processed_urls := [ forurl ];
+    INTEGER ARRAY matchlinks :=
+      SELECT AS INTEGER ARRAY id
+        FROM consilio.checked_links
+       WHERE hashed_url_int = GetConsilioURLHash(forurl)
+             AND url = forurl;
+    IF (this->debug)
+      Print(`Trying url ${forurl}: ${Detokenize((SELECT AS STRING ARRAY ToString(link) FROM ToRecordArray(matchlinks, "link")), ",")}\n`);
+
+    IF (fuzzy_match)
+    {
+      // Try some fuzzy magic (adding scheme, removing/adding trailing slash, etc.)
+      RECORD urlparts := UnpackURL(forurl);
+
+      // If schemespecificpart is empty, it might be a hyperlink without scheme (e.g. "nu.nl")
+      IF (urlparts.schemespecificpart = "")
+      {
+        urlparts.host := Tokenize(urlparts.scheme, "/")[0];
+        urlparts.schemespecificpart := urlparts.scheme;
+        urlparts.urlpath := Substring(urlparts.scheme, Length(urlparts.host));
+        urlparts.urlpathslash := urlparts.urlpath LIKE "/*";
+        IF (urlparts.urlpathslash)
+          urlparts.urlpath := Substring(urlparts.urlpath, 1);
+        urlparts.scheme := "";
+      }
+
+      IF (urlparts.scheme = "")
+      {
+        // No scheme specified, try http and https
+        FOREVERY (STRING scheme FROM [ "http", "https" ])
+          matchlinks := matchlinks CONCAT this->FuzzyFindLinks(CELL[ ...urlparts, scheme, port := scheme = "http" ? 80 : 443, secure := scheme = "https" ]);
+      }
+      ELSE IF (urlparts.scheme IN [ "http", "https" ])
+        matchlinks := matchlinks CONCAT this->FuzzyFindLinks(urlparts);
+    }
+
+    RETURN
+        SELECT AS INTEGER ARRAY DISTINCT link
+          FROM ToRecordArray(matchlinks, "link")
+         WHERE link != 0;
+  }
+
+  PUBLIC INTEGER ARRAY FUNCTION FuzzyFindLinks(RECORD urlparts)
+  {
+    INTEGER ARRAY matchlinks := this->FindSlashLinks(urlparts) CONCAT this->FindWWWLinks(urlparts);
+
+    IF (SearchSubstring(urlparts.urlpath, "?") > 0)
+    {
+      // Remove query part
+      urlparts.urlpath := Tokenize(urlparts.urlpath, "?")[0];
+      matchlinks := matchlinks CONCAT this->FindSlashLinks(urlparts) CONCAT this->FindWWWLinks(urlparts);
+
+      IF (urlparts.urlpath LIKE "*/!*/*")
+      {
+        // Remove dynamic url part
+        urlparts.urlpath := Tokenize(urlparts.urlpath, "/!")[0];
+        matchlinks := matchlinks CONCAT this->FindSlashLinks(urlparts) CONCAT this->FindWWWLinks(urlparts);
+      }
+    }
+
+    RETURN matchlinks;
+  }
+
+  INTEGER ARRAY FUNCTION FindSlashLinks(RECORD urlparts)
+  {
+    // If there is not url path and a trailing slash, remove the slash (the LIKE match will find both)
+    IF (urlparts.urlpath = "" AND urlparts.urlpathslash)
+      urlparts.urlpathslash := FALSE;
+
+    RETURN this->GetLinks(RepackURL(urlparts));
+  }
+
+  INTEGER ARRAY FUNCTION FindWWWLinks(RECORD urlparts)
+  {
+    IF (urlparts.host NOT LIKE "www.*")
+    {
+      // Try with "www." prepended to host
+      RETURN this->FindSlashLinks([ ...urlparts, host := "www." || urlparts.host ]);
+    }
+    ELSE
+    {
+      // Try with "www." removed from host
+      RETURN this->FindSlashLinks([ ...urlparts, host := Substring(urlparts.host, 4) ]);
+    }
+  }
+
+  INTEGER ARRAY FUNCTION GetLinks(STRING url)
+  {
+    IF (url IN this->processed_urls)
+      RETURN DEFAULT INTEGER ARRAY;
+
+    INSERT url INTO this->processed_urls AT END;
+    INTEGER ARRAY matchlinks :=
+        SELECT AS INTEGER ARRAY id
+          FROM consilio.checked_links
+         WHERE COLUMN url LIKE VAR url || "*";
+    IF (this->debug)
+      Print(`Trying url like ${url}: ${Detokenize((SELECT AS STRING ARRAY ToString(link) FROM ToRecordArray(matchlinks, "link")), ",")}\n`);
+    RETURN matchlinks;
+  }
+>;

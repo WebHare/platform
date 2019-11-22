@@ -1,0 +1,214 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+MACRO ExpandHyperlinkComponents(OBJECT selectbox)
+{
+  FOREVERY(RECORD opt FROM selectbox->options)
+  {
+    OBJECT insertpos := selectbox->GetButtoncomponent(opt.rowkey);
+
+    FOREVERY(OBJECT comp FROM opt.enablecomponents)
+    {
+      selectbox->parentpanel->InsertComponentAfter(comp, insertpos, FALSE);
+      insertpos := comp;
+    }
+  }
+}
+
+RECORD FUNCTION GetHyperlinkResult(OBJECT rte, OBJECT selectbox, BOOLEAN newwindow, OBJECT externallink)
+{
+  RECORD selected := selectbox->selection;
+  IF(NOT RecordExists(selected) OR selected.rowkey=0)
+    RETURN DEFAULT RECORD;
+
+  RETURN [ link := selected.rowkey = 1 ? externallink->value : selected.handler->GetValue(rte)
+         , target := newwindow ? "_blank" : ""
+         ];
+}
+
+PUBLIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
+<
+  OBJECT rte;
+  FLOAT origaspect;
+  BOOLEAN suspendonchange;
+
+  MACRO Init(RECORD data)
+  {
+    this->settings->value := data.data;
+    this->rte := data.rte;
+    this->origaspect := data.originalimg.height > 0 ? FLOAT(data.originalimg.width) / FLOAT(data.originalimg.height) : 0f;
+
+    FLOAT currentaspect := this->height->value > 0 ? FLOAT(this->width->value) / FLOAT(this->height->value) : 0f;
+    IF(Abs(currentaspect - this->origaspect) < 0.0005)
+      this->keepaspectratio->value := TRUE;
+
+    SetupHyperlinkOptions(this, this->rte, data.data.link, this->linktype, this->openinnewwindow, TRUE, this->externallink);
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    RETURN work->Finish();
+  }
+  PUBLIC RECORD FUNCTION GetValue()
+  {
+    RECORD res := this->settings->value;
+    INSERT CELL link := GetHyperlinkResult(this->rte, this->linktype, this->openinnewwindow->value, this->externallink) INTO res;
+    RETURN res;
+  }
+
+  MACRO OnWidthChange()
+  {
+    IF(this->suspendonchange OR NOT this->keepaspectratio->value OR this->origaspect = 0)
+      RETURN;
+
+    this->suspendonchange := TRUE;
+    this->height->value := INTEGER(this->width->value / this->origaspect + 0.5);
+    this->suspendonchange := FALSE;
+  }
+  MACRO OnHeightchange()
+  {
+    IF(this->suspendonchange OR NOT this->keepaspectratio->value OR this->origaspect = 0)
+      RETURN;
+
+    this->suspendonchange := TRUE;
+    this->width->value := INTEGER(this->height->value * this->origaspect + 0.5);
+    this->suspendonchange := FALSE;
+  }
+
+  MACRO DoimgInline(RECORD clickinfo)
+  {
+    this->align->value := "";
+  }
+  MACRO DoimgLeft(RECORD clickinfo)
+  {
+    this->align->value := "left";
+  }
+  MACRO DoimgRight(RECORD clickinfo)
+  {
+    this->align->value := "right";
+  }
+>;
+
+MACRO SetupHyperlinkOptions(OBJECT screen, OBJECT rte, RECORD linkdata, OBJECT comp_linktype, OBJECT comp_openinnewwindow, BOOLEAN offernolink, OBJECT externallink)
+{
+  RECORD ARRAY opts := comp_linktype->options;
+  IF(NOT offernolink)
+    DELETE FROM opts AT 0;
+
+  INTEGER toset := 0;
+  FOREVERY(OBJECT handler FROM rte->linkhandlers)
+  {
+    OBJECT ARRAY components := handler->CreateComponents(screen);
+
+    INSERT [ rowkey := #handler + 2
+           , title := handler->title
+           , handler := handler
+           , enablecomponents := components
+           , tolliumselected := FALSE
+           ] INTO opts AT END;
+
+    IF(toset = 0 AND RecordExists(linkdata) AND handler->TrySetValue(rte, linkdata.link))
+      toset := opts[END-1].rowkey;
+  }
+  IF(toset = 0 AND RecordExists(linkdata)) //nothing set yet
+  {
+    externallink->value := linkdata.link;
+    toset := 1;
+  }
+  comp_linktype->options := opts;
+  comp_linktype->value := toset;
+
+  comp_openinnewwindow->visible := NOT RecordExists(rte->rtdtypeinfo) OR rte->rtdtypeinfo.allownewwindowlinks;
+  comp_openinnewwindow->value := RecordExists(linkdata) AND linkdata.target = "_blank";
+  ExpandHyperlinkComponents(comp_linktype);
+}
+
+//ADDME call destroycomponents too..
+PUBLIC OBJECTTYPE Hyperlink EXTEND TolliumScreenBase
+<
+  OBJECT rte;
+  OBJECT extlink;
+  BOOLEAN isremove;
+
+  MACRO Init(RECORD data)
+  {
+    this->rte := data.rte;
+    this->removehyperlinkbutton->visible := RecordExists(data.data);
+
+    SetupHyperlinkOptions(this, this->rte, data.data, this->linktype, this->openinnewwindow, FALSE, this->externallink);
+
+    IF(NOT RecordExists(data.data)) //move focus to the external link field..
+    {
+      IF(Length(this->linktype->options[0].enablecomponents) > 0)
+        this->frame->focused := this->linktype->options[0].enablecomponents[0];
+    }
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    IF(this->linktype->value > 1)
+      this->linktype->selection.handler->ValidateValue(work);
+    ELSE IF(this->linktype->value = 1)
+      this->externallink->ValidateValue(work);
+    RETURN work->Finish();
+  }
+
+  PUBLIC RECORD FUNCTION GetData()
+  {
+    RETURN this->isremove ? [destroy:=TRUE] : GetHyperlinkResult(this->rte, this->linktype, this->openinnewwindow->value, this->externallink);
+  }
+
+  MACRO DoRemoveHyperlink()
+  {
+    this->isremove := TRUE;
+    this->tolliumresult := "ok";
+  }
+>;
+
+PUBLIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
+< /// RTE object
+  OBJECT rte;
+
+  MACRO Init(RECORD data)
+  {
+    this->rte := data.rte;
+    this->topheader->value := data.data.datacell.row != 0;
+    this->leftheader->value := data.data.datacell.col != 0;
+
+    IF(RecordExists(this->rte->rtdtypeinfo))
+    {
+      this->tablestyle->options := SELECT rowkey := ToLowercase(tag), title := title ?? ToLowercase(tag)
+                                     FROM this->rte->rtdtypeinfo.structure.blockstyles
+                                    WHERE type="table"
+                                 ORDER BY ToUppercase(title);
+      this->tablestyle->SetValueIfValid(data.data.styletag);
+      this->tablestyle->visible := Length(This->tablestyle->options) > 1;
+    }
+    ELSE
+    {
+      this->tablestyle->options := [[ rowkey := "", title := "" ]];
+      this->tablestyle->visible := FALSE;
+    }
+  }
+
+  /** Returns action to be executed by RTE when tolliumresult = "ok"
+  */
+  PUBLIC RECORD FUNCTION GetValue()
+  {
+    RETURN
+        [ type :=         "edittable"
+        , datacell :=     [ row := this->topheader->value ? 1 : 0
+                          , col := this->leftheader->value ? 1 : 0
+                          ]
+        , styletag := this->tablestyle->value
+        ];
+  }
+
+  MACRO DoRemoveTable()
+  {
+    IF (this->RunMessageBox(".sureremovetable") = "yes")
+      this->tolliumresult := "remove";
+  }
+
+>;

@@ -1,0 +1,66 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor/apprunner.whlib"
+         gid="sysmgmt.apprunner">
+
+  <messageboxes gid=".messages" >
+    <messagebox name="apprunnergone" icon="error" buttons="ok" />
+    <messagebox name="restartfailed" icon="error" buttons="ok" />
+    <messagebox name="deleteapp" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <!-- apprunner (servicemanager) -->
+  <screen name="apprunner" title="">
+    <actions gid=".actions">
+      <action name="restart" onexecute="dorestart">
+        <enableon source="applist" min="1" />
+      </action>
+      <action name="enable" onexecute="doenable" tid="tollium:common.actions.enable">
+        <enableon source="applist" min="1" checkflags="!enabled" />
+      </action>
+      <action name="disable" onexecute="dodisable" tid="tollium:common.actions.disable">
+        <enableon source="applist" min="1" checkflags="enabled" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="contextmenu">
+        <item action="enable" disablemode="hidden" />
+        <item action="disable" disablemode="hidden" />
+        <divider />
+        <item action="restart" />
+      </menu>
+    </menus>
+    <compositions>
+      <eventlistener name="listener" masks="system:internal.apprunner.refresh" onevents="onapprunnerrefreshevent" />
+    </compositions>
+    <body layout="form" height="1pr">
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height='1pr'>
+          <cell>
+            <list name="applist"
+                  selectmode="single"
+                  height="1pr"
+                  icons="tollium:status/checked tollium:status/serious_error tollium:status/negative tollium:status/neutral"
+                  selectcontextmenu="contextmenu"
+                  flags="enabled"
+                  borders="right"
+                  >
+              <column name="rowkey" type="text" width="30x" tid=".name" />
+              <column name="icon" type="icon" title=""/>
+              <column name="type" type="text" width="13x" />
+              <column name="since"  type="datetime" precision="milliseconds" width="21x" storeutc="true" />
+              <column name="lasterror" type="text" />
+            </list>
+          </cell>
+          <cell spacers="left right">
+            <button width="1pr" action="enable" />
+            <button width="1pr" action="disable" />
+            <button width="1pr" action="restart" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+</screens>

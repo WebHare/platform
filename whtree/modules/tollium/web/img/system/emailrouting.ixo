@@ -1,0 +1,4 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <layer src="tollium:applications/email" translatex="-10px"/>
+  <layer src="tollium:overlays/arrowbottomright" />
+</icon>

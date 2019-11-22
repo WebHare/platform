@@ -1,0 +1,601 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webdav.whlib";
+
+LOADLIB "mod::tollium/lib/backgroundtask.whlib";
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/internal/blit/repositorytree.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/support.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/whfsintegration.whlib";
+
+PUBLIC OBJECTTYPE Manage EXTEND TolliumScreenBase
+<
+  INTEGER selection;
+  INTEGER curr_synced_folder;
+
+  MACRO Init(RECORD data)
+  {
+    IF (NOT this->tolliumuser->HasRight("system:sysop"))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    this->selection := data.objectid;
+    this->RefreshList();
+    this->folders->value := this->curr_synced_folder;
+  }
+
+  MACRO RefreshList()
+  {
+    //Gather folder sync settings for all folders using it
+    OBJECT foldersynctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/foldersync");
+    INTEGER ARRAY allfolderids := SELECT AS INTEGER ARRAY DISTINCT fsobject FROM foldersynctype->ListAllInstances() WHERE fsobject != 0;
+    RECORD ARRAY syncedfolders := foldersynctype->GetBulkData(allfolderids, ["peers"]);
+    RECORD ARRAY paths := SELECT id,whfspath FROM system.fs_objects WHERE id IN allfolderids;
+
+    RECORD ARRAY outlist;
+    FOREVERY(RECORD folder FROM syncedfolders)
+      FOREVERY(RECORD peer FROM folder.peers)
+      {
+        INSERT [ rowkey := peer.fs_settingid
+               , folderid := folder.id
+               , folder := folder.id = whconstant_whfsid_private_rootsettings ? "/" : (SELECT AS STRING whfspath FROM paths WHERE paths.id=folder.id)
+               , peer := peer.peer
+               , remotepath := peer.remotepath
+               ] INTO outlist AT END;
+      }
+    ^folders->rows := outlist;
+  }
+
+  MACRO DoAdd()
+  {
+    INTEGER id := this->RunScreen("#editfolder", [ id := 0, folderid := this->selection ]);
+    this->RefreshList();
+    IF (id != 0)
+      this->folders->value := id;
+  }
+
+  MACRO DoEdit()
+  {
+    INTEGER id := this->RunScreen("#editfolder", [ id := ^folders->value, folderid := ^folders->selection.folderid ]);
+    this->RefreshList();
+    IF (id != 0)
+      this->folders->value := id;
+  }
+
+  MACRO DoDelete()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".verifydisconnectsyncedfolder", ^folders->selection.peer)) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+
+    OBJECT foldersynctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/foldersync");
+    RECORD ARRAY peers := foldersynctype->GetInstanceData(^folders->selection.folderid ?? whconstant_whfsid_private_rootsettings).peers;
+    DELETE FROM peers WHERE fs_settingid = ^folders->value;
+    foldersynctype->SetInstanceData(^folders->selection.folderid ?? whconstant_whfsid_private_rootsettings, [ peers := peers ]);
+
+    work->Finish();
+    this->RefreshList();
+  }
+
+  MACRO DoSyncCurrent()
+  {
+    this->SyncFolder();
+  }
+>;
+
+PUBLIC OBJECTTYPE EditFolder EXTEND TolliumScreenBase
+<
+  INTEGER pvt_id;
+  OBJECT selectedpeer;
+
+  PUBLIC PROPERTY id(pvt_id, -);
+
+  MACRO Init(RECORD data)
+  {
+    ^folder->value := data.folderid;
+
+    IF(data.id != 0)
+    {
+      OBJECT foldersynctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/foldersync");
+      RECORD ARRAY peers := foldersynctype->GetInstanceData(^folder->value ?? whconstant_whfsid_private_rootsettings).peers;
+      RECORD toedit := SELECT * FROM peers WHERE fs_settingid = data.id;
+
+      ^folder->enabled := FALSE;
+      ^peer->value := toedit.peer;
+      ^remotepath->value := toedit.remotepath;
+      this->pvt_id := data.id;
+    }
+  }
+
+  MACRO DoSelectPeer()
+  {
+    OBJECT selectedpeer := RunConnectRemoteWebHareDialog(this);
+    IF(ObjectExists(selectedpeer))
+    {
+      this->selectedpeer := selectedpeer;
+      ^peer->value := selectedpeer->url;
+    }
+  }
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+    {
+      work->Finish();
+      RETURN 0;
+    }
+
+    OBJECT foldersynctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/foldersync");
+    RECORD ARRAY peers := foldersynctype->GetInstanceData(^folder->value ?? whconstant_whfsid_private_rootsettings).peers;
+    DELETE FROM peers WHERE fs_settingid = this->id;
+    INSERT [ peer := this->rec->value.peer, remotepath := this->rec->value.remotepath ] INTO peers AT END;
+    foldersynctype->SetInstanceData(^folder->value ?? whconstant_whfsid_private_rootsettings, [ peers := peers ]);
+    IF (NOT work->Finish())
+      RETURN 0;
+
+    this->pvt_id := foldersynctype->GetInstanceData(^folder->value ?? whconstant_whfsid_private_rootsettings).peers[END-1].fs_settingid;
+    RETURN this->pvt_id;
+  }
+
+  MACRO DoSelectFolder()
+  {
+    IF(NOT ObjectExists(this->selectedpeer))
+    {
+      this->selectedpeer := OpenWebHarePeer(this, ^peer->value, [ scopes := [ "system:sysop" ] ]);
+      IF (NOT ObjectExists(this->selectedpeer))
+        RETURN;
+    }
+
+    STRING webdavurl := ResolveToAbsoluteURL(^peer->value, "/webdav/publisher/");
+
+    STRING localpath;
+    IF (this->folder->value != 0)
+      localpath := OpenWHFSObject(this->folder->value)->whfspath;
+
+    this->contexts->^peer := this->selectedpeer;
+    OBJECT screen := this->LoadScreen(".selectremotefolder", [ baseurl := webdavurl, value := this->rec->value.remotepath ?? localpath ]);
+
+    IF (screen->RunModal() = "ok")
+      this->rec->value.remotepath := screen->value;
+  }
+
+  MACRO OnPeerConnect(RECORD data)
+  {
+    this->ReloadPeers();
+    this->peer->value := data.id;
+  }
+>;
+
+PUBLIC OBJECTTYPE FolderSync EXTEND TolliumBackgroundTask
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD data;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  MACRO SetProgress(MONEY progress, STRING status)
+  {
+    this->status :=
+        [ progress := progress
+        , status :=   status
+        ];
+  }
+
+  MACRO SetObjectsProgress(MONEY progress, RECORD data, MONEY startprogress, MONEY progressperfolder, STRING suffix)
+  {
+    //progress should go from 0 .. 100.
+    progress := startprogress + progressperfolder * (0.25 + progress/100m * 0.5);
+    IF (data.type = "parts")
+    {
+      this->status :=
+          [ progress := progress
+          , status :=   GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.retrieveobjects-parts", ToString(data.current), ToString(data.total)) || suffix
+          ];
+    }
+    ELSE
+    {
+      this->status :=
+          [ progress := progress
+          , status :=   GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.retrieveobjects-size", ToString(data.current / 1000000) || "MB", ToString(data.total / 1000000) || "MB") || suffix
+          ];
+    }
+  }
+
+  UPDATE PUBLIC MACRO Init(RECORD data)
+  {
+    this->data := data;
+  }
+
+  UPDATE PUBLIC MACRO Run()
+  {
+    this->SetProgress(0, GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.indexremotefolder"));
+
+    OBJECT peer := OpenMarshalledWebHarePeer(this->data.peerinfo);
+
+    BOOLEAN syncself := Length(this->data.objects) = 0;
+    INTEGER ARRAY tosync := syncself ? INTEGER[this->data.parent] : this->data.objects;
+    STRING ARRAY missingreferences;
+
+    FOREVERY(INTEGER sourcefolderid FROM tosync)
+    {
+      STRING syncpath := this->data.remotepath;
+      STRING suffix;
+      IF(NOT syncself)
+      {
+        STRING syncname := OpenWHFSObject(sourcefolderid)->name;
+        syncpath := syncpath || "/" || syncname;
+        IF(Length(tosync)>1)
+          suffix := " (" || syncname || " - " || #sourcefolderid+1 || "/" || Length(tosync) || ")";
+      }
+
+      RECORD conndata := peer->InvokeAdminService("OpenSyncFolder", syncpath, DEFAULT RECORD);
+
+      //Divide up 90% of progress over the count of folders to sync
+      MONEY progressperfolder := 90m / Length(tosync);
+      MONEY startprogress := 10 + #sourcefolderid * progressperfolder;
+
+      this->SetProgress(startprogress, GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.retrieveindex") || suffix);
+
+      RECORD tree := conndata.folderdata->GETOBJECTTREECOMPRESSED();
+      OBJECT rtree_remote := EncapsulateRawRepositoryTree(DecodeHSONBlob(MakeZlibDecompressedFile(tree.treedata, "GZIP")));
+
+      OBJECT folder := OpenWHFSObject(sourcefolderid);
+      this->SetProgress(startprogress + progressperfolder*0.05, GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.indexlocalfolder") || suffix);
+
+      OBJECT work := this->BeginWork();
+
+      GetPrimary()->allowerrordelay := FALSE;
+
+      OBJECT dtree_local := CreateWHFSDescriptionTree(folder, [ fulltree := TRUE ]);
+      OBJECT rtree_local := dtree_local->BuildRepositoryTree();
+
+      this->SetProgress(startprogress + progressperfolder*0.11, GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.updatelocalcache") || suffix);
+      UpdateFSCache(rtree_local);
+
+      this->SetProgress(startprogress + progressperfolder*0.16, GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.updatelocalcache") || suffix);
+
+      OBJECT datakeeper := MakeTreeDataKeeper();
+      datakeeper->AddTreeData(rtree_local);
+
+      this->SetProgress(startprogress + progressperfolder*0.22, GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.retrieveobjects") || suffix);
+
+      //This step runs from progressperfolder*0.25 to progressperfolder*0.75
+      GetTreeData(conndata.folderdata, rtree_remote, datakeeper, [ onprogress := PTR this->SetObjectsProgress(#1,#2,startprogress,progressperfolder, suffix) ]);
+
+      this->SetProgress(startprogress + progressperfolder*0.83, GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.calculatingmodifications") || suffix);
+      OBJECT diffrtree := RepositoryTreeDiff3(rtree_local, rtree_local, rtree_remote);
+      OBJECT moddtree := GenerateWHFSDescriptionDiffTree(diffrtree);
+
+      this->SetProgress(startprogress + progressperfolder*0.88, GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.applyingmodifications") || suffix);
+      RECORD res := moddtree->Apply(folder, [ fulltree := TRUE, ignoremissingrefs := TRUE ]);
+      IF(NOT work->Finish())
+        BREAK;
+
+      missingreferences := missingreferences CONCAT res.missing_references;
+    }
+
+    IF(Length(missingreferences) != 0)
+    {
+      OBJECT work := this->BeginWork();
+
+      FOREVERY(STRING missingref FROM ArraySlice(missingreferences,0,10))
+        work->AddWarning(GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.missingrefignored", missingref));
+      IF(Length(missingreferences) > 10)
+        work->AddWarning(GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.notshowingrestofmissingrefs"));
+
+      work->Finish();
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE SelectRemoteFolder EXTEND TolliumScreenBase
+<
+  OBJECT conn;
+
+  PUBLIC PROPERTY value(this->tree->value, SetValue);
+
+  MACRO Init(RECORD data)
+  {
+    this->conn := NEW WebdavConnection(data.baseurl, [ browser := this->contexts->^peer->browser ]);
+    IF (CellExists(data, "VALUE"))
+      this->value := data.value;
+  }
+
+  MACRO SetValue(STRING value)
+  {
+    STRING ARRAY path := this->OnGetPath(value);
+    IF (LENGTH(path) = 0)
+      value := "";
+    ELSE
+      value := PATH[END - 1];
+    this->tree->value := value;
+
+    PRINT("Want value " || value || "\n");
+    PRINT("Got value " || this->tree->value || "\n");
+    PRINT("List:\n" || AnyToString(this->tree->rows, "boxed"));
+
+  }
+
+  RECORD ARRAY FUNCTION OnGetChildren(RECORD parent)
+  {
+    IF (NOT RecordExists(parent))
+    {
+      RETURN
+          [ [ rowkey :=     "/"
+            , name :=       "/"
+            , icon :=       1
+            , expanded :=   TRUE
+            , expandable := TRUE
+            ]
+          ];
+    }
+
+    STRING dirpath := parent.rowkey;
+
+    RECORD ARRAY items;
+    TRY
+      items := this->conn->ListDirectory(dirpath);
+    CATCH;
+    items :=
+        SELECT rowkey :=      MergePath(dirpath, name)
+             , name
+             , icon :=        1
+             , expanded :=    FALSE
+             , expandable :=  TRUE
+          FROM items
+         WHERE iscollection;
+
+    PRINT("Items for path " || dirpath || "\n" || AnyToString(items, "boxed"));
+
+    RETURN items;
+  }
+
+  STRING ARRAY FUNCTION OnGetPath(STRING path)
+  {
+    STRING ARRAY components :=
+        SELECT AS STRING ARRAY part
+          FROM ToRecordArray(Tokenize(path, "/"), "PART")
+         WHERE part != "";
+
+    STRING ARRAY result;
+    FOR (INTEGER i := 1; i <= LENGTH(components); i := i + 1)
+      INSERT "/" || Detokenize(ArraySlice(components, 0, i), "/") INTO result AT END;
+
+    RETURN result;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE SyncFolder EXTEND TolliumScreenBase
+<
+  INTEGER parent;
+  INTEGER ARRAY objects;
+
+  MACRO Init(RECORD data)
+  {
+    this->parent := data.parent;
+    this->objects := data.objects;
+    this->RefreshList();
+
+    //select the most recently used peer, if in the list
+    STRING ARRAY lastpeers := this->tolliumuser->GetRegistryKey("publisher.syncedfolders.lastpeers", STRING[]);
+    FOREVERY(STRING peerid FROM lastpeers)
+    {
+      RECORD match := SELECT * FROM ^syncpoints->rows WHERE rows.peer = peerid;
+      IF(RecordExists(match))
+      {
+        ^syncpoints->value := match.rowkey;
+        BREAK;
+      }
+    }
+
+    BOOLEAN syncself := Length(this->objects) = 0;
+    INTEGER ARRAY tosync := syncself ? INTEGER[this->parent] : this->objects;
+
+    STRING ARRAY paths;
+    FOREVERY (INTEGER id FROM tosync)
+      INSERT (id = 0 ? OpenWHFSRootObject() : OpenWHFSObject(id))->whfspath INTO paths AT END;
+
+    this->^frame->title := this->GetTid(".syncfolder", Detokenize(paths, ", "));
+  }
+
+  MACRO DoOpen(OBJECT urlopener)
+  {
+    RECORD sel := ^syncpoints->selection;
+    //escape \, ( and )
+    STRING targetpath := Substitute(Substitute(Substitute(sel.remotefolder,'\\','\\\\'),'(','\\('),')','\\)');
+    urlopener->SendURL(ResolveToAbsoluteURL(sel.peer, `?app=publisher(${targetpath})`));
+  }
+
+  MACRO DoManageSyncpoints()
+  {
+    this->RunScreen("#manage", [ objectid := this->parent ]);
+    this->RefreshList();
+  }
+
+  MACRO RefreshList()
+  {
+    //gather list of folders we need to inspect for sync settings
+    INTEGER ARRAY treeids := [ whconstant_whfsid_private_rootsettings ];
+    STRING whfspathbasetosync;
+    RECORD ARRAY whfspathstosync;
+    IF(this->parent != 0)
+    {
+      OBJECT base := OpenWHFSObject(this->parent);
+      treeids := treeids CONCAT base->GetWHFSTree();
+
+      whfspathbasetosync := base->whfspath;
+      IF (LENGTH(this->objects) = 0)
+        whfspathstosync := [ [ id := this->parent, path := base->whfspath ] ];
+      ELSE
+      {
+        FOREVERY (INTEGER id FROM this->objects)
+          INSERT CELL[ id, path := OpenWHFSObject(id)->whfspath ] INTO whfspathstosync AT END;
+      }
+    }
+    ELSE
+    {
+      whfspathbasetosync := "/";
+      whfspathstosync := [ [ id := 0, path := "/" ] ];
+    }
+
+    OBJECT foldersynctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/foldersync");
+    RECORD ARRAY syncedfolders := foldersynctype->GetBulkData(treeids, ["peers"]);
+
+    RECORD ARRAY outlist;
+    FOREVERY(RECORD folder FROM syncedfolders)
+    {
+      STRING startingpoint := folder.id = whconstant_whfsid_private_rootsettings ? "/" : SELECT AS STRING whfspath FROM system.fs_objects WHERE id = folder.id;
+      FOREVERY(RECORD peer FROM folder.peers)
+      {
+        RECORD ARRAY remotefolders :=
+            SELECT *
+                 , remotepath :=    MergePath(peer.remotepath, Substring(path, Length(startingpoint)))
+              FROM whfspathstosync;
+
+        INSERT [ rowkey := peer.fs_settingid
+               , folder := folder.id
+               , peer := peer.peer
+               , remotepath := peer.remotepath
+               , remotefolders := remotefolders
+               , remotefolderbase := MergePath(peer.remotepath, Substring(whfspathbasetosync, Length(startingpoint)))
+               , remotefolder := Detokenize((SELECT AS STRING ARRAY remotepath FROM remotefolders), ", ")
+               , cansync := this->parent != 0
+               ] INTO outlist AT END;
+      }
+    }
+    ^syncpoints->rows := outlist;
+  }
+
+  MACRO DoFolderSync()
+  {
+    this->Synchronize("foldersync");
+  }
+
+  MACRO DoFullSync()
+  {
+    this->Synchronize("fullsync");
+  }
+
+  MACRO Synchronize(STRING synctype)
+  {
+    RECORD tosync := ^syncpoints->selection;
+
+    OBJECT peer;
+    TRY
+    {
+      peer := OpenWebHarePeer(this, tosync.peer, [ scopes := [ "system:sysop" ] ]);
+      IF(NOT ObjectExists(peer))
+        RETURN;
+    }
+    CATCH (OBJECT e)
+    {
+      RunExceptionReportDialog(this, e);
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    STRING ARRAY lastpeers := ArraySlice(this->tolliumuser->GetRegistryKey("publisher.syncedfolders.lastpeers", STRING[]),0,50);
+    IF(NOT (Length(lastpeers) > 0 AND lastpeers[0] = tosync.peer))
+    {
+      IF(tosync.peer IN lastpeers)
+        DELETE FROM lastpeers AT SearchElement(lastpeers, tosync.peer);
+      lastpeers := STRING[tosync.peer] CONCAT lastpeers;
+      this->tolliumuser->SetRegistryKey("publisher.syncedfolders.lastpeers", lastpeers);
+    }
+
+    IF(synctype = "foldersync")
+    {
+      /* TODO shouldn't we run everything on the background (and follow the general progress dialog)
+         TODO when selecting folders in the file list (length(data.objects) > 0) we should actually add externals in those.
+              i don't think just ignoring that will do much harm for now, and it's probably easier to just merge it in
+              the background task at some point (see above todo) to do this */
+      STRING webdavurl := ResolveToAbsoluteURL(peer->url, "/webdav/publisher/");
+      OBJECT conn := NEW WebdavConnection(webdavurl, [ browser := peer->browser ]);
+
+      RECORD ARRAY tocreate;
+
+      TRY
+      {
+        // Gather all remote folders
+        FOREVERY (RECORD remotefolder FROM tosync.remotefolders)
+        {
+          RECORD ARRAY folders := conn->ListDirectory(remotefolder.remotepath);
+          FOREVERY (RECORD folder FROM folders)
+          {
+            IF (NOT folder.iscollection)
+              CONTINUE;
+
+            INSERT [ parent := remotefolder.id, name := folder.name ] INTO tocreate AT END;
+          }
+        }
+      }
+      CATCH (OBJECT e)
+      {
+        RunExceptionReportDialog(this, e);
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+
+      INTEGER added := 0;
+      OBJECT work := this->BeginWork();
+
+      FOREVERY (RECORD folder FROM tocreate)
+      {
+        OBJECT curfolder := folder.parent = 0 ? OpenWHFSRootObject() : OpenWHFSObject(folder.parent);
+
+        IF (NOT ObjectExists(curfolder->OpenByName(folder.name)))
+        {
+          curfolder->CreateFolder([ name := folder.name ]);
+          added := added + 1;
+        }
+      }
+
+      work->AddWarning(this->GetTid(".externalfoldersadded", ToString(added)));
+
+      IF(work->Finish())
+      {
+        this->tolliumresult := "ok";
+      }
+    }
+    ELSE
+    {
+      RECORD syncinfo := [ parent := this->parent
+                         , objects := this->objects
+                         , remotepath := tosync.remotefolderbase
+                         , peerinfo := peer->GetMarshallableInfo()
+                         ];
+
+      OBJECT bgtask := CreateProgressDialog(this, Resolve("syncedfolders.whlib"), "FolderSync", syncinfo);
+      BOOLEAN done := bgtask->RunModal()="ok";
+      IF(done)
+        this->tolliumresult := "ok";
+    }
+  }
+>;

@@ -1,0 +1,296 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/config.whlib"
+         gid="config">
+
+  <messageboxes gid=".messages">
+    <messagebox name="delete_confirmation" buttons="yes no"/>
+    <messagebox name="verifyneeded" buttons="ok" icon="warning" />
+    <messagebox name="suredeauthorizesession" buttons="yes no" icon="question" />
+  </messageboxes>
+
+  <screen name="main" gid=".main" allowresize="true" menubar="menubar" icon="tollium:applications/socialite">
+    <actions>
+      <action name="importaccount" onexecute="doimportaccount" />
+      <action name="exportaccount" onexecute="doexportaccount" >
+        <enableon source="apps" min="1" max="1" checkflags="isaccount" />
+      </action>
+      <action name="addaccount" onexecute="doaddaccount" icon="tollium:actions/add" />
+      <action name="addapplication" onexecute="doaddapplication" icon="tollium:actions/add">
+        <enableon source="apps" min="1" max="1" checkflags="isaccount" />
+      </action>
+      <action name="edit" icon="tollium:actions/edit">
+        <enableon source="apps" min="1" max="1" checkflags="isaccount" onexecute="doeditaccount" />
+        <enableon source="apps" min="1" max="1" checkflags="isapp" onexecute="doeditapplication" />
+        <enableon source="persistent_list" min="1" max="1" onexecute="doeditpersistent" />
+      </action>
+      <action name="delete" icon="tollium:actions/delete">
+        <enableon source="apps" min="1" max="1" checkflags="isaccount" onexecute="dodeleteaccount" />
+        <enableon source="apps" min="1" max="1" checkflags="isapp" onexecute="dodeleteapplication" />
+        <enableon source="persistent_list" min="1" onexecute="dodeletepersistent" />
+      </action>
+      <action name="addpersistent" onexecute="doaddpersistent" icon="tollium:actions/add">
+        <enableon source="apps" min="1" max="1" checkflags="isapp" />
+        <enableon source="persistent_list" />
+      </action>
+      <action name="editpersistent" icon="tollium:actions/edit">
+        <enableon source="persistent_list" min="1" max="1" onexecute="doeditpersistent" />
+      </action>
+      <action name="deletepersistent" icon="tollium:actions/delete">
+        <enableon source="persistent_list" min="1" onexecute="dodeletepersistent" />
+      </action>
+
+      <action name="authorize">
+        <enableon source="session_list" min="1" onexecute="doauthorizesession" />
+        <enableon source="persistent_list" min="1" onexecute="doauthorizepersistentsession" />
+      </action>
+      <action name="deauthorize">
+        <enableon source="persistent_list" min="1" onexecute="dodeauthorizepersistentsession" />
+      </action>
+
+      <action name="viewsession">
+        <enableon source="session_list" min="1" onexecute="doviewtemporarysession" />
+        <enableon source="persistent_list" min="1" onexecute="doviewpersistentsession" />
+      </action>
+
+      <action name="viewfeeds">
+        <enableon source="persistent_list" min="1" max="1" onexecute="doviewfeeds" />
+      </action>
+
+      <action name="importsecuretoken">
+        <enableon source="apps" min="1" max="1" checkflags="isapp" onexecute="doimportsecuretoken" />
+      </action>
+      <action name="setsecuretoken">
+        <enableon source="persistent_list" min="1" max="1" onexecute="dosetsecuretoken" />
+      </action>
+
+      <action name="exit" onexecute="doexit" tid="tollium:common.actions.exit" />
+
+      <action name="viewanonymousfeeds" onexecute="doviewanonymousfeeds" />
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item tid=".app">
+          <item action="importaccount" />
+          <item action="exportaccount" />
+          <item action="viewanonymousfeeds" />
+          <item action="exit" />
+        </item>
+        <item name="documentation">
+        </item>
+      </menu>
+      <menu name="apps_context_menu">
+        <item action="edit" disablemode="hidden" />
+        <item action="addapplication" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
+        <divider/>
+        <item action="importsecuretoken" disablemode="hidden"  />
+      </menu>
+      <menu name="apps_new_menu">
+        <item action="addaccount" disablemode="hidden" />
+      </menu>
+      <menu name="persistent_context_menu">
+        <item action="editpersistent" />
+        <item action="deletepersistent" />
+        <divider />
+        <item action="authorize" />
+        <item action="setsecuretoken" />
+        <item action="deauthorize" />
+        <item action="viewsession" />
+        <item action="viewfeeds" />
+      </menu>
+      <menu name="persistent_new_menu">
+        <item action="addpersistent" />
+      </menu>
+    </menus>
+    <toolbar>
+      <button action="addaccount" />
+      <button action="addapplication" />
+      <button action="edit" />
+      <button action="delete" />
+    </toolbar>
+    <body spacers="none">
+      <split type="horizontal">
+        <part width="1pr">
+          <list name="apps"
+                columnheaders="false"
+                borders="left top bottom"
+                flags="isaccount isapp"
+                selectmode="single"
+                rowselect="true"
+                selectcontextmenu="apps_context_menu"
+                savestate="expanded"
+                newcontextmenu="apps_new_menu"
+                onselect="selectapplication"
+                openaction="edit"
+                height="1pr">
+            <column name="title" type="text" tree="true" />
+          </list>
+        </part>
+        <part width="4pr">
+          <tabs height="1pr" name="sessiontabs">
+            <tab name="persistent">
+              <panel height="1pr">
+                <list name="persistent_list"
+                      selectmode="single"
+                      rowselect="true"
+                      openaction="editpersistent"
+                      selectcontextmenu="persistent_context_menu"
+                      newcontextmenu="persistent_new_menu"
+                      height="1pr">
+                  <column name="authorized" type="icon" />
+                  <column name="authorizedat" type="datetime" width="18x" precision="seconds" storeutc="true" />
+                  <column name="title" type="text" />
+                  <column name="tag" type="text" />
+                </list>
+              </panel>
+            </tab>
+            <tab name="sessions">
+              <panel height="1pr">
+                <list name="session_list"
+                      selectmode="single"
+                      rowselect="true"
+                      icons="tollium:actions/accept"
+                      height="1pr">
+                  <column name="authorized" type="icon" />
+                  <column name="authorizedat" type="datetime" width="18x" precision="seconds" storeutc="true" />
+                  <column name="title" type="text" />
+                  <column name="tag" type="text" />
+                </list>
+              </panel>
+            </tab>
+          </tabs>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="account" tid=".windowtitle" gid=".account">
+    <body>
+      <panel height="1pr">
+        <textedit name="title" required="true" width="1pr" />
+        <textedit name="tag" required="true" width="1pr" />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="application"
+          tid=".windowtitle" gid=".application"
+          width="75x" allowresize="true" savestate="size">
+    <body>
+      <heading tid=".appsettingsbox" />
+      <select name="applicationtype" type="pulldown" onchange="changetype" />
+      <textedit name="title" required="true" width="1pr" />
+      <textedit name="tag" required="true" width="1pr" />
+      <textedit name="authenticationcallbackhost" required="false" width="1pr" validationchecks="http-url" />
+      <textedit name="emulationurl" required="false" width="1pr" visible="false" validationchecks="http-url" />
+      <textedit name="developerkey" required="false" width="1pr" visible="false" />
+
+      <textedit name="publickey" width="1pr" />
+      <textedit name="privatekey" width="1pr" />
+      <textedit name="jsredirecturl" required="false" width="1pr" validationchecks="http-url" />
+      <checkbox name="logrpc" title="" labeltid=".logrpc" />
+
+      <heading tid=".remarksbox" />
+
+      <line layout="left">
+        <textarea name="remarks" width="1pr" height="1pr" minheight="13x" title="" errorlabeltid=".remarksbox"/>
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="persistent" tid=".windowtitle" gid=".persistent"
+          width="55x" height="35x" allowresize="true">
+    <body>
+      <panel height="1pr">
+        <textedit name="title" required="true" width="1pr" />
+        <textedit name="tag" required="true" width="1pr" />
+        <textarea name="authorizationremark" width="1pr" />
+        <textedit name="securetoken" enabled="false" width="1pr" />
+        <checkbox name="expirationwarning" title="" labeltid=".expirationwarning" />
+        <heading tid=".requestpermissions" />
+        <select name="requestpermissions" type="checkboxlist" title=""
+                height="1pr" minwidth="45x" minheight="8x" rowkeytype="string">
+        </select>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="viewsession"
+          gid=".viewsession" tid=".title"
+          width="120x" height="42x"
+          allowresize="true"
+          >
+    <body>
+      <box minheight="25x" height="1pr" tid=".sessionkeys">
+        <panel height="1pr">
+          <list name="sessionkeys"
+                selectmode="single"
+                rowselect="true"
+                height="1pr">
+            <column name="tag" type="text" />
+            <column name="value" type="text" />
+          </list>
+        </panel>
+      </box>
+    </body>
+  </screen>
+
+  <screen name="importsecuretoken" gid=".importsecuretoken">
+    <actions>
+      <action name="import" onexecute="doimport"  />
+    </actions>
+    <body>
+      <line>
+        <textedit name="inputtoken" required="true" />
+        <button action="import" />
+      </line>
+      <textedit name="outputtoken" enabled="false"/>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="setsecuretoken" gid=".setsecuretoken">
+    <body>
+      <textedit name="inputtoken" required="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="importaccount" gid=".importaccount" allowresize="true" savestate="size" width="60x" height="12x">
+    <body>
+      <line layout="left">
+        <text valuetid=".pasteaccountinfo"/>
+      </line>
+      <textarea name="data" width="1pr" height="1pr" title=""/>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="exportaccount" gid=".exportaccount" allowresize="true" savestate="size" width="60x" height="12x">
+    <body>
+      <line layout="left">
+        <text valuetid=".copyaccountinfo"/>
+      </line>
+      <textarea name="data" width="1pr" height="1pr" title=""/>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

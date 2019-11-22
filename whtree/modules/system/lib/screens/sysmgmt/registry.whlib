@@ -1,0 +1,184 @@
+﻿<?wh
+
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// Registry editor
+//
+
+// FIXME: this code is a copy of the wrd registry editor
+// Port changes here also to the other one
+// Or generalize the registry editors!
+
+PUBLIC OBJECTTYPE EditReg EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    IF (CellExists(data, "selectkey"))
+      this->filter->value := data.selectkey;
+  }
+
+  MACRO OnEvents(RECORD ARRAY events)
+  {
+    this->registry->ReloadList();
+  }
+
+  MACRO DoEditKey()
+  {
+    this->RunScreen("#editregkey", [ regkey := this->registry->value ]);
+  }
+
+  MACRO DoDelete()
+  {
+    IF (this->RunMessageBox(".deletekey", this->registry->value) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    DeleteRegistryKey(this->registry->value);
+    work->Finish();
+  }
+
+  MACRO RefreshRegistryList()
+  {
+    this->registry->ReloadList();
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION OnRegistryLoadItems()
+  {
+    STRING filter := ToLowerCase(this->filter->value);
+
+    IF (SearchSubstring(filter, "*") = -1)
+      filter := "*" || filter || "*";
+
+    RETURN SELECT rowkey := name
+                , name
+                , value := data ?? "(too big to display)"
+                , modificationdate
+             FROM system.flatregistry
+            WHERE (filter != "" ? name LIKE filter : TRUE)
+                  AND (name NOT LIKE "<*"); //ignore 'user' registries
+  }
+
+>;
+
+PUBLIC OBJECTTYPE EditRegKey EXTEND TolliumScreenBase
+<
+  STRING regkey;
+  INTEGER valtype;
+
+  MACRO Init(RECORD data)
+  {
+    this->regkey := data.regkey;
+
+    VARIANT val := ReadRegistryKey(this->regkey);
+    this->name->value := this->regkey;
+    this->valtype := TypeID(val);
+
+    SWITCH(this->valtype)
+    {
+      CASE TYPEID(STRING)
+      {
+        this->type->value := GetTid("system:sysmgmt.editregkey.string");
+        this->stringvalue->visible := true;
+        this->stringvalue->value := val;
+      }
+      CASE TYPEID(DATETIME)
+      {
+        this->type->value := GetTid("system:sysmgmt.editregkey.datetime");
+        this->datetimevalue->visible := true;
+        this->datetimevalue->value := val;
+      }
+      CASE TYPEID(BOOLEAN)
+      {
+        this->type->value := GetTid("system:sysmgmt.editregkey.boolean");
+        this->booleanvalue->visible := true;
+        this->booleanvalue->value := val ? "1" : "0";
+      }
+      CASE TYPEID(INTEGER)
+      {
+        this->type->value := GetTid("system:sysmgmt.editregkey.integer");
+        this->integervalue->visible := true;
+        this->integervalue->value := val;
+      }
+      CASE TYPEID(BLOB)
+      {
+        this->type->value := GetTid("system:sysmgmt.editregkey.blob");
+        this->blobvalue->visible := true;
+        this->blobvalue->SetFile(val, "blob");
+      }
+      CASE TYPEID(RECORD)
+      {
+        this->type->value := GetTid("system:sysmgmt.editregkey.record");
+        this->stringvalue->visible := true;
+        this->stringvalue->value := RecordExists(val) ? EncodeHSON(val) : "";
+        this->stringvalue->placeholder := "hson:*";
+      }
+      DEFAULT
+      {
+        this->stringvalue->visible := true;
+        this->stringvalue->value := EncodeHSON(val);
+      }
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    SWITCH(this->valtype)
+    {
+      CASE TYPEID(STRING)
+      {
+        WriteRegistryKey(this->regkey, this->stringvalue->value);
+      }
+      CASE TYPEID(DATETIME)
+      {
+        WriteRegistryKey(this->regkey, this->datetimevalue->value);
+      }
+      CASE TYPEID(BOOLEAN)
+      {
+        WriteRegistryKey(this->regkey, this->booleanvalue->value="1");
+      }
+      CASE TYPEID(INTEGER)
+      {
+        WriteRegistryKey(this->regkey, this->integervalue->value);
+      }
+      CASE TYPEID(BLOB)
+      {
+        WriteRegistryKey(this->regkey, RecordExists(this->blobvalue->value) ? this->blobvalue->value.data : DEFAULT BLOB);
+      }
+      CASE TYPEID(RECORD)
+      {
+        IF (this->stringvalue->value = "")
+          WriteRegistryKey(this->regkey, DEFAULT RECORD);
+        ELSE
+        {
+          RECORD value;
+          TRY
+          {
+            VARIANT decoded := DecodeHSON(this->stringvalue->value);
+            IF (TypeID(decoded) != TypeID(RECORD))
+              THROW NEW Exception("");
+            value := decoded;
+          }
+          CATCH (OBJECT e)
+            work->AddError(GetTid("system:sysmgmt.editregkey.invalidrecordvalue"));
+
+          // Not within the Try/Catch block, so we only catch decoding errors
+          IF (NOT work->HasFailed())
+            WriteRegistryKey(this->regkey, value);
+        }
+      }
+      DEFAULT
+      {
+        WriteRegistryKey(this->regkey, DecodeHSON(this->stringvalue->value));
+      }
+    }
+    RETURN work->Finish();
+  }
+>;

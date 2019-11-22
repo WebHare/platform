@@ -1,0 +1,532 @@
+<?wh
+/** This library contains the loopback database transaction interfaces
+    plus a handy-dandy forwarding transaction driver that forwards to a
+    low-level dbase driver.
+    @topic database/loopback
+*/
+
+LOADLIB "wh::dbase/transaction.whlib" EXPORT TransactionCursorBase;
+
+/** API for object called by Loopback DB provider
+    FIXME: document
+*/
+PUBLIC OBJECTTYPE LoopbackCursor EXTEND TransactionCursorBase
+<
+>;
+
+
+PUBLIC OBJECTTYPE LoopbackTransaction EXTEND TransactionBase
+< MACRO NEW()
+  {
+    INTEGER id := __HS_SQL_LBDB_REGISTER(this);
+    this->RegisterTransaction(id);
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    this->Destroy();
+  }
+
+  UPDATE PUBLIC MACRO Destroy()
+  {
+    __HS_SQL_LBDB_UNREGISTER(this->id);
+    this->UnregisterTransaction();
+  }
+>;
+
+
+
+OBJECTTYPE ForwardingLoopbackCursor EXTEND LoopbackCursor
+< /// ForwardTransaction
+  OBJECT trans;
+
+  /// Interface of cursor to forward to
+  RECORD itf;
+
+  MACRO NEW(OBJECT trans, RECORD itf)
+  {
+    this->trans := trans;
+    this->itf := itf;
+  }
+
+  UPDATE PUBLIC MACRO RetrieveNextBlock()
+  {
+    this->itf.RetrieveNextBlock();
+//    PRINT("RetrieveNextBlock, len: " || LENGTH(this->recursor->currentblock) || "\n");
+    this->pvt_currentblock := this->itf.GetCurrentBlock();
+  }
+
+  UPDATE PUBLIC MACRO GetFase2Data(INTEGER ARRAY rowlist)
+  {
+    this->itf.GetFase2Data(rowlist);
+    this->pvt_currentblock := this->itf.GetCurrentBlock();
+  }
+
+  UPDATE PUBLIC STRING FUNCTION LockRow(INTEGER row)
+  {
+    STRING result := this->itf.LockRow(row);
+    IF (result = "CHANGED")
+      this->pvt_currentblock := this->itf.GetCurrentBlock();
+    RETURN result;
+  }
+
+  UPDATE PUBLIC MACRO UnlockRow(INTEGER row)
+  {
+    this->itf.UnlockRow(row);
+  }
+
+  UPDATE PUBLIC MACRO DeleteRecord(INTEGER row)
+  {
+    this->itf.DeleteRecord(row);
+  }
+
+  UPDATE PUBLIC MACRO UpdateRecord(INTEGER row, RECORD newfields)
+  {
+    IF (row != 0)
+      THROW NEW Exception("Expected UpdateRecord to be for row 0");
+    this->itf.UpdateRecord(row, newfields);
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    this->itf.Close();
+  }
+>;
+
+/** This loopback transaction forwards all calls, inserts and queries to a
+    low-level database transaction
+*/
+OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
+< /// Interface of transaction to forward to
+  RECORD itf;
+  PUBLIC RECORD clientdata;
+
+  MACRO NEW(RECORD itf, RECORD clientdata)
+  {
+    this->itf := itf;
+    this->clientdata := clientdata;
+  }
+
+  UPDATE STRING FUNCTION GetType()
+  {
+    RETURN this->itf.type;
+  }
+
+  UPDATE PUBLIC MACRO InsertRecord(RECORD dbquery, RECORD newrecord)
+  {
+    this->itf.InsertRecord(dbquery, newrecord);
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION OpenCursor(RECORD dbquery, STRING type)
+  {
+//    PRINT("ForwardingLoopbackTransaction::OpenCursor, query:\n"||AnyToString(dbquery, "boxed"));
+
+    RECORD citf := this->itf.OpenCursor(dbquery, type);
+    RETURN NEW ForwardingLoopbackCursor(this, citf);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsWorkOpen()
+  {
+    RETURN this->itf.IsWorkOpen();
+  }
+
+  UPDATE PUBLIC MACRO BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->itf.BeginWork(options);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION CommitWork()
+  {
+    RETURN this->itf.CommitWork();
+  }
+
+  UPDATE PUBLIC MACRO RollbackWork()
+  {
+    this->itf.RollbackWork();
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
+  {
+    RETURN this->itf.GetSchemaListing();
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetTableListing(STRING schemaname)
+  {
+    RETURN this->itf.GetTableListing(schemaname);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetColumnListing(STRING s,STRING tablename)
+  {
+    RETURN this->itf.GetColumnListing(s,tablename);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ColumnExists(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    RETURN this->itf.ColumnExists(schemaname, tablename, columnname);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IndexExists(STRING schemaname, STRING tablename, STRING indexname)
+  {
+    RETURN this->itf.IndexExists(schemaname, tablename, indexname);
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    RETURN this->itf.MakeAutonumber(schemaname, tablename, columnname);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION Commit()
+  {
+    RECORD ARRAY result := this->itf.Commit();
+    this->Destroy();
+    this->itf := DEFAULT RECORD;
+    RETURN result;
+  }
+
+  UPDATE PUBLIC MACRO Rollback()
+  {
+    this->itf.Rollback();
+    this->Destroy();
+    this->itf := DEFAULT RECORD;
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    this->itf.Close();
+    this->Destroy();
+    this->itf := DEFAULT RECORD;
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetRoleId(STRING rolename)
+  {
+    RETURN this->itf.GetRoleId(rolename);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION RestrictRoles(INTEGER ARRAY roleids)
+  {
+    RETURN this->itf.RestrictRoles(roleids);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsRoleEnabled(INTEGER roleid)
+  {
+    RETURN this->itf.IsRoleEnabled(roleid);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION HasWorkSupport()
+  {
+    RETURN this->itf.hasworksupport;
+  }
+
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION GetEnabledRoles()
+  {
+    RETURN this->itf.GetEnabledRoles();
+  }
+  UPDATE PUBLIC MACRO CreateTable(STRING s, STRING t, RECORD ts)
+  {
+    this->itf.CreateTable(s,t,ts);
+  }
+  UPDATE PUBLIC MACRO AlterTable(STRING s, STRING t, RECORD tm)
+  {
+    this->itf.AlterTable(s,t,tm);
+  }
+  UPDATE PUBLIC MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
+  {
+    this->itf.CreateSchema(schemaname, ownerschema, ownerrole);
+  }
+  UPDATE PUBLIC MACRO DropSchema(STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->itf.DropSchema(schemaname, options);
+  }
+  UPDATE PUBLIC MACRO DropTable(STRING schemaname, STRING tablename)
+  {
+    this->itf.DropTable(schemaname, tablename);
+  }
+
+>;
+
+RECORD ARRAY transobjects;
+RECORD ARRAY cursorobjects;
+INTEGER counter;
+
+OBJECT FUNCTION GetCursorObject(INTEGER id)
+{
+  FOREVERY (RECORD r FROM cursorobjects)
+    IF (r.id = id)
+      RETURN r.obj;
+
+  ABORT("Database loopback: Could not find cursor " || id);
+  RETURN DEFAULT OBJECT;
+}
+
+INTEGER FUNCTION RegisterCursorObject(OBJECT cursor)
+{
+  counter := counter + 1;
+  INSERT
+      [ id := counter
+      , obj := cursor
+      ] INTO cursorobjects AT END;
+
+  RETURN counter;
+}
+
+OBJECT FUNCTION GetTransObject(INTEGER id)
+{
+  FOREVERY (RECORD r FROM transobjects)
+    IF (r.id = id)
+      RETURN r.obj;
+
+  ABORT("Database loopback: Could not find transaction " || id);
+  RETURN DEFAULT OBJECT;
+}
+
+INTEGER FUNCTION RegisterTransObject(OBJECT trans)
+{
+  counter := counter + 1;
+  INSERT
+      [ id := counter
+      , obj := trans
+      ] INTO transobjects AT END;
+
+  RETURN counter;
+}
+
+
+RECORD ARRAY FUNCTION WLC_GetCurrentBlock(INTEGER cursorid)
+{
+  RETURN GetCursorObject(cursorid)->currentblock;
+}
+
+MACRO WLC_RetrieveNextBlock(INTEGER cursorid)
+{
+  GetCursorObject(cursorid)->RetrieveNextBlock();
+}
+
+MACRO WLC_GetFase2Data(INTEGER cursorid, INTEGER ARRAY rowlist)
+{
+  GetCursorObject(cursorid)->GetFase2Data(rowlist);
+}
+
+STRING FUNCTION WLC_LockRow(INTEGER cursorid, INTEGER row)
+{
+  RETURN GetCursorObject(cursorid)->LockRow(row);
+}
+
+MACRO WLC_UnlockRow(INTEGER cursorid, INTEGER row)
+{
+  GetCursorObject(cursorid)->UnlockRow(row);
+}
+
+MACRO WLC_DeleteRecord(INTEGER cursorid, INTEGER row)
+{
+  GetCursorObject(cursorid)->DeleteRecord(row);
+}
+
+MACRO WLC_UpdateRecord(INTEGER cursorid, INTEGER row, RECORD newfields)
+{
+  GetCursorObject(cursorid)->UpdateRecord(row, newfields);
+}
+
+MACRO WLC_Close(INTEGER cursorid)
+{
+  GetCursorObject(cursorid)->Close();
+  DELETE FROM cursorobjects WHERE id = cursorid;
+}
+
+RECORD FUNCTION GetCursorRecordInterface(OBJECT cursor)
+{
+  INTEGER id := RegisterCursorObject(cursor);
+  RETURN
+      [ retrievenextblock :=      PTR WLC_RetrieveNextBlock(id)
+      , getfase2data :=           PTR WLC_GetFase2Data(id, #1)
+      , lockrow :=                PTR WLC_LockRow(id, #1)
+      , getcurrentblock :=        PTR WLC_GetCurrentBlock(id)
+      , unlockrow :=              PTR WLC_UnlockRow(id, #1)
+      , deleterecord :=           PTR WLC_DeleteRecord(id, #1)
+      , updaterecord :=           PTR WLC_UpdateRecord(id, #1, #2)
+      , close :=                  PTR WLC_Close(id)
+      ];
+}
+
+MACRO WLT_InsertRecord(INTEGER transid, RECORD query, RECORD newfields)
+{
+  GetTransObject(transid)->InsertRecord(query, newfields);
+}
+
+RECORD FUNCTION WLT_OpenCursor(INTEGER transid, RECORD dbquery, STRING type)
+{
+  OBJECT recursor := GetTransObject(transid)->OpenCursor(dbquery, type);
+  RETURN GetCursorRecordInterface(recursor);
+}
+
+BOOLEAN FUNCTION WLT_IsWorkOpen(INTEGER transid)
+{
+  RETURN GetTransObject(transid)->IsWorkOpen();
+}
+
+MACRO WLT_BeginWork(INTEGER transid)
+{
+  GetTransObject(transid)->BeginWork();
+}
+
+RECORD ARRAY FUNCTION WLT_CommitWork(INTEGER transid)
+{
+  RETURN GetTransObject(transid)->CommitWork();
+}
+
+MACRO WLT_RollbackWork(INTEGER transid)
+{
+  GetTransObject(transid)->RollbackWork();
+}
+
+RECORD ARRAY FUNCTION WLT_GetSchemaListing(INTEGER transid)
+{
+  RETURN GetTransObject(transid)->GetSchemaListing();
+}
+
+RECORD ARRAY FUNCTION WLT_GetTableListing(INTEGER transid, STRING schemaname)
+{
+  RETURN GetTransObject(transid)->GetTableListing(schemaname);
+}
+
+
+RECORD ARRAY FUNCTION WLT_GetColumnListing(INTEGER transid, STRING s, STRING tablename)
+{
+  RETURN GetTransObject(transid)->GetColumnListing(s,tablename);
+}
+
+
+BOOLEAN FUNCTION WLT_ColumnExists(INTEGER transid, STRING s, STRING tablename, STRING columnname)
+{
+  RETURN GetTransObject(transid)->ColumnExists(s, tablename, columnname);
+}
+
+
+BOOLEAN FUNCTION WLT_IndexExists(INTEGER transid, STRING s, STRING tablename, STRING indexname)
+{
+  RETURN GetTransObject(transid)->IndexExists(s, tablename, indexname);
+}
+
+
+INTEGER FUNCTION WLT_MakeAutonumber(INTEGER transid, STRING s, STRING tablename, STRING columnname)
+{
+  RETURN GetTransObject(transid)->MakeAutonumber(s, tablename, columnname);
+}
+
+
+RECORD ARRAY FUNCTION WLT_Commit(INTEGER transid)
+{
+  RETURN GetTransObject(transid)->Commit();
+}
+
+
+MACRO WLT_Rollback(INTEGER transid)
+{
+  GetTransObject(transid)->Rollback();
+}
+
+
+MACRO WLT_Close(INTEGER transid)
+{
+  GetTransObject(transid)->Close();
+  DELETE FROM transobjects WHERE id = transid;
+}
+
+INTEGER FUNCTION WLT_GetRoleId(INTEGER transid, STRING rolename)
+{
+  RETURN GetTransObject(transid)->GetRoleId(rolename);
+}
+
+BOOLEAN FUNCTION WLT_RestrictRoles(INTEGER transid, INTEGER ARRAY roleids)
+{
+  RETURN GetTransObject(transid)->RestrictRoles(roleids);
+}
+
+BOOLEAN FUNCTION WLT_IsRoleEnabled(INTEGER transid, INTEGER roleid)
+{
+  RETURN GetTransObject(transid)->IsRoleEnabled(roleid);
+}
+
+INTEGER ARRAY FUNCTION WLT_GetEnabledRoles(INTEGER transid)
+{
+  RETURN GetTransObject(transid)->GetEnabledRoles();
+}
+MACRO WLT_CreateTable(INTEGER transid, STRING s, STRING t, RECORD ts)
+{
+  GetTransObject(transid)->CreateTable(s,t,ts);
+}
+MACRO WLT_AlterTable(INTEGER transid, STRING s, STRING t, RECORD tm)
+{
+  GetTransObject(transid)->AlterTable(s,t,tm);
+}
+MACRO WLT_CreateSchema(INTEGER transid, STRING schemaname, STRING ownerschema, STRING ownerrole)
+{
+  GetTransObject(transid)->CreateSchema(schemaname, ownerschema, ownerrole);
+}
+MACRO WLT_DropSchema(INTEGER transid, STRING schemaname)
+{
+  GetTransObject(transid)->DropSchema(schemaname);
+}
+MACRO WLT_DropTable(INTEGER transid, STRING schemaname, STRING tablename)
+{
+  GetTransObject(transid)->DropTable(schemaname, tablename);
+}
+
+RECORD FUNCTION OpenCursorForRecordInterface(INTEGER trans, RECORD dbquery, STRING type)
+{
+  OBJECT recursor := GetTransObject(trans)->OpenCursor(dbquery, type);
+  RETURN GetCursorRecordInterface(recursor);
+}
+
+PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
+{
+  IF (NOT ObjectExists(transaction))
+    RETURN DEFAULT RECORD;
+
+  INTEGER id := RegisterTransObject(transaction);
+
+  RETURN
+      [ type :=                 transaction->type
+      , insertrecord :=         PTR WLT_InsertRecord(id, #1, #2)
+      , opencursor :=           PTR WLT_OpenCursor(id, #1, #2)
+      , hasworksupport :=       transaction->HasWorkSupport()
+      , isworkopen :=           PTR WLT_IsWorkOpen(id)
+      , beginwork :=            PTR WLT_BeginWork(id)
+      , commitwork :=           PTR WLT_CommitWork(id)
+      , rollbackwork :=         PTR WLT_RollbackWork(id)
+      , getschemalisting :=     PTR WLT_GetSchemaListing(id)
+      , gettablelisting :=      PTR WLT_GetTableListing(id, #1)
+      , getcolumnlisting :=     PTR WLT_GetColumnListing(id, #1, #2)
+      , columnexists :=         PTR WLT_ColumnExists(id, #1, #2, #3)
+      , indexexists :=          PTR WLT_IndexExists(id, #1, #2, #3)
+      , makeautonumber :=       PTR WLT_MakeAutonumber(id, #1, #2, #3)
+      , commit :=               PTR WLT_Commit(id)
+      , rollback :=             PTR WLT_Rollback(id)
+      , close :=                PTR WLT_Close(id)
+      , getroleid :=            PTR WLT_GetRoleId(id, #1)
+      , restrictroles :=        PTR WLT_RestrictRoles(id, #1)
+      , isroleenabled :=        PTR WLT_IsRoleEnabled(id, #1)
+      , getenabledroles :=      PTR WLT_GetEnabledRoles(id)
+
+      , createschema :=         PTR WLT_CreateSchema(id, #1, #2, #3)
+      , createtable :=          PTR WLT_CreateTable(id, #1, #2, #3)
+      , altertable :=           PTR WLT_AlterTable(id, #1, #2, #3)
+      , dropschema :=           PTR WLT_DropSchema(id, #1)
+      , droptable :=            PTR WLT_DropTable(id, #1, #2)
+      ];
+}
+
+PUBLIC OBJECT FUNCTION CreateForwardingLoopbackTransactionFromObject(OBJECT trans, RECORD clientdata)
+{
+  RETURN CreateForwardingLoopbackTransactionFromFLTRecordInterface(GetTransactionFLTRecordInterface(trans), clientdata);
+}
+
+PUBLIC OBJECT FUNCTION CreateForwardingLoopbackTransactionFromFLTRecordInterface(RECORD itf, RECORD clientdata)
+{
+  IF (NOT RecordExists(itf))
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW ForwardingLoopbackTransaction(itf, clientdata);
+}
+
+INTEGER FUNCTION __HS_SQL_LBDB_REGISTER(OBJECT trans) __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_SQL_LBDB_UNREGISTER(INTEGER transid) __ATTRIBUTES__(EXTERNAL);

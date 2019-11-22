@@ -1,0 +1,9 @@
+﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <mochanodetest file="test_manualcondition.es" />
+  <mochanodetest file="test_fifo.es" />
+  <mochanodetest file="test_waitabletimer.es" />
+  <mochanodetest file="test_ipc.es" />
+  <mochanodetest file="test_utf8.es" />
+  <mochanodetest file="test_converthtmltoplaintext.es" />
+  <mochanodetest file="testfinmath.es" />
+</group>

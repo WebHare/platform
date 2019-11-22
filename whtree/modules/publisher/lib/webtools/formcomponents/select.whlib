@@ -1,0 +1,1181 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/webtools/formcomponents/richtext.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+INTEGER maxint := 2147483647;
+MONEY maxmoney := 92233720368547.75807;
+FLOAT maxfloat := 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
+
+STRING FUNCTION __FormatFormRowkey(OBJECT user, VARIANT value, STRING rowkeytype)
+{
+  SWITCH (rowkeytype)
+  {
+    CASE "integer"
+    {
+      IF (TypeID(value) = TypeID(INTEGER))
+        RETURN ToString(value);
+      RETURN "";
+    }
+    CASE "money"
+    {
+      IF (TypeID(value) = TypeID(MONEY))
+        RETURN user->FormatMoney(value, 0, FALSE);
+      RETURN "";
+    }
+    CASE "float"
+    {
+      IF (TypeID(value) = TypeID(FLOAT))
+      {
+        STRING formatted := user->FormatFloat(value, -1);
+        // Strip trailing zeroes
+        WHILE (Right(formatted, 1) = "0")
+          formatted := Left(formatted, Length(formatted) - 1);
+        // String trailing decimal separator
+        IF (ToInteger(Right(formatted, 1), -1) = -1)
+          formatted := Left(formatted, Length(formatted) - 1);
+        RETURN formatted;
+      }
+      RETURN "";
+    }
+    CASE "boolean"
+    {
+      IF (TypeID(value) = TypeID(BOOLEAN))
+        RETURN value ? GetTid("publisher:formcomponents.select.value-true") : GetTid("publisher:formcomponents.select.value-false");
+      RETURN "";
+    }
+    CASE "datetime"
+    {
+      IF (TypeID(value) = TypeID(DATETIME))
+        RETURN user->FormatDate(value, FALSE, TRUE);
+      RETURN "";
+    }
+  }
+  IF (TypeID(value) = TypeID(STRING))
+    RETURN value;
+  RETURN "";
+}
+
+
+PUBLIC OBJECTTYPE FormSelectSingleBase EXTEND FormComponentExtensionBase
+<
+  BOOLEAN allowmultiselect;
+  BOOLEAN allowssubcomponents;
+  OBJECT trashnode;
+
+  MACRO OnRowkeyTypeSelect()
+  {
+    this->options->value := this->options->value;
+  }
+
+  RECORD ARRAY FUNCTION MapOptions(RECORD ARRAY rows)
+  {
+    RETURN
+        SELECT *
+             , title := CellExists(rows,'tid' ) AND rows.tid != "" ? GetTidForLanguage(this->contexts->formcomponentapi->languagecode,tid) : title
+             , value := TypeID(value) != TypeID(title) OR value != title ? __FormatFormRowkey(this->owner->tolliumuser, value, this->rowkeytype->value) : ""
+             , selectedicon := selected ? 1 : 0
+          FROM rows;
+  }
+
+  RECORD FUNCTION OnEditSelectOption(RECORD row)
+  {
+    RECORD result := this->owner->RunScreen("mod::publisher/screens/formcomponents.xml#editselectoption",
+                      [ row := row
+                      , allowssubcomponents := this->allowssubcomponents
+                      , rowkeytype := this->rowkeytype->value
+                      ]);
+    RETURN result;
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->rowkeytype->value := this->node->GetAttribute("rowkeytype") ?? "string";
+    IF(this->rowkeytype->value != "string")
+      this->rowkeytype->visible := TRUE;
+
+    this->LoadOptions();
+  }
+
+  MACRO LoadOptions()
+  {
+    RECORD ARRAY options;
+    FOREVERY (OBJECT option FROM this->node->childnodes->GetCurrentElements())
+    {
+      IF(option->localname="deletedoptions")
+      {
+        this->trashnode := option;
+        CONTINUE;
+      }
+
+      // If there are no childnodes, or exactly one which is a textedit, we may haven an open answer, otherwise we won't
+      // allow it to prevent clearing nodes we're not supposed to edit
+      BOOLEAN openanswer, othersubcomponents;
+      INTEGER maxlength;
+      IF (option->childnodes->length = 1
+          AND option->firstchild->namespaceuri = "http://www.webhare.net/xmlns/publisher/forms"
+          AND option->firstchild->nodename = "textedit")
+      {
+        openanswer := TRUE;
+        maxlength := ToInteger(option->firstchild->GetAttribute("maxlength"), 0);
+      }
+      ELSE IF (option->childnodes->length > 0)
+        othersubcomponents := TRUE;
+
+      RECORD data :=
+          [ title := option->GetAttribute("title")
+          , tid := option->GetAttribute("tid")
+          , selected := ParseXSBoolean(option->GetAttribute("selected"))
+          , openanswer := openanswer
+          , openrequired := openanswer AND ParseXSBoolean(option->firstchild->GetAttribute("required"))
+          , maxlength := maxlength
+          , othersubcomponents := othersubcomponents
+          , infotextid := option->GetAttribute("infotextid")
+          , node := option // Keep the current node for this option, so we won't throw away arbitrary attributes
+          ];
+
+      STRING value := option->GetAttribute("rowkey");
+      SWITCH (this->rowkeytype->value)
+      {
+        CASE "integer"
+        {
+          INSERT CELL value := ParseXSInt(value) INTO data;
+        }
+        CASE "money"
+        {
+          INSERT CELL value := ToMoney(value, 0) INTO data;
+        }
+        CASE "float"
+        {
+          INSERT CELL value := ToFloat(value, 0) INTO data;
+        }
+        CASE "boolean"
+        {
+          INSERT CELL value := ParseXSBoolean(value) INTO data;
+        }
+        CASE "datetime"
+        {
+          INSERT CELL value := MakeDateFromText(value) INTO data;
+        }
+        DEFAULT
+        {
+          INSERT CELL value := value INTO data;
+        }
+      }
+
+      INSERT data INTO options AT END;
+    }
+    this->options->value := options;
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (Length(this->options->value) = 0)
+      work->AddError(GetTid("publisher:formcomponents.select.warn-nooptions"));
+    ELSE IF (NOT this->allowmultiselect AND Length(SELECT FROM this->options->value WHERE selected) > 1)
+      work->AddError(GetTid("publisher:formcomponents.select.warn-multipleselected"));
+
+    IF (NOT work->HasFailed())
+    {
+      IF (this->rowkeytype->value != "string")
+        this->node->SetAttribute("rowkeytype", this->rowkeytype->value);
+      ELSE
+        this->node->RemoveAttribute("rowkeytype");
+
+      this->StoreOptions();
+    }
+  }
+
+  OBJECT FUNCTION GetTrashNode()
+  {
+    IF(NOT ObjectExists(this->trashnode))
+    {
+      this->trashnode := this->node->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/publisher/forms", "deletedoptions");
+      this->node->AppendChild(this->trashnode);
+    }
+    RETURN this->trashnode;
+  }
+
+  MACRO StoreOptions()
+  {
+    // The reference node is the node before which we're inserting the next question
+    OBJECT refnode := this->node->firstelementchild;
+    FOREVERY (RECORD option FROM this->options->value)
+    {
+      OBJECT optionnode;
+      IF (CellExists(option, "node"))
+      {
+        // Reuse the existing node
+        optionnode := option.node;
+        // If this is the reference node, use the next node as the new reference node
+        IF (ObjectExists(refnode) AND optionnode->IsSameNode(refnode))
+        {
+          refnode := optionnode->nextsibling;
+        }
+        ELSE
+        {
+          // Remove the node from its current position
+          optionnode->Dispose();
+          this->node->InsertBefore(optionnode, refnode);
+        }
+      }
+      ELSE
+      {
+        // Create a new option node for this option
+        optionnode := this->node->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/publisher/forms", "option");
+        this->node->InsertBefore(optionnode, refnode);
+      }
+
+      // Set the option attributes - TODO use UnmapValueType but what's up wit the TYPEIDs ?
+      VARIANT value := option.value ?? option.title;
+      SWITCH (this->rowkeytype->value)
+      {
+        CASE "integer"
+        {
+          IF (TypeID(value) = TypeID(INTEGER))
+            optionnode->SetAttribute("rowkey", ToString(value));
+        }
+        CASE "money"
+        {
+          IF (TypeID(value) = TypeID(MONEY))
+            optionnode->SetAttribute("rowkey", FormatMoney(value, 0, ".", "", FALSE));
+        }
+        CASE "float"
+        {
+          IF (TypeID(value) = TypeID(FLOAT))
+            optionnode->SetAttribute("rowkey", FormatFloat(value, -1));
+        }
+        CASE "boolean"
+        {
+          IF (TypeID(value) = TypeID(BOOLEAN))
+            optionnode->SetAttribute("rowkey", value ? "true" : "false");
+        }
+        CASE "datetime"
+        {
+          IF (TypeID(value) = TypeID(DATETIME))
+            optionnode->SetAttribute("rowkey", FormatISO8601Datetime(value,"day",(GetMsecondCount(value) % 1000) = 0 ? "seconds" : "milliseconds","UTC",FALSE));
+        }
+        DEFAULT
+        {
+          IF (TypeID(value) = TypeID(STRING))
+            optionnode->SetAttribute("rowkey", value);
+          ELSE
+            optionnode->SetAttribute("rowkey", "");
+        }
+      }
+      IF (option.title != "")
+        optionnode->SetAttribute("title", option.title);
+      ELSE
+        optionnode->RemoveAttribute("title");
+      IF (option.infotextid != "")
+        optionnode->SetAttribute("infotextid", option.infotextid);
+      ELSE
+        optionnode->RemoveAttribute("infotextid");
+      IF (option.selected)
+        optionnode->SetAttribute("selected", "true");
+      ELSE
+        optionnode->RemoveAttribute("selected");
+      IF (option.openanswer)
+      {
+        OBJECT textedit;
+        IF (optionnode->childnodes->length = 0)
+        {
+          textedit := optionnode->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/publisher/forms", "textedit");
+          textedit->SetAttribute("guid", this->contexts->formcomponentapi->__CreateGUID("formcomp")); //FIXME shouldn't the form edit APIs  take care of this instead of a /screens/ file ?
+          optionnode->AppendChild(textedit);
+        }
+        ELSE
+          textedit := optionnode->firstchild;
+
+        textedit->SetAttribute("title", option.title); //name it after the option. useful for exports
+        textedit->SetAttribute("hidetitle", "true"); //but don't show this title in the form
+
+        IF (option.openrequired)
+          textedit->SetAttribute("required", "true");
+        ELSE
+          textedit->RemoveAttribute("required");
+
+        // Try not to overwrite custom names
+        IF (NOT textedit->HasAttribute("name") OR textedit->GetAttribute("name") LIKE "*.openanswer")
+        {
+          IF (this->compname != "")
+            textedit->SetAttribute("name", `${this->compname}.openanswer`);
+          ELSE
+            textedit->RemoveAttribute("name");
+        }
+/*        IF (option.maxlength > 0)
+          textedit->SetAttribute("maxlength", ToString(option.maxlength));
+        ELSE
+          textedit->RemoveAttribute("maxlength");*/
+      }
+      ELSE IF (NOT option.othersubcomponents)
+        optionnode->Empty();
+    }
+
+    // Remove remaining nodes
+    WHILE (ObjectExists(refnode))
+    {
+      OBJECT nextnode := refnode->nextelementsibling;
+      IF(refnode->localname = "option")
+        this->GetTrashNode()->AppendChild(refnode); //move it into the trash node
+
+      refnode := nextnode;
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE FormSelectPulldown EXTEND FormSelectSingleBase
+<
+  MACRO NEW()
+  {
+  }
+
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    this->owner->GetDefaultField("placeholder")->placeholder := GetTid("publisher:formcomponents.select.placeholderplaceholder");
+  }
+>;
+
+PUBLIC OBJECTTYPE FormSelectRadioPulldownBase EXTEND FormSelectSingleBase
+<
+  MACRO NEW()
+  {
+    this->allowssubcomponents := TRUE;
+  }
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->horizontal->value := this->node->GetAttribute("orientation") = "horizontal" OR ParseXSBoolean(this->node->GetAttribute("horizontal"));
+    FormSelectSingleBase::PostInitExtension();
+  }
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    FormSelectSingleBase::SubmitExtension(work);
+    IF (NOT work->HasFailed())
+    {
+      IF (this->horizontal->value)
+        this->node->SetAttribute("orientation", "horizontal");
+      ELSE
+        this->node->RemoveAttribute("orientation");
+
+      this->node->RemoveAttribute("horizontal");
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE FormSelectRadio EXTEND FormSelectRadioPulldownBase
+<
+>;
+
+PUBLIC OBJECTTYPE FormSelectMultiple EXTEND FormSelectRadioPulldownBase
+<
+  MACRO NEW()
+  {
+    this->allowmultiselect := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    FormSelectRadioPulldownBase::PostInitExtension();
+    this->min->value := ParseXSInt(this->node->GetAttribute("min"));
+    this->max->value := ParseXSInt(this->node->GetAttribute("max"));
+  }
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    FormSelectRadioPulldownBase::SubmitExtension(work);
+
+    IF (NOT work->HasFailed())
+    {
+      IF (this->min->value > Length(this->options->value))
+        work->AddError(GetTid("publisher:formcomponents.select.error-min-range", ToString(this->min->value), ToString(Length(this->options->value))));
+      IF (this->min->value > this->max->value AND this->max->value > 0)
+        work->AddError(GetTid("publisher:formcomponents.select.error-min-max-range", ToString(this->min->value), ToString(this->max->value)));
+    }
+
+    IF (NOT work->HasFailed())
+    {
+      IF (this->min->value > 0)
+        this->node->SetAttribute("min", ToString(this->min->value));
+      ELSE
+        this->node->RemoveAttribute("min");
+      IF (this->max->value > 0)
+        this->node->SetAttribute("max", ToString(this->max->value));
+      ELSE
+        this->node->RemoveAttribute("max");
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE EditSelectOption EXTEND TolliumScreenBase
+<
+  STRING rowkeytype;
+  BOOLEAN valuewastitle;
+  STRING currentinfotextid;
+
+  MACRO Init(RECORD data)
+  {
+    this->rowkeytype := data.rowkeytype;
+
+    SWITCH (this->rowkeytype)
+    {
+      CASE "integer"
+      {
+        IF (NOT RecordExists(data.row) OR TypeID(data.row.value) = TypeID(INTEGER))
+          this->value->valuetype := this->rowkeytype;
+      }
+      CASE "money"
+      {
+        IF (NOT RecordExists(data.row) OR TypeID(data.row.value) = TypeID(MONEY))
+          this->value->valuetype := this->rowkeytype;
+      }
+      CASE "float"
+      {
+        IF (NOT RecordExists(data.row) OR TypeID(data.row.value) = TypeID(FLOAT))
+          this->value->valuetype := this->rowkeytype;
+      }
+      CASE "boolean"
+      {
+        IF (RecordExists(data.row) AND TypeID(data.row.value) = TypeID(BOOLEAN))
+        {
+          this->booleanvalue->value := data.row.value;
+          DELETE CELL value FROM data.row;
+        }
+      }
+      CASE "datetime"
+      {
+        IF (RecordExists(data.row) AND TypeID(data.row.value) = TypeID(DATETIME))
+        {
+          this->datevalue->value := data.row.value;
+          DELETE CELL value FROM data.row;
+        }
+      }
+      CASE "string"
+      {
+        this->valuewastitle := RecordExists(data.row) AND TypeID(data.row.value) = TypeID(STRING) AND data.row.value = data.row.title;
+      }
+    }
+
+    this->row->value := data.row;
+    IF(RecordExists(data.row) AND CellExists(data.row,'tid') AND data.row.tid != "")
+    {
+      this->title->value := data.row.tid;
+      this->title->enabled := FALSE;
+    }
+
+    SWITCH (this->rowkeytype)
+    {
+      CASE "integer", "money", "float"
+      {
+        IF (this->value->valuetype != this->rowkeytype)
+          this->value->valuetype := this->rowkeytype;
+      }
+      CASE "boolean"
+      {
+        this->value->visible := FALSE;
+        this->booleanvalue->visible := TRUE;
+      }
+      CASE "datetime"
+      {
+        this->value->visible := FALSE;
+        this->datevalue->visible := TRUE;
+      }
+    }
+
+    BOOLEAN has_other_subcomponents := RecordExists(data.row) AND data.row.othersubcomponents;
+    this->openanswer->visible := NOT has_other_subcomponents AND data.allowssubcomponents;
+    this->openrequired->visible := this->openanswer->visible;
+    this->openrequired->enabled := this->openanswer->value;
+/*    this->usemaxlength->visible := this->openanswer->visible;
+    this->maxlength->visible := this->openanswer->visible;
+    this->characters->visible := this->openanswer->visible;*/
+    this->othersubcomponents->visible := has_other_subcomponents;
+
+/*    IF (this->maxlength->value < 0)
+      this->maxlength->value := 0;
+    this->usemaxlength->value := this->maxlength->value > 0;*/
+
+/*    this->usevalue->value := this->value->value != "";*/
+
+    RECORD integrationsettings := this->contexts->formcomponentapi->integrationsettings;
+    IF(RecordExists(integrationsettings) AND integrationsettings.enableinfotexts AND data.allowssubcomponents)
+    {
+      IF(integrationsettings.infotextrtdtype != "")
+        ^infotext->SetupForRTDType(integrationsettings.infotextrtdtype);
+
+      IF(RecordExists(data.row))
+      {
+        this->currentinfotextid := data.row.infotextid;
+        ^infotext->value := GetRichTextAttributeById(this, this->currentinfotextid);
+      }
+    }
+    ELSE
+    {
+      ^infotextheading->visible := FALSE;
+      ^infotext->visible := FALSE;
+    }
+  }
+
+  RECORD FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    IF (NOT work->Finish())
+      RETURN DEFAULT RECORD;
+
+/*    IF (NOT this->usemaxlength->value OR this->maxlength->value < 0)
+      this->maxlength->value := 0;
+*/
+
+
+
+    RECORD data := this->row->value;
+    SWITCH (this->rowkeytype)
+    {
+      CASE "boolean"
+      {
+        DELETE CELL value FROM data;
+        INSERT CELL value := this->booleanvalue->value INTO data;
+      }
+      CASE "datetime"
+      {
+        DELETE CELL value FROM data;
+        INSERT CELL value := this->datevalue->value INTO data;
+      }
+      DEFAULT
+      {
+        /* We really want 128bit ids for options so we can easily follow them, but must not break existing cases
+           where rowkey==title and conditions might already be bound to it (but if you -change- the title, the rowkey breaks
+           anyway, and we feel free to make it a 128bit uid. sysops can fix it anyway using View Source) */
+        IF(TypeID(data.value) = TYPEID(STRING) AND (data.value = "" OR (this->valuewastitle AND data.value != ^title->value)))
+          data.value := GenerateUFS128BitId();
+      }
+    }
+
+
+
+
+    IF(NOT this->title->enabled)
+      DELETE CELL title FROM data;
+
+    data := CELL[ ...data
+                , infotextid := SetRichTextAttributeId(this, this->currentinfotextid, ^infotext->value)
+                ];
+
+    RETURN data;
+  }
+
+  MACRO OpenAnswerChanged()
+  {
+    this->openrequired->enabled := this->openanswer->value;
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormSelect(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  STRING valtype := node->GetAttribute("rowkeytype") ?? node->GetAttribute("valuetype") ?? "string";
+  OBJECT deletedoptions := node->GetElementsByTagNameNS(node->namespaceuri, "deletedoptions")->Item(0);
+
+  INSERT CELL options := GetOptions(valtype, node, fielddef.title, parsecontext)
+            , deletedoptions := ObjectExists(deletedoptions) ? GetOptions(valtype, deletedoptions, fielddef.title, parsecontext) : RECORD[]
+            , orientation := node->GetAttribute("orientation") = "horizontal" OR ParseXSBoolean(node->GetAttribute("horizontal")) ? "horizontal" : "vertical" //switched to tollium-style orientation attribute in .21
+            , rowkeytype := valtype
+            , selecttype := node->GetAttribute("type") ?? "pulldown"
+         INTO fielddef;
+
+  INSERT CELL renderoptions := ParseXSBoolean(node->GetAttribute("renderoptions")) INTO fielddef;
+  IF(node->HasAttribute("min"))
+    INSERT CELL min := ToInteger(TrimWhitespace(node->GetAttribute("min")),0) INTO fielddef;
+  IF(node->HasAttribute("max"))
+    INSERT CELL max := ToInteger(TrimWhitespace(node->GetAttribute("max")),0) INTO fielddef;
+  IF(fielddef.selecttype = "pulldown")
+  {
+    INSERT CELL placeholder := parsecontext.parsexmltidptr(node, "placeholder")
+              , placeholderisset := node->HasAttribute("placeholder") OR node->HasAttribute("placeholdertid")
+           INTO fielddef;
+  }
+  RETURN fielddef;
+}
+
+RECORD ARRAY FUNCTION GetOptions(STRING valtype, OBJECT parent, STRING parenttid, RECORD parsecontext)
+{
+  RECORD ARRAY opts;
+  FOREVERY(OBJECT opt FROM parent->childnodes->GetCurrentElements())
+  {
+    IF(opt->localname NOT IN ["option","optgroup"])
+      CONTINUE;
+
+    //FIXME ensure tid capturing, share reading here with how tollium screens do ProcessTid(parentitemtid || "-" || rowkeyval, option->linenum, "rowkey");
+    STRING val := opt->GetAttribute("rowkey");
+    STRING title;
+    IF (opt->HasAttribute("title") OR opt->HasAttribute("tid"))
+      title := parsecontext.parsexmltidptr(opt, "title");
+    ELSE IF (parenttid != "" AND Left(parenttid,1)!=':' AND val != "")
+      title := parsecontext.parsexmltiddirectly(opt, parenttid || "-" || val, "rowkey");
+
+    IF(opt->localname="optgroup")
+    {
+      INSERT [ rowkey := GetTypeDefaultValue(GetHarescriptTypeIdByName(valtype))
+             , title :=  title
+             , selected := ParseXSBoolean(opt->GetAttribute("selected"))
+             , subfields := DEFAULT RECORD ARRAY
+             , isoptgroup := TRUE
+             , children := GetOptions(valtype, opt, parenttid, parsecontext)
+             , enabled := TRUE
+             , visiblecondition := DEFAULT RECORD
+             , infotext := DEFAULT RECORD
+             ] INTO opts AT END;
+      CONTINUE;
+    }
+
+    IF(NOT opt->HasAttribute("rowkey"))
+      THROW NEW Exception("<select> options on line #" || opt->linenum || " has no rowkey");
+
+    VARIANT storeval;
+
+    IF(valtype="integer")
+    {
+      IF (val = "")
+        THROW NEW Exception("<select> option must be of type "||valtype||" but is an empty string. (did you mean to use 0 ?)");
+
+      storeval := ToInteger(val, maxint);
+      IF (storeval = maxint)
+        THROW NEW Exception("<select> option not of type "||valtype);
+    }
+    ELSE IF(valtype="money")
+    {
+      IF (val = "")
+        THROW NEW Exception("<select> option must be of type "||valtype||" but is an empty string. (did you mean to use 0 ?)");
+
+      storeval := ToMoney(val, maxmoney);
+      IF (storeval = maxmoney)
+        THROW NEW Exception("<select> option not of type "||valtype);
+    }
+    ELSE IF(valtype="float")
+    {
+      IF (val = "")
+        THROW NEW Exception("<select> option must be of type "||valtype||" but is an empty string. (did you mean to use 0 ?)");
+
+      storeval := ToFloat(val, maxfloat);
+      IF (storeval = maxfloat)
+        THROW NEW Exception("<select> option not of type "||valtype);
+    }
+    ELSE IF(valtype="datetime")
+      storeval := MakeDateFromText(val);
+    ELSE IF(valtype="boolean")
+      storeval := ParseXSBoolean(val);
+    ELSE
+      storeval := val;
+
+    RECORD form := parsecontext.parsesubnode(opt);
+
+    INSERT [ rowkey := storeval
+           , title :=  title
+           , selected := ParseXSBoolean(opt->GetAttribute("selected"))
+           , subfields := form.fields
+           , isoptgroup := FALSE
+           , children := DEFAULT RECORD ARRAY
+           , enabled := opt->HasAttribute("enabled") = FALSE OR ParseXSBoolean(opt->GetAttribute("enabled"))
+           , visiblecondition := opt->HasAttribute("visibleconditionid") AND parsecontext.getinstance != DEFAULT MACRO PTR ? parsecontext.getinstance(opt->GetAttribute("visibleconditionid")).data : DEFAULT RECORD
+           , infotext := opt->HasAttribute("infotextid") AND parsecontext.getinstance != DEFAULT MACRO PTR ? parsecontext.getinstance(opt->GetAttribute("infotextid")).data : DEFAULT RECORD
+           ] INTO opts AT END;
+  }
+  RETURN opts;
+}
+
+PUBLIC STRING ARRAY FUNCTION GetFormSelectSupportedValues(OBJECT node)
+{
+  IF (NOT ObjectExists(node))
+    RETURN [ "options", "string" ];
+
+  BOOLEAN isarray := node->GetAttribute("type") = "checkbox";
+  RETURN node->HasAttribute("rowkeytype")
+      ? [ "options", node->GetAttribute("rowkeytype") || (isarray ? "array" : "") ]
+      : [ "options", "string" || (isarray ? "array" : "") ];
+}
+
+PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY pvt_options;
+  STRING pvt_type;
+  STRING pvt_rowkeytype;
+  STRING pvt_placeholder;
+  BOOLEAN placeholderisset;
+
+  //seenrowkeys, used for rebuilding options
+  RECORD ARRAY seenrowkeys;
+  RECORD ARRAY deletedoptions;
+  BOOLEAN anyselected;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** List of options
+      @cell(string) htmltitle HTML-encoded title
+      @cell(string) title Plain text title. If both htmltitle and title are set, htmltitle takes precedence
+      @cell rowkey
+      @cell(boolean) selected
+      @cell(record array) subfields
+      @cell(record) dataset
+  */
+  PUBLIC PROPERTY options(this->pvt_options, SetOptions);
+
+  /// Current value
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// Current selection (option matching value)
+  PUBLIC PROPERTY selection(GetSelection, SetSelection);
+
+  /// Type of the field. One of 'radio', 'checkbox', 'pulldown'
+  PUBLIC PROPERTY type(pvt_type, SetType);
+
+  /// Type of the rowkey. One of "string", "integer", "boolean"
+  PUBLIC PROPERTY rowkeytype(pvt_rowkeytype, SetRowKeyType);
+
+  /// If type is 'checkbox', the minimum number of options that must be selected
+  PUBLIC INTEGER min;
+
+  /// If type is 'checkbox', the maximum number of options that may be selected
+  PUBLIC INTEGER max;
+
+  /// The 'empty' value for pulldowns
+  PUBLIC PROPERTY placeholder(pvt_placeholder, SetPlaceholder);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+    IF(field.isstatic)
+    {
+      this->pvt_rowkeytype := field.rowkeytype;
+      this->pvt_type := Substitute(field.selecttype, 'group', '');
+      this->SetOptions(this->ParseStaticOptions(field.options));
+      this->deletedoptions := field.deletedoptions;
+
+      IF (this->type = "checkbox")
+      {
+        IF (CellExists(field, "min"))
+          this->min := field.min;
+        IF (CellExists(field, "max"))
+          this->max := field.max;
+      }
+      ELSE IF (this->type = "pulldown")
+      {
+        this->pvt_placeholder := GetTid(field.placeholder);
+        this->placeholderisset := field.placeholderisset;
+      }
+    }
+    ELSE
+    {
+      this->pvt_rowkeytype := "string";
+      this->pvt_type := "pulldown";
+    }
+  }
+
+  RECORD ARRAY FUNCTION ParseStaticOptions(RECORD ARRAY inopts)
+  {
+    RETURN SELECT htmltitle := GetHTMLTid(inopts.title)
+                , subfields := this->form->__InstantiateFields(this, inopts.subfields)
+                , rowkey
+                , selected
+                , isoptgroup
+                , children := this->ParseStaticOptions(children)
+                , enabled
+                , visiblecondition
+                , infotext
+             FROM inopts;
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetComponentNames()
+  {
+    STRING ARRAY names := FormFieldBase::GetComponentNames();
+    FOREVERY(RECORD opt FROM this->options)
+      FOREVERY(OBJECT field FROM opt.subfields)
+        names := names CONCAT field->GetComponentNames();
+
+    RETURN names;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  VARIANT FUNCTION GetValue()
+  {
+    IF(this->type != "checkbox")
+    {
+      RECORD cur := this->GetSelection();
+      IF(RecordExists(cur))
+        RETURN cur.rowkey;
+      RETURN MapValueType(this->rowkeytype, "", "");
+    }
+
+    VARIANT rowkeys := GetTypeDefaultArray(TypeID(MapValueType(this->rowkeytype, "", "")));
+    FOREVERY(RECORD opt FROM this->GetSelection())
+      INSERT opt.rowkey INTO rowkeys AT END;
+
+    RETURN rowkeys;
+  }
+
+  VARIANT FUNCTION GetSelection()
+  {
+    RECORD ARRAY selection := SELECT * FROM this->pvt_options
+                               WHERE selected
+                                     AND enabled
+                                     AND NOT (RecordExists(visiblecondition) AND NOT this->form->MatchFormCondition(visiblecondition, DEFAULT RECORD).success);
+    IF(this->type = "checkbox")
+      RETURN selection;
+    ELSE
+      RETURN RECORD(selection);
+  }
+
+  MACRO SetNewValue(VARIANT newvalue, BOOLEAN throw_if_missing, BOOLEAN restore_if_missing)
+  {
+    VARIANT setlist;
+    IF(this->type = "checkbox")
+    {
+      IF(NOT IsTypeIdArray(TypeID(newvalue)))
+        THROW NEW Exception("Value passed to SetValue must be an array");
+      setlist := newvalue;
+    }
+    ELSE
+    {
+      setlist := GetTypeDefaultArray(TYPEID(newvalue));
+      INSERT newvalue INTO setlist AT END;
+    }
+
+    IF(Length(setlist) = 0)
+    {
+      this->ResetList();
+      RETURN;
+    }
+
+    IF (Length(this->options) > 0)
+    {
+      RECORD ARRAY newoptions := this->options; //exception safe update
+      UPDATE newoptions SET selected := FALSE;
+      FOREVERY(VARIANT val FROM setlist)
+      {
+        INTEGER upd := (SELECT AS INTEGER #newoptions + 1 FROM newoptions WHERE NOT isoptgroup AND newoptions.rowkey = val)-1;
+        IF(upd>=0)
+        {
+          newoptions[upd].selected := TRUE;
+          CONTINUE;
+        }
+
+        IF(IsDefaultValue(val))
+          CONTINUE; //then we just select nothing
+        IF(throw_if_missing)
+          THROW NEW Exception(`No match for rowkey ${EncodeJSON(val)} for field '${this->name}'`);
+
+        IF(restore_if_missing)
+        {
+          RECORD deletedmatch := SELECT * FROM this->deletedoptions WHERE deletedoptions.rowkey = val;
+          IF(RecordExists(deletedmatch))
+          {
+            deletedmatch := this->ParseStaticOptions([deletedmatch])[0];
+            INSERT CELL[...deletedmatch, selected := TRUE ] INTO newoptions AT END;
+          }
+        }
+      }
+      this->options := newoptions;
+    }
+  }
+
+  UPDATE PUBLIC MACRO SetFromStorage(VARIANT value, RECORD ARRAY attachments)
+  {
+    this->SetNewValue(value, FALSE, this->form->selecthistoricvalues);
+  }
+  MACRO SetValue(VARIANT newvalue)
+  {
+    this->SetNewValue(newvalue, TRUE, FALSE);
+  }
+  PUBLIC MACRO SetValueIfValid(VARIANT val)
+  {
+    this->SetNewValue(val, FALSE, FALSE);
+  }
+
+  MACRO SetSelection(VARIANT newselection)
+  {
+    IF(this->type = "checkbox")
+    {
+      IF(TYPEID(newselection) != TYPEID(RECORD ARRAY))
+        THROW NEW Exception("Value passed to SetSelection must be a record array");
+      IF(Length(newselection)=0)
+      {
+        this->ResetList();
+        RETURN;
+      }
+      VARIANT rowkeys := GetTypeDefaultArray(TYPEID(newselection[0].rowkey));
+      FOREVERY(RECORD tosel FROM newselection)
+        INSERT tosel.rowkey INTO rowkeys AT END;
+      this->SetValue(rowkeys);
+    }
+    ELSE
+    {
+      IF(TYPEID(newselection) != TYPEID(RECORD))
+        THROW NEW Exception("Value passed to SetSelection must be a record");
+      IF(NOT RecordExists(newselection))
+      {
+        this->ResetList();
+        RETURN;
+      }
+      this->SetValue(newselection.rowkey);
+    }
+  }
+
+  RECORD ARRAY FUNCTION RewriteOptions(RECORD ARRAY inopts, BOOLEAN inoptgroup, INTEGER properrowkeytype)
+  {
+    RECORD ARRAY newoptions;
+    FOREVERY(RECORD opt FROM inopts)
+    {
+      BOOLEAN isoptgroup := CellExists(opt,'isoptgroup') AND opt.isoptgroup;
+
+      IF(inoptgroup AND isoptgroup)
+        THROW NEW Exception("Option groups may not be nested");
+
+      IF(NOT CellExists(opt,'rowkey'))
+        THROW NEW Exception("Missing rowkey in row #" || #opt|| " of field '" || this->name || "'");
+
+      IF(TYPEID(opt.rowkey) != properrowkeytype)
+        THROW NEW Exception("Rowkey of row #" || #opt || " of field '" || this->name || "' is not of type " || GetTypeName(properrowkeytype));
+
+      IF(NOT isoptgroup)
+      {
+        RECORD match := RecordLowerBound(this->seenrowkeys, [ rowkey := opt.rowkey ], ["ROWKEY"]);
+        IF(match.found)
+          THROW NEW Exception("Duplicate rowkey on row #" || #opt || " of field " || this->field.name);
+        INSERT [ rowkey := opt.rowkey ] INTO this->seenrowkeys AT match.position;
+      }
+
+      BOOLEAN selected;
+      IF(CellExists(opt, "SELECTED"))
+        selected := opt.selected;
+      ELSE
+        selected := RecordExists(SELECT FROM this->options WHERE options.selected AND rowkey = opt.rowkey);
+
+      IF(selected)
+        this->anyselected := TRUE;
+
+      RECORD curopt := SELECT title FROM this->options WHERE rowkey = opt.rowkey;
+      STRING newhtmltitle := NOT CellExists(opt, "htmltitle") OR (CellExists(opt, "title") AND (NOT CellExists(curopt, "title") OR curopt.title != opt.title)) ? EncodeHTML(opt.title) : opt.htmltitle;
+
+      RECORD ARRAY children := CellExists(opt, "children") ? opt.children : RECORD[];
+
+      // Collect all required fields - keep any extra fields from options
+      opt := [ subfields := DEFAULT OBJECT ARRAY
+             , dataset := DEFAULT RECORD
+             , extrafields := DEFAULT RECORD
+             , visiblecondition := DEFAULT RECORD
+             , infotext := DEFAULT RECORD
+             , enabled := TRUE
+             , ingroup := inoptgroup
+             , ...opt
+             , rowkey := opt.rowkey
+             , htmltitle := newhtmltitle
+             , title := DecodeHTML(newhtmltitle)
+             , selected := selected
+             , isoptgroup := isoptgroup
+             , DELETE children //to avoid confusion
+             ];
+
+      FOREVERY(OBJECT subfield FROM opt.subfields)
+        IF(subfield->parent != this)
+          THROW NEW Exception("Subfield '" || subfield->name || "' is not a child of '" || this->name || "'");
+
+      INSERT opt INTO newoptions AT END;
+
+      IF(isoptgroup AND RecordExists(children))
+        newoptions := newoptions CONCAT this->RewriteOptions(children, TRUE, properrowkeytype);
+    }
+    RETURN newoptions;
+  }
+
+  MACRO SetOptions(RECORD ARRAY opts)
+  {
+    //FIXME checkbox support
+    RECORD ARRAY newoptions;
+    this->seenrowkeys := DEFAULT RECORD ARRAY;
+    this->anyselected := FALSE;
+
+    INTEGER properrowkeytype := TypeID(MapValueType(this->rowkeytype, "", ""));
+    newoptions := this->RewriteOptions(opts, FALSE, properrowkeytype);
+
+    /* If nothing is selected, we would return the default value. But if any of our options has the default value as rowkey,
+       we cannot distinguish between no selection and that option being selected. For consistency, just select that option */
+
+    IF(this->type IN ["radio","pulldown"] AND NOT this->anyselected)
+    {
+      FOREVERY(RECORD opt FROM newoptions)
+        IF(NOT opt.isoptgroup AND IsDefaultValue(opt.rowkey))
+        {
+          newoptions[#opt].selected := TRUE;
+          BREAK;
+        }
+    }
+
+    this->pvt_options := newoptions;
+    this->__ApplyEnableOns();
+  }
+
+  MACRO SetType(STRING newtype)
+  {
+    IF(newtype NOT IN ["radio","checkbox","pulldown"])
+      THROW NEW Exception("Invalid type '" || newtype || "'");
+    this->pvt_type := newtype;
+  }
+
+  MACRO SetRowKeyType(STRING newtype)
+  {
+    IF(newtype NOT IN ["string","integer","boolean","datetime"])
+      THROW NEW Exception(`Invalid rowkey type '${newtype}'`);
+
+    this->pvt_rowkeytype := newtype;
+    this->options := DEFAULT RECORD ARRAY;
+  }
+
+  MACRO SetPlaceholder(STRING placeholder)
+  {
+    this->pvt_placeholder := placeholder;
+    this->placeholderisset := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ResetList()
+  {
+    UPDATE this->options SET selected := FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION GetComposableData()
+  {
+    RETURN CELL[ ...FormFieldBase::GetComposableData()
+               , text := Detokenize( (SELECT AS STRING ARRAY DecodeHTML(htmltitle) FROM this->pvt_options WHERE selected),'; ')
+               ];
+  }
+
+  RECORD ARRAY FUNCTION __RenderOptions(RECORD ARRAY inopts)
+  {
+    RETURN SELECT htmltitle
+                , value := isoptgroup ? "" : UnmapValueType(this->rowkeytype, inopt.rowkey, "", FALSE)
+                , selected
+                , enabled := inopt.enabled AND NOT (this->type="pulldown" AND this->field.required AND IsDefaultvalue(inopt.rowkey))
+                , subfields := inopt.subfields
+                , dataset := inopt.dataset
+                , extrafields := inopt.extrafields
+                , isoptgroup
+                , ingroup
+                , enablecomponents := this->__GetEnableComponents(subfields)
+                , visiblecondition := RecordExists(visiblecondition) ? EncodeJSON([ c := this->form->__ResolveConditionGUIDs(visiblecondition) ]) : ""
+                , infotext
+             FROM inopts AS inopt;
+  }
+
+  STRING ARRAY FUNCTION __GetEnableComponents(OBJECT ARRAY subs)
+  {
+    RETURN SELECT AS STRING ARRAY obj->name FROM ToRecordArray(subs,"obj");
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RECORD base := this->GetBaseRenderData();
+    DELETE CELL options, selecttype FROM base;
+
+    base := CELL[ ...base
+                , options := this->__RenderOptions(this->pvt_options)
+                , selecttype := this->type
+                , min := this->min
+                , max := this->max
+                , type := "select"
+                ];
+
+    IF (this->type = "pulldown")
+    {
+      base := CELL[ ...base
+                  , placeholder := this->placeholder
+                  , placeholderisset := this->placeholderisset
+                  ];
+    }
+
+    RETURN base;
+  }
+
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    VARIANT setrowkey := MapValueTypeArray(this->rowkeytype, IsTYPEIDArray(TYPEID(jsdata)) ? STRING ARRAY(jsdata) : STRING[jsdata]);
+    UPDATE this->pvt_options SET selected := isoptgroup = FALSE AND SearchElement(setrowkey, rowkey) >= 0;
+    this->__ApplyEnableOns();
+  }
+
+  MACRO __ApplyEnableOns()
+  {
+    FOREVERY(RECORD opt FROM this->pvt_options)
+      FOREVERY(OBJECT tohandle FROM opt.subfields)
+        tohandle->__enablecomponent_disabled := NOT opt.selected;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN RecordExists(this->selection);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    RETURN [[ title := this->title
+            , name := "value"
+            , type := "text"
+           ]];
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    RECORD ARRAY alloptions := this->options CONCAT SELECT rowkey, title := GetTidForLanguage(this->form->formlanguagecode, title) FROM this->deletedoptions; //resolve against historical options too
+    FOREVERY(RECORD row FROM inputvalues)
+    {
+      RECORD ARRAY matches;
+
+      IF(IsTypeIdArray(TYPEID(row.value)))
+        matches := SELECT * FROM alloptions WHERE rowkey IN row.value;
+      ELSE
+        matches := SELECT * FROM alloptions WHERE rowkey = row.value;
+
+      row := CELL[...row, value := Detokenize( (SELECT AS STRING ARRAY title FROM matches), '; ') ];
+      inputvalues[#row] := row;
+    }
+    RETURN inputvalues;
+  }
+>;

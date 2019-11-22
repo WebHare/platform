@@ -1,0 +1,115 @@
+﻿<?wh
+
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/internal/registry.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// AppRunner controller
+//
+PUBLIC OBJECTTYPE AppRunner EXTEND TolliumScreenBase
+< //INTEGER trans;
+  BOOLEAN contact_ok;
+
+  OBJECT link;
+
+  PUBLIC MACRO Init()
+  {
+    this->link := WaitForPromise(OpenWebHareService("system:apprunner"));
+    this->RefreshList();
+  }
+  MACRO RefreshList()
+  {
+    RECORD ARRAY rows := SELECT rowkey := fullname
+                              , name := subkey
+                              , canedit := TRUE
+                           FROM ReadRegistryNode("system.services.apps");
+    this->applist->rows := rows;
+  }
+
+  MACRO DoAdd()
+  {
+    this->LoadScreen(".editappdata")->RunModal();
+    this->RefreshList();
+  }
+
+  MACRO DoEdit()
+  {
+    this->LoadScreen(".editappdata", [ name := this->applist->selection.name ])->RunModal();
+    this->RefreshList();
+  }
+
+  MACRO DoDelete()
+  {
+    STRING appname := this->applist->selection.name;
+    IF (this->RunMessageBox(".deleteapp", appname) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    DeleteRegistryKey(this->applist->selection.rowkey);
+    GetPrimary()->BroadcastOnCommit("internal.system:apprunner.rescan", DEFAULT RECORD);
+    work->Finish();
+    this->RefreshList();
+  }
+>;
+
+PUBLIC OBJECTTYPE EditAppData EXTEND TolliumScreenBase
+< STRING oldname;
+
+  MACRO Init(RECORD data)
+  {
+    IF (RecordExists(data))
+    {
+      this->oldname := data.name;
+      this->name->value := data.name;
+
+      this->cmdline->value := ReadRegistryKey("system.services.apps." || data.name);
+      this->frame->title := GetTid("system:sysmgmt.apprunner.editappdata", data.name);
+    }
+    ELSE
+    {
+      this->frame->title := GetTid("system:sysmgmt.apprunner.addappdata");
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    //FIXME: Bit of a hack, but if either name or command isn't filled in, we can stop processing the data
+    IF (this->name->value = "" OR this->cmdline->value = "")
+      RETURN work->Finish();
+
+    OBJECT parser := NEW StringParser(this->name->value);
+    parser->ParseWhileInSet(parser->set_alpha || parser->set_digit || "-_");
+    IF (NOT parser->eof)
+    {
+      work->AddError(GetTid("system:sysmgmt.apprunner.illegalname"));
+      RETURN work->Finish();
+    }
+
+    RECORD ARRAY nodedata := ReadRegistryNode("system.services.apps");
+    IF (RecordExists(SELECT FROM nodedata WHERE subkey = this->name->value AND subkey != this->oldname))
+    {
+      work->AddError(GetTid("system:sysmgmt.apprunner.duplicatename"));
+      RETURN work->Finish();
+    }
+    IF (this->oldname != this->name->value)
+    {
+      WriteRegistryKey("system.services.apps." || this->name->value, this->cmdline->value, [createifneeded := TRUE]);
+      IF (this->oldname != "")
+        DeleteRegistryKey("system.services.apps." || this->oldname);
+    }
+    ELSE
+      WriteRegistryKey("system.services.apps." || this->name->value, this->cmdline->value);
+
+    GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
+    RETURN work->Finish();
+  }
+>;

@@ -1,0 +1,558 @@
+﻿<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+
+LOADLIB "mod::publisher/lib/internal/blit/support.whlib";
+
+
+STATIC OBJECTTYPE RepositoryTreeBase EXTEND TreeBase
+< // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION GetRequiredDataObjectsForModTree(RECORD tree)
+  {
+    RECORD ARRAY results;
+    IF (RecordExists(tree))
+    {
+      IF (CellExists(tree, "STATUS") AND tree.status = "conflict")
+      {
+        results := results CONCAT this->GetRequiredDataObjectsForModTree(tree.data_parent);
+        results := results CONCAT this->GetRequiredDataObjectsForModTree(tree.data_current);
+        results := results CONCAT this->GetRequiredDataObjectsForModTree(tree.data_changes);
+      }
+      ELSE
+      {
+        IF (NOT tree.isfolder)
+        {
+          IF (NOT CellExists(tree, "DATA") AND CellExists(tree, "HASH"))
+            results := [ [ hash := tree.hash, isfolder := FALSE, size := CellExists(tree, "SIZE") ? tree.size : -1i64 ] ];
+        }
+        ELSE
+        {
+          FOREVERY (RECORD child FROM tree.children)
+            results := results CONCAT this->GetRequiredDataObjectsForModTree(child);
+        }
+      }
+    }
+
+    RETURN results;
+  }
+
+  RECORD FUNCTION AddDataToTreeRecursive(RECORD tree, RECORD ARRAY datas, BOOLEAN partial)
+  {
+    IF (RecordExists(tree))
+    {
+      IF (CellExists(tree, "STATUS") AND tree.status = "conflict")
+      {
+        tree.data_parent := this->AddDataToTreeRecursive(tree.data_parent, datas, partial);
+        tree.data_current := this->AddDataToTreeRecursive(tree.data_current, datas, partial);
+        tree.data_changes := this->AddDataToTreeRecursive(tree.data_changes, datas, partial);
+      }
+      ELSE
+      {
+        IF (NOT tree.isfolder)
+        {
+          IF (NOT CellExists(tree, "DATA") AND CellExists(tree, "HASH"))
+          {
+            RECORD pos := RecordLowerBound(datas, tree, [ "HASH" ]);
+            IF (pos.found)
+              INSERT CELL data := datas[pos.position].data INTO tree;
+            ELSE IF (NOT partial)
+              THROW NEW Exception("Could not get data for hash '" || tree.hash || "'");
+          }
+        }
+        ELSE
+        {
+          FOREVERY (RECORD child FROM tree.children)
+            tree.children[#child] := this->AddDataToTreeRecursive(child, datas, partial);
+        }
+      }
+    }
+    RETURN tree;
+  }
+
+  RECORD ARRAY FUNCTION GetCacheDataRecursive(RECORD root)
+  {
+    RECORD ARRAY result;
+    FOREVERY (RECORD child FROM root.children)
+    {
+      IF (NOT child.isfolder
+          AND CellExists(child, "CACHEDATA")
+          AND CellExists(child.cachedata, "ID")
+          AND CellExists(child, "HASH")
+          AND NOT child.cachedata.modified_whitespace)
+      {
+        INSERT
+            [ id :=                   child.cachedata.id
+            , hash :=                 child.hash
+            , contenttype :=          child.cachedata.contenttype
+            , modificationdate :=     child.cachedata.modificationdate
+            , modified_whitespace :=  child.cachedata.modified_whitespace
+            , has_conflictmarker :=   child.cachedata.has_conflictmarker
+            ] INTO result AT END;
+      }
+      IF (child.isfolder)
+        result := result CONCAT this->GetCacheDataRecursive(child);
+    }
+    RETURN result;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @return
+      @cell return.hash
+      @cell return.isfolder
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetMissingData()
+  {
+    RETURN
+        SELECT DISTINCT hash, isfolder, size := CellExists(obj, "SIZE") ? size : -1i64
+          FROM this->GetRequiredDataObjectsForModTree(this->pvt_root) AS obj;
+  }
+
+  /** @param datas
+      @cell hash
+      @cell data
+  */
+  PUBLIC MACRO FillInData(RECORD ARRAY datas)
+  {
+    datas :=
+        SELECT *
+          FROM datas
+      ORDER BY hash;
+
+    this->pvt_root := this->AddDataToTreeRecursive(this->pvt_root, datas, FALSE);
+  }
+
+  PUBLIC MACRO FillInPartialDataFromDataKeeper(OBJECT datakeeper)
+  {
+    RECORD ARRAY req := this->GetMissingData();
+    IF (LENGTH(req) != 0)
+    {
+      RECORD ARRAY datas :=
+          SELECT *
+            FROM datakeeper->GetObjects(req)
+        ORDER BY hash;
+
+      this->pvt_root := this->AddDataToTreeRecursive(this->pvt_root, datas, TRUE);
+    }
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetCacheData()
+  {
+    RETURN this->GetCacheDataRecursive(this->pvt_root);
+  }
+>;
+
+
+STATIC OBJECTTYPE RepositoryTree EXTEND RepositoryTreeBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD rawtree)
+  {
+    this->pvt_root := rawtree;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+
+  PUBLIC STRING FUNCTION GetTreeHash()
+  {
+    RETURN this->pvt_root.hash;
+  }
+>;
+
+BOOLEAN FUNCTION HaveSignificantDifferences(RECORD a, RECORD b)
+{
+  IF (RecordExists(a) != RecordExists(b))
+    RETURN TRUE;
+  IF (NOT RecordExists(a))
+    RETURN FALSE;
+  RETURN a.isfolder != b.isfolder OR (NOT a.isfolder AND a.hash != b.hash);
+}
+
+RECORD FUNCTION AddStatusRecursive(RECORD rec, STRING status)
+{
+  IF (rec.isfolder)
+  {
+    FOREVERY (RECORD child FROM rec.children)
+      rec.children[#child] := AddStatusRecursive(child, status);
+  }
+  INSERT CELL status := status INTO rec;
+  RETURN rec;
+}
+
+RECORD FUNCTION RecordFind(RECORD ARRAY list, RECORD val, STRING ARRAY cellnames)
+{
+  RECORD pos := RecordLowerBound(list, val, cellnames);
+  RETURN pos.found ? list[pos.position] : DEFAULT RECORD;
+}
+
+/** Returned statuses:
+    unmodified: node and subnodes are not changed (and the same between rold and rnew)
+    keep: node and subnodes are not changed in merge
+    staydeleted: node and subnodes are deleted in rnew, and stay that way
+    add: node and subnodes are added
+    delete: node and subnodes are deleted
+    replace: node (and subnodes) replaces this node
+    merge: folder node, has changes in children somewhere
+    conflict: unresolvable differences (rold, rparent and rnew are all different)
+*/
+
+STATIC OBJECTTYPE RepositoryDiffTree EXTEND RepositoryTreeBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT addto, OBJECT parent, OBJECT changes)
+  {
+    this->pvt_root := this->MakeMergedTree(
+        ObjectExists(changes) ? changes->root : DEFAULT RECORD,
+        ObjectExists(parent) ? parent->root : DEFAULT RECORD,
+        ObjectExists(addto) ? addto->root : DEFAULT RECORD,
+        TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION CompareChildren(RECORD ARRAY cchanges, RECORD ARRAY cparent, RECORD ARRAY caddto)
+  {
+    cchanges := SELECT *, uname := ToUppercase(name) FROM cchanges ORDER BY ToUppercase(name);
+    cparent :=  SELECT *, uname := ToUppercase(name) FROM cparent ORDER BY ToUppercase(name);
+    caddto :=   SELECT *, uname := ToUppercase(name) FROM caddto ORDER BY ToUppercase(name);
+
+    RECORD ARRAY names :=
+        SELECT uname
+             , cchanges :=     CellDelete(RecordFind(cchanges, [ uname := uname ], [ "UNAME" ]), "UNAME")
+             , cparent :=      CellDelete(RecordFind(cparent, [ uname := uname ], [ "UNAME" ]), "UNAME")
+             , caddto :=       CellDelete(RecordFind(caddto, [ uname := uname ], [ "UNAME" ]), "UNAME")
+          FROM cchanges CONCAT /*cparent CONCAT*/ caddto AS row
+      GROUP BY uname;
+
+    FOREVERY (RECORD r FROM names)
+      names[#r] := this->MakeMergedTree(
+          r.cchanges,
+          r.cparent,
+          r.caddto,
+          FALSE);
+
+    RETURN names;
+  }
+
+  BOOLEAN FUNCTION ContainsConflict(STRING ARRAY vals)
+  {
+    STRING ARRAY s;
+    FOREVERY (STRING val FROM vals)
+    {
+      RECORD pos := LowerBound(s, val);
+      IF (NOT pos.found)
+        INSERT val INTO s AT pos.position;
+    }
+    RETURN LENGTH(s) > 2;
+  }
+
+  // Merge when rchanges = folder & raddto is folder
+  RECORD FUNCTION SimpleMergeFolders(RECORD rchanges, RECORD rparent, RECORD raddto, STRING mergestatus)
+  {
+    RECORD ARRAY parentchildren;
+    IF (RecordExists(rparent) AND rparent.isfolder)
+      parentchildren := rparent.children;
+
+    RECORD result := raddto;
+    result.children := this->CompareChildren(rchanges.children, parentchildren, raddto.children);
+    INSERT CELL status := mergestatus INTO result;
+    RETURN result;
+  }
+
+  RECORD FUNCTION MakeConflict(RECORD tree, STRING status)
+  {
+    IF (status = "type-conflict")
+    {
+      RETURN
+          [ status :=     status
+          , name :=       tree.name
+          , isfolder :=   tree.isfolder
+          ];
+    }
+
+    INSERT CELL status := status INTO tree;
+    RETURN tree;
+  }
+
+  RECORD FUNCTION MakeMergedTree(RECORD rchanges, RECORD rparent, RECORD raddto, BOOLEAN ignore_names)
+  {
+    // Only called when either rchanges or raddto exists!
+    IF (NOT RecordExists(rchanges) AND NOT RecordExists(raddto))
+      ABORT("INV!");
+
+    // INV: RecordExists(rchanges) OR RecordExists(raddto)
+    // INV: rchanges != raddto
+
+    STRING rparent_name, rchanges_name, raddto_name;
+    STRING rparent_type, rchanges_type, raddto_type;
+    STRING rparent_fid, rchanges_fid, raddto_fid;
+
+    // Get the name, type and full-id (name+hash) for all three sources
+    IF (RecordExists(rparent))
+    {
+      IF (NOT CellExists(rparent, "NAME"))
+        INSERT CELL name := "" INTO rparent;
+      ELSE IF (ignore_names)
+        rparent.name := "";
+
+      rparent_name := rparent.name;
+      rparent_type := rparent.isfolder ? "folder" : "file";
+      rparent_fid := rparent.hash || " " || rparent_name;
+    }
+    IF (RecordExists(rchanges))
+    {
+      IF (NOT CellExists(rchanges, "NAME"))
+        INSERT CELL name := "" INTO rchanges;
+      ELSE IF (ignore_names)
+        rchanges.name := "";
+
+      rchanges_name := rchanges.name;
+      rchanges_type := rchanges.isfolder ? "folder" : "file";
+      rchanges_fid := rchanges.hash || " " || rchanges_name;
+    }
+    IF (RecordExists(raddto))
+    {
+      IF (NOT CellExists(raddto, "NAME"))
+        INSERT CELL name := "" INTO raddto;
+      ELSE IF (ignore_names)
+        raddto.name := "";
+
+      raddto_name := raddto.name;
+      raddto_type := raddto.isfolder ? "folder" : "file";
+      raddto_fid := raddto.hash || " " || raddto_name;
+    }
+
+    // See if we have a name conflict beforehand.
+    BOOLEAN nameconflict := rparent_name != rchanges_name AND rchanges_name != raddto_name AND raddto_name != rparent_name;
+
+    RECORD result;
+
+    // ------------------------------
+    //
+    // Simple cases: first compare on name + hash
+    //
+    IF (rchanges_fid = raddto_fid)
+    {
+      // rchanges = raddto, completely the same.
+      // No need to add conflict resolution records
+      RETURN AddStatusRecursive(raddto, "unmodified");
+    }
+    ELSE IF (rparent_fid = rchanges_fid)
+    {
+      // No changes from rparent -> rchanges - keep raddto as-is
+      IF (NOT RecordExists(raddto))
+        result := AddStatusRecursive(rchanges, "staydeleted");
+      ELSE
+        result := AddStatusRecursive(raddto, "keep");
+    }
+    ELSE IF (rparent_fid = raddto_fid)
+    {
+      // No changes from rparent -> raddto. Incorporate changes from rchanges
+      IF (NOT RecordExists(rchanges))
+      {
+        // Object was deleted
+        result := AddStatusRecursive(raddto, "delete");
+      }
+      ELSE IF (NOT RecordExists(raddto))
+      {
+        // Object didn't exist, is now added
+        result := AddStatusRecursive(rchanges, "add");
+      }
+      ELSE IF (rchanges.isfolder AND raddto.isfolder)
+      {
+        // Both rchanges and raddto are folders: merge (rename if rchanges-name is different)
+        result := this->SimpleMergeFolders(rchanges, rparent, raddto, rchanges.name = raddto.name ? "merge" : "merge-rename");
+        result.name := rchanges.name;
+      }
+      ELSE
+      {
+        // changes contain a type change, data change, rename, whatever. All handled by code 'replace'
+        result := AddStatusRecursive(rchanges, "replace");
+      }
+    }
+    // ------------------------------
+    //
+    // We have changes from rparent->raddto and from rparent->rchanges
+    // More difficult conflict resolution is needed
+    //
+    ELSE IF (rparent_type = rchanges_type AND rchanges_type = raddto_type AND raddto_type = rparent_type)
+    {
+      // All three are the same type (file or folder)
+      IF (nameconflict)
+      {
+        // For folders, don't suspend merging for name conflicts
+        IF (rparent_type = "folder")
+          result := this->SimpleMergeFolders(rchanges, rparent, raddto, "merge-nameconflict");
+        ELSE
+          result := this->MakeConflict(raddto, "data-conflict");
+      }
+      ELSE IF (rparent_type = "folder")
+      {
+        // Merge the folders. Rename only when rchanges name is different from rparent & raddto
+        BOOLEAN namechange := rparent_name = raddto_name AND raddto_name != rchanges_name;
+        result := this->SimpleMergeFolders(rchanges, rparent, raddto, namechange ? "merge-rename" : "merge");
+        IF (namechange)
+          result.name := rchanges_name;
+      }
+      ELSE // File
+      {
+        // Straight conflict of file contents? Or name conflict -> return data-conflict
+        IF (rparent.hash != rchanges.hash AND rchanges.hash != raddto.hash AND raddto.hash != rparent.hash)
+          result := this->MakeConflict(raddto, "data-conflict");
+        ELSE IF (nameconflict)
+          result := this->MakeConflict(raddto, "data-conflict");
+        ELSE
+        {
+          // No data conflict, no name conflict, merge changes
+          result := AddStatusRecursive(rparent.hash = raddto.hash? rchanges : raddto, "replace");
+          result.name := rparent.name = raddto.name ? rchanges.name : raddto.name;
+        }
+      }
+    }
+    // ------------------------------
+    //
+    // Now we have different types (or missing objects) across the board.
+    //
+    ELSE IF ("" IN [ rparent_type, rchanges_type, raddto_type ]) // Any non-existing?
+    {
+      // With rchanges & raddto both folders with the same name, merge & push the errors deeper
+      IF (rchanges_type = "folder" AND raddto_type = "folder" AND rchanges_name = raddto_name)
+        result := this->SimpleMergeFolders(rchanges, rparent, raddto, "merge");
+      ELSE
+      {
+        // Can't handle this, mark as existence-conflict because one object is missing
+        result := this->MakeConflict(raddto ?? rchanges, "existence-conflict");
+      }
+    }
+    ELSE IF (rchanges_type = "folder" AND raddto_type = "folder")
+    {
+      // Both rchanges & raddto are folders, try to merge
+      IF (nameconflict)
+        result := this->SimpleMergeFolders(rchanges, rparent, raddto, "merge-nameconflict");
+      ELSE
+      {
+        BOOLEAN namechange := rparent_name = raddto_name AND raddto_name != rchanges_name;
+        result := this->SimpleMergeFolders(rchanges, rparent, raddto, namechange ? "merge-rename" : "merge");
+        IF (namechange)
+          result.name := rchanges_name;
+      }
+    }
+    ELSE
+    {
+      // Too much type differences - emit type-conflict
+      result := this->MakeConflict(raddto, "type-conflict");
+    }
+
+    INSERT CELL data_parent := rparent INTO result;
+    INSERT CELL data_current := raddto INTO result;
+    INSERT CELL data_changes := rchanges INTO result;
+    RETURN result;
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION EncapsulateRawRepositoryTree(RECORD rawtree)
+{
+  RETURN NEW RepositoryTree(rawtree);
+}
+
+PUBLIC OBJECT FUNCTION RepositoryTreeDiff3(OBJECT addto, OBJECT parent, OBJECT changes)
+{
+  RETURN NEW RepositoryDiffTree(addto, parent, changes);
+}
+
+PUBLIC MACRO GetTreeData(OBJECT repo, OBJECT tree, OBJECT datakeeper, RECORD options DEFAULTSTO DEFAULT RECORD ARRAY)
+{
+  IF (ObjectExists(datakeeper))
+    tree->FillInPartialDataFromDataKeeper(datakeeper);
+
+  RECORD ARRAY req := tree->GetMissingData();
+  IF (LENGTH(req) != 0)
+  {
+    RECORD ARRAY parts := [ [ size := 0i64, objs := DEFAULT RECORD ARRAY ] ];
+
+    req := SELECT * FROM req ORDER BY size DESC;
+
+    INTEGER64 totalbytes;
+    FOREVERY (RECORD obj FROM req)
+    {
+      totalbytes := totalbytes = -1i64 OR obj.size = -1i64 ? -1i64 : totalbytes + obj.size;
+
+      // Get 1MB/2MB of objs per request (or 1 obj per time for objs > 1MB)
+      IF (parts[END-1].size >= 1024*1024)
+        INSERT [ size := obj.size, objs := [ obj ] ] INTO parts AT END;
+      ELSE
+      {
+        INSERT obj INTO parts[END-1].objs AT END;
+        parts[END-1].size := parts[END-1].size = -1i64 OR obj.size = -1i64 ? -1i64 : parts[END-1].size + obj.size;
+      }
+    }
+
+    INTEGER64 totalretrieved;
+    RECORD ARRAY retrieved;
+    FOREVERY (RECORD part FROM parts)
+    {
+      IF (CellExists(options, "ONPROGRESS"))
+      {
+        IF (totalbytes <= 0i64)
+        {
+          options.onprogress(100m * #part / LENGTH(parts),
+              [ type :=     "parts"
+              , current :=  #part
+              , total :=    LENGTH(parts)
+              ]);
+        }
+        ELSE
+        {
+          options.onprogress(100m * MONEY(totalretrieved) / MONEY(totalbytes),
+              [ type :=     "size"
+              , current :=  totalretrieved
+              , total :=    totalbytes
+              ]);
+        }
+      }
+      retrieved := retrieved CONCAT repo->GetObjects(part.objs);
+      totalretrieved := totalretrieved + part.size;
+    }
+
+    IF (CellExists(options, "ONPROGRESS"))
+    {
+      IF (totalbytes <= 0i64)
+        options.onprogress(100m, [ type := "parts", current := LENGTH(parts), total := LENGTH(parts) ]);
+      ELSE
+        options.onprogress(100m, [ type := "size", current := totalbytes, total := totalbytes ]);
+    }
+
+    STRING ARRAY missing :=
+        SELECT AS STRING ARRAY hash
+          FROM retrieved WHERE status != "found"
+         LIMIT 10;
+    IF (LENGTH(missing) != 0)
+      THROW NEW Exception("Cannot find data for hashes '" || Detokenize(missing, "', '") || "'");
+
+    IF (ObjectExists(datakeeper))
+      datakeeper->AddObjects(retrieved);
+    tree->FillInData(retrieved);
+  }
+}

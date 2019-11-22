@@ -1,0 +1,25 @@
+<?wh
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
+
+MACRO TestWordDoc()
+{
+  testfw->BeginWork();
+  OBJECT testsite := testfw->SetupTestWebdesignWebsite("");
+  OBJECT testdatafile := testsite->rootobject->CreateFile([ name := "links.docx", publish := TRUE, data := GetWebHareResource("mod::webhare_testsuite/tests/system/testdata/links.docx") ]);
+  testfw->CommitWork();
+
+  testfw->WaitForPublishCompletion(testsite->id);
+
+  RECORD ARRAY links := GetLinksForFSObject(testdatafile->id);
+  //DumpValue(links,'boxed');
+  Testeq(TRUE, NOT RecordExists(SELECT FROM links WHERE referrer != "<gatheredlink>"));
+  TestEq(2, Length(SELECT FROM links WHERE url = "http://www.studentunion.utwente.nl/verenigingen/voorzieningen-ut/studie.html")); //one duplicate link
+  TestEq(1, Length(SELECT FROM links WHERE url = "http://www.studentunion.utwente.nl/verenigingen/voorzieningen-ut/studie.html" AND text="Studieverenigingen"));
+
+  TestEq(4,Length(links));
+}
+
+RunTestframework([ PTR TestWordDoc
+                 ]);

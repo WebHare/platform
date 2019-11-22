@@ -1,0 +1,73 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+MACRO AddRight(RECORD modoptions)
+{
+  STRING moduledefpath := modoptions.moduleroot || "moduledefinition.xml";
+  OBJECT moduledef := MakeXMLDocument(GetDiskResource(moduledefpath));
+  OBJECT rightsnode := moduledef->CreateElementNS("http://www.webhare.net/xmlns/system/moduledefinition", "rights");
+  moduledef->documentelement->AppendChild(rightsnode);
+
+  OBJECT right := moduledef->CreateElementNS("http://www.webhare.net/xmlns/system/moduledefinition", "right");
+  right->SetAttribute("name","danglingright");
+  rightsnode->AppendChild(right);
+
+  OBJECT impliedby := moduledef->CreateElementNS("http://www.webhare.net/xmlns/system/moduledefinition", "impliedby");
+  impliedby->SetAttribute("right","system:sysop");
+  right->AppendChild(impliedby);
+
+  StoreDiskFile(moduledefpath, moduledef->GetDocumentBlob(FALSE), [ overwrite := TRUE ]);
+}
+
+MACRO CreateProblemRight()
+{
+  testfw->SetupTestModule( [ aftermodulecreation := PTR AddRight ]);
+
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->GrantRightTo("webhare_testsuite_temp:danglingright", testfw->GetUserObject("lisa"), TRUE);
+  testfw->CommitWork();
+}
+
+ASYNC MACRO TestProblemRights()
+{
+  DeleteModule(testfw_testmodule);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+
+  //Try to grant the user a right
+  TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="webhare_testsuite.unit";
+  TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="lisa@beta.webhare.net";
+  TestEq(TRUE, REcordExists(TT("unitcontents->userandrolelist")->selection), 'user must be selected');
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->addrighttousers"));
+  RECORD problemrights := SELECT * FROM TT("objecttree->objectlist")->rows WHERE TITLE = "Obsolete rights";
+  TestEq(TRUE, RecordExists(problemrights));
+
+  //Test that this doesn't crash:
+  INSERT problemrights.rowkey INTO TT("objecttree->objectlist")->expanded AT END;
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+MACRO VerifyNoLooseEnds()
+{
+  testfw->BeginWork();
+  testfw->EnsureUserMgmtClean();
+  testfw->CommitWork();
+}
+
+RunTestFramework([ PTR CreateProblemRight
+                 , PTR TestProblemRights
+                 , PTR VerifyNoLooseEnds
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa"]
+                                   ]
+                    , testroles := [[ role := "powerplantmanagers" ]]
+                    ]
+                 );

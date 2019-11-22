@@ -1,0 +1,699 @@
+﻿<?wh
+/// @short Extensive test of HareScript syntax implementation
+
+LOADLIB "wh::internal/hsselftests.whlib";
+
+(* SCRIPTPROPERTY "FILEID" 1234 *)
+
+RECORD ARRAY errors;
+RECORD result;
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// When the expected output is other than '', the expected output is specified.
+// When an error should be reported, the outout is undefined.
+
+// STRING and PRINT() are assumed to be implemented,
+// i.e. PRINT(t) should output the value of STRING t.
+
+/*** Embedding HareScript in HTML [8] ***/
+MACRO EmbeddingTest()
+{
+  OpenTest("TestSyntax: EmbeddingTest");
+
+  result := TestCompileAndRunPrimitive('<?wh ');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "", result.output);
+
+  result := TestCompileAndRunPrimitive('<?wh\t');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "", result.output);
+
+  result := TestCompileAndRunPrimitive('<?wh\n');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "", result.output);
+
+  result := TestCompileAndRunPrimitive('<?wh');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "<?wh", result.output);
+
+  result := TestCompileAndRunPrimitive('<HTML> <?wh ?> </HTML>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "<HTML>  </HTML>", result.output);
+
+  result := TestCompileAndRunPrimitive('<?Wh ');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "<?Wh ", result.output);
+
+  result := TestCompileAndRunPrimitive('<?wH ');
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "<?wH ", result.output);
+
+  errors := TestCompilePrimitive('<?wh ??>');
+  MustContainError(15, errors, 73, '??');
+
+  result := TestCompileAndRunPrimitive('<?w h ');
+  TestCleanResult(16, result.errors);
+  TestEqualString(17, "<?w h ", result.output);
+
+  result := TestCompileAndRunPrimitive('<?webhare ');
+  TestCleanResult(18, result.errors);
+  TestEqualString(19, "<?webhare ", result.output);
+
+  result := TestCompileAndRunPrimitive('\xEF\xBB\xBF ');
+  TestCleanResult(20, result.errors);
+  TestEqualString(21, "", result.output); //note: no spaces due to terminator-space-truncation rule
+
+  result := TestCompileAndRunPrimitive('\xEF\xBB\xBF');
+  TestCleanResult(22, result.errors);
+  TestEqualString(23, "", result.output);
+
+  result := TestCompileAndRunPrimitive('#!/bin/yeey\n');
+  TestCleanResult(1, result.errors);
+  TestEqualString(1, "", result.output);
+
+  result := TestCompileAndRunPrimitive('#!/bin/yeey\na');
+  TestCleanResult(1, result.errors);
+  TestEqualString(1, "a", result.output);
+
+  result := TestCompileAndRunPrimitive('#!/bin/yeey\n<?wh ');
+  TestCleanResult(1, result.errors);
+  TestEqualString(1, "", result.output);
+
+  result := TestCompileAndRunPrimitive('#!/bin/yeey\n#!/bin/yeey\n');
+  TestCleanResult(1, result.errors);
+  TestEqualString(1, "#!/bin/yeey\n", result.output);
+
+  result := TestCompileAndRunPrimitive('<?wh ?>#!/bin/yeey\n');
+  TestCleanResult(1, result.errors);
+  TestEqualString(1, "#!/bin/yeey\n", result.output);
+
+  result := TestCompileAndRunPrimitive('a#!/bin/yeey\n');
+  TestCleanResult(1, result.errors);
+  TestEqualString(1, "a#!/bin/yeey\n", result.output);
+
+  errors :=  TestCompilePrimitive('Data<?wh LOADLIB "wh::witty.whlib";');
+  TestCleanResult(1, errors);
+  errors :=  TestCompilePrimitive('Data<?wh ;;LOADLIB "wh::witty.whlib";;;;');
+  TestCleanResult(1, errors);
+
+  // Content before first loadlib
+  TestAnnotatedCompile(`
+blabla<?wh LOADLIB "wh::witty.whlib";
+// <-E:250 # No content is allowed before the first LOADLIB in a library.
+`, [ aslibrary := TRUE ]);
+
+  // Content between loadlibs
+  TestAnnotatedCompile(`
+<?wh LOADLIB "wh::witty.whlib"; ?>bla<?wh LOADLIB "wh::float.whlib";
+//                              ^ E:250 # No content is allowed before the first LOADLIB in a library.
+`, [ aslibrary := TRUE ]);
+
+  // No errors for close+immediate opens
+  TestAnnotatedCompile(`<?wh LOADLIB "wh::witty.whlib"; ?><?wh LOADLIB "wh::float.whlib";`, [ aslibrary := TRUE ]);
+
+  errors :=  TestCompilePrimitive('<?wh LOADLIB "wh::witty.whlib";?>Data', [ aslibrary := TRUE ]);
+  TestCleanResult(1, errors);
+  errors :=  TestCompilePrimitive('<?wh ;; ?><?wh ;; LOADLIB "wh::witty.whlib"; ;;;?>Data', [ aslibrary := TRUE ]);
+  TestCleanResult(1, errors);
+
+  errors :=  TestCompilePrimitive('<?wh LOADLIB "wh::witty.whlib";?>Data<?wh ABORT(); ?>', [ aslibrary := TRUE ]);
+  TestCleanResult(1, errors);
+
+  // Loadlib after statementss
+  TestAnnotatedCompile(`
+<?wh LOADLIB "wh::witty.whlib"; PRINT("a"); LOADLIB "wh::witty.whlib";
+//                                          ^ E:73 LOADLIB # Unknown token LOADLIB
+`, [ aslibrary := TRUE ]);
+
+  CloseTest("TestSyntax: EmbeddingTest");
+}
+
+/*** General rules [9] ***/
+MACRO GeneralTest()
+{
+  OpenTest("TestSyntax: GeneralTest");
+
+  TestCleanCompile(1, '<?wh STRING a := "x"; STRING b := "y"; ?>');
+
+  errors := TestCompile('<?wh STRING a := "x" STRING b := "y"; ?>');
+  MustContainError(2, errors, 70);
+
+  TestCleanCompile(3, '<?wh STRING a; A := "x"; ?>');
+
+  TestCleanCompile(4, '<?wh string A; a := "x"; ?>');
+
+  TestCleanCompile(5, '<?wh STRING abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl; ?>');
+
+  errors := TestCompile('<?wh STRING abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklm; ?>');
+  MustContainError(6, errors, 70);
+
+  errors := TestCompile('<?wh STRING 5 := "x"; ?>');
+  MustContainError(7, errors, 67, '5');
+
+  TestCleanCompile(8, '<?wh STRING abcdefghijklmnopqrstuvwxyz1234567890_; ?>');
+
+  TestCleanCompile(9, '<?wh STRING _; ?>');
+
+  // The followin tests are far from complete
+  // only some common characters are tested
+  errors := TestCompile('<?wh STRING a~; ?>');
+  MustContainError(10, errors, 70);
+
+  TestAnnotatedCompile(`
+<?wh STRING a // text comment
+//           ^ E:70
+   // whitespace and second comment
+ ~;`);
+
+  errors := TestCompile('<?wh STRING a!; ?>');
+  MustContainError(11, errors, 70);
+
+  errors := TestCompile('<?wh STRING a$; ?>');
+  MustContainError(12, errors, 70);
+
+  errors := TestCompile('<?wh STRING a%; ?>');
+  MustContainError(13, errors, 70);
+
+  errors := TestCompile('<?wh STRING a-; ?>');
+  MustContainError(14, errors, 70);
+
+  //Whitespace at the end of a file is automatically stripped, IF following a ? >
+  result := TestCompileAndRun('<?wh ?> \n \r   \t      ');
+  TestCleanResult(15, result.errors);
+  TestEqualString(16, "", result.output);
+
+  //But normal text should not trigger any ignore!
+  result := TestCompileAndRun('<?wh ?> \n \r   \t      A');
+  TestCleanResult(17, result.errors);
+  TestEqualString(18, " \n \r   \t      A", result.output);
+  result := TestCompileAndRun('<?wh ?> \n \r   \t      A   \t');
+  TestCleanResult(19, result.errors);
+  TestEqualString(20, " \n \r   \t      A   \t", result.output);
+  result := TestCompileAndRun('<?wh ?>A   \t');
+  TestCleanResult(21, result.errors);
+  TestEqualString(22, "A   \t", result.output);
+
+  CloseTest("TestSyntax: GeneralTest");
+}
+
+/*** Function rules [10] ***/
+MACRO FunctionTest()
+{
+  OpenTest("TestSyntax: FunctionTest");
+
+  TestCleanCompile(1, '<?wh STRING FUNCTION f ( ) { RETURN ""; } STRING s := f(); ?>');
+
+  TestCleanCompile(2, '<?wh STRING FUNCTION f (STRING a) { RETURN ""; } STRING s := f("y"); ?>');
+
+  result := TestCompileAndRun('<?wh STRING FUNCTION f (STRING a DEFAULTSTO "x") { RETURN a; } STRING s := f(); PRINT(s)?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "x", result.output);
+
+  result := TestCompileAndRun('<?wh STRING FUNCTION f (STRING a DEFAULTSTO "x") { RETURN a; } STRING s := f("y"); PRINT(s); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "y", result.output);
+
+  result := TestCompileAndRun('<?wh STRING FUNCTION f ( ) { ?> test <?wh RETURN ""; } STRING s := f(); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, " test ", result.output);
+
+  errors := TestCompile('<?wh STRING FUNCTION f ( ) { } ?>');
+  MustContainError(10, errors, 99);
+
+  errors := TestCompile('<?wh STRING FUNCTION f ( { } ?>');
+  MustContainError(11, errors, 134);
+
+  errors := TestCompile('<?wh STRING FUNCTION f ( ) { ?> test RETURN ""; } ?>');
+  MustContainError(12, errors, 207);
+
+  errors := TestCompile('<?wh STRING FUNCTION f { RETURN ""; } ?>');
+  MustContainError(13, errors, 17);
+
+  errors := TestCompile('<?wh STRING FUNCTION f ( ) RETURN ""; ?>');
+  MustContainError(14, errors, 87);
+
+  errors := TestCompile('<?wh STRING FUNCTION f (a) { RETURN ""; } ?>');
+  MustContainError(15, errors, 134);
+
+//// Some 'PUBLIC' keyword syntax tests
+  TestCleanCompile(16, '<?wh PUBLIC STRING FUNCTION f ( ) { RETURN ""; } STRING s := f(); ?>');
+
+  TestCleanCompile(17, '<?wh PUBLIC STRING FUNCTION f (STRING a) { RETURN ""; } STRING s := f("y"); ?>');
+
+  result := TestCompileAndRun('<?wh STRING FUNCTION f ( ) { } PRINT (f()); ?>');
+  MustContainError(19, result.errors, 99);
+
+  errors := TestCompile('<?wh MACRO empty() {} STRING FUNCTION f() { RETURN empty(); } ?>');
+  MustContainError(20, errors, 97);
+
+  CloseTest("TestSyntax: FunctionTest");
+}
+
+/*** Macro rules [11] ***/
+MACRO MacroTest()
+{
+  OpenTest("TestSyntax: MacroTest");
+
+  TestCleanCompile(1, '<?wh MACRO m ( ) { } m(); ?>');
+
+  TestCleanCompile(2, '<?wh MACRO m (STRING a) { } m("y"); ?>');
+
+  result := TestCompileAndRun('<?wh MACRO m (STRING a DEFAULTSTO "x") { PRINT(a); } m(); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "x", result.output);
+
+  result := TestCompileAndRun('<?wh MACRO m (STRING a DEFAULTSTO "x") { PRINT(a); } m("y"); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "y", result.output);
+
+  errors := TestCompile('<?wh MACRO m ( { } ?>');
+  MustContainError(7, errors, 134);
+
+  errors := TestCompile('<?wh MACRO m ( ) { ?> test } ?>');
+  MustContainError(8, errors, 207);
+
+  errors := TestCompile('<?wh MACRO m { } ?>');
+  MustContainError(9, errors, 17);
+
+  errors := TestCompile('<?wh MACRO m ( ) ; ?>');
+  MustContainError(10, errors, 87);
+
+  errors := TestCompile('<?wh MACRO m (a) { } ?>');
+  MustContainError(11, errors, 134);
+
+  errors := TestCompile('<?wh MACRO m () { RETURN ""; } ?>');
+  MustContainError(12, errors, 98);
+
+//// Some 'PUBLIC' keyword syntax tests
+  TestCleanCompile(13, '<?wh PUBLIC MACRO m ( ) { } m(); ?>');
+
+  TestCleanCompile(14, '<?wh PUBLIC MACRO m (STRING a) { } m("y"); ?>');
+
+  errors := TestCompile('<?wh MACRO m() {} RECORD d; INSERT CELL a := m() INTO d; ?>');
+  MustContainError(15, errors, 97);
+  errors := TestCompile('<?wh MACRO m() {} SELECT m() AS t FROM DEFAULT RECORD ARRAY; ?>');
+  MustContainError(16, errors, 97);
+  errors := TestCompile('<?wh MACRO m() {} RECORD a := [ z := m() ]; ?>');
+  MustContainError(17, errors, 97);
+  errors := TestCompile('<?wh MACRO m() {} RECORD ARRAY z; UPDATE z SET k := m(); ?>');
+  MustContainError(18, errors, 97);
+  errors := TestCompile('<?wh MACRO m() {} SELECT FROM DEFAULT RECORD ARRAY ORDER BY m(); ?>');
+  MustContainError(19, errors, 97);
+
+  CloseTest("TestSyntax: MacroTest");
+}
+
+/*** Comments [12] ***/
+MACRO CommentsTest()
+{
+  OpenTest("TestSyntax: CommentsTest");
+
+  result := TestCompileAndRun('<?wh // This is a comment ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "", result.output);
+
+  result := TestCompileAndRun('<?wh // This is a ?> comment');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "", result.output);
+
+  result := TestCompileAndRun('<?wh // PRINT("0"); PRINT("1"); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "", result.output);
+
+  result := TestCompileAndRun('<?wh /* This is a comment */ ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "", result.output);
+
+  result := TestCompileAndRun('<?wh /* This is a ?> comment */');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "", result.output);
+
+  result := TestCompileAndRun('<?wh /* PRINT("0"); */ PRINT("1"); ?>');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "1", result.output);
+
+  result := TestCompileAndRun('<?wh /* This is \n a comment */ ?>');
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "", result.output);
+
+  result := TestCompileAndRun('<?wh /**/ PRINT ("ok"); ?>');
+  TestCleanResult(15, result.errors);
+  TestEqualString(16, "ok", result.output);
+
+  result := TestCompileAndRun('<?wh /** /**/ PRINT ("ok"); ?>');
+  TestCleanResult(17, result.errors);
+  TestEqualString(18, "ok", result.output);
+
+  result := TestCompileAndRun('<?wh /** /**//**/PRINT ("ok"); ?>');
+  TestCleanResult(19, result.errors);
+  TestEqualString(20, "ok", result.output);
+
+  result := TestCompileAndRun('<?wh /*');
+  TestCleanResult(21, result.errors);
+  MustContainWarning(22, result.errors, 6);
+
+  result := TestCompileAndRun('<?wh /* ?>');
+  TestCleanResult(23, result.errors);
+  MustContainWarning(242, result.errors, 6);
+
+  CloseTest("TestSyntax: CommentsTest");
+}
+
+/*** String constants [13] ***/
+MACRO StrConstTest()
+{
+  OpenTest("TestSyntax: StrConstTest");
+
+  result := TestCompileAndRun('<?wh PRINT("HareScript"); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "HareScript", result.output);
+  result := TestCompileAndRun("<?wh PRINT('HareScript'); ?>");
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "HareScript", result.output);
+
+  result := TestCompileAndRun('<?wh PRINT("\'Hare\'Script"); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "'Hare'Script", result.output);
+  result := TestCompileAndRun("<?wh PRINT('\"Hare\"Script'); ?>");
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, '"Hare"Script', result.output);
+
+  result := TestCompileAndRun('<?wh PRINT("Hare \\" Script"); ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, 'Hare " Script', result.output);
+
+  result := TestCompileAndRun("<?wh PRINT('Hare \\' Script'); ?>");
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "Hare ' Script", result.output);
+
+  errors := TestCompile('<?wh PRINT("Hare \" Script"); ?>');
+  MustContainError(13, errors, 26);
+  errors := TestCompile("<?wh PRINT('Hare \' Script'); ?>");
+  MustContainError(14, errors, 26);
+
+  //// What about UTF-8 testing?
+
+  // UTF-16 \u encoded chars outside Basic Multilingual Plane (BMP)
+  TestEq("\uD834\uDD1E", UCToString(0x1D11E));
+
+  CloseTest("TestSyntax: StrConstTest");
+}
+
+/*** Escape sequences [14] ***/
+MACRO EscapeTest()
+{
+  OpenTest("TestSyntax: EscapeTest");
+
+  result := TestCompileAndRun('<?wh PRINT("Hare\\aScript"); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "Hare\aScript", result.output);
+
+  result := TestCompileAndRun('<?wh PRINT("Hare\\bScript"); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "Hare\bScript", result.output);
+
+  result := TestCompileAndRun('<?wh PRINT("Hare\\fScript"); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "Hare\fScript", result.output);
+
+  result := TestCompileAndRun('<?wh PRINT("Hare\\nScript"); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "Hare\nScript", result.output);
+
+  result := TestCompileAndRun('<?wh PRINT("Hare\\rScript"); ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "Hare\rScript", result.output);
+
+  result := TestCompileAndRun('<?wh PRINT("Hare\\tScript"); ?>');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "Hare\tScript", result.output);
+
+  result := TestCompileAndRun('<?wh PRINT("Hare\\\'Script"); ?>');
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "Hare'Script", result.output);
+
+  result := TestCompileAndRun('<?wh PRINT("Hare\\"Script"); ?>');
+  TestCleanResult(15, result.errors);
+  TestEqualString(16, 'Hare"Script', result.output);
+
+  result := TestCompileAndRun('<?wh PRINT("Hare\\\\Script"); ?>');
+  TestCleanResult(17, result.errors);
+  TestEqualString(18, "Hare\\Script", result.output);
+
+  result := TestCompileAndRun( '<?wh PRINT("Hare\\137Script"); ?>');
+  TestCleanResult(19, result.errors);
+  TestEqualString(20, "Hare_Script", result.output);
+
+  CloseTest("TestSyntax: EscapeTest");
+}
+
+MACRO ScriptingStuff()
+{
+  OpenTest("TestSyntax: ScriptingStuff");
+  TestEqualInteger(3, 1234, GetStoredScriptProperty("FILEID"));
+  CloseTest("TestSyntax: ScriptingStuff");
+}
+
+PUBLIC MACRO AttributesTest()
+{
+  OpenTest("TestSyntax: AttributesTest");
+
+  // DEPRECATED attribute. Local usage should not be a problem
+  errors := TestCompile('<?wh INTEGER i __ATTRIBUTES__(DEPRECATED); INTEGER j __ATTRIBUTES__(DEPRECATED "Stop using j"); i:= 1; j := 2; ?>');
+  TestCleanResult(1, errors);
+  MayNotContainWarnings(2, errors);
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; i:= 1; j := 2; ?>');
+  TestCleanResult(3, errors);
+  MustContainWarning(4, errors, 18, 'I');
+  MustContainWarning(5, errors, 19, 'J', "Stop using j");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; T1(); T2();');
+  TestCleanResult(6, errors);
+  MustContainWarning(7, errors, 18, 'T1');
+  MustContainWarning(8, errors, 19, 'T2', "Stop using T2");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; NEW O1(); NEW O2();');
+  TestCleanResult(6, errors);
+  MustContainWarning(9, errors, 18, 'O1');
+  MustContainWarning(10, errors, 19, 'O2', "Stop using O2");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; OBJECTTYPE e1 EXTEND o1< >; OBJECTTYPE e2 EXTEND o2< >;');
+  TestCleanResult(6, errors);
+  MustContainWarning(11, errors, 18, 'O1');
+  MustContainWarning(12, errors, 19, 'O2', "Stop using O2");
+
+
+  CloseTest("TestSyntax: AttributesTest");
+}
+
+PUBLIC MACRO EmptyStatementTest()
+{
+  OpenTest("TestSyntax: EmptyStatementTest");
+
+  result := TestCompileAndRun('<?wh IF (TRUE);{ } ?>');
+  MustContainError(1, result.errors, 205);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) { } ELSE ;{} ?>');
+  MustContainError(2, result.errors, 205);
+
+  result := TestCompileAndRun('<?wh FOREVERY (INTEGER i FROM DEFAULT INTEGER ARRAY); {} ?>');
+  MustContainError(3, result.errors, 205);
+
+  CloseTest("TestSyntax: EmptyStatementTest");
+}
+
+PUBLIC MACRO ConditionalCompileTest()
+{
+  OpenTest("TestSyntax: ConditionalCompileTest");
+
+  result := TestCompileAndRun('<?wh (*IFVERSION >= 31000*)PRINT("a");(*ELSE*)PRINT("b");(*END*) ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "a", result.output);
+
+  result := TestCompileAndRun('<?wh (*IFVERSION < 31000*)PRINT("a");(*ELSE*)PRINT("b");(*END*) ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "b", result.output);
+
+  result := TestCompileAndRun('<?wh (*IFVERSION > 31000*)PRINT("a");(*END*) ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "a", result.output);
+
+  result := TestCompileAndRun('<?wh (*IFVERSION < 31000*)PRINT("a");(*END*) ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "", result.output);
+
+  errors := TestCompile('<?wh (*IFVERSION >= 31000*)PRINT("a"); ?>');
+  MustContainError(3, errors, 242);
+
+  errors := TestCompile('<?wh (*IFVERSION <= 31000*)PRINT("a"); ?>');
+  MustContainError(4, errors, 242);
+
+  errors := TestCompile('<?wh (*IFVERSION >= 31000*)PRINT("a");(*ELSE*)PRINT("b"); ?>');
+  MustContainError(5, errors, 242);
+
+  errors := TestCompile('<?wh (*IFVERSION <= 31000*)PRINT("a");(*ELSE*)PRINT("b"); ?>');
+  MustContainError(6, errors, 242);
+
+  errors := TestCompile('<?wh (*IFVERSION >= 31000*)PRINT("a");(*END*)(*ELSE*)PRINT("b"); ?>');
+  MustContainError(7, errors, 243);
+
+  errors := TestCompile('<?wh (*IFVERSION >= 31000*)PRINT("a");(*END*)(*END*) ?>');
+  MustContainError(8, errors, 244);
+
+  errors := TestCompile('<?wh (*IFVERSION <= 31000*)PRINT("a");(*ELSE*)PRINT("b");(*ENDIF*) ?>');
+  MustContainError(5, errors, 242);
+
+  CloseTest("TestSyntax: ConditionalCompileTest");
+}
+
+PUBLIC MACRO ShadowingTest()
+{
+  OpenTest("TestSyntax: ShadowingTest");
+
+  errors := TestCompile('<?wh INTEGER a; MACRO Test(INTEGER a) {} ?>');
+  MustContainWarning(0, errors, 27, "A");
+  MustContainWarning(0, errors, 28, "A");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; INTEGER int1; ?>');
+  MustContainWarning(0, errors, 27, "INT1");
+  MustContainWarning(0, errors, 28, "INT1");
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; MACRO Test(INTEGER int1) { } ?>');
+  MustContainWarning(0, errors, 27, "INT1");
+  MustContainWarning(0, errors, 28, "INT1");
+
+  errors := TestCompile('<?wh\nLOADLIB "test::testdata_loadlib_a.whlib";\nMACRO Test() { INTEGER int1; } ?>');
+  MustContainWarning(0, errors, 27, "INT1");
+  MustContainWarning(0, errors, 28, "INT1");
+
+  // conditions that might trigger errors in shadowing detection too
+  errors := TestCompile('<?wh INTEGER a; INTEGER a; ?>');
+  MustContainError(0, errors, 4, "A");
+
+  errors := TestCompile('<?wh MACRO Test(INTEGER a, INTEGER a) {} ?>');
+  MustContainError(0, errors, 6, "A");
+
+  errors := TestCompile('<?wh MACRO Test(INTEGER test) {} ?>');
+  TestCleanResult(0, result.errors);
+  MayNotContainWarnings(0, result.errors);
+
+  errors := TestCompile('<?wh MACRO Test(INTEGER a) { INTEGER a; } ?>');
+  MustContainError(0, errors, 13, "A");
+
+  errors := TestCompile('<?wh MACRO Test(INTEGER ARRAY a, INTEGER ARRAY b) { FOREVERY (INTEGER a FROM b) {} } ?>');
+  MustContainWarning(0, errors, 27, "A");
+  MustContainWarning(0, errors, 28, "A");
+
+  errors := TestCompile('<?wh MACRO Test(INTEGER ARRAY a, INTEGER ARRAY b) { FOR (INTEGER a := 0; a < 10; a := a + 1) { } } ?>');
+  MustContainWarning(0, errors, 27, "A");
+  MustContainWarning(0, errors, 28, "A");
+
+  errors := TestCompile('<?wh FOREVERY(RECORD x FROM [[y:=42]]) FOREVERY(RECORD x FROM [[z:=42]]) Print("xx\\n"); ?>');
+  MustContainWarning(0, errors, 27, "X");
+  MustContainWarning(0, errors, 28, "X");
+
+  TestAnnotatedCompile(`
+<?wh
+
+OBJECT e;
+//     ^ W:28 E
+TRY {} CATCH (OBJECT e) {}
+//                   ^ W:27 E
+`);
+
+  CloseTest("TestSyntax: ShadowingTest");
+}
+
+MACRO SuggestParenthesesTest()
+{
+  OpenTest("TestSyntax: SuggestParenthesesTest");
+
+  TestAnnotatedCompile(`
+<?wh BOOLEAN a, b, c; a AND b OR c; ?>
+//                            ^ W:15`);
+
+  TestAnnotatedCompile(`
+<?wh BOOLEAN a, b, c; a
+AND b ? 1 : 2; ?>
+//    ^ W:15`);
+
+  TestAnnotatedCompile(`
+<?wh BOOLEAN a; a ? 1 : 2 ?? 3;
+//                        ^ W:15`);
+
+  // no warnings
+  TestAnnotatedCompile(`<?wh BOOLEAN a; (a ? 1 : 2) ?? 3;`);
+  TestAnnotatedCompile(`<?wh BOOLEAN a; a ? 1 : (2 ?? 3);`);
+  TestAnnotatedCompile(`
+<?wh BOOLEAN a, b, c;
+a AND b // comment to disturb line change detection
+  ? 1 : 2;`);
+
+  CloseTest("TestSyntax: SuggestParenthesesTest");
+}
+
+MACRO ConstantsTest()
+{
+  TestAnnotatedCompile(`<?wh
+CONSTANT a;
+//       ^ E:134 # Typename expected
+`);
+
+  TestAnnotatedCompile(`<?wh
+CONSTANT RECORD a := [ b := 4, c := [ "a" ], d := RECORD[] ];
+a := DEFAULT RECORD;
+// <- E:261 # A constant variable may not be modified.
+a.b := 5;
+// <- E:261
+INSERT "b" INTO a.c AT END;
+//              ^ E:261
+DELETE FROM a.c AT 0;
+//          ^ E:261
+UPDATE a.d SET e := 1;
+//     ^ E:261
+CONSTANT INTEGER i, j;
+j := 1;
+// <- E:261
+__CONSTREF INTEGER k;
+k := 1;
+// <- E:261
+`);
+
+  TestAnnotatedCompile(`<?wh
+CONSTANT TABLE< INTEGER a > test;
+//            ^ E:227
+CONSTANT SCHEMA< TABLE< INTEGER a > test > test2;
+//             ^ E:227
+CONSTANT MACRO Test3() {};
+//       ^ E:227
+`);
+
+  TestAnnotatedCompile(`<?wh LOADLIB "wh::datetime.whlib";
+__CONSTREF INTEGER cref := LENGTH("value");
+CONSTANT RECORD a := [ d := cref ];
+//                          ^ E:222 # Expected a constant expression
+__CONSTREF RECORD b := [ d := cref ];
+CONSTANT RECORD c := CELL[ ...b ];
+//                            ^ E:222 # Expected a constant expression
+`);
+
+}
+
+PRINT("\n === Running TestSyntax\n");
+EmbeddingTest();
+GeneralTest();
+FunctionTest();
+MacroTest();
+CommentsTest();
+StrConstTest();
+EscapeTest();
+ScriptingStuff();
+AttributesTest();
+EmptyStatementTest();
+ConditionalCompileTest();
+ShadowingTest();
+SuggestParenthesesTest();
+ConstantsTest();

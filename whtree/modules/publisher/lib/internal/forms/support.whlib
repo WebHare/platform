@@ -1,0 +1,231 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/composer.whlib";
+
+OBJECT tag_regex; // Used for checking field name validity
+
+PUBLIC CONSTANT STRING ARRAY default_addressfield_options := ["nl-zip-suggest"];
+PUBLIC CONSTANT STRING ARRAY valid_addressfield_options := ["nl-zip-suggest","nl-zip-force"];
+
+PUBLIC STRING originalformrequesturl;
+
+PUBLIC MACRO ApplyWittyToComposer(OBJECT mailcomposer, RECORD wittydata)
+{
+  FOREVERY(RECORD file FROM wittydata.files)
+    IF(mailcomposer EXTENDSFROM ComposerBase)
+      mailcomposer->AddAttachment(file.data, file.filename, file.mimetype);
+    ELSE
+      mailcomposer->AddAttachment(file.data, [ filename := file.filename, mimetype := file.mimetype ]);
+}
+
+PUBLIC VARIANT FUNCTION MapValueType(STRING rowkeytype, STRING invalue, STRING emptyvalue)
+{
+   IF(invalue = "")
+     invalue := emptyvalue;
+
+  SWITCH(rowkeytype)
+  {
+    CASE "boolean"
+    {
+      RETURN invalue IN ["true","1","yes"];
+    }
+    CASE "integer"
+    {
+      RETURN ToInteger(invalue,0);
+    }
+    CASE "money"
+    {
+      RETURN ToMoney(invalue,0);
+    }
+    CASE "float"
+    {
+      RETURN ToFloat(invalue,0);
+    }
+    CASE "string"
+    {
+      RETURN invalue;
+    }
+    CASE "datetime"
+    {
+      RETURN MakeDateFromText(invalue);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unrecognized valuetype '" || rowkeytype || "'");
+    }
+  }
+}
+PUBLIC VARIANT ARRAY FUNCTION MapValueTypeArray(STRING rowkeytype, STRING ARRAY invalue)
+{
+  SWITCH(rowkeytype)
+  {
+    CASE "boolean"
+    {
+      BOOLEAN ARRAY outval;
+      FOREVERY(STRING inv FROM invalue)
+        INSERT inv IN ['1','true'] INTO outval AT END;
+      RETURN outval;
+    }
+    CASE "integer"
+    {
+      INTEGER ARRAY outval;
+      FOREVERY(STRING inv FROM invalue)
+        INSERT ToInteger(inv,0) INTO outval AT END;
+      RETURN outval;
+    }
+    CASE "money"
+    {
+      MONEY ARRAY outval;
+      FOREVERY(STRING inv FROM invalue)
+        INSERT ToMoney(inv,0) INTO outval AT END;
+      RETURN outval;
+    }
+    CASE "float"
+    {
+      FLOAT ARRAY outval;
+      FOREVERY(STRING inv FROM invalue)
+        INSERT ToFloat(inv,0) INTO outval AT END;
+      RETURN outval;
+    }
+    CASE "datetime"
+    {
+      DATETIME ARRAY outval;
+      FOREVERY(STRING inv FROM invalue)
+        INSERT MakeDateFromText(inv) INTO outval AT END;
+      RETURN outval;
+    }
+    CASE "string"
+    {
+      RETURN invalue;
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unrecognized valuetype '${rowkeytype}'`);
+    }
+  }
+}
+
+PUBLIC STRING FUNCTION UnmapValueType(STRING rowkeytype, VARIANT invalue, STRING emptyvalue, BOOLEAN useemptyvalue)
+{
+  STRING mappedvalue;
+  SWITCH(rowkeytype)
+  {
+    CASE "boolean"
+    {
+      IF (TypeID(invalue) != TypeID(BOOLEAN))
+        THROW NEW Exception("Value must be of type BOOLEAN but got "||GetTypeName(TypeId(invalue)) );
+
+      mappedvalue := invalue?"true":"false";
+    }
+    CASE "integer"
+    {
+      IF (TypeID(invalue) != TypeID(INTEGER))
+        THROW NEW Exception("Value must be of type INTEGER but got "||GetTypeName(TypeId(invalue)) );
+
+      mappedvalue :=  ToString(invalue);
+    }
+    CASE "money"
+    {
+      IF (TypeID(invalue) != TypeID(MONEY) AND TypeID(invalue) != TypeID(INTEGER))
+        THROW NEW Exception("Value must be of type MONEY but got "||GetTypeName(TypeId(invalue)) );
+
+      //ADDME allow money format to be configured globally/locally if we're dealing with string fields
+      mappedvalue := FormatMoney(invalue, 0, ".", "", FALSE);
+    }
+    CASE "float"
+    {
+      IF (TypeID(invalue) != TypeID(FLOAT) AND TypeID(invalue) != TypeID(INTEGER))
+        THROW NEW Exception("Value must be of type FLOAT but got "||GetTypeName(TypeId(invalue)) );
+
+      //ADDME allow money format to be configured globally/locally if we're dealing with string fields
+      mappedvalue := FormatFloat(invalue, 10);
+    }
+    CASE "string"
+    {
+      IF (TypeID(invalue) != TypeID(STRING))
+        THROW NEW Exception("Value must be of type STRING but got "||GetTypeName(TypeId(invalue)) );
+
+      mappedvalue := STRING(invalue);
+    }
+    CASE "datetime"
+    {
+      IF (TypeID(invalue) != TypeID(DATETIME))
+        THROW NEW Exception("Value must be of type DATETIME but got "||GetTypeName(TypeId(invalue)) );
+
+      mappedvalue := FormatISO8601Datetime(invalue,"day",(GetMsecondCount(invalue) % 1000) = 0 ? "seconds" : "milliseconds","UTC",FALSE);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unrecognized valuetype '" || rowkeytype || "'");
+    }
+  }
+
+  RETURN emptyvalue = mappedvalue AND useemptyvalue ? "" : mappedvalue;
+}
+
+/** @topic forms/baseclasses
+    @public
+    @loadlib mod::publisher/lib/forms/base.whlib
+    @short Get the form's request URL
+    @return Get the URL to which the current form was submitted. Will return the original URL if we're called in the context of a RPC service */
+PUBLIC STRING FUNCTION GetFormRequestURL()
+{
+  RETURN originalformrequesturl ?? GetRequestURL();
+}
+/** @topic forms/baseclasses
+    @public
+    @loadlib mod::publisher/lib/forms/base.whlib
+    @short Get a form's web variable
+    @return Get the variable of the URL to which the current form was submitted. Will return variables from the original URL if we're called in the context of a RPC service */
+PUBLIC STRING FUNCTION GetFormWebVariable(STRING varname)
+{
+  RETURN originalformrequesturl != "" ? GetVariableFromURL(originalformrequesturl, varname) : GetWebVariable(varname);
+}
+
+PUBLIC BOOLEAN FUNCTION IsValidFieldName(STRING name)
+{
+  // Do the quick constraint tests
+  IF (name = "" OR name LIKE "_*" OR ToUppercase(name) LIKE "FORM*" OR name LIKE "* *" OR Length(name) > 64)
+    RETURN FALSE;
+
+  // Do the test for illegal characters
+  IF (NOT ObjectExists(tag_regex))
+    tag_regex := NEW Regex("^[a-zA-Z][a-zA-Z0-9_]*$");
+  RETURN tag_regex->Test(name);
+}
+
+PUBLIC STRING FUNCTION FormatQName(RECORD component)
+{
+  STRING qname := `${component.namespace}#${component.name}`;
+  IF (CellExists(component, "matchattribute") AND RecordExists(component.matchattribute))
+  {
+    STRING ARRAY fields;
+    FOREVERY (RECORD field FROM UnpackRecord(component.matchattribute))
+    {
+      SWITCH (TypeID(field.value))
+      {
+        CASE TypeID(STRING)
+        {
+          INSERT ToLowercase(field.name) || "=" || field.value INTO fields AT END;
+        }
+        CASE TypeID(STRING ARRAY)
+        {
+          INSERT ToLowercase(field.name) || "=" || Detokenize(field.value, "|") INTO fields AT END;
+        }
+        DEFAULT
+        {
+          THROW NEW Exception(`Unsupported match attribute value type ${GetTypeName(TypeID(field.value))}`);
+        }
+      }
+    }
+    qname := qname || "?" || Detokenize(fields, "&");
+  }
+  RETURN qname;
+}

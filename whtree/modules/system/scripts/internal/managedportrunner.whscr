@@ -1,0 +1,170 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
+
+STATIC OBJECTTYPE InternalServiceBase EXTEND IPCPortHandlerBase
+<
+  OBJECT parentlink;
+  INTEGER parentlinkcb;
+  RECORD ARRAY links;
+  INTEGER promiseseq;
+  STRING objectname;
+  STRING library;
+
+  MACRO NEW(OBJECT port, STRING library, STRING objectname)
+  : IPCPortHandlerBase(port)
+  {
+    this->parentlink := GetIPCLinkToParent();
+    this->parentlinkcb := RegisterHandleReadCallback(this->parentlink->handle, PTR this->OnParentMessage);
+    this->flat_responses := TRUE;
+    this->library := library;
+    this->objectname := objectname;
+
+    //Trick to activate the library
+    TRY
+    {
+      MakeFunctionPtr(this->library, "", 0, DEFAULT INTEGER ARRAY);
+    }
+    CATCH(OBJECT e)
+    {
+    }
+  }
+
+  MACRO OnParentMessage()
+  {
+    RECORD res := this->parentlink->ReceiveMessage(DEFAULT DATETIME);
+
+    IF (res.status = "gone")
+    {
+      UnregisterCallback(this->parentlinkcb);
+      this->parentlink->Close();
+      this->parentlink := DEFAULT OBJECT;
+      RETURN;
+    }
+    IF (res.status = "timeout")
+      RETURN;
+
+    IF (res.msg.task = "tryrelease")
+    {
+      IF (IsScriptOutOfDate())
+      {
+        IF (ObjectExists(this->pvt_port))
+          this->pvt_port->Close();
+        this->pvt_port := DEFAULT OBJECT;
+
+        this->parentlink->SendMessage([ type := "tryrelease-ok" ]);
+
+        UnregisterCallback(this->parentlinkcb);
+        this->parentlink->Close();
+        this->parentlink := DEFAULT OBJECT;
+
+        this->HandleIdleWork();
+      }
+      ELSE
+      {
+        this->parentlink->SendMessage([ type := "tryrelease-cancel" ]);
+      }
+    }
+  }
+
+  OBJECT FUNCTION CreateLinkHandler(VARIANT ARRAY args)
+  {
+    INSERT this->objectname INTO args AT 0;
+    INSERT this->library INTO args AT 0;
+    RETURN CallAnyPtrVA(PTR MakeObject, args);
+  }
+
+  /** New incoming link, administer it in the links array
+  */
+  UPDATE MACRO OnLinkAccepted(OBJECT link)
+  {
+    //Wait for the constructor
+//    ABORT(link->ReceiveMessage(MAX_DATETIME));
+    link->AsyncReceiveMessage(MAX_DATETIME)->Then(PTR this->SetupLink(link, #1))->OnError(PTR this->FailLink(link));
+  }
+
+  MACRO SetupLink(OBJECT link, RECORD msg)
+  {
+    IF (msg.status = "gone")
+    {
+      this->FailLink(link);
+      RETURN;
+    }
+
+    TRY
+    {
+      OBJECT handler := this->CreateLinkHandler(msg.msg.__new);
+      INSERT [ handler := handler, link := link] INTO this->links AT END;
+      link->SendReply(DescribePublicInterface(handler), msg.msgid);
+    }
+    CATCH(OBJECT e)
+    {
+      //FIXME SendExceptionReply doesn't work here ??
+      link->SendExceptionReply(e, msg.msgid);
+      this->CloseLink(link);
+    }
+  }
+
+  MACRO FailLink(OBJECT link)
+  {
+    INTEGER pos := this->GetLinkPos(link);
+    IF(pos=-1)
+      RETURN;
+
+    DELETE FROM this->links AT pos;
+    this->CloseLink(link);
+  }
+
+  INTEGER FUNCTION GetLinkPos(OBJECT link)
+  {
+    FOREVERY(RECORD mylink FROM this->links)
+      IF(mylink.link = link)
+        RETURN #mylink;
+    RETURN -1;
+  }
+
+  UPDATE RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    TRY
+    {
+      INTEGER pos := this->GetLinkPos(link);
+      VARIANT result := CallAnyPtrVA(GetObjectMethodPtr(this->links[pos].handler, message.call), message.args);
+
+      IF (TypeID(result) = TypeID(OBJECT) AND result EXTENDSFROM PromiseBase)
+      {
+        this->promiseseq := this->promiseseq + 1;
+        result->Then(PTR this->ResolvePromise(link, this->promiseseq, #1), PTR this->RejectPromise(link, this->promiseseq, #1));
+        RETURN [ result := "message", msg := [ __promiseseq := this->promiseseq ]];
+      }
+
+      RETURN [ result := "message", msg := [ result := result ] ];
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN [ result := "message", msg := [ __exception := e->EncodeForIPC() ] ];
+    }
+  }
+
+  MACRO ResolvePromise(OBJECT link, INTEGER promiseseq, VARIANT result)
+  {
+    IF (TypeID(result) = TypeID(OBJECT))
+      link->SendMessage([ __promiseseq := promiseseq, type := "resolve-exception", value := result->EncodeForIPC() ]);
+    ELSE
+      link->SendMessage([ __promiseseq := promiseseq, type := "resolve", value := result ]);
+  }
+
+  MACRO RejectPromise(OBJECT link, INTEGER promiseseq, OBJECT e)
+  {
+    link->SendMessage([ __promiseseq := promiseseq, type := "reject", value := e->EncodeForIPC() ]);
+  }
+>;
+
+OpenPrimary();
+RECORD scriptinfo := __InitManagedScript();
+NEW InternalServiceBase(scriptinfo.commport, scriptinfo.msg.library, scriptinfo.msg.portobjectname)->Run();

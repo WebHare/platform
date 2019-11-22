@@ -1,0 +1,27 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+PUBLIC RECORD FUNCTION RunCalculationFunction(STRING lib, STRING func, RECORD data, RECORD options)
+{
+  options := ValidateOptions(
+      [ profile :=  FALSE
+      ], options);
+
+  OpenPrimary();
+
+  RECORD result;
+
+  FUNCTION PTR fptr := MakeFunctionPtr(lib, func, TypeID(RECORD), [ TypeID(RECORD) ]);
+  TRY
+  {
+    result := [ value := fptr(data) ];
+  }
+  CATCH (OBJECT e)
+  {
+    result := [ __exception := e->EncodeForIPC() ];
+  }
+
+  RETURN result;
+}

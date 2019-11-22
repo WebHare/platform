@@ -1,0 +1,97 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
+
+/** Merge fields for use in (mail) widgets
+*/
+PUBLIC STATIC OBJECTTYPE MergeFieldsContext
+<
+  RECORD source;
+  STRING language;
+
+  BOOLEAN mergefieldsinitialized;
+  RECORD ARRAY pvt_mergefields;
+
+  /** @short Get a list of merge fields
+      @cell(string) name Field name
+      @cell(string) title Field title
+      @cell(record) value See FormBase::PrepareFormDataForComposer
+      @cell(string) type The fully qualified type name (namespace and local name) of the field's node
+  */
+  PUBLIC PROPERTY mergefields(GetMergeFields, -);
+
+  PUBLIC RECORD extradata;
+
+  MACRO NEW(RECORD source, STRING language)
+  {
+    this->source := source;
+    this->language := language;
+  }
+
+  RECORD ARRAY FUNCTION GetMergeFields()
+  {
+    IF (this->mergefieldsinitialized)
+      RETURN this->pvt_mergefields;
+
+    SWITCH (this->source.type)
+    {
+      CASE "formdef"
+      {
+        RECORD ARRAY data := CellExists(this->source, "data") ? this->source.data.allfields : RECORD[];
+        RECORD ARRAY sources;
+        RECORD ARRAY fields := this->source.formdef->ListFields([ languagecode := this->language ]);
+        FOREVERY (RECORD field FROM fields)
+        {
+          RECORD value :=
+              SELECT *
+                FROM data
+               WHERE fieldguid = field.name
+                     OR ToUppercase(fieldname) = ToUppercase(field.name);
+          INSERT
+              [ name := field.guid
+              , title := this->source.formdef->DescribeField(field.guid, [ languagecode := this->language, __listfields := fields ]).pathtitle
+              , value := value
+              , type := field.obj->qname
+              , isadditional := FALSE
+              ] INTO sources AT END;
+
+          FOREVERY (RECORD extrafield FROM field.obj->GetExtraMergeFields(value))
+          {
+            INSERT
+                [ name := field.guid || "$" || extrafield.name
+                , title := this->source.formdef->DescribeField(field.guid, [ languagecode := this->language, __listfields := fields ]).pathtitle || " – " || extrafield.title
+                , value := extrafield.value
+                , type := field.obj->qname
+                , isadditional := TRUE
+                ] INTO sources AT END;
+          }
+        }
+        this->pvt_mergefields := sources;
+        this->mergefieldsinitialized := TRUE;
+        RETURN sources;
+      }
+    }
+    THROW NEW Exception(`Unknown merge fields source '${this->source.type}'`);
+  }
+>;
+
+PUBLIC RECORD FUNCTION CreateMergeFieldsContext(OBJECT applytester, OBJECT formresults, OBJECT formdefinition, RECORD result)
+{
+  RECORD integrationsettings := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+  RECORD rtdtype := GetRTDType(RecordExists(integrationsettings) AND integrationsettings.mailrtdtype != "" ? integrationsettings.mailrtdtype : "http://www.webhare.net/xmlns/publisher/defaultmailrtdtype");
+  IF (NOT RecordExists(rtdtype))
+    RETURN DEFAULT RECORD;
+
+  RECORD mergedata := formresults->GetWittyResultData(result);
+  OBJECT mergefields := NEW MergeFieldsContext([ type := "formdef", formdef := formdefinition, data := mergedata ], result.languagecode);
+  OBJECT context := NEW PreviewContext(formresults->GetStorageObject(), applytester, rtdtype);
+  context->__mergefields := mergefields;
+
+  RETURN
+      CELL[ context
+          , applytester
+          , rtdtype
+          ];
+}

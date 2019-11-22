@@ -1,0 +1,20 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="Forms"
+       shortdescription="WebHare forms"
+       docorder="basicsetup
+                 address-validation
+                 captcha
+                 customforms
+                 custom-question-types
+                 custom-handler-types
+                 custom-form-types
+                 javascript-handling
+                 rtd
+                 mail-confirmation-handler
+                 faq">
+  <section name="baseclasses" title="Base classes for forms and form pages" />
+  <section name="api" title="APIs for managing form files" />
+  <section name="standardcomponents" title="Standard form components" />
+  <section name="standardhandlers" title="Standard form handlers" />
+  <section name="extensions" title="Extending the form editor" />
+</topic>

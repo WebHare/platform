@@ -1,0 +1,105 @@
+<?wh
+
+PUBLIC OBJECTTYPE AppServerConnectionBase
+  </** Returns capabilities of this connection
+        @return Capabilities of this connection
+        @cell return.has_binary_expect Whether this connection supports binary expects
+    */
+    PUBLIC RECORD FUNCTION GetOptions()
+    {
+      ABORT("This function needs to be overridden");
+    }
+
+    /** Call this when a line is expected to be sent from the other side
+        When that line arrives, OnLineReceive will be called
+    */
+    PUBLIC MACRO ExpectLine(INTEGER maxlinelength)
+    {
+      ABORT("This function needs to be overridden");
+    }
+
+    /** Call this when some binary data is expected to arrive
+        When that data arrives, OnBinaryDataReceive must be called
+    */
+    PUBLIC MACRO ExpectBinaryData(INTEGER size)
+    {
+      ABORT("This function needs to be overridden");
+    }
+
+    /** Sets the timer. When the timer expires, OnTimerExpire will be called
+    */
+    PUBLIC MACRO SetTimer(INTEGER timeout)
+    {
+      ABORT("This function needs to be overridden");
+    }
+
+    /** Called when a line arrives
+        @param data Line data, with the CRLF stripped
+        @param complete Returns whether the line was complete (that the rest of the line was ignored)
+    */
+    PUBLIC FUNCTION PTR OnLineReceive;
+
+    /** Called when binary data arrives
+        @param data Binary data
+    */
+    PUBLIC FUNCTION PTR OnBinaryDataReceive;
+
+    /** Called when the timer expires
+        @param data Binary data
+    */
+    PUBLIC FUNCTION PTR OnTimerExpire;
+
+    /** Called when the client has disconnected while still expecting data
+    */
+    PUBLIC FUNCTION PTR OnClientDisconnect;
+
+    /// Sends data. No more OnLineReceive or OnBinaryDataReceive will be called until the data has been sent
+    PUBLIC MACRO SendData(STRING line)
+    {
+      ABORT("This function needs to be overridden");
+    }
+
+    /// Flushes all sent data still in buffers
+    PUBLIC MACRO FlushData()
+    {
+    }
+
+    /// Send to disconnect, with a grace timeout (0 for immediate kill)
+    PUBLIC MACRO Disconnect(INTEGER grace_timeout)
+    {
+      ABORT("This function needs to be overridden");
+    }
+
+    /** Returns data describing the connection
+        @return Connection-data
+        @cell return.remote_ip Sender IP-address
+        @cell return.remote_port Sender port
+        @cell return.local_ip Local IP-address
+        @cell return.local_port Local port
+    */
+    PUBLIC RECORD FUNCTION GetConnectionData()
+    {
+      ABORT("This function needs to be overridden");
+    }
+
+    /** Returns the id for this script (prints from this script will be prefixed
+        with this GetScriptID when in debugmode)
+    */
+    PUBLIC STRING FUNCTION GetScriptID()
+    {
+      RETURN "";
+    }
+
+    /// Returns whether the appserver is in debug mode
+    PUBLIC BOOLEAN FUNCTION InDebugMode()
+    {
+      RETURN TRUE;
+    }
+
+    /** Run the connection (start the loop) */
+    PUBLIC MACRO Run()
+    {
+      ABORT("This function needs to be overridden");
+    }
+
+  >;

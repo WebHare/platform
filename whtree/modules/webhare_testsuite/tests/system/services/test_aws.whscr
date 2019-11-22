@@ -1,0 +1,101 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webapi/aws/s3.whlib";
+LOADLIB "mod::system/lib/webapi/aws/sns.whlib";
+
+
+/* This test requires various environment variables to be set
+   In Sublime, set these under User preferences > build_env, eg
+
+  "build_env":
+  {
+    "TESTFW_AWS_APIKEY": "AK...."
+  },
+
+  We need something like the following policy on the testbucket
+
+  {
+      "Version": "2012-10-17",
+      "Statement": [
+          {
+              "Effect": "Allow",
+              "Principal": {
+                  "AWS": "arn:aws:iam::079021186127:user/webhare-ci-test-aws"
+              },
+              "Action": "s3:*",
+              "Resource": [
+                  "arn:aws:s3:::webhare-ci-test-aws/*",
+                  "arn:aws:s3:::webhare-ci-test-aws"
+              ]
+          }
+      ]
+  }
+
+*/
+
+STRING apizone := GetEnvironmentVariable("TESTFW_AWS_APIZONE") ?? "eu-west-1";
+STRING apikey := GetEnvironmentVariable("TESTFW_AWS_APIKEY");
+STRING apisecret := GetEnvironmentVariable("TESTFW_AWS_APISECRET");
+STRING bucket := GetEnvironmentVariable("TESTFW_AWS_APIBUCKET") ?? "webhare-ci-test-aws";
+
+MACRO Test_S3()
+{
+  //for our CI, apikeys associated with webhare-ci-test-aws
+  IF(apikey="" OR apisecret="")
+    THROW NEW Exception("TESTFW_AWS_APIKEY or TESTFW_AWS_APISECRET not set, cannot test S3!");
+
+  OBJECT s3 := NEW AmazonAWSS3Interface(apizone, apikey, apisecret);
+  //DumpValue(s3->listBuckets());
+
+  STRING testcontent := "This is a test - " || GenerateUFS128BitId();
+  s3->PutObject(bucket, "/testfile", StringToBlob(testcontent));
+
+  RECORD ARRAY dir := s3->GetDirectory(bucket,"/");
+  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testfile" AND size=Length(testcontent)));
+
+  RECORD obj := s3->GetObject(bucket, "/testfile");
+  TestEq(testcontent, BlobToString(obj.body));
+
+  s3->DeleteObject(bucket, "/testfile");
+
+  dir := s3->GetDirectory(bucket,"/");
+  TestEq(FALSE, RecordExists(SELECT FROM dir WHERE name="testfile" AND size=Length(testcontent)));
+  TestEq(FALSE, RecordExists(s3->GetObject(bucket, "/testfile")));
+}
+
+MACRO Test_S3ListBuckets()
+{
+  /* We can only run this test if we -own- the test bucket. The standard
+     credentials can't
+
+     To test this call, uncomment the test and
+
+     export TESTFW_AWS_APIKEY="<API KEY>"
+     export TESTFW_AWS_APISECRET="<API SECRET>"
+     wh run mod::webhare_testsuite/tests/system/services/test_aws.whscr
+     */
+  OBJECT s3 := NEW AmazonAWSS3Interface(apizone, apikey, apisecret);
+  RECORD ARRAY buckets := s3->listAllBuckets();
+  RECORD mytestbucket := SELECT * FROM buckets WHERE name = VAR bucket;
+  TestEq(TRUE, RecordExists(mytestbucket));
+  TestEq(TRUE, mytestbucket.creationdate > MakeDate(2017,11,1));
+}
+
+MACRO Test_SNS()
+{
+  IF(apikey="" OR apisecret="")
+    THROW NEW Exception("TESTFW_AWS_APIKEY or TESTFW_AWS_APISECRET not set, cannot test SNS!");
+
+  OBJECT sns := NEW AmazonAWSSNSInterface(apizone, apikey, apisecret);
+  TestEQ(TRUE, Length(sns->ListTopics()) > 10);
+}
+
+RunTestframework([ PTR Test_S3
+                 // , PTR Test_S3ListBuckets //this requires higher privileges!
+                 , PTR Test_SNS
+                 ]);

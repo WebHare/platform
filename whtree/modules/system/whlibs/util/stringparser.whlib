@@ -1,0 +1,281 @@
+<?wh
+/** @topic harescript-utils/stringparser */
+// This library contains a stringparser
+
+STRING set_alpha := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+STRING set_digit := "0123456789";
+STRING set_ascii := DecodeBase16("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F404142434445464748494A4B4C4D4E4F505152535455565758595A5B5C5D5E5F606162636465666768696A6B6C6D6E6F707172737475767778797A7B7C7D7E7F");
+STRING set_control := DecodeBase16("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F7F");
+STRING set_all := DecodeBase16("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F404142434445464748494A4B4C4D4E4F505152535455565758595A5B5C5D5E5F606162636465666768696A6B6C6D6E6F707172737475767778797A7B7C7D7E7F808182838485868788898A8B8C8D8E8F909192939495969798999A9B9C9D9E9FA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBFC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDFE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF");
+
+INTEGER64 dataidcounter;
+
+/** String parser class, has some useful functions for string parsing
+
+    eof and current can both be calculated from data and position, but they
+    are used very often, so it would be inefficient to write wrapper functions
+    for them.
+
+    The position is leading, but eof MAY be used for shortcuts (but MAY be ignored)
+*/
+PUBLIC STATIC OBJECTTYPE StringParser
+< /// All data
+  STRING pvt_data;
+
+  /// Position of current character
+  INTEGER pvt_pos;
+
+  /// Current character (eq to SubString(pvt_data, pvt_pos, 1) )
+  STRING pvt_current;
+
+  /// Whether end of data has been reached (eq to pvt_pos >= LENGTH(pvt_data) )
+  BOOLEAN pvt_eof;
+
+  /// Unique id for the last data reset
+  INTEGER64 pvt_dataid;
+
+  STRING FUNCTION GetSetAlpha()
+  {
+    RETURN set_alpha;
+  }
+
+  STRING FUNCTION GetSetDigit()
+  {
+    RETURN set_digit;
+  }
+
+  STRING FUNCTION GetSetASCII()
+  {
+    RETURN set_ascii;
+  }
+
+  STRING FUNCTION GetSetControl()
+  {
+    RETURN set_control;
+  }
+
+  STRING FUNCTION GetSetAll()
+  {
+    RETURN set_all;
+  }
+
+  /// A string with ASCII letters (a-z, A-Z)
+  PUBLIC PROPERTY set_alpha(GetSetAlpha, -);
+
+  /// A string with all ASCII digits (0-9)
+  PUBLIC PROPERTY set_digit(GetSetDigit, -);
+
+  /// A string with all ASCII characters (0-127)
+  PUBLIC PROPERTY set_ascii(GetSetASCII, -);
+
+  /// A string with all control characters (0-31, 127)
+  PUBLIC PROPERTY set_control(GetSetControl, -);
+
+  /// A string with all byte characters (0-255)
+  PUBLIC PROPERTY set_all(GetSetAll, -);
+
+  /// Current character, or empty string at eof.
+  PUBLIC PROPERTY current(pvt_current, -);
+
+  /// Integer with current position within data
+  PUBLIC PROPERTY position(pvt_pos, -);
+
+  /// Returns current character and the rest of the unparsed data
+  PUBLIC PROPERTY remaining_data(GetRemainingData, -);
+
+  /// Whether position is at end of data
+  PUBLIC PROPERTY eof(pvt_eof, -);
+
+  /** Initializes a string parser
+      @param data Data to parse
+  */
+  PUBLIC MACRO NEW(STRING data DEFAULTSTO "")
+  {
+    this->Reset(data);
+  }
+
+  /** Resets the parser for a new string
+      @param data Data to parse
+  */
+  PUBLIC MACRO Reset(STRING data)
+  {
+    dataidcounter := dataidcounter + 1;
+
+    this->pvt_data := data;
+    this->pvt_pos := 0;
+    this->pvt_current := LEFT(data, 1);
+    this->pvt_eof := data = "";
+    this->pvt_dataid := dataidcounter;
+  }
+
+  /** Saves the state of the stringparser
+      @return Saved state, use [RestoreState](#RestoreState) to restore
+  */
+  PUBLIC RECORD FUNCTION SaveState()
+  {
+    RETURN
+        [ __data := this->pvt_data
+        , __pos  := this->pvt_pos
+        , __id := this->pvt_dataid
+        ];
+  }
+
+  /** Restores the state of the stringparser
+      @param state Saved state from by [SaveState](#SaveState)
+  */
+  PUBLIC MACRO RestoreState(RECORD state)
+  {
+    this->pvt_data := state.__data;
+    this->pvt_pos := state.__pos;
+    this->pvt_dataid := state.__id;
+    this->pvt_current := Substring(this->pvt_data, this->pvt_pos, 1);
+    this->pvt_eof := LENGTH(this->pvt_data) <= this->pvt_pos;
+  }
+
+  /** Returns the difference in characters from a saved state to the current position.
+      @param state Saved state from [SaveState](#SaveState)
+      @return Number of characters from the saved state to the current position
+      @example
+      OBJECT p := NEW StringParser("test");
+      RECORD oldstate := p->SaveState();
+      p->ParseN(2);
+      // Returns 2
+      INTEGER distance := p->GetDistanceToState(oldstate);
+  */
+  PUBLIC INTEGER FUNCTION GetDistanceFromState(RECORD state)
+  {
+    IF (this->pvt_dataid != state.__id)
+      THROW NEW Exception(`Cannot compare states with different data`);
+    RETURN this->pvt_pos - state.__pos;
+  }
+
+  /** Set position to the next character, returns whether eof has been reached
+      @return TRUE if the end of the file hasn't been reached yet
+  */
+  PUBLIC BOOLEAN FUNCTION Next() __ATTRIBUTES__(EXTERNAL);
+
+  /** Skips N characters
+      @param n Number of characters to skip
+      @return TRUE if the end of the file hasn't been reached yet
+  */
+  PUBLIC BOOLEAN FUNCTION SkipN(INTEGER n)
+  {
+    this->pvt_pos := this->pvt_pos + n;
+    INTEGER data_limit := LENGTH(this->pvt_data);
+    IF (this->pvt_pos >= data_limit)
+    {
+      this->pvt_pos := data_limit;
+      this->pvt_eof := TRUE;
+      this->pvt_current := "";
+      RETURN FALSE;
+    }
+
+    this->pvt_current := SubString(this->pvt_data, this->pvt_pos, 1);
+    this->pvt_eof := FALSE;
+    RETURN TRUE;
+  }
+
+  /** Parses until a specific character, or the end of the data. Returns the data from the current position up to (but not including) the end character
+      @param c Character to stop parsing at
+      @return Parsed characters
+  */
+  PUBLIC STRING FUNCTION ParseUntilCharacter(STRING c)
+  {
+    IF (this->pvt_eof)
+      RETURN "";
+    IF (LENGTH(c) != 1)
+      THROW NEW Exception(`This function must be previoded one character, got ${LENGTH(c)}. Please use ParseWhileNotInSet instead if this is intentional.`);
+
+    RETURN this->ParseWhileNotInSet(c);
+  }
+
+  /** Parses a number characters
+      @param n Number of characters to parse
+      @return Parsed characters. If the end of the data is reached while reading, all characters until then are returned
+  */
+  PUBLIC STRING FUNCTION ParseN(INTEGER n)
+  {
+    INTEGER avail := LENGTH(this->pvt_data) - this->pvt_pos;
+    IF (avail < n)
+      n := avail;
+
+    STRING data := SubString(this->pvt_data, this->pvt_pos, n);
+    this->SkipN(n);
+
+    RETURN data;
+  }
+
+  /** Tries to parse a string, returns whether successful.
+      @param c String to match
+      @return TRUE if the string was present at the original position
+  */
+  PUBLIC BOOLEAN FUNCTION TryParse(STRING c) __ATTRIBUTES__(EXTERNAL);
+
+  /** Tries to parse a string (case insensitive), returns whether successful.
+      @param c String to match case insensitively
+      @return TRUE if the string was present at the original position
+  */
+  PUBLIC BOOLEAN FUNCTION TryParseCase(STRING c) __ATTRIBUTES__(EXTERNAL);
+
+  /** Parses all subsequent characters that are in the set
+      @param myset Set of characters to parse
+      @return Parsed characters
+  */
+  PUBLIC STRING FUNCTION ParseWhileInSet(STRING myset) __ATTRIBUTES__(EXTERNAL);
+
+  /** Parses all subsequent characters that are not in the set
+      @param myset Set of characters, stops parsing when any of those characters are encountered
+      @return Parsed characters
+  */
+  PUBLIC STRING FUNCTION ParseWhileNotInSet(STRING myset) __ATTRIBUTES__(EXTERNAL);
+
+  /** @short Returns the next N characters, without moving the current position
+      @long This functions returns the characters _after_ the current parse point.
+      @param n Number of characters to read
+      @param pluspos Number of characters to skip from the current parse
+          point (0 to include the current character). Defaults to 1.
+      @return Peeked characters
+      @see #current
+  */
+  PUBLIC STRING FUNCTION PeekN(INTEGER n, INTEGER pluspos DEFAULTSTO 1)
+  {
+    RETURN SubString(this->pvt_data, this->pvt_pos + pluspos, n);
+  }
+
+  /** Removes a number of characters from a character set
+      @param myset Original set
+      @param removethese Characters to remove
+      @return Set with the specified characters removed
+  */
+  PUBLIC STRING FUNCTION RemoveFromSet(STRING myset, STRING removethese)
+  {
+    STRING retval;
+    FOR (INTEGER i := 0, e := LENGTH(myset); i < e; i := i + 1)
+    {
+      STRING c := SubString(myset, i, 1);
+      IF (SearchSubString(removethese, c) = -1)
+        retval := retval || c;
+    }
+    RETURN retval;
+  }
+
+  /** Returns all reamining (unparsed) data (inclusing current character)
+      @return Remaining data
+  */
+  PUBLIC STRING FUNCTION GetRemainingData()
+  {
+    RETURN SubString(this->pvt_data, this->pvt_pos);
+  }
+
+  /** Get the last N parsed characters, without moving the current position
+      @param n Number of characters
+      @return The specificed number of characters before the current positions
+  */
+  PUBLIC STRING FUNCTION GetLastParsed(INTEGER n)
+  {
+    IF (n >= this->pvt_pos)
+      n := this->pvt_pos;
+
+    RETURN SubString(this->pvt_data, this->pvt_pos - n, n);
+  }
+>;

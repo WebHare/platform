@@ -1,0 +1,15 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="Testframework and Continuous Integration"
+       docorder="
+         validation
+         runtest
+         harescript
+         jstests
+         tollium-headless"
+       >
+  <section name="api" title="Testframework API" />
+  <section name="publisher" title="Publisher test APIs" />
+  <section name="tollium" title="Tollium test APIs" />
+  <section name="wrd" title="WRD test APIs" />
+  <section name="validation" title="Syntax/file validation" />
+</topic>

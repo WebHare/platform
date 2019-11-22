@@ -1,0 +1,19 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+
+PUBLIC STRING FUNCTION FormatOutputPath(STRING inpath)
+{
+  IF(inpath = "" OR IsPathAbsolute(inpath) OR IsAbsoluteResourcePath(inpath))
+    RETURN inpath;
+  ELSE
+    RETURN GetWebserverBaseOutputFolder() || inpath;
+}
+PUBLIC STRING FUNCTION UnmapOutputPath(STRING inpath)
+{
+  RETURN inpath LIKE GetWebserverBaseOutputFolder() || "*" ? Substring(inpath, Length(GetWebserverBaseOutputFolder())) : inpath;
+}
+

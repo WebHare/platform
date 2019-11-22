@@ -1,0 +1,3 @@
+<?wh
+loadlib "wh::os.whlib";
+print("-- this is test 4 ("||getconsolearguments()[0]||") --\n");

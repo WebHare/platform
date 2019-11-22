@@ -1,0 +1,27 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+
+  <test script="test-tollium-base.whscr" />
+  <test script="communication.whscr" />
+  <test script="tolliumwork.whscr" />
+  <test script="contexts.whscr" />
+  <test script="runmodalscreen.whscr" />
+  <test script="helpers.whscr" />
+
+  <jstest file="test_distributesizes.es" />
+
+  <test path="layout/" />
+  <test path="enabled/" />
+  <test path="dragdrop/" />
+  <test path="lists/" />
+  <test path="tables/" />
+  <test path="richdoc/" />
+  <test path="jsapp/" />
+  <test path="regressions/" />
+
+  <test script="components.whscr" />
+
+  <test path="comm/" />
+  <test path="language/" />
+  <test path="nodejs/" />
+
+</group>

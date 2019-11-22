@@ -1,0 +1,151 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         library="syncedfolders.whlib"
+         gid="tolliumapps.filemanager.syncedfolders">
+
+  <screen name="manage" allowresize="true" width="120x" height="40x" savestate="size">
+    <actions>
+      <action name="add" onexecute="doadd" tid="~add" />
+      <action name="edit" onexecute="doedit" tid="~edit" >
+        <enableon source="folders" min="1" />
+      </action>
+      <action name="delete" onexecute="dodelete" tid="~delete">
+        <enableon source="folders" min="1" />
+      </action>
+    </actions>
+    <body>
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="folders"
+                  selectmode="single"
+                  rowselect="true"
+                  openaction="edit">
+              <column name="folder" type="text" />
+              <column name="peer" type="text" />
+              <column name="remotepath" type="text"/>
+            </list>
+          </cell>
+          <cell>
+            <button action="add" width="1pr" />
+            <button action="edit" width="1pr" />
+            <button action="delete" width="1pr" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="editfolder">
+    <actions>
+      <action name="selectpeer" onexecute="doselectpeer" tid="~select" />
+      <action name="selectfolder" onexecute="doselectfolder" tid="~select" />
+    </actions>
+    <compositions>
+      <record name="rec" />
+    </compositions>
+    <body>
+      <publisher:browseforobject composition="rec"
+                                 cellname="id"
+                                 name="folder"
+                                 acceptfolders="true"
+                                 acceptrootfolder="true"
+                                 required="true"
+                                 tid=".localfolder" />
+
+      <heading tid=".foldertodownload" />
+      <line>
+        <textedit composition="rec" cellname="peer" name="peer" enabled="false"/>
+        <button action="selectpeer" />
+      </line>
+      <line>
+        <textedit composition="rec" cellname="remotepath" name="remotepath" width="1pr" required="true" />
+        <button action="selectfolder" />
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="selectremotefolder"
+          width="70x"
+          height="30x"
+          allowresize="true">
+    <actions>
+      <action name="select" onexecute="submit" tid="~ok">
+        <enableon source="tree" min="1" max="1" />
+      </action>
+    </actions>
+    <body>
+      <panel height="1pr">
+        <list height="1pr"
+              name="tree"
+              openaction="select"
+              rowselect="true"
+              selectmode="single"
+              ongetpath="ongetpath"
+              ongetchildren="ongetchildren"
+              icons="tollium:folders/normal tollium:files/application_x-webhare-general"
+              columnheaders="false">
+          <column name="name" type="text" iconname="icon" tree="true" title="" />
+        </list>
+      </panel>
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="select" />
+        <button tolliumresult="cancel" tid="~cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="syncfolder" allowresize="true" width="90x" height="20x" savestate="size">
+    <actions>
+      <action name="managesyncpoints" onexecute="domanagesyncpoints"/>
+      <action name="foldersync" onexecute="DoFolderSync">
+        <enableon source="syncpoints" min="1" max="1" />
+      </action>
+      <action name="fullsync" onexecute="DoFullSync">
+        <enableon source="syncpoints" min="1" max="1" checkflags="cansync"/>
+      </action>
+      <windowopenaction name="open" tid="~open" onwindowopen="doopen">
+        <enableon source="syncpoints" min="1" max="1" />
+      </windowopenaction>
+    </actions>
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="syncpoints" selectmode="single" height="1pr" emptytid=".nosyncpoints" flags="cansync">
+            <column name="peer" type="text" />
+            <column name="remotefolder" type="text" />
+          </list>
+        </cell>
+        <cell>
+          <button action="fullsync" width="1pr" />
+          <button action="foldersync" width="1pr" />
+          <button action="open" width="1pr" />
+        </cell>
+      </grid>
+    </body>
+    <footer>
+      <grid>
+        <cell width="1pr">
+          <button action="managesyncpoints" />
+        </cell>
+        <cell>
+          <line layout="right">
+            <button tid="~close" tolliumresult="cancel" />
+          </line>
+        </cell>
+      </grid>
+    </footer>
+  </screen>
+
+</screens>

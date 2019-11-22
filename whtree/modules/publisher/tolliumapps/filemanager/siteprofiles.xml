@@ -1,0 +1,135 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="siteprofiles.whlib"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         gid="filemanager.siteprofiles"
+         >
+
+  <messageboxes gid=".messageboxes">
+    <messagebox name="siteprofilesrecompiled" icon="information" buttons="ok" />
+    <messagebox name="deletectypeconfirm" icon="question" buttons="yes no" default="no" />
+    <messagebox name="deletectypememberconfirm" icon="question" buttons="yes no" default="no" />
+  </messageboxes>
+
+  <screen name="managectypes" gid=".managectypes" allowresize="true" width="100x" height="30x">
+
+    <actions>
+      <action name="recompile" onexecute="dorecompile" shortcut="ctrl+e"/>
+      <action name="viewtype" tid="~properties" onexecute="doviewtype" shortcut="ctrl+i">
+        <enableon source="types" min="1" />
+      </action>
+      <action name="deletetype" tid="~delete">
+        <enableon source="types" checkflags="candelete" min="1" requirefocus="true" onexecute="dodelete" />
+      </action>
+    </actions>
+
+    <menus gid=".menus">
+      <menu name="context_menu">
+        <item action="viewtype" tid="~properties" />
+        <item action="deletetype" tid="~delete" />
+      </menu>
+    </menus>
+
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <panel backgroundcolor="#f0f0f0" borders="top left right" spacers="right">
+            <line layout="tabs-space">
+              <spacer />
+              <textedit name="filter" onchange="gotfilterchange" />
+            </line>
+          </panel>
+
+          <list name="types"
+                flags="candelete"
+                emptytid=".noctypes"
+                selectmode="single"
+                selectcontextmenu="context_menu"
+                openaction="viewtype"
+                minwidth="30x"
+                width="1pr" height="1pr"
+                borders="all">
+            <column name="namespace" type="text" iconname="typeicon" />
+            <column name="id" type="integer" width="8x" tid="~id" />
+          </list>
+        </cell>
+        <cell>
+          <button action="recompile" width="1pr" />
+          <button action="viewtype" width="1pr" />
+          <button action="deletetype" width="1pr" />
+        </cell>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="ctypemembers" gid=".ctypemembers" allowresize="true" width="105x" height="25x">
+    <actions>
+      <action name="deletetype" tid="~delete">
+        <enableon source="members" checkflags="candelete" min="1" requirefocus="true" onexecute="dodelete" />
+      </action>
+    </actions>
+
+    <menus gid=".menus">
+      <menu name="context_menu">
+        <item action="deletetype" tid="~delete" />
+      </menu>
+    </menus>
+
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="members"
+                flags="candelete"
+                emptytid=".nomembers"
+                selectmode="single"
+                ongetpath="ongetpath"
+                ongetchildren="ongetchildren"
+                selectcontextmenu="context_menu"
+                icons="tollium:status/negative tollium:status/checked"
+                minwidth="30x"
+                width="1pr" height="1pr">
+            <column name="name" type="text" tree="true" />
+            <column name="typename" type="text" />
+            <column name="rowkey" type="integer" width="8x" tid="~id" />
+          </list>
+        </cell>
+        <cell>
+          <button action="deletetype" width="1pr" />
+        </cell>
+      </grid>
+      <box name="locationbox" hr="false">
+        <line>
+          <textedit name="siteprofile" enabled="false" width="1pr"/>
+          <text name="linenum" />
+        </line>
+      </box>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="ctypeerrors" gid=".ctypeerrors" allowresize="true">
+    <body name="body">
+      <panel height="1pr">
+        <list name="messagelist"
+              sortable="false"
+              width="1pr" height="1pr"
+              minwidth="150x" minheight="20x"
+              icons="tollium:status/warning tollium:status/error"
+              rowiconname="icon"
+              >
+          <column name="file" type="text" width="3pr" hintname="fullpath" />
+          <column name="line" type="integer" width="8x" align="right" /><!-- FIXME: using minwidth here will screw up layout due to a todd js error -->
+          <column name="message" type="text" width="10pr" />
+        </list>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close"/>
+    </footer>
+  </screen>
+
+</screens>

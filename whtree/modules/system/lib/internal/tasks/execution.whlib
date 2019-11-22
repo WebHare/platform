@@ -1,0 +1,173 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+
+
+CONSTANT INTEGER failreschedule := 15 * 60 * 1000;
+CONSTANT INTEGER restartdelay := 1000;
+
+OBJECT FUNCTION PrepareTask(RECORD taskinfo, BOOLEAN debug)
+{
+  OBJECT taskrunner := MakeObject(taskinfo.objectname);
+  IF(NOT taskrunner EXTENDSFROM ManagedTaskBase)
+    THROW NEW Exception(`Objecttype '${taskinfo.objectname}' does not extend from ManagedTaskBase`);
+
+  taskrunner->debug := debug;
+  IF(debug)
+    Print("Preparing task of type " || taskinfo.tasktype || "\n");
+
+  taskrunner->PrepareTask(taskinfo.data);
+  RETURN taskrunner;
+}
+
+RECORD FUNCTION ExecuteTask(OBJECT taskrunner, RECORD taskinfo)
+{
+  IF(taskrunner->debug)
+    Print("Handling task of type " || taskinfo.tasktype || "\n");
+
+  IF(NOT RecordExists(taskrunner->pvt_resolution))
+    taskrunner->RunTask(taskinfo.data);
+
+  IF(NOT RecordExists(taskrunner->pvt_resolution))
+    THROW NEW Exception("No resolution selected for the current task");
+
+  RETURN taskrunner->pvt_resolution;
+}
+
+PUBLIC RECORD FUNCTION ExecuteEphemeralTask(RECORD taskinfo, BOOLEAN debug)
+{
+  OBJECT taskrunner := PrepareTask(taskinfo, debug);
+  taskrunner->__taskmeta := [ taskid := 0 ];
+
+  RECORD resolution := ExecuteTask(taskrunner, taskinfo);
+  BOOLEAN hadworkopen := GetPrimary()->IsWorkOpen();
+  IF (hadworkopen)
+    GetPrimary()->RollbackWork();
+  IF (NOT RecordExists(resolution) OR NOT CellExists(resolution,'type'))
+    RETURN [ type := "taskfailed", error := "Could not read task result", trace := DEFAULT RECORD ARRAY, isfatal := TRUE ];
+
+  IF(resolution.type = "restart")
+    THROW NEW Exception("Task restarting is not supported for ephemeral tasks");
+
+  IF (hadworkopen)
+    RETURN [ type := "taskfailed", error := "Task did not close work", trace := DEFAULT RECORD ARRAY, isfatal := TRUE ];
+
+  IF(resolution.type = "finished")
+    RETURN [ type := "taskdone", result := resolution.result ];
+
+  THROW NEW Exception(`Unexpected resolution type '${resolution.type}'`);
+}
+
+PUBLIC RECORD FUNCTION ExecuteManagedTask(RECORD taskinfo, BOOLEAN debug)
+{
+  OBJECT trans := GetPrimary();
+  OBJECT taskrunner := PrepareTask(taskinfo, debug);
+
+  IF (taskrunner->mutex != "")
+    trans->BeginLockedWork(taskrunner->mutex);
+  ELSE
+    trans->BeginWork();
+
+  IF(NOT RecordExists(SELECT FROM system_internal.managedtasks WHERE id=taskinfo.dbid))
+    THROW NEW Exception("Task suddenly disppeared!");
+
+  taskrunner->__taskmeta := [ taskid := taskinfo.dbid ];
+  RECORD resolution := ExecuteTask(taskrunner, taskinfo);
+
+  IF(resolution.type="restart")
+  {
+    IF(debug)
+      Print("Task requested restart\n");
+
+    DATETIME nexttry := AddTimeToDate(restartdelay,GetCurrentDatetime());
+    IF(nexttry < resolution.when)
+      nexttry := resolution.when;
+
+    UPDATE system_internal.managedtasks
+           SET nextattempt := nexttry
+             , iterations  := iterations + 1
+             , taskdata    := RecordExists(resolution.options.newdata) ? EncodeHSON(resolution.options.newdata) : managedtasks.taskdata
+             , auxdata     := RecordExists(resolution.options.auxdata) ? EncodeHSONBlob(resolution.options.auxdata) : managedtasks.auxdata
+             , lasterrors  := ""
+           WHERE id = taskinfo.dbid;
+  }
+  ELSE IF(resolution.type="finished")
+  {
+    IF(debug)
+      Print("Task said 'done'\n");
+
+    STRING result := RecordExists(resolution.result) ? EncodeHSON(resolution.result) : "";
+    UPDATE system_internal.managedtasks
+           SET lasterrors := ""
+             , finished := GetCurrentDatetime()
+             , shortretval := Length(result) > 1000 ? "long" : result
+             , longretval := Length(result) > 1000 ? StringToBlob(result) : DEFAULT BLOB
+           WHERE id = taskinfo.dbid;
+  }
+  ELSE IF(resolution.type = "failed" OR resolution.type = "cancelled")
+  {
+    IF(debug)
+      Print("Task said '" || resolution.type || "'\n");
+
+    STRING result := RecordExists(resolution.result) ? EncodeHSON(resolution.result) : "";
+    UPDATE system_internal.managedtasks
+           SET lasterrors := resolution.error
+             , iscancelled := resolution.type = "cancelled"
+             , finished := GetCurrentDatetime()
+             , shortretval := Length(result) > 1000 ? "long" : result
+             , longretval := Length(result) > 1000 ? StringToBlob(result) : DEFAULT BLOB
+           WHERE id = taskinfo.dbid;
+  }
+  ELSE IF(resolution.type="failedtemporarily")
+  {
+    IF(debug)
+      Print("Task said '" || resolution.type || "'\n");
+
+    DATETIME now := GetCurrentDatetime();
+
+    // At least restartdelay spacing between retries
+    DATETIME minnextretry := AddTimeToDate(restartdelay, GetCurrentDatetime());
+    DATETIME nexttry := MAX[]([ minnextretry, resolution.nextretry ]);
+
+    // No nexttry specified?
+    IF (nexttry = MAX_DATETIME)
+    {
+      // Use exponential backoff: 15m, 30m, 60m, 2u, 4u, 8u. After that, 1 day between attempts
+      INTEGER currentiteration :=
+          SELECT AS INTEGER iterations
+            FROM system_internal.managedtasks
+           WHERE id = taskinfo.dbid;
+
+      IF (currentiteration >= 6)
+        nexttry := AddDaysToDate(1, GetCurrentDatetime());
+      ELSE
+        nexttry := AddTimeToDate(failreschedule * (1 BITLSHIFT currentiteration), GetCurrentDatetime());
+    }
+
+    STRING result := RecordExists(resolution.result) ? EncodeHSON(resolution.result) : "";
+    UPDATE system_internal.managedtasks
+       SET nextattempt :=   nexttry
+         , iterations :=    iterations + 1
+         , lasterrors :=    resolution.error
+         , shortretval :=   Length(result) > 1000 ? "long" : result
+         , longretval :=    Length(result) > 1000 ? StringToBlob(result) : DEFAULT BLOB
+     WHERE id = taskinfo.dbid;
+  }
+  ELSE
+  {
+    THROW NEW Exception(`Unexpected resolution type '${resolution.type}'`);
+  }
+  trans->BroadcastOnCommit("system:managedtasks.any." || taskinfo.dbid, DEFAULT RECORD);
+  trans->BroadcastOnCommit("system:managedtasks." || taskinfo.tasktype || "." || taskinfo.dbid, DEFAULT RECORD);
+
+  trans->CommitWork();
+  RETURN CELL[ type := "taskdone"
+             , resolution
+             ];
+}
+

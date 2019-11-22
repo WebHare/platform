@@ -1,0 +1,77 @@
+﻿<?wh
+LOADLIB "wh::ooxml/internal/utils.whlib";
+
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+
+PUBLIC OBJECTTYPE OOXMLDocument
+<
+  OBJECT ooxmlarchive;
+  OBJECT archiveroot;
+  OBJECT mainofficedoc;
+  RECORD ARRAY relfiles;
+
+  PUBLIC MACRO RegisterFilePart(OBJECT part, STRING path)
+  {
+    INSERT [ part := part, path := ToUppercase(path) ] INTO this->relfiles AT END;
+  }
+  PUBLIC OBJECT FUNCTION GetRegisteredFilePart(STRING getpath)
+  {
+    RECORD relfile := SELECT * FROM this->relfiles WHERE path = ToUppercase(getpath);
+    RETURN RecordExists(relfile) ? relfile.part : DEFAULT OBJECT;
+  }
+
+  PUBLIC OBJECT FUNCTION GetMaindocument()
+  {
+    RETURN this->mainofficedoc;
+  }
+
+  PUBLIC STRING FUNCTION GetMaindocumentType()
+  {
+    RETURN ObjectExists(this->mainofficedoc) ? this->mainofficedoc->document->documentelement->namespaceuri : "";
+  }
+
+  PUBLIC BOOLEAN FUNCTION LoadOOXMLDocument(BLOB infile)
+  {
+    this->mainofficedoc := DEFAULT OBJECT;
+    this->ooxmlarchive := OpenExistingArchive(infile);
+    this->archiveroot := NEW FilepartWithRels(this, this->ooxmlarchive, "");
+    IF (NOT this->Parse())
+      RETURN FALSE;
+
+    RETURN TRUE;
+  }
+
+  BOOLEAN FUNCTION Parse()
+  {
+    OBJECT offdoc := this->archiveroot->OpenRelationByType(officedocument_uri);
+    IF(NOT ObjectExists(offdoc)
+       OR NOT ObjectExists(offdoc->document) OR NOT ObjectExists(offdoc->document->documentelement)
+       OR NOT ObjectExists(offdoc->document->documentelement)
+       OR offdoc->document->documentelement->namespaceuri="")
+      RETURN FALSE;
+
+    this->mainofficedoc := offdoc;
+    RETURN TRUE;
+  }
+
+  PUBLIC BLOB FUNCTION SaveOOXMLDocument()
+  {
+    //Update any dirty documents
+    FOREVERY(RECORD relfile FROM this->relfiles)
+    {
+      IF(NOT relfile.part->dirty)
+        CONTINUE;
+
+      //Remove existing entry
+      BLOB newversion := relfile.part->PrepareSaveableVersion();
+      this->ooxmlarchive->RemoveEntries(GetDirectoryFromPath(relfile.part->path), GetNameFromPath(relfile.part->path));
+      this->ooxmlarchive->AddFile(relfile.part->path, newversion, GetCurrentDatetime());
+
+      relfile.part->dirty := FALSE;
+    }
+    RETURN this->ooxmlarchive->MakeBlob();
+  }
+
+>;

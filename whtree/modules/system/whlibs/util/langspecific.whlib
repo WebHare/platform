@@ -1,0 +1,183 @@
+<?wh
+/** @topic harescript-utils/localization
+*/
+
+INTEGER FUNCTION __TOKENSTREAM_CREATE() __ATTRIBUTES__(EXTERNAL);
+MACRO __TOKENSTREAM_DESTROY(INTEGER stream) __ATTRIBUTES__(EXTERNAL);
+BOOLEAN FUNCTION __TOKENSTREAM_SETLANGUAGE(INTEGER stream, STRING langcode) __ATTRIBUTES__(EXTERNAL);
+MACRO __TOKENSTREAM_ADDTEXT(INTEGER stream, STRING text) __ATTRIBUTES__(EXTERNAL);
+BOOLEAN FUNCTION __TOKENSTREAM_NEXTTOKEN(INTEGER stream) __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION __TOKENSTREAM_GETCURRENTTOKEN(INTEGER stream) __ATTRIBUTES__(EXTERNAL);
+
+STRING FUNCTION __STEMWORD(STRING word, STRING langcode) __ATTRIBUTES__(EXTERNAL);
+STRING FUNCTION __NORMALIZETEXT(STRING text, STRING langcode) __ATTRIBUTES__(EXTERNAL);
+
+/// Types of tokens returned by TokenStream
+PUBLIC CONSTANT INTEGER TokenTypeWord := 1,       ///< A single word or number
+                        TokenTypePunct := 2,      ///< Punctuation character
+                        TokenTypeControl := 3,    ///< (Non-printable) control character
+                        TokenTypeWhitespace := 4; ///< Whitespace
+
+/** @short Split text into tokens
+    @long This object reads text and returns tokens found within the text. Tokens are units of text, for example words,
+          whitespace or punctuation. Words are normalized (accents removed, converted to lowercase) and stemmed (reduced
+          to a base form) if a language is specified.
+*/
+PUBLIC OBJECTTYPE TokenStream
+<
+  INTEGER pvt_id;
+  STRING pvt_langcode;
+
+  /** @short Set the language to use for normalizing and stemming
+      @long Setting this property will influence subsequent calls to GetNextToken.
+  */
+  PUBLIC PROPERTY language(GetLanguage, SetLanguage);
+
+  /** @short Create a new TokenStream
+      @param text The text to parse
+      @param langcode The two-letter code of the language to use for normalizing and stemming
+  */
+  MACRO NEW(STRING text, STRING langcode DEFAULTSTO "")
+  {
+    this->pvt_id := __TokenStream_Create();
+    this->SetLanguage(langcode);
+    __TokenStream_AddText(this->pvt_id, text);
+  }
+
+  /** @short Deinitialize the TokenStream and free resources
+  */
+  PUBLIC MACRO Close()
+  {
+    IF (this->pvt_id = 0)
+      THROW NEW Exception("TokenStream is no longer active");
+
+    __TokenStream_Destroy(this->pvt_id);
+    this->pvt_id := 0;
+  }
+
+  /** @short Add (more) text to parse
+      @long This function can be used to add text to the internal buffer, for example when new input text was received.
+      @param text Text to add
+  */
+  PUBLIC MACRO AddText(STRING text)
+  {
+    IF (this->pvt_id = 0)
+      THROW NEW Exception("TokenStream is no longer active");
+
+    __TokenStream_AddText(this->pvt_id, text);
+  }
+
+  /** @short Return the next token in the stream
+      @long Calling this function will read the next token from the internal buffer and return it. If the end of the stream
+            was reached, a default record is returned.
+      @return The token that was read
+      @cell return.type The token type
+      @cell return.text The token text
+      @cell return.normalizedtext For word tokens, the normalized text
+      @cell return.stemmedtext For word tokens, the stemmed text
+      @cell return.startoffset The (byte) position of the first character of the token within the stream
+      @cell return.endoffset The (byte) position directly after the last character of the token within the stream
+  */
+  PUBLIC RECORD FUNCTION GetNextToken()
+  {
+    IF (this->pvt_id = 0)
+      THROW NEW Exception("TokenStream is no longer active");
+
+    IF (NOT __TokenStream_NextToken(this->pvt_id))
+      RETURN DEFAULT RECORD;
+
+    RETURN __TokenStream_GetCurrentToken(this->pvt_id);
+  }
+
+  MACRO SetLanguage(STRING langcode)
+  {
+    IF (this->pvt_id = 0)
+      THROW NEW Exception("TokenStream is no longer active");
+
+    langcode := ToUppercase(langcode);
+    IF (__TokenStream_SetLanguage(this->pvt_id, langcode))
+      this->pvt_langcode := langcode;
+  }
+
+  STRING FUNCTION GetLanguage()
+  {
+    RETURN this->pvt_langcode;
+  }
+>;
+
+/** @short Stem a word in a given language
+    @param word The word to stem
+    @param langcode The two-letter code of the language to use for stemming
+    @return The stemmed word, or an empty string in case of an unrecognized language code
+*/
+PUBLIC STRING FUNCTION StemWord(STRING word, STRING langcode)
+{
+  RETURN __StemWord(word, langcode);
+}
+
+/** @short Normalize text for a given language
+    @param text The text to normalize
+    @param langcode The two-letter code of the language to use for normalizing
+    @return The normalized text, or an empty string in case of an unrecognized language code
+*/
+PUBLIC STRING FUNCTION NormalizeText(STRING text, STRING langcode)
+{
+  RETURN __NormalizeText(text, langcode);
+}
+
+/** @short Generate a safe name for a string
+    @long Convert a string into a name which can be safely used as a file or folder name.
+    @param value Value to use for the name
+    @cell options.languagecode Language code to use for normalization (defaults to 'en')
+    @cell options.fallback Fallback value. Defaults to 'unknown' - may be localized in the future if language != "en"
+    @cell options.safedots Eliminate dots at begin or end
+    @cell options.tohyphens Additional characters to convert to hyphens
+    @cell options.utf8 Consider all >= 0xC0 utf-8 characters safe (may eliminate zerowidth spaces and similar chars in the future). Disables normalization
+    @return Returns a safe name, returns the fallbackvalue if it cannot figure out a safe name*/
+PUBLIC STRING FUNCTION GetSafeName(STRING value, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ languagecode := "en"
+                              , fallback := "unknown"
+                              , safedots := FALSE
+                              , utf8 := FALSE
+                              , tohyphens := "" ], options);
+
+  //Create a name based on a string value
+  STRING suggestedname;
+    value := ToLowercase(value);
+
+  IF(NOT options.utf8)
+    value := NormalizeText(value, options.languagecode);
+
+  // Allow a-z, 0-9, convert '-', ' ' and '_' -> '-', ignore the rest.
+  BOOLEAN createhyphen;
+  INTEGER untillen := UCLength(value);
+  STRING hyphenset := "- _\u00A0" || options.tohyphens;
+  FOR (INTEGER i := 0; i < untillen; i := i + 1)
+  {
+    STRING ch := UCSubstring(value, i, 1);
+
+    IF (SearchSubstring(hyphenset,ch) != -1) //make it a hyphen (works better than underscore in most situations where you worry about automatic names, eg SEO)
+    {
+      IF(suggestedname != "")
+        createhyphen := TRUE;
+    }
+    ELSE IF ( (ch >= 'a' AND ch <= 'z') OR (ch >= '0' AND ch <= '9') OR (options.safedots AND ch='.' AND suggestedname != '') OR (options.utf8 AND ch >= '\u00A1'))//include dots, but not at start
+    {
+      suggestedname := suggestedname || (createhyphen ? '-' : '') || ch;
+      createhyphen := FALSE;
+    }
+  }
+
+  // May not have a dot at the end.
+  IF(options.safedots)
+    WHILE(suggestedname LIKE "*.")
+      suggestedname := LEFT(suggestedname, LENGTH(suggestedname) - 1);
+
+  // Do not return empty name
+  IF (suggestedname = "")
+    suggestedname := options.fallback;
+
+  RETURN suggestedname;
+}
+

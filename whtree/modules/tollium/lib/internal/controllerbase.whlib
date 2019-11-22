@@ -1,0 +1,3520 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+LOADLIB "wh::internal/callbacks.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/dbase/whdb.whlib";
+
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/contexts.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
+LOADLIB "mod::tollium/lib/internal/screenmanager.whlib";
+LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
+
+INTEGER objectprofileId;
+
+INTEGER no_forward_progress_longloop := 10000; // trigger forward progress detection when the loop wait timeout is more than this many seconds
+INTEGER no_forward_progress_wait := 2000; // wait 2 seconds for forward progress
+INTEGER gc_waitperiod := 60000; // collect garbage every 1 minute after a wait has been started
+
+BOOLEAN FUNCTION IsTrustedForDeepAccess()
+{
+  //ADDME trust non-sysops being impersonated by sysops too ?
+  RETURN GetDtapStage()="development" OR GetEffectiveUser()->HasRight("system:sysop");
+}
+
+   /** Check internal callbacks
+      @param handle Optional signalled handle (use -1 to ignore)
+      @param docheck Whether check is needed (ignored when handle is set)
+  */
+PUBLIC BOOLEAN FUNCTION HandleInternalCallbacks(INTEGER handle, BOOLEAN write, BOOLEAN docheck)
+  {
+    IF (handle = -1 AND docheck)
+    {
+      INTEGER ARRAY read_handles := __INTERNAL_GetEventCallBackHandles();
+      INTEGER ARRAY write_handles := __INTERNAL_GetEventCallBackWriteHandles();
+
+      handle := WaitForMultiple(read_handles, write_handles, 0);
+      IF (handle != -1)
+      {
+        write := handle IN write_handles;
+        IF (write AND handle IN read_handles)
+          write := WaitForMultiple([ handle ], DEFAULT INTEGER ARRAY, 0) != handle; // only test write signalled if not read signalled
+      }
+    }
+
+    RETURN __INTERNAL_HandleEventCallbackEvents(handle, write ? "handle-write" : "handle-read");
+  }
+
+
+/// Counter for client calls
+INTEGER clientcallcounter;
+
+/** Parses rows as returned by the screen parser. Fixes up text pointers.
+*/
+RECORD ARRAY FUNCTION TolliumGetRows(RECORD ARRAY inrows)
+{
+  RECORD ARRAY rows;
+  FOREVERY(RECORD rowg FROM inrows)
+  {
+    RECORD ARRAY localrows;
+    FOREVERY(RECORD cellrec FROM UnpackRecord(rowg))
+      IF(TypeId(cellrec.value)=TypeId(STRING) AND cellrec.name != "ROWKEY")
+        rowg := CellUpdate(rowg, cellrec.name, GetTid(cellrec.value));
+
+    IF(Length(rowg.subnodes)>0)
+      rowg.subnodes := TolliumGetRows(rowg.subnodes);
+
+    INSERT rowg INTO rows AT END;
+  }
+  RETURN rows;
+}
+
+PUBLIC RECORD FUNCTION FixupLaunchAppOptions(RECORD data)
+{
+  data := ValidateOptions([ calltype := "direct"
+                          , message := DEFAULT RECORD
+                          , params := DEFAULT STRING ARRAY
+                          , target := DEFAULT RECORD
+                          , webvars := DEFAULT RECORD ARRAY
+                          , context := DEFAULT RECORD
+                          , goparam := ""
+                          ], data);
+
+  IF(data.goparam != "")
+    data.message := [ go := data.goparam];
+  DELETE CELL goparam FROM data;
+  RETURN data;
+}
+
+STRING FUNCTION DescribeAccessCheck(RECORD accesscheck)
+{
+  IF (NOT RecordExists(accesscheck))
+    RETURN "";
+  IF (accesscheck.type = "right")
+    RETURN accesscheck.value;
+  IF (accesscheck.type = "anygrantableright")
+    RETURN "(anygrantableright)";
+
+  STRING ARRAY subchecks :=
+      SELECT AS STRING ARRAY DescribeAccessCheck(checks)
+        FROM accesscheck.checks;
+
+  RETURN "(" || Detokenize(subchecks, accesscheck.combine = "and" ? " & ": " | ") || ")";
+}
+
+/* The screenbuilder holds our state for screen construction */
+PUBLIC OBJECTTYPE __ScreenBuilder
+<
+  PUBLIC BOOLEAN allpublic;
+  PUBLIC BOOLEAN isvalidating;
+
+  OBJECT screen;
+  OBJECT screenmgr;
+  RECORD ARRAY errors;
+  BOOLEAN havelib;
+  RECORD ARRAY localrefs;
+  RECORD ARRAY localhandlers;
+
+  MACRO NEW(OBJECT controller, RECORD parsedpage, BOOLEAN run_init)
+  {
+    OBJECT newscreen;
+    this->errors := parsedpage.errors;
+    this->isvalidating := NOT run_init;
+
+    IF(run_init)
+      newscreen := this->GetCustomScreen(parsedpage);
+
+    IF(NOT ObjectExists(newscreen))
+      newscreen := NEW TolliumScreenBase;
+
+    this->screenmgr := NEW ScreenManager(newscreen);
+    newscreen->tolliumscreenmanager := this->screenmgr;
+    this->screen := newscreen->Tollium_GetPrivatePtr();
+    this->screen->tolliumscreenbuilder := this;
+    this->allpublic := parsedpage.allpublic OR (ObjectExists(controller) AND controller->forceallpublic);
+
+    this->screenmgr->resourcename := parsedpage.resourcename;
+    this->screenmgr->screenname := parsedpage.name;
+  }
+
+  ///Temporary override resolving of names & handlers (allow resolving against external symbols in fragments)
+  PUBLIC MACRO SetLocalRefs(RECORD ARRAY newrefs, RECORD ARRAY newhandlers)
+  {
+    this->localrefs := SELECT *, name := ToUppercase(name) FROM newrefs ORDER BY ToUppercase(name);
+    this->localhandlers := SELECT *, name := ToUppercase(name) FROM newhandlers ORDER BY ToUppercase(name);
+  }
+  OBJECT FUNCTION LookupScope(STRING scope)
+  {
+    IF(scope="")
+      RETURN this->screen;
+    ELSE
+      RETURN this->GetCheckComponent(scope);
+  }
+
+  OBJECT FUNCTION GetCustomScreen(RECORD parsedpage)
+  {
+    OBJECT newscreen;
+    TRY
+    {
+      newscreen := MakeObject(parsedpage.objtype);
+    }
+    CATCH(OBJECT e)
+    {
+      IF(e->what NOT LIKE "The constructor of '*' doesn't have the expected signature*")
+        THROW;
+    }
+    IF(NOT ObjectExists(newscreen))
+      newscreen := MakeObject(parsedpage.objtype, __screenbuildinfo.initdata);
+
+    IF(ObjectExists(newscreen) AND NOT (newscreen EXTENDSFROM TolliumScreenBase))
+    {
+      this->AddError(DEFAULT RECORD, `Screen objecttype '${parsedpage.objtype}' does not derive from TolliumScreenBase`);
+      RETURN DEFAULT OBJECT;
+    }
+    this->havelib := TRUE;
+    RETURN newscreen;
+  }
+
+  /** @short lookup a component as defined in XML in attributes of type p:Name
+  */
+  PUBLIC OBJECT FUNCTION LookupComponent(RECORD def, STRING compname)
+  {
+    OBJECT lookup := this->GetComponentNoFail(GetCell(def, compname));
+    IF(NOT ObjectExists(lookup))
+    {
+      this->AddError(def.tolliumscope, "Attribute '" || compname || "' refers to non-existing object '" || GetCell(def, compname) || "'");
+    }
+    RETURN lookup;
+  }
+
+  /** @short lookup multiple components as defined in XML in attributes of type p:NameList
+  */
+  PUBLIC OBJECT ARRAY FUNCTION LookupComponents(RECORD def, STRING attributename)
+  {
+    OBJECT ARRAY components;
+
+    STRING ARRAY compnames := GetCell(def, attributename);
+    FOREVERY(STRING compname FROM compnames)
+    {
+      OBJECT lookup := this->GetComponentNoFail(compname);
+      IF(NOT ObjectExists(lookup))
+        this->AddError(def.tolliumscope, "Attribute '" || attributename || "' refers to non-existing object '" || compname || "'");
+      ELSE
+        INSERT lookup INTO components AT END;
+    }
+    RETURN components;
+  }
+
+  PUBLIC OBJECT FUNCTION GetComponentNoFail(STRING compname)
+  {
+    IF(Length(this->localrefs)>0)
+    {
+      RECORD pos := RecordLowerBound(this->localrefs, [ name := ToUppercase(compname) ], [ "NAME" ]);
+      IF (pos.found)
+        RETURN this->localrefs[pos.position].component;
+    }
+    RETURN this->screenmgr->GetComponentNofail(compname);
+  }
+  PUBLIC OBJECT FUNCTION GetCheckComponent(STRING compname)
+  {
+    IF(Length(this->localrefs)>0)
+    {
+      RECORD pos := RecordLowerBound(this->localrefs, [ name := ToUppercase(compname) ], [ "NAME" ]);
+      IF (pos.found)
+        RETURN this->localrefs[pos.position].component;
+    }
+
+    RETURN this->screenmgr->GetComponent(compname);
+  }
+  PUBLIC OBJECT ARRAY FUNCTION GetCheckComponents(STRING ARRAY compname)
+  {
+    //FIXME Support localrefs
+    RETURN this->screenmgr->GetComponents(compname);
+  }
+
+  PUBLIC OBJECT FUNCTION GetFrame()
+  {
+    OBJECT ret := this->screen->frame;
+    RETURN ret;
+  }
+  PUBLIC OBJECT FUNCTION GetScreen()
+  {
+    OBJECT ret := MakePublicObjectReference(this->screen);
+    RETURN ret;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetErrors()
+  {
+    RETURN this->errors;
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasFailed()
+  {
+    RETURN Length(this->errors)>0;
+  }
+
+  PUBLIC MACRO ClearErrors()
+  {
+    this->errors:=DEFAULT RECORD ARRAY;
+  }
+
+
+  PUBLIC MACRO AddErrorOnLine(STRING resourcename, INTEGER line, STRING error)
+  {
+    INSERT CELL[ resourcename, line, col :=1, message := error ] INTO this->errors AT END;
+  }
+  PUBLIC MACRO AddError(RECORD scope, STRING error)
+  {
+    this->AddErrorOnLine(RecordExists(scope) ? scope.resourcename : "", RecordExists(scope) ? scope.line : 0, error);
+  }
+
+  /*
+  - convert tp's (title pointers?) using GetTid
+  - resolve references to components/actions?
+  - validation??
+  */
+  PUBLIC VARIANT FUNCTION ReprocessExtraParser(OBJECT obj, RECORD field, RECORD scope, VARIANT data)
+  {
+    IF(field.parser.namespaceuri = ns_screens)
+    {
+      SWITCH(field.parser.localname)
+      {
+        CASE "childcomponents"
+        {
+          RETURN SELECT AS RECORD ARRAY this->ReprocessData(obj, CellInsert(fld, "tolliumscope", scope), fld.__xml_fields)
+                        FROM data AS fld;
+        }
+        CASE "acceptdrops"
+          {
+            IF(NOT RecordExists(data))
+              RETURN DEFAULT RECORD;
+
+            RETURN
+                [ ondrop := this->LookupAndValidateHandler(obj, data, "ondrop", scope)
+                , acceptmultiple := data.acceptmultiple
+                , accepttypes :=
+                      SELECT type
+                           , imageaction
+                           , imgsize
+                           , sourceflags
+                           , targetflags
+                           , frameflags
+                           , insertbeforeflags
+                           , appendchildflags
+                           , locations
+                           , requiretarget
+                           , dropeffects
+                           , noloops
+                        FROM data.accepttypes
+                ];
+          }
+
+        CASE "enableons"
+        {
+          RETURN SELECT source := this->GetCheckComponent(enableon.source)
+                      , checkflags := ParseXSList(checkflags)
+                      , COLUMN min
+                      , COLUMN max
+                      , selectionmatch
+                      , onexecute := this->LookupAndValidateHandler(obj, enableon, "onexecute", scope)
+                      , onwindowopen := this->LookupAndValidateHandler(obj, enableon, "onwindowopen", scope)
+                      , ondownload := this->LookupAndValidateHandler(obj, enableon, "ondownload", scope)
+                      , onupload := this->LookupAndValidateHandler(obj, enableon, "onupload", scope)
+                      , requirefocus
+                      , requirevisible
+                      , frameflags := ParseXSList(frameflags)
+                   FROM data AS enableon;
+        }
+        CASE "bodynode"
+        {
+          RETURN data != "" ? this->GetCheckComponent(data) : DEFAULT OBJECT;
+        }
+        CASE "listrows"
+        {
+          RETURN TolliumGetRows(data);
+        }
+        CASE "liststyles", "listrowlayouts", "backgroundimages", "imgsize", "allowwidgettypes"
+        {
+          //already fine
+          RETURN data;
+        }
+        CASE "listcolumns", "array"
+        {
+          RECORD ARRAY newval;
+          FOREVERY(RECORD col FROM data)
+          {
+            col := this->ReprocessData(obj, col, col.__xml_fields);
+            INSERT col INTO newval AT END;
+          }
+          RETURN newval;
+        }
+        CASE "lines"
+        {
+          RECORD ARRAY outlines;
+          FOREVERY(RECORD line FROM data)
+          {
+            RECORD outline := [ items := DEFAULT OBJECT ARRAY
+                              , linesettings := line.linesettings
+                              ];
+            FOREVERY(STRING item FROM line.items)
+              INSERT this->GetCheckComponent(item) INTO outline.items AT END;
+
+            INSERT outline INTO outlines AT END;
+          }
+          RETURN outlines;
+        }
+        CASE "optionsources"
+        {
+          RECORD ARRAY newval;
+          FOREVERY(RECORD rec FROM data)
+          {
+            SWITCH (rec.type)
+            {
+            CASE "option"
+              {
+                OBJECT ARRAY children, lineitems;
+
+                IF (CellExists(rec.item, "children"))
+                  FOREVERY (STRING compname FROM rec.item.children)
+                  {
+                    OBJECT comp := this->GetCheckComponent(compname);
+                    INSERT comp INTO children AT END;
+                  }
+
+                IF (CellExists(rec.item, "lineitems"))
+                  FOREVERY (STRING compname FROM rec.item.lineitems)
+                  {
+                    OBJECT comp := this->GetCheckComponent(compname);
+                    INSERT comp INTO lineitems AT END;
+                  }
+
+                OBJECT ARRAY enablecomponents;
+                FOREVERY(STRING compname FROM rec.item.enablecomponents)
+                  INSERT this->GetCheckComponent(compname) INTO enablecomponents AT END;
+
+                DELETE CELL children, lineitems, enablecomponents FROM rec.item;
+                INSERT CELL children := children INTO rec.item;
+                INSERT CELL lineitems := lineitems INTO rec.item;
+                INSERT CELL title := GetTid(rec.item.tp) INTO rec.item;
+                INSERT CELL enablecomponents := enablecomponents INTO rec.item;
+
+              }
+            CASE "divider"
+              {
+              }
+            CASE "optionsource"
+              {
+                OBJECT comp := this->GetCheckComponent(rec.name);
+                INSERT CELL comp := comp INTO rec;
+              }
+            }
+            INSERT rec INTO newval AT END;
+          }
+          RETURN newval;
+        }
+        CASE "linkhandlers"
+        {
+          OBJECT ARRAY linkhandlers;
+          FOREVERY(STRING name FROM data)
+          {
+            INSERT this->GetCheckComponent(name) INTO linkhandlers AT END;
+          }
+          RETURN linkhandlers;
+        }
+        CASE "grid"
+        {
+          RECORD ARRAY rows := data.rows;
+          FOREVERY(RECORD row FROM rows)
+            rows[#row].cells := SELECT *
+                                     , panel := this->GetCheckComponent(cells.name)
+                                  FROM row.cells;
+          RETURN [ rows := rows
+                 , cols := data.cols
+                 ];
+        }
+        CASE "dividedcomponents"
+        {
+          RECORD ARRAY comps;
+          FOREVERY(RECORD item FROM data)
+          {
+            INSERT [ component := item.name="" ? DEFAULT OBJECT : this->GetCheckComponent(item.name)
+                   , type := item.name="" ? item.type : ""
+                   ] INTO comps AT END;
+          }
+          RETURN comps;
+        }
+        CASE "rowdatatypes"
+        {
+          RETURN SELECT type
+                      , screen
+                      , title := GetTid(tp)
+                   FROM data;
+        }
+      }
+    }
+    THROW NEW TolliumException(obj, `Unrecognized reprocessor ${field.parser.namespaceuri}:${field.parser.localname}`);
+  }
+
+  PUBLIC RECORD FUNCTION ReprocessData(OBJECT obj, RECORD data, RECORD ARRAY xml_fields)
+  {
+    RECORD finalfields;
+
+    FOREVERY(RECORD field FROM xml_fields)
+    {
+      IF(TypeID(field.defaultvalue)=TypeID(RECORD) AND CellExists(field, "RECORDTYPE"))
+      {
+        VARIANT newval;
+
+        IF(field.recordtype = "tid")
+        {
+          newval := GetTid(GetCell(data, field.name));
+        }
+        ELSE IF(field.recordtype IN [ "screenfragmentref", "datafileref", "datafilerefs",
+                                      "iconpointer", "gid", "optionalgid",
+                                      "color", "bordersspacers", "tidptr" ])
+        {
+          //already fine
+          newval := GetCell(data, field.name);
+        }
+        ELSE IF(field.recordtype = "handler")
+        {
+          newval := this->LookupAndValidateHandler(obj, data, field.name, data.tolliumscope);
+        }
+        ELSE IF(field.recordtype = "componentref")
+        {
+          STRING compname := GetCell(data, field.name);
+          newval := compname = "" ? DEFAULT OBJECT : this->LookupComponent(data, field.name);
+        }
+        ELSE IF(field.recordtype = "componentreflist")
+        {
+          newval := this->LookupComponents(data, field.name);
+        }
+        ELSE IF(field.recordtype = "extraparser")
+        {
+          newval := this->ReprocessExtraParser(obj, field, data.tolliumscope, GetCell(data, field.name));
+        }
+        ELSE
+        {
+          THROW NEW Exception(`Unrecognized record type '${field.recordtype}'`);
+        }
+
+        data := CellDelete(data, field.name);
+        data := CellInsert(data, field.name, newval);
+      }
+    }
+    DELETE CELL __xml_fields FROM data;
+    RETURN data;
+  }
+
+  FUNCTION PTR FUNCTION LookupAndValidateGlobalHandler(OBJECT obj, RECORD definition, RECORD handlerrec, STRING name, RECORD tolliumscope)
+  {
+    IF(this->isvalidating) //FIXME parse the lib without requiring instantiation
+      RETURN DEFAULT FUNCTION PTR;
+
+    TRY
+    {
+      FUNCTION PTR handler := MakeFunctionPtr(handlerrec.name);
+      INTEGER ARRAY expectargs := [TYPEID(OBJECT)] CONCAT handlerrec.req_args;
+
+      IF(NOT ValidateFunctionPtr(handler, handlerrec.req_retval, expectargs))
+      {
+        // some objects with handlers, like droptargets, usually don't have a name
+        STRING objname := (CellExists(definition,'name') ? "'" || definition.name || "' " : "");
+
+        THROW NEW TolliumException(obj,
+                `The '${name}' handler for object ${objname} points to function '${handlerrec.name}'`
+                ||" which has the wrong function signature. Expected " ||
+                ExplainFunctionSignature(handlerrec.req_retval, expectargs) || ", got " || ExplainFunctionPtrSignature(handler));
+      }
+
+      RECORD ARRAY params :=
+        [ [ source :=       0
+          , value :=        obj->contexts
+          ]
+        ];
+
+      RETURN __HS_REBINDFUNCTIONPTR2(handler, params, 1, TRUE);
+    }
+    CATCH(OBJECT e)
+    {
+      this->AddError(definition.tolliumscope, `Handler '${handlerrec.name}' cannot be found: ${e->what}`);
+      RETURN DEFAULT FUNCTION PTR;
+    }
+  }
+
+  FUNCTION PTR FUNCTION LookupAndValidateLocalHandler(OBJECT obj, RECORD definition, RECORD handlerrec, STRING name, RECORD tolliumscope)
+  {
+    STRING scopename, membername;
+    IF(handlerrec.name LIKE "*!*")
+    {
+      membername := Substring(handlerrec.name, SearchLastSubstring(handlerrec.name,'!')+1);
+      scopename := Left(handlerrec.name, Length(handlerrec.name) - Length(membername)-1);
+    }
+    ELSE
+    {
+      membername := handlerrec.name;
+      scopename := "";
+    }
+
+    RECORD res;
+    IF (LENGTH(this->localhandlers) != 0)
+    {
+      RECORD pos := RecordLowerBound(this->localhandlers, [ name := ToUppercase(membername) ], [ "NAME" ]);
+      IF (pos.found)
+        res := this->localhandlers[pos.position];
+    }
+    IF (NOT RecordExists(res))
+    {
+      OBJECT scope := this->LookupScope(scopename);
+      IF(NOT ObjectExists(scope)) //we already gave an error for this...
+        RETURN DEFAULT FUNCTION PTR;
+
+      IF(this->isvalidating)
+      {
+        //FIXME parse the object without requiring instantiation
+        RETURN DEFAULT FUNCTION PTR;
+      }
+      res := scope->__tolliumscope_lookuphandler(membername);
+
+      IF(NOT res.success)
+      {
+        IF(scope = this->screen AND NOT this->havelib)
+        {
+          this->AddError(definition.tolliumscope, `Handler '${handlerrec.name}' cannot be found because no screen object was provided`);
+          RETURN DEFAULT FUNCTION PTR;
+        }
+        IF(res.errorcode = "nomember")
+        {
+          this->AddError(definition.tolliumscope, `Handler '${handlerrec.name}' cannot be found`);
+          RETURN DEFAULT FUNCTION PTR;
+        }
+        IF(res.errorcode = "nofunction")
+        {
+          this->AddError(definition.tolliumscope, `Handler '${handlerrec.name}' is not a method`);
+          RETURN DEFAULT FUNCTION PTR;
+        }
+      }
+    }
+
+    IF(NOT ValidateFunctionPtr(res.handler, handlerrec.req_retval, handlerrec.req_args))
+    {
+      // some objects with handlers, like droptargets, usually don't have a name
+      STRING objname := (CellExists(definition,'name') ? "'" || definition.name || "' " : "");
+
+      THROW NEW TolliumException(obj,
+              `The '${name}' handler for object ${objname} points to function '${handlerrec.name}'`
+              ||" which has the wrong function signature. Expected " ||
+              ExplainFunctionSignature(handlerrec.req_retval, handlerrec.req_args) || ", got " || ExplainFunctionPtrSignature(res.handler));
+    }
+    RETURN res.handler;
+  }
+
+  /** @short lookup the handler with the given cellname
+      @param definition
+      @param name name of the cell which contains the definition of the handler (name, it's returnvalue type and argument types)
+  */
+  PUBLIC FUNCTION PTR FUNCTION LookupAndValidateHandler(OBJECT obj, RECORD definition, STRING name, RECORD tolliumscope DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT RecordExists(tolliumscope))
+      tolliumscope := definition.tolliumscope;
+
+    RECORD handlerrec := GetCell(definition, name);
+    IF (NOT RecordExists(handlerrec))
+      RETURN DEFAULT FUNCTION PTR;
+
+    IF(handlerrec.name = "")
+    {
+      this->AddError(definition.tolliumscope, `Handler '${handlerrec.name}' cannot be found`);
+      RETURN DEFAULT FUNCTION PTR;
+    }
+    IF(handlerrec.name LIKE "*#*") //freestanding
+      RETURN this->LookupAndValidateGlobalHandler(obj,definition, handlerrec, name, tolliumscope);
+    ELSE
+      RETURN this->LookupAndValidateLocalHandler(obj, definition, handlerrec, name, tolliumscope);
+  }
+>;
+
+
+/** A BackgroundTaskRunner object runs a background task. It starts a job, and
+    creates an backgroundtask object, which is then run. The task can send status
+    updates back over the ipc link to its parent.
+
+    This object assumes the task has finished when it has closed the ipc link to the job parent,
+    and will kill the job when that occurs.
+
+    ADDME: stuff like Cancel()
+*/
+STATIC OBJECTTYPE BackgroundTaskRunner
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Job object (if it doesn't exist, the job has finished)
+  OBJECT job;
+
+
+  /// Last received background status
+  RECORD pvt_status;
+
+
+  /// Last received background result
+  RECORD pvt_result;
+
+
+  /// Whether the job was started sucessfully
+  BOOLEAN pvt_started;
+
+
+  /// Whether the job has finished
+  BOOLEAN pvt_finished;
+
+
+  /// List of errors
+  RECORD ARRAY pvt_errors;
+
+
+  /// Screen that handles work errors
+  OBJECT pvt_screen;
+
+
+  /// Output stream of job
+  INTEGER pvt_outputstream;
+
+
+  /// Current output line
+  STRING pvt_outputline;
+
+
+  /// Search position for next newline in the outputline
+  INTEGER pvt_outputlinesearchnl;
+
+
+  /// Job id
+  STRING pvt_jobid;
+
+
+  /// Callback when status changes
+  FUNCTION PTR pvt_onstatuschange;
+
+
+  /// Callback when finished
+  FUNCTION PTR pvt_onfinished;
+
+
+  /// Callback registration for ipclink
+  INTEGER pvt_ipclink_callback;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// The last status
+  PUBLIC PROPERTY status(GetStatus, -);
+
+
+  /// The result of the script (only set when @a finished AND NOT @a anyerrors)
+  PUBLIC PROPERTY result(GetResult, -);
+
+
+  /// Whether the script was started succesfully (if not, errors are present in @a errors)
+  PUBLIC PROPERTY started(pvt_started, -);
+
+
+  /// Whether the script has finished (see @a errors for if errors have occurred)
+  PUBLIC PROPERTY finished(GetFinished, -);
+
+
+  /// Returns whether any error is present
+  PUBLIC PROPERTY anyerrors(GetAnyErrorsPresent, -);
+
+
+  /// Returns the list of errors
+  PUBLIC PROPERTY errors(GetErrors, -);
+
+
+  /// Title of the job, for debugging purposes
+  PUBLIC PROPERTY title(pvt_jobid, pvt_jobid);
+
+
+  /// Callback, called when status changes (signature: MACRO callback())
+  PUBLIC PROPERTY onfinished(pvt_onfinished, SetOnFinished);
+
+
+  /// Callback, called when status changes (signature: MACRO callback(RECORD laststatus))
+  PUBLIC PROPERTY onstatuschange(pvt_onstatuschange, SetOnStatusChange);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT screen, STRING lib, STRING objname, RECORD data)
+  {
+    this->pvt_screen := screen;
+
+    RECORD jobdata := CreateJob("mod::tollium/scripts/internal/backgroundtask.whscr");
+    IF(NOT ObjectExists(jobdata.job))
+    {
+      this->pvt_errors := jobdata.errors;
+      RETURN;
+    }
+
+    OBJECT job := jobdata.job;
+
+    // Temporary id
+    this->pvt_jobid := "#" || job->handle;
+
+    RECORD user;
+    IF (ObjectExists(screen->tolliumuser))
+      user := screen->tolliumuser->GetUserMarshallInfo();
+
+    RECORD res := job->ipclink->SendMessage(
+        [ lib :=          lib
+        , objname :=      objname
+        , data :=         data
+        , tidlanguage :=  GetTIDLanguage()
+        , user :=         user
+        ]);
+
+    IF(res.status != "ok")
+      ABORT("Cannot queue message for starting job");
+
+    //FIXME (secure) permission info ? or just createjob and give it immediately only what it might possibly need...
+
+    this->pvt_outputstream := job->CaptureOutput();
+
+    job->Start();
+
+    RECORD info := job->ipclink->ReceiveMessage(MAX_DATETIME);
+    IF(info.status = "ok" AND info.msg.type = "ack")
+    {
+      this->job := job;
+      this->pvt_started := TRUE;
+    }
+    ELSE
+    {
+      this->pvt_errors := job->GetErrors();
+      IF (this->pvt_outputstream != 0)
+      {
+        ClosePipe(this->pvt_outputstream);
+        this->pvt_outputstream := 0;
+      }
+      job->Close();
+      //FIXME sohuldn't this path set pvt_finished too ?
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callback
+  //
+
+  MACRO OnIPCLinkMessage()
+  {
+    this->GetMessages();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ShowJobOutput(BOOLEAN finished)
+  {
+    INTEGER maxlen := 65536 * 8;
+    WHILE (TRUE)
+    {
+      INTEGER pos := SearchSubString(this->pvt_outputline, "\n", this->pvt_outputlinesearchnl);
+      IF (pos = -1)
+      {
+        pos := LENGTH(this->pvt_outputline);
+        IF (NOT finished OR this->pvt_outputline = "")
+        {
+          this->pvt_outputlinesearchnl := pos;
+          RETURN;
+        }
+      }
+
+      IF (pos > maxlen)
+        PRINT("BG task '" || this->pvt_jobid || "' (truncated from " || pos || " chars): " || LEFT(this->pvt_outputline, maxlen) || "...\n");
+      ELSE
+        PRINT("BG task '" || this->pvt_jobid || "': " || LEFT(this->pvt_outputline, pos) || "\n");
+
+      this->pvt_outputline := SubString(this->pvt_outputline, pos + 1);
+      this->pvt_outputlinesearchnl := 0;
+    }
+  }
+
+  MACRO GetOutput()
+  {
+    // Copy all output of the job to the applog.
+    IF (this->pvt_outputstream != 0)
+    {
+      WHILE (WaitForMultiple([ this->pvt_outputstream ], DEFAULT INTEGER ARRAY, 0) != -1)
+      {
+        STRING received_data := ReadFrom(this->pvt_outputstream, -32768);
+        IF(received_data="") //EOF
+        {
+          ClosePipe(this->pvt_outputstream);
+          this->pvt_outputstream := 0;
+          BREAK;
+        }
+
+        this->pvt_outputline := this->pvt_outputline || received_data;
+        this->ShowJobOutput(FALSE);
+      }
+    }
+  }
+
+  MACRO GetMessages()
+  {
+    IF (NOT ObjectExists(this->job))
+      RETURN;
+
+    BOOLEAN status_changed;
+
+    WHILE (TRUE)
+    {
+      IF (NOT ObjectExists(this->job))
+        THROW NEW Exception("Job gone");
+
+      this->GetOutput();
+
+      RECORD res := this->job->ipclink->ReceiveMessage(DEFAULT DATETIME);
+      SWITCH (res.status)
+      {
+      CASE "ok"
+        {
+          SWITCH (res.msg.type)
+          {
+          CASE "status"
+            {
+              this->pvt_status := res.msg.status;
+              status_changed := TRUE;
+            }
+          CASE "result"
+            {
+              this->pvt_result := res.msg.result;
+            }
+          CASE "workresult"
+            {
+              RECORD ARRAY errors :=
+                  SELECT comp :=    DEFAULT OBJECT
+                       , text
+                    FROM ToRecordArray(res.msg.errors, "TEXT");
+
+              RECORD ARRAY warnings :=
+                  SELECT comp :=    DEFAULT OBJECT
+                       , text
+                    FROM ToRecordArray(res.msg.warnings, "TEXT");
+
+              IF (ObjectExists(this->pvt_screen))
+              {
+                this->pvt_screen->tolliumscreenmanager->HandleWorkResult(
+                    [ errors   := errors
+                    , warnings := warnings
+                    ]);
+              }
+              ELSE
+              {
+                // FIXME: what to do with work result when you don't have a screen to display it?
+              }
+            }
+          DEFAULT
+            {
+              THROW NEW Exception("Unexpected message type: " || res.msg.type);
+            }
+          }
+        }
+      CASE "timeout"
+        {
+          IF (status_changed AND this->pvt_onstatuschange != DEFAULT FUNCTION PTR)
+            this->pvt_onstatuschange(this->pvt_status);
+
+          RETURN;
+        }
+      CASE "gone"
+        {
+          // FIXME: must we wait for the job?
+          this->job->Wait(MAX_DATETIME);
+
+          this->pvt_errors := this->job->GetErrors();
+          //Print(AnyToString(this->pvt_errors, 'boxed'));
+
+          this->pvt_finished := TRUE;
+          this->UpdateHandleCallbacks(); // Unregister handle callbacks
+
+          this->job->Close();
+          this->job := DEFAULT OBJECT;
+
+          IF (status_changed AND this->pvt_onstatuschange != DEFAULT FUNCTION PTR)
+            this->pvt_onstatuschange(this->pvt_status);
+
+          IF (this->pvt_onfinished != DEFAULT FUNCTION PTR)
+            this->pvt_onfinished();
+
+          RETURN;
+        }
+      }
+    }
+  }
+
+  /// Whether updates are processed asynchronous
+  BOOLEAN FUNCTION HaveAsyncUpdates()
+  {
+    RETURN this->pvt_onstatuschange != DEFAULT FUNCTION PTR OR this->pvt_onfinished != DEFAULT FUNCTION PTR;
+  }
+
+  /// Update the callback registration
+  MACRO UpdateHandleCallbacks()
+  {
+    BOOLEAN want_callbacks;
+
+    IF (ObjectExists(this->job) AND NOT this->pvt_finished)
+    {
+      want_callbacks := this->HaveAsyncUpdates();
+    }
+
+    IF ((this->pvt_ipclink_callback != 0) != want_callbacks)
+    {
+      IF (NOT want_callbacks)
+        UnregisterCallback(this->pvt_ipclink_callback);
+      ELSE
+      {
+        this->pvt_ipclink_callback := RegisterHandleReadCallback(this->job->ipclink->handle, PTR this->OnIPCLinkMessage);
+        this->GetMessages();
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  RECORD FUNCTION GetStatus()
+  {
+    IF (NOT this->HaveAsyncUpdates())
+      this->GetMessages();
+    RETURN this->pvt_status;
+  }
+
+
+  RECORD FUNCTION GetResult()
+  {
+    IF (NOT this->HaveAsyncUpdates())
+      this->GetMessages();
+    RETURN this->pvt_finished AND LENGTH(this->pvt_errors) = 0 ? this->pvt_result : DEFAULT RECORD;
+  }
+
+
+  BOOLEAN FUNCTION GetFinished()
+  {
+    IF (NOT this->HaveAsyncUpdates())
+      this->GetMessages();
+    RETURN this->pvt_finished;
+  }
+
+
+  BOOLEAN FUNCTION GetAnyErrorsPresent()
+  {
+    this->GetMessages();
+    RETURN LENGTH(this->pvt_errors) != 0;
+  }
+
+
+  RECORD ARRAY FUNCTION GetErrors()
+  {
+    this->GetMessages();
+    RETURN this->pvt_errors;
+  }
+
+
+  MACRO SetOnStatusChange(FUNCTION PTR callback)
+  {
+    this->pvt_onstatuschange := callback;
+    this->UpdateHandleCallbacks();
+  }
+
+
+  MACRO SetOnFinished(FUNCTION PTR callback)
+  {
+    this->pvt_onfinished := callback;
+    IF (this->pvt_finished AND this->pvt_onfinished != DEFAULT FUNCTION PTR)
+      this->pvt_onfinished();
+    ELSE
+      this->UpdateHandleCallbacks();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC MACRO SendMessage(RECORD msg)
+  {
+    this->job->ipclink->SendMessage(
+        [ type := "sendmessage"
+        , msg := msg
+        ]);
+  }
+
+  /** Closes the background task reference
+  */
+  PUBLIC MACRO Close()
+  {
+    IF(ObjectExists(this->job))
+    {
+      this->pvt_finished := TRUE;
+      this->UpdateHandleCallbacks();
+
+      this->job->Close();
+      this->job := DEFAULT OBJECT;
+    }
+
+    // Get final output
+    this->GetOutput();
+    this->ShowJobOutput(TRUE);
+
+    IF (this->pvt_outputstream != 0)
+    {
+      ClosePipe(this->pvt_outputstream);
+      this->pvt_outputstream := 0;
+    }
+
+    // FIXME: insert an error or something
+  }
+>;
+
+// ---------------------------------------------------------------------------
+//
+// TolliumAsyncFileTransferBase
+//
+
+PUBLIC OBJECTTYPE TolliumAsyncFileTransferBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Target component
+  OBJECT pvt_targetcomponent;
+
+  /// Id of action
+  STRING pvt_id;
+
+  /// Status of action
+  STRING pvt_status;
+
+  /// Response record
+  RECORD pvt_response;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties & variables
+  //
+
+  /// Target component
+  PUBLIC PROPERTY targetcomponent(pvt_targetcomponent, -);
+
+  /// Id of file transfer action
+  PUBLIC PROPERTY id(pvt_id, -);
+
+  /// Status ('pending', 'sentfile', 'senturl', 'cancelled', 'started', 'failed')
+  PUBLIC PROPERTY status(pvt_status, -);
+
+  /** Response record
+      @cell type
+      @cell data
+      @cell mimetype
+      @cell filename
+      @cell url
+  */
+  PUBLIC PROPERTY response(pvt_response, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT target, STRING id)
+  {
+    this->pvt_targetcomponent := target;
+    this->pvt_id := id;
+    this->pvt_status := "pending";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SendFile(BLOB data, STRING mimetype, STRING filename)
+  {
+    IF (this->pvt_status != "pending")
+      THROW NEW Exception("Can only send files or redirect once" || this->pvt_status);
+    this->pvt_status := "sentfile";
+    this->pvt_response := [ type := "file", data := data, mimetype := mimetype, filename := filename ];
+  }
+
+  PUBLIC MACRO SendWrappedFile(RECORD wrappedfile)
+  {
+    this->SendFile(wrappedfile.data, wrappedfile.mimetype, wrappedfile.filename);
+  }
+
+  PUBLIC MACRO Cancel()
+  {
+    IF (this->pvt_status != "pending")
+      THROW NEW Exception("Can only send files or redirect once");
+    this->pvt_status := "cancelled";
+    this->pvt_response := [ type := "cancel" ];
+  }
+>;
+
+// ---------------------------------------------------------------------------
+//
+// TolliumAsyncDownloadBase
+//
+
+PUBLIC OBJECTTYPE TolliumAsyncDownloadBase EXTEND TolliumAsyncFileTransferBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT target, STRING id)
+  : TolliumAsyncFileTransferBase(target, id)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Called when file transfer has started
+  PUBLIC FUNCTION PTR onstarted;
+
+  /// Called when file transfer has failed
+  PUBLIC FUNCTION PTR onfailed;
+>;
+
+// ---------------------------------------------------------------------------
+//
+// TolliumAsyncWindowOpenBase
+//
+
+PUBLIC OBJECTTYPE TolliumAsyncWindowOpenBase EXTEND TolliumAsyncFileTransferBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT target, STRING id)
+  : TolliumAsyncFileTransferBase(target, id)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SendURL(STRING url)
+  {
+    IF(NOT IsAbsoluteURL(url,FALSE))
+    {
+      url := ResolveToAbsoluteURL(this->targetcomponent->contexts->controller->baseurl, url);
+    }
+    IF (this->pvt_status != "pending")
+      THROW NEW Exception("Can only send files or url once" || this->pvt_status);
+    this->pvt_status := "senturl";
+    this->pvt_response := url != ""
+        ? [ type := "url", url := url ]
+        : [ type := "cancel" ];
+  }
+>;
+
+
+////////////////////////////////////////////////////////////////////////
+//
+// TolliumControllerBase
+//
+
+/** The Tollium controller controls the tollium environment
+    @topic tollium/appdev
+    @public
+*/
+PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Application icon
+  STRING icon;
+
+
+  /// Application target data
+  RECORD pvt_apptarget;
+
+
+  /// Message queue
+  RECORD ARRAY messagequeue;
+
+
+  /// Whether the application is running
+  BOOLEAN running;
+
+
+  /// Date and time of last contact with the client
+  DATETIME lastclientcontact;
+
+
+  /// Time-out in seconds (need client contact within this period)
+  INTEGER pvt_apptimeout;
+
+
+  /// event manager for broadcasts
+  OBJECT eventmgr;
+
+
+  /// Link to current tolliumcache script
+  OBJECT tolliumcachelink;
+
+  /// Application title
+  STRING title;
+
+  STRING controllertype;
+
+  BOOLEAN reportissues;
+
+  /** Global drag types
+      @cell name
+      @cell handler
+      @cell objectname
+      @cell library
+      @cell flags
+      @cell candownloadflags
+  */
+  RECORD ARRAY globaldragtypes;
+
+  // List of stolen screens
+  OBJECT ARRAY stolen_screens;
+
+  RECORD ARRAY pvt_appevents;
+  INTEGER pvt_appevents_id;
+  RECORD ARRAY event_interests;
+  RECORD ARRAY controllermessagequeue;
+  STRING browsertitleprefix;
+
+  // List of any missing tids
+  RECORD ARRAY missingtids;
+
+  // List of issues with the application
+  RECORD ARRAY appissues;
+
+  // Current open application
+  RECORD currentapplication;
+
+  // User API
+  OBJECT pvt_userapi;
+
+  // WRD auth plugin (if available)
+  OBJECT pvt_wrdauthplugin;
+
+  //The message queue
+  RECORD ARRAY instructions;
+
+  /** Client function call requests
+      @cell id Request id
+      @cell function Name of the function
+      @cell params Function parameters
+      @cell resolve Promise resolve function, to be called with the result
+  */
+  RECORD ARRAY clientcalls;
+
+  /// Base URL for interface
+  STRING pvt_baseurl;
+
+
+  /// List of all active async objects (async downloads, window opens)
+  OBJECT ARRAY asyncobjects;
+
+  BOOLEAN pvt_isvalidation;
+  BOOLEAN pvt_connectenabled;
+  OBJECT pvt_contexts;
+
+  ///experimental: directly execute app actions
+  PUBLIC STRING ARRAY pvt_inapppath;
+
+  // Set if we're in the loaderror screen. Prevents recursive load errors
+  BOOLEAN inhandleloaderror;
+
+  /// Application id
+  STRING applicationid;
+
+  STRING laststartedapp;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC BOOLEAN forceallpublic;
+
+  /// Controller type
+  PUBLIC PROPERTY type(controllertype,-);
+
+  /// Storage. Retained for compatibility with older Tollium applications
+  //PUBLIC PROPERTY storage(pvt_storage,-);
+
+
+  /// Resource manager. Retained for compatibility with older Tollium applications
+  //PUBLIC PROPERTY resourcemgr(pvt_resourcemgr,-);
+
+
+  /// List of visible screens (FIXME should not be writable!)
+  PUBLIC OBJECT ARRAY windowstack;
+
+  /// Indicates whether debugging is enabled
+  PUBLIC BOOLEAN debugging;
+
+  /// Mark all errors as fatal. useful for debugging
+  PUBLIC BOOLEAN intolerant;
+
+  /// @type(object %WHUserApi) The user api
+  PUBLIC PROPERTY userapi(pvt_userapi, -);
+
+  /// @type(object %WRDAuthPlugin) The WRD auth plugin (if available)
+  PUBLIC PROPERTY wrdauthplugin(pvt_wrdauthplugin, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Application icon
+  PUBLIC PROPERTY appicon(icon, SetApplicationIcon);
+
+
+  /// Application title
+  PUBLIC PROPERTY apptitle(title, SetApplicationTitle);
+
+
+  /// Current user
+  PUBLIC PROPERTY user(getuser, -);
+
+
+  PUBLIC PROPERTY tolliumuser(getuser, -); //compatibility with screens, required for application launching
+
+
+  /// Application target data (RECORD)
+  PUBLIC PROPERTY applicationtarget(pvt_apptarget, SetApplicationTarget); //ADDME Make RW and updating this (and appname) should affect SendApplicationMessage
+
+
+  /// Timeout in seconds
+  PUBLIC PROPERTY apptimeout(pvt_apptimeout, -);
+
+  PUBLIC PROPERTY baseurl(pvt_baseurl, -);
+
+  /// Whether the interface runs on https
+  PUBLIC PROPERTY secure(GetSecure, -);
+
+  ///Are we loading the current screen for validation only, and will not be actually starting it?
+  PUBLIC PROPERTY isvalidation(pvt_isvalidation, -);
+
+  /// @type(object %TolliumContexts) Tollium contexts
+  PUBLIC PROPERTY contexts(this->pvt_contexts,-);
+
+  PUBLIC PROPERTY webbrowsertitleprefix(browsertitleprefix, SetBrowserTitlePrefix);
+
+  PUBLIC MACRO PTR __onscreenchange;
+  PUBLIC MACRO PTR __onnoforwardprogress;
+  PUBLIC MACRO PTR __onnoactionhandlerfound;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW(OBJECT userapi, OBJECT wrdauthplugin, BOOLEAN isheadless)
+  {
+    this->applicationid := "A:" || GetCurrentGroupId();
+    this->CreatePort(isheadless);
+
+    this->pvt_userapi := userapi;
+    this->pvt_wrdauthplugin := wrdauthplugin;
+    this->pvt_contexts := NEW TolliumContexts(DEFAULT OBJECT, this);
+    this->eventmgr := NEW EventManager;
+    this->reportissues := HavePrimaryTransaction() AND NOT IsDtapLive();
+
+    this->running := TRUE;
+    this->lastclientcontact := GetCurrentDateTime();
+    this->pvt_baseurl := "about:blank";
+
+    IF(this->reportissues)
+      SetMissingTidCallback(PTR this->OnMissingTid);
+
+    this->KeepStorageAlive();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  OBJECT FUNCTION GetUser()
+  {
+    RETURN GetEffectiveUser();
+  }
+
+
+  MACRO SetApplicationTitle(STRING title)
+  {
+    this->title := title;
+    this->ExtUpdatedAppTitle();
+  }
+
+  MACRO SetBrowserTitlePrefix(STRING prefix)
+  {
+    this->browsertitleprefix := prefix;
+    this->ExtUpdatedController();
+  }
+
+  MACRO SetApplicationTarget(RECORD newtarget)
+  {
+    this->pvt_apptarget := newtarget;
+    this->ExtUpdatedAppTarget();
+  }
+
+  MACRO SetApplicationIcon(STRING icon)
+  {
+    this->icon := icon;
+    this->ExtUpdatedAppIcon();
+  }
+
+  BOOLEAN FUNCTION GetSecure()
+  {
+    RETURN this->baseurl LIKE "https://*";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ProcessIncomingAppEvents(RECORD ARRAY events)
+  {
+    FOREVERY(RECORD eventhandler FROM this->pvt_appevents)
+      FOREVERY(RECORD event FROM events)
+      {
+        IF(event.event LIKE eventhandler.eventtag)
+          eventhandler.handler(event.data);
+      }
+  }
+
+  BOOLEAN FUNCTION ProcessIncomingControllerMessages()
+  {
+    RECORD ARRAY events := this->controllermessagequeue;
+    IF(Length(events)=0)
+      RETURN FALSE;
+
+    this->controllermessagequeue := DEFAULT RECORD ARRAY;
+    FOREVERY(RECORD msg FROM events)
+      this->HandleControllerMessage(msg);
+    RETURN TRUE;
+  }
+
+  PUBLIC INTEGER FUNCTION pvt_RegisterAppEventListener(OBJECT screen, STRING eventtag, MACRO PTR handler)
+  {
+    INTEGER id := this->pvt_appevents_id + 1;
+    this->pvt_appevents_id := id;
+    INSERT INTO this->pvt_appevents(id, screen, eventtag, handler) VALUES(id, screen, eventtag, handler) AT END;
+    this->UpdateAppEventListeners();
+    RETURN id;
+  }
+
+  PUBLIC MACRO pvt_UnregisterAppEventListener(INTEGER listenerid)
+  {
+    DELETE FROM this->pvt_appevents WHERE id = listenerid;
+    this->UpdateAppEventListeners();
+  }
+
+  MACRO UpdateAppEventListeners()
+  {
+    RECORD ARRAY events :=
+        SELECT eventtag
+             , count :=         count(*)
+             , id :=            (SELECT AS INTEGER id
+                                   FROM this->event_interests AS b
+                                  WHERE a.eventtag = b.eventtag)
+          FROM this->pvt_appevents AS a
+      GROUP BY eventtag;
+
+    STRING ARRAY new_events := SELECT AS STRING ARRAY eventtag FROM events;
+
+    FOREVERY (RECORD rec FROM this->event_interests)
+      IF (rec.eventtag NOT IN new_events)
+        this->eventmgr->UnregisterInterest(rec.id);
+
+
+    FOREVERY (RECORD rec FROM events)
+      IF (rec.id = 0)
+        events[#rec].id := this->eventmgr->RegisterInterest(rec.eventtag);
+
+    this->event_interests := events;
+  }
+
+  MACRO HandleLoadError(OBJECT parent, RECORD ARRAY loaderrors, STRING screenname)
+  {
+    Print(`Errors loading screen '${screenname}:\n`);
+    DumpValue(loaderrors,'boxed');
+
+    IF(this->inhandleloaderror)
+      ABORT("Recursive HandleLoadError call:\n" || AnyToString(loaderrors,'tree'));
+
+    TRY
+    {
+      this->inhandleloaderror := TRUE;
+      this->pvt_inapppath := STRING[]; //clear any remaining actions, they shouldn't execute on the load dialog
+
+      IF (LENGTH(loaderrors) = 1 AND CellExists(loaderrors[0], "EXCEPTION"))
+      {
+        RunExceptionReportDialog(parent ?? this, loaderrors[0].exception);
+      }
+      ELSE
+      {
+        //FIXME why not loadscreen?
+        OBJECT errorpage := this->PVT_LoadScreen([ parent := parent
+                                                 , screen := MakeAbsoluteScreenReference("","tollium:commondialogs.loaderror")
+                                                 , params := DEFAULT RECORD
+                                                 , run_init := TRUE
+                                                 , options := DEFAULT RECORD
+                                                 ]);
+        IF(NOT ObjectExists(errorpage))
+        {
+          //PrintRecordArrayTo(0, loaderrors, "html");
+          Abort(AnyToString(loaderrors,'boxed'));
+          RETURN;
+        }
+        errorpage->parseerrors->value := errorpage->parseerrors->value || " (" || screenname || ")";
+        errorpage->errors->rows := loaderrors;
+        errorpage->RunModal();
+      }
+    }
+    FINALLY
+    {
+      this->inhandleloaderror := FALSE;
+    }
+  }
+
+
+  MACRO OnMissingTid(RECORD tidinfo)
+  {
+    RECORD insertpos := RecordLowerBound(this->missingtids, tidinfo, ["module","tid"]);
+    IF(insertpos.found)
+      RETURN;
+
+    INSERT tidinfo INTO this->missingtids AT insertpos.position;
+    this->AddAppIssue("missingtid");
+  }
+
+  RECORD ARRAY FUNCTION GetAppMenu()
+  {
+    RECORD ARRAY appmenu := [[ title := GetTid('tollium:shell.restartapp')
+                             , cmd := [ type := "currentapp:restart" ]
+                            ]];
+
+    appmenu := RunModuleHookTarget("tollium:appmenu"
+                      , CELL[ appmenu
+                            , appname := RecordExists(this->currentapplication) ? this->currentapplication.name : ""
+                            , this->contexts
+                            ]).appmenu;
+
+    IF(this->reportissues)
+      appmenu := appmenu CONCAT [[isdivider := TRUE]] CONCAT this->GetDevelopmentAppMenu();
+
+    RETURN appmenu;
+  }
+
+  RECORD ARRAY FUNCTION GetDevelopmentAppMenu()
+  {
+    RECORD ARRAY items;
+    IF(RecordExists(this->currentapplication) AND this->currentapplication.name LIKE "*:*" AND this->tolliumuser->HasRight("system:sysop"))
+    {
+      STRING module := Tokenize(this->currentapplication.name,':')[0];
+      INSERT [ title := "Launch language editor for '" || module || "'"
+             , cmd := [ type := "appmessage", app := "tollium:langedit", reuse := FALSE, target := [ module := module ], message := DEFAULT RECORD ]
+             ] INTO items AT END;
+    }
+    IF(RecordExists(SELECT FROM this->appissues WHERE tag = "missingtid"))
+    {
+      INSERT [ title := "Show missing tids"
+             , cmd := [ type := "currentapp:controllermsg", msg := [ type := "showmissingtids"]  ]
+             ] INTO items AT END;
+    }
+    IF (GetDtapStage() = "development" AND RecordExists(this->currentapplication))
+    {
+      STRING lib := Tokenize(this->currentapplication.appfunction,'#')[0];
+      IF (lib = "")
+      {
+        TRY
+        {
+          STRING screenref := MakeAbsoluteScreenReference("", this->currentapplication.screen);
+          STRING screenfile := GetResourceNameFromScreenPath(screenref);
+          STRING screenname := Tokenize(screenref || "#", "#")[1];
+          RECORD parsedpage := this->GetParsedPage(screenfile
+                                                , '//*[local-name()="screen" and namespace-uri() = "http://www.webhare.net/xmlns/tollium/screens"][@name="' || EncodeJava(screenname) || '"]'
+                                                , "screen");
+
+          lib := Tokenize(parsedpage.objtype,'#')[0];
+        }
+        CATCH;
+      }
+
+      INSERT [ title := "Open in debugger"
+             , cmd :=
+                    [ type := "appmessage"
+                    , app := "system:debugger"
+                    , reuse := FALSE
+                    , target := DEFAULT RECORD
+                    , message :=
+                            [ groupid := GetCurrentGroupId()
+                            , files := [ lib ]
+                            ]
+                    ]
+             ] INTO items AT END;
+    }
+    RETURN items;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsConnectEnabled()
+  {
+    RETURN this->pvt_connectenabled;
+  }
+
+  MACRO AddAppIssue(STRING issuetag)
+  {
+    INTEGER matchissue := (SELECT AS INTEGER #appissues+1 FROM this->appissues WHERE tag = issuetag)-1;
+    IF(matchissue = -1)
+    {
+      INSERT [ tag := issuetag
+             , count := 1
+             ] INTO this->appissues AT END;
+
+      this->ExtUpdatedController();
+    }
+    ELSE
+    {
+      this->appissues[matchissue].count := this->appissues[matchissue].count  + 1;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION GetParsedPage(STRING resourcename, STRING selector, STRING type)
+  {
+    RETURN GetAdhocCached([ type := "parsedpage", screenref := resourcename, selector := selector, pagetype := type ], PTR GetCacheableParsedPage(resourcename, selector, type));
+  }
+
+  MACRO DeleteScreenFromWindowStack(OBJECT screen)
+  {
+    IF (screen IN this->windowstack)
+    {
+      screen->frame->OnUnloadFrame();
+      screen->TolliumCloseScreen();
+
+      IF (screen IN this->windowstack)
+        DELETE FROM this->windowstack AT SearchElement(this->windowstack, screen);
+
+      INTEGER pos := SearchElement(this->stolen_screens, screen);
+      IF (pos != -1)
+        DELETE FROM this->stolen_screens AT pos;
+
+      IF(this->__onscreenchange != DEFAULT MACRO PTR)
+        this->__onscreenchange(screen,FALSE);
+    }
+  }
+
+  /// Return whether this screen or one of its parents in the window stack was marked as stolen
+  BOOLEAN FUNCTION IsScreenStolen(OBJECT screen)
+  {
+    IF (LENGTH(this->stolen_screens) = 0)
+      RETURN FALSE;
+
+    BOOLEAN needclose;
+    FOREVERY (OBJECT scr FROM this->windowstack)
+    {
+      needclose := needclose OR scr IN this->stolen_screens;
+      IF (scr = screen AND needclose)
+        RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  MACRO KeepStorageAlive()
+  {
+    // Keep all transactions alive, and fault if they are not.
+    IF (NOT KeepTransactionsAlive())
+    {
+      /* At least one transaction died; try to reconnect for this VM, so we can show the exception dialog.
+         (crashes will happen if the db can't be reached due to registry accesses, let's hope it's up by now)
+
+         Can't do ReconnectAllWHDBTransactions in the normal case, because blob access is limited to blobs
+         you have seen in your current connection, every access to a dbase blob will fault after reconnection.
+      */
+      IF (NOT IsWHDBConnectionAlive())
+        ReconnectAllWHDBTransactions();
+
+      // ADDME: currently only closes of webhare db connections can be detected, so this msg is correct. For now.
+      THROW NEW Exception("The connection to the WebHare database has been closed");
+    }
+
+    // Run every 10 minutes
+    RegisterTimedCallback(AddTimeToDate(10 * 60 * 1000, GetCurrentDateTime()), PTR this->KeepStorageAlive);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedController()
+  {
+  }
+
+
+  MACRO ExtUpdatedAppTitle()
+  {
+    this->ExtUpdatedController();
+  }
+
+
+  MACRO ExtUpdatedAppTarget()
+  {
+    this->ExtUpdatedController();
+  }
+
+
+  MACRO ExtUpdatedAppIcon()
+  {
+    this->ExtUpdatedController();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC MACRO EnsureVisibleScreen(OBJECT screen)
+  {
+    IF(screen IN this->windowstack)
+      RETURN;
+
+    IF(ObjectExists(screen->tolliumparent))
+      this->EnsureVisibleScreen(screen->tolliumparent);
+
+    INSERT screen INTO this->windowstack AT END;
+    screen->frame->OnShowFrame();
+
+    //Mark all components as dirty, as todd always destroys a screen that has gone invisible
+    FOREVERY(OBJECT comp FROM screen->frame->GetTopDownAllComponents())
+      comp->ExtUpdatedComponent();
+  }
+
+  /** @short Send a message to an application, launch it if needed
+      @long Application messages offer a one-way communication channel between applications, and allows for a way to start new applications
+      @param app Name of the application to start (usually 'modulename.applicationname')
+      @param apptarget The target (eg document, schema) of the application. May be an empty record. An application instance only matches if it has the same application name and target
+      @param messagedata If an existing record is passed, this is sent to the 'onmessage' handler of the application
+      @param reuse_instance If true, do not start a new instance of the application if it is already running, but pass the message to the existing application */
+  PUBLIC MACRO SendApplicationMessage(STRING app, RECORD apptarget, RECORD messagedata, BOOLEAN reuse_instance)
+  {
+    this->StartApplication(app, apptarget, messagedata, [ reusemode := reuse_instance ? "always" : "never" ]);
+  }
+
+  /** @short Send a message to an application, launch it if needed
+      @long Application messages offer a one-way communication channel between applications, and allows for a way to start new applications
+      @param app Name of the application to start (usually 'modulename.applicationname')
+      @param apptarget The target (eg document, schema) of the application. May be an empty record. An application instance only matches if it has the same application name and target
+      @param messagedata If an existing record is passed, this is sent to the 'onmessage' handler of the application
+      @param options
+      @cell options.reusemode When to reuse an existing application. Possible values: "never", "always", "whennotbusy". If reusing an existing application,
+          the message is sent to its onmessage handler.
+  */
+  PUBLIC MACRO StartApplication(STRING app, RECORD apptarget, RECORD messagedata, RECORD options)
+  {
+    options := ValidateOptions(
+        [ reusemode :=  "always"
+        ], options);
+
+    IF (options.reusemode NOT IN [ "always", "whennotbusy", "never" ])
+      THROW NEW Exception(`Illegal reusemode '${options.reusemode}', allowed: 'always', 'whennotbusy'`);
+
+    this->QueueInstruction(
+        [ instr :=    "sendappmessage"
+        , app :=      app
+        , reuse :=    options.reusemode
+        , target :=   apptarget
+        , message :=  messagedata
+        ]);
+  }
+
+  /* loaddata: OBJECT parent, STRING basemodule, STRING pagefile, STRING pagename, RECORD params, BOOLEAN run_init, STRING ARRAY allowed_implementations)
+     FIXME Switch to loader object contexts, add security contexts (eg limit the number of allowable implementation options)
+  */
+  PUBLIC OBJECT FUNCTION PVT_LoadScreen(RECORD loaddata)
+  {
+    loaddata := ValidateOptions(
+        [ screen :=        ""
+        , parent :=        DEFAULT OBJECT
+        , params :=        DEFAULT RECORD
+        , run_init :=      TRUE
+        , options :=       DEFAULT RECORD
+        , contextparent := DEFAULT OBJECT
+        ],
+        loaddata,
+        [ required :=      [ "PARENT", "SCREEN" ]
+        ]);
+
+    loaddata.parent := GetTopLevelScreen(loaddata.parent);
+
+    RECORD parsedpage;
+    TRY
+    {
+      parsedpage := this->GetParsedPage(GetResourceNameFromScreenPath(loaddata.screen)
+                                            , '//*[local-name()="screen" and namespace-uri() = "http://www.webhare.net/xmlns/tollium/screens"][@name="' || EncodeJava(GetScreenNameFromScreenPath(loaddata.screen)) || '"]'
+                                            , "screen");
+    }
+    CATCH (OBJECT< RetrieveResourceException > e)
+    {
+      IF (LENGTH(e->xmlerrors) != 0)
+      {
+        IF(loaddata.run_init)
+          this->HandleLoadError(loaddata.parent, e->xmlerrors, loaddata.screen);
+
+        RETURN DEFAULT OBJECT;
+      }
+      THROW;
+    }
+
+    RECORD savescreenbuildinfo := __screenbuildinfo;
+    OBJECT builder, screen;
+    TRY
+    {
+      __screenbuildinfo := [ options := ValidateOptions([ appcontexts := DEFAULT RECORD ARRAY, contexts := DEFAULT RECORD ], loaddata.options)
+                           , parent := loaddata.parent
+                           , controller := this
+                           , privateptr := DEFAULT OBJECT
+                           , initdata := loaddata.params
+                           , contextparent := loaddata.contextparent
+                           ];
+      builder := NEW __ScreenBuilder(this, parsedpage, loaddata.run_init);
+      screen := __screenbuildinfo.privateptr;
+    }
+    FINALLY
+    {
+      __screenbuildinfo := savescreenbuildinfo;
+    }
+
+    TRY
+    {
+      IF(loaddata.run_init)
+      {
+        RECORD ARRAY allcomponents := screen->DoLoadComponents(parsedpage.formobjects, builder);
+        //stored component info doesn't have a screenname yet, so add it, as the fragment code (InnerCreateFragment) adds one too
+        allcomponents := screen->tolliumscreenmanager->ScopeFormObjects(allcomponents);
+        IF(NOT builder->HasFailed())
+          screen->tolliumscreenmanager->DoInitComponents(allcomponents, builder);
+
+        IF(NOT builder->HasFailed())
+          screen->TolliumInitializeScreen(loaddata.params);
+      }
+    }
+    CATCH(OBJECT<TolliumException> e)
+    {
+      IF(NOT ObjectExists(e->component) OR NOT ObjectExists(e->component->owner) OR NOT ObjectExists(e->component->owner->tolliumscreenmanager))
+      {
+        //Print("not in a screenmanager\n");
+        THROW e;
+      }
+
+      //ADDME deal nicely with the situation where the component is from a different file
+      IF(e->component->owner != screen)
+      {
+        //Print("not in our own sscreen\n");
+        THROW e;
+      }
+
+      OBJECT screenmgr := e->component->owner->tolliumscreenmanager;
+      IF (NOT MemberExists(e->component, "NAME")) // FIXME: screenmanager GetComponent throw fails this!
+      {
+        //Print("component has no name\n");
+        THROW e;
+      }
+
+      OBJECT testcomp := e->component;
+      RECORD compinfo;
+      WHILE(ObjectExists(testcomp))
+      {
+        compinfo := screenmgr->GetComponentInfo(testcomp->toddname);
+        IF(RecordExists(compinfo) AND compinfo.line > 1)
+          BREAK;
+        testcomp := testcomp->supercomponent;
+      }
+      IF(NOT RecordExists(compinfo) OR compinfo.line <= 1) //unable to track it down :(
+      {
+        //Print("component has no known location\n"); DumpValue(compinfo,'tree:2');
+        THROW e;
+      }
+
+      LogHarescriptException(e);
+      builder->AddErrorOnLine(parsedpage.resourcename, compinfo.line, e->what);
+    }
+
+    IF(builder->HasFailed())
+    {
+      IF(loaddata.run_init)
+        this->HandleLoadError(loaddata.parent, builder->GetErrors(), loaddata.screen);
+
+      RETURN DEFAULT OBJECT;
+    }
+
+    RETURN loaddata.run_init ? screen : DEFAULT OBJECT;
+  }
+
+
+  PUBLIC BOOLEAN FUNCTION IsRunning()
+  {
+    RETURN this->running;
+  }
+
+  MACRO ValidateControllerSetup()
+  {
+    IF(NOT ObjectExists(this->user))
+      ABORT("Starting controller without setting up a tolliumuser");
+  }
+
+  PUBLIC VARIANT FUNCTION RunScreen(STRING screen, RECORD initdata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(screen NOT LIKE "*::*")
+      THROW NEW Exception("The controller's RunScreen requires a full path to a screen");
+
+    OBJECT screenobject := this->LoadScreen(screen, initdata, options);
+    IF(NOT ObjectExists(screenobject))
+      THROW NEW Exception(`The screen ${screen} could not be loaded`);
+
+    RETURN screenobject->__TolliumRunScreen();
+  }
+
+  PUBLIC OBJECT FUNCTION LoadScreen(STRING name, RECORD params DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->ValidateControllerSetup();
+
+    name := MakeAbsoluteScreenReference("",name);
+
+    RETURN this->PVT_LoadScreen([ parent := DEFAULT OBJECT
+                                , screen := name
+                                , params:= params
+                                , run_init:=TRUE
+                                , options := options
+                                ]);
+  }
+
+  //ADDME: TolliumScreenBase also has a RunMessageBox function. The TolliumControllerBase version is used in contexts where
+  //       no screen is available, just like LoadScreen is defined in both classed. Maybe they should derive from a common
+  //       base class which defines these functions?
+  PUBLIC STRING FUNCTION RunMessageBox(STRING name, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    OBJECT msgbox := CreateMessageBox(this, MakeAbsoluteScreenReference("",name), p1, p2, p3, p4);
+    msgbox->title := this->apptitle;
+    RETURN msgbox->RunModal();
+  }
+
+  PUBLIC STRING FUNCTION ShowMessageBox(STRING message, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->LoadScreen("tollium:commondialogs.showmessagebox", [ message := message, options := options ])->RunModal();
+  }
+
+  PUBLIC STRING FUNCTION RunSimpleScreen(STRING type, STRING message, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->LoadScreen("tollium:commondialogs.showmessagebox", [ message := message, options := CELL[...options, type] ])->RunModal();
+  }
+
+  PUBLIC BOOLEAN FUNCTION Tollium_ParsePendingEvents()
+  {
+    BOOLEAN didwork;
+
+    WHILE(Length(this->messagequeue)>0 AND Length(this->windowstack)>0)
+    {
+      OBJECT screen := this->windowstack[0];
+
+      //FIXME remove this hack and find a nicer way for the alumniportal to send these linkedin token messages back to its dialog
+      IF(CellExists(this->messagequeue[0],"__totopscreen") AND this->messagequeue[0].__totopscreen)
+        screen := this->windowstack[Length(this->windowstack)-1];
+
+      // Only deliver messages to the top screen, when it is modal (so, no screens with parent or with modal children)
+      IF(NOT screen->frame->enabled)
+        BREAK;
+
+      RECORD msg := this->messagequeue[0];
+      DELETE FROM this->messagequeue AT 0;
+      didwork:=TRUE;
+
+      IF(screen->frame->onmessage != DEFAULT FUNCTION PTR)
+        screen->frame->onmessage(msg);
+    }
+
+    FOREVERY(OBJECT win FROM this->windowstack)
+      IF(win->tolliumscreenmanager->DoEvents())
+        didwork:=TRUE;
+
+    RETURN didwork;
+  }
+
+  PUBLIC MACRO LaunchApplication(STRING appname, RECORD data)
+  {
+    data := FixupLaunchAppOptions(data);
+
+    RECORD previousapplication := this->currentapplication;
+    this->currentapplication := DEFAULT RECORD;
+
+    TRY this->LaunchTheApplication(appname, data);
+    FINALLY this->currentapplication := previousapplication;
+
+    this->TransmitAnyPendingData();
+  }
+  MACRO LaunchTheApplication(STRING apppath, RECORD data)
+  {
+    BOOLEAN errorhandled; // sysop-only warning given so no need to give a generic applaunchfailure message?
+
+    this->ValidateControllerSetup();
+    IF(Length(this->pvt_inapppath) > 0 AND NOT IsTrustedForDeepAccess())
+      this->pvt_inapppath := STRING[];
+
+    IF(ReadRegistryKey("system.webserver.global.locking.sysoponly") AND NOT this->tolliumuser->HasRight("system:supervisor"))
+    {
+      this->RunMessageBox("tollium:commondialogs.webhareclosedformaintenance");
+      RETURN;
+    }
+
+    STRING ARRAY toks := Tokenize(apppath,':');
+    RECORD module := GetWebhareModuleInfo(toks[0]);
+    IF(Length(toks)>2 OR NOT RecordExists(module))
+    {
+      this->RunMessageBox("tollium:commondialogs.applaunchfailure_invalidappname", apppath);
+      RETURN;
+    }
+
+    STRING appname;
+    RECORD app;
+    IF(Length(toks)>=2)
+    {
+      appname := toks[0]||":"||toks[1];
+      app := SELECT * FROM module.portal.applications WHERE name=appname;
+    }
+    ELSE
+    {
+      app := SELECT * FROM module.portal.applications LIMIT 1;
+      appname := RecordExists(app)?toks[0]||":"||app.name : "";
+    }
+
+    IF(NOT RecordExists(app))
+    {
+      this->RunMessageBox("tollium:commondialogs.applaunchfailure_nosuchapp", toks[0], appname);
+      RETURN;
+    }
+    IF(Length(data.params) >0 AND NOT app.allowuntrustedparams AND NOT IsTrustedForDeepAccess())
+    {
+      this->RunSimpleScreen("error", GetTid("tollium:shell.controller.untrustedparams"));
+      RETURN;
+    }
+
+
+    //Print("intialize app\n" || AnyToString(app, "tree"));
+    //Print("xx^ authenticationinfo:\n" || AnyToString(GetAuthenticationRecord(), "tree"));
+    OBJECT langsystem := __GetTidLanguageSystemForModule(toks[0]);
+    STRING suggestedlanguage := ObjectExists(langsystem) ? langsystem->GetBestLanguageFor(GetTidLanguage()) : "en";
+    IF(Length(app.supportedlanguages) > 0 AND suggestedlanguage NOT IN app.supportedlanguages)
+      suggestedlanguage := app.supportedlanguages[0];
+    SetTidLanguage(suggestedlanguage);
+    this->tolliumuser->language := suggestedlanguage; //overwrite whatever the user has selected.
+    SetApplicationAndUserInAuthRecord(app, data, this->user);
+
+    RECORD switchres := ApplyAccessCheck(app.accesscheck, /*makeautotrans*/ TRUE, this->tolliumuser);
+    IF(NOT switchres.success)
+    {
+      OBJECT screen := this->LoadScreen("system:commondialogs.rightsproblem",
+          [ needed_rights := DescribeAccessCheck(app.accesscheck)
+          ]);
+
+      IF(ObjectExists(screen))
+        screen->RunModal();
+      ELSE
+        THROW NEW Exception("Unable to open rightsproblem dialog to signal the rights issue");
+
+      RETURN;
+    }
+
+    TRY
+    {
+      RECORD contextinfo := [ language := GetTidLanguage() ];
+      this->__LoadAppContexts(module.globalappcontexts, contextinfo);
+      this->__LoadAppContexts(app.appcontexts, contextinfo);
+      this->currentapplication := app;
+      SetErrorContextInfo([ source := "tollium:app", app := app.name, user_wrdid := this->tolliumuser->entityid, language := GetTidLanguage() ]);
+
+      IF (this->__DoIntegratedAppLaunch(this, app, data))
+        RETURN;
+
+      this->RunMessageBox("tollium:commondialogs.applaunchfailure", appname);
+    }
+    FINALLY
+      this->__ClearAppContexts();
+  }
+
+  PUBLIC BOOLEAN FUNCTION __DoIntegratedAppLaunch(OBJECT parent, RECORD app, RECORD data)
+  {
+    IF(app.appfunction!="")
+    {
+      STRING ARRAY functoks := Tokenize(app.appfunction,'#');
+      FUNCTION PTR func := MakeFunctionPtr(functoks[0], functoks[1], 0, [TypeID(OBJECT), TypeID(RECORD)]);
+      func(parent, data);
+      RETURN TRUE;
+    }
+    ELSE IF(app.screen!="")
+    {
+      OBJECT screen := parent->LoadScreen(app.screen, data);
+      IF(ObjectExists(screen))
+      {
+        screen->RunModal();
+        RETURN TRUE;
+      }
+      Print("Load failure for screen '" || app.screen || "'\n");
+      RETURN FALSE;
+    }
+
+
+    Print("Don't know how to load app\n");
+    RETURN FALSE;
+  }
+
+
+  PUBLIC MACRO BroadcastAppEvent(STRING eventtag, RECORD data)
+  {
+    this->eventmgr->BroadcastEvent(eventtag, data);
+  }
+
+  /** @short Broadcast multiple events
+      @param events Record array of events
+      @cell events.tag Tag of the event
+      @cell events.data Data for the event */
+  PUBLIC MACRO BroadcastAppEvents(RECORD ARRAY events)
+  {
+    FOREVERY(RECORD event FROM events)
+      this->BroadcastAppEvent(event.tag, event.data);
+  }
+
+
+  PUBLIC MACRO ExitApplication()
+  {
+    this->running := FALSE;
+  }
+
+  /** Runs a background task
+  */
+  PUBLIC OBJECT FUNCTION LoadBackgroundTask(OBJECT screen, STRING lib, STRING objname, RECORD data)
+  {
+    OBJECT task := NEW BackgroundTaskRunner(screen, lib, objname, data);
+
+    IF(task->started)
+      RETURN task;
+
+    PRINT("Could not create background task:\n" || AnyToString(task->errors, "tree"));
+    OBJECT dialog := CreateHarescriptErrorsDialog(screen, task->errors);
+    dialog->Runmodal();
+    RETURN DEFAULT OBJECT;
+  }
+
+  /** Request client to send its state to us. Warning: experimental! Interval won't run and callbacks may occur from within
+      this function.
+      @param
+      @cell options.lockclient Whether to lock the client (with a busylock) until the next message loop is entered.
+      @cell options.timeout Time to wait until (pass MAX_DATETIME to wait forever)
+      @return One of the following values: 'ok' (sync done), 'timeout' (no response from client), 'closed' (screen closed by client)
+  */
+  PUBLIC STRING FUNCTION GetClientState(RECORD options)
+  {
+    RETURN "ok";
+  }
+
+
+  PUBLIC OBJECT FUNCTION GetAsyncFileTransferAction(OBJECT component, STRING ftid, BOOLEAN create)
+  {
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC RECORD FUNCTION GetGlobalDragType(STRING wanttype)
+  {
+    IF (LENGTH(this->globaldragtypes) = 0)
+      this->globaldragtypes :=
+          SELECT name
+               , handler :=   DEFAULT OBJECT
+               , objectname
+               , library
+               , flags
+               , candownloadflags
+            FROM GetGlobalDragTypes();
+
+    RECORD pos := RecordLowerBound(this->globaldragtypes, [ name := wanttype ], [ "NAME" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("Cannot find declaration for dragtype '" || wanttype || "'");
+
+    RECORD rec := this->globaldragtypes[pos.position];
+    IF (ObjectExists(rec.handler))
+      RETURN rec;
+
+    this->globaldragtypes[pos.position].handler := MakeObject(rec.library, rec.objectname);
+    RETURN this->globaldragtypes[pos.position];
+  }
+
+  PUBLIC RECORD FUNCTION HandleDragout(RECORD draginfo)
+  {
+    RETURN this->GetGlobalDragType(draginfo.type).handler->HandleDownload(draginfo.data);
+  }
+
+  PUBLIC STRING FUNCTION GetComponentFileTransferURL(OBJECT component, STRING type, RECORD data, RECORD options)
+  {
+    STRING url := "/.tollium/ui/filetransfer.shtml";
+    IF (CellExists(options, "FILENAME") AND options.filename != "")
+      url := url || "/" || EncodeURL(options.filename);
+    url := AddVariableToURL(url, "l", this->applicationid);
+    url := AddVariableToURL(url, "w", component->owner->frame->instancename);
+    url := AddVariableToURL(url, "n", GetComponentName(component));
+    url := AddVariableToURL(url, "t", type);
+    IF (RecordExists(data))
+      url := AddVariableToURL(url, "d", EncodeJSON(data));
+    RETURN url;
+  }
+
+  PUBLIC MACRO MarkScreenAsStolen(OBJECT screen)
+  {
+    IF (screen NOT IN this->stolen_screens)
+      INSERT screen INTO this->stolen_screens AT END;
+  }
+
+  PUBLIC MACRO MarkChildrenScreensAsStolen(OBJECT parentscreen)
+  {
+    BOOLEAN ischild;
+    FOREVERY (OBJECT screen FROM this->windowstack)
+    {
+      IF (screen = parentscreen)
+        ischild := TRUE;
+      ELSE IF (ischild AND screen NOT IN this->stolen_screens)
+        INSERT screen INTO this->stolen_screens AT END;
+    }
+  }
+
+  PUBLIC MACRO HandleControllerMessage(RECORD msg)
+  {
+    SWITCH (msg.type)
+    {
+      CASE "showmissingtids"
+      {
+        this->RunScreen("mod::tollium/screens/debugging.xml#missingtids", [ missingtids := this->missingtids ]);
+        RETURN;
+      }
+      CASE "clientcallreply"
+      {
+        RECORD pos := RecordLowerBound(this->clientcalls, msg, [ "ID"]);
+        IF (pos.found)
+        {
+          IF (msg.resolve)
+            this->clientcalls[pos.position].resolve(msg.result);
+          ELSE
+            this->clientcalls[pos.position].reject(NEW Exception(msg.result));
+          DELETE FROM this->clientcalls AT pos.position;
+        }
+        RETURN;
+      }
+    }
+    ABORT("Unexpected message type " || msg.type);
+  }
+
+
+  /** @short Send a message to all sessions run by the current user
+      @long This message will be sent as "broadcast" event by the tollium shell object
+      @param message Message to send
+      */
+  PUBLIC MACRO BroadcastToCurrentUser(RECORD message)
+  {
+    IF(ObjectExists(this->user))
+      this->user->BroadcastToClient(message);
+  }
+
+  PUBLIC BOOLEAN FUNCTION AddFavorite(STRING app, RECORD target, RECORD message, STRING title, STRING icon)
+  {
+    //FIXME move favorite API to tolliumuser object?
+    RECORD ARRAY shortcuts := this->user->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    IF(RecordExists(SELECT FROM shortcuts WHERE EncodeHSON(VARIANT[app,target,message]) = EncodeHSON(VARIANT[shortcuts.app, shortcuts.target, shortcuts.message])))
+      RETURN FALSE; //aleady added
+
+    //FIXME Allow specification of names
+    INSERT [ title := title
+           , icon := icon
+           , app := app
+           , target := target
+           , message := message
+           ] INTO shortcuts AT END; //FIXME insert sorted position ?
+    this->user->SetRegistryKey("tollium.dashboard.shortcuts", shortcuts);
+
+    BroadcastEvent("tollium:dashboard.shortcuts." || this->user->entityid, DEFAULT RECORD);
+    this->BroadcastToCurrentUser( [ type := "tollium:shell.refreshmenu" ]);
+    RETURN TRUE;
+  }
+  PUBLIC MACRO RemoveFavorite(STRING app, RECORD target, RECORD message)
+  {
+    RECORD ARRAY shortcuts := this->user->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    DELETE FROM shortcuts WHERE EncodeHSON(VARIANT[app,target,message]) = EncodeHSON(VARIANT[shortcuts.app, shortcuts.target, shortcuts.message]);
+    this->user->SetRegistryKey("tollium.dashboard.shortcuts", shortcuts);
+
+    BroadcastEvent("tollium:dashboard.shortcuts." || this->user->entityid, DEFAULT RECORD);
+    this->BroadcastToCurrentUser( [ type := "tollium:shell.refreshmenu" ]);
+  }
+  PUBLIC BOOLEAN FUNCTION IsFavoriteAdded(STRING app, RECORD target, RECORD message)
+  {
+    RECORD ARRAY shortcuts := this->user->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    RETURN RecordExists(SELECT FROM shortcuts WHERE EncodeHSON(VARIANT[app,target,message]) = EncodeHSON(VARIANT[shortcuts.app, shortcuts.target, shortcuts.message]));
+  }
+
+  PUBLIC BOOLEAN FUNCTION FavoriteExists(STRING title)
+  {
+    RECORD ARRAY shortcuts := this->user->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    RETURN RecordExists(SELECT FROM shortcuts WHERE shortcuts.title=title);
+  }
+
+  PUBLIC MACRO SendComponentReadonly(OBJECT comp, STRING value, BOOLEAN wordwrap)
+  {
+    RECORD base := comp->GetStandardAttributes("text");
+    RECORD compinfo := MakeMergedRecord(base,
+                       [ instr := "component"
+                       , value := value
+                       , richvalue := DEFAULT RECORD ARRAY
+                       , wordwrap := wordwrap
+                       , selectable := TRUE
+                       ]);
+    this->QueueInstruction(compinfo);
+  }
+  PUBLIC MACRO SendComponentUpdate(OBJECT comp, RECORD updinfo)
+  {
+    INSERT CELL instr := "update" INTO updinfo;
+    INSERT CELL target := GetComponentName(comp) INTO updinfo;
+    INSERT CELL window := comp->owner->frame->instancename INTO updinfo;
+    this->QueueInstruction(updinfo);
+  }
+  PUBLIC MACRO SendComponent(OBJECT comp, RECORD data)
+  {
+    RECORD base := comp->GetStandardAttributes(comp->componenttype);
+    data := MakeMergedRecord(base,data);
+    INSERT CELL instr := "component" INTO data;
+    this->QueueInstruction(data);
+  }
+  UPDATE PUBLIC MACRO SendAppLevelMessage(STRING type, RECORD data)
+  {
+    INSERT CELL instr := "appupdate" INTO data;
+    INSERT CELL type := type INTO data;
+    this->QueueInstruction(data);
+  }
+  MACRO QueueInstruction(RECORD instr)
+  {
+    INSERT instr INTO this->instructions AT END;
+  }
+
+  MACRO TransmitDirtyComponents()
+  {
+    FOREVERY(OBJECT screen FROM this->windowstack)
+    {
+      /** Loop while any component is dirty, rendering all the dirty ones in a loop. Preshow handlers may add components, adding new dirty components to the lists.
+          Components can mark each other as dirty, but we set an bound to catch mutual dirty marking on rendering
+      */
+      INTEGER loopbudget := 100;
+      WHILE(LENGTH(screen->tolliumdirtyvisiblecomponents) != 0 OR Length(screen->tolliumdirtysubscreens) != 0) //loop until we've got all visible components in this screen out of our way
+      {
+        loopbudget := loopbudget - 1;
+        IF (loopbudget = 0)
+        {
+          // Set flag that causes the next dirty marking to error out
+          screen->__tollium_inendlessdirtymarkingloop := TRUE;
+        }
+
+        //Update any dirty components (ADDME: Skip components the client shouldn't currently care about?) (ADDME: Option to _delete_ unused components at the client?)
+        FOREVERY (RECORD rec FROM screen->tolliumdirtyvisiblecomponents)
+        {
+          rec.comp->EnsurePreShow();
+          rec.comp->TolliumWebRender();
+        }
+
+        FOREVERY (RECORD subscreen FROM screen->tolliumdirtysubscreens)
+          FOREVERY (RECORD rec FROM subscreen.screen->tolliumdirtyvisiblecomponents)
+          {
+            rec.comp->EnsurePreShow();
+            rec.comp->TolliumWebRender();
+          }
+
+        // Dirty marking should have caught this, but better safe than sorry
+        IF (screen->__tollium_inendlessdirtymarkingloop)
+          THROW NEW Exception(`Components are marking each other dirty on rendering, but the detection code didn't catch them`);
+      }
+    }
+  }
+
+  PUBLIC OBJECT FUNCTION ExecuteClientCall(STRING type, VARIANT ARRAY params) __ATTRIBUTES__(VARARG)
+  {
+    clientcallcounter := clientcallcounter + 1;
+    RECORD defer := CreateDeferredPromise();
+    INSERT
+        [ id :=       clientcallcounter
+        , type :=     type
+        , params :=   params
+        , resolve :=  defer.resolve
+        , reject :=   defer.reject
+        ] INTO this->clientcalls AT END;
+
+    this->QueueInstruction(
+        [ instr :=    "appcall"
+        , id :=       clientcallcounter
+        , type :=     type
+        , params :=   params
+        ]);
+
+    RETURN defer.promise;
+  }
+
+  /** Creates/returns an async action object
+      @param component
+      @param type Type ('asyncdownload', 'asyncwindowopen', 'asynccallback')
+      @param ftid File transfer id
+      @param create Create if it doesn't exist yet
+  */
+  PUBLIC OBJECT FUNCTION GetAsyncObject(OBJECT component, STRING type, STRING ftid, BOOLEAN create)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+
+
+
+
+
+  //moved from todd controller
+  RECORD ARRAY pending_events;
+
+  BOOLEAN FUNCTION HandleIncomingEvents()
+  {
+    RECORD res := this->eventmgr->ReceiveEvent(DEFAULT DATETIME);
+    IF (res.status != "ok")
+      RETURN FALSE; //nothing to do
+
+    INSERT
+        [ event :=    res.event
+        , data :=     res.msg
+        ] INTO this->pending_events AT END;
+
+    RETURN TRUE;
+  }
+
+  BOOLEAN FUNCTION HandleAppEvents() //This also short-circuits self-generated events immediately
+  {
+    RECORD ARRAY events := this->pending_events;
+    this->pending_events := DEFAULT RECORD ARRAY;
+
+    IF(Length(events)=0)
+      RETURN FALSE;
+
+    this->ProcessIncomingAppEvents(events);
+    RETURN TRUE;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Profiler
+  //
+  PUBLIC INTEGER profiling;
+  PUBLIC BOOLEAN objectprofiling;
+
+  MACRO StopAnyProfiler()
+  {
+    IF(this->profiling=0 AND NOT this->objectprofiling)
+      RETURN;
+
+    IF (this->profiling IN [ 1, 2, 3 ])
+      DisableFunctionProfile();
+
+    IF (this->profiling = 4)
+      DisableMemoryProfile();
+
+    //submit profile information
+
+    IF (this->profiling=2)
+    {
+      PRINT((AnyToString((SELECT * FROM DEBUG_GetFunctionProfileData()/* ORDER BY totaltime DESC*/),'boxed')));
+      PRINT((AnyToString((SELECT * FROM DEBUG_GetFunctionProfileData() ORDER BY parent, name),'boxed')));
+      ResetFunctionProfile();
+    }
+    ELSE IF (this->profiling=3)
+    {
+      __HS_INTERNAL_ReportFunctionProfile(
+            "webserver",
+            this->laststartedapp ?? "FIXME: url",
+            DEFAULT DATETIME,
+            DEFAULT RECORD);
+      ResetFunctionProfile();
+    }
+    ELSE IF (this->profiling = 4)
+    {
+      __HS_INTERNAL_ReportMemoryProfile(
+            "webserver",
+            "FIXME: app url",
+            DEFAULT DATETIME,
+            DEFAULT RECORD);
+    }
+    ELSE IF (this->profiling=1)
+    {
+      PRINT((AnyToString((SELECT * FROM GetFunctionProfileData() ORDER BY totaltime DESC),'boxed')));
+      ResetFunctionProfile();
+    }
+    IF (this->objectprofiling)
+    {
+      objectprofileId := objectprofileId + 1;
+      RECORD ARRAY data :=
+        SELECT DISTINCT
+               source_var,
+//                   source_obj,
+               source_type,
+               source_name,
+               total_elts,
+               total_ssize,
+               dest_obj,
+               dest_type,
+               objectprofileId AS run
+          FROM __INTERNAL_DEBUGGETOBJECTWEB(FALSE)
+      ORDER BY source_var;
+
+      PRINT((AnyToString(data,'boxed')));
+    }
+  }
+
+  MACRO StartAnyProfiler()
+  {
+    IF(this->profiling IN [ 1, 2, 3 ])
+      EnableFunctionProfile();
+    IF(this->profiling IN [ 4 ])
+      EnableMemoryProfile();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Communication code
+  //
+  OBJECT ipcport;
+  OBJECT ARRAY current_links;
+  /// Message dispatcher for this controller
+  OBJECT linkdispatcher;
+
+  /// Endpoint for controller message-link
+  OBJECT commendpoint;
+
+  /// Id of the frontend communicating with this controller
+  STRING frontendid;
+
+  // Id of last received formstate (taken from the id of the last formstate request)
+  INTEGER currentformstate;
+
+  /// Have we sent our initial message
+  BOOLEAN pvt_sentinitialmessage;
+
+  /** @cell seqnr
+      @cell replydata
+  */
+  RECORD ARRAY replies;
+
+  /// Stream where prints are redirected to for logging
+  INTEGER pvt_debugstream;
+
+  /// Callback called when the user initiates activity
+  PUBLIC FUNCTION PTR onuseractivity;
+
+  /// Fptr where initial startup message (with init & link data) will be sent to
+  PUBLIC FUNCTION PTR pvt_sendinitialmessage;
+
+  DATETIME pvt_nextgc;
+
+  MACRO CreatePort(BOOLEAN isheadless)
+  {
+    IF(debug_logcontroller)
+      LogDebug("ng-ctrlr-link", "Create port for " || this->applicationid);
+
+    STRING linkname := "tollium:link." || this->applicationid;
+    this->ipcport := isheadless ? CreateGlobalIPCPort(linkname) : CreateIPCPort(linkname);
+  }
+
+  MACRO AcceptLink()
+  {
+    OBJECT link := this->ipcport->Accept(DEFAULT DATETIME);
+    IF (NOT ObjectExists(link))
+      RETURN;
+    link->userdata := [ listening := FALSE ];
+    INSERT link INTO this->current_links AT END;
+  }
+
+  RECORD FUNCTION AcceptEvents(DATETIME wait_until, INTEGER ARRAY extra_read_handles, INTEGER ARRAY extra_write_handles)
+  {
+    IF (this->pvt_nextgc = MAX_DATETIME)
+      this->pvt_nextgc := AddTimeToDate(gc_waitperiod, GetCurrentDateTime());
+
+    WHILE (TRUE)
+    {
+      INTEGER ARRAY commhandles;
+      INSERT this->ipcport->handle INTO commhandles AT END;
+      FOREVERY (OBJECT link FROM this->current_links)
+        INSERT link->handle INTO commhandles AT END;
+      commhandles := commhandles CONCAT this->linkdispatcher->handles;
+
+      DATETIME waitend := this->pvt_nextgc < wait_until ? this->pvt_nextgc : wait_until;
+
+      __HS_SetRunningStatus(FALSE);
+      // See if client connects - it must be handled first!
+      INTEGER handle := WaitForMultipleUntil(commhandles, DEFAULT INTEGER ARRAY, DEFAULT DATETIME);
+      IF (handle = -1)
+        handle := WaitForMultipleUntil(commhandles CONCAT extra_read_handles, extra_write_handles, waitend);
+      __HS_SetRunningStatus(TRUE);
+
+      IF (handle = this->ipcport->handle)
+        this->AcceptLink();
+      IF (handle IN this->linkdispatcher->handles)
+        RETURN [ status := "disp", handle := handle ];
+      ELSE IF (handle IN commhandles)
+        RETURN [ status := "link", handle := handle ];
+      ELSE IF (handle IN extra_read_handles OR handle IN extra_write_handles)
+      {
+        RETURN
+            [ status :=           "extra"
+            , success :=          TRUE
+            , handle :=           handle
+            , write :=            handle IN extra_write_handles
+                                      ? handle NOT IN extra_read_handles OR WaitForMultiple(DEFAULT INTEGER ARRAY, [ handle ], 0) = handle
+                                      : FALSE
+
+            ];
+      }
+
+      DATETIME now := GetCurrentDateTime();
+      IF (now >= wait_until) // Timeout?
+      {
+        RETURN
+            [ status :=   "timeout"
+            , success :=  FALSE
+            ];
+      }
+
+      IF (now >= this->pvt_nextgc)
+      {
+        CollectGarbage();
+        this->pvt_nextgc := MAX_DATETIME;
+      }
+    }
+  }
+
+
+  MACRO ProcessLinkMessage(INTEGER handle)
+  {
+    FOREVERY (OBJECT link FROM this->current_links)
+    {
+      IF (link->handle != handle)
+        CONTINUE;
+
+      RECORD rec := link->ReceiveMessage(DEFAULT DATETIME);
+      IF(debug_logcontroller)
+        LogDebug("ng-ctrlr-link", "Link " || handle || " got message", rec);
+
+      IF (rec.status = "timeout")
+        RETURN;
+      IF (rec.status = "gone")
+      {
+        DELETE FROM this->current_links AT #link;
+
+        FOR (INTEGER i := 0; i < LENGTH(this->asyncobjects);)
+        {
+          IF (this->asyncobjects[i]->link = link)
+            DELETE FROM this->asyncobjects AT i;
+          ELSE
+            i := i + 1;
+        }
+
+        link->Close();
+        RETURN;
+      }
+
+       // Connection from comm-channel? Give to commendpoint.
+      SWITCH (rec.msg.type)
+      {
+        CASE "linkmessages"
+        {
+          DELETE FROM this->current_links AT #link;
+          this->linkdispatcher->RegisterLink(link, rec.msg);
+        }
+        CASE "upload"
+        {
+          RECORD resp := this->ExecuteUploadRequest(rec.msg);
+          link->SendReply(resp, rec.msgid);
+        }
+        CASE "download"
+        {
+          RECORD resp := this->ExecuteDownloadRequest(rec.msg);
+          link->SendReply(resp, rec.msgid);
+        }
+        CASE "asyncdownload", "asyncwindowopen"
+        {
+          this->ExecuteAsyncDownloadRequest(link, rec.msg, rec.msgid);
+        }
+        CASE "asynccallback"
+        {
+          this->ExecuteAsyncCallbackRequest(link, rec.msg, rec.msgid);
+        }
+        DEFAULT
+        {
+          // Unknown message
+          ABORT("Unknown link message type '" || rec.msg.type || "'");
+        }
+      }
+      BREAK;
+    }
+    RETURN;
+  }
+
+  OBJECT FUNCTION LookupFileTransferComponent(RECORD request)
+  {
+    IF(debug_logcontroller)
+      LogDebug("tollium:controller", "Finding component for filetransfer request", request);
+
+    FOREVERY(OBJECT win FROM this->windowstack)
+      IF (win->tolliumscreenmanager->frame->instancename = request.window)
+      {
+        OBJECT comp := win->tolliumscreenmanager->GetToddComponentNofail(request.component);
+        IF (NOT ObjectExists(comp))
+        {
+          IF(debug_logcontroller)
+            LogDebug("tollium:controller", "Unable to find target component");
+          RETURN DEFAULT OBJECT;
+        }
+        RETURN comp;
+      }
+
+    IF(debug_logcontroller)
+      LogDebug("tollium:controller", "Unable to find target window");
+    RETURN DEFAULT OBJECT;
+  }
+
+  RECORD FUNCTION ExecuteUploadRequest(RECORD request)
+  {
+    OBJECT comp := this->LookupFileTransferComponent(request);
+    IF (NOT ObjectExists(comp))
+      RETURN DEFAULT RECORD;
+
+    STRING ARRAY tokens := comp->PrepareUpload(request.incoming);
+    RETURN [ tokens := tokens ];
+  }
+
+  RECORD FUNCTION ExecuteDownloadRequest(RECORD request)
+  {
+    OBJECT comp := this->LookupFileTransferComponent(request);
+    IF (NOT ObjectExists(comp))
+      RETURN DEFAULT RECORD;
+
+    IF(debug_logcontroller)
+      LogDebug("tollium:controller", "Executing download request", request);
+
+    TRY
+    {
+      RECORD result := comp->LookupDownload(request.data);
+      IF(debug_logcontroller)
+        IF(RecordExists(result))
+          LogDebug("tollium:controller", "Download lookup success", CELL[...result, DELETE data, size := Length(result.data) ]);
+        ELSE
+          LogDebug("tollium:controller", "Download lookup failed");
+      RETURN result;
+    }
+    CATCH (OBJECT e)
+    {
+      IF(debug_logcontroller)
+        LogDebug("tollium:controller", "Error looking up download", e->what, e->trace);
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO ExecuteAsyncDownloadRequest(OBJECT link, RECORD request, INTEGER64 msgid)
+  {
+    OBJECT comp := this->LookupFileTransferComponent(request);
+    IF (NOT ObjectExists(comp))
+      RETURN;
+
+    OBJECT req := this->GetAsyncObject(comp, request.type, request.id, FALSE);
+    IF (ObjectExists(req))
+    {
+      IF (req->status != "pending")
+        link->SendReply(req->response, msgid);
+    }
+
+    req := this->GetAsyncObject(comp, request.type, request.id, TRUE);
+    req->SetLink(link, msgid);
+
+    // If this is an asynccallback request, call the component's callback immediately
+    IF (request.type = "asynccallback")
+    {
+      req->data := request.data;
+      comp->HandleCallback(req);
+    }
+  }
+
+  MACRO ExecuteAsyncCallbackRequest(OBJECT link, RECORD request, INTEGER64 msgid)
+  {
+    OBJECT comp := this->LookupFileTransferComponent(request);
+    IF (NOT ObjectExists(comp))
+    {
+      link->SendReply(DEFAULT RECORD, msgid);
+      RETURN;
+    }
+
+    OBJECT req := this->GetAsyncObject(comp, request.type, request.id, TRUE);
+    req->SetLink(link, msgid);
+    req->data := request.data;
+    comp->HandleCallback(req);
+  }
+
+  /** Returns whether there are any components that are dirty
+  */
+  BOOLEAN FUNCTION AnyDirtyComponents()
+  {
+    // Find all dirty components
+    FOREVERY(OBJECT screen FROM this->windowstack)
+      IF (LENGTH(screen->tolliumdirtyvisiblecomponents) != 0 OR LENGTH(screen->tolliumdirtysubscreens) != 0)
+        RETURN TRUE;
+
+    // Any debug info?
+    IF (this->debugging AND this->pvt_debugstream != 0 AND GetStreamLength(this->pvt_debugstream) != 0)
+      RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+  UPDATE BOOLEAN FUNCTION TransmitAnyPendingData()
+  {
+    // Check if any component is dirty, and transmit all of them
+    IF (NOT this->AnyDirtyComponents() AND LENGTH(this->instructions) = 0 AND LENGTH(this->replies) = 0)
+    {
+      IF(debug_logcontroller)
+        LogDebug("tollium:controller", "No dirty components");
+      RETURN FALSE;
+    }
+
+    IF(debug_logcontroller)
+      LogDebug("tollium:controller", "Transmitting dirty components (with "|| Length(this->instructions) || " already queued jsons)");
+    this->TransmitDirtyComponents();
+
+    IF (NOT this->pvt_sentinitialmessage) //the first message needs to be delivered manually to a callback (so it goes back with WCS_StartApplication)
+    {
+      IF(debug_logcontroller)
+        LogDebug("tollium:controller", "Sending startup message");
+
+      RECORD resp := this->commendpoint->GetInitialMessage();
+      //INSERT CELL toddbase := this->toddbase INTO resp;
+      IF(this->pvt_sendinitialmessage != DEFAULT MACRO PTR)
+        this->pvt_sendinitialmessage(resp);
+      this->pvt_sentinitialmessage := TRUE;
+    }
+    RETURN TRUE;
+  }
+
+  RECORD FUNCTION WaitForEvent(DATETIME async_callbacks_start, DATETIME wait_until)
+  {
+    INTEGER ARRAY extra_read_handles, extra_write_handles;
+
+    IF(debug_logcontroller)
+      LogDebug("tollium:controller", "WaitForEvent enter ", wait_until);
+
+
+    // Add the async callback stuff - but only if we're not
+    DATETIME now := GetCurrentDateTime();
+    DATETIME cbtimeout := MAX_DATETIME;
+    IF (async_callbacks_start > now)
+    {
+      IF (wait_until > async_callbacks_start)
+        wait_until := async_callbacks_start;
+    }
+    ELSE
+    {
+      extra_read_handles := [ INTEGER(this->eventmgr->handle) ] CONCAT __INTERNAL_GetEventCallBackHandles();
+      extra_write_handles := __INTERNAL_GetEventCallBackWriteHandles();
+      cbtimeout := __INTERNAL_GetEventCallBackTimeout();
+      IF (wait_until > cbtimeout)
+        wait_until := cbtimeout;
+    }
+
+    DATETIME noforwardprogresstimeout := MAX_DATETIME;
+    IF (this->__onnoforwardprogress != DEFAULT FUNCTION PTR AND wait_until > AddTimeToDate(no_forward_progress_longloop, now)) // no quick timeout to exit the loop?
+    {
+      noforwardprogresstimeout := AddTimeToDate(no_forward_progress_wait, now); // wait a little time for forward progress ADDME: configurable?
+      IF (wait_until > noforwardprogresstimeout)
+        wait_until := noforwardprogresstimeout;
+    }
+
+    //LogWebserverError("Going to accept SynchronousRequest");
+    //ABORT("Unintended crash!");
+
+    this->StopAnyProfiler();
+
+    // Wait for a client to contact, or events to come in
+    INTEGER signalledeventhandle := -1;
+    BOOLEAN signalledeventhandlewrite := FALSE;
+    RECORD response := this->AcceptEvents(wait_until, extra_read_handles, extra_write_handles);
+    now := GetCurrentDateTime();
+
+    IF (response.status = "timeout" AND now >= noforwardprogresstimeout)
+      this->__onnoforwardprogress(this->windowstack[END-1], DEFAULT OBJECT);
+
+    this->StartAnyProfiler();
+
+    //LogWebserverError("SynchronousRequest response:\n" || AnyToString(response, "tree"));
+
+    SWITCH (response.status)
+    {
+    CASE "disp"
+      {
+        IF(debug_logcontroller)
+          LogDebug("ng-ctrlr-link", "Linkdispatcher signalled, handle: " || response.handle);
+        this->linkdispatcher->ProcessSignalledHandle(response.handle);
+      }
+    CASE "link"
+      {
+        IF(debug_logcontroller)
+          LogDebug("ng-ctrlr-link", "Link " || response.handle || " signalled");
+        this->ProcessLinkMessage(response.handle);
+      }
+    CASE "timeout"
+      {
+//        IF (now >= required_contact)
+//          this->TerminateAfterConnectionLoss();
+      }
+    CASE "fail"
+      {
+        // ADDME: handle failure? Ignoring it for now
+      }
+    DEFAULT
+      {
+        IF(debug_logcontroller)
+          LogDebug("tollium:controller", "Unknown response status", response);
+      }
+    }
+
+    RETURN response;
+  }
+
+  RECORD ARRAY messages;
+
+  MACRO IncomingMessage(RECORD todd_request, INTEGER seqnr)
+  {
+    IF(Length(this->messages) = 0)
+      ScheduleMicroTask(PTR this->HandleReceivedMessages);
+    INSERT [ req := todd_request, seqnr := seqnr ] INTO this->messages AT END;
+  }
+  MACRO HandleReceivedMessages()
+  {
+    RECORD ARRAY formupdates;
+    FOREVERY(RECORD msg FROM this->messages)
+    {
+      FOREVERY(RECORD form FROM RECORD ARRAY(msg.req.forms))
+      {
+        DELETE FROM formupdates WHERE formupdates.name = form.name;
+        INSERT form INTO formupdates AT END;
+      }
+
+      IF(msg.req.action = "$nop" AND #msg < Length(this->messages)-1) //not the last $nop ?
+      {
+        IF (CellExists(msg.req, "REQUIREREPLY") AND msg.req.requirereply)
+        {
+          IF(debug_logcontroller)
+            LogDebug("tollium:controller", "scheduling reply for $nop #" || msg.seqnr);
+          INSERT [ seqnr := msg.seqnr, replydata := DEFAULT RECORD ] INTO this->replies AT END;
+        }
+
+        CONTINUE; //skip this messag,e the next one will do it
+      }
+      this->ExecuteMessage(msg.req, msg.seqnr, formupdates);
+      formupdates := DEFAULT RECORD ARRAY;
+    }
+    this->messages := DEFAULT RECORD ARRAY;
+  }
+
+  MACRO ExecuteMessage(RECORD todd_request, INTEGER seqnr, RECORD ARRAY formupdates)
+  {
+    IF(debug_logcontroller)
+      LogDebug("tollium:controller", "executemessage", seqnr, todd_request);
+
+    RECORD replydata;
+    TRY
+    {
+      // Find window the form wants to update
+      IF (LENGTH(todd_request.forms) > 0) // Empty array from json has type VARIANT ARRAY, can't forevery through that.
+        this->DispatchForms(formupdates);
+
+      // $formstate is response to GetClientState call, does not indicate user activity
+      IF (this->onuseractivity != DEFAULT FUNCTION PTR AND todd_request.action != "$formstate")
+        this->onuseractivity();
+
+      replydata := this->ExecuteMessageAction(todd_request);
+    }
+    FINALLY
+    {
+      // When a reply is needed, the next transmitdirtycomponents must send it
+      IF (CellExists(todd_request, "REQUIREREPLY") AND todd_request.requirereply)
+      {
+        IF(debug_logcontroller)
+          LogDebug("tollium:controller", "scheduling reply for #" || seqnr);
+
+        INSERT [ seqnr := seqnr, replydata := replydata ] INTO this->replies AT END;
+      }
+    }
+  }
+
+  MACRO DispatchForms(RECORD ARRAY formupdates)
+  {
+    FOREVERY(RECORD form FROM formupdates)
+    {
+      OBJECT formwindow;
+      FOREVERY(OBJECT win FROM this->windowstack)
+        IF(win->tolliumscreenmanager->frame->instancename = form.name)
+          formwindow := win;
+
+      IF(formwindow != DEFAULT OBJECT)
+        formwindow->frame->TolliumWeb_ParseForm(form.fields);
+    }
+  }
+
+
+  RECORD FUNCTION ExecuteMessageAction(RECORD todd_request)
+  {
+    SWITCH (todd_request.action)
+    {
+      CASE ""
+      {
+        ABORT("Empty request received");
+      }
+
+      CASE "componentmessage"
+      {
+        IF(debug_logcontroller)
+        {
+          LogDebug("tollium:controller", "Component message to '" || todd_request.param.window || "'.'" || todd_request.param.target || "' type '" || todd_request.param.type || "'");
+          LogDebug("tollium:controller", anytostring(todd_request.param.data,'tree'));
+        }
+
+        FOREVERY(OBJECT win FROM this->windowstack)
+          IF (win->tolliumscreenmanager->frame->instancename = todd_request.param.window)
+          {
+            OBJECT comp := win->tolliumscreenmanager->GetToddComponentNofail(todd_request.param.target);
+            IF(NOT ObjectExists(comp))
+            {
+              IF(debug_logcontroller)
+                LogDebug("tollium:controller", "Unable to find target component");
+              RETURN DEFAULT RECORD;
+            }
+
+            comp->QueueInboundMessage(todd_request.param.type, todd_request.param.data);
+            RETURN DEFAULT RECORD;
+          }
+
+        IF(debug_logcontroller)
+          LogDebug("tollium:controller", "Unable to find target window");
+      }
+
+      CASE "$appmessage"
+      {
+        BOOLEAN isbusy := LENGTH(this->windowstack) != 1;
+        IF (RecordExists(todd_request.param.message) AND (NOT todd_request.param.onlynonbusy OR NOT isbusy))
+          INSERT todd_request.param.message INTO this->messagequeue AT END;
+
+        RETURN [ busy := isbusy ];
+      }
+
+      CASE "$controllermessage"
+      {
+        INSERT todd_request.param INTO this->controllermessagequeue AT END;
+      }
+
+      CASE "$appevent"
+      {
+      }
+
+      CASE "$formstate"
+      {
+        this->currentformstate := todd_request.param;
+      }
+
+      CASE "$nop" //This event expects parseform to trigger any on.... handlers (usually onchange)
+      {
+      }
+
+      CASE "$terminate" // Explicit close of window
+      {
+        this->ExitApplication();
+      }
+
+      DEFAULT
+      {
+        STRING todd_action := todd_request.action;
+
+        INTEGER dotpos := SearchSubstring(todd_action,'.');
+        IF (dotpos = -1)
+          ABORT("Cannot locate object "||todd_action);
+
+        STRING winname := Left(todd_action,dotpos);
+        STRING objname := Right(todd_action,Length(todd_action)-dotpos-1);
+
+        // Find window the event was sent to
+        OBJECT targetwindow;
+        FOREVERY(OBJECT win FROM this->windowstack)
+          IF(win->tolliumscreenmanager->frame->instancename = winname)
+            targetwindow := win;
+
+        IF (targetwindow != DEFAULT OBJECT)
+        {
+          // Handle 'events'
+
+          OBJECT obj := targetwindow->tolliumscreenmanager->GetToddComponentNofail(objname);
+          IF(NOT ObjectExists(obj))
+          {
+            //this is triggerable in selftest:pulldownchangerace if you try to modify the value of both selects fast enough
+            Print("Screen has no member '" || objname || "' to handle incoming event - maybe its replaced/deleted?\n");
+          }
+          ELSE
+          {
+            //PRINT("Dispatching incoming event for "||obj->name||", action " ||todd_request.action || " param: ["||AnyToString(todd_request.param,"tree")||"]\n");
+
+            IF(TypeID(todd_request.param)=TypeID(STRING))
+            {
+              IF(NOT MemberExists(obj,"tolliumweb_parseevent"))
+                ABORT("Object " || obj->name || " has no member tolliumweb_parseevent");
+
+              INTEGER space := SearchSubstring(todd_request.param,' ');
+              targetwindow->tolliumscreenmanager->QueueEvent(obj, 'legacy', [ action := space=-1 ? todd_request.param : Left(todd_request.param,space), param := space=-1?"":Substring(todd_request.param,space+1) ]);
+            }
+            ELSE
+            {
+              IF(todd_request.param.eventtype!="$nop") //ADDME eliminate on server side
+                targetwindow->tolliumscreenmanager->QueueEvent(obj, "todd", todd_request.param);
+            }
+          }
+        }
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO TerminateAfterConnectionLoss()
+  {
+    // ADDME: run unload handlers? Could interfere with new instances of the app.
+    TerminateScript(); // ABORT("CONNECTION LOSS!");
+  }
+
+  PUBLIC MACRO ActivateWebController()
+  {
+    this->linkdispatcher := NEW ToddLinkDispatcher(this->applicationid);
+
+    this->commendpoint := NEW ToddMessageLinkEndpoint(this->linkdispatcher, this->applicationid, this->frontendid);
+    this->commendpoint->onmessage := PTR this->IncomingMessage;
+    this->commendpoint->ontimeout := PTR this->TerminateAfterConnectionLoss;
+
+    RECORD req;
+    this->StartAnyProfiler();
+
+    this->QueueInstruction([ instr :=           "init"
+                           , whsid :=           this->applicationid
+                           , commhost :=        ResolveToAbsoluteURL(this->baseurl, "/")
+                           , lang :=            ObjectExists(this->user) ? this->user->language : ""
+                           ]);
+  }
+
+  PUBLIC MACRO RunModalScreen(OBJECT screen)
+  {
+    this->ControllerLoop(screen, DEFAULT RECORD);
+  }
+
+  STRING FUNCTION ControllerLoop(OBJECT newscreen, RECORD options)
+  {
+    // Time between sending data & accepting callbacks
+    INTEGER callback_time := CellExists(options, "CALLBACK_TIME") ? options.callback_time : 1;
+    BOOLEAN run_intervals := NOT CellExists(options, "NOINTERVAL") OR NOT options.nointerval;
+    DATETIME looptimeout := CellExists(options, "TIMEOUT") ? options.timeout : MAX_DATETIME;
+
+    IF (LENGTH(this->windowstack) = 0)
+      THROW NEW Exception(`Cannot run the tollium eventloop without a visible screen`);
+
+    OBJECT screen := MakePublicObjectReference(newscreen ?? this->windowstack[END - 1]);
+    BOOLEAN didnotifynewscreen;
+
+    OBJECT modalframe := screen->frame;
+
+    IF(debug_logcontroller)
+      LogDebug("tollium:controller", "Enter message loop for frame " || modalframe->instancename);
+
+    // Moment to start processing callbacks & such
+    DATETIME callbacks_start := DEFAULT DATETIME;
+
+    // Last signalled event handle
+    INTEGER signalledeventhandle := -1;
+    BOOLEAN signalledeventhandlewrite := FALSE;
+
+    // First handle all pending events & async callbacks
+    DATETIME nextinterval := MAX_DATETIME;
+    DATETIME now := GetCurrentDateTime();
+    DATETIME lastinterval := now;
+    WHILE (TRUE)
+    {
+      // Handle all messages, timeouts and events (timeouts & event only for 200ms, to prevent starvation). ADDME: make configurable
+      IF(debug_logcontroller)
+        LogDebug("tollium:controller", "Enter event loop for frame " || modalframe->instancename);
+
+      DATETIME sync_callbacks_limit := AddTimeToDate(200, now);
+      WHILE (TRUE)
+      {
+        BOOLEAN didanything := FALSE;
+
+        // Do pending events and app events
+        IF(this->Tollium_ParsePendingEvents())
+        {
+          IF(debug_logcontroller)
+            LogDebug("tollium:controller", "Handled pending events");
+          didanything := TRUE;
+        }
+
+        // Do events & such
+        now := GetCurrentDateTime(); // Get updated time
+        DATETIME now_afteroninterval := now;
+
+        // Execute interval
+        IF(nextinterval < now)
+        {
+          lastinterval := nextinterval;
+          nextinterval := MAX_DATETIME;
+
+          IF(debug_logcontroller)
+            LogDebug("tollium:controller", "Invoking interval callback");
+          modalframe->OnInterval();
+
+          now_afteroninterval := GetCurrentDateTime();
+        }
+
+        // Calculate next interval
+        IF (run_intervals AND modalframe->oninterval != DEFAULT MACRO PTR AND modalframe->interval > 0)
+        {
+          INTEGER interval := modalframe->interval;
+          nextinterval := AddTimeToDate(interval, lastinterval ?? now);
+
+          // When oninterval execution took longer than the interval period, add periods until past the current time.
+          IF (nextinterval < now_afteroninterval)
+          {
+            RECORD diff := GetDateTimeDifference(nextinterval, now_afteroninterval);
+            nextinterval := AddTimeToDate(modalframe->interval * (diff.msecs / interval + 1), nextinterval);
+          }
+
+          IF(debug_logcontroller)
+            LogDebug("tollium:controller", "Next interval calculated: " || (nextinterval = MAX_DATETIME ? "MAX_DATETIME" : FormatISO8601DateTime(nextinterval, "", "milliseconds")));
+        }
+        ELSE
+        {
+          nextinterval := MAX_DATETIME;
+          lastinterval := DEFAULT DATETIME;
+        }
+
+        IF (callbacks_start <= now AND sync_callbacks_limit > now)
+        {
+          IF(this->HandleAppEvents())
+          {
+            IF(debug_logcontroller)
+              LogDebug("tollium:controller", "Handled app events");
+            didanything := TRUE;
+          }
+          IF(this->HandleIncomingEvents())
+          {
+            IF(debug_logcontroller)
+              LogDebug("tollium:controller", "Handled incoming events");
+            didanything := TRUE;
+          }
+          IF (HandleInternalCallbacks(signalledeventhandle, signalledeventhandlewrite, TRUE))
+          {
+            IF(debug_logcontroller)
+              LogDebug("tollium:controller", "Handled internal callbacks (" || signalledeventhandle || ")");
+            signalledeventhandle := -1;
+            signalledeventhandlewrite := FALSE;
+            didanything := TRUE;
+          }
+          IF(this->ProcessIncomingControllerMessages())
+          {
+            IF(debug_logcontroller)
+              LogDebug("tollium:controller", "Handled controller messages");
+            didanything := TRUE;
+          }
+        }
+
+        //ADDME checks like these should be in the base class, not Todd
+
+        IF (CellExists(options, "EXPECTFORMSTATE") AND this->currentformstate >= options.expectformstate)
+          RETURN "formstate";
+
+        // Did we stop running of exit the current frame? Return to exit the modal loop.
+        IF (NOT this->running OR modalframe->owner->tolliumresult != "" OR screen NOT IN this->windowstack OR this->IsScreenStolen(screen))
+        {
+          //LogWebserverError("Not running or got tolliumresult");
+          IF(debug_logcontroller)
+            LogDebug("tollium:controller", "Exit message loop for " || modalframe->instancename || " - not running or tolliumresult set");
+          //guess we're done
+          this->DeleteScreenFromWindowStack(MakePublicObjectReference(screen));
+          RETURN "closed";
+        }
+
+        // Are there windows running on top of us? (the LoadScreen with dialog opening init, but without RunModal, scenario)
+        IF(this->windowstack[END-1] != screen)
+        {
+          IF(debug_logcontroller)
+            LogDebug("tollium:controller", "Closing " || this->windowstack[END-1]->frame->instancename || " - it's not supposed to be on the windowstack (Init without Runmodal)");
+
+          this->DeleteScreenFromWindowStack(this->windowstack[END-1]);
+          didanything := TRUE;
+          CONTINUE; //not safe to do anything else now, we might close another window!
+        }
+
+        // Are there any path actions ?
+        IF(Length(this->pvt_inapppath)>0)
+        {
+          //Be careful to dequeue before processing, as the next commands may be processed by deeper control loops
+          STRING action := this->pvt_inapppath[0];
+          DELETE FROM this->pvt_inapppath AT 0;
+          didanything := TRUE;
+          IF (action != "")
+          {
+            STRING compname := Tokenize(action, '=')[0];
+            STRING compparams := Substring(action, Length(compname)+1);
+
+            TRY
+            {
+              OBJECT comp := MakeFunctionPTR("mod::tollium/lib/testframework.whlib#__LookupComponentByTestReference")(screen, compname);
+              comp->ExecutePathAction(compparams);
+            }
+            CATCH(OBJECT e)
+            {
+              this->pvt_inapppath := STRING[]; //reset all actions
+              RunExceptionReportDialog(screen ?? this, e, [ description := `Error executing path action '${action}'` ]);
+            }
+          }
+        }
+
+        IF (NOT didanything)
+          BREAK;
+      }
+
+      IF(debug_logcontroller)
+        LogDebug("tollium:controller", "Exited event loop for frame " || modalframe->instancename);
+
+      //Did the toplevel window change its title and icon ?
+      IF(Length(this->windowstack) > 0)
+      {
+        IF(this->windowstack[0]->frame->title != this->apptitle)
+          this->apptitle := this->windowstack[0]->frame->title;
+
+        STRING icon := this->windowstack[0]->frame->icon != "" ? this->windowstack[0]->frame->icon : "tollium:tollium/tollium";
+        IF(icon != this->appicon)
+          this->appicon := icon;
+      }
+
+      IF(this->TransmitAnyPendingData())
+      {
+        // Wait for 100ms after sending a message before starting to process async callbacks again. ADDME: make configurable
+        now := GetCurrentDateTime();
+        callbacks_start := AddTimeToDate(callback_time, now);
+      }
+
+      IF(NOT didnotifynewscreen AND this->__onscreenchange != DEFAULT MACRO PTR)
+      {
+        didnotifynewscreen := TRUE;
+        this->__onscreenchange(screen,TRUE);
+      }
+
+      // Go into wait for some event to occur (new client message, timeout, event)
+      IF(debug_logcontroller)
+        LogDebug("tollium:controller", "Wait for event. Next interval: " || (nextinterval = MAX_DATETIME ? "MAX_DATETIME" : FormatISO8601DateTime(nextinterval, "", "milliseconds")));
+
+      // Calc next timeout/interval position
+      DATETIME wait_until := nextinterval > looptimeout ? looptimeout : nextinterval;
+
+      // Wait for next events. Defer actual waiting until after callbacks_start.
+      RECORD response := this->WaitForEvent(callbacks_start, wait_until);
+      now := GetCurrentDateTime();
+
+      IF (response.status = "timeout")
+      {
+        // Hit loop timeout?
+        IF (now >= looptimeout)
+          RETURN "timeout";
+
+        // Did we hit callbacks start?
+        IF (callbacks_start != DEFAULT DATETIME AND now >= callbacks_start)
+        {
+          callbacks_start := DEFAULT DATETIME;
+          response := this->WaitForEvent(DEFAULT DATETIME, wait_until);
+
+          now := GetCurrentDateTime();
+          IF (response.status = "timeout" AND now >= looptimeout)
+            RETURN "timeout";
+        }
+      }
+
+      IF (response.status = "extra")
+      {
+        signalledeventhandle := response.handle;
+        signalledeventhandlewrite := response.write;
+      }
+      ELSE
+      {
+        signalledeventhandle := -1;
+        signalledeventhandlewrite := FALSE;
+      }
+    }
+
+    ABORT("this loop never quits");
+  }
+
+>;

@@ -1,0 +1,34 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+
+/// Indexmanager connections, mapping from indexmanager id to [ (STRING)address, (STRING)prefix, (OBJECT)browser ] records
+PUBLIC OBJECT indexmanagerconnections := NEW ValueMapper();
+
+/// Are we running within a fetcher?
+PUBLIC BOOLEAN running_in_fetcher;
+/// Are we allowed to print Defer: Connection?
+PUBLIC BOOLEAN print_defer_connection := TRUE;
+
+PUBLIC BOOLEAN __indexmanager_debugall;
+
+/// Number of times to try to connect to the Consilio index manager
+PUBLIC CONSTANT INTEGER consilio_maxtries := 3;
+/// Timeout for Consilio index manager connections, in seconds
+PUBLIC CONSTANT INTEGER consilio_timeout := 30;
+
+/// Timeout for Elasticsearch connections, in seconds
+PUBLIC CONSTANT INTEGER elastic_timeout := 30;
+
+/// Timeout for search sessions, in minutes
+PUBLIC CONSTANT INTEGER session_timeout := 15;
+
+/// Some default field mapping for Elasticsearch content sources
+PUBLIC CONSTANT RECORD defaultmappingfields :=
+    [ indexid :=       [ type := "keyword" ]
+    , groupid :=       [ type := "keyword" ]
+    , objectid :=      [ type := "keyword" ]
+    , initialfilter := [ type := "keyword" ]
+    , body :=          [ type := "text" ]
+    ];

@@ -1,0 +1,76 @@
+<?wh
+
+
+LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+MACRO TestFindWidgetReferences()
+{
+  testfw->BeginWork();
+
+  OBJECT type_embedlvl1 := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1");
+  OBJECT widget_embedlvl1 := GetTestsuiteTempFolder()->CreateFile([ name := "embedlvl1-widget", type := type_embedlvl1->id ]);
+
+  TestEq( [[ fsobject := widget_embedlvl1->id, referstofsobject := 0, refersto := "", whfspath := widget_embedlvl1->whfspath, isfolder := FALSE, membername := "" ]
+          ]
+        , FindWHFSObjectReferences([ fstypes := INTEGER[type_embedlvl1->id]
+                               , publishedonly := FALSE
+                               ]));
+
+ TestEq( RECORD[]
+        , FindWHFSObjectReferences([ fstypes := INTEGER[type_embedlvl1->id]
+                               , publishedonly := TRUE
+                               ]));
+
+  //OBJECT widget_embedlvl1b := GetTestsuiteTempFolder()->CreateFile([ name := "embedlvl1-widget-b", type := type_embedlvl1->id ]);
+//print("------- " || widget_embedlvl1->id || "\n");
+
+  OBJECT folderusingwidget := GetTestsuiteTempFolder()->CreateFolder([ name := "hassharedblock" ]);
+  folderusingwidget->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest"
+                                     , [ blocks := [ whfstype := "http://www.webhare.net/xmlns/publisher/sharedblocks"
+                                                   , overridetype := 2
+                                                   , blocks := [[ block := widget_embedlvl1->id ]
+                                                                ]
+                                                   ]
+                                       ]);
+
+  TestEq( [[ fsobject := folderusingwidget->id, referstofsobject := widget_embedlvl1->id, refersto := widget_embedlvl1->whfspath, whfspath := folderusingwidget->whfspath, isfolder := TRUE, membername := "http://www.webhare.net/xmlns/publisher/sharedblocks#block" ]
+          ]
+        , FindWHFSObjectReferences([ fstypes := INTEGER[type_embedlvl1->id]
+                               , publishedonly := TRUE
+                               ]));
+
+  testfw->RollbackWork();
+}
+
+
+MACRO TestFindInstanceReferences()
+{
+  OBJECT type_instance := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest");
+  OBJECT myrichdoc := NEW EditableRichDocument;
+
+  STRING instanceid := myrichdoc->CreateInstance([ whfstype := type_instance->namespace
+                                                 ]);
+  myrichdoc->body->AppendChild(myrichdoc->CreateInstanceBlockNode(instanceid));
+
+  //Test serialization
+  testfw->BeginWork();
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile( [ name := "hasinstance.rtd", type := richdoctype->id, publish := FALSE ]);
+  myrichdoc->SaveToWHFS(testfile);
+  testfw->CommitWork();
+
+ TestEq( [[ fsobject := testfile->id, referstofsobject := 0, refersto := "", whfspath := testfile->whfspath, isfolder := FALSE, membername := "http://www.webhare.net/xmlns/publisher/richdocumentfile#data" ]
+         ]
+        , FindWHFSObjectReferences([ fstypes := INTEGER[type_instance->id]
+                               , publishedonly := FALSE
+                               ]));
+}
+
+RunTestframework(
+    [ PTR TestFindWidgetReferences
+    , PTR TestFindInstanceReferences
+    ]);

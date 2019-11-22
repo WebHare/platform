@@ -1,0 +1,93 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+
+PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
+<
+  PUBLIC STRING spamchecklib;
+  PUBLIC STRING spamcheckopts;
+  PUBLIC STRING buttonpath;
+
+  PUBLIC PROPERTY manualwebpackembed(pvt_manualwebpackembed, SetManualwebpackEmbed);
+  PUBLIC PROPERTY usecaptcha(this->__config.usecaptcha, -);
+  PUBLIC PROPERTY allowsubmittype(this->__config.allowsubmittype, -);
+  PUBLIC PROPERTY countrylist(this->__config.countrylist, -);
+  PUBLIC PROPERTY addressoptions(this->__config.addressoptions, -);
+  PUBLIC PROPERTY enablepagetitles(this->__config.enablepagetitles, -);
+  PUBLIC PROPERTY enableinfotexts(this->__config.enableinfotexts, -);
+  PUBLIC PROPERTY infotextrtdtype(this->__config.infotextrtdtype, -);
+  PUBLIC PROPERTY mailrtdtype(this->__config.mailrtdtype, -);
+  PUBLIC PROPERTY config(this->__config,-);
+
+  OBJECT webcontext;
+  BOOLEAN didintegrate;
+  BOOLEAN pvt_manualwebpackembed;
+  BOOLEAN __haswebpack;
+  RECORD __config;
+
+  MACRO NEW()
+  {
+    IF(IsModuleInstalled("webpack"))
+    {
+      this->__haswebpack := TRUE;
+      ExtendObject(this, "mod::webpack/lib/internal/formsplugin.whlib", "WebpackFormsPlugin");
+    }
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration)
+  {
+    this->webcontext := webcontext;
+    this->__config := mergedconfiguration;
+    IF(this->__haswebpack)
+      this->__ConfigureWebpack(webcontext);
+  }
+
+  //initialize the plugin during runtime, using the provided nodes
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webcontext)
+  {
+    IF(this->__haswebpack)
+      this->__PrepareWebpack();
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ dontencodewebpackquestions := ParseXSBoolean(node->GetAttribute("dontencodewebpackquestions")) //'hack' to allow us to prevent html-encoding questions. some webpack users need this to embed hyperlinks
+           , usecaptcha := ParseXSBoolean(node->GetAttribute("usecaptcha"))
+           , allowsubmittype := ParseXSBoolean(node->GetAttribute("allowsubmittype"))
+           , countrylist := node->HasAttribute("countrylist") ? ParseXSList(node->GetAttribute("countrylist")) : ["WORLD"]
+           , addressoptions := ParseXSList(node->GetAttribute("addressoptions")) ?? default_addressfield_options
+           , enablepagetitles := ParseXSBoolean(node->GetAttribute("enablepagetitles"))
+           , enableinfotexts := ParseXSBoolean(node->GetAttribute("enableinfotexts"))
+           , infotextrtdtype := node->GetAttribute("infotextrtdtype")
+           , mailrtdtype := node->GetAttribute("mailrtdtype")
+           , maxstoredays := node->HasAttribute("maxstoredays") ? ParseXSInt(node->GetAttribute("maxstoredays")) : -1
+           , defaultstoredays := node->HasAttribute("defaultstoredays") ? ParseXSInt(node->GetAttribute("defaultstoredays")) : -1
+           , processdays := node->HasAttribute("processdays") ? ParseXSInt(node->GetAttribute("processdays")) : -1
+           , addressvalidationkey := node->GetAttribute("addressvalidationkey")
+           , addressvalidationschema := node->GetAttribute("addressvalidationschema")
+           ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetContentNav()
+  {
+    //ADDME: Share this link generation code with webpack.whlib?
+    RETURN SELECT title
+                , link := "#" || GetSafeFileName(title || "-wh" || instanceid)
+                , tagname := "div" // Make it compatible with webcontextBase::GetContentNav
+             FROM this->items
+            WHERE title != "";
+  }
+
+  MACRO SetManualwebpackEmbed(BOOLEAN manualwebpackembed)
+  {
+    IF (this->didintegrate)
+      THROW NEW Exception("Manual embed cannot be set after the page has been rendered");
+    this->pvt_manualwebpackembed := manualwebpackembed;
+  }
+>;

@@ -1,0 +1,47 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/internal/cluster/mutexmgr.whlib";
+
+
+ASYNC MACRO StartCompletionService()
+{
+  // Ensure completion services keep running
+  // FIXME: release script on softreset, just like the scriptmanager would do
+  WHILE (TRUE)
+  {
+    //async start this one, we can have only one Run function.. besides, we don't want completions to block mutex handling
+    TRY
+      AWAIT AsyncCallFunctionFromJob("mod::system/lib/internal/cluster/completions.whlib", "RunCompletionService");
+    CATCH (OBJECT e)
+      LogHarescriptException(e);
+  }
+}
+
+ASYNC MACRO StartSiteProfileCompilerService()
+{
+  // Ensure completion services keep running
+  WHILE (TRUE)
+  {
+    //async start this one, we can have only one Run function.. besides, we don't want completions to block mutex handling
+    TRY
+      AWAIT AsyncCallFunctionFromJob("mod::publisher/lib/internal/siteprofiles/compileservice.whlib", "RunSPCompileService");
+    CATCH (OBJECT e)
+      LogHarescriptException(e);
+  }
+}
+
+//Prepare the mutex system first, so services can already try to connect to it
+OBJECT mutexport := CreateIPCPort("system:mutexmanager");
+__INTERNAL_KeepPortGlobal(mutexport);
+OBJECT handler := NEW MutexPortHandler(mutexport);
+handler->flat_responses := TRUE;
+
+//Launch the primary services
+StartCompletionService();
+StartSiteProfileCompilerService();
+
+//Start processing mutex owrk
+handler->Run();

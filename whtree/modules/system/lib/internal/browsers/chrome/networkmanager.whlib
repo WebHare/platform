@@ -1,0 +1,246 @@
+<?wh
+
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
+
+
+// Inspired by puppeteer NetworkManager (https://github.com/GoogleChrome/puppeteer/blob/master/lib/NetworkManager.js)
+PUBLIC STATIC OBJECTTYPE NetworkManager EXTEND EventEmitter
+<
+  OBJECT pvt_client;
+  OBJECT pvt_framemanager;
+
+  BOOLEAN _userRequestInterceptionEnabled;
+
+  RECORD ARRAY requestmap;
+
+  MACRO NEW(OBJECT client)
+  {
+    this->pvt_client := client;
+
+    this->pvt_client->AddListener('Network.requestWillBeSent', PTR this->GotRequestWillBeSent);
+    //this->pvt_client->AddListener('Network.requestIntercepted', PTR this->GotRequestIntercepted);
+    this->pvt_client->AddListener('Network.requestServedFromCache', PTR this->GotRequestServedFromCache);
+    this->pvt_client->AddListener('Network.responseReceived', PTR this->GotResponseReceived);
+    this->pvt_client->AddListener('Network.loadingFinished', PTR this->GotLoadingFinished);
+    this->pvt_client->AddListener('Network.loadingFailed', PTR this->GotLoadingFailed);
+  }
+
+  PUBLIC ASYNC MACRO Init()
+  {
+    // Enable event listeners
+    AWAIT CreatePromiseAll(
+        OBJECT[ this->pvt_client->^Network->^Enable()
+              ]);
+  }
+
+  PUBLIC MACRO SetFrameManager(OBJECT framemanager)
+  {
+    this->pvt_framemanager := framemanager;
+  }
+
+  MACRO GotRequestWillBeSent(RECORD event)
+  {
+    this->GotRequest(event, "");
+  }
+/*
+  MACRO GotRequestIntercepted(RECORD event)
+  {
+  }
+*/
+  MACRO GotRequest(RECORD event, STRING interceptionId)
+  {
+    OBJECT ARRAY redirectchain;
+
+    IF (CellExists(event, "redirectresponse"))
+    {
+      RECORD pos := RecordLowerBound(this->requestmap, event, [ "requestid" ]);
+      IF (pos.found)
+      {
+        OBJECT request := this->requestmap[pos.position].request;
+        this->HandleRequestRedirect(request, event.redirectresponse);
+        redirectchain := request->redirectchain;
+      }
+    }
+
+    OBJECT frame;
+    OBJECT req := NEW Request(this->pvt_client, frame, interceptionid, this->_userRequestInterceptionEnabled, event, redirectchain);
+
+    RECORD result := CELL
+        [ event.requestid
+        , request :=        req
+        ];
+
+    RECORD pos := RecordLowerBound(this->requestmap, result, [ "requestid" ]);
+    IF (NOT pos.found)
+      INSERT result INTO this->requestmap AT pos.position;
+    this->EmitEvent("NetworkManager.Events.Request", result);
+  }
+
+  MACRO GotRequestServedFromCache(RECORD event)
+  {
+    RECORD pos := RecordLowerBound(this->requestmap, event, [ "requestid" ]);
+    IF (pos.found)
+      this->requestmap[pos.position].request->_fromMemoryCache := TRUE;
+  }
+
+  /**
+   * @param {!Request} request
+   * @param {!Protocol.Network.Response} responsePayload
+   */
+  MACRO HandleRequestRedirect(OBJECT request, RECORD responsePayload)
+  {
+    OBJECT resp := new Response(this->pvt_client, request, responsePayload);
+    request->response := resp;
+    INSERT request INTO request->redirectChain AT END;
+    //response._bodyLoadedPromiseFulfill.call(null, new Error('Response body is unavailable for redirect responses'));
+
+    RECORD pos := RecordLowerBound(this->requestmap, [ requestid := request->_requestid ], [ "requestid" ]);
+    IF (pos.found)
+      DELETE FROM this->requestmap AT pos.position;
+
+    this->EmitEvent("NetworkManager.Events.Response", CELL[ requestid := request->_requestid, response := resp ]);
+    this->EmitEvent("NetworkManager.Events.RequestFinished", CELL[ requestid := request->_requestid, request ]);
+  }
+
+  MACRO GotResponseReceived(RECORD event)
+  {
+    RECORD pos := RecordLowerBound(this->requestmap, event, [ "requestid" ]);
+    IF (NOT pos.found)
+      RETURN;
+
+    OBJECT request := this->requestmap[pos.position].request;
+
+    OBJECT resp := new Response(this->pvt_client, request, event.response);
+    request->response := resp;
+
+    this->emitEvent("NetworkManager.Events.Response", CELL[ requestid := request->_requestid, response := resp ]);
+  }
+
+  MACRO GotLoadingFinished(RECORD event)
+  {
+    RECORD pos := RecordLowerBound(this->requestmap, event, [ "requestid" ]);
+    IF (NOT pos.found)
+      RETURN;
+
+    OBJECT request := this->requestmap[pos.position].request;
+
+    DELETE FROM this->requestmap AT pos.position;
+    this->EmitEvent("NetworkManager.Events.RequestFinished", CELL[ event.requestid, request ]);
+  }
+
+  MACRO GotLoadingFailed(RECORD event)
+  {
+    RECORD pos := RecordLowerBound(this->requestmap, event, [ "requestid" ]);
+    IF (NOT pos.found)
+      RETURN;
+
+    OBJECT request := this->requestmap[pos.position].request;
+    request->_failuretext := event.errorText;
+
+    DELETE FROM this->requestmap AT pos.position;
+    this->EmitEvent("NetworkManager.Events.RequestFailed", CELL[ event.requestid, request ]);
+  }
+
+>;
+
+STATIC OBJECTTYPE Request
+<
+  OBJECT _client;
+  PUBLIC STRING _requestid;
+  BOOLEAN _allowInterception;
+  PUBLIC STRING _failuretext;
+  PUBLIC BOOLEAN _fromMemoryCache;
+
+  PUBLIC STRING url;
+  PUBLIC STRING resourcetype;
+  PUBLIC STRING method;
+  PUBLIC STRING postdata;
+  PUBLIC RECORD headers;
+  PUBLIC OBJECT response;
+  PUBLIC OBJECT frame;
+  PUBLIC BOOLEAN isnavigationrequest;
+  PUBLIC OBJECT ARRAY redirectchain;
+
+  PUBLIC PROPERTY failure(GetFailure, -);
+
+  MACRO NEW(OBJECT client, OBJECT frame, STRING interceptionid, bOOLEAN allowinterception, RECORD event, OBJECT ARRAY redirectchain)
+  {
+    this->_client := client;
+    this->_requestId := event.requestId;
+    this->isNavigationRequest := event.requestId = event.loaderId AND event.type = 'Document';
+//    this->_interceptionId := interceptionId;
+    this->_allowInterception := allowinterception;
+//    this->_interceptionHandled := false;
+//    this->_response := DEFAULT OBJECT;
+    this->_failureText := "";
+
+    this->url := event.request.url;
+    this->resourceType := ToLowercase(event.type);
+    this->method := event.request.method;
+    this->postData := CellExists(event.request, "postdata") ? event.request.postData : "";
+    this->headers := event.request.headers;
+    this->frame := frame;
+    this->redirectChain := redirectChain;
+
+    this->_fromMemoryCache := false;
+  }
+
+  RECORD FUNCTION GetFailure()
+  {
+    RETURN [ errortext := this->_failureText ];
+  }
+>;
+
+STATIC OBJECTTYPE Response
+<
+  OBJECT _client;
+  BOOLEAN _fromDiskCache;
+
+  PUBLIC RECORD remoteaddress;
+  PUBLIC STRING url;
+  PUBLIC INTEGER status;
+  PUBLIC STRING statustext;
+  PUBLIC RECORD headers;
+  PUBLIC OBJECT request;
+  PUBLIC PROPERTY fromCache(GetFromCache, -);
+  PUBLIC BOOLEAN fromServiceWorker;
+  PUBLIC OBJECT frame;
+
+  MACRO NEW(OBJECT client, OBJECT request, RECORD responsePayload)
+  {
+    this->_client := client;
+    this->request := request;
+/*    this->_contentPromise := null;
+
+    this->_bodyLoadedPromise := new Promise(fulfill => {
+      this->_bodyLoadedPromiseFulfill := fulfill;
+    });
+*/
+
+    IF (CellExists(responsePayload, "remoteIPAddress"))
+    {
+      this->remoteAddress := CELL
+          [ ip :=   responsePayload.remoteIPAddress
+          , port := responsePayload.remotePort
+          ];
+    }
+    ELSE
+      this->remoteAddress := [ ip := "", port := 0 ];
+
+    this->status := responsePayload.status;
+    this->statusText := responsePayload.statusText;
+    this->url := request->url;
+    this->_fromDiskCache := responsePayload.fromDiskCache;
+    this->fromServiceWorker := responsePayload.fromServiceWorker;
+    this->headers := responsePayload.headers;
+    //this->_securityDetails = responsePayload.securityDetails ? new SecurityDetails(responsePayload.securityDetails) : null;
+  }
+
+  BOOLEAN FUNCTION GetFromCache()
+  {
+    RETURN this->_fromDiskCache OR this->request->_fromMemoryCache;
+  }
+>;

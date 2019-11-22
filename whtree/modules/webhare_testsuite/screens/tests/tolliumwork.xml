@@ -1,0 +1,20 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/tests/tolliumwork.whlib">
+
+  <messageboxes>
+    <messagebox name="mbox" title="This is a message box" buttons="ok" />
+  </messageboxes>
+
+  <screen name="worktest" >
+    <compositions>
+      <radiogroup name="radiogroup" />
+    </compositions>
+    <body>
+      <textedit name="textedit" required="true" />
+      <radiobutton name="radiobutton" onset="onchange" group="radiogroup" />
+    </body>
+  </screen>
+
+</screens>

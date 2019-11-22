@@ -1,0 +1,631 @@
+<?wh
+///@short IndexManager Test
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+LOADLIB "mod::consilio/lib/search.whlib";
+
+
+RECORD ARRAY expected_args := [ [ name := "consilio_binary", type := "param", required := TRUE, description := "The Consilio binary to run, or 'external' to connect to an already running binary." ]
+                              , [ name := "listenport", type := "param", required := TRUE, description := "The port to listen to or connect to." ]
+                              , [ name := "indexdir", type := "param", required := FALSE, description := "The index directory to use. Ignored if consilio_binary = 'external'." ]
+                              ];
+//IF (PrintHelp(expected_args))
+//  RETURN;
+
+//=== Init ===
+RECORD args := ParseArguments(GetConsoleArguments(), expected_args);
+IF (NOT RecordExists(args))
+{
+  PRINT("Usage: test_indexmanager <consilio_binary> <indexdir> <listenport>\n\n");
+  PRINT("Set the consilio_binary parameter to \"external\" if you run your own consilio\n");
+  PRINT("(e.g. debugconsilio from Borland), in which case the indexdir parameter is\n");
+  PRINT("ignored.\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+STRING consilio_binary := args.consilio_binary;
+STRING indexdir := args.indexdir;
+INTEGER listenport := ToInteger(args.listenport, 0);
+INTEGER indexmgr_proc;
+STRING output, errors;
+IF (listenport <= 0)
+{
+  PRINT("Invalid listenport " || listenport || "\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+MACRO HandleProcessOutput()
+{
+  IF (indexmgr_proc != 0)
+  {
+    WHILE (TRUE)
+    {
+      STRING extra := ReadProcessOutput(indexmgr_proc);
+      IF (extra = "")
+        BREAK;
+      output := output || extra;
+      STRING ARRAY lines := Tokenize(output, "\n");
+      IF (LENGTH(lines) != 1)
+      {
+        output := lines[LENGTH(lines)-1];
+        DELETE FROM lines AT LENGTH(lines)-1;
+        PRINT("Output: " || Detokenize(lines, "\nOutput: ") || "\n");
+      }
+    }
+    WHILE (TRUE)
+    {
+      STRING extra := ReadProcessErrors(indexmgr_proc);
+      IF (extra = "")
+        BREAK;
+      errors := errors || extra;
+      STRING ARRAY lines := Tokenize(errors, "\n");
+      IF (LENGTH(lines) != 1)
+      {
+        errors := lines[LENGTH(lines)-1];
+        DELETE FROM lines AT LENGTH(lines)-1;
+        PRINT("Errors: " || Detokenize(lines, "\nErrors: ") || "\n");
+      }
+    }
+  }
+}
+
+
+//=== Start Consilio ===
+IF (consilio_binary != "external")
+{
+  indexmgr_proc := StartProcess(consilio_binary, [ "--indexdir", indexdir
+                                                 , "--listenip", "127.0.0.1"
+                                                 , "--listenport", ToString(listenport)
+                                                 , "--rebuild"
+                                                 ], FALSE, TRUE, TRUE, FALSE);
+  IF (indexmgr_proc <= 0)
+  {
+    PRINT("Could not start " || consilio_binary);
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+}
+//=== Open connection ===
+INTEGER indexmgr_conn;
+FOR(INTEGER attempt := 0; attempt < 15; attempt := attempt + 1)
+{
+  Sleep(1000);
+  indexmgr_conn := OpenHTTPServer("127.0.0.1", listenport);
+  IF (indexmgr_conn <= 0)
+  {
+    PRINT("Could not open connection to 127.0.0.1:" || listenport || "\n");
+    HandleProcessOutput();
+  }
+}
+IF (indexmgr_conn <= 0)
+  TerminateScriptWithError("Unable to connect");
+
+// Index a single document, return HTTP results record
+RECORD FUNCTION IndexDocument(INTEGER conn,
+                              INTEGER indexid,
+                              STRING url,
+                              DATETIME indexdate,
+                              STRING title,
+                              STRING keywords,
+                              STRING description,
+                              STRING body,
+                              STRING webhareid DEFAULTSTO "")
+{
+  // Index the page
+  IF (webhareid = "")
+    webhareid := indexid || "/" || url;
+  RECORD res := PostHTTPPageMultipart(conn, "/index/"||indexid||"/add",
+                               [ [name := "groupid", value := webhareid]
+                               , [name := "objectid", value := url]
+                               , [name := "date_indexed", value := DateTimeToString(indexdate)]
+                               , [name := "title", value := title]
+                               , [name := "keywords", value := keywords]
+                               , [name := "description", value := description]
+                               , [name := "body", value := body]
+                               , [name := "contentprovider", value := "test"]
+                               ]);
+  HandleProcessOutput();
+  RETURN res;
+}
+
+// Delete (a) document(s)
+RECORD FUNCTION DeleteDocument(INTEGER conn,
+                               INTEGER indexid,
+                               STRING webhareid)
+{
+  RECORD res := PostHTTPPage(conn, "/index/"||indexid||"/delete",
+                      [ [name := "groupid", value := webhareid]
+                      ]);
+  HandleProcessOutput();
+  RETURN res;
+}
+
+// Clean out old pages
+RECORD FUNCTION DeleteStalePages(INTEGER conn,
+                                 INTEGER indexid,
+                                 STRING webhareid,
+                                 DATETIME indexdate)
+{
+  // Delete all pages indexed before the given date
+  RECORD res := PostHTTPPage(conn, "/index/" || indexid || "/deleteoutdated",
+                      [ [ name := "last_indexed", value := DateTimeToString(indexdate)]
+                      , [ name := "groupid", value := webhareid ]
+                      ]);
+  HandleProcessOutput();
+  RETURN res;
+}
+
+// Search the index
+RECORD FUNCTION SearchIndex(INTEGER conn,
+                            STRING query,
+                            INTEGER indexid)
+{
+  RECORD ARRAY vars := [ [name := "query", value := query]
+                       , [name := "first", value := "0"]
+                       , [name := "count", value := "50"]
+                       , [name := "summary", value := "0"]
+                       , [name := "fields", value := "url,score,groupid,title,type,date_modified,size,summary"]
+                       ];
+  RECORD response := PostHTTPPageMultipart(conn, (indexid > 0 ? "/index/"||indexid : "") || "/search", vars);
+
+  // See if there are any search results to decode
+  INSERT CELL results := DEFAULT RECORD ARRAY INTO response;
+  IF (response.code = 200)
+  {
+    STRING ARRAY resultlines := Tokenize(BlobToString(response.content,1024*1024),"\n");
+    FOREVERY(STRING line FROM resultlines)
+    {
+      STRING ARRAY fields := Tokenize(line,'\t');
+      IF(Length(fields)>=7)
+      {
+        STRING ARRAY efields := Tokenize(line,'\t');
+        FOREVERY (STRING f FROM efields)
+          efields[#f] := EncodeJava(f);
+
+        STRING summary := Length(fields)>=8 ? fields[7] : "";
+        INSERT INTO response.results(id, url, score, groupid, fileid, title, type, modificationdate, size, summary)
+               VALUES(#line, DecodeJava(fields[0]), ToFloat(fields[2],0.0), DecodeJava(fields[1]), ToInteger(fields[1],-1), DecodeJava(fields[3]),
+                      ToInteger(fields[4],-1), MakeDateFromDayCount(ToInteger(fields[5],-1)), ToInteger(fields[6],-1), summary)
+               AT END;
+      }
+    }
+  }
+
+  HandleProcessOutput();
+  RETURN response;
+}
+
+MACRO TestEqualUrls(STRING ARRAY expected, RECORD response)
+{
+  STRING ARRAY urls := SELECT AS STRING ARRAY url FROM response.results ORDER BY ToUppercase(url);
+  TestEq(expected, urls);
+}
+
+DATETIME indexdate := GetCurrentDateTime();
+RECORD response;
+
+
+//PRINT("\n === Running TestIndexManager\n");
+
+
+OpenTest("TestSingleDocument");
+
+//=== Add document ===
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1", "keywords1", "description1", "body1");
+TestEq(200, response.code);
+
+//=== Search single words ===
+response := SearchIndex(indexmgr_conn, "title1", 2);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+response := SearchIndex(indexmgr_conn, "title1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "keywords1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "description1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+//=== Search multiple words ===
+//    Neither one of the search words should be found in index 2
+response := SearchIndex(indexmgr_conn, "title1 keywords1 description1 body1", 2);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+//    All of the words should be found in index 1
+response := SearchIndex(indexmgr_conn, "+title1 +keywords1 +description1 +body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+//=== Search date ranges ===
+response := SearchIndex(indexmgr_conn, "+body1 +date_indexed:" || DateTimeToString(indexdate), 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "+body1 +date_indexed:[" || DateTimeToString(AddTimeToDate(-1, indexdate)) || ",]", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "+body1 +date_indexed:[," || DateTimeToString(AddTimeToDate(1, indexdate)) || "]", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "+body1 +date_indexed:[" || DateTimeToString(AddTimeToDate(-1, indexdate)) || "," || DateTimeToString(AddTimeToDate(1, indexdate)) || "]", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "+body1 +date_indexed:[" || DateTimeToString(indexdate) || ",]", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "+body1 +date_indexed:[," || DateTimeToString(indexdate) || "]", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "+body1 +date_indexed:[" || DateTimeToString(indexdate) || "," || DateTimeToString(indexdate) || "]", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "date_indexed:[" || DateTimeToString(indexdate) || ",]", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "date_indexed:[," || DateTimeToString(indexdate) || "]", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "date_indexed:[" || DateTimeToString(indexdate) || "," || DateTimeToString(indexdate) || "]", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+//=== Update document ===
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1a", "keywords1a", "description1a", "body1a");
+TestEq(200, response.code);
+
+//=== Search old document ====
+response := SearchIndex(indexmgr_conn, "title1 keywords1 description1 body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+//=== Search updated document ===
+response := SearchIndex(indexmgr_conn, "+title1a +keywords1a +description1a +body1a", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+//=== Delete document
+response := DeleteDocument(indexmgr_conn, 0, "1/doc1");
+TestEq(200, response.code);
+
+//=== Search deleted document ===
+response := SearchIndex(indexmgr_conn, "title1 keywords1 description1 body1 title1a keywords1a description1a body1a", 1);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+CloseTest("TestSingleDocument");
+
+
+OpenTest("TestMultipleDocuments");
+
+//=== Add first document ===
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1", "keywords1", "description1", "body1");
+TestEq(200, response.code);
+
+//=== Search first document ===
+response := SearchIndex(indexmgr_conn, "+title1 +keywords1 +description1 +body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+//=== Add second document ===
+response := IndexDocument(indexmgr_conn, 1, "doc2", indexdate, "title2", "keywords2", "description2", "body2");
+TestEq(200, response.code);
+
+//=== Search first document ===
+response := SearchIndex(indexmgr_conn, "+title1 +keywords1 +description1 +body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+//=== Search second document ===
+response := SearchIndex(indexmgr_conn, "+title2 +keywords2 +description2 +body2", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc2"], response);
+
+//=== Update first document ===
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1a", "keywords1a", "description1a", "body1a");
+TestEq(200, response.code);
+
+//=== Search old first document ===
+response := SearchIndex(indexmgr_conn, "title1 keywords1 description1 body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+//=== Search updated first document ===
+response := SearchIndex(indexmgr_conn, "+title1a +keywords1a +description1a +body1a", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+//=== Search second document ===
+response := SearchIndex(indexmgr_conn, "+title2 +keywords2 +description2 +body2", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc2"], response);
+
+//=== Update second document ===
+response := IndexDocument(indexmgr_conn, 1, "doc2", indexdate, "title2a", "keywords2a", "description2a", "body2a");
+TestEq(200, response.code);
+
+//=== Search old documents ===
+response := SearchIndex(indexmgr_conn, "title1 keywords1 description1 body1 title2 keywords2 description2 body2", 1);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+//=== Search updated first document ===
+response := SearchIndex(indexmgr_conn, "+title1a +keywords1a +description1a +body1a", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+//=== Search updated second document ===
+response := SearchIndex(indexmgr_conn, "+title2a ++keywords2a +description2a +body2a", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc2"], response);
+
+//=== Delete first document
+response := DeleteDocument(indexmgr_conn, 0, "1/doc1");
+TestEq(200, response.code);
+
+//=== Search old and deleted documents ===
+response := SearchIndex(indexmgr_conn, "title1 keywords1 description1 body1 title1a keywords1a description1a body1a title2 keywords2 description2 body2", 1);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+//=== Search updated second document ===
+response := SearchIndex(indexmgr_conn, "+title2a +keywords2a +description2a +body2a", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc2"], response);
+
+//=== Delete second document
+response := DeleteDocument(indexmgr_conn, 0, "1/doc2");
+TestEq(200, response.code);
+
+//=== Search old and deleted documents ===
+response := SearchIndex(indexmgr_conn, "title1 keywords1 description1 body1 title1a keywords1a description1a body1a title2 keywords2 description2 body2 title2a keywords2a description2a body2a", 1);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+CloseTest("TestMultipleDocuments");
+
+
+OpenTest("TestMultipleIndices");
+
+//=== Add first document ===
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1", "keywords1", "description1", "body1");
+TestEq(200, response.code);
+
+//=== Search first document ===
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "body1", 2);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+//=== Add second document ===
+response := IndexDocument(indexmgr_conn, 2, "doc2", indexdate, "title1", "keywords1", "description1", "body1");
+TestEq(200, response.code);
+
+//=== Search the documents ===
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "body1", 2);
+TestEq(200, response.code);
+TestEqualUrls(["doc2"], response);
+
+response := SearchIndex(indexmgr_conn, "body1", 0);
+TestEq(200, response.code);
+TestEq(2, Length(response.results));
+TestEqualUrls(["doc1","doc2"], response);
+
+//=== Update first document ===
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1a", "keywords1a", "description1a", "body1a");
+TestEq(200, response.code);
+
+//=== Search the documents ===
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+response := SearchIndex(indexmgr_conn, "body1a", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "body1", 2);
+TestEq(200, response.code);
+TestEqualUrls(["doc2"], response);
+
+response := SearchIndex(indexmgr_conn, "body1", 0);
+TestEq(200, response.code);
+TestEqualUrls(["doc2"], response);
+
+response := SearchIndex(indexmgr_conn, "body1a", 0);
+TestEq(200, response.code);
+TestEqualUrls(["doc1"], response);
+
+response := SearchIndex(indexmgr_conn, "body1 body1a", 0);
+TestEq(200, response.code);
+TestEq(2, Length(response.results));
+TestEqualUrls(["doc1","doc2"], response);
+
+//=== Delete first document
+response := DeleteDocument(indexmgr_conn, 0, "1/doc1");
+TestEq(200, response.code);
+
+//=== Search the documents ===
+response := SearchIndex(indexmgr_conn, "body1 body1a", 0);
+TestEq(200, response.code);
+TestEqualUrls(["doc2"], response);
+
+//=== Delete second document
+response := DeleteDocument(indexmgr_conn, 0, "2/doc2");
+TestEq(200, response.code);
+
+//=== Search the documents ===
+response := SearchIndex(indexmgr_conn, "body1 body1a", 0);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+CloseTest("TestMultipleIndices");
+
+
+OpenTest("TestDeleteStale");
+
+//=== Add first document ===
+response := IndexDocument(indexmgr_conn, 1, "doc1page1", MakeDateFromParts(1,1), "title1", "keywords1", "description1", "body1", "doc1");
+TestEq(200, response.code);
+
+//=== Search first document ===
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1page1"], response);
+
+//=== Add second document ===
+response := IndexDocument(indexmgr_conn, 1, "doc1page2", MakeDateFromParts(1,2), "title1", "keywords1", "description1", "body1", "doc1");
+TestEq(200, response.code);
+
+//=== Search documents ===
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEq(2, Length(response.results));
+TestEqualUrls(["doc1page1","doc1page2"], response);
+
+//=== Delete stale first document ===
+response := DeleteStalePages(indexmgr_conn, 1, "doc1", MakeDateFromParts(1,2));
+TestEq(200, response.code);
+
+//=== Search documents ===
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1page2"], response);
+
+//=== Add third document ===
+response := IndexDocument(indexmgr_conn, 1, "doc1page3", MakeDateFromParts(2,2), "title1", "keywords1", "description1", "body1", "doc1");
+TestEq(200, response.code);
+
+//=== Search documents ===
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEq(2, Length(response.results));
+TestEqualUrls(["doc1page2","doc1page3"], response);
+
+//=== Delete stale document ===
+response := DeleteStalePages(indexmgr_conn, 1, "doc1", MakeDateFromParts(2,2));
+TestEq(200, response.code);
+
+//=== Search documents ===
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1page3"], response);
+
+//=== Add third document ===
+response := IndexDocument(indexmgr_conn, 1, "doc1page4", MakeDateFromParts(3,2), "title1", "keywords1", "description1", "body1", "doc1");
+TestEq(200, response.code);
+
+//=== Search documents ===
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEq(2, Length(response.results));
+TestEqualUrls(["doc1page3","doc1page4"], response);
+
+//=== Delete stale document ===
+response := DeleteStalePages(indexmgr_conn, 1, "", MakeDateFromParts(3,2));
+TestEq(200, response.code);
+
+//=== Search documents ===
+response := SearchIndex(indexmgr_conn, "body1", 1);
+TestEq(200, response.code);
+TestEqualUrls(["doc1page4"], response);
+
+//=== Add first document to new index ===
+response := IndexDocument(indexmgr_conn, 2, "doc2page1", MakeDateFromParts(3,4), "title1", "keywords1", "description1", "body1", "doc2");
+TestEq(200, response.code);
+
+//=== Search documents ===
+response := SearchIndex(indexmgr_conn, "body1", 0);
+TestEq(200, response.code);
+TestEq(2, Length(response.results));
+TestEqualUrls(["doc1page4","doc2page1"], response);
+
+//=== Delete stale document ===
+response := DeleteStalePages(indexmgr_conn, 1, "", MakeDateFromParts(3,4));
+TestEq(200, response.code);
+
+//=== Search documents ===
+response := SearchIndex(indexmgr_conn, "body1", 0);
+TestEq(200, response.code);
+TestEqualUrls(["doc2page1"], response);
+
+//=== Add first document to new index ===
+response := IndexDocument(indexmgr_conn, 2, "doc1page1", MakeDateFromParts(3,4), "title1", "keywords1", "description1", "body1", "doc1");
+TestEq(200, response.code);
+
+//=== Search documents ===
+response := SearchIndex(indexmgr_conn, "body1", 0);
+TestEq(200, response.code);
+TestEq(2, Length(response.results));
+TestEqualUrls(["doc1page1","doc2page1"], response);
+
+//=== Delete stale document ===
+response := DeleteStalePages(indexmgr_conn, 2, "", MakeDateFromParts(4,0));
+TestEq(200, response.code);
+
+//=== Search documents ===
+response := SearchIndex(indexmgr_conn, "body1", 0);
+TestEq(200, response.code);
+TestEqualUrls(DEFAULT STRING ARRAY, response);
+
+CloseTest("TestDeleteStale");
+
+OpenTest("TestLegalIds");
+
+//=== Add document ===
+response := IndexDocument(indexmgr_conn, 1, "o\"{}( ),.\t\n\r[]+=-*&^%$#@!", indexdate, "title1", "keywords1", "description1", "body1", "g\"{}( ),.\t\n\r[]+=-*&^%$#@!");
+TestEq(200, response.code);
+
+response := SearchIndex(indexmgr_conn, "indexid:1", 0);
+
+response := SearchIndex(indexmgr_conn, "groupid:\"g\\\"{}( ),.\\t\\n\\r[]+=-*&^%$#@!\"", 0);
+TestEq(200, response.code);
+TestEq(1, Length(response.results));
+TestEqualUrls(["o\"{}( ),.\t\n\r[]+=-*&^%$#@!"], response);
+
+response := SearchIndex(indexmgr_conn, "objectid:\"o\\\"{}( ),.\\t\\n\\r[]+=-*&^%$#@!\"", 0);
+TestEq(200, response.code);
+TestEq(1, Length(response.results));
+TestEqualUrls(["o\"{}( ),.\t\n\r[]+=-*&^%$#@!"], response);
+
+// Whitespace?
+response := SearchIndex(indexmgr_conn, "groupid:\"g\\\"{}( ),.\"", 0);
+TestEq(200, response.code);
+TestEq(0, Length(response.results));
+
+CloseTest("TestLegalIds");
+
+//=== Close connection ===
+CloseHTTPServer(indexmgr_conn);

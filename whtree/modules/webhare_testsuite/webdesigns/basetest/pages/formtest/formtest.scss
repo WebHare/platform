@@ -1,0 +1,54 @@
+@import '~@mod-publisher/js/forms/styles';
+
+@at-root
+{
+  @include wh-form-flex;
+}
+.wh-form__label
+{
+  min-width:240px;
+}
+.wh-form__rtd
+{
+  min-height:320px;
+}
+@media (max-width: 505px)
+{
+  /* Order the inputs vertical from their labels */
+  .wh-form__fieldgroup
+  {
+    -ms-flex-direction: column;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+  }
+  /* Give the fields their full width back */
+  .wh-form__fields
+  {
+    width:100%;
+  }
+}
+
+.wh-form__imgedit
+{
+  width:250px;
+  height:250px;
+//  max-width:250px;
+//  max-height:250px;
+}
+
+.wh-form__error, .wh-form__fieldgroup--error
+{
+  color:red;
+}
+
+/////////////  datepicker
+.datetime__picker__previous:after
+{
+  display:inline-block;
+  content:"<<";
+}
+.datetime__picker__next:after
+{
+  display:inline-block;
+  content:">>";
+}

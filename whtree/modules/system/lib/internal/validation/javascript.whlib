@@ -1,0 +1,176 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::filetypes/harescript.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/validation/config.whlib";
+LOADLIB "mod::system/lib/internal/validation/harescript.whlib";
+
+LOADLIB "wh::internal/interface.whlib";
+
+ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
+{
+  RECORD retval :=
+      [ output :=   ""
+      , errors :=   ""
+      , exitcode := -1
+      ];
+
+  OBJECT itr := MakeProcessAsyncIterator(process, [ autoclose := FALSE ]);
+  WHILE (TRUE)
+  {
+    RECORD rec := AWAIT itr->Next();
+    IF (rec.done)
+      BREAK;
+    SWITCH (rec.value.type)
+    {
+      CASE "output"   { retval.output := retval.output || rec.value.line || "\n"; }
+      CASE "error"    { retval.errors := retval.errors || rec.value.line || "\n"; }
+      CASE "close"    { retval.exitcode := rec.value.exitcode; }
+    }
+  }
+  RETURN retval;
+}
+
+ASYNC MACRO SendProcessInput(OBJECT process, BLOB data)
+{
+  AWAIT AsyncSendBlobTo(process->input_handle, data);
+  process->CloseInput();
+}
+
+ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename)
+{
+  STRING diskpath := GetWebHareResourceDiskPath(resourcename);
+  STRING eslintpath := MergePath(GetWebhareConfiguration().installationroot, "node_modules/.bin/eslint");
+
+  OBJECT proc := CreateProcess(eslintpath, [ "-f", "json", "--no-eslintrc", "-c", GetWebHareResourceDiskPath("mod::system/data/validation/eslintrc.json"), "--stdin", "--stdin-filename", diskpath ], TRUE, TRUE, TRUE, FALSE);
+  proc->Start();
+
+  OBJECT reader := ReadWholeProcessOutput(proc);
+  AWAIT SendProcessInput(proc, libdata);
+  RECORD retval := AWAIT reader;
+  proc->Close();
+
+  RECORD res := EnforceStructure([ messages := [[ line := 0, "column" := 0, message := "", fatal := FALSE ]]], DecodeJSON(retval.output));
+  RETURN SELECT resourcename := resourcename, line, col := COLUMN "column", message, fatal FROM RECORD ARRAY(res.messages);
+}
+
+PUBLIC RECORD FUNCTION RunJSValidator(BLOB libdata, STRING resourcename, RECORD options)
+{
+  STRING modulename := GetModulenameFromResourcePath(resourcename);
+
+  RECORD ARRAY warnings, errors;
+  RECORD ARRAY texts;
+  RECORD ARRAY screens;
+
+  RECORD validateconfig := GetModuleValidationConfig(modulename);
+
+  IF(NOT options.onlytids)
+  {
+    BOOLEAN run_eslint;
+    STRING resnameformasks := Substring(resourcename,SearchSubString(resourcename,'/')+1);
+    FOREVERY (STRING mask FROM validateconfig.eslintmasks)
+      IF (ToUppercase(resnameformasks) LIKE ToUppercase(mask))
+        run_eslint := TRUE;
+
+    IF (run_eslint)
+    {
+      RECORD ARRAY messages := WaitForPromise(RunESLint(libdata, resourcename));
+      errors := SELECT * FROM messages WHERE fatal;
+      warnings := SELECT * FROM messages WHERE NOT fatal;
+    }
+  }
+
+  RETURN [ warnings := warnings
+         , tids     := GetJSTexts(resourcename, libdata)
+         , errors   := errors
+         ];
+}
+
+RECORD ARRAY FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
+{
+//  BOOLEAN findscreens := TRUE; // we only need to search for screens in *.whlib files
+  RECORD ARRAY texts;
+  // Skip time consuming tokenizing and analysing of Javascript code
+  // if the file has no mention of GetTid anywhere.
+  // (This gives a big speed boost, huge even for the system module)
+  STRING rawtext := ToUpperCase(BlobToString(libdata, -1));
+  IF (SearchSubString(rawtext, 'GETTID') = -1 AND
+      SearchSubString(rawtext, 'GETHTMLTID') = -1 AND
+      SearchSubString(rawtext, '/*TID*/') = -1)
+    RETURN RECORD[];
+
+  // Hack to be able to use the harescript tokenizer
+  libdata := StringToBlob("<?wh " || Substitute(BlobToString(libdata), "?>", ""));
+
+  INTEGER file := OpenHareScriptFile(libdata);
+
+  RECORD tok := GetNextTok(file);
+  RECORD ARRAY prevtokens;
+
+  STRING current_objecttype;
+  WHILE(TRUE)
+  {
+    tok := GetNextTok(file);
+    IF(NOT RecordExists(tok))
+      BREAK;
+
+    //Keep a simple tokens lookback buffer
+    IF(Length(prevtokens)=10)
+      DELETE FROM prevtokens AT 0;
+    INSERT tok INTO prevtokens AT END;
+
+    IF(ToUppercase(tok.token) IN [ "GETTID", "GETHTMLTID", "/*TID*/" ])
+    {
+      BOOLEAN is_gettid := ToUppercase(tok.token) = "GETTID" OR ToUppercase(tok.token) = "GETHTMLTID";
+      BOOLEAN is_this_gettid;
+
+      //ADDME: Gather errors and report them in a list after a 'scan missing texts' action
+      RECORD expect_parenthesis := GetNextTok(file);
+
+      RECORD expect_tid;
+
+      IF (is_gettid)
+      {
+        IF(RecordExists(expect_parenthesis) AND expect_parenthesis.token IN [":=","=",":"]) //use of gettid as variable name/function declaration
+          CONTINUE; //skippable!
+
+        IF(NOT RecordExists(expect_parenthesis) OR expect_parenthesis.token!="(")
+        {
+          CONTINUE;
+        }
+
+        expect_tid := GetNextTok(file);
+        IF(RecordExists(expect_tid) AND expect_tid.istype) //definition of a function named gettid
+          CONTINUE;
+      }
+      ELSE
+        expect_tid := expect_parenthesis;
+
+      // Skip if first parameter of GetTid is not a STRING
+      IF(NOT RecordExists(expect_tid) OR Left(expect_tid.token,1) NOT IN ["'",'"'])
+        CONTINUE;
+
+      STRING tid := DecodeJava(Substring(expect_tid.token, 1, Length(expect_tid.token)-2));
+
+      // Skip if the Tid isn't a single STRING (and give the first part which is a STRING)
+      RECORD expect_comma_close := GetNextTok(file);
+      IF(tid NOT LIKE ":*" AND (NOT RecordExists(expect_comma_close) OR Left(expect_comma_close.token,1) NOT IN [",",")","]"]))
+        CONTINUE;
+
+      INSERT [ resourcename :=  resourcename
+             , line :=      tok.line
+             , col :=       tok.col
+             , tid :=       tid
+             ]
+        INTO texts AT END;
+    }
+  }
+
+  CloseHarescriptFile(file);
+  RETURN texts;
+}
+

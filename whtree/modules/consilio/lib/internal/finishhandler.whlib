@@ -1,0 +1,31 @@
+<?wh
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
+<
+  PUBLIC BOOLEAN mustcleanupindices;
+
+  UPDATE PUBLIC MACRO OnPreCommit(OBJECT transaction)
+  {
+    IF(this->mustcleanupindices)
+      transaction->ScheduleTask("consilio:cleanupindices", DEFAULT DATETIME); //remove stale indices ASAP
+  }
+
+  UPDATE PUBLIC MACRO OnCommit()
+  {
+
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetConsilioFinishHandler()
+{
+  OBJECT handler := GetPrimary()->GetFinishHandler("consilio:finish");
+  IF (NOT ObjectExists(handler))
+  {
+    handler := NEW ConsilioFinishHandler;
+    GetPrimary()->SetFinishHandler("consilio:finish", handler);
+  }
+  RETURN handler;
+}
+

@@ -1,0 +1,329 @@
+<?wh
+/** @short RTD file/structure management
+    @topic siteprofiles/rtd
+*/
+
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/composer.whlib";
+
+/* Issuelist
+
+API structuur
+- Er zijn output apis die expliciet multiple output files hebben (HTML) en apis die dat niet hebben? (PDF) - wat voor api bieden die beiden aan? Of kan een object deriven van beide output en page ?
+- Terminologie? publication output en publication page nu
+
+Algemeen
+- Mag de RTE output zelf rechtsreeks HTML negeren of _MOET_ hij de formattedoutput API gebruiken?
+  (het is gegarandeerde compatibiliteit met de Word engine versus de mogelijkheid om 'nieuwe' dingen snel te doen
+   die nog niet via profiles worden afgevangen. hoewel de EmbedRawHTML api hier ook bij helpt)
+- Hoe splitsen we het document in paginas, en geven vervolgens aan de APIs door waar een pagina
+  begint en eindigt? Hoe sturen we alle relevante elementen 'voor een pagina' naar de rendering engine?
+
+HTML
+- Rewriter tips nodig denk ik... EmbedRAWHTML voor nieuwe callbacks is cleaner dan vertrouwen op print redirection
+
+RTE
+- Hoe bepalen we eigenlijk de toplevel elementen? Boeit dat?
+- Moeten images gepublished worden via contenttypedata ? Of moet alles via de publisher lopen ?
+- Is er 1 RTE type, of mag je eigen extra RTE types aanmaken en kun je op een of andere manier aangeven
+  dat die door deze processor heenlopen? Of regel je dat maar lekker in je template?
+*/
+
+RECORD ARRAY FUNCTION AnalyzeSubparts(BLOB indata, RECORD ARRAY parts)
+{
+  //Grab content-locations. ADDME mime API should just return part headers instead of trying to decode 'm all itself
+  FOREVERY(RECORD part FROM parts)
+  {
+    RECORD ARRAY hdrs := DecodeMIMEHeader(blobtostring(makeslicedblob(indata, part.ofs_partstart, part.ofs_bodystart-part.ofs_partstart),65536));
+    STRING location := SELECT AS STRING value FROM hdrs WHERE ToUppercase(field)="CONTENT-LOCATION";
+    INSERT CELL location := location INTO parts[#part];
+  }
+  RETURN parts;
+}
+
+PUBLIC STATIC OBJECTTYPE RichDocument
+<
+  RECORD ARRAY embeddedfiles;
+  RECORD ARRAY links;
+  RECORD ARRAY instances;
+
+  PUBLIC PROPERTY structure(pvt_structure, -);
+  PUBLIC OBJECT pvt_structure; //FIXME PRIVATE
+  STRING pvt_rtdtype;
+
+  OBJECT htmldoc;
+  OBJECT toplevelnode;
+  BOOLEAN pvt_readonly;
+  PUBLIC PROPERTY readonly(pvt_readonly, -);
+
+  PUBLIC PROPERTY body(GetBody,-);
+
+  PUBLIC PROPERTY rtdtype(pvt_rtdtype, SetRTDType);
+
+  PUBLIC OBJECT pvt_applytester; //FIXME PRIVATE
+  PUBLIC OBJECT pvt_baseobject; //FIXME REMOVE OR MAKE PRIVATE
+  PUBLIC PROPERTY baseobjectid(GetBaseObjectId, SetbaseObjectId); //FIXME backwards compat, remove. used by eg pthu newsarticle.tpl
+
+  MACRO NEW()
+  {
+  }
+
+  OBJECT FUNCTION GetBody()
+  {
+    this->EnsureBody();
+    RETURN this->toplevelnode;
+  }
+
+  PUBLIC MACRO ApplyStructureDefinition(OBJECT structure)
+  {
+    this->pvt_rtdtype := "";
+    this->pvt_structure := structure;
+  }
+
+  MACRO EnsureBody()
+  {
+    IF(NOT ObjectExists(this->htmldoc))
+    {
+      this->SetupHTML(DEFAULT BLOB);
+      this->htmldoc->body->Empty();
+    }
+  }
+
+  PUBLIC MACRO ImportFromPlainText(STRING plaintext)
+  {
+    this->Clear();
+    this->SetupHTML(StringToBlob(EncodeHTML(plaintext)));
+  }
+
+  PUBLIC MACRO ImportFromHTML(BLOB indata)
+  {
+    this->Clear();
+    this->SetupHTML(indata);
+  }
+
+  STRING FUNCTION RewriteImage(RECORD ARRAY parts, STRING inurl)
+  {
+    STRING imagecid := SELECT AS STRING contentid FROM this->embeddedfiles WHERE url = inurl;
+    IF(imagecid!="")
+    {
+      RETURN "cid:" || imagecid;
+    }
+
+    //Lookup the image in the source
+    RECORD part := SELECT * FROM parts WHERE location = inurl;
+    IF(RecordExists(part))
+    {
+      RECORD info := WrapBlob(part.data, "" , [ generatehash := TRUE, extractdominantcolor := TRUE ]); //FIXME grab filename from url;
+      IF(RecordExists(info) AND info.mimetype LIKE "image/*")
+      {
+        INSERT CELL contentid := GenerateMimeContentId() INTO info;
+        info.filename := info.contentid;
+        INSERT CELL url := inurl INTO info;
+        INSERT info INTO this->embeddedfiles AT END;
+        RETURN "cid:" || info.contentid;
+      }
+    }
+    RETURN inurl;
+  }
+
+  PUBLIC MACRO ImportFromMHTML(BLOB indata)
+  {
+    this->Clear();
+
+    RECORD msg := DecodeMIMEMessage(indata);
+    IF(GetMIMEHeaderParameter(msg.data.mimetype, "") = "multipart/related"
+       AND GetMIMEHeaderParameter(msg.data.subparts[0].mimetype, "") = "text/html")
+    {
+      INTEGER output := CreateStream();
+
+      RewriteHTMLDocumentTo(output
+                           ,msg.data.subparts[0].data
+                           ,[ imageurlrewrite := PTR this->RewriteImage(AnalyzeSubparts(indata, msg.data.subparts), #1)
+                            , fragmentlevel := "blockelements"
+                            ]);
+
+      this->SetupHTML(MakeBlobFromStream(output));
+    }
+  }
+
+  MACRO Clear()
+  {
+    this->htmldoc := DEFAULT OBJECT;
+    this->embeddedfiles := DEFAULT RECORD ARRAY;
+    this->links := DEFAULT RECORD ARRAY;
+    this->instances := DEFAULT RECORD ARRAY;
+  }
+  MACRO SetupHTML(BLOB indata)
+  {
+    this->htmldoc := MakeXMLDocumentFromHTML(indata, "UTF-8", this->readonly);
+
+    /* Figure out the toplevel node for the content */
+    this->toplevelnode := this->htmldoc->GetElementsByTagName("body")->Item(0);
+    IF(NOT ObjectExists(this->toplevelnode))
+      this->toplevelnode := this->htmldoc->documentelement;
+  }
+
+  PUBLIC RECORD FUNCTION GetEmbeddedFile(STRING src)
+  {
+    RETURN SELECT * FROM this->embeddedfiles WHERE 'cid:' || contentid = src;
+  }
+  PUBLIC MACRO ImportFromRecord(RECORD data)
+  {
+    this->Clear();
+    IF(NOT RecordExists(data))
+      RETURN;
+
+    this->SetupHTML(data.htmltext);
+    IF(CellExists(data, "embedded"))
+      this->embeddedfiles := (SELECT contentid
+                                   , COLUMN data
+                                   , mimetype
+                                   , width
+                                   , height
+                                   , filename := CellExists(embedded, 'filename') ? embedded.filename : ''
+                                   , extension := GetExtensionForMimeType(mimetype)
+                                   , url := ""
+                                   , __blobsource //FIXME can we ensure all paths just give us this ?
+                                   , rotation
+                                   , mirrored
+                                   , refpoint := DEFAULT RECORD
+                                   , source_fsobject := CellExists(embedded, "SOURCE_FSOBJECT") ? embedded.source_fsobject : 0
+                                   , dominantcolor := CellExists(embedded, "DOMINANTCOLOR") ? embedded.dominantcolor : ""
+                               FROM data.embedded);
+
+    IF(CellExists(data, "links"))
+      this->links := SELECT tag
+                          , linkref
+                       FROM data.links;
+    IF(CellExists(data,"instances"))
+    {
+      //ensure even manual imports have whfsfileid and whfssettingid set for every instance
+      this->instances := SELECT AS RECORD ARRAY CELL[ instanceid, data := [ whfssettingid := 0, whfsfileid := 0, ...instances.data] ] FROM data.instances;
+    }
+  }
+
+  ///Does this richdocument have any content?
+  PUBLIC BOOLEAN FUNCTION HasContent()
+  {
+    RETURN ObjectExists(this->htmldoc);
+  }
+
+  PUBLIC RECORD FUNCTION ExportAsRecord()
+  {
+    IF(NOT ObjectExists(this->htmldoc))
+      RETURN DEFAULT RECORD;
+
+    OBJECT rewritercontext := NEW HTMLRewriterContext;
+
+    // Get contentids for all referenced embedded file
+    STRING ARRAY embeddedfilescontentids;
+    FOREVERY (STRING url FROM rewritercontext->ListEmbeddedLinks(this->htmldoc))
+      IF (url LIKE "cid:*")
+        INSERT SubString(url, 4) INTO embeddedfilescontentids AT END;
+
+    // Get instance ids
+    STRING ARRAY instanceids := rewritercontext->ListEmbeddedInstanceIds(this->htmldoc);
+
+    RETURN [ htmltext := rewritercontext->GenerateHTML(this->htmldoc)
+           , embedded := (SELECT contentid
+                               , data
+                               , mimetype
+                               , width
+                               , height
+                               , filename
+                               , extension
+                               , rotation
+                               , mirrored
+                               , refpoint := DEFAULT RECORD
+                               , __blobsource
+                               , source_fsobject
+                               , dominantcolor
+                            FROM this->embeddedfiles
+                           WHERE contentid IN embeddedfilescontentids
+                        ORDER BY contentid)
+           , links := (SELECT tag, linkref FROM this->links ORDER BY tag)
+           , instances :=  (SELECT *
+                              FROM this->instances
+                             WHERE instanceid IN instanceids)
+           ];
+  }
+
+  PUBLIC INTEGER FUNCTION GetLinkRef(STRING tag)
+  {
+    IF(tag NOT LIKE "x-richdoclink:*")
+      RETURN 0;
+
+    RETURN SELECT AS INTEGER linkref FROM this->links WHERE links.tag = Substring(VAR tag, 14);
+  }
+
+  PUBLIC RECORD FUNCTION GetInstance(STRING getid)
+  {
+    RETURN SELECT AS RECORD data FROM this->instances WHERE instanceid = getid;
+  }
+
+  INTEGER FUNCTION GetBaseObjectID()
+  {
+    RETURN ObjectExists(this->pvt_baseobject) ? this->pvt_baseobject->id : 0;
+  }
+  MACRO SetBaseObjectID(INTEGER newid)
+  {
+    OBJECT obj := OpenWHFSObject(newid);
+    IF(ObjectExists(obj))
+    {
+      this->pvt_applytester := GetApplyTesterForObject(newid);
+      this->pvt_Baseobject := OpenWHFSObject(newid);
+    }
+    ELSE
+    {
+      this->pvt_applytester := DEFAULT OBJECT;
+      this->pvt_baseobject := DEFAULT OBJECT;
+    }
+  }
+  PUBLIC MACRO __FastLoadFromWHFS(OBJECT baseapplytester, INTEGER objid, OBJECT whfsobject)
+  {
+    this->Clear();
+    this->pvt_applytester := baseapplytester;
+    this->pvt_baseobject := whfsobject;
+    this->ImportFromRecord(OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->GetInstanceData(objid).data);
+  }
+
+  PUBLIC MACRO LoadFromWHFS(OBJECT whfsobject)
+  {
+    this->__FastLoadFromWHFS(GetApplyTesterForObject(whfsobject->id), whfsobject->id, whfsobject);
+  }
+
+  PUBLIC MACRO ApplyRTDType(RECORD rtdtype) //Stop using this API! See #1374
+  {
+    this->pvt_rtdtype := rtdtype.namespace;
+    this->pvt_structure := NEW RichDocumentStructure;
+    this->pvt_structure->LoadFromRTDType(rtdtype);
+  }
+
+  /** @short Set the RTD type for the document
+      @param namespace Namespace to rtdtype to set. Throws if the namespace doesn't exist
+  */
+  MACRO SetRTDType(STRING namespace)
+  {
+    RECORD typeinfo := GetRTDType(namespace);
+    IF(NOT RecordExists(typeinfo))
+      THROW NEW Exception(`No such namespace '${namespace}'`);
+
+    this->pvt_rtdtype := namespace;
+    this->pvt_structure := NEW RichDocumentStructure;
+    this->pvt_structure->LoadFromRTDType(typeinfo);
+  }
+>;
+
+PUBLIC RECORD FUNCTION ValidateRichDocument(RECORD inrichdoc)
+{
+  RETURN __ValidateRichDocumentLike(inrichdoc, TRUE, FALSE);
+}

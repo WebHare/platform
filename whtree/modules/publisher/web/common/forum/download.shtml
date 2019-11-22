@@ -1,0 +1,28 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
+
+OBJECT trans := OpenPrimary();
+RECORD attachinfo := DecryptForThisServer("publisher:forumattachment", GetWebVariable("attachment"));
+
+RECORD attachmentinfo := SELECT forumattachments.*
+                           FROM publisher.forumattachments, publisher.forumpostings
+                          WHERE forumattachments.id = attachinfo.id
+                                AND forumattachments.posting = forumpostings.id
+                                AND forumpostings.creationdate = attachinfo.cd
+                                AND forumpostings.deleted = FALSE;
+
+IF(NOT RecordExists(attachmentinfo))
+  AbortWithHTTPError(404);
+
+IF(GetWebVariable("v")="full" OR Length(attachmentinfo.displayversion)=0)
+{
+  //ADDME: expiry headers? if modified postings simply set a modtoken on the url,it would serve an invalidation anyway
+  AddHTTPHeader("Content-Type", attachmentinfo.mimetype, FALSE);
+  SendWebFile(attachmentinfo.data);
+}
+
+AddHTTPHeader("Content-Type", attachmentinfo.displaymimetype, FALSE);
+SendWebFile(attachmentinfo.displayversion);

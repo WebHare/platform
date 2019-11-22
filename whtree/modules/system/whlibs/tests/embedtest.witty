@@ -1,0 +1,12 @@
+[component simple]Simple[/component]
+[component reverse]reverse[/component]
+
+[component blatest][bla][/component]
+[component isfirst][if first]y[else]n[/if][/component]
+[component getseqnr][seqnr][/component]
+
+[component gettidtest][gettid module.appgroups.apps][/component]
+
+[component wittyvar][invokewittyvar][/component]
+
+[component local]local-embed[/component]

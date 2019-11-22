@@ -1,0 +1,5 @@
+<?wh
+LOADLIB "mod::system/lib/webserver/unifiedcachehost.whlib";
+
+OBJECT downloadhost := NEW UnifiedCacheHostBase;
+downloadhost->HandleRequest();

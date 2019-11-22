@@ -1,0 +1,20 @@
+﻿<?wh
+
+/** Create an authorization dialog. Resets the access token of the connection
+    @return Authorization dialog
+*/
+PUBLIC OBJECT FUNCTION CreateAuthorizationDialog(OBJECT parent, INTEGER sessionid)
+{
+  RETURN parent->LoadScreen("socialite:commondialogs.authorize", [ sessionid := sessionid ]);
+}
+
+/** @short Create a dialog which can be used to get a location from the user
+    @long This dialog shows a map on which the user can place and move a marker and a search box which can be used to query
+          Google for addresses. The value property of the dialog can be used to set a predefined location and retrieve the
+          location chosen by the user. The center and zoom properties can be set to an initial map center and zoom level.
+*/
+PUBLIC OBJECT FUNCTION CreateLocationDialog(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN parent->LoadScreen("socialite:commondialogs.location", options);
+}
+

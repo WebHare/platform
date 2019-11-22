@@ -1,0 +1,9 @@
+@import "~dompack/components/dialog/mixins";
+
+.mydialog
+{
+  @include dompack-dialog;
+  background: white;
+  padding: 20px;
+}
+

@@ -1,0 +1,82 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/imexport.whlib";
+
+// command: wrd:export <schema> <path>
+// short: Export WRD schema to file
+
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(),
+        [ [ name := "skipattr", type := "stringlist" ]
+        , [ name := "skiptype", type := "stringlist" ]
+        , [ name := "wrdschema", type := "param", required := TRUE ]
+        , [ name := "filename", type := "param", required := TRUE  ]
+        ]);
+
+IF(NOT RecordExists(cmdargs))
+{
+  Print("Syntax: wh wrd:export [ --skipattr <mask> ...]  schemaname filename\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+OBJECT wrdschema := OpenWRDSchema(cmdargs.wrdschema);
+IF(NOT ObjectExists(wrdschema))
+  THROW NEW Exception(`No such schema '${cmdargs.wrdschema}'`);
+
+OBJECT exporter := MakeWRDSchemaExporter(wrdschema);
+
+IF(Length(cmdargs.skiptype) > 0)
+{
+  FOREVERY(STRING skiptype FROM cmdargs.skiptype)
+  {
+    STRING ARRAY skippedtypes := exporter->SkipTypesByMask(skiptype);
+    IF(Length(skippedtypes) > 0)
+    {
+      FOREVERY(STRING type FROM skippedtypes)
+        Print("Skipping type " || type || "\n");
+    }
+    ELSE
+    {
+
+      Print("The skiptype '" || skiptype || "' did not match any type.\n");
+      SetConsoleExitCode(1);
+      RETURN;
+    }
+  }
+}
+
+IF(Length(cmdargs.skipattr) > 0)
+{
+  FOREVERY(STRING skipattr FROM cmdargs.skipattr)
+  {
+    STRING ARRAY skippedattributes := exporter->SkipAttributesByMask(skipattr);
+    IF(Length(skippedattributes) > 0)
+    {
+      FOREVERY(STRING attr FROM skippedattributes)
+        Print("Skipping attribute " || attr || "\n");
+    }
+    ELSE
+    {
+
+      Print("The skipattr '" || skipattr || "' did not match any attributes.\n");
+      Print("Make sure it matches the '<TYPE TAG>[.<PARENT TAGS>...].<ATTRIBUTE TAG>' pattern\n");
+      SetConsoleExitCode(1);
+      RETURN;
+    }
+  }
+}
+
+BLOB file := exporter->RunExport();
+trans->RollbackWork();
+
+StoreDiskFile(cmdargs.filename, file);
+Print("Schema " || wrdschema->tag || " saved to " || cmdargs.filename || "\n");

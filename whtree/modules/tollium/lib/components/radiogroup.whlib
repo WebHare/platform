@@ -1,0 +1,279 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// The radio group (manages several radio buttons).
+
+PUBLIC OBJECTTYPE TolliumRadioGroup EXTEND TolliumSpecialComponent
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// List of registered radiobuttons
+  OBJECT ARRAY pvt_radiobuttons;
+
+  /// Proxy object (needed because a radiogroup is invisible, but can be inserted in a panel)
+  OBJECT pvt_proxy;
+
+  STRING pvt_valuetype;
+
+  MACRO PTR pvt_onchange;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Contains the rowkey of the currently selected radiobutton, converted by the valuetype. Default value when nothing is selected.
+  UPDATE PUBLIC PROPERTY value(GetRadiogroupValue, SetRadiogroupValue);
+
+  /** List of options (should be the same as the normal static TolliumSelect options property (e.g. return rowkey and title))
+      @cell rowkey
+      @cell title
+  */
+  PUBLIC PROPERTY options(GetOptions, -);
+
+  /// Callback called when value changes
+  PUBLIC PROPERTY onchange(pvt_onchange, SetOnChange);
+
+  /// Type of value (boolean, integer or string). The value is parsed from the rowkey
+  PUBLIC PROPERTY valuetype(pvt_valuetype, SetValueType);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium init & delete
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->pvt_valuetype := "string";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->pvt_valuetype := def.valuetype ?? "string";
+    this->onchange := def.onchange;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    this->pvt_proxy := this->owner->CreateTolliumComponent("proxy"); //not inserted into any panel, so this shouldn't be a subcomponent
+    this->pvt_proxy->pvt_parent := this->owner->frame;
+
+    FOREVERY (OBJECT comp FROM this->pvt_radiobuttons)
+    {
+      this->pvt_proxy->AddCheckComponent(comp);
+      IF (ObjectExists(this->dirtylistener))
+        comp->dirtylistener := this->dirtylistener;
+    }
+  }
+
+  UPDATE PUBLIC MACRO DeleteComponent()
+  {
+    //Destroy all current objects
+    IF (ObjectExists(this->pvt_proxy))
+    {
+      this->pvt_proxy->DeleteComponent();
+      this->pvt_proxy := DEFAULT OBJECT;
+    }
+    TolliumComponentBase::DeleteComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  STRING FUNCTION TranslateValueToText(VARIANT rowkey)
+  {
+    STRING textvalue;
+    SWITCH (this->pvt_valuetype)
+    {
+      CASE "boolean"    { textvalue := rowkey ? "true" : "false"; }
+      CASE "integer"    { textvalue := ToString(rowkey); }
+      CASE "string"     { textvalue := STRING(rowkey); }
+    }
+
+    RETURN textvalue;
+  }
+
+  OBJECT FUNCTION FindButtonByRowkey(VARIANT rowkey)
+  {
+    STRING textvalue := this->TranslateValueToText(rowkey);
+
+    // Search for the button with this rowkey text.
+    BOOLEAN found := FALSE;
+    FOREVERY (OBJECT obj FROM this->pvt_radiobuttons)
+    {
+      IF (obj->rowkey = textvalue OR (obj->rowkey = "" AND IsDefaultValue(rowkey)))
+        RETURN obj;
+    }
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other tollium stuff
+  //
+
+  UPDATE PUBLIC OBJECT FUNCTION GetEnableOnComponent()
+  {
+    RETURN this->pvt_proxy->GetEnableOnComponent();
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN this->IsRowkeyPresent(value);
+  }
+
+  PUBLIC MACRO TolliumDisableAllOther(OBJECT keepthis)
+  {
+    FOREVERY (OBJECT obj FROM this->pvt_radiobuttons)
+      IF (obj != keepthis)
+        obj->value := FALSE;
+  }
+
+  PUBLIC MACRO TolliumUpdateComponentsEnabled()
+  {
+    OBJECT ARRAY enabled_components;
+    FOREVERY (OBJECT obj FROM this->pvt_radiobuttons)
+    {
+      // Only disable components if another radiobutton isn't enabling them
+      FOREVERY (OBJECT comp FROM obj->enablecomponents)
+      {
+        IF (comp IN enabled_components)
+          CONTINUE;
+        comp->enabled := obj->value AND obj->enabled;
+        IF (comp->enabled)
+          INSERT comp INTO enabled_components AT END;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  VARIANT FUNCTION GetRadioGroupValue()
+  {
+    STRING textvalue;
+    FOREVERY (OBJECT obj FROM this->pvt_radiobuttons)
+      IF (obj->value)
+      {
+        textvalue := obj->rowkey;
+        BREAK;
+      }
+    SWITCH (this->pvt_valuetype)
+    {
+      CASE "boolean"
+      {
+        IF (textvalue NOT IN [ "", "true", "false" ])
+          THROW NEW Exception(`Illegal radiobutton rowkey '${textvalue}' for rowkey type 'boolean'`);
+        RETURN textvalue = "true";
+      }
+      CASE "integer"
+      {
+        IF (textvalue = "")
+          RETURN 0;
+        INTEGER toint := ToInteger(textvalue, -1);
+        IF (toint != ToInteger(textvalue, 0))
+          THROW NEW Exception(`Illegal radiobutton rowkey '${textvalue}' for rowkey type 'integer'`);
+        RETURN toint;
+      }
+    }
+    RETURN textvalue;
+  }
+
+  UPDATE MACRO SetRadioGroupValue(VARIANT newvalue)
+  {
+    // Search for the button with this rowkey. Setting that will disable all others
+    OBJECT obj := this->FindButtonByRowkey(newvalue);
+    IF (ObjectExists(obj))
+    {
+      obj->value := TRUE;
+      RETURN;
+    }
+
+    // None found? Disable all.
+    IF (NOT IsDefaultValue(newvalue))
+      THROW NEW TolliumException(this, "Could not locate a radiobutton with rowkey '" || newvalue || "' in group '" || this->name || "'");
+    this->TolliumDisableAllOther(DEFAULT OBJECT);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetOptions()
+  {
+    RECORD ARRAY options;
+    FOREVERY (OBJECT obj FROM this->pvt_radiobuttons)
+    {
+      INSERT [ title := obj->title, rowkey := obj->rowkey ] INTO options AT END;
+    }
+    RETURN options;
+  }
+
+  MACRO SetValueType(STRING newtype)
+  {
+    IF (newtype NOT IN [ "string", "integer", "boolean" ])
+      THROW NEW Exception(`Illegal rowkey type ${newtype}`);
+
+    this->pvt_valuetype := newtype;
+  }
+
+  MACRO SetOnChange(MACRO PTR onchange)
+  {
+    this->pvt_onchange := onchange;
+    FOREVERY (OBJECT comp FROM this->pvt_radiobuttons)
+      comp->ExtUpdatedComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Radio button registration
+  //
+
+  PUBLIC MACRO TolliumRegisterRadioButton(OBJECT comp)
+  {
+    IF (comp IN this->pvt_radiobuttons)
+      THROW NEW Exception("Radiobutton has already been registered in this radiogroup");
+    INSERT comp INTO this->pvt_radiobuttons AT END;
+    IF (ObjectExists(this->pvt_proxy))
+    {
+      this->pvt_proxy->AddCheckComponent(comp);
+      IF (ObjectExists(this->dirtylistener))
+        comp->dirtylistener := this->dirtylistener;
+    }
+  }
+
+  PUBLIC MACRO TolliumUnregisterRadioButton(OBJECT comp)
+  {
+    INTEGER pos := SearchElement(this->pvt_radiobuttons, comp);
+    IF (pos = -1)
+      THROW NEW Exception("Radiobutton has not been registered in this radiogroup");
+    DELETE FROM this->pvt_radiobuttons AT pos;
+    IF (ObjectExists(this->pvt_proxy))
+    {
+      this->pvt_proxy->RemoveCheckComponent(comp);
+      IF (ObjectExists(this->dirtylistener))
+        comp->dirtylistener := DEFAULT OBJECT;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other public API
+  //
+
+  /** @short Is a specific rowkey valid/present in the list? */
+  PUBLIC BOOLEAN FUNCTION IsRowkeyPresent(VARIANT rowkey)
+  {
+    RETURN ObjectExists(this->FindButtonByRowkey(rowkey));
+  }
+
+>;

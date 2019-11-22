@@ -1,0 +1,42 @@
+﻿<?wh
+/** @private Format parser. (may be replaced with tika at some point) */
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/detect.whlib";
+LOADLIB "wh::parser/powerpoint.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
+
+PUBLIC RECORD FUNCTION ParsePowerpointFile(BLOB pptfile)
+{
+  INTEGER ppt := OpenPowerpointFile(pptfile);
+  IF (ppt <= 0 OR NOT DoPowerpointConversion(ppt))
+    RETURN [ success := FALSE, errormsg := "Could not open PPT document" ];
+
+  RECORD parsed_page := CreateParsedPage();
+  parsed_page.type_ext := "ppt";
+  parsed_page.follow_links := FALSE;
+
+  // Read document meta data
+  RECORD doc_meta := GetDocumentMetadata(WrapBlob(pptfile,"powerpoint.ppt"));
+  parsed_page.title := CleanWhitespace(doc_meta.title);
+  parsed_page.keywords := CleanWhitespace(doc_meta.keywords);
+  parsed_page.description := CleanWhitespace(doc_meta.description);
+
+  STRING body;
+
+  INTEGER ARRAY slides := GetPowerpointSlideList(ppt);
+  FOREVERY(INTEGER slide FROM slides)
+  {
+    RECORD ARRAY texts := GetPowerpointSlideTexts(ppt, slide);
+    FOREVERY(RECORD txt FROM texts)
+      body := body || ' ' || txt.text;
+
+    body := body || '\n';
+  }
+  parsed_page.text := CleanWhitespace(body);
+
+  //FIXME need a powerpoint close function
+
+  RETURN parsed_page;
+}

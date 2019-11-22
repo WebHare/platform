@@ -1,0 +1,164 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+
+LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+
+//ADDME: Move this to a general 'handle published files' script in Consilio!
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch", defaultvalue := GetEnvironmentVariable("PUBLISHER_CONSILIOHANDLER_DEBUG") != "" OR IsRunningInEditor() ]
+    ]);
+
+BOOLEAN debug := args.debug;
+
+MACRO PrintDebug(STRING text)
+{
+  IF(debug)
+    Print(text||"\n");
+}
+
+
+MACRO OnFolderEvent(STRING event, RECORD ARRAY messages)
+{
+  PrintDebug("Got folder event '" || event || "'");
+  FOREVERY(RECORD msg FROM messages)
+  {
+    INTEGER objid := msg.folder;
+    IF (CellExists(msg, "events"))
+    {
+      IF ("del" IN msg.events)
+        HandleFolderDeleted(objid);
+      IF ("move" IN msg.events)
+        HandleFolderMoved(objid, 0, 0);
+    }
+
+    INTEGER oldparentid := objid;
+    FOREVERY (RECORD obj FROM msg.files)
+    {
+      objid := obj.file;
+
+      RECORD filerec := SELECT parent, isfolder FROM system.fs_objects WHERE id = objid;
+      IF(NOT RecordExists(filerec))
+        CONTINUE;
+
+      IF (filerec.isfolder)
+      {
+        IF ("move" IN obj.events)
+          HandleFolderMoved(objid, oldparentid, filerec.parent);
+      }
+      ELSE
+      {
+        IF ("pub" IN obj.events)
+          HandleFileRepublished(objid);
+        IF ("move" IN obj.events)
+          HandleFileMoved(objid, oldparentid, filerec.parent);
+        IF ("del" IN obj.events OR "unp" IN obj.events)
+          HandleFileDeleted(objid, oldparentid);
+      }
+    }
+  }
+}
+
+MACRO OnIndexRequest(STRING event, RECORD ARRAY msgs)
+{
+  PrintDebug("Got index request '" || event || "'");
+  FOREVERY(RECORD msg FROM msgs)
+    ReindexWHFSChanges(msg.to_reindex, CELL[ eventid := Substring(event, 26), debug ]);
+}
+
+
+OBJECT pubsearchobject;
+
+RECORD ARRAY FUNCTION GetIndexedFolderGroups(INTEGER folderid)
+{
+  TRY
+  {
+    IF (NOT ObjectExists(pubsearchobject))
+      pubsearchobject := __OpenIndexSearchObject("");
+
+    //ADDME: Can this be moved to the Consilio module? We don't want to use Consilio internal functions here...
+    RETURN pubsearchobject->Search("whfspath:" || folderid, 0, -1).results;
+  }
+  CATCH (OBJECT e)
+  {
+  }
+  RETURN DEFAULT RECORD ARRAY;
+}
+
+MACRO HandleFolderMoved(INTEGER folderid, INTEGER oldparentid, INTEGER newparentid)
+{
+  PrintDebug("Folder " || folderid || " moved from " || oldparentid || " to " || newparentid);
+  STRING ARRAY seen;
+  FOREVERY (RECORD file FROM GetIndexedFolderGroups(folderid))
+  {
+    IF (file.groupid IN seen)
+      CONTINUE;
+    INSERT file.groupid INTO seen AT END;
+
+    // This will delete the group from content sources no longer responsible for it
+    PrintDebug("  Deactivating group '" || file.groupid || "'");
+    __DeactivateConsilioGroup(file.groupid);
+  }
+}
+
+MACRO HandleFolderDeleted(INTEGER folderid)
+{
+  PrintDebug("Folder " || folderid || " deleted");
+  STRING ARRAY seen;
+  FOREVERY (RECORD file FROM GetIndexedFolderGroups(folderid))
+  {
+    IF (file.groupid IN seen)
+      CONTINUE;
+    INSERT file.groupid INTO seen AT END;
+
+    // This will delete the group from content sources no longer responsible for it
+    PrintDebug("  Deactivating group '" || file.groupid || "'");
+    __DeactivateConsilioGroup(file.groupid);
+  }
+}
+
+MACRO HandleFileRepublished(INTEGER fileid)
+{
+  PrintDebug("File " || fileid || " republished");
+
+  // This will re-index the group
+  PrintDebug("  Checking group '" || fileid || "'");
+  CheckConsilioGroup(0, ToString(fileid));
+}
+
+MACRO HandleFileMoved(INTEGER fileid, INTEGER oldparentid, INTEGER newparentid)
+{
+  PrintDebug("File " || fileid || " moved from " || oldparentid || " to " || newparentid);
+
+  // This will delete the group from content sources no longer responsible for it
+  PrintDebug("  Deactivating group '" || fileid || "'");
+  __DeactivateConsilioGroup(ToString(fileid));
+}
+
+MACRO HandleFileDeleted(INTEGER fileid, INTEGER oldparentid)
+{
+  PrintDebug("File " || fileid || " deleted from " || oldparentid);
+
+  // This will delete the group from content sources no longer responsible for it
+  PrintDebug("  Deactivating group '" || fileid || "'");
+  __DeactivateConsilioGroup(ToString(fileid));
+}
+
+
+PrintDebug("Publisher content script waiting for events");
+
+OpenPrimary();
+RegisterMultiEventCallback("system:whfs.folder.*", PTR OnFolderEvent);
+RegisterMultiEventCallback("publisher:publish.folder.*", PTR OnFolderEvent);
+RegisterMultiEventCallback("system:whfs.index.request.*", PTR OnIndexRequest);
+
+RunWebHareService("publisher:consiliohandler", DEFAULT MACRO PTR);

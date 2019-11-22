@@ -1,0 +1,209 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/smtp.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/mail/routemgr.whlib";
+
+CONSTANT INTEGER retain_connections_msecs_default := 10000; //keep SMTP connections open for up to 10 seconds
+
+PUBLIC BOOLEAN FUNCTION VerifySNSVerificationKey(STRING keyvalue)
+{
+  RETURN DecryptForThisServer("system:mail-sns", keyvalue, [ fallback := "", algorithm := "SHA-1,BLOWFISH+CBC,0" ]) = "endpoint";
+}
+PUBLIC STRING FUNCTION GetSNSEndpoint()
+{
+  RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),
+                              "/.system/endpoints/mail-sns.shtml?key=" || EncryptForThisServer("system:mail-sns", "endpoint", [ algorithm := "SHA-1,BLOWFISH+CBC,0" ])); //encrypt result is URL safe
+}
+
+
+/** Keeps active SMTP connections for reuse, avoiding TLS setup
+*/
+PUBLIC STATIC OBJECTTYPE WebHareSMTPManager
+< /** SMTP connections
+      @cell(object #SMTPConnection) conn Connection (only when setting up the connection succeeded)
+      @cell(string) url URL of the mail server
+      @cell(string) usedserver Used server (format: 'ip:port')
+      @cell(string) errors Errors that occurred establising the connection
+      @cell(datetime) lastuse Last time the connection was used
+  */
+  RECORD ARRAY smtpconnections;
+
+  /// keep idle SMTP connections open for this much seconds
+  PUBLIC INTEGER maxconnectionidle;
+
+  /** Construct a new WebHareSMTPManager
+      @signature MACRO NEW()
+  */
+  MACRO NEW(STRING defaultmailserver DEFAULTSTO "ignored-anyway") //pronuntio directly uses the SMTP manager, so we still need to provide this
+  {
+    this->maxconnectionidle := retain_connections_msecs_default;
+  }
+
+  /** Get a connection to a mailserver
+      @param mailserverurl URL of the mail server
+      @return SMTP connection @cell includecelldef #smtpconnections
+  */
+  PUBLIC RECORD FUNCTION GetSMTPConnection(STRING mailserverurl)
+  {
+    RECORD existingconn := SELECT * FROM this->smtpconnections WHERE url = mailserverurl;
+    IF (RecordExists(existingconn))
+    {
+      DATETIME now := GetCurrentDatetime();
+      IF (existingconn.lastuse >= AddTimeToDate(-this->maxconnectionidle, now)) //still usable
+      {
+        // Send a NOOP to verify the connection is still usable
+        IF (existingconn.conn->SendCommand("NOOP").code = 250)
+        {
+          UPDATE this->smtpconnections
+             SET lastuse := now
+           WHERE url = mailserverurl;
+
+          RETURN existingconn;
+        }
+      }
+      existingconn.conn->Close();
+      DELETE FROM this->smtpconnections WHERE url = mailserverurl;
+    }
+
+    OBJECT conn;
+    RECORD url := UnpackURL(mailserverurl);
+    STRING usedserver;
+    STRING ARRAY errors;
+
+    IF(RecordExists(url))
+    {
+      IF(url.host="")
+      {
+        INSERT "Unable to resolve mail url " || mailserverurl INTO errors AT END;
+      }
+      ELSE
+      {
+        //Get the IP addresses
+        RECORD ARRAY servers := ShuffleArray(ToRecordArray(ResolveHostnameAllIPs(url.host), "ip"));
+
+        IF(Length(servers)=0)
+        {
+          INSERT "Unable to resolve hostname " || url.host INTO errors AT END;
+        }
+        ELSE
+        {
+          FOREVERY(RECORD server FROM servers)
+          {
+            IF(ObjectExists(conn))
+              conn->Close();
+
+            usedserver := server.ip || ":" || url.port;
+            conn := NEW SMTPConnection;
+            conn->SetTimeout(90000);
+
+            IF(NOT conn->Connect(server.ip, url.port))
+            {
+              conn->Close();
+              conn := DEFAULT OBJECT;
+              INSERT "Unable to connect to " || usedserver INTO errors AT END;
+              CONTINUE;
+            }
+
+            IF(conn->SupportsTLS()) //ADDME proper security requires us to be able to FORCE STARTTLS
+              IF(NOT conn->StartTLS())
+              {
+                INSERT "Setting up SSL connection failed: " || conn->GetErrorMessage() INTO errors AT END;
+                conn->Close();
+                conn := DEFAULT OBJECT;
+                CONTINUE;
+              }
+
+            IF(url.user!="")
+            {
+              RECORD authres := conn->SEndCommand( "AUTH PLAIN");
+              IF(authres.code != 334)
+              {
+                INSERT "AUTH PLAIN authentication request refused by " || usedserver || ": " || authres.message INTO errors AT END;
+                conn->Close();
+                conn := DEFAULT OBJECT;
+                CONTINUE;
+              }
+
+              authres := conn->SEndCommand(EncodeBase64("\0" || url.user || "\0" || url.password));
+              IF(authres.code != 235)
+              {
+                INSERT "Authentication credentials refused by " || usedserver || ": " || authres.message INTO errors AT END;
+                conn->Close();
+                conn := DEFAULT OBJECT;
+                CONTINUE;
+              }
+            }
+
+            // connection accepted
+            BREAK;
+          }
+        }
+      }
+    }
+
+    RECORD retval := CELL
+        [ conn
+        , url :=        mailserverurl
+        , usedserver
+        , errors :=     Detokenize(errors,"\n")
+        , lastuse :=    GetCurrentDatetime()
+        ];
+
+    // Don't save failed connections
+    IF (ObjectExists(conn))
+      INSERT retval INTO this->smtpconnections AT END;
+
+    RETURN retval;
+  }
+
+  /// Closes all open connections
+  PUBLIC MACRO Close()
+  {
+    FOREVERY(RECORD conn FROM this->smtpconnections)
+      IF(Objectexists(conn.conn))
+        conn.conn->Close();
+    DELETE FROM this->smtpconnections;
+  }
+
+  /** Rewrites an email according to a route
+      @param route E-mail route @includecelldef #GetMailroute.return
+      @param inaddr Address to rewrite
+      @return Rewritten address
+  */
+  PUBLIC STRING FUNCTION RewriteEmailTo(RECORD route, STRING inaddr)
+  {
+    IF(NOT RecordExists(route) OR route.outgoingmailaddress = "")
+      RETURN inaddr;
+    IF(NOT route.outgoingaddressrewrite)
+      RETURN route.outgoingmailaddress;
+
+    STRING ARRAY toks := Tokenize(route.outgoingmailaddress,'@');
+    IF(Length(toks)!=2)
+      RETURN inaddr;
+    RETURN toks[0] || '+' || Substitute(inaddr,'@','_at_') || '@' || toks[1];
+  }
+
+  /** Returns whether mailroutes have been configured
+      @return TRUE when mailroutes have been configured
+  */
+  PUBLIC BOOLEAN FUNCTION HasMailroutes()
+  {
+    RETURN HasMailRoutes();
+  }
+
+  /** Returns the mail route for a specific sender, receiver and origin
+      @param sender @includecelldef mail/routemgr.whlib#GetMailroute.sender
+      @param receiver @includecelldef mail/routemgr.whlib#GetMailroute.receiver
+      @param origin @includecelldef mail/routemgr.whlib#GetMailroute.origin
+      @return @includecelldef mail/routemgr.whlib#GetMailroute.return
+  */
+  PUBLIC RECORD FUNCTION GetMailroute(STRING sender, STRING receiver, STRING origin DEFAULTSTO "")
+  {
+    RETURN GetMailroute(sender, receiver, origin);
+  }
+>;

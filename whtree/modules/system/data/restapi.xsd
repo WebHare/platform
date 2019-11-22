@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:t="http://www.webhare.net/xmlns/system/restapi"
+  xmlns="http://www.webhare.net/xmlns/system/restapi"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  targetNamespace="http://www.webhare.net/xmlns/system/restapi"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common"  schemaLocation="mod::system/data/common.xsd" />
+
+  <xs:element name="restapi">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="t:types" minOccurs="0" maxOccurs="1" />
+        <xs:element ref="t:endpoint" minOccurs="0" maxOccurs="unbounded" />
+      </xs:sequence>
+      <xs:attribute name="library" type="t:NonEmptyString" use="required" />
+      <xs:attribute name="objecttype" type="t:NonEmptyString" />
+      <xs:attribute name="logsource" type="t:NonEmptyString" use="required" />
+      <xs:attribute name="security" type="t:SecurityProvider" use="required" />
+    </xs:complexType>
+    <xs:key name="TypeNames">
+        <xs:selector xpath="t:types/t:record"/>
+        <xs:field xpath="@name"/>
+    </xs:key>
+    <xs:keyref name="TypeNameRefs" refer="t:TypeNames">
+        <xs:selector xpath=".//t:record" />
+        <xs:field xpath="@ref"/>
+    </xs:keyref>
+  </xs:element>
+
+  <xs:element name="types">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="t:record" minOccurs="0" maxOccurs="unbounded" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="endpoint">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="t:description" minOccurs="0" />
+        <xs:element ref="t:params" minOccurs="0" />
+        <xs:element ref="t:create" minOccurs="0" maxOccurs="1" />
+        <xs:element ref="t:delete" minOccurs="0" maxOccurs="1" />
+        <xs:element ref="t:get" minOccurs="0" maxOccurs="1" />
+        <xs:element ref="t:post" minOccurs="0" maxOccurs="1" />
+        <xs:element ref="t:put" minOccurs="0" maxOccurs="1" />
+      </xs:sequence>
+      <xs:attribute name="path" type="t:Path" use="required" />
+      <xs:attribute name="deprecated" />
+      <xs:attribute name="security" type="t:SecurityProvider" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="description">
+    <xs:complexType mixed="true">
+      <xs:sequence>
+        <xs:element ref="t:reference" minOccurs="0" maxOccurs="unbounded" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="reference">
+    <xs:complexType>
+      <xs:attribute name="type" type="t:ReferenceType" use="required" />
+      <xs:attribute name="endpoint" type="t:NonEmptyString" />
+      <xs:attribute name="value" type="t:NonEmptyString" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="params">
+    <xs:complexType>
+      <xs:group ref="t:TypeList" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="ParameterBase">
+    <xs:sequence>
+      <xs:element ref="t:description" minOccurs="0" />
+    </xs:sequence>
+    <xs:attribute name="name" type="t:ParameterName" />
+    <xs:attribute name="optional" type="xs:boolean" />
+  </xs:complexType>
+
+  <xs:element name="boolean">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:ParameterBase">
+          <xs:attribute name="defaultvalue" type="xs:boolean" />
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="money">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:ParameterBase">
+          <xs:attribute name="defaultvalue" type="t:MoneyValue" />
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="integer">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:ParameterBase">
+          <xs:attribute name="defaultvalue" type="xs:int" />
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="integer64">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:ParameterBase">
+          <xs:attribute name="defaultvalue" type="xs:integer" />
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="float">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:ParameterBase">
+          <xs:attribute name="defaultvalue" type="xs:decimal" />
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="string">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:ParameterBase">
+          <xs:attribute name="defaultvalue" type="xs:string" />
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="blob">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:ParameterBase">
+          <xs:attribute name="defaultvalue" type="xs:string" />
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:attributeGroup name="RecordParamReturnAttributes">
+    <xs:attribute name="ref" type="xs:string" />
+    <xs:attribute name="passthrough" type="sc:WildcardMasks">
+      <xs:annotation>
+        <xs:documentation>List of masks for unrecognized cells which we will just pass through instead of failing on</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:element name="record">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:ParameterBase">
+          <xs:group ref="t:TypeList" />
+          <xs:attributeGroup ref="RecordParamReturnAttributes" />
+          <xs:attribute name="defaultvalue" type="t:RecordDefaultValue" />
+          <xs:attribute name="allowempty" type="xs:boolean" />
+          <xs:attribute name="allownull" type="xs:boolean">
+            <xs:annotation>
+              <xs:documentation>If true, it's acceptable for this record to be a DEFAULT RECORD. This attribute replaces 'allowempty'</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="datetime">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:ParameterBase">
+          <xs:attribute name="defaultvalue" type="xs:dateTime">
+          </xs:attribute>
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="array">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:ParameterBase">
+          <xs:group ref="t:SingleType" />
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+
+  <xs:element name="returns">
+    <xs:complexType>
+      <xs:choice>
+        <xs:element name="record">
+          <xs:complexType>
+            <xs:group ref="t:TypeList" />
+            <xs:attributeGroup ref="RecordParamReturnAttributes" />
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="MethodBase">
+    <xs:sequence>
+      <xs:element ref="t:reference" minOccurs="0" maxOccurs="3" />
+      <xs:element ref="t:description" minOccurs="0" />
+      <xs:element ref="t:params" minOccurs="0" />
+      <xs:element ref="t:returns" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="function" type="t:FunctionSignature" />
+    <xs:attribute name="returntype" type="t:ReturnType" />
+    <xs:attribute name="flow" type="t:NonEmptyString" />
+    <xs:attribute name="ordering" type="xs:integer" />
+    <xs:attribute name="deprecated" />
+  </xs:complexType>
+
+  <xs:element name="get">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:MethodBase">
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="post">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:MethodBase">
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="create">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:MethodBase">
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="put">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:MethodBase">
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="delete">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="t:MethodBase">
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Groups -->
+  <xs:group name="SingleType">
+    <xs:choice>
+      <xs:element ref="t:integer" />
+      <xs:element ref="t:integer64" />
+      <xs:element ref="t:string" />
+      <xs:element ref="t:blob" />
+      <xs:element ref="t:record" />
+      <xs:element ref="t:boolean" />
+      <xs:element ref="t:money" />
+      <xs:element ref="t:float" />
+      <xs:element ref="t:datetime" />
+      <xs:element ref="t:array" />
+    </xs:choice>
+  </xs:group>
+
+  <xs:group name="TypeList">
+    <xs:sequence>
+      <xs:group ref="t:SingleType" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:group>
+
+  <!-- Simple types -->
+  <xs:simpleType name="NonEmptyString">
+    <xs:restriction base="xs:string">
+      <xs:pattern value=".+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ParameterName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="MoneyValue">
+    <xs:restriction base="xs:decimal">
+      <xs:fractionDigits value="2" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="RecordDefaultValue">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="*" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ReturnType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="json" />
+      <xs:enumeration value="file" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Path">
+    <xs:restriction base="xs:string">
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="FunctionSignature">
+    <xs:restriction base="xs:string">
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="DateTimeValue">
+    <xs:restriction base="xs:date" />
+  </xs:simpleType>
+
+  <xs:simpleType name="SecurityProvider">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="none" />
+      <xs:enumeration value="wrdauth" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ReferenceType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="get" />
+      <xs:enumeration value="post" />
+      <xs:enumeration value="put" />
+      <xs:enumeration value="delete" />
+      <xs:enumeration value="create" />
+      <xs:enumeration value="head" />
+      <xs:enumeration value="type" />
+      <xs:enumeration value="endpoint" />
+      <xs:enumeration value="previous" />
+      <xs:enumeration value="next" />
+      <xs:enumeration value="flow" />
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

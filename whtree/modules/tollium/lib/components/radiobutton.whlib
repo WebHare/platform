@@ -1,0 +1,283 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+PUBLIC OBJECTTYPE TolliumRadioButton EXTEND TolliumComposableComponentWithLabelBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Whether the radio is checked (selected)
+  BOOLEAN pvt_checked;
+
+  /// Rowkey of this radio (for value in select/radiogroup)
+  STRING pvt_rowkey;
+
+  /// Associated radiogroup/select
+  OBJECT pvt_radiogroup;
+
+  /// Whether to send an onchange event to the radiogroup when set
+  BOOLEAN pvt_radiogroup_onchange;// Send onchange event to radiogroup when set
+
+  /// List of component this radioubutton enables when checked/selected
+  OBJECT ARRAY pvt_enablecomponents;
+
+  /// Registered with the radiogroup?
+  BOOLEAN pvt_registered;
+
+  /// onset handler
+  MACRO PTR pvt_onset;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Flags
+  PUBLIC RECORD pvt_flags; // Used when the radiobutton is an option within a select
+
+  /// Current value (BOOLEAN, whether the radio is checked/selected)
+  PUBLIC PROPERTY value(pvt_checked, SetValue);
+
+  /// Rowkey value of this radio button
+  PUBLIC PROPERTY rowkey(pvt_rowkey, SetRowkey);
+
+  /// Associated radiogroup
+  PUBLIC PROPERTY radiogroup(pvt_radiogroup, SetRadioGroup);
+
+  /// Whether an onchange event is sent to the radiogroup when this radio is selected/checked
+  PUBLIC PROPERTY radiogroup_onchange(pvt_radiogroup_onchange, SetRadioGroupOnChange);
+
+  /// Called when the radio is selected/checked
+  PUBLIC PROPERTY onset(pvt_onset, SetOnSet);
+
+  /// List of components that will be enabled when this radio is selected/checked
+  PUBLIC PROPERTY enablecomponents(pvt_enablecomponents, SetEnabling);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->componenttype := "radiobutton";
+    this->formfieldtype := "boolean";
+
+    this->pvt_radiogroup_onchange := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComposableComponentWithLabelBase::StaticInit(def);
+    this->pvt_rowkey := def.rowkey;
+    this->pvt_checked := def.value;
+
+    this->onset := def.onset;
+    this->pvt_radiogroup := def."group";
+    this->pvt_enablecomponents := def.enablecomponents;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    TolliumComposableComponentWithLabelBase::PreInitComponent();
+
+    // Register with the radio group
+    this->SetRadioGroup(this->radiogroup);
+    this->UpdateComponentsEnabled();
+  }
+
+  UPDATE PUBLIC MACRO DeleteComponent()
+  {
+    // Unregister with the radio group
+    this->radiogroup := DEFAULT OBJECT;
+    TolliumComposableComponentWithLabelBase::DeleteComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other tollium stuff
+  //
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ value :=            FALSE
+        , enablecomponents := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(BOOLEAN);
+  }
+
+  BOOLEAN FUNCTION UnmaskOnsetEvents()
+  {
+    RETURN this->onset != DEFAULT FUNCTION PTR OR (ObjectExists(this->pvt_radiogroup) AND this->pvt_radiogroup->onchange != DEFAULT FUNCTION PTR);
+  }
+
+  /// Sync enable state of enablecomponents
+  UPDATE MACRO UpdateComponentsEnabled()
+  {
+    IF (ObjectExists(this->pvt_radiogroup))
+      this->pvt_radiogroup->TolliumUpdateComponentsEnabled();
+    ELSE
+    {
+      FOREVERY (OBJECT comp FROM this->pvt_enablecomponents)
+        comp->enabled := this->pvt_checked AND this->pvt_enabled;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetValue(BOOLEAN new_checked)
+  {
+    // Only do something if the value really changes
+    IF (this->pvt_checked != new_checked)
+    {
+      this->pvt_checked := new_checked;
+      this->SetDirtyFlags([ value := TRUE ]);
+      this->UpdateComponentsEnabled();
+
+      // If we are being set, all others in the current group must be unset
+      IF (new_checked)
+      {
+        IF(ObjectExists(this->radiogroup))
+          this->radiogroup->TolliumDisableAllOther(this);
+
+        IF(this->onset != DEFAULT MACRO PTR) //fire immediately! like <select> etc would do..
+          this->onset();
+      }
+    }
+  }
+
+  MACRO SetRowkey(STRING rowkeyvalue)
+  {
+    this->pvt_rowkey := rowkeyvalue;
+    this->SetDirtyFlags([ value := TRUE ]);
+  }
+
+  MACRO SetRadioGroup(OBJECT radiogroup)
+  {
+    IF (radiogroup != this->radiogroup OR NOT this->pvt_registered)
+    {
+      // If we already had a radiogroup, deregister ourselves
+      IF (ObjectExists(this->pvt_radiogroup) AND this->pvt_registered)
+        this->pvt_radiogroup->TolliumUnregisterRadioButton(this);
+
+      this->pvt_radiogroup := radiogroup;
+
+      // New radiogroup set: register ourselves
+      IF (ObjectExists(radiogroup))
+      {
+        IF (NOT MemberExists(this->pvt_radiogroup, "TOLLIUMREGISTERRADIOBUTTON"))
+          THROW NEW TolliumException(this, `The object '${this->pvt_radiogroup->name}' is not a radio group`);
+
+        this->pvt_radiogroup->TolliumRegisterRadioButton(this);
+        this->pvt_registered := TRUE;
+
+        // And make sure only one radiobutton is checked (and WE have precedence!)
+        IF (this->value)
+          radiogroup->TolliumDisableAllOther(this);
+      }
+
+      this->SetDirtyFlags([ value := TRUE ]);
+    }
+  }
+
+  MACRO SetRadioGroupOnChange(BOOLEAN onchange)
+  {
+    this->pvt_radiogroup_onchange := onchange;
+  }
+
+  MACRO SetEnabling(OBJECT ARRAY enabling)
+  {
+    this->pvt_enablecomponents := enabling;
+    this->UpdateComponentsEnabled();
+
+    //this->SetDirtyFlags([ enablecomponents := TRUE ]);
+  }
+
+  MACRO SetOnSet(MACRO PTR onset)
+  {
+    this->pvt_onset := onset;
+    this->ExtUpdatedComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Communication
+  //
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD compinfo := [ groupname := GetComponentName(this->radiogroup)
+                         , enablecomponents := GetVisibleComponentNames(this->enablecomponents)
+                         , value := this->value
+                         , hint := this->hint
+                         , unmasked_events := this->UnmaskOnsetEvents() ? [ "set" ] : DEFAULT STRING ARRAY //FIXME Use delayevents approach?
+                         , flags := this->pvt_flags
+                         , readonly := this->readonly
+                         ];
+
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.value)
+        this->ToddUpdate([type := "value", value := this->pvt_checked]);
+
+      IF (this->dirtyflags.enablecomponents)
+        this->ToddUpdate([type := "enablecomponents", value := this->pvt_enablecomponents ]);
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(BOOLEAN newval)
+  {
+    IF(this->pvt_checked = newval)
+      RETURN;
+
+    this->pvt_checked := newval;
+    this->UpdateComponentsEnabled();
+
+    IF(newval)
+    {
+      this->owner->tolliumscreenmanager->QueueEvent(this, "set", DEFAULT RECORD);
+      IF(this->pvt_radiogroup_onchange AND this->pvt_radiogroup != DEFAULT OBJECT AND this->pvt_radiogroup->onchange != DEFAULT FUNCTION PTR)
+        this->owner->tolliumscreenmanager->QueueEvent(this->pvt_radiogroup, "change", DEFAULT RECORD);
+    }
+  }
+
+  UPDATE PUBLIC MACRO TolliumDispatchEvent(STRING type, RECORD data)
+  {
+    SWITCH(type)
+    {
+      CASE "change"
+      {
+        IF(this->onset!=DEFAULT FUNCTION PTR)
+          this->onset();
+        IF(this->pvt_radiogroup_onchange AND this->pvt_radiogroup != DEFAULT OBJECT AND this->pvt_radiogroup->onchange != DEFAULT FUNCTION PTR)
+          this->pvt_radiogroup->onchange();
+      }
+      DEFAULT
+      {
+        TolliumComponentBase::TolliumDispatchEvent(type, data);
+      }
+    }
+  }
+>;

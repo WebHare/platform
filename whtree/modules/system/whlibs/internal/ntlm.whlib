@@ -1,0 +1,184 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+
+/* This library is based on https://github.com/Node-SMB/ntlm, which is copyrighted as follows:
+
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * Copyright (C) 2011-2012  Joshua M. Clulow <josh@sysmgr.org>
+ */
+
+//For basic NTLM details, look for MS-NLMP. For NTLM over HTTP, look for MS-NTHT
+
+STRING FUNCTION EncodeUCS2LE(STRING uncoded)
+{
+  INTEGER ARRAY utf16chars;
+
+  FOR (INTEGER i := 0; i < UCLength(uncoded); i := i + 1)
+    INSERT GetUCValue(UCSubstring(uncoded,i,1)) INTO utf16chars AT END;
+
+  RETURN EncodePacket("utf16chars:S*",[utf16chars := utf16chars]);
+}
+
+PUBLIC STRING FUNCTION GetNTHash(STRING inpass)
+{
+  RETURN GetHashForString(EncodeUCS2LE(inpass), "MD4");
+}
+
+/*
+ * Expand a 56-bit key buffer to the full 64-bits for DES.
+ *
+ * Based on code sample in:
+ *    http://www.innovation.ch/personal/ronald/ntlm.html
+ */
+INTEGER ARRAY FUNCTION expandkey(STRING key56_string)
+{
+  INTEGER ARRAY key56 := DecodePacket("chars:C*", key56_string).chars;
+  INTEGER ARRAY key64 := [0,0,0,0,0,0,0,0];
+
+  key64[0] := key56[0] BITAND 0xFE;
+  key64[1] := ((key56[0] BITLSHIFT 7) BITAND 0xFF) BITOR (key56[1] BITRSHIFT 1);
+  key64[2] := ((key56[1] BITLSHIFT 6) BITAND 0xFF) BITOR (key56[2] BITRSHIFT 2);
+  key64[3] := ((key56[2] BITLSHIFT 5) BITAND 0xFF) BITOR (key56[3] BITRSHIFT 3);
+  key64[4] := ((key56[3] BITLSHIFT 4) BITAND 0xFF) BITOR (key56[4] BITRSHIFT 4);
+  key64[5] := ((key56[4] BITLSHIFT 3) BITAND 0xFF) BITOR (key56[5] BITRSHIFT 5);
+  key64[6] := ((key56[5] BITLSHIFT 2) BITAND 0xFF) BITOR (key56[6] BITRSHIFT 6);
+  key64[7] :=  (key56[6] BITLSHIFT 1) BITAND 0xFF;
+  return key64;
+}
+
+/*
+ * Fix (odd) parity bits in a 64-bit DES key.
+ */
+STRING FUNCTION oddpar(INTEGER ARRAY buf)
+{
+  FOREVERY(INTEGER byte FROM buf)
+  {
+    INTEGER par := 1;
+    FOR (INTEGER i := 1; i < 8; i := i + 1)
+      par := (par + ((byte BITRSHIFT i) BITAND 1)) % 2;
+
+    buf[#byte] := byte BITOR (par BITAND 1);
+  }
+  RETURN EncodePacket("chars:c*", [ chars := buf ]);
+}
+
+STRING FUNCTION EncryptForLM(STRING indata)
+{
+  RETURN Left(Encrypt("des-ecb", indata, "KGS!@#$%"),8);
+}
+
+PUBLIC STRING FUNCTION GetLMHash(STRING inpass)
+{
+  // ASCII --> uppercase */
+  inpass := ToUppercase(Left(inpass,14));
+
+  /* null pad to 14 bytes */
+  inpass := Left(inpass||"\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 14);
+
+  /* insert odd parity bits in key */
+  STRING half0 := oddpar(expandkey(Left(inpass,7)));
+  STRING half1 := oddpar(expandkey(Substring(inpass,7)));
+
+  /* DES encrypt magic number "KGS!@#$%" to two
+   * 8-byte ciphertexts, (ECB, no padding)
+   */
+  half0 := EncryptForLM(half0);
+  half1 := EncryptForLM(half1);
+
+  RETURN half0 || half1;
+}
+
+PUBLIC STRING FUNCTION EncodeNTLMType1(STRING hostname, STRING ntdomain)
+{
+  RETURN EncodePacket("header:r*,domainlen:S,domainlen:S,domainoff:S,:x2,hostnamelen:S,hostnamelen:S,hostoffset:s,:x2,hostname:r*,ntdomain:r*",
+                      [ header := "NTLMSSP\x00\x01\x00\x00\x00\x03\xB2\x00\x00"
+                      , domainlen := Length(ntdomain)
+                      , domainoff := 32 + Length(hostname)
+                      , hostnamelen := Length(hostname)
+                      , hostoffset := 32
+                      , hostname := ToUppercase(hostname)
+                      , ntdomain := ToUppercase(ntdomain)
+                      ]);
+}
+
+PUBLIC RECORD FUNCTION DecodeNTLMType2(STRING input)
+{
+  RECORD parts := DecodePacket("header:r7,type:C,:@24,nonce:r8", input);
+  RETURN parts;
+}
+
+STRING FUNCTION MakeResponse(STRING hash, STRING nonce)
+{
+  STRING out;
+  FOR(INTEGER i := 0; i < 3; i := i + 1)
+  {
+    STRING keybuf := oddpar(expandkey(substring(hash, i * 7, 7)));
+    out := out || Left(Encrypt("des-ecb", keybuf, nonce),8);
+  }
+  RETURN out;
+}
+
+
+PUBLIC STRING FUNCTION EncodeNTLMType3(STRING username, STRING hostname, STRING ntdomain, STRING nonce, STRING password)
+{
+  hostname := ToUppercase(hostname);
+  ntdomain := ToUppercase(ntdomain);
+
+  STRING lmh := Left(GetLMHash(password) || RepeatText("\0",21),21);
+  STRING nth := Left(GetNTHash(password) || RepeatText("\0",21),21);
+  STRING lmr := MakeResponse(lmh, nonce);
+  STRING ntr := MakeResponse(nth, nonce);
+
+  hostname := EncodeUCS2LE(hostname);
+  ntdomain := EncodeUCS2LE(ntdomain);
+  username := EncodeUCS2LE(username);
+
+  INTEGER usernamelen := Length(username);
+  INTEGER hostnamelen := Length(hostname);
+  INTEGER ntdomainlen := Length(ntdomain);
+  INTEGER lmrlen := 0x18;
+  INTEGER ntrlen := 0x18;
+
+  INTEGER ntdomainoff := 0x40;
+  INTEGER usernameoff := ntdomainoff + ntdomainlen;
+  INTEGER hostnameoff := usernameoff + usernamelen;
+  INTEGER lmroff := hostnameoff + hostnamelen;
+  INTEGER ntroff := lmroff + lmrlen;
+
+  INTEGER msglen := 64 + ntdomainlen + usernamelen + hostnamelen + lmrlen + ntrlen;
+
+  RETURN EncodePacket("header:r*,lmrlen:S,lmrlen:S,lmroff:S,:x2,ntrlen:S,ntrlen:S,ntroff:S,:x2,ntdomainlen:S,ntdomainlen:S,ntdomainoff:S,:x2"
+                      || ",usernamelen:S,usernamelen:S,usernameoff:S,:x2,hostnamelen:S,hostnamelen:S,hostnameoff:S,:x6,msglen:S,:x2,flags:S,:x2"
+                      || ",ntdomain:r*,username:r*,hostname:r*,lmr:r*,ntr:r*"
+                      , CELL[ header := "NTLMSSP\x00\x03\x00\x00\x00"
+                            , lmrlen
+                            , lmroff
+                            , ntrlen
+                            , ntroff
+                            , ntdomainlen
+                            , ntdomainoff
+                            , usernamelen
+                            , usernameoff
+                            , hostnamelen
+                            , hostnameoff
+                            , msglen
+                            , flags := 0x8201
+                            , ntdomain
+                            , username
+                            , hostname
+                            , lmr
+                            , ntr
+                            ]);
+}

@@ -1,0 +1,53 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         lib="screens/userrights/dialogs/editauthobject.whlib">
+
+  <messageboxes gid="userrights.dialogues">
+  </messageboxes>
+
+  <screen name="editunit" gid="userrights.editunit" allowresize="true">
+    <actions>
+      <action name="selectunit" onexecute="doselectunit" title=""/>
+    </actions>
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+    <body>
+      <panel height="1pr">
+        <textedit composition="entity" cellname="wrd_title" name="wrd_title" required="true" maxlength="256" />
+        <line>
+          <textedit name="parentunitname" enabled="false" required="true"/>
+          <button name="selectunitbutton" tid=".change" action="selectunit" ellipsis="true"/>
+        </line>
+        <textarea composition="entity" cellname="whuser_comment" height="1pr"  />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="editrole" gid="userrights.editrole" allowresize="true">
+    <actions>
+      <action name="selectunit" onexecute="doselectunit" ellipsis="true" />
+    </actions>
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+    <body>
+      <panel height="1pr">
+        <textedit composition="entity" cellname="wrd_title" required="true" maxlength="256" />
+        <line>
+          <textedit tid=".parentunit" name="parentunitname" enabled="false" required="true"/>
+          <button name="selectunitbutton" action="selectunit" tid=".selectunit" ellipsis="true" />
+        </line>
+        <textarea composition="entity" cellname="whuser_comment" height="1pr"  />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

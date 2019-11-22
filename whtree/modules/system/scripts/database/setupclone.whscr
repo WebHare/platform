@@ -1,0 +1,187 @@
+﻿<?wh
+/* This script is intended to reconfigure a restored server to work as a clone
+   of its original */
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+
+BOOLEAN FUNCTION HaveLocking()
+{
+  TRY
+  {
+    ConnectToMutexManager()->Close();
+    RETURN TRUE;
+  }
+  CATCH(OBJECT e)
+  {
+    RETURN FALSE;
+  }
+}
+
+MACRO EnsureMutexManager()
+{
+  IF (HaveLocking())
+  {
+    PRINT("Could connect to mutex manager\n");
+    RETURN;
+  }
+
+  PRINT("Starting clusterservices\n");
+
+  RECORD jobdata := CreateJob("mod::system/scripts/internal/clusterservices.whscr");
+  IF (NOT RecordExists(jobdata) OR NOT ObjectExists(jobdata.job))
+  {
+    ABORT(jobdata, "tree");
+    ABORT("Could not start clusterservices script");
+  }
+
+  jobdata.job->Start();
+
+  INTEGER i := 100;
+  FOR (; i > 0; i := i - 1)
+  {
+    IF (HaveLocking())
+      BREAK;
+    Sleep(50);
+  }
+
+  IF (i = 0)
+    ABORT("Clusterservices script did not start correctly");
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "locksites", type := "switch" ]
+    , [ name := "mutexmgr", type := "switch" ]
+    , [ name := "v", type := "switch" ]
+    , [ name := "norenumber", type := "switch" ]
+    , [ name := "port", type := "stringopt" ]
+    , [ name := "hostname", type := "stringopt" ]
+    , [ name := "datadir", type := "stringopt" ]
+    ]);
+
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: setupclone.whscr [ -v ] [ --locksites ]\n");
+  TerminateScript();
+}
+
+IF (args.mutexmgr)
+  EnsureMutexManager();
+
+OBJECT trans;
+FOR (INTEGER i := 1; i < 20; i := i + 1)
+{
+  TRY
+  {
+    // Fallback to recoverymode, otherwise index regeneration will prevent connecting
+    trans := OpenPrimary([ fallbacktorecoverymode := TRUE ]);
+    BREAK;
+  }
+  CATCH (OBJECT e)
+  {
+    PRINT("Database not yet available, waiting " || i || " seconds\n");
+    PRINT(" (error: " || e->what || ")\n");
+    Sleep(i * 1000);
+  }
+}
+IF (NOT ObjectExists(trans))
+{
+  PRINT("Database not online yet\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+IF (NOT IsRestoredWebHare())
+  ABORT("This script can only be run on restored installations");
+
+PRINT("Database is online, waiting for indices to be built\n");
+trans->BeginWork();
+__SendWHDBCommand(trans->id, "SET CLIENT TIMEOUT TO 3600"); // default is 5 mins, too short.
+__SendWHDBCommand(trans->id, "WAIT INDEX");
+trans->RollbackWork();
+
+PRINT("Indices have been build, preparing restored installation\n");
+
+INTEGER newport80 := args.port = "" ? Random(10000,15555) : ToInteger(args.port, -1);
+INTEGER newport443 := newport80+1;
+INTEGER newport8000 := newport80+2;
+
+IF (newport80 < 0 OR newport80 > 65535)
+  ABORT("Illegal port!");
+
+STRING myhostname := GetSystemHostname(TRUE);
+STRING FUNCTION RewriteBaseURL(STRING baseurl)
+{
+  RECORD up := UnpackURL(baseurl);
+
+  IF (NOT IsValidIPAddress(up.host) AND ToUppercase(up.host) NOT LIKE ToUppercase("*." || myhostname) AND up.port IN [80,443])
+    up.host := up.host || "." || (args.hostname ?? myhostname);
+
+  IF (NOT args.norenumber)
+  {
+    IF(up.port=80)
+      up.port:=newport80;
+    ELSE IF(up.port=443)
+      up.port:=newport443;
+    ELSE IF(up.port=8000)
+      up.port:=newport8000;
+  }
+
+  RETURN RepackURL(up);
+}
+
+STRING FUNCTION RewriteAlias(STRING host)
+{
+  IF (NOT IsValidIPAddress(host) AND ToUppercase(host) NOT LIKE ToUppercase("*." || myhostname))
+    host := host || "." || (args.hostname ?? myhostname);
+  RETURN host;
+}
+
+
+STRING outputroot := MergePath(args.datadir ?? GetWebHareConfiguration().basedataroot, "output");
+trans->BeginWork();
+
+IF (NOT args.norenumber)
+{
+  UPDATE system.ports SET port := newport80 WHERE port=80;
+  UPDATE system.ports SET port := newport443 WHERE port=443;
+  UPDATE system.ports SET port := newport8000 WHERE port=8000;
+}
+
+// Delete ALL proxies
+DELETE FROM system.proxies;
+
+// Rewrite base url to be a prefix of the current hostname
+// Rewrite output url to be located within current outputroot
+UPDATE system.webservers
+   SET baseurl :=   RewriteBaseURL(baseurl);
+UPDATE system.webservers_aliases
+   SET hostname :=  RewriteAlias(hostname);
+
+//set all diskfolders to hostname (without path) and portnumber (if not 80)
+UPDATE system.webservers
+   SET diskfolder := MergePath(outputroot, Substitute(UnpackURL(baseurl).host, "." || myhostname,""))
+ WHERE diskfolder != "";
+
+IF (args.locksites)
+{
+  UPDATE system.sites
+     SET locked := TRUE;
+}
+
+trans->CommitWork();
+
+//ADDME write new portnumbers to syslog too?
+//ADDME don't write ports we didn't actually renumber
+PRINT("Preparing complete\n");
+IF (NOT args.norenumber)
+  Print("Port 80 = " || newport80 || ", Port 443 = " || newport443 || ", Port 8000 = " || newport8000 || "\n");

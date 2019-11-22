@@ -1,0 +1,940 @@
+﻿<?wh
+/** @short Archive files (tar.gz and zip)
+    @long The archiving library offers functions to decompress @italic .tar.gz and @italic .zip files,
+          and allows you to create @italic .tar.gz files
+    @topic file-formats/archives
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+// Helper funcs
+INTEGER FUNCTION __HS_CreateZIPArchiveInternal() __ATTRIBUTES__(EXTERNAL);
+MACRO SetArchiveComment(INTEGER archiveid, STRING comment) __ATTRIBUTES__(EXTERNAL);
+
+STRING tar_header_packet :=
+        "name:a100," ||                     //  char name[100];         //   0
+        "mode:a8," ||                       //  char mode[8];           // 100
+        "uid:a8," ||                        //  char uid[8];            // 108
+        "gid:a8," ||                        //  char gid[8];            // 116
+        "size:r12," ||                      //  char size[12];          // 124
+        "mtime:r12," ||                     //  char mtime[12];         // 136
+        "chksum:r8," ||                     //  char chksum[8];         // 148
+        "typeflag:r1," ||                   //  char typeflag;          // 156
+        "linkname:a100," ||                 //  char linkname[100];     // 157
+        "magic:r6," ||                      //  char magic[6];          // 257
+        "version:a2," ||                    //  char version[2];        // 263
+        "uname:a32," ||                     //  char uname[32];         // 265
+        "gname:a32," ||                     //  char gname[32];         // 297
+        "devmajor:a8," ||                   //  char devmajor[8];       // 329
+        "devminor:a8," ||                   //  char devminor[8];       // 337
+        "prefix:a155," ||                   //  char prefix[155];       // 345
+        "unused_padding:a12";               //  char unused_padding[12];
+
+RECORD default_tar_header :=
+    [ name :=              ""
+    , mode :=              "0000000\0"
+    , uid :=               "0000000\0"
+    , gid :=               "0000000\0"
+    , size :=              "00000000000\0"
+    , mtime :=             "00000000000\0"
+    , chksum :=            "        "
+    , typeflag :=          "\0"
+    , linkname :=          ""
+    , magic :=             "ustar  "
+    , version :=           " "
+    , uname :=             ""
+    , gname :=             ""
+    , devmajor :=          ""
+    , devminor :=          ""
+    , prefix :=            ""
+    , unused_padding :=    ""
+    ];
+
+// Parse a GNU tar octal/binary value
+INTEGER64 FUNCTION ParseOctalOrBinary(STRING val)
+{
+  // If the first byte & 128 != 0, then it's a binary value (MSB-encoded, ignore first bit).
+  INTEGER firstbyte := GetByteValue(val);
+  IF ((firstbyte BITAND 128) = 0)
+  {
+    // Must be stored as 'raw', so we need to remove everything starting at the first \0. Kill whitespace just to be sure.
+    RETURN ToInteger64(TrimWhitespace(Tokenize(val, "\0")[0]), 0, 8);
+  }
+
+  INTEGER64 retval := firstbyte BITAND 127;
+  FOR (INTEGER i := 1; i < LENGTH(val); i := i + 1)
+    retval := retval * 256 + GetByteValue(SubString(val, i, 1));
+
+  RETURN retval;
+}
+
+STRING FUNCTION EncodeOctalOrBinary(INTEGER64 value, INTEGER len)
+{
+  // If the octal value doesn't fit in len-1 chars, encode binary.
+  // MSB-encoded, set most significant bit to 1
+  STRING str;
+  IF (value >= 8i64 BITLSHIFT (3 * len - 1))
+  {
+    // Encode binary
+    WHILE (value > 0)
+    {
+      str := str || ByteToString(INTEGER(value BITAND 255));
+      value := value BITRSHIFT 8;
+    }
+    RETURN DecodeBase16("80") || RepeatText("\0", len - 1 - LENGTH(str)) || str;
+  }
+
+  // Our old C++ implementation pre-padded with 0, kept for comparision equality
+  str := "\0";
+  FOR (INTEGER i := 1; i < len; i := i + 1)
+  {
+    str := (value BITAND 7) || str;
+    value := value BITRSHIFT 3;
+  }
+
+  RETURN str || RepeatText("\0", len - LENGTH(str));
+}
+
+/** Writes a tar header.
+    @param stream Stream to output to
+    @param header Header values (see default_tar_header)
+    @param data Data to write after the header
+*/
+MACRO WriteTarHeaderAndData(INTEGER stream, RECORD header, BLOB data)
+{
+  // Add missing header fields, fill in the data length
+  header := MakeReplacedRecord(default_tar_header, header);
+  header.size := EncodeOctalOrBinary(LENGTH(data), 12);
+
+  // Get the header before checksum
+  STRING headerdata := EncodePacket(tar_header_packet, header);
+
+  // Tar checksum is a simple sum of all bytes with the checksum set to all spaces (already set in default_tar_header)
+  INTEGER checksum;
+  FOR (INTEGER i := 0; i < 512; i := i + 1)
+    checksum := checksum + GetByteValue(SubString(headerdata, i, 1));
+
+  // Encode the checksum, re-encode is the easiest to get the final value
+  header.chksum := EncodeOctalOrBinary(checksum, 8);
+  PrintTo(stream, EncodePacket(tar_header_packet, header));
+
+  // Send the data
+  SendBlobTo(stream, data);
+
+  // And pad to next 512-byte border
+  INTEGER64 datalen := LENGTH64(data);
+  INTEGER64 paddedlen := (datalen + 511) BITAND BITNEG 511i64;
+  IF (paddedlen - datalen > 0)
+    PrintTo(stream, RepeatText("\0", INTEGER(paddedlen - datalen)));
+}
+
+/// Write a long name override record
+MACRO WriteTarLongName(INTEGER stream, STRING name)
+{
+  WriteTarHeaderAndData(stream,
+      [ name :=     "././@LongLink"
+      , typeflag := "L" // long name record
+      ], StringToBlob(name || "\0"));
+}
+
+
+/** Reads the contents of a tar file from a file stream
+    @return List of entries in the tar-file
+    @cell(string) return.name Name of the entry
+    @cell(integer) return.type Type (1: directory, 2: file)
+    @cell(blob) return.data Data (only for files)
+    @cell(datetime) return.modtime Modification date
+*/
+PUBLIC RECORD ARRAY FUNCTION ReadTarFileFromStream(INTEGER tarstream)
+{
+  // Current entries
+  RECORD ARRAY entries;
+
+  // Name (filled with long name from previous entry when have_longname is TRUE)
+  STRING longname;
+
+  // Whether the previous entry was a long name override
+  BOOLEAN have_longname;
+
+  // Read blocks of this size (bigger blocks are more efficient when writing new blobs)
+  INTEGER maxchunk := 65536 * 4;
+  STRING large_file_size_mask := DecodeBase16("80") || "*";
+
+  WHILE (TRUE)
+  {
+    STRING header := ReadFrom(tarstream, 512);
+    IF (LENGTH(header) < 512)
+      BREAK;
+
+    RECORD header_data := DecodePacket(     // struct TarHeader {
+        "name:a100," ||                     //  char name[100];         //   0
+        "mode:a8," ||                       //  char mode[8];           // 100
+        "uid:a8," ||                        //  char uid[8];            // 108
+        "gid:a8," ||                        //  char gid[8];            // 116
+        "size:r12," ||                      //  char size[12];          // 124
+        "mtime:r12," ||                     //  char mtime[12];         // 136
+        "chksum:a8," ||                     //  char chksum[8];         // 148
+        "typeflag:a1," ||                   //  char typeflag;          // 156
+        "linkname:a100," ||                 //  char linkname[100];     // 157
+        "magic:a6," ||                      //  char magic[6];          // 257
+        "version:a2," ||                    //  char version[2];        // 263
+        "uname:a32," ||                     //  char uname[32];         // 265
+        "gname:a32," ||                     //  char gname[32];         // 297
+        "devmajor:a8," ||                   //  char devmajor[8];       // 329
+        "devminor:a8," ||                   //  char devminor[8];       // 337
+        "prefix:a155," ||                   //  char prefix[155];       // 345
+        "unused_padding:a12", header);      //  char unused_padding[12];
+
+    IF (header_data.name = "") // Starts with \0? Probably empty block, treat as end of tar-file
+      BREAK;
+
+    STRING fullpath;
+
+    // Previous block was a long name block? Use the name stored there instead of this name
+    IF (have_longname)
+    {
+      fullpath := longname;
+      have_longname := FALSE;
+    }
+    ELSE
+      fullpath := header_data.name;
+
+    // Collapse path, and remove starting slashes
+    fullpath := CollapsePath(TrimWhitespace(fullpath));
+    WHILE (fullpath LIKE "/*")
+      fullpath := SubString(fullpath, 1);
+
+    // Get the data length and modtime
+    INTEGER64 datalen := ParseOctalOrBinary(header_data.size);
+    INTEGER64 modtime := ParseOctalOrBinary(header_data.mtime);
+
+    // Tar pads everything to 512-byte blocks, so calc the length we need to read
+    INTEGER64 paddedlen := (datalen + 511) BITAND BITNEG 511i64;
+
+    // Read the data to a blob (read whole padded length, than slice out the desired length)
+    INTEGER datastream := CreateStream();
+    INTEGER64 toread := paddedlen;
+    WHILE (toread > 0)
+    {
+      INTEGER wantnow := toread > maxchunk ? maxchunk : INTEGER(toread);
+      STRING data := ReadFrom(tarstream, wantnow);
+      IF (data = "")
+        BREAK;
+
+      PrintTo(datastream, data);
+      toread := toread - LENGTH64(data);
+    }
+
+    BLOB paddeddata := MakeBlobFromStream(datastream);
+    BLOB nextdata := MakeSlicedBlob(paddeddata, 0, datalen);
+
+    IF (LENGTH64(nextdata) < datalen)
+      BREAK; // Not enough data present, assume end of tar-file
+
+    // Process the different types
+    SWITCH (header_data.typeflag)
+    {
+      CASE "\0", "0", "7" // Normal file, 7=contiguous file (treat as normal file)
+      {
+        INTEGER last_slashpos := SearchLastSubString(fullpath, "/");
+        STRING path := Left(fullpath, last_slashpos);
+        STRING name := SubString(fullpath, last_slashpos + 1);
+
+        INSERT
+            [ name :=     name
+            , path :=     path
+            , data :=     nextdata
+            , fullpath := fullpath
+            , type :=     0
+            , modtime :=  modtime > 0 ? MakeDatetimeFromUnixTimestamp(MONEY(modtime)) : DEFAULT DATETIME
+            ] INTO entries AT END;
+      }
+      CASE "5" // Directory
+      {
+        INSERT
+            [ name :=     ""
+            , path :=     fullpath
+            , data :=     DEFAULT BLOB
+            , fullpath := fullpath
+            , type :=     1
+            , modtime :=  modtime > 0 ? MakeDatetimeFromUnixTimestamp(MONEY(modtime)) : DEFAULT DATETIME
+            ] INTO entries AT END;
+      }
+      CASE "L" // Long name override for next entry
+      {
+        // Raw data ends with a \0 character, so use decodepacket to decode
+        STRING rawdata := BlobToString(nextdata) || "\0"; // Add a \0 to ensure there is one
+        RECORD decoded := DecodePacket("longname:a*", rawdata);
+        IF (RecordExists(decoded))
+        {
+          longname := decoded.longname;
+          have_longname := TRUE;
+        }
+      }
+      DEFAULT
+      {
+        //PRINT("Skipping tar block type '" || header_data.typeflag || "'\n");
+      }
+    }
+  }
+
+  RETURN entries;
+}
+
+OBJECTTYPE Archive
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** List of entries in the archive
+      @cell fullpath  Full path of the entry (path + name)
+      @cell type (0=file, 1=directory)
+      @cell path Directory of the entry (full directory name for directories)
+      @cell name Name of the file (empty for directories)
+      @cell modtime Modification time of the file/directory
+      @cell size Size of the file (0 for directories)
+  */
+  RECORD ARRAY pvt_entries;
+
+
+  /** Unpacked data for archives that don't support random access
+      @cell fullpath
+      @cell data
+  */
+  RECORD ARRAY pvt_cachedfiles;
+
+
+  /** Comment for this archive
+  */
+  STRING pvt_archivecomment;
+
+
+  /** Mimetype of the archive
+  */
+  STRING pvt_contenttype;
+
+
+  /** For zipfiles, handle to the zipfile
+  */
+  INTEGER pvt_zipfile;
+
+
+  /** Whether the archive has already been closed
+  */
+  BOOLEAN pvt_closed;
+
+
+  /** Function called
+  */
+  FUNCTION PTR pvt_onarchivingprogress;
+
+  INTEGER compressionlevel;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** List of directories and files in the archive
+      @cell fullpath  Full path of the entry (path + name)
+      @cell type (0=file, 1=directory)
+      @cell path Directory of the entry (full directory name for directories)
+      @cell name Name of the file (empty for directories)
+      @cell modtime Modification time of the file/directory
+      @cell size Size of the file (0 for directories)
+  */
+  PUBLIC PROPERTY entries(pvt_entries, -);
+
+
+  /** Comment for this archive
+  */
+  PUBLIC PROPERTY archivecomment(pvt_archivecomment, SetArchiveComment);
+
+
+  /** Function ptr called when MakeBlob reports progress
+      @param data Progress data
+      @cell data.progress Money, 0..100
+      @cell data.file Archiving file
+  */
+  PUBLIC PROPERTY onarchivingprogress(pvt_onarchivingprogress, pvt_onarchivingprogress);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @param compressionlevel Compression level, 1-9. -1 to decompress */
+  MACRO NEW(BLOB data, STRING contenttype, INTEGER compressionlevel)
+  {
+    this->compressionlevel := compressionlevel;
+
+    BOOLEAN isnew := compressionlevel > 0;
+    IF(contenttype="")
+      contenttype := ScanBlob(data, "").mimetype;
+
+    // Store the contenttype
+    this->pvt_contenttype := contenttype;
+
+    IF(NOT isnew)
+    {
+      IF(contenttype = "application/x-gzip")
+      {
+        INTEGER str := OpenBlobAsDecompressingStream(data, "GZIP");
+        TRY
+        {
+          RECORD ARRAY raw_entries := ReadTarFileFromStream(str);
+
+          this->pvt_entries :=
+              SELECT *
+                   , DELETE data
+                   , size := LENGTH(COLUMN data)
+                FROM raw_entries;
+
+          this->pvt_cachedfiles :=
+              SELECT fullpath
+                   , COLUMN data
+                FROM raw_entries;
+        }
+        FINALLY
+        {
+          CloseZlibDecompressor(str);
+        }
+      }
+      ELSE
+      {
+        //try zip
+        this->pvt_zipfile := OpenZipFile(data);
+        IF(this->pvt_zipfile<=0)
+        {
+          //giving up
+          THROW NEW Exception("The file passed to the Archive object is not an archive, content-type: '"||this->pvt_contenttype||"'" );
+        }
+        this->pvt_entries := GetZipFileDirectory(this->pvt_zipfile);
+        this->pvt_archivecomment := GetZipFileComment(this->pvt_zipfile);
+        this->pvt_contenttype := "application/zip";
+      }
+    }
+
+    IF(isnew AND NOT this->CanWriteArchive())
+       THROW NEW Exception("Cannot create new archives of type '"||this->pvt_contenttype||"'");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  MACRO SetArchiveComment(STRING comment)
+  {
+    IF (LENGTH(comment) > 65535)
+      THROW NEW Exception("Comment too long");
+
+    this->pvt_archivecomment := comment;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  STRING FUNCTION NormalizePath(STRING path)
+  {
+    path := CollapsePath(path);
+    WHILE (path LIKE "*/")
+      path := LEFT(path, LENGTH(path) - 1);
+    WHILE (path LIKE "/*")
+      path := SubString(path, 1);
+
+    RETURN path;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Can we write archives of this type? */
+  PUBLIC BOOLEAN FUNCTION CanWriteArchive()
+  {
+    RETURN this->pvt_contenttype IN [ "application/zip", "application/x-gzip" ];
+  }
+
+  /** Returns a decompressed file from the archive
+      @param fullpath Full path of the entry (from the fullpath cell in the entries list)
+      @return The decompressed file, DEFAULT BLOB if it doesn't exist
+  */
+  PUBLIC BLOB FUNCTION GetFile(STRING fullpath)
+  {
+    IF (this->pvt_closed)
+      THROW NEW Exception("Cannot get a file from a closed archive");
+
+    RECORD rec :=
+        SELECT data
+          FROM this->pvt_cachedfiles
+         WHERE VAR fullpath = COLUMN fullpath;
+
+    IF (RecordExists(rec))
+      RETURN rec.data;
+    ELSE IF (this->pvt_zipfile != 0)
+      RETURN UnpackFileFromZipFile(this->pvt_zipfile, fullpath);
+    ELSE
+      RETURN DEFAULT BLOB;
+  }
+
+  PUBLIC MACRO AddDiskFolderRecursive(STRING diskpath, STRING basepath, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(basepath != "" AND basepath NOT LIKE "*/")
+      basepath := basepath || "/";
+
+    FOREVERY(RECORD entry FROM ReadDiskDirectory(diskpath,"*"))
+    {
+      IF(entry.type = 1) //another dir
+      {
+        this->AddFolder(basepath || entry.name, entry.modified);
+        this->AddDiskFolderRecursive(entry.path, basepath || entry.name || "/");
+      }
+      IF(entry.type = 0) //file
+      {
+        INSERT CELL data := GetDiskResource(entry.path)
+                  , archivepath := basepath || entry.name
+               INTO entry;
+        IF(CellExists(options,'filerewriter') AND options.filerewriter != DEFAULT MACRO PTR)
+          entry := options.filerewriter(entry);
+
+        this->AddFile(basepath || entry.name, entry.data, entry.modified);
+      }
+    }
+  }
+
+  /** Add a folder to the archive.
+      @param fullpath Path of the folder
+      @param modtime Modification time of the folder
+  */
+  PUBLIC MACRO AddFolder(STRING fullpath, DATETIME modtime)
+  {
+    fullpath := this->NormalizePath(fullpath);
+    IF (fullpath IN ["",".",".."] OR fullpath LIKE "*/." OR fullpath LIKE "*/..")
+      THROW NEW Exception("Invalid path name");
+    IF (fullpath = "" OR LENGTH(fullpath) >= 65534) // Need space for extra '/' internally
+      THROW NEW Exception("Path name of new folder too long");
+
+    RECORD rec :=
+        SELECT
+          FROM this->pvt_entries
+         WHERE COLUMN fullpath = VAR fullpath;
+
+    IF (RecordExists(rec))
+      THROW NEW Exception("Cannot add a folder with the same name of another entry, please remove it first");
+
+    INSERT
+        [ fullpath :=   fullpath
+        , type :=       1
+        , path :=       fullpath
+        , name :=       ""
+        , modtime :=    modtime
+        , size :=       0
+        ] INTO this->pvt_entries AT END;
+  }
+
+
+  /** Add a file to the archive.
+      @param fullpath Path of the folder
+      @param data Data of the file
+      @param modtime Modification time of the folder
+  */
+  PUBLIC MACRO AddFile(STRING fullpath, BLOB data, DATETIME modtime)
+  {
+    fullpath := this->NormalizePath(fullpath);
+    IF (fullpath IN ["",".",".."] OR fullpath LIKE "*/." OR fullpath LIKE "*/..")
+      THROW NEW Exception("Invalid path name");
+    IF (fullpath = "" OR LENGTH(fullpath) >= 65534) // Need space for extra '/' internally
+      THROW NEW Exception("Path name of new folder too long");
+
+    RECORD rec :=
+        SELECT
+          FROM this->pvt_entries
+         WHERE COLUMN fullpath = VAR fullpath;
+
+    IF (RecordExists(rec))
+      THROW NEW Exception("A file named '" || fullpath || "' has already been added to the archive");
+
+    DELETE FROM this->pvt_entries WHERE COLUMN fullpath = VAR fullpath;
+    DELETE FROM this->pvt_cachedfiles WHERE COLUMN fullpath = VAR fullpath;
+
+    INSERT
+        [ fullpath :=   fullpath
+        , type :=       0
+        , path :=       GetDirectoryFromPath(fullpath)
+        , name :=       GetNameFromPath(fullpath)
+        , modtime :=    modtime
+        , size :=       LENGTH(data)
+        ] INTO this->pvt_entries AT END;
+
+    INSERT
+        [ fullpath :=   fullpath
+        , data :=       data
+        ] INTO this->pvt_cachedfiles AT END;
+  }
+
+
+  /** Add a file to the archive.
+      @param path
+      @param mask
+  */
+  PUBLIC MACRO RemoveEntries(STRING path, STRING mask)
+  {
+    path := this->NormalizePath(path);
+    path := path = "" ? "/" : "/" || path || "/";
+
+    INTEGER name_start := LENGTH(path);
+    STRING rawmask := path || mask;
+
+    RECORD ARRAY new_entries;
+    FOREVERY (RECORD rec FROM this->pvt_entries)
+    {
+      STRING fp := "/" || rec.fullpath;
+
+      BOOLEAN is_match;
+
+      // First like is quick check
+      IF (fp LIKE rawmask AND LEFT(fp, name_start) = path)
+      {
+        INTEGER next_slash := SearchSubString(fp, '/', name_start);
+        IF (next_slash = -1)
+          next_slash := LENGTH(fp);
+
+        is_match := SubString(fp, name_start, next_slash - name_start) LIKE mask;
+      }
+      IF (NOT is_match)
+        INSERT rec INTO new_entries AT END;
+      ELSE
+        DELETE FROM this->pvt_cachedfiles WHERE fullpath = rec.fullpath;
+    }
+
+    this->pvt_entries := new_entries;
+  }
+
+  PUBLIC MACRO OptimizeArchiveSorting()
+  {
+    //folders first and group files by related extensions, will generally improve intra-file compression for targz
+    this->pvt_entries := SELECT *
+                           FROM this->pvt_entries AS entry
+                       ORDER BY entry.type = 1 DESC //all folders first
+                              , entry.type = 0 ? ToUppercase(GetExtensionFromPath(entry.fullpath)) : "";
+  }
+
+  PUBLIC BLOB FUNCTION MakeBlob()
+  {
+    IF(NOT this->CanWriteArchive())
+       THROW NEW Exception("Cannot write archives of type '"||this->pvt_contenttype||"'");
+
+    BOOLEAN is_targz := this->pvt_contenttype != "application/zip";
+    INTEGER archiveid;
+    IF(is_targz)
+      archiveid := __CreateArchive(this->compressionlevel);
+    ELSE
+      archiveid := __HS_CreateZIPArchiveInternal(); //FIXME compression level
+
+
+    MONEY totallen := (SELECT AS MONEY Sum(MONEY(size)) FROM this->entries);
+    MONEY donelen := 0;
+
+    // Tar-gz doesn't support archive comments
+    IF (NOT is_targz)
+      SetArchiveComment(archiveid, this->pvt_archivecomment);
+
+    FOREVERY (RECORD entry FROM this->entries)
+    {
+      IF (this->onarchivingprogress != DEFAULT FUNCTION PTR)
+        this->onarchivingprogress([ progress := totallen > 0 ? 100 * donelen / totallen : 0m, file := entry.fullpath ]);
+
+      SWITCH (entry.type)
+      {
+      CASE 0
+        {
+          BLOB data := this->GetFile(entry.fullpath);
+          AddFileToArchive(archiveid, entry.fullpath, data, entry.modtime);
+
+          donelen := donelen + entry.size;
+        }
+      CASE 1
+        {
+          AddFolderToArchive(archiveid, entry.fullpath, entry.modtime);
+        }
+      }
+    }
+
+    IF (this->onarchivingprogress != DEFAULT FUNCTION PTR)
+      this->onarchivingprogress([ progress := 100m, file := "" ]);
+
+    RETURN MakeBlobFromArchive(archiveid);
+  }
+
+
+  /** Closes the archive, releases all resources
+  */
+  PUBLIC MACRO Close()
+  {
+    IF (this->pvt_closed)
+      THROW NEW Exception("Cannot close an already closed archive");
+
+    this->pvt_closed := TRUE;
+    IF (this->pvt_zipfile != 0)
+      CloseZipFile(this->pvt_zipfile);
+  }
+>;
+
+RECORD ARRAY tar_archives;
+INTEGER tar_counter;
+
+INTEGER FUNCTION __CreateArchive(INTEGER compressionlevel)
+{
+  tar_counter := tar_counter - 1; // negative, to separate from ZIP archives which have positive id's
+  INTEGER outstream := CreateStream();
+
+  INSERT
+      [ id :=           tar_counter
+      , outstream :=    outstream
+      , compressor :=   CreateZlibCompressor(outstream, "GZIP", compressionlevel)
+      ] INTO tar_archives AT 0;
+
+  RETURN tar_counter;
+}
+
+/** @private deprecated */
+PUBLIC INTEGER FUNCTION CreateArchive() __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
+{
+  RETURN __CreateArchive(9);
+}
+
+/** @short Create a new archive file object
+    @long This function creates an empty new archive file object
+    @param type Type of archive. Possible options: 'zip', 'tar.gz'/'targz'/'tgz'.
+    @return Archive object
+    @see  Archive
+    @example
+// Creating an archive, adding files/folders and writing the
+// archive to disk
+OBJECT archive1 := CreateNewArchive("zip");
+
+// Get files from the database
+RECORD file1 := SELECT name, data, modificationdate FROM system.fs_objects
+                WHERE ID =13;
+RECORD file2 := SELECT name, data, modificationdate FROM system.fs_objects
+                WHERE ID =21;
+
+//Add File1 to a folder in the root of the archive
+archive->AddFile(file1.name, File1.data, file1.modificationdate);
+
+//Add File2 to a folder 'temp/tmp' in the root of the archive
+archive->AddFile("/temp/tmp/" || file2.name, file2.data, file2.modificationdate);
+
+//Add folder '/temp/tmp/backup/' to archive, with modtime in 1999.
+archive->AddFolder("/temp/tmp/backup/", MakeDate(1999, 10, 11));
+
+//Finish writing to the archive
+BLOB ArchiveBlob := archive1->MakeBlob();
+
+//Create a disk file from the archive blob
+StoreDiskFile("/tmp/myarchive.zip", archiveblob);
+*/
+PUBLIC OBJECT FUNCTION CreateNewArchive(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ compressionlevel := 6 ], options);
+
+  SWITCH (ToLowercase(type))
+  {
+  CASE "application/zip", "application/x-gzip" { }
+  CASE "zip"    { type := "application/zip"; }
+  CASE "tar.gz", "targz", "tgz"
+                { type := "application/x-gzip"; }
+  DEFAULT       { THROW NEW Exception("Unknown archive type '" || type || "'"); }
+  }
+  RETURN NEW Archive(DEFAULT BLOB, type, options.compressionlevel);
+}
+
+/** @private deprecated */
+PUBLIC MACRO AddFileToArchive(INTEGER archiveid, STRING filepath, BLOB filedata, DATETIME lastmod) __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
+{
+  WHILE (filepath LIKE "/*")
+    filepath := substring(filepath, 1);
+
+  IF (archiveid < 0)
+  {
+    RECORD pos := RecordLowerBound(tar_archives, [ id := archiveid ], [ "ID" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("No such archive with id '" || archiveid || "'");
+
+    IF (LENGTH(filepath) > 99)
+      WriteTarLongName(tar_archives[pos.position].compressor, filepath);
+
+    WriteTarHeaderAndData(tar_archives[pos.position].compressor,
+        [ name :=     Left(filepath, 99)
+        , mode :=     EncodeOctalOrBinary(6*8*8 + 4*8 + 4, 8) // 0644
+        , mtime :=    EncodeOctalOrBinary(GetUnixTimestamp(lastmod), 12)
+        , typeflag := "0" // regular file
+        ], filedata);
+
+    RETURN;
+  }
+
+  __HS_ADDFILETOARCHIVE(archiveid,filepath,filedata,lastmod);
+}
+
+/** @private deprecated */
+PUBLIC MACRO AddFolderToArchive(INTEGER archiveid, STRING folderpath, DATETIME lastmod DEFAULTSTO DEFAULT DATETIME) __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
+{
+  WHILE (folderpath LIKE "/*")
+    folderpath := substring(folderpath,1,4096);
+
+  IF (archiveid < 0)
+  {
+    RECORD pos := RecordLowerBound(tar_archives, [ id := archiveid ], [ "ID" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("No such archive with id '" || archiveid || "'");
+
+    IF (LENGTH(folderpath) > 99)
+      WriteTarLongName(tar_archives[pos.position].compressor, folderpath);
+
+    WriteTarHeaderAndData(tar_archives[pos.position].compressor,
+        [ name :=     Left(folderpath, 99)
+        , mode :=     EncodeOctalOrBinary(4*8*8*8*8 + 7*8*8 + 5*8 + 5, 8) // 040755
+//        , mtime :=    EncodeOctalOrBinary(GetUnixTimestamp(lastmod), 12) // ADDME: C++ impl didn't write modtime, but what should actually happen?
+        , typeflag := "5" // directory
+        ], DEFAULT BLOB);
+
+    RETURN;
+  }
+
+  __HS_ADDFOLDERTOARCHIVE(archiveid, folderpath, lastmod);
+}
+
+/** @private deprecated */
+PUBLIC BLOB FUNCTION MakeBlobFromArchive(INTEGER archiveid) __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
+{
+  IF (archiveid < 0)
+  {
+    RECORD pos := RecordLowerBound(tar_archives, [ id := archiveid ], [ "ID" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("No such archive with id '" || archiveid || "'");
+
+    // End with 2 blocks with only \0's
+    PrintTo(tar_archives[pos.position].compressor, RepeatText("\0", 1024));
+    CloseZlibCompressor(tar_archives[pos.position].compressor);
+
+    BLOB result := MakeBlobFromStream(tar_archives[pos.position].outstream);
+    DELETE FROM tar_archives AT pos.position;
+
+    RETURN result;
+  }
+
+  RETURN __HS_MakeBlobFromArchive(archiveid);
+}
+
+
+/** @short Unpacks an archive
+    @long Unpacks an archive of the formats @italic .tar.gz or @italic .zip. Make sure that the archive is of the BLOB type.
+          Disk files can be transformed to BLOBs with the function MakeBlobFromDiskFile.
+
+          If you want to add a file or folder to an archive after you have finished the archive with MakeBlobFromArchive, you need
+          to unpack the existing archive and create a new archive with the new files and folders.
+    @param data Blob with the archive
+    @param extension Optional, obsolete.
+    @return Record array describing all files in the archive. Contains:
+    @cell return.path Path to the file (not including last slash) : string
+    @cell return.name Filename : string
+    @cell return.modtime Time of last modification: datetime (timezones can't be determined for ZIP files)
+    @cell return.data Contents of this file : blob
+    @see  MakeBlobFromDiskFile CreateArchive
+*/
+PUBLIC RECORD ARRAY FUNCTION UnpackArchive(BLOB data, STRING extension DEFAULTSTO "" )
+{
+  RECORD ARRAY results;
+
+  TRY
+  {
+    OBJECT arch := NEW Archive(data, "", -1);
+    FOREVERY (RECORD rec FROM arch->entries)
+    {
+      INSERT
+           [ path :=    rec.path
+           , name :=    rec.name
+           , modtime := rec.modtime
+           , data :=    rec.type = 0 ? arch->GetFile(rec.fullpath) : DEFAULT BLOB
+           ] INTO results AT END;
+    }
+    arch->Close();
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN DEFAULT RECORD ARRAY;
+  }
+  RETURN results;
+}
+
+PUBLIC INTEGER FUNCTION CreateZlibCompressor(INTEGER outstream, STRING format, INTEGER compressionlevel) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC BLOB FUNCTION MakeZlibCompressedFile(BLOB infile, STRING format, INTEGER compressionlevel)
+{
+  INTEGER outfile := CreateStream();
+  INTEGER compressor := CreateZlibCompressor(outfile, format, compressionlevel);
+  SendBlobTo(compressor, infile);
+  CloseZlibCompressor(compressor);
+  RETURN MakeBlobFromStream(outfile);
+}
+
+PUBLIC MACRO CloseZlibCompressor(INTEGER compressor) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO CloseZlibDecompressor(INTEGER compressor) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Open and decompress a blob
+    @param indata Blob to read
+    @param fileformat File format to read (either 'GZIP', 'ZLIB' or 'ZLIBRAW:filelength')
+    @return The stream handle, usable by ReadFrom and ReadLineFrom*/
+PUBLIC INTEGER FUNCTION OpenBlobAsDecompressingStream(BLOB indata, STRING fileformat) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC BLOB FUNCTION MakeZlibDecompressedFile(BLOB infile, STRING format)
+{
+  INTEGER outfile := CreateStream();
+  INTEGER decompressor := OpenBlobAsDecompressingStream(infile, format);
+  WHILE(TRUE)
+  {
+    STRING block := ReadFrom(decompressor,16384);
+    IF(block="")
+      BREAK;
+    PrintTo(outfile,block);
+  }
+  CloseZlibDecompressor(decompressor);
+  RETURN MakeBlobFromStream(outfile);
+}
+
+//FIXME need a (generic) closer
+
+
+/** Create an archive object
+    @param archive Archive data
+    @param extension Original extension of the archive
+*/
+PUBLIC OBJECT FUNCTION OpenExistingArchive(BLOB archive)
+{
+  RETURN NEW Archive(archive, "", -1);
+}
+
+PUBLIC RECORD ARRAY FUNCTION FilterMacOSForksFromArchive(RECORD ARRAY infiles)
+{
+  // Strip all resource forks if a file matches. If the stored file is f1/f2/f3.txt, its fork is __macosx/f1/f2/._f3.txt
+  DELETE FROM infiles WHERE infiles.name LIKE '._*'
+                            AND (ToUppercase(infiles.path)='__MACOSX' OR ToUppercase(Left(infiles.path,9)) = '__MACOSX/');
+
+// Now kill all folders under __macosx if they are empty
+  DELETE FROM infiles WHERE infiles.name = ''
+                            AND (ToUppercase(infiles.path)='__MACOSX' OR ToUppercase(Left(infiles.path,9)) = '__MACOSX/')
+                            AND NOT RecordExists(SELECT FROM VAR infiles AS infiles2
+                                                  WHERE infiles2.name != ''
+                                                        AND ToUppercase(infiles2.path) LIKE ToUppercase(infiles.path || '*'));
+
+  RETURN infiles;
+}
+

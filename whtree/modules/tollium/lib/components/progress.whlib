@@ -1,0 +1,68 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// A progress bar (which is actually a slider
+
+PUBLIC OBJECTTYPE TolliumProgress EXTEND TolliumComponentBase
+<
+  MONEY pvt_max;
+  MONEY pvt_value;
+
+  PUBLIC PROPERTY max(pvt_max, SetMax);
+  PUBLIC PROPERTY value(pvt_value, SetValue);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->componenttype := "progress";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->pvt_max := def.max;
+    this->value := def.value;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+
+  MACRO SetMax(MONEY max)
+  {
+    IF (this->pvt_max = max)
+      RETURN;
+
+    this->pvt_max := max;
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.valmax := TRUE;
+  }
+  MACRO SetValue(VARIANT value)
+  {
+    IF (this->pvt_value = value)
+      RETURN;
+
+    this->pvt_value := value;
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.valmax := TRUE;
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN [ valmax := FALSE
+           ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+      this->owner->tolliumcontroller->SendComponent(this, DEFAULT RECORD);
+
+    IF (this->dirtyflags.fully OR this->dirtyflags.valmax)
+      this->QueueOutboundMessage("SetValMax", [ value := this->pvt_value, max := this->pvt_max]);
+
+    TolliumComponentBase::TolliumWebRender();
+  }
+>;

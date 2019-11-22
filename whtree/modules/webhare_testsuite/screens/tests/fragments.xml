@@ -1,0 +1,179 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/fragments.whlib"
+         gid="tests.fragments">
+
+  <fragment name="commonlist">
+    <actions>
+      <action name="open" onexecute="doopen" title="open" />
+    </actions>
+    <compositions>
+      <record name="test" />
+    </compositions>
+    <contents>
+      <text valuetid=".seebelow" />
+      <list name="thelist" openaction="open" public="true" selectmode="single">
+        <column name="title" type="text" />
+        <row>
+          <element name="title" data="test" />
+        </row>
+      </list>
+      <text valuetid=".seeabove" />
+
+      <box checkbox="true" enablecomponents="enableme3">
+        <textarea name="enableme3" />
+      </box>
+
+      <select type="pulldown">
+        <option rowkey="0" enablecomponents="enableme1" />
+        <option rowkey="1" enablecomponents="enableme2" />
+      </select>
+      <textedit composition="test" cellname="textedit2" name="enableme1" />
+      <textedit composition="test" cellname="textedit2" name="enableme2" />
+    </contents>
+  </fragment>
+
+  <fragment name="commonlistloader" implementation="none">
+    <actions>
+      <action name="parentaction" onexecute="parentscope->updatecounter" public="true" />
+    </actions>
+    <contents>
+      <includefragment name="commonlist" fragment=".commonlist" public="true" />
+      <button action="parentscope->edit" name="editbutton" public="true" />
+    </contents>
+  </fragment>
+
+  <screen name="fragmenttest" title="Fragment test" onshow="onshow">
+    <actions>
+      <action name="edit">
+        <enableon source="firstcommonlist->thelist" min="1" onexecute="editinfirstlist" />
+        <enableon source="secondcommonlist->commonlist->thelist" min="1" onexecute="editinsecondlist" />
+      </action>
+    </actions>
+    <compositions>
+      <record name="test" mergecompositions="firstcommonlist->test" />
+    </compositions>
+    <body>
+      <tabs>
+        <tab name="firsttab">
+          <!-- FIXME koppelingen aan acties 'buiten' ons ? -->
+          <includefragment name="firstcommonlist" fragment=".commonlist" />
+        </tab>
+        <tab name="secondtab">
+          <includefragment name="secondcommonlist" fragment=".commonlistloader" />
+          <includefragment name="thirdcommonlist" fragment=".commonlistloader" />
+        </tab>
+      </tabs>
+      <textedit composition="test" cellname="textedit1" />
+      <line layout="left">
+        <checkbox composition="test" cellname="checkbox1" labeltid=".checkbox1" />
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="dynfragmenttest" title="Fragment test" onshow="onshow">
+    <body name="body">
+    </body>
+  </screen>
+
+  <fragment name="loadfragment" lib="module::webhare_testsuite/screens/tests/fragments.whlib">
+    <contents>
+      <box name="box">
+        <p:intextlink width="1pr" name="intextlink" required="true" />
+      </box>
+    </contents>
+  </fragment>
+
+  <screen name="loadfragmenttest" title="Fragment test" onshow="onshow">
+    <body name="body">
+      <panel name="positioningpanel"></panel>
+    </body>
+  </screen>
+
+  <fragment name="fragcomp">
+    <compositions>
+       <testcomp:preinitcomptest name="fragmentcomposition" />
+    </compositions>
+    <contents>
+      <line>
+        <text name="text1" value="INNER text 1" title=""/>
+        <testcomp:preinittest name="preinit" />
+      </line>
+    </contents>
+  </fragment>
+
+  <fragment name="emptyfragcomp" >
+    <contents>
+    </contents>
+  </fragment>
+
+  <screen name="fragcomponenttest" title="Fragment component test" onshow="onshow">
+    <compositions>
+       <testcomp:preinitcomptest name="screencomposition" />
+    </compositions>
+    <body name="body">
+      <text name="text1" value="Text 1" />
+      <testcomp:fragcomp name="fragcomp" textcomp1="text1" textcomp2="text2"/>
+      <text name="text2" value="Text 2" />
+      <select type="radio">
+        <option rowkey="x">
+          <testcomp:inlinecomp name="fragcomp_in_option" />
+        </option>
+        <option rowkey="y">
+          <select type="pulldown" name="select_in_option">
+            <testcomp:querysourcecomp name="optionsource_in_select_in_option" />
+          </select>
+        </option>
+      </select>
+      <testcomp:emptyfragcomp name="emptyfragcomp" />
+    </body>
+  </screen>
+
+  <screen name="subcomponenttest" title="Subcomponent pre-post init test">
+    <body>
+      <select name="selectcomp" type="radio">
+        <testcomp:querysourcecomp name="querysource" />
+      </select>
+    </body>
+  </screen>
+
+  <screen name="testvisibility">
+    <body>
+      <box name="box" visible="false" hr="false" />
+    </body>
+  </screen>
+
+  <screen name="testenableonlinks">
+    <body>
+      <select type="radio"
+              name="cta_type"
+              rowkeytype="integer"
+              flags="showctasettings shownespresso"
+              title="Radio"
+              >
+        <option rowkey="0" title="Default opt" /><!-- inherit from parent -->
+        <option rowkey="2" title="Show intextlink" flags="showctasettings" enablecomponents="cta_link" /><!-- set a standard CTA  ... -->
+      </select>
+      <tabs type="server" height="1pr" xmlns="http://www.webhare.net/xmlns/tollium/screens" name="ctatabs">
+        <tab>
+          <visibleon source="cta_type" checkflags="showctasettings" min="1" />
+          <testcomp:intextlink name="cta_link" required="true" width="1pr" />
+        </tab>
+      </tabs>
+    </body>
+  </screen>
+
+  <fragment name="intextlink">
+    <contents>
+      <select name="linktype" type="radio" required="true" title="Linktype" public="true">
+        <option rowkey="nolink"></option>
+        <option rowkey="internal"></option>
+      </select>
+    </contents>
+  </fragment>
+
+</screens>

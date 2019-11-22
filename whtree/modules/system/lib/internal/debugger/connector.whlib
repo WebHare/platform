@@ -1,0 +1,1520 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+PUBLIC INTEGER pausereason_request :=         1;
+PUBLIC INTEGER pausereason_breakpoint :=      2;
+PUBLIC INTEGER pausereason_manualbreakpoint := 4;
+PUBLIC INTEGER pausereason_rule :=            8;
+PUBLIC INTEGER pausereason_newlibraries :=    16;
+PUBLIC INTEGER pausereason_debuggertrap :=    32;
+
+
+BOOLEAN debug_msgs := FALSE;
+
+/* This library contains the code to interface with the debug manager
+*/
+
+STATIC OBJECTTYPE DebugProcessListener
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT connector;
+
+  RECORD ARRAY pvt_processlist;
+
+  DATETIME pvt_lastupdate;
+
+  RECORD deferred_update;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables / properties
+  //
+
+  PUBLIC FUNCTION PTR onprocesslist;
+
+  PUBLIC FUNCTION PTR ondisconnect;
+
+  /** List of processes
+      @cell processcode
+      @cell obj
+  */
+  PUBLIC PROPERTY processlist(pvt_processlist, -);
+
+  PUBLIC PROPERTY lastupdate(pvt_lastupdate, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT connector)
+  {
+    this->connector := connector;
+    this->connector->ChangeProcessListenerRegistration(PRIVATE this, TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotDisconnected()
+  {
+    this->connector := DEFAULT OBJECT;
+    IF (this->ondisconnect != DEFAULT FUNCTION PTR)
+      this->ondisconnect();
+
+    IF (RecordExists(this->deferred_update))
+      this->deferred_update.resolve(DEFAULT RECORD ARRAY);
+  }
+
+  MACRO GotProcessList(RECORD ARRAY processlist)
+  {
+    this->pvt_processlist := processlist;
+    this->pvt_lastupdate := GetCurrentDateTime();
+
+    IF (this->onprocesslist != DEFAULT FUNCTION PTR)
+      this->onprocesslist(processlist);
+
+    IF (RecordExists(this->deferred_update))
+    {
+      this->deferred_update.resolve(processlist);
+      this->deferred_update := DEFAULT RECORD;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  PUBLIC BOOLEAN FUNCTION IsConnected()
+  {
+    RETURN ObjectExists(this->connector) AND this->connector->IsConnected();
+  }
+
+  /** Request new list of processes. Returns promise which resolves to list of processes (empty on disconnect)
+      @return Promise with record array of processes
+      @cell return.processcode
+      @cell return.obj
+  */
+  PUBLIC OBJECT FUNCTION RequestUpdate()
+  {
+    IF (NOT ObjectExists(this->connector))
+      THROW NEW Exception("Not connected");
+
+    this->connector->RequestProcessListUpdate(PRIVATE this);
+
+    IF (NOT RecordExists(this->deferred_update))
+      this->deferred_update := CreateDeferredPromise();
+
+    RETURN this->deferred_update.promise;
+  }
+
+  PUBLIC MACRO Close()
+  {
+    IF (ObjectExists(this->connector))
+      this->connector->ChangeProcessListenerRegistration(PRIVATE this, FALSE);
+    this->connector := DEFAULT OBJECT;
+  }
+>;
+
+
+/** A connect rule is sent to processes, and all jobs that match the rule conditions
+    are reported to this object. If auto-connect is on, the jobs are automatically
+    stopped, and held by this object for a short period of time.
+
+    Matching jobs are held for 5 seconds (not configurable at the moment). A long
+    timeout can have a lot of impact on a production system when the conditions match
+    too many scripts.
+*/
+STATIC OBJECTTYPE ConnectRule
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT connector;
+
+  BOOLEAN connected;
+
+  STRING pvt_uid;
+
+  INTEGER pvt_sites;
+
+  STRING pvt_hostmask;
+
+  STRING pvt_scriptmask;
+
+  STRING ARRAY pvt_scriptexcludemasks;
+
+  RECORD ARRAY pvt_authrecordrules;
+
+  BOOLEAN pvt_connectonmatch;
+
+  /** @cell job
+      @cell date
+  */
+  RECORD ARRAY pvt_connectedjobs;
+
+  INTEGER connectexpire_cb;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables / properties
+  //
+
+  PUBLIC PROPERTY uid(pvt_uid, -);
+
+  /** List of connect sites this rule operates on. STRING ARRAY.
+      Values:
+      <ul>
+        <li>start: Start of script<li>
+        <li>termination: Termination of script<li>
+        <li>errortermination: Termination of script, with errors<li>
+        <li>authrecord: Editing of authentication record (from within script)<li>
+        <li>debuggertrap: Hitting a Debugger() instruction<li>
+      </ul>
+  */
+  PUBLIC PROPERTY sites(GetSites, SetSites);
+
+  PUBLIC PROPERTY hostmask(pvt_hostmask, SetHostMask);
+
+  /** Mask for matching scripts */
+  PUBLIC PROPERTY scriptmask(pvt_scriptmask, SetScriptMask);
+
+  /** STRING ARRAY with masks for scripts to exclude */
+  PUBLIC PROPERTY scriptexcludemasks(pvt_scriptexcludemasks, SetScriptExcludeMasks);
+
+  /** Authentication record match rules (RECORD ARRAY)
+      @cell(stringarray) path Path to cell
+      @cell(string) mask Mask (integers are converted to string, booleans to 1/0)
+  */
+  PUBLIC PROPERTY authrecordrules(pvt_authrecordrules, SetAuthRecordRules);
+
+  /** Connect when a match is found (otherwise just report) */
+  PUBLIC PROPERTY connectonmatch(pvt_connectonmatch, SetConnectOnMatch);
+
+  /** List of currently connected jobs
+  */
+  PUBLIC PROPERTY connectedjobs(pvt_connectedjobs, -);
+
+  /** Called when a job matched the rule
+      Signature: MACRO OnJobMatch(OBJECT job)
+  */
+  PUBLIC MACRO PTR OnJobMatch;
+
+  /** Called when a matching job has been held long enough and is released
+      Signature: MACRO OnJobMatch(OBJECT job)
+  */
+  PUBLIC MACRO PTR OnJobDisconnect;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT connector)
+  {
+    this->connector := connector;
+    this->pvt_uid := GenerateUFS128BitId();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO EnsurePreConnect()
+  {
+    IF (NOT ObjectExists(this->connector) OR this->connected)
+      THROW NEW Exception("THis object may only be modified before connecting");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetHostMask(STRING newmask)
+  {
+    this->EnsurePreConnect();
+    this->pvt_hostmask := newmask;
+  }
+
+  MACRO SetConnectOnMatch(BOOLEAN newconnectonmatch)
+  {
+    this->EnsurePreConnect();
+    this->pvt_connectonmatch := newconnectonmatch;
+  }
+
+  STRING ARRAY FUNCTION GetSites()
+  {
+    this->EnsurePreConnect();
+    STRING ARRAY sites;
+    IF ((this->pvt_sites BITAND 1) != 0)
+      INSERT "start" INTO sites AT END;
+    IF ((this->pvt_sites BITAND 2) != 0)
+      INSERT "termination" INTO sites AT END;
+    IF ((this->pvt_sites BITAND 4) != 0)
+      INSERT "errortermination" INTO sites AT END;
+    IF ((this->pvt_sites BITAND 8) != 0)
+      INSERT "authrecord" INTO sites AT END;
+    IF ((this->pvt_sites BITAND 16) != 0)
+      INSERT "debuggertrap" INTO sites AT END;
+    RETURN sites;
+  }
+
+  MACRO SetSites(STRING ARRAY sites)
+  {
+    this->EnsurePreConnect();
+    INTEGER newsites;
+    FOREVERY (STRING site FROM sites)
+    {
+      SWITCH (site)
+      {
+        CASE "start"        { newsites := newsites BITOR 1; }
+        CASE "termination"  { newsites := newsites BITOR 2; }
+        CASE "errortermination"  { newsites := newsites BITOR 4; }
+        CASE "authrecord"   { newsites := newsites BITOR 8; }
+        CASE "debuggertrap" { newsites := newsites BITOR 16; }
+        DEFAULT             { THROW NEW Exception("Illegal rule site '" || site || "'"); }
+      }
+    }
+    this->pvt_sites := newsites;
+  }
+
+  MACRO SetScriptMask(STRING newmask)
+  {
+    this->EnsurePreConnect();
+    this->pvt_scriptmask := newmask;
+  }
+
+  MACRO SetScriptExcludeMasks(STRING ARRAY newmasks)
+  {
+    this->EnsurePreConnect();
+    this->pvt_scriptexcludemasks := newmasks;
+  }
+
+  MACRO SetAuthRecordRules(RECORD ARRAY newrules)
+  {
+    this->EnsurePreConnect();
+    this->pvt_authrecordrules :=
+        SELECT path :=    STRING ARRAY(path)
+             , mask :=    STRING(mask)
+          FROM newrules;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Internal functions
+  //
+
+  MACRO HandleConnect(OBJECT job)
+  {
+    DATETIME now := GetCurrentDateTime();
+    INSERT
+        [ job :=      job
+        , date :=     now
+        , expires :=  AddTimeToDate(5000, now)
+        ] INTO this->pvt_connectedjobs AT END;
+
+    this->SetExpireTimeout();
+
+    IF (this->OnJobMatch != DEFAULT FUNCTION PTR)
+      this->OnJobMatch(job);
+  }
+
+  MACRO SetExpireTimeout()
+  {
+    IF (this->connectexpire_cb != 0)
+    {
+      UnregisterCallback(this->connectexpire_cb);
+      this->connectexpire_cb := 0;
+    }
+
+    IF (LENGTH(this->pvt_connectedjobs) > 0)
+      this->connectexpire_cb := RegisterTimedCallback(this->pvt_connectedjobs[0].expires, PTR this->ExpireJobsCallback);
+  }
+
+  MACRO ExpireJobsCallback()
+  {
+    this->connectexpire_cb := 0;
+    this->ExpireJobs(FALSE);
+  }
+
+  MACRO ExpireJobs(BOOLEAN expire_all)
+  {
+    DATETIME now := GetCurrentDateTime();
+    WHILE (LENGTH(this->pvt_connectedjobs) > 0 AND (expire_all OR this->pvt_connectedjobs[0].expires <= now))
+    {
+      // Remove local registration
+      OBJECT job := this->pvt_connectedjobs[0].job;
+      DELETE FROM this->pvt_connectedjobs AT 0;
+
+      IF (this->OnJobDisconnect != DEFAULT FUNCTION PTR)
+        this->OnJobDisconnect(job);
+
+      // Close after disconnect signal
+      job->Close();
+    }
+
+    this->SetExpireTimeout();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Activate the rule, starts listening jobs.
+  */
+  PUBLIC MACRO Connect()
+  {
+    IF (ObjectExists(this->connector))
+      this->connector->ChangeRuleRegistration(PRIVATE this, TRUE);
+  }
+
+  /** Deactivate the rule, disconnect all held jobs
+  */
+  PUBLIC MACRO Close()
+  {
+    IF (ObjectExists(this->connector))
+      this->connector->ChangeRuleRegistration(PRIVATE this, FALSE);
+
+    this->connector := DEFAULT OBJECT;
+
+    this->ExpireJobs(TRUE);
+  }
+
+  /** Extract an held matching job
+  */
+  PUBLIC BOOLEAN FUNCTION ExtractJob(OBJECT job)
+  {
+    INTEGER pos := (SELECT AS INTEGER #pvt_connectedjobs + 1 FROM this->pvt_connectedjobs WHERE COLUMN job = VAR job) - 1;
+    IF (pos = -1)
+      RETURN FALSE;
+
+    // Remove from list of connected jobs, reset the expire timer
+    DELETE FROM this->pvt_connectedjobs AT pos;
+    this->SetExpireTimeout();
+    RETURN TRUE;
+  }
+>;
+
+/* Connection to the debug manager */
+STATIC OBJECTTYPE Connection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Link to debug manager
+  OBJECT link;
+
+  RECORD ARRAY pvt_connectedjobs;
+
+  /** List of processes
+      @cell processcode
+      @cell obj
+  */
+  RECORD ARRAY pvt_processlist;
+
+  /// List of process listeners
+  OBJECT ARRAY pvt_processlisteners;
+
+  OBJECT ARRAY pvt_processlist_requesters;
+
+  OBJECT ARRAY pvt_rulelist;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public stuff
+  //
+
+  PUBLIC PROPERTY processlist(pvt_processlist, -);
+
+  PUBLIC PROPERTY connectedjobs(pvt_connectedjobs, -);
+
+  /** MACRO OnDisconnect() */
+  PUBLIC FUNCTION PTR ondisconnect;
+
+  /** MACRO OnRuleConnect(OBJECT job) */
+  PUBLIC MACRO PTR OnRuleConnect;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT link)
+  {
+    this->link := link;
+    this->link->userdata := [ cb := RegisterHandleReadCallback(this->link->handle, PTR this->GotLinkSignalled) ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotLinkSignalled()
+  {
+    RECORD rec := this->link->ReceiveMessage(DEFAULT DATETIME);
+    //LogDebug("debugging", "connector message", rec);
+    IF (rec.status = "timeout")
+      RETURN; // Spurious wake
+
+    IF (rec.status = "gone")
+    {
+      this->HandleConnectionGone();
+      RETURN;
+    }
+
+    this->HandleMessage(rec.msg, rec.msgid, rec.replyto);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO HandleConnectionGone()
+  {
+    UnregisterCallback(this->link->userdata.cb);
+    this->link->Close();
+    this->link := DEFAULT OBJECT;
+
+    FOREVERY (OBJECT processlistener FROM this->pvt_processlisteners)
+      processlistener->GotDisconnected();
+    this->pvt_processlisteners := DEFAULT OBJECT ARRAY;
+
+    FOREVERY (RECORD proc FROM this->pvt_processlist)
+      proc.obj->GotDisconnected();
+    this->pvt_processlist := DEFAULT RECORD ARRAY;
+
+    IF (this->OnDisconnect != DEFAULT FUNCTION PTR)
+      this->OnDisconnect();
+  }
+
+  MACRO SendMessage(RECORD data)
+  {
+    IF (debug_msgs)
+      PRINT(`Send msg: ${data.type}\n`);
+
+    this->link ->SendMessage(data);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Message handling
+  //
+
+  MACRO HandleMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+  {
+    //PRINT("Receive Message\n" || AnyToString(msg, "tree"));
+    IF (debug_msgs)
+      PRINT(`Recv msg: ${msg.type}\n`);
+
+    IF (msg.type LIKE "job*")
+    {
+      // msg has cell processcode
+      RECORD pos := RecordLowerBound(this->pvt_processlist, msg, [ "PROCESSCODE" ]);
+      IF (pos.found)
+        this->pvt_processlist[pos.position].obj->HandleMessage(msg, msgid, replyto);
+      ELSE
+      {
+        PRINT("No process object found for new connected job\n");
+        IF (msg.type != "job-disconnected")
+        {
+          this->SendMessage(
+              [ type := "job-disconnect"
+              , processcode :=  msg.processcode
+              , groupid :=      msg.groupid
+              ]);
+        }
+      }
+      RETURN;
+    }
+
+    SWITCH (msg.type)
+    {
+      CASE "processlist"
+      {
+        UPDATE this->pvt_processlist SET present := FALSE;
+        FOREVERY (RECORD rec FROM msg.processes)
+          this->AddProcess(rec);
+        FOREVERY (RECORD rec FROM SELECT * FROM this->pvt_processlist WHERE NOT present)
+          this->RemoveProcess(rec);
+
+        OBJECT ARRAY requesters := this->pvt_processlist_requesters;
+        this->pvt_processlist_requesters := OBJECT[];
+
+        FOREVERY (OBJECT processlistener FROM requesters)
+          processlistener->GotProcessList(this->pvt_processlist);
+      }
+      CASE "process-connected"
+      {
+        this->AddProcess(msg.data);
+
+        FOREVERY (OBJECT processlistener FROM this->pvt_processlisteners)
+          processlistener->GotProcessList(this->pvt_processlist);
+      }
+      CASE "process-disconnected"
+      {
+        this->RemoveProcess(msg.data);
+
+        FOREVERY (OBJECT processlistener FROM this->pvt_processlisteners)
+          processlistener->GotProcessList(this->pvt_processlist);
+      }
+      CASE "process-gone" // request for non-existing process
+      {
+        this->RemoveProcess([ processcode := msg.processcode ]);
+
+        FOREVERY (OBJECT processlistener FROM this->pvt_processlisteners)
+          processlistener->GotProcessList(this->pvt_processlist);
+      }
+      DEFAULT
+      {
+        LogDebug("debugging", "unknown message", msg);
+        THROW NEW Exception("Unhandled message '" || msg.type || "'");
+      }
+    }
+  }
+
+  MACRO SetProcessListSubScriptions(BOOLEAN newvalue)
+  {
+    this->SendMessage([ type := "subscribeprocessupdates", enabled := newvalue ]);
+  }
+
+  BOOLEAN FUNCTION HandleRuleConnect(OBJECT job, STRING rule_uid)
+  {
+    FOREVERY (OBJECT rule FROM this->pvt_rulelist)
+      IF (rule->uid = rule_uid)
+      {
+        rule->HandleConnect(job);
+        RETURN TRUE;
+      }
+    RETURN FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Process admin
+  //
+
+  MACRO AddProcess(RECORD rec)
+  {
+    INSERT CELL present := TRUE INTO rec;
+    RECORD pos := RecordLowerBound(this->pvt_processlist, rec, [ "PROCESSCODE" ]);
+    IF (pos.found)
+    {
+      INSERT CELL obj := this->pvt_processlist[pos.position].obj INTO rec;
+      this->pvt_processlist[pos.position] := rec;
+      RETURN;
+    }
+
+    // Constructor of DebugProcess does insert into processlist, so we can have a private this of debugprocess
+    NEW DebugProcess(PRIVATE this, rec, pos.position);
+  }
+
+  MACRO RemoveProcess(RECORD rec)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_processlist, rec, [ "PROCESSCODE" ]);
+    IF (pos.found)
+    {
+      OBJECT obj := this->pvt_processlist[pos.position].obj;
+      DELETE FROM this->pvt_processlist AT pos.position;
+
+      obj->GotDisconnected();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Process listener
+  //
+
+  MACRO ChangeProcessListenerRegistration(OBJECT listener, BOOLEAN add)
+  {
+    IF (add = (listener IN this->pvt_processlisteners)) THROW NEW Exception("Process listener bookkeeping error");
+
+    IF (add)
+      INSERT listener INTO this->pvt_processlisteners AT END;
+    ELSE
+    {
+      DELETE FROM this->pvt_processlisteners AT SearchElement(this->pvt_processlisteners, listener);
+
+      IF (listener IN this->pvt_processlist_requesters)
+        DELETE FROM this->pvt_processlist_requesters AT SearchElement(this->pvt_processlist_requesters, listener);
+    }
+
+    IF (LENGTH(this->pvt_processlisteners) = (add ? 1 : 0))
+      this->SetProcessListSubScriptions(add);
+  }
+
+  MACRO RequestProcessListUpdate(OBJECT listener)
+  {
+    INSERT listener INTO this->pvt_processlist_requesters AT END;
+    IF (LENGTH(this->pvt_processlist_requesters) = 1)
+      this->SendMessage([ type := "getprocesslist" ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Rules
+  //
+
+  MACRO ChangeRuleRegistration(OBJECT rule, BOOLEAN add)
+  {
+    IF (add = (rule IN this->pvt_rulelist))
+      THROW NEW Exception("Rule bookkeeping error - " || (add?"already present" : "already removed"));
+
+    IF (add)
+    {
+      INSERT rule INTO this->pvt_rulelist AT END;
+      this->SendMessage(
+          [ type :=           "addrule"
+          , tag :=            rule->uid
+          , sites :=          rule->pvt_sites
+          , hosttype :=       rule->hostmask
+          , script :=         rule->scriptmask
+          , script_exclude := rule->scriptexcludemasks
+          , authrecordrules := rule->authrecordrules
+          , connect_on_match := rule->connectonmatch
+          ]);
+    }
+    ELSE
+    {
+      DELETE FROM this->pvt_rulelist AT SearchElement(this->pvt_rulelist, rule);
+      this->SendMessage([ type := "deleterule", tag := rule->uid ]);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC BOOLEAN FUNCTION IsConnected()
+  {
+    RETURN ObjectExists(this->link);
+  }
+
+  PUBLIC OBJECT FUNCTION GetProcessListener()
+  {
+    RETURN NEW DebugProcessListener(PRIVATE this);
+  }
+
+  PUBLIC OBJECT FUNCTION CreateRule()
+  {
+    RETURN NEW ConnectRule(PRIVATE this);
+  }
+>;
+
+/** Listens to debug process job updates, keeps list.
+
+    Jobs are kept as RECORD ARRAY, we don't need separate objects for all jobs.
+*/
+STATIC OBJECTTYPE DebugProcessJobListener
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT process;
+
+  RECORD ARRAY pvt_joblist;
+
+  /// Last full update (used to calc CPU %)
+  DATETIME pvt_lastupdate;
+
+  RECORD deferred_update;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables / properties
+  //
+
+  PUBLIC FUNCTION PTR onjoblist;
+
+  PUBLIC FUNCTION PTR ondisconnect;
+
+  /** Last list of jobs
+      FIXME: document
+  */
+  PUBLIC PROPERTY joblist(pvt_joblist, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT process)
+  {
+    this->process := process;
+    this->process->ChangeJobListenerRegistration(PRIVATE this, TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotDisconnected()
+  {
+    this->process := DEFAULT OBJECT;
+    IF (this->ondisconnect != DEFAULT FUNCTION PTR)
+      this->ondisconnect();
+
+    IF (RecordExists(this->deferred_update))
+      this->deferred_update.resolve(DEFAULT RECORD ARRAY);
+  }
+
+  MACRO GotJobList(RECORD ARRAY jobs)
+  {
+    DATETIME now := GetCurrentDateTime();
+
+    IF (this->pvt_lastupdate = DEFAULT DATETIME OR this->pvt_lastupdate = now)
+      jobs := SELECT *, cpu := 0m FROM jobs;
+    ELSE
+    {
+      INTEGER diff := GetDateTimeDifference(this->pvt_lastupdate, now).msecs;
+
+      FOREVERY (RECORD job FROM jobs)
+      {
+      IF (NOT CellExists(job, "total_running"))
+        ABORT(job);
+        DATETIME runningtime := job.total_running;
+        RECORD pos := RecordLowerBound(this->pvt_joblist, job, [ "GROUPID" ]);
+        INTEGER msecs := GetMsecondCount(runningtime);
+        IF (pos.found)
+          msecs := msecs - GetMsecondCount(this->pvt_joblist[pos.position].total_running);
+
+        INSERT CELL cpu := msecs * 100m / diff INTO jobs[#job];
+      }
+    }
+
+    this->pvt_joblist := jobs;
+    this->pvt_lastupdate := now;
+
+    IF (this->onjoblist != DEFAULT FUNCTION PTR)
+      this->onjoblist(jobs);
+
+    IF (RecordExists(this->deferred_update))
+      this->deferred_update.resolve(jobs);
+    this->deferred_update := DEFAULT RECORD;
+  }
+
+  MACRO GotAddedJob(RECORD jobdata)
+  {
+    INSERT CELL cpu := 0m INTO jobdata;
+    RECORD pos := RecordLowerBound(this->pvt_joblist, jobdata, [ "GROUPID" ]);
+    IF (NOT pos.found)
+      INSERT jobdata INTO this->pvt_joblist AT pos.position;
+
+    IF (this->onjoblist != DEFAULT FUNCTION PTR)
+      this->onjoblist(this->pvt_joblist);
+  }
+
+  MACRO GotJobConnectChange(STRING groupid, BOOLEAN connected)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_joblist, [ groupid := groupid ], [ "GROUPID" ]);
+    IF (pos.found)
+      this->pvt_joblist[pos.position].connected := connected;
+
+    IF (this->onjoblist != DEFAULT FUNCTION PTR)
+      this->onjoblist(this->pvt_joblist);
+  }
+
+  MACRO GotTerminatedJob(RECORD jobdata)
+  {
+    IF (jobdata.removed)
+    {
+      RECORD pos := RecordLowerBound(this->pvt_joblist, jobdata, [ "GROUPID" ]);
+      IF (pos.found)
+        DELETE FROM this->pvt_joblist AT pos.position;
+
+      IF (this->onjoblist != DEFAULT FUNCTION PTR)
+        this->onjoblist(this->pvt_joblist);
+    }
+  }
+
+  MACRO GotRemovedJob(STRING groupid)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_joblist, [ groupid := groupid ], [ "GROUPID" ]);
+    IF (pos.found)
+      DELETE FROM this->pvt_joblist AT pos.position;
+
+    IF (this->onjoblist != DEFAULT FUNCTION PTR)
+      this->onjoblist(this->pvt_joblist);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  PUBLIC BOOLEAN FUNCTION IsConnected()
+  {
+    RETURN ObjectExists(this->process) AND this->process->IsConnected();
+  }
+
+  /** Request a new job list
+      @return Promise which will resolve to a list of jobs
+      @cell return.??? FIXME: document
+  */
+  PUBLIC OBJECT FUNCTION RequestUpdate()
+  {
+    IF (NOT ObjectExists(this->process))
+      THROW NEW Exception("Not connected");
+
+    this->process->RequestJobListUpdate(PRIVATE this);
+
+    IF (NOT RecordExists(this->deferred_update))
+      this->deferred_update := CreateDeferredPromise();
+
+    RETURN this->deferred_update.promise;
+  }
+
+  PUBLIC MACRO Close()
+  {
+    IF (this->IsConnected())
+      this->process->ChangeJobListenerRegistration(PRIVATE this, FALSE);
+
+    IF (RecordExists(this->deferred_update))
+      this->deferred_update.resolve(DEFAULT RECORD ARRAY);
+
+    this->process := DEFAULT OBJECT;
+  }
+>;
+
+STATIC OBJECTTYPE DebugJobConnector
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT pvt_process;
+
+  STRING pvt_groupid;
+
+  RECORD deferred_return;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC FUNCTION PTR onfailure; // request_gone
+
+  PUBLIC FUNCTION PTR onconnect;
+
+  /** Promise which will resolve to a job object. FIXME: when connect fails, reject? Now a resolve with DEFAULT OBJECT.
+  */
+  PUBLIC PROPERTY promise(deferred_return.promise, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT process, RECORD rec, INTEGER insertpos)
+  {
+    this->pvt_process := process;
+    this->pvt_groupid := rec.groupid;
+    rec.connector := PRIVATE this;
+
+    this->deferred_return := CreateDeferredPromise();
+
+    IF (insertpos < 0)
+    {
+      RegisterTimedCallback(AddTimeToDate(1, GetCurrentDateTime()), PTR this->GotConnectFailure("already_connected"));
+    }
+    ELSE
+    {
+      INSERT rec INTO process->pvt_jobs AT insertpos;
+
+      process->connector->link->SendMessage([ type := "jobconnect", processcode := process->processcode, groupid := this->pvt_groupid ]);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Stuff
+  //
+
+  MACRO GotConnect(RECORD status)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_process->pvt_jobs, [ groupid := this->pvt_groupid ], [ "GROUPID" ]);
+    IF (NOT pos.found)
+    {
+      this->pvt_process->connector->link->SendMessage(
+          [ type := "job-disconnect"
+          , processcode := this->pvt_process->processcode
+          , groupid :=      this->pvt_groupid
+          ]);
+
+      IF (this->onfailure != DEFAULT FUNCTION PTR)
+        this->onfailure("request_gone");
+
+      this->deferred_return.resolve(DEFAULT OBJECT);
+    }
+    ELSE
+    {
+      OBJECT job := NEW DebugJob(this->pvt_process, status, pos.position);
+      IF (this->onconnect != DEFAULT FUNCTION PTR)
+        this->onconnect(job);
+
+      this->deferred_return.resolve(job);
+    }
+  }
+
+  MACRO GotConnectFailure(STRING reason)
+  {
+    IF (this->onfailure != DEFAULT FUNCTION PTR)
+      this->onfailure(reason);
+
+    this->deferred_return.resolve(DEFAULT OBJECT);
+  }
+>;
+
+STATIC OBJECTTYPE DebugProcess
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  INTEGER64 pvt_processcode;
+
+  OBJECT connector;
+
+  OBJECT ARRAY pvt_joblisteners;
+
+  OBJECT ARRAY pvt_requested_joblist;
+
+  RECORD ARRAY pvt_jobs;
+
+  RECORD data;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC FUNCTION PTR ondisconnect;
+
+  PUBLIC PROPERTY processcode(pvt_processcode, -);
+
+  PUBLIC PROPERTY clientname(this->data.clientname, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT connector, RECORD rec, INTEGER insertpos)
+  {
+    this->connector := connector;
+    this->data := rec;
+    this->pvt_processcode := rec.processcode;
+    INSERT CELL obj := PRIVATE this INTO rec;
+    INSERT rec INTO connector->pvt_processlist AT insertpos;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetSubscribeJobList(BOOLEAN newvalue)
+  {
+    this->connector->link->SendMessage(
+        [ type := "subscribejobupdates"
+        , processcode := this->pvt_processcode
+        , enabled := newvalue
+        ]);
+
+    //LogDebug("debugger", "subscribe " || this->pvt_processcode, newvalue);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Message handling
+  //
+
+  MACRO HandleMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+  {
+    SWITCH (msg.type)
+    {
+      CASE "joblist"
+      {
+        OBJECT ARRAY list := this->pvt_requested_joblist;
+        this->pvt_requested_joblist := DEFAULT OBJECT ARRAY;
+
+        FOREVERY (OBJECT listener FROM list)
+          listener->GotJobList(msg.jobs);
+      }
+      CASE "job-started"
+      {
+        FOREVERY (OBJECT listener FROM this->pvt_joblisteners)
+          listener->GotAddedJob(msg.data);
+      }
+      CASE "job-connectedchange"
+      {
+        FOREVERY (OBJECT listener FROM this->pvt_joblisteners)
+          listener->GotJobConnectChange(msg.groupid, msg.connected);
+      }
+      CASE "job-terminated"
+      {
+        FOREVERY (OBJECT listener FROM this->pvt_joblisteners)
+          listener->GotTerminatedJob(msg.data);
+      }
+      CASE "job-removed"
+      {
+        FOREVERY (OBJECT listener FROM this->pvt_joblisteners)
+          listener->GotRemovedJob(msg.groupid);
+      }
+      CASE "job-connectfail"
+      {
+        RECORD pos := RecordLowerBound(this->pvt_jobs, msg, [ "GROUPID" ]);
+        IF (pos.found)
+        {
+          RECORD rec := this->pvt_jobs[pos.position];
+          DELETE FROM this->pvt_jobs AT pos.position;
+          IF (ObjectExists(rec.connector))
+            rec.connector->GotConnectFailure(msg.reason);
+        }
+      }
+      CASE "job-connected"
+      {
+        RECORD pos := RecordLowerBound(this->pvt_jobs, msg, [ "GROUPID" ]);
+        IF (pos.found AND ObjectExists(this->pvt_jobs[pos.position].connector))
+        {
+          this->pvt_jobs[pos.position].connector->GotConnect(msg);
+          RETURN;
+        }
+
+        OBJECT job := this->RegisterConnectedJob(msg);
+
+        // Connect wasn't requested directly. Accept if there is a rule waiting for it
+        IF (msg.metadata.connectreason = "rule")
+        {
+          IF (this->connector->HandleRuleConnect(job, msg.metadata.ruletag))
+            RETURN;
+        }
+
+        // Noone is waiting, disconnect it
+        job->Close();
+      }
+      CASE "job-disconnected"
+      {
+        RECORD pos := RecordLowerBound(this->pvt_jobs, msg, [ "GROUPID" ]);
+        IF (pos.found)
+        {
+          RECORD rec := this->pvt_jobs[pos.position];
+          DELETE FROM this->pvt_jobs AT pos.position;
+          IF (ObjectExists(rec.job))
+            rec.job->GotDisconnected();
+          ELSE
+            rec.connector->GotConnectFailure("unknown");
+        }
+      }
+      DEFAULT
+      {
+        IF (msg.type LIKE "job-*")
+        {
+          RECORD pos := RecordLowerBound(this->pvt_jobs, msg, [ "GROUPID" ]);
+          IF (pos.found AND ObjectExists(this->pvt_jobs[pos.position].job))
+          {
+            this->pvt_jobs[pos.position].job->GotMessage(msg, msgid, replyto);
+            RETURN;
+          }
+        }
+        THROW NEW Exception("Unhandled process message '" || msg.type || "'");
+      }
+    }
+  }
+
+  MACRO GotDisconnected()
+  {
+    this->pvt_processcode := 0i64;
+    this->connector := DEFAULT OBJECT;
+
+    FOREVERY (OBJECT listener FROM this->pvt_joblisteners)
+      listener->GotDisconnected();
+
+    this->pvt_joblisteners := DEFAULT OBJECT ARRAY;
+    this->pvt_requested_joblist := DEFAULT OBJECT ARRAY;
+
+    IF (this->ondisconnect != DEFAULT FUNCTION PTR)
+      this->ondisconnect();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Job listener admin
+  //
+
+  MACRO ChangeJobListenerRegistration(OBJECT listener, BOOLEAN add)
+  {
+    IF (add = (listener IN this->pvt_joblisteners)) THROW NEW Exception("Process listener bookkeeping error");
+
+    IF (add)
+      INSERT listener INTO this->pvt_joblisteners AT END;
+    ELSE
+    {
+      DELETE FROM this->pvt_joblisteners AT SearchElement(this->pvt_joblisteners, listener);
+
+      IF (listener IN this->pvt_requested_joblist)
+        DELETE FROM this->pvt_requested_joblist AT SearchElement(this->pvt_requested_joblist, listener);
+    }
+
+    IF (LENGTH(this->pvt_joblisteners) = (add ? 1 : 0) AND this->IsConnected())
+      this->SetSubscribeJobList(add);
+  }
+
+  MACRO RequestJobListUpdate(OBJECT listener)
+  {
+    INSERT listener INTO this->pvt_requested_joblist AT END;
+    IF (LENGTH(this->pvt_requested_joblist) = 1)
+      this->connector->link->SendMessage([ type := "getjoblist", processcode := this->pvt_processcode ]);
+  }
+
+  OBJECT FUNCTION RegisterConnectedJob(RECORD connectmessage)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_jobs, connectmessage, [ "GROUPID" ]);
+    IF (pos.found)
+      THROW NEW Exception("Job is already connected!");
+
+    RECORD rec :=
+        [ groupid :=    connectmessage.groupid
+        , connector :=  DEFAULT OBJECT
+        , job :=        DEFAULT OBJECT
+        ];
+
+    INSERT rec INTO this->pvt_jobs AT pos.position;
+    RETURN NEW DebugJob(PRIVATE this, connectmessage, pos.position);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC BOOLEAN FUNCTION IsConnected()
+  {
+    RETURN ObjectExists(this->connector) AND this->connector->IsConnected();
+  }
+
+  PUBLIC OBJECT FUNCTION GetJobListener()
+  {
+    RETURN NEW DebugProcessJobListener(PRIVATE this);
+  }
+
+  PUBLIC OBJECT FUNCTION ConnectToJob(STRING groupid)
+  {
+    RECORD rec :=
+        [ groupid :=    groupid
+        , connector :=  DEFAULT OBJECT
+        , job :=        DEFAULT OBJECT
+        ];
+
+    RECORD pos := RecordLowerBound(this->pvt_jobs, rec, [ "GROUPID" ]);
+    IF (pos.found)
+      RETURN NEW DebugJobConnector(PRIVATE this, rec, -1);
+    ELSE
+      RETURN NEW DebugJobConnector(PRIVATE this, rec, pos.position);
+  }
+
+  PUBLIC MACRO TerminateJob(STRING groupid)
+  {
+    this->connector->link->SendMessage([ type := "job-terminate", processcode := this->pvt_processcode, groupid := groupid ]);
+  }
+
+  PUBLIC MACRO DisconnectExternJob(STRING groupid)
+  {
+    this->connector->link->SendMessage([ type := "job-externdisconnect", processcode := this->pvt_processcode, groupid := groupid ]);
+  }
+>;
+
+
+STATIC OBJECTTYPE DebugJob
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT pvt_process;
+
+  STRING pvt_groupid;
+
+  RECORD pvt_laststatus;
+
+  RECORD ARRAY requests;
+
+  RECORD deferred_pause;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC RECORD userdata;
+
+  PUBLIC PROPERTY groupid(pvt_groupid, -);
+
+  PUBLIC FUNCTION PTR onstatuschange;
+
+  PUBLIC FUNCTION PTR ondisconnect;
+
+  PUBLIC PROPERTY laststatus(pvt_laststatus, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT process, RECORD rec, INTEGER recpos)
+  {
+    this->pvt_process := process;
+    this->pvt_groupid := rec.groupid;
+    this->pvt_laststatus := rec.status;
+    process->pvt_jobs[recpos].job := PRIVATE this;
+    process->pvt_jobs[recpos].connector := DEFAULT OBJECT;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Message handling
+  //
+
+  MACRO GotMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+  {
+    RECORD pos := RecordLowerBound(this->requests, [ msgid := replyto ], [ "MSGID" ]);
+    IF (pos.found)
+    {
+      RECORD deferred := this->requests[pos.position].deferred;
+      DELETE FROM this->requests AT pos.position;
+      deferred.resolve(msg);
+      RETURN;
+    }
+
+    SWITCH (msg.type)
+    {
+      CASE "job-statechange"
+      {
+        this->pvt_laststatus := msg.status;
+
+        IF (msg.status.realstatus IN [ "DebugStopped", "Terminated" ] AND RecordExists(this->deferred_pause))
+        {
+          this->deferred_pause.Resolve(msg.status);
+          this->deferred_pause := DEFAULT RECORD;
+        }
+
+        IF (this->onstatuschange != DEFAULT FUNCTION PTR)
+          this->onstatuschange();
+      }
+
+      DEFAULT
+      {
+        THROW NEW Exception("Unhandled job message '" || msg.type || "'");
+      }
+    }
+  }
+
+  MACRO GotDisconnected()
+  {
+    FOREVERY (RECORD req FROM this->requests)
+      req.deferred.promise->Cancel();
+
+    IF (RecordExists(this->deferred_pause))
+      this->deferred_pause.promise->Cancel();
+
+    IF (this->ondisconnect != DEFAULT FUNCTION PTR)
+      this->ondisconnect();
+  }
+
+  RECORD FUNCTION RegisterRequest(INTEGER64 msgid)
+  {
+    RECORD deferred := CreateDeferredPromise();
+    INSERT
+        [ msgid :=        msgid
+        , deferred :=     deferred
+        ] INTO this->requests AT END;
+
+    // ADDME: need an 'IF (cancellable)' here?
+    deferred.promise->canceltoken->AddCallback(deferred.reject);
+    RETURN deferred;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC OBJECT FUNCTION Pause()
+  {
+    this->pvt_process->connector->link->SendMessage(
+        [ type := "job-pause"
+        , processcode := this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        ]);
+
+    IF (NOT RecordExists(this->deferred_pause))
+    {
+      this->deferred_pause := CreateDeferredPromise();
+      this->deferred_pause.promise->canceltoken->AddCallback(this->deferred_pause.reject);
+    }
+
+    RETURN this->deferred_pause.promise;
+  }
+
+  PUBLIC MACRO ContinueJob()
+  {
+    this->pvt_process->connector->link->SendMessage(
+        [ type := "job-continue"
+        , processcode := this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        ]);
+  }
+
+  PUBLIC OBJECT FUNCTION GetVariables(RECORD ARRAY list)
+  {
+    RECORD rec := this->pvt_process->connector->link->SendMessage(
+        [ type :=         "job-getvariables"
+        , processcode :=  this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        , variables :=    list
+        ]);
+
+    RETURN this->RegisterRequest(rec.msgid).promise;
+  }
+
+  PUBLIC OBJECT FUNCTION GetLibraries()
+  {
+    RECORD rec := this->pvt_process->connector->link->SendMessage(
+        [ type :=         "job-getlibraries"
+        , processcode :=  this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        ]);
+
+    RETURN this->RegisterRequest(rec.msgid).promise;
+  }
+
+  PUBLIC OBJECT FUNCTION SetBreakpoints(RECORD config)
+  {
+    RECORD rec := this->pvt_process->connector->link->SendMessage(
+        [ type :=         "job-setbreakpoints"
+        , processcode :=  this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        , minstacksize := config.minstacksize
+        , maxstacksize := config.maxstacksize
+        , breakpoints :=  SELECT vm
+                               , liburi
+                               , compile_id
+                               , codeptr
+                               , stacksize
+                               , manual
+                            FROM config.breakpoints
+        ]);
+
+    RETURN this->RegisterRequest(rec.msgid).promise;
+  }
+
+  PUBLIC OBJECT FUNCTION GetMemorySnapshot(BOOLEAN include_unreferenced)
+  {
+    RECORD rec := this->pvt_process->connector->link->SendMessage(
+        [ type :=         "job-getmemorysnapshot"
+        , processcode :=  this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        , include_unreferenced := include_unreferenced
+        ]);
+
+    RETURN this->RegisterRequest(rec.msgid).promise;
+  }
+
+  PUBLIC OBJECT FUNCTION GetBlobReferences(BOOLEAN include_unreferenced)
+  {
+    RECORD rec := this->pvt_process->connector->link->SendMessage(
+        [ type :=         "job-getblobreferences"
+        , processcode :=  this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        , include_unreferenced := include_unreferenced
+        ]);
+
+    RETURN this->RegisterRequest(rec.msgid).promise;
+  }
+
+  PUBLIC OBJECT FUNCTION SetProfiling(STRING type, BOOLEAN enable, BOOLEAN reset)
+  {
+    IF (type NOT IN [ "function", "memory" ] AND (type != "all" OR reset))
+      THROW NEW Exception("Illegal profile type '" || type || "'");
+
+    RECORD rec := this->pvt_process->connector->link->SendMessage(
+        [ type :=         "job-setprofiling"
+        , processcode :=  this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        , profiletype :=  type
+        , enable :=       enable
+        , reset :=        reset
+        ]);
+
+    RETURN this->RegisterRequest(rec.msgid).promise;
+  }
+
+  PUBLIC OBJECT FUNCTION GetProfile(STRING type)
+  {
+    RECORD rec := this->pvt_process->connector->link->SendMessage(
+        [ type :=         "job-getprofile"
+        , processcode :=  this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        , profiletype :=  type
+        ]);
+
+    RETURN this->RegisterRequest(rec.msgid).promise;
+  }
+
+  PUBLIC MACRO Close()
+  {
+    IF (ObjectExists(this->pvt_process) AND this->pvt_process->IsConnected())
+    {
+      this->pvt_process->connector->link->SendMessage(
+          [ type := "job-disconnect"
+          , processcode := this->pvt_process->processcode
+          , groupid :=      this->pvt_groupid
+          ]);
+
+      RECORD pos := RecordLowerBound(this->pvt_process->pvt_jobs, [ groupid := this->pvt_groupid ], [ "GROUPID" ]);
+      IF (pos.found)
+        DELETE FROM this->pvt_process->pvt_jobs AT pos.position;
+    }
+    this->pvt_process := DEFAULT OBJECT;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION ConnectToDebugManager()
+{
+  OBJECT link := ConnectToIPCPort("system:whmanager");
+  IF (NOT ObjectExists(link))
+    RETURN DEFAULT OBJECT;
+
+  RECORD res := link->DoRequest([ type := "connect", port := "wh:debugmgr" ]);
+  IF (res.status != "ok" OR res.msg.status != "ok")
+  {
+    link->Close();
+    RETURN DEFAULT OBJECT;
+  }
+
+  RETURN NEW Connection(link);
+}

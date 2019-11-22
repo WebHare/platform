@@ -1,0 +1,55 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+STRING xssiteprofile :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition">'
+  || '<sitesettings>'
+  || '  <m:webruleset>'
+  || '    <m:webrule path="/subsub2/" match="initial" redirecttodir="site::betatestsubsite/sub2" />'
+  || '    <m:webrule path="/secret/" match="initial" redirecttodir="site::betatestsubsite/sub2" requirehttpauth="true">'
+  || '      <m:account username="service" password="protected"/>'
+  || '    </m:webrule>'
+  || '  </m:webruleset>'
+  || '</sitesettings>'
+  || '<sitesettings sitename="betatestsubsite">'
+  || '  <m:webruleset>'
+  || '    <m:webrule path="/sub3/" match="initial" redirecttodir="site::betatestsubsite/sub2" />'
+  || '  </m:webruleset>'
+  || '</sitesettings>'
+  || '</siteprofile>';
+
+PUBLIC MACRO SetupSite()
+{
+  testfw->BeginWork();
+
+  OBJECT site := testfw->SetupTestWebdesignWebsite(xssiteprofile, [ outputpath := "mainsite"]);
+  OBJECT site2 := testfw->SetupTestWebdesignWebsite(xssiteprofile, [ sitename := "betatestsubsite", outputpath := "subsite" ]);
+  OBJECT site2_subfolder := site2->rootobject->CreateFolder([name := "sub2"]);
+  site2_subfolder->CreateFile([name:="x.html", data := StringToBlob("Een <b>test</b> pagina"), publish := TRUE, type := 5 ]);
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(site2_subfolder->id);
+
+  testfw->RefreshWebserverConfig(); //FIXME this should be done implicitly (automatically run on CommitWork), but how to properly wait for it ?
+
+  OBJECT browser := NEW WebBrowser;
+  TestEq(TRUE, browser->GotoWebpage(site->webroot || "subsub2/x.html"), browser->url);
+  TestEq(TRUE, browser->GotoWebpage(site2->webroot || "subsub2/x.html"), browser->url);
+  TestEq(FALSE, browser->GotoWebpage(site->webroot || "sub3/x.html"), browser->url);
+  TestEq(TRUE, browser->GotoWebpage(site2->webroot || "sub3/x.html"), browser->url);
+
+  TestEq(FALSE, browser->GotoWebpage(site->webroot || "secret/x.html"), browser->url);
+  TestEq(401, browser->GetHTTPStatusCode(), browser->url);
+  browser->SetPassword(site->webroot, "service","test");
+  TestEq(FALSE, browser->GotoWebpage(site->webroot || "secret/x.html"), browser->url);
+  TestEq(401, browser->GetHTTPStatusCode(), browser->url);
+  browser->SetPassword(site->webroot, "service","protected");
+  TestEq(TRUE, browser->GotoWebpage(site->webroot || "secret/x.html"), browser->url);
+}
+
+
+RunTestFramework( [ PTR SetupSite
+                  ],
+                  [ relativeoutputfolders := TRUE //ensure config.whlib understands prefixing output folders
+                  ]);

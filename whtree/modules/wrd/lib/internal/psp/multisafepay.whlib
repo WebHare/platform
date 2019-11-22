@@ -1,0 +1,310 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+CONSTANT INTEGER expire_pending_payments := 7; //days
+
+/* api docs:
+https://docs.multisafepay.com/api
+*/
+
+OBJECT multisafepaybrowser;
+
+OBJECT FUNCTION GetBrowser()
+{
+  IF(ObjectExists(multisafepaybrowser))
+    RETURN multisafepaybrowser;
+
+  multisafepaybrowser := NEW WebBrowser;
+  IF(IsRPCTrafficLogged("wrd:payments.multisafepay"))
+    LogRPCForWebbrowser("wrd:payments.multisafepay", "", multisafepaybrowser);
+
+  RETURN multisafepaybrowser;
+}
+
+RECORD ARRAY FUNCTION GetHeaders(STRING apikey)
+{
+  RETURN [[ field := "api_key", value := apikey ]];
+}
+
+STRING FUNCTION GetApiBase(STRING mode)
+{
+  SWITCH(mode)
+  {
+    CASE "test"
+    {
+      RETURN "https://testapi.multisafepay.com/v1/json/";
+    }
+    CASE "live"
+    {
+      RETURN "https://api.multisafepay.com/v1/json/";
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Mode must be one of 'test', 'live', not: " || mode);
+    }
+  }
+}
+
+PUBLIC RECORD FUNCTION CheckMultisafepayMerchant(STRING mode, STRING apikey)
+{
+  STRING apibase := GetApiBase(mode);
+  IF(apikey = "")
+    RETURN DEFAULT RECORD;
+
+  RECORD result;
+  IF(apikey = "dummy-key") //mock methods
+  {
+    result := [ success := TRUE
+              , data := [[ id := "IDEAL", description := "iDEAL" ]
+                        ,[ id := "VISA", description := "Visa" ]
+                        ,[ id := "MASTERCARD", description := "MasterCard" ]
+                        ]
+              ];
+  }
+  ELSE
+  {
+    OBJECT browser := GetBrowser();
+    IF(NOT browser->GotoWebPage(apibase || "gateways", [ headers := GetHeaders(apikey) ]))
+      RETURN DEFAULT RECORD;
+
+    result := DecodeJSONBlob(browser->content);
+    IF(NOT result.success)
+      RETURN DEFAULT RECORD;
+  }
+  RETURN [ methods := SELECT rowkey := id, title := description FROM RECORD ARRAY(result.data)
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetCacheableIssuers(RECORD cachekey)
+{
+  STRING apibase := GetApiBase(cachekey.mode);
+
+  RECORD result;
+  IF(cachekey.apikey = "dummy-key") //mock methods
+  {
+    result := [ success := TRUE
+              , data := [[ code := "3151", description := "Test bank" ]
+                        ]
+              ];
+  }
+  ELSE
+  {
+    OBJECT browser := GetBrowser();
+    IF(NOT browser->GotoWebPage(`${apibase}issuers/${cachekey.id}`, [ headers := GetHeaders(cachekey.apikey) ]))
+      THROW NEW Exception("Unable to retrieve issuers");
+
+    result := DecodeJSONBlob(browser->content);
+    IF(NOT result.success)
+      RETURN DEFAULT RECORD;
+  }
+
+  RECORD ARRAY issuers := SELECT rowkey := code, title := description
+                            FROM RECORD ARRAY(result.data);
+
+  RETURN [ value := CELL[ issuers ]
+         ];
+}
+
+RECORD defaultpaymentdata :=
+    [ description := ""
+    , language := ""
+    , issuer := ""
+    , rawstatus := ""
+    , customer := DEFAULT RECORD
+    ];
+
+PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  RECORD msporderdata;
+
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:multisafepay", "redirect", settings)
+  {
+    this->needspaymentref := TRUE;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetPSPStatus()
+  {
+    RECORD methodsresponse := CheckMultisafepayMerchant(this->settings.testmode, this->settings.apikey);
+    IF(NOT RecordExists(methodsresponse))
+    {
+      STRING errmsg := EnforceStructure([error_info:=""], DecodeJSONBlob(multisafepaybrowser->content)).error_info;
+      RETURN [ success := FALSE, unknown := FALSE, message := errmsg ?? "Unknown error" ];
+    }
+    IF(Length(methodsresponse.methods) = 0)
+      RETURN [ success := FALSE, unknown := FALSE, message := "No methods available" ];
+    RETURN [ success := TRUE, unknown := FALSE, message := "Available methods: " || Detokenize((SELECT AS STRING ARRAY title FROM methodsresponse.methods),", ") ];
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RECORD ARRAY methods;
+    FOREVERY(RECORD method FROM this->settings.methods)
+    {
+      RECORD ARRAY issuers;
+      IF(method.rowkey = "IDEAL" AND options.getissuers)
+      {
+        issuers := this->GetIssuers(method.rowkey);
+        IF(Length(issuers) = 0)
+          CONTINUE;
+      }
+
+      INSERT [[ paymentoptiontag := method.rowkey
+              , title := method.title
+              , issuers := issuers
+              , islive := this->settings.testmode = "live"
+             ]] INTO methods AT END;
+    }
+    RETURN methods;
+  }
+
+  RECORD ARRAY FUNCTION GetIssuers(STRING id)
+  {
+    TRY
+    {
+      RECORD cachekey := CELL[ mode := this->settings.testmode, apikey := this->settings.apikey, id ];
+      RETURN WaitForPromise(GetPrecalculatedData(cachekey, Resolve("#GetCacheableIssuers"))).issuers;
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      RETURN RECORD[];
+    }
+  }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
+
+    RECORD personfields := this->GetCustomerInfo(paymentmethod);
+
+    RECORD customer;
+    IF(ObjectExists(paymentmethod.wrdpersonentity))
+    {
+      customer := [ locale :=           ToUppercase(paymentmethod.language) = "NL" ? "nl_NL" : "en_US"
+                  , first_name :=       personfields.wrd_firstname
+                  , last_name :=        TrimWhitespace(personfields.wrd_infix || " " || personfields.wrd_lastname)
+                  , "phone1" :=         personfields.wrd_contact_phone
+                  , "phone2" :=         personfields.wrd_contact_phone2
+                  , "email" :=          personfields.wrd_contact_email
+                  ];
+
+      IF(RecordExists(paymentmethod.billingaddress))
+      {
+        customer := CELL[ ...customer
+                        , address1 := paymentmethod.billingaddress.street
+                        , house_number := paymentmethod.billingaddress.nr_detail
+                        , zip_code := paymentmethod.billingaddress.zip
+                        , city := paymentmethod.billingaddress.city
+                        , country := paymentmethod.billingaddress.country
+                        ];
+      }
+    }
+    this->msporderdata := [ ...defaultpaymentdata
+                          , language := paymentmethod.language
+                          , customer := customer
+                          ];
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    this->msporderdata := EnforceStructure(defaultpaymentdata, payment.__paymentdata.m);
+    IF(this->msporderdata.issuer != "")//legacy
+      this->__issuer := this->msporderdata.issuer;
+    IF(this->msporderdata.description != "")//legacy
+      this->__orderid := this->msporderdata.description;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN this->msporderdata;
+  }
+
+  PUBLIC UPDATE STRING FUNCTION GetPayRedirectUrl(STRING paymenttok)
+  {
+    STRING returnurl := GetInternalReturnURL(paymenttok);
+    STRING apibase := GetApiBase(this->settings.testmode);
+
+    RECORD orderrec := [ type := "redirect"
+                       , gateway  := this->paymentoptiontag
+                       , order_id := this->paymentref
+                       , currency := "EUR"
+                       , amount := ToString(INTEGER(this->amountpayable*100))
+                       , description := Left(this->orderid ?? this->paymentref, 200)
+                       , payment_options :=
+                         [ notification_url := GetInternalReturnURL(paymenttok, [ isnotification := TRUE ])
+                         , redirect_url := returnurl
+                         , cancel_url := returnurl
+                         ]
+                       , customer := this->msporderdata.customer
+                       ];
+
+    IF(this->issuer != "")
+    {
+      INSERT CELL gateway_info := [ issuer_id := this->issuer ] INTO orderrec;
+      orderrec.type := "direct"; //tell MSP to bypass the gateway screen
+    }
+
+    OBJECT browser := GetBrowser();
+    IF(NOT browser->PostWebPageBlob(`${apibase}orders`,
+                                    GetHeaders(this->settings.apikey)
+                                    CONCAT
+                                    [[ field := "Content-Type", value := "application/json" ]], EncodeJSONBlob(orderrec)))
+    {
+      THROW NEW Exception("Order post failed");
+    }
+
+    RECORD result := DecodeJSONBlob(browser->content);
+    IF(NOT result.success)
+      THROW NEW Exception("Order post failed");
+
+    //GetPrimary()->BeginWork();
+    //UpdatePaymentMetadata(paymenttok, [ transaction_id := result.data.transaction_id
+    //                                  ]);
+    //GetPrimary()->CommitWork();
+
+    RETURN result.data.payment_url;
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    this->PollStatus();
+  }
+
+  MACRO PollStatus()
+  {
+    STRING apibase := GetApiBase(this->settings.testmode);
+    OBJECT browser := GetBrowser();
+
+    IF(NOT browser->GotoWebPage(`${apibase}orders/${EncodeURL(this->paymentref)}`, [ headers := GetHeaders(this->settings.apikey) ]))
+      THROW NEW Exception("Order status retrieval failed");
+
+    RECORD result := DecodeJSONBlob(browser->content);
+    IF(NOT result.success)
+      THROW NEW Exception("Order retrieve failed");
+
+    this->msporderdata.rawstatus := result.data.status;
+    //If a payment is still initialized consider it pending, unless it has been in this state for more than a week.
+    IF(this->msporderdata.rawstatus = "initialized" AND MakeDateFromText(result.data.created) > AddDaysToDate(-expire_pending_payments, GetCurrentDatetime()))
+      this->pvt_status := "pending";
+    ELSE IF (this->msporderdata.rawstatus = "completed")
+      this->pvt_status := "approved";
+    ELSE
+      this->pvt_status := "failed";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    this->PollStatus();
+    RETURN TRUE;
+  }
+
+>;

@@ -1,0 +1,271 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+RECORD FUNCTION GetModuleManifest(STRING module)
+{
+  RECORD manifest;
+  TRY
+  {
+    RETURN ParseModuleManifest(OpenXMLDoc("mod::" || module || "/history/manifest.xml",FALSE).doc);
+  }
+  CATCH(OBJECT<RetrieveResourceException> e)
+  {
+    RETURN ParseModuleManifest(DEFAULT OBJECT);
+    //ignoring retrieve errors
+  }
+}
+
+PUBLIC OBJECTTYPE ModuleVersions EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING modulename;
+
+  INTEGER updatecallback_archived;
+  INTEGER updatecallback_softreset;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->modulename := data.modulename;
+    this->frame->title := GetTid("system:sysmgmt.modules.versionstitle", this->modulename);
+    this->RefreshList();
+
+    this->updatecallback_archived := RegisterMultiEventCallback("system:modules.archivedmodule", PTR this->OnModulesChangedEvent);
+    this->updatecallback_softreset := RegisterMultiEventCallback("system:softreset", PTR this->OnModulesChangedEvent);
+  }
+
+  BOOLEAN FUNCTION Cancel()
+  {
+    UnregisterCallback(this->updatecallback_softreset);
+    UnregisterCallback(this->updatecallback_archived);
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List refresh
+  //
+
+  MACRO OnModulesChangedEvent(STRING eventname, RECORD ARRAY data)
+  {
+    this->RefreshList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List refresh
+  //
+
+  MACRO RefreshList()
+  {
+    RECORD ARRAY allmods :=
+       (SELECT *
+             , path := GetWebHareConfiguration().varroot || "installedmodules/" || name
+             , isarchive := FALSE
+          FROM ReadDiskDirectory(GetWebHareConfiguration().varroot || "installedmodules/", this->modulename || "*")
+         WHERE name = this->modulename OR name LIKE this->modulename || ".*")
+     CONCAT
+       (SELECT *
+             , path := GetWebHareConfiguration().varroot || "archivedmodules/" || name
+             , isarchive := TRUE
+          FROM ReadDiskDirectory(GetWebHareConfiguration().varroot || "archivedmodules/", this->modulename || ".*"));
+
+    allmods :=
+         SELECT *
+              , data := GetModuleDataFromFolder(path, name, isarchive)
+           FROM allmods;
+
+    RECORD ARRAY rows;
+
+    FOREVERY (RECORD rec FROM allmods)
+    {
+      STRING version, description;
+      STRING source_revision;
+      BOOLEAN packagingdownload;
+
+      BLOB moduledef := GetDiskResource(rec.path || "/moduledefinition.xml", [ allowmissing := TRUE ]);
+      IF (LENGTH(moduledef) != 0)
+      {
+        RECORD mdef := ParseModuleDefinition(rec.data.name, MakeXMLDocument(moduledef));
+        IF (RecordExists(mdef))
+        {
+          version := mdef.version;
+          packagingdownload := mdef.packagingdownload;
+          description := mdef.description;
+        }
+      }
+
+      BLOB manifestdata := GetDiskResource(rec.path || "/history/manifest.xml", [ allowmissing := TRUE ]);
+      IF (LENGTH(manifestdata) != 0)
+      {
+        RECORD manifest := ParseModuleManifest(MakeXMLDocument(manifestdata));
+        source_revision := manifest.source_revision || (manifest.has_modifications ? " " || this->GetTid(".modified") : "");
+      }
+
+      INSERT
+          [ rowkey :=           rec.path
+          , path :=             rec.path
+          , name :=             rec.data.name
+          , archived :=         rec.isarchive ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+          , orderdate :=        rec.data.moduledate
+          , uploaddate :=       rec.data.newformat ? rec.data.moduledate : DEFAULT DATETIME
+          , obsoletiondate :=   rec.data.obsoletiondate
+          , candownload :=      packagingdownload
+          , version :=          version
+          , revision :=         source_revision
+          , description :=      description
+          ] INTO rows AT END;
+    }
+
+    this->versions->rows := rows;
+  }
+
+  MACRO DoHotfixes()
+  {
+    RECORD sel := ^versions->selection;
+    this->RunScreen("#moduleinfo", [ modulename := sel.name
+                                   , path := sel.path
+                                   ]);
+  }
+
+  MACRO DoDownloadModule()
+  {
+    RECORD sel := this->versions->selection;
+    STRING module := sel.name;
+
+    OBJECT archiver := NEW ModuleArchiver;
+    archiver->SetUserData(this->tolliumuser->login, this->tolliumuser->realname);
+
+    RECORD moduledata;
+    TRY
+    {
+      moduledata := archiver->CreateArchiveFromVersion(sel.path, sel.name);
+    }
+    CATCH (OBJECT e)
+    {
+      OBJECT feedback := this->BeginFeedback();
+      feedback->AddError(e->what);
+      feedback->Finish();
+      RETURN;
+    }
+
+    LogAuditEvent(
+        "system:modules",
+        [ action :=       "download-version"
+        , module :=       module
+        , version :=      moduledata.fullversion
+        , manifestdata := GetAuditLogDataFromManifest(moduledata.manifest)
+        ]);
+
+    STRING archivename := "whmodule-" || sel.name || "-archived-" || FormatDatetime("%Y-%m-%d_%H.%M", sel.uploaddate) || ".tar.gz";
+    this->frame->SendFileToUser(moduledata.data, "application/octet-stream", GetSafeFilename(archivename), GetCurrentDateTime());
+  }
+>;
+
+
+/*
+NOTE: RPC's are not read by GetWebhareModuleInfo()
+
+Some fields/information we might also like to show:
+- authorlink
+- TOLLIUMAPPGROUP
+- runoncescripts
+- modulerightgroups
+- moduleobjects
+- modulerights <-- tonen, eventueel in boomstructuur met rightgroups??
+- fs_objecteditors
+- virtualfs
+- logfiles
+- isbuiltinmodule
+- name
+- (what is?) inputdeps
+*/
+PUBLIC STATIC OBJECTTYPE ModuleInfo EXTEND TolliumScreenBase
+< STRING modulename;
+  STRING modulepath;
+
+  MACRO Init(RECORD data)
+  {
+    this->modulename := data.modulename;
+    this->modulepath := data.path;
+    this->RefreshChangesets();
+  }
+
+  MACRO RefreshChangesets()
+  {
+    RECORD ARRAY rows :=
+        SELECT rowkey :=  "cs-" || #changesets
+             , date
+             , server
+             , userfullname
+             , source
+             , originalsarchive :=  modifications_originals_archive_path
+             , modifications :=     modifications
+             , data :=              changesets
+          FROM GetModuleManifest(this->modulename).changesets;
+
+    FOREVERY (RECORD rec FROM rows)
+      IF (RecordExists(rec.data) AND rec.data.source_revision != "")
+      {
+        ^sourcerepositoryurl->value := rec.data.source_repository_url;
+        ^sourcerepositoryuuid->value := rec.data.source_repository_uuid;
+        ^sourcerevision->value := rec.data.source_revision;
+        BREAK;
+      }
+
+    RECORD mods := GetModuleModifiedFiles(this->modulepath, FALSE);
+    IF (mods.success AND LENGTH(mods.files) != 0)
+    {
+      INSERT
+          [ rowkey :=            "hotfixes"
+          , date :=              GetCurrentDateTime()
+          , server:=             ""
+          , userfullname :=      ""
+          , source :=            this->GetTid(".hotfixes")
+          , originalsarchive :=  ""
+          , modifications :=     (SELECT path, status FROM mods.files)
+          , data :=              DEFAULT RECORD
+          ] INTO rows AT END;
+    }
+
+    ^sourcerepositoryurl->visible := ^sourcerepositoryurl->value != "";
+    ^sourcerepositoryuuid->visible := ^sourcerepositoryuuid->value != "";
+    ^sourcerevision->visible := ^sourcerevision->value != "";
+
+    ^changesets->rows := rows;
+  }
+
+  MACRO OnChangesetSelect()
+  {
+    RECORD sel := ^changesets->selection;
+
+    IF (NOT RecordExists(sel))
+      ^modifications->rows := DEFAULT RECORD ARRAY;
+    ELSE
+    {
+      ^modifications->rows :=
+          SELECT rowkey :=  path
+               , path
+               , status
+            FROM sel.modifications;
+    }
+  }
+>;

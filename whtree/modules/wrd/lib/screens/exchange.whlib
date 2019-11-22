@@ -1,0 +1,1001 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "mod::tollium/lib/backgroundtask.whlib";
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
+LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+
+STRING FUNCTION GetToks(STRING ARRAY toks)
+{
+  RETURN Detokenize( (SELECT AS STRING ARRAY EncodeExcelCSV(tok) FROM ToRecordArray(toks,"tok")), ";");
+}
+
+/* ADDME:
+   In the actual import phase, we go over the file twice: once to count, once to import. if we could save the
+   state of the importer, we might be able to skip the double-scan */
+
+PUBLIC OBJECTTYPE WRDImporter EXTEND TolliumBackgroundTask
+<
+  BLOB importdata;
+  OBJECT importer;
+  BOOLEAN analyze;
+  BOOLEAN import;
+
+  RECORD ARRAY mapped_columns;
+  RECORD ARRAY imports;
+  RECORD ARRAY examplerows;
+
+//  INTEGER newcount;
+//  INTEGER updatecount;
+  INTEGER duplicatecount;
+  INTEGER invalidcount;
+
+  INTEGER duplicatestream;
+  INTEGER invalidstream;
+
+  MACRO Init(RECORD data)
+  {
+    this->importdata := data.data;
+
+    this->importer := MakeWRDDataImporter(OpenWRDSchemaById(data.wrdschema)->GetTypeById(data.type));
+    this->importer->distinctcachesize := 50;
+    this->importer->onimportprogress := PTR this->WatchProgress;
+    this->importer->onduplicaterow := PTR this->OnDuplicateRow;
+    this->importer->oninvalidrow := PTR this->OnInvalidRow;
+    this->importer->onimportrow := PTR this->OnImportRow;
+
+    IF(data.action="import" OR data.action="preimport")
+    {
+      this->analyze := FALSE;
+      this->import := data.action="import";
+      this->importer->datahasheaders := data.datahasheaders;
+      this->importer->importsetfields := data.importsetfields;
+      this->importer->updateprecheckfilters := data.updateprecheckfilters;
+      this->importer->postfilters := data.postfilters;
+      this->importer->forcecountry := data.forcecountry;
+      this->mapped_columns := data.mapped_columns;
+
+      IF(NOT this->import)
+        this->importer->onhandlingrow := PTR this->StoreExampleRow;
+    }
+    ELSE
+    {
+      this->analyze := TRUE;
+    }
+
+    IF(NOT this->import)
+      this->importer->onloadprogress := PTR this->WatchProgress;
+  }
+
+  MACRO PrintHeaderTo(INTEGER str, STRING ARRAY prefix)
+  {
+    STRING ARRAY trueheaders := SELECT AS STRING ARRAY name FROM this->importer->GetImportColumns();
+    PrintTo(str, GetToks(prefix CONCAT trueheaders) || "\r\n");
+  }
+
+  MACRO OnImportRow(STRING ARRAY tokens, RECORD rowdata, INTEGER entityid, BOOLEAN isnew)
+  {
+    INSERT INTO this->imports(entityid, isnew)
+           VALUES(entityid, isnew)
+           AT END;
+  }
+
+  MACRO OnInvalidRow(STRING ARRAY tokens, RECORD rowdata, RECORD ARRAY errors)
+  {
+    IF(this->invalidstream=0)
+    {
+      this->invalidstream := CreateStream();
+      this->PrintHeaderTo(this->invalidstream, ["BADFIELD","ERRORCODE"]);
+    }
+    this->invalidcount := this->invalidcount + 1;
+    PrintTo(this->invalidstream, GetToks([STRING(errors[0].tag), errors[0].code] CONCAT tokens) || "\r\n");
+  }
+
+  MACRO OnDuplicateRow(STRING ARRAY tokens, RECORD rowdata, INTEGER earlier_entityid)
+  {
+    IF(this->duplicatestream=0)
+    {
+      this->duplicatestream := CreateStream();
+      this->PrintHeaderTo(this->duplicatestream, DEFAULT STRING ARRAY);
+    }
+    this->duplicatecount := this->duplicatecount + 1;
+    PrintTo(this->duplicatestream, GetToks(tokens) || "\r\n");
+  }
+
+  RECORD FUNCTION StoreExampleRow(STRING ARRAY tokens, RECORD rowdata)
+  {
+    INSERT rowdata INTO this->examplerows AT END;
+    RETURN DEFAULT RECORD;
+  }
+
+  BOOLEAN FUNCTION WatchProgress(RECORD progressdata)
+  {
+    this->status := [ status := GetTid("wrd:exchange.import.processingline", ToString(this->importer->GetNumImportRows()))
+                    , progress := FLOAT(progressdata.cur) * 100 / FLOAT(progressdata.total)
+                    ];
+
+    IF(NOT this->analyze AND NOT this->import)
+     IF(this->importer->GetNumImportRows()>=25)
+      RETURN FALSE; //enough example rows
+    RETURN TRUE;
+  }
+
+  MACRO Run()
+  {
+    this->importer->LoadImportData(this->importdata, "");
+    IF(this->analyze)
+    {
+      this->result := [ importcolumns_withheader := this->importer->GetImportColumnsIfHeaders(TRUE)
+                      , importcolumns_noheader := this->importer->GetImportColumnsIfHeaders(FALSE)
+                      , wrdcolumns := this->importer->GetImportableWRDAttributes()
+                      ];
+    }
+    ELSE
+    {
+      OBJECT work := this->BeginWork();
+
+      //continue with import
+      FOREVERY(RECORD col FROM this->mapped_columns)
+      {
+        IF(col.tag="")
+          CONTINUE;
+
+        IF(col.hasmapping)
+          this->importer->MapDomainImport(#col, col.tag, col.subfield, col.mapping);
+        ELSE
+          this->importer->MapDirectImport(#col, col.tag, col.subfield);
+      }
+
+      this->importer->RunImport();
+      work->Finish();//FIXME error handling
+
+      this->result := [ duplicatecount := this->duplicatecount
+                      , invalidcount := this->invalidcount
+                      , imports := this->imports
+//                      , newcount := this->newcount
+//                      , updatecount := this->updatecount
+                      , duplicatecsv := this->duplicatestream != 0 ? MakeBlobFromStream(this->duplicatestream) : DEFAULT BLOB
+                      , invalidcsv := this->invalidstream != 0 ? MakeBlobFromStream(this->invalidstream) : DEFAULT BLOB
+                      , examplerows := this->examplerows
+                      ];
+    }
+  }
+>;
+
+INTEGER max_distinct_values := 50; //ADDME: Set through registry?
+RECORD FUNCTION AnalyzeHeader(RECORD ARRAY toks, INTEGER colindex, BOOLEAN have_header_line)
+{
+  STRING title;
+  INTEGER numvalues;
+  STRING example;
+  RECORD ARRAY distinct_values;
+  BOOLEAN too_many_distinct;
+
+  FOREVERY(RECORD tok FROM toks)
+  {
+    STRING thistok;
+    IF(colindex < Length(tok.tokens))
+      thistok := tok.tokens[colindex];
+
+    IF(#tok=0 AND have_header_line)
+    {
+      title := thistok;
+      CONTINUE;
+    }
+
+    IF(thistok!="")
+    {
+      IF(example="")
+        example:=thistok;
+      numvalues := numvalues + 1;
+    }
+
+    IF(NOT too_many_distinct)
+    {
+      STRING upthistok := ToUppercase(thistok);
+      INTEGER pos := -1;
+      FOREVERY(RECORD val FROM distinct_values)
+        IF(val.value = upthistok)
+        {
+          pos:=#val;
+          BREAK;
+        }
+
+      IF(pos=-1)
+      {
+        INSERT INTO distinct_values(value, title, numsofar, outvalid)
+               VALUES(upthistok, thistok, 1, 0)
+               AT END;
+
+        IF(Length(distinct_values)>max_distinct_values)
+          too_many_distinct := TRUE;
+      }
+      ELSE
+      {
+        distinct_values[pos].numsofar := distinct_values[pos].numsofar + 1;
+      }
+    }
+  }
+  distinct_values := SELECT * FROM distinct_values ORDER BY value;
+  RETURN [ id := colindex
+         , title := title
+         , numvalues := numvalues
+         , example := example
+         , distinct_values := distinct_values
+         , too_many_distinct := too_many_distinct
+         , importtag := ""
+         ];
+}
+
+PUBLIC OBJECTTYPE Import EXTEND TolliumScreenBase
+<
+  PUBLIC OBJECT intype;
+  PUBLIC OBJECT importtask;
+
+  PUBLIC BLOB invalidcsv;
+  PUBLIC BLOB duplicatecsv;
+
+  STRING ARRAY pvt_uc_blacklist_wrdcolumns;
+  STRING ARRAY pvt_uc_whitelist_wrdcolumns;
+  STRING ARRAY pvt_uc_summary_hide_wrdcolumns;
+
+  RECORD analyzeresult;
+
+  //currently selected mappings
+  RECORD ARRAY mapped_columns;
+  //number of custom pages
+  INTEGER num_preimport_pages;
+
+  PUBLIC PROPERTY importdata(GetImportData, SetImportData);
+  ///Tags of columns that must be linked or set, in addition to any required columns defined in WRD itself
+  PUBLIC STRING ARRAY require_wrdcolumns;
+  ///Tags of columns that may be linked or set. If set, the dialog will only use these tags!
+  PUBLIC PROPERTY whitelist_wrdcolumns(pvt_uc_whitelist_wrdcolumns, SetWhitelistWRDColumns);
+  ///Tags of columns that may *not* be linked or set
+  PUBLIC PROPERTY blacklist_wrdcolumns(pvt_uc_blacklist_wrdcolumns, SetBlacklistWRDColumns);
+  ///Set up implicit and unchangable import set fields
+  PUBLIC RECORD require_importsetfields;
+  ///Set up implicit and unchangable precheck filters
+  PUBLIC RECORD ARRAY require_updateprecheckfilters;
+  ///Set up implicit and unchangable post filters
+  PUBLIC RECORD ARRAY require_postfilters;
+  ///Text than can be used to add a description, for example an explanation
+  PUBLIC PROPERTY importdescription(-, SetImportDescription);
+  ///Frame (window) title
+  PUBLIC PROPERTY frametitle(-, SetFrameTitle);
+  ///Force country to a specific value on imports
+  PUBLIC STRING forcecountry;
+  ///Tags of columns that are hidden in the summary overview
+  PUBLIC PROPERTY summary_hide_wrdcolumns(pvt_uc_summary_hide_wrdcolumns, SetSummaryHideWRDColumns);
+
+  ///Result imports
+  RECORD ARRAY imports;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->intype := data.intype;
+    this->frame->flags.canlinkitem := FALSE;
+
+    this->RegisterLocalDragType("local:importcolumn", [ "islinked" ]);
+    this->RegisterLocalDragType("local:targetattribute", [ "islinkable" ]);
+  }
+
+  MACRO SetImportDescription(STRING descr)
+  {
+    this->importdescriptionpanel->visible := TRUE;
+    this->importdescriptiontext->value := descr;
+  }
+
+  MACRO SetFrameTitle(STRING title)
+  {
+    this->frame->title := title;
+  }
+
+  MACRO SetBlacklistWRDColumns(STRING ARRAY cols)
+  {
+    FOREVERY (STRING col FROM cols)
+      cols[#col] := ToUpperCase(col);
+
+    this->pvt_uc_blacklist_wrdcolumns := cols;
+  }
+
+  MACRO SetWhitelistWRDColumns(STRING ARRAY cols)
+  {
+    FOREVERY (STRING col FROM cols)
+      cols[#col] := ToUpperCase(col);
+
+    this->pvt_uc_whitelist_wrdcolumns := cols;
+  }
+
+  MACRO SetSummaryHideWRDColumns(STRING ARRAY cols)
+  {
+    FOREVERY (STRING col FROM cols)
+      cols[#col] := ToUpperCase(col);
+
+    this->pvt_uc_summary_hide_wrdcolumns := cols;
+  }
+
+  /** @short Get imported entities
+      @return The imported entities
+      @cell(integer) return.entityid Entityid
+      @cell(boolean) return.isnew True if this entity is a new import
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetImportedEntities()
+  {
+    RETURN this->imports;
+  }
+
+  PUBLIC OBJECT FUNCTION CreatePreImportPage(MACRO PTR oninit, FUNCTION PTR onnext)
+  {
+    OBJECT panel := this->CreateTolliumComponent('panel');
+    INSERT [ pagepanel := panel
+           , isfinish := FALSE
+           , oninit := oninit
+           , onnext := onnext
+           ] INTO this->wizard->pagelist AT this->num_preimport_pages;
+    this->num_preimport_pages := this->num_preimport_pages + 1;
+    this->wizard->ClearPageHistory();
+    RETURN panel;
+  }
+
+  BLOB FUNCTION GetImportData()
+  {
+    RETURN RecordExists(this->importfile->value) ? this->importfile->value.data : DEFAULT BLOB;
+  }
+
+  MACRO SetImportData(BLOB newdata, STRING filename)
+  {
+    this->importfile->value := ScanBlob(newdata, filename);
+    this->wizard->GotoNextPage();
+  }
+
+  //////////////////////////////////////////////////////////////////
+  //
+  // Data Page
+  //
+
+  BOOLEAN FUNCTION RunAnalyze()
+  {
+    this->importtask := CreateProgressDialog(this
+                                            ,"mod::wrd/lib/screens/exchange.whlib"
+                                            ,"WRDImporter"
+                                            ,[ type := this->intype->id
+                                             , wrdschema := this->intype->wrdschema->id
+                                             , data := this->importfile->value.data
+                                             , status := GetTid("wrd:exchange.import.analyzing")
+                                             , action := "analyze"
+                                             ]
+                                            );
+    IF(this->importtask->RunModal() != "ok")
+      RETURN FALSE;
+
+    this->analyzeresult := this->importtask->result;
+
+    //reset mapped columns. for this purpose, it doesn't matter with columns we take
+    this->mapped_columns := RepeatElement([ tag := ""
+                                          , title := ""
+                                          , subfield := ""
+                                          , mapping := DEFAULT RECORD ARRAY
+                                          , hasmapping := FALSE
+                                          ], LENGTH(this->analyzeresult.importcolumns_noheader));
+
+
+    //Automatch columns and mappings where possible
+
+    RETURN TRUE;
+  }
+
+  MACRO OnImportDataPageInit(RECORD pagedata)
+  {
+    //this->wizard->nextbutton->enabled := RecordExists(this->importfile->value);
+  }
+  BOOLEAN FUNCTION OnBeforeImportFileChange(RECORD newfilevalue)
+  {
+    IF(newfilevalue.mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+      RETURN TRUE;
+    IF(newfilevalue.mimetype LIKE "text/*" AND newfilevalue.mimetype NOT LIKE "text/html")
+      RETURN TRUE;
+
+    RETURN this->RunMessageBox(".apparentlynotcsv")="yes";
+  }
+  MACRO OnImportFileChange()
+  {
+    this->wizard->GotoNextPage();
+  }
+  BOOLEAN FUNCTION OnImportDataPageNext()
+  {
+    OBJECT work := this->BeginFeedback();
+    IF(work->Finish())
+      RETURN this->RunAnalyze();
+    ELSE
+      RETURN FALSE;
+  }
+
+
+  //////////////////////////////////////////////////////////////////
+  //
+  // Columns Page
+  //
+  MACRO DoUpdateMapping()
+  {
+    RECORD inrow := this->incolumns->selection;
+    RECORD sourcerow := this->mapped_columns[inrow.rowkey];
+
+    BOOLEAN isrequired := sourcerow.tag IN this->require_wrdcolumns;
+                          //OR this->intype->GetAttribute(sourcerow.tag).isrequired;
+
+    OBJECT domainmapper := this->LoadScreen(".mapdomain"
+                                           , [ intype := this->intype
+                                             , basetag := sourcerow.tag
+                                             , vals := inrow.distinctvalues
+                                             , mapping := sourcerow.mapping
+                                             , isrequired := isrequired
+                                             ]
+                                           );
+    IF(domainmapper->RunModal() != "ok")
+      RETURN;
+
+    this->mapped_columns[inrow.rowkey].mapping := domainmapper->GetMapping();
+  }
+
+  MACRO UnlinkField(INTEGER rowkey)
+  {
+    this->mapped_columns[rowkey].tag := "";
+    this->mapped_columns[rowkey].title := "";
+
+    this->BuildWRDColumnsList();
+    this->BuildImportColumnsList();
+  }
+
+  MACRO DoDeleteLink()
+  {
+    this->UnlinkField(this->incolumns->value);
+  }
+
+  MACRO BuildImportColumnsList()
+  {
+    BOOLEAN haveheaders := this->headertype->value = "withheaders";
+    RECORD ARRAY headers;
+    FOREVERY(RECORD hdrfield FROM haveheaders ? this->analyzeresult.importcolumns_withheader : this->analyzeresult.importcolumns_noheader)
+    {
+      RECORD hdr := [ rowkey := #hdrfield
+                    , columnname := hdrfield.name
+                    , exampledata := hdrfield.firstvalue
+                    , overflow := hdrfield.distinctoverflow
+                    , distinctvalues := hdrfield.distinctvalues
+
+                    , islinked := this->mapped_columns[#hdrfield].tag != ""
+                    , tag := this->mapped_columns[#hdrfield].tag
+                    , importcolumn := this->mapped_columns[#hdrfield].title
+                    , typeicon := 0 // FIXME display attributetype of mapped WRD field
+                                    // If fixed, re-enable in screen XML
+                    , ismapped := this->mapped_columns[#hdrfield].tag != "" AND Length(this->mapped_columns[#hdrfield].mapping) > 0
+                    , draginfo :=   [ type := "local:importcolumn"
+                                    , data := [ rowkey := #hdrfield
+                                              , islinked := this->mapped_columns[#hdrfield].tag != ""
+                                              ]
+                                    ]
+                    ];
+      INSERT hdr INTO headers AT END;
+    }
+    this->incolumns->rows := headers;
+  }
+
+  RECORD ARRAY FUNCTION GenerateAddressSubs(RECORD impcol)
+  {
+    //ADDME get fields for all linked countries?
+    RECORD ARRAY addressfields;
+    IF(this->forcecountry = "")
+      addressfields := [[ tag := "COUNTRY", title := GetTid("wrd:exchange.import.country"), requiresimportmap := TRUE ]];
+
+    RECORD ARRAY subfields := GetWRDAddressInfo(this->forcecountry ?? "NL", GetTidLanguage());
+    addressfields := addressfields CONCAT
+                        (SELECT *
+                              , requiresimportmap := FALSE
+                           FROM subfields
+                       ORDER BY ordering);
+
+    STRING ARRAY usedfields := SELECT AS STRING ARRAY ToUppercase(subfield) FROM this->mapped_columns WHERE tag = impcol.tag;
+    RETURN SELECT subfield := tag
+                , title
+                , requiresimportmap
+
+                , rowkey := impcol.tag || "." || tag
+                , longtitle := title || " (" || impcol.title || ")"
+                , expanded := FALSE
+                , toplevel := FALSE
+                , attributetype := 0
+                , domain := 0
+                , typeicon := 0
+                , isrequired := FALSE
+                , islinkable := TRUE
+                , basetag := impcol.tag
+                , draginfo :=   [ type := "local:targetattribute"
+                                , data := [ rowkey := impcol.tag || "." || tag
+                                          , islinkable := TRUE
+                                          ]
+                                ]
+             FROM addressfields
+            WHERE tag NOT IN usedfields;
+  }
+
+  MACRO BuildWRDColumnsList()
+  {
+    STRING ARRAY usedfields := SELECT AS STRING ARRAY ToUpperCase(tag) FROM this->mapped_columns WHERE subfield="";
+    STRING ARRAY requiredfields := SELECT AS STRING ARRAY tag
+                                     FROM this->intype->ListAttributes(0)
+                                    WHERE ToUppercase(tag) IN this->require_wrdcolumns;
+    RECORD ARRAY wrdcolumns := SELECT rowkey := tag
+                                    , basetag := tag
+                                    , subfield := ""
+                                    , title := title ?? tag
+                                    , longtitle := title
+                                    , subnodes := attributetype = 3 ? this->GenerateAddressSubs(impcol) : DEFAULT RECORD ARRAY
+                                    , islinkable := attributetype != 3
+                                    , expanded := FALSE
+                                    , toplevel := TRUE
+                                    , attributetype
+                                    , typeicon := (attributetype + 1)
+                                    , stringicon := ToString((attributetype + 1))
+                                    , domain
+                                    , requiresimportmap
+                                    , style := (tag IN requiredfields ? "isrequired" : "")
+                                    , draginfo :=   [ type := "local:targetattribute"
+                                                    , data := [ rowkey := tag
+                                                              , islinkable := attributetype != 3
+                                                              ]
+                                                    ]
+                                 FROM this->analyzeresult.wrdcolumns AS impcol
+                                WHERE ToUpperCase(tag) NOT IN usedfields
+                                      AND ToUpperCase(tag) NOT IN this->blacklist_wrdcolumns
+                                      AND (Length(this->whitelist_wrdcolumns) > 0 ? ToUpperCase(tag) IN this->whitelist_wrdcolumns : TRUE)
+                             ORDER BY NormalizeText(title, this->tolliumuser->language),tag;
+    this->wrdcolumns->rows := wrdcolumns;
+  }
+
+  MACRO OnColumnsPageInit(RECORD pagedata)
+  {
+    //this->wizard->nextbutton->enabled := TRUE;
+    this->BuildWRDColumnsList();
+    this->BuildImportColumnsList();
+  }
+
+  BOOLEAN FUNCTION OnColumnsPageNext()
+  {
+    OBJECT feedback := this->BeginFeedback();
+    STRING ARRAY linkedfields := SELECT AS STRING ARRAY tag FROM this->mapped_columns WHERE tag!="";
+    IF(Length(linkedfields)=0)
+    {
+      feedback->AddError(GetTid("wrd:exchange.import.errors.nocolumnslinked"));
+    }
+    ELSE
+    {
+      //Any required columns unlinked?
+      RECORD ARRAY unlinked_reqcolumns := SELECT title
+                                            FROM this->intype->ListAttributes(0)
+                                           WHERE (ToUppercase(tag) IN this->require_wrdcolumns)
+                                                 AND tag NOT IN linkedfields;
+
+      FOREVERY(RECORD col FROM unlinked_reqcolumns)
+        feedback->AddError(GetTid("wrd:exchange.import.errors.requiredcolumnunlinked", col.title));
+
+      RECORD ARRAY recommended_columns := SELECT title
+                                            FROM this->intype->ListAttributes(0)
+                                           WHERE isrequired
+                                                 AND (ToUppercase(tag) NOT IN this->require_wrdcolumns)
+                                                 AND tag NOT IN linkedfields;
+      FOREVERY(RECORD col FROM recommended_columns)
+        feedback->AddWarning(GetTid("wrd:exchange.import.warnings.shouldlinkrequired", col.title));
+
+      RECORD ARRAY linked_attributes := SELECT * FROM this->intype->ListAttributes(0) WHERE tag IN linkedfields;
+
+      //Check any address fields. If street, zip, city or country (if not forced) is entered, the rest should be
+      //entered as well
+      RECORD ARRAY linked_address_attributes := SELECT * FROM linked_attributes WHERE attributetype = 3;
+
+      IF (Length(linked_address_attributes) > 0)
+      {
+        // Collect the required address fields
+        STRING ARRAY required_address_fields := [ "STREET", "ZIP", "CITY" ];
+        IF (this->forcecountry = "")
+          INSERT "COUNTRY" INTO required_address_fields AT END;
+
+        // For each linked address attribute, check whether every address field was linked to an import column
+        FOREVERY (RECORD address_attr FROM linked_address_attributes)
+        {
+          STRING ARRAY req_address_fields := required_address_fields; // save the address fields to check locally; this array needs to become empty
+          RECORD ARRAY linkedsubfields := SELECT * FROM this->mapped_columns WHERE tag = address_attr.tag;
+          FOREVERY (RECORD linkedsubfield FROM linkedsubfields)
+          {
+            // If field was linked, we can remove it from our check array
+            INTEGER pos := SearchElement(req_address_fields, linkedsubfield.subfield);
+            IF (pos != -1)
+              DELETE FROM req_address_fields AT pos;
+          }
+
+          IF (Length(req_address_fields) > 0) // There are required sub fields left. Error!
+          {
+            // Collect the address field titles for a friendly error
+            STRING ARRAY addrfield_titles;
+            STRING error := GetTid("wrd:exchange.import.errors.requiredaddressfields", address_attr.title);
+            FOREVERY (STRING field FROM req_address_fields)
+            {
+              STRING fieldtitle := SELECT AS STRING title
+                                     FROM this->wrdcolumns->rows
+                                    WHERE rowkey = address_attr.tag || "." || field;
+
+              error := error || "- " || fieldtitle || "\n";
+            }
+
+            feedback->AddError(error);
+          }
+        }
+      }
+    }
+    IF(NOT feedback->Finish())
+      RETURN FALSE;
+
+    //Convert the previewlines using current mapping, convert it to textual
+    //data (ADDME the querybuilder used to be able to do it - merge/join?) for preview presentation
+
+    OBJECT preimporttask := this->CreateImporter(TRUE);
+    IF(preimporttask->RunModal() != "ok")
+    {
+      this->wizard->GotoPreviousPage();
+      RETURN FALSE;
+    }
+
+    RECORD ARRAY examplerows := SELECT AS RECORD ARRAY [ data := rows ] FROM preimporttask->result.examplerows AS rows;
+
+    // Hide any summary columsn?
+    IF (Length(this->summary_hide_wrdcolumns) > 0)
+    {
+      FOREVERY (RECORD examplerow FROM examplerows)
+      {
+        FOREVERY (STRING hidecol FROM this->summary_hide_wrdcolumns)
+          examplerows[#examplerow].data := CellDelete(examplerow.data, hidecol);
+      }
+    }
+    FillWRDList(this->previewrows, examplerows, [[ tag := "data", type := this->intype ]]);
+    RETURN TRUE;
+  }
+
+  PUBLIC MACRO OnHeaderTypeChange()
+  {
+    this->BuildImportColumnsList();
+  }
+
+  MACRO DoMap()
+  {
+    this->LinkAvailableField(this->wrdcolumns->selection, this->incolumns->selection);
+  }
+
+  MACRO OnIncolumnDrop(RECORD dropdata, RECORD target, STRING action, STRING type)
+  {
+    FOREVERY (RECORD item FROM dropdata.items)
+    {
+      RECORD sourcerow := SELECT * FROM this->wrdcolumns->rows WHERE rowkey = item.data.rowkey;
+      this->LinkAvailableField(sourcerow, target);
+    }
+  }
+
+  MACRO OnWRDColumnDrop(RECORD dropdata, RECORD target, STRING action, STRING type)
+  {
+    FOREVERY (RECORD item FROM dropdata.items)
+      this->UnlinkField(item.data.rowkey);
+  }
+
+  MACRO LinkAvailableField(RECORD sourcerow, RECORD destrow)
+  {
+    IF(sourcerow.requiresimportmap)
+    {
+      IF(destrow.overflow)
+      {
+        this->RunMessageBox(".distinctoverflow");
+        RETURN;
+      }
+
+      BOOLEAN isrequired := sourcerow.basetag IN this->require_wrdcolumns
+                            OR this->intype->GetAttribute(sourcerow.basetag).isrequired;
+
+      OBJECT domainmapper := this->LoadScreen(".mapdomain"
+                                             , [ intype := this->intype
+                                               , basetag := sourcerow.basetag
+                                               , vals := destrow.distinctvalues
+                                               , mapping := DEFAULT RECORD ARRAY
+                                               , isrequired := isrequired
+                                               ]
+                                             );
+      IF(domainmapper->RunModal() != "ok")
+        RETURN;
+
+      this->mapped_columns[destrow.rowkey].mapping := domainmapper->GetMapping();
+    }
+
+    this->mapped_columns[destrow.rowkey].hasmapping := sourcerow.requiresimportmap;
+    this->mapped_columns[destrow.rowkey].tag := sourcerow.basetag;
+    this->mapped_columns[destrow.rowkey].subfield := sourcerow.subfield;
+    this->mapped_columns[destrow.rowkey].title := sourcerow.title;
+
+    this->BuildWRDColumnsList();
+    this->BuildImportColumnsList();
+  }
+
+  MACRO OnInColumnsSelect()
+  {
+    this->frame->flags.canlinkitem := RecordExists(this->incolumns->selection) AND RecordExists(this->wrdcolumns->selection);
+  }
+
+  MACRO OnWrdColumnsSelect()
+  {
+    this->frame->flags.canlinkitem := RecordExists(this->incolumns->selection) AND RecordExists(this->wrdcolumns->selection);
+  }
+
+  //////////////////////////////////////////////////////////////////
+  //
+  // Import Preview
+  //
+
+  OBJECT FUNCTION CreateImporter(BOOLEAN preimport)
+  {
+    RECORD data := [ type := this->intype->id
+                   , wrdschema := this->intype->wrdschema->id
+                   , data := this->importdata
+                   , status := preimport ? GetTid("wrd:exchange.import.previewing") : GetTid("wrd:exchange.import.importing")
+                   , action := preimport ? "preimport" : "import"
+                   , datahasheaders := this->headertype->value = "withheaders"
+                   , mapped_columns := this->mapped_columns
+                   , importsetfields := this->require_importsetfields
+                   , updateprecheckfilters := this->require_updateprecheckfilters
+                   , postfilters := this->require_postfilters
+                   , forcecountry := this->forcecountry
+                   ];
+
+    RETURN CreateProgressDialog(this
+                               ,"mod::wrd/lib/screens/exchange.whlib"
+                               ,"WRDImporter"
+                               ,data
+                               );
+  }
+
+  PUBLIC MACRO OnStartImportInit(RECORD data)
+  {
+  }
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    /* FIXME reuse existing work dialog... */
+    this->importtask := this->CreateImporter(FALSE);
+    IF(this->importtask->RunModal()!="ok")
+      RETURN FALSE;
+
+    OBJECT finalscreen := this->LoadScreen(".importresults", [ result := this->importtask->result ]);
+    finalscreen->RunModal();
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE ImportResults EXTEND TolliumScreenBase
+<
+  RECORD result;
+
+  MACRO Init(RECORD data)
+  {
+    this->result := data.result;
+
+    INTEGER numnew := Length(SELECT FROM this->result.imports WHERE isnew);
+
+    this->numnew->value := ToString(numnew);
+    this->numupdate->value := ToString(Length(this->result.imports) - numnew);
+    this->numinvalid->value := ToString(this->result.invalidcount);
+    this->numduplicate->value := ToString(this->result.duplicatecount);
+
+    this->downloadduplicate_button->visible := Length(this->result.duplicatecsv) > 0;
+    this->downloadinvalid_button->visible := Length(this->result.invalidcsv) > 0;
+  }
+
+  PUBLIC MACRO dodownloadduplicate()
+  {
+    this->frame->SendFileToUser(this->result.duplicatecsv, "text/csv", "duplicate.csv", GetCurrentDatetime());
+  }
+  PUBLIC MACRO dodownloadinvalid()
+  {
+    this->frame->SendFileToUser(this->result.invalidcsv, "text/csv", "invalid.csv", GetCurrentDatetime());
+  }
+>;
+
+VARIANT FUNCTION ParseCSVVal(STRING inval, INTEGER attrtype)
+{
+  inval := TrimWhitespace(inval);
+  IF(attrtype=15)
+    RETURN ToInteger(inval,0);
+  ELSE
+    RETURN inval;
+}
+
+VARIANT FUNCTION ParseCSVDomainVal(STRING inval, INTEGER attrtype, RECORD ARRAY distinct_values)
+{
+  inval := TrimWhitespace(inval);
+  INTEGER val := SELECT AS INTEGER outvalid FROM distinct_values WHERE value = inval;
+
+  IF(attrtype=16) //boolean
+    RETURN val = 2;
+  ELSE
+    RETURN val;
+}
+
+PUBLIC OBJECTTYPE MapDomain EXTEND TolliumScreenBase
+<
+  BOOLEAN isboolmap;
+  BOOLEAN isstringmap;
+  BOOLEAN isrequired;
+
+  MACRO Init(RECORD data)
+  {
+    this->RegisterLocalDragType("local:allowedval", DEFAULT STRING ARRAY);
+    this->RegisterLocalDragType("local:inval", [ "ismapped"]);
+
+    RECORD ARRAY domain;
+    RECORD attrinfo := data.intype->GetAttribute(data.basetag);
+    RECORD ARRAY mapping := data.mapping;
+
+    this->isrequired := data.isrequired;
+    IF(attrinfo.attributetype = 16) //convert bool to int
+    {
+      this->isboolmap := TRUE;
+      mapping := SELECT mapsto := mapsto ? "1" : "0", value FROM mapping;
+    }
+
+    IF(attrinfo.attributetype = 1) //Generate a simple list
+    {
+      //ADDME: Don't offer empty if the field is required
+
+      domain := SELECT rowkey := ToString(id), title FROM data.intype->ListDomVals(data.basetag);
+      mapping := SELECT mapsto := ToString(mapsto), value FROM mapping;
+
+      IF(NOT this->isrequired)
+      {
+        INSERT [rowkey := "0" , title := GetTid("wrd:exchange.mapdomain.novalue")] INTO domain AT 0;
+      }
+      //RECORD ARRAY domaininfo := GetMyDomain(impcol.tag, impcol.domain);
+    }
+    ELSE IF(attrinfo.attributetype = 3) //this must be the country field
+    {
+      this->isstringmap := TRUE;
+      RECORD ARRAY countries := data.intype->wrdschema->GetCountryListing();
+      domain := SELECT rowkey := code, title := country FROM countries;
+    }
+    ELSE
+    {
+      domain := [ [ rowkey := "0", title := GetTid("tollium:common.labels.no") ]
+                , [ rowkey := "1", title := GetTid("tollium:common.labels.yes") ]
+                ];
+    }
+
+    domain :=
+        SELECT *
+             , draginfo :=  [ type := "local:allowedval"
+                            , data :=  [ rowkey :=  rowkey
+                                       , title :=   title
+                                       ]
+                            ]
+          FROM domain;
+
+    this->allowedvals->rows := domain;
+
+    RECORD ARRAY vals := SELECT inval      := value
+                              , occurences := num
+                              , outval   := (SELECT AS STRING mapsto FROM mapping WHERE mapping.value = vals.value)
+                              , rowkey := #vals
+                           FROM data.vals
+                       ORDER BY value;
+
+    this->invals->rows := SELECT *
+                               , maptoval   := outval = "" ? "" : (SELECT AS STRING title FROM domain WHERE domain.rowkey = vals.outval)
+                               , ismapped := outval != ""
+                               , draginfo :=  [ type :=   "local:inval"
+                                              , data :=   [ rowkey := rowkey
+                                                          , ismapped := outval != ""
+                                                          ]
+                                              ]
+                            FROM vals;
+
+    this->frame->flags.canmapitem := FALSE;
+  }
+
+  MACRO DoMap()
+  {
+    this->LinkDomainMap(this->allowedvals->selection, this->invals->selection);
+  }
+
+  MACRO OnInvalDrop(RECORD draginfo, RECORD destrow, STRING action, STRING type)
+  {
+    FOREVERY (RECORD item FROM draginfo.items)
+      this->LinkDomainMap(item.data, destrow);
+  }
+
+  MACRO LinkDomainMap(RECORD allowedvals_selection, RECORD invals_selection)
+  {
+    UPDATE this->invals->rows
+       SET outval := allowedvals_selection.rowkey
+         , maptoval := allowedvals_selection.title
+         , ismapped := TRUE
+         , draginfo :=  [ type :=   "local:inval"
+                        , data :=   [ rowkey := rowkey
+                                    , ismapped := TRUE
+                                    ]
+                        ]
+     WHERE rowkey = invals_selection.rowkey;
+  }
+
+  MACRO OnAllowedValDrop(RECORD draginfo, RECORD destrow, STRING action, STRING type)
+  {
+    FOREVERY (RECORD item FROM draginfo.items)
+    {
+      UPDATE this->invals->rows
+         SET outval := ""
+           , maptoval := ""
+           , ismapped := FALSE
+           , draginfo :=  [ type :=   "local:inval"
+                          , data :=   [ rowkey := rowkey, ismapped := FALSE ]
+                          ]
+       WHERE rowkey = item.data.rowkey;
+    }
+  }
+
+  MACRO DoUnMap()
+  {
+    UPDATE this->invals->rows
+       SET outval := ""
+         , maptoval := ""
+         , ismapped := FALSE
+         , draginfo :=  [ type :=   "local:inval"
+                        , data :=   [ rowkey := rowkey, ismapped := FALSE ]
+                        ]
+     WHERE rowkey = this->invals->value;
+  }
+
+  MACRO onlistselect()
+  {
+    this->frame->flags.canmapitem := RecordExists(this->invals->selection) AND RecordExists(this->allowedvals->selection);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetMapping()
+  {
+    IF(this->isboolmap)
+    {
+      RETURN SELECT value := inval
+                  , mapsto := outval = "1"
+               FROM this->invals->rows;
+    }
+    ELSE IF(this->isstringmap)
+    {
+      RETURN SELECT value := inval
+                  , mapsto := outval
+               FROM this->invals->rows;
+    }
+    ELSE
+    {
+      RETURN SELECT value := inval
+                  , mapsto := ToInteger(outval,0)
+               FROM this->invals->rows;
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    IF((this->isrequired OR this->isboolmap) AND RecordExists(SELECT FROM this->invals->rows WHERE maptoval = ""))
+      work->AddError(GetTid("wrd:exchange.mapdomain.notallassigned"));
+    RETURN work->Finish();
+  }
+
+>;

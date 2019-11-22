@@ -1,0 +1,1115 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/consilio.whlib";
+
+
+PUBLIC INTEGER ttl_wrdschemacache := 5 * 60 * 1000;
+
+PUBLIC STRING worldinfo_ns := "http://www.webhare.net/xmlns/wrd/worldinfo";
+PUBLIC STRING query_ns := "http://www.webhare.net/xmlns/wrd/query";
+PUBLIC STRING ARRAY builtin_wrdtypes := ["WRD_RELATION","WRD_PERSON","WRD_ORGANIZATION"];
+
+PUBLIC STRING ARRAY attrtypes := [ "DOMAIN", /*2*/"FREE", "ADDRESS", "EMAIL", "TELEPHONE", "DATE", "PASSWORD"
+                                 , "DOMAINARRAY", /*9*/"IMAGE", "FILE", "TIME", "DATETIME",/*13*/  "ARRAY", "MONEY"
+                                 , "INTEGER", "BOOLEAN", "RICHDOCUMENT", "INTEGER64", /*19*/"WHFSINSTANCE", "WHFSINTEXTLINK"
+                                 , /*21*/"URL", /*22*/"RECORD", /*23*/"ENUM", /*24*/"ENUMARRAY", /*25*/"PAYMENTPROVIDER", /*26*/"PAYMENT"
+                                 , /*27*/"STATUSRECORD"
+                                 ];
+
+PUBLIC BOOLEAN FUNCTION IsDomainAttributeType(INTEGER attributetype)
+{
+  RETURN attributetype IN [1,8,26];
+}
+
+//possible valid options are: domain, required, isunique, ordered, checklinks, multiline, allowedvalues
+RECORD wrdattributes :=
+ [ "domain" :=          [ attributetype :=  1, image := "domain.gif"   , options := [ "domain" ]
+                                                                       , canchangeto := ["DOMAINARRAY"] ]
+ , "free" :=            [ attributetype :=  2, image := "free.gif"     , options := [ "isunique", "checklinks", "multiline" ]
+                                                                       , canchangeto := ["URL","TELEPHONE"] ]
+ , "address" :=         [ attributetype :=  3, image := "dummy.gif"    , options := [ "isunique" ]  ]
+ , "email" :=           [ attributetype :=  4, image := "email.gif"    , options := [ "isunique" ]
+                                                                       , canchangeto := ["FREE"]  ]
+ , "telephone" :=       [ attributetype :=  5, image := "dummy.gif"    , options := [ "isunique" ]
+                                                                       , canchangeto := [ "FREE" ] ]
+ , "date" :=            [ attributetype :=  6, image := "date.gif"     , options := [ "isunique" ]
+                                                                       , canchangeto := [ "DATETIME" ] ]
+ , "password" :=        [ attributetype :=  7, image := "dummy.gif"    , options := DEFAULT STRING ARRAY ]
+ , "domainarray" :=     [ attributetype :=  8, image := "checkbox.gif" , options := [ "domain" ] ]
+ , "image" :=           [ attributetype :=  9, image := "image.gif"    , options := DEFAULT STRING ARRAY
+                                                                       , canchangeto := [ "FILE" ] ]
+ , "file" :=            [ attributetype := 10, image := "file.gif"     , options := DEFAULT STRING ARRAY
+                                                                       , canchangeto := [ "IMAGE" ] ]
+ , "time" :=            [ attributetype := 11, image := "dummy.gif"    , options := [ "isunique" ]  ]
+ , "datetime" :=        [ attributetype := 12, image := "dummy.gif"    , options := [ "isunique" ]
+                                                                       , canchangeto := [ "DATE" ] ]
+ , "array" :=           [ attributetype := 13, image := "dummy.gif"    , options := [ "ordered" ] ]
+ , "money" :=           [ attributetype := 14, image := "dummy.gif"    , options := [ "isunique" ]  ]
+ , "integer" :=         [ attributetype := 15, image := "dummy.gif"    , options := [ "isunique" ]
+                                                                       , canchangeto := ["INTEGER64"] ]
+ , "boolean" :=         [ attributetype := 16, image := "boolean.gif"  , options := DEFAULT STRING ARRAY ]
+ , "richdocument" :=    [ attributetype := 17, image := "dummy.gif"    , options := [ "checklinks" ]
+                                                                       , defaults := ["checklinks"] ]
+ , "integer64" :=       [ attributetype := 18, image := "dummy.gif"    , options := [ "isunique" ]  ]
+ , "whfsinstance" :=    [ attributetype := 19, image := "dummy.gif"    , options := DEFAULT STRING ARRAY ]
+ , "whfsintextlink" :=  [ attributetype := 20, image := "dummy.gif"    , options := [ "checklinks" ]
+                                                                       , defaults := ["checklinks"] ]
+ , "url" :=             [ attributetype := 21, image := "dummy.gif"    , options := [ "checklinks", "isunique" ]
+                                                                       , canchangeto := ["FREE"]
+                                                                       , defaults := ["checklinks"] ]
+ , "record" :=          [ attributetype := 22, image := "dummy.gif"    , options := DEFAULT STRING ARRAY ]
+ , "enum" :=            [ attributetype := 23, image := "dummy.gif"    , options := [ "allowedvalues" ] ]
+ , "enumarray" :=       [ attributetype := 24, image := "dummy.gif"    , options := [ "allowedvalues" ] ]
+ , "paymentprovider" := [ attributetype := 25, image := "dummy.gif"    , options := DEFAULT STRING ARRAY  ]
+ , "payment" :=         [ attributetype := 26, image := "dummy.gif"    , options := [ "domain" ] ]
+ , "statusrecord" :=    [ attributetype := 27, image := "dummy.gif"    , options := [ "allowedvalues" ]  ]
+ ];
+
+
+
+PUBLIC RECORD wrd_language  := [ en := [ langcode := "en"
+                                , attrlabels := [ wrd_guid := "Unique global ID"
+                                                , wrd_id := "Unique database id"
+                                                , wrd_formalname := "Formal name"
+                                                , wrd_fullname := "Full name"
+                                                , wrd_salute_formal := "Salute (formal)"
+                                                , wrd_salute_informal := "Salute (informal)"
+                                                , wrd_address_formal := "Address (formal)"
+                                                , wrd_firstname := "Calling name"
+                                                , wrd_firstnames := "First names"
+                                                , wrd_initials := "Initials"
+                                                , wrd_infix := "Infix"
+                                                , wrd_titles := "Title(s)"
+                                                , wrd_titles_suffix := "Suffix"
+                                                , wrd_lastname := "Last name"
+                                                , wrd_gender := "Gender"
+                                                , wrd_gender_none := ""
+                                                , wrd_gender_male := "Male"
+                                                , wrd_gender_female := "Female"
+                                                , wrd_photo := "Photo"
+                                                , wrd_dateofbirth := "Date of birth"
+                                                , wrd_dateofdeath := "Date of death"
+                                                , wrd_orgname := "Organization name"
+                                                , wrd_tag := "Tag"
+                                                , wrd_title := "Title"
+                                                , wrd_creationdate := "Creation date"
+                                                , wrd_limitdate := "Limit date"
+                                                , wrd_modificationdate := "Last modification date"
+                                                , wrd_linkof := "Link from"
+                                                , wrd_linkto := "Link to"
+                                                , wrd_ordering := "Ordering"
+                                                , wrd_type := "Type"
+
+                                                , wrd_relation := "Relation"
+                                                , wrd_person := "Person"
+                                                , wrd_organization := "Organization"
+                                                ]
+                                , err_fieldnotunique := "The value for field '%0' is not unique"
+                                , err_requiredfield := "The required field '%0' was not filled in"
+                                , err_bademail := "The email address '%0' is not valid"
+                                , err_dateinvalid := "The date '%0' is not valid"
+                                , err_timeinvalid := "The time '%0' is not valid"
+                                , err_passmismatch := "The two submitted passwords in field '%0' do not match"
+                                , err_passhasleadtrailspaces := "The passwords in field '%0' may not begin or end with spaces"
+                                , err_toomuchselected := "Too many options were selected for the field '%0' (maximum is %1)"
+                                , err_invalid_image_type := "The submitted file for field '%0' is not a valid image type. Supported image types are GIF, JP(E)G and PNG"
+                                , country  := "Country"
+                                , country_select := "- Select a country -"
+                                , none_selected := "- Please select -"
+                                , password_new := "New password"
+                                , password_confirm := "Confirm password"
+                                , title_male := "Mr."
+                                , title_female := "Ms."
+                                , salute_formal_male := "Dear Mr"
+                                , salute_formal_female := "Dear Ms"
+                                , salute_formal_dunno := "Dear Mr/Ms"
+                                , salute_formal_noname := "Dear Sir/Madam"
+                                , address_formal_male := "Mr"
+                                , address_formal_female := "Ms"
+                                , address_formal_dunno := "Mr/Ms"
+                                , address_formal_noname := "Sir/Madam"
+                                , browse_dialog_not_unique := "The used WRD field ('%0') for the browse dialog is not a unique field. Please make this field unique in the WRD schema before continuing."
+                                , no_image := "No image has been defined yet"
+                                ]
+                         , nl := [ langcode := "nl"
+                                , attrlabels := [ wrd_guid := "Uniek globaal ID"
+                                                , wrd_id := "Uniek database id"
+                                                , wrd_formalname := "Formele naam"
+                                                , wrd_fullname := "Volledige naam"
+                                                , wrd_address_formal := "Adressering (formeel)"
+                                                , wrd_salute_formal := "Aanhef (formeel)"
+                                                , wrd_salute_informal := "Aanhef (informeel)"
+                                                , wrd_firstname := "Roepnaam"
+                                                , wrd_firstnames := "Voornamen"
+                                                , wrd_initials := "Voorletters"
+                                                , wrd_infix := "Tussenvoegsel"
+                                                , wrd_callingname := "Roepnaam"
+                                                , wrd_titles := "Titel(s)"
+                                                , wrd_titles_suffix := "Achtervoegsel"
+                                                , wrd_lastname := "Achternaam"
+                                                , wrd_gender := "Geslacht"
+                                                , wrd_gender_none := ""
+                                                , wrd_gender_male := "Man"
+                                                , wrd_gender_female := "Vrouw"
+                                                , wrd_photo := "Pasfoto"
+                                                , wrd_dateofbirth := "Geboortedatum"
+                                                , wrd_dateofdeath := "Overlijdensdatum"
+                                                , wrd_orgname := "Organisatienaam"
+                                                , wrd_title := "Titel"
+                                                , wrd_tag := "Tag"
+                                                , wrd_creationdate := "Aanmaakdatum"
+                                                , wrd_limitdate := "Einddatum"
+                                                , wrd_modificationdate := "Laatste wijzigingsdatum"
+                                                , wrd_linkof := "Link van"
+                                                , wrd_linkto := "Link naar"
+                                                , wrd_ordering := "Ordening"
+                                                , wrd_type := "Type"
+
+                                                , wrd_relation := "Relatie"
+                                                , wrd_person := "Persoon"
+                                                , wrd_organization := "Organisatie"
+                                                 ]
+                                 , err_fieldnotunique := "De waarde van veld '%0' is niet uniek"
+                                 , err_requiredfield := "Het vereiste veld '%0' is niet ingevuld"
+                                 , err_bademail := "Het emailadres '%0' is niet valide"
+                                 , err_passmismatch := "De twee ingevoerde wachtwoorden in veld '%0' komen niet overeen"
+                                 , err_passhasleadtrailspaces := "The wachtwoorden in veld '%0' mogen niet beginnen of eindigen met een spatie"
+                                 , err_toomuchselected := "Er zijn te veel opties geselecteerd voor veld '%0' (maximum is %1)"
+                                 , err_dateinvalid := "De datum '%0' is niet valide"
+                                 , err_timeinvalid := "De tijd '%0' is niet valide"
+                                 , err_invalid_image_type := "Het opgegeven bestand voor veld '%0' is niet van een geschikt bestandstype. Ondersteunde bestandstypes voor afbeeldingen zijn GIF, JP(E)G en PNG"
+                                 , country := "Land"
+                                 , country_select := "- Kies een land -"
+                                 , none_selected := "- Maak een keuze -"
+                                 , password_new := "Nieuw wachtwoord"
+                                 , password_confirm := "Bevestig wachtwoord"
+                                 , salute_formal_male := "Geachte heer"
+                                 , salute_formal_female := "Geachte mevrouw"
+                                 , salute_formal_dunno := "Geachte heer/mevrouw"
+                                 , salute_formal_noname := "Geachte heer/mevrouw"
+                                 , title_male := "Dhr."
+                                 , title_female := "Mevr."
+                                 , address_formal_male := "De heer"
+                                 , address_formal_female := "Mevrouw"
+                                 , address_formal_dunno := "De heer/mevrouw"
+                                 , address_formal_noname := "De heer/mevrouw"
+                                 , browse_dialog_not_unique := "Het gebruikte WRD veld ('%0') voor het bladerdialoogscherm is geen uniek veld. Maakt u dit veld a.u.b. uniek in het WRD schema voordat u verder kunt."
+                                 , no_image := "Er is geen plaatje gedefinieerd"
+                                 ]
+                         , de := [ langcode := "de"
+                                , attrlabels := [ wrd_guid := "Einmalige global ID"
+                                                , wrd_id := "Einmalige database ID"
+                                                , wrd_formalname := "Vollständige name" //FIXME
+                                                , wrd_fullname := "Vollständige name"
+                                                , wrd_address_formal := "Addressierung (formeel)" //FIXME
+                                                , wrd_salute_formal := "Aanhef (formeel)"  //FIXME
+                                                , wrd_salute_informal := "Aanhef (informeel)"  //FIXME
+                                                , wrd_firstname := "Rufname"
+                                                , wrd_firstnames := "Vornamen"
+                                                , wrd_initials := "Initialen"
+                                                , wrd_infix := "Infix"
+                                                , wrd_titles := "Anrede"
+                                                , wrd_titles_suffix := "Namenszusatz"
+                                                , wrd_lastname := "Nachname"
+                                                , wrd_gender := "Geschlecht"
+                                                , wrd_gender_none := ""
+                                                , wrd_gender_male := "Mann"
+                                                , wrd_gender_female := "Frau"
+                                                , wrd_photo := "Foto"
+                                                , wrd_dateofbirth := "Geburtsdatum"
+                                                , wrd_dateofdeath := "Sterbedatum"
+                                                , wrd_orgname := "Name der Organisation"
+                                                , wrd_tag := "Tag"
+                                                , wrd_title := "FIXME: Title"
+                                                , wrd_creationdate := "FIXME: Creation date"
+                                                , wrd_linkof := "Link from" //FIXME
+                                                , wrd_linkto := "Link to" //FIXME
+                                                , wrd_limitdate := "FIXME: Limit date"
+                                                , wrd_modificationdate := "FIXME: Last modification date"
+                                                , wrd_ordering := "FIXME Ordering"
+                                                , wrd_type := "Type"
+
+                                                , wrd_relation := "Relation" //FIMXE
+                                                , wrd_person := "Person" //FIMXE
+                                                , wrd_organization := "Organization" //FIMXE
+                                                ]
+                                 , err_fieldnotunique := "FIXME: The value for field '%0' is not unique"
+                                 , err_bademail := "Die Email Adresse '%0' ist nicht gültig"
+                                 , err_requiredfield := "Das nicht ausgefülltes Feld '%0' ist Pflicht"
+                                 , err_passmismatch := "Beide eingegebenen Passwörter in Feld '%0' müssen identisch sein"
+                                 , err_passhasleadtrailspaces := "Die Passwörter in Feld '%0' dürfen nicht anfangen oder enden mit einem Leerzeichen"
+                                 , err_toomuchselected := "FIXME: Too many options were selected for the field '%0' (maximum is %1)"
+                                 , err_dateinvalid := "FIXME: De datum '%0' is niet valide"
+                                 , err_timeinvalid := "FIXME: De tijd '%0' is niet valide"
+                                 , err_invalid_image_type := "FIXME: The submitted file for field '%0' is not a valid image type. Supported image types are GIF, JP(E)G and PNG"
+                                 , country := "Land"
+                                 , country_select := "- Wählen Sie bitte ein Land -"
+                                 , none_selected := "- Wähle bitte -"
+                                 , password_new := "Neues Passwort"
+                                 , password_confirm := "Bestätig Passwort"
+                                 , salute_formal_male := "FIXME: Geachte heer"
+                                 , salute_formal_female := "FIXME: Geachte mevrouw"
+                                 , salute_formal_dunno := "FIXME: Geachte heer/mevrouw"
+                                 , salute_formal_noname := "FIXME: Geachte heer/mevrouw"
+                                 , title_male := "Herr"
+                                 , title_female := "Frau"
+                                 , address_formal_male := "FIXME: Herr"
+                                 , address_formal_female := "FIXME: mevrouw"
+                                 , address_formal_dunno := "FIXME: De heer/mevrouw"
+                                 , address_formal_noname := "FIXME: De heer/mevrouw"
+                                 , browse_dialog_not_unique := "FIXME: The used WRD field ('%0') for the browse dialog is not an unique field. Please make this field unique in the WRD schema before continuing."
+                                 , no_image := "FIXME: No image has been defined yet"
+                                 ]
+                         ];
+
+/* the attribute types for attributes
+   1 = domain - single select        (DOMAIN)
+   2 = free                          (STRING)
+   3 = address                       (STRING)
+   4 = e-mail address                (STRING)
+   5 = telephone                     (STRING)
+   6 = date                          (DATE)
+   7 = password
+   8 = domain - multiple select      (DOMAIN)
+   9 = image                         (BLOB)
+   10 = (other) File                 (BLOB)
+   11 = time                         (DATE)
+   12 = datetime                     (DATE)
+   13 = array
+   14 = money
+   15 = integer
+   16 = boolean
+   17 = richdoc
+   18 = integer64
+   19 = whfs_instance
+   20 = whfs_intextlink
+   21 = url
+*/
+
+PUBLIC RECORD FUNCTION DescribeAttributeType(STRING attrtypename)
+{
+  IF(NOT CellExists(wrdattributes, attrtypename))
+    THROW NEW Exception(`Unsupported attribute type name '${attrtypename}'`);
+
+  RETURN CELL
+      [ typename :=       attrtypename
+      , tid :=            "wrd:types.attributes.types." || ToLowercase(attrtypename)
+      , canchangeto :=    DEFAULT STRING ARRAY
+      , defaults :=       DEFAULT STRING ARRAY
+      , ...GetCell(wrdattributes, attrtypename)
+      ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetAttributeTypes()
+{
+  RETURN SELECT AS RECORD ARRAY DescribeAttributeType(name)
+           FROM ToRecordArray(attrtypes,'name');
+}
+
+PUBLIC INTEGER FUNCTION GetAttributeHSType(INTEGER attrtype)
+{
+  SWITCH(attrtype)
+  {
+    CASE 1,11,15 { RETURN TypeID(INTEGER); }
+    CASE 6,12 { RETURN TypeID(DATETIME); }
+    CASE 8 { RETURN TypeID(INTEGER ARRAY); }
+    CASE 9,10,17,19,20 { RETURN TypeID(RECORD); }
+    CASE 13 { RETURN TypeID(RECORD ARRAY); }
+    CASE 14 { RETURN TypeID(MONEY); }
+    CASE 16 { RETURN TypeID(BOOLEAN); }
+    CASE 18 { RETURN TypeID(INTEGER64); }
+    CASE 2,3,4,5,7,21 { RETURN TypeID(STRING); }
+    DEFAULT { THROW NEW Exception("Requesting HSType for unknown attribute type #" || attrtype ); }
+  }
+}
+
+RECORD ARRAY FUNCTION GetAllInternalTags(STRING languagecode, INTEGER wrdschema)
+{
+  STRING ARRAY requiredfields, uniquefields;
+  IF (wrdschema != 0)
+  {
+    RECORD schemarec := SELECT required_fields, unique_fields FROM wrd.schemas WHERE id = wrdschema;
+    IF (RecordExists(schemarec))
+    {
+      requiredfields := Tokenize(ToUpperCase(schemarec.required_fields), ",");
+      uniquefields   := Tokenize(ToUpperCase(schemarec.unique_fields), ",");
+    }
+  }
+
+  RECORD lang := GetLangTexts(languagecode);
+  RECORD ARRAY all_int_tags := [ [ tag := "WRD_TAG",     base := TRUE,  attributetype := 2, cellname := "tag", name := lang.attrlabels.wrd_tag, readonly := FALSE, isrequired := FALSE, isunique := FALSE ]
+                               ];
+
+  FOREVERY (RECORD inttag FROM all_int_tags)
+  {
+    all_int_tags[#inttag].isrequired := inttag.tag IN requiredfields;
+    all_int_tags[#inttag].isunique := inttag.tag IN uniquefields;
+  }
+
+  RETURN all_int_tags;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetPersonTitles (STRING languagecode)
+{
+  RETURN [ [ value := 'AA'              , prefix := FALSE ]
+         , [ value := 'Arch.'           , prefix := FALSE ]
+         , [ value := 'Arts'            , prefix := FALSE ]
+         , [ value := 'Dipl. Ing.'      , prefix := TRUE  ]
+         , [ value := 'Dipl. Kfm.'      , prefix := TRUE  ]
+         , [ value := 'Dr.'             , prefix := TRUE  ]
+         , [ value := 'Dr. Drs.'        , prefix := TRUE  ]
+         , [ value := 'Dr. Drs. Ing.'   , prefix := TRUE  ]
+         , [ value := 'Dr. Ing.'        , prefix := TRUE  ]
+         , [ value := 'Dr. Ir.'         , prefix := TRUE  ]
+         , [ value := 'Dr. Med.'        , prefix := TRUE  ]
+         , [ value := 'Dr. Mr.'         , prefix := TRUE  ]
+         , [ value := 'Dr.Ir.'          , prefix := TRUE  ]
+         , [ value := 'Dr.Ir.Ing.'      , prefix := TRUE  ]
+         , [ value := 'Drs.'            , prefix := TRUE  ]
+         , [ value := 'Drs. Ing.'       , prefix := TRUE  ]
+         , [ value := 'Drs. Ir.'        , prefix := TRUE  ]
+         , [ value := 'Drs. Mr.'        , prefix := TRUE  ]
+         , [ value := 'Ds.'             , prefix := TRUE  ]
+         , [ value := 'Ds. Drs.'        , prefix := TRUE  ]
+         , [ value := 'Ds. Mr.'         , prefix := TRUE  ]
+         , [ value := 'Ec. Bac.'        , prefix := FALSE ]
+         , [ value := 'Eur. Ing.'       , prefix := TRUE  ]
+         , [ value := 'Gov.'            , prefix := FALSE ]
+         , [ value := 'Ing.'            , prefix := TRUE  ]
+         , [ value := 'Ing. Drs.'       , prefix := TRUE  ]
+         , [ value := 'Ir.'             , prefix := TRUE  ]
+         , [ value := 'Ir. Drs.'        , prefix := TRUE  ]
+         , [ value := 'Ir. Ing.'        , prefix := TRUE  ]
+         , [ value := 'Jhr.'            , prefix := TRUE  ]
+         , [ value := 'Jhr. Dr.'        , prefix := TRUE  ]
+         , [ value := 'Jhr. Dr. Ir.'    , prefix := TRUE  ]
+         , [ value := 'Jhr. Drs.'       , prefix := TRUE  ]
+         , [ value := 'Jhr. Ing.'       , prefix := TRUE  ]
+         , [ value := 'Jhr. Ir.'        , prefix := TRUE  ]
+         , [ value := 'Jhr. Mr.'        , prefix := TRUE  ]
+         , [ value := 'L.K. bd.'        , prefix := FALSE ]
+         , [ value := 'MBA'             , prefix := FALSE ]
+         , [ value := 'Mevr.'           , prefix := FALSE ]
+         , [ value := 'Mgr.'            , prefix := TRUE  ]
+         , [ value := 'Mr.'             , prefix := TRUE  ]
+         , [ value := 'Mr. D. Drs.'     , prefix := FALSE ]
+         , [ value := 'Mr. Dr.'         , prefix := TRUE  ]
+         , [ value := 'Mr. Drs.'        , prefix := TRUE  ]
+         , [ value := 'Mr. Ing.'        , prefix := TRUE  ]
+         , [ value := 'Mr. Ir.'         , prefix := TRUE  ]
+         , [ value := 'Mw. Dr.'         , prefix := TRUE  ]
+         , [ value := 'Prof.'           , prefix := TRUE  ]
+         , [ value := 'Prof. Dipl. Ing.', prefix := TRUE  ]
+         , [ value := 'Prof. Dr.'       , prefix := TRUE  ]
+         , [ value := 'Prof. Dr. Dr.'   , prefix := TRUE  ]
+         , [ value := 'Prof. Dr. Ing.'  , prefix := TRUE  ]
+         , [ value := 'Prof. Dr. Ir.'   , prefix := TRUE  ]
+         , [ value := 'Prof. Dr. Mr.'   , prefix := TRUE  ]
+         , [ value := 'Prof. Drs.'      , prefix := TRUE  ]
+         , [ value := 'Prof. Ir.'       , prefix := TRUE  ]
+         , [ value := 'Prof. Mr.'       , prefix := TRUE  ]
+         , [ value := 'Prof. Mr. Dr.'   , prefix := TRUE  ]
+         , [ value := 'Prof.Dr.Ir.'     , prefix := TRUE  ]
+         , [ value := 'RA'              , prefix := FALSE ]
+         , [ value := 'Rampersad'       , prefix := FALSE ]
+         ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetAllPersonTags (STRING languagecode, INTEGER wrdschema)
+{
+  STRING ARRAY requiredfields, uniquefields;
+  IF (wrdschema != 0)
+  {
+    RECORD schemarec := SELECT required_fields, unique_fields FROM wrd.schemas WHERE id = wrdschema;
+    IF (RecordExists(schemarec))
+    {
+      requiredfields := Tokenize(ToUpperCase(schemarec.required_fields), ",");
+      uniquefields   := Tokenize(ToUpperCase(schemarec.unique_fields), ",");
+    }
+  }
+  RECORD lang := GetLangTexts(languagecode);
+  RECORD ARRAY all_person_tags := [ [ tag := "WRD_GUID",            base := FALSE, attributetype := 0, cellname := "",              name := lang.attrlabels.wrd_guid,          domain := 0,  readonly := TRUE,  isrequired := FALSE, isunique := FALSE, maxlength := 0  , cellnames := [ "guid" ] ]
+                                  , [ tag := "WRD_GENDER",          base := TRUE,  attributetype := 1, cellname := "gender",        name := lang.attrlabels.wrd_gender,        domain := -2, readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0  , domainvalues := GetGenderDomain() ]
+                                  , [ tag := "WRD_SALUTE_FORMAL",   base := FALSE, attributetype := 2, cellname := "",              name := lang.attrlabels.wrd_salute_formal, domain := 0,  readonly := TRUE,  isrequired := FALSE, isunique := FALSE, maxlength := 0  , cellnames := [ "gender", "infix", "lastname", "titles" ] ]
+                                  , [ tag := "WRD_ADDRESS_FORMAL",  base := FALSE, attributetype := 2, cellname := "",              name := lang.attrlabels.wrd_address_formal,domain := 0,  readonly := TRUE,  isrequired := FALSE, isunique := FALSE, maxlength := 0  , cellnames := [ "gender", "initials", "infix", "lastname", "titles" ] ]
+                                  //, [ tag := "WRD_SALUTE_INFORMAL", base := FALSE, attributetype := 0, cellname := "",            name := lang.attrlabels.wrd_salute_informal, domain := 0, readonly := TRUE ]
+                                  , [ tag := "WRD_FULLNAME",        base := FALSE, attributetype := 2, cellname := "",              name := lang.attrlabels.wrd_fullname,      domain := 0,  readonly := TRUE,  isrequired := FALSE, isunique := FALSE, maxlength := 0  , cellnames := [ "firstname", "firstnames", "infix", "initials", "lastname" ] ]
+                                  , [ tag := "WRD_TITLES",          base := TRUE,  attributetype := 2, cellname := "titles",        name := lang.attrlabels.wrd_titles,        domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
+                                  , [ tag := "WRD_INITIALS",        base := TRUE,  attributetype := 2, cellname := "initials",      name := lang.attrlabels.wrd_initials,      domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
+                                  , [ tag := "WRD_FIRSTNAME",       base := TRUE,  attributetype := 2, cellname := "firstname",     name := lang.attrlabels.wrd_firstname,     domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
+                                  , [ tag := "WRD_FIRSTNAMES",      base := TRUE,  attributetype := 2, cellname := "firstnames",    name := lang.attrlabels.wrd_firstnames,    domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
+                                  , [ tag := "WRD_INFIX",           base := TRUE,  attributetype := 2, cellname := "infix",         name := lang.attrlabels.wrd_infix,         domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
+                                  , [ tag := "WRD_LASTNAME",        base := TRUE,  attributetype := 2, cellname := "lastname",      name := lang.attrlabels.wrd_lastname,      domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
+                                  , [ tag := "WRD_TITLES_SUFFIX",   base := TRUE,  attributetype := 2, cellname := "titles_suffix", name := lang.attrlabels.wrd_titles_suffix, domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
+                                  , [ tag := "WRD_DATEOFBIRTH",     base := TRUE,  attributetype := 6, cellname := "dateofbirth",   name := lang.attrlabels.wrd_dateofbirth,   domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0   ]
+                                  , [ tag := "WRD_DATEOFDEATH",     base := TRUE,  attributetype := 6, cellname := "dateofdeath",   name := lang.attrlabels.wrd_dateofdeath,   domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0   ]
+                                  //, [ tag := "WRD_PHOTO",           base := TRUE,  attributetype := 9, cellname := "PHOTO",       name := lang.attrlabels.wrd_photo,         domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0   ]
+                                  ];
+  FOREVERY (RECORD persontag FROM all_person_tags)
+  {
+    all_person_tags[#persontag].isrequired := persontag.tag IN requiredfields;
+    all_person_tags[#persontag].isunique := persontag.tag IN uniquefields;
+  }
+
+  RETURN all_person_tags;
+}
+
+PUBLIC RECORD FUNCTION GetLangTexts(STRING langcode)
+{
+  SWITCH(ToUppercase(langcode))
+  {
+    CASE "NL" { RETURN wrd_language.nl; }
+    CASE "DE" { RETURN wrd_language.de; }
+    DEFAULT   { RETURN wrd_language.en; }
+  }
+}
+
+/** @short Get the standard attributes for a tag (WRD_PERSON, WRD_ORGANIZATION)*/
+PUBLIC RECORD ARRAY FUNCTION GetStandardAttributes(STRING typetag, RECORD lang, INTEGER schemaid)
+{
+  RECORD ARRAY base;
+  IF(typetag = "WRD_PERSON")
+    base := GetAllPersonTags("",schemaid);
+
+  RETURN SELECT tag
+              , title := GetCell(lang.attrlabels,tag)
+              , attributetype
+              , cellname
+              , base := tag = ToUppercase("WRD_" || cellname)
+              , required := isrequired
+              , isunique := isunique
+          FROM base;
+}
+
+/////////////////////////////////////////////////////////////////////
+//
+// WRD updateable/viewable fields
+//
+PUBLIC RECORD ARRAY FUNCTION GetGenderDomain()
+{
+  RETURN [ [ id := 0, tag := "",       title := "NONE", ordering := 1 ]
+         , [ id := 1, tag := "MALE",   title := "MALE", ordering := 2 ]
+         , [ id := 2, tag := "FEMALE", title := "FEMALE", ordering := 3]
+         ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetGenderOptions(RECORD personinfo, RECORD lang, STRING tag)
+{
+  INTEGER which := RecordExists(personinfo) ? personinfo.gender : 0;
+  RETURN SELECT domainvalues.id
+              , domainvalues.tag
+              , title := GetCell(lang.attrlabels, VAR tag || "_" || domainvalues.title)
+              , selected := (which = domainvalues.id)
+              , domainvalues.ordering
+              , creationdate := DEFAULT DATETIME
+              , limitdate := MAX_DATETIME
+           FROM GetGenderDomain() AS domainvalues;
+}
+
+PUBLIC RECORD FUNCTION EncodeWRDAttribute(VARIANT val)
+{
+  SWITCH(TypeID(val))
+  {
+    CASE TypeId(STRING)
+    {
+      RETURN [ attributetype := 2 /* free form */, rawdata := val ];
+    }
+    CASE TypeID(INTEGER)
+    {
+      RETURN [ attributetype := 15 /* integer */, rawdata := ToString(val) ];
+    }
+    CASE TypeID(INTEGER64)
+    {
+      RETURN [ attributetype := 18 /* integer64 */, rawdata := ToString(val) ];
+    }
+    CASE TypeID(DATETIME)
+    {
+      RETURN [ attributetype := 12 /* datetime */, rawdata := GetDayCount(val) || "," || GetMsecondCount(val) ];
+    }
+    CASE TypeID(MONEY)
+    {
+      RETURN [ attributetype := 14 /* money */, rawdata := FormatMoney(val,0,'.','',FALSE) ];
+    }
+    CASE TypeID(BOOLEAN)
+    {
+      RETURN [ attributetype := 16 /* boolean */, rawdata := val?"1":"" ];
+    }
+    DEFAULT
+    {
+      ABORT("Unsupported variable type " || TypeID(val));
+    }
+  }
+}
+PUBLIC VARIANT FUNCTION DecodeWRDAttribute(STRING rawdata, INTEGER attributetype)
+{
+  SWITCH(attributetype)
+  {
+    CASE 2 /* Free */
+    {
+      RETURN rawdata;
+    }
+    CASE 16 /* Boolean */
+    {
+      RETURN rawdata="1";
+    }
+    CASE 15,11  /* Integer, time */
+    {
+      RETURN ToInteger(rawdata,0);
+    }
+    CASE 18  /* Integer64 */
+    {
+      RETURN ToInteger64(rawdata,0);
+    }
+    CASE 12,6 /* Datetime / date */
+    {
+      STRING ARRAY toks := Tokenize(rawdata,',');
+      RETURN Length(toks) = 2 ? MakeDateFromParts(ToInteger(toks[0],0), ToInteger(toks[1],0)) : DEFAULT DATETIME;
+    }
+    CASE 14 /* Money */
+    {
+      RETURN ToMoney(rawdata,0);
+    }
+    DEFAULT
+    {
+      ABORT("Unsupported attribute type " || attributetype);
+    }
+  }
+}
+/** @short Create a unique GUID
+    @long This function creates a GUID to offer a unique key for relations. */
+PUBLIC STRING FUNCTION CreateGUID()
+{
+  STRING hash := GetMD5Hash(GenerateUFS128BitId() || GenerateUFS128BitId());
+  RETURN hash;
+}
+
+PUBLIC STRING FUNCTION EncodeWRDGUID(STRING rawguid)
+{
+  RETURN rawguid != "" ? "wrd:" || EncodeBase16(rawguid) : "";
+}
+
+PUBLIC STRING FUNCTION DecodeWRDGUID(STRING inguid)
+{
+  IF(ToLowerCase(inguid) LIKE "wrd:????????????????????????????????")
+    RETURN DecodeBase16(Substring(inguid,4,32));
+  RETURN "";
+}
+
+PUBLIC BOOLEAN FUNCTION ValidateWRDGUID(STRING inguid)
+{
+  IF (ToLowerCase(inguid) LIKE "wrd:????????????????????????????????")
+    RETURN LENGTH(DecodeBase16(Substring(inguid,4,32))) = 16;
+
+  RETURN FALSE;
+}
+
+PUBLIC INTEGER FUNCTION GetAttributeTypeIdByTypeName(STRING attributetype, BOOLEAN strict)
+{
+  IF(NOT strict)
+  {
+    attributetype := ToUppercase(attributetype);
+    attributetype := Substitute(attributetype,'_','');
+    IF(attributetype="DOMAINSINGLE")
+      attributetype:="DOMAIN";
+    ELSE IF(attributetype="DOMAINMULTIPLE")
+      attributetype:="DOMAINARRAY";
+  }
+  RETURN SearchElement(attrtypes, attributetype) + 1;
+}
+
+PUBLIC STRING FUNCTION GetAttributeTypeNameByTypeId(INTEGER attributetype)
+{
+  IF(attributetype<1 OR attributetype > Length(attrtypes))
+    RETURN "attributetype#" || attributetype;
+  RETURN attrtypes[attributetype - 1];
+}
+
+PUBLIC OBJECTTYPE WRDSchemaObjectTypeDescriber EXTEND ObjectTypeDescriber
+< PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RETURN
+        SELECT id
+             , name
+             , icon := "tollium:database/schema"
+             , wrdschemaid := id
+          FROM wrd.schemas
+         WHERE id = objectid;
+  }
+
+  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetRootObjects(OBJECT user)
+  {
+    RETURN
+        SELECT AS INTEGER ARRAY id
+          FROM wrd.schemas
+         WHERE user->HasRightOn("wrd:read", id); // also works for wrd:readwrite and wrd:metadata
+  }
+
+  PUBLIC UPDATE BOOLEAN FUNCTION IsObjectVisibleForUser(INTEGER id, OBJECT user)
+  {
+    RETURN user->HasRightOn("wrd:read", id);
+  }
+>;
+
+
+/** Return data describing object (dummy for 0)
+*/
+PUBLIC RECORD FUNCTION GetRightsSchemaData(OBJECT user, INTEGER objectid)
+{
+  IF (objectid != 0)
+  {
+    RETURN
+      SELECT id
+           , parent := 0
+           , name
+           , fullname := name
+           , icon := "wrd:image"
+           , children := DEFAULT INTEGER ARRAY
+        FROM wrd.schemas
+       WHERE id = objectid;
+  }
+  RETURN
+    [ id            := 0
+    , parent        := 0
+    , name          := ""
+    , fullname      := ""
+    , icon          := ""
+    , children      := (SELECT AS INTEGER ARRAY id
+                          FROM wrd.schemas
+                         WHERE user->HasRightOn("wrd:read", id)) // also works for wrd:readwrite and wrd:metadata
+    , wrdschemaid := 0
+    ];
+}
+
+
+PUBLIC OBJECTTYPE WRDEntitiesObjectTypeDescriber EXTEND ObjectTypeDescriber
+< PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RETURN
+        [ id            := 0
+        , name          := ""
+        , icon          := ""
+        ];
+  }
+
+  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetRootObjects(OBJECT user)
+  {
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+
+  PUBLIC UPDATE BOOLEAN FUNCTION IsObjectVisibleForUser(INTEGER id, OBJECT user)
+  {
+    RETURN FALSE;
+  }
+>;
+
+PUBLIC RECORD FUNCTION GetEntitiesData(OBJECT user, INTEGER objectid)
+{
+  RETURN
+    [ id            := 0
+    , parent        := 0
+    , name          := ""
+    , fullname      := ""
+    , icon          := ""
+    , children      := DEFAULT INTEGER ARRAY
+    ];
+}
+
+PUBLIC STRING FUNCTION GetSafeWRDTag(STRING tag, FUNCTION PTR check_inuse)
+{
+  STRING suggestedtag;
+  tag := ToUppercase(tag); //ADDME fold accented characters to their uppercase nonaccented versions
+
+  // Allow a-z, 0-9, convert '-', ' ' and '_' -> '_', ignore the rest.
+  FOR (INTEGER i := 0; i < LENGTH(tag); i := i + 1)
+  {
+    STRING ch := Substring(tag, i, 1);
+
+    IF ((ch >= 'A' AND ch <= 'Z') OR (ch >= '0' AND ch <= '9'))
+    {
+      suggestedtag := suggestedtag || ch;
+    }
+    ELSE
+    {
+      //Underscores may not start a name and two consecutive underscores may not appear
+      IF (suggestedtag != "" AND NOT (suggestedtag LIKE "*_"))
+        suggestedtag:= suggestedtag || "_";
+    }
+  }
+
+  // Do not return empty name
+  IF (suggestedtag = "")
+    suggestedtag := "FIELD";
+
+  // Check for uniqueness
+  FOR(INTEGER i := 0;; i := i + 1)
+  {
+    STRING append := i = 0 ? "" : "_" || i;
+    STRING tryname := Left(suggestedtag,64 - Length(append));
+    WHILE(tryname LIKE "*_")
+      tryname := Left(tryname, Length(tryname) - 1);
+
+    tryname := tryname || append;
+    IF(check_inuse = DEFAULT FUNCTION PTR OR check_inuse(tryname)=FALSE)
+      RETURN tryname;
+  }
+}
+
+OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY types;
+
+  MACRO PTR ARRAY onentitychanges;
+
+  INTEGER ARRAY linkcheckedchangedattrs;
+
+  INTEGER ARRAY linkcheckedsettings;
+
+  RECORD ARRAY auto_changesets;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  INTEGER FUNCTION GetTypePosition(INTEGER wrdschema, INTEGER type)
+  {
+    RECORD pos := RecordLowerBound(this->types, [ wrdschema := wrdschema, type := type ], [ "WRDSCHEMA", "TYPE" ]);
+    IF (NOT pos.found)
+      INSERT [ type :=            type
+             , wrdschema :=       wrdschema
+             , metadatachanged := FALSE
+             , namechanged :=     FALSE
+             , settingschanged := FALSE
+             , alldeleted :=      FALSE
+             , allupdated :=      FALSE
+             , created :=         DEFAULT INTEGER ARRAY
+             , updated :=         DEFAULT INTEGER ARRAY
+             , deleted :=         DEFAULT INTEGER ARRAY
+             , num :=             0
+             , allinvalidated :=  FALSE
+             ] INTO this->types AT pos.position;
+    RETURN pos.position;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overridden functions
+  //
+
+  /** Called just before the function commits
+  */
+  UPDATE PUBLIC MACRO OnPreCommit(OBJECT transaction)
+  {
+    this->auto_changesets := RECORD[];
+    FOREVERY (INTEGER attr FROM this->linkcheckedchangedattrs)
+      UpdateCheckedLinksForAttribute(attr);
+    IF (LENGTH(this->linkcheckedsettings) != 0)
+      UpdateCheckedLinksForSettings(this->linkcheckedsettings);
+  }
+
+  /** Called when the transaction has committed
+  */
+  UPDATE PUBLIC MACRO OnCommit()
+  {
+    BOOLEAN anylistchange;
+    FOREVERY (RECORD type FROM this->types)
+    {
+      IF (type.type != 0)
+      {
+        BroadcastEvent("wrd:type." || type.type || ".change",
+                        [ allinvalidated := type.allinvalidated
+                        , created :=        type.allinvalidated ? DEFAULT INTEGER ARRAY : type.created
+                        , updated :=        type.allinvalidated ? DEFAULT INTEGER ARRAY : type.updated
+                        , deleted :=        type.allinvalidated ? DEFAULT INTEGER ARRAY : type.deleted
+                        ]);
+      }
+      ELSE
+      {
+        IF (type.metadatachanged)
+          BroadcastEvent("wrd:schema." || type.wrdschema || ".change",
+                          [ metadatachanged := type.metadatachanged
+                          ]);
+
+        IF (type.namechanged)
+          anylistchange := TRUE;
+
+        IF (type.settingschanged)
+          BroadcastEvent("wrd:schema." || type.wrdschema || ".settingschange", DEFAULT RECORD);
+      }
+    }
+
+    IF (anylistchange)
+      BroadcastEvent("wrd:schema.list", DEFAULT RECORD);
+  }
+
+  RECORD FUNCTION EntityChange(INTEGER wrdschema, INTEGER type, INTEGER entityid, STRING cellname)
+  {
+    FOREVERY(MACRO PTR onentitychange FROM this->onentitychanges)
+      onentitychange(wrdschema, type, entityid, cellname);
+
+    INTEGER tpos := this->GetTypePosition(wrdschema, type);
+    IF(this->types[tpos].allinvalidated)
+      RETURN DEFAULT RECORD;
+
+    this->types[tpos].num := this->types[tpos].num + 1;
+    IF(this->types[tpos].num > 500)
+    {
+      this->types[tpos].allinvalidated := TRUE; //too many changes to track. assume all are invalid
+      RETURN DEFAULT RECORD;
+    }
+    RECORD pos := LowerBound(GetCell(this->types[tpos], cellname), entityid);
+    IF (pos.found)
+      RETURN DEFAULT RECORD;
+
+    RETURN [ tpos := tpos, pos := pos.position ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO EntityCreated(INTEGER wrdschema, INTEGER type, INTEGER entityid)
+  {
+    RECORD posinfo := this->EntityChange(wrdschema, type, entityid, "created");
+    IF(RecordExists(posinfo))
+      INSERT entityid INTO this->types[posinfo.tpos].created AT posinfo.pos;
+  }
+
+  PUBLIC MACRO EntityUpdated(INTEGER wrdschema, INTEGER type, INTEGER entityid)
+  {
+    RECORD posinfo := this->EntityChange(wrdschema, type, entityid, "updated");
+    IF(RecordExists(posinfo))
+      INSERT entityid INTO this->types[posinfo.tpos].updated AT posinfo.pos;
+  }
+
+  PUBLIC MACRO EntityDeleted(INTEGER wrdschema, INTEGER type, INTEGER entityid)
+  {
+    RECORD posinfo := this->EntityChange(wrdschema, type, entityid, "deleted");
+    IF(RecordExists(posinfo))
+      INSERT entityid INTO this->types[posinfo.tpos].deleted AT posinfo.pos;
+  }
+
+  PUBLIC MACRO EntityInvalidateAll(INTEGER wrdschema, INTEGER type)
+  {
+    this->types[this->GetTypePosition(wrdschema, type)].allinvalidated := TRUE;
+  }
+
+  PUBLIC MACRO MetadataChanged(INTEGER wrdschema)
+  {
+    this->types[this->GetTypePosition(wrdschema, 0)].metadatachanged := TRUE;
+  }
+
+  PUBLIC MACRO SchemaNameChanged(INTEGER wrdschema)
+  {
+    this->types[this->GetTypePosition(wrdschema, 0)].metadatachanged := TRUE;
+    this->types[this->GetTypePosition(wrdschema, 0)].namechanged := TRUE;
+  }
+
+  PUBLIC MACRO SettingsChanged(INTEGER wrdschema)
+  {
+    this->types[this->GetTypePosition(wrdschema, 0)].settingschanged := TRUE;
+  }
+
+  PUBLIC MACRO SchemaCreated()
+  {
+    this->types[this->GetTypePosition(0, 0)].namechanged := TRUE;
+  }
+
+  PUBLIC MACRO AddOnEntityChange(MACRO PTR onentitychange)
+  {
+    INSERT onentitychange INTO this->onentitychanges AT END;
+  }
+
+  PUBLIC MACRO AddAttrWithLinkCheckChange(INTEGER attrid)
+  {
+    INSERT attrid INTO this->linkcheckedchangedattrs AT END;
+  }
+
+  PUBLIC MACRO AddLinkCheckedSettings(INTEGER ARRAY settingids)
+  {
+    this->linkcheckedsettings := this->linkcheckedsettings CONCAT settingids;
+  }
+
+  PUBLIC INTEGER FUNCTION GetAutoChangeset(INTEGER wrdschema)
+  {
+    RECORD pos := RecordLowerBound(this->auto_changesets, CELL[ wrdschema ], [ "wrdschema" ]);
+    RETURN pos.found ? this->auto_changesets[pos.position].changeset : 0;
+  }
+
+  PUBLIC MACRO SetAutoChangeset(INTEGER wrdschema, INTEGER changeset)
+  {
+    RECORD pos := RecordLowerBound(this->auto_changesets, CELL[ wrdschema ], [ "wrdschema" ]);
+    IF (pos.found)
+      DELETE FROM this->auto_changesets AT pos.position;
+    INSERT CELL[ wrdschema, changeset ] INTO this->auto_changesets AT pos.position;
+  }
+
+>;
+
+PUBLIC OBJECT FUNCTION GetWRDCommitHandler()
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+  OBJECT handler := trans->GetFinishHandler("wrd:entitycommithandler");
+  IF (NOT ObjectExists(handler))
+  {
+    handler := NEW WRDEntityCommitHandler;
+    trans->SetFinishHandler("wrd:entitycommithandler", handler);
+  }
+  RETURN handler;
+}
+
+PUBLIC MACRO RescanWRDConsilioLinks(INTEGER wrdschemaid)
+{
+  INTEGER ARRAY attrs :=
+      SELECT AS INTEGER ARRAY attrs.id
+        FROM wrd.attrs
+           , wrd.types
+       WHERE (wrdschemaid = 0 ? TRUE : types.wrd_schema = wrdschemaid)
+         AND attrs.type = types.id
+         AND (attributetype IN [ 17, 20, 21 ] OR checklinks);
+
+  OBJECT handler := GetWRDCommitHandler();
+  FOREVERY (INTEGER attr FROM attrs)
+    handler->AddAttrWithLinkCheckChange(attr);
+}
+
+BOOLEAN FUNCTION IsAcceptableEnumValue(STRING val)
+{
+  IF(val = "")
+    RETURN FALSE;
+  FOREVERY(STRING badchar FROM [' ','\t',',','/','\\','\'','"'])
+    IF(SearchSubstring(val,badchar) != -1)
+      RETURN FALSE;
+  RETURN TRUE;
+}
+
+PUBLIC STRING FUNCTION GetAllowedValuesFordatabase(STRING ARRAY allowedvalues)
+{
+  STRING ARRAY vals;
+  FOREVERY(STRING val FROM allowedvalues)
+  {
+    IF(val="")
+      THROW NEW Exception("Empty values are not allowed for allowed values");
+    IF(NOT IsAcceptableEnumValue(val))
+      THROW NEW Exception(`Illegal value '${val}' in allowed values`);
+    IF(TrimWhitespace(val) != val)
+      THROW NEW Exception("Trimmable values are not allowed for allowed values");
+
+    RECORD lb := LowerBound(vals, val);
+    IF(lb.found)
+      THROW NEW Exception(`Duplicate value '${val}' in allowed values`);
+    INSERT val INTO vals AT lb.position;
+  }
+
+  STRING detoxed := Detokenize(vals,'\t');
+  IF(Length(detoxed)>4096)
+    THROW NEW Exception("Too many options in enumeration");
+  RETURN detoxed;
+}
+PUBLIC MACRO ValidateDeleteMode(STRING deletemode)
+{
+  IF(deletemode NOT IN ["delete","close","delete-closereferred","delete-denyreferred","close-denyreferred"])
+    THROW NEW Exception(`Illegal delete mode ${deletemode}`);
+}
+
+PUBLIC BOOLEAN FUNCTION IsAllowedEnumValue(STRING value, STRING ARRAY masks)
+{
+  IF(NOT IsAcceptableEnumValue(value)) //don't allow illegal values to sneak in through globs
+    RETURN FALSE;
+  FOREVERY (STRING mask FROM masks)
+    IF (value LIKE mask)
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+/** @topic wrd/api
+    @public
+    @loadlib mod::wrd/lib/api.whlib
+    @short Delete fields that are generally removed when cloning or duplicating an entity
+    @param inrec Entity record to clean up
+    @return Entity record without id, wrd dates, type and guid cells, tag */
+PUBLIC RECORD FUNCTION GetCloneableEntityFields(RECORD inrec)
+{
+  RETURN CELL [...inrec
+              , DELETE wrd_id
+              , DELETE wrd_modificationdate
+              , DELETE wrd_guid
+              , DELETE wrd_type
+              , DELETE wrd_creationdate
+              , DELETE wrd_limitdate
+              , DELETE wrd_tag
+              ];
+}
+
+/** Schedules entity updated events for entities
+    @param entityids Ids of updated entities, can be from multiple schemas
+*/
+PUBLIC MACRO ScheduleUpdateEventsForEntities(INTEGER ARRAY entityids)
+{
+  IF (LENGTH(entityids) = 0)
+    RETURN;
+
+  // Lookup the types of the entities, needed for notifications
+  RECORD ARRAY pertype :=
+      SELECT type
+           , ids :=   GroupedValues(id)
+        FROM wrd.entities
+       WHERE id IN entityids
+    GROUP BY type;
+
+  // Also get the wrd_schema for the types
+  pertype := EnrichWithTable(pertype, "type", wrd.types, CELL[ "wrd_schema" ]);
+
+  // Schedule modification events for those entities
+  OBJECT commithandler := GetWRDCommitHandler();
+  FOREVERY (RECORD type FROM pertype)
+    FOREVERY (INTEGER id FROM type.ids)
+      commithandler->EntityUpdated(type.wrd_schema, type.type, id);
+}
+
+/** Decodes characters that render a string non-utf-8 valid with DecodeCharset
+    @param todecode String to decode
+    @param fallbackcharset Character set to convert the unvalid utf-8 characters with
+    @return Decoded string
+*/
+PUBLIC STRING FUNCTION DecodeInvalidUTF8Chars(STRING todecode, STRING fallbackcharset)
+{
+  // Ignore UTF-16 BOMs
+  IF (todecode LIKE "\xFE\xFF*")
+    todecode := Substring(todecode, 2);
+
+  STRING res;
+  WHILE (IsValueSet(todecode))
+  {
+    STRING part := UCLeft(todecode, 1);
+    IF (part != "" AND IsValidUTF8(part) AND LEFT(todecode, LENGTH(part)) = part)
+    {
+      res := res || part;
+      todecode := SubString(todecode, LENGTH(part));
+    }
+    ELSE
+    {
+      IF (part != "\x00") // don't emit NUL chars
+        res := res || DecodeCharSet(Left(todecode, 1), fallbackcharset);
+      todecode := SubString(todecode, 1);
+    }
+  }
+  RETURN res;
+}

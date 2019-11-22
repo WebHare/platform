@@ -1,0 +1,39 @@
+Default map markers, as defined in the google module
+
+Usage:
+<icon name="iconname"
+      icon="socialite:markers/[icon]" shadow="socialite:markers/[shadow]"
+      anchor_x="[ax]" anchor_y="[ay]"
+      label_x="[lx]" label_y="[ly]"
+      popup_x="[px]" popup_y="[py]" />
+
+icon                 shadow         ax  ay  lx  ly  px  py
+----------------------------------------------------------
+pin_blue             pin_shadow     15  42  24   8  24   5
+pin_gray             pin_shadow     15  42  24   8  24   5
+pin_green            pin_shadow     15  42  24   8  24   5
+pin_purple           pin_shadow     15  42  24   8  24   5
+pin_red              pin_shadow     15  42  24   8  24   5
+pin_yellow           pin_shadow     15  42  24   8  24   5
+google_red_a         google_shadow  23  41  24  12  23   9
+google_red_b         google_shadow  23  41  24  12  23   9
+google_red_c         google_shadow  23  41  24  12  23   9
+google_red_d         google_shadow  23  41  24  12  23   9
+google_red_e         google_shadow  23  41  24  12  23   9
+google_red_f         google_shadow  23  41  24  12  23   9
+google_red_g         google_shadow  23  41  24  12  23   9
+google_red_h         google_shadow  23  41  24  12  23   9
+google_red_i         google_shadow  23  41  24  12  23   9
+google_red_j         google_shadow  23  41  24  12  23   9
+google_red_marker    google_shadow  23  41  24  12  23   9
+google_green_a       google_shadow  23  41  24  12  23   9
+google_green_b       google_shadow  23  41  24  12  23   9
+google_green_c       google_shadow  23  41  24  12  23   9
+google_green_d       google_shadow  23  41  24  12  23   9
+google_green_e       google_shadow  23  41  24  12  23   9
+google_green_f       google_shadow  23  41  24  12  23   9
+google_green_g       google_shadow  23  41  24  12  23   9
+google_green_h       google_shadow  23  41  24  12  23   9
+google_green_i       google_shadow  23  41  24  12  23   9
+google_green_j       google_shadow  23  41  24  12  23   9
+google_green_marker  google_shadow  23  41  24  12  23   9

@@ -1,0 +1,185 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/pkcs.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
+
+
+
+PUBLIC INTEGER bucketsize := 5 * 60 * 1000;
+
+FLOAT threshold := 0.05; //percent
+INTEGER requiredfailips := 4; //we require this number of IP addresses to trigger a failure, before we consider it serious
+INTEGER requiredhits := 60;  //we require this number of hits in a bucket to trigger a failure, before we consider it serious
+
+PUBLIC STRING FUNCTION GetWebserverErrorMessage(STRING hostname, DATETIME lastseen, STRING lastcheckerror)
+{
+  IF(lastcheckerror = "")
+    RETURN "";
+  RETURN "Hostname " || hostname || " failed"
+         || (lastseen != DEFAULT DATETIME ? " since " || FormatDatetime("%Y-%m-%d", lastseen) : "")
+         || ": " || lastcheckerror;
+}
+
+STRING ARRAY FUNCTION GatherIssues(RECORD rec)
+{
+  STRING ARRAY issues;
+  IF(rec.failips >= requiredfailips AND rec.hits > requiredhits)
+  {
+    IF(FLOAT(rec.clientfails) / rec.hits > threshold)
+      INSERT "clientfails" INTO issues AT END;
+    IF(FLOAT(rec.serverfails) / rec.hits > threshold)
+      INSERT "serverfails" INTO issues AT END;
+    IF(FLOAT(rec.highpagetime) / rec.hits > threshold)
+      INSERT "highpagetime" INTO issues AT END;
+  }
+  RETURN issues;
+}
+
+RECORD ARRAY FUNCTION GetFailedBuckets(RECORD ARRAY recentbuckets)
+{
+  recentbuckets := SELECT *
+                        , issues := GatherIssues(recentbuckets)
+                     FROM recentbuckets;
+  DELETE FROM recentbuckets WHERE Length(issues)=0;
+  RETURN recentbuckets;
+}
+RECORD ARRAY FUNCTION GetRecentBuckets()
+{
+  DATETIME cutoff := GetRoundedDatetime(GetCurrentDatetime(), bucketsize);
+  cutoff := AddTimeToDate(-3*bucketsize, cutoff);
+  RETURN SELECT * FROM system.webservers_usage WHERE time >= cutoff;
+}
+
+PUBLIC RECORD ARRAY FUNCTION RunWebserverChecks()
+{
+  RECORD ARRAY messages := CheckCertificates();
+  messages := messages CONCAT CheckWebServerConfig();
+
+  RECORD ARRAY recentbuckets := GetRecentBuckets();
+  RECORD ARRAY failbuckets := GetFailedBuckets(recentbuckets);
+  IF(Length(failbuckets)>0)
+  {
+    RECORD ARRAY hostnames := SELECT id, baseurl FROM system.webservers;
+
+    FOREVERY(RECORD failinghost FROM SELECT webserver FROM failbuckets GROUP BY webserver)
+    {
+      STRING ARRAY issues;
+      FOREVERY(RECORD row FROM SELECT * FROM failbuckets WHERE failbuckets.webserver = failinghost.webserver)
+        FOREVERY(STRING issue FROM row.issues)
+          IF(issue NOT IN issues)
+            INSERT issue INTO issues AT END;
+
+      STRING hostname := (SELECT AS STRING baseurl FROM hostnames WHERE hostnames.id = failinghost.webserver) ?? "webserver #" || failinghost.webserver;
+
+      IF("clientfails" IN issues)
+        INSERT
+            [ msg := ":Host " || hostname || " is generating excessive client-side failures"
+            , messagetag := [ type := "system:webserver.clientfails", hostname := hostname ]
+            ] INTO messages AT END;
+      IF("serverfails" IN issues)
+        INSERT
+            [ msg := ":Host " || hostname || " is generating excessive server-side failures"
+            , messagetag := [ type := "system:webserver.serverfails", hostname := hostname ]
+            ] INTO messages AT END;
+      IF("highpagetime" IN issues)
+        INSERT
+            [ msg := ":Host " || hostname || " is using an excessive amount of time for requests"
+            , messagetag := [ type := "system:webserver.highpagetime", hostname := hostname ]
+            ] INTO messages AT END;
+    }
+  }
+
+  RETURN messages;
+}
+
+PUBLIC RECORD ARRAY FUNCTION CheckCertificates()
+{
+  // Check expiry for certificates used by webservers
+  RECORD ARRAY messages;
+  DATETIME now := GetCurrentDatetime();
+
+  FOREVERY (RECORD keypair FROM ListKeyPairs())
+  {
+    OBJECT obj := OpenKeyPair(keypair.id);
+    IF(NOT ObjectExists(obj))
+      CONTINUE;
+
+    STRING certfile := BlobToString(obj->certificatechain);
+    IF (LENGTH(certfile) = 0) // No certificate?
+      CONTINUE;
+
+    RECORD jumpto :=
+        [ app :=    "system:webservers"
+        , task :=   "selectkey"
+        , id :=     keypair.id
+        ];
+
+    TRY
+    {
+      RECORD certdata := DecodePEMFile(certfile);
+      IF (certdata.type = "multiple")
+        certdata := RECORD(certdata.parts);
+      IF (NOT RecordExists(certdata) OR certdata.type != "certificate")
+      {
+        INSERT
+            [ msg := ":The certificate for key '" || obj->name || "' is not a valid certificate file"
+            , jumpto := jumpto
+            , messagetag := [ type := "system:webserver.key", keyname := obj->name ]
+            ] INTO messages AT END;
+        CONTINUE;
+      }
+
+      IF (certdata.valid_until < now)
+        INSERT
+            [ msg := ":The certificate for key '" || obj->name || "' has expired"
+            , jumpto := jumpto
+            , messagetag := [ type := "system:webserver.key", keyname := obj->name ]
+            ] INTO messages AT END;
+      ELSE IF (certdata.valid_until < AddDaysToDate(21, now))
+      {
+        RECORD diff := GetDateTimeDifference(now, certdata.valid_until);
+        INSERT
+            [ msg := ":The certificate for key '" || obj->name || "' will expire in " || diff.days || " days"
+            , jumpto := jumpto
+            , messagetag := [ type := "system:webserver.key", keyname := obj->name ]
+            ] INTO messages AT END;
+      }
+    }
+    CATCH(OBJECT e)
+    {
+      INSERT
+          [ msg := "Error decoding certificate '" || obj->name || "': " || e->what
+          , jumpto := jumpto
+          , messagetag := [ type := "system:webserver.key", keyname := obj->name ]
+          ] INTO messages AT END;
+    }
+  }
+
+  RETURN messages;
+}
+
+RECORD ARRAY FUNCTION CheckWebServerConfig()
+{
+  TRY
+  {
+    STRING saved_configpath := MergePath(GetWebHareConfiguration().varroot, "system.cache/webserver-config");
+    RECORD config := DecodeHSONBlob(GetDiskResource(saved_configpath, [ allowmissing := TRUE ]));
+    IF (RecordExists(config))
+    {
+      RETURN
+          SELECT msg :=   source != "" ? `:${source}: ${error}` : `:${error}`
+               , ...(CellExists(errors, "jumpto") ? CELL[ jumpto ] : CELL[])
+            FROM config.errors;
+    }
+  }
+  CATCH(OBJECT e)
+  {
+    LogHareScriptException(e);
+  }
+  RETURN RECORD[];
+}

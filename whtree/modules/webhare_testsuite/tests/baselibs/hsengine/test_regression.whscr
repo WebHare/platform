@@ -1,0 +1,204 @@
+<?wh
+/// @short General regression tests
+
+LOADLIB "wh::internal/hsselftests.whlib";
+
+OpenTest("TestRegression");
+
+PRINT("\n === Running TestRegression\n");
+
+/*
+This tests tests code generation; in particular TryMergeBlocks.
+
+The error was that when a function modified non-imported globals
+that was used afterwars in the same basic block, this was not
+picked up. The load was not emitted instantly, but at the
+begin of the basic block; causing the wrong value to be used.
+*/
+
+INTEGER Test001_secounter := 0;
+
+MACRO Test001_SideEffect()
+{
+  Test001_secounter := Test001_secounter + 1;
+}
+
+INTEGER FUNCTION Test001()
+{
+        Test001_SideEffect();
+        RETURN Test001_secounter;
+}
+
+if (Test001() != 1)
+{
+  ABORT("Code generation error");
+}
+
+/*
+This tests tests code generation; in particular TryMergeBlocks.
+
+This error was triggered by invalid ordering that let 2 ssa-versions
+of a global variabe be live at the same time. This is totally
+forbidden, and checked now.
+*/
+
+BOOLEAN Test002_boolval := TRUE;
+
+MACRO Test002_Func1()
+{
+  PRINT("");
+  Test002_boolval := TRUE;
+}
+
+BOOLEAN FUNCTION Test002_Func2()
+{
+  PRINT("");
+  RETURN Test002_boolval;
+}
+
+BOOLEAN FUNCTION Test002()
+{
+        Test002_Func1();
+        Test002_boolval := FALSE;
+        RETURN Test002_Func2();
+}
+
+if (Test002() = TRUE)
+{
+  ABORT("Code generation error");
+}
+
+/*
+This tests tests inserts into an global array by a function.
+*/
+
+STRING ARRAY Test003_x;
+
+MACRO Test003_Add(STRING d)
+{
+  INSERT d INTO Test003_x AT END;
+}
+
+Test003_Add("test");
+IF (LENGTH(Test003_x) = 0)
+{
+  ABORT("Regression error 003");
+}
+
+/*
+This tests the loop-invariant code motion bug. Code is moved over conditionals
+that have a non-returning branch, while the licm code does not detect that.
+It moves the b.shop access to before the IF statement jump
+*/
+
+/*
+If you get:
+  -- Test TestRegression yielded errors:
+       Test 4: Expected error 0: "Internal error ''.", got errors:
+ Error:   2: "Cannot find compiled version of library 'temp.whlib'."
+ERROR:0,Test failed,
+Internal error 'Test failed'.
+
+it may just be as well that the compiler is 'just' completely broken */
+
+RECORD result := TestCompileAndRun('<?wh RECORD ARRAY a; RECORD b := a; IF (NOT RECORDEXISTS(b)) Abort("error"); PRINT(b.shop);');
+MustContainError(4, result.errors, 182, "error");
+
+/* This test tests recurrence of a il generation bug. Used to stop the compiler with 'two distinct dominator trees'
+  Error would be: 'cannot find compiled version ...' */
+result := TestCompileAndRun('<?wh STRING w;IF (w = "a") WHILE(TRUE);');
+TestCleanResult(5, result.errors);
+
+
+/*
+This code tests against an endless loop in the compiler. We'll put it inside a
+TestCompileAndRun, otherwise you'll have no chance of finding the hang */
+
+result := TestCompileAndRun('<?wh MACRO PTR ARRAY test2 := [ PTR Print("test") ]; { FOREVERY(MACRO PTR test FROM test2) test(); }');
+TestCleanResult(6, result.errors);
+//And the version without the compound block originally didn't even compile
+result := TestCompileAndRun('<?wh MACRO PTR ARRAY test2 := [ PTR Print("test") ]; FOREVERY(MACRO PTR test FROM test2) test();');
+TestCleanResult(7, result.errors);
+
+// This just shouldn't crash
+result := TestCompile('<?wh INSERT INTO ...');
+
+/*
+This tests an live-data construction bug. Phi-function parameters were not processed
+by the SSA fixupper.
+
+Test symptom: 'Circular dependency in local block' in following code
+*/
+
+PUBLIC RECORD ARRAY FUNCTION Test()
+{
+  RECORD ARRAY errors;
+/*
+  OBJECT storage := MakeTolliumStorageEmulator();
+*/
+  FOREVERY (INTEGER match FROM [0,1,2,3,4,5,6,7])
+  {
+    TRY
+    {
+      IF ((#match % 2) = 1)
+      {
+        PRINT("");
+        THROW NEW Exception("test");
+      }
+      //api->UpdateMatchData();
+    }
+    CATCH (OBJECT e)
+    {
+      PRINT("");
+      INSERT [ msg := e->what
+             ] INTO errors AT END;
+    }
+  }
+  RETURN errors;
+}
+
+TestEqual(10, 4, LENGTH(Test()));
+
+/*
+This code tests against the free heap variable list corruption done by the object garbage collector, discovered 23-11-2010.
+Result is unbounded allocation of heap variables.
+*/
+STRING script :=
+    "<?wh " ||
+    "LOADLIB 'wh::devsupport.whlib';" ||
+    "OBJECTTYPE x" ||
+    "< PUBLIC OBJECT ya;" ||
+    "  PUBLIC OBJECT yb;" ||
+    "  PUBLIC STRING s;" ||
+    ">;" ||
+    "OBJECT z;" ||
+    "FOR (INTEGER i := 0; i < 10000; i := i + 1)" ||
+    "{" ||
+    "  z := NEW x;" ||
+    "  z->s := '';" ||
+    "  z->ya := NEW x;" ||
+    "  z->yb := z->ya;" ||
+    "  z->ya->ya := z;" ||
+    "  z->ya->yb := z;" ||
+    "  z := DEFAULT OBJECT;" ||
+    "  CollectGarbage();" ||
+    "  PRINT(__INTERNAL_GetVMStatistics().heap || '\\n');" ||
+    "  IF (__INTERNAL_GetVMStatistics().heap >= 512) ABORT('Reclaim failure at iter ' || i || ': ' || __INTERNAL_GetVMStatistics().heap);" ||
+    "}";
+
+result := TestCompileAndRun(script);
+TestCleanResult(8, result.errors);
+
+OBJECTTYPE gc_test_x
+< PUBLIC RECORD ARRAY y;
+>;
+{
+  // This tests for missing updates of contains_no_object in a deep insert
+  OBJECT z := NEW gc_test_x;
+  CollectGarbage();
+  INSERT [ c := 4, d := NEW gc_test_x ] INTO z->y AT END;
+  CollectGarbage();
+  IF (NOT ObjectExists(z->y[0].d)) ABORT("Object disappeared");
+}
+
+CloseTest("TestRegression");

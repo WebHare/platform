@@ -1,0 +1,4229 @@
+<?wh
+/** @short Bibtex
+    @topic file-formats/bibtex
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+//Transliteration source: http://www.tex.ac.uk/ctan/biblio/biber/documentation/utf8-macro-map.html
+
+RECORD ARRAY translit_base :=
+[  //accents (sets: base,full)
+  [ char := "\u0300", tex := "\\`" ]
+, [ char := "\u0301", tex := "\\'" ]
+, [ char := "\u0302", tex := "\\^" ]
+, [ char := "\u0303", tex := "\\~" ]
+, [ char := "\u0304", tex := "\\=" ]
+, [ char := "\u0307", tex := "\\." ]
+, [ char := "\u0308", tex := '\\"' ]
+//letters (sets: base,full)
+, [ char := "\u00C5", tex := "\\AA" ]
+, [ char := "\u00C6", tex := "\\AE" ]
+, [ char := "\u00D0", tex := "\\DH" ]
+, [ char := "\u00D8", tex := "\\O" ]
+, [ char := "\u00DE", tex := "\\Thorn" ]
+, [ char := "\u00DE", tex := "\\TH" ]
+, [ char := "\u00DF", tex := "\\ss" ]
+, [ char := "\u00E5", tex := "\\aa" ]
+, [ char := "\u00E6", tex := "\\ae" ]
+, [ char := "\u00F0", tex := "\\dh" ]
+, [ char := "\u00F8", tex := "\\o" ]
+, [ char := "\u00FE", tex := "\\textthorn" ]
+, [ char := "\u00FE", tex := "\\textthornvari" ]
+, [ char := "\u00FE", tex := "\\textthornvarii" ]
+, [ char := "\u00FE", tex := "\\textthornvariii" ]
+, [ char := "\u00FE", tex := "\\textthornvariv" ]
+, [ char := "\u00FE", tex := "\\th" ]
+, [ char := "\u0110", tex := "\\DJ" ]
+, [ char := "\u0111", tex := "\\dj" ]
+, [ char := "\u0111", tex := "\\textcrd" ]
+, [ char := "\u0126", tex := "\\textHbar" ]
+, [ char := "\u0127", tex := "\\textcrh" ]
+, [ char := "\u0127", tex := "\\texthbar" ]
+, [ char := "\u0131", tex := "\\i" ]
+, [ char := "\u0237", tex := "\\j" ]
+, [ char := "\u0132", tex := "\\IJ" ]
+, [ char := "\u0133", tex := "\\ij" ]
+, [ char := "\u0138", tex := "\\textkra" ]
+, [ char := "\u0141", tex := "\\L" ]
+, [ char := "\u0142", tex := "\\textbarl" ]
+, [ char := "\u0142", tex := "\\l" ]
+, [ char := "\u014A", tex := "\\NG" ]
+, [ char := "\u014B", tex := "\\ng" ]
+, [ char := "\u0152", tex := "\\OE" ]
+, [ char := "\u0153", tex := "\\oe" ]
+, [ char := "\u0166", tex := "\\textTbar" ]
+, [ char := "\u0166", tex := "\\textTstroke" ]
+, [ char := "\u0167", tex := "\\texttbar" ]
+, [ char := "\u0167", tex := "\\texttstroke" ]
+, [ char := "\u0180", tex := "\\textcrb" ]
+, [ char := "\u0181", tex := "\\textBhook" ]
+, [ char := "\u0186", tex := "\\textOopen" ]
+, [ char := "\u0187", tex := "\\textChook" ]
+, [ char := "\u0188", tex := "\\textchook" ]
+, [ char := "\u0188", tex := "\\texthtc" ]
+, [ char := "\u0189", tex := "\\textDafrican" ]
+, [ char := "\u018A", tex := "\\textDhook" ]
+, [ char := "\u018E", tex := "\\textEreversed" ]
+, [ char := "\u0190", tex := "\\textEopen" ]
+, [ char := "\u0191", tex := "\\textFhook" ]
+, [ char := "\u0192", tex := "\\textflorin" ]
+, [ char := "\u0194", tex := "\\textGammaafrican" ]
+, [ char := "\u0195", tex := "\\texthvlig" ]
+, [ char := "\u0195", tex := "\\hv" ]
+, [ char := "\u0196", tex := "\\textIotaafrican" ]
+, [ char := "\u0198", tex := "\\textKhook" ]
+, [ char := "\u0199", tex := "\\textkhook" ]
+, [ char := "\u0199", tex := "\\texthtk" ]
+, [ char := "\u019B", tex := "\\textcrlambda" ]
+, [ char := "\u019D", tex := "\\textNhookleft" ]
+, [ char := "\u01A0", tex := "\\OHORN" ]
+, [ char := "\u01A1", tex := "\\ohorn" ]
+, [ char := "\u01A4", tex := "\\textPhook" ]
+, [ char := "\u01A5", tex := "\\textphook" ]
+, [ char := "\u01A5", tex := "\\texthtp" ]
+, [ char := "\u01A9", tex := "\\textEsh" ]
+, [ char := "\u01A9", tex := "\\ESH" ]
+, [ char := "\u01AA", tex := "\\textlooptoprevesh" ]
+, [ char := "\u01AB", tex := "\\textpalhookbelow" ]
+, [ char := "\u01AC", tex := "\\textThook" ]
+, [ char := "\u01AD", tex := "\\textthook" ]
+, [ char := "\u01AD", tex := "\\texthtt" ]
+, [ char := "\u01AE", tex := "\\textTretroflexhook" ]
+, [ char := "\u01AF", tex := "\\UHORN" ]
+, [ char := "\u01B0", tex := "\\uhorn" ]
+, [ char := "\u01B2", tex := "\\textVhook" ]
+, [ char := "\u01B3", tex := "\\textYhook" ]
+, [ char := "\u01B4", tex := "\\textyhook" ]
+, [ char := "\u01B7", tex := "\\textEzh" ]
+, [ char := "\u01DD", tex := "\\texteturned" ]
+, [ char := "\u0250", tex := "\\textturna" ]
+, [ char := "\u0251", tex := "\\textscripta" ]
+, [ char := "\u0252", tex := "\\textturnscripta" ]
+, [ char := "\u0253", tex := "\\textbhook" ]
+, [ char := "\u0253", tex := "\\texthtb" ]
+, [ char := "\u0254", tex := "\\textoopen" ]
+, [ char := "\u0254", tex := "\\textopeno" ]
+, [ char := "\u0255", tex := "\\textctc" ]
+, [ char := "\u0256", tex := "\\textdtail" ]
+, [ char := "\u0256", tex := "\\textrtaild" ]
+, [ char := "\u0257", tex := "\\textdhook" ]
+, [ char := "\u0257", tex := "\\texthtd" ]
+, [ char := "\u0258", tex := "\\textreve" ]
+, [ char := "\u0259", tex := "\\textschwa" ]
+, [ char := "\u025A", tex := "\\textrhookschwa" ]
+, [ char := "\u025B", tex := "\\texteopen" ]
+, [ char := "\u025B", tex := "\\textepsilon" ]
+, [ char := "\u025C", tex := "\\textrevepsilon" ]
+, [ char := "\u025D", tex := "\\textrhookrevepsilon" ]
+, [ char := "\u025E", tex := "\\textcloserevepsilon" ]
+, [ char := "\u025F", tex := "\\textbardotlessj" ]
+, [ char := "\u0260", tex := "\\texthtg" ]
+, [ char := "\u0261", tex := "\\textscriptg" ]
+, [ char := "\u0262", tex := "\\textscg" ]
+, [ char := "\u0263", tex := "\\textgammalatinsmall" ]
+, [ char := "\u0263", tex := "\\textgamma" ]
+, [ char := "\u0264", tex := "\\textramshorns" ]
+, [ char := "\u0265", tex := "\\textturnh" ]
+, [ char := "\u0266", tex := "\\texthth" ]
+, [ char := "\u0267", tex := "\\texththeng" ]
+, [ char := "\u0268", tex := "\\textbari" ]
+, [ char := "\u0269", tex := "\\textiotalatin" ]
+, [ char := "\u0269", tex := "\\textiota" ]
+, [ char := "\u026A", tex := "\\textsci" ]
+, [ char := "\u026B", tex := "\\textltilde" ]
+, [ char := "\u026C", tex := "\\textbeltl" ]
+, [ char := "\u026D", tex := "\\textrtaill" ]
+, [ char := "\u026E", tex := "\\textlyoghlig" ]
+, [ char := "\u026F", tex := "\\textturnm" ]
+, [ char := "\u0270", tex := "\\textturnmrleg" ]
+, [ char := "\u0271", tex := "\\textltailm" ]
+, [ char := "\u0272", tex := "\\textltailn" ]
+, [ char := "\u0272", tex := "\\textnhookleft" ]
+, [ char := "\u0273", tex := "\\textrtailn" ]
+, [ char := "\u0274", tex := "\\textscn" ]
+, [ char := "\u0275", tex := "\\textbaro" ]
+, [ char := "\u0276", tex := "\\textscoelig" ]
+, [ char := "\u0277", tex := "\\textcloseomega" ]
+, [ char := "\u0278", tex := "\\textphi" ]
+, [ char := "\u0279", tex := "\\textturnr" ]
+, [ char := "\u027A", tex := "\\textturnlonglegr" ]
+, [ char := "\u027B", tex := "\\textturnrrtail" ]
+, [ char := "\u027C", tex := "\\textlonglegr" ]
+, [ char := "\u027D", tex := "\\textrtailr" ]
+, [ char := "\u027E", tex := "\\textfishhookr" ]
+, [ char := "\u027F", tex := "\\textlhti" ]
+, [ char := "\u0280", tex := "\\textscr" ]
+, [ char := "\u0281", tex := "\\textinvscr" ]
+, [ char := "\u0282", tex := "\\textrtails" ]
+, [ char := "\u0283", tex := "\\textesh" ]
+, [ char := "\u0284", tex := "\\texthtbardotlessj" ]
+, [ char := "\u0285", tex := "\\textraisevibyi" ]
+, [ char := "\u0286", tex := "\\textctesh" ]
+, [ char := "\u0287", tex := "\\textturnt" ]
+, [ char := "\u0288", tex := "\\textrtailt" ]
+, [ char := "\u0288", tex := "\\texttretroflexhook" ]
+, [ char := "\u0289", tex := "\\textbaru" ]
+, [ char := "\u028A", tex := "\\textupsilon" ]
+, [ char := "\u028B", tex := "\\textscriptv" ]
+, [ char := "\u028B", tex := "\\textvhook" ]
+, [ char := "\u028C", tex := "\\textturnv" ]
+, [ char := "\u028D", tex := "\\textturnw" ]
+, [ char := "\u028E", tex := "\\textturny" ]
+, [ char := "\u028F", tex := "\\textscy" ]
+, [ char := "\u0290", tex := "\\textrtailz" ]
+, [ char := "\u0291", tex := "\\textctz" ]
+, [ char := "\u0292", tex := "\\textezh" ]
+, [ char := "\u0292", tex := "\\textyogh" ]
+, [ char := "\u0293", tex := "\\textctyogh" ]
+, [ char := "\u0294", tex := "\\textglotstop" ]
+, [ char := "\u0295", tex := "\\textrevglotstop" ]
+, [ char := "\u0296", tex := "\\textinvglotstop" ]
+, [ char := "\u0297", tex := "\\textstretchc" ]
+, [ char := "\u0298", tex := "\\textbullseye" ]
+, [ char := "\u0299", tex := "\\textscb" ]
+, [ char := "\u029A", tex := "\\textcloseepsilon" ]
+, [ char := "\u029B", tex := "\\texthtscg" ]
+, [ char := "\u029C", tex := "\\textsch" ]
+, [ char := "\u029D", tex := "\\textctj" ]
+, [ char := "\u029E", tex := "\\textturnk" ]
+, [ char := "\u029F", tex := "\\textscl" ]
+, [ char := "\u02A0", tex := "\\texthtq" ]
+, [ char := "\u02A1", tex := "\\textbarglotstop" ]
+, [ char := "\u02A2", tex := "\\textbarrevglotstop" ]
+, [ char := "\u02A3", tex := "\\textdzlig" ]
+, [ char := "\u02A4", tex := "\\textdyoghlig" ]
+, [ char := "\u02A5", tex := "\\textdctzlig" ]
+, [ char := "\u02A6", tex := "\\texttslig" ]
+, [ char := "\u02A7", tex := "\\textteshlig" ]
+, [ char := "\u02A7", tex := "\\texttesh" ]
+, [ char := "\u02A8", tex := "\\texttctclig" ]
+, [ char := "\u02BE", tex := "\\hamza" ]
+, [ char := "\u02BF", tex := "\\ain" ]
+, [ char := "\u02BF", tex := "\\ayn" ]
+, [ char := "\u02C8", tex := "\\textprimstress" ]
+, [ char := "\u02D0", tex := "\\textlengthmark" ]
+//diacritics (sets: base,full)
+, [ char := "\u030A", tex := "\\r" ]
+, [ char := "\u030B", tex := "\\H" ]
+, [ char := "\u0306", tex := "\\u" ]
+, [ char := "\u030C", tex := "\\v" ]
+, [ char := "\u030F", tex := "\\G" ]
+, [ char := "\u0322", tex := "\\M" ]
+, [ char := "\u0323", tex := "\\d" ]
+, [ char := "\u0327", tex := "\\c" ]
+, [ char := "\u0328", tex := "\\k" ]
+, [ char := "\u0331", tex := "\\b" ]
+, [ char := "\u0335", tex := "\\B" ]
+, [ char := "\u0311", tex := "\\t" ]
+, [ char := "\u030D", tex := "\\textvbaraccent" ]
+, [ char := "\u030E", tex := "\\textdoublevbaraccent" ]
+, [ char := "\u0310", tex := "\\textdotbreve" ]
+, [ char := "\u0312", tex := "\\textturncommaabove" ]
+, [ char := "\u0313", tex := "\\textcommaabove" ]
+, [ char := "\u0314", tex := "\\textrevcommaabove" ]
+, [ char := "\u0315", tex := "\\textcommaabover" ]
+, [ char := "\u0316", tex := "\\textsubgrave" ]
+, [ char := "\u0317", tex := "\\textsubacute" ]
+, [ char := "\u0318", tex := "\\textadvancing" ]
+, [ char := "\u0319", tex := "\\textretracting" ]
+, [ char := "\u031A", tex := "\\textlangleabove" ]
+, [ char := "\u031B", tex := "\\textrighthorn" ]
+, [ char := "\u031C", tex := "\\textsublhalfring" ]
+, [ char := "\u031D", tex := "\\textraising" ]
+, [ char := "\u031E", tex := "\\textlowering" ]
+, [ char := "\u031F", tex := "\\textsubplus" ]
+, [ char := "\u0320", tex := "\\textsubbar" ]
+, [ char := "\u0320", tex := "\\textsubminus" ]
+, [ char := "\u0321", tex := "\\textpalhookbelow" ]
+, [ char := "\u0324", tex := "\\textsubumlaut" ]
+, [ char := "\u0325", tex := "\\textsubring" ]
+, [ char := "\u0326", tex := "\\textcommabelow" ]
+, [ char := "\u0329", tex := "\\textsyllabic" ]
+, [ char := "\u032A", tex := "\\textsubbridge" ]
+, [ char := "\u032B", tex := "\\textsubw" ]
+, [ char := "\u032C", tex := "\\textsubwedge" ]
+, [ char := "\u032D", tex := "\\textsubcircnum" ]
+, [ char := "\u032E", tex := "\\textsubbreve" ]
+, [ char := "\u032E", tex := "\\textundertie" ]
+, [ char := "\u032F", tex := "\\textsubarch" ]
+, [ char := "\u0330", tex := "\\textsubtilde" ]
+, [ char := "\u0333", tex := "\\subdoublebar" ]
+, [ char := "\u0334", tex := "\\textsuperimposetilde" ]
+, [ char := "\u0336", tex := "\\textlstrokethru" ]
+, [ char := "\u0337", tex := "\\textsstrikethru" ]
+, [ char := "\u0338", tex := "\\textlstrikethru" ]
+, [ char := "\u0339", tex := "\\textsubrhalfring" ]
+, [ char := "\u033A", tex := "\\textinvsubbridge" ]
+, [ char := "\u033B", tex := "\\textsubsquare" ]
+, [ char := "\u033C", tex := "\\textseagull" ]
+, [ char := "\u033D", tex := "\\textovercross" ]
+, [ char := "\u0346", tex := "\\overbridge" ]
+, [ char := "\u0347", tex := "\\subdoublebar" ]
+, [ char := "\u0348", tex := "\\subdoublevert" ]
+, [ char := "\u0349", tex := "\\subcorner" ]
+, [ char := "\u034A", tex := "\\crtilde" ]
+, [ char := "\u034A", tex := "\\textoverw" ]
+, [ char := "\u034B", tex := "\\dottedtilde" ]
+, [ char := "\u034C", tex := "\\doubletilde" ]
+, [ char := "\u034D", tex := "\\spreadlips" ]
+, [ char := "\u034E", tex := "\\whistle" ]
+, [ char := "\u0350", tex := "\\textrightarrowhead" ]
+, [ char := "\u0351", tex := "\\textlefthalfring" ]
+, [ char := "\u0354", tex := "\\sublptr" ]
+, [ char := "\u0355", tex := "\\subrptr" ]
+, [ char := "\u0356", tex := "\\textrightuparrowhead" ]
+, [ char := "\u0357", tex := "\\textrighthalfring" ]
+, [ char := "\u035D", tex := "\\textdoublebreve" ]
+, [ char := "\u035E", tex := "\\textdoublemacron" ]
+, [ char := "\u035F", tex := "\\textdoublemacronbelow" ]
+, [ char := "\u0360", tex := "\\textdoubletilde" ]
+, [ char := "\u0361", tex := "\\texttoptiebar" ]
+, [ char := "\u0362", tex := "\\sliding" ]
+//punctuation (sets: base,full)
+, [ char := "\u2010", tex := "\\-" ]
+, [ char := "\u2011", tex := "\\-" ]
+, [ char := "\u2012", tex := "\\textendash" ]
+, [ char := "\u2012", tex := "\\--" ]
+, [ char := "\u2013", tex := "\\textendash" ]
+, [ char := "\u2013", tex := "\\--" ]
+, [ char := "\u2014", tex := "\\textemdash" ]
+, [ char := "\u2014", tex := "\\---" ]
+, [ char := "\u2018", tex := "\\textquoteleft" ]
+, [ char := "\u2019", tex := "\\textquoteright" ]
+, [ char := "\u201A", tex := "\\quotesinglbase" ]
+, [ char := "\u201C", tex := "\\textquotedblleft" ]
+, [ char := "\u201D", tex := "\\textquotedblright" ]
+, [ char := "\u201E", tex := "\\quotedblbase" ]
+, [ char := "\u2020", tex := "\\dag" ]
+, [ char := "\u2021", tex := "\\ddag" ]
+, [ char := "\u2022", tex := "\\textbullet" ]
+, [ char := "\u2026", tex := "\\dots" ]
+, [ char := "\u2030", tex := "\\textperthousand" ]
+, [ char := "\u2031", tex := "\\textpertenthousand" ]
+, [ char := "\u2039", tex := "\\guilsinglleft" ]
+, [ char := "\u203A", tex := "\\guilsinglright" ]
+, [ char := "\u203B", tex := "\\textreferencemark" ]
+, [ char := "\u203D", tex := "\\textinterrobang" ]
+, [ char := "\u203E", tex := "\\textoverline" ]
+, [ char := "\u27E8", tex := "\\langle" ]
+, [ char := "\u27E9", tex := "\\rangle" ]
+//symbols (sets: base,full)
+, [ char := "\u0022", tex := "\\textquotedbl" ]
+, [ char := "\u0024", tex := "\\textdollar" ]
+, [ char := "\u0025", tex := "\\textpercent" ]
+, [ char := "\u0026", tex := "\\textampersand" ]
+, [ char := "\u0027", tex := "\\textquotesingle" ]
+, [ char := "\u002A", tex := "\\textasteriskcentered" ]
+, [ char := "\u003C", tex := "\\textless" ]
+, [ char := "\u003D", tex := "\\textequals" ]
+, [ char := "\u003E", tex := "\\textgreater" ]
+, [ char := "\u005C", tex := "\\textbackslash" ]
+, [ char := "\u005E", tex := "\\textasciicircum" ]
+, [ char := "\u005F", tex := "\\textunderscore" ]
+, [ char := "\u0060", tex := "\\textasciigrave" ]
+, [ char := "\u007B", tex := "\\textbraceleft" ]
+, [ char := "\u007C", tex := "\\textbar" ]
+, [ char := "\u007D", tex := "\\textbraceright" ]
+, [ char := "\u007E", tex := "\\textasciitilde" ]
+, [ char := "\u00A0", tex := "\\nobreakspace" ]
+, [ char := "\u00A1", tex := "\\textexclamdown" ]
+, [ char := "\u00A2", tex := "\\textcent" ]
+, [ char := "\u00A3", tex := "\\textsterling" ]
+, [ char := "\u00A3", tex := "\\pounds" ]
+, [ char := "\u00A4", tex := "\\textcurrency" ]
+, [ char := "\u00A5", tex := "\\textyen" ]
+, [ char := "\u00A6", tex := "\\textbrokenbar" ]
+, [ char := "\u00A7", tex := "\\textsection" ]
+, [ char := "\u00A7", tex := "\\S" ]
+, [ char := "\u00A8", tex := "\\textasciidieresis" ]
+, [ char := "\u00A9", tex := "\\textcopyright" ]
+, [ char := "\u00A9", tex := "\\copyright" ]
+, [ char := "\u00AA", tex := "\\textordfeminine" ]
+, [ char := "\u00AB", tex := "\\guillemotleft" ]
+, [ char := "\u2212", tex := "\\textminus" ]
+, [ char := "\u00AE", tex := "\\textregistered" ]
+, [ char := "\u00AF", tex := "\\textasciimacron" ]
+, [ char := "\u00B0", tex := "\\textdegree" ]
+, [ char := "\u00B2", tex := "\\texttwosuperior" ]
+, [ char := "\u00B3", tex := "\\textthreesuperior" ]
+, [ char := "\u00B4", tex := "\\textasciiacute" ]
+, [ char := "\u00B6", tex := "\\textparagraph" ]
+, [ char := "\u00B6", tex := "\\P" ]
+, [ char := "\u00B7", tex := "\\textcentereddot" ]
+, [ char := "\u00B7", tex := "\\textperiodcentered" ]
+, [ char := "\u00B8", tex := "\\textasciicedilla" ]
+, [ char := "\u00B9", tex := "\\textonesuperior" ]
+, [ char := "\u00BA", tex := "\\textordmasculine" ]
+, [ char := "\u00BB", tex := "\\guillemotright" ]
+, [ char := "\u00BC", tex := "\\textonequarter" ]
+, [ char := "\u00BD", tex := "\\textonehalf" ]
+, [ char := "\u00BE", tex := "\\textthreequarters" ]
+, [ char := "\u00BF", tex := "\\textquestiondown" ]
+//symbols (sets: full)
+, [ char := "\u0067", tex := "\\textg" ]
+, [ char := "\u00F7", tex := "\\textdiv" ]
+, [ char := "\u00F7", tex := "\\div" ]
+, [ char := "\u00D7", tex := "\\texttimes" ]
+, [ char := "\u00D7", tex := "\\times" ]
+, [ char := "\u00B5", tex := "\\textmu" ]
+, [ char := "\u00B5", tex := "\\mu" ]
+, [ char := "\u00B1", tex := "\\textpm" ]
+, [ char := "\u00B1", tex := "\\pm" ]
+, [ char := "\u00AC", tex := "\\textlogicalnot" ]
+, [ char := "\u00AC", tex := "\\lnot" ]
+, [ char := "\u20A1", tex := "\\textcolonmonetary" ]
+, [ char := "\u20A4", tex := "\\textlira" ]
+, [ char := "\u20A6", tex := "\\textnaira" ]
+, [ char := "\u20A9", tex := "\\textwon" ]
+, [ char := "\u20AB", tex := "\\textdong" ]
+, [ char := "\u20AC", tex := "\\euro" ]
+, [ char := "\u20AC", tex := "\\texteuro" ]
+, [ char := "\u2116", tex := "\\textnumero" ]
+, [ char := "\u2122", tex := "\\texttrademark" ]
+, [ char := "\u2190", tex := "\\leftarrow" ]
+, [ char := "\u2191", tex := "\\uparrow" ]
+, [ char := "\u2192", tex := "\\rightarrow" ]
+, [ char := "\u2193", tex := "\\downarrow" ]
+, [ char := "\u2194", tex := "\\leftrightarrow" ]
+, [ char := "\u2195", tex := "\\updownarrow" ]
+, [ char := "\u219D", tex := "\\leadsto" ]
+, [ char := "\u21CC", tex := "\\rightleftharpoons" ]
+, [ char := "\u21D2", tex := "\\Rightarrow" ]
+, [ char := "\u21D4", tex := "\\Leftrightarrow" ]
+, [ char := "\u2200", tex := "\\forall" ]
+, [ char := "\u2201", tex := "\\complement" ]
+, [ char := "\u2202", tex := "\\partial" ]
+, [ char := "\u2203", tex := "\\exists" ]
+, [ char := "\u2204", tex := "\\nexists" ]
+, [ char := "\u2205", tex := "\\set" ]
+, [ char := "\u2206", tex := "\\Delta" ]
+, [ char := "\u2207", tex := "\\nabla" ]
+, [ char := "\u2208", tex := "\\in" ]
+, [ char := "\u2209", tex := "\\notin" ]
+, [ char := "\u220B", tex := "\\ni" ]
+, [ char := "\u220F", tex := "\\prod" ]
+, [ char := "\u2210", tex := "\\coprod" ]
+, [ char := "\u2211", tex := "\\sum" ]
+, [ char := "\u2213", tex := "\\mp" ]
+, [ char := "\u2214", tex := "\\dotplus" ]
+, [ char := "\u2216", tex := "\\setminus" ]
+, [ char := "\u2217", tex := "\\ast" ]
+, [ char := "\u2218", tex := "\\circ" ]
+, [ char := "\u2219", tex := "\\bullet" ]
+, [ char := "\u221A", tex := "\\surd" ]
+, [ char := "\u221D", tex := "\\propto" ]
+, [ char := "\u221E", tex := "\\infty" ]
+, [ char := "\u2220", tex := "\\angle" ]
+, [ char := "\u2221", tex := "\\measuredangle" ]
+, [ char := "\u2222", tex := "\\sphericalangle" ]
+, [ char := "\u2223", tex := "\\mid" ]
+, [ char := "\u2224", tex := "\\nmid" ]
+, [ char := "\u2225", tex := "\\parallel" ]
+, [ char := "\u2226", tex := "\\nparallel" ]
+, [ char := "\u2227", tex := "\\wedge" ]
+, [ char := "\u2228", tex := "\\vee" ]
+, [ char := "\u2229", tex := "\\cap" ]
+, [ char := "\u222A", tex := "\\cup" ]
+, [ char := "\u222B", tex := "\\int" ]
+, [ char := "\u222C", tex := "\\iint" ]
+, [ char := "\u222D", tex := "\\iiint" ]
+, [ char := "\u222E", tex := "\\oint" ]
+, [ char := "\u2234", tex := "\\therefore" ]
+, [ char := "\u2235", tex := "\\because" ]
+, [ char := "\u223C", tex := "\\sim" ]
+, [ char := "\u223D", tex := "\\backsim" ]
+, [ char := "\u2240", tex := "\\wr" ]
+, [ char := "\u2241", tex := "\\nsim" ]
+, [ char := "\u2243", tex := "\\simeq" ]
+, [ char := "\u2245", tex := "\\cong" ]
+, [ char := "\u2247", tex := "\\ncong" ]
+, [ char := "\u2248", tex := "\\approx" ]
+, [ char := "\u224A", tex := "\\approxeq" ]
+, [ char := "\u224D", tex := "\\asymp" ]
+, [ char := "\u224E", tex := "\\Bumpeq" ]
+, [ char := "\u224F", tex := "\\bumpeq" ]
+, [ char := "\u2250", tex := "\\doteq" ]
+, [ char := "\u2251", tex := "\\doteqdot" ]
+, [ char := "\u2252", tex := "\\fallingdotseq" ]
+, [ char := "\u2253", tex := "\\risingdotseq" ]
+, [ char := "\u2256", tex := "\\eqcirc" ]
+, [ char := "\u2257", tex := "\\circeq" ]
+, [ char := "\u225C", tex := "\\triangleq" ]
+, [ char := "\u2260", tex := "\\neq" ]
+, [ char := "\u2261", tex := "\\equiv" ]
+, [ char := "\u2264", tex := "\\leq" ]
+, [ char := "\u2265", tex := "\\geq" ]
+, [ char := "\u2266", tex := "\\leqq" ]
+, [ char := "\u2267", tex := "\\geqq" ]
+, [ char := "\u2268", tex := "\\lneqq" ]
+, [ char := "\u2269", tex := "\\gneqq" ]
+, [ char := "\u226A", tex := "\\ll" ]
+, [ char := "\u226B", tex := "\\gg" ]
+, [ char := "\u226C", tex := "\\between" ]
+, [ char := "\u226E", tex := "\\nless" ]
+, [ char := "\u226F", tex := "\\ngtr" ]
+, [ char := "\u2270", tex := "\\nleq" ]
+, [ char := "\u2271", tex := "\\ngeq" ]
+, [ char := "\u2272", tex := "\\lesssim" ]
+, [ char := "\u2273", tex := "\\gtrsim" ]
+, [ char := "\u2276", tex := "\\lessgtr" ]
+, [ char := "\u2277", tex := "\\gtrless" ]
+, [ char := "\u227A", tex := "\\prec" ]
+, [ char := "\u227B", tex := "\\succ" ]
+, [ char := "\u227C", tex := "\\preccurlyeq" ]
+, [ char := "\u227D", tex := "\\succcurlyeq" ]
+, [ char := "\u227E", tex := "\\precsim" ]
+, [ char := "\u227F", tex := "\\succsim" ]
+, [ char := "\u2280", tex := "\\nprec" ]
+, [ char := "\u2281", tex := "\\nsucc" ]
+, [ char := "\u2282", tex := "\\subset" ]
+, [ char := "\u2283", tex := "\\supset" ]
+, [ char := "\u2286", tex := "\\subseteq" ]
+, [ char := "\u2287", tex := "\\supseteq" ]
+, [ char := "\u2288", tex := "\\nsubseteq" ]
+, [ char := "\u2289", tex := "\\nsupseteq" ]
+, [ char := "\u228A", tex := "\\subsetneq" ]
+, [ char := "\u228B", tex := "\\supsetneq" ]
+, [ char := "\u228E", tex := "\\uplus" ]
+, [ char := "\u228F", tex := "\\sqsubset" ]
+, [ char := "\u2290", tex := "\\sqsupset" ]
+, [ char := "\u2291", tex := "\\sqsubseteq" ]
+, [ char := "\u2292", tex := "\\sqsupseteq" ]
+, [ char := "\u2293", tex := "\\sqcap" ]
+, [ char := "\u2294", tex := "\\sqcup" ]
+, [ char := "\u2295", tex := "\\oplus" ]
+, [ char := "\u2296", tex := "\\ominus" ]
+, [ char := "\u2297", tex := "\\otimes" ]
+, [ char := "\u2298", tex := "\\oslash" ]
+, [ char := "\u2299", tex := "\\odot" ]
+, [ char := "\u229A", tex := "\\circledcirc" ]
+, [ char := "\u229B", tex := "\\circledast" ]
+, [ char := "\u229D", tex := "\\circleddash" ]
+, [ char := "\u229E", tex := "\\boxplus" ]
+, [ char := "\u229F", tex := "\\boxminus" ]
+, [ char := "\u22A0", tex := "\\boxtimes" ]
+, [ char := "\u22A1", tex := "\\boxdot" ]
+, [ char := "\u22A2", tex := "\\vdash" ]
+, [ char := "\u22A3", tex := "\\dashv" ]
+, [ char := "\u22A4", tex := "\\top" ]
+, [ char := "\u22A5", tex := "\\bot" ]
+, [ char := "\u22A9", tex := "\\Vdash" ]
+, [ char := "\u22AA", tex := "\\Vvdash" ]
+, [ char := "\u22AE", tex := "\\nVdash" ]
+, [ char := "\u22B2", tex := "\\lhd" ]
+, [ char := "\u22B3", tex := "\\rhd" ]
+, [ char := "\u22B4", tex := "\\unlhd" ]
+, [ char := "\u22B5", tex := "\\unrhd" ]
+, [ char := "\u22B8", tex := "\\multimap" ]
+, [ char := "\u22BA", tex := "\\intercal" ]
+, [ char := "\u22BB", tex := "\\veebar" ]
+, [ char := "\u22BC", tex := "\\barwedge" ]
+, [ char := "\u22C0", tex := "\\bigwedge" ]
+, [ char := "\u22C1", tex := "\\bigvee" ]
+, [ char := "\u22C2", tex := "\\bigcap" ]
+, [ char := "\u22C3", tex := "\\bigcup" ]
+, [ char := "\u22C4", tex := "\\diamond" ]
+, [ char := "\u22C5", tex := "\\cdot" ]
+, [ char := "\u22C6", tex := "\\star" ]
+, [ char := "\u22C7", tex := "\\divideontimes" ]
+, [ char := "\u22C8", tex := "\\bowtie" ]
+, [ char := "\u22C9", tex := "\\ltimes" ]
+, [ char := "\u22CA", tex := "\\rtimes" ]
+, [ char := "\u22CB", tex := "\\leftthreetimes" ]
+, [ char := "\u22CC", tex := "\\rightthreetimes" ]
+, [ char := "\u22CD", tex := "\\backsimeq" ]
+, [ char := "\u22CE", tex := "\\curlyvee" ]
+, [ char := "\u22CF", tex := "\\curlywedge" ]
+, [ char := "\u22D0", tex := "\\Subset" ]
+, [ char := "\u22D1", tex := "\\Supset" ]
+, [ char := "\u22D2", tex := "\\Cap" ]
+, [ char := "\u22D3", tex := "\\Cup" ]
+, [ char := "\u22D4", tex := "\\pitchfork" ]
+, [ char := "\u22D6", tex := "\\lessdot" ]
+, [ char := "\u22D7", tex := "\\gtrdot" ]
+, [ char := "\u22D8", tex := "\\lll" ]
+, [ char := "\u22D9", tex := "\\ggg" ]
+, [ char := "\u22DA", tex := "\\lesseqgtr" ]
+, [ char := "\u22DB", tex := "\\gtreqless" ]
+, [ char := "\u22DE", tex := "\\curlyeqprec" ]
+, [ char := "\u22DF", tex := "\\curlyeqsucc" ]
+, [ char := "\u22E6", tex := "\\lnsim" ]
+, [ char := "\u22E7", tex := "\\gnsim" ]
+, [ char := "\u22E8", tex := "\\precnsim" ]
+, [ char := "\u22E9", tex := "\\succnsim" ]
+, [ char := "\u22EA", tex := "\\ntriangleleft" ]
+, [ char := "\u22EB", tex := "\\ntriangleright" ]
+, [ char := "\u22EC", tex := "\\ntrianglelefteq" ]
+, [ char := "\u22ED", tex := "\\ntrianglerighteq" ]
+, [ char := "\u22EE", tex := "\\vdots" ]
+, [ char := "\u22EF", tex := "\\cdots" ]
+, [ char := "\u22F1", tex := "\\ddots" ]
+, [ char := "\u2308", tex := "\\lceil" ]
+, [ char := "\u2309", tex := "\\rceil" ]
+, [ char := "\u230A", tex := "\\lfloor" ]
+, [ char := "\u230B", tex := "\\rfloor" ]
+, [ char := "\u25A1", tex := "\\Box" ]
+, [ char := "\u2660", tex := "\\spadesuit" ]
+, [ char := "\u2661", tex := "\\heartsuit" ]
+, [ char := "\u2662", tex := "\\diamondsuit" ]
+, [ char := "\u2663", tex := "\\clubsuit" ]
+, [ char := "\u266D", tex := "\\flat" ]
+, [ char := "\u266E", tex := "\\natural" ]
+, [ char := "\u266F", tex := "\\sharp" ]
+, [ char := "\u02E5", tex := "\\tone5" ]
+, [ char := "\u02E6", tex := "\\tone4" ]
+, [ char := "\u02E7", tex := "\\tone3" ]
+, [ char := "\u02E8", tex := "\\tone2" ]
+, [ char := "\u02E9", tex := "\\tone1" ]
+//negatedsymbols (sets: full)
+, [ char := "\u226D", tex := "\\asymp" ]
+, [ char := "\u2274", tex := "\\lesssim" ]
+, [ char := "\u2275", tex := "\\gtrsim" ]
+, [ char := "\u2284", tex := "\\subset" ]
+, [ char := "\u2285", tex := "\\supset" ]
+, [ char := "\u220C", tex := "\\ni" ]
+, [ char := "\u2244", tex := "\\simeq" ]
+, [ char := "\u2249", tex := "\\approx" ]
+, [ char := "\u2262", tex := "\\equiv" ]
+, [ char := "\u22E0", tex := "\\preccurlyeq" ]
+, [ char := "\u22E1", tex := "\\succcurlyeq" ]
+, [ char := "\u22E2", tex := "\\sqsubseteq" ]
+, [ char := "\u22E3", tex := "\\sqsupseteq" ]
+//superscripts (sets: full)
+, [ char := "\u2070", tex := "\\0" ]
+, [ char := "\u2071", tex := "\\i" ]
+, [ char := "\u2074", tex := "\\4" ]
+, [ char := "\u2075", tex := "\\5" ]
+, [ char := "\u2076", tex := "\\6" ]
+, [ char := "\u2077", tex := "\\7" ]
+, [ char := "\u2078", tex := "\\8" ]
+, [ char := "\u2079", tex := "\\9" ]
+, [ char := "\u207A", tex := "\\+" ]
+, [ char := "\u207B", tex := "\\-" ]
+, [ char := "\u207C", tex := "\\=" ]
+, [ char := "\u207D", tex := "\\(" ]
+, [ char := "\u207E", tex := "\\)" ]
+, [ char := "\u207F", tex := "\\n" ]
+, [ char := "\u2120", tex := "\\SM" ]
+, [ char := "\u02B0", tex := "\\h" ]
+, [ char := "\u02B2", tex := "\\j" ]
+, [ char := "\u02B3", tex := "\\r" ]
+, [ char := "\u02B7", tex := "\\w" ]
+, [ char := "\u02B8", tex := "\\y" ]
+//cmdsuperscripts (sets: full)
+, [ char := "\u02B1", tex := "\\texthth" ]
+, [ char := "\u02B4", tex := "\\textturnr" ]
+, [ char := "\u02B5", tex := "\\textturnrrtail" ]
+, [ char := "\u02B6", tex := "\\textinvscr" ]
+//dings (sets: full)
+, [ char := "\u2701", tex := "\\21" ]
+, [ char := "\u2702", tex := "\\22" ]
+, [ char := "\u2703", tex := "\\23" ]
+, [ char := "\u2704", tex := "\\24" ]
+, [ char := "\u260E", tex := "\\25" ]
+, [ char := "\u2706", tex := "\\26" ]
+, [ char := "\u2707", tex := "\\27" ]
+, [ char := "\u2708", tex := "\\28" ]
+, [ char := "\u2709", tex := "\\29" ]
+, [ char := "\u261B", tex := "\\2A" ]
+, [ char := "\u261E", tex := "\\2B" ]
+, [ char := "\u270C", tex := "\\2C" ]
+, [ char := "\u270D", tex := "\\2D" ]
+, [ char := "\u270E", tex := "\\2E" ]
+, [ char := "\u270F", tex := "\\2F" ]
+, [ char := "\u2710", tex := "\\30" ]
+, [ char := "\u2711", tex := "\\31" ]
+, [ char := "\u2712", tex := "\\32" ]
+, [ char := "\u2713", tex := "\\33" ]
+, [ char := "\u2714", tex := "\\34" ]
+, [ char := "\u2715", tex := "\\35" ]
+, [ char := "\u2716", tex := "\\36" ]
+, [ char := "\u2717", tex := "\\37" ]
+, [ char := "\u2718", tex := "\\38" ]
+, [ char := "\u2719", tex := "\\39" ]
+, [ char := "\u271A", tex := "\\3A" ]
+, [ char := "\u271B", tex := "\\3B" ]
+, [ char := "\u271C", tex := "\\3C" ]
+, [ char := "\u271D", tex := "\\3D" ]
+, [ char := "\u271E", tex := "\\3E" ]
+, [ char := "\u271F", tex := "\\3F" ]
+, [ char := "\u2720", tex := "\\40" ]
+, [ char := "\u2721", tex := "\\41" ]
+, [ char := "\u2722", tex := "\\42" ]
+, [ char := "\u2723", tex := "\\43" ]
+, [ char := "\u2724", tex := "\\44" ]
+, [ char := "\u2725", tex := "\\45" ]
+, [ char := "\u2726", tex := "\\46" ]
+, [ char := "\u2727", tex := "\\47" ]
+, [ char := "\u2605", tex := "\\48" ]
+, [ char := "\u2729", tex := "\\49" ]
+, [ char := "\u272A", tex := "\\4A" ]
+, [ char := "\u272B", tex := "\\4B" ]
+, [ char := "\u272C", tex := "\\4C" ]
+, [ char := "\u272D", tex := "\\4D" ]
+, [ char := "\u272E", tex := "\\4E" ]
+, [ char := "\u272F", tex := "\\4F" ]
+, [ char := "\u2730", tex := "\\50" ]
+, [ char := "\u2731", tex := "\\51" ]
+, [ char := "\u2732", tex := "\\52" ]
+, [ char := "\u2733", tex := "\\53" ]
+, [ char := "\u2734", tex := "\\54" ]
+, [ char := "\u2735", tex := "\\55" ]
+, [ char := "\u2736", tex := "\\56" ]
+, [ char := "\u2737", tex := "\\57" ]
+, [ char := "\u2738", tex := "\\58" ]
+, [ char := "\u2739", tex := "\\59" ]
+, [ char := "\u273A", tex := "\\5A" ]
+, [ char := "\u273B", tex := "\\5B" ]
+, [ char := "\u273C", tex := "\\5C" ]
+, [ char := "\u273D", tex := "\\5D" ]
+, [ char := "\u273E", tex := "\\5E" ]
+, [ char := "\u273F", tex := "\\5F" ]
+, [ char := "\u2740", tex := "\\60" ]
+, [ char := "\u2741", tex := "\\61" ]
+, [ char := "\u2742", tex := "\\62" ]
+, [ char := "\u2743", tex := "\\63" ]
+, [ char := "\u2744", tex := "\\64" ]
+, [ char := "\u2745", tex := "\\65" ]
+, [ char := "\u2746", tex := "\\66" ]
+, [ char := "\u2747", tex := "\\67" ]
+, [ char := "\u2748", tex := "\\68" ]
+, [ char := "\u2749", tex := "\\69" ]
+, [ char := "\u274A", tex := "\\6A" ]
+, [ char := "\u274B", tex := "\\6B" ]
+, [ char := "\u25CF", tex := "\\6C" ]
+, [ char := "\u274D", tex := "\\6D" ]
+, [ char := "\u25A0", tex := "\\6E" ]
+, [ char := "\u274F", tex := "\\6F" ]
+, [ char := "\u2750", tex := "\\70" ]
+, [ char := "\u2751", tex := "\\71" ]
+, [ char := "\u2752", tex := "\\72" ]
+, [ char := "\u25B2", tex := "\\73" ]
+, [ char := "\u25BC", tex := "\\74" ]
+, [ char := "\u25C6", tex := "\\75" ]
+, [ char := "\u2756", tex := "\\76" ]
+, [ char := "\u25D7", tex := "\\77" ]
+, [ char := "\u2758", tex := "\\78" ]
+, [ char := "\u2759", tex := "\\79" ]
+, [ char := "\u275A", tex := "\\7A" ]
+, [ char := "\u275B", tex := "\\7B" ]
+, [ char := "\u275C", tex := "\\7C" ]
+, [ char := "\u275D", tex := "\\7D" ]
+, [ char := "\u275E", tex := "\\7E" ]
+, [ char := "\u2761", tex := "\\A1" ]
+, [ char := "\u2762", tex := "\\A2" ]
+, [ char := "\u2763", tex := "\\A3" ]
+, [ char := "\u2764", tex := "\\A4" ]
+, [ char := "\u2765", tex := "\\A5" ]
+, [ char := "\u2766", tex := "\\A6" ]
+, [ char := "\u2767", tex := "\\A7" ]
+, [ char := "\u2666", tex := "\\A9" ]
+, [ char := "\u2665", tex := "\\AA" ]
+, [ char := "\u2460", tex := "\\AC" ]
+, [ char := "\u2461", tex := "\\AD" ]
+, [ char := "\u2462", tex := "\\AE" ]
+, [ char := "\u2463", tex := "\\AF" ]
+, [ char := "\u2464", tex := "\\B0" ]
+, [ char := "\u2465", tex := "\\B1" ]
+, [ char := "\u2466", tex := "\\B2" ]
+, [ char := "\u2467", tex := "\\B3" ]
+, [ char := "\u2468", tex := "\\B4" ]
+, [ char := "\u2469", tex := "\\B5" ]
+, [ char := "\u2776", tex := "\\B6" ]
+, [ char := "\u2777", tex := "\\B7" ]
+, [ char := "\u2778", tex := "\\B8" ]
+, [ char := "\u2779", tex := "\\B9" ]
+, [ char := "\u277A", tex := "\\BA" ]
+, [ char := "\u277B", tex := "\\BB" ]
+, [ char := "\u277C", tex := "\\BC" ]
+, [ char := "\u277D", tex := "\\BD" ]
+, [ char := "\u277E", tex := "\\BE" ]
+, [ char := "\u277F", tex := "\\BF" ]
+, [ char := "\u2780", tex := "\\C0" ]
+, [ char := "\u2781", tex := "\\C1" ]
+, [ char := "\u2782", tex := "\\C2" ]
+, [ char := "\u2783", tex := "\\C3" ]
+, [ char := "\u2784", tex := "\\C4" ]
+, [ char := "\u2785", tex := "\\C5" ]
+, [ char := "\u2786", tex := "\\C6" ]
+, [ char := "\u2787", tex := "\\C7" ]
+, [ char := "\u2788", tex := "\\C8" ]
+, [ char := "\u2789", tex := "\\C9" ]
+, [ char := "\u278A", tex := "\\CA" ]
+, [ char := "\u278B", tex := "\\CB" ]
+, [ char := "\u278C", tex := "\\CC" ]
+, [ char := "\u278D", tex := "\\CD" ]
+, [ char := "\u278E", tex := "\\CE" ]
+, [ char := "\u278F", tex := "\\CF" ]
+, [ char := "\u2790", tex := "\\D0" ]
+, [ char := "\u2791", tex := "\\D1" ]
+, [ char := "\u2792", tex := "\\D2" ]
+, [ char := "\u2793", tex := "\\D3" ]
+, [ char := "\u2794", tex := "\\D4" ]
+, [ char := "\u2194", tex := "\\D6" ]
+, [ char := "\u2195", tex := "\\D7" ]
+, [ char := "\u2798", tex := "\\D8" ]
+, [ char := "\u2799", tex := "\\D9" ]
+, [ char := "\u279A", tex := "\\DA" ]
+, [ char := "\u279B", tex := "\\DB" ]
+, [ char := "\u279C", tex := "\\DC" ]
+, [ char := "\u279D", tex := "\\DD" ]
+, [ char := "\u279E", tex := "\\DE" ]
+, [ char := "\u279F", tex := "\\DF" ]
+, [ char := "\u27A0", tex := "\\E0" ]
+, [ char := "\u27A1", tex := "\\E1" ]
+, [ char := "\u27A2", tex := "\\E2" ]
+, [ char := "\u27A3", tex := "\\E3" ]
+, [ char := "\u27A4", tex := "\\E4" ]
+, [ char := "\u27A5", tex := "\\E5" ]
+, [ char := "\u27A6", tex := "\\E6" ]
+, [ char := "\u27A7", tex := "\\E7" ]
+, [ char := "\u27A8", tex := "\\E8" ]
+, [ char := "\u27A9", tex := "\\E9" ]
+, [ char := "\u27AA", tex := "\\EA" ]
+, [ char := "\u27AB", tex := "\\EB" ]
+, [ char := "\u27AC", tex := "\\EC" ]
+, [ char := "\u27AD", tex := "\\ED" ]
+, [ char := "\u27AE", tex := "\\EE" ]
+, [ char := "\u27AF", tex := "\\EF" ]
+, [ char := "\u27B1", tex := "\\F1" ]
+, [ char := "\u27B2", tex := "\\F2" ]
+, [ char := "\u27B3", tex := "\\F3" ]
+, [ char := "\u27B4", tex := "\\F4" ]
+, [ char := "\u27B5", tex := "\\F5" ]
+, [ char := "\u27B6", tex := "\\F6" ]
+, [ char := "\u27B7", tex := "\\F7" ]
+, [ char := "\u27B8", tex := "\\F8" ]
+, [ char := "\u27B9", tex := "\\F9" ]
+, [ char := "\u27BA", tex := "\\FA" ]
+, [ char := "\u27BB", tex := "\\FB" ]
+, [ char := "\u27BC", tex := "\\FC" ]
+, [ char := "\u27BD", tex := "\\FD" ]
+, [ char := "\u27BE", tex := "\\FE" ]
+//greek (sets: full)
+, [ char := "\u03B1", tex := "\\alpha" ]
+, [ char := "\u03B2", tex := "\\beta" ]
+, [ char := "\u03B3", tex := "\\gamma" ]
+, [ char := "\u03B4", tex := "\\delta" ]
+, [ char := "\u03B5", tex := "\\varepsilon" ]
+, [ char := "\u03B6", tex := "\\zeta" ]
+, [ char := "\u03B7", tex := "\\eta" ]
+, [ char := "\u03B8", tex := "\\vartheta" ]
+, [ char := "\u03B9", tex := "\\iota" ]
+, [ char := "\u03BA", tex := "\\kappa" ]
+, [ char := "\u03BB", tex := "\\lambda" ]
+, [ char := "\u03BC", tex := "\\mu" ]
+, [ char := "\u03BD", tex := "\\nu" ]
+, [ char := "\u03BE", tex := "\\xi" ]
+, [ char := "\u03BF", tex := "\\omicron" ]
+, [ char := "\u03C0", tex := "\\pi" ]
+, [ char := "\u03C1", tex := "\\varrho" ]
+, [ char := "\u03C2", tex := "\\varsigma" ]
+, [ char := "\u03C3", tex := "\\sigma" ]
+, [ char := "\u03C4", tex := "\\tau" ]
+, [ char := "\u03C5", tex := "\\upsilon" ]
+, [ char := "\u03C6", tex := "\\varphi" ]
+, [ char := "\u03C7", tex := "\\chi" ]
+, [ char := "\u03C8", tex := "\\psi" ]
+, [ char := "\u03C9", tex := "\\omega" ]
+, [ char := "\u0391", tex := "\\Alpha" ]
+, [ char := "\u0392", tex := "\\Beta" ]
+, [ char := "\u0393", tex := "\\Gamma" ]
+, [ char := "\u0394", tex := "\\Delta" ]
+, [ char := "\u0395", tex := "\\Epsilon" ]
+, [ char := "\u0396", tex := "\\Zeta" ]
+, [ char := "\u0397", tex := "\\Eta" ]
+, [ char := "\u0398", tex := "\\Theta" ]
+, [ char := "\u0399", tex := "\\Iota" ]
+, [ char := "\u039A", tex := "\\Kappa" ]
+, [ char := "\u039B", tex := "\\Lambda" ]
+, [ char := "\u039C", tex := "\\Mu" ]
+, [ char := "\u039D", tex := "\\Nu" ]
+, [ char := "\u039E", tex := "\\Xi" ]
+, [ char := "\u039F", tex := "\\Omicron" ]
+, [ char := "\u03A0", tex := "\\Pi" ]
+, [ char := "\u03A1", tex := "\\Rho" ]
+, [ char := "\u03A3", tex := "\\Sigma" ]
+, [ char := "\u03A4", tex := "\\Tau" ]
+, [ char := "\u03A5", tex := "\\Upsilon" ]
+, [ char := "\u03A6", tex := "\\Phi" ]
+, [ char := "\u03A7", tex := "\\Chi" ]
+, [ char := "\u03A8", tex := "\\Psi" ]
+, [ char := "\u03A9", tex := "\\Omega" ]
+];
+
+///Transliteration source: https://gist.github.com/piquadrat/798549
+RECORD ARRAY translit_extended := [
+  [ char := "\u0020", tex := "\\space " ]
+, [ char := "\u0023", tex := "\\#" ]
+, [ char := "\u0024", tex := "\\textdollar " ]
+, [ char := "\u0025", tex := "\\%" ]
+, [ char := "\u0026", tex := "\\&amp;" ]
+, [ char := "\u0027", tex := "\\textquotesingle " ]
+, [ char := "\u002A", tex := "\\ast " ]
+, [ char := "\u005C", tex := "\\textbackslash " ]
+, [ char := "\u005E", tex := "\\^{}" ]
+, [ char := "\u005F", tex := "\\_" ]
+, [ char := "\u0060", tex := "\\textasciigrave " ]
+, [ char := "\u007B", tex := "\\lbrace " ]
+, [ char := "\u007C", tex := "\\vert " ]
+, [ char := "\u007D", tex := "\\rbrace " ]
+, [ char := "\u007E", tex := "\\textasciitilde " ]
+, [ char := "\u00A1", tex := "\\textexclamdown " ]
+, [ char := "\u00A2", tex := "\\textcent " ]
+, [ char := "\u00A3", tex := "\\textsterling " ]
+, [ char := "\u00A4", tex := "\\textcurrency " ]
+, [ char := "\u00A5", tex := "\\textyen " ]
+, [ char := "\u00A6", tex := "\\textbrokenbar " ]
+, [ char := "\u00A7", tex := "\\textsection " ]
+, [ char := "\u00A8", tex := "\\textasciidieresis " ]
+, [ char := "\u00A9", tex := "\\textcopyright " ]
+, [ char := "\u00AA", tex := "\\textordfeminine " ]
+, [ char := "\u00AB", tex := "\\guillemotleft " ]
+, [ char := "\u00AC", tex := "\\lnot " ]
+, [ char := "\u00AD", tex := "\\-" ]
+, [ char := "\u00AE", tex := "\\textregistered " ]
+, [ char := "\u00AF", tex := "\\textasciimacron " ]
+, [ char := "\u00B0", tex := "\\textdegree " ]
+, [ char := "\u00B1", tex := "\\pm " ]
+, [ char := "\u00B2", tex := "{^2}" ]
+, [ char := "\u00B3", tex := "{^3}" ]
+, [ char := "\u00B4", tex := "\\textasciiacute " ]
+, [ char := "\u00B5", tex := "\\mathrm{\\mu}" ]
+, [ char := "\u00B6", tex := "\\textparagraph " ]
+, [ char := "\u00B7", tex := "\\cdot " ]
+, [ char := "\u00B8", tex := "\\c{}" ]
+, [ char := "\u00B9", tex := "{^1}" ]
+, [ char := "\u00BA", tex := "\\textordmasculine " ]
+, [ char := "\u00BB", tex := "\\guillemotright " ]
+, [ char := "\u00BC", tex := "\\textonequarter " ]
+, [ char := "\u00BD", tex := "\\textonehalf " ]
+, [ char := "\u00BE", tex := "\\textthreequarters " ]
+, [ char := "\u00BF", tex := "\\textquestiondown " ]
+, [ char := "\u00C0", tex := "\\`{A}" ]
+, [ char := "\u00C1", tex := "\\'{A}" ]
+, [ char := "\u00C2", tex := "\\^{A}" ]
+, [ char := "\u00C3", tex := "\\~{A}" ]
+, [ char := "\u00C4", tex := "\\\"{A}" ]
+, [ char := "\u00C5", tex := "\\AA " ]
+, [ char := "\u00C6", tex := "\\AE " ]
+, [ char := "\u00C7", tex := "\\c{C}" ]
+, [ char := "\u00C8", tex := "\\`{E}" ]
+, [ char := "\u00C9", tex := "\\'{E}" ]
+, [ char := "\u00CA", tex := "\\^{E}" ]
+, [ char := "\u00CB", tex := "\\\"{E}" ]
+, [ char := "\u00CC", tex := "\\`{I}" ]
+, [ char := "\u00CD", tex := "\\'{I}" ]
+, [ char := "\u00CE", tex := "\\^{I}" ]
+, [ char := "\u00CF", tex := "\\\"{I}" ]
+, [ char := "\u00D0", tex := "\\DH " ]
+, [ char := "\u00D1", tex := "\\~{N}" ]
+, [ char := "\u00D2", tex := "\\`{O}" ]
+, [ char := "\u00D3", tex := "\\'{O}" ]
+, [ char := "\u00D4", tex := "\\^{O}" ]
+, [ char := "\u00D5", tex := "\\~{O}" ]
+, [ char := "\u00D6", tex := "\\\"{O}" ]
+, [ char := "\u00D7", tex := "\\texttimes " ]
+, [ char := "\u00D8", tex := "\\O " ]
+, [ char := "\u00D9", tex := "\\`{U}" ]
+, [ char := "\u00DA", tex := "\\'{U}" ]
+, [ char := "\u00DB", tex := "\\^{U}" ]
+, [ char := "\u00DC", tex := "\\\"{U}" ]
+, [ char := "\u00DD", tex := "\\'{Y}" ]
+, [ char := "\u00DE", tex := "\\TH " ]
+, [ char := "\u00DF", tex := "\\ss " ]
+, [ char := "\u00E0", tex := "\\`{a}" ]
+, [ char := "\u00E1", tex := "\\'{a}" ]
+, [ char := "\u00E2", tex := "\\^{a}" ]
+, [ char := "\u00E3", tex := "\\~{a}" ]
+, [ char := "\u00E4", tex := "\\\"{a}" ]
+, [ char := "\u00E5", tex := "\\aa " ]
+, [ char := "\u00E6", tex := "\\ae " ]
+, [ char := "\u00E7", tex := "\\c{c}" ]
+, [ char := "\u00E8", tex := "\\`{e}" ]
+, [ char := "\u00E9", tex := "\\'{e}" ]
+, [ char := "\u00EA", tex := "\\^{e}" ]
+, [ char := "\u00EB", tex := "\\\"{e}" ]
+, [ char := "\u00EC", tex := "\\`{i}" ]
+, [ char := "\u00ED", tex := "\\'{i}" ]
+, [ char := "\u00EE", tex := "\\^{i}" ]
+, [ char := "\u00EF", tex := "\\\"{i}" ]
+, [ char := "\u00F0", tex := "\\dh " ]
+, [ char := "\u00F1", tex := "\\~{n}" ]
+, [ char := "\u00F2", tex := "\\`{o}" ]
+, [ char := "\u00F3", tex := "\\'{o}" ]
+, [ char := "\u00F4", tex := "\\^{o}" ]
+, [ char := "\u00F5", tex := "\\~{o}" ]
+, [ char := "\u00F6", tex := "\\\"{o}" ]
+, [ char := "\u00F7", tex := "\\div " ]
+, [ char := "\u00F8", tex := "\\o " ]
+, [ char := "\u00F9", tex := "\\`{u}" ]
+, [ char := "\u00FA", tex := "\\'{u}" ]
+, [ char := "\u00FB", tex := "\\^{u}" ]
+, [ char := "\u00FC", tex := "\\\"{u}" ]
+, [ char := "\u00FD", tex := "\\'{y}" ]
+, [ char := "\u00FE", tex := "\\th " ]
+, [ char := "\u00FF", tex := "\\\"{y}" ]
+, [ char := "\u0100", tex := "\\={A}" ]
+, [ char := "\u0101", tex := "\\={a}" ]
+, [ char := "\u0102", tex := "\\u{A}" ]
+, [ char := "\u0103", tex := "\\u{a}" ]
+, [ char := "\u0104", tex := "\\k{A}" ]
+, [ char := "\u0105", tex := "\\k{a}" ]
+, [ char := "\u0106", tex := "\\'{C}" ]
+, [ char := "\u0107", tex := "\\'{c}" ]
+, [ char := "\u0108", tex := "\\^{C}" ]
+, [ char := "\u0109", tex := "\\^{c}" ]
+, [ char := "\u010A", tex := "\\.{C}" ]
+, [ char := "\u010B", tex := "\\.{c}" ]
+, [ char := "\u010C", tex := "\\v{C}" ]
+, [ char := "\u010D", tex := "\\v{c}" ]
+, [ char := "\u010E", tex := "\\v{D}" ]
+, [ char := "\u010F", tex := "\\v{d}" ]
+, [ char := "\u0110", tex := "\\DJ " ]
+, [ char := "\u0111", tex := "\\dj " ]
+, [ char := "\u0112", tex := "\\={E}" ]
+, [ char := "\u0113", tex := "\\={e}" ]
+, [ char := "\u0114", tex := "\\u{E}" ]
+, [ char := "\u0115", tex := "\\u{e}" ]
+, [ char := "\u0116", tex := "\\.{E}" ]
+, [ char := "\u0117", tex := "\\.{e}" ]
+, [ char := "\u0118", tex := "\\k{E}" ]
+, [ char := "\u0119", tex := "\\k{e}" ]
+, [ char := "\u011A", tex := "\\v{E}" ]
+, [ char := "\u011B", tex := "\\v{e}" ]
+, [ char := "\u011C", tex := "\\^{G}" ]
+, [ char := "\u011D", tex := "\\^{g}" ]
+, [ char := "\u011E", tex := "\\u{G}" ]
+, [ char := "\u011F", tex := "\\u{g}" ]
+, [ char := "\u0120", tex := "\\.{G}" ]
+, [ char := "\u0121", tex := "\\.{g}" ]
+, [ char := "\u0122", tex := "\\c{G}" ]
+, [ char := "\u0123", tex := "\\c{g}" ]
+, [ char := "\u0124", tex := "\\^{H}" ]
+, [ char := "\u0125", tex := "\\^{h}" ]
+, [ char := "\u0126", tex := "{\\fontencoding{LELA}\\selectfont\\char40}" ]
+, [ char := "\u0127", tex := "\\Elzxh " ]
+, [ char := "\u0128", tex := "\\~{I}" ]
+, [ char := "\u0129", tex := "\\~{\\i}" ]
+, [ char := "\u012A", tex := "\\={I}" ]
+, [ char := "\u012B", tex := "\\={\\i}" ]
+, [ char := "\u012C", tex := "\\u{I}" ]
+, [ char := "\u012D", tex := "\\u{\\i}" ]
+, [ char := "\u012E", tex := "\\k{I}" ]
+, [ char := "\u012F", tex := "\\k{i}" ]
+, [ char := "\u0130", tex := "\\.{I}" ]
+, [ char := "\u0131", tex := "\\i " ]
+, [ char := "\u0132", tex := "IJ" ]
+, [ char := "\u0133", tex := "ij" ]
+, [ char := "\u0134", tex := "\\^{J}" ]
+, [ char := "\u0135", tex := "\\^{\\j}" ]
+, [ char := "\u0136", tex := "\\c{K}" ]
+, [ char := "\u0137", tex := "\\c{k}" ]
+, [ char := "\u0138", tex := "{\\fontencoding{LELA}\\selectfont\\char91}" ]
+, [ char := "\u0139", tex := "\\'{L}" ]
+, [ char := "\u013A", tex := "\\'{l}" ]
+, [ char := "\u013B", tex := "\\c{L}" ]
+, [ char := "\u013C", tex := "\\c{l}" ]
+, [ char := "\u013D", tex := "\\v{L}" ]
+, [ char := "\u013E", tex := "\\v{l}" ]
+, [ char := "\u013F", tex := "{\\fontencoding{LELA}\\selectfont\\char201}" ]
+, [ char := "\u0140", tex := "{\\fontencoding{LELA}\\selectfont\\char202}" ]
+, [ char := "\u0141", tex := "\\L " ]
+, [ char := "\u0142", tex := "\\l " ]
+, [ char := "\u0143", tex := "\\'{N}" ]
+, [ char := "\u0144", tex := "\\'{n}" ]
+, [ char := "\u0145", tex := "\\c{N}" ]
+, [ char := "\u0146", tex := "\\c{n}" ]
+, [ char := "\u0147", tex := "\\v{N}" ]
+, [ char := "\u0148", tex := "\\v{n}" ]
+, [ char := "\u0149", tex := "'n" ]
+, [ char := "\u014A", tex := "\\NG " ]
+, [ char := "\u014B", tex := "\\ng " ]
+, [ char := "\u014C", tex := "\\={O}" ]
+, [ char := "\u014D", tex := "\\={o}" ]
+, [ char := "\u014E", tex := "\\u{O}" ]
+, [ char := "\u014F", tex := "\\u{o}" ]
+, [ char := "\u0150", tex := "\\H{O}" ]
+, [ char := "\u0151", tex := "\\H{o}" ]
+, [ char := "\u0152", tex := "\\OE " ]
+, [ char := "\u0153", tex := "\\oe " ]
+, [ char := "\u0154", tex := "\\'{R}" ]
+, [ char := "\u0155", tex := "\\'{r}" ]
+, [ char := "\u0156", tex := "\\c{R}" ]
+, [ char := "\u0157", tex := "\\c{r}" ]
+, [ char := "\u0158", tex := "\\v{R}" ]
+, [ char := "\u0159", tex := "\\v{r}" ]
+, [ char := "\u015A", tex := "\\'{S}" ]
+, [ char := "\u015B", tex := "\\'{s}" ]
+, [ char := "\u015C", tex := "\\^{S}" ]
+, [ char := "\u015D", tex := "\\^{s}" ]
+, [ char := "\u015E", tex := "\\c{S}" ]
+, [ char := "\u015F", tex := "\\c{s}" ]
+, [ char := "\u0160", tex := "\\v{S}" ]
+, [ char := "\u0161", tex := "\\v{s}" ]
+, [ char := "\u0162", tex := "\\c{T}" ]
+, [ char := "\u0163", tex := "\\c{t}" ]
+, [ char := "\u0164", tex := "\\v{T}" ]
+, [ char := "\u0165", tex := "\\v{t}" ]
+, [ char := "\u0166", tex := "{\\fontencoding{LELA}\\selectfont\\char47}" ]
+, [ char := "\u0167", tex := "{\\fontencoding{LELA}\\selectfont\\char63}" ]
+, [ char := "\u0168", tex := "\\~{U}" ]
+, [ char := "\u0169", tex := "\\~{u}" ]
+, [ char := "\u016A", tex := "\\={U}" ]
+, [ char := "\u016B", tex := "\\={u}" ]
+, [ char := "\u016C", tex := "\\u{U}" ]
+, [ char := "\u016D", tex := "\\u{u}" ]
+, [ char := "\u016E", tex := "\\r{U}" ]
+, [ char := "\u016F", tex := "\\r{u}" ]
+, [ char := "\u0170", tex := "\\H{U}" ]
+, [ char := "\u0171", tex := "\\H{u}" ]
+, [ char := "\u0172", tex := "\\k{U}" ]
+, [ char := "\u0173", tex := "\\k{u}" ]
+, [ char := "\u0174", tex := "\\^{W}" ]
+, [ char := "\u0175", tex := "\\^{w}" ]
+, [ char := "\u0176", tex := "\\^{Y}" ]
+, [ char := "\u0177", tex := "\\^{y}" ]
+, [ char := "\u0178", tex := "\\\"{Y}" ]
+, [ char := "\u0179", tex := "\\'{Z}" ]
+, [ char := "\u017A", tex := "\\'{z}" ]
+, [ char := "\u017B", tex := "\\.{Z}" ]
+, [ char := "\u017C", tex := "\\.{z}" ]
+, [ char := "\u017D", tex := "\\v{Z}" ]
+, [ char := "\u017E", tex := "\\v{z}" ]
+, [ char := "\u0195", tex := "\\texthvlig " ]
+, [ char := "\u019E", tex := "\\textnrleg " ]
+, [ char := "\u01AA", tex := "\\eth " ]
+, [ char := "\u01BA", tex := "{\\fontencoding{LELA}\\selectfont\\char195}" ]
+, [ char := "\u01C2", tex := "\\textdoublepipe " ]
+, [ char := "\u01F5", tex := "\\'{g}" ]
+, [ char := "\u0250", tex := "\\Elztrna " ]
+, [ char := "\u0252", tex := "\\Elztrnsa " ]
+, [ char := "\u0254", tex := "\\Elzopeno " ]
+, [ char := "\u0256", tex := "\\Elzrtld " ]
+, [ char := "\u0258", tex := "{\\fontencoding{LEIP}\\selectfont\\char61}" ]
+, [ char := "\u0259", tex := "\\Elzschwa " ]
+, [ char := "\u025B", tex := "\\varepsilon " ]
+, [ char := "\u0263", tex := "\\Elzpgamma " ]
+, [ char := "\u0264", tex := "\\Elzpbgam " ]
+, [ char := "\u0265", tex := "\\Elztrnh " ]
+, [ char := "\u026C", tex := "\\Elzbtdl " ]
+, [ char := "\u026D", tex := "\\Elzrtll " ]
+, [ char := "\u026F", tex := "\\Elztrnm " ]
+, [ char := "\u0270", tex := "\\Elztrnmlr " ]
+, [ char := "\u0271", tex := "\\Elzltlmr " ]
+, [ char := "\u0272", tex := "\\Elzltln " ]
+, [ char := "\u0273", tex := "\\Elzrtln " ]
+, [ char := "\u0277", tex := "\\Elzclomeg " ]
+, [ char := "\u0278", tex := "\\textphi " ]
+, [ char := "\u0279", tex := "\\Elztrnr " ]
+, [ char := "\u027A", tex := "\\Elztrnrl " ]
+, [ char := "\u027B", tex := "\\Elzrttrnr " ]
+, [ char := "\u027C", tex := "\\Elzrl " ]
+, [ char := "\u027D", tex := "\\Elzrtlr " ]
+, [ char := "\u027E", tex := "\\Elzfhr " ]
+, [ char := "\u027F", tex := "{\\fontencoding{LEIP}\\selectfont\\char202}" ]
+, [ char := "\u0282", tex := "\\Elzrtls " ]
+, [ char := "\u0283", tex := "\\Elzesh " ]
+, [ char := "\u0287", tex := "\\Elztrnt " ]
+, [ char := "\u0288", tex := "\\Elzrtlt " ]
+, [ char := "\u028A", tex := "\\Elzpupsil " ]
+, [ char := "\u028B", tex := "\\Elzpscrv " ]
+, [ char := "\u028C", tex := "\\Elzinvv " ]
+, [ char := "\u028D", tex := "\\Elzinvw " ]
+, [ char := "\u028E", tex := "\\Elztrny " ]
+, [ char := "\u0290", tex := "\\Elzrtlz " ]
+, [ char := "\u0292", tex := "\\Elzyogh " ]
+, [ char := "\u0294", tex := "\\Elzglst " ]
+, [ char := "\u0295", tex := "\\Elzreglst " ]
+, [ char := "\u0296", tex := "\\Elzinglst " ]
+, [ char := "\u029E", tex := "\\textturnk " ]
+, [ char := "\u02A4", tex := "\\Elzdyogh " ]
+, [ char := "\u02A7", tex := "\\Elztesh " ]
+, [ char := "\u02C7", tex := "\\textasciicaron " ]
+, [ char := "\u02C8", tex := "\\Elzverts " ]
+, [ char := "\u02CC", tex := "\\Elzverti " ]
+, [ char := "\u02D0", tex := "\\Elzlmrk " ]
+, [ char := "\u02D1", tex := "\\Elzhlmrk " ]
+, [ char := "\u02D2", tex := "\\Elzsbrhr " ]
+, [ char := "\u02D3", tex := "\\Elzsblhr " ]
+, [ char := "\u02D4", tex := "\\Elzrais " ]
+, [ char := "\u02D5", tex := "\\Elzlow " ]
+, [ char := "\u02D8", tex := "\\textasciibreve " ]
+, [ char := "\u02D9", tex := "\\textperiodcentered " ]
+, [ char := "\u02DA", tex := "\\r{}" ]
+, [ char := "\u02DB", tex := "\\k{}" ]
+, [ char := "\u02DC", tex := "\\texttildelow " ]
+, [ char := "\u02DD", tex := "\\H{}" ]
+, [ char := "\u02E5", tex := "\\tone{55}" ]
+, [ char := "\u02E6", tex := "\\tone{44}" ]
+, [ char := "\u02E7", tex := "\\tone{33}" ]
+, [ char := "\u02E8", tex := "\\tone{22}" ]
+, [ char := "\u02E9", tex := "\\tone{11}" ]
+, [ char := "\u0300", tex := "\\`" ]
+, [ char := "\u0301", tex := "\\'" ]
+, [ char := "\u0302", tex := "\\^" ]
+, [ char := "\u0303", tex := "\\~" ]
+, [ char := "\u0304", tex := "\\=" ]
+, [ char := "\u0306", tex := "\\u" ]
+, [ char := "\u0307", tex := "\\." ]
+, [ char := "\u0308", tex := "\\\"" ]
+, [ char := "\u030A", tex := "\\r" ]
+, [ char := "\u030B", tex := "\\H" ]
+, [ char := "\u030C", tex := "\\v" ]
+, [ char := "\u030F", tex := "\\cyrchar\\C" ]
+, [ char := "\u0311", tex := "{\\fontencoding{LECO}\\selectfont\\char177}" ]
+, [ char := "\u0318", tex := "{\\fontencoding{LECO}\\selectfont\\char184}" ]
+, [ char := "\u0319", tex := "{\\fontencoding{LECO}\\selectfont\\char185}" ]
+, [ char := "\u0321", tex := "\\Elzpalh " ]
+, [ char := "\u0322", tex := "\\Elzrh " ]
+, [ char := "\u0327", tex := "\\c" ]
+, [ char := "\u0328", tex := "\\k" ]
+, [ char := "\u032A", tex := "\\Elzsbbrg " ]
+, [ char := "\u032B", tex := "{\\fontencoding{LECO}\\selectfont\\char203}" ]
+, [ char := "\u032F", tex := "{\\fontencoding{LECO}\\selectfont\\char207}" ]
+, [ char := "\u0335", tex := "\\Elzxl " ]
+, [ char := "\u0336", tex := "\\Elzbar " ]
+, [ char := "\u0337", tex := "{\\fontencoding{LECO}\\selectfont\\char215}" ]
+, [ char := "\u0338", tex := "{\\fontencoding{LECO}\\selectfont\\char216}" ]
+, [ char := "\u033A", tex := "{\\fontencoding{LECO}\\selectfont\\char218}" ]
+, [ char := "\u033B", tex := "{\\fontencoding{LECO}\\selectfont\\char219}" ]
+, [ char := "\u033C", tex := "{\\fontencoding{LECO}\\selectfont\\char220}" ]
+, [ char := "\u033D", tex := "{\\fontencoding{LECO}\\selectfont\\char221}" ]
+, [ char := "\u0361", tex := "{\\fontencoding{LECO}\\selectfont\\char225}" ]
+, [ char := "\u0386", tex := "\\'{A}" ]
+, [ char := "\u0388", tex := "\\'{E}" ]
+, [ char := "\u0389", tex := "\\'{H}" ]
+, [ char := "\u038A", tex := "\\'{}{I}" ]
+, [ char := "\u038C", tex := "\\'{}O" ]
+, [ char := "\u038E", tex := "\\mathrm{'Y}" ]
+, [ char := "\u038F", tex := "\\mathrm{'\\Omega}" ]
+, [ char := "\u0390", tex := "\\acute{\\ddot{\\iota}}" ]
+, [ char := "\u0391", tex := "\\Alpha " ]
+, [ char := "\u0392", tex := "\\Beta " ]
+, [ char := "\u0393", tex := "\\Gamma " ]
+, [ char := "\u0394", tex := "\\Delta " ]
+, [ char := "\u0395", tex := "\\Epsilon " ]
+, [ char := "\u0396", tex := "\\Zeta " ]
+, [ char := "\u0397", tex := "\\Eta " ]
+, [ char := "\u0398", tex := "\\Theta " ]
+, [ char := "\u0399", tex := "\\Iota " ]
+, [ char := "\u039A", tex := "\\Kappa " ]
+, [ char := "\u039B", tex := "\\Lambda " ]
+, [ char := "\u039E", tex := "\\Xi " ]
+, [ char := "\u03A0", tex := "\\Pi " ]
+, [ char := "\u03A1", tex := "\\Rho " ]
+, [ char := "\u03A3", tex := "\\Sigma " ]
+, [ char := "\u03A4", tex := "\\Tau " ]
+, [ char := "\u03A5", tex := "\\Upsilon " ]
+, [ char := "\u03A6", tex := "\\Phi " ]
+, [ char := "\u03A7", tex := "\\Chi " ]
+, [ char := "\u03A8", tex := "\\Psi " ]
+, [ char := "\u03A9", tex := "\\Omega " ]
+, [ char := "\u03AA", tex := "\\mathrm{\\ddot{I}}" ]
+, [ char := "\u03AB", tex := "\\mathrm{\\ddot{Y}}" ]
+, [ char := "\u03AC", tex := "\\'{$\\alpha$}" ]
+, [ char := "\u03AD", tex := "\\acute{\\epsilon}" ]
+, [ char := "\u03AE", tex := "\\acute{\\eta}" ]
+, [ char := "\u03AF", tex := "\\acute{\\iota}" ]
+, [ char := "\u03B0", tex := "\\acute{\\ddot{\\upsilon}}" ]
+, [ char := "\u03B1", tex := "\\alpha " ]
+, [ char := "\u03B2", tex := "\\beta " ]
+, [ char := "\u03B3", tex := "\\gamma " ]
+, [ char := "\u03B4", tex := "\\delta " ]
+, [ char := "\u03B5", tex := "\\epsilon " ]
+, [ char := "\u03B6", tex := "\\zeta " ]
+, [ char := "\u03B7", tex := "\\eta " ]
+, [ char := "\u03B8", tex := "\\texttheta " ]
+, [ char := "\u03B9", tex := "\\iota " ]
+, [ char := "\u03BA", tex := "\\kappa " ]
+, [ char := "\u03BB", tex := "\\lambda " ]
+, [ char := "\u03BC", tex := "\\mu " ]
+, [ char := "\u03BD", tex := "\\nu " ]
+, [ char := "\u03BE", tex := "\\xi " ]
+, [ char := "\u03C0", tex := "\\pi " ]
+, [ char := "\u03C1", tex := "\\rho " ]
+, [ char := "\u03C2", tex := "\\varsigma " ]
+, [ char := "\u03C3", tex := "\\sigma " ]
+, [ char := "\u03C4", tex := "\\tau " ]
+, [ char := "\u03C5", tex := "\\upsilon " ]
+, [ char := "\u03C6", tex := "\\varphi " ]
+, [ char := "\u03C7", tex := "\\chi " ]
+, [ char := "\u03C8", tex := "\\psi " ]
+, [ char := "\u03C9", tex := "\\omega " ]
+, [ char := "\u03CA", tex := "\\ddot{\\iota}" ]
+, [ char := "\u03CB", tex := "\\ddot{\\upsilon}" ]
+, [ char := "\u03CC", tex := "\\'{o}" ]
+, [ char := "\u03CD", tex := "\\acute{\\upsilon}" ]
+, [ char := "\u03CE", tex := "\\acute{\\omega}" ]
+, [ char := "\u03D0", tex := "\\Pisymbol{ppi022}{87}" ]
+, [ char := "\u03D1", tex := "\\textvartheta " ]
+, [ char := "\u03D2", tex := "\\Upsilon " ]
+, [ char := "\u03D5", tex := "\\phi " ]
+, [ char := "\u03D6", tex := "\\varpi " ]
+, [ char := "\u03DA", tex := "\\Stigma " ]
+, [ char := "\u03DC", tex := "\\Digamma " ]
+, [ char := "\u03DD", tex := "\\digamma " ]
+, [ char := "\u03DE", tex := "\\Koppa " ]
+, [ char := "\u03E0", tex := "\\Sampi " ]
+, [ char := "\u03F0", tex := "\\varkappa " ]
+, [ char := "\u03F1", tex := "\\varrho " ]
+, [ char := "\u03F4", tex := "\\textTheta " ]
+, [ char := "\u03F6", tex := "\\backepsilon " ]
+, [ char := "\u0401", tex := "\\cyrchar\\CYRYO " ]
+, [ char := "\u0402", tex := "\\cyrchar\\CYRDJE " ]
+, [ char := "\u0403", tex := "\\cyrchar{\\'\\CYRG}" ]
+, [ char := "\u0404", tex := "\\cyrchar\\CYRIE " ]
+, [ char := "\u0405", tex := "\\cyrchar\\CYRDZE " ]
+, [ char := "\u0406", tex := "\\cyrchar\\CYRII " ]
+, [ char := "\u0407", tex := "\\cyrchar\\CYRYI " ]
+, [ char := "\u0408", tex := "\\cyrchar\\CYRJE " ]
+, [ char := "\u0409", tex := "\\cyrchar\\CYRLJE " ]
+, [ char := "\u040A", tex := "\\cyrchar\\CYRNJE " ]
+, [ char := "\u040B", tex := "\\cyrchar\\CYRTSHE " ]
+, [ char := "\u040C", tex := "\\cyrchar{\\'\\CYRK}" ]
+, [ char := "\u040E", tex := "\\cyrchar\\CYRUSHRT " ]
+, [ char := "\u040F", tex := "\\cyrchar\\CYRDZHE " ]
+, [ char := "\u0410", tex := "\\cyrchar\\CYRA " ]
+, [ char := "\u0411", tex := "\\cyrchar\\CYRB " ]
+, [ char := "\u0412", tex := "\\cyrchar\\CYRV " ]
+, [ char := "\u0413", tex := "\\cyrchar\\CYRG " ]
+, [ char := "\u0414", tex := "\\cyrchar\\CYRD " ]
+, [ char := "\u0415", tex := "\\cyrchar\\CYRE " ]
+, [ char := "\u0416", tex := "\\cyrchar\\CYRZH " ]
+, [ char := "\u0417", tex := "\\cyrchar\\CYRZ " ]
+, [ char := "\u0418", tex := "\\cyrchar\\CYRI " ]
+, [ char := "\u0419", tex := "\\cyrchar\\CYRISHRT " ]
+, [ char := "\u041A", tex := "\\cyrchar\\CYRK " ]
+, [ char := "\u041B", tex := "\\cyrchar\\CYRL " ]
+, [ char := "\u041C", tex := "\\cyrchar\\CYRM " ]
+, [ char := "\u041D", tex := "\\cyrchar\\CYRN " ]
+, [ char := "\u041E", tex := "\\cyrchar\\CYRO " ]
+, [ char := "\u041F", tex := "\\cyrchar\\CYRP " ]
+, [ char := "\u0420", tex := "\\cyrchar\\CYRR " ]
+, [ char := "\u0421", tex := "\\cyrchar\\CYRS " ]
+, [ char := "\u0422", tex := "\\cyrchar\\CYRT " ]
+, [ char := "\u0423", tex := "\\cyrchar\\CYRU " ]
+, [ char := "\u0424", tex := "\\cyrchar\\CYRF " ]
+, [ char := "\u0425", tex := "\\cyrchar\\CYRH " ]
+, [ char := "\u0426", tex := "\\cyrchar\\CYRC " ]
+, [ char := "\u0427", tex := "\\cyrchar\\CYRCH " ]
+, [ char := "\u0428", tex := "\\cyrchar\\CYRSH " ]
+, [ char := "\u0429", tex := "\\cyrchar\\CYRSHCH " ]
+, [ char := "\u042A", tex := "\\cyrchar\\CYRHRDSN " ]
+, [ char := "\u042B", tex := "\\cyrchar\\CYRERY " ]
+, [ char := "\u042C", tex := "\\cyrchar\\CYRSFTSN " ]
+, [ char := "\u042D", tex := "\\cyrchar\\CYREREV " ]
+, [ char := "\u042E", tex := "\\cyrchar\\CYRYU " ]
+, [ char := "\u042F", tex := "\\cyrchar\\CYRYA " ]
+, [ char := "\u0430", tex := "\\cyrchar\\cyra " ]
+, [ char := "\u0431", tex := "\\cyrchar\\cyrb " ]
+, [ char := "\u0432", tex := "\\cyrchar\\cyrv " ]
+, [ char := "\u0433", tex := "\\cyrchar\\cyrg " ]
+, [ char := "\u0434", tex := "\\cyrchar\\cyrd " ]
+, [ char := "\u0435", tex := "\\cyrchar\\cyre " ]
+, [ char := "\u0436", tex := "\\cyrchar\\cyrzh " ]
+, [ char := "\u0437", tex := "\\cyrchar\\cyrz " ]
+, [ char := "\u0438", tex := "\\cyrchar\\cyri " ]
+, [ char := "\u0439", tex := "\\cyrchar\\cyrishrt " ]
+, [ char := "\u043A", tex := "\\cyrchar\\cyrk " ]
+, [ char := "\u043B", tex := "\\cyrchar\\cyrl " ]
+, [ char := "\u043C", tex := "\\cyrchar\\cyrm " ]
+, [ char := "\u043D", tex := "\\cyrchar\\cyrn " ]
+, [ char := "\u043E", tex := "\\cyrchar\\cyro " ]
+, [ char := "\u043F", tex := "\\cyrchar\\cyrp " ]
+, [ char := "\u0440", tex := "\\cyrchar\\cyrr " ]
+, [ char := "\u0441", tex := "\\cyrchar\\cyrs " ]
+, [ char := "\u0442", tex := "\\cyrchar\\cyrt " ]
+, [ char := "\u0443", tex := "\\cyrchar\\cyru " ]
+, [ char := "\u0444", tex := "\\cyrchar\\cyrf " ]
+, [ char := "\u0445", tex := "\\cyrchar\\cyrh " ]
+, [ char := "\u0446", tex := "\\cyrchar\\cyrc " ]
+, [ char := "\u0447", tex := "\\cyrchar\\cyrch " ]
+, [ char := "\u0448", tex := "\\cyrchar\\cyrsh " ]
+, [ char := "\u0449", tex := "\\cyrchar\\cyrshch " ]
+, [ char := "\u044A", tex := "\\cyrchar\\cyrhrdsn " ]
+, [ char := "\u044B", tex := "\\cyrchar\\cyrery " ]
+, [ char := "\u044C", tex := "\\cyrchar\\cyrsftsn " ]
+, [ char := "\u044D", tex := "\\cyrchar\\cyrerev " ]
+, [ char := "\u044E", tex := "\\cyrchar\\cyryu " ]
+, [ char := "\u044F", tex := "\\cyrchar\\cyrya " ]
+, [ char := "\u0451", tex := "\\cyrchar\\cyryo " ]
+, [ char := "\u0452", tex := "\\cyrchar\\cyrdje " ]
+, [ char := "\u0453", tex := "\\cyrchar{\\'\\cyrg}" ]
+, [ char := "\u0454", tex := "\\cyrchar\\cyrie " ]
+, [ char := "\u0455", tex := "\\cyrchar\\cyrdze " ]
+, [ char := "\u0456", tex := "\\cyrchar\\cyrii " ]
+, [ char := "\u0457", tex := "\\cyrchar\\cyryi " ]
+, [ char := "\u0458", tex := "\\cyrchar\\cyrje " ]
+, [ char := "\u0459", tex := "\\cyrchar\\cyrlje " ]
+, [ char := "\u045A", tex := "\\cyrchar\\cyrnje " ]
+, [ char := "\u045B", tex := "\\cyrchar\\cyrtshe " ]
+, [ char := "\u045C", tex := "\\cyrchar{\\'\\cyrk}" ]
+, [ char := "\u045E", tex := "\\cyrchar\\cyrushrt " ]
+, [ char := "\u045F", tex := "\\cyrchar\\cyrdzhe " ]
+, [ char := "\u0460", tex := "\\cyrchar\\CYROMEGA " ]
+, [ char := "\u0461", tex := "\\cyrchar\\cyromega " ]
+, [ char := "\u0462", tex := "\\cyrchar\\CYRYAT " ]
+, [ char := "\u0464", tex := "\\cyrchar\\CYRIOTE " ]
+, [ char := "\u0465", tex := "\\cyrchar\\cyriote " ]
+, [ char := "\u0466", tex := "\\cyrchar\\CYRLYUS " ]
+, [ char := "\u0467", tex := "\\cyrchar\\cyrlyus " ]
+, [ char := "\u0468", tex := "\\cyrchar\\CYRIOTLYUS " ]
+, [ char := "\u0469", tex := "\\cyrchar\\cyriotlyus " ]
+, [ char := "\u046A", tex := "\\cyrchar\\CYRBYUS " ]
+, [ char := "\u046C", tex := "\\cyrchar\\CYRIOTBYUS " ]
+, [ char := "\u046D", tex := "\\cyrchar\\cyriotbyus " ]
+, [ char := "\u046E", tex := "\\cyrchar\\CYRKSI " ]
+, [ char := "\u046F", tex := "\\cyrchar\\cyrksi " ]
+, [ char := "\u0470", tex := "\\cyrchar\\CYRPSI " ]
+, [ char := "\u0471", tex := "\\cyrchar\\cyrpsi " ]
+, [ char := "\u0472", tex := "\\cyrchar\\CYRFITA " ]
+, [ char := "\u0474", tex := "\\cyrchar\\CYRIZH " ]
+, [ char := "\u0478", tex := "\\cyrchar\\CYRUK " ]
+, [ char := "\u0479", tex := "\\cyrchar\\cyruk " ]
+, [ char := "\u047A", tex := "\\cyrchar\\CYROMEGARND " ]
+, [ char := "\u047B", tex := "\\cyrchar\\cyromegarnd " ]
+, [ char := "\u047C", tex := "\\cyrchar\\CYROMEGATITLO " ]
+, [ char := "\u047D", tex := "\\cyrchar\\cyromegatitlo " ]
+, [ char := "\u047E", tex := "\\cyrchar\\CYROT " ]
+, [ char := "\u047F", tex := "\\cyrchar\\cyrot " ]
+, [ char := "\u0480", tex := "\\cyrchar\\CYRKOPPA " ]
+, [ char := "\u0481", tex := "\\cyrchar\\cyrkoppa " ]
+, [ char := "\u0482", tex := "\\cyrchar\\cyrthousands " ]
+, [ char := "\u0488", tex := "\\cyrchar\\cyrhundredthousands " ]
+, [ char := "\u0489", tex := "\\cyrchar\\cyrmillions " ]
+, [ char := "\u048C", tex := "\\cyrchar\\CYRSEMISFTSN " ]
+, [ char := "\u048D", tex := "\\cyrchar\\cyrsemisftsn " ]
+, [ char := "\u048E", tex := "\\cyrchar\\CYRRTICK " ]
+, [ char := "\u048F", tex := "\\cyrchar\\cyrrtick " ]
+, [ char := "\u0490", tex := "\\cyrchar\\CYRGUP " ]
+, [ char := "\u0491", tex := "\\cyrchar\\cyrgup " ]
+, [ char := "\u0492", tex := "\\cyrchar\\CYRGHCRS " ]
+, [ char := "\u0493", tex := "\\cyrchar\\cyrghcrs " ]
+, [ char := "\u0494", tex := "\\cyrchar\\CYRGHK " ]
+, [ char := "\u0495", tex := "\\cyrchar\\cyrghk " ]
+, [ char := "\u0496", tex := "\\cyrchar\\CYRZHDSC " ]
+, [ char := "\u0497", tex := "\\cyrchar\\cyrzhdsc " ]
+, [ char := "\u0498", tex := "\\cyrchar\\CYRZDSC " ]
+, [ char := "\u0499", tex := "\\cyrchar\\cyrzdsc " ]
+, [ char := "\u049A", tex := "\\cyrchar\\CYRKDSC " ]
+, [ char := "\u049B", tex := "\\cyrchar\\cyrkdsc " ]
+, [ char := "\u049C", tex := "\\cyrchar\\CYRKVCRS " ]
+, [ char := "\u049D", tex := "\\cyrchar\\cyrkvcrs " ]
+, [ char := "\u049E", tex := "\\cyrchar\\CYRKHCRS " ]
+, [ char := "\u049F", tex := "\\cyrchar\\cyrkhcrs " ]
+, [ char := "\u04A0", tex := "\\cyrchar\\CYRKBEAK " ]
+, [ char := "\u04A1", tex := "\\cyrchar\\cyrkbeak " ]
+, [ char := "\u04A2", tex := "\\cyrchar\\CYRNDSC " ]
+, [ char := "\u04A3", tex := "\\cyrchar\\cyrndsc " ]
+, [ char := "\u04A4", tex := "\\cyrchar\\CYRNG " ]
+, [ char := "\u04A5", tex := "\\cyrchar\\cyrng " ]
+, [ char := "\u04A6", tex := "\\cyrchar\\CYRPHK " ]
+, [ char := "\u04A7", tex := "\\cyrchar\\cyrphk " ]
+, [ char := "\u04A8", tex := "\\cyrchar\\CYRABHHA " ]
+, [ char := "\u04A9", tex := "\\cyrchar\\cyrabhha " ]
+, [ char := "\u04AA", tex := "\\cyrchar\\CYRSDSC " ]
+, [ char := "\u04AB", tex := "\\cyrchar\\cyrsdsc " ]
+, [ char := "\u04AC", tex := "\\cyrchar\\CYRTDSC " ]
+, [ char := "\u04AD", tex := "\\cyrchar\\cyrtdsc " ]
+, [ char := "\u04AE", tex := "\\cyrchar\\CYRY " ]
+, [ char := "\u04AF", tex := "\\cyrchar\\cyry " ]
+, [ char := "\u04B0", tex := "\\cyrchar\\CYRYHCRS " ]
+, [ char := "\u04B1", tex := "\\cyrchar\\cyryhcrs " ]
+, [ char := "\u04B2", tex := "\\cyrchar\\CYRHDSC " ]
+, [ char := "\u04B3", tex := "\\cyrchar\\cyrhdsc " ]
+, [ char := "\u04B4", tex := "\\cyrchar\\CYRTETSE " ]
+, [ char := "\u04B5", tex := "\\cyrchar\\cyrtetse " ]
+, [ char := "\u04B6", tex := "\\cyrchar\\CYRCHRDSC " ]
+, [ char := "\u04B7", tex := "\\cyrchar\\cyrchrdsc " ]
+, [ char := "\u04B8", tex := "\\cyrchar\\CYRCHVCRS " ]
+, [ char := "\u04B9", tex := "\\cyrchar\\cyrchvcrs " ]
+, [ char := "\u04BA", tex := "\\cyrchar\\CYRSHHA " ]
+, [ char := "\u04BB", tex := "\\cyrchar\\cyrshha " ]
+, [ char := "\u04BC", tex := "\\cyrchar\\CYRABHCH " ]
+, [ char := "\u04BD", tex := "\\cyrchar\\cyrabhch " ]
+, [ char := "\u04BE", tex := "\\cyrchar\\CYRABHCHDSC " ]
+, [ char := "\u04BF", tex := "\\cyrchar\\cyrabhchdsc " ]
+, [ char := "\u04C0", tex := "\\cyrchar\\CYRpalochka " ]
+, [ char := "\u04C3", tex := "\\cyrchar\\CYRKHK " ]
+, [ char := "\u04C4", tex := "\\cyrchar\\cyrkhk " ]
+, [ char := "\u04C7", tex := "\\cyrchar\\CYRNHK " ]
+, [ char := "\u04C8", tex := "\\cyrchar\\cyrnhk " ]
+, [ char := "\u04CB", tex := "\\cyrchar\\CYRCHLDSC " ]
+, [ char := "\u04CC", tex := "\\cyrchar\\cyrchldsc " ]
+, [ char := "\u04D4", tex := "\\cyrchar\\CYRAE " ]
+, [ char := "\u04D5", tex := "\\cyrchar\\cyrae " ]
+, [ char := "\u04D8", tex := "\\cyrchar\\CYRSCHWA " ]
+, [ char := "\u04D9", tex := "\\cyrchar\\cyrschwa " ]
+, [ char := "\u04E0", tex := "\\cyrchar\\CYRABHDZE " ]
+, [ char := "\u04E1", tex := "\\cyrchar\\cyrabhdze " ]
+, [ char := "\u04E8", tex := "\\cyrchar\\CYROTLD " ]
+, [ char := "\u04E9", tex := "\\cyrchar\\cyrotld " ]
+, [ char := "\u2002", tex := "\\hspace{0.6em}" ]
+, [ char := "\u2003", tex := "\\hspace{1em}" ]
+, [ char := "\u2004", tex := "\\hspace{0.33em}" ]
+, [ char := "\u2005", tex := "\\hspace{0.25em}" ]
+, [ char := "\u2006", tex := "\\hspace{0.166em}" ]
+, [ char := "\u2007", tex := "\\hphantom{0}" ]
+, [ char := "\u2008", tex := "\\hphantom{,}" ]
+, [ char := "\u2009", tex := "\\hspace{0.167em}" ]
+, [ char := "\u2009-0200A-0200A", tex := "\\;" ]
+, [ char := "\u200A", tex := "\\mkern1mu " ]
+, [ char := "\u2013", tex := "\\textendash " ]
+, [ char := "\u2014", tex := "\\textemdash " ]
+, [ char := "\u2015", tex := "\\rule{1em}{1pt}" ]
+, [ char := "\u2016", tex := "\\Vert " ]
+, [ char := "\u201B", tex := "\\Elzreapos " ]
+, [ char := "\u201C", tex := "\\textquotedblleft " ]
+, [ char := "\u201D", tex := "\\textquotedblright " ]
+, [ char := "\u201E", tex := ",," ]
+, [ char := "\u2020", tex := "\\textdagger " ]
+, [ char := "\u2021", tex := "\\textdaggerdbl " ]
+, [ char := "\u2022", tex := "\\textbullet " ]
+, [ char := "\u2025", tex := ".." ]
+, [ char := "\u2026", tex := "\\ldots " ]
+, [ char := "\u2030", tex := "\\textperthousand " ]
+, [ char := "\u2031", tex := "\\textpertenthousand " ]
+, [ char := "\u2032", tex := "{'}" ]
+, [ char := "\u2033", tex := "{''}" ]
+, [ char := "\u2034", tex := "{'''}" ]
+, [ char := "\u2035", tex := "\\backprime " ]
+, [ char := "\u2039", tex := "\\guilsinglleft " ]
+, [ char := "\u203A", tex := "\\guilsinglright " ]
+, [ char := "\u2057", tex := "''''" ]
+, [ char := "\u205F", tex := "\\mkern4mu " ]
+, [ char := "\u2060", tex := "\\nolinebreak " ]
+, [ char := "\u20A7", tex := "\\ensuremath{\\Elzpes}" ]
+, [ char := "\u20AC", tex := "\\mbox{\\texteuro} " ]
+, [ char := "\u20DB", tex := "\\dddot " ]
+, [ char := "\u20DC", tex := "\\ddddot " ]
+, [ char := "\u2102", tex := "\\mathbb{C}" ]
+, [ char := "\u210A", tex := "\\mathscr{g}" ]
+, [ char := "\u210B", tex := "\\mathscr{H}" ]
+, [ char := "\u210C", tex := "\\mathfrak{H}" ]
+, [ char := "\u210D", tex := "\\mathbb{H}" ]
+, [ char := "\u210F", tex := "\\hslash " ]
+, [ char := "\u2110", tex := "\\mathscr{I}" ]
+, [ char := "\u2111", tex := "\\mathfrak{I}" ]
+, [ char := "\u2112", tex := "\\mathscr{L}" ]
+, [ char := "\u2113", tex := "\\mathscr{l}" ]
+, [ char := "\u2115", tex := "\\mathbb{N}" ]
+, [ char := "\u2116", tex := "\\cyrchar\\textnumero " ]
+, [ char := "\u2118", tex := "\\wp " ]
+, [ char := "\u2119", tex := "\\mathbb{P}" ]
+, [ char := "\u211A", tex := "\\mathbb{Q}" ]
+, [ char := "\u211B", tex := "\\mathscr{R}" ]
+, [ char := "\u211C", tex := "\\mathfrak{R}" ]
+, [ char := "\u211D", tex := "\\mathbb{R}" ]
+, [ char := "\u211E", tex := "\\Elzxrat " ]
+, [ char := "\u2122", tex := "\\texttrademark " ]
+, [ char := "\u2124", tex := "\\mathbb{Z}" ]
+, [ char := "\u2126", tex := "\\Omega " ]
+, [ char := "\u2127", tex := "\\mho " ]
+, [ char := "\u2128", tex := "\\mathfrak{Z}" ]
+, [ char := "\u2129", tex := "\\ElsevierGlyph{2129}" ]
+, [ char := "\u212B", tex := "\\AA " ]
+, [ char := "\u212C", tex := "\\mathscr{B}" ]
+, [ char := "\u212D", tex := "\\mathfrak{C}" ]
+, [ char := "\u212F", tex := "\\mathscr{e}" ]
+, [ char := "\u2130", tex := "\\mathscr{E}" ]
+, [ char := "\u2131", tex := "\\mathscr{F}" ]
+, [ char := "\u2133", tex := "\\mathscr{M}" ]
+, [ char := "\u2134", tex := "\\mathscr{o}" ]
+, [ char := "\u2135", tex := "\\aleph " ]
+, [ char := "\u2136", tex := "\\beth " ]
+, [ char := "\u2137", tex := "\\gimel " ]
+, [ char := "\u2138", tex := "\\daleth " ]
+, [ char := "\u2153", tex := "\\textfrac{1}{3}" ]
+, [ char := "\u2154", tex := "\\textfrac{2}{3}" ]
+, [ char := "\u2155", tex := "\\textfrac{1}{5}" ]
+, [ char := "\u2156", tex := "\\textfrac{2}{5}" ]
+, [ char := "\u2157", tex := "\\textfrac{3}{5}" ]
+, [ char := "\u2158", tex := "\\textfrac{4}{5}" ]
+, [ char := "\u2159", tex := "\\textfrac{1}{6}" ]
+, [ char := "\u215A", tex := "\\textfrac{5}{6}" ]
+, [ char := "\u215B", tex := "\\textfrac{1}{8}" ]
+, [ char := "\u215C", tex := "\\textfrac{3}{8}" ]
+, [ char := "\u215D", tex := "\\textfrac{5}{8}" ]
+, [ char := "\u215E", tex := "\\textfrac{7}{8}" ]
+, [ char := "\u2190", tex := "\\leftarrow " ]
+, [ char := "\u2191", tex := "\\uparrow " ]
+, [ char := "\u2192", tex := "\\rightarrow " ]
+, [ char := "\u2193", tex := "\\downarrow " ]
+, [ char := "\u2194", tex := "\\leftrightarrow " ]
+, [ char := "\u2195", tex := "\\updownarrow " ]
+, [ char := "\u2196", tex := "\\nwarrow " ]
+, [ char := "\u2197", tex := "\\nearrow " ]
+, [ char := "\u2198", tex := "\\searrow " ]
+, [ char := "\u2199", tex := "\\swarrow " ]
+, [ char := "\u219A", tex := "\\nleftarrow " ]
+, [ char := "\u219B", tex := "\\nrightarrow " ]
+, [ char := "\u219C", tex := "\\arrowwaveright " ]
+, [ char := "\u219D", tex := "\\arrowwaveright " ]
+, [ char := "\u219E", tex := "\\twoheadleftarrow " ]
+, [ char := "\u21A0", tex := "\\twoheadrightarrow " ]
+, [ char := "\u21A2", tex := "\\leftarrowtail " ]
+, [ char := "\u21A3", tex := "\\rightarrowtail " ]
+, [ char := "\u21A6", tex := "\\mapsto " ]
+, [ char := "\u21A9", tex := "\\hookleftarrow " ]
+, [ char := "\u21AA", tex := "\\hookrightarrow " ]
+, [ char := "\u21AB", tex := "\\looparrowleft " ]
+, [ char := "\u21AC", tex := "\\looparrowright " ]
+, [ char := "\u21AD", tex := "\\leftrightsquigarrow " ]
+, [ char := "\u21AE", tex := "\\nleftrightarrow " ]
+, [ char := "\u21B0", tex := "\\Lsh " ]
+, [ char := "\u21B1", tex := "\\Rsh " ]
+, [ char := "\u21B3", tex := "\\ElsevierGlyph{21B3}" ]
+, [ char := "\u21B6", tex := "\\curvearrowleft " ]
+, [ char := "\u21B7", tex := "\\curvearrowright " ]
+, [ char := "\u21BA", tex := "\\circlearrowleft " ]
+, [ char := "\u21BB", tex := "\\circlearrowright " ]
+, [ char := "\u21BC", tex := "\\leftharpoonup " ]
+, [ char := "\u21BD", tex := "\\leftharpoondown " ]
+, [ char := "\u21BE", tex := "\\upharpoonright " ]
+, [ char := "\u21BF", tex := "\\upharpoonleft " ]
+, [ char := "\u21C0", tex := "\\rightharpoonup " ]
+, [ char := "\u21C1", tex := "\\rightharpoondown " ]
+, [ char := "\u21C2", tex := "\\downharpoonright " ]
+, [ char := "\u21C3", tex := "\\downharpoonleft " ]
+, [ char := "\u21C4", tex := "\\rightleftarrows " ]
+, [ char := "\u21C5", tex := "\\dblarrowupdown " ]
+, [ char := "\u21C6", tex := "\\leftrightarrows " ]
+, [ char := "\u21C7", tex := "\\leftleftarrows " ]
+, [ char := "\u21C8", tex := "\\upuparrows " ]
+, [ char := "\u21C9", tex := "\\rightrightarrows " ]
+, [ char := "\u21CA", tex := "\\downdownarrows " ]
+, [ char := "\u21CB", tex := "\\leftrightharpoons " ]
+, [ char := "\u21CC", tex := "\\rightleftharpoons " ]
+, [ char := "\u21CD", tex := "\\nLeftarrow " ]
+, [ char := "\u21CE", tex := "\\nLeftrightarrow " ]
+, [ char := "\u21CF", tex := "\\nRightarrow " ]
+, [ char := "\u21D0", tex := "\\Leftarrow " ]
+, [ char := "\u21D1", tex := "\\Uparrow " ]
+, [ char := "\u21D2", tex := "\\Rightarrow " ]
+, [ char := "\u21D3", tex := "\\Downarrow " ]
+, [ char := "\u21D4", tex := "\\Leftrightarrow " ]
+, [ char := "\u21D5", tex := "\\Updownarrow " ]
+, [ char := "\u21DA", tex := "\\Lleftarrow " ]
+, [ char := "\u21DB", tex := "\\Rrightarrow " ]
+, [ char := "\u21DD", tex := "\\rightsquigarrow " ]
+, [ char := "\u21F5", tex := "\\DownArrowUpArrow " ]
+, [ char := "\u2200", tex := "\\forall " ]
+, [ char := "\u2201", tex := "\\complement " ]
+, [ char := "\u2202", tex := "\\partial " ]
+, [ char := "\u2203", tex := "\\exists " ]
+, [ char := "\u2204", tex := "\\nexists " ]
+, [ char := "\u2205", tex := "\\varnothing " ]
+, [ char := "\u2207", tex := "\\nabla " ]
+, [ char := "\u2208", tex := "\\in " ]
+, [ char := "\u2209", tex := "\\not\\in " ]
+, [ char := "\u220B", tex := "\\ni " ]
+, [ char := "\u220C", tex := "\\not\\ni " ]
+, [ char := "\u220F", tex := "\\prod " ]
+, [ char := "\u2210", tex := "\\coprod " ]
+, [ char := "\u2211", tex := "\\sum " ]
+, [ char := "\u2213", tex := "\\mp " ]
+, [ char := "\u2214", tex := "\\dotplus " ]
+, [ char := "\u2216", tex := "\\setminus " ]
+, [ char := "\u2217", tex := "{_\\ast}" ]
+, [ char := "\u2218", tex := "\\circ " ]
+, [ char := "\u2219", tex := "\\bullet " ]
+, [ char := "\u221A", tex := "\\surd " ]
+, [ char := "\u221D", tex := "\\propto " ]
+, [ char := "\u221E", tex := "\\infty " ]
+, [ char := "\u221F", tex := "\\rightangle " ]
+, [ char := "\u2220", tex := "\\angle " ]
+, [ char := "\u2221", tex := "\\measuredangle " ]
+, [ char := "\u2222", tex := "\\sphericalangle " ]
+, [ char := "\u2223", tex := "\\mid " ]
+, [ char := "\u2224", tex := "\\nmid " ]
+, [ char := "\u2225", tex := "\\parallel " ]
+, [ char := "\u2226", tex := "\\nparallel " ]
+, [ char := "\u2227", tex := "\\wedge " ]
+, [ char := "\u2228", tex := "\\vee " ]
+, [ char := "\u2229", tex := "\\cap " ]
+, [ char := "\u222A", tex := "\\cup " ]
+, [ char := "\u222B", tex := "\\int " ]
+, [ char := "\u222C", tex := "\\int\\!\\int " ]
+, [ char := "\u222D", tex := "\\int\\!\\int\\!\\int " ]
+, [ char := "\u222E", tex := "\\oint " ]
+, [ char := "\u222F", tex := "\\surfintegral " ]
+, [ char := "\u2230", tex := "\\volintegral " ]
+, [ char := "\u2231", tex := "\\clwintegral " ]
+, [ char := "\u2232", tex := "\\ElsevierGlyph{2232}" ]
+, [ char := "\u2233", tex := "\\ElsevierGlyph{2233}" ]
+, [ char := "\u2234", tex := "\\therefore " ]
+, [ char := "\u2235", tex := "\\because " ]
+, [ char := "\u2237", tex := "\\Colon " ]
+, [ char := "\u2238", tex := "\\ElsevierGlyph{2238}" ]
+, [ char := "\u223A", tex := "\\mathbin{{:}\\!\\!{-}\\!\\!{:}}" ]
+, [ char := "\u223B", tex := "\\homothetic " ]
+, [ char := "\u223C", tex := "\\sim " ]
+, [ char := "\u223D", tex := "\\backsim " ]
+, [ char := "\u223E", tex := "\\lazysinv " ]
+, [ char := "\u2240", tex := "\\wr " ]
+, [ char := "\u2241", tex := "\\not\\sim " ]
+, [ char := "\u2242", tex := "\\ElsevierGlyph{2242}" ]
+, [ char := "\u2242-00338", tex := "\\NotEqualTilde " ]
+, [ char := "\u2243", tex := "\\simeq " ]
+, [ char := "\u2244", tex := "\\not\\simeq " ]
+, [ char := "\u2245", tex := "\\cong " ]
+, [ char := "\u2246", tex := "\\approxnotequal " ]
+, [ char := "\u2247", tex := "\\not\\cong " ]
+, [ char := "\u2248", tex := "\\approx " ]
+, [ char := "\u2249", tex := "\\not\\approx " ]
+, [ char := "\u224A", tex := "\\approxeq " ]
+, [ char := "\u224B", tex := "\\tildetrpl " ]
+, [ char := "\u224B-00338", tex := "\\not\\apid " ]
+, [ char := "\u224C", tex := "\\allequal " ]
+, [ char := "\u224D", tex := "\\asymp " ]
+, [ char := "\u224E", tex := "\\Bumpeq " ]
+, [ char := "\u224E-00338", tex := "\\NotHumpDownHump " ]
+, [ char := "\u224F", tex := "\\bumpeq " ]
+, [ char := "\u224F-00338", tex := "\\NotHumpEqual " ]
+, [ char := "\u2250", tex := "\\doteq " ]
+, [ char := "\u2250-00338", tex := "\\not\\doteq" ]
+, [ char := "\u2251", tex := "\\doteqdot " ]
+, [ char := "\u2252", tex := "\\fallingdotseq " ]
+, [ char := "\u2253", tex := "\\risingdotseq " ]
+, [ char := "\u2254", tex := ":=" ]
+, [ char := "\u2255", tex := "=:" ]
+, [ char := "\u2256", tex := "\\eqcirc " ]
+, [ char := "\u2257", tex := "\\circeq " ]
+, [ char := "\u2259", tex := "\\estimates " ]
+, [ char := "\u225A", tex := "\\ElsevierGlyph{225A}" ]
+, [ char := "\u225B", tex := "\\starequal " ]
+, [ char := "\u225C", tex := "\\triangleq " ]
+, [ char := "\u225F", tex := "\\ElsevierGlyph{225F}" ]
+, [ char := "\u2260", tex := "\\not =" ]
+, [ char := "\u2261", tex := "\\equiv " ]
+, [ char := "\u2262", tex := "\\not\\equiv " ]
+, [ char := "\u2264", tex := "\\leq " ]
+, [ char := "\u2265", tex := "\\geq " ]
+, [ char := "\u2266", tex := "\\leqq " ]
+, [ char := "\u2267", tex := "\\geqq " ]
+, [ char := "\u2268", tex := "\\lneqq " ]
+, [ char := "\u2268-0FE00", tex := "\\lvertneqq " ]
+, [ char := "\u2269", tex := "\\gneqq " ]
+, [ char := "\u2269-0FE00", tex := "\\gvertneqq " ]
+, [ char := "\u226A", tex := "\\ll " ]
+, [ char := "\u226A-00338", tex := "\\NotLessLess " ]
+, [ char := "\u226B", tex := "\\gg " ]
+, [ char := "\u226B-00338", tex := "\\NotGreaterGreater " ]
+, [ char := "\u226C", tex := "\\between " ]
+, [ char := "\u226D", tex := "\\not\\kern-0.3em\\times " ]
+, [ char := "\u226E", tex := "\\not&lt;" ]
+, [ char := "\u226F", tex := "\\not&gt;" ]
+, [ char := "\u2270", tex := "\\not\\leq " ]
+, [ char := "\u2271", tex := "\\not\\geq " ]
+, [ char := "\u2272", tex := "\\lessequivlnt " ]
+, [ char := "\u2273", tex := "\\greaterequivlnt " ]
+, [ char := "\u2274", tex := "\\ElsevierGlyph{2274}" ]
+, [ char := "\u2275", tex := "\\ElsevierGlyph{2275}" ]
+, [ char := "\u2276", tex := "\\lessgtr " ]
+, [ char := "\u2277", tex := "\\gtrless " ]
+, [ char := "\u2278", tex := "\\notlessgreater " ]
+, [ char := "\u2279", tex := "\\notgreaterless " ]
+, [ char := "\u227A", tex := "\\prec " ]
+, [ char := "\u227B", tex := "\\succ " ]
+, [ char := "\u227C", tex := "\\preccurlyeq " ]
+, [ char := "\u227D", tex := "\\succcurlyeq " ]
+, [ char := "\u227E", tex := "\\precapprox " ]
+, [ char := "\u227E-00338", tex := "\\NotPrecedesTilde " ]
+, [ char := "\u227F", tex := "\\succapprox " ]
+, [ char := "\u227F-00338", tex := "\\NotSucceedsTilde " ]
+, [ char := "\u2280", tex := "\\not\\prec " ]
+, [ char := "\u2281", tex := "\\not\\succ " ]
+, [ char := "\u2282", tex := "\\subset " ]
+, [ char := "\u2283", tex := "\\supset " ]
+, [ char := "\u2284", tex := "\\not\\subset " ]
+, [ char := "\u2285", tex := "\\not\\supset " ]
+, [ char := "\u2286", tex := "\\subseteq " ]
+, [ char := "\u2287", tex := "\\supseteq " ]
+, [ char := "\u2288", tex := "\\not\\subseteq " ]
+, [ char := "\u2289", tex := "\\not\\supseteq " ]
+, [ char := "\u228A", tex := "\\subsetneq " ]
+, [ char := "\u228A-0FE00", tex := "\\varsubsetneqq " ]
+, [ char := "\u228B", tex := "\\supsetneq " ]
+, [ char := "\u228B-0FE00", tex := "\\varsupsetneq " ]
+, [ char := "\u228E", tex := "\\uplus " ]
+, [ char := "\u228F", tex := "\\sqsubset " ]
+, [ char := "\u228F-00338", tex := "\\NotSquareSubset " ]
+, [ char := "\u2290", tex := "\\sqsupset " ]
+, [ char := "\u2290-00338", tex := "\\NotSquareSuperset " ]
+, [ char := "\u2291", tex := "\\sqsubseteq " ]
+, [ char := "\u2292", tex := "\\sqsupseteq " ]
+, [ char := "\u2293", tex := "\\sqcap " ]
+, [ char := "\u2294", tex := "\\sqcup " ]
+, [ char := "\u2295", tex := "\\oplus " ]
+, [ char := "\u2296", tex := "\\ominus " ]
+, [ char := "\u2297", tex := "\\otimes " ]
+, [ char := "\u2298", tex := "\\oslash " ]
+, [ char := "\u2299", tex := "\\odot " ]
+, [ char := "\u229A", tex := "\\circledcirc " ]
+, [ char := "\u229B", tex := "\\circledast " ]
+, [ char := "\u229D", tex := "\\circleddash " ]
+, [ char := "\u229E", tex := "\\boxplus " ]
+, [ char := "\u229F", tex := "\\boxminus " ]
+, [ char := "\u22A0", tex := "\\boxtimes " ]
+, [ char := "\u22A1", tex := "\\boxdot " ]
+, [ char := "\u22A2", tex := "\\vdash " ]
+, [ char := "\u22A3", tex := "\\dashv " ]
+, [ char := "\u22A4", tex := "\\top " ]
+, [ char := "\u22A5", tex := "\\perp " ]
+, [ char := "\u22A7", tex := "\\truestate " ]
+, [ char := "\u22A8", tex := "\\forcesextra " ]
+, [ char := "\u22A9", tex := "\\Vdash " ]
+, [ char := "\u22AA", tex := "\\Vvdash " ]
+, [ char := "\u22AB", tex := "\\VDash " ]
+, [ char := "\u22AC", tex := "\\nvdash " ]
+, [ char := "\u22AD", tex := "\\nvDash " ]
+, [ char := "\u22AE", tex := "\\nVdash " ]
+, [ char := "\u22AF", tex := "\\nVDash " ]
+, [ char := "\u22B2", tex := "\\vartriangleleft " ]
+, [ char := "\u22B3", tex := "\\vartriangleright " ]
+, [ char := "\u22B4", tex := "\\trianglelefteq " ]
+, [ char := "\u22B5", tex := "\\trianglerighteq " ]
+, [ char := "\u22B6", tex := "\\original " ]
+, [ char := "\u22B7", tex := "\\image " ]
+, [ char := "\u22B8", tex := "\\multimap " ]
+, [ char := "\u22B9", tex := "\\hermitconjmatrix " ]
+, [ char := "\u22BA", tex := "\\intercal " ]
+, [ char := "\u22BB", tex := "\\veebar " ]
+, [ char := "\u22BE", tex := "\\rightanglearc " ]
+, [ char := "\u22C0", tex := "\\ElsevierGlyph{22C0}" ]
+, [ char := "\u22C1", tex := "\\ElsevierGlyph{22C1}" ]
+, [ char := "\u22C2", tex := "\\bigcap " ]
+, [ char := "\u22C3", tex := "\\bigcup " ]
+, [ char := "\u22C4", tex := "\\diamond " ]
+, [ char := "\u22C5", tex := "\\cdot " ]
+, [ char := "\u22C6", tex := "\\star " ]
+, [ char := "\u22C7", tex := "\\divideontimes " ]
+, [ char := "\u22C8", tex := "\\bowtie " ]
+, [ char := "\u22C9", tex := "\\ltimes " ]
+, [ char := "\u22CA", tex := "\\rtimes " ]
+, [ char := "\u22CB", tex := "\\leftthreetimes " ]
+, [ char := "\u22CC", tex := "\\rightthreetimes " ]
+, [ char := "\u22CD", tex := "\\backsimeq " ]
+, [ char := "\u22CE", tex := "\\curlyvee " ]
+, [ char := "\u22CF", tex := "\\curlywedge " ]
+, [ char := "\u22D0", tex := "\\Subset " ]
+, [ char := "\u22D1", tex := "\\Supset " ]
+, [ char := "\u22D2", tex := "\\Cap " ]
+, [ char := "\u22D3", tex := "\\Cup " ]
+, [ char := "\u22D4", tex := "\\pitchfork " ]
+, [ char := "\u22D6", tex := "\\lessdot " ]
+, [ char := "\u22D7", tex := "\\gtrdot " ]
+, [ char := "\u22D8", tex := "\\verymuchless " ]
+, [ char := "\u22D9", tex := "\\verymuchgreater " ]
+, [ char := "\u22DA", tex := "\\lesseqgtr " ]
+, [ char := "\u22DB", tex := "\\gtreqless " ]
+, [ char := "\u22DE", tex := "\\curlyeqprec " ]
+, [ char := "\u22DF", tex := "\\curlyeqsucc " ]
+, [ char := "\u22E2", tex := "\\not\\sqsubseteq " ]
+, [ char := "\u22E3", tex := "\\not\\sqsupseteq " ]
+, [ char := "\u22E5", tex := "\\Elzsqspne " ]
+, [ char := "\u22E6", tex := "\\lnsim " ]
+, [ char := "\u22E7", tex := "\\gnsim " ]
+, [ char := "\u22E8", tex := "\\precedesnotsimilar " ]
+, [ char := "\u22E9", tex := "\\succnsim " ]
+, [ char := "\u22EA", tex := "\\ntriangleleft " ]
+, [ char := "\u22EB", tex := "\\ntriangleright " ]
+, [ char := "\u22EC", tex := "\\ntrianglelefteq " ]
+, [ char := "\u22ED", tex := "\\ntrianglerighteq " ]
+, [ char := "\u22EE", tex := "\\vdots " ]
+, [ char := "\u22EF", tex := "\\cdots " ]
+, [ char := "\u22F0", tex := "\\upslopeellipsis " ]
+, [ char := "\u22F1", tex := "\\downslopeellipsis " ]
+, [ char := "\u2305", tex := "\\barwedge " ]
+, [ char := "\u2306", tex := "\\perspcorrespond " ]
+, [ char := "\u2308", tex := "\\lceil " ]
+, [ char := "\u2309", tex := "\\rceil " ]
+, [ char := "\u230A", tex := "\\lfloor " ]
+, [ char := "\u230B", tex := "\\rfloor " ]
+, [ char := "\u2315", tex := "\\recorder " ]
+, [ char := "\u2316", tex := "\\mathchar\"2208" ]
+, [ char := "\u231C", tex := "\\ulcorner " ]
+, [ char := "\u231D", tex := "\\urcorner " ]
+, [ char := "\u231E", tex := "\\llcorner " ]
+, [ char := "\u231F", tex := "\\lrcorner " ]
+, [ char := "\u2322", tex := "\\frown " ]
+, [ char := "\u2323", tex := "\\smile " ]
+, [ char := "\u2329", tex := "\\langle " ]
+, [ char := "\u232A", tex := "\\rangle " ]
+, [ char := "\u233D", tex := "\\ElsevierGlyph{E838}" ]
+, [ char := "\u23A3", tex := "\\Elzdlcorn " ]
+, [ char := "\u23B0", tex := "\\lmoustache " ]
+, [ char := "\u23B1", tex := "\\rmoustache " ]
+, [ char := "\u2423", tex := "\\textvisiblespace " ]
+, [ char := "\u2460", tex := "\\ding{172}" ]
+, [ char := "\u2461", tex := "\\ding{173}" ]
+, [ char := "\u2462", tex := "\\ding{174}" ]
+, [ char := "\u2463", tex := "\\ding{175}" ]
+, [ char := "\u2464", tex := "\\ding{176}" ]
+, [ char := "\u2465", tex := "\\ding{177}" ]
+, [ char := "\u2466", tex := "\\ding{178}" ]
+, [ char := "\u2467", tex := "\\ding{179}" ]
+, [ char := "\u2468", tex := "\\ding{180}" ]
+, [ char := "\u2469", tex := "\\ding{181}" ]
+, [ char := "\u24C8", tex := "\\circledS " ]
+, [ char := "\u2506", tex := "\\Elzdshfnc " ]
+, [ char := "\u2519", tex := "\\Elzsqfnw " ]
+, [ char := "\u2571", tex := "\\diagup " ]
+, [ char := "\u25A0", tex := "\\ding{110}" ]
+, [ char := "\u25A1", tex := "\\square " ]
+, [ char := "\u25AA", tex := "\\blacksquare " ]
+, [ char := "\u25AD", tex := "\\fbox{~~}" ]
+, [ char := "\u25AF", tex := "\\Elzvrecto " ]
+, [ char := "\u25B1", tex := "\\ElsevierGlyph{E381}" ]
+, [ char := "\u25B2", tex := "\\ding{115}" ]
+, [ char := "\u25B3", tex := "\\bigtriangleup " ]
+, [ char := "\u25B4", tex := "\\blacktriangle " ]
+, [ char := "\u25B5", tex := "\\vartriangle " ]
+, [ char := "\u25B8", tex := "\\blacktriangleright " ]
+, [ char := "\u25B9", tex := "\\triangleright " ]
+, [ char := "\u25BC", tex := "\\ding{116}" ]
+, [ char := "\u25BD", tex := "\\bigtriangledown " ]
+, [ char := "\u25BE", tex := "\\blacktriangledown " ]
+, [ char := "\u25BF", tex := "\\triangledown " ]
+, [ char := "\u25C2", tex := "\\blacktriangleleft " ]
+, [ char := "\u25C3", tex := "\\triangleleft " ]
+, [ char := "\u25C6", tex := "\\ding{117}" ]
+, [ char := "\u25CA", tex := "\\lozenge " ]
+, [ char := "\u25CB", tex := "\\bigcirc " ]
+, [ char := "\u25CF", tex := "\\ding{108}" ]
+, [ char := "\u25D0", tex := "\\Elzcirfl " ]
+, [ char := "\u25D1", tex := "\\Elzcirfr " ]
+, [ char := "\u25D2", tex := "\\Elzcirfb " ]
+, [ char := "\u25D7", tex := "\\ding{119}" ]
+, [ char := "\u25D8", tex := "\\Elzrvbull " ]
+, [ char := "\u25E7", tex := "\\Elzsqfl " ]
+, [ char := "\u25E8", tex := "\\Elzsqfr " ]
+, [ char := "\u25EA", tex := "\\Elzsqfse " ]
+, [ char := "\u25EF", tex := "\\bigcirc " ]
+, [ char := "\u2605", tex := "\\ding{72}" ]
+, [ char := "\u2606", tex := "\\ding{73}" ]
+, [ char := "\u260E", tex := "\\ding{37}" ]
+, [ char := "\u261B", tex := "\\ding{42}" ]
+, [ char := "\u261E", tex := "\\ding{43}" ]
+, [ char := "\u263E", tex := "\\rightmoon " ]
+, [ char := "\u263F", tex := "\\mercury " ]
+, [ char := "\u2640", tex := "\\venus " ]
+, [ char := "\u2642", tex := "\\male " ]
+, [ char := "\u2643", tex := "\\jupiter " ]
+, [ char := "\u2644", tex := "\\saturn " ]
+, [ char := "\u2645", tex := "\\uranus " ]
+, [ char := "\u2646", tex := "\\neptune " ]
+, [ char := "\u2647", tex := "\\pluto " ]
+, [ char := "\u2648", tex := "\\aries " ]
+, [ char := "\u2649", tex := "\\taurus " ]
+, [ char := "\u264A", tex := "\\gemini " ]
+, [ char := "\u264B", tex := "\\cancer " ]
+, [ char := "\u264C", tex := "\\leo " ]
+, [ char := "\u264D", tex := "\\virgo " ]
+, [ char := "\u264E", tex := "\\libra " ]
+, [ char := "\u264F", tex := "\\scorpio " ]
+, [ char := "\u2650", tex := "\\sagittarius " ]
+, [ char := "\u2651", tex := "\\capricornus " ]
+, [ char := "\u2652", tex := "\\aquarius " ]
+, [ char := "\u2653", tex := "\\pisces " ]
+, [ char := "\u2660", tex := "\\ding{171}" ]
+, [ char := "\u2662", tex := "\\diamond " ]
+, [ char := "\u2663", tex := "\\ding{168}" ]
+, [ char := "\u2665", tex := "\\ding{170}" ]
+, [ char := "\u2666", tex := "\\ding{169}" ]
+, [ char := "\u2669", tex := "\\quarternote " ]
+, [ char := "\u266A", tex := "\\eighthnote " ]
+, [ char := "\u266D", tex := "\\flat " ]
+, [ char := "\u266E", tex := "\\natural " ]
+, [ char := "\u266F", tex := "\\sharp " ]
+, [ char := "\u2701", tex := "\\ding{33}" ]
+, [ char := "\u2702", tex := "\\ding{34}" ]
+, [ char := "\u2703", tex := "\\ding{35}" ]
+, [ char := "\u2704", tex := "\\ding{36}" ]
+, [ char := "\u2706", tex := "\\ding{38}" ]
+, [ char := "\u2707", tex := "\\ding{39}" ]
+, [ char := "\u2708", tex := "\\ding{40}" ]
+, [ char := "\u2709", tex := "\\ding{41}" ]
+, [ char := "\u270C", tex := "\\ding{44}" ]
+, [ char := "\u270D", tex := "\\ding{45}" ]
+, [ char := "\u270E", tex := "\\ding{46}" ]
+, [ char := "\u270F", tex := "\\ding{47}" ]
+, [ char := "\u2710", tex := "\\ding{48}" ]
+, [ char := "\u2711", tex := "\\ding{49}" ]
+, [ char := "\u2712", tex := "\\ding{50}" ]
+, [ char := "\u2713", tex := "\\ding{51}" ]
+, [ char := "\u2714", tex := "\\ding{52}" ]
+, [ char := "\u2715", tex := "\\ding{53}" ]
+, [ char := "\u2716", tex := "\\ding{54}" ]
+, [ char := "\u2717", tex := "\\ding{55}" ]
+, [ char := "\u2718", tex := "\\ding{56}" ]
+, [ char := "\u2719", tex := "\\ding{57}" ]
+, [ char := "\u271A", tex := "\\ding{58}" ]
+, [ char := "\u271B", tex := "\\ding{59}" ]
+, [ char := "\u271C", tex := "\\ding{60}" ]
+, [ char := "\u271D", tex := "\\ding{61}" ]
+, [ char := "\u271E", tex := "\\ding{62}" ]
+, [ char := "\u271F", tex := "\\ding{63}" ]
+, [ char := "\u2720", tex := "\\ding{64}" ]
+, [ char := "\u2721", tex := "\\ding{65}" ]
+, [ char := "\u2722", tex := "\\ding{66}" ]
+, [ char := "\u2723", tex := "\\ding{67}" ]
+, [ char := "\u2724", tex := "\\ding{68}" ]
+, [ char := "\u2725", tex := "\\ding{69}" ]
+, [ char := "\u2726", tex := "\\ding{70}" ]
+, [ char := "\u2727", tex := "\\ding{71}" ]
+, [ char := "\u2729", tex := "\\ding{73}" ]
+, [ char := "\u272A", tex := "\\ding{74}" ]
+, [ char := "\u272B", tex := "\\ding{75}" ]
+, [ char := "\u272C", tex := "\\ding{76}" ]
+, [ char := "\u272D", tex := "\\ding{77}" ]
+, [ char := "\u272E", tex := "\\ding{78}" ]
+, [ char := "\u272F", tex := "\\ding{79}" ]
+, [ char := "\u2730", tex := "\\ding{80}" ]
+, [ char := "\u2731", tex := "\\ding{81}" ]
+, [ char := "\u2732", tex := "\\ding{82}" ]
+, [ char := "\u2733", tex := "\\ding{83}" ]
+, [ char := "\u2734", tex := "\\ding{84}" ]
+, [ char := "\u2735", tex := "\\ding{85}" ]
+, [ char := "\u2736", tex := "\\ding{86}" ]
+, [ char := "\u2737", tex := "\\ding{87}" ]
+, [ char := "\u2738", tex := "\\ding{88}" ]
+, [ char := "\u2739", tex := "\\ding{89}" ]
+, [ char := "\u273A", tex := "\\ding{90}" ]
+, [ char := "\u273B", tex := "\\ding{91}" ]
+, [ char := "\u273C", tex := "\\ding{92}" ]
+, [ char := "\u273D", tex := "\\ding{93}" ]
+, [ char := "\u273E", tex := "\\ding{94}" ]
+, [ char := "\u273F", tex := "\\ding{95}" ]
+, [ char := "\u2740", tex := "\\ding{96}" ]
+, [ char := "\u2741", tex := "\\ding{97}" ]
+, [ char := "\u2742", tex := "\\ding{98}" ]
+, [ char := "\u2743", tex := "\\ding{99}" ]
+, [ char := "\u2744", tex := "\\ding{100}" ]
+, [ char := "\u2745", tex := "\\ding{101}" ]
+, [ char := "\u2746", tex := "\\ding{102}" ]
+, [ char := "\u2747", tex := "\\ding{103}" ]
+, [ char := "\u2748", tex := "\\ding{104}" ]
+, [ char := "\u2749", tex := "\\ding{105}" ]
+, [ char := "\u274A", tex := "\\ding{106}" ]
+, [ char := "\u274B", tex := "\\ding{107}" ]
+, [ char := "\u274D", tex := "\\ding{109}" ]
+, [ char := "\u274F", tex := "\\ding{111}" ]
+, [ char := "\u2750", tex := "\\ding{112}" ]
+, [ char := "\u2751", tex := "\\ding{113}" ]
+, [ char := "\u2752", tex := "\\ding{114}" ]
+, [ char := "\u2756", tex := "\\ding{118}" ]
+, [ char := "\u2758", tex := "\\ding{120}" ]
+, [ char := "\u2759", tex := "\\ding{121}" ]
+, [ char := "\u275A", tex := "\\ding{122}" ]
+, [ char := "\u275B", tex := "\\ding{123}" ]
+, [ char := "\u275C", tex := "\\ding{124}" ]
+, [ char := "\u275D", tex := "\\ding{125}" ]
+, [ char := "\u275E", tex := "\\ding{126}" ]
+, [ char := "\u2761", tex := "\\ding{161}" ]
+, [ char := "\u2762", tex := "\\ding{162}" ]
+, [ char := "\u2763", tex := "\\ding{163}" ]
+, [ char := "\u2764", tex := "\\ding{164}" ]
+, [ char := "\u2765", tex := "\\ding{165}" ]
+, [ char := "\u2766", tex := "\\ding{166}" ]
+, [ char := "\u2767", tex := "\\ding{167}" ]
+, [ char := "\u2776", tex := "\\ding{182}" ]
+, [ char := "\u2777", tex := "\\ding{183}" ]
+, [ char := "\u2778", tex := "\\ding{184}" ]
+, [ char := "\u2779", tex := "\\ding{185}" ]
+, [ char := "\u277A", tex := "\\ding{186}" ]
+, [ char := "\u277B", tex := "\\ding{187}" ]
+, [ char := "\u277C", tex := "\\ding{188}" ]
+, [ char := "\u277D", tex := "\\ding{189}" ]
+, [ char := "\u277E", tex := "\\ding{190}" ]
+, [ char := "\u277F", tex := "\\ding{191}" ]
+, [ char := "\u2780", tex := "\\ding{192}" ]
+, [ char := "\u2781", tex := "\\ding{193}" ]
+, [ char := "\u2782", tex := "\\ding{194}" ]
+, [ char := "\u2783", tex := "\\ding{195}" ]
+, [ char := "\u2784", tex := "\\ding{196}" ]
+, [ char := "\u2785", tex := "\\ding{197}" ]
+, [ char := "\u2786", tex := "\\ding{198}" ]
+, [ char := "\u2787", tex := "\\ding{199}" ]
+, [ char := "\u2788", tex := "\\ding{200}" ]
+, [ char := "\u2789", tex := "\\ding{201}" ]
+, [ char := "\u278A", tex := "\\ding{202}" ]
+, [ char := "\u278B", tex := "\\ding{203}" ]
+, [ char := "\u278C", tex := "\\ding{204}" ]
+, [ char := "\u278D", tex := "\\ding{205}" ]
+, [ char := "\u278E", tex := "\\ding{206}" ]
+, [ char := "\u278F", tex := "\\ding{207}" ]
+, [ char := "\u2790", tex := "\\ding{208}" ]
+, [ char := "\u2791", tex := "\\ding{209}" ]
+, [ char := "\u2792", tex := "\\ding{210}" ]
+, [ char := "\u2793", tex := "\\ding{211}" ]
+, [ char := "\u2794", tex := "\\ding{212}" ]
+, [ char := "\u2798", tex := "\\ding{216}" ]
+, [ char := "\u2799", tex := "\\ding{217}" ]
+, [ char := "\u279A", tex := "\\ding{218}" ]
+, [ char := "\u279B", tex := "\\ding{219}" ]
+, [ char := "\u279C", tex := "\\ding{220}" ]
+, [ char := "\u279D", tex := "\\ding{221}" ]
+, [ char := "\u279E", tex := "\\ding{222}" ]
+, [ char := "\u279F", tex := "\\ding{223}" ]
+, [ char := "\u27A0", tex := "\\ding{224}" ]
+, [ char := "\u27A1", tex := "\\ding{225}" ]
+, [ char := "\u27A2", tex := "\\ding{226}" ]
+, [ char := "\u27A3", tex := "\\ding{227}" ]
+, [ char := "\u27A4", tex := "\\ding{228}" ]
+, [ char := "\u27A5", tex := "\\ding{229}" ]
+, [ char := "\u27A6", tex := "\\ding{230}" ]
+, [ char := "\u27A7", tex := "\\ding{231}" ]
+, [ char := "\u27A8", tex := "\\ding{232}" ]
+, [ char := "\u27A9", tex := "\\ding{233}" ]
+, [ char := "\u27AA", tex := "\\ding{234}" ]
+, [ char := "\u27AB", tex := "\\ding{235}" ]
+, [ char := "\u27AC", tex := "\\ding{236}" ]
+, [ char := "\u27AD", tex := "\\ding{237}" ]
+, [ char := "\u27AE", tex := "\\ding{238}" ]
+, [ char := "\u27AF", tex := "\\ding{239}" ]
+, [ char := "\u27B1", tex := "\\ding{241}" ]
+, [ char := "\u27B2", tex := "\\ding{242}" ]
+, [ char := "\u27B3", tex := "\\ding{243}" ]
+, [ char := "\u27B4", tex := "\\ding{244}" ]
+, [ char := "\u27B5", tex := "\\ding{245}" ]
+, [ char := "\u27B6", tex := "\\ding{246}" ]
+, [ char := "\u27B7", tex := "\\ding{247}" ]
+, [ char := "\u27B8", tex := "\\ding{248}" ]
+, [ char := "\u27B9", tex := "\\ding{249}" ]
+, [ char := "\u27BA", tex := "\\ding{250}" ]
+, [ char := "\u27BB", tex := "\\ding{251}" ]
+, [ char := "\u27BC", tex := "\\ding{252}" ]
+, [ char := "\u27BD", tex := "\\ding{253}" ]
+, [ char := "\u27BE", tex := "\\ding{254}" ]
+, [ char := "\u27F5", tex := "\\longleftarrow " ]
+, [ char := "\u27F6", tex := "\\longrightarrow " ]
+, [ char := "\u27F7", tex := "\\longleftrightarrow " ]
+, [ char := "\u27F8", tex := "\\Longleftarrow " ]
+, [ char := "\u27F9", tex := "\\Longrightarrow " ]
+, [ char := "\u27FA", tex := "\\Longleftrightarrow " ]
+, [ char := "\u27FC", tex := "\\longmapsto " ]
+, [ char := "\u27FF", tex := "\\sim\\joinrel\\leadsto" ]
+, [ char := "\u2905", tex := "\\ElsevierGlyph{E212}" ]
+, [ char := "\u2912", tex := "\\UpArrowBar " ]
+, [ char := "\u2913", tex := "\\DownArrowBar " ]
+, [ char := "\u2923", tex := "\\ElsevierGlyph{E20C}" ]
+, [ char := "\u2924", tex := "\\ElsevierGlyph{E20D}" ]
+, [ char := "\u2925", tex := "\\ElsevierGlyph{E20B}" ]
+, [ char := "\u2926", tex := "\\ElsevierGlyph{E20A}" ]
+, [ char := "\u2927", tex := "\\ElsevierGlyph{E211}" ]
+, [ char := "\u2928", tex := "\\ElsevierGlyph{E20E}" ]
+, [ char := "\u2929", tex := "\\ElsevierGlyph{E20F}" ]
+, [ char := "\u292A", tex := "\\ElsevierGlyph{E210}" ]
+, [ char := "\u2933", tex := "\\ElsevierGlyph{E21C}" ]
+, [ char := "\u2933-00338", tex := "\\ElsevierGlyph{E21D}" ]
+, [ char := "\u2936", tex := "\\ElsevierGlyph{E21A}" ]
+, [ char := "\u2937", tex := "\\ElsevierGlyph{E219}" ]
+, [ char := "\u2940", tex := "\\Elolarr " ]
+, [ char := "\u2941", tex := "\\Elorarr " ]
+, [ char := "\u2942", tex := "\\ElzRlarr " ]
+, [ char := "\u2944", tex := "\\ElzrLarr " ]
+, [ char := "\u2947", tex := "\\Elzrarrx " ]
+, [ char := "\u294E", tex := "\\LeftRightVector " ]
+, [ char := "\u294F", tex := "\\RightUpDownVector " ]
+, [ char := "\u2950", tex := "\\DownLeftRightVector " ]
+, [ char := "\u2951", tex := "\\LeftUpDownVector " ]
+, [ char := "\u2952", tex := "\\LeftVectorBar " ]
+, [ char := "\u2953", tex := "\\RightVectorBar " ]
+, [ char := "\u2954", tex := "\\RightUpVectorBar " ]
+, [ char := "\u2955", tex := "\\RightDownVectorBar " ]
+, [ char := "\u2956", tex := "\\DownLeftVectorBar " ]
+, [ char := "\u2957", tex := "\\DownRightVectorBar " ]
+, [ char := "\u2958", tex := "\\LeftUpVectorBar " ]
+, [ char := "\u2959", tex := "\\LeftDownVectorBar " ]
+, [ char := "\u295A", tex := "\\LeftTeeVector " ]
+, [ char := "\u295B", tex := "\\RightTeeVector " ]
+, [ char := "\u295C", tex := "\\RightUpTeeVector " ]
+, [ char := "\u295D", tex := "\\RightDownTeeVector " ]
+, [ char := "\u295E", tex := "\\DownLeftTeeVector " ]
+, [ char := "\u295F", tex := "\\DownRightTeeVector " ]
+, [ char := "\u2960", tex := "\\LeftUpTeeVector " ]
+, [ char := "\u2961", tex := "\\LeftDownTeeVector " ]
+, [ char := "\u296E", tex := "\\UpEquilibrium " ]
+, [ char := "\u296F", tex := "\\ReverseUpEquilibrium " ]
+, [ char := "\u2970", tex := "\\RoundImplies " ]
+, [ char := "\u297C", tex := "\\ElsevierGlyph{E214}" ]
+, [ char := "\u297D", tex := "\\ElsevierGlyph{E215}" ]
+, [ char := "\u2980", tex := "\\Elztfnc " ]
+, [ char := "\u2985", tex := "\\ElsevierGlyph{3018}" ]
+, [ char := "\u2986", tex := "\\Elroang " ]
+, [ char := "\u2993", tex := "&lt;\\kern-0.58em(" ]
+, [ char := "\u2994", tex := "\\ElsevierGlyph{E291}" ]
+, [ char := "\u2999", tex := "\\Elzddfnc " ]
+, [ char := "\u299C", tex := "\\Angle " ]
+, [ char := "\u29A0", tex := "\\Elzlpargt " ]
+, [ char := "\u29B5", tex := "\\ElsevierGlyph{E260}" ]
+, [ char := "\u29B6", tex := "\\ElsevierGlyph{E61B}" ]
+, [ char := "\u29CA", tex := "\\ElzLap " ]
+, [ char := "\u29CB", tex := "\\Elzdefas " ]
+, [ char := "\u29CF", tex := "\\LeftTriangleBar " ]
+, [ char := "\u29CF-00338", tex := "\\NotLeftTriangleBar " ]
+, [ char := "\u29D0", tex := "\\RightTriangleBar " ]
+, [ char := "\u29D0-00338", tex := "\\NotRightTriangleBar " ]
+, [ char := "\u29DC", tex := "\\ElsevierGlyph{E372}" ]
+, [ char := "\u29EB", tex := "\\blacklozenge " ]
+, [ char := "\u29F4", tex := "\\RuleDelayed " ]
+, [ char := "\u2A04", tex := "\\Elxuplus " ]
+, [ char := "\u2A05", tex := "\\ElzThr " ]
+, [ char := "\u2A06", tex := "\\Elxsqcup " ]
+, [ char := "\u2A07", tex := "\\ElzInf " ]
+, [ char := "\u2A08", tex := "\\ElzSup " ]
+, [ char := "\u2A0D", tex := "\\ElzCint " ]
+, [ char := "\u2A0F", tex := "\\clockoint " ]
+, [ char := "\u2A10", tex := "\\ElsevierGlyph{E395}" ]
+, [ char := "\u2A16", tex := "\\sqrint " ]
+, [ char := "\u2A25", tex := "\\ElsevierGlyph{E25A}" ]
+, [ char := "\u2A2A", tex := "\\ElsevierGlyph{E25B}" ]
+, [ char := "\u2A2D", tex := "\\ElsevierGlyph{E25C}" ]
+, [ char := "\u2A2E", tex := "\\ElsevierGlyph{E25D}" ]
+, [ char := "\u2A2F", tex := "\\ElzTimes " ]
+, [ char := "\u2A34", tex := "\\ElsevierGlyph{E25E}" ]
+, [ char := "\u2A35", tex := "\\ElsevierGlyph{E25E}" ]
+, [ char := "\u2A3C", tex := "\\ElsevierGlyph{E259}" ]
+, [ char := "\u2A3F", tex := "\\amalg " ]
+, [ char := "\u2A53", tex := "\\ElzAnd " ]
+, [ char := "\u2A54", tex := "\\ElzOr " ]
+, [ char := "\u2A55", tex := "\\ElsevierGlyph{E36E}" ]
+, [ char := "\u2A56", tex := "\\ElOr " ]
+, [ char := "\u2A5E", tex := "\\perspcorrespond " ]
+, [ char := "\u2A5F", tex := "\\Elzminhat " ]
+, [ char := "\u2A63", tex := "\\ElsevierGlyph{225A}" ]
+, [ char := "\u2A6E", tex := "\\stackrel{*}{=}" ]
+, [ char := "\u2A75", tex := "\\Equal " ]
+, [ char := "\u2A7D", tex := "\\leqslant " ]
+, [ char := "\u2A7D-00338", tex := "\\nleqslant " ]
+, [ char := "\u2A7E", tex := "\\geqslant " ]
+, [ char := "\u2A7E-00338", tex := "\\ngeqslant " ]
+, [ char := "\u2A85", tex := "\\lessapprox " ]
+, [ char := "\u2A86", tex := "\\gtrapprox " ]
+, [ char := "\u2A87", tex := "\\lneq " ]
+, [ char := "\u2A88", tex := "\\gneq " ]
+, [ char := "\u2A89", tex := "\\lnapprox " ]
+, [ char := "\u2A8A", tex := "\\gnapprox " ]
+, [ char := "\u2A8B", tex := "\\lesseqqgtr " ]
+, [ char := "\u2A8C", tex := "\\gtreqqless " ]
+, [ char := "\u2A95", tex := "\\eqslantless " ]
+, [ char := "\u2A96", tex := "\\eqslantgtr " ]
+, [ char := "\u2A9D", tex := "\\Pisymbol{ppi020}{117}" ]
+, [ char := "\u2A9E", tex := "\\Pisymbol{ppi020}{105}" ]
+, [ char := "\u2AA1", tex := "\\NestedLessLess " ]
+, [ char := "\u2AA1-00338", tex := "\\NotNestedLessLess " ]
+, [ char := "\u2AA2", tex := "\\NestedGreaterGreater " ]
+, [ char := "\u2AA2-00338", tex := "\\NotNestedGreaterGreater " ]
+, [ char := "\u2AAF", tex := "\\preceq " ]
+, [ char := "\u2AAF-00338", tex := "\\not\\preceq " ]
+, [ char := "\u2AB0", tex := "\\succeq " ]
+, [ char := "\u2AB0-00338", tex := "\\not\\succeq " ]
+, [ char := "\u2AB5", tex := "\\precneqq " ]
+, [ char := "\u2AB6", tex := "\\succneqq " ]
+, [ char := "\u2AB7", tex := "\\precapprox " ]
+, [ char := "\u2AB8", tex := "\\succapprox " ]
+, [ char := "\u2AB9", tex := "\\precnapprox " ]
+, [ char := "\u2ABA", tex := "\\succnapprox " ]
+, [ char := "\u2AC5", tex := "\\subseteqq " ]
+, [ char := "\u2AC5-00338", tex := "\\nsubseteqq " ]
+, [ char := "\u2AC6", tex := "\\supseteqq " ]
+, [ char := "\u2AC6-00338", tex := "\\nsupseteqq" ]
+, [ char := "\u2ACB", tex := "\\subsetneqq " ]
+, [ char := "\u2ACC", tex := "\\supsetneqq " ]
+, [ char := "\u2AEB", tex := "\\ElsevierGlyph{E30D}" ]
+, [ char := "\u2AF6", tex := "\\Elztdcol " ]
+, [ char := "\u2AFD", tex := "{{/}\\!\\!{/}}" ]
+, [ char := "\u2AFD-020E5", tex := "{\\rlap{\\textbackslash}{{/}\\!\\!{/}}}" ]
+, [ char := "\u300A", tex := "\\ElsevierGlyph{300A}" ]
+, [ char := "\u300B", tex := "\\ElsevierGlyph{300B}" ]
+, [ char := "\u3018", tex := "\\ElsevierGlyph{3018}" ]
+, [ char := "\u3019", tex := "\\ElsevierGlyph{3019}" ]
+, [ char := "\u301A", tex := "\\openbracketleft " ]
+, [ char := "\u301B", tex := "\\openbracketright " ]
+, [ char := "\uFB00", tex := "ff" ]
+, [ char := "\uFB01", tex := "fi" ]
+, [ char := "\uFB02", tex := "fl" ]
+, [ char := "\uFB03", tex := "ffi" ]
+, [ char := "\uFB04", tex := "ffl" ]
+, [ char := "\uD400", tex := "\\mathbf{A}" ]
+, [ char := "\uD401", tex := "\\mathbf{B}" ]
+, [ char := "\uD402", tex := "\\mathbf{C}" ]
+, [ char := "\uD403", tex := "\\mathbf{D}" ]
+, [ char := "\uD404", tex := "\\mathbf{E}" ]
+, [ char := "\uD405", tex := "\\mathbf{F}" ]
+, [ char := "\uD406", tex := "\\mathbf{G}" ]
+, [ char := "\uD407", tex := "\\mathbf{H}" ]
+, [ char := "\uD408", tex := "\\mathbf{I}" ]
+, [ char := "\uD409", tex := "\\mathbf{J}" ]
+, [ char := "\uD40A", tex := "\\mathbf{K}" ]
+, [ char := "\uD40B", tex := "\\mathbf{L}" ]
+, [ char := "\uD40C", tex := "\\mathbf{M}" ]
+, [ char := "\uD40D", tex := "\\mathbf{N}" ]
+, [ char := "\uD40E", tex := "\\mathbf{O}" ]
+, [ char := "\uD40F", tex := "\\mathbf{P}" ]
+, [ char := "\uD410", tex := "\\mathbf{Q}" ]
+, [ char := "\uD411", tex := "\\mathbf{R}" ]
+, [ char := "\uD412", tex := "\\mathbf{S}" ]
+, [ char := "\uD413", tex := "\\mathbf{T}" ]
+, [ char := "\uD414", tex := "\\mathbf{U}" ]
+, [ char := "\uD415", tex := "\\mathbf{V}" ]
+, [ char := "\uD416", tex := "\\mathbf{W}" ]
+, [ char := "\uD417", tex := "\\mathbf{X}" ]
+, [ char := "\uD418", tex := "\\mathbf{Y}" ]
+, [ char := "\uD419", tex := "\\mathbf{Z}" ]
+, [ char := "\uD41A", tex := "\\mathbf{a}" ]
+, [ char := "\uD41B", tex := "\\mathbf{b}" ]
+, [ char := "\uD41C", tex := "\\mathbf{c}" ]
+, [ char := "\uD41D", tex := "\\mathbf{d}" ]
+, [ char := "\uD41E", tex := "\\mathbf{e}" ]
+, [ char := "\uD41F", tex := "\\mathbf{f}" ]
+, [ char := "\uD420", tex := "\\mathbf{g}" ]
+, [ char := "\uD421", tex := "\\mathbf{h}" ]
+, [ char := "\uD422", tex := "\\mathbf{i}" ]
+, [ char := "\uD423", tex := "\\mathbf{j}" ]
+, [ char := "\uD424", tex := "\\mathbf{k}" ]
+, [ char := "\uD425", tex := "\\mathbf{l}" ]
+, [ char := "\uD426", tex := "\\mathbf{m}" ]
+, [ char := "\uD427", tex := "\\mathbf{n}" ]
+, [ char := "\uD428", tex := "\\mathbf{o}" ]
+, [ char := "\uD429", tex := "\\mathbf{p}" ]
+, [ char := "\uD42A", tex := "\\mathbf{q}" ]
+, [ char := "\uD42B", tex := "\\mathbf{r}" ]
+, [ char := "\uD42C", tex := "\\mathbf{s}" ]
+, [ char := "\uD42D", tex := "\\mathbf{t}" ]
+, [ char := "\uD42E", tex := "\\mathbf{u}" ]
+, [ char := "\uD42F", tex := "\\mathbf{v}" ]
+, [ char := "\uD430", tex := "\\mathbf{w}" ]
+, [ char := "\uD431", tex := "\\mathbf{x}" ]
+, [ char := "\uD432", tex := "\\mathbf{y}" ]
+, [ char := "\uD433", tex := "\\mathbf{z}" ]
+, [ char := "\uD434", tex := "\\mathsl{A}" ]
+, [ char := "\uD435", tex := "\\mathsl{B}" ]
+, [ char := "\uD436", tex := "\\mathsl{C}" ]
+, [ char := "\uD437", tex := "\\mathsl{D}" ]
+, [ char := "\uD438", tex := "\\mathsl{E}" ]
+, [ char := "\uD439", tex := "\\mathsl{F}" ]
+, [ char := "\uD43A", tex := "\\mathsl{G}" ]
+, [ char := "\uD43B", tex := "\\mathsl{H}" ]
+, [ char := "\uD43C", tex := "\\mathsl{I}" ]
+, [ char := "\uD43D", tex := "\\mathsl{J}" ]
+, [ char := "\uD43E", tex := "\\mathsl{K}" ]
+, [ char := "\uD43F", tex := "\\mathsl{L}" ]
+, [ char := "\uD440", tex := "\\mathsl{M}" ]
+, [ char := "\uD441", tex := "\\mathsl{N}" ]
+, [ char := "\uD442", tex := "\\mathsl{O}" ]
+, [ char := "\uD443", tex := "\\mathsl{P}" ]
+, [ char := "\uD444", tex := "\\mathsl{Q}" ]
+, [ char := "\uD445", tex := "\\mathsl{R}" ]
+, [ char := "\uD446", tex := "\\mathsl{S}" ]
+, [ char := "\uD447", tex := "\\mathsl{T}" ]
+, [ char := "\uD448", tex := "\\mathsl{U}" ]
+, [ char := "\uD449", tex := "\\mathsl{V}" ]
+, [ char := "\uD44A", tex := "\\mathsl{W}" ]
+, [ char := "\uD44B", tex := "\\mathsl{X}" ]
+, [ char := "\uD44C", tex := "\\mathsl{Y}" ]
+, [ char := "\uD44D", tex := "\\mathsl{Z}" ]
+, [ char := "\uD44E", tex := "\\mathsl{a}" ]
+, [ char := "\uD44F", tex := "\\mathsl{b}" ]
+, [ char := "\uD450", tex := "\\mathsl{c}" ]
+, [ char := "\uD451", tex := "\\mathsl{d}" ]
+, [ char := "\uD452", tex := "\\mathsl{e}" ]
+, [ char := "\uD453", tex := "\\mathsl{f}" ]
+, [ char := "\uD454", tex := "\\mathsl{g}" ]
+, [ char := "\uD456", tex := "\\mathsl{i}" ]
+, [ char := "\uD457", tex := "\\mathsl{j}" ]
+, [ char := "\uD458", tex := "\\mathsl{k}" ]
+, [ char := "\uD459", tex := "\\mathsl{l}" ]
+, [ char := "\uD45A", tex := "\\mathsl{m}" ]
+, [ char := "\uD45B", tex := "\\mathsl{n}" ]
+, [ char := "\uD45C", tex := "\\mathsl{o}" ]
+, [ char := "\uD45D", tex := "\\mathsl{p}" ]
+, [ char := "\uD45E", tex := "\\mathsl{q}" ]
+, [ char := "\uD45F", tex := "\\mathsl{r}" ]
+, [ char := "\uD460", tex := "\\mathsl{s}" ]
+, [ char := "\uD461", tex := "\\mathsl{t}" ]
+, [ char := "\uD462", tex := "\\mathsl{u}" ]
+, [ char := "\uD463", tex := "\\mathsl{v}" ]
+, [ char := "\uD464", tex := "\\mathsl{w}" ]
+, [ char := "\uD465", tex := "\\mathsl{x}" ]
+, [ char := "\uD466", tex := "\\mathsl{y}" ]
+, [ char := "\uD467", tex := "\\mathsl{z}" ]
+, [ char := "\uD468", tex := "\\mathbit{A}" ]
+, [ char := "\uD469", tex := "\\mathbit{B}" ]
+, [ char := "\uD46A", tex := "\\mathbit{C}" ]
+, [ char := "\uD46B", tex := "\\mathbit{D}" ]
+, [ char := "\uD46C", tex := "\\mathbit{E}" ]
+, [ char := "\uD46D", tex := "\\mathbit{F}" ]
+, [ char := "\uD46E", tex := "\\mathbit{G}" ]
+, [ char := "\uD46F", tex := "\\mathbit{H}" ]
+, [ char := "\uD470", tex := "\\mathbit{I}" ]
+, [ char := "\uD471", tex := "\\mathbit{J}" ]
+, [ char := "\uD472", tex := "\\mathbit{K}" ]
+, [ char := "\uD473", tex := "\\mathbit{L}" ]
+, [ char := "\uD474", tex := "\\mathbit{M}" ]
+, [ char := "\uD475", tex := "\\mathbit{N}" ]
+, [ char := "\uD476", tex := "\\mathbit{O}" ]
+, [ char := "\uD477", tex := "\\mathbit{P}" ]
+, [ char := "\uD478", tex := "\\mathbit{Q}" ]
+, [ char := "\uD479", tex := "\\mathbit{R}" ]
+, [ char := "\uD47A", tex := "\\mathbit{S}" ]
+, [ char := "\uD47B", tex := "\\mathbit{T}" ]
+, [ char := "\uD47C", tex := "\\mathbit{U}" ]
+, [ char := "\uD47D", tex := "\\mathbit{V}" ]
+, [ char := "\uD47E", tex := "\\mathbit{W}" ]
+, [ char := "\uD47F", tex := "\\mathbit{X}" ]
+, [ char := "\uD480", tex := "\\mathbit{Y}" ]
+, [ char := "\uD481", tex := "\\mathbit{Z}" ]
+, [ char := "\uD482", tex := "\\mathbit{a}" ]
+, [ char := "\uD483", tex := "\\mathbit{b}" ]
+, [ char := "\uD484", tex := "\\mathbit{c}" ]
+, [ char := "\uD485", tex := "\\mathbit{d}" ]
+, [ char := "\uD486", tex := "\\mathbit{e}" ]
+, [ char := "\uD487", tex := "\\mathbit{f}" ]
+, [ char := "\uD488", tex := "\\mathbit{g}" ]
+, [ char := "\uD489", tex := "\\mathbit{h}" ]
+, [ char := "\uD48A", tex := "\\mathbit{i}" ]
+, [ char := "\uD48B", tex := "\\mathbit{j}" ]
+, [ char := "\uD48C", tex := "\\mathbit{k}" ]
+, [ char := "\uD48D", tex := "\\mathbit{l}" ]
+, [ char := "\uD48E", tex := "\\mathbit{m}" ]
+, [ char := "\uD48F", tex := "\\mathbit{n}" ]
+, [ char := "\uD490", tex := "\\mathbit{o}" ]
+, [ char := "\uD491", tex := "\\mathbit{p}" ]
+, [ char := "\uD492", tex := "\\mathbit{q}" ]
+, [ char := "\uD493", tex := "\\mathbit{r}" ]
+, [ char := "\uD494", tex := "\\mathbit{s}" ]
+, [ char := "\uD495", tex := "\\mathbit{t}" ]
+, [ char := "\uD496", tex := "\\mathbit{u}" ]
+, [ char := "\uD497", tex := "\\mathbit{v}" ]
+, [ char := "\uD498", tex := "\\mathbit{w}" ]
+, [ char := "\uD499", tex := "\\mathbit{x}" ]
+, [ char := "\uD49A", tex := "\\mathbit{y}" ]
+, [ char := "\uD49B", tex := "\\mathbit{z}" ]
+, [ char := "\uD49C", tex := "\\mathscr{A}" ]
+, [ char := "\uD49E", tex := "\\mathscr{C}" ]
+, [ char := "\uD49F", tex := "\\mathscr{D}" ]
+, [ char := "\uD4A2", tex := "\\mathscr{G}" ]
+, [ char := "\uD4A5", tex := "\\mathscr{J}" ]
+, [ char := "\uD4A6", tex := "\\mathscr{K}" ]
+, [ char := "\uD4A9", tex := "\\mathscr{N}" ]
+, [ char := "\uD4AA", tex := "\\mathscr{O}" ]
+, [ char := "\uD4AB", tex := "\\mathscr{P}" ]
+, [ char := "\uD4AC", tex := "\\mathscr{Q}" ]
+, [ char := "\uD4AE", tex := "\\mathscr{S}" ]
+, [ char := "\uD4AF", tex := "\\mathscr{T}" ]
+, [ char := "\uD4B0", tex := "\\mathscr{U}" ]
+, [ char := "\uD4B1", tex := "\\mathscr{V}" ]
+, [ char := "\uD4B2", tex := "\\mathscr{W}" ]
+, [ char := "\uD4B3", tex := "\\mathscr{X}" ]
+, [ char := "\uD4B4", tex := "\\mathscr{Y}" ]
+, [ char := "\uD4B5", tex := "\\mathscr{Z}" ]
+, [ char := "\uD4B6", tex := "\\mathscr{a}" ]
+, [ char := "\uD4B7", tex := "\\mathscr{b}" ]
+, [ char := "\uD4B8", tex := "\\mathscr{c}" ]
+, [ char := "\uD4B9", tex := "\\mathscr{d}" ]
+, [ char := "\uD4BB", tex := "\\mathscr{f}" ]
+, [ char := "\uD4BD", tex := "\\mathscr{h}" ]
+, [ char := "\uD4BE", tex := "\\mathscr{i}" ]
+, [ char := "\uD4BF", tex := "\\mathscr{j}" ]
+, [ char := "\uD4C0", tex := "\\mathscr{k}" ]
+, [ char := "\uD4C1", tex := "\\mathscr{l}" ]
+, [ char := "\uD4C2", tex := "\\mathscr{m}" ]
+, [ char := "\uD4C3", tex := "\\mathscr{n}" ]
+, [ char := "\uD4C5", tex := "\\mathscr{p}" ]
+, [ char := "\uD4C6", tex := "\\mathscr{q}" ]
+, [ char := "\uD4C7", tex := "\\mathscr{r}" ]
+, [ char := "\uD4C8", tex := "\\mathscr{s}" ]
+, [ char := "\uD4C9", tex := "\\mathscr{t}" ]
+, [ char := "\uD4CA", tex := "\\mathscr{u}" ]
+, [ char := "\uD4CB", tex := "\\mathscr{v}" ]
+, [ char := "\uD4CC", tex := "\\mathscr{w}" ]
+, [ char := "\uD4CD", tex := "\\mathscr{x}" ]
+, [ char := "\uD4CE", tex := "\\mathscr{y}" ]
+, [ char := "\uD4CF", tex := "\\mathscr{z}" ]
+, [ char := "\uD4D0", tex := "\\mathmit{A}" ]
+, [ char := "\uD4D1", tex := "\\mathmit{B}" ]
+, [ char := "\uD4D2", tex := "\\mathmit{C}" ]
+, [ char := "\uD4D3", tex := "\\mathmit{D}" ]
+, [ char := "\uD4D4", tex := "\\mathmit{E}" ]
+, [ char := "\uD4D5", tex := "\\mathmit{F}" ]
+, [ char := "\uD4D6", tex := "\\mathmit{G}" ]
+, [ char := "\uD4D7", tex := "\\mathmit{H}" ]
+, [ char := "\uD4D8", tex := "\\mathmit{I}" ]
+, [ char := "\uD4D9", tex := "\\mathmit{J}" ]
+, [ char := "\uD4DA", tex := "\\mathmit{K}" ]
+, [ char := "\uD4DB", tex := "\\mathmit{L}" ]
+, [ char := "\uD4DC", tex := "\\mathmit{M}" ]
+, [ char := "\uD4DD", tex := "\\mathmit{N}" ]
+, [ char := "\uD4DE", tex := "\\mathmit{O}" ]
+, [ char := "\uD4DF", tex := "\\mathmit{P}" ]
+, [ char := "\uD4E0", tex := "\\mathmit{Q}" ]
+, [ char := "\uD4E1", tex := "\\mathmit{R}" ]
+, [ char := "\uD4E2", tex := "\\mathmit{S}" ]
+, [ char := "\uD4E3", tex := "\\mathmit{T}" ]
+, [ char := "\uD4E4", tex := "\\mathmit{U}" ]
+, [ char := "\uD4E5", tex := "\\mathmit{V}" ]
+, [ char := "\uD4E6", tex := "\\mathmit{W}" ]
+, [ char := "\uD4E7", tex := "\\mathmit{X}" ]
+, [ char := "\uD4E8", tex := "\\mathmit{Y}" ]
+, [ char := "\uD4E9", tex := "\\mathmit{Z}" ]
+, [ char := "\uD4EA", tex := "\\mathmit{a}" ]
+, [ char := "\uD4EB", tex := "\\mathmit{b}" ]
+, [ char := "\uD4EC", tex := "\\mathmit{c}" ]
+, [ char := "\uD4ED", tex := "\\mathmit{d}" ]
+, [ char := "\uD4EE", tex := "\\mathmit{e}" ]
+, [ char := "\uD4EF", tex := "\\mathmit{f}" ]
+, [ char := "\uD4F0", tex := "\\mathmit{g}" ]
+, [ char := "\uD4F1", tex := "\\mathmit{h}" ]
+, [ char := "\uD4F2", tex := "\\mathmit{i}" ]
+, [ char := "\uD4F3", tex := "\\mathmit{j}" ]
+, [ char := "\uD4F4", tex := "\\mathmit{k}" ]
+, [ char := "\uD4F5", tex := "\\mathmit{l}" ]
+, [ char := "\uD4F6", tex := "\\mathmit{m}" ]
+, [ char := "\uD4F7", tex := "\\mathmit{n}" ]
+, [ char := "\uD4F8", tex := "\\mathmit{o}" ]
+, [ char := "\uD4F9", tex := "\\mathmit{p}" ]
+, [ char := "\uD4FA", tex := "\\mathmit{q}" ]
+, [ char := "\uD4FB", tex := "\\mathmit{r}" ]
+, [ char := "\uD4FC", tex := "\\mathmit{s}" ]
+, [ char := "\uD4FD", tex := "\\mathmit{t}" ]
+, [ char := "\uD4FE", tex := "\\mathmit{u}" ]
+, [ char := "\uD4FF", tex := "\\mathmit{v}" ]
+, [ char := "\uD500", tex := "\\mathmit{w}" ]
+, [ char := "\uD501", tex := "\\mathmit{x}" ]
+, [ char := "\uD502", tex := "\\mathmit{y}" ]
+, [ char := "\uD503", tex := "\\mathmit{z}" ]
+, [ char := "\uD504", tex := "\\mathfrak{A}" ]
+, [ char := "\uD505", tex := "\\mathfrak{B}" ]
+, [ char := "\uD507", tex := "\\mathfrak{D}" ]
+, [ char := "\uD508", tex := "\\mathfrak{E}" ]
+, [ char := "\uD509", tex := "\\mathfrak{F}" ]
+, [ char := "\uD50A", tex := "\\mathfrak{G}" ]
+, [ char := "\uD50D", tex := "\\mathfrak{J}" ]
+, [ char := "\uD50E", tex := "\\mathfrak{K}" ]
+, [ char := "\uD50F", tex := "\\mathfrak{L}" ]
+, [ char := "\uD510", tex := "\\mathfrak{M}" ]
+, [ char := "\uD511", tex := "\\mathfrak{N}" ]
+, [ char := "\uD512", tex := "\\mathfrak{O}" ]
+, [ char := "\uD513", tex := "\\mathfrak{P}" ]
+, [ char := "\uD514", tex := "\\mathfrak{Q}" ]
+, [ char := "\uD516", tex := "\\mathfrak{S}" ]
+, [ char := "\uD517", tex := "\\mathfrak{T}" ]
+, [ char := "\uD518", tex := "\\mathfrak{U}" ]
+, [ char := "\uD519", tex := "\\mathfrak{V}" ]
+, [ char := "\uD51A", tex := "\\mathfrak{W}" ]
+, [ char := "\uD51B", tex := "\\mathfrak{X}" ]
+, [ char := "\uD51C", tex := "\\mathfrak{Y}" ]
+, [ char := "\uD51E", tex := "\\mathfrak{a}" ]
+, [ char := "\uD51F", tex := "\\mathfrak{b}" ]
+, [ char := "\uD520", tex := "\\mathfrak{c}" ]
+, [ char := "\uD521", tex := "\\mathfrak{d}" ]
+, [ char := "\uD522", tex := "\\mathfrak{e}" ]
+, [ char := "\uD523", tex := "\\mathfrak{f}" ]
+, [ char := "\uD524", tex := "\\mathfrak{g}" ]
+, [ char := "\uD525", tex := "\\mathfrak{h}" ]
+, [ char := "\uD526", tex := "\\mathfrak{i}" ]
+, [ char := "\uD527", tex := "\\mathfrak{j}" ]
+, [ char := "\uD528", tex := "\\mathfrak{k}" ]
+, [ char := "\uD529", tex := "\\mathfrak{l}" ]
+, [ char := "\uD52A", tex := "\\mathfrak{m}" ]
+, [ char := "\uD52B", tex := "\\mathfrak{n}" ]
+, [ char := "\uD52C", tex := "\\mathfrak{o}" ]
+, [ char := "\uD52D", tex := "\\mathfrak{p}" ]
+, [ char := "\uD52E", tex := "\\mathfrak{q}" ]
+, [ char := "\uD52F", tex := "\\mathfrak{r}" ]
+, [ char := "\uD530", tex := "\\mathfrak{s}" ]
+, [ char := "\uD531", tex := "\\mathfrak{t}" ]
+, [ char := "\uD532", tex := "\\mathfrak{u}" ]
+, [ char := "\uD533", tex := "\\mathfrak{v}" ]
+, [ char := "\uD534", tex := "\\mathfrak{w}" ]
+, [ char := "\uD535", tex := "\\mathfrak{x}" ]
+, [ char := "\uD536", tex := "\\mathfrak{y}" ]
+, [ char := "\uD537", tex := "\\mathfrak{z}" ]
+, [ char := "\uD538", tex := "\\mathbb{A}" ]
+, [ char := "\uD539", tex := "\\mathbb{B}" ]
+, [ char := "\uD53B", tex := "\\mathbb{D}" ]
+, [ char := "\uD53C", tex := "\\mathbb{E}" ]
+, [ char := "\uD53D", tex := "\\mathbb{F}" ]
+, [ char := "\uD53E", tex := "\\mathbb{G}" ]
+, [ char := "\uD540", tex := "\\mathbb{I}" ]
+, [ char := "\uD541", tex := "\\mathbb{J}" ]
+, [ char := "\uD542", tex := "\\mathbb{K}" ]
+, [ char := "\uD543", tex := "\\mathbb{L}" ]
+, [ char := "\uD544", tex := "\\mathbb{M}" ]
+, [ char := "\uD546", tex := "\\mathbb{O}" ]
+, [ char := "\uD54A", tex := "\\mathbb{S}" ]
+, [ char := "\uD54B", tex := "\\mathbb{T}" ]
+, [ char := "\uD54C", tex := "\\mathbb{U}" ]
+, [ char := "\uD54D", tex := "\\mathbb{V}" ]
+, [ char := "\uD54E", tex := "\\mathbb{W}" ]
+, [ char := "\uD54F", tex := "\\mathbb{X}" ]
+, [ char := "\uD550", tex := "\\mathbb{Y}" ]
+, [ char := "\uD552", tex := "\\mathbb{a}" ]
+, [ char := "\uD553", tex := "\\mathbb{b}" ]
+, [ char := "\uD554", tex := "\\mathbb{c}" ]
+, [ char := "\uD555", tex := "\\mathbb{d}" ]
+, [ char := "\uD556", tex := "\\mathbb{e}" ]
+, [ char := "\uD557", tex := "\\mathbb{f}" ]
+, [ char := "\uD558", tex := "\\mathbb{g}" ]
+, [ char := "\uD559", tex := "\\mathbb{h}" ]
+, [ char := "\uD55A", tex := "\\mathbb{i}" ]
+, [ char := "\uD55B", tex := "\\mathbb{j}" ]
+, [ char := "\uD55C", tex := "\\mathbb{k}" ]
+, [ char := "\uD55D", tex := "\\mathbb{l}" ]
+, [ char := "\uD55E", tex := "\\mathbb{m}" ]
+, [ char := "\uD55F", tex := "\\mathbb{n}" ]
+, [ char := "\uD560", tex := "\\mathbb{o}" ]
+, [ char := "\uD561", tex := "\\mathbb{p}" ]
+, [ char := "\uD562", tex := "\\mathbb{q}" ]
+, [ char := "\uD563", tex := "\\mathbb{r}" ]
+, [ char := "\uD564", tex := "\\mathbb{s}" ]
+, [ char := "\uD565", tex := "\\mathbb{t}" ]
+, [ char := "\uD566", tex := "\\mathbb{u}" ]
+, [ char := "\uD567", tex := "\\mathbb{v}" ]
+, [ char := "\uD568", tex := "\\mathbb{w}" ]
+, [ char := "\uD569", tex := "\\mathbb{x}" ]
+, [ char := "\uD56A", tex := "\\mathbb{y}" ]
+, [ char := "\uD56B", tex := "\\mathbb{z}" ]
+, [ char := "\uD56C", tex := "\\mathslbb{A}" ]
+, [ char := "\uD56D", tex := "\\mathslbb{B}" ]
+, [ char := "\uD56E", tex := "\\mathslbb{C}" ]
+, [ char := "\uD56F", tex := "\\mathslbb{D}" ]
+, [ char := "\uD570", tex := "\\mathslbb{E}" ]
+, [ char := "\uD571", tex := "\\mathslbb{F}" ]
+, [ char := "\uD572", tex := "\\mathslbb{G}" ]
+, [ char := "\uD573", tex := "\\mathslbb{H}" ]
+, [ char := "\uD574", tex := "\\mathslbb{I}" ]
+, [ char := "\uD575", tex := "\\mathslbb{J}" ]
+, [ char := "\uD576", tex := "\\mathslbb{K}" ]
+, [ char := "\uD577", tex := "\\mathslbb{L}" ]
+, [ char := "\uD578", tex := "\\mathslbb{M}" ]
+, [ char := "\uD579", tex := "\\mathslbb{N}" ]
+, [ char := "\uD57A", tex := "\\mathslbb{O}" ]
+, [ char := "\uD57B", tex := "\\mathslbb{P}" ]
+, [ char := "\uD57C", tex := "\\mathslbb{Q}" ]
+, [ char := "\uD57D", tex := "\\mathslbb{R}" ]
+, [ char := "\uD57E", tex := "\\mathslbb{S}" ]
+, [ char := "\uD57F", tex := "\\mathslbb{T}" ]
+, [ char := "\uD580", tex := "\\mathslbb{U}" ]
+, [ char := "\uD581", tex := "\\mathslbb{V}" ]
+, [ char := "\uD582", tex := "\\mathslbb{W}" ]
+, [ char := "\uD583", tex := "\\mathslbb{X}" ]
+, [ char := "\uD584", tex := "\\mathslbb{Y}" ]
+, [ char := "\uD585", tex := "\\mathslbb{Z}" ]
+, [ char := "\uD586", tex := "\\mathslbb{a}" ]
+, [ char := "\uD587", tex := "\\mathslbb{b}" ]
+, [ char := "\uD588", tex := "\\mathslbb{c}" ]
+, [ char := "\uD589", tex := "\\mathslbb{d}" ]
+, [ char := "\uD58A", tex := "\\mathslbb{e}" ]
+, [ char := "\uD58B", tex := "\\mathslbb{f}" ]
+, [ char := "\uD58C", tex := "\\mathslbb{g}" ]
+, [ char := "\uD58D", tex := "\\mathslbb{h}" ]
+, [ char := "\uD58E", tex := "\\mathslbb{i}" ]
+, [ char := "\uD58F", tex := "\\mathslbb{j}" ]
+, [ char := "\uD590", tex := "\\mathslbb{k}" ]
+, [ char := "\uD591", tex := "\\mathslbb{l}" ]
+, [ char := "\uD592", tex := "\\mathslbb{m}" ]
+, [ char := "\uD593", tex := "\\mathslbb{n}" ]
+, [ char := "\uD594", tex := "\\mathslbb{o}" ]
+, [ char := "\uD595", tex := "\\mathslbb{p}" ]
+, [ char := "\uD596", tex := "\\mathslbb{q}" ]
+, [ char := "\uD597", tex := "\\mathslbb{r}" ]
+, [ char := "\uD598", tex := "\\mathslbb{s}" ]
+, [ char := "\uD599", tex := "\\mathslbb{t}" ]
+, [ char := "\uD59A", tex := "\\mathslbb{u}" ]
+, [ char := "\uD59B", tex := "\\mathslbb{v}" ]
+, [ char := "\uD59C", tex := "\\mathslbb{w}" ]
+, [ char := "\uD59D", tex := "\\mathslbb{x}" ]
+, [ char := "\uD59E", tex := "\\mathslbb{y}" ]
+, [ char := "\uD59F", tex := "\\mathslbb{z}" ]
+, [ char := "\uD5A0", tex := "\\mathsf{A}" ]
+, [ char := "\uD5A1", tex := "\\mathsf{B}" ]
+, [ char := "\uD5A2", tex := "\\mathsf{C}" ]
+, [ char := "\uD5A3", tex := "\\mathsf{D}" ]
+, [ char := "\uD5A4", tex := "\\mathsf{E}" ]
+, [ char := "\uD5A5", tex := "\\mathsf{F}" ]
+, [ char := "\uD5A6", tex := "\\mathsf{G}" ]
+, [ char := "\uD5A7", tex := "\\mathsf{H}" ]
+, [ char := "\uD5A8", tex := "\\mathsf{I}" ]
+, [ char := "\uD5A9", tex := "\\mathsf{J}" ]
+, [ char := "\uD5AA", tex := "\\mathsf{K}" ]
+, [ char := "\uD5AB", tex := "\\mathsf{L}" ]
+, [ char := "\uD5AC", tex := "\\mathsf{M}" ]
+, [ char := "\uD5AD", tex := "\\mathsf{N}" ]
+, [ char := "\uD5AE", tex := "\\mathsf{O}" ]
+, [ char := "\uD5AF", tex := "\\mathsf{P}" ]
+, [ char := "\uD5B0", tex := "\\mathsf{Q}" ]
+, [ char := "\uD5B1", tex := "\\mathsf{R}" ]
+, [ char := "\uD5B2", tex := "\\mathsf{S}" ]
+, [ char := "\uD5B3", tex := "\\mathsf{T}" ]
+, [ char := "\uD5B4", tex := "\\mathsf{U}" ]
+, [ char := "\uD5B5", tex := "\\mathsf{V}" ]
+, [ char := "\uD5B6", tex := "\\mathsf{W}" ]
+, [ char := "\uD5B7", tex := "\\mathsf{X}" ]
+, [ char := "\uD5B8", tex := "\\mathsf{Y}" ]
+, [ char := "\uD5B9", tex := "\\mathsf{Z}" ]
+, [ char := "\uD5BA", tex := "\\mathsf{a}" ]
+, [ char := "\uD5BB", tex := "\\mathsf{b}" ]
+, [ char := "\uD5BC", tex := "\\mathsf{c}" ]
+, [ char := "\uD5BD", tex := "\\mathsf{d}" ]
+, [ char := "\uD5BE", tex := "\\mathsf{e}" ]
+, [ char := "\uD5BF", tex := "\\mathsf{f}" ]
+, [ char := "\uD5C0", tex := "\\mathsf{g}" ]
+, [ char := "\uD5C1", tex := "\\mathsf{h}" ]
+, [ char := "\uD5C2", tex := "\\mathsf{i}" ]
+, [ char := "\uD5C3", tex := "\\mathsf{j}" ]
+, [ char := "\uD5C4", tex := "\\mathsf{k}" ]
+, [ char := "\uD5C5", tex := "\\mathsf{l}" ]
+, [ char := "\uD5C6", tex := "\\mathsf{m}" ]
+, [ char := "\uD5C7", tex := "\\mathsf{n}" ]
+, [ char := "\uD5C8", tex := "\\mathsf{o}" ]
+, [ char := "\uD5C9", tex := "\\mathsf{p}" ]
+, [ char := "\uD5CA", tex := "\\mathsf{q}" ]
+, [ char := "\uD5CB", tex := "\\mathsf{r}" ]
+, [ char := "\uD5CC", tex := "\\mathsf{s}" ]
+, [ char := "\uD5CD", tex := "\\mathsf{t}" ]
+, [ char := "\uD5CE", tex := "\\mathsf{u}" ]
+, [ char := "\uD5CF", tex := "\\mathsf{v}" ]
+, [ char := "\uD5D0", tex := "\\mathsf{w}" ]
+, [ char := "\uD5D1", tex := "\\mathsf{x}" ]
+, [ char := "\uD5D2", tex := "\\mathsf{y}" ]
+, [ char := "\uD5D3", tex := "\\mathsf{z}" ]
+, [ char := "\uD5D4", tex := "\\mathsfbf{A}" ]
+, [ char := "\uD5D5", tex := "\\mathsfbf{B}" ]
+, [ char := "\uD5D6", tex := "\\mathsfbf{C}" ]
+, [ char := "\uD5D7", tex := "\\mathsfbf{D}" ]
+, [ char := "\uD5D8", tex := "\\mathsfbf{E}" ]
+, [ char := "\uD5D9", tex := "\\mathsfbf{F}" ]
+, [ char := "\uD5DA", tex := "\\mathsfbf{G}" ]
+, [ char := "\uD5DB", tex := "\\mathsfbf{H}" ]
+, [ char := "\uD5DC", tex := "\\mathsfbf{I}" ]
+, [ char := "\uD5DD", tex := "\\mathsfbf{J}" ]
+, [ char := "\uD5DE", tex := "\\mathsfbf{K}" ]
+, [ char := "\uD5DF", tex := "\\mathsfbf{L}" ]
+, [ char := "\uD5E0", tex := "\\mathsfbf{M}" ]
+, [ char := "\uD5E1", tex := "\\mathsfbf{N}" ]
+, [ char := "\uD5E2", tex := "\\mathsfbf{O}" ]
+, [ char := "\uD5E3", tex := "\\mathsfbf{P}" ]
+, [ char := "\uD5E4", tex := "\\mathsfbf{Q}" ]
+, [ char := "\uD5E5", tex := "\\mathsfbf{R}" ]
+, [ char := "\uD5E6", tex := "\\mathsfbf{S}" ]
+, [ char := "\uD5E7", tex := "\\mathsfbf{T}" ]
+, [ char := "\uD5E8", tex := "\\mathsfbf{U}" ]
+, [ char := "\uD5E9", tex := "\\mathsfbf{V}" ]
+, [ char := "\uD5EA", tex := "\\mathsfbf{W}" ]
+, [ char := "\uD5EB", tex := "\\mathsfbf{X}" ]
+, [ char := "\uD5EC", tex := "\\mathsfbf{Y}" ]
+, [ char := "\uD5ED", tex := "\\mathsfbf{Z}" ]
+, [ char := "\uD5EE", tex := "\\mathsfbf{a}" ]
+, [ char := "\uD5EF", tex := "\\mathsfbf{b}" ]
+, [ char := "\uD5F0", tex := "\\mathsfbf{c}" ]
+, [ char := "\uD5F1", tex := "\\mathsfbf{d}" ]
+, [ char := "\uD5F2", tex := "\\mathsfbf{e}" ]
+, [ char := "\uD5F3", tex := "\\mathsfbf{f}" ]
+, [ char := "\uD5F4", tex := "\\mathsfbf{g}" ]
+, [ char := "\uD5F5", tex := "\\mathsfbf{h}" ]
+, [ char := "\uD5F6", tex := "\\mathsfbf{i}" ]
+, [ char := "\uD5F7", tex := "\\mathsfbf{j}" ]
+, [ char := "\uD5F8", tex := "\\mathsfbf{k}" ]
+, [ char := "\uD5F9", tex := "\\mathsfbf{l}" ]
+, [ char := "\uD5FA", tex := "\\mathsfbf{m}" ]
+, [ char := "\uD5FB", tex := "\\mathsfbf{n}" ]
+, [ char := "\uD5FC", tex := "\\mathsfbf{o}" ]
+, [ char := "\uD5FD", tex := "\\mathsfbf{p}" ]
+, [ char := "\uD5FE", tex := "\\mathsfbf{q}" ]
+, [ char := "\uD5FF", tex := "\\mathsfbf{r}" ]
+, [ char := "\uD600", tex := "\\mathsfbf{s}" ]
+, [ char := "\uD601", tex := "\\mathsfbf{t}" ]
+, [ char := "\uD602", tex := "\\mathsfbf{u}" ]
+, [ char := "\uD603", tex := "\\mathsfbf{v}" ]
+, [ char := "\uD604", tex := "\\mathsfbf{w}" ]
+, [ char := "\uD605", tex := "\\mathsfbf{x}" ]
+, [ char := "\uD606", tex := "\\mathsfbf{y}" ]
+, [ char := "\uD607", tex := "\\mathsfbf{z}" ]
+, [ char := "\uD608", tex := "\\mathsfsl{A}" ]
+, [ char := "\uD609", tex := "\\mathsfsl{B}" ]
+, [ char := "\uD60A", tex := "\\mathsfsl{C}" ]
+, [ char := "\uD60B", tex := "\\mathsfsl{D}" ]
+, [ char := "\uD60C", tex := "\\mathsfsl{E}" ]
+, [ char := "\uD60D", tex := "\\mathsfsl{F}" ]
+, [ char := "\uD60E", tex := "\\mathsfsl{G}" ]
+, [ char := "\uD60F", tex := "\\mathsfsl{H}" ]
+, [ char := "\uD610", tex := "\\mathsfsl{I}" ]
+, [ char := "\uD611", tex := "\\mathsfsl{J}" ]
+, [ char := "\uD612", tex := "\\mathsfsl{K}" ]
+, [ char := "\uD613", tex := "\\mathsfsl{L}" ]
+, [ char := "\uD614", tex := "\\mathsfsl{M}" ]
+, [ char := "\uD615", tex := "\\mathsfsl{N}" ]
+, [ char := "\uD616", tex := "\\mathsfsl{O}" ]
+, [ char := "\uD617", tex := "\\mathsfsl{P}" ]
+, [ char := "\uD618", tex := "\\mathsfsl{Q}" ]
+, [ char := "\uD619", tex := "\\mathsfsl{R}" ]
+, [ char := "\uD61A", tex := "\\mathsfsl{S}" ]
+, [ char := "\uD61B", tex := "\\mathsfsl{T}" ]
+, [ char := "\uD61C", tex := "\\mathsfsl{U}" ]
+, [ char := "\uD61D", tex := "\\mathsfsl{V}" ]
+, [ char := "\uD61E", tex := "\\mathsfsl{W}" ]
+, [ char := "\uD61F", tex := "\\mathsfsl{X}" ]
+, [ char := "\uD620", tex := "\\mathsfsl{Y}" ]
+, [ char := "\uD621", tex := "\\mathsfsl{Z}" ]
+, [ char := "\uD622", tex := "\\mathsfsl{a}" ]
+, [ char := "\uD623", tex := "\\mathsfsl{b}" ]
+, [ char := "\uD624", tex := "\\mathsfsl{c}" ]
+, [ char := "\uD625", tex := "\\mathsfsl{d}" ]
+, [ char := "\uD626", tex := "\\mathsfsl{e}" ]
+, [ char := "\uD627", tex := "\\mathsfsl{f}" ]
+, [ char := "\uD628", tex := "\\mathsfsl{g}" ]
+, [ char := "\uD629", tex := "\\mathsfsl{h}" ]
+, [ char := "\uD62A", tex := "\\mathsfsl{i}" ]
+, [ char := "\uD62B", tex := "\\mathsfsl{j}" ]
+, [ char := "\uD62C", tex := "\\mathsfsl{k}" ]
+, [ char := "\uD62D", tex := "\\mathsfsl{l}" ]
+, [ char := "\uD62E", tex := "\\mathsfsl{m}" ]
+, [ char := "\uD62F", tex := "\\mathsfsl{n}" ]
+, [ char := "\uD630", tex := "\\mathsfsl{o}" ]
+, [ char := "\uD631", tex := "\\mathsfsl{p}" ]
+, [ char := "\uD632", tex := "\\mathsfsl{q}" ]
+, [ char := "\uD633", tex := "\\mathsfsl{r}" ]
+, [ char := "\uD634", tex := "\\mathsfsl{s}" ]
+, [ char := "\uD635", tex := "\\mathsfsl{t}" ]
+, [ char := "\uD636", tex := "\\mathsfsl{u}" ]
+, [ char := "\uD637", tex := "\\mathsfsl{v}" ]
+, [ char := "\uD638", tex := "\\mathsfsl{w}" ]
+, [ char := "\uD639", tex := "\\mathsfsl{x}" ]
+, [ char := "\uD63A", tex := "\\mathsfsl{y}" ]
+, [ char := "\uD63B", tex := "\\mathsfsl{z}" ]
+, [ char := "\uD63C", tex := "\\mathsfbfsl{A}" ]
+, [ char := "\uD63D", tex := "\\mathsfbfsl{B}" ]
+, [ char := "\uD63E", tex := "\\mathsfbfsl{C}" ]
+, [ char := "\uD63F", tex := "\\mathsfbfsl{D}" ]
+, [ char := "\uD640", tex := "\\mathsfbfsl{E}" ]
+, [ char := "\uD641", tex := "\\mathsfbfsl{F}" ]
+, [ char := "\uD642", tex := "\\mathsfbfsl{G}" ]
+, [ char := "\uD643", tex := "\\mathsfbfsl{H}" ]
+, [ char := "\uD644", tex := "\\mathsfbfsl{I}" ]
+, [ char := "\uD645", tex := "\\mathsfbfsl{J}" ]
+, [ char := "\uD646", tex := "\\mathsfbfsl{K}" ]
+, [ char := "\uD647", tex := "\\mathsfbfsl{L}" ]
+, [ char := "\uD648", tex := "\\mathsfbfsl{M}" ]
+, [ char := "\uD649", tex := "\\mathsfbfsl{N}" ]
+, [ char := "\uD64A", tex := "\\mathsfbfsl{O}" ]
+, [ char := "\uD64B", tex := "\\mathsfbfsl{P}" ]
+, [ char := "\uD64C", tex := "\\mathsfbfsl{Q}" ]
+, [ char := "\uD64D", tex := "\\mathsfbfsl{R}" ]
+, [ char := "\uD64E", tex := "\\mathsfbfsl{S}" ]
+, [ char := "\uD64F", tex := "\\mathsfbfsl{T}" ]
+, [ char := "\uD650", tex := "\\mathsfbfsl{U}" ]
+, [ char := "\uD651", tex := "\\mathsfbfsl{V}" ]
+, [ char := "\uD652", tex := "\\mathsfbfsl{W}" ]
+, [ char := "\uD653", tex := "\\mathsfbfsl{X}" ]
+, [ char := "\uD654", tex := "\\mathsfbfsl{Y}" ]
+, [ char := "\uD655", tex := "\\mathsfbfsl{Z}" ]
+, [ char := "\uD656", tex := "\\mathsfbfsl{a}" ]
+, [ char := "\uD657", tex := "\\mathsfbfsl{b}" ]
+, [ char := "\uD658", tex := "\\mathsfbfsl{c}" ]
+, [ char := "\uD659", tex := "\\mathsfbfsl{d}" ]
+, [ char := "\uD65A", tex := "\\mathsfbfsl{e}" ]
+, [ char := "\uD65B", tex := "\\mathsfbfsl{f}" ]
+, [ char := "\uD65C", tex := "\\mathsfbfsl{g}" ]
+, [ char := "\uD65D", tex := "\\mathsfbfsl{h}" ]
+, [ char := "\uD65E", tex := "\\mathsfbfsl{i}" ]
+, [ char := "\uD65F", tex := "\\mathsfbfsl{j}" ]
+, [ char := "\uD660", tex := "\\mathsfbfsl{k}" ]
+, [ char := "\uD661", tex := "\\mathsfbfsl{l}" ]
+, [ char := "\uD662", tex := "\\mathsfbfsl{m}" ]
+, [ char := "\uD663", tex := "\\mathsfbfsl{n}" ]
+, [ char := "\uD664", tex := "\\mathsfbfsl{o}" ]
+, [ char := "\uD665", tex := "\\mathsfbfsl{p}" ]
+, [ char := "\uD666", tex := "\\mathsfbfsl{q}" ]
+, [ char := "\uD667", tex := "\\mathsfbfsl{r}" ]
+, [ char := "\uD668", tex := "\\mathsfbfsl{s}" ]
+, [ char := "\uD669", tex := "\\mathsfbfsl{t}" ]
+, [ char := "\uD66A", tex := "\\mathsfbfsl{u}" ]
+, [ char := "\uD66B", tex := "\\mathsfbfsl{v}" ]
+, [ char := "\uD66C", tex := "\\mathsfbfsl{w}" ]
+, [ char := "\uD66D", tex := "\\mathsfbfsl{x}" ]
+, [ char := "\uD66E", tex := "\\mathsfbfsl{y}" ]
+, [ char := "\uD66F", tex := "\\mathsfbfsl{z}" ]
+, [ char := "\uD670", tex := "\\mathtt{A}" ]
+, [ char := "\uD671", tex := "\\mathtt{B}" ]
+, [ char := "\uD672", tex := "\\mathtt{C}" ]
+, [ char := "\uD673", tex := "\\mathtt{D}" ]
+, [ char := "\uD674", tex := "\\mathtt{E}" ]
+, [ char := "\uD675", tex := "\\mathtt{F}" ]
+, [ char := "\uD676", tex := "\\mathtt{G}" ]
+, [ char := "\uD677", tex := "\\mathtt{H}" ]
+, [ char := "\uD678", tex := "\\mathtt{I}" ]
+, [ char := "\uD679", tex := "\\mathtt{J}" ]
+, [ char := "\uD67A", tex := "\\mathtt{K}" ]
+, [ char := "\uD67B", tex := "\\mathtt{L}" ]
+, [ char := "\uD67C", tex := "\\mathtt{M}" ]
+, [ char := "\uD67D", tex := "\\mathtt{N}" ]
+, [ char := "\uD67E", tex := "\\mathtt{O}" ]
+, [ char := "\uD67F", tex := "\\mathtt{P}" ]
+, [ char := "\uD680", tex := "\\mathtt{Q}" ]
+, [ char := "\uD681", tex := "\\mathtt{R}" ]
+, [ char := "\uD682", tex := "\\mathtt{S}" ]
+, [ char := "\uD683", tex := "\\mathtt{T}" ]
+, [ char := "\uD684", tex := "\\mathtt{U}" ]
+, [ char := "\uD685", tex := "\\mathtt{V}" ]
+, [ char := "\uD686", tex := "\\mathtt{W}" ]
+, [ char := "\uD687", tex := "\\mathtt{X}" ]
+, [ char := "\uD688", tex := "\\mathtt{Y}" ]
+, [ char := "\uD689", tex := "\\mathtt{Z}" ]
+, [ char := "\uD68A", tex := "\\mathtt{a}" ]
+, [ char := "\uD68B", tex := "\\mathtt{b}" ]
+, [ char := "\uD68C", tex := "\\mathtt{c}" ]
+, [ char := "\uD68D", tex := "\\mathtt{d}" ]
+, [ char := "\uD68E", tex := "\\mathtt{e}" ]
+, [ char := "\uD68F", tex := "\\mathtt{f}" ]
+, [ char := "\uD690", tex := "\\mathtt{g}" ]
+, [ char := "\uD691", tex := "\\mathtt{h}" ]
+, [ char := "\uD692", tex := "\\mathtt{i}" ]
+, [ char := "\uD693", tex := "\\mathtt{j}" ]
+, [ char := "\uD694", tex := "\\mathtt{k}" ]
+, [ char := "\uD695", tex := "\\mathtt{l}" ]
+, [ char := "\uD696", tex := "\\mathtt{m}" ]
+, [ char := "\uD697", tex := "\\mathtt{n}" ]
+, [ char := "\uD698", tex := "\\mathtt{o}" ]
+, [ char := "\uD699", tex := "\\mathtt{p}" ]
+, [ char := "\uD69A", tex := "\\mathtt{q}" ]
+, [ char := "\uD69B", tex := "\\mathtt{r}" ]
+, [ char := "\uD69C", tex := "\\mathtt{s}" ]
+, [ char := "\uD69D", tex := "\\mathtt{t}" ]
+, [ char := "\uD69E", tex := "\\mathtt{u}" ]
+, [ char := "\uD69F", tex := "\\mathtt{v}" ]
+, [ char := "\uD6A0", tex := "\\mathtt{w}" ]
+, [ char := "\uD6A1", tex := "\\mathtt{x}" ]
+, [ char := "\uD6A2", tex := "\\mathtt{y}" ]
+, [ char := "\uD6A3", tex := "\\mathtt{z}" ]
+, [ char := "\uD6A8", tex := "\\mathbf{\\Alpha}" ]
+, [ char := "\uD6A9", tex := "\\mathbf{\\Beta}" ]
+, [ char := "\uD6AA", tex := "\\mathbf{\\Gamma}" ]
+, [ char := "\uD6AB", tex := "\\mathbf{\\Delta}" ]
+, [ char := "\uD6AC", tex := "\\mathbf{\\Epsilon}" ]
+, [ char := "\uD6AD", tex := "\\mathbf{\\Zeta}" ]
+, [ char := "\uD6AE", tex := "\\mathbf{\\Eta}" ]
+, [ char := "\uD6AF", tex := "\\mathbf{\\Theta}" ]
+, [ char := "\uD6B0", tex := "\\mathbf{\\Iota}" ]
+, [ char := "\uD6B1", tex := "\\mathbf{\\Kappa}" ]
+, [ char := "\uD6B2", tex := "\\mathbf{\\Lambda}" ]
+, [ char := "\uD6B5", tex := "\\mathbf{\\Xi}" ]
+, [ char := "\uD6B7", tex := "\\mathbf{\\Pi}" ]
+, [ char := "\uD6B8", tex := "\\mathbf{\\Rho}" ]
+, [ char := "\uD6B9", tex := "\\mathbf{\\vartheta}" ]
+, [ char := "\uD6BA", tex := "\\mathbf{\\Sigma}" ]
+, [ char := "\uD6BB", tex := "\\mathbf{\\Tau}" ]
+, [ char := "\uD6BC", tex := "\\mathbf{\\Upsilon}" ]
+, [ char := "\uD6BD", tex := "\\mathbf{\\Phi}" ]
+, [ char := "\uD6BE", tex := "\\mathbf{\\Chi}" ]
+, [ char := "\uD6BF", tex := "\\mathbf{\\Psi}" ]
+, [ char := "\uD6C0", tex := "\\mathbf{\\Omega}" ]
+, [ char := "\uD6C1", tex := "\\mathbf{\\nabla}" ]
+, [ char := "\uD6C2", tex := "\\mathbf{\\Alpha}" ]
+, [ char := "\uD6C3", tex := "\\mathbf{\\Beta}" ]
+, [ char := "\uD6C4", tex := "\\mathbf{\\Gamma}" ]
+, [ char := "\uD6C5", tex := "\\mathbf{\\Delta}" ]
+, [ char := "\uD6C6", tex := "\\mathbf{\\Epsilon}" ]
+, [ char := "\uD6C7", tex := "\\mathbf{\\Zeta}" ]
+, [ char := "\uD6C8", tex := "\\mathbf{\\Eta}" ]
+, [ char := "\uD6C9", tex := "\\mathbf{\\theta}" ]
+, [ char := "\uD6CA", tex := "\\mathbf{\\Iota}" ]
+, [ char := "\uD6CB", tex := "\\mathbf{\\Kappa}" ]
+, [ char := "\uD6CC", tex := "\\mathbf{\\Lambda}" ]
+, [ char := "\uD6CF", tex := "\\mathbf{\\Xi}" ]
+, [ char := "\uD6D1", tex := "\\mathbf{\\Pi}" ]
+, [ char := "\uD6D2", tex := "\\mathbf{\\Rho}" ]
+, [ char := "\uD6D3", tex := "\\mathbf{\\varsigma}" ]
+, [ char := "\uD6D4", tex := "\\mathbf{\\Sigma}" ]
+, [ char := "\uD6D5", tex := "\\mathbf{\\Tau}" ]
+, [ char := "\uD6D6", tex := "\\mathbf{\\Upsilon}" ]
+, [ char := "\uD6D7", tex := "\\mathbf{\\Phi}" ]
+, [ char := "\uD6D8", tex := "\\mathbf{\\Chi}" ]
+, [ char := "\uD6D9", tex := "\\mathbf{\\Psi}" ]
+, [ char := "\uD6DA", tex := "\\mathbf{\\Omega}" ]
+, [ char := "\uD6DB", tex := "\\partial " ]
+, [ char := "\uD6DC", tex := "\\in" ]
+, [ char := "\uD6DD", tex := "\\mathbf{\\vartheta}" ]
+, [ char := "\uD6DE", tex := "\\mathbf{\\varkappa}" ]
+, [ char := "\uD6DF", tex := "\\mathbf{\\phi}" ]
+, [ char := "\uD6E0", tex := "\\mathbf{\\varrho}" ]
+, [ char := "\uD6E1", tex := "\\mathbf{\\varpi}" ]
+, [ char := "\uD6E2", tex := "\\mathsl{\\Alpha}" ]
+, [ char := "\uD6E3", tex := "\\mathsl{\\Beta}" ]
+, [ char := "\uD6E4", tex := "\\mathsl{\\Gamma}" ]
+, [ char := "\uD6E5", tex := "\\mathsl{\\Delta}" ]
+, [ char := "\uD6E6", tex := "\\mathsl{\\Epsilon}" ]
+, [ char := "\uD6E7", tex := "\\mathsl{\\Zeta}" ]
+, [ char := "\uD6E8", tex := "\\mathsl{\\Eta}" ]
+, [ char := "\uD6E9", tex := "\\mathsl{\\Theta}" ]
+, [ char := "\uD6EA", tex := "\\mathsl{\\Iota}" ]
+, [ char := "\uD6EB", tex := "\\mathsl{\\Kappa}" ]
+, [ char := "\uD6EC", tex := "\\mathsl{\\Lambda}" ]
+, [ char := "\uD6EF", tex := "\\mathsl{\\Xi}" ]
+, [ char := "\uD6F1", tex := "\\mathsl{\\Pi}" ]
+, [ char := "\uD6F2", tex := "\\mathsl{\\Rho}" ]
+, [ char := "\uD6F3", tex := "\\mathsl{\\vartheta}" ]
+, [ char := "\uD6F4", tex := "\\mathsl{\\Sigma}" ]
+, [ char := "\uD6F5", tex := "\\mathsl{\\Tau}" ]
+, [ char := "\uD6F6", tex := "\\mathsl{\\Upsilon}" ]
+, [ char := "\uD6F7", tex := "\\mathsl{\\Phi}" ]
+, [ char := "\uD6F8", tex := "\\mathsl{\\Chi}" ]
+, [ char := "\uD6F9", tex := "\\mathsl{\\Psi}" ]
+, [ char := "\uD6FA", tex := "\\mathsl{\\Omega}" ]
+, [ char := "\uD6FB", tex := "\\mathsl{\\nabla}" ]
+, [ char := "\uD6FC", tex := "\\mathsl{\\Alpha}" ]
+, [ char := "\uD6FD", tex := "\\mathsl{\\Beta}" ]
+, [ char := "\uD6FE", tex := "\\mathsl{\\Gamma}" ]
+, [ char := "\uD6FF", tex := "\\mathsl{\\Delta}" ]
+, [ char := "\uD700", tex := "\\mathsl{\\Epsilon}" ]
+, [ char := "\uD701", tex := "\\mathsl{\\Zeta}" ]
+, [ char := "\uD702", tex := "\\mathsl{\\Eta}" ]
+, [ char := "\uD703", tex := "\\mathsl{\\Theta}" ]
+, [ char := "\uD704", tex := "\\mathsl{\\Iota}" ]
+, [ char := "\uD705", tex := "\\mathsl{\\Kappa}" ]
+, [ char := "\uD706", tex := "\\mathsl{\\Lambda}" ]
+, [ char := "\uD709", tex := "\\mathsl{\\Xi}" ]
+, [ char := "\uD70B", tex := "\\mathsl{\\Pi}" ]
+, [ char := "\uD70C", tex := "\\mathsl{\\Rho}" ]
+, [ char := "\uD70D", tex := "\\mathsl{\\varsigma}" ]
+, [ char := "\uD70E", tex := "\\mathsl{\\Sigma}" ]
+, [ char := "\uD70F", tex := "\\mathsl{\\Tau}" ]
+, [ char := "\uD710", tex := "\\mathsl{\\Upsilon}" ]
+, [ char := "\uD711", tex := "\\mathsl{\\Phi}" ]
+, [ char := "\uD712", tex := "\\mathsl{\\Chi}" ]
+, [ char := "\uD713", tex := "\\mathsl{\\Psi}" ]
+, [ char := "\uD714", tex := "\\mathsl{\\Omega}" ]
+, [ char := "\uD715", tex := "\\partial " ]
+, [ char := "\uD716", tex := "\\in" ]
+, [ char := "\uD717", tex := "\\mathsl{\\vartheta}" ]
+, [ char := "\uD718", tex := "\\mathsl{\\varkappa}" ]
+, [ char := "\uD719", tex := "\\mathsl{\\phi}" ]
+, [ char := "\uD71A", tex := "\\mathsl{\\varrho}" ]
+, [ char := "\uD71B", tex := "\\mathsl{\\varpi}" ]
+, [ char := "\uD71C", tex := "\\mathbit{\\Alpha}" ]
+, [ char := "\uD71D", tex := "\\mathbit{\\Beta}" ]
+, [ char := "\uD71E", tex := "\\mathbit{\\Gamma}" ]
+, [ char := "\uD71F", tex := "\\mathbit{\\Delta}" ]
+, [ char := "\uD720", tex := "\\mathbit{\\Epsilon}" ]
+, [ char := "\uD721", tex := "\\mathbit{\\Zeta}" ]
+, [ char := "\uD722", tex := "\\mathbit{\\Eta}" ]
+, [ char := "\uD723", tex := "\\mathbit{\\Theta}" ]
+, [ char := "\uD724", tex := "\\mathbit{\\Iota}" ]
+, [ char := "\uD725", tex := "\\mathbit{\\Kappa}" ]
+, [ char := "\uD726", tex := "\\mathbit{\\Lambda}" ]
+, [ char := "\uD729", tex := "\\mathbit{\\Xi}" ]
+, [ char := "\uD72B", tex := "\\mathbit{\\Pi}" ]
+, [ char := "\uD72C", tex := "\\mathbit{\\Rho}" ]
+, [ char := "\uD72D", tex := "\\mathbit{O}" ]
+, [ char := "\uD72E", tex := "\\mathbit{\\Sigma}" ]
+, [ char := "\uD72F", tex := "\\mathbit{\\Tau}" ]
+, [ char := "\uD730", tex := "\\mathbit{\\Upsilon}" ]
+, [ char := "\uD731", tex := "\\mathbit{\\Phi}" ]
+, [ char := "\uD732", tex := "\\mathbit{\\Chi}" ]
+, [ char := "\uD733", tex := "\\mathbit{\\Psi}" ]
+, [ char := "\uD734", tex := "\\mathbit{\\Omega}" ]
+, [ char := "\uD735", tex := "\\mathbit{\\nabla}" ]
+, [ char := "\uD736", tex := "\\mathbit{\\Alpha}" ]
+, [ char := "\uD737", tex := "\\mathbit{\\Beta}" ]
+, [ char := "\uD738", tex := "\\mathbit{\\Gamma}" ]
+, [ char := "\uD739", tex := "\\mathbit{\\Delta}" ]
+, [ char := "\uD73A", tex := "\\mathbit{\\Epsilon}" ]
+, [ char := "\uD73B", tex := "\\mathbit{\\Zeta}" ]
+, [ char := "\uD73C", tex := "\\mathbit{\\Eta}" ]
+, [ char := "\uD73D", tex := "\\mathbit{\\Theta}" ]
+, [ char := "\uD73E", tex := "\\mathbit{\\Iota}" ]
+, [ char := "\uD73F", tex := "\\mathbit{\\Kappa}" ]
+, [ char := "\uD740", tex := "\\mathbit{\\Lambda}" ]
+, [ char := "\uD743", tex := "\\mathbit{\\Xi}" ]
+, [ char := "\uD745", tex := "\\mathbit{\\Pi}" ]
+, [ char := "\uD746", tex := "\\mathbit{\\Rho}" ]
+, [ char := "\uD747", tex := "\\mathbit{\\varsigma}" ]
+, [ char := "\uD748", tex := "\\mathbit{\\Sigma}" ]
+, [ char := "\uD749", tex := "\\mathbit{\\Tau}" ]
+, [ char := "\uD74A", tex := "\\mathbit{\\Upsilon}" ]
+, [ char := "\uD74B", tex := "\\mathbit{\\Phi}" ]
+, [ char := "\uD74C", tex := "\\mathbit{\\Chi}" ]
+, [ char := "\uD74D", tex := "\\mathbit{\\Psi}" ]
+, [ char := "\uD74E", tex := "\\mathbit{\\Omega}" ]
+, [ char := "\uD74F", tex := "\\partial " ]
+, [ char := "\uD750", tex := "\\in" ]
+, [ char := "\uD751", tex := "\\mathbit{\\vartheta}" ]
+, [ char := "\uD752", tex := "\\mathbit{\\varkappa}" ]
+, [ char := "\uD753", tex := "\\mathbit{\\phi}" ]
+, [ char := "\uD754", tex := "\\mathbit{\\varrho}" ]
+, [ char := "\uD755", tex := "\\mathbit{\\varpi}" ]
+, [ char := "\uD756", tex := "\\mathsfbf{\\Alpha}" ]
+, [ char := "\uD757", tex := "\\mathsfbf{\\Beta}" ]
+, [ char := "\uD758", tex := "\\mathsfbf{\\Gamma}" ]
+, [ char := "\uD759", tex := "\\mathsfbf{\\Delta}" ]
+, [ char := "\uD75A", tex := "\\mathsfbf{\\Epsilon}" ]
+, [ char := "\uD75B", tex := "\\mathsfbf{\\Zeta}" ]
+, [ char := "\uD75C", tex := "\\mathsfbf{\\Eta}" ]
+, [ char := "\uD75D", tex := "\\mathsfbf{\\Theta}" ]
+, [ char := "\uD75E", tex := "\\mathsfbf{\\Iota}" ]
+, [ char := "\uD75F", tex := "\\mathsfbf{\\Kappa}" ]
+, [ char := "\uD760", tex := "\\mathsfbf{\\Lambda}" ]
+, [ char := "\uD763", tex := "\\mathsfbf{\\Xi}" ]
+, [ char := "\uD765", tex := "\\mathsfbf{\\Pi}" ]
+, [ char := "\uD766", tex := "\\mathsfbf{\\Rho}" ]
+, [ char := "\uD767", tex := "\\mathsfbf{\\vartheta}" ]
+, [ char := "\uD768", tex := "\\mathsfbf{\\Sigma}" ]
+, [ char := "\uD769", tex := "\\mathsfbf{\\Tau}" ]
+, [ char := "\uD76A", tex := "\\mathsfbf{\\Upsilon}" ]
+, [ char := "\uD76B", tex := "\\mathsfbf{\\Phi}" ]
+, [ char := "\uD76C", tex := "\\mathsfbf{\\Chi}" ]
+, [ char := "\uD76D", tex := "\\mathsfbf{\\Psi}" ]
+, [ char := "\uD76E", tex := "\\mathsfbf{\\Omega}" ]
+, [ char := "\uD76F", tex := "\\mathsfbf{\\nabla}" ]
+, [ char := "\uD770", tex := "\\mathsfbf{\\Alpha}" ]
+, [ char := "\uD771", tex := "\\mathsfbf{\\Beta}" ]
+, [ char := "\uD772", tex := "\\mathsfbf{\\Gamma}" ]
+, [ char := "\uD773", tex := "\\mathsfbf{\\Delta}" ]
+, [ char := "\uD774", tex := "\\mathsfbf{\\Epsilon}" ]
+, [ char := "\uD775", tex := "\\mathsfbf{\\Zeta}" ]
+, [ char := "\uD776", tex := "\\mathsfbf{\\Eta}" ]
+, [ char := "\uD777", tex := "\\mathsfbf{\\Theta}" ]
+, [ char := "\uD778", tex := "\\mathsfbf{\\Iota}" ]
+, [ char := "\uD779", tex := "\\mathsfbf{\\Kappa}" ]
+, [ char := "\uD77A", tex := "\\mathsfbf{\\Lambda}" ]
+, [ char := "\uD77D", tex := "\\mathsfbf{\\Xi}" ]
+, [ char := "\uD77F", tex := "\\mathsfbf{\\Pi}" ]
+, [ char := "\uD780", tex := "\\mathsfbf{\\Rho}" ]
+, [ char := "\uD781", tex := "\\mathsfbf{\\varsigma}" ]
+, [ char := "\uD782", tex := "\\mathsfbf{\\Sigma}" ]
+, [ char := "\uD783", tex := "\\mathsfbf{\\Tau}" ]
+, [ char := "\uD784", tex := "\\mathsfbf{\\Upsilon}" ]
+, [ char := "\uD785", tex := "\\mathsfbf{\\Phi}" ]
+, [ char := "\uD786", tex := "\\mathsfbf{\\Chi}" ]
+, [ char := "\uD787", tex := "\\mathsfbf{\\Psi}" ]
+, [ char := "\uD788", tex := "\\mathsfbf{\\Omega}" ]
+, [ char := "\uD789", tex := "\\partial " ]
+, [ char := "\uD78A", tex := "\\in" ]
+, [ char := "\uD78B", tex := "\\mathsfbf{\\vartheta}" ]
+, [ char := "\uD78C", tex := "\\mathsfbf{\\varkappa}" ]
+, [ char := "\uD78D", tex := "\\mathsfbf{\\phi}" ]
+, [ char := "\uD78E", tex := "\\mathsfbf{\\varrho}" ]
+, [ char := "\uD78F", tex := "\\mathsfbf{\\varpi}" ]
+, [ char := "\uD790", tex := "\\mathsfbfsl{\\Alpha}" ]
+, [ char := "\uD791", tex := "\\mathsfbfsl{\\Beta}" ]
+, [ char := "\uD792", tex := "\\mathsfbfsl{\\Gamma}" ]
+, [ char := "\uD793", tex := "\\mathsfbfsl{\\Delta}" ]
+, [ char := "\uD794", tex := "\\mathsfbfsl{\\Epsilon}" ]
+, [ char := "\uD795", tex := "\\mathsfbfsl{\\Zeta}" ]
+, [ char := "\uD796", tex := "\\mathsfbfsl{\\Eta}" ]
+, [ char := "\uD797", tex := "\\mathsfbfsl{\\vartheta}" ]
+, [ char := "\uD798", tex := "\\mathsfbfsl{\\Iota}" ]
+, [ char := "\uD799", tex := "\\mathsfbfsl{\\Kappa}" ]
+, [ char := "\uD79A", tex := "\\mathsfbfsl{\\Lambda}" ]
+, [ char := "\uD79D", tex := "\\mathsfbfsl{\\Xi}" ]
+, [ char := "\uD79F", tex := "\\mathsfbfsl{\\Pi}" ]
+, [ char := "\uD7A0", tex := "\\mathsfbfsl{\\Rho}" ]
+, [ char := "\uD7A1", tex := "\\mathsfbfsl{\\vartheta}" ]
+, [ char := "\uD7A2", tex := "\\mathsfbfsl{\\Sigma}" ]
+, [ char := "\uD7A3", tex := "\\mathsfbfsl{\\Tau}" ]
+, [ char := "\uD7A4", tex := "\\mathsfbfsl{\\Upsilon}" ]
+, [ char := "\uD7A5", tex := "\\mathsfbfsl{\\Phi}" ]
+, [ char := "\uD7A6", tex := "\\mathsfbfsl{\\Chi}" ]
+, [ char := "\uD7A7", tex := "\\mathsfbfsl{\\Psi}" ]
+, [ char := "\uD7A8", tex := "\\mathsfbfsl{\\Omega}" ]
+, [ char := "\uD7A9", tex := "\\mathsfbfsl{\\nabla}" ]
+, [ char := "\uD7AA", tex := "\\mathsfbfsl{\\Alpha}" ]
+, [ char := "\uD7AB", tex := "\\mathsfbfsl{\\Beta}" ]
+, [ char := "\uD7AC", tex := "\\mathsfbfsl{\\Gamma}" ]
+, [ char := "\uD7AD", tex := "\\mathsfbfsl{\\Delta}" ]
+, [ char := "\uD7AE", tex := "\\mathsfbfsl{\\Epsilon}" ]
+, [ char := "\uD7AF", tex := "\\mathsfbfsl{\\Zeta}" ]
+, [ char := "\uD7B0", tex := "\\mathsfbfsl{\\Eta}" ]
+, [ char := "\uD7B1", tex := "\\mathsfbfsl{\\vartheta}" ]
+, [ char := "\uD7B2", tex := "\\mathsfbfsl{\\Iota}" ]
+, [ char := "\uD7B3", tex := "\\mathsfbfsl{\\Kappa}" ]
+, [ char := "\uD7B4", tex := "\\mathsfbfsl{\\Lambda}" ]
+, [ char := "\uD7B7", tex := "\\mathsfbfsl{\\Xi}" ]
+, [ char := "\uD7B9", tex := "\\mathsfbfsl{\\Pi}" ]
+, [ char := "\uD7BA", tex := "\\mathsfbfsl{\\Rho}" ]
+, [ char := "\uD7BB", tex := "\\mathsfbfsl{\\varsigma}" ]
+, [ char := "\uD7BC", tex := "\\mathsfbfsl{\\Sigma}" ]
+, [ char := "\uD7BD", tex := "\\mathsfbfsl{\\Tau}" ]
+, [ char := "\uD7BE", tex := "\\mathsfbfsl{\\Upsilon}" ]
+, [ char := "\uD7BF", tex := "\\mathsfbfsl{\\Phi}" ]
+, [ char := "\uD7C0", tex := "\\mathsfbfsl{\\Chi}" ]
+, [ char := "\uD7C1", tex := "\\mathsfbfsl{\\Psi}" ]
+, [ char := "\uD7C2", tex := "\\mathsfbfsl{\\Omega}" ]
+, [ char := "\uD7C3", tex := "\\partial " ]
+, [ char := "\uD7C4", tex := "\\in" ]
+, [ char := "\uD7C5", tex := "\\mathsfbfsl{\\vartheta}" ]
+, [ char := "\uD7C6", tex := "\\mathsfbfsl{\\varkappa}" ]
+, [ char := "\uD7C7", tex := "\\mathsfbfsl{\\phi}" ]
+, [ char := "\uD7C8", tex := "\\mathsfbfsl{\\varrho}" ]
+, [ char := "\uD7C9", tex := "\\mathsfbfsl{\\varpi}" ]
+, [ char := "\uD7CE", tex := "\\mathbf{0}" ]
+, [ char := "\uD7CF", tex := "\\mathbf{1}" ]
+, [ char := "\uD7D0", tex := "\\mathbf{2}" ]
+, [ char := "\uD7D1", tex := "\\mathbf{3}" ]
+, [ char := "\uD7D2", tex := "\\mathbf{4}" ]
+, [ char := "\uD7D3", tex := "\\mathbf{5}" ]
+, [ char := "\uD7D4", tex := "\\mathbf{6}" ]
+, [ char := "\uD7D5", tex := "\\mathbf{7}" ]
+, [ char := "\uD7D6", tex := "\\mathbf{8}" ]
+, [ char := "\uD7D7", tex := "\\mathbf{9}" ]
+, [ char := "\uD7D8", tex := "\\mathbb{0}" ]
+, [ char := "\uD7D9", tex := "\\mathbb{1}" ]
+, [ char := "\uD7DA", tex := "\\mathbb{2}" ]
+, [ char := "\uD7DB", tex := "\\mathbb{3}" ]
+, [ char := "\uD7DC", tex := "\\mathbb{4}" ]
+, [ char := "\uD7DD", tex := "\\mathbb{5}" ]
+, [ char := "\uD7DE", tex := "\\mathbb{6}" ]
+, [ char := "\uD7DF", tex := "\\mathbb{7}" ]
+, [ char := "\uD7E0", tex := "\\mathbb{8}" ]
+, [ char := "\uD7E1", tex := "\\mathbb{9}" ]
+, [ char := "\uD7E2", tex := "\\mathsf{0}" ]
+, [ char := "\uD7E3", tex := "\\mathsf{1}" ]
+, [ char := "\uD7E4", tex := "\\mathsf{2}" ]
+, [ char := "\uD7E5", tex := "\\mathsf{3}" ]
+, [ char := "\uD7E6", tex := "\\mathsf{4}" ]
+, [ char := "\uD7E7", tex := "\\mathsf{5}" ]
+, [ char := "\uD7E8", tex := "\\mathsf{6}" ]
+, [ char := "\uD7E9", tex := "\\mathsf{7}" ]
+, [ char := "\uD7EA", tex := "\\mathsf{8}" ]
+, [ char := "\uD7EB", tex := "\\mathsf{9}" ]
+, [ char := "\uD7EC", tex := "\\mathsfbf{0}" ]
+, [ char := "\uD7ED", tex := "\\mathsfbf{1}" ]
+, [ char := "\uD7EE", tex := "\\mathsfbf{2}" ]
+, [ char := "\uD7EF", tex := "\\mathsfbf{3}" ]
+, [ char := "\uD7F0", tex := "\\mathsfbf{4}" ]
+, [ char := "\uD7F1", tex := "\\mathsfbf{5}" ]
+, [ char := "\uD7F2", tex := "\\mathsfbf{6}" ]
+, [ char := "\uD7F3", tex := "\\mathsfbf{7}" ]
+, [ char := "\uD7F4", tex := "\\mathsfbf{8}" ]
+, [ char := "\uD7F5", tex := "\\mathsfbf{9}" ]
+, [ char := "\uD7F6", tex := "\\mathtt{0}" ]
+, [ char := "\uD7F7", tex := "\\mathtt{1}" ]
+, [ char := "\uD7F8", tex := "\\mathtt{2}" ]
+, [ char := "\uD7F9", tex := "\\mathtt{3}" ]
+, [ char := "\uD7FA", tex := "\\mathtt{4}" ]
+, [ char := "\uD7FB", tex := "\\mathtt{5}" ]
+, [ char := "\uD7FC", tex := "\\mathtt{6}" ]
+, [ char := "\uD7FD", tex := "\\mathtt{7}" ]
+, [ char := "\uD7FE", tex := "\\mathtt{8}" ]
+, [ char := "\uD7FF", tex := "\\mathtt{9}" ]
+];
+
+/// Combine the transliteration tables, using the extended one as a base ref:
+STRING ARRAY knownchars := SELECT AS STRING ARRAY char FROM translit_extended;
+FOREVERY(RECORD translit FROM translit_base)
+{
+  IF(translit.char NOT IN knownchars)
+    INSERT translit INTO translit_extended AT END;
+}
+/// Note: This odd definition is deliberate; it prevents confusion about the true source of the transliteration table.
+RECORD ARRAY translit := translit_extended;
+
+STATIC OBJECTTYPE BiBTeXErrorKeeper
+<
+  RECORD ARRAY pvt_errors;
+  PUBLIC PROPERTY errors(pvt_errors, -);
+  PUBLIC MACRO AddError(STRING error, STRING context, INTEGER line, INTEGER col, INTEGER code DEFAULTSTO -1)
+  {
+    INSERT [ error := error, context := ToUpperCase(context), line := line, "column" := col, code := code ]
+      INTO this->pvt_errors
+    AT END;
+  }
+  PUBLIC MACRO Clear()
+  {
+    this->pvt_errors := DEFAULT RECORD ARRAY;
+  }
+>;
+
+OBJECT errorkeeper;
+OBJECT FUNCTION GetErrorKeeper()
+{
+  IF(ObjectExists(errorkeeper))
+    RETURN errorkeeper;
+
+  errorkeeper := NEW BiBTeXErrorKeeper;
+  RETURN errorkeeper;
+}
+
+/** Tokenizer for BibTeX
+*/
+PUBLIC STATIC OBJECTTYPE BiBTeXTokenizer
+<
+  OBJECT strp;
+  BOOLEAN verbose;
+  BOOLEAN reportnonalpha;
+  BOOLEAN reproduce;
+  RECORD ARRAY variables;
+
+  /// Current token
+  PUBLIC STRING token;
+
+  /// Associated value (eg comment string for a comment)
+  PUBLIC STRING value;
+
+  /// Number value (currently always 0)
+  PUBLIC MONEY numbervalue;
+
+  /// Type of the token
+  PUBLIC STRING type;
+  STRING currentdelimiter;
+
+  /// Position within the parsed document
+  PUBLIC INTEGER startpos;
+
+  /// Current line number
+  PUBLIC INTEGER line;
+
+  /// Position of the start of the current line within the parsed document
+  PUBLIC INTEGER linestart;
+
+  /// Current block depth
+  PUBLIC INTEGER blockdepth;
+  INTEGER startdepth;
+
+  STRING ARRAY alphanum;
+  STRING expect;
+  BOOLEAN inCitationEntry;
+  BOOLEAN inValueSet;
+  BOOLEAN previousIsWhitespace;
+  BOOLEAN previousIsEscape;
+  BOOLEAN previousIsBlockStart;
+  BOOLEAN inBlockContext;
+  STRING currentblock;
+
+  INTEGER strlen;
+
+  /** Create a new BiBTeX tokenizer
+      @param value FIle to parse
+      @param verbose If TRUE, print info
+      @param reportnonalpha Print information about non-alpha characters (only when verbose is also TRUE)
+      @param reproduce If TRUE, and verbose, print some characters from the parsed file
+  */
+  MACRO NEW(STRING value, BOOLEAN verbose DEFAULTSTO FALSE, BOOLEAN reportnonalpha DEFAULTSTO FALSE, BOOLEAN reproduce DEFAULTSTO FALSE)
+  {
+    this->strp := NEW StringParser(value);
+    this->strlen := Length(value);
+    this->line := 1;
+    this->linestart := 0;
+    this->blockdepth := 0;
+    this->verbose := verbose;
+    IF(verbose)
+      this->reportnonalpha := reportnonalpha;
+
+    this->reproduce := reproduce;
+    this->inCitationEntry := FALSE;
+    this->alphanum := Tokenize("A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,0,1,2,3,4,5,6,7,8,9,_,-", ",");
+  }
+
+  /** Returns the current token
+      @return Current token
+      @cell return.token Current token
+      @cell return.value Associated value (eg comment string for a comment)
+      @cell return.numbervalue Number value (currently always 0)
+      @cell return.type Type of the token
+      @cell return.startpos Position within the parsed document
+  */
+  PUBLIC RECORD FUNCTION GetToken()
+  {
+    RETURN [ token := this->token
+           , value  := this->value
+           , numbervalue := this->numbervalue
+           , type := this->type
+           , startpos := this->startpos
+           ];
+  }
+
+  /// Parse the next token
+  PUBLIC MACRO ConsumeToken()
+  {
+    this->token := "";
+    this->value := "";
+    this->numbervalue := 0;
+    this->type := "";
+    this->startpos := this->strp->position;
+
+    IF(NOT this->verbose AND this->reproduce)
+      PRINT(this->strp->current);
+
+    IF(this->strp->eof)
+    {
+      this->token := "eof";
+    }
+    ELSE SWITCH(this->strp->current)
+    {
+      CASE "\r","\n","\t"," "
+      {
+        this->ConsumeWhitespace();
+        this->token := "ws";
+      }
+      CASE '"', '{'
+      {
+        IF(this->blockdepth = 1 AND this->strp->current = "{")
+        {
+          this->currentdelimiter := this->strp->current;
+          this->startdepth := this->blockdepth;
+          IF(this->verbose)
+            PRINT("[TOKENIZER] Encountered a citation entry delimited by '{' on line " || this->line || " at column " || (this->startpos - this->linestart) || "\n");
+          this->value := this->strp->current;
+          this->token := "delim";
+          this->expect := "ident";
+          this->inCitationEntry := TRUE;
+          this->previousIsBlockStart := TRUE;
+        }
+        ELSE
+        {
+          this->currentdelimiter := this->strp->current;
+          this->startdepth := this->blockdepth;
+          this->blockdepth := this->blockdepth + 1;
+          IF(this->verbose)
+            PRINT("[TOKENIZER] Blockdepth increased to " || this->blockdepth || " by '" || this->strp->current || "' and start depth for the current block set at " || this->startdepth || " (At " || this->line || ":" || this->strp->position - this->linestart || ")\n");
+
+          //IF(this->strp->position > 0)
+            this->strp->Next();
+
+          INTEGER c := 0;
+          WHILE(this->strp->current != "eof" AND this->blockdepth > this->startdepth AND c < 100000)
+          {
+            IF(NOT this->verbose AND this->reproduce)
+              PRINT(this->strp->current);
+
+            IF(this->strp->current IN [ "\n", "\t", "\r", " " ])
+            {
+              IF(NOT this->previousIsWhitespace)
+              {
+                this->value := this->value || " ";
+                this->previousIsWhitespace := TRUE;
+              }
+              IF(this->strp->current = "\n")
+              {
+                this->line := this->line + 1;
+                this->linestart := this->startpos;
+              }
+              this->strp->Next();
+              CONTINUE;
+            }
+            ELSE IF(this->strp->current = "\\" AND NOT this->previousIsEscape)
+            {
+              IF(this->previousIsBlockStart)
+              {/// FIXME: This detection mechanism is currently (quite deliberately) broken to preserve compatibility with the current implementation; the spec, however, requires this to work.
+                IF(this->verbose)
+                  PRINT("[TOKENIZER] Encountered an escaped code block start at " || this->line || ":" || this->strp->position - this->linestart || "\n");
+                this->previousIsBlockStart := FALSE;
+                this->inBlockContext := TRUE;
+              }
+              ELSE IF(this->verbose)
+                PRINT("[TOKENIZER] Encountered an escaped code point '\\" || this->strp->PeekN(1) || "' (At " || this->line || ":" || this->strp->position - this->linestart || ")\n");
+
+              this->previousIsEscape := TRUE;
+              this->value := this->value || "\\";
+              this->strp->Next();
+              CONTINUE;
+            }
+            ELSE IF(this->PreviousIsEscape)
+            {
+              IF(NOT this->inBlockContext)
+                this->previousIsEscape := FALSE;
+
+              IF(this->verbose AND NOT this->inBlockContext)
+                PRINT("[TOKENIZER] Completed escaped code point '\\" || this->strp->current || "' (At " || this->line || ":" || this->strp->position - this->linestart || ")\n");
+            }
+
+            IF(this->strp->current NOT IN this->alphanum AND this->verbose AND this->reportnonalpha)
+              PRINT("[TOKENIZER] Encountered non-alpha '" || this->strp->current || "' (current delimiter is '" || this->currentdelimiter || "') on line " || this->line || " at column " || this->strp->position - this->linestart || ")\n");///"\n - Current value: '" || this->value || "'\n");
+
+            IF(this->strp->current = "{" AND NOT this->previousIsEscape)// AND NOT (Substring(TrimWhitespace(AnyToString(this->strp->PeekN(1), "tree")), 1, 1) = "\\"))// AND this->currentdelimiter = '"')
+            {
+              this->blockdepth := this->blockdepth + 1;
+              this->previousIsBlockStart := TRUE;
+              IF(this->verbose)
+                PRINT("[TOKENIZER] Blockdepth increased to " || this->blockdepth || " by '" || this->strp->current || "' whithin a quoted string (At " || this->line || ":" || this->strp->position - this->linestart || ")\n");
+                //PRINT("[TOKENIZER] Next is: " || Substring(TrimWhiteSpace(AnyToSTring(this->strp->PeekN(1), "tree")), 1, 1) || "\n");
+            }
+            ELSE IF(this->strp->current = "}" AND NOT this->previousIsEscape AND NOT this->inBlockContext)
+            {
+              this->blockdepth := this->blockdepth - 1;
+              IF(this->verbose)
+                PRINT("[TOKENIZER] Blockdepth decreased to " || this->blockdepth || " by '" || this->strp->current || "' whithin a quoted string (At " || this->line || ":" || this->strp->position - this->linestart || ")\n");
+            }
+
+            /// Handle the actual value:
+
+            this->previousIsWhitespace := FALSE;
+            c := c + 1;
+            IF(this->inBlockContext)
+              this->currentblock := this->currentblock || this->strp->ParseN(1);
+            ELSE
+              this->value := this->value || this->strp->ParseN(1);
+
+            IF(this->previousIsBlockStart AND this->strp->current != "{")
+              this->previousIsBlockStart := FALSE;
+
+            IF(this->strp->current = this->GetClosingDelimFor(this->currentdelimiter) AND this->blockdepth = this->startdepth + 1 AND NOT this->previousIsEscape)
+            {
+              IF(this->verbose)
+                PRINT("[TOKENIZER] Wrapping current value into a string token by delimiter '" || this->strp->current || "' on line " || this->line || " at column " || this->strp->position - this->linestart || ")\n");
+
+              this->token := "string";
+              this->blockdepth := this->startdepth;
+              IF(this->verbose)
+                PRINT("[TOKENIZER] Blockdepth decreased to " || this->blockdepth || " (started at " || this->startdepth || ") by " || this->strp->current || " (At " || this->line || ":" || this->strp->position - this->linestart || ")\n");
+              BREAK;
+            }
+            ELSE IF(this->previousIsEscape AND this->inBlockContext AND this->strp->current = "}")
+            {
+              this->blockdepth := this->blockdepth - 1;
+              IF(this->inBlockContext)
+              {
+                IF(this->verbose)
+                  PRINT("[TOKENIZER] Completed an escaped code block '{\\" || this->currentblock || "}' at " || this->line || ":" || this->strp->position - this->linestart || ")\n");
+
+                this->value := this->value || this->TranslateCodeBlockOrIgnore(this->currentblock);
+                this->currentblock := "";
+              }
+
+              this->inBlockContext := FALSE;
+              this->previousIsEscape := FALSE;
+            }
+          }
+        }
+      }
+      CASE '#' //string concatenator
+      {
+        this->type := "concatenator";
+        this->token := "#";
+      }
+      CASE '@'
+      {
+        // Check what it is:
+        this->strp->Next();
+        IF(NOT this->verbose AND this->reproduce)
+          PRINT(this->strp->current);
+
+        STRING entryname := this->ConsumeIdentifier();
+        IF(ToUppercase(entryname) = "STRING")
+        {
+          // Set a variable
+          this->strp->ParseUntilCharacter("{");
+          this->strp->Next();
+          this->ConsumeWhitespace();
+          this->type := "variable";
+          this->token := this->ConsumeIdentifier();
+          this->strp->ParseUntilCharacter("=");
+          this->strp->Next();
+          this->ConsumeWhitespace();
+          this->value := this->ConsumeSimpleString();
+          this->strp->ParseUntilCharacter("}");
+          this->strp->Next();
+        }
+        ELSE
+        {
+          IF(ToUppercase(entryname) = "COMMENT")
+          {
+            //Handle a comment;
+            this->token := "ws";
+            this->type := "comment";
+            this->value := this->ConsumeComment();
+          }
+          ELSE
+          {
+          // Check if it's allowed as a strict field and set the token accordingly
+            IF(ToUppercase(entryname) NOT IN [ "ARTICLE", "BOOK", "INBOOK", "PROCEEDINGS", "INPROCEEDINGS", "CONFERENCE", "INCOLLECTION", "MANUAL", "TECHREPORT", "PHDTHESIS", "MASTERTHESIS", "MISC", "UNPUBLISHED", "REPORT", "THESIS" ])
+              THROW NEW Exception("Unknown entity '" || entryname || "'' on line " || this->line || ", at column " || (this->strp->position - this->linestart));
+
+            IF(ToUpperCase(entryname) IN [ "REPORT", "THESIS" ])
+              GetErrorKeeper()->AddError("Illegal Entity Type", entryname, this->line, (this->strp->position - this->linestart), 1);
+
+            IF(this->verbose)
+              PRINT("[TOKENIZER] Encountered a citation-key ('" || entryname || "') At " || this->line || ":" || this->strp->position - this->linestart + 1 || "\n");
+
+            this->token := "citation-key";
+            this->value := entryname;
+            this->expect := "{";
+          }
+        }
+      }
+      CASE ',', '.', '='
+      {
+        this->token := this->strp->current;
+        this->type := "delim";
+      }
+      CASE '}'
+      {
+        IF(NOT this->previousIsEscape)
+        {
+          IF(this->verbose AND this->strp->position + 2 != this->strlen)/// EoF check
+            PRINT("[TOKENIZER] Encountered a stray closing accolade on line " || this->line || ", at column " || (this->strp->position - this->linestart) || "!\n");
+        }
+      }
+      CASE '\\'
+      {
+        this->value := this->value || "\\";
+        this->previousIsEscape := TRUE;
+      }
+      DEFAULT
+      {
+        this->token := "ident";
+        this->value := this->ConsumeIdentifier();
+        IF(ToInteger(this->value, -1) > -1)
+          this->token := "number";
+      }
+    }
+    IF(this->token != "ws")
+      this->strp->Next();
+  }
+
+  STRING FUNCTION ConsumeIdentifier()
+  {
+    STRING output;
+    WHILE(this->strp->current != "eof")
+    {
+      IF(this->strp->current NOT IN this->alphanum)
+        RETURN output;
+
+      output := output || this->strp->current;
+      this->strp->Next();
+
+      IF(NOT this->verbose AND this->reproduce)
+        PRINT(this->strp->current);
+    }
+    RETURN output;
+  }
+
+  STRING FUNCTION ConsumeSimpleString()
+  {
+    //
+    this->ConsumeWhitespace();
+    STRING delim := this->strp->ParseN(1);
+    STRING output := this->strp->ParseUntilCharacter(delim);
+    RETURN output;
+  }
+
+  STRING FUNCTION GetClosingDelimFor(STRING delim)
+  {
+    IF(delim = "{")
+      RETURN "}";
+
+    RETURN delim;
+  }
+
+  STRING FUNCTION ConsumeComment()
+  {
+    RETURN this->strp->ParseUntilCharacter("@");
+  }
+
+  STRING FUNCTION TranslateCodeBlockOrIgnore(STRING input)
+  {
+    RECORD transliteration := SELECT * FROM translit WHERE tex = input;
+    IF(RecordExists(transliteration))
+      RETURN transliteration.char;
+    RETURN input;
+  }
+
+  MACRO ConsumeWhitespace()
+  {
+    WHILE(this->strp->current IN ["\r", "\n", "\t", " "])
+    {
+      IF(this->strp->current = "\n")
+      {
+        this->line := this->line + 1;
+        this->linestart := this->startpos;
+      }
+      this->strp->Next();
+    }
+  }
+>;
+
+/** BibTex document parser
+*/
+PUBLIC OBJECTTYPE BibTexParser
+<
+  OBJECT tokenizer;
+  RECORD ARRAY variables;// Fields: name, value
+
+  BOOLEAN nextIdentIsKeyName;
+  BOOLEAN nextIdentIsName;
+  BOOLEAN nextIdentIsVariable;
+  STRING currentKeyName;
+  INTEGER currentKeyNameLine;
+  INTEGER currentKeyNameCol;
+
+  /// Whether to remove all accolades
+  PUBLIC BOOLEAN parseoutaccolades;
+
+  /// Constructs a new BibTex document parser
+  PUBLIC MACRO NEW()
+  {
+    this->parseoutaccolades := TRUE;
+  }
+
+  /** Parse a BibTeX document
+      @param bibtex BibTex file to parse
+      @param verbose If TRUE, print info
+      @param reportnonalpha Print information about non-alpha characters (only when verbose is also TRUE)
+      @param reproduce If TRUE, and verbose, print some characters from the parsed file
+      @return Parsed document
+      @cell(record array) return.declarations List of declarations
+      @cell(string) return.declarations.keyname Key
+      @cell(string) return.declarations.value Value
+      @cell(integer) return.declarations.atline Line number
+      @cell(integer) return.declarations.atcol Column number
+      @cell(string) return.type Value of the citation-key entry
+      @cell(string) return.name Value of the ident entty
+      @cell(record) return.asrecord All declarations key-values packed as a record
+      @cell(record array) return.errors List of errors
+      @cell(string) return.errors.error Error message
+      @cell(string) return.errors.context Context
+      @cell(integer) return.errors.line Line number
+      @cell(integer) return.errors.column Column number
+      @cell(integer) return.errors.code Error code
+  */
+  PUBLIC RECORD FUNCTION ParseBibTeX(STRING bibtex, BOOLEAN verbose DEFAULTSTO FALSE, BOOLEAN reportnonalpha DEFAULTSTO FALSE, BOOLEAN reproduce DEFAULTSTO FALSE)
+  {
+    GetErrorKeeper()->Clear();
+    this->tokenizer := NEW BiBTeXTokenizer(bibtex, verbose, reportnonalpha, reproduce);
+    STRING type;
+    STRING name;
+    RECORD ARRAY declarations;// Fields: keyname, value
+    INTEGER i := 0;
+    WHILE(this->tokenizer->token != "eof" AND i < Length(bibtex))// Prevent endless loops safely: There can never be more tokens than characters.
+    {
+      IF(i = 0)
+        this->tokenizer->ConsumeToken();
+
+      i := i + 1;
+
+      IF(this->tokenizer->type = "variable")
+      {
+        IF(verbose)
+          PRINT("[PARSER] Encountered a variable on line " || this->tokenizer->line || " at column " || (this->tokenizer->startpos - this->tokenizer->linestart) || "\n");
+
+        INSERT [ name := this->tokenizer->token, value := this->tokenizer->value ] INTO this->variables AT END;
+        this->tokenizer->ConsumeToken();
+      }
+
+      SWITCH(this->tokenizer->token)
+      {
+        CASE 'citation-key'
+        {
+          IF(verbose)
+            PRINT("[PARSER] Encountered a citation key '" || this->tokenizer->value || "' on line " || this->tokenizer->line || " at column " || (this->tokenizer->startpos - this->tokenizer->linestart) || "\n");
+
+          type := this->tokenizer->value;
+          this->nextIdentIsName := TRUE;
+        }
+        CASE 'ident'
+        {
+          IF(this->nextIdentIsName)
+          {
+            IF(verbose)
+              PRINT("[PARSER] Encountered a name identifier '" || this->tokenizer->value || "' on line " || this->tokenizer->line || " at column " || (this->tokenizer->startpos - this->tokenizer->linestart) || "\n");
+
+            name := this->tokenizer->value;
+            this->tokenizer->ConsumeToken();
+            this->nextIdentIsName := FALSE;
+            this->nextIdentIsKeyName := TRUE;
+            this->tokenizer->ConsumeToken();
+            CONTINUE;
+          }
+          ELSE IF(this->nextIdentIsVariable)
+          {
+            declarations[END-1].value := declarations[END-1].value || (SELECT AS STRING value FROM this->variables WHERE COLUMN name = this->tokenizer->value);
+            this->nextIdentIsVariable := FALSE;
+            this->tokenizer->ConsumeToken();
+            CONTINUE;
+          }
+          ELSE
+          {
+            IF(verbose)
+              PRINT("[PARSER] Encountered a keyname identifier '" || this->tokenizer->value || "' (" || this->tokenizer->token || " token) on line " || this->tokenizer->line || " at column " || (this->tokenizer->startpos - this->tokenizer->linestart) || "\n");
+
+            this->currentKeyName := this->tokenizer->value;
+            this->currentKeyNameLine := this->tokenizer->line;
+            this->currentKeyNameCol := (this->tokenizer->startpos - this->tokenizer->linestart);
+            this->tokenizer->ConsumeToken();
+            this->nextIdentIsKeyName := FALSE;
+            this->nextIdentIsName := FALSE;
+            CONTINUE;
+          }
+        }
+        CASE 'ws'
+        {
+          this->tokenizer->ConsumeToken();
+          CONTINUE;
+        }
+        CASE 'string', 'number'
+        {
+          IF(verbose)
+            PRINT("[PARSER] Encountered a string '" || this->tokenizer->value || "' on line " || this->tokenizer->line || " at column " || (this->tokenizer->startpos - this->tokenizer->linestart) || "\n");
+
+          IF(this->currentKeyName != "")
+          {
+            INSERT [ keyname := this->currentKeyName, value := this->DecodeTexEntities(this->tokenizer->value), atline := this->currentKeyNameLine, atcol := this->currentKeyNameCol ] INTO declarations AT END;
+          }
+          ELSE
+            THROW NEW Exception("Parse error: Unexpected string encountered on line " || this->tokenizer->line || " at column " || (this->tokenizer->startpos - this->tokenizer->linestart));
+        }
+        CASE 'concatenator'
+        {
+          this->nextIdentIsVariable := TRUE;
+        }
+        CASE 'delim'
+        {
+          IF(this->tokenizer->value IN [ "{", "}" ])
+            CONTINUE;
+
+          this->tokenizer->ConsumeToken();
+        }
+        DEFAULT
+        {
+          this->tokenizer->ConsumeToken();
+        }
+      }
+      IF(i > 0)
+        this->tokenizer->ConsumeToken();
+    }
+    RECORD output := [ declarations := declarations, type := type, name := name, asrecord := this->FormatOutputRecord(declarations), errors := DEFAULT RECORD ARRAY ];
+    GetValidationErrors(output);
+    output.errors := GetErrorKeeper()->errors;
+    RETURN output;
+  }
+
+  RECORD FUNCTION FormatOutputRecord(RECORD ARRAY declarations)
+  {
+    RECORD out;
+    FOREVERY(RECORD decl FROM declarations)
+      IF(CellExists(out, decl.keyname))
+        out := CellUpdate(out, decl.keyname, decl.value);
+      ELSE
+        out := CellInsert(out, decl.keyname, decl.value);
+
+    RETURN out;
+  }
+
+  /** Decodes all tex tentities in a string to UTF-8
+      @param str String to decode
+      @return Decoded string
+  */
+  PUBLIC STRING FUNCTION DecodeTexEntities(STRING str)
+  {
+    FOREVERY(RECORD trans FROM translit)
+    {
+      str := Substitute(str, "{" || trans.tex || "}", trans.char);
+      str := Substitute(str, trans.tex, trans.char);/// Without accolades is apparently valid as well...
+    }
+    RETURN this->RemoveAccolades(str);
+  }
+
+  /** Remove all accolades if parseoutaccolades is TRUE
+      @param input Input to optionally remove accolades from
+      @return Input string with accolades removed
+  */
+  PUBLIC STRING FUNCTION RemoveAccolades(STRING input)
+  {
+    IF(NOT this->parseoutaccolades)
+      RETURN input;
+
+    STRING output;
+    INTEGER pos := 0;
+    WHILE(pos < Length(input))
+    {
+      STRING current := Substring(input, pos, 1);
+      IF(current NOT IN [ "{", "}" ])
+        output := output || current;
+
+      pos := pos + 1;
+    }
+    RETURN output;
+  }
+
+  /// Dumps the BibTex macro to UTF-8 table
+  PUBLIC MACRO ShowTranslitTable()
+  {
+    FOREVERY(RECORD trans FROM translit)
+    {
+      PRINT(trans.char || " :\t{" || trans.tex || "}\n");
+    }
+  }
+
+  /** Returns if a specific entitity is supported
+      @param entity Entity to test
+      @return Whether the entity is supported
+  */
+  PUBLIC BOOLEAN FUNCTION IsEntitySupported(STRING entity)
+  {
+    RETURN (entity IN SELECT AS STRING ARRAY tex FROM translit)
+        OR ("{" || entity || "}" IN SELECT AS STRING ARRAY tex FROM translit)
+        OR (TrimWhitespace(entity) IN SELECT AS STRING ARRAY tex FROM translit);
+  }
+
+  /** Returns the UTF-8 character sequence for a specific entity
+      @param entity Entity to look up
+      @return UTF-8 character sequence for that entity
+  */
+  PUBLIC STRING FUNCTION TranslateEntity(STRING entity)
+  {
+    RETURN SELECT AS STRING char FROM translit WHERE tex IN [ entity, "{" || entity || "}" ] OR TrimWhitespace(tex) IN [ entity, "{" || entity || "}" ];
+  }
+
+  /** Returns the entity for a specific UTF-8 character sequence
+      @param character Character to look up
+      @return Entity for that character, "" if not found
+  */
+  PUBLIC STRING FUNCTION TranslateCharacter(STRING character)
+  {
+    RETURN SELECT AS STRING tex FROM translit WHERE char = character;
+  }
+>;
+
+/** Parses a BibTex file
+    @param bibtex BibTex file
+    @return @includecelldef #BibTexParser::ParseBiBTeX.return
+*/
+PUBLIC RECORD FUNCTION ParseBiBTeX(STRING bibtex)
+{
+  RETURN NEW BibTexParser->ParseBiBTeX(bibtex);
+}
+
+/** Parses a BibTex file
+    @param bibtex BibTex file
+    @return @includecelldef #BibTexParser::ParseBiBTeX.return
+*/
+PUBLIC RECORD FUNCTION ParseBiBTeXBlob(BLOB bibtex)
+{
+  RETURN ParseBiBTeX(BlobToString(bibtex));
+}
+
+/** Validates a BibTex file
+    @param bibtex BibTex file
+    @return @includecelldef #ValidateBiBTeX.return
+*/
+PUBLIC RECORD FUNCTION ValidateBiBTeXBlob(BLOB bibtex)
+{
+  RETURN ValidateBiBTeX(BlobToString(bibtex));
+}
+
+/** Validates a BibTex file
+    @param bibtex BibTex file
+    @return @includecelldef #ValidateBiBTeXEntry.return
+*/
+PUBLIC RECORD FUNCTION ValidateBiBTeX(STRING bibtex)
+{
+  RETURN ValidateBiBTeXEntry(ParseBiBTeX(bibtex));
+}
+
+MACRO GetValidationErrors(RECORD bibtex)
+{
+  RECORD res := ValidateBiBTeXEntry(bibtex);
+  IF(NOT RecordExists(res))
+    RETURN;/// no errros
+
+  IF(CellExists(res, "MISSINGFIELDS"))
+    FOREVERY(STRING fld FROM res.missingfields)
+      GetErrorKeeper()->AddError("Missing mandatory field"
+                                , fld
+                                , SELECT AS INTEGER atline FROM bibtex.declarations WHERE ToUpperCase(keyname) = ToUpperCase(fld)
+                                , SELECT AS INTEGER atcol FROM bibtex.declarations WHERE ToUpperCase(keyname) = ToUpperCase(fld)
+                                , 2
+                                );
+
+  IF(CellExists(res, "EXTRANEOUSFIELDS"))
+    FOREVERY(STRING fld FROM res.extraneousfields)
+      GetErrorKeeper()->AddError("This field not allowed"
+                                , fld
+                                , SELECT AS INTEGER atline FROM bibtex.declarations WHERE ToUpperCase(keyname) = ToUpperCase(fld)
+                                , SELECT AS INTEGER atcol FROM bibtex.declarations WHERE ToUpperCase(keyname) = ToUpperCase(fld)
+                                , 3
+                                );
+}
+
+/** Make a readable string describing BibTex errors
+    @param outputrec Parsed BibTex file @includecelldef #BibTexParser::ParseBiBTeX.return
+    @param file Name of the parsed file
+    @return Readable error string
+*/
+PUBLIC STRING FUNCTION GetHumanReadableErrors(RECORD outputrec, STRING file)
+{
+  STRING out;
+  FOREVERY(RECORD err FROM outputrec.errors)
+  {
+    SWITCH(err.code)
+    {
+      CASE 1/// Illegal type
+      {
+        out := out || "[STRICT] Illegal type '" || ToUpperCase(outputrec.type) || "' specified in " || file || " on line " || err.line || ":" || err."column" || "\n";
+      }
+      CASE 2/// Missing field
+      {
+        out := out || "[FATAL] Missing mandatory field '" || err.context || "' in " || file || " (of type '" || ToUpperCase(outputrec.type) || "') on line " || err.line || ":" || err."column" || "\n";
+      }
+      CASE 3/// Extraneous field
+      {
+        out := out || "[STRICT] The field '" || err.context || "' was specified, but is not allowd for type '" || ToUpperCase(outputrec.type) || "' in " || file || " on line " || err.line || ":" || err."column" || "\n";
+      }
+      DEFAULT
+      {
+        out := out || err.error || " '" || err.context || "' in " || file || "(of type '" || ToUpperCase(outputrec.type) || "') on line " || err.line || ":" || err."column" || "\n";
+      }
+    }
+  }
+  RETURN out;
+}
+
+/** Validates a BibTex entitry
+    @param bibtex Parsed BibTex file @includecelldef #BibTexParser::ParseBiBTeX.return
+    @return Validation result (DEFAULT RECORD if no probles were found)
+    @cell(string array) return.missingfields List of missing fields
+    @cell(string array) return.extraneousfields List of extra fields
+*/
+PUBLIC RECORD FUNCTION ValidateBiBTeXEntry(RECORD bibtex)
+{
+  /* Taken from: https://en.wikipedia.org/wiki/BibTeX#Entry_types
+  Entry types
+  A BibTeX database can contain the following types of entries:
+
+  article
+    An article from a journal or magazine.
+    Required fields: author, title, journal, year, volume
+    Optional fields: number, pages, month, note, key
+  book
+    A book with an explicit publisher.
+    Required fields: author/editor, title, publisher, year
+    Optional fields: volume/number, series, address, edition, month, note, key
+  booklet
+    A work that is printed and bound, but without a named publisher or sponsoring institution.
+    Required fields: title
+    Optional fields: author, howpublished, address, month, year, note, key
+  conference
+    The same as inproceedings, included for Scribe compatibility.
+  inbook
+    A part of a book, usually untitled. May be a chapter (or section, etc.) and/or a range of pages.
+    Required fields: author/editor, title, chapter/pages, publisher, year
+    Optional fields: volume/number, series, type, address, edition, month, note, key
+  incollection
+    A part of a book having its own title.
+    Required fields: author, title, booktitle, publisher, year
+    Optional fields: editor, volume/number, series, type, chapter, pages, address, edition, month, note, key
+  inproceedings
+    An article in a conference proceedings.
+    Required fields: author, title, booktitle, year
+    Optional fields: editor, volume/number, series, pages, address, month, organization, publisher, note, key
+  manual
+    Technical documentation.
+    Required fields: title
+    Optional fields: author, organization, address, edition, month, year, note, key
+  mastersthesis
+    A Master's thesis.
+    Required fields: author, title, school, year
+    Optional fields: type, address, month, note, key
+  misc
+    For use when nothing else fits.
+    Required fields: none
+    Optional fields: author, title, howpublished, month, year, note, key
+  phdthesis
+    A Ph.D. thesis.
+    Required fields: author, title, school, year
+    Optional fields: type, address, month, note, key
+  proceedings
+    The proceedings of a conference.
+    Required fields: title, year
+    Optional fields: editor, volume/number, series, address, month, publisher, organization, note, key
+  techreport
+    A report published by a school or other institution, usually numbered within a series.
+    Required fields: author, title, institution, year
+    Optional fields: type, number, address, month, note, key
+  unpublished
+    A document having an author and title, but not formally published.
+    Required fields: author, title, note
+    Optional fields: month, year, key
+
+  Field types
+    A BibTeX entry can contain various types of fields. The following types are recognized by the default bibliography styles; some third-party styles may accept additional ones:
+
+  address
+    Publisher's address (usually just the city, but can be the full address for lesser-known publishers)
+  annote
+    An annotation for annotated bibliography styles (not typical)
+  author
+    The name(s) of the author(s) (in the case of more than one author, separated by and)
+  booktitle
+    The title of the book, if only part of it is being cited
+  chapter
+    The chapter number
+  crossref
+    The key of the cross-referenced entry
+  edition
+    The edition of a book, long form (such as "First" or "Second")
+  editor
+    The name(s) of the editor(s)
+  howpublished
+    How it was published, if the publishing method is nonstandard
+  institution
+    The institution that was involved in the publishing, but not necessarily the publisher
+  journal
+    The journal or magazine the work was published in
+  key
+    A hidden field used for specifying or overriding the alphabetical order of entries (when the "author" and "editor" fields are missing). Note that this is very different from the key (mentioned just after this list) that is used to cite or cross-reference the entry.
+  month
+    The month of publication (or, if unpublished, the month of creation)
+  note
+    Miscellaneous extra information
+  number
+    The "(issue) number" of a journal, magazine, or tech-report, if applicable. (Most publications have a "volume", but no "number" field.)
+  organization
+    The conference sponsor
+  pages
+    Page numbers, separated either by commas or double-hyphens.
+  publisher
+    The publisher's name
+  school
+    The school where the thesis was written
+  series
+    The series of books the book was published in (e.g. "The Hardy Boys" or "Lecture Notes in Computer Science")
+  title
+    The title of the work
+  type
+    The field overriding the default type of publication (e.g. "Research Note" for techreport, "{PhD} dissertation" for phdthesis, "Section" for inbook/incollection)
+  volume
+    The volume of a journal or multi-volume book
+  year
+    The year of publication (or, if unpublished, the year of creation)
+
+  In addition, each entry contains a key (Bibtexkey) that is used to cite or cross-reference the entry. This key is the first item in a BibTeX entry, and is not part of any field.
+  */
+  RECORD ARRAY fields :=
+    [ [ type := "article"
+      , required := [ "author", "title", "journal", "year", "volume" ]
+      , optional := [ "number", "pages", "month", "note", "key" ]
+      ]
+    , [ type := "book"
+      , required := [ "author|editor", "title", "publisher", "year" ]
+      , optional := [ "number|volume", "series", "address", "edition", "month", "note", "key" ]
+      ]
+    , [ type := "booklet"
+      , required := [ "title" ]
+      , optional := [ "author", "howpublished", "address", "month", "year", "note", "key" ]
+      ]
+    , [ type := "conference"
+      , required := [ "author", "title", "booktitle", "year" ]
+      , optional := [ "editor", "volume|number", "series", "pages", "address", "month", "organization", "publisher", "note", "key" ]
+      ]
+    , [ type := "inbook"
+      , required := [ "author|editor", "title", "cahpter|pages", "publisher", "year" ]
+      , optional := [ "volume|number", "series", "type", "address", "edition", "month", "note", "key" ]
+      ]
+    , [ type := "incollection"
+      , required := [ "author", "title", "booktitle", "publisher", "year" ]
+      , optional := [ "editor", "volume|number", "series", "type", "chapter", "pages", "address", "edition", "month", "note", "key" ]
+      ]
+    , [ type := "inproceedings"
+      , required := [ "author", "title", "booktitle", "year" ]
+      , optional := [ "editor", "volume|number", "series", "pages", "address", "month", "organization", "publisher", "note", "key" ]
+      ]
+    , [ type := "manual"
+      , required := [ "title" ]
+      , optional := [ "author", "organization", "address", "edition", "month", "year", "note", "key" ]
+      ]
+    , [ type := "mastersthesis"
+      , required := [ "author", "title", "school", "year" ]
+      , optional := [ "type", "address", "month", "note", "key" ]
+      ]
+    , [ type := "misc"
+      , required := DEFAULT STRING ARRAY
+      , optional := [ "type", "address", "month", "note", "key" ]
+      ]
+    , [ type := "phdthesis"
+      , required := [ "author", "title", "school", "year" ]
+      , optional := [ "type", "address", "month", "note", "key" ]
+      ]
+    , [ type := "proceedings"
+      , required := [ "title", "year" ]
+      , optional := [ "editor", "volume|number", "series", "address", "month", "publisher", "organization", "note", "key" ]
+      ]
+    , [ type := "techreport"
+      , required := [ "author", "title", "institution", "year" ]
+      , optional := [ "type", "number", "address", "month", "note", "key" ]
+      ]
+    , [ type := "unpublished"
+      , required := [ "author", "title", "note" ]
+      , optional := [ "month", "year", "key" ]
+      ]
+    ];
+
+  RECORD relevantchecks := SELECT * FROM fields WHERE type = ToLowerCase(bibtex.type);
+  IF(NOT RecordExists(relevantchecks))
+  {
+    RETURN [ result := "Unable to validate the given BiBTeX: It is of illegal or unknown type '" || bibtex.type || "'!" ];
+    THROW NEW Exception("Unable to validate the given BiBTeX: It is of illegal or unknown type '" || bibtex.type || "'!");
+  }
+
+  RECORD output :=
+    [ missingfields := DEFAULT STRING ARRAY
+    , extraneousfields := DEFAULT STRING ARRAY
+    ];
+
+  RECORD ARRAY allfields := SELECT name FROM UnpackRecord(bibtex.asrecord);
+  /// Check for any missing fields:
+  FOREVERY(STRING req FROM relevantchecks.required)
+  {
+    IF(req LIKE "*|*")
+    {
+      /// Check in either/or mode
+      STRING ARRAY exclusive := Tokenize(req, "|");
+      BOOLEAN seenone;
+      FOREVERY(STRING fld FROM exclusive)
+      {
+        IF(CellExists(bibtex.asrecord, ToUpperCase(fld)))
+        {
+          IF(NOT seenone)
+            seenone := TRUE;
+          ELSE
+            INSERT fld INTO output.extraneousfields AT END;
+        }
+        DELETE FROM allfields WHERE name = fld;
+      }
+      IF(NOT seenone)
+        INSERT Substitute(req, "|", " or ") INTO output.missingfields AT END;
+    }
+    ELSE
+    {
+      IF(NOT CellExists(bibtex.asrecord, ToUpperCase(req)))
+        INSERT req INTO output.missingfields AT END;
+
+      DELETE FROM allfields WHERE name = req;
+    }
+  }
+  /// Check for any extraneous fields:
+  FOREVERY(STRING opt FROM relevantchecks.optional)
+  {
+    IF(opt LIKE "*|*")
+    {
+      /// Check in either/or mode
+      STRING ARRAY exclusive := Tokenize(opt, "|");
+      BOOLEAN seenone;
+      FOREVERY(STRING fld FROM exclusive)
+      {
+        IF(CellExists(bibtex.asrecord, ToUpperCase(fld)))
+        {
+          IF(NOT seenone)
+          {
+            seenone := TRUE;
+            DELETE FROM allfields WHERE name = fld;
+          }
+          ELSE
+            INSERT fld INTO output.extraneousfields AT END;
+        }
+      }
+    }
+  }
+  output.extraneousfields := output.extraneousfields CONCAT SELECT AS STRING ARRAY name FROM allfields WHERE ToLowerCase(name) NOT IN relevantchecks.optional CONCAT relevantchecks.required;
+
+  IF(Length(output.missingfields) = 0 AND Length(output.extraneousfields) = 0)
+    RETURN DEFAULT RECORD;
+
+  RETURN output;
+}

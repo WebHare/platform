@@ -1,0 +1,584 @@
+<?wh
+
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+
+/** Contains initialization code for a WebHare PostgreSQL database
+*/
+
+PUBLIC MACRO BootstrapPostgreSQL(OBJECT trans)
+{
+  EnsureBlobTable(trans);
+  EnsureStoredProcedures(trans);
+}
+
+MACRO EnsureBlobTable(OBJECT trans)
+{
+  // Ensure the blob type exists
+  IF (NOT RecordExists(trans->__ExecSQL(`
+    SELECT t.oid, t.typname
+      FROM pg_catalog.pg_type t
+           JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
+           JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
+     WHERE nspname = 'public' AND t.typname = 'webhare_blob' AND proname = 'record_in'`)))
+  {
+    trans->BeginWork();
+    trans->__ExecSQL(`CREATE TYPE webhare_blob AS (id text, size int8)`);
+    trans->CommitWork();
+
+    // Rescan types for the blob type
+    trans->__ExecSQL(`__internal:scantypes`);
+  }
+
+  IF (NOT trans->ColumnExists("webhare_internal", "blob", "id"))
+  {
+    trans->BeginWork();
+    IF (NOT trans->SchemaExists("webhare_internal"))
+      trans->CreateSchema("webhare_internal", "", "");
+
+    __LegacyCreateTable(trans, "webhare_internal", "blob",
+       [ primarykey :=  "id"
+       , cols :=        [ [ column_name := "id", data_type := "BLOB" ]
+                        ]
+       ]);
+    trans->CommitWork();
+  }
+}
+
+MACRO EnsureStoredProcedures(OBJECT trans)
+{
+  /* Stored procedures
+
+     The parameter lists for most of these have been hard-coded into the
+     hsvm_pgsqlprovider.cpp file, so make sure they are in sync.
+
+     You can use following statement for debugging:
+       RAISE NOTICE 'text % %', var1, var2;
+  */
+
+  RECORD ARRAY stored_procedures :=
+      [ [ name :=   "webhare_proc_urlencode"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_urlencode(in_str text) RETURNS text
+  STRICT IMMUTABLE LANGUAGE plpgsql AS $$
+DECLARE
+  _i      int4;
+  _temp   varchar;
+  _hex    varchar;
+  _ascii  int4;
+  _result varchar;
+BEGIN
+  IF in_str ~ '^[0-9a-zA-Z()._$!/-]*$' THEN
+    RETURN in_str;
+  END IF;
+  _result = '';
+  FOR _i IN 1 .. length(in_str) LOOP
+    _temp := substr(in_str, _i, 1);
+    IF _temp ~ '[0-9a-zA-Z()._$!/-]+' THEN
+      _result := _result || _temp;
+    ELSE
+      _hex := encode(convert_to(_temp, 'UTF8'), 'hex');
+      _temp := '';
+      WHILE LENGTH(_hex) > 0 LOOP
+          _temp := _temp || '%' || SUBSTRING(_hex, 1, 2);
+          _hex := SUBSTRING(_hex, 3, 999);
+      END LOOP;
+      _result := _result || upper(_temp);
+    END IF;
+  END LOOP;
+  RETURN _result;
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_foldercontainssite"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_foldercontainssite(_id int4) RETURNS boolean
+    LANGUAGE plpgsql AS $$
+DECLARE
+  _highestparent int4;
+  _outputweb int4;
+  _outputfolder varchar;
+BEGIN
+  _highestparent = webhare_proc_fs_objects_highestparent(_id);
+  IF _highestparent = 0 THEN
+    RETURN false;
+  END IF;
+
+  SELECT outputweb, outputfolder
+    INTO _outputweb, _outputfolder
+    FROM system.sites
+   WHERE id = _highestparent;
+
+  IF _outputweb IS NULL THEN
+    RETURN false;
+  END IF;
+
+  /* strip the final slash, append the folder fullpath */
+  _outputfolder := regexp_replace(_outputfolder, '/*$', '');
+  _outputfolder := _outputfolder || webhare_proc_fs_objects_fullpath(_id, true);
+
+  SELECT id
+    INTO _id
+    FROM system.sites
+   WHERE outputweb = _outputweb
+     AND id != _highestparent
+     AND substring(outputfolder for char_length(_outputfolder)) = _outputfolder;
+
+  RETURN _id IS NOT NULL;
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_folderurl"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_folderurl(_id int4) RETURNS varchar
+  STRICT IMMUTABLE LANGUAGE plpgsql AS $$
+
+DECLARE
+  _maxdepth int4;
+  _path varchar;
+  _name varchar;
+  _site int4;
+  _webroot varchar;
+BEGIN
+  _maxdepth := 20;
+  _path := '';
+  WHILE _id IS NOT NULL AND _maxdepth <> 0 LOOP
+    SELECT o.parent, o.name, s.id, webhare_proc_sites_webroot(s.outputweb, s.outputfolder) INTO _id, _name, _site, _webroot
+      FROM system.fs_objects o
+           LEFT OUTER JOIN system.sites s ON s.id = o.id
+     WHERE o.id = _id;
+    IF _site IS NOT NULL THEN
+      RETURN _webroot || webhare_proc_urlencode(_path);
+    ELSIF _id IS NULL THEN
+      RETURN '';
+    END IF;
+    _path := _name || '/' || _path;
+    _maxdepth := _maxdepth - 1;
+  END LOOP;
+  RETURN '';
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_isforeignfolder"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_isforeignfolder(_id int4, _path varchar) RETURNS boolean
+    LANGUAGE plpgsql AS $$
+DECLARE
+  _pathparts varchar[];
+  _pathpart varchar;
+  _type int4;
+BEGIN
+  _pathparts = regexp_split_to_array(_path, '/+');
+  FOREACH _pathpart IN ARRAY _pathparts LOOP
+    IF _pathpart <> '' THEN
+      SELECT id, type INTO _id, _type
+        FROM system.fs_objects
+       WHERE parent = _id
+         AND name = _pathpart;
+      IF _type = 1 THEN /* foreign folder */
+        RETURN true;
+      ELSIF _id IS NULL THEN
+        RETURN false;
+      END IF;
+    END IF;
+  END LOOP;
+  RETURN false;
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_ispublishpublished"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_ispublishpublished(_published int4) RETURNS boolean
+  STRICT IMMUTABLE LANGUAGE plpgsql AS $$
+DECLARE
+  _result boolean;
+BEGIN
+  IF (_published % 100000) <> 0 THEN
+    RETURN TRUE;
+  ELSIF (_published / 100000) % 2 = 1 THEN
+    RETURN TRUE;
+  END IF;
+  RETURN false;
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_isvalidwhfsname"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_isvalidwhfsname(name text) RETURNS boolean
+  STRICT IMMUTABLE LANGUAGE plpgsql AS $$
+BEGIN
+  IF name IS NULL OR name = '' THEN RETURN FALSE;
+    RETURN false;
+  ELSIF name ~ E'^[ !^]' THEN
+    RETURN false;
+  ELSIF name ~ E'[ .]$' THEN
+    RETURN false;
+  ELSIF name ~ E'[\\x01-\\x1F\\x7F:*/"<>|]' THEN
+    RETURN false;
+  ELSE
+    RETURN true;
+  END IF;
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_fs_objects_highestparent"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_highestparent(_id int4) RETURNS int4
+  STRICT STABLE LANGUAGE plpgsql AS $$
+DECLARE
+  _maxdepth int4;
+  _site int4;
+BEGIN
+  _maxdepth := 20;
+  WHILE _id IS NOT NULL AND _maxdepth <> 0 LOOP
+    SELECT o.parent, s.id INTO _id, _site
+      FROM system.fs_objects o
+           LEFT OUTER JOIN system.sites s ON s.id = o.id
+     WHERE o.id = _id;
+    IF _site IS NOT NULL THEN
+      RETURN _site;
+    END IF;
+    _maxdepth := _maxdepth - 1;
+  END LOOP;
+  RETURN 0;
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_fs_objects_fullpath"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_fullpath(_id int4, _isfolder boolean) RETURNS text
+  STRICT STABLE LANGUAGE plpgsql AS $$
+DECLARE
+  _maxdepth int4;
+  _path varchar;
+  _name varchar;
+  _site int4;
+BEGIN
+  _maxdepth := 20;
+  _path := '';
+  IF _isfolder THEN
+    _path := '/';
+  END IF;
+  WHILE _id IS NOT NULL AND _maxdepth <> 0 LOOP
+    SELECT o.parent, o.name, s.id INTO _id, _name, _site
+      FROM system.fs_objects o
+           LEFT OUTER JOIN system.sites s ON s.id = o.id
+     WHERE o.id = _id;
+
+    IF _site IS NOT NULL THEN
+      RETURN _path;
+    ELSIF _id IS NULL THEN
+      RETURN '';
+    END IF;
+    _path := '/' || _name || _path;
+    _maxdepth := _maxdepth - 1;
+  END LOOP;
+  RETURN '';
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_fs_objects_indexurl"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_indexurl(_id int4, _name varchar, _isfolder boolean, _parent int4, _published int4, _type int4, _externallink varchar, _filelink int4, _indexdoc int4) RETURNS text
+  STABLE LANGUAGE plpgsql AS $$
+DECLARE
+  _maxdepth int4;
+BEGIN
+  IF NOT _isfolder THEN
+    IF webhare_proc_ispublishpublished(_published) THEN
+      RETURN webhare_proc_fs_objects_url(_id, _name, _isfolder, _parent, _published, _type, _externallink, _filelink);
+    END IF;
+    RETURN '';
+  END IF;
+
+  IF _type = 1 THEN /* Foreign folder */
+    RETURN webhare_proc_fs_objects_url(_id, _name, _isfolder, _parent, _published, _type, _externallink, _filelink);
+  END IF;
+
+  IF _indexdoc IS NULL THEN
+    RETURN '';
+  END IF;
+
+  /* return the url of the indexdoc (reuse the parameters */
+  SELECT i.name, i.isfolder, i.parent, i.published, i.type, i.externallink, i.filelink
+    INTO _name, _isfolder, _parent, _published, _type, _externallink, _filelink
+    FROM system.fs_objects i
+   WHERE i.id = _indexdoc;
+
+  IF webhare_proc_ispublishpublished(_published) THEN
+    RETURN webhare_proc_fs_objects_url(_indexdoc, _name, _isfolder, _parent, _published, _type, _externallink, _filelink);
+  END IF;
+  RETURN '';
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_fs_objects_isactive"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_isactive(_id int4) RETURNS boolean
+  STRICT STABLE LANGUAGE plpgsql AS $$
+DECLARE
+  _maxdepth int4;
+BEGIN
+  _maxdepth := 20;
+  WHILE _id IS NOT NULL AND _maxdepth <> 0 LOOP
+    IF _id = 10 THEN
+      RETURN FALSE;
+    END IF;
+    SELECT o.parent INTO _id
+      FROM system.fs_objects o
+     WHERE o.id = _id;
+    IF _id IS NULL THEN
+      RETURN TRUE;
+    END IF;
+    _maxdepth := _maxdepth - 1;
+  END LOOP;
+  RETURN TRUE;
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_fs_objects_publish"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_publish(_isfolder boolean, _published int4) RETURNS boolean
+    STRICT STABLE LANGUAGE plpgsql AS $$
+BEGIN
+  IF _isfolder = TRUE THEN
+    RETURN TRUE;
+  ELSE
+    RETURN webhare_proc_ispublishpublished(_published);
+  END IF;
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_fs_objects_url"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_url(_id int4, _name varchar, _isfolder boolean, _parent int4, _published int4, _type int4, _externallink varchar, _filelink int4) RETURNS text
+  STABLE LANGUAGE plpgsql AS $$
+DECLARE
+  _link_type int4;
+  _link_externallink varchar;
+  _isindexdoc bool;
+  _folderurl varchar;
+  _ispublishedassubdir boolean;
+BEGIN
+  IF _isfolder THEN
+    RETURN webhare_proc_folderurl(_id);
+  END IF;
+
+  IF _type = 18 THEN /* external link */
+    /* Just return the external link */
+    RETURN _externallink;
+  END IF;
+
+  IF _type = 19 /* internal link */ THEN
+    /* Look up the linked-to file */
+    SELECT l.id, l.name, l.isfolder, l.parent, l.published, l.type, l.externallink, l.filelink
+      INTO _id, _name, _isfolder, _parent, _published, _link_type, _link_externallink, _filelink
+      FROM  system.fs_objects l
+     WHERE l.id = _filelink;
+
+    /* Check destination type (avoid circulair links) */
+    IF _id IS NULL OR (_link_type IS NOT NULL AND _link_type = 19) THEN
+      RETURN '';
+    END IF;
+
+    _folderurl := webhare_proc_fs_objects_url(_id, _name, _isfolder, _parent, _published, _link_type, _link_externallink, _filelink);
+
+    /* Only allow appends starting with '#', '?' or '!' because externallink field was never cleared
+       when changing type, so garbage still lingers there */
+    IF _externallink ~ '^[#?!]' THEN
+      RETURN _folderurl || _externallink;
+    ELSE
+      RETURN _folderurl;
+    END IF;
+  END IF;
+
+  IF _type = 20 /* content link */ THEN
+    /* Look up the linked-to file */
+    SELECT l.type, l.externallink INTO _link_type, _link_externallink
+      FROM system.fs_objects l
+     WHERE l.id = _filelink;
+
+    IF _link_externallink IS NULL OR (_link_type IS NOT NULL AND _link_type = 19) THEN
+      RETURN '';
+    END IF;
+    _type = _link_type;
+  END IF;
+
+  SELECT p.indexdoc = _id, webhare_proc_folderurl(p.id) INTO _isindexdoc, _folderurl
+    FROM system.fs_objects p
+   WHERE p.id = _parent;
+
+  /* parent folder found and has an url? */
+  IF _folderurl IS NULL OR _folderurl = '' THEN
+    RETURN '';
+  END IF;
+
+  IF _isindexdoc THEN
+    RETURN _folderurl;
+  END IF;
+
+  SELECT t.ispublishedassubdir INTO _ispublishedassubdir
+    FROM system.fs_types t
+   WHERE t.id = _type;
+
+  IF (_published / 1600000) % 2 = 1 THEN /* PublisherStripExtension */
+    _name := regexp_replace(_name, '\.[^.]*$', '');
+  END IF;
+
+  _folderurl := _folderurl || webhare_proc_urlencode(_name);
+
+  IF _ispublishedassubdir THEN
+    _folderurl := _folderurl || '/';
+  END IF;
+
+  RETURN _folderurl;
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_fs_objects_whfspath"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_whfspath(_id int4, _isfolder boolean) RETURNS text
+  STRICT STABLE LANGUAGE plpgsql AS $$
+DECLARE
+  _maxdepth int4;
+  _path varchar;
+  _name varchar;
+BEGIN
+  _maxdepth := 20;
+  _path := '';
+  IF _isfolder THEN
+    _path := '/';
+  END IF;
+  WHILE _id IS NOT NULL AND _maxdepth <> 0 LOOP
+    SELECT o.parent, o.name INTO _id, _name
+      FROM system.fs_objects o
+     WHERE o.id = _id;
+    _path := '/' || _name || _path;
+    IF _id IS NULL THEN
+      RETURN _path;
+    END IF;
+    _maxdepth := _maxdepth - 1;
+  END LOOP;
+  RETURN '';
+END;$$`
+        ]
+
+      , [ name :=   "webhare_proc_sites_webroot"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_sites_webroot(_outputweb int4, _outputfolder text) RETURNS text
+    STRICT STABLE LANGUAGE plpgsql AS $$
+DECLARE
+  _baseurl   varchar;
+BEGIN
+  SELECT baseurl INTO _baseurl
+    FROM system.webservers
+   WHERE id = _outputweb;
+
+  IF substr(_baseurl, length(_baseurl), 1) = '/' THEN
+    _baseurl := substr(_baseurl, 1, length(_baseurl) - 1);
+  END IF;
+
+  IF substr(_outputfolder, 1, 1) <> '/' THEN
+    _baseurl := _baseurl || '/';
+  END IF;
+
+  _baseurl := _baseurl || webhare_proc_urlencode(_outputfolder);
+  IF substr(_baseurl, length(_baseurl), 1) <> '/' THEN
+    _baseurl := _baseurl || '/';
+  END IF;
+  RETURN _baseurl;
+END;$$`
+        ]
+      , [ name :=   "webhare_trigger_system_fs_objects_writeaccess"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_trigger_system_fs_objects_writeaccess() RETURNS trigger
+    LANGUAGE plpgsql AS $$
+DECLARE
+  _parenttype int4;
+  _issite bool;
+BEGIN
+  IF tg_op = 'DELETE' THEN
+    IF old.isfolder AND webhare_proc_foldercontainssite(old.id) THEN
+      RAISE EXCEPTION 'Cannot delete a folder containing a site';
+    END IF;
+    RETURN old; /* Must return 'old' in delete triggers */
+  END IF;
+
+  IF NOT webhare_proc_isvalidwhfsname(new.name) THEN
+    RAISE EXCEPTION 'Invalid file/folder name "%"', quote_literal(new.name);
+  END IF;
+
+  SELECT type INTO _parenttype
+    FROM system.fs_objects
+   WHERE id = new.parent;
+
+  IF _parenttype = 1 THEN
+    RAISE EXCEPTION 'Cannot create objects inside foreign folders';
+  END IF;
+
+  IF webhare_proc_fs_objects_whfspath(new.id, new.isfolder) = '' THEN
+    RAISE EXCEPTION 'folders too deep';
+  END IF;
+
+  IF tg_op = 'UPDATE' AND new.isfolder THEN
+    SELECT true INTO _issite
+      FROM system.sites
+     WHERE id = new.id;
+
+    IF _issite IS NULL
+        AND (old.name <> new.name OR old.parent IS DISTINCT FROM new.parent)
+        AND webhare_proc_foldercontainssite(new.id) THEN
+      RAISE EXCEPTION 'Cannot rename or move a folder containing a site';
+    END IF;
+  END IF;
+
+  RETURN new; /* return 'new' to accept. */
+END;$$`
+        ]
+      , [ name :=   "webhare_trigger_system_sites_writeaccess"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_trigger_system_sites_writeaccess() RETURNS trigger
+    LANGUAGE plpgsql AS $$
+DECLARE
+  _site record;
+BEGIN
+  IF tg_op = 'DELETE' THEN
+    RETURN old; /* Must return 'old' in delete triggers */
+  END IF;
+
+  IF tg_op = 'INSERT' OR old.outputfolder <> new.outputfolder THEN
+    IF new.outputweb IS NOT NULL THEN
+      IF new.outputfolder NOT LIKE '/%' OR new.outputfolder NOT LIKE '%/' THEN
+        RAISE EXCEPTION 'Site output folder must start and end with a slash';
+      END IF;
+      IF regexp_match(new.outputfolder, '/\\.*/') IS NOT NULL THEN /* no //, no /./, no /../ */
+        RAISE EXCEPTION 'Site output folder may not contain redundant parts';
+      END IF;
+    END IF;
+  END IF;
+
+  IF tg_op = 'INSERT' OR old.outputfolder <> new.outputfolder OR old.outputweb IS DISTINCT FROM new.outputweb THEN
+    IF new.outputweb IS NOT NULL THEN
+      FOR _site IN SELECT id, name, outputfolder FROM system.sites WHERE outputweb = new.outputweb AND id <> new.id LOOP
+        IF substring(new.outputfolder for char_length(_site.outputfolder)) = _site.outputfolder THEN
+          IF new.outputfolder = _site.outputfolder THEN
+            RAISE EXCEPTION 'Site shares output folder with site "%"', _site.name;
+          END IF;
+          IF NOT webhare_proc_isforeignfolder(_site.id, substring(new.outputfolder from char_length(_site.outputfolder) + 1)) THEN
+            RAISE EXCEPTION 'Site must be placed on top of a foreign folder in site "%"', _site.name;
+          END IF;
+        END IF;
+      END LOOP;
+    END IF;
+  END IF;
+
+  RETURN new; /* return 'new' to accept. */
+END;$$`
+        ]
+      ];
+
+  trans->BeginWork();
+  FOREVERY (RECORD rec FROM stored_procedures)
+  {
+    TRY
+    {
+      trans->__ExecSQL(`SAVEPOINT sp`);
+      trans->__ExecSQL(rec.code);
+    }
+    CATCH (OBJECT e)
+    {
+      trans->__ExecSQL(`ROLLBACK TO SAVEPOINT sp`);
+      trans->__ExecSQL(`DROP FUNCTION ${rec.name} CASCADE`); // triggers will be recreated later
+      trans->__ExecSQL(rec.code);
+    }
+  }
+  trans->CommitWork();
+}

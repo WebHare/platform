@@ -1,0 +1,263 @@
+﻿<?wh
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+TABLE <INTEGER id, INTEGER a> beta_table1;
+TABLE <INTEGER id, INTEGER a, INTEGER b> beta_table2;
+TABLE <INTEGER id, INTEGER refc> beta_table3;
+TABLE <INTEGER id, INTEGER refa, INTEGER refb> beta_table4;
+INTEGER testsequencenumber := 0;
+INTEGER runonly := 0;
+
+SetOutputBuffering(FALSE);
+
+BOOLEAN FUNCTION RunTest(STRING testname)
+{
+  testsequencenumber := testsequencenumber + 1;
+  IF (runonly != 0 AND testsequencenumber != runonly)
+    RETURN false;
+
+  PRINT("Running test " || testsequencenumber || ": " || testname || "\n");
+  RETURN true;
+}
+
+MACRO WaitForIndex(INTEGER transid)
+{
+  SendWHDBCommand(transid,"WAIT INDEX");
+}
+
+INTEGER FUNCTION OpenTestTrans(STRING name DEFAULTSTO "")
+{
+  INTEGER tr := __avoiddepwarning_StartWHDBTransaction([user:="~webhare", passwd:="", auto:=false, clientname := name]);
+  SetPrimaryWebhareTransaction(tr);
+
+  beta_table1 := BindTransactionToTable(tr,"beta_dbtests.table1");
+  beta_table2 := BindTransactionToTable(tr,"beta_dbtests.table2");
+  beta_table3 := BindTransactionToTable(tr,"beta_dbtests.table3");
+  beta_table4 := BindTransactionToTable(tr,"beta_dbtests.table4");
+  RETURN tr;
+}
+
+MACRO TestCommitSuccess(INTEGER transid)
+{
+  RECORD ARRAY errors := CommitWHDBTransaction(transid);
+  IF(Length(errors)>0)
+  {
+    FOREVERY(RECORD err FROM errors)
+    {
+      PRINT(err.message||"\n");
+    }
+    ABORT("Unexpected commit errors");
+  }
+}
+
+MACRO TestCommitFailure(INTEGER transid)
+{
+  IF(Length(CommitWHDBTransaction(transid))=0)
+    ABORT("Unexpected commit success");
+}
+
+INTEGER FUNCTION OpenTestAutoTrans()
+{
+  INTEGER tr :=__avoiddepwarning_StartWHDBTransaction([user:="~webhare", passwd:="", auto:=true]);
+  __BindWHDBMetaTables(tr);
+  beta_table1 := BindTransactionToTable(tr,"beta_dbtests.table1");
+  beta_table2 := BindTransactionToTable(tr,"beta_dbtests.table2");
+  beta_table3 := BindTransactionToTable(tr,"beta_dbtests.table3");
+  beta_table4 := BindTransactionToTable(tr,"beta_dbtests.table4");
+  RETURN tr;
+}
+
+MACRO TestWorkCommitSuccess(INTEGER transid)
+{
+  RECORD ARRAY errors := CommitWHDBWork(transid);
+  IF(Length(errors)>0)
+  {
+    FOREVERY(RECORD err FROM errors)
+    {
+      PRINT(err.message||"\n");
+    }
+    ABORT("Unexpected commit errors");
+  }
+}
+
+MACRO TestWorkCommitFailure(INTEGER transid)
+{
+  IF(Length(CommitWHDBWork(transid))=0)
+    ABORT("Unexpected commit success");
+}
+
+
+STRING ARRAY args := GetConsoleArguments();
+IF (Length(args)=1)
+  runonly := ToInteger(args[0],-1);
+
+INTEGER test_fp_trans ;
+
+//First create the tables
+test_fp_trans := OpenTestTrans();
+
+IF(RecordExists(SELECT FROM information_schema.schemata WHERE schema_name="BETA_DBTESTS"))
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA BETA_DBTESTS");
+ELSE IF(RecordExists(SELECT FROM information_schema.tables WHERE table_schema="BETA_DBTESTS"))
+  ABORT("Can't get rid of the BETA_DBTESTS schema!");
+
+SendWHDBCommand(test_fp_trans,"CREATE SCHEMA beta_dbtests AUTHORIZATION _system"); // Needed for TABLE columns
+TestCommitSuccess(test_fp_trans);
+
+IF (RunTest("Column unique checks ignoring nulls"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table1(id INTEGER AUTONUMBER 1 PRIMARY KEY, a INTEGER UNIQUE)");
+  TestCommitSuccess(test_fp_trans);
+
+  //Try to create table1 again (should fail, dupe)
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table1(id, a) VALUES (1, 1);
+  INSERT INTO beta_table1(id, a) VALUES (2, 2);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table1(id, a) VALUES (3, 1);
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table1(id, a) VALUES (4, 0);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table1(id, a) VALUES (5, 0);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  TestEQ([ 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table1 WHERE a = 0 ORDER BY id);
+  TestEQ([ 1, 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table1 WHERE a IN [ 0, 1 ] ORDER BY id);
+  TestEQ([ 1, 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table1 WHERE a < 2 ORDER BY id);
+  TestEQ([ 1, 2 ], SELECT AS INTEGER ARRAY id FROM beta_table1 WHERE a >= 1 ORDER BY id);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Unique index unique checks ignoring nulls"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table2(id INTEGER AUTONUMBER 1 PRIMARY KEY, a INTEGER, b INTEGER)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE UNIQUE INDEX test ON beta_dbtests.table2(b, a)");
+  TestCommitSuccess(test_fp_trans);
+
+  //Try to create table1 again (should fail, dupe)
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table2(id, a, b) VALUES (1, 1, 1);
+  INSERT INTO beta_table2(id, a, b) VALUES (2, 2, 1);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table2(id, a, b) VALUES (3, 1, 1);
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table2(id, a, b) VALUES (3, 1, 0);
+  INSERT INTO beta_table2(id, a, b) VALUES (4, 0, 1);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table2(id, a, b) VALUES (5, 0, 1);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  TestEQ([ 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a = 0 ORDER BY id);
+  TestEQ([ 1, 3, 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a IN [ 0, 1 ] ORDER BY id);
+  TestEQ([ 1, 3, 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a < 2 ORDER BY id);
+  TestEQ([ 1, 2, 3 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a >= 1 ORDER BY id);
+  TestEQ([ 1 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a = 1 AND b = 1 ORDER BY id);
+  TestEQ([ 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a = 0 AND b = 1 ORDER BY id);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table2");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Index not storing nulls"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_dbtests.table2(id INTEGER AUTONUMBER 1 PRIMARY KEY, a INTEGER, b INTEGER)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE NONULLSTORES UNIQUE INDEX test ON beta_dbtests.table2(b, a)");
+  TestCommitSuccess(test_fp_trans);
+/*
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"WAIT INDEX");
+  PRINT(AnyToString(SendWHDBCommand(test_fp_trans,"SHOW INDICES"), "boxed"));
+  TestCommitSuccess(test_fp_trans);
+*/
+//  PRINT("Enter to start> ");
+//  ReadLineFrom(0, 4096, FALSE);
+
+  //Try to create table1 again (should fail, dupe)
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table2(id, a, b) VALUES (1, 1, 1);
+  INSERT INTO beta_table2(id, a, b) VALUES (2, 2, 1);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table2(id, a, b) VALUES (3, 1, 1);
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table2(id, a, b) VALUES (3, 1, 0);
+  INSERT INTO beta_table2(id, a, b) VALUES (4, 0, 1);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  INSERT INTO beta_table2(id, a, b) VALUES (5, 0, 1);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+
+  TestEQ([ 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a = 0 ORDER BY id);
+  TestEQ([ 1, 3, 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a IN [ 0, 1 ] ORDER BY id);
+  TestEQ([ 1, 3, 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a < 2 ORDER BY id);
+  TestEQ([ 1, 2, 3 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a >= 1 ORDER BY id);
+  TestEQ([ 1 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a = 1 AND b = 1 ORDER BY id);
+  TestEQ([ 2 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a = 2 AND b = 1 ORDER BY id);
+  TestEQ([ 4, 5 ], SELECT AS INTEGER ARRAY id FROM beta_table2 WHERE a = 0 AND b = 1 ORDER BY id);
+
+  TestEQ([ "1-1", "2-2", "3-3", "4-4", "4-5", "5-4", "5-5" ],
+      SELECT AS STRING ARRAY t1.id || "-" || t2.id
+        FROM beta_table2 AS t1
+           , beta_table2 AS t2
+       WHERE t1.a = t2.a
+         AND t1.b = t2.b
+    ORDER BY t1.id, t2.id);
+
+  TestEQ([ "1-1", "2-2" ],
+      SELECT AS STRING ARRAY t1.id || "-" || t2.id
+        FROM beta_table2 AS t1
+           , beta_table2 AS t2
+       WHERE t1.a = t2.a
+         AND t1.b = t2.b
+         AND t1.a != 0
+         AND t2.b != 0
+    ORDER BY t1.id, t2.id);
+
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_dbtests.table2");
+  TestCommitSuccess(test_fp_trans);
+}
+
+test_fp_trans := OpenTestTrans();
+SendWHDBCommand(test_fp_trans,"DROP SCHEMA BETA_DBTESTS");
+TestCommitSuccess(test_fp_trans);

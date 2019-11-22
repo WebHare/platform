@@ -1,0 +1,37 @@
+<?wh
+LOADLIB "mod::socialite/lib/internal/feeds.whlib";
+
+/** @param searchcriterium User name
+    @return A record array containing for example:
+
+     +LASTUPDATE: 2015-12-19 (353) 12:40:49.964
+     +BASEINFO: DEFAULT RECORD
+     +ENTRIES: RECORD ARRAY
+      +RECORD
+       +CAPTION: 'Na drie topdagen vandaag de finale! Het wordt een knallende afsluiting van het Volksfeesten weekend! Hopelijk zijn jullie beentjes nog niet moe? Vanavond staan The dirty Daddies op het podium!'
+       +CREATED: 2015-05-25 (145) 09:55:28.000
+       +IMAGEURL: 'https://scontent.cdninstagram.com/hphotos-xta1/t51.2885-15/e15/11357576_904931929530141_1202585262_n.jpg'
+       +LINK: 'https://www.instagram.com/p/3GcMIyMI1h/'
+       +MESSAGEID: '992604747249782113_1609563106'
+       +NR_COMMENTS: 0
+       +NR_LIKES: 24
+       +IMAGES: RECORD
+        +LOW_RESOLUTION: RECORD
+         +HEIGHT: 320
+         +URL: 'https://scontent.cdninstagram.com/hphotos-xta1/t51.2885-15/s320x320/e15/11357576_904931929530141_1202585262_n.jpg'
+         +WIDTH: 320
+        +STANDARD_RESOLUTION: RECORD
+         +HEIGHT: 640
+         +URL: 'https://scontent.cdninstagram.com/hphotos-xta1/t51.2885-15/e15/11357576_904931929530141_1202585262_n.jpg'
+         +WIDTH: 640
+        +THUMBNAIL: RECORD
+         +HEIGHT: 150
+         +URL: 'https://scontent.cdninstagram.com/hphotos-xta1/t51.2885-15/s150x150/e15/11357576_904931929530141_1202585262_n.jpg'
+         +WIDTH: 150
+
+    Also returns a 'DATA' cell containing the original Instagram data.
+*/
+PUBLIC RECORD FUNCTION GetInstagramPhotoFeed(STRING sessionname, STRING searchcriterium, INTEGER maxnum)
+{
+  RETURN RequestFeed("SOCIALITE_FEEDS", "INSTAGRAM", sessionname, "user:" || searchcriterium, maxnum, FALSE);
+}

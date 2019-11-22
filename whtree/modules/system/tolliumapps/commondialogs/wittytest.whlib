@@ -1,0 +1,234 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/printer.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/networking/adhocserver.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+RECORD FUNCTION LookupRelativeResource(STRING basepath, STRING inpath)
+{
+  IF (inpath = "")
+    RETURN DEFAULT RECORD;
+
+  IF (IsAbsoluteResourcePath(inpath))
+    RETURN RetrieveWebHareResource(inpath, [ allowmissing := TRUE ]);
+
+  RETURN RetrieveWebHareResource(MakeAbsoluteResourcePath(basepath,inpath), [ allowmissing := TRUE ]);
+}
+
+PUBLIC RECORD FUNCTION __AsyncGeneratePDF(STRING wittypath, STRING htmldata, BLOB background)
+{
+  RECORD result := GeneratePDF( [ contents := htmldata ], [ filename := wittypath
+                                                          , wittypath := "inline::[contents:none]"
+                                                          , printbackground := Length(background) = 0
+                                                          , lookupresource := PTR LookupRelativeResource(wittypath, #1)
+                                                          ]);
+  IF(Length(background) > 0)
+    result.data := ApplyOverlayToPDF(result.data, background);
+  RETURN result;
+}
+
+PUBLIC STATIC OBJECTTYPE WittyTest EXTEND TolliumScreenBase
+<
+  RECORD options;
+  OBJECT witty;
+  OBJECT loadexception;
+  OBJECT server;
+  RECORD ARRAY embedded_files;
+
+  MACRO Init(RECORD data)
+  {
+    this->options := data.options;
+    ^pdf->visible := this->options.pdf;
+    ^value->value := data.data;
+    ^wittypath->value := data.wittypath;
+    ^wittylistener->masks := GetResourceEventMasks(STRING[data.wittypath]);
+
+    this->ReloadWitty();
+  }
+
+  MACRO CloseServer()
+  {
+    IF (ObjectExists(this->server))
+    {
+      this->server->Close();
+      this->server := DEFAULT OBJECT;
+    }
+  }
+
+  MACRO GotUnload()
+  {
+    this->CloseServer();
+  }
+
+  STRING FUNCTION RewriteHTMLImage(STRING href)
+  {
+    STRING saved_inhref := href;
+
+    //Do not try to rewrite: empty hrefs, relative hrefs, schemes (but filter resources), cid:*s (RTD) or // urls
+    IF(href="" OR Left(href,1) IN ['#','?','!'] OR (href LIKE "*:*" AND href NOT LIKE "cid:*" AND href NOT LIKE "*::*") OR href LIKE "//*")
+      RETURN href; //let these be.
+
+    RECORD already_embedded := SELECT * FROM this->embedded_files WHERE ToUppercase(embedded_files.filename) = ToUppercase(href);
+    IF(RecordExists(already_embedded))
+      RETURN already_embedded.href;
+
+    RECORD embedded_obj := LookupRelativeResource(^wittypath->value, href);
+    IF (NOT RecordExists(embedded_obj) OR Length(embedded_obj.data) = 0) //ADDME support embedding 0 byte files? but if they're always images, no real usecase
+      RETURN saved_inhref;
+
+    RECORD filetype := ScanBlob(embedded_obj.data, href);
+    STRING newhref := this->DoAddEmbeddedObject(embedded_obj.data, filetype.mimetype, href, FALSE);
+    RETURN newhref;
+  }
+
+  UPDATE STRING FUNCTION DoAddEmbeddedObject(BLOB data, STRING mimetype, STRING filename, BOOLEAN external)
+  {
+    STRING outname := `embedded${Length(this->embedded_files)+1}${GetExtensionFromPath(filename)}`;
+    INSERT INTO this->embedded_files(contenttype, data, filename, external, href)
+           VALUES(mimetype, data, filename, external, outname)
+           AT END;
+    RETURN outname;
+  }
+
+  RECORD ARRAY FUNCTION GetFileList(BLOB htmldata)
+  {
+    RECORD ARRAY filelist;
+
+    filelist := [ [ path := "/.contents"
+                  , headers :=
+                      [ [ field := "Content-Type", value := "text/html" ] ]
+                  , data := htmldata
+                  ]
+                ];
+
+    filelist := filelist CONCAT
+          (SELECT path := "/" || href
+                , headers :=
+                    [ [ field := "Content-Type", value := contenttype ] ]
+                , COLUMN data
+             FROM this->embedded_files);
+
+    RETURN filelist;
+  }
+
+
+  MACRO ReloadWitty()
+  {
+    TRY
+    {
+      this->witty := LoadWittyLibrary(^wittypath->value, "HTML");
+      this->loadexception := DEFAULT OBJECT;
+    }
+    CATCH(OBJECT e)
+    {
+      this->loadexception := e;
+    }
+    this->UpdateHTML();
+  }
+
+  MACRO UpdateHTML()
+  {
+    TRY
+    {
+      IF(ObjectExists(this->loadexception))
+        THROW this->loadexception;
+
+      this->CloseServer();
+
+      //ADDME cache witty and explicitly invalidate by event mask
+      STRING finalversion := this->witty->RunToString(^value->value);
+      ^htmlsource->value := finalversion;
+
+      OBJECT htmldoc := MakeXMLDocumentFromHTML(StringToBlob(finalversion), "UTF-8");
+      OBJECT rewriter := NEW HtmlRewriterContext;
+
+      rewriter->RewriteEmbeddedLinks(htmldoc, PTR this->RewriteHTMLImage);//FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+
+      RECORD ARRAY filelist := this->GetFileList(rewriter->GenerateHTML(htmldoc));
+
+      this->server := NEW AdHocServer(/*[ logdebug := TRUE ]*/);
+      this->server->PrecacheFiles(filelist);
+
+      ^htmlframe->src := this->server->baseurl || "/.contents";
+
+      IF(this->options.pdf)
+        this->GeneratePDF(finalversion);
+    }
+    CATCH (OBJECT e)
+    {
+      ^htmlframe->value := EncodeHTML(e->what);
+      IF (ObjectExists(this->server))
+      {
+        this->server->Close();
+        this->server := DEFAULT OBJECT;
+      }
+    }
+  }
+
+  ASYNC MACRO GeneratePDF(STRING finalversion)
+  {
+    TRY
+    {
+      RECORD file := AWAIT AsyncCallFunctionFromJob(Resolve("#__AsyncGeneratePDF"), ^wittypath->value, finalversion, this->options.pdfbackground);
+      ^pdfframe->SetFile(file);
+      ^pdflog->value := "";
+    }
+    CATCH(OBJECT e)
+    {
+      ^pdfframe->SetFile(DEFAULT RECORD);
+      ^pdflog->value := e->what;
+    }
+  }
+
+  MACRO OnWittyUpdate(RECORD ARRAY data)
+  {
+    this->ReloadWitty();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EmailTest EXTEND TolliumScreenBase
+<
+  RECORD options;
+  OBJECT email;
+  OBJECT loadexception;
+
+  MACRO Init(RECORD data)
+  {
+    this->options := data.options;
+    this->email := data.email;
+    ^value->value := data.email->mergerecord;
+    ^wittypath->value := this->email->mailtemplatepath;
+    this->ReloadEmail();
+  }
+
+  MACRO ReloadEmail()
+  {
+    TRY
+    {
+      ^email->LoadEML(this->email->ExportAsEML());
+      this->loadexception := DEFAULT OBJECT;
+
+      //TODO prepareemailwitty HTML-NIs so our source code isn't really correct - how to explain to programmer?
+      OBJECT htmldom := MakeXMLDocumentFromHTML(^email->htmlsource);
+      ^wittylistener->masks := this->email->GetEventMasks();
+      ^htmlsource->value := BlobToSTring(htmldom->GetDocumentBlob(TRUE));
+    }
+    CATCH(OBJECT e)
+    {
+      ^htmlsource->value := EncodeHTML(e->what);
+      this->loadexception := e;
+    }
+  }
+  MACRO OnWittyUpdate(RECORD ARRAY data)
+  {
+    this->ReloadEmail();
+  }
+>;

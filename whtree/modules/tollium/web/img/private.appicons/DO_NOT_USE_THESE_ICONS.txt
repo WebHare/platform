@@ -1,0 +1,8 @@
+DO NOT USE THESE ICONS
+
+These are temporarily placed here to ease icon generation, but have to be
+copied to their individual modules after an update. As soon as modulespecific
+SVG icon generation is in place, this directory will disappear.
+
+If an icon turns out to have generic usage, please update its destination
+in tolliumicons.xml

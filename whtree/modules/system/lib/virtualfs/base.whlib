@@ -1,0 +1,234 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+
+/** Exception thrown by virutal FS functions
+*/
+PUBLIC OBJECTTYPE VirtualFSException EXTEND Exception
+< /// Type of the exception
+  STRING basetype;
+
+  MACRO NEW(STRING basetype, STRING what)
+  : Exception(what)
+  {
+    this->basetype := basetype;
+  }
+
+  /// Whether this exception thrown because access was denied.
+  PUBLIC BOOLEAN FUNCTION IsAccessDenied()
+  {
+    RETURN this->basetype="XS";
+  }
+  /// The specified name is not valid for this filesystem
+  PUBLIC BOOLEAN FUNCTION IsBadName()
+  {
+    RETURN this->basetype="BADNAME";
+  }
+  /// Path does not exist or is invalid
+  PUBLIC BOOLEAN FUNCTION IsBadPath()
+  {
+    RETURN this->basetype="BADPATH";
+  }
+  /// Path already exists
+  PUBLIC BOOLEAN FUNCTION IsAlreadyExists()
+  {
+    RETURN this->basetype="ALREADYEXISTS";
+  }
+>;
+
+/** Base Virtual FS provider
+*/
+PUBLIC OBJECTTYPE VirtualFSBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Set to true if this virtualfs is case-sensitive
+  BOOLEAN casesensitive;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions to override
+  //
+
+  /** Retrieve the data of a file
+      @param filename Path to the file, starts with '/'
+  */
+  PUBLIC BLOB FUNCTION GetFile(STRING filename)
+  {
+    THROW NEW VirtualFSException("INTERNALERROR","GetFile Not implemented");
+  }
+
+  /** Place a new file
+      @param filename Path to the file, starts with '/'
+      @param data New data of the file
+      @param overwrite If FALSE, fail if the file already exists (throw an exception on failure)
+  */
+  PUBLIC MACRO PutFile(STRING filename, BLOB data, BOOLEAN overwrite)
+  {
+    THROW NEW VirtualFSException("INTERNALERROR","PutFile Not implemented");
+  }
+
+  /** Delete a file or directory (recursive)
+      @param filename Path to the file or directory to delete, starts with '/'
+  */
+  PUBLIC MACRO DeletePath(STRING filename)
+  {
+    THROW NEW VirtualFSException("INTERNALERROR","DeletePath Not implemented");
+  }
+
+  /** Copy a file or directory (recursive)
+      @param filename Path to the file or directory to delete, starts with '/'
+  */
+  PUBLIC MACRO Copy(STRING source_filename, STRING dest_filename, BOOLEAN overwrite)
+  {
+    THROW NEW VirtualFSException("INTERNALERROR","Copy Not implemented");
+  }
+
+  /** Move a file or directory (recursive) to another path
+      @param source_filename Path to the file or directory to move, starts with '/'
+      @param dest_filename Destination path, starts with '/'
+      @param overwrite If FALSE, fail if the file/directory already exists at the destination (throw an exception on failure)
+  */
+  PUBLIC MACRO Move(STRING source_filename, STRING dest_filename, BOOLEAN overwrite)
+  {
+    THROW NEW VirtualFSException("INTERNALERROR","Move Not implemented");
+  }
+
+  /** Create a new directory
+      @param filename Name of the directory to create, starts with '/'
+  */
+  PUBLIC MACRO MakeDir(STRING filename)
+  {
+    THROW NEW VirtualFSException("INTERNALERROR","MakeDir Not implemented");
+  }
+
+  /** Set the metadata of a file
+      @param filename Path to the file to update, starts with '/'
+      @param metadata Metadata (FIXME: specify!)
+  */
+  PUBLIC MACRO SetMetaData(STRING filename, RECORD metadata)
+  {
+    THROW NEW VirtualFSException("INTERNALERROR","SetMetaData Not implemented");
+  }
+
+  /** Lock a file
+      @param filename Path to the file to lock, starts with '/'
+  */
+  PUBLIC BOOLEAN FUNCTION Lock(STRING path)
+  {
+    THROW NEW VirtualFSException("INTERNALERROR","Lock Not implemented");
+  }
+
+  /** Verify whether a file is a valid directory
+      @param path Path to the directory to verify (starts with '/')
+      @return Returns TRUE if the directory exists
+  */
+  PUBLIC BOOLEAN FUNCTION IsValidDirectory(STRING path)
+  {
+    RECORD fi := this->GetPathInfo(path);
+    RETURN RecordExists(fi) AND fi.type=1;
+  }
+
+  /** Retrieve a directory listing
+      @param path Path to retrieve
+      @return Directory entries
+      @cell return.name Name of this entry
+      @cell return.read Whether this entry is readable
+      @cell return.write Whether this entry is writable
+      @cell return.type Type of the entry (0 is file, 1 is directory)
+      @cell return.modificationdate Modificationdate of the entry
+      @cell return.creationdate Creationdate of the entry
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetDirectoryListing(STRING path)
+  {
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  /** Returns a single directory entry
+      @param path Path to entry to return
+      @return Directory entry
+      @cell return.name Name of this entry
+      @cell return.read Whether this entry is readable
+      @cell return.write Whether this entry is writable
+      @cell return.type Type of the entry (0 is file, 1 is directory)
+      @cell return.modificationdate Modificationdate of the entry
+      @cell return.creationdate Creationdate of the entry
+  */
+  PUBLIC RECORD FUNCTION GetPathInfo(STRING path)
+  {
+    IF (path!="/" AND path LIKE "*/") //strip trailing slash if not root..
+      path:=Left(path,Length(path)-1);
+
+    STRING dir := GetDirectoryFromPath(path);
+    STRING name := Substring(path,Length(dir),Length(path));
+    RETURN SELECT * FROM this->GetDirectoryListing(dir)
+           WHERE this->casesensitive ? COLUMN name = VAR name : ToUppercase(COLUMN name)=ToUppercase(VAR name);
+  }
+>;
+
+/** Base Virtual FS provider with fake locking
+*/
+PUBLIC OBJECTTYPE VirtualFakeLockFSBase EXTEND VirtualFSBase
+<
+  UPDATE PUBLIC BOOLEAN FUNCTION Lock(STRING path)
+  {
+    //Fake lock behaviour: just return TRUE if the file exists
+    RECORD fileinfo := this->GetPathInfo(path);
+    IF (RecordExists(fileinfo))
+      RETURN fileinfo.write;
+
+    //Failing to lock the file, try to lock its parent
+    STRING parentpath := GetDirectoryFromPath(path);
+    RECORD dirinfo := this->GetPathInfo(parentpath);
+    IF (RecordExists(dirinfo))
+      RETURN dirinfo.write;
+
+    RETURN FALSE;
+  }
+>;
+
+/** Base Virtual FS provider for readonly file systems
+*/
+PUBLIC OBJECTTYPE VirtualReadOnlyFSBase EXTEND VirtualFSBase
+<
+  UPDATE PUBLIC MACRO PutFile(STRING filename, BLOB data, BOOLEAN overwrite)
+  {
+    THROW NEW VirtualFSException("XS", "No write access");
+  }
+
+  UPDATE PUBLIC MACRO DeletePath(STRING filename)
+  {
+    THROW NEW VirtualFSException("XS", "No write access");
+  }
+
+  UPDATE PUBLIC MACRO Copy(STRING source_filename, STRING dest_filename, BOOLEAN overwrite)
+  {
+    THROW NEW VirtualFSException("XS", "No write access");
+  }
+
+  UPDATE PUBLIC MACRO Move(STRING source_filename, STRING dest_filename, BOOLEAN overwrite)
+  {
+    THROW NEW VirtualFSException("XS", "No write access");
+  }
+
+  UPDATE PUBLIC MACRO MakeDir(STRING filename)
+  {
+    THROW NEW VirtualFSException("XS", "No write access");
+  }
+
+  UPDATE PUBLIC MACRO SetMetaData(STRING filename, RECORD metadata)
+  {
+    THROW NEW VirtualFSException("XS", "No write access");
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION Lock(STRING path)
+  {
+    THROW NEW VirtualFSException("XS", "No write access");
+  }
+>;

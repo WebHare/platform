@@ -1,0 +1,1931 @@
+﻿<?wh
+/** @short Web (HTTP) client
+    @topic internet/webbrowser
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/websocket.whlib";
+LOADLIB "wh::internal/ntlm.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+LOADLIB "wh::ipc.whlib";
+
+INTEGER maxredirects := 15;
+INTEGER maxauths := 3;
+INTEGER keepalive := 60000; //time to keep connections alive
+PUBLIC BOOLEAN __webbrowser_debugall; //ADDME integrate a nice debugger into webbrowser
+PUBLIC BOOLEAN __webbrowser_formatresponse;//Formats XML nicely in output
+
+// Parse an array of form and input elements in an HTML document
+RECORD FUNCTION ParsePageForm(STRING pageurl, OBJECT formroot)
+{
+  // FIXME - we can clean up a lot of this, we only need the bare minimum to submit, not all the parsing stuff!
+
+  // Form properties
+  STRING formname;
+  IF (formroot->HasAttribute("id"))
+    formname := formroot->GetAttribute("id");
+  ELSE IF (formroot->HasAttribute("name"))
+    formname := formroot->GetAttribute("name");
+
+  STRING method := ToUppercase(formroot->GetAttribute("method"));
+  STRING action := ResolveToAbsoluteURL(pageurl, formroot->GetAttribute("action"));
+
+  RECORD form := [ name := formname
+                 , method := method
+                 , action := action
+                 , inputs := DEFAULT RECORD ARRAY
+                 , enctype := formroot->GetAttribute("enctype")
+                 ];
+
+  // Get all <input>s, but not radio's, in the form
+  FOREVERY(OBJECT inputnode FROM formroot->GetElementsByTagName("input")->GetCurrentElements())
+  {
+    RECORD pageinput := [ type := ToUppercase(inputnode->GetAttribute("type"))
+                        , name := inputnode->GetAttribute("name")
+                        , node := inputnode
+                        ];
+
+    SWITCH (pageinput.type)
+    {
+      CASE "CHECKBOX"
+      {
+        INSERT CELL checked := inputnode->GetAttribute("value") INTO pageinput;
+        INSERT CELL value := inputnode->HasAttribute("checked") ? inputnode->GetAttribute("value") : "" INTO pageinput;
+      }
+      CASE "RADIO"
+      {
+        STRING optionvalue := inputnode->GetAttribute("value");
+        RECORD option := [ value := optionvalue
+                         ];
+        BOOLEAN checked := inputnode->HasAttribute("checked");
+
+        IF (RecordExists(SELECT FROM form.inputs WHERE name = pageinput.name))
+        {
+          UPDATE form.inputs
+             SET options := options CONCAT [ option ]
+               , value := checked ? optionvalue : value
+               , defaultvalue := checked ? optionvalue : defaultvalue
+           WHERE name = pageinput.name
+                 AND type = "RADIO";
+
+          CONTINUE; //don't add this option
+        }
+        ELSE
+        {
+         //FIXME: This fails if the input was embedded in a label, in which case the label for the option is used for the radio variable
+          INSERT CELL options := [ option ] INTO pageinput;
+          INSERT CELL value := checked ? optionvalue : "" INTO pageinput;
+        }
+      }
+      CASE "SUBMIT", "RESET", "HIDDEN", "BUTTON"
+      {
+        INSERT CELL value := inputnode->GetAttribute("value") INTO pageinput;
+      }
+      CASE "FILE"
+      {
+         INSERT CELL value := "" INTO pageinput;
+         INSERT CELL data := DEFAULT BLOB INTO pageinput;
+      }
+      CASE "IMAGE"
+      {
+        INSERT CELL value := inputnode->GetAttribute("value") INTO pageinput;
+        INSERT CELL src := inputnode->GetAttribute("src") INTO pageinput;
+
+      }
+      DEFAULT
+      {
+        INSERT CELL maxlength := inputnode->HasAttribute("maxlength") ? ParseXSInt(inputnode->GetAttribute("maxlength")) : -1 INTO pageinput;
+        INSERT CELL value := inputnode->GetAttribute("value") INTO pageinput;
+        IF(pageinput.type != "PASSWORD")
+          pageinput.type:="TEXT";
+      }
+    }
+
+    IF (NOT RecordExists(SELECT FROM form.inputs WHERE name = pageinput.name))
+      INSERT CELL defaultvalue := pageinput.value INTO pageinput;
+
+    INSERT pageinput INTO form.inputs AT END;
+  }
+
+  // Get all submit <button>s in the form
+  FOREVERY(OBJECT buttonnode FROM formroot->GetElementsByTagName("button")->GetCurrentElements())
+  {
+    IF(ToUppercase(buttonnode->GetAttribute("type")) NOT IN ["SUBMIT",""])
+      CONTINUE;
+
+    RECORD pageinput := [ type := "SUBMIT" // we'll treat textarea's as regular text inputs
+                        , name := buttonnode->GetAttribute("name")
+                        , maxlength := -1
+                        , value := buttonnode->GetAttribute("value")
+                        , defaultvalue := ""
+                        , node := buttonnode
+                        ];
+
+    pageinput.defaultvalue := pageinput.value;
+    INSERT pageinput INTO form.inputs AT END;
+  }
+
+  // Get all <textarea>s in the form
+  FOREVERY(OBJECT textareanode FROM formroot->GetElementsByTagName("textarea")->GetCurrentElements())
+  {
+    RECORD pageinput := [ type := "TEXT" // we'll treat textarea's as regular text inputs
+                        , name := textareanode->GetAttribute("name")
+                        , maxlength := -1
+                        , value := textareanode->textcontent
+                        , defaultvalue := ""
+                        , node := textareanode
+                        ];
+
+    pageinput.defaultvalue := pageinput.value;
+    INSERT pageinput INTO form.inputs AT END;
+  }
+
+  // Get all <select>s in the form
+  FOREVERY(OBJECT selectnode FROM formroot->GetElementsByTagName("select")->GetCurrentElements())
+  {
+    RECORD pageinput := [ type := "SELECT"
+                        , name := selectnode->GetAttribute("name")
+                        , multiple := selectnode->HasAttribute("multiple")
+                        , options := DEFAULT RECORD ARRAY
+                        , value := DEFAULT STRING ARRAY
+                        , defaultvalue := DEFAULT STRING ARRAY
+                        , node := selectnode
+                        ];
+
+    FOREVERY(OBJECT optionnode FROM selectnode->GetElementsByTagName("option")->GetCurrentElements())
+    {
+      STRING optionvalue := optionnode->GetAttribute("value");
+
+      INSERT [ value := optionvalue
+             ] INTO pageinput.options AT END;
+
+      IF (optionnode->HasAttribute("selected"))
+      {
+        IF (NOT pageinput.multiple)
+        {
+          pageinput.value := DEFAULT STRING ARRAY;
+          pageinput.defaultvalue := DEFAULT STRING ARRAY;
+        }
+        INSERT optionvalue INTO pageinput.value AT END;
+        INSERT optionvalue INTO pageinput.defaultvalue AT END;
+      }
+    }
+    INSERT pageinput INTO form.inputs AT END;
+  }
+  RETURN form;
+}
+
+/* ADDME: Implement persistent connection cache inside webbrowser.whlib so callers don't have to bother with reusing objects */
+
+/** Utility class to communicate with HTTP servers
+*/
+PUBLIC STATIC OBJECTTYPE WebBrowser
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_document;
+  STRING pvt_lasterror;
+
+  // ---------------------------------------------------------------------------
+  //
+  // State (from browser state record)
+  //
+
+  INTEGER pvt_id;
+  STRING pvt_server;
+  INTEGER pvt_port;
+  INTEGER pvt_conn;
+  RECORD ntauthstate;
+  BOOLEAN pvt_secure;
+  STRING pvt_url;
+  STRING pvt_hash;
+  RECORD pvt_lastrequest;
+  INTEGER __closetimer;
+  DATETIME __closetimeout;
+  INTEGER pvt_lastxmldoc;
+  RECORD pvt_lastpage;
+  STRING pvt_error;
+  MACRO PTR pvt_authhandler;
+  MACRO PTR pvt_proxyauthhandler;
+  RECORD ARRAY pvt_authuris;
+  INTEGER pvt_timeout;
+  STRING pvt_useragent;
+  INTEGER pvt_sockerr;
+  RECORD ARRAY pvt_cookies;
+  BOOLEAN pvt_persistentconnections;
+  BOOLEAN pvt_autofollow;
+  INTEGER ARRAY pvt_autofollow_statuses;
+  STRING pvt_bindhost;
+  INTEGER seqnr;
+  INTEGER pvt_bindport;
+  BOOLEAN running;
+  STRING pvt_peercertificatechain;
+  STRING pvt_connectingto;
+
+  RECORD ARRAY pvt_hostnameoverrides;
+
+  /** List of macro ptrs that will be called for every request
+      Signature: MACRO hook(BOOLEAN beforerequest, STRING method, STRING url, INTEGER transactionid, RECORD data);
+  */
+  PUBLIC MACRO PTR ARRAY pvt_traffichooks;   //plugin for cluster.whlib
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Content of the document parsed as XML document (or from an HTML doc, when contenttype = text/html)
+      @type(object wh::xml/dom.whlib#XmlDocument)
+  */
+  PUBLIC PROPERTY document(GetDocument,-);
+
+
+  /** Content of current page
+      @type(blob)
+  */
+  PUBLIC PROPERTY content(GetContent,-);
+
+
+  /** (string) Current URL
+      @type(string)
+  */
+  PUBLIC PROPERTY url(GetHref,-);
+
+  /// @private deprecated version of url
+  PUBLIC PROPERTY href(GetHref,-); //deprecated version
+
+  /// (string) Hash of current URL (when redirected with hash)
+  PUBLIC PROPERTY hash(pvt_hash,-);
+
+  /** Last error
+      @type(string)
+  */
+  PUBLIC PROPERTY lasterror(pvt_lasterror, -);
+
+  /** (record array) List of forms
+  PUBLIC PROPERTY forms(GetForms,-);
+  */
+
+
+  /** Content type of current page
+      @type(string)
+  */
+  PUBLIC PROPERTY contenttype(GetContentType,-);
+
+
+  /// (string) Mime type of current page
+  PUBLIC PROPERTY mimetype(GetMimeType,-);
+
+
+  /// (string) Set webserver timeout in milliseconds
+  PUBLIC PROPERTY timeout(pvt_timeout, SetWebBrowserTimeout);
+
+
+  /** (record array) Response headers
+      @cell(string) field Header field name
+      @cell(string) value Header value
+  */
+  PUBLIC PROPERTY responseheaders(GetResponseHeaders, -);
+
+
+  /// (boolean) Whether connections are persistent, default: TRUE
+  PUBLIC PROPERTY persistentconnections(pvt_persistentconnections, SetPersistentConnections);
+
+  /// (string) PEM-encoded certificate chain of the peer
+  PUBLIC PROPERTY peercertificatechain(pvt_peercertificatechain, -);
+
+  /// (boolean) Autofollow redirects. Default: TRUE
+  PUBLIC PROPERTY autofollow(pvt_autofollow, SetAutoFollow);
+
+  /// HTTP status codes that will be auto-followed. Default: 301, 302, 303 and 307
+  PUBLIC PROPERTY autofollow_statuses(pvt_autofollow_statuses, SetAutoFollowStatuses);
+
+  /** Handler called to retrieve authentication information
+      Signature: RECORD FUNCTION authhandler(STRING realm, STRINGauthurl)
+      Return a record with cells `username` and `password`.
+      @type(function ptr)
+  */
+  PUBLIC PROPERTY onauth(GetAuthHandler, SetAuthHandler);
+
+  /** Handler called to retrieve proxy authentication information
+      Signature: RECORD FUNCTION authhandler(STRING realm, STRINGauthurl)
+      Return a record with cells `username` and `password`.
+      @type(function ptr)
+  */
+  PUBLIC PROPERTY onproxyauth(GetProxyAuthHandler, SetProxyAuthHandler);
+
+
+  /// (string) Override user agent
+  PUBLIC PROPERTY useragent(pvt_useragent, SetUserAgent);
+
+  /** Called before every request, can be used to modify the request
+      Signature: FUNCTION onrequest(RECORD data)
+      - url URI
+      - method  HTTP method
+      - headers List of headers
+      - body Body
+      Return: modified record
+      @type(function ptr)
+  */
+  PUBLIC FUNCTION PTR onrequest;
+
+  /// Called when an error occurs. Signature: MACRO onerror(STRING lastmessage)
+  PUBLIC FUNCTION PTR OnError;
+
+  /// print navigation actions. testfw uses this so we don't need to print every flaky navigation action
+  PUBLIC BOOLEAN printnavigation;
+
+  /// log everything we do
+  PUBLIC BOOLEAN debug;
+
+  /// Set to TRUE to not receive the response content for the request (i.e. treat the request like it was a HEAD request)
+  PUBLIC BOOLEAN discard_content;
+
+  OBJECT state;
+
+  /// Set to override the soocket send buffer size (used when connecting)
+  PUBLIC INTEGER __socketsendbuffersize;
+
+  RECORD webharetrustedport;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Constructs a new WebBrowser object
+  */
+  MACRO NEW()
+  {
+    //timeout defaults to 5 minutes, high for interactive use, but at least it's not infinite by default.
+    this->pvt_timeout := 5 * 60 * 1000;
+    this->pvt_persistentconnections := TRUE;
+    this->pvt_autofollow := TRUE;
+    this->pvt_autofollow_statuses := [301,302,303,307];
+
+    this->onrequest := PTR this->InvokeRequestFilter;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  FUNCTION PTR FUNCTION GetAuthHandler()
+  {
+    RETURN this->pvt_authhandler;
+  }
+
+
+  MACRO SetAuthHandler(FUNCTION PTR handler)
+  {
+    this->pvt_authhandler := handler;
+  }
+
+
+  FUNCTION PTR FUNCTION GetProxyAuthHandler()
+  {
+    RETURN this->pvt_proxyauthhandler;
+  }
+
+
+  MACRO SetProxyAuthHandler(FUNCTION PTR handler)
+  {
+    this->pvt_proxyauthhandler := handler;
+  }
+
+
+  MACRO SetAutoFollow(BOOLEAN autofollow)
+  {
+    this->pvt_autofollow := autofollow;
+  }
+
+  MACRO SetAutoFollowStatuses(INTEGER ARRAY statuses)
+  {
+    this->pvt_autofollow_statuses := statuses;
+  }
+
+
+  MACRO SetPersistentConnections(BOOLEAN newsetting)
+  {
+    this->pvt_persistentconnections := newsetting;
+  }
+
+  MACRO SetUserAgent(STRING newagent)
+  {
+    this->pvt_useragent := newagent;
+  }
+
+
+  MACRO SetWebBrowserTimeout(INTEGER timeoutmsecs)
+  {
+    this->pvt_timeout := timeoutmsecs;
+    IF(this->pvt_conn > 0)
+      SetSocketTimeout(this->pvt_conn, timeoutmsecs);
+  }
+
+
+  OBJECT FUNCTION GetDocument()
+  {
+    IF(this->pvt_document = DEFAULT OBJECT)
+    {
+      //ADDME: Get charset from Content-Type. Validate it's text/html or an xml type
+      BLOB doc := this->content;
+
+      STRING contenttype := this->contenttype;
+      STRING mimetype := GetMIMEHeaderParameter(contenttype,"");
+      STRING charset := GetMIMEHeaderParameter(contenttype,"charset");
+      IF(mimetype="text/html")
+      {
+        this->pvt_document := MakeXMLDocumentFromHTML(doc, charset);
+      }
+      ELSE
+      {
+        this->pvt_document := MakeXMLDocument(doc, charset);
+      }
+    }
+    RETURN this->pvt_document;
+  }
+
+
+  BLOB FUNCTION GetContent()
+  {
+    RETURN RecordExists(this->pvt_lastpage) ? this->pvt_lastpage.content : DEFAULT BLOB;
+  }
+
+
+  STRING FUNCTION GetHref()
+  {
+    RETURN this->pvt_url;
+  }
+
+
+  RECORD ARRAY FUNCTION GetResponseHeaders()
+  {
+    IF(NOT RecordExists(this->pvt_lastrequest))
+      RETURN DEFAULT RECORD ARRAY;
+    RETURN this->pvt_lastrequest.headers;
+  }
+
+
+  STRING FUNCTION GetContentType()
+  {
+    RETURN SELECT AS STRING value FROM this->GetResponseHeaders() WHERE ToUppercase(field)="CONTENT-TYPE";
+  }
+
+
+  STRING FUNCTION GetMimetype()
+  {
+    RETURN GetMIMEHeaderParameter(this->contenttype, "");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION InvokeRequestFilter(RECORD inrequest)//proxy to allow functionptr call to overridden function
+  {
+    RETURN this->RequestFilter(inrequest);
+  }
+
+
+  RECORD FUNCTION RequestFilter(RECORD inrequest)
+  {
+    RETURN inrequest;
+  }
+
+
+  /** GET or POST a page, transparently handling redirects (301, 303, 307)
+      @param method HTTP method  to use (eg 'GET', 'POST')
+      @param url URL to request
+      @param headers List of headers
+      @cell(string) headers.field Header field name
+      @cell(string) headers.value Header value
+      @param request_body Request body to send
+      @param options @includecelldef #PointBrowserTo.options
+      @param isasync Whether this is used for an async function
+      @return TRUE if the request was succesfull
+  */
+  OBJECT FUNCTION* GetPage(STRING method, STRING url, RECORD ARRAY headers, BLOB request_body, RECORD options, BOOLEAN isasync)
+  {
+    IF (this->running)
+      THROW NEW Exception("Concurrent requests are not allowed");
+    IF(this->printnavigation)
+      Print("Navigating to: " || url || "\n");
+
+    this->running := TRUE;
+
+    // Check if we have reached the idle timeout, disable the close timer while running
+    this->CheckCloseTimeout();
+    this->SetCloseTimer(FALSE);
+
+    TRY
+    {
+      BOOLEAN retry_with_known_password := FALSE;
+      BOOLEAN proxy_retry_with_known_password := FALSE;
+      INTEGER redirects := 0;
+      INTEGER auths := 0;
+
+      WHILE(redirects < maxredirects AND auths < maxauths) // Don't redirect infinitely
+      {
+        url := ResolveToAbsoluteURL(this->pvt_url, url);
+        url := Substitute(url,' ','%20');
+
+        INTEGER hashpos := SearchSubstring(url, "#");
+        this->pvt_hash := hashpos = -1 ? "" : SubString(url, hashpos);
+        IF(hashpos != -1)
+          url := Left(url, hashpos);
+
+        this->pvt_url := url;
+
+        RECORD unpacked := UnpackURL(url);
+        STRING authurlspace := Left(url,SearchLastSubstring(url,'/')+1);
+        STRING urlwithoutparams := Tokenize(url, "?")[0];
+
+        /* Do we have an authentication for this uri ? (get closest match) */
+        RECORD auth;
+        IF(unpacked.password = "")
+        {
+          auth := SELECT * FROM this->pvt_authuris
+                   WHERE authurlspace LIKE urlspace || '*' OR urlwithoutparams = urlspace
+                ORDER BY Length(urlspace) DESC;
+        }
+
+        //FIXME Proxy auth should be matched to the PROXYSERVER, not to the url space
+        RECORD proxyauth;
+        RECORD proxyurl;
+        STRING proxyauthurl;
+
+        IF(RecordExists(this->ntauthstate))
+        {
+          DELETE FROM headers WHERE field = "Authorization";
+          IF(this->ntauthstate.state = "sendnegotiate") //initial state
+          {
+            INSERT [ field := "Authorization", value := "NTLM " || EncodeBase64(EncodeNTLMType1(this->ntauthstate.hostname,this->ntauthstate.ntdomain)) ] INTO headers AT END;
+            this->ntauthstate.state := "expectchallenge";
+          }
+          ELSE IF(this->ntauthstate.state = "respondchallenge") //once we've got the connection
+          {
+            INSERT [ field := "Authorization", value := "NTLM " || EncodeBase64(this->ntauthstate.response) ] INTO headers AT END;
+            this->ntauthstate.state := "negotiated";
+          }
+          ELSE IF(this->ntauthstate.state = "negotiated") //we're done, stop sending NTLM packets
+          {
+
+          }
+          ELSE
+          {
+            THROW NEW Exception(`Unexpected NTLM state '${this->ntauthstate.state}'`);
+          }
+        }
+
+        IF(NOT YIELD* this->SendBrowserTo(method, url
+                                  , RecordExists(auth) ? auth.username : unpacked.user
+                                  , RecordExists(auth) ? auth.password : unpacked.password
+                                  , headers, request_body
+                                  , RecordExists(proxyauth) ? proxyauth.username : RecordExists(proxyurl) ? proxyurl.user: ""
+                                  , RecordExists(proxyauth) ? proxyauth.password : RecordExists(proxyurl) ? proxyurl.password : ""
+                                  , options
+                                  , isasync
+                                  ))
+        {
+          RETURN FALSE;
+        }
+
+        RECORD result := this->pvt_lastrequest;
+
+        /* Hungry! Gimme cookies! */
+        /* FIXME! Respect to the cookie domain restrictions! */
+        FOREVERY(RECORD hdr FROM result.headers)
+        {
+          IF(ToUppercase(hdr.field)="SET-COOKIE")
+          {
+            //ADDME Quote support? Expiry support? Would anyone be that devious to filter out non humans?
+            STRING ARRAY cookietoks := Tokenize(hdr.value,';');
+            STRING cookieraw := cookietoks[0];
+            INTEGER equals := SearchSubstring(cookieraw, '=');
+
+            IF(equals!=-1)
+            {
+              STRING cookiename := Left(cookieraw, equals);
+              STRING cookiedata := Substring(cookieraw, equals+1);
+              DELETE FROM this->pvt_cookies WHERE name=cookiename;
+              RECORD cookie := [ name :=       cookiename
+                               , data :=       cookiedata
+                               , expires :=    DEFAULT DATETIME
+                               ];
+              FOREVERY(STRING cookietok FROM ArraySlice(cookietoks,1))
+              {
+                IF(ToUppercase(cookietok) LIKE "EXPIRES=*")
+                  cookie.expires := MakeDateFromText(Substring(cookietok,8));
+              }
+
+              IF(cookiedata!="")
+                INSERT cookie INTO this->pvt_cookies AT END;
+            }
+          }
+        }
+
+        IF (result.code>=200 AND result.code<=299)
+        {
+          RETURN TRUE;
+        }
+        ELSE IF(result.code IN [401,407]) /* Authentication request! */
+        {
+          //ADDME: support digest
+          BOOLEAN isproxyauth := result.code = 407;
+
+          /* FIXME: Triggers CopySelectToTypedVariable cannot copy to records or record arrays'
+          RECORD basicauth := SELECT AS RECORD DecodeHTTPAuthenticationHeader(value) FROM result.headers WHERE ToUppercase(field)="WWW-AUTHENTICATE" AND Touppercase(value) LIKE "BASIC *";
+          */
+          STRING fieldname := isproxyauth ? "PROXY-AUTHENTICATE" : "WWW-AUTHENTICATE";
+          RECORD x_basicauth := SELECT * FROM result.headers WHERE ToUppercase(field)=ToUppercase(fieldname) AND Touppercase(value) LIKE "BASIC *";
+          RECORD x_ntlmauth := SELECT * FROM result.headers WHERE ToUppercase(field)=ToUppercase(fieldname) AND (Touppercase(value) = "NTLM" OR Touppercase(value) LIKE "NTLM *");
+          RECORD basicauth := RecordExists(x_basicauth) ? DecodeHTTPAuthenticationHeader(x_basicauth.value, FALSE) : DEFAULT RECORD;
+
+          IF( (NOT RecordExists(basicauth) OR NOT CellExists(basicauth,"realm")) AND NOT RecordExists(x_ntlmauth))
+          {
+            this->MyErrorHandler("No supported authentication method available");
+            RETURN FALSE;
+          }
+          IF(RecordExists(x_ntlmauth) AND RecordExists(this->ntauthstate))
+          {
+            IF(this->ntauthstate.state = "expectchallenge" AND x_ntlmauth.value LIKE "NTLM *")
+            {
+              RECORD challenge := DecodeNTLMType2(DecodeBase64(Tokenize(x_ntlmauth.value,' ')[1]));
+              IF(challenge.header != "NTLMSSP" OR challenge.type != 0)
+                THROW NEW Exception("Misunderstood NTLM auth challenge");
+
+              this->ntauthstate.state := "respondchallenge";
+              this->ntauthstate.response := EncodeNTLMType3(this->ntauthstate.username
+                                                           ,this->ntauthstate.hostname
+                                                           ,this->ntauthstate.ntdomain
+                                                           ,challenge.nonce
+                                                           ,this->ntauthstate.password
+                                                           );
+              auths := auths + 1;
+              CONTINUE;
+            }
+            THROW NEW Exception(`Unexpected NTLM challenge in state '${this->ntauthstate.state}'`);
+          }
+          IF(isproxyauth AND proxyauthurl="")
+          {
+            this->MyErrorHandler("Unexpected Proxy-Authenticate");
+            RETURN FALSE;
+          }
+          FUNCTION PTR authhandler := isproxyauth ? this->pvt_proxyauthhandler : this->pvt_authhandler;
+          IF(authhandler = DEFAULT MACRO PTR)
+          {
+            this->MyErrorHandler("No authentication information available");
+            RETURN FALSE;
+          }
+
+          IF(isproxyauth)
+            proxy_retry_with_known_password := FALSE; //Apparently it didn't succeed
+          ELSE
+            retry_with_known_password := FALSE; //Apparently it didn't succeed
+
+          STRING authurl := isproxyauth ? proxyauthurl : url;
+
+          RECORD authdata := authhandler(RecordExists(basicauth) ? basicauth.realm : "", authurl);
+          IF(NOT RecordExists(authdata))
+          {
+            this->MyErrorHandler("No authentication information provided by authentication callback");
+            RETURN FALSE;
+          }
+
+          IF(RecordExists(x_ntlmauth))
+          {
+            STRING ntdomain := authdata.username LIKE "*\\*" ? Tokenize(authdata.username, "\\")[0] : "";
+            STRING username := authdata.username LIKE "*\\*" ? Tokenize(authdata.username, "\\")[1] : authdata.username;
+
+            this->ntauthstate :=
+              [ state := "sendnegotiate"
+              , ntdomain := ntdomain
+              , hostname := "webhare"
+              , username := username
+              , password := authdata.password
+              , response := ""
+              ];
+
+            CONTINUE;
+          }
+
+          IF(RecordExists(auth) AND (isproxyauth ? auth.urlspace = proxyauthurl : auth.urlspace = authurlspace))
+          {
+            UPDATE this->pvt_authuris
+               SET username :=      authdata.username
+                 , password :=      authdata.password
+             WHERE (isproxyauth ? proxyauthurl = urlspace : authurlspace = urlspace)
+               AND isproxy = isproxyauth;
+          }
+          ELSE
+          {
+            INSERT
+                [ username :=       authdata.username
+                , password :=       authdata.password
+                , urlspace :=       isproxyauth ? proxyauthurl : authurlspace
+                , realm :=          basicauth.realm
+                , isproxy :=        isproxyauth
+                ] INTO this->pvt_authuris AT END;
+          }
+
+          auths := auths + 1;
+          CONTINUE;
+        }
+        ELSE IF (result.code NOT IN [301,302,303,307]) // No redirection
+        {
+          this->MyErrorHandler("HTTP error: "||result.code||" "||result.message);
+          RETURN FALSE;
+        }
+
+        IF(NOT this->pvt_autofollow OR result.code NOT IN this->pvt_autofollow_statuses)
+          RETURN TRUE;
+
+        // Get redirection location
+        RECORD locationheader := SELECT * FROM result.headers WHERE ToUppercase(field)="LOCATION";
+        IF (NOT RecordExists(locationheader))
+        {
+          this->MyErrorHandler("No redirection location received");
+          RETURN FALSE;
+        }
+        IF (result.code=303 AND method="POST") // 303: Retrieve new url using "GET" method
+          method := "GET";
+        IF (result.code=302 AND method="POST") /* Violates HTTP/1.1: We should POST to the new URI, but most browsers don't implement
+                                                 it properly and just GET - mimick that behaviour because webapps may rely on it */
+          method := "GET";
+
+        // Lookup new location
+        redirects := redirects + 1;
+        url := locationheader.value;
+      }
+
+      IF(auths >= maxauths)
+      {
+        this->MyErrorHandler("Too many authentication failures");
+      }
+      ELSE
+      {
+        this->MyErrorHandler("Too many redirects (" || redirects || ")");
+      }
+      RETURN FALSE;
+    }
+    FINALLY
+    {
+      this->running := FALSE;
+      this->SetCloseTimer(TRUE);
+    }
+  }
+
+  /** Set up for use of trusted ports (ADDME convert this to 'generic' reconfiguration and routing)
+      @param ip IP address of the trusted port
+      @param port Port number of the trusted port
+      @param useip Value to set in the 'X-Forwarded-For' header
+  */
+  PUBLIC MACRO SetupWebHareTrustedPort(STRING ip, INTEGER port, STRING useip)
+  {
+    this->webharetrustedport := ip != "" ? CELL[ ip, port, useip ] : DEFAULT RECORD;
+  }
+
+  /** Request a specific page
+      @param url URL of the page
+      @cell(string) options.connecthost Overrides the host to connect to
+      @cell(integer) options.connectport Overrides the port to connect to
+      @cell(boolean) options.connectssl Overrides whether to use SSL
+      @param(boolean) isasync Whether this is used for an async function
+  */
+  OBJECT FUNCTION* PointBrowserTo(STRING url, RECORD options, BOOLEAN isasync)
+  {
+    this->pvt_sockerr := 0;
+    RECORD unpacked := UnpackURL(url);
+
+    STRING server := CellExists(options,'connecthost') ? options.connecthost : unpacked.host;
+    INTEGER port := CellExists(options,'connectport') ? options.connectport : unpacked.port;
+
+    IF(RecordExists(this->webharetrustedport))
+    {
+      server := this->webharetrustedport.ip;
+      port := this->webharetrustedport.port;
+    }
+
+    IF (this->pvt_server != server OR this->pvt_port!=port OR this->pvt_conn=0)
+    {
+      // Disconnect from old server first
+      this->CloseCurrentConnection();
+      this->seqnr := 1;
+      this->pvt_peercertificatechain := "";
+
+      INTEGER connid := CreateTCPSocket();
+
+      IF(this->pvt_timeout != -1)
+        SetSocketTimeout(connid, this->pvt_timeout);
+
+      IF(this->pvt_bindhost!="" OR this->pvt_bindport!=0)
+        IF (NOT BindSocket(connid, this->pvt_bindhost, this->pvt_bindport))
+        {
+          this->pvt_sockerr := GetLastSocketError(connid);
+          this->MyErrorHandler("Could not bind to " || this->pvt_bindhost || ":" || this->pvt_bindport);
+          CloseSocket(connid);
+          RETURN 0;
+        }
+
+      // Reconnect to new server
+      RECORD override;
+      IF(NOT CellExists(options,'connecthost'))
+      {
+        override := SELECT * FROM this->pvt_hostnameoverrides WHERE ToUppercase(pvt_hostnameoverrides.hostname) = ToUppercase(server) AND pvt_hostnameoverrides.inport = port;
+        IF(NOT RecordExists(override))
+          override := SELECT * FROM this->pvt_hostnameoverrides WHERE ToUppercase(pvt_hostnameoverrides.hostname) = ToUppercase(server) AND pvt_hostnameoverrides.inport = 0;
+        IF(RecordExists(override) AND (this->debug OR __webbrowser_debugall))
+          Print("Hostnameoverride: redirect connect to " || override.overridewith || " port " || override.outport || "\n");
+      }
+
+      STRING connecttohost := RecordExists(override) ? override.overridewith : server;
+      INTEGER connecttoport := RecordExists(override) AND override.outport != 0 ? override.outport : port;
+
+      BOOLEAN requires_secure := RecordExists(this->webharetrustedport) ? FALSE
+                                 : RecordExists(override) AND override.overridesecure ? override.setsecure
+                                 : CellExists(options,'connectssl') ? options.connectssl : url LIKE 'https://*';
+      this->pvt_connectingto := (requires_secure ? "https://" : "http://") || connecttohost || ":" || connecttoport;
+
+      BOOLEAN connectresult := isasync
+          ? YIELD AsyncConnectSocket(connid, connecttohost, connecttoport)
+          : ConnectSocket(connid, connecttohost, connecttoport);
+
+      IF (NOT connectresult)
+      {
+        this->pvt_sockerr := GetLastSocketError(connid);
+        this->MyErrorHandler("Could not connect to " || connecttohost || ":" || connecttoport || " (for " || url || ")");
+        CloseSocket(connid);
+        RETURN 0;
+      }
+
+      IF (this->__socketsendbuffersize > 0)
+        SetSocketSendBufferSize(connid, this->__socketsendbuffersize);
+
+      IF (requires_secure AND NOT SetSecureConnection(connid, TRUE, [ hostname := server ]))
+      {
+        this->pvt_sockerr := GetLastSocketError(connid);
+        this->MyErrorHandler("Could not establish secure connection");
+        CloseSocket(connid);
+        RETURN 0;
+      }
+
+      connid := OpenHTTPServerOnSocket(connid, requires_secure, server, port);
+
+      this->pvt_server := server;
+      this->pvt_port := port;
+      this->pvt_conn := connid;
+      this->pvt_secure := requires_secure;
+    }
+    ELSE
+    {
+      this->seqnr := this->seqnr + 1;
+    }
+
+    RETURN this->pvt_conn;
+  }
+
+  MACRO SetCloseTimer(BOOLEAN enable)
+  {
+    IF(this->__closetimer != 0)
+      UnregisterCallback(this->__closetimer);
+
+    IF (enable)
+    {
+      this->__closetimeout := AddTimeToDate(keepalive, GetCurrentDatetime());
+      this->__closetimer := RegisterTimedCallback(this->__closetimeout, PTR this->KeepAliveTimeout);
+    }
+    ELSE
+    {
+      this->__closetimeout := MAX_DATETIME;
+      this->__closetimer := 0;
+    }
+  }
+
+  MACRO CheckCloseTimeout()
+  {
+    IF (this->__closetimeout <= GetCurrentDatetime())
+    {
+      IF (__webbrowser_debugall)
+        PRINT(`Reached idle timeout in synchronous operation, closing connection\n`);
+      this->CloseCurrentConnection();
+    }
+    ELSE IF (this->pvt_conn != 0 AND WaitForMultiple([ this->pvt_conn ], INTEGER[], 0) = this->pvt_conn)
+    {
+      IF (__webbrowser_debugall)
+        PRINT(`Connection is read signalled, assuming it is closed\n`);
+      this->CloseCurrentConnection();
+    }
+  }
+
+  MACRO KeepAliveTimeout()
+  {
+    IF (this->__closetimer = 0)
+      RETURN;
+
+    this->__closetimer := 0;
+    this->__closetimeout := MAX_DATETIME;
+
+    this->CloseCurrentConnection();
+  }
+
+  /// Closes the current persistent connection
+  PUBLIC MACRO CloseCurrentConnection()
+  {
+    IF(this->pvt_conn != 0)
+    {
+      CloseHTTPServer(this->pvt_conn);
+      this->pvt_conn := 0;
+      this->ntauthstate := DEFAULT RECORD;
+    }
+
+    this->SetCloseTimer(FALSE);
+  }
+
+  OBJECT FUNCTION* SendBrowserTo(STRING method, STRING url, STRING username, STRING password, RECORD ARRAY request_headers, BLOB request_body, STRING proxyusername, STRING proxypassword, RECORD options, BOOLEAN isasync)
+  {
+    // We should have a browser connection now. Get the URI
+    this->pvt_url := url;
+
+    RECORD ARRAY headers := request_headers;
+    BLOB body := request_body;
+
+    IF(this->pvt_useragent!="")
+      INSERT INTO headers(field,value) VALUES("User-Agent", this->pvt_useragent) AT END;
+    IF(NOT RecordExists(SELECT FROM headers WHERE ToUppercase(field)="ACCEPT-CHARSET"))
+      INSERT INTO headers(field,value) VALUES("Accept-Charset", "utf-8,ISO-8859-1;q=0.7,*;q=0.7") AT END;
+
+    IF(Length(this->pvt_cookies)>0)
+    {
+      STRING cookiehdr;
+      FOREVERY(RECORD cookie FROM this->pvt_cookies)
+      {
+        cookiehdr := cookiehdr || (#cookie>0?'; ' : '') || cookie.name || '=' || cookie.data;
+      }
+      INSERT INTO headers(field,value) VALUES("Cookie", cookiehdr) AT END;
+    }
+
+    IF(NOT this->pvt_persistentconnections)
+      INSERT INTO headers(field,value) VALUES("Connection","close") AT END;
+
+    IF(proxyusername!="")
+      INSERT INTO headers(field,value) VALUES("Proxy-Authorization", "Basic " || EncodeBase64(proxyusername || ":" || proxypassword)) AT END;
+
+    IF(this->onrequest != DEFAULT FUNCTION PTR)
+    {
+      RECORD request := [ url := url
+                        , method := method
+                        , headers := headers
+                        , body := body
+                        ];
+
+      request := this->onrequest(request);
+      url := request.url;
+      method := request.method;
+      headers := request.headers;
+      body := request.body;
+    }
+
+    STRING send_url;
+    send_url := GetPathFromUrl(url);
+
+    IF(RecordExists(this->webharetrustedport))
+    {
+      STRING server := GetHostNameFromURL(url);
+      INTEGER port := GetPortFromUrl(url);
+      DELETE FROM headers WHERE ToUppercase(field) iN ["X-FORWARDED-FOR","X-FORWARDED-PROTO","HOST"];
+      headers := RECORD[...headers
+                       ,[ field := "X-Forwarded-For", value := this->webharetrustedport.useip ]
+                       ,[ field := "X-Forwarded-Proto", value := Tokenize(url,':')[0]]
+                       ,[ field := "Host", value := server || (port != (url LIKE "https:*" ? 443 : 80) ? ":" || port : "") ]
+                       ];
+    }
+
+    STRING transactionid := Length(this->pvt_traffichooks) > 0 ? GenerateUFS128BitId() : "";
+    FOREVERY(MACRO PTR hook FROM this->pvt_traffichooks) //ADDME log that we went through a proxy
+      hook(TRUE, method, url, transactionid, [ headers := headers, body := MakeSlicedBlob(body,0,64*1024), bodylength := Length(body) ]);
+
+    //ADDME: Properly handle server hanging up on us
+    INTEGER connwith := YIELD* this->PointBrowserTo(url, options, isasync);
+    IF(connwith<=0)
+    {
+      FOREVERY(MACRO PTR hook FROM this->pvt_traffichooks)
+        hook(FALSE, method, url, transactionid, [ statuscode := 0, statusmessage := "Connection failed", headers := DEFAULT RECORD ARRAY, body := DEFAULT BLOB, bodylength := 0, peer := "" ]);
+
+      this->SetDummyLastRequest();
+      this->pvt_lastrequest.code := this->pvt_sockerr ?? -1;
+      this->pvt_lastrequest.message := this->pvt_sockerr < 0 ? GetSocketErrorText(this->pvt_sockerr) : "Connection failed";
+      RETURN FALSE;
+    }
+
+    STRING peer := GetRemoteSocketIP(connwith) || ':' || GetRemoteSocketPort(connwith);
+
+    IF (username!="") //FIXME may cause a dangerous reuse of credentials later because the state is kept and might not apply to the next URLs ?
+    {
+      IF (username != "__header")
+        SetHTTPAuthentication(connwith, username, password);
+      ELSE
+        INSERT [ field := "Authorization", value := password ] INTO headers AT END;
+    }
+
+    RECORD result := isasync
+        ? YIELD AsyncSendHTTPRequest(connwith, send_url, method, headers, body, [ discard_content := this->discard_content, debug := __webbrowser_debugall OR this->debug ])
+        : SendHTTPRequest(connwith, send_url, method, headers, body, [ discard_content := this->discard_content, debug := __webbrowser_debugall OR this->debug ]);
+
+    IF(__webbrowser_debugall OR this->debug)
+      DumpValue(result,'boxed');
+    //ADDME: Only auto-retry on receivefailed (and probably sendfailed) if this was a persistent connection?  Probably only on GET (idempotent) and not PUT - see RFC 2616 8.1.4
+    IF(result.sendfailed OR (result.receivefailed AND method IN ["GET","HEAD"])) //ADDME: REmove code duplication inside here.ADDME List all safe methods
+    {
+      FOREVERY(MACRO PTR hook FROM this->pvt_traffichooks)
+        hook(FALSE, method, url, transactionid, [ statuscode := 0, statusmessage := "Sending request failed, will retry", headers := DEFAULT RECORD ARRAY, body := DEFAULT BLOB, bodylength := 0, peer := peer ]);
+
+      IF(__webbrowser_debugall OR this->debug)
+        PRINT("\nRETRY AFTER DISCONNECT\n");
+
+      //retry - FIXME log connection attempts just like above. just make this a nice loop
+      this->pvt_conn := 0;
+      connwith := YIELD* this->PointBrowserTo(url, options, isasync);
+      IF(connwith<=0)
+        RETURN FALSE;
+
+      peer := GetRemoteSocketIP(connwith) || ':' || GetRemoteSocketPort(connwith);
+      IF (username != "__header")
+        SetHTTPAuthentication(connwith, username, password);
+
+      result := isasync
+          ? YIELD AsyncSendHTTPRequest(connwith, send_url, method, headers, body, [ discard_content := this->discard_content ])
+          : SendHTTPRequest(connwith, send_url, method, headers, body, [ discard_content := this->discard_content ]);
+    }
+
+    IF (this->pvt_secure)
+      this->pvt_peercertificatechain := GetSocketPeerCertificateChain(connwith);
+
+    FOREVERY(MACRO PTR hook FROM this->pvt_traffichooks)
+      hook(FALSE, method, url, transactionid, [ statuscode := result.code, statusmessage := result.message, headers := result.headers, body := MakeSlicedBlob(result.content,0,64*1024), bodylength := Length(result.content), peer := peer ]);
+
+    IF(__webbrowser_debugall OR this->debug)
+    {
+      PRINT("\nRESPONSE\nResponse headers:\n");
+      PrintRecordArrayTo(0,result.headers,'boxed');
+
+      RECORD scanned := ScanBlob(result.content, "");
+      IF(scanned.height > 0)
+      {
+        Print("Response body image: " || scanned.mimetype || " " || scanned.width || "x" || scanned.height || " (" || Length(result.content) || " bytes)\n\n");
+      }
+      ELSE
+      {
+        STRING ct := SELECT AS STRING value FROM result.headers WHERE ToUpperCase(field) = "CONTENT-TYPE";
+        IF(__webbrowser_formatresponse AND ToUpperCase(ct) LIKE "*XML*")
+        {
+          Print("Response body:\n");
+          SendBlobTo(0, MakeXMLDocument(result.content)->GetDocumentBlob(TRUE));
+          Print("\n\n");
+        }
+        ELSE
+        {
+          Print("Response body:\n");
+          SendBlobTo(0,result.content);
+          Print("\n\n");
+        }
+      }
+    }
+
+    this->pvt_lastrequest := result;
+    this->CheckKeepAlive(result);
+    RETURN TRUE;
+  }
+
+  MACRO CheckKeepAlive(RECORD result)
+  {
+    IF(NOT this->persistentconnections)
+      ShutdownSocket(this->pvt_conn, FALSE, TRUE);
+
+    // Should close connection
+    IF (NOT result.keepalive)
+      this->CloseCurrentConnection();
+  }
+
+  // Parse an HTML page already retrieved by the browser
+  RECORD FUNCTION ParsePage()
+  {
+    // Free old resources
+    IF (this->pvt_lastxmldoc>0)
+      CloseXML(this->pvt_lastxmldoc);
+
+    RECORD result := this->pvt_lastrequest;
+    IF(NOT RecordExists(result))
+      RETURN DEFAULT RECORD;
+
+    RECORD page := [ url := this->pvt_url
+                   , status := result.code
+                   , content := result.content
+                   ];
+    RETURN page;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** @param url Service URL
+      @param methodname Name of the method to call
+      @param args2 Arguments for the method
+      @cell options.origin Value for the origin header
+      @cell options.version JSON RPC value to use. '1.0' or '2.0', defaults to '1.0'
+      @param isasync Whether called for an asynchronous function
+      @return Returns information about the request result, DEFAULT RECORD if non-JSON data was returned
+      @cell(boolean) return.success TRUE if the request returned a result
+      @cell(boolean) return.haveresult TRUE if the request returned a result
+      @cell return.result Result value (JSON-decoded)
+  */
+  OBJECT FUNCTION* InvokeJSONRPCInternal(STRING url, STRING methodname, VARIANT ARRAY args2, RECORD options, BOOLEAN isasync)
+  {
+    options := ValidateOptions(
+        [ origin :=     ""
+        , version := "1.0"
+        ], options);
+
+    IF(options.version NOT IN ["1.0","2.0"])
+      THROW NEW Exception(`Unsupported JSON/RPC version '${options.version}'`);
+
+    INTEGER id := Random(2,65536);
+    RECORD request := [ method := methodname
+                      , params := args2
+                      , id := id
+                      ];
+
+    IF(options.version = "2.0")
+      INSERT CELL jsonrpc := "2.0" INTO request;
+
+    RECORD ARRAY headers :=
+        [ [ field := "Content-Type", value := "application/json" ]
+        ];
+
+    IF (options.origin != "")
+      INSERT [ [ field := "Origin", value := options.origin ] ] INTO headers AT END;
+
+    // equivalent to PostWebPageBlob(url, headres, requestblob)
+    this->pvt_document := DEFAULT OBJECT;
+    this->pvt_lasterror := "";
+    YIELD *this->GetPage("POST", url, headers, EncodeJSONBlob(request), DEFAULT RECORD, isasync); // ignore success, 500 response can also carry info
+    this->pvt_lastpage := this->ParsePage();
+
+    //Header etc handling is undefined for json
+    RECORD response := DecodeJSON(BlobToString(this->content,-1));
+    IF(NOT RecordExists(response))
+      RETURN DEFAULT RECORD;
+
+    IF(CellExists(response,"result"))
+    {
+      IF(NOT CellExists(response,'id') OR response.id!=id)
+        RETURN DEFAULT RECORD;
+      RETURN [ success := TRUE
+             , haveresult := TRUE
+             , result := response.result
+             ];
+    }
+    IF(CellExists(response,"error"))
+    {
+      RETURN [ success := FALSE
+             , haveresult := FALSE
+             , error := response.error
+             ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Executes a JSON RPC call
+      @param url Service URL
+      @param methodname Name of the method to call
+      @param args2 Arguments
+      @param options @includecelldef #InvokeJSONRPCInternal.options
+      @return @includecelldef #InvokeJSONRPCInternal.return
+  */
+  PUBLIC RECORD FUNCTION InvokeJSONRPC(STRING url, STRING methodname, VARIANT ARRAY args2, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN RunGeneratorUntilReturn(this->InvokeJSONRPCInternal(url, methodname, args2, options, FALSE));
+  }
+
+  /** Asynchronously executes a JSON RPC call
+      @param url Service URL
+      @param methodname Name of the method to call
+      @param args2 Arguments
+      @param options @includecelldef #InvokeJSONRPCInternal.options
+      @return Promise resolbing to the RPC result @includecelldef #InvokeJSONRPCInternal.return
+  */
+  PUBLIC ASYNC FUNCTION AsyncInvokeJSONRPC(STRING url, STRING methodname, VARIANT ARRAY args2, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN AWAIT GeneratorSpawn(this->InvokeJSONRPCInternal(url, methodname, args2, options, TRUE));
+  }
+
+  /** Executes a JSON RPC call
+      @param url Service URL
+      @param methodname Name of the method to call
+      @param arguments Arguments
+      @return Returned value, throws on error
+  */
+  PUBLIC VARIANT FUNCTION CallJSONRPC(STRING url, STRING methodname, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG)
+  {
+    RECORD rec := this->InvokeJSONRPC(url, methodname, arguments);
+    IF (NOT RecordExists(rec))
+      THROW NEW Exception("JSON request failed, http code: " || this->GetHTTPStatusCode());
+
+    IF (rec.haveresult)
+      RETURN rec.result;
+
+    IF (TypeId(rec.error) = TypeID(RECORD) AND RecordExists(rec.error.data))
+    {
+      RECORD data := rec.error.data;
+      IF (CellExists(data, "__FORMAT") AND TypeID(data.__format) = TypeID(STRING) AND data.__format = "webhare-exception")
+        ThrowReceivedException(data);
+    }
+
+    STRING msg := rec.error.message;
+    THROW NEW Exception("JSON request failed with message: '" || EncodeJava(msg) || "'");
+  }
+
+  /** Executes a JSON RPC call, with the JSONRPC 2.0 protocol
+      @param url Service URL
+      @param methodname Name of the method to call
+      @param argument Argument List
+      @return Returned value, throws on error
+  */
+  PUBLIC VARIANT FUNCTION CallJSONRPC20(STRING url, STRING methodname, VARIANT argument)
+  {
+    RECORD rec := this->InvokeJSONRPC(url, methodname, argument, [ version := "2.0" ]);
+    IF (NOT RecordExists(rec))
+      THROW NEW Exception("JSON request failed, http code: " || this->GetHTTPStatusCode());
+
+    IF (rec.haveresult)
+      RETURN rec.result;
+
+    IF (TypeId(rec.error) = TypeID(RECORD) AND CellExists(rec.error, "data") AND RecordExists(rec.error.data))
+    {
+      RECORD data := rec.error.data;
+      IF (CellExists(data, "__FORMAT") AND TypeID(data.__format) = TypeID(STRING) AND data.__format = "webhare-exception")
+        ThrowReceivedException(data);
+    }
+
+    STRING msg := rec.error.message;
+    THROW NEW Exception("JSON request failed with message: '" || EncodeJava(msg) || "'");
+  }
+
+  MACRO SetDummyLastRequest()
+  {
+    this->pvt_lastrequest := [ protocol := ""
+                             , code := 200
+                             , message :=  "OK"
+                             , headers := DEFAULT RECORD ARRAY
+                             , content := DEFAULT BLOB
+                             , content_length := 0
+                             , keepalive := FALSE
+                             , sendfailed := FALSE
+                             , receivefailed := FALSE
+                             ];
+  }
+
+  /** @short Open a blob in the webbrowser
+      @param baseurl URL of the page
+      @param contenttype Contenttype of the page
+      @param data Content for the page
+  */
+  PUBLIC MACRO LoadWebPageFromBlob(STRING baseurl, STRING contenttype, BLOB data)
+  {
+    this->pvt_document := DEFAULT OBJECT;
+    this->pvt_lasterror := "";
+
+    this->pvt_url := baseurl = "" ? "about:" : baseurl;
+    this->SetDummyLastRequest();
+    this->pvt_lastrequest.code := 200;
+    this->pvt_lastrequest.message :=  "OK";
+    this->pvt_lastrequest.headers := [[ field := "Content-Type", value := contenttype ]];
+    this->pvt_lastrequest.content := data;
+    this->pvt_lastrequest.content_length := Length(data);
+    this->pvt_lastpage := this->ParsePage();
+  }
+
+  /** @short Open a URL in the webbrowser (GET request)
+      @param url URL to go to
+      @cell(record array) options.headers Additional headers to send in the request
+      @cell(string) options.headers.field Header name
+      @cell(string) options.headers.value Header contents
+      @return True on success */
+  PUBLIC BOOLEAN FUNCTION GotoWebPage(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ method := "GET"
+                                , headers := RECORD[]
+                                ], options);
+
+    IF(options.method NOT IN ["GET","HEAD"])
+      THROW NEW Exception('GotoWebPage only supports GET and HEAD'); //ADDME think we can just start adding others ?
+
+    this->pvt_document := DEFAULT OBJECT;
+    this->pvt_lasterror := "";
+
+    BOOLEAN success := RunGeneratorUntilReturn(this->GetPage(options.method, url, options.headers, DEFAULT BLOB, DEFAULT RECORD, FALSE));
+    this->pvt_lastpage := this->ParsePage();
+    RETURN success;
+  }
+
+  /** @short Open a URL in the webbrowser (GET request), runs asynchronously
+      @param url URL to go to
+      @cell(record array) options.headers Additional headers to send in the request
+      @cell(string) options.headers.field Header name
+      @cell(string) options.headers.value Header contents
+      @return Promise, which fulfills when the request has completed. Resolves to TRUE on success
+  */
+  PUBLIC OBJECT ASYNC FUNCTION AsyncGotoWebPage(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ method := "GET"
+                                , headers := RECORD[]
+                                ], options);
+
+    IF(options.method NOT IN ["GET","HEAD"])
+      THROW NEW Exception('GotoWebPage only supports GET and HEAD'); //ADDME think we can just start adding others ?
+
+    this->pvt_document := DEFAULT OBJECT;
+    this->pvt_lasterror := "";
+
+    BOOLEAN success := AWAIT GeneratorSpawn(this->GetPage(options.method, url, options.headers, DEFAULT BLOB, DEFAULT RECORD, TRUE));
+    this->pvt_lastpage := this->ParsePage();
+    RETURN success;
+  }
+
+  /** @short Asynchronously submits a POST request
+      @param url URL to send the request to
+      @param variables Variables to post to the URL
+      @cell(string) variables.name Name of the variable
+      @cell variables.value Value for the variable. Can be BLOB when using 'multipart/form-data' encoding, must be STRING otherwise
+      @cell(string) variables.type Mime-type of the variable contents (only used for 'multipart/form-data' encoding)
+      @cell(boolean) variables.binary If TRUE, sets the Content-Transfer-Encoding to 'binary' (only used for 'multipart/form-data' encoding)
+      @param enctype Encoding type to use ('multipart/form-data' for HTTP multipart form-encoding encoding, otherwise URL encoding)
+      @param charset Character set to encode the variables in (defaults to 'utf-8')
+      @return Promise, which fulfills when the request has completed. Resolves to TRUE on success
+  */
+  PUBLIC OBJECT ASYNC FUNCTION AsyncPostWebPage(STRING url, RECORD ARRAY variables, STRING enctype, STRING charset DEFAULTSTO "utf-8")
+  {
+    this->pvt_document := DEFAULT OBJECT;
+    this->pvt_lasterror := "";
+
+    RECORD post := ToUppercase(enctype)="MULTIPART/FORM-DATA" ? CreateHTTPMultipartRequest(variables) : CreateHTTPUrlencodedRequest(variables, charset);
+    BOOLEAN success := AWAIT GeneratorSpawn(this->GetPage("POST", url, post.headers, post.body, DEFAULT RECORD, FALSE));
+    this->pvt_lastpage := this->ParsePage();
+    RETURN success;
+  }
+
+  /** @short Submits a POST request
+      @param url URL to send the request to
+      @param variables Variables to post to the URL
+      @cell(string) variables.name Name of the variable
+      @cell variables.value Value for the variable. Can be BLOB when using 'multipart/form-data' encoding, must be STRING otherwise
+      @cell(string) variables.type Mime-type of the variable contents (only used for 'multipart/form-data' encoding)
+      @cell(boolean) variables.binary If TRUE, sets the Content-Transfer-Encoding to 'binary' (only used for 'multipart/form-data' encoding)
+      @param enctype Encoding type to use ('multipart/form-data' for HTTP multipart form-encoding encoding, otherwise URL encoding)
+      @param charset Character set to encode the variables in (defaults to 'utf-8')
+      @return TRUE on success
+  */
+  PUBLIC BOOLEAN FUNCTION PostWebPage(STRING url, RECORD ARRAY variables, STRING enctype, STRING charset DEFAULTSTO "utf-8")
+  {
+    this->pvt_document := DEFAULT OBJECT;
+    this->pvt_lasterror := "";
+
+    RECORD post := ToUppercase(enctype)="MULTIPART/FORM-DATA" ? CreateHTTPMultipartRequest(variables) : CreateHTTPUrlencodedRequest(variables, charset);
+    BOOLEAN success := RunGeneratorUntilReturn(this->GetPage("POST", url, post.headers, post.body, DEFAULT RECORD, FALSE));
+    this->pvt_lastpage := this->ParsePage();
+    RETURN success;
+  }
+
+
+  /** Post a URL in a webbrowser
+      @param url URL to post to
+      @param headers list of headers @includecelldef #SendRawRequest.headers
+      @param request_body Request body to send
+      @return TRUE on success
+  */
+  PUBLIC BOOLEAN FUNCTION PostWebPageBlob(STRING url, RECORD ARRAY headers, BLOB request_body)
+  {
+    RETURN this->SendRawRequest("POST", url, headers, request_body, DEFAULT RECORD);
+  }
+
+  /** Asynchronously post a URL in a webbrowser
+      @param url URL to post to
+      @param headers list of headers @includecelldef #SendRawRequest.headers
+      @param request_body Request body to send
+      @return Promise, which fulfills when the request has completed. Resolves to TRUE on success
+  */
+  PUBLIC OBJECT FUNCTION AsyncPostWebPageBlob(STRING url, RECORD ARRAY headers, BLOB request_body)
+  {
+    RETURN this->AsyncSendRawRequest("POST", url, headers, request_body, DEFAULT RECORD);
+  }
+
+  /** Sends a request
+      @param method HTTP method to use
+      @param url URL for the request
+      @param headers @includecelldef #GetPage.headers
+      @param request_body Request body
+      @param options @includecelldef #GetPage.options
+      @return @includecelldef #GetPage.return
+  */
+  PUBLIC BOOLEAN FUNCTION SendRawRequest(STRING method, STRING url, RECORD ARRAY headers, BLOB request_body, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->pvt_document := DEFAULT OBJECT;
+    this->pvt_lasterror := "";
+
+    BOOLEAN success := RunGeneratorUntilReturn(this->GetPage(method, url, headers, request_body, options, FALSE));
+    this->pvt_lastpage := this->ParsePage();
+    RETURN success;
+  }
+
+  /** Sends a asynchronous request. Make sure not to run another request simulateously on this browser object.
+      @param method HTTP method to use
+      @param url URL for the request
+      @param headers @includecelldef #GetPage.headers
+      @param request_body Request body
+      @param options @includecelldef #GetPage.options
+      @return @includecelldef #GetPage.return
+  */
+  PUBLIC OBJECT ASYNC FUNCTION AsyncSendRawRequest(STRING method, STRING url, RECORD ARRAY headers, BLOB request_body, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->pvt_document := DEFAULT OBJECT;
+    this->pvt_lasterror := "";
+
+    BOOLEAN success := AWAIT GeneratorSpawn(this->GetPage(method, url, headers, request_body, options, TRUE));
+    this->pvt_lastpage := this->ParsePage();
+    RETURN success;
+  }
+
+  /** Executes a submit instruction
+      @param submitinstruction Submitinstruction Supported types: 'form' and 'redirect'. @includecelldef mod::system/lib/webserver.whlib#ExecuteSubmitInstruction.instr
+      @see mod::system/lib/webserver.whlib#ExecuteSubmitInstruction
+      @return Whether the redirect/form submit completed succesfully
+  */
+  PUBLIC BOOLEAN FUNCTION ExecuteSubmitInstruction(RECORD submitinstruction)
+  {
+    IF(submitinstruction.type="form")
+    {
+      IF(ToUppercase(submitinstruction.form.method)="POST")
+      {
+        RETURN this->PostWebPage(submitinstruction.form.action, submitinstruction.form.vars, "multipart/form-data", "utf-8");
+      }
+    }
+    ELSE IF(submitinstruction.type="redirect")
+    {
+      RETURN this->GotoWebPage(submitinstruction.url);
+    }
+    THROW NEW Exception("Did not support submitinstruction");
+  }
+
+  /** Returns the code and message of the last request
+      @return HTTP status and message, concatenated to a single string in the form `<code> <message>`.
+  */
+  PUBLIC STRING FUNCTION GetHTTPStatusText()
+  {
+    IF(NOT RecordExists(this->pvt_lastrequest))
+      RETURN "No request done";
+
+    RETURN this->pvt_lastrequest.code || " " || this->pvt_lastrequest.message;
+  }
+
+  /** Returns the HTTP status code of the last request resulted in
+      @return HTTP status code
+  */
+  PUBLIC INTEGER FUNCTION GetHTTPStatusCode()
+  {
+    RETURN RecordExists(this->pvt_lastrequest) ? this->pvt_lastrequest.code : 0;
+  }
+
+  /** Returns the HTTP status code and message the last request resulted in
+      @return HTTP status code and message
+      @cell(integer) return.code HTTP status code
+      @cell(string) return.message HTTP status message
+  */
+  PUBLIC RECORD FUNCTION GetHTTPStatus()
+  {
+    IF(NOT RecordExists(this->pvt_lastrequest))
+      RETURN DEFAULT RECORD;
+
+    RETURN [ code := this->pvt_lastrequest.code
+           , message := this->pvt_lastrequest.message
+           ];
+  }
+
+  /** Returns the socket error of the last request
+      @return Socket error code
+      @see GetLastSocketError
+  */
+  PUBLIC INTEGER FUNCTION GetSocketError()
+  {
+    RETURN this->pvt_sockerr;
+  }
+
+  /** Deletes a single cookie
+      @param cookiename Name of the cookie to delete
+  */
+  PUBLIC MACRO DeleteCookie(STRING cookiename)
+  {
+    DELETE FROM this->pvt_cookies WHERE name=cookiename;
+  }
+
+  /// Clears the current list of cookies
+  PUBLIC MACRO DeleteAllCookies()
+  {
+    DELETE FROM this->pvt_cookies;
+  }
+
+  /** Returns the current list of cookies
+      @return Cookies
+      @cell(string) return.name Cookie name
+      @cell(string) return.data URL-encoded cookie data
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAllCookies()
+  {
+    RETURN this->pvt_cookies;
+  }
+
+  /** Returns the data for a single cookie
+      @param cookiename Name of the cookie
+      @return URL-decoded cookie data
+  */
+  PUBLIC STRING FUNCTION GetCookie(STRING cookiename)
+  {
+    RETURN SELECT AS STRING DecodeURL(data) FROM this->pvt_cookies WHERE name=cookiename;
+  }
+
+  /** Sets a cookie
+      @param cookiename Name of the cookie
+      @param value Value for the cookie
+  */
+  PUBLIC MACRO SetSessionCookie(STRING cookiename, STRING value)
+  {
+    DELETE FROM this->pvt_cookies WHERE name=cookiename;
+    INSERT [ name := cookiename, data := value ] INTO this->pvt_cookies AT END;
+  }
+
+  MACRO MyErrorHandler(STRING errmsg)
+  {
+    IF(__webbrowser_debugall OR this->debug)
+      PRINT("** webbrowser error: " || errmsg || "\n");
+    this->pvt_lasterror := errmsg;
+    IF(this->pvt_connectingto != "")
+      this->pvt_lasterror := this->pvt_lasterror || " (" || this->pvt_connectingto || ")";
+    IF(this->OnError != DEFAULT FUNCTION PTR)
+      this->OnError(errmsg);
+  }
+
+  /** Submits a form on the page
+      @param(object wh::xml/dom.whlib#XmlElement) tosubmit Button, input or form element to submit
+      @return Whether the submit was succesfull
+  */
+  PUBLIC BOOLEAN FUNCTION SubmitForm(OBJECT tosubmit)
+  {
+    INTEGER buttonid := -1;
+    OBJECT form;
+
+    IF( (ToLowercase(tosubmit->nodename)="button" AND ToUppercase(tosubmit->GetAttribute("type")) IN ["","SUBMIT"])
+        OR (ToLowercase(tosubmit->nodename)="input" AND ToUppercase(tosubmit->GetAttribute("type")) IN ["IMAGE","SUBMIT"]))
+    {
+      FOR(OBJECT node := tosubmit; ObjectExists(node); node:=node->parentnode)
+        IF(ToLowercase(node->nodename)="form")
+        {
+          form := node;
+          BREAK;
+        }
+      IF(NOT ObjectExists(form))
+        THROW NEW Exception("Cannot find form associated with the selected button");
+    }
+    ELSE IF(ToLowercase(tosubmit->nodename)="form")
+    {
+      form := tosubmit;
+    }
+    ELSE
+    {
+      THROW NEW Exception("Must pass a <button> or <form> to SubmitForm");
+    }
+
+    RECORD formdata := ParsePageForm(this->url, form);
+    IF(form != tosubmit) //still need to look up the button
+    {
+      FOREVERY(RECORD input FROM formdata.inputs)
+        IF(input.node->IsSameNode(tosubmit))
+        {
+          buttonid := #input+1;
+          BREAK;
+        }
+      IF(buttonid=-1)
+        THROW NEW Exception("Failed to find selected submit button");
+    }
+
+    RETURN this->__DoSubmit(formdata, buttonid, this->GetCharsetForForm(tosubmit));
+  }
+
+  STRING FUNCTION GetCharsetForForm(OBJECT form)
+  {
+    //FIXME charset from <form> tag ?
+    STRING contenttype := this->contenttype;
+    STRING charset := GetMIMEHeaderParameter(contenttype,"charset");
+    IF(charset="" AND ObjectExists(this->document))
+    {
+      //Let's try the meta tag then
+      OBJECT ARRAY metatags := this->document->GetElementsByTagName("meta")->GetCurrentNodes();
+      FOREVERY(OBJECT meta FROM metatags)
+        IF(ToUppercase(meta->GetAttribute("http-equiv"))="CONTENT-TYPE")
+        {
+          charset := GetMIMEHeaderParameter(meta->GetAttribute("content"),"charset");
+          BREAK;
+        }
+    }
+
+    //Ignore odd charsets - we'll just speak UTF-8 to you then
+    TRY EncodeCharSet("test",charset);
+    CATCH charset := "";
+
+    RETURN charset;
+  }
+
+  /** @short Override hostname resolution (set an IP addres or alternative hostname)
+      @param hostname Hostname to override
+      @param overridewith IP address or hostname to force connections for this host to. Pass an empty string to remove the override
+      @cell options.inport Is non-0, only match connections to this exact port
+      @cell options.outport If set, connect to this port instead
+      @cell options.secure If provided, use SSL if set to TRUE, don't use SSL otherwise.
+      */
+  PUBLIC MACRO SetHostnameOverride(STRING hostname, STRING overridewith, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ inport := 0, outport := 0, secure := FALSE], options, [ optional := ["secure"] ]);
+
+    DELETE FROM this->pvt_hostnameoverrides WHERE ToUppercase(pvt_hostnameoverrides.hostname) = ToUppercase(VAR hostname) AND pvt_hostnameoverrides.inport = VAR options.inport;
+
+    IF(overridewith!="")
+      INSERT [ hostname := hostname
+             , overridewith := overridewith
+             , inport := options.inport
+             , outport := options.outport
+             , overridesecure := CellExists(options,'secure')
+             , setsecure := CellExists(options,'secure') ? options.secure : FALSE
+             ] INTO this->pvt_hostnameoverrides AT END;
+
+    IF (this->pvt_server = hostname)
+      this->CloseCurrentConnection();
+  }
+
+
+  /** Send all requests from a specific IP address
+      @param host Host/ip to use as source for requests. Set to empty to allow binding anywhere
+      @param port Port to bind to, or 0 to bind to at any available port
+      @see GetRequestSource
+  */
+  PUBLIC MACRO SetRequestSource(STRING host, INTEGER port)
+  {
+    this->CloseCurrentConnection();
+    this->pvt_bindhost := host;
+    this->pvt_bindport := port;
+  }
+
+
+  /** Returns the current set IP address from which the requests are sent
+      @return Request source data
+      @cell return.host Host/ip for source of requests. Empty if all bindings are allowed
+      @cell return.post Port to bind to, 0 if any available port is ok.
+      @see SetRequestSource
+  */
+  PUBLIC RECORD FUNCTION GetRequestSource()
+  {
+    RETURN
+        [ host :=       this->pvt_bindhost
+        , port :=       this->pvt_bindport
+        ];
+  }
+
+  /** Opens a websocket
+      @param URL URL to connect to
+      @param headers @includecelldef #GetPage.headers
+      @return Websocket connection
+      @cell return.success Whether the connection has been succesfully opened
+      @cell return.conn Websocket client connection (type: WebSocketClientConnection)
+  */
+  PUBLIC RECORD FUNCTION OpenWebSocket(STRING url, RECORD ARRAY headers)
+  {
+    IF (url LIKE "ws:*" OR url LIKE "wss:*")
+      url := "http" || SubString(url, 2);
+
+    STRING wskey := DecodeUFS(GenerateUFS128BitId());
+    STRING expected_response := EncodeBase64(GetSHA1Hash(EncodeBase64(wskey) || "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"));
+
+    // Add the standard websocket connection stuff
+    headers := headers CONCAT
+        [ [ field := "Connection", value := "Upgrade" ]
+        , [ field := "Upgrade",   value := "websocket" ]
+        , [ field := "Sec-WebSocket-Version", value := "13" ]
+        , [ field := "Sec-WebSocket-Key", value := EncodeBase64(wskey) ]
+        ];
+
+    // Ignore success, will be false anyway
+    RunGeneratorUntilReturn(this->GetPage("GET", url, headers, DEFAULT BLOB, DEFAULT RECORD, FALSE));
+    this->pvt_lastpage := this->ParsePage();
+
+    IF (NOT CellExists(this->pvt_lastrequest, "code"))
+      RETURN [ success := FALSE, code := 0, msg := "Error connecting to websocket: could not connect to server" ];
+    IF (this->pvt_lastrequest.code != 101)
+      RETURN [ success := FALSE, code := this->pvt_lastrequest.code, msg := "Error connecting to websocket: server responded with HTTP code " || this->pvt_lastrequest.code ];
+
+    STRING response := SELECT AS STRING value FROM this->pvt_lastrequest.headers WHERE ToUppercase(field) = "SEC-WEBSOCKET-ACCEPT";
+    IF (response != expected_response)
+      RETURN [ success := FALSE, code := 0, msg := "Error connecting to websocket: no or wrong accept hash" ];
+
+    OBJECT conn := NEW WebSocketClientConnection(this->pvt_conn);
+//    conn->greedy := TRUE;
+    this->pvt_conn := 0;
+
+    RETURN [ success := TRUE, conn := conn ];
+  }
+
+  /// Closes any persistent connections and releases all resources
+  PUBLIC MACRO Close()
+  {
+    this->CloseCurrentConnection();
+    IF(this->pvt_lastxmldoc != 0)
+      CloseXML(this->pvt_lastxmldoc);
+    this->pvt_lastxmldoc := 0;
+  }
+
+  /** @short Get a response header by name
+      @param headername Name of the header to return (case-insensitive)
+      @return The header's value, or an empty string if no such header was sent */
+  PUBLIC STRING FUNCTION GetResponseHeader(STRING headername) //ADDME combine multiple occuring headers
+  {
+    RETURN SELECT AS STRING value FROM this->responseheaders WHERE ToUppercase(field)=ToUppercase(headername);
+  }
+
+  /** Set the username and password to use for authenticating for a specific URL
+      @param urlbase URL prefix to match. The username and password of the match with the longest prefix will be used.
+      @param username User name to use
+      @param password Password to use
+  */
+  PUBLIC MACRO SetPassword(STRING urlbase, STRING username, STRING password)
+  {
+    DELETE FROM this->pvt_authuris WHERE urlspace=urlbase AND NOT isproxy;
+    INSERT [ username := username
+           , password := password
+           , urlspace := urlbase
+           , isproxy := FALSE
+           , realm := ""
+           ] INTO this->pvt_authuris AT END;
+  }
+
+  /** Set the authorization header to use for authenticating for a specific URL
+      @param urlbase URL prefix to match. The username and password of the match with the longest prefix will be used.
+      @param authorizationheader Value of the sent 'Authorization' header
+  */
+  PUBLIC MACRO SetAuthorization(STRING urlbase, STRING authorizationheader)
+  {
+    DELETE FROM this->pvt_authuris WHERE urlspace=urlbase AND NOT isproxy;
+    INSERT [ username := "__header"
+           , password := authorizationheader
+           , urlspace := urlbase
+           , isproxy := FALSE
+           , realm := ""
+           ] INTO this->pvt_authuris AT END;
+  }
+
+  /** Set the username and password to use for authenticating for the proxy for a specific URL
+      @param urlbase URL prefix to match. The username and password of the match with the longest prefix will be used.
+      @param username User name to use
+      @param password Password to use
+  */
+  PUBLIC MACRO SetProxyPassword(STRING urlbase, STRING username, STRING password)
+  {
+    DELETE FROM this->pvt_authuris WHERE urlspace=urlbase AND isproxy;
+    INSERT [ username := username
+           , password := password
+           , urlspace := urlbase
+           , isproxy := TRUE
+           , realm := ""
+           ] INTO this->pvt_authuris AT END;
+  }
+
+  /** Get a single element by CSS selector
+      @param args Either a selector string, or a node and a selector string
+      @return (object wh::xml/dom.whlib#XmlElement) Matching DOM nodes
+  */
+  PUBLIC OBJECT FUNCTION QS(VARIANT ARRAY ...args)
+  {
+    IF(Length(args) = 1)
+      RETURN this->document->QuerySelector(args[0]);
+    ELSE IF(Length(args) = 2)
+      RETURN args[0]->QuerySelector(args[1]);
+    ELSE
+      THROW NEW Exception("Incorrect # of arguments to QS");
+  }
+
+  /** Get all elements matching a CSS selector
+      @param args Either a selector string, or a node and a selector string
+      @return (object wh::xml/dom.whlib#XmlElement) Matching DOM nodes
+  */
+  PUBLIC OBJECT ARRAY FUNCTION QSA(VARIANT ARRAY ...args)
+  {
+    IF(Length(args) = 1)
+      RETURN this->document->QuerySelectorAll(args[0])->GetCurrentElements();
+    ELSE IF(Length(args) = 2)
+      RETURN args[0]->QuerySelectorAll(args[1])->GetCurrentElements();
+    ELSE
+      THROW NEW Exception("Incorrect # of arguments to QS");
+  }
+
+  BOOLEAN FUNCTION __DoSubmit(RECORD formdata, INTEGER buttonid, STRING charset)
+  {
+    BOOLEAN foundsubmit;
+    RECORD ARRAY variables;
+
+    FOREVERY (RECORD input FROM formdata.inputs)
+    {
+      IF (input.type = "SUBMIT")
+      {
+        IF(buttonid != #input+1)
+          CONTINUE;
+
+        foundsubmit := TRUE;
+        IF(input.name != "")
+        {
+          //ADDME: test whether browsers actually always insert the submit button into a response, even if its value=""
+          INSERT [ name := input.name, value := CellExists(input, "value") ? input.value : ""] INTO variables AT END;
+        }
+        CONTINUE;
+      }
+
+      IF (input.type = "SELECT")
+      {
+        IF (CellExists(input, "value"))
+        {
+          FOREVERY (STRING value FROM input.value)
+            INSERT [ name := input.name, value := value ] INTO variables AT END;
+        }
+      }
+      ELSE IF (input.type = "IMAGE")
+      {
+        IF(buttonid != #input+1)
+          CONTINUE;
+
+        foundsubmit := TRUE;
+        INSERT [ name := input.name||".x", value := "0" ] INTO variables AT END;
+        INSERT [ name := input.name||".y", value := "0" ] INTO variables AT END;
+      }
+      ELSE IF (input.type = "RESET" OR input.type = "BUTTON")
+      {
+        CONTINUE; // 'submit' was clicked, don't add reset or button values
+      }
+      ELSE IF (input.type = "FILE")
+      {
+        IF (Length(input.value) > 0)
+        {
+          STRING filename := GetNameFromPath(input.value);
+
+          INSERT [ name := input.name
+                 , value := input.data
+                 , filename := filename
+                 , type := "application/octet-stream"
+                 , binary := TRUE
+                 ] INTO variables AT END;
+        }
+      }
+      ELSE
+      {
+        IF (CellExists(input, "value"))
+          INSERT [ name := input.name, value := input.value ] INTO variables AT END;
+      }
+    }
+
+    IF(NOT foundsubmit AND buttonid != -1)
+      THROW NEW Exception("Couldn't find submit button");
+
+    IF (formdata.method = "GET")
+    {
+      STRING url := formdata.action;
+      url := Tokenize(url,'?')[0]; //strip from ?
+
+      FOREVERY (RECORD variable FROM variables)
+        url := AddVariableToUrl(url, variable.name, variable.value);
+
+      RETURN this->GotoWebPage(url);
+    }
+    ELSE IF (formdata.method = "POST")
+    {
+      RETURN this->PostWebPage(formdata.action, variables, formdata.enctype, charset);
+    }
+    //FIXME report bad action  this->pvt_error := "Unsupported button type " || ToLowercase(button.type);
+    RETURN FALSE;
+  }
+>;

@@ -1,0 +1,356 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/commondialogs.whlib"
+         gid="commondialogs">
+
+  <messageboxes gid=".messageboxes">
+    <messagebox name="applaunchfailure" icon="error" buttons="ok" />
+    <messagebox name="applaunchfailure_invalidappname" icon="error" buttons="ok" />
+    <messagebox name="applaunchfailure_nosuchmodule" icon="error" buttons="ok" />
+    <messagebox name="applaunchfailure_nosuchapp" icon="error" buttons="ok" />
+
+    <!-- The 'showmessage' messagebox just shows the first parameter in an information messagebox, can be used to quickly
+         display some information without having to create a (temporary) messagebox -->
+    <messagebox name="showmessage" icon="" buttons="ok" />
+
+    <messagebox name="errors" icon="error" buttons="ok" />
+    <messagebox name="warnings" icon="warning" buttons="ok" />
+    <messagebox name="wrong_file_type" icon="error" buttons="ok" />
+    <messagebox name="some_wrong_file_type" icon="question" buttons="yes no" />
+    <messagebox name="remove_file_confirmation" icon="question" buttons="yes no" default="no" />
+    <messagebox name="remove_image_confirmation" icon="question" buttons="yes no" default="no" />
+
+    <messagebox name="notimplemented" icon="information" buttons="close" />
+    <messagebox name="confirmrowdeletion" icon="information" buttons="yes no" />
+    <messagebox name="exceptionemailsent" icon="information" buttons="close" tid="commondialogs.exception.emailsent" />
+    <messagebox name="confirmclearformatting" buttons="yes no" icon="warning" />
+    <messagebox name="confirmclearcontents" buttons="yes no" icon="warning" />
+    <messagebox name="confirmdeleteembeddedobject" buttons="yes no" icon="warning" />
+    <messagebox name="webhareclosedformaintenance" buttons="ok" icon="warning" />
+    <messagebox name="addedtostartmenu" buttons="ok" icon="information" dontshowagain="ok" />
+    <messagebox name="alreadyaddedtostartmenu" buttons="ok" icon="information" />
+  </messageboxes>
+
+  <screen name="showmessagebox" title="">
+    <body name="toppanel" layout="right">
+      <grid height="1pr">
+        <col />
+        <col width="1pr" />
+        <row height="1pr">
+          <cell>
+            <image name="pvt_icon" title="" width="32px" height="32px" />
+          </cell>
+          <cell layout="left">
+            <text name="message" title="" wordwrap="true" width="60x" selectable="true" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <grid width="1pr">
+        <col />
+        <col width="1pr" />
+        <row>
+          <cell layout="left">
+            <checkbox name="pvt_dontbugme" title="" label="" onchange="dontbugmechanged" visible="false" />
+          </cell>
+          <cell name="buttons" layout="right" /><!-- Buttons are added dynamically -->
+        </row>
+      </grid>
+    </footer>
+  </screen>
+
+  <screen name="messagebox" onshow="onshow" title="">
+    <body name="toppanel" layout="right">
+      <grid height="1pr">
+        <col />
+        <col width="1pr" />
+        <row height="1pr">
+          <cell>
+            <image name="pvt_icon" title="" width="32px" height="32px" />
+          </cell>
+          <cell layout="left">
+            <text name="pvt_message" title="" wordwrap="true" width="60x" selectable="true" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <grid width="1pr">
+        <col />
+        <col width="1pr" />
+        <row>
+          <cell layout="left">
+            <checkbox name="pvt_dontbugme" title="" label="" onchange="dontbugmechanged" visible="false" />
+          </cell>
+          <cell name="buttons" layout="right" /><!-- Buttons are added dynamically -->
+        </row>
+      </grid>
+    </footer>
+  </screen>
+
+  <screen name="getuserfile" gid=".getuserfile" tid=".title">
+    <actions>
+      <uploadaction name="upload" onupload="doupload" />
+    </actions>
+    <body name="body">
+      <button action="upload" />
+<!-- FIXME       <file name="file" tid=".file" onchange="flashuploaded" /> -->
+      <!-- A file component is added dynamically, because it doesn't exist in XML anymore -->
+      <panel height="1pr" />
+    </body>
+    <footer>
+      <line layout="right">
+        <button name="okbutton" tolliumresult="tollium_submit" tid="tollium:common.actions.ok" />
+        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="senduserfile" gid=".senduserfile" tid=".title">
+    <actions>
+      <downloadaction name="download" ondownload="dodownload" ondownloadstarted="ondownloadstarted" />
+    </actions>
+    <body name="body" width="600px">
+      <text name="file" width="1pr" ellipsis="true"/>
+      <text name="size" />
+      <text name="type" visible="false"/>
+
+      <panel height="1pr" />
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="download" tid="tollium:common.actions.download"/>
+        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="windowopen" gid=".windowopen" tid=".title">
+    <actions>
+      <windowopenaction name="windowopen" onwindowopen="dowindowopen" />
+    </actions>
+    <body name="body">
+      <panel height="1pr" />
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="windowopen" />
+        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="qrcallback" gid=".qrcallback" tid=".title">
+    <compositions>
+      <callbacklistener name="callbacklistener" oncallback="onqrcallback" />
+    </compositions>
+    <body layout="left">
+      <image name="qrcode" title="" />
+      <text name="description" title="" valuetid=".description" width="1pr" wordwrap="true" public="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="ordering" minwidth="60x" minheight="30x" gid=".ordering">
+    <actions>
+      <action name="totop" onexecute="dototop">
+        <enableon source="orderlist" min="1" max="1" />
+      </action>
+      <action name="oneup" onexecute="dooneup">
+        <enableon source="orderlist" min="1" max="1" />
+      </action>
+      <action name="onedown" onexecute="doonedown">
+        <enableon source="orderlist" min="1" max="1" />
+      </action>
+      <action name="tobottom" onexecute="dotobottom">
+        <enableon source="orderlist" min="1" max="1" />
+      </action>
+    </actions>
+    <body>
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="orderlist" columnheaders="false" sortable="false" selectmode="single" public="true">
+              <column name="title" type="text" title="" />
+            </list>
+          </cell>
+          <cell>
+            <button action="totop" width="1pr"/>
+            <button action="oneup" width="1pr"/>
+            <button action="onedown" width="1pr"/>
+            <button action="tobottom" width="1pr"/>
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="loaderror" gid=".loaderror" width="120x" height="30x" implementation="none" allowresize="true">
+    <body>
+      <text valuetid=".loadfailure" />
+      <text name="parseerrors" valuetid=".parsererrors" title="" public="true" wordwrap="true" width="1pr" />
+      <panel height="1pr">
+        <list name="errors" public="true">
+          <column name="resourcename" type="text" tid=".filename" width="36x" />
+          <column name="line" type="integer" tid=".linenum" width="12x" />
+          <column name="message" type="text" tid=".message" />
+        </list>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="columnfileexport" gid=".columnfileexport" lib="screens/commondialogs/columnfileexport.whlib" defaultbutton="downloadbutton">
+    <actions>
+      <downloadaction name="download" ondownload="ondownload" tid="~download" ondownloadstarted="ondownloadstarted"/>
+    </actions>
+    <body>
+      <heading tid=".selectoutputformat" />
+      <select type="radio" name="outputformat" flags="csv" title="">
+        <option rowkey="xlsx" />
+        <option rowkey="csv" flags="csv" />
+      </select>
+
+      <tabs name="exportprops" type="server">
+        <tab title="" name="csvoptions">
+          <visibleon source="outputformat" checkflags="csv" />
+          <heading tid=".csvoptions" />
+          <line layout="left">
+            <text valuetid=".csvinfo" wordwrap="true" />
+          </line>
+          <select type="pulldown" name="separator">
+            <option rowkey="semicolon" selected="1" tid=".semicolon"/>
+            <option rowkey="comma" tid=".comma"/>
+            <option rowkey="tab" tid=".tab" />
+          </select>
+          <select type="pulldown" name="decimal">
+            <option rowkey="period" selected="1" tid=".period"/>
+            <option rowkey="comma" tid=".comma"/>
+          </select>
+          <select type="pulldown" name="charset">
+            <option rowkey="ISO-8859-1" selected="1" title="ISO-8859-1" />
+            <option rowkey="UTF-8" title="UTF-8"/>
+          </select>
+        </tab>
+        <tab title="" name="emptytab">
+          <visibleon source="outputformat" checkflags="!csv" />
+        </tab>
+      </tabs>
+
+<!--
+
+      <panel layout="left">
+        <text valuetid=".exportdescr" wordwrap="true" width="50x" />
+      </panel>
+      <box>
+        <select type="pulldown" name="outputformat" flags="csv">
+          <option rowkey="csv" flags="csv" />
+          <option rowkey="xlsx" />
+        </select>
+
+  </box>-->
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="download" tid="~download" name="downloadbutton" />
+        <button tolliumresult="cancel" tid="~cancel" />
+      </line>
+    </footer>
+
+  </screen>
+
+
+  <screen name="progressscreen"
+          gid=".progress"
+          tid=".title">
+    <actions>
+      <action name="cancelaction" onexecute="docancel" tid="tollium:common.actions.cancel" />
+    </actions>
+    <body width="75x" layout="left">
+      <heading tid=".progress" />
+      <progress name="progress" max="100" title="" />
+      <text name="status" title="" valuetid=".initializing" ellipsis="true" />
+      <text name="timeelapsed" valuetid=".zeroseconds" />
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="cancelaction" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="exceptionscreen" gid=".exception" tid=".title" height="45x" width="130x">
+    <actions>
+      <action name="sendemail" onexecute="dosendemail" tid=".email" />
+      <action name="closeaction" onexecute="doclose" tid="tollium:common.actions.close" />
+    </actions>
+    <body layout="left">
+      <text valuetid=".exception" wordwrap="true" />
+      <text tid=".description" />
+      <textarea title="" name="description" enabled="false" height="1pr" minwidth="100x" />
+    </body>
+    <footer>
+      <grid width="1pr">
+        <col width="1pr" />
+        <col width="1pr" />
+        <row>
+          <cell gid="">
+            <button name="sendemailbutton" action="sendemail" />
+          </cell>
+          <cell>
+            <line layout="right">
+              <button action="closeaction" />
+            </line>
+          </cell>
+        </row>
+      </grid>
+    </footer>
+  </screen>
+
+  <screen name="exceptionadditional" gid="commondialogs.exception" tid=".additionaltitle" width="75x" implementation="none" allpublic="true">
+    <body layout="left">
+      <text title="" valuetid=".explainadditional" wordwrap="true" />
+      <textarea title="" name="usercomment" height="5x" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="browseserverpath" gid=".browseserverpath"
+          lib="screens/commondialogs/browseserverpath.whlib"
+          width="75x" height="40x" allowresize="true" savestate="size"
+          >
+    <body>
+      <panel width="1pr" height="1pr">
+        <list name="folders"
+              ongetpath="ongetpath"
+              ongetchildren="ongetchildren"
+              selectmode="single"
+              width="1pr"
+              height="1pr"
+              onselect="onselect"
+              sortable="false"
+              icons="files/application_x-webhare-unknown folders/normal"
+           >
+          <column type="text" name="name" tree="true" iconname="showtype" />
+        </list>
+      </panel>
+      <textedit name="showpath" width="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+
+  </screen>
+
+</screens>

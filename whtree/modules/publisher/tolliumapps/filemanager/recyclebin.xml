@@ -1,0 +1,63 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="recyclebin.whlib"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
+         gid="filemanager.recyclebin"
+         >
+
+  <screen name="filterpanel" gid=".filterpanel" title="">
+    <body>
+      <grid>
+        <col/>
+        <col width="1pr"/>
+        <row>
+          <cell>
+            <checkbox title="" labeltid=".searchoptions-searchname"  enablecomponents="searchname" name="searchnameon"/>
+          </cell>
+          <cell>
+            <textedit name="searchname" title="" width="1pr" />
+          </cell>
+        </row>
+        <row>
+          <cell>
+            <checkbox title="" labeltid=".searchoptions-searchsite" enablecomponents="searchsite" name="searchsiteon" />
+          </cell>
+          <cell>
+            <browsecustom name="searchsite" title="" onbrowse="onselectsite" onmapvalue="onmapsite" valuetype="integer" width="1pr" />
+          </cell>
+        </row>
+        <row>
+          <cell>
+            <checkbox title="" labeltid=".searchoptions-searchuser"  enablecomponents="searchuser" name="searchuseron"/>
+          </cell>
+          <cell>
+            <system:selectuser name="searchuser" title="" onchange="onuserselected" enabled="false" inputkind="AUTHOBJECT_ID" width="1pr" />
+            <!--
+            <line>
+              <textedit name="searchuser" title="" enabled="false" />
+              <button action="selectsearchuser" name="selectsearchuserbtn" tid="tollium:common.actions.select" />
+            </line>
+            -->
+          </cell>
+        </row>
+        <row>
+          <cell>
+            <checkbox title="" labeltid=".searchoptions-searchstartdate"  enablecomponents="searchstartdate" name="searchstartdateon"/>
+          </cell>
+          <cell>
+            <datetime type="date" name="searchstartdate" title="" />
+          </cell>
+        </row>
+        <row>
+          <cell>
+            <checkbox title="" labeltid=".searchoptions-searchenddate"  enablecomponents="searchenddate" name="searchenddateon"/>
+          </cell>
+          <cell>
+            <datetime type="date" name="searchenddate" title="" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+</screens>

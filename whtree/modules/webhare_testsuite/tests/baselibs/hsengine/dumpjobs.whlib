@@ -1,0 +1,41 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+/* Debugging tool, usage:
+
+  RECORD logjob := CreateJob("test::dumpjobs.whlib");
+  logjob.job->Start();
+
+  ... code ...
+
+  logjob.job->Close();
+*/
+
+PUBLIC RECORD FUNCTION __HS_GETJOBMANAGERSTATUS(BOOLEAN with_history) __ATTRIBUTES__(EXTERNAL);
+
+// Wait 5 seconds before beginning logging
+Sleep(5000);
+
+WHILE (TRUE)
+{
+  DATETIME now := GetCurrentDateTime();
+
+  PRINT("Job mgr state at " || FormatISO8601Datetime(now, "", "milliseconds", "", TRUE) || ":\n");
+  RECORD state := __HS_GETJOBMANAGERSTATUS(FALSE);
+
+  FOREVERY (RECORD job FROM state.jobs)
+  {
+    IF (job.script NOT LIKE "*dumpjobs.whlib")
+    {
+
+      PRINT(job.groupid || " " || job.script || "\n");
+      IF (LENGTH(job.stacktrace) = 0)
+        PRINT("running\n");
+      ELSE
+        DumpValue(job.stacktrace, "boxed");
+    }
+  }
+  PRINT("\n");
+  Sleep(1000);
+}

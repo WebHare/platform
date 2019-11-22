@@ -1,0 +1,6 @@
+#!/bin/bash
+
+mkdir -p /tmp 2>/dev/null # just in case...
+cd /tmp # make  sure core dumps end up here
+
+exec /opt/wh/whtree/bin/wh console

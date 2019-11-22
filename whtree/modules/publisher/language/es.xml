@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="es" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Por favor, marque la casilla a continuación</text>
+      <text tid="title">Casi listo</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">Siguiente</text>
+      <text tid="previouspage">Anterior</text>
+      <text tid="selectfile">Seleccionar archivo</text>
+      <text tid="starsrequired">* Campos obligatorios</text>
+      <text tid="submit">Enviar</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">La dirección no pudo ser encontrada.</text>
+        <text tid="invalid_nr_detail">Número de casa con adición inválido.</text>
+        <text tid="invalid_zip">Código postal inválido.</text>
+        <text tid="zip_not_found">Combinación desconocida de código postal y número de casa.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">Este valor debe ser alfanumérico.</text>
+        <text tid="check">Debe seleccionar entre <param p="1"/> y <param p="2"/> opciones.</text>
+        <text tid="default">Este valor parece ser inválido.</text>
+        <text tid="digits">Este valor debe ser un dígito válido.</text>
+        <text tid="email">Este valor debe ser un correo válido.</text>
+        <text tid="email_baddomain">Debido a las dificultades con el envío de correos a <param p="1"/> direcciones de correo electrónico, le pedimos amablemente que utilice un proveedor de correo electrónico alternativo.</text>
+        <text tid="email_suggestion">¿Se refiere a <param p="1"/>?</text>
+        <text tid="equalto">Este valor debe ser idéntico.</text>
+        <text tid="integer">Este valor debe ser un número entero válido.</text>
+        <text tid="length">Esta longitud de valor no es válida. Debe tener entre <param p="1"/> y <param p="2"/> caracteres de longitud.</text>
+        <text tid="max">Este valor debe ser menor o igual a <param p="1"/>.</text>
+        <text tid="maxcheck">Debe seleccionar <param p="1"/> opciones o menos.</text>
+        <text tid="maxlength">Este valor es muy largo. La longitud máxima es de <param p="1"/> caracteres.</text>
+        <text tid="min">Este valor debe ser mayor o igual que <param p="1"/>.</text>
+        <text tid="mincheck">Debe seleccionar al menos <param p="1"/> opciones.</text>
+        <text tid="minlength">Este valor es muy corto. La longitud mínima es de <param p="1"/> caracteres.</text>
+        <text tid="notblank">Este valor no debe estar en blanco.</text>
+        <text tid="number">Este valor debe ser un número válido.</text>
+        <text tid="pattern">Este valor parece ser inválido.</text>
+        <text tid="range">Este valor debe estar entre <param p="1"/> y <param p="2"/>.</text>
+        <text tid="required">Este valor es necesario.</text>
+        <text tid="url">Este valor debe ser una URL válida.</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

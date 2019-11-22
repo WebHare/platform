@@ -1,0 +1,67 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/commondialogs/embeddedobjects.whlib"
+         gid="commondialogs.embeddedobject">
+
+  <screen name="choosetype"
+          gid=".choosetype"
+          allowresize="true"
+          >
+          <!--width="120x"
+          height="20x"-->
+    <actions>
+      <action name="choose" onexecute="submit">
+        <enableon source="contenttypes" min="1" />
+      </action>
+    </actions>
+    <compositions>
+      <eventlistener masks="publisher:internal.siteprofiles.recompiled" onevent="onrefresh" />
+    </compositions>
+    <body name="body">
+      <split type="horizontal">
+        <part width="1pr" name="groupspart">
+          <list name="groups"
+                selectmode="single"
+                minwidth="30x"
+                borders="top left bottom"
+                onselect="ongroupselect"
+                rowkeytype="string">
+            <column name="title" tid=".groups" iconname="icon" type="text" />
+          </list>
+        </part>
+        <part width="1pr">
+          <list name="contenttypes"
+                selectmode="single"
+                minwidth="30x"
+                minheight="10gr"
+                borders="top right bottom"
+                rowkeytype="string"
+                openaction="choose">
+            <column name="title" iconname="icon" type="text" />
+          </list>
+        </part>
+      </split>
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="choose" tid="tollium:common.actions.ok" />
+        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="editor" gid=".editor" title="">
+    <compositions>
+      <publisher:whfsinstance name="instance" />
+    </compositions>
+    <body name="body">
+      <panel name="positioningpanel" visible="false" />
+      <tabs name="extensiontabs" visible="false" height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+
+</screens>

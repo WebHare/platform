@@ -1,0 +1,12 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="mod::publisher/lib/screens/objectprops/webtools-poll.whlib"
+         gid="webtools.editpoll"
+         >
+
+  <messageboxes gid=".messageboxes">
+    <messagebox name="cannotdeleteusedpolloption" icon="warning" buttons="ok" />
+  </messageboxes>
+
+  <!-- FIXME: move editpoll to here when possible -->
+
+</screens>

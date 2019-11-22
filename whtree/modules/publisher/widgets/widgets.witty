@@ -1,0 +1,24 @@
+[component anchor]
+  [if isrtdpreview]
+    <div class="anchorwidget_preview">&#9875; #[name]</div> [! ADDME <span class="fa fa-link"></span> link symbol?  !]
+  [else]
+    <a class="wh-anchor" id="[name]"></a>
+  [/if]
+[/component]
+
+[component slideshow]
+  The slideshow widget must be overridden by your site profile, no default implementation available (yet)
+[/component]
+
+[component twocolumns]
+  <div class="wh-twocolumns">
+    <div class="wh-twocolumns__row">
+      <div class="wh-twocolumns__column">
+        [rtdleft]
+      </div>
+      <div class="wh-twocolumns__column">
+        [rtdright]
+      </div>
+    </div>
+  </div>
+[/component]

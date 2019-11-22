@@ -1,0 +1,204 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::regex.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/catalog.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+
+
+INTEGER indexmanager;// := 2; // Set to specific index manager to test (0 for default builtin Consilio)
+
+PUBLIC OBJECTTYPE ConsilioTestExtensions
+<
+  PUBLIC INTEGER testcatalog_1;
+  PUBLIC INTEGER testcatalog_2;
+
+
+  MACRO NEW()
+  {
+    this->RegisterTest("consilio.prepare", PTR this->ConsilioPrepare);
+  }
+
+  MACRO ConsilioPrepare()
+  {
+    this->BeginWork();
+    DELETE FROM consilio.indices WHERE name LIKE "webhare_testsuite:consiliotest_*";
+    this->CommitWork(); //Must be two separate commits to prevent cleanup interfering with new indices....
+
+    this->BeginWork();
+    CreateCatalog(this->GetCatalogName_1(), "test catalog", [ priority := 9, loglevel := 3, indexmanager := indexmanager ]);
+    CreateCatalog(this->GetCatalogName_2(), "test catalog", [ priority := 9, loglevel := 3, indexmanager := indexmanager ]);
+    this->testcatalog_1 := SELECT AS INTEGER id FROM consilio.indices WHERE name = this->GetCatalogName_1();
+    this->testcatalog_2 := SELECT AS INTEGER id FROM consilio.indices WHERE name = this->GetCatalogName_2();
+    this->CommitWork();
+  }
+
+  PUBLIC MACRO WaitQueueEmpty()
+  {
+    this->WaitIndexDone(this->testcatalog_1);
+    this->WaitIndexDone(this->testcatalog_2);
+  }
+
+  PUBLIC MACRO WaitConsilioQueueEmpty()
+  {
+    this->WaitQueueEmpty();
+  }
+
+  PUBLIC MACRO RefreshIndexManager(INTEGER indexid)
+  {
+    INTEGER indexmgrid := SELECT AS INTEGER COLUMN indexmanager FROM consilio.indices WHERE id = indexid;
+    IF (indexmgrid != 0)
+      RefreshIndexManager(indexmgrid, indexid);
+  }
+
+  PUBLIC MACRO WaitContentSourceDone(INTEGER contentsourceid)
+  {
+    RECORD contentsource := SELECT * FROM consilio.contentsources WHERE id = contentsourceid AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+    IF(NOT RecordExists(contentsource))
+      THROW NEW Exception(`WaitContentSourceDone: No such content source #${contentsourceid}`);
+
+    STRING describesource := `content source #${contentsourceid} (${contentsource.tag})`;
+    OBJECT eventmgr := NEW EventManager;
+    eventmgr->RegisterInterest("consilio:contentsource." || contentsourceid);
+
+    INTEGER addsecs := 1;
+
+    DATETIME ultimatewaitlimit := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime());
+    DATETIME currentwaitlimit := AddTimeToDate(1000,GetCurrentDatetime());
+
+    INTEGER timeoutcount;
+    BOOLEAN warnedwait;
+    WHILE (TRUE)
+    {
+      RECORD status := __ConsilioGetQueueManagerStatus([ "contentsources", "queue" ]);
+      IF(NOT RecordExists(status))
+        THROW NEW Exception("Did not receive a status from the queue mgr");
+
+      //Check if any items are there for our source, unconnected but affecting our index, or affecting something global
+      IF(NOT RecordExists(SELECT FROM status.deduped WHERE (deduped.contentsourceid = contentsourceid)
+                                                           OR (deduped.contentsourceid = 0 AND indexid = contentsource.indexid)
+                                                           OR (indexid=0)))
+        BREAK;
+
+      RECORD event := eventmgr->ReceiveEvent(currentwaitlimit);
+      IF(event.status = "timeout")
+      {
+        IF(GetCurrentDatetime() >= ultimatewaitlimit)
+          ABORT(`Index checking for ${describesource} isn't completing`);
+        IF(GetCurrentDatetime() >= currentwaitlimit)
+        {
+          Print(`Index checking for ${describesource} isn't complete, still waiting...\n`);
+          warnedwait := TRUE;
+          addsecs := addsecs < 5 ? addsecs + 1 : addsecs;
+          currentwaitlimit := AddTimeToDate(addsecs * 1000,GetCurrentDatetime());
+
+          timeoutcount := timeoutcount + 1;
+          IF (timeoutcount % 10 = 0)
+            DumpValue(status, "tree");
+        }
+      }
+
+//      IF (RecordExists(SELECT FROM consilio.contentsources WHERE id = contentsource AND COLUMN status = VAR status AND contentsources.tag NOT LIKE "$consilio$deleted$*"))
+  //      BREAK;
+    }
+    IF(warnedwait)
+      Print("it's complete\n"); //make sure we don't think we were still waiting and that THAT's the issue..
+    this->RefreshIndexManager(SELECT AS INTEGER COLUMN indexid FROM consilio.contentsources WHERE id = contentsourceid AND contentsources.tag NOT LIKE "$consilio$deleted$*");
+  }
+
+  PUBLIC MACRO WaitIndexDone(INTEGER indexid)
+  {
+    FOREVERY(RECORD contentsource FROM OpenConsilioCatalogById(indexid)->ListContentSources())
+      this->WaitContentSourceDone(contentsource.id);
+  }
+
+  PUBLIC STRING FUNCTION GetCatalogName_1()
+  {
+    RETURN "webhare_testsuite:consiliotest_1";
+  }
+
+  PUBLIC STRING FUNCTION GetCatalogName_2()
+  {
+    RETURN "webhare_testsuite:consiliotest_2";
+  }
+
+  PUBLIC STRING FUNCTION GetCatalogName_3()
+  {
+    RETURN "webhare_testsuite:consiliotest_3";
+  }
+
+  PUBLIC INTEGER FUNCTION GetCatalogIdByName(STRING catalogname)
+  {
+    RETURN
+        SELECT AS INTEGER id
+          FROM consilio.indices
+         WHERE indices.name = catalogname;
+  }
+
+  PUBLIC INTEGER FUNCTION GetPublisherContentSource(STRING catalogname, INTEGER folderid)
+  {
+    RETURN
+        SELECT AS INTEGER contentsources.id
+          FROM consilio.indices
+             , consilio.contentsources
+         WHERE indices.name = catalogname
+           AND indexid = indices.id
+           AND contentprovider = "publisher:webhare"
+           AND DecodeHSON(data).folder = folderid
+           AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+  }
+
+  PUBLIC RECORD FUNCTION GetContentSource(INTEGER sourceid)
+  {
+    RETURN
+        SELECT *
+          FROM consilio.contentsources
+         WHERE id = sourceid
+               AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+  }
+>;
+
+PUBLIC STRING ARRAY FUNCTION TestInvoke_GetAccessLogLines(STRING id, STRING rangestart)
+{
+  RETURN FilterRecentHits(id, MakeDateFromText(rangestart));
+}
+
+// Borrowed from mod::system/lib/internal/cache/imgcache.whlib
+STRING ARRAY FUNCTION FilterRecentHits(STRING event, DATETIME rangestart)
+{
+  // Regex for the requested event
+  OBJECT scanregex := NEW RegEx(`[^?]*?.*\\bpe=${EncodeUrl(event)}\\b`);
+
+  // Wait for access log to catch up
+  Sleep(5000);
+
+  OBJECT accesslog := OpenWebHareLogStream("access", rangestart, GetCurrentDateTime());
+  STRING ARRAY lines;
+  WHILE (TRUE)
+  {
+    RECORD row := accesslog->ReadRecord();
+    IF (NOT RecordExists(row))
+      BREAK;
+    IF (row.method != "HEAD")
+      CONTINUE;
+
+    // Simple heuristic to avoid expensive regex calls
+    IF (row.url NOT LIKE "*pe=*")
+      CONTINUE;
+
+    RECORD ARRAY scanres := scanregex->Exec(row.url);
+
+    IF (NOT RecordExists(scanres))
+      CONTINUE;
+    INSERT row.url INTO lines AT END;
+  }
+  RETURN lines;
+}

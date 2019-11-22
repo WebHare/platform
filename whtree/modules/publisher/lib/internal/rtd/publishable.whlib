@@ -1,0 +1,913 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+LOADLIB "mod::publisher/lib/rtd.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+STRING FUNCTION Gathertext(OBJECT parent, INTEGER maxlen)
+{
+  STRING output;
+  FOR(OBJECT node := parent->firstchild;ObjectExists(node);node:=node->nextsibling)
+  {
+    IF(node->nodetype=1)
+    {
+      SWITCH(ToUppercase(node->nodename))
+      {
+        CASE "BR"
+        {
+          output := output || "\n";
+        }
+        CASE "IMG"
+        {
+          output := output || node->GetAttribute("alt");
+        }
+        DEFAULT
+        {
+          output := output || GatherText(node,maxlen);
+        }
+      }
+    }
+    ELSE IF(node->nodetype=3)
+      output := output || NormalizeWhitespace(node->nodevalue); //ADDME this probably won't do if we wish to support eg. <pre> blocks
+    IF(maxlen>0 AND UCLength(output) >= maxlen)
+      BREAK;
+  }
+  RETURN output;
+}
+BOOLEAN FUNCTION HasContentRecursive(OBJECT parent)
+{
+ FOR(OBJECT node := parent->firstchild;ObjectExists(node);node:=node->nextsibling)
+  {
+    IF(node->nodetype=3 AND TrimWhitespace(node->nodevalue)!="")
+      RETURN TRUE;
+
+    IF(node->nodetype=1)
+    {
+      SWITCH(ToUppercase(node->nodename))
+      {
+        CASE "IMG"
+        {
+          RETURN TRUE;
+        }
+        DEFAULT
+        {
+          IF(HasContentRecursive(node))
+            RETURN TRUE;
+        }
+      }
+    }
+  }
+  RETURN FALSE;
+}
+
+PUBLIC STATIC OBJECTTYPE RichDocumentFilter
+<
+  PUBLIC STRING ARRAY tagfilter;
+  PUBLIC INTEGER maximagewidth;
+
+  MACRO NEW()
+  {
+    this->tagfilter := ["*"];
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsTagAcceptable(STRING tag)
+  {
+    RETURN "*" IN this->tagfilter OR tag IN this->tagfilter;
+  }
+
+  PUBLIC MACRO PrintFiltered(OBJECT outputobject)
+  {
+    this->PrintFilteredNode(outputobject, outputobject->blocknode);
+  }
+  PUBLIC STRING FUNCTION GetFiltered(OBJECT outputobject)
+  {
+    RETURN this->GetFilteredNode(outputobject, outputobject->blocknode);
+  }
+  PUBLIC STRING FUNCTION GetRawText(OBJECT outputobject)
+  {
+    RETURN GatherText(outputobject->blocknode, 0);
+  }
+
+  STRING FUNCTION GetFilteredNode(OBJECT outputobject, OBJECT innode)
+  {
+    INTEGER tempstream := CreateStream();
+    INTEGER saveoutput := RedirectOutputTo(tempstream);
+    BLOB result;
+    TRY
+    {
+      this->PrintFilteredNode(outputobject, innode);
+    }
+    FINALLY
+    {
+      RedirectOutputTo(saveoutput);
+      result := MakeBlobFromStream(tempstream);
+    }
+    RETURN BlobToString(result,-1);
+  }
+
+  MACRO PrintFilteredNode(OBJECT outputobject, OBJECT blocknode)
+  {
+    STRING blocktag := this->GetTagName(blocknode);
+
+    //ADDME:  When to print classes? profile/structure should probably specify this? Should match against structuredoc and not print any classes not currently available
+    BOOLEAN wrap := this->IsTagAcceptable(blocktag);
+    BOOLEAN keepwhitespace := blocktag = "code";
+
+    IF(RecordExists(outputobject->__table))
+    {
+      IF(NOT wrap)
+        THROW NEW Exception("Filtering tables is not supported yet");
+      ELSE
+        this->PrintTableNode(outputobject, blocknode);
+    }
+    ELSE
+    {
+      IF(wrap)
+      {
+        this->Print("<" || blocktag);
+        this->print(" class=\"" || EncodeAttributeValue(this->GetClassName(blocknode)) || "\">");
+
+        IF(outputobject->document->generateanchors)
+        {
+          STRING blockanchor := outputobject->generatedanchor;
+          IF(blockanchor != "")
+            this->Print('<a class="wh-anchor" id="' || EncodeAttributeValue(outputobject->document->anchorprefix || blockanchor) || '"></a>');
+        }
+      }
+      this->FormatNodes(outputobject, blocknode, keepwhitespace);
+      IF(wrap)
+      {
+        this->Print("</" || blocktag || ">");
+      }
+    }
+  }
+
+  MACRO PrintTableNode(OBJECT outputobject, OBJECT tablenode)
+  {
+    BOOLEAN prettyprint := NOT (ObjectExists(outputobject->document->webdesign) AND outputobject->document->webdesign->wittyencoding LIKE "*-NI");
+    STRING lf := prettyprint ? "\n" : "";
+
+    IF(ObjectExists(outputobject->document->webdesign) AND outputobject->document->webdesign->IsUsingModuleDesign())
+    {
+      this->Print("<div class=\"wh-rtd__tablewrap " || EncodeValue(this->GetClassName(tablenode)) || "\">" || lf);
+      this->Print("<table class=\"wh-rtd__table " || EncodeValue(this->GetClassName(tablenode)) || "\">" || lf);
+    }
+    ELSE //only add legacy if we doubt we're in a module design
+    {
+      this->Print("<div class=\"wh-rtd__tablewrap wh-rtd-table " || EncodeValue(this->GetClassName(tablenode)) || "\">\n");
+      this->Print("<table class=\"wh-rtd__table " || EncodeValue(this->GetClassName(tablenode)) || "\">\n");
+    }
+
+    this->print("<colgroup>" || lf);
+    FOREVERY(RECORD col FROM outputobject->__table.cols)
+      this->Print('<col style="' || col.node->GetAttribute("style") || '"/>'); //ADDME sanitize style?
+
+    this->print("</colgroup>" || lf);
+
+    this->Print("<tbody>" || lf);
+    FOREVERY(RECORD row FROM outputobject->__table.rows)
+    {
+      BOOLEAN hascolheaders, hasrowheaders;
+      FOREVERY(RECORD cellrec FROM row.cells)
+      {
+        IF(cellrec.isheader AND cellrec.scope="col")
+          hascolheaders := TRUE;
+        IF(cellrec.isheader AND cellrec.scope="row")
+          hasrowheaders := TRUE;
+      }
+
+
+      STRING ARRAY trclasses;
+      IF(hascolheaders)
+        INSERT "wh-rtd--hascolheader" INTO trclasses AT END;
+      IF(hasrowheaders)
+        INSERT "wh-rtd--hasrowheader" INTO trclasses AT END;
+
+      this->Print("<tr");
+      IF(Length(trclasses)>0)
+        this->Print(' class="' || Detokenize(trclasses,' ') || '"');
+
+      this->Print(">" || lf);
+      FOREVERY(RECORD cellrec FROM row.cells)
+      {
+        STRING nodename := (cellrec.isheader?"th":"td");
+        this->Print('<' || nodename || ' class="wh-rtd__tablecell"');
+        IF(cellrec.isheader AND cellrec.scope IN ["row","col"])
+          this->Print(' scope="' || cellrec.scope || '"');
+        IF(cellrec.colspan>1)
+          this->Print(` colspan="${cellrec.colspan}"`);
+        IF(cellrec.rowspan>1)
+          this->Print(` rowspan="${cellrec.rowspan}"`);
+        this->Print(">" || lf);
+        FOREVERY(OBJECT subnode FROM cellrec.richobjects)
+          subnode->RenderObject();
+
+        this->Print("</" || nodename  || ">" || lf);
+      }
+      this->Print("</tr>" || lf);
+    }
+    this->Print("</tbody>" || lf);
+    this->Print("</table>" || lf);
+    this->Print("</div>" || lf);
+  }
+
+  STRING FUNCTION GetTagName(OBJECT blocknode)
+  {
+    RETURN ToLowercase(blocknode->nodename);
+  }
+  STRING FUNCTION GetClassName(OBJECT blocknode)
+  {
+    RETURN blocknode->GetAttribute("class");
+  }
+
+  MACRO Print(STRING x)
+  {
+    Print(x);
+  }
+  MACRO ExecuteHyperlinkCallback(RECORD hyperlinkinfo)
+  {
+    //ADDME: Stacked hyperlink support?
+    IF (NOT hyperlinkinfo.opened)
+    {
+      PRINT("</a>");
+      RETURN;
+    }
+    PRINT('<a href="' || EncodeAttributeValue(hyperlinkinfo.href));
+    IF (hyperlinkinfo.target IN ["_blank"])
+      PRINT('" target="' || EncodeValue(hyperlinkinfo.target));
+    IF (hyperlinkinfo.title != "")
+      PRINT('" title="' || EncodeAttributeValue(hyperlinkinfo.title));
+    PRINT('">');
+  }
+  MACRO FormatNodes(OBJECT outputobject, OBJECT parent, BOOLEAN keepwhitespace)
+  {
+    STRING output;
+    FOR(OBJECT node := parent->firstchild;ObjectExists(node);node:=node->nextsibling)
+    {
+      IF(node->nodetype = 1) //<element>
+        this->FormatElement(outputobject, node, keepwhitespace);
+      ELSE IF(node->nodetype = 3)
+      {
+        STRING text := keepwhitespace ? node->textcontent : NormalizeWhitespace(node->textcontent);
+        this->Print(EncodeTextNode(text));
+      }
+    }
+  }
+
+  RECORD FUNCTION GetRTEResizeInstruction(RECORD image, OBJECT imgnode)
+  {
+    INTEGER setwidth := ToInteger(imgnode->GetAttribute('width'),0);
+    INTEGER setheight := ToInteger(imgnode->GetAttribute('height'),0);
+
+    IF(setwidth > 0 AND setheight > 0) //user specified width/height
+    {
+      IF(this->maximagewidth > 0 AND setwidth > this->maximagewidth) //too big, so keep aspect ratio
+      {
+        FLOAT aspectratio := FLOAT(setwidth) / FLOAT(setheight);
+        setwidth := this->maximagewidth;
+        setheight := INTEGER(this->maximagewidth / aspectratio + 0.5 );
+      }
+      RETURN [ method := "stretch", setwidth := setwidth, setheight := setheight ];
+    }
+
+    FLOAT aspectratio;
+    IF(image.width = 0 OR image.height = 0)
+      aspectratio := 1;
+    ELSE
+      aspectratio := FLOAT(image.width) / FLOAT(image.height);
+
+    IF(setheight > 0)
+    {
+      setwidth := INTEGER(setheight * aspectratio + 0.5);
+
+      IF(this->maximagewidth = 0 OR setwidth <= this->maximagewidth) //endresult is within bounds
+        RETURN [ method := "stretch", setwidth := setwidth, setheight := setheight ]; //then it's okay
+    }
+
+    IF(setwidth <= 0)
+      setwidth := image.width;
+
+    IF(this->maximagewidth > 0 AND setwidth > this->maximagewidth)
+      setwidth := this->maximagewidth; //constrain image width
+
+    setheight := INTEGER(setwidth / aspectratio + 0.5);
+    RETURN  [ method := "stretch", setwidth := setwidth, setheight := setheight ];
+  }
+
+  MACRO FormatElement(OBJECT outputobject, OBJECT node, BOOLEAN keepwhitespace)
+  {
+    //FIXME should the output engine preserve stuff like Strict and HTML3.2 formatting? or just move straight to HTML5?
+    SWITCH(node->nodename)
+    {
+      CASE"ul","ol"
+      {
+        this->Print("<" || node->nodename || ">");
+        this->FormatNodes(outputobject, node, keepwhitespace);
+        this->Print("</" || node->nodename || ">");
+      }
+      CASE"li"
+      {
+        this->Print("<" || node->nodename || ">");
+        this->FormatNodes(outputobject, node, keepwhitespace);
+        this->Print("</" || node->nodename || ">");
+      }
+      CASE "img"
+      {
+        RECORD theimage := outputobject->document->GetEmbeddedFile(node->GetAttribute('src'));
+        IF(NOT RecordExists(theimage) OR NOT this->IsTagAcceptable("img") OR theimage.__blobsource = "")
+        {
+          this->Print(EncodeAttributeValue(node->GetAttribute('alt')));
+          RETURN;
+        }
+
+        /* ADDME support other rich document sources than Publisher
+           ADDME if filtering sets a maximum width, apply ? allow more extensive method configuration?
+        */
+        RECORD howtoresize := this->GetRTEResizeInstruction(theimage, node);
+        INSERT CELL baseurl := outputobject->document->baseurl INTO howtoresize;
+        STRING imageurl := GetCachedImageLink(theimage, howtoresize);
+
+        STRING classes;
+        STRING ARRAY classtokens := Tokenize(node->GetAttribute('class'),' ');
+        BOOLEAN isfloatleft := ToUpperCase(node->GetAttribute('align')) = 'LEFT' OR 'wh-rtd__img--floatleft' IN classtokens OR 'wh-rtd-floatleft' IN classtokens OR '-wh-rtd-floatleft' IN classtokens OR 'floatleft' IN classtokens;
+        BOOLEAN isfloatright := ToUpperCase(node->GetAttribute('align')) = 'RIGHT' OR 'wh-rtd__img--floatright' IN classtokens OR 'wh-rtd-floatright' IN classtokens OR '-wh-rtd-floatright' IN classtokens OR 'floatright' IN classtokens;
+
+        //New classes
+        classes := "wh-rtd__img";
+        IF(isfloatleft)
+          classes := classes || " wh-rtd__img--floatleft";
+        ELSE IF(isfloatright)
+          classes := classes || " wh-rtd__img--floatright";
+
+        IF(NOT (ObjectExists(outputobject->document->webdesign) AND outputobject->document->webdesign->IsUsingModuleDesign())) //only add legacy if we doubt we're in a module design
+        {
+          //output legacy classes
+          classes := classes || " wh-rtd-img";
+          IF(isfloatleft)
+            classes := classes || " wh-rtd-floatleft -wh-rtd-floatleft floatleft";
+          ELSE IF(isfloatright)
+            classes := classes || " wh-rtd-floatright -wh-rtd-floatright floatright";
+        }
+
+        this->Print('<img class="' || classes
+                    || '" src="' || EncodeValue(imageurl)
+                    || '" alt="' || EncodeAttributeValue(node->GetAttribute('alt'))
+                    || '" width="' || howtoresize.setwidth
+                    || '" height="' || howtoresize.setheight);
+
+        this->Print('" />');
+      }
+      CASE "b","i","u","strike","sub","sup","code"
+      {
+        IF(NOT this->IsTagAcceptable(node->nodename))
+        {
+          this->FormatNodes(outputobject, node, keepwhitespace);
+          RETURN;
+        }
+
+        this->Print('<' || node->nodename || '>');
+        this->FormatNodes(outputobject, node, keepwhitespace);
+        this->Print('</' || node->nodename || '>');
+      }
+      CASE "span"
+      {
+        IF(node->HasAttribute("data-instanceid"))
+        {
+          RECORD instancedata := outputobject->document->GetInstance(node->GetAttribute("data-instanceid"));
+          IF(NOT RecordExists(instancedata))
+             RETURN;
+
+          OBJECT context := ObjectExists(outputobject->document->previewcontext) ? outputobject->document->previewcontext : outputobject->document->webdesign;
+          OBJECT embeddedobject := GetEmbeddedObjectRenderer(outputobject->document->pvt_baseobject, outputobject->document->pvt_applytester, outputobject->document->rtdtype, instancedata, context).widget;
+          embeddedobject->RenderLive(); //only widgetbase derived stuff accepted, so no need to fallback to old render functions
+        }
+        ELSE IF(node->GetAttribute("data-wh-gettid") != "")
+        {
+          // Replace the whole span with the resolved tid. We'll assume that that value of data-wh-gettid is a parsed tid,
+          // i.e. only fully qualified tid's are valid (fixed texts should start with ":").
+          Print(EncodeHTML(GetTid(node->GetAttribute("data-wh-gettid"))));
+        }
+        ELSE
+        {
+          IF(node->GetAttribute("data-wh-merge") != "")
+            this->Print(`<span data-merge="${EncodeValue(node->GetAttribute("data-wh-merge"))}">`);
+          ELSE IF(node->GetAttribute("data-merge") != "")
+            this->Print(`<span data-merge="${EncodeValue(node->GetAttribute("data-merge"))}">`);
+          ELSE
+            this->print('<span>');
+          this->FormatNodes(outputobject, node, keepwhitespace);
+          this->Print('</span>');
+        }
+      }
+      CASE "br"
+      {
+        this->Print("<br />");
+      }
+      CASE "a"
+      {
+        STRING href := node->GetAttribute("href");
+        IF(NOT this->IsTagAcceptable("a-href"))
+        {
+          this->FormatNodes(outputobject, node, keepwhitespace);
+          RETURN;
+        }
+
+        RECORD hyperlinkinfo := [ docobject := 0
+                                , href :=      ""
+                                , target :=    node->GetAttribute("target")
+                                , title :=     node->GetAttribute("title")
+                                , opened :=    TRUE
+                                ];
+
+        IF(href LIKE "x-richdoclink:*")
+        {
+          hyperlinkinfo.href := outputobject->document->__GetResolvedLinkRef(href);
+        }
+        ELSE
+        {
+          hyperlinkinfo.href := href;
+        }
+
+        IF(hyperlinkinfo.href != "")
+        {
+          IF (ObjectExists(outputobject->document->webdesign))
+            hyperlinkinfo.href := outputobject->document->webdesign->RewriteHyperlink(hyperlinkinfo.href);
+        }
+
+        IF(hyperlinkinfo.href != "")
+        {
+          IF(hyperlinkinfo.target != "")
+          {
+            IF(ObjectExists(outputobject->document->pvt_structure) AND NOT GetRTDTypeFromClassicStructureDef(outputobject->document->pvt_structure).allownewwindowlinks)
+              hyperlinkinfo.target := "";
+          }
+
+          this->ExecuteHyperlinkCallback(hyperlinkinfo);
+          this->FormatNodes(outputobject, node, keepwhitespace);
+          hyperlinkinfo.opened := FALSE;
+          this->ExecuteHyperlinkCallback(hyperlinkinfo);
+        }
+        ELSE
+        {
+          this->FormatNodes(outputobject, node, keepwhitespace);
+        }
+      }
+      DEFAULT
+      {
+        this->FormatNodes(outputobject, node, keepwhitespace);
+      }
+    }
+  }
+>;
+
+OBJECTTYPE StructuredRichDocumentFilter EXTEND RichDocumentFilter
+<
+  RECORD blockstyle;
+
+  MACRO NEW(RECORD blockstyle)
+  {
+    this->blockstyle := blockstyle;
+    IF(NOT RecordExists(blockstyle))
+      THROW NEW Exception("No valid blockstyle passed for filter");
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsTagAcceptable(STRING tag)
+  {
+    IF(tag != ToLowercase(this->blockstyle.containertag) AND tag NOT IN this->blockstyle.textstyles)
+      RETURN FALSE;
+    RETURN RichDocumentFilter::IsTagAcceptable(tag);
+  }
+  UPDATE STRING FUNCTION GetTagName(OBJECT blocknode)
+  {
+    RETURN ToLowercase(this->blockstyle.containertag);
+  }
+  UPDATE STRING FUNCTION GetClassName(OBJECT blocknode)
+  {
+    RETURN ToLowercase(this->blockstyle.tag);
+  }
+>;
+
+OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
+<
+  OBJECT richdoc;
+  OBJECT pvt_blocknode;
+  RECORD pvt_blockstyle;
+  BOOLEAN pvt_isembeddedobject;
+  OBJECT pvt_embeddedobject;
+
+  PUBLIC PROPERTY isembeddedobject(pvt_isembeddedobject,-);
+  PUBLIC PROPERTY embeddedobject(GetEmbeddedObject, -);
+
+  PUBLIC PROPERTY blockstyle(pvt_blockstyle, -);
+  PUBLIC PROPERTY blocknode(pvt_blocknode,-);
+  PUBLIC PROPERTY document(richdoc,-);
+  PUBLIC STRING generatedanchor;
+  PUBLIC RECORD __table;
+
+  MACRO NEW(OBJECT richdoc, OBJECT blocknode)
+  {
+    this->richdoc := richdoc;
+    this->pvt_blocknode := blocknode;
+    this->pvt_isembeddedobject := IsEmbeddedObject(blocknode);
+    IF(NOT this->pvt_isembeddedobject)
+    {
+      this->pvt_blockstyle := richdoc->pvt_structure->LookupStyle(blocknode->nodename, blocknode->GetAttribute("class"), TRUE);
+      IF(NOT RecordExists(this->pvt_blockstyle))
+        this->pvt_blockstyle := richdoc->pvt_structure->defaultblockstyle;
+
+      IF(blocknode->nodename="table")
+        this->ParseTable();
+    }
+  }
+
+  MACRO ParseTable()
+  {
+    this->__table := [ cols := DEFAULT RECORD ARRAY
+                     , rows := DEFAULT RECORD ARRAY
+                     ];
+
+    OBJECT tbody := this->blocknode->GetChildElementsByTagname("tbody")->Item(0);
+    IF(NOT ObjectExists(tbody))
+      RETURN;
+
+    OBJECT colgroup := this->blocknode->GetChildElementsByTagname("colgroup")->Item(0);
+    IF(ObjectExists(colgroup))
+    {
+      FOREVERY(OBJECT col FROM colgroup->GetChildElementsByTagname("col")->GetCurrentElements())
+        INSERT [ node := col ] INTO this->__table.cols AT END;
+    }
+
+    FOREVERY(OBJECT tr FROM tbody->GetElementsByTagName("tr")->GetCurrentElements())
+    {
+      RECORD row := [ cells := DEFAULT RECORD ARRAY ];
+      FOREVERY(OBJECT cellnode FROM tr->GetChildElementsByTagname("*")->GetCurrentElements())
+      {
+        IF (cellnode->nodename NOT IN [ "td", "th" ])
+          CONTINUE;
+
+        RECORD cellrec := [ node := cellnode
+                          , isheader := cellnode->nodename = "th"
+                          , scope := cellnode->GetAttribute("scope")
+                          , richobjects := DEFAULT OBJECT ARRAY
+                          , colspan := ToInteger(cellnode->GetAttribute("colspan"),1)
+                          , rowspan := ToInteger(cellnode->GetAttribute("rowspan"),1)
+                          ];
+
+        FOREVERY(OBJECT subnode FROM cellnode->childnodes->GetCurrentElements())
+        {
+          IF(subnode->nodename="br") //stray break, wordconversion does this but just ignore
+            CONTINUE;
+          INSERT NEW RichDocumentParserObject(this->richdoc, subnode) INTO cellrec.richobjects AT END;
+        }
+
+        INSERT cellrec INTO row.cells AT END;
+      }
+      INSERT row INTO this->__table.rows AT END;
+    }
+  }
+
+  PUBLIC STRING FUNCTION GetAnchor()
+  {
+    RETURN this->generatedanchor;
+  }
+  PUBLIC STRING FUNCTION GetAnchorLink()
+  {
+    RETURN this->document->__GetAnchorLink(this->GetAnchor());
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasContent()
+  {
+    RETURN this->pvt_isembeddedobject OR HasContentRecursive(this->pvt_blocknode);
+  }
+
+  PUBLIC OBJECT FUNCTION GetEmbeddedObject()
+  {
+    IF(NOT this->pvt_isembeddedobject)
+      RETURN DEFAULT OBJECT;
+    IF(ObjectExists(this->pvt_embeddedobject))
+      RETURN this->pvt_embeddedobject;
+
+    STRING instanceid := this->pvt_blocknode->GetAttribute("data-instanceid");
+    RECORD instancedata := this->richdoc->GetInstance(instanceid);
+    IF(NOT RecordExists(instancedata))
+       RETURN DEFAULT OBJECT;
+
+    OBJECT context := ObjectExists(this->richdoc->previewcontext) ? this->richdoc->previewcontext : this->document->webdesign;
+    this->pvt_embeddedobject := GetEmbeddedObjectRenderer(this->richdoc->pvt_baseobject, this->richdoc->pvt_applytester, this->richdoc->rtdtype, instancedata, context).widget;
+    RETURN this->pvt_embeddedobject;
+  }
+
+  PUBLIC MACRO RenderObject(VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(TypeID(options) = TypeID(OBJECT))
+      options := [ webdesign := options ];
+
+    options := ValidateOptions( [ webdesign := this->document->webdesign
+                                , contentareawidth := ""
+                                ]
+                                , options);
+
+    BOOLEAN prettyprint := NOT (ObjectExists(options.webdesign) AND options.webdesign->wittyencoding LIKE "*-NI");
+
+    IF(this->isembeddedobject)
+    {
+      OBJECT obj := this->embeddedobject;
+      IF(NOT ObjectExists(obj))
+        RETURN;
+
+      IF(ObjectExists(this->richdoc->previewcontext))
+      {
+        //wrap them inside their standard div.
+        Print('<div class="wh-rtd-embeddedobject">');
+        IF(MemberExists(this->embeddedobject, "__pvt_widgetsettings"))
+          obj->Render();
+        ELSE
+          obj->RenderPreview();
+        Print('</div>');
+      }
+      ELSE
+      {
+        IF(MemberExists(this->embeddedobject, "__pvt_widgetsettings"))
+          obj->RenderLive();
+        ELSE
+          obj->RenderObject(options.webdesign);
+      }
+      IF(prettyprint)
+        Print("\n");
+    }
+    ELSE
+    {
+      OBJECT filter := NEW StructuredRichDocumentFilter(this->pvt_blockstyle);
+
+      STRING contentareawidth := options.contentareawidth ?? this->richdoc->pvt_structure->structure.contentareawidth;
+      IF (contentareawidth != "")
+        filter->maximagewidth := ToInteger(Left(contentareawidth, Length(contentareawidth)-2),0); //strip 'px' and convert to int
+
+      IF(ObjectExists(options.webdesign))
+      {
+        INTEGER webdesignwidth := options.webdesign->GetMaximumContentWidthPixels();
+        IF(webdesignwidth > 0 AND (filter->maximagewidth = 0 OR webdesignwidth < filter->maximagewidth))
+          filter->maximagewidth := webdesignwidth;
+      }
+
+      filter->PrintFiltered(this);
+      IF(prettyprint)
+        Print("\n");
+    }
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetRawText(INTEGER maxlen, BOOLEAN skip_bulnum)
+  {
+    //ADDME support skip_bulnum
+    IF(maxlen<0)
+      RETURN "";
+    RETURN UCLeft(GatherText(this->blocknode, maxlen), maxlen);
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetChildrenRecursive()
+  {
+    //FIXEM Return table cells
+    RETURN DEFAULT OBJECT ARRAY;
+  }
+
+>;
+
+PUBLIC STRING FUNCTION ResolveRichDocLink(RECORD ARRAY links, STRING src)
+{
+  RECORD split := SplitIntLink(src);
+  RECORD matchlink := SELECT * FROM links WHERE "x-richdoclink:" || tag = split.link;
+  IF(NOT RecordExists(matchlink))
+    RETURN "";
+
+  STRING target := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = matchlink.linkref;
+  IF(target="")
+    RETURN "";
+
+  RETURN target || split.append;
+}
+
+PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
+<
+  OBJECT ARRAY richobjects;
+  OBJECT ARRAY flatobjects;
+  BOOLEAN didscan;
+
+  PUBLIC STRING baseurl;
+  PUBLIC OBJECT webdesign;
+  PUBLIC OBJECT previewcontext; //if set, create previews for embedded objects
+
+  ///Generate anchors
+  PUBLIC BOOLEAN generateanchors;
+  ///Prefix for anchor (FIXME should be set through webdesign and inherit to sub-rtds)
+  PUBLIC STRING anchorprefix;
+
+  MACRO NEW()
+  {
+    this->pvt_readonly := TRUE;
+  }
+
+  PUBLIC STRING FUNCTION __GetResolvedLinkRef(STRING src)
+  {
+    RETURN ResolveRichDocLink(this->links, src);
+  }
+  UPDATE PUBLIC MACRO ApplyStructureDefinition(OBJECT structure)
+  {
+    RichDocument::ApplyStructureDefinition(structure);
+    this->ScanDocument();
+  }
+  UPDATE PUBLIC MACRO ApplyRTDType(RECORD rtdtype)
+  {
+    RichDocument::ApplyRTDType(rtdtype);
+    this->ScanDocument();
+  }
+  UPDATE MACRO SetRTDType(STRING namespace)
+  {
+    RichDocument::SetRTDType(namespace);
+    this->ScanDocument();
+  }
+  MACRO ScanDocument()
+  {
+    this->didscan := TRUE;
+    this->richobjects := DEFAULT OBJECT ARRAY;
+    IF(ObjectExists(this->toplevelnode))
+      this->GenerateRichObjects(this->toplevelnode);
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
+  {
+    IF(NOT this->didscan)
+      THROW NEW Exception("Unexpected GetSuggestedAnchors call - didn't get to ScanDocument");
+
+    OBJECT ARRAY anchors;
+    this->generateanchors := TRUE; //requesting anchors allows us to generate them
+
+    STRING ARRAY contentnavstops;
+    IF(ObjectExists(webdesign))
+      contentnavstops := webdesign->contentnavstops;
+
+    //Gather all current anchors first
+    FOREVERY(OBJECT obj FROM this->flatobjects)
+    {
+      IF(obj->isembeddedobject)
+      {
+        IF(ObjectExists(obj->embeddedobject))
+          anchors := anchors CONCAT obj->embeddedobject->GatherSuggestedAnchors(webdesign);
+        CONTINUE; //we're not supporting anchors on embedded objects yet
+      }
+
+      IF(obj->blockstyle.containertag IN contentnavstops)
+      {
+        INSERT NEW AnchorableRichObject(obj) INTO anchors AT END;
+      }
+    }
+    RETURN anchors;
+  }
+
+  MACRO GenerateRichObjects(OBJECT topnode)
+  {
+    FOREVERY(OBJECT node FROM topnode->childnodes->GetCurrentElements())
+    {
+      OBJECT docobj := NEW RichDocumentParserObject(this, node);
+      INSERT docobj INTO this->richobjects AT END;
+      this->flatobjects := this->flatobjects CONCAT [docobj] CONCAT docobj->GetChildrenRecursive();
+    }
+  }
+
+  /** @short Get an outline of the document's structure
+      @cell return.tagname The original HTML tagname
+      @cell return.classname The classname of the object
+      @cell return.type Object type: 'block' (h1,h2,p...), 'list'.
+      @cell return.richobject The rich object wrapping the node
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetOutline()
+  {
+    IF(NOT this->didscan)
+      THROW NEW Exception("GetOutline cannot be invoked until a structure has been applied to the document");
+    RETURN this->GetOutlineParts(this->richobjects);
+  }
+  RECORD FUNCTION GetOutlineRecord(OBJECT richobj)
+  {
+    STRING tagname := ToLowercase(richobj->blocknode->tagname);
+    RETURN [ tagname :=   tagname
+           , classname := richobj->blocknode->GetAttribute("class")
+           , type :=      tagname="table"? "table" : tagname IN ["ul","ol"] ? "list" : "block"
+           , rows :=      RecordExists(richobj->__table) ? this->GetOutlineRows(richobj) : DEFAULT RECORD ARRAY
+           , richobject := richobj
+           , anchor :=    richobj->GetAnchor()
+           , link :=      richobj->GetAnchorLink()
+           ];
+  }
+
+  PUBLIC STRING FUNCTION __GetAnchorLink(STRING anchor)
+  {
+    RETURN anchor != "" AND this->generateanchors ? "#" || this->anchorprefix || anchor : "";
+  }
+  RECORD ARRAY FUNCTION GetOutlineParts(OBJECT ARRAY richobjects)
+  {
+    RECORD ARRAY nodes;
+    FOREVERY(OBJECT richobj FROM richobjects)
+      INSERT this->GetOutlineRecord(richobj) INTO nodes AT END;
+
+    RETURN nodes;
+  }
+
+  RECORD ARRAY FUNCTION GetOutlineRows(OBJECT richobj)
+  {
+    RETURN SELECT cells := (SELECT outline := this->GetOutlineParts(richobjects) FROM cells)
+             FROM richobj->__table.rows;
+  }
+
+  PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    IF(this->rtdtype != "")
+      RETURN; // A rtdtype document may not expect its PrepareForRendering to be invoked
+
+    FOREVERY(OBJECT richobject FROM this->flatobjects)
+    {
+      IF(richobject->isembeddedobject AND ObjectExists(richobject->embeddedobject) AND NOT MemberExists(richobject->embeddedobject, "__pvt_widgetsettings")) //not a widget
+      {
+        richobject->embeddedobject->languagecode := webdesign->languagecode;
+        richobject->embeddedobject->Prepare();
+        IF(NOT ObjectExists(this->previewcontext))
+          richobject->embeddedobject->PrepareForRendering(webdesign);
+      }
+    }
+  }
+
+  PUBLIC OBJECT FUNCTION RenderAllAsHTMLDocument(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    INTEGER capture := CreateStream();
+    INTEGER saveoutput;
+    BLOB result;
+
+    TRY
+    {
+      saveoutput := RedirectOutputTo(capture);
+      this->RenderAllObjects(options);
+    }
+    FINALLY
+    {
+      RedirectOutputTo(saveoutput);
+      result := MakeBlobFromStream(capture);
+    }
+
+    RETURN MakeXMLDocumentFromHTML(result);
+  }
+
+  PUBLIC MACRO RenderAllObjects(VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(TypeID(options) = TypeID(OBJECT))
+      options := [ webdesign := options ];
+
+    IF(NOT this->didscan)
+      THROW NEW Exception("RenderAllObjects cannot be invoked until a structure has been applied to the document");
+    FOREVERY(OBJECT richobject FROM this->richobjects)
+      richobject->RenderObject(options);
+  }
+  PUBLIC BLOB FUNCTION RenderAllToBlob(VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(TypeID(options) = TypeID(OBJECT))
+      options := [ webdesign := options ];
+
+    RETURN GetPrintedAsBlob(PTR this->RenderAllObjects(options));
+  }
+  PUBLIC STRING FUNCTION RenderAllToString(VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(TypeID(options) = TypeID(OBJECT))
+      options := [ webdesign := options ];
+
+    RETURN BlobToString(GetPrintedAsBlob(PTR this->RenderAllObjects(options)));
+  }
+>;
+
+PUBLIC OBJECT FUNCTION __OpenWHFSRichDocument(OBJECT file, OBJECT webdesign)
+{
+  RECORD settings := GetRTDSettingsForFile(file->id);
+  OBJECT richdoc := NEW PublishableRichDocument;
+  richdoc->webdesign := webdesign;
+  richdoc->__FastLoadFromWHFS(settings.applytester, file->id, file);
+
+  IF(settings.namespace != "")
+  {
+    richdoc->ApplyRTDType(settings);
+  }
+  ELSE
+  {
+    IF(Length(settings.structuredef)=0)
+      THROW NEW Exception("No rtd structure definition XML has been defined for file #" || file->id);
+
+    OBJECT structure := LoadClassicStructureDef(settings.structuredef);
+    richdoc->ApplyStructureDefinition(structure);
+  }
+  RETURN richdoc;
+}

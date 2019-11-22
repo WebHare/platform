@@ -1,0 +1,1281 @@
+﻿<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/listtreehelper.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+////////////////////////////////////////////////////////////////////
+// The selection list (checkbox, radio, list, pulldown)
+
+
+PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  ///Are the options uptodate?
+  BOOLEAN options_uptodate;
+  ///Have we generated components yet?
+  BOOLEAN have_generated;
+
+  /** Storage for options (ListTreeHelper)
+  */
+  OBJECT storage;
+
+  /** Flags
+  */
+  STRING ARRAY pvt_flags;
+
+
+  /** Current type of the select (one of 'radio', 'checkbox', 'pulldown')
+  */
+  STRING pvt_type;
+
+
+  /** Whether checkboxes/radios must be presented vertically
+  */
+  BOOLEAN pvt_vertical;
+
+
+  OBJECT pvt_proxy;
+
+
+  /** If type = 'pulldown', this contains the pulldown component
+  */
+  OBJECT pvt_pulldown;
+
+
+  /** If type is a list, this contains the list component
+  */
+  OBJECT pvt_list;
+
+
+  /** If type is a list, this is the panel with border containing the list component
+  */
+  OBJECT pvt_listpanel;
+
+
+  /** If type = 'checkbox' or 'radio', this contains the individual radios/checkboxes
+      @cell button Radiobutton/checkbox
+      @cell label
+  */
+  RECORD ARRAY pvt_comps;
+
+
+  /** Empty text
+  */
+  STRING pvt_empty;
+
+
+  /** Empty text component
+  */
+  OBJECT pvt_emptytext;
+
+
+  /** Callback function called when the current selection changes
+  */
+  PUBLIC FUNCTION PTR onchange;
+
+
+  /** List of radiobuttons (needed because TolliumSelect is also a radiogroup).
+  */
+  OBJECT ARRAY pvt_radiobuttons;
+
+
+  /** Ignore select events (only during staticinit)
+  */
+  BOOLEAN ignore_events;
+
+
+  /** The option source list, from the static init. Used for dynamic updates caused
+      by option source components. Reset when the options are set manually.
+  */
+  RECORD ARRAY pvt_optionsources;
+
+
+  /** For backwards compatibility with old site profiles: Setting this property to a non-empty string causes TolliumSelect
+      to treat its value property as a string, (de)tokenized using this separator.
+  */
+  PUBLIC STRING detokenizedvalueseparator;
+
+
+  /** List of components within options currently visible
+  */
+  OBJECT ARRAY pvt_visibleoptioncomponents;
+
+
+  /** Counter used to generate rowkeys for dividers
+  */
+  INTEGER dividercounter;
+
+  /// Implicitly add contained components to their <option>'s enablecomponents
+  BOOLEAN implicitenablecomponents;
+
+
+  /// Component to update when the title needs to be changed
+  OBJECT titlecomponent;
+
+
+  /** Contains the HareScript type of rowkeys in this list. Possible values: TypeID(INTEGER), TypeID(STRING)
+      Set when you have created a new list that doesn't contain any rows, yet you want to use the property
+      'value'.
+  */
+  PUBLIC PROPERTY rowkeytype(GetRowkeyType, SetRowkeyType);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** The rowkey(s) of the currently selected option(s). For a pulldown and radio,
+      this is the rowkey of the currently selected item (or the default when none
+      is selected), for checkboxes an array with the rowkeys of the currently selected
+      options.
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+
+  /** Currently selected option(s). For a pulldown and radio, this is the currently
+      selected row (DEFAULT RECORD if none selected), for checkboxes the
+      of the currently selected item, for checkboxes an array with the rowkeys of
+      the currently selected options.
+  */
+  PUBLIC PROPERTY selection(GetSelection, SetSelection);
+
+
+  /** The list of options
+      @cell rowkey Rowkey of the option
+      @cell(boolean) enabled Optional. set to false to disable this option (pulldown mode only)
+      @cell(integer) indent Optional, how far to indent the option. Defaults to 0
+  */
+  PUBLIC PROPERTY options(GetRows, SetRows);
+
+
+  /** The list of flags available in the options
+  */
+  PUBLIC PROPERTY flags(pvt_flags, SetFlags);
+
+
+  /** Current type of the select (one of 'radio', 'checkbox', 'pulldown')
+  */
+  PUBLIC PROPERTY type(pvt_type, SetType);
+
+
+  /** Whether checkboxes/radios must be presented vertically
+  */
+  PUBLIC PROPERTY vertical(pvt_vertical, SetVertical);
+
+
+  /** The text that is displayed if no options are available
+  */
+  PUBLIC PROPERTY empty(pvt_empty, SetEmpty);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->pvt_vertical := TRUE;
+    this->implicitenablecomponents := TRUE;
+
+    // Get new storage object (no tree, no dynamic)
+    this->invisibletitle := TRUE;
+    this->storage := NEW ListTreeHelper;
+    this->storage->callback := PRIVATE this;
+  }
+
+  UPDATE PUBLIC MACRO PostInitComponent()
+  {
+    //need to do this here so ensure invisible components
+    this->EnsureOptions();
+  }
+
+  UPDATE PUBLIC MACRO PreShowComponent()
+  {
+    IF(NOT this->have_generated)
+    {
+      this->GenerateComponentsNow();
+    }
+//    this->UpdateComponentsEnabled();
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    BOOLEAN multiple := def.type IN [ "checkbox", "checkboxlist", "inlinecheckboxlist" ];
+    this->storage->selectmode := multiple ? "multiple" : "single";
+
+    this->onchange := def.onchange;
+    this->pvt_type := def.type;
+    this->flags := def.flags; // Also sets required_cells
+    this->pvt_vertical := def.orientation="vertical";
+    this->pvt_required := def.required;
+    this->pvt_readonly := def.readonly;
+    this->pvt_empty := def.empty;
+    this->detokenizedvalueseparator := def.detokenizedvalueseparator;
+    this->implicitenablecomponents := def.implicitenablecomponents;
+
+    this->pvt_optionsources := def.optionsources;
+
+    FOREVERY(RECORD opt FROM this->pvt_optionsources)
+      IF(opt.type = "optionsource")
+        opt.comp->pvt_onoptionschange := PTR this->UpdateOptionsFromSources;
+
+    IF (this->storage->rowkeytype = 0)
+      this->storage->rowkeytype := ParseRowKeyType(def.rowkeytype);
+
+    //FIXME errorlabel support in the subcomponents
+  }
+
+
+  PUBLIC MACRO TolliumDisableAllOther(OBJECT keepthis)
+  {
+    IF(this->pvt_type NOT IN [ "radio" ])
+      THROW NEW TolliumException(this, "Internal error: not a radio type for TolliumDisableAllOther (type is '" || this->pvt_type || "')");
+
+    FOREVERY (RECORD comp FROM this->pvt_comps)
+      IF (comp.button != keepthis)
+        comp.button->value := false;
+  }
+
+  PUBLIC MACRO TolliumUpdateComponentsEnabled()
+  {
+    IF (this->pvt_type NOT IN [ "radio" ])
+      THROW NEW TolliumException(this, "Internal error: not a radio type for TolliumUpdateComponentsEnabled (type is '" || this->pvt_type || "')");
+
+    OBJECT ARRAY enabled_components;
+    FOREVERY (RECORD obj FROM this->pvt_comps)
+      // Only disable components if another radiobutton isn't enabling them
+      FOREVERY (OBJECT comp FROM obj.button->enablecomponents)
+      {
+        IF (comp IN enabled_components)
+          CONTINUE;
+        comp->enabled := obj.button->value AND obj.button->enabled;
+        IF (comp->enabled)
+          INSERT comp INTO enabled_components AT END;
+      }
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    OBJECT ARRAY result :=
+        SELECT AS OBJECT ARRAY comp
+          FROM this->pvt_optionsources
+         WHERE type = "optionsource";
+
+    result := result CONCAT
+        SELECT AS OBJECT ARRAY button
+          FROM this->pvt_comps;
+
+    IF (ObjectExists(this->pvt_pulldown))
+      INSERT this->pvt_pulldown INTO result AT END;
+
+    IF (ObjectExists(this->pvt_list))
+      INSERT this->pvt_list INTO result AT END;
+
+    IF (ObjectExists(this->pvt_listpanel))
+      INSERT this->pvt_listpanel INTO result AT END;
+
+    RETURN result;
+  }
+
+
+  UPDATE PUBLIC MACRO DeleteComponent()
+  {
+    TolliumComponentBase::DeleteComponent();
+    this->RegenerateComponents();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks from the storage
+  //
+
+  /** Called when all rows have been invalidated
+  */
+  MACRO LTH_UpdatedAllRows()
+  {
+    IF (this->pvt_type = "pulldown" AND ObjectExists(this->pvt_pulldown))
+      this->pvt_pulldown->options := this->storage->rows;
+    ELSE IF (NOT this->ignore_events)
+      this->RegenerateComponents();
+  }
+
+
+  /** Called when a single row has been updated
+      @param row Row that has been updated
+      @cell rowkey Rowkey of the row
+  */
+  MACRO LTH_UpdatedRow(RECORD row)
+  {
+    // FIXME: this could be done more efficient, but this works too.
+    this->LTH_UpdatedAllRows();
+  }
+
+
+  /** Called when the selection changes of the private list
+  */
+  MACRO LTH_UpdatedSelection(BOOLEAN frontend_change, BOOLEAN auto_change)
+  {
+    IF (frontend_change)
+    {
+      SWITCH (this->pvt_type)
+      {
+        CASE "pulldown"
+        {
+          IF (ObjectExists(this->pvt_pulldown))
+            this->pvt_pulldown->value := this->storage->value;
+        }
+        CASE "radio"
+        {
+          VARIANT value := this->storage->value;
+
+          FOREVERY (RECORD comp FROM this->pvt_comps)
+            comp.button->value := comp.rowkey = value;
+        }
+        CASE "checkbox"
+        {
+          VARIANT value := this->storage->value;
+
+          FOREVERY (RECORD comp FROM this->pvt_comps)
+            comp.button->value := comp.rowkey IN value;
+        }
+        CASE "checkboxlist", "inlinecheckboxlist"
+        {
+          IF (ObjectExists(this->pvt_list))
+          {
+            VARIANT value := this->storage->value;
+
+            UPDATE this->pvt_list->rows
+               SET __select_checked := rowkey IN value;
+
+            this->ApplyEnableOns();
+          }
+        }
+      }
+    }
+
+    IF (this->pvt_type IN [ "checkboxlist", "inlinecheckboxlist" ])
+      this->ApplyEnableOns();
+
+    IF (this->onchange != DEFAULT FUNCTION PTR AND NOT this->ignore_events)
+    {
+      IF (frontend_change)
+        this->onchange();
+      ELSE
+        this->owner->tolliumscreenmanager->QueueEvent(this, "change", DEFAULT RECORD);
+    }
+  }
+
+  /** Called when the list of child nodes of a row has been replaced.
+      @param parent Parent row
+      @param children Children rows
+  */
+  MACRO LTH_UpdatedChildnodes(RECORD parentrow, RECORD ARRAY children)
+  {
+    // Won't be called
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  VARIANT FUNCTION GetValue()
+  {
+    this->EnsureOptions();
+
+    IF (this->detokenizedvalueseparator != "")
+    {
+      // Convert the storage value type (integer (array) or string (array)) to a string
+      VARIANT val := this->storage->value;
+      IF (IsTypeIDArray(TypeID(val)))
+      {
+        RETURN Detokenize((SELECT AS STRING ARRAY TypeId(singlevalue) = TypeId(INTEGER) ? ToString(singlevalue) : singlevalue FROM ToRecordArray(val, "singlevalue")), this->detokenizedvalueseparator);
+      }
+      ELSE IF (TypeID(val) = TypeID(INTEGER))
+        RETURN ToString(val);
+      ELSE IF (TypeID(val) = TypeID(STRING))
+        RETURN val;
+      ELSE
+        THROW NEW TolliumException(this, "Unsupported rowkey type: " || GetTypeName(TypeID(val)));
+    }
+
+    RETURN this->storage->value;
+  }
+
+
+  UPDATE MACRO SetTitle(STRING data)
+  {
+    TolliumComponentBase::SetTitle(data);
+    IF(ObjectExists(this->titlecomponent))
+      this->titlecomponent->title := data;
+  }
+
+  MACRO SetValue(VARIANT value)
+  {
+    this->EnsureOptions();
+    IF (this->detokenizedvalueseparator != "") // Convert the incoming string to the appropriate storage value type
+      value  := this->ConvertValueToRowkeys(value);
+
+    this->storage->value := value;
+
+    IF (this->pvt_type NOT IN [ "checkbox", "checkboxlist", "inlinecheckboxlist" ] AND NOT RecordExists(this->storage->selection) AND Length(this->storage->rows)>0)
+    {
+      // Must have at least one selection, please.
+      this->storage->SetSelectionByRecords([ RECORD(this->storage->rows[0]) ], TRUE);
+    }
+    this->ApplyEnableOns();
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    this->EnsureOptions();
+    IF (this->detokenizedvalueseparator != "") // Convert the incoming string to the appropriate storage value type
+      value := this->ConvertValueToRowkeys(value);
+
+    IF(NOT this->storage->IsValidValue(value)) //this validates the types, but not whether they referred rows actually exist
+      RETURN FALSE;
+
+    BOOLEAN expectarray := this->pvt_type IN [ "checkbox", "checkboxlist", "inlinecheckboxlist" ];
+    IF(expectarray)
+    {
+      IF(NOT IsTypeIDArray(TYPEID(value))) //ADDME might be redundant ?
+        RETURN FALSE;
+      IF(Length(value) > 0 AND Length(this->storage->rows) = 0)
+        RETURN FALSE;
+      //ADDME validate the individual rowkeys. IsRowKeyPresent might be useful but doesnt seem to load the rows
+    }
+    ELSE
+    {
+      IF(NOT RecordExists(SELECT FROM this->storage->rows WHERE rowkey = value))
+        RETURN FALSE;
+    }
+
+    RETURN TRUE;
+  }
+
+  MACRO EnsureOptions()
+  {
+    IF(NOT this->options_uptodate)
+    {
+      this->ignore_events := TRUE;
+      this->UpdateOptionsFromSources();
+      this->ignore_events := FALSE;
+    }
+  }
+
+  RECORD ARRAY FUNCTION GetRows()
+  {
+    this->EnsureOptions();
+    RETURN this->storage->rows;
+  }
+
+
+  MACRO SetRows(RECORD ARRAY newrows, BOOLEAN clear_sources DEFAULTSTO TRUE)
+  {
+    IF (clear_sources)
+      this->pvt_optionsources := DEFAULT RECORD ARRAY;
+
+    BOOLEAN has_rowkeys;
+    BOOLEAN rowkey_is_integer;
+    BOOLEAN dividercounterset;
+
+    // Find out the type of the new rowkeys from first non-divider item.
+    FOREVERY (RECORD opt FROM newrows)
+    {
+      IF (CellExists(opt, "ISDIVIDER") AND opt.isdivider)
+        CONTINUE;
+
+      has_rowkeys := CellExists(opt, "ROWKEY");
+      IF (has_rowkeys)
+        rowkey_is_integer := TypeID(opt.rowkey) = TypeID(INTEGER);
+
+      BREAK;
+    }
+
+    /* We may receive an 'options' update before we get to render ourselves. in this case, child components
+       may still think they're visible, so we'll have to make them recheck */
+    OBJECT ARRAY oldsubcomponents;
+    FOREVERY(RECORD opt FROM this->storage->rows)
+      IF(CellExists(opt,'lineitems'))
+        oldsubcomponents := oldsubcomponents CONCAT opt.lineitems;
+
+    FOREVERY (RECORD opt FROM newrows)
+    {
+      // isdivider can be set to add a divider to the list of options. In that case, rowkey and title may not be set, so
+      // we'll have to add them here
+      IF (NOT CellExists(opt, "isdivider"))
+        INSERT CELL isdivider := FALSE INTO opt;
+
+      //Record which components stay
+      IF(CellExists(opt,'lineitems'))
+        FOREVERY(OBJECT obj FROM opt.lineitems)
+        {
+          INTEGER pos := SearchElement(oldsubcomponents, obj);
+          IF(pos>=0)
+            DELETE FROM oldsubcomponents AT pos;
+        }
+
+      IF (opt.isdivider)
+      {
+        IF (NOT CellExists(opt, "ROWKEY") AND has_rowkeys)
+        {
+          this->dividercounter := this->dividercounter + 1;
+          IF (rowkey_is_integer)
+          {
+            IF (NOT dividercounterset)
+            {
+              this->dividercounter :=
+                  SELECT AS INTEGER Max(rowkey) + 1
+                    FROM newrows
+                   WHERE CellExists(newrows, "ROWKEY");
+              dividercounterset := TRUE;
+            }
+            INSERT CELL rowkey := this->dividercounter INTO opt;
+          }
+          ELSE
+            INSERT CELL rowkey := "$divider" || this->dividercounter INTO opt;
+        }
+        IF (NOT CellExists(opt, "TITLE"))
+          INSERT CELL title := "" INTO opt;
+      }
+      // title is required for selects, enabled is added by SetStaticRows
+      // hint(tid) and indent optional for selects, so add them here
+      //FIXME? STRING hint := ; //FIXME? CellExists(opt, "hinttp") ? ResolveTextPointer(opt.hinttp) : "";
+
+      IF (NOT CellExists(opt, "hint"))
+        INSERT CELL hint := "" INTO opt;
+      IF (NOT CellExists(opt, "indent"))
+        INSERT CELL indent := 0 INTO opt;
+      newrows[#opt] := opt;
+    }
+    this->storage->SetStaticRows(newrows);
+    this->options_uptodate := TRUE;
+    IF (this->pvt_type NOT IN [ "checkbox", "checkboxlist", "inlinecheckboxlist" ] AND NOT RecordExists(this->storage->selection) AND Length(this->storage->rows)>0)
+    {
+      // Must have at least one selection, please.
+      this->storage->SetSelectionByRecords([ RECORD(this->storage->rows[0]) ], TRUE);
+      this->ApplyEnableOns();
+    }
+
+    FOREVERY(OBJECT comp FROM oldsubcomponents) //make sure they know they are gone
+      comp->RemoveFromParent();
+  }
+
+  VARIANT FUNCTION GetSelection()
+  {
+    this->EnsureOptions();
+    RETURN this->storage->selection;
+  }
+
+  MACRO SetSelection(VARIANT row)
+  {
+    RECORD ARRAY newselection;
+    IF (this->pvt_type IN [ "radio", "pulldown" ])
+    {
+      IF (TypeID(row) != TypeID(RECORD))
+      {
+        // Implement auto-cast from RECORD ARRAY to RECORD
+        IF (TypeID(row) = TypeID(RECORD ARRAY))
+          row := RECORD(row);
+        ELSE
+          THROW NEW TolliumException(this, "Expected a RECORD as new selection for select '"||this->name||"' of type '"||this->type ||"'");
+      }
+      IF (RecordExists(row))
+        INSERT row INTO newselection AT END;
+    }
+    ELSE IF (this->pvt_type IN [ "checkbox", "checkboxlist", "inlinecheckboxlist" ])
+    {
+      IF (TypeID(row) != TypeID(RECORD ARRAY))
+        THROW NEW TolliumException(this, "Expected a RECORD ARRAY as new selection for select '"||this->name||"' of type '"||this->type ||"'");
+
+      newselection := row;
+    }
+
+    this->storage->SetSelectionByRecords(newselection, TRUE);
+    this->ApplyEnableOns();
+  }
+
+
+  UPDATE MACRO SetRequired(BOOLEAN newrequired) //ADDME really need to update this?!
+  {
+    IF (this->pvt_required = newrequired)
+      RETURN;
+
+    this->pvt_required := newrequired;
+    IF (this->pvt_type = "pulldown" AND ObjectExists(this->pvt_pulldown))
+      this->pvt_pulldown->required := newrequired;
+
+    this->ExtUpdatedComponent();
+  }
+
+
+  MACRO SetFlags(STRING ARRAY newflags)
+  {
+    this->pvt_flags := newflags;
+
+    this->storage->required_cells :=
+      [ [ name := "TITLE"
+        , type := TypeID(STRING)
+        ]
+      ] CONCAT SELECT name := ToUppercase(name)
+                    , type := TypeID(BOOLEAN)
+                 FROM ToRecordArray(this->pvt_flags, "NAME");
+  }
+
+
+  MACRO SetType(STRING newtype)
+  {
+    IF (newtype NOT IN ["checkbox","radio","checkboxlist","inlinecheckboxlist","pulldown"])
+      THROW NEW TolliumException(this, "Invalid TolliumSelect type '" || newtype || "'");
+
+    IF (this->pvt_type = newtype)
+      RETURN;
+
+    // Clear/reset selection when going from checkbox to other types
+    IF (this->pvt_type = 'checkbox' AND LENGTH(this->selection) != 0)
+      this->selection := DEFAULT RECORD ARRAY;
+
+    this->pvt_type := newtype;
+    this->storage->selectmode := newtype IN [ "checkbox", "checkboxlist", "inlinecheckboxlist" ] ? "multiple" : "single";
+    this->RegenerateComponents();
+  }
+
+
+  MACRO SetVertical(BOOLEAN newvertical)
+  {
+    IF (this->pvt_vertical = newvertical)
+      RETURN;
+
+    this->pvt_vertical := newvertical;
+    this->RegenerateComponents();
+  }
+
+  MACRO SetEmpty(STRING newempty)
+  {
+    this->pvt_empty := newempty;
+    this->ExtEmptyTextUpdate();
+  }
+
+  UPDATE MACRO SetReadonly(BOOLEAN newstate)
+  {
+    IF (this->pvt_readonly = newstate)
+      RETURN;
+
+    this->pvt_readonly := newstate;
+    this->RegenerateComponents();
+    this->ExtUpdatedComponent();
+  }
+
+  INTEGER FUNCTION GetRowkeyType()
+  {
+    RETURN this->storage->rowkeytype;
+  }
+
+  MACRO SetRowkeyType(INTEGER rowkeytype)
+  {
+    this->storage->rowkeytype := rowkeytype;
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newenabled)
+  {
+    TolliumComponentBase::SetEnabled(newenabled);
+    IF (this->pvt_type IN [ "checkboxlist", "inlinecheckboxlist" ] AND ObjectExists(this->pvt_list))
+      this->UpdateListRows();
+  }
+
+  UPDATE MACRO SetDefaultButton(OBJECT defaultbutton)
+  {
+    TolliumComponentBase::SetDefaultButton(defaultbutton);
+
+    IF (ObjectExists(this->pvt_pulldown))
+      this->pvt_pulldown->defaultbutton := defaultbutton;
+    IF (ObjectExists(this->pvt_list))
+      this->pvt_list->defaultbutton := defaultbutton;
+    FOREVERY (RECORD rec FROM this->pvt_comps)
+      rec.button->defaultbutton := defaultbutton;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO UpdateOptionsFromSources()
+  {
+    RECORD ARRAY opts;
+    FOREVERY (RECORD source FROM this->pvt_optionsources)
+    {
+      SWITCH (source.type)
+      {
+      CASE "option"
+        {
+          INSERT source.item INTO opts AT END;
+        }
+      CASE "divider"
+        {
+          INSERT [ isdivider := TRUE ] INTO opts AT END;
+        }
+      CASE "optionsource"
+        {
+          opts := opts CONCAT
+              SELECT *
+                   , enablecomponents := DEFAULT OBJECT ARRAY
+                FROM source.comp->options;
+          this->storage->rowkeytype := source.comp->rowkeytype;
+        }
+      DEFAULT
+        {
+          THROW NEW TolliumException(this, "Internal error, unknown select option source type '"||source.type||"'");
+        }
+      }
+    }
+    this->SetRows(opts, FALSE);
+  }
+
+  PUBLIC OBJECT FUNCTION GetButtonComponent(VARIANT rowkey)
+  {
+    this->PreShowComponent(); //make sure the components are there
+
+    FOREVERY(RECORD comp FROM this->pvt_comps)
+      IF(comp.rowkey = rowkey)
+        RETURN comp.button;
+    RETURN DEFAULT OBJECT;
+  }
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
+  {
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION GetEnableOnComponent()
+  {
+    this->PreShowComponent();
+    RETURN ObjectExists(this->pvt_proxy) ? this->pvt_proxy->GetEnableOnComponent() : DEFAULT OBJECT;
+  }
+
+  BOOLEAN regenerating;
+  BOOLEAN regenerateagain;
+
+  MACRO RegenerateComponents()
+  {
+    IF(this->have_generated)
+    {
+      this->GenerateComponentsNow();
+    }
+  }
+
+  MACRO GenerateComponentsNow()
+  {
+    // This is a guard against recursive calls to RegenerateComponents by inserting option sources calling RegenerateComponents
+    this->regenerateagain := TRUE;
+    IF (this->regenerating)
+      RETURN;
+
+    this->regenerating := TRUE;
+    WHILE (this->regenerateagain)
+    {
+      this->regenerateagain := FALSE;
+      this->RegenerateComponentsInternal();
+    }
+
+    this->regenerating := FALSE;
+    this->have_generated := TRUE;
+  }
+
+  MACRO RegenerateComponentsInternal()
+  {
+    this->titlecomponent := DEFAULT OBJECT;
+    // Remove all private option components from the list
+    FOREVERY (OBJECT comp FROM this->pvt_visibleoptioncomponents)
+    {
+//      comp->DeleteComponent();
+      comp->RemoveFromParent();
+
+      // ADDME: we should register which checkbox/radio is the supercomponent, instead of blindly unregistering
+      IF (ObjectExists(comp->supercomponent))
+        comp->supercomponent->UnmarkAsSubcomponent(comp);
+    }
+    this->pvt_visibleoptioncomponents := DEFAULT OBJECT ARRAY;
+    IF (ObjectExists(this->pvt_proxy))
+    {
+      this->pvt_proxy->passthrough := DEFAULT OBJECT;
+      this->pvt_proxy->ResetCheckComponents();
+    }
+
+    IF (ObjectExists(this->pvt_emptytext))
+    {
+      this->pvt_emptytext->DeleteComponent();
+      this->pvt_emptytext := DEFAULT OBJECT;
+    }
+    FOREVERY(RECORD comprec FROM this->pvt_comps)
+    {
+      comprec.button->DeleteComponent();
+    }
+    this->pvt_comps := DEFAULT RECORD ARRAY;
+    IF(ObjectExists(this->pvt_pulldown))
+    {
+      this->pvt_pulldown->DeleteComponent();
+      this->pvt_pulldown := DEFAULT OBJECT;
+    }
+    IF(ObjectExists(this->pvt_list))
+    {
+      this->pvt_list->DeleteComponent();
+      this->pvt_list := DEFAULT OBJECT;
+    }
+    IF(ObjectExists(this->pvt_listpanel))
+    {
+      this->pvt_listpanel->DeleteComponent();
+      this->pvt_listpanel := DEFAULT OBJECT;
+    }
+
+    IF(NOT ObjectExists(this->parent)) //we're not there yet (or deleting ourselves)
+      RETURN;
+
+    IF (NOT ObjectExists(this->pvt_proxy))
+    {
+      this->pvt_proxy := this->owner->CreateTolliumComponent("proxy", [ namebase := this->name ]); //not inserted into any panel, so this shouldn't be a subcomponent
+      this->pvt_proxy->pvt_parent := this->owner->frame;
+    }
+
+    //FIXME: Support dynamic type changes
+    IF(this->pvt_type NOT IN ["pulldown","radio","checkbox","checkboxlist","inlinecheckboxlist"])
+      THROW NEW TolliumException(this, "TolliumSelect '" || this->name || "' unrecognized type '" || this->type || "'");
+
+    //FIXME: properly implement readonly
+    IF (Length(this->options) = 0)
+    {
+      IF (this->empty != "")
+      {
+        this->pvt_emptytext := this->CreateSubComponent("text", [ namebase := this->name ]);
+        this->pvt_emptytext->title := this->title;
+        this->pvt_emptytext->value := this->empty;
+        this->titlecomponent := this->pvt_emptytext;
+        this->parentpanel->InsertComponentAfter(this->pvt_emptytext, this, FALSE);
+      }
+    }
+    ELSE IF (this->pvt_type IN [ "radio", "checkbox" ])
+    {
+      RECORD flags;
+      FOREVERY (STRING flag FROM this->flags)
+        flags := CellInsert(flags, flag, FALSE);
+
+      //Create the separate radios (FIXME: Overlapt functionaliteit niet met radiogroup?)
+      OBJECT appendto := this;
+      FOREVERY(RECORD opt FROM this->options)
+      {
+        IF (CellExists(opt, "isdivider") AND opt.isdivider)
+          CONTINUE;
+
+        OBJECT thebutton;
+        IF(this->pvt_type="radio")
+        {
+          thebutton := this->CreateSubComponent("radiobutton", [ namebase := this->name ]);
+          thebutton->radiogroup := this;
+          thebutton->radiogroup_onchange := FALSE; // We'll handle change events ourself, thank you very much - FIXME Can delay_events replace this?
+          thebutton->dirtylistener := this->dirtylistener;
+        }
+        ELSE
+        {
+          thebutton := this->CreateSubComponent("checkbox", [ namebase := this->name ]);
+          thebutton->dirtylistener := this->dirtylistener;
+          this->pvt_proxy->AddCheckComponent(thebutton);
+        }
+        thebutton->value := opt.tolliumselected;
+        thebutton->label := opt.title;
+        thebutton->hint := opt.hint;
+        thebutton->enabled := opt.enabled AND this->enabled;
+        thebutton->readonly := this->readonly;
+        thebutton->defaultbutton := this->defaultbutton;
+        IF(#opt=0)
+        {
+          this->titlecomponent := thebutton;
+          thebutton->title := this->title;
+        }
+
+        FOREVERY (STRING flag FROM this->flags)
+          flags := CellUpdate(flags, flag, CellExists(opt, flag) AND GetCell(opt, flag));
+        thebutton->pvt_flags := flags;
+
+        OBJECT ARRAY enablecomponents := CellExists(opt, "enablecomponents") ? opt.enablecomponents : DEFAULT OBJECT ARRAY;
+
+//ADDME: Maybe we still need to revert to the old solution, so we don't have to rely on SubComponentChange for updating
+//       the select's value
+//        IF(this->onchange != DEFAULT FUNCTION PTR)
+//        {
+            IF(this->pvt_type="radio")
+            {
+              thebutton->onset := PTR this->ComponentSelectionChanged;
+              thebutton->delay_events := this->onchange = DEFAULT FUNCTION PTR ? [ "onset" ] : DEFAULT STRING ARRAY;
+            }
+            ELSE
+            {
+              thebutton->onchange := PTR this->ComponentSelectionChanged;
+              thebutton->delay_events := this->onchange = DEFAULT FUNCTION PTR ? [ "onchange" ] : DEFAULT STRING ARRAY;
+            }
+//        }
+
+        this->parentpanel->InsertComponentAfter(thebutton, appendto, this->vertical AND #opt>0);
+        INSERT [ rowkey := opt.rowkey, button := thebutton ] INTO this->pvt_comps AT END;
+        appendto := thebutton;
+
+        IF (CellExists(opt, "CHILDREN"))
+        {
+          IF(this->implicitenablecomponents)
+            enablecomponents := enablecomponents CONCAT opt.children;
+        }
+
+        IF (CellExists(opt, "LINEITEMS"))
+        {
+          OBJECT comp_appendto := appendto;
+          FOREVERY (OBJECT comp FROM opt.lineitems)
+          {
+            /* FIXME - this is a workaround for embedded components leaking to
+                us as component (ie, a <g:youtube> component inside a select <option>)
+                but they simply shouldn't be offered to <select> */
+            IF(comp->supercomponent = DEFAULT OBJECT)
+            {
+              comp->RemoveFromParent(); //remove from ourselves, screenparser currently simply marks us as parent
+              thebutton->MarkAsSubcomponent(comp);
+              this->parentpanel->InsertComponentAfter(comp, comp_appendto, FALSE);
+              comp_appendto := comp;
+
+              INSERT comp INTO this->pvt_visibleoptioncomponents AT END;
+            }
+          }
+        }
+
+        thebutton->enablecomponents := enablecomponents;
+      }
+      this->titleforsubcomponent := DEFAULT OBJECT;
+    }
+    ELSE IF (this->pvt_type IN [ "checkboxlist", "inlinecheckboxlist" ])
+    {
+      OBJECT panel := this->CreateSubComponent(this->pvt_type = "inlinecheckboxlist" ? "inlineblock" : "panel", [ namebase := this->name ]);
+      this->parentpanel->InsertComponentBefore(panel, this, TRUE);
+
+      panel->title := this->title;
+      this->titlecomponent := panel;
+      panel->width := this->width;
+      panel->height := this->height;
+      panel->minwidth := this->minwidth;
+      panel->minheight := this->minheight;
+
+      OBJECT list := this->CreateSubComponent("list", [ namebase := this->name ]);
+      panel->InsertComponentAfter(list, DEFAULT OBJECT, FALSE);
+
+      list->width := "1pr";
+      list->height := "1pr";
+      list->flags := this->flags;
+      list->columnheaders := FALSE;
+      list->selectmode := "none";
+      list->sortable := FALSE;
+      list->dirtylistener := this->dirtylistener;
+      list->defaultbutton := this->defaultbutton;
+
+      RECORD coldef := [ type := "text"
+                       , tree := FALSE
+                       , title := ""
+                       , name := "title"
+                       , hintname := "hint"
+                       , width := ""
+                       , minwidth := ""
+                       , storeutc := FALSE
+                       ];
+      IF (RecordExists(SELECT FROM this->options WHERE CellExists(options, "icon") ? icon != "" : FALSE ))
+        INSERT CELL iconname := "__select_icon" INTO coldef;
+
+      INSERT CELL checkboxname := "__select_checked" INTO coldef;
+      INSERT CELL checkboxvisible := "__select_showswitch" INTO coldef;
+      INSERT CELL checkboxenabled := "__select_switchenabled" INTO coldef;
+      list->columns := [ coldef ];
+
+      this->pvt_list := list;
+
+      this->UpdateListRows();
+
+      IF (this->pvt_type = "checkboxlist" OR this->pvt_type="inlinecheckboxlist")
+        list->selection := DEFAULT RECORD ARRAY;
+      ELSE
+        list->selection := DEFAULT RECORD;
+
+//ADDME: Maybe we still need to revert to the old solution, so we don't have to rely on SubComponentChange for updating
+//       the select's value
+//      IF(this->onchange != DEFAULT FUNCTION PTR)
+        list->oncheck := PTR this->ComponentSelectionChanged_List;
+
+      this->pvt_listpanel := panel;
+
+      this->titleforsubcomponent := list;
+
+      this->pvt_proxy->passthrough := list;
+    }
+    ELSE//pulldown
+    {
+      OBJECT pulldown := this->CreateSubComponent("pulldown", [ namebase := this->name ]);
+      this->parentpanel->InsertComponentAfter(pulldown, this, FALSE);
+
+      pulldown->options := this->options;
+      pulldown->selection := this->selection;
+      pulldown->enabled := this->enabled;
+      pulldown->readonly := this->readonly;
+      pulldown->required := this->required;
+      pulldown->hint := this->hint;
+      pulldown->flags := this->flags;
+      pulldown->width := this->width;
+      pulldown->title := this->title;
+      pulldown->dirtylistener := this->dirtylistener;
+      pulldown->defaultbutton := this->defaultbutton;
+      this->titlecomponent := pulldown;
+
+      this->pvt_pulldown := pulldown;
+
+//ADDME: Maybe we still need to revert to the old solution, so we don't have to rely on SubComponentChange for updating
+//       the select's value
+//      IF(this->onchange != DEFAULT FUNCTION PTR)
+      pulldown->onselect := PTR this->ComponentSelectionChanged;
+      pulldown->delay_events := this->onchange = DEFAULT FUNCTION PTR ? [ "onselect" ] : DEFAULT STRING ARRAY;
+
+      this->titleforsubcomponent := pulldown;
+      this->pvt_proxy->passthrough := pulldown;
+    }
+  }
+
+  MACRO UpdateListRows()
+  {
+    //ADDME: Also select flags!
+    this->pvt_list->rows :=
+        SELECT *
+             , __select_icon := CellExists(options, "ICON") ? this->pvt_list->GetIcon(icon) : 0
+             , __select_checked := tolliumselected
+             , __select_showswitch := enabled
+             , __select_switchenabled := this->pvt_enabled
+          FROM this->options WHERE NOT CellExists(options, "isdivider") OR NOT options.isdivider;
+
+    this->ApplyEnableOns();
+  }
+
+  MACRO ComponentSelectionChanged()
+  {
+    IF(NOT ObjectExists(this->owner))
+      RETURN; //already deleted, getting old event
+
+    IF (this->pvt_type = "pulldown")
+    {
+      VARIANT newsel := this->pvt_pulldown->selection;
+      IF (TypeID(newsel) = TypeID(RECORD))
+        newsel := RecordExists(newsel) ? [ RECORD(newsel) ] : DEFAULT RECORD ARRAY;
+
+      this->storage->SetSelectionByRecords(newsel, FALSE);
+    }
+    ELSE IF (this->pvt_type IN [ "checkbox", "radio" ])
+    {
+      RECORD ARRAY newsel :=
+          SELECT *
+            FROM this->pvt_comps
+           WHERE button->value;
+
+      this->storage->SetSelectionByRecords(newsel, FALSE);
+
+      // Workaround bug that two components with the same enablecomponents apply based only on their local state
+      // (disable box 1 while box 2 is still enabled disables the enablecomponent, while box 2 should enable it)
+      // FIXME: fix the larger bug, instead of this (local) workaround.
+      IF (this->pvt_type = "checkbox")
+        this->ApplyEnableOns();
+    }
+  }
+  MACRO ComponentSelectionChanged_List(RECORD row, STRING checkboxname)
+  {
+    IF(NOT ObjectExists(this->owner))
+      RETURN; //already deleted, getting old event
+
+    IF (this->pvt_type IN [ "checkboxlist", "inlinecheckboxlist" ])
+    {
+      //dumpvalue(this->pvt_list->rows,'boxed');
+      this->storage->SetSelectionByRecords((SELECT * FROM this->pvt_list->rows WHERE __select_checked), FALSE);
+    }
+  }
+
+  VARIANT FUNCTION ConvertValueToRowkeys(STRING value)
+  {
+    // Convert the incoming string to the appropriate storage value type
+    IF (this->storage->rowkeytype = TypeID(INTEGER))
+    {
+      IF (this->storage->selectmode = "multiple")
+        RETURN SELECT AS INTEGER ARRAY ToInteger(singlevalue, 0) FROM ToRecordArray(Tokenize(value, this->detokenizedvalueseparator), "singlevalue");
+      ELSE
+        RETURN ToInteger(value, 0);
+    }
+    ELSE IF (this->storage->rowkeytype = TypeID(STRING))
+    {
+      IF (this->storage->selectmode = "multiple")
+        RETURN Tokenize(value, this->detokenizedvalueseparator);
+      ELSE
+        RETURN value;
+    }
+    ELSE
+      THROW NEW TolliumException(this, "Unsupported rowkey type: " || GetTypeName(this->storage->rowkeytype));
+  }
+
+  VARIANT FUNCTION GetSelectedRowkeys()
+  {
+    VARIANT result := GetTypeDefaultArray(this->storage->rowkeytype);
+    VARIANT sel := this->storage->selection;
+    IF (TypeID(sel) = TypeID(RECORD ARRAY))
+    {
+      FOREVERY (RECORD rec FROM sel)
+        INSERT rec.rowkey INTO result AT END;
+    }
+    ELSE IF (RecordExists(sel))
+      INSERT sel.rowkey INTO result AT END;
+    RETURN result;
+  }
+
+  MACRO ApplyEnableOns()
+  {
+    VARIANT sel := this->storage->selection;
+
+    RECORD ARRAY sorted_selection;
+    IF (TypeID(sel) = TypeID(RECORD ARRAY))
+      sorted_selection := SELECT * FROM sel ORDER BY rowkey;
+    ELSE IF (RecordExists(sel))
+      sorted_selection := [ RECORD(sel) ];
+
+    OBJECT ARRAY to_enable;
+    OBJECT ARRAY all_enableons;
+
+    FOREVERY (RECORD row FROM this->storage->rows)
+    {
+      IF (NOT CellExists(row, "ENABLECOMPONENTS"))
+        CONTINUE;
+
+      BOOLEAN selected := this->pvt_enabled AND RecordLowerBound(sorted_selection, row, [ "ROWKEY" ]).found;
+
+      FOREVERY (OBJECT obj FROM row.enablecomponents)
+      {
+        IF (selected AND obj NOT IN to_enable)
+          INSERT obj INTO to_enable AT END;
+        IF (obj NOT IN all_enableons)
+          INSERT obj INTO all_enableons AT END;
+      }
+    }
+
+    FOREVERY (OBJECT obj FROM all_enableons)
+     obj->enabled := obj IN to_enable;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Radiobutton registration
+  //
+
+  PUBLIC MACRO TolliumRegisterRadioButton(OBJECT comp)
+  {
+    IF (comp IN this->pvt_radiobuttons)
+      THROW NEW Exception("Radiobutton has already been registered in this radiogroup");
+    INSERT comp INTO this->pvt_radiobuttons AT END;
+    IF (ObjectExists(this->pvt_proxy))
+      this->pvt_proxy->AddCheckComponent(comp);
+  }
+
+  PUBLIC MACRO TolliumUnregisterRadioButton(OBJECT comp)
+  {
+    INTEGER pos := SearchElement(this->pvt_radiobuttons, comp);
+    IF (pos = -1)
+      THROW NEW Exception("Radiobutton has not been registered in this radiogroup");
+    DELETE FROM this->pvt_radiobuttons AT pos;
+    IF (ObjectExists(this->pvt_proxy))
+      this->pvt_proxy->RemoveCheckComponent(comp);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtEmptyTextUpdate()
+  {
+    this->ExtUpdatedComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    RECORD ARRAY sellist:=
+        SELECT *
+          FROM this->storage->rows
+         WHERE tolliumselected;
+
+    IF (CheckEnabledFlags(sellist, this->flags, flags, min, max, selectionmatch))
+      RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+
+  /** Validates the value
+  */
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF((this->enabled AND this->required))
+    {
+      STRING componenttitle := this->errorlabel = "" ? this->title : this->errorlabel;
+
+      VARIANT curselectionraw := this->selection;
+      IF (TypeID(curselectionraw) = TypeID(RECORD))
+        curselectionraw := [ RECORD(curselectionraw) ];
+
+      // Don't allow rows marked as invalidselection in the selection
+      RECORD ARRAY curselection :=
+          SELECT *
+               , invalid := CellExists(curselectionraw, "INVALIDSELECTION") AND invalidselection
+            FROM curselectionraw;
+
+      IF (NOT RecordExists(curselection) OR RecordExists(SELECT FROM curselection WHERE invalid))
+      {
+        // ADDME: specific error for invalid selection when selected together with valid row?
+        work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", componenttitle));
+      }
+    }
+
+    //Also validate the components contained inside any <options>
+    FOREVERY(RECORD opt FROM this->pvt_optionsources)
+      IF(opt.type="option")
+        FOREVERY(OBJECT comp FROM opt.item.lineitems)
+          comp->ValidateValue(Work);
+  }
+
+
+  /** Return whether an option with the specified rowkey is present in the list of all options
+      @param rowkey Rowkey to check for
+      @return Whether an option with this rowkey is present.
+  */
+  PUBLIC BOOLEAN FUNCTION IsRowkeyPresent(VARIANT rowkey)
+  {
+    RETURN this->storage->IsRowkeyPresent(rowkey);
+  }
+
+
+  /** Updates a single row, based on the rowkey
+      @param row New row contents
+      @cell row.rowkey Rowkey of the row to update
+      @return Returns whether a row with the specified rowkey was found (if so, it was updated)
+  */
+  PUBLIC BOOLEAN FUNCTION UpdateSingleRow(RECORD row)
+  {
+    RETURN this->storage->UpdateSingleRow(row);
+  }
+>;

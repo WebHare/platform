@@ -1,0 +1,205 @@
+﻿<?wh
+/// @short Regular expression tests
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::regex.whlib";
+
+MACRO RegExTest()
+{
+  OpenTest("TestRegex: RegExTest");
+
+  OBJECT re_a := NEW RegEx("6+(a)?");
+  STRING str := "a";
+  TestEQ(DEFAULT RECORD ARRAY, re_a->Exec(str));
+  TestEQ(FALSE, re_a->Test(str));
+
+  str := "6a";
+  TestEQ(
+      [ [ start := 0, len := 2, value := "6a", matched := TRUE ]
+      , [ start := 1, len := 1, value := "a", matched := TRUE ]
+      ], re_a->Exec(str));
+  TestEQ(
+      [ [ start := 0, len := 2, value := "6a", matched := TRUE ]
+      , [ start := 1, len := 1, value := "a", matched := TRUE ]
+      ], re_a->Exec(str));
+  TestEQ(TRUE, re_a->Test(str));
+  TestEQ(TRUE, re_a->Test(str));
+
+  str := "x6ay";
+  TestEQ(
+      [ [ start := 1, len := 2, value := "6a", matched := TRUE ]
+      , [ start := 2, len := 1, value := "a", matched := TRUE ]
+      ], re_a->Exec(str));
+  TestEQ(TRUE, re_a->Test(str));
+
+  str := "6";
+  TestEQ(
+      [ [ start := 0, len := 1, value := "6", matched := TRUE ]
+      , [ start := -1, len := 0, value := "", matched := FALSE ]
+      ], re_a->Exec(str));
+  TestEQ(TRUE, re_a->Test(str));
+
+  str := "x6y";
+  TestEQ(
+      [ [ start := 1, len := 1, value := "6", matched := TRUE ]
+      , [ start := -1, len := 0, value := "", matched := FALSE ]
+      ], re_a->Exec(str));
+  TestEQ(TRUE, re_a->Test(str));
+
+  OBJECT re_b := NEW RegEx("6+(a)?", "g");
+  str := "76ax6876a8";
+  TestEQ(0, re_b->lastindex);
+  TestEQ(
+      [ [ start := 1, len := 2, value := "6a", matched := TRUE ]
+      , [ start := 2, len := 1, value := "a", matched := TRUE ]
+      ], re_b->Exec(str));
+  TestEQ(3, re_b->lastindex);
+  TestEQ(
+      [ [ start := 4, len := 1, value := "6", matched := TRUE ]
+      , [ start := -1, len := 0, value := "", matched := FALSE ]
+      ], re_b->Exec(str));
+  TestEQ(5, re_b->lastindex);
+  TestEQ(
+      [ [ start := 7, len := 2, value := "6a", matched := TRUE ]
+      , [ start := 8, len := 1, value := "a", matched := TRUE ]
+      ], re_b->Exec(str));
+  TestEQ(9, re_b->lastindex);
+  TestEQ(DEFAULT RECORD ARRAY, re_b->Exec(str));
+  TestEQ(0, re_b->lastindex);
+
+  OBJECT re_c := NEW RegEx("a+", "ig");
+  str := "7aAa6A8A";
+  TestEQ(0, re_c->lastindex);
+  TestEQ(
+      [ [ start := 1, len := 3, value := "aAa", matched := TRUE ]
+      ], re_c->Exec(str));
+  TestEQ(4, re_c->lastindex);
+  TestEQ(TRUE, re_c->Test(str));
+  TestEQ(6, re_c->lastindex);
+  TestEQ(
+      [ [ start := 7, len := 1, value := "A", matched := TRUE ]
+      ], re_c->Exec(str));
+  TestEQ(8, re_c->lastindex);
+  TestEQ(DEFAULT RECORD ARRAY, re_c->Exec(str));
+
+  OBJECT re_d := NEW RegEx(".+", "g");
+  str := "aaa\naaa";
+  TestEQ(
+      [ [ start := 0, len := 3, value := "aaa", matched := TRUE ]
+      ], re_d->Exec(str));
+  TestEQ(
+      [ [ start := 4, len := 3, value := "aaa", matched := TRUE ]
+      ], re_d->Exec(str));
+
+  OBJECT re_e := NEW RegEx(".+", "g");
+  str := "aaa\0aaa";
+  TestEQ(
+      [ [ start := 0, len := 7, value := "aaa\0aaa", matched := TRUE ]
+      ], re_e->Exec(str));
+
+  CloseTest("TestRegex: RegExTest");
+}
+
+MACRO ReplaceTest()
+{
+  OpenTest("TestRegex: ReplaceTest");
+
+  OBJECT re_a := NEW RegEx("6+(a?)");
+  TestEQ("a", re_a->Replace("a", "b"));
+
+  TestEQ("b", re_a->Replace("6a", "b"));
+  TestEQ("b", re_a->Replace("6", "b"));
+  TestEQ("xby", re_a->Replace("x6y", "b"));
+
+  TestEQ("xaby6", re_a->Replace("x6ay6", "$1b"));
+
+  TestEQ("xy", re_a->Replace("x6ay", ""));
+
+  OBJECT re_b := NEW RegEx("6+(a?)", "gi");
+  TestEQ("_Ab_b_ab_", re_b->Replace("_6A_6_6a_", "$1b"));
+
+  CloseTest("TestRegex: ReplaceTest");
+}
+
+STRING FUNCTION ReplaceCallback_Checked(STRING expected_match, INTEGER expected_pos, STRING expected_input, STRING replace, STRING match, STRING ARRAY params, INTEGER pos, STRING input)
+{
+  TestEQ(expected_match, match);
+  TestEQ(1, Length(params));
+  TestEQ(expected_pos, pos);
+  TestEQ(expected_input, input);
+  RETURN ReplaceCallback_NoCheck(replace, match, params, pos, input);
+}
+STRING FUNCTION ReplaceCallback_NoCheck(STRING replace, STRING match, STRING ARRAY params, INTEGER pos, STRING input)
+{
+  FOREVERY (STRING p FROM params)
+    replace := Substitute(replace, "$" || (#p + 1), p);
+  RETURN replace;
+}
+MACRO ReplaceCallback_NoReplace(STRING expected_match, INTEGER expected_pos, STRING expected_input, STRING match, STRING ARRAY params, INTEGER pos, STRING input)
+{
+}
+
+MACRO ReplaceCallbackTest()
+{
+  OpenTest("TestRegex: ReplaceCallbackTest");
+
+  OBJECT re_a := NEW RegEx("6+(a?)");
+  TestEQ("a", re_a->ReplaceCallback("a", PTR ReplaceCallback_Checked("", 0, "a", "b", #1, #2, #3, #4)));
+
+  TestEQ("b", re_a->ReplaceCallback("6a", PTR ReplaceCallback_Checked("6a", 0, "6a", "b", #1, #2, #3, #4)));
+  TestEQ("b", re_a->ReplaceCallback("6", PTR ReplaceCallback_Checked("6", 0, "6", "b", #1, #2, #3, #4)));
+  TestEQ("xby", re_a->ReplaceCallback("x6y", PTR ReplaceCallback_Checked("6", 1, "x6y", "b", #1, #2, #3, #4)));
+  TestEQ("x6y", re_a->ReplaceCallback("x6y", PTR ReplaceCallback_NoReplace("6", 1, "x6y", #1, #2, #3, #4)));
+
+  TestEQ("xaby6", re_a->ReplaceCallback("x6ay6", PTR ReplaceCallback_Checked("6a", 1, "x6ay6", "$1b", #1, #2, #3, #4)));
+
+  TestEQ("xy", re_a->ReplaceCallback("x6ay", DEFAULT FUNCTION PTR));
+
+  OBJECT re_b := NEW RegEx("6+(a?)", "gi");
+  TestEQ("_Ab_b_ab_", re_b->ReplaceCallback("_6A_6_6a_", PTR ReplaceCallback_NoCheck("$1b", #1, #2, #3, #4)));
+
+  CloseTest("TestRegex: ReplaceCallbackTest");
+}
+
+MACRO LikeRegexPatternTest()
+{
+  STRING string1 := "Is this a test?";
+  STRING string2 := "Is this a test!";
+
+  TestEQ(TRUE, string1 LIKE "Is * a test?");
+  // Also returns TRUE (The "?" matches the single character "!")
+  TestEQ(TRUE, string2 LIKE "Is * a test?");
+
+  // Using "\\?" to escape the "?", so we can match the "?" character itself
+  STRING pattern := CreateLikeRegexPattern("Is * a test\\?");
+  OBJECT expression := NEW RegEx(pattern);
+
+  // Returns TRUE
+  TestEQ(TRUE, expression->Test(string1));
+  // Returns FALSE
+  TestEQ(FALSE, expression->Test(string2));
+
+  // exec1 contains two records, the first containing the complete string, the second containing "this" (matched by the "*")
+  RECORD ARRAY exec1 := expression->Exec(string1);
+  TestEQ(2, Length(exec1));
+  TestEQ(TRUE, exec1[0].matched);
+  TestEq("Is this a test?", exec1[0].value);
+  TestEQ(TRUE, exec1[1].matched);
+  TestEq("this", exec1[1].value);
+  // exec2 is a default record array, because it doesn't match
+  RECORD ARRAY exec2 := expression->Exec(string2);
+  TestEQ(0, Length(exec2));
+
+  TestEq("ABC", CreateLikeRegexPattern("ABC"));
+  TestEq("(.*)", CreateLikeRegexPattern("*"));
+  TestEq("(.)", CreateLikeRegexPattern("?"));
+  TestEq("(.*)(.)(.*)", CreateLikeRegexPattern("*?*"));
+
+  TestEQ(TRUE, NEW RegEx(CreateLikeRegexPattern("*?*"))->Test("A"));
+}
+
+PRINT("\n === Running TestRegex\n");
+RegExTest();
+ReplaceTest();
+ReplaceCallbackTest();
+LikeRegexPatternTest();

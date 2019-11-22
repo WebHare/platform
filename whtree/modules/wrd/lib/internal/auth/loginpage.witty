@@ -1,0 +1,10 @@
+[component loginpage]
+  <form method="post" action="[feedbackurl]">
+    login: <input name="login" value="[login]" /><br/>
+    password: <input name="password" type="password" /><br/>
+    <input type="hidden" name="wrdauth_challenge" value="[challenge]" />
+    <input type="hidden" name="wrdauth_returnto" value="[returnto]" />
+    <input type="hidden" name="samlidpreq" value="[samlidpreq]" />
+    <input type="submit" />
+  </form>
+[/component]

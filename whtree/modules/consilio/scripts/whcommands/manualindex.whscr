@@ -1,0 +1,82 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_commands.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "debug", type := "switch" ]
+                              , [ name := "limit", type := "stringopt" ]
+                              , [ name := "indextag", type := "param", required := TRUE ]
+                              , [ name := "contentsourcetag", type := "param", required := FALSE ]
+                              ]);
+
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: wh consilio:manualindex [--debug] [--limit <num>] <indextag> [contentsourcetag]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+INTEGER setlimit := ToInteger(args."limit",0);
+INTEGER numdone;
+
+DATETIME start := GetCurrentDateTime();
+OpenPrimary();
+
+OBJECT catalog := OpenConsilioCatalog(args.indextag);
+IF(NOT ObjectExists(catalog))
+  THROW NEW Exception(`No such catalog '${args.indextag}'`);
+
+STRING contentsourcemask := args.contentsourcetag ?? "*";
+FOREVERY(RECORD csource FROM SELECT * FROM catalog->ListContentSources() WHERE ToUppercase(tag) LIKE ToUppercase(contentsourcemask))
+{
+  OBJECT contentsource := catalog->OpenContentSourceById(csource.id);
+  Print(`Processing content source '${contentsource->tag}'\n`);
+
+  DATETIME commanddate := GetCurrentDatetime();
+
+  RECORD res := CheckIndex([ indexid := catalog->id
+                           , contentsourceid := contentsource->id
+                           , commanddate := commanddate
+                           ], [ rebuild := TRUE ]);
+  IF(RecordExists(res.error) AND res.error.message != "")
+    ABORT(res.error.message);
+
+  RECORD ARRAY groups := res.tocheck_groups;
+  IF(Length(groups) = 0)
+    Print("No groups in this content source!\n");
+
+  FOREVERY(RECORD grouptocheck FROM groups)
+  {
+    Print(csource.tag || ": " || #grouptocheck || "/" || Length(groups) || (args.debug ? "\n" : "\r"));
+
+    res := CheckGroup([ groupid := grouptocheck.id, contentsourceid := contentsource->id, indexid := catalog->id, commanddate := commanddate],
+          [ rebuild := TRUE
+          , printprogress := FALSE
+          , debugobjects := args.debug
+          , noindexmodify := FALSE
+          , nocleaning := FALSE
+          ]);
+
+    IF(Length(res.errors)>0)
+      ABORT(res.errors);
+
+    numdone := numdone + 1;
+    IF(setlimit != 0 AND numdone >= setlimit)
+      BREAK;
+  }
+  IF(setlimit = 0) //allowed to index all
+  {
+    Print("\nCleaning the index...");
+    res := CleanupIndex([ indexid := catalog->id
+                        , contentsourceid := contentsource->id
+                        , commanddate := commanddate
+                        , active := FALSE
+                        , dontdelete := FALSE
+                        ]);
+    Print("\n");
+  }
+}

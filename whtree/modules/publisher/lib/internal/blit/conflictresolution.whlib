@@ -1,0 +1,157 @@
+﻿<?wh
+
+
+VARIANT FUNCTION TryMergeData(RECORD current, RECORD parent, RECORD changes, STRING cellname, VARIANT defaultvalue)
+{
+  STRING data_current := EncodeHSON(CellExists(current, cellname) ? GetCell(current, cellname) : defaultvalue);
+  STRING data_parent := EncodeHSON(CellExists(parent, cellname) ? GetCell(parent, cellname) : defaultvalue);
+  STRING data_changes := EncodeHSON(CellExists(changes, cellname) ? GetCell(changes, cellname) : defaultvalue);
+
+  BOOLEAN current_is_parent := data_current = data_parent;
+  BOOLEAN current_is_changes := data_current = data_changes;
+
+  IF (NOT current_is_parent AND NOT current_is_changes AND data_parent != data_changes)
+    THROW NEW Exception("Data has conflict");
+
+  // they are not all different, possibilities (current, parent, changes)
+  // aaa: a, aab: b, aba: a, baa: b
+  // return current, except when current = parent && current != changes
+
+  IF (NOT current_is_parent OR current_is_changes)
+    RETURN GetCell(current, cellname);
+  ELSE
+    RETURN GetCell(changes, cellname);
+}
+
+RECORD ARRAY FUNCTION SplitRecordArray(RECORD conflict, STRING cellname)
+{
+  // Gather current, parent, changes per type
+  RECORD ARRAY alldata :=
+     (SELECT sortkey := GetCell(rec, cellname), rdata := rec, origin :=  "current" FROM conflict.current AS rec ORDER BY GetCell(rec, cellname)) CONCAT
+     (SELECT sortkey := GetCell(rec, cellname), rdata := rec, origin :=  "parent" FROM conflict.parent AS rec ORDER BY GetCell(rec, cellname)) CONCAT
+     (SELECT sortkey := GetCell(rec, cellname), rdata := rec, origin :=  "changes" FROM conflict.changes AS rec ORDER BY GetCell(rec, cellname));
+
+  RETURN
+      SELECT sortkey
+           , current :=   SELECT AS RECORD ARRAY rdata FROM GroupedValues(alldata) WHERE origin = "current"
+           , parent :=    SELECT AS RECORD ARRAY rdata FROM GroupedValues(alldata) WHERE origin = "parent"
+           , changes :=   SELECT AS RECORD ARRAY rdata FROM GroupedValues(alldata) WHERE origin = "changes"
+        FROM alldata
+    GROUP BY sortkey;
+}
+
+RECORD FUNCTION TryResolveTypeMemberConflict(RECORD conflict)
+{
+  // Always return something if possible (but not the parent), don't erase the type
+  IF (NOT RecordExists(conflict.current))
+    RETURN conflict.changes;
+  ELSE IF (NOT RecordExists(conflict.changes))
+    RETURN conflict.current;
+
+  TRY
+  {
+    RETURN
+        [ name :=     conflict.current.name
+        , type :=     TryMergeData(conflict.current, conflict.parent, conflict.changes, "TYPE", 0)
+        , children := TryResolveTypeMembersConflict(
+                          conflict.current.children,
+                          RecordExists(conflict.parent) ? conflict.parent.children : DEFAULT RECORD ARRAY,
+                          conflict.changes.children)
+        ];
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN DEFAULT RECORD;
+  }
+}
+
+RECORD ARRAY FUNCTION TryResolveTypeMembersConflict(RECORD ARRAY current, RECORD ARRAY parent, RECORD ARRAY changes)
+{
+  // Split on member name
+  RECORD ARRAY members :=
+      SELECT AS RECORD ARRAY TryResolveTypeMemberConflict(allmembers)
+        FROM SplitRecordArray(
+                  [ current := current
+                  , parent := parent
+                  , changes := changes
+                  ], "NAME") AS allmembers;
+
+  RETURN
+      SELECT *
+        FROM members
+       WHERE RecordExists(members);
+}
+
+RECORD FUNCTION TryResolveTypeConflict(RECORD conflict)
+{
+  // Always return something, don't erase the type
+  IF (NOT RecordExists(conflict.current) AND RecordExists(conflict.changes))
+    RETURN conflict.changes;
+  ELSE IF (RecordExists(conflict.current) AND NOT RecordExists(conflict.changes))
+    RETURN conflict.current;
+  IF (NOT RecordExists(conflict.current) AND NOT RecordExists(conflict.changes))
+    RETURN DEFAULT RECORD;
+
+  RECORD ARRAY members := TryResolveTypeMembersConflict(
+      conflict.current.members,
+      RecordExists(conflict.parent) ? conflict.parent.members : DEFAULT RECORD ARRAY,
+      conflict.changes.members);
+
+  RETURN
+      [ namespace :=      conflict.current.namespace
+      , foldertype :=     TryMergeData(conflict.current, conflict.parent, conflict.changes, "FOLDERTYPE", FALSE)
+      , filetype :=       TryMergeData(conflict.current, conflict.parent, conflict.changes, "FILETYPE", FALSE)
+      , cloneoncopy :=    TryMergeData(conflict.current, conflict.parent, conflict.changes, "CLONEONCOPY", FALSE)
+      , members :=        members
+      ];
+}
+
+/** Try to resolve base data conflict
+    @param conflict
+    @cell(record) conflict.current
+    @cell(record) conflict.parent
+    @cell(record) conflict.changes
+    @return
+    @cell(record) data
+*/
+PUBLIC RECORD FUNCTION TryResolveBaseDataConflict(RECORD conflict)
+{
+  /* Base data is a record of string cells. Should all be merged individually, no inter-relations
+  */
+
+  // Get a copy from an existing record
+  RECORD newdata := RecordExists(conflict.current)
+      ? conflict.current
+      : RecordExists(conflict.parent)
+            ? conflict.parent
+            : conflict.changes;
+
+  TRY
+  {
+    FOREVERY (RECORD field FROM UnpackRecord(newdata))
+      newdata := CellUpdate(newdata, field.name, TryMergeData(conflict.current, conflict.parent, conflict.changes, field.name, ""));
+
+    RETURN [ data := newdata ];
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN DEFAULT RECORD;
+  }
+}
+
+PUBLIC RECORD FUNCTION TryResolveTypesConflict(RECORD conflict)
+{
+  /* Return all present types
+  */
+
+  RECORD ARRAY data :=
+      SELECT AS RECORD ARRAY TryResolveTypeConflict(alltypes)
+        FROM SplitRecordArray(conflict, "NAMESPACE") AS alltypes;
+
+  // Merging individual type records won't fail
+  RETURN
+      [ data :=   SELECT *
+                    FROM data
+                   WHERE RecordExists(data)
+      ];
+}

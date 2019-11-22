@@ -1,0 +1,17 @@
+[rawcomponent signature]
+<!--
+Realisatie: WebHare bv
+            https://www.webhare.nl/
+-->
+[/rawcomponent]
+
+[component htmlhead]
+  [embed signature]
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+[/component]
+
+[component htmlbody]
+  <main>
+    [contents]
+  </main>
+[/component]

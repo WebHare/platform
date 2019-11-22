@@ -1,0 +1,186 @@
+﻿<?wh
+/** @private Interesting dialogs should be moved to dialogs.whlib AND use a Run... instead of Make... workflow */
+
+LOADLIB "wh::promise.whlib";
+
+/** @short Returns a Promise that is resolved if a QR encoded url is scanned and opened
+    @long This function creates a Promise that, when run, opens a window with a QR code. The QR code contains a link, that,
+          when opened, closes the window and resolves the Promise. The resolve function receives a TolliumWebAsyncCallback
+          object argument, which can be used to redirect to another URL or send a web file.
+    @param parent The parent window to use when opening the QR code window
+    @param options
+    @cell(record) options.data Optional data to encode into the URL
+    @cell(string) options.title The QR window title
+    @cell(string) options.description The QR window description text below the code, set to empty string to remove the
+                                      description from the window
+    @return A promise that is resolved when the QR encoded url is opened and rejected when the window is closed by the user
+*/
+PUBLIC OBJECT FUNCTION CreateQRPromise(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN CreatePromise(PTR RunQRPromise(parent, options, #1, #2));
+}
+MACRO RunQRPromise(OBJECT parent, RECORD options, FUNCTION PTR resolve, FUNCTION PTR reject)
+{
+  options := MakeReplacedRecord([ data := DEFAULT RECORD
+                                , title := ""
+                                , description := ""
+                                ], options);
+  OBJECT dlg := parent->LoadScreen("tollium:commondialogs.qrcallback", options.data);
+  dlg->oncallback := PTR OnQRCallback(resolve, #1);
+  dlg->frame->title := options.title ?? dlg->frame->title;
+  dlg->description->value := options.description ?? dlg->description->value;
+  dlg->description->visible := dlg->description->value != "";
+  STRING result := dlg->RunModal();
+  // The result is set to ok when the callback is run, i.e. when the code was scanned and the url openend
+  IF (result != "ok")
+    reject(NEW Exception(result));
+}
+MACRO OnQRCallback(FUNCTION PTR resolve, OBJECT handler)
+{
+  resolve(handler);
+}
+
+OBJECTTYPE OrderingDialog
+< PUBLIC STRING title;
+
+  PUBLIC MACRO Init(OBJECT parent)
+  {
+    this->form := parent->LoadScreen('tollium:commondialogs.ordering');
+  }
+  PUBLIC PROPERTY columns(GetColumns, SetColumns);
+  PUBLIC PROPERTY rows(GetRows, SetRows);
+
+  PUBLIC BOOLEAN FUNCTION RunDialog()
+  {
+    this->form->frame->title := this->title;
+    RETURN this->form->RunModal()="ok";
+  }
+
+  /** Get the position of specific row by its key */
+  PUBLIC INTEGER FUNCTION GetPosition(VARIANT rkey)
+  {
+    RETURN this->form->GetPosition(rkey);
+  }
+
+  OBJECT form;
+
+  RECORD ARRAY FUNCTION GetRows()
+  {
+    RETURN this->form->orderlist->rows;
+  }
+
+  MACRO SetRows(RECORD ARRAY r)
+  {
+    this->form->orderlist->rows := r;
+  }
+
+  RECORD ARRAY FUNCTION GetColumns()
+  {
+    RETURN this->form->orderlist->columns;
+  }
+
+  MACRO SetColumns(RECORD ARRAY c)
+  {
+    this->form->columnheaders := TRUE;
+    this->form->orderlist->columns := c;
+  }
+>;
+PUBLIC OBJECT FUNCTION CreateOrderingDialog(OBJECT parent)
+{
+  OBJECT od := NEW OrderingDialog;
+  od->Init(parent);
+  RETURN od;
+}
+
+// ----------------------------------------------------------------------------
+//
+// CSV Export dialog
+//
+
+/** Create a column file (eg CSV, XLSX) export dialog
+    @param parent Parent window
+    @param columns Column definition : FIXME : document
+    @cell columns.title Title of the column
+    @cell columns.name Name if the data cell in @a rows
+    @cell columns.type One of 'text', 'integer', 'date', 'boolean', 'type'
+    @cell columns.storeutc For type 'date' whether the date/time is stored as UTC
+    @param rows Data to export (for type 'time', mseconds within the current day)
+    @param title Title of screen to show?
+*/
+PUBLIC OBJECT FUNCTION CreateColumnFileExportDialog(OBJECT parent) __ATTRIBUTES__(DEPRECATED "commondialogs.whlib is deprecated - you should switch to RunColumnFileExportDialog")
+{
+  RETURN parent->LoadScreen("tollium:commondialogs.columnfileexport");
+}
+
+/** Create a standard progress dialog, with estimate timing
+    @param parent Parent window
+    @param backgroundtask Backgroundtask. The task must report its status in a record
+        with cells progress (a money between 0 and 100, and status a localized string)
+*/
+PUBLIC OBJECT FUNCTION CreateProgressDialog(OBJECT parent, STRING lib, STRING func, RECORD data)
+{
+  RETURN parent->LoadScreen("tollium:commondialogs.progressscreen", [ lib := lib, func:=func, data:=data ]);
+};
+
+/** @short Create an exception dialog
+*/
+PUBLIC OBJECT FUNCTION CreateExceptionDialog(OBJECT parent, OBJECT exceptionobject, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN parent->LoadScreen("tollium:commondialogs.exceptionscreen", CELL[ type := "exception", exception := exceptionobject, options ]);
+}
+
+/** @short Create an HareScript errors dialog
+*/
+PUBLIC OBJECT FUNCTION CreateHarescriptErrorsDialog(OBJECT parent, RECORD ARRAY errors, RECORD overrides DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN parent->LoadScreen("tollium:commondialogs.exceptionscreen", [ type := "errors", errors := errors, overrides := overrides ]);
+}
+
+/** @short Create an browse server path dialog
+*/
+PUBLIC OBJECT FUNCTION CreateBrowseServerPathDialog(OBJECT parent)
+{
+  RETURN parent->LoadScreen("tollium:commondialogs.browseserverpath");
+}
+
+PUBLIC OBJECT FUNCTION CreateImageEditDialog(OBJECT parent)
+{
+  RETURN parent->LoadScreen("tollium:commondialogs/imageedit.main");
+}
+
+PUBLIC OBJECT FUNCTION CreatePasswordChangeDialog(OBJECT parent)
+{
+  RETURN parent->LoadScreen("tollium:components/passwordfield.editpassword");
+}
+
+PUBLIC OBJECT FUNCTION CreateColorPickerDialog(OBJECT parent, STRING type, BOOLEAN showedit)
+{
+  RECORD options := [ type := type
+                    , showedit := showedit
+                    ];
+  RETURN parent->LoadScreen("tollium:components/colorpicker.colorpicker", options);
+}
+
+PUBLIC MACRO RunStackTraceDialog(OBJECT parent, RECORD ARRAY stacktrace, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ value :=      0
+      ],
+      options,
+      [ notypecheck :=    [ "VALUE" ]
+      ]);
+
+  IF (LENGTH(stacktrace) = 0)
+    RETURN;
+
+  IF (CellExists(stacktrace[0], "ROWKEY"))
+  {
+    stacktrace := SELECT *, rowkey := #stacktrace + 1 FROM stacktrace;
+    options := [ ...options, value := 0 ];
+  }
+
+  parent->RunScreen("mod::system/screens/monitor/processlist.xml#codeview",
+      [ rows :=   stacktrace
+      , value :=  options.value
+      ]);
+}

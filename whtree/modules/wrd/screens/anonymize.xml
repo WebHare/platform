@@ -1,0 +1,44 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+  xmlns:portal="http://www.webhare.net/xmlns/tollium/portal/components"
+  lib="screens/anonymize.whlib"
+  gid="browser">
+
+  <messageboxes gid=".anonymize.messages">
+    <messagebox name="schema_protected"         icon="error" buttons="ok" />
+    <messagebox name="schema_anonymized"        icon="information" buttons="ok" />
+    <messagebox name="sure_anonymize"           icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="anonymize"
+          allowresize="true"
+          gid=".anonymize"
+          tid=".title"
+          height="40x"
+          width="80x">
+
+    <actions gid=".actions">
+      <action name="anonymize" onexecute="doanonymize" />
+      <action name="act_cancel" onexecute="cancel" tid="tollium:common.actions.cancel" />
+    </actions>
+
+    <body>
+      <panel
+             height="1pr">
+        <list name="attrlist"
+              height="1pr"
+              >
+          <column name="type" type="text" width="1pr" />
+          <column name="attr" type="text" width="1pr" />
+          <column name="atype" type="text" width="1pr" />
+        </list>
+      </panel>
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="anonymize" />
+        <button action="act_cancel" />
+      </line>
+    </footer>
+  </screen>
+</screens>

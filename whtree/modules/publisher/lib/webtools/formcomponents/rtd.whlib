@@ -1,0 +1,160 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+
+PUBLIC OBJECTTYPE FormRTD EXTEND FormComponentExtensionBase
+<
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    RECORD ARRAY rtdtypes :=
+        SELECT namespace
+             , canadd := FALSE
+          FROM GetCachedSiteProfiles().contenttypes
+         WHERE isrtdtype;
+
+    IF (ObjectExists(this->contexts->applytester))
+    {
+      RECORD ARRAY applies := this->contexts->applytester->__GetAppliesForcell("WEBTOOLSFORMRULES");
+      IF (RecordExists(applies))
+      {
+        FOREVERY (RECORD apply FROM applies)
+        {
+          RECORD ARRAY allowdenyrules := SELECT * FROM apply.webtoolsformrules WHERE comp = "rtdtype";
+          FOREVERY (RECORD type FROM rtdtypes)
+          {
+            FOREVERY (RECORD rule FROM allowdenyrules)
+              IF (type.namespace LIKE rule.type)
+                rtdtypes[#type].canadd := rule.allow;
+          }
+        }
+      }
+    }
+
+    this->rtdtype->options :=
+        SELECT rowkey := namespace
+             , title := namespace
+          FROM rtdtypes
+         WHERE canadd
+         ORDER BY namespace;
+
+    // Initialize to default fallback form rtd field doc type, or the only type if there is just one
+    STRING ARRAY allowed_types := SELECT AS STRING ARRAY namespace FROM rtdtypes WHERE canadd;
+    IF ("http://www.webhare.net/xmlns/publisher/rtdfielddefaulttype" IN allowed_types)
+      this->rtdtype->value := "http://www.webhare.net/xmlns/publisher/rtdfielddefaulttype";
+    ELSE IF (Length(allowed_types) = 1)
+      this->rtdtype->value := allowed_types[0];
+    ELSE
+    {
+      INSERT [ rowkey := "", title := "", invalidselection := TRUE ] INTO this->rtdtype->options AT 0;
+      this->rtdtype->value := "";
+    }
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    IF (this->node->HasAttribute("rtdtype"))
+      this->rtdtype->value := this->node->GetAttribute("rtdtype");
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT RecordExists(GetRTDType(this->rtdtype->value)))
+      work->AddErrorFor(this->rtdtype, GetTid("publisher:formcomponents.rtd.error-invalidrtdtype", this->rtdtype->value));
+    IF (NOT work->HasFailed())
+      this->node->SetAttribute("rtdtype", this->rtdtype->value);
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormRTD(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  INSERT CELL rtdtype := node->GetAttribute("rtdtype") INTO fielddef;
+  RETURN fielddef;
+}
+
+PUBLIC OBJECTTYPE RTDField EXTEND FormFieldBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+  OBJECT rtdeditor;
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+    IF(field.rtdtype="")
+      THROW NEW Exception("Form <rtd> types currently require a rtdtype=");
+
+    this->rtdeditor := NEW RichDocumentEditor("");
+    IF(ObjectExists(form->formcontext))
+      this->rtdeditor->applytester := form->formcontext->targetapplytester;
+
+    RECORD rtdtypeinfo := GetRTDSettingsFromType(field.rtdtype);
+    this->rtdeditor->rtdtype := rtdtypeinfo;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RETURN CELL[ ...this->GetBaseRenderData()
+               , value := this->rtdeditor->GetHTMLForClientRTE(TRUE)
+               , rtdoptions := [ structure := this->rtdeditor->GetWHRTEStructure() ]
+               , type := "rtd"
+               ];
+  }
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    this->rtdeditor->SetHTMLFromClientRTE(jsdata);
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN this->rtdeditor->HasContent();
+  }
+  RECORD FUNCTION GetValue()
+  {
+    RETURN this->rtdeditor->ExportAsRecord();
+  }
+  MACRO SetValue(RECORD value)
+  {
+    this->rtdeditor->ImportFromRecord(value);
+    this->form->__SendFormMessage(this->field.name, 'value', this->rtdeditor->GetHTMLForClientRTE(TRUE));
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    RETURN RECORD[];
+  }
+
+  PUBLIC RECORD FUNCTION RPC_InsertVideoByURL(STRING videourl)
+  {
+    RECORD guess := GuessEmbeddedVideoFromCode(videourl);
+    IF(NOT RecordExists(guess))
+      RETURN [ success := FALSE ];
+
+    TRY
+    {
+      RECORD instancedata := MakeVideoEmbedInstance(guess.network, guess.videoid);
+      STRING instanceref := StoreTemporaryEmbeddedObject(instancedata);
+
+      RECORD result := this->rtdeditor->GetRTDSingleObjectPreview(instanceref);
+      RETURN [ success := TRUE, embeddedobject := result ];
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      THROW NEW Exception("Unable to insert video due to a local error - check the notice log");
+    }
+  }
+>;

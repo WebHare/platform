@@ -1,0 +1,299 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/asn1.whlib";
+LOADLIB "wh::internal/ber.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::filetypes/pkcs.whlib";
+
+
+// Self-signed certificate
+STRING testcert :=
+     "-----BEGIN CERTIFICATE-----\n"
+  || "MIIDozCCAougAwIBAgIJAMHxlD2eTfT+MA0GCSqGSIb3DQEBBQUAMGgxCzAJBgNV\n"
+  || "BAYTAk5MMRMwEQYDVQQIDApPdmVyaWpzc2VsMREwDwYDVQQHDAhFbnNjaGVkZTEU\n"
+  || "MBIGA1UECgwLQi1MZXggSVQgQlYxGzAZBgNVBAMMElNBTUwgSURQIGZvciBEZW1v\n"
+  || "MTAeFw0xNTA3MjkxNTQwMzBaFw0xODA0MjUxNTQwMzBaMGgxCzAJBgNVBAYTAk5M\n"
+  || "MRMwEQYDVQQIDApPdmVyaWpzc2VsMREwDwYDVQQHDAhFbnNjaGVkZTEUMBIGA1UE\n"
+  || "CgwLQi1MZXggSVQgQlYxGzAZBgNVBAMMElNBTUwgSURQIGZvciBEZW1vMTCCASIw\n"
+  || "DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALwjdU73KVCyR/0TRjnhIibQLoT7\n"
+  || "2nLP8sh38gVsZzocuXqDPyI9SwDn2LjRAtOIbSZiekZk3s9WuBbAkdnqdCPyifYO\n"
+  || "e3w2C+nNKduyjViVOnwA+y57pZY7NH2R5Lwcl/Wd9LWmj+0F/JK40uGYetVnO7Qq\n"
+  || "f/CBEVlM4ucPwCcNVs5ZtN/HFwTrYiVVmunW3cqcprt4byqA+Wx/m3cBo5xndAeY\n"
+  || "pmqeUifqWY504zWARCH0EwsHyDlHRrT13HoVZ+XEN2NHtHrmhOEPptpAqYDaX4A7\n"
+  || "EWP3dazJzEsnKOf7iKQv4dZ5SXOPULvjhSwH0fQjFus+rFG7QvS38OB5YLMCAwEA\n"
+  || "AaNQME4wHQYDVR0OBBYEFL74EP24aq+p0UyV1eVc8j6aJcC4MB8GA1UdIwQYMBaA\n"
+  || "FL74EP24aq+p0UyV1eVc8j6aJcC4MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEF\n"
+  || "BQADggEBAKoyhxot72Ud6fKnGzvoRvxTRym+q97p1vsYPAFhM2sIYNkjjfx1Em2u\n"
+  || "7o+wYYSxkNpebDoEDV9hJ9DhPTebtrKOIjlgdpMkAiOnqdHpYIony1kGun95/oEx\n"
+  || "rPXwPOuwx00r4KlMFV3e/+kKO2+l9RHeR+qcAllnENIJmklxDo9woo1dBAbjhd5I\n"
+  || "Lgs8ENKHnigfITXEIUAhfg2A4FSzpAncvugHzw0pZq5CrXj9rifxlZLOSK/JdHY9\n"
+  || "XR4ndoo23WcfNF1d0bxQvPLWmvUHUN3iqiL/hYunRXJQG5atlr9Ueu93+n57C4UJ\n"
+  || "zQBkDlzISZAlg2/KE72APOsfAIrRN9Y=\n"
+  || "-----END CERTIFICATE-----\n";
+
+STRING testcsr :=
+     "-----BEGIN CERTIFICATE REQUEST-----\n"
+  || "MIIC8zCCAdsCAQAwXDELMAkGA1UEBhMCTkwxCzAJBgNVBAgMAk9WMREwDwYDVQQH\n"
+  || "DAhFbnNjaGVkZTEWMBQGA1UECgwNQi1MZXggSVQgQi5WLjEVMBMGA1UEAwwMd3d3\n"
+  || "LmItbGV4Lm5sMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAskzLthwG\n"
+  || "4br7TxrlMkDDUv2M/TEG7wOPxUo9qHbU2e1fSLReIhZ7wMqSBtcKpNkgSxo1hw/Z\n"
+  || "61GFVg0bWx1HqVavk7oaiassbrsD2y9SOdSF3aUd5zN1uM+ylEi4zst6FIRTKao6\n"
+  || "2YFscvWCtIPREqX+U50MZlUPmt/gJqJSaPUn1Zs6XOPzdNlunv9z5TLaVbIXNzyS\n"
+  || "OjDSfaRvd0GxfYQRjJtzBeZZKGC32tSOT3R9pg5pfT1Vev1opln9maSYqXcechOg\n"
+  || "ELTwbrV498GvLlipfKWjnmCdi7jE2pU8PsbpszmEYf5CQtMLjkBh5B6dZ/gWrPUW\n"
+  || "EtUeOHXLSYFqQQIDAQABoFIwUAYJKoZIhvcNAQkOMUMwQTA/BgNVHREEODA2ghh3\n"
+  || "ZWJoYXJlLm1vZS5zZi5iLWxleC5jb22CGm1vZS5zcHJpbmdmaWVsZC53ZWJoYXJl\n"
+  || "Lm5sMA0GCSqGSIb3DQEBCwUAA4IBAQB/b1zYDKhiUesdW3zg2cRYdFTyOdrRFCZy\n"
+  || "O9WclUtqNJ82g0oDlOSFcKXuS58PgDpQ6K+QpkktlDW3vHjz5szbf0wWdi9hpzER\n"
+  || "3O8C8k2zxap7gqZanpnRD7Sz5zwWiyTEmUFRQdIPM1u2AmzUg+lRu2Zfk1hGwjPE\n"
+  || "K7kxU7GgNVp8eYet6Fi681yswPsW49YIEbKvtXcYb4ZFuGpyjwnTIXZ3mwVj9pXq\n"
+  || "48IfR4Fs8uWX++SM7s+NuacKFHpC2d/z736C90AigwHiNs/6o495oF9N/Jtx7h6P\n"
+  || "mB11uAmwe+oHGwWrh7FGKX3pSmgBGwMF0oCtOvtLn8qQkl8Uomya\n"
+  || "-----END CERTIFICATE REQUEST-----\n";
+
+STRING twodomcert := "-----BEGIN CERTIFICATE-----\n"
+|| "MIIFHDCCBASgAwIBAgISA93jc4XuHEWXC6GWseeMp1K0MA0GCSqGSIb3DQEBCwUA\n"
+|| "MEoxCzAJBgNVBAYTAlVTMRYwFAYDVQQKEw1MZXQncyBFbmNyeXB0MSMwIQYDVQQD\n"
+|| "ExpMZXQncyBFbmNyeXB0IEF1dGhvcml0eSBYMzAeFw0xNjEwMDEyMDEyMDBaFw0x\n"
+|| "NjEyMzAyMDEyMDBaMBsxGTAXBgNVBAMTEGNtczEud2ViaGFyZS5jb20wggEiMA0G\n"
+|| "CSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDOgo4s1I3taxWoRQLqcjojmxkarU2e\n"
+|| "qPaO7e0qBXESik/3Alon4HyLTjfUaixq6hnUyLKEA9purs1A0kxgIdNbPmPWNm2U\n"
+|| "rYhWOYJXIlp5zp63Pe0aEs8Z7K/iQT1ZGG8VcXHLQH77+wtQnP3h/GM2eVyrHkJs\n"
+|| "RzctKuxHRcRsiFvIvMw/WVL7hgTqXWJSxJMDuXneSUsByTjR7iNF28hEVTCK7hHO\n"
+|| "IW/ymHaHTgha3r/Z182LanbtWF+4KjXs41cTBoO6OYKexeecLiEGIzwQgb7acNgH\n"
+|| "Ixd99X/kuGh/aUev+ZTKjxAlszxfF0sV3YgDiKZXhkvTIeJ4vnrep8rVAgMBAAGj\n"
+|| "ggIpMIICJTAOBgNVHQ8BAf8EBAMCBaAwHQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsG\n"
+|| "AQUFBwMCMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFEOSyXdQRjLsgIR1Abn3ZcdR\n"
+|| "njgtMB8GA1UdIwQYMBaAFKhKamMEfd265tE5t6ZFZe/zqOyhMHAGCCsGAQUFBwEB\n"
+|| "BGQwYjAvBggrBgEFBQcwAYYjaHR0cDovL29jc3AuaW50LXgzLmxldHNlbmNyeXB0\n"
+|| "Lm9yZy8wLwYIKwYBBQUHMAKGI2h0dHA6Ly9jZXJ0LmludC14My5sZXRzZW5jcnlw\n"
+|| "dC5vcmcvMDMGA1UdEQQsMCqCFmNtczEtc2l0ZXMud2ViaGFyZS5jb22CEGNtczEu\n"
+|| "d2ViaGFyZS5jb20wgf4GA1UdIASB9jCB8zAIBgZngQwBAgEwgeYGCysGAQQBgt8T\n"
+|| "AQEBMIHWMCYGCCsGAQUFBwIBFhpodHRwOi8vY3BzLmxldHNlbmNyeXB0Lm9yZzCB\n"
+|| "qwYIKwYBBQUHAgIwgZ4MgZtUaGlzIENlcnRpZmljYXRlIG1heSBvbmx5IGJlIHJl\n"
+|| "bGllZCB1cG9uIGJ5IFJlbHlpbmcgUGFydGllcyBhbmQgb25seSBpbiBhY2NvcmRh\n"
+|| "bmNlIHdpdGggdGhlIENlcnRpZmljYXRlIFBvbGljeSBmb3VuZCBhdCBodHRwczov\n"
+|| "L2xldHNlbmNyeXB0Lm9yZy9yZXBvc2l0b3J5LzANBgkqhkiG9w0BAQsFAAOCAQEA\n"
+|| "eI+MyiKujpFbLJlKfzyU4zyUbNGNCqi5RO+I+6KbeXkxDm9kCdYLNxmloUge7NiA\n"
+|| "0w8w8lQk6nDrj/rVMmx//ulpiVxPt3Z3krI0ZCZjnyH+izTX8GI0I0JVrObD6FY3\n"
+|| "SwHhh0JXmswS06VioZI/zsz/m6R213Av/HreKM2AblKv0aZo6KlM0xjSydA9QACd\n"
+|| "kmBYs1XLKyF6xl+Jpewu0/tHcUxhcfvAJjDriqif5OntFNKHTV+yIztQU8t3BWjj\n"
+|| "IsTPo7molxbYLfXfFTs6q2nr9fFvAYWCTSnuLxP9J7aCiWDNzxoWbR60Fn+XzXTM\n"
+|| "Jnyk6aZ/UIWjtH20xSk9jA==\n"
+|| "-----END CERTIFICATE-----\n";
+
+
+
+OBJECT FUNCTION GetCertificateBERDecoder(BLOB certblob)
+{
+  STRING cert := BlobToString(certblob, -1);
+
+  STRING startheader := "-----BEGIN CERTIFICATE-----";
+
+  INTEGER pos := SearchSubString(cert, "-----BEGIN CERTIFICATE-----");
+  IF (pos != -1)
+    cert := SubString(cert, pos + LENGTH(startheader));
+
+  pos := SearchSubString(cert, "-----END CERTIFICATE-----");
+  IF (pos != -1)
+    cert := Left(cert, pos);
+
+  cert := DecodeBase64(cert);
+  RETURN NEW StaticBERDecoder(cert);
+}
+
+MACRO TestCertificateDecoding()
+{
+  OBJECT parser := GetASN1Parser();
+  parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/x509.asn1"), -1));
+
+  OBJECT utcertroot := GetCertificateBERDecoder(OpenTestFile("asn1_cert-utwente.crt"));
+
+  OBJECT decoder := GetASN1BERDecoder(parser->GetDescription());
+  decoder->permissive := TRUE;
+
+  RECORD ut_decoded := decoder->ParseData(utcertroot, "Certificate");
+
+  // Check the subject RDN sequence
+  TestEQ(
+      [ [ type := '2.5.4.6'
+        , value := 'NL'
+        ]
+      , [ type := '2.5.4.10'
+        , value := 'Universiteit Twente'
+        ]
+      , [ type := '2.5.4.3'
+        , value := 'www.utwente.nl'
+        ]
+      ], SELECT type := data.type
+              , value := data.value
+           FROM ut_decoded.value.tbscertificate.subject.rdnsequence);
+
+  STRING ber_altnames :=
+      SELECT AS STRING extnvalue
+        FROM ut_decoded.value.tbscertificate.extensions
+       WHERE extnid = "2.5.29.17";
+
+  TestEQ(Encodebase64(ber_altnames), Encodebase64(ber_altnames));
+
+  OBJECT ber_altnames_decoder := NEW StaticBERDecoder(ber_altnames);
+
+  TestEQ([ "www.utwente.nl", "utwente.nl", "webhare.civ.utwente.nl", "webhare.utsp.utwente.nl", "webhare.utwente.nl" ],
+       SELECT AS STRING ARRAY dnsname
+         FROM decoder->ParseData(ber_altnames_decoder, "SubjectAltName").value);
+}
+
+MACRO TestCRTCSRDecoding()
+{
+  RECORD x := DecodePEMFile(testcsr);
+  TestEq("C=NL, ST=OV, L=Enschede, O=B-Lex IT B.V., CN=www.b-lex.nl", x.subject);
+  TestEq(["www.b-lex.nl","webhare.moe.sf.b-lex.com","moe.springfield.webhare.nl"], x.servernames);
+
+  x := DecodePEMFile(twodomcert);
+  TestEq(["cms1.webhare.com","cms1-sites.webhare.com"], x.servernames);
+}
+
+MACRO TestCertificateEncoding()
+{
+  RECORD x := DecodePEMFile(testcert);
+
+  RECORD pkey := DecodePEMFile(x.subjectpublickey);
+
+  RECORD y :=
+      [ tbscertificate :=
+            [ serialnumber :=   '00C1F1943D9E4DF4FE'
+            , version :=        2
+            , issuer :=         [ rdnsequence :=
+                                        [ [ data := [ [ type := "2.5.4.6", value := "NL", __encoding := [ value := "0:19" ] ] ] ]
+                                        , [ data := [ [ type := "2.5.4.8", value := "Overijssel", __encoding := [ value := "0:12" ] ] ] ]
+                                        , [ data := [ [ type := "2.5.4.7", value := "Enschede", __encoding := [ value := "0:12" ] ] ] ]
+                                        , [ data := [ [ type := "2.5.4.10", value := "B-Lex IT BV", __encoding := [ value := "0:12" ] ] ] ]
+                                        , [ data := [ [ type := "2.5.4.3", value := "SAML IDP for Demo1", __encoding := [ value := "0:12" ] ] ] ]
+                                        ]
+                                ]
+            , signature :=      [ algorithm := "1.2.840.113549.1.1.5"
+                                , parameters := ""
+                                ]
+            , subject :=        [ rdnsequence :=
+                                        [ [ data := [ [ type := "2.5.4.6", value := "NL", __encoding := [ value := "0:19" ] ] ] ]
+                                        , [ data := [ [ type := "2.5.4.8", value := "Overijssel", __encoding := [ value := "0:12" ] ] ] ]
+                                        , [ data := [ [ type := "2.5.4.7", value := "Enschede", __encoding := [ value := "0:12" ] ] ] ]
+                                        , [ data := [ [ type := "2.5.4.10", value := "B-Lex IT BV", __encoding := [ value := "0:12" ] ] ] ]
+                                        , [ data := [ [ type := "2.5.4.3", value := "SAML IDP for Demo1", __encoding := [ value := "0:12" ] ] ] ]
+                                        ]
+                                ]
+            , subjectPublicKeyInfo :=
+                                [ algorithm :=      [ algorithm :=    "1.2.840.113549.1.1.1"
+                                                    , parameters :=   ""
+                                                    ]
+                                , subjectpublickey := pkey.publickey
+                                ]
+            , validity :=       [ notafter :=   [ utctime := MakeDateTime(2018,4,25,15,40,30) ]
+                                , notbefore :=  [ utctime := MakeDateTime(2015,7,29,15,40,30) ]
+                                ]
+  //*
+            , extensions :=     [ [ extnid := "2.5.29.14"
+                                  , extnvalue :=  [ __datatype := "SubjectKeyIdentifier"
+                                                  , data := DecodeBase16("BEF810FDB86AAFA9D14C95D5E55CF23E9A25C0B8")
+                                                  ]
+                                  ]
+                                , [ extnid := "2.5.29.35"
+                                  , extnvalue :=  [ __datatype := "AuthorityKeyIdentifier"
+                                                  , data :=
+                                                        [ keyIdentifier := DecodeBase16("BEF810FDB86AAFA9D14C95D5E55CF23E9A25C0B8")
+                                                        ]
+                                                  ]
+                                  ]
+                                , [ extnid := "2.5.29.19"
+                                  , extnvalue :=  [ __datatype := "BasicConstraints"
+                                                  , data :=
+                                                        [ ca :=   TRUE
+                                                        ]
+                                                  ]
+                                  ]
+                                ]
+            ]
+      , signaturealgorithm :=   [ algorithm := '1.2.840.113549.1.1.5'
+                                , parameters := ""
+                                ]
+      , signature :=            x.rawdecode.value.signature
+      ];
+
+  OBJECT parser := GetASN1Parser();
+  parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/x509.asn1"), -1));
+  parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/certsupport.asn1"), -1));
+
+  OBJECT decoder := GetASN1BERDecoder(parser->GetDescription());
+  decoder->permissive := TRUE;
+
+  OBJECT encoder := NEW BerEncoder;
+  decoder->EncodeData(encoder, "Certificate", y);
+
+  STRING z := encoder->GetRequest();
+  STRING cz := EncodeRawPEMFile("CERTIFICATE", z);
+
+  TestEQ(testcert, cz);
+
+  RECORD decode := DecodePEMFile(cz);
+  OBJECT recoder := NEW BerEncoder;
+  decoder->EncodeData(recoder, "Certificate", decode.rawdecode.value);
+  STRING rebuilt := recoder->GetRequest();
+  STRING crebuilt := EncodeRawPEMFile("CERTIFICATE", rebuilt);
+
+  TestEQ(testcert, crebuilt);
+}
+
+MACRO TestCertificateFixup()
+{
+  //This certificate contains windows linefeeds
+  STRING badcert := DecodEBase64('Tk9JU0UKLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUZLRENDQkJDZ0F3SUJBZ0lTRVNGczlYVTlPRmZkNTJxT05WR2hzTjJXTUEwR0NTcUdTSWIzRFFFQkN3VUEKTUdZeEN6QUpCZ05WQkFZVEFrSkZNUmt3RndZRFZRUUtFeEJIYkc5aVlXeFRhV2R1SUc1MkxYTmhNVHd3T2dZRApWUVFERXpOSGJHOWlZV3hUYVdkdUlFOXlaMkZ1YVhwaGRHbHZiaUJXWVd4cFpHRjBhVzl1SUVOQklDMGdVMGhCCk1qVTJJQzBnUnpJd0hoY05NVFF4TURFMk1EazBNakUzV2hjTk1UZ3dPVEEyTVRRd01UQXlXakJnTVFzd0NRWUQKVlFRR0V3Sk9UREVTTUJBR0ExVUVDQk1KVDNabGNtbHFjMlZzTVJJd0VBWURWUVFIRXdsUGRtVnlhV3B6Wld3eApGakFVQmdOVkJBb1REVlJwYjFSbFlXTm9JRUl1Vmk0eEVUQVBCZ05WQkFNTUNDb3VkR2x2TG01c01JSUJJakFOCkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXNuRkJjRERnQk1uK3M3ZVFWTXpRUTF4QlVSZlkKMlpReXI5NmhjNnVFbGd0TEt0aUMvZy9Da2Y2TVd4VkJORFhwVlpQVldSaWtrTC84UFN4bW9KMjBpVU5vYm0wNApxTXRLSFZPVUFJMFpuUjhLN2dSVzB5YkhnLzNQdTV4STlwMTNmRitTUWhZY28vamQ4L1J5OUt6eUhkbytiYzVMCk5Ua25RbXcxVHlUUVRWck9DRG96YU9uS3FiY1BEeml6NlFmdy9zN0RKZW12TEpNMFhpMVBiTnIveEk2OUtPUTUKSXNHVVNqeEdubEM5U1BuVk1NUUZsclM2MUFRN05HekhjMEh6Q01xM2t2VDJMejBZQ3E3d3lvMU9rRFZ0dk9BQgo5Q3VjRGE2Zmh2S1lVQm9pRDFjT3BwNDdFTDhMVkJ1L2lmNjlrTmJDYjRKeGNpTHRlSU1vWGpMRXVRSURBUUFCCm80SUIxRENDQWRBd0RnWURWUjBQQVFIL0JBUURBZ1dnTUVrR0ExVWRJQVJDTUVBd1BnWUdaNEVNQVFJQ01EUXcKTWdZSUt3WUJCUVVIQWdFV0ptaDBkSEJ6T2k4dmQzZDNMbWRzYjJKaGJITnBaMjR1WTI5dEwzSmxjRzl6YVhSdgpjbmt2TUJzR0ExVWRFUVFVTUJLQ0NDb3VkR2x2TG01c2dnWjBhVzh1Ym13d0NRWURWUjBUQkFJd0FEQWRCZ05WCkhTVUVGakFVQmdnckJnRUZCUWNEQVFZSUt3WUJCUVVIQXdJd1NRWURWUjBmQkVJd1FEQStvRHlnT29ZNGFIUjAKY0RvdkwyTnliQzVuYkc5aVlXeHphV2R1TG1OdmJTOW5jeTluYzI5eVoyRnVhWHBoZEdsdmJuWmhiSE5vWVRKbgpNaTVqY213d2dhQUdDQ3NHQVFVRkJ3RUJCSUdUTUlHUU1FMEdDQ3NHQVFVRkJ6QUNoa0ZvZEhSd09pOHZjMlZqCmRYSmxMbWRzYjJKaGJITnBaMjR1WTI5dEwyTmhZMlZ5ZEM5bmMyOXlaMkZ1YVhwaGRHbHZiblpoYkhOb1lUSm4KTW5JeExtTnlkREEvQmdnckJnRUZCUWN3QVlZemFIUjBjRG92TDI5amMzQXlMbWRzYjJKaGJITnBaMjR1WTI5dApMMmR6YjNKbllXNXBlbUYwYVc5dWRtRnNjMmhoTW1jeU1CMEdBMVVkRGdRV0JCVEYycGd4Vm8xVzg5OFB5OUVRCjNBZ29ra3pSeERBZkJnTlZIU01FR0RBV2dCU1czbUh4dlJ3V0tWTWN3TXg5TzRNQVFPWWFmREFOQmdrcWhraUcKOXcwQkFRc0ZBQU9DQVFFQXc4bmNzWTlWNWVGYWxMOE9qKzQzY1daa3dFVWNNZ0hUNnBNNW05OTR6SnVZcTRZcwpRNFJZcVBvdEMraU9QclJpL2xVZVJIdU4wRWVhUWgvdTA5NXVNMFhmUWhIY2EzK2RweVg0R0ZKbEt3K09SL1lvCjlsY2VROEpnQjNjK2JsMFEwNDRYak1nQ3VkMDdaY2Mvd0tRK3AvbHpTM2IxU09FZ01JUTFaOGlMSUJlYUNhdUcKSnJvbDZpS3pSSnZwZFVFSGN2WFJ1ckRtYTFvcUovNTJZU1l2blRvdzJwMHo0R3FxRDBjSnZpRG1KM1NlQlp6NgpBVjI0eGZlelhxYXB1eU9iQ3Y5Q1MzSkJXYzI3M0tKS3RRemJyOEtvYTdhVC9uMmdUMjJQdVpLaGxiQ0REalpFCldMbG9YZkVMbVdaREJLMmtnSjZiM3Z6TWp1c0FHWlllL2N4ekF3PT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQoNCi0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpNSUlFYVRDQ0ExR2dBd0lCQWdJTEJBQUFBQUFCUkU3d1FrY3dEUVlKS29aSWh2Y05BUUVMQlFBd1Z6RUxNQWtHCkExVUVCaE1DUWtVeEdUQVhCZ05WQkFvVEVFZHNiMkpoYkZOcFoyNGdibll0YzJFeEVEQU9CZ05WQkFzVEIxSnYKYjNRZ1EwRXhHekFaQmdOVkJBTVRFa2RzYjJKaGJGTnBaMjRnVW05dmRDQkRRVEFlRncweE5EQXlNakF4TURBdwpNREJhRncweU5EQXlNakF4TURBd01EQmFNR1l4Q3pBSkJnTlZCQVlUQWtKRk1Sa3dGd1lEVlFRS0V4QkhiRzlpCllXeFRhV2R1SUc1MkxYTmhNVHd3T2dZRFZRUURFek5IYkc5aVlXeFRhV2R1SUU5eVoyRnVhWHBoZEdsdmJpQlcKWVd4cFpHRjBhVzl1SUVOQklDMGdVMGhCTWpVMklDMGdSekl3Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQgpEd0F3Z2dFS0FvSUJBUURIRG13L0k1Ti96SENsblNERERsTS9mc0JPd3BoSnlrZlZJKzhETklWMHlLTUNMa1pjCkMzM0ppSjFQaS9ENG5HeU1WVFhidi9LejZ2dmpWdWRLUnRrVElzbzIxWnZCcU9PV1E1UHlETHptK2Vib21jaGoKU0hoL1Z6WnBHaGtkV3RIVWZjS2MxSC9oZ0JLdWV1cUk2bGZZeWdvS09oSkpvbUlaZWcwazl6ZnJ0SE9TZXdVagpteEsxenVzcDM2UVVBcmtCcGRTbW5FTmtpTjc0ZnY3ajlSN2wvdHlqcU9SbU1kbE1KZWtZdVlsWkNhN3BuUnh0Ck53OUtIalVnS09LdjFDR0xBY1JGclc0clk2dVNhMkVLVFNEdGM3cDh6djRXdGR1ZmdQRFdpMnpaQ0hsS1QzaGwKMnBLOHZqWDVzOFQ1SjRCTy81WlM1Z0lnNFFkejZWMHJ2Ykx4QWdNQkFBR2pnZ0VsTUlJQklUQU9CZ05WSFE4QgpBZjhFQkFNQ0FRWXdFZ1lEVlIwVEFRSC9CQWd3QmdFQi93SUJBREFkQmdOVkhRNEVGZ1FVbHQ1aDhiMGNGaWxUCkhNRE1mVHVEQUVEbUdud3dSd1lEVlIwZ0JFQXdQakE4QmdSVkhTQUFNRFF3TWdZSUt3WUJCUVVIQWdFV0ptaDAKZEhCek9pOHZkM2QzTG1kc2IySmhiSE5wWjI0dVkyOXRMM0psY0c5emFYUnZjbmt2TURNR0ExVWRId1FzTUNvdwpLS0Ftb0NTR0ltaDBkSEE2THk5amNtd3VaMnh2WW1Gc2MybG5iaTV1WlhRdmNtOXZkQzVqY213d1BRWUlLd1lCCkJRVUhBUUVFTVRBdk1DMEdDQ3NHQVFVRkJ6QUJoaUZvZEhSd09pOHZiMk56Y0M1bmJHOWlZV3h6YVdkdUxtTnYKYlM5eWIyOTBjakV3SHdZRFZSMGpCQmd3Rm9BVVlIdG1Ha1VObDhxSlVDOTlCTTAwcVAvOC9Vc3dEUVlKS29aSQpodmNOQVFFTEJRQURnZ0VCQUVZcTdsNjlyZ0ZnTnpFUmhuRjB0a1pKeUJBVy9pOWlJeGVySDRmNGd1M0szdzRzCjMyUjFqdVVZY3FlTU9vdkpyS1YzVVBmdm5xVGdvSThVVjZNcVgreCtiUkRtdW8yd0NJZDJEa3l5MlZHN0VRTHkKWE4wY3ZmTlZsZy9VQnNEODRpT0tKSERUdS9CNUdxZGhjSU9LcndiRklOaWhZOUJzcms4eTE2NThHRVYxQlNsMwozMEpBWkdTR3ZpcDJDVEZ2SFNUMG1kQ0YvdkloQ1BuRzl2SFFXZTNXVmp3SUtBTm51dkQ1OFpBV1I2NW41cnlBClNPbENkalNYVldra0RvUFdvQzIwOWZONWlra29kQnBCb2NMVEpJZzFNR0NVRjdUaEJDSXhQVHN2RndheXVKMkcKSzFwcDc0UDFTOFNxdENyNGZLR3hoWlNNOUF5SERQU3NRUGhaU1pnPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg0KLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURkVENDQWwyZ0F3SUJBZ0lMQkFBQUFBQUJGVXRhdzVRd0RRWUpLb1pJaHZjTkFRRUZCUUF3VnpFTE1Ba0cKQTFVRUJoTUNRa1V4R1RBWEJnTlZCQW9URUVkc2IySmhiRk5wWjI0Z2JuWXRjMkV4RURBT0JnTlZCQXNUQjFKdgpiM1FnUTBFeEd6QVpCZ05WQkFNVEVrZHNiMkpoYkZOcFoyNGdVbTl2ZENCRFFUQWVGdzA1T0RBNU1ERXhNakF3Ck1EQmFGdzB5T0RBeE1qZ3hNakF3TURCYU1GY3hDekFKQmdOVkJBWVRBa0pGTVJrd0Z3WURWUVFLRXhCSGJHOWkKWVd4VGFXZHVJRzUyTFhOaE1SQXdEZ1lEVlFRTEV3ZFNiMjkwSUVOQk1Sc3dHUVlEVlFRREV4SkhiRzlpWVd4VAphV2R1SUZKdmIzUWdRMEV3Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRRGFEdWFaCmpjNmo0MCtLZnZ2eGk0TWxhK3BJSC9FcXNMbVZFUVM5OEdQUjRtZG16eHpkenh0SUsrNk5pWTZhcnltQVphdnAKeHkwU3k2c2NUSEFIb1QwS01NMFZqVS80M2RTTVVCVWM3MUR1eEM3My9PbFM4cEY5NEczVk5UQ09Ya056OGtIcAoxV3Jqc29rNlZqazRid1k4aUdsYktrM0ZwMVM0YkluTW0vazh5dVg5aWZVU1BKSjRsdGJjZEc2VFJHSFJqY2RHCnNuVU9odWdaaXRWdGJOVjRGcFdpNmNnS09PdnlKQk5QYzFTVEU0VTZHN3dlTkxXTEJZeTVkNHV4Mng4Z2thc0oKVTI2UXpuczNkTGx3UjVFaVVXTVdlYTZ4cmtFbUNNZ1pLOUZHcWtqV1pDclhnelQvTENyQmJCbERTZ2VGNTlOOAo5aUZvNytyeVVwOS9rNURQQWdNQkFBR2pRakJBTUE0R0ExVWREd0VCL3dRRUF3SUJCakFQQmdOVkhSTUJBZjhFCkJUQURBUUgvTUIwR0ExVWREZ1FXQkJSZ2UyWWFSUTJYeW9sUUwzMEV6VFNvLy96OVN6QU5CZ2txaGtpRzl3MEIKQVFVRkFBT0NBUUVBMW5QbmZFOTIwSTIvN0xxaXZqVEZLREsxZlB4c25Dd3J2UW1lVTc5clhxb1JTTGJsQ0tPegp5ajFoVGROR0NiTSt3NkRqWTFVYjhycnZyVG5oUTdrNG8rWXZpaVk3NzZCUVZ2bkdDdjA0emNRTGNGR1VsNWdFCjM4TmZsTlVWeVJSQm5NUmRkV1FWRGY5Vk1PeUdqLzhON3l5NVkwYjJxdnpmdkduOUxoSklaSnJnbGZDbTd5bVAKQWJFVnRRd2RwZjVwTEdra2VCNnpweHh4WXU3S3lKZXNGMTJLd3ZoSGhtNHF4Rll4bGRCbmlZVXIrV3ltWFVhZApES3FDNUpsUjNYQzMyMVk5WWVScTRWelc5djQ5M2tITUI2NWpVcjlUVS9RcjZjZjl0dmVDWDRYU1FSamJnYk1FCkhNVWZwSUJ2RlNESjNneUlDaDNXWmxYaS9FakpLU1pwNEE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==');
+  //Ensure our test stuff is still there
+
+  TestEQLike("NOISE*", badcert);
+  TestEQ(1856, SearchSubString(badcert,'\r'));
+
+  RECORD pemfile := DecodePEMFile(badcert);
+  Testeq('multiple',pemfile.type);
+
+  STRING fixedcert := EncodePEMFileFromRawSource(pemfile);
+  TestEq(FALSE, fixedcert LIKE "NOISE*");
+  TestEq(-1, SearchSubString(fixedcert,'\r'));
+  TestEq(pemfile, DecodePEMFile(fixedcert));
+}
+
+MACRO TestChoiceInSequence()
+{
+  // Problem was that CHOICE fields in a sequence had their tags overwritten, in this case
+  // the [APPLICATION 19] tag of searchResRef was replaced by [APPLICATION 0] (bindRequest)
+  BLOB asn1_ldap := GetHarescriptResource("whres::asn1/ldap.asn1");
+  OBJECT asn1_parser := GetASN1Parser();
+  asn1_parser->ParseDocument(BlobToString(asn1_ldap));
+  OBJECT asn1_codec := GetASN1BERDecoder(asn1_parser->GetDescription());
+
+  INTEGER msgid := 10;
+
+  OBJECT ldapresult := NEW BEREncoder();
+  asn1_codec->EncodeData(ldapresult, "LDAPMessage",
+        [ messageID :=    msgid
+        , protocolop :=
+                [ searchResRef :=
+                      [ "XREFER" ]
+                ]
+        ]);
+
+  STRING result := ldapresult->GetRequest();
+  OBJECT decoder := NEW StaticBERDecoder(result);
+
+  RECORD parsed := asn1_codec->ParseData(decoder, "LDAPMessage");
+  TestEQ(TRUE, CellExists(parsed.value.protocolop, "SEARCHRESREF"));
+}
+
+
+PRINT("\n === Running TestASN1\n");
+TestCertificateDecoding();
+TestCRTCSRDecoding();
+TestCertificateEncoding();
+TestCertificateFixup();
+TestChoiceInSequence();

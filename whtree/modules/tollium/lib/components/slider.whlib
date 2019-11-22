@@ -1,0 +1,252 @@
+﻿<?wh
+LOADLIB "wh::money.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+PUBLIC OBJECTTYPE TolliumSlider EXTEND TolliumComponentBase
+< MONEY pvt_min;
+  MONEY pvt_max;
+  MONEY pvt_step;
+  MONEY ARRAY pvt_value;
+  //STRING orientation;
+  BOOLEAN pvt_fill;
+  STRING pvt_fillcolor;
+  PUBLIC FUNCTION PTR onchange;
+  OBJECT pvt_updatecomponent;
+
+  PUBLIC PROPERTY min(pvt_min, SetMin);
+  PUBLIC PROPERTY max(pvt_max, SetMax);
+  PUBLIC PROPERTY step(pvt_step, SetStep);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY fill(pvt_fill, SetFill);
+  PUBLIC PROPERTY fillcolor(pvt_fillcolor, SetFillColor);
+
+  PUBLIC PROPERTY updatecomponent(pvt_updatecomponent, SetUpdateComponent);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->componenttype := "slider";
+    this->formfieldtype := "string";
+
+    this->pvt_value := [ 0.0 ];
+    this->width := "1pr";
+    this->pvt_max := 99.0;
+    this->pvt_step := 1.0;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->pvt_min := def.min;
+    this->pvt_max := def.max;
+    this->pvt_step := def.step;
+    this->value := def.value;
+    this->CheckConstraints();
+    //this->orientation := def.orientation;
+    this->pvt_fill := def.fill;
+    this->fillcolor := def.fillcolor;
+    this->onchange := def.onchange;
+    this->pvt_updatecomponent := def.updatecomponent;
+  }
+
+  MACRO CheckConstraints()
+  {
+    IF (this->min >= this->max)
+      Abort("Slider max (" || FormatMoney(this->max, 0, '.', '', FALSE) || ") should be greater than min (" || FormatMoney(this->min, 0, '.', '', FALSE) || ")");
+  }
+
+  MACRO SetMin(MONEY min)
+  {
+    IF (this->pvt_min != min)
+    {
+      this->pvt_min := min;
+      this->ExtUpdatedMin();
+    }
+  }
+
+  MACRO SetMax(MONEY max)
+  {
+    IF (this->pvt_max != max)
+    {
+      this->pvt_max := max;
+      this->ExtUpdatedMax();
+    }
+  }
+
+  MACRO SetStep(MONEY step)
+  {
+    IF (this->pvt_step != step)
+    {
+      this->pvt_step := step;
+      this->ExtUpdatedStep();
+    }
+  }
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN this->pvt_value[0];
+  }
+  MACRO SetValue(VARIANT value)
+  {
+    IF (this->pvt_value[0] != value)
+    {
+      this->pvt_value[0] := value;
+      IF (this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
+      this->ExtUpdatedValue();
+    }
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(MONEY);
+  }
+
+  MACRO SetFill(BOOLEAN fill)
+  {
+    IF (this->pvt_fill != fill)
+    {
+      this->pvt_fill := fill;
+      this->ExtUpdatedFill();
+    }
+  }
+
+  MACRO SetFillColor(STRING color)
+  {
+    IF (color != "")
+    {
+      color := GetValidColor(color);
+      IF (color = "")
+        RETURN;
+    }
+    IF (this->pvt_fillcolor != color)
+    {
+      this->pvt_fillcolor := color;
+      this->ExtUpdatedFillColor();
+    }
+  }
+
+  MACRO SetUpdateComponent(OBJECT comp)
+  {
+    this->pvt_updatecomponent := comp;
+  }
+
+  MACRO ExtUpdatedMin()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.min := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedMax()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.max := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedStep()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.step := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedValue()
+  {
+    this->ExtUpdatedComponent();/*diabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.value := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedFill()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.fill := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedFillColor()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.fillcolor := TRUE;
+    */
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ hint      := FALSE
+        , enabled   := FALSE
+        , min       := FALSE
+        , max       := FALSE
+        , step      := FALSE
+        , value     := FALSE
+        , fill      := FALSE
+        , fillcolor := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      STRING stepstr := FormatMoney(this->step, 0, '.', '', FALSE);
+      INTEGER sep := SearchSubstring(stepstr, '.');
+      RECORD compinfo := [ hint := this->hint
+                         , min := this->min
+                         , max := this->max
+                         , step := this->step
+                         , stepdecimals := (sep < 0 ? 0 : (Length(stepstr) - sep - 1))
+                         , value := this->pvt_value
+                         , fill := this->fill
+                         , fillcolor := this->fillcolor
+                         , updatecomponent := GetComponentName(this->pvt_updatecomponent)
+                         , unmasked_events := GetUnmask(this,["change"])
+                         ];
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.hint)
+        this->ToddUpdate([type:="hint", hint := this->hint]);
+
+      IF (this->dirtyflags.enabled)
+        this->ToddUpdate([type:="enabled", enabled := this->enabled]);
+
+      IF (this->dirtyflags.min)
+        this->ToddUpdate([type:="min", min := this->min]);
+
+      IF (this->dirtyflags.max)
+        this->ToddUpdate([type:="max", max := this->max]);
+
+      IF (this->dirtyflags.step)
+        this->ToddUpdate([type:="step", step := this->step]);
+
+      IF (this->dirtyflags.value)
+        this->ToddUpdate([type:="value", value := this->pvt_value]);
+
+      IF (this->dirtyflags.fill)
+        this->ToddUpdate([type:="fill", fill := this->fill]);
+
+      IF (this->dirtyflags.fillcolor)
+        this->ToddUpdate([type:="fillcolor", fillcolor := this->fillcolor]);
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(STRING indata)
+  {
+    this->pvt_value := SELECT AS MONEY ARRAY ToMoney(value, 0) FROM (ToRecordArray(Tokenize(indata, "\t"), "value"));
+  }
+>;

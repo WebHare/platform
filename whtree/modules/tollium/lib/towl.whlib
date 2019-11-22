@@ -1,0 +1,187 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::tollium/lib/internal/towl.whlib" EXPORT TowlPriorityVeryLow
+                                                   , TowlPriorityLow
+                                                   , TowlPriorityNormal
+                                                   , TowlPriorityHigh
+                                                   , TowlPriorityVeryHigh;
+
+INTEGER64 idcounter;
+// Generate an ID (which is unique if there are no two processes that, within the same millisecond, generate an id using the
+// same idcounter value and the same random value)
+STRING FUNCTION GenerateID()
+{
+  idcounter := idcounter + 1;
+  RETURN ToLowercase(Right("0000000" || ToString(GetMsecondCount(GetCurrentDateTime()), 16), 8) ||
+                     Right("000000000000" || ToString(idcounter, 36), 13) ||
+                     Right("00" || Random(0,999), 3));
+}
+
+/** @short Get information about a notification with the given name
+    @param name The notification name
+    @return The notification information, or a default record if the notification is unknown
+    @cell(string) return.name Notification name, also used in combination with module name as notification title tid
+    @cell(string) return.module Module responsible for this notification
+    @cell(string) return.descriptiontid tid to use as notification description
+    @cell(boolean) return.defaultenabled If the notification should be shown if never shown before
+*/
+RECORD FUNCTION ResolveTowlNotification(STRING name)
+{
+  // name should have the form "module:name"
+  STRING ARRAY parts := Tokenize(name, ":");
+  IF (Length(parts) != 2)
+    RETURN DEFAULT RECORD;
+
+  // Get the module information from the resource manager
+  RECORD module := SELECT portal
+                     FROM GetWebHareModules()
+                    WHERE COLUMN name = parts[0];
+  IF (NOT RecordExists(module) OR NOT RecordExists(module.portal))
+    RETURN DEFAULT RECORD;
+
+  // Get the notification information
+  RETURN SELECT *
+              , module := parts[0]
+           FROM module.portal.notifications
+          WHERE COLUMN name = parts[1];
+}
+
+/** @short Show a notification
+    @long This function shows the notification with the given name. The notification must be registered by a module before
+          it can be used, using a <notification> in the <portal> section of the module defition file. The options record can
+          be used to set receivers and display options.
+    @param name Name of the notification to show (should be in the form "module:name")
+    @param receivers Users receiving the notification
+    @cell(integer array) receivers.webhare_users List of WebHare user id's
+    @cell(integer array) receivers.wrd_users List of WRD user entity id's
+    @param options Record with options, no options are required
+    @cell(string array) options.tidparams List of parameters to use when resolving the event name as tid
+    @cell(string) options.descriptiontid tid to use as the notification description (overrides the descriptiontid defined in
+          the module definition)
+    @cell(string array) options.descriptionparams List of parameters to use when resolving the description tid
+    @cell(string) options.icon Icon to show (tollium image)
+    @cell(boolean) options.persistent If set to TRUE, the notification should not hide automatically, but the user should
+          click the notification to hide it.
+    @cell(integer) options.timeout If not 0, hide the notification after the specified number of milliseconds. If omitted or
+          0, use the user default timeout.
+    @cell(integer) options.priority The notification priority (users can configure notifications so that only notification
+          having a certain priority are shown)
+    @cell(record) options.applicationmessage If set, this application message is sent when the user clicks the notification.
+          This can be used to automatically open (or switch to) an application. The fields in this record are the same as the
+          arguments to the TolliumControllerBase::SendApplicationMessage function.
+    @cell(string) options.tag If set and not empty, replace existing notification with this tag
+*/
+PUBLIC STRING FUNCTION ShowTowlNotification(STRING name, RECORD receivers, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  // Find the notification
+  RECORD notification := ResolveTowlNotification(name);
+  IF (NOT RecordExists(notification))
+    THROW NEW Exception("Could not find notification '" || name || "'");
+
+  // Check receivers and options fields
+  FOREVERY (RECORD field FROM UnpackRecord(receivers))
+    IF (field.name NOT IN [ "WEBHARE_USERS", "WRD_USERS", "__ALL_USERS", "USERS_WITH_RIGHTS" ])
+      THROW NEW Exception("Field '" || field.name || "' not allowed in receivers");
+  FOREVERY (RECORD field FROM UnpackRecord(options))
+    IF (field.name NOT IN [ "TAG", "TITLEPARAMS", "DESCRIPTIONTID", "DESCRIPTIONPARAMS", "ICON", "PRIORITY", "PERSISTENT", "TIMEOUT", "APPLICATIONMESSAGE" ])
+      THROW NEW Exception("Field '" || field.name || "' not allowed in options");
+
+  // Check and parse configurable options
+  STRING tid := notification.title;
+  STRING ARRAY titleparams;
+  STRING descriptiontid := notification.description;
+  STRING ARRAY descriptionparams;
+  STRING icon := "tollium:tollium/tollium";
+  INTEGER priority;
+  BOOLEAN persistent;
+  INTEGER timeout;
+  RECORD applicationmessage;
+  IF (RecordExists(options))
+  {
+    // titleparams should be a STRING ARRAY
+    IF (CellExists(options, "TITLEPARAMS") AND TypeID(options.titleparams) = TypeID(STRING ARRAY))
+      titleparams := options.titleparams;
+
+    // descriptiontid should be a tid STRING
+    IF (CellExists(options, "DESCRIPTIONTID") AND TypeID(options.descriptiontid) = TypeID(STRING))
+      descriptiontid := options.descriptiontid;
+
+    // descriptionparams should be a STRING ARRAY
+    IF (CellExists(options, "DESCRIPTIONPARAMS") AND TypeID(options.descriptionparams) = TypeID(STRING ARRAY))
+      descriptionparams := options.descriptionparams;
+
+    // icon should be an image STRING
+    IF (CellExists(options, "ICON") AND TypeID(options.icon) = TypeID(STRING))
+      icon := options.icon;
+
+    // priority should be an integer with a valid priority value
+    IF (CellExists(options, "PRIORITY") AND TypeID(options.priority) = TypeID(INTEGER)
+        AND options.priority >= TowlPriorityVeryLow AND options.priority <= priority_internal)
+      priority := options.priority;
+
+    // persistent should be a BOOLEAN
+    IF (CellExists(options, "PERSISTENT") AND TypeID(options.persistent) = TypeID(BOOLEAN))
+      persistent := options.persistent;
+
+    // timeout should be a INTEGER (for internal notifications only)
+    IF (priority = priority_internal AND CellExists(options, "TIMEOUT") AND TypeID(options.timeout) = TypeID(INTEGER))
+      timeout := options.timeout;
+
+    // applicationmessage should be a [ STRING app, RECORD apptarget, RECORD messagedata, BOOLEAN reuse_instance ] RECORD
+    IF (CellExists(options, "APPLICATIONMESSAGE") AND TypeID(options.applicationmessage) = TypeID(RECORD))
+      applicationmessage := options.applicationmessage;
+  }
+
+  //ADDME: Add icons to native notifications? What other options are there (i.e. in Chrome with their own notification center?)
+  RECORD event := [ id := CellExists(options, "TAG") ? EncodeJava(name) || "\t" || EncodeJava(options.tag) : GenerateID()
+                  , type := "tollium:towl.event"
+                  , descriptiontid := descriptiontid
+                  , descriptionparams := descriptionparams
+                  , tid := tid
+                  , titleparams := titleparams
+                  , icon := icon
+                  , persistent := persistent
+                  , timeout := timeout
+                  , priority := priority
+                  , applicationmessage := applicationmessage
+                  , defaultenabled := notification.defaultenabled
+                  ];
+
+  __OpenLocalService("tollium:towlservice")->BroadcastNotification(receivers, event);
+
+  RETURN event.id;
+}
+
+/** @short Hide a notification
+    @long This function hides visible notifications with the given name and tag. The notification must be registered by a module before
+          it can be used, using a <notification> in the <portal> section of the module defition file. The options record can
+          be used to set receivers and display options.
+    @param name Name of the notification to show (should be in the form "module:name")
+    @param receivers Users receiving the notification
+    @cell(integer array) receivers.webhare_users List of WebHare user id's
+    @cell(integer array) receivers.wrd_users List of WRD user entity id's
+    @param tag Tag of the notification to hide
+*/
+PUBLIC MACRO HideTowlNotification(STRING name, RECORD receivers, STRING tag)
+{
+  // Check receivers field
+  FOREVERY (RECORD field FROM UnpackRecord(receivers))
+    IF (field.name NOT IN [ "WEBHARE_USERS", "WRD_USERS", "__ALL_USERS", "USERS_WITH_RIGHTS" ])
+      THROW NEW Exception("Field '" || field.name || "' not allowed in receivers");
+
+  IF (tag = "")
+    THROW NEW Exception("Can only hide notifications with tags");
+
+  STRING id := EncodeJava(name) || "\t" || EncodeJava(tag);
+
+  __OpenLocalService("tollium:towlservice")->BroadcastNotification(receivers,
+      [ id :=         EncodeJava(name) || "\t" || EncodeJava(tag)
+      , type :=       "tollium:towl.hideevent"
+      , persistent := TRUE
+      , timeout :=    0
+      , priority :=   3 // priority_internal
+      ]);
+}

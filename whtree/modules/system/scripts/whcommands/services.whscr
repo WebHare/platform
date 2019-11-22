@@ -1,0 +1,175 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/services/apprunner.whlib";
+
+OBJECT trans;
+OBJECT link;
+
+MACRO ListServices()
+{
+  RECORD report := WaitForPromise(link->GetReport());
+  DumpValue( (SELECT name, enabled, running, since FROM report.report ORDER BY name),'boxed');
+}
+
+MACRO WatchServices()
+{
+  WHILE(TRUE)
+  {
+    //ADDME overwrite screen, only listen for events, show errors
+    ListServices();
+    Sleep(3000);
+  }
+}
+
+MACRO RestartService(STRING servicename)
+{
+  RECORD res := WaitForPromise(link->Restart(servicename));
+  Print("Service scheduled for restart: " || servicename || "\n");
+}
+
+MACRO EnableService(STRING servicename)
+{
+  RECORD res := WaitForPromise(link->SetEnabled(servicename,TRUE));
+  Print("Service enabled: " || servicename || "\n");
+}
+
+MACRO DisableService(STRING servicename)
+{
+  RECORD res := WaitForPromise(link->SetEnabled(servicename,FALSE));
+  Print("Service disabled: " || servicename || ". To invoke manually:\n");
+  Print("  " || res.app || " " || Detokenize(res.args,' ') || "\n");
+}
+
+MACRO HandleWildcards(MACRO PTR func, STRING servicemask)
+{
+  IF(SearchSubstring(servicemask,'?') = -1 AND SearchSubstring(servicemask,'*') = -1)
+  {
+    func(servicemask);
+    RETURN;
+  }
+
+  RECORD report := WaitForPromise(link->GetReport());
+  RECORD ARRAY matches := SELECT * FROM report.report WHERE ToUppercase(name) LIKE ToUppercase(servicemask) ORDER BY ToUppercase(name);
+  IF(Length(matches) = 0)
+    TerminateScriptWithError(`No service matches mask '${servicemask}' - you may need to 'wh services reload'?`);
+
+  FOREVERY(RECORD match FROM matches)
+  {
+    //Could have done them all async... but that might give hard to reproduce bugreports
+    func(match.name);
+  }
+}
+
+MACRO DebugService(STRING servicename)
+{
+  RECORD app := WaitForPromise(link->SetEnabled(servicename,FALSE));
+
+  SetConsoleLineBuffered(FALSE);
+  SetOutputBuffering(FALSE); //do we need this?
+
+  WHILE(TRUE)
+  {
+    OBJECT proc := CreateProcess(app.app, app.args CONCAT ["--debug"],
+      [ take_input := FALSE
+      , take_output := TRUE
+      , take_errors := TRUE
+      ]);
+
+    proc->Start();
+    WHILE(TRUE)
+    {
+      INTEGER read := WaitForMultiple(INTEGER[proc->output_handle, proc->errors_handle, 0], INTEGER[], 100);
+      STRING out,err;
+
+      IF(read = 0)
+      {
+        STRING cmd := ToUppercase(ReadFrom(0,-1));
+        IF(cmd = "?" OR cmd NOT IN ["Q"])
+        {
+          Print("\n** Q to quit **\n");
+          CONTINUE;
+        }
+
+        Print("\nquitting\n");
+        proc->SendInterrupt();
+        Sleep(400);
+        proc->Terminate();
+
+        Print("Reenabling service\n");
+        link->SetEnabled(servicename,TRUE);
+        RETURN;
+      }
+
+      IF(read = proc->output_handle)
+      {
+        out := ReadFrom(proc->output_handle, -16384);
+        PrintTo(1, out);
+      }
+
+      IF(read = proc->errors_handle)
+      {
+        err := ReadFrom(proc->errors_handle, -16384);
+        PrintTo(2, err);
+      }
+
+      IF(out = "" AND err = "" AND NOT proc->IsRunning())
+        BREAK;
+    }
+
+    Print(`\nProcess exited with exit code ${proc->exitcode}\n`);
+
+    //FIXME if not an autostart app, break now
+    Sleep(1000);
+  }
+}
+
+MACRO Main()
+{
+  link := WaitForPromise(OpenWebHareService("system:apprunner"));
+
+  trans := OpenPrimary();
+  RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "cmd", type := "param",     required := FALSE ]
+                                                       , [ name := "service", type := "param", required := FALSE ]
+                                                       ]);
+
+  SWITCH(call.cmd)
+  {
+    CASE "", "list"
+    {
+      ListServices();
+    }
+    CASE "reload"
+    {
+      BroadcastEvent("system:apprunner.internal.rescan", DEFAULT RECORD);
+    }
+    CASE "disable", "stop"
+    {
+      HandleWildcards(PTR DisableService, call.service);
+    }
+    CASE "enable", "start"
+    {
+      HandleWildcards(PTR EnableService, call.service);
+    }
+    CASE "restart"
+    {
+      HandleWildcards(PTR RestartService, call.service);
+    }
+    CASE "watch"
+    {
+      WatchServices();
+    }
+    CASE "debug"
+    {
+      DebugService(call.service);
+    }
+    DEFAULT
+    {
+      ABORT("Unrecognized command '" || call.cmd || "'");
+    }
+  }
+}
+
+Main();

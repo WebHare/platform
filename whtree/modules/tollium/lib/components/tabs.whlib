@@ -1,0 +1,759 @@
+<?wh
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+
+/////////////////////////////////////////////////////////////////////
+// The tabs
+
+PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER nextextensionid;
+
+  /// Types of state to save
+  STRING ARRAY pvt_savestate;
+
+  /// Type of tabs (possible values: "regular", "server", "stacked")
+  STRING pvt_type;
+
+  /// List of tabs
+  OBJECT ARRAY pvt_pages;
+
+  /// Currently selected page (invariant: pvt_selected_page->visible = TRUE && exists visible tab <-> ObjectExists(pvt_selected_page))
+  OBJECT pvt_selected_page;
+
+  /// List of extra components
+  OBJECT ARRAY pvt_line;
+
+  /** Currently loaded tabs extensions
+      @cell(string) id Unique id for this load
+      @cell(boolean) done_postinit Whether PostInitExtension has been called
+      @cell(object array) compositions List of compositions
+      @cell(record) rootnode Parsed node
+      @cell(object array) List of all components
+      @cell(object array) List of added tabs
+      @cell(object) fragment TolliumTabsExtensionBase object
+  */
+  RECORD ARRAY loaded_extensions;
+
+  //Run state, used to verify contract implementation with extended tabs
+  STRING runstate;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Insertion point for new tabs. Defaults to -1 (append to end). If not -1, it is also incremented whenever a new tab is inserted
+  PUBLIC INTEGER extendposition;
+
+  /** Insertion points
+      @cell(object) name
+      @cell(object) component
+  */
+  PUBLIC RECORD ARRAY insertpoints;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Contains the type of state to save. Allowed states: 'selectedtab'.
+  */
+  PUBLIC PROPERTY savestate(pvt_savestate, SetSaveState);
+
+  /** List of pages
+  */
+  PUBLIC PROPERTY pages(pvt_pages, -);
+
+  /** List of extra components
+  */
+  PUBLIC PROPERTY line(pvt_line, -);
+
+  /** Type of this component (possible values: "regular", "server", "stacked")
+  */
+  PUBLIC PROPERTY type(pvt_type, SetType);
+
+  /** Currently selected tab. The selected tab is always visible, if there is no visible tab there is no selected page)
+      If there is a visible page, there is a selected tab).
+  */
+  PUBLIC PROPERTY selectedtab(pvt_selected_page, SetSelectedPage);
+
+  /// Callback called when the selected tab changes
+  PUBLIC FUNCTION PTR onselect;
+
+  // Internal property used by TolliumLinesContainer
+  PROPERTY lines(GetLines, SetLines);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_type := "regular";
+    this->pvt_blockelement := TRUE;
+    this->componenttype := "tabs";
+    this->formfieldtype := "string";
+    this->extendposition := -1;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init & tollium base stuff
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->pvt_pages := SELECT AS OBJECT ARRAY component FROM def.pages;
+    this->pvt_line := SELECT AS OBJECT ARRAY component FROM def.line;
+    this->pvt_type := def.type;
+    this->onselect := def.onselect;
+    this->savestate := def.savestate;
+    this->pvt_selected_page := def.selectedtab;
+  }
+
+  MACRO FixupPage(OBJECT page)
+  {
+    IF(page->spacers.usedefault)
+      page->spacers := [ top := this->pvt_type != "server"
+                       , bottom := this->pvt_type != "server"
+                       , left := this->pvt_type != "server"
+                       , right := this->pvt_type != "server"
+                       ];
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    FOREVERY(OBJECT page FROM this->pages)
+      this->FixupPage(page);
+
+    //select first tab if none is selected yet. can't do this in staticinit, subpages may not have decided which page is visible yet..
+    IF(NOT ObjectExists(this->pvt_selected_page) AND Length(this->pvt_pages)>0)
+      FOREVERY(OBJECT page FROM this->pages)
+      {
+        IF (page->visible AND NOT ObjectExists(this->pvt_selected_page))
+        {
+          this->pvt_selected_page := page;
+        }
+      }
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    RETURN this->pvt_pages CONCAT this->pvt_line;
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ selection := FALSE
+        , tabpages := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    OBJECT selectedpage := this->pvt_selected_page;
+
+    // The component must maintain the visible tab sheet, or hide itself when not visible tab sheet is available
+    IF (NOT ObjectExists(selectedpage) OR NOT selectedpage->visible)
+      THROW NEW TolliumException(this, "There is no visible tab sheet");
+
+    IF (this->dirtyflags.fully)
+    {
+      RECORD line := this->TolliumWebDoLines();
+      STRING ARRAY lineitems;
+      IF (RecordExists(line))
+        lineitems := SELECT AS STRING ARRAY item
+                       FROM line.items
+                      WHERE CellExists(items, "item"); // Skip 'labelfor's
+
+      RECORD compinfo := [ unmasked_events := GetUnmask(this,["select"])
+                         , tabtype := this->type
+                         , selected := GetComponentName(selectedpage)
+                         , pages := GetVisibleComponentNames(this->pages)
+                         , line := lineitems
+                         ];
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.tabpages)
+      {
+        STRING newtab := this->dirtyflags.selection ? GetComponentName(selectedpage) : "";
+        this->dirtyflags.selection := FALSE;
+
+        this->ToddUpdate([type:="tabpages", pages := GetVisibleComponentNames(this->pages), newtab := newtab ]);
+      }
+
+      IF (this->dirtyflags.selection)
+      {
+        this->ToddUpdate([type:="selectsheet", sheet := GetComponentName(selectedpage)]);
+      }
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(STRING inp)
+  {
+    this->SetSelectedPageByName(inp, FALSE);
+  }
+
+  /** @short Get the number of pages with their 'visible' flag set to true
+      @return Number of visible pages */
+  PUBLIC INTEGER FUNCTION GetNumVisiblePages()
+  {
+    INTEGER num;
+    FOREVERY(OBJECT page FROM this->pages)
+      IF(page->visible)
+        num := num + 1;
+    RETURN num;
+  }
+
+  /** @short Has any extension suggested enabled resizing ?
+      @return True if any extension has allowresize=true */
+  PUBLIC BOOLEAN FUNCTION IsResizeSuggested()
+  {
+    FOREVERY(RECORD ext FROM this->loaded_extensions)
+     IF(ext.rootnode.allowresize)
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  /// Set the new selected page
+  MACRO SetSelectedPage(OBJECT newpage)
+  {
+    FOREVERY (OBJECT page FROM this->pvt_pages)
+      IF (page = newpage)
+      {
+        IF (NOT page->visible)
+          THROW NEW TolliumException(this, 'Cannot select an invisible tab sheet');
+
+        IF (this->pvt_selected_page != page)
+        {
+          this->pvt_selected_page := page;
+          this->ExtUpdatedSelection();
+          this->InvokeOnSelect(FALSE);
+          RETURN;
+        }
+      }
+  }
+
+  MACRO SetSaveState(STRING ARRAY savestate)
+  {
+    this->pvt_savestate := DEFAULT STRING ARRAY;
+    IF ("selectedtab" IN savestate)
+      INSERT "selectedtab" INTO this->pvt_savestate AT END;
+  }
+
+  MACRO SetType(STRING newtype)
+  {
+    IF (this->pvt_type != newtype)
+    {
+      IF (newtype NOT IN [ "regular", "server", "stacked" ])
+        THROW NEW TolliumException(this, "Illegal tabs type '"||newtype||"' selected (allowed: regular, server and stacked)");
+
+      this->pvt_type := newtype;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  RECORD ARRAY FUNCTION GetLines()
+  {
+    RETURN [ [ items := this->pvt_line
+             , linesettings := [ layout := "left"
+                               ]
+             ]
+           ];
+  }
+
+  MACRO SetLines(RECORD ARRAY lines)
+  {
+    IF (Length(lines) > 1)
+      THROW NEW TolliumException(this, `Tabs component ${this->name} can contain at most one line`);
+
+    this->pvt_line := Length(lines) = 1 ? lines[0].items : DEFAULT OBJECT ARRAY;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedTabPages()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.tabpages := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedSelection()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.selection := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
+  {
+    BOOLEAN removed_selection := oldcomponent = this->pvt_selected_page;
+
+    FOREVERY(OBJECT comp FROM this->pvt_pages)
+      IF (comp = oldcomponent)
+      {
+        DELETE FROM this->pvt_pages AT #comp;
+        this->ExtUpdatedTabPages();
+        BREAK;
+      }
+
+    // Current selected tab was removed: force select a new one
+    IF (removed_selection)
+      this->AutoSelectPage(TRUE);
+  }
+
+  UPDATE PUBLIC MACRO ChildVisibilityChanged(OBJECT child)
+  {
+    BOOLEAN old_visible := this->IsVisible();
+
+    // Select a new page if necessary
+    this->AutoSelectPage(FALSE);
+    TolliumComponentBase::ChildVisibilityChanged(child);
+
+    // If visibility changed, notify the parent
+    IF (old_visible != this->IsVisible() AND ObjectExists(this->pvt_parent))
+      this->pvt_parent->ChildVisibilityChanged(this);
+  }
+
+  UPDATE PUBLIC MACRO RestoreComponentState()
+  {
+    IF (Length(this->savestate) > 0)
+    {
+      RECORD state := this->owner->tolliumuser->GetComponentState(this->GetSaveStateKey());
+      IF (RecordExists(state))
+        this->SetSelectedPageByName(state.seltab, TRUE);
+    }
+    TolliumComponentBase::RestoreComponentState();
+  }
+
+  UPDATE PUBLIC MACRO SaveComponentState()
+  {
+    IF (Length(this->savestate) > 0)
+      this->owner->tolliumuser->SetComponentState(this->GetSaveStateKey(), [ seltab := this->selectedtab->name ]);
+
+    TolliumComponentBase::SaveComponentState();
+  }
+
+  //Execute URL path actions
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    IF (path LIKE "[*]")
+    {
+      INTEGER nr := ToInteger(SubString(path, 1, LENGTH(path) - 2), -1);
+      IF (nr >= 0 AND nr < LENGTH(this->pvt_pages))
+      {
+        this->SetSelectedPage(this->pvt_pages[nr]);
+        RETURN;
+      }
+    }
+
+    FOREVERY (OBJECT page FROM this->pvt_pages)
+      IF (ToUppercase(path LIKE ":*" ? ":" || page->title : page->name) = ToUppercase(path))
+      {
+        this->SetSelectedPage(page);
+        RETURN;
+      }
+
+    THROW NEW TolliumException(this, `No such tab '${path ?? "<default>"}', got ${Detokenize((SELECT AS STRING ARRAY `'${apage->title}' (${apage->name})` FROM ToRecordArray(this->pvt_pages, "apage")), ", ")}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO InvokeOnSelect(BOOLEAN queue)
+  {
+    IF (queue)
+      this->owner->tolliumscreenmanager->QueueEvent(this, "select", DEFAULT RECORD);
+    ELSE IF (this->onselect != DEFAULT FUNCTION PTR)
+      this->onselect();
+  }
+
+  MACRO AutoSelectPage(BOOLEAN force)
+  {
+    OBJECT oldselection := this->pvt_selected_page;
+    BOOLEAN selfvisible := this->IsVisible();
+
+    // Check if a page is selected. If we are visible, that page needs to be visible too.
+    IF (ObjectExists(oldselection) AND oldselection->visible AND NOT force)
+    {
+      // Current selected page is ok
+      RETURN;
+    }
+
+    // We need to select a new tab
+    this->pvt_selected_page := DEFAULT OBJECT;
+
+    BOOLEAN found_current;
+    FOREVERY(OBJECT page FROM this->pages)
+    {
+      // Found current tab?
+      IF (page = oldselection)
+        found_current := TRUE;
+
+      // Select the next visible tab (or the first visible tab if the current selected tab has been removed)
+      IF (page->visible)
+      {
+        IF (NOT ObjectExists(this->pvt_selected_page) OR found_current)
+        {
+          this->pvt_selected_page := page;
+          IF (found_current)
+            BREAK;
+        }
+      }
+    }
+
+    // If the selection changed, handle render & callbacks
+    IF (ObjectExists(oldselection) OR ObjectExists(this->pvt_selected_page))
+    {
+      this->ExtUpdatedSelection();
+      this->InvokeOnSelect(FALSE);
+    }
+  }
+
+  /// Set the selected tab by component name
+  MACRO SetSelectedPageByName(STRING newname, BOOLEAN matchlocalname)
+  {
+    FOREVERY (OBJECT page FROM this->pvt_pages)
+      IF ((matchlocalname ? page->name : page->toddname) = newname)
+      {
+        /* FIXME: The visibility state of the tabs can be altered by the onselect handler
+           for an update to another tab component, so we ignore the update then. */
+        IF (NOT page->visible)
+          RETURN;//ABORT('Cannot select an invisible tab sheet');
+
+        IF (this->pvt_selected_page != page)
+        {
+          this->pvt_selected_page := page;
+          this->InvokeOnSelect(TRUE);
+          RETURN;
+        }
+      }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Creates a new tab and inserts it at the specified position.
+      @param position Position to place the new tab
+      @param title Title for the new tab
+      @return The new tab (a TolliumPanel)
+  */
+  PUBLIC OBJECT FUNCTION InsertTabAt(INTEGER position, STRING title)
+  {
+    OBJECT newpanel := this->CreateSubComponent("panel");
+    newpanel->title := title;
+    this->InsertPanelAsTab(position, newpanel);
+    RETURN newpanel;
+  }
+
+  /** Inserts a pre-existing panel at the specified position
+      @param position Position to place the new panel
+      @param panel The panel to insert
+  */
+  PUBLIC MACRO InsertPanelAsTab(INTEGER position, OBJECT panel)
+  {
+    // Can't loadlib panel.whlib, it already loads us
+    IF (panel->componenttype != "panel")
+      THROW NEW TolliumException(this, "Can only use panels as tab in a tabs componenent");
+
+    IF(position<0)
+      position := 0;
+    ELSE IF(position > Length(this->pvt_pages))
+      position := Length(this->pvt_pages);
+
+    INSERT panel INTO this->pvt_pages AT position;
+    panel->pvt_parent := this;
+    panel->RecursiveUpdateIsNowVisible();
+
+    this->FixupPage(panel);
+
+    this->ExtUpdatedTabPages();
+    this->ChildVisibilityChanged(panel);
+  }
+
+  /** @short Extend the tabs component
+      @long Extend the tabs component using a specified XML document.
+      @param extension Extension to load
+      @param options Options. If a string and set, extension is interpreted as the resource name and the subname as the extension name
+      @cell options.api API object, will be set in TolliumTabsExtensionBase
+      @return Record describing the loaded extension. Pass this to RemoveTabsExtension to remove the extension
+      @cell return.extension The loaded tabs extension
+  */
+  PUBLIC RECORD FUNCTION LoadTabsExtension(STRING extension, VARIANT options DEFAULTSTO "")
+  {
+    //You may load more than one tab, but not invoke any of the later stages while still loading
+    IF(this->runstate NOT IN [ "", "loadedtabs" ] AND NOT IsDtapLive())
+      THROW NEW TolliumException(this, `Extendable tabs contract violation: LoadTabsExtension must be invoked before RunExtensionsPostInit (state=${this->runstate})`);
+    this->runstate := "loadedtabs";
+
+    STRING subname;
+    IF (TypeID(options) = TypeID(STRING))
+    {
+      subname := options;
+      options := DEFAULT RECORD;
+    }
+
+    RECORD retval := [ __extensionid := this->nextextensionid + 1
+                     , done_postinit := FALSE
+                     , compositions := DEFAULT OBJECT ARRAY
+                     , rootnode := DEFAULT RECORD
+                     , components := DEFAULT OBJECT ARRAY
+                     , addedtabs := DEFAULT OBJECT ARRAY
+                     , fragment := DEFAULT OBJECT //historical name for extension
+                     , extension := DEFAULT OBJECT
+                     ];
+
+    this->nextextensionid := this->nextextensionid + 1;
+    RECORD ARRAY offered_comps := this->extendcomponents;
+    RECORD ARRAY offered_handlers := this->extendhandlers;
+
+    STRING resourcename, extensionsname;
+    IF(subname="") //new, recommended calling syntax
+    {
+      resourcename := GetResourceNameFromScreenPath(extension);
+      extensionsname := GetScreenNameFromScreenPath(extension);
+    }
+    ELSE
+    {
+      STRING filename := GetStackTrace()[1].filename;
+      LogWarning("tollium", filename || " invoked old dual-parameter version of LoadTabsExtension, please switch to absolute resource names", [ filename := filename, call := "LoadTabsExtension" ]);
+
+      resourcename := extension;
+      extensionsname := subname;
+    }
+
+    //RECORD compositions;
+    //OBJECT compositionsnode := extensionselement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "compositions")->Item(0);
+    //OBJECT ARRAY newtabs := extensionselement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "newtab")->GetCurrentElements();
+
+    IF(extensionsname NOT LIKE "__selector:*") //not something custom
+      extensionsname := '__selector://*[local-name()="tabsextension"][@name="' || extensionsname|| '"]';
+
+    RECORD result;
+
+    // pass the tabsextension_api to the next created tabs extension object
+    RECORD old_tabsextension_options := __tabsextension_options;
+    __tabsextension_options := options;
+    TRY
+    {
+      result := this->owner->LoadTolliumBodyFragment(offered_comps, offered_handlers, resourcename, extensionsname, TRUE);
+      IF(Length(result.errors)>0) //then just throw the first..
+        THROW NEW TolliumException(this, result.errors[0].line || ": " || result.errors[0].message);
+    }
+    FINALLY
+    {
+      __tabsextension_options := old_tabsextension_options;
+    }
+
+    retval.components := retval.components CONCAT result.components;
+    retval.fragment := result.fragment;
+
+    IF(Length(result.rootnode.compositions)>0)
+      retval.compositions := SELECT AS OBJECT ARRAY component FROM result.rootnode.compositions[0].compositions;
+
+    FOREVERY(RECORD ins FROM result.rootnode.inserts)
+    {
+      OBJECT positioncomp := SELECT AS OBJECT component FROM this->insertpoints WHERE ToUppercase(name) = ToUppercase(ins.position);
+      IF(NOT ObjectExists(positioncomp))
+        THROW NEW TolliumException(this, "Unknown insert position '" || ins.position || "'");
+
+      STRING loc := ins."where";
+      IF(loc NOT IN ["before","after","atend"])
+        THROW NEW TolliumException(this, "Invalid insert location '" || loc || "'");
+
+      IF(loc = "before")
+        positioncomp->parent->InsertLinesBefore(ins.lines, positioncomp);
+      ELSE IF(loc = "after")
+        positioncomp->parent->InsertLinesAfter(ins.lines, positioncomp);
+      ELSE IF(loc = "atend")
+      {
+        WHILE(ObjectExists(positioncomp) AND NOT Memberexists(positioncomp, "InsertLinesAfter")) //chase the containing panel
+          positioncomp := positioncomp->parentpanel;
+
+        positioncomp->InsertLinesAfter(ins.lines, DEFAULT OBJECT);
+      }
+
+      FOREVERY(RECORD line FROM ins.lines)
+        FOREVERY (OBJECT item FROM line.items)
+          FOREVERY(OBJECT comp FROM item->GetChildComponents())
+            IF (comp NOT IN retval.components)
+              INSERT comp INTO retval.components AT END;
+    }
+
+    FOREVERY(RECORD newtab FROM result.rootnode.newtabs)
+    {
+      OBJECT tabpanel := newtab.component;
+      STRING title := tabpanel->title;
+
+      OBJECT addtotab;
+      IF(title!="") // See if a tab with the extension title already is inserted
+        FOREVERY (OBJECT tab FROM this->pages)
+          IF (ToUppercase(tab->title) = ToUppercase(title))
+          {
+            addtotab := tab;
+            BREAK;
+          }
+
+      FOREVERY(OBJECT comp FROM tabpanel->GetChildComponents())
+        IF (NOT ObjectExists(comp->supercomponent) AND comp NOT IN retval.components)
+          INSERT comp INTO retval.components AT END;
+
+      IF(ObjectExists(addtotab))
+      {
+        //Move all the components into the tab
+        addtotab->InsertLinesAfter(tabpanel->ExtractAllLines(), DEFAULT OBJECT);
+        tabpanel->DeleteComponent();
+      }
+      ELSE
+      {
+        //Add the panel as a new tab
+        INTEGER insertpos;
+        IF(this->extendposition = -1)
+        {
+          insertpos := Length(this->pages);
+        }
+        ELSE
+        {
+          insertpos := this->extendposition;
+          this->extendposition := this->extendposition + 1;
+        }
+        this->InsertPanelAsTab(insertpos, tabpanel);
+
+        INSERT tabpanel INTO retval.addedtabs AT END;
+
+        //Run PreInit and PostInit, these are normally exceuted at screen init or line insertion, so it won't have run yet
+        IF(this->owner->pvt_tolliumframepreinits)
+          tabpanel->EnsurePreInit();
+
+        IF (this->owner->pvt_tolliumframeinitrun) // Only execute postinit when frame init has been run
+          tabpanel->EnsurePostInit();
+
+      }
+    }
+
+    // Init the extension
+    retval.fragment->InitExtension(this);
+    retval.rootnode := result.rootnode;
+
+    INSERT retval INTO this->loaded_extensions AT END;
+    retval.extension := retval.fragment;
+    RETURN retval;
+  }
+
+  /** Validates extensions. Usually invoked by BeginWork
+      @param feedback Feedback object to receive errors */
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT feedback)
+  {
+    /* As validatevalue is always invoked and sometimes looped on, we also accept 'never loaded tabs' and 'already validated'
+       And because we can restart a failed submission, we also need to accept  being invoked after SubmitExtensions */
+    IF(this->runstate NOT IN [ "", "didpostinit", "didvalidate", "didsubmitextensions" ] AND NOT IsDtapLive())
+      THROW NEW TolliumException(this, `Extendable tabs contract violation: RunExtensionsPostInit must be invoked before ValidateValue/BeginFeedback (state=${this->runstate})`);
+    this->runstate := "didvalidate";
+
+    OBJECT ARRAY validatecomponents := this->GetChildComponents();
+    FOREVERY (RECORD rec FROM this->loaded_extensions)
+      IF (ObjectExists(rec.fragment))
+        rec.fragment->ValidateValue(feedback);
+
+    TolliumExtendableLinesContainerBase::ValidateValue(feedback);
+  }
+
+  /** Request extensions to submit.
+      @long SubmitExtensions Will not invoke SubmitExtension handlers once work has already failed. As much validation as possible should be done
+            before invoking SubmitExtensions.
+      @param feedback Feedback object to receive errors */
+  PUBLIC MACRO SubmitExtensions(OBJECT feedback)
+  {
+    IF(this->runstate != "didvalidate" AND NOT IsDtapLive())
+      THROW NEW TolliumException(this, `Extendable tabs contract violation: ValidateValue/BeginFeedback must be invoked before SubmitExtensions (state=${this->runstate})`);
+    this->runstate := "didsubmitextensions";
+
+    FOREVERY (RECORD rec FROM this->loaded_extensions)
+      IF (NOT feedback->HasFailed() AND ObjectExists(rec.fragment))
+        rec.fragment->SubmitExtension(feedback);
+  }
+
+  /** Remove previously added tabs extensions (last added extension must be removed first!)
+      @param rec Return value of Load(Custom)TabsExtension
+  */
+  PUBLIC MACRO RemoveTabsExtension(RECORD rec)
+  {
+    FOREVERY (OBJECT obj FROM rec.components)
+      obj->DeleteComponent();
+    FOREVERY (OBJECT obj FROM rec.compositions)
+      obj->DeleteComponent();
+    FOREVERY (OBJECT obj FROM rec.addedtabs)
+      obj->DeleteComponent();
+
+    DELETE FROM this->loaded_extensions WHERE loaded_extensions.__extensionid = rec.__extensionid;
+  }
+
+  PUBLIC MACRO RunExtensionsPostInit()
+  {
+    //RunExtensionsPostInit must be invoked after LoadTabsExtension (but we'll accept not invoking LoadTabsExtension at all, eg if you had nothing to load)
+    IF(this->runstate NOT IN [ "", "loadedtabs" ] AND NOT IsDtapLive())
+      THROW NEW TolliumException(this, `Extendable tabs contract violation: LoadTabsExtension must be invoked before RunExtensionsPostInit (state=${this->runstate})`);
+    this->runstate := "didpostinit";
+
+    FOREVERY (RECORD rec FROM this->loaded_extensions)
+    {
+      IF (ObjectExists(rec.fragment) AND NOT rec.done_postinit)
+      {
+        // Guard for recursive loading
+        UPDATE this->loaded_extensions SET done_postinit := TRUE WHERE loaded_extensions.__extensionid = rec.__extensionid;
+
+        rec.fragment->PostInitExtension();
+      }
+    }
+  }
+
+  /** Returns a list of currently loaded extensions
+      @return
+      @cell return.extension Extension object
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListExtensions()
+  {
+    RETURN SELECT extension := fragment FROM this->loaded_extensions;
+  }
+
+>;

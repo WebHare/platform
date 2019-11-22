@@ -1,0 +1,965 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/dialogs.whlib";
+LOADLIB "mod::wrd/lib/internal/wrd2dot.whlib";
+LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
+
+/* ADDME?
+   - Could save tab/type/attribute 'last' state during unload and schema
+     switch instead of repeatedly during usage for db/ui performance
+*/
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  /// Schema-specific registry key
+  PUBLIC STRING schemabasekey;
+
+  /// Id of currently selected entity, 0 if none selected
+  INTEGER current_entity;
+
+  /// Type of the entities in the searchresults
+  OBJECT current_entitylisttype;
+
+  /// Type of currently selected entity, DEFAULT OBJECT if none selected
+  OBJECT current_type;
+
+  /// Type of currentl search, DEFAULT OBJECT if none selected
+  OBJECT result_type;
+
+  BOOLEAN viewer_follows_main;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    IF (Length(data.params) > 0)
+    {
+      IF (ToInteger(data.params[0],0) != 0)
+      {
+        RECORD entityrec := DescribeWRDEntity(ToInteger(data.params[0],0));
+        IF (RecordExists(entityrec))
+        {
+          this->OpenASchema(entityrec.wrdschema, ToInteger(data.params[0],0));
+          ^results_frees->selection := ^results_frees->rows;
+          this->frame->focused := ^results_frees;
+        }
+      }
+      ELSE
+      {
+        INTEGER tryaccount := SELECT AS INTEGER id FROM wrd.schemas WHERE ToUpperCase(name) = ToUpperCase(data.params[0]);
+        this->OpenASchema(tryaccount, 0);
+      }
+    }
+    ELSE IF (RecordExists(data.target))
+    {
+      IF (CellExists(data.target, "schemaname"))
+      {
+        INTEGER tryaccount := SELECT AS INTEGER id FROM wrd.schemas WHERE ToUpperCase(name) = ToUpperCase(data.target.schemaname);
+        this->OpenASchema(tryaccount, 0);
+      }
+      ELSE IF (CellExists(data.target, "schemaid"))
+      {
+        this->OpenASchema(data.target.schemaid, 0);
+      }
+      ELSE IF (CellExists(data.target, "entityid"))
+      {
+        RECORD entityrec := DescribeWRDEntity(data.target.entityid);
+        IF (RecordExists(entityrec))
+          this->OpenASchema(entityrec.wrdschema, data.target.entityid);
+      }
+    }
+
+    BOOLEAN cancreate := this->tolliumuser->HasRight("wrd:createschema");
+    //loop as long as we have rights, and not selected a schema
+    WHILE(NOT ObjectExists(this->contexts->wrdschema))
+    {
+      OBJECT dialog := this->LoadScreen("schemamanager.main", [ curschema := 0 ]);
+      IF(dialog->RunModal() != "ok")
+      {
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+      this->OpenASchema(dialog->value,0);
+    }
+
+    //Initialize!
+    this->maintabs->selectedtab := this->browsertab;
+
+    this->resultcount->visible := FALSE;
+
+    ^links->debugactions := [[ type := "wrd:entity", cellname := "linkid" ]];
+    ^results_frees->debugactions := [[ type := "wrd:entity", cellname := "id" ]];
+  }
+
+  RECORD ARRAY FUNCTION ConstructMenuItems(RECORD ARRAY items, OBJECT receivingmenu)
+  {
+    FOREVERY(RECORD newmenuitem FROM items)
+    {
+      newmenuitem := MakeUpdatedRecord( [ title := ""
+                                        , onexecute := DEFAULT MACRO PTR
+                                        ], newmenuitem);
+
+      INSERT CELL __action := DEFAULT OBJECT INTO newmenuitem;
+      INSERT CELL __menuitem := DEFAULT OBJECT INTO newmenuitem;
+
+      IF(newmenuitem.title != "" AND newmenuitem.onexecute != DEFAULT MACRO PTR)
+      {
+        newmenuitem.__action := this->CreateTolliumComponent("action");
+        newmenuitem.__action->title := newmenuitem.title;
+        newmenuitem.__action->onexecute := PTR this->WrapExtensionExecute(newmenuitem.onexecute);
+
+        newmenuitem.__menuitem := this->CreateTolliumComponent("menuitem");
+        newmenuitem.__menuitem->title := newmenuitem.title;
+        newmenuitem.__menuitem->action := newmenuitem.__action;
+      }
+      items[#newmenuitem] := newmenuitem;
+
+      INSERT [ menuitem := newmenuitem.__menuitem
+             , isdivider := FALSE
+             ] INTO receivingmenu->items AT END;
+    }
+    RETURN items;
+  }
+  MACRO WrapExtensionExecute(MACRO PTR toexecute)
+  {
+    toexecute(this->contexts->wrdschema);
+  }
+
+  MACRO DoExitApplication()
+  {
+    this->tolliumresult := "ok";
+  }
+
+  MACRO DoQueryBuilder()
+  {
+    this->tolliumcontroller->SendApplicationMessage("wrd:querybuilder", [ wrdschema := this->contexts->wrdschema->id ], DEFAULT RECORD, FALSE);
+  }
+
+  ////////////////////////////////////////////////////////
+  // Schema management
+  //
+  MACRO OpenASchema(INTEGER id, INTEGER openforentity)
+  {
+    IF(this->tolliumuser->HasRightOn("wrd:read", id))
+    {
+      OBJECT toopen := OpenWRDSchemaById(id);
+      IF(ObjectExists(toopen) AND (toopen->usermgmt = FALSE OR this->tolliumuser->HasRight("system:sysop")))
+      {
+        this->contexts->wrdschema := toopen;
+        this->InitOpenSchema(openforentity);
+        RETURN;
+      }
+    }
+    this->tolliumresult := "cancel";
+  }
+
+  MACRO DoExportSchema()
+  {
+    DATETIME now := GetCurrentDateTime();
+
+    OBJECT exporter := MakeWRDSchemaExporter(this->contexts->wrdschema);
+    BLOB file := exporter->RunExport();
+
+    STRING filename := GetSafeFilename("wrd_export_" || this->contexts->wrdschema->tag || "." || FormatDateTime("%Y%m%d", now)) || ".tar.gz";
+    this->frame->SendFileToUser(file, "application/octet-stream", filename, now);
+  }
+
+  MACRO DoExportXMLMetadata()
+  {
+    DATETIME now := GetCurrentDateTime();
+    BLOB file := CreateWRDSchemaDefinitionFile(this->contexts->wrdschema);
+    STRING filename := GetSafeFilename("wrd_metadata_" || this->contexts->wrdschema->tag || "." || FormatDateTime("%Y%m%d", now)) || ".xml";
+    this->frame->SendFileToUser(file, "text/xml", filename, now);
+  }
+
+  MACRO DoExportDotStructure()
+  {
+    DATETIME now := GetCurrentDateTime();
+    BLOB dotschema := MakeDotFromWRDSchema(this->contexts->wrdschema, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE);
+    STRING filename := GetSafeFilename("wrd_structure_" || this->contexts->wrdschema->tag || "." || FormatDateTime("%Y%m%d", now)) || ".gv";
+    this->frame->SendFileToUser(dotschema, "text/vnd.graphviz", filename, now);
+  }
+
+  MACRO DoManageSchemas()
+  {
+    OBJECT dialog := this->LoadScreen("schemamanager.main", [ curschema := this->contexts->wrdschema->id ]);
+    INTEGER openschemaid := dialog->RunModal() = "ok" ? dialog->value : this->contexts->wrdschema->id;
+    this->OpenASchema(openschemaid, 0);
+  }
+
+  MACRO DoManageTypes()
+  {
+    this->RunScreen("types.xml#managetypes");
+    this->RefreshSearchOptions();
+  }
+  MACRO DoManagePendingPayments()
+  {
+    RunWRDPendingPaymentsDialog(this);
+  }
+  MACRO DoManagePaymentProviders()
+  {
+    this->RunScreen("types.xml#managepaymentproviders");
+  }
+
+  MACRO DoAddToStartMenu()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    STRING title := this->contexts->wrdschema->title ?? this->contexts->wrdschema->tag;
+    IF (this->tolliumcontroller->FavoriteExists(title))
+    {
+      INTEGER num := 1;
+      STRING basetitle := title;
+      WHILE (this->tolliumcontroller->FavoriteExists(title))
+      {
+        num := num + 1;
+        title := basetitle || " (" || num || ")";
+      }
+    }
+    IF (NOT this->tolliumcontroller->AddFavorite("wrd:browser",
+                                                 [ schemaname := this->contexts->wrdschema->tag ], // Open by name rather than id
+                                                 DEFAULT RECORD,
+                                                 title,
+                                                 "wrd:wrd"))
+    {
+      this->RunMessageBox("tollium:commondialogs.alreadyaddedtostartmenu");
+      work->Cancel();
+      RETURN;
+    }
+    work->Finish();
+  }
+
+  //Open de schemadata-editor
+  PUBLIC MACRO DoSchemaData()
+  {
+    OBJECT editor := this->LoadScreen("schema.editschemadata",
+        [ currentschema := this->contexts->wrdschema ]);
+
+    editor->RunModal();
+  }
+
+  ////////////////////////////////////////////////////////
+  // Support
+  //
+
+  MACRO RefreshSearchOptions()
+  {
+    IF (NOT ObjectExists(this->contexts->wrdschema))
+    {
+      this->freetype->options := DEFAULT RECORD ARRAY;
+      this->freeattr->options := DEFAULT RECORD ARRAY;
+    }
+    ELSE
+    {
+      RECORD ARRAY types := this->contexts->wrdschema->ListTypes();
+      STRING lasttype := this->tolliumuser->GetRegistryKey(this->schemabasekey || "lasttype", "");
+
+      this->freetype->options :=
+          SELECT rowkey := id
+               , title := tag
+               , isdomain
+               , tag
+            FROM types
+        ORDER BY tag;
+
+      RECORD toselect := SELECT * FROM types WHERE tag=lasttype;
+      IF(RecordExists(toselect))
+        this->freetype->value := toselect.id;
+      ELSE
+        this->freetype->value := (SELECT AS INTEGER id FROM types WHERE tag="WRD_PERSON");
+    }
+  }
+
+  // Function is called when a WRD schema is opened. Sets the title and calls the updatetree function
+  PUBLIC MACRO InitOpenSchema(INTEGER openforentity)
+  {
+    this->frame->title := this->contexts->wrdschema->tag || " - " || GetTid("wrd:browser.main.title");
+    this->entitypath->value := this->contexts->wrdschema->tag;
+    this->schemabasekey := GetSchemaBaseKey(this->contexts->wrdschema);
+
+    this->frame->flags.right_metadata := this->tolliumuser->HasRightOn("wrd:metadata", this->contexts->wrdschema->id);
+    this->frame->flags.right_readwrite := this->tolliumuser->HasRightOn("wrd:readwrite", this->contexts->wrdschema->id);
+    this->frame->flags.has_accounts := ObjectExists(this->contexts->wrdschema->accounttype);
+    this->frame->flags.has_usermgmt := this->contexts->wrdschema->usermgmt;
+
+    this->RefreshSearchOptions();
+
+    IF (openforentity != 0)
+    {
+      RECORD entityrec := DescribeWRDEntity(openforentity);
+      this->current_type := this->contexts->wrdschema->GetTypeById(entityrec.wrdtype);
+      this->DoQueryAndShowResults(this->current_type, [[ field := "WRD_ID", match_type := "=", value := openforentity]]);
+      this->GotoEntity(this->current_type, openforentity);
+      this->freetype->value := entityrec.wrdtype;
+    }
+    ELSE
+    {
+      // If the last selected tab was "Free search", and the type and attribute pulldowns have a value, the "Free search"
+      ^results_frees->rows := DEFAULT RECORD ARRAY;
+
+      this->current_entity := 0;
+      this->current_type := DEFAULT OBJECT;
+      this->current_entitylisttype := DEFAULT OBJECT;
+    }
+
+    this->tolliumcontroller->applicationtarget := [ schemaname := this->contexts->wrdschema->tag ];
+    this->OnSelectFreeType(); //make sure any cached WRDTYpe in the <quickfilter> is refreshed
+  }
+
+  MACRO DoSamlAuth()
+  {
+    this->LoadScreen("wrd:samlauth.openauthdomain", [ wrdschema := this->contexts->wrdschema ])->RunModal();
+  }
+
+  MACRO DoAuditLog()
+  {
+    RunWRDAuditLogDialog(this);
+  }
+
+  PUBLIC MACRO DoMergeEntity()
+  {
+    INTEGER mergeinto := RunWRDEntitySelectDialog(this, this->current_type, 0);
+    IF(mergeinto = 0 OR this->RunMessageBox(".confirmmergeentity") != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    this->current_type->GetEntity(^results_frees->selection.id)->MergeEntityInto(mergeinto);
+    this->current_type->GetEntity(^results_frees->selection.id)->CloseEntity();
+    work->Finish();
+    this->RefreshEntity(); //FIXME how to refresh the search
+  }
+
+  PUBLIC MACRO DoEditEntity()
+  {
+    IF(NOT this->frame->flags.right_readwrite)
+      RETURN; //FIXME reimplement a readonly version of entity edit.. but we should probably just stick to the browser and make Mark's datapanel permanent
+
+    RECORD selection := ^results_frees->selection;
+    IF(RunWRDEntityEditDialog(this, this->result_type, selection.id) != 0)
+    {
+      // Update the preview panel (the right panel)
+      this->RefreshEntity();
+    }
+  }
+
+  PUBLIC MACRO DoDeleteEntity()
+  {
+    INTEGER ARRAY delete_entries :=
+        SELECT AS INTEGER ARRAY rowkey
+          FROM ^results_frees->selection;
+
+    BOOLEAN deleteit;
+
+    // "Other" selected
+    IF (LENGTH(delete_entries) > 1)
+      deleteit := this->RunMessageBox(".deleteentities") = "yes";
+    ELSE
+      deleteit := this->RunMessageBox(".deleteentity") = "yes";
+
+    IF (deleteit)
+    {
+      OBJECT work := this->BeginWork();
+
+      FOREVERY (INTEGER entityid FROM delete_entries)
+      {
+        OBJECT entityobj := this->current_type->GetEntity(entityid);
+        IF (ObjectExists(entityobj))
+        {
+          entityobj->DeleteEntity();
+
+          // FIXME: Delete references?
+          /*record array ra := (SELECT id FROM wrd.entities WHERE leftentity = entityobj->id AND id!=entityobj->id)
+              CONCAT (SELECT id FROM wrd.entities WHERE rightentity = entityobj->id AND id!=entityobj->id)
+              CONCAT (SELECT id := entity FROM wrd.entity_settings WHERE setting = entityobj->id AND entity != entityobj->id);
+
+          INTEGER ARRAY entityids := SELECT AS INTEGER ARRAY id FROM ra;
+          DELETE FROM wrd.entities WHERE id IN entityids;
+          DELETE FROM wrd.entity_settings WHERE entity IN entityids;*/
+        }
+      }
+
+      IF (work->Finish())
+      {
+        DELETE FROM ^results_frees->rows   WHERE rowkey IN delete_entries;
+      }
+    }
+  }
+
+  ////////////////////////////////////////////////////////
+  // Types management
+  //
+
+  MACRO DoSchemaProps()
+  {
+    OBJECT dialog := this->LoadScreen("schemamanager.schemaprops", [ currentschema := this->contexts->wrdschema] );
+    IF (dialog->RunModal() = "ok")
+    {
+      this->InitOpenSchema(0);
+    }
+  }
+
+
+  ////////////////////////////////////////////////////////
+  //
+  // New entities
+  //
+  PUBLIC MACRO DoNewFree()
+  {
+    RECORD ARRAY opts := [[ rowkey := ":-empty-:", title := GetTid("wrd:main.chooseattribute") ]];
+    IF (^freetype->value != 0)
+      RunWRDEntityEditDialog(this, this->contexts->wrdschema->GetTypeById(^freetype->value), 0);
+  }
+
+  ////////////////////////////////////////////////////////
+  //
+  // Search
+  //
+  PUBLIC MACRO DoGotoId()
+  {
+    //ADDME: Also allow GotoId without a selected schema/to jump between schemas. Add WRD GUID support
+    OBJECT screen := this->LoadScreen(".gotoid", [ curentity := this->current_entity, curschema := this->contexts->wrdschema ]);
+    IF(screen->RunModal()="ok")
+    {
+      OBJECT type := this->contexts->wrdschema->GetTypeById(screen->explained.wrdtype);
+      this->DoQueryAndShowResults(type, [[ field := "WRD_ID", match_type := "=", value := screen->explained.id]]);
+
+      this->GotoEntity(type, screen->explained.id);
+    }
+  }
+
+
+  PUBLIC MACRO DoToggleLinks()
+  {
+    BOOLEAN linksvisible := this->linksbox->visible;
+
+    this->linksbox->visible := NOT linksvisible;
+    this->togglelinksbtn->pressed := NOT linksvisible;
+  }
+
+  MACRO DoToggleDataViewer()
+  {
+    this->toggledataviewerbtn->pressed := NOT this->toggledataviewerbtn->pressed;
+    this->dataviewer->visible := this->toggledataviewerbtn->pressed;
+
+    IF (this->dataviewer->visible)
+      this->RefreshDataViewer();
+  }
+
+
+  RECORD ARRAY FUNCTION EnrichSearchResults(RECORD ARRAY results, OBJECT type)
+  {
+    BOOLEAN link_available :=
+        RecordExists(SELECT FROM this->contexts->wrdschema->ListTypes() AS types
+                           WHERE (linkfrom = type->id OR linkto = type->id));
+
+    RETURN SELECT *
+                , can_edit_entity := TRUE // FIXME (can we define rights on entity level? if not, is that a needed feature?)
+                , can_add_link := link_available
+                , type := type
+             FROM results;
+  }
+
+  MACRO OnSelectFreeType()
+  {
+    IF (NOT RecordExists(this->freetype->selection))
+      RETURN;
+
+    this->tolliumuser->SetRegistryKey(this->schemabasekey || "lasttype", this->freetype->selection.tag);
+    this->quickfilter->wrdtype := this->contexts->wrdschema->GetTypeById(this->freetype->value);
+  }
+
+  RECORD ARRAY FUNCTION GetPreferredListAttributes(OBJECT type, STRING ARRAY preference, INTEGER ARRAY accepted_types, INTEGER howmany, STRING ARRAY exceptfields)
+  {
+    RECORD ARRAY show_attrs := SELECT *
+                                    , prefpos := SearchElement(preference, tag)
+                                 FROM type->ListAttributes(0)
+                                 WHERE attributetype IN accepted_types
+                                       AND tag NOT IN exceptfields;
+    //Show our preferred fields first if available, otherwise use ordering to pick a field
+    show_attrs := SELECT *
+                    FROM show_attrs
+                   WHERE attributetype != 1 OR domain != 0 // No gender fields
+                ORDER BY prefpos != -1 DESC
+                       , prefpos
+                       , ToUppercase(title)
+                       , id
+                   LIMIT howmany;
+    RETURN show_attrs;
+  }
+
+  //Create col1,col2,col3
+  RECORD FUNCTION GetListAttributesAsQuery(OBJECT type, STRING ARRAY preference, STRING ARRAY exceptfields)
+  {
+    RECORD query := [ sources := [ [ type := type
+                                   , name := "basetype"
+                                   , filters := DEFAULT RECORD ARRAY
+                                   , outputcolumns := CELL[]
+                                 ] ]
+                    , links := DEFAULT RECORD ARRAY
+                    ];
+
+    //ADDME Support more types
+    RECORD ARRAY show_attrs := this->GetPreferredListATtributes(type, preference, [2,4,1,21,23], 5, exceptfields);
+
+    RECORD outputcolumns := DEFAULT RECORD;
+    FOREVERY(RECORD add FROM show_attrs)
+    {
+      STRING outputcellname := "col" || (#add+1);
+      STRING outputcelltype := "text";
+
+      IF(add.attributetype=1) //domain
+      {
+        OBJECT domaintype := this->contexts->wrdschema->GetTypeById(add.domain);
+        RECORD destattr := this->GetPreferredListAttributes(domaintype,
+                                                            [ "WRD_TITLE" ],
+                                                            [2,4],
+                                                           1,
+                                                             DEFAULT STRING ARRAY);
+        STRING outputcell;
+        IF(RecordExists(destattr))
+        {
+          outputcell := destattr.tag;
+        }
+        ELSE
+        {
+          outputcell := "WRD_ID";
+          outputcelltype := "integer";
+        }
+
+        INSERT [ type := this->contexts->wrdschema->GetTypeById(add.domain)
+               , name := "merge" || #add
+               , outputcolumns := CellInsert(DEFAULT RECORD, outputcellname, outputcell)
+               ] INTO query.sources AT END;
+        INSERT [ left := "basetype", right := "merge" || #add, field := add.tag, jointype := "right-optional"
+               ] INTO query.links AT END;
+      }
+      ELSE //simple text thingy
+      {
+        query.sources[0].outputcolumns := CellInsert(query.sources[0].outputcolumns, outputcellname, add.tag);
+      }
+
+      INSERT CELL outputcellname := outputcellname INTO show_attrs[#add];
+      INSERT CELL outputcelltype := outputcelltype INTO show_attrs[#add];
+    }
+    RETURN [ query := query
+           , extracols := show_attrs
+           ];
+  }
+
+  MACRO OnQuickfilterSearch(RECORD ARRAY queryfilters)
+  {
+    this->DoQueryAndShowResults(this->quickfilter->wrdtype, queryfilters);
+  }
+
+  MACRO DoQueryAndShowResults(OBJECT type, RECORD ARRAY filters)
+  {
+    this->current_entitylisttype := type; // all entities in the entity list will now be of the selected type
+
+    STRING ARRAY prefs := [ "WRD_TITLE", "WRD_FIRSTNAME", "WRD_LASTNAME", "WRD_ORGNAME", "WRD_CONTACT_EMAIL" ];
+    FOREVERY (RECORD filter FROM filters)
+      IF (CellExists(filter, "field") AND ToUppercase(filter.field) NOT IN prefs)
+        INSERT ToUppercase(filter.field) INTO prefs AT END;
+
+    RECORD listinfo := this->GetListAttributesAsQuery(type, prefs, DEFAULT STRING ARRAY);
+
+    RECORD query := listinfo.query;
+    query.sources[0].filters := query.sources[0].filters CONCAT filters;
+    query.sources[0].outputcolumns := MakeMergedRecord(query.sources[0].outputcolumns, [ rowkey := "wrd_id", id := "wrd_id" ]);
+
+    INSERT CELL creationdate := "WRD_CREATIONDATE" INTO query.sources[0].outputcolumns;
+    INSERT CELL limitdate    := "WRD_LIMITDATE" INTO query.sources[0].outputcolumns;
+    INSERT CELL historymode  := "all" INTO query.sources[0];
+
+    ^results_frees->columns := [[ name := "id"
+                                     , title := "ID"
+                                     , width := "10x"
+                                     , type := "integer"
+                                    ]]
+                                    CONCAT SELECT name := outputcellname
+                                         , title
+                                         , type := outputcelltype
+                                      FROM listinfo.extracols;
+
+    RECORD ARRAY results := this->contexts->wrdschema->RunQuery(query);
+
+    DATETIME now := GetCurrentDateTime();
+    results := SELECT *
+                    , style := this->GetAvailabilityStyle(now, creationdate, limitdate)
+                 FROM this->EnrichSearchResults(results, type);
+
+    ^results_frees->rows := results;
+    this->result_type := type;
+
+    INTEGER nr_results:= LENGTH(results);
+    this->resultcount->visible:= TRUE;
+    this->resultcount->value := ToString(nr_results);
+  }
+
+  STRING FUNCTION GetAvailabilityStyle(DATETIME now, DATETIME creationdate, DATETIME limitdate)
+  {
+    IF (limitdate < now OR creationdate > now)
+      RETURN "notavailable";
+
+    RETURN "";
+  }
+
+  /////////////////////////////////////////////////////////////////////
+  //
+  // Preview
+  //
+
+  RECORD FUNCTION GetPrimaryFieldValue(OBJECT type, INTEGER id)
+  {
+    STRING ARRAY fields := [ "WRD_TITLE", "WRD_FULLNAME", "WRD_ORGNAME" ];
+    OBJECT entity := type->GetEntity(id);
+
+    RECORD field :=
+        SELECT tag
+             , title
+          FROM type->ListAttributes(0)
+         WHERE tag IN fields;
+
+    RETURN
+      [ field := RecordExists(field) ? field.title : ""
+      , value := ObjectExists(entity) AND RecordExists(field) ? entity->GetField(field.tag) : ""
+      ];
+  }
+
+  RECORD ARRAY FUNCTION GetLinkTypeCandidates(OBJECT type)
+  {
+    // FIXME: and what about entities using the selected object as domain value (in singledomain or multipledomain fields) ?
+    RETURN
+        SELECT *
+          FROM this->contexts->wrdschema->ListTypes() AS types
+         WHERE (islink /* link */ AND (linkfrom = type->id OR linkto = type->id))
+               OR (isattachment /* classification */ AND (linkfrom = type->id));
+  }
+
+  OBJECT ARRAY customfields;
+
+  MACRO OnSelectEntity()
+  {
+    RECORD sel := ^results_frees->selection;
+
+    IF (RecordExists(sel))
+    {
+      this->GotoEntity(this->current_entitylisttype, sel.id);
+      this->RefreshDataViewer();
+    }
+    ELSE
+    {
+      this->current_entity := 0;
+      this->ResetEntityInformation();
+    }
+  }
+
+  MACRO OnMainListFocus()
+  {
+    this->viewer_follows_main := TRUE;
+    this->RefreshDataViewer();
+  }
+  MACRO OnLinksFocus()
+  {
+    this->viewer_follows_main := FALSE;
+    this->RefreshDataViewer();
+  }
+
+  MACRO RefreshDataViewer()
+  {
+    IF (NOT ^dataviewer->visible)
+      RETURN;
+
+    RECORD rowtoshow := this->viewer_follows_main ? ^results_frees->selection : ^links->selection;
+    INTEGER entid := RecordExists(rowtoshow) ? this->viewer_follows_main ? rowtoshow.rowkey : rowtoshow.linkid : 0;
+    RECORD describe := DescribeWRDEntity(entid);
+
+    IF(NOT RecordExists(describe))
+    {
+      ^entitycontent->value := DEFAULT RECORD;
+      RETURN;
+    }
+    ^entitycontent->value := this->contexts->wrdschema->GetTypeById(describe.wrdtype)->GetEntityFields(entid, ["*"]);
+  }
+
+
+  MACRO OnSelectEntityLink()
+  {
+    this->RefreshDataViewer();
+  }
+
+
+  MACRO GotoEntity(OBJECT type, INTEGER entity_id)
+  {
+    this->current_entity := entity_id;
+    this->current_type := type;
+    this->RefreshEntity();
+  }
+
+  MACRO ResetEntityInformation()
+  {
+    this->entitypath->value := "";
+    this->entityid->value := "";
+    ^links->rows := DEFAULT RECORD ARRAY;
+  }
+
+  // update all information for the (or to the) current entity
+  MACRO RefreshEntity()
+  {
+    // Remove any custom field
+    FOREVERY (OBJECT field FROM this->customfields)
+      field->DeleteComponent();
+
+    RECORD prim_field := this->GetPrimaryFieldValue(this->current_type, this->current_entity);
+
+    this->entitypath->value := this->contexts->wrdschema->tag || " > " || this->current_type->title || " > " || prim_field.value;
+    this->entityid->value := ToString(this->current_entity);
+
+    this->ReloadLinks();
+  }
+
+  MACRO ReloadLinks()
+  {
+    IF (this->current_entity = 0)
+    {
+      ^links->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    INTEGER ARRAY current_types;
+    FOR (OBJECT itr := this->current_type; ObjectExists(itr); itr := itr->parenttype)
+      INSERT itr->id INTO current_types AT END;
+
+    RECORD ARRAY rows;
+    FOREVERY(RECORD typ FROM this->contexts->wrdschema->ListTypes())
+    {
+      OBJECT typeobj := this->contexts->wrdschema->GetTypeById(typ.id);
+      FOREVERY(RECORD attr FROM typeobj->ListAttributes(0))
+      {
+        BOOLEAN link_to_us := attr.domain IN current_types AND attr.attributetypename IN ["DOMAIN","DOMAINARRAY"];
+        BOOLEAN link_from_us := typ.id IN current_types AND attr.domain != 0 AND attr.tag IN ["WRD_LEFTENTITY","WRD_RIGHTENTITY"];
+
+        IF(NOT (link_to_us OR link_from_us))
+          CONTINUE;
+
+        OBJECT destobj := link_to_us ? typeobj : this->contexts->wrdschema->GetTypeById(attr.domain);
+        BOOLEAN followable_link := destobj->islink AND attr.tag IN ["WRD_LEFTENTITY","WRD_RIGHTENTITY"] AND attr.domain != 0;
+
+        INTEGER linked_object_id;
+        IF(NOT link_to_us AND link_from_us)
+        {
+          RECORD x := this->current_type->GetEntityFields(this->current_entity, [STRING(attr.tag)]);
+          IF(NOT RecordExists(x))
+          {
+            // Current entity has been deleted.
+            this->links->rows := DEFAULT RECORD ARRAY;
+            RETURN;
+          }
+          linked_object_id := GetCell(x, attr.tag);
+          IF(linked_object_id = 0)
+            CONTINUE;
+        }
+
+        RECORD lq := this->GetListAttributesAsQuery(destobj, [ /*"WRD_LEFTENTITY", "WRD_RIGHTENTITY", */ "WRD_TITLE", "WRD_FULLNAME", "WRD_ORGNAME" ], [STRING(attr.tag)]);
+        lq.query.sources[0].outputcolumns := MakeMergedRecord(lq.query.sources[0].outputcolumns
+                                                             ,[linkid := "WRD_ID"]);
+        IF(link_to_us)
+        {
+          INSERT [ field := attr.tag, value := this->current_entity ]
+                 INTO lq.query.sources[0].filters AT END;
+        }
+        ELSE
+        {
+          INSERT [ field := "WRD_ID", value := linked_object_id ]
+                 INTO lq.query.sources[0].filters AT END;
+        }
+
+        INSERT CELL creationdate := "WRD_CREATIONDATE" INTO lq.query.sources[0].outputcolumns;
+        INSERT CELL limitdate    := "WRD_LIMITDATE" INTO lq.query.sources[0].outputcolumns;
+        INSERT CELL historymode  := "all" INTO lq.query.sources[0];
+
+        IF(followable_link)
+          lq.query.sources[0].outputcolumns := CellInsert(lq.query.sources[0].outputcolumns, 'followid', attr.tag="WRD_RIGHTENTITY"?"WRD_LEFTENTITY":"WRD_RIGHTENTITY");
+
+        //PrintRecordTo(0,lq.query,'tree');
+        STRING typename := destobj->tag || " (" || attr.tag || ")";
+
+        DATETIME now := GetCurrentDateTime();
+        RECORD ARRAY newrows := SELECT linkid
+                                     , col1 := Length(lq.extracols) > 0 ? col1 : ""
+                                     , col2 := Length(lq.extracols) > 1 ? col2 : ""
+                                     , col3 := Length(lq.extracols) > 2 ? col3 : ""
+                                     , linktype := destobj->id
+                                     , type := typename
+                                     , followid := followable_link ? followid : 0
+                                     , style := this->GetAvailabilityStyle(now, creationdate, limitdate)
+                                     , creationdate
+                                  FROM this->contexts->wrdschema->RunQuery(lq.query);
+
+        newrows := SELECT *, canfollow := followid != 0 FROM newrows;
+        rows := rows CONCAT newrows;
+      }
+    }
+
+    this->links->rows := rows;
+
+    INTEGER nr_links:= LENGTH(rows);
+    this->linkcount->visible:= TRUE;
+    this->linkcount->value := ToString(nr_links);
+
+  }
+
+  PUBLIC MACRO DoFollowLink()
+  {
+    RECORD selected := this->links->selection;
+    OBJECT type := this->contexts->wrdschema->GetTypeById(selected.linktype);
+    this->GotoEntity(type, selected.followid);
+  }
+
+  PUBLIC MACRO DoOpenLink()
+  {
+    RECORD selected := this->links->selection;
+    OBJECT type := this->contexts->wrdschema->GetTypeById(selected.linktype);
+    this->GotoEntity(type, selected.linkid);
+  }
+
+  PUBLIC MACRO DoAddLink()
+  {
+    RECORD selectedentity := ^results_frees->selection;
+
+    RECORD ARRAY linktypes := this->GetLinkTypeCandidates(selectedentity.type);
+    RECORD linktype;
+
+    OBJECT screen := this->LoadScreen(".chooselinktype", [ linktypes := linktypes, currentschema := this->contexts->wrdschema ]);
+    IF (screen->RunModal() != "ok")
+      RETURN;
+
+    linktype := screen->linktype;
+
+    OBJECT type := this->contexts->wrdschema->GetTypeById(linktype.id);
+
+    RECORD fields;
+    IF (linktype.islink /* link */ AND linktype.requiretype_right = type->id)
+    {
+      IF (linktype.requiretype_left != type->id)
+        fields := [ wrd_rightentity := selectedentity.id ];
+    }
+    ELSE
+      fields := [ wrd_leftentity := selectedentity.id ];
+
+    IF(RunWRDEntityEditDialog(this, type, 0, [ entitycontext := fields ]) != 0)
+      this->ReloadLinks();
+  }
+
+  PUBLIC MACRO DoEditLink()
+  {
+    RECORD selectedentity := ^results_frees->selection;
+
+    RECORD link := this->links->selection;
+    OBJECT type := this->contexts->wrdschema->GetTypeById(link.linktype);
+
+    RECORD fields;
+    IF(RunWRDEntityEditDialog(this, type, link.linkid) != 0)
+      this->ReloadLinks();
+
+  }
+
+  PUBLIC MACRO DoDeleteLink()
+  {
+    //ADDME: Add the option to 'close' instead of 'delete' - or shoudl that be a schema/type setting?
+    //ADDME: We can now set the limitdate - that's the same as closing, right? Although that sucks for multiple selects...
+
+    RECORD ARRAY links := this->links->selection;
+    IF(this->RunMessageBox(".deletelinks", ToString(Length(links)))="yes")
+    {
+      OBJECT work := this->BeginWork();
+      FOREVERY(RECORD link FROM links)
+        DELETE FROM wrd.entities WHERE id = link.linkid;
+      work->Finish();
+
+      this->ReloadLinks();
+    }
+  }
+
+  PUBLIC MACRO DoAnonymize()
+  {
+    this->LoadScreen("anonymize.anonymize", [ currentschema := this->contexts->wrdschema ] )->RunModal();
+  }
+
+  MACRO doshowhistory_results()
+  {
+    RunWRDHistoryDialog(this, this->current_type->GetEntity(^results_frees->value[0]));
+  }
+>;
+
+PUBLIC OBJECTTYPE ChooseLinkType EXTEND TolliumScreenBase
+< PUBLIC PROPERTY linktype(GetLinkType, -);
+
+  MACRO Init(RECORD data)
+  {
+    this->linktypes->options :=
+        SELECT rowkey := id
+             , title
+             , data := option
+          FROM data.linktypes AS option
+      ORDER BY NormalizeText(title, GetTidLanguage());
+
+    IF (LENGTH(data.linktypes) = 1)
+      this->linktypes->readonly := TRUE;
+    ELSE IF (LENGTH(data.linktypes) > 5)
+      this->linktypes->type := "radio";
+  }
+
+  RECORD FUNCTION GetLinkType()
+  {
+    RETURN this->linktypes->selection.data;
+  }
+>;
+
+PUBLIC OBJECTTYPE GotoId EXTEND TolliumScreenBase
+<
+  PUBLIC RECORD explained;
+  OBJECT curschema;
+
+  MACRO INIT(RECORD data)
+  {
+    IF(data.curentity!=0)
+      this->entityid->value := ToString(data.curentity);
+    this->curschema := data.curschema;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(NOT work->HasFailed())
+    {
+      INTEGER findid;
+
+      IF(this->entityid->value LIKE "wrd:*")
+      {
+        OBJECT entity := this->curschema->OpenWRDEntityByGuid(this->entityid->value);
+        IF(ObjectExists(entity))
+        {
+          findid:=entity->id;
+        }
+      }
+      ELSE
+      {
+        findid := ToInteger(this->entityid->value,0);
+      }
+
+      this->explained := DescribeWRDEntity(findid);
+      IF(NOT RecordExists(this->explained) OR this->explained.wrdschema != this->curschema->id)
+        work->AddError(GetTid("wrd:messages.nosuchentity"));
+      ELSE
+        INSERT CELL id := findid INTO this->explained;
+    }
+    RETURN work->Finish();
+  }
+>;

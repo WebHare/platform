@@ -1,0 +1,1051 @@
+﻿<?wh
+/** @topic harescript-core/os */
+
+LOADLIB "wh::internal/interface.whlib" EXPORT IsConsoleATerminal, IsConsoleSupportAvailable, GetConsoleSize, GetCurrentPath, FlushOutputBuffer, GetEnvironmentVariable;
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::ipc.whlib";
+
+// Ansi color mode ('' (get from environment), 'enabled', 'disabled'
+STRING ansimode;
+
+
+/** @short Processes and the OS
+    @long This library offers functions and macros that allow you to access the underlying operating system
+    and manipulate processes.
+*/
+
+/** Detaches a process
+    @param processid Process ID
+*/
+MACRO DetachProcess(INTEGER processid) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Start an OS subprocess
+    @long Have the OS start a process, under your direct control. Specify
+          what input and output streams you want to process
+    @param processexecutable Full path to the process executable to start
+    @param arguments An array of arguments to pass to the process (eg, argv[1].. argv[n])
+    @cell options.take_input TRUE if we want control of the process input stream (if false, it will be tied to EOF)
+    @cell options.take_output TRUE if we want to receive the process output stream (if false, it will be discarded)
+    @cell options.take_errors TRUE if we want to receive the process output stream (if false, it will be discarded)
+    @cell options.merge_output_errors TRUE if the error stream should be merged into the output stream (requires take_output=TRUE, ignores take_errors)
+    @cell options.separate_processgroup TRUE if the process should be created in a separate process group
+    @cell options.virtualmemorylimit @includecelldef #ParseVirtualMemorySize.size
+    @return ID of the process, or 0 if the process could not be launched
+    @signature INTEGER FUNCTION StartProcess(STRING processexecutable, STRING ARRAY arguments, RECORD options DEFAULTSTO DEFAULT RECORD)
+*/
+PUBLIC INTEGER FUNCTION StartProcess(STRING processexecutable,
+                                     STRING ARRAY arguments,
+                                     VARIANT options_take_input,
+                                     BOOLEAN take_output DEFAULTSTO FALSE,
+                                     BOOLEAN take_errors DEFAULTSTO FALSE,
+                                     BOOLEAN merge_output_errors DEFAULTSTO FALSE)
+{
+  IF (TypeID(options_take_input) = TypeID(BOOLEAN))
+  {
+    options_take_input := CELL
+        [ take_input :=   options_take_input
+        , take_output
+        , take_errors
+        , merge_output_errors
+        ];
+  }
+
+  RECORD options := options_take_input;
+  options := ValidateOptions(
+      [ take_input :=             FALSE
+      , take_output :=            FALSE
+      , take_errors :=            FALSE
+      , merge_output_errors :=    FALSE
+      , separate_processgroup :=  FALSE
+      , virtualmemorylimit :=     -1i64
+      ], options,
+      [ required :=     [ "take_input", "take_output", "take_errors", "merge_output_errors" ]
+      , notypecheck :=  [ "virtualmemorylimit" ]
+      ]);
+
+  INTEGER64 virtualmemorylimit := ParseVirtualMemorySize(options.virtualmemorylimit);
+
+  TRY
+  {
+    INTEGER processid := CreateProcessInternal(options.take_input, options.take_output, options.take_errors, options.merge_output_errors, options.separate_processgroup, virtualmemorylimit);
+
+    IF (processid != 0)
+    {
+      IF (NOT RunProcess(processid, LookupPath(processexecutable), arguments,"", FALSE, FALSE, FALSE))
+      {
+        CloseProcess(processid);
+        RETURN 0;
+      }
+    }
+    RETURN processid;
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN 0;
+  }
+}
+
+/** @short Check if a process is still running
+    @param processid ID of process to check
+    @return True if the process is still running */
+PUBLIC BOOLEAN FUNCTION IsProcessRunning(INTEGER processid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Wait for a process to send output
+    @long This process listens to both the output and error stream for data,
+          if these were 'taken' using StartProcess. If the process has terminated,
+          this function will report the output or errors to be readable. If both output and errors
+          were not 'taken' using StartProcess, this function will simply wait for
+          the process to terminate.
+    @param processid ID of process to wait for
+    @param maxwait Time to wait, in milliseconds (-1 = forever)
+    @return -1 if process not started, 0 for timeout, 1 if there is 'output', 2 if there are 'errors' */
+PUBLIC INTEGER FUNCTION WaitForProcessOutput(INTEGER processid, INTEGER maxwait) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Get the process exit code, if it stopped
+    @long This function retrieves the process's exit code, if it already
+          exited. You should use the IsProcessRunning() and WaitForProcessOutput()
+          to verify that the process has shutdown before reading its exit code.
+    @param processid Process to request the exit code for
+    @return The process exit code, as reported by the OS, -1 if the process is not yet terminated*/
+PUBLIC INTEGER FUNCTION GetProcessExitCode(INTEGER processid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Read any available data from the output stream
+    @long  If no data is available, an empty string is returned. In this case,
+           the caller should be sure to check IsProcessRunning. This function
+           should not be called inside a loop without using WaitForProcessOutput,
+           as doing so can cause 100% CPU usage.
+    @param processid Process to read output from
+    @return Text received from the process*/
+PUBLIC STRING FUNCTION ReadProcessOutput(INTEGER processid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Read any available data from the error stream
+    @long If no data is available, an empty string is returned. In this case,
+           the caller should be sure to check IsProcessRunning. This function
+           should not be called inside a loop without using WaitForProcessOutput,
+           as doing so can cause 100% CPU usage.
+    @param processid Process to read errors from
+    @return Text received from the process error output */
+PUBLIC STRING FUNCTION ReadProcessErrors(INTEGER processid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Close the input stream
+    @long Close the input to the process, which will cause the process to see an end-of-file
+    @param processid Process to close the input stream from */
+PUBLIC MACRO CloseProcessInput(INTEGER processid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Wait for an OS subprocess to finish and clean itself up
+    @long This function should always be called when the script is done using
+          the process, as not calling this function may unnecessarily delay the
+          freeing of associated resources.
+    @param processid Process to finish */
+PUBLIC MACRO CloseProcess(INTEGER processid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Terminate an OS subprocess
+    @long This function immediately terminates a process. The process id should
+          still be closed using CloseProcess
+    @param processid Id of the process to close
+    @see CloseProcess      */
+PUBLIC MACRO TerminateProcess(INTEGER processid) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Sends an interrupt signal to a process
+    @long This function sends an SIGINT signal to a process.
+    @param processid Id of the process to close
+    @see CloseProcess
+*/
+PUBLIC MACRO InterruptProcess(INTEGER processid) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Get the arguments passed to a script
+    @long This function will cause an error if executed without an active console (ie, not started by runscript)
+    @return A string array of arguments passed to the script, not including the script name itself*/
+PUBLIC STRING ARRAY FUNCTION GetConsoleArguments() __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Parse the arguments passed to a script
+    @long This function reads a list of script arguments and interprets them as variables with values.
+          This function will cause an error if executed without an active console (ie, not started by runscript).
+    @param arguments The list of arguments to parse (e.g. the result of GetConsoleArguments)
+    @param vars A list (RECORD ARRAY) of variables to look for
+    @cell vars.name The name of the variable, this will be used as the resulting record cell name
+    @cell vars.type One of "switch" (returns a BOOLEAN), "stringopt" (STRING), "stringlist" (STRING ARRAY),
+                    "param" (STRING), "paramlist" (STRING ARRAY)
+    @cell vars.defaultvalue Default value if argument is not provided (only used for "switch" arguments)
+    @cell vars.required Should the argument be provided (only used for "param" arguments)
+    @return A record containing the parsed variables, or a non-existing record if the arguments could not be parsed
+    @example
+// Some example argument list
+STRING consolearguments :=
+  "-m foo --path=/test/ --option -o- -m=bar 3 one two three";
+STRING ARRAY arguments_list := Tokenize(consolearguments, " ");
+
+// Variables we are interested in
+RECORD ARRAY vars :=
+  [ [ name := "option", type := "switch" ]
+  , [ name := "o",      type := "switch", defaultvalue := TRUE ]
+  , [ name := "p",      type := "switch", defaultvalue := TRUE ]
+  , [ name := "m",      type := "stringlist" ]
+  , [ name := "path",   type := "stringopt" ]
+  , [ name := "count",  type := "param" ]
+  , [ name := "other",  type := "paramlist" ]
+  ];
+
+// Parse the arguments
+RECORD arguments := ParseArguments(arguments_list, vars);
+
+// Now we can access the individual arguments:
+// arguments.option = TRUE
+// arguments.o = FALSE
+// arguments.p = TRUE
+// arguments.m = [ "foo", "bar" ]
+// arguments.path = "/test/"
+// arguments.count = "3"
+// arguments.other = [ "one", "two", "three" ]
+*/
+PUBLIC RECORD FUNCTION ParseArguments(STRING ARRAY arguments, RECORD ARRAY vars) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short Get a single line of text from the console
+    @long This function will cause an error if executed without an active console (ie, not started by runscript). Also, if this function is recalled after it returned an empty string and IsAtEndOfStream(0) would have returned 'true', it will generate an error to prevent a loop on ReadConsoleInput()
+    @return A line of text read from the console, excluding any terminating \n or \r. If an empty string was returned, check IsAtEndOfStream(0) before calling the function again */
+PUBLIC STRING FUNCTION ReadConsoleInput()
+{
+  RETURN ReadLineFrom(0,65536,TRUE);
+}
+
+/** Read all of STDIN and return as a blob
+    @return All read console input
+*/
+PUBLIC BLOB FUNCTION GetSTDINAsBlob()
+{
+  INTEGER outputstream := __HS_CreateStream();
+  WHILE (TRUE)
+  {
+    STRING data := ReadLineFrom(0, 65536, FALSE);
+    IF(data="" AND IsAtEndOfStream(0))
+      BREAK;
+    PrintTo(outputstream, data);
+  }
+  RETURN MakeBlobFromstream(outputstream);
+}
+
+/** Returns whether if the process input stream has been closed
+    @return TRUE if the input stream has been closed
+*/
+PUBLIC BOOLEAN FUNCTION IsConsoleClosed()
+{
+  RETURN IsAtEndOfStream(0);
+}
+
+/** @short Set an errorcode to return from console scripts
+    @long Set the errorcode, or exitcode, to return to the operating system.
+           Generally, 0 is used to indicate that no errors occured, and 1 and higher are used for error codes.
+           If this function is not called, 0 is returned to the OS
+    @param errorcode Errorcode to return (0-255, but remember that 1 is also used for failed scripts) */
+PUBLIC MACRO SetConsoleExitCode(INTEGER errorcode) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Get the start time of the current process (runscript, webserver, etc) startup time
+    @return Start time of the current process
+*/
+PUBLIC DATETIME FUNCTION GetHostingProcessStartTime() __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short Get a description of the underlying OS
+    @return A descriptive name of the OS, its distrubution type, version and patchlevel*/
+PUBLIC STRING FUNCTION GetSystemOsName() __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Get the number of processors installed on this machine
+    @return Number of processors, or 0 if we were unable to determine the number of processors*/
+PUBLIC INTEGER FUNCTION GetSystemNumProcessors() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Get the number of virtual processors installed on this machine
+    @return Number of processors, or 0 if we were unable to determine the number of processors*/
+PUBLIC INTEGER FUNCTION GetSystemNumVirtualProcessors() __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+
+
+/** @short Enable or disable standard output buffering
+    @long If standard output buffering is enabled, output is buffered instead of
+          directly sent to the standard output. In order to write the buffered data
+          to the standard output, call FlushOutputBuffer.
+          The buffer is automatically flushed when buffering is disabled, if the buffer
+          size would exceed the internal maximum buffer size, when ReadConsoleInput is
+          called (before waiting for new input) and after the script has ended.
+    @param write_to_buffer If output buffering should be enabled
+    @see FlushOutputBuffer */
+PUBLIC MACRO SetOutputBuffering(BOOLEAN write_to_buffer) __ATTRIBUTES__(EXTERNAL);
+
+
+/** Sets the buffering mode of the console
+    @param setbuffering Set to TRUE to enable buffering
+*/
+PUBLIC MACRO SetConsoleLineBuffered(BOOLEAN setbuffering) __ATTRIBUTES__(EXTERNAL);
+
+/** Gets the echo mode of the console
+    @return Whether echoing is enabled
+*/
+PUBLIC BOOLEAN FUNCTION GetConsoleEcho() __ATTRIBUTES__(EXTERNAL);
+
+/** Sets the echo mode of the console
+    @param setecho Set to TRUE to enable echoing
+*/
+PUBLIC MACRO SetConsoleEcho(BOOLEAN setecho) __ATTRIBUTES__(EXTERNAL);
+
+/** Returns the current environment
+    @return The current environment
+    @cell return.name Name of the environment key
+    @cell return.value Value of the environment key
+*/
+PUBLIC RECORD ARRAY FUNCTION GetEnvironment() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Returns TRUE if the current process is running in an editor/debugger
+    @long This function returns TRUE if you've set the WEBHARE_INEDITOR environment variable to 1. You should configure your editor or IDE to do so.
+    @return TRUE the current process is running in an editor/debugger
+*/
+PUBLIC BOOLEAN FUNCTION IsRunningInEditor()
+{
+  RETURN GetEnvironmentVariable("WEBHARE_INEDITOR") = "1";
+}
+
+
+INTEGER FUNCTION CreateProcessInternal(BOOLEAN take_input,
+                                       BOOLEAN take_output,
+                                       BOOLEAN take_errors,
+                                       BOOLEAN merge_output_errors,
+                                       BOOLEAN separate_processgroup,
+                                       INTEGER64 virtualmemorylimit) __ATTRIBUTES__(EXTERNAL);
+
+BOOLEAN FUNCTION RunProcess(INTEGER processid,
+                            STRING processexecutable,
+                            STRING ARRAY arguments,
+                            STRING cwd,
+                            BOOLEAN share_stdin,
+                            BOOLEAN share_stdout,
+                            BOOLEAN share_stderr) __ATTRIBUTES__(EXTERNAL);
+
+MACRO SetProcessEnvironment(INTEGER processid, RECORD ARRAY newenv) __ATTRIBUTES__(EXTERNAL);
+
+
+/** Create a new process
+    @param processexecutable Path to executable
+    @param arguments Arguments for the process
+    @param options @includecelldef #StartProcess.options
+    @return(object %Process) Process object
+    @signature OBJECT FUNCTION CreateProcess(STRING processexecutable, STRING ARRAY arguments, RECORD options)
+*/
+PUBLIC OBJECT FUNCTION CreateProcess(
+                              STRING processexecutable,
+                              STRING ARRAY arguments,
+                              VARIANT options_take_input DEFAULTSTO DEFAULT RECORD,
+                              BOOLEAN take_output DEFAULTSTO FALSE,
+                              BOOLEAN take_errors DEFAULTSTO FALSE,
+                              BOOLEAN merge_output_errors DEFAULTSTO FALSE,
+                              BOOLEAN separate_processgroup DEFAULTSTO FALSE)
+{
+  IF (TypeID(options_take_input) = TypeID(BOOLEAN))
+  {
+    options_take_input := CELL
+        [ take_input :=   options_take_input
+        , take_output
+        , take_errors
+        , merge_output_errors
+        , separate_processgroup
+        ];
+  }
+
+  RECORD options := options_take_input;
+  options := ValidateOptions(
+      [ take_input :=             FALSE
+      , take_output :=            FALSE
+      , take_errors :=            FALSE
+      , merge_output_errors :=    FALSE
+      , separate_processgroup :=  FALSE
+      , virtualmemorylimit :=     -1i64
+      ], options,
+      [ required := [ "take_output", "take_errors" ]
+      , notypecheck :=  [ "virtualmemorylimit" ]
+      ]);
+
+  INTEGER64 virtualmemorylimit := ParseVirtualMemorySize(options.virtualmemorylimit);
+
+  INTEGER handle := CreateProcessInternal(options.take_input, options.take_output, options.take_errors, options.merge_output_errors, options.separate_processgroup, virtualmemorylimit);
+  IF (handle = 0)
+    THROW NEW Exception("An error occurred creating a new process");
+
+  RETURN NEW Process(handle, options.take_input, processexecutable, arguments);
+}
+
+INTEGER FUNCTION GetProcessOutputHandle(INTEGER processid, BOOLEAN errors) __ATTRIBUTES__(EXTERNAL);
+
+
+/** Process objecttype
+    @public
+*/
+OBJECTTYPE Process EXTEND __HS_INTERNAL_OutputObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Whether Run() has been called
+  BOOLEAN pvt_running;
+
+
+  /// Whether input has been taken
+  BOOLEAN pvt_taken_input;
+
+
+  /// Handle for the output
+  INTEGER pvt_output_handle;
+
+
+  /// Handle for the errors
+  INTEGER pvt_errors_handle;
+
+
+  /// Executable
+  STRING pvt_executable;
+
+  /// Arguments
+  STRING ARRAY pvt_arguments;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Exit code of process, -1 if still running
+  PUBLIC PROPERTY exitcode(GetExitCode, -);
+
+
+  /// Input handle (0 if input is not taken)
+  PUBLIC PROPERTY input_handle(GetInputHandle, -);
+
+
+  /// Output handle (0 if output is not taken)
+  PUBLIC PROPERTY output_handle(pvt_output_handle, -);
+
+
+  /// Errors handle (0 if errors is not taken)
+  PUBLIC PROPERTY errors_handle(pvt_errors_handle, -);
+
+  /// If not empty, sets the process initial current working directory
+  PUBLIC STRING initialworkingdirectory;
+
+  /// Whether to share the input stream with the running process (used when starting the process)
+  PUBLIC BOOLEAN share_stdin;
+
+  /// Whether to share the output stream with the running process (used when starting the process)
+  PUBLIC BOOLEAN share_stdout;
+
+  /// Whether to share the error stream with the running process (used when starting the process)
+  PUBLIC BOOLEAN share_stderr;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER handle, BOOLEAN taken_input, STRING executable, STRING ARRAY arguments)
+  : __HS_INTERNAL_OutputObject(handle, TRUE)
+  {
+    this->pvt_taken_input := taken_input;
+    this->pvt_executable := executable;
+    this->pvt_arguments := arguments;
+    this->pvt_output_handle := GetProcessOutputHandle(this->pvt_handle, FALSE);
+    this->pvt_errors_handle := GetProcessOutputHandle(this->pvt_handle, TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  INTEGER FUNCTION GetExitCode()
+  {
+    RETURN GetProcessExitCode(this->pvt_handle);
+  }
+
+
+  INTEGER FUNCTION GetInputHandle()
+  {
+    RETURN this->pvt_taken_input ? this->pvt_handle : 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Start the process
+      @return Whether the process has been started successfully
+  */
+  PUBLIC BOOLEAN FUNCTION Start()
+  {
+    IF (this->pvt_running)
+      THROW NEW Exception("Cannot start a process twice");
+
+    this->pvt_running := TRUE;
+    RETURN RunProcess(this->pvt_handle, LookupPath(this->pvt_executable), this->pvt_arguments, this->initialworkingdirectory, this->share_stdin, this->share_stdout, this->share_stderr);
+  }
+
+  /** Detach the process.
+  */
+  PUBLIC MACRO Detach()
+  {
+    IF (NOT this->pvt_running)
+      THROW NEW Exception("Cannot detach a process that has not been started");
+
+    DetachProcess(this->pvt_handle);
+    this->pvt_handle := 0;
+  }
+
+  /** Sents an interrupt signal to the process.
+  */
+  PUBLIC MACRO SendInterrupt()
+  {
+    IF (NOT this->pvt_running)
+      THROW NEW Exception("Cannot send an interrupt to process that has not been started");
+
+    InterruptProcess(this->pvt_handle);
+  }
+
+  /** Terminates (SIGKILL) the process.
+  */
+  PUBLIC MACRO Terminate()
+  {
+    IF (NOT this->pvt_running)
+      THROW NEW Exception("Cannot terminate a process that has not been started");
+
+    TerminateProcess(this->pvt_handle);
+  }
+
+
+  /** Return whether the process is running
+      @return TRUE if the process is stull running
+  */
+  PUBLIC BOOLEAN FUNCTION IsRunning()
+  {
+    RETURN this->pvt_running ? IsProcessRunning(this->pvt_handle) : FALSE;
+  }
+
+
+  /** Sets the environment of the process. Must be called before starting the process
+      @param environment New environment
+      @cell environment.name Environment variable name
+      @cell environment.value Environment variable value
+  */
+  PUBLIC MACRO SetEnvironment(RECORD ARRAY environment)
+  {
+    IF (this->pvt_running)
+      THROW NEW Exception("Cannot set the environment when the process has already been started");
+
+    SetProcessEnvironment(this->pvt_handle, environment);
+  }
+
+
+  /** Closes the process input
+  */
+  PUBLIC MACRO CloseInput()
+  {
+    CloseProcessInput(this->pvt_handle);
+  }
+
+
+  /** Closes the process, and releases all resources
+  */
+  UPDATE PUBLIC MACRO Close()
+  {
+    IF(this->pvt_handle > 0)
+      CloseProcess(this->pvt_handle);
+    this->pvt_handle := 0;
+  }
+
+
+  /** Returns whether this object is read-signalled
+      @return TRUE if the process is read-signalled (any output or errors are available)
+  */
+  PUBLIC UPDATE BOOLEAN FUNCTION IsReadSignalled()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot check signalled status on an already closed object");
+
+    INTEGER ARRAY handles;
+    IF (this->pvt_output_handle != 0)
+      INSERT this->pvt_output_handle INTO handles AT END;
+    IF (this->errors_handle != 0)
+      INSERT this->errors_handle INTO handles AT END;
+
+    IF (LENGTH(handles) = 0)
+      RETURN TRUE;
+
+    RETURN WaitForMultiple(handles, DEFAULT INTEGER ARRAY, 0) != -1;
+  }
+
+
+  /** Returns whether this object is write-signalled
+      @return TRUE if the process is write signalled (input can be sent to the process)
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION IsWriteSignalled()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot check signalled status on an already closed object");
+
+    IF (NOT this->pvt_taken_input)
+      RETURN TRUE;
+
+    RETURN WaitForMultiple(DEFAULT INTEGER ARRAY, [ INTEGER(this->pvt_handle) ], 0) = this->pvt_handle;
+  }
+
+
+  /** Waits until this output has become signalled (read or write)
+      @param until Timeout
+      @return Returns whether this object has been signalled (return FALSE when a timeout has occurred)
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION Wait(DATETIME until)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot check wait status on an already closed object");
+
+    INTEGER ARRAY readhandles, writehandles;
+    IF (this->pvt_output_handle != 0)
+      INSERT this->pvt_output_handle INTO readhandles AT END;
+    IF (this->pvt_errors_handle != 0)
+      INSERT this->pvt_errors_handle INTO readhandles AT END;
+    IF (this->pvt_taken_input)
+      INSERT this->pvt_handle INTO writehandles AT END;
+
+    IF (LENGTH(readhandles) = 0 AND LENGTH(writehandles) = 0)
+      RETURN TRUE;
+
+    RETURN WaitForMultipleUntil(readhandles, writehandles, until) != -1;
+  }
+
+  /** Returns a promise that will be resolved when this output object becomes read signalled
+      @param until Timeout
+      @return Promise that resolves when the process becomes signalled
+  */
+  UPDATE PUBLIC OBJECT FUNCTION AsyncWaitRead(DATETIME until)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot wait on an already closed object");
+
+    OBJECT helper := NEW __HS_INTERNAL_AsyncCallbackWaitHelperBase();
+    helper->promise->rejectoncancel := TRUE;
+    helper->SetTimeout(until);
+    helper->AddHandleRead(this->pvt_handle);
+    IF (this->pvt_output_handle != 0)
+      helper->AddHandleRead(this->pvt_output_handle);
+    IF (this->pvt_errors_handle != 0)
+      helper->AddHandleRead(this->pvt_errors_handle);
+
+    RETURN helper->promise;
+  }
+>;
+
+/** Override whether ANSI escape sequences will be generated
+    @param mode Mode. Modes:
+        <ul>
+          <li>'enabled': Always generate</li>
+          <li>'disabled': Never generate</li>
+          <li>''/'default': Only generate when the console is a terminal (default)
+        </ul>
+    @see AnsiCMD, IsAnsiCmdEnabled
+*/
+PUBLIC MACRO SetAnsiCmdMode(STRING mode)
+{
+  IF (mode NOT IN [ "enabled", "disabled", "default", "" ])
+    THROW NEW Exception("Illegal ANSI mode");
+
+  ansimode := mode = "default" ? "" : mode;
+}
+
+/** Returns whether ANSI escape sequences will be generated. Defaults to whether the console is a terminal.
+    @return TRUE if ANSI escape sequences are enabled.
+    @see AnsiCmd, SetAnsiCmdMode
+*/
+PUBLIC BOOLEAN FUNCTION IsAnsiCmdEnabled()
+{
+  // Overridden?
+  IF (ansimode != "")
+    RETURN ansimode = "enabled";
+
+  // No terminal: no color
+  IF (NOT IsConsoleSupportAvailable() OR NOT IsConsoleATerminal())
+    RETURN FALSE;
+
+  // Color terminal?
+  RETURN GetEnvironmentVariable("TERM") LIKE "*color*" OR GetEnvironmentVariable("CLICOLOR") = "1";
+}
+
+/** Generate ANSI-escape codes.
+    @param types Comma-separated list of codes to generate.<br>
+    The following codes are supported:
+    <ul>
+      <li>Reset: "reset"</li>
+      <li>Formatting: "bold", "bold-off", "underline"</li>
+      <li>Colors: "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "default"</li>
+      <li>Background colors: "back-black", "back-red", "back-green", "back-yellow", "back-blue", "back-magenta", "back-cyan", "back-white", "back-default"</li>
+      <li>Misc control: "erasedisplay"<li>
+      <li>Cursor: "cursorposition:<row>:<col>", "up:<n>", "down:<n>", "left:<n>", "right:<n>"<li>
+    </ul>
+    If no terminal is present, empty strings are returned. Use SetAnsiCmdMode to override.
+    @return ANSI escape sequences
+    @see SetAnsiCmdMode, IsAnsiCmdEnabled
+    @example
+// Prints a red word
+PRINT(`${AnsiCmd("red")}red${AnsiCmd("reset")}`);
+*/
+PUBLIC STRING FUNCTION AnsiCmd(STRING types)
+{
+  STRING retval;
+  IF (NOT IsAnsiCmdEnabled())
+    RETURN retval;
+
+  FOREVERY (STRING type FROM Tokenize(types, ","))
+  {
+    STRING ARRAY parts := Tokenize(TrimWhitespace(type), ":") CONCAT [ "", "" ];
+    SWITCH (parts[0])
+    {
+      CASE "reset"          { retval := "\033[0m"; }
+
+      CASE "bold"           { retval := retval || "\033[1m"; }
+      CASE "bold-off"       { retval := retval || "\033[22m"; }
+      CASE "underline"      { retval := retval || "\033[4m"; }
+
+      CASE "black"          { retval := retval || "\033[30m"; }
+      CASE "red"            { retval := retval || "\033[31m"; }
+      CASE "green"          { retval := retval || "\033[32m"; }
+      CASE "yellow"         { retval := retval || "\033[33m"; }
+      CASE "blue"           { retval := retval || "\033[34m"; }
+      CASE "magenta"        { retval := retval || "\033[35m"; }
+      CASE "cyan"           { retval := retval || "\033[36m"; }
+      CASE "white"          { retval := retval || "\033[37m"; }
+      CASE "bblack"         { retval := retval || "\033[90m"; }
+      CASE "bred"           { retval := retval || "\033[91m"; }
+      CASE "bgreen"         { retval := retval || "\033[92m"; }
+      CASE "byellow"        { retval := retval || "\033[93m"; }
+      CASE "bblue"          { retval := retval || "\033[94m"; }
+      CASE "bmagenta"       { retval := retval || "\033[95m"; }
+      CASE "bcyan"          { retval := retval || "\033[96m"; }
+      CASE "bwhite"         { retval := retval || "\033[97m"; }
+      CASE "default"        { retval := retval || "\033[39m"; }
+
+      CASE "back-black"     { retval := retval || "\033[40m"; }
+      CASE "back-red"       { retval := retval || "\033[41m"; }
+      CASE "back-green"     { retval := retval || "\033[42m"; }
+      CASE "back-yellow"    { retval := retval || "\033[43m"; }
+      CASE "back-blue"      { retval := retval || "\033[44m"; }
+      CASE "back-magenta"   { retval := retval || "\033[45m"; }
+      CASE "back-cyan"      { retval := retval || "\033[46m"; }
+      CASE "back-white"     { retval := retval || "\033[47m"; }
+      CASE "back-bblack"    { retval := retval || "\033[100m"; }
+      CASE "back-bred"      { retval := retval || "\033[101m"; }
+      CASE "back-bgreen"    { retval := retval || "\033[102m"; }
+      CASE "back-byellow"   { retval := retval || "\033[103m"; }
+      CASE "back-bblue"     { retval := retval || "\033[104m"; }
+      CASE "back-bmagenta"  { retval := retval || "\033[105m"; }
+      CASE "back-bcyan"     { retval := retval || "\033[106m"; }
+      CASE "back-bwhite"    { retval := retval || "\033[107m"; }
+      CASE "back-default"   { retval := retval || "\033[49m"; }
+
+      CASE "erasedisplay"   { retval := retval || "\033[2J"; }
+      CASE "cursorposition", "pos" { retval := retval || `\033[${parts[1]};${parts[2]}H`; }
+      CASE "up"             { retval := retval || `\033[${parts[1]}}A`; }
+      CASE "down"           { retval := retval || `\033[${parts[1]}}B`; }
+      CASE "left"           { retval := retval || `\033[${parts[1]}}C`; }
+      CASE "right"          { retval := retval || `\033[${parts[1]}}D`; }
+    }
+  }
+  RETURN retval;
+}
+
+INTEGER currentsigintpipe;
+MACRO PTR ARRAY intcallbacks;
+
+/** @short Add an interrupt (SIGINT,SIGTERM,SIGHUP) callback
+    @long Registers a function as a callback for whenever a terminating signal is sent. If no callback is set, interrupt immediately terminates the current script.
+          These callbacks are executed
+    @param callback Function pointer that will be called when a signal is set. Signature: MACRO callback().
+*/
+PUBLIC MACRO AddInterruptCallback(MACRO PTR callback)
+{
+  IF(currentsigintpipe=0)
+  {
+    //Note that once the signal pipe is opened, original sigint behaviour cannot be restored.
+    currentsigintpipe := __HS_GetSignalIntPipe();
+    RegisterHandleReadCallback(currentsigintpipe, PTR HandleInterrupt);
+  }
+  INSERT callback INTO intcallbacks AT END;
+}
+MACRO HandleInterrupt()
+{
+  ReadFrom(__HS_GetSignalIntPipe(),-4);
+  FOREVERY(MACRO PTR tocall FROM intcallbacks)
+    tocall();
+}
+
+RECORD FUNCTION GetDiskFileProperties(STRING filename) __ATTRIBUTES__(EXTERNAL);
+STRING FUNCTION MergePath(STRING first, STRING second) __ATTRIBUTES__ (EXTERNAL);
+STRING FUNCTION LookupPath(STRING binary)
+{
+  IF(binary liKE "*/*") //has path segments
+    RETURN binary;
+
+  FOREVERY(STRING pathoption FROM Tokenize(GetEnvironmentVariable("PATH"),':'))
+  {
+    STRING trypath := MergePath(pathoption,binary);
+    IF(RecordExists(GetDiskFileProperties(trypath)))
+      RETURN trypath;
+  }
+  RETURN binary;
+}
+
+/** @short Terminate the current script
+    @param error Error message. If empty, no error is printed.
+    @cell options.exitcode Exit code, defaults to 1
+    */
+PUBLIC MACRO TerminateScriptWithError(STRING error, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  //ADDME Support printing command syntax
+
+  options := ValidateOptions( [ exitcode := 1 ], options);
+
+  IF(IsConsoleSupportAvailable())
+  {
+    IF(error != "")
+      PrintTo(2, error || "\n");
+
+    SetConsoleExitCode(1);
+    TerminateScript(); //aborts
+  }
+  ABORT(error ?? "Terminated script due to an error");
+}
+
+/** Returns a async iterator which yields lines of output
+    @param process Process
+    @cell options.autoclose If TRUE, automatically close the process when the iterator terminates. Defaults to TRUE.
+    @return Async iterator. Yields the following values
+    * [ type := "output", line := line ]
+    * [ type := "error", line := line ]
+    * [ type := "close", exitcode := exitcode ]
+*/
+PUBLIC OBJECT ASYNC FUNCTION *MakeProcessAsyncIterator(OBJECT process, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ autoclose :=  TRUE
+      ], options);
+
+  STRING output;
+  STRING errors;
+
+  INTEGER last_output_scan;
+  INTEGER last_error_scan;
+
+  OBJECT output_promise;
+  OBJECT errors_promise;
+
+  BOOLEAN have_output := process->output_handle != 0;
+  BOOLEAN have_errors := process->errors_handle != 0;
+
+  OBJECT ARRAY promises;
+  INTEGER exitcode := -1;
+
+  IF (have_output)
+  {
+    output_promise := CreateResolvedPromise(AsyncWaitHandleReadSignalled(process->output_handle, MAX_DATETIME));
+    INSERT output_promise INTO promises AT END;
+  }
+  IF (have_errors)
+  {
+    errors_promise := CreateResolvedPromise(AsyncWaitHandleReadSignalled(process->errors_handle, MAX_DATETIME));
+    INSERT errors_promise INTO promises AT END;
+  }
+
+  BOOLEAN graceful_close;
+  TRY
+  {
+    WHILE (LENGTH(promises) != 0)
+    {
+      INTEGER handle := AWAIT CreatePromiseRace(promises);
+
+      IF (have_output AND handle = process->output_handle)
+      {
+        DELETE FROM promises AT SearchElement(promises, output_promise);
+        output_promise := DEFAULT OBJECT;
+
+        STRING new_output := ReadFrom(process->output_handle, -32768);
+
+        IF (new_output != "")
+        {
+          output := output || new_output;
+          WHILE (TRUE)
+          {
+            INTEGER pos := SearchSubString(output, "\n", last_output_scan);
+            IF (pos = -1)
+            {
+              last_output_scan := LENGTH(output);
+              BREAK;
+            }
+
+            STRING line := Left(output, pos);
+            IF (line LIKE "*\r")
+              line := Left(line, LENGTH(line) - 1);
+
+            YIELD [ type := "output", line := line ];
+            output := SubString(output, pos + 1);
+            last_output_scan := 0;
+          }
+        }
+        ELSE IF (IsAtEndOfStream(process->output_handle))
+        {
+          have_output := FALSE;
+          IF (output != "")
+            YIELD [ type := "output", line := output ];
+        }
+
+        IF (have_output)
+        {
+          output_promise := CreateResolvedPromise(AsyncWaitHandleReadSignalled(process->output_handle, MAX_DATETIME));
+          INSERT output_promise INTO promises AT END;
+        }
+      }
+
+      IF (have_errors AND handle = process->errors_handle)
+      {
+        DELETE FROM promises AT SearchElement(promises, errors_promise);
+        errors_promise := DEFAULT OBJECT;
+
+        STRING new_errors := ReadFrom(process->errors_handle, -32768);
+        IF (new_errors != "")
+        {
+          errors := errors || new_errors;
+          WHILE (TRUE)
+          {
+            INTEGER pos := SearchSubString(errors, "\n", last_error_scan);
+            IF (pos = -1)
+            {
+              last_error_scan := LENGTH(errors);
+              BREAK;
+            }
+
+            STRING line := Left(errors, pos);
+            IF (line LIKE "*\r")
+              line := Left(line, LENGTH(line) - 1);
+
+            YIELD [ type := "error", line := line ];
+            errors := SubString(errors, pos + 1);
+            last_error_scan := 0;
+          }
+        }
+        ELSE IF (IsAtEndOfStream(process->errors_handle))
+        {
+          have_errors := FALSE;
+          IF (errors != "")
+            YIELD [ type := "errors", line := errors ];
+        }
+
+        IF (have_errors)
+        {
+          errors_promise := CreateResolvedPromise(AsyncWaitHandleReadSignalled(process->errors_handle, MAX_DATETIME));
+          INSERT errors_promise INTO promises AT END;
+        }
+      }
+    }
+    graceful_close := TRUE;
+  }
+  FINALLY (OBJECT e)
+  {
+    // Cancel the waits
+    FOREVERY (OBJECT p FROM promises)
+      p->Cancel();
+
+    // Send an interrupt to the process when we didn't close gracefully
+    IF (ObjectExists(e) OR NOT graceful_close)
+      process->SendInterrupt();
+
+    // No handles left to wait on
+    INTEGER waitperiod := 10;
+    WHILE (TRUE)
+    {
+      IF (NOT process->IsRunning())
+        BREAK;
+
+      // Wait incrementally longer for next check
+      RECORD defer := CreateDeferredPromise();
+      DATETIME timeout := AddTimeToDate(waitperiod, GetCurrentDateTime());
+      RegisterTimedCallback(timeout, PTR defer.resolve(DEFAULT RECORD));
+      AWAIT defer.promise;
+
+      IF (waitperiod < 100)
+        waitperiod := waitperiod + 10;
+    }
+
+    // Save the exit code
+    exitcode := process->exitcode;
+
+    IF (options.autoclose)
+      process->Close();
+
+    // Don't yield values anymore when we got an SendReturn or an exception
+    IF (graceful_close)
+      YIELD [ type := "close", exitcode := exitcode ];
+  }
+
+  RETURN CELL[ exitcode ];
+}
+
+/** Parses a virtual memory size
+    @param size Virtual memory size - either the size in INTEGER(64) bytes or a string like "200MB", "2GB".
+    @return Size in bytes
+*/
+INTEGER64 FUNCTION ParseVirtualMemorySize(VARIANT size)
+{
+  IF (TypeID(size) = TYPEID(INTEGER64) OR TypeID(size) = TYPEID(INTEGER))
+    RETURN size;
+
+  IF (TypeID(size) != TypeID(STRING))
+    THROW NEW Exception(`Expected a INTEGER64 or a STRING to specify the virtual memory size (eg '2GB')`);
+
+  INTEGER64 mulfactor := -1;
+  IF (size LIKE "*GB")
+    mulfactor := 1 BITLSHIFT 30;
+  ELSE IF (size LIKE "*MB")
+    mulfactor := 1 BITLSHIFT 20;
+  ELSE
+    THROW NEW Exception(`Expected <number>GB or <number>MB to specify the virtual memory size (eg '1536MB', '2GB'`);
+
+  INTEGER64 val := ToInteger64(Left(size, LENGTH(size) - 2), -1);
+  IF (val <= 0)
+    THROW NEW Exception(`Illegal virtual memory size (used '${size}')`);
+
+  RETURN val * mulfactor;
+}

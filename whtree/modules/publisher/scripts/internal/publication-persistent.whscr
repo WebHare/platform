@@ -1,0 +1,22 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
+
+
+RECORD options := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debuglevel", type := "stringopt" ]
+    , [ name := "keepstorage", type := "switch" ]
+    , [ name := "debug", type := "switch" ]
+    ]);
+IF (NOT RecordExists(options))
+  TerminateScriptWithError(`Usage: publications-persistent.whscr [--debuglevel] [--keepstorage]`);
+
+OBJECT queue := NEW PersistentDiskQueue("publisher:publication", CELL
+    [ ...options
+    , debuglevel := options.debug ? debuglevel_all : ToInteger(options.debuglevel, debuglevel_none)
+    , debugprint := options.debug
+    ]);
+
+queue->Run();

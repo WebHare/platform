@@ -1,0 +1,621 @@
+<?wh
+/** @short Sites published to the local filesystem
+*/
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+
+
+LOADLIB "mod::publisher/lib/internal/outputmedia/base.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+//-----------------------------------------------------------------------------
+//
+// Declarations
+//
+
+PUBLIC OBJECTTYPE LocalFSOutputMedia EXTEND OutputMediaBase
+<
+  UPDATE PUBLIC OBJECT FUNCTION CreatePublicationOutput(STRING _filename,
+                                                        BOOLEAN all_subdir,
+                                                        BOOLEAN is_index,
+                                                        BOOLEAN capturesubpaths,
+                                                        STRING ARRAY _defaultpages,
+                                                        STRING _outputroot,
+                                                        BOOLEAN _stripextension)
+  {
+    RETURN NEW LocalSiteWriter(_filename, all_subdir, is_index, capturesubpaths, _defaultpages, _outputroot, _stripextension);
+  }
+>;
+
+STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
+< ///The directory in which all publishing takes place
+  PUBLIC STRING outputroot;
+
+  ///The name of the file we are publishing
+  PUBLIC STRING outputname;
+
+  ///Acceptable default page names
+  PUBLIC STRING ARRAY defaultpages;
+
+  ///List of files we created
+  PUBLIC STRING ARRAY createdfiles;
+
+  STRING newversion_dir;
+  PUBLIC STRING newversion_file;
+
+  PUBLIC STRING newversion_filegz;
+
+  ///Filename of the first published file
+  PUBLIC STRING final_firstfilename;
+
+  PUBLIC BOOLEAN createddir;
+
+  ///Publish as a subdirectory
+  PUBLIC BOOLEAN publish_as_subdir;
+  ///Publish first file as folder index?
+  PUBLIC BOOLEAN publish_as_index;
+
+  /// Whether to enable capturing subpaths (so emit ^^useindex markers)
+  PUBLIC BOOLEAN capturesubpaths;
+
+  /** List of current outputs */
+  PUBLIC INTEGER ARRAY outfiles;
+
+  // Current total size
+  PUBLIC INTEGER totalsize;
+
+  PUBLIC RECORD current_error;
+
+  PUBLIC BOOLEAN stripextension;
+
+  PUBLIC FUNCTION PTR error_notify;
+
+  /** The files we created, relative to this->outputroot
+      @cell path The local path
+      @cell firstfile If this is the first file
+      @cell temppath Path to the written temporary
+  */
+  PUBLIC RECORD ARRAY generatedfiles;
+
+  PUBLIC MACRO NEW(
+      STRING _filename,
+      BOOLEAN all_subdir,
+      BOOLEAN is_index,
+      BOOLEAN capturesubpaths,
+      STRING ARRAY _defaultpages,
+      STRING _outputroot,
+      BOOLEAN _stripextension)
+  {
+    this->outputroot := _outputroot;
+    this->outputname := _filename;
+    this->createddir := FALSE;
+    this->publish_as_subdir := all_subdir;
+    this->publish_as_index := is_index;
+    this->capturesubpaths := capturesubpaths;
+    this->stripextension := _stripextension;
+
+    //Generate a list of default pages
+    this->defaultpages := _defaultpages;
+
+    if (NOT IsPathAbsolute(this->outputroot))
+    {
+      //Store the error code and message.
+      this->ErrorNotify(1001, "Will not publish to a non-absolute path: " || this->outputroot);
+      RETURN;
+    }
+
+    /* Find any existing Temp directories - don't consider removal failure to be fatal to work around NT locking bugs.. */
+    BOOLEAN was_ok := TRUE;
+    FOREVERY (RECORD entry FROM ReadDiskDirectory(this->outputroot, "$$$??" || this->outputname || "$*"))
+    {
+      BOOLEAN all_ok := TRUE;
+      IF (entry.type=0)
+        all_ok := DeleteDiskFile(MergePath(this->outputroot, entry.name));
+      ELSE IF (entry.type = 1)
+        all_ok := DeleteDiskDirectoryRecursive(MergePath(this->outputroot, entry.name));
+      IF (NOT all_ok)
+        DEBUGPRINT("Cannot remove existing temp file/directory - duplicate publishing process? (" || GetLastOSError() || ")");
+    }
+
+    //Create the output directory if it doesn't exist yet
+    RECORD dirprops := GetDiskFileProperties(this->outputroot);
+    IF (NOT RecordExists(dirprops) OR dirprops.type != 1) //then
+    {
+      STRING createerror;
+      IF(NOT CreateDiskDirectoryRecursive(this->outputroot,true))
+      {
+        STRING error := "Cannot create site output root directory " || this->outputroot || " (" || GetLastOSError() || ")";
+        //Check if we really failed, the error might be a race caused by another publishing engine
+        dirprops := GetDiskFileProperties(this->outputroot);
+        IF (NOT RecordExists(dirprops) OR dirprops.type != 1)
+        {
+          this->ErrorNotify(1001,error);
+          RETURN;
+        }
+      }
+    }
+
+    //Determine output directory, and name of the first output file
+    this->newversion_dir := GenerateTemporaryPathnameFromBasepath(MergePath(this->outputroot,"$$$pd" || this->outputname || "$"));
+    IF(this->newversion_dir = "")
+      ABORT("Did not receive a temp path name");
+  }
+
+
+  //-----------------------------------------------------------------------------
+  //
+  // Helpers
+  //
+  PRIVATE MACRO ErrorNotify(INTEGER code, STRING msg)
+  {
+    this->current_error := [ code := code, msg := msg ];
+    IF (this->error_notify != DEFAULT FUNCTION PTR)
+      this->error_notify(code, msg);
+  }
+
+  PRIVATE STRING FUNCTION PrepareOpen(STRING _filename)
+  {
+
+    STRING filename := _filename;
+
+    BOOLEAN firstfile := false;
+
+    IF (this->publish_as_index OR this->publish_as_subdir)
+    {
+      //This is the first file if it appears in the list of default pages
+      firstfile := ToLowercase(_filename) IN whconstant_webserver_indexpages;
+    }
+    ELSE
+    {
+      IF (ToUppercase(filename) = ToUppercase(this->outputname))
+          firstfile := TRUE;
+    }
+
+    IF (NOT this->createddir AND (this->publish_as_subdir OR NOT firstfile) AND this->newversion_dir="")
+      ABORT("Newversion dir is empty!");
+
+    IF (firstfile)
+    {
+      if (this->final_firstfilename != "")
+      {
+        DEBUGPRINT("Duplicate first file " || this->final_firstfilename);
+        RETURN "";
+      }
+      this->final_firstfilename := _filename;
+    }
+
+    //ADDME: These checks are not 'local' specific, so they should be moved to a higher level
+    IF (SearchSubString(filename, '/') != -1
+        OR SearchSubString(filename, '\\') != -1
+        OR SearchSubString(filename, ':') != -1)
+    {
+      DEBUGPRINT("Illegal filename " || _filename);
+      RETURN "";
+    }
+
+    //Add to our list, and check against duplicates
+    IF (SearchElement(this->createdfiles, ToUppercase(filename)) != -1)
+    {
+      DEBUGPRINT("File " || filename  || " has already been created");
+      RETURN "";
+    }
+    INSERT ToUppercase(filename) INTO this->createdfiles AT END;
+
+    //Should we create a directory?
+    IF (NOT this->createddir AND (this->publish_as_subdir OR NOT firstfile))
+    {
+      //Well, either everything goes into a dir, or we're now working
+      //on the second file
+      IF (NOT CreateDiskDirectoryRecursive(this->newversion_dir,true))
+      {
+        this->ErrorNotify(1001,"Cannot create output directory '" || this->newversion_dir || "' (" || GetLastOSError() || ")");
+        RETURN "";
+      }
+      this->createddir := true;
+    }
+
+    //this->outputroot = full path on disk to the folder containing this file
+
+    //We treat the current file different from other files
+    RECORD outputnames := this->GetOutputNames();
+    IF (firstfile)
+    {
+      if (this->publish_as_subdir)
+      {
+        this->newversion_file := this->newversion_dir || "/" || this->final_firstfilename;
+        INSERT [ path := outputnames.localsubdir || "/" || this->final_firstfilename
+               , firstfile := firstfile
+               , temppath := this->newversion_file
+               ] INTO this->generatedfiles AT END;
+      }
+      ELSE
+      {
+        this->newversion_file := GenerateTemporaryPathnameFromBasepath(MergePath(this->outputroot,"$$$pf" || this->outputname || "$"));
+        IF (RecordExists(GetDiskFileProperties(this->newversion_file)) AND NOT DeleteDiskFile(this->newversion_file))
+        {
+          this->ErrorNotify(1001,"Cannot remove file " || this->newversion_file || " (" || GetLastOSError() || ")");
+          RETURN "";
+        }
+        INSERT [ path := this->final_firstfilename
+               , firstfile := firstfile
+               , temppath := this->newversion_file
+               ] INTO this->generatedfiles AT END;
+      }
+
+      RETURN this->newversion_file;
+    }
+
+    STRING temppath := MergePath(this->newversion_dir, filename);
+    INSERT [ path := outputnames.localsubdir || "/" || filename
+           , firstfile := firstfile
+           , temppath := temppath
+           ] INTO this->generatedfiles AT END;
+    RETURN temppath;
+  }
+
+  PRIVATE RECORD FUNCTION GetOutputNames()
+  {
+    STRING basedir := this->outputroot;
+    STRING firstfilename := this->final_firstfilename;
+    STRING file, dir, destroydir;
+
+    BOOLEAN firstfile_outside_subdir := NOT this->publish_as_subdir OR this->publish_as_index;
+    IF (firstfile_outside_subdir)
+      file := MergePath(basedir, firstfilename);
+
+    STRING localsubdir; //the subdir we'll use inside this->outputroot
+
+    //if we're always a subdir, AND our name does not conflict with the folder..
+    IF (this->publish_as_subdir AND this->outputname != firstfilename)
+    {
+      STRING name := this->outputname;
+
+      IF(this->stripextension)
+      {
+        destroydir := MergePath(basedir, name); //any old directory with the long name should be removed
+        name := GetBasenameFromPath(this->outputname);
+      }
+
+      IF(firstfile_outside_subdir AND ToLowercase(name) = ToLowercase(this->defaultpages[0]))
+        localsubdir :=  "^" || name;
+      ELSE
+        localsubdir :=  name;
+    }
+    ELSE
+    {
+      localsubdir :=  "^" || this->outputname;
+    }
+    dir := MergePath(basedir, localsubdir);
+
+    RETURN [ file := file, dir := dir, localsubdir := localsubdir, destroydir := destroydir ];
+  }
+
+  PUBLIC BOOLEAN FUNCTION AnyError()
+  {
+    RETURN RecordExists(this->current_error);
+  }
+
+  //-----------------------------------------------------------------------------
+  //
+  // The functions
+  //
+  PUBLIC MACRO HaveException(INTEGER exceptioncode, STRING exceptiondata)
+  {
+    this->ErrorNotify(exceptioncode, exceptiondata);
+  }
+
+  PUBLIC INTEGER FUNCTION OpenOutput(STRING filename)  // from OpenRawOutput
+  // from OpenRawOutput
+  {
+    // MyRawOutputPtr newoutput(new MyRawOutput);
+
+    STRING path := this->PrepareOpen(filename);
+    IF (this->AnyError() OR path = "")
+      RETURN 0; //illegal or dupe filename. FIXME: Check valid filename
+
+    INTEGER handle := CreateDiskFile(path, FALSE, TRUE);
+    IF (handle = 0)
+    {
+      this->ErrorNotify(1001,"Cannot create output file " || path || " (" || GetLastOSError() || ")");
+      RETURN 0;
+    }
+
+    //newoutput->bufferedstream.reset(new Blex::BufferedStream(*newoutput->filestream));
+
+    INSERT handle INTO this->outfiles AT END;
+    RETURN handle;
+  }
+
+  PUBLIC BOOLEAN FUNCTION CloseOutput(INTEGER outputid)    // from CloseRawOutput
+  // from CloseRawOutput
+  {
+    INTEGER pos := SearchElement(this->outfiles, outputid);
+    IF (pos = -1)
+      RETURN FALSE;
+
+    this->totalsize := this->totalsize + INTEGER(GetFilelength(outputid));
+
+    CloseDiskFile(outputid);
+    DELETE FROM this->outfiles AT pos;
+    RETURN TRUE;
+  }
+
+  MACRO GenerateCompressedFiles()
+  {
+    FOREVERY (RECORD outfile FROM this->generatedfiles)
+    {
+      // Get the type of file to detect the filetype, to see if this file must be compressed
+      BLOB original_file := GetDiskResource(outfile.temppath);
+      RECORD detect := WrapBlob(original_file, outfile.path);
+      IF (detect.mimetype IN compressible_filetypes)
+      {
+        // Compress the file with max compression
+        BLOB compressed := MakeZlibCompressedFile(detect.data, "GZIP", 9);
+
+        // Don't write the compressed file if it's bigger than the original data
+        IF (LENGTH64(compressed) < LENGTH64(detect.data))
+        {
+          STRING path := outfile.temppath || ".gz";
+          TRY
+          {
+            StoreDiskFile(path, compressed, [overwrite := TRUE]);
+          }
+          CATCH(OBJECT e)
+          {
+            this->ErrorNotify(1001, `Cannot create output file ${path}: ${e->what}`);
+            RETURN;
+          }
+
+          IF (outfile.firstfile)
+            this->newversion_filegz := path;
+        }
+      }
+    }
+  }
+
+  //  , MACRO WriteData(STRING data)
+  PUBLIC MACRO Finish()
+  {
+    //ADDME: Moving away of files and directory could be delayed if we know
+    //       that some things won't be replaced (eg createdfile or createdir is false)
+    /*ADDME: Clean up the back-out code using exceptions? */
+
+    // Close outfiles if still open. Forget failing, it hasn't been checked for ages, so there will be templates out there which fail on this...
+    IF (LENGTH(this->outfiles) != 0)
+    {
+      FOREVERY (INTEGER handle FROM this->outfiles)
+        CloseDiskFile(handle);
+      this->outfiles := DEFAULT INTEGER ARRAY;
+    }
+
+    this->GenerateCompressedFiles();
+
+    // Add an empty ^^useindex when capturing subpaths.
+    IF (this->capturesubpaths)
+    {
+      IF(this->publish_as_index) //if we're the index, create ^^useindex to claim all subroots too
+      {
+        StoreDiskFile(MergePath(this->outputroot,"^^useindex"), DEFAULT BLOB, [ overwrite := TRUE ]);
+      }
+      ELSE IF(this->publish_as_subdir) //we're just a subdir.. put the useindex there
+      {
+        IF(this->newversion_dir = "")
+          THROW NEW Exception("newversion_dir should already exist");
+        ELSE
+          StoreDiskFile(MergePath(this->newversion_dir, "^^useindex"), DEFAULT BLOB, [ overwrite := TRUE ]);
+      }
+      ELSE
+      {
+        THROW NEW Exception("capturesubpaths is TRUE but no valid place for ^^useindex");
+      }
+    }
+    ELSE IF(this->publish_as_index)
+    {
+      DeleteDiskFile(MergePath(this->outputroot, "^^useindex")); //delete any ^^useindex if we're the index file but didn't want it...  FIXME outputanalyzer should also clear this up
+    }
+
+    /* Move the new version in place of the old version. We basically do.
+
+       - move destination old_version
+       - move new_version destination
+       - delete old_version
+
+       in a very careful way. It is unfortunate that we can't do an
+       atomic swap of both files and directories (or can we? it might
+       be possible to do some trick with symlinks overwriting? perhaps
+       we can cooperate with the webserver to decrease the chance of
+       lock errors, and decrease the chance of a file miss?)
+
+       ADDME: Try a direct move first (should work on squite some occasions)
+              and fall back to atomic moves only if necessary */
+
+
+    STRING oldversion_dir,oldversion_file,oldversion_filegz,destination_dir,destination_file,destination_filegz;
+
+    oldversion_dir  := GenerateTemporaryPathnameFromBasepath(MergePath(this->outputroot, "$$$bd" || this->outputname || "$"));
+    oldversion_file := GenerateTemporaryPathnameFromBasepath(MergePath(this->outputroot, "$$$bf" || this->outputname || "$"));
+    oldversion_filegz := GenerateTemporaryPathnameFromBasepath(MergePath(this->outputroot, "$$$bg" || this->outputname || "$"));
+
+    RECORD outputnames := this->GetOutputNames();
+    destination_file := outputnames.file;
+    destination_dir := outputnames.dir;
+    destination_filegz := (destination_file ?? destination_dir) || ".gz";
+
+    IF (destination_file = destination_dir) //Internal check
+    {
+      this->ErrorNotify(1001,"Publication is set up to create both a file and a directory named " || destination_file);
+      RETURN;
+    }
+
+    //in other cases, the destination file is _inside_ the destion_dir, so
+    //nothing needs to be done for it
+
+    IF (this->newversion_file = "") //no first file ?!
+    {
+      this->ErrorNotify(106,"");
+      RETURN;
+    }
+
+    //move destination old_version
+    BOOLEAN moved_oldversion_dir := false;
+    BOOLEAN moved_oldversion_file := false;
+    BOOLEAN moved_oldversion_filegz;
+
+    BOOLEAN all_ok := TRUE;
+
+    // First, move the original compressed file out of the way
+    IF (destination_filegz != "" AND RecordExists(GetDiskFileProperties(destination_filegz)))
+    {
+      IF (MoveDiskPath(destination_filegz, oldversion_filegz))
+        moved_oldversion_filegz := TRUE;
+      ELSE
+      {
+        this->ErrorNotify(1001,"Cannot move original compressed file " || destination_filegz || " out of the way" || " (" || GetLastOSError() || ")");
+        all_ok := FALSE;
+      }
+    }
+
+  //        try //if anything goes wrong, restore the original versions
+  //        {
+    IF (all_ok AND destination_dir != "" AND RecordExists(GetDiskFileProperties(destination_dir)))
+    {
+      IF (MoveDiskPath(destination_dir, oldversion_dir))
+        moved_oldversion_dir := TRUE;
+      ELSE
+      {
+        this->ErrorNotify(1001,"Cannot move original directory " || destination_dir || " out of the way" || " (" || GetLastOSError() || ")");
+        all_ok := FALSE;
+      }
+    }
+
+    IF (all_ok AND destination_file != "")
+    {
+      IF (RecordExists(GetDiskFileProperties(destination_file)))
+      {
+        IF (MoveDiskPath(destination_file, oldversion_file))
+        {
+          moved_oldversion_file := TRUE;
+        }
+        ELSE
+        {
+          this->ErrorNotify(1001,"Cannot move original file " || destination_file || " out of the way" || " (" || GetLastOSError() || ")");
+          all_ok := FALSE;
+        }
+      }
+      //We finished the first step: move destination old_version
+
+      //Now: move new_version destination
+      IF (all_ok AND NOT MoveDiskPath(this->newversion_file, destination_file))
+      {
+        this->ErrorNotify(1001,"Cannot publish replacement file for " || destination_file || " (" || GetLastOSError() || ")");
+        all_ok := FALSE;
+      }
+
+      //Now: move new_version_gz destination
+      IF (all_ok AND this->newversion_filegz != "" AND NOT MoveDiskPath(this->newversion_filegz, destination_filegz))
+      {
+        this->ErrorNotify(1001,"Cannot publish replacement compressed file for " || destination_filegz || " (" || GetLastOSError() || ")");
+        all_ok := FALSE;
+      }
+    }
+
+    if (all_ok AND this->createddir)
+    {
+      //ADDME we shouldn't have to ReadDiskDirectory but should know if the dir is empty (maybe not create it in the first place)
+      IF(Length(ReadDiskDirectory(this->newversion_dir,"*"))=0)
+      {
+        //don't care if this fails, next publication will clean out the temp dir
+        DeleteDiskDirectoryRecursive(this->newversion_dir);
+      }
+      ELSE IF(NOT MoveDiskPath(this->newversion_dir, destination_dir))
+      {
+        this->ErrorNotify(1001,"Cannot publish replacement directory for " || destination_dir || " (" || GetLastOSError() || ")");
+        all_ok := FALSE;
+      }
+    }
+
+  //        catch(std::exception &e)
+  //        {
+    IF (NOT all_ok)
+    {
+      //Try to restore the original file and directory
+      if (moved_oldversion_dir AND NOT MoveDiskPath(oldversion_dir, destination_dir))
+      {
+        if (moved_oldversion_file) //try to fix this as well
+          MoveDiskPath(oldversion_file,destination_file);
+
+        this->ErrorNotify(1001,"Publication failure, but could not restore original directory " || destination_dir || " (" || GetLastOSError() || ")");
+        RETURN;
+      }
+
+      IF (moved_oldversion_file AND NOT MoveDiskPath(oldversion_file, destination_file))
+      {
+        this->ErrorNotify(1001,"Publication failure, but could not restore original file " || destination_dir || " (" || GetLastOSError() || ")");
+        RETURN;
+      }
+
+      IF (moved_oldversion_filegz AND NOT MoveDiskPath(oldversion_filegz, destination_filegz))
+      {
+        this->ErrorNotify(1001,"Publication failure, but could not restore original file " || destination_dir || " (" || GetLastOSError() || ")");
+        RETURN;
+      }
+
+      //Well, we restored the old crap, continue error handling
+      RETURN;
+    }
+  //        }
+
+    DeleteDiskDirectoryRecursive(oldversion_dir);
+    DeleteDiskDirectoryRecursive(oldversion_file);
+    DeleteDiskDirectoryRecursive(oldversion_filegz);
+
+    IF(outputnames.destroydir != "")
+      DeleteDiskDirectoryRecursive(outputnames.destroydir);
+
+    //Remove any other existing default pages, if this was an index
+    IF (this->publish_as_index)
+    {
+      FOREVERY (STRING page FROM this->defaultpages)
+        IF (ToUppercase(page) != ToUppercase(this->final_firstfilename))
+          DeleteDiskFile(MergePath(this->outputroot, page));
+    }
+  }
+
+  UPDATE PUBLIC MACRO SetCaptureSubPaths(BOOLEAN capturesubpaths)
+  {
+    this->capturesubpaths := capturesubpaths;
+  }
+
+  PUBLIC MACRO Cancel()
+  {
+    FOREVERY (INTEGER handle FROM this->outfiles)
+      CloseDiskFile(handle);
+    this->outfiles := DEFAULT INTEGER ARRAY;
+
+    IF (this->newversion_dir != "")
+      DeleteDiskDirectoryRecursive(this->newversion_dir);
+    IF (this->newversion_file != "")
+      DeleteDiskDirectoryRecursive(this->newversion_file);
+  }
+>;
+
+
+//-----------------------------------------------------------------------------
+//
+// Debug stuff
+//
+
+BOOLEAN debug_prints;
+
+MACRO DEBUGPRINT(STRING x)
+{
+  IF (debug_prints)
+    PrintTo(2,x || "\n");
+}
+
+PUBLIC MACRO __EnableSiteWriterDebugPrints()
+{
+  debug_prints := TRUE;
+}

@@ -1,0 +1,6 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="HareScript language"
+       shortdescription="HareScript language"
+       docorder="structure constants variabletypes operators control keywords operatorprecedence">
+  <section name="devsupport" title="Profiling, introspection and HareScript VM APIs" />
+</topic>

@@ -1,0 +1,111 @@
+*
+{
+  box-sizing: border-box;
+}
+
+html,body
+{
+  margin:0;
+  height:100%;
+  width:100%;
+  padding:0;
+  background: #f8f8f8;
+}
+body
+{
+  padding:0 2px;
+  display:flex;
+  flex-direction: column;
+}
+#testinfo
+{
+  flex: 1 0 0px;
+  overflow:auto;
+}
+html:not(.testframework--testsstarted) #testframeholder
+{
+  display:none;
+}
+#testframeholder
+{
+  border-top: 1px solid black;
+  flex: 0 0 768px;
+}
+
+#teststatus
+{
+}
+#testframeholder iframe
+{
+  width:1024px;
+  height:768px;
+  border:none;
+}
+#testscriptpart
+{
+  height:30px;
+  line-height:30px;
+  overflow:hidden;
+}
+#testscriptholder
+{
+  display:inline-block;
+  vertical-align: middle;
+  height:30px;
+}
+#testscriptholder iframe
+{
+  border:none;
+  height:30px;
+  width:300px;
+  display:inline-block;
+}
+#logholder
+{
+  white-space: pre;
+}
+
+#righttopinfo
+{
+  position: fixed;
+  top: 0px;
+  right: 0px;
+}
+
+#currentwait
+{
+  border: 1px solid black;
+  padding: 2px;
+  display: none;
+  background-color: #ffffff;
+}
+
+#testheader
+{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  border-bottom:1px solid black;
+  padding:2px;
+  height:20px;
+  background-color: #eee;
+}
+
+body
+{
+  padding-top:20px;
+}
+
+#logmoreinfo
+{
+  cursor:pointer;
+}
+html:not(.testframework--havefullerror) #logmoreinfo
+{
+  display:none;
+}
+html:not(.testframework--showfullerror) #fullerror
+{
+  display:none;
+}

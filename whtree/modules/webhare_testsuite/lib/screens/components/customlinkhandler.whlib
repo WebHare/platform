@@ -1,0 +1,43 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+PUBLIC OBJECTTYPE CustomLinkHandler EXTEND TolliumLinkHandlerBase
+<
+  OBJECT timestampobject;
+
+  MACRO NEW()
+  {
+    this->title := "custom link handler";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION TrySetValue(OBJECT rte, STRING inlink)
+  {
+    STRING ARRAY inlinktok := Tokenize(inlink,"x-webharetestsuite-customlink:");
+    IF (Length(inlinktok) != 2)
+      RETURN FALSE;
+
+    INTEGER secsvalue := ToInteger(inlinktok[1],0);
+    this->timestampobject->value := secsvalue;
+    RETURN TRUE;
+  }
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION CreateComponents(OBJECT screen)
+  {
+    this->timestampobject := screen->CreateCustomComponent("http://www.webhare.net/xmlns/tollium/screens", "textedit");
+    this->timestampobject->required := TRUE;
+    this->timestampobject->errorlabel := this->title;
+    this->timestampobject->valuetype := "integer";
+    this->timestampobject->width := "8x";
+    this->timestampobject->minimumvalue := 1;
+
+    RETURN [ this->timestampobject ];
+  }
+  UPDATE PUBLIC MACRO DestroyComponents()
+  {
+    this->timestampobject->DeleteComponent();
+  }
+  UPDATE PUBLIC STRING FUNCTION GetValue(OBJECT rte)
+  {
+    RETURN "x-webharetestsuite-customlink:" || this->timestampobject->value;
+  }
+
+>;

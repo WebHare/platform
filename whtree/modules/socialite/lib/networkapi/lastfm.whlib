@@ -1,0 +1,101 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::socialite/lib/internal/networkconnectionbase.whlib";
+
+PUBLIC OBJECTTYPE LastfmConnection EXTEND NetworkConnectionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Base url for API requests
+  STRING pvt_apiurl;
+
+  STRING apikey;
+
+  OBJECT browser;
+
+ // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY apiurl(pvt_apiurl, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW() : NetworkConnectionBase(DEFAULT RECORD ARRAY)
+  {
+    this->pvt_apiurl := "http://www.last.fm/api/";
+    this->browser := NEW WEBBrowser;
+  }
+
+  /// Returns the redirect page for oauth apps
+  UPDATE PUBLIC STRING FUNCTION GetCallbackURL(STRING serverurl)
+  {
+    RETURN ResolveToAbsoluteURL(serverurl, "/tollium_todd.res/socialite/callbacks/lastfm.shtml");
+  }
+
+  /// Set the host url for authorization callbacks
+  PUBLIC MACRO SetAuthCallbackHostURL(STRING authcallbackhosturl)
+  {
+    //this->pvt_authcallbackhosturl := authcallbackhosturl;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SetApplicationAuthKeys(STRING consumerkey, STRING secretkey)
+  {
+    this->apikey := consumerkey;
+    this->secret := secretkey;
+    this->browser->timeout := 15000;
+  }
+
+  /** Returns an URI the client needs to be redirected to. The client can then authorize the
+      app, and will be redirected to the lastfm redirect page. The redirect url must
+      then be passed to FinishLogin
+      @param callbackurl Custom callback url, will be ignored when the callback host is set in the app settings
+      @param force_authorization Force authorization
+      @return URI
+  */
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY permissions, STRING state, BOOLEAN force_authorization DEFAULTSTO FALSE)
+  {
+    /* do NOT use the official documented auth url with '/'. it does na incorrect redirect as of 29 aug 2012, eg it rewrites
+
+       http://www.last.fm/api/auth/?api_key=628a7e3e7ac36d227b3c2cb96811adbb&cb=http%3A//webhare.moe.sf.b-lex.com/tollium_todd.res/socialite/callbacks/lastfm.shtml%3Fsrhid%3DWwoLVKVhjk3xuR8Yv5vj5Q
+       to
+       http://www.last.fm/api/auth?api_key=628a7e3e7ac36d227b3c2cb96811adbb&cb=http://webhare.moe.sf.b-lex.com/tollium_todd.res/socialite/callbacks/lastfm.shtml%253Fsrhid%253DWwoLVKVhjk3xuR8Yv5vj5Q
+
+       notice the last / before the ? being removed, but 'cb' being double-encoded
+    */
+    RETURN [ sessiontoken := ""
+           , authorize_uri := this->pvt_apiurl || "auth?api_key=" || EncodeURL(this->apikey) || "&cb=" || EncodeURL(callbackurl)
+           , callbackurl := callbackurl
+           ];
+  }
+
+  /** Finish the login sequence
+      @param callbackurl Callbackurl passed to startlogin
+      @param returned_uri
+      @return Undef
+  */
+  PUBLIC RECORD FUNCTION FinishLogin(STRING callbackurl, STRING returned_uri)
+  {
+    //ADDME: dit is niet genoeg, we moeten nog een auth.getSession doen: http://www.last.fm/api/show/auth.getSession
+    //       maar op dit punt gestopt, lastfm waarschijnlijk nog niet echt nodig
+
+    this->accesstok :=
+        [ access_token :=   GetVariableFromURL(returned_uri, "token")
+       ];
+    RETURN DEFAULT RECORD;
+  }
+>;

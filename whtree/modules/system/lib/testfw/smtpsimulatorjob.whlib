@@ -1,0 +1,1248 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testfw/appserveremulator.whlib";
+LOADLIB "mod::system/lib/testfw/emails.whlib";
+
+
+/* This library contains a LMTP/ESMTP server
+*/
+
+/* LMTP implementation comments
+
+LMTP is identical to SMTP, with ESMTP extensions, with modifications
+
+Minimum requirements
+SMTP commandos (rfc821:4.5.1)
+  HELO (modified, must return error)
+  MAIL
+  RCPT
+  DATA
+  RSET
+  NOOP
+  QUIT
+
+ESMTP extension commands
+  EHLO (modified, must return error)
+
+Modified commands/specific in LMTP
+  LHLO (new greeting)
+  DATA (return response for every recipient)
+  BDAT (BINARYMIME only if LAST parameter present, return response for every recipient)
+
+Required extensions:
+  PIPELINING (rfc 1854->rfc 2920)
+  ENHANCEDSTATUSCODES (rfc 2034)
+
+Shoulds:
+  8BITMIME (rfc 1652)
+
+Others:
+  BINARYMIME (rfc 1830, obsoleted by rfc 3030)
+
+comments:
+  PIPELINING: not really an issue with the line receiving and sending model used here.
+    it would be an optimization to buffer the data
+
+*/
+
+STRING ccpath := "";
+BOOLEAN remove_cc_on_success := TRUE;
+
+MACRO LogMailMessage(
+        STRING senderip,
+        STRING queueid,
+        STRING messageid,
+        STRING mailfrom,
+        STRING orig_to,
+        STRING expanded_to,
+        INTEGER size,
+        STRING statuscode,
+        STRING statusmsg)
+{
+  LogDebug("system:smtpsimulator", "mail", CELL[ senderip, queueid, messageid, mailfrom, orig_to, expanded_To, size, statuscode, statusmsg]);
+}
+
+/** Parser for ESMTP-like stuffs
+    public to make it testable
+*/
+PUBLIC STATIC OBJECTTYPE MTPParser EXTEND StringParser
+< PUBLIC MACRO NEW()
+  {
+    this->set_ldh_str := this->set_alpha || this->set_digit || "-";
+    this->set_special := "<>()[]\\.,;:@\"" || this->set_control;
+    this->set_atext := this->set_alpha || this->set_digit || "!#$%&'*+-/=?^_`{|}~"; // from rfc 2822
+    this->set_no_ws_ctl := this->RemoveFromSet(this->set_control, "\t\r\n "); // from rfc 2822
+    this->set_qtext := this->RemoveFromSet(this->set_ascii, "\t\r\n \\\""); // from rfc 2822
+  }
+  PUBLIC STRING set_ldh_str;
+  PUBLIC STRING set_special;
+  PUBLIC STRING set_atext;
+  PUBLIC STRING set_qtext;
+  PUBLIC STRING set_no_ws_ctl;
+
+  /** Parses all upcoming whitespace, until first non-ws character
+  */
+  PUBLIC MACRO ParseWhitespace()
+  {
+    this->ParseWhileInSet(" \t");
+  }
+
+  // Parses rfc 2821 rule 'domain'. Returns empty string on error
+  PUBLIC STRING FUNCTION ParseDomain()
+  {
+    // domain ::= sub-domain ( '.' subdomain )+ / address-literal
+    // addres-literal ::= '[' ( ipv4/ipv6/general ) ']'
+    // sub-domain ::= let-dig [ldh-str]
+    // let-dig ::= ALPHA / DIGIT
+    // ldh-str ::= (ALPHA / DIGIT / "-") let-dig
+
+    STRING retval;
+
+    // Try address-literal
+    IF (this->TryParse('['))
+    {
+      // ADDME: Parse the adress properly
+      retval := this->ParseUntilCharacter(']');
+      IF (NOT this->TryParse(']'))
+        RETURN "";
+
+      RETURN retval;
+    }
+
+    // ADDME: this also accepts '-' at begin and end of domains. We don't care at the moment.
+    STRING ARRAY subdomains;
+    WHILE (TRUE)
+    {
+      STRING subdomain := this->ParseWhileInSet(this->set_ldh_str);
+
+      // No empty subdomains
+      IF (subdomain = "")
+        RETURN "";
+
+      INSERT subdomain INTO subdomains AT END;
+
+      IF (NOT this->TryParse("."))
+      {
+        // At least two subdomains, please
+        IF (LENGTH(subdomains) = 1)
+          RETURN "";
+        BREAK;
+      }
+    }
+
+    RETURN Detokenize(subdomains, ".");
+  }
+
+  /** Parses rfc 2821 rule 'local-part'.
+      Returns empty string on error (look out, empty string is a valid value too, verify that externally).
+  */
+  PUBLIC STRING FUNCTION ParseLocalPart()
+  {
+    // local-part ::= dot-string / quoted-string
+    // dot-string ::= atom ("." atom)*
+    // quoted-string ::= DQUOTE *qcontent DQUOTE
+    // atom ::= 1*atext (set_atext)
+    // qcontent ::= qtext / quoted-pair
+    // qtext ::= ascii - (whitespace / '"' / '\\' / '\0')
+    // quoted-pair ::= ( "\" text ) / obs-qp // obs-qp is superset here, use that.
+    // obs-qp ::= ( "\" ascii )
+    // text ::= ascii - ( '\r' / \n' / '\0' )
+
+    IF (this->TryParse('"'))
+    {
+      STRING retval;
+      WHILE (NOT this->eof)
+      {
+        retval := retval || this->ParseWhileInSet(this->set_qtext);
+
+        IF (this->TryParse('"'))
+          RETURN retval;
+
+        IF (this->current = "\\")
+        {
+          this->Next();
+          retval := retval || this->current;
+          this->Next();
+        }
+        ELSE
+          BREAK; // non-usascii or whitespace
+      }
+      RETURN "";
+    }
+    ELSE
+    {
+      // dot-string
+      STRING str := this->ParseWhileInSet(this->set_atext || ".");
+      IF (LEFT(str, 1) = "." OR RIGHT(str, 1) = ".")
+        RETURN "";
+      RETURN str;
+    }
+  }
+
+  /** Parses rfc 2821 rule 'Path'
+      @param defaultdomain If not empty, accepts a missing domain, and returns the default
+         WARNING: this is not compatible with rfc 821 OR rfc 2821!!
+      @return Path
+      @cell return.mailbox_local Local part of mailbox
+      @cell return.mailbox_domain Domain part of mailbox
+      @cell return.route List of domains in the route
+  */
+  PUBLIC RECORD FUNCTION ParsePath(STRING defaultdomain)
+  {
+    // path ::= "<" [ a-d-l ":" ] Mailbox ">"
+    // a-d-l ::= at-domain ( "," at-domain )*
+    // at-domain ::= "@"
+    // mailbox ::=
+
+    LogDebug("system:smtpsimulator", "ParsePath: " || this->PeekN(80, 0));
+
+    STRING ARRAY route;
+
+    IF (NOT this->TryParse("<"))
+      RETURN DEFAULT RECORD;
+
+    IF (this->TryParse("@")) // a-d-l path
+    {
+      WHILE (TRUE)
+      {
+        STRING domain := this->ParseDomain();
+        IF (domain = "")
+          RETURN DEFAULT RECORD;
+
+        INSERT domain INTO route AT END;
+
+        IF (NOT this->TryParse(","))
+          BREAK;
+        IF (NOT this->TryParse("@"))
+          RETURN DEFAULT RECORD;
+      }
+      IF (NOT this->TryParse(":"))
+        RETURN DEFAULT RECORD;
+    }
+
+    // Empty local part isn't allowed. ParseLocalPart doesn't check that.
+    IF (this->TryParse("@"))
+      RETURN DEFAULT RECORD;
+
+    STRING local_part := this->ParseLocalPart();
+
+    STRING domain;
+    IF (this->TryParse("@"))
+      domain := this->ParseDomain();
+    ELSE
+      domain := defaultdomain;
+
+    IF (domain = "" OR NOT this->TryParse(">"))
+      RETURN DEFAULT RECORD;
+
+    RETURN [ mailbox_local := local_part
+           , mailbox_domain := domain
+           , route := route
+           ];
+  }
+
+>;
+
+
+/** Creates an valid email address from a email path
+*/
+PUBLIC STRING FUNCTION EncodeEmailPath(RECORD path)
+{
+  IF (NOT CellExists(path, "route"))
+    Abort(AnyToString(path, "boxed"));
+
+  STRING routeval;
+  IF (LENGTH(path.route) != 0)
+    routeval := "@" || Detokenize(path.route, ",@") || ":";
+
+  RETURN "<" || routeval ||
+        (path.mailbox_local = "" ? "" : EncodeLocalPart(path.mailbox_local)) ||
+        (path.mailbox_domain = "" ? "" : "@" || path.mailbox_domain) ||
+        ">";
+}
+
+
+
+STRING FUNCTION EncodeLocalPart(STRING mylocal)
+{
+  OBJECT parser := NEW MTPParser;
+
+  // Check if mylocal is a dot-atom-string. If so, we can return it verbatim
+  IF (mylocal != "")
+  {
+    parser->Reset(mylocal);
+    parser->ParseWhileInSet(parser->set_atext||".");
+    IF (parser->eof)
+    {
+      // mylocal is already a valid dot-string
+      RETURN mylocal;
+    }
+  }
+
+  STRING retval;
+  parser->Reset(mylocal);
+  WHILE (NOT parser->eof)
+  {
+    IF (parser->current IN [ ' ', '\t', '\\', '"' ])
+      retval := retval || "\\" || parser->current;
+    ELSE
+      retval := parser->current;
+    parser->Next();
+  }
+  RETURN '"' || retval || '"';
+}
+
+
+PUBLIC STATIC OBJECTTYPE MailHandler
+</** Returns all options
+      @return Option data
+      @cell return.allow_rcpt_routes Allow source routes for recipients. Defaults to FALSE.
+      @cell return.support_smtp_semantics Supports esmtp send semantics. Defaults to FALSE.
+      @cell return.support_lmtp_semantics Supports lmtp send semantics. Defaults to FALSE.
+  */
+  PUBLIC RECORD FUNCTION GetOptions()
+  {
+    ABORT("This function needs to be overridden");
+  }
+
+  /** Get identification of this mail handler
+  */
+  PUBLIC STRING FUNCTION GetIdentification()
+  {
+    ABORT("This function needs to be overridden");
+  }
+
+  /** Allocates a mail transaction object
+      @param sender_path Sender path
+      @param conndata Connection data (DEFAULT RECORD if local)
+      @cell conndata.sender_ip Ip address of sender
+      @cell conndata.sender_port port of sender
+      @cell conndata.receiver_ip Receiver ip
+      @cell conndata.receiver_port Receiver port
+      @return Returns error status and transaction object
+      @cell return.status ESMTP status (2xx signals ok)
+      @cell return.enhcode ESMTP enhanced status code. Leave empty to use default enhanced code, derived from @a status
+      @cell return.msg String array of message to send back. Leave empty to use default message.
+      @cell return.trans Transaction object of type MailHandlerTransaction (valid iff status is 2xx)
+  */
+  PUBLIC RECORD FUNCTION SetupTransaction(RECORD path, RECORD conndata, STRING clientname)
+  {
+    ABORT("This function needs to be overridden");
+  }
+>;
+
+STATIC OBJECTTYPE MailHandlerTransaction
+</** Tries to a a recipient to the transaction.
+      @param path Recipient path
+      @cell path.mailbox_local Local part of mailbox
+      @cell path.mailbox_domain Domain part of mailbox
+      @cell path.route List of domains in the route
+      @return Result status
+      @cell return.status ESMTP status (2xx signals ok). Recipient is only added when a 2xx status
+                          is given back.
+      @cell return.enhcode ESMTP enhanced status code. Leave empty to use default enhanced code, derived from @a status
+      @cell return.msg String array of message to send back. Leave empty to use default message.
+  */
+  PUBLIC RECORD FUNCTION TryAddRecipient(RECORD path)
+  {
+    ABORT("This function needs to be overridden");
+  }
+
+  /** Send the message to the succesfully added mail recipients
+      @param data Data
+      @param is_esmtp If true, the handler must deliver all messages when it gives back
+                 a positive ESMTP reply. Otherwise, the handler only pledges to deliver the messages
+                 for which the corresponding recipient has a 2xx status code.
+                 TRUE in SMTP and ESMTP mode, FALSE in LMTP mode.
+      @return Return error codes
+      @cell return.status ESMTP status (2xx signals OK).
+      @cell return.enhcode ESMTP enhanced status code
+      @cell return.msg String array of messages to send back.  Leave empty to use default message.
+      @cell return.recipients Error codes for all recipients, in order of @a recipients.
+      @cell return.recipients.status State of the send to the corresponding recipient. If ANY of the recipients
+                 has a 2xx status, the ESMTP status must also be 2xx!!
+      @cell return.recipients.msg String array of message to send, leave empty to use default
+   */
+  PUBLIC RECORD FUNCTION TryExecuteSend(BLOB data, BOOLEAN is_esmtp)
+  {
+    ABORT("This function needs to be overridden");
+  }
+>;
+
+/** ESMTP server class
+*/
+PUBLIC STATIC OBJECTTYPE MTPServer
+< /// Whether the client has already sent a greeting
+  PUBLIC BOOLEAN greeted;
+
+  /// Name the client used to identify itself
+  PUBLIC STRING greetingname;
+
+  /// Whether a QUIT command has been sent
+  PUBLIC BOOLEAN finished;
+
+  /// TRUE when we are receiving data.
+  PUBLIC BOOLEAN receiving_data;
+
+  /// Type of the server ("SMTP", "ESMTP", "LMTP")
+  PUBLIC STRING type;
+
+  /** Options for the server
+      @cell is_lmtp Is this an LMTP server?
+      @cell allow_rcpt_routes Does this server allow source routes?
+      @cell allow_binary Does the server support binary transmission (connection and esmtp/lmtp mode)
+      @cell login_timeout Time in which login sequence should be completed
+      @cell maildata_timeout Time in which each next line should be received
+      @cell standard_disconnect_timeout Time for clients to pick up the last data after a graceful disconnect
+      @cell max_cmdline_length Maximum accepted line length
+      @cell max_dataline_length Maximum accepted data line length
+      @cell soft_bounce Reject all messages with soft bounce
+      @cell default_rcpt_domain If set and not equal to "", accept RCPT TO:<...> without domain qualification: this value is used as domain.
+  */
+  PUBLIC RECORD options;
+
+  /// communication object (must be extended from AppServerConnectionBase)
+  PUBLIC OBJECT conn;
+
+  /// Mail handler (must be extended from MailHandler)
+  PUBLIC OBJECT handler;
+
+  /// MTPParser object
+  PUBLIC OBJECT parser;
+
+  /// Resets all data
+  PUBLIC MACRO Reset()
+  {
+    this->sender_path := DEFAULT RECORD;
+    this->recv_paths := DEFAULT RECORD ARRAY;
+    this->trans := DEFAULT OBJECT;
+  }
+
+  /// Blob stream to which all data is sent
+  PUBLIC INTEGER blobstream;
+
+  /// MailHandlerTransaction
+  PUBLIC OBJECT trans;
+
+  /// Current sender path, as parsed from MAIL FROM:<...>
+  PUBLIC RECORD sender_path;
+
+  /// Current receiver paths, as parsed from RCPT TO:<...>
+  PUBLIC RECORD ARRAY recv_paths;
+
+  /** Sends a response to the client
+      @param code SMTP code
+      @param line comment line (don't add CRLF)
+  */
+  PUBLIC MACRO SendResponse(STRING code, STRING enhcode, STRING line)
+  {
+    this->SendMultiResponse(code, enhcode, [ line ]);
+  }
+
+  /** Sends a multi-line response to the client
+      @param code SMTP code
+      @param line comment line (don't add CRLF)
+  */
+  PUBLIC MACRO SendMultiResponse(STRING code, STRING enhcode, STRING ARRAY lines)
+  {
+    IF (code NOT LIKE "2*" AND code NOT LIKE "3*")
+    {
+      IF (ObjectExists(this->trans))
+        this->trans->LogGeneralMessage([ status := code, msg := lines ]);
+      ELSE
+      {
+        RECORD conndata := this->conn->GetConnectionData();
+        LogMailMessage(
+            conndata.remote_ip || ":" || conndata.remote_port,
+            "",
+            "",
+            "",
+            "",
+            "",
+            0,
+            code,
+            lines[0]);
+      }
+    }
+
+    IF (this->options.soft_bounce AND code LIKE "5**")
+    {
+      code := "450";
+      IF (enhcode != "")
+        enhcode := "4" || SubString(enhcode, 1, LENGTH(enhcode));
+    }
+
+    IF (enhcode != "")
+      enhcode := enhcode || " ";
+
+    // Multiline response has '-' at pos 3 at all non-last lines.
+    INTEGER last := LENGTH(lines) - 1;
+    FOREVERY (STRING line FROM lines)
+    {
+      STRING myline := code || (#line = last ? " " : "-") || enhcode || line;
+
+      LogDebug("system:smtpsimulator", "S: " || EncodeJava(myline));
+      this->SendLine(myline);
+    }
+  }
+
+  /** Send a line and a CRLF to the conn channel
+      @param line to send (without the crlf)
+  */
+  PUBLIC MACRO SendLine(STRING line)
+  {
+    this->conn->SendData(line || "\r\n");
+  }
+
+  /// Call when a line is expected to be sent
+  PUBLIC MACRO ExpectLine()
+  {
+    // Calculate the max line length from the mode we are in
+    INTEGER maxline := this->receiving_data ? this->options.max_dataline_length : this->options.max_cmdline_length;
+
+    this->conn->ExpectLine(maxline);
+  }
+
+  /** Called when a line arrives. Handles too-long lines, and reissuing ExpectLines (when this->finished is FALSE)
+      @param data Arrived line
+      @param complete Whether the line is complete
+  */
+  PUBLIC MACRO ClientReceiveLine(STRING data, BOOLEAN complete)
+  {
+    IF (this->finished) // Ignoring, there was a timout
+      RETURN;
+
+    // Line longer than max? ERROR! ADDME: do we want to disconnect?
+    IF (NOT complete)
+    {
+      this->SendResponse("500", "5.5.0", "SMTP protocol failure (line too long)");
+      this->ExpectLine();
+      RETURN;
+    }
+
+    // Valid line: handle it
+    this->HandleLine(data);
+
+    // If we are not yet finished, expect new data and set timeouts
+    IF (NOT this->finished)
+    {
+      // Expect a new line. FIXME: for binary data, we need something else
+      this->ExpectLine();
+
+      // Set new timeout, based on current state
+      INTEGER timeout := this->options.standard_disconnect_timeout;
+      IF (this->receiving_data)
+        timeout := this->options.maildata_timeout;
+      IF (NOT this->greeted)
+        timeout := this->options.login_timeout;
+
+      this->conn->SetTimer(timeout);
+    }
+  }
+
+  /** Called when data lines arrives
+      @param data Line data */
+  PUBLIC MACRO HandleReceivedData(STRING data)
+  {
+    BOOLEAN is_terminator;
+
+    IF (data != ".")
+    {
+      IF (data LIKE ".*")
+        data := SubString(data, 1);
+      PrintTo(this->blobstream, data || "\r\n");
+      RETURN;
+    }
+
+    this->receiving_data := FALSE;
+
+    BLOB datablob := MakeBlobFromStream(this->blobstream);
+
+    LogDebug("system:smtpsimulator", "C: <data, " || LENGTH(datablob) || " bytes>");
+    LogDebug("system:smtpsimulator", "C: "||EncodeJava(data));
+
+    INTEGER out;
+    STRING ccname;
+    IF(ccpath!="")
+    {
+      ccname := MergePath(ccpath, FormatDatetime("%Y%m%d%H%M%S%Q", GetCurrentDatetime()) || "." || Random(1,65535) || ".txt");
+      out := CreateDiskFile(ccname, TRUE, TRUE);
+      FOREVERY (RECORD recv FROM this->recv_paths)
+        PrintTo(out, recv.mailbox_local || "@" || recv.mailbox_domain || "\n");
+
+      PrintTo(out,"\n");
+      SendBlobTo(out, datablob);
+      CloseDiskFile(out);
+    }
+
+    RECORD ARRAY results;
+
+    // Do some sending-action here
+    RECORD result := this->trans->TryExecuteSend(
+        datablob,
+        NOT this->options.is_lmtp);
+
+    IF (this->options.is_lmtp AND CellExists(result, "RECIPIENTS"))
+    {
+      IF (LENGTH(this->recv_paths) != LENGTH(result.recipients))
+      {
+        this->SendResponse("451", "4.3.0", "Can't complete: my mail handler failed. Sorry.");
+        RETURN;
+      }
+
+      FOREVERY (RECORD recv FROM result.recipients)
+      {
+        STRING ARRAY msg := GetCellSafe(recv, "MSG", DEFAULT STRING ARRAY);
+        IF (LENGTH(msg) = 0)
+          msg := [ GetMessage(recv.status, this->handler->GetIdentification(), this->recv_paths[#recv]) ];
+        STRING enhcode := GetCellSafe(recv, "ENHCODE", "");
+        IF (enhcode = "")
+          enhcode := GetEnhancedCode(recv.status);
+
+        IF (recv.status LIKE "2*" AND result.status NOT LIKE "2*")
+        {
+          this->SendResponse("451", "4.3.0", "Can't complete: my mail handler was confused with status codes. Sorry.");
+          RETURN;
+        }
+        this->SendMultiResponse(recv.status, enhcode, msg);
+      }
+    }
+    ELSE
+    {
+      IF (result.status LIKE "2*" AND this->options.is_lmtp)
+        ABORT("Missing individual recipient responses for lmtp send");
+
+      STRING ARRAY msg := GetCellSafe(result, "MSG", DEFAULT STRING ARRAY);
+      IF (LENGTH(msg) = 0)
+        msg := [ GetMessage(result.status, this->handler->GetIdentification()) ];
+      STRING enhcode := GetCellSafe(result, "ENHCODE", "");
+      IF (enhcode = "")
+        enhcode := GetEnhancedCode(result.status);
+
+      INTEGER count := this->options.is_lmtp ? LENGTH(this->recv_paths) : 1;
+
+      FOR (INTEGER i := 0; i < count; i := i + 1)
+        this->SendMultiResponse(result.status, enhcode, msg);
+    }
+
+    IF (ccpath != "" AND remove_cc_on_success)
+      DeleteDiskFile(ccname);
+  }
+
+  /** Called when a valid command line arrives
+      @param data Valid command line
+  */
+  PUBLIC MACRO HandleLine(STRING data)
+  {
+    // If we are receiving data, we need to call HandleReceivedData
+    IF (this->receiving_data)
+    {
+      this->HandleReceivedData(data);
+      RETURN;
+    }
+
+    LogDebug("system:smtpsimulator", "C: "||EncodeJava(data)); // Log only commands
+
+    // Remove trailing ws at end of command (rfc 2821 p4.1.1)
+    WHILE (Right(data, 1) = " " OR Right(data, 1) = "\t")
+      data := LEFT(data, LENGTH(data) - 1);
+
+    // Parse the command and the parameters from the data
+    INTEGER spos := SearchSubString(data, " ");
+    IF (spos = -1)
+      spos := LENGTH(data);
+
+    STRING command := ToUppercase(LEFT(data, spos));
+    STRING params := SubString(data, spos + 1, LENGTH(data));
+
+    // When not greeted, we accept only greetings.
+    IF (command NOT IN ["EHLO","HELO","LHLO"] AND NOT this->greeted)
+    {
+      this->SendResponse("503", "", "Please tell me who you are first.");
+      RETURN;
+    }
+
+    SWITCH (command)
+    {
+    CASE "LHLO"
+      {
+        // No enhanced status codes for LHLO, EHLO and HELO codes!
+        IF (NOT this->options.is_lmtp)
+        {
+          this->SendResponse("500", "", "This is not a LMTP server");
+          RETURN;
+        }
+
+        STRING greetingname := TrimWhitespace(params);
+        IF (greetingname = "")
+        {
+          this->SendResponse("501", "", "Expected you to give me a hostname");
+          RETURN;
+        }
+
+        this->Reset();
+        this->SendMultiResponse("250", "",
+          [ this->handler->GetIdentification() || " greets " || params
+          , "PIPELINING"
+          , "ENHANCEDSTATUSCODES"
+          ]);
+
+        this->greeted := TRUE;
+        this->type := "LMTP";
+        this->greetingname := greetingname;
+      }
+    CASE "HELO"
+      {
+        // No enhanced status codes for LHLO, EHLO and HELO codes!
+        IF (this->options.is_lmtp)
+        {
+          this->SendResponse("500", "", "This is a LMTP server");
+          RETURN;
+        }
+
+        STRING greetingname := TrimWhitespace(params);
+        IF (greetingname = "")
+        {
+          this->SendResponse("501", "", "Expected you to give me a hostname");
+          RETURN;
+        }
+
+        this->Reset();
+        this->SendResponse("250", "", this->handler->GetIdentification() || " greets " || params);
+
+        this->greeted := TRUE;
+        this->type := "SMTP";
+        this->greetingname := greetingname;
+      }
+    CASE "EHLO"
+      {
+        // No enhanced status codes for LHLO, EHLO and HELO codes!
+        IF (this->options.is_lmtp)
+        {
+          this->SendResponse("500", "", "This is a LMTP server");
+          RETURN;
+        }
+
+        STRING greetingname := TrimWhitespace(params);
+        IF (greetingname = "")
+        {
+          this->SendResponse("501", "", "Expected you to give me a hostname");
+          RETURN;
+        }
+
+        this->Reset();
+        this->SendMultiResponse("250", "",
+          [ this->handler->GetIdentification() || " greets " || params
+          , "PIPELINING"
+          , "ENHANCEDSTATUSCODES"
+          ]);
+
+        this->greeted := TRUE;
+        this->type := "ESMTP";
+        this->greetingname := greetingname;
+      }
+
+    CASE "NOOP"
+      {
+        this->SendResponse("250", "2.5.0", "Yawn");
+      }
+
+    CASE "RSET"
+      {
+        this->Reset();
+        this->SendResponse("250", "2.5.0", "All state has been thrown away.");
+      }
+
+    CASE "RCPT"
+      {
+        OBJECT parser := this->parser;
+        this->parser->Reset(params);
+
+        parser->ParseWhitespace();
+        IF (NOT parser->TryParseCase("TO:"))
+        {
+          this->SendResponse("500", "5.5.2", "This command ('"||data||"') does not compute.");
+          RETURN;
+        }
+        parser->ParseWhitespace();
+
+        STRING address := parser->remaining_data;
+
+        RECORD path;
+        IF (parser->TryParseCase("<postmaster>"))
+        {
+          path := [ mailbox_local := "postmaster"
+                  , mailbox_domain := ""
+                  , route := DEFAULT STRING ARRAY
+                  ];
+        }
+        ELSE
+          path := parser->ParsePath(this->options.default_rcpt_domain);
+
+        IF (NOT RecordExists(path))
+        {
+          this->SendResponse("500", "5.1.3", "This recipient mail address ('"||address||"') does not compute.");
+          RETURN;
+        }
+
+        IF (LENGTH(path.route) != 0 AND NOT this->options.allow_rcpt_routes)
+        {
+          this->SendResponse("550", "5.4.4", "This server doesn't allow relaying.");
+          RETURN;
+        }
+
+        IF (NOT ObjectExists(this->trans))
+        {
+          this->SendResponse("503", "5.5.0", "Please tell me who is sending this mail first.");
+          RETURN;
+        }
+
+        RECORD rec := this->trans->TryAddRecipient(path);
+        IF (rec.status LIKE "2*") // success?
+          INSERT path INTO this->recv_paths AT END;
+
+        STRING enhcode := GetCellSafe(rec, "ENHCODE", "");
+        IF (enhcode = "")
+          enhcode := GetEnhancedCode(rec.status);
+
+        STRING ARRAY msg := GetCellSafe(rec, "MSG", DEFAULT STRING ARRAY);
+        IF (LENGTH(msg) = 0)
+        {
+          IF (rec.status = "250")
+          {
+            msg := [ "I like this recipient." ];
+            enhcode := "2.1.5";
+          }
+          ELSE
+            msg := [ GetMessage(rec.status, this->handler->GetIdentification()) ];
+        }
+
+        this->SendMultiResponse(rec.status, enhcode, msg);
+      }
+
+    CASE "HELP"
+      {
+        this->SendMultiResponse("214", "2.5.0",
+          [ "Webhare ESMTP/LMTP server script, copyright B-Lex"
+          , "Really, if you need help, consult RFC 2033, 2821, 2822 and others."
+          ]);
+      }
+
+    CASE "MAIL"
+      {
+        OBJECT parser := this->parser;
+        this->parser->Reset(params);
+
+        parser->ParseWhitespace();
+        IF (NOT parser->TryParseCase("FROM:"))
+        {
+          this->SendResponse("500", "5.5.2", "This command ('"||data||"') does not compute.");
+          RETURN;
+        }
+        parser->ParseWhitespace();
+
+        STRING address := parser->remaining_data;
+
+        RECORD path;
+        IF (parser->TryParseCase("<>"))
+        {
+          path := [ mailbox_local := ""
+                  , mailbox_domain := ""
+                  , route := DEFAULT STRING ARRAY
+                  ];
+        }
+        ELSE
+          path := parser->ParsePath("");
+
+        IF (NOT RecordExists(path))
+        {
+          this->SendResponse("500", "5.1.7", "This originator mail address ('"||address||"') does not compute.");
+          RETURN;
+        }
+
+        // Reset all data, this is a new transaction
+        this->Reset();
+
+        RECORD rec := this->handler->SetupTransaction(path, this->conn->GetConnectionData(), this->greetingname);
+        IF (rec.status LIKE "2*") // success?
+        {
+          this->sender_path := path;
+          this->trans := rec.trans;
+        }
+
+        STRING enhcode := GetCellSafe(rec, "ENHCODE", "");
+        IF (enhcode = "")
+          enhcode := GetEnhancedCode(rec.status);
+
+        STRING ARRAY msg := GetCellSafe(rec, "MSG", DEFAULT STRING ARRAY);
+        IF (LENGTH(msg) = 0)
+        {
+          IF (rec.status = "250")
+          {
+            msg := [ "Hi " ||(path.mailbox_local=""?"anonymous coward":path.mailbox_local||"@"||path.mailbox_domain)||", do you have a message for me?" ];
+            enhcode := "2.1.0";
+          }
+          ELSE
+            msg := [ GetMessage(rec.status, this->handler->GetIdentification()) ];
+        }
+        this->SendMultiResponse(rec.status, enhcode, msg);
+      }
+
+    CASE "DATA"
+      {
+        // Need a sender
+        IF (NOT RecordExists(this->sender_path))
+        {
+          this->SendResponse("503", "5.5.0", "Please tell me who is sending this mail first.");
+          RETURN;
+        }
+
+        // Need at least one recipient
+        IF (LENGTH(this->recv_paths) = 0)
+        {
+          // Fail MUST be 503 for lmtp. rfc 2033 4.2.
+          this->SendResponse("503", "5.5.0", "And who do you want me to send this message to?");
+          RETURN;
+        }
+
+        this->SendResponse("354", "", "Let's see what you got. End with <CRLF>.<CRLF> please!");
+        this->receiving_data := TRUE;
+        this->blobstream := CreateStream();
+      }
+
+    CASE "QUIT"
+      {
+        this->SendResponse("221", "2.5.0", "Sorry to see you go. See you next time!");
+        this->conn->Disconnect(90); // FIXME: make configurable
+        this->finished := TRUE;
+      }
+    DEFAULT
+      {
+        // Unknown command
+        this->SendResponse("500", "5.5.1", "What command is that? You sent '"||ToLowercase(command)||"', but I can't seem to recognize it!");
+      }
+    }
+  }
+
+  /** Called when a timeout happens
+  */
+  PUBLIC MACRO HandleTimeout()
+  {
+    this->conn->Disconnect(90); // FIXME: make configurable
+    this->finished := TRUE;
+  }
+
+  /** Creates a new MTPServer object
+      @param conn Connection (must extend AppServerConnectionBase)
+      @param handler Mail handler (must extend MailHandler)
+      @param options Options
+      @cell options.is_lmtp Is this an LMTP server?
+      @cell options.soft_bounce Reject all messages with 4xx message (soft bounce), default TRUE
+  */
+  PUBLIC MACRO NEW(OBJECT conn, OBJECT handler, RECORD options)
+  {
+    this->parser := NEW MTPParser();
+    this->conn := conn;
+    this->handler := handler;
+
+    RECORD handler_opts := handler->GetOptions();
+    RECORD conn_opts := conn->GetOptions();
+
+    this->options :=
+      [ is_lmtp           := options.is_lmtp
+      , soft_bounce       := GetCellSafe(options, "soft_bounce", TRUE)
+
+      , allow_rcpt_routes := GetCellSafe(handler_opts, "allow_rcpt_routes", FALSE)
+      , allow_binary      := GetCellSafe(handler_opts, "allow_binary", FALSE)
+                             AND GetCellSafe(conn_opts, "has_binary_expect", FALSE)
+      , login_timeout     := GetCellSafe(handler_opts, "login_timeout", 300) // rfc 2821 4.5.4
+      , maildata_timeout  := GetCellSafe(handler_opts, "maildata_timeout", 300)
+      , standard_disconnect_timeout
+                          := GetCellSafe(handler_opts, "standard_disconnect_timeout", 300)
+      , max_cmdline_length := GetCellSafe(handler_opts, "max_cmdline_length", 1024)
+      , max_dataline_length := GetCellSafe(handler_opts, "max_dataline_length", 1024)
+
+      , default_rcpt_domain := GetCellSafe(options, "default_rcpt_domain", "")
+      ];
+
+    IF (this->options.max_cmdline_length < 512)
+      ABORT("Max command line length must be larger than 512 bytes");
+    IF (this->options.max_dataline_length < 1000)
+      ABORT("Max data line length must be larger than 1000 bytes");
+
+    // Set connection callbacks
+    this->conn->OnLineReceive := PTR this->ClientReceiveLine;
+    this->conn->OnTimerExpire := PTR this->HandleTimeout;
+  }
+
+  /** Start the conversation
+  */
+  PUBLIC MACRO Run()
+  {
+    LogDebug("system:smtpsimulator", "Sending greeting");
+    // Send greeting
+    IF (this->options.is_lmtp)
+      this->SendResponse("220", "", this->handler->GetIdentification() || " LMTP server ready");
+    ELSE
+      this->SendResponse("220", "", this->handler->GetIdentification() || " SMTP server ready");
+
+    // Set timer for login
+    this->conn->SetTimer(this->options.login_timeout);
+
+    // We expect the client to send the first command
+    this->ExpectLine();
+
+    // Start the connection loop
+    this->conn->Run();
+  }
+>;
+
+/** List of default messages and enhancement codes for normal status codes
+*/
+RECORD ARRAY defaultmessages :=
+  [ [ code := "211", enhcode := "2.5.0", msg :="System status, or system help reply" ]
+  , [ code := "214", enhcode := "2.5.0", msg :="Help message" ]
+  , [ code := "220", enhcode := "2.5.0", msg :="<domain> Service ready" ]
+  , [ code := "221", enhcode := "2.5.0", msg :="<domain> Service closing transmission channel" ]
+  , [ code := "250", enhcode := "2.5.0", msg :="Requested mail action okay, completed" ]
+  , [ code := "251", enhcode := "2.1.0", msg :="User not local; will forward to <forward-path>" ]
+  , [ code := "252", enhcode := "2.1.0", msg :="Cannot VRFY user, but will accept message and attempt delivery" ]
+  , [ code := "354", enhcode := "",      msg :="Start mail input; end with <CRLF>.<CRLF>" ]
+  , [ code := "421", enhcode := "4.3.0", msg :="<domain> Service not available, closing transmission channel" ]
+  , [ code := "450", enhcode := "4.2.0", msg :="Requested mail action not taken: mailbox unavailable" ]
+  , [ code := "451", enhcode := "4.3.0", msg :="Requested action aborted: local error in processing" ]
+  , [ code := "452", enhcode := "4.3.1", msg :="Requested action not taken: insufficient system storage" ]
+  , [ code := "500", enhcode := "5.5.1", msg :="Syntax error, command unrecognized" ]
+  , [ code := "501", enhcode := "5.5.4", msg :="Syntax error in parameters or arguments" ]
+  , [ code := "502", enhcode := "5.5.1", msg :="Command not implemented" ]
+  , [ code := "503", enhcode := "5.5.0", msg :="Bad sequence of commands" ]
+  , [ code := "504", enhcode := "5.5.4", msg :="Command parameter not implemented" ]
+  , [ code := "550", enhcode := "5.2.0", msg :="Requested action not taken: mailbox unavailable" ]
+  , [ code := "551", enhcode := "5.4.4", msg :="User not local; please try <forward-path>" ]
+  , [ code := "552", enhcode := "5.3.1", msg :="Requested mail action aborted: exceeded storage allocation" ]
+  , [ code := "553", enhcode := "5.1.1", msg :="Requested action not taken: mailbox name not allowed" ]
+  , [ code := "554", enhcode := "5.0.0", msg :="Transaction failed" ]
+  ];
+
+STRING FUNCTION GetMessage(STRING ecode, STRING domain DEFAULTSTO "", RECORD forwardpath DEFAULTSTO DEFAULT RECORD)
+{
+  STRING mymsg := SELECT AS STRING msg FROM defaultmessages WHERE code = ecode;
+  IF (domain != "")
+    domain := domain || ": ";
+  mymsg := Substitute(mymsg, "<domain> ", domain || ": ");
+  STRING fpath := RecordExists(forwardpath) ? forwardpath.mailbox_local || "@" || forwardpath.mailbox_domain : "";
+  mymsg := Substitute(mymsg, "<forward-path>", fpath);
+  RETURN mymsg;
+}
+
+/** Returns the default enhanced code for a simple code
+    @param ecode Status code
+    @return Defalt enhanced status code
+*/
+STRING FUNCTION GetEnhancedCode(STRING ecode)
+{
+  RETURN SELECT AS STRING enhcode FROM defaultmessages WHERE code = ecode;
+}
+
+// Returns a cell, or a default when it doesn't exist
+VARIANT FUNCTION GetCellSafe(RECORD rec, STRING cellname, VARIANT defaultvalue)
+{
+  IF (CellExists(rec, cellname))
+    RETURN GetCell(rec, cellname);
+  RETURN defaultvalue;
+}
+
+/* This script can be run within a job, and returns all the delivered
+   mail back to the caller
+*/
+
+OBJECT parentlink := GetIPCLinkToParent();
+RECORD rec := parentlink->ReceiveMessage(MAX_DATETIME);
+
+OBJECT trans := OpenPrimary();
+
+IF (rec.status != "ok")
+  THROW NEW Exception("No init data");
+
+OBJECT appserver := MakeAppserverEmulator(rec.msg.host, rec.msg.port, PTR OnNewConnection(#1, rec.msg.handleroptions));
+RECORD simulatoroptions := ValidateOptions([ directbouncemasks := STRING[], bouncehandling := "", connectdelay := 0, debug := FALSE ], rec.msg.options);
+appserver->Init();
+appserver->debugmode := simulatoroptions.debug;
+parentlink->SendMessage([ type := "init" ]);
+appserver->Run();
+
+STATIC OBJECTTYPE DummyMailHandler EXTEND MailHandler
+<
+  RECORD options;
+
+  /** @cell options.allow_rcpt_routes @includecelldef #MTPServer::options.allow_rcpt_routes
+      @cell options.allow_binary @includecelldef #MTPServer::options.allow_binary
+      @cell options.login_timeout @includecelldef #MTPServer::options.login_timeout
+      @cell options.maildata_timeout @includecelldef #MTPServer::options.maildata_timeout
+      @cell options.standard_disconnect_timeout @includecelldef #MTPServer::options.standard_disconnect_timeout
+      @cell options.max_cmdline_length @includecelldef #MTPServer::options.max_cmdline_length
+      @cell options.max_dataline_length @includecelldef #MTPServer::options.max_dataline_length
+      @cell options.default_rcpt_domain @includecelldef #MTPServer::options.default_rcpt_domain
+  */
+  MACRO NEW(RECORD options)
+  {
+    this->options := ValidateOptions(
+      [ allow_rcpt_routes :=            FALSE
+      , allow_binary :=                 FALSE
+      , login_timeout :=                300
+      , maildata_timeout :=             300
+      , standard_disconnect_timeout :=  300
+      , max_cmdline_length :=           1024
+      , max_dataline_length :=          1024
+      ], options,
+      [ optional := [ "allow_rcpt_routes", "allow_binary", "login_timeout", "maildata_timeout", "standard_disconnect_timeout", "max_cmdline_length", "max_dataline_length" ]
+      ]);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetOptions()
+  {
+    RETURN
+        [ allow_rcpt_routes := FALSE
+        , support_smtp_semantics := TRUE
+        , support_lmtp_semantics := FALSE
+        , ...this->options
+        ];
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetIdentification()
+  {
+    RETURN "Dummy mail handler";
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION SetupTransaction(RECORD path, RECORD conndata, STRING clientname)
+  {
+    RETURN
+        [ status :=   "250"
+        , enhcode :=  ""
+        , msg :=      DEFAULT STRING ARRAY
+        , trans :=    NEW DummyMailHandlerTransaction(path)
+        ];
+  }
+>;
+
+BOOLEAN FUNCTION IsComplaint(STRING address)
+{
+  IF(address LIKE "complaint@simulator.amazonses.com")
+    RETURN TRUE;
+  RETURN FALSE;
+
+}
+
+BOOLEAN FUNCTION IsDirectBounce(STRING address)
+{
+  IF(address LIKE "bounce@simulator.amazonses.com" OR address LIKE "suppressionlist@simulator.amazonses.com")
+    RETURN TRUE;
+  FOREVERY(STRING mask FROM simulatoroptions.directbouncemasks)
+    IF(ToUppercase(address) LIKE ToUppercase(mask))
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+STATIC OBJECTTYPE DummyMailHandlerTransaction EXTEND MailHandlerTransaction
+< RECORD sender;
+  RECORD ARRAY recipients;
+
+  MACRO NEW(RECORD sender)
+  {
+    this->sender := sender;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION TryAddRecipient(RECORD path)
+  {
+    IF(simulatoroptions.bouncehandling = "" AND IsDirectBounce(path.mailbox_local || "@" || path.mailbox_domain))
+    {
+      RETURN [ status :=    "550"
+             , enhcode :=   ""
+             , msg := ["Listed in 'directbouncemasks'"]
+             ];
+    }
+
+    INSERT path INTO this->recipients AT END;
+    LogDebug('x',this->recipients);
+
+    RETURN
+       [ status :=    "250"
+       , enhcode :=   ""
+       , msg := DEFAULT STRING ARRAY
+       ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION TryExecuteSend(BLOB data, BOOLEAN is_esmtp)
+  {
+    parentlink->SendMessage(
+        [ type :=         "message"
+        , msg :=
+              [ sender :=       this->sender
+              , recipients :=   this->recipients
+              , data :=         data
+              ]
+        ]);
+    LogDebug('x',this->recipients);
+
+    IF(simulatoroptions.bouncehandling = "SES") //FIXME is it safe to assume disablebouncehandling == SES ? (or perhaps we'll just convert others to similar mechanisms too)
+      FOREVERY(RECORD path FROM this->recipients)
+      {
+        RECORD msg := DecodeMIMEMessage(data);
+        STRING messageid := SELECT AS STRING value FROM msg.headers WHERE ToUppercase(field)="MESSAGE-ID";
+
+        IF(IsDirectBounce(path.mailbox_local || "@" || path.mailbox_domain))
+        {
+          SendBounceToSNSEndpoint(messageid, "Bounce", path.mailbox_local || "@" || path.mailbox_domain);
+        }
+        ELSE IF(IsComplaint(path.mailbox_local || "@" || path.mailbox_domain))
+        {
+          SendBounceToSNSEndpoint(messageid, "Complaint", path.mailbox_local || "@" || path.mailbox_domain);
+        }
+        ELSE
+        {
+          SendBounceToSNSEndpoint(messageid, "Delivery", path.mailbox_local || "@" || path.mailbox_domain);
+        }
+      }
+
+    RETURN
+       [ status :=    "250"
+       , enhcode :=   ""
+       , msg := DEFAULT STRING ARRAY
+       , recipients := RepeatElement([ status := "250"
+                                     , msg := DEFAULT STRING ARRAY
+                                     ], LENGTH(this->recipients))
+       ];
+  }
+
+  PUBLIC MACRO LogGeneralMessage(RECORD state)
+  {
+  }
+
+  PUBLIC MACRO LogDeliveryMessage(STRING delivered_address, INTEGER ARRAY rcpts, RECORD state, STRING messageid, INTEGER msglength)
+  {
+  }
+>;
+
+MACRO OnNewConnection(OBJECT conn, RECORD mailhandleropts)
+{
+  parentlink->SendMessage([ type := "newconnection" ]);
+  OBJECT server := NEW MTPServer(
+      conn,
+      NEW DummyMailHandler(mailhandleropts),
+      [ is_lmtp :=            FALSE
+      , allow_binary :=       TRUE
+      , soft_bounce := FALSE
+      ]);
+  IF(simulatoroptions.connectdelay != 0)
+    Sleep(simulatoroptions.connectdelay);
+  server->Run();
+}

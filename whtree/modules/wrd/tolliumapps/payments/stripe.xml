@@ -1,0 +1,36 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         library="stripe.whlib"
+         gid="tolliumapps.payments.stripe">
+
+  <tabsextension name="configstripe" implementation="lib">
+    <actions>
+      <action name="connect" onexecute="doconnect" />
+    </actions>
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <textedit composition="methodsettings" name="publickey" cellname="publickey" required="true" />
+      <textedit composition="methodsettings" name="secretkey" cellname="secretkey" required="true" password="true" />
+      <button action="connect" />
+      <select composition="methodsettings" cellname="methods" type="checkbox" height="1pr" name="methods" gid="tolliumapps.payments.common" rowkeytype="string">
+        <option rowkey="alipay" title="Alipay"/>
+        <option rowkey="ideal" title="iDEAL" />
+      </select>
+    </insert>
+  </tabsextension>
+
+  <screen name="payinfo" title="">
+    <body>
+      <!-- <text name="transactionid" /> -->
+<!--       <text name="orderid" selectable="true" />
+      <text name="paymentid" selectable="true" />
+      <text name="paymentmethod" />
+      <text name="brand" />
+      <text name="status" />
+      <text name="ncerror" />
+ -->    </body>
+  </screen>
+
+</screens>

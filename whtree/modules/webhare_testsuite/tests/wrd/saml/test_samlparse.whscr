@@ -1,0 +1,157 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::internal/saml.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+/* Test the SAML verifyer and parser */
+
+MACRO TestMetadata()
+{
+  // IDP SAML metdata received from UT
+  OBJECT doc := MakeXMLDocument(GetWebhareResource("mod::webhare_testsuite/tests/wrd/saml/ut-sso-metadata.xml"));
+
+  // Verification without errors
+  RECORD ARRAY verifyresults := VerifySAMLMetadataDocument(doc);
+  TestEQ(RECORD[], verifyresults);
+
+  OBJECT coder := NEW SAMLCoder;
+
+  RECORD parsed := coder->ParseMetadataDocument(doc->documentelement);
+
+  TestEQMembers(
+      [ entityid := 'https://utwente.nl/test-nieuw'
+      , id :=       'id-6OtJX8E0Py95GTAp9YEZGTYTFmgT5ZgVA4fxS6Zj'
+      , type :=     'EntityDescriptor'
+      , idpssodescriptor :=
+            [ [ artifactresolutionservice :=
+                      [ [ binding := 'urn:oasis:names:tc:SAML:2.0:bindings:SOAP'
+                        , "index" := 1
+                        , isdefault := 'true'
+                        , location := 'https://signon-test.utsp.utwente.nl/oamfed/idp/soap'
+                        , responselocation := ''
+                        ]
+                      ]
+              , keydescriptor :=
+                      [ [ use := 'signing'
+                        , encryptionmethod := DEFAULT RECORD ARRAY
+                        , keyinfo :=
+                                [ id := ''
+                                , type := 'X509Certificate'
+                                , value := 'MIIB/DCCAWWgAwIBAgIBCjANBgkqhkiG9w0BAQQFADAjMSEwHwYDVQQDExhsaW51eDI4Ny51dHNwLnV0d2VudGUubmwwHhcNMTUwODA2MDgzNjU1WhcNMjUwODAzMDgzNjU1WjAjMSEwHwYDVQQDExhsaW51eDI4Ny51dHNwLnV0d2VudGUubmwwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBAIcnL+eyPjDBW4l9sQj6ddDF2fv1LZB6PFzsgjDkdP61s5vMtsxDQnhQfs9WEY6jFVrr8RDgqofGIIF+jpyFH39M2OF7+8rC+XdzYCERx9b4YkOgzSCMoimA/15IFsSrTzI5yCO/qP9+Aeo3wiLYXzaL86VTotNVcVYxkJzzmFVTAgMBAAGjQDA+MAwGA1UdEwEB/wQCMAAwDwYDVR0PAQH/BAUDAwfYADAdBgNVHQ4EFgQUZGNqHk8XtTIV+OEoqGyKP/QyE7MwDQYJKoZIhvcNAQEEBQADgYEAT8XaBvmzdFzTmo7Z8kxwut8qJQb3ZrlWJNA1Oi4rkrlgo0mjhMSb25jGGe6aW359BSmFwCv1l1RqWW7rbzZwQ4ub21wWrQFKrGUnlFWyuD5wpkJqcYwd71J1OigU0FEl2ybloz/Rgrpe6ILL4DE0XFN9pptNTusC4jme7EUG6UU='
+                                ]
+                        ]
+                      , [ use := 'encryption'
+                        , encryptionmethod := [ [ algorithm := 'http://www.w3.org/2001/04/xmlenc#rsa-1_5' ]
+                                              , [ algorithm := 'http://www.w3.org/2001/04/xmlenc#aes128-cbc' ]
+                                              , [ algorithm := 'http://www.w3.org/2001/04/xmlenc#aes192-cbc' ]
+                                              , [ algorithm := 'http://www.w3.org/2001/04/xmlenc#aes256-cbc' ]
+                                              , [ algorithm :=  'http://www.w3.org/2001/04/xmlenc#tripledes-cbc' ]
+                                              ]
+                        ]
+                      ]
+              , singlelogoutservice :=
+                      [ [ binding := 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'
+                        , location := 'https://signon-test.utsp.utwente.nl/oamfed/idp/samlv20'
+                        , responselocation := 'https://signon-test.utsp.utwente.nl/oamfed/idp/samlv20'
+                        ]
+                      , [ binding := 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'
+                        , location := 'https://signon-test.utsp.utwente.nl/oamfed/idp/samlv20'
+                        , responselocation := 'https://signon-test.utsp.utwente.nl/oamfed/idp/samlv20'
+                        ]
+                      ]
+              , singlesignonservice :=
+                      [ [ binding := 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'
+                        , location := 'https://signon-test.utsp.utwente.nl/oamfed/idp/samlv20'
+                        , responselocation := ''
+                        ]
+                      , [ binding := 'urn:oasis:names:tc:SAML:2.0:bindings:SOAP'
+                        , location := 'https://signon-test.utsp.utwente.nl/oamfed/idp/soap'
+                        , responselocation := ''
+                        ]
+                      , [ binding := 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'
+                        , location := 'https://signon-test.utsp.utwente.nl/oamfed/idp/samlv20'
+                        , responselocation := ''
+                        ]
+                      ]
+              ]
+            ]
+     , roledescriptor :=
+            [ [ xsitype := '{urn:oasis:names:tc:SAML:metadata:ext:query}AttributeQueryDescriptorType'
+              , nameidformat := DEFAULT STRING ARRAY // normally not part of RoleDescriptor, but part of AttributeQueryDescriptorType
+              , keydescriptor :=
+                      [ [ use := 'signing'
+                        , encryptionmethod := DEFAULT RECORD ARRAY
+                        , keyinfo :=
+                                [ id := ''
+                                , type := 'X509Certificate'
+                                , value := 'MIIB/DCCAWWgAwIBAgIBCjANBgkqhkiG9w0BAQQFADAjMSEwHwYDVQQDExhsaW51eDI4Ny51dHNwLnV0d2VudGUubmwwHhcNMTUwODA2MDgzNjU1WhcNMjUwODAzMDgzNjU1WjAjMSEwHwYDVQQDExhsaW51eDI4Ny51dHNwLnV0d2VudGUubmwwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBAIcnL+eyPjDBW4l9sQj6ddDF2fv1LZB6PFzsgjDkdP61s5vMtsxDQnhQfs9WEY6jFVrr8RDgqofGIIF+jpyFH39M2OF7+8rC+XdzYCERx9b4YkOgzSCMoimA/15IFsSrTzI5yCO/qP9+Aeo3wiLYXzaL86VTotNVcVYxkJzzmFVTAgMBAAGjQDA+MAwGA1UdEwEB/wQCMAAwDwYDVR0PAQH/BAUDAwfYADAdBgNVHQ4EFgQUZGNqHk8XtTIV+OEoqGyKP/QyE7MwDQYJKoZIhvcNAQEEBQADgYEAT8XaBvmzdFzTmo7Z8kxwut8qJQb3ZrlWJNA1Oi4rkrlgo0mjhMSb25jGGe6aW359BSmFwCv1l1RqWW7rbzZwQ4ub21wWrQFKrGUnlFWyuD5wpkJqcYwd71J1OigU0FEl2ybloz/Rgrpe6ILL4DE0XFN9pptNTusC4jme7EUG6UU='
+                                ]
+                        ]
+                      , [ use := 'encryption'
+                        , encryptionmethod := [ [ algorithm := 'http://www.w3.org/2001/04/xmlenc#rsa-1_5' ]
+                                              , [ algorithm := 'http://www.w3.org/2001/04/xmlenc#aes128-cbc' ]
+                                              , [ algorithm := 'http://www.w3.org/2001/04/xmlenc#aes192-cbc' ]
+                                              , [ algorithm := 'http://www.w3.org/2001/04/xmlenc#aes256-cbc' ]
+                                              , [ algorithm :=  'http://www.w3.org/2001/04/xmlenc#tripledes-cbc' ]
+                                              ]
+                        ]
+                      ]
+              ]
+            ]
+      ],
+      parsed,
+      "*");
+}
+
+MACRO TestResponse()
+{
+  OBJECT doc := MakeXMLDocument(GetWebhareResource("mod::webhare_testsuite/tests/wrd/saml/ut-sso-response.xml"));
+
+  RECORD ARRAY verifyresults := VerifySAMLProtocolDocument(doc);
+  TestEQ(RECORD[], verifyresults);
+
+  OBJECT coder := NEW SAMLCoder;
+
+  RECORD parsed := coder->ParseProtocolDocument(doc->documentelement);
+
+  // Test subset of parsed stuff
+  TestEQMembers(
+      [ destination :=  'https://webhare.webhare-test.utsp.utwente.nl/design/endpoints/saml-sp-surfconext/!/acservice'
+      , id :=           'CORTOcb2db2b0fe2ca7176c0b61ed9f201230ea50ee1b'
+      , inresponseto := '_ab18437eab254d1476287ad9fe252374'
+      , issueinstant := MakeDateTime(2017,07,05,10,25,18)
+      , type :=         'Response'
+      , version :=      '2.0'
+      , assertion :=    [ [ id := 'CORTOd192d60ab7d77e2e9a8c90646248591f7e7d59d0'
+                          , version := '2.0'
+                          , attributestatement :=
+                                [ [ attribute :=
+                                        [ [ name := 'urn:mace:dir:attribute-def:eduPersonPrincipalName'
+                                          , nameformat := 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri'
+                                          , attributevalue := [ [ value := 'x1002820@utwente.nl', type := '', nil := FALSE ] ]
+                                          ]
+                                        , [ name := 'urn:oid:1.3.6.1.4.1.5923.1.1.1.6'
+                                          , nameformat := 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri'
+                                          , attributevalue := [ [ value := 'x1002820@utwente.nl', type := '', nil := FALSE ] ]
+                                          ]
+                                        ]
+                                  ]
+                                ]
+                          ]
+                        ]
+      , issuer :=       [ format := 'urn:oasis:names:tc:SAML:1.0:nameid-format:entity'
+                        , value :=  'https://engine.surfconext.nl/authentication/idp/metadata'
+                        ]
+      ],
+      parsed,
+      "*");
+}
+
+
+RunTestFramework([ PTR TestMetadata
+                 , PTR TestResponse
+                 ]);

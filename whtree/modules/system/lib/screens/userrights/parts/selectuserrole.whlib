@@ -1,0 +1,228 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+
+
+PUBLIC OBJECTTYPE SelectUserRole EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Onselect function
+  FUNCTION PTR pvt_onopen;
+
+  /// Whether the title has been user-updated
+  BOOLEAN pvt_title_user_updated;
+
+  /// Disable all nongrantable roles
+  BOOLEAN pvt_only_grantable_roles;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Object(s) of selected user/role.
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /** Selected unit
+  */
+  PUBLIC PROPERTY unit(GetUnit, SetUnit);
+
+  /** Filter on type (0 to show roles & users, 1 for only users, 3 for only roles)
+  */
+  PUBLIC PROPERTY filterontype(GetFilterOnType, SetFilterOnType);
+
+  /** Selectmode, one of 'single', 'multiple'
+  */
+  PUBLIC PROPERTY selectmode(GetSelectMode, SetSelectMode);
+
+  /** Callback, to be called when doubclicked on user/role
+  */
+  PUBLIC PROPERTY onopen(pvt_onopen, pvt_onopen);
+
+  /** Controls whether only grantable roles are selectable
+  */
+  PUBLIC PROPERTY only_grantable_roles(GetOnlyGrantableRoles, SetOnlyGrantableRoles);
+
+  /** Set the explanation above the selection box
+  */
+  PUBLIC PROPERTY explanation(GetExplanation, SetExplanation);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+
+    this->unittree->onselect := PTR this->OnUnitSelect;
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    this->unittree->borders.right := FALSE;
+    this->unitcontents->borders.left := FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN this->unitcontents->value;
+  }
+
+  MACRO SetValue(VARIANT newvalue)
+  {
+    this->unitcontents->value := newvalue;
+  }
+
+  OBJECT FUNCTION GetUnit()
+  {
+    RETURN this->unittree->value;
+  }
+
+  MACRO SetUnit(OBJECT unit)
+  {
+    this->unittree->value := unit;
+  }
+
+  MACRO SetBoxTitle(STRING title)
+  {
+    this->userbox->title := title;
+  }
+
+  INTEGER FUNCTION GetFilterOnType()
+  {
+    RETURN this->unitcontents->filterontype;
+  }
+
+  MACRO SetFilterOnType(INTEGER newtype)
+  {
+    this->unitcontents->filterontype := newtype;
+  }
+
+  STRING FUNCTION GetSelectMode()
+  {
+    RETURN this->unitcontents->selectmode;
+  }
+
+  MACRO SetSelectMode(STRING newselectmode)
+  {
+    this->unitcontents->selectmode := newselectmode;
+    this->RecalculateTitle();
+  }
+
+  BOOLEAN FUNCTION GetOnlyGrantableRoles()
+  {
+    RETURN this->unitcontents->only_grantable_roles;
+  }
+
+  MACRO SetOnlyGrantableRoles(BOOLEAN newvalue)
+  {
+    this->unitcontents->only_grantable_roles := newvalue;
+  }
+
+  STRING FUNCTION GetExplanation()
+  {
+    RETURN this->explanation_text->value;
+  }
+
+  MACRO SetExplanation(STRING newexplanation)
+  {
+    this->explanation_text->value := newexplanation;
+    this->explanation_text->visible := newexplanation != "";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RecalculateTitle()
+  {
+    IF (this->selectmode = "single")
+    {
+      SWITCH (this->filterontype)
+      {
+      CASE 0      { this->userbox->title := GetTid("system:userrights.commondialogs.select.selectuserorrole"); }
+      CASE 1      { this->userbox->title := GetTid("system:userrights.commondialogs.select.selectuser"); }
+      CASE 3      { this->userbox->title := GetTid("system:userrights.commondialogs.select.selectrole"); }
+      }
+    }
+    ELSE
+    {
+      SWITCH (this->filterontype)
+      {
+      CASE 0      { this->userbox->title := GetTid("system:userrights.commondialogs.select.selectusersorroles"); }
+      CASE 1      { this->userbox->title := GetTid("system:userrights.commondialogs.select.selectusers"); }
+      CASE 3      { this->userbox->title := GetTid("system:userrights.commondialogs.select.selectroles"); }
+      }
+    }
+  }
+
+  MACRO DoOpenaction()
+  {
+    IF (this->pvt_onopen != DEFAULT FUNCTION PTR)
+      this->pvt_onopen();
+
+    IF (this->formbuttons->visible)
+      this->tolliumresult := "ok";
+  }
+
+  MACRO OnUnitSelect()
+  {
+    IF (ObjectExists(this->unittree->value))
+      this->unitcontents->unit := this->unittree->value;
+    ELSE
+      this->unitcontents->ShowSearchResults(this->unittree->searchresults);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoSearch()
+  {
+    RECORD searchablefields := GetPolicyForUser(this->contexts, this->tolliumuser->entityid).searchablefields;
+    RECORD ARRAY user_filters := ConstructSearchFilters(this->searchfor->value, "user", GetFieldsFor(searchablefields.person, "person", this->tolliumcontroller));
+    RECORD ARRAY users := GetUsersByFilter(this->owner->tolliumcontroller, user_filters, this->tolliumuser);
+
+    RECORD ARRAY role_filters := ConstructSearchFilters(this->searchfor->value, "role", GetFieldsFor(searchablefields.role, "role", this->tolliumcontroller));
+    RECORD ARRAY roles := GetRolesByFilter(this->owner->tolliumcontroller, role_filters, this->tolliumuser);
+
+    INTEGER ARRAY searchresult :=
+        SELECT AS INTEGER ARRAY wrd_id
+          FROM users CONCAT roles;
+
+    this->unittree->DisplaySearchResults(searchresult);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Should refresh the unit/user list, no longer required to do anything.
+  */
+  PUBLIC MACRO Refresh()
+  {
+  }
+
+  /** Modify menus and actions to make this fragment usable for a common dialog
+  */
+  PUBLIC MACRO InitForCommonDialog()
+  {
+    this->unittree->InitForCommonDialog();
+    this->unitcontents->InitForCommonDialog();
+  }
+
+>;

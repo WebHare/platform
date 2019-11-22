@@ -1,0 +1,4 @@
+<?wh
+LOADLIB "mod::system/lib/webapi/oauth2.whlib";
+
+RunOAuth2LandingPage();

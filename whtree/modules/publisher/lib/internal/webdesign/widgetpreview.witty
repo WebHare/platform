@@ -1,0 +1,95 @@
+
+[component inlineicon]
+  <img class="wh-rtd__inlinepreview__icon" width="16" height="16" data-toddimg="[icon]|16|16|b,c">
+[/component]
+
+[component icon]
+  <img class="wh-rtd__preview__icon" width="24" height="24" data-toddimg="[icon]|24|24|b,c">
+[/component]
+
+[component box]
+    <div class="wh-rtd__preview__box [boxclasses]">
+      <table class="wh-rtd__preview__fieldsettable">
+        [forevery rows]
+          <tr>
+            [if isdivider]
+              <td class="wh-rtd__preview__hrtd" colspan="3">
+                <div class="wh-rtd__preview__hr"></div>
+              </td>
+            [elseif istitledescription]
+              <td class="wh-rtd__preview__combinedtd" colspan="[if icon]2[else]3[/if]">
+                <div class="wh-rtd__preview__title">[title]</div>
+                <div class="wh-rtd__preview__description">[description]</div>
+                </div>
+              </td>
+              [if hasicon]
+                [if iconrows]
+                  <td class="wh-rtd__preview__icontd" rowspan="[iconrows]">
+                    [embed icon]
+                  </td>
+                [/if]
+              [/if]
+            [else][!fieldsetline!]
+              <td class="wh-rtd__preview__titletd">
+                <span class="wh-rtd__preview__fieldsettitle">[title]:</span>
+              </td>
+              <td class="wh-rtd__preview__descriptiontd" colspan="[if hasicon]1[else]2[/if]">
+                <span class="wh-rtd__preview__fieldsetdescription">[description]</span>
+              </td>
+              [if hasicon]
+                [if iconrows]
+                  <td class="wh-rtd__preview__icontd" rowspan="[iconrows]">
+                    [embed icon]
+                  </td>
+                [/if]
+              [/if]
+            [/if]
+          </tr>
+        [/forevery]
+      </table>
+    </div>
+[/component]
+
+[component preview_fieldset]
+  <div class="wh-rtd__preview [if wide]wh-rtd__preview--wide[else]wh-rtd__preview--nonwide[/if]">
+    [embed box]
+  </div>
+[/component]
+
+[component preview_images]
+  <div class="wh-rtd__preview [if wide]wh-rtd__preview--wide[else]wh-rtd__preview--nonwide[/if]">
+    [forevery images]
+      <div class="wh-rtd__preview__imageholder">
+        <img class="wh-rtd__preview__image" height="[height]" width="[width]" src="[link]">
+      </div>
+    [/forevery]
+    [embed box]
+  </div>
+[/component]
+
+[component preview_multicolumn]
+  <div class="wh-rtd__preview [if wide]wh-rtd__preview--wide[else]wh-rtd__preview--nonwide[/if]">
+    <table class="wh-rtd__preview__columntable">
+      <tr>
+        [forevery columns]
+          <td class="wh-rtd__preview__columntd [widthclass]">
+            [columns]
+          </td>
+        [/forevery]
+      </tr>
+    </table>
+  </div>
+[/component]
+
+[component preview_inline]
+  [if widgetdata]
+    <div class="wh-rtd__inlinepreview">
+      <div class="wh-rtd__inlinepreview__iconholder">
+        [embed inlineicon]
+      </div>
+      <div class="wh-rtd__inlinepreview__title">
+        [title]
+      </div>
+    </div>
+  [/if]
+[/component]

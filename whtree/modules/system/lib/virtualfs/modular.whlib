@@ -1,0 +1,177 @@
+﻿<?wh
+LOADLIB "mod::system/lib/virtualfs/base.whlib";
+
+PUBLIC OBJECTTYPE VirtualModularFSBase EXTEND VirtualFSBase
+<
+  RECORD ARRAY cached_subfolders;
+
+  //
+  // Functions our caller should overwrite
+  //
+  RECORD ARRAY FUNCTION GetSubfolderListing()
+  {
+    ABORT("Please overwrite GetSubfolderListing");
+  }
+
+  OBJECT FUNCTION GetSubfolder(STRING subfolder)
+  {
+    ABORT("Please overwrite GetSubfolderForPath");
+  }
+
+
+  //
+  // Implementation
+  //
+
+  OBJECT FUNCTION LookupCachedSubfolder(STRING subfoldername)
+  {
+    RECORD subfolder := SELECT * FROM this->cached_subfolders WHERE ToUppercase(name)=ToUppercase(subfoldername);
+    IF(RecordExists(subfolder))
+      RETURN subfolder.loadedsubfolder;
+
+    OBJECT loadedsubfolder := this->GetSubfolder(subfoldername);
+    IF(NOT ObjectExists(loadedsubfolder))
+      THROW NEW VirtualFSException("BADPATH", "The subfolder '" || subfoldername || "' could not be loaded");
+
+    INSERT INTO this->cached_subfolders(name, loadedsubfolder) VALUES(subfoldername, loadedsubfolder) AT END;
+    RETURN loadedsubfolder;
+  }
+
+  //Split a path into a subfolder, and a deeper path
+  RECORD FUNCTION TokenizePath(STRING inpath)
+  {
+    IF(inpath NOT LIKE "/*")
+      THROW NEW VirtualFSException("BADPATH", "Path must start with a forward slash");
+
+    IF(inpath="/")
+    {
+      RETURN [ subfoldername := ""
+             , subfolder := DEFAULT OBJECT
+             , path := "/"
+             ];
+    }
+
+    INTEGER firstslash := SearchSubstring(inpath,'/',1);
+    STRING subfoldername := Substring(inpath, 1, (firstslash=-1 ? 1024 : firstslash-1));
+    STRING remainpath := Substring(inpath, Length(subfoldername)+1);
+
+    RETURN [ subfoldername := subfoldername
+           , path := remainpath="" ? "/" : remainpath
+           , subfolder := this->LookupCachedSubfolder(subfoldername)
+           ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetDirectoryListing(STRING path)
+  {
+    RECORD parsedpath := this->TokenizePath(path);
+    IF(ObjectExists(parsedpath.subfolder))
+      RETURN SELECT name
+                  , type
+                  , modificationdate
+                  , creationdate
+                  , read
+                  , write
+                  , size
+               FROM parsedpath.subfolder->GetDirectoryListing(parsedpath.path); //forward call
+
+    RETURN this->GetSubfolderListing();
+  }
+
+
+  UPDATE PUBLIC MACRO DeletePath(STRING path)
+  {
+    RECORD parsedpath := this->TokenizePath(path);
+    IF(NOT ObjectExists(parsedpath.subfolder))
+      THROW NEW VirtualFSException("BADPATH","Cannot open files in the root");
+
+    parsedpath.subfolder->DeletePath(parsedpath.path);
+  }
+
+  UPDATE PUBLIC BLOB FUNCTION GetFile(STRING path)
+  {
+    RECORD parsedpath := this->TokenizePath(path);
+    IF(NOT ObjectExists(parsedpath.subfolder))
+      THROW NEW VirtualFSException("BADPATH","Cannot open files in the root");
+
+    RETURN parsedpath.subfolder->GetFile(parsedpath.path);
+  }
+
+  UPDATE PUBLIC MACRO Copy(STRING src, STRING dst, BOOLEAN overwrite)
+  {
+    RECORD srcpath := this->TokenizePath(src);
+    IF(NOT ObjectExists(srcpath.subfolder))
+      THROW NEW VirtualFSException("XS","Cannot modify the root");
+
+    RECORD dstpath := this->TokenizePath(dst);
+    IF(NOT ObjectExists(dstpath.subfolder))
+      THROW NEW VirtualFSException("XS","Cannot modify the root");
+
+    IF(srcpath.subfolder != dstpath.subfolder)
+      THROW NEW VirtualFSException("XS","Cannot copy across namespaces");
+
+    srcpath.subfolder->Copy(srcpath.path, dstpath.path, overwrite);
+  }
+
+  UPDATE PUBLIC MACRO Move(STRING src, STRING dst, BOOLEAN overwrite)
+  {
+    RECORD srcpath := this->TokenizePath(src);
+    IF(NOT ObjectExists(srcpath.subfolder))
+      THROW NEW VirtualFSException("XS","Cannot modify the root");
+
+    RECORD dstpath := this->TokenizePath(dst);
+    IF(NOT ObjectExists(dstpath.subfolder))
+      THROW NEW VirtualFSException("XS","Cannot modify the root");
+
+    IF(srcpath.subfolder != dstpath.subfolder)
+      THROW NEW VirtualFSException("XS","Cannot move across namespaces");
+
+    srcpath.subfolder->Move(srcpath.path, dstpath.path, overwrite);
+  }
+
+  UPDATE PUBLIC MACRO MakeDir(STRING path)
+  {
+    RECORD parsedpath := this->TokenizePath(path);
+    IF(NOT ObjectExists(parsedpath.subfolder))
+      THROW NEW VirtualFSException("XS","Cannot create the root");
+
+    parsedpath.subfolder->MakeDir(parsedpath.path);
+  }
+
+  UPDATE PUBLIC MACRO PutFile(STRING path, BLOB data, BOOLEAN overwrite)
+  {
+    RECORD parsedpath := this->TokenizePath(path);
+    IF(NOT ObjectExists(parsedpath.subfolder))
+      THROW NEW VirtualFSException("XS","Cannot modify the root");
+
+    parsedpath.subfolder->PutFile(parsedpath.path, data, overwrite);
+  }
+
+  UPDATE PUBLIC MACRO SetMetaData(STRING path, RECORD metadata)
+  {
+    RECORD parsedpath := this->TokenizePath(path);
+    IF(NOT ObjectExists(parsedpath.subfolder))
+      THROW NEW VirtualFSException("XS","Cannot modify the root");
+
+    parsedpath.subfolder->SetMetadata(parsedpath.path, metadata);
+  }
+
+  /* Standard file listing function */
+  UPDATE PUBLIC RECORD FUNCTION GetPathInfo(STRING path)
+  {
+    TRY
+    {
+      RECORD parsedpath := this->TokenizePath(path);
+      //ABORT(parsedpath);
+      IF(parsedpath.path="/")
+        RETURN VirtualFSBase::GetPathInfo(path);
+
+      RETURN parsedpath.subfolder->GetPathInfo(parsedpath.path);
+    }
+    CATCH(OBJECT <VirtualFSException> e)
+    {
+      If(e->IsBadPath())
+        RETURN DEFAULT RECORD;
+      THROW e;
+    }
+  }
+>;

@@ -1,0 +1,703 @@
+﻿<?wh
+/** @private Internal library */
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/http_api.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT ConsilioDebugError, ConsilioDebugSkipped, ConsilioDebugInfo, ConsilioDebugAll;
+LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+
+RECORD defaultemptysearchrecord := [ score   := 0f
+                                   , title   := ""
+                                   , summary := ""
+                                   ];
+
+/** @short Default maximum number of group objects
+*/
+PUBLIC INTEGER defaultmaxgroupobjects := 500;
+
+/** @short Exception that must be thrown when an exception must not be logged in the errorlist
+*/
+PUBLIC OBJECTTYPE ConsilioIgnoredException EXTEND Exception
+< PUBLIC INTEGER loglevel;
+  MACRO NEW(INTEGER loglevel, STRING what) : Exception(what) { }
+>;
+
+/** @short The template for Consilio content providers
+    @long This a the object content provider objects are derived from
+*/
+PUBLIC OBJECTTYPE ConsilioContentProvider
+<
+
+  PUBLIC INTEGER loglevel;
+
+  /** @short Default empty search record
+  */
+  PUBLIC PROPERTY defaultemptysearchrecord(GetDefaultEmptySearchObject, -);
+
+  /** @short Default field mapping
+  */
+  PUBLIC PROPERTY defaultmapping(GetDefaultMapping, -);
+
+  /** @short The content source id
+  */
+  INTEGER pvt_contentsourceid;
+  PUBLIC PROPERTY contentsourceid(pvt_contentsourceid, -);
+
+  /** @short Index id this content source belongs to
+  */
+  INTEGER pvt_indexid;
+  PUBLIC PROPERTY indexid(pvt_indexid, -);
+
+  /** @short The maximum number of objects per group
+  */
+  PUBLIC INTEGER pvt_maxgroupobjects;
+  PUBLIC PROPERTY maxgroupobjects(GetMaxGroupObjects, SetMaxGroupObjects);
+
+  /** @short Don't cache page body text
+      @long If this flag is set, the body text of pages will not be cached and result excerpts will not be generated.
+  */
+  PUBLIC BOOLEAN discardsummaries;
+
+  PUBLIC BOOLEAN contentlinksonly;
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // Content Provider API
+  //
+  // These functions are called by the Consilio Fetcher and will have to be updated by specific content providers
+  //
+
+  /** @short Initialize the content provider for a content source
+      @long The default content provider implementation does some general initialization, so it will have to be called from
+            updated Init implementations as well.
+      @param contentsource The content source record which contains the configuration for the content provider
+      @cell contentsource.id Content source id
+      @cell contentsource.indexid Index id this content source belongs to
+      @cell contentsource.maxgroupobjects Maximum number of objects per group for this content source
+      @cell contentsource.discardsummaries Don't cache page body text for this content source
+      @throw If the content provider was not successfully initialized
+  */
+  PUBLIC MACRO Init(RECORD contentsource)
+  {
+    this->pvt_contentsourceid := contentsource.id;
+    this->pvt_indexid := CellExists(contentsource, "indexid") ? contentsource.indexid : 0;
+    this->pvt_maxgroupobjects := CellExists(contentsource, "maxgroupobjects") ? contentsource.maxgroupobjects : 0;
+    this->discardsummaries := CellExists(contentsource, "discardsummaries") ? contentsource.discardsummaries : FALSE;
+    this->contentlinksonly := CellExists(contentsource, "contentlinksonly") ? contentsource.contentlinksonly : FALSE;
+  }
+
+  /** @short Get a string which identifies the content source within a catalog
+  */
+  PUBLIC STRING FUNCTION GetIdentifier()
+  {
+    RETURN ToString(this->contentsourceid);
+  }
+
+  /** Get a simple title for the content source */
+  PUBLIC STRING FUNCTION GetContentSourceTitle()
+  {
+    RETURN "";
+  }
+
+  /** @short Get an empty result record
+      @long Searching a catalog returns record containing all field defined by the content sources within the catalog. The
+            default content provider returns a number of standard fields, useful for searching HTML pages (used by the
+            publisher:webhare and consilio:external content providers). The fields returned here have to be supplied by the
+            content provider (via the FetchObject function), except for the standard consilio fields 'score' and 'summary'.
+            The fields 'objectid' and 'groupid' are always returned and do not have to be specified.
+  */
+  PUBLIC RECORD FUNCTION GetEmptySearchRecord()
+  {
+    RETURN this->defaultemptysearchrecord;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetMapping()
+  {
+    RETURN this->GetDefaultMapping(this->GetEmptySearchRecord());
+  }
+
+  /** @short Get the list of fields that must be provided in objects to the ListObjects2 function
+  */
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetObjectListFields()
+  {
+    RETURN DEFAULT STRING ARRAY;
+  }
+
+  /** @short Return a list of all groups within the content source
+      @param commanddate Date when this command was issued
+      @return Result of the call
+      @cell return The groups
+      @cell return.id Id of the group
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListGroups(DATETIME commanddate)
+  {
+    THROW NEW Exception("ListGroups function not updated");
+  }
+
+  /** @short Return a list of objects within the given group
+      @param commanddate Date when this command was issued
+      @param groupid Id of the group to list, as returned by ListGroups
+      @param current_objects Current objects present within consilio (only filled in update mode, not in rebuild mode)
+      @return Result of the call
+      @cell return The objects
+      @cell return.id Id of the object
+      @cell return.requiredindexdate If the indexdate of the version of the object currently stored in the index
+               is at least this value, it is kept as-is and not re-fetched. (warning: don't use this if FetchObject returns
+               other objects not returned by this ListObjects, because those objects will not be discovered, and subsequently removed).
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListObjects2(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects)
+  {
+    RETURN this->ListObjects(commanddate, groupid);
+  }
+
+  /** @short Return a list of objects within the given group
+      @param commanddate Date when this command was issued
+      @param groupid Id of the group to list, as returned by ListGroups
+      @return Result of the call
+      @cell return The objects
+      @cell return.id Id of the object
+      @cell return.requiredindexdate If the indexdate of the version of the object currently stored in the index
+               is at least this value, it is kept as-is and not re-fetched. (warning: don't use this if FetchObject returns
+               other objects not returned by this ListObjects, because those objects will not be discovered, and subsequently removed).
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListObjects(DATETIME commanddate, STRING groupid)
+  {
+    THROW NEW Exception("ListObjects function not updated");
+  }
+
+  /** @short Fetch an object and parse its contents
+      @long This function returns an object to index. All return cells are optional, but at least a document_body or
+            document_fields cell must be returned, otherwise the object will be deleted from the index.
+      @param groupid Id of the group in which the object was listed, as returned by ListGroups
+      @param objectid Id of the object to fetch
+      @return Result of the call
+      @cell return.document_body The document's body text (this "body" field is used for summary generation)
+      @cell return.document_fields List of fields and values to index (prefix DATETIME fields with "date_".
+                                   Field names "indexid", "groupid", "objectid", "date_indexed", "date_lastmodicification", "contentprovider",
+                                   "contentsource", "body" and "summary" are not allowed). Use the "suggestfields" field to provide a list of space-separated
+                                   field names for which suggest terms are stored.
+      @cell return.objects New objects found within the group
+      @cell return.objects.id Id of the object
+      @cell return.links All links found in the object
+      @cell return.links.link Link URL
+      @cell return.links.text Link text
+      @cell return.links.type Link type
+      @cell return.indexdate Date of last modification of this object (optional). If not present, the document will always
+               be replaced in the index.
+      @cell return.requiredindexdate If the indexdate of the version of this object currently stored in the index
+               is at least this value, it is kept as-is and not re-fetched (optional). If this value is not present and the modificationdate
+               has been specified, the object will only be replaced if the modificationdate has increased.
+  */
+  PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid, RECORD options)
+  {
+    THROW NEW Exception("FetchObject function not updated");
+  }
+
+  /** @short Group completion callback
+      @long This function is called when all objects within a group have been indexed and outdated objects have been cleaned.
+            It is not called when an error occurred while indexing an object or while cleaning outdated objects.
+      @param commanddate Date when the indexing command was issued
+      @param groupid Id of the group that was completed, as returned by ListGroups
+  */
+  PUBLIC MACRO OnGroupDone(DATETIME commanddate, STRING groupid)
+  {
+  }
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // Internal helper functions
+  //
+  // These functions are provided by Consilio and can be used by content providers
+  //
+
+  /** @short Send a debug message to Consilio
+  */
+  MACRO DebugLog(INTEGER level, STRING message)
+  {
+    IF (level > this->loglevel)
+      RETURN;
+
+    // Print the message; the QueueManager will receive it via the Fetcher as process output
+    IF (level IN [ ConsilioDebugError, ConsilioDebugInfo ])
+      FetcherDebug(ConsilioDebugInfo, "" || message);
+    IF (level = ConsilioDebugAll)
+      FetcherDebug(ConsilioDebugAll, "" || message);
+    ELSE IF (level = ConsilioDebugSkipped)
+      FetcherDebug(ConsilioDebugSkipped, "" || message);
+  }
+
+  /** @short Fetch a URL
+      @long This function can be used by the content provider to 'GET' or 'HEAD' a URL. Consilio will take care of making
+            and caching connections and connection management.
+      @param get_url Set to TRUE to 'GET' the URL, set to FALSE to 'HEAD'
+      @param url The URL to fetch
+      @param username User name to use for HTTP login (leave empty if login is not required)
+      @param password Password to use for HTTP login
+      @param ifmodifiedsince Only fetch the URL if it is modified after this datetime
+      @return The response
+      @cell return.success If TRUE, see SendHTTPRequest for a description of the return record, if FALSE, the record
+                           contains 'errorcode' and 'error' cells
+      @cell return.errorcode Contains an error code (one of "CONNECT", "TIMEOUT", "SSLHANDSHAKE", "RESOLVE" or "BLACKLISTED")
+      @cell return.error Contains an error message
+      @cell return.nocache If successful, contains if the no-cache headers have been set
+  */
+  RECORD FUNCTION FetchUrl(BOOLEAN get_url, STRING url, RECORD options)
+  {
+    STRING pattern := this->MayFetch(url);
+    IF (pattern != "")
+    {
+      RETURN [ success := FALSE
+             , errorcode := "BLACKLISTED"
+             , error := "URL " || url || " is blacklisted by pattern '" || pattern || "'"
+             ];
+    }
+    RETURN GetHTTPUrl(get_url, url, options);
+  }
+
+  /** @short Parse a document for indexing
+      @long This function can be used by the content provider to parse a fetched document for indexing by Consilio.
+      @cell return.success If successfully parsed
+      @cell return.errormsg If not successful, contains error message
+      @cell return.type_ext Page type (file extension, e.g. "html", "pdf", etc.)
+      @cell return.index_page Should this page be indexed?
+      @cell return.follow_links Index links on this page?
+      @cell return.title Page title
+      @cell return.keywords Keywords to indentify this page
+      @cell return.description Description
+      @cell return.links Links found in the page
+      @cell return.links.link The URL of the link
+      @cell return.links.text The link text
+      @cell return.links.type The link type, see mod::consilio/lib/database.whlib for a list of values
+      @cell return.isdynamic Dynamic document?
+      @cell return.text Page body text
+  */
+  RECORD FUNCTION ParseDocument(BLOB data, STRING mimetype, STRING baseurl)
+  {
+    TRY
+    {
+      RECORD parsed_page := ParsePage(data, mimetype, [ contentlinksonly := this->contentlinksonly ]);
+      IF (RecordExists(parsed_page))
+      {
+        IF (parsed_page.success)
+        {
+          // Create absolute url for each found link and remove invalid links
+          FOREVERY (RECORD link FROM parsed_page.links)
+          {
+            IF (Length(link.text) > MaxTextLength)
+              parsed_page.links[#link].text := LimitUTF8Bytes(link.text, MaxTextLength);
+
+            IF (Length(link.link) > MaxLinkLength)
+            {
+              link.link := LimitUTF8Bytes(link.link, MaxLinkLength);
+              parsed_page.links[#link].link := link.link;
+            }
+            INSERT CELL url := this->CleanUrl(link.link, baseurl) INTO parsed_page.links[#link];
+          }
+          DELETE FROM parsed_page.links WHERE COLUMN url = "";
+        }
+
+        RETURN parsed_page;
+      }
+    }
+    CATCH (OBJECT<LibraryVersionConflictException> e)
+    {
+      THROW;
+    }
+    CATCH (OBJECT e)
+    {
+      RECORD errorpage := CreateParsedPage();
+      errorpage.success := FALSE;
+      errorpage.errormsg := "Error while parsing page using parser '" || e->what || "'";
+      errorpage.knownmimetype := TRUE;
+      RETURN errorpage;
+    }
+
+    RECORD errorpage := CreateParsedPage();
+    errorpage.success := FALSE;
+    errorpage.errormsg := "Unsupported MIME type '" || mimetype || "'";
+    errorpage.knownmimetype := FALSE;
+    RETURN errorpage;
+  }
+
+  /** @short Fetch and parse a URL
+      @long This function is a combination of FetchUrl and ParseDocument.
+      @param get_url Set to TRUE to 'GET' the URL, set to FALSE to 'HEAD'
+      @param url The URL to fetch
+      @param username User name to use for HTTP login (leave empty if login is not required)
+      @param password Password to use for HTTP login
+      @param ifmodifiedsince Only fetch the URL if it is modified after this datetime
+      @return The fetched and parsed page
+      @cell return.fetched_page The unparsed fetched document (the FetchUrl result)
+      @cell return.parsed_page The parsed document (the ParseDocument result)
+      @see FetchUrl, ParseDocument
+  */
+  RECORD FUNCTION FetchAndParseUrl(BOOLEAN get_url, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ consilioauth := FALSE
+        , username := ""
+        , password := ""
+        , ifmodifiedsince := DEFAULT DATETIME
+        ], options);
+
+    // Fetch the page
+    RECORD fetched_page := this->FetchURL(get_url, url, options);
+    IF (NOT fetched_page.success)
+      THROW NEW ConsilioIgnoredException(ConsilioDebugInfo, "Error while fetching '" || url || "': " || fetched_page.error);
+    //ADDME: ifmodifiedsince isn't used yet here, but if we're going to use it, handle 304 (Not modified) status properly!
+    IF (fetched_page.code != 200)
+      THROW NEW ConsilioIgnoredException(ConsilioDebugInfo, "Error while fetching '" || url || "': HTTP Error " || fetched_page.code);
+
+    // Determine MIME type
+    STRING mimetype := GetMIMEHeader(fetched_page.headers, "Content-Type");
+    IF (mimetype LIKE "*;*")
+      mimetype := Left(mimetype, SearchSubstring(mimetype, ";"));
+    this->DebugLog(ConsilioDebugInfo, "Parsing with MIME type " || mimetype);
+
+    // Parse the page
+    RECORD parsed_page := this->ParseDocument(fetched_page.content, mimetype, url);
+    IF (NOT parsed_page.success)
+    {
+      IF (NOT CellExists(parsed_page, "KNOWNMIMETYPE") OR parsed_page.knownmimetype)
+        THROW NEW Exception("Error while parsing '" || url || "': " || parsed_page.errormsg);
+      ELSE
+        THROW NEW ConsilioIgnoredException(ConsilioDebugInfo, "Error while parsing '" || url || "': " || parsed_page.errormsg);
+    }
+
+    // Check if the page is blacklisted for indexing
+    STRING pattern := this->MayIndex(url);
+    IF (pattern != "")
+    {
+      this->DebugLog(ConsilioDebugSkipped, "page " || url || " for indexing, blacklisted by pattern '" || pattern || "' (links on the page may still be followed)");
+      parsed_page.index_page := FALSE;
+    }
+
+    RETURN [ fetched_page := fetched_page
+           , parsed_page := parsed_page
+           ];
+  }
+
+  /** @short Filter out non-document links
+  */
+  RECORD ARRAY FUNCTION FilterObjects(RECORD ARRAY links, STRING baseurl, STRING objecturl, STRING filterurl)
+  {
+    STRING pattern := this->MayFollow(baseurl);
+    IF (pattern != "")
+    {
+      this->DebugLog(ConsilioDebugSkipped, "all links from " || baseurl || ", blacklisted by pattern '" || pattern || "'");
+      RETURN DEFAULT RECORD ARRAY;
+    }
+
+    // Make a list of links in the page which point to other pages within the same document
+    RECORD ARRAY filteredlinks;
+    FOREVERY (RECORD link FROM links)
+    {
+      // If the url only refers to an anchor within the current page, skip it
+      IF (link.url = baseurl)
+      {
+        this->DebugLog(ConsilioDebugSkipped, "link to self " || link.link);
+        CONTINUE;
+      }
+
+      // Delete any variables before checking
+      STRING cleanurl := link.url;
+      INTEGER i := SearchSubstring(cleanurl, "?");
+      IF (i > 0)
+        cleanurl := Left(cleanurl, i);
+
+      // Handle optional parts and captured suburls
+      i := SearchSubstring(cleanurl, "/!");
+      WHILE (i > 0)
+      {
+        INTEGER e := SearchSubstring(cleanurl, "/", i + 2);
+        IF (e = i + 2)
+        {
+          // "/!/": delete everything after
+          cleanurl := Left(cleanurl, i + 1);
+          BREAK;
+        }
+        ELSE IF (e > i)
+        {
+          // "/!ignorethis/": delete "!ignorethis" part
+          cleanurl := Left(cleanurl, i) || Substring(cleanurl, e);
+        }
+        ELSE
+          BREAK; // "/!" without matching "/"
+        i := SearchSubstring(cleanurl, "/!", i);
+      }
+
+      // Check if the url belongs to our document
+      IF (cleanurl = objecturl OR cleanurl LIKE filterurl)
+      {
+        this->DebugLog(ConsilioDebugInfo, "Returning link: " || link.url);
+        INSERT [ id := link.url ] INTO filteredlinks AT END;
+      }
+      ELSE
+        this->DebugLog(ConsilioDebugSkipped, "link " || link.link || " not equal to " || objecturl || " or like " || filterurl);
+    }
+    RETURN filteredlinks;
+  }
+
+  /** @short Clean a URL
+      @long This function make a possible URL absolute using a base URL and strips anchor links (hash part). If the URL is
+            not valid, an empty string is returned.
+      @param url The URL to clean
+      @param base_url The URL to which the URL may be relative
+      @return The cleaned URL, which may contain web variables
+  */
+  STRING FUNCTION CleanUrl(STRING url, STRING base_url)
+  {
+    // Normalize, make absolute, check validity
+    url := NormalizeUrl(url, base_url);
+
+    // Strip anchor part
+    INTEGER i := SearchSubstring(url, "#");
+    IF (i > 0)
+      url := Left(url, i);
+
+    RETURN url;
+  }
+
+  /** @short Clean up whitespace
+      @long Replace all occurrences of multiple space, tab, newline and non-breaking space characters with a single space
+            and trim whitespace at beginning and end of text.
+  */
+  STRING FUNCTION CleanWhitespace(STRING text)
+  {
+    RETURN CleanWhitespace(text);
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // Blacklisting support
+  //
+  // May this URL be fetched? Returns empty string if not blacklisted, or pattern which blacklisted the URL
+  PUBLIC STRING FUNCTION MayFetch(STRING url)
+  {
+    RETURN this->CheckBlacklist(url, "fetch");
+  }
+  // May links from this URL be followed to be fetched? Returns empty string if not blacklisted, or pattern which blacklisted the URL
+  PUBLIC STRING FUNCTION MayFollow(STRING url)
+  {
+    RETURN this->CheckBlacklist(url, "follow");
+  }
+  // May this URL be indexed? Returns empty string if not blacklisted, or pattern which blacklisted the URL
+  PUBLIC STRING FUNCTION MayIndex(STRING url)
+  {
+    RETURN this->CheckBlacklist(url, "index");
+  }
+  // May links from this URL be checked? Returns empty string if not blacklisted, or pattern which blacklisted the URL
+  PUBLIC STRING FUNCTION MayLinkCheckFrom(STRING url)
+  {
+    RETURN this->CheckBlacklist(url, "linkcheck_from");
+  }
+  // May this link be checked? Returns empty string if not blacklisted, or pattern which blacklisted the URL
+  PUBLIC STRING FUNCTION MayLinkCheckTo(STRING url)
+  {
+    RETURN this->CheckBlacklist(url, "linkcheck_to");
+  }
+  STRING FUNCTION CheckBlacklist(STRING url, STRING action)
+  {
+    RETURN RunModuleHookTarget("consilio:fetcher_blacklist", [ indexid := this->pvt_indexid
+                                                             , contentsourceid := this->pvt_contentsourceid
+                                                             , url := url
+                                                             , action := action
+                                                             , pattern := ""
+                                                             ]).pattern;
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // Internal functions
+  //
+
+  RECORD FUNCTION GetDefaultEmptySearchObject()
+  {
+    RETURN defaultemptysearchrecord;
+  }
+
+  RECORD ARRAY FUNCTION GetDefaultMapping(RECORD mapping DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN
+        SELECT name := name IN [ "SCORE", "SUMMARY" ] ? "_" || name : name
+             , value
+             , tokenized := CellExists(mapping, "tokenized") ? tokenized : TRUE
+             , suggested := CellExists(mapping, "suggested") ? suggested : FALSE
+          FROM UnpackRecord(mapping ?? defaultemptysearchrecord) AS mapping;
+  }
+
+  INTEGER FUNCTION GetMaxGroupObjects()
+  {
+    RETURN this->pvt_maxgroupobjects > 0 ? this->pvt_maxgroupobjects : defaultmaxgroupobjects;
+  }
+  MACRO SetMaxGroupObjects(INTEGER newmax)
+  {
+    this->pvt_maxgroupobjects := newmax;
+  }
+>;
+
+/** @short Get all content providers as offered by all modules
+    @param resourcemanager A WebHare resource manager
+    @return All available content providers
+    @cell return.name The content provider name
+    @cell return.tid Tid for the content provider title
+    @cell return.settings Name of the provider's settings screen
+    @cell return.createcontentprovider A function which returns a content provider object
+*/
+PUBLIC RECORD ARRAY FUNCTION GetContentProviders()
+{
+  RECORD ARRAY contentproviders := GetAdHocCached([ type := "contentproviders" ], PTR GetContentProviders_Uncached);
+  RETURN SELECT name
+              , title
+              , icon
+              , library
+              , settings
+              , createcontentprovider := PTR MakeObject(library, contentproviderobject)
+              , publishercontent
+           FROM contentproviders;
+}
+
+RECORD FUNCTION GetContentProviders_Uncached()
+{
+  RECORD ARRAY contentproviders;
+  FOREVERY (RECORD module FROM GetWebHareModules())
+  {
+    FOREVERY (RECORD cp FROM module.contentproviders)
+    {
+      INSERT [ name := cp.name
+             , title := cp.title
+             , icon := cp.icon
+             , library := cp.library
+             , settings := cp.settingsscreen
+             , contentproviderobject := cp.contentproviderobject
+             , publishercontent := cp.publishercontent
+             ] INTO contentproviders AT END;
+    }
+  }
+  RETURN [ value := contentproviders
+         , ttl := 6 * 60 * 60 * 1000 // Can be cached until next cache/soft reset, but provide some number now
+         ];
+}
+
+/** @short Update the stored content source fields for the given initialized contentprovider
+*/
+PUBLIC BOOLEAN FUNCTION UpdateContentSourceFields(OBJECT contentprovider)
+{
+  RECORD ARRAY existingfields :=
+      SELECT * FROM consilio.contentsourcefields
+       WHERE contentsourceid = contentprovider->contentsourceid;
+  INTEGER ARRAY todelete;
+
+  RECORD ARRAY fields;
+  TRY
+  {
+    fields := contentprovider->GetMapping();
+  }
+  CATCH(OBJECT e)
+  {
+    LogHarescriptException(e);
+    RETURN FALSE;
+  }
+  BOOLEAN anychanges;
+  FOREVERY (RECORD field FROM fields)
+  {
+    STRING field_value := CellExists(field, "value") ? EncodeHSON(field.value) : "";
+    BOOLEAN field_tokenized := CellExists(field, "tokenized") ? field.tokenized : CellExists(field, "value") AND TypeID(field.value) = TypeID(STRING);
+    BOOLEAN field_suggested := CellExists(field, "suggested") ? field.suggested : FALSE;
+
+    RECORD existing :=
+        SELECT *
+             , idx := #existingfields
+          FROM existingfields
+         WHERE name = field.name;
+    IF (NOT RecordExists(existing))
+    {
+      anychanges := TRUE;
+      // Add the new field
+      INSERT INTO consilio.contentsourcefields(contentsourceid, name, defaultvalue, tokenized, suggested)
+             VALUES(contentprovider->contentsourceid, field.name, field_value, field_tokenized, field_suggested);
+    }
+    ELSE IF (existing.defaultvalue != field_value
+        OR existing.tokenized != field_tokenized
+        OR existing.suggested != field_suggested)
+    {
+      anychanges := TRUE;
+      // Update the existing field
+      UPDATE consilio.contentsourcefields
+         SET defaultvalue := field_value
+           , tokenized := field_tokenized
+           , suggested := field_suggested
+       WHERE id = existing.id;
+    }
+    // Remove the existing field from the list, so it isn't deleted afterwards
+    IF (RecordExists(existing))
+      DELETE FROM existingfields AT existing.idx;
+  }
+
+  // existingfields now only contains non-referenced fields
+  DELETE FROM consilio.contentsourcefields
+        WHERE id IN (SELECT AS INTEGER ARRAY id FROM existingfields);
+
+  // Update the content source in the index manager
+  IF (EnsureIndexManagerContentsource(contentprovider->indexid, contentprovider->contentsourceid) = SearchRebuildCatalog)
+  {
+    // The type could not be added/updated; the content source should be re-added
+    UPDATE consilio.indices
+       SET rebuild := TRUE
+     WHERE id = VAR contentprovider->indexid;
+  }
+
+  // Any fields have changed or any existing fields are deleted
+  anychanges := anychanges OR Length(existingfields) > 0;
+  IF (anychanges)
+    GetPrimary()->BroadcastOnCommit("consilio:contentsourcefields." || contentprovider->contentsourceid, DEFAULT RECORD);
+  RETURN anychanges;
+}
+
+PUBLIC BOOLEAN FUNCTION UpdateContentSourceFieldsById(INTEGER contentsourceid)
+{
+  RECORD contentsource :=
+      SELECT contentsources.*
+           , catalogtag := indices.name
+        FROM consilio.contentsources, consilio.indices
+       WHERE contentsources.id = contentsourceid
+             AND contentsources.indexid = indices.id
+             AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+  IF (NOT RecordExists(contentsource))
+    RETURN FALSE;
+
+  // Get the source's content provider
+  RECORD provider := SELECT * FROM GetContentProviders()
+                      WHERE name = contentsource.contentprovider;
+  IF(NOT RecordExists(provider))
+    RETURN FALSE;
+
+  // Update content source fields
+  OBJECT cpobj := provider.createcontentprovider();
+  IF (ObjectExists(cpobj))
+  {
+    RECORD data := DecodeHSON(contentsource.data);
+    DELETE CELL data FROM contentsource;
+    INSERT CELL data := data INTO contentsource;
+    TRY
+    {
+      cpobj->Init(contentsource);
+      RETURN UpdateContentSourceFields(cpobj);
+    }
+    CATCH (OBJECT e)
+    {
+    }
+  }
+  RETURN FALSE;
+}

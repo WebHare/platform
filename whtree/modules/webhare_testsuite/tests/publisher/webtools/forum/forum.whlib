@@ -1,0 +1,26 @@
+<?wh
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+PUBLIC MACRO ResetTestForums()
+{
+  FOREVERY(STRING path FROM ["webtools/forumcomments","webtools/forumcomments-closedate","webtools/forumcomments-recaptcha"])
+  {
+    OBJECT forumcommentsfile := OpenTestsuiteSite()->OpenByPath(path);
+    IF(ObjectExists(forumcommentsfile))
+    {
+      GetPrimary()->BeginWork();
+      DELETE FROM publisher.forumtopics WHERE linkedfileid = forumcommentsfile->id;
+      DELETE FROM publisher.forums WHERE id = forumcommentsfile->id;
+      GetPrimary()->CommitWork();
+    }
+  }
+}
+PUBLIC RECORD FUNCTION Testinvoke_SetupTestForum()
+{
+  OBJECT trans := OpenPrimary();
+  ResetTestForums();
+
+  RETURN [ baseurl := OpenTestsuiteSite()->OpenByPath("webtools")->url ];
+}

@@ -1,0 +1,116 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.formedit.handlers">
+
+  <tabsextension
+      name="mailresultseditor"
+      gid=".mailhandler"
+      implementation="lib"
+      lib="webtools/formhandlers/mailhandler.whlib"
+      allowresize="true"
+      >
+    <insert position="settings" where="after">
+      <heading tid=".mailto" />
+      <arrayedit name="mailto" height="1pr" roweditscreen="#editmailto">
+        <column name="email" type="text" tid="~email" />
+        <p:formconditioncolumn name="condition" />
+      </arrayedit>
+      <textedit name="subject" width="1pr" />
+    </insert>
+    <insert position="advanced" where="after">
+      <select name="sendernamefield" type="pulldown">
+        <option rowkey="" tid=".none" />
+      </select>
+      <select name="replytofield" type="pulldown">
+        <option rowkey="" tid=".none" />
+      </select>
+    </insert>
+    <newtab tid=".emailcontents">
+      <includefragment name="emailcontents" fragment="#emailcontents" />
+    </newtab>
+  </tabsextension>
+
+  <screen name="editmailto" implementation="rowedit" gid=".mailhandler">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit composition="row" cellname="email" validationchecks="email-maysendto" width="1pr" required="true" tid="~email" />
+      <p:formcondition composition="row" cellname="condition" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <tabsextension
+      name="mailfeedbackeditor"
+      gid=".mailhandler"
+      implementation="lib"
+      lib="webtools/formhandlers/mailhandler.whlib"
+      allowresize="true"
+      >
+    <insert position="settings" where="after">
+      <select name="receiverfield" type="pulldown" required="true">
+        <option rowkey="" tid=".none" invalidselection="true" />
+      </select>
+      <textedit name="sendername" width="1pr" required="true" />
+      <textedit name="sender" validationchecks="email-maysendfrom" width="1pr" required="true" />
+      <textedit name="subject" width="1pr" />
+      <textedit name="bcc" validationchecks="emails-maysendto" width="1pr" />
+      <text title="" valuetid=".bcc-desc" />
+    </insert>
+    <newtab tid=".emailcontents">
+      <includefragment name="emailcontents" fragment="#emailcontents" />
+    </newtab>
+  </tabsextension>
+
+  <tabsextension
+      name="mailconfirmationeditor"
+      gid=".mailhandler"
+      implementation="lib"
+      lib="webtools/formhandlers/mailhandler.whlib"
+      allowresize="true"
+      >
+    <insert position="settings" where="after">
+      <select name="receiverfield" type="pulldown" required="true">
+        <option rowkey="" tid=".none" invalidselection="true" />
+      </select>
+      <textedit name="sendername" width="1pr" required="true" />
+      <textedit name="sender" validationchecks="email-maysendfrom" width="1pr" required="true" />
+      <textedit name="subject" width="1pr" />
+      <textedit name="bcc" validationchecks="emails-maysendto" width="1pr" />
+      <text title="" valuetid=".bcc-desc" />
+      <line layout="left">
+        <checkbox name="checkduplicates" title="" labeltid=".checkduplicates" />
+      </line>
+    </insert>
+    <newtab tid=".emailcontents">
+      <includefragment name="emailcontents" fragment="#emailcontents" />
+    </newtab>
+  </tabsextension>
+
+  <fragment name="emailcontents" gid=".mailhandler" implementation="none">
+    <contents>
+      <select name="templatetype" type="radio" public="true">
+        <option rowkey="fsobject" tid=".fsobject">
+          <p:browseforobject name="fsobject" errorlabeltid=".fsobject" required="true" title="" public="true" />
+        </option>
+        <option rowkey="moduletemplate" tid=".moduletemplate">
+          <textedit name="moduletemplate" title="" errorlabeltid=".moduletemplate" required="true" public="true" width="1pr" />
+        </option>
+        <option rowkey="rtd" enablecomponents="rtd addresults applytemplate" />
+      </select>
+      <richdocument name="rtd" height="1pr" minheight="12x" rtdtype="http://www.webhare.net/xmlns/publisher/defaultmailrtdtype" public="true" errorlabeltid=".rtd">
+        <allowwidgettype type="http://www.webhare.net/xmlns/publisher/formmergefield" />
+      </richdocument>
+      <line layout="left">
+        <checkbox name="addresults" title="" labeltid=".addresults" public="true" />
+      </line>
+      <line layout="left">
+        <p:selectmailtemplate name="applytemplate" public="true" width="1pr" />
+      </line>
+    </contents>
+  </fragment>
+
+</screens>

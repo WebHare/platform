@@ -1,0 +1,1036 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/signature.whlib";
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+/* ideal integration guidees, see eg
+https://www.rabobank.nl/images/ideal_merchant_integratie_gids_29696265.pdf
+
+*/
+
+STRING ideal_namespace := "http://www.idealdesk.com/ideal/messages/mer-acq/3.3.1";
+STRING ideal_version := "3.3.1";
+
+STRING ns_xmldsig := "http://www.w3.org/2000/09/xmldsig#";
+
+// ADDME for future updates, getting these certificates somewhere instead of
+//       hardcoding them would be a lot safer. Can webhare-services help ?
+// Banks we support for the merchant (the person/shop who must receive the money)
+PUBLIC RECORD ARRAY acquirers :=
+  [ [ tag := "ABN"
+    , title := "ABN Amro"
+    , live := [ certificate := "mod::wrd/data/payments/idealcertificates/abnamro.cer"
+              , url := "https://abnamro.ideal-payment.de:443/ideal/iDEALv3"
+              ]
+    , test := [ certificate := "mod::wrd/data/payments/idealcertificates/abnamro.test.cer"
+              , url := "https://abnamro-test.ideal-payment.de:443/ideal/iDEALv3"
+              ]
+    ]
+  , [ tag := "FRIES"
+    , title := "Friesland bank"
+    , live := [ certificate := "mod::wrd/data/payments/idealcertificates/frieslandbank.cer"
+              , url := "https://idealkassa.frieslandbank.nl:443/ideal/iDEALv3"
+              ]
+    , test := [ certificate := "mod::wrd/data/payments/idealcertificates/frieslandbank.cer"
+              , url := "https://testidealkassa.frieslandbank.nl:443/ideal/iDEALv3"
+              ]
+    ]
+  , [ tag := "ING"
+    , title := "ING Bank"
+    , live := [ certificate := "mod::wrd/data/payments/idealcertificates/ingbank.cer"
+              , url := "https://ideal.secure-ing.com:443/ideal/iDEALv3"
+              ]
+    , test := [ certificate := "mod::wrd/data/payments/idealcertificates/ingbank.cer"
+              , url := "https://idealtest.secure-ing.com:443/ideal/iDEALv3"
+              ]
+    ]
+  , [ tag := "RABO"
+    , title := "Rabobank"
+    , live := [ certificate := "mod::wrd/data/payments/idealcertificates/rabobank.cer"
+              , url := "https://ideal.rabobank.nl:443/ideal/iDEALv3"
+              ]
+    , test := [ certificate := "mod::wrd/data/payments/idealcertificates/rabobank.cer"
+              , url := "https://idealtest.rabobank.nl:443/ideal/iDEALv3"
+              ]
+    ]
+  , [ tag := "SIM"
+    , title := "iDeal simulator"
+    , live := [ certificate := "mod::wrd/data/payments/idealcertificates/ideal-simulator-2048.cer"
+              , url := "https://www.ideal-checkout.nl:443/simulator/"
+              ]
+    , test := [ certificate := "mod::wrd/data/payments/idealcertificates/ideal-simulator-2048.cer"
+              , url := "https://www.ideal-checkout.nl:443/simulator/"
+              ]
+    ]
+  ];
+
+
+STATIC OBJECTTYPE IdealRequest
+< /// certificate of the store
+  BLOB    acceptant_certificate;
+  BLOB    acceptant_privatekeyfile;
+  STRING  acceptant_privatekeyfile_pwd;
+
+  INTEGER merchantid;    // 9 digit number
+
+  /**
+  Bij elke betaling van iDEAL wordt ook altijd een SUB-ID meegestuurd. De
+  standaardwaarde hiervan is 0. Wie betalingen vanaf meerdere websites (met
+  verschillende handelsnamen) op eenzelfde bankrekening wil ontvangen, dient gebruik
+  te maken van SUB-IDÕs. Hierdoor krijgt de koper de juiste (voor de koper ook
+  herkenbare) handelsnaam van de webwinkel te zien. Dat voorkomt dat kopers iDEAL
+  transacties annuleren. Op het rekeningafschrift verschijnt dan achter uw bedrijfsnaam
+  de voor de koper herkenbare handelsnaam. Standaard is de mogelijkheid om SUB-IDÕs
+  te gebruiken niet geactiveerd. U kunt om activering van deze optie vragen door een
+  ticket in te sturen.
+  */
+  INTEGER merchantsubid;
+
+  /// certificate of the acquirer (the bank to which the money will be send to)
+   BLOB acquirer_certificate;
+  STRING      acquirer_url;
+
+  /// code of the bank of the acceptant (shop)
+  STRING acquirer;
+
+  /// timezone, used to calculate UTC time for datestamps in iDEAL communication
+  STRING timezone;
+
+  /// when testmode is TRUE, all requests will be send to the testserver of the selected acquirer
+  BOOLEAN testmode;
+
+  MACRO NEW(RECORD config)
+  {
+    this->setAcquirer(config.acquirer, config.testmode);
+    this->SetCertificate(config.keypair, config.privatekeypassword);
+    this->merchantid := config.merchantid;
+    this->merchantsubid := config.merchantsubid;
+    this->timezone := "CET";
+  }
+
+  MACRO SetCertificate(INTEGER keypairid, STRING password)
+  {
+    OBJECT keypair := OpenKeyPair(keypairid);
+    IF(NOT ObjectExists(keypair))
+      THROW NEW Exception(`Invalid key pair #${keypairid}`);
+
+    this->acceptant_certificate := keypair->certificatechain;
+    this->acceptant_privatekeyfile := keypair->privatekey;
+    this->acceptant_privatekeyfile_pwd := password;
+  }
+
+  PUBLIC BLOB FUNCTION GetCertificateAsBlob(STRING certificatefilename)
+  {
+    BLOB certdata := GetHarescriptResource("moduledata::paymentproviders/ideal/" || certificatefilename);
+
+    IF (Length(certdata) = 0)
+      ABORT('Failed to load certificate with name "'||certificatefilename||'".');
+
+    RETURN certdata;
+  }
+
+  /** @short Set acquirer ("ABN", "INT", "RABO" or ...);
+      @param code of acquirer (bank)
+      @param whether to run all requests in testmode
+  */
+  MACRO SetAcquirer(STRING acquirer, BOOLEAN testmode)
+  {
+    RECORD acquirersettings := SELECT * FROM acquirers WHERE ToUppercase(tag) = ToUppercase(acquirer);
+    IF(NOT RecordExists(acquirersettings))
+      THROW NEW Exception(`Acquirer '${acquirer}' is not supported`);
+
+    this->acquirer := acquirersettings.tag;
+    this->testmode := testmode;
+
+    RECORD portal := testmode ? acquirersettings.test : acquirersettings.live;
+
+    this->acquirer_certificate := GetWebhareResource(portal.certificate);
+    this->acquirer_url := portal.url;
+  }
+
+  RECORD FUNCTION SendRequest(STRING url, BLOB data)
+  {
+    OBJECT browser := NEW WEBBrowser;
+    browser->timeout := 10 * 1000; // iDEAL specs chapter 2.6 (performance) heeft het over een time-out na 4 seconden
+    IF(IsRPCTrafficLogged("wrd:payments.ideal"))
+      LogRPCForWebbrowser("wrd:payments.ideal", "", browser); //ADDME specify paymentref and/or remote customer ip as second parameter, if we have it, so we can easily correlate requests
+
+    /*
+    STRING contenttype;
+    IF (this->acquirer = 'SIM')
+      contenttype := "text/html; charset=utf-8"; // the simulator refuses/complains if you don't use text/html
+    ELSE
+      contenttype := "text/xml; charset=utf-8";
+    */
+
+//    BOOLEAN success := CreateDiskFileFromBlob("/Users/spellcoder/Desktop/request.xml", FALSE, TRUE, data);
+//ABORT("RDY");
+
+    RECORD ARRAY headers :=
+        [ [ field := "Content-Type", value := "text/xml; charset=utf-8" ]//contenttype ]
+        ];
+
+    browser->PostWebPageBlob(url, headers, data);
+
+
+    // make an XML document ourself, instead of using browser->document, so we can
+    // force 'text/xml'. This fixes usage of the ideal-simulator.nl which incorrectly
+    // wants to use/return 'text/html' as mimetype causing case-sensitivity issues.
+    /*
+    STRING response_contenttype := browser->contenttype;
+    STRING charset := GetMIMEHeaderParameter(response_contenttype, "charset");
+    OBJECT document := MakeXMLDocument(browser->content, charset);
+
+    STRING mimetype := GetMIMEHeaderParameter(contenttype,"");
+    IF (mimetype != 'text/xml')
+      PRINT("Acquirer used "||mimetype||", forced it to text/xml.");
+    */
+    OBJECT document := browser->document;
+
+    IF (Length(browser->responseheaders) = 0)
+    {
+      RETURN [ success := FALSE
+             , browser := browser
+             , error   := DEFAULT RECORD
+             ];
+    }
+
+    IF (NOT ObjectExists(document))
+    {
+      //LogWebserverError("");
+      THROW NEW Exception("No iDEAL response or response is not valid XML.");
+    }
+
+    OBJECT query := document->CreateXPathQuery();
+    query->RegisterNamespace("i", ideal_namespace);
+
+    RECORD error := this->GetErrors(document);
+
+    IF (RecordExists(error))
+    {
+      RETURN [ success := FALSE
+             , browser := browser
+             , error   := error
+             ];
+    }
+
+    //PUBLIC BOOLEAN FUNCTION CreateDiskFileFromBlob(STRING path, BOOLEAN failifexists, BOOLEAN publicfile, BLOB sourcedata)
+    //BOOLEAN success := CreateDiskFileFromBlob("/Users/spellcoder/Desktop/response.xml", FALSE, TRUE, browser->content);
+
+/*
+//    STRING certstr := BlobToString(this->acquirer_certificate, -1);
+STRING certstr :=BlobToString(this->acceptant_certificate, -1); // ABN AMRO gebruikt het certificaat van de acceptant (of is dit nieuw in iDEAL v3 ??)
+
+    // Add the signature to the request
+    OBJECT sigcontext := NEW SignatureContext(document->documentElement);
+    sigcontext->SetX509Certificate( certstr );
+    //IF (NOT sigcontext->ValidateSignature())
+    //  THROW NEW Exception("Reponse contains an invalid signature.");
+    TRY
+    {
+      sigcontext->ValidateSignature(); // it'll THROW an EXCEPTION if the signature isn't valid
+    }
+    CATCH(OBJECT err)
+    {
+      // FIXME: Disabled for now until our xmlsign supports signing with our certificate
+      //THROW NEW Exception("Failed to verify the signature of the response.");
+      PRINT("Warning: unable to verify response signature.\n");
+    }
+*/
+
+    RETURN [ success  := TRUE
+           , browser  := browser
+           , text     := browser->content
+           , document := document
+           , query    := query
+           ];
+  }
+
+  RECORD FUNCTION GetErrors(OBJECT document)
+  {
+    OBJECT error := document->GetElementsBytagNAmeNS(ideal_namespace, "Error")->Item(0);
+    IF(NOT ObjectExists(error))
+      RETURN DEFAULT RECORD;
+
+    RETURN [ errorcode       := error->GetElementsByTagName("errorCode")->textcontent
+           , errormessage    := error->GetElementsByTagName("errorMessage")->textcontent
+           , errordetail     := error->GetElementsByTagName("errorDetail")->textcontent
+           , consumerMessage := error->GetElementsByTagName("consumerMessage")->textcontent
+           ];
+  }
+
+  OBJECT ARRAY FUNCTION GetNodes(OBJECT query, STRING nodename, OBJECT root DEFAULTSTO DEFAULT OBJECT, BOOLEAN recursive DEFAULTSTO TRUE)
+  {
+    OBJECT nodelist := query->ExecuteQuery((ObjectExists(root) ?".":"") || (recursive ? "//" : "/") || nodename, root);
+    RETURN nodelist->GetCurrentElements();
+  }
+
+  STRING FUNCTION GetNodeText(OBJECT query, STRING nodename, OBJECT root DEFAULTSTO DEFAULT OBJECT, BOOLEAN recursive DEFAULTSTO TRUE)
+  {
+    STRING result;
+    FOREVERY (OBJECT node FROM this->GetNodes(query, nodename, root, recursive))
+      result := result || node->childrentext;
+    RETURN result;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Construction of messages
+  //
+
+  BLOB FUNCTION CreateIdealMessage(STRING rootname, RECORD ARRAY fields)
+  {
+    OBJECT impl := new XmlDOMImplementation();
+    OBJECT programdoc  := impl->CreateDocument(ideal_namespace, rootname, DEFAULT OBJECT);
+
+    OBJECT programroot := programdoc->documentelement;
+    programroot->setAttribute("xmlns",   ideal_namespace);
+    programroot->setAttribute("version", ideal_version);
+
+    // Format UTC date -> 2010-02-09T11:11:29.000Z
+    STRING dtstamp := FormatDateTime("%Y-%m-%dT%H:%M:%S.%QZ", GetCurrentDateTime());
+    //STRING dtstamp := FormatISO8601DateTime(GetCurrentDateTime(), '', '', '', TRUE);
+
+    // Generate the request
+    INSERT [ name := "createDateTimestamp", value := dtstamp ] INTO fields AT 0;
+    this->convertFieldsToNodes(programdoc, programroot, fields);
+
+    // Add the signature to the request
+    OBJECT signature := this->CreateSignatureNode(programdoc);
+    programroot->AppendChild(signature);
+
+STRING certstr :=BlobToString(this->acceptant_certificate, -1);
+
+    //SendBlobTo(0, programdoc->GetDocumentBlob(TRUE));
+
+    /*
+    Normalize the document to make the ' xmlns="http://www.w3.org/2000/09/xmldsig#">' appear in the <Signature> element.
+    If the xmlns is missing on the <Signature> node, the bank (at least ABN AMRO) will return this error
+
+    <Error>
+        <errorCode>SO1000</errorCode>
+        <errorDetail>System generating error: Acquirer</errorDetail>
+        <suggestedAction>Please try again later or pay using another payment method.</suggestedAction>
+        <consumerMessage>Het resultaat van uw betaling is nog niet bij ons bekend. U kunt desgewenst uw betaling controleren in uw Internetbankieren.</consumerMessage>
+    </Error>
+    */
+    programdoc->NormalizeDocument();
+//    SendBlobTo(0, programdoc->GetDocumentBlob(TRUE));
+
+    OBJECT sigcontext := GetXMLSignatureContextByNodes([ programroot ]);
+
+
+    sigcontext->SetX509Certificate( certstr );
+    sigcontext->SignDocument( BlobToString(this->acceptant_privatekeyfile,-1), this->acceptant_privatekeyfile_pwd);
+
+//programdoc->NormalizeDocument();
+
+    BLOB xmldata := programdoc->GetDocumentBlob(FALSE);
+
+    //SendBlobTo(0, programdoc->GetDocumentBlob(TRUE));
+
+
+    OBJECT newdocument := MakeXMLDOcument(xmldata);
+    OBJECT sigcontext2 := GetXMLSignatureContextByNodes([ OBJECT(newdocument->documentElement) ]);
+    sigcontext2->SetX509Certificate( certstr );
+    sigcontext2->ValidateSignature(); // it'll THROW an EXCEPTION if the signature isn't valid
+
+    RETURN xmldata;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Cryptographic functions
+  //
+
+  OBJECT FUNCTION CreateSignedInfoNode(OBJECT document)
+  {
+    OBJECT signedinfonode := document->CreateElementNS(ns_xmldsig, "SignedInfo");
+    //signedinfonode->SetAttribute("xmlns", "http://www.w3.org/2000/09/xmldsig#");
+
+      OBJECT node_canon := document->CreateElementNS(ns_xmldsig, "CanonicalizationMethod");
+      node_canon->SetAttribute("Algorithm", "http://www.w3.org/2001/10/xml-exc-c14n#");
+
+      OBJECT node_sigmethod := document->CreateElementNS(ns_xmldsig, "SignatureMethod");
+      node_sigmethod->SetAttribute("Algorithm", "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
+
+      OBJECT node_reference := document->CreateElementNS(ns_xmldsig, "Reference");
+      node_reference->SetAttribute("URI", "");
+
+        OBJECT node_transforms := document->CreateElementNS(ns_xmldsig, "Transforms");
+        OBJECT node_transform := document->CreateElementNS(ns_xmldsig, "Transform");
+        node_transform->SetAttribute("Algorithm", "http://www.w3.org/2000/09/xmldsig#enveloped-signature");
+        node_transforms->AppendChild(node_transform);
+
+        OBJECT node_digestmethod := document->CreateElementNS(ns_xmldsig, "DigestMethod");
+        node_digestmethod->SetAttribute("Algorithm", "http://www.w3.org/2001/04/xmlenc#sha256");
+
+        OBJECT node_digestvalue := document->CreateElementNS(ns_xmldsig, "DigestValue");
+
+        node_reference->AppendChild(node_transforms);
+        node_reference->AppendChild(node_digestmethod);
+        node_reference->AppendChild(node_digestvalue);
+
+    signedinfonode->appendChild(node_canon);
+    signedinfonode->appendChild(node_sigmethod);
+    signedinfonode->appendChild(node_reference);
+
+    RETURN signedinfonode;
+  }
+
+
+  /** @short Generate a BASE64 encoded SHA1 hash of the reciever's certificate.
+
+Naar de publieke sleutel moet gerefereerd worden met een fingerprint van een X.509 certificaat.
+De fingerprint wordt berekend op basis van de volgende formule HEX(SHA-1(DER certificate)) 13.
+
+  */
+  STRING FUNCTION GetCertificateFingerprint(BLOB certificate)
+  {
+    IF(Length(certificate)=0)
+      THROW NEW Exception("Certificate not loaded");
+
+    STRING certstr := BlobToString(certificate, -1);
+    certstr := SubStitute(certstr, "-----BEGIN CERTIFICATE-----", "");
+    certstr := SubStitute(certstr, "-----END CERTIFICATE-----", "");
+    certstr := SubStitute(certstr, "\n", '');
+
+    RETURN EncodeBase16(GetHashForString(DecodeBase64(certstr), "SHA-1"));
+  }
+
+
+
+  OBJECT FUNCTION CreateSignatureNode(OBJECT document)
+  {
+    // create SignedInfo using a message digest
+    OBJECT signedinfo_node := this->CreateSignedInfoNode(document);
+
+    // create a signature containing:
+    // - SignatureValue, made from the private key and SignedInfo
+    // - KeyName, the fingerprint of the certificate
+    OBJECT signature_node := document->CreateElementNS(ns_xmldsig, "Signature");
+    //signature_node->SetAttribute("xmlns", ns_xmldsig);
+    signature_node->AppendChild(signedinfo_node);
+
+    OBJECT signaturevalue_node := document->CreateElementNS(ns_xmldsig, "SignatureValue");
+    signature_node->AppendChild(signaturevalue_node);
+
+    OBJECT keyinfo_node := document->CreateElementNS(ns_xmldsig, "KeyInfo");
+    OBJECT keyname_node := document->CreateElementNS(ns_xmldsig, "KeyName");
+
+    STRING keyname_value := this->GetCertificateFingerprint(this->acceptant_certificate); // SHA1 fingerprint
+    //keyname_value := "6217B97ED19E11BC7C9BA2F7D94A70947958A3BA"; //
+    keyname_node->AppendChild( document->CreateTextNode(keyname_value) );
+
+
+
+    keyinfo_node->AppendChild(keyname_node);
+    signature_node->AppendChild(keyinfo_node);
+
+    RETURN signature_node;
+  }
+
+  MACRO convertFieldsToNodes(OBJECT docelem, OBJECT parentnode, RECORD ARRAY fields)
+  {
+    FOREVERY(RECORD field FROM fields)
+    {
+      OBJECT newnode := docelem->createElementNS(ideal_namespace, field.name);
+
+      IF (TypeID(field.value) = TypeID(RECORD ARRAY))
+        this->convertFieldsToNodes(docelem, newnode, field.value);
+      ELSE
+        newnode->appendChild(docelem->createTextNode(field.value));
+
+      parentnode->appendChild(newnode);
+    }
+  }
+
+  STRING FUNCTION IntegerToPaddedString(INTEGER value, INTEGER padlength)
+  {
+    STRING strval := ToString(value);
+
+    IF (Length(strval) >= padlength)
+      RETURN strval;
+
+    RETURN Right('00000000000000000000'||value, padlength);
+  }
+>;
+
+
+
+PUBLIC STATIC OBJECTTYPE IdealDirectoryRequest EXTEND IdealRequest
+<
+  /** @short Send a DirectoryReq request
+      @return whether the request was succesfull and if succesfull also a list of Issuers
+      @cell success, whether the list of issuers was succesfully recieved
+      @cell issuers
+        @cell STRING issuerid unique id to identify the issuer
+        @cell STRING issuername name of the issuer
+  */
+  PUBLIC RECORD FUNCTION GetIssuers()
+  {
+    // Send 'DirectoryReq' request
+    BLOB message := this->GetRequestData();
+    RECORD response := this->SendRequest(this->acquirer_url, message);
+
+    IF (NOT response.success)
+      RETURN response;
+
+    // Process 'DirectoryRes' response
+    OBJECT query := response.query;
+    OBJECT directory := this->GetNodes(query, "i:Directory")[0];
+    OBJECT ARRAY issuernodes := directory->GetElementsByTagName('Issuer')->GetCurrentElements();
+
+    RECORD ARRAY issuers;
+    FOREVERY(OBJECT issuer FROM issuernodes)
+    {
+      INSERT [ rowkey := issuer->GetElementsByTagName("issuerID")->GetCurrentElements()[0]->childrentext
+             , title  := issuer->GetElementsByTagName("issuerName")->GetCurrentElements()[0]->childrentext
+             ] INTO issuers AT END;
+    }
+
+    RETURN [ success := TRUE
+           , issuers := issuers
+           , browser := response.browser
+           ];
+  }
+
+  /** @short Send a DirectoryReq request
+      @result document containing the XML for the request
+  */
+  BLOB FUNCTION GetRequestData()
+  {
+    RECORD ARRAY fields := [ [ name  := "Merchant"
+                             , value := [ [ name := "merchantID", value := this->IntegerToPaddedString(this->merchantid, 9) ]
+                                        , [ name := "subID",      value := ToString(this->merchantsubid) ]
+                                        ]
+                             ]
+                           ];
+
+    RETURN this->CreateIdealMessage("DirectoryReq", fields);
+  }
+>;
+
+
+
+STATIC OBJECTTYPE IdealTransactionRequest EXTEND IdealRequest
+<
+  STRING          pvt_orderid; // purchaseID
+
+  /// Uniek kenmerk van de order/bestelling binnen het systeem van de Merchant. Verschijnt uiteindelijk op het betaalbewijs (rekeningafschrift/-overzicht) van de Consument en op het afschrift van de Merchant.
+  PUBLIC PROPERTY orderid(setOrderId, pvt_orderid);
+
+  /**
+  description of maximum 32 characters which will be shown on the bank statement
+  Omschrijving van het (de) bestelde product(-en) of dienst(en).
+
+  Dit veld mag geen HTML tags of andere tekens bevatten die de opmaak van schermen waarop dit veld getoond wordt, kunnen verstoren. Om mogelijke problemen te voorkomen zullen veel iDEAL systemen een description veld dat HTML- tags of vergelijkbare code bevat, afkeuren.
+  */
+  STRING          pvt_orderdescription;
+  PUBLIC PROPERTY orderdescription(setOrderDescription, pvt_orderdescription);
+
+  // The amount to pay in euro's
+  MONEY           pvt_orderamount; // cost in euro's
+  PUBLIC PROPERTY orderamount(setOrderAmount, pvt_orderamount);
+
+  /**
+  De Transaction.entranceCode is een ‘authenticatie sleutel’ ten behoeve van continuering van de sessie tussen Merchant en Consument, zelfs als de bestaande sessie is beëindigd. De Merchant kan hiermee de Consument herkennen die hoort bij een (inmiddels afgeronde) transactie.
+  De Transaction.entranceCode wordt hiertoe meegestuurd in de HTTP(S) GET naar de Merchant als parameter achter de merchantReturnURL.
+  De Transaction.entranceCode dient een minimale variatie van 1 miljoen te hebben. Deze code moet bestaan uit letters en/of cijfers (maximaal 40 posities).
+  De Transaction.entranceCode wordt aangemaakt door de Merchant en doorgegeven aan de Issuer via berichten B (Merchant naar Acquirer) en C (Acquirer naar Issuer).
+  */
+  STRING          pvt_entrancecode;
+  PUBLIC PROPERTY entrancecode(setEntranceCode, pvt_entrancecode);
+
+  /** ISO 4217 code specifying the currency. iDEAL only supports payments in Euro's, so only "EUR" is currently supported.
+      For the full ISO 4217 list, see: http://www.iso.org/iso/currency_codes_list-1
+  */
+  STRING          currency;
+
+  /** ISO 639-1 code specifying the language to use on the site of the Issuer
+  */
+  STRING          pvt_language;
+  PUBLIC PROPERTY language(setLanguage, pvt_language);
+
+  /** URL to return to after the consumer leaves the Issuer site
+  It must use the https protocol and the max length is 512 characters.
+  */
+  PUBLIC STRING   returnurl;
+
+  /// BIC code (Bank Identifyer Code) of the bank of the consumer
+  PUBLIC STRING   issuerid;
+
+  /// amount of minutes before an transaction will expire
+  PUBLIC INTEGER  expirationperiod;
+
+/*
+  /// id given to the transaction by the Acquirer (16 characters, [0.9]*)
+  STRING  transactionid;
+
+  // URL recieved from the acquirer to redirect the customer to the issuer's iDEAL server
+  STRING  transactionurl;
+*/
+
+  MACRO NEW(RECORD settings) : IdealRequest(settings)
+  {
+    this->currency := "EUR";
+    this->language := "nl"; // NOTE: MUST be lowercase (FIXME: check if only for rabo or for all ideal members)
+
+    // Random EntranceCode. must not contain dashes so can't use a raw 128bit id
+    this->entrancecode := EncodeBase16(DecodeUFS(GenerateUFS128Bitid()));
+
+    // set default expirationtime
+    this->expirationperiod := 30;
+  }
+
+  /** @short set the orderid/purchaseid
+      @param orderid valid characters are: upper- and lowercase characters, digits and / - ? : ( ) . , ' +
+  */
+  MACRO setOrderId(STRING orderid)
+  {
+    // orderid := Left(orderid, 16);
+    IF (Length(orderid) = 0 OR Length(orderid) > 16)
+      THROW NEW Exception("OrderID must be 1 to 16 characters in length.");
+
+    this->pvt_orderid := orderid;
+  }
+
+  MACRO setOrderDescription(STRING orderdescription)
+  {
+    /*
+    'Interbancaire tekenset':
+
+    - All chars which are not A-Z, a-Z, 0-9, ' ' or =%*+,-./&@"':;?()$
+      will be changes by Equens (formerly Interpay) to ' ', ? or *.
+
+    - " ' : ; ? ( ) $ will be translated to *
+
+    - a-z will be transformed to uppercase (A-Z)
+
+    */
+
+    this->pvt_orderdescription := Left(orderdescription, 32);
+  }
+
+  MACRO setOrderAmount(MONEY newamount)
+  {
+    // Although there isn't agreement on the maximum amount,
+    // it's usually around 45.000 euro.
+    // The minumum is 1 cent.
+    IF (newamount < 0.01 OR newamount > 45000)
+      THROW NEW Exception("Invalid amount specified. The amount may not be less than 1 cent and max not exceed 45000 euro.");
+
+    this->pvt_orderamount := newamount;
+  }
+
+  MACRO setEntranceCode(STRING entrancecode)
+  {
+    /*
+    - Type String
+    - Minimale lengte 1
+    - Maximale lengte 40
+    - Formaat [a-z|A-Z|0-9]*
+    */
+    IF (Length(entrancecode) <1 AND Length(entrancecode) > 40)
+      THROW NEW Exception("Entrancecode must be 40 characters.");
+
+    this->pvt_entrancecode := entrancecode;
+  }
+
+  BOOLEAN FUNCTION IsISO639_1(STRING languagecode)
+  {
+    RETURN languagecode IN ["ab","af","an","ar","as","az","be","bg","bn","bo","br","bs"
+                           ,"ca","ce","co","cs","cu","cy","da","de","el","en","oe","es"
+                           ,"et","eu","fa","fi","fj","fo","fr","fy","ga","gd","gl","gv"
+                           ,"he","hi","hr","ht","hu","hy","id","is","it","ja","jv","ka"
+                           ,"kg","ko","ku","kw","ky","la","lb","li","ln","lt","lv","mg"
+                           ,"mk","mn","mo","ms","mt","my","nb","ne","nl","nn","no","oc"
+                           ,"pl","pt","rm","ro","ru","sc","se","sk","sl","so","sq","sr"
+                           ,"sv","sw","tk","tr","ty","uk","ur","uz","vi","vo","yi","zh"
+                           ];
+  }
+
+  /** @short set the language which the site of the issuer will use for the consumer.
+             iDEAL will return an error if the given code is not ISO639-1.
+             Currently ING and RABO only implement 'nl' and 'en'.
+             Other (valid ISO639-1) codes will result in the issuer using their default language.
+  */
+  MACRO setLanguage(STRING languagecode)
+  {
+    IF (NOT this->IsISO639_1(languagecode))
+      THROW NEW Exception("Languagecode must be an ISO 639-1 languagecode.");
+
+    this->pvt_language := ToLowerCase(languagecode);
+  }
+
+  PUBLIC RECORD FUNCTION CreateTransaction()
+  {
+    // Send 'AcquirerTrxReq' request
+    BLOB message := this->GetRequestData();
+    RECORD response := this->SendRequest(this->acquirer_url, message);
+
+    IF (NOT response.success)
+    {
+      RETURN [ success := FALSE
+             , transactionurl := ""
+             , transactionid  := ""
+             //, response := reponse
+             ];
+    }
+
+    // Process ' AcquirerTrxRes' response
+    OBJECT query := response.query;
+
+    OBJECT ARRAY nodes := this->GetNodes(query, "i:Transaction");
+    IF (Length(nodes)=0)
+    {
+      SendBlobTo(0, response.content);
+      ABORT("");
+      //ABORT(AnyToString(response.browser->responseheaders,'tree'));
+    }
+
+    OBJECT transactionnode := this->GetNodes(query, "i:Transaction")[0];
+    STRING transactionid := transactionnode->GetElementsByTagName("transactionID")->GetCurrentElements()[0]->childrentext;
+    STRING orderid := transactionnode->GetElementsByTagName("purchaseID")->GetCurrentElements()[0]->childrentext;
+
+    OBJECT issuernode := this->GetNodes(query, "i:Issuer")[0];
+    STRING transactionurl := issuernode->GetElementsByTagName("issuerAuthenticationURL")->GetCurrentElements()[0]->childrentext;
+
+    RETURN [ success        := TRUE
+           , transactionurl := transactionurl
+           , transactionid  := transactionid
+           , orderid        := orderid
+           ];
+  }
+
+  /** @short Send a DirectoryReq request
+      @result document containing the XML for the request
+  */
+  BLOB FUNCTION GetRequestData()
+  {
+    IF(this->pvt_orderid = "")
+      THROW NEW Exception("Required field 'orderid' not set"); //sanity check
+
+    // See 7.5.1 for fields and 4.2 for digest fields
+    RECORD ARRAY fields :=
+           [ [ name  := "Issuer"
+             , value := [ [ name := "issuerID",          value := this->issuerid ]
+                        ]
+             ]
+           , [ name  := "Merchant"
+             , value := [ [ name := "merchantID",        value := this->IntegerToPaddedString(this->merchantid, 9) ]
+                        , [ name := "subID",             value := ToString(this->merchantsubid) ]
+                        , [ name := "merchantReturnURL", value := this->returnurl ]
+                        ]
+             ]
+           , [ name  := "Transaction"
+             , value := [ [ name := "purchaseID",        value := this->pvt_orderid ]
+                        , [ name := "amount",            value := FormatMoney(this->pvt_orderamount, 2, ".", "", TRUE) ]
+                        , [ name := "currency",          value := "EUR" ] // ISO 4217
+                        , [ name := "expirationPeriod",  value := "PT"||this->expirationperiod||"M" ] // ISO 8601 (PnYnMnDTnHnMnS)
+                        , [ name := "language",          value := this->pvt_language ]
+                        , [ name := "description",       value := this->pvt_orderdescription ]
+                        , [ name := "entranceCode",      value := this->pvt_entrancecode ]
+                        ]
+             ]
+           ];
+
+    RETURN this->CreateIdealMessage("AcquirerTrxReq", fields);
+  }
+>;
+
+
+
+ STATIC OBJECTTYPE IdealStatusRequest EXTEND IdealRequest
+<
+  /** @short get status and consumer information on a transaction
+      @return status information
+      @cell success
+      @cell status code indicating the current status of the transaction, which can be 'Success', 'Cancelled', 'Expired', 'Failure' or 'Open'
+      @cell consumername name of the accountholder (max 70 chars), set to 'N/A' if local regulation doesn't allow making the name available
+      @cell consumeriban accountnumber which was used to pay (18 digits in the Netherlands)
+      @cell consumerbic Bank Indentification Code (which bank and the country the bank resides in)
+      @cell consumercity city in which the accountholder lives (max 24 chars), often 'NOT PROVIDED' or 'N/A'? is returned as value
+      @cell transactionid unique code which the consumer can find on their transactions page of their bank..(FIXME: betere beschrijving)
+      @cell amount
+      @cell currency
+  */
+  PUBLIC RECORD FUNCTION GetStatus(STRING transactionid)
+  {
+    RECORD result := [ success         := FALSE
+                     , errors          := DEFAULT STRING ARRAY
+                     , status          := ""
+                     , consumername    := ""
+                     , consumeriban    := "" // consumer's account
+                     , consumerbic     := "" // bank of the consumer
+                     , consumercity    := "" // FIXME: may not be in use anymore????
+                     , transactionid   := ""
+                     , amount          := 0m
+                     , currency        := ""
+                     ];
+
+    // Send 'AcquirerStatusReq' request
+    BLOB   acquirerstatusreq := this->GetRequestData(transactionid);
+
+    RECORD response := this->SendRequest(this->acquirer_url, acquirerstatusreq);
+      /* With rabo ideal sim we sometimes get a RST with "Reset cause: BIG-IP: [0x242b892:6103] iRule execution (reject command)"
+         and it'll work a moment later. maybe it thinks we're connecting too fast?
+
+         Let him sleep on it?
+      */
+    IF (NOT response.success AND response.browser->GetHTTPStatusCode() = 0) //looks like the Rabo disconnect?
+    {
+      Sleep(500);
+      response := this->SendRequest(this->acquirer_url, acquirerstatusreq);
+    }
+
+    IF (NOT response.success)
+    {
+      RETURN result;
+    }
+
+    // Process 'AcquirerStatusRes' request
+    OBJECT query := response.query;
+
+    // Read <createDateTimeStamp>
+    OBJECT dtnode := this->GetNodes(query, "i:createDateTimestamp")[0];
+    STRING dtstamp := dtnode->childrentext;
+/*
+IF (Length( this->GetNodes(query, "i:Transaction") ) = 0)
+  ABORT(response.content);
+*/
+    // Read <Transaction> and it's children
+    OBJECT transactionnode := this->GetNodes(query, "i:Transaction")[0];
+    STRING status          := transactionnode->GetElementsByTagName("status")->GetCurrentElements()[0]->childrentext;
+
+    STRING consumername, consumeraccount, consumercity;
+    IF (status = "Success")
+    {
+      result.consumername := transactionnode->GetElementsByTagName("consumerName")->GetCurrentElements()[0]->childrentext;
+      result.consumeriban := transactionnode->GetElementsByTagName("consumerIBAN")->GetCurrentElements()[0]->childrentext;
+      result.consumerbic  := transactionnode->GetElementsByTagName("consumerBIC")->GetCurrentElements()[0]->childrentext;
+
+      // may not exist anymore in V3.1.1?
+      OBJECT citynodelist := transactionnode->GetElementsByTagName("consumerCity");
+      IF (citynodelist->length > 0)
+        result.consumercity->GetCurrentElements()[0]->childrentext;
+
+      result.amount := ToMoney(transactionnode->GetElementsByTagName("amount")->GetCurrentElements()[0]->childrentext, -1);
+      result.currency := transactionnode->GetElementsByTagName("currency")->GetCurrentElements()[0]->childrentext;
+    }
+
+    IF (result.amount < 0)
+      THROW NEW Exception("Couldn't read amount of transaction.");
+
+    result.success         := TRUE;
+    result.status          := status;
+    result.transactionid   := transactionid;
+
+    RETURN result;
+  }
+
+  /** @short Send a AcquirerStatusReq request
+      @result document containing the XML for the request
+  */
+  BLOB FUNCTION GetRequestData(STRING transactionid)
+  {
+    RECORD ARRAY fields := [ [ name  := "Merchant"
+                             , value := [ [ name := "merchantID", value := this->IntegerToPaddedString(this->merchantid, 9) ]
+                                        , [ name := "subID",          value := ToString(this->merchantsubid) ]
+                                        ]
+                             ]
+                           , [ name  := "Transaction"
+                             , value := [ [ name := "transactionID",  value := transactionid ] ]
+                             ]
+                           ];
+
+    RETURN this->CreateIdealMessage("AcquirerStatusReq", fields);
+  }
+>;
+
+RECORD FUNCTION GetIdealConfigRecord(RECORD settings)
+{
+  RETURN [ acquirer           := settings.acquirer
+         , testmode           := settings.testmode
+         , keypair            := settings.keypair //FIXME also add creationdate/modificationdate to be on the safe side ?
+         , privatekeypassword := settings.privatekeypassword //FIXME the keystore should arrange for this
+         , merchantid         := settings.merchantid
+         , merchantsubid      := settings.merchantsubid
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetCacheableIssuers(RECORD cachekey)
+{
+  IF(NOT RecordExists(SELECT FROM system.fs_objects WHERE id = cachekey.keypair AND NOT IsRecycleOrHistoryWHFSPath(whfspath))) //already deleted
+    THROW NEW PrecalcDiscardQueryException;
+
+  OBJECT idealreq := NEW IdealDirectoryRequest(cachekey);
+
+  RECORD result := idealreq->GetIssuers();
+  IF (NOT result.success)
+    THROW NEW Exception("Unable to retrieve issuers");
+
+  RETURN [ value := [ issuers := result.issuers ]
+         ];
+}
+
+PUBLIC STATIC OBJECTTYPE IdealPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  STRING transactionid;
+
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:ideal","redirect", settings)
+  {
+    this->needspaymentref := TRUE;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetPSPStatus()
+  {
+    TRY
+    {
+      OBJECT idealreq := NEW IdealDirectoryRequest(this->__GetIdealConfigRecord());
+      RECORD result := idealreq->GetIssuers();
+      IF(NOT result.success)
+        RETURN [ success := FALSE, unknown := FALSE, message := "Unable to retrieve issuers" ];
+
+      IF(Length(result.issuers) > 0)
+        RETURN [ success := TRUE, unknown := FALSE, message := "Seen " || Length(result.issuers) || " issuing banks" ];
+      RETURN [ success := FALSE, unknown := FALSE, message := "Got empty issuer list" ];
+    }
+    CATCH(OBJECT e)
+    {
+      RETURN [ success := FALSE, unknown := FALSE, message := e->what ];
+    }
+  }
+
+  PUBLIC RECORD FUNCTION __GetIdealConfigRecord()
+  {
+    RETURN GetIdealConfigRecord(this->settings);
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RECORD cachekey := this->__GetIdealConfigRecord();
+    RECORD ARRAY issuers;
+    IF(options.getissuers)
+    {
+      TRY
+      {
+        issuers := WaitForPromise(GetPrecalculatedData(cachekey, Resolve("#GetCacheableIssuers"))).issuers;
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+      }
+    }
+
+    RETURN [[ paymentoptiontag := ""
+            , title := "iDEAL"
+            , issuers := issuers
+            ]];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN CELL[ this->transactionid
+               ];
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    RECORD meta := EnforceStructure([ transactionid := "" ], payment.__paymentdata.m);
+    this->transactionid := meta.transactionid;
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    this->PollStatus();
+  }
+
+  MACRO PollStatus()
+  {
+    OBJECT statusreq := NEW IdealStatusRequest(this->__GetIdealConfigRecord());
+    RECORD status := statusreq->GetStatus(this->transactionid);
+    this->pvt_status := status.status = "Open" ? "pending" : status.status = "Success" ? "approved" : "failed";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    IF(this->transactionid != GetVariableFromUrl(returnurl, "trxid"))
+      RETURN FALSE;
+
+    this->PollStatus();
+    RETURN TRUE;
+  }
+/*
+  // called to store (from ProcessReturnURL) or restore (from SetupTransaction) resulting metadata (info on payment progress) of a transaction
+  UPDATE PUBLIC MACRO SetPaymentMetadata(RECORD meta)
+  {
+    IF (NOT RecordExists(this->paymentmetadata))
+    {
+      //PRINT("Initializing metadata RECORD.");
+      this->paymentmetadata := [ issuer := ""
+                               , transactionid := ""
+                               , orderdescription := ""
+                               , idealstatus := DEFAULT RECORD
+                               ];
+    }
+
+    //PRINT(AnyToString([ now := this->paymentmetadata ],"tree"));
+
+    this->paymentmetadata := MakeUpdatedRecord(this->paymentmetadata, meta);
+
+    IF (CellExists(meta, "idealstatus"))
+      this->paymentmetadata.idealstatus := meta.idealstatus;
+
+    //PRINT(AnyToString([ meta := meta, paymentdata := this->paymentmetadata ],"tree"));
+
+    this->pvt_paymentdone     := RecordExists(this->paymentmetadata.idealstatus) ? (this->paymentmetadata.idealstatus.status != "Open") : FALSE;
+    this->pvt_paymentapproved := RecordExists(this->paymentmetadata.idealstatus) ? (this->paymentmetadata.idealstatus.status = "Success") : FALSE;
+
+    IF (CellExists(meta, "issuer") AND NOT RecordExists(this->paymentmetadata.idealstatus)) // issuer specifically set? (not an update with only the idealstatus)
+      this->SetIssuer(meta.issuer);
+  }
+*/
+  PUBLIC UPDATE STRING FUNCTION GetPayRedirectUrl(STRING paymenttok)
+  {
+    IF (this->issuer = "")
+      THROW NEW Exception("No issuerid set!");
+
+    OBJECT transreq := NEW IdealTransactionRequest(this->__GetIdealConfigRecord());
+    STRING returnurl := GetInternalReturnURL(paymenttok);
+
+    transreq->orderid          := this->paymentref; // <purchaseID> in iDeal
+    transreq->orderdescription := this->orderid;
+    transreq->orderamount      := this->amountpayable;
+    transreq->issuerid         := this->issuer;
+    transreq->returnurl        := returnurl;
+
+    RECORD transaction := transreq->CreateTransaction();
+    this->transactionid := transaction.transactionid;
+    GetPrimary()->BeginWork();
+    UpdatePaymentMetadata(paymenttok, [ transactionid := this->transactionid ]);
+    GetPrimary()->CommitWork();
+
+    //GetPrimary()->BeginWork();
+    //UPDATE wrd.pendingpayments SET pspmetadata := EncodeHSON([transactionid := this->transactionid]
+    RETURN transaction.transactionurl;
+  }
+>;

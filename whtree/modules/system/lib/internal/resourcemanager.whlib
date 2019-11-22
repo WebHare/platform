@@ -1,0 +1,755 @@
+﻿<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internal/graphs.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/semver.whlib";
+
+LOADLIB "mod::tollium/lib/dragdrop.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+///Update the server type. Assumes an available primary transaction
+PUBLIC MACRO SetSystemServerType(STRING newservertype)
+{
+  IF(newservertype = ReadRegistryKey("system.global.servertype"))
+    RETURN;
+  IF(newservertype NOT IN systemservertypes)
+    THROW NEW Exception(`Invalid system server type ${newservertype}`);
+
+  GetPrimary()->BeginWork();
+  WriteRegistryKey("system.global.servertype", newservertype);
+  GetPrimary()->CommitWork();
+  UpdateSystemConfigurationRecord();
+
+  BroadcastEvent("system:config.servertype", DEFAULT RECORD);
+  //ADDME access rules should listen to servertype themselves?
+}
+
+/** @short Refresh the webserver configuration
+    @long Ask the webserver to refresh its configuration read from the database and module definitions. The relevant changes need to be already committed. Returns when the webserver is reconfigured
+    @return The configuration load status as reported by ConfigureWebserver. */
+PUBLIC RECORD FUNCTION RefreshGlobalWebserverConfig(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ nowait := FALSE ], options);
+
+  OBJECT getconfig := ConnectToManagedPort("system:webserver.getconfig", "webserver");
+  IF (NOT ObjectExists(getconfig))
+    RETURN [ error := "Webserver configuration port not yet available!" ];
+
+  RECORD reloadstatus;
+  IF(options.nowait)
+  {
+    getconfig->SendMessage([ task := "rescan" ]);
+  }
+  ELSE
+  {
+    RECORD res := getconfig->DoRequest([ task := "rescan" ]);
+    IF (res.status != "ok" OR res.msg.status != "ok")
+      THROW NEW Exception("Reloading webserver configuration failed" || AnyToString(res, "tree"));
+    reloadstatus := res.msg.reloadstatus;
+  }
+  getconfig->Close();
+  RETURN reloadstatus;
+}
+
+///Reload authentication data and/or modules
+PUBLIC STRING FUNCTION ReloadWebhareConfig2(STRING toreload, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ isdelete := FALSE, nowait := FALSE ], options);
+
+  STRING id := GenerateUFS128BitId();
+  IF (GetDatabaseType() = "whdb")
+    ReloadWebhareConfig3(toreload);
+  STRING ARRAY parts := toreload = "" ? DEFAULT STRING ARRAY : Tokenize(toreload, ' ');
+  IF("AUTHDATA" IN parts OR "ALL" IN parts)
+    RefreshGlobalWebserverConfig([ nowait := options.nowait ]);
+  BroadcastEvent("system:softreset", [ toreload := parts, id := id, isdelete := options.isdelete ]);
+  RETURN id;
+}
+
+PUBLIC STRING FUNCTION ReloadWebhareConfig(BOOLEAN authdata, BOOLEAN modules, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  STRING ARRAY toks;
+  IF(authdata)
+    INSERT "AUTHDATA" INTO toks AT END;
+  IF(modules)
+  {
+    INSERT "MODULES" INTO toks AT END;
+    INSERT "MODULEINIT" INTO toks AT END;
+  }
+  RETURN ReloadWebhareConfig2(Detokenize(toks,' '), options);
+}
+
+PUBLIC MACRO SetApplicationAndUserInAuthRecord(RECORD app, RECORD data, OBJECT user)
+{
+  RECORD authrec := GetAuthenticationRecord();
+  IF (CellExists(authrec, "TOLLIUM"))
+    DELETE CELL tollium FROM authrec;
+
+  INSERT CELL tollium :=
+      [ app :=
+            [ name :=           app.name
+            , title :=          app.title
+            , data :=           data
+            ]
+      , user :=
+            [ realname :=       user->realname
+            , emailaddress :=   user->emailaddress
+            , language :=       user->language
+            , login :=          user->login
+            , eventidentifier := user->GetUserEventIdentifier()
+            , wrdentityid :=    user->entityid
+            , authobjectid :=   user->authobjectid
+            ]
+      ] INTO authrec;
+
+  SetAuthenticationRecord(authrec);
+}
+
+PUBLIC RECORD FUNCTION ApplyAccessCheck(RECORD accesscheck, BOOLEAN makeautotrans, OBJECT user)
+{
+  RECORD authrec := GetAuthenticationRecord();
+  IF (NOT CellExists(authrec, "DATABASE"))
+    INSERT CELL database := DEFAULT RECORD INTO authrec;
+
+  // Check rights
+  IF (NOT DoAccessCheckFor(accesscheck, user))
+    RETURN [ success := FALSE, errorcode:="ACCESCHECK" ]; //(ADDME unclean? if we fail, we'll still have modified global stae through initializerightsweblet)
+
+  OBJECT transobj := GetPrimaryWebhareTransactionObject();
+  INTEGER ARRAY roleids;
+  authrec.database :=
+      [ userid :=       ObjectExists(user) ? user->authobjectid : 0
+      , readonly :=     FALSE
+      , autotrans :=    TRUE
+      ];
+
+  SetAuthenticationRecord(authrec);
+  RETURN [ success := TRUE ];
+}
+
+RECORD FUNCTION GetCacheableAllModules()
+{
+  //Grab all modules including their recommended startup ordering
+  RECORD ARRAY modlist, orderedmodlist;
+  STRING ARRAY allmodules :=  __SYSTEM_GetInstalledModuleNames();
+  RECORD ARRAY loaderrors;
+  STRING ARRAY resources;
+
+  FOREVERY(STRING module FROM allmodules)
+    allmodules[#module] := ToLowercase(module);
+
+  FOREVERY(STRING module FROM allmodules)
+  {
+    IF (module LIKE "system_*")
+      CONTINUE; //Modules with a name that begin with 'system_' are NOT allowed! Please use another name.
+
+    RECORD modinfo;
+    STRING resname := GetModuleDefinitionXMLResourceName(module);
+    IF(resname = "")
+      CONTINUE; // ignore module without moduledefinition.xml
+
+    INSERT resname INTO resources AT END;
+
+    TRY
+    {
+      OBJECT xmldoc := OpenXMLDoc(resname, FALSE).doc;
+      modinfo := ParseModuleDefinition(module, xmldoc);
+    }
+    CATCH(OBJECT e)
+    {
+      INSERT [ resourcename := resname, line := 0, col := 0, message := e->what ] INTO loaderrors AT END;
+      CONTINUE; //ignore unloadable modules.
+    }
+
+    FOREVERY(RECORD dependency FROM modinfo.requiredmodules)
+      IF(dependency.name IN allmodules)
+        INSERT dependency.name INTO modinfo.dependencies AT END;
+      ELSE
+        INSERT dependency.name INTO modinfo.missingmodules AT END;
+
+    // Every module, except the system module, has a implicit dependency on system
+    IF (ToLowercase(modinfo.name) != "system" AND "system" NOT IN modinfo.dependencies)
+      INSERT "system" INTO modinfo.dependencies AT END;
+
+    IF (ToLowercase(modinfo.name) IN whconstant_builtinmodules)
+      INSERT modinfo INTO modlist AT 0;
+    ELSE
+      INSERT modinfo INTO modlist AT END;
+
+  }
+
+  // Place the base modules first in the ordering.
+  modlist :=
+     SELECT *
+       FROM modlist
+   ORDER BY name NOT IN whconstant_builtinmodules, SearchElement(whconstant_builtinmodules, name);
+
+  //Now order them
+  WHILE(Length(modlist)!=0)
+  {
+    //Any runnable module?
+    BOOLEAN progress := FALSE; //did we run a script in this run?
+    FOREVERY(RECORD modinfo FROM modlist)
+    {
+      //Check whether this scripts's dependencies have finished yet
+      BOOLEAN deps_satisfied := NOT RecordExists(SELECT FROM modlist WHERE name IN modinfo.dependencies);
+      IF(deps_satisfied)
+      {
+        //Move it to the ordered list
+        INSERT modinfo INTO orderedmodlist AT END;
+        DELETE FROM modlist WHERE name=modinfo.name;
+        progress := TRUE;
+      }
+    }
+
+    IF(NOT progress) //nothing left to run
+    {
+      FOREVERY(RECORD modinfo FROM modlist)
+      {
+        modinfo.circulairdependency := TRUE;
+        INSERT modinfo INTO orderedmodlist AT END;
+      }
+      BREAK;
+    }
+  }
+
+  // Do all global inter-module checks
+  orderedmodlist := GlobalCheckModules(orderedmodlist);
+  FOREVERY(RECORD mod FROM orderedmodlist)
+    loaderrors := loaderrors CONCAT mod.errors;
+
+  RETURN [ ttl := 24 * 60 * 60 * 1000
+         , value := [ modules := orderedmodlist
+                    , loaderrors := loaderrors
+                    ]
+         , eventmasks := [ "system:modulesupdate" ] CONCAT GetResourceEventMasks(resources)
+         ];
+}
+
+
+// ---------------------------------------------------------------------------
+//
+// Public API
+//
+
+///Get all webhare modules
+PUBLIC RECORD ARRAY FUNCTION GetWebHareModules()
+{
+  RETURN SELECT *
+           FROM GetAdhocCached([type := "allmodules"], PTR GetCacheableAllModules).modules;
+}
+
+PUBLIC RECORD FUNCTION GetObjectEditor(STRING objeditorname)
+{
+  STRING modname := Left(objeditorname, SearchSubstring(objeditorname, ':'));
+  STRING editorname := Substring(objeditorname, Length(modname)+1);
+
+  RECORD modinfo := GetWebhareModuleInfo(modname);
+  IF(RecordExists(modinfo))
+  {
+    RECORD objeditor := SELECT * FROM modinfo.fs_objecteditors WHERE ToUppercase(name)=ToUppercase(modname || ":" || editorname);
+    IF(RecordExists(objeditor))
+      RETURN objeditor;
+  }
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC STRING ARRAY FUNCTION GetModuleDependencyIssues()
+{
+  STRING ARRAY errors;
+  RECORD ARRAY allmods := GetWebhareModules();
+  FOREVERY(RECORD mod FROM allmods)
+  {
+    IF(mod.circulairdependency)
+    {
+      INSERT "Module " || mod.name || " is involved in a circulair dependency (requires " || Detokenize(mod.dependencies,",") INTO errors AT END;
+    }
+    FOREVERY(RECORD dep FROM mod.requiredmodules)
+    {
+      RECORD match := SELECT * FROM allmods WHERE allmods.name = dep.name;
+      IF(NOT RecordExists(match))
+      {
+        INSERT `Module '${mod.name}' requires module '${dep.name}' but it is not installed` INTO errors AT END;
+        CONTINUE;
+      }
+      IF(dep.requireversion != "" AND NOT VersionSatisfiesRange(match.version, dep.requireversion))
+      {
+        INSERT `Module '${mod.name}' requires a different version of module '${dep.name}'. Have ${match.version} wants ${dep.requireversion}` INTO errors AT END;
+        CONTINUE;
+      }
+    }
+  }
+  RETURN errors;
+}
+
+PUBLIC RECORD FUNCTION GetWebhareModuleInfo(STRING modulename)
+{
+  //ADDME: Optimize by only initing the requested module?
+  RETURN SELECT * FROM GetWebHareModules() WHERE name=modulename;
+}
+
+RECORD FUNCTION GetCachableGlobalDragTypes()
+{
+  RECORD ARRAY results;
+
+  STRING ARRAY allmodules := GetInstalledModuleNames();
+
+  FOREVERY(STRING module FROM allmodules)
+    allmodules[#module] := ToLowercase(module);
+
+  FOREVERY(STRING module FROM allmodules)
+  {
+    OBJECT xmldoc;
+    TRY
+      xmldoc := GetModuleDefinitionXML(module);
+    CATCH
+      CONTINUE;
+
+    IF (ObjectExists(xmldoc))
+    {
+      OBJECT ARRAY elts := xmldoc->GetElementsByTagNameNS(xmlns_moduledef, "dragtype")->GetCurrentElements();
+
+      FOREVERY (OBJECT elt FROM elts)
+      {
+        STRING ARRAY flags := Tokenize(elt->GetAttribute("flags"), " ");
+        flags := SELECT AS STRING ARRAY flag FROM ToRecordArray(flags, "FLAG") WHERE flag != "";
+
+        STRING library := "module::" || module || "/" || elt->GetAttribute("library");
+        STRING objectname := elt->GetAttribute("objectname");
+
+        OBJECT dragtypeobj;
+        TRY
+        {
+          dragtypeobj := MakeObject(library, objectname);
+        }
+        CATCH (OBJECT e) {}
+        IF (NOT ObjectExists(dragtypeobj))
+          THROW NEW Exception("Dragtype object '" || library || ":" || objectname || "' could not be found");
+        ELSE IF (dragtypeobj NOT EXTENDSFROM DragTypeDescriber)
+          THROW NEW Exception("Dragtype object '" || library || ":" || objectname || "' not extending DragTypeDescriber");
+
+        INSERT
+            [ name := module || ":" || elt->GetAttribute("name")
+            , candownloadflags := elt->GetAttribute("candownloadflags")
+            , library := library
+            , objectname := objectname
+            , flags := flags
+            ] INTO results AT END;
+      }
+    }
+  }
+
+  RETURN
+      [ ttl :=   24 * 60 * 60 * 1000
+      , eventmasks := ["system:modulesupdate"] //flush if any moduledef changes.
+      , value := SELECT * FROM results ORDER BY name
+      ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetGlobalDragTypes()
+{
+  RETURN GetAdhocCached(
+      [ type := "globaldragtypes"
+      ], PTR GetCachableGlobalDragTypes);
+}
+
+STRING FUNCTION GetVertexName(OBJECT v)
+{
+  RETURN v->data.name;
+}
+
+PUBLIC RECORD FUNCTION OrderIntercepts(RECORD ARRAY intercepts)
+{
+  /* The intercepts can have very difficult ordering constraints.
+     We use the newly created graph api to order them.
+
+     If a cycle is found, the intercept that is last in the intercepts
+     list is deleted.
+  */
+
+  RECORD result :=
+      [ errors :=       DEFAULT RECORD ARRAY
+      , intercepts :=   DEFAULT RECORD ARRAY
+      ];
+
+  // Create a graph, with one vertex per intercepts
+  OBJECT graph := NEW GraphObject;
+  FOREVERY (RECORD rec FROM intercepts)
+  {
+    OBJECT vertex := NEW GraphVertex;
+    graph->AddVertex(vertex);
+
+    INSERT CELL id := #rec + 1 INTO rec;
+    vertex->data := rec;
+  }
+
+  OBJECT ARRAY vertices := graph->vertices;
+
+  // Register all ordering constraints
+  // If A must be run before B, than a link from A to B is added.
+  FOREVERY (OBJECT v FROM vertices)
+    FOREVERY (OBJECT v2 FROM vertices)
+    {
+      IF (v = v2) // Ignore self-references (like 'before "*"')
+        CONTINUE;
+
+      FOREVERY (STRING mask FROM v->data.orderbefore)
+        IF (v2->data.name LIKE mask AND v2 NOT IN v->linked_vertices)
+          v->AddSimpleEdge(v2);
+
+      FOREVERY (STRING mask FROM v->data.orderafter)
+        IF (v2->data.name LIKE mask AND v NOT IN v2->linked_vertices)
+          v2->AddSimpleEdge(v);
+    }
+
+  OBJECT ARRAY neworder;
+  WHILE (TRUE)
+  {
+    TRY
+    {
+      // Creates a topological sort; this will return the correct order. Throws on finding a cycle.
+      neworder := TopologicalSort(graph);
+      BREAK;
+    }
+    CATCH (OBJECT e)
+    {
+      /* A throw: a cycle was found. Find all strongly connected components (components in which
+         all vertices are reachable from every other vertices). Those are the cycles.
+      */
+      RECORD ARRAY sccs := CalculateStronglyConnectedComponents(graph);
+      FOREVERY (RECORD c FROM sccs)
+      {
+        /* A strongly connected component must be broken when it contains two or more vertices,
+           or when a single vertex has a link to itself.
+           In that case, always delete one vertex, so forward progress is guaranteed.
+        */
+        IF (LENGTH(c.vertices) > 1 OR (c.vertices[0] IN c.vertices[0]->linked_vertices))
+        {
+          // This is a cycle. Remove the vertex with the highest id (the last in the intercepts array).
+          OBJECT highest := c.vertices[0];
+          FOREVERY (OBJECT v FROM c.vertices)
+            IF (v->data.id > highest->data.id)
+              highest := v;
+
+          INSERT [ modulenr := highest->data.modulenr
+                 , msg      := "Deleted hook intercept with name '" || highest->data.name || "' to resolve a circular dependency in the intercept ordering."
+                 , intercept := highest->data
+                 ] INTO result.errors AT END;
+
+          graph->DeleteVertex(highest);
+        }
+      }
+      // And try the topological sort again.
+    }
+  }
+
+  // Calculate the return retval
+  RECORD ARRAY retval;
+  FOREVERY (OBJECT v FROM neworder)
+  {
+    DELETE CELL id FROM v->data;
+    DELETE CELL modulenr FROM v->data;
+    INSERT v->data INTO result.intercepts AT END;
+  }
+
+  RETURN result;
+}
+
+
+RECORD FUNCTION OrderRights(RECORD ARRAY allrights)
+{
+  /* Rights must be ordered just like hook intercepts, with the difference
+     that we can't delete rights we don't like; the ordering is for
+     presentation only.
+  */
+
+  RECORD result :=
+      [ warnings :=     DEFAULT RECORD ARRAY
+      , ordering :=     DEFAULT RECORD ARRAY
+      ];
+
+  // Make sure the show ordering remains stable, and not dependent on module ordering.
+  allrights :=
+      SELECT *
+        FROM allrights
+    ORDER BY name;
+
+  // Create a graph, with one vertex per intercepts
+  OBJECT graph := NEW GraphObject;
+  FOREVERY (RECORD rec FROM allrights)
+  {
+    OBJECT vertex := NEW GraphVertex;
+    graph->AddVertex(vertex);
+
+    vertex->data := rec;
+  }
+
+  OBJECT ARRAY vertices := graph->vertices;
+
+  // Register all ordering constraints
+  // If A must be run before B, than a link from A to B is added.
+  FOREVERY (OBJECT v FROM vertices)
+    FOREVERY (OBJECT v2 FROM vertices)
+    {
+      IF (v = v2) // Ignore self-references (like 'before "*"')
+        CONTINUE;
+
+      FOREVERY (STRING mask FROM v->data.showbefore)
+        IF (v2->data.name LIKE mask AND v2 NOT IN v->linked_vertices)
+          v->AddSimpleEdge(v2);
+
+      FOREVERY (STRING mask FROM v->data.showafter)
+        IF (v2->data.name LIKE mask AND v NOT IN v2->linked_vertices)
+          v2->AddSimpleEdge(v);
+    }
+
+  RECORD ARRAY levels;
+  WHILE (TRUE)
+  {
+    TRY
+    {
+      // Creates a topological sort; this will return the correct order. Throws on finding a cycle.
+      levels := GetTreeLevels(graph);
+
+      BREAK;
+    }
+    CATCH (OBJECT e)
+    {
+      /* A throw: a cycle was found. Find all strongly connected components (components in which
+         all vertices are reachable from every other vertices). Those are the cycles.
+      */
+      RECORD ARRAY sccs := CalculateStronglyConnectedComponents(graph);
+      FOREVERY (RECORD c FROM sccs)
+      {
+        // Break the cycle by deleting an edge from the first node
+        OBJECT ARRAY vs := c.vertices;
+
+        OBJECT node := vs[0];
+        FOREVERY (OBJECT other FROM node->linked_vertices)
+        {
+          IF (other IN vs)
+          {
+            INSERT [ modulenr := node->data.modulenr
+                   , msg      := "Ignoring requirement of ordering right '" || node->data.name || "' before '" || other->data.name || "' to resolve a circular dependency in the rights ordering."
+                   , right    := node->data
+                   ] INTO result.warnings AT END;
+
+            node->DeleteSimpleEdge(other);
+            BREAK;
+          }
+        }
+      }
+    }
+  }
+
+  FOREVERY (RECORD level FROM levels)
+    FOREVERY (OBJECT v FROM level.vertices)
+    {
+      RECORD rec := [ name := v->data.name, ordering := level.level + 1 ];
+      INSERT rec INTO result.ordering AT RecordUpperBound(result.ordering, rec, [ "NAME" ]);
+    }
+
+  RETURN result;
+}
+
+
+RECORD ARRAY FUNCTION GlobalCheckIntercepts(RECORD ARRAY modlist)
+{
+  RECORD ARRAY all_targets, all_intercepts;
+
+  FOREVERY (RECORD module FROM modlist)
+  {
+    all_targets := all_targets CONCAT
+        SELECT *
+             , modulenr   := #module
+             , targetnr   := #targets
+             , intercepts := DEFAULT RECORD ARRAY
+          FROM module.hooktargets AS targets;
+    all_intercepts := all_intercepts CONCAT
+        SELECT *
+             , modulenr   := #module
+          FROM module.hookintercepts;
+  }
+
+  FOREVERY (RECORD i FROM all_intercepts)
+  {
+    INTEGER pos :=
+        (SELECT AS INTEGER #xpos + 1
+           FROM all_targets AS xpos
+          WHERE name = i.target) - 1;
+
+    IF (pos = -1)
+    {
+      // Could not resolve target i.target for intercept i.name
+      INSERT
+          [ resourcename := modlist[i.modulenr].moduledefinitionfile
+          , line :=       i.line
+          , col :=        1
+          , message :=    "No hook target with name '" || i.target || "' exists, referenced in intercept '"||i.name||"'."
+          ] INTO modlist[i.modulenr].errors AT END;
+      CONTINUE;
+    }
+
+    INSERT i INTO all_targets[pos].intercepts AT END;
+  }
+
+  FOREVERY (RECORD target FROM all_targets)
+  {
+    RECORD res := OrderIntercepts(target.intercepts);
+    target.intercepts := res.intercepts;
+
+    FOREVERY (RECORD err FROM res.errors)
+    {
+      INSERT
+          [ resourcename := modlist[err.modulenr].moduledefinitionfile
+          , line :=       err.intercept.line
+          , col :=        1
+          , message :=    err.msg
+          ] INTO modlist[err.modulenr].errors AT END;
+    }
+
+    INTEGER modulenr := target.modulenr;
+    INTEGER targetnr := target.targetnr;
+
+    DELETE CELL modulenr FROM target;
+    DELETE CELL targetnr FROM target;
+
+    modlist[modulenr].hooktargets[targetnr] := target;
+  }
+
+  RETURN modlist;
+}
+
+
+RECORD ARRAY FUNCTION GlobalOrderRights(RECORD ARRAY modlist)
+{
+  RECORD ARRAY all_rights;
+
+  FOREVERY (RECORD module FROM modlist)
+  {
+    all_rights := all_rights CONCAT
+        SELECT *
+             , modulenr   := #module
+          FROM module.modulerights;
+  }
+
+  RECORD res := OrderRights(all_rights);
+
+  FOREVERY (RECORD rec FROM res.warnings)
+  {
+    INSERT
+        [ filename :=    modlist[rec.modulenr].moduledefinitionfile
+        , line :=        rec.right.line
+        , col :=         1
+        , message :=     rec.msg
+        ] INTO modlist[rec.modulenr].warnings AT END;
+  }
+
+  FOREVERY (RECORD module FROM modlist)
+  {
+    FOREVERY (RECORD right FROM module.modulerights)
+    {
+      RECORD pos := RecordLowerBound(res.ordering, right, [ "NAME" ]);
+      INSERT CELL ordering := res.ordering[pos.position].ordering INTO modlist[#module].modulerights[#right];
+    }
+  }
+
+  RETURN modlist;
+}
+
+
+PUBLIC RECORD ARRAY FUNCTION GlobalCheckModules(RECORD ARRAY modlist)
+{
+  modlist := GlobalCheckIntercepts(modlist);
+  modlist := GlobalOrderRights(modlist);
+
+  RETURN modlist;
+}
+
+
+PUBLIC BOOLEAN FUNCTION IsApplicationAccessible(OBJECT user, RECORD apprec)
+{
+  RETURN DoAccessCheckFor(apprec.accesscheck, user);
+}
+
+/** Executes access check
+    @return Returns whether the current user doesn't fail any access check
+    @param accesscheck Describes the accesscheck to be done
+    @cell accesscheck.type Type of the acccesscheck, valid: right, combine
+    @cell accesscheck.value Name of right to check for (only valid when @a type = 'right')
+    @cell accesscheck.combine Type of combining, valid: 'and', 'or' (only valid when @a type = 'combine')
+    @cell accesscheck.checks List of access check records to combine (only valid when @a type = 'combine')
+*/
+PUBLIC BOOLEAN FUNCTION DoAccessCheckFor(RECORD accesscheck, OBJECT user)
+{
+  IF (NOT RecordExists(accesscheck) OR (accesscheck.type="combine" AND accesscheck.combine="and" AND Length(accesscheck.checks)=0))
+    RETURN TRUE;
+  IF (NOT ObjectExists(user))
+    RETURN FALSE;
+
+  TRY
+  {
+    SWITCH (accesscheck.type)
+    {
+    CASE "right"
+      {
+        IF (NOT IsRightGlobal(accesscheck.value))
+        {
+          RETURN user->HasRightOnAny(accesscheck.value);
+        }
+        ELSE
+        {
+          RETURN user->HasRight(accesscheck.value);
+        }
+      }
+    CASE "anygrantableright"
+      {
+        RETURN user->HasAnyGrantableRight();
+      }
+    CASE "combine"
+      {
+        SWITCH (accesscheck.combine)
+        {
+        CASE "and"
+          {
+            FOREVERY (RECORD check FROM accesscheck.checks)
+              IF (NOT DoAccessCheckFor(check, user))
+                RETURN FALSE;
+            RETURN TRUE;
+          }
+        CASE "or"
+          {
+            FOREVERY (RECORD check FROM accesscheck.checks)
+              IF (DoAccessCheckFor(check, user))
+                RETURN TRUE;
+            RETURN FALSE;
+          }
+        }
+        THROW NEW Exception("Unknown combine type " || accesscheck.combine);
+      }
+    }
+    THROW NEW Exception("Unknown access check type " || accesscheck.type);
+  }
+  CATCH (OBJECT e)
+  {
+    //ADDME log the error!?
+    RETURN FALSE;
+  }
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetLoadErrors()
+{
+  RETURN GetAdhocCached([type := "allmodules"], PTR GetCacheableAllModules).loaderrors;
+}
+

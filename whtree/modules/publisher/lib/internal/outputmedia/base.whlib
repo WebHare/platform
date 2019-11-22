@@ -1,0 +1,30 @@
+<?wh
+
+PUBLIC OBJECTTYPE OutputMediaBase
+<
+  MACRO NEW()
+  {
+  }
+
+  PUBLIC OBJECT FUNCTION CreatePublicationOutput(STRING _filename,
+                                                BOOLEAN all_subdir,
+                                                BOOLEAN is_index,
+                                                BOOLEAN capturesubpaths,
+                                                STRING ARRAY _defaultpages,
+                                                STRING _outputroot,
+                                                BOOLEAN _stripextension)
+  {
+    THROW NEW Exception("This outputmedia must implement CreatePublicationOuput");
+  }
+>;
+
+PUBLIC OBJECTTYPE OutputPublicationBase
+<
+
+  /** Controls whether to capture subpaths
+      @param capturesubpaths Whether to capture subpaths
+  */
+  PUBLIC MACRO SetCaptureSubPaths(BOOLEAN capturesubpaths)
+  {
+  }
+>;

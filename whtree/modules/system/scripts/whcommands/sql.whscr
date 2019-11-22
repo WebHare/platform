@@ -1,0 +1,525 @@
+﻿<?wh
+
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::files.whlib";
+
+//We don't need these ourselves, but the subcompiler requires it to be compiled
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+// HELP
+// SET commando's
+// ROLLBACK
+// COMMIT
+
+RECORD FUNCTION __SYSTEM_SQLCLIENT_COMPILESCRIPT(BLOB script) __ATTRIBUTES__(EXTERNAL);
+MACRO __SYSTEM_SQLCLIENT_RUNSQLCLIENTSCRIPT(BLOB compiledscript, RECORD state) __ATTRIBUTES__(EXTERNAL);
+
+// Transaction id for current transaction
+//INTEGER transid;
+//OBJECT trans;
+BOOLEAN autocommit := TRUE;
+STRING showmode := "boxed";
+RECORD userdata;
+
+RECORD ARRAY all_decls;
+RECORD ARRAY all_tables;
+
+// Build unique names for tables/schema combinations
+STRING ARRAY used_names;
+STRING FUNCTION HareScriptizeName(STRING name)
+{
+  STRING result;
+  FOR (INTEGER idx := 0; idx < LENGTH(name); idx := idx + 1)
+  {
+    INTEGER charval := GetByteValue(Substring(name, idx, 1));
+    IF ((charval < 48 OR charval > 57 OR idx = 0) AND ((charval < 65 OR charval > 90) AND (charval < 97 OR charval > 122)))
+      result := result || "_";
+    ELSE result := result || Substring(name, idx, 1);
+  }
+  STRING test := result;
+  INTEGER counter := 0;
+  WHILE (true)
+  {
+    IF (test NOT IN used_names)
+    {
+      INSERT test INTO used_names AT END;
+      RETURN test;
+    }
+    counter := counter + 1;
+    test := result || counter;
+  }
+}
+
+
+/* Returns an array with definitions for all non-metadata tables in the webhare database. Contains:
+     :name Name of table
+     :decl Harescript declaration for that table */
+MACRO GetSchemaAndTableDecls()
+{
+  //ADDME: Find a better way to remove illegally named tabledefs...
+  //For tables in the PUBLIC schema, both the name itself and a PUBLIC_ tabledef are provided.
+  DELETE FROM used_names ALL;
+
+  RECORD ARRAY result;
+
+  RECORD ARRAY schemas;
+  RECORD ARRAY allcolumns;
+/*  IF (GetPrimary()->type = "WHDB")
+  {
+    allcolumns :=
+        SELECT name := column_name
+             , columntype := data_type
+             , tableid := table_id
+          FROM information_schema.columns
+         WHERE data_type!="";
+
+    schemas :=
+        SELECT object_id := object_id
+             , name := schema_name
+             , tables :=
+                   SELECT object_id :=    t.object_id
+                        , schemaid :=     t.table_schema_id
+                        , name :=         t.table_name
+  //                      , altlocalname := tables.table_schema = "PUBLIC" ? HareScriptizeName(table_name) : (tables.table_schema="PUBLISHER" AND tables.table_name="FILES" ? "FILES" : (tables.table_schema="PUBLISHER" AND tables.table_name="FOLDERS" ? "FOLDERS" : ""))
+                        , columns := (SELECT * FROM allcolumns WHERE allcolumns.tableid = t.object_id)
+                     FROM information_schema.tables AS t
+                    WHERE table_schema_id = f_schema.object_id
+          FROM information_schema.all_schemata AS f_schema;
+  }
+  ELSE*/
+  {
+    schemas :=
+        SELECT s.schema_name
+             , tables :=
+                   SELECT t.table_name
+                        , t.primary_key_name
+                        , columns :=
+                                SELECT data_type
+                                     , column_name
+                                  FROM GetPrimary()->GetColumnListing(s.schema_name, t.table_name)
+                     FROM GetPrimary()->GetTableListing(s.schema_name) AS t
+          FROM GetPrimary()->GetSchemaListing() AS s;
+  }
+
+
+  FOREVERY (RECORD f_schema FROM schemas)
+  {
+    // Get tables for this schema
+    RECORD ARRAY tables := f_schema.tables;
+
+    // No local tables? continue
+    IF (LENGTH(tables) = 0)
+        CONTINUE;
+
+    STRING schemadef := "SCHEMA <\n";
+    STRING schema_prefix := ToUppercase(f_schema.schema_name) = "PUBLIC" ? "" : f_schema.schema_name || ".";
+
+    BOOLEAN first_table := TRUE;
+
+    FOREVERY (RECORD f_table FROM tables)
+    {
+      IF (GetDatabaseType() = "postgresql" AND f_schema.schema_name = "system")
+      {
+        IF (f_table.table_name = "sites")
+          INSERT [ column_name := "webroot", data_type := "VARCHAR" ] INTO f_table.columns AT END;
+        ELSE IF (f_table.table_name = "fs_objects")
+        {
+          f_table.columns := f_table.columns CONCAT
+              [ [ column_name := "fullpath", data_type := "VARCHAR" ]
+              , [ column_name := "highestparent", data_type := "INTEGER" ]
+              , [ column_name := "indexurl", data_type := "STRING" ]
+              , [ column_name := "isactive", data_type := "BOOLEAN" ]
+              , [ column_name := "publish", data_type := "BOOLEAN" ]
+              , [ column_name := "url", data_type := "VARCHAR" ]
+              , [ column_name := "whfspath", data_type := "VARCHAR" ]
+              ];
+        }
+      }
+
+      // renames are not visible from the column definitions
+      IF (f_schema.schema_name = "system" AND f_table.table_name = "sites")
+      {
+        f_table.columns := f_table.columns CONCAT
+            [ [ column_name := "id", data_type := "INTEGER", rename := "root" ] ];
+      }
+      IF (f_schema.schema_name = "system" AND f_table.table_name = "fs_objects")
+      {
+        f_table.columns := f_table.columns CONCAT
+            [ [ column_name := "highestparent", data_type := "INTEGER", rename := "parentsite" ]
+            , [ column_name := "indexurl", data_type := "STRING", rename := "link" ]
+            , [ column_name := "url", data_type := "VARCHAR", rename := "objecturl" ]
+            ];
+      }
+
+      RECORD tabledef;
+      STRING tabletype;
+      tabletype := (" TABLE <\n  ");
+      RECORD ARRAY columns := f_table.columns;
+      BOOLEAN isfirst := TRUE;
+      FOREVERY (RECORD f_column FROM columns)
+      {
+        IF (NOT isfirst)
+          tabletype := tabletype || ",\n  ";
+        isfirst := FALSE;
+        tabletype := tabletype || __whdb_GetHareScriptType(f_column.data_type) || " \"" || f_column.column_name || "\"";
+        IF (CellExists(f_column, "rename"))
+          tabletype := tabletype || ` AS ${f_column.rename}`;
+      }
+      IF (GetDatabaseType() = "postgresql" AND f_table.primary_key_name != "")
+        tabletype := tabletype || `; KEY ${f_table.primary_key_name}`;
+      tabletype := tabletype || "> ";
+      STRING tabledecl;
+      IF (schema_prefix = "")
+      {
+        STRING hs_name := HareScriptizeName(f_table.table_name);
+        tabledecl := tabletype || hs_name;
+        RECORD decl := [ type := "TABLE", name := hs_name, dbname := f_table.table_name, decl := tabledecl || ";\n" ];
+        INSERT decl INTO all_decls AT END;
+      }
+      ELSE
+      {
+        tabledecl := tabletype || '"' || f_table.table_name || '"';
+        IF (NOT first_table)
+          schemadef := schemadef || ",\n";
+        schemadef := schemadef || tabledecl;
+      }
+
+      INSERT CELL dbname := f_schema.schema_name || "." || f_table.table_name INTO tabledef;
+      INSERT CELL localname := schema_prefix || f_table.table_name INTO tabledef;
+      INSERT CELL decl := tabledecl INTO tabledef;
+      INSERT tabledef INTO all_tables AT END;
+/*
+      // If this table has an alternative local name
+      IF (LENGTH(f_table.altlocalname) != 0)
+      {
+        // Build new decl, replace in tabledef
+        tabledecl := tabletype || f_table.altlocalname || ";";
+        tabledef.localname := f_table.altlocalname;
+        tabledef.decl := tabledecl;
+
+        INSERT tabledef INTO result AT END;
+      }*/
+      IF (first_table)
+        first_table := FALSE;
+    }
+    IF (schema_prefix != "")
+    {
+      STRING hs_name := HareScriptizeName(f_schema.schema_name);
+      schemadef := schemadef || "> " || hs_name || ";\n";
+      RECORD decl := [ type := "SCHEMA", name := hs_name, dbname := f_schema.schema_name, decl := schemadef ];
+      INSERT decl INTO all_decls AT END;
+    }
+  }
+//  PrintRecordArrayTo(0, all_decls, "boxed");
+}
+
+// Builds a blob with a script-line in it
+BLOB FUNCTION GetScript(STRING line, BOOLEAN withrecordshow, STRING ARRAY loadlibs)
+{
+  INTEGER blobid := CreateStream();
+  PrintTo(blobid, "<?wh LOADLIB 'wh::dbase/whdb.whlib'; LOADLIB 'wh::dbase/postgresql.whlib'; LOADLIB 'mod::system/lib/database.whlib';LOADLIB 'wh::datetime.whlib';LOADLIB 'wh::money.whlib';LOADLIB 'wh::float.whlib';LOADLIB 'wh::crypto.whlib';LOADLIB 'wh::files.whlib';LOADLIB 'wh::internet/tcpip.whlib';LOADLIB 'wh::os.whlib';LOADLIB 'mod::publisher/lib/publisher.whlib'; LOADLIB 'mod::tollium/lib/gettid.whlib';LOADLIB 'mod::system/lib/services.whlib';");
+  FOREVERY (STRING ll FROM loadlibs)
+    PrintTo(blobid, "LOADLIB '" || EncodeJava(ll) || "';");
+
+  FOREVERY (RECORD def FROM all_decls)
+  {
+    PrintTo(blobid, def.decl);
+  }
+  PrintTo(blobid, "MACRO __BindTables(INTEGER trans) {");
+  FOREVERY (RECORD decl FROM all_decls)
+  {
+    IF (decl.type = "TABLE")
+      PrintTo(blobid, decl.name || ":=BindTransactionToTable(trans,'" || EncodeJava(decl.dbname) || "');");
+    ELSE
+      PrintTo(blobid, decl.name || ":=BindTransactionToSchema(trans,'" || EncodeJava(decl.dbname) || "');");
+  }
+  PrintTo(blobid, "} ");
+  PrintTo(blobid, "PUBLIC RECORD FUNCTION SQLHook(RECORD __state){SetPrimaryWebhareTransaction(__state.transid);__BindTables(__state.transid);INTEGER __trans:=__state.transid;");
+  IF (withrecordshow)
+    PrintTo(blobid, "DumpValue((");
+  PrintTo(blobid, "\n" || line || "//*/\n");
+  IF (withrecordshow)
+    PrintTo(blobid, "),[name:='',format:='"||EncodeJava(showmode)||"']);");
+  PrintTo(blobid, ";return __state;}");
+
+  BLOB retval := MakeBlobFromStream(blobid);
+  //SendBlobTo(0,retval);
+  RETURN retval;
+}
+
+MACRO ExecuteScriptLine(STRING line, BOOLEAN withrecordshow, BOOLEAN repeat, STRING ARRAY loadlibs)
+{
+  BLOB script := GetScript(line, withrecordshow, loadlibs);
+  RECORD result := __SYSTEM_SQLCLIENT_COMPILESCRIPT(script);
+
+  IF (NOT result.all_ok)
+  {
+    PRINT("Compile errors in script:\n\n");
+    STRING ARRAY ax := result.errors;
+    //Print(Detokenize(result.errors,'\n'));
+    STRING error := ax[0];
+
+    INTEGER nr1len := NumberMatchLen(error);
+    STRING b := RIGHT (error, LENGTH(error) - nr1len - 2);
+    INTEGER nr2len := NumberMatchLen(b);
+    INTEGER columnno := ToInteger(LEFT(b, nr2len), 1);
+    error := RIGHT (b, LENGTH(b) - nr2len - 2);
+
+    IF (columnno >= 70 OR LENGTH(line) >= 80)
+    {
+      PRINT (LEFT(line, columnno) || " -->" || RIGHT(line, LENGTH(line) - columnno) || "\n");
+    }
+    ELSE
+    {
+      PRINT (line || "\n");
+      PRINT (Left("....................................................................................................", columnno - 1) || "^\n");
+    }
+    PRINT ("" || error || "\n\n");
+  }
+  ELSE
+  {
+    RECORD state := [ transid := GetPrimary()->id ];
+    __SYSTEM_SQLCLIENT_RUNSQLCLIENTSCRIPT(result.script, state);
+    WHILE (repeat)
+      __SYSTEM_SQLCLIENT_RUNSQLCLIENTSCRIPT(result.script, state);
+  }
+}
+
+INTEGER FUNCTION WordMatchLen(STRING line)
+{
+  line := ToUppercase(line) || " ";
+  INTEGER len := 0;
+  IF (SearchSubString("_ABCDEFGHIJKLMNOPQRSTUVWXYZ", SUBSTRING(line, len, 1)) >= 0)
+  {
+    len := len + 1;
+    WHILE (SearchSubString("_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", SUBSTRING(line, len, 1)) >= 0)
+      len := len + 1;
+  }
+  RETURN len;
+}
+
+INTEGER FUNCTION NumberMatchLen(STRING line)
+{
+  INTEGER len := 0;
+  WHILE (SearchSubString("0123456789", SUBSTRING(line, len, 1)) >= 0)
+    len := len+1;
+  RETURN len;
+}
+
+// Parses and executes a line. Returns 0 for abort, 1 for new trans, 2 for success
+INTEGER FUNCTION ParseAndExecute(STRING line, BOOLEAN repeat, STRING ARRAY loadlibs)
+{
+  line := TrimWhitespace(line);
+
+  IF (NOT repeat)
+  {
+    LogAuditEventBy(
+        "system:sqlclient", userdata, CELL
+        [ query :=          line
+        ]);
+  }
+
+  // Find first word
+  INTEGER wlen := WordMatchLen(line);
+  STRING word := ToUppercase(LEFT(line, wlen));
+  BOOLEAN withrecordshow := FALSE;
+
+  SWITCH(word)
+  {
+    CASE "HELP"
+    {
+      PRINT(
+`Possible commands:
+ HELP: displays this text.
+ AUTOCOMMIT: toggle autocommit (automatically opens and closes work between commands)
+ BEGIN: Begin work
+ COMMIT: Commit work
+ ROLLBACK: Rollback work
+ SELECT: executes a query and displays the result (only one select allowed per line)
+ SHOWMODE: toggles showmode between boxed, CSV and tree
+ QUIT: quit the SQL client
+Lines not beginning with these commands will be executed as normal HareScript code.
+`);
+    }
+    CASE "AUTOCOMMIT"
+    {
+      autocommit := NOT autocommit;
+      IF(autocommit)
+        PRINT ("Autocommit is now ON\n");
+      ELSE
+        PRINT ("Autocommit is now OFF - use BEGIN to start a transaction \n");
+    }
+    CASE "BEGIN"
+    {
+      IF (autocommit)
+        PRINT("Autocommit is enabled - no need to use BEGIN\n");
+      ELSE
+        GetPrimary()->BeginWork();
+    }
+    CASE "COMMIT"
+    {
+      IF (autocommit)
+        PRINT("Autocommit is enabled - no need to use COMMIT\n");
+      ELSE
+        GetPrimary()->CommitWork();
+    }
+    CASE "SHOWMODE"
+    {
+      STRING newmode := TrimWhitespace(SubString(line, 9));
+      IF (newmode = "")
+      {
+        IF (showmode = "boxed")
+          showmode := "csv";
+        else if (showmode = "csv")
+          newmode := "tree";
+        else
+          newmode := "boxed";
+      }
+
+      showmode := newmode;
+      PRINT("Showmode is now " || showmode || "\n");
+    }
+    CASE "ROLLBACK"
+    {
+      IF (autocommit)
+        PRINT("Autocommit is enabled - a ROLLBACK is not possible\n");
+      ELSE
+        GetPrimary()->RollbackWork();
+    }
+    CASE "EXIT","QUIT"
+    {
+      TerminateScript();
+    }
+    CASE "CREATE","DROP","ALTER","SHOW","WAIT", "GRANT", "REVOKE", "MOVE", "SET", "REFRESH_METADATA"
+    {
+      IF(autocommit)
+        GetPrimary()->BeginWork();
+
+      IF (Length(all_decls)=0) //must still read tabledefs
+        GetSchemaAndTableDecls();
+
+      RECORD ARRAY results := __SendWHDBCommand(GetPrimary()->id,line);
+      IF(Length(results)>0)
+        PrintRecordArrayTo(0,results,showmode);
+
+      IF(autocommit)
+        GetPrimary()->CommitWork();
+
+      IF (word != "SHOW")
+      {
+        all_decls := DEFAULT RECORD ARRAY; //ensure re-read after metadata change
+        all_tables := DEFAULT RECORD ARRAY; //ensure re-read after metadata change
+      }
+    }
+    CASE "REPEAT"
+    {
+      ParseAndExecute(substring(line,6,length(line)), TRUE, loadlibs);
+    }
+    DEFAULT
+    {
+      IF(autocommit)
+        GetPrimary()->BeginWork();
+
+      IF(word = "SELECT")
+      {
+        withrecordshow := TRUE;
+        IF (RIGHT(line, 1) = ";")
+          line := LEFT(line, LENGTH(line) - 1);
+      }
+      ELSE IF(Left(line,1) = "?")
+      {
+        IF (RIGHT(line, 1) = ";")
+          line := LEFT(line, LENGTH(line) - 1);
+        line := Substring(line,1,length(line));
+        withrecordshow := TRUE;
+      }
+
+      IF (Length(all_decls)=0) //must still read tabledefs
+        GetSchemaAndTableDecls();
+
+      IF (Touppercase(line)="SHOW_TABLES")
+      {
+        PrintRecordArrayTo(0,(SELECT dbname, localname FROM all_tables),"BOXED");
+      }
+      ELSE
+      {
+        ExecuteScriptLine(line, withrecordshow, repeat, loadlibs);
+      }
+      IF(autocommit)
+        GetPrimary()->CommitWork();
+    }
+  }
+  RETURN 2;
+}
+
+
+BOOLEAN FUNCTION Connect()
+{
+  TRY
+  {
+    OpenPrimary( [ fallbacktorecoverymode := TRUE ]);
+    RETURN TRUE;
+  }
+  CATCH(OBJECT e)
+  {
+    Print("Connecting failed: " || e->what || "\n");
+    RETURN TRUE;
+  }
+}
+
+MACRO Run(STRING ARRAY loadlibs)
+{
+  PRINT("Type 'help' for help about the SQL client. Autocommit is " || (autocommit ? "ON" : "OFF") || "\n");
+  WHILE (TRUE)
+  {
+    PRINT ("SQL> ");
+    STRING line := ReadConsoleInput();
+
+    IF (line = "" AND IsConsoleClosed())
+      RETURN; //quit, console no longer available
+
+    ParseAndExecute(line, FALSE, loadlibs);
+  }
+}
+
+RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "loadlib", type := "stringlist" ]
+                                                     , [ name := "showmode", type := "stringopt" ]
+                                                     , [ name := "user", type := "stringopt" ]
+                                                     , [ name := "query", type := "param", required := FALSE ]
+                                                     ]);
+IF(NOT RecordExists(call))
+{
+  Print("Invalid command syntax - did you quote the command line?\n");
+  RETURN;
+}
+IF(call.showmode != "")
+  showmode := call.showmode;
+
+BOOLEAN havecmd := call.query != "";
+
+IF(NOT Connect()) //connect first, GetDTAPStage may need it
+  RETURN;
+
+IF (call.user != "")
+{
+  userdata :=
+      [ authobjectid :=   0
+      , login :=          call.user
+      ];
+}
+ELSE IF (GetEnvironmentVariable("WEBHARE_CLI_USER") != "")
+{
+  userdata :=
+      [ authobjectid :=   0
+      , login :=          GetEnvironmentVariable("WEBHARE_CLI_USER")
+      ];
+}
+
+IF(havecmd) //explicitly require one argument, because permitting "wh sql select * ..." isn't going to work anyway
+  ParseAndExecute(call.query, FALSE, call."loadlib");
+ELSE
+  Run(call."loadlib");

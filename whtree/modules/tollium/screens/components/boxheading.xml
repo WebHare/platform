@@ -1,0 +1,22 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
+
+  <fragment name="box" contentpanel="boxcontents" lib="components/box.whlib">
+    <contents>
+      <heading name="heading" />
+      <panel name="boxcontents" />
+      <hr name="bottomhr" />
+    </contents>
+  </fragment>
+
+  <fragment name="heading" lib="components/heading.whlib">
+    <contents>
+      <panel>
+        <line layout="left">
+          <checkbox name="cbox" title="" visible="false" />
+          <text name="headingtitle" title="" />
+        </line>
+      </panel>
+    </contents>
+  </fragment>
+
+</screens>

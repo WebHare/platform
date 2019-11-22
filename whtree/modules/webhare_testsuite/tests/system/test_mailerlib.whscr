@@ -1,0 +1,718 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::internet/mime.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+
+LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+RECORD onqueuedmail_lastoptions;
+MACRO OnQueuedMail(OBJECT work, RECORD options)
+{
+  onqueuedmail_lastoptions := options;
+}
+
+MACRO TestResultMessage(RECORD resultmessage, BOOLEAN expect_inlined_css)
+{
+  TestEq("Title:[subject]", resultmessage.subject);
+  TestEq("Dit is een test mail.\r\n B-lex logo:\r\n WebHare AP logo: [[alttag]]\r\n\r\nBackground logo\r\n\r\nBackground logo 2\r\n  ", BlobToString(resultmessage.data.subparts[0].data,-1));
+  TestEq("<info@example.org>, <info@example.com>", resultmessage.ccs);
+  TestResultMessageBase(resultmessage, expect_inlined_css);
+}
+
+MACRO TestResultMessageBase(RECORD resultmessage, BOOLEAN expect_inlined_css)
+{
+  TestEq("<info@example.net>", resultmessage.sender);
+  TestEq("", resultmessage.bccs);
+  TestEq("", resultmessage.tos);
+  TestEq(TRUE, resultmessage.contenttype LIKE "multipart/alternative*");
+  TestEq(TRUE, resultmessage.data.mimetype LIKE "multipart/alternative*");
+  TestEq(2, Length(resultmessage.data.subparts));
+  TestEq(TRUE, resultmessage.data.subparts[0].mimetype LIKE "text/plain*");
+  TestEq(TRUE, resultmessage.data.subparts[1].mimetype LIKE "multipart/related*");
+  TestEq(TRUE, resultmessage.data.subparts[1].subparts[0].mimetype LIKE "text/html*");
+  TestEqLike("image/png*name*webhare_ap-1.png*", resultmessage.data.subparts[1].subparts[1].mimetype);
+  TestEqLike("inline; filename=\"webhare_ap-1.png\"",resultmessage.data.subparts[1].subparts[1].disposition);
+  TestEq("D1E3F1C935E9AE31A2FE8523C8B8BAF7", EncodeBase16(GetHashForBlob(resultmessage.data.subparts[1].subparts[1].data, "MD5")));
+  TestEqLike("image/gif*name*logo_n.gif*", resultmessage.data.subparts[1].subparts[2].mimetype);
+  TestEqLike("inline; filename=\"logo_n.gif\"", resultmessage.data.subparts[1].subparts[2].disposition);
+  TestEq("5C7649742639042630D4DB0896F0220D", EncodeBase16(GetHashForBlob(resultmessage.data.subparts[1].subparts[2].data, "MD5")));
+
+  OBJECT xmldoc := MakeXMLDocumentFromHTML(resultmessage.data.subparts[1].subparts[0].data);
+  OBJECT images := xmldoc->GetElementsByTagName("img");
+  TestEq(3, images->length);
+
+  STRING secondcid := images->item(2)->getattribute("src");
+  TestEqLike("cid:*", secondcid);
+  TestEq(resultmessage.data.subparts[1].subparts[1].contentid, "<" || Substring(secondcid,4) || ">");
+
+  TestEq(TRUE, ObjectExists(xmldoc->QuerySelector("style")));
+
+  OBJECT gimmebg := xmldoc->QuerySelector("div.gimmebg");
+  IF(expect_inlined_css)
+    TestEqLike("background-image: url(\"cid:*\");", gimmebg->GetAttribute("style"));
+  ELSE
+    TestEq("", gimmebg->GetAttribute("style"));
+}
+
+MACRO TestResultMessage2(RECORD resultmessage)
+{
+  TestEq(TRUE, resultmessage.data.mimetype LIKE "multipart/mixed*");
+  TestEq(2, Length(resultmessage.data.subparts));
+  TestEq(TRUE, resultmessage.data.subparts[0].mimetype LIKE "multipart/alternative*");
+  TestEq(TRUE, resultmessage.data.subparts[1].mimetype LIKE "text/plain; name=\"attachment.txt\"");
+  TestEq("ik ben een attachment", BlobToString(resultmessage.data.subparts[1].data,-1));
+}
+
+MACRO EmbedTest()
+{
+  RECORD resultmessage;
+  OBJECT xmldoc;
+
+  OBJECT composer := MakeEmailComposer();
+  composer->mailfrom := "info@example.net";
+  composer->mailcc := ["info@example.org","info@example.com"];
+  composer->LoadRichBody("mod::webhare_testsuite/data/test/system/mailer/testmail.html", "text/html");
+
+  BLOB emlversion := composer->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(emlversion);
+  TestResultMessage(resultmessage, FALSE);
+
+  // Test other ways of setting mailcc
+  composer->mailcc := "info@example.org,info@example.com";
+  TestEQ(["info@example.org","info@example.com"], composer->mailcc);
+
+  composer->mailcc := [ "info@example.org,info@example.com" ];
+  TestEQ(["info@example.org,info@example.com"], composer->mailcc);
+  TestResultMessage(DecodeMIMEMessage(composer->ExportAsEML()), FALSE);
+
+  //try reloading it
+  composer := MakeEmailComposer();
+  composer->SetRichBody(emlversion,"message/rfc822");
+  resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
+  TestResultMessage(resultmessage, FALSE);
+
+  //now inline the css
+  composer := MakeEmailComposer();
+  composer->SetRichBody(emlversion,"message/rfc822");
+  composer->applystylesinline := TRUE;
+  resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
+  TestResultMessage(resultmessage, TRUE);
+
+  //now load the witty version
+  composer := MakeEmailComposer();
+  composer->LoadRichBody("mod::webhare_testsuite/data/test/system/mailer/wittymail.html", "text/html");
+  composer->mergerecord:= [ subject := "Onderwerp"
+                          , webhare_ap := "deeper/logo.png"
+                          , alttag := "ALTY"
+                          ];
+
+  resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
+
+  //We'll only test the parts that are likey to differ
+  TestEq("Title:Onderwerp", resultmessage.subject);
+  TestEq("Dit is een test mail.\r\n B-lex logo:\r\n WebHare AP logo: [ALTY]\r\n  ", BlobToString(resultmessage.data.subparts[0].data,-1));
+  //ensure that there are only three parts (no leftovers from previous ExportAsEML)
+  TestEq(3, Length(resultmessage.data.subparts[1].subparts));
+  TestEq("824D8D0D40ABB75F8AF5EBB7BF5F90B8", EncodeBase16(GetHashForBlob(resultmessage.data.subparts[1].subparts[2].data, "MD5")));
+
+  //now add an attachment
+  composer->AddAttachmentRelative("deeper/attachment.txt", "text/plain");
+
+  emlversion := composer->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
+
+  TestResultMessage2(resultmessage);
+
+  composer := MakeEmailComposer();
+  composer->SetRichBody(emlversion,"message/rfc822");
+  resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
+  TestResultMessage2(resultmessage);
+}
+
+MACRO EmbedTest_PrepareMail()
+{
+  RECORD resultmessage;
+  OBJECT xmldoc;
+
+  OBJECT composer := PrepareMailWitty("mod::webhare_testsuite/data/test/system/mailer/testmail.html");
+  composer->wittyencoding := "HTML-NI";
+  composer->mailfrom := "info@example.net";
+  composer->mailcc := ["info@example.org","info@example.com"];
+  //The new composer is always a witty, so load the record straight away
+  composer->mergerecord := [ subject := "Onderwerp"
+                           , alttag := "ALTY"
+                           ];
+
+  BLOB emlversion := composer->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(emlversion);
+  TestResultMessageBase(resultmessage, TRUE);
+  TestEq("Title:Onderwerp", resultmessage.subject);
+  TestEq("Dit is een test mail.\r\nB-lex logo:\r\nWebHare AP logo: [ALTY]\r\n\r\nBackground logo\r\n\r\nBackground logo 2\r\n", BlobToString(resultmessage.data.subparts[0].data,-1));
+  TestEq("<info@example.org>, <info@example.com>", resultmessage.ccs);
+
+  // Test other ways of setting mailcc
+  composer->mailcc := "info@example.org,info@example.com";
+  TestEQ(["info@example.org","info@example.com"], composer->mailcc);
+
+  composer->mailcc := [ "info@example.org,info@example.com" ];
+  TestEQ(["info@example.org,info@example.com"], composer->mailcc);
+  TestResultMessageBase(DecodeMIMEMessage(composer->ExportAsEML()), TRUE);
+
+  composer := PrepareMailWitty("mod::webhare_testsuite/data/test/system/mailer/wittymail.html");
+  composer->mergerecord := [ subject := "Onderwerp"
+                           , webhare_ap := "deeper/logo.png"
+                           , alttag := "ALTY"
+                           ];
+  resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
+
+  TestEq(3, Length(resultmessage.data.subparts[1].subparts));
+  TestEq("824D8D0D40ABB75F8AF5EBB7BF5F90B8", EncodeBase16(GetHashForBlob(resultmessage.data.subparts[1].subparts[2].data, "MD5")));
+  //We'll only test the parts that are likey to differ
+  //ensure that there are only three parts (no leftovers from previous ExportAsEML)
+
+  //now add an attachment
+  composer->AddResourceAsAttachment("mod::webhare_testsuite/data/test/system/mailer/deeper/attachment.txt");
+
+  emlversion := composer->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
+
+  TestResultMessage2(resultmessage);
+
+  composer->mailfrom := "Hello <info@example.net>";
+  emlversion := composer->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(emlversion);
+  TestEq("Hello <info@example.net>", resultmessage.sender);
+
+  composer->mailsendername := "Info";
+  emlversion := composer->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(emlversion);
+  TestEq("Info <info@example.net>", resultmessage.sender);
+
+
+  //ADDME not sure if we want to support recoding EML in the new composer
+  //composer := MakeEmailComposer();
+  //composer->SetRichBody(emlversion,"message/rfc822");
+  //resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
+  //TestResultMessage2(resultmessage);
+}
+
+
+MACRO MetaAttributesTest()
+{
+  OBJECT composer := MakeEmailComposer();
+  composer->LoadRichBody("mod::webhare_testsuite/data/test/system/mailer/testmail2.html", "text/html");
+  composer->mergerecord := [ subject := "S", replyto := "mailreplyto@beta.webhare.net" ];
+  composer->QueueMail();
+
+  Testeq(0,Length(testfw->extractallmailfor("mailto3@beta.webhare.net")));
+  Testeq(1,Length(testfw->extractallmailfor("mailto@beta.webhare.net")));
+  Testeq(1,Length(testfw->extractallmailfor("mailto2@beta.webhare.net")));
+  Testeq(1,Length(testfw->extractallmailfor("mailto3-final@beta.webhare.net")));
+
+  RECORD ARRAY mails := testfw->extractallmailfor("mailto4@beta.webhare.net");
+  TestEq(1,Length(mails));
+  TestEq("<mailto@beta.webhare.net>, <mailto2@beta.webhare.net>", (SELECT AS STRING value FROM mails[0].headers where field="To"));
+
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(mails[0].toppart.subparts[1].data);
+  TestEq("Title: S", htmldoc->GetElement("title")->textcontent); //make sure we have the right part
+  TestEQ(1, Length(htmldoc->GetElements("meta")), 'all metatags but charset should be gone');
+}
+
+MACRO MetaAttributesTest_PrepareMail()
+{
+  OBJECT composer := PrepareMailWitty("mod::webhare_testsuite/data/test/system/mailer/testmail2.html");
+  composer->mergerecord := [ subject := "S", replyto := "mailreplyto@beta.webhare.net" ];
+
+  testfw->BeginWork();
+  composer->QueueMailInWork();
+
+  Testeq(0,Length(testfw->extractallmailfor("mailto3@beta.webhare.net")));
+  Testeq(1,Length(testfw->extractallmailfor("mailto@beta.webhare.net")));
+  Testeq(1,Length(testfw->extractallmailfor("mailto2@beta.webhare.net")));
+  Testeq(1,Length(testfw->extractallmailfor("mailto3-final@beta.webhare.net")));
+
+  RECORD ARRAY mails := testfw->extractallmailfor("mailto4@beta.webhare.net");
+  TestEq(1,Length(mails));
+  TestEq("<mailto@beta.webhare.net>, <mailto2@beta.webhare.net>", (SELECT AS STRING value FROM mails[0].headers where field="To"));
+
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(mails[0].toppart.subparts[1].data);
+  TestEq("Title: S", htmldoc->GetElement("title")->textcontent); //make sure we have the right part
+  TestEQ(1, Length(htmldoc->GetElements("meta")), 'all metatags but charset should be gone');
+  testfw->RollbackWork();
+}
+
+MACRO LinkingTest()
+{
+  OBJECT composer := MakeEmailComposer();
+  composer->SetRichBody(GEtWebhareResource("mod::webhare_testsuite/data/test/system/mailer/testmail.html"), "text/html");
+
+  TestThrowsLike("*webhare_ap-1.png*", PTR composer->ExportASRTDRecord());
+  composer->baseurl := "http://www.example.net/subdir/subsubdir/";
+
+  RECORD htmlversion := composer->ExportASRTDRecord();
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(htmlversion.htmltext);
+  OBJECT ARRAY images := htmldoc->GetElementsByTagName("img")->GetCurrentElements();
+  TestEq(3, Length(images));
+  TestEq("http://www.example.net/subdir/subsubdir/webhare_ap-1.png", images[2]->GeTAttribute("src"));
+
+  OBJECT ARRAY divs := htmldoc->GetElementsByTagName("div")->GetCurrentElements();
+  TestEq("background-image:url('http://www.example.net/subdir/subsubdir/webhare_ap-1.png')", divs[0]->GeTAttribute("style"));
+}
+
+MACRO ICSTest()
+{
+  BLOB agendaitem := StringToBlob("FIXME TRUE ICS FILE");
+  BLOB emlversion;
+  RECORD resultmessage;
+  OBJECT composer := MakeEmailComposer();
+  composer->mailfrom := "info@example.net";
+  composer->mailcc := ["info@example.org","info@example.com"];
+  composer->LoadRichBody("mod::webhare_testsuite/data/test/system/mailer/testmail.html", "text/html");
+
+  composer->AddAttachment(agendaitem, "afspraak.ics", "text/calendar; charset=\"utf-8\"; method=REQUEST");
+
+  emlversion := composer->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(emlversion);
+  TestEq("multipart/mixed", Tokenize(resultmessage.contenttype, ';')[0]);
+
+  composer := MakeEmailComposer();
+  composer->mailfrom := "info@example.net";
+  composer->mailcc := ["info@example.org","info@example.com"];
+  composer->LoadRichBody("mod::webhare_testsuite/data/test/system/mailer/testmail.html", "text/html");
+
+  composer->AddAlternative(agendaitem, "afspraak.ics", "text/calendar; charset=\"utf-8\"; method=REQUEST");
+
+  emlversion := composer->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(emlversion);
+  TestEq("multipart/alternative", Tokenize(resultmessage.contenttype, ';')[0]);
+  TestEq("text/calendar; charset=\"utf-8\"; method=REQUEST; name=\"afspraak.ics\"", resultmessage.data.subparts[END-1].mimetype);
+}
+
+MACRO ICSTest_PrepareWitty()
+{
+  BLOB agendaitem := StringToBlob("FIXME TRUE ICS FILE");
+  BLOB emlversion;
+  RECORD resultmessage;
+  OBJECT composer := PrepareMailWitty("mod::webhare_testsuite/data/test/system/mailer/testmail.html");
+  composer->mailfrom := "info@example.net";
+  composer->mailcc := ["info@example.org","info@example.com"];
+  composer->mergerecord := [ subject := "", alttag := "" ];
+
+  composer->AddAttachment(agendaitem, [ filename := "afspraak.ics", mimetype := "text/calendar; charset=\"utf-8\"; method=REQUEST" ]);
+
+  emlversion := composer->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(emlversion);
+  TestEq("multipart/mixed", Tokenize(resultmessage.contenttype, ';')[0]);
+
+  composer := PrepareMailWitty("mod::webhare_testsuite/data/test/system/mailer/testmail.html");
+  composer->mailfrom := "info@example.net";
+  composer->mailcc := ["info@example.org","info@example.com"];
+  composer->mergerecord := [ subject := "", alttag := "" ];
+
+  composer->AddAlternative(agendaitem, [ filename := "afspraak.ics", mimetype := "text/calendar; charset=\"utf-8\"; method=REQUEST" ]);
+
+  emlversion := composer->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(emlversion);
+  TestEq("multipart/alternative", Tokenize(resultmessage.contenttype, ';')[0]);
+  TestEq("text/calendar; charset=\"utf-8\"; method=REQUEST; name=\"afspraak.ics\"", resultmessage.data.subparts[END-1].mimetype);
+}
+
+MACRO ClassicMailerTest()
+{
+  RECORD testrec;
+
+  /* This zip should generate:
+     - a html mail with:
+       - 1 text attachment,
+       - an embeded image,
+       - an external image link,
+       - a non-existing image link
+       - an alternative textpart
+   */
+  testrec := GenerateHTMLEmail(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/complex html.zip"), DEFAULT RECORD);
+
+  //PrintRecordTo(0,testrec.toppart,'tree');
+
+  //Check if the mail was well constructed
+
+  TestEq("multipart/mixed", testrec.toppart.mimetype);
+  TestEq(2, Length(testrec.toppart.subparts));
+  TestEq("multipart/alternative", testrec.toppart.subparts[0].mimetype);
+  TestEq(2, Length(testrec.toppart.subparts[0].subparts));
+  TestEq('text/plain; name="attachment.txt"', testrec.toppart.subparts[1].mimetype);
+  TestEq(18, Length(testrec.toppart.subparts[1].data));
+
+  RECORD related := testrec.toppart.subparts[0].subparts[1];
+  TestEq("multipart/related", related.mimetype);
+  TestEq(2, Length(related.subparts));
+  TestEq('image/gif; name="logo.gif"', related.subparts[1].mimetype);
+
+  TestEq(TRUE, testrec.toppart.subparts[0].subparts[0].mimetype LIKE "text/plain*");
+  TestEq("alternative text", BlobToString(testrec.toppart.subparts[0].subparts[0].data, 100));
+  TestEq(TRUE, related.subparts[0].mimetype LIKE "text/html*");
+
+  //Let's parse the html file to check if the image links are correct
+  INTEGER htmlfile := ParseXML (related.subparts[0].data);
+  RECORD ARRAY imagelinks := SelectXML (htmlfile, "//img");
+
+  TestEq(3, Length(imagelinks));
+  TestEq("http://www.b-lex.com/repository/corporate/images/orange/logo.gif", imagelinks[0].src);
+
+  STRING contentid := related.subparts[1].contentid;
+
+  TestEq('cid:' || Substring(contentid, 1, Length(contentid) - 2), imagelinks[1].src);
+  TestEq("nologo.gif", imagelinks[2].src);
+
+  // This word file should generate a html mail with an embeded image.
+
+  testrec := GenerateHTMLEmail(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/simple.doc"), DEFAULT RECORD);
+  TestEq(0, RedirectOutputTo(0)); //ensure redirection is still valid (some versions broke it)
+
+  //Check if the mail was well constructed
+
+  TestEq("multipart/alternative", testrec.toppart.mimetype);
+  TestEq(2, Length(testrec.toppart.subparts));
+
+  related := testrec.toppart.subparts[1];
+  TestEq("multipart/related", related.mimetype);
+  TestEq(2, Length(related.subparts));
+  TestEq(TRUE, related.subparts[1].mimetype LIKE "image/png*");
+
+  htmlfile := ParseHTMLAsXML (related.subparts[0].data);
+  imagelinks := SelectXML (htmlfile, "//img");
+
+
+  contentid := testrec.toppart.subparts[1].contentid;
+
+  //TestEq('cid:' || Substring(contentid, 1, Length(contentid) - 2), imagelinks[0].src);
+
+  TestEq(TRUE, testrec.toppart.subparts[0].mimetype LIKE "text/plain*");
+  TestEq(TRUE, related.subparts[0].mimetype LIKE "text/html*");
+
+
+  // This zip file should generate the same mail as the word document.
+
+  testrec := GenerateHTMLEmail(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/complex html.zip"), DEFAULT RECORD);
+
+  //Check if the mail was well constructed
+  //PrintRecordTo(0,testrec,'tree');
+  TestEq("multipart/mixed", testrec.toppart.mimetype);
+  TestEq(2, Length(testrec.toppart.subparts));
+
+  related := testrec.toppart.subparts[0].subparts[1];
+  TestEq("multipart/related", related.mimetype);
+  TestEq(2, Length(related.subparts));
+  TestEq(TRUE, related.subparts[1].mimetype LIKE "image/gif*");
+
+  TestEq(TRUE, testrec.toppart.subparts[0].subparts[0].mimetype LIKE "text/plain*");
+  TestEq(TRUE, related.subparts[0].mimetype LIKE "text/html*");
+}
+
+MACRO PostMergeTest()
+{
+  RECORD resultmessage;
+  OBJECT xmldoc;
+
+  OBJECT composer := MakeEmailComposer();
+  composer->mailfrom := "info@example.net";
+  composer->mailcc := ["info@example.org","info@example.com"];
+  composer->LoadRichBody("mod::webhare_testsuite/data/test/system/mailer/testmail.html", "text/html");
+
+  composer->mergerecord := [ alttag := "I am alt"
+                           , subject := "With alt [alttag]"
+                           ];
+  resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
+  TestEq("Title:With alt [alttag]", resultmessage.subject);
+
+  composer->remergefields := ["subject"];
+  resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
+  TestEq("Title:With alt I am alt", resultmessage.subject);
+}
+
+MACRO RTEIntegrationTest()
+{
+  OBJECT myrichdoc := NEW PublishableRichDocument;
+  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+
+  OBJECT composer := MakeEmailComposer();
+  composer->SetBodyFromRichdoc(myrichdoc);
+
+  BLOB emltoscan := composer->ExportAsEML();
+  SendBlobTo(0,emltoscan);
+  RECORD resultmessage := DecodeMIMEMessage(emltoscan);
+  DumpValue(resultmessage,'tree');
+
+  OBJECT htmlfile := MakeXMLDocumentFromHTML(resultmessage.data.subparts[1].subparts[0].data);
+  print(htmlfile->outerxml);
+  OBJECT ARRAY imglinks := htmlfile->getElementsByTagName("img")->GetCurrentElements()
+                           CONCAT
+                           htmlfile->getElementsByTagName("input")->GetCurrentElements();
+
+  STRING ARRAY imagesrcs;
+  FOREVERY(OBJECT imglink FROM imglinks)
+    IF(imglink->HasAttribute("src") AND imglink->GetAttribute("src") NOT IN imagesrcs)
+      INSERT imglink->GetAttribute("src") INTO imagesrcs AT END;
+
+  STRING ARRAY contentids := SELECT AS STRING ARRAY contentid FROM resultmessage.data.subparts[1].subparts WHERE contentid != "";
+  dumpvalue(CELL[contentids,imagesrcs]);
+  FOREVERY(STRING cid FROM contentids)
+  {
+    STRING imgid := "cid:" || Substring(cid,1,Length(cid)-2);
+    TestEq(TRUE, searchelement(imagesrcs,imgid) != -1);
+  }
+  FOREVERY(STRING imgid FROM imagesrcs)
+  {
+    STRING cid := "<" || Substring(imgid,4) || ">";
+    TestEq(TRUE, searchelement(contentids,cid) != -1);
+  }
+  TestEq(Length(contentids), Length(imagesrcs));
+}
+
+STRING torestructure :=
+'<style>a { color:#dddddd; } </style>'
+|| '<div id="testlink"><a href="http://nu.nl/" style="font:12px Arial; text-decoration:none">De link</a></div>'
+|| '<div id="inlineanchortest"><a href="#inlineanchor" style="font:12px Arial; text-decoration:none">De link</a></div>'
+|| '<div id="oldinlineanchortest"><a name="#oldanchor" style="font:12px Arial; text-decoration:none">Old style anchor</a></div>';
+
+MACRO TestRestructure()
+{
+  OBJECT dom := MakeXMLDocumentFromHTML(StringToBlob(torestructure));
+  RestructureEmailForCompatibility(dom);
+
+  OBJECT node;
+
+  node := dom->GetElement("#testlink > a");
+  TestEQ("_blank", node->GetAttribute("target"), "Target should have been set to _blank");
+
+  node := dom->GetElement("#testlink > a > span");
+  TestEQ(TRUE, ObjectExists(node), "SPAN should have been inserted inside A");
+  TestEQ("color:#dddddd;text-decoration:none;", node->Getattribute("style"));
+
+  node := dom->GetElement("#inlineanchortest > a");
+  TestEQ("", node->GetAttribute("target"), "Inline anchor must not get an target");
+
+  node := dom->GetElement("#oldinlineanchortest > a");
+  TestEQ("", node->GetAttribute("target"), "<a name> must not get an target");
+}
+
+ASYNC MACRO TestMailWitty()
+{
+  STRING mailtemplate := GetApplyTesterForObject(OpenTestsuiteSite()->id)->GetDefaultMailTemplate();
+  TestEQ("mod::webhare_testsuite/tests/system/testdata/mailtemplate/template.html.witty",mailtemplate);
+
+  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/simplemail.html.witty"), [ mailtemplate := mailtemplate ]);
+  outmail->mergerecord := [ firstname := "Pietje"
+                          , thelink := "http://example.net/"
+                          , extra := ""
+                          ];
+
+  BLOB eml := outmail->ExportAsEML();
+  RECORD resultmessage := DecodeMIMEMessage(eml);
+
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(resultmessage.data.subparts[1].subparts[0].data);
+  //both stylesheets should apply
+  Testeq("font-style: italic;", htmldoc->GetElementById("slotcontainer")->GetAttribute("style"));
+  Testeq("font-weight: bold;", htmldoc->GetElementById("test")->GetAttribute("style"));
+  TestEq(1, htmldoc->GetElementsByTagName("title")->length);
+  //should not be a slot
+  TestEq(0, htmldoc->GetElementsByTagName("slot")->length);
+  //text that was direct bodychild should not have disappeared
+  TestEqLike("*Just-some-unwrapped-text*", htmldoc->body->innerhtml);
+
+  OBJECT linknode := htmldoc->GetElementById("textwithlink");
+  TestEq('<span id="textwithlink">Text with <a href="http://example.net/" target="_blank">a link</a>.</span>', linknode->outerxml);
+
+  //verify that fields from both template and original are merged, but the mail should win
+  STRING bcc := SELECT AS STRING value FROM resultmessage.headers WHERE ToUppercase(field) = "BCC";
+  STRING cc := SELECT AS STRING value FROM resultmessage.headers WHERE field = "Cc";
+  STRING subject := SELECT AS STRING value FROM resultmessage.headers WHERE field = "Subject";
+  STRING mailfrom := SELECT AS STRING value FROM resultmessage.headers WHERE field = "From";
+
+  TestEq("", bcc); //NEVER exposed
+  TestEQ("<mail-cc@beta.webhare.net>", cc);
+  TestEQ("<mailfrom@beta.webhare.net>", mailfrom);
+  TestEQ("Mail subjéct", subject);
+
+  testfw->BeginWork();
+  outmail->QueueMailInWork();
+  Testeq(1,Length(testfw->extractallmailfor("mailtemplate-bcc@beta.webhare.net")));
+  Testeq(1,Length(testfw->extractallmailfor("mail-cc@beta.webhare.net")));
+  Testeq(0,Length(testfw->extractallmailfor("mailtemplate-cc@beta.webhare.net")));
+  testfw->RollbackWork();
+
+  RECORD rtdtext := [ htmltext := StringToBlob('<html><head></head><body>'
+                                   || '<h1 class="heading1"><a href="">Ik</a> <a name="ben">ben</a>     \neen <b>heading 1&</b></h1>'
+                                   || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="https://webhare.nl/">[fourtytwo]</a> <i>paragraaf</i><br/>met\neen  \n    soft-break en [haakjes] een afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /> en <a href="x-witty:[link]">link</a></p>'
+                                   || '<div class="wh-rtd-embeddedobject" data-instanceid="B1ra7ve1TrCwfdusGy9kOxg"></div>'
+                                   || '<div class="wh-rtd-embeddedobject" data-instanceid="xxya7ve1TrCwfdusGy9kOxg"></div>'
+                                   || '</body></html>')
+                    , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
+                                        , contentid := "imagecid-81400"
+                                        ]
+                                  ]
+                   , instances := [[ instanceid := "B1ra7ve1TrCwfdusGy9kOxg"
+                                   , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
+                                             , html := "I love [fourtytwo] <b>HTML</b> tags!"
+                                             ]
+                                   ]
+                                  ,[ instanceid := "xxya7ve1TrCwfdusGy9kOxg"
+                                   , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
+                                             , html := "HTMLBLOK-zonder-html" //this failed earlier
+                                             ]
+                                   ]
+                                  ]
+                    ];
+
+  outmail->mergerecord := [ ...outmail->mergerecord
+                          , extra := outmail->GetRTDBody(rtdtext, [ wittyhyperlinks := TRUE ])
+                          , link := "https://www.webhare.nl/linkvar"
+                          ];
+
+  eml := outmail->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(eml);
+  htmldoc := MakeXMLDocumentFromHTML(resultmessage.data.subparts[1].subparts[0].data);
+
+  TestEqLike("*[haakjes]*", htmldoc->GetElement("#extra")->textcontent);
+  TestEqLike("*I love [fourtytwo] <b>HTML</b> tags!*", htmldoc->GetElement("#extra")->innerhtml);
+  TestEqLike("*met een soft-break*", htmldoc->GetElement("#extra")->innerhtml);
+  TestEq("https://www.webhare.nl/linkvar", htmldoc->GetElements("p.normal a")[1]->GetAttribute("href"));
+
+  OBJECT extraimg := htmldoc->GetElement("#extra img");
+  TestEqLike("cid:*", extraimg->GetAttribute("src"));
+
+  RECORD matchimg := SELECT * FROM resultmessage.data.subparts[1].subparts WHERE contentid = "<" || Substring(extraimg->GetAttribute("src"),4) || ">";
+  TestEq(TRUE, RecordExists(matchimg));
+  TestEqLIke('image/jpeg; name="?*"', matchimg.mimetype);
+
+  outmail->mergerecord := [ ...outmail->mergerecord
+                          , extra := outmail->GetRTDBody(rtdtext, [ rawwittytags := TRUE ])
+                          , fourtytwo := 42
+                          , haakjes := "[haakjes]"
+                          , link := "https://www.webhare.nl/"
+                          ];
+  outmail->AddAttachment(StringToBlob("Hi Bobbie"));
+
+  eml := outmail->ExportAsEML();
+  resultmessage := DecodeMIMEMessage(eml);
+  htmldoc := MakeXMLDocumentFromHTML(resultmessage.data.subparts[0].subparts[1].subparts[0].data);
+
+  TestEqLIke("*42 paragraaf*[haakjes]*", htmldoc->GetElement("#extra")->textcontent);
+  TestEqLIke("*I love 42 <b>HTML</b> tags!*", htmldoc->GetElement("#extra")->innerhtml);
+  //note:   https://www.webhare.nl/ still got inserted into the hyperlink because of rawwittytags := TRUE
+  TestEq("x-witty:https://www.webhare.nl/", htmldoc->GetElements("p.normal a")[1]->GetAttribute("href"), "Link should NOT be translated, didn't explicitly ask for it");
+
+  //Now see if it's compatible with a merge
+  AWAIT ExpectScreenChange(+1, PTR RunSendEmailDialog(GetTestController(), [ email := outmail
+                                                                           , onqueuedmail := PTR OnQueuedMail
+                                                                           ]));
+  TT(":To")->value := "maildialog@beta.webhare.net, maildialog2@beta.webhare.net";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Send"));
+
+  TestEq(TRUE, RecordExists(onqueuedmail_lastoptions));
+  Testeq(["maildialog@beta.webhare.net", "maildialog2@beta.webhare.net"], onqueuedmail_lastoptions.mailto);
+  Testeq("Mail subj\u00E9ct", onqueuedmail_lastoptions.subject);
+  Testeq(TRUE, RecordExists(onqueuedmail_lastoptions.toppart));
+  Testeq(TRUE, Length(onqueuedmail_lastoptions.headers)>4);
+
+  //test whether embedded images survived
+  TestEq(TRUE, onqueuedmail_lastoptions.toppart.mimetype LIKE "multipart/mixed");
+  TestEq(TRUE, onqueuedmail_lastoptions.toppart.subparts[0].mimetype LIKE "multipart/related");
+  TestEq(TRUE, RecordExists(SELECT FROM onqueuedmail_lastoptions.toppart.subparts[0].subparts WHERE filename LIKE "*.jpg" AND Length(data)=Length(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"))));
+  TestEq(FALSE, RecordExists(SELECT FROM onqueuedmail_lastoptions.toppart.subparts[0].subparts WHERE filename LIKE "*..jpg"));
+
+  Testeq(1,Length(testfw->extractallmailfor("maildialog@beta.webhare.net")));
+  Testeq(1,Length(testfw->extractallmailfor("maildialog2@beta.webhare.net")));
+
+  //And make sure the emailtest dialog also renders it as expected
+  AWAIT ExpectScreenChange(+1, PTR RunEmailTestDialog(GetTestController(), outmail));
+
+  BLOB emailcontents := TT("email")->htmlsource;
+  TestEqLike("*I love 42 <b>HTML</b> tags!*", BlobToString(emailcontents));
+  TestEqLike("*HTMLBLOK-zonder-html*", BlobToString(emailcontents));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+}
+
+MACRO TestMailWitty_EmbeddedTemplate()
+{
+  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/applytemplate.html.witty"));
+  outmail->mergerecord := [ firstname := "Yo!" ];
+  BLOB eml := outmail->ExportAsEML();
+  RECORD resultmessage := DecodeMIMEMessage(eml);
+
+  BLOB rawhtml := resultmessage.data.subparts[1].subparts[0].data;
+  TestEq(2, Length(Tokenize(BlobToString(rawhtml),"<body")), "should have only one body tag");
+
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(rawhtml);
+  TestEq(FALSE, ObjectExists(htmldoc->GetElement("meta")));
+  TestEqLike("Hi Yo!!*\r\n*Signed by homer:", TrimWhitespace(htmldoc->body->textcontent));
+
+  OBJECT modpathimg := htmldoc->GetElement("#smallbob");
+  TestEqLike("cid:*", modpathimg->GetAttribute("src"), "Smallbob image not embedded!");
+
+  RECORD matchimg := SELECT * FROM resultmessage.data.subparts[1].subparts WHERE contentid = "<" || Substring(modpathimg->GetAttribute("src"),4) || ">";
+  TestEq(TRUE, RecordExists(matchimg));
+  TestEqLIke('image/jpeg; name="?*"', matchimg.mimetype);
+}
+
+MACRO TestMailWitty_Component()
+{
+  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/simplemail.html.witty:mailcomponent"));
+  outmail->mergerecord := [ firstname := "Lisa" ];
+
+  BLOB eml := outmail->ExportAsEML();
+  RECORD resultmessage := DecodeMIMEMessage(eml);
+
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(resultmessage.data.subparts[0].data);
+  TestEQ("Hey Lisa", TrimWhitespace(htmldoc->body->textcontent));
+}
+
+MACRO TestRejectHugeMail()
+{
+  testfw->BeginWork();
+
+  OBJECT outmail := PrepareMailWitty("inline::An email for you!");
+  outmail->AddAttachment(StringToBlob(RepeatText(RepeatText("X",10000),1000)), [ filename := "bigfile.txt"]);
+  outmail->mailfrom := "info@example.net";
+  outmail->mailto := "bigmail@beta.webhare.net";
+  TestThrowsLike("*exceeds*maximum*", PTR outmail->QueueMailInWork()); //the default is 10^7 (10 MB not 10MiB) which should cause the above to be rejected due to voerhead...
+
+  testfw->RollbackWork();
+}
+
+MACRO TestPluginPrepareMailFeature()
+{
+  OBJECT webcontext := GetWebContext(OpenTestsuiteSite()->id);
+  OBJECT outmail := PrepareMailWitty("inline::<html><body>[hookedpreparemail]</body></html>", CELL[ webcontext ]);
+
+  BLOB eml := outmail->ExportAsEML();
+  RECORD resultmessage := DecodeMIMEMessage(eml);
+  TestEq("hooked-custom", BlobToString(resultmessage.data.subparts[0].data,-1));
+}
+
+RunTestframework([ PTR EmbedTest
+                 , PTR EmbedTest_PrepareMail
+                 , PTR MetaAttributesTest
+                 , PTR MetaAttributesTest_PrepareMail
+                 , PTR TestRestructure
+                 , PTR LinkingTest
+                 , PTR ICSTEst
+                 , PTR ICSTEst_PrepareWitty
+                 , PTR ClassicMailerTest
+                 , PTR PostMergeTest
+                 , PTR RTEIntegrationTest
+                 , PTR TestMailWitty
+                 , PTR TestMailWitty_EmbeddedTemplate
+                 , PTR TestMailWitty_Component
+                 , PTR TestRejectHugeMail
+                 , PTR TestPluginPrepareMailFeature
+                 ]);

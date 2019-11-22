@@ -1,0 +1,68 @@
+<?wh
+
+// command: sql
+// short: SQL Client
+
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+STRING FUNCTION GetOutputUntilTermination(OBJECT proc)
+{
+  proc->Start();
+  STRING alloutput;
+  DATETIME deadline := AddTimeToDate(60*1000,GetCurrentDatetime());
+  WHILE(TRUE)
+  {
+    IF(NOT proc->Wait(MAX_DATETIME))
+      ABORT("Process timeout");
+
+    STRING output := ReadFrom(proc->output_handle,16384);
+    IF (output="" AND NOT proc->IsRunning())
+      BREAK;
+
+    alloutput := alloutput || output;
+  }
+  proc->Close();
+  RETURN alloutput;
+}
+
+MACRO WithArguments()
+{
+  DATETIME start := GetCurrentDatetime();
+
+  STRING runscript := GetWebhareConfiguration().installationroot || "bin/runscript";
+  OBJECT proc;
+  proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr","--showmode","json","? 1 + 1"],FALSE,TRUE,TRUE,TRUE);
+  proc->SetEnvironment(RECORD[ ...(SELECT * FROM GetEnvironment() WHERE name !="WEBHARE_CLI_USER"), [ name := "WEBHARE_CLI_USER", value := "webhare_testsuite_user1" ] ]);
+  TestEq("2",TrimWhitespace(GetOutputUntilTermination(proc)));
+  proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr","--user", "webhare_testsuite_user2", "--showmode","json","select from system.fs_objects limit 1"],FALSE,TRUE,TRUE,TRUE);
+  TestEq("[{}]",TrimWhitespace(GetOutputUntilTermination(proc))); //one empty record..
+
+  DATETIME testend := GetCurrentDatetime();
+
+  // Should be flushed immediately
+  OBJECT stream := OpenWebHareLogStream("audit", start, testend);
+
+  RECORD ARRAY items;
+  WHILE (TRUE)
+  {
+    RECORD rec := stream->ReadRecord();
+    IF (NOT RecordExists(rec))
+      BREAK;
+
+    IF (rec.parts[0] = "system:sqlclient" AND rec.parts[2] LIKE "webhare_testsuite_user*")
+      INSERT rec INTO items AT END;
+  }
+  stream->Close();
+
+  TestEQ(2, LENGTH(items));
+  TestEQ('hson:{\"query\":\"? 1 + 1\"}', items[0].parts[4]);
+  TestEQ('hson:{\"query\":\"select from system.fs_objects limit 1\"}', items[1].parts[4]);
+}
+
+RunTestFramework([ PTR WithArguments ]);

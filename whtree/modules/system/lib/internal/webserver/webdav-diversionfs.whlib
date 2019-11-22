@@ -1,0 +1,188 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/virtualfs/base.whlib";
+
+STRING FUNCTION HashPath(STRING inpath)
+{
+  inpath := CollapsePath(ToUppercase(inpath));
+  RETURN GetSHA1Hash(inpath);
+}
+
+
+PUBLIC OBJECTTYPE VirtualDiversionFS EXTEND VirtualFSBase
+<
+  OBJECT wrappedfs;
+  PUBLIC STRING ARRAY divertmasks;
+  INTEGER userid;
+  FUNCTION PTR createwrappedfs;
+
+  MACRO NEW(INTEGER userid, FUNCTION PTR createwrappedfs)
+  {
+    this->userid := userid;
+    this->createwrappedfs := createwrappedfs;
+  }
+
+  PUBLIC OBJECT FUNCTION GetWrappedFS()
+  {
+    IF(NOT ObjectExists(this->wrappedfs))
+      this->wrappedfs := this->createwrappedfs();
+    RETURN this->wrappedfs;
+  }
+
+  BOOLEAN FUNCTION IsDivertedPath(STRING inpath)
+  {
+    inpath := ToUppercase(inpath);
+
+    FOREVERY(STRING mask FROM this->divertmasks)
+      IF(inpath LIKE ToUppercase(mask))
+        RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetDirectoryListing(STRING path)
+  {
+    IF(NOT this->IsDivertedPath(path))
+      RETURN this->GetWrappedFS()->GetDirectoryListing(path);
+
+    STRING hash := HashPath(path);
+
+    RECORD pathinfo := SELECT * FROM system.webdav_diversions WHERE owner = this->userid AND pathhash = hash AND type=1;
+    IF(NOT RecordExists(pathinfo))
+        THROW NEW VirtualFSException("BADPATH","Directory does not exist");
+
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  UPDATE PUBLIC MACRO DeletePath(STRING path)
+  {
+    IF(NOT this->IsDivertedPath(path))
+    {
+      this->GetWrappedFS()->DeletePath(path);
+      RETURN;
+    }
+
+    STRING hash := HashPath(path);
+
+    RECORD pathinfo := SELECT * FROM system.webdav_diversions WHERE owner = this->userid AND pathhash = hash AND type = 0;
+    IF(NOT RecordExists(pathinfo))
+      THROW NEW VirtualFSException("BADPATH","Source path does not exist");
+
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+    trans->BeginWork();
+    DELETE FROM system.webdav_diversions WHERE id=pathinfo.id;
+    trans->CommitWork();
+  }
+
+  UPDATE PUBLIC BLOB FUNCTION GetFile(STRING path)
+  {
+    IF(NOT this->IsDivertedPath(path))
+      RETURN this->GetWrappedFS()->GetFile(path);
+
+    STRING hash := HashPath(path);
+
+    RECORD pathinfo := SELECT * FROM system.webdav_diversions WHERE owner = this->userid AND pathhash = hash AND type = 0;
+    IF(NOT RecordExists(pathinfo))
+      THROW NEW VirtualFSException("BADPATH","Source path does not exist");
+
+    RETURN pathinfo.data;
+  }
+
+  UPDATE PUBLIC MACRO Copy(STRING src, STRING dst, BOOLEAN overwrite)
+  {
+    IF(this->IsDivertedPath(src) OR this->IsDivertedPath(dst))
+      RETURN; //FIXME
+
+    this->GetWrappedFS()->Copy(src, dst, overwrite);
+  }
+
+  UPDATE PUBLIC MACRO Move(STRING src, STRING dst, BOOLEAN overwrite)
+  {
+    IF(this->IsDivertedPath(src) OR this->IsDivertedPath(dst))
+      RETURN; //FIXME
+
+    this->GetWrappedFS()->Move(src, dst, overwrite);
+  }
+
+  UPDATE PUBLIC MACRO MakeDir(STRING path)
+  {
+    IF(NOT this->IsDivertedPath(path))
+    {
+      this->GetWrappedFS()->MakeDir(path);
+      RETURN;
+    }
+
+    STRING hash := HashPath(path);
+
+    RECORD pathinfo := SELECT * FROM system.webdav_diversions WHERE owner = this->userid AND pathhash = hash;
+    IF(RecordExists(pathinfo))
+      THROW NEW VirtualFSException("XS","Cannot create the requested directory");
+
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+    trans->BeginWork();
+    INSERT INTO system.webdav_diversions(owner, pathhash, path, type, created)
+           VALUES(this->userid, hash, path, 1, GetCurrentDatetime());
+    trans->CommitWork();
+  }
+
+  UPDATE PUBLIC MACRO PutFile(STRING path, BLOB data, BOOLEAN overwrite)
+  {
+    IF(NOT this->IsDivertedPath(path))
+    {
+      this->GetWrappedFS()->PutFile(path, data, overwrite);
+      RETURN;
+    }
+
+    STRING hash := HashPath(path);
+
+    RECORD pathinfo := SELECT * FROM system.webdav_diversions WHERE owner = this->userid AND pathhash = hash;
+    IF(RecordExists(pathinfo) AND pathinfo.type != 0)
+      THROW NEW VirtualFSException("XS","Cannot overwrite file");
+
+    IF(RecordExists(pathinfo) AND NOT overwrite)
+      THROW NEW VirtualFSException("ALREADYEXISTS", "File already exists");
+
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+    trans->BeginWork();
+    IF(RecordExists(pathinfo))
+      UPDATE system.webdav_diversions SET data := VAR data, created := GetCurrentDatetime() WHERE id=pathinfo.id;
+    ELSE
+      INSERT INTO system.webdav_diversions(owner, data, path, pathhash, created)
+             VALUES(this->userid, data, path, hash, GetCurrentDatetime());
+    trans->CommitWork();
+
+  }
+
+  UPDATE PUBLIC MACRO SetMetaData(STRING path, RECORD metadata)
+  {
+    IF(this->IsDivertedPath(path))
+      RETURN; //FIXME
+
+    this->GetWrappedFS()->SetMetadata(path, metadata);
+  }
+
+  /* Standard file listing function */
+  UPDATE PUBLIC RECORD FUNCTION GetPathInfo(STRING path)
+  {
+    IF(NOT this->IsDivertedPath(path))
+      RETURN this->GetWrappedFS()->GetPathInfo(path);
+
+    STRING hash := HashPath(path);
+    RECORD pathinfo := SELECT * FROM system.webdav_diversions WHERE owner = this->userid AND pathhash = hash;
+    IF(NOT RecordExists(pathinfo))
+      RETURN DEFAULT RECORD;
+
+    RETURN [ name := GetNameFromPath(pathinfo.path)
+           , type := pathinfo.type
+           , size := pathinfo.type = 0 ? Length(pathinfo.data) : 0
+           , read := TRUE
+           , write := TRUE
+           , modificationdate := pathinfo.created
+           , creationdate := pathinfo.created
+           ];
+  }
+>;
+

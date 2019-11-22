@@ -1,0 +1,985 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/transbase.whlib";
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib" EXPORT __GetModuleBaseFromResourceName;
+
+PUBLIC RECORD __screenbuildinfo;
+PUBLIC STRING ns_screens := "http://www.webhare.net/xmlns/tollium/screens";
+PUBLIC STRING ns_systemcommon := "http://www.webhare.net/xmlns/system/common";
+PUBLIC STRING ns_tolliumcommon := "http://www.webhare.net/xmlns/tollium/common";
+PUBLIC STRING ns_xmlschema := "http://www.w3.org/2001/XMLSchema";
+
+PUBLIC INTEGER ttl_components := 5 * 60 * 1000;
+PUBLIC BOOLEAN debug_logcontroller := FALSE;
+PUBLIC BOOLEAN debug_logtransport := FALSE;
+
+PUBLIC CONSTANT RECORD tolliumdefaultborderspacer := [ top := FALSE, right := FALSE, bottom := FALSE, left := FALSE, usedefault := TRUE ];
+
+PUBLIC STRING checkered_background := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAQ0lEQVQoFWNkIBKcPn26gRilTMQoIkXNqIGkhBZ2taNhiD1cSBFlJDYHmJqaNhBj8GikEBNK+NWMhiH+8CFGluphCACyjgcI7XmCdAAAAABJRU5ErkJggg==";
+
+/// options object for next created tabs extension
+PUBLIC RECORD __tabsextension_options;
+
+/// Flag to print debug info about failing actionhandler resolves
+PUBLIC BOOLEAN __debugactions;
+
+PUBLIC OBJECTTYPE TolliumAppContextSystem
+<
+  OBJECT __pvt_tacs_parent;
+  RECORD ARRAY __tacs_contexts;
+
+  PUBLIC MACRO __LoadAppContexts(RECORD ARRAY contexts, RECORD contextinfo)
+  {
+    FOREVERY(RECORD context FROM contexts)
+    {
+      OBJECT loader := MakeObject(context.lib, context.objtype);
+      OBJECT contextobj := loader->ConstructAppContext(context.data, contextinfo);
+      this->RegisterAppContext(context.name, contextobj);
+    }
+  }
+
+  // Throw away all app contexts at this level
+  PUBLIC MACRO __ClearAppContexts()
+  {
+    this->__tacs_contexts := DEFAULT RECORD ARRAY;
+  }
+
+  PUBLIC OBJECT FUNCTION GetAppContext(STRING name)
+  {
+    name := ToLowercase(name);
+    IF(name = "publisher:applytester")
+      RETURN this->contexts->applytester; //fall back to modern approach
+
+    FOREVERY(RECORD ctx FROM this->__tacs_contexts)
+      IF(ctx.name=name)
+        RETURN ctx.obj;
+
+    IF(ObjectExists(this->__pvt_tacs_parent))
+      RETURN this->__pvt_tacs_parent->GetAppContext(name);
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC MACRO RegisterAppcontext(STRING name, OBJECT contextobj)
+  {
+    name := ToLowercase(name);
+    IF(name = "publisher:applytester")
+    {
+      this->contexts->applytester := contextobj; //fall back to modern approach
+      RETURN;
+    }
+
+    FOREVERY(RECORD ctx FROM this->__tacs_contexts)
+      IF(ctx.name=name)
+        THROW NEW Exception("Duplicate registration of context '" || name || "' at the same level");
+
+    INSERT [ name := name, obj := contextobj ] INTO this->__tacs_contexts AT END;
+  }
+
+  //Set an app context, but only if it was registered as this level!
+  PUBLIC MACRO UpdateAppContext(STRING updatename, OBJECT contextobj)
+  {
+    updatename := ToLowercase(updatename);
+    IF(updatename = "publisher:applytester")
+    {
+      this->contexts->applytester := contextobj; //fall back to modern approach
+      RETURN;
+    }
+
+    IF(NOT RecordExists(SELECT FROM this->__tacs_contexts WHERE name = updatename))
+      THROW NEW Exception("Context '" || updatename || "' was not registered (or not at this level)");
+
+    UPDATE this->__tacs_contexts SET obj := contextobj WHERE name = updatename;
+  }
+>;
+
+PUBLIC OBJECTTYPE FeedbackObjectBase
+<
+  OBJECT transaction;
+  STRING mutex;
+  RECORD ARRAY all_errors;
+  RECORD ARRAY all_warnings;
+  BOOLEAN pvt_terminated;
+
+  PUBLIC PROPERTY errors(all_errors, -);
+  PUBLIC PROPERTY warnings(all_warnings, -);
+  PUBLIC PROPERTY terminated(pvt_terminated, -);
+
+  MACRO NEW(OBJECT transaction, STRING mutex)
+  {
+    IF(mutex!="" AND NOT ObjectExists(transaction))
+      THROW NEW Exception("Cannot use a mutex if we're not connecting to a database"); //Fixable, but entrypoint just isn't there yet...
+
+    this->transaction := transaction;
+    this->mutex := mutex;
+    IF(ObjectExists(transaction))
+    {
+      IF(mutex != "")
+        transaction->BeginLockedWork(mutex);
+      ELSE
+        transaction->BeginWork();
+    }
+  }
+
+  /** @short Validate the component (and any children)
+      @long This function calls ValidateComponent on the specified component
+      @param(object mod::tollium/lib/componentbase.whlib#TolliumComponentBase) comp Component to validate
+  */
+  PUBLIC MACRO Validate(OBJECT comp)
+  {
+    comp->ValidateValue(this);
+  }
+
+  /** Check if an error has already been reported for a component
+      @param(object mod::tollium/lib/componentbase.whlib#TolliumComponentBase) checkcomp Component
+      @return TRUE if the component has reported validation errors
+  */
+  PUBLIC BOOLEAN FUNCTION HasComponentFailed(OBJECT checkcomp)
+  {
+    RETURN RecordExists(SELECT FROM this->all_errors WHERE comp=checkcomp);
+  }
+
+  /** Add an error to be reported at commit/rollback
+      @param text Error text */
+  PUBLIC MACRO AddError(STRING text)
+  {
+    this->AddErrorFor(DEFAULT OBJECT, text);
+  }
+
+  /** Add an error to be reported at commit/rollback, and associate it with a component
+      @param(object mod::tollium/lib/componentbase.whlib#TolliumComponentBase) comp Component that failed. If DEFAULT OBJECT, we assume the error applies to the form/screen in general
+      @param text Error text
+      @cell options.metadata Additional/structured metadata for the error */
+  PUBLIC MACRO AddErrorFor(OBJECT comp, STRING text, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(this->terminated)
+      THROW NEW Exception("This feedback object has already been terminated");
+
+    options := ValidateOptions([ metadata := DEFAULT RECORD ], options);
+
+    /* - If the identical component has already got an error, ignore the newest error
+       - If a subcomponent has an error, replace it
+       - If a supercomponent has an error, ignore us */
+
+    IF (comp != DEFAULT OBJECT)
+    {
+      FOREVERY (RECORD rec FROM this->all_errors)
+      {
+        IF (rec.comp = comp OR comp->IsPartOf(rec.comp))
+          RETURN;
+        IF (rec.comp != DEFAULT OBJECT AND rec.comp->IsPartOf(comp))
+        {
+          DELETE FROM this->all_errors AT #rec;
+          BREAK;
+        }
+      }
+    }
+
+    INSERT CELL[ comp, text, options.metadata ] INTO this->all_errors AT END;
+  }
+
+  /** Add a warning to be reported at a succesful commit
+      @param text Warning message
+  */
+  PUBLIC MACRO AddWarning(STRING text)
+  {
+    this->AddWarningFor(DEFAULT OBJECT, text);
+  }
+
+  /** Add an warning to be reported at commit/rollback, and associate it with a component
+      @param comp Relevant component
+      @param text Warning message
+      @cell options.metadata Additional/structured metadata for the warning */
+  PUBLIC MACRO AddWarningFor(OBJECT comp, STRING text, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(this->terminated)
+      THROW NEW Exception("This feedback object has already been terminated");
+
+    options := ValidateOptions([ metadata := DEFAULT RECORD ], options);
+
+    /* - If the identical component has already got an error, ignore the newest error
+       - If a subcomponent has an warning, replace it
+       - If a supercomponent has an warning, ignore us */
+
+    IF (comp != DEFAULT OBJECT)
+    {
+      FOREVERY (RECORD rec FROM this->all_warnings)
+      {
+        IF (rec.comp = comp OR comp->IsPartOf(rec.comp))
+          RETURN;
+        IF (rec.comp != DEFAULT OBJECT AND rec.comp->IsPartOf(comp))
+        {
+          DELETE FROM this->all_warnings AT #rec;
+          BREAK;
+        }
+      }
+    }
+
+    INSERT [ comp := comp , text := text, metadata := options.metadata ] INTO this->all_warnings AT END;
+  }
+
+
+  /** Returns true if any errors occurred
+      @return TRUE if any errors have occurred
+  */
+  PUBLIC BOOLEAN FUNCTION HasFailed()
+  {
+    RETURN Length(this->all_errors)>0;
+  }
+
+  MACRO TryCommit()
+  {
+    IF(Length(this->all_errors)=0)
+    {
+      IF(ObjectExists(this->transaction))
+      {
+        // Commit can throw due to commit handlers
+        RECORD ARRAY commiterrors;
+        TRY
+        {
+          commiterrors := this->transaction->CommitWork();
+        }
+        CATCH(OBJECT<DatabaseException> e)
+        {
+          commiterrors := e->errors;
+        }
+        FOREVERY(RECORD err FROM commiterrors)
+          INSERT [ comp := DEFAULT OBJECT, text := err.message ] INTO this->all_errors AT END;
+      }
+      this->pvt_terminated := TRUE;
+    }
+    ELSE
+    {
+      this->Cancel(); //ADDME: clean up, dubbel werk via de verschillende paden...
+    }
+  }
+  /** @short Cancel this work
+
+    @long This function cancels this work, and rolls back any changes made. It does not report
+          anything. If called after Finish, it is ignored.
+  */
+  PUBLIC MACRO Cancel()
+  {
+    // Already committed?
+    IF(this->terminated)
+      RETURN;
+
+    IF(ObjectExists(this->transaction))
+    {
+      this->transaction->RollbackWork();
+    }
+    this->pvt_terminated := TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumFeedbackObject EXTEND FeedbackObjectBase
+<
+  OBJECT screenmgr;
+
+  MACRO NEW(OBJECT screenmgr, OBJECT transaction, STRING mutex)
+  : FeedbackObjectBase(transaction, mutex)
+  {
+    this->screenmgr := screenmgr;
+  }
+
+  /** @short Finishes the work
+      @long This function finishes the work, and tries to commit if no errors have been signalled.
+            If any warnings were added, these are shown after committing. If any errors were added,
+            of when the commit has failed, those errors are shown, and the work is rolled back
+      @return Whether no errors were present, and the transaction was committed successfully.
+*/
+  PUBLIC BOOLEAN FUNCTION Finish()
+  {
+    IF(this->terminated)
+      THROW NEW Exception("This feedback object has already been terminated");
+
+    this->TryCommit();
+    this->screenmgr->HandleWorkResult( [ errors := this->errors
+                                       , warnings := this->warnings
+                                       ] );
+    RETURN NOT this->HasFailed();
+  }
+>;
+
+
+/** Exception from a Tollium component
+    @topic tollium-components/base
+    @public
+    @loadlib mod::tollium/lib/componentbase.whlib
+*/
+PUBLIC OBJECTTYPE TolliumException EXTEND Exception
+<
+  OBJECT badobj;
+
+  /// @type(object mod::tollium/lib/componentbase.whlib#TolliumComponentBase) Relevant component
+  PUBLIC PROPERTY component(badobj, -);
+
+  /** Constructs a new TolliumException
+      @param(object mod::tollium/lib/componentbase.whlib#TolliumComponentBase) badobj Relevant component
+      @param what Message
+  */
+  MACRO NEW(OBJECT badobj, STRING what)
+  : Exception(GetTolliumExceptionWhat(badobj,what) )
+  {
+    this->badobj := badobj;
+  }
+
+>;
+
+STRING FUNCTION GetTolliumExceptionWhat(OBJECT badobj, STRING what)
+{
+  IF (NOT ObjectExists(badobj))
+    RETURN what || " (TolliumException required an object)";
+  ELSE IF (MemberExists(badobj, "GetComponentIdentification"))
+    RETURN what || " (" || badobj->GetComponentIdentification() || ")";
+  ELSE
+    THROW NEW Exception(what || " (TolliumException required an object which derives from TolliumComponentBase)");
+}
+
+
+/* utility functions for tollium implementations */
+
+PUBLIC RECORD ARRAY FUNCTION GetLCGroups(RECORD ARRAY lines)
+{
+  RECORD ARRAY lcgroups;
+  RECORD curgroup;
+
+  FOREVERY(RECORD line FROM lines)
+  {
+    IF(RecordExists(curgroup) AND curgroup.layout != line.layout) //start a new group
+    {
+      INSERT curgroup INTO lcgroups AT END;
+      curgroup := DEFAULT RECORD;
+    }
+
+    IF(NOT RecordExists(curgroup))
+      curgroup := [layout:=line.layout, lines:=DEFAULT RECORD ARRAY ];
+    INSERT line INTO curgroup.lines AT END;
+  }
+  IF(RecordExists(curgroup)) //start a new group
+    INSERT curgroup INTO lcgroups AT END;
+
+  RETURN lcgroups;
+}
+
+PUBLIC STRING FUNCTION TypeToString(VARIANT data, INTEGER type)
+{
+  SWITCH(type)
+  {
+    CASE TypeId(BOOLEAN)
+    {
+      RETURN data ? "true" : "false";
+    }
+    CASE TypeId(STRING)
+    {
+      RETURN EncodeUrl(data); // Get rid of spaces, rowkeys are space-separated
+    }
+    CASE TypeId(INTEGER)
+    {
+      RETURN ToString(data);
+    }
+    CASE TypeId(INTEGER64)
+    {
+      RETURN ToString(data);
+    }
+    CASE TypeId(MONEY)
+    {
+      RETURN FormatMoney(data,0,'.','',FALSE);
+    }
+    CASE TypeId(FLOAT)
+    {
+      RETURN FormatFloat(data,20);
+    }
+    CASE TypeId(DATETIME)
+    {
+      RETURN FormatDatetime("%Y-%m-%dT%H:%M:%S.%Q", data); //ADDME: Full ISO8601 dates: http://www.w3.org/TR/xmlschema-2/#isoformats
+    }
+  }
+  THROW NEW Exception("Type "||GetTypeName(type)||" cannot be converted to a string");
+}
+PUBLIC VARIANT FUNCTION StringToType(STRING value, INTEGER type)
+{
+  SWITCH (type)
+  {
+    CASE TypeId(STRING)
+    {
+      RETURN DecodeURL(value);
+    }
+    CASE TypeId(BOOLEAN)
+    {
+      RETURN value="true" OR value="1";
+    }
+    CASE TypeId(INTEGER)
+    {
+      RETURN ToInteger(value, 0);
+    }
+    CASE TypeId(INTEGER64)
+    {
+      RETURN ToInteger64(value, 0);
+    }
+    CASE TypeId(MONEY)
+    {
+      RETURN ToMoney(value, 0);
+    }
+    CASE TypeId(FLOAT)
+    {
+      RETURN ToFloat(value, 0);
+    }
+    CASE TypeId(DATETIME)
+    {
+      RETURN MakeDateFromText(value);
+    }
+  }
+  THROW NEW Exception("Type "||GetTypeName(type)||" cannot be converted to a string");
+}
+
+/** @short Checks the flags of a selection
+    @param selection Selection (record array with flags. Every record must have all the cells with the names from allowed_flags
+    @param allowed_flags List of cell names that may be checked. Flags with names not in this array must be presumed FALSE.
+    @param checkflags List of flags to check, optionally negated by prefixing with '!' (default the flags must be TRUE, but when negated they must be FALSE)
+    @param min Minimum number of items that must be in the selection
+    @param max Maximum number of items that may be in the selection (set below 0 for no limit)
+    @param selectionmatch Selection match type, "all" or "any"
+    @return Returns whether the given selection matches the checkflags, min and max constraints
+*/
+PUBLIC BOOLEAN FUNCTION CheckEnabledFlags(RECORD ARRAY selection, STRING ARRAY allowed_flags, STRING ARRAY checkflags, INTEGER min, INTEGER max, STRING selectionmatch)
+{
+  // This code should be synchronized with toddCheckEnabledFlags in buttonbar.js
+  INTEGER len := LENGTH(selection);
+  IF (len < min OR (len > max AND max >= 0))
+  {
+    IF(__debugactions) PRINT(`- - Selection has the wrong length, min: ${min}, max: ${max}, got: ${len}\n`);
+    RETURN FALSE;
+  }
+
+  IF (LENGTH(checkflags) = 0)
+    RETURN TRUE;
+
+  FOREVERY (STRING s FROM allowed_flags)
+    allowed_flags[#s] := ToUppercase(s);
+
+  // Filter the checkedflags based on the list of allowed_flags.
+  RECORD ARRAY checks;
+  FOREVERY (STRING check FROM checkflags)
+  {
+    check := ToUppercase(check);
+    BOOLEAN negate := LEFT(check, 1) = '!';
+    STRING name;
+    IF (negate)
+      name := RIGHT(check, LENGTH(check) - 1);
+    ELSE
+    {
+      name := check;
+      IF (name NOT in allowed_flags) // A not-allowed has default value FALSE.
+      {
+        IF(__debugactions) PRINT(`- - Non-allowed flag '${name}' is tested (flags: '${Detokenize(checkflags, " ")}', allowed: ${Detokenize(allowed_flags, ", ")})\n`);
+        RETURN FALSE;
+      }
+    }
+
+    // The value we don't want (normally FALSE, byt TRUE when negated) is equal to the value of 'negate'.
+    INSERT [ dontwantvalue := negate, flag := name ] INTO checks AT END;
+  }
+
+  // Check all flags for values we don't want. The cells MUST exist
+  BOOLEAN any;
+  FOREVERY (RECORD sel FROM selection)
+  {
+    FOREVERY (RECORD check FROM checks)
+      IF (NOT CellExists(sel, check.flag) OR GetCell(sel, check.flag) = check.dontwantvalue)
+      {
+        IF (selectionmatch = "all")
+        {
+          IF(__debugactions) PRINT(`- - Row #${#sel} fails on cell '${check.flag}' (flags: '${Detokenize(checkflags, " ")}', selectionmatch: ${selectionmatch})\n`);
+          RETURN FALSE;
+        }
+      }
+      ELSE IF (selectionmatch = "any")
+      {
+        any := TRUE;
+        BREAK;
+      }
+  }
+
+  IF(__debugactions AND selectionmatch="any" AND NOT any) PRINT(`- - No row matched the flags (flags: '${Detokenize(checkflags, " ")}'), selectionmatch: ${selectionmatch})\n`);
+  RETURN selectionmatch = "all" OR (selectionmatch = "any" AND any);
+}
+
+//ADDME: Maybe this should be merged with RichHTMLProcessor? For now, this is just a simple straightforward
+//       HTML parser.
+//ADDME: Furthermore, it does not seem to be used anywhere...
+PUBLIC OBJECTTYPE HtmlSanitizer
+<
+  STRING sanitized_html;
+  RECORD ARRAY element_stack;/*STRING tag, BOOLEAN adding*/
+
+  // List of (uppercase) tag names which are allowed in the sanitized HTML (set to empty to allow all tags)
+  PUBLIC STRING ARRAY allowed_tags;
+  // List of (uppercase) tag attribute names which are allowed in the sanitized HTML (set to empty to allow all attributes)
+  PUBLIC STRING ARRAY allowed_attrs;
+  // List of (uppercase) tags that will be omitted, but whose contents will be parsed
+  PUBLIC STRING ARRAY stripped_tags;
+  // List of (uppercase) empty tags
+  PUBLIC STRING ARRAY empty_tags;
+  // Allow comments
+  PUBLIC BOOLEAN allow_comments;
+
+  MACRO NEW()
+  {
+    this->allowed_tags :=
+      [ 'HTML', 'BODY'
+      , 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'OL', 'UL', 'LI', 'PRE', 'DL', 'DIV', 'BLOCKQUOTE', 'HR'
+      , 'I', 'B', 'U', 'BIG', 'SMALL', 'CITE', 'ABBR', 'ACRONYM', 'A', 'IMG', 'BR', 'SUB', 'SUP', 'SPAN' ];
+
+    this->allowed_attrs :=
+      [ 'CITE', 'HEIGHT', 'HREF', 'NAME', 'SRC', 'STYLE', 'WIDTH' ];
+
+    this->empty_tags :=
+      [ 'BR', 'IMG' ];
+
+    this->allow_comments := TRUE;
+  }
+
+  PUBLIC STRING FUNCTION SanitizeHtml(STRING source)
+  {
+    // Replace Windows CRLF with just LF
+    source := Substitute(source, '\r\n', '\n');
+
+    this->sanitized_html := '';
+    this->element_stack := DEFAULT RECORD ARRAY;
+
+    RECORD callbacks := [ start_element := PTR this->SanitizeElementStart
+                        , end_element := PTR this->SanitizeElementEnd
+                        , text_node := PTR this->SanitizeText
+                        ];
+    IF (this->allow_comments)
+      INSERT CELL comment_node := PTR this->SanitizeComment INTO callbacks;
+
+    ParseHTMLAsXMLWithCallbacks(StringToBlob(source), callbacks, "UTF-8");
+
+    RETURN this->sanitized_html;
+  }
+
+  MACRO SanitizeElementStart(STRING name, RECORD ARRAY attrs)
+  {
+    RECORD element := [ tag := ToUppercase(name), adding := FALSE ];
+
+    // Rewrite some elements
+    SWITCH (element.tag)
+    {
+      CASE 'STRONG'
+      {
+        element.tag := 'B';
+      }
+
+      CASE 'EM'
+      {
+        element.tag := 'I';
+      }
+    }
+
+    IF (element.tag IN this->stripped_tags)
+    {
+      element.adding := Length(this->element_stack) = 0 OR this->element_stack[0].adding;
+    }
+    ELSE IF (Length(this->allowed_tags) = 0 OR element.tag IN this->allowed_tags)
+    {
+      this->sanitized_html := this->sanitized_html || '<' || ToLowercase(EncodeValue(element.tag));
+
+      FOREVERY (RECORD attr FROM attrs)
+      {
+        IF (Length(this->allowed_attrs) > 0 AND ToUppercase(attr.field) IN this->allowed_attrs)
+          this->sanitized_html := this->sanitized_html || ' ' || ToLowercase(EncodeValue(attr.field)) || '="' || EncodeValue(attr.value) || '"';
+      }
+
+      IF (element.tag IN this->empty_tags)
+        this->sanitized_html := this->sanitized_html || '/';
+      ELSE
+        element.adding := Length(this->element_stack) = 0 OR this->element_stack[0].adding;
+
+      this->sanitized_html := this->sanitized_html || '>';
+    }
+
+//Print('INSERT:\n'||AnyToString(element,'boxed'));
+    INSERT element INTO this->element_stack AT 0;
+  }
+
+  MACRO SanitizeElementEnd(STRING name)
+  {
+    RECORD element := this->element_stack[0];
+    IF ((Length(this->allowed_tags) = 0 OR element.tag IN this->allowed_tags) AND element.tag NOT IN this->empty_tags AND element.tag NOT IN this->stripped_tags)
+      this->sanitized_html := this->sanitized_html || '</' || ToLowercase(EncodeValue(element.tag)) || '>';
+
+//Print('DELETE:\n'||AnyToString(element,'boxed'));
+    DELETE FROM this->element_stack AT 0;
+  }
+
+  MACRO SanitizeText(STRING text)
+  {
+//Print('Text: '||EncodeJava(text)||'\n');
+    IF (Length(this->element_stack) > 0 AND NOT this->element_stack[0].adding)
+      RETURN;
+
+    // Cleanup text
+    text := substitute(text, '‘','\'');
+    text := substitute(text, '’','\'');
+    text := substitute(text, '“','"');
+    text := substitute(text, '”','"');
+
+    this->sanitized_html := this->sanitized_html || EncodeValue(text);
+  }
+
+  MACRO SanitizeComment(STRING text)
+  {
+    this->sanitized_html := this->sanitized_html || '<!--';
+    this->SanitizeText(text);
+    this->sanitized_html := this->sanitized_html || '-->';
+  }
+>;
+
+PUBLIC INTEGER FUNCTION ParseValidColor(STRING htmlcolor)
+{
+  TRY
+  {
+    RETURN GfxCreateColorFromCSS(htmlcolor);
+  }
+  CATCH (OBJECT e)
+  {
+  }
+  RETURN 0;
+}
+
+PUBLIC STRING FUNCTION GetValidColor(STRING htmlcolor, BOOLEAN disable_transparency DEFAULTSTO FALSE)
+{
+  // Check for named colors
+  SWITCH (ToUppercase(htmlcolor))
+  {
+    CASE "TRANSPARENT"
+    {
+      RETURN NOT disable_transparency ? ToLowercase(htmlcolor) : "";
+    }
+  }
+
+  // Check for valid HTML #RRGGBB color
+  IF(htmlcolor LIKE "#??????" AND ToInteger(Right(htmlcolor, 6), -1, 16) != -1)
+    RETURN ToLowercase(htmlcolor);
+
+  // Check for valid HTML #RRGGBBAA color
+  IF(NOT disable_transparency AND htmlcolor LIKE "#????????" AND ToInteger64(Right(htmlcolor, 8), -1, 16) != -1)
+    RETURN ToLowercase(htmlcolor);
+
+  // Invalid color specification
+  RETURN "";
+}
+
+
+// Calculate size in pixels from a fixed size
+PUBLIC INTEGER FUNCTION CalcFixedSize(STRING size)
+{
+  IF (size = "0" OR size NOT LIKE "*px")
+    RETURN 0;
+  RETURN ToInteger(Left(size, Length(size) - 2), 0);
+}
+
+PUBLIC RECORD FUNCTION FixAcceptDrops(RECORD inacceptdrops)
+{
+  IF(NOT RecordExists(inacceptdrops))
+    RETURN DEFAULT RECORD;
+
+  IF (NOT CellExists(inacceptdrops, "acceptmultiple"))
+    INSERT CELL acceptmultiple := TRUE INTO inacceptdrops;
+  RECORD drops_imgsize := CellExists(inacceptdrops, "imgsize") ? FixImgSize(inacceptdrops.imgsize) : DEFAULT RECORD;
+  inacceptdrops.accepttypes :=
+    SELECT COLUMN type
+         , COLUMN sourceflags
+         , COLUMN targetflags
+         , COLUMN requiretarget
+         , COLUMN dropeffects
+         , COLUMN frameflags
+         , imageaction := CellExists(accepttypes,"imageaction") AND imageaction = "edit" ? "edit" : "upload"
+         , imgsize := CellExists(accepttypes, "imgsize") ? FixImgSize(imgsize) : drops_imgsize
+         , insertbeforeflags := CellExists(accepttypes,"insertbeforeflags") ? accepttypes.insertbeforeflags : DEFAULT STRING ARRAY
+         , appendchildflags := CellExists(accepttypes,"appendchildflags") ? accepttypes.appendchildflags : DEFAULT STRING ARRAY
+         , locations := CellExists(accepttypes,"locations") ? accepttypes.locations : ["ontarget"]
+         , noloops := CellExists(accepttypes,"noloops") AND accepttypes.noloops
+      FROM inacceptdrops.accepttypes;
+  RETURN inacceptdrops;
+}
+
+PUBLIC RECORD FUNCTION FixImgSize(RECORD imgsize)
+{
+  IF (NOT RecordExists(imgsize))
+    RETURN DEFAULT RECORD;
+
+  imgsize := MakeUpdatedRecord([ method := "none"
+                               , setwidth := 0
+                               , setheight := 0
+                               , format := ""
+                               , bgcolor := "#ffffff"
+                               , noforce := FALSE
+                               , fixorientation := TRUE
+                               , allowedactions := DEFAULT STRING ARRAY
+                               , allowedfilters := DEFAULT STRING ARRAY
+                               ], imgsize);
+
+  imgsize.method := ToLowercase(imgsize.method);
+  IF (imgsize.method NOT IN [ "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill", "stretch" ])
+    RETURN DEFAULT RECORD;
+  IF (imgsize.setwidth < 0)
+    imgsize.setwidth := 0;
+  IF (imgsize.setheight < 0)
+    imgsize.setheight := 0;
+
+  imgsize.allowedactions :=
+      SELECT AS STRING ARRAY action
+        FROM ToRecordArray(imgsize.allowedactions, "action")
+       WHERE action IN [ "all", "crop", "rotate", "filters", "refpoint" ];
+  // If nothing (or only invalid actions) specified, 'all' actions are allowed (doesn't include 'refpoint')
+  IF (Length(imgsize.allowedactions) = 0)
+    imgsize.allowedactions := [ "all" ];
+
+  imgsize.allowedfilters :=
+      SELECT AS STRING ARRAY filter
+        FROM ToRecordArray(imgsize.allowedfilters, "filter")
+       WHERE filter IN [ "all", "grayscale", "invert", "sharpen", "blur", "brightnesscontrast", "autocontrast", "coloradjust" ];
+  // If nothing (or only invalid filters) specified, 'all' filters are allowed
+  IF (Length(imgsize.allowedfilters) = 0)
+    imgsize.allowedfilters := [ "all" ];
+
+  RETURN imgsize;
+}
+
+PUBLIC STRING FUNCTION GetDateFormatString(STRING datestr, BOOLEAN shortformat, BOOLEAN formootools DEFAULTSTO FALSE)
+{
+  STRING format;
+  FOR(INTEGER i:=0;i<Length(datestr);i:=i+1)
+  {
+    STRING tok := Substring(datestr,i,1);
+    SWITCH(tok)
+    {
+      CASE "D" { format := format || "%d"; }
+      CASE "N" { format := format || (formootools ? "%d" : "%#d"); }
+      CASE "B" { format := format || (formootools ? "%d" : shortformat ? "%b" : "%B"); }
+      CASE "M" { format := format || "%m"; }
+      CASE "Y" { format := format || "%Y"; }
+      CASE " " { format := format || (formootools ? " " : "\xC2\xA0"); } //nbsp
+      CASE "/","-","." { format := format || tok; }
+      DEFAULT { ABORT ("Unrecognized datetime format token '" || tok || "'"); }
+    }
+  }
+  RETURN format;
+}
+
+PUBLIC STRING FUNCTION ParseIconPointer(STRING defaultmodule, STRING icon)
+{
+  IF (icon = "")
+    RETURN icon;
+  STRING ARRAY subicons := Tokenize(icon, "+");
+  FOREVERY (STRING subicon FROM subicons)
+    IF (SearchSubstring(subicon,':') = -1)
+      subicons[#subicon] := defaultmodule || ':' || subicon;
+  RETURN Detokenize(subicons, "+");
+}
+
+PUBLIC INTEGER FUNCTION ParseRowKeyType(STRING rowkeytype)
+{
+  SWITCH (ToUppercase(rowkeytype))
+  {
+    CASE "INTEGER"
+    {
+      RETURN TypeID(INTEGER);
+    }
+    CASE "INTEGER64"
+    {
+      RETURN TypeID(INTEGER64);
+    }
+    CASE "STRING"
+    {
+      RETURN TypeID(STRING);
+    }
+    DEFAULT
+    {
+      RETURN 0;
+    }
+  }
+}
+
+PUBLIC STRING FUNCTION ResolveTIDPtr(RECORD tidptr, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+{
+  RETURN ResolveTIDPtrForLanguage(GetTIDLanguage(), tidptr, p1,p2,p3,p4);
+}
+PUBLIC STRING FUNCTION ResolveTIDPtrForLanguage(STRING langcode, RECORD tidptr, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+{
+  IF(tidptr.type=2)
+    RETURN tidptr.data;
+  IF(tidptr.type=1)
+    RETURN GetTIDForLanguage(langcode, tidptr.data, p1, p2, p3, p4);
+  THROW NEW Exception("Unknown tidptr type " || tidptr.type);
+}
+
+PUBLIC OBJECT FUNCTION CreateMessageBox(OBJECT parent, STRING name, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+{
+  RETURN parent->LoadScreen("tollium:commondialogs.messagebox", [ name := name
+                                                                , p1 := p1
+                                                                , p2 := p2
+                                                                , p3 := p3
+                                                                , p4 := p4
+                                                                ]);
+}
+
+PUBLIC STRING FUNCTION GetResourceNameFromScreenPath(STRING screenpath)
+{
+  IF(screenpath NOT LIKE "*::*#*")
+    THROW NEW Exception("Invalid screen path '" || screenpath || "'");
+  RETURN MakeAbsoluteResourcePath("", Tokenize(screenpath,'#')[0]);
+}
+/** Return the screen name for a screen path, eg "publisher:a/b.c" becomes "c"
+    @param screenpath Screen path
+    @return Screen name
+*/
+PUBLIC STRING FUNCTION GetScreenNameFromScreenPath(STRING screenpath)
+{
+  IF(screenpath NOT LIKE "*::*#*")
+    THROW NEW Exception("Invalid screen path '" || screenpath || "'");
+  RETURN Tokenize(screenpath,'#')[1];
+}
+PUBLIC STRING FUNCTION GetModuleNameFromScreenPath(STRING screenpath)
+{
+  RETURN __GetModuleBaseFromResourceName(GetResourceNameFromSCreenPath(screenpath));
+}
+
+PUBLIC STRING FUNCTION GetBroadcastAllTarget()
+{
+  RETURN EncodeUFS(GetSHA1Hash("broadcastall")); //FIXME add unique server id to prevent random users from triggering broacdcasts ? But this is pointless until we stop leaking that group through GetCurrentShellSettings
+}
+
+/** @short Send a message to all sessions in this portal
+    @long This message will be sent as "broadcast" event by the tollium shell object
+    @param message Message to send
+    */
+PUBLIC MACRO BroadcastToAllSessions(RECORD message)
+{
+  DATETIME now := GetCurrentDatetime();
+  BroadcastEvent("wh:eventserver", [ data := EncodeJSON( [ now := FormatISO8601Datetime(now, "day", "milliseconds"), message := message ])
+                                   , groupid := GetBroadcastAllTarget()
+                                   , expires := AddTimeToDate(5000, now)
+                                   ]);
+}
+
+PUBLIC STATIC OBJECTTYPE ListFilterSelectionHelper
+<
+  OBJECT list;
+
+  /// Single item currently auto-selected
+  BOOLEAN autoselect;
+
+  /// Selected site when it is currently filtered out
+  INTEGER savedvalue;
+
+  /// Function called to refresh
+  FUNCTION PTR pvt_refreshfunc;
+
+  MACRO NEW(OBJECT list, FUNCTION PTR refreshfunc)
+  {
+    this->list := list;
+    this->pvt_refreshfunc := refreshfunc;
+  }
+
+  PUBLIC MACRO RefreshList()
+  {
+    // User made a new selection
+    IF (this->list->value != 0 AND NOT this->autoselect)
+      this->savedvalue := 0;
+
+    INTEGER oldvalue := this->list->value ?? this->savedvalue;
+
+    this->pvt_refreshfunc();
+
+    BOOLEAN have_one_item := LENGTH(this->list->rows) = 1;
+    IF (have_one_item AND this->list->value = 0)
+    {
+      this->autoselect := TRUE;
+      this->list->value := this->list->rows[0].rowkey;
+      this->savedvalue := oldvalue;
+    }
+    ELSE IF (NOT have_one_item AND this->autoselect)
+    {
+      this->autoselect := FALSE;
+      this->list->value := 0;
+      oldvalue := this->savedvalue;
+    }
+
+    IF (NOT this->autoselect)
+    {
+      this->list->value := oldvalue;
+      IF (this->list->value = 0)
+        this->savedvalue := oldvalue;
+    }
+  }
+>;
+
+//Get the top level screen if we're an embedded screen
+PUBLIC OBJECT FUNCTION GetTopLevelScreen(OBJECT currentscreen)
+{
+  WHILE(ObjectExists(currentscreen) AND ObjectExists(currentscreen->frame->containingpanel))
+    currentscreen := currentscreen->frame->containingpanel->owner;
+  RETURN currentscreen;
+}
+
+PUBLIC STRING FUNCTION GetLibraryPath(STRING resourcename, OBJECT basenode)
+{
+  FOREVERY(OBJECT node FROM [basenode, basenode->ownerdocument->documentelement])
+  {
+    IF(node->HasAttribute("library"))
+      RETURN MakeAbsoluteResourcePath(resourcename, node->GetAttribute("library"));
+
+    IF(node->HasAttribute("lib"))
+    {
+      STRING callbacklibrary := node->GetAttribute("lib");
+      IF(callbacklibrary != "" AND callbacklibrary NOT LIKE "*::*")
+        RETURN "module::" || GetModuleNameFromResourcePath(resourcename) || "/" || callbacklibrary;
+      ELSE
+       RETURN callbacklibrary;
+    }
+  }
+  RETURN "";
+}
+
+/** Generate an URL to a protected manual
+    @param manual Name of the manual
+    @param accesstoken Accesstoken for the manual
+    @param language Current language
+    @param supportedlanguages Supported manual languages
+    @return Link to protected manual
+*/
+PUBLIC STRING FUNCTION GenerateProtectedManualURL(STRING manual, STRING accesstoken, STRING language, STRING ARRAY supportedlanguages)
+{
+  STRING selectlanguage := language IN supportedlanguages ? language : Length(supportedlanguages) > 0 ? supportedlanguages[0] : "en";
+  STRING url := selectlanguage="nl" ? "https://docs.webhare.nl/helpaction/" : "https://docs.webhare.com/helpaction/";
+
+  DATETIME now := GetCurrentDateTime();
+  STRING proof := EncodeHSON(CELL[ now, accesstoken ]);
+  RETURN UpdateURLVariables(url, CELL
+      [ now :=      FormatISO8601DateTime(now, "", "milliseconds")
+      , proof :=    EncodeUFS(GetSHA1Hash(proof))
+      , manual
+      , lang :=     selectlanguage
+      ]);
+}
+
+PUBLIC BOOLEAN FUNCTION IsOldStyleScreenReference(STRING screenref)
+{
+  RETURN screenref NOT LIKE "*#*"
+         OR (screenref LIKE ".*")
+         OR (screenref NOT LIKE "*::*" AND screenref LIKE "*:*.*");
+}

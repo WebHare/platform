@@ -1,0 +1,60 @@
+<?wh
+
+
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+
+
+// Puppeteer NavigationWatcher
+PUBLIC STATIC OBJECTTYPE NavigationWatcher
+<
+  OBJECT client;
+  RECORD options;
+  OBJECT lg;
+
+  MACRO NEW(OBJECT client, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->client := client;
+    this->options := ValidateOptions(
+        [ timeout :=      30000
+        , waituntil :=    "load"
+        ], options);
+  }
+
+  MACRO GotTimeout()
+  {
+    THROW NEW Exception(`Navigation Timeout Exceeded: ${this->options.timeout}ms exceeded`);
+  }
+
+  PUBLIC ASYNC MACRO WaitForNavigation()
+  {
+    this->lg := this->client->GetListenGroup();
+    TRY
+    {
+      OBJECT ARRAY navigationpromises;
+      INSERT NEW WaitableTimer(this->options.timeout)->WaitSignalled()->Then(PTR this->GotTimeout) INTO navigationpromises AT END;
+
+      IF (this->options.waituntil != "load")
+        THROW NEW Exception("Only wait until load is supported");
+
+      RECORD rec := CreateDeferredPromise();
+      this->lg->AddListener("Page.loadEventFired", rec.resolve);
+      INSERT rec.promise INTO navigationpromises AT END;
+
+      // ADDME: network idle
+
+      AWAIT CreatePromiseRace(navigationpromises);
+    }
+    FINALLY
+    {
+      this->Cancel();
+    }
+  }
+
+  PUBLIC MACRO Cancel()
+  {
+    IF (ObjectExists(this->lg))
+      this->lg->Close();
+  }
+>;

@@ -1,0 +1,49 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
+MACRO CheckEnvironment()
+{
+  RECORD mydesign := SELECT * FROM GetAvailableWebDesigns(FALSE) WHERE rowkey = "webhare_testsuite:basetest";
+  TestEq(TRUE, RecordExists(mydesign), 'my basetest not available');
+
+  RECORD myfeature := SELECT * FROM GetAvailableWebFeatures() WHERE rowkey = "webhare_testsuite:testfeature";
+  TestEq(TRUE, RecordExists(myfeature), 'my testfeature not available');
+}
+
+MACRO TestPresence()
+{
+  TestEq(DEFAULT STRING ARRAY, testfw->GetTestSite()->webfeatures);
+  TestEq(0, Length(GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/webhare_testsuite/blub", "blub", testfw->GetTestSite()->id)));
+  TestEq(1, Length(GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/webhare_testsuite/blub", "blub", GetTestsuiteTempFolder()->id)));
+
+  OBJECT sitetester := GetApplyTesterForObject(testfw->GetTestSite()->id);
+  OBJECT temptester := GetApplyTesterForObject(GetTestsuiteTempFolder()->id);
+  TestEq(FALSE, sitetester->MatchWebfeatures([ "webhare_testsuite:testfeature" ]));
+  TestEq(FALSE, temptester->MatchWebfeatures([ "webhare_testsuite:testfeature" ]));
+
+  testfw->BeginWork();
+  testfw->GetTestSite()->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:testfeature"]]);
+  testfw->CommitWork();
+
+  TestEq(["webhare_testsuite:testfeature"], testfw->GetTestSite()->webfeatures);
+  TestEq(1, Length(GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/webhare_testsuite/blub", "blub", testfw->GetTestSite()->id)));
+
+  TestEq(TRUE, sitetester->MatchWebfeatures([ "webhare_testsuite:testfeature" ]));
+  TestEq(TRUE, sitetester->MatchWebfeatures([ "*testfeature*" ]));
+  TestEq(FALSE, sitetester->MatchWebfeatures([ "testfeature" ]));
+  TestEq(FALSE, sitetester->MatchWebfeatures([ "webhare_testsuite:nonexisting" ]));
+  TestEq(TRUE, sitetester->MatchWebfeatures([ "webhare_testsuite:nonexisting", "webhare_testsuite:testfeature" ]));
+  TestEq(FALSE, temptester->MatchWebfeatures([ "webhare_testsuite:testfeature" ]));
+}
+
+RunTestframework([ PTR CheckEnvironment
+                 , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest",
+                        [ istemplate := FALSE
+                        , witherrors := FALSE
+                        , waitpublish := FALSE
+                        ])
+                 , PTR TestPresence
+                 ]);

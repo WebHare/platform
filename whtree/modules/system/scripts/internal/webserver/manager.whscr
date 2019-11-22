@@ -1,0 +1,15 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/internal/scriptmanager.whlib";
+
+
+OBJECT srh_mgmt := CreateIPCPort("system:scriptmanager");
+OBJECT srh_mgmt_global := CreateIPCPort("system:scriptmanager.webserver");
+
+__INTERNAL_KeepPortGlobal(srh_mgmt_global);
+
+OBJECT handler := NEW ManagementPortHandler(srh_mgmt, "webserver");
+handler->AddListeningPort(srh_mgmt_global);
+handler->Run();

@@ -1,0 +1,761 @@
+﻿<?wh
+/** @short TCP/IP connections
+    @long These functions allow access to the TCP/IP functions
+    @topic internet/tcpip
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib" EXPORT GetPathFromURL,GetPortFromURL,GetHostNameFromURL,GetProtocolFromURL,IsValidHostname;
+LOADLIB "wh::internal/interface.whlib";
+
+
+STATIC OBJECTTYPE SocketException EXTEND Exception
+< INTEGER pvt_errorcode;
+  PUBLIC PROPERTY errorcode(pvt_errorcode, -);
+  MACRO NEW(INTEGER code, STRING what) : Exception(what) { this->pvt_errorcode := code; }
+>;
+
+//These ciphersuite settings are taken from https://wiki.mozilla.org/Security/Server_Side_TLS
+PUBLIC CONSTANT STRING default_ciphersuites := "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA:!DSS";
+PUBLIC CONSTANT STRING modern_ciphersuites :=  "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256";
+
+
+STATIC OBJECTTYPE Socket EXTEND __HS_INTERNAL_OutputObject
+< // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY localip(GetLocalIP, -);
+  PUBLIC PROPERTY localport(GetLocalPort, -);
+  PUBLIC PROPERTY remoteip(GetRemoteIP, -);
+  PUBLIC PROPERTY remoteport(GetRemotePort, -);
+  PUBLIC PROPERTY sendbuffersize(GetSendBufferSize, SetSendBufferSize);
+  PUBLIC PROPERTY timeout(GetTimeout, SetTimeout);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER socket)
+  : __HS_INTERNAL_OutputObject(socket, TRUE)
+  {
+    this->SetSocketMarshaller();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetSocketMarshaller() __ATTRIBUTES__(EXTERNAL);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetLocalIP()
+  {
+    RETURN GetLocalSocketIP(this->pvt_handle);
+  }
+
+  INTEGER FUNCTION GetLocalPort()
+  {
+    RETURN GetLocalSocketPort(this->pvt_handle);
+  }
+
+  STRING FUNCTION GetRemoteIP()
+  {
+    RETURN GetRemoteSocketIP(this->pvt_handle);
+  }
+
+  INTEGER FUNCTION GetRemotePort()
+  {
+    RETURN GetRemoteSocketPort(this->pvt_handle);
+  }
+
+  INTEGER FUNCTION GetSendBufferSize()
+  {
+    RETURN GetSocketSendBufferSize(this->pvt_handle);
+  }
+
+  MACRO SetSendBufferSize(INTEGER newsize)
+  {
+    SetSocketSendBufferSize(this->pvt_handle, newsize);
+  }
+
+  INTEGER FUNCTION GetTimeout()
+  {
+    RETURN __HS_TCPIP_GetSocketTimeout(this->pvt_handle);
+  }
+
+  MACRO SetTimeout(INTEGER newtimeout)
+  {
+    SetSocketTimeout(this->pvt_handle, newtimeout);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    CloseSocket(this->pvt_handle);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC BOOLEAN FUNCTION Connect(STRING host, INTEGER port)
+  {
+    RETURN ConnectSocket(this->pvt_handle, host, port);
+  }
+
+  PUBLIC OBJECT FUNCTION AsyncConnect(STRING host, INTEGER port)
+  {
+    RETURN AsyncConnectSocket(this->pvt_handle, host, port);
+  }
+
+  PUBLIC BOOLEAN FUNCTION Bind(STRING host, INTEGER port)
+  {
+    RETURN BindSocket(this->pvt_handle, host, port);
+  }
+
+  PUBLIC INTEGER FUNCTION Write(STRING data)
+  {
+    RETURN WriteTo(this->pvt_handle, data);
+  }
+
+  PUBLIC INTEGER FUNCTION GetLastError()
+  {
+    RETURN GetLastSocketError(this->pvt_handle);
+  }
+
+  PUBLIC MACRO Shutdown(BOOLEAN shutdownread, BOOLEAN shutdownwrite)
+  {
+    ShutdownSocket(this->pvt_handle, shutdownread, shutdownwrite);
+  }
+
+>;
+
+STATIC OBJECTTYPE UDPSocket EXTEND Socket
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER socket)
+  : Socket(socket)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** @short UDPSend is used to send a datagram over UDP
+  */
+  PUBLIC BOOLEAN FUNCTION SendTo(STRING remoteip, INTEGER remoteport, STRING data)
+  {
+    RETURN SendSocketUDP(this->pvt_handle, remoteip, remoteport, data);
+  }
+
+  /** @short UDPReceive is used to receive a datagram over UDP
+  */
+  PUBLIC RECORD FUNCTION ReceiveDatagram(INTEGER connectionid)
+  {
+    RETURN ReceiveSocketUDP(this->pvt_handle);
+  }
+
+>;
+
+STATIC OBJECTTYPE TCPSocket EXTEND Socket
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER socket)
+  : Socket(socket)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Set the certificate and key for an SSL connection
+      @param certificate PEM-encoded certificate and key (just concatenate them)
+      @return Whether the operation was successful
+  */
+  PUBLIC BOOLEAN FUNCTION SetCertificateAndKey(BLOB certificate)
+  {
+    RETURN __hs_tcpip_setcert(this->pvt_handle, certificate);
+  }
+
+  /** Connect to an SSL port
+      @param host
+      @param port
+      @param options Connection options
+      @cell(string) options.hostname Hostname to use for SNI
+      @cell(string)  options.ciphersuites Override the ciphersuites to use
+      @return Whether the operation was successful
+  */
+  PUBLIC BOOLEAN FUNCTION ConnectSSL(STRING host, INTEGER port, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN ConnectSocket(this->pvt_handle, host, port)
+           AND SetSecureConnection(this->pvt_handle, TRUE, options);
+  }
+
+  /** Asynchrnously connect to an SSL port
+      @param host
+      @param port
+      @param options Connection options
+      @cell(string) options.hostname Hostname to use for SNI
+      @cell(string)  options.ciphersuites Override the ciphersuites to use
+      @return A promise resolving to whether the operation was successful
+  */
+  PUBLIC OBJECT ASYNC FUNCTION AsyncConnectSSL(STRING host, INTEGER port, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN AWAIT AsyncConnectSocket(this->pvt_handle, host, port)
+           AND SetSecureConnection(this->pvt_handle, TRUE, options);
+  }
+
+  /** Start SSL over an existing connection
+      @param initiate Whether this side is the initiator for the switch to SSL
+      @param options Options
+      @param options Connection options
+      @cell(string) options.hostname Hostname to use for SNI
+      @cell(string)  options.ciphersuites Override the ciphersuites to use
+  */
+  PUBLIC BOOLEAN FUNCTION StartSSL(BOOLEAN initiate, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN SetSecureConnection(this->pvt_handle, initiate, options);
+  }
+
+  /** Listen to incoming connections. The socket becomes signalled upon incoming connections
+  */
+  PUBLIC BOOLEAN FUNCTION Listen()
+  {
+    RETURN ListenOnTCPSocket(this->pvt_handle);
+  }
+
+  /** Accepts an incoming connection. When an incoming connection is actually available, a new
+      socket for that connection is returned.
+  */
+  PUBLIC OBJECT FUNCTION Accept()
+  {
+    INTEGER handle := AcceptOnTCPSocket(this->pvt_handle);
+    IF (handle <= 0)
+      RETURN DEFAULT OBJECT;
+    RETURN NEW TCPSocket(handle);
+  }
+
+  /* Returns the last error of this socket
+  */
+  PUBLIC STRING FUNCTION GetErrorMessage()
+  {
+    RECORD errinfo := __HS_TCPIP_GETLASTERROR(this->pvt_handle);
+    IF(errinfo.sslerror != "")
+      RETURN errinfo.sslerror;
+    RETURN GetSocketErrorText(errinfo.errorcode) ?? "Socket error #" || errinfo.errorcode;
+  }
+
+  /** Returns the PEM-encoded certificate chain of the peer. Due tot the current design of the SSL code,
+      some data need to be have been received before the SSL connection has been setup fully, and the
+      peer certificate is available.
+  */
+  PUBLIC STRING FUNCTION GetPeerCertificateChain()
+  {
+    // This won't return the peer certificate (only its chain) for server sockets, but since we
+    // can't enable verification yet the client won't send certificates anyway
+    RETURN __HS_TCPIP_GetPeerCertificateChain(this->pvt_handle);
+  }
+>;
+
+////////////////////////////////////////////////////////////////////////////
+//
+// Raw TCP/IP interface
+//
+
+//incomplete, so not documented yet
+PUBLIC OBJECT FUNCTION CreateSocket(STRING type)
+{
+  IF(type = "TCP")
+    RETURN NEW TCPSocket(CreateTCPSocket());
+  ELSE IF(type = "UDP")
+    RETURN NEW UDPSocket(CreateUDPSocket());
+  ELSE
+    THROW NEW Exception("Unsupported socket type '" || type || "'");
+}
+
+/** @short Create a new TCP socket
+    @return ID of connection for new socket. If a negative ID is returned, an error has occured
+    @see GetSocketErrorText
+*/
+PUBLIC INTEGER FUNCTION CreateTCPSocket() __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Create a new UDP socket
+    @return ID of connection for new socket. If a negative ID is returned, an error has occured
+    @see GetSocketErrorText
+*/
+PUBLIC INTEGER FUNCTION CreateUDPSocket() __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Get the last error on a TCP/IP socket
+    @param connectionid Integer connectionid to use
+    @return Integer with last error at this connection (if exists)
+    Error codes:
+       0: nothing went wrong
+      -1: a not (yet) supported error
+      -2: the socket/connection has been gracefully closed
+      -3: there was no connection
+      -4: address already in use
+      -5: there is still data left to be sent
+      -6: message too big for underlying protocol
+      -7: destination unreachable
+      -8: connection refused or aborted
+      -9: a time limited call timed out
+     -10: the socket was already connected
+     -11: invalid argument, or invalid action for this socket state/type
+     -12: the socket/connection has already been disconnected
+     -13: The call would block
+     -14: Connecting is already in progress
+     -15: Tis operation requires a nonblocking socket
+     -16: Unable to resolve hostname
+*/
+PUBLIC INTEGER FUNCTION GetLastSocketError(INTEGER connectionid)
+{
+  RETURN __HS_TCPIP_GETLASTERROR(connectionid).errorcode;
+}
+
+/** @short Convert a TCP/IP socket error to text
+    @param errorcode Code of the error
+    @return String with the tcp error text belonging to this code
+*/
+PUBLIC STRING FUNCTION GetSocketErrorText(INTEGER errorcode) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Bind a TCP/IP socket to an IP address and/or a port
+    @param connectionid Connection ID to bind
+    @param host IP address or hostname to bind to, or empty for bind-anywhere
+    @param port Port to bind to, or 0 to bind to at any available port
+    @return True on a succesful bind, false on failure
+    @see GetLastSocketError
+*/
+PUBLIC BOOLEAN FUNCTION BindSocket(INTEGER connectionid, STRING host, INTEGER port)
+{
+  IF (host!="" AND NOT IsValidIPAddress(host))
+  {
+    host := ResolveHostname(host);
+    IF (host="")
+    {
+      __HS_TCPIP_SETLASTERROR(connectionid,256);
+      RETURN FALSE;
+    }
+  }
+  IF(host="") //backwards compatibility, this is ipv4 bind-any
+    host := "0.0.0.0";
+  RETURN __HS_TCPIP_Bind(connectionid, host, port);
+}
+
+STRING ARRAY FUNCTION GetConnectIPsForHost(STRING host, INTEGER port)
+{
+  STRING ARRAY tryhosts;
+  IF(host="" OR IsValidIPAddress(host))
+    tryhosts := [ host ];
+  ELSE
+  {
+    tryhosts := ResolveHostnameAllIPs(host);
+    IF(Length(tryhosts)=0)
+      RETURN tryhosts;
+
+    // Randomize, but make sure the first host keeps the same protocol (ipv4/ipv6) as given back by getaddrinfo
+    BOOLEAN first_entry_ipv6 := tryhosts[0] LIKE "*:*";
+    tryhosts :=
+        SELECT AS STRING ARRAY hostip
+          FROM ToRecordArray(tryhosts, "HOSTIP")
+      ORDER BY ((hostip LIKE "*:*") != first_entry_ipv6) // FALSE comes first
+            , Random(1, 256);
+  }
+
+  RETURN tryhosts;
+}
+
+
+
+/** @short Connect a TCP/IP socket to an IP address and/or a port
+    @param connectionid Connection ID to bind
+    @param host IP address to connect to
+    @param port Port to connect to
+    @return TRUE on a succesful connect, FALSE on failure
+    @see GetLastTCPError
+*/
+PUBLIC BOOLEAN FUNCTION ConnectSocket(INTEGER connectionid, STRING host, INTEGER port)
+{
+  OBJECT itr := ConnectSocketInternal(connectionid, host, port, FALSE);
+  RETURN RunGeneratorUntilReturn(itr);
+}
+
+/** @short Asynchronously connect a TCP/IP socket to an IP address and/or a port
+    @param connectionid Connection ID to bind
+    @param host IP address to connect to
+    @param port Port to connect to
+    @return A promise which resolves to TRUE on a succesful connect, FALSE on failure
+    @see GetLastTCPError
+*/
+PUBLIC OBJECT FUNCTION AsyncConnectSocket(INTEGER connectionid, STRING host, INTEGER port)
+{
+  OBJECT itr := ConnectSocketInternal(connectionid, host, port, TRUE);
+  RETURN GeneratorSpawn(itr);
+}
+
+
+OBJECT FUNCTION* ConnectSocketInternal(INTEGER connectionid, STRING host, INTEGER port, BOOLEAN isasync)
+{
+  STRING ARRAY tryhosts := GetConnectIPsForHost(host, port);
+  IF (LENGTH(tryhosts) = 0)
+  {
+    __HS_TCPIP_SETLASTERROR(connectionid,-16/*unable to resolve*/);
+    RETURN FALSE;
+  }
+
+  INTEGER timeout := GetSocketTimeout(connectionid);
+  IF (timeout = -1)
+    timeout := 5000;
+
+  FOREVERY(STRING tryhost FROM tryhosts)
+  {
+    // Start async connect
+    DATETIME wait_until := AddTimeToDate(timeout, GetCurrentDateTime());
+    INTEGER res := __HS_TCPIP_Connect(connectionid, tryhost, port, host);
+    WHILE (TRUE)
+    {
+      // Check if we got a connection or an error
+      IF (res = 0)
+        RETURN TRUE; // Connected, done!
+      IF (res = -1)
+        BREAK; // Failed, check next host.
+
+      // No, wait for writability of the socket.
+      BOOLEAN signalled;
+      IF (isasync)
+        signalled := (YIELD AsyncWaitHandleWriteSignalled(connectionid, wait_until)) != -1;
+      ELSE
+        signalled := WaitForMultipleUntil(DEFAULT INTEGER ARRAY, [ connectionid ], wait_until) != -1;
+
+      IF (NOT signalled)
+      {
+        // Timeout, cancel the connect
+        __HS_TCPIP_FinishConnect(connectionid, TRUE);
+        BREAK;
+      }
+
+      // Wakeup, check connection status (might be spurious wakeup!)
+      res := __HS_TCPIP_FinishConnect(connectionid, FALSE);
+    }
+  }
+
+  RETURN FALSE;
+}
+
+
+/** @short Make a current TCP connection secure using SSL
+    @param connectionid ID of connection to secure
+    @param initiate True to initiate a secure connection, false to accept a secure connection
+    @param options
+    @cell options.hostname Hostname to use for SNI
+    @cell options.ciphersuites Override the ciphersuites to use
+    @return True on success
+*/
+PUBLIC BOOLEAN FUNCTION SetSecureConnection(INTEGER connectionid, BOOLEAN initiate DEFAULTSTO TRUE, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ hostname := "", ciphersuites := default_ciphersuites ], options);
+
+  RETURN __HS_TCPIP_SetSecureConnection(connectionid, initiate, options.ciphersuites, options.hostname);
+}
+
+
+
+/** @short Close a TCP/IP socket and free its associated data
+    @param connectionid ID of connection to close (will be invalid after the close) */
+PUBLIC MACRO CloseSocket(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Shutdown a TCP socket (it will still need a CloseSocket call)
+    @param connectionid ID of connection to close (will be invalid after the close)
+    @param shutdownread True to shutdown reading
+    @param shutdownwrite True to shutdown writing
+    */
+PUBLIC MACRO ShutdownSocket(INTEGER connectionid, BOOLEAN shutdownread, BOOLEAN shutdownwrite) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Listen on a TCP/IP sockets for incoming connections
+    @param connectionid ID of connection to set to listening mode
+    @return True on a succesful listen, false on failure
+    @see GetLastSocketError
+*/
+PUBLIC BOOLEAN FUNCTION ListenOnTCPSocket(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Accept an incoming connection on a TCP/IP socket
+    @param connectionid Connection ID to use
+    @return ID of connection for new socket. If a negative ID is returned, an error has occured
+    @see GetSocketErrorText
+*/
+PUBLIC INTEGER FUNCTION AcceptOnTCPSocket(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Set the timeout used for sending and receiving calls
+    @param connectionid ID of the connection to set the timeout for
+    @param timeout The timeout in milliseconds (-1 = no timeout)
+*/
+PUBLIC MACRO SetSocketTimeout(INTEGER connectionid, INTEGER timeout) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Get the timeout used for sending and receiving calls
+    @param connectionid ID of the connection to set the timeout for
+    @param timeout The timeout in milliseconds (-1 = no timeout or no socket)
+*/
+PUBLIC INTEGER FUNCTION GetSocketTimeout(INTEGER connectionid)
+{
+  RETURN __HS_TCPIP_GetSocketTimeout(connectionid);
+}
+
+
+
+/** @short Receive is used to receive data from a socket
+    @param connectionid ID of the connection to receive data from
+    @return Received data. If an empty string is returned, check GetLastSocketError to see which error occured
+*/
+PUBLIC STRING FUNCTION ReadFromSocket(INTEGER connectionid)
+{ RETURN ReadFrom(connectionid,-1024); }
+
+
+
+/** @short GetLocalSocketIP is used to get the local IP address from an open connection
+    @param connectionid ID of connection to get the local IP address from
+    @return String containing the IP address
+    @see GetRemoteSocketIP, GetLocalSocketPort, GetRemoteSocketPort
+*/
+PUBLIC STRING FUNCTION GetLocalSocketIP(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short GetLocalSocketPort is used to get the local port number from an open connection
+    @param connectionid ID of connection to get the local port number from
+    @return Integer containing the port number
+    @see GetRemoteSocketPort, GetLocalSocketIP, GetRemoteSocketIP
+*/
+PUBLIC INTEGER FUNCTION GetLocalSocketPort(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short GetRemoteSocketIP is used to get the remote ip address from an open connection
+    @param connectionid ID of connection to get the remote IP address from
+    @return String containing the ip address
+    @see GetLocalSocketIP, GetLocalSocketPort, GetRemoteSocketPort
+*/
+PUBLIC STRING FUNCTION GetRemoteSocketIP(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short GetRemoteSocketPort is used to get the remote port number from an open connection
+    @param connectionid ID of connection to get the remote port number from
+    @return Integer containing the port number
+    @see GetLocalSocketPort, GetLocalSocketIP, GetRemoteSocketIP
+*/
+PUBLIC INTEGER FUNCTION GetRemoteSocketPort(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
+
+/** @short UDPSend is used to send a datagram over UDP
+*/
+PUBLIC BOOLEAN FUNCTION SendSocketUDP(INTEGER connectionid, STRING remoteip, INTEGER remoteport, STRING data) __ATTRIBUTES__(EXTERNAL);
+
+/** @short UDPReceive is used to receive a datagram over UDP
+*/
+PUBLIC RECORD FUNCTION ReceiveSocketUDP(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
+
+/** Returns the PEM-encoded certificate chain of the peer. Due tot the current design of the SSL code,
+    some data need to be have been received before the SSL connection has been setup fully, and the
+    peer certificate is available.
+    @param connectionid Socket handle
+*/
+PUBLIC STRING FUNCTION GetSocketPeerCertificateChain(INTEGER connectionid)
+{
+  // This won't return the peer certificate (only its chain) for server sockets, but since we
+  // can't enable verification yet the client won't send certificates anyway
+  RETURN __HS_TCPIP_GetPeerCertificateChain(connectionid);
+}
+
+/** @short Convert an IP address to its shortest, least ambiguous format
+    @param address IP address to canonicalizer
+    @param with_prefixlength If true, the input address may have a prefix length, and the output address will
+    @return The canonical ip address. An empty string if the ip address or prefix length is invalid*/
+PUBLIC STRING FUNCTION CanonicalizeIPAddress(STRING address, BOOLEAN with_prefixlength)
+{
+  IF(address LIKE "ipv4:*") //old obsolete format
+    address:=Substring(address,5);
+
+  INTEGER savedprefix := -1;
+  INTEGER slashpos := SearchSubstring(address,"/");
+  BOOLEAN isipv6 := address LIKE "*:*";
+
+
+  IF(slashpos != -1)
+  {
+    IF(NOT with_prefixlength)
+      RETURN "";
+
+    IF(slashpos != -1)
+    {
+      savedprefix := ToInteger(Substring(address,slashpos+1),-1);
+      IF(savedprefix<0)
+        RETURN "";
+      address:=Left(address,slashpos);
+    }
+  }
+
+  //support old-style 1.2.*.* ipv4 masks
+  IF(NOT isipv6 AND with_prefixlength AND savedprefix = -1)
+  {
+    IF(address="*.*.*.*")
+    {
+      address := "0.0.0.0";
+      savedprefix := 0;
+    }
+    ELSE IF(Right(address,6)=".*.*.*")
+    {
+      address := Left(address, Length(address)-6) || ".0.0.0";
+      savedprefix := 8;
+    }
+    ELSE IF(Right(address,4)=".*.*")
+    {
+      address := Left(address, Length(address)-4) || ".0.0";
+      savedprefix := 16;
+    }
+    ELSE IF(Right(address,2)=".*")
+    {
+      address := Left(address, Length(address)-2) || ".0";
+      savedprefix := 24;
+    }
+  }
+
+  IF(savedprefix=-1)
+    savedprefix := isipv6 ? 128 : 32;
+
+  address := __HS_TCPIP_CanonicalizeIP(address, savedprefix);
+  IF(address="")
+    RETURN "";
+
+  IF(with_prefixlength)
+    address := address || "/" || savedprefix;
+  RETURN address;
+}
+
+PUBLIC BOOLEAN FUNCTION IsValidIPV4Address(STRING address)
+{
+  RETURN address NOT LIKE "*:*" AND __HS_TCPIP_CanonicalizeIP(address,32) != "";
+}
+
+PUBLIC BOOLEAN FUNCTION IsValidIPV6Address(STRING address)
+{
+  RETURN address LIKE "*:*" AND __HS_TCPIP_CanonicalizeIP(address,128) != "";
+}
+
+/** @short Is a string a valid IP address?
+    @long  This function tests whether an IP address is a syntactically valid IPv4 or IPv6 IP address
+    @param address IP address to check
+    @return True if the string is a valid IP address
+*/
+PUBLIC BOOLEAN FUNCTION IsValidIPAddress(STRING address)
+{
+  RETURN __HS_TCPIP_CanonicalizeIP(address,128) != "";
+}
+
+/** @short Is an address a private IP address? (localhost or other private space)
+    @long Tells whether the address should be considered local or private, eg 192.168.*, 127.0.0.1, 10.*, ::1.... This should
+          never be used for any security or authentication purposes, but can be useful to eg. return default values for
+          GEOIP checks */
+PUBLIC BOOLEAN FUNCTION IsPrivateIPAddress(STRING address)
+{
+  IF(address LIKE "*:*")
+  {
+    STRING canonical := __HS_TCPIP_CanonicalizeIP(address,128);
+    IF(canonical="")
+      RETURN FALSE;
+    IF(canonical="::1")
+      RETURN TRUE;
+    IF(canonical LIKE "fc*" OR canonical LIKE "fd*" OR (canonical >= "fe8" ANd canonical < "fec"))
+      RETURN TRUE;
+    RETURN FALSE;
+  }
+  ELSE //IPv4
+  {
+    STRING canonical := __HS_TCPIP_CanonicalizeIP(address,32);
+    IF(canonical="")
+      RETURN FALSE;
+    IF(canonical LIKE "127.*" OR canonical LIKE "10.*" OR canonical LIKE "192.168.*" OR canonical LIKE "169.254.*")
+      RETURN TRUE;
+    IF(canonical LIKE "172.*")
+    {
+      INTEGER secondnet := ToInteger(Tokenize(canonical,'.')[1],0);
+      RETURN secondnet >= 16 AND secondnet < 32;
+    }
+    RETURN FALSE;
+  }
+}
+
+/** @short Resolve a hostname to an IP address
+    @param hostname Hostname to resolve
+    @return The IP for this hostname, or an empty string if the hostname couldn't be resolved
+*/
+PUBLIC STRING FUNCTION ResolveHostname(STRING hostname) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING ARRAY FUNCTION ResolveHostnameAllIPs(STRING hostname) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING ARRAY FUNCTION GetLocalIPs() __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC MACRO SetSocketSendBufferSize(INTEGER connid, INTEGER buffersize) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER FUNCTION GetSocketSendBufferSize(INTEGER connid) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Resolve an IP address to a hostname
+    @param ip IP address to resolve
+    @return The hostname for this IP, or an empty string if the IP address couldn't be resolved
+*/
+PUBLIC STRING FUNCTION ResolveIPAddress(STRING ip) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Get the system's host name
+    @param completehostname Try to get a full hostname from the DNS if the configured hostname does not contain dots (can cause DNS lookup delays)
+    @return Hostname of the system */
+PUBLIC STRING FUNCTION GetSystemHostName(BOOLEAN completehostname DEFAULTSTO FALSE) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC OBJECT FUNCTION __RESTOREMARSHALLEDSOCKET(INTEGER handle, BOOLEAN istcp)
+{
+  RETURN istcp ? NEW TCPSocket(handle) : NEW UDPSocket(handle);
+}
+
+/** Correctly formats a socket address (surrounding IPv6 addresses with [])
+    @param ip IP address
+    @param port Port number
+    @return Formatted socket address (eg. '127.0.0.1:123', '[2001:db8::1]:123')
+*/
+PUBLIC STRING FUNCTION FormatSocketAddress(STRING ip, INTEGER port)
+{
+  // Surround IPv6 addresses in square brackets ('[]')
+  IF (ip LIKE "*:*" AND ip NOT LIKE "[*:*]")
+    ip := `[${ip}]`;
+
+  RETURN `${ip}:${port}`;
+}

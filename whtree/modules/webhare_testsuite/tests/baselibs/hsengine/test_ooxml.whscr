@@ -1,0 +1,407 @@
+<?wh
+
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+
+CONSTANT RECORD ARRAY columns :=
+    [ [ name := "title", title := "Col 1:title", type := "text" ]
+    , [ name := "bool",  title := "Col 2:bool",  type := "boolean" ]
+    , [ name := "date",  title := "Col 3:date",  type := "date"    , storeutc := TRUE ]
+    , [ name := "int",   title := "Col 4:int",   type := "integer" ]
+    , [ name := "time",  title := "Col 5:time",  type := "time" , storeutc := TRUE ]
+    , [ name := "time2",  title := "Col 6:time2",  type := "timestamp"  ]
+    , [ name := "dt",  title := "Col 7:datetime",  type := "datetime", storeutc := FALSE ]
+    , [ name := "mf",  title := "Col 8:mf",  type := "money"  ]
+    , [ name := "sa",  title := "Col 9:stringarray",  type := "text"  ]
+    , [ name := "int64",  title := "Col 10:int64",  type := "integer64"  ]
+    ];
+
+DATETIME now := makeDatetime(2011,12,8,7,58,12);
+DATETIME sometime := makeDatetime(2011,11,9,0,6,6);
+
+RECORD ARRAY outrows;
+
+RECORD ARRAY reftestrows := [ [ title := "Ti<>tle 1", bool := TRUE, date := now, int := 17,    time:=now, time2 := GetMsecondCount(now), dt := now, mf := 1.5, sa := ["a","2"], int64 := 0 ]
+                            , [ title := "Tit&le 2\nnext line!", bool := FALSE, date := sometime, int := 666, time:=sometime, time2 := MakeTime(6, 6, 6), dt:=sometime, mf := 2.5, sa := [3,4], int64 := -10000000000i64 ]
+                            ];
+
+BOOLEAN FUNCTION OnRow(VARIANT ARRAY cells)
+{
+  INSERT [ cells := cells ] INTO outrows AT END;
+  RETURN TRUE;
+}
+
+OBJECT FUNCTION GetSheet1(BLOB xlsx)
+{
+  RECORD ARRAY result := UnpackArchive(xlsx);
+  BLOB sheet1blob := SELECT AS BLOB data FROM result WHERE name='sheet1.xml';
+  TestEq(TRUE, Length(sheet1blob)>0);
+  OBJECT sheet1xml := MakeXMLDocument(sheet1blob);
+  TestEq(TRUE, ObjectExists(sheet1xml));
+  RETURN sheet1xml;
+}
+
+MACRO TestXLSX_columnfiles()
+{
+  OpenTest("TestXLSX_columnfiles");
+
+  RECORD output2 := GenerateXLSXFile(CELL[ rows := reftestrows, columns, timezone := "CET" ]);
+  TestEqLike("*.xlsx", output2.filename);
+
+  OBJECT sheet1xml2 := GetSheet1(output2.data);
+
+  //Verify the \n was written as \r
+  OBJECT nodewithlinefeed := sheet1xml2->QuerySelector("//c[r=A3]");
+  TestEq("Tit&le 2\rnext line!",nodewithlinefeed->textcontent);
+
+  OBJECT xlsxin := OpenOOXMLSpreadSheetFile(output2.data);
+  TestEq(TRUE, ObjectExists(xlsxin));
+
+  OBJECT xlssheet := xlsxin->OpenSheet(0);
+  xlssheet->ExportRowsToCallback(PTR onrow);
+
+  TestEq(3, Length(outrows));
+
+  TestEq(Length(columns), Length(outrows[0].cells));
+  FOREVERY(RECORD col FROM columns)
+    TestEq(columns[#col].title, outrows[0].cells[#col]);
+
+  TestEq(Length(columns), Length(outrows[1].cells));
+  TestEq("Ti<>tle 1", outrows[1].cells[0]);
+  TestEq(TRUE, outrows[1].cells[1]);
+  TestEq(GetRoundedDatetime(UTCToLocal(now,"CET"), 86400*1000), outrows[1].cells[2]);
+  TestEqFloat(17, outrows[1].cells[3],0.001);
+  TestEq(MakeTime(8,58,12), GetMsecondCount(xlsxin->ExcelFloatToDateTime( outrows[1].cells[4]) ));
+  TestEq(MakeTime(7,58,12), GetMsecondCount(xlsxin->ExcelFloatToDateTime( outrows[1].cells[5]) ));
+  TestEq(now, outrows[1].cells[6]);
+  TestEq(1.5f, outrows[1].cells[7]);
+  TestEq("a; 2", outrows[1].cells[8]);
+  TestEq(0f, outrows[1].cells[9]);
+
+  TestEq(Length(columns), Length(outrows[2].cells));
+  TestEq("Tit&le 2\nnext line!", outrows[2].cells[0]);
+  TestEq(FALSE, outrows[2].cells[1]);
+  TestEq(GetRoundedDatetime(UTCToLocal(sometime,"CET"), 86400*1000), outrows[2].cells[2]);
+  TestEqFloat(666, outrows[2].cells[3],0.001);
+  TestEq(MakeTime(1,6,6), GetMsecondCount(xlsxin->ExcelFloatToDateTime( outrows[2].cells[4]) ));
+  TestEq(MakeTime(6,6,6), GetMsecondCount(xlsxin->ExcelFloatToDateTime( outrows[2].cells[5]) ));
+  TestEq(sometime, outrows[2].cells[6]);
+  TestEq(2.5f, outrows[2].cells[7]);
+  TestEq("3; 4", outrows[2].cells[8]);
+  TestEq(-10000000000f, outrows[2].cells[9]);
+
+  outrows := RECORD[];
+  xlssheet->ExportRowsToCallback(PTR onrow, [ alltostring := TRUE ]);
+
+  TestEq(3, Length(outrows));
+
+  TestEq(Length(columns), Length(outrows[0].cells));
+  FOREVERY(RECORD col FROM columns)
+    TestEq(columns[#col].title, outrows[0].cells[#col]);
+
+  TestEq(Length(columns), Length(outrows[1].cells));
+  TestEq("Ti<>tle 1", outrows[1].cells[0]);
+  TestEq("TRUE", outrows[1].cells[1]);
+  TestEq(FormatISO8601DateTime(GetRoundedDatetime(UTCToLocal(now,"CET"), 86400*1000)), outrows[1].cells[2]);
+  TestEq("17", outrows[1].cells[3]);
+  TestEq("0", outrows[1].cells[4]);
+  TestEq("0", outrows[1].cells[5]);
+  TestEq(FormatISO8601DateTime(now), outrows[1].cells[6]);
+  TestEq("2", outrows[1].cells[7]);
+  TestEq("a; 2", outrows[1].cells[8]);
+  TestEq("0", outrows[1].cells[9]);
+
+  TestEq(Length(columns), Length(outrows[2].cells));
+  TestEq("Tit&le 2\nnext line!", outrows[2].cells[0]);
+  TestEq("FALSE", outrows[2].cells[1]);
+  TestEq(FormatISO8601DateTime(GetRoundedDatetime(UTCToLocal(sometime,"CET"), 86400*1000)), outrows[2].cells[2]);
+  TestEq("666", outrows[2].cells[3]);
+  TestEq("0", outrows[2].cells[4]);
+  TestEq("0", outrows[2].cells[5]);
+  TestEq(FormatISO8601DateTime(sometime), outrows[2].cells[6]);
+  TestEq("3", outrows[2].cells[7]);
+  TestEq("3; 4", outrows[2].cells[8]);
+  TestEq("-10000000000", outrows[2].cells[9]);
+
+  outrows := RECORD[];
+  xlssheet->ExportRowsToCallback(PTR onrow, [ alltostring := TRUE, floatmode := "money" ]);
+
+  TestEq(3, Length(outrows));
+
+  TestEq(Length(columns), Length(outrows[1].cells));
+  TestEq("Ti<>tle 1", outrows[1].cells[0]);
+  TestEq("TRUE", outrows[1].cells[1]);
+  TestEq(FormatISO8601DateTime(GetRoundedDatetime(UTCToLocal(now,"CET"), 86400*1000)), outrows[1].cells[2]);
+  TestEq("17", outrows[1].cells[3]);
+  TestEq(FormatMoney(MONEY(MakeTime(8,58,12))/(24*60*60*1000), 0, ".", "", FALSE), outrows[1].cells[4]);
+  TestEq(FormatMoney(MONEY(MakeTime(7,58,12))/(24*60*60*1000), 0, ".", "", FALSE), outrows[1].cells[5]);
+  TestEq(FormatISO8601DateTime(now), outrows[1].cells[6]);
+  TestEq("1.5", outrows[1].cells[7]);
+  TestEq("a; 2", outrows[1].cells[8]);
+  TestEq("0", outrows[1].cells[9]);
+
+  TestEq(Length(columns), Length(outrows[2].cells));
+  TestEq("Tit&le 2\nnext line!", outrows[2].cells[0]);
+  TestEq("FALSE", outrows[2].cells[1]);
+  TestEq(FormatISO8601DateTime(GetRoundedDatetime(UTCToLocal(sometime,"CET"), 86400*1000)), outrows[2].cells[2]);
+  TestEq("666", outrows[2].cells[3]);
+  TestEq(FormatMoney(MONEY(MakeTime(1,6,6))/(24*60*60*1000), 0, ".", "", FALSE), outrows[2].cells[4]);
+  TestEq(FormatMoney(MONEY(MakeTime(6,6,6))/(24*60*60*1000), 0, ".", "", FALSE), outrows[2].cells[5]);
+  TestEq(FormatISO8601DateTime(sometime), outrows[2].cells[6]);
+  TestEq("2.5", outrows[2].cells[7]);
+  TestEq("3; 4", outrows[2].cells[8]);
+  TestEq("-10000000000", outrows[2].cells[9]);
+
+  outrows := RECORD[];
+  xlssheet->ExportRowsToCallback(PTR onrow, [ floatmode := "money" ]);
+
+  TestEq(3, Length(outrows));
+
+  TestEq(Length(columns), Length(outrows[1].cells));
+  TestEq("Ti<>tle 1", outrows[1].cells[0]);
+  TestEq(TRUE, outrows[1].cells[1]);
+  TestEq(GetRoundedDatetime(UTCToLocal(now,"CET"), 86400*1000), outrows[1].cells[2]);
+  TestEq(17m, outrows[1].cells[3]);
+  TestEq(0.37375, outrows[1].cells[4]);
+  TestEq(0.33208, outrows[1].cells[5]);
+  TestEq(now, outrows[1].cells[6]);
+  TestEq(1.5m, outrows[1].cells[7]);
+  TestEq("a; 2", outrows[1].cells[8]);
+  TestEq(0m, outrows[1].cells[9]);
+
+  TestEq(Length(columns), Length(outrows[2].cells));
+  TestEq("Tit&le 2\nnext line!", outrows[2].cells[0]);
+  TestEq(FALSE, outrows[2].cells[1]);
+  TestEq(GetRoundedDatetime(sometime, 86400*1000), outrows[2].cells[2]);
+  TestEq(666m, outrows[2].cells[3]);
+  TestEq(0.0459m, outrows[2].cells[4]);
+  TestEq(0.25424m, outrows[2].cells[5]);
+  TestEq(sometime, outrows[2].cells[6]);
+  TestEq(2.5m, outrows[2].cells[7]);
+  TestEq("3; 4", outrows[2].cells[8]);
+  TestEq(-10000000000m, outrows[2].cells[9]);
+
+  RECORD headersonly := GenerateXLSXFile(CELL[ rows := RECORD[], columns, timezone := "CET" ]);
+  TestEqLike("*.xlsx", headersonly.filename);
+  OBJECT importxlsxfile := OpenOOXMLSpreadSheetFile(headersonly.data);
+  OBJECT importxlsxsheet := importxlsxfile->OpenSheet(0);
+  TestEqLike("Col 1:title", importxlsxsheet->GetCellValueByCellName("A1"));
+  TestEq(RECORD[], GetOOXMLSpreadsheetRows(headersonly.data));
+  TestEqMembers(RECORD[[a:="Col 1:title",b:="Col 2:bool"]], GetOOXMLSpreadsheetRows(headersonly.data, [processheaders := FALSE]), "A,B");
+
+  CloseTest("TestXLSX_columnfiles");
+}
+
+MACRO TestXLSX_TestFile()
+{
+  OpenTest("TestXLSX_TestFile");
+
+  OBJECT xlsxin := OpenOOXMLSpreadSheetFile(OpenTestFile("xlstest.xlsx"));
+  TestEq(TRUE, ObjectExists(xlsxin));
+
+  OBJECT xlssheet := xlsxin->OpenSheet(0);
+  TestEq("Tekst 1", xlssheet->GetCellValueByCellName("A1"));
+  TestEq(MakeDate(2012,12,12), xlssheet->GetCellValueByCellName("B2"));
+  TestEq("", xlssheet->GetCellValueByCellName("B1"));
+  TestEq("Tekst 1", xlssheet->GetCellValueByCellName("C1"));
+  TestEq("", xlssheet->GetCellValueByCellName("H20"));
+  TestEq("Loop niet vast op border", xlssheet->GetCellValueByCellName("F1"));
+  TestEq(MakeDate(2012,12,12), xlssheet->GetCellValueByCellName("B2"));
+  TestEq("Tekst met bold stukje\nen een linefeed voor en na deze regel\n", xlssheet->GetCellValueByCellName("A5"));
+  TestEq(TRUE, xlssheet->GetCellValueByCellName("D4"));
+  TestEqFloat(1.2, xlssheet->GetCellValueByCellName("C3"),2);
+  TestEq("1,2", xlssheet->GetCellValueByCellName("E5"));
+
+  CloseTest("TestXLSX_TestFile");
+}
+
+MACRO TestXLSX_Wide()
+{
+  OpenTest("TestXLSX_Wide");
+
+  //make sure dimensions are A1:AA1 (and not A1:B1) and AA1 comes after Z1
+
+  OBJECT xlsx := MakeNewOOXMLSpreadSheetFile();
+  OBJECT xlssheet := xlsx->OpenSheet(0);
+  xlssheet->SetCellValue(1,1,"A1");
+  xlssheet->SetCellValue(1,27,"AA1");
+  xlssheet->SetCellValue(1,2,"B1");
+
+  RECORD ARRAY result := UnpackArchive(xlsx->SaveExcelDoc());
+  BLOB sheet1blob := SELECT AS BLOB data FROM result WHERE name='sheet1.xml';
+  TestEq(TRUE, Length(sheet1blob)>0);
+
+  OBJECT sheet1xml := MakeXMLDocument(sheet1blob);
+  TestEq(TRUE, ObjectExists(sheet1xml));
+
+  OBJECT firstrow := sheet1xml->GetElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main","row")->Item(0);
+  TestEq(TRUE, ObjectExists(firstrow));
+
+  OBJECT ARRAY cells := firstrow->GetElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main","c")->GetCurrentElements();
+  TestEq(3, Length(cells));
+  TestEq("A1", cells[0]->GetAttribute("r"));
+  TestEq("B1", cells[1]->GetAttribute("r"));
+  TestEq("AA1", cells[2]->GetAttribute("r"));
+
+  OBJECT dimensionsnode := sheet1xml->GetElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main","dimension")->Item(0);
+  TestEQ(TRUE, ObjectExists(dimensionsnode));
+  Testeq("A1:AA1", dimensionsnode->GetAttribute("ref"));
+
+  CloseTest("TestXLSX_Wide");
+}
+
+MACRO TestXLSX_CorruptData()
+{
+  OpenTest("TestXLSX_CorruptData");
+
+  //test illformatted input doesn't produce a broken document
+  OBJECT xlsx := MakeNewOOXMLSpreadSheetFile();
+  OBJECT xlssheet := xlsx->OpenSheet(0);
+  xlssheet->SetCellValue(1,1,"\xF6\x68\x6D\x65"); //invalid UTF8
+  xlssheet->SetCellValue(1,2,"\bmay i know how to do PPT in this place\uFF1F"); //invalid xml
+
+  RECORD ARRAY result := UnpackArchive(xlsx->SaveExcelDoc());
+  BLOB sheet1blob := SELECT AS BLOB data FROM result WHERE name='sheet1.xml';
+  TestEq(TRUE, Length(sheet1blob)>0);
+
+  OBJECT sheet1xml := MakeXMLDocument(sheet1blob);
+  TestEq(TRUE, ObjectExists(sheet1xml));
+  TestEq(0,Length(sheet1xml->GetParseErrors()));
+
+  OBJECT firstrow := sheet1xml->GetElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main","row")->Item(0);
+  TestEq(TRUE, ObjectExists(firstrow));
+
+  OBJECT ARRAY cells := firstrow->GetElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main","c")->GetCurrentElements();
+  TestEq(2, Length(cells));
+  TestEq("hme", cells[0]->GetElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main","t")->textcontent);
+
+  CloseTest("TestXLSX_CorruptData");
+}
+
+MACRO TestXLSX_Empty()
+{
+  RECORD ARRAY result := GetOOXMLSpreadsheetRows((NEW XLSXColumnFileWriter)->MakeOutputFile());
+  TestEq(0,Length(result));
+}
+
+MACRO TestXLS_CrohoImport()
+{
+  RECORD ARRAY crohorcols :=   [ [ name := "brinnummer",     type := "string", trimwhitespace := TRUE ]
+                                , [ name := "brinvolgnummer", type := "string", trimwhitespace := TRUE ]
+                                , [ name := "orgunit_title",  type := "string", trimwhitespace := TRUE ]
+                                , [ name := "gemeente",       type := "string", trimwhitespace := TRUE ]
+                                , [ name := "thema",          type := "string", trimwhitespace := TRUE ]
+                                , [ name := "subthema",       type := "string" ]
+                                , [ name := "croho",          type := "integer" ]
+                                , [ name := "title",          type := "string", trimwhitespace := TRUE ] // 'Naam opleiding voluit'
+                                , [ name := "title_en",       type := "string", trimwhitespace := TRUE ] // 'Naam (inter)nationaal'
+                                , [ name := "form",           type := "string" ] // VOLTIJD/DEELTIJD/DUAAL
+
+                                , [ name := "start",          type := "datetime" ]
+                                , [ name := "endjoin",        type := "datetime" ]
+                                , [ name := "end",            type := "datetime" ]
+                                , [ name := "ects",           type := "integer"  ]
+
+                                , [ name := "_1", type := "string" ]
+                                , [ name := "_2", type := "string" ]
+                                , [ name := "_3", type := "string" ]
+                                , [ name := "_4", type := "string" ]
+                                , [ name := "_5", type := "string" ]
+                                , [ name := "_6", type := "string" ]
+
+                                , [ name := "deficientie", type := "string" ] // Inschrijving met deficiëntie
+                                , [ name := "beroepsvereisten", type := "string" ] // Beroepsvereisten
+                                ];
+
+  OBJECT importer := MakeOOXMLColumnReader(OpenTestFile("xlsxcroho.xlsx"), crohorcols);
+  RECORD ARRAY result := importer->GetAllRows();
+  TestEq("13", result[0].brinnummer);
+  TestEq('Hogeschool Dirksen B.V.', result[5].orgunit_title);
+  Testeq(168, result[7].ects);
+}
+
+MACRO TestXLS_XLSXImport()
+{
+  RECORD ARRAY cols := [ [ name := "paymentref",     type := "string"]
+                       , [ name := "paymentdate",    type := "datetime" ]
+                       , [ name := "gender",         type := "string" ]
+                       , [ name := "firstname",      type := "string" ]
+                       , [ name := "lastname",       type := "string" ]
+                       , [ name := "email",          type := "string" ]
+                       , [ name := "street",         type := "string" ]
+                       , [ name := "utpartner",      type := "string" ]
+                       ];
+
+  OBJECT importer := MakeOOXMLColumnReader(OpenTestFile("xlsimport.xlsx"), cols);
+  RECORD ARRAY result := importer->GetAllRows();
+  //dumpvalue(result,'tree');
+  TestEq("5461345788", result[0].paymentref);
+  TestEq("Christopher Testing", result[0].firstname);
+  TestEq("", result[5].paymentref);
+  TestEq("4314535236", result[6].paymentref);
+  TestEq(8, LEngth(result)); //should return the middle empty row, but not the end empty rows
+  TestEq(MakeDateTime(2015,05,17,20,16,23), result[1].paymentdate);
+  TestEq("FALSE", result[0].utpartner);
+
+  cols[END-1].type := "boolean";
+  INSERT CELL trimwhitespace := FALSE INTO cols[3];
+
+  importer := MakeOOXMLColumnReader(OpenTestFile("xlsimport.xlsx"), cols);
+  result := importer->GetAllRows();
+  TestEq(FALSE, result[0].utpartner);
+  TestEq("Christopher Testing", result[0].firstname);
+
+  RECORD ARRAY quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("xlsimport.xlsx"));
+  TestEq(7,Length(quickexport));
+  TestEq("Christopher Testing", quickexport[0]."first name");
+  Testeq("3.333330", quickexport[1]."money");
+
+  quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("xlsimport.xlsx"), [ floatmode := "money", dotrimwhitespace := FALSE ]);
+  TestEq(7,Length(quickexport));
+  TestEq("  Christopher Testing   ", quickexport[0]."first name");
+  Testeq("3.33333", quickexport[1]."money");
+
+  quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("xlsimport.xlsx"), [ alltostring := FALSE ]);
+  TestEq(7,Length(quickexport));
+  TestEq("Christopher Testing", quickexport[0]."first name");
+  Testeq(MakeDatetime(2015,5,18,22,32,43), quickexport[0]."payment date");
+  Testeq(FALSE, quickexport[0]."ut-partner");
+  Testeq(TRUE, quickexport[1]."ut-partner");
+  TesteqFloat(3.333f, quickexport[1]."money", 0.01f);
+
+  quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("xlsimport.xlsx"), [ alltostring := FALSE, floatmode := "money" ]);
+  Testeq(3.33333m, quickexport[1]."money");
+
+  quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("xlsimport.xlsx"), [ alltostring := FALSE, floatmode := "integer" ]);
+  Testeq(3, quickexport[1]."money");
+
+  quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("xlsimport.xlsx"), [ processheaders := FALSE ]);
+  TestEq(8,length(quickexport));
+  TestEq("Christopher Testing", quickexport[1].D);
+}
+
+MACRO TestXLSX_WeirdNewFormat()
+{
+  RECORD ARRAY quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("country-codes.xlsx"));
+  TestEq("Afghanistan", quickexport[0].naam);
+  TestEq("CHE", quickexport[END-1]."iso code");
+
+  quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("entiteit-selectielijst.xlsx"));
+  TestEq("Duits gymnasium (12-jarig)", quickexport[0].naam);
+  TestEq("Thema", quickexport[END-1].soort);
+}
+
+Print("\n === Running TestOOXML\n");
+TestXLSX_columnfiles();
+TestXLSX_testfile();
+TestXLSX_wide();
+TestXLSX_empty();
+TestXLSX_CorruptData();
+TestXLS_XLSXImport();
+TestXLS_CrohoImport();
+TestXLSX_WeirdNewFormat();

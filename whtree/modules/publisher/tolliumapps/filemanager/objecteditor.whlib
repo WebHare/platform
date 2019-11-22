@@ -1,0 +1,52 @@
+<?wh
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+PUBLIC MACRO StartObjectEditor(OBJECT tolliumcontroller, RECORD data)
+{
+  /* FIXME/ADDME
+     - when not permitted to open, report something to the user (no longer has permissions to edit this file)
+     - enforce exclusive open. allow individual editors to opt out
+     - allow individual editors to opt out of requiring write access */
+
+  INTEGER objid;
+  IF(data.calltype="direct" AND Length(data.params)>=1)
+    objid := ToInteger(data.params[0],0);
+  ELSE
+    objid := data.target.id;
+
+  IF(NOT tolliumcontroller->tolliumuser->HasRightOn("system:fs_fullaccess", objid))
+  {
+    Print("No rights on fsobject #" || objid || " - cancelling\n");
+    RETURN;
+  }
+
+  OBJECT applytester := GetApplyTesterForObject(objid);
+  RECORD editorinfo := applytester->GetLastValueForCell("SETOBJECTEDITOR");
+
+  IF (RecordExists(
+    SELECT
+      FROM system.fs_objects
+         , system.sites
+     WHERE fs_objects.id = objid
+       AND sites.id = fs_objects.parentsite
+       AND versioningpolicy != ""))
+  {
+    // File is in a versioned site
+    IF (NOT editorinfo.supportsversioning)
+    {
+      tolliumcontroller->RunMessageBox("publisher:commondialogs.editordoesnotsupportversionedsites");
+      RETURN;
+    }
+  }
+
+  IF(NOT RecordExists(editorinfo) OR editorinfo.screen = "")
+  {
+    Print("No setobjecteditor with screen for fsobjectg #" || objid || " - cancelling\n");
+    RETURN;
+  }
+
+  tolliumcontroller->LoadScreen(editorinfo.screen, [ calltype := "objecteditor", id := objid ], [ contexts := [ applytester := applytester ] ])->RunModal();
+}

@@ -1,0 +1,28 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+
+OBJECT link := GetIPCLinkToParent();
+
+RECORD rec := link->ReceiveMessage(MAX_DATETIME);
+
+SWITCH (rec.msg.task)
+{
+  CASE "runfunction"
+  {
+    FUNCTION PTR func := MakeFunctionPTR(rec.msg.func);
+
+    VARIANT retval := FALSE;
+    IF (GetRawFunctionPtrSignature(func).returntype = 0)
+      CallMacroPtrVA(func, rec.msg.args);
+    ELSE
+      retval := CallFunctionPtrVA(func, rec.msg.args);
+
+    link->SendReply(
+        [ task :=   "reply"
+        , value :=  retval
+        ], rec.msgid);
+  }
+}

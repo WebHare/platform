@@ -1,0 +1,12 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/components/hsvalue.whlib">
+
+  <fragment name="hsvalue">
+    <contents>
+      <iframe name="valuedisplay"
+              onclicklink="dohandlelink"
+              width="1pr" height="1pr" minheight="8x"
+              />
+    </contents>
+  </fragment>
+</screens>

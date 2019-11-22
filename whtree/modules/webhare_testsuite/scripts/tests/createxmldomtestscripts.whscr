@@ -1,0 +1,993 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+// Scripts we currently expect to fail
+STRING ARRAY expected_failures :=
+    [ "level1/core/attrsetvaluenomodificationallowederr"
+    , "level1/core/documentgetelementsbytagnametotallength"
+    , "level1/core/elementsetattributenomodificationallowederr"
+    , "level1/core/processinginstructionsetdatanomodificationallowederr"
+    , "level1/core/hc_namednodemapchildnoderange"
+    , "level1/core/hc_namednodemapnumberofnodes"
+    , "level1/core/hc_elementnormalize2"
+    , "level1/core/hc_attrappendchild1"
+    , "level1/core/hc_attrappendchild2"
+    , "level1/core/hc_attrappendchild3"
+    , "level1/core/hc_attrappendchild5"
+    , "level1/core/hc_attrappendchild6"
+    , "level1/core/hc_attrchildnodes1"
+    , "level1/core/hc_attrchildnodes2"
+    , "level1/core/hc_attrclonenode1"
+    , "level1/core/hc_attrfirstchild"
+    , "level1/core/hc_attrhaschildnodes"
+    , "level1/core/hc_attrinsertbefore1"
+    , "level1/core/hc_attrinsertbefore2"
+    , "level1/core/hc_attrinsertbefore3"
+    , "level1/core/hc_attrinsertbefore4"
+    , "level1/core/hc_attrinsertbefore6"
+    , "level1/core/hc_attrlastchild"
+    , "level1/core/hc_attrnormalize"
+    , "level1/core/hc_attrremovechild1"
+    , "level1/core/hc_attrremovechild2"
+    , "level1/core/hc_attrreplacechild1"
+    , "level1/core/hc_attrreplacechild2"
+    , "level1/core/hc_attrsetvalue1"
+    , "level1/core/hc_attrsetvalue2"
+    , "level2/core/normalize01"
+    , "level2/core/getElementsByTagNameNS01"
+    , "level2/core/getElementsByTagNameNS08"
+    ];
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "input_basedir", type := "stringopt" ]
+                              , [ name := "output_basedir", type := "stringopt" ]
+                              , [ name := "test_basedir", type := "stringopt" ]
+                              , [ name := "test_suite_file", type := "stringopt" ]
+                              , [ name := "silent", type := "switch" ]
+                              ]);
+
+// Default pathnames
+STRING input_basedir := "Q:/DOM-Test-Suite/tests/";
+STRING output_basedir := GetModuleInstallationRoot("webhare_testsuite") || "tests/wh/hscore/xml/generated";
+
+BOOLEAN silent := args.silent;
+
+// Parse the arguments
+IF (args.input_basedir != "")
+  input_basedir := IsPathAbsolute(args.input_basedir) ? args.input_basedir : MergePath(GetInstallationRoot(), args.input_basedir);
+IF (args.output_basedir != "")
+  output_basedir := IsPathAbsolute(args.output_basedir) ? args.output_basedir : MergePath(GetInstallationRoot(), args.output_basedir);
+
+CreateDiskDirectoryRecursive(output_basedir, TRUE);
+
+STRING tempdir;
+BLOB test_suite_blob;
+
+IF (args.test_suite_file != "")
+  test_suite_blob := GetDiskResource(SubStitute(args.test_suite, "\\", "/"));
+ELSE
+  test_suite_blob := GetWebhareResource("mod::webhare_testsuite/tests/wh/hscore/xml/testdata/dom-test-suite.zip");
+
+IF (LENGTH(test_suite_blob) != 0)
+{
+  tempdir := GenerateTemporaryPathname();
+  CreateDiskDirectoryRecursive(tempdir, TRUE);
+
+  RECORD ARRAY files := UnpackArchive(test_suite_blob);
+  files :=
+      SELECT path := MergePath(tempdir, path)
+           , name
+           , modtime
+           , data
+        FROM files
+       WHERE name != "";
+
+  STRING ARRAY paths :=
+      SELECT AS STRING ARRAY path
+        FROM files
+    GROUP BY path;
+
+  FOREVERY (STRING path FROM paths)
+    CreateDiskDirectoryRecursive(path, TRUE);
+
+  FOREVERY (RECORD file FROM files)
+  {
+    STRING fullpath := MergePath(file.path, file.name);
+    CreateDiskFileFromBlob(MergePath(file.path, file.name), TRUE, TRUE, file.data);
+  }
+  input_basedir := MergePath(tempdir, "DOM-Test-Suite/tests");
+}
+
+IF (input_basedir NOT LIKE "*/")
+  input_basedir := input_basedir || "/";
+IF (output_basedir NOT LIKE "*/")
+  output_basedir := output_basedir || "/";
+
+/*
+Op Q:\
+
+\\marge\programs\wincvs\cvs -d :pserver:anonymous@dev.w3.org:/sources/public login
+  password: anonymous
+\\marge\programs\wincvs\cvs -d :pserver:anonymous@dev.w3.org:/sources/public checkout 2001/DOM-Test-Suite
+
+*/
+
+// To use this script, first check out the module "2001/DOM-Test-Suite" to Q:/DOM-Test-Suite
+// using the CVS root :pserver:anonymous@dev.w3.org:/sources/public
+//           password anonymous
+
+// Default pathnames etc.
+RECORD ARRAY tests_to_build := [ [ level := 1, part := "core" ]
+                               , [ level := 2, part := "core" ]
+                               ];
+
+STRING FUNCTION GetSafeVariableName(STRING name)
+{
+  IF (ToUppercase(name) IN [ "ATTRIBUTES", "LENGTH", "INDEX" ])
+    RETURN name || "_";
+  ELSE
+    RETURN name;
+}
+
+INTEGER errors;
+MACRO GenerateError(OBJECT parent, INTEGER file, INTEGER indent, INTEGER level, STRING part, STRING testname, STRING error)
+{
+  IF (NOT silent)
+    Print(error || "\n");
+  parent->AppendChild(parent->ownerdocument->CreateComment(error || " (level" || level || "/" || part || "/" || testname || ")"));
+  PrintHareScript(file, indent, '// Error: ' || error);
+  PrintHareScript(file, indent, 'Print("Skipping test ' || testname || '\\n");');
+  errors := errors + 1;
+}
+INTEGER FUNCTION GetErrors()
+{
+  RETURN errors;
+}
+MACRO ResetErrors()
+{
+  errors := 0;
+}
+MACRO PrintHareScript(INTEGER file, INTEGER indent, STRING statement, BOOLEAN add_newline DEFAULTSTO TRUE)
+{
+  PrintTo(file, Left('                                                                                ', indent));
+  PrintTo(file, statement || (add_newline ? '\n' : ''));
+}
+
+STRING FUNCTION GetContentTypeExtension(STRING contenttype)
+{
+  SWITCH (contenttype)
+  {
+    CASE "text/xml"      { RETURN ".xml"; }
+    CASE "image/xml+svg" { RETURN ".svg"; }
+    CASE "text/html"     { RETURN ".html"; }
+  }
+  RETURN "";
+}
+
+// DOM methods
+RECORD ARRAY dom_members :=
+  [ [ tagname := "attributes",                  dom_attr   := "attributes",                  use_var := TRUE ]
+  , [ tagname := "childNodes",                  dom_attr   := "childnodes",                  use_var := TRUE ]
+  , [ tagname := "data",                        dom_attr   := "data",                        use_var := TRUE ]
+  , [ tagname := "documentElement",             dom_attr   := "documentelement",             use_var := TRUE ]
+  , [ tagname := "firstChild",                  dom_attr   := "firstchild",                  use_var := TRUE ]
+  , [ tagname := "lastChild",                   dom_attr   := "lastchild",                   use_var := TRUE ]
+  , [ tagname := "length",                      dom_attr   := "length",                      use_var := TRUE ]
+  , [ tagname := "localName",                   dom_attr   := "localname",                   use_var := TRUE ]
+  , [ tagname := "namespaceURI",                dom_attr   := "namespaceuri",                use_var := TRUE ]
+  , [ tagname := "name",                        dom_attr   := "name",                        use_var := TRUE ]
+  , [ tagname := "nextSibling",                 dom_attr   := "nextsibling",                 use_var := TRUE ]
+  , [ tagname := "nodeName",                    dom_attr   := "nodename",                    use_var := TRUE ]
+  , [ tagname := "nodeType",                    dom_attr   := "nodetype",                    use_var := TRUE ]
+  , [ tagname := "nodeValue",                   dom_attr   := "nodevalue",                   use_var := TRUE ]
+  , [ tagname := "ownerDocument",               dom_attr   := "ownerdocument",               use_var := TRUE ]
+  , [ tagname := "ownerElement",                dom_attr   := "ownerelement",                use_var := TRUE ]
+  , [ tagname := "parentNode",                  dom_attr   := "parentnode",                  use_var := TRUE ]
+  , [ tagname := "prefix",                      dom_attr   := "prefix",                      use_var := TRUE ]
+  , [ tagname := "previousSibling",             dom_attr   := "previoussibling",             use_var := TRUE ]
+  , [ tagname := "tagName",                     dom_attr   := "tagname",                     use_var := TRUE ]
+  , [ tagname := "target",                      dom_attr   := "target",                      use_var := TRUE ]
+  , [ tagname := "value",                       dom_attr   := "value",                       use_var := TRUE ]
+  , [ tagname := "appendChild",                 dom_method := "AppendChild",                 use_var := TRUE,  args := [ "newChild" ] ]
+  , [ tagname := "appendData",                  dom_method := "AppendData",                  use_var := FALSE, args := [ "arg" ] ]
+  , [ tagname := "cloneNode",                   dom_method := "CloneNode",                   use_var := TRUE,  args := [ "deep" ] ]
+  , [ tagname := "createAttribute",             dom_method := "CreateAttribute",             use_var := TRUE,  args := [ "name" ] ]
+  , [ tagname := "createAttributeNS",           dom_method := "CreateAttributeNS",           use_var := TRUE,  args := [ "namespaceURI", "qualifiedName" ] ]
+  , [ tagname := "createCDATASection",          dom_method := "CreateCDATASection",          use_var := TRUE,  args := [ "data" ] ]
+  , [ tagname := "createComment",               dom_method := "CreateComment",               use_var := TRUE,  args := [ "data" ] ]
+  , [ tagname := "createDocumentFragment",      dom_method := "CreateDocumentFragment",      use_var := TRUE,  args := DEFAULT STRING ARRAY ]
+  , [ tagname := "createElement",               dom_method := "CreateElement",               use_var := TRUE,  args := [ "tagName" ] ]
+  , [ tagname := "createElementNS",             dom_method := "CreateElementNS",             use_var := TRUE,  args := [ "namespaceURI", "qualifiedName" ] ]
+  , [ tagname := "createProcessingInstruction", dom_method := "CreateProcessingInstruction", use_var := TRUE,  args := [ "target", "data" ] ]
+  , [ tagname := "createTextNode",              dom_method := "CreateTextNode",              use_var := TRUE,  args := [ "data" ] ]
+  , [ tagname := "deleteData",                  dom_method := "DeleteData",                  use_var := FALSE, args := [ "offset", "count" ] ]
+  , [ tagname := "getAttribute",                dom_method := "GetAttribute",                use_var := TRUE,  args := [ "name" ] ]
+  , [ tagname := "getAttributeNS",              dom_method := "GetAttributeNS",              use_var := TRUE,  args := [ "namespaceURI", "localName" ] ]
+  , [ tagname := "getAttributeNode",            dom_method := "GetAttributeNode",            use_var := TRUE,  args := [ "name" ] ]
+  , [ tagname := "getAttributeNodeNS",          dom_method := "GetAttributeNodeNS",          use_var := TRUE,  args := [ "namespaceURI", "localName" ] ]
+  , [ tagname := "getElementById",              dom_method := "GetElementById",              use_var := TRUE,  args := [ "elementId" ] ]
+  , [ tagname := "getElementsByTagName",        dom_method := "GetElementsByTagName",        use_var := TRUE,  args := [ "tagname" ] ]
+  , [ tagname := "getElementsByTagNameNS",      dom_method := "GetElementsByTagNameNS",      use_var := TRUE,  args := [ "namespaceURI", "localName" ] ]
+  , [ tagname := "getNamedItem",                dom_method := "GetNamedItem",                use_var := TRUE,  args := [ "name" ] ]
+  , [ tagname := "getNamedItemNS",              dom_method := "GetNamedItemNS",              use_var := TRUE,  args := [ "namespaceURI", "localName" ] ]
+  , [ tagname := "hasAttribute",                dom_method := "HasAttribute",                use_var := TRUE,  args := [ "name" ] ]
+  , [ tagname := "hasAttributeNS",              dom_method := "HasAttributeNS",              use_var := TRUE,  args := [ "namespaceURI", "localName" ] ]
+  , [ tagname := "hasAttributes",               dom_method := "HasAttributes",               use_var := TRUE,  args := DEFAULT STRING ARRAY ]
+  , [ tagname := "hasChildNodes",               dom_method := "HasChildNodes",               use_var := TRUE,  args := DEFAULT STRING ARRAY ]
+  , [ tagname := "insertBefore",                dom_method := "InsertBefore",                use_var := TRUE,  args := [ "newChild", "refChild" ] ]
+  , [ tagname := "insertData",                  dom_method := "InsertData",                  use_var := FALSE, args := [ "offset", "arg" ] ]
+  , [ tagname := "item",                        dom_method := "Item",                        use_var := TRUE,  args := [ "index" ] ]
+  , [ tagname := "normalize",                   dom_method := "Normalize",                   use_var := FALSE, args := DEFAULT STRING ARRAY ]
+  , [ tagname := "removeAttribute",             dom_method := "RemoveAttribute",             use_var := FALSE, args := [ "name" ] ]
+  , [ tagname := "removeAttributeNS",           dom_method := "RemoveAttributeNS",           use_var := TRUE,  args := [ "namespaceURI", "localName" ] ]
+  , [ tagname := "removeAttributeNode",         dom_method := "RemoveAttributeNode",         use_var := TRUE,  args := [ "oldAttr" ] ]
+  , [ tagname := "removeChild",                 dom_method := "RemoveChild",                 use_var := TRUE,  args := [ "oldChild" ] ]
+  , [ tagname := "removeNamedItem",             dom_method := "RemoveNamedItem",             use_var := TRUE,  args := [ "name" ] ]
+  , [ tagname := "removeNamedItemNS",           dom_method := "RemoveNamedItemNS",           use_var := TRUE,  args := [ "namespaceURI", "localName" ] ]
+  , [ tagname := "replaceChild",                dom_method := "ReplaceChild",                use_var := TRUE,  args := [ "newChild", "oldChild" ] ]
+  , [ tagname := "replaceData",                 dom_method := "ReplaceData",                 use_var := FALSE, args := [ "offset", "count", "arg" ] ]
+  , [ tagname := "setAttribute",                dom_method := "SetAttribute",                use_var := FALSE, args := [ "name", "value" ] ]
+  , [ tagname := "setAttributeNS",              dom_method := "SetAttributeNS",              use_var := TRUE,  args := [ "namespaceURI", "qualifiedName", "value" ] ]
+  , [ tagname := "setAttributeNode",            dom_method := "SetAttributeNode",            use_var := TRUE,  args := [ "newAttr" ] ]
+  , [ tagname := "setAttributeNodeNS",          dom_method := "SetAttributeNodeNS",          use_var := TRUE,  args := [ "newAttr" ] ]
+  , [ tagname := "setNamedItem",                dom_method := "SetNamedItem",                use_var := TRUE,  args := [ "arg" ] ]
+  , [ tagname := "setNamedItemNS",              dom_method := "SetNamedItemNS",              use_var := TRUE,  args := [ "arg" ] ]
+  , [ tagname := "splitText",                   dom_method := "SplitText",                   use_var := TRUE,  args := [ "offset" ] ]
+  , [ tagname := "substringData",               dom_method := "SubstringData",               use_var := TRUE,  args := [ "offset", "count" ] ]
+  ];
+
+// Variable definitions for each test (reset before parsing next test)
+RECORD ARRAY vardefs;
+// Test suite default content type
+STRING suite_contenttype;
+// Temporary exception object to read exception codes from
+OBJECT domexcept := NEW XmlDOMException(0, "");
+
+// Return if no errors were found
+BOOLEAN FUNCTION ParseNode(OBJECT node, RECORD test_to_build, STRING testname, STRING outputdir, INTEGER outputfile, INTEGER indent, OBJECT partgroup, INTEGER start_child DEFAULTSTO 0)
+{
+  OBJECT children := node->childnodes;
+  FOR (INTEGER i := start_child; i < children->length; i := i + 1)
+  {
+    OBJECT child := children->Item(i);
+    IF (child->nodetype != XmlElementNode)
+      CONTINUE;
+
+    SWITCH (child->tagname)
+    {
+      // Metadata
+      CASE "metadata"
+      {
+      }
+
+      // Implementation attribute
+      CASE "implementationAttribute"
+      {
+        STRING attr_name := child->GetAttribute("value") IN [ "true", "1" ] ? child->GetAttribute("name") : "";
+        SWITCH (attr_name)
+        {
+          CASE "", "namespaceAware", "signed"
+          {
+            // We support this attribute (or it's not set)
+          }
+          DEFAULT
+          {
+            // This attribute is not recognized or supported, do not run this test
+            GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Unsupported implementation attribute '" || child->GetAttribute("name") || "'");
+            RETURN FALSE;
+          }
+        }
+      }
+
+      // Variables
+      CASE "var"
+      {
+        STRING initializer;
+        STRING var_type;
+        SWITCH (ToUppercase(child->GetAttribute("type")))
+        {
+          CASE "INT"
+          {
+            var_type := "Integer";
+            IF (child->HasAttribute("value"))
+              initializer := ' := ' || child->GetAttribute("value");
+          }
+          CASE "BOOLEAN"
+          {
+            var_type := "Boolean";
+            IF (child->HasAttribute("value"))
+              initializer := ' := ' || (child->GetAttribute("value") IN [ "true", "1" ] ? "TRUE" : "FALSE");
+          }
+          CASE "DOMSTRING"
+          {
+            var_type := "String";
+            IF (child->HasAttribute("value"))
+              initializer := ' := ' || child->GetAttribute("value");
+          }
+          CASE "LIST", "COLLECTION", "EVENTMONITOR"
+          {
+            GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Unsupported variable type '" || child->GetAttribute("type") || "'");
+            RETURN FALSE;
+          }
+          DEFAULT
+          {
+            var_type := "Object";
+          }
+        }
+        STRING var_name := child->GetAttribute("name");
+        PrintHareScript(outputfile, indent, ToUppercase(var_type) || ' ' || GetSafeVariableName(var_name) || initializer || '; // ' || child->linenum);
+        INSERT [ name := var_name, type := var_type ] INTO vardefs AT END;
+      }
+
+      // Statements
+      CASE "load"
+      {
+        STRING subname := outputdir || "files/" || ToLowercase(child->GetAttribute("href") || GetContentTypeExtension(suite_contenttype));
+        STRING href := output_basedir || subname;
+        BOOLEAN willBeModified := child->GetAttribute("willBeModified") IN [ "true", "1" ];
+        //PrintHareScript(outputfile, indent, 'OBJECT ' || GetSafeVariableName(child->GetAttribute("var")) || '_impl := NEW XMLDomImplementation;\n');
+
+        PrintHareScript(outputfile, indent, GetSafeVariableName(child->GetAttribute("var"))
+                           || ' := MakeXMLDocument(GetHarescriptResource("mod::webhare_testsuite/tests/wh/hscore/xml/generated/' || subname || '"), "", ' || (willBeModified ? "FALSE" : "TRUE") || '); // ' || child->linenum);
+      }
+      CASE "decrement"
+      {
+        STRING var_name := child->GetAttribute("var");
+        RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+        IF (NOT RecordExists(var_def))
+          Abort("Reference to undefined variable '" || var_name || "'");
+        PrintHareScript(outputfile, indent, GetSafeVariableName(var_name) || ' := ' || GetSafeVariableName(var_name) || ' - ' || child->GetAttribute("value") || '; // ' || child->linenum);
+      }
+      CASE "increment"
+      {
+        STRING var_name := child->GetAttribute("var");
+        RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+        IF (NOT RecordExists(var_def))
+          Abort("Reference to undefined variable '" || var_name || "'");
+        PrintHareScript(outputfile, indent, GetSafeVariableName(var_name) || ' := ' || GetSafeVariableName(var_name) || ' + ' || child->GetAttribute("value") || '; // ' || child->linenum);
+      }
+
+      // Control structures
+      CASE "if"
+      {
+        IF (NOT ParseIfNode(child, test_to_build, testname, outputdir, outputfile, indent, partgroup))
+          RETURN FALSE;
+      }
+      CASE "else"
+      {
+        // Parsed <if> statements, return to ParseIfNode to parse the <else> block
+        RETURN TRUE;
+      }
+
+      // Assertions
+      CASE "assertNull"
+      {
+        STRING var_name := child->GetAttribute("actual");
+        RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+        IF (NOT RecordExists(var_def))
+          Abort("Reference to undefined variable '" || var_name || "'");
+        SWITCH (var_def.type)
+        {
+          CASE "Object"
+          {
+            PrintHareScript(outputfile, indent, 'TestEq(FALSE, ObjectExists(' || GetSafeVariableName(var_name) || ')); // ' || child->linenum);
+          }
+          CASE "Record"
+          {
+            PrintHareScript(outputfile, indent, 'TestEq(FALSE, RecordExists(' || GetSafeVariableName(var_name) || ')); // ' || child->linenum);
+          }
+          DEFAULT
+          {
+            PrintHareScript(outputfile, indent, 'TestEq(DEFAULT ' || ToUppercase(var_def.type) || ', ' || GetSafeVariableName(var_name) || '); // ' || child->linenum);
+          }
+        }
+      }
+      CASE "assertNotNull"
+      {
+        STRING var_name := child->GetAttribute("actual");
+        RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+        IF (NOT RecordExists(var_def))
+          Abort("Reference to undefined variable '" || var_name || "'");
+        SWITCH (var_def.type)
+        {
+          CASE "Object"
+          {
+            PrintHareScript(outputfile, indent, 'TestEq(TRUE, ObjectExists(' || GetSafeVariableName(var_name) || ')); // ' || child->linenum);
+          }
+          CASE "Record"
+          {
+            PrintHareScript(outputfile, indent, 'TestEq(TRUE, RecordExists(' || GetSafeVariableName(var_name) || ')); // ' || child->linenum);
+          }
+          DEFAULT
+          {
+            PrintHareScript(outputfile, indent, 'TestEq(TRUE, ' || GetSafeVariableName(var_name) || ' != DEFAULT ' || ToUppercase(var_def.type) || '); // ' || child->linenum);
+          }
+        }
+      }
+      CASE "assertEquals"
+      {
+        STRING var_name := child->GetAttribute("actual");
+        RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+        IF (NOT RecordExists(var_def))
+          Abort("Reference to undefined variable '" || var_name || "'");
+
+        IF (var_def.type = "Object")
+        {
+          GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Not testing equal objects - should be testing equal nodes instead...");
+          RETURN FALSE;
+        }
+
+        IF (child->GetAttribute("ignoreCase") IN [ "true", "1" ])
+          PrintHareScript(outputfile, indent, 'TestEq(' || ToUppercase(child->GetAttribute("expected")) || ', ToUppercase(' || GetSafeVariableName(var_name) || ')); // ' || child->linenum);
+        ELSE
+          PrintHareScript(outputfile, indent, 'TestEq(' || child->GetAttribute("expected") || ', ' || GetSafeVariableName(var_name) || '); // ' || child->linenum);
+      }
+      CASE "assertSame"
+      {
+        STRING var_name := child->GetAttribute("actual");
+        RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+        IF (NOT RecordExists(var_def))
+          Abort("Reference to undefined variable '" || var_name || "'");
+
+        IF (var_def.type = "Object")
+        {
+          GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Not testing equal objects - should be testing equal nodes instead...");
+          RETURN FALSE;
+        }
+
+        PrintHareScript(outputfile, indent, 'TestEq(' || child->GetAttribute("expected") || ', ' || GetSafeVariableName(var_name) || '); // ' || child->linenum);
+      }
+      CASE "assertFalse"
+      {
+        IF (child->HasChildNodes())
+        {
+          GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Nested conditions not yet supported");
+          RETURN FALSE;
+        }
+        STRING var_name := child->GetAttribute("actual");
+        PrintHareScript(outputfile, indent, 'TestEq(FALSE, ' || GetSafeVariableName(var_name) || '); // ' || child->linenum);
+      }
+      CASE "assertTrue"
+      {
+        IF (child->HasChildNodes())
+        {
+          GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Nested conditions not yet supported");
+          RETURN FALSE;
+        }
+        STRING var_name := child->GetAttribute("actual");
+        PrintHareScript(outputfile, indent, 'TestEq(TRUE, ' || GetSafeVariableName(var_name) || '); // ' || child->linenum);
+      }
+      CASE "assertInstanceOf"
+      {
+        STRING var_name := child->GetAttribute("obj");
+        RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+        IF (NOT RecordExists(var_def))
+          Abort("Reference to undefined variable '" || var_name || "'");
+
+        /* Possible type values: int, boolean, DOMString, List, Collection, EventMonitor, Attr, CDATASection, CharacterData,
+                                 Comment, Document, DocumentFragment, DocumentType, DOMImplementation, Element, Entity,
+                                 EntityReference, HTMLAnchorElement, HTMLAppletElement, HTMLAreaElement, HTMLBaseElement,
+                                 HTMLBaseFontElement, HTMLBlockquoteElement, HTMLBodyElement, HTMLBRElement, HTMLButtonElement,
+                                 HTMLCollection, HTMLDirectoryElement, HTMLDivElement, HTMLDListElement, HTMLDocument,
+                                 HTMLElement, HTMLFieldSetElement, HTMLFontElement, HTMLFormElement, HTMLFrameElement,
+                                 HTMLFrameSetElement, HTMLHeadElement, HTMLHeadingElement, HTMLHRElement, HTMLHtmlElement,
+                                 HTMLIFrameElement, HTMLImageElement, HTMLInputElement, HTMLIsIndexElement, HTMLLabelElement,
+                                 HTMLLegendElement, HTMLLIElement, HTMLLinkElement, HTMLMapElement, HTMLMenuElement,
+                                 HTMLMetaElement, HTMLModElement, HTMLObjectElement, HTMLOListElement, HTMLOptGroupElement,
+                                 HTMLOptionElement, HTMLParagraphElement, HTMLParamElement, HTMLPreElement, HTMLQuoteElement,
+                                 HTMLScriptElement, HTMLSelectElement, HTMLStyleElement, HTMLTableCaptionElement,
+                                 HTMLTableCellElement, HTMLTableColElement, HTMLTableElement, HTMLTableRowElement,
+                                 HTMLTableSectionElement, HTMLTextAreaElement, HTMLTitleElement, HTMLUListElement,
+                                 NamedNodeMap, Node, NodeList, Notation, ProcessingInstruction, Text */
+        INTEGER testnodetype;
+        SWITCH (child->GetAttribute("type"))
+        {
+          CASE "Attr"                  { testnodetype := child->ATTRIBUTE_NODE; }
+          CASE "CDATASection"          { testnodetype := child->CDATA_SECTION_NODE; }
+          CASE "Comment"               { testnodetype := child->COMMENT_NODE; }
+          CASE "Document"              { testnodetype := child->DOCUMENT_NODE; }
+          CASE "DocumentFragment"      { testnodetype := child->DOCUMENT_FRAGMENT_NODE; }
+          CASE "DocumentType"          { testnodetype := child->DOCUMENT_TYPE_NODE; }
+          CASE "Element"               { testnodetype := child->ELEMENT_NODE; }
+          CASE "Entity"                { testnodetype := child->ENTITY_NODE; }
+          CASE "EntityReference"       { testnodetype := child->ENTITY_REFERENCE_NODE; }
+          CASE "Notation"              { testnodetype := child->NOTATION_NODE; }
+          CASE "ProcessingInstruction" { testnodetype := child->PROCESSING_INSTRUCTION_NODE; }
+          CASE "Text"                  { testnodetype := child->TEXT_NODE; }
+          DEFAULT
+          {
+            GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Unsupported instance type to test: '" || child->GetAttribute("type") || "'");
+            RETURN FALSE;
+          }
+        }
+        PrintHareScript(outputfile, indent, 'TestEq(' || ToString(testnodetype) || ', ' || GetSafeVariableName(var_name) || '->nodetype); // ' || child->linenum);
+      }
+      CASE "assertSize"
+      {
+        STRING var_name := child->GetAttribute("collection");
+        RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+        IF (NOT RecordExists(var_def))
+          Abort("Reference to undefined variable '" || var_name || "'");
+        PrintHareScript(outputfile, indent, 'TestEq(' || child->GetAttribute("size") || ', ' || GetSafeVariableName(var_name) || '->length); // ' || child->linenum);
+      }
+
+      // DOM Exception
+      CASE "assertDOMException"
+      {
+        // Read exception code
+        OBJECT except_node := child->firstchild;
+        WHILE (ObjectExists(except_node) AND except_node->nodetype != XmlElementNode)
+          except_node := except_node->nextsibling;
+        IF (NOT ObjectExists(except_node) OR NOT MemberExists(domexcept, except_node->nodename))
+        {
+          GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Cannot test for unknown exception type '" || except_node->nodename || "'");
+          RETURN FALSE;
+        }
+        INTEGER except_code := GetMember(domexcept, except_node->nodename);
+
+        // Print try/catch block to test for exceptions
+        PrintHareScript(outputfile, indent, 'TRY');
+        PrintHareScript(outputfile, indent, '{');
+
+        IF (NOT ParseNode(except_node, test_to_build, testname, outputdir, outputfile, indent + 2, partgroup))
+        {
+          PrintHareScript(outputfile, indent, '}');
+          PrintHareScript(outputfile, indent, 'CATCH');
+          PrintHareScript(outputfile, indent, '{');
+          PrintHareScript(outputfile, indent, '}');
+          RETURN FALSE;
+        }
+
+        PrintHareScript(outputfile, indent + 2, 'ReportError("Expected: XmlDOMException, got no exception", DEFAULT RECORD ARRAY,""); // ' || child->linenum);
+        PrintHareScript(outputfile, indent, '}');
+        PrintHareScript(outputfile, indent, 'CATCH (OBJECT<XmlDOMException> e)');
+        PrintHareScript(outputfile, indent, '{');
+        PrintHareScript(outputfile, indent + 2, 'TestEq(' || except_code || ', e->code); // ' || child->linenum);
+        PrintHareScript(outputfile, indent, '}');
+        PrintHareScript(outputfile, indent, 'CATCH (OBJECT e)');
+        PrintHareScript(outputfile, indent, '{');
+        PrintHareScript(outputfile, indent + 2, 'ReportError("Expected: XmlDOMException, got Unknown exception", DEFAULT RECORD ARRAY,""); // ' || child->linenum);
+        PrintHareScript(outputfile, indent, '}');
+      }
+
+      // DOM members
+      DEFAULT
+      {
+        SWITCH (child->GetAttribute("interface"))
+        {
+          CASE "DOMString"
+          {
+            // String functions
+            SWITCH (child->tagname)
+            {
+              CASE "length"
+              {
+                PrintHareScript(outputfile, indent, GetSafeVariableName(child->GetAttribute("var")) || ' := Length(' || GetSafeVariableName(child->GetAttribute("obj")) || '); // ' || child->linenum);
+              }
+              DEFAULT
+              {
+                GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Unsupported DOMString attribute or statement '" || child->tagname || "'");
+                RETURN FALSE;
+              }
+            }
+          }
+          DEFAULT
+          {
+            RECORD dom := SELECT * FROM dom_members WHERE tagname = child->tagname;
+            IF (RecordExists(dom))
+            {
+              // Attributes may be either got (using 'var' attr) or set (using 'value' attr)
+              BOOLEAN use_var := dom.use_var AND child->HasAttribute("var");
+              IF (use_var)
+                PrintHareScript(outputfile, indent, GetSafeVariableName(child->GetAttribute("var")) || ' := ', FALSE);
+
+              PrintHareScript(outputfile, use_var ? 0 : indent, GetSafeVariableName(child->GetAttribute("obj")) || '->', FALSE);
+
+              IF (CellExists(dom, "dom_attr"))
+              {
+                // Reading/writing an attribute
+                PrintHareScript(outputfile, 0, dom.dom_attr, FALSE);
+                IF (child->HasAttribute("value")) // Set attr value
+                  PrintHareScript(outputfile, 0, ' := ' || child->GetAttribute("value"), FALSE);
+                PrintHareScript(outputfile, 0,  '; // ' || child->linenum);
+              }
+              ELSE
+              {
+                // Calling a method
+                PrintHareScript(outputfile, 0, dom.dom_method || '(', FALSE);
+                FOREVERY (STRING arg FROM dom.args)
+                  PrintHareScript(outputfile, 0, (#arg > 0 ? ', ' : '') || GetSafeVariableName(child->GetAttribute(arg)), FALSE);
+                PrintHareScript(outputfile, 0, '); // ' || child->linenum);
+              }
+            }
+            ELSE
+            {
+              // This DOM attribute or method is not recognized or supported, do not run this test
+              GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Unsupported DOM attribute or statement '" || child->tagname || "'");
+              RETURN FALSE;
+            }
+          }
+        }
+      }
+    }
+  }
+  RETURN TRUE;
+}
+
+BOOLEAN FUNCTION ParseIfNode(OBJECT node, RECORD test_to_build, STRING testname, STRING outputdir, INTEGER outputfile, INTEGER indent, OBJECT partgroup)
+{
+  BOOLEAN success := TRUE;
+
+  OBJECT children := node->childnodes;
+  STRING state := "expected_condition";
+  FOR (INTEGER i := 0; i < children->length; i := i + 1)
+  {
+    OBJECT child := children->Item(i);
+    IF (child->nodetype != XmlElementNode)
+      CONTINUE;
+
+    IF (state = "end_if")
+    {
+      // Already parsed an else block, should be the last element in an if
+      GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Statements found after else block in if statement");
+      success := FALSE;
+      BREAK;
+    }
+
+    SWITCH (child->tagname)
+    {
+      CASE "same", "equals", "notEquals", "less", "lessOrEquals", "greater", "greaterOrEquals", "isNull", "notNull", "and", "or", "xor", "instanceOf", "isTrue", "isFalse", "hasSize", "hasFeature", "implementationAttribute", "contentType"
+      {
+        IF (state != "expected_condition")
+        {
+          GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Extra condition found in if statement");
+          RETURN FALSE;
+        }
+
+        STRING condition;
+        SWITCH (child->tagname)
+        {
+          CASE "equals"
+          {
+            STRING var_name := child->GetAttribute("actual");
+            RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+            IF (NOT RecordExists(var_def))
+              Abort("Reference to undefined variable '" || var_name || "'");
+
+            IF (var_def.type = "Object")
+            {
+              GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Not testing equal objects - should be testing equal nodes instead...");
+              RETURN FALSE;
+            }
+
+            IF (child->GetAttribute("ignoreCase") IN [ "true", "1" ])
+              condition := 'ToUppercase(' || GetSafeVariableName(var_name) || ') = ' || ToUppercase(child->GetAttribute("expected"));
+            ELSE
+              condition := GetSafeVariableName(var_name) || ' = ' || child->GetAttribute("expected");
+          }
+          CASE "notEquals"
+          {
+            STRING var_name := child->GetAttribute("actual");
+            RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+            IF (NOT RecordExists(var_def))
+              Abort("Reference to undefined variable '" || var_name || "'");
+
+            IF (var_def.type = "Object")
+            {
+              GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Not testing equal objects - should be testing equal nodes instead...");
+              RETURN FALSE;
+            }
+
+            IF (child->GetAttribute("ignoreCase") IN [ "true", "1" ])
+              condition := 'ToUppercase(' || GetSafeVariableName(var_name) || ') != ' || ToUppercase(child->GetAttribute("expected"));
+            ELSE
+              condition := GetSafeVariableName(var_name) || ' != ' || child->GetAttribute("expected");
+          }
+          CASE "isNull"
+          {
+            STRING var_name := child->GetAttribute("obj");
+            RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+            IF (NOT RecordExists(var_def))
+              Abort("Reference to undefined variable '" || var_name || "'");
+            SWITCH (var_def.type)
+            {
+              CASE "Object"
+              {
+                condition := 'NOT ObjectExists(' || GetSafeVariableName(var_name) || ')';
+              }
+              CASE "Record"
+              {
+                condition := 'NOT RecordExists(' || GetSafeVariableName(var_name) || ')';
+              }
+              DEFAULT
+              {
+                condition := GetSafeVariableName(var_name) || ' = DEFAULT ' || ToUppercase(var_def.type);
+              }
+            }
+          }
+          CASE "notNull"
+          {
+            STRING var_name := child->GetAttribute("obj");
+            RECORD var_def := SELECT * FROM vardefs WHERE name = var_name;
+            IF (NOT RecordExists(var_def))
+              Abort("Reference to undefined variable '" || var_name || "'");
+            SWITCH (var_def.type)
+            {
+              CASE "Object"
+              {
+                condition := 'ObjectExists(' || GetSafeVariableName(var_name) || ')';
+              }
+              CASE "Record"
+              {
+                condition := 'RecordExists(' || GetSafeVariableName(var_name) || ')';
+              }
+              DEFAULT
+              {
+                condition := GetSafeVariableName(var_name) || ' != DEFAULT ' || ToUppercase(var_def.type);
+              }
+            }
+          }
+          CASE "contentType"
+          {
+            condition := 'suite_contenttype = "' || child->GetAttribute("type") || '"';
+          }
+          DEFAULT
+          {
+            GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "Unsupported if condition '" || child->tagname || "'");
+            RETURN FALSE;
+          }
+        }
+
+        PrintHareScript(outputfile, indent, 'IF (' || condition || ') // ' || child->linenum);
+        PrintHareScript(outputfile, indent, '{');
+
+        state := "expected_statement_or_else";
+      }
+      CASE "else"
+      {
+        IF (state IN [ "expected_statement_or_else", "expected_else" ])
+        {
+          PrintHareScript(outputfile, indent, '}');
+          PrintHareScript(outputfile, indent, 'ELSE // ' || child->linenum);
+          PrintHareScript(outputfile, indent, '{');
+
+          IF (NOT ParseNode(child, test_to_build, testname, outputdir, outputfile, indent + 2, partgroup))
+          {
+            success := FALSE;
+            BREAK;
+          }
+
+          state := "end_if";
+        }
+      }
+      DEFAULT
+      {
+        IF (state = "expected_else")
+          CONTINUE; // Already parsed this statement, waiting for possible <else> block
+
+        IF (NOT ParseNode(node, test_to_build, testname, outputdir, outputfile, indent + 2, partgroup, i))
+        {
+          success := FALSE;
+          BREAK;
+        }
+
+        state := "expected_else";
+      }
+    }
+
+    IF (state = "expected_condition")
+    {
+      // Should have parsed a condition by now
+      GenerateError(partgroup, outputfile, indent, test_to_build.level, test_to_build.part, testname, "No condition found in if statement");
+      RETURN FALSE;
+    }
+  }
+  PrintHareScript(outputfile, indent, '}');
+  RETURN success;
+}
+
+MACRO GenerateTests()
+{
+  // Create output directory for master test file
+  IF (NOT CreateDiskDirectoryRecursive(output_basedir, TRUE))
+  {
+    Print("Could not create output directory '" || output_basedir || "'\n");
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+
+  // Create new testinfo.xml
+  OBJECT domimpl := NEW XmlDOMImplementation;
+  OBJECT alltests := domimpl->CreateDocument("http://www.webhare.net/xmlns/system/testinfo", "group", DEFAULT OBJECT);
+  alltests->documentelement->SetAttribute("ignoremasks", "level1 level2");
+
+  ResetErrors();
+  INTEGER total_tests := 0;
+  FOREVERY (RECORD test_to_build FROM tests_to_build)
+  {
+    IF (NOT silent)
+      Print("Creating tests for level " || test_to_build.level || " " || test_to_build.part || "\n");
+
+    // Initialize some test parameters
+    STRING inputdir := input_basedir || "level" || test_to_build.level || "/" || test_to_build.part || "/";
+    STRING outputdir := "level" || test_to_build.level || "/" || test_to_build.part || "/";
+    STRING ns := "http://www.w3.org/2001/DOM-Test-Suite/Level-" || test_to_build.level;
+
+    // Create output directory
+    IF (NOT CreateDiskDirectoryRecursive(output_basedir || outputdir || "files/", TRUE))
+    {
+      Print("Could not create output directory '" || output_basedir || outputdir || "'\n");
+      SetConsoleExitCode(1);
+      RETURN;
+    }
+
+    // Copy test reference files
+    FOREVERY (RECORD file FROM ReadDiskDirectory(inputdir || "files/", "*"))
+    {
+      IF (file.type = 0 AND ToUppercase(file.name) NOT IN [ ".CVSIGNORE" ])
+      {
+        STRING infilename := inputdir || "files/" || file.name;
+        STRING outfilename := output_basedir || outputdir || "files/" || ToLowercase(file.name);
+        IF (NOT silent)
+          Print("Copying file " || outfilename || "\n");
+        IF (NOT CreateDiskFileFromBlob(outfilename, FALSE, TRUE, MakeBlobFromDiskFile(infilename)))
+        {
+          Print("Could not copy file '" || infilename || "' to '" || outfilename || "'\n");
+          SetConsoleExitCode(1);
+          RETURN;
+        }
+      }
+    }
+
+    // Open alltests.xml file
+    STRING testdefname := inputdir || "alltests.xml";
+    BLOB testdefblob := MakeBlobFromDiskFile(testdefname);
+    IF (Length(testdefblob) = 0)
+    {
+      Print("Could not read file '" || testdefname || "'\n");
+      SetConsoleExitCode(1);
+      RETURN;
+    }
+
+    // Parse alltests.xml file
+    OBJECT testdef := MakeXMLDocument(testdefblob, "", TRUE);
+    IF (NOT ObjectExists(testdef))
+    {
+      Print("Could not parse document '" || testdefname || "'\n");
+      SetConsoleExitCode(1);
+      RETURN;
+    }
+    OBJECT testquery := testdef->CreateXPathQuery();
+    testquery->RegisterNamespace("test", "http://www.w3.org/2001/DOM-Test-Suite/Level-" || test_to_build.level);
+
+    OBJECT suite := testquery->ExecuteQuery("/test:suite");
+    IF (NOT ObjectExists(suite) OR suite->length = 0)
+    {
+      Print("No suite definition found\n");
+      SetConsoleExitCode(1);
+      RETURN;
+    }
+    suite_contenttype := suite->Item(0)->GetAttribute("contentType");
+    IF (suite_contenttype = "")
+      suite_contenttype := "text/xml";
+    IF (NOT silent)
+      Print("Using suite content-type: '" || suite_contenttype || "'\n");
+
+    // Create groups in testinfo.xml
+    OBJECT levelgroup := alltests->CreateElement("group");
+    alltests->documentelement->AppendChild(levelgroup);
+    levelgroup->SetAttribute("name", "level" || test_to_build.level);
+
+    OBJECT partgroup := alltests->CreateElement("group");
+    levelgroup->AppendChild(partgroup);
+    partgroup->SetAttribute("name", test_to_build.part);
+
+    OBJECT tests := testquery->ExecuteQuery("//test:suite.member");
+    IF (NOT silent)
+      Print("Found " || tests->length || " test files\n");
+    FOR (INTEGER t := 0; t < tests->length; t := t + 1)
+    {
+      // Open XML file
+      STRING inputname := inputdir || tests->Item(t)->GetAttribute("href");
+      BLOB inputblob := MakeBlobFromDiskFile(inputname);
+      IF (Length(inputblob) = 0)
+      {
+        Print("Could not read file '" || inputname || "'\n");
+        SetConsoleExitCode(1);
+        RETURN;
+      }
+
+      // Parse XML file
+      OBJECT test := MakeXMLDocument(inputblob, "", TRUE);
+      IF (NOT ObjectExists(test))
+      {
+        Print("Could not parse document '" || inputname || "'\n");
+        SetConsoleExitCode(1);
+        RETURN;
+      }
+
+      // Create output file
+      STRING testname := test->documentelement->GetAttribute("name");
+      STRING description := test->GetElementsByTagName("description")->textcontent;
+      STRING outputscript := outputdir || testname || ".whscr";
+      STRING outputname := output_basedir || outputscript;
+      INTEGER outputfile := CreateDiskFile(outputname, FALSE, TRUE);
+      IF (outputfile <= 0)
+      {
+        Print("Could not create output file '" || outputname || "'\n");
+        SetConsoleExitCode(1);
+        RETURN;
+      }
+      IF (NOT silent)
+        Print("Creating test file " || outputname || "\n");
+      SetDiskFileLength(outputfile, 0);
+      total_tests := total_tests + 1;
+
+      // Generate HareScript header
+      PrintTo(outputfile, '<?wh\n');
+      PrintTo(outputfile, 'LOADLIB "wh::files.whlib";\n');
+      PrintTo(outputfile, 'LOADLIB "wh::filetypes/xml.whlib";\n');
+      PrintTo(outputfile, 'LOADLIB "wh::internal/testfuncs.whlib";\n');
+      PrintTo(outputfile, 'LOADLIB "mod::system/lib/configure.whlib";\n');
+      PrintTo(outputfile, 'LOADLIB "mod::system/lib/resources.whlib";\n');
+      PrintTo(outputfile, '\n');
+
+      PrintTo(outputfile, '// HareScript test script generated from ' || Substring(inputname, Length(input_basedir)) || '\n');
+      PrintTo(outputfile, '\n');
+      PrintTo(outputfile, '/* ' || Substitute(description,"\r","") || '\n*/\n\n');
+      PrintTo(outputfile, 'STRING suite_contenttype := "' || suite_contenttype || '";\n');
+      PrintTo(outputfile, '\n');
+
+      // Open test
+      PrintTo(outputfile, '// Open test\n');
+      PrintTo(outputfile, 'OpenTest("' || testname || '");\n');
+      PrintTo(outputfile, '\n');
+
+      // Write script
+      vardefs := DEFAULT RECORD ARRAY;
+      BOOLEAN add_test := ParseNode(test->documentelement, test_to_build, testname, outputdir, outputfile, 0, partgroup);
+
+      // Close test
+      PrintTo(outputfile, '\n');
+      PrintTo(outputfile, '// Close test\n');
+      PrintTo(outputfile, 'CloseTest("' || testname || '");\n');
+
+      // Add to testinfo.xml
+      IF (add_test)
+      {
+        OBJECT testscript := alltests->CreateElement("test");
+        partgroup->AppendChild(testscript);
+        testscript->SetAttribute("script", outputscript);
+
+        IF ((outputdir || testname) IN expected_failures)
+          testscript->SetAttribute("xfail", "1");
+      }
+
+      CloseDiskFile(outputfile);
+      CollectGarbage();
+    }
+  }
+
+  alltests->documentelement->InsertBefore(alltests->CreateComment("Total tests: " || total_tests || ", skipped tests: " || GetErrors()), alltests->documentelement->firstchild);
+
+  // Write testinfo.xml
+  STRING alltestsname := output_basedir || "testinfo.xml";
+  IF (NOT silent)
+    Print("Writing '" || alltestsname || "'\n");
+  IF (NOT CreateDiskFileFromBlob(alltestsname, FALSE, TRUE, alltests->GetDocumentBlob(TRUE)))
+  {
+    Print("Could not create output file '" || alltestsname || "'\n");
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+}
+GenerateTests();
+CollectGarbage();
+
+IF (tempdir != "")
+  DeleteDiskDirectoryRecursive(tempdir);

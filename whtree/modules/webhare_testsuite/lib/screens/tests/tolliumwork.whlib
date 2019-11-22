@@ -1,0 +1,55 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE WorkTest EXTEND TolliumScreenBase
+<
+  PUBLIC BOOLEAN didwork;
+  PUBLIC MACRO Test()
+  {
+    OBJECT lockmgr := OpenLockManager();
+    OBJECT lock;
+
+    // FIXME Test underlying database transaction too
+    // FIXME Test messages in finish error dialogs.
+
+    OBJECT work := this->BeginWork();
+    TestEQ(TRUE, work->HasFailed());
+    work->Cancel();
+
+    work := this->BeginUnvalidatedWork();
+    TestEQ(FALSE, work->HasFailed());
+    work->Finish();
+
+    lock := lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME);
+    TestEQ(TRUE, ObjectExists(lock));
+    lock->Close();
+
+    work := this->BeginLockedWork("webhare_testsuite:lock");
+    TestEQ(TRUE, work->HasFailed());
+    TestThrows(PTR lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME));
+    work->Cancel();
+
+    lock := lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME);
+    TestEQ(TRUE, ObjectExists(lock));
+    lock->Close();
+
+    work := this->BeginLockedUnvalidatedWork("webhare_testsuite:lock");
+    TestEQ(FALSE, work->HasFailed());
+    TestThrows(PTR lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME));
+    work->Finish();
+
+    lock := lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME);
+    TestEQ(TRUE, ObjectExists(lock));
+    lock->Close();
+  }
+
+  PUBLIC MACRO onchange()
+  {
+    this->didwork := TRUE;
+    this->BeginWork();
+  }
+>;

@@ -1,0 +1,25 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+PUBLIC OBJECTTYPE RegistryNode EXTEND TolliumCompositionBase
+<
+  PUBLIC STRING node;
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumCompositionBase::StaticInit(def);
+    this->node := def.node;
+  }
+  PUBLIC MACRO ReadFromRegistry()
+  {
+    FOREVERY(OBJECT cellnode FROM this->cells)
+      cellnode->value := ReadRegistryKey(this->node || "." || cellnode->cellname);
+  }
+
+  PUBLIC MACRO WriteToRegistry()
+  {
+    FOREVERY(OBJECT cellnode FROM this->cells)
+      WriteRegistryKey(this->node || "." || cellnode->cellname, cellnode->value);
+  }
+>;

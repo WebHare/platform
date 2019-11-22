@@ -1,0 +1,424 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+/** This library provides more information about rights
+*/
+
+// Cached right metadata
+OBJECT cachedrightsinfo;
+//for which user ?
+OBJECT cachedrightsforuser;
+/** Object that caches right info (description-level, combined from DB and moduleinfo)
+*/
+STATIC OBJECTTYPE RightsInfo
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY pvt_modules;
+  RECORD ARRAY pvt_rights;
+  RECORD ARRAY pvt_objecttypes;
+  RECORD ARRAY pvt_rightsgroups;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** List of modules
+  */
+  PUBLIC PROPERTY modules(pvt_modules, -);
+
+
+  /** List of rights
+      @cell name
+      @cell module
+      @cell title
+      @cell description
+      @cell rightsgroup
+      @cell isglobal
+      @cell objecttypename
+      @cell ordering
+  */
+  PUBLIC PROPERTY rights(pvt_rights, -);
+
+
+  /** List of object types
+      @cell name
+      @cell module
+      @cell title
+      @cell rightsgroup
+      @cell icon
+  */
+  PUBLIC PROPERTY objecttypes(pvt_objecttypes, -);
+
+
+  /** List of groups
+      @cell name
+      @cell module
+      @cell title
+  */
+  PUBLIC PROPERTY rightsgroups(pvt_rightsgroups, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT user)
+  {
+    this->pvt_modules := GetWebHareModules();
+
+    // Insert dummy groups. FIXME: implement proper groups
+    FOREVERY (RECORD mod FROM this->pvt_modules)
+    {
+      this->pvt_rightsgroups := this->pvt_rightsgroups CONCAT
+           SELECT name
+                , title         := GetTid(title)
+                , description   := GetTid(description)
+                , module        := mod.name
+                , icon          := icon
+             FROM mod.modulerightsgroups;
+    }
+
+    // Get list of rights in DB
+    this->pvt_rights :=
+        SELECT name :=              rightname
+             , module :=            modulename
+             , objecttypename :=    isglobal ? "" : objecttypename
+             , isglobal
+          FROM GetListOfRights();
+
+    // Get list of objecttypes in DB
+    this->pvt_objecttypes := GetListOfObjectTypes();
+
+    FOREVERY (RECORD type FROM this->pvt_objecttypes)
+    {
+      STRING title := type.name;
+      STRING rightsgroup := "system:unreferenced";
+      STRING icon;
+      STRING description;
+      BOOLEAN has_definition;
+
+      RECORD module := this->GetModuleByName(type.module);
+      IF (RecordExists(module))
+      {
+        RECORD rec := SELECT * FROM module.moduleobjects WHERE name = type.name;
+        IF (RecordExists(rec))
+        {
+          title := GetTid(rec.title);
+          description := GetTid(rec.description);
+          icon := rec.icon;
+
+          IF (title = "") // No empty titles, please
+            title := type.name;
+
+          rightsgroup := this->VerifyRightsGroup(rec.rightsgroup);
+          has_definition := TRUE;
+        }
+      }
+
+      INSERT CELL title := title INTO this->pvt_objecttypes[#type];
+      INSERT CELL description := description INTO this->pvt_objecttypes[#type];
+      INSERT CELL icon := icon INTO this->pvt_objecttypes[#type];
+      INSERT CELL rightsgroup := rightsgroup INTO this->pvt_objecttypes[#type];
+      INSERT CELL has_definition := has_definition INTO this->pvt_objecttypes[#type];
+    }
+
+    FOREVERY (RECORD right FROM this->pvt_rights)
+    {
+      STRING title := right.name;
+      STRING rightsgroup := "system:unreferenced";
+      STRING description;
+      BOOLEAN has_definition := FALSE;
+      INTEGER ordering := 999999;
+
+      // For non-global rights, get the group from the objecttype
+      IF (NOT right.isglobal)
+      {
+        rightsgroup :=
+            SELECT AS STRING COLUMN rightsgroup
+              FROM this->pvt_objecttypes
+             WHERE name = right.objecttypename;
+      }
+
+      RECORD module := this->GetModuleByName(right.module);
+      IF (RecordExists(module))
+      {
+        RECORD rec := SELECT * FROM module.modulerights WHERE name = right.name;
+        IF (RecordExists(rec))
+        {
+          title := GetTid(rec.title);
+          description := GetTid(rec.description);
+
+          // No empty titles, use the right name instead
+          IF (title = "")
+            title := right.name;
+
+          IF (right.isglobal)
+            rightsgroup := this->VerifyRightsGroup(rec.rightsgroup);
+
+          has_definition := TRUE;
+          ordering := rec.ordering;
+        }
+      }
+
+      INSERT CELL title := title INTO this->pvt_rights[#right];
+      INSERT CELL description := description INTO this->pvt_rights[#right];
+      INSERT CELL rightsgroup := rightsgroup INTO this->pvt_rights[#right];
+      INSERT CELL has_definition := has_definition INTO this->pvt_rights[#right];
+      INSERT CELL ordering := ordering INTO this->pvt_rights[#right];
+    }
+
+    IF (NOT user->HasRight("system:sysop"))
+    {
+      this->pvt_rights :=
+          SELECT *
+            FROM this->pvt_rights
+           WHERE isglobal ? user->HasRight(name) : user->HasRightOnAny(name);
+
+      this->pvt_objecttypes :=
+          SELECT *
+            FROM this->pvt_objecttypes AS rec
+           WHERE RecordExists(SELECT FROM this->pvt_rights WHERE objecttypename = rec.name);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Returns a module by name
+  RECORD FUNCTION GetModuleByName(STRING modulename)
+  {
+    RETURN SELECT * FROM this->pvt_modules WHERE name = modulename;
+  }
+
+  STRING FUNCTION VerifyRightsGroup(STRING rightsgroup)
+  {
+    IF (rightsgroup = "")
+      RETURN "system:default";
+
+    RETURN rightsgroup;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Return all rights in the same group as another right
+      @param rightname Base right
+      @param acces_check_user Rights object to check access rights, DEFAULT OBJECT for no check
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetRightsInSameGroup(STRING rightname)
+  {
+    // Locate the right
+    RECORD rec :=
+        SELECT *
+          FROM this->pvt_rights
+         WHERE name = rightname;
+
+    IF (NOT RecordExists(rec))
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN
+        SELECT *
+          FROM this->pvt_rights
+         WHERE rightsgroup = rec.rightsgroup
+           AND objecttypename = rec.objecttypename;
+  }
+
+
+  /** Return a specific right by name
+  */
+  PUBLIC RECORD FUNCTION GetRightByName(STRING rightname)
+  {
+    RETURN
+        SELECT *
+          FROM this->pvt_rights
+         WHERE name = rightname;
+  }
+
+
+  /** Return a specific objecttype record by name
+  */
+  PUBLIC RECORD FUNCTION GetObjectTypeByName(STRING typename)
+  {
+    RETURN
+        SELECT *
+          FROM this->pvt_objecttypes
+         WHERE name = typename;
+  }
+
+
+  PUBLIC RECORD FUNCTION GetRightsGroupByName(STRING rightsgroup)
+  {
+    RETURN
+        SELECT *
+          FROM this->pvt_rightsgroups
+         WHERE name = rightsgroup;
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  PUBLIC STRING FUNCTION GetObjectFullPath(STRING objecttypename, INTEGER objid, OBJECT user)
+  {
+    RECORD typerec := this->GetObjectTypeByName(objecttypename);
+
+    IF (NOT RecordExists(typerec))
+    {
+//      PRINT("Object-type " || objecttypename || " does not exist\n");
+      RETURN "";
+    }
+
+    IF (objid = 0)
+      RETURN GetTid("system:userrights.common.allobjectsoftype", typerec.title);
+
+    RECORD pathrec := GetPresentationRightsObjectPath(objecttypename, objid, user);
+    IF (NOT RecordExists(pathrec) OR NOT pathrec.visible)
+      RETURN "";//RETURN GetTid("system:userrights.common.invisible");
+
+    RETURN typerec.title || ": /" || Detokenize((SELECT AS STRING ARRAY name FROM pathrec.path WHERE id != 0), "/");
+  }
+
+
+  PUBLIC STRING FUNCTION GetRightTitle(STRING rightname)
+  {
+    RETURN
+        SELECT AS STRING title
+          FROM this->pvt_rights
+         WHERE name = rightname;
+  }
+>;
+
+// -----------------------------------------------------------------------------
+//
+// Presentation functions
+//
+
+/// Gives the path with unit
+PUBLIC STRING FUNCTION GetQualifiedAuthObjectName(INTEGER authobject)
+{
+  STRING ARRAY names;
+  INTEGER ARRAY pathids;
+
+  WHILE (authobject != 0)
+  {
+    IF (authobject IN pathids)
+      BREAK; // Found a loop! BAD!
+
+    RECORD rec :=
+        SELECT name
+             , parent
+          FROM system.authobjects
+         WHERE id = authobject;
+
+    IF (NOT RecordExists(rec))
+      BREAK;
+
+    INSERT authobject INTO pathids AT 0;
+    INSERT rec.name INTO names AT 0;
+
+    authobject := rec.parent;
+  }
+  RETURN Detokenize(names, "/");
+}
+
+PUBLIC INTEGER FUNCTION GetAuthObjectType(INTEGER authobject)
+{
+  RETURN
+      SELECT AS INTEGER type
+        FROM system.authobjects
+       WHERE id = authobject;
+}
+
+PUBLIC INTEGER FUNCTION GetAuthObjectParent(INTEGER authobject)
+{
+  RETURN
+      SELECT AS INTEGER parent
+        FROM system.authobjects
+       WHERE id = authobject;
+}
+
+
+PUBLIC BOOLEAN FUNCTION AuthObjectExists(INTEGER authobject)
+{
+  RETURN RecordExists(SELECT FROM system.authobjects WHERE id = authobject);
+}
+
+PUBLIC RECORD FUNCTION LookupAuthobjectByGuid(STRING guid)
+{
+  RETURN
+      SELECT id
+           , name
+        FROM system.authobjects
+       WHERE authobjects.guid = VAR guid;
+}
+
+PUBLIC INTEGER ARRAY FUNCTION GetAuthObjectPath(INTEGER authobject)
+{
+  INTEGER ARRAY result;
+  WHILE (authobject != 0)
+  {
+    IF (authobject IN result)
+      BREAK; // Found a loop! BAD!
+
+    INSERT authobject INTO result AT 0;
+    authobject := GetAuthObjectParent(authobject);
+  }
+  RETURN result;
+}
+
+
+PUBLIC BOOLEAN FUNCTION DoesUnitContainUsersOrRoles(INTEGER unitid)
+{
+  INTEGER ARRAY units := [ unitid ];
+  WHILE (LENGTH(units) != 0)
+  {
+
+    RECORD ARRAY elts :=
+        SELECT id
+             , type
+          FROM system.authobjects
+         WHERE parent IN units;
+
+    units :=
+        SELECT AS INTEGER ARRAY id
+          FROM elts
+         WHERE type = 2;
+
+    // If there are less records in units than in elts, then a record with type != 2 is present
+    IF (LENGTH(units) != LENGTH(elts))
+      RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+//*/
+
+// -----------------------------------------------------------------------------
+//
+// Other stuff
+//
+
+/** Return the right metadata info object
+*/
+PUBLIC OBJECT FUNCTION GetRightsInfoObject(OBJECT user)
+{
+  IF (NOT ObjectExists(cachedrightsinfo) OR cachedrightsforuser != user)//check if the cached user is the same
+  {
+    cachedrightsforuser := user;
+    cachedrightsinfo := NEW RightsInfo(user);
+  }
+
+  RETURN cachedrightsinfo;
+}

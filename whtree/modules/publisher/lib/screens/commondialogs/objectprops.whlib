@@ -1,0 +1,2663 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/versioning.whlib";
+LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+//LOADLIB "mod::webpack/lib/database.whlib";
+
+
+/* ADDME: andere types om te wijzigen
+   ADDME: toevoegen/verwijderen van rijen */
+
+RECORD FUNCTION GetRecycledObjectInfo(OBJECT whuser, INTEGER objectid)
+{
+  RECORD res;
+
+  RECORD historyinfo := SELECT * FROM system.fs_history WHERE fs_history.type = 0 AND fs_history.fs_object = objectid ORDER BY when DESC;
+  IF(NOT RecordExists(historyinfo))
+    RETURN DEFAULT RECORD;
+
+   RETURN [ deletionuser := historyinfo.user
+          , deletiondate := historyinfo.when
+          , origlocation := historyinfo.currentparent
+          , originalpath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE id=historyinfo.currentparent)
+          , origname :=     historyinfo.currentname
+          ];
+}
+
+STRING FUNCTION GetTaskTitle(RECORD task)
+{
+  SWITCH (task.event)
+  {
+    CASE 1
+    {
+      RETURN GetTid("publisher:commondialogs.taskprops.event-start");
+    }
+    CASE 2
+    {
+      RETURN GetTid("publisher:commondialogs.taskprops.event-end");
+    }
+    CASE 3
+    {
+      OBJECT folder := OpenWHFSObject(task.folder);
+      RETURN GetTid("publisher:commondialogs.taskprops.event-movefolder", (ObjectExists(folder) ? folder->name : ""));
+    }
+    CASE 4
+    {
+      RETURN GetTid("publisher:commondialogs.taskprops.event-delete");
+    }
+    CASE 5
+    {
+      RETURN GetTid("publisher:commondialogs.taskprops.event-setindexdoc");
+    }
+  }
+  RETURN "";
+}
+
+OBJECTTYPE ObjectPropsAPI
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT objectprops;
+  MACRO PTR ARRAY onpinned;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Applytester
+  PUBLIC PROPERTY applytester(GetApplyTester,-);
+
+  /// Web context FIXME dangerous to expose...
+  PUBLIC PROPERTY webcontext(GetWebContext,-);
+
+  /// Parent site
+  PUBLIC PROPERTY targetsite(GetTargetSite,-);
+
+  /// Parent folder
+  PUBLIC PROPERTY targetfolder(GetTargetFolder,-);
+
+  /// Id we're editing, may be 0
+  PUBLIC PROPERTY targetid(GetTargetId,-);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT objectprops)
+  {
+    this->objectprops := objectprops;
+  }
+
+  OBJECT FUNCTION GetApplyTester()
+  {
+    RETURN this->objectprops->contexts->applytester;
+  }
+
+  OBJECT FUNCTION GetWebContext()
+  {
+    IF(NOT IsDtapLive())
+      THROW NEW Exception("We want to remove webcontext from objectpropsapi - please inform us of this call site");
+    RETURN this->objectprops->webcontext;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  OBJECT FUNCTION GetTargetSite()
+  {
+    RETURN this->objectprops->__GetTargetSite();
+  }
+
+  OBJECT FUNCTION GetTargetFolder()
+  {
+    RETURN this->objectprops->__GetTargetFolder();
+  }
+
+  INTEGER FUNCTION GetTargetId()
+  {
+    RETURN this->objectprops->__GetTargetId();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  PUBLIC MACRO __UpdateOnPinned(BOOLEAN newpinned)
+  {
+    FOREVERY(MACRO PTR onpinned FROM this->onpinned)
+      onpinned(newpinned);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO AddTabsExtension(STRING extension, STRING whfstype, RECORD taboptions DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING extensionsname := GetScreenNameFromScreenPath(extension);
+    this->objectprops->__DoAddTab( [ contenttype := whfstype
+                                   , extension := extensionsname
+                                   , isundo := FALSE
+                                   , mask := ""
+                                   , name := extensionsname
+                                   , requireright := ""
+                                   , requirewebdesign := FALSE
+                                   , selector := extensionsname
+                                   , siteprofile := GetResourceNameFromScreenPath(extension)
+                                   , taboptions := taboptions
+                                   ]);
+  }
+
+  PUBLIC MACRO AddOnPinnedListener(MACRO PTR newlistener)
+  {
+    INSERT newlistener INTO this->onpinned AT END;
+  }
+
+  PUBLIC MACRO OnChange()
+  {
+    this->objectprops->__CheckConstraints();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Data used to load the dialog
+  */
+  RECORD startdata;
+
+  /// Versioning policy for the current site
+  OBJECT siteversioningpolicy;
+
+  ///Show development options
+  BOOLEAN autotitles;
+
+  /// Whether to show developer options
+  BOOLEAN showdeveloperoptions;
+
+  /// Whether to show pinning
+  BOOLEAN showpinning;
+
+  /// Submit handlers to call for extensions
+  MACRO PTR ARRAY onsubmits;
+
+  /// Errors that happened during the loading of extensions (displayed when developer options are shown)
+  STRING ARRAY pending_errors;
+
+  /** \defgroup Initial object data, all set by SetCurrentObjectData
+      @{
+  */
+
+  /// Whether this is a new file/folder or a duplicate
+  BOOLEAN isnew;
+
+  /// Whether this is specifically a duplication action
+  BOOLEAN isduplicate;
+
+  /// Parent folder of the new/edited object
+  OBJECT parentfolder;
+
+  /// system.sites record for the parentsite of the parentfolder
+  RECORD parentsite;
+
+  /// system.sites record of the current folder (so only set when the current folder is a site)
+  RECORD cursite;
+
+  /// Source item (original file for duplications, draft or edited file when editing)
+  OBJECT sourceitem;
+
+  /// Public draft item of source (same as sourceitem when it has no public draft)
+  OBJECT draftitem;
+
+  /// Whether we're editing the public draft
+  BOOLEAN editingdraft;
+
+  /// Id of edited object, 0 for new or duplicate objects
+  INTEGER itemid;
+
+  /// Record definition of current (or new) type for the object
+  RECORD curtype;
+
+  /// Whether the edited (or new) object is a folder
+  BOOLEAN isfolder;
+
+  /// Whether the edited object is in the recycle bin
+  BOOLEAN isinrecyclebin;
+
+  /// Versioning policy for this specific object
+  OBJECT objectpolicy;
+
+  /**@}*/
+
+  /** Customfields from siteprofile for this object
+      @cell(string array) errors
+      @cell(record array) propertyeditors
+  */
+  RECORD sp_customfields;
+
+  /** @cell(string) name Name of the property editor
+      @cell(object) Node XML node (&lt;extendproperties&gt;)
+      @cell(object) siteprof Siteprofile object
+      @cell(object array) components
+      @cell(object array) compositions
+      @cell(object) fragment Fragment object (only when it extends PropertyEditorBase)
+      @cell(boolean) islegacypropertyeditor
+      @cell(object) instance Instance object for tab extensions
+  */
+  RECORD ARRAY extendprops;
+
+  /// Whether the item is in the recycle bin and has a history record
+  BOOLEAN isdeleted;
+
+  /** Messageboxes that need to be shown in the next submit round
+  */
+  RECORD ARRAY scheduledmessageboxes;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties and variables
+  //
+
+  //OBJECT objectpropscontext;
+
+  /// Webcontext for the currently edited item
+  PUBLIC OBJECT webcontext;
+
+  /// Id of the currently edited object
+  PUBLIC PROPERTY objectid(itemid,-); //NOTE: part of the public api now
+
+  /// Id of the currently edited site (only set when the current object is a site). Probably not used.
+  //PUBLIC PROPERTY siteid(GetSiteId,-); //NOTE: part of the public api now
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & init
+  //
+
+  MACRO NEW()
+  {
+    this->contexts->objectpropsapi := NEW ObjectPropsAPI(this);
+    this->RegisterAppContext("publisher:objectpropsapi", this->contexts->objectpropsapi);
+  }
+
+  MACRO ReadUserSettings()
+  {
+    this->autotitles := this->tolliumuser->GetRegistryKey("publisher.prefs.autotitles", ReadRegistryKey("publisher.filemgr.defaultautotitles"));
+    this->showdeveloperoptions := this->tolliumuser->HasRight("system:supervisor");
+    this->showpinning := this->showdeveloperoptions OR this->tolliumuser->HasRight("publisher:pinning");
+  }
+
+  MACRO Init(RECORD data)
+  {
+    this->startdata := data;
+    this->isduplicate := this->startdata.why = "duplicate";
+    this->pending_errors := SELECT AS STRING ARRAY `Property editor '${name}' defined in site profile '${siteprofile}' is not loaded, because it caused an error while loading:\n${error}`
+                              FROM data.faultypropeditors;
+
+    // Read the user settings
+    this->ReadUserSettings();
+
+    // Fill in the data about the object to edit/create.
+    this->SetCurrentObjectData();
+
+    /// Fill base fields from the source
+    this->FillBaseFields(); //name,title,description
+
+    BOOLEAN canschedule := RecordExists(this->parentsite) AND this->parentsite.outputweb != 0; // site is published _some_where
+    IF (this->isfolder)
+    {
+      ^publish->visible := FALSE;
+      ^makeindex->visible := FALSE;
+      ^tasksettings->visible := FALSE;
+    }
+
+    //ADDME: Set using site profile?
+    ^keywords->visible := NOT this->isfolder;
+
+    // Explicitly enable template/profile selection for content links
+    BOOLEAN enable_template;
+    BOOLEAN enable_profile;
+
+
+    IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ])
+    {
+      ^modified->visible := FALSE;
+      this->CalculateNameForNewObject();
+
+      this->frame->title := this->isfolder ? GetTid("publisher:commondialogs.objectprops.newfolder-title")
+                                           : GetTid("publisher:commondialogs.objectprops.newfile-title");
+
+      IF (NOT this->isfolder)
+      {
+        IF (this->curtype.namespace = "http://www.webhare.net/xmlns/publisher/internallink"
+            OR this->curtype.namespace = "http://www.webhare.net/xmlns/publisher/contentlink")
+        {
+          ^path->folder := this->parentfolder->id;
+          enable_template := TRUE;
+          enable_profile := TRUE;
+        }
+
+        canschedule := canschedule AND this->curtype.ispublishable;
+        BOOLEAN cansetpublish := canschedule;
+
+        BOOLEAN initialpublish :=
+            cansetpublish
+            AND this->curtype.namespace != "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+            AND this->curtype.namespace != "http://www.webhare.net/xmlns/publisher/formwebtool"
+            AND NOT ObjectExists(this->objectpolicy);
+
+        ^notpublished->visible := NOT cansetpublish;
+        ^notpublishedtext->value := this->curtype.ispublishable ? GetTid("publisher:commondialogs.objectprops.sitenotpublished") : GetTid("publisher:commondialogs.objectprops.typenotpublished", ^type->value);
+        ^publish->visible := cansetpublish;
+        //ADDME introduce 'initialpublish' or something like that for all file types. or it should somehow be linked to the use of the editdocument app, i can image editdocument to be more internalized than 'just an editor app'
+        ^publish->value := initialpublish;
+
+        // First file in the parentfolder? (no need to check if this type is acceptable, is done later)
+        IF(NOT RecordExists(SELECT FROM system.fs_objects WHERE parent=this->parentfolder->id AND isfolder=FALSE))
+          ^makeindex->value := TRUE;
+      }
+    }
+    ELSE IF (this->startdata.why = "edit")
+    {
+      IF(GetRoundedDatetime(this->sourceitem->creationdate, 60 * 1000) != GetRoundedDatetime(this->draftitem->modificationdate, 60 * 1000))
+      {
+        ^creationdatebrackets->value := this->tolliumuser->FormatDateTime(this->sourceitem->creationdate, "minutes", TRUE, FALSE) || ")";
+        ^creationdatebrackets->visible := TRUE;
+      }
+
+      ^pinobject->value := this->draftitem->ispinned;
+
+      IF (this->isinrecyclebin)
+        this->InitFieldsForItemInRecycleBin();
+
+      canschedule := canschedule AND this->sourceitem->isactive;
+
+      IF (NOT this->isfolder)
+      {
+        canschedule := canschedule AND this->curtype.ispublishable;
+        this->InitConsilioAndWebpackInfo();
+      }
+
+      this->frame->title := RecordExists(this->cursite)
+                               ? GetTid("publisher:commondialogs.objectprops.editsite-title", this->sourceitem->name)
+                               : this->isfolder ? GetTid("publisher:commondialogs.objectprops.editfolder-title", this->sourceitem->name)
+                                                : GetTid("publisher:commondialogs.objectprops.editfile-title",   this->sourceitem->name);
+
+    }
+    ELSE
+    {
+      ABORT("Unknown 'why'");
+    }
+
+    // Initialization for edited/duplicated files
+    IF (NOT this->isfolder AND this->startdata.why IN [ "duplicate", "edit" ])
+    {
+      RECORD inittype := this->curtype;
+
+      // Links cannot be versioned, so use the data of the sourceitem
+      IF (inittype.id = 18 OR inittype.id = 19) //http://www.webhare.net/xmlns/publisher/externallink OR http://www.webhare.net/xmlns/publisher/internallink
+      {
+        IF (inittype.id = 18)
+          ^link->value := [ externallink := this->sourceitem->externallink, internallink := 0, append := ""  ];
+        ELSE
+          ^link->value := [ externallink := "", internallink := this->sourceitem->filelink, append := this->sourceitem->externallink ];
+        ^link->visible := TRUE;
+        ^link->required := TRUE;
+      }
+      ELSE IF (inittype.id = 20) //http://www.webhare.net/xmlns/publisher/contentlink
+      {
+        ^path->value := this->sourceitem->filelink;
+        ^path->visible := TRUE;
+        ^path->required := TRUE;
+
+        IF (inittype.id = 20 //contentlink
+            AND this->sourceitem->filelink != 0)
+        {
+          OBJECT linkedfile := OpenWHFSObject(this->sourceitem->filelink);
+          IF (ObjectExists(linkedfile))
+          {
+            inittype := DescribeContentTypeById(linkedfile->type) ?? this->curtype;
+
+            enable_template := inittype.needstemplate;
+            enable_profile := inittype.needsprofile;
+          }
+        }
+      }
+
+      RECORD draftmetadata;
+      IF (this->editingdraft)
+        draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata")->GetInstanceData(this->draftitem->id);
+
+      //illegal filename? (can happen through webdav: eg word temp files)
+      BOOLEAN cansetpublish := canschedule OR (this->sourceitem->publish AND (NOT inittype.ispublishable OR NOT IsValidWHFSName(this->sourceitem->name,FALSE)));
+
+      ^notpublished->visible := NOT cansetpublish AND NOT this->curtype.needstemplate AND NOT this->curtype.needsprofile;
+      ^notpublishedtext->value := NOT this->sourceitem->isactive ? GetTid("publisher:commondialogs.objectprops.trashnotpublished") : inittype.ispublishable ? GetTid("publisher:commondialogs.objectprops.sitenotpublished") : GetTid("publisher:commondialogs.objectprops.typenotpublished", ^type->value);
+      ^publish->visible := cansetpublish;
+      IF(this->startdata.why = "edit")
+      {
+        ^publish->value := this->editingdraft
+            ? (draftmetadata.flags BITAND DraftFlag_Publish) != 0
+            : this->sourceitem->publish;
+      }
+
+      IF(NOT this->isduplicate)
+      {
+        BOOLEAN isindex := this->sourceitem->id = this->parentfolder->indexdoc;
+
+        IF (this->editingdraft)
+        {
+          IF (RecordExists(draftmetadata) AND draftmetadata.parent != this->parentfolder->id)
+          {
+            // Move is scheduled. Set isindex to TRUE only when the name is a default index page
+            isindex := RecordExists(this->parentsite) AND ToLowercase(draftmetadata.name) IN whconstant_webserver_indexpages;
+          }
+
+          IF ((draftmetadata.flags BITAND DraftFlag_MakeIndex) != 0)
+            isindex := TRUE;
+          IF ((draftmetadata.flags BITAND DraftFlag_UnmarkAsIndex) != 0)
+            isindex := FALSE;
+        }
+
+        ^makeindex->value := isindex;
+      }
+    }
+
+    this->UpdateMakeIndexVisibility();
+
+    // Tasks
+    ^tasksettings->visible := canschedule;
+    this->ReloadTaskList();
+
+    // Template & profiles
+    BOOLEAN templateprofiledisable := this->TemplateProfileSettingsDisabled();
+    this->SetupTemplateFields(enable_template, templateprofiledisable);
+    this->SetupProfileFields(enable_profile, templateprofiledisable);
+
+    // Extensions
+    this->InitializeExtensions();
+
+    this->PrepareDialog();
+
+    this->UpdatePinned(); // also calls this->ApplyVersioningPolicy();
+  }
+
+  MACRO UpdateMakeIndexVisibility()
+  {
+    RECORD indexconstraints := this->CheckIndexConstraints();
+
+    ^makeindex->visible := this->isduplicate = FALSE AND indexconstraints.acceptableindex AND indexconstraints.canedit;
+    IF (NOT indexconstraints.acceptableindex OR this->isduplicate)
+      ^makeindex->value := FALSE;
+  }
+
+  RECORD FUNCTION CheckIndexConstraints()
+  {
+    IF (this->isfolder)
+      RETURN [ acceptableindex := FALSE, canedit := FALSE ];
+
+    BOOLEAN canedit := NOT this->isinrecyclebin AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
+
+    IF (this->curtype.id = 20) // contentlink
+    {
+      // Do we have a filelink already?
+      IF (^path->value != 0)
+      {
+        INTEGER destfiletype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = ^path->value;
+        RECORD desttype := DescribeContentTypeById(destfiletype);
+
+        IF (NOT RecordExists(desttype) OR NOT desttype.isacceptableindex)
+          RETURN CELL[ acceptableindex := FALSE, canedit ];
+      }
+    }
+    ELSE
+    {
+      IF (NOT this->curtype.isacceptableindex)
+        RETURN CELL[ acceptableindex := FALSE, canedit ];
+    }
+
+    IF (RecordExists(this->contexts->applytester->__GetAppliesForcell("WEBDESIGN"))) // webdesign?
+    {
+      IF(this->curtype.id = 39) //prebuiltpage
+      {
+        // FIXME: what happens with a contentlink to a prebuilt page?
+        STRING prebuilttag;
+
+        OBJECT comp :=
+            SELECT AS OBJECT instance
+              FROM this->extendprops
+             WHERE contenttype = "http://www.webhare.net/xmlns/publisher/prebuiltpage";
+
+        IF (ObjectExists(comp) AND comp->value.prebuilttag != "")
+        {
+          RECORD settings := this->contexts->applytester->GetPrebuiltPageSettings(comp->value.prebuilttag);
+          IF (settings.capturesubpaths)
+            RETURN CELL[ acceptableindex := FALSE, canedit ];
+        }
+      }
+    }
+
+    RETURN CELL[ acceptableindex := TRUE, canedit ];
+  }
+
+  MACRO SetCurrentObjectData()
+  {
+    IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ])
+    {
+      this->isnew := TRUE;
+      this->parentfolder := this->startdata.parentfolder = 0 ? OpenWHFSRootObject() : OpenWHFSObject(this->startdata.parentfolder);
+      this->parentsite := SELECT * FROM system.sites WHERE id = this->parentfolder->parentsite;
+
+      IF (NOT ObjectExists(this->parentfolder) AND this->startdata.parentfolder != 0)
+        THROW NEW Exception("No such file/folder " || this->startdata.parentfolder);
+
+      INTEGER sourceobj := this->isduplicate ? this->startdata.fsobj : 0;
+
+      IF (sourceobj = 0)
+        this->isfolder := this->startdata.why != "newfile";
+      ELSE
+      {
+        this->sourceitem := OpenWHFSObject(sourceobj);
+
+        IF (NOT ObjectExists(this->sourceitem))
+          THROW NEW Exception("No such file/folder " || this->startdata.fsobj);
+
+        this->isfolder := this->sourceitem->isfolder;
+        this->isinrecyclebin := IsRecycleBinWHFSPath(this->sourceitem->whfspath);
+      }
+
+      this->draftitem := this->sourceitem;
+
+      this->LoadVersioningPolicy();
+
+      this->ConfigureForObjectType(this->isduplicate ? this->sourceitem->type : this->startdata.type);
+      this->RetrieveApplyBaseInfo(0, this->startdata.parentfolder);
+    }
+    ELSE IF (this->startdata.why = "edit")
+    {
+      this->itemid := this->startdata.fsobj;
+      this->sourceitem := OpenWHFSObject(this->itemid);
+
+      IF (NOT ObjectExists(this->sourceitem))
+        THROW NEW Exception("No such file/folder " || this->startdata.fsobj);
+
+      this->isfolder := this->sourceitem->isfolder;
+      this->isinrecyclebin := IsRecycleBinWHFSPath(this->sourceitem->whfspath);
+
+      IF(this->sourceitem->parent != 0)
+      {
+        this->parentfolder := OpenWHFSObject(this->sourceitem->parent);
+        IF (NOT ObjectExists(this->parentfolder))
+          THROW NEW Exception("No such file/folder " || this->sourceitem->parent || " which should have been a parent for " || this->startdata.fsobj);
+      }
+      ELSE
+        this->parentfolder := OpenWHFSRootObject();
+
+      this->parentsite := SELECT * FROM system.sites WHERE id = this->sourceitem->parentsite;
+
+      this->LoadVersioningPolicy();
+
+      this->draftitem := this->sourceitem;
+      IF (ObjectExists(this->objectpolicy))
+      {
+        OBJECT draft := GetPublicDraft(this->sourceitem->id);
+        IF (ObjectExists(draft))
+        {
+          this->draftitem := draft->fsobject;
+          this->editingdraft := TRUE;
+        }
+      }
+
+      this->RetrieveApplyBaseInfo(this->startdata.fsobj, this->sourceitem->parentsite);
+
+      this->isfolder := this->sourceitem->isfolder;
+      this->isinrecyclebin := IsRecycleBinWHFSPath(this->sourceitem->whfspath);
+
+      IF (this->isfolder)
+        this->cursite := SELECT * FROM system.sites WHERE root = this->itemid;
+
+      this->ConfigureForObjectType(this->sourceitem->type);
+    }
+    ELSE
+    {
+      ABORT("objectprops dialog get a unknown 'why' (expected 'duplicate', 'edit', 'newfile' or 'newfolder')");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  INTEGER FUNCTION GetSiteId()
+  {
+    RETURN RecordExists(this->cursite) ? this->cursite.id : 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Dialog init filling
+  //
+
+  /// Sets the name field for a new object
+  MACRO CalculateNameForNewObject()
+  {
+    IF (ObjectExists(this->sourceitem))
+    {
+      // Calculate unique name for duplicate of file
+      ^name->value := this->parentfolder->GenerateUniqueName(^name->value);
+    }
+    ELSE
+    {
+      // The new file name
+      STRING newname;
+      IF (".html" IN this->curtype.extensions AND this->parentfolder->indexdoc = 0)
+      {
+        // The file is of an acceptable index type and there is no index document yet, so name the new file after an index file
+        newname := GetWebserverDefaultPage(RecordExists(this->parentsite) ? this->parentsite.outputweb : 0);
+      }
+      ELSE
+      {
+        // Create a new file name based on the type name
+        newname := GetTid(this->curtype.title);
+        IF (Length(this->curtype.extensions) > 0)
+          newname := newname || this->curtype.extensions[0];
+        //ADDME: Deze tid zet gewoon 'nieuw' voor het bestandstype, wat een beetje lelijk is in het geval van niet-onzijdige
+        //       typenamen, bijvoorbeeld 'nieuw contentopsomming.html'...
+        newname := CreateFileName([ id := this->parentfolder->id ], ToLowercase(GetTid("publisher:commondialogs.objectprops.newfile-name", newname)));
+      }
+      ^name->value := newname;
+    }
+  }
+
+  MACRO FillBaseFields()
+  {
+    STRING ARRAY versioned_fields := this->editingdraft AND ObjectExists(this->objectpolicy)
+                                         ? this->objectpolicy->GetFields().versioned_fields
+                                         : DEFAULT STRING ARRAY;
+    FOREVERY (STRING field FROM [ "name", "title", "description", "keywords" ])
+    {
+      OBJECT fieldobj := GetMember(this, "^" || field);
+      IF (ObjectExists(this->sourceitem))
+      {
+        // If this is a versioned field within the current object policy, read its data from the draft item (or draft
+        // metadata in case of the 'name' field), otherwise read from the source item
+        IF (field IN versioned_fields)
+        {
+          IF (field = "name")
+            fieldobj->value := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata")->GetInstanceData(this->draftitem->id).name;
+          ELSE
+            fieldobj->value := GetMember(this->draftitem, field);
+        }
+        ELSE
+          fieldobj->value := GetMember(this->sourceitem, field);
+      }
+      ELSE
+        fieldobj->value := "";
+    }
+
+    INTEGER64 filesize := ObjectExists(this->draftitem) AND NOT this->isfolder ? Length64(this->draftitem->data) : 0i64;
+    IF(filesize >= 1024)
+      ^size->value := " (" || this->tolliumuser->FormatFileSize(filesize, 2) ||  ")";
+    ELSE
+      ^size->value := " (" || this->tolliumuser->FormatFileSize(filesize, 2) ||  ")";
+
+    STRING modifiedinfo;
+    IF(ObjectExists(this->draftitem))
+    {
+      STRING modifiedname;
+      IF(this->draftitem->modifiedby!=0)
+        modifiedname := this->contexts->userapi->GetUserDisplayName(this->draftitem->modifiedby);
+
+      IF(ObjectExists(this->draftitem))
+        modifiedinfo := GetTid("publisher:commondialogs.propsshared.modifiedtext"
+                                   ,this->tolliumuser->FormatDateTime(this->draftitem->modificationdate, "minutes", TRUE, FALSE)
+                                   ,modifiedname);
+    }
+    ^modified->value := modifiedinfo;
+  }
+
+  MACRO PrepareDialog()
+  {
+    IF(this->showpinning)
+    {
+      ^pinobject->visible := TRUE;
+      ^pinobject->label := this->isfolder ? GetTid("publisher:commondialogs.objectprops.pinfolder") : GetTid("publisher:commondialogs.objectprops.pinfile");
+    }
+    ELSE IF (^pinobject->value)
+    {
+      ^objectpinned->visible := TRUE;
+      ^objectpinned->value := this->isfolder ? GetTid("publisher:commondialogs.objectprops.folderispinned") : GetTid("publisher:commondialogs.objectprops.fileispinned");
+    }
+    ELSE
+    {
+      ^restrictions->visible := FALSE;
+    }
+
+    IF(this->showdeveloperoptions)
+    {
+      IF(Length(this->pending_errors)>0)
+      {
+        Print("The following errors occured processing the site profiles:\n"||Detokenize(this->pending_errors,"\n"));
+        this->RunMessagebox(".siteprofileerrors", Detokenize(this->pending_errors,"\n\n"));
+      }
+    }
+
+    IF (this->isnew AND this->autotitles)
+    {
+      ^name->visible := FALSE;
+      ^name->required := FALSE;
+      ^title->required := TRUE;
+    }
+
+    // If the item is deleted or if the user has no edit rights, setup the dialog as information window
+    IF (NOT this->isnew AND (this->isinrecyclebin OR NOT this->CanWriteCurrentItem()))
+    {
+      ^name->readonly := TRUE;
+      IF (^title->value = "")
+        ^title->visible := FALSE;
+      ELSE
+        ^title->readonly := TRUE;
+      IF (^description->value = "")
+        ^description->visible := FALSE;
+      ELSE
+        ^description->readonly := TRUE;
+      IF (^keywords->value = "")
+        ^keywords->visible := FALSE;
+      ELSE
+        ^keywords->readonly := TRUE;
+      ^link->readonly := TRUE;
+      ^path->readonly := TRUE;
+
+      ^template->readonly := TRUE;
+      ^force_template_local->readonly := TRUE;
+      ^force_template_recursive->readonly := TRUE;
+      ^profile->readonly := TRUE;
+      ^force_profile_local->readonly := TRUE;
+      ^force_profile_recursive->readonly := TRUE;
+      ^publish->readonly := TRUE;
+      ^makeindex->visible := FALSE;
+      ^tasksactions->visible := FALSE;
+
+      ^pinobject->visible := FALSE;
+
+      // Read-only dialog only has an 'OK' button, which just closes the window
+      ^requestapproval_button->visible := FALSE;
+      ^ok_button->visible := FALSE;
+      ^cancel_button->title := GetTid("tollium:common.actions.ok");
+    }
+    ^publicationsettings->visible := ^template->visible OR ^profile->visible OR ^publish->visible OR ^makeindex->visible;
+    ^publishpanel->visible := ^notpublished->visible OR ^publicationsettings->visible OR ^tasksettings->visible;
+  }
+
+  MACRO InitFieldsForItemInRecycleBin()
+  {
+    RECORD info := GetRecycledObjectInfo(this->tolliumuser, this->itemid);
+    IF(RecordExists(info))
+    {
+      STRING deletionuser := this->contexts->userapi->GetUserDisplayName(info.deletionuser);
+      this->isdeleted := TRUE;
+
+      STRING deletioninfo := GetTid("publisher:commondialogs.propsshared.deletedtext"
+                                   ,this->tolliumuser->FormatDateTime(info.deletiondate, "minutes", TRUE, FALSE)
+                                   ,deletionuser);
+      ^deleted->value := deletioninfo;
+      ^deleted->visible := TRUE;
+      ^name->value := info.origname;
+
+      ^originallocation->value := info.originalpath;
+      ^originallocation->visible := TRUE;
+    }
+  }
+
+  MACRO SetupObjectProps()
+  {
+    RECORD basesettings := this->contexts->applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE ]);
+    ^title->visible := basesettings.title;
+    ^description->visible := basesettings.description;
+    ^keywords->visible := basesettings.keywords;
+  }
+
+  BOOLEAN FUNCTION CanWriteCurrentItem()
+  {
+    RETURN this->isnew OR (NOT this->isinrecyclebin AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
+  }
+
+  MACRO UpdatePinned()
+  {
+    BOOLEAN pinned := ^pinobject->value OR this->isdeleted;
+    BOOLEAN parentfullaccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
+
+    this->frame->flags.ispinned := pinned;
+    ^name->enabled := NOT pinned AND parentfullaccess;
+    ^publish->enabled := NOT pinned AND this->CanWriteCurrentItem();
+    ^makeindex->enabled := NOT pinned AND parentfullaccess;
+
+    this->ApplyVersioningPolicy();
+    this->contexts->objectpropsapi->__UpdateOnPinned(pinned);
+  }
+
+  /** Initializes type settings for the current type. Initializes this->curtype, and visibility for the 'url', 'path' and 'size' components
+      @param settype Type to init for
+  */
+  MACRO ConfigureForObjectType(INTEGER settype)
+  {
+    this->curtype := DescribeContentTypeById(settype, [ isfolder := this->isfolder, mockifmissing := TRUE ]);
+    ^type->value := GetTid(this->curtype.title);
+
+    IF(this->curtype.id=18 OR this->curtype.id=19) //http://www.webhare.net/xmlns/publisher/externallink OR http://www.webhare.net/xmlns/publisher/internallink
+    {
+      ^link->visible := TRUE;
+      ^link->required := TRUE;
+      ^link->SetLinkType(this->curtype.id=18 ? "external" : "internal");
+    }
+    IF (this->curtype.id=20) //http://www.webhare.net/xmlns/publisher/contentlink
+    {
+      ^path->visible := TRUE;
+      ^path->required := TRUE;
+    }
+
+    ^size->visible := NOT this->isfolder AND this->curtype.blobiscontent;
+  }
+
+  MACRO InitConsilioAndWebpackInfo()
+  {
+    IF (this->sourceitem->isactive AND this->curtype.needstemplate)
+    {
+      ^linkcheck->visible := TRUE;
+      ^objectreport->fs_object := this->itemid;
+    }
+  }
+
+  MACRO ReloadTaskList()
+  {
+    IF (^tasksettings->visible AND this->itemid != 0)
+    {
+      ^tasks->rows :=
+          SELECT id
+               , task := GetTaskTitle(schedule)
+               , event
+               , folder
+               , when
+            FROM publisher.schedule
+           WHERE file = this->itemid
+        ORDER BY when;
+    }
+  }
+
+  MACRO LoadVersioningPolicy()
+  {
+    IF (NOT RecordExists(this->parentsite))
+    {
+      // If this file is in the version archive, use the policy from the original site
+      IF (this->itemid = 0 OR this->parentfolder->id != 18)
+        RETURN;
+
+      RECORD lastversionevent := GetLastVersionApplyEvent(this->itemid);
+      IF (NOT RecordExists(lastversionevent))
+        RETURN;
+
+      this->siteversioningpolicy := GetVersioningPolicyForSite(lastversionevent.fs_site);
+    }
+    ELSE
+      this->siteversioningpolicy := GetVersioningPolicyForSite(this->parentsite.id);
+    IF (NOT ObjectExists(this->siteversioningpolicy))
+      RETURN;
+
+    RECORD filerec := this->siteversioningpolicy->EnrichWithObjectPolicy(
+          [ [ id :=           this->itemid
+            , isfolder :=     this->isfolder
+            , published :=    this->isnew OR this->isfolder ? 0 : this->sourceitem->published
+            ]
+          ])[0];
+
+    this->objectpolicy := filerec.policy;
+  }
+
+  MACRO ApplyVersioningPolicy()
+  {
+    IF (NOT ObjectExists(this->objectpolicy))
+      RETURN;
+
+    // Get the policy for this file
+    RECORD filerec := this->siteversioningpolicy->EnrichWithObjectPolicy(
+          [ [ id :=           this->itemid
+            , isfolder :=     this->isfolder
+            , published :=    this->isnew OR this->isfolder ? 0 : this->sourceitem->published
+            ]
+          ], [ returnpolicyafteraccept := TRUE ])[0];
+    this->objectpolicy := filerec.policy;
+
+    // Task settings are never visible in sites with a versioning policy
+    ^tasksettings->visible := FALSE;
+
+    // Request approval button becomes visible
+    ^requestapproval_button->visible := ^ok_button->visible;
+    ^ok_button->title := GetTid("tollium:common.actions.save");
+
+    RECORD fieldspec := this->objectpolicy->GetFields();
+
+    STRING ARRAY readonly_fields := fieldspec.readonly_fields;
+    INTEGER ARRAY readonly_contenttypes;
+    IF (this->itemid != 0)
+    {
+      IF (filerec.draftlocked)
+      {
+        ^versioningmessagesbox->visible := TRUE;
+        ^versioningmessagepanel->visible := TRUE;
+        ^versioningmessage->value := GetTid("publisher:versioning.outstandingrequestforapproval");
+        ^revertdraft->visible := FALSE;
+        ^withdrawrequest->visible := filerec.draftlockedby_authobjectid = this->tolliumuser->authobjectid;
+        ^restoreitem->visible := FALSE;
+        readonly_fields := readonly_fields CONCAT fieldspec.versioned_fields;
+        readonly_contenttypes := readonly_contenttypes CONCAT fieldspec.versioned_contenttypes;
+
+        ^requestapproval->enabled := FALSE;
+
+        // We also need to protect the fields that become readonly/versioned with the new policy that will become active after accepting the draft
+        RECORD newpolicyfields := filerec.policyafteraccept->GetFields();
+        readonly_fields := GetSortedSet(readonly_fields CONCAT newpolicyfields.readonly_fields CONCAT newpolicyfields.versioned_fields);
+        readonly_contenttypes := GetSortedSet(readonly_contenttypes CONCAT newpolicyfields.versioned_contenttypes);
+      }
+      ELSE IF (this->editingdraft)
+      {
+        ^versioningmessagesbox->visible := TRUE;
+        ^versioningmessagepanel->visible := TRUE;
+        ^versioningmessage->visible := TRUE;
+        ^revertdraft->visible := TRUE;
+        ^withdrawrequest->visible := FALSE;
+        ^restoreitem->visible := FALSE;
+
+        STRING warntype := GetVersioningDraftWarning(this->sourceitem);
+        SWITCH (warntype)
+        {
+          CASE "normal"     { ^versioningmessage->value := GetTid("publisher:versioning.editingversioneddraft"); }
+          CASE "justdenied" { ^versioningmessage->value := GetTid("publisher:versioning.editingjustdeniedversioneddraft"); }
+          DEFAULT           { THROW NEW Exception(`Unhandled draft warn type '${warntype}'`); }
+        }
+      }
+      ELSE IF (this->sourceitem->parent = 18) // in versionarchive
+      {
+        ^versioningmessage->value := GetTid("publisher:versioning.editingdeletedobject");
+        ^versioningmessagesbox->visible := TRUE;
+        ^versioningmessagepanel->visible := TRUE;
+        ^versioningmessage->visible := TRUE;
+        ^revertdraft->visible := FALSE;
+        ^withdrawrequest->visible := FALSE;
+        ^restoreitem->visible := TRUE;
+        ^requestapproval->enabled := FALSE;
+      }
+      ELSE
+      {
+        ^versioningmessagesbox->visible := FALSE;
+        ^versioningmessagepanel->visible := FALSE;
+        ^versioningmessage->visible := FALSE;
+        ^revertdraft->visible := FALSE;
+        ^withdrawrequest->visible := FALSE;
+        ^restoreitem->visible := FALSE;
+        ^requestapproval->enabled := TRUE;
+      }
+
+      BOOLEAN have_movemessage;
+      IF ((filerec.draftlocked OR this->editingdraft) AND "parent" IN fieldspec.versioned_fields)
+      {
+        RECORD draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata")->GetInstanceData(this->draftitem->id);
+        IF (this->sourceitem->parent != draftmetadata.parent)
+        {
+          IF (draftmetadata.parent = 0)
+            ^versioningmovemessage->value := GetTid("publisher:versioning.draftscheduledfordelete");
+          ELSE
+          {
+            OBJECT newparent := OpenWHFSObject(draftmetadata.parent);
+            IF (this->sourceitem->parentsite = newparent->parentsite)
+              ^versioningmovemessage->value := GetTid("publisher:versioning.draftscheduledformove", newparent->fullpath);
+            ELSE
+              ^versioningmovemessage->value := GetTid("publisher:versioning.draftscheduledformove", newparent->whfspath);
+          }
+          have_movemessage := TRUE;
+        }
+      }
+      ^versioningmovemessage->visible := have_movemessage;
+    }
+
+    FOREVERY (STRING field FROM readonly_fields)
+    {
+      SWITCH (field)
+      {
+        CASE "name"           { ^name->enabled := FALSE; }
+        CASE "title"          { ^title->enabled := FALSE; }
+        CASE "description"    { ^description->enabled := FALSE; }
+        CASE "keywords"       { ^keywords->enabled := FALSE; }
+        CASE "ispinned"       { ^pinobject->enabled := FALSE; }
+        CASE "published"      { ^publish->enabled := FALSE; }
+        CASE "ordering", "parent", "type", "data" { } // not accessible here
+        CASE "indexdoc"       { ^makeindex->enabled := FALSE; }
+        DEFAULT
+        {
+          ABORT("Can't handle readonly field '" || field || "' in objectprops");
+        }
+      }
+    }
+    FOREVERY (RECORD propeditor FROM this->extendprops)
+      FOREVERY (OBJECT comp FROM propeditor.compositions)
+    {
+      IF (NOT (comp EXTENDSFROM WHFSInstance))
+        CONTINUE;
+      IF (comp->type->id IN readonly_contenttypes)
+        FOREVERY (OBJECT field FROM comp->cells)
+          field->enabled := FALSE;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions - misc
+  //
+
+  MACRO RetrieveApplyBaseInfo(INTEGER fsobjectid, INTEGER parentid)
+  {
+    IF (fsobjectid = 0)
+      this->contexts->applytester := GetApplyTesterForFakeObject(parentid, NOT this->isfolder, this->curtype.id);
+    ELSE
+      this->contexts->applytester := GetApplyTesterForObject(fsobjectid);
+
+    TRY
+      this->webcontext := __GetWebContextForApplyTester(this->contexts->applytester, fsobjectid);
+    CATCH (OBJECT e)
+    {
+      LogHarescriptException(e);
+      PRINT("Got exception loading webcontext: " || e->what);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions - templates & profiles
+  //
+
+  /// Returns whether template & profile settings should be disabled (outside of site, or set in siteprofile)
+  BOOLEAN FUNCTION TemplateProfileSettingsDisabled()
+  {
+    IF(NOT RecordExists(this->parentsite))
+      RETURN TRUE;
+
+    RETURN RecordExists(this->contexts->applytester->__GetAppliesForcell("disabletemplateprofile"));
+  }
+
+  MACRO SetupTemplateFields(BOOLEAN alwaysshow, BOOLEAN alwayshidden)
+  {
+    /////////////////////////////////
+    // Setup template selection
+
+    //ADDME: Move GetAssociableFiles into WHFS?
+    IF(alwayshidden OR (NOT alwaysshow AND NOT this->isfolder AND NOT this->curtype.needstemplate))
+    {
+      ^template->visible := FALSE;
+      ^force_template_local->visible := FALSE;
+      ^force_template_recursive->visible := FALSE;
+    }
+    ELSE
+    {
+      BOOLEAN readonly := ObjectExists(this->parentfolder) AND (this->isfolder ? this->parentfolder->requiretemplateinsubfolders : this->parentfolder->requiretemplate);
+      INTEGER curtemplate := this->isnew ? ObjectExists(this->parentfolder) ? this->parentfolder->template : 0 : this->sourceitem->template;
+
+      RECORD ARRAY availabletemplates :=
+          [ [ rowkey :=   0
+            , title :=    GetTid("publisher:commondialogs.objectprops.notemplate")
+            ]
+          ] CONCAT this->GetAssociableFiles(28/*template*/, curtemplate);
+
+      ^template->options := availabletemplates;
+      ^template->value := curtemplate;
+      ^template->readonly := readonly;
+      ^template_forced->visible := readonly;
+
+      IF(this->isfolder AND NOT readonly)
+      {
+        ^force_template_local->value     := this->isnew ? FALSE : this->sourceitem->requiretemplate;
+        ^force_template_recursive->value := this->isnew ? FALSE : this->sourceitem->requiretemplateinsubfolders;
+      }
+      ELSE
+      {
+        ^force_template_local->visible := FALSE;
+        ^force_template_recursive->visible := FALSE;
+      }
+    }
+  }
+
+  MACRO SetupProfileFields(BOOLEAN alwaysshow, BOOLEAN alwayshidden)
+  {
+    IF(alwayshidden OR (NOT alwaysshow AND NOT this->isfolder AND NOT this->curtype.needsprofile))
+    {
+      ^profile->visible := FALSE;
+      ^force_profile_local->visible := FALSE;
+      ^force_profile_recursive->visible := FALSE;
+    }
+    ELSE
+    {
+      BOOLEAN readonly := ObjectExists(this->parentfolder) AND (this->isfolder ? this->parentfolder->requireprofileinsubfolders : this->parentfolder->requireprofile);
+      INTEGER curprofile := this->isnew ? ObjectExists(this->parentfolder) ? this->parentfolder->profile : 0 : this->sourceitem->profile;
+
+      RECORD ARRAY availableprofiles :=
+          [ [ rowkey :=   0
+            , title :=    GetTid("publisher:commondialogs.objectprops.noprofile")
+            ]
+          ] CONCAT this->GetAssociableFiles(29/*profile*/, curprofile);
+
+      ^profile->options := availableprofiles;
+      ^profile->value := curprofile;
+      ^profile->readonly := readonly;
+      ^profile_forced->visible := readonly;
+
+      IF(this->isfolder AND NOT readonly)
+      {
+        ^force_profile_local->value     := this->isnew ? FALSE : this->sourceitem->requireprofile;
+        ^force_profile_recursive->value := this->isnew ? FALSE : this->sourceitem->requireprofileinsubfolders;
+      }
+      ELSE
+      {
+        ^force_profile_local->visible := FALSE;
+        ^force_profile_recursive->visible := FALSE;
+      }
+    }
+  }
+
+  /// Returns the title to show for an associable file
+  STRING FUNCTION MakeFileTitle(INTEGER fileid, STRING title, STRING fullpath, INTEGER parentsite, BOOLEAN isactive)
+  {
+    STRING retval;
+    IF(title != "")
+      retval := title;
+    ELSE IF(RecordExists(this->parentsite) AND this->parentsite.id = parentsite)
+      retval := fullpath; //same site, so local reference
+    ELSE
+    {
+      STRING sitename := SELECT AS STRING name FROM system.sites WHERE id=parentsite;
+      IF(sitename!="")
+        retval := sitename || ":" || fullpath;
+    }
+    IF(retval="")
+      retval := fullpath;
+    IF(NOT isactive)
+      retval := this->GetTid(".isdeleted", retval);
+    RETURN retval;
+  }
+
+  /** Return the list of templates/profiles that can be associated with this object
+      @param filetype
+      @param addfileid Currently associated file (will be added to list if not presnet)
+      @return
+      @cell return.rowkey
+      @cell return.title
+  */
+  RECORD ARRAY FUNCTION GetAssociableFiles(INTEGER filetype, INTEGER addfileid)
+  {
+    RECORD ARRAY allowed_files;
+
+    IF(addfileid!=0)
+    {
+      RECORD filerec := SELECT * FROM system.fs_objects WHERE id = addfileid;
+      allowed_files := [[ id := addfileid
+                        , isactive := RecordExists(filerec) ? filerec.isactive : FALSE
+                        , title := RecordExists(filerec) ? filerec.title : "#" || addfileid
+                        , fullpath := RecordExists(filerec) ? filerec.fullpath : ""
+                        , parentsite := RecordExists(filerec) ? filerec.parentsite : 0
+                        ]
+                       ];
+    }
+
+    //Grab all files in parent and current folders
+    INTEGER curfolder;
+    IF (ObjectExists(this->sourceitem) AND this->sourceitem->isfolder)
+      curfolder := this->sourceitem->id;
+    ELSE
+      curfolder := ObjectExists(this->parentfolder) ? this->parentfolder->id : 0;
+
+    WHILE(curfolder != 0)
+    {
+      allowed_files := allowed_files
+                  CONCAT SELECT fs_objects.id, title, fullpath, parentsite, isactive
+                           FROM system.fs_objects
+                         WHERE fs_objects.type = filetype
+                               AND parent=curfolder;
+      curfolder := SELECT AS INTEGER parent FROM system.fs_objects WHERE id=curfolder;
+    }
+
+    //Grab files from the site profiles
+    RECORD affected;
+    IF (ObjectExists(this->sourceitem))
+    {
+      IF (this->curtype.namespace = "http://www.webhare.net/xmlns/publisher/contentlink")
+        affected := RECORD(SELECT * FROM system.fs_objects WHERE id = this->sourceitem->filelink);
+      ELSE
+        affected := RECORD(SELECT * FROM system.fs_objects WHERE id = this->sourceitem->id);
+    }
+    RECORD folder := ObjectExists(this->parentfolder) ? RECORD(SELECT * FROM system.fs_objects WHERE id = this->parentfolder->id) : DEFAULT RECORD;
+
+    allowed_files := allowed_files CONCAT this->GetLegacyAllowedAssociations(filetype!=29);
+
+    allowed_files := SELECT DISTINCT id,title,fullpath,parentsite,isactive FROM allowed_files;
+    allowed_files := SELECT rowkey := id, title := this->MakeFileTitle(id,title,fullpath,parentsite,isactive) FROM allowed_files;
+    allowed_files := SELECT * FROM allowed_files ORDER BY ToUppercase(title);
+    RETURN allowed_files;
+  }
+
+  RECORD ARRAY FUNCTION GetLegacyAllowedAssociations(BOOLEAN gettemplate)
+  {
+    RECORD ARRAY allowed_files;
+    INTEGER filesiteid := this->contexts->applytester->__Deprecated_GetObjInfo().obj.parentsite;
+    FOREVERY(RECORD apply FROM this->contexts->applytester->__GetAppliesForcell(gettemplate ? "ALLOWTEMPLATES" : "ALLOWPROFILES"))
+    {
+      RECORD ARRAY relevant := gettemplate ? apply.allowtemplates : apply.allowprofiles;
+      FOREVERY(RECORD rel FROM relevant)
+      {
+        IF(rel.site!="")
+        {
+          filesiteid := SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(name)=ToUppercase(rel.site);
+          IF(filesiteid=0)
+            CONTINUE;
+        }
+        INTEGER relfile := LookupWHFSObject(filesiteid, rel.fullpath);
+        IF(relfile != 0)
+        {
+          //NOTE: if a file was found inside a site, its active, so no need to check for 'isactive'
+          allowed_files := allowed_files
+                    CONCAT SELECT fs_objects.id, title, fullpath, parentsite, isactive
+                             FROM system.fs_objects
+                            WHERE fs_objects.id = relfile
+                                  AND fs_objects.type = (gettemplate ? 28 : 29);
+        }
+      }
+    }
+    RETURN allowed_files;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions - extensions
+  //
+
+  MACRO InitializeExtensions()
+  {
+    // If the item is not deleted and if the user has edit rights, setup site profile fields
+    //ADDME: Just hiding these fields for now, a better solution would probably involve readonly compositions
+
+    IF (this->CanWriteCurrentItem())
+    {
+      INTEGER parentfolderid := ObjectExists(this->parentfolder) ? this->parentfolder->id : 0;
+      this->SetupObjectProps();
+
+      this->sp_customfields := this->contexts->applytester->GetCustomFields(this->tolliumuser, this->tolliumuser->language);
+      this->pending_errors := this->pending_errors CONCAT this->sp_customfields.errors;
+      this->SetupSiteProfileExtensions(this->startdata.faultypropeditors, /* starttab=*/2);
+      IF(this->isnew = FALSE AND this->isinrecyclebin)
+        this->MarkSiteProfileExtensionsReadonly();
+
+      IF(ObjectExists(this->sourceitem))
+        this->FillSiteprofExtensions();
+      ELSE
+        this->ResetSiteprofExtensions(parentfolderid, this->startdata.type);
+    }
+
+    //Set up any extensions
+    RECORD extensions := [ owner := this
+                         , propertytabs := ^maintabs
+                         , objectid := this->objectid
+                         , typens := this->curtype.namespace
+                         , onsubmits := DEFAULT MACRO PTR ARRAY
+                         ];
+
+    extensions := RunModuleHookTarget("publisher:publisher_objectprops_extensions", extensions);
+    this->onsubmits := extensions.onsubmits;
+
+    ^maintabs->RunExtensionsPostInit();
+  }
+
+
+  /// Marks all siteprofile extension components as readonly
+  MACRO MarkSiteProfileExtensionsReadonly()
+  {
+    FOREVERY(RECORD propeditor FROM this->extendprops)
+      FOREVERY(OBJECT comp FROM propeditor.components)
+        comp->readonly := TRUE;
+  }
+
+  /// Disables all siteprofile extension components as readonly
+  MACRO MarkSiteProfileExtensionsDisabled()
+  {
+    FOREVERY(RECORD propeditor FROM this->extendprops)
+      FOREVERY(OBJECT comp FROM propeditor.components)
+        comp->enabled := FALSE;
+  }
+
+  MACRO FillSiteprofExtensions()
+  {
+    INTEGER ARRAY versioned_contenttypes := this->editingdraft AND ObjectExists(this->objectpolicy)
+                                                ? this->objectpolicy->GetFields().versioned_contenttypes
+                                                : DEFAULT INTEGER ARRAY;
+
+    FOREVERY(RECORD extendprop FROM this->extendprops)
+    {
+      STRING compname := "contentdata";
+      TRY
+      {
+        IF (ObjectExists(extendprop.instance))
+          extendprop.instance->ReadInstanceFromFSObject();
+
+        FOREVERY(OBJECT comp FROM extendprop.compositions)
+        {
+          IF (NOT (comp EXTENDSFROM WHFSInstance))
+            CONTINUE;
+
+          compname := comp->name;
+          IF (comp->type->id IN versioned_contenttypes)
+            comp->basefsobject := this->draftitem;
+          ELSE
+            comp->basefsobject := this->sourceitem;
+
+          // If olddata is defined, we have to migrate the old photoalbum settings
+          RECORD olddata;
+          IF(comp->type->namespace = "http://www.webhare.net/xmlns/publisher/photoalbum")
+          {
+            olddata := comp->type->GetInstanceData(comp->basefsobject->id);
+
+            // If there are no legacy settings or there are already new settings defined, we don't have to convert
+            IF (olddata.picturesize = "" OR olddata.thumbnailsize = ""
+              OR olddata.picturewidth > 0 OR olddata.pictureheight > 0
+              OR olddata.thumbnailwidth > 0 OR olddata.thumbnailheight > 0)
+              olddata := DEFAULT RECORD;
+          }
+
+          // Read defaults for this type
+          comp->ReadInstanceFromFSObject();
+
+          IF (RecordExists(olddata))
+          {
+            comp->GetComponent("picturewidth")->value := ToInteger(olddata.picturesize, 600);
+            comp->GetComponent("pictureheight")->value := ToInteger(olddata.picturesize, 600);
+            comp->GetComponent("thumbnailwidth")->value := ToInteger(olddata.thumbnailsize, 100);
+            comp->GetComponent("thumbnailheight")->value := ToInteger(olddata.thumbnailsize, 100);
+          }
+        }
+      }
+      CATCH (OBJECT<TolliumException> e)
+      {
+        THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name, e->what);
+      }
+      CATCH (OBJECT e)
+      {
+        // Unknown exception, just continue to next composition
+        Print("Could not set instance data for whfsinstance '" || compname || "' because of exception '" || e->what || "' from:\n");
+        Print(AnyToString(e->trace, "boxed"));
+        CONTINUE;
+      }
+    }
+  }
+
+  MACRO ResetSiteprofExtensions(INTEGER parentid, INTEGER newtype)
+  {
+    FOREVERY(RECORD extendprop FROM this->extendprops)
+      FOREVERY(OBJECT comp FROM extendprop.compositions)
+      {
+        IF (NOT (comp EXTENDSFROM WHFSInstance))
+          CONTINUE;
+
+        TRY
+        {
+          IF (comp->datastore = "self")
+          {
+            // Only set default setting for new object, not for parent objects
+            comp->SetDefaultInstanceDataForParent(parentid, this->isfolder, newtype);
+          }
+        }
+        CATCH (OBJECT<TolliumException> e)
+        {
+          THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name, e->what);
+        }
+        CATCH (OBJECT e)
+        {
+          // Unknown exception, just continue to next composition
+          Print("Could not set instance data for " || comp->name || " because of exception '" || e->what || "' from:\n");
+          Print(AnyToString(e->trace, "boxed"));
+          CONTINUE;
+        }
+      }
+  }
+
+  MACRO SetupSiteProfileExtensions(RECORD ARRAY skipeditors, INTEGER tab_insert_pos)
+  {
+    ^maintabs->extendposition := tab_insert_pos;
+    ^maintabs->insertpoints := [ [ name := "name", component := ^name ]
+                               , [ name := "title", component := ^title ]
+                               , [ name := "description", component := ^description ]
+                               , [ name := "keywords", component := ^keywords ]
+                               , [ name := "publicationsettings", component := ^publicationsettings ]
+                               , [ name := "tasksettings", component := ^tasksettings ]
+                               , [ name := "settings", component := ^settings ]
+                               ];
+
+    IF (ObjectExists(this->webcontext))
+    {
+      FOREVERY(OBJECT plugin FROM this->webcontext->GetPluginsByFeature("objectprops"))
+        plugin->HookObjectProps(this->contexts->objectpropsapi);
+    }
+
+    RECORD ARRAY default_extendcomponents :=
+        [ [ name := "fsobject_name", component := ^name ]
+        , [ name := "fsobject_title", component := ^title ]
+        , [ name := "fsobject_description", component := ^description ]
+        , [ name := "fsobject_keywords", component := ^keywords ]
+        ];
+
+    INTEGER ARRAY versioned_contenttypes := this->editingdraft AND ObjectExists(this->objectpolicy)
+                                                ? this->objectpolicy->GetFields().versioned_contenttypes
+                                                : DEFAULT INTEGER ARRAY;
+
+    this->extendprops := SELECT *
+                              , compositions := DEFAULT OBJECT ARRAY
+                              , components := DEFAULT OBJECT ARRAY
+                              , fragment := DEFAULT OBJECT
+                              , instance := DEFAULT OBJECT
+                           FROM this->sp_customfields.propertyeditors;
+
+    STRING ARRAY seen_members;
+    FOREVERY(RECORD propeditor FROM this->extendprops)
+    {
+      // If we're not supposed to load the property editor because of an error, continue to the next
+      RECORD skipreason := SELECT error FROM skipeditors WHERE name = propeditor.name;
+      IF (RecordExists(skipreason))
+        CONTINUE;
+
+      TRY
+      {
+       //FIXME standardize global file naming. eg, "whfs:/full/siteprifile/path' ?
+ //       STRING uniquename := "siteprofile_" || propeditor.fileid;
+        //FIXME properly manage siteprofiles - we should probably 'register' files explicitly with tollium, with their language system
+        /*IF(NOT CellExists(cached_languagesystems, propeditor.name))
+          cached_languagesystems := CellInsert(cached_languagesystems, uniquename, propeditor.siteprof->GetLanguageSystem());
+*/
+        STRING selector;
+        RECORD ARRAY extendcomponents := default_extendcomponents;
+
+        IF (propeditor.contenttype != "") //applicable only for tabsextension
+        {
+          propeditor.instance := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "whfsinstance");
+          propeditor.instance->type := OpenWHFSType(propeditor.contenttype);
+          IF(NOT ObjectExists(propeditor.instance->type))
+            THROW NEW Exception(`<tabsextension> is trying to handle unregistered type '${propeditor.contenttype}'`);
+          IF (ObjectExists(this->sourceitem))
+          {
+            IF (propeditor.instance->type->id IN versioned_contenttypes)
+              propeditor.instance->basefsobject := this->draftitem;
+            ELSE
+              propeditor.instance->basefsobject := this->sourceitem;
+          }
+          INSERT [ name := "contentdata", component := propeditor.instance ] INTO extendcomponents AT END;
+        }
+
+        ^maintabs->extendcomponents := extendcomponents;
+
+        RECORD loadresult := ^maintabs->LoadTabsExtension(propeditor.siteprofile || "#" || propeditor.selector
+                                                              ,CellExists(propeditor, 'taboptions') ? propeditor.taboptions : DEFAULT RECORD);
+        FOREVERY(OBJECT comp FROM loadresult.compositions)
+          IF (comp EXTENDSFROM WHFSInstance AND comp->typens != "")
+          {
+            FOREVERY(OBJECT cellobj FROM comp->cells)
+              IF(cellobj->cellname != "")
+              {
+                STRING fullname := comp->typens || ":" || cellobj->cellname;
+                IF(fullname IN seen_members) //ADDME can Tabs do this validation on loaded components ?
+                  THROW NEW Exception("Multiple property editors are trying to handle field '" || fullname || "'");
+                INSERT fullname INTO seen_members AT END;
+              }
+          }
+
+        propeditor.compositions := loadresult.compositions;
+        propeditor.components := loadresult.components;
+        propeditor.fragment := loadresult.fragment;
+
+        this->extendprops[#propeditor] := propeditor;
+      }
+      CATCH (OBJECT e)
+      {
+        // Tab could not be inserted. We'll throw an exception containing the name of the propertyeditor which created
+        // the component, so we can skip this propertyeditor in the next initialization.
+        THROW NEW PropertyEditorException(propeditor.siteprofile, propeditor.name, e->what);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  /// Called when internal link path has been modified
+  MACRO OnPathChange()
+  {
+    OBJECT linked := OpenWHFSObject(^path->value);
+    IF (ObjectExists(linked) AND this->curtype.namespace = "http://www.webhare.net/xmlns/publisher/contentlink")
+    {
+      // The file/folder to link to has changed, update the extension if necessary
+      STRING curext := GetExtensionFromPath(^name->value);
+      STRING newext := GetExtensionFromPath(linked->name);
+      IF (curext != newext)
+        ^name->value := Left(^name->value, Length(^name->value) - Length(curext)) || newext;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAddTask()
+  {
+    OBJECT taskdlg := this->LoadScreen(".taskprops", [ why := "new"
+                                                     , siteroot := this->parentsite.root
+                                                     , isfolder := this->isfolder
+                                                     ]);
+    IF (taskdlg->RunModal() = "ok")
+    {
+      RECORD newtask := taskdlg->task;
+      IF (newtask.event > 0)
+      {
+        INSERT [ id := 0
+               , event := newtask.event
+               , task := GetTaskTitle(newtask)
+               , folder := newtask.folder
+               , when := newtask.when
+               ] INTO ^tasks->rows AT END;
+        ^tasks->rows := SELECT * FROM ^tasks->rows ORDER BY when;
+      }
+    }
+  }
+
+  MACRO DoEditTask()
+  {
+    IF (RecordExists(^tasks->selection))
+    {
+      RECORD seltask := ^tasks->selection;
+      OBJECT taskdlg := this->LoadScreen(".taskprops", [ why := "edit"
+                                                       , siteroot := this->parentsite.root
+                                                       , event := seltask.event
+                                                       , folder := seltask.folder
+                                                       , when := seltask.when
+                                                       , isfolder := this->isfolder
+                                                       ]);
+      IF (taskdlg->RunModal() = "ok")
+      {
+        RECORD newtask := taskdlg->task;
+        IF (newtask.event > 0)
+        {
+          UPDATE ^tasks->rows
+             SET event := newtask.event
+               , task := GetTaskTitle(newtask)
+               , folder := newtask.folder
+               , when := newtask.when
+           WHERE rowkey = seltask.rowkey;
+
+          ^tasks->rows := SELECT * FROM ^tasks->rows ORDER BY when;
+        }
+      }
+    }
+  }
+
+  MACRO DoDeleteTask()
+  {
+    IF (RecordExists(^tasks->selection) AND this->RunMessageBox(".deletetaskconfirm") = "yes")
+      DELETE FROM ^tasks->rows WHERE rowkey = ^tasks->selection.rowkey;
+  }
+
+  MACRO DoGoToPublishedUrl()
+  {
+    this->frame->OpenBrowserWindow(this->sourceitem->url, "WebHarePublisherPreview");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Submit
+  //
+
+  RECORD FUNCTION QueryDialog(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ stoponfeedback :=       DEFAULT STRING ARRAY
+        , params :=               DEFAULT STRING ARRAY
+        ], options);
+
+    RECORD def :=
+        [ type :=                 type
+        , done :=                 FALSE
+        , feedback :=             ""
+        , stoponfeedback :=       options.stoponfeedback
+        , params :=               options.params
+        , feedbackdata :=         DEFAULT RECORD
+        ];
+
+    FOREVERY (RECORD rec FROM this->scheduledmessageboxes)
+    {
+      IF (rec.done AND rec.type = def.type AND EncodeHSON(def.params) = EncodeHSON(rec.params))
+        RETURN [ feedback := rec.feedback, data := rec.feedbackdata ];
+    }
+
+    INSERT def INTO this->scheduledmessageboxes AT END;
+    RETURN DEFAULT RECORD;
+  }
+
+  STRING FUNCTION QueryMessageBox(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD rec := this->QueryDialog(type, options);
+    RETURN RecordExists(rec) ? rec.feedback : "";
+  }
+
+  // Returns whether the submit process may continue
+  BOOLEAN FUNCTION RunScheduledMessageBoxes()
+  {
+    FOREVERY (RECORD rec FROM this->scheduledmessageboxes)
+    {
+      IF (rec.done)
+        CONTINUE;
+
+      STRING feedback;
+      RECORD feedbackdata;
+      SWITCH (rec.type)
+      {
+        CASE "contentlinkpointstononindex"
+        {
+          feedback := this->RunMessageBox(".contentlinkpointstononindex");
+        }
+        CASE "cannotreplacepinnedindex"
+        {
+          feedback := this->RunMessageBox(".cannotreplacepinnedindex", rec.params[0]);
+        }
+        CASE "indexnotpublished"
+        {
+          feedback := this->RunMessageBox(".indexnotpublished");
+        }
+        CASE "deleteoldindexconfirm"
+        {
+          feedback := this->RunMessageBox(".deleteoldindexconfirm", rec.params[0], rec.params[1]);
+        }
+        CASE "replaceindexconfirm"
+        {
+          feedback := this->RunMessageBox(".replaceindexconfirm", rec.params[0], rec.params[1]);
+        }
+        CASE "unpinconfirm"
+        {
+          feedback := this->RunMessageBox(".unpinconfirm");
+        }
+        CASE "folderwithoutindex"
+        {
+          feedback := this->RunMessageBox(".folderwithoutindex");
+        }
+        CASE "submitchangesforapproval"
+        {
+          IF (this->startdata.why = "edit")
+            feedbackdata := GetSubmitRequestApprovalMetadata(this, this->sourceitem);
+          ELSE
+            feedbackdata := GetSubmitRequestApprovalMetadata(this, DEFAULT OBJECT, [ policy := this->siteversioningpolicy ]);
+          feedback := RecordExists(feedbackdata) ? "ok" : "cancel";
+        }
+        CASE "filecannotbenamedasindex"
+        {
+          feedback := this->ShowMessageBox(GetTid("publisher:commondialogs.messageboxes.filecannotbenamedasindex"), [ icon := "error", buttons := [ "close" ] ]);
+        }
+        DEFAULT
+        {
+          ABORT("Unhandled dialog type '" || rec.type || "'");
+        }
+      }
+
+      this->scheduledmessageboxes[#rec].feedback := feedback ?? "cancel";
+      this->scheduledmessageboxes[#rec].feedbackdata := feedbackdata;
+      this->scheduledmessageboxes[#rec].done := TRUE;
+
+      IF (feedback IN rec.stoponfeedback OR "*" IN rec.stoponfeedback)
+        RETURN FALSE;
+    }
+    RETURN TRUE;
+  }
+
+  STRING FUNCTION GenerateAutoTitle()
+  {
+    STRING suggestedname := GetSafeFileName(^title->value);
+
+    IF (Length(suggestedname)>30)
+      suggestedname := Left(suggestedname,30);
+    IF (suggestedname LIKE "*_")
+      suggestedname := Left(suggestedname,Length(suggestedname)-1);
+    IF (suggestedname = "")
+      suggestedname := "webhare";
+
+    // Add extension for file type
+    IF (NOT this->isfolder AND Length(this->curtype.extensions) > 0)
+      suggestedname := suggestedname || this->curtype.extensions[0];
+
+    RETURN CreateFileName([ id := this->parentfolder->id ], suggestedname);
+  }
+
+  RECORD FUNCTION GenerateTemplateProfileMetadataChanges()
+  {
+    RECORD metadata;
+    IF(RecordExists(this->parentsite) AND this->TemplateProfileSettingsDisabled())
+    {
+      INSERT CELL template := 0 INTO metadata;
+      INSERT CELL profile := 0 INTO metadata;
+      IF(this->isfolder)
+      {
+        INSERT CELL requiretemplate := TRUE INTO metadata;
+        INSERT CELL requiretemplateinsubfolders := TRUE INTO metadata;
+        INSERT CELL requireprofile := TRUE INTO metadata;
+        INSERT CELL requireprofileinsubfolders := TRUE INTO metadata;
+      }
+    }
+    ELSE
+    {
+      IF(^template->visible)
+      {
+        INSERT CELL template := ^template->value INTO metadata;
+        IF(this->isfolder)
+        {
+          INSERT CELL requiretemplate := ^force_template_local->value INTO metadata;
+          INSERT CELL requiretemplateinsubfolders := ^force_template_recursive->value INTO metadata;
+        }
+      }
+      IF(^profile->visible)
+      {
+        INSERT CELL profile := ^profile->value INTO metadata;
+        IF(this->isfolder)
+        {
+          INSERT CELL requireprofile := ^force_profile_local->value INTO metadata;
+          INSERT CELL requireprofileinsubfolders := ^force_profile_recursive->value INTO metadata;
+        }
+      }
+    }
+
+    RETURN metadata;
+  }
+
+  MACRO UpdateTasks(INTEGER objid)
+  {
+    //First, delete old tasks
+    INTEGER ARRAY tasks := SELECT AS INTEGER ARRAY id FROM ^tasks->rows;
+    FOREVERY (INTEGER id FROM (SELECT AS INTEGER ARRAY COLUMN id FROM publisher.schedule WHERE file = objid))
+      IF (id NOT IN tasks)
+        DeleteFileTask(id);
+
+    FOREVERY (RECORD task FROM ^tasks->rows)
+    {
+      IF (task.id = 0)
+        AddFileTask(objid, task.when, task.event, task.folder);
+      ELSE
+        EditFileTask(task.id, task.when, task.event, task.folder);
+    }
+
+    IF (Length(^tasks->rows) > 0)
+    {
+      DATETIME firsttask := SELECT AS DATETIME when FROM ^tasks->rows ORDER BY when ASC;
+      GetPrimary()->ScheduleTask("publisher:scheduledtasks", firsttask);
+    }
+  }
+
+
+  MACRO WriteExtensionData(OBJECT work, INTEGER objid, INTEGER draftid, INTEGER ARRAY versioned_contenttypes)
+  {
+    //Grab siteprofile stuff
+    FOREVERY(RECORD extendprop FROM this->extendprops)
+    {
+      IF (extendprop.contenttype="") // FIXME: all <propertyeditor>'s ?
+        FOREVERY(OBJECT comp FROM extendprop.compositions)
+          IF (comp EXTENDSFROM WHFSInstance)
+            this->WriteInstanceData(work, comp, objid, draftid, versioned_contenttypes);
+
+      IF (ObjectExists(extendprop.instance)) // <tabsextention> ??
+        this->WriteInstanceData(work, extendprop.instance, objid, draftid, versioned_contenttypes);
+    }
+  }
+
+  MACRO WriteInstanceData(OBJECT work, OBJECT instance, INTEGER objid, INTEGER draftid, INTEGER ARRAY versioned_contenttypes)
+  {
+    OBJECT curbaseobject;
+    IF (this->isnew)
+      instance->basefsobject := OpenWHFSOBject(objid);
+    ELSE IF (instance->type->id IN versioned_contenttypes AND draftid != 0)
+    {
+      // Write to explicit draft object
+      curbaseobject := instance->basefsobject;
+      instance->basefsobject := OpenWHFSOBject(draftid);
+    }
+    instance->WriteInstanceToFSObject();
+    IF (instance->type->id IN versioned_contenttypes AND draftid != 0)
+      instance->basefsobject := curbaseobject;
+  }
+
+  /** Calculate index actions
+      @return
+      @cell(boolean) return.makeindex If true, make this file the index
+      @cell(boolean) return.resetindex If true, reset the index of the parent folder
+      @cell(integer) return.recycleoldindex Id of old index file to recycle
+      @cell(integer) return.scheduleoldindex Id of old index file republish
+  */
+  RECORD FUNCTION CheckMakeIndex()
+  {
+    // Calculate (new) parentfolder and parentsite
+    OBJECT parentfolder := this->parentfolder;
+    RECORD parentsite := this->parentsite;
+
+    IF (ObjectExists(this->objectpolicy) AND ObjectExists(this->sourceitem))
+    {
+      OBJECT draft := GetPublicDraft(this->sourceitem->id);
+
+      RECORD fieldspolicy := this->objectpolicy->GetFields();
+      IF ("parent" IN fieldspolicy.versioned_fields AND ObjectExists(draft))
+      {
+        OBJECT whfs_draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
+        RECORD rec := whfs_draftmetadata->GetInstanceData(draft->id);
+
+        IF (rec.parent = 0)
+          RETURN [ status := "scheduleddelete" ];
+
+        parentfolder := rec.parent = 0 ? DEFAULT OBJECT : OpenWHFSObject(rec.parent);
+        parentsite := SELECT * FROM system.sites WHERE id = parentfolder->parentsite;
+      }
+    }
+
+    RECORD indexconstraints := this->CheckIndexConstraints();
+    BOOLEAN makeindex := ^makeindex->visible AND ^makeindex->value;
+    BOOLEAN forcedindex;
+
+    // If the new name is a default page for this site, it will automatically become index anyway
+    IF (RecordExists(this->parentsite) AND ToLowercase(^name->value) IN whconstant_webserver_indexpages)
+    {
+      IF (NOT indexconstraints.acceptableindex)
+      {
+        this->QueryDialog("filecannotbenamedasindex", [ stoponfeedback := [ "*" ]]);
+        RETURN [ status := "retry" ];
+      }
+
+      makeindex := TRUE;
+      forcedindex := TRUE;
+    }
+
+    INTEGER scheduleoldindex, recycleoldindex;
+
+    IF (^makeindex->visible OR forcedindex OR NOT indexconstraints.acceptableindex)
+    {
+      IF (makeindex AND this->curtype.id = 20)
+      {
+        //verify the reference
+        INTEGER destfiletype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = ^path->value;
+        RECORD destfiletypeprops := GetFileTypeProps(destfiletype);
+        IF(NOT RecordExists(destfiletypeprops) OR NOT destfiletypeprops.isacceptableindex)
+        {
+          this->QueryMessageBox("contentlinkpointstononindex", [ stoponfeedback := [ "*" ]]);
+          RETURN [ status := "retry" ];
+        }
+      }
+
+      //Does this folder already have an index other than this file?
+      IF (makeindex AND parentfolder->indexdoc != 0 AND (this->isnew OR parentfolder->indexdoc != this->sourceitem->id))
+      {
+        IF (RecordExists(parentsite))
+        {
+          //If this indexdoc has the name of an index file, it must be renamed or destroyed!
+          RECORD indexfile := SELECT * FROM system.fs_objects WHERE id = parentfolder->indexdoc;
+
+          IF (ToLowercase(indexfile.name) IN whconstant_webserver_indexpages)
+          {
+            IF (indexfile.type = 24)
+              recycleoldindex := indexfile.id;
+            ELSE
+            {
+              STRING feedback := this->QueryMessageBox("deleteoldindexconfirm",
+                  [ params := [ STRING(indexfile.name), ^name->value ] ]);
+              IF (feedback = "")
+                RETURN [ status := "retry"];
+              ELSE IF (feedback = "yes")
+                recycleoldindex := indexfile.id;
+              ELSE
+                makeindex := FALSE;
+            }
+          }
+          ELSE IF(indexfile.ispinned)
+          {
+            this->QueryMessageBox("cannotreplacepinnedindex", [ stoponfeedback := [ "*" ], params := [ STRING(indexfile.name)] ]);
+            RETURN [ status := "retry" ];
+          }
+          ELSE
+          {
+            STRING feedback := this->QueryMessageBox("replaceindexconfirm", [ params := [ STRING(indexfile.name), ^name->value ] ]);
+            IF (feedback = "")
+              RETURN [ status := "retry" ];
+
+            IF (feedback = "yes")
+              scheduleoldindex := indexfile.id; //republish the old index
+            ELSE
+              makeindex := FALSE;
+          }
+        }
+      }
+      ELSE IF (NOT makeindex AND NOT this->isnew AND parentfolder->indexdoc = this->sourceitem->id)
+      {
+        IF (this->QueryMessageBox("folderwithoutindex") = "")
+          RETURN [ status := "retry" ];
+      }
+
+      //publication disabled for index document? (no warning in versioned sites)
+      IF (makeindex AND NOT ^publish->value AND NOT ObjectExists(this->objectpolicy))
+      {
+        IF (this->QueryMessageBox("indexnotpublished") = "")
+          RETURN [ status := "retry" ];
+      }
+    }
+
+    RETURN
+        [ status :=           "ok"
+        , makeindex :=        makeindex
+        , resetindex :=       (^makeindex->visible OR NOT indexconstraints.acceptableindex) AND NOT makeindex AND NOT this->isnew AND this->parentfolder->indexdoc = this->sourceitem->id
+        , scheduleoldindex := scheduleoldindex
+        , recycleoldindex :=  recycleoldindex
+        ];
+  }
+
+  MACRO DoRequestApproval()
+  {
+    IF (this->Submit(TRUE))
+      this->tolliumresult := "ok";
+  }
+
+  MACRO DoCancelDraft()
+  {
+    IF (this->RunMessageBox(".confirmcanceldraft") = "yes")
+    {
+      OBJECT work := this->BeginUnvalidatedWork();
+
+      OBJECT draft := GetPublicDraft(this->sourceitem->id);
+      draft->DeleteSelf();
+
+      IF (work->Finish())
+      {
+        this->RunMessageBox(".draftcancelled");
+        this->tolliumresult := "ok";
+      }
+    }
+  }
+
+  MACRO DoCancelRequest()
+  {
+    IF (this->RunMessageBox(".confirmcancelrequest") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      OBJECT draftitem := this->draftitem;
+      CancelApprovalRequestForDraft(OpenWHFSDraft(draftitem->id));
+      IF (work->Finish())
+      {
+        this->sourceitem->Refresh();
+        this->draftitem->Refresh();
+
+        // These fields will be (re)disabled by ApplyVersioningPolicy if needed; other fields are enabled by UpdatePinned
+        ^title->enabled := TRUE;
+        ^description->enabled := TRUE;
+        ^keywords->enabled := TRUE;
+        ^pinobject->enabled := TRUE;
+
+        FOREVERY (RECORD propeditor FROM this->extendprops)
+          FOREVERY (OBJECT comp FROM propeditor.compositions)
+        {
+          IF (NOT (comp EXTENDSFROM WHFSInstance))
+            CONTINUE;
+          FOREVERY (OBJECT field FROM comp->cells)
+            field->enabled := TRUE;
+        }
+
+        this->UpdatePinned(); // Also calls ApplyVersioningPolicy
+      }
+    }
+  }
+
+  MACRO DoRestore()
+  {
+    IF (this->RunMessageBox(".confirmrestore") = "yes")
+    {
+      // files in recyclebin only have objectpolicy when in versionarchive
+      IF (ObjectExists(this->objectpolicy))
+      {
+        RunVersionedFileRestore(this, this->sourceitem->id);
+      }
+      ELSE
+      {
+        OBJECT work := this->BeginUnvalidatedWork();
+        this->sourceitem->RestoreSelf();
+        work->Finish();
+      }
+
+      // Close the window for now, the file has disappeared from the parent list anyway
+      this->tolliumresult := "ok";
+    }
+  }
+
+  BOOLEAN FUNCTION Submit(BOOLEAN execute_approval_request DEFAULTSTO FALSE)
+  {
+    // Auto-check for required fields
+    IF (NOT this->BeginFeedback()->Finish())
+      RETURN FALSE;
+
+    // Extra validation
+    STRING name := ^name->value;
+
+    // Create a name based on the title for new folders and files
+    IF (this->isnew AND this->autotitles)
+    {
+      name := this->GenerateAutoTitle();
+    }
+
+    // Reset scheduled message boxes from previous submits
+    this->scheduledmessageboxes := DEFAULT RECORD ARRAY;
+
+    WHILE (TRUE)
+    {
+      // Run all scheduled messageboxes
+      IF (NOT this->RunScheduledMessageBoxes())
+        RETURN FALSE;
+
+      OBJECT work := this->BeginWork();
+
+      // Refresh cached data
+      this->parentfolder->Refresh();
+
+      RECORD metadata :=
+          [ name := name
+          , title := ^title->value
+          , description := ^description->value
+          ];
+
+      BOOLEAN update_ordering_otherfiles;
+
+      IF (this->parentfolder->id != 0 AND GetApplyTesterForObject(this->parentfolder->id)->GetFolderSettings().ordering = "orderable")
+      {
+        IF(this->isduplicate)
+        {
+          //NOTE: When duplicating an item, the ordering should be original + 1, and any files that follow need to be shifted down appropriately, requiring an op transaction.
+          INTEGER newordering := this->sourceitem->ordering + 1;
+          INSERT CELL ordering := newordering INTO metadata;
+          update_ordering_otherfiles := TRUE;
+        }
+        ELSE IF(this->isnew)
+        {
+          INTEGER newordering := ObjectExists(this->sourceitem) AND this->sourceitem->ordering != 0 ? this->sourceitem->ordering : SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = this->parentfolder->id;
+          INSERT CELL ordering := newordering INTO metadata;
+        }
+      }
+
+      // Test for an object with the same name at the target location
+      OBJECT otherobject := this->parentfolder->OpenByName(name);
+      IF (ObjectExists(otherobject) AND otherobject->id != this->itemid)
+      {
+        BOOLEAN hiddenforme := IsObjectHiddenForMe(GetEffectiveUser(), otherobject->id);
+        OBJECT subwork := this->BeginFeedback();
+        IF(hiddenforme)
+          subwork->AddError(GetTid("publisher:common.errors.hiddenfolderexists", name, this->parentfolder->name));
+        ELSE
+          subwork->AddError(GetTid("publisher:common.errors.fileorfolderexists", name, this->parentfolder->name));
+        RETURN subwork->Finish();
+      }
+
+      RECORD indexactions;
+      IF(NOT this->isfolder)
+      {
+        INSERT CELL keywords := ^keywords->value INTO metadata;
+
+        IF (^publish->visible)
+        {
+          INTEGER new_publish := this->isnew ? 0 : GetFlagsFromPublished(this->sourceitem->published);
+          IF (RecordExists(this->parentsite) AND this->parentsite.outputweb != 0 AND ^publish->value)
+            new_publish := ConvertToWillPublish(new_publish, FALSE, TRUE, PubPrio_DirectEdit);
+          ELSE
+            new_publish := ConvertToWontPublish(new_publish);
+
+          INSERT CELL published := new_publish INTO metadata;
+        }
+
+        indexactions := this->CheckMakeIndex();
+        IF (indexactions.status = "retry")
+        {
+          work->Cancel();
+          CONTINUE;
+        }
+        IF (indexactions.status = "scheduleddelete")
+          indexactions := DEFAULT RECORD;
+      }
+
+      // Add changes for templates & profiles
+      metadata := CELL[...metadata, ...this->GenerateTemplateProfileMetadataChanges()];
+
+      //set pinning flag if it is changed, or set on a new object
+      IF((this->isnew = TRUE AND ^pinobject->value) OR (this->isnew = FALSE AND ^pinobject->value != this->sourceitem->ispinned))
+      {
+        //warn if pinning is removed from an existing object
+        IF (this->isnew OR ^pinobject->value)
+          INSERT CELL ispinned := ^pinobject->value INTO metadata;
+        ELSE
+        {
+          STRING feedback := this->QueryMessageBox("unpinconfirm");
+          IF (feedback = "")
+          {
+            work->Cancel();
+            CONTINUE;
+          }
+          IF (feedback = "yes")
+            INSERT CELL ispinned := ^pinobject->value INTO metadata;
+        }
+      }
+
+      INTEGER linktype;
+      IF(^link->visible)
+      {
+        IF (^link->value.internallink != 0)
+        {
+          linktype := 19;
+          INSERT CELL filelink := ^link->value.internallink INTO metadata;
+          INSERT CELL externallink := ^link->value.append INTO metadata;
+        }
+        ELSE
+        {
+          linktype := 18;
+          INSERT CELL filelink := 0 INTO metadata;
+          INSERT CELL externallink := ^link->value.externallink INTO metadata;
+        }
+      }
+      ELSE IF(^path->visible)
+        INSERT CELL filelink := ^path->value INTO metadata;
+
+      IF (this->isnew)
+      {
+        IF (NOT ObjectExists(this->sourceitem))
+        {
+          INSERT CELL type := linktype ?? this->curtype.id INTO metadata;
+        }
+        ELSE
+        {
+          INSERT CELL type := linktype ?? this->sourceitem->type INTO metadata;
+          IF(NOT this->sourceitem->isfolder)
+          {
+            INSERT CELL data := this->sourceitem->data INTO metadata;
+            INSERT CELL dataistrusted := this->isduplicate INTO metadata;
+          }
+        }
+      }
+      ELSE IF (linktype != 0)
+      {
+        INSERT CELL type := linktype INTO metadata;
+      }
+
+      RECORD oldversion;
+      IF(NOT this->isnew)
+        oldversion := SELECT * FROM system.fs_objects WHERE id = this->sourceitem->id;
+
+      // Remove versioned fields from the metadata
+      BOOLEAN require_draft;
+      RECORD versioned_metadata;
+      INTEGER ARRAY versioned_contenttypes;
+      IF (ObjectExists(this->objectpolicy))
+      {
+        RECORD fieldspec := this->objectpolicy->GetFields();
+        versioned_contenttypes := fieldspec.versioned_contenttypes;
+
+        FOREVERY (STRING field FROM fieldspec.versioned_fields)
+        {
+          IF (NOT CellExists(metadata, field))
+            CONTINUE;
+
+          VARIANT value := GetCell(metadata, field);
+          metadata := CellDelete(metadata, field);
+
+          IF (NOT RecordExists(oldversion))
+          {
+            IF (IsDefaultValue(value))
+              CONTINUE;
+
+            require_draft := TRUE;
+          }
+          ELSE IF (NOT CellExists(oldversion, field))
+            require_draft := TRUE;
+          ELSE
+          {
+            FUNCTION PTR transform;
+            VARIANT orgvalue := GetCell(oldversion, field);
+
+            IF (field = "published" ? IsPublish(orgvalue) != IsPublish(value) : orgvalue != value)
+              require_draft := TRUE;
+          }
+
+          versioned_metadata := CellInsert(versioned_metadata, field, value);
+        }
+
+        IF(this->isnew AND NOT this->isfolder)
+          metadata := CELL[ ...metadata, published := 0 ]; //the above process may remove 'published' and causing it to be autoset... back to TRUE! (given the various exceptions, perhaps "published" should not actually be in versioned_fields ?)
+
+        FOREVERY(RECORD extendprop FROM this->extendprops)
+        {
+          FOREVERY(OBJECT comp FROM extendprop.compositions)
+          {
+            IF (NOT (comp EXTENDSFROM WHFSInstance))
+              CONTINUE;
+
+            IF (comp->type->id IN fieldspec.versioned_contenttypes)
+            {
+              RECORD olddata := RecordExists(oldversion) ? comp->type->GetInstanceData(oldversion.id) : comp->type->defaultinstance;
+              RECORD newdata := CellDelete(comp->value, "whfstype");
+              require_draft := require_draft OR RecordExists(comp->type->CompareInstanceDataUpdates(olddata, newdata));
+            }
+          }
+
+          IF (ObjectExists(extendprop.instance) AND extendprop.instance->type->id IN fieldspec.versioned_contenttypes)
+          {
+            RECORD olddata := RecordExists(oldversion) ? extendprop.instance->type->GetInstanceData(oldversion.id) : extendprop.instance->type->defaultinstance;
+            RECORD newdata := CellDelete(extendprop.instance->value, "whfstype");
+            require_draft := require_draft OR RecordExists(extendprop.instance->type->CompareInstanceDataUpdates(olddata, newdata));
+          }
+        }
+
+        IF (RecordExists(indexactions))
+        {
+          IF ("indexdoc" IN fieldspec.versioned_fields)
+          {
+            IF (indexactions.makeindex OR indexactions.resetindex)
+            {
+              require_draft := TRUE;
+              INSERT CELL indexaction := indexactions.makeindex ? "makeindex" : "resetindex" INTO versioned_metadata;
+              indexactions := DEFAULT RECORD;
+            }
+          }
+        }
+      }
+
+      // If we're going to steal indexdoc from another file, check if "indexdoc" is versioned for that file
+      IF (ObjectExists(this->siteversioningpolicy)
+          AND RecordExists(indexactions)
+          AND indexactions.makeindex
+          AND this->parentfolder->indexdoc != 0)
+      {
+        RECORD rec :=
+            SELECT id
+                 , COLUMN name
+                 , isfolder
+                 , published
+                 , parent
+              FROM system.fs_objects
+             WHERE id = this->parentfolder->indexdoc;
+
+        IF (rec.parent = this->parentfolder->id)
+        {
+          // No problem to steal indexness from a file that has been moved from the folder it is index of.
+          RECORD filerec := this->siteversioningpolicy->EnrichWithObjectPolicy([ rec ], [ returnpolicyafteraccept := TRUE ])[0];
+
+          // Inv: indexdoc is not versioned for this file. If it is for the current index, the action is disallowed
+          RECORD protected_fields := GetPolicyProtectedFields(filerec);
+          IF ("indexdoc" IN protected_fields.versioned_fields OR "indexdoc" IN protected_fields.readonly_fields)
+          {
+            // Indexdoc is (or will be) protected for the current index, disallow the action.
+            work->AddError(GetTid("publisher:common.errors.cannotstealindexfromversionedfile", rec.name));
+          }
+        }
+      }
+
+      IF (ObjectExists(this->siteversioningpolicy))
+      {
+        BOOLEAN type_is_versioned := "type" IN this->objectpolicy->GetFields().versioned_fields;
+        INTEGER newtype;
+
+        IF (NOT this->isnew)
+          newtype := this->sourceitem->type;
+        IF (CellExists(metadata, "TYPE"))
+          newtype := metadata.type;
+        IF (type_is_versioned AND ObjectExists(this->draftitem))
+        {
+          newtype := this->draftitem->type;
+          IF (CellExists(versioned_metadata, "TYPE"))
+            newtype := versioned_metadata.type;
+        }
+
+        BOOLEAN is_disallowed := IsDefaultValue(this->siteversioningpolicy->FilterAllowedFSObjectTypes([ newtype ]));
+
+        IF (is_disallowed)
+        {
+          IF (execute_approval_request)
+            work->AddError(GetTid("publisher:common.errors.typecannotbeversioned", ^type->value));
+          ELSE
+            work->AddWarning(GetTid("publisher:common.errors.typecannotbeversioned", ^type->value));
+        }
+      } //this->siteversioningpolicy
+
+      IF(work->HasFailed())
+        RETURN work->Finish();
+
+      // All updates have been calculated, start applying them
+
+      // See if we're going to need submit approval. If so, get it before any change is made, don't
+      // want to mess with caches
+      RECORD approvalrequest_feedback;
+      IF ((this->editingdraft OR require_draft) AND execute_approval_request)
+      {
+        approvalrequest_feedback := this->QueryDialog("submitchangesforapproval", [ stoponfeedback := [ "", "cancel" ]]);
+        IF (NOT RecordExists(approvalrequest_feedback))
+        {
+          work->Cancel();
+          CONTINUE;
+        }
+      }
+
+      IF (update_ordering_otherfiles)
+        UPDATE system.fs_objects SET ordering := ordering + 1 WHERE ordering >= metadata.ordering AND parent = this->parentfolder->id;
+
+      OBJECT draftitem := this->draftitem;
+
+      // Create the new file/folder, apply non-versioned metadata
+      INTEGER objid := this->itemid;
+      IF(this->isnew)
+      {
+        IF(ObjectExists(this->sourceitem)) //cloning an item
+        {
+          draftitem := this->sourceitem->CopyTo(this->parentfolder, metadata.name);
+          draftitem->UpdateMetadata(metadata);
+        }
+        ELSE IF (this->isfolder)
+          draftitem := this->parentfolder->CreateFolder(metadata);
+        ELSE
+          draftitem := this->parentfolder->CreateFile(metadata);
+
+        objid := draftitem->id;
+      }
+      ELSE
+      {
+        //this->sourceitem->UpdateMetadataAndHistory(metadata, TRUE, 0); //FIXME: Avoid this if nothing really changed (ie need to check contenttypes)
+        this->sourceitem->UpdateMetadata(metadata); //FIXME: Avoid this if nothing really changed (ie need to check contenttypes)
+      }
+
+      // Create a draft when necessary
+      BOOLEAN have_draft := this->editingdraft;
+      IF (require_draft AND NOT this->editingdraft)
+      {
+        OBJECT draft := CreateDraft(OpenWHFSObject(objid), TRUE);
+        draftitem := draft->fsobject;
+        have_draft := TRUE;
+      }
+
+      IF (have_draft)
+      {
+        // The 'name' and 'published' fields must be redirected to the draftmetadata contenttype
+        OBJECT whfs_draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
+
+        RECORD draftmetadata := whfs_draftmetadata->GetInstanceData(draftitem->id);
+        draftmetadata := MakeReplacedRecord(draftmetadata, versioned_metadata);
+        IF (CellExists(versioned_metadata, "PUBLISHED"))
+        {
+          IF (IsPublish(versioned_metadata.published))
+            draftmetadata.flags := draftmetadata.flags BITOR DraftFlag_Publish;
+          ELSE
+            draftmetadata.flags := draftmetadata.flags BITAND BITNEG DraftFlag_Publish;
+        }
+
+        IF (CellExists(versioned_metadata, "INDEXACTION"))
+        {
+          draftmetadata.flags := draftmetadata.flags BITAND BITNEG DraftFlag_IndexActionMask;
+          IF (versioned_metadata.indexaction = "makeindex")
+            draftmetadata.flags := draftmetadata.flags BITOR DraftFlag_MakeIndex;
+          ELSE IF (versioned_metadata.indexaction = "resetindex")
+            draftmetadata.flags := draftmetadata.flags BITOR DraftFlag_UnmarkAsIndex;
+        }
+
+        whfs_draftmetadata->SetInstanceData(draftitem->id, draftmetadata);
+
+        DELETE CELL name, published, indexaction FROM versioned_metadata;
+      } //have_draft
+
+      // Update the versioned metadata at the draft
+      IF(RecordExists(versioned_metadata))
+        draftitem->UpdateMetadata(versioned_metadata);
+
+      FOREVERY(MACRO PTR onsubmit FROM this->onsubmits)
+        onsubmit(work);
+
+      IF(work->HasFailed())
+        RETURN work->Finish();
+
+      // Execute index actions
+      IF (RecordExists(indexactions))
+      {
+        // At this point, this->cursite is defined when adding and editing sites
+        IF (indexactions.recycleoldindex > 0)
+          OpenWHFSObject(indexactions.recycleoldindex)->RecycleSelf(); // recycle the current index document
+
+        IF (indexactions.makeindex)
+          this->parentfolder->UpdateMetadata ([indexdoc := objid]);
+        IF (indexactions.resetindex AND this->parentfolder->indexdoc = objid)
+          this->parentfolder->UpdateMetadata ([indexdoc := 0]);
+
+        IF (indexactions.scheduleoldindex > 0)
+          ScheduleFileRepublish(indexactions.scheduleoldindex); //republish the old index
+      }
+
+      //Update tasks for file
+      IF (^tasksettings->visible)
+        this->UpdateTasks(objid);
+
+      // Write extension data
+      INTEGER draftid := have_draft AND draftitem->id != objid ? draftitem->id : 0;
+      this->WriteExtensionData(work, objid, draftid, versioned_contenttypes);
+      ^maintabs->SubmitExtensions(work);
+
+      IF(NOT this->isnew AND this->isfolder AND this->curtype.id = 3) //photoalbums?
+      {
+        //ADDME: Generalize so any type cna trigger a non-template-too republish if certain metadata fields changed
+        //ADDME: Trigger only if width/height/publishoriginals properties changed
+        ScheduleFolderRepublish(this->sourceitem->id, /*recursive=*/FALSE, /*non_template_too=*/TRUE);
+      }
+
+      //Invoke any hooks, add default contents to folders, if necessary
+      IF(this->isnew)
+      {
+        IF(this->isfolder)
+        {
+          // Add the default index file if there is no template
+          IF(NOT ObjectExists(this->sourceitem))
+            AddDefaultIndexToFolder(objid);
+          RunAddFolderHooks(objid);
+        }
+        ELSE
+          RunAddFileHooks(objid);
+      }
+      ELSE
+      {
+        IF(this->isfolder)
+          RunEditFolderHooks(oldversion, objid);
+        ELSE
+          RunEditFileHooks(oldversion, objid);
+      }
+
+      IF (have_draft AND execute_approval_request)
+      {
+        IF (NOT RecordExists(approvalrequest_feedback))
+          ABORT("Should already have feedback here");
+
+        SubmitApprovalRequestFromMetadata(work, OpenWHFSObject(objid), approvalrequest_feedback.data);
+      }
+
+      IF (NOT work->Finish())
+        RETURN FALSE;
+
+      this->itemid := objid;
+      IF (execute_approval_request AND NOT have_draft)
+        this->RunMessagebox(".noversionedfieldswerechanged");
+      ELSE IF (have_draft AND NOT execute_approval_request)
+        this->RunMessagebox(".submitversionedfiletoapplychanges");
+
+      RETURN TRUE;
+    } //while(TRUE)
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO __CheckConstraints()
+  {
+    this->UpdateMakeIndexVisibility();
+  }
+
+  PUBLIC INTEGER FUNCTION __GetTargetId()
+  {
+    RETURN this->isnew ? 0 : this->itemid;
+  }
+  PUBLIC OBJECT FUNCTION __GetTargetFolder()
+  {
+    RETURN this->parentfolder;
+  }
+
+  PUBLIC OBJECT FUNCTION __GetTargetSite()
+  {
+    RETURN RecordExists(this->cursite) ? OpenSite(this->cursite.id) : DEFAULT OBJECT;
+  }
+
+  PUBLIC MACRO __DoAddTab(RECORD tabinfo)
+  {
+    INSERT tabinfo INTO this->sp_customfields.propertyeditors AT END;
+  }
+
+  PUBLIC OBJECT FUNCTION GetExtendedComponent(STRING whfstype, STRING cellname)
+  {
+    FOREVERY(RECORD extendprop FROM this->extendprops)
+      FOREVERY(OBJECT comp FROM extendprop.compositions)
+        IF(comp EXTENDSFROM whfsinstance AND comp->type->namespace = whfstype)
+        {
+          OBJECT cellcomp := comp->GetComponent(cellname);
+          IF(ObjectExists(cellcomp))
+            RETURN cellcomp;
+        }
+
+    FOREVERY(RECORD extendprop FROM this->extendprops)
+      IF(extendprop.contenttype=whfstype)
+      {
+        OBJECT cellobj := extendprop.instance->GetComponent(cellname);
+        IF(ObjectExists(cellobj))
+          RETURN cellobj;
+      }
+
+    RETURN DEFAULT OBJECT;
+  }
+>;
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// Add/edit task dialog
+//
+
+PUBLIC OBJECTTYPE TaskProps EXTEND TolliumScreenbase
+< INTEGER siteroot;
+
+  PUBLIC PROPERTY task(GetTask, -);
+
+  MACRO Init(RECORD data)
+  {
+    IF (data.why = "new")
+    {
+      this->frame->title := GetTid("publisher:commondialogs.taskprops.addtask");
+      this->event->value := "1";
+      this->when->value := GetCurrentDateTime();
+    }
+    ELSE IF (data.why = "edit")
+    {
+      this->frame->title := GetTid("publisher:commondialogs.taskprops.edittask");
+      this->event->value := ToString(data.event);
+      this->folder->value := data.event = 3 ? data.folder : 0;
+      this->when->value := data.when;
+    }
+    ELSE
+      ABORT("Unknown 'why'");
+
+    IF(data.isfolder)
+    {
+      this->start->label := GetTid("publisher:commondialogs.taskprops.event-startrecurse");
+      this->"end"->label := GetTid("publisher:commondialogs.taskprops.event-endrecurse");
+    }
+
+    this->siteroot := data.siteroot;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    INTEGER event := ToInteger(this->event->value, 0);
+    IF (event < 1 OR event > 5)
+      work->AddError(GetTid("tollium:common.errors.field_required", this->start->title));
+
+    IF (NOT work->HasFailed() AND event = 3 AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->folder->value))
+    {
+      work->AddErrorFor(this->folder, GetTid("publisher:commondialogs.taskprops.messages.norightstomovetofolder", this->curfolder->name));
+    }
+
+    IF (this->when->value < AddTimeToDate(-(5 * 60 * 1000),GetCurrentDateTime())) //only warn if more than 5 minutes in the past
+      work->AddError(GetTid("publisher:commondialogs.taskprops.messages.taskinpast"));
+
+    RETURN work->Finish();
+  }
+
+  RECORD FUNCTION GetTask()
+  {
+    RETURN [ event := ToInteger(this->event->value, 0)
+           , folder := this->event->value = "3" ? this->folder->value : 0
+           , when := this->when->value
+           ];
+  }
+>;
+
+PUBLIC MACRO RunPropertyDialog(OBJECT parent, RECORD target)
+{
+  RunFSObjectPropertiesDialog(parent, target.id);
+}

@@ -1,0 +1,155 @@
+﻿<?wh
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::socialite/lib/database.whlib";
+LOADLIB "mod::socialite/lib/internal/networkapp.whlib";
+LOADLIB "mod::socialite/lib/internal/support.whlib" EXPORT SocialiteException;
+
+PUBLIC RECORD FUNCTION PrepareSocialiteConnection(STRING accounttag, STRING apptag)
+{
+  RETURN SELECT applications.*
+              , appkeys := (SELECT tag,value FROM socialite.applicationkeys WHERE application=applications.id)
+              , accounttitle := accounts.title
+              , accounttag := accounts.tag
+           FROM socialite.accounts , socialite.applications
+          WHERE ToUppercase(accounts.tag) = ToUppercase(VAR accounttag)
+                AND applications.account = accounts.id
+                AND ToUppercase(applications.tag) = ToUppercase(apptag);
+}
+PUBLIC RECORD FUNCTION PrepareSocialiteConnectionById(INTEGER appid)
+{
+  RETURN SELECT applications.*
+              , appkeys := (SELECT tag,value FROM socialite.applicationkeys WHERE application=applications.id)
+              , accounttitle := accounts.title
+              , accounttag := accounts.tag
+           FROM socialite.applications
+              , socialite.accounts
+          WHERE applications.id = appid
+                AND applications.account = accounts.id;
+}
+PUBLIC OBJECT FUNCTION OpenPreparedSocialiteConnection(RECORD apprec)
+{
+  OBJECT app;
+  SWITCH(ToUpperCase(apprec.type))
+  {
+    CASE 'FACEBOOKV2'
+    {
+      app := NEW FacebookV2NetworkApp(apprec);
+    }
+    CASE 'FACEBOOKV3'
+    {
+      app := NEW FacebookV3NetworkApp(apprec);
+    }
+    CASE 'TWITTER'
+    {
+      app := NEW TwitterNetworkApp(apprec);
+    }
+    CASE 'LINKEDINV2'
+    {
+      app := NEW LinkedInV2NetworkApp(apprec);
+    }
+    CASE 'YAMMER'
+    {
+      app := NEW YammerNetworkApp(apprec);
+    }
+    CASE 'FOURSQUARE'
+    {
+      app := NEW FourSquareNetworkApp(apprec);
+    }
+    CASE 'YOUTUBE'
+    {
+      app := NEW YOUTUBENetworkApp(apprec);
+    }
+    /*CASE 'LASTFM'
+    {
+      app := NEW LastFMNetworkApp(apprec);
+    }*/
+    CASE 'VIMEO'
+    {
+      app := NEW VimeoNetworkApp(apprec);
+    }
+    CASE 'INSTAGRAM'
+    {
+      app := NEW InstagramNetworkApp(apprec);
+    }
+    CASE 'PINTEREST'
+    {
+      app := NEW PinterestNetworkApp(apprec);
+    }
+    CASE 'GOOGLE'
+    {
+      app := NEW GoogleNetworkApp(apprec);
+    }
+    CASE 'YOUKU'
+    {
+      app := NEW YoukuNetworkApp(apprec);
+    }
+    CASE 'MONEYBIRD'
+    {
+      app := NEW MoneybirdNetworkApp(apprec);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception('Trying to open unsupported network type "'||apprec.type||'" for application "' || apprec.accounttitle || '"."' || apprec.title || '"');
+    }
+  }
+
+  app->appid := apprec.id;
+  IF(apprec.logrpc)
+  {
+    app->EnableRPCLogging("socialite:" || ToLowercase(apprec.accounttag || "." || apprec.tag), IsRequest() ? GetClientRemoteIP() : ""); //ADDME root script name/execute library if IP unknown?
+  }
+  RETURN app;
+}
+
+RECORD FUNCTION GetCachableApplicationByTags(STRING accounttag, STRING apptag)
+{
+  RETURN [ ttl :=          5 * 1000
+         , eventmasks :=   [ "socialite:applications" ]
+         , value :=        PrepareSocialiteConnection(accounttag,apptag)
+         ];
+}
+RECORD FUNCTION GetCachableApplicationById(INTEGER appid)
+{
+  RETURN
+      [ ttl :=          5 * 1000
+      , eventmasks :=   [ "socialite:applications" ]
+      , value :=        PrepareSocialiteConnectionById(appid)
+      ];
+}
+
+PUBLIC OBJECT FUNCTION OpenSocialiteConnection(STRING accounttag, STRING apptag)
+{
+  RECORD apprec := GetAdhocCached( [ type := "app_by_tag"
+                                   , accounttag := accounttag
+                                   , apptag := apptag
+                                   ], PTR GetCachableApplicationByTags(accounttag, apptag));
+
+  IF (NOT RecordExists(apprec))
+    THROW NEW SocialiteException("INVALIDARG", 'Application "'||accounttag||':'||apptag||'" does not exist.');
+
+  RETURN OpenPreparedSocialiteConnection(apprec);
+}
+
+PUBLIC OBJECT FUNCTION OpenSocialiteConnectionByToken(STRING securetoken)
+{
+  RECORD tok := SplitSecureToken(securetoken);
+  IF(NOT RecordExists(tok))
+    THROW NEW Exception("Unrecognized token format");
+
+  OBJECT conn := OpenSocialiteConnectionById(tok.appid);
+  IF(NOT conn->SetSecureEncryptedHandle(tok.encryptedhandle))
+    THROW NEW Exception("Invalid token");
+
+  RETURN conn;
+}
+
+PUBLIC OBJECT FUNCTION OpenSocialiteConnectionById(INTEGER appid)
+{
+  RECORD apprec := GetAdhocCached([ type := "app_by_id"
+                                  , appid := appid
+                                  ], PTR GetCachableApplicationById(appid));
+  RETURN OpenPreparedSocialiteConnection(apprec);
+}

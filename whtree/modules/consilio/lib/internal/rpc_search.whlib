@@ -1,0 +1,236 @@
+<?wh
+/** Consilio Search Service
+*/
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+
+LOADLIB "mod::consilio/lib/search.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/remoting/server.whlib";
+
+PUBLIC RECORD FUNCTION RPC_Search(RECORD source, STRING query, RECORD options)
+{
+  IF (NOT RecordExists(source) OR NOT CellExists(source, "type"))
+    THROW NEW RPCInvalidArgsException("No valid source specified");
+
+  TRY
+  {
+    OBJECT searcher;
+    STRING language := CellExists(options, "language") ? options.language : "";
+    SWITCH (source.type)
+    {
+      CASE "catalog"
+      {
+        // Open a catalog search object
+        IF (NOT CellExists(source, "catalog"))
+          THROW NEW Exception("No catalog");
+        searcher := OpenSearchObject(language, source.catalog);
+      }
+
+      DEFAULT
+      {
+        THROW NEW Exception("Unknown source type '" || source.type || "'");
+      }
+    }
+
+    // Set options
+    IF (CellExists(options, "savesearches"))
+    {
+      searcher->save_searches := options.savesearches;
+      IF (CellExists(options, "sessionid"))
+        searcher->session_id := options.sessionid;
+      IF (CellExists(options, "sessiontag"))
+        searcher->session_tag := options.sessiontag;
+    }
+    IF (CellExists(options, "restricturl") AND options.restricturl != "")
+      searcher->restrict_url := options.restricturl;
+    IF (CellExists(options, "summarylength") AND options.summarylength >= -1)
+      searcher->summary_length := options.summarylength;
+    IF (CellExists(options, "donthighlight"))
+      searcher->donthighlight := options.donthighlight;
+    IF (CellExists(options, "and_search"))
+      searcher->and_search := options.and_search;
+    IF (CellExists(options, "emptyresultrecord"))
+      searcher->empty_result_record := options.emptyresultrecord;
+    ELSE IF (NOT RecordExists(searcher->empty_result_record))
+    {
+      searcher->empty_result_record := [ title := ""
+                                       , filetype := ""
+                                       , date_whmodification := DEFAULT DATETIME
+                                       , size := 0
+                                       , score := 0f
+                                       , summary := ""
+                                       ];
+    }
+
+    // Retrieve the search results
+    INTEGER first := CellExists(options, "first") ? options.first : 0;
+    INTEGER count := CellExists(options, "count") ? options.count : -1;
+    RECORD result := searcher->Search(query, first, count);
+
+    RETURN [ success := TRUE
+           , results := RPCEncodeResults(result.results)
+           , totalcount := result.totalcount
+           , sessionid := searcher->session_id
+           ];
+  }
+  CATCH (OBJECT<SearchException> e)
+  {
+    RETURN [ success := FALSE
+           , errorcode := e->errorcode
+           , errormsg := e->what
+           ];
+  }
+  CATCH (OBJECT e)
+  {
+    THROW NEW RPCInvalidArgsException("Error while searching: " || e->what);
+  }
+}
+
+RECORD FUNCTION GetCachableSuggestSettings()
+{
+  RECORD settings :=
+      [ maxconcurrent :=  ReadRegistryKey("consilio.suggest.maxconcurrent")
+      , maxwait :=        ReadRegistryKey("consilio.suggest.maxwait")
+      ];
+
+  settings := ValidateOptions(
+      [ maxconcurrent :=    10
+      , maxwait :=          200
+      ], settings);
+
+  RETURN
+      [ value :=        settings
+      , eventmasks :=   [ "system:registry.consilio.suggest" ]
+      ];
+}
+
+STRING FUNCTION GetSuggestSearchWord(STRING query)
+{
+  STRING searchword;
+  OBJECT tokens := NEW TokenStream(query);
+  WHILE (TRUE)
+  {
+    RECORD token := tokens->GetNextToken();
+    IF (NOT RecordExists(token))
+      BREAK;
+    IF (token.type = TokenTypeWord)
+      searchword := token.normalizedtext;
+  }
+  tokens->Close();
+  RETURN searchword;
+}
+
+/** Get search suggestions for given input
+*/
+PUBLIC RECORD FUNCTION RPC_Suggest(RECORD source, STRING query, RECORD options)
+{
+  RECORD settings := GetAdhocCached([ type := "suggestsettings" ], PTR GetCachableSuggestSettings);
+
+  IF (NOT RecordExists(source) OR NOT CellExists(source, "type"))
+    THROW NEW RPCInvalidArgsException("No valid source specified");
+
+  IF (LENGTH(GetSuggestSearchWord(query)) < 3)
+    RETURN [ "values" := RECORD[], tooshort := TRUE ];
+
+  OBJECT lock;
+  TRY
+  {
+    // Limit suggest calls to a certain number at a time, with a max wait time in the queue
+    lock := OpenLocalLockManager()->TryLockLocalSemaphore("consilio:suggest", settings.maxconcurrent, AddTimeToDate(settings.maxwait, GetCurrentDateTime()));
+    IF (NOT ObjectExists(lock))
+    {
+      LogDebug("consilio:rpc.suggest", "Timeout for suggest query, too long in wait queue", CELL[ source, query, options ]);
+      RETURN [ "values" := RECORD[], timeout := TRUE ];
+    }
+
+    OBJECT suggest;
+    SWITCH (source.type)
+    {
+      CASE "catalog"
+      {
+        // Open a catalog suggest object
+        IF (NOT CellExists(source, "catalog"))
+          THROW NEW Exception("No catalog");
+        suggest := OpenSuggestObject(source.catalog);
+      }
+
+      DEFAULT
+      {
+        THROW NEW Exception("Unknown source type '" || source.type || "'");
+      }
+    }
+
+    // Retrieve the suggest results
+    IF (CellExists(options, "doccount"))
+      suggest->document_count := options.doccount;
+    IF (CellExists(options, "restricturl") AND options.restricturl != "")
+      suggest->restrict_url := options.restricturl;
+    IF (CellExists(options, "and_search"))
+      suggest->and_search := options.and_search;
+    INTEGER maxresults := CellExists(options, "count") ? options.count : 0;
+    RECORD ARRAY suggestions := SELECT value := text
+                                     , subtitle := suggest->document_count != "" ? ToString(results.count) : ""
+                                  FROM suggest->GetSuggestions(query, maxresults) AS results;
+    RETURN [ "values" := suggestions, timeout := FALSE ];
+  }
+  CATCH (OBJECT e)
+  {
+    THROW NEW RPCInvalidArgsException("Error while searching: " || e->what);
+  }
+  FINALLY
+  {
+    IF (ObjectExists(lock))
+      lock->Close();
+  }
+}
+
+RECORD ARRAY FUNCTION RPCEncodeResults(RECORD ARRAY results)
+{
+  FOREVERY (RECORD result FROM results)
+  {
+    FOREVERY (RECORD field FROM UnpackRecord(result))
+    {
+      SWITCH (TypeID(field.value))
+      {
+        CASE TypeID(DATETIME)
+        {
+          // Encode DATETIME values as ISO8601-formatted string
+          result := CellInsert(CellDelete(result, field.name), field.name, FormatISO8601DateTime(field.value));
+        }
+        CASE TypeID(STRING)
+        {
+          // Replace the search term match markers with HTML span's
+          STRING encoded;
+          INTEGER encodefrom := 0;
+          INTEGER encodeto := SearchSubstring(field.value, "\x1D");
+          WHILE (encodeto >= 0)
+          {
+            encoded := encoded || EncodeHTML(Substring(field.value, encodefrom, encodeto - encodefrom)) || '<span class="consilio-match">';
+
+            encodefrom := encodeto + 1;
+            encodeto := SearchSubstring(field.value, "\x1C", encodefrom);
+            IF (encodeto < 0)
+              BREAK;
+            encoded := encoded || EncodeHTML(Substring(field.value, encodefrom, encodeto - encodefrom)) || '</span>';
+
+            encodefrom := encodeto + 1;
+            encodeto := SearchSubstring(field.value, "\x1D", encodefrom);
+          }
+          IF (encodefrom > 0)
+            encoded := encoded || EncodeHTML(Substring(field.value, encodefrom));
+          else
+            encoded := EncodeHTML(field.value);
+          result := CellUpdate(result, field.name, encoded);
+        }
+      }
+    }
+    results[#result] := result;
+  }
+  RETURN results;
+}

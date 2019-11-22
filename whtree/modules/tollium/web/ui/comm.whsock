@@ -1,0 +1,260 @@
+﻿<?wh
+/// Communication module for todd-NG, websockets style
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/webserver/websocket.whlib";
+
+
+// Websocket handler
+OBJECT handler;
+
+/** List of applications
+    @cell(string) portid
+    @cell(stringarray) links
+    @cell(object) link
+    @cell(boolean) seen Used when replacing apps
+*/
+RECORD ARRAY links;
+
+BOOLEAN __debugwebsockets := FALSE;
+
+IF (__debugwebsockets)
+  LogDebug("tollium", "websocket", "New handler");
+
+handler := CreateWebSocketHandler();
+handler->ondata := PTR OnData;
+handler->Run();
+
+IF (__debugwebsockets)
+  LogDebug("tollium", "websocket", "Ended");
+
+MACRO SendError(STRING code, STRING message)
+{
+  RECORD result :=
+      [ type :=     "error"
+      , code :=     code
+      , message :=  message
+      ];
+
+  handler->SendData(EncodeJSON(result));
+  handler->SendClose(1000, "Closed due to error");
+}
+
+/* Wire format:
+
+  client->server
+    setapps in: apps (whsid), out: n/a  - listen to messages from these apps
+    appmessage: in: (whsid, data), out: n/a - send a message to app with message whsid
+
+  server->client
+    appmessage: (whsid, data) - send a message from an app
+*/
+
+
+MACRO OnData(STRING data)
+{
+  IF (__debugwebsockets)
+    LogDebug("tollium", "websocket", "OnData", data);
+
+  RECORD rawdata := DecodeJSON(data);
+
+  IF (NOT RecordExists(rawdata))
+  {
+    SendError("decodeerror", "Could not decode packet");
+    RETURN;
+  }
+
+  RECORD ARRAY responses;
+
+  FOREVERY (RECORD request FROM RECORD ARRAY(rawdata.requests))
+  {
+    SWITCH (request.type)
+    {
+      CASE "listen"
+      {
+        RECORD ARRAY closemessages;
+
+        FOREVERY (STRING linkid FROM STRING ARRAY(request.links))
+        {
+          STRING portid := linkid LIKE "*/*" ? Left(linkid, SearchSubString(linkid, "/")) : linkid;
+
+          RECORD pos := RecordLowerBound(links, [ portid := portid ], [ "PORTID" ]);
+          IF (NOT pos.found)
+          {
+            IF (__debugwebsockets)
+              LogDebug("tollium", "websocket", "Port " || portid || " not found for link " || linkid || ", connecting");
+
+            OBJECT link := ConnectToIPCPort("tollium:link." || portid);
+            IF (ObjectExists(link))
+            {
+              link->userdata :=
+                  [ cbhandle := RegisterHandleReadCallback(link->handle, PTR OnLinkSignalled(link))
+                  , portid :=   portid
+                  ];
+
+              RECORD portdata :=
+                  [ portid :=     portid
+                  , link :=       link
+                  , links :=      DEFAULT STRING ARRAY
+                  , newlinks :=   [ linkid ]
+                  ];
+
+              INSERT portdata INTO links AT RecordUpperBound(links, portdata, [ "PORTID" ]);
+
+              IF (__debugwebsockets)
+                LogDebug("tollium", "websocket", "Connected to port " || portid || " for link " || linkid);
+
+            }
+            ELSE
+            {
+              IF (__debugwebsockets)
+                LogDebug("tollium", "websocket", "Could not open port " || portid || " for link " || linkid);
+
+              INSERT
+                  [ linkid :=     linkid
+                  , status :=     "gone"
+                  , messages :=   DEFAULT RECORD ARRAY
+                  ] INTO closemessages AT END;
+            }
+          }
+          ELSE
+            INSERT linkid INTO links[pos.position].newlinks AT UpperBound(links[pos.position].newlinks, linkid);
+        }
+
+        // Close now unused links
+        FOREVERY (RECORD link FROM links)
+          IF (LENGTH(link.newlinks) = 0)
+            link.link->Close();
+          ELSE
+            links[#link].links := link.newlinks;
+
+        DELETE FROM links WHERE LENGTH(newlinks) = 0;
+
+        IF (LENGTH(closemessages) != 0)
+        {
+          RECORD packet :=
+              [ type :=     "msg"
+              , msg :=      [ data := closemessages ]
+              ];
+
+          IF (__debugwebsockets)
+            LogDebug("tollium", "websocket", "Sending packet\n" || AnyToString(packet, "tree:7"));
+
+          STRING senddata := EncodeJSON(packet);
+          handler->SendData(senddata);
+        }
+      }
+
+      CASE "msg"
+      {
+        STRING portid := request.msg.linkid LIKE "*/*" ? Left(request.msg.linkid, SearchSubString(request.msg.linkid, "/")) : request.msg.linkid;
+
+        RECORD pos := RecordLowerBound(links, [ portid := portid ], [ "PORTID" ]);
+        IF (pos.found)
+        {
+          IF (__debugwebsockets)
+            LogDebug("tollium", "websocket", "WHSOCK Msgs\n" || AnyToString(request.msg, "tree:2"));
+          // FIXME: check if link exists!
+          links[pos.position].link->SendMessage(
+              [ type := "linkmessages"
+              , data := [ RECORD(request.msg) ]
+              , ispersistentlink := TRUE
+              , frontendids := [ STRING(request.msg.frontendid) ]
+              ]);
+//
+//              [ type :=       "appmessage"
+//              , data :=       request.msg
+//              ]);
+        }
+        ELSE IF (__debugwebsockets)
+          LogDebug("tollium", "websocket", "WHSOCK no such port " || portid);
+
+      }
+      CASE "ping"
+      {
+        // Got message
+        RECORD packet :=
+            [ type :=     "pong"
+            ];
+
+        STRING senddata := EncodeJSON(packet);
+
+        IF (__debugwebsockets)
+          LogDebug("tollium", "websocket", "Send pong packet " || LENGTH(senddata) || " bytes", UCTruncate(senddata, 200));
+
+        handler->SendData(senddata);
+      }
+    }
+  }
+}
+
+MACRO OnLinkSignalled(OBJECT link)
+{
+  IF (__debugwebsockets)
+    LogDebug("tollium", "websocket", "Link signalled " || link->userdata.portid);
+
+  RECORD rec := link->ReceiveMessage(DEFAULT DATETIME);
+  IF (rec.status = "timeout")
+    RETURN;
+
+  RECORD pos := RecordLowerBound(links, link->userdata, [ "PORTID" ]);
+  IF (NOT pos.found) // not listening anymore
+    RETURN;
+
+  IF (rec.status = "gone")
+  {
+    UnregisterCallback(link->userdata.cbhandle);
+
+    IF (__debugwebsockets)
+      LogDebug("tollium", "websocket", "Links gone from port " || link->userdata.portid, links[pos.position].links);
+
+    rec :=
+        [ msg :=
+              [ data :=
+                    SELECT linkid
+                         , status :=   "gone"
+                         , messages := DEFAULT RECORD ARRAY
+                      FROM ToRecordArray(links[pos.position].links, "LINKID")
+              ]
+        ];
+
+    // Remove link, fallback to send the message
+    link->Close();
+    DELETE FROM links AT pos.position;
+  }
+
+  IF (__debugwebsockets)
+    LogDebug("tollium", "websocket", "Sending messages\n" || AnyToString(rec.msg, "tree:7"));
+
+  rec.msg.data :=
+      SELECT *
+           , messages :=
+                SELECT *
+                     , data := COLUMN data.type = "response" ? COLUMN data.response : COLUMN data
+                  FROM messages
+        FROM rec.msg.data;
+
+  // Got message
+  RECORD packet :=
+      [ type :=     "msg"
+      , msg :=      rec.msg
+      ];
+
+  STRING senddata := EncodeJSON(packet);
+/*
+  STRING str;
+  FOR (INTEGER i := 0; i < LENGTH(senddata); i := i + 100)
+    str := str || "\n" || SubString(senddata, i, 100);
+
+  IF (__debugwebsockets)
+    LogDebug("tollium", "websocket", "Send packet " || LENGTH(senddata) || " bytes" || str);
+*/
+
+  IF (__debugwebsockets)
+    LogDebug("tollium", "websocket", "Send packet " || LENGTH(senddata) || " bytes", UCTruncate(senddata, 200));
+
+  handler->SendData(senddata);
+}

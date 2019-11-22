@@ -1,0 +1,437 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+
+LOADLIB "mod::system/lib/testfw/runtest.whlib";
+
+
+BOOLEAN debug;
+OBJECT controller;
+
+
+/*
+   The test manager has a list of running/pending tests. A test can be both running and pending, but not
+   twice pending or twice running.
+
+   A pending test is runnable when
+   - the same test is not running
+   - when the test uses the testsuite, no other running test may use the testsuite
+   - a runner for the requested platform is available or startable
+
+   when a test has finished on a runner, the runner will be shut down when no task is schedulable.
+   other stuff:
+   - a running test is cancellable
+   - a test that times out terminates the runner immediately
+   - after 5 tests on a runner, the runner is terminated (nice multiplexing with other users)
+   - default is max 1 runner per browser type
+*/
+
+
+
+STATIC OBJECTTYPE JSTestServiceManager
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** @cell name
+      @cell browser
+      @cell running
+      @cell scheduled
+      @cell usestestsuite
+      @cell result
+  */
+  RECORD ARRAY tests;
+
+  RECORD ARRAY runners;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION DetermineUsedResources()
+  {
+    STRING using_testsuite :=
+        SELECT AS STRING browser FROM this->tests WHERE usestestsuite AND running;
+
+    STRING ARRAY running_tests :=
+        SELECT AS STRING ARRAY browser || "-" || name FROM this->tests WHERE running;
+
+    STRING ARRAY occupied_browsers :=
+        SELECT AS STRING ARRAY browser FROM this->tests WHERE running GROUP BY browser HAVING Count(*) > 0;
+
+    RETURN
+        [ running_tests :=      running_tests
+        , using_testsuite :=    using_testsuite
+        , occupied_browsers :=  occupied_browsers
+        ];
+  }
+
+  BOOLEAN FUNCTION IsRunnable(RECORD usedresources, RECORD test, STRING ignorerunningbrowser DEFAULTSTO "")
+  {
+    IF (test.running)
+      RETURN FALSE;
+    IF (test.usestestsuite AND usedresources.using_testsuite != "" AND usedresources.using_testsuite != ignorerunningbrowser)
+      RETURN FALSE;
+    IF (test.browser || "-" || test.name IN usedresources.running_tests AND test.browser != ignorerunningbrowser)
+      RETURN FALSE;
+    IF (test.browser IN usedresources.occupied_browsers AND test.browser != ignorerunningbrowser)
+      RETURN FALSE;
+  RETURN TRUE;
+  }
+
+  RECORD FUNCTION GetNextTask(STRING ignorerunningbrowser DEFAULTSTO "", STRING ignoretest DEFAULTSTO "")
+  {
+    RECORD usedresources := this->DetermineUsedResources();
+
+    // Give priority to schedule date (last scheduled first), tests that use the testsuite, test name
+    RETURN
+        SELECT *
+          FROM this->tests
+         WHERE scheduled
+           AND name != ignoretest
+           AND this->IsRunnable(usedresources, tests, ignorerunningbrowser)
+      ORDER BY date DESC, NOT usestestsuite, name;
+  }
+
+  MACRO StartPrefetchForNextTasks()
+  {
+    // Get list of all browsers
+    STRING ARRAY allbrowsers := SELECT AS STRING ARRAY DISTINCT browser FROM this->tests;
+
+    RECORD ARRAY nexttests;
+    FOREVERY (STRING browser FROM allbrowsers)
+    {
+      RECORD test := this->GetNextTask(browser);
+      IF (RecordExists(test))
+      {
+        PRINT(`Next test for browser ${browser}: ${test.name}\n`);
+        this->PrefetchTestPage(test);
+
+        test := this->GetNextTask(browser, test.name);
+        IF (RecordExists(test))
+        {
+          PRINT(`2nd next test for browser ${browser}: ${test.name}\n`);
+          this->PrefetchTestPage(test);
+        }
+      }
+      ELSE
+        PRINT(`No next test for browser ${browser}\n`);
+    }
+  }
+
+  OBJECT ASYNC FUNCTION PrefetchTestPage(RECORD test)
+  {
+    // Mark as prefetching
+    RECORD pos := RecordLowerBound(this->tests, test, [ "NAME", "BROWSER" ]);
+    IF (NOT pos.found)
+      RETURN DEFAULT OBJECT;
+
+    IF (this->tests[pos.position].prefetched)
+      RETURN DEFAULT OBJECT;
+
+    this->tests[pos.position].prefetched := TRUE;
+
+    OBJECT browser := NEW WebBrowser;
+    STRING url := ResolveToAbsoluteURL(test.data.baseurl, `!/testpage/${test.data.testname}`);
+    TRY
+    {
+      IF (debug)
+        PRINT(`Started prefetch for ${test.name} at url ${url}\n`);
+
+      AWAIT browser->AsyncGotoWebPage(url);
+
+      IF (debug)
+        PRINT(`Finished prefetch for ${test.name} at url ${url}\n`);
+    }
+    CATCH
+    {
+      IF (debug)
+        PRINT(`Error prefetching testpage ${test.name} at url ${url}\n`);
+    }
+    FINALLY
+    {
+      browser->Close();
+    }
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  MACRO ScheduleNextTest()
+  {
+    RECORD test := this->GetNextTask();
+    IF (NOT RecordExists(test))
+    {
+      // Start prefetch for next tasks
+      this->StartPrefetchForNextTasks();
+
+      // Clear non-occupied runners
+      RECORD ARRAY newrunners;
+      FOREVERY (RECORD runner FROM this->runners)
+        IF (NOT runner.obj->isrunning)
+          runner.obj->Close();
+        ELSE
+          INSERT runner INTO newrunners AT END;
+      this->runners := newrunners;
+      RETURN;
+    }
+
+    RECORD runner := SELECT * FROM this->runners WHERE browser = test.browser AND NOT obj->isrunning;
+    IF (NOT RecordExists(runner))
+      runner := this->StartNewRunner(test.browser);
+
+    RECORD pos := RecordLowerBound(this->tests, test, [ "NAME", "BROWSER" ]);
+    this->tests[pos.position] := MakeReplacedRecord(this->tests[pos.position],
+        [ running :=    TRUE
+        , scheduled :=  FALSE
+        , runner :=     runner
+        , status :=     "waiting"
+        , date :=       GetCurrentDateTime()
+        , report :=     DEFAULT RECORD
+        ]);
+
+    BroadcastEvent("webhare_testsuite:jstestchange." || test.name, [ testname := test.name, browser := test.browser ]);
+
+    this->RunTest(runner, test);
+    ScheduleMicroTask(PTR this->ScheduleNextTest());
+  }
+
+  OBJECT ASYNC FUNCTION RunTest(RECORD runner, RECORD test)
+  {
+    IF (debug)
+      PRINT("Started running test " || test.name || " on runner for " || runner.browser || "\n");
+
+    // Prefetch in case this is the first scheduled test
+    this->PrefetchTestPage(test);
+
+    OBJECT testiterator := runner.obj->RunTest(test.data);
+
+    RECORD pos := RecordLowerBound(this->tests, test, [ "NAME", "BROWSER" ]);
+    IF (pos.found)
+    {
+      this->tests[pos.position].testiterator := testiterator;
+      this->tests[pos.position].startdate := GetCurrentDateTime();
+    }
+
+    RECORD result := [ done := FALSE, value := DEFAULT RECORD ];
+    WHILE (NOT result.done)
+    {
+      result := AWAIT testiterator->Next();
+
+      IF (debug)
+        PRINT("Test " || test.name || " on " || runner.browser || " returned status " || result.value.status || ", done: " || (result.done ? "yes" : "no") || "\n");
+
+      pos := RecordLowerBound(this->tests, test, [ "NAME", "BROWSER" ]);
+      IF (NOT pos.found)
+        CONTINUE;
+
+      this->tests[pos.position].status := result.value.status;
+      IF (result.value.status IN [ "reporting", "finished" ])
+        this->tests[pos.position].report := result.value.report;
+
+      this->tests[pos.position].date := GetCurrentDateTime();
+      IF (result.done)
+        this->tests[pos.position].testiterator := DEFAULT OBJECT;
+
+      // Different mask for log-only updates, otherwise the jstest interface won't be usable
+      STRING mask := "webhare_testsuite:jstestchange." || test.name;
+      IF (result.value.status = "reporting" AND result.value.logonly)
+        mask := "webhare_testsuite:jstestchangelog." || test.name;
+
+      BroadcastEvent(mask, [ testname := test.name, browser := runner.browser ]);
+    }
+
+    this->ProcessTestResult(runner, test, result.value);
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO ProcessTestResult(RECORD runner, RECORD test, RECORD result)
+  {
+    DELETE FROM this->runners WHERE obj->isclosed;
+
+    RECORD pos := RecordLowerBound(this->tests, test, [ "NAME", "BROWSER" ]);
+    IF (pos.found)
+    {
+      this->tests[pos.position] := MakeReplacedRecord(this->tests[pos.position],
+          [ result :=    result
+          , running :=   FALSE
+          , runner :=    DEFAULT RECORD
+          ]);
+    }
+
+    ScheduleMicroTask(PTR this->ScheduleNextTest());
+    BroadcastEvent("webhare_testsuite:jstestchange." || test.name, [ testname := test.name, browser := runner.browser ]);
+  }
+
+  RECORD FUNCTION StartNewRunner(STRING browser)
+  {
+    RECORD rec :=
+        [ browser :=    browser
+        , obj :=        NEW WebDriverTestRunner(browser, [ debug := debug ])
+        ];
+
+    INSERT rec INTO this->runners AT END;
+    RETURN rec;
+  }
+
+  PUBLIC MACRO OnInterrupt()
+  {
+    // Close all test runners
+    FOREVERY (RECORD rec FROM this->runners)
+      rec.obj->Close();
+    TerminateScript();
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetTestResults(STRING testmask)
+  {
+    RETURN
+        SELECT *
+             , DELETE testiterator
+          FROM this->tests
+         WHERE name LIKE (testmask ?? "*");
+  }
+
+  PUBLIC MACRO ScheduleTest(STRING testname, STRING browser, RECORD testdata, DATETIME scheduledate)
+  {
+    IF (debug)
+      PRINT("Scheduling test " || testname || " for " || browser || "\n");
+    RECORD rec :=
+        [ name :=           testname
+        , browser :=        browser
+        , running :=        FALSE
+        , scheduled :=      TRUE
+        , usestestsuite :=  testdata.exclusive
+        , result :=         DEFAULT RECORD
+        , data :=           testdata
+        , status :=         "scheduled"
+        , startdate :=      MAX_DATETIME
+        , date :=           scheduledate
+        , report :=         DEFAULT RECORD
+        , testiterator :=   DEFAULT OBJECT
+        , assetpack :=      ""
+        , prefetched :=     FALSE
+        ];
+
+    // Determine the assetpack for the test
+    IF (testdata.testscript.scriptpath LIKE "*.es")
+      rec.assetpack := CreateDependencyResolverForJSFile(GetWebHareResourceDiskPath(testdata.testscript.scriptpath))->GetOutputTagNoCompile();
+
+    RECORD pos := RecordLowerBound(this->tests, rec, [ "NAME", "BROWSER" ]);
+    IF (NOT pos.found)
+      INSERT rec INTO this->tests AT pos.position;
+    ELSE
+    {
+      this->tests[pos.position].scheduled := TRUE;
+      IF (this->tests[pos.position].status IN [ "finished", "exception", "timeout", "idle", "cancelled" ])
+        this->tests[pos.position].status := "scheduled";
+      this->tests[pos.position].data := testdata;
+      this->tests[pos.position].date := GetCurrentDateTime();
+      this->tests[pos.position].prefetched := FALSE;
+    }
+
+    ScheduleMicroTask(PTR this->ScheduleNextTest());
+  }
+
+  PUBLIC MACRO CancelTest(STRING testname, STRING browser)
+  {
+    RECORD pos := RecordLowerBound(this->tests, [ name := testname, browser := browser ], [ "NAME", "BROWSER" ]);
+    IF (NOT pos.found)
+      RETURN;
+
+    RECORD test := this->tests[pos.position];
+    IF (ObjectExists(test.testiterator))
+    {
+      test.testiterator->SendReturn([ status := "cancelled" ]);
+      this->tests[pos.position].testiterator := DEFAULT OBJECT;
+    }
+
+    this->tests[pos.position].scheduled := FALSE;
+    IF (this->tests[pos.position].status = "scheduled")
+      this->tests[pos.position].status := "cancelled";
+
+    BroadcastEvent("webhare_testsuite:jstestchange." || testname, [ testname := testname, browser := browser ]);
+  }
+>;
+
+/// Service call handler object
+OBJECTTYPE JSTestServiceControl
+< // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD ARRAY FUNCTION GetResults(STRING testmask)
+  {
+    RETURN controller->GetTestResults(testmask);
+  }
+
+  PUBLIC MACRO ScheduleTests(RECORD ARRAY tests)
+  {
+    DATETIME now := GetCurrentDateTime();
+    FOREVERY (RECORD test FROM tests)
+      controller->ScheduleTest(test.name, test.browser, test.data, now);
+
+    BroadcastEvent("webhare_testsuite:jstestchangeall", DEFAULT RECORD);
+  }
+
+  PUBLIC MACRO CancelTests(RECORD ARRAY tests)
+  {
+    FOREVERY (RECORD test FROM tests)
+      controller->CancelTest(test.name, test.browser);
+  }
+
+  PUBLIC MACRO Restart()
+  {
+    // Use interrupt code to close all existing sessions first
+    controller->OnInterrupt();
+  }
+>;
+
+/// Construct a new Control object to handle service calls
+OBJECT FUNCTION Constructor()
+{
+  RETURN NEW JSTestServiceControl;
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "debug", type := "switch" ]
+                              ]);
+
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: runscript jstestservice.whscr [ --debug ]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+debug := args.debug;
+
+OpenPrimary();
+
+controller := NEW JSTestServiceManager;
+
+IF(debug)
+  Print("starting service...\n");
+AddInterruptCallback(PTR controller->OnInterrupt);
+RunWebHareService("webhare_testsuite:jstestservice", PTR Constructor);

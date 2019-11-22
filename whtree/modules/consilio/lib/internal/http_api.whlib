@@ -1,0 +1,133 @@
+﻿<?wh
+
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+// Construct a user agent string
+STRING whversion := ToString(GetWebhareVersionNumber());
+// whversion is now something like "3xxyy"; make it dotted
+IF (Length(whversion) >= 5)
+  whversion := Substring(whversion, 0, Length(whversion) - 4) || "." || Substring(whversion, Length(whversion) - 4, 2) || "." || Right(whversion, 2);
+
+STRING trustedhost := GetWebhareConfiguration().trustedhost;
+INTEGER trustedport := GetWebhareConfiguration().trustedport;
+
+OBJECT browser;
+browser := NEW WebBrowser();
+browser->useragent := "Consilio/" || whversion || " (WebHare Platform)";
+
+// Initialize the user agent string
+PUBLIC MACRO SetUserAgent(STRING name)
+{
+  browser->useragent := Tokenize(browser->useragent, ";")[0] || "; " || name || ")";
+}
+
+RECORD FUNCTION ProvideAuthentication(RECORD authdata, STRING forurl, STRING realm, STRING url)
+{
+  RETURN url = forurl ? authdata : DEFAULT RECORD;
+}
+
+/** @short HTTP connection API for fetcher/linkchecker
+    @param get_url True for GET, false for HEAD
+    @return A record with connection info
+    @cell return.success True on success */
+PUBLIC RECORD FUNCTION GetHTTPUrl(BOOLEAN get_url, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ consilioauth := FALSE
+                             , username := ""
+                             , password := ""
+                             , ifmodifiedsince := DEFAULT DATETIME
+                             , head_workaround := FALSE
+                             , autofollow_301 := FALSE
+                             , timeout := 60 * 1000
+                             ], options);
+
+  IF (options.consilioauth)
+    browser->SetupWebHareTrustedPort(trustedhost, trustedport, fetcher_trusted_ip);
+  ELSE IF (options.username != "")
+    browser->SetPassword(url || "*", options.username, options.password);//FIXME set the auth for the index root, not just this url
+    //browser->onauth := PTR ProvideAuthentication([ username := options.username, password := options.password ], url, #1, #2);
+
+  // The fetcher doesn't want 301 transparently redirected, as it will the contents of the new location at the old location
+  IF (options.autofollow_301)
+    browser->autofollow_statuses := ArrayUnion(browser->autofollow_statuses, [ 301 ]);
+  ELSE
+    browser->autofollow_statuses := ArrayDelete(browser->autofollow_statuses, [ 301 ]);
+
+  browser->timeout := options.timeout;
+
+  RECORD ARRAY headers;
+  IF (options.ifmodifiedsince != DEFAULT DATETIME)
+    INSERT [ field := "If-Modified-Since", value := FormatHttpDateTime(options.ifmodifiedsince) ] INTO headers AT END;
+
+  RECORD result := [ success := FALSE
+                   , errorcode := "" // "CONNECT", "TIMEOUT", "SSLHANDSHAKE", "RESOLVE"
+                   , error := ""
+                   , code := 0 // HTTP status code
+                   , nocache := FALSE
+                   , headers := DEFAULT RECORD ARRAY // HTTP response headers
+                   , content := DEFAULT BLOB
+                   ];
+
+  FOREVERY (RECORD cookie FROM browser->GetAllCookies())
+    browser->DeleteCookie(cookie.name);
+
+  browser->discard_content := options.head_workaround;
+  IF (options.head_workaround)
+    get_url := TRUE;
+  IF (NOT browser->SendRawRequest(get_url ? "GET" : "HEAD", url, headers, DEFAULT BLOB))
+  {
+    RECORD httpstatus := browser->GetHTTPStatus();
+    INTEGER sockerror := browser->GetSocketError();
+    IF (RecordExists(httpstatus))
+    {
+      result.code := httpstatus.code;
+      result.error := httpstatus.message;
+      result.errorcode := result.code = -9  ? "TIMEOUT"
+                        : result.code = -16 ? "RESOLVE"
+                                            : (result.code <= 0 ? "CONNECT" : "");
+      result.headers := browser->responseheaders;
+    }
+    ELSE IF (sockerror != 0)
+    {
+      result.errorcode := sockerror = -9  ? "TIMEOUT"
+                        : sockerror = -16 ? "RESOLVE"
+                                          : "CONNECT";
+      result.error := GetSocketErrorText(sockerror);
+    }
+    ELSE IF (url LIKE "https://*")
+    {
+      // A failed SSL handshake doesn't return a socket error (or HTTP error), so if a request for a "https" url failed without
+      // error, assume SSL is to blame
+      result.errorcode := "SSLHANDSHAKE";
+      result.error := "Could not establish secure connection";
+    }
+    ELSE
+    {
+      result.errorcode := "CONNECT";
+      result.error := "An unknown error occurred";
+    }
+  }
+  ELSE
+  {
+    result.success := TRUE;
+    result.code := browser->GetHTTPStatusCode();
+    result.headers := browser->responseheaders;
+    result.nocache := RecordExists(SELECT FROM result.headers
+                                    WHERE ToUppercase(value) = "NO-CACHE"
+                                          AND ToUppercase(field) IN ["PRAGMA","CACHE-CONTROL"]);
+    result.content := browser->content;
+  }
+
+  IF (options.consilioauth)
+    browser->SetupWebHareTrustedPort("", 0, "");
+  browser->onauth := DEFAULT FUNCTION PTR;
+
+  RETURN result;
+}

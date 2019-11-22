@@ -1,0 +1,501 @@
+<?wh
+/* Test the save & preview workflows in the EditDocument app */
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
+
+INTEGER testrtdfileid, testrtd2fileid;
+STRING previewlink;
+STRING internallink_clipboard;
+
+OBJECT FUNCTION Rte()
+{
+  RETURN TT("doceditor")->contents->rte;
+}
+
+OBJECT ASYNC FUNCTION CreateHyperlink(STRING append)
+{
+  RECORD internallinks := SELECT * FROM topscreen->linktype->options WHERE title = "Internal link";
+  TestEq(TRUE, RecordExists(internallinks));
+
+  topscreen->linktype->value := internallinks.rowkey;
+  topscreen->linktype->selection.enablecomponents[0]->value := testrtd2fileid;
+  topscreen->linktype->selection.enablecomponents[1]->value := append;
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  RETURN TRUE;
+}
+
+MACRO PrepIt()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  testfw->BeginWork();
+
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT testrtd := testloc->CreateFile( [ name := "lvl1.rtd", type := richdoctype->id, publish := TRUE ]);
+  OBJECT testrtd2 := testloc->CreateFile( [ name := "other.rtd", type := richdoctype->id, publish := TRUE ]);
+  testrtdfileid := testrtd->id;
+  testrtd2fileid := testrtd2->id;
+
+  testfw->CommitWork();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Test allowed widgets
+//
+ASYNC MACRO TestAllowedWidgets()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "rtdtype/other.rtd" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+
+  TestEq(FALSE, RecordExists(SELECT FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/embedhtml"), "HTML should be disabled");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "rtdtype/lvl1.rtd" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+
+  TestEq(TRUE, RecordExists(SELECT FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/embedhtml"), "HTML should be there");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// New file props
+//
+
+OBJECT ASYNC FUNCTION NewFileProps()
+{
+  //we test that the embeddedobject with a rtd doesn't crash in newfile (eg because it tries to find the object id)
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "rtdtype/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Rich text document";
+  TestEq(TRUE, RecordExists(TT("types")->selection));
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+
+  OBJECT rte := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1", "richdoc");
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1", rte->rtdtype);
+
+  //We need to ensure CSS settings and contentwidth got applied
+  TestEq("960px", rte->rtdtypeinfo.structure.contentareawidth);
+
+  TestEqLIke("*DUMMY-TEXT-TO-VERIFY-RTD.CSS-GOT-INCLUDED*", BlobToString(rte->__Debug_GetCSSState().cssdata));
+
+  AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+  TestEq(FALSE, RecordExists(SELECT FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/embedhtml"), "HTML should be disabled");
+  RECORD lvl1type := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1";
+  TestEq(TRUE, RecordExists(lvl1type), "Need the /embedlvl1 type");
+  TT("contenttypes")->selection := lvl1type;
+
+  //Insert it
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  rte := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2", "richdoc");
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2", rte->rtdtype);
+
+  AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+  lvl1type := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1";
+  TestEq(TRUE, RecordExists(lvl1type), "Need the /embedlvl1 type");
+  RECORD lvl2type := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2";
+  TestEq(TRUE, RecordExists(lvl2type), "No-inherit types should exist when explicitly selecting the type");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  //cancel props
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  //close publisher
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  RETURN TRUE;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// InsetEmbObj
+//
+
+OBJECT ASYNC FUNCTION InsertEmbObj()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1", RTE()->rtdtype); //should have taken the default
+  ////TestEq(TRUE, ObjectExists(RTE()->whfsapplytester));
+
+  //inspect CSS
+  RECORD cssstate := RTE()->__Debug_GetCSSState();
+  TestEq(TRUE, cssstate.instance != "");
+
+  OBJECT cssom := MakeCSSStyleSheet(cssstate.cssdata);
+  //sendblobto(0,cssom->GetDocumentBlob(true));
+
+  TestEq('@import url("//fast.fonts.net/cssapi/accde30c-be09-41b3-9719-22771c54c341.css");', cssom->cssrules->item(0)->csstext, "The URL should not be corrupted");
+
+  OBJECT ARRAY rules := cssom->cssrules->GetRulesForSelector("." || cssstate.instance || " .testrtd");
+  TestEq(1, Length(rules));
+
+  STRING font := rules[0]->style->GetPropertyValue("font");
+  TestEqLike('12px "Test 1"', font);
+  STRING background := rules[0]->style->GetPropertyValue("background-image");
+
+  //ADDME if we switch to bundles and this test fails, just download and compare the asset
+  TestEqLike('url("/.publisher/sd/webhare_testsuite/basetest/img/smallbob.jpg")', background);
+
+  // Enter choose type
+  AWAIT InsertEmbObj_FirstLevel(RTE());
+
+  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
+  TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream #1");
+  RECORD insertdata := insertedobjectinstr.messages[0].data;
+  TestEq(TRUE, insertdata.canedit);
+  RTE()->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.instanceref) || '"></div></body></html>');
+  RTE()->__debug_simulatedirty();
+
+  OBJECT insertedobj := MakeXMLDocumentFromHTML(StringToBLob(insertdata.htmltext),"UTF-8",FALSE,TRUE);
+  TestEq("div", insertedobj->documentelement->nodename);
+  TestEq("en", insertedobj->documentelement->GetAttribute("data-lang"));
+  TestEq(ToString(GetTestsuiteTempFolder()->parentsite), insertedobj->documentelement->GetAttribute("data-targetsite"));
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1", insertedobj->documentelement->GetAttribute("data-mytype"));
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1", insertedobj->documentelement->GetAttribute("data-rtdtype"));
+
+  INTEGER settingid := ToInteger(insertedobj->documentelement->GetAttribute("data-whfssettingid"),0);
+  TestEQ(TRUE, settingid != 0);
+  RECORD settingdata := GetWHFSInstanceDirect(settingid);
+  Testeq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1", settingdata.whfstype);
+  TestEq(TRUE, RecordExists(settingdata.richdoc));
+
+  INTEGER fileid := ToInteger(insertedobj->documentelement->GetAttribute("data-whfsfileid"),-1);
+  TestEQ(0, fileid);
+
+  //save the RTE
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  RECORD richvalue := richdoctype->GetInstanceData(testrtdfileid).data;
+
+  TestEq(1, Length(richvalue.instances));
+  TestEq(1, Length(richvalue.instances[0].data.richdoc.instances));
+  TestEq(1, Length(richvalue.instances[0].data.richdoc.instances[0].data.richdoc.links));
+  TestEq(testrtd2fileid, richvalue.instances[0].data.richdoc.instances[0].data.richdoc.links[0].linkref);
+
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION InsertEmbObj_FirstLevel(OBJECT toprte)
+{
+  AWAIT ExpectScreenChange(+1, PTR toprte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+  RECORD lvl1type := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1";
+  TestEq(TRUE, RecordExists(lvl1type), "Need the /embedlvl1 type");
+  RECORD lvl2type := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2";
+  TestEq(FALSE, RecordExists(lvl2type), "/embedlvl2 type should not exist at this level");
+  TT("contenttypes")->selection := lvl1type;
+
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+
+  OBJECT rte := TT("richdoc");
+  TestEq("", rte->GetWHRTEStructure().contentareawidth, "Should NOT inherit");
+  AWAIT InsertEmbObj_SecondLevel(rte);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  //return to step 1
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
+{
+  // We're now editing the object. Step 3: Try to create another object inside this level
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2", rte->rtdtype, "The sub document should have been forced to level2 type"); //now switch to level2..
+
+  AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ])); //CHOOSE TYPE
+  //Step 4
+  RECORD lvl1type := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1";
+  TestEq(TRUE, RecordExists(lvl1type), "/embedlvl1 type may exist at this level");
+  RECORD lvl2type := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2";
+  TestEq(TRUE, RecordExists(lvl2type), "/embedlvl2 type should exist at this level");
+
+  TT("contenttypes")->selection := lvl2type;
+
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit()); //EDIT INSTANCE
+
+  //Step 5:
+  OBJECT level2rte := topscreen->instance->GetComponent("richdoc");
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2", level2rte->rtdtype); //now we should have switch to level2..
+  TestEq("920px", level2rte->GetWHRTEStructure().contentareawidth);
+
+  //TestEq(TRUE, ObjectExists(level2rte->whfsapplytester));
+
+  AWAIT ExpectScreenChange(+1, PTR level2rte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ])); //CHOOSE TYPE
+
+  lvl1type := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1";
+  TestEq(TRUE, RecordExists(lvl1type), "/embedlvl1 type may exist at this level");
+  lvl2type := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2";
+  TestEq(FALSE, RecordExists(lvl2type), "/embedlvl2 type should NOT have inherited to this level");
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel()); //back to EDIT INSTANCe
+
+  //now let's create a hyperlink
+  AWAIT ExpectScreenChange(+1, PTR level2rte->ProcessInboundMessage("buttonclick", [ button := "a-href" ]));
+  AWAIT CreateHyperlink("");
+
+  //returned from creating a hyperlink...
+  RECORD insertedlinkinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertHyperlink";
+  TestEq(TRUE, RecordExists(insertedlinkinstr), "Unable to find the InsertHyperlink instruction in the outgoing instruction stream #2");
+  STRING firsturl := insertedlinkinstr.messages[0].data.url;
+  //dumpvalue(insertdata,'tree');
+  //insert it like the client-side would. cheat by trying to insert a <i>
+  level2rte->TolliumWeb_FormUpdate('<html><body><p class="normal">This is the text <i>entered</i> into a <a href="' || EncodeValue(firsturl) || '">level 2 rtd</a></p></body></html>');
+
+  //Create another hyperlink, with an 'append'
+  AWAIT ExpectScreenChange(+1, PTR level2rte->ProcessInboundMessage("buttonclick", [ button := "a-href" ]));
+  AWAIT CreateHyperlink("#bladiebla");
+
+  //returned from creating a hyperlink...
+  insertedlinkinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertHyperlink";
+  TestEq(TRUE, RecordExists(insertedlinkinstr), "Unable to find the InsertHyperlink instruction in the outgoing instruction stream");
+  STRING secondurl := insertedlinkinstr.messages[0].data.url;
+  //dumpvalue(insertdata,'tree');
+  //insert it like the client-side would. cheat by trying to insert a <i>
+  level2rte->TolliumWeb_FormUpdate('<html><body><p class="normal">This is the <a href="' || EncodeValue(firsturl) || '">text</a> <i>entered</i> into a <a href="' || EncodeValue(secondurl) || '">level 2 rtd</a></p></body></html>');
+  level2rte->__debug_simulatedirty();
+
+  TestEqLike('*This is the <a*>text</a>*<a*>level 2 rtd</a*', BlobToString(level2rte->value.htmltext));
+  internallink_clipboard := level2rte->GetRenderValue();
+
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(level2rte->value.htmltext);
+  OBJECT ARRAY ahrefs := htmldoc->QuerySelectorAll('a')->GetCurrentElements();
+  TestEq(2, Length(ahrefs));
+  TestEqLike('x-richdoclink:*', ahrefs[0]->GetAttribute("href"));
+  TestEqLike('x-richdoclink:*#bladiebla', ahrefs[1]->GetAttribute("href"));
+
+  //dumpvalue(level2rte->value,'tree');
+  TestEq(1,Length(level2rte->value.links)); //should have been merged
+  RECORD matchlink := SELECT * FROM level2rte->value.links WHERE tag = Substring(ahrefs[0]->GetAttribute("href"), Length('x-richdoclink:'));
+  TestEQ(TRUE, RecordExists(matchlink));
+  TestEq(testrtd2fileid, matchlink.linkref);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit()); //Closes the second level instance
+
+  //The client does the actual insertion, so we can't run that code in headless. Grab the instruction the client would use
+  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
+  TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream");
+  RECORD insertdata := insertedobjectinstr.messages[0].data;
+  TestEqLIke('*level2widget*This is the <a*href*>text</a> entered into a <a*href*>level 2 rtd</a>*', insertdata.htmltext);
+
+  OBJECT insertedobj := MakeXMLDocumentFromHTML(StringToBLob(insertdata.htmltext),"UTF-8",FALSE,TRUE);
+  TestEq("div", insertedobj->documentelement->nodename);
+  TestEq("en", insertedobj->documentelement->GetAttribute("data-lang"));
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2", insertedobj->documentelement->GetAttribute("data-mytype"));
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2", insertedobj->documentelement->GetAttribute("data-rtdtype"));
+
+  AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("properties", [ type := "embeddedobject", subaction := "edit", instanceref := insertdata.instanceref, targetid := "XX" ]));
+
+  rte := topscreen->instance->GetComponent("richdoc");
+  TestEQLIke('*This is the *text*', BlobToString(rte->value.htmltext));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  //Keep this RTE
+  rte := TT("richdoc");
+  rte->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.instanceref) || '"></div></body></html>');
+  rte->__debug_simulatedirty();
+
+  STRING clientvalue := rte->GetRenderValue();
+
+  //Grab the widget we just added
+  htmldoc := MakeXMLDocumentFromHTML(StringToBlob(clientvalue));
+  OBJECT widget := htmldoc->GetElement("div.wh-rtd-embeddedobject");
+  TestEq(TRUE, ObjectExists(widget));
+  TestEq(TRUE, "wh-rtd-embeddedobject--editable" IN ParseXSList(widget->GetAttribute("class")));
+
+  htmldoc := MakeXMLDocumentFromHTML(StringToBlob(widget->GetAttribute("data-innerhtml-contents")));
+
+  widget := htmldoc->GetElement("div.level2widget");
+  TestEq(ToString(GetTestsuiteTempFolder()->parentsite), insertedobj->documentelement->GetAttribute("data-targetsite"));
+
+  TestEqLike("*<div*></div>*", clientvalue); //make sure the </div> terminator is used, ie not outerxml..
+
+  RETURN TRUE;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Props
+//
+OBJECT ASYNC FUNCTION Props()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  OBJECT rte := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1", "richdoc");
+  TestEq(rte->rtdtype,"http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1");
+
+  //cancel props
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  //close publisher
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  RETURN TRUE;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// PasteLink
+//
+
+OBJECT ASYNC FUNCTION PasteLink()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd2fileid) ], target := DEFAULT RECORD ]));
+
+//  RTE()->TolliumWebRender(); //flush dirty flags (ADDME do we need this? cant we avoid the odd ignore-if-dirty check in the RTE?)
+  RTE()->TolliumWeb_FormUpdate(internallink_clipboard);
+  RTE()->__debug_simulatedirty();
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  //should have received a pasted link in the doc
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  RECORD richvalue := richdoctype->GetInstanceData(testrtd2fileid).data;
+
+  TestEqLike('*This is the <a*>text</a>*<a*>level 2 rtd</a*', BlobToString(richvalue.htmltext));
+
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(richvalue.htmltext);
+  OBJECT ARRAY ahrefs := htmldoc->QuerySelectorAll('a')->GetCurrentElements();
+  TestEq(2, Length(ahrefs));
+  TestEqLike('x-richdoclink:*', ahrefs[0]->GetAttribute("href"));
+  TestEqLike('x-richdoclink:*#bladiebla', ahrefs[1]->GetAttribute("href"));
+
+  TestEq(1,Length(richvalue.links)); //should have been merged
+  RECORD matchlink := SELECT * FROM richvalue.links WHERE tag = Substring(ahrefs[0]->GetAttribute("href"), Length('x-richdoclink:'));
+  TestEQ(TRUE, RecordExists(matchlink));
+  TestEq(testrtd2fileid, matchlink.linkref);
+
+  RETURN TRUE;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// ModifyLink
+//
+OBJECT ASYNC FUNCTION ModifyLink()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd2fileid) ], target := DEFAULT RECORD ]));
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  RECORD richvalue := richdoctype->GetInstanceData(testrtd2fileid).data;
+  TestEq(1,Length(richvalue.links));
+
+  OBJECT dom := MakeXMLDocumentFromHTML(StringToBlob(RTE()->GetRenderValue()));
+  OBJECT ARRAY links := dom->GetElements("a");
+  TestEQ(2,Length(links));
+
+  GetTestController()->GrabInstructions(); //flush
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := links[0]->GetAttribute("href")]]));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->removehyperlinkbutton->TolliumClick());
+
+  RECORD updateobjinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
+
+  links[0]->Dispose();
+  RTE()->TolliumWeb_FormUpdate(dom->outerxml);
+
+  dom := MakeXMLDocumentFromHTML(StringToBlob(RTE()->GetRenderValue()));
+  links := dom->GetElements("a");
+  TestEQ(1,Length(links));
+
+  GetTestController()->GrabInstructions(); //flush
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := links[0]->GetAttribute("href") ]]));
+  topscreen->linktype->selection := topscreen->linktype->options[0];
+  topscreen->externallink->value := "http://example.org?abc#def";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  updateobjinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
+  links[0]->SetAttribute('href', updateobjinstr.messages[0].data.settings.link);
+  RTE()->TolliumWeb_FormUpdate(dom->outerxml);
+
+  TestEq(0, Length(RTE()->value.links));
+
+  RTE()->__debug_simulatedirty();
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  richvalue := richdoctype->GetInstanceData(testrtd2fileid).data;
+  TestEq(0,Length(richvalue.links));
+
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(richvalue.htmltext);
+  OBJECT ARRAY ahrefs := htmldoc->QuerySelectorAll('a')->GetCurrentElements();
+  TestEq(1, Length(ahrefs));
+  TestEqLike('http://example.org?abc#def', ahrefs[0]->GetAttribute("href"));
+
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION CleanupLink()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd2fileid) ], target := DEFAULT RECORD ]));
+
+  // Insert a link of which the last character ('T') is cut off due to the 2000 character limit
+  RTE()->TolliumWeb_FormUpdate("<html><body><p><a href=\"http://example.com/" || RepeatText("1", 2000-19) || "T0123456789\">link</a></p></body></html>");
+  RTE()->__debug_simulatedirty();
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  //should have received a pasted link in the doc
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  RECORD richvalue := richdoctype->GetInstanceData(testrtd2fileid).data;
+
+  TestEq(FALSE, BlobToString(richvalue.htmltext) LIKE "*T*");
+
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION LegacyFormatCleanup()
+{
+  testfw->BeginWork();
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT testrtd3 := testloc->CreateFile( [ name := "legacy.rtd", type := richdoctype->id, publish := TRUE ]);
+
+  // Test with class '-wh-rtd-embeddedobject'
+  RECORD data := GetTestRTD();
+  data.htmltext := StringToBlob(Substitute(BlobToString(data.htmltext),"wh-rtd-embeddedobject","-wh-rtd-embeddedobject"));
+  richdoctype->SetInstanceData(testrtd3->id, [ data := data ]);
+
+  testfw->CommitWork();
+
+  // Start editor
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd3->id) ], target := DEFAULT RECORD ]));
+  STRING renderval := RTE()->GetRenderValue();
+  TestEQLike('*class="wh-rtd-embeddedobject*"*', renderval, "No cleanup of legacy -wh-rtd-embeddedobject class?");
+  TestEq(FALSE, renderval LIKE "*-wh-rtd-embeddedobject", "There are still legacy classes present");
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  RETURN DEFAULT RECORD;
+}
+
+RunTestframework([ PTR PrepIt
+                 , PTR TestAllowedWidgets
+                 , PTR NewFileProps
+                 , PTR InsertEmbObj
+                 , PTR Props
+                 , PTR PasteLink
+                 , PTR ModifyLink
+                 , PTR CleanupLink
+                 , PTR LegacyFormatCleanup
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

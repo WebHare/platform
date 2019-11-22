@@ -1,0 +1,907 @@
+import * as dompack from 'dompack';
+import { qS, qSA } from 'dompack';
+import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
+import KeyboardHandler from "dompack/extra/keyboard";
+import * as browser from "dompack/extra/browser";
+
+require('@mod-publisher/js/richcontent/styling.css');
+import StructuredEditor from './internal/structurededitor';
+import * as domlevel from './internal/domlevel';
+var EditorBase = require('./internal/editorbase');
+var TableEditor = require('./internal/tableeditor');
+import RTEToolbar from './internal/toolbar';
+import './richeditor.scss';
+import './internal/buttons.scss';
+import './internal/widgets.scss';
+let menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
+import getTid from "@mod-tollium/js/gettid";
+require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json");
+
+import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
+
+class RTE
+{
+  constructor(container, options)
+  {
+    this.container = container;
+    this.toolbar = null;
+    this.editable = false;
+    this.editnode = null;
+    this.editrte = null;
+    //this.iframe:null
+
+    this.htmldiv = null;
+    this.bodydiv = null;
+
+    this.showformatting = false;
+
+    this.cachededitors = [];
+
+    this.editoridcounter = 0;
+    this.editors = {};
+    this.addcss = [];
+
+    this.pageframe = null;
+
+      /// Whether document is dirty. Initial set to true to avoid firing events during init
+    this.dirty = true;
+    this.original_value = "<neverset>";
+      //URLs of images we have already seen and stored on the server
+    this.knownimages = [];
+
+    this.options = { structure: null
+                   , allowtags: null
+                   , hidebuttons: []
+                   , content: ''
+                   , enabled: true
+                   , readonly: false
+                   , log: false
+                   , selfedit: false
+                   , pageedit: false
+                   //, actionhandler: null
+                   , actionelements: []
+                   , cssinstance: null
+                   , csslinks:null
+                   , csscode:''
+                   , breakupnodes: []
+                   , htmlclass: ''
+                   , bodyclass: ''
+
+                   , contentarea: true //display a content area if possible
+                   , editembeddedobjects: true
+                   , allowundo: true
+                   , margins: 'compact'
+                   , propertiesaction: false //add properties button to toolbar/menus (only set if you're going to intercept action-properties)
+                   , ...options
+                   };
+
+    if(options && options.toolbarnode)
+      this.toolbarnode = options.toolbarnode;
+
+    if(this.container.whRTD)
+      throw new Error("Duplicate RTD initialization");
+
+    this.container.whRTD = this;
+
+    if(dompack.debugflags.rte)
+      console.log("[rte] initializing rtd",this.container, this.options);
+
+    if (!this.options.selfedit)
+    {
+      this.toolbarnode = dompack.create("div");
+      //the 'style scope' node is the point from which we apply the rewritten css. it needs to be the immediate parent of the wh-rtd__html node
+      this.stylescopenode = dompack.create("div", { className: "wh-rtd__stylescope " + (this.options.cssinstance || '') });
+
+      //ADDME globally manage css loaded by instances
+      if(this.options.csslinks)
+        this.options.csslinks.forEach(href => this.addcss.push({type:"link", src: href}));
+
+      if(this.options.csscode)
+        this.addcss.push({type:"style",src:this.options.csscode});
+
+      //Create two divs inside the container, which will play the role of HTML and BODY
+      this.bodydiv = dompack.create("div", { className: "wh-rtd-editor wh-rtd__body wh-rtd-editor-bodynode " + this.options.bodyclass
+                                           , innerHTML : this.container.innerHTML
+                                           , on: { "dompack:takefocus": evt => this._takeSafeFocus(evt) }
+                                           });
+      this.htmldiv = dompack.create("div", { className: "wh-rtd-editor wh-rtd__html wh-rtd-editor-htmlnode " + this.options.htmlclass
+                                           , childNodes: [ this.bodydiv]
+                                           });
+      if(this.options.structure)
+        this.container.classList.add("wh-rtd--structured");
+
+      if (browser.getName() === "safari" && browser.getVersion() < 13)
+        this.bodydiv.classList.add("wh-rtd__body--safariscrollfix");
+
+      dompack.empty(this.container);
+      this.container.classList.add("wh-rtd__editor");
+      this.container.appendChild(this.toolbarnode);
+
+      this.stylescopenode.appendChild(this.htmldiv);
+      this.container.appendChild(this.stylescopenode);
+
+      this.scrollmonitor = new ScrollMonitor(this.container);
+      ScrollMonitor.saveScrollPosition(this.container);
+    }
+    else
+    {
+      this.htmldiv = container.ownerDocument.documentElement;
+      this.bodydiv = container.ownerDocument.body;
+    }
+
+    this.htmldiv.addEventListener("mousedown", evt => this._gotPageClick(evt));
+    this.htmldiv.addEventListener("click", evt => this._gotClick(evt));
+    this.htmldiv.addEventListener("wh:menu-activateitem", evt => this._activateRTDMenuItem(evt));
+    this.htmldiv.addEventListener("contextmenu", evt => this._gotContextMenu(evt));
+
+    if(this.toolbarnode)
+    {
+      var toolbaropts = { hidebuttons: this.options.hidebuttons
+                        , allowtags: this.options.allowtags
+                        };
+
+      if(this.options.structure)
+      {
+        toolbaropts.hidebuttons.push('action-clearformatting');
+      }
+      else
+      {
+        toolbaropts.hidebuttons.push('p-class','action-showformatting','object-insert','object-video','table');
+        toolbaropts.compact = true;
+      }
+      if(!this.options.propertiesaction)
+        toolbaropts.hidebuttons.push('action-properties');
+
+      this.toolbarnode.classList.add("wh-rtd-toolbar");
+      this.toolbar = new RTEToolbar(this, this.toolbarnode, toolbaropts);
+
+      if (this.options.readonly)
+        this.toolbarnode.style.display = "none";
+    }
+
+    this.gotPageFrameLoad();
+
+    RTE.register(this);
+    this.clearDirty();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  _takeSafeFocus (evt)
+  {
+    //TODO? An alternative approach might be to have the ScrollMonitor watch focus events ?
+    //take focus but save scroll position  (ADDME for non-body nodes too!)
+    evt.preventDefault();
+
+    let scrollleft = evt.target.parentNode.scrollLeft;
+    let scrolltop = evt.target.parentNode.scrollTop;
+
+    evt.target.focus(); //on chrome, focus resets scroll position. https://bugs.chromium.org/p/chromium/issues/detail?id=75072
+
+    evt.target.parentNode.scrollLeft = scrollleft;
+    evt.target.parentNode.scrollTop = scrolltop;
+  }
+
+  _gotContextMenu(event)
+  {
+    // with ctrl-shift, don't react on the event, fallback to browser menu
+    if (event.ctrlKey && event.shiftKey)
+      return;
+
+    event.stopPropagation();
+    event.preventDefault();
+
+    // Contextmenu event changes selection, but the select event will fire later, so force update when getting the state.
+    let actionstate = this.getSelectionState(true).actionstate;
+
+    let contextmenu = dompack.create('ul');
+    let menuitems = [ { action: "table-addrow-before", title: getTid("tollium:components.rte.table_addrow_before") }
+                    , { action: "table-addrow-after", title: getTid("tollium:components.rte.table_addrow_after") }
+                    , null
+                    , { action: "table-addcolumn-before", title: getTid("tollium:components.rte.table_addcolumn_before") }
+                    , { action: "table-addcolumn-after", title: getTid("tollium:components.rte.table_addcolumn_after") }
+                    , null
+                    , { action: "table-deleterow", title: getTid("tollium:components.rte.table_deleterow")  }
+                    , { action: "table-deletecolumn", title: getTid("tollium:components.rte.table_deletecolumn")  }
+                    , null
+                    , { action: "table-addpara-before", title: getTid("tollium:components.rte.table_addpara_before")  }
+                    , { action: "table-addpara-after", title: getTid("tollium:components.rte.table_addpara_after")  }
+                    , null
+                    , { action: "table-mergeright", title: getTid("tollium:components.rte.table_mergeright")  }
+                    , { action: "table-mergedown", title: getTid("tollium:components.rte.table_mergedown")  }
+                    , { action: "table-splitcols", title: getTid("tollium:components.rte.table_splitcols")  }
+                    , { action: "table-splitrows", title: getTid("tollium:components.rte.table_splitrows")  }
+                    ];
+
+    if(this.options.propertiesaction)
+      menuitems.push(null, { action: "action-properties", title: getTid("tollium:components.rte.properties") });
+
+    for(let item of menuitems)
+    {
+      if(!item)
+      {
+        contextmenu.appendChild(dompack.create('li', {className:'divider'}));
+        continue;
+      }
+
+      if(actionstate[item.action].available)
+      {
+        contextmenu.appendChild(dompack.create('li', { textContent: item.title
+                                                     , dataset: { action: item.action }
+                                                     }));
+      }
+    }
+
+    menu.openAt(contextmenu, event, {eventnode:this.node});
+  }
+
+  _activateRTDMenuItem(evt)
+  {
+    evt.stopPropagation();
+    this.executeAction(evt.detail.menuitem.dataset.action);
+  }
+
+  //get the current dirty flag
+  isDirty()
+  {
+    return this.dirty;
+  }
+
+  //clear dirty state
+  clearDirty()
+  {
+    this.original_value = this.getValue();
+    this.dirty = false;
+  }
+
+  _checkDirty()
+  {
+    if (this.dirty)
+      return;
+
+    this.dirty = this.original_value != this.getValue();
+    if (this.dirty)
+    {
+      if (dompack.debugflags.rte)
+        console.log("[rte] Document got dirty, firing event");
+
+      dompack.dispatchCustomEvent(this.container, "wh:rtd-dirty", { bubbles: true, cancelable: false });
+    }
+  }
+
+  getEditNode (node)
+  {
+    if(!this.options.pageedit && !this.options.selfedit)
+      return this.basenode;
+
+    for(;node &&node != this.basenode; node = node.parentNode)
+    {
+      if (!node.getAttribute)
+        continue;
+
+      if (node.hasAttribute('data-wh-rtd-editable'))
+        return node;
+
+      // Also pick up tableeditor resize handlers, redirect them to table node
+      if (node.classList.contains('wh-tableeditor-resize-holder'))
+        node = node.propWhTableeditor.node;
+    }
+    return null;
+  }
+
+  createEditor (edittarget)
+  {
+    var editoropts = { log: this.options.log
+                     , designmode: false
+                     , eventnode: this.container
+                     , actionelements: this.options.actionelements.concat(
+                            [ { element:"img" }
+                            , { element:"a",     hasattributes: ["href"] }
+                            , { element:"div",   hasclasses: ["wh-rtd-embeddedobject"] }
+                            , { element:"span",  hasclasses: ["wh-rtd-embeddedobject"] }
+                            , { element:"table", hasclasses: ["wh-rtd__table"] }
+                            ])
+                     , breakupnodes: this.options.breakupnodes
+                     , editembeddedobjects: this.options.editembeddedobjects
+                     , allowundo: this.options.structure && (!!this.options.undoholder || this.options.allowundo)
+                     };
+
+    var editor;
+    if(this.options.structure)
+    {
+      let undonode = null;
+      if (this.options.undoholder) //FIXME not sure if we need this, might be needed for page editor
+      {
+        editoropts.allowundo = true;
+        undonode = <div contenteditable="true" class="wh-rtd__undoholder" />;
+        //dompack.create('div', { contentEditable: true, style: {opacity:1}});
+        this.options.undoholder.appendChild(undonode);
+      }
+      else if (this.options.allowundo)
+      {
+        undonode = <div contenteditable="true" class="wh-rtd__undoholder" />;
+        this.container.appendChild(undonode);
+      }
+
+      editoropts.structure = this.options.structure; //FIXME limit structure to what is needed here
+      editor = new StructuredEditor(edittarget, this, editoropts, undonode);
+    }
+    else
+    {
+      editoropts.allowtags = this.options.allowtags;
+      editoropts.allowundo = false;
+      editor = new EditorBase(edittarget, this, editoropts);
+    }
+
+    editor.setShowFormatting(this.showformatting);
+    return editor;
+  }
+
+  connectEditor(editnode)
+  {
+    if(dompack.debugflags.rte)
+      console.log("[rte] connecting editor",editnode, editnode.wh_editor_id);
+    if (!editnode.wh_editor_id)
+    {
+      editnode.wh_editor_id = ++this.editoridcounter;
+      this.editors[editnode.wh_editor_id] = this.createEditor(editnode);
+    }
+
+    this.disconnectCurrentEditor();
+
+    this.editnode = editnode;
+    this.editrte = this.editors[editnode.wh_editor_id];
+
+    this.editrte.editareaconnect();
+    this.basenode.classList.add("wh-rtd-editing");
+    this.editrte.onstatechange = this._gotStateChange.bind(this);
+
+    this.editable = true;
+  }
+
+  disconnectCurrentEditor()
+  {
+    if (this.editrte)
+    {
+      this.editrte.onstatechange = null;
+
+      this.editrte.editareadisconnect();
+      this.basenode.classList.remove("wh-rtd-editing");
+
+      this.editrte.destroy();
+    }
+
+    this.editnode = null;
+    this.editrte = null;
+
+    this.editable = false;
+  }
+
+  _isActive()
+  {
+    return this.options.enabled && !this.options.readonly;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+  _gotClick(event)
+  {
+    dompack.stop(event); //no click should ever escape an RTE area
+
+    let linkel = event.target.closest('a[href]');
+    if(linkel
+        && linkel.href.match(/^https?:/)
+        && (!this._isActive() || KeyboardHandler.hasNativeEventMultiSelectKey(event)))
+    {
+        window.open(linkel.href, '_blank');
+    }
+  }
+
+  _gotPageClick(event)
+  {
+    if (!this._isActive())
+      return;
+
+    let editnode = this.getEditNode(event.target);
+    if (this.editnode != editnode)
+    {
+      if (this.editnode)
+        this.disconnectCurrentEditor();
+      if (editnode)
+        this.connectEditor(editnode);
+      this._fireStateChange();
+    }
+    else if (editnode)
+    {
+      let lastelt = editnode.lastElementChild;
+      if (!lastelt || event.clientY > lastelt.getBoundingClientRect().bottom)
+        this.editrte.requireBottomParagraph();
+    }
+
+    // clicked on the html-div?
+    if (this.editnode && this.editnode.parentNode === event.target)
+    {
+      // focus body node instead
+      this.editnode.focus();
+      event.preventDefault();
+    }
+  }
+
+  _updateEnablingAttributes()
+  {
+    let rtdstatenode = this.stylescopenode || this.htmldiv;
+    rtdstatenode.classList.toggle('wh-rtd--enabled', this._isActive());
+    rtdstatenode.classList.toggle('wh-rtd--disabled', !this.options.enabled);
+    rtdstatenode.classList.toggle('wh-rtd--readonly', this.options.readonly);
+  }
+
+  gotPageFrameLoad()
+  {
+    this.basenode = this.getBody();
+    this.basenode.classList.add("wh-rtd");
+    this.basenode.classList.add("wh-rtd-editor");
+    this.basenode.classList.add("wh-rtd-theme-default");
+    this._updateEnablingAttributes();
+
+    let margins = 'none';
+    if(this.options.structure && this.options.structure.contentareawidth)
+    {
+      if(this.options.contentarea)
+      {
+        this.basenode.parentNode.classList.add('wh-rtd-withcontentarea');
+        this.basenode.classList.add('wh-rtd__body--contentarea');
+      }
+      this.basenode.style.width = this.options.structure.contentareawidth; //NOTE: already contains 'px'
+      margins = this.options.margins;
+    }
+
+    if (!this.options.selfedit)
+    {
+      this.htmldiv.classList.add("wh-rtd--margins-" + margins);
+      if(margins != 'none') //include -active if -any- margin is present. should replace wh-rtd-withcontentarea and wh-rtd__body--contentarea eventually
+        this.htmldiv.classList.add("wh-rtd--margins-active");
+    }
+
+    if (!this.options.selfedit && !this.options.pageedit)
+      this.connectEditor(this.bodydiv);
+
+    if (!this._isActive())
+      this.disconnectCurrentEditor();
+
+    this._fireStateChange();
+  }
+
+  _gotStateChange(event)
+  {
+    this._fireStateChange();
+    this._checkDirty();
+  }
+
+  _fireStateChange()
+  {
+    dompack.dispatchCustomEvent(this.bodydiv, 'wh:rtd-statechange', { bubbles: true, cancelable: false});
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Action and content API
+  //
+  insertHyperlink(link, options)
+  {
+    this.editrte.insertHyperlink(link,options);
+    this._checkDirty();
+  }
+
+  getTargetInfo(actiontarget) //provide JSON-safe information about the action target
+  {
+    if(!actiontarget)
+      return null; //not all our events support actiontargets yet, so expect undefined/null
+
+    let node = actiontarget.__node;
+
+    switch (node.nodeName.toUpperCase())
+    {
+      case "A":
+      {
+        return { type: 'hyperlink'
+               , link: node.getAttribute("href") //note that getAttribute gives the 'true' link but 'href' may give a resolved link
+               , target: node.target || ''
+               };
+      }
+    }
+    return null;
+  }
+  updateTarget(actiontarget, settings)
+  {
+    if(actiontarget.__node && actiontarget.__node.nodeName=='A')
+      return this.updateHyperlink(actiontarget, settings);
+    throw new Error("Did not understand action target");
+  }
+  updateHyperlink(actiontarget, settings)
+  {
+    if(actiontarget.__node.nodeName != 'A')
+      throw new Error("Action target is not a hyperlink");
+
+    const undolock = this.editrte.getUndoLock();
+
+    if(settings.destroy) //get rid of the hyperlink
+    {
+      this.editrte.selectNodeOuter(actiontarget.__node);
+      this.editrte.removeHyperlink();
+    }
+    else
+    {
+      if('link' in settings)
+        actiontarget.__node.setAttribute("href",settings.link);
+      if('target' in settings)
+        if(settings.target)
+          actiontarget.__node.target = settings.target;
+        else
+          actiontarget.__node.removeAttribute('target');
+    }
+
+    this._checkDirty();
+    undolock.close();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  destroy()
+  {
+    this.disconnectCurrentEditor();
+    this.cachededitors.forEach(editor => editor.destroy());
+    this.toolbarnode.remove();
+    RTE.unregister(this);
+  }
+
+  getContainer()
+  {
+    return this.container;
+  }
+
+  getBody()
+  {
+    return this.bodydiv || this.container;
+  }
+
+  qS(selector)
+  {
+    return this.getBody().querySelector(selector);
+  }
+
+  qSA(selector)
+  {
+    return Array.from(this.getBody().querySelectorAll(selector));
+  }
+
+  getButtonNode(actionname)
+  {
+    return this.toolbarnode.querySelector('span.wh-rtd-button[data-button=' + actionname + ']');
+  }
+
+  isEditable()
+  {
+    return this.editable;
+  }
+
+  getEditor()
+  {
+    if(this.editrte)
+      return this.editrte;
+    return null;
+  }
+
+  getValue()
+  {
+    var returntree = this.getBody().cloneNode(true);
+
+    // undo Microsoft Lync telephone transform
+    qSA(returntree, 'span.baec5a81-e4d6-4674-97f3-e9220f0136c1').forEach(node =>
+    {
+      // Microsoft Lync transforms telephone numbers (eg xx-xx) to '<span class="baec..." ...>xx-xx<a><img></a>'
+      // Remove the <a>, replace the span with its contents
+      qSA(node, 'a').forEach(linknode => linknode.remove());
+      dompack.replace(node, Array.from(node.childNodes));
+    });
+
+    //clean embedded objects
+    domlevel.queryEmbeddedObjects(returntree).forEach(node =>
+    {
+      node.contentEditable="inherit";
+      dompack.empty(node);
+    });
+
+    //clean table editors
+    TableEditor.cleanupTree(returntree);
+
+    qSA(returntree, "*[tabindex], *[todd-savedtabindex]").forEach(item =>
+    {
+      item.removeAttribute("tabindex");
+      item.removeAttribute("todd-savedtabindex");
+    });
+
+    return returntree.innerHTML;
+  }
+
+  setValue(val)
+  {
+    this.dirty = true;
+
+    this.bodydiv.innerHTML = val;
+    if (this.getEditor())
+      this.getEditor().resetUndoStack();
+    this.knownimages = qSA(this.bodydiv, 'img').map(node => node.src);
+
+    if(this.getEditor())
+      this.getEditor().reprocessAfterExternalSet();
+    else
+    {
+      //connect and disconnect to ensure the content is rewritten and previews become available
+      if (!this.options.selfedit && !this.options.pageedit)
+      {
+        this.connectEditor(this.bodydiv);
+        this.getEditor().reprocessAfterExternalSet();
+        this.disconnectCurrentEditor();
+      }
+    }
+
+    this.original_value = this.getValue();
+    this.dirty = false;
+
+    this._checkDirty();
+  }
+
+  getActionTarget(actiontarget)
+  {
+    if (!this.getEditor())
+      return null;
+    return this.getEditor().getActionTarget(actiontarget); //ADDME this is probably unsafe if we switched editors in a PageEdit while processing the action, add tests
+  }
+
+  focus()
+  {
+    if(this.editrte)
+      this.editrte.bodydiv.focus();
+  }
+
+  takeFocus()
+  {
+    if (this.editrte)
+      this.editrte.takeFocus();
+  }
+
+  getSelectionState(forceupdate)
+  {
+    return this.editrte && this.editrte.getSelectionState(forceupdate);
+  }
+
+  getShowFormatting()
+  {
+    return this.showformatting;
+  }
+
+  setShowFormatting(newshowformatting)
+  {
+    this.showformatting = newshowformatting;
+    Object.keys(this.editors, key => this.editors[key].setShowFormatting(newshowformatting));
+  }
+
+  getAvailableBlockStyles(selstate)
+  {
+    return this.editrte ? this.editrte.getAvailableBlockStyles(selstate) : [];
+  }
+
+  executeAction(action)
+  {
+    //FIXME: RTE should handle the action and dispatch to the active editor, so it can handle global rte actions (like show
+    //       formatting)
+    this.editrte && this.editrte.executeAction(action);
+  }
+
+  setSelectionBlockStyle(newblockstyle, forced)
+  {
+    this.editrte && this.editrte.setSelectionBlockStyle(newblockstyle, forced);
+  }
+
+  setEnabled(enabled)
+  {
+    if (enabled == this.options.enabled)
+      return;
+
+    this.options.enabled = enabled;
+
+    if (this.basenode)
+      this._updateEnablingAttributes();
+
+    if (this.options.readonly) // Readonly still active, no change
+      return;
+
+    if (enabled)
+    {
+      if (!this.options.selfedit && !this.options.pageedit)
+        this.connectEditor(this.bodydiv);
+
+      this._fireStateChange();
+    }
+    else
+    {
+      this.disconnectCurrentEditor();
+      this._fireStateChange();
+    }
+  }
+
+  setReadonly(readonly)
+  {
+    if (readonly == this.options.readonly)
+      return;
+
+    this.options.readonly = readonly;
+
+    if (this.toolbarnode)
+      this.toolbarnode.style.display = readonly ? "none" : "block";
+
+    this._updateEnablingAttributes();
+
+    if (!this.options.enabled) // Readonly still active, no change in editability
+      return;
+
+    if (!readonly)
+    {
+      this._fireStateChange();
+      if (!this.options.selfedit && !this.options.pageedit)
+        this.connectEditor(this.bodydiv);
+    }
+    else
+    {
+      this.disconnectCurrentEditor();
+      this._fireStateChange();
+    }
+  }
+
+  setHTMLClass(htmlclass)
+  {
+    this.__replaceClasses(this.htmldiv, this.options.htmlclass, htmlclass);
+    this.options.htmlclass = htmlclass;
+  }
+
+  setBodyClass(bodyclass)
+  {
+    this.__replaceClasses(this.bodydiv, this.options.bodyclass, bodyclass);
+    this.options.bodyclass = bodyclass;
+  }
+
+  __replaceClasses(node, removeclass, addclass)
+  {
+    removeclass = removeclass.trim();
+    addclass = addclass.trim();
+
+    if (removeclass != "")
+    {
+      // remove old classes (to keep extra classes set later intact)
+      for (let cname of removeclass.split(" "))
+      {
+        if (cname != "")
+          node.classList.remove(cname);
+      }
+    }
+
+    if (addclass != "")
+    {
+      for (let cname of addclass.split(" "))
+      {
+        if (cname != "")
+          node.classList.add(cname);
+      }
+    }
+  }
+
+  getPlainText(method)
+  {
+    switch (method)
+    {
+      case "converthtmltoplaintext":
+      {
+        return convertHtmlToPlainText(this.bodydiv);
+      }
+    }
+    throw new Error("Unsupported method for plaintext conversion: " + method);
+  }
+}
+
+RTE.addedcss = [];
+
+RTE.findCSSRule = function(addcss)
+{
+  for (var i = 0; i < RTE.addedcss.length; ++i)
+    if(RTE.addedcss[i].type == addcss.type && RTE.addedcss[i].src == addcss.src)
+      return { idx: i, rule: RTE.addedcss[i] };
+
+  return null;
+};
+
+  /// Register this RTE in the list of active RTE's
+RTE.register = function(rte)
+{
+  if (dompack.debugflags.rte)
+    console.log('[wh.rich] Register new rte');
+
+  //Add any missing stylesheets
+  for (var i = 0; i < rte.addcss.length;++i)
+  {
+    let rulepos = this.findCSSRule(rte.addcss[i]);
+    if(rulepos)
+    {
+      rulepos.rule.rtes.push(rte);
+    }
+    else
+    {
+      var node;
+      if(rte.addcss[i].type == 'link')
+      {
+        node = dompack.create("link", { href: rte.addcss[i].src
+                                      , rel: "stylesheet"
+                                      , dataset: { whRtdTempstyle: "" }
+                                      });
+        qS('head,body').appendChild(node);
+      }
+      else
+      {
+        node = dompack.create("style", { type: "text/css"
+                                       , dataset: { whRtdTempstyle: "" }
+                                       });
+        qS('head,body').appendChild(node);
+        try
+        {
+          node.innerHTML = rte.addcss[i].src;
+        }
+        catch(e)//IE
+        {
+          node.styleSheet.cssText = rte.addcss[i].src;
+        }
+
+      }
+      let rule = { type: rte.addcss[i].type
+                 , src: rte.addcss[i].src
+                 , node: node
+                 , rtes: [rte]
+                 };
+      RTE.addedcss.push(rule);
+    }
+  }
+};
+
+  /// Unregister this RTE
+RTE.unregister = function(rte)
+{
+  if (dompack.debugflags.rte)
+    console.log('[wh.rich] Unregister new rte');
+
+  for (var i = rte.addcss.length - 1; i>=0; --i)
+  {
+    var rulepos = this.findCSSRule(rte.addcss[i]);
+    if(rulepos)
+    {
+      rulepos.rule.rtes = rulepos.rule.rtes.filter(el => el != rte); //erase us from the list
+      if(!rulepos.rule.rtes.length)
+      {
+        rulepos.rule.node.remove();
+        RTE.addedcss.splice(rulepos.idx, 1);
+      }
+    }
+  }
+};
+
+RTE.getForNode = function(node)
+{
+  return node.whRTD || null;
+};
+
+module.exports = RTE;

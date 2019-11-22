@@ -1,0 +1,292 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/registry.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+BOOLEAN registeredtypechangelistener;
+PUBLIC RECORD ARRAY whfscache_loadedwhfstypes;
+PUBLIC RECORD whfscache_csp;
+
+MACRO RefreshWHFSCache(STRING event, RECORD ARRAY msg)
+{
+  RECORD ARRAY new_loadedwhfstypes;
+  FOREVERY (RECORD rec FROM whfscache_loadedwhfstypes)
+  {
+    OBJECT type := OBJECT(rec.obj);
+    IF (ObjectExists(type))
+    {
+       type->__rescan();
+       INSERT rec INTO new_loadedwhfstypes AT END;
+    }
+  }
+  new_loadedwhfstypes := whfscache_loadedwhfstypes;
+
+  whfscache_csp := DEFAULT RECORD; //force it to be reloaded next use
+}
+
+PUBLIC MACRO EnsureWHFSCacheListener()
+{
+  IF(registeredtypechangelistener)
+    RETURN;
+
+  RegisterMultiEventCallback("publisher:internal.siteprofiles.memberschanged", PTR RefreshWHFSCache);
+  registeredtypechangelistener := TRUE;
+}
+
+
+
+
+PUBLIC BOOLEAN debugmapping := FALSE;
+//PUBLIC INTEGER __force_global_versionsetting := -1; //used for debugging/testing - force versionsetting for all new whfs objects
+
+PUBLIC STRING ARRAY historytriggerfields :=
+  ["DATA","NAME","PARENT","FILELINK","TITLE","DESCRIPTION","KEYWORDS","TYPE","EXTERNALLINK"];
+
+
+/** Exception thrown by WHFS functions
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+*/
+PUBLIC OBJECTTYPE WHFSException EXTEND Exception
+< /// Type of the exception
+  STRING basetype;
+
+  /** @private
+      @param basetype Error code
+      @param what Error message
+  */
+  MACRO NEW(STRING basetype, STRING what)
+  : Exception(what)
+  {
+    this->basetype := basetype;
+  }
+
+  /** Whether this exception thrown because access was denied.
+      @return TRUE if this exception was thrown because access was denied
+  */
+  PUBLIC BOOLEAN FUNCTION IsAccessDenied()
+  {
+    RETURN this->basetype="XS";
+  }
+
+  /** Whether this exception thrown because an invalid argument was provided
+      @return TRUE if this exception was thrown because of an invalid argument
+  */
+  PUBLIC BOOLEAN FUNCTION IsInvalidArgument()
+  {
+    RETURN this->basetype="INVALIDARG";
+  }
+
+  /** Whether this exception thrown because an invalid name was provided
+      @return TRUE if this exception was thrown because of an invalid argument
+  */
+  PUBLIC BOOLEAN FUNCTION IsInvalidName()
+  {
+    RETURN this->basetype="INVALIDNAME";
+  }
+>;
+
+
+/** Generate an unique name, based on a base name
+    @param parentfolder Id of the parent folder
+    @param suggestion Suggested name
+    @cell options.ignoreobject Existing object to ignore (ie if renaming a file), defaults to 0
+    @return A name that doesn't exist in this folder yet, based on the suggestion
+*/
+PUBLIC STRING FUNCTION GenerateUniqueName(INTEGER parentfolder, STRING suggestion, RECORD options)
+{
+  options := ValidateOptions([ ignoreobject := 0
+                             , safename := TRUE
+                             ], options);
+  STRING basename, extension;
+  extension := GetExtensionFromPath(suggestion);
+
+  IF(extension = "" OR extension = "." OR Length(extension) > 50) //that's not an extension...
+  {
+    extension := "";
+    basename := suggestion;
+  }
+  ELSE
+  {
+    extension := TrimWhitespace(extension);
+    basename := GetBasenameFromPath(suggestion);
+  }
+  basename := TrimWhitespace(basename);
+
+  IF (extension = ".gz") // .tar.gz?
+  {
+    STRING e2 := TrimWhitespace(GetExtensionFromPath(basename));
+    IF (e2 = ".tar")
+    {
+      extension := e2 || extension;
+      basename := TrimWhitespace(GetBasenameFromPath(basename));
+    }
+  }
+
+  //Ensure that the extension is sane
+  IF (NOT IsValidWHFSName(extension,FALSE))
+    extension := "";
+
+  INTEGER counter := 0;
+  IF (basename LIKE "*-*")
+  {
+    INTEGER p := SearchLastSubString(basename, "-");
+    IF(p>=1)
+    {
+      STRING nr := SubString(basename, p + 1);
+      IF (ToInteger(nr, -1) > 0)
+      {
+        counter := ToInteger(nr, -1);
+        basename := Left(basename, p);
+      }
+    }
+  }
+
+  //Ensure that the basename is sane
+  basename := Left(basename,240);
+  IF(options.safename OR NOT IsValidWHFSName(basename,FALSE))
+    basename := GetSafeFileName(basename);
+
+  WHILE (TRUE)
+  {
+    STRING testname;
+    IF(counter>0)
+      testname := basename || "-" || counter || extension;
+    ELSE
+      testname := basename || extension;
+
+    IF(NOT RecordExists(SELECT FROM system.fs_objects WHERE parent = VAR parentfolder AND ToUppercase(name)=ToUppercase(testname) AND id != options.ignoreobject))
+      RETURN testname;
+
+    IF (LENGTH(testname) > 240)
+    {
+      counter := 0;
+      basename := "webhare";
+      testname := basename || extension;
+    }
+    ELSE
+      counter := counter + 1;
+  }
+}
+
+//To avoid races, create the versionfolder for a site immediately when creating the site. But having multiple shouldn't really mater
+PUBLIC INTEGER FUNCTION EnsureVersionFolder(INTEGER site)
+{
+  INTEGER versionroot := SELECT AS INTEGER id FROM system.fs_objects WHERE parent=11 AND filelink = site;
+  IF(versionroot = 0)//create that first
+  {
+    DATETIME now := GetCurrentdatetime();
+    versionroot := MakeAutonumber(system.fs_objects, "id");
+
+    INSERT INTO system.fs_objects(id, parent, name, filelink, creationdate, modificationdate, isfolder)
+           VALUES(versionroot, 11, ToString(versionroot), site, now, now, TRUE);
+  }
+  RETURN versionroot;
+}
+
+PUBLIC BOOLEAN FUNCTION IsRecycleOrHistoryWHFSPath(STRING path)
+{
+  RETURN ToUppercase(path) LIKE "/WEBHARE-PRIVATE/WHFS-*";
+}
+
+PUBLIC BOOLEAN FUNCTION IsRecycleBinWHFSPath(STRING path)
+{
+  path := ToUppercase(path);
+  IF (path LIKE "/WEBHARE-PRIVATE/WHFS-VERSIONARCHIVE/*")
+    RETURN TRUE;
+  RETURN path LIKE "/WEBHARE-PRIVATE/WHFS-VERSIONS/*/*";
+}
+
+PUBLIC BOOLEAN FUNCTION CanEffectiveUserScript()
+{
+  RETURN NOT ObjectExists(GetEffectiveUser()) OR GetEffectiveUser()->HasRight("system:sysop");
+}
+
+PUBLIC RECORD FUNCTION WrapFSObjectData(INTEGER objid, BLOB objdata, RECORD fsobjectdata)
+{
+  IF(fsobjectdata.scandata != "" OR Length(objdata)=0)
+  {
+    RECORD retval := [ ...DecodeScanData(fsobjectdata.scandata)
+                     , filename := fsobjectdata.name
+                     , data := objdata
+                     , __blobsource := "o" || objid
+                     ];
+    RETURN retval;
+  }
+  //Scandata not available (yet?) - manually generate it
+  LogInfo("system:whfs", `Object #${objid} has no scandata`, [ type := "noscandata", id := objid ]);
+  RETURN CELL[ ...WrapBlob(objdata, fsobjectdata.name)
+             , __blobsource := "o" || objid
+             ];
+}
+PUBLIC RECORD FUNCTION WrapFSObject(INTEGER objid)
+{
+  RECORD obj := SELECT name,data,scandata FROM system.fs_objects WHERE id=objid;
+  IF(NOT RecordExists(obj))
+    RETURN DEFAULT RECORD;
+
+  RETURN WrapFSObjectData(objid, obj.data, obj);
+}
+
+/** Returns a file record directly from a WHFS setting
+    @param fssettingid ID ofthe WHFS setting to read the file record from
+    @return File record @includeceldef #SplitBlobSetting.return
+    @cell return.settingid Id of the WHFS setting
+    @cell return.__blobsource Source of this file record
+    @cell return.link Link (always empty)
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+*/
+PUBLIC RECORD FUNCTION GetWHFSFileDirect(INTEGER fssettingid)
+{
+  RECORD settingrec := SELECT * FROM system.fs_settings WHERE id = VAR fssettingid;
+  IF(NOT RecordExists(settingrec))
+    RETURN DEFAULT RECORD;
+
+  RECORD newval := SplitBlobSetting(settingrec.setting, settingrec.blobdata, settingrec.fs_object);
+  IF(RecordExists(newval))
+  {
+    newval := [ ...newval
+              , settingid := settingrec.id
+              , __blobsource := "s" || settingrec.id
+              , link := ""
+              ]; // Don't offer backwards-compatible publish="true" link
+  }
+  RETURN newval;
+}
+
+// There are still some users setting outputexternsion to .shtml and in some rare cases we indeed need _that_ name
+PUBLIC STRING FUNCTION GetWebserverDefaultPage(INTEGER webserverid)
+{
+  RETURN whconstant_webserver_indexbasename || ((SELECT AS STRING outputextension FROM system.webservers WHERE webservers.id = webserverid) ?? ".html");
+}
+
+RECORD FUNCTION GetCachablePublisherConfiguration()
+{
+  RECORD config := [ stripextensions := Tokenize(ToUppercase(ReadRegistryKey("publisher.publication.stripextensions"))," ")
+                   , subdirfiletypes := (SELECT AS INTEGER ARRAY id FROM system_internal.fs_types WHERE ispublishedassubdir)
+                   ];
+
+  RETURN [ ttl := 60 * 1000
+         , value := config
+         , eventmasks := [ "publisher:internal.siteprofiles.recompiled" ]
+         ];
+}
+
+/** Gets some core publisher configuration, mostly for generating links
+*/
+PUBLIC RECORD FUNCTION GetPublisherConfiguration()
+{
+  RETURN GetAdhocCached([ type := "publisherconfiguration" ], PTR GetCachablePublisherConfiguration );
+}
+

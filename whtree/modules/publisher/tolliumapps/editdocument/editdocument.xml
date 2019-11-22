@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.editdocument" library="editdocument.whlib">
+
+  <messageboxes gid=".messageboxes">
+    <messagebox name="savebeforeclose" icon="question" buttons="yes no cancel" />
+    <messagebox name="confirmcanceldraft" icon="question" buttons="yes no" />
+    <messagebox name="confirmsaveandpublish" icon="question" buttons="yes no" dontshowagain="yes" />
+    <messagebox name="resumeautosave" buttons="yes no cancel" />
+    <messagebox name="draftcancelled" buttons="close" />
+    <messagebox name="requestcancelled" buttons="close" />
+    <messagebox name="otherhasdraft" buttons="ok cancel" dontshowagain="ok" />
+    <messagebox name="confirmcancelrequest" icon="question" buttons="yes no" />
+    <messagebox name="closeeditorafterversionedpublish" icon="question" buttons="yes no" />
+    <messagebox name="publishversionedfiletoapplychanges" icon="information" buttons="ok" dontshowagain="ok" />
+  </messageboxes>
+
+  <screen name="editdocumentapp"
+          width="800px"
+          height="600px"
+          allowresize="true"
+          flags="canedit canpublish canrevertdraft cancancelrequest canpreview canview isdeveloper havesomethingtopublish isdirty"
+          gid=".editdocumentapp"
+          icon="tollium:applications/editor"
+          interval="60000"
+          menubar="menubar"
+          oninterval="oninterval"
+          onunload="gotunload"
+          title="Rich document editor">
+    <actions>
+      <action name="save" frameflags="canedit isdirty" onexecute="dosave" shortcut="ctrl+s" />
+      <action name="canceldraft" frameflags="canrevertdraft" onexecute="docanceldraft" />
+      <action name="cancelrequest" frameflags="cancancelrequest" onexecute="docancelrequest" />
+      <action name="hidedraftbar" onexecute="dohidedraftbar" />
+      <action name="sendpreviewlink" ellipsis="true" frameflags="havesomethingtopublish" onexecute="dosendpreviewlink" />
+      <action name="publish" frameflags="canpublish" onexecute="dopublish" />
+      <action name="close" onexecute="doclose" tid="~close" />
+      <windowopenaction name="viewpublished"
+                        frameflags="canview"
+                        onwindowopen="doviewpublished"
+                        target="webhare_publisher_editdocument" />
+      <windowopenaction name="previewdraft"
+                        frameflags="canpreview"
+                        onwindowopen="dopreviewdraft"
+                        target="webhare_publisher_editdocument" />
+      <windowopenaction name="previewcurrentcontent"
+                        frameflags="canpreview isdirty"
+                        onwindowopen="dopreviewcurrentcontent"
+                        target="webhare_publisher_editdocument" />
+      <action name="inspectautosave" frameflags="isdeveloper" onexecute="doinspectautosave" />
+      <action name="inspectdraft" frameflags="isdeveloper" onexecute="doinspectdraft" />
+      <action name="inspectfinal" frameflags="isdeveloper" onexecute="doinspectfinal" />
+    </actions>
+
+    <menus>
+      <menu name="menubar">
+        <item name="publishmenu" action="publish" tid=".publish" />
+        <item name="savemenu" action="save" tid=".save" />
+        <item tid=".previewmenu">
+          <item action="viewpublished" />
+          <item action="previewdraft" />
+          <item action="previewcurrentcontent" />
+          <divider />
+          <item action="sendpreviewlink" />
+        </item>
+        <divider />
+        <item name="canceldraftmenu" action="canceldraft" />
+        <item name="cancelrequestmenu" action="cancelrequest" />
+        <divider />
+        <item title="#####" visible="false" />  <!-- The insertion point for document editor menu items -->
+        <divider />
+        <item name="developersmenu">
+          <item title="#####" visible="false" />  <!-- The insertion point for document editor menu items -->
+          <divider />
+          <item action="inspectautosave" disablemode="hidden" />
+          <item action="inspectdraft" disablemode="hidden" />
+          <item action="inspectfinal" disablemode="hidden" />
+        </item>
+        <divider />
+        <item action="close" tid="~exit" />
+      </menu>
+      <menu name="previewmenu">
+        <item action="viewpublished" />
+        <item action="previewdraft" />
+        <item action="previewcurrentcontent" />
+        <divider />
+        <item action="sendpreviewlink" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener name="publicationlistener" onevents="gotfolderchangeevents" />
+    </compositions>
+
+    <toolbar name="toolbar">
+      <button name="publishbutton" action="publish" hinttid=".publish-hint" icon="tollium:actions/meredians" tid=".publish" />
+      <button name="saveasdraftbutton" action="save" hinttid=".save-hint" icon="tollium:actions/save" tid=".saveasdraft" />
+      <button icon="tollium:filemgr/previewsite" menu="previewmenu" tid=".preview" />
+      <divider />
+    </toolbar>
+
+    <body name="body" spacers="none">
+      <panel name="draftbar" height="1gr" backgroundcolor="#FEFFDE" borders="bottom" spacers="left right" visible="false">
+        <grid width="1pr" height="1gr">
+          <!-- col/ -->
+          <col width="1pr" />
+          <col />
+          <row>
+            <cell>
+              <line>
+                <text name="draftmode" width="1pr" onclicklink="ondraftmodeclick" title="" wordwrap="true" />
+              </line>
+            </cell>
+            <cell>
+              <text name="draftbar_canceldraft" action="canceldraft" title="" valuetid=".canceldraftmenu" visible="false" />
+              <text name="draftbar_cancelrequest"
+                    action="cancelrequest"
+                    title=""
+                    valuetid=".cancelrequestmenu"
+                    visible="false" />
+            </cell>
+          </row>
+        </grid>
+      </panel>
+      <panel name="doceditor" height="1pr" />
+      <panel layout="left" spacers="left right">
+        <line>
+          <image name="filestatusicon" width="16px" height="16px" title="" />
+          <text name="filestatustext" title="" value="" />
+        </line>
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="sendpreviewlink" minwidth="65x" allowresize="true" gid=".sendpreviewlink" tid=".screentitle">
+    <body spacers="none">
+      <wizard name="wizard">
+        <page name="sharepage" onnext="onsharenext" spacers="bottom">
+          <datetime name="validuntil" type="datetime" precision="minutes" storeutc="true" />
+          <line layout="left">
+            <checkbox name="passwordprotect" enablecomponents="password" labeltid=".passwordprotect" title="" />
+            <textedit name="password" errorlabeltid=".password" password="true" required="true" title="" />
+          </line>
+        </page>
+        <page isfinish="true" oninit="initfinishpage" spacers="bottom">
+          <textedit name="link" width="1pr" enabled="false" />
+          <text name="maillink" title="" />
+        </page>
+      </wizard>
+    </body>
+  </screen>
+
+</screens>

@@ -1,0 +1,224 @@
+﻿<?wh
+LOADLIB "mod::socialite/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+
+PUBLIC OBJECTTYPE SocialiteException EXTEND Exception
+<
+  STRING code;
+
+  /** @param code INVALIDARG: Invalid call (local contract violation)
+                  TRANSPORT (I/O error or network said something odd)
+                  EXPIRED (Session gone)
+  */
+  MACRO NEW(STRING code, STRING what)
+  : Exception(what)
+  {
+    this->code := code;
+  }
+>;
+
+// networks
+PUBLIC RECORD ARRAY socialnetworks :=
+  [ [ tag := "FACEBOOKV2"
+    , title := "Facebook v2"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "API Documentation", link := "http://developers.facebook.com/docs/reference/api/" ]
+                   ,[ title := "Managing applications", link := "http://www.facebook.com/developers/apps.php" ]
+                   ,[ title := "Graph API Explorer", link := "https://developers.facebook.com/tools/explorer" ]
+                   ]
+    , link_manageapp := "https://developers.facebook.com/apps/[pubkey]/dashboard/"
+    ]
+  , [ tag := "FACEBOOKV3"
+    , title := "Facebook v3"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "API Documentation", link := "http://developers.facebook.com/docs/reference/api/" ]
+                   ,[ title := "Managing applications", link := "http://www.facebook.com/developers/apps.php" ]
+                   ,[ title := "Graph API Explorer", link := "https://developers.facebook.com/tools/explorer" ]
+                   ]
+    , link_manageapp := "https://developers.facebook.com/apps/[pubkey]/dashboard/"
+    ]
+  , [ tag := "LINKEDIN"
+    , title := "LinkedIn V1 (closed may 2019)"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "API Documentation",           link := "http://developer.linkedin.com/community/apis" ]
+                   ,[ title := "Managing applications",       link := "https://www.linkedin.com/developer/apps" ]
+                   ]
+    , link_manageapp := "https://www.linkedin.com/developer/apps/[appid]/auth"
+    ]
+  , [ tag := "LINKEDINV2"
+    , title := "LinkedIn V2"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "API Documentation (profile)", link := "https://docs.microsoft.com/en-us/linkedin/shared/references/v2/" ]
+                   ,[ title := "Managing applications",       link := "https://www.linkedin.com/developer/apps" ]
+                   ]
+    , link_manageapp := "https://www.linkedin.com/developer/apps/[appid]/auth"
+    ]
+  , [ tag := "TWITTER"
+    , title := "Twitter"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "API Documentation", link := "http://dev.twitter.com/doc" ]
+                   ,[ title := "Managing applications", link := "https://dev.twitter.com/apps" ]
+                   ]
+    ]
+  , [ tag := "YAMMER"
+    , title := "Yammer"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "REST API Documentation",     link := "https://developer.yammer.com/restapi/" ]
+                   ,[ title := "Managing applications", link := "https://www.yammer.com/client_applications" ]
+                   ]
+    ]
+  , [ tag := "FOURSQUARE"
+    , title := "Foursquare"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "API Documentation",     link := "https://developer.foursquare.com/docs/" ]
+//                   ,[ title := "Managing applications", link := "" ]
+                   ]
+    ]
+  , [ tag := "YOUTUBE"
+    , title := "Youtube"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST","DEVELOPERKEY"]
+    , helplinks := [[ title := "API Documentation", link := "http://code.google.com/apis/youtube/2.0/developers_guide_protocol.html" ]
+                   ,[ title := "Managing applications", link := "https://code.google.com/apis/console"]
+                   ,[ title := "Developer Dashboard (for developer key)", link := "http://code.google.com/apis/youtube/dashboard/gwt/index.html"]
+                   ,[ title := "Manage & revoke tokens", link := "https://accounts.google.com/IssuedAuthSubTokens"]
+                   ]
+    ]
+/*  , [ tag := "LASTFM"
+    , title := "Last.fm"
+    , setup := ["PUBKEY","PVTKEY"]
+    , helplinks := [[ title := "API Documentation", link := "http://www.last.fm/api/intro" ]
+                   ,[ title := "Your account", link := "http://www.last.fm/api/account" ]
+                   ]
+    ]*/
+  , [ tag := "VIMEO"
+    , title := "Vimeo"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "API Documentation", link := "https://developer.vimeo.com/api/start" ]
+                   ,[ title := "Developers site", link := "https://developer.vimeo.com/" ]
+                   ,[ title := "Managing applications", link := "https://developer.vimeo.com/apps" ]
+                   ]
+    ]
+  , [ tag := "INSTAGRAM"
+    , title := "Instagram"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "API Documentation", link := "http://instagram.com/developer/" ]
+                   ,[ title := "Managing applications", link := "http://instagram.com/developer/clients/manage/" ]
+                   ]
+    ]
+  , [ tag := "PINTEREST"
+    , title := "Pinterest"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "API Documentation", link := "https://developers.pinterest.com/docs/api/overview/" ]
+                   ,[ title := "Managing applications", link := "https://developers.pinterest.com/apps/" ]
+                   ,[ title := "Developers site", link := "https://developers.pinterest.com/" ]
+                   ]
+    ]
+  , [ tag := "GOOGLE"
+    , title := "Google"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "Managing applications", link := "https://code.google.com/apis/console" ]
+                   ]
+    ]
+  , [ tag := "YOUKU"
+    , title := "Youku"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "API Documentation", link := "http://open.youku.com/docs/index.html" ]
+                   ,[ title := "Managing applications", link := "http://open.youku.com/app"]
+                   ]
+    ]
+  , [ tag := "MONEYBIRD"
+    , title := "Moneybird"
+    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
+    , helplinks := [[ title := "Developers site", link := "http://developer.moneybird.com/" ]
+                   ,[ title := "Managing applications", link := "https://moneybird.com/user/applications" ]
+                   ]
+    ]
+  ];
+
+PUBLIC RECORD ARRAY globalpermissionmap :=
+  [ [ id := 1, userapi := "GetOwnRecentStatuses", networks := [ "FACEBOOK", "TWITTER"] ]
+  , [ id := 10, userapi := "PostMessageToFriend", networks := ["FACEBOOK" ] ]
+  , [ id := 11, userapi := "PostMessageWithAttachmentToFriend", networks := ["FACEBOOK" ] ]
+  , [ id := 12, userapi := "Events_Create", networks := ["FACEBOOK" ] ]
+  , [ id := 13, userapi := "Events_RSVP", networks := ["FACEBOOK" ] ]
+  , [ id := 14, userapi := "UpdateTwitterStatus", networks := ["TWITTER" ] ]
+  //, [ id := 15, userapi := "FQL_User_Photos", networks := ["FACEBOOK" ] ]
+  , [ id := 17, userapi := "GetFriendStatuses", networks := ["FACEBOOK" ] ]
+  ];
+
+
+PUBLIC STRING FUNCTION MYEncodeURLBin64(STRING data)
+{
+  data := EncodeBase64(data);
+  data := Substitute(data,'+','-');
+  data := Substitute(data,'/','_');
+  data := Substitute(data,'=','');
+  RETURN data;
+}
+
+PUBLIC STRING FUNCTION MYDecodeURLBin64(STRING data)
+{
+  data := Substitute(data,'-','+');
+  data := Substitute(data,'_','/');
+  WHILE( (Length(data) % 4) = 0 )
+    data := data || "=";
+  RETURN DecodeBase64(data);
+}
+
+
+//FIXME ->childrentext ?!
+PUBLIC STRING FUNCTION GetNodeText(OBJECT query, STRING nodename, OBJECT root DEFAULTSTO DEFAULT OBJECT, BOOLEAN recursive DEFAULTSTO TRUE)
+{
+  STRING result;
+  FOREVERY (OBJECT node FROM GetNodes(query, nodename, root, recursive))
+    result := result || node->childrentext;
+  RETURN result;
+}
+
+
+//fixme - get(child)elementsbytagname(ns) ?   die doet echter geen paths..
+PUBLIC OBJECT ARRAY FUNCTION GetNodes(OBJECT query, STRING nodename, OBJECT root DEFAULTSTO DEFAULT OBJECT, BOOLEAN recursive DEFAULTSTO TRUE)
+{
+  STRING xpath := (ObjectExists(root) ?".":"") || (recursive ? "//" : "/") || nodename;
+  OBJECT nodelist := query->ExecuteQuery(xpath, root);
+  RETURN nodelist->GetCurrentElements();
+}
+
+/// Cast a VARIANT ARRAY to a RECORD ARRAY
+PUBLIC RECORD ARRAY FUNCTION CastVAToRA(VARIANT xs)
+{
+  IF (TypeID(xs) = TypeID(RECORD ARRAY))
+    RETURN xs;
+  RECORD ARRAY res;
+  FOREVERY (VARIANT x FROM xs)
+    INSERT RECORD(x) INTO res AT END;
+  RETURN res;
+}
+
+PUBLIC RECORD FUNCTION SplitSecureToken(STRING intoken)
+{
+  STRING encryptedhandle_plus_header := MyDecodeURLBin64(intoken);
+  IF(encryptedhandle_plus_header="") //legacy support, REMOVE
+    encryptedhandle_plus_header := DecodeBase64(intoken);
+
+  RECORD packetheader := DecodePacket("version:C,appid:L", Left(encryptedhandle_plus_header,5));
+  IF(NOT RecordExists(packetheader) OR packetheader.version!=1)
+    RETURN DEFAULT RECORD;
+
+  RETURN [ version := packetheader.version
+         , appid := packetheader.appid
+         , encryptedhandle := Substring(encryptedhandle_plus_header,5)
+         ];
+}
+
+PUBLIC OBJECTTYPE AccountsDescriber EXTEND ObjectTypeDescriber
+< PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RETURN
+      SELECT id
+           , name     := title
+           , icon     := "tollium:folders/shared"
+        FROM socialite.accounts
+       WHERE id = objectid;
+  }
+>;

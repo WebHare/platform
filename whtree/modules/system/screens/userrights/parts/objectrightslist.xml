@@ -1,0 +1,63 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components">
+
+  <!-- list of users & roles with rights on an object -->
+  <fragment name="objectrightslist" lib="screens/userrights/parts/objectrightslist.whlib" gid="userrights.objectrightslist">
+    <actions gid="userrights.actions">
+      <action name="grantrightonobject" onexecute="dograntrightonobject" ellipsis="true" enabled="false" />
+
+      <action name="revokerightonobject">
+        <enableon source="authobjectlistbyobject" min="1" requirefocus="true" checkflags="isright !inherited canmanage" onexecute="dorevokerightonobject" />
+      </action>
+
+      <action name="edit" hinttid=".edit-hint">
+        <enableon source="authobjectlistbyobject" min="1" max="1" checkflags="isright" onexecute="doeditrightonobject" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="selectcontextmenu">
+        <item action="revokerightonobject" disablemode="hidden" tid="userrights.commondialogs.actions.revokerightfromlist" hinttid="userrights.commondialogs.actions.revokerightfromlist-hint" />
+        <item action="edit" disablemode="hidden"/>
+      </menu>
+
+      <menu name="newcontextmenu">
+        <item action="grantrightonobject" disablemode="hidden"  tid="userrights.actions.grantrightonobject" hinttid="userrights.actions.revokerightfromlist-hint" />
+      </menu>
+    </menus>
+
+    <contents>
+      <list name="authobjectlistbyobject"
+            selectcontextmenu="selectcontextmenu"
+            height="1pr"
+            width="1pr"
+            newcontextmenu="newcontextmenu"
+            selectmode="multiple"
+            icons="tollium:users/user tollium:users/mask tollium:status/users tollium:status/unknown tollium:objects/lock tollium:users/manager"
+            openaction="edit"
+            ongetchildren="ongetchildrows"
+            ongetpath="ongetpath"
+            borders="all"
+            gid="userrights.commondialogs.columns"
+            flags="isrole isuser isright isauthobject inherited canmanage"
+            >
+
+        <!--
+        <acceptdrops ondrop="ontypeddrop">
+          <accepttype type="system:role" targetflags="canmanage" dropeffects="move" />
+          <accepttype type="system:user" targetflags="canmanage" dropeffects="move" />
+        </acceptdrops>
+        -->
+
+        <column type="text" width="2pr"  name="name" iconname="icon" tree="true"/>
+        <column type="text" width="1pr"  name="fullname" />
+        <column type="text" width="1pr"  name="righttitle" tid=".right" />
+        <column type="text" width="1pr"  name="grantable" />
+        <column type="text" width="1pr"  name="unitpath" tid=".unit" />
+
+        <style name="inheritedstyle" textcolor="#9a9a9a" />
+      </list>
+    </contents>
+  </fragment>
+</screens>

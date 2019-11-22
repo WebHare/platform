@@ -1,0 +1,260 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/base.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+
+// command: manageversioning [command]
+// short: Manage versioning in publisher sites
+
+MACRO ShowSyntax(STRING error DEFAULTSTO "")
+{
+  IF (error != "")
+    PRINT("Error: " || error || "\n\n");
+    PRINT(
+`Syntax:
+  wh manageversioning [--force] command <params>
+Commands:
+  list
+  listpolicies
+  setpolicy [ --user <username> ] [ --deletedrafts ] [ --expirydate YYYYMMDD ] <site> ( <policy-tag> )
+  resetpolicy <site>
+
+Switches:
+  --force Force operation, ignore sanity checks
+`);
+  SetConsoleExitcode(error = "" ? 0 : 1);
+  TerminateScript();
+}
+
+MACRO ShowError(STRING error)
+{
+  PRINT("Error: " || error || "\n");
+  SetConsoleExitcode(1);
+  TerminateScript();
+}
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "force", type := "switch" ]
+    , [ name := "h", type := "switch" ]
+    , [ name := "command", type := "param", required := "true" ]
+    , [ name := "params", type := "paramlist" ]
+    ]);
+
+IF (NOT Recordexists(args))
+  ShowSyntax("Illegal syntax");
+IF (args.h OR args.command = "")
+  ShowSyntax();
+
+OBJECT trans := OpenPrimary();
+
+SWITCH (args.command)
+{
+  CASE "list"
+  {
+    RECORD ARRAY versionedsites :=
+        SELECT id
+             , name
+             , versioningpolicy
+          FROM system.sites
+         WHERE versioningpolicy != ""
+      ORDER BY ToUppercase(name);
+
+    IF (LENGTH(versionedsites) = 0)
+      PRINT("No versioned sites found\n");
+    ELSE
+    {
+      DumpValue((SELECT name, versioningpolicy FROM versionedsites), "boxed");
+    }
+  }
+  CASE "listpolicies"
+  {
+    FOREVERY (STRING name FROM ListVersioningPolicies())
+      PRINT(name || "\n");
+  }
+  CASE "setpolicy"
+  {
+    RECORD subargs := ParseArguments(args.params,
+        [ [ name := "expirydate", type := "stringopt" ]
+        , [ name := "user", type := "stringopt" ]
+        , [ name := "deletedrafts", type := "switch" ]
+        , [ name := "site", type := "param", required := "true" ]
+        , [ name := "policy", type := "param", required := "true" ]
+        ]);
+
+    IF (NOT Recordexists(subargs))
+      ShowSyntax("Illegal syntax");
+
+    args := MakeMergedRecord(args, subargs);
+
+    IF (args.policy = "")
+      ShowSyntax("Please specify a policy");
+
+    DATETIME expirydate := MAX_DATETIME;
+    IF (args.expirydate != "")
+    {
+      expirydate := MakeDateFromText(args.expirydate || "T000000Z");
+      IF (expirydate = DEFAULT DATETIME)
+        ShowSyntax("Illegal expirydate format");
+
+      expirydate := LocalToUTC(expirydate, "CET");
+    }
+
+    TRY
+      OpenVersioningPolicy(args.policy); //validate it
+    CATCH
+      ShowSyntax("Could not find policy '" || args.policy || "'");
+
+    OBJECT site := OpenSiteByName(args.site);
+    IF (NOT ObjectExists(site))
+      ShowError("Could not open site '" || args.site || "'");
+
+    OBJECT userapi := GetPrimaryWebhareUserApi();
+    STRING username := args.user ?? "sysop";
+    OBJECT user := userapi->GetTolliumUserByLogin(username);
+    IF(NOT ObjectExists(user))
+      THROW NEW Exception("No such user '" || username || "'");
+
+    IF (site->isversioned AND NOT args.force)
+      ShowError("Site is already versioned");
+
+    IF (site->webroot = "")
+      ShowError("Site '" || args.site || "' is not published");
+
+    PRINT("Are you sure you want to set the versioning policy for site '" || site->name || "' to '" || args.policy || "'? Enter 'yes' to proceed. ");
+    IF (ReadLineFrom(0, 4096, TRUE) != "yes")
+    {
+      PRINT("Cancelled\n");
+      TerminateScript();
+    }
+
+    trans->BeginWork();
+    IF (site->isversioned)
+    {
+      STRING currentversioningpolicy :=
+          SELECT AS STRING versioningpolicy
+            FROM system.sites
+           WHERE id = site->id;
+
+      LogAuditEvent("publisher:manageversioning",
+          [ type :=         "changepolicy"
+          , site :=         site->name
+          , policy :=       args.policy
+          , orgpolicy :=    currentversioningpolicy
+          ]);
+
+      site->UpdateSiteMetadata([ versioningpolicy := args.policy ]);
+    }
+    ELSE
+    {
+      EnableSiteVersionHistory(
+          site,
+          user,
+          args.policy,
+          [ deletedrafts :=   args.deletedrafts
+          , expirydate :=     expirydate
+          ]);
+    }
+
+    trans->CommitWork();
+
+    PRINT("Set versioning policy for site '" || args.site || "' to '" || args.policy || "'\n");
+  }
+
+  CASE "resetpolicy"
+  {
+    RECORD subargs := ParseArguments(args.params,
+        [ [ name := "site", type := "param", required := "true" ]
+        ]);
+
+    IF (NOT Recordexists(subargs))
+      ShowSyntax("Illegal syntax");
+
+    args := MakeMergedRecord(args, subargs);
+
+    OBJECT site := OpenSiteByName(args.site);
+    IF (NOT ObjectExists(site))
+      ShowError("Could not open site '" || args.site || "'");
+
+    IF (site->isversioned AND GetDtapStage() NOT IN [ "development", "test" ] AND NOT args.force)
+      ShowSyntax(`Not allowed in DTAP-stage '${GetDtapStage()}' - you need to --force if you want this`);
+    ELSE IF (NOT site->isversioned)
+      ShowError("Site is not versioned");
+
+    PRINT("Are you sure you want to remove the versioning policy and history from site '" || site->name || "'? Enter 'yes' to proceed. ");
+    IF (ReadLineFrom(0, 4096, TRUE) != "yes")
+    {
+      PRINT("Cancelled\n");
+      TerminateScript();
+    }
+
+    PRINT("\nRemoving all versioning events from site '" || site->name || "'\n");
+    trans->BeginWork();
+
+    STRING currentversioningpolicy :=
+        SELECT AS STRING versioningpolicy
+          FROM system.sites
+         WHERE id = site->id;
+
+    LogAuditEvent("publisher:manageversioning",
+        [ type :=         "resetpolicy"
+        , site :=         site->name
+        , orgpolicy :=    currentversioningpolicy
+        ]);
+
+    site->UpdateSiteMetadata([ versioningpolicy := "" ]);
+
+    RECORD ARRAY versionevents :=
+        SELECT id
+             , draft_object
+             , live_object
+          FROM system.fs_versionevents
+         WHERE fs_site = site->id;
+
+    INTEGER ARRAY versionids := SELECT AS INTEGER ARRAY id FROM versionevents;
+    INTEGER ARRAY draftids := SELECT AS INTEGER ARRAY draft_object FROM versionevents;
+    INTEGER ARRAY liveids := SELECT AS INTEGER ARRAY live_object FROM versionevents;
+
+    DELETE
+      FROM system.fs_versionevents
+     WHERE id IN versionids;
+
+    DELETE
+      FROM system.fs_objects
+     WHERE id IN draftids
+       AND parent IN [ 18, 19 ];
+
+    INTEGER ARRAY clean_submitted_flags_ids :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE id IN liveids
+           AND TestFlagFromPublished(published, PublishedFlag_SubmittedForApproval);
+
+    // Remove PublishedFlag_SubmittedForApproval flags
+    FOREVERY (INTEGER id FROM clean_submitted_flags_ids)
+    {
+      OBJECT obj := OpenWHFSObject(id);
+      obj->UpdateMetadata([ published := SetFlagsInPublished(obj->published, PublishedFlag_SubmittedForApproval, FALSE) ]);
+    }
+
+    trans->CommitWork();
+
+    PRINT("Removed versioning policy from site '" || args.site || "'\n");
+  }
+
+  DEFAULT
+  {
+    ShowSyntax("Unknown command '" || args.command || "'");
+  }
+}

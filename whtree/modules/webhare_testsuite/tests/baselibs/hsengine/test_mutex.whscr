@@ -1,0 +1,242 @@
+﻿<?wh
+/// @short Mutex test
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+INTEGER positive_receive_window := 10000;
+INTEGER negative_receive_window := 250;
+
+
+MACRO ReceiveThrow(OBJECT link)
+{
+  RECORD rec := link->ReceiveMessage(AddTimeToDate(positive_receive_window, GetCurrentDateTime()));
+  PRINT(AnyToString(rec, "tree"));
+}
+
+STRING FUNCTION Pad(STRING s, INTEGER len)
+{
+  WHILE (LENGTH(s) < len)
+    s := s || "                             ";
+  RETURN LEFT(s, len);
+}
+
+MACRO DumpLockStatus(OBJECT ARRAY jobs)
+{
+  RECORD ARRAY locks := __HS_GetLocalLockStatus();
+  FOREVERY (OBJECT j FROM jobs)
+    IF (ObjectExists(j))
+      UPDATE locks SET groupid := "#" || #j + 1 WHERE groupid = j->groupid;
+
+  PRINT("Local lock status\n" || AnyToString(locks, "boxed"));
+
+  PRINT(Detokenize((
+      SELECT AS STRING ARRAY Pad(name, 20) || ": " ||
+                 Detokenize((SELECT AS STRING ARRAY groupid || ":" || maxconcurrent || (waiting ? "(wait)" : "") FROM GroupedValues(locks) ORDER BY lockposition), ", ") || "\n"
+        FROM locks
+    GROUP BY name), "") || "\n");
+}
+
+
+MACRO ExecuteTest(INTEGER jobcount, RECORD ARRAY script)
+{
+  OBJECT ARRAY jobs;
+  FOR (INTEGER i := 0; i < jobcount; i := i + 1)
+  {
+    RECORD res := CreateJob("test::testdata_mutex_a.whlib", "WEBHARE");
+    INSERT res.job INTO jobs AT END;
+    res.job->Start();
+    res.job->ipclink->autothrow := TRUE;
+  }
+
+  FOREVERY (RECORD rec FROM script)
+  {
+//    PRINT("execute script statement " || #rec || "\n");// ||  AnyToString(rec, "tree"));
+    OBJECT job := jobs[rec.job - 1];
+
+    IF (CellExists(rec, "SEND"))
+    {
+      job->userdata := job->ipclink->SendMessage(rec.send);
+//      PRINT("Send message, id: " || job->userdata.msgid || "\n");
+    }
+
+    IF (CellExists(rec, "KILL"))
+    {
+      job->Close();
+      jobs[rec.job - 1] := DEFAULT OBJECT;
+    }
+
+    IF (CellExists(rec, "RECV"))
+    {
+      BOOLEAN need_answer := RecordExists(rec.recv);
+
+//      PRINT("Try receive message\n");
+      RECORD recv := job->ipclink->ReceiveMessage(AddTimeToDate(need_answer ? positive_receive_window : negative_receive_window, GetCurrentDateTime()));
+//      PRINT("Result:\n" || AnyToString(recv, "tree"));
+
+      IF (recv.status = "gone")
+      {
+        Sleep(1000);
+        PRINT(AnyToString(job->GetErrors(), "boxed"));
+        ABORT("Mutex test failed");
+      }
+
+      IF (RecordExists(rec.recv) != (recv.status = "ok"))
+      {
+        DumpLockStatus(jobs);
+        IF (recv.status = "ok")
+          ABORT("Got answer, but did not expect one\n" || AnyToString((SELECT * FROM script LIMIT #rec + 1), "tree") || AnyToString(recv, "tree"));
+        ELSE
+          ABORT("Did not get answer, but did expect one\n" || AnyToString((SELECT * FROM script LIMIT #rec + 1), "tree"));
+      }
+      IF (RecordExists(rec.recv))
+      {
+        TestEQ(job->userdata.msgid, recv.replyto);
+        TestEQ(rec.recv, recv.msg);
+      }
+    }
+
+    IF (CellExists(rec, "ERROR"))
+    {
+      TestThrowsLike(rec.error, PTR ReceiveThrow(job->ipclink));
+//      TestThrowsLike(rec.error, PTR job->ipclink->ReceiveMessage(AddTimeToDate(2000, GetCurrentDateTime())));
+    }
+
+    IF (CellExists(rec, "SILENT"))
+    {
+      TRY
+      {
+//        PRINT("Wait timeout\n");
+        TestEQ("timeout", job->ipclink->ReceiveMessage(AddTimeToDate(negative_receive_window, GetCurrentDateTime())).status);
+      }
+      CATCH (OBJECT e)
+      {
+        PRINT("Got exception, expected silence\n");
+        THROW e;
+      }
+    }
+
+  }
+
+  FOREVERY (OBJECT job FROM jobs)
+    IF (ObjectExists(job))
+      job->Close();
+}
+
+
+MACRO MutexTest()
+{
+  OpenTest("TestMutex: Mutex");
+
+  RECORD ARRAY script_lock :=
+      [ [ job :=  1, send := [ type := "lockmutex", name := "test:mutex1" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  2, send := [ type := "lockmutex", name := "test:mutex1" ], silent := TRUE ]
+      , [ job :=  1, send := [ type := "ping" ], recv := [ type := "pong" ] ]
+      , [ job :=  1, send := [ type := "unlock", name := "test:mutex1" ], recv := [ type := "unlock" ] ]
+      , [ job :=  2, recv := [ type := "lockmutex" ] ]
+      ];
+
+  ExecuteTest(2, script_lock);
+
+  RECORD ARRAY script_deadlock :=
+      [ [ job :=  1, send := [ type := "lockmutex", name := "test:mutex1" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  2, send := [ type := "lockmutex", name := "test:mutex2" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  1, send := [ type := "lockmutex", name := "test:mutex2" ], silent := TRUE ]
+      , [ job :=  2, send := [ type := "lockmutex", name := "test:mutex1" ], error := "*Deadlock*" ]
+      , [ job :=  2, kill := TRUE ]
+      , [ job :=  1, recv := [ type := "lockmutex" ] ]
+      ];
+
+  ExecuteTest(2, script_deadlock);
+
+  RECORD ARRAY script_longdeadlock :=
+      [ [ job :=  1, send := [ type := "lockmutex", name := "test:mutex1" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  2, send := [ type := "lockmutex", name := "test:mutex2" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  3, send := [ type := "lockmutex", name := "test:mutex3" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  4, send := [ type := "lockmutex", name := "test:mutex4" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  5, send := [ type := "lockmutex", name := "test:mutex5" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  6, send := [ type := "lockmutex", name := "test:mutex6" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  1, send := [ type := "lockmutex", name := "test:mutex2" ], silent := TRUE ]
+      , [ job :=  2, send := [ type := "lockmutex", name := "test:mutex3" ], silent := TRUE ]
+      , [ job :=  3, send := [ type := "lockmutex", name := "test:mutex4" ], silent := TRUE ]
+      , [ job :=  4, send := [ type := "lockmutex", name := "test:mutex5" ], silent := TRUE ]
+      , [ job :=  5, send := [ type := "lockmutex", name := "test:mutex6" ], silent := TRUE ]
+      , [ job :=  6, send := [ type := "lockmutex", name := "test:mutex1" ], error := "*Deadlock*" ]
+      , [ job :=  3, kill := TRUE ]
+      , [ job :=  2, recv := [ type := "lockmutex" ] ]
+      ];
+
+  ExecuteTest(6, script_longdeadlock);
+
+  RECORD ARRAY script_relock :=
+      [ [ job :=  1, send := [ type := "lockmutex", name := "test:mutex1" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  1, send := [ type := "lockmutex", name := "test:mutex1" ], error := "*" ]
+      , [ job :=  1, send := [ type := "unlock", name := "test:mutex1" ], recv := [ type := "unlock" ] ]
+      , [ job :=  1, send := [ type := "lockmutex", name := "test:mutex1" ], recv := [ type := "lockmutex" ] ]
+      ];
+
+  ExecuteTest(1, script_relock);
+
+  CloseTest("TestMutex: Mutex");
+}
+
+MACRO SemaphoreTest()
+{
+  OpenTest("TestMutex: Semaphore");
+
+  RECORD ARRAY script_exclusivelock :=
+      [ [ job :=  1, send := [ type := "locksemaphore", name := "test:sema1", maxconcurrent := 1 ], recv := [ type := "locksemaphore" ] ]
+      , [ job :=  2, send := [ type := "locksemaphore", name := "test:sema1", maxconcurrent := 1 ], silent := TRUE ]
+      , [ job :=  1, send := [ type := "ping" ], recv := [ type := "pong" ] ]
+      , [ job :=  1, send := [ type := "unlock", name := "test:sema1" ], recv := [ type := "unlock" ] ]
+      , [ job :=  2, recv := [ type := "locksemaphore" ] ]
+      ];
+
+  ExecuteTest(2, script_exclusivelock);
+
+  RECORD ARRAY script_nonexclusivelock :=
+      [ [ job :=  1, send := [ type := "locksemaphore", name := "test:sema1", maxconcurrent := 2 ], recv := [ type := "locksemaphore" ] ]
+      , [ job :=  2, send := [ type := "locksemaphore", name := "test:sema1", maxconcurrent := 3 ], recv := [ type := "locksemaphore" ] ]
+      , [ job :=  3, send := [ type := "locksemaphore", name := "test:sema1", maxconcurrent := 3 ], silent := TRUE ]
+      , [ job :=  4, send := [ type := "locksemaphore", name := "test:sema1", maxconcurrent := 2 ], silent := TRUE ]
+      , [ job :=  1, send := [ type := "ping" ], recv := [ type := "pong" ] ]
+      , [ job :=  2, send := [ type := "ping" ], recv := [ type := "pong" ] ]
+      , [ job :=  2, send := [ type := "unlock", name := "test:sema1" ], recv := [ type := "unlock" ] ]
+      , [ job :=  3, recv := [ type := "locksemaphore" ] ]
+      , [ job :=  4, silent := TRUE ] // receive nothing, cause 4 wants max 2 concurrent, but 1 & 3 are already in
+      , [ job :=  1, send := [ type := "unlock", name := "test:sema1" ], recv := [ type := "unlock" ] ]
+      , [ job :=  4, recv := [ type := "locksemaphore" ] ]
+      ];
+
+  ExecuteTest(4, script_nonexclusivelock);
+
+  RECORD ARRAY script_deadlock_a :=
+      [ [ job :=  1, send := [ type := "lockmutex", name := "test:mutex1" ], recv := [ type := "lockmutex" ] ]
+      , [ job :=  1, send := [ type := "locksemaphore", name := "test:sema1", maxconcurrent := 2 ], recv := [ type := "locksemaphore" ] ]
+      , [ job :=  2, send := [ type := "locksemaphore", name := "test:sema2", maxconcurrent := 2 ], recv := [ type := "locksemaphore" ] ]
+      , [ job :=  2, send := [ type := "lockmutex", name := "test:mutex1" ], silent := TRUE ]
+      , [ job :=  3, send := [ type := "locksemaphore", name := "test:sema2", maxconcurrent := 2 ], recv := [ type := "locksemaphore" ] ]
+      , [ job :=  3, send := [ type := "locksemaphore", name := "test:sema3", maxconcurrent := 2 ], recv := [ type := "locksemaphore" ] ]
+      , [ job :=  4, send := [ type := "locksemaphore", name := "test:sema1", maxconcurrent := 2 ], recv := [ type := "locksemaphore" ] ]
+      , [ job :=  4, send := [ type := "locksemaphore", name := "test:sema3", maxconcurrent := 2 ], recv := [ type := "locksemaphore" ] ]
+      , [ job :=  1, send := [ type := "locksemaphore", name := "test:sema3", maxconcurrent := 2 ], silent := TRUE ]
+      , [ job :=  3, send := [ type := "locksemaphore", name := "test:sema1", maxconcurrent := 2 ], silent := TRUE ]
+      , [ job :=  4, send := [ type := "locksemaphore", name := "test:sema2", maxconcurrent := 2 ], error := "*Deadlock*" ]
+      , [ job :=  1, kill := TRUE ]
+      , [ job :=  4, send := [ type := "locksemaphore", name := "test:sema2", maxconcurrent := 2 ], silent := TRUE ]
+      , [ job :=  3, kill := TRUE ]
+      , [ job :=  4, recv := [ type := "locksemaphore" ] ]
+      ];
+
+  ExecuteTest(4, script_deadlock_a);
+
+
+  CloseTest("TestMutex: Semaphore");
+}
+
+RECORD ARRAY FUNCTION __HS_GetLocalLockStatus() __ATTRIBUTES__(EXTERNAL);
+
+PRINT("\n === Running TestMutex\n");
+MutexTest();
+SemaphoreTest();

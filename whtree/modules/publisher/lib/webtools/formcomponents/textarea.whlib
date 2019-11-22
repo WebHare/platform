@@ -1,0 +1,72 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/webtools/formcomponents/textedit.whlib";
+
+
+PUBLIC OBJECTTYPE FormTextArea EXTEND FormComponentExtensionBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->maxlength->value := ToInteger(this->node->GetAttribute("maxlength"), 0);
+    IF (this->maxlength->value < 0)
+      this->maxlength->value := 0;
+    this->usemaxlength->value := this->maxlength->value > 0;
+    this->maxlengthoptions->visible := this->contexts->formcomponentapi->showadvanced OR this->usemaxlength->value;
+    //this->validationchecks->value := this->node->GetAttribute("validationchecks");
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+    {
+      IF (this->usemaxlength->value AND this->maxlength->value > 0)
+        this->node->SetAttribute("maxlength", ToString(this->maxlength->value));
+      ELSE
+        this->node->RemoveAttribute("maxlength");
+      //IF (this->validationchecks->value != "")
+      //  this->node->SetAttribute("validationchecks", this->validationchecks->value);
+      //ELSE
+      //  this->node->RemoveAttribute("validationchecks");
+    }
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormTextArea(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  IF(node->HasAttribute("minlength"))
+    INSERT CELL minlength := ToInteger(node->GetAttribute("minlength"),0) INTO fielddef;
+  IF(node->HasAttribute("maxlength"))
+    INSERT CELL maxlength := ToInteger(node->GetAttribute("maxlength"),0) INTO fielddef;
+  INSERT CELL value := parsecontext.parsexmltidptr(node, "value") INTO fielddef;
+  INSERT CELL placeholder := parsecontext.parsexmltidptr(node, "placeholder") INTO fielddef;
+  INSERT CELL trimwhitespace := node->HasAttribute("trimwhitespace") ? ParseXSBoolean(node->GetAttribute("trimwhitespace")) : TRUE INTO fielddef;
+  RETURN fielddef;
+}
+
+PUBLIC OBJECTTYPE TextAreaField EXTEND TextEditFieldBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : TextEditFieldBase(form, parent, field)
+  {
+    IF(field.isstatic)
+      this->UpdateFromJS(GetTid(field.value));
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RETURN CELL[ ...TextEditFieldBase::__GetRenderData()
+               , type := "textarea"
+               ];
+  }
+>;

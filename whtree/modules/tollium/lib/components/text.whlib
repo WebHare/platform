@@ -1,0 +1,232 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// A read only field
+
+PUBLIC OBJECTTYPE TolliumText EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING contents;
+  BOOLEAN italic;
+  OBJECT pvt_action;
+  OBJECT pvt_labelfor;
+  STRING pvt_htmlvalue;
+  RECORD ARRAY pvt_linkactions;
+
+  BOOLEAN isbold;
+  BOOLEAN pvt_heading;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties & variables
+  //
+
+  PUBLIC MACRO PTR onclicklink;
+
+  PUBLIC PROPERTY value (GetValue, SetValue);
+  PUBLIC PROPERTY htmlvalue (-, SetHtmlValue);
+
+  PUBLIC PROPERTY action(pvt_action, SetAction);
+  PUBLIC PROPERTY labelfor (pvt_labelfor, SetLabelFor);
+
+  PUBLIC BOOLEAN wordwrap;
+  PUBLIC BOOLEAN ellipsis;
+  PUBLIC BOOLEAN selectable;
+
+  PUBLIC PROPERTY bold (isbold, SetBoldProp);
+
+  PUBLIC PROPERTY isheading(pvt_heading, SetHeading);
+
+  PUBLIC PROPERTY linkactions(pvt_linkactions, SetLinkActions);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->componenttype := "text";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+
+    this->contents := def.value;
+    this->wordwrap := def.wordwrap;
+    this->ellipsis := def.ellipsis;
+    this->selectable := def.selectable;
+    this->bold := def.bold;
+    this->italic := def.italic;
+    this->onclicklink := def.onclicklink;
+    this->pvt_labelfor := def.labelfor;
+    this->action := def.action;
+    this->readonly := TRUE;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN this->wordwrap OR this->ellipsis ? "1pr" : "";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(STRING);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetValue()
+  {
+    RETURN this->contents;
+  }
+
+  MACRO SetValue(STRING contents)
+  {
+    this->contents := contents;
+    this->pvt_htmlvalue := "";
+    this->ExtUpdatedValue();
+  }
+
+  MACRO SetLinkActions(RECORD ARRAY newlinkactions)
+  {
+    this->pvt_linkactions :=
+        SELECT url
+             , action
+          FROM newlinkactions;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetBoldProp(BOOLEAN newvalue)
+  {
+    IF (newvalue != this->isbold)
+    {
+      this->isbold := newvalue;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetHeading(BOOLEAN newvalue)
+  {
+    IF (newvalue != this->isheading)
+    {
+      this->pvt_heading := newvalue;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetHtmlValue(STRING newtext)
+  {
+    IF(newtext!="")
+    {
+      //ADDME adhoccache or preparse in screenparser to cut down on LIBXML invocations.
+      //ADDME perhaps a quick heuristic to see if we really need the heavy cleanup guns ?
+      OBJECT rewriter := NEW HtmlRewriter;
+      rewriter->parsemode := "inline";
+      rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob(newtext), "UTF-8"));
+
+      STRING finalvalue := rewriter->parsed_text;
+      //abort(newtext || " -> " || Finalvalue);
+      newtext := finalvalue;
+    }
+
+    this->contents := "";
+    this->pvt_htmlvalue := newtext;
+    this->ExtUpdatedValue();
+  }
+
+
+  MACRO SetAction(OBJECT action)
+  {
+    IF (this->pvt_action != action)
+    {
+      this->pvt_action := action;
+      this->ExtUpdatedAction();
+    }
+  }
+
+  MACRO SetLabelFor(OBJECT newlabel)
+  {
+    this->pvt_labelfor := newlabel;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO ExtUpdatedAction()
+  {
+    this->ExtUpdatedComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Rendering
+  //
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ value := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD compinfo := [ action := GetComponentName(this->action)
+                         , bold := this->bold
+                         , italic := this->italic
+                         , wordwrap := this->wordwrap
+                         , ellipsis := this->ellipsis
+                         , selectable := this->selectable
+                         , underline := ObjectExists(this->action)
+                         , isheading := this->isheading
+                         , unmasked_events := GetUnmask(this,["clicklink"])
+                         , ishtml := this->pvt_htmlvalue != ""
+                         , value := this->pvt_htmlvalue != "" ? this->pvt_htmlvalue : this->contents
+                         , hint := this->hint
+                         , labelfor := GetComponentName(this->labelfor)
+                         , linkactions := (SELECT url, action := GetComponentName(action) FROM this->pvt_linkactions)
+                         ];
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.value)
+      {
+        this->ToddUpdate([type:="value", ishtml := this->pvt_htmlvalue != "", value := this->pvt_htmlvalue != "" ? this->pvt_htmlvalue : this->contents ]);
+      }
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  UPDATE MACRO ExtUpdatedValue()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.value := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO TolliumClick()
+  {
+    IF(ObjectExists(this->action))
+      this->action->TolliumClick();
+  }
+
+>;

@@ -1,0 +1,83 @@
+[component debugoptions]
+  <header>
+    <div class="navlevel">
+      <h1>WebHare debug settings</h1>
+    </div>
+  </header>
+
+  <style>
+    div.blocks
+    {
+      max-width:960px;
+    }
+    div.blocks:after
+    {
+      display:block;
+      content:"";
+      clear:both;
+    }
+    div.blocks .block
+    {
+      float:left;
+      width:300px;
+      margin:10px;
+    }
+    div.blocks .block label
+    {
+      display:block;
+    }
+    div.blocks .block label span.checkarea
+    {
+      display:inline-block;
+      min-width:20px;
+    }
+    div.extraetc
+    {
+      margin:10px;
+    }
+    header
+    {
+      position: relative;
+      z-index:2;
+    }
+    .wh-debugpage__userwarning
+    {
+      position:relative;
+      padding:20px 10px 20px 10px;
+      font-weight:bold;
+      font-size:130%;
+      background-color: #feffde;
+      margin-top:-10px;
+      z-index:1;
+    }
+  </style>
+
+  <form method="POST" action="[feedbackurl]">
+    [if userwarning]
+      <div class="wh-debugpage__userwarning">
+        [userwarning]
+      </div>
+    [/if]
+    <div class="blocks">
+      [forevery optgroups]
+        <div class="block">
+          <h2>[title]</h2>
+          [forevery options]
+          <div class="option">
+            <label [if makebold]style="font-weight:bold"[/if]><span class="checkarea"><input name="debug" value="[rowkey]" type="checkbox" [if selected]checked[/if]></span>[title] [if allowaswebvar]([rowkey])[/if]</label>
+          </div>
+          [/forevery]
+        </div>
+      [/forevery]
+    </div>
+    <div class="extraetc">
+      <label>Extra options: <input name="extraoptions" value="[extraoptions]" style="width:300px;border:1px solid #ccc;"/> (space separated)<br/></label><br/>
+      <input name="submit" type="submit" value="Save" />
+      <input name="resetall" type="submit" value="Reset all" />
+      <br/>
+      <br/>
+      Please note that the debug tags can be overridden using a ?wh-debug=opt,opt,opt variable...
+    </div>
+  </form>
+[/component]
+

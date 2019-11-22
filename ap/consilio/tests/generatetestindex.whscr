@@ -1,0 +1,1116 @@
+<?wh
+// Generate a standardized test index
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+
+//// Test data
+
+/* complete list of all terms in the created index
+0   ":" (Empty term!)
+1   "body:1"
+2   "body:13"
+3   "body:14"
+4   "body:15"
+5   "body:3"
+6   "body:35"
+7   "body:47"
+8   "body:a"
+9   "body:about"
+10  "body:access"
+11  "body:accessibility"
+12  "body:action"
+13  "body:actions"
+14  "body:allow"
+15  "body:allowing"
+16  "body:alreadi"
+17  "body:already"
+18  "body:an"
+19  "body:and"
+20  "body:ani"
+21  "body:any"
+22  "body:applic"
+23  "body:application"
+24  "body:as"
+25  "body:awar"
+26  "body:aware"
+27  "body:be"
+28  "body:being"
+29  "body:beyond"
+30  "body:bodi"
+31  "body:body"
+32  "body:built"
+33  "body:by"
+34  "body:cach"
+35  "body:cache"
+36  "body:cacheabl"
+37  "body:cacheable"
+38  "body:cached"
+39  "body:caching"
+40  "body:can"
+41  "body:care"
+42  "body:careful"
+43  "body:chang"
+44  "body:change"
+45  "body:circumst"
+46  "body:circumstances"
+47  "body:client"
+48  "body:code"
+49  "body:codes"
+50  "body:collabor"
+51  "body:collaborative"
+52  "body:complet"
+53  "body:completed"
+54  "body:condit"
+55  "body:conditional"
+56  "body:consider"
+57  "body:considerations"
+58  "body:contain"
+59  "body:contained"
+60  "body:content"
+61  "body:current"
+62  "body:data"
+63  "body:describ"
+64  "body:described"
+65  "body:differ"
+66  "body:differs"
+67  "body:distribut"
+68  "body:distributed"
+69  "body:entiti"
+70  "body:entities"
+71  "body:entity"
+72  "body:entri"
+73  "body:entry"
+74  "body:error"
+75  "body:etag"
+76  "body:except"
+77  "body:extens"
+78  "body:extension"
+79  "body:featur"
+80  "body:feature"
+81  "body:field"
+82  "body:for"
+83  "body:form"
+84  "body:forms"
+85  "body:from"
+86  "body:generic"
+87  "body:get"
+88  "body:happen"
+89  "body:happens"
+90  "body:have"
+91  "body:head"
+92  "body:header"
+93  "body:headers"
+94  "body:held"
+95  "body:http"
+96  "body:hypermedia"
+97  "body:hypertext"
+98  "body:ident"
+99  "body:identical"
+100 "body:identifi"
+101 "body:identified"
+102 "body:if"
+103 "body:implementor"
+104 "body:implementors"
+105 "body:impli"
+106 "body:implied"
+107 "body:in"
+108 "body:includ"
+109 "body:includes"
+110 "body:independ"
+111 "body:independently"
+112 "body:indic"
+113 "body:indicate"
+114 "body:indicated"
+115 "body:inform"
+116 "body:information"
+117 "body:intend"
+118 "body:intended"
+119 "body:interact"
+120 "body:interactions"
+121 "body:internet"
+122 "body:is"
+123 "body:it"
+124 "body:its"
+125 "body:itself"
+126 "body:last"
+127 "body:length"
+128 "body:level"
+129 "body:link"
+130 "body:links"
+131 "body:manag"
+132 "body:management"
+133 "body:mani"
+134 "body:many"
+135 "body:match"
+136 "body:may"
+137 "body:md5"
+138 "body:mean"
+139 "body:means"
+140 "body:meet"
+141 "body:meets"
+142 "body:messag"
+143 "body:message"
+144 "body:metainform"
+145 "body:metainformation"
+146 "body:method"
+147 "body:methods"
+148 "body:might"
+149 "body:modif"
+150 "body:modifi"
+151 "body:modification"
+152 "body:modified"
+153 "body:multipl"
+154 "body:multiple"
+155 "body:must"
+156 "body:name"
+157 "body:negoti"
+158 "body:negotiation"
+159 "body:network"
+160 "body:new"
+161 "body:none"
+162 "body:not"
+163 "body:object"
+164 "body:obtain"
+165 "body:obtaining"
+166 "body:of"
+167 "body:often"
+168 "body:onli"
+169 "body:only"
+170 "body:or"
+171 "body:other"
+172 "body:others"
+173 "body:output"
+174 "body:over"
+175 "body:part"
+176 "body:partial"
+177 "body:partially"
+178 "body:previous"
+179 "body:previously"
+180 "body:process"
+181 "body:produc"
+182 "body:produced"
+183 "body:producing"
+184 "body:protocol"
+185 "body:rang"
+186 "body:range"
+187 "body:recent"
+188 "body:reduc"
+189 "body:reduce"
+190 "body:refer"
+191 "body:refers"
+192 "body:refresh"
+193 "body:refreshed"
+194 "body:repres"
+195 "body:represent"
+196 "body:representation"
+197 "body:represents"
+198 "body:request"
+199 "body:requests"
+200 "body:requir"
+201 "body:requirements"
+202 "body:requiring"
+203 "body:resourc"
+204 "body:resource"
+205 "body:respons"
+206 "body:response"
+207 "body:retriev"
+208 "body:retrieve"
+209 "body:retrieved"
+210 "body:return"
+211 "body:returned"
+212 "body:s"
+213 "body:section"
+214 "body:secur"
+215 "body:security"
+216 "body:see"
+217 "body:semant"
+218 "body:semantics"
+219 "body:sens"
+220 "body:sense"
+221 "body:sent"
+222 "body:server"
+223 "body:servers"
+224 "body:shall"
+225 "body:should"
+226 "body:signific"
+227 "body:significance"
+228 "body:sinc"
+229 "body:since"
+230 "body:softwar"
+231 "body:software"
+232 "body:sourc"
+233 "body:source"
+234 "body:stale"
+235 "body:stateless"
+236 "body:such"
+237 "body:system"
+238 "body:systems"
+239 "body:take"
+240 "body:task"
+241 "body:tasks"
+242 "body:test"
+243 "body:testing"
+244 "body:text"
+245 "body:that"
+246 "body:the"
+247 "body:their"
+248 "body:themselv"
+249 "body:themselves"
+250 "body:then"
+251 "body:they"
+252 "body:this"
+253 "body:through"
+254 "body:to"
+255 "body:transfer"
+256 "body:transferred"
+257 "body:transferring"
+258 "body:treat"
+259 "body:type"
+260 "body:typing"
+261 "body:under"
+262 "body:unexpect"
+263 "body:unexpected"
+264 "body:unless"
+265 "body:unmodifi"
+266 "body:unmodified"
+267 "body:unnecessari"
+268 "body:unnecessary"
+269 "body:updat"
+270 "body:update"
+271 "body:uri"
+272 "body:usag"
+273 "body:usage"
+274 "body:use"
+275 "body:used"
+276 "body:user"
+277 "body:valid"
+278 "body:validity"
+279 "body:valu"
+280 "body:values"
+281 "body:whatev"
+282 "body:whatever"
+283 "body:when"
+284 "body:which"
+285 "body:without"
+286 "body:would"
+287 "id:8af86dfb074464ed8bef944188442ca3"
+288 "id:aee602a79c233139b4f269a535a8b965"
+289 "id:b82d9882abdf0112ce3cec7089851b9b"
+290 "modificationdate:d000B2BE002B32980"
+291 "size:2538"
+292 "title:1"
+293 "title:3"
+294 "title:4"
+295 "title:9"
+296 "title:get"
+297 "title:head"
+298 "title:http"
+299 "title:hypertext"
+300 "title:method"
+301 "title:methods"
+302 "title:protocol"
+303 "title:safe"
+304 "title:transfer"
+305 "url:http://test/dir1/file1.txt"
+306 "url:http://test/dir2/file2.txt"
+307 "url:http://test/dir2/file3.txt"
+*/
+
+/* file1:
+
+Hypertext Transfer Protocol -- HTTP/1.1
+
+   The Hypertext Transfer Protocol (HTTP) is an application-level
+   protocol for distributed, collaborative, hypermedia information
+   systems. It is a generic, stateless, protocol which can be used for
+   many tasks beyond its use for hypertext, such as name servers and
+   distributed object management systems, through extension of its
+   request methods, error codes and headers [47]. A feature of HTTP is
+   the typing and negotiation of data representation, allowing systems
+   to be built independently of the data being transferred.
+*/
+RECORD file1 := [ fields :=
+                  [ [ field := "title", value := "Hypertext Transfer Protocol -- HTTP/1.1" ]
+                  , [ field := "url", value := "http://test/dir1/file1.txt" ]
+                  ]
+                , terms :=
+                  [ [ field := "body", value := "47", positions := [ 53 ] ]
+                  , [ field := "body", value := "a", positions := [ 18, 54 ] ]
+                  , [ field := "body", value := "allow", positions := [ 66 ] ]
+                  , [ field := "body", value := "allowing", positions := [ 66 ] ]
+                  , [ field := "body", value := "an", positions := [ 6 ] ]
+                  , [ field := "body", value := "and", positions := [ 38, 51, 61 ] ]
+                  , [ field := "body", value := "applic", positions := [ 7 ] ]
+                  , [ field := "body", value := "application", positions := [ 7 ] ]
+                  , [ field := "body", value := "as", positions := [ 35 ] ]
+                  , [ field := "body", value := "be", positions := [ 24, 69, 75 ] ]
+                  , [ field := "body", value := "being", positions := [ 75 ] ]
+                  , [ field := "body", value := "beyond", positions := [ 29 ] ]
+                  , [ field := "body", value := "built", positions := [ 70 ] ]
+                  , [ field := "body", value := "can", positions := [ 23 ] ]
+                  , [ field := "body", value := "code", positions := [ 50 ] ]
+                  , [ field := "body", value := "codes", positions := [ 50 ] ]
+                  , [ field := "body", value := "collabor", positions := [ 12 ] ]
+                  , [ field := "body", value := "collaborative", positions := [ 12 ] ]
+                  , [ field := "body", value := "data", positions := [ 64, 74 ] ]
+                  , [ field := "body", value := "distribut", positions := [ 11, 39 ] ]
+                  , [ field := "body", value := "distributed", positions := [ 11, 39 ] ]
+                  , [ field := "body", value := "error", positions := [ 49 ] ]
+                  , [ field := "body", value := "extens", positions := [ 44 ] ]
+                  , [ field := "body", value := "extension", positions := [ 44 ] ]
+                  , [ field := "body", value := "featur", positions := [ 55 ] ]
+                  , [ field := "body", value := "feature", positions := [ 55 ] ]
+                  , [ field := "body", value := "for", positions := [ 10, 26, 32 ] ]
+                  , [ field := "body", value := "generic", positions := [ 19 ] ]
+                  , [ field := "body", value := "header", positions := [ 52 ] ]
+                  , [ field := "body", value := "headers", positions := [ 52 ] ]
+                  , [ field := "body", value := "http", positions := [ 4, 57 ] ]
+                  , [ field := "body", value := "hypermedia", positions := [ 13 ] ]
+                  , [ field := "body", value := "hypertext", positions := [ 1, 33 ] ]
+                  , [ field := "body", value := "independ", positions := [ 71 ] ]
+                  , [ field := "body", value := "independently", positions := [ 71 ] ]
+                  , [ field := "body", value := "inform", positions := [ 14 ] ]
+                  , [ field := "body", value := "information", positions := [ 14 ] ]
+                  , [ field := "body", value := "is", positions := [ 5, 17, 58 ] ]
+                  , [ field := "body", value := "it", positions := [ 16, 30, 46 ] ]
+                  , [ field := "body", value := "its", positions := [ 30, 46 ] ]
+                  , [ field := "body", value := "level", positions := [ 8 ] ]
+                  , [ field := "body", value := "manag", positions := [ 41 ] ]
+                  , [ field := "body", value := "management", positions := [ 41 ] ]
+                  , [ field := "body", value := "mani", positions := [ 27 ] ]
+                  , [ field := "body", value := "many", positions := [ 27 ] ]
+                  , [ field := "body", value := "method", positions := [ 48 ] ]
+                  , [ field := "body", value := "methods", positions := [ 48 ] ]
+                  , [ field := "body", value := "name", positions := [ 36 ] ]
+                  , [ field := "body", value := "negoti", positions := [ 62 ] ]
+                  , [ field := "body", value := "negotiation", positions := [ 62 ] ]
+                  , [ field := "body", value := "object", positions := [ 40 ] ]
+                  , [ field := "body", value := "of", positions := [ 45, 56, 63, 72 ] ]
+                  , [ field := "body", value := "protocol", positions := [ 3, 9, 21 ] ]
+                  , [ field := "body", value := "represent", positions := [ 65 ] ]
+                  , [ field := "body", value := "representation", positions := [ 65 ] ]
+                  , [ field := "body", value := "request", positions := [ 47 ] ]
+                  , [ field := "body", value := "server", positions := [ 37 ] ]
+                  , [ field := "body", value := "servers", positions := [ 37 ] ]
+                  , [ field := "body", value := "stateless", positions := [ 20 ] ]
+                  , [ field := "body", value := "such", positions := [ 34 ] ]
+                  , [ field := "body", value := "system", positions := [ 15, 42, 67 ] ]
+                  , [ field := "body", value := "systems", positions := [ 15, 42, 67 ] ]
+                  , [ field := "body", value := "task", positions := [ 28 ] ]
+                  , [ field := "body", value := "tasks", positions := [ 28 ] ]
+                  , [ field := "body", value := "the", positions := [ 0, 59, 73 ] ]
+                  , [ field := "body", value := "through", positions := [ 43 ] ]
+                  , [ field := "body", value := "to", positions := [ 68 ] ]
+                  , [ field := "body", value := "transfer", positions := [ 2, 76 ] ]
+                  , [ field := "body", value := "transferred", positions := [ 76 ] ]
+                  , [ field := "body", value := "type", positions := [ 60 ] ]
+                  , [ field := "body", value := "typing", positions := [ 60 ] ]
+                  , [ field := "body", value := "use", positions := [ 25, 31 ] ]
+                  , [ field := "body", value := "used", positions := [ 25 ] ]
+                  , [ field := "body", value := "which", positions := [ 22 ] ]
+                  , [ field := "id", value := "b82d9882abdf0112ce3cec7089851b9b", positions := [ 0 ] ]
+                  , [ field := "title", value := "1", positions := [ 4, 5 ] ]
+                  , [ field := "title", value := "http", positions := [ 3 ] ]
+                  , [ field := "title", value := "hypertext", positions := [ 0 ] ]
+                  , [ field := "title", value := "protocol", positions := [ 2 ] ]
+                  , [ field := "title", value := "transfer", positions := [ 1 ] ]
+                  , [ field := "url", value := "http://test/dir1/file1.txt", positions := [ 0 ] ]
+                  ]
+                , norms := [ 10, 11, 12, 13, 14 ]
+                , deleted := FALSE
+                ];
+
+/* file2:
+
+9.1.1 Safe Methods
+
+   Implementors should be aware that the software represents the user in
+   their interactions over the Internet, and should be careful to allow
+   the user to be aware of any actions they might take which may have an
+   unexpected significance to themselves or others.
+*/
+RECORD file2 := [ fields :=
+                  [ [ field := "title", value := "9.1.1 Safe Methods" ]
+                  , [ field := "url", value := "http://test/dir2/file2.txt" ]
+                  ]
+                , terms :=
+                  [ [ field := "body", value := "action", positions := [ 29 ] ]
+                  , [ field := "body", value := "actions", positions := [ 29 ] ]
+                  , [ field := "body", value := "allow", positions := [ 21 ] ]
+                  , [ field := "body", value := "an", positions := [ 36 ] ]
+                  , [ field := "body", value := "and", positions := [ 16 ] ]
+                  , [ field := "body", value := "ani", positions := [ 28 ] ]
+                  , [ field := "body", value := "any", positions := [ 28 ] ]
+                  , [ field := "body", value := "awar", positions := [ 3, 26 ] ]
+                  , [ field := "body", value := "aware", positions := [ 3, 26 ] ]
+                  , [ field := "body", value := "be", positions := [ 2, 18, 25 ] ]
+                  , [ field := "body", value := "care", positions := [ 19 ] ]
+                  , [ field := "body", value := "careful", positions := [ 19 ] ]
+                  , [ field := "body", value := "have", positions := [ 35 ] ]
+                  , [ field := "body", value := "implementor", positions := [ 0 ] ]
+                  , [ field := "body", value := "implementors", positions := [ 0 ] ]
+                  , [ field := "body", value := "in", positions := [ 10 ] ]
+                  , [ field := "body", value := "interact", positions := [ 12 ] ]
+                  , [ field := "body", value := "interactions", positions := [ 12 ] ]
+                  , [ field := "body", value := "internet", positions := [ 15 ] ]
+                  , [ field := "body", value := "may", positions := [ 34 ] ]
+                  , [ field := "body", value := "might", positions := [ 31 ] ]
+                  , [ field := "body", value := "of", positions := [ 27 ] ]
+                  , [ field := "body", value := "or", positions := [ 41 ] ]
+                  , [ field := "body", value := "other", positions := [ 42 ] ]
+                  , [ field := "body", value := "others", positions := [ 42 ] ]
+                  , [ field := "body", value := "over", positions := [ 13 ] ]
+                  , [ field := "body", value := "repres", positions := [ 7 ] ]
+                  , [ field := "body", value := "represents", positions := [ 7 ] ]
+                  , [ field := "body", value := "should", positions := [ 1, 17 ] ]
+                  , [ field := "body", value := "signific", positions := [ 38 ] ]
+                  , [ field := "body", value := "significance", positions := [ 38 ] ]
+                  , [ field := "body", value := "softwar", positions := [ 6 ] ]
+                  , [ field := "body", value := "software", positions := [ 6 ] ]
+                  , [ field := "body", value := "take", positions := [ 32 ] ]
+                  , [ field := "body", value := "that", positions := [ 4 ] ]
+                  , [ field := "body", value := "the", positions := [ 5, 8, 14, 22 ] ]
+                  , [ field := "body", value := "their", positions := [ 11 ] ]
+                  , [ field := "body", value := "themselv", positions := [ 40 ] ]
+                  , [ field := "body", value := "themselves", positions := [ 40 ] ]
+                  , [ field := "body", value := "they", positions := [ 30 ] ]
+                  , [ field := "body", value := "to", positions := [ 20, 24, 39 ] ]
+                  , [ field := "body", value := "unexpect", positions := [ 37 ] ]
+                  , [ field := "body", value := "unexpected", positions := [ 37 ] ]
+                  , [ field := "body", value := "user", positions := [ 9, 23 ] ]
+                  , [ field := "body", value := "which", positions := [ 33 ] ]
+                  , [ field := "id", value := "aee602a79c233139b4f269a535a8b965", positions := [ 0 ] ]
+                  , [ field := "title", value := "1", positions := [ 1, 2 ] ]
+                  , [ field := "title", value := "9", positions := [ 0 ] ]
+                  , [ field := "title", value := "method", positions := [ 4 ] ]
+                  , [ field := "title", value := "methods", positions := [ 4 ] ]
+                  , [ field := "title", value := "safe", positions := [ 3 ] ]
+                  , [ field := "url", value := "http://test/dir2/file2.txt", positions := [ 0 ] ]
+                  ]
+                , norms := [ 20, 21, 22, 23, 24 ]
+                , deleted := TRUE
+                ];
+
+/* file3:
+
+Fielding, et al. Standards Track [Page 52] RFC 2616 HTTP/1.1 June 1999 9.3 GET
+
+   The GET method means retrieve whatever information (in the form of an
+   entity) is identified by the Request-URI. If the Request-URI refers
+   to a data-producing process, it is the produced data which shall be
+   returned as the entity in the response and not the source text of the
+   process, unless that text happens to be the output of the process.
+
+   The semantics of the GET method change to a "conditional GET" if the
+   request message includes an If-Modified-Since, If-Unmodified-Since,
+   If-Match, If-None-Match, or If-Range header field. A conditional GET
+   method requests that the entity be transferred only under the
+   circumstances described by the conditional header field(s). The
+   conditional GET method is intended to reduce unnecessary network
+   usage by allowing cached entities to be refreshed without requiring
+   multiple requests or transferring data already held by the client.
+
+   The semantics of the GET method change to a "partial GET" if the
+   request message includes a Range header field. A partial GET requests
+   that only part of the entity be transferred, as described in section
+   14.35. The partial GET method is intended to reduce unnecessary
+   network usage by allowing partially-retrieved entities to be
+   completed without transferring data already held by the client.
+
+   The response to a GET request is cacheable if and only if it meets
+   the requirements for HTTP caching described in section 13.
+
+   See section 15.1.3 for security considerations when used for forms.
+
+9.4 HEAD
+
+   The HEAD method is identical to GET except that the server MUST NOT
+   return a message-body in the response. The metainformation contained
+   in the HTTP headers in response to a HEAD request SHOULD be identical
+   to the information sent in response to a GET request. This method can
+   be used for obtaining metainformation about the entity implied by the
+   request without transferring the entity-body itself. This method is
+   often used for testing hypertext links for validity, accessibility,
+   and recent modification.
+
+   The response to a HEAD request MAY be cacheable in the sense that the
+   information contained in the response MAY be used to update a
+   previously cached entity from that resource. If the new field values
+   indicate that the cached entity differs from the current entity (as
+   would be indicated by a change in Content-Length, Content-MD5, ETag
+   or Last-Modified), then the cache MUST treat the cache entry as
+   stale.
+*/
+RECORD file3 := [ fields :=
+                  [ [ field := "title", value := "9.3 GET 9.4 HEAD" ]
+                  , [ field := "url", value := "http://test/dir2/file3.txt" ]
+                  , [ field := "size", value := "2538" ]
+                  , [ field := "modificationdate", value := "d000B2BE002B32980" ]
+                  ]
+                , terms :=
+                  [ [ field := "body", value := "1", positions := [ 238 ] ]
+                  , [ field := "body", value := "13", positions := [ 234 ] ]
+                  , [ field := "body", value := "14", positions := [ 183 ] ]
+                  , [ field := "body", value := "15", positions := [ 237 ] ]
+                  , [ field := "body", value := "3", positions := [ 239 ] ]
+                  , [ field := "body", value := "35", positions := [ 184 ] ]
+                  , [ field := "body", value := "a", positions := [ 25, 71, 96, 155, 163, 167, 215, 261, 277, 290, 332, 353, 380 ] ]
+                  , [ field := "body", value := "about", positions := [ 301 ] ]
+                  , [ field := "body", value := "access", positions := [ 325 ] ]
+                  , [ field := "body", value := "accessibility", positions := [ 325 ] ]
+                  , [ field := "body", value := "allow", positions := [ 129, 197 ] ]
+                  , [ field := "body", value := "allowing", positions := [ 129, 197 ] ]
+                  , [ field := "body", value := "alreadi", positions := [ 142, 207 ] ]
+                  , [ field := "body", value := "already", positions := [ 142, 207 ] ]
+                  , [ field := "body", value := "an", positions := [ 11, 79 ] ]
+                  , [ field := "body", value := "and", positions := [ 44, 221, 326 ] ]
+                  , [ field := "body", value := "as", positions := [ 38, 179, 375, 399 ] ]
+                  , [ field := "body", value := "be", positions := [ 36, 57, 104, 133, 177, 202, 281, 296, 336, 349, 377 ] ]
+                  , [ field := "body", value := "bodi", positions := [ 263, 312 ] ]
+                  , [ field := "body", value := "body", positions := [ 263, 312 ] ]
+                  , [ field := "body", value := "by", positions := [ 15, 111, 128, 144, 196, 209, 305, 379 ] ]
+                  , [ field := "body", value := "cach", positions := [ 130, 230, 355, 368, 393, 397 ] ]
+                  , [ field := "body", value := "cache", positions := [ 393, 397 ] ]
+                  , [ field := "body", value := "cacheabl", positions := [ 219, 337 ] ]
+                  , [ field := "body", value := "cacheable", positions := [ 219, 337 ] ]
+                  , [ field := "body", value := "cached", positions := [ 130, 355, 368 ] ]
+                  , [ field := "body", value := "caching", positions := [ 230 ] ]
+                  , [ field := "body", value := "can", positions := [ 295 ] ]
+                  , [ field := "body", value := "chang", positions := [ 69, 153, 381 ] ]
+                  , [ field := "body", value := "change", positions := [ 69, 153, 381 ] ]
+                  , [ field := "body", value := "circumst", positions := [ 109 ] ]
+                  , [ field := "body", value := "circumstances", positions := [ 109 ] ]
+                  , [ field := "body", value := "client", positions := [ 146, 211 ] ]
+                  , [ field := "body", value := "complet", positions := [ 203 ] ]
+                  , [ field := "body", value := "completed", positions := [ 203 ] ]
+                  , [ field := "body", value := "condit", positions := [ 72, 97, 113, 118 ] ]
+                  , [ field := "body", value := "conditional", positions := [ 72, 97, 113, 118 ] ]
+                  , [ field := "body", value := "consider", positions := [ 242 ] ]
+                  , [ field := "body", value := "considerations", positions := [ 242 ] ]
+                  , [ field := "body", value := "contain", positions := [ 269, 344 ] ]
+                  , [ field := "body", value := "contained", positions := [ 269, 344 ] ]
+                  , [ field := "body", value := "content", positions := [ 383, 385 ] ]
+                  , [ field := "body", value := "current", positions := [ 373 ] ]
+                  , [ field := "body", value := "data", positions := [ 26, 33, 141, 206 ] ]
+                  , [ field := "body", value := "describ", positions := [ 110, 180, 231 ] ]
+                  , [ field := "body", value := "described", positions := [ 110, 180, 231 ] ]
+                  , [ field := "body", value := "differ", positions := [ 370 ] ]
+                  , [ field := "body", value := "differs", positions := [ 370 ] ]
+                  , [ field := "body", value := "entiti", positions := [ 12, 40, 103, 131, 176, 200, 303, 311, 356, 369, 374 ] ]
+                  , [ field := "body", value := "entities", positions := [ 131, 200 ] ]
+                  , [ field := "body", value := "entity", positions := [ 12, 40, 103, 176, 303, 311, 356, 369, 374 ] ]
+                  , [ field := "body", value := "entri", positions := [ 398 ] ]
+                  , [ field := "body", value := "entry", positions := [ 398 ] ]
+                  , [ field := "body", value := "etag", positions := [ 387 ] ]
+                  , [ field := "body", value := "except", positions := [ 254 ] ]
+                  , [ field := "body", value := "field", positions := [ 95, 115, 166, 363 ] ]
+                  , [ field := "body", value := "for", positions := [ 228, 240, 245, 298, 319, 323 ] ]
+                  , [ field := "body", value := "form", positions := [ 9, 246 ] ]
+                  , [ field := "body", value := "forms", positions := [ 246 ] ]
+                  , [ field := "body", value := "from", positions := [ 357, 371 ] ]
+                  , [ field := "body", value := "get", positions := [ 1, 67, 73, 98, 119, 151, 157, 169, 187, 216, 253, 291 ] ]
+                  , [ field := "body", value := "happen", positions := [ 55 ] ]
+                  , [ field := "body", value := "happens", positions := [ 55 ] ]
+                  , [ field := "body", value := "head", positions := [ 248, 278, 333 ] ]
+                  , [ field := "body", value := "header", positions := [ 94, 114, 165, 273 ] ]
+                  , [ field := "body", value := "headers", positions := [ 273 ] ]
+                  , [ field := "body", value := "held", positions := [ 143, 208 ] ]
+                  , [ field := "body", value := "http", positions := [ 229, 272 ] ]
+                  , [ field := "body", value := "hypertext", positions := [ 321 ] ]
+                  , [ field := "body", value := "ident", positions := [ 251, 282 ] ]
+                  , [ field := "body", value := "identical", positions := [ 251, 282 ] ]
+                  , [ field := "body", value := "identifi", positions := [ 14 ] ]
+                  , [ field := "body", value := "identified", positions := [ 14 ] ]
+                  , [ field := "body", value := "if", positions := [ 19, 74, 80, 83, 86, 88, 92, 158, 220, 223, 360 ] ]
+                  , [ field := "body", value := "impli", positions := [ 304 ] ]
+                  , [ field := "body", value := "implied", positions := [ 304 ] ]
+                  , [ field := "body", value := "in", positions := [ 7, 41, 181, 232, 264, 270, 274, 287, 338, 345, 382 ] ]
+                  , [ field := "body", value := "includ", positions := [ 78, 162 ] ]
+                  , [ field := "body", value := "includes", positions := [ 78, 162 ] ]
+                  , [ field := "body", value := "indic", positions := [ 365, 378 ] ]
+                  , [ field := "body", value := "indicate", positions := [ 365 ] ]
+                  , [ field := "body", value := "indicated", positions := [ 378 ] ]
+                  , [ field := "body", value := "inform", positions := [ 6, 285, 343 ] ]
+                  , [ field := "body", value := "information", positions := [ 6, 285, 343 ] ]
+                  , [ field := "body", value := "intend", positions := [ 122, 190 ] ]
+                  , [ field := "body", value := "intended", positions := [ 122, 190 ] ]
+                  , [ field := "body", value := "is", positions := [ 13, 30, 121, 189, 218, 250, 316 ] ]
+                  , [ field := "body", value := "it", positions := [ 29, 224 ] ]
+                  , [ field := "body", value := "itself", positions := [ 313 ] ]
+                  , [ field := "body", value := "last", positions := [ 389 ] ]
+                  , [ field := "body", value := "length", positions := [ 384 ] ]
+                  , [ field := "body", value := "link", positions := [ 322 ] ]
+                  , [ field := "body", value := "links", positions := [ 322 ] ]
+                  , [ field := "body", value := "match", positions := [ 87, 90 ] ]
+                  , [ field := "body", value := "may", positions := [ 335, 348 ] ]
+                  , [ field := "body", value := "md5", positions := [ 386 ] ]
+                  , [ field := "body", value := "mean", positions := [ 3 ] ]
+                  , [ field := "body", value := "means", positions := [ 3 ] ]
+                  , [ field := "body", value := "meet", positions := [ 225 ] ]
+                  , [ field := "body", value := "meets", positions := [ 225 ] ]
+                  , [ field := "body", value := "messag", positions := [ 77, 161, 262 ] ]
+                  , [ field := "body", value := "message", positions := [ 77, 161, 262 ] ]
+                  , [ field := "body", value := "metainform", positions := [ 286, 300 ] ]
+                  , [ field := "body", value := "metainformation", positions := [ 286, 300 ] ]
+                  , [ field := "body", value := "method", positions := [ 2, 68, 99, 120, 152, 188, 249, 294, 315 ] ]
+                  , [ field := "body", value := "modif", positions := [ 328 ] ]
+                  , [ field := "body", value := "modifi", positions := [ 81, 390 ] ]
+                  , [ field := "body", value := "modification", positions := [ 328 ] ]
+                  , [ field := "body", value := "modified", positions := [ 81, 390 ] ]
+                  , [ field := "body", value := "multipl", positions := [ 137 ] ]
+                  , [ field := "body", value := "multiple", positions := [ 137 ] ]
+                  , [ field := "body", value := "must", positions := [ 258, 394 ] ]
+                  , [ field := "body", value := "network", positions := [ 126, 194 ] ]
+                  , [ field := "body", value := "new", positions := [ 362 ] ]
+                  , [ field := "body", value := "none", positions := [ 89 ] ]
+                  , [ field := "body", value := "not", positions := [ 45, 259 ] ]
+                  , [ field := "body", value := "obtain", positions := [ 299 ] ]
+                  , [ field := "body", value := "obtaining", positions := [ 299 ] ]
+                  , [ field := "body", value := "of", positions := [ 10, 49, 60, 65, 149, 174 ] ]
+                  , [ field := "body", value := "often", positions := [ 317 ] ]
+                  , [ field := "body", value := "onli", positions := [ 106, 172, 222 ] ]
+                  , [ field := "body", value := "only", positions := [ 106, 172, 222 ] ]
+                  , [ field := "body", value := "or", positions := [ 91, 139, 388 ] ]
+                  , [ field := "body", value := "output", positions := [ 59 ] ]
+                  , [ field := "body", value := "part", positions := [ 173 ] ]
+                  , [ field := "body", value := "partial", positions := [ 156, 168, 186, 198 ] ]
+                  , [ field := "body", value := "partially", positions := [ 198 ] ]
+                  , [ field := "body", value := "previous", positions := [ 354 ] ]
+                  , [ field := "body", value := "previously", positions := [ 354 ] ]
+                  , [ field := "body", value := "process", positions := [ 28, 51, 62 ] ]
+                  , [ field := "body", value := "produc", positions := [ 27, 32 ] ]
+                  , [ field := "body", value := "produced", positions := [ 32 ] ]
+                  , [ field := "body", value := "producing", positions := [ 27 ] ]
+                  , [ field := "body", value := "rang", positions := [ 93, 164 ] ]
+                  , [ field := "body", value := "range", positions := [ 93, 164 ] ]
+                  , [ field := "body", value := "recent", positions := [ 327 ] ]
+                  , [ field := "body", value := "reduc", positions := [ 124, 192 ] ]
+                  , [ field := "body", value := "reduce", positions := [ 124, 192 ] ]
+                  , [ field := "body", value := "refer", positions := [ 23 ] ]
+                  , [ field := "body", value := "refers", positions := [ 23 ] ]
+                  , [ field := "body", value := "refresh", positions := [ 134 ] ]
+                  , [ field := "body", value := "refreshed", positions := [ 134 ] ]
+                  , [ field := "body", value := "request", positions := [ 17, 21, 76, 100, 138, 160, 170, 217, 279, 292, 307, 334 ] ]
+                  , [ field := "body", value := "requests", positions := [ 100, 138, 170 ] ]
+                  , [ field := "body", value := "requir", positions := [ 136, 227 ] ]
+                  , [ field := "body", value := "requirements", positions := [ 227 ] ]
+                  , [ field := "body", value := "requiring", positions := [ 136 ] ]
+                  , [ field := "body", value := "resourc", positions := [ 359 ] ]
+                  , [ field := "body", value := "resource", positions := [ 359 ] ]
+                  , [ field := "body", value := "respons", positions := [ 43, 213, 266, 275, 288, 330, 347 ] ]
+                  , [ field := "body", value := "response", positions := [ 43, 213, 266, 275, 288, 330, 347 ] ]
+                  , [ field := "body", value := "retriev", positions := [ 4, 199 ] ]
+                  , [ field := "body", value := "retrieve", positions := [ 4 ] ]
+                  , [ field := "body", value := "retrieved", positions := [ 199 ] ]
+                  , [ field := "body", value := "return", positions := [ 37, 260 ] ]
+                  , [ field := "body", value := "returned", positions := [ 37 ] ]
+                  , [ field := "body", value := "s", positions := [ 116 ] ]
+                  , [ field := "body", value := "section", positions := [ 182, 233, 236 ] ]
+                  , [ field := "body", value := "secur", positions := [ 241 ] ]
+                  , [ field := "body", value := "security", positions := [ 241 ] ]
+                  , [ field := "body", value := "see", positions := [ 235 ] ]
+                  , [ field := "body", value := "semant", positions := [ 64, 148 ] ]
+                  , [ field := "body", value := "semantics", positions := [ 64, 148 ] ]
+                  , [ field := "body", value := "sens", positions := [ 340 ] ]
+                  , [ field := "body", value := "sense", positions := [ 340 ] ]
+                  , [ field := "body", value := "sent", positions := [ 286 ] ]
+                  , [ field := "body", value := "server", positions := [ 257 ] ]
+                  , [ field := "body", value := "shall", positions := [ 35 ] ]
+                  , [ field := "body", value := "should", positions := [ 280 ] ]
+                  , [ field := "body", value := "sinc", positions := [ 82, 85 ] ]
+                  , [ field := "body", value := "since", positions := [ 82, 85 ] ]
+                  , [ field := "body", value := "sourc", positions := [ 47 ] ]
+                  , [ field := "body", value := "source", positions := [ 47 ] ]
+                  , [ field := "body", value := "stale", positions := [ 400 ] ]
+                  , [ field := "body", value := "test", positions := [ 320 ] ]
+                  , [ field := "body", value := "testing", positions := [ 320 ] ]
+                  , [ field := "body", value := "text", positions := [ 48, 54 ] ]
+                  , [ field := "body", value := "that", positions := [ 53, 101, 171, 255, 341, 358, 366 ] ]
+                  , [ field := "body", value := "the", positions := [ 0, 8, 16, 20, 31, 39, 42, 46, 50, 58, 61, 63, 66, 75, 102, 108, 112, 117, 145, 147, 150, 159, 175, 185, 210, 212, 226, 247, 256, 265, 267, 271, 284, 302, 306, 310, 329, 339, 342, 346, 361, 367, 372, 392, 396 ] ]
+                  , [ field := "body", value := "then", positions := [ 391 ] ]
+                  , [ field := "body", value := "this", positions := [ 293, 314 ] ]
+                  , [ field := "body", value := "to", positions := [ 24, 56, 70, 123, 132, 154, 191, 201, 214, 252, 276, 283, 289, 331, 351 ] ]
+                  , [ field := "body", value := "transfer", positions := [ 105, 140, 178, 205, 309 ] ]
+                  , [ field := "body", value := "transferred", positions := [ 105, 178 ] ]
+                  , [ field := "body", value := "transferring", positions := [ 140, 205, 309 ] ]
+                  , [ field := "body", value := "treat", positions := [ 395 ] ]
+                  , [ field := "body", value := "under", positions := [ 107 ] ]
+                  , [ field := "body", value := "unless", positions := [ 52 ] ]
+                  , [ field := "body", value := "unmodifi", positions := [ 84 ] ]
+                  , [ field := "body", value := "unmodified", positions := [ 84 ] ]
+                  , [ field := "body", value := "unnecessari", positions := [ 125, 193 ] ]
+                  , [ field := "body", value := "unnecessary", positions := [ 125, 193 ] ]
+                  , [ field := "body", value := "updat", positions := [ 352 ] ]
+                  , [ field := "body", value := "update", positions := [ 352 ] ]
+                  , [ field := "body", value := "uri", positions := [ 18, 22 ] ]
+                  , [ field := "body", value := "usag", positions := [ 127, 195 ] ]
+                  , [ field := "body", value := "usage", positions := [ 127, 195 ] ]
+                  , [ field := "body", value := "use", positions := [ 244, 297, 318, 350 ] ]
+                  , [ field := "body", value := "used", positions := [ 244, 297, 318, 350 ] ]
+                  , [ field := "body", value := "valid", positions := [ 324 ] ]
+                  , [ field := "body", value := "validity", positions := [ 324 ] ]
+                  , [ field := "body", value := "valu", positions := [ 364 ] ]
+                  , [ field := "body", value := "values", positions := [ 364 ] ]
+                  , [ field := "body", value := "whatev", positions := [ 5 ] ]
+                  , [ field := "body", value := "whatever", positions := [ 5 ] ]
+                  , [ field := "body", value := "when", positions := [ 243 ] ]
+                  , [ field := "body", value := "which", positions := [ 34 ] ]
+                  , [ field := "body", value := "without", positions := [ 135, 204, 308 ] ]
+                  , [ field := "body", value := "would", positions := [ 376 ] ]
+                  , [ field := "id", value := "8af86dfb074464ed8bef944188442ca3", positions := [ 0 ] ]
+                  , [ field := "modificationdate", value := "d000B2BE002B32980", positions := [ 0 ] ]
+                  , [ field := "size", value := "2538", positions := [ 0 ] ]
+                  , [ field := "title", value := "3", positions := [ 1 ] ]
+                  , [ field := "title", value := "4", positions := [ 4 ] ]
+                  , [ field := "title", value := "9", positions := [ 0, 3 ] ]
+                  , [ field := "title", value := "get", positions := [ 2 ] ]
+                  , [ field := "title", value := "head", positions := [ 5 ] ]
+                  , [ field := "url", value := "http://test/dir2/file3.txt", positions := [ 0 ] ]
+                  ]
+                , norms := [ 30, 31, 32, 33, 34, 35, 36 ]
+                , deleted := FALSE
+                ];
+
+RECORD complete_index :=
+[ version := 6
+, nextseg := 3
+, segments :=
+  [ [ name := "_1"
+    , fields :=
+      [ [ name := "", indexed := FALSE, tokenized := FALSE ]
+      , [ name := "id", indexed := TRUE, tokenized := FALSE ]
+      , [ name := "body", indexed := TRUE, tokenized := TRUE ]
+      , [ name := "title", indexed := TRUE, tokenized := TRUE ]
+      , [ name := "url", indexed := TRUE, tokenized := FALSE ]
+      ]
+    , docs :=
+      [ file1
+      , file2
+      ]
+    ]
+  , [ name := "_2"
+    , fields :=
+      [ [ name := "", indexed := FALSE, tokenized := FALSE ]
+      , [ name := "body", indexed := TRUE, tokenized := TRUE ]
+      , [ name := "title", indexed := TRUE, tokenized := TRUE ]
+      , [ name := "url", indexed := TRUE, tokenized := FALSE ]
+      , [ name := "id", indexed := TRUE, tokenized := FALSE ]
+      , [ name := "size", indexed := TRUE, tokenized := FALSE ]
+      , [ name := "modificationdate", indexed := TRUE, tokenized := FALSE ]
+      ]
+    , docs :=
+      [ file3
+      ]
+    ]
+  ]
+];
+
+
+//// General index writing functions
+
+BOOLEAN verbose; // print debug information
+STRING test_data; // index directory
+INTEGER FUNCTION OpenIndexFile(STRING name)
+{
+  INTEGER file := CreateDiskFile(test_data || name, TRUE, TRUE);
+  IF (file <= 0)
+    Abort("Could not open file " || test_data || name || " for writing (" || file || ")\n");
+  IF (verbose)
+    PRINT("Opened file " || test_data || name || " for writing as " || file || "\n");
+  RETURN file;
+}
+MACRO CloseIndexFile(INTEGER file)
+{
+  IF (NOT CloseDiskFile(file))
+    Abort("Could not close file " || file || " for writing\n");
+  IF (verbose)
+    PRINT("Closed file " || file || " for writing\n");
+}
+
+BOOLEAN FUNCTION TermsLeft(RECORD ARRAY docs, INTEGER ARRAY terms)
+{
+  FOREVERY (RECORD doc FROM docs)
+    IF (terms[#doc] < Length(doc.terms))
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+INTEGER FUNCTION CompareTerms(RECORD term1, RECORD term2)
+{
+  IF (term1.field < term2.field)
+    RETURN -1;
+  ELSE IF (term1.field = term2.field)
+  {
+    IF (term1.value < term2.value)
+      RETURN -2;
+    ELSE IF (term1.value = term2.value)
+      RETURN 0;
+    ELSE
+      RETURN 2;
+  }
+  ELSE
+    RETURN 1;
+}
+
+RECORD FUNCTION MinTerm(RECORD ARRAY docs, INTEGER ARRAY terms)
+{
+  RECORD minterm := [ valid := FALSE ];
+  FOREVERY (RECORD doc FROM docs)
+    IF (terms[#doc] < Length(doc.terms))
+    {
+      IF (NOT minterm.valid OR CompareTerms(doc.terms[terms[#doc]], minterm) < 0)
+      {
+        minterm := doc.terms[terms[#doc]];
+        INSERT CELL valid := TRUE INTO minterm;
+        INSERT CELL docfreq := 1 INTO minterm;
+      }
+      ELSE IF (CompareTerms(doc.terms[terms[#doc]], minterm) = 0)
+        minterm.docfreq := minterm.docfreq + 1;
+    }
+  RETURN minterm;
+}
+
+MACRO WriteTerm(INTEGER file, RECORD prevterm, RECORD term, INTEGER docfreq, INTEGER frqdelta, INTEGER prxdelta, RECORD ARRAY fields)
+{
+  INTEGER i;
+  FOR (;i < Length(prevterm.value) AND i < Length(term.value) AND Substring(prevterm.value,i,1) = Substring(term.value,i,1); i := i + 1);
+  INTEGER fieldnum := (SELECT num FROM fields WHERE name = term.field).num;
+  IF (verbose)
+    PRINT(fieldnum || ":" || term.value || "[" || i || "]' (" || docfreq || "/" || frqdelta || "/" || prxdelta || ") @" || frqdelta || "/" || prxdelta || ", positions:");
+  PrintTo(file, EncodePacket("prefixlength:L,suffixlen:L,suffix:r*,fieldnum:L,docfreq:L,freqdelta:L,proxdelta:L",
+                            [ prefixlength := i
+                            , suffixlen := Length(term.value)-i
+                            , suffix := Right(term.value, Length(term.value)-i)
+                            , fieldnum := fieldnum
+                            , docfreq := docfreq
+                            , freqdelta := frqdelta
+                            , proxdelta := prxdelta ]));
+}
+
+
+//// Generate test index
+
+RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "v", type := "switch" ]
+                                                     , [ name := "test_data", type := "param", required := TRUE ]
+                                                     ]);
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: consiliotest [-v] <path_to_testdata>\n");
+  RETURN;
+}
+verbose := args.v;
+test_data := args.test_data;
+IF (Right(test_data, 1) != '/')
+  test_data := test_data || "/";
+IF (Length(SELECT FROM ReadDiskDirectory(test_data, "*") WHERE name NOT LIKE ".*") > 0)
+{
+  PRINT("Data directory " || test_data || " not empty!\n");
+  RETURN;
+}
+
+IF (verbose)
+  PRINT("Creating index in " || test_data || "\n");
+
+
+//// Per-Index Files
+
+// Segments File
+INTEGER segments := OpenIndexFile("segments");
+PrintTo(segments, EncodePacket("version:L,nextseg:L,segments:L", [ version := complete_index.version
+                                                                 , nextseg := complete_index.nextseg
+                                                                 , segments := Length(complete_index.segments)
+                                                                 ]));
+FOREVERY (RECORD segment FROM complete_index.segments)
+  PrintTo(segments, EncodePacket("namelen:L,name:r*,size:L", [ namelen := Length(segment.name)
+                                                             , name := segment.name
+                                                             , size := Length(segment.docs)
+                                                             ]));
+PrintTo(segments, EncodePacket("version:L", [ version := 1337 ]));
+CloseIndexFile(segments);
+
+//// Per-Segment Files
+FOREVERY (RECORD segment FROM complete_index.segments)
+{
+  IF (verbose)
+    PRINT("Writing segment " || segment.name || "\n");
+
+  //// Fields
+
+  // Field Info
+  INTEGER fnm := OpenIndexFile(segment.name || ".fnm");
+  PrintTo(fnm, EncodePacket("count:L", [ count := Length(segment.fields) ]));
+  INTEGER nrm := OpenIndexFile(segment.name || ".nrm");
+  FOREVERY (RECORD field FROM segment.fields)
+  {
+    INSERT CELL num := #field INTO segment.fields[#field];
+    IF (verbose)
+      PRINT("  Writing field info " || #field || " '" || field.name || "'\n");
+    PrintTo(fnm, EncodePacket("namelen:L,name:r*,bits:C", [ namelen := Length(field.name)
+                                                          , name := field.name
+                                                          , bits := field.indexed ? 1 : 0
+                                                          ]));
+
+    //// Normalization Factors
+    IF (verbose)
+      PRINT("  Writing normalization factors for field " || #field || "\n");
+    FOREVERY (RECORD doc FROM segment.docs)
+      PrintTo(nrm, EncodePacket("byte:C", [ byte := doc.norms[#field] ]));
+  }
+  CloseIndexFile(fnm);
+  CloseIndexFile(nrm);
+
+  // Stored Fields
+  INTEGER fdx := OpenIndexFile(segment.name || ".fdx");
+  INTEGER fdt := OpenIndexFile(segment.name || ".fdt");
+  FOREVERY (RECORD doc FROM segment.docs)
+  {
+    PrintTo(fdx, EncodePacket("fdtoffset:L", [ fdtoffset := GetFilePointer(fdt) ]));
+    PrintTo(fdt, EncodePacket("fieldslen:L", [ fieldslen := Length(doc.fields) ]));
+    FOREVERY (RECORD field FROM doc.fields)
+    {
+      INTEGER fieldnum := (SELECT num FROM segment.fields WHERE name = field.field).num;
+      IF (verbose)
+        PRINT("  Writing stored field " || fieldnum || " '" || field.field || ":" || field.value || "' for document " || #doc || "\n");
+      PrintTo(fdt, EncodePacket("num:L,bits:C,valuelen:L,value:r*", [ num := fieldnum
+                                                                    , bits := (SELECT tokenized FROM segment.fields WHERE name = field.field).tokenized ? 1 : 0
+                                                                    , valuelen := Length(field.value)
+                                                                    , value := field.value
+                                                                    ]));
+    }
+  }
+  CloseIndexFile(fdx);
+  CloseIndexFile(fdt);
+
+  //// Term Dictionary, Frequencies, Positions
+
+  INTEGER tii := OpenIndexFile(segment.name || ".tii");
+  INTEGER tis := OpenIndexFile(segment.name || ".tis");
+  INTEGER frq := OpenIndexFile(segment.name || ".frq");
+  INTEGER prx := OpenIndexFile(segment.name || ".prx");
+
+  // Create merged terms list
+  RECORD ARRAY terms;
+  INTEGER ARRAY docterms;
+  FOREVERY (RECORD doc FROM segment.docs)
+    INSERT 0 INTO docterms AT END;
+
+  // Number of terms written
+  RECORD prevterm := [ valid := TRUE, field := "", value := "", docfreq := 0 ];
+  INTEGER prevfrq, prevprx;
+  RECORD indexprevterm := [ valid := TRUE, field := "", value := "", docfreq := 0 ];
+  INTEGER indexprevfrq, indexprevprx, indexprevtis;
+
+  RECORD curterm := prevterm;
+
+  // Print dummy term count (will be filled in later)
+  INTEGER indextermcount, termcount;
+  PrintTo(tii, EncodePacket("indextermcount:L", [ indextermcount := indextermcount ]));
+  PrintTo(tis, EncodePacket("termcount:L", [ termcount := termcount ]));
+  WHILE (curterm.valid)
+  {
+    // Write index term
+    IF ((termcount % 128) = 0)
+    {
+      IF (verbose)
+        PRINT("  Writing index term " || termcount || ": ");
+      INTEGER frqpos := GetFilePointer(frq);
+      INTEGER prxpos := GetFilePointer(prx);
+      INTEGER tispos := GetFilePointer(tis);
+      WriteTerm(tii, indexprevterm, prevterm, prevterm.docfreq, prevfrq-indexprevfrq, prevprx-indexprevprx, segment.fields);
+      PrintTo(tii, EncodePacket("tisdelta:L", [ tisdelta := tispos-indexprevtis ]));
+      indextermcount := indextermcount + 1;
+      indexprevterm := prevterm;
+      indexprevfrq := prevfrq;
+      indexprevprx := prevprx;
+      indexprevtis := tispos;
+      IF (verbose)
+        PRINT("\n");
+    }
+
+    // Write term
+    INTEGER frqpos := GetFilePointer(frq);
+    INTEGER prxpos := GetFilePointer(prx);
+    IF (verbose)
+      PRINT("    Writing term " || termcount || " @" || frqpos || "/" || prxpos || ": ");
+    WriteTerm(tis, prevterm, curterm, curterm.docfreq, frqpos-prevfrq, prxpos-prevprx, segment.fields);
+    prevfrq := frqpos;
+    prevprx := prxpos;
+
+    INTEGER prevdoc := 0;
+    FOREVERY (RECORD doc FROM segment.docs)
+      IF (docterms[#doc] < Length(doc.terms) AND CompareTerms(doc.terms[docterms[#doc]], curterm) = 0)
+      {
+        // Write frequencies
+        INTEGER doccode := (#doc-prevdoc) BITLSHIFT 1;
+        INTEGER freq := Length(doc.terms[docterms[#doc]].positions);
+        IF (freq = 1)
+          PrintTo(frq, EncodePacket("docdelta:L", [ docdelta := doccode BITOR 1 ]));
+        ELSE
+          PrintTo(frq, EncodePacket("docdelta:L,freq:L", [ docdelta := doccode
+                                                         , freq := freq ]));
+        prevdoc := #doc;
+
+        // Write positions
+        INTEGER prevpos := 0;
+        FOREVERY (INTEGER position FROM doc.terms[docterms[#doc]].positions)
+        {
+          IF (verbose)
+            PRINT(" " || #doc || ":" || position || "(" || position-prevpos || ")");
+          PrintTo(prx, EncodePacket("posdelta:L", [ posdelta := position-prevpos ]));
+          prevpos := position;
+        }
+        docterms[#doc] := docterms[#doc] + 1;
+      }
+    IF (verbose)
+      PRINT("\n");
+
+    prevterm := curterm;
+    curterm := MinTerm(segment.docs, docterms);
+    termcount := termcount + 1;
+  }
+
+  // Write real term counts
+  SetFilePointer(tii, 0);
+  PrintTo(tii, EncodePacket("indextermcount:L", [ indextermcount := indextermcount ]));
+  SetFilePointer(tis, 0);
+  PrintTo(tis, EncodePacket("termcount:L", [ termcount := termcount ]));
+
+  CloseIndexFile(tii);
+  CloseIndexFile(tis);
+  CloseIndexFile(frq);
+  CloseIndexFile(prx);
+
+  //// Deleted Documents
+
+  IF (Length(SELECT FROM segment.docs WHERE deleted) > 0)
+  {
+    STRING deletions;
+    INTEGER curbyte, curbit, bitcount;
+    FOREVERY (RECORD doc FROM segment.docs)
+    {
+      IF (doc.deleted)
+      {
+        curbyte := curbyte BITOR (1 BITLSHIFT curbit);
+        bitcount := bitcount + 1;
+      }
+      curbit := curbit + 1;
+      IF (curbit > 7)
+      {
+        deletions := deletions || EncodePacket("byte:C", [ byte := curbyte ]);
+        curbyte := 0;
+        curbit := 0;
+      }
+    }
+    IF (curbit > 0)
+      deletions := deletions || EncodePacket("byte:C", [ byte := curbyte ]);
+    INTEGER del := OpenIndexFile(segment.name || ".del");
+    IF (verbose)
+      PRINT("  Writing " || bitcount || " deleted documents\n");
+    PrintTo(del, EncodePacket("bytecount:L,bitcount:L,bits:r*", [ bytecount := Length(deletions)
+                                                                , bitcount := bitcount
+                                                                , bits := deletions ]));
+    CloseIndexFile(del);
+  }
+}

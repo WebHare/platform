@@ -1,0 +1,84 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/commonxml.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/updateschema.whlib";
+
+PUBLIC STRING ARRAY FUNCTION GetWRDSchemaDefCandidates(RECORD ARRAY schemarule)
+{
+  RECORD ARRAY currentwrdschemas := ListWRDSchemas();
+  STRING ARRAY candidates;
+  FOREVERY(RECORD rule FROM schemarule)
+  {
+    STRING ARRAY localcandidates := SELECT AS STRING ARRAY tag
+                                      FROM currentwrdschemas
+                                     WHERE ToUppercase(tag) LIKE ToUppercase(rule.tag)
+                                           OR (rule.originalname != "" AND ToUppercase(tag) = ToUppercase(rule.originalname));
+
+    IF(Length(localcandidates) = 0 AND rule.autocreate)
+      localcandidates := STRING[rule.tag];
+
+    candidates := ArrayUnion(candidates, localcandidates);
+  }
+  RETURN candidates;
+}
+
+//update a schema. if resourcename is empty, will use the default
+PUBLIC BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, STRING resourcename, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ force :=    FALSE
+      ], options);
+
+  GetPrimary()->BeginWork([ mutex := GetUpdateSchemaLockName(candidate) ]);
+  TRY
+  {
+    OBJECT wrdschema := OpenWRDSchema(candidate);
+
+    IF(ObjectExists(wrdschema))
+      wrdschema->ApplySchemaDefinition([ schemaresource := resourcename, ...options ]);
+    ELSE
+      CreateWRDSchema(candidate, [ initialize := TRUE, schemaresource := resourcename, creationsource := resourcename ?? "moduledefinition" ]);
+
+    GetPrimary()->CommitWork();
+    RETURN TRUE;
+  }
+  CATCH(OBJECT e)
+  {
+    LogHarescriptException(e);
+    Print(`Failed to apply metadata updates to WRD schema '${candidate}': ${e->what}\n`);
+    IF(GetPrimary()->IsWorkOpen()) //if commit throws, no work is open!
+      GetPrimary()->RollbackWork();
+    RETURN FALSE;
+  }
+}
+
+PUBLIC BOOLEAN FUNCTION UpdateAllModuleSchemas(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ schemamasks := STRING[]
+                             , output := FALSE
+                             , force := FALSE
+                             ], options);
+
+  RECORD ARRAY alldefs;
+  FOREVERY(STRING module FROM GetInstalledModuleNames())
+    alldefs := alldefs CONCAT GetModuleDefinedWRDSchemas(module);
+
+  BOOLEAN allsuccess := TRUE;
+  STRING ARRAY candidates := GetWRDSchemaDefCandidates(alldefs);
+
+  FOREVERY(STRING candidate FROM candidates)
+  {
+    IF(Length(options.schemamasks) > 0 AND NOT MatchCommonXMLWildcardMasks(candidate, options.schemamasks))
+      CONTINUE;
+    IF(NOT UpdateACandidateSchema(candidate, "", CELL[ options.force ]))
+      allsuccess := FALSE;
+  }
+
+  RETURN allsuccess;
+}

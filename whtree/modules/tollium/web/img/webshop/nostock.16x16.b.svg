@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs/>
+  <g>
+    <path d="M23,4H9C8.5,4,8,4.5,8,5v22c0,0.5,0.5,1,1,1h14c0.5,0,1-0.5,1-1V5C24,4.5,23.5,4,23,4zM22,26H10V6h12V26z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+  </g>
+</svg>

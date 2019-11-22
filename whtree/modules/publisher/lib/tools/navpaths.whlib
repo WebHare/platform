@@ -1,0 +1,83 @@
+<?wh
+/** @short Navigation path library
+    @long  This library contains functions with which you can easily create a navigation path structure
+           for your website. */
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+/** @short Generate a path from the site root to the specified folder
+   @long Creates a record for every folder in the path containing two elements: URL and TITLE.
+   @param tofolder the id of the folder to which the path leads
+   @param sitename the name of the site. If sitename != "", it will be used in place of the root folder title
+   @return A record array containing two elements for every folder in the path
+   @cell return.url the URL to the index of the folder. This element will be empty if the folder has no index.
+   @cell return.title the title of the folder. When there is no title entered for the folder this element will
+   be filled with the name of the folder.
+*/
+PUBLIC record array function GenerateFolderPath(INTEGER tofolder, STRING sitename)
+{
+  RECORD ARRAY returnlist;
+  STRING indexpagename;
+
+  INTEGER ARRAY foldertree := GetFolderTreeIDs(tofolder);
+  FOREVERY (INTEGER folderid FROM foldertree)
+  {
+    RECORD folderlink := SELECT (sitename != "" AND folderid=foldertree[0])
+                                   ? sitename //root must be overriden
+                                   : (title="" ? name : title)//no override
+                                   AS TITLE,
+                                 NAME,
+                                INDEXURL AS URL
+                         FROM system.fs_objects
+                         WHERE id=folderid
+                         LIMIT 1;
+
+    INSERT folderlink INTO returnlist AT END;
+  }
+  RETURN returnlist;
+}
+
+
+/** @short Generate a path from the site root to the specified file
+   @long Creates a record for every folder and file in the path containing two elements: URL and TITLE.
+   @param tofile the id of the file to which the path leads
+   @param sitename the name of the site. If sitename != "", it will be used in place of the root folder title
+   @return A record array containing two elements for every folder of file in the path. (If tofile is the index of a folder
+   it will not be inserted into the record array because it would be a duplicate)
+   @cell return.url the URL to the index of the folder. This element will be empty if the folder has no index.
+   @cell return.title the title of the folder. When there is no title entered for the folder this element will
+   be filled with the name of the folder.
+*/
+PUBLIC RECORD ARRAY FUNCTION GenerateFilePath(INTEGER tofile,STRING sitename)
+{
+  RECORD ARRAY returnlist;
+
+  //Gather the file properties first
+  RECORD filerec := SELECT (FILES.title="" ? FILES.name : FILES.title) AS title,
+                            FILES.NAME AS name,
+                            FILES.URL,
+                            FILES.PARENT AS __parent,
+                            FOLDERS.INDEXDOC AS __indexdoc
+                     FROM system.fs_objects as files, system.fs_objects as folders
+                     WHERE FILES.ID=TOFILE
+                           AND FOLDERS.ID = FILES.PARENT
+                           AND files.isfolder = FALSE
+                           AND folders.isfolder = TRUE
+                     LIMIT 1;
+
+  IF (NOT RECORDEXISTS(filerec))
+    RETURN returnlist;
+
+  //first create a path _to_ the file.
+  returnlist := GenerateFolderPath(filerec.__parent,sitename);
+
+  //Should the file be on the list?
+  IF (filerec.__indexdoc != tofile)
+  { //yes, then add it!
+    INSERT filerec INTO returnlist AT END;
+  }
+
+  //return the complete list, with our file added if necessary
+  RETURN returnlist;
+}

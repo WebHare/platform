@@ -1,0 +1,55 @@
+<?wh
+
+PUBLIC RECORD langtexts :=
+  [ en := [ error404 := [ title := "Page not found"
+                        , text := "The requested page could not be found."
+                        ]
+          , error403 := [ title := "Access denied"
+                        , text := "The requested page is not accessible."
+                        ]
+          , error401 := [ title := "Authorization required"
+                        , text := "The requested page requires you to log in."
+                        ]
+          , error500 := [ title := "Page unavailable"
+                        , text := "The requested page is currently unavailable. Please try again later."
+                        ]
+          , error_unknown := [ title := "Unknown error"
+                             , text := "An unknown error occured on this page. Please try again later."
+                             ]
+          , infoformanager := "Information for the webmaster:"
+          ]
+  , nl := [ error404 := [ title := "Pagina niet gevonden"
+                        , text := "De opgevraagde pagina is niet gevonden."
+                        ]
+          , error403 := [ title := "Toegang geweigerd"
+                        , text := "De opgevraagde pagina is niet toegankelijk."
+                        ]
+          , error401 := [ title := "Autorisatie vereist"
+                        , text := "De opgevraagde pagina vereist dat u inlogt."
+                        ]
+          , error500 := [ title := "Pagina niet beschikbaar"
+                        , text := "De opgevraagde pagina is momenteel niet beschikbaar. Probeert u het later nog eens."
+                        ]
+          , error_unknown := [ title := "Onbekende fout"
+                             , text := "Er heeft een onbekende fout plaatsgevonden op deze pagina. Probeert u het later nog eens."
+                             ]
+          , infoformanager := "Informatie voor de webmaster:"
+          ]
+  , de := [ error404 := [ title := "Seite nicht gefunden"
+                        , text := "Die von Ihnen angeforderte Seite wurde nicht gefunden."
+                        ]
+          , error403 := [ title := "Zugang gesperrt"
+                        , text := "Die von Ihnen angeforderte Seite ist nicht zugänglich."
+                        ]
+          , error401 := [ title := "Autorisierung erforderlich"
+                        , text := "Die von Ihnen angeforderte Seite erfordert Autorisierung."
+                        ]
+          , error500 := [ title := "Seite nicht verfügbar"
+                        , text := "Die von Ihnen angeforderte Seite ist zurzeit nicht verfügbar. Bitte versuchen Sie es später noch einmal."
+                        ]
+          , error_unknown := [ title := "Unbekannter Fehler"
+                             , text := "Es war ein unbekannter Fehler aufgetreten auf dieser Seite. Bitte versuchen Sie es später noch einmal."
+                             ]
+          , infoformanager := "Informationen für den Webmaster:"
+          ]
+  ];

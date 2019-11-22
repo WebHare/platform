@@ -1,0 +1,29 @@
+<?wh
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE ConfigTestPSP EXTEND PSPSettingsExtensionBase
+<
+  UPDATE PUBLIC RECORD FUNCTION GetPaymentProviderValue()
+  {
+    RETURN this->methodsettings->value;
+  }
+  UPDATE PUBLIC MACRO SetPaymentProviderValue(RECORD settings)
+  {
+    this->methodsettings->value := settings;
+  }
+>;
+
+PUBLIC OBJECTTYPE ConfigExternalPSP EXTEND PSPSettingsExtensionBase
+<
+  UPDATE PUBLIC RECORD FUNCTION GetPaymentProviderValue()
+  {
+    RECORD val := this->methodsettings->value;
+    IF(val.methodtitle = "")
+      val.methodtitle := val.title;
+    RETURN val;
+  }
+  UPDATE PUBLIC MACRO SetPaymentProviderValue(RECORD settings)
+  {
+    this->methodsettings->value := settings;
+  }
+>;

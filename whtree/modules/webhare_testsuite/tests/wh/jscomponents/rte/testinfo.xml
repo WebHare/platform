@@ -1,0 +1,31 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="rte">
+  <jstest file="testdomlevel.es" />
+  <jstest file="testbase.es" />
+  <jstest file="testfree-allowtags.es" />
+  <jstest file="testtableedit-free.es" />
+  <jstest file="teststructured.es" />
+  <jstest file="testtableedit-structured.es" />
+  <jstest file="teststructured-table.es" />
+  <jstest file="teststructured-table2.es" />
+  <jstest file="teststructured-delete.es" />
+  <jstest file="teststructured-copypaste.es" />
+  <jstest file="teststructured-restructuring.es" />
+  <jstest file="testpageframe.es" />
+  <jstest file="testpage.es" />
+  <jstest file="testself.es" />
+  <jstest file="testfocus.es" />
+  <jstest file="testembeddedobjects.es" />
+
+  <!-- dummy, toggled br block fill
+  FIXME: Rob, wat is de meerwaarde/doel van deze test precies ?  waarom onder 'dummy' mode ? (gok: IE workarounds kunnen testen op andere browsers?)
+  <jstest file="testbase.es" />
+      <arg value="dummy" />
+      <arg value="toggleblockfill" />
+  </jstest>
+  <jstest file="teststructured.es" />
+      <arg value="dummy" />
+      <arg value="toggleblockfill" />
+  </jstest>
+-->
+
+</group>

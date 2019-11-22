@@ -1,0 +1,14 @@
+<?wh
+LOADLIB "mod::socialite/lib/api.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+//__webbrowser_debugall := TRUE;
+
+OBJECT trans := OpenPrimary();
+OBJECT conn := OpenSocialiteConnection("SOCIALITE_FEEDS", "MONEYBIRD");
+conn->OpenPersistentSessionByTag("MONEYBIRD");
+conn->administrationid := "164243204529456416";
+
+RECORD x := conn->Request("GET", "/sales_invoices", DEFAULT RECORD, DEFAULT RECORD ARRAY);
+
+DumpValue(x,'tree');

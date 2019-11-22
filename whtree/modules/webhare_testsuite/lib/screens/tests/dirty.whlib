@@ -1,0 +1,40 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE DirtyTest EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->OnDirty();
+  }
+
+  MACRO DoSetDirty()
+  {
+    this->dirtylistener->SetDirty();
+  }
+
+  MACRO DoClearDirty()
+  {
+    this->dirtylistener->ClearDirty();
+  }
+
+  MACRO OnDirty()
+  {
+    this->dirtystatus->value := this->dirtylistener->dirty ? "YES" : "NO";
+  }
+
+  MACRO OnCheckboxClick()
+  {
+    this->radiobutton->visible := this->checkbox->value;
+  }
+
+  BOOLEAN FUNCTION OnListCellEdit(RECORD row, STRING cellname, STRING newvalue)
+  {
+    IF (newvalue = GetCell(row, cellname))
+      RETURN FALSE; // Not changed
+    this->list->UpdateSingleRow(CellUpdate(row, cellname, newvalue));
+    RETURN TRUE;
+  }
+>;

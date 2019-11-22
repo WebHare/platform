@@ -1,0 +1,142 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+PUBLIC OBJECTTYPE TolliumGrid EXTEND TolliumComponentBase
+<
+  OBJECT mytable;
+
+  ///The table holding our cells
+  PUBLIC PROPERTY gridtable(mytable, -);
+
+  MACRO NEW()
+  {
+    this->invisibletitle := TRUE;
+  }
+
+  /** Description of columns of the grid
+      @cell minwidth Minimum width of the column
+      @cell width Preferred with of the column
+  */
+  PUBLIC RECORD ARRAY cols;
+
+  /** The rows of the grid, plus all the cells
+      @cell minheight Minimum height of the row
+      @cell height Preferred height of the row
+      @cell cells List of cells within the row
+      @cell cells.colspan Column span of the cell
+      @cell cells.rowspan Row span of the cell
+      @cell cells.panel Contents of the cell
+  */
+  PUBLIC RECORD ARRAY rows;
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
+  {
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    RETURN ObjectExists(this->mytable) ? this->mytable->GetChildComponents() : DEFAULT OBJECT ARRAY;
+  }
+
+  /** Initializes the component
+      @param def Definition
+      @cell def.name Name of the component
+      @cell def.visibile Visiblity of the component
+      @cell def.enabled Whether the component is enabled
+      @cell def.readonly Whether the component is readonly
+      @cell def.tp Title text pointer
+      @cell def.width Preferred width of the component
+      @cell def.height Preferred height of the component
+      @cell def.minwidth Minimum width of the component
+      @cell def.minheight Minimum height of the component
+  */
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->cols := def.grid.cols;
+    this->rows := def.grid.rows;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    this->mytable := this->CreateSubComponent("table");
+    this->mytable->width := this->width;
+    this->mytable->minwidth := this->minwidth;
+    this->mytable->height := this->height;
+    this->mytable->minheight := this->minheight;
+
+    //this->mytable->defaultborder := TRUE; //useful for debugging sometimes...
+
+    this->mytable->SetupTable([Length(this->rows)],[Length(this->cols)]);
+    this->parentpanel->InsertComponentAfter(this->mytable, this, FALSE);
+
+    INTEGER ARRAY rowspans; // Keep track of the rowspan in each column
+    FOREVERY(RECORD col FROM this->cols)
+    {
+      this->mytable->SetColWidth(#col, col.width);
+      this->mytable->SetColMinWidth(#col, col.minwidth);
+      INSERT 0 INTO rowspans AT END;
+    }
+
+    RECORD ARRAY cells;
+    FOREVERY(RECORD row FROM this->rows)
+    {
+      this->mytable->SetRowHeight(#row, row.height);
+      this->mytable->SetRowMinHeight(#row, row.minheight);
+
+      INTEGER numcols := Length(this->cols), col := 0, outcell := 0;
+      WHILE (col < numcols)
+      {
+        INTEGER curcol := col;
+
+        // Check if the current cell is spanned by a cell in a previous row
+        IF (rowspans[col] > 0)
+        {
+          rowspans[col] := rowspans[col] - 1;
+          col := col + 1;
+        }
+        ELSE
+        {
+          // Check if there are enough cells in this row
+          IF (outcell >= Length(row.cells))
+            THROW NEW TolliumException(this, "Missing cell " || #row || ":" || col);
+          RECORD cellrec := row.cells[outcell];
+
+          // Check if the rowspan spans over existing rows
+          IF (#row + cellrec.rowspan > Length(this->rows))
+            THROW NEW TolliumException(this, "Rowspan exceeds number of rows for cell " || #row || ":" || col);
+
+          // Create the table cell object
+          OBJECT tablecell := this->mytable->GetCell(#row, curcol);
+          tablecell->PVT_Grid_SetPanel(cellrec.panel);
+          tablecell->colspan := cellrec.colspan;
+          tablecell->rowspan := cellrec.rowspan;
+          tablecell->valign := cellrec.valign;
+
+          IF(tablecell->panel->spacers.usedefault)
+          {
+            tablecell->panel->spacers.left := col > 0;
+          }
+
+          // Update the rowspan in each spanned column
+          FOR (INTEGER spanned := 0; spanned < cellrec.colspan; spanned := spanned + 1)
+          {
+            // Check if the colspan spans over existing columns
+            IF (col >= Length(rowspans))
+              THROW NEW TolliumException(this, "Colspan exceeds number of columns for cell " || #row || ":" || (col - spanned));
+            // Check if the cell isn't already spanned by another cell in a previous row
+            IF (rowspans[col] > 0)
+              THROW NEW TolliumException(this, "Cell " || #row || ":" || (col - spanned) || " spans over active cell " || #row || ":" || col);
+            rowspans[col] := cellrec.rowspan - 1;
+            col := col + 1;
+          }
+
+          // Go to the next cell record
+          outcell := outcell + 1;
+        }
+      }
+      // Check if all cell on the row have been initialized
+      IF (outcell < Length(row.cells))
+        THROW NEW TolliumException(this, "Extra cell " || #row || ":" || col || "; did you forget to specify columns?");
+    }
+  }
+>;

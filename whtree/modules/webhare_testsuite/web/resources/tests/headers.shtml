@@ -1,0 +1,4 @@
+<?wh
+LOADLIB "mod::system/lib/webserver.whlib";
+Print('Client ip: ' || getclientremoteip() || '\n');
+printrecordarrayto(0,getallwebheaders(),'html');

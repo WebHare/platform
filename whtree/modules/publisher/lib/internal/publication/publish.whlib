@@ -1,0 +1,327 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+
+LOADLIB "mod::publisher/lib/internal/publishing-backend.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+
+LOADLIB "mod::publisher/lib/internal/outputmedia/localfs.whlib";
+
+
+
+PUBLIC BOOLEAN measure;
+
+PUBLIC STATIC OBJECTTYPE Reader
+<
+  // Fully privileged transaction
+  OBJECT localfs;
+  OBJECT process;
+  PUBLIC DATETIME publishstart;
+
+  PUBLIC INTEGER fileid;
+  PUBLIC INTEGER allpubssize;
+
+  MACRO NEW()
+  {
+    this->localfs := NEW LocalFSOutputMedia;
+  }
+
+  MACRO EnsurePublicationInDifferentSecond()
+  {
+    IF (GetRoundedDateTime(this->process->basedata.lastpublishdate, 1000) = GetRoundedDateTime(GetCurrentDateTime(), 1000))
+      WaitForMultipleUntil(DEFAULT INTEGER ARRAY, DEFAULT INTEGER ARRAY, GetRoundedDateTime(AddTimeToDate(1000, this->process->basedata.lastpublishdate), 1000));
+  }
+
+  PUBLIC INTEGER FUNCTION Run(INTEGER fileid, BOOLEAN profile)
+  {
+    DEBUGPRINT("Run " || Fileid);
+
+    /* We must prevent a race where files are already queued for publication,
+       but siteprofile compilation will be occcuring in the next transaction
+
+       Wait for any pending siteprofile compilations to complete.
+    */
+    OpenLockManager()->LockMutex("system:siteprofrecompile")->Close();
+
+    /* FIXME this broadcast shouldn't be needed? but without it socialite.test_plugins
+       fails when run on a fresh database. it looks like this introduces a point
+       for siteprofile adhoccache fluches to reach us, and the above statement doesn't */
+    BroadcastLocalEvent("publisher:startpublication", DEFAULT RECORD);
+
+    this->fileid := fileid;
+    this->allpubssize := 0;
+    INTEGER retval := -1;
+
+//    FlushContentTypeCache(); //FIXME need better siteprofile data invalidations
+
+    TRY
+    {
+      this->process := NEW PublicationProcess(fileid);
+    }
+    CATCH
+    {
+      this->FinishPublishing(DEFAULT OBJECT, fileid, 0, DEFAULT RECORD ARRAY, FALSE);
+      retval := 0;
+      RETURN 0;
+    }
+
+    // Make sure the file is published in a different second than the last republish
+    this->EnsurePublicationInDifferentSecond();
+
+    this->publishstart := GetCurrentDateTime();
+
+    /* Discover outputs */
+    OBJECT outputrun;
+    RECORD ARRAY dbfiles;
+    RECORD ARRAY outputs := this->process->GetOutputs();
+
+    FOREVERY(RECORD output FROM outputs)
+    {
+      IF(#output>0) //second or later run....
+      {
+        IF(outputrun->errorcode!=0 OR retval!=0)
+          BREAK; //Abort!
+        outputrun->Finish(); //finish current output manager
+      }
+
+      outputrun := this->process->CreatePublicationRun(this->localfs, output, measure);
+      IF(#output=0 AND this->process->stripextension)
+      {
+        STRING conflictfile := GetConflictingOutputFile(fileid);
+        IF(conflictfile != "")
+        {
+          outputrun->errorcode  := 115;
+          outputrun->errordata := conflictfile;
+          BREAK;
+        }
+      }
+
+      TRY
+      {
+        retval := outputrun->Run();
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        //This catches eg Do not know how to render prebuilt file with tag 'prebuilthtml'. but that errors is an example of one that's obsoleted, so we'll just map to 3001 internal error
+        outputrun->errorcode := 3001;
+        outputrun->errordata := e->what;
+      }
+      dbfiles := dbfiles CONCAT outputrun->dbfiles;
+      this->allpubssize := this->allpubssize + outputrun->totalsize;
+    }
+
+    INTEGER finishretval := this->FinishPublishing(outputrun, fileid, this->allpubssize, dbfiles, this->process->stripextension);
+    IF(retval=0)
+      retval := finishretval;
+
+    IF (ObjectExists(outputrun)) // Doesn't exist when there are no outputs
+      outputrun->Finish();
+    RETURN retval;
+  }
+
+  //Write DBFiles to the dbpublication instance
+  MACRO FlushDBFiles(INTEGER fileid, RECORD ARRAY dbfiles)
+  {
+    OBJECT dbpub := OpenWHFSType("http://www.webhare.net/xmlns/publisher/dbpublication");
+    dbpub->SetInstanceData(fileid, [ dbfiles := dbfiles ]);
+  }
+
+  PUBLIC INTEGER FUNCTION FinishPublishing(OBJECT outputrun, INTEGER fileid, INTEGER totalsize, RECORD ARRAY dbfiles, BOOLEAN stripextension)
+  {
+    STRING errordata;
+    INTEGER errortype := 112; //site disabled
+    STRING ARRAY warnings;
+    RECORD ARRAY hs_errors;
+    BOOLEAN has_webdesign;
+    RECORD ARRAY setonpublish;
+    RECORD ARRAY checkablelinks;
+
+    IF(ObjectExists(outputrun))
+    {
+      errordata := outputrun->errordata;
+      errortype := outputrun->errorcode;
+      warnings := outputrun->warnings;
+      has_webdesign :=outputrun->has_webdesign;
+      hs_errors := outputrun->hs_errors;
+      setonpublish := outputrun->setonpublish;
+      checkablelinks := outputrun->checkablelinks;
+    }
+
+    DEBUGPRINT("Finish: code:" || errortype || " text:" || errordata || " totalsize:"||totalsize);
+    IF (LENGTH(hs_errors) > 0)
+      DEBUGPRINT("Publishing HS errors:\n" || AnyToString(hs_errors, "boxed"));
+
+    GetPrimary()->BeginWork();
+    this->StoreErrors(fileid, hs_errors, warnings);
+
+    RECORD filescan := SELECT published
+                            , COLUMN errordata
+                            , lastpublishtime
+                            , firstpublishdate
+                            , lastpublishdate
+                            , lastpublishsize
+                            , parent
+                            , parentsite
+                         FROM system.fs_objects
+                        WHERE id = fileid;
+    IF (NOT RecordExists(filescan))
+    {
+      // File has been deleted; don't commit at all
+      DEBUGPRINT(`File #${fileid} has been deleted`);
+      GetPrimary()->RollbackWork();
+      RETURN 0;
+    }
+
+    // Signal update of the published status
+    OBJECT handler := GetWHFSCommitHandler();
+    handler->FilePublicationFinished(filescan.parentsite, filescan.parent, fileid);
+
+    INTEGER published := filescan.published;
+    IF (NOT IsPublish(published))
+    {
+      DEBUGPRINT(`File #${fileid} publication asynchronously cancelled: ${filescan.published}`);
+      GetPrimary()->RollbackWork();
+      RETURN 0;
+    }
+
+    //Strip the status and add the error code
+    published := GetFlagsFromPublished(published) + errortype;
+    //If there was no error, mark the file as published
+    IF (errortype = 0)
+    {
+      published := SetFlagsInPublished(published, PublishedFlag_OncePublished, true);
+      IF(has_webdesign)
+        published := SetFlagsInPublished(published, PublishedFlag_HasWebdesign, true);
+      this->FlushDBFiles(fileid, dbfiles);
+    }
+
+    RECORD fileupdate;
+
+    published := SetFlagsInPublished(published, PublishedFlag_Warning, LENGTH(warnings) != 0);
+    IF(ObjectExists(outputrun))
+      published := SetFlagsInPublished(published, PublishedFlag_StripExtension, stripextension);
+
+    INSERT CELL published := published INTO fileupdate;
+
+    IF (errortype >= 1001 AND errortype <= 2000) //IO error
+    {
+      //I/O errors: hide the text from the database but do log them
+      INSERT CELL errordata := "" INTO fileupdate;
+      PRINT("I/O error publishing file #" || fileid || ": " || errordata || "\n");
+    }
+    ELSE
+    {
+      IF (errortype >= 3000 AND errortype <= 99999) //Integrity errors
+      { //Disastrous errors: show text in database and log them
+        PRINT("Fatal error publishing file #" || fileid || ": " || errordata || "\n");
+      }
+      IF (errortype = 0)
+      {
+        DATETIME now := GetCurrentDateTime();
+
+        //no error, so log publication time
+        INTEGER totaltime := GetDatetimeDifference(this->publishstart, now).msecs;
+        IF (totaltime = 0)
+          totaltime := 1;
+        ELSE IF (totaltime > 10000000) //don't register conversions taking longer than 10000s (160 minutes)
+          totaltime := 0;
+
+        IF(filescan.firstpublishdate = DEFAULT DATETIME)
+          INSERT CELL firstpublishdate := now INTO fileupdate;
+        INSERT CELL lastpublishtime := totaltime INTO fileupdate;
+        INSERT CELL lastpublishdate := now INTO fileupdate;
+        INSERT CELL lastpublishsize := this->allpubssize INTO fileupdate;
+      }
+
+      INSERT CELL errordata := Left(errordata, 1024) INTO fileupdate;
+    }
+
+    /* Add publish to WHERE check to force revalidation after record lock. This fixes a race where
+       a parallel action has depublished us (such as publisher-versioning/publisher.whscr MOVE operation
+       which will depublish the file, and may race against us) */
+    UPDATE system.fs_objects
+       SET RECORD fileupdate
+     WHERE id = fileid AND publish;
+
+    //After update, we can check if the publish flag is still there - we now see commited writes from other transcations
+    BOOLEAN parallel_depublish := NOT (SELECT AS BOOLEAN publish FROM system.fs_objects WHERE id = fileid);
+
+    //ADDME if parallel_depublish, we could inform outputanalyzer to remove the output faster, or do it ourselves
+
+    IF(errortype=0 AND NOT parallel_depublish)
+    {
+      IF(ObjectExists(this->process) AND RecordExists(this->process->basedata))
+        StoreURLHistoryIfNeeded(fileid, CalculateFSObjectFullPathAndURL(fileid, [followlinks := FALSE]).url);
+
+      FOREVERY(RECORD toset FROM setonpublish)
+        OpenWHFSType(toset.ns)->SetInstanceData(fileid, toset.data, [ isvisibleedit := FALSE ]);
+
+      OBJECT gatheredlinkstype := OpenWHFSType("http://www.webhare.net/xmlns/consilio/gatheredlinks");
+      IF(ObjectExists(gatheredlinkstype))
+        gatheredlinkstype->SetInstanceData(fileid, [ links := checkablelinks ]);
+    }
+
+    GetPrimary()->CommitWork();
+    RETURN 0;
+  }
+
+  PUBLIC MACRO StoreErrors(INTEGER fileid, RECORD ARRAY hs_errors, STRING ARRAY warnings)
+  {
+    //FIXME: Cache ResolveFileLocation results between errors, or better yet, let the harescript compiler just tell us the file id
+    RECORD errorinstance := [ messages := (SELECT file := LookupWHFSObject(0,filename)
+                                                , filename
+                                                , line
+                                                , col
+                                                , code
+                                                , param1 := Left(param1, 4096)
+                                                , param2 := Left(param2, 4096)
+                                                , type := iserror ? 0 : 1
+                                           FROM hs_errors
+                                          WHERE code>=0)
+                                           CONCAT
+                                           (SELECT file := fileid
+                                                 , param1 := Left(warning, 4096)
+                                                 , type := 2
+                                           FROM ToRecordArray(warnings, "warning")
+                                           )
+                            , trace := (SELECT file := LookupWHFSObject(0,filename)
+                                             , filename
+                                             , line
+                                             , col
+                                             , func := param1=":INITFUNCTION" ? "" : param1
+                                           FROM hs_errors
+                                          WHERE code<0)
+                            ];
+    UPDATE errorinstance.messages SET file := 0 WHERE file=-1;
+    UPDATE errorinstance.trace SET file := 0 WHERE file=-1;
+
+    OBJECT errorinfo := OpenWHFSType("http://www.webhare.net/xmlns/publisher/errorinfo");
+    IF(ObjectExists(errorinfo)) //it may not exist (eg during startup the tollium-designfiles.zip is good at triggering its own republish)
+      errorinfo->SetInstanceData(fileid, errorinstance);
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE PublishTask EXTEND ManagedTaskBase
+<
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+//  SetErrorContextInfo([ source := "publisher:publishing", id := fileid ]);
+    INTEGER status := (NEW Reader)->Run(data.task.id, measure);
+
+    this->ResolveByCompletion(CELL[status]);
+  }
+>;

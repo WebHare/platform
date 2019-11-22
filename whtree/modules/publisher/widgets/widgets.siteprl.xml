@@ -1,0 +1,44 @@
+<siteprofile
+  xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+  xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+  xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+
+  <!-- Anchor -->
+  <widgettype
+    namespace="http://www.webhare.net/xmlns/publisher/widgets/anchor"
+    editextension="widgets.xml#anchorwidget"
+    tid="widgets.anchorwidget.title"
+    wittycomponent="widgets.witty:anchor">
+    <members>
+      <member name="name" type="string" />
+    </members>
+  </widgettype>
+
+  <!-- Slideshow. Simple show with embedded images -->
+  <widgettype
+    namespace="http://www.webhare.net/xmlns/publisher/widgets/slideshow"
+    editextension="widgets.xml#slideshowwidget"
+    tid="widgets.slideshowwidget.title"
+    wittycomponent="widgets.witty:slideshow"
+    renderobjectname="/lib/widgets/slideshowwidget.whlib#SlideshowWidgetBase">
+    <members>
+      <member name="slides" type="array">
+        <member name="title" type="string" />
+        <member name="image" type="file" />
+        <member name="link" type="intextlink" />
+      </member>
+    </members>
+  </widgettype>
+
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/twocolumns"
+              editextension="widgets.xml#twocolumnswidget"
+              wittycomponent="widgets.witty:twocolumns"
+              tid="widgets.twocolumnswidget.title"
+              renderobjectname="/lib/widgets/twocolumnswidget.whlib#TwoColumnsWidgetBase">
+    <members>
+      <member name="rtdleft" type="richdocument" />
+      <member name="rtdright" type="richdocument" />
+    </members>
+  </widgettype>
+
+</siteprofile>

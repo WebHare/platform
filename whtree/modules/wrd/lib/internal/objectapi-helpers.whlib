@@ -1,0 +1,3 @@
+<?wh
+//this library exists only to avoid warnings in objectapi.whlib
+LOADLIB "mod::wrd/lib/api.whlib" EXPORT DescribeWRDAttribute, DescribeWRDEntity, IsValidWRDGuid, LIstWRDSchemas;

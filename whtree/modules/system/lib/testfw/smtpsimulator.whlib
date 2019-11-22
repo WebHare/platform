@@ -1,0 +1,137 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+OBJECTTYPE SMTPReceiver
+< OBJECT pvt_job;
+  INTEGER pvt_callback;
+
+  RECORD ARRAY pvt_messages;
+
+  INTEGER pvt_connectioncount;
+
+  /** Received messages
+      @cell(record) sender Sender data
+      @cell(string) sender.mailbox_domain Mailbox domain part
+      @cell(string) sender.mailbox_local Mailbox local part
+      @cell(record array) sender.route Mailbox route
+      @cell(record array) recipients Recipients data
+      @cell(string) recipients.mailbox_domain Mailbox domain part
+      @cell(string) recipients.mailbox_local Mailbox local part
+      @cell(record array) recipients.route Mailbox route
+      @cell(blob) data Raw message data
+  */
+  PUBLIC PROPERTY messages(GetMessages, -);
+
+  /// Number of connections made
+  PUBLIC PROPERTY connectioncount(GetConnectionCount, -);
+
+  MACRO NEW(OBJECT job)
+  {
+    this->pvt_job := job;
+    this->pvt_callback := RegisterHandleReadCallback(job->ipclink->handle, PTR this->ReceiveMessage);
+  }
+
+  RECORD ARRAY FUNCTION GetMessages()
+  {
+    WHILE (this->pvt_job->ipclink->IsSignalled())
+      this->ReceiveMessage();
+    RETURN this->pvt_messages;
+  }
+
+  INTEGER FUNCTION GetConnectionCount()
+  {
+    this->GetMessages();
+    RETURN this->pvt_connectioncount;
+  }
+
+  PUBLIC BOOLEAN FUNCTION ReceiveMessage(DATETIME waituntil DEFAULTSTO DEFAULT DATETIME)
+  {
+    RECORD rec := this->pvt_job->ipclink->ReceiveMessage(waituntil);
+    IF (rec.status = "gone")
+    {
+      IF (this->pvt_callback != 0)
+        UnregisterCallback(this->pvt_callback);
+      this->pvt_callback := 0;
+      IF (LENGTH(this->pvt_job->GetErrors()) != 0)
+        PRINT("Job errors:\n" || AnyToString(this->pvt_job->GetErrors(), "tree"));
+    }
+    ELSE IF (rec.status = "ok")
+    {
+      IF (rec.msg.type = "message")
+        INSERT rec.msg.msg INTO this->pvt_messages AT END;
+      IF (rec.msg.type = "newconnection")
+        this->pvt_connectioncount := this->pvt_connectioncount + 1;
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  PUBLIC MACRO DeleteAllMessages()
+  {
+    this->pvt_messages := DEFAULT RECORD ARRAY;
+  }
+
+  /** Shutdown the server and retrieve all messages from the server
+  */
+  PUBLIC MACRO ShutdownServer()
+  {
+    this->Close();
+  }
+
+  /** Close all used resources
+  */
+  PUBLIC MACRO Close()
+  {
+    IF (NOT ObjectExists(this->pvt_job))
+      RETURN;
+    WHILE (this->ReceiveMessage())
+      0;
+    IF (this->pvt_callback != 0)
+    {
+      UnregisterCallback(this->pvt_callback);
+      this->pvt_callback := 0;
+    }
+    UnregisterCallback(this->pvt_job->userdata.callback);
+
+    // Wait 50ms for job to close and to see errors when they have occurred
+    IF (this->pvt_job->Wait(AddTimeToDate(50, GetCurrentDateTime())) AND LENGTH(this->pvt_job->GetErrors()) != 0)
+      PRINT("Job errors:\n" || AnyToString(this->pvt_job->GetErrors(), "tree"));
+    this->pvt_job->Close();
+    this->pvt_job := DEFAULT OBJECT;
+  }
+>;
+
+MACRO OnCrash(OBJECT job)
+{
+  ABORT("SMTP job crashed:\n" || AnyToString(job->GetErrors(), "tree"));
+}
+
+/** Create a new SMTP receiver
+    @param host Host to listen on
+    @param port Port to listen on
+    @cell(boolean) options.debug Dump the client/server interaction
+    @cell(string array) options.directbouncemasks Masks for direct bouncing
+    @cell(string) options.bouncehandling
+    @cell(integer) options.connectdelay Connection delay
+    @cell(record) options.handleroptions @includecelldef smtpsimulatorjob.whlib#DummyMailHandler::NEW.options
+    @return Object of type SMTPReceiver
+*/
+PUBLIC OBJECT FUNCTION GetSMTPReceiver(STRING host, INTEGER port, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD handleroptions := CellExists(options, "handleroptions") ? options.handleroptions : DEFAULT RECORD;
+  DELETE CELL handleroptions FROM options;
+
+  RECORD jobrec := CreateJob("mod::system/lib/testfw/smtpsimulatorjob.whlib", "WEBHARE");
+  IF(NOT ObjectExists(jobrec.job))
+  {
+    DumpValue(jobrec.errors,'boxed');
+  }
+  jobrec.job->ipclink->SendMessage(CELL[ host, port, options, handleroptions ]);
+  jobrec.job->Start();
+  jobrec.job->ipclink->Wait(MAX_DATETIME);
+
+  jobrec.job->userdata := [ callback := RegisterHandleReadCallback(jobrec.job->handle, PTR OnCrash(jobrec.job)) ];
+
+  RETURN NEW SMTPReceiver(jobrec.job);
+}

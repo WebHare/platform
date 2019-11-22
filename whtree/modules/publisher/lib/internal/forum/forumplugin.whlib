@@ -1,0 +1,119 @@
+<?wh
+
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+PUBLIC STATIC OBJECTTYPE ForumPlugin EXTEND WebDesignPluginBase
+<
+  OBJECT webdesign;
+  RECORD pvt_config;
+
+  PUBLIC PROPERTY config(pvt_config, -);
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION ListConfigurationNodeAttributes(OBJECT node)
+  {
+    STRING ARRAY nodes := WebDesignPluginBase::ListConfigurationNodeAttributes(node);
+    IF(node->GetChildElementsByTagNameNS(node->namespaceuri, "imagedisplaymethod")->length = 1)
+      INSERT "imagedisplaymethod" INTO nodes AT END;
+    RETURN nodes;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RECORD imagedisplaymethod;
+    OBJECT imagenode := node->GetChildElementsByTagNameNS(node->namespaceuri, "imagedisplaymethod")->item(0);
+    IF(ObjectExists(imagenode))
+      imagedisplaymethod := [ method := imagenode->GetAttribute("method")
+                            , setwidth := ToInteger(imagenode->GetAttribute("setwidth"),0)
+                            , setheight := ToInteger(imagenode->GetAttribute("setheight"),0)
+                            , bgcolor := imagenode->GetAttribute("bgcolor")
+                            , format := imagenode->GetAttribute("format")
+                            ];
+
+    RETURN CELL[ imagedisplaymethod
+               , type := node->GetAttribute("type")
+               , replies := ParseXSBoolean(node->GetAttribute("replies"))
+               , subjects := ParseXSBoolean(node->GetAttribute("subjects"))
+               , captcha := node->GetAttribute("captcha")
+               , maximages := ToInteger(node->GetAttribute("maximages"),0)
+               , postsperpage := ToInteger(node->GetAttribute("postsperpage"),10)
+               , newestfirst := ParseXSBoolean(node->GetAttribute("newestfirst"))
+               , autoclose := ParseXSInt(node->GetAttribute("autoclose"))
+               , usecaptcha := ParseXSBoolean(node->GetAttribute("usecaptcha"))
+               , mailpostingsto := node->GetAttribute("mailpostingsto")
+               ];
+  }
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
+  {
+    this->webdesign := webdesign;
+    this->pvt_config := config;
+  }
+
+  MACRO GenerateRespondFields()
+  {
+    OBJECT renderer := this->webdesign->GetFormRenderer();
+
+    renderer->RenderField( [ firstid := "wh-forumcomments-name"
+                           , type := "textedit"
+                           , name := "name"
+                           , htmltitle := GetTid("publisher:site.forum.comments.name")
+                           , required := TRUE
+                           , maxlength := 60
+                           ]);
+
+    renderer->RenderField( [ firstid := "wh-forumcomments-email"
+                           , type := "textedit"
+                           , name := "email"
+                           , htmltitle := GetTid("publisher:site.forum.comments.email")
+                           , placeholder := GetTid("publisher:site.forum.comments.email-placeholder-notshown")
+                           , required := TRUE
+                           , maxlength := 60
+                           , validationchecks := ["email"]
+                           ]);
+
+    renderer->RenderField( [ firstid := "wh-forumcomments-message"
+                           , type := "textarea"
+                           , name := "message"
+                           , htmltitle := GetTid("publisher:site.forum.comments.message")
+                           , required := TRUE
+                           ]);
+  }
+
+  PUBLIC RECORD FUNCTION GetCommentsWittyData(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ forfile := this->webdesign->targetobject->id ], options);
+
+    DATETIME cd;
+    IF(options.forfile = this->webdesign->targetobject->id)
+      cd := this->webdesign->targetobject->creationdate;
+    ELSE
+      cd := SELECT AS DATETIME creationdate FROM system.fs_objects WHERE fs_objects.id = options.forfile;
+
+    RETURN [ filetoken := EncryptForThisServer("publisher:commentsplugin", [ id := options.forfile, cd := cd ])
+           , respondfields := PTR this->GenerateRespondFields()
+           ];
+  }
+
+  PUBLIC MACRO EmbedComments(RECORD options DEFAULTSTO DEFAULT RECORD) //embeds a standard file comments.
+  {
+    LoadWittyLibrary("mod::publisher/lib/internal/forum/forum.witty","HTML-NI")->RunComponent("forumcomments", this->GetCommentsWittyData(options));
+  }
+
+  PUBLIC MACRO AddCommentsTab(OBJECT tabs)
+  {
+    tabs->LoadTabsExtension("mod::publisher/tolliumapps/forum/managecomments.xml#commentstab", [ id := this->webdesign->targetobject->id ]);
+  }
+
+  UPDATE PUBLIC MACRO HookObjectProps(OBJECT objectprops)
+  {
+    IF(objectprops->targetid != 0 AND objectprops->applytester->IsTypeNeedsTemplate())
+      objectprops->AddTabsExtension("mod::publisher/tolliumapps/forum/managecomments.xml#commentstab", "", [ id := objectprops->targetid ]);
+  }
+>;

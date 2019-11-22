@@ -1,0 +1,3 @@
+﻿Test: [bla][component xyZ][/component]
+[component c7a][embed c7atext]:[x][/component]
+[component c7atext]c7a-te[/component]

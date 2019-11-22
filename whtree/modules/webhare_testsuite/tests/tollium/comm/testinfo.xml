@@ -1,0 +1,8 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <jstest file="testdashboard.es" />
+  <jstest file="testappbar.es" />
+  <jstest file="testappstart.es" />
+  <jstest file="testeventserver.es" exclusive="true" />
+  <test script="testsvg.whscr" />
+  <jstest file="testdirty.es" />
+</group>

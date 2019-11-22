@@ -1,0 +1,28 @@
+<h1>FocusZones</h1>
+
+<div id="focuszone1" class="wh-focuszone">
+  <b>focuszone 1</b><br/>
+  <input id="input1_1" />
+  <button type="button" class="tozone1">Focus zone 1</button>
+  <button type="button" class="tozone2">Focus zone 2</button>
+  <button type="button" class="tozone3">Focus zone 3</button>
+</div>
+
+<div id="focuszone2" class="wh-focuszone">
+  <b>focuszone 2</b><br/>
+  <input id="input2_1" />
+  <input type="checkbox" id="input2_2" autofocus />
+  <input id="input2_3" />
+  <button type="button" class="tozone1">Focus zone 1</button>
+  <button type="button" class="tozone3">Focus zone 3</button>
+  <button type="button">dummy</button>
+</div>
+
+<div id="focuszone3" class="wh-focuszone">
+  <b>focuszone 3</b><br/>
+</div>
+
+<div id="log"></div>
+
+<button type="button" class="steal_input1_1">#input1_1 steal</button>
+<button type="button" class="steal_input2_3">#input2_3 steal</button>

@@ -1,0 +1,8 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="WebAPIs"
+       docorder="oauth2">
+  <section name="oauth2" title="OAUTH2 APIs" />
+  <section name="email" title="Email services" />
+  <section name="gitlab" title="GitLab APIs" />
+  <section name="aws" title="AWS APIs" />
+</topic>

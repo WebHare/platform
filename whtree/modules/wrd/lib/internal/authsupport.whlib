@@ -1,0 +1,32 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/users.whlib";
+
+PUBLIC INTEGER FUNCTION LookupMagicSysop(STRING name)
+{
+  IF(name NOT IN [ "<overrideuser>", "<shelluser>" ])
+    THROW NEW Exception("Invalid magic user '" || name || "'");
+
+  RETURN SELECT AS INTEGER id FROM system.authobjects WHERE type=1 AND guid = VAR name;
+}
+
+PUBLIC OBJECTTYPE TolliumMagicSysopUserObject EXTEND TolliumUser
+<
+  MACRO NEW(INTEGER overrideuser)
+  : TolliumUser(DEFAULT OBJECT, DEFAULT OBJECT, overrideuser, "<overrideuser>")
+  {
+    this->login := "<override-sysop>";
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION HasRight(STRING rightname)
+  {
+    RETURN TRUE;
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION HasRightOnAny(STRING rightname)
+  {
+    RETURN TRUE;
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION HasRightOn(STRING rightname, INTEGER obj)
+  {
+    RETURN TRUE;
+  }
+>;

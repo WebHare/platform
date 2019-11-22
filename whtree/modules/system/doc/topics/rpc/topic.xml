@@ -1,0 +1,6 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="RPC/Web services"
+       docorder="services">
+  <section name="server" title="Servers" />
+  <section name="client" title="Clients" />
+</topic>

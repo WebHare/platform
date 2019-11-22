@@ -1,0 +1,4 @@
+<?wh
+loadlib "wh::os.whlib";
+print("-- failing test 3 (exitcode 123) --");
+setconsoleexitcode(123);

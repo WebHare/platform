@@ -1,0 +1,50 @@
+div.wh-ui-listheader
+{
+  background:#dddddd;
+  line-height: 24px;
+}
+div.wh-ui-listheader > span
+{
+  color: #000000;
+  padding: 0 4px;
+}
+div.wh-ui-listbody
+{
+  background:#ffffff;
+}
+div.wh-ui-listrow
+{
+}
+div.wh-ui-listrow span
+{
+  color: #000000;
+  padding: 0 4px;
+}
+div.wh-ui-listrowselected
+{
+  background: #7f7f7f;
+}
+div.wh-ui-listview:focus div.selected
+{
+  background: #0000ff;
+}
+div.wh-ui-listview:focus div.selected span
+{
+  color:#ffffff;
+}
+
+div.wh-ui-listview div.splitter
+{
+  background-color:#ff00ff;
+  width: 1px;
+  z-index: 1;
+}
+
+.wh-ui-listview .expander.fa-caret-right:before
+{
+  content:">";
+}
+.wh-ui-listview .expander.fa-caret-down:before
+{
+  content:"v";
+}

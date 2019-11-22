@@ -1,0 +1,874 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::os.whlib";
+
+STRING  test_prefix;      // Prefix used for generating test sites/users/folders etc
+STRING  test_name;        // Name of the current test
+BOOLEAN test_open;        // Is there an open test?
+INTEGER test_errorcount;  // Number of errors in the current test
+INTEGER test_lastnumber;  // Number of the last test
+BOOLEAN expecttestexception; //allow test exceptions to come through. we need this to test the test framework
+PUBLIC FLOAT max_float_dev_in_recordarray := 0.0001f;
+/** Show opened tests and used test nrs.
+    @private Not used anymore
+*/
+PUBLIC BOOLEAN show_test_progress;
+
+PUBLIC OBJECTTYPE LoadException EXTEND Exception
+ < MACRO NEW(STRING details)
+   : Exception(details)
+   {
+   }
+ >;
+PUBLIC OBJECTTYPE TestFailException EXTEND Exception
+ < MACRO NEW(STRING annotation)
+   : Exception("Test failed" || (annotation != "" ? ": " || annotation : ""))
+   {
+   }
+ >;
+
+PUBLIC STRING FUNCTION GetCurrentTestName()
+{
+  RETURN test_name || ":" || test_lastnumber;
+}
+
+
+/*****************************************
+ * ReportError, formats a given error message with error records
+ * @param testno   number of the current running test
+ *        message  message that should be displayed
+ *        errors   array of error records (see TestCompile)
+ *****************************************/
+PUBLIC MACRO ReportError(STRING message, RECORD ARRAY errors, STRING annotation) __ATTRIBUTES__(SKIPTRACE)
+{
+  IF(expecttestexception)
+    THROW NEW TestFailException(annotation);
+
+  IF (test_errorcount = 0)
+  {
+    INTEGER linenr :=
+        SELECT AS INTEGER line
+          FROM GetStackTrace()
+         WHERE filename NOT LIKE "*hsselftests*";
+    PRINT("\n  -- Test " || test_name || " yielded errors at line " || linenr || ":\n");
+  }
+
+  PRINT(message || "\n");
+
+  FOREVERY (RECORD r FROM errors)
+  {
+      IF (r.iserror)
+        PRINT (" Error:   ");
+      ELSE
+        PRINT (" Warning: ");
+      PRINT(r.code || " " || r.message || "\n");
+  }
+
+  test_errorcount := test_errorcount + 1;
+
+  PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+  THROW NEW TestFailException(annotation);
+}
+
+/*****************************************
+ * Test are opened and closed to detect cases where RETURN or another
+ * failure causes a jump out of the testfunction.
+ *****************************************/
+PUBLIC MACRO OpenTest(STRING testname)
+{
+  //PRINT ("Last test: " || test_lastnumber || "\n");
+  IF (show_test_progress)
+    PRINT("Opening test '" || testname || "'\n");
+  IF (test_open)
+    ReportError("Opening test " || testname || " but test " || test_name || " was never closed!", DEFAULT RECORD ARRAY, "");
+
+  test_name := testname;
+  test_open := true;
+  test_errorcount := 0;
+  test_lastnumber := 0;
+}
+
+/** Returns current open test name */
+PUBLIC STRING FUNCTION CurrentTest()
+{
+  RETURN test_name;
+}
+
+PUBLIC MACRO CloseTest(STRING testname)
+{
+  IF (show_test_progress)
+    PRINT("Closing test '" || testname || "'\n");
+  IF (NOT test_open)
+    ReportError("Closing test " || testname || " but no test was opened!", DEFAULT RECORD ARRAY, "");
+  ELSE IF (testname != test_name)
+    ReportError("Closing test " || testname || " but test " || test_name || " was open!", DEFAULT RECORD ARRAY, "");
+
+  IF (test_errorcount > 0)
+  {
+    PRINT("     Test " || test_name || ": " || test_errorcount || " error" || ((test_errorcount > 1) ? "s" : "") || ".\n");
+  }
+
+  test_open := false;
+}
+
+
+/** Tests that a function ptr throws an exception when invoked
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+    @param testfunc Function ptr to invoked
+    @param annotation Message to display when the test fails
+    @return Returns the thrown exception
+*/
+PUBLIC OBJECT FUNCTION TestThrows(FUNCTION PTR testfunc, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  TRY
+  {
+    testfunc();
+    IF(annotation != "")
+      Print("\nAnnotation: " || annotation || "\n");
+
+    PRINT("Expected test at line " || GetStackTrace()[0].line || " to throw, but it didn't\n");
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN e;
+  }
+  PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+  THROW NEW TestFailException(annotation);
+}
+
+//Test specifically for the test exception
+PUBLIC OBJECT FUNCTION TestThrowsTestException(FUNCTION PTR testfunc, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  BOOLEAN savestate := expecttestexception;
+  TRY
+  {
+    expecttestexception := TRUE;
+
+    OBJECT exc := TestThrows(testfunc, annotation);
+    IF(exc EXTENDSFROM TestFailException)
+      RETURN exc;
+  }
+  FINALLY
+  {
+    expecttestexception := savestate;
+  }
+  IF(annotation != "")
+    Print("\nAnnotation: " || annotation || "\n");
+
+  PRINT("Expected test at line " || GetStackTrace()[0].line || " to throw a TestFailException, but it didn't\n");
+  PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+  THROW NEW TestFailException(annotation);
+}
+
+/** Tests if a function throws an exception that matches a LIKE mask
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+    @param testfunc Function to execute
+    @param mask Like mask
+    @param annotation Message to display when the test fails
+    @return Thrown exception
+*/
+PUBLIC OBJECT FUNCTION TestThrowsLike(STRING mask, FUNCTION PTR testfunc, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  TRY
+  {
+    BOOLEAN have_retval := ValidateFunctionPtr(testfunc, TypeID(VARIANT), INTEGER[]);
+    VARIANT retval := FALSE;
+    IF (have_retval)
+      retval := testfunc();
+    ELSE
+      testfunc();
+    PRINT("Expected test at line " || GetStackTrace()[0].line || " to throw, but it didn't\n");
+    IF(annotation != "")
+      Print("\nAnnotation: " || annotation || "\n");
+    IF(have_retval)
+      PRINT(`Return value:\n` || AnyToString(retval, "tree:3"));
+  }
+  CATCH (OBJECT e)
+  {
+    IF (e->what NOT LIKE mask)
+    {
+      IF(annotation != "")
+        Print("\nAnnotation: " || annotation || "\n");
+
+      PRINT("Expected a throw at line " || GetStackTrace()[0].line || " with a what like '"||mask||"', but it threw: '"||e->what||"'\nTrace:\n");
+      FOREVERY (RECORD rec FROM e->trace)
+        PRINT("At " || rec.filename || "(" || rec.line || "," || rec.col || ") (" || rec.func || ")\n");
+      PRINT("\n");
+      PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+      THROW NEW TestFailException(annotation);
+    }
+    RETURN e;
+  }
+  PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+  THROW NEW TestFailException(annotation);
+}
+
+/** Waits until a promise fulfulls, and tests if it is rejected
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+    @param promise Promise to test
+    @param annotation Message to display when the test fails
+    @return Returns the exception the promise was rejected with
+*/
+PUBLIC ASYNC FUNCTION TestRejected(OBJECT promise, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  TRY
+  {
+    AWAIT promise;
+
+    IF(annotation != "")
+      Print("\nAnnotation: " || annotation || "\n");
+
+    PRINT("Expected promise at line " || GetStackTrace()[0].line || " to be rejected, but it wasn't\n");
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN e;
+  }
+  PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+  THROW NEW TestFailException(annotation);
+}
+
+/** Compare two values by value
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+    @param expected Expected value
+    @param actual Gotten value
+    @param annotation Message to display when the test fails
+*/
+PUBLIC MACRO TestEq(VARIANT expected, VARIANT actual, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  InnerTestEqual(expected,actual,"", DEFAULT STRING ARRAY, annotation);
+}
+
+/** Compare specific cells of two values (recursive)
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+    @param expected Expected value
+    @param actual Gotten value
+    @param memberstext Comma-separated list of members to check. Use '*' as first member to match all, and `-<cellname>` to excluded members after that.
+    @param annotation Message to display when the test fails
+*/
+PUBLIC MACRO TestEqMembers(VARIANT expected, VARIANT actual, STRING memberstext, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  IF(Length(memberstext)=0)
+    THROW NEW Exception("The list of members to check cannot be empty");
+
+  STRING ARRAY members;
+  FOREVERY(STRING str FROM Tokenize(memberstext,','))
+  {
+    IF(str="*" AND #str!=0)
+      THROW NEW Exception("'*' must appear as first member");
+    IF(#str>0 AND members[0]="*" AND str NOT LIKE "-*")
+      THROW NEW Exception("'*' requires minus-members");
+    IF(str LIKE "-*")
+    {
+      IF('*' NOT IN members)
+        THROW NEW Exception("-CELLNAME requires a '*'");
+      str:=Substring(str,1);
+    }
+    INSERT ToUppercase(str) INTO members AT END;
+  }
+
+  InnerTestEqual(expected,actual,"", members, annotation);
+}
+
+/** Test if a value matches a LIKE mask
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+    @param mask Mask the value must match
+    @param actual Gotten value
+    @param annotation Message to display when the test fails
+*/
+PUBLIC MACRO TestEqLike(STRING mask, STRING actual, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  IF(actual NOT LIKE mask)
+  {
+    IF(annotation != "")
+      Print("\nAnnotation: " || annotation || "\n");
+
+    ReportError("Expected like: " || mask || "\nGot:           " || actual, DEFAULT RECORD ARRAY, annotation);
+  }
+}
+
+PUBLIC MACRO TestEqCanvas(STRING sourcepath, OBJECT gencanvas, FLOAT maxmse, STRING annotation DEFAULTSTO "")
+{
+  //ADDME Cache source versions between tests
+  OBJECT sourcecanvas := CreateCanvasFromBlob(GetDiskResource(sourcepath));
+
+  FLOAT mse := sourcecanvas->CompareWithCanvas(gencanvas);
+  IF(mse <= maxmse)
+    RETURN;
+
+  STRING basename := GetNameFromPath(sourcepath);
+
+  STRING basedir := GetTempDir();
+  STRING basecopy := basedir || "/" || basename || ".ref.png";
+  STRING gencopy := basedir || "/" || basename || ".gen.png";
+  STRING diffcopy := basedir || "/" || basename || ".gen.diff-alpha.png";
+  STRING diffnoalphacopy := basedir || "/" || basename || ".gen.diff-noalpha.png";
+
+  StoreDiskFile(gencopy, gencanvas->ExportAsPNG(FALSE));
+  StoreDiskFile(basecopy, GetDiskResource(sourcepath));
+
+  //create a difference version
+  gencanvas->blendmode := "DIFFERENCEALL";
+  gencanvas->DrawCanvas(sourcecanvas,0,0);
+  StoreDiskFile(diffcopy, gencanvas->ExportAsPNG(TRUE));
+
+  //clear alpha
+  gencanvas->blendmode := "COPYALPHA";
+  OBJECT clearingcanvas := CreateEmptyCanvas(gencanvas->width, gencanvas->height, ColorWhite);
+  gencanvas->DrawCanvas(clearingcanvas, 0,0);
+  StoreDiskFile(diffnoalphacopy, gencanvas->ExportAsPNG(TRUE));
+
+  Print("\n");
+  Print("Image compare failed. MSE = " || FormatFloat(mse,2) || ", maximum = " || FormatFloat(maxmse,2) || "\n");
+  Print("Reference version:  " || sourcepath || "\n");
+  Print("Generated version:  " || gencopy || "\n");
+  Print("Difference w/alpha: " || diffcopy || "\n");
+  Print("Difference opaque:  " || diffnoalphacopy || "\n");
+  IF(annotation!="")
+    Print("\n\n*** " || annotation || "\n\n");
+
+  THROW NEW Exception("Test failed");
+}
+
+PUBLIC BLOB FUNCTION TrimBLobWhitespace(BLOB indata)
+{
+  RETURN StringToBlob(trimWhitespace(blobtostring(indata,-1)));
+}
+
+PUBLIC BOOLEAN FUNCTION PrintDiffs(BLOB expected, BLOB actual)
+{
+  OBJECT differ := MakeTextDiffGenerator();
+  differ->LoadOldVersion(expected);
+  differ->LoadNewVersion(actual);
+
+  RECORD ARRAY diff := differ->GetDifferences();
+
+  IF (LENGTH(diff) != 0)
+  {
+    PRINT("--- expected\n+++ actual\n");
+    FOREVERY (RECORD x FROM diff)
+    {
+      PRINT("@@ -" || x.minstart + 1 || "," || x.minlines || " +" || x.plusstart + 1 || "," || x.pluslines  || " @@\n");
+      PRINT(Detokenize(x.lines, "\n") || "\n\n");
+    }
+    RETURN TRUE;
+  }
+  ELSE
+  {
+    RETURN FALSE;
+  }
+}
+
+PUBLIC MACRO TestEqTextBlob(BLOB expected, BLOB actual, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  expected := TrimBLobWhitespace(expected);
+  actual := TrimBLobWhitespace(actual );
+
+  IF(Length(expected)=Length(actual) AND GetHashforBlob(expected,"SHA-1") = GetHashforBlob(actual,"SHA-1"))
+    RETURN;
+
+  IF(PrintDiffs(expected,actual))
+  {
+    ReportError("TestEqTextBlob failed", DEFAULT RECORD ARRAY, annotation);
+  }
+  ELSE
+  {
+    ReportError("TestEqTextBlob failed, unable to find exact differences", DEFAULT RECORD ARRAY, annotation);
+  }
+}
+/** Test if a float value matches the expected value, with a specific maximum deviation
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+    @param expected Expected value
+    @param actual Gotten value
+    @param max_deviation Maximum allowed deviation from the expected value
+    @param annotation Message to display when the test fails
+*/
+PUBLIC MACRO TestEqFloat(FLOAT expected, FLOAT actual, FLOAT max_deviation, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  IF (abs(expected-actual) > max_deviation)
+    ReportError("Expected: " || FormatFloat(expected, 15) || "\nGot:      " || FormatFloat(actual, 15), DEFAULT RECORD ARRAY, annotation);
+}
+
+/** Tests if a CSS color matches the expected value
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+    @param expected Expected CSS color
+    @param actual Gotten CSS color
+    @param max_deviation Max deviation (differences per channel added together)
+    @param annotation Message to display when the test fails
+*/
+PUBLIC MACRO TestEqCSSColor(STRING expected, STRING actual, INTEGER max_deviation, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  INTEGER expcolor := GfxCreateColorFromCSS(expected);
+  INTEGER actcolor := GfxCreateColorFromCSS(actual);
+  RECORD expunpacked := GfxUnpackColor(expcolor);
+  RECORD actunpacked := GfxUnpackColor(actcolor);
+  INTEGER diff := Abs(expunpacked.r - actunpacked.r) + Abs(expunpacked.g - actunpacked.g) + Abs(expunpacked.b - actunpacked.b) + Abs(expunpacked.a - actunpacked.a);
+  IF(diff > max_deviation)
+    ReportError("Expected: #" || Right(ToString(expcolor, 16),6) || "\nGot:      #" || Right(ToString(actcolor, 16),6), DEFAULT RECORD ARRAY, annotation);
+}
+
+
+PUBLIC MACRO TestEqual(INTEGER testno, VARIANT expected, VARIANT actual) __ATTRIBUTES__(SKIPTRACE)
+{
+  TestEq(expected,actual);
+}
+
+MACRO InnerTestEqual(VARIANT expected, VARIANT actual, STRING path, STRING ARRAY members, STRING annotation) __ATTRIBUTES__(SKIPTRACE)
+{
+  IF (TypeId(expected) != TypeId(actual))
+  {
+    IF(annotation != "")
+      Print("\nAnnotation: " || annotation || "\n");
+
+    Print("Expected:\n" || AnyToString(expected,"boxed"));
+    Print("Actual:\n" || AnyToString(actual,"boxed"));
+    IF (path != "")
+      PRINT("Path: " || path || "\n");
+    ReportError("Expected: type " || GetTypeName(TypeId(expected)) || ", actual type: " || GetTypeName(TypeId(actual)) || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+  }
+
+  SWITCH(typeid(expected))
+  {
+    CASE TypeID(INTEGER), TypeID(INTEGER64)
+    {
+      IF(expected!=actual)
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Expected: " || expected || ", got: " || actual || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+    }
+    CASE TypeID(FLOAT)
+    {
+      IF (abs(expected - actual) > max_float_dev_in_recordarray)
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Expected: " || FormatFloat(expected, 15) || ", got: " || FormatFloat(actual, 15) || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+    }
+    CASE TypeID(MONEY)
+    {
+      IF(expected!=actual)
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Expected: " || FormatMoney(expected, 0, '.', '', false) || ", got: " || FormatMoney(actual, 0, '.', '', false) || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+    }
+    CASE TypeID(STRING)
+    {
+      IF(expected!=actual)
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Expected: '" || EncodeJava(expected) || "'\ngot:      '" || EncodeJava(actual) || "'" || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+    }
+    CASE TypeID(BOOLEAN)
+    {
+      IF(expected!=actual)
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Expected: " || (expected ? "TRUE" : "FALSE") || ", got: " || (actual ? "TRUE" : "FALSE") || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+    }
+    CASE TypeID(DATETIME)
+    {
+      IF(expected!=actual)
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+
+        STRING expectedtext := expected = MAX_DATETIME ? "MAX_DATETIME" : expected = DEFAULT DATETIME ? "DEFAULT DATETIME" : FormatDateTime("%Y-%m-%d %H:%M:%S.%Q", expected);
+        STRING actualtext := actual = MAX_DATETIME ? "MAX_DATETIME" : actual = DEFAULT DATETIME ? "DEFAULT DATETIME" : FormatDateTime("%Y-%m-%d %H:%M:%S.%Q", actual);
+        ReportError("Expected: " || expectedtext || ", got: " || actualtext || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+    }
+    CASE TypeID(OBJECT),  TypeID(WEAKOBJECT)
+    {
+      IF(expected!=actual)
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Expected: " || AnyToString(expected, "tree") || ", got: " || AnyToString(actual, "tree") || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+    }
+    CASE TypeID(BLOB)
+    {
+      IF(Length(expected) != Length(actual))
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Blobs are not of equal length, expected: " || Length(expected) || ", actual: " || Length(actual) || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+
+      BOOLEAN is_equal := LENGTH64(expected) < 1024*1024 AND LENGTH64(actual) < 1024*1024
+          ? BlobToString(expected) = BlobToString(actual)
+          : GetHashForBlob(expected, "SHA-256") = GetHashForBlob(actual, "SHA-256");
+
+      IF (NOT is_equal)
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Blobs are not equal" || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+    }
+    CASE TypeID(FUNCTION PTR)
+    {
+      IF (expected != DEFAULT FUNCTION PTR)
+        ReportError("Cannot compare with non-default function ptr" || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      IF (actual != DEFAULT FUNCTION PTR)
+        ReportError("Expected DEFAULT FUNCTION PTR, got: " || AnyToString(actual, "tree") || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+    }
+    CASE TypeID(RECORD)
+    {
+      IF (RecordExists(expected) AND NOT RecordExists(actual))
+      {
+        dumpcells(expected,actual);
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Expected: existing record, actual: non-existing record" || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+      IF (NOT RecordExists(expected) AND RecordExists(actual))
+      {
+        dumpcells(expected,actual);
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Expected: non-existing record, actual: existing record" || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+      }
+
+      RECORD ARRAY expected_cells := UnpackRecord(expected);
+      RECORD ARRAY actual_cells := UnpackRecord(actual);
+
+      IF("*" IN members)
+      {
+        DELETE FROM expected_cells WHERE name IN members;
+        DELETE FROM actual_cells WHERE name IN members;
+        DELETE FROM actual_cells WHERE name NOT IN (SELECT AS STRING ARRAY name FROM expected_cells);
+      }
+      ELSE IF(Length(members)>0)
+      {
+        DELETE FROM expected_cells WHERE name NOT IN members;
+        DELETE FROM actual_cells WHERE name NOT IN members;
+      }
+
+      //verify each cell in lhs with one in rhs
+      FOREVERY (RECORD curcell FROM expected_cells)
+      {
+        RECORD rhs_version := SELECT * FROM actual_cells WHERE actual_cells.name = curcell.name;
+        IF (NOT RecordExists(rhs_version) )
+        {
+          IF(expecttestexception)
+            THROW NEW TestFailException(annotation);
+
+          dumpcells(expected,actual);
+          IF(annotation != "")
+            Print("\nAnnotation: " || annotation || "\n");
+          ReportError("Expected: existing cell " || curcell.name || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+          CONTINUE;
+        }
+
+        VARIANT expectedval := GetCell(expected,curcell.name);
+        VARIANT actualval := GetCell(actual,curcell.name);
+        InnerTestEqual(expectedval, actualval, (path=""?"":path||".")||"\""||EncodeJava(curcell.name)||"\"", members, annotation); //ADDME: Make sure record context gets dumped on error!
+      }
+
+      //look if any cells existed in rhs that don't exist in lhs
+      FOREVERY (RECORD curcell FROM actual_cells)
+      {
+        RECORD lhs_version := SELECT * FROM expected_cells WHERE expected_cells.name = curcell.name;
+        IF (NOT RecordExists(lhs_version) )
+        {
+          dumpcells(expected,actual);
+          IF(annotation != "")
+            Print("\nAnnotation: " || annotation || "\n");
+          ReportError("Cell " || curcell.name || " unexpectedly exists" || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+        }
+      }
+    }
+    DEFAULT
+    {
+      IF(IsTypeIdArray(TypeId(expected)))
+      {
+        IF (Length(expected)!=Length(actual))
+        {
+          IF(expecttestexception)
+            THROW NEW TestFailException(annotation);
+          IF(annotation != "")
+            Print("\nAnnotation: " || annotation || "\n");
+          STRING mode := TypeID(expected) = TypeID(RECORD ARRAY) ? "boxed" : "tree:2";
+          Print("Expected:\n" || AnyToString(expected,mode));
+          Print("Actual:\n" || AnyToString(actual,mode));
+          ReportError("Expected: Array length mismatch (expected=" || Length(expected) || ", actual=" || Length(actual) || ")" || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+        }
+        FOR(INTEGER i := 0; i < Length(expected); i := i + 1)
+          InnerTestEqual(expected[i], actual[i], path||"["||i||"]", members, annotation);
+        RETURN;
+      }
+      PRINT("\nUnsupported TestEqual type " || typeid(expected) || (path!=""?" at " || path:"") || "\n");
+      PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+      THROW NEW TestFailException(annotation);
+    }
+  }
+}
+
+PUBLIC MACRO TestEqualInteger(INTEGER testno, INTEGER a, INTEGER b) __ATTRIBUTES__(SKIPTRACE)
+{
+  TestEq(a,b);
+}
+PUBLIC MACRO TestEqualMoney(INTEGER testno, MONEY a, MONEY b) __ATTRIBUTES__(SKIPTRACE)
+{
+  TestEq(a,b);
+}
+PUBLIC MACRO TestEqualFloat(INTEGER testno, FLOAT a, FLOAT b, FLOAT max_deviation DEFAULTSTO .0001) __ATTRIBUTES__(SKIPTRACE)
+{
+  IF (abs(a-b) > max_deviation)
+    ReportError("Expected: " || FormatFloat(a, 15) || ", got: " || FormatFloat(b, 15), DEFAULT RECORD ARRAY, "");
+}
+PUBLIC MACRO TestEqualString(INTEGER testno, STRING a, STRING b)
+{
+  TestEq(a,b);
+}
+PUBLIC MACRO TestEqualStringBinary(INTEGER testno, STRING expected, STRING actual) __ATTRIBUTES__(SKIPTRACE)
+{
+  IF(expected!=actual)
+    ReportError("Expected: '" || EncodeBase16(expected) || "', got: '" || EncodeBase16(actual) || "'", DEFAULT RECORD ARRAY, "");
+}
+PUBLIC MACRO TestEqualBoolean(INTEGER testno, BOOLEAN a, BOOLEAN b)
+{
+  TestEq(a,b);
+}
+PUBLIC MACRO TestEqualDateTime(INTEGER testno, DATETIME a, DATETIME b) __ATTRIBUTES__(SKIPTRACE)
+{
+  TestEq(a,b);
+}
+PUBLIC MACRO TestEqualBlob(INTEGER testno, BLOB a, BLOB b) __ATTRIBUTES__(SKIPTRACE)
+{
+  TestEq(a,b);
+}
+PUBLIC MACRO TestAssert(INTEGER testno, BOOLEAN to_assert, STRING if_failed) __ATTRIBUTES__(SKIPTRACE)
+{
+  IF(NOT to_assert)
+    ReportError("Assertion failed: " || if_failed, DEFAULT RECORD ARRAY,"");
+}
+
+MACRO dumpcells(RECORD expected, RECORD actual)
+{
+  PRINT("Expected:\n");
+  PrintrecordTo(0,expected,"boxed");
+  PRINT("Actual:\n");
+  PrintrecordTo(0,actual,"boxed");
+}
+
+PUBLIC MACRO TestEqualRecord(INTEGER testno, RECORD expected, RECORD actual) __ATTRIBUTES__(SKIPTRACE)
+{
+  TestEq( expected, actual);
+}
+
+MACRO dumpcellsarray(RECORD ARRAY expected, RECORD ARRAY actual)
+{
+  PRINT("Expected:\n");
+  PrintrecordarrayTo(0,expected,"boxed");
+  PRINT("Actual:\n");
+  PrintrecordarrayTo(0,actual,"boxed");
+}
+
+PUBLIC MACRO TestEqualRecordArray(INTEGER testno, RECORD ARRAY expected, RECORD ARRAY actual) __ATTRIBUTES__(SKIPTRACE)
+{
+  TestEq( expected, actual);
+}
+
+// Generate random text from www.loremipsum.net standard text
+STRING ARRAY loremipsum_words := ["accumsan", "ad", "adipiscing", "aliquam", "aliquip", "amet", "anteposuerit", "assum", "at", "augue", "autem", "blandit", "claram", "clari", "claritas", "claritatem", "commodo", "congue", "consectetuer", "consequat", "consuetudium", "cum", "decima", "delenit", "demonstraverunt", "diam", "dignissim", "dolor", "dolore", "doming", "duis", "dynamicus", "ea", "eleifend", "elit", "enim", "eodem", "eorum", "erat", "eros", "esse", "est", "et", "etiam", "eu", "euismod", "eum", "ex", "exerci", "facer", "facilisi", "facilisis", "facit", "feugait", "feugiat", "fiant", "formas", "futurum", "gothica", "habent", "hendrerit", "humanitatis", "id", "ii", "iis", "illum", "imperdiet", "in", "insitam", "investigationes", "ipsum", "iriure", "iusto", "laoreet", "lectores", "lectorum", "legentis", "legere", "legunt", "liber", "littera", "litterarum", "lius", "lobortis", "lorem", "luptatum", "magna", "mazim", "me", "minim", "mirum", "modo", "molestie", "mutationem", "nam", "nibh", "nihil", "nisl", "nobis", "non", "nonummy", "nostrud", "notare", "nulla", "nunc", "odio", "option", "parum", "per", "placerat", "possim", "praesent", "processus", "putamus", "quam", "quarta", "qui", "quinta", "quis", "quod", "saepius", "seacula", "sed", "sequitur", "sit", "sollemnes", "soluta", "suscipit", "tation", "te", "tempor", "tincidunt", "typi", "ullamcorper", "usus", "ut", "vel", "velit", "veniam", "vero", "videntur", "volutpat", "vulputate", "wisi", "zzril"];
+
+PUBLIC STRING FUNCTION GetLoremIpsum(INTEGER length_text, BOOLEAN start_loremipsum)
+{
+  STRING text;
+  INTEGER linesleft := Random(3,5);
+  IF (start_loremipsum)
+  {
+    text := "Lorem ipsum dolor sit amet";
+  }
+  WHILE (Length(text) < length_text)
+  {
+    STRING word := loremipsum_words[Random(0,Length(loremipsum_words)-1)];
+    IF (Random(0,12) = 0)
+    {
+      word := ToUppercase(Left(word,1)) || Right(word,Length(word)-1);
+      IF (Random(0,4) > 0)
+        text := text || ". ";
+      ELSE IF (Random(0,2) = 0)
+        text := text || "? ";
+      ELSE
+        text := text || "! ";
+
+      linesleft := linesleft - 1;
+      IF(linesleft=0)
+      {
+        text := text || "\n\n";
+        linesleft := Random(3,5);
+      }
+      text := text || word;
+    }
+    ELSE IF (Random(0,8) = 0)
+    {
+      IF (Random(0,8) = 0)
+        text := text || "; " || word;
+      ELSE
+        text := text || ", " || word;
+    }
+    ELSE
+      text := text || (Length(text) > 0 ? " " : "") || word;
+  }
+  text := text || ".";
+  RETURN text;
+}
+
+STRING FUNCTION BreakAtLength(STRING text, INTEGER maxlen)
+{
+  STRING withbreaks;
+  INTEGER start := 0;
+  INTEGER len := Length(text);
+  WHILE (len > maxlen)
+  {
+    len := maxlen;
+    WHILE (len > start AND Substring(text,len,1) NOT IN [' '])
+      len := len - 1;
+    IF (len <= start)
+      len := maxlen;
+    withbreaks := withbreaks || Substring(text,start,len) || "\n          ";
+    start := start + len;
+    len := Length(text) - start;
+  }
+  IF (len > 0)
+    withbreaks := withbreaks || Substring(text,start,len);
+  RETURN withbreaks;
+}
+
+PUBLIC BOOLEAN FUNCTION PrintHelp(RECORD ARRAY expected_args)
+{
+  STRING ARRAY args := GetConsoleArguments();
+  IF (Length(args) > 0 AND args[0] = '-?')
+  {
+    Print("Test arguments\n");
+    FOREVERY (RECORD arg FROM expected_args)
+    {
+      Print("\nArgument: " || arg.type || " " || (Length(arg.name) = 1 ? "-" : "--") || arg.name || (CellExists(arg, "required") AND arg.required ? " (required)" : "") || "\n");
+      IF (CellExists(arg, "description"))
+        Print("          " || BreakAtLength(arg.description, 67) || "\n");
+    }
+    RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+
+PRIVATE MACRO InnerTestEqualStructure(VARIANT expect, VARIANT input, STRING path, STRING annotation) __ATTRIBUTES__(SKIPTRACE)
+{
+  IF(TypeID(expect) != TypeID(input))
+  {
+    IF(expecttestexception)
+      THROW NEW TestFailException(annotation);
+
+    IF(annotation != "")
+      Print("\nAnnotation: " || annotation || "\n");
+
+    Print("Expected:\n" || AnyToString(expect,"boxed"));
+    Print("Actual:\n" || AnyToString(input,"boxed"));
+    ReportError("Expected: type " || GetTypeName(TypeId(expect)) || ", actual type: " || GetTypeName(TypeId(input)), DEFAULT RECORD ARRAY, annotation);
+  }
+
+  IF(IsTypeIDArray(TypeID(input)))
+  {
+    IF(TypeID(input)!=TYPEID(RECORD ARRAY))
+      RETURN;
+
+    IF(Length(expect) = 0)
+    {
+      IF(Length(input)=0)
+        RETURN; //okay
+      ReportError("If an empty record array is passed in Expect, the compared cannot contain data in that array", DEFAULT RECORD ARRAY, annotation);
+    }
+    IF(Length(expect) > 1) //selftest the array we got passed
+      InnerTestEqualStructure([RECORD(expect[0])], ArraySlice(expect,1), path || " expect selftest", annotation);
+
+    FOREVERY(VARIANT rec FROM input)
+      InnerTestEqualStructure(expect[0], rec, " (at index #" || #rec || " in an array of " || Length(input) || " records)", annotation);
+  }
+  ELSE
+  {
+    IF(TypeID(expect) NOT IN [ TypeID(RECORD), TypeID(RECORD ARRAY) ])
+      RETURN;/// Nothing to do here
+
+    FOREVERY(RECORD struct FROM UnpackRecord(expect))
+    {
+      IF(NOT CellExists(input, struct.name))
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Cell '" || struct.name || "' was expected, but not found in the given result record" || path, DEFAULT RECORD ARRAY, annotation);
+      }
+      IF(TypeID(struct.value) != TypeID(GetCell(expect, struct.name)))
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Expected cell '" || struct.name || "' to be of type " || GetTypeName(TypeID(GetCell(expect, struct.name))) || ", got " || GetTypeName(TypeID(struct.value)) || " instead" || path, DEFAULT RECORD ARRAY, annotation);
+      }
+      IF(TypeID(struct.value) = TypeID(RECORD ARRAY))
+      {
+        FOREVERY(RECORD rec FROM struct.value)
+          InnerTestEqualStructure(rec, GetCell(expect, struct.name)[0], path || " recursively within an array", annotation);
+      }
+    }
+
+    FOREVERY(RECORD struct FROM UnpackRecord(input))
+    {
+      IF(NOT CellExists(expect, struct.name))
+      {
+        IF(annotation != "")
+          Print("\nAnnotation: " || annotation || "\n");
+        ReportError("Cell '" || struct.name || "' found in the given result record, but not expected" || path, DEFAULT RECORD ARRAY, annotation);
+      }
+      InnerTestEqualStructure(GetCell(expect, struct.name), struct.value, path || "." || struct.name, annotation);
+    }
+  }
+}
+
+/** Tests if a value follows a structure
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+    @param expect Expected structure - only types of cells are used. Records should have a template structure
+    @param input Gotten value
+    @param annotation Message to display when the test fails
+    @see %EnforceStructure
+*/
+PUBLIC MACRO TestEqStructure(VARIANT expect, VARIANT input, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+{
+  InnerTestEqualStructure(expect, input, "", annotation);
+}
+

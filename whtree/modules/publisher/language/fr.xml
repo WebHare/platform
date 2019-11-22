@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="fr" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Merci de cocher la case ci-dessous</text>
+      <text tid="title">Vérification</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">Prochain</text>
+      <text tid="previouspage">Précédent</text>
+      <text tid="selectfile">Choisir le dossier</text>
+      <text tid="starsrequired">* indique un champ obligatoire</text>
+      <text tid="submit">Soumettre</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">Cette adresse est introuvable.</text>
+        <text tid="invalid_nr_detail">Numéro de maison avec ajout invalide.</text>
+        <text tid="invalid_zip">Code postal invalide.</text>
+        <text tid="zip_not_found">Combinaison inconnue de code postal et numéro de rue.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">Cette valeur doit être alphanumérique.</text>
+        <text tid="check">Vous devez sélectionner entre <param p="1"/> et <param p="2"/> choix.</text>
+        <text tid="default">Cette valeur semble non valide.</text>
+        <text tid="digits">Cette valeur doit être numérique.</text>
+        <text tid="email">Cette valeur n'est pas une adresse email valide.</text>
+        <text tid="email_baddomain">En raison de difficultés d'envoyer emails à <param p="1"/> adresses, nous vous demandons d'utiliser un autre fournisseur d'email.</text>
+        <text tid="email_suggestion">Cela devrait-il être <param p="1"/>?</text>
+        <text tid="equalto">Cette valeur devrait être identique.</text>
+        <text tid="integer">Cette valeur doit être un entier.</text>
+        <text tid="length">Cette valeur doit contenir entre <param p="1"/> et <param p="2"/> caractères.</text>
+        <text tid="max">Cette valeur ne doit pas excéder <param p="1"/>.</text>
+        <text tid="maxarray">Vous pouvez ajouter un maximum de <ifparam p="1" value="1">1 élément <else/><param p="1"/> éléments</ifparam>.</text>
+        <text tid="maxcheck">Vous devez sélectionner <param p="1"/> choix maximum.</text>
+        <text tid="maxlength">Cette chaîne est trop longue. Elle doit avoir au maximum <param p="1"/> caractères.</text>
+        <text tid="min">Cette valeur ne doit pas être inférieure à <param p="1"/>.</text>
+        <text tid="minarray">Il faut ajouter au moins <param p="1"/> éléments.</text>
+        <text tid="mincheck">Vous devez sélectionner au moins <param p="1"/> choix.</text>
+        <text tid="minlength">Cette chaîne est trop courte. Elle doit avoir au minimum <param p="1"/> caractères.</text>
+        <text tid="notblank">Cette valeur ne peut pas être vide.</text>
+        <text tid="number">Cette valeur doit être un nombre.</text>
+        <text tid="pattern">Cette valeur semble non valide.</text>
+        <text tid="range">Cette valeur doit être comprise entre <param p="1"/> et <param p="2"/>.</text>
+        <text tid="required">Ce champ est requis.</text>
+        <text tid="url">Cette valeur n'est pas une URL valide.</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

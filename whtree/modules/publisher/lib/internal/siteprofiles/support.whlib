@@ -1,0 +1,144 @@
+<?wh
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+PUBLIC RECORD FUNCTION CombinePartialNodes(RECORD ARRAY nodes)
+{
+  nodes := SELECT * FROM nodes WHERE RecordExists(nodes); //custom plugins currently wind up with 1 [DEFAULT RECORD] here
+
+  RECORD retval;
+  STRING ARRAY setfields;
+  FOREVERY(RECORD upd FROM nodes)
+  {
+    IF(#upd=0)
+    {
+      setfields := upd.__attributes;
+      retval := upd;
+      CONTINUE;
+    }
+    //later nodes, only update the values that were actually set
+    FOREVERY(STRING attr FROM upd.__attributes)
+      IF(CellExists(upd, attr))
+      {
+        IF(attr NOT IN setfields)
+          INSERT attr INTO setfields AT END;
+        retval := CellUpdate(retval, attr, GetCell(upd, attr));
+      }
+  }
+  DELETE CELL __attributes FROM retval;
+  INSERT CELL __setfields := setfields INTO retval;
+
+  INSERT CELL setattributes := retval.__setfields INTO retval;
+  DELETE CELL __setfields, __location FROM retval;
+  RETURN retval;
+}
+
+
+PUBLIC INTEGER FUNCTION GetFSMemberTypeID(STRING membertypename)
+{
+  RETURN SearchElement(whconstant_whfstype_membertypes, ToLowercase(membertypename));
+}
+PUBLIC STRING FUNCTION GetFSMemberTypeName(INTEGER membertypeid)
+{
+  IF(membertypeid >=0 AND membertypeid < Length(whconstant_whfstype_membertypes))
+    RETURN whconstant_whfstype_membertypes[membertypeid];
+  ELSE
+    RETURN "";
+}
+
+PUBLIC RECORD FUNCTION GetFSTypeBase()
+{
+  RETURN CELL [ cloneoncopy := TRUE, isfiletype := FALSE, isfoldertype := FALSE, orphan := FALSE
+              , isacceptableindex := FALSE, needsprofile := FALSE
+              , needstemplate := FALSE, ispublishable := FALSE, ispublishedassubdir := FALSE
+              , generatepreview := FALSE, previewobjectname:="", previewlibrary := "", searchprovider := ""
+              , isdynamicexecution := FALSE, capturesubpaths := FALSE
+              ];
+}
+/* basic types */
+PUBLIC RECORD FUNCTION GetBaseFiletypeRecord()
+{
+  RETURN [ tolliumicon := ""
+         , title := ""
+         , extensions := DEFAULT STRING ARRAY
+         , blobiscontent := FALSE
+         , pagelistprovider := ""
+  //       , needstemplate := FALSE
+  //       , needsprofile := FALSE
+         , requirescontent := FALSE
+         , isdevelopertype := FALSE
+  //       , isacceptableindex := FALSE
+  //       , ispublishedassubdir := FALSE
+  //       , ispublishable := FALSE
+         , dynamicexecution := DEFAULT RECORD
+         , isembeddedobjecttype := FALSE
+         , generatepreview := FALSE
+         , previewlibrary := ""
+         , previewobjectname := ""
+         , searchprovider := ""
+         , siteprofile := ""
+         , line := 0
+         ];
+}
+
+PUBLIC RECORD FUNCTION MakePluginRecord(STRING objectname)
+{
+  RETURN [ objectname := objectname
+         , name := ""
+         , namespace := ""
+         , hooksplugins := DEFAULT RECORD ARRAY
+         , hooksfeatures := DEFAULT STRING ARRAY
+         ];
+}
+
+PUBLIC RECORD FUNCTION InstantiatePlugin(RECORD plugin)
+{
+  INSERT CELL combine := TRUE
+            , wittyname := ""
+            , data := DEFAULT RECORD
+         INTO plugin;
+  RETURN plugin;
+}
+
+PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
+{
+  IF(type NOT IN ["embeddedobjecttype", "rtdtype", "contenttype", "maildesigntype", "widgettype"])
+    THROW NEW Exception("Invalid type '" || type || "'");
+
+  RETURN [ id := 0
+         , namespace := ""
+         , type := type
+         , siteprofile :=        ""
+         , line := 0
+         , col := 0
+         , title := ""
+         , tolliumicon := ""
+         , groupmemberships := DEFAULT RECORD ARRAY
+         , isembeddedobjecttype := type = "embeddedobjecttype" OR type="widgettype"
+         , isrtdtype := type = "rtdtype"
+         , wittycomponent := ""
+         , previewcomponent := ""
+         , fstype := GetFSTypeBase()
+         , filetype := DEFAULT RECORD
+         , foldertype := DEFAULT RECORD
+         ];
+}
+
+PUBLIC RECORD FUNCTION MakeBaseSiteprofileXMLStructure()
+{
+  RETURN MakeMergedRecord(MakeBasicTypeInfo("rtdtype"),
+         [ structuredef := DEFAULT BLOB
+         , structure := DEFAULT RECORD
+         , cssfiles := DEFAULT RECORD ARRAY
+         , limitlinksroots := DEFAULT INTEGER ARRAY
+         , css := ""
+         , htmlclass := ""
+         , bodyclass := ""
+         , allowedobjects := DEFAULT RECORD ARRAY
+         , allownewwindowlinks := FALSE
+         , ignoresiteprofilewidgets := FALSE
+         , applytester := DEFAULT OBJECT
+         , limitinternallinksnode := DEFAULT OBJECT
+         , linkhandlers := DEFAULT RECORD
+         , margins := ""
+         ]);
+}

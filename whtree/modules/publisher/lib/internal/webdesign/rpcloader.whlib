@@ -1,0 +1,40 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/harescript.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+
+PUBLIC RECORD FUNCTION JSBridge_GetServiceInfo(STRING service)
+{
+  STRING modulename := Tokenize(service, ":")[0];
+  STRING servicename := Substring(service, Length(modulename) + 1);
+
+  RECORD serviceinfo := GetServiceDefinition(modulename, servicename);
+  IF (NOT RecordExists(serviceinfo))
+    THROW NEW RPCInvalidArgsException(`Service '${service}' not found`);
+  IF ("jsonrpc" NOT IN serviceinfo.transports)
+    THROW NEW RPCInvalidArgsException(`Service '${service}' doesn't support JSONRPC`);
+
+  STRING librarypath;
+  TRY
+  {
+    librarypath := GetWebHareResourceDiskPath(serviceinfo.library);
+  }
+  CATCH (OBJECT e) {}
+  BLOB librarydata := GetHarescriptResource(serviceinfo.library);
+  RECORD libraryinfo := ParseHareScriptFileDocumentation(librarydata);
+
+  RECORD ARRAY functions :=
+      SELECT name := Substring(name, Length(serviceinfo.prefix))
+           , type
+           , arguments := (SELECT name
+                                , type
+                             FROM arguments)
+        FROM libraryinfo.functions
+       WHERE ispublic
+             AND ToUppercase(name) LIKE ToUppercase(serviceinfo.prefix||"*");
+
+  RETURN [ functions := functions
+         , diskpath := librarypath
+         ];
+}

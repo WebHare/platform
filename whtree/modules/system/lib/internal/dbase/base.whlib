@@ -1,0 +1,45 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+
+RECORD exceptions := [ requiresexplicit := "This command requires an explicitly opened transaction/work"
+                     ];
+
+/** @topic database/webharedb
+    @public
+    @loadlib mod::system/lib/database.whlib
+*/
+PUBLIC OBJECTTYPE WebhareDBException EXTEND Exception
+<
+  STRING type;
+
+  MACRO NEW(STRING type, STRING text)
+  : Exception(text = "" ? GetCell(exceptions, type) : text)
+  {
+    this->type := type;
+  }
+
+  BOOLEAN FUNCTION IsRequiresExplicitTransaction()
+  {
+    RETURN this->type="requiresexplicit";
+  }
+
+  BOOLEAN FUNCTION IsNoSuchName()
+  {
+    RETURN this->type="nosuch";
+  }
+>;
+
+/** Returns the database type of the WebHare database
+    @return Database type, one of "wbdb", "postgresql".
+    @topic database/webharedb
+    @public
+    @loadlib mod::system/lib/database.whlib
+*/
+PUBLIC STRING FUNCTION GetDatabaseType()
+{
+  IF (GetEnvironmentVariable("__WEBHARE_DBASE") = "postgresql")
+    RETURN "postgresql";
+  RETURN "whdb";
+}

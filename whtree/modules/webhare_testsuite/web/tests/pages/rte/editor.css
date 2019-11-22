@@ -1,0 +1,51 @@
+/* Global page, HTML5 setup, style reset */
+html, body, p, h1, h2, h3, h4, h5, h6, form { padding:0; margin:0; }
+img { border:none; }
+article, aside, details, figcaption, figure, footer, header, hgroup, main, nav, section, summary { display: block; }
+audio, canvas, video { display: inline-block; }
+datalist, template { display:none; }
+
+*, *:before, *:after
+{
+  -webkit-box-sizing: border-box; /* Android 2.3 still requires this */
+  -moz-box-sizing: border-box; /* For people still running firefox 24ESR */
+  box-sizing: border-box;
+}
+
+/* Defaults */
+html
+{
+  font: 10pt/17px Arial, Sans-Serif;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+body
+{
+  -webkit-text-size-adjust: none;
+  -ms-text-size-adjust: none;
+  -moz-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+
+.wh-rtd h1.heading1
+{
+  font:bold 16px Verdana;
+  margin: 10px 0;
+  color:#dddddd;
+}
+.wh-rtd h1.heading2
+{
+  font:bold 14px Verdana;
+  margin: 10px 0;
+  color:#dddddd;
+}
+.wh-rtd p.normal
+{
+  font-weight:normal;
+}
+.wh-rtd p.mystyle
+{
+  font-weight:bold;color:#ff0000;
+}

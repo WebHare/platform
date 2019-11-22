@@ -1,0 +1,1766 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/rtd.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdtype.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+MACRO TestSchema()
+{
+  testfw->BeginWork();
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  TestEq("mod::system/lib/testframework.whlib#testframework#cleanuptests", schemaobj->creationsource);
+  TestEq(TRUE, schemaobj->creationdate != DEFAULT DATETIME);
+
+  TestEq(FALSE, MemberExists(schemaobj->^wrd_person, "CreateEntity2"));
+
+  OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
+  TestEq(TRUE, MemberExists(persontype, "CreateEntity2"), 'accessing ->types-> should not cause gettypebytag to return api2017 types');
+
+  TestThrows(PTR persontype->DeleteAttribute("WRD_FIRSTNAME"));
+  TestThrows(PTR persontype->UpdateAttributeMetadata("WRD_CONTACT_PHONE_XX", [tag := "" ]));
+  TestThrows(PTR persontype->UpdateAttributeMetadata("WRD_CONTACT_PHONE_XX", [tag := "WRD_CONTACT_PHONE" ]));
+
+  TestEq(TRUE, RecordExists(persontype->GetAttributeInfoByTag("WRD_CONTACT_PHONE")));
+  persontype->DeleteAttribute("WRD_CONTACT_PHONE");
+  TestEq(FALSE, RecordExists(persontype->GetAttributeInfoByTag("WRD_CONTACT_PHONE")));
+
+  TestThrows(PTR persontype->DeleteAttribute("WRD_CONTACT_PHONE"));
+  persontype->UpdateAttributeMetadata("WRD_CONTACT_PHONE_XX", [tag := "WRD_CONTACT_PHONE" ]);
+  TestEq(TRUE, RecordExists(persontype->GetAttributeInfoByTag("WRD_CONTACT_PHONE")));
+  TestEq(FALSE, RecordExists(persontype->GetAttributeInfoByTag("WRD_CONTACT_PHONE_XX")));
+
+  // Test all fields
+  INTEGER testpersonid := persontype->LookupEntity("WRD_CONTACT_EMAIL", "other@example.com");
+  OBJECT testpersonobj := persontype->GetEntity(testpersonid);
+
+  RECORD testpersonrec;
+  testpersonrec := persontype->GetEntityFields(testpersonid, [ "*" ]);
+
+  TestEq(domain1value1->id, testpersonrec.test_single_domain);
+  TestEq("Free field", testpersonrec.test_free);
+  //FIXME TestEq(addressrec, testpersonrec.test_address);
+  TestEq("email@example.com", testpersonrec.test_email);
+  TestEq("012-3456789", testpersonrec.test_phone);
+  TestEq(MakeDate(2006, 1, 1), testpersonrec.test_date);
+  // Test TEST_PASSWORD (FIXME => Create a password, test with login functions)
+  TestEq(SortArray([ INTEGER(domain2value3->id) ]), SortArray(testpersonrec.test_multiple_domain));
+  BLOB testimage_blob := testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/goudvis.png");
+  TestEq(testimage_blob, testpersonrec.test_image.data);
+  TestEq(TRUE, CellExists(testpersonrec.test_image, "IMAGEID"));
+  TestEq(TRUE, CellExists(testpersonrec.test_file, "FILEID"));
+  TestEq(MakeTime (15, 24, 34), testpersonrec.test_time);
+  TestEq(MakeDateTime (2006, 1, 1, 15, 24, 34), testpersonrec.test_datetime);
+  TestEq(150.0, testpersonrec.test_money);
+  TestEq(5, testpersonrec.test_integer);
+  TestEq(TRUE, testpersonrec.test_boolean);
+
+  TestEq(TypeID(RECORD ARRAY), TypeID(testpersonrec.test_array));
+  TestEq(2, Length(testpersonrec.test_array));
+  TestEq(1, testpersonrec.test_array[0].test_int);
+  TestEq(TRUE, CellExists(testpersonrec.test_array[0], "WRD_SETTINGID"));
+  TestEq(12, testpersonrec.test_array[1].test_int);
+  TestEq("Free", testpersonrec.test_array[0].test_free);
+  TestEq("Willy!", testpersonrec.test_array[1].test_free);
+  TestEq(0, LENGTH(testpersonrec.test_array[0].test_array2));
+  TestEq(2, LENGTH(testpersonrec.test_array[1].test_array2));
+  TestEq(6, testpersonrec.test_array[1].test_array2[0].test_int2);
+  TestEq(10, testpersonrec.test_array[1].test_array2[1].test_int2);
+
+  TestEq(addressrec.country, testpersonrec.test_address.country);
+  TestEq("Netherlands", testpersonrec.test_address.country_full);
+
+  schemaobj := OpenWRDSchema(schemaobj->id, "en");
+
+  TestThrows(PTR persontype->RunQuery( [ outputcolumns := ["test_free#wrd_limitdate"] ] ));
+  TestThrows(PTR persontype->RunQuery( [ outputcolumns := ["test_array.test_single"] ] ));
+
+  schemaobj := OpenWRDSchema(schemaobj->id, "nl");
+  persontype := schemaobj->GetTypeByTag("WRD_PERSON");
+  testpersonrec := persontype->GetEntityFields(testpersonid, [ "TEST_ADDRESS" ]);
+  TestEq("Nederland", testpersonrec.test_address.country_full);
+
+  schemaobj := OpenWRDSchema(schemaobj->id, "DE");
+  persontype := schemaobj->GetTypeByTag("WRD_PERSON");
+  testpersonrec := persontype->GetEntityFields(testpersonid, [ "TEST_ADDRESS" ]);
+  TestEq("Niederlande", testpersonrec.test_address.country_full);
+
+  // Test source_fsobjects in images/files
+  OBJECT destlink := OpenTestsuitesite()->OpenByPath("/testpages/imgeditfile.jpeg");
+  RECORD testimage := WrapBlob(testimage_blob,"goudvis.png");
+  RECORD testfile := [ data := DEFAULT BLOB
+                     , mimetype := "application/msword"
+                     , filename := "testfile.doc"
+                     , extension := "doc"
+                     ];
+
+  testimage.source_fsobject := destlink->id;
+  INSERT CELL source_fsobject := destlink->id INTO testfile;
+
+
+  persontype->GetEntity(testpersonid)->UpdateFields([ test_image := testimage, test_file := testfile ]);
+  TestEq(destlink->id, persontype->GetEntity(testpersonid)->GetField("TEST_IMAGE").source_fsobject);
+  TestEq(destlink->id, persontype->GetEntity(testpersonid)->GetField("TEST_FILE").source_fsobject);
+
+
+  testpersonobj->DeleteEntity();
+  testfw->CommitWork();
+}
+
+MACRO TestAddress()
+{
+  RECORD ARRAY list := GetCountryList(["en","nl","de"]);
+  TestEq([code := "AF", de := "Afghanistan", en := "Afghanistan", nl := "Afghanistan"], list[2]);
+  TestEq([code := 'NL', de := "Niederlande" ,en := "Netherlands", nl := "Nederland"], RECORD(SELECT * FROM list WHERE code="NL"));
+
+  list := GetWRDCountryList("nl","nl");
+  TestEq([code := '', isempty := TRUE, selected := FALSE, title := ''], list[0]);
+  TestEq([code := 'NL', isempty := FALSE, selected := TRUE, title := 'Nederland'], RECORD(SELECT * FROM list WHERE code="NL"));
+  list := GetWRDCountryList("En","NL");
+  TestEq([code := 'NL', isempty := FALSE, selected := TRUE, title := 'Netherlands'], RECORD(SELECT * FROM list WHERE code="NL"));
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  TestEq([code := "NL", country := "Netherlands"], RECORD(SELECT * FROM schemaobj->GetCountryListing() WHERE code="NL"));
+}
+
+MACRO ImageCache()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+  STRING baseurl := OpenTestsuitesite()->webroot;
+
+  BLOB testimage_blob := testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/goudvis.png");
+  INTEGER entityid1 := wrdperson->CreateEntity2([ test_image := WrapBlob(testimage_blob,"")
+                                               ] )->id;
+  INTEGER entityid2 := wrdperson->CreateEntity2([ test_array := [ [ test_image := WrapBlob(testimage_blob,"") ], DEFAULT RECORD ]
+                                               ] )->id;
+
+  RECORD entity := wrdperson->RunQuery( [ outputcolumns := [ imageid := "TEST_IMAGE.IMAGEId", arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID" ]
+                                        , filters := [[ field := "WRD_ID", value := entityid1 ]
+                                                     ]
+                                        ]);
+  TestEq(TRUE, entity.imageid != 0);
+  INTEGER entityid1_imageid := entity.imageid;
+  TestEq(0, Length(entity.arrayimages));
+
+  entity := wrdperson->RunQuery( [ outputcolumns := [ imageid := "TEST_IMAGE.IMAGEID", arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID", test_array := "TEST_ARRAY" ]
+                                 , filters := [[ field := "WRD_ID", value := entityid2 ]
+                                              ]
+                                 ]);
+
+  TestEq(TRUE, entity.imageid = 0);
+  TestEq(2, Length(entity.arrayimages));
+  TestEq(TRUE, entity.arrayimages[0]!=0);
+  TestEq(0, entity.arrayimages[1]);
+
+  testfw->CommitWork();
+
+  STRING legacy_imagelink := GetCachedWRDImageURL(baseurl, entityid1_imageid, [method := "none"]);
+  STRING imagelink := GetCachedImageLink(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "none", baseurl := baseurl ]);
+  TestEq(imagelink, Substitute(legacy_imagelink, "data.png", "noname.png"));
+
+  RECORD wrappedinfo := GetWrappedSourceFromURL(imagelink);
+  TestEq('noname.png', wrappedinfo.filename);
+  TestEq(385, wrappedinfo.width);
+}
+
+MACRO TestTitleAttr()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
+  TestEq(TRUE, RecordExists(persontype->GetAttributeInfoByTag("WRD_TITLE")));
+  TestEq(TRUE, persontype->GetAttributeInfoByTag("WRD_TITLE").isreadonly);
+
+  schemaobj->CreateRelationType("Custom relation type","","CUSTOMTYPE");
+  OBJECT customrelationtype := schemaobj->GetTypeByTag("CUSTOMTYPE");
+
+  //In HEAD, we stopped doing this. Please create your own WRD_TITLE attribute and let it materialize or use a translator...
+  TestEq(FALSE, RecordExists(customrelationtype->GetAttributeInfoByTag("WRD_TITLE")));
+  OBJECT customrelationtype_2017 := schemaobj->^customtype;
+  RECORD attr := customrelationtype->CreateAttribute("FREE", "Title",   "", "WRD_TITLE", "");
+  TestEq(TRUE, CellExists(attr,'attributeid'));
+
+  TestEq(TRUE, RecordExists(customrelationtype->GetAttributeInfoByTag("WRD_TITLE")));
+  TestEq(TRUE, RecordExists(customrelationtype_2017->GetAttribute("WRD_TITLE")), "New attribute should also be reflected to 2017 type");
+  TestEq(FALSE, customrelationtype->GetAttributeInfoByTag("WRD_TITLE").isreadonly);
+
+  INTEGER entid := customrelationtype->CreateEntity2([wrd_title:="that's my name"])->id;
+  TestEq([wrd_title:="that's my name"], customrelationtype->GetEntityFields(entid, ["WRD_TITLE"]));
+  TestEq(entid, customrelationtype->LookupEntity("WRD_TITLE","THAT'S MY NAME",FALSE));
+
+  testfw->CommitWork();
+}
+
+MACRO TestGenderDomain()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
+  RECORD ARRAY genderdomain := persontype->ListDomVals("WRD_GENDER");
+  TEstEq(2,Length(genderdomain));
+
+  testfw->CommitWork();
+}
+
+MACRO TestDomains()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT newdomain := schemaobj->CreateDomainType("Timed domain", "", "TIMEDDOMAIN");
+  INTEGER obsoleteid := newdomain->CreateEntity2( [ wrd_tag := "DOMVAL", wrd_title := "Expired value", wrd_creationdate := MakeDate(2001,1,1), wrd_limitdate := MakeDate(2010,1,1) ])->id;
+  INTEGER workingid  := newdomain->CreateEntity2( [ wrd_tag := "DOMVAL", wrd_title := "Working value", wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ])->id;
+  INTEGER otherid    := newdomain->CreateEntity2( [ wrd_tag := "OTHER",  wrd_title := "Other value" ])->id;
+
+  TestEq(workingid, newdomain->LookupEntity("WRD_TITLE", "Working value"));
+  TestEq(0, newdomain->LookupEntity("WRD_TITLE", "Expired value"));
+
+  OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
+  persontype->CreateAttribute("DOMAIN_SINGLE", "Timed value",   "", "TIMEDVALUE", "TIMEDDOMAIN");
+  persontype->CreateAttribute("DOMAIN_SINGLE", "Non-domain value", "", "NONDOMAINVALUE", "WRD_PERSON");
+  TestEq(2, Length(persontype->ListDomVals("TIMEDVALUE")));
+  TestEq(FALSE, RecordExists(SELECT FROM persontype->ListDomVals("TIMEDVALUE") WHERE title = "Expired value"));
+
+  TestEq("DOMVAL", persontype->GetDomValTag("TIMEDVALUE", obsoleteid));
+  TestEq("DOMVAL", persontype->GetDomValTag("TIMEDVALUE", workingid));
+  TestEq("Expired value", persontype->GetDomValTitle("TIMEDVALUE", obsoleteid));
+  TestEq("Working value", persontype->GetDomValTitle("TIMEDVALUE", workingid));
+  TestEq(["Expired value","Working value"], persontype->GetDomValTitles("TIMEDVALUE", [obsoleteid, workingid]));
+  TestEq(workingid, persontype->GetDomVal("TIMEDVALUE", "DOMVAL"));
+  TestEq("", persontype->GetDomValTag("TIMEDVALUE", 0));
+  TestEq("", persontype->GetDomValTitle("TIMEDVALUE", 0));
+  TestEq(["","DOMVAL"], persontype->GetDomValTags("TIMEDVALUE", [0,workingid]));
+
+
+  // Test mismatching
+  OBJECT testperson := persontype->CreateEntity2([wrd_contact_email:="testmismatch@example.com", wrd_firstname := "Test", wrd_lastname := "Mismatch"]);
+  TestThrows(PTR testperson->UpdateFields( [ test_single_domain := testperson->id ]));
+  TestThrows(PTR testperson->UpdateFields2( [ test_single_domain := testperson->id ]));
+  // Test mismatching in arrays
+  TestThrows(PTR testperson->UpdateFields2( [ test_array := [[ test_single := testperson->id ]]] ));
+
+  testfw->CommitWork();
+
+  // GetDomVal should also work on non-domains
+  testfw->BeginWork();
+  testperson->UpdateFields2([ wrd_tag := "NONDOMAINTEST" ]);
+  TestEq(testperson->id, persontype->GetDomVal("NONDOMAINVALUE", "NONDOMAINTEST"));
+  TestEq("NONDOMAINTEST", persontype->GetDomValTag("NONDOMAINVALUE", testperson->id));
+  TestEq("Test Mismatch", persontype->GetDomValTitle("NONDOMAINVALUE", testperson->id));
+  TestEq(2, Length(persontype->ListDomVals("NONDOMAINVALUE")));
+  testfw->RollbackWork();
+
+  // Domain value caches should update
+  testfw->BeginWork();
+  newdomain->GetEntity(workingid)->UpdateFields2([ wrd_title := "Working value - crispy" ]);
+  TestEq("Working value - crispy", persontype->GetDomValTitle("TIMEDVALUE", workingid));
+  testfw->CommitWork();
+  TestEq("Working value - crispy", persontype->GetDomValTitle("TIMEDVALUE", workingid));
+
+  // On rollback, they shouldn't keep the changes
+  testfw->BeginWork();
+  newdomain->GetEntity(workingid)->UpdateFields2([ wrd_title := "Working value - extra crispy" ]);
+  TestEq("Working value - extra crispy", persontype->GetDomValTitle("TIMEDVALUE", workingid));
+  testfw->RollbackWork();
+  //FIXME TestEq("Working value - crispy", persontype->GetDomValTitle("TIMEDVALUE", workingid), "Domain value cache not invalidated at rollback");
+
+  testfw->BeginWork();
+  testperson->DeleteEntity();
+  persontype->DeleteAttribute("TIMEDVALUE");
+  persontype->DeleteAttribute("NONDOMAINVALUE");
+  newdomain->DeleteAllEntities();
+  newdomain->DeleteSelf();
+  testfw->CommitWork();
+}
+
+MACRO RichDoc()
+{
+  testfw->BeginWork();
+  OBJECT destlink  := OpenTestsuiteSite()->OpenByPath("tmp")->EnsureFile([name := "destlink"]);
+  OBJECT destlink2 := OpenTestsuiteSite()->OpenByPath("tmp")->EnsureFile([name := "destlink2"]);
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+
+  INTEGER testpersonid := wrdperson->CreateEntity2([wrd_contact_email:="richdoc@example.com"])->id;
+  OBJECT testpersonobj := wrdperson->GetEntity(testpersonid);
+  TestEq(TRUE, ObjectExists(testpersonobj));
+
+  OBJECT myrichdoc := NEW RichDocument;
+  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  RECORD myrichexp := myrichdoc->ExportAsRecord();
+
+  testpersonobj->UpdateFields([ richie := myrichexp
+                              , testinstance := [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
+                                                , id := "TestInstance-1"
+                                                , fsref := destlink->id
+                                                ]
+                              , testintextlink := [ internallink := destlink->id, externallink := "", append := "#bla" ]
+                              ] );
+  //ensure updating works
+  testpersonobj->UpdateFields([ testintextlink := [ internallink := destlink->id, externallink := "", append := "" ]
+                              ] );
+  testpersonobj->UpdateFields([ testintextlink := [ internallink := destlink->id, externallink := "", append := "#test" ]
+                              ] );
+  testfw->CommitWork();
+
+  RECORD org_testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE", "TESTINSTANCE", "TESTINTEXTLINK"]);
+  RECORD testrec1 := org_testrec1;
+
+  BLOB fragment := GetRichDocumentAsHtmlFragment(testrec1.richie);
+
+  FOREVERY (RECORD rec FROM testrec1.richie.embedded)
+    TestEQ(TRUE, CellExists(rec, "WRD_SETTINGID"));
+
+  myrichexp.embedded := RecurseDeleteSettingIds(myrichexp.embedded, ["HASH", "LINK"]);
+  testrec1.richie.embedded  := RecurseDeleteSettingIds(testrec1.richie.embedded,  ["HASH", "LINK"]);
+  TestEq(myrichexp, testrec1.richie);
+  TestTestInstance(testrec1.testinstance);
+  TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, testrec1.testintextlink.internallink);
+  TestEq("#test", testrec1.testintextlink.append);
+
+  RECORD ARRAY queryres := wrdperson->RunQuery( [ outputcolumns := [ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]
+                                                , filters := [[ field := "WRD_ID", value := testpersonid ]]
+                                                ]);
+  TestEq(1,Length(queryres));
+
+  FOREVERY (RECORD rec FROM queryres[0].richie.embedded)
+  {
+    TestEq(TRUE, CellExists(rec, "WRD_SETTINGID"));
+    TestEq(TRUE, CellExists(rec, "__BLOBSOURCE"));
+  }
+
+  queryres[0].richie.embedded := RecurseDeleteSettingIds(queryres[0].richie.embedded, ["HASH", "LINK"]);
+  TestEq(myrichexp, queryres[0].richie);
+  TEstTestInstance( queryres[0].testinstance);
+  TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, queryres[0].testintextlink.internallink);
+  TestEq("#test", queryres[0].testintextlink.append);
+
+  /* Change only the htmltext, to make sure it's being detected */
+  testfw->BeginWork();
+  myrichexp.htmltext := StringToBlob("!!!" || BlobToString(myrichexp.htmltext,-1));
+  testpersonobj->UpdateFields([ richie := myrichexp ] );
+  RECORD org_testrec3 := wrdperson->GetEntityFields(testpersonid, ["RICHIE"]).richie;
+  RECORD testrec3 := org_testrec3;
+  testrec3.embedded := RecurseDeleteSettingIds(testrec3.embedded, ["HASH", "LINK"]);
+  TestEq(myrichexp, testrec3);
+//  TestEq(org_testrec1.embedded, org_testrec3.embedded); // Stability of image ids - not implemented.
+
+  /* Now try updating it without images */
+  myrichdoc->ImportFromPlainText("Hi Everybody!");
+  myrichexp := myrichdoc->ExportAsRecord();
+  testpersonobj->UpdateFields([ richie := myrichexp ] );
+  testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE"]).richie;
+  TestEq(myrichexp, testrec1);
+
+  /* Again, change only the htmltext, to make sure it's being detected */
+  myrichexp.htmltext := StringToBlob("!!!" || BlobToString(myrichexp.htmltext,-1));
+  testpersonobj->UpdateFields([ richie := myrichexp ] );
+  testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE"]).richie;
+  TestEq(myrichexp, testrec1);
+
+  // Let the link point to destlink2, delete it. Then reset the link to destlink
+  // (was regression: could not store extlinks after delete)
+  testpersonobj->UpdateFields([ testintextlink := [ internallink := destlink2->id, externallink := "", append := "" ]
+                              ] );
+  OpenTestsuiteSite()->OpenByPath("tmp/destlink2")->DeleteSelf();
+  testpersonobj->UpdateFields([ testintextlink := [ internallink := destlink->id, externallink := "", append := "" ]
+                              ] );
+  TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, wrdperson->GetEntity(testpersonid)->GetField("TESTINTEXTLINK").internallink);
+
+  // Are source_fsobjects in embedded images stored?
+  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  myrichexp := myrichdoc->ExportAsRecord();
+  myrichexp.embedded[0].source_fsobject := destlink->id;
+  testpersonobj->UpdateFields([ richie := myrichexp ] );
+  TestEq(destlink->id, testpersonobj->GetField("RICHIE").embedded[0].source_fsobject);
+
+  testfw->CommitWork();
+}
+
+MACRO RichDocEmbed()
+{
+  testfw->BeginWork();
+
+  OBJECT destlink := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink"]);
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+
+  INTEGER testpersonid := wrdperson->CreateEntity2([wrd_contact_email:="richdocembedded2@example.com"])->id;
+  OBJECT testpersonobj := wrdperson->GetEntity(testpersonid);
+
+  /* Add a RTD with embedded objects */
+  RECORD withembedded := wrdtest_withembedded;
+
+  INTEGER destlinkid := OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id;
+  testpersonobj->UpdateFields2([ richie := withembedded
+                               , testinstance := [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
+                                                 , id := "TestInstance-1"
+                                                 , fsref := destlinkid
+                                                 ]
+                               , testintextlink := [ internallink := destlinkid, externallink := "", append := "#jantje" ]
+                               ] );
+  RECORD testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE","TESTINSTANCE"]);
+  TestRichieEmbedded(testrec1.richie);
+  TestTestInstance(testrec1.testinstance);
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+
+  /* Update it with a different one. this takes a shortcut path through setwrdattribute4 which used to forget updating the whfs id */
+  withembedded.instances[0].data.html := "UPDATED!";
+  testpersonobj->UpdateFields([ richie := withembedded ] );
+  testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE"]).richie;
+  TestEq("UPDATED!", testrec1.instances.data.html);
+  testfw->RollbackWork();
+}
+
+MACRO TestAttributes(STRING tag)
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT typeobj := schemaobj->GetTypeByTag(tag);
+  TestEq(TRUE, ObjectExists(typeobj));
+
+  RECORD ARRAY attrs := typeobj->GetAttributes(0);
+  OBJECT entity := typeobj->CreateEntity2(DEFAULT RECORD); //create an empty, lonely entiy
+
+  FOREVERY (RECORD attr FROM attrs)
+  {
+    IF (attr.isreadonly OR attr.tag IN ["WRD_CREATIONDATE","WRD_LIMITDATE","WRD_MODIFICATIONDATE","WRD_GUID"])
+      CONTINUE;
+    //PRINT("Doing attribute " || attr.tag || " " || attr.attributetype || "\n");
+
+    VARIANT data := entity->GetField(attr.tag);
+
+    RECORD ARRAY testvalues;
+    SWITCH (attr.attributetype)
+    {
+    CASE 2
+        { testvalues :=
+            [ [ value := "", valid := NOT attr.isrequired ]
+            , [ value := "a", valid := TRUE ]
+            , [ value := GetStringOfLength(attr.maxlength), valid := TRUE ]
+            , [ value := GetStringOfLength(attr.maxlength+1), valid := FALSE ]
+            ];
+        }
+    CASE 15
+        { testvalues :=
+            [ [ value := 0, valid := NOT attr.isrequired ]
+            , [ value := 1, valid := TRUE ]
+            , [ value := 2, valid := TRUE ]
+            ];
+        }
+    CASE 6, 12
+        { testvalues :=
+            [ [ value := DEFAULT DATETIME
+              , valid := NOT attr.isrequired
+              ]
+            , [ value := MakeDate(2006, 10, 1), valid := TRUE ]
+            ];
+        }
+    CASE 1
+        {
+          IF (attr.tag = "WRD_GENDER")
+            CONTINUE;
+
+          OBJECT type := schemaobj->GetType(attr.domain);
+          RECORD ARRAY data := type->RunQuery([ outputcolumns := [ id := "WRD_ID" ]
+                                              , filters := [[ field := "WRD_ID", matchtype := "!=", value := entity->id ]]
+                                              ] );
+
+          testvalues :=
+            [ [ value := 0, valid := NOT attr.isrequired ]
+            , [ value := (SELECT AS INTEGER id FROM data), valid := TRUE ]
+            ];
+        }
+    CASE 8
+        {
+          OBJECT type := schemaobj->GetType(attr.domain);
+          RECORD ARRAY data := RunWRDQuery([ sources := [ [ type := type, outputcolumns := [ id := "WRD_ID" ] ] ] ]);
+
+          testvalues :=
+            [ [ value := DEFAULT INTEGER ARRAY, valid := NOT attr.isrequired ]
+            , ...( Length(data) >= 1 ? [[ value := [ SELECT AS INTEGER id FROM data ], valid := TRUE ]] : RECORD[]) //only insert if at least one value
+            , [ value := (SELECT AS INTEGER ARRAY id FROM data), valid := TRUE ]
+            ];
+        }
+    DEFAULT
+        {
+//          PRINT("Untestable type " || attr.attributetype || "\n");
+          CONTINUE;
+        }
+    }
+
+    FOREVERY (RECORD rec FROM testvalues)
+    {
+      RECORD result := entity->UpdateFields(CellInsert(DEFAULT RECORD, attr.tag, rec.value));
+      TestEq(rec.valid, LENGTH(result.errors) = 0);
+
+      IF (rec.valid)
+      {
+        VARIANT changeddata := entity->GetField(attr.tag);
+        TestWRDAttributeValuesEqual(rec.value, changeddata);
+
+        // See what query engine returns for current value
+        RECORD data := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ] ], outputcolumns := [ value := attr.tag ] ] ] ]);
+        TestWRDAttributeValuesEqual(rec.value, data.value);
+
+        // See what query engine equality filtering is ok
+        VARIANT different_value := testvalues[(#rec + 1) % LENGTH(testvalues)].value;
+        IF(EncodeHSON(different_value) != EncodeHSON(rec.value))
+        {
+          data := RunWRDQuery([ sources := [ [ type := typeobj
+                                             , historymode := "all"
+                                             , filters := [ [ field := "wrd_id", value := entity->id ]
+                                                          , [ field := attr.tag, value := different_value ]
+                                                          ]
+                                             , outputcolumns := [ id := "WRD_ID" ]
+                                             ]
+                                           ]
+                              ]);
+          TestEq(FALSE, RecordExists(data));
+        }
+        // See what query engine equality filtering is ok
+        data := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ], [ field := attr.tag, value := rec.value ] ], outputcolumns := [ id := "WRD_ID" ] ] ] ]);
+        TestEq([ id := entity->id ], data);
+
+        // See what query engine inequality filtering is ok
+        data := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ], [ field := attr.tag, match_type := "!=", value := rec.value ] ], outputcolumns := [ id := "WRD_ID" ] ] ] ]);
+        TestEq(DEFAULT RECORD, data);
+      }
+    }
+
+    entity->UpdateFields(CellInsert(DEFAULT RECORD, attr.tag, data));
+    VARIANT backdata := entity->GetField(attr.tag);
+    TestWRDAttributeValuesEqual(data, backdata);
+
+    // See if the query engine returns the right value
+    RECORD qdata := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ] ], outputcolumns := [ value := attr.tag ] ] ] ]);
+    TestWRDAttributeValuesEqual(data, qdata.value);
+
+    // See what query engine equality filtering is ok
+    qdata := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ], [ field := attr.tag, value := data ] ], outputcolumns := [ id := "WRD_ID" ] ] ] ]);
+    TestEq([ id := entity->id ], qdata);
+
+    // See what query engine inequality filtering is ok
+    qdata := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ], [ field := attr.tag, match_type := "!=", value := data ] ], outputcolumns := [ id := "WRD_ID" ] ] ] ]);
+    TestEq(DEFAULT RECORD, qdata);
+  }
+
+  typeobj->DeleteEntity(entity->id);
+  testfw->CommitWork();
+}
+
+MACRO TestHistoryMode()
+{
+  __wrdtest_disable_updateat_throw := TRUE;
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+
+  {
+    testfw->BeginWork();
+
+    OBJECT person := wrdperson->GetEntity(wrdperson->CreateEntity2([ wrd_lastname := "HistoryModeTest" ])->id);
+    person->UpdateFields([ wrd_contact_email := "email-3@example.net" ]);
+
+    // Using non-history mode after history mode, wrong settings was updated
+    // Current setting must be updated
+
+    // Selects needed to trigger race condition.
+    person->UpdateFieldsAt([ wrd_contact_email := "email-1@example.net" ], MakeDate(2000, 1, 1));
+    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
+    SELECT FROM wrd.entity_settings WHERE entity = person->id;
+    person->UpdateFieldsAt([ wrd_contact_email := "email-2@example.net" ], MakeDate(2000, 1, 2));
+    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
+    SELECT FROM wrd.entity_settings WHERE entity = person->id;
+    person->UpdateFields([ wrd_contact_email := "email-3@example.net" ]);
+    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
+    SELECT FROM wrd.entity_settings WHERE entity = person->id;
+
+    TestEq("email-3@example.net", person->GetField("WRD_CONTACT_EMAIL"));
+
+    TestEq("email-3@example.net", person->GetField("WRD_CONTACT_EMAIL"));
+    TestEq("email-3@example.net", wrdperson->GetEntityFieldsAt(person->id, [ "WRD_CONTACT_EMAIL" ], makeDate(2000, 1, 1)).wrd_contact_email);
+    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
+    TestEq("email-3@example.net", wrdperson->GetEntityFieldsAt(person->id, [ "WRD_CONTACT_EMAIL" ], makeDate(2000, 1, 2)).wrd_contact_email);
+
+    testfw->RollbackWork();
+  }
+
+  {
+    testfw->BeginWork();
+
+    OBJECT person := wrdperson->GetEntity(wrdperson->CreateEntity2([ wrd_lastname := "HistoryModeTest" ])->id);
+
+    // Using non-history mode after history mode, all settings were deleted
+    // Only current setting may be deleted
+
+    // Selects needed to trigger race condition.
+    person->UpdateFieldsAt([ wrd_contact_email := "email-1@example.net" ], MakeDate(2000, 1, 1));
+    SELECT FROM wrd.entity_settings WHERE entity = person->id;
+
+    person->UpdateFieldsAt([ wrd_contact_email := "email-2@example.net" ], MakeDate(2000, 1, 2));
+    SELECT FROM wrd.entity_settings WHERE entity = person->id;
+
+    person->UpdateFields([ wrd_contact_email := "" ]);
+    SELECT FROM wrd.entity_settings WHERE entity = person->id;
+
+    TestEq("", person->GetField("WRD_CONTACT_EMAIL"));
+    TestEq("", wrdperson->GetEntityFieldsAt(person->id, [ "WRD_CONTACT_EMAIL" ], makeDate(2000, 1, 1)).wrd_contact_email);
+    TestEq("", wrdperson->GetEntityFieldsAt(person->id, [ "WRD_CONTACT_EMAIL" ], makeDate(2000, 1, 2)).wrd_contact_email);
+
+    testfw->RollbackWork();
+  }
+
+ {
+    testfw->BeginWork();
+
+    OBJECT person := wrdperson->GetEntity(wrdperson->CreateEntity2([ wrd_lastname := "FuturePerson", wrd_creationdate := AddDaysToDate(1,GetCurrentdatetime()) ])->id);
+
+    RECORD ARRAY results;
+    results :=  wrdperson->RunQuery([ outputcolumns := [ id := "WRD_ID" ], filters := [[ field := "WRD_LASTNAME", value := "FuturePerson" ]]]);
+    TestEq(0, Length(results));
+
+    results := wrdperson->RunQuery(
+        [ outputcolumns := [ id := "WRD_ID" ]
+        , filters := [[ field := "WRD_LASTNAME", value := "FuturePerson" ]]
+        , historymode := "all"
+        ]);
+    TestEq(1, Length(results));
+    testEq(person->id, results[0].id);
+
+    results := wrdperson->RunQuery(
+        [ outputcolumns := [ id := "WRD_ID" ]
+        , filters := [[ field := "WRD_LASTNAME", value := "FuturePerson" ]]
+        , historymode := "range"
+        , when_start := GetCurrentDatetime()
+        , when_limit := MAX_DATETIME
+        ]);
+    TestEq(1, Length(results));
+    testEq(person->id, results[0].id);
+
+    testfw->RollbackWork();
+  }
+
+  {
+    testfw->BeginWork();
+
+    OBJECT destlink := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink"]);
+    OBJECT destlink2 := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink2"]);
+
+    RECORD data :=
+        [ richie :=
+              [ embedded := DEFAULT RECORD ARRAY
+              , htmltext:= StringToBlob('<html><body><p class="normal">Diagnostiek Enterobius vermicularis:</p><ul class="unordered"><li>microscopie van <a href="x-richdoclink:RL-E0br8EYFeqU0i8vJWwseRQ">perianale</a> huida77676767fstrijk met <a href="https://example.com">plakbandmethode</a></li></ul></body></html>')
+              , instances := DEFAULT RECORD ARRAY
+              , links :=
+                    [ [ linkref := 468208
+                      , tag := 'RL-E0br8EYFeqU0i8vJWwseRQ'
+                      ]
+                    ]
+              ]
+        ,  testinstance :=
+              [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
+              , id := "TestInstance-1"
+              , styletitle := ""
+              , whfssettingid := 0
+              , whfsfileid := 0
+              , fsref := destlink->id
+              ]
+        , testintextlink :=
+              [ internallink := destlink->id
+              , externallink := ""
+              , append := "#bla"
+              ]
+        ];
+
+
+    DATETIME now := GetCurrentDateTime();
+    OBJECT entity := wrdperson->CreateEntity2(MakeMergedRecord(data,
+        [ wrd_creationdate := AddTimeToDate(-4, now)
+        ]));
+
+    TestEqStructure(data, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]));
+    TestEqMembers(data, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]), "*,-whfssettingid,-whfsfileid");
+
+    RECORD modified := data;
+    modified.richie.htmltext:= StringToBlob('<html><body><p class="normal">BLABLABLA Enterobius vermicularis:</p><ul class="unordered"><li>microscopie van <a href="x-richdoclink:RL-E0br8EYFeqU0i8vJWwseRQ">perianale</a> huida77676767fstrijk met <a href="https://example.com">plakbandmethode</a></li></ul></body></html>');
+    modified.testinstance.id := "TestInstance-1a";
+    modified.testintextlink.internallink := destlink2->id;
+
+    entity->UpdateFieldsAt(modified, AddTimeToDate(-2, now));
+
+    TestEqMembers(modified, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]), "*,-whfssettingid,-whfsfileid");
+    TestEqMembers(modified, entity->GetEntityFieldsAt([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ], now), "*,-whfssettingid,-whfsfileid");
+
+    TestEqMembers(modified, entity->GetEntityFieldsAt([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ], AddTimeToDate(-3, now)), "*,-whfssettingid,-whfsfileid");
+
+    testfw->RollbackWork();
+  }
+}
+
+MACRO TestEnrichBulk()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+
+  INTEGER p2 := wrdperson->CreateEntity2( [ test_email := "bulk_p2@example.com", wrd_firstname := "Person 2", test_single_domain := "TEST_DOMAINVALUE_1_2"  ])->id;
+  INTEGER p1 := wrdperson->CreateEntity2( [ test_email := "bulk_p1@example.com", wrd_firstname := "Person 1", test_single_domain := 0 ])->id;
+
+  INTEGER p_gone := wrdperson->CreateEntity2( [ test_email := "bulk_pgone@example.com", wrd_firstname := "Person Gone" ])->id;
+  wrdperson->DeleteEntity(p_gone);
+
+  RECORD ARRAY result;
+
+  result := wrdperson->Enrich([[ getid := p1 ]
+                              ,[ getid := p2 ]
+                              ], "GETID"
+                              , [ email := "test_email", firstname := "wrd_firstname" ]);
+  TestEq( [[ getid := p1, email := "bulk_p1@example.com", firstname := "Person 1"]
+          ,[ getid := p2, email := "bulk_p2@example.com", firstname := "Person 2"]
+          ], result);
+
+  result := wrdperson->Enrich([[ getid := p1 ]
+                              ,[ getid := p_gone ]
+                              ,[ getid := 0 ]
+                              ], "GETID"
+                              , [ email := "test_email", firstname := "wrd_firstname" ]);
+
+  TestEq( [[ getid := p1, email := "bulk_p1@example.com", firstname := "Person 1"]
+          ], result);
+
+  RECORD outputcols := [ email := "test_email", firstname := "wrd_firstname" ];
+  RECORD ARRAY allitems := SELECT * FROM wrdperson->RunQuery([ outputcolumns := CellInsert(outputcols,"GETID","WRD_ID"), historymode := "all" ]) ORDER BY getid;
+  RECORD ARRAY expectinner := [[ getid := p1, email := "bulk_p1@example.com", firstname := "Person 1"]
+                              ,[ getid := p_gone, email := "", firstname := ""]
+                              ,[ getid := 0, email := "", firstname := ""]
+                              ];
+  RECORD ARRAY joinwith := [[ getid := p1 ]
+                              ,[ getid := p_gone ]
+                              ,[ getid := 0 ]
+                              ];
+
+  //test that right outer join with missing records should not return 'wrdid:' but just ''
+  result := wrdperson->Enrich(joinwith, "GETID", [ wrd_guid := "WRD_GUID"], [ rightouterjoin := TRUE ]);
+  TestEq(3,Length(result));
+  TestEq("",result[1].wrd_guid,'returned "wrd:" for missing refs earlier');
+
+  result := wrdperson->Enrich(joinwith, "GETID", outputcols, [ rightouterjoin := TRUE ]);
+  TestEq(expectinner, result);
+
+  result := wrdperson->Enrich(joinwith, "GETID", outputcols, [ rightouterjoin := TRUE, leftouterjoin := CELL[] ]);
+
+  RECORD ARRAY expectouter := expectinner CONCAT (SELECT getid,email,firstname FROM allitems WHERE getid NOT IN [p1,p_gone,0]);
+  TestEq(expectouter,result);
+
+  result := wrdperson->Enrich([[ getid := 0 ]
+                              ], "GETID"
+                              , outputcols
+                              , [ rightouterjoin := TRUE ]);
+
+  TestEq( [[ getid := 0, email := "", firstname := ""]
+          ], result);
+
+  //Using enrichment to enrich domain values
+  OBJECT domvaltype := schemaobj->GetTypeByTag("TEST_DOMAIN_1");
+  RECORD ARRAY base := SELECT * FROM wrdperson->RunQuery([ outputcolumns := [ id := "WRD_ID", test_single_domain := "TEST_SINGLE_DOMAIN" ]
+                                                         , filters := [[ field := "WRD_ID", matchtype := "IN", value := [p1, p2] ]
+                                                                      ]
+                                                         ]) ORDER BY id;
+  result := domvaltype->Enrich(base, "TEST_SINGLE_DOMAIN", [ x := "WRD_TITLE" ]);
+  TestEq(1, Length(result));
+  TestEq("Domain value 1.2", result[0].x);
+
+  result := domvaltype->Enrich(base, "TEST_SINGLE_DOMAIN", [ test_single_domain := "WRD_TITLE" ]);
+
+  TestEq(1, Length(result));
+  TestEq("Domain value 1.2", result[0].test_single_domain);
+
+  result := domvaltype->Enrich(base, "TEST_SINGLE_DOMAIN", [ test_single_domain := "WRD_TITLE" ], [rightouterjoin := TRUE]);
+
+  TestEq(2, Length(result));
+  TestEq("Domain value 1.2", result[0].test_single_domain);
+  TestEq("", result[1].test_single_domain); //should be defaulted
+  //ABORT(result,'boxed');
+
+  testfw->RollbackWork();
+}
+
+MACRO TestWRDQuery()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+  INTEGER personid := wrdperson->CreateEntity2([ wrd_lastname := "QueryTest" ])->id;
+  RECORD ARRAY results;
+
+  OBJECT person := wrdperson->GetEntity(personid);
+  TestEq(TRUE, ObjectExists(person));
+
+  person->UpdateFields([ wrd_contact_email := "Test123@example.com" ]);
+
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , name := "" //empty name shouldn't crash it, but be treated like an anonymous name
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , value := "test123@example.com"
+                                          , match_case := FALSE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq(DEFAULT RECORD ARRAY, RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , value := "test123@example.com"
+                                          , match_case := TRUE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , value := "Test123@example.com"
+                                          , match_case := TRUE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , match_type := "LIKE"
+                                          , value := "test123@example.com"
+                                          , match_case := FALSE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq(DEFAULT RECORD ARRAY, RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , match_type := "LIKE"
+                                          , value := "test123@example.com"
+                                          , match_case := TRUE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , match_type := "LIKE"
+                                          , value := "Test123@example.com"
+                                          , match_case := TRUE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , match_type := "LIKE"
+                                          , value := "test*"
+                                          , match_case := FALSE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq(DEFAULT RECORD ARRAY, RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , match_type := "LIKE"
+                                          , value := "test*"
+                                          , match_case := TRUE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , match_type := "LIKE"
+                                          , value := "Test*"
+                                          , match_case := TRUE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , match_type := "IN"
+                                          , value := [ "test123@example.com" ]
+                                          , match_case := FALSE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq(DEFAULT RECORD ARRAY, RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , match_type := "IN"
+                                          , value := [ "test123@example.com" ]
+                                          , match_case := TRUE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , match_type := "IN"
+                                          , value := [ "a", "Test123@example.com" ]
+                                          , match_case := TRUE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME" ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , match_type := "IN"
+                                          , value := [ "a", "Test123@example.com" ]
+                                          , match_case := FALSE
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  //test de-duplication
+  INTEGER ARRAY lots_of_ids;
+  FOR(INTEGER i:=0;i<2048;i:=i+1)
+    INSERT personid INTO lots_of_ids AT END;
+
+  RECORD ARRAY inquery := wrdperson->RunQUery( [ outputcolumns := [ id := "WRD_ID" ]
+                                               , filters := [[ field := "WRD_ID", matchtype := "IN", value := lots_of_ids ]]
+                                               ]);
+  TestEq([[id := personid]], inquery);
+
+  testfw->CommitWork();
+}
+
+MACRO TestWRDQuery_AfterFilters()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+  INTEGER personid := wrdperson->CreateEntity2(
+      [ wrd_lastname := "QueryTest"
+      , test_integer := -1
+      ])->id;
+
+  INTEGER ARRAY results;
+
+  results := SELECT AS INTEGER ARRAY wrd_id FROM wrdperson->RunQuery(
+      [ outputcolumns := [ "WRD_ID", "TEST_INTEGER" ]
+      , filters := [ [ field := "TEST_INTEGER", match_type := "IN", value := [ 0, 1 ] ] ]
+      ]);
+  TestEQ(FALSE, personid IN results);
+
+  results := SELECT AS INTEGER ARRAY wrd_id FROM wrdperson->RunQuery(
+      [ outputcolumns := [ "WRD_ID", "TEST_INTEGER" ]
+      , filters := [ [ field := "TEST_INTEGER", match_type := "IN", value := [ -1, 0 ] ] ]
+      ]);
+  TestEQ(TRUE, personid IN results);
+
+  results := SELECT AS INTEGER ARRAY wrd_id FROM wrdperson->RunQuery(
+      [ outputcolumns := [ "WRD_ID", "TEST_INTEGER" ]
+      , filters := [ [ field := "TEST_INTEGER", match_type := "IN", value := [ 0 ] ] ]
+      ]);
+  TestEQ(FALSE, personid IN results);
+
+  testfw->CommitWork();
+}
+
+
+MACRO TestWRDQuery_Password()
+{
+  testfw->BeginWork();
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
+
+  INTEGER nopwd := persontype->CreateEntity2( [ wrd_contact_email := "nopwd@example.net", test_password := "" ])->id;
+  INTEGER testpwd := persontype->CreateEntity2( [ wrd_contact_email := "testpwd@example.net", test_password := CreateWebHarePasswordHash("test") ])->id;
+  INTEGER secretpwd := persontype->CreateEntity2( [ wrd_contact_email := "secretpwd@example.net", test_password := CreateWebHarePasswordHash("secret") ])->id;
+
+  RECORD ARRAY results;
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
+                                   , filters := [[ field := "TEST_PASSWORD", value := "test"]]
+                                   ]);
+  TestEq(1, Length(results));
+  TestEq(testpwd, results[0].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
+                                   , filters := [[ field := "TEST_PASSWORD", value := ""]]
+                                   ]);
+  TestEq(1, Length(SELECT FROM results WHERE id IN [nopwd]));
+  TestEq(0, Length(SELECT FROM results WHERE id IN [testpwd,secretpwd]));
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
+                                   , filters := [[ field := "TEST_PASSWORD", match_type := "!=", value := ""]]
+                                   ]);
+  TestEq(2, Length(results));
+  TestEq(1, Length(SELECT FROM results WHERE id IN [secretpwd]));
+  TestEq(2, Length(SELECT FROM results WHERE id IN [testpwd,secretpwd]));
+
+  testfw->CommitWork();
+}
+
+MACRO TestWRDQuery_ContainsAndMDEqual()
+{
+  testfw->BeginWork();
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
+
+  //We still have  domainattr8: persontype->CreateAttribute("DOMAIN_MULTIPLE", "Multiple attribute", "", "TEST_MULTIPLE_DOMAIN", domain2_obj->tag);
+  // possible domain values TEST_DOMAINVALUE_2_1, TEST_DOMAINVALUE_2_2 and TEST_DOMAINVALUE_2_3
+  INTEGER dval2_1 := persontype->GetDomVal("TEST_MULTIPLE_DOMAIN", "TEST_DOMAINVALUE_2_1");
+  INTEGER dval2_2 := persontype->GetDomVal("TEST_MULTIPLE_DOMAIN", "TEST_DOMAINVALUE_2_2");
+  INTEGER dval2_3 := persontype->GetDomVal("TEST_MULTIPLE_DOMAIN", "TEST_DOMAINVALUE_2_3");
+  TestEq(TRUE, dval2_1!=0);
+  TestEq(TRUE, dval2_2!=0);
+  TestEq(TRUE, dval2_3!=0);
+
+  INTEGER t      := persontype->CreateEntity2( [ wrd_contact_email := "t@example.net", test_multiple_domain := DEFAULT INTEGER ARRAY])->id;
+  INTEGER t1     := persontype->CreateEntity2( [ wrd_contact_email := "t1@example.net", test_multiple_domain := [ dval2_1,dval2_1 ]])->id;
+  INTEGER t1_2   := persontype->CreateEntity2( [ wrd_contact_email := "t1_2@example.net" ])->id;
+  INTEGER t1_2_3 := persontype->CreateEntity2( [ wrd_contact_email := "t1_2_3@example.net", test_multiple_domain := [ dval2_1, dval2_2, dval2_3 ]])->id;
+
+  persontype->GetEntity(t1_2)->UpdateFields2([ test_multiple_domain := [ "TEST_DOMAINVALUE_2_1", "TEST_DOMAINVALUE_2_2", "TEST_DOMAINVALUE_2_1" ] ]);
+
+  TestEq([dval2_1],                 SortArray(persontype->GetEntity(t1)->GetField("TEST_MULTIPLE_DOMAIN")));
+  TestEq([dval2_1,dval2_2],         SortArray(persontype->GetEntity(t1_2)->GetField("TEST_MULTIPLE_DOMAIN")));
+  TestEq([dval2_1,dval2_2,dval2_3], SortArray(persontype->GetEntity(t1_2_3)->GetField("TEST_MULTIPLE_DOMAIN")));
+
+  RECORD ARRAY results;
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "CONTAINS", value := dval2_2 ]]
+                                   ]);
+  results := SELECT * FROM results ORDER BY email;
+  TestEq(2,Length(results));
+  TestEq(t1_2,results[0].id);
+  TestEq(t1_2_3,results[1].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "CONTAINS", value := dval2_3 ]]
+                                   ]);
+  results := SELECT * FROM results ORDER BY email;
+  TestEq(1,Length(results));
+  TestEq(t1_2_3,results[0].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "CONTAINS", value := dval2_3 ]]
+                                   ]);
+  results := SELECT * FROM results ORDER BY email;
+  TestEq(1,Length(results));
+  TestEq(t1_2_3,results[0].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "INTERSECTS", value := [dval2_2,dval2_3] ]]
+                                   ]);
+  results := SELECT * FROM results WHERE id IN [ t, t1, t1_2, t1_2_3 ] ORDER BY email;
+
+  TestEq(2,Length(results));
+  TestEq(t1_2,results[0].id);
+  TestEq(t1_2_3,results[1].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "=", value := DEFAULT INTEGER ARRAY ]]
+                                   ]);
+  results := SELECT * FROM results WHERE id IN [ t, t1, t1_2, t1_2_3 ] ORDER BY email;
+  TestEq(1,Length(results));
+  TestEq(t,results[0].id);
+
+  // it shouldn't matter whether we look for 'dval2_2, dval2_1' or 'dval2_1, dval2_2'
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "=", value := [  dval2_2, dval2_1 ] ]
+                                                ]
+                                   ]);
+  results := SELECT * FROM results WHERE id IN [ t, t1, t1_2, t1_2_3 ] ORDER BY email;
+  TestEq(1,Length(results));
+  TestEq(t1_2,results[0].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "=", value := [  dval2_1, dval2_2] ]
+                                                ]
+                                   ]);
+  results := SELECT * FROM results WHERE id IN [ t, t1, t1_2, t1_2_3 ] ORDER BY email;
+  TestEq(1,Length(results));
+  TestEq(t1_2,results[0].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "!=", value := [  dval2_2, dval2_1 ] ]
+                                                ]
+                                   ]);
+  results := SELECT * FROM results WHERE id IN [ t, t1, t1_2, t1_2_3 ] ORDER BY email;
+  TestEq(3,Length(results));
+  TestEq(t1,results[0].id);
+  TestEq(t1_2_3,results[1].id);
+  TestEq(t,results[2].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "!=", value := [  dval2_1 , dval2_2] ]
+                                                ]
+                                   ]);
+  results := SELECT * FROM results WHERE id IN [ t, t1, t1_2, t1_2_3 ] ORDER BY email;
+  TestEq(3,Length(results));
+  TestEq(t1,results[0].id);
+  TestEq(t1_2_3,results[1].id);
+  TestEq(t,results[2].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "=", value := [ dval2_1 ]]]
+                                   ]);
+  results := SELECT * FROM results WHERE id IN [ t, t1, t1_2, t1_2_3 ] ORDER BY email;
+  TestEq(1,Length(results));
+  TestEq(t1,results[0].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "!=", value := DEFAULT INTEGER ARRAY ]]
+                                   ]);
+  results := SELECT * FROM results WHERE id IN [ t, t1, t1_2, t1_2_3 ] ORDER BY email;
+  TestEq(3,Length(results));
+  TestEq(t1,results[0].id);
+  TestEq(t1_2,results[1].id);
+  TestEq(t1_2_3,results[2].id);
+
+  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
+                                   , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "!=", value := [ dval2_1 ]]]
+                                   ]);
+  results := SELECT * FROM results WHERE id IN [ t, t1, t1_2, t1_2_3 ] ORDER BY email;
+  TestEq(3,Length(results));
+  TestEq(t1_2,results[0].id);
+  TestEq(t1_2_3,results[1].id);
+  TestEq(t,results[2].id);
+
+  testfw->CommitWork();
+}
+
+MACRO TestWRDQuery_DeepOutputColumns()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+  OBJECT wrdrelation := schemaobj->GetTypeByTag("WRD_RELATION");
+  INTEGER personid := wrdperson->CreateEntity2([ wrd_firstname := "Deep", wrd_lastname := "Test", wrd_contact_email := "deeptest@example.com" ])->id;
+
+  OBJECT person := wrdperson->GetEntity(personid);
+  person->UpdateFields([ personlink := personid, relationlink := personid ]);
+
+  TestEq(TRUE, ObjectExists(person));
+
+  TestEq([ [ n := "Test"
+           , d := [ fn:="Deep",ln:="Test",email:="deeptest@example.com"] ]
+         ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , outputcolumns := [ n := "WRD_LASTNAME", d := [ fn := "WRD_FIRSTNAME", ln := "WRD_LASTNAME", email := "WRD_CONTACT_EMAIL" ] ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , value := "deeptest@example.com"
+                                          ]
+                                        ]
+                          ]
+                        ]
+      ]));
+
+  TestEq([ [ n1 := "Test"
+           , n2 := "Test"
+           , d1 := [ fn:="Deep",ln:="Test",email:="deeptest@example.com"]
+           , d2 := [ fn:="Deep",ln:="Test",email:="deeptest@example.com"]
+           ]
+         ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , name :=     "left"
+                          , outputcolumns := [ n1 := "WRD_LASTNAME", d1 := [ fn := "WRD_FIRSTNAME", ln := "WRD_LASTNAME", email := "WRD_CONTACT_EMAIL" ] ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , value := "deeptest@example.com"
+                                          ]
+                                        ]
+                          ]
+                        , [ type :=     wrdperson
+                          , name :=     "right"
+                          , outputcolumns := [ n2 := "WRD_LASTNAME", d2 := [ fn := "WRD_FIRSTNAME", ln := "WRD_LASTNAME", email := "WRD_CONTACT_EMAIL" ] ]
+                          ]
+                        ]
+      , links :=        [ [ left :=     "left"
+                          , right :=    "right"
+                          , field :=    "PERSONLINK"
+                          ]
+                        ]
+      ]));
+
+  TestEq([ [ n1 := "Test"
+           , rightfullname := "Deep Test"
+           , d1 := [ fn:="Deep",ln:="Test",email:="deeptest@example.com"]
+           ]
+         ], RunWRDQuery(
+      [ sources :=      [ [ type :=     wrdperson
+                          , name :=     "left"
+                          , outputcolumns := [ n1 := "WRD_LASTNAME", d1 := [ fn := "WRD_FIRSTNAME", ln := "WRD_LASTNAME", email := "WRD_CONTACT_EMAIL" ] ]
+                          , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
+                                          , value := "deeptest@example.com"
+                                          ]
+                                        ]
+                          ]
+                        , [ type :=     wrdrelation
+                          , name :=     "right"
+                          , outputcolumns := [ rightfullname := "WRD_TITLE"  ]
+                          ]
+                        ]
+      , links :=        [ [ left :=     "left"
+                          , right :=    "right"
+                          , field :=    "RELATIONLINK"
+                          ]
+                        ]
+      ]));
+
+  testfw->CommitWork();
+
+}
+
+MACRO TestMerge()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+  INTEGER newpersonid := wrdperson->CreateEntity2([ wrd_firstname := "New", wrd_lastname := "Test", wrd_contact_email := "newtest@example.com" ])->id;
+  INTEGER deeppersonid := wrdperson->LookupEntity("wrd_contact_email","deeptest@example.com");
+
+  RECORD info := wrdperson->GetEntityFields(deeppersonid, ["PERSONLINK", "RELATIONLINK"]);
+  TestEq(deeppersonid, info.personlink);
+
+  wrdperson->GetEntity(deeppersonid)->MergeEntityInto(newpersonid);
+
+  info := wrdperson->GetEntityFields(deeppersonid, ["PERSONLINK", "RELATIONLINK"]);
+  TestEq(newpersonid, info.personlink);
+
+  testfw->CommitWork();
+}
+
+MACRO TestWRDQuery_Mentions_Single()
+{
+  testfw->BeginWork();
+
+  /* FIXME
+     test mentions 0
+     */
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+  INTEGER dom11 := wrdperson->GetDomVal("TEST_ARRAY.TEST_SINGLE", "TEST_DOMAINVALUE_1_1");
+  INTEGER dom12 := wrdperson->GetDomVal("TEST_ARRAY.TEST_SINGLE", "TEST_DOMAINVALUE_1_2");
+  INTEGER dom13 := wrdperson->GetDomVal("TEST_ARRAY.TEST_SINGLE", "TEST_DOMAINVALUE_1_3");
+
+  TestEq(FALSE, dom11 = 0);
+  TestEq(FALSE, dom12 = 0);
+  TestEq(FALSE, dom13 = 0);
+
+  //simple test account
+  INTEGER person1id := wrdperson->CreateEntity2([ wrd_firstname := "Mentions1"
+                                               , wrd_lastname := "Test"
+                                               , wrd_contact_email := "mentionstest1@example.com"
+                                               , test_array := [[ test_single := dom11 ]
+                                                               ,[ test_single := dom13 ]
+                                                               ]
+                                               ])->id;
+
+  //one with multiple occurrences, which may only be returned once
+  INTEGER person2id := wrdperson->CreateEntity2([ wrd_firstname := "Mentions2"
+                                               , wrd_lastname := "Test"
+                                               , wrd_contact_email := "mentionstest2@example.com"
+                                               , test_array := [[ test_single := dom11 ]
+                                                               ,[ test_single := dom11 ]
+                                                               ,[ test_single := dom11 ]
+                                                               ,[ test_single := dom11 ]
+                                                               ]
+                                               ])->id;
+
+  //person with only dom12
+  OBJECT person3 := wrdperson->CreateEntity2([ wrd_firstname := "Mentions3"
+                                             , wrd_lastname := "Test"
+                                             , wrd_contact_email := "mentionstest3@example.com"
+                                             , wrd_creationdate := MakeDate(2014,1,1)
+                                             ]);
+  person3->UpdateFieldsAt2([ test_array := [[ test_single := dom11 ]] ], MakeDate(2014,1,5)); //historyic update to ensure MENTIOS does not see this
+  person3->UpdateFieldsAt2([ test_array := [[ test_single := dom12
+                                            , test_single_other := dom11  //setting this attribute to prove that MENTIONS actually looked at the proper attribute
+                                            ]
+                                           ]], MakeDate(2014,1,10));
+
+  //person with both
+  INTEGER person4id := wrdperson->CreateEntity2([ wrd_firstname := "Mentions4"
+                                               , wrd_lastname := "Test"
+                                               , wrd_contact_email := "mentionstest4@example.com"
+                                               , test_array := [[ test_single := dom11 ]
+                                                               ,[ test_single := dom12 ]
+                                                               ]
+                                               ])->id;
+
+
+  TestThrows(PTR RunWRDQuery([ sources := [[ type := wrdperson
+                                                   , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
+                                                   , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "=", value := dom11 ]
+                                                                ]
+                                                  ]]
+                                     ]));
+
+  RECORD ARRAY result := RunWRDQuery([ sources := [[ type := wrdperson
+                                                   , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
+                                                   , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "MENTIONS", value := dom11 ]
+                                                                ]
+                                                  ]]
+                                     ]);
+  result := SELECT * FROM result ORDER BY fn;
+  TestEq([[fn := "Mentions1" ],[fn := "Mentions2" ],[fn := "Mentions4" ]], result);
+
+  TestThrows(PTR RunWRDQuery([ sources := [[ type := wrdperson
+                                           , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
+                                           , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "MENTIONS", value := 0 ]
+                                                         ]
+                                           ]]
+                             ]));
+
+  result := RunWRDQuery([ sources := [[ type := wrdperson
+                                                   , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
+                                                   , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "MENTIONS", value := dom12 ]
+                                                                ]
+                                                  ]]
+                                     ]);
+  result := SELECT * FROM result ORDER BY fn;
+  TestEq([[fn := "Mentions3" ],[fn := "Mentions4" ]], result);
+
+  result := RunWRDQuery([ sources := [[ type := wrdperson
+                                                   , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
+                                                   , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "MENTIONSANY", value := [dom12] ]
+                                                                ]
+                                                  ]]
+                                     ]);
+  result := SELECT * FROM result ORDER BY fn;
+  TestEq([[fn := "Mentions3" ],[fn := "Mentions4" ]], result);
+
+  result := RunWRDQuery([ sources := [[ type := wrdperson
+                                                   , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
+                                                   , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "MENTIONSANY", value := [dom11,dom12] ]
+                                                                ]
+                                                  ]]
+                                     ]);
+  result := SELECT * FROM result ORDER BY fn;
+  TestEq([[fn := "Mentions1" ],[fn := "Mentions2" ],[fn := "Mentions3" ],[fn := "Mentions4" ]], result);
+
+  // Bug: array elements closed will still be picked up for mentions
+  OBJECT person4 := wrdperson->GetEntity(person4id);
+  person4->UpdateFieldsAt(
+      [ test_array := DEFAULT RECORD ARRAY
+      ], GetCurrentDatetime());
+
+  result := RunWRDQuery([ sources := [[ type := wrdperson
+                                      , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
+                                      , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "MENTIONSANY", value := [dom12] ]
+                                                   ]
+                                     ]]
+                       ]);
+  result := SELECT * FROM result ORDER BY fn;
+  TestEq([[fn := "Mentions3" ]], result);
+
+  // Mentions of FREE attribute
+  person3->UpdateFields([ test_array := [ [ test_free := "1" ], [ test_free := "2" ], [ test_free := "1" ] ] ]);
+  TestEQ([ [ wrd_id := person3->id ] ], wrdperson->RunQuery(
+      [ outputcolumns := [ "WRD_ID" ]
+      , filters := [ [ field := "TEST_ARRAY.TEST_FREE", matchtype := "MENTIONS", value := "1" ]]
+      ]));
+
+  // Test honoring of array creationdate/limitdata
+  person3->UpdateFieldsAt([ test_array := DEFAULT RECORD ARRAY ], GetCurrentDatetime());
+  TestEQ(DEFAULT RECORD ARRAY, wrdperson->RunQuery(
+      [ outputcolumns := [ "WRD_ID" ]
+      , filters := [ [ field := "TEST_ARRAY.TEST_FREE", matchtype := "MENTIONS", value := "1" ]]
+      ]));
+
+  // Search for non-existing values
+  person3->UpdateFields([ test_array := [ [ test_free := "1" ], [ test_free := "2" ] ] ]);
+  TestEQ(DEFAULT RECORD ARRAY, wrdperson->RunQuery(
+      [ outputcolumns := [ "WRD_ID" ]
+      , filters := [ [ field := "TEST_ARRAY.TEST_FREE", matchtype := "MENTIONS", value := "3" ]]
+      ]));
+
+  testfw->CommitWork();
+}
+
+
+MACRO TestWRDQuery_ExpImp()
+{
+  //ADDME regression tests with predefined query XMLs
+  //FIXME test queries with subrecords in outputcolumns - THESE BREAK NOW!
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+
+  RECORD query := [ sources := [[ type := wrdperson
+                                , outputcolumns := [ arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID" ]
+                                , filters := [[ type := "NOT"
+                                              , filter := [ type := "OR"
+                                                          , filters := [[ field := "TEST_SINGLE_DOMAIN", domainvaluetag := "TEST_DOMAINVALUE_1_1" ]
+                                                                       ]
+                                                          ]
+                                             ]]
+                               ]]
+                  ];
+
+  OBJECT domimpl := NEW XmlDOMImplementation;
+  OBJECT doc := domimpl->CreateDocument("http://www.webhare.net/xmlns/wrd/query", "query", DEFAULT OBJECT);
+  schemaobj->StoreQueryInXML(doc->documentelement, query);
+//  print(doc->outerxml||"\n\n");
+
+  RECORD retrievedquery := schemaobj->LoadQueryFromXML(doc->documentelement);
+  TestEq(1, Length(retrievedquery.sources));
+  TestEq(wrdperson, retrievedquery.sources[0].type);
+  TestEq(query.sources[0].outputcolumns, retrievedquery.sources[0].outputcolumns);
+  TestEq(query.sources[0].filters, retrievedquery.sources[0].filters);
+
+  //Test broken query - referring to nonexisting domain field
+  STRING brokenquery := '<query xmlns="http://www.webhare.net/xmlns/wrd/query">'
+  || '<sources xmlns:hs="http://www.webhare.net/xmlns/hs/xmlrecord">'
+  || '<source type="WRD_PERSON" name="__source0">'
+  || '<outputcolumns><outputcolumn name="ARRAYIMAGES" attribute="TEST_ARRAY" subselect="TEST_IMAGE.IMAGEID"/></outputcolumns>'
+  || '<filters><filter type="not"><filter type="or"><filter field="NONEXISTING_DOMAINFIELD" value="12345"/></filter></filter></filters>'
+  || '</source></sources></query>';
+  TestThrows(PTR schemaobj->LoadQueryFromXML(MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
+
+  //Test broken query - referring to nonexisting type
+   brokenquery := '<query xmlns="http://www.webhare.net/xmlns/wrd/query">'
+  || '<sources xmlns:hs="http://www.webhare.net/xmlns/hs/xmlrecord">'
+  || '<source type="BLADIEBLA" name="__source0">'
+  || '<outputcolumns><outputcolumn name="ARRAYIMAGES" attribute="TEST_ARRAY" subselect="TEST_IMAGE.IMAGEID"/></outputcolumns>'
+  || '<filters><filter type="not"><filter type="or"><filter field="NONEXISTING_DOMAINFIELD" value="12345"/></filter></filter></filters>'
+  || '</source></sources></query>';
+  TestThrows(PTR schemaobj->LoadQueryFromXML(MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
+}
+
+MACRO TestRegressions()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
+  schemaobj->CreateClassificationType("Classificätion", "", "CLASSIFICATION", persontype->id);
+
+  OBJECT classificationtype := schemaobj->GetTypeByTag("CLASSIFICATION");
+  TestThrows(PTR classificationtype->CreateEntity2([wrd_tag:="TEST"]));
+
+  //required fields should actually require
+  OBJECT testrequiredtype := schemaobj->CreateRelationType("Test required fields","","TESTREQUIRED");
+  testrequiredtype->CreateAttribute("FREE", "Free field",  "", "FREEFIELD",  "");
+  testrequiredtype->UpdateAttributeMetadata("FREEFIELD", [isrequired := TRUE]);
+  TestThrows(PTR testrequiredtype->CreateEntity2([wrd_tag:="TEST"]));
+
+  TestEq([ wrd_firstname := ""
+         , wrd_contact_email := ""
+         , wrd_gender := 0
+         , test_multiple_domain := DEFAULT INTEGER ARRAY
+         , richie := DEFAULT RECORD
+         ], persontype->GetNewEntityFields(["WRD_FIRSTNAME", "WRD_CONTACT_EMAIL", "WRD_GENDER", "TEST_MULTIPLE_DOMAIN","RICHIE"]));
+
+  testfw->CommitWork();
+}
+
+MACRO TestUpdateFiltering()
+{
+  OBJECT myrichdoc := NEW RichDocument;
+  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  RECORD myrichexp := myrichdoc->ExportAsRecord();
+
+  BLOB testimage_blob := testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/goudvis.png");
+  RECORD testimage := WrapBlob(testimage_blob,"goudvis.png", [ extractdominantcolor := TRUE ]);
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+
+  testfw->BeginWork();
+
+  OBJECT rel_obj := schemaobj->CreateRelationType("UpdateTest", "", "TEST_UPDATES");
+  OBJECT dom_obj := schemaobj->CreateDomainType("Domain", "", "TEST_UPDATES_DOMAIN");
+
+  rel_obj->CreateAttribute("DOMAIN_SINGLE",     "Relation",                     "", "TEST_SINGLE_DOMAIN", dom_obj->tag);
+  rel_obj->CreateAttribute("DOMAIN_MULTIPLE",   "Multiple attribute",           "", "TEST_MULTIPLE_DOMAIN", dom_obj->tag);
+  rel_obj->CreateAttribute("TELEPHONE",         "Testphone",                    "", "WRD_CONTACT_PHONE", "");
+  rel_obj->CreateAttribute("WHFS_INSTANCE",     "Testinstance",                 "", "TESTINSTANCE", "");
+  rel_obj->CreateAttribute("WHFS_INTEXTLINK",   "Testintextlink",               "", "TESTINTEXTLINK", "");
+  rel_obj->CreateAttribute("RICHDOCUMENT",      "Rich document",                "", "TEST_RICHDOCUMENT", "");
+  rel_obj->CreateAttribute("IMAGE",             "Image attribute",              "", "TEST_IMAGE",    "");
+  rel_obj->CreateAttribute("FILE",              "File attribute",               "", "TEST_FILE",     "");
+  rel_obj->CreateAttribute("MONEY",             "Money attribute",              "", "TEST_MONEY",    "");
+  rel_obj->CreateAttribute("INTEGER",           "Integer attribute",            "", "TEST_INTEGER",  "");
+  rel_obj->CreateAttribute("BOOLEAN",           "Boolean attribute",            "", "TEST_BOOLEAN",  "");
+
+  rel_obj->CreateAttribute("ARRAY",             "Array attribute",              "", "TEST_ARRAY",    "");
+  rel_obj->CreateAttribute("INTEGER",           "Array integer attribute",      "", "TEST_ARRAY.TEST_INT",    "");
+  rel_obj->CreateAttribute("FREE",              "Array free attribute",         "", "TEST_ARRAY.TEST_FREE",    "");
+  rel_obj->CreateAttribute("ARRAY",             "Array array attribute",        "", "TEST_ARRAY.TEST_ARRAY2",    "");
+  rel_obj->CreateAttribute("INTEGER",           "Array array integer attribute","", "TEST_ARRAY.TEST_ARRAY2.TEST_INT2",    "");
+  rel_obj->CreateAttribute("RICHDOCUMENT",      "Rich document",                "", "TEST_ARRAY.TEST_RICHDOCUMENT", "");
+  rel_obj->CreateAttribute("IMAGE",             "Image attribute",              "", "TEST_ARRAY.TEST_IMAGE",    "");
+  rel_obj->CreateAttribute("FILE",              "File attribute",               "", "TEST_ARRAY.TEST_FILE",     "");
+
+  INTEGER dom_d1 := dom_obj->CreateEntity2([ wrd_tag := "D1" ])->id;
+  INTEGER dom_d2 := dom_obj->CreateEntity2([ wrd_tag := "D2" ])->id;
+  INTEGER dom_d3 := dom_obj->CreateEntity2([ wrd_tag := "D3" ])->id;
+
+
+  RECORD upd :=
+      [ test_single_domain :=   dom_d1
+      , test_multiple_domain := [ dom_d3, dom_d2, dom_d2 ]
+      , testinstance :=         [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
+                                , id := "TestInstance-1"
+                                , styletitle := ""
+                                ]
+      , test_richdocument :=    myrichexp
+      , test_file :=            testimage
+      , test_image :=           testimage
+      , test_money :=           2.4
+      , test_integer :=         3
+      , test_boolean :=         TRUE
+      , test_array :=           [ [ test_int :=   5
+                                  , test_free :=  "7"
+                                  , test_array2 :=
+                                          [ [ test_int2 := 44
+                                            ]
+                                          ]
+                                  , test_richdocument :=  myrichexp
+                                  , test_image :=         testimage
+                                  , test_file :=          testimage
+                                  ]
+                                , [ test_int :=           0
+                                  , test_free :=          ""
+                                  , test_array2 :=        DEFAULT RECORD ARRAY
+                                  , test_richdocument :=  DEFAULT RECORD
+                                  , test_image :=         DEFAULT RECORD
+                                  , test_file :=          DEFAULT RECORD
+                                  ]
+                                ]
+      ];
+
+  // Updates with inner default value fields omitted
+  RECORD eq_upd := upd;
+  eq_upd.test_array[1] := DEFAULT RECORD;
+  DELETE CELL styletitle FROM eq_upd.testinstance;
+
+  RECORD defaults;
+  FOREVERY (RECORD rec FROM UnpackRecord(upd))
+    defaults := CellInsert(defaults, rec.name, GetTypeDefaultValue(TypeID(rec.value)));
+
+  OBJECT e1 := rel_obj->CreateEntity2(DEFAULT RECORD);
+
+  // From empty: everything changed
+  TestEQ(upd, e1->FilterFieldUpdates(upd));
+  TestEQ(eq_upd, e1->FilterFieldUpdates(eq_upd));
+  TestEQ(DEFAULT RECORD, e1->FilterFieldUpdates(defaults));
+
+  // set to value: no changes anymore
+  e1->UpdateFields(upd);
+
+  TestEQ(DEFAULT RECORD, e1->FilterFieldUpdates(upd));
+  TestEQ(DEFAULT RECORD, e1->FilterFieldUpdates(eq_upd));
+  TestEQ(defaults, e1->FilterFieldUpdates(defaults));
+
+  // Test per single field
+  FOREVERY (RECORD field FROM UnpackRecord(upd))
+  {
+    RECORD test := CellInsert(DEFAULT RECORD, field.name, field.value);
+    RECORD total := CellUpdate(defaults, field.name, field.value);
+    RECORD total_eq := CellUpdate(defaults, field.name, GetCell(eq_upd, field.name));
+    RECORD default_test := CellInsert(DEFAULT RECORD, field.name, GetCell(defaults, field.name));
+
+    e1->UpdateFields(defaults);
+    TestEQ(test, e1->FilterFieldUpdates(test));
+    TestEQ(DEFAULT RECORD, e1->FilterFieldUpdates(defaults));
+
+    e1->UpdateFields(test);
+    TestEQ(DEFAULT RECORD, e1->FilterFieldUpdates(test));
+    TestEQ(default_test, e1->FilterFieldUpdates(defaults));
+    TestEQ(DEFAULT RECORD, e1->FilterFieldUpdates(total));
+    TestEQ(DEFAULT RECORD, e1->FilterFieldUpdates(total_eq));
+  }
+
+  // Test source_fsobject in RTD embedded data, images and files
+
+  OBJECT destlink := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink"]);
+  OBJECT destlink2 := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink2"]);
+
+  RECORD ref_testimage := testimage;
+  RECORD ref_myrichexp := myrichexp;
+
+  ref_testimage.source_fsobject := destlink->id;
+  ref_myrichexp.embedded[0].source_fsobject := destlink->id;
+
+  RECORD link_org :=
+      [ test_richdocument :=    upd.test_richdocument
+      , test_file :=            upd.test_file
+      , test_image :=           upd.test_image
+      ];
+
+  RECORD link_upd :=
+      [ test_richdocument :=    ref_myrichexp
+      , test_file :=            ref_testimage
+      , test_image :=           ref_testimage
+      ];
+
+  e1->UpdateFields(link_upd);
+
+  TestEQ(DEFAULT RECORD, e1->FilterFieldUpdates(link_upd));
+  TestEQ(link_org, e1->FilterFieldUpdates(link_org));
+
+  ref_testimage.source_fsobject := destlink2->id;
+  ref_myrichexp.embedded[0].source_fsobject := destlink2->id;
+
+  RECORD link2_upd :=
+      [ test_richdocument :=    ref_myrichexp
+      , test_file :=            ref_testimage
+      , test_image :=           ref_testimage
+      ];
+
+  e1->UpdateFields(link2_upd);
+
+  TestEQ(DEFAULT RECORD, e1->FilterFieldUpdates(link2_upd));
+  TestEQ(link_upd, e1->FilterFieldUpdates(link_upd));
+  TestEQ(link_org, e1->FilterFieldUpdates(link_org));
+
+  testfw->RollbackWork();
+}
+
+MACRO TestStoredQuery()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
+
+  wrdperson->DeleteAllEntities();
+
+  // Maak een stored query aan voor personen
+  RECORD querydata := [ sources := [ [ type := schemaobj->GetTypeByTag("WRD_PERSON")
+                                     , outputcolumns := [ fullname := "WRD_FULLNAME"
+                                                        , email := "WRD_CONTACT_EMAIL"
+                                                        ]
+                                     ]
+                                   ]
+                      ];
+  OBJECT query := schemaobj->CreateStoredQuery("QUERY_PERSON", querydata);
+
+  // Does the query work?
+  TestEQ(DEFAULT RECORD ARRAY, query->Execute());
+
+  // Does the query remember its cached time? (initially, it did)
+  Sleep(1);
+  wrdperson->CreateEntity2(
+      [ wrd_firstname := "First"
+      , wrd_lastname := "Last"
+      , wrd_contact_email := "a@a.com"
+      ]);
+  Sleep(1);
+  TestEQ(
+      [ [ fullname :=   "First Last"
+        , email :=      "a@a.com"
+        ]
+      ], query->Execute());
+
+  testfw->RollbackWork();
+}
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR TestAddress
+                 , PTR TestSchema
+                 , PTR TestTitleAttr
+                 , PTR TestGenderDomain
+                 , PTR TestDomains
+                 , PTR ImageCache
+                 , PTR RichDoc
+                 , PTR RichDocEmbed
+                 , PTR TestAttributes("WRD_PERSON")
+                 , PTR TestAttributes("WRD_ORGANIZATION")
+                 , PTR TestAttributes("TEST_DOMAIN_1")
+                 , PTR TestHistoryMode
+
+                 , PTR TestEnrichBulk
+
+                 , PTR TestWRDQuery
+                 , PTR TestWRDQuery_AfterFilters
+                 , PTR TestWRDQuery_Password
+                 , PTR TestWRDQuery_ContainsAndMDEqual
+                 , PTR TestWRDQuery_Mentions_Single
+                 //, PTR TestWRDQuery_Mentions_Multiple //removed because testapi.whscr already covers this, and has the dupe email fixes
+                 , PTR TestWRDQuery_DeepOutputColumns
+                 , PTR TestMerge
+                 , PTR TestWRDQuery_ExpImp
+                 , PTR TestRegressions
+                 , PTR TestUpdateFiltering
+                 , PTR TestStoredQuery
+                 ], [ wrdauth := FALSE ]);

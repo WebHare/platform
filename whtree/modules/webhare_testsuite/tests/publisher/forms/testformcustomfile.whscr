@@ -1,0 +1,496 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+STRING emailfieldname;
+
+PUBLIC MACRO BuildForm()
+{
+  BuildCustomWebtoolForm(
+      [ addgtmdatalayer := "muhdata"
+      , addtslinecomp := TRUE
+      , addtslinecompascustom := TRUE
+      , addcheckboxfield := TRUE
+      , addaddressfield := TRUE
+      , checkboxes := TRUE
+      , checkboxfieldconditions := FALSE
+      , setmailresultsfields := TRUE
+      , custommergefields := TRUE
+      , embeddedresults := TRUE
+      ]);
+}
+PUBLIC MACRO CustomForm()
+{
+  OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
+  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url));
+
+  OBJECT formtag := testfw->browser->QS("form");
+  RECORD submit := DecodeJSON(formtag->GetAttribute("data-gtm-submit"));
+  TestEq("muhdata", submit.form);
+
+  OBJECT firstemailfield := testfw->browser->QS("input[type=email]");
+  TestEq("2017-02-01T00:00:00.000Z", firstemailfield->GetAttribute("data-test"));
+
+  //verify that the customselect is english
+  OBJECT customselectfield := testfw->browser->QS("select[name='tsline.customselect.select']");
+  TestEq(TRUE, ObjectExists(testfw->browser->QS(customselectfield,"option[value='lang-en']")));
+
+  OBJECT webtoolform := OpenFormFileDefinition(customformfile);
+  OBJECT webtoolresults := OpenFormFileResults(customformfile);
+
+  RECORD ARRAY fields := webtoolform->ListFields();
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
+  TestEq(TRUE, emailfieldname!="", "Email field not found");
+
+  RECORD submitrec := [ firstname := "P. Giménez & Henkie 😇"
+                      , upload := [ filename := "allstar.txt"
+                                  , link := "data:text/plain,someBODY"
+                                  ]
+                      , checkboxes := ["copt1","copt3"]
+                      , date := "2017-06-22"
+                      , address := [ country := "NL"
+                                   , street := "Hengelosestraat"
+                                   , nr_detail := "296"
+                                   , zip := "7521 AM"
+                                   , city := "Enschede"
+                                   , province := "OV" // will be ignored for NL
+                                   ]
+                      , "tsline.customselect.select" := "lang-en"
+                      , radio := ["opt"]
+                      , "reversed.text" := "Euro & €"
+                      ];
+
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
+
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  TestEq(1, webtoolresults->GetResultsCount());
+
+  RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  TestEQ("new", submitted.submittype);
+  TestEq(TRUE, RecordExists(submitted.response.address));
+  TestEq("testfw+formtest@beta.webhare.net", Getcell(submitted.response,emailfieldname));
+  TestEq("NL", submitted.response.address.country);
+  TestEq("Hengelosestraat", submitted.response.address.street);
+  TestEq(FALSE, CellExists(submitted.response.address, "province")); // Province is only used for BE
+
+  RECORD witty := webtoolresults->GetWittyResultdata(submitted);
+  TestEq(TRUE, witty.pagedata.editlink != "", "Editlink must be set");
+  TestEq("TSHANDLER-42", witty.pagedata.testsuitehandler);
+  TestEQ(FALSE, witty.iscancel);
+  TestEQ(FALSE, witty.ischange);
+  TestEq("Language = en", witty.field.tsline.customselect_witty.text);
+
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+  RECORD ARRAY mails := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 2 ]);
+  RECORD simpleconfirmmail := SELECT * FROM mails WHERE subject="About Your Submission";
+  OBJECT confirmmaildoc := MakeXMLDocumentFromHTML(StringToBlob(simpleconfirmmail.html));
+  TestEqLike("*Hello P. Giménez & Henkie 😇*Edit*", TrimWhitespace(confirmmaildoc->body->textcontent));
+  OBJECT editlink := confirmmaildoc->GetElement("a#editlink");
+  TestEq(witty.pagedata.editlink, editlink->GetAttribute("href"));
+
+  RECORD rtdconfirmmail := SELECT * FROM mails WHERE subject="RTD with confirmation";
+  confirmmaildoc := MakeXMLDocumentFromHTML(StringToBlob(rtdconfirmmail.html));
+  TestEqLike("*Dear P. Giménez & Henkie 😇*", TrimWhitespace(confirmmaildoc->body->textcontent));
+  TestEqLike("*<b>P. Giménez &amp; Henkie 😇</b>*", TrimWhitespace(confirmmaildoc->body->outerxml));
+  TestEqLike("*Confirmation*edit link*", TrimWhitespace(confirmmaildoc->body->textcontent));
+  TestEqLike("*sent to: testfw+formtest@beta.webhare.net*", TrimWhitespace(confirmmaildoc->body->outerxml));
+  TestEqLike("*We asked you when: {22 June 2017}*", TrimWhitespace(confirmmaildoc->body->outerxml));
+  TestEqLike("*Your checkboxes: {CheckboxOpt1; CheckboxOpt3}*", TrimWhitespace(confirmmaildoc->body->outerxml));
+  TestEqLike("*Reversed text: {€ & oruE}*", TrimWhitespace(confirmmaildoc->body->textcontent));
+  TestEqLike(`*<div class="custom-form-widget">Custom Form Widget with value 'P. Giménez &amp; Henkie 😇'</div>*`, TrimWhitespace(confirmmaildoc->body->outerxml));
+  // Test if the form results are embedded within ":BEFORERESULTS:" and ":AFTERRESULTS:"
+  TestEqLike("*:BEFORERESULTS:*First name*P. Giménez & Henkie 😇*Email*testfw+formtest@beta.webhare.net*Groups & stuff*Upload*allstar.txt*Date*22 June 2017*Checkboxes*CheckboxOpt1; CheckboxOpt3*Radio*Õption*Reversed*Euro & €*Address*Hengelosestraat 296*Netherlands*:AFTERRESULTS:*", TrimWhitespace(confirmmaildoc->body->textcontent));
+
+  editlink := confirmmaildoc->GetElements("p.normal a")[0];
+  TestEq(witty.pagedata.editlink, editlink->GetAttribute("href"));
+
+  OBJECT linkref := confirmmaildoc->GetElements("p.normal a")[1];
+  TestEq(OpenTestsuiteSite()->OpenByPath("testpages/staticpage")->indexurl, linkref->GetAttribute("href"));
+
+  IF(testfw->debug)
+    Print("Edit page: " || witty.pagedata.editlink ||'\n');
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(witty.pagedata.editlink), witty.pagedata.editlink);
+  OBJECT firstnamefield := testfw->browser->document->GetElement('input[name="firstname"]');
+  TestEq("P. Giménez & Henkie 😇", firstnamefield->GetAttribute("value"));
+
+  OBJECT tsfield1 := testfw->browser->document->GetElement('input[name="tsline.field1"]');
+  TestEq("42@webhare.net", tsfield1->GetAttribute("value"));
+
+  OBJECT tscustomfield1 := testfw->browser->document->GetElement('input[name="tsline_custom.field1"]');
+  TestEq("42@webhare.net", tscustomfield1->GetAttribute("value"));
+
+  //Now submit with a name change
+  tester := OpenFormsapiFormTester(testfw->browser);
+  submitrec.firstname := "Klaasje";
+  submitrec.address.country := "DE";
+
+  res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  TestEQ("change", submitted.submittype);
+  TestEq("Klaasje", submitted.response.firstname);
+  TestEq(TRUE, RecordExists(submitted.response.address));
+  TestEq("DE", submitted.response.address.country);
+  TestEq("Hengelosestraat", submitted.response.address.street);
+  TestEq(FALSE, CellExists(submitted.response.address, "province")); // Province is only used for BE
+
+  //And there should still be only one result
+  TestEq(1, webtoolresults->GetResultsCount());
+  //Even if we use export
+  OBJECT exporter := webtoolresults->CreateExporter();
+  RECORD ARRAY exportrows := SELECT * FROM exporter->ExportAllResults() ORDER BY when DESC;
+  TestEq(1, Length(exportrows));
+  //OR List
+  RECORD ARRAY listrows := webtoolresults->ListResults();
+  TestEq(1, Length(listrows));
+
+  witty := webtoolresults->GetWittyResultdata(submitted);
+  TestEq(TRUE, witty.pagedata.editlink != "", "Editlink must be set");
+  TestEQ(FALSE, witty.iscancel);
+  TestEQ(TRUE, witty.ischange);
+
+  //Discard all mail so far
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+  mails := testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
+
+  TestEq('=?UTF-8?Q?P=2E_Gim=C3=A9nez_&_Henkie_=F0=9F=98=87?= <mailfromtemplate@beta.webhare.net>', (SELECT AS STRING value FROM mails[0].headers WHERE field = "From"));
+  TestEq("<testfw+formtest@beta.webhare.net>", (SELECT AS STRING value FROM mails[0].headers WHERE field = "Reply-To"));
+
+  TestEq(2, Length(mails));
+  TestEq(2, Length(testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 2 ])));
+
+  //Test cancellation
+  TestEq(TRUE, testfw->browser->GotoWebPage(UpdateURLVariables(witty.pagedata.editlink, [ cancel := "1" ])), testfw->browser->href);
+  TestEq(0, webtoolresults->GetResultsCount());
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+
+  RECORD ARRAY cancelmail := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 1 ]);
+  TestEq(1,Length(cancelmail));
+
+  OBJECT cancelmaildoc := MakeXMLDocumentFromHTML(StringToBlob(cancelmail[0].html));
+  TestEq("Too bad you've cancelled Klaasje!", TrimWhitespace(cancelmaildoc->body->textcontent));
+
+  TestEq(1, Length(testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ])));
+
+  submitrec := [ firstname := "Pietje"
+               , upload := [ filename := "allstar.txt"
+                           , link := "data:text/plain,someBODY"
+                           ]
+               , imgedit := [ filename := "goudvis.png"
+                            , link := GetDataUrl(GetWebhareResource("mod::webhare_testsuite/tests/wrd/testdata/goudvis.png"), "image/png")
+                            ]
+               , checkboxes := ["copt1","copt3"]
+               , date := "2017-06-22"
+               , address := [ country := "NL"
+                            , street := "Hengelosestraat"
+                            , nr_detail := "296"
+                            , zip := "7521 AM"
+                            , city := "Enschede"
+                            , province := "OV" // will be ignored for NL
+                            ]
+               , "tsline.customselect.select" := "lang-en"
+               , textarea := RepeatText("x", 8192) // Test long strings being exported as blobs
+               ];
+
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
+
+  res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  RECORD exportwithattachments := webtoolresults->CreateExporter([ withattachments := TRUE ])->ExportAllResultsWithAttachments();
+  TestEq(1, Length(exportwithattachments.rows));
+  TestEq(2, Length(exportwithattachments.attachments));
+  STRING col_textarea   := SELECT AS STRING name FROM exporter->columns WHERE title="Textarea";
+
+  // Export results for migration
+  RECORD migrationfile := ExportFormResults(customformfile->id);
+  TestEq(TRUE, RecordExists(migrationfile));
+
+  // Results cannot be imported as they already exist
+  testfw->BeginWork();
+  RECORD result := ImportFormResults(migrationfile.data);
+  testfw->RollbackWork();
+  TestEq(FALSE, result.success);
+  TestEqLike("A result with guid '*' already exists", result.error);
+
+  // Delete current results and import again
+  testfw->BeginWork();
+  webtoolresults->DeleteAllResults();
+  testfw->CommitWork();
+  RECORD exportaftermigration := webtoolresults->CreateExporter([ withattachments := TRUE ])->ExportAllResultsWithAttachments();
+  TestEq(0, Length(exportaftermigration.attachments));
+  TestEq(0, Length(exportaftermigration.rows));
+  testfw->BeginWork();
+  result := ImportFormResults(migrationfile.data);
+  testfw->CommitWork();
+  TestEq(TRUE, result.success);
+  TestEq(3, result.numresults);
+
+  // Export results and check with previous export (don't check result id's as they would differ after being reimported)
+  exportaftermigration := webtoolresults->CreateExporter([ withattachments := TRUE ])->ExportAllResultsWithAttachments();
+  exportwithattachments.rows := SELECT *, DELETE id FROM exportwithattachments.rows;
+  exportaftermigration.rows := SELECT *, DELETE id FROM exportaftermigration.rows;
+  TestEq(exportwithattachments, exportaftermigration);
+
+  // Test if long string is exported and imported right (it will have been exported as blob because of its length)
+  // This also tests if the result is available again with the original guid
+  RECORD lastresult := SELECT * FROM exportaftermigration.rows WHERE guid = res.result.resultsguid;
+  TestEq(TRUE, RecordExists(lastresult));
+  TestEq(RepeatText("x", 8192), GetCell(lastresult, col_textarea));
+
+  // Delete all results
+  testfw->BeginWork();
+  webtoolresults->DeleteAllResults();
+  testfw->CommitWork();
+}
+
+MACRO CustomForm_SuppressMail()
+{
+  // Make sure no email tasks are running anymore
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+  testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
+
+  OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
+  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url));
+
+  OBJECT webtoolform := OpenFormFileDefinition(customformfile);
+  OBJECT webtoolresults := OpenFormFileResults(customformfile);
+  RECORD ARRAY fields := webtoolform->ListFields();
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+
+  RECORD submitrec := [ firstname := "Pietje"
+                      , upload := [ filename := "allstar.txt"
+                                  , link := "data:text/plain,someBODY"
+                                  ]
+                      , date := "2017-11-22"
+                      , "address.country" := "NL"
+                      , "address.street" := "Hengelosestraat"
+                      , "address.nr_detail" := "296"
+                      , "address.zip" := "7521 AM"
+                      , "address.city" := "Enschede"
+                      , "tsline.customselect.select" := "lang-en"
+                      , radio := ["opt"]
+                      ];
+
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+dontmailme@beta.webhare.net");
+
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  TestEq(1, webtoolresults->GetResultsCount());
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+
+  TestEq(1, Length(testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ])));
+  TestEq(TRUE, testfw->IsMailqueueEmptyFor("testfw+dontmailme@beta.webhare.net"));
+}
+
+MACRO CustomForm_NL()
+{
+  OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
+  TestEq(FALSE, testfw->browser->GotoWebPage(customformfile->url || "?setlang=fail")); //make sure we're actually getting setlang
+  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url || "?setlang=nl"));
+
+  //verify that the customselect realized it should be dutch
+  OBJECT customselectfield := testfw->browser->QS("select[name='tsline.customselect.select']");
+  TestEq(TRUE, ObjectExists(testfw->browser->QS(customselectfield, "option[value='lang-nl']")),"Missing lang-nl option");
+
+  OBJECT submitbutton := testfw->browser->QS("button[type=\"submit\"]");
+  TestEq("Versturen", submitbutton->textcontent);
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  RECORD submitrec := [ firstname := "Keesje"
+                      , date := "2017-06-21"
+                      , "address.country" := "NL"
+                      , "address.street" := "Hengelosestraat"
+                      , "address.nr_detail" := "296"
+                      , "address.zip" := "7521 AM"
+                      , "address.city" := "Enschede"
+                      , "tsline.field1" := "Testje"
+                      , "tsline.customselect.select" := "lang-nl"
+                      ];
+
+  submitrec := CellInsert(submitrec, emailfieldname, "keesje+formtest@beta.webhare.net");
+
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  OBJECT webtoolresults := OpenFormFileResults(customformfile);
+  RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  RECORD witty := webtoolresults->GetWittyResultdata(submitted);
+
+  TestEq("Nee", witty.field.checkboxfield.text);
+  TestEq("21 juni 2017", witty.field.date.text);
+  TestEq(FormatDatetime("%#d %b %Y", UTCToLocal(submitted.when,"CET"), "nl"), witty.submitdate);
+  TestEq(FormatDatetime("%H:%M:%S", UTCToLocal(submitted.when,"CET"), "nl"), witty.submittime);
+  TestEq("nl", witty.field.tsline_custom.tslang); //Proof formlanguagecode follows form. needed for <programmeselect> brochurelink
+  TestEq("Language = nl", witty.field.tsline.customselect_witty.text);
+
+  //ADDME: TestEq("Hengelosestraat 296\n7521 AM Enschede\nNederland", witty.field.address.text);
+
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+  RECORD mail := testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
+  OBJECT maildoc := MakeXMLDocumentFromHTML(mail.toppart.subparts[1].subparts[0].data);
+  OBJECT checkboxrow := maildoc->GetElementsByTagName("tr")->Item(8);
+
+  TestEqLike("*Checkbox* *Nee*", checkboxrow->textcontent);
+
+  //now that we have mixed the language results... let's see how that worked out
+  OBJECT exporter := webtoolresults->CreateExporter();
+  STRING fieldname_customselect := SELECT AS STRING name FROM exporter->columns WHERE title = "TSLine (CS)";
+  RECORD ARRAY exportrows := exporter->ExportAllResults();
+  TestEq(2, Length(exportrows));
+  TestEq("Language = en", Getcell(exportrows[0], fieldname_customselect));
+  TestEq("Language = nl", Getcell(exportrows[1], fieldname_customselect));
+
+  //OR List
+  RECORD ARRAY listrows := webtoolresults->ListResults( [ outputcolumns := CELL["tsline"] ] );
+  TestEq(2, Length(listrows));
+  TestEq("Language = en", listrows[0].tsline.value_cs);
+  TestEq("Language = nl", listrows[1].tsline.value_cs);
+}
+
+ASYNC MACRO EditCustomForm()
+{
+  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform" ], target := DEFAULT RECORD ]));
+
+  //Edit the radio, remove Öption
+  OBJECT questionslist := TT("doceditor")->contents->^questions;
+  questionslist->selection := SELECT * FROM questionslist->rows WHERE title = "Radio";
+  AWAIT ExpectScreenChange(+1, PTR questionslist->openaction->TolliumClick());
+
+  OBJECT extension := TT("tabs")->ListExtensions()[0].extension;
+  extension->options->SetSelectedRows([0]);
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Delete"), [ awaitcall := TRUE ]); //confirm save and publish
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("title")->value := "New option";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Results"));
+  TT("results")->selection := SELECT * FROM TT("results")->rows ORDER BY when LIMIT 1;
+  AWAIT ExpectScreenChange(+1, PTR TT("results")->openaction->TolliumClick);
+  TestEq("Õption", TT(":Radio")->value);
+  TestEq([ filename := "allstar.txt"
+         , mimetype := "text/plain"
+         , data := StringToBlob("someBODY")
+         ], (AWAIT ExpectSentWebFile(PTR TTClick(":Upload"))).file);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
+  TestEq(RECORD[], ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := formfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").data.formtext ]).errors); // make sure deletion didn't break XSD
+
+  OBJECT webtoolresults := OpenFormFileResults(formfile);
+  RECORD ARRAY directrows := webtoolresults->ListResults( [ outputcolumns := CELL[ "mail" := emailfieldname, fn := "firstname", "radio" ] ]);
+
+  TestEq("Õption", directrows[0].radio);
+
+  RECORD submitted := webtoolresults->GetSingleResult(directrows[0].guid);
+  TestEq("opt", submitted.response.radio);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(submitted.pagedata.editlink)); //shouldn't crash
+
+  OBJECT ARRAY radiobuttons := testfw->browser->document->GetElements(`input[name="radio"]`);
+  TestEq(1, Length(radiobuttons));
+  TestEq("New option", radiobuttons[0]->parentnode->textcontent);
+}
+
+ASYNC MACRO ProcessExpiredResults()
+{
+  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform" ], target := DEFAULT RECORD ]));
+
+  TestEq(TRUE, ObjectExists(TT(":Results", [ allowmissing := TRUE ])));
+
+  // Set retention period to 0
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings"));
+  TT("overwritestoreresults")->value := TRUE;
+  TT("storeresults")->value := 0;
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":OK"), [ messagemask := "*changes*take effect*form*(re)published*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  // Save and republish
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton"), [ messagemask := "*sure*save*publish*" ]);
+  AWAIT ExpectAndAnswerMessageBox("yes", DEFAULT FUNCTION PTR, [ messagemask := "*results will be deleted*continue*" ]);
+
+  // The results button should no longer be available
+  TestEq(FALSE, ObjectExists(TT(":Results", [ allowmissing := TRUE ])));
+
+  // Close the editor
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // Test if form submits successfully with merge fields on thankyou page
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
+  OBJECT webtoolform := OpenFormFileDefinition(formfile);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+
+  RECORD submitrec := [ firstname := "Pietertje"
+                      , address := [ country := "NL"
+                                   , street := "Hengelosestraat"
+                                   , nr_detail := "296"
+                                   , zip := "7521 AM"
+                                   , city := "Enschede"
+                                   , province := "OV" // will be ignored for NL
+                                   ]
+                      ];
+
+  emailfieldname := SELECT AS STRING name FROM webtoolform->ListFields() WHERE title = ":Email";
+  TestEq(TRUE, emailfieldname!="", "Email field not found");
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
+
+  // Regression: this would crash because the (expired) result could not be found for merging the thankyou page fields
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  RECORD richvalue_thankyou := SELECT * FROM res.result.richvalues WHERE field = "thankyou";
+  TestEqLike("*Pietertje*Block1 Widget*", richvalue_thankyou.value); //test the merge, ensure the widget got rendered
+
+  // Test if results are not available
+  OBJECT webtoolresults := OpenFormFileResults(formfile);
+  TestEq(FALSE, RecordExists(webtoolresults->GetSingleResult(res.result.resultsguid)));
+  // All old results are deleted
+  TestEq(0, webtoolresults->GetResultsCount());
+
+  // The results are only expired, not deleted (yet)
+  TestEq(TRUE, RecordExists(webtoolresults->GetSingleResult(res.result.resultsguid, [ showexpiredresults := TRUE ])));
+  TestEq(3, webtoolresults->GetResultsCount([ showexpiredresults := TRUE ]));
+}
+
+RunTestframework([ PTR BuildForm
+                 , PTR CustomForm
+                 , PTR CustomForm_SuppressMail
+                 , PTR CustomForm_NL
+                 , PTR EditCustomForm
+                 , PTR ProcessExpiredResults
+                 ], [ canceltasks := ["publisher:mailfeedback","publisher:mailresults"]
+                    , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

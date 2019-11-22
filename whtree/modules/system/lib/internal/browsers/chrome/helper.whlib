@@ -1,0 +1,44 @@
+<?wh
+
+/* helper functions, inspired by puppeteer helpers
+*/
+
+PUBLIC ASYNC MACRO ReleaseObject(OBJECT client, RECORD remoteobject)
+{
+  IF (NOT CellExists(remoteobject, "objectId"))
+    RETURN;
+
+  // Exceptions might happen in case of a page been navigated or closed.
+  // Swallow these since they are harmless and we don't leak anything in this case.
+  TRY
+    AWAIT client->^Runtime->^ReleaseObject(CELL[ remoteobject.objectId ]);
+  FINALLY
+    RETURN;
+}
+
+PUBLIC ASYNC FUNCTION SerializeRemoteObject(OBJECT client, RECORD remoteobject)
+{
+  IF (CellExists(remoteObject, "unserializableValue"))
+    ABORT("implement me - unserializableValue");
+  IF (NOT CellExists(remoteObject, "objectid"))
+    RETURN remoteobject.value; //FIXME: If type is 'undefined', there is no value...
+  IF (CellExists(remoteobject, "SUBTYPE") AND remoteobject.subtype = "promise")
+    RETURN remoteobject.description;
+  TRY
+  {
+    RECORD response := AWAIT client->^Runtime->^CallFunctionOn(
+        [ objectId :=             remoteobject.objectId
+        , functiondeclaration :=  'function() { return this; }'
+        , returnByValue :=        TRUE
+        ]);
+    RETURN response.result.value;
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN remoteobject.description;
+  }
+  FINALLY
+  {
+    ReleaseObject(client, remoteobject);
+  }
+}

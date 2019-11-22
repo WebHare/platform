@@ -1,0 +1,1109 @@
+<?wh
+
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/graphs.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+STATIC OBJECTTYPE DisplayedProfile
+<
+  /** Processed data, format can change per profile
+  */
+  RECORD processed;
+
+  PUBLIC STRING FUNCTION GetType()
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  PUBLIC RECORD FUNCTION GetInfoFromRawData(RECORD rawdata)
+  {
+    RETURN [ text := "", sortval := 0f ];
+  }
+
+  /** Initialize from raw profile data
+  */
+  PUBLIC MACRO InitWithRawData(RECORD rawdata)
+  {
+    this->processed := rawdata;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetFunctionsListChildren(RECORD parentrow)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetParentsListChildren(RECORD functionrow, RECORD parentrow)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetChildrenListChildren(RECORD functionrow, RECORD parentrow)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetNamesListChildren(RECORD parentrow)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  PUBLIC STRING ARRAY FUNCTION GetShownLists()
+  {
+    RETURN [ "functions", "children", "parents" ];
+  }
+
+  PUBLIC RECORD FUNCTION GetListConfig(STRING listtype)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE DisplayedFunctionProfile EXTEND DisplayedProfile
+<
+  UPDATE PUBLIC STRING FUNCTION GetType()
+  {
+    RETURN "functionprofile";
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetInfoFromRawData(RECORD rawdata)
+  {
+    FLOAT totalselftime :=
+        SELECT AS FLOAT Sum(selftime)
+          FROM rawdata.items;
+
+    RETURN [ text := FormatFloat(totalselftime * 1000, 3), sortval := totalselftime ];
+  }
+
+  UPDATE PUBLIC MACRO InitWithRawData(RECORD rawdata)
+  {
+    RECORD ARRAY locations := rawdata.locations;
+
+    STRING ARRAY ambiguous_names :=
+        SELECT AS STRING ARRAY func
+          FROM locations
+      GROUP BY func
+        HAVING Count(*) >= 2;
+
+    UPDATE locations
+       SET func := func || " (" || library || ")"
+     WHERE func IN ambiguous_names;
+
+    INTEGER ARRAY main_locations :=
+        SELECT AS INTEGER ARRAY DISTINCT location
+          FROM rawdata.items
+      ORDER BY location;
+
+    RECORD ARRAY functions :=
+        SELECT TEMPORARY name := locations[location - 1].func
+             , location
+             , locdata :=     locations[location - 1]
+             , name :=        name
+             , callcount :=   SUM(callcount)
+             , totaltime :=   FLOAT(SUM(totaltime_callee_nr) * 1000)
+             , selftime  :=   FLOAT(SUM(selftime) * 1000)
+          FROM rawdata.items
+      GROUP BY location
+      ORDER BY name;
+
+    RECORD ARRAY missing :=
+        SELECT name :=        locations[parentlocation - 1].func
+             , location :=    parentlocation
+             , locdata :=     locations[parentlocation - 1]
+             , callcount :=   1
+             , totaltime :=   FLOAT(SUM(totaltime_callee_nr) * 1000)
+             , selftime :=    0m
+          FROM rawdata.items
+         WHERE parentlocation != 0
+           AND NOT LowerBound(main_locations, parentlocation).found
+      GROUP BY parentlocation;
+
+    functions := functions CONCAT missing CONCAT
+        SELECT name :=          "Root"
+             , location :=      0
+             , locdata :=       DEFAULT RECORD
+             , callcount :=     1
+             , totaltime :=     SUM(totaltime)
+             , selftime :=      0m
+          FROM missing;
+
+    RECORD ARRAY relations :=
+        SELECT parent :=        parentlocation != 0 ? locations[parentlocation - 1].func : ""
+             , name :=          locations[location - 1].func
+             , parentlocation
+             , location
+             , callcount :=     SUM(callcount)
+             , totaltime :=     FLOAT(SUM(totaltime) * 1000)
+             , selftime :=      FLOAT(SUM(selftime) * 1000)
+             , avg_totaltime := FLOAT(SUM(totaltime) * 1000) / SUM(callcount)
+             , avg_selftime :=  FLOAT(SUM(selftime) * 1000) / SUM(callcount)
+          FROM rawdata.items
+      GROUP BY parentlocation, location;
+
+    relations := relations CONCAT
+        SELECT parent :=          "Root"
+             , name
+             , parentlocation :=  0
+             , location
+             , callcount
+             , totaltime
+             , selftime :=        0m
+             , avg_totaltime :=   totaltime
+             , avg_selftime :=    0m
+          FROM missing;
+
+    this->processed :=
+        [ functions :=          functions
+        , relations :=          relations
+        , locations :=          locations
+        , totaltime :=          (SELECT AS FLOAT MAX(totaltime) FROM relations)
+        , haschildren :=        (SELECT AS INTEGER ARRAY DISTINCT parentlocation FROM relations ORDER BY parentlocation)
+        , hasparents :=         (SELECT AS INTEGER ARRAY DISTINCT location FROM relations ORDER BY location)
+        ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetFunctionsListChildren(RECORD parentrow)
+  {
+    RETURN
+        SELECT rowkey :=                ToString(location)
+             , location
+             , openrowkey :=            ToString(location)
+             , functionname :=          location = 0 ? "Root" : this->processed.locations[location - 1].func
+             , library :=               location = 0 ? "" : this->processed.locations[location - 1].library
+             , totaltime
+             , selftime
+             , avg_totaltime :=         totaltime / callcount
+             , avg_selftime :=          selftime / callcount
+             , callcount
+          FROM this->processed.functions;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetParentsListChildren(RECORD functionrow, RECORD parentrow)
+  {
+    RECORD ARRAY rows;
+    IF (NOT RecordExists(parentrow))
+    {
+      INSERT CELL seenparents := DEFAULT INTEGER ARRAY INTO functionrow;
+      INSERT CELL shownlocation := functionrow.location INTO functionrow;
+      INSERT CELL depth_left := 4 INTO functionrow;
+      INSERT CELL expanded := FALSE INTO functionrow;
+      INSERT CELL expandable := LowerBound(this->processed.hasparents, functionrow.location).found INTO functionrow;
+      rows := [ functionrow ];
+    }
+    ELSE
+    {
+      IF (parentrow.depth_left = 0 OR parentrow.location IN parentrow.seenparents)
+        RETURN DEFAULT RECORD ARRAY;
+
+      INTEGER ARRAY seenparents := parentrow.seenparents CONCAT [ INTEGER(parentrow.location) ];
+      STRING rootrowkey := parentrow.rowkey;
+
+      rows :=
+          SELECT rowkey :=                rootrowkey || "-" || parentlocation
+               , functionname :=          parentlocation > 0 ? this->processed.locations[parentlocation - 1].func : ""
+               , library :=               parentlocation > 0 ? this->processed.locations[parentlocation - 1].library : ""
+               , location :=              parentlocation
+               , openrowkey :=            ToString(parentlocation)
+               , totaltime :=             totaltime
+               , selftime :=              selftime
+               , avg_totaltime :=         totaltime / callcount
+               , avg_selftime :=          selftime / callcount
+               , callcount
+               , expanded :=              FALSE
+               , expandable :=            LowerBound(this->processed.hasparents, parentlocation).found
+               , seenparents :=           seenparents
+               , depth_left :=            parentrow.depth_left - 1
+            FROM this->processed.relations
+           WHERE location = parentrow.location
+        ORDER BY totaltime DESC;
+    }
+
+    rows :=
+        SELECT *
+             , expanded :=          FALSE
+             , expandable :=        depth_left != 0 AND LowerBound(this->processed.hasparents, location).found
+          FROM rows;
+
+    RETURN rows;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetChildrenListChildren(RECORD functionrow, RECORD parentrow)
+  {
+    RECORD ARRAY rows;
+    IF (NOT RecordExists(parentrow))
+    {
+      INSERT CELL seenparents := DEFAULT INTEGER ARRAY INTO functionrow;
+      INSERT CELL depth_left := 4 INTO functionrow;
+      INSERT CELL expanded := FALSE INTO functionrow;
+      INSERT CELL expandable := LowerBound(this->processed.haschildren, functionrow.location).found INTO functionrow;
+      rows := [ functionrow ];
+    }
+    ELSE
+    {
+      IF (parentrow.depth_left = 0 OR parentrow.location IN parentrow.seenparents)
+        RETURN DEFAULT RECORD ARRAY;
+
+      INTEGER ARRAY seenparents := parentrow.seenparents CONCAT [ INTEGER(parentrow.location) ];
+      STRING rootrowkey := parentrow.rowkey;
+
+      rows :=
+          SELECT rowkey :=                rootrowkey || "-" || location
+               , functionname :=          this->processed.locations[location - 1].func
+               , library :=               this->processed.locations[location - 1].library
+               , location :=              location
+               , openrowkey :=            ToString(location)
+               , totaltime :=             totaltime
+               , selftime :=              selftime
+               , avg_totaltime :=         totaltime / callcount
+               , avg_selftime :=          selftime / callcount
+               , callcount
+               , expanded :=              FALSE
+               , seenparents :=           seenparents
+               , depth_left :=            parentrow.depth_left - 1
+            FROM this->processed.relations
+           WHERE COLUMN parentlocation = parentrow.location
+        ORDER BY totaltime DESC;
+    }
+
+    rows :=
+        SELECT *
+             , expanded :=          FALSE
+             , expandable :=        depth_left != 0 AND LowerBound(this->processed.haschildren, location).found
+          FROM rows;
+
+    RETURN rows;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetListConfig(STRING listtype)
+  {
+    // All lists have the same extra columns
+    RETURN
+        [ istree :=         listtype != "functions"
+        , datacolumns :=
+              [ [ name :=     "totaltime"
+                , title :=    GetTid("system:debugger.profiles.totaltime")
+                , type :=     "float"
+                , decimals := 3
+                , width :=    "12x"
+                , align :=    "right"
+                ]
+              , [ name :=     "selftime"
+                , title :=    GetTid("system:debugger.profiles.selftime")
+                , type :=     "float"
+                , decimals := 3
+                , width :=    "12x"
+                , align :=    "right"
+                ]
+              , [ name :=     "avg_totaltime"
+                , title :=    GetTid("system:debugger.profiles.avg_totaltime")
+                , type :=     "float"
+                , decimals := 3
+                , width :=    "12x"
+                , align :=    "right"
+                ]
+              , [ name :=     "avg_selftime"
+                , title :=    GetTid("system:debugger.profiles.avg_selftime")
+                , type :=     "float"
+                , decimals := 3
+                , width :=    "12x"
+                , align :=    "right"
+                ]
+              , [ name :=     "callcount"
+                , title :=    GetTid("system:debugger.profiles.callcount")
+                , type :=     "integer"
+                , width :=    "6x"
+                , align :=    "right"
+                ]
+              ]
+        ];
+  }
+
+>;
+
+
+PUBLIC STATIC OBJECTTYPE DisplayedMemoryProfile EXTEND DisplayedProfile
+<
+  UPDATE PUBLIC STRING FUNCTION GetType()
+  {
+    RETURN "memoryprofile";
+  }
+
+  UPDATE PUBLIC MACRO InitWithRawData(RECORD rawdata)
+  {
+    RECORD ARRAY rawlocations := rawdata.locations;
+
+    RECORD ARRAY functions :=
+        SELECT location
+             , name :=                rawlocations[location - 1].func
+             , library :=             rawlocations[location - 1].library
+             , heapalloc_total :=     Sum(heapalloc_total)
+             , heapalloc_self :=      Sum(heapalloc_self)
+             , hits :=                Sum(hits)
+             , ids :=                 GroupedValues(id)
+          FROM rawdata.tree
+      GROUP BY location;
+
+    RECORD ARRAY tree :=
+        SELECT *
+             , children :=  DEFAULT INTEGER ARRAY
+          FROM rawdata.tree;
+
+    FOREVERY (RECORD rec FROM tree)
+      IF (rec.parent != 0)
+        INSERT rec.id INTO tree[rec.parent - 1].children AT END;
+
+    this->processed :=
+        [ functions :=          functions
+        , locations :=          rawlocations
+        , tree :=               tree
+        ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetFunctionsListChildren(RECORD parentrow)
+  {
+    RETURN
+        SELECT rowkey :=                ToString(location)
+             , location
+             , openrowkey :=            ToString(location)
+             , functionname :=          name
+             , library :=               library
+             , totalheap :=             heapalloc_total
+             , selfheap :=              heapalloc_self
+             , callcount :=             hits
+             , ids :=                   ids
+          FROM this->processed.functions;
+  }
+
+  BOOLEAN FUNCTION HasParents(INTEGER ARRAY ids)
+  {
+    FOREVERY (INTEGER id FROM ids)
+      IF (NOT IsDefaultValue(this->processed.tree[id - 1].parent))
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetParentsListChildren(RECORD functionrow, RECORD parentrow)
+  {
+    RECORD ARRAY rows;
+    IF (NOT RecordExists(parentrow))
+    {
+      INSERT CELL orgchildids := functionrow.ids INTO functionrow;
+      INSERT CELL depth_left := 10 INTO functionrow;
+      INSERT CELL totalheapfrac := functionrow.totalheap INTO functionrow;
+      INSERT CELL selfheapfrac := functionrow.selfheap INTO functionrow;
+      INSERT CELL callcountfrac := functionrow.callcount INTO functionrow;
+      rows := [ functionrow ];
+    }
+    ELSE
+    {
+      IF (parentrow.depth_left = 0)
+        RETURN DEFAULT RECORD ARRAY;
+
+      STRING rootrowkey := parentrow.rowkey;
+      INTEGER ARRAY childids := parentrow.ids;
+      INTEGER ARRAY orgchildids := parentrow.orgchildids;
+
+      RECORD ARRAY parents;
+      FOREVERY (INTEGER child FROM childids)
+      {
+        INTEGER parentid := this->processed.tree[child - 1].parent;
+        IF (parentid = 0)
+          CONTINUE;
+        RECORD parent := this->processed.tree[parentid - 1];
+        INSERT CELL orgchild := orgchildids[#child] INTO parent;
+        INSERT parent INTO parents AT END;
+      }
+
+      RECORD ARRAY rawdata := this->processed.tree;
+      RECORD ARRAY locations := this->processed.locations;
+
+      rows :=
+          SELECT rowkey :=            rootrowkey || "-" || location
+               , location
+               , openrowkey :=        ToString(location)
+               , functionname :=      locations[location - 1].func
+               , library :=           locations[location - 1].library
+               , totalheap :=         Sum(heapalloc_total)
+               , selfheap :=          Sum(heapalloc_self)
+               , callcount :=         Sum(hits)
+               , totalheapfrac :=     Sum(rawdata[orgchild - 1].heapalloc_total)
+               , selfheapfrac :=      Sum(rawdata[orgchild - 1].heapalloc_self)
+               , callcountfrac :=     Sum(rawdata[orgchild - 1].hits)
+               , ids :=               GroupedValues(id)
+               , orgchildids :=       GroupedValues(orgchild)
+               , depth_left :=        parentrow.depth_left - 1
+            FROM parents
+        GROUP BY location
+        ORDER BY Sum(heapalloc_total) DESC;
+    }
+
+    rows :=
+        SELECT *
+             , expanded :=          FALSE
+             , expandable :=        depth_left != 0 AND this->HasParents(ids)
+          FROM rows;
+
+    RETURN rows;
+  }
+
+  BOOLEAN FUNCTION HasChildren(INTEGER ARRAY ids)
+  {
+    FOREVERY (INTEGER id FROM ids)
+      IF (NOT IsDefaultValue(this->processed.tree[id - 1].children))
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetChildrenListChildren(RECORD functionrow, RECORD parentrow)
+  {
+    RECORD ARRAY rows;
+    IF (NOT RecordExists(parentrow))
+    {
+      INSERT CELL depth_left := 10 INTO functionrow;
+      rows := [ functionrow ];
+    }
+    ELSE
+    {
+      IF (parentrow.depth_left = 0)
+        RETURN DEFAULT RECORD ARRAY;
+
+      STRING rootrowkey := parentrow.rowkey;
+      INTEGER ARRAY parentids := parentrow.ids;
+
+      RECORD ARRAY children;
+      FOREVERY (INTEGER parent FROM parentids)
+        FOREVERY (INTEGER child FROM this->processed.tree[parent - 1].children)
+          INSERT this->processed.tree[child - 1] INTO children AT END;
+
+      RECORD ARRAY locations := this->processed.locations;
+
+      rows :=
+          SELECT rowkey :=            rootrowkey || "-" || location
+               , location
+               , openrowkey :=        ToString(location)
+               , functionname :=      locations[location - 1].func
+               , library :=           locations[location - 1].library
+               , totalheap :=         Sum(heapalloc_total)
+               , selfheap :=          Sum(heapalloc_self)
+               , callcount :=         Sum(hits)
+               , ids :=               GroupedValues(id)
+               , depth_left :=        parentrow.depth_left - 1
+            FROM children
+        GROUP BY location
+        ORDER BY Sum(heapalloc_total) DESC;
+    }
+
+    rows :=
+        SELECT *
+             , expanded :=          FALSE
+             , expandable :=        depth_left != 0 AND this->HasChildren(ids)
+          FROM rows;
+
+    RETURN rows;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetListConfig(STRING listtype)
+  {
+    RECORD ARRAY columns :=
+        [ [ name :=     "totalheap"
+          , title :=    GetTid("system:debugger.profiles.totalheap")
+          , type :=     "integer"
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        , [ name :=     "selfheap"
+          , title :=    GetTid("system:debugger.profiles.selfheap")
+          , type :=     "integer"
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        , [ name :=     "callcount"
+          , title :=    GetTid("system:debugger.profiles.callcount")
+          , type :=     "integer"
+          , width :=    "6x"
+          , align :=    "right"
+          ]
+        ];
+
+    IF (listtype = "parents")
+    {
+      columns :=
+          [ [ name :=     "totalheapfrac"
+            , title :=    GetTid("system:debugger.profiles.totalheapfrac")
+            , type :=     "integer"
+            , width :=    "12x"
+            , align :=    "right"
+            ]
+          , [ name :=     "selfheapfrac"
+            , title :=    GetTid("system:debugger.profiles.selfheapfrac")
+            , type :=     "integer"
+            , width :=    "12x"
+            , align :=    "right"
+            ]
+          , [ name :=     "callcountfrac"
+            , title :=    GetTid("system:debugger.profiles.callcountfrac")
+            , type :=     "integer"
+            , width :=    "6x"
+            , align :=    "right"
+            ]
+          ] CONCAT columns;
+    }
+
+    RETURN
+        [ istree :=         listtype != "functions"
+        , datacolumns :=    columns
+        ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE DisplayedMemorySnapshot EXTEND DisplayedProfile
+<
+  UPDATE PUBLIC STRING FUNCTION GetType()
+  {
+    RETURN "memorysnapshot";
+  }
+
+  UPDATE PUBLIC MACRO InitWithRawData(RECORD rawdata)
+  {
+    STRING ARRAY vertex_types := [ "var.ext", "var.global", "var.stack", "object" ];
+
+    RECORD ARRAY vertices :=
+        SELECT TEMPORARY origins := GroupedValues(source_name)
+             , source_var
+             , name :=              (Any(source_type) ?? Any(source_name)) || " (" || source_var || ")"
+             , isroot :=            "object" NOT IN origins OR LENGTH(origins) > 1
+             , total_elts :=        Sum(total_elts)
+             , total_ssize :=       Sum(total_ssize)
+             , retained_elts :=     Sum(total_elts)
+             , retained_ssize :=    Sum(total_ssize)
+             , children :=          DEFAULT RECORD ARRAY
+             , parents :=           DEFAULT RECORD ARRAY
+             , allchildrenposses := DEFAULT INTEGER ARRAY
+             , allparentposses :=   DEFAULT INTEGER ARRAY
+             , depth :=             0
+          FROM rawdata.items
+         WHERE dest_obj = -1
+      GROUP BY source_var
+      ORDER BY source_var;
+
+    UPDATE vertices
+       SET allchildrenposses := [ #vertices ]
+         , allparentposses := [ #vertices ];
+
+    INTEGER ARRAY positions := SELECT AS INTEGER ARRAY source_var FROM vertices;
+
+    RECORD ARRAY links :=
+        SELECT source_var
+             , dest_obj
+             , membername :=    /*source_name || " -> " || */dest_type || " (" || dest_obj || ")"
+             , source_pos :=    LowerBound(positions, source_var).position
+             , dest_pos :=      LowerBound(positions, dest_obj).position
+          FROM rawdata.items
+         WHERE dest_obj != -1 AND source_var != dest_obj
+      GROUP BY source_var, dest_obj, source_name, dest_type;
+
+    // Calculate the dominator graph
+    OBJECT domgraph := NEW GraphObject;
+    OBJECT root := NEW GraphVertex;
+    root->data := [ pos := -1, dominator := DEFAULT OBJECT, dominated := DEFAULT OBJECT ARRAY ];
+    domgraph->AddVertex(root);
+
+    // Add all vertices
+    OBJECT ARRAY dom_vertices;
+    FOREVERY (RECORD rec FROM vertices)
+    {
+      OBJECT vertex := NEW GraphVertex;
+      vertex->data := [ pos := #rec, dominator := DEFAULT OBJECT, dominated := DEFAULT OBJECT ARRAY ];
+      domgraph->AddVertex(vertex);
+      INSERT vertex INTO dom_vertices AT END;
+      IF (rec.isroot)
+        root->AddSimpleEdge(vertex);
+    }
+
+    // Add all links
+    FOREVERY (RECORD link FROM links)
+      dom_vertices[link.source_pos]->AddSimpleEdge(dom_vertices[link.dest_pos]);
+
+    // Calculate dominator tree, store in vertices
+    RECORD ARRAY memdomtree := CalculateDominatorTree(domgraph, root);
+    FOREVERY (RECORD rec FROM memdomtree)
+    {
+      IF (NOT ObjectExists(rec.dominator))
+        CONTINUE;
+      rec.node->data.dominator := rec.dominator;
+      INSERT rec.node INTO rec.dominator->data.dominated AT END;
+    }
+
+    // Rewire the tree with the dominator edges
+    FOREVERY (OBJECT v FROM [ root ] CONCAT dom_vertices)
+      v->DeleteAllEdges();
+    FOREVERY (RECORD rec FROM memdomtree)
+      IF (ObjectExists(rec.dominator))
+        rec.dominator->AddSimpleEdge(rec.node);
+
+    RECORD ARRAY levels := GetTreeLevels(domgraph);
+    FOREVERY (RECORD rec FROM ReverseArray(levels))
+    {
+      IF (rec.level = 0)
+        CONTINUE;
+      FOREVERY (OBJECT v FROM rec.vertices)
+      {
+        INTEGER dompos := v->data.dominator->data.pos;
+        INTEGER nodepos := v->data.pos;
+        vertices[v->data.pos].depth := rec.level;
+        IF (dompos = -1)
+          CONTINUE;
+
+        vertices[dompos].retained_elts := vertices[dompos].retained_elts + vertices[nodepos].retained_elts;
+        vertices[dompos].retained_ssize := vertices[dompos].retained_ssize + vertices[nodepos].retained_ssize;
+      }
+    }
+
+    FOREVERY (RECORD link FROM links)
+    {
+      INSERT link INTO vertices[link.dest_pos].parents AT END;
+      INSERT link INTO vertices[link.source_pos].children AT END;
+/*
+      RECORD spos := LowerBound(vertices[link.dest_pos].allparentposses, link.source_pos);
+      IF (NOT spos.found)
+        INSERT link.source_pos INTO vertices[link.dest_pos].allparentposses AT spos.position;
+
+      RECORD cpos := LowerBound(vertices[link.source_pos].allchildrenposses, link.dest_pos);
+      IF (NOT cpos.found)
+        INSERT link.dest_pos INTO vertices[link.source_pos].allchildrenposses AT cpos.position;
+*/
+    }
+/*
+    INTEGER ARRAY worklist := SELECT AS INTEGER ARRAY #vertices FROM vertices;
+    WHILE (LENGTH(worklist) != 0)
+    {
+      INTEGER pos := worklist[0];
+      DELETE FROM worklist AT 0;
+
+      FOREVERY (INTEGER child FROM vertices[pos].allchildrenposses)
+      {
+        INTEGER ARRAY newparents := ArrayUnion(vertices[pos].allparentposses, vertices[child].allparentposses);
+        IF (LENGTH(newparents) > LENGTH(vertices[child].allparentposses))
+        {
+          vertices[child].allparentposses := newparents;
+          RECORD pos := LowerBound(worklist, child);
+          IF (NOT pos.found)
+            INSERT child INTO worklist AT pos.position;
+        }
+      }
+
+      FOREVERY (INTEGER parent FROM vertices[pos].allparentposses)
+      {
+        INTEGER ARRAY newchildren := ArrayUnion(vertices[pos].allchildrenposses, vertices[parent].allchildrenposses);
+        IF (LENGTH(newchildren) > LENGTH(vertices[parent].allchildrenposses))
+        {
+          vertices[parent].allchildrenposses := newchildren;
+          RECORD pos := LowerBound(worklist, parent);
+          IF (NOT pos.found)
+            INSERT parent INTO worklist AT pos.position;
+        }
+      }
+    }
+*/
+    DUmpValue((SELECT source_var, name, depth FROM vertices), "boxed");
+    this->processed :=
+        [ vertices :=   vertices
+        ];
+  }
+
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetNamesListChildren(RECORD parentrow)
+  {
+    RECORD ARRAY vertices;
+
+    RECORD ARRAY allvertices := this->processed.vertices;
+
+    IF (NOT RecordExists(parentrow))
+      vertices :=
+          SELECT *
+               , rowkey := ToString(source_var)
+               , name
+            FROM allvertices
+           WHERE isroot;
+    ELSE
+    {
+      vertices :=
+          SELECT TEMPORARY vertex := allvertices[dest_pos]
+               , rowkey :=              parentrow.rowkey || "-" || vertex.source_var
+               , source_var :=          vertex.source_var
+               , name :=                membername
+               , total_elts :=          vertex.total_elts
+               , total_ssize :=         vertex.total_ssize
+               , retained_elts :=       vertex.retained_elts
+               , retained_ssize :=      vertex.retained_ssize
+//               , allchildrenposses :=   vertex.allchildrenposses
+               , children :=            vertex.children
+               , depth :=               vertex.depth
+            FROM parentrow.children;
+    }
+
+    INTEGER ARRAY path;
+    IF (RecordExists(parentrow))
+    {
+      path := parentrow.path;
+      INSERT parentrow.source_var INTO path AT END;
+    }
+
+    RETURN
+        SELECT TEMPORARY children := (SELECT * FROM v.children WHERE source_var NOT IN path)
+//             , TEMPORARY allchildrecs := (SELECT AS RECORD ARRAY allvertices[child] FROM ToRecordArray(allchildrenposses, "CHILD") WHERE allvertices[child].source_var NOT IN path)
+             , rowkey
+             , source_var
+             , name
+             , ownelements :=     total_elts
+             , ownsize :=         total_ssize
+             , totalelements :=   retained_elts //(SELECT AS MONEY Sum(total_elts) FROM allchildrecs)
+             , totalsize :=       retained_ssize //(SELECT AS MONEY Sum(total_ssize) FROM allchildrecs)
+             , depth
+             , expanded :=        FALSE
+             , expandable :=      LENGTH(children) != 0
+             , children :=        children
+             , path :=            path
+          FROM vertices AS v;
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetShownLists()
+  {
+    RETURN [ "names" ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetListConfig(STRING listtype)
+  {
+    RECORD ARRAY columns :=
+        [ [ name :=     "totalelements"
+          , title :=    GetTid("system:debugger.profiles.totalelements")
+          , type :=     "money"
+          , decimals := 0
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        , [ name :=     "totalsize"
+          , title :=    GetTid("system:debugger.profiles.totalsize")
+          , type :=     "money"
+          , decimals := 0
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        , [ name :=     "ownelements"
+          , title :=    GetTid("system:debugger.profiles.ownelements")
+          , type :=     "money"
+          , decimals := 0
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        , [ name :=     "ownsize"
+          , title :=    GetTid("system:debugger.profiles.ownsize")
+          , type :=     "money"
+          , decimals := 0
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        , [ name :=     "depth"
+          , title :=    GetTid("system:debugger.profiles.depth")
+          , type :=     "integer"
+          , decimals := 0
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        ];
+/*
+    IF (listtype = "parents")
+    {
+      columns :=
+          [ [ name :=     "totalheapfrac"
+            , title :=    GetTid("system:debugger.profiles.totalheapfrac")
+            , type :=     "integer"
+            , width :=    "12x"
+            , align :=    "right"
+            ]
+          , [ name :=     "selfheapfrac"
+            , title :=    GetTid("system:debugger.profiles.selfheapfrac")
+            , type :=     "integer"
+            , width :=    "12x"
+            , align :=    "right"
+            ]
+          , [ name :=     "callcountfrac"
+            , title :=    GetTid("system:debugger.profiles.callcountfrac")
+            , type :=     "integer"
+            , width :=    "6x"
+            , align :=    "right"
+            ]
+          ] CONCAT columns;
+    }
+*/
+    RETURN
+        [ istree :=         TRUE
+//        , sortcoluns :=     "name"
+//        , sortascending :=  TRUE
+        , datacolumns :=    columns
+        ];
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE DisplayedObjectsSnapshot EXTEND DisplayedProfile
+<
+  UPDATE PUBLIC STRING FUNCTION GetType()
+  {
+    RETURN "objectsnapshot";
+  }
+
+  UPDATE PUBLIC MACRO InitWithRawData(RECORD rawdata)
+  {
+    STRING ARRAY vertex_types := [ "var.ext", "var.global", "var.stack", "object" ];
+
+    RECORD ARRAY vertices :=
+        SELECT TEMPORARY origins := GroupedValues(source_name)
+             , TEMPORARY isroot := "var.ext" IN origins OR "var.global" IN origins OR "var.stack" IN origins
+             , source_var
+             , name :=              (Any(source_type) ?? Any(source_name)) || " (" || source_var || ")"
+             , isobject :=          "object" IN origins
+             , isroot :=            isroot
+             , total_elts :=        Sum(total_elts)
+             , total_ssize :=       Sum(total_ssize)
+             , children :=          DEFAULT RECORD ARRAY
+             , parents :=           DEFAULT RECORD ARRAY
+             , allchildrenposses := DEFAULT INTEGER ARRAY
+             , allparentposses :=   DEFAULT INTEGER ARRAY
+             , depth :=             isroot ? 0 : 999999
+             , origins :=           origins
+          FROM rawdata.items
+         WHERE dest_obj = -1
+      GROUP BY source_var
+      ORDER BY source_var;
+
+    UPDATE vertices
+       SET allchildrenposses := [ #vertices ]
+         , allparentposses := [ #vertices ];
+
+    INTEGER ARRAY positions := SELECT AS INTEGER ARRAY source_var FROM vertices;
+
+    RECORD ARRAY links :=
+        SELECT source_var
+             , dest_obj
+             , membername :=    /*source_name || " -> " || */Any(source_type) || " (" || Min(source_obj) || ")"
+             , source_pos :=    LowerBound(positions, source_var).position
+             , dest_pos :=      LowerBound(positions, dest_obj).position
+          FROM rawdata.items
+         WHERE dest_obj != -1 AND source_var != dest_obj
+      GROUP BY source_var, dest_obj;
+
+    FOR (INTEGER i := 0; i < 999999; i := i + 1)
+    {
+      BOOLEAN any_change;
+
+      FOREVERY (RECORD link FROM links)
+      {
+        IF (vertices[link.source_pos].depth = i)
+        {
+          IF (vertices[link.dest_pos].depth > i + 1)
+          {
+            any_change := TRUE;
+            vertices[link.dest_pos].depth := i + 1;
+          }
+        }
+      }
+      IF (NOT any_change)
+        BREAK;
+    }
+
+    FOREVERY (RECORD link FROM links)
+    {
+      INSERT link INTO vertices[link.dest_pos].parents AT END;
+      INSERT link INTO vertices[link.source_pos].children AT END;
+    }
+
+    this->processed :=
+        [ vertices :=   vertices
+        ];
+  }
+
+  STRING FUNCTION GetRootType(STRING ARRAY origins)
+  {
+    IF ("var.stack" IN origins)
+      RETURN " (stack)";
+    IF ("var.global" IN origins)
+      RETURN " (global)";
+    RETURN "";
+  }
+
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetNamesListChildren(RECORD parentrow)
+  {
+    RECORD ARRAY vertices;
+
+    RECORD ARRAY allvertices := this->processed.vertices;
+
+    IF (NOT RecordExists(parentrow))
+      vertices :=
+          SELECT *
+               , rowkey := ToString(source_var)
+               , name :=          name || this->GetRootType(origins)
+            FROM allvertices
+           WHERE isobject
+        ORDER BY name;
+    ELSE
+    {
+      vertices :=
+          SELECT TEMPORARY vertex := allvertices[source_pos]
+               , rowkey :=              parentrow.rowkey || "-" || vertex.source_var
+               , source_var :=          vertex.source_var
+               , name :=                membername || this->GetRootType(vertex.origins)
+               , total_elts :=          vertex.total_elts
+               , total_ssize :=         vertex.total_ssize
+//               , allchildrenposses :=   vertex.allchildrenposses
+               , parents :=             vertex.parents
+               , depth :=               vertex.depth
+            FROM parentrow.parents;
+    }
+
+    INTEGER ARRAY path;
+    INTEGER parentdepth := 99999;
+    IF (RecordExists(parentrow))
+    {
+      path := parentrow.path;
+      parentdepth := parentrow.depth;
+      INSERT parentrow.source_var INTO path AT END;
+    }
+
+    RETURN
+        SELECT TEMPORARY parents := (SELECT * FROM v.parents WHERE source_var NOT IN path AND allvertices[source_pos].depth < v.depth)
+//             , TEMPORARY allchildrecs := (SELECT AS RECORD ARRAY allvertices[child] FROM ToRecordArray(allchildrenposses, "CHILD") WHERE allvertices[child].source_var NOT IN path)
+             , rowkey
+             , source_var
+             , name
+             , ownelements :=     total_elts
+             , ownsize :=         total_ssize
+             , depth
+             , expanded :=        FALSE
+             , expandable :=      LENGTH(parents) != 0
+             , parents :=         parents
+             , path :=            path
+          FROM vertices AS v;
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetShownLists()
+  {
+    RETURN [ "names" ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetListConfig(STRING listtype)
+  {
+    RECORD ARRAY columns :=
+        [ [ name :=     "ownelements"
+          , title :=    GetTid("system:debugger.profiles.ownelements")
+          , type :=     "money"
+          , decimals := 0
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        , [ name :=     "ownsize"
+          , title :=    GetTid("system:debugger.profiles.ownsize")
+          , type :=     "money"
+          , decimals := 0
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        , [ name :=     "depth"
+          , title :=    GetTid("system:debugger.profiles.depth")
+          , type :=     "integer"
+          , decimals := 0
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        ];
+
+    RETURN
+        [ istree :=         TRUE
+//        , sortcoluns :=     "name"
+//        , sortascending :=  TRUE
+        , datacolumns :=    columns
+        ];
+  }
+>;
+
+
+
+PUBLIC STATIC OBJECTTYPE DisplayedBlobReferences EXTEND DisplayedProfile
+<
+  UPDATE PUBLIC STRING FUNCTION GetType()
+  {
+    RETURN "blobreferences";
+  }
+
+  UPDATE PUBLIC MACRO InitWithRawData(RECORD rawdata)
+  {
+    // no processing at this time
+    this->processed := rawdata;
+  }
+
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetNamesListChildren(RECORD parentrow)
+  {
+    RETURN
+        SELECT rowkey :=    source_var || path
+             , source_var
+             , name :=      `${source_var}${path} (${source_name})`
+             , description
+             , COLUMN length
+          FROM this->processed.items;
+/*
+
+    RETURN
+        SELECT TEMPORARY children := (SELECT * FROM v.children WHERE source_var NOT IN path)
+//             , TEMPORARY allchildrecs := (SELECT AS RECORD ARRAY allvertices[child] FROM ToRecordArray(allchildrenposses, "CHILD") WHERE allvertices[child].source_var NOT IN path)
+             , rowkey
+             , source_var
+             , name
+             , ownelements :=     total_elts
+             , ownsize :=         total_ssize
+             , totalelements :=   retained_elts //(SELECT AS MONEY Sum(total_elts) FROM allchildrecs)
+             , totalsize :=       retained_ssize //(SELECT AS MONEY Sum(total_ssize) FROM allchildrecs)
+             , depth
+             , expanded :=        FALSE
+             , expandable :=      LENGTH(children) != 0
+             , children :=        children
+             , path :=            path
+          FROM vertices AS v;
+*/
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetShownLists()
+  {
+    RETURN [ "names" ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetListConfig(STRING listtype)
+  {
+    RECORD ARRAY columns :=
+        [ [ name :=     "description"
+          , title :=    GetTid("system:debugger.profiles.description")
+          , type :=     "text"
+          , decimals := 0
+          , width :=    "2pr"
+          ]
+        , [ name :=     "length"
+          , title :=    GetTid("system:debugger.profiles.length")
+          , type :=     "integer64"
+          , decimals := 0
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        ];
+
+    RETURN
+        [ istree :=         FALSE
+//        , sortcoluns :=     "name"
+//        , sortascending :=  TRUE
+        , datacolumns :=    columns
+        ];
+  }
+>;

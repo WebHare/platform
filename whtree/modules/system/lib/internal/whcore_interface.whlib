@@ -1,0 +1,153 @@
+﻿<?wh
+LOADLIB "wh::ipc.whlib";
+
+PUBLIC CONSTANT RECORD __whs_baserulerecord  :=
+         [ id :=                        0
+         , path :=                      ""
+         , ignorepaths :=               DEFAULT STRING ARRAY
+         , realm :=                     ""
+         , authrequired :=              TRUE //authrequired is tricky, acts on ip access check. it indicates whether ip access check is sufficient, so it needs to be true by default to let access scripts run. ugly solution though, needs rewrite :(
+         , errorpath :=                 ""
+         , finalerrorpath :=            FALSE
+         , extauthscript :=             ""
+         , allowallmethods :=           FALSE
+         , matchtype :=                 0 //MatchExact = 0, MatchInitial = 1, MatchGlob = 2
+         , accepttype :=                0 //AcceptUnrecognzied = 0, AcceptHTML = 1, AcceptImage = 2
+         , redirecttarget :=            ""
+         , redirecttarget_is_folder :=  FALSE
+         , datastorage :=               DEFAULT RECORD ARRAY
+         , redirect :=                  FALSE
+         , iplist :=                    DEFAULT RECORD ARRAY
+         , limitservers :=              DEFAULT INTEGER ARRAY
+         , addheaders :=                DEFAULT RECORD ARRAY
+         , cachecontrol :=              ""
+         , redirectcode :=              301
+         , matchassubdir :=             TRUE
+         , fixcase :=                   FALSE
+         , forcecontenttype :=          ""
+         , applyruleset :=              ""
+         , wrdschema :=                 ""
+         , matchmethods :=              DEFAULT STRING ARRAY
+         , checkandvm :=                DEFAULT RECORD
+         , source :=                    ""
+         , accounts :=                  DEFAULT RECORD ARRAY
+         , data :=                      DEFAULT RECORD
+         , vars :=                      DEFAULT RECORD
+         , apispec :=                   ""
+         , priority :=                  0
+         ];
+
+PUBLIC CONSTANT RECORD __whs_basedatastoragerecord  :=
+    [ resource :=       ""
+    , method :=         ""
+    , isfolder :=       FALSE
+    ];
+
+/** @short Get the directory a module is installed in
+    @long Retrieve the WebHare installation directory for the specified module, if the module was installed to disk
+    @public
+    @topic modules/config
+    @loadlib mod::system/lib/configure.whlib
+    @param modulename Name of the module
+    @return The module's installation directory (eg "/opt/webhare/modules/system")
+*/
+PUBLIC STRING FUNCTION GetModuleInstallationRoot(STRING modulename) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short Get the names of all installed modules
+    @return List of names of all installed modules
+*/
+PUBLIC STRING ARRAY FUNCTION __SYSTEM_GETINSTALLEDMODULENAMES() __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short   Check if a filename is acceptable
+    @long    Analyzes the filename and returns whether it is acceptable for
+             use in WebHare. File and folder names not following these criteria
+             cannot be published
+    @public
+    @topic   sitedev/whfs
+    @loadlib mod::system/lib/whfs.whlib
+    @param   filename Name of the file or path to check
+    @param   allowslashes True if we should accept slashes in the filename (useful to check paths)
+    @return  True if the names was acceptable
+    @example
+//Returns TRUE, because no illegal characters are used
+BOOLEAN ok1 := IsValidWHFSName ("document.doc",TRUE);
+
+// Returns TRUE, because no illegal characters are used
+BOOLEAN ok2:= IsValidWHFSName ("/folder/subfolder/document.doc",TRUE);
+
+// Returns FALSE, because illegal slashes were used
+BOOLEAN ok3 := IsValidWHFSName ("/folder/subfolder/document.doc",FALSE);
+*/
+PUBLIC BOOLEAN FUNCTION IsValidWHFSName(STRING filename, BOOLEAN allowslashes) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+PUBLIC INTEGER FUNCTION __StartWHDBTransaction(RECORD transinfo) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __SYSTEM_WHCOREPARAMETERS() __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __SYSTEM_WEBHAREVERSION() __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION GetAdhocCacheStats() __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC MACRO __SYSTEM_REMOTELOG(STRING logname, STRING line) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN FUNCTION __SYSTEM_FLUSHREMOTELOG(STRING logname) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC RECORD ARRAY FUNCTION __SYSTEM_WHS_SESSIONLIST(INTEGER webserver) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD ARRAY FUNCTION __SYSTEM_WHS_WEBVARS() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC BOOLEAN FUNCTION __UpdateWebSession(STRING sessionid, STRING sessscope, RECORD data, BOOLEAN autocreate, INTEGER maxidle_minutes) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __WHS_AddHTTPHeader(STRING header, STRING data, BOOLEAN always_add) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC MACRO ReloadWebhareConfig3(STRING toreload) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+PUBLIC RECORD FUNCTION __WHS_FlushWebResponse(DATETIME waituntil) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC MACRO __WHS_SendWebFile(BLOB data) __ATTRIBUTES__(EXTERNAL, TERMINATES, EXECUTESHARESCRIPT);
+PUBLIC INTEGER FUNCTION __WHS_SetupWebsocketInput() __ATTRIBUTES__(EXTERNAL);
+
+
+PUBLIC MACRO __WHS_LOGWEBSERVERERROR(STRING message) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD FUNCTION __PUBLISHER_GETFILEPUBLISHTIME_INTERNAL(TABLE files, INTEGER fileid) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __PUBLISHER_GETPUBLISHERSTATE(TABLE filestable) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC MACRO DetachScriptFromRequest() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD ARRAY FUNCTION GetSRHErrors(STRING srhid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC MACRO __HS_SetRunningStatus(BOOLEAN iswaiting)  __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD FUNCTION __SYSTEM_CONFIGUREREMOTELOGS(RECORD ARRAY logs) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __SYSTEM_RECOMPILELIBRARY(STRING uri, BOOLEAN force) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __SYSTEM_SetupAdhocCache(INTEGER maxentries, INTEGER minperlibrary) __ATTRIBUTES__(EXTERNAL);
+
+/** @short (Re)configure the webserver
+    @long Configures the WebHare webserver. Is invoked with a version-specific configuration record, occasionally generated from a previous-version config record as we save it between WebHare releases
+    @param config Configuration data
+    @return Webserver's feedback, used by `wh check` to look for broken interfaces and other issues. Version-specific format, not necessarily portable between WebHare versions */
+PUBLIC RECORD FUNCTION ConfigureWebserver(RECORD config) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO InvalidateAdhocCache() __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC RECORD ARRAY FUNCTION GetHTTPEventListenerCounts(STRING groupmask) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO ClearHTTPEventMessages(STRING groupmask) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC RECORD FUNCTION __SYSTEM_GETSYSTEMCONFIG() __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __SYSTEM_SETSYSTEMCONFIG(RECORD data) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC OBJECT effectiveuser;
+
+/** Connect to the mutex manager, wait for it to come online if needed
+    @return(object wh::internal/jobs.whlib#IPCLinkEndPoint) IPC link to the module manager
+*/
+PUBLIC OBJECT FUNCTION ConnectToMutexManager()
+{
+  //Wait up to 60 seconds (perhaps a bit more) for the mutexmanager to be reachable
+  //it might be unreachable for a few seconds after a crash or during webhare startup
+  FOR(INTEGER attempt := 0; attempt < 600; attempt := attempt + 1)
+  {
+    OBJECT link := ConnectToIPCPort("system:whmanager");
+    IF(ObjectExists(link)) //whmanager reached... that gives us contact with the lock
+    {
+      RECORD global_res := link->DoRequest([ type := "connect", port := "system:mutexmanager" ]);
+      IF (global_res.status = "ok" AND global_res.msg.status = "ok")
+        RETURN link; //success!
+
+      // Connect to remote port failed, destroy link to whmanager
+      link->Close();
+    }
+    Sleep(100);
+  }
+  THROW NEW Exception("Unable to connect to the mutex manager");
+}
+

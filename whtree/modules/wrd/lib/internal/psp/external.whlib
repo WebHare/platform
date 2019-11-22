@@ -1,0 +1,48 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+PUBLIC OBJECTTYPE ExternalPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:external","external", settings)
+  {
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RETURN [[ paymentoptiontag := ""
+            , title := this->settings.methodtitle ?? this->settings.title ?? "External form of payment"
+            , issuers := DEFAULT RECORD ARRAY
+            , islive := GetDtapStage() = "production" //external methods have no external effect, so just follow the server status
+           ]];
+  }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
+    paymentmethod := ValidateOptions(paymentbaseoptions, paymentmethod);
+    this->pvt_status := "pending";
+  }
+  UPDATE PUBLIC RECORD FUNCTION __GetMetadata()
+  {
+    RETURN this->settings;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetPSPStatus()
+  {
+    //external methods cannot fail
+    RETURN [ unknown := FALSE, success := TRUE, message := "" ];
+  }
+
+  PUBLIC MACRO SetStatus(STRING newstatus, STRING paymentref)
+  {
+    this->pvt_paymentref := paymentref ?? this->pvt_paymentref;
+    this->pvt_status := newstatus;
+    this->pvt_paymentdate := newstatus="pending" ? DEFAULT DATETIME : GetCurrentDatetime();
+  }
+>;

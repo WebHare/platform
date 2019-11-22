@@ -1,0 +1,143 @@
+<?wh
+/** @short Base classes to integrate into the form editor
+    @topic forms/baseclasses
+*/
+
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib" EXPORT GetTid;
+
+
+PUBLIC OBJECTTYPE FormEditorExtensionBase
+<
+  //save storage for our API and Contexts objects so derived classes can't accidentaly modify them
+  RECORD pvt_options;
+
+  /// EditorExtensionsAPI object to communicate with the editor
+  PROPERTY api(this->pvt_options.api,-);
+  /// Contexts object as received by the editor
+  PROPERTY contexts(this->pvt_options.contexts,-);
+
+  MACRO NEW()
+  {
+    this->pvt_options := passthrough_formeditorextension_options;
+  }
+
+  /** @short Return a list of toolbar buttons to add to the editor screen
+      @return The buttons to add
+      @cell return.title The button title
+      @cell return.icon The button icon
+      @cell return.onexecute Pointer to the function to run when the button is pressed
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetToolbarButtons()
+  {
+    RETURN DEFAULT RECORD ARRAY;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE FormSettingsExtensionBase EXTEND TolliumTabsExtensionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Functions to override
+  //
+
+  /** @short Initialize the extension and apply current settings
+      @long This function is called when loading the extension. The formcomponentapi context can be used to retrieve the
+          current settings.
+  */
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+  }
+
+  /** @short Validate the settings
+      @long This function is called to validate the custom settings. Override this function to perform custom validation on
+          the settings in the form settings tabs extension.
+      @param work The work object to report errors and warnings to
+  */
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+  }
+
+  /** @short Store the settings
+      @long This function is called to store the custom settings. Override this function to store the settings through the
+          formcomponentapi context.
+  */
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+  }
+>;
+
+
+PUBLIC OBJECTTYPE FormComponentExtensionBase EXTEND TolliumTabsExtensionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// The question's node within the form
+  PUBLIC OBJECT node;
+
+  /// If editing an existing question or adding a new question
+  PUBLIC BOOLEAN existing;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// The question's name (tag)
+  PUBLIC PROPERTY compname(GetName, -);
+
+  /// The question's GUID
+  PUBLIC PROPERTY compguid(GetGUID, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions to override
+  //
+
+  /** @short Initialize the extension before applying the settings
+      @long This function is called when loading the extension. The question node is not available yet at this point; use
+          PostInitExtension to load the XML node settings.
+  */
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+  }
+
+  /** @short Read the question settings
+      @long This function is called to read the custom question settings from its XML node. Override this function to fill
+          the question's editor tabs extension.
+  */
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+  }
+
+  /** @short Validate the question settings and write the question setttings to XML
+      @long This function is called to validate and store the custom settings. Override this function to validate the
+          settings in the question's editor tabs extension and (if the work hasn't failed) write the settings from the
+          question's editor tabs extension back to its XML node.
+      @param work The work object to report errors and warnings to
+  */
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  STRING FUNCTION GetName()
+  {
+    RETURN this->node->GetAttribute("name");
+  }
+
+  STRING FUNCTION GetGUID()
+  {
+    RETURN this->node->GetAttribute("guid");
+  }
+>;

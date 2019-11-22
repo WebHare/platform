@@ -1,0 +1,109 @@
+﻿<?wh
+LOADLIB "wh::ipc.whlib";
+
+/** Connect to an IPC port that can be present in another process
+    @param portname Name of port to connect to
+    @param can_be_remote If TRUE, also try global ports when not found locally
+    @return Link (for global links, link may not be accepted yet - after the first request you will know)
+*/
+OBJECT FUNCTION ConnectToOptionallyRemotePort(STRING portname, BOOLEAN can_be_remote)
+{
+  // Try to connect to local IPC port
+  OBJECT link := ConnectToIPCPort(portname);
+  IF (NOT ObjectExists(link) AND can_be_remote)
+  {
+    // Port isn't open locally. Try as global port.
+    link := ConnectToIPCPort("system:whmanager");
+    IF (ObjectExists(link))
+    {
+      RECORD global_res := link->DoRequest([ type := "connect", port := portname ]);
+      IF (global_res.status != "ok" OR global_res.msg.status != "ok")
+      {
+        // Connect to remote port failed, destroy link to whmanager
+        link->Close();
+        link := DEFAULT OBJECT;
+      }
+    }
+  }
+
+  RETURN link;
+}
+
+/** Connect to a managed port (an internal service).
+    @param portname Name of the port to connect to
+    @param location If set, on which location the service can be found (eg 'webserver')
+    @return Link to service, or DEFAULT OBJECT if any error occurred
+*/
+PUBLIC OBJECT FUNCTION ConnectToManagedPort(STRING portname, STRING location DEFAULTSTO "")
+{
+  // Try to connect
+  OBJECT link := ConnectToOptionallyRemotePort(portname, location != "");
+  IF (ObjectExists(link))
+  {
+    link->autothrow := TRUE;
+    RETURN link;
+  }
+
+  // Connect to local service first
+  OBJECT mgmt_link := ConnectToIPCPort("system:scriptmanager");
+  IF (ObjectExists(mgmt_link))
+  {
+    // Send a request, don't care about the result
+    RECORD r := mgmt_link->DoRequest([ task := "startport", portname := portname ]);
+    mgmt_link->Close();
+  }
+
+  // If possibly external, connect to the expected location too. Don't care too much if trying to start twice.
+  IF (location != "")
+  {
+    mgmt_link := ConnectToOptionallyRemotePort("system:scriptmanager." || location, TRUE);
+    IF (ObjectExists(mgmt_link))
+    {
+      // Send a request, don't care about the result
+      RECORD r := mgmt_link->DoRequest([ task := "startport", portname := portname ]);
+      mgmt_link->Close();
+    }
+  }
+
+  link := ConnectToOptionallyRemotePort(portname, location != "");
+  IF (ObjectExists(link))
+    link->autothrow := TRUE;
+  RETURN link;
+}
+
+
+PUBLIC RECORD FUNCTION __InitManagedScript()
+{
+  OBJECT parentlink := GetIPCLinkToParent();
+
+  IF (NOT ObjectExists(parentlink))
+    THROW NEW Exception("Could not open IPC link to job owner (this script must be installed as a webserver service, not started directly)");
+
+  RECORD rec := parentlink->ReceiveMessage(DEFAULT DATETIME);
+  IF (rec.status != "ok")
+    THROW NEW Exception("Expected a message to be present from IPC parent link at startup");
+
+  OBJECT commport;
+  IF (rec.msg.portname != "")
+  {
+    commport := CreateIPCPort(rec.msg.portname);
+    IF (NOT ObjectExists(commport))
+      THROW NEW Exception("Could not open IPC port '" || rec.msg.portname || "'");
+
+    IF (CellExists(rec.msg, "GLOBALPORT") AND rec.msg.globalport)
+      __INTERNAL_KeepPortGlobal(commport);
+  }
+
+  parentlink->SendReply([ reply := "ack" ], rec.msgid);
+  RETURN [ commport := commport
+         , msg := rec.msg
+         ];
+}
+
+/** Initialization function for a script managed by a scriptmanager. Reads the configuration, creates a IPC port
+    if requested and returns that.
+*/
+PUBLIC OBJECT FUNCTION InitManagedScript()
+{
+  RETURN __InitManagedScript().commport;
+}

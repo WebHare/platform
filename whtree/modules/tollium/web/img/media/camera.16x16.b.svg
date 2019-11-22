@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <circle id="camera-lens" cx="14.8" cy="17.7" r="6.5"/>
+    <path id="camera-lensflare" d="M15,14.3c-1,0-2.1,0.4-2.8,1.1c-0.7,0.7-1.1,1.7-1.1,2.8c0,0.3,0.3,0.5,0.5,0.5c0,0,0,0,0,0c0.3,0,0.5-0.3,0.5-0.6c0-0.8,0.3-1.5,0.8-2c0.5-0.5,1.2-0.8,1.9-0.8c0,0,0.1,0,0.1,0c0.3,0,0.5-0.2,0.5-0.5C15.5,14.6,15.3,14.3,15,14.3z"/>
+    <path id="camera-flashlight" d="M28.2,13c0,0-4,0-4,0c-1,0-1-2,0-2c0,0,4,0,4,0C29.2,11,29.2,13,28.2,13z"/>
+    <path id="camera-body" d="M29,6H3C0.8,6,0,7.8,0,9v16c0,2.5,1.5,4,4,4h24c2.5,0,4-1.5,4-4V9C32,7.8,31.2,6,29,6zM30,25c0,1.4-0.6,2-2,2H4c-1.4,0-2-0.6-2-2V9c0-0.5,0.2-1,1-1h26c0.8,0,1,0.6,1,1V25z"/>
+  </defs>
+  <g>
+    <use xlink:href="#camera-lens" fill="none" stroke="#4a4a4a" stroke-width="2"/>
+    <use xlink:href="#camera-lensflare" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#camera-flashlight" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#camera-body" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+  </g>
+</svg>

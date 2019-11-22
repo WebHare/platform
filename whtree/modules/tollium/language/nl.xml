@@ -1,0 +1,1132 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="common">   <!-- common -->
+    <textgroup gid="actions">   <!-- common.actions -->
+      <text tid="about">Over</text>
+      <text tid="about_app">Over <param p="1"/></text>
+      <text tid="add">Toevoegen</text>
+      <text tid="addasportlet">Toon als portlet</text>
+      <text tid="addtostartmenu">Toon in favorieten</text>
+      <text tid="apply">Toepassen</text>
+      <text tid="browse">Bladeren</text>
+      <text tid="cancel">Annuleren</text>
+      <text tid="change">Aanpassen</text>
+      <text tid="clear">Leegmaken</text>
+      <text tid="close">Sluiten</text>
+      <text tid="columns">Kolommen instellen</text>
+      <text tid="connect">Verbinden</text>
+      <text tid="copy">Kopiëren</text>
+      <text tid="copyto">Kopiëren naar</text>
+      <text tid="cut">Knippen</text>
+      <text tid="delete">Verwijderen</text>
+      <text tid="disable">Uitschakelen</text>
+      <text tid="disconnect">Verbreken</text>
+      <text tid="down">Omlaag</text>
+      <text tid="download">Downloaden</text>
+      <text tid="duplicate">Dupliceren</text>
+      <text tid="edit">Bewerken</text>
+      <text tid="enable">Inschakelen</text>
+      <text tid="exit">Afsluiten</text>
+      <text tid="export">Exporteren</text>
+      <text tid="finish">Voltooien</text>
+      <text tid="help">Help</text>
+      <text tid="import">Importeren</text>
+      <text tid="inspect">Inspecteren</text>
+      <text tid="invertselection">Selectie omkeren</text>
+      <text tid="link">Koppel aan</text>
+      <text tid="logoff">Uitloggen</text>
+      <text tid="menu">Menu</text>
+      <text tid="moveto">Verplaatsen naar</text>
+      <text tid="new">Nieuw</text>
+      <text tid="newinstance">Nieuwe instantie</text>
+      <text tid="next">Volgende</text>
+      <text tid="no">Nee</text>
+      <text tid="ok">OK</text>
+      <text tid="open">Openen</text>
+      <text tid="ordering">Volgorde instellen</text>
+      <text tid="paste">Plakken</text>
+      <text tid="preferences">Voorkeuren</text>
+      <text tid="previous">Vorige</text>
+      <text tid="print">Afdrukken</text>
+      <text tid="properties">Eigenschappen</text>
+      <text tid="redo">Opnieuw</text>
+      <text tid="refresh">Verversen</text>
+      <text tid="rename">Hernoemen</text>
+      <text tid="replace">Vervangen</text>
+      <text tid="reset">Herstellen</text>
+      <text tid="save">Opslaan</text>
+      <text tid="saveas">Opslaan als</text>
+      <text tid="search">Zoeken</text>
+      <text tid="select">Selecteren</text>
+      <text tid="selectall">Alles selecteren</text>
+      <text tid="settings">Instellingen</text>
+      <text tid="startmenuhint">Open het Start menu</text>
+      <text tid="synchronize">Synchroniseren</text>
+      <text tid="tobottom">Onderaan</text>
+      <text tid="today">Vandaag</text>
+      <text tid="totop">Bovenaan</text>
+      <text tid="undo">Ongedaan maken</text>
+      <text tid="up">Omhoog</text>
+      <text tid="upload">Uploaden</text>
+      <text tid="view">Bekijken</text>
+      <text tid="yes">Ja</text>
+      <text tid="yestoall">Ja op alles</text>
+    </textgroup>
+    <textgroup gid="errors">   <!-- common.errors -->
+      <text tid="field_required">Het veld '<param p="1"/>' dient ingevuld te worden</text>
+      <text tid="invalid_date">Het veld '<param p="1"/>' bevat een ongeldige datum</text>
+      <text tid="invalid_float">Het veld '<param p="1"/>' dient een geldige waarde te bevatten</text>
+      <text tid="invalid_hostname">Het veld '<param p="1"/>' dient een hostname te bevatten (bv 'myserver.example.net')</text>
+      <text tid="invalid_integer">Het veld '<param p="1"/>' dient een geldige numerieke waarde te bevatten</text>
+      <text tid="invalid_money">Het veld '<param p="1"/>' dient een geldige waarde te bevatten</text>
+      <text tid="invalid_time">Het veld '<param p="1"/>' bevat een ongeldig tijdstip</text>
+      <text tid="invalid_year">Het veld '<param p="1"/>' bevat een ongeldig jaar; u dient ten minste 4 cijfers in te vullen (voeg nullen aan het begin van het getal toe voor jaren voor het jaar 1000, bijvoorbeeld 0954)</text>
+      <text tid="passwordmismatch">De ingevoerde wachtwoorden komen niet overeen</text>
+      <text tid="tagedit_unprocessed_text">Het veld '<param p="1"/>' bevat een tag die nog moet worden opgeslagen</text>
+      <text tid="too_long">Het veld '<param p="1"/>' mag niet meer dan <param p="2"/> karakters bevatten</text>
+      <text tid="too_many_decimals">Het veld '<param p="1"/>' mag <ifparam p="2" value="0">geen decimalen<else/>niet meer dan <param p="2"/> <ifparam p="2" value="1">decimaal<else/>decimalen</ifparam></ifparam> bevatten</text>
+      <text tid="value_out_of_range">Het veld '<param p="1"/>' bevat een ongeldige waarde; u dient een waarde <ifparam p="2" value="">van maximaal <param p="3"/><else/><ifparam p="3" value="">van ten minste <param p="2"/><else/>tussen <param p="2"/> en <param p="3"/></ifparam></ifparam> in te vullen</text>
+    </textgroup>
+    <textgroup gid="examples">   <!-- common.examples -->
+      <text tid="email">email@voorbeeld.nl</text>
+      <text tid="emailcomma">email@example.nl, anders@example.nl, ...</text>
+      <text tid="http-url">http://www.example.nl/map/</text>
+      <text tid="https-url">https://www.example.nl/map/</text>
+      <text tid="urls">https://www.example.nl/map/<br/>http://www.anotherexample.com/</text>
+    </textgroup>
+    <textgroup gid="labels">   <!-- common.labels -->
+      <text tid="bksp">Backspace</text>
+      <text tid="creationdate">Aanmaakdatum</text>
+      <text tid="del">Del</text>
+      <text tid="deletiondate">Verwijderdatum</text>
+      <text tid="description">Omschrijving</text>
+      <text tid="down">Omlaag</text>
+      <text tid="email">E-mailadres</text>
+      <text tid="end">End</text>
+      <text tid="enter">Enter</text>
+      <text tid="esc">Escape</text>
+      <text tid="home">Home</text>
+      <text tid="id">ID</text>
+      <text tid="keywords">Sleutelwoorden</text>
+      <text tid="left">Links</text>
+      <text tid="modificationdate">Wijzigingsdatum</text>
+      <text tid="name">Naam</text>
+      <text tid="no">Nee</text>
+      <text tid="none">Geen</text>
+      <text tid="ordering">Ordening</text>
+      <text tid="pgdn">Page Down</text>
+      <text tid="pgup">Page Up</text>
+      <text tid="right">Rechts</text>
+      <text tid="status">Status</text>
+      <text tid="subject">Onderwerp</text>
+      <text tid="tab">Tab</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Titel</text>
+      <text tid="type">Type</text>
+      <text tid="up">Omhoog</text>
+      <text tid="yes">Ja</text>
+    </textgroup>
+    <textgroup gid="languages">   <!-- common.languages -->
+      <text tid="aa">Afar</text>
+      <text tid="ab">Abchazisch</text>
+      <text tid="ae">Avestisch</text>
+      <text tid="af">Afrikaans</text>
+      <text tid="ak">Akan</text>
+      <text tid="am">Amhaars</text>
+      <text tid="an">Aragonees</text>
+      <text tid="ar">Arabisch</text>
+      <text tid="as">Assamees</text>
+      <text tid="av">Avaars</text>
+      <text tid="ay">Aymara</text>
+      <text tid="az">Azerbeidzjaans</text>
+      <text tid="ba">Basjkiers</text>
+      <text tid="be">Wit-Russisch</text>
+      <text tid="bg">Bulgaars</text>
+      <text tid="bh">Bihari</text>
+      <text tid="bi">Bislama</text>
+      <text tid="bm">Bambara</text>
+      <text tid="bn">Bengaals</text>
+      <text tid="bo">Tibetaans</text>
+      <text tid="br">Bretons</text>
+      <text tid="bs">Bosnisch</text>
+      <text tid="ca">Catalaans</text>
+      <text tid="ce">Tsjetsjeens</text>
+      <text tid="ch">Chamorro</text>
+      <text tid="co">Corsicaans</text>
+      <text tid="cr">Cree</text>
+      <text tid="cs">Tsjechisch</text>
+      <text tid="cu">Kerkslavisch</text>
+      <text tid="cv">Tsjoevasjisch</text>
+      <text tid="cy">Welsh</text>
+      <text tid="da">Deens</text>
+      <text tid="de">Duits</text>
+      <text tid="dv">Divehi</text>
+      <text tid="dz">Dzongkha</text>
+      <text tid="ee">Ewe</text>
+      <text tid="el">Grieks</text>
+      <text tid="en">Engels</text>
+      <text tid="eo">Esperanto</text>
+      <text tid="es">Spaans</text>
+      <text tid="et">Estisch</text>
+      <text tid="eu">Baskisch</text>
+      <text tid="fa">Perzisch</text>
+      <text tid="ff">Fula</text>
+      <text tid="fi">Fins</text>
+      <text tid="fj">Fijisch</text>
+      <text tid="fo">Faeröers</text>
+      <text tid="fr">Frans</text>
+      <text tid="fy">Fries</text>
+      <text tid="ga">Iers-Gaelisch</text>
+      <text tid="gd">Schots-Gaelisch</text>
+      <text tid="gl">Galicisch</text>
+      <text tid="gn">Guaraní</text>
+      <text tid="gu">Gujarati</text>
+      <text tid="gv">Manx-Gaelisch</text>
+      <text tid="ha">Hausa</text>
+      <text tid="he">Hebreeuws</text>
+      <text tid="hi">Hindi</text>
+      <text tid="ho">Hiri Motu</text>
+      <text tid="hr">Kroatisch</text>
+      <text tid="ht">Kreyòl</text>
+      <text tid="hu">Hongaars</text>
+      <text tid="hy">Armeens</text>
+      <text tid="hz">Herero</text>
+      <text tid="ia">Interlingua</text>
+      <text tid="id">Indonesisch</text>
+      <text tid="ie">Interlingue</text>
+      <text tid="ig">Igbo</text>
+      <text tid="ii">Yi</text>
+      <text tid="ik">Inupiak</text>
+      <text tid="io">Ido</text>
+      <text tid="is">IJslands</text>
+      <text tid="it">Italiaans</text>
+      <text tid="iu">Inuktitut</text>
+      <text tid="ja">Japans</text>
+      <text tid="jv">Javaans</text>
+      <text tid="ka">Georgisch</text>
+      <text tid="kg">Kikongo</text>
+      <text tid="ki">Gikuyu</text>
+      <text tid="kj">Kwanyama</text>
+      <text tid="kk">Kazachs</text>
+      <text tid="kl">Groenlands</text>
+      <text tid="km">Khmer</text>
+      <text tid="kn">Kannada</text>
+      <text tid="ko">Koreaans</text>
+      <text tid="kr">Kanuri</text>
+      <text tid="ks">Kasjmiri</text>
+      <text tid="ku">Koerdisch</text>
+      <text tid="kv">Zurjeens</text>
+      <text tid="kw">Cornisch</text>
+      <text tid="ky">Kirgizisch</text>
+      <text tid="la">Latijn</text>
+      <text tid="lb">Luxemburgs</text>
+      <text tid="lg">Luganda</text>
+      <text tid="li">Limburgs</text>
+      <text tid="ln">Lingala</text>
+      <text tid="lo">Laotiaans</text>
+      <text tid="lt">Litouws</text>
+      <text tid="lu">Luba-Katanga</text>
+      <text tid="lv">Lets</text>
+      <text tid="mg">Plateaumalagasi</text>
+      <text tid="mh">Marshallees</text>
+      <text tid="mi">Maori</text>
+      <text tid="mk">Macedonisch</text>
+      <text tid="ml">Malayalam</text>
+      <text tid="mn">Mongools</text>
+      <text tid="mo">Moldavisch</text>
+      <text tid="mr">Marathi</text>
+      <text tid="ms">Maleis</text>
+      <text tid="mt">Maltees</text>
+      <text tid="my">Birmaans</text>
+      <text tid="na">Nauruaans</text>
+      <text tid="nb">Norwegian Bokmal</text>
+      <text tid="nd">Noord-Ndebele</text>
+      <text tid="ne">Nepalees</text>
+      <text tid="ng">Ndonga</text>
+      <text tid="nl">Nederlands</text>
+      <text tid="nn">Nynorsk</text>
+      <text tid="no">Noors</text>
+      <text tid="nr">Zuid-Ndebele</text>
+      <text tid="nv">Navajo</text>
+      <text tid="ny">Nyanja</text>
+      <text tid="oc">Occitaans</text>
+      <text tid="oj">Ojibweg</text>
+      <text tid="om">Afaan Oromo</text>
+      <text tid="or">Oriya</text>
+      <text tid="os">Ossetisch</text>
+      <text tid="pa">Punjabi</text>
+      <text tid="pi">Pali</text>
+      <text tid="pl">Pools</text>
+      <text tid="ps">Pasjtoe</text>
+      <text tid="pt">Portugees</text>
+      <text tid="qu">Quechua</text>
+      <text tid="rm">Reto-Romaans</text>
+      <text tid="rn">Kirundi</text>
+      <text tid="ro">Roemeens</text>
+      <text tid="ru">Russisch</text>
+      <text tid="rw">Kinyarwanda</text>
+      <text tid="sa">Sanskriet</text>
+      <text tid="sc">Sardijns</text>
+      <text tid="sd">Sindhi</text>
+      <text tid="se">Noord-Samisch</text>
+      <text tid="sg">Sangho</text>
+      <text tid="sh">Servo-Kroatisch</text>
+      <text tid="si">Singalees</text>
+      <text tid="sk">Slowaaks</text>
+      <text tid="sl">Sloveens</text>
+      <text tid="sm">Samoaans</text>
+      <text tid="sn">Shona</text>
+      <text tid="so">Somalisch</text>
+      <text tid="sq">Albanees</text>
+      <text tid="sr">Servisch</text>
+      <text tid="ss">Swazi</text>
+      <text tid="st">Zuid-Sotho</text>
+      <text tid="su">Soendanees</text>
+      <text tid="sv">Zweeds</text>
+      <text tid="sw">Swahili</text>
+      <text tid="ta">Tamil</text>
+      <text tid="te">Telugu</text>
+      <text tid="tg">Tadzjieks</text>
+      <text tid="th">Thai</text>
+      <text tid="ti">Tigrinya</text>
+      <text tid="tk">Turkmeens</text>
+      <text tid="tl">Tagalog</text>
+      <text tid="tn">Tswana</text>
+      <text tid="to">Tongaans</text>
+      <text tid="tr">Turks</text>
+      <text tid="ts">Tsonga</text>
+      <text tid="tt">Tataars</text>
+      <text tid="tw">Twi</text>
+      <text tid="ty">Tahitiaans</text>
+      <text tid="ug">Oeigoers</text>
+      <text tid="uk">Oekraïens</text>
+      <text tid="ur">Urdu</text>
+      <text tid="uz">Oezbeeks</text>
+      <text tid="ve">Venda</text>
+      <text tid="vi">Vietnamees</text>
+      <text tid="vo">Volapük</text>
+      <text tid="wa">Waals</text>
+      <text tid="wo">Wolof</text>
+      <text tid="xh">Xhosa</text>
+      <text tid="yi">Jiddisch</text>
+      <text tid="yo">Yoruba</text>
+      <text tid="za">Zhuang</text>
+      <text tid="zh">Chinees</text>
+      <text tid="zu">Zoeloe</text>
+    </textgroup>
+    <textgroup gid="menus">   <!-- common.menus -->
+      <text tid="edit">Bewerken</text>
+      <text tid="file">Bestand</text>
+      <text tid="help">Help</text>
+      <text tid="new">Nieuw</text>
+      <text tid="tools">Extra</text>
+      <text tid="view">Beeld</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- common.messages -->
+      <text tid="dontaskagain">Onthoud mijn keuze</text>
+      <text tid="dontshowagain">Laat deze melding niet meer zien</text>
+      <text tid="searchnoresults">Geen resultaten gevonden bij het zoeken naar '<param p="1"/>'.</text>
+    </textgroup>
+    <textgroup gid="richstyles">   <!-- common.richstyles -->
+      <text tid="blocktext">Block Text</text>
+      <text tid="bodytext">Body Text</text>
+      <text tid="bodytext2">Body Text 2</text>
+      <text tid="bodytext3">Body Text 3</text>
+      <text tid="bodytextfirstindent">Body Text First Indent</text>
+      <text tid="bodytextfirstindent2">Body Text First Indent 2</text>
+      <text tid="bodytextindent">Body Text Indent</text>
+      <text tid="bodytextindent2">Body Text Indent 2</text>
+      <text tid="bodytextindent3">Body Text Indent 3</text>
+      <text tid="caption">Caption</text>
+      <text tid="closing">Closing</text>
+      <text tid="commentreference">Comment Reference</text>
+      <text tid="commenttext">Comment Text</text>
+      <text tid="date">Date</text>
+      <text tid="defaultparagraphfont">Default Paragraph Font</text>
+      <text tid="documentmap">Document Map</text>
+      <text tid="emphasis">Emphasis</text>
+      <text tid="endnotereference">Endnote Reference</text>
+      <text tid="endnotetext">Endnote Text</text>
+      <text tid="envelopeaddress">Envelope Address</text>
+      <text tid="envelopereturn">Envelope Return</text>
+      <text tid="followedhyperlink">Followed Hyperlink</text>
+      <text tid="footer">Footer</text>
+      <text tid="footnotereference">Footnote Reference</text>
+      <text tid="footnotetext">Footnote Text</text>
+      <text tid="header">Header</text>
+      <text tid="heading1">Kop 1</text>
+      <text tid="heading2">Kop 2</text>
+      <text tid="heading3">Kop 3</text>
+      <text tid="heading4">Kop 4</text>
+      <text tid="heading5">Kop 5</text>
+      <text tid="heading6">Kop 6</text>
+      <text tid="heading7">Kop 7</text>
+      <text tid="heading8">Kop 8</text>
+      <text tid="heading9">Kop 9</text>
+      <text tid="hyperlink">Hyperlink</text>
+      <text tid="index1">Index 1</text>
+      <text tid="index2">Index 2</text>
+      <text tid="index3">Index 3</text>
+      <text tid="index4">Index 4</text>
+      <text tid="index5">Index 5</text>
+      <text tid="index6">Index 6</text>
+      <text tid="index7">Index 7</text>
+      <text tid="index8">Index 8</text>
+      <text tid="index9">Index 9</text>
+      <text tid="indexheading">Index Heading</text>
+      <text tid="linenumber">Line Number</text>
+      <text tid="list">List</text>
+      <text tid="list2">List 2</text>
+      <text tid="list3">List 3</text>
+      <text tid="list4">List 4</text>
+      <text tid="list5">List 5</text>
+      <text tid="listbullet">List Bullet</text>
+      <text tid="listbullet2">List Bullet 2</text>
+      <text tid="listbullet3">List Bullet 3</text>
+      <text tid="listbullet4">List Bullet 4</text>
+      <text tid="listbullet5">List Bullet 5</text>
+      <text tid="listcontinue">List Continue</text>
+      <text tid="listcontinue2">List Continue 2</text>
+      <text tid="listcontinue3">List Continue 3</text>
+      <text tid="listcontinue4">List Continue 4</text>
+      <text tid="listcontinue5">List Continue 5</text>
+      <text tid="listnumber">List Number</text>
+      <text tid="listnumber2">List Number 2</text>
+      <text tid="listnumber3">List Number 3</text>
+      <text tid="listnumber4">List Number 4</text>
+      <text tid="listnumber5">List Number 5</text>
+      <text tid="macrotext">Macro Text</text>
+      <text tid="messageheader">Message Header</text>
+      <text tid="normal">Normaal</text>
+      <text tid="normalindent">Normal Indent</text>
+      <text tid="noteheadiong">Note Heading</text>
+      <text tid="ordered">Lijst genummerd</text>
+      <text tid="pagenumber">Page Number</text>
+      <text tid="plaintext">Plain Text</text>
+      <text tid="salutation">Salutation</text>
+      <text tid="signature">Signature</text>
+      <text tid="strong">Strong</text>
+      <text tid="subtitle">Subtitle</text>
+      <text tid="tableofauthorities">Table of Authorities</text>
+      <text tid="tableoffigures">Table of Figures</text>
+      <text tid="title">Title</text>
+      <text tid="toaheading">TOA Heading</text>
+      <text tid="toc1">TOC 1</text>
+      <text tid="toc2">TOC 2</text>
+      <text tid="toc3">TOC 3</text>
+      <text tid="toc4">TOC 4</text>
+      <text tid="toc5">TOC 5</text>
+      <text tid="toc6">TOC 6</text>
+      <text tid="toc7">TOC 7</text>
+      <text tid="toc8">TOC 8</text>
+      <text tid="toc9">TOC 9</text>
+      <text tid="unordered">Lijst opsom.teken</text>
+    </textgroup>
+    <textgroup gid="units">   <!-- common.units -->
+      <text tid="centuries">eeuwen</text>
+      <text tid="century">eeuw</text>
+      <text tid="day">dag</text>
+      <text tid="days">dagen</text>
+      <text tid="hour">uur</text>
+      <text tid="hours">uur</text>
+      <text tid="millisecond">milliseconde</text>
+      <text tid="milliseconds">milliseconden</text>
+      <text tid="minute">minuut</text>
+      <text tid="minutes">minuten</text>
+      <text tid="month">maand</text>
+      <text tid="months">maanden</text>
+      <text tid="second">seconde</text>
+      <text tid="seconds">seconden</text>
+      <text tid="week">week</text>
+      <text tid="weeks">weken</text>
+      <text tid="year">jaar</text>
+      <text tid="years">jaar</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="browseserverpath">   <!-- commondialogs.browseserverpath -->
+      <text tid="browseserverpath">Blader naar een pad op de server</text>
+      <text tid="name">Naam</text>
+      <text tid="showpath">Pad</text>
+    </textgroup>
+    <textgroup gid="columnfileexport">   <!-- commondialogs.columnfileexport -->
+      <text tid="charset">Karakterset</text>
+      <text tid="columnfileexport">Kolombestand export</text>
+      <text tid="comma">Komma</text>
+      <text tid="csvinfo">Als u gebruik maakt van Microsoft Excel om het CSV-bestand te lezen, zorgt u er dan voor dat het scheidingsteken overeenkomt met de gekozen optie in uw Windows Landinstellingen.</text>
+      <text tid="csvoptions">CSV export instellingen</text>
+      <text tid="decimal">Decimaalteken</text>
+      <text tid="exportisempty">Deze export leverde geen resultaten op</text>
+      <text tid="exporttitle">Download export '<param p="1"/>'</text>
+      <text tid="outputformat-csv">CSV (Kommagescheiden waardes, voor oudere Excel versies en andere software)</text>
+      <text tid="outputformat-xlsx">XLSX (Excel 2007 en later, optie in oudere Excel versies)</text>
+      <text tid="period">Punt</text>
+      <text tid="selectoutputformat">Kies het export bestandstype</text>
+      <text tid="semicolon">Puntkomma</text>
+      <text tid="separator">Scheidingsteken</text>
+      <text tid="tab">Tabs</text>
+    </textgroup>
+    <textgroup gid="editpassword">   <!-- commondialogs.editpassword -->
+      <text tid="confirmpassword">Nogmaals nieuw wachtwoord</text>
+      <text tid="current_password_not_equal">Het ingevulde huidige wachtwoord is onjuist ingevuld.</text>
+      <text tid="new_passwords_not_equal">De nieuw ingevulde wachtwoorden komen niet overeen.</text>
+      <text tid="newpassword">Nieuw wachtwoord</text>
+      <text tid="oldpassword">Huidig wachtwoord</text>
+      <text tid="pagetitle">Wijzig wachtwoord</text>
+      <text tid="password_fails_policy">Het wachtwoord voldoet niet aan de gestelde eisen.</text>
+      <text tid="showpasswords">Laat wachtwoorden als tekst zien</text>
+      <text tid="sureclearpassword">U verwijdert nu het huidige wachtwoord van deze gebruiker. Weet u zeker dat u dit wilt doen?</text>
+    </textgroup>
+    <textgroup gid="exception">   <!-- commondialogs.exception -->
+      <text tid="additionaltitle">Aanvullende informatie</text>
+      <text tid="description">Gegevens over de fout</text>
+      <text tid="email">Rapporteer deze fout</text>
+      <text tid="emailsent">Het rapport is succesvol verzonden</text>
+      <text tid="exception">De applicatie is afgesloten omdat een overwachte fout opgetreden is.</text>
+      <text tid="explainadditional">U kunt hier aanvullende informatie opgeven, zoals welke handeling u uitvoerde toen de fout is opgetreden. Deze informatie kan helpen bij het oplossen van het probleem. Het is niet verplicht deze informatie door te geven.</text>
+      <text tid="title">Er is een fout opgetreden in de applicatie</text>
+    </textgroup>
+    <textgroup gid="getuserfile">   <!-- commondialogs.getuserfile -->
+      <text tid="title">Selecteer bestand om te uploaden</text>
+      <text tid="upload">Uploaden</text>
+    </textgroup>
+    <textgroup gid="imageedit">   <!-- commondialogs.imageedit -->
+      <textgroup gid="main">   <!-- commondialogs.imageedit.main -->
+        <text tid="crop">Uitsnijden</text>
+        <text tid="main">Afbeelding bewerken</text>
+        <text tid="undo">Ongedaan maken</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="loaderror">   <!-- commondialogs.loaderror -->
+      <text tid="filename">Bestandsnaam</text>
+      <text tid="linenum">Regelnummer</text>
+      <text tid="loaderror">Er is een fout opgetreden bij het laden van de pagina - neem a.u.b. contact op met de systeembeheerder</text>
+      <text tid="loadfailure">De pagina kon niet worden geladen  - neem a.u.b. contact op met de systeembeheerder</text>
+      <text tid="message">Bericht</text>
+      <text tid="parsererrors">Er is een fout opgetreden  - neem a.u.b. contact op met de systeembeheerder</text>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
+      <text tid="addedtostartmenu">Het item is toegevoegd aan de favorieten in uw startmenu.<br/><br/>U kunt uw favorieten beheren via uw Persoonlijke Instellingen - deze vindt u door onder in het startmenu op uw gebruikersnaam te klikken.</text>
+      <text tid="alreadyaddedtostartmenu">Dit item is al aan de favorieten toegevoegd.</text>
+      <text tid="applaunchfailure">De applicatie '<param p="1"/>' kon niet opgestart worden</text>
+      <text tid="applaunchfailure_invalidappname">De opgegeven applicatienaam '<param p="1"/>' is niet geldig</text>
+      <text tid="applaunchfailure_nosuchapp">Module '<param p="1"/>' bevat geen applicatie '<param p="2"/>'</text>
+      <text tid="applaunchfailure_nosuchmodule">Module '<param p="1"/>' bestaat niet</text>
+      <text tid="confirmclearcontents">Weet u zeker dat u alle inhoud wilt verwijderen?<br/><br/>Deze operatie kan niet ongedaan gemaakt worden.</text>
+      <text tid="confirmclearformatting">Weet u zeker dat u alle opmaak wilt verwijderen?<br/><br/>Deze operatie kan niet ongedaan gemaakt worden.</text>
+      <text tid="confirmdeleteembeddedobject">Weet u zeker dat u dit ingevoegde object wilt verwijderen?<br/><br/>Deze operatie kan niet ongedaan gemaakt worden.</text>
+      <text tid="confirmrowdeletion">Weet u zeker dat u het geselecteerde wilt verwijderen?</text>
+      <text tid="errors"><param p="1"/></text>
+      <text tid="notimplemented">Deze optie is nog niet geïmplementeerd</text>
+      <text tid="remove_file_confirmation">Weet u zeker dat u het bestand wilt verwijderen?</text>
+      <text tid="remove_image_confirmation">Weet u zeker dat u de afbeelding wilt verwijderen?</text>
+      <text tid="showmessage"><param p="1"/></text>
+      <text tid="some_wrong_file_type">Sommige van de bestanden (<param p="1"/>) zijn van het verkeerde bestandstype. Wilt u de bestanden met het correcte bestandstype (<param p="2"/>) nog plaatsen?</text>
+      <text tid="warnings"><param p="1"/></text>
+      <text tid="webhareclosedformaintenance">WebHare is gesloten voor onderhoud. Probeer het later a.u.b. nogmaals.  <br/><br/>Onze verontschuldigingen voor het ongemak.</text>
+      <text tid="wrong_file_type"><ifparam p="2" value="1">Het geplaatste bestand '<param p="1"/>' is van het verkeerde bestandstype.<else/>De geplaatste bestanden '<param p="1"/>' hebben allen het verkeerde bestandstype.</ifparam></text>
+    </textgroup>
+    <textgroup gid="ordering">   <!-- commondialogs.ordering -->
+      <text tid="onedown">Eén omlaag</text>
+      <text tid="oneup">Eén omhoog</text>
+      <text tid="ordering">Volgorde</text>
+      <text tid="tobottom">Plaats onderaan</text>
+      <text tid="totop">Plaats bovenaan</text>
+    </textgroup>
+    <textgroup gid="progress">   <!-- commondialogs.progress -->
+      <text tid="estminutes">geschat <param p="1"/> <ifparam p="1" value="1">minuut<else/>minuten</ifparam> resterend</text>
+      <text tid="estseconds">geschat <param p="1"/> <ifparam p="1" value="1">seconde<else/>seconden</ifparam> resterend</text>
+      <text tid="initializing">Initialiseren</text>
+      <text tid="minutesseconds"><param p="1"/> <ifparam p="1" value="1">minuut<else/>minuten</ifparam> <param p="2"/>  <ifparam p="2" value="1">seconde<else/>seconden</ifparam></text>
+      <text tid="progress">Voortgang</text>
+      <text tid="seconds"><param p="1"/> <ifparam p="1" value="1">seconde<else/>seconden</ifparam></text>
+      <text tid="timeelapsed">Verstreken tijd</text>
+      <text tid="title">Voortgang</text>
+      <text tid="zeroseconds">0 seconden</text>
+    </textgroup>
+    <textgroup gid="qrcallback">   <!-- commondialogs.qrcallback -->
+      <text tid="description">Scan de bovenstaande QR-code met een mobiele telefoon of tablet</text>
+      <text tid="title">QR-code</text>
+    </textgroup>
+    <textgroup gid="senduserfile">   <!-- commondialogs.senduserfile -->
+      <text tid="download">Download bestand</text>
+      <text tid="file">Bestandsnaam</text>
+      <text tid="size">Grootte</text>
+      <text tid="title">Download bestand</text>
+      <text tid="type">Type</text>
+    </textgroup>
+    <textgroup gid="windowopen">   <!-- commondialogs.windowopen -->
+      <text tid="title">Open URL</text>
+      <text tid="windowopen">Open URL</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="components">   <!-- components -->
+    <textgroup gid="arrayedit">   <!-- components.arrayedit -->
+      <text tid="notenoughrows">Veld '<param p="1"/>' dient ten minste <param p="2"/> <ifparam p="2" value="1">element<else/>elementen</ifparam> te bevatten.</text>
+      <text tid="toomanyrows">Veld '<param p="1"/>' mag niet meer dan <param p="2"/> <ifparam p="2" value="1">element<else/>elementen</ifparam> bevatten.</text>
+    </textgroup>
+    <textgroup gid="browsecustom">   <!-- components.browsecustom -->
+      <textgroup gid="browsecustom">   <!-- components.browsecustom.browsecustom -->
+        <text tid="titletext">Naam</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="colorpicker">   <!-- components.colorpicker -->
+      <textgroup gid="hints">   <!-- components.colorpicker.hints -->
+        <text tid="clear_color">Kleur leegmaken</text>
+        <text tid="select_color">Een kleur selecteren</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- components.colorpicker.messages -->
+        <text tid="nocolorselected">Er is geen kleur geselecteerd</text>
+      </textgroup>
+      <textgroup gid="picker">   <!-- components.colorpicker.picker -->
+        <text tid="bslider">Blauw</text>
+        <text tid="colorpicker">Kleurenkiezer</text>
+        <text tid="colorvalue">Kleurwaarde</text>
+        <text tid="gslider">Groen</text>
+        <text tid="rslider">Rood</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="emailcontents">   <!-- components.emailcontents -->
+      <text tid="errorsto">Errors-To</text>
+      <text tid="replyto">Antwoorden op</text>
+    </textgroup>
+    <textgroup gid="file">   <!-- components.file -->
+      <text tid="alltypes">Alle bestanden</text>
+      <text tid="filetype"><param p="1"/> (<param p="2"/>)</text>
+    </textgroup>
+    <textgroup gid="fileedit">   <!-- components.fileedit -->
+      <text tid="filename"><param p="1"/> (<param p="2"/>)</text>
+      <text tid="nofile">Geen bestand geplaatst</text>
+      <textgroup gid="hints">   <!-- components.fileedit.hints -->
+        <text tid="add_file">Een bestand uploaden</text>
+        <text tid="delete_file">Verwijder dit bestand</text>
+        <text tid="replace_file">Een bestand uploaden om het huidige bestand door te vervangen</text>
+        <text tid="save_file">Dit bestand downloaden</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="imageedit">   <!-- components.imageedit -->
+      <text tid="delete_image">Verwijder deze afbeelding</text>
+      <text tid="replace_image">Een afbeelding uploaden om de huidige afbeelding door te vervangen</text>
+    </textgroup>
+    <textgroup gid="imgedit">   <!-- components.imgedit -->
+      <text tid="add_image">Een afbeelding uploaden</text>
+      <text tid="clear_image">Afbeelding leegmaken</text>
+      <text tid="dominantcolor">Dominante kleur</text>
+      <text tid="edit_image">Afbeelding bewerken</text>
+      <text tid="filename">Bestandsnaam</text>
+      <text tid="invalidextension">De bestandsnaam moet eindigen op '<param p="1"/>'</text>
+      <text tid="media_library">Een afbeelding selecteren uit de mediabibliotheek</text>
+      <text tid="no_image">Geen afbeelding ingesteld</text>
+      <text tid="other_actions">Andere acties</text>
+      <text tid="replace-medialibrary">Vanuit mediabibliotheek vervangen</text>
+      <text tid="replace-publisher">Vanuit Publisher vervangen</text>
+      <text tid="replace-upload">Via upload vervangen</text>
+      <text tid="select_image">Een afbeelding selecteren uit de Publisher</text>
+      <textgroup gid="editor">   <!-- components.imgedit.editor -->
+        <text tid="autocontrast">Automatisch contrast</text>
+        <text tid="blur">Vager maken</text>
+        <text tid="brightnesscontrast">Helderheid en contrast</text>
+        <text tid="coloradjust">Kleuren aanpassen</text>
+        <text tid="crop">Bijsnijden</text>
+        <text tid="delrefpoint">Referentiepunt verwijderen</text>
+        <text tid="filters">Filters toepassen</text>
+        <text tid="findfaces">Gezichtsherkenning</text>
+        <text tid="fliphorizontal">Horizontaal spiegelen</text>
+        <text tid="flipvertical">Verticaal spiegelen</text>
+        <text tid="grayscale">Grijswaarden</text>
+        <text tid="invert">Inverteren</text>
+        <text tid="posterize">Kleuren beperken</text>
+        <text tid="refpoint">Referentiepunt</text>
+        <text tid="rotate">Draaien</text>
+        <text tid="rotateleft">90° linksom draaien</text>
+        <text tid="rotateright">90° rechtsom draaien</text>
+        <text tid="sepia">Sepia</text>
+        <text tid="sharpen">Scherper maken</text>
+        <text tid="smartcrop">Automatisch bijsnijden</text>
+        <text tid="title">Afbeelding bewerken</text>
+      </textgroup>
+      <textgroup gid="filters">   <!-- components.imgedit.filters -->
+        <text tid="autocontrast">Automatisch contrast</text>
+        <text tid="blue">Blauw</text>
+        <text tid="blur">Vager maken</text>
+        <text tid="brightness">Helderheid</text>
+        <text tid="brightnesscontrast">Helderheid en contrast</text>
+        <text tid="coloradjust">Kleuren aanpassen</text>
+        <text tid="contrast">Contrast</text>
+        <text tid="green">Groen</text>
+        <text tid="level">Niveau</text>
+        <text tid="posterize">Kleuren beperken</text>
+        <text tid="preview">Voorvertoning</text>
+        <text tid="radius">Radius</text>
+        <text tid="red">Rood</text>
+      </textgroup>
+      <textgroup gid="hints">   <!-- components.imgedit.hints -->
+        <text tid="add_image">Een afbeelding uploaden</text>
+        <text tid="save_image">Afbeelding opslaan</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- components.imgedit.messages -->
+        <text tid="confirmdiscardchanges">Er zijn nog niet-opgeslagen wijzigingen.<br/><br/>Wilt u de bewerkingen toepassen voor u de editor sluit?</text>
+        <text tid="confirmdiscardtool">De bewerking is nog niet toegepast.<br/><br/>Weet u zeker dat u de editor wilt sluiten zonder de bewerking toe te passen?</text>
+        <text tid="confirmreset">De afbeelding wordt hersteld naar het origineel. Alle huidige wijzigingen gaan hierbij verloren.<br/><br/>Weet u zeker dat u de afbeelding wilt herstellen?</text>
+        <text tid="corruptimage">De afbeelding kan niet ingeladen worden, het is corrupt of heeft een niet-ondersteund formaat.</text>
+        <text tid="maxsizewarning">De afbeelding is verkleind vanwege browserbeperkingen</text>
+        <text tid="minsizewarning">De afbeelding wordt vergroot om te voldoen aan de gewenste grootte</text>
+        <text tid="unsupportedtype">De afbeelding heeft een niet-ondersteund formaat.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="listedit">   <!-- components.listedit -->
+      <textgroup gid="arrayedit_addscreen">   <!-- components.listedit.arrayedit_addscreen -->
+        <text tid="windowtitle">Selecteer type</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="rte">   <!-- components.rte -->
+      <text tid="externallink">Externe link</text>
+      <text tid="externallink-placeholder">http://www.example.com/voorbeeld/</text>
+      <text tid="properties">Eigenschappen</text>
+      <text tid="sureremovetable">Weet u zeker dat u deze tabel wilt verwijderen?</text>
+      <text tid="table_addcolumn_after">Kolom toevoegen aan de rechterkant</text>
+      <text tid="table_addcolumn_before">Kolom toevoegen aan de linkerkant</text>
+      <text tid="table_addpara_after">Voeg paragraaf toe na tabel</text>
+      <text tid="table_addpara_before">Voeg paragraaf toe boven tabel</text>
+      <text tid="table_addrow_after">Rij toevoegen hieronder</text>
+      <text tid="table_addrow_before">Rij toevoegen hierboven</text>
+      <text tid="table_deletecolumn">Kolom verwijderen</text>
+      <text tid="table_deleterow">Rij verwijderen</text>
+      <text tid="table_mergedown">Samenvoegen met onderste cellen</text>
+      <text tid="table_mergeright">Samenvoegen met cellen aan de rechterkant</text>
+      <text tid="table_splitcols">Kolommen splitsen</text>
+      <text tid="table_splitrows">Rijen splitsen</text>
+      <text tid="toomanyplaintextbytes">Na conversie naar gewone tekst bevat veld '<param p="1"/>' meer bytes (<param p="2"/>) dan aangeraden (<param p="3"/>).</text>
+      <text tid="toomanyplaintextcharacters">Na conversie naar gewone tekst bevat veld '<param p="1"/>' meer tekens (<param p="2"/>) dan aangeraden (<param p="3"/>).</text>
+      <textgroup gid="hyperlink">   <!-- components.rte.hyperlink -->
+        <text tid="destination">Bestemming</text>
+        <text tid="hyperlink">Hyperlink</text>
+        <text tid="openinnewwindow">Open link in nieuw venster</text>
+        <text tid="removehyperlink">Verwijder hyperlink</text>
+      </textgroup>
+      <textgroup gid="imageproperties">   <!-- components.rte.imageproperties -->
+        <text tid="accessibility">Toegankelijkheid</text>
+        <text tid="alttext">Alternatieve tekst</text>
+        <text tid="destination">Bestemming</text>
+        <text tid="dimensions">Afmetingen</text>
+        <text tid="height">Hoogte</text>
+        <text tid="hyperlink">Hyperlink</text>
+        <text tid="imageproperties">Eigenschappen van afbeelding</text>
+        <text tid="img_inline">In de alinea</text>
+        <text tid="img_left">Links zwevend</text>
+        <text tid="img_right">Rechts zwevend</text>
+        <text tid="keepaspectratio">Behoud breedte-hoogte verhouding</text>
+        <text tid="nohyperlink">Geen hyperlink</text>
+        <text tid="openinnewwindow">Open in nieuw venster</text>
+        <text tid="position">Plaatsing</text>
+        <text tid="properties">Eigenschappen</text>
+        <text tid="width">Breedte</text>
+      </textgroup>
+      <textgroup gid="tableproperties">   <!-- components.rte.tableproperties -->
+        <text tid="leftheader">De linkerkolom is een koptekstkolom</text>
+        <text tid="removetable">Tabel verwijderen</text>
+        <text tid="tableproperties">Tabeleigenschappen</text>
+        <text tid="tablestyle">Tabelstijl</text>
+        <text tid="topheader">De bovenste rij is een tabelkop</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="exclusive">   <!-- exclusive -->
+    <text tid="abandon">Overdragen</text>
+    <text tid="dialogstolen"><ifparam p="1" value="">Een andere gebruiker <else/>Gebruiker <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> heeft dit scherm overgenomen. <br/>Het scherm wordt nu gesloten.</text>
+    <text tid="keep">Behouden</text>
+    <text tid="release">Overname toestaan</text>
+    <text tid="runtakeoverrequest">Scherm overnemen</text>
+    <text tid="signaltakeover">Overnameverzoek</text>
+    <text tid="signaltakeovertext"><ifparam p="1" value="">Een andere gebruiker<else/>Gebruiker <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> wil dit scherm overnemen. Niet-opgeslagen gegevens zullen verloren gaan. <br/><br/>Wilt u dit toestaan?</text>
+    <text tid="stealdialog">Scherm overnemen</text>
+    <text tid="stealdialogtext"><ifparam p="1" value="">Een andere gebruiker <else/>Gebruiker <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> heeft dit scherm in gebruik. <br/>Als u dit scherm overneemt zal het scherm bij deze gebruiker afgesloten worden.<br/><br/>Weet u zeker dat u het scherm wilt overnemen?</text>
+    <text tid="stealowndialog">U heeft dit scherm in een andere browser tab open staan. <br/>Wilt u het scherm overnemen?</text>
+    <text tid="takeover">Overnemen</text>
+    <text tid="takeoverdenied">Uw verzoek om het scherm over te mogen nemen is afgewezen.</text>
+    <text tid="waitforreplytext">Aan het wachten op een reactie van <ifparam p="1" value="">de andere gebruiker<else/><ifparam p="2" value=""><param p="1"/><else/>gebruiker <param p="2"/> (<param p="1"/>)</ifparam></ifparam>. <br/><br/>Wanneer deze niet reageert geeft wordt de overname na <ifparam p="3" value="1">1 seconde<else/><param p="3"/> seconden</ifparam> automatisch toegestaan.</text>
+  </textgroup>
+  <textgroup gid="langedit">   <!-- langedit -->
+    <text tid="apptitle">Taaleditor</text>
+    <textgroup gid="main">   <!-- langedit.main -->
+      <textgroup gid="issues">   <!-- langedit.main.issues -->
+        <text tid="untranslated">Deze tekst ontbreekt in één of meer talen</text>
+      </textgroup>
+      <textgroup gid="langeditreferences">   <!-- langedit.main.langeditreferences -->
+        <text tid="langeditreferences">Verwijzingen</text>
+        <text tid="line">Regelnummer</text>
+        <text tid="opencontext">Bestand tonen</text>
+        <text tid="openineditor">In editor openen</text>
+        <text tid="resourcename">Pad</text>
+        <text tid="tid">Verwijzingen voor '<param p="1"/>' zijn gevonden in:</text>
+      </textgroup>
+      <textgroup gid="langtext">   <!-- langedit.main.langtext -->
+        <text tid="next">Volgende</text>
+        <text tid="previous">Vorige</text>
+        <text tid="tid">Text ID</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- langedit.main.main -->
+        <text tid="apptitle">Taal editor</text>
+        <textgroup gid="actions">   <!-- langedit.main.main.actions -->
+          <text tid="showreferences">Toon verwijzingen</text>
+        </textgroup>
+        <textgroup gid="toolbar">   <!-- langedit.main.main.toolbar -->
+          <text tid="contextview">Context</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="messageboxes">   <!-- langedit.main.messageboxes -->
+        <text tid="nolanguagefiles">Maak eerst een taalbestand aan om de taaleditor te kunnen gebruiken.</text>
+        <text tid="removehighlighted">Weet u zeker dat u de gemarkeerde teksten wilt verwijderen?</text>
+      </textgroup>
+      <textgroup gid="showcontext">   <!-- langedit.main.showcontext -->
+        <text tid="showcontext">Toon context</text>
+      </textgroup>
+      <textgroup gid="translate">   <!-- langedit.main.translate -->
+        <text tid="translate">Vertalen</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="notifications">   <!-- notifications -->
+    <text tid="testnotification">Testmelding</text>
+    <text tid="testnotification-desc"><ifparam p="1" value="">Het werkt!<else/><param p="1"/></ifparam></text>
+  </textgroup>
+  <textgroup gid="shell">   <!-- shell -->
+    <text tid="editfavorites">Beheren</text>
+    <text tid="frontendclose">Applicatiesessies zijn verlopen</text>
+    <text tid="frontendclose_description">De verbinding tussen uw browser en WebHare is verbroken. De betreffende applicaties in WebHare zijn gesloten.</text>
+    <text tid="loadingapp">Applicatie starten...</text>
+    <text tid="nowebhareconnect">WebHare connect niet beschikbaar</text>
+    <text tid="nowebhareconnect_description">U heeft WebHare connect ingeschakeld voor deze server, maar de service kon niet bereikt worden op <param p="1"/></text>
+    <text tid="offline">Verbinding verbroken</text>
+    <text tid="offline_description">De verbinding met de server is verbroken. Wacht a.u.b. tot deze weer hersteld is.</text>
+    <text tid="openedas">Geopend als '<param p="1"/>'</text>
+    <text tid="personalmenu">Favorieten</text>
+    <text tid="restartapp">Applicatie herstarten</text>
+    <textgroup gid="checks">   <!-- shell.checks -->
+      <text tid="errors"><ifparam p="1" value="0"><param p="2"/><else/>'<param p="2"/>' en nog <ifparam p="1" value="1">1 fout<else/><param p="1"/> fouten</ifparam></ifparam></text>
+      <text tid="unresolvedissues">Er zijn nog onopgeloste fouten!</text>
+    </textgroup>
+    <textgroup gid="controller">   <!-- shell.controller -->
+      <text tid="untrustedparams">U mag deze applicatie niet openen met URL parameters.</text>
+    </textgroup>
+    <textgroup gid="dashboard">   <!-- shell.dashboard -->
+      <text tid="apptitle">WebHare</text>
+      <text tid="connect-success">Nieuwe WebHare connect-helper instellingen ontvangen</text>
+      <text tid="connect-title">WebHare connect</text>
+      <text tid="logout">Uitloggen</text>
+      <text tid="mountwebhare">Server via WebDav mounten</text>
+      <text tid="noapps">Niets gevonden voor '<param p="1"/>'</text>
+      <text tid="resetimagecache">Afbeeldingscache leegmaken</text>
+      <text tid="showallapps">Toon alle applicaties</text>
+    </textgroup>
+    <textgroup gid="errors">   <!-- shell.errors -->
+      <text tid="appstartfailed">Het is niet gelukt de applicatie op te starten. Mogelijk is de server onbereikbaar of dient u opnieuw in te loggen</text>
+      <text tid="appstartfailed-development">Het is niet gelukt de applicatie op te starten. Mogelijk is de server onbereikbaar of dient u opnieuw in te loggen<br/><br/>Mogelijk moet u ook WebHare softresetten (wh softreset) of de logbestanden controleren op mogelijke problemen (wh watchlog)</text>
+      <text tid="debug">Debuggen</text>
+      <text tid="encounterederror">De applicatie is tegen een fout aangelopen en is afgesloten.</text>
+      <text tid="errordialogtitle">Applicatie</text>
+      <text tid="errortitle">Er heeft een fout plaatsgevonden, neem a.u.b contact op met de systeembeheerder.</text>
+      <text tid="restart">Herstarten</text>
+    </textgroup>
+    <textgroup gid="login">   <!-- shell.login -->
+      <text tid="apptitle">WebHare</text>
+      <text tid="disabledlogin">Inloggen mislukt: dit account is niet actief</text>
+      <text tid="enterusernameandpassword">Vult u a.u.b. uw gebruikersnaam en wachtwoord in.</text>
+      <text tid="forgotpassword">Wachtwoord vergeten</text>
+      <text tid="genericerror">Er is een fout opgetreden, probeer het a.u.b. opnieuw. Als de fout blijft optreden, neem dan contact op met uw systeembeheerder.</text>
+      <text tid="infotitle">Belangrijke informatie</text>
+      <text tid="invalidlogin">U heeft een ongeldige gebruikersnaam en/of wachtwoord ingevoerd. Probeert u het a.u.b. opnieuw.</text>
+      <text tid="loginbutton">Inloggen</text>
+      <text tid="loginidentityservices">Inloggen met identiteitsservices</text>
+      <text tid="logintitle">Inloggen</text>
+      <text tid="loginwithwebhareaccount">Inloggen met een WebHare account</text>
+      <text tid="nowebhareaccount">Er is geen gekoppeld WebHare account gevonden. Neem contact op met uw systeembeheerder.</text>
+      <text tid="password">Wachtwoord</text>
+      <text tid="savelogin">Onthoud mij</text>
+      <text tid="username">Gebruikersnaam</text>
+    </textgroup>
+    <textgroup gid="logout">   <!-- shell.logout -->
+      <text tid="surelogout">Weet u zeker dat u wilt uitloggen?</text>
+      <text tid="title">Uitloggen</text>
+    </textgroup>
+    <textgroup gid="messagebox">   <!-- shell.messagebox -->
+      <text tid="defaulttitle">Bericht</text>
+    </textgroup>
+    <textgroup gid="oauth">   <!-- shell.oauth -->
+      <text tid="apptitle">OAuth autorisatie</text>
+      <text tid="clientid">Client</text>
+      <text tid="errortitle">Er is een fout opgetreden</text>
+      <text tid="explanation">De volgende server wil toegang tot deze server verkrijgen:</text>
+      <text tid="oauthtitle">Autorisatie</text>
+      <text tid="question">Wilt u deze toegang verlenen?</text>
+      <text tid="scopes">Scopes</text>
+      <textgroup gid="messages">   <!-- shell.oauth.messages -->
+        <text tid="invalid_redirect">Er is een ongeldige redirect-URL opgegeven (deze moet binnen de client-URL vallen.)</text>
+        <text tid="missing_client">Er is geen client opgegeven.</text>
+        <text tid="missing_redirect">Er is geen redirect-URL opgegeven.</text>
+        <text tid="missing_scopes">Er zijn geen scopes opgegeven.</text>
+        <text tid="unknownclient">Client '<param p="1"/>' is niet in Webhare Connect geregistreerd.</text>
+        <text tid="unknownerror">Er is een onbekende fout opgetreden. Probeer het a.u.b. opnieuw. Als deze foutmelding dan weer terugkomt, neem dan a.u.b contact op met de systembeheerder.</text>
+        <text tid="webhareconnecterror">Kon niet met Webhare Connect verbinden. Neem a.u.b. contact op met systeembeheerder als dit probleem blijft voorkomen.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="towl">   <!-- shell.towl -->
+      <text tid="gonativedescription">Klik hier om de notificaties weer te geven op uw desktop.</text>
+      <text tid="gonativetitle">Desktop notificaties</text>
+      <text tid="notificationtitle">WebHare-melding</text>
+    </textgroup>
+    <textgroup gid="upload">   <!-- shell.upload -->
+      <textgroup gid="messages">   <!-- shell.upload.messages -->
+        <text tid="errortitle">Fout bij uploaden</text>
+        <text tid="unknownerror">Er is een fout opgetreden tijdens het uploaden. Probeer het alstublieft opnieuw.</text>
+      </textgroup>
+      <textgroup gid="progress">   <!-- shell.upload.progress -->
+        <text tid="calculating">Berekenen...</text>
+        <text tid="progress">Voortgang</text>
+        <text tid="size">Grootte</text>
+        <text tid="speed">Snelheid</text>
+        <text tid="title">Uploaden</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tilde">   <!-- tilde -->
+    <text tid="add">Toevoegen</text>
+    <text tid="advanced">Geavanceerd</text>
+    <text tid="apikey">API sleutel</text>
+    <text tid="apply">Toepassen</text>
+    <text tid="browse">Bladeren</text>
+    <text tid="cancel">Annuleren</text>
+    <text tid="change">Aanpassen</text>
+    <text tid="city">Stad</text>
+    <text tid="clear">Leegmaken</text>
+    <text tid="close">Sluiten</text>
+    <text tid="comments">Opmerkingen</text>
+    <text tid="connect">Verbinden</text>
+    <text tid="copy">Kopiëren</text>
+    <text tid="copyto">Kopiëren naar</text>
+    <text tid="country">Land</text>
+    <text tid="creationdate">Aanmaakdatum</text>
+    <text tid="cut">Knippen</text>
+    <text tid="date">Datum</text>
+    <text tid="defaultvalue">Standaardwaarde</text>
+    <text tid="delete">Verwijderen</text>
+    <text tid="deleteall">Alles verwijderen</text>
+    <text tid="deletiondate">Verwijderdatum</text>
+    <text tid="description">Omschrijving</text>
+    <text tid="disable">Uitschakelen</text>
+    <text tid="disconnect">Verbreken</text>
+    <text tid="down">Omlaag</text>
+    <text tid="download">Downloaden</text>
+    <text tid="duplicate">Dupliceren</text>
+    <text tid="edit">Bewerken</text>
+    <text tid="email">E-mailadres</text>
+    <text tid="enable">Inschakelen</text>
+    <text tid="exit">Afsluiten</text>
+    <text tid="export">Exporteren</text>
+    <text tid="filename">Bestandsnaam</text>
+    <text tid="filesize">Bestandsgrootte</text>
+    <text tid="finish">Voltooien</text>
+    <text tid="firstname">Voornaam</text>
+    <text tid="fullname">Volledige naam</text>
+    <text tid="help">Help</text>
+    <text tid="id">ID</text>
+    <text tid="import">Importeren</text>
+    <text tid="inspect">Inspecteren</text>
+    <text tid="invertselection">Selectie omkeren</text>
+    <text tid="keywords">Sleutelwoorden</text>
+    <text tid="lastname">Achternaam</text>
+    <text tid="left">Links</text>
+    <text tid="line">Regel</text>
+    <text tid="linkto">Koppelen</text>
+    <text tid="logoff">Uitloggen</text>
+    <text tid="mailbcc">Bcc</text>
+    <text tid="mailcc">Cc</text>
+    <text tid="mailfrom">Van</text>
+    <text tid="mailto">Aan</text>
+    <text tid="mimetype">MIME type</text>
+    <text tid="modificationdate">Wijzigingsdatum</text>
+    <text tid="moveto">Verplaatsen naar</text>
+    <text tid="name">Naam</text>
+    <text tid="new">Nieuw</text>
+    <text tid="next">Volgende</text>
+    <text tid="no">Nee</text>
+    <text tid="none">Geen</text>
+    <text tid="ok">OK</text>
+    <text tid="open">Openen</text>
+    <text tid="openineditor">Open in editor</text>
+    <text tid="ordering">Ordening</text>
+    <text tid="password">Wachtwoord</text>
+    <text tid="passwordnew">Nieuw wachtwoord</text>
+    <text tid="passwordrepeat">Herhaal wachtwoord</text>
+    <text tid="paste">Plakken</text>
+    <text tid="preferences">Voorkeuren</text>
+    <text tid="preview">Voorbeeld tonen</text>
+    <text tid="previous">Vorige</text>
+    <text tid="print">Afdrukken</text>
+    <text tid="properties">Eigenschappen</text>
+    <text tid="redo">Opnieuw</text>
+    <text tid="refresh">Verversen</text>
+    <text tid="rename">Hernoemen</text>
+    <text tid="replace">Vervangen</text>
+    <text tid="reset">Herstellen</text>
+    <text tid="right">Rechts</text>
+    <text tid="save">Opslaan</text>
+    <text tid="saveas">Opslaan als</text>
+    <text tid="search">Zoeken</text>
+    <text tid="select">Selecteren</text>
+    <text tid="selectall">Alles selecteren</text>
+    <text tid="selectcolumns">Kolommen instellen</text>
+    <text tid="setordering">Volgorde instellen</text>
+    <text tid="settings">Instellingen</text>
+    <text tid="showhistory">Geschiedenis weergeven</text>
+    <text tid="showinfavorites">Toon in favorieten</text>
+    <text tid="status">Status</text>
+    <text tid="subject">Onderwerp</text>
+    <text tid="synchronize">Synchroniseren</text>
+    <text tid="tag">Tag</text>
+    <text tid="title">Titel</text>
+    <text tid="tobottom">Onderaan</text>
+    <text tid="today">Vandaag</text>
+    <text tid="totop">Bovenaan</text>
+    <text tid="type">Type</text>
+    <text tid="undo">Ongedaan maken</text>
+    <text tid="up">Omhoog</text>
+    <text tid="upload">Uploaden</text>
+    <text tid="username">Gebruikersnaam</text>
+    <text tid="view">Bekijken</text>
+    <text tid="yes">Ja</text>
+    <text tid="yestoall">Ja op alles</text>
+    <textgroup gid="examples">   <!-- tilde.examples -->
+      <text tid="email">email@voorbeeld.nl</text>
+      <text tid="emailcomma">email@example.nl, anders@example.nl, ...</text>
+      <text tid="http-url">http://www.example.nl/map/</text>
+      <text tid="https-url">https://www.example.nl/map/</text>
+    </textgroup>
+    <textgroup gid="menus">   <!-- tilde.menus -->
+      <text tid="edit">Bewerken</text>
+      <text tid="file">Bestand</text>
+      <text tid="help">Help</text>
+      <text tid="new">Nieuw</text>
+      <text tid="tools">Extra</text>
+      <text tid="view">Beeld</text>
+    </textgroup>
+    <textgroup gid="units">   <!-- tilde.units -->
+      <text tid="centuries">eeuwen</text>
+      <text tid="century">eeuw</text>
+      <text tid="day">dag</text>
+      <text tid="days">dagen</text>
+      <text tid="hour">uur</text>
+      <text tid="hours">uur</text>
+      <text tid="millisecond">milliseconde</text>
+      <text tid="milliseconds">milliseconden</text>
+      <text tid="minute">minuut</text>
+      <text tid="minutes">minuten</text>
+      <text tid="month">maand</text>
+      <text tid="months">maanden</text>
+      <text tid="second">seconde</text>
+      <text tid="seconds">seconden</text>
+      <text tid="week">week</text>
+      <text tid="weeks">weken</text>
+      <text tid="year">jaar</text>
+      <text tid="years">jaar</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="todd">   <!-- todd -->
+    <textgroup gid="misc">   <!-- todd.misc -->
+      <text tid="applicationstarter">Tollium Application starter</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="langedit">   <!-- tolliumapps.langedit -->
+      <textgroup gid="langedit">   <!-- tolliumapps.langedit.langedit -->
+        <text tid="add">Toevoegen</text>
+        <text tid="addgroup">Groep toevoegen</text>
+        <text tid="addlanguagefile">Taalbestand toevoegen</text>
+        <text tid="addtext">Tekst toevoegen</text>
+        <text tid="allsaved">Alle taalbestanden in deze module zijn herschreven</text>
+        <text tid="allunreferenced">Alle teksten in deze groep lijken ongebruikt</text>
+        <text tid="askreload">Weet u zeker dat u wilt verversen? Niet-opgeslagen wijzigingen zullen verloren gaan.</text>
+        <text tid="badtext">Deze tekst heeft een syntax error</text>
+        <text tid="cannoteditmodule">De taalbestanden van basismodules mogen alleen worden bewerkt als de DTAP stage 'Development' is.</text>
+        <text tid="cannotparselanguagefile">Taalbestand '<param p="1"/>' kan niet worden ingeladen</text>
+        <text tid="collapserecursive">Alles inklappen</text>
+        <text tid="contextview">Context</text>
+        <text tid="currenttid">Referenties van</text>
+        <text tid="deleteconfirmation">Weet u zeker dat u de geselecteerde groepen en/of teksten wilt verwijderen?</text>
+        <text tid="duplicategroupname">Deze naam bestaat al in deze groep</text>
+        <text tid="duplicatenodename">Deze naam bestaat al in deze groep</text>
+        <text tid="edittext">Tekst bewerken</text>
+        <text tid="elementname">Groep naam</text>
+        <text tid="error_badlanguagecode">Ongeldige taalcode; een taalcode bestaat uit 2 kleine letters.</text>
+        <text tid="exit">Afsluiten</text>
+        <text tid="expandrecursive">Alles uitklappen</text>
+        <text tid="export">Exporteren</text>
+        <text tid="find">Zoekbalk weergeven</text>
+        <text tid="fromlang">Vanuit</text>
+        <text tid="fromtext">Vertalen</text>
+        <text tid="gid">Groep ID</text>
+        <text tid="illegaltidname">Deze TID heeft geen geldige naam</text>
+        <text tid="import">Importeren</text>
+        <text tid="issues">Probleem</text>
+        <text tid="keepemptyreason">Reden</text>
+        <text tid="keepifempty">Onvertaalde/ongebruikte teksten bewaren</text>
+        <text tid="langcode">Taalcode</text>
+        <text tid="langtext">Tekst bewerken</text>
+        <text tid="languagefile">Taalbestand</text>
+        <text tid="limitlanguages">Beperk vertalingen</text>
+        <text tid="main">Taaleditor</text>
+        <text tid="mi_unreferenced">Markeer ongebruikte teksten</text>
+        <text tid="mi_untranslated">Markeer ontbrekende teksten</text>
+        <text tid="movefrom">Verplaats teksten uit</text>
+        <text tid="movemissingfrom">Verplaats missende teksten van</text>
+        <text tid="next">Volgende</text>
+        <text tid="nosuchgroup">Groep '<param p="1"/>' bestaat niet</text>
+        <text tid="notalanguagefile">Bestand '<param p="1"/>' lijkt geen taalbestand te zijn.</text>
+        <text tid="notfound">Er is geen tekst of groep gevonden voor zoekopdracht '<param p="1"/>'</text>
+        <text tid="occurrences">Gebruikt</text>
+        <text tid="open">Openen</text>
+        <text tid="possiblecvsconflict">Taalbestand '<param p="1"/>' kon niet worden geopend; het lijkt SVN/CVS conflictmarkering te bevatten.</text>
+        <text tid="previous">Vorige</text>
+        <text tid="references">Referenties van <param p="1"/></text>
+        <text tid="regex">RegEx</text>
+        <text tid="reload">Verversen</text>
+        <text tid="reloadwarning">De taalbestanden zijn buiten de languageeditor om gewijzigd. Je moet herladen</text>
+        <text tid="removehighlighted">Gemarkeerd verwijderen</text>
+        <text tid="removenodes">Node verwijderen</text>
+        <text tid="saveall">Herschrijf alle taalfiles</text>
+        <text tid="search">Zoeken</text>
+        <text tid="searchbtn">Zoeken</text>
+        <text tid="searchfor">Zoek naar</text>
+        <text tid="searchintexts">Ook binnen teksten</text>
+        <text tid="selectunreferenced">Selecteer ongebruikte nodes</text>
+        <text tid="targetgroup">Ontvangende groep</text>
+        <text tid="textgroup">Tekstgroep</text>
+        <text tid="title">Node</text>
+        <text tid="tolang">Naar</text>
+        <text tid="totext">Vertaling</text>
+        <text tid="translate">Veralen</text>
+        <text tid="translateword">Vertalen</text>
+        <text tid="unlinked">Deze tekst is nergens aan gekoppeld</text>
+        <text tid="unreferenced">Zonder verwijzing</text>
+        <text tid="untranslated">Niet vertaald</text>
+        <text tid="untranslated_button">Niet vertaald</text>
+        <text tid="verifyfirstlanguagefile">Het eerste taalbestand dat u aanmaakt wordt de standaardtaal voor de module. Weet u zeker dat u deze taal de standaardtaal wilt maken?</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="validation">   <!-- validation -->
+    <textgroup gid="errors">   <!-- validation.errors -->
+      <text tid="invalid_email">Het veld '<param p="1"/>' bevat een ongeldig e-mail adres</text>
+      <text tid="invalid_emails">Het veld '<param p="1"/>' bevat het ongeldige e-mail adres '<param p="2"/>'</text>
+      <text tid="invalid_hostname">Het veld '<param p="1"/>' dient een hostname te bevatten (bv 'myserver.example.net')</text>
+      <text tid="invalid_http_url">Het veld '<param p="1"/>' bevat een ongeldige http URL:<br/>deze dient met 'http://' of 'https://' te beginnen.</text>
+      <text tid="invalid_insecure_url">Het veld  '<param p="1"/>' bevat geen onbeveiligde URL</text>
+      <text tid="invalid_secure_url">Het veld  '<param p="1"/>' bevat geen beveiligde URL</text>
+      <text tid="invalid_url">Het veld '<param p="1"/>' bevat geen valide URL. Mogelijk moet er nog 'http://' of 'https://' voorgeplaatst worden.</text>
+      <text tid="invalid_whfsname">Het veld '<param p="1"/>' bevat geen geldige naam. De naam mag niet langer zijn dan 256 tekens, mag niet eindigen op een punt en de volgende tekens kunnen niet worden gebruikt: / \ : * ? " &lt; &gt; |</text>
+      <text tid="receiver_not_whitelisted">Het veld '<param p="1"/>' bevat e-mail adres '<param p="2"/>' maar dit adres mag geen e-mail vanaf deze server ontvangen.</text>
+      <text tid="sender_not_whitelisted">Het veld '<param p="1"/>' bevat e-mail adres '<param p="2"/>' maar dit adres mag geen e-mail vanaf deze server sturen.</text>
+      <text tid="too_long_url">Het veld '<param p="1"/>' bevat een te lange URL (het maximum is 2000 karakters)</text>
+    </textgroup>
+  </textgroup>
+</language>

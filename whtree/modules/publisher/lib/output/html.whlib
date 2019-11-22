@@ -1,0 +1,289 @@
+<?wh
+/** @short Provides HTML output control functions
+    @long This library provides functions that allows for fine-tuning
+    of WebHare's (X)HTML (conversion) output. */
+
+LOADLIB "mod::publisher/lib/template-v2.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "wh::formatter/html.whlib";
+LOADLIB "wh::datetime.whlib";
+PUBLIC MACRO SetHTMLLevel(INTEGER level)
+{
+  __publisher_initial_html_level := ["HTML3.02", "HTML4.01", "XHTML1.0"][level];
+  IF(level=0)
+    __publisher_initial_html_stylesheets:=FALSE;
+
+  IF(__publisher_created_htmldoc)
+    AddPublicationWarning("SetHTMLLevel was called too late to have any effect - it should be called as early as possible");
+}
+/** @short Set HTML compliance level
+    @param level 2 = Transitional, 3 = Strict
+*/
+PUBLIC MACRO SetHTMLCompliance(INTEGER level)
+{
+  IF(level<=1)
+    ABORT("SetHTMLCompliance: WebHare versions 2.30 and up no longer support Netscape 4's quirks. Please use level 2 (transitional) or 3 (strict)");
+  __publisher_initial_html_compliance := level=3;
+  IF(__publisher_created_htmldoc)
+    AddPublicationWarning("SetHTMLCompliance was called too late to have any effect - it should be called as early as possible");
+}
+
+/** @short   Control whether WebHare uses external stylesheets
+    @long    SetHTMLStyleSheet controls whether WebHare stores markup into an external stylesheet, instead of placing style information inline. Using an external stylesheet creates smaller documents, and improves the rendering of webpages.
+However, you may want to disable external stylesheets if you need to re-use the HTML code in other documents, in which it would be impractical to use a linked CSS file. By default, external stylesheets are enabled.
+    @param   create_stylesheets Allow generation of external stylesheets
+    @example
+// Disable external stylesheets
+SetHTMLStyleSheet (FALSE);
+    @see     GetHTMLStyleSheetLink */
+PUBLIC MACRO SetHTMLStyleSheet(BOOLEAN create_stylesheets)
+{
+  __publisher_initial_html_stylesheets := create_stylesheets;
+  IF(__publisher_created_htmldoc)
+    AddPublicationWarning("SetHTMLStyleSheet was called too late to have any effect - it should be called as early as possible");
+}
+
+/** @short Set HTML table sizing
+    @long    SetHTMLTableSize allows you to limit or override the size of tables. This function only affects tables that are created by WebHare, but does not effect any of the tables you create in your own templates.
+
+             SetHTMLTableSize also affects all images and tables that are embedded into the cells of an overridden table.
+             Images and tables may be rescaled to the size of their containing cell, as they would otherwise cause the tablecell to grow outside its allocated space.
+    @param   maxwidth -1 = no limit, or the maximum table width, in HTML pixels (must always be at leat 100 pixels)
+    @param   forcewidth Force every table to be the maximum width, enlarging the table if necessary
+    @example
+// Limit all tables to 400 pixels in size
+SetHTMLTableSize (400,false);
+// Resize all tables to a size of 350 pixels
+SetHTMLTableSize (350,true);
+// Restore the default table border settings
+SetHTMLTableSize (-1, false);
+    @see     SetHTMLTableBorders – configure or override HTML table bordersSetHTMLImageMaxWidth */
+PUBLIC MACRO SetHTMLTableSize(INTEGER maxwidth, BOOLEAN forcewidth)
+{
+  SetHTMLDocTableSize(GetHTMLDocId(),maxwidth, forcewidth);
+}
+
+/** @short Configure or override HTML table borders
+    @long  SetHTMLTableBorders allows you to limit or override the borders that are used in tables.
+           This function only affects tables that are created by WebHare, and none of the tables that you create in your own templates.
+
+           The parameter htmlborders must be set to true if you want plain HTML borders.
+           If this option is set to false (the default), WebHare will paint all table borders by itself.
+           This allows full control over border visibility, thickness and coloring, even on older browers.
+    @param borderwidth -1 = no limit, 0 = no borders, 1 and higher = maximum size for HTML borders
+    @param forcewidth Force every table border to be this width, enlarging borders if necessary
+    @param htmlborders True to create standard html borders (<table border="">), false for WebHare colored borders
+    @param bordercolor -1 = no override, otherwise RRGGBB ordered colour override (ToInteger can convert hexadecimal color values to integer values)
+    @example
+// Force all tables to have a 1 pixel wide, light blue border
+INTEGER bordercolor := ToInteger("0000FF",-1,16);
+SetHTMLTableBorders (1, true, false, bordercolor);
+// Force plain HTML borders, never more than one pixel wide
+SetHTMLTableBorders (1, false, true, -1);
+// Restore the default table border settings
+SetHTMLTableBorders (-1, false, false, -1);
+    @see     SetHTMLTableSize Tointeger */
+PUBLIC MACRO SetHTMLTableBorders(INTEGER borderwidth, BOOLEAN forcewidth, BOOLEAN htmlborders, INTEGER bordercolor)
+{
+  SetHTMLDocTableBorders(GetHTMLDocId(),borderwidth, forcewidth, htmlborders, bordercolor);
+}
+
+/** @short Print the correct HTML doctype for the current settings
+    @long PrintHTMLDocType prints the correct document type for WebHare generated HTML documents.
+          You need this document declaration at the top of generated HTML pages so that browsers can recognize the type of HTML the document uses.
+
+          In this version, WebHare uses the following document type declaration: <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+    @see PrintHTMLStandardHeaderData
+*/
+PUBLIC MACRO PrintHTMLDocType()
+{
+  SWITCH(__publisher_initial_html_level)
+  {
+    CASE "HTML3.02"
+    {
+      PRINT('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">');
+    }
+    CASE "HTML4.01"
+    {
+      IF (NOT __publisher_initial_html_compliance) //Transitional
+        PRINT ('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">');
+      ELSE //strict
+        PRINT ('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">');
+    }
+    CASE "XHTML1.0"
+    {
+      IF (NOT __publisher_initial_html_compliance)
+        PRINT ('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">');
+      ELSE
+        PRINT ('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">');
+    }
+  }
+}
+
+/** @short Set HTML image background color
+    @long    SetHTMLImageBGColor tries to set the background colour of all images to value bgcolor.
+             When converting images embedded in a Word document, WebHare analyses the images and creates a PNG or JPEG image based on the number of colors, and possible transparency in the image. If a transparent image is embedded, a transparent PNG image will be created by default.
+             You can use the SetImageBgColor function to override this default behaviour, for example if your site design requires the use of a single background color for all images.
+
+             There is no guarantee all images converted from the Word document will have the specified background colour. This depends largely on the type of image inserted in the document, and how Word internally converts the image.
+
+             This function sets the default background colour for a page. This
+             background color is also used during Word conversions to set the proper font color for text marked as 'automatic', and it is interpreted
+             as the 'default' color for images (it will not override the background color of images inside table cells). This change should be transparent
+             to most users and improves image quality by reducing the need for transparent pixels.
+    @param bgcolor The colour override (use GfxCreateColor(255,255,255,0) for a transparent (white) background)
+    @see     Tointeger SetHTMLImageMaxWidth SetHTMLImageMaxWidth
+    @example
+// Set the background color to bright red
+SetImageBGColor(GfxCreateColor(255,0,0,255));
+*/
+PUBLIC MACRO SetHTMLImageBGColor(INTEGER bgcolor)
+{
+  SetHTMLDocImageBGColor(GetHTMLDocId(),bgcolor);
+}
+
+
+/** @short   Sets the quality for generated JPEG files.
+    @long    SetHTMLJpegQuality configures a different quality level for JPEG images. quality should be in the range of 0 to 100. The default quality level is 85. Setting a lower quality will degrade image quality but will create smaller JPEG files.
+             Using this function will not force all pictures to be output as JPEG. Remember that JPEG uses a 'lossy' compression, which means that even setting the highest possible quality level will still result in a slight, but often hardly noticeable, image quality loss.
+             For more information about JPEG files, quality settings and lossy compression, you should consult the {@link http://www.faqs.org/faqs/jpeg-faq/ JPEG Frequently Asked Questions}
+    @param   quality Quality setting, 0 to 100 (default is 85)
+    @example
+// Set JPEG files to 50 percent quality
+SetHTMLJpegQuality (50);
+    @see     SetImageMaxWidth */
+PUBLIC MACRO SetHTMLJpegQuality(INTEGER quality)
+{
+  SetHTMLDocJpegQuality(GetHTMLDocId(), quality);
+}
+
+/** @short Set HTML maximum image width
+    @long    SetHTMLImageMaxWidth sets the maximum width of all converted images in the Word documents to maxwidth pixels. The image's height is scaled accordingly, using an aspect ratio of 1 :1.
+             The function can be useful if your page design has strict rules about the maximum width of the content area, or if you want to decrease the filesize of the generated images.
+    @param width Maximum image width, or 0 for no override
+    @example
+// Sets the maximum image width to 100 pixels
+SetHTMLImageMaxWidth (100);
+    @see     SetHTMLImageBgcolor SetHTMLJPEGQuality SetHTMLTableSize */
+PUBLIC MACRO SetHTMLImageMaxWidth(INTEGER width)
+{
+  SetHTMLDocImageMaxWidth(GetHTMLDocId(), width);
+}
+
+/** @short Set up font size for relative fontsize __PUBLISHER_stylesheets
+    @param basesize 0 to disable relative fontsizes, or the pointsize which should be considered to be 100% */
+PUBLIC MACRO SetHTMLRelativeFonts(INTEGER basesize)
+{
+  SetHTMLDocRelativeFonts(GetHTMLDocId(),basesize);
+}
+
+/** @short   Returns the link to the stylesheet created by the conversion engine.
+    @long    GetHtmlStyleSheetLink returns the link to the Cascading Style Sheet file created by the WebHare
+             conversion engine. For every converted Word document, one or more HTML files and a stylesheet file
+             is created. The GetHtmlStyleSheetLink function makes sure the link to the stylesheet file is correct
+             on every HTML file created during conversion.
+    @return  A link tag pointing to the external CSS file, formatted as HTML or XHTML depending on the selected output format
+    @example
+// create the correct link to the stylesheet file, for every
+// output file of a converted document
+MACRO PrintPageHeader
+{
+  print('<html>'\n);
+  IF (file.type = 4) // it's a worddoc
+    Print(GetHtmlStyleSheetLink());
+  print ('</html>');
+}
+RECORD ARRAY allpages := SELECT id,name FROM pages;
+FOREVERY (RECORD thispage from allpages)
+{
+  openfile(thispage.id);
+    printpageHeader();
+    printpagebody();
+  CloseFile();
+}
+    @see     SetHTMLStyleSheet */
+PUBLIC STRING FUNCTION GetHTMLStylesheetLink()
+{
+  STRING retval := '<link rel="stylesheet" type="text/css" href="' || GetFileLinkByName("webhare.css") || '"';
+
+    IF (__publisher_initial_html_level!="XHTML1.0") //HTML 4.01
+      RETURN retval || '>';
+    ELSE //xhtml
+      RETURN retval || ' />';
+}
+
+/** @short Return the proper character set HTML tag
+    @long This function returns the character set tag you should use on documents created by WebHare, selecting a UTF-8 character set
+    @return The character set, formatted as HTML or XHTML depending on the selected output format*/
+PUBLIC STRING FUNCTION GetHTMLCharsetTag()
+{
+  STRING retval := '<meta content="text/html; charset=utf-8" http-equiv="Content-Type"';
+
+  IF (__publisher_initial_html_level!="XHTML1.0") //HTML 4.01
+    RETURN retval || '>';
+  ELSE //xhtml
+    RETURN retval || ' />';
+}
+
+/** @short Creates a WebHare meta generator tag
+    @long Creates a META tag explaining the template version, WebHare version and conversion time. This tag
+          allows you to find out what version of WebHare and your template were used to create the page,
+          and to verify whether you're viewing a republished or cached version of a file
+    @param templaterevision The revision of the template used
+    @return The proper meta generator HTML tag
+    @example
+    // Print the WebHare meta tag, with template revision 2.1
+    GetHTMLWebhareTag("default.tpl revision 2.1");
+ */
+PUBLIC STRING FUNCTION GetHTMLWebhareTag(STRING templaterevision)
+{
+  STRING retval := '<meta name="generator" content="'
+                   || EncodeValue(templaterevision)
+                   || ','
+                   || FormatDateTime("%Y-%m-%d %H:%M", GetCurrentDateTime())
+                   || ','
+                   || GetWebhareVersion()
+                   || '"';
+
+    IF (__publisher_initial_html_level!="XHTML1.0") //HTML 4.01
+      RETURN retval || '>';
+    ELSE //xhtml
+      RETURN retval || ' />';
+}
+
+/** @short   Print the usual header data for HTML documents
+    @long    PrintHTMLStandardHeaderData prints the document title tag, links to the webhare stylesheet, and the keywords, description, webhare information and character set meta-tags.
+The templaterevision parameter is intended to describe the version of the template, and will be added inside a ‘name=generator’ tag, along with the publication date, to make it easier to verify when, and with what template, a file was published.
+The description and keywords tag will only be added to the first page of the document, and any pages created using CreateFile.
+Remember that you should enclose these standard header tags inside ‘<head>’ HTML tags!
+    @param   filetitle Title of the file
+    @param   templaterevision Title or tag for the template, to be able to lookup later which template was used when publishing a file
+    @example
+// Create the TITLE, LINK and META tags for a HTML document
+PrintHTMLStandardHeaderData(FILE.TITLE, "default.tpl revision 1");
+    @see     GetHTMLStylesheetLink PrintHTMLDocType */
+
+PUBLIC MACRO PrintHTMLStandardHeaderData(STRING filetitle, STRING templaterevision, BOOLEAN outputscript DEFAULTSTO TRUE)
+{
+  PRINT ('\n<title>' || EncodeHtml(filetitle) || '</title>\n' || GetHTMLWebhareTag(templaterevision) || '\n');
+  PRINT (GetHTMLCharsetTag() || '\n');
+  IF (__publisher_initial_html_stylesheets AND GetSourceDocumentInfo().webharecss AND __publisher_initial_html_level!="HTML3.02") //word documents need a stylesheet link in HTML4+
+    PRINT (GetHTMLStylesheetLink() || '\n');
+  IF (file.keywords != "" AND GetCurrentPageId() <= 1)
+  {
+    PRINT ('<meta name="keywords" content="' || EncodeValue(file.keywords) || '"');
+    IF (__publisher_initial_html_level!="XHTML1.0") //HTML 4.01
+      PRINT ('>\n');
+    ELSE //xhtml
+    PRINT ('/>\n');
+  }
+  IF (file.description != "" AND GetCurrentPageId() <= 1)
+  {
+    PRINT ('<meta name="description" content="' || EncodeValue(file.description) || '"');
+    IF (__publisher_initial_html_level!="XHTML1.0") //HTML 4.01
+      PRINT ('>\n');
+    ELSE //xhtml
+      PRINT ('/>\n');
+  }
+  Print('\n');
+}

@@ -1,0 +1,60 @@
+<?wh
+// command: dumpwebservers
+// short: Dump the webserver configuration
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/nginx/config.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "proxy", type := "switch" ]
+    ]);
+
+OBJECT trans := OpenPrimary();
+
+RECORD data := DownloadWebserverConfig();
+RECORD checkdata := data;
+
+// Check
+PRINT("Check base rule records\n");
+checkdata.rules := SELECT AS RECORD ARRAY ValidateOptions(VAR __whs_baserulerecord, rules) FROM checkdata.rules;
+PRINT("Check diskstoragelocation records\n");
+checkdata.rules :=
+  SELECT *
+       , datastorage :=  	SELECT AS RECORD ARRAY ValidateOptions(VAR __whs_basedatastoragerecord, datastorage) FROM datastorage
+    FROM checkdata.rules;
+
+IF (args.proxy)
+{
+  RECORD proxyreg := GenerateNginxProxyRegistrationRequest(data, "http://reverseaddress.example.com", "http://verification.example.com", "*", -123);
+
+  Print("\nProxy registrations\n\n");
+  DumpValue(proxyreg, "tree");
+  RETURN;
+}
+
+Print("\nPorts\n\n");
+DumpValue((SELECT *, DELETE privatekey, DELETE certificatechain FROM data.ports),'boxed');
+
+Print("\nHosts\n\n");
+DumpValue(data.hosts,'boxed');
+DumpValue(data.hosts,'tree');
+
+Print("\nRules\n\n");
+DumpValue(data.rules,'boxed');
+DumpValue(data.rules,'tree');
+
+Print("\nTypes\n\n");
+DumpValue(data.types,'boxed');
+
+DELETE CELL ports FROM data;
+DELETE CELL hosts FROM data;
+DELETE CELL rules FROM data;
+DELETE CELL types FROM data;
+
+Print("\nRemains\n\n");
+DumpValue(data,'tree');

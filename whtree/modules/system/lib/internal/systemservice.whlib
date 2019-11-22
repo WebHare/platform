@@ -1,0 +1,102 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/registry.whlib";
+
+LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
+
+
+MACRO LineToStream(INTEGER streamid, STRING line)
+{
+  PrintTo(streamid,line);
+  PrintTo(streamid,"\r\n");
+}
+
+PUBLIC OBJECTTYPE SystemService //transaction-integrated services
+<
+  PUBLIC MACRO ProcessRemovedLinkCheckedSettings(INTEGER ARRAY removed_settings)
+  {
+    DeleteCheckedObjectLinks(DEFAULT INTEGER ARRAY, removed_settings);
+  }
+
+  /** Processes all changed fs_settings with indexed links. Requires open work (runs in precommit handler)
+  */
+  PUBLIC MACRO ProcessLinkCheckedSettings(INTEGER ARRAY all_lc_settings)
+  {
+    RECORD ARRAY objs;
+
+    RECORD ARRAY tocheck :=
+        SELECT *
+          FROM system.fs_settings
+         WHERE id IN all_lc_settings;
+
+    //ADDME Don't loose attribute membertype info in the first place, avoids the RTD heuristics
+    INTEGER ARRAY todelete;
+    FOREVERY (RECORD setting FROM tocheck)
+    {
+      RECORD ARRAY links;
+      IF(setting.setting IN [ "RD1", "FD1" ] AND setting.ordering=0)
+      {
+        // Parse the HTML blob
+        RECORD parsed := ParseHTMLPage(setting.blobdata);
+
+        // Ignore empty and hash-only links
+        links := SELECT text
+                      , link
+                      , url := Tokenize(link, "#")[0]
+                   FROM parsed.links
+                  WHERE link != ""
+                    AND link NOT LIKE "#*"
+                    AND link NOT LIKE "cid:*"
+                    AND link NOT LIKE "x-richdoclink:*";
+      }
+      ELSE IF(setting.ordering > 0 AND setting.ordering != 2 AND RecordExists(SELECT FROM tocheck WHERE tocheck.fs_member = setting.fs_member AND tocheck.fs_instance = setting.fs_instance AND tocheck.parent = settings.parent))
+      {
+        CONTINUE;
+      }
+      ELSE
+      {
+        STRING rawdata := TrimWhitespace(setting.setting);
+
+        IF (rawdata != ""
+            AND rawdata NOT LIKE "#*" // hash-only links can't be checked
+            AND rawdata != "RD1"
+            AND rawdata != "FD1") //process all links, not just valid links. but skip "RD1" (the RTD itself) and "FD1" (the form file itself)
+        {
+          INSERT
+              [ link := rawdata
+              , url := Tokenize(rawdata, "#")[0]
+              , text := ""
+              , type := 0 // Normal hyperlink
+              ] INTO links AT END;
+        }
+      }
+
+      IF(RecordExists(SELECT FROM links WHERE NOT IsAbsoluteURL(url, FALSE)))
+      {
+        STRING docurl := SELECT AS STRING fs_objects.objecturl
+                           FROM system.fs_objects, system.fs_instances, system.fs_settings
+                          WHERE fs_settings.id = VAR setting.id
+                                AND fs_instances.id = fs_settings.fs_instance
+                                AND fs_instances.fs_object = fs_objects.id;
+
+        IF(docurl != "")
+          UPDATE links SET url := ResolveToAbsoluteURL(docurl,link) WHERE NOT IsAbsoluteURL(url,FALSE);
+        ELSE
+          DELETE FROM links WHERE NOT IsAbsoluteURL(url,FALSE);
+      }
+
+      INSERT
+          [ wrd_entity_setting :=   0
+          , system_fs_setting :=    setting.id
+          , links := links
+          ] INTO objs AT END;
+    }
+
+    //Print("TOCHECK\n"); dumpvalue(tocheck,'tree'); PRINT("OBJS\n"); dumpvalue(objs,'tree');
+    SetObjectsCheckedLinks(objs, TRUE);
+  }
+>;

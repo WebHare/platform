@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      html,body,th,td,p,ul,ol
+      {
+        font: 10pt Helvetica, Arial;
+      }
+      th,td
+      {
+        padding:3px;
+      }
+      p
+      {
+        margin:1em 0;
+      }
+      th,td
+      {
+        vertical-align: top;
+        text-align:left;
+        font-weight: normal;
+      }
+      .wh-rtd__img
+      {
+        max-width:100%;
+        height:auto;
+      }
+      .wh-rtd__img--floatleft
+      {
+        float: left;
+        margin: 0 10px 0 0;
+      }
+      .wh-rtd__img--floatright
+      {
+        float: right;
+        margin: 0 0px 0 10px;
+      }
+      .wh-rtd__table
+      {
+        border-collapse: collapse;
+        border: none;
+      }
+      .wh-rtd__tablecell
+      {
+        padding: 0;
+        vertical-align: top;
+        text-align: left;
+        empty-cells: show;
+      }
+    </style>
+  </head>
+  <body>
+    <slot name="mailbody"></slot>
+  </body>
+</html>

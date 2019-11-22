@@ -1,0 +1,53 @@
+<?wh
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// IntExtLinkColumn
+//
+PUBLIC OBJECTTYPE IntExtLinkColumn EXTEND TolliumListColumnBase
+<
+  //STRING display;
+
+  UPDATE PUBLIC MACRO StaticColumnInit(RECORD data)
+  {
+    //IF(data.display IN ["name","title"])
+    //  this->display := data.display;
+  }
+
+  UPDATE PUBLIC VARIANT FUNCTION TranslateValue(VARIANT intextlink)
+  {
+    IF (NOT RecordExists(intextlink))
+      RETURN "";
+
+    IF (intextlink.externallink != "")
+      RETURN intextlink.externallink;
+
+    // must be an internal link then
+    IF (intextlink.internallink = 0) // oh, it's not
+      RETURN "";
+
+    RECORD fsobj := SELECT fullpath
+                         , whfspath
+                         , sitename := (parentsite = 0 ? "" : OpenSite(parentsite)->name)
+                      FROM system.fs_objects
+                     WHERE id = intextlink.internallink
+                           AND isactive; // not trashed
+
+    IF (NOT RecordExists(fsobj))
+      RETURN "";
+
+    IF (fsobj.sitename = "") // file is not in a site
+      RETURN fsobj.whfspath || intextlink.append; // "/path/to/file.rtd"
+
+    RETURN fsobj.sitename || ":" || fsobj.fullpath || intextlink.append; // "sitename:/path/to/file.rtd"
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetExpectedInputType()
+  {
+    RETURN TypeID(RECORD);
+  }
+>;

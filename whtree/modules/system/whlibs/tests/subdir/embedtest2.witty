@@ -1,0 +1,5 @@
+﻿[component subdir]subdir[/component]
+[component reverse][embed ../embedtest.witty:reverse][/component]
+
+[component c5]c5-et:[x][/component]
+[component c6][embed c1][/component]

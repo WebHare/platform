@@ -1,0 +1,13 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+MACRO TestUser()
+{
+  OBJECT user := GetTestController()->user;
+  TestEq("1 hour, 25 minutes", user->FormatTimespan(0, 1*60*60000 + 25*60000, "minutes"));
+  TestEq("1:25",               user->FormatTimespan(0, 1*60*60000 + 25*60000, "short-minutes"));
+}
+
+RunTestFramework( [ PTR TestUser
+                  ]);

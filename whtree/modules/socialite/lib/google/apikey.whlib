@@ -1,0 +1,91 @@
+<?wh
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::socialite/lib/database.whlib";
+
+PUBLIC RECORD FUNCTION __GetGoogleAPIKey(STRING requestdomain, INTEGER requestkeytype, INTEGER limitscope)
+{
+  RECORD apikey := SELECT *
+                     FROM socialite.google_apikeys
+                    WHERE keytype = requestkeytype
+                          AND (google_apikeys.scopetype = limitscope OR google_apikeys.scopetype = 0 OR limitscope = 0)
+                          AND (ToUppercase(VAR requestdomain) LIKE ToUppercase(domain)
+                                OR ToUppercase(VAR requestdomain) LIKE "*." || ToUppercase(domain)
+                              )
+                 ORDER BY //exact matches go first
+                          ToUppercase(VAR requestdomain) = ToUppercase(domain) DESC
+                          // Try full pattern match
+                        , ToUppercase(VAR requestdomain) LIKE ToUppercase(domain) ? Length(domain) : 0 DESC
+                          // Check for subdomain match, match longer (more specific) domains first
+                        , ToUppercase(VAR requestdomain) LIKE "*." || ToUppercase(domain) ? Length(domain) : 0 DESC
+                          // Exact scope match (only comes into play if an 'any' key is offered)
+                        , google_apikeys.scopetype = limitscope DESC;
+
+  RETURN apikey;
+}
+RECORD FUNCTION GuessGoogleAPIKey(STRING requesturl, INTEGER requestkeytype)
+{
+  RECORD url := UnpackURL(requesturl);
+  STRING domain := url.host;
+  IF (url.port NOT IN [ 0, GetSchemeDefaultPort(url.scheme) ])
+    domain := domain || ":" || url.port;
+  RETURN __GetGoogleAPIKey(domain, requestkeytype, 0);
+}
+
+/** @short Retrieve a stored Google Maps API key for a given domain
+    @long This function looks for a stored Google Maps API key that can be used for the given domain. If top-level domains
+          are used for generating API keys, subdomains will also be accepted by Google, so this function also checks if the
+          given domain is a subdomain of one of the stored domains, e.g. if a key is stored for the "b-lex.com" domain, this
+          key can also be used (and will returned) for the "webhare.b-lex.com" domain. Note that Google regards the port
+          number as part of the domain, or more specifically, the domain is everything after the "://" up to the first "/".
+    @result A Google Maps API key suitable for use from the given domain, or an empty string if no suitable key was found
+    @example
+// Returns some api key, if defined
+STRING apikey := GetGoogleMapsAPIKey("example.org");
+
+// Returns another api key
+STRING apikey := GetGoogleMapsAPIKey("example.org:8080");
+*/
+PUBLIC STRING FUNCTION GetGoogleMapsAPIKey(STRING requestdomain) __ATTRIBUTES__(DEPRECATED "Switch to LookupAPIKey")
+{
+  RECORD keyrec := __GetGoogleAPIKey(requestdomain,0,0);
+  RETURN RecordExists(keyrec) ? keyrec.apikey : "";
+}
+
+/** @short Try to retrieve a stored Google Maps API key for the domain of a given request URL, for example the url returned
+           by GetRequestUrl()
+    @see GetGoogleMapsAPIKey
+*/
+PUBLIC STRING FUNCTION GuessGoogleMapsAPIKey(STRING requesturl) __ATTRIBUTES__(DEPRECATED "Switch to LookupAPIKey")
+{
+  RECORD keyrec := GuessGoogleAPIKey(requesturl,0);
+  RETURN RecordExists(keyrec) ? keyrec.apikey : "";
+}
+
+PUBLIC RECORD FUNCTION GetRecaptchaAPIKey(STRING requestdomain) __ATTRIBUTES__(DEPRECATED "Switch to LookupAPIKey")
+{
+  RECORD keyrec := __GetGoogleAPIKey(requestdomain,1,0);
+  RETURN RecordExists(keyrec) ? [ publickey := keyrec.apikey, privatekey := keyrec.privatekey ] : DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION GuessRecaptchaAPIKey(STRING requesturl) __ATTRIBUTES__(DEPRECATED "Switch to LookupAPIKey")
+{
+  IF(requesturl="testmode") //Google recaptcha's own test mode (We probably need webdriver-like to test this as it's still cross-iframe)
+  {
+    RETURN [ publickey := "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+           , privatekey := "6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe"
+           ];
+  }
+
+  RECORD keyrec := GuessGoogleAPIKey(requesturl,1);
+  RETURN RecordExists(keyrec) ? [ publickey := keyrec.apikey, privatekey := keyrec.privatekey ] : DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION GetGoogleAPIKeyForPage(STRING requestdomain) __ATTRIBUTES__(DEPRECATED "Switch to LookupAPIKey")
+{
+  //If we receive a URL, extract the requestdomain
+  IF(requestdomain LIKE "http://*" OR requestdomain LIKE "https://*")
+    requestdomain := UnpackURL(requestdomain).host;
+
+  RECORD keyrec := __GetGoogleAPIKey(requestdomain, 0, 0);
+  RETURN RecordExists(keyrec) ? CELL[ publickey := keyrec.apikey, privatekey := keyrec.privatekey ]  : DEFAULT RECORD;
+}

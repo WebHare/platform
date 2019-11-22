@@ -1,0 +1,8 @@
+div.wh-form__uploadfield + input.wh-form__upload
+{
+  display:none;
+}
+.wh-form__uploadfieldinputholder
+{
+  position:relative;
+}

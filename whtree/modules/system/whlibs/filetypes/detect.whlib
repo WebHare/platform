@@ -1,0 +1,45 @@
+﻿<?wh
+/** @short File analysis
+    @long Functions to auto-detect a file's type and discover its properties by a quick examination of its contents
+    @private we've wanted to get rid of this library for a while as DetectFiletYpe has dangerous sideeffects. GetDocumentMetadata should be deprecated/moved to their respective users
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/filetypes.whlib";
+LOADLIB "wh::internal/getdocmetadata.whlib" EXPORT GetDocumentMetadata;
+
+/** @short Detect the type of a file
+    @long This function detects the type of the file by analyzing the data of the file.
+    @param filedata File whose type must be analyzed
+    @param filename If available, name of the file to analyze
+    @return Record with file information
+    @cell return.contenttype The mime content type of the file  (application/octet-stream if not recognized)
+    @cell return.imginfo A record describing the image, if any. Contains a width & height cell
+    @cell return.title Title recorded in file's metadata, if any (only returned if metadata == TRUE)
+    @cell return.description Description recorded in file's metadata, if any (only returned if metadata == TRUE)
+*/
+PUBLIC RECORD FUNCTION DetectFileType(BLOB filedata, STRING filename, BOOLEAN metadata DEFAULTSTO TRUE) __ATTRIBUTES__(DEPRECATED "Use ScanBlob from wh::files.whlib for a quick filetype detection, and GetDocumentMetadata on a WrappedBlob for full document properties")
+{
+  RECORD baseinfo := __DetectFileType(filedata, filename);
+  IF(NOT metadata)
+  {
+    RETURN [ contenttype := baseinfo.contenttype
+           , imginfo := baseinfo.imginfo
+           , extension := Substring(GetExtensionForMimeType(baseinfo.contenttype),1)
+           ];
+  }
+
+  RECORD baseresult := [ contenttype := baseinfo.contenttype
+                       , title := ""
+                       , description := ""
+                       , keywords := ""
+                       , imginfo := baseinfo.imginfo
+                       , extension := Substring(GetExtensionForMimeType(baseinfo.contenttype),1)
+                       ];
+  baseresult := MakeUpdatedRecord(baseresult, GetDocumentMetadata( [ mimetype := baseinfo.contenttype, data := filedata ]));
+  RETURN baseresult;
+}
+PUBLIC RECORD FUNCTION GetWrappedBlobRecord(BLOB inblob, STRING filename) __ATTRIBUTES__(DEPRECATED "Use WrapBlob from wh::files.whlib")
+{
+  RETURN WrapBlob(inblob, filename);
+}

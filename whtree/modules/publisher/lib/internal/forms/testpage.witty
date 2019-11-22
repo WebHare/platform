@@ -1,0 +1,40 @@
+[component testpage]
+  <h1 title="This is a <h1>">Publisher forms test page</h1>
+  <p>
+    <a href="?fsobject=[fsobject]">Full demo</a>&nbsp;&nbsp;&nbsp;
+    [if haswebpack]
+      <a href="?fsobject=[fsobject]&amp;type=webpack">WebPack survey test</a>
+    [/if]
+  </p>
+  [contents]
+[/component]
+
+[component fulldemo]
+  <form class="wh-form wh-styledinput" id="testpage__inputholder" [testform.formattributes]> [! Request styledinput to activate !]
+
+    <h2 title="This is a <h2>">Full demo</h2>
+    <p>
+      Global style:
+        <a href="[toggledisabledlink]" class="testpage__disabled [if alldisabled]testpage--mode-enabled[/if]">disabled</a>
+        <a href="[togglerequiredlink]" class="testpage__required [if allrequired]testpage--mode-enabled[/if]">required</a>
+        [if toggleinfotextlink]
+          <a href="[toggleinfotextlink]" class="testpage__infotexts [if infotexts]testpage--mode-enabled[/if]">infotext</a>
+        [/if]
+        <br/>
+      Current language: [languagecode] (should be used for errors)<br/>
+    </p>
+    <h3 title="This is a <h3>">Core inputs</h3> [! explicitly mark whether these are supported !]
+    [testform.formrender]
+
+  <style>
+    .testpage__disabled, .testpage__readonly, .testpage__required, .testpage__infotexts
+    {
+      border:2px solid black;
+      cursor:pointer;
+    }
+    .testpage--mode-enabled
+    {
+      background:green;
+    }
+  </style>
+[/component]

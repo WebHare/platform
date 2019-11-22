@@ -1,0 +1,74 @@
+<?wh
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/catalog.whlib";
+LOADLIB "mod::consilio/lib/pagelists.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+
+/* sitemap
+
+we brengen eerst de mappen in kaart
+per map brengen we de bestanden in kaart. id, type, link, isindex, subpagebaseurl, modificationdate
+per type zoeken we op of er een pagelistprovider is. instantieren we
+zo ja, dan roepen we pagelistprovider functie GetSitemapLinks aan met bovenstaand record.
+zo nee, dan roepen we een default pagelistprovider aan
+
+TODO:
+  - canonical links herkennen (via seotab instelbaar toch?)
+  - SEOTAB NOINDEX herkennen
+  - sitemap types aanmaken en negeren in dit overzicht (misschien meer filetypes simpelweg via siteprofile volledig kunnen excluden van sitemap, maar wat betekent dit voor consilio?)
+*/
+
+MACRO TestSitemapLinks()
+{
+  STRING baseurl := OpenTestsuiteSite()->webroot;
+  RECORD ARRAY links := GenerateSitemapLinks(OpenTestsuiteSite()->id);
+//  dumpvalue(links,'boxed');
+
+  INTEGER pagelistfile := OpenTestsuiteSite()->OpenByPath("testpages/pagelisttest")->id;
+  TestEq(10, Length(SELECT FROM links WHERE fileid = pagelistfile));
+  TestEq(TRUE, RecordExists(SELECT FROM links WHERE link LIKE "*/formtest/"));
+  TestEq([[ changefreq := "",        priority := 0.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/staticpage/");
+  TestEq([[ changefreq := "daily",   priority := 1.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/");
+  TestEq([[ changefreq := "monthly", priority := 0.8 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/sub1.html");
+  TestEq([[ changefreq := "yearly",  priority := 0.6 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/sub2.html");
+  TestEq(RECORD[], SELECT * FROM links WHERE link NOT LIKE baseurl || "*");
+  //of the link types (18-20) only the contentlink deserves a place in the site map
+  TestEq([[ link := baseurl || "testpages/foldertemplate/sub/contentlink/" ]], SELECT link FROM links WHERE filetype IN [18,19,20]);
+}
+
+MACRO TestSubpageIndexing()
+{
+  testfw->BeginWork();
+
+  AddFolderToCatalog(OpenTestsuiteSite()->id, testfw->GetCatalogName_1(), "", "");
+
+  testfw->CommitWork();
+
+  // Clear the index
+  INTEGER indexid := testfw->GetCatalogIdByName(testfw->GetCatalogName_1());
+  CheckConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  INTEGER pagelistfile := OpenTestsuiteSite()->OpenByPath("testpages/pagelisttest")->id;
+  RECORD result := RunConsilioSearch(testfw->GetCatalogName_1(), CQMatch("myfield1", "=", "Seven"), [ mapping := [ myfield1 := "", myfield2 := "", title := "" ]]);
+  // There was a bug where subpagebaseurl would not be calculated correctly because it was cached from the first file, resulting
+  // in the second file not being properly indexed. There should be 2 results.
+  TestEq(2, result.totalcount);
+
+  RECORD sub7 := SELECT * FROM result.results WHERE title = "pagelistfile - sub7";
+  TestEq("Seven", sub7.myfield1);
+  TestEq("", sub7.myfield2);
+}
+
+RunTestframework([ PTR TestSitemapLinks
+                 , PTR TestSubpageIndexing
+                 ],
+                 [ consilio := TRUE
+                 ]);

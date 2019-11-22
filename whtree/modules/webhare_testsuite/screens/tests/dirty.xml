@@ -1,0 +1,85 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/dirty.whlib">
+
+  <screen name="dirtytest" title="Test dirty">
+    <actions>
+      <action name="setdirty" title="set" onexecute="dosetdirty" />
+      <action name="cleardirty" title="clear" onexecute="docleardirty" />
+    </actions>
+    <compositions>
+      <dirtylistener name="dirtylistener" ondirty="ondirty" />
+      <record name="composition" dirtylistener="dirtylistener" />
+      <radiogroup name="radiogroup" />
+      <radiogroup name="radiogroup_listener" dirtylistener="dirtylistener" />
+    </compositions>
+    <body>
+      <line>
+        <text name="dirtystatus" title="dirty?" width="1pr" />
+        <button name="setbutton" action="setdirty" />
+        <button name="clearbutton" action="cleardirty" />
+      </line>
+      <textedit name="textedit" title="textedit" dirtylistener="dirtylistener" />
+      <textedit name="textedit_composition" title="composition" composition="composition" cellname="textedit" />
+      <combobox name="combobox" title="combobox" dirtylistener="dirtylistener">
+        <option title="some text" />
+      </combobox>
+      <textarea name="textarea" title="textarea" dirtylistener="dirtylistener" />
+      <checkbox name="checkbox" title="checkbox" onchange="oncheckboxclick" dirtylistener="dirtylistener" />
+      <radiobutton name="radiobutton" title="radiobutton" group="radiogroup" visible="false" dirtylistener="dirtylistener" />
+      <radiobutton name="radiobutton_group" title="radiogroup" group="radiogroup_listener" />
+      <select name="select_pulldown" title="select pulldown" type="pulldown" dirtylistener="dirtylistener">
+        <option rowkey="" title="" />
+        <option rowkey="s" title="some text" />
+      </select>
+      <select name="select_checkbox" title="select checkbox" type="checkbox" dirtylistener="dirtylistener" orientation="horizontal">
+        <option rowkey="s" title="some text" />
+      </select>
+      <select name="select_radio" title="select radio" type="radio" dirtylistener="dirtylistener" orientation="horizontal">
+        <option rowkey="" title="" />
+        <option rowkey="s" title="some text" />
+      </select>
+      <text title="select checkboxlist" labelfor="select_checkboxlist" />
+      <select name="select_checkboxlist" type="checkboxlist" dirtylistener="dirtylistener" height="1gr">
+        <option rowkey="s" title="some text" />
+      </select>
+      <text title="list" labelfor="list" />
+      <list name="list" columnheaders="false" dirtylistener="dirtylistener" height="1gr" selectmode="single" oncelledit="onlistcelledit">
+        <column name="column" type="text" checkboxname="checkbox" edittype="textedit" />
+        <row>
+          <element name="column" data="some text" />
+          <element name="checkbox" data="false" />
+        </row>
+      </list>
+      <text title="arrayedit" labelfor="arrayedit" />
+      <arrayedit name="arrayedit" columnheaders="false" height="1gr" roweditscreen=".editarrayeditrow" dirtylistener="dirtylistener">
+        <column name="column" type="text" checkboxname="checkbox" />
+      </arrayedit>
+      <box name="box" title="box" checkbox="true" hr="false" enablecomponents="heading" dirtylistener="dirtylistener">
+        <heading name="heading" title="heading" checkbox="true" dirtylistener="dirtylistener" />
+      </box>
+      <slider name="slider" title="slider" dirtylistener="dirtylistener" min="0" max="1" />
+      <tagedit name="tagedit" title="tagedit" dirtylistener="dirtylistener" />
+      <date name="date" title="date" dirtylistener="dirtylistener" />
+      <datetime name="datetime" title="datetime" type="datetime" dirtylistener="dirtylistener" />
+      <time name="time" title="time" dirtylistener="dirtylistener" />
+      <imgedit name="imgedit" title="imgedit" dirtylistener="dirtylistener" width="1pr" height="4gr"/>
+      <text title="rte" labelfor="rte" />
+      <richarea name="rte" type="html" dirtylistener="dirtylistener" />
+    </body>
+  </screen>
+
+  <screen name="editarrayeditrow" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit composition="row" cellname="column" name="rowedit_column" />
+      <checkbox composition="row" cellname="checkbox" name="rowedit_checkbox" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

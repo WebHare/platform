@@ -1,0 +1,744 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+
+OBJECT searchinfotype;
+
+RECORD FUNCTION GetTypeSearchProviderUncached(INTEGER type)
+{
+  RETURN
+      [ value := SELECT AS STRING COLUMN searchprovider FROM system.fs_types WHERE id = type
+      , eventmasks := [ "system:whfs.types" ] // broadcast after siteprofile recompile (searchproviders may have changed)
+      ];
+}
+
+RECORD FUNCTION GetSearchInfoUncached(INTEGER objid)
+{
+  IF (NOT ObjectExists(searchinfotype))
+    searchinfotype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/searchinfo");
+  RECORD fsobj := SELECT isfolder, parent FROM system.fs_objects WHERE id = objid;
+  RETURN
+      [ value := searchinfotype->GetInstanceData(objid)
+      , eventmasks := [ "system:whfs.folder." || (fsobj.isfolder ? objid : fsobj.parent) // broadcast after file/folder has changed
+                      , "system:whfs.types" // broadcast after siteprofile recompile (searchproviders may have changed)
+                      ]
+      ];
+}
+
+RECORD ARRAY FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
+{
+  STRING searchprovider := GetAdhocCached(CELL[ fsobj.type ], PTR GetTypeSearchProviderUncached(fsobj.type));
+  IF(searchprovider="")
+    RETURN RECORD[]; //
+
+  RECORD bodyinfo := GetAdhocCached([ id := fsobj.id ], PTR GetSearchInfoUncached(fsobj.id));
+
+  IF(NOT force AND bodyinfo.formodificationdate >= fsobj.modificationdate) //uptodate
+  {
+    RETURN SELECT AS RECORD ARRAY body FROM bodyinfo.subfiles;
+  }
+
+  STRING ARRAY parts := Tokenize(searchprovider, "#");
+  OBJECT provider := MakeObject(parts[0], parts[1]);
+
+  RECORD ARRAY subfiles;
+  FOREVERY(RECORD subfile FROM provider->GetSearchContents(fsobj.id))
+  {
+    RECORD parsed_page := ParsePage(subfile.data, subfile.mimetype);
+    IF (RecordExists(parsed_page) AND parsed_page.success)
+      INSERT WrapBlob(StringToBlob(parsed_page.text), "subresult" || #subfile || ".txt") INTO subfiles AT END;
+    ELSE
+      INSERT DEFAULT RECORD INTO subfiles AT END;
+  }
+
+  GetPrimary()->BeginWork();
+  bodyinfo :=
+      [ formodificationdate := fsobj.modificationdate
+      , subfiles := ToRecordArray(subfiles,"body")
+      ];
+  IF (NOT ObjectExists(searchinfotype))
+    searchinfotype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/searchinfo");
+  searchinfotype->SetInstanceData(fsobj.id, bodyinfo);
+
+  GetPrimary()->CommitWork();
+  RETURN subfiles;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetIndexFields()
+{
+  RETURN GetAdhocCached([ data := "indexfields" ], PTR GetIndexFields_Uncached);
+}
+
+RECORD FUNCTION GetIndexFields_Uncached()
+{
+  RECORD ARRAY indexfields;
+  FOREVERY (RECORD module FROM GetWebHareModules())
+    indexfields := indexfields CONCAT
+        SELECT *
+             , module := module.name
+          FROM module.indexfields;
+  RETURN [ value := indexfields
+         , eventmasks := [ "consilio:indexfields" // broadcast after soft reset (indexfields may have changed)
+                         , "system:whfs.types" // broadcast after siteprofile recompile (contenttypes may have changed)
+                         ]
+         ];
+}
+
+PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
+<
+  OBJECT trans;
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
+  {
+    RECORD ARRAY mapping := this->defaultmapping CONCAT
+        [ [ name := "name", value := "" ]
+        , [ name := "title", value := "" ]
+        , [ name := "description", value := "" ]
+        , [ name := "keywords", value := "" ]
+        , [ name := "body", value := "" ]
+        , [ name := "url", value := "", tokenized := FALSE ]
+        , [ name := "whfsid", value := 0 ]
+        , [ name := "whfsparent", value := 0 ]
+        , [ name := "whfsobject", value := "", tokenized := FALSE ]
+        , [ name := "whfstype", value := 0 ]
+        , [ name := "whfspath", value := "" ]
+        , [ name := "whfstree", value := "" ]
+        , [ name := "date_creation", value := DEFAULT DATETIME ]
+        , [ name := "date_modification", value := DEFAULT DATETIME ]
+        , [ name := "date_publication", value := DEFAULT DATETIME ]
+        ];
+    FOREVERY (RECORD indexfield FROM GetIndexFields())
+    {
+      TRY
+      {
+        RECORD defaultvalue := this->ParseIndexField(DEFAULT RECORD, 0, indexfield, 0);
+        IF (Length(indexfield.arraymembers) > 0)
+        {
+          FOREVERY (RECORD subfield FROM indexfield.arraymembers)
+            INSERT [ name := indexfield.fieldname || "." || subfield.fieldname || "@" || indexfield.module
+                   , value := GetCell(defaultvalue, indexfield.fieldname || "." || subfield.fieldname || "@" || indexfield.module)
+                   , tokenized := subfield.tokenized
+                   , suggested := subfield.suggested
+                   ] INTO mapping AT END;
+        }
+        ELSE
+        {
+          INSERT [ name := indexfield.fieldname || "@" || indexfield.module
+                 , value := GetCell(defaultvalue, indexfield.fieldname || "@" || indexfield.module)
+                 , tokenized := indexfield.tokenized
+                 , suggested := indexfield.suggested
+                 ] INTO mapping AT END;
+        }
+      }
+      CATCH {}
+    }
+    RETURN mapping;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForIndexing()
+  {
+    this->trans := OpenPrimary();
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION ListGroups(DATETIME indexdate)
+  {
+    RECORD ARRAY groups :=
+        SELECT id := "fsobj_" || id
+          FROM system.fs_objects
+         WHERE isactive
+         ORDER BY modificationdate DESC, id;
+
+    RETURN [ status := "result"
+           , groups := groups
+           ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION ListObjects(DATETIME indexdate, STRING groupid)
+  {
+    RECORD fsrec :=
+        SELECT id
+             , modificationdate
+             , type
+          FROM system.fs_objects
+         WHERE id = this->ParseId(groupid);
+
+    RECORD ARRAY objects;
+    IF (RecordExists(fsrec))
+    {
+      RECORD ARRAY subfiles := GetSearchSubfiles(fsrec, this->force);
+      objects :=
+          [ [ id := "fsobj_" || fsrec.id
+            , requiredindexdate := fsrec.modificationdate
+            ]
+          ]
+          CONCAT
+          (SELECT id := "fsobj_" || fsrec.id || "_" || #subfiles
+                , requiredindexdate := fsrec.modificationdate
+             FROM subfiles
+            WHERE #subfiles > 0);
+    }
+
+    RETURN [ status := "result"
+           , objects := objects
+           ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME indexdate, STRING groupid, STRING objectid)
+  {
+    OBJECT fsobj := OpenWHFSObject(this->ParseId(objectid));
+    IF (NOT ObjectExists(fsobj))
+      RETURN [ status := "error"
+             , error := "Invalid objectid '" || objectid || "' for groupid '" || groupid || "'"
+             ];
+    INTEGER arrayid := this->ParseSubId(objectid);
+
+    STRING ARRAY whfstree;
+    INTEGER parent := fsobj->id;
+    WHILE (parent > 0)
+    {
+      INSERT ToString(parent) INTO whfstree AT 0;
+      parent := SELECT AS INTEGER COLUMN parent
+                  FROM system.fs_objects
+                 WHERE id = VAR parent;
+    }
+
+
+    RECORD fields :=
+        [ name := fsobj->name
+        , title := fsobj->title
+        , description := fsobj->description
+        , keywords := fsobj->keywords
+        , url := fsobj->indexurl
+        , whfsid := ToString(fsobj->id)
+        , whfsparent := ToString(fsobj->parent)
+        , whfsobject := fsobj->isfolder ? "folder" : "file"
+        , whfstype := ToString(fsobj->type)
+        , whfspath := fsobj->whfspath
+        , whfstree := Detokenize(whfstree, " ")
+        , date_creation := fsobj->creationdate
+        , date_modification := fsobj->modificationdate
+        , date_publication := NOT fsobj->isfolder AND fsobj->publish ? fsobj->lastpublishdate : DEFAULT DATETIME
+        ];
+
+    FOREVERY (RECORD indexfield FROM GetIndexFields())
+    {
+      TRY
+      {
+        // Parse the contenttype data and store it in a module field
+        fields := this->ParseIndexField(fields, fsobj->id, indexfield, arrayid);
+      }
+      CATCH (OBJECT e)
+      {
+        LogHarescriptException(e);
+        RETURN [ status := "error"
+               , error := e->what
+               ];
+      }
+    }
+    DELETE CELL _arrayname, _arraylength FROM fields;
+
+    RECORD result :=
+        [ status := "result"
+        , document_fields := fields
+        , indexdate := fsobj->modificationdate
+        ];
+
+    RECORD ARRAY subfiles := GetSearchSubfiles(CELL[ fsobj->id, fsobj->modificationdate, fsobj->type ], FALSE); //Don't force here, generating subfiles is already forced in ListObjects
+    IF(arrayid < Length(subfiles) AND RecordExists(subfiles[arrayid]))
+      INSERT CELL document_body := BlobToString(subfiles[arrayid].data) INTO result;
+
+    RETURN result;
+  }
+
+  INTEGER FUNCTION ParseId(STRING id)
+  {
+    STRING ARRAY parts := Tokenize(id, "_");
+    IF (Length(parts) >= 2 AND parts[0] = "fsobj")
+      RETURN ToInteger(parts[1], 0);
+    RETURN 0;
+  }
+
+  INTEGER FUNCTION ParseSubId(STRING id)
+  {
+    STRING ARRAY parts := Tokenize(id, "_");
+    IF (Length(parts) = 3 AND parts[0] = "fsobj")
+      RETURN ToInteger(parts[2], 0);
+    RETURN 0;
+  }
+
+  RECORD FUNCTION ParseIndexField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid)
+  {
+    IF (indexfield.namespace != "" AND indexfield.membername != "")
+    {
+      RETURN this->ParseContentTypeField(fields, objid, indexfield, arrayid);
+    }
+    ELSE IF (indexfield.library != "" AND indexfield.functionname != "")
+    {
+      RETURN this->ParseLibraryField(fields, objid, indexfield, arrayid, DEFAULT RECORD);
+    }
+    ELSE
+      THROW NEW Exception("Indexfield not properly configured");
+  }
+
+  RECORD FUNCTION ParseContentTypeField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid)
+  {
+    OBJECT indextype := OpenWHFSType(indexfield.namespace);
+    IF (NOT ObjectExists(indextype))
+      THROW NEW Exception("Content type '" || indexfield.namespace || "' to index not found");
+
+    // Find the requested member
+    RECORD memberrec :=
+          SELECT *
+            FROM indextype->members
+           WHERE ToUppercase(name) = ToUppercase(indexfield.membername);
+    IF (NOT RecordExists(memberrec))
+      THROW NEW Exception("Member '" || indexfield.membername || "' not found in content type '" || indexfield.namespace || "' to index");
+
+    // Get the requested member value
+    RECORD indexdata := objid > 0 ? indextype->GetInstanceData(objid) : indextype->defaultinstance;
+    VARIANT membervalue := GetCell(indexdata, memberrec.name);
+
+    RETURN this->ParseMemberValue(fields, objid, indexfield, indextype, memberrec, membervalue, arrayid, TRUE);
+  }
+
+  RECORD FUNCTION ParseMemberValue(RECORD fields, INTEGER objid, RECORD indexfield, OBJECT indextype, RECORD memberrec, VARIANT membervalue, INTEGER arrayid, BOOLEAN recurse)
+  {
+    IF (memberrec.type = 12) // Array
+    {
+      IF (NOT recurse)
+        THROW NEW Exception(`Multilevel arrays are not supported (parsing ${indexfield.namespace}#${memberrec.name})`);
+      IF (RecordExists(membervalue)
+          AND CellExists(fields, "whfstype")
+          AND fields.whfstype != ToString(indextype->id)
+          AND indexfield.namespace != "http://www.webhare.net/xmlns/publisher/searchinfo")
+        THROW NEW Exception(`Arrays are only supported for the actual file/folder type (parsing ${indexfield.namespace}#${memberrec.name})`);
+      IF (Length(membervalue) > 1
+          AND CellExists(fields, "_arrayname")
+          AND fields._arrayname != indexfield.membername
+          AND indexfield.namespace != "http://www.webhare.net/xmlns/publisher/searchinfo")
+        THROW NEW Exception(`"Another array member is already defined (parsing ${indexfield.namespace}#${memberrec.name}, '${fields._arrayname}' != '${indexfield.membername}')`);
+
+      // One-level arrays are indexed as multiple objects within the fsobj group
+      INTEGER memberparent := memberrec.id;
+      FOREVERY (RECORD arrayfield FROM indexfield.arraymembers)
+      {
+        STRING fieldname := (indexfield.fieldname != "" ? indexfield.fieldname || "." : "") || arrayfield.fieldname || (indexfield.module != "" ? "@" || indexfield.module : "");
+        IF (arrayfield.membername != "")
+        {
+          // Find the requested array member
+          memberrec :=
+                SELECT *
+                  FROM indextype->members
+                 WHERE parent = memberparent
+                       AND ToUppercase(name) = ToUppercase(arrayfield.membername);
+          IF (NOT RecordExists(memberrec))
+          {
+            THROW NEW Exception("Member '" || indexfield.membername || "." || arrayfield.membername || "' not found in content type '" || indexfield.namespace || "' to index");
+          }
+
+          IF (NOT RecordExists(membervalue))
+          {
+            VARIANT value := GetTypeDefaultValue(memberrec.type = 4 ? TypeID(DATETIME) : TypeID(STRING));
+            fields := this->InsertFieldValue(fields, objid, fieldname, value);
+          }
+          ELSE IF (arrayid >= Length(membervalue))
+          {
+            THROW NEW Exception("Illegal index #" || arrayid || " for member '" || indexfield.membername || "'");
+          }
+          ELSE
+          {
+            RECORD parsed := this->ParseMemberValue(DEFAULT RECORD, objid, CellUpdate(indexfield, "fieldname", fieldname), indextype, memberrec, GetCell(membervalue[arrayid], arrayfield.membername), arrayid, FALSE);
+            // If the array field has a default value, the DEFAULT RECORD is returned
+            IF (RecordExists(parsed))
+            {
+              VARIANT value := UnpackRecord(parsed)[0].value;
+              fields := this->InsertFieldValue(fields, objid, fieldname, value);
+            }
+          }
+        }
+        ELSE
+        {
+          arrayfield := MakeUpdatedRecord(indexfield, arrayfield);
+          RECORD parsed := this->ParseLibraryField(DEFAULT RECORD, objid, arrayfield, arrayid, indexfield);
+          // If the array field has a default value, the DEFAULT RECORD is returned
+          IF (RecordExists(parsed))
+          {
+            VARIANT value := UnpackRecord(parsed)[0].value;
+            fields := this->InsertFieldValue(fields, objid, fieldname, value);
+          }
+        }
+      }
+      IF (Length(membervalue) > 1 AND NOT CellExists(fields, "_arrayname"))
+      {
+        INSERT CELL _arrayname := indexfield.membername INTO fields;
+        INSERT CELL _arraylength := Length(membervalue) INTO fields;
+      }
+      RETURN fields;
+    }
+
+    // Default field value based on the field's type
+    INTEGER fieldtype := TypeID(membervalue) IN [ TypeID(STRING), TypeID(DATETIME) ]
+        ? TypeID(membervalue)
+        : TypeID(STRING);
+    VARIANT fieldvalue := GetTypeDefaultValue(fieldtype);
+
+    IF (NOT IsDefaultValue(membervalue))
+    {
+      // See module::system/internal/fsctypes.whlib for list of type ids
+      SWITCH (memberrec.type)
+      {
+        CASE 1 // Single choice (default value: STRING)
+           , 2 // String
+           , 4 // Datetime
+           , 19 // URL
+        {
+          fieldvalue := membervalue;
+        }
+        CASE 3 // Multiple choice (default value: STRING ARRAY)
+           , 14 // STRINGARRAY
+        {
+          fieldvalue := Detokenize(membervalue, " ");
+        }
+        CASE 5 // Memo (Blob)
+           , 10 // Blob
+        {
+          IF (RecordExists(membervalue))
+          {
+            TRY
+            {
+              RECORD parsed_page := ParsePage(membervalue.data, membervalue.mimetype);
+
+              IF (RecordExists(parsed_page) AND parsed_page.success)
+                fieldvalue := parsed_page.text;
+            }
+            CATCH (OBJECT e)
+            {
+              THROW NEW Exception(`Error while parsing page using parser '${e->what}'`);
+            }
+          }
+        }
+        CASE 7 // Integer
+           , 11 // WHFSREF
+        {
+          fieldvalue := ToString(membervalue);
+        }
+        CASE 8 // Float
+        {
+          fieldvalue := FormatFloat(membervalue, -1);
+        }
+        CASE 9 // Money
+        {
+          fieldvalue := FormatMoney(membervalue, 0, ".", "", FALSE);
+        }
+        CASE 13 // WHFSREFARRAY
+        {
+          fieldvalue := Detokenize((SELECT AS STRING ARRAY ToString(val) FROM ToRecordArray(membervalue, "val")), " ");
+        }
+        CASE 15 // RICHDCOCUMENT
+        {
+          fieldvalue := ParseHTMLPage(membervalue.htmltext).text;
+        }
+        DEFAULT
+        {
+          THROW NEW Exception("Member '" || indexfield.membername || "' in content type '" || indexfield.namespace || "' has unsupported type");
+        }
+      }
+    }
+
+    STRING fieldname := indexfield.fieldname || (indexfield.module != "" ? "@" || indexfield.module : "");
+    RETURN this->InsertFieldValue(fields, objid, fieldname, fieldvalue);
+  }
+
+  RECORD FUNCTION ParseLibraryField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid, RECORD parentfield)
+  {
+    FUNCTION PTR getfield := RecordExists(parentfield)
+        ? MakeFunctionPtr(indexfield.library, indexfield.functionname, -1, [ TypeID(STRING), TypeID(STRING), TypeID(INTEGER), TypeID(INTEGER) ])
+        : MakeFunctionPtr(indexfield.library, indexfield.functionname, -1, [ TypeID(STRING), TypeID(INTEGER) ]);
+    VARIANT fieldvalue := RecordExists(parentfield)
+        ? getfield(indexfield.fieldname, parentfield.fieldname, objid, arrayid)
+        : getfield(indexfield.fieldname, objid);
+    INTEGER expectedtype := indexfield.fieldname LIKE "date_*" ? TypeID(DATETIME) : TypeID(STRING);
+    IF (TypeID(fieldvalue) != expectedtype)
+      THROW NEW Exception("Invalid field type returned for field '" || ((RecordExists(parentfield) ? parentfield.fieldname || "." : "") || indexfield.fieldname) || "' by function '" || indexfield.library || "#" || indexfield.functionname || "' (expected " || GetTypeName(expectedtype) || ", got " || GetTypeName(TypeID(fieldvalue)) || ")");
+    STRING fieldname := (RecordExists(parentfield) ? parentfield.fieldname || "." : "") || indexfield.fieldname || "@" || indexfield.module;
+    RETURN this->InsertFieldValue(fields, objid, fieldname, fieldvalue);
+  }
+
+  RECORD FUNCTION InsertFieldValue(RECORD fields, INTEGER objid, STRING fieldname, VARIANT value)
+  {
+    IF (NOT IsDefaultValue(value) OR objid = 0)
+    {
+      IF (NOT CellExists(fields, fieldname))
+        fields := CellInsert(fields, fieldname, value);
+      ELSE IF (fieldname LIKE "date_*" OR fieldname LIKE "*.date_*")
+        fields := CellUpdate(fields, fieldname, value);
+      ELSE
+        fields := CellUpdate(fields, fieldname, TrimWhitespace(GetCell(fields, fieldname) || " " || value));
+    }
+
+    RETURN fields;
+  }
+>;
+
+PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objectid)
+{
+  SWITCH (fieldname)
+  {
+    CASE "hasdraft"
+    {
+      RECORD ARRAY drafts := objectid != 0 ? GetDrafts(objectid) : RECORD[];
+      RETURN RecordExists(SELECT FROM drafts WHERE ispublic) ? "1" : "";
+    }
+
+    CASE "formfields"
+    {
+      RECORD instancedata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formwebtool")->Enrich([ [ id := objectid ] ], "id", [ "data" ]);
+
+      RECORD ARRAY allcomps;
+      IF (RecordExists(instancedata.data))
+      {
+        RECORD ARRAY allcomponents := GetSearchableFormComponents();
+        OBJECT xmldoc := MakeXMLDocument(instancedata.data.formtext, "utf-8", TRUE);
+        OBJECT ARRAY containernodes :=
+            xmldoc->GetElementsByTagNameNS(xmlns_forms, "page")->GetCurrentElements()
+            CONCAT
+            xmldoc->GetElementsByTagNameNS(xmlns_forms, "group")->GetCurrentElements()
+            CONCAT
+            xmldoc->GetElementsByTagNameNS(xmlns_forms, "handlers")->GetCurrentElements()
+            CONCAT
+            xmldoc->GetElementsByTagNameNS(xmlns_forms, "trash")->GetCurrentElements();
+        FOREVERY (OBJECT containernode FROM containernodes)
+          FOREVERY (OBJECT compnode FROM containernode->childnodes->GetCurrentElements())
+            IF (compnode->namespaceuri != xmlns_forms OR compnode->localname != "group")
+            {
+              RECORD ARRAY matching_components := SELECT * FROM allcomponents WHERE namespace = compnode->namespaceuri AND name = compnode->localname;
+              RECORD component;
+              FOREVERY (RECORD match FROM matching_components)
+              {
+                IF (match.is_handler OR ComponentMatches(compnode, match))
+                {
+                  component := match;
+                  BREAK;
+                }
+              }
+              STRING qname := RecordExists(component) ? component.qname : compnode->namespaceuri || "#" || compnode->localname;
+              RECORD pos := RecordLowerBound(allcomps, CELL[ qname ], [ "qname" ]);
+              IF (NOT pos.found)
+                INSERT CELL[ qname ] INTO allcomps AT pos.position;
+            }
+      }
+      RETURN Detokenize((SELECT AS STRING ARRAY qname FROM allcomps), " ");
+    }
+
+    CASE "storeresults"
+    {
+      //FIXME we invoke this for every file, even though most aren't forms. Fix that!
+      RECORD instancedata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formwebtool")->Enrich([ [ id := objectid ] ], "id", [ "data", "storeresults" ]);
+      IF (NOT RecordExists(instancedata.data))
+        RETURN "";
+
+      INTEGER storeresults := GetFormResultsExpirationDaysByInstance(GetApplyTesterForObject(objectid), instancedata).storeresults;
+      RETURN Right("0000000" || storeresults, 8);
+    }
+  }
+  THROW NEW Exception(`Unknown item field '${fieldname}'`);
+}
+
+PUBLIC OBJECTTYPE HasDraftFilter EXTEND BaseSearchFilter
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ valuequery :=  [ [ rowkey := "1", title := GetTid("publisher:filemanager.search.filtertypes.file-hasdraft") ] ]
+        , valuequerytype := "checkbox"
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (Length(value.valuequery) = 0) // valuequery is either STRING[] OR [ "1" ]
+      RETURN DEFAULT RECORD;
+
+    RETURN CQMatch("hasdraft@publisher", "IN", value.valuequery);
+  }
+>;
+
+PUBLIC OBJECTTYPE FormFieldsFilter EXTEND BaseSearchFilter
+<
+  RECORD ARRAY allcomponents;
+
+  MACRO NEW()
+  {
+    this->allcomponents := GetSearchableFormComponents();
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ matchlabel := GetTid("publisher:filemanager.search.filtertypes.form-contains")
+        , selectquery := DEFAULT RECORD
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION SelectQuery(RECORD value)
+  {
+    STRING qname := this->context->filterscreen->RunScreen("mod::publisher/tolliumapps/formedit/formcomponent.xml#selectcomponent",
+        [ components := this->allcomponents
+        , type := "pubsearch"
+        , value := RecordExists(value.selectquery) ? value.selectquery.component : ""
+        ]);
+    IF (qname = "")
+      RETURN DEFAULT RECORD;
+    RECORD comptype := SELECT * FROM this->allcomponents WHERE COLUMN qname = VAR qname;
+    RETURN
+        CELL[ ...value
+            , selectquery :=
+                [ component := qname
+                , showvalue := RecordExists(comptype) ? comptype.title : qname
+                ]
+            ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (RecordExists(value.selectquery))
+      RETURN CQMatch("formfields@publisher", "=", value.selectquery.component);
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+RECORD ARRAY FUNCTION GetSearchableFormComponents()
+{
+  RECORD ARRAY allcomponents :=
+      (SELECT *
+            , title := GetTid(title)
+            , tid := title
+            , description := GetTid(description)
+            , qname := FormatQName(components)
+            , builtin := namespace = xmlns_forms
+            , is_question := TRUE
+            , is_handler := FALSE
+         FROM GetAllFormComponents() AS components)
+      CONCAT
+      (SELECT *
+            , title := GetTid(title)
+            , description := GetTid(description)
+            , qname := FormatQName(components)
+            , builtin := namespace = xmlns_forms
+            , is_question := FALSE
+            , is_handler := TRUE
+         FROM GetAllFormHandlers() AS components);
+  DELETE FROM allcomponents
+   WHERE namespace = xmlns_forms AND name IN [ "page", "group" ];
+  RETURN allcomponents;
+}
+
+PUBLIC OBJECTTYPE StoreResultsFilter EXTEND BaseSearchFilter
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+          // Range queries are not fully supported by Consilio (at least not in OR combinations), so disable the matchtype
+          // relying on range queries
+        [ matchtype :=
+            (SELECT *
+               FROM matchtypevalue
+              WHERE rowkey NOT IN [ "less", "lessorequal", "greater", "greaterorequal" ])
+        , textquery := ""
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    INTEGER intvalue := ToInteger(value.textquery, -2);
+    // The value -1 is only used to check if the default value is (not) used
+    IF (intvalue = -1)
+    {
+      IF (value.matchtype = "equal")
+        RETURN CQMatch("storeresults@publisher", "=", "-1");
+      ELSE IF (value.matchtype = "notequal")
+        RETURN CQNot(CQMatch("storeresults@publisher", "=", "-1"));
+    }
+    ELSE IF (intvalue >= 0)
+    {
+      INTEGER defaultvalue := ReadRegistryKey("publisher.forms.storeresults");
+      STRING matchvalue := Right("0000000" || intvalue, 8);
+      RECORD query;
+      SWITCH (value.matchtype)
+      {
+        CASE "equal"
+        {
+          query := CQMatch("storeresults@publisher", "=", matchvalue);
+          IF (intvalue = defaultvalue)
+            query := CQOr([ query, CQMatch("storeresults@publisher", "=", "-1") ]);
+        }
+        CASE "notequal"
+        {
+          query := CQNot(CQMatch("storeresults@publisher", "=", matchvalue));
+          IF (intvalue = defaultvalue)
+            query := CQAnd([ query, CQNot(CQMatch("storeresults@publisher", "=", "-1")) ]);
+        }
+        CASE "less"
+        {
+          query := CQMatch("storeresults@publisher", "<", matchvalue);
+          IF (defaultvalue < intvalue) // Forms with default value match
+            query := CQOr([ query, CQMatch("storeresults@publisher", "=", "-1") ]);
+          ELSE // Forms with default value don't match
+            query := CQAnd([ query, CQNot(CQMatch("storeresults@publisher", "=", "-1")) ]);
+        }
+        CASE "lessorequal"
+        {
+          query := CQMatch("storeresults@publisher", "<=", matchvalue);
+          IF (defaultvalue <= intvalue) // Forms with default value match
+            query := CQOr([ query, CQMatch("storeresults@publisher", "=", "-1") ]);
+          ELSE // Forms with default value don't match
+            query := CQAnd([ query, CQNot(CQMatch("storeresults@publisher", "=", "-1")) ]);
+        }
+        CASE "greater"
+        {
+          query := CQMatch("storeresults@publisher", ">", matchvalue);
+          IF (defaultvalue > intvalue) // Forms with default value match
+            query := CQOr([ query, CQMatch("storeresults@publisher", "=", "-1") ]);
+          ELSE // Forms with default value don't match
+            query := CQAnd([ query, CQNot(CQMatch("storeresults@publisher", "=", "-1")) ]);
+        }
+        CASE "greaterorequal"
+        {
+          query := CQMatch("storeresults@publisher", ">=", matchvalue);
+          IF (defaultvalue >= intvalue) // Forms with default value match
+            query := CQOr([ query, CQMatch("storeresults@publisher", "=", "-1") ]);
+          ELSE // Forms with default value don't match
+            query := CQAnd([ query, CQNot(CQMatch("storeresults@publisher", "=", "-1")) ]);
+        }
+      }
+      RETURN query;
+    }
+    RETURN DEFAULT RECORD;
+  }
+>;

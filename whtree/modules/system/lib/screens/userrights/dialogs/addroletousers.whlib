@@ -1,0 +1,161 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+/** This dialog adds a single role to pre-chosen users
+*/
+PUBLIC STATIC OBJECTTYPE AddRoleToUsers EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Grantee
+  */
+  OBJECT ARRAY pvt_grantees;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Currently selected unit
+  PUBLIC PROPERTY unit(GetUnit, SetUnit);
+
+  /// Current user
+  PUBLIC PROPERTY grantees(pvt_grantees, -);
+
+  /// Currently selected role
+  PUBLIC PROPERTY roleobj(GetRole, SetRole);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  /** @param data
+      @cell data.grantee
+  */
+  MACRO Init(RECORD data)
+  {
+    this->pvt_grantees := OBJECT ARRAY(data.grantees);
+
+    // Read the names, so we have them when the grantee disappears
+    FOREVERY (OBJECT grantee FROM this->pvt_grantees)
+      grantee->GetUserRightsName();
+
+    ^selectuserrole->InitForCommonDialog();
+    ^selectuserrole->filterontype := 3;
+    ^selectuserrole->only_grantable_roles := TRUE;
+    ^selectuserrole->selectmode := "single";
+    IF (LENGTH(this->pvt_grantees) != 0)
+      ^selectuserrole->unit := this->contexts->userapi->GetUnitOf(this->pvt_grantees[0]);
+
+    IF (LENGTH(this->pvt_grantees) = 1)
+      this->frame->title := GetTid('system:userrights.commondialogs.granttitles.titleroletospecificuser', this->pvt_grantees[0]->GetUserRightsName());
+    ELSE
+      this->frame->title := GetTid('system:userrights.commondialogs.granttitles.titleroletospecificusers');
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other tollium stuff
+  //
+
+  MACRO UserRoleClicked()
+  {
+    IF (this->Submit())
+      this->tolliumresult := "ok";
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    IF (NOT ObjectExists(^selectuserrole->value))
+    {
+      work->AddError(GetTid("system:userrights.commondialogs.errors.needselectrole"));
+      RETURN work->Finish();
+    }
+
+    OBJECT roleobj := ^selectuserrole->value;
+    IF (NOT this->tolliumuser->HasRightOn("system:manageroles", roleobj->authobjectid))
+    {
+      work->AddError(GetTid("system:userrights.commondialogs.errors.norighttomanagerole", roleobj->GetUserRightsName()));
+      RETURN work->Finish();
+    }
+
+    IF (NOT roleobj->ExistsInDatabase())
+      work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", roleobj->GetUserRightsName()));
+
+    FOREVERY (OBJECT obj FROM this->pvt_grantees)
+      IF (NOT obj->ExistsInDatabase())
+      {
+        IF (obj->type = 3)
+          work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", obj->GetUserRightsName()));
+        ELSE
+          work->AddError(GetTid("system:userrights.commondialogs.errors.userhasbeendeleted", obj->GetUserRightsName()));
+
+        this->tolliumresult := "error";
+      }
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    OBJECT roleunit := this->contexts->userapi->GetUnitOf(roleobj);
+
+    FOREVERY (OBJECT obj FROM this->grantees)
+    {
+      // User either should have the right to browse the new role, or should get it with the new role
+      IF (NOT roleunit->IsVisibleFor(obj) AND NOT roleunit->IsVisibleFor(roleobj))
+        work->AddWarning(GetTid("system:userrights.commondialogs.errors.usercannotviewunitofrole", obj->GetUserRightsName(), roleobj->GetUserRightsName()));
+    }
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    FOREVERY (OBJECT obj FROM this->grantees)
+    {
+      TRY
+      {
+        this->tolliumuser->GrantRoleTo(roleobj, obj, [ comment := ^comment->value ]);
+      }
+      CATCH (OBJECT e)
+      {
+        work->AddError(e->what);
+      }
+    }
+    RETURN work->Finish();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  OBJECT FUNCTION GetRole()
+  {
+    RETURN ^selectuserrole->value;
+  }
+
+  MACRO SetRole(OBJECT roleid)
+  {
+    // Make sure the name is present
+    IF (ObjectExists(roleid))
+      roleid->GetUserRightsName();
+
+    ^selectuserrole->value := roleid;
+  }
+
+  OBJECT FUNCTION GetUnit()
+  {
+    RETURN ^selectuserrole->unit;
+  }
+
+  MACRO SetUnit(OBJECT unit)
+  {
+    ^selectuserrole->unit := unit;
+  }
+>;

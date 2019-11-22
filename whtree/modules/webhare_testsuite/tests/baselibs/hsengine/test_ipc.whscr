@@ -1,0 +1,428 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+
+OBJECT localeventmgr;
+
+OBJECTTYPE MyException EXTEND Exception
+< PUBLIC STRING extra;
+  MACRO NEW(STRING what, STRING extra)
+  : Exception(what || " - " || extra)
+  {
+    this->extra := extra;
+  }
+>;
+
+OBJECT FUNCTION ParseMyException(RECORD rec)
+{
+  RETURN NEW MyException(rec.what, rec.extra);
+}
+
+RegisterReceivedExceptionType("myexception", PTR ParseMyException);
+
+OBJECT FUNCTION StartPortHandler(STRING msg)
+{
+  RECORD res := CreateJob("test::testdata_jobs_a.whlib", "");
+  OBJECT job := res.job;
+
+  TestEq(DEFAULT RECORD ARRAY, res.errors);
+  TestEq(TRUE, ObjectExists(job));
+
+  INTEGER outputhandle := job->CaptureOutput();
+  res := job->ipclink->SendMessage([ type := msg ]);
+
+  TestEq("ok", res.status);
+
+  job->Start();
+  res := job->ipclink->ReceiveMessage(MAX_DATETIME);
+
+  TestEq("ok", res.status);
+  TestEq("ack", res.msg.type);
+
+  RETURN job;
+}
+
+RECORD FUNCTION CreateLinkPair()
+{
+  OBJECT port := CreateIPCPort("linkpaircreate." || GenerateUFS128BitId());
+  OBJECT linka := ConnectToIPCPort(port->name);
+  OBJECT linkb := port->Accept(DEFAULT DATETIME);
+  port->Close();
+  RETURN
+      [ first :=    linka
+      , second :=   linkb
+      ];
+}
+
+
+
+MACRO ThrowTest()
+{
+  OBJECT port := CreateIPCPort("ipctest");
+  OBJECT linka := ConnectToIPCPort("ipctest");
+  OBJECT linkb := port->Accept(DEFAULT DATETIME);
+
+  TestEq(TRUE, ObjectExists(linkb));
+
+  // Normal sending: no throw
+  linkb->SendMessage([ __exception := [ type := "non-existing", what := "xmsg", trace := DEFAULT RECORD ARRAY ] ]);
+  TestEq([ __exception := [ type := "non-existing", what := "xmsg", trace := DEFAULT RECORD ARRAY ] ], linka->ReceiveMessage(DEFAULT DATETIME).msg);
+
+  // With autothrow receive must throw
+  linka->autothrow := TRUE;
+
+  // Unknown exception type
+  linkb->SendMessage([ __exception := [ type := "non-existing", what := "xmsg", trace := DEFAULT RECORD ARRAY ] ]);
+  TestThrowsLike("*unknown type 'non-existing'*xmsg*", PTR linka->ReceiveMessage(DEFAULT DATETIME));
+
+  // Standard exception
+  linkb->SendMessage([ __exception := [ type := "exception", what := "xmsg", trace := DEFAULT RECORD ARRAY ] ]);
+  TestThrowsLike("xmsg", PTR linka->ReceiveMessage(DEFAULT DATETIME));
+
+  // Self-defined exception
+  linkb->SendMessage([ __exception := [ type := "myexception", what := "xmsg", extra := "b", trace := DEFAULT RECORD ARRAY ] ]);
+  TestThrowsLike("xmsg - b", PTR linka->ReceiveMessage(DEFAULT DATETIME));
+
+  port->Close();
+  linka->Close();
+  linkb->Close();
+}
+
+MACRO PorthandlerTest()
+{
+  OBJECT job := StartPortHandler("porthandler");
+
+  OBJECT link := ConnectToIPCPort("porthandler");
+
+  link->autothrow := TRUE;
+  TestEq([ success := TRUE, message := "", reply := [ returned := "rvalue" ] ], link->DoRequest([ type := "return" ]).msg);
+  TestThrowsLike("msg1", PTR link->DoRequest([ type := "throw" ]));
+  TestThrowsLike("msg2 - ex", PTR link->DoRequest([ type := "throwmyexception" ]));
+  TestEq("gone", link->DoRequest([ type := "abort" ]).status);
+
+  link->Close();
+  job->Close();
+}
+
+MACRO FlatPorthandlerTest()
+{
+  OBJECT job := StartPortHandler("porthandler-flat");
+
+  OBJECT link := ConnectToIPCPort("porthandler-flat");
+
+  link->autothrow := TRUE;
+  TestEq([ returned := "rvalue" ], link->DoRequest([ type := "return" ]).msg);
+  TestThrowsLike("msg1", PTR link->DoRequest([ type := "throw" ]));
+  TestThrowsLike("msg2 - ex", PTR link->DoRequest([ type := "throwmyexception" ]));
+  TestEq("gone", link->DoRequest([ type := "abort" ]).status);
+
+  link->Close();
+  job->Close();
+}
+
+RECORD ARRAY cbs;
+
+MACRO OnEventCallbackS(STRING event, RECORD data)
+{
+  INSERT [ type := "event-single", event := event, data := data ] INTO cbs AT END;
+}
+
+MACRO OnEventCallbackM(STRING event, RECORD ARRAY data)
+{
+  INSERT [ type := "event-multiple", event := event, data := data ] INTO cbs AT END;
+}
+
+MACRO OnHandleCallback(INTEGER handle, OBJECT port)
+{
+  INSERT [ type := "handle", handle := handle ] INTO cbs AT END;
+  port->Accept(DEFAULT DATETIME)->Close();
+}
+
+MACRO DoCallbackHandling(DATETIME until)
+{
+  INTEGER loop := 0;
+  WHILE (TRUE)
+  {
+    INTEGER handle := WaitForMultipleUntil(__INTERNAL_GetEventCallBackHandles(), DEFAULT INTEGER ARRAY, until);
+    IF (handle = -1)
+      BREAK;
+    __INTERNAL_HandleEventCallbackEvents(handle);
+    loop := loop + 1;
+    IF (loop = 100)
+      ABORT("Callback handling loop!");
+  }
+}
+
+MACRO RawBroadcastEvent(STRING event, RECORD msg)
+{
+  __HS_EVENT_BROADCAST(event, msg, FALSE);
+}
+
+MACRO CallbackTest()
+{
+  INTEGER chhandle, handle_1, handle_2;
+
+  // Using another event manager to avoid immediate processing in BroadcastEvent
+
+  // Single event callback + unregister
+  cbs := DEFAULT RECORD ARRAY;
+  INTEGER cbhandle := RegisterEventCallback("hs:test", PTR OnEventCallbackS);
+  RawBroadcastEvent("hs:test", [ a := 1 ]);
+  RawBroadcastEvent("hs:test", [ a := 2 ]);
+  DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
+  //they're not considered synchronous because RAW doesn't send the proper metadata. which was probably its intention as its trying to avoid immediate processing
+  TestEQ([ [ type := "event-single", event := "hs:test", data := [ a := 1] ]
+         , [ type := "event-single", event := "hs:test", data := [ a := 2] ]
+         ], cbs);
+
+  // After unregistration no more callbacks please
+  cbs := DEFAULT RECORD ARRAY;
+  UnregisterCallback(cbhandle);
+  Sleep(250);
+  RawBroadcastEvent("hs:test", [ a := 3 ]);
+  DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
+  TestEQ(DEFAULT RECORD ARRAY, cbs);
+
+  // Multiple event callback + unregister
+  cbs := DEFAULT RECORD ARRAY;
+  cbhandle := RegisterMultiEventCallback("hs:test", PTR OnEventCallbackM);
+  RawBroadcastEvent("hs:test", [ a := 1 ]);
+  RawBroadcastEvent("hs:test", [ a := 2 ]);
+  DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
+  TestEQ([ [ type := "event-multiple", event := "hs:test", data := [ [ a := 1], [ a := 2] ] ] ], cbs);
+
+  // Multiple event callback + unregister + sync flag
+  cbs := DEFAULT RECORD ARRAY;
+  UnregisterCallback(cbhandle);
+
+  cbhandle := RegisterMultiEventCallback("hs:test", PTR OnEventCallbackM, [ eventmetadata := TRUE ]);
+  RawBroadcastEvent("hs:test", [ a := 1 ]);
+  RawBroadcastEvent("hs:test", [ a := 2 ]);
+  DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
+  TestEQ([ [ type := "event-multiple", event := "hs:test", data := [ [ status := "ok", event := "hs:test", msg := [a := 1], issynchronous := FALSE ], [ status := "ok", event := "hs:test", msg:=[a := 2], issynchronous := FALSE ] ] ] ], cbs);
+
+  // After unregistration no more callbacks please
+  cbs := DEFAULT RECORD ARRAY;
+  UnregisterCallback(cbhandle);
+  RawBroadcastEvent("hs:test", [ a := 3 ]);
+  DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
+  TestEQ(DEFAULT RECORD ARRAY, cbs);
+
+  cbs := DEFAULT RECORD ARRAY;
+  OBJECT port := CreateIPCPort("ipctest2");
+  OBJECT link := ConnectToIPCPort("ipctest2");
+  cbhandle := RegisterHandleReadCallback(port->handle, PTR OnHandleCallback(port->handle, port));
+  DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
+  TestEQ([ [ type := "handle", handle := port->handle ] ], cbs);
+
+  // After unregistration no more callbacks please
+  cbs := DEFAULT RECORD ARRAY;
+  UnregisterCallback(cbhandle);
+  DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
+  TestEQ(DEFAULT RECORD ARRAY, cbs);
+}
+
+MACRO ImmediateBroadcastCallbackTest()
+{
+  INTEGER chhandle, handle_1, handle_2;
+
+  // No event processing needed, because broadcastevent immediately handles events.
+
+  // Single event callback + unregister
+  cbs := DEFAULT RECORD ARRAY;
+  INTEGER cbhandle := RegisterEventCallback("hs:test", PTR OnEventCallbackS);
+  BroadcastEvent("hs:test", [ a := 1 ]);
+  BroadcastEvent("hs:test", [ a := 2 ]);
+  TestEQ([ [ type := "event-single", event := "hs:test", data := [ a := 1 ] ]
+         , [ type := "event-single", event := "hs:test", data := [ a := 2 ] ]
+         ], cbs);
+
+  // After unregistration no more callbacks please
+  cbs := DEFAULT RECORD ARRAY;
+  UnregisterCallback(cbhandle);
+  BroadcastEvent("hs:test", [ a := 3 ]);
+  TestEQ(DEFAULT RECORD ARRAY, cbs);
+
+  // Multiple event callback + unregister
+  cbs := DEFAULT RECORD ARRAY;
+  cbhandle := RegisterMultiEventCallback("hs:test", PTR OnEventCallbackM);
+  BroadcastEvent("hs:test", [ a := 1 ]);
+  BroadcastEvent("hs:test", [ a := 2 ]);
+
+  // No coalescing in immediate callbacks!
+  TestEQ([ [ type := "event-multiple", event := "hs:test", data := [ [ a := 1 ] ] ]
+         , [ type := "event-multiple", event := "hs:test", data := [ [ a := 2 ] ] ]
+         ], cbs);
+
+  //don't bring default records to live
+  cbs := DEFAULT RECORD ARRAY;
+  BroadcastEvent("hs:test", DEFAULT RECORD);
+  TestEQ([ [ type := "event-multiple", event := "hs:test", data := [DEFAULT RECORD] ]
+         ], cbs);
+
+  // Multiple event callback + unregister + sync
+  cbs := DEFAULT RECORD ARRAY;
+  UnregisterCallback(cbhandle);
+  cbhandle := RegisterMultiEventCallback("hs:test", PTR OnEventCallbackM, [ eventmetadata := TRUE ]);
+  Sleep(500); //FIXME shoudldn't be needed but this test seems racy
+  BroadcastEvent("hs:test", [ a := 1 ]);
+  BroadcastEvent("hs:test", [ a := 2 ]);
+
+  // No coalescing in immediate callbacks!
+  TestEQ([ [ type := "event-multiple", event := "hs:test", data := [ [ status := "ok", event := "hs:test", msg := [a := 1], issynchronous := TRUE ] ] ]
+         , [ type := "event-multiple", event := "hs:test", data := [ [ status := "ok", event := "hs:test", msg := [a := 2], issynchronous := TRUE ] ] ]
+         ], cbs);
+
+  //don't bring default records to live
+  cbs := DEFAULT RECORD ARRAY;
+  BroadcastEvent("hs:test", DEFAULT RECORD);
+  TestEQ([ [ type := "event-multiple", event := "hs:test", data := [ [ status := "ok", event := "hs:test", msg := DEFAULT RECORD, issynchronous := TRUE ] ] ]
+         ], cbs);
+
+  // After unregistration no more callbacks please
+  cbs := DEFAULT RECORD ARRAY;
+  UnregisterCallback(cbhandle);
+  BroadcastEvent("hs:test", [ a := 3 ]);
+  TestEQ(DEFAULT RECORD ARRAY, cbs);
+}
+
+
+MACRO AsyncFunctionsTest()
+{
+  RECORD pair;
+
+  // Test normal receive
+  {
+    pair := CreateLinkPair();
+
+    RegisterTimedCallback(AddTimeToDate(10, GetCurrentDateTime()), PTR pair.first->SendMessage([ type := "msg" ]));
+    OBJECT promise := pair.second->AsyncReceiveMessage(MAX_DATETIME);
+    RECORD retval := WaitForPromise(promise);
+    TestEQ("ok", retval.status);
+    TestEQ([ type := "msg" ], retval.msg);
+
+    pair.first->SendMessage([ type := "msg2" ]);
+    promise := pair.second->AsyncReceiveMessage(DEFAULT DATETIME);
+    retval := WaitForPromise(promise);
+    TestEQ("ok", retval.status);
+    TestEQ([ type := "msg2" ], retval.msg);
+  }
+
+  // Test timeout
+  {
+    pair := CreateLinkPair();
+
+    RegisterTimedCallback(AddTimeToDate(10, GetCurrentDateTime()), PTR pair.first->SendMessage([ type := "msg" ]));
+    OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(5, GetCurrentDateTime()));
+    RECORD retval := WaitForPromise(promise);
+    TestEQ("timeout", retval.status);
+
+    promise := pair.second->AsyncReceiveMessage(AddTimeToDate(10, GetCurrentDateTime()));
+    retval := WaitForPromise(promise);
+    TestEQ("ok", retval.status);
+    TestEQ([ type := "msg" ], retval.msg);
+  }
+
+  // Test gone
+  {
+    pair := CreateLinkPair();
+
+    RegisterTimedCallback(AddTimeToDate(10, GetCurrentDateTime()), PTR pair.first->Close);
+    OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(20, GetCurrentDateTime()));
+    RECORD retval := WaitForPromise(promise);
+    TestEQ("gone", retval.status);
+  }
+
+  // Test close of object that is waited on
+  {
+    pair := CreateLinkPair();
+    RegisterTimedCallback(AddTimeToDate(10, GetCurrentDateTime()), PTR pair.second->Close);
+    OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(20, GetCurrentDateTime()));
+    TestThrows(PTR WaitForPromise(promise));
+  }
+
+  // Test cancel of promise
+  {
+    pair := CreateLinkPair();
+    OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(20, GetCurrentDateTime()));
+    RegisterTimedCallback(AddTimeToDate(10, GetCurrentDateTime()), PTR promise->Cancel);
+    TestThrows(PTR WaitForPromise(promise));
+    promise->Cancel(); // 2nd cancel shouldn't crash
+
+    // Test if it works again
+    pair.first->SendMessage([ type := "ok" ]);
+    promise := pair.second->AsyncReceiveMessage(AddTimeToDate(1, GetCurrentDateTime()));
+    RECORD retval := WaitForPromise(promise);
+    TestEQ("ok", retval.status);
+    promise->Cancel(); // Cancel after resolve, shouldn't crash
+  }
+
+  // Test DoRequest
+  {
+    pair := CreateLinkPair();
+    OBJECT promise := pair.first->AsyncDoRequest([ type := "msg" ]);
+    RECORD rec := pair.second->ReceiveMessage(DEFAULT DATETIME);
+    TestEQ("ok", rec.status);
+    pair.second->SendReply([ type := "reply" ], rec.msgid);
+
+    RECORD retval := WaitForPromise(promise);
+    TestEQ("ok", retval.status);
+    TestEQ([ type := "reply" ], retval.msg);
+  }
+
+  // Test DoRequest with wrong reply id
+  {
+    pair := CreateLinkPair();
+    OBJECT promise := pair.first->AsyncDoRequest([ type := "msg" ]);
+    RECORD rec := pair.second->ReceiveMessage(DEFAULT DATETIME);
+    TestEQ("ok", rec.status);
+    pair.second->SendReply([ type := "reply" ], -1);
+
+    TestThrows(PTR WaitForPromise(promise));
+  }
+}
+
+ASYNC MACRO TestEventManager()
+{
+  OBJECT e := NEW EventManager;
+  TestEQMembers([ status := "timeout" ], e->ReceiveEvent(DEFAULT DATETIME), "*");
+  BroadcastEvent("hs:test", DEFAULT RECORD);
+  TestEQMembers([ status := "timeout" ], e->ReceiveEvent(DEFAULT DATETIME), "*");
+  INTEGER id := e->RegisterInterest("hs:tes*");
+  BroadcastEvent("hs:test", [ a := 1 ]);
+  TestEQMembers([ status := "ok", msg := [ a := 1 ] ], e->ReceiveEvent(DEFAULT DATETIME), "*");
+  TestEQMembers([ status := "timeout" ], e->ReceiveEvent(DEFAULT DATETIME), "*");
+  BroadcastEvent("hs:test", [ a := 2 ]);
+  e->UnregisterInterest(id);
+  BroadcastEvent("hs:test", [ a := 3 ]);
+  TestEQMembers([ status := "timeout" ], e->ReceiveEvent(DEFAULT DATETIME), "*");
+  id := e->RegisterInterest("hs:test");
+  INTEGER id2 := e->RegisterInterest("hs:test2");
+  e->UnregisterInterest(id2);
+  BroadcastEvent("hs:test", [ a := 4 ]);
+  TestEQMembers([ status := "ok", msg := [ a := 4 ] ], e->ReceiveEvent(DEFAULT DATETIME), "*");
+
+  DATETIME start := GetCurrentDateTime();
+  TestEQMembers([ status := "timeout" ], e->ReceiveEvent(AddTimeToDate(50, GetCurrentDateTime())), "*");
+  TestEQ(TRUE, GetDateTimeDifference(start, GetCurrentDateTime()).msecs >= 50);
+
+  start := GetCurrentDateTime();
+  StartPortHandler("delayedevent");
+  TestEQMembers([ status := "ok", msg := [ j := 1 ] ], e->ReceiveEvent(AddTimeToDate(5000, GetCurrentDateTime())), "*");
+  TestEQ(TRUE, GetDateTimeDifference(start, GetCurrentDateTime()).msecs < 1000); // should not wait 5 secs
+
+  e->Close();
+}
+
+PRINT("\n === Running TestIPC\n");
+ThrowTest();
+PorthandlerTest();
+FlatPorthandlerTest();
+CallbackTest();
+ImmediateBroadcastCallbackTest();
+AsyncFunctionsTest();
+TestEventManager();

@@ -1,0 +1,124 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+INTEGER icount := 100000;
+
+
+SCHEMA
+  < TABLE < INTEGER id
+          , INTEGER data1
+          , INTEGER data2
+          , STRING data3
+          , STRING data4
+          > massive
+  > test;
+INTEGER trans;
+RECORD ARRAY errors;
+
+STRING schema_name := "TEST_"||FormatDateTime("%Y%m%d%H%M%S%Q", GetCurrentDateTime());
+
+
+
+trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+__BindWHDBMetaTables(trans);
+
+IF (WHDBColumnExists("PUBLISHER", "FILES"))
+  ABORT("This test may only be executed on a clean database");
+
+SendWHDBCommand(trans, "CREATE SCHEMA "||schema_name||" AUTHORIZATION _system");
+
+
+SendWHDBCommand(trans, "CREATE TABLE "||schema_name||".MASSIVE"
+                    || " ( id          INTEGER"
+                    || " , data1       INTEGER"
+                    || " , data2       INTEGER"
+                    || " , data3       VARCHAR(256)"
+                    || " , data4       VARCHAR(256)"
+                    || " )");
+
+
+test := BindTransactionToSchema(trans, schema_name);
+
+DATETIME start;
+INTEGER msecs;
+
+PRINT("Inserting " || icount || " records\n");
+start := GetCurrentDateTime();
+
+INTEGER pcnt := 0;
+FOR (INTEGER i := 0; i < icount; i := i + 1)
+{
+  INSERT INTO test.massive( id
+                          , data1
+                          , data2
+                          , data3
+                          , data4
+                          ) VALUES
+                          ( i  + 1
+                          , (i * 13) % 15485863
+                          , (i * 2389) % 15485863
+                          , (i % 17) || "_________________" || (i * 2389) % 7547
+                          , (i % 67) || "_________________" || (i * 3793) % 5119
+                          );
+  IF ((i % 10000) = 0)
+  {
+    PRINT(i||" ");
+    pcnt := (pcnt + 1) % 10;
+    IF (pcnt = 0)
+      PRINT("\n");
+  }
+}
+IF (pcnt != 0)
+  PRINT("\n");
+msecs := GetMsecsDifference (start, GetCurrentDateTime());
+PRINT("Total length: " || FormatMoney(0.001M * msecs, 3, ",", "", TRUE) || " seconds\n");
+
+PRINT("Committing " || icount || " records\n");
+start := GetCurrentDateTime();
+
+errors := CommitWHDBTransaction(trans);
+IF (RecordExists(errors))
+  PrintRecordArrayTo(0, errors, "boxed");
+
+msecs := GetMsecsDifference (start, GetCurrentDateTime());
+PRINT("Total length: " || FormatMoney(0.001M * msecs, 3, ",", "", TRUE) || " seconds\n");
+
+//RETURN;
+
+trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+test := BindTransactionToSchema(trans, schema_name);
+
+PRINT("Creating 8 indices\n");
+start := GetCurrentDateTime();
+
+SendWHDBCommand(trans, "CREATE INDEX i01 ON "||schema_name||".massive(data1)");
+SendWHDBCommand(trans, "CREATE INDEX i02 ON "||schema_name||".massive(data2)");
+SendWHDBCommand(trans, "CREATE INDEX i03 ON "||schema_name||".massive(data3)");
+SendWHDBCommand(trans, "CREATE INDEX i04 ON "||schema_name||".massive(data4)");
+SendWHDBCommand(trans, "CREATE INDEX i05 ON "||schema_name||".massive(data1, data2)");
+SendWHDBCommand(trans, "CREATE INDEX i06 ON "||schema_name||".massive(data3[13], data1)");
+SendWHDBCommand(trans, "CREATE INDEX i07 ON "||schema_name||".massive(data3[13], data4[20], data1)");
+SendWHDBCommand(trans, "CREATE INDEX i08 ON "||schema_name||".massive(data2, data3[20])");
+
+msecs := GetMsecsDifference (start, GetCurrentDateTime());
+PRINT("Creation length: " || FormatMoney(0.001M * msecs, 3, ",", "", TRUE) || " seconds\n");
+
+PRINT("Waiting for completion\n");
+SendWHDBCommand(trans, "WAIT INDEX");
+
+msecs := GetMsecsDifference (start, GetCurrentDateTime());
+PRINT("Total length: " || FormatMoney(0.001M * msecs, 3, ",", "", TRUE) || " seconds\n");
+
+
+PRINT("Committing indices\n");
+start := GetCurrentDateTime();
+
+errors := CommitWHDBTransaction(trans);
+IF (RecordExists(errors))
+  PrintRecordArrayTo(0, errors, "boxed");
+
+msecs := GetMsecsDifference (start, GetCurrentDateTime());
+PRINT("Total length: " || FormatMoney(0.001M * msecs, 3, ",", "", TRUE) || " seconds\n");

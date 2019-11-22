@@ -1,0 +1,159 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/printer.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+STRING doc := `<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      html,body { background-color: transparent; }
+      html { font: 45px Arial; color: #00000; }
+    </style>
+  </head>
+  <body>
+    NOT A TEAPOT.
+  </body>
+</html>`;
+
+STRING bgdoc := `<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      html,body { background-color: transparent; }
+      img { position: absolute; top:0;bottom:0;left:0;right:0; opacity:0.5; }
+    </style>
+  </head>
+  <body>
+    <img src="mod::tollium/web/img/objects/webhare.24x24.b.svg" />
+  </body>
+</html>`;
+
+
+MACRO TestPDFs()
+{
+  RECORD result := GeneratePDF( [ body := PTR Print(doc)
+                                , wittypath := "inline::[body]"
+                                ], [ printbackground := FALSE ]);
+  RECORD ARRAY images := __ExtractPDFImages(result.data);
+
+  TestEq(1,Length(images));
+  Testeq("page-1.jpg", images[0].filename);
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/fullscreenshot.png"), [ maxmse := 500 ]); //ADDME lower maxmse but we'll probably need a webfont
+
+  RECORD result2 := GeneratePDF( [ body := PTR Print(bgdoc)
+                                 , wittypath := "inline::[body]"
+                                 ]);
+
+  images := __ExtractPDFImages(result2.data);
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/background.png"), [ maxmse := 5 ]);
+
+  BLOB final := ApplyOverlayToPDF(result.data, result2.data);
+  images := __ExtractPDFImages(final);
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/merged.png"), [ maxmse := 500 ]); //ADDME lower maxmse but we'll probably need a webfont
+
+  //test empty concat
+  TestThrows (PTR ConcatenatePDFs(BLOB[]));
+
+  //test identity concat
+  BLOB collection := ConcatenatePDFs(BLOB[result.data]);
+  Testeq(collection, result.data);
+
+  collection := ConcatenatePDFs(BLOB[result.data,result2.data,result.data,result2.data,result.data,result2.data,result.data,result2.data,result.data,result2.data,result.data,result2.data]);
+  images := __ExtractPDFImages(collection);
+
+  Testeq(12,Length(images));
+  FOR(INTEGER x := 0; x < 12; x := x + 2)     //also test their ordering
+  {
+    testfw->CompareWithImage(images[x].data, Resolve("testdata/fullscreenshot.png"), [ maxmse := 500 ]);
+    testfw->CompareWithImage(images[x+1].data, Resolve("testdata/background.png"), [ maxmse := 5 ]);
+  }
+}
+
+ASYNC MACRO TestWittyDialog()
+{
+  AWAIT ExpectScreenChange(+1, PTR RunWittyTestDialog(GetTestController(),
+                                [ body := PTR Print(doc)
+                                , wittypath := "inline::[body]"
+                                ], [ pdf := TRUE ]));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+MACRO TestPDFFromURL()
+{
+  STRING testurl := GetPrimaryWebHareInterfaceURL() || ".webhare_testsuite/tests/system/pdf.html";
+  Print("Generate pdf from: " || testurl || "\n");
+  RECORD result := GeneratePDFFromURL(testurl, [ printbackground := FALSE ]);
+  RECORD ARRAY images := __ExtractPDFImages(result.data);
+
+  TestEq(1,Length(images));
+  Testeq("page-1.jpg", images[0].filename);
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500 ]); //ADDME lower maxmse but we'll probably need a webfont
+}
+
+MACRO TestScreenshots()
+{
+  testfw->BeginWork();
+  testfw->SetupTestWebsite(DEFAULT BLOB);
+  OBJECT testsite := testfw->GetTestSite();
+  testfw->CommitWork();
+
+  STRING url := ResolveToAbsoluteURL(testsite->webroot, "/tollium_todd.res/webhare_testsuite/tests/screenshot.html");
+  Print("screenshotting " || url || "\n");
+
+  RECORD test := GenerateBrowserScreenshot(url,
+        [ cutouts :=    [ [ strategy := "css selector"
+                          , selector := ".outer"
+                          ]
+                        , [ strategy := "css selector"
+                          , selector := ".inner"
+                          ]
+                        ]
+        ]);
+
+  testfw->CompareWithImage(test.screenshot.data, Resolve("testdata/fullscreenshot2.png"), [ annotation := url ]);
+  testfw->CompareWithImage(test.cutouts[0].image.data, Resolve("testdata/fullscreenshot-cutout1.png"), [ annotation := url ]);
+  testfw->CompareWithImage(test.cutouts[1].image.data, Resolve("testdata/fullscreenshot-cutout2.png"), [ annotation := url ]);
+
+  test := GenerateBrowserScreenshot(url,
+        [ withalpha :=  TRUE
+        , cutouts :=    [ [ strategy := "css selector"
+                          , selector := ".outer"
+                          ]
+                        , [ strategy := "css selector"
+                          , selector := ".inner"
+                          ]
+                        ]
+        ]);
+
+  testfw->CompareWithImage(test.screenshot.data, Resolve("testdata/alphascreenshot.png"), [ annotation := url ]);
+  testfw->CompareWithImage(test.cutouts[0].image.data, Resolve("testdata/alphascreenshot-cutout1.png"), [ annotation := url ]);
+  testfw->CompareWithImage(test.cutouts[1].image.data, Resolve("testdata/alphascreenshot-cutout2.png"), [ annotation := url ]);
+
+  test := GenerateBrowserScreenshot(url,
+        [ screenwidth :=    500
+        , screenheight :=   100
+        , getlog :=         TRUE
+        ]);
+
+  testfw->CompareWithImage(test.screenshot.data, Resolve("testdata/smallscreenshot.png"), [ annotation := url ]);
+
+  TestEqLike("log", test.log[0].level);
+  TestEqLike("*test message*", test.log[0].message);
+  TestEqLike("exception", test.log[1].level);
+  TestEqLike("*TypeError*", test.log[1].message); //originally "*TypeError: *is not a function*" but i got "TypeError: undefined is not a constructor (evaluating 'a.boem()')"
+}
+
+RunTestframework([ PTR TestPDFs
+                 , PTR TestWittyDialog
+                 , PTR TestPDFFromURL
+                 , PTR TestScreenshots
+                 ]);

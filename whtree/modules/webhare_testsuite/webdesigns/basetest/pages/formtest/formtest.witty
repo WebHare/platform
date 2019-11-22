@@ -1,0 +1,107 @@
+[component forms]
+  <style>
+    .scrollzone #scrollzone { height:100vw; }
+  </style>
+  <h1>Core form</h1>
+  <div id="testsubmitcontext" class="wh-form--submitcontext">
+    <form class="wh-form wh-styledinput" id="coreform" [coreform.formattributes] autocomplete="off">
+      [coreform.formallfields]
+
+      stray email field: <input name="strayfield" type="email" form="" /> [! this crashes because of validation calls if not properly disassociated from the form !]
+
+      <div id="scrollzone"></div>
+      [! the unnamed input is there to catch it being transmitted or returned !]
+      <input id="unnamedcheckbox" type="checkbox" checked required>AGREE!<br/>
+      <button type="button" class="prefillbutton">Prefill</button>
+      <button type="button" class="validatebutton">Validate</button>
+      <button type="submit" id="submitbutton" name="button" value="submitbutton">Submit</button>
+      <p>
+        Last successful submit by: <span id="lastsuccessfulsubmit" data-merge="textContent:form.email"></span>
+      </p>
+    </form>
+  </div>
+
+  <div>
+    Last server submit response: <span id="coreformsubmitresponse"></span> (XHR)<br/>
+  </div>
+
+  <form class="wh-form wh-styledinput" id="globalform" [globalform.formattributes]>
+    [globalform.formallfields]
+    <button type="submit" id="submitbutton2" name="submitbutton2" value="globalform">Submit</button>
+  </form>
+  <div>
+    Last server submit response: <span id="globalformsubmitresponse"></span>
+  </div>
+[/component]
+
+[component dynamicform]
+  <h1>Core form</h1>
+  <form class="wh-form wh-styledinput" id="dynamicform" [dynamicform.formattributes]>
+    [dynamicform.formallfields]
+    <button type="button" class="prefillbutton">Prefill</button>
+    <button type="submit" id="submitbutton">Submit</button>
+  </form>
+  <div>
+    Last server submit response: <span id="dynamicformsubmitresponse"></span>
+  </div>
+[/component]
+
+[component rtdform]
+  <h1>RTD form</h1>
+  <form class="wh-form wh-styledinput" id="rtdform" [rtdform.formattributes]>
+    [rtdform.formallfields]
+    <button type="button" class="prefillbutton">Prefill</button>
+    <button type="button" class="validatebutton">Validate</button>
+    <button type="submit" id="submitbutton">Submit</button>
+  </form>
+  <div>
+    Last server submit response: <span id="rtdformresponse"></span>
+  </div>
+[/component]
+
+[component multipageform]
+  <h1>Multipage form</h1>
+  [multipageform.formrender]
+  <div>
+    Last server submit response: <span id="dynamicformsubmitresponse"></span><br>
+    Currentpage: <span id="currentpage"></span>
+  </div>
+[/component]
+
+[component addressform]
+  <h1>Address form</h1>
+  [addressform.formrender]
+  <div>
+    Last server submit response: <span id="dynamicformsubmitresponse"></span>
+  </div>
+[/component]
+
+[component redirectform]
+  <h1>Redirect form</h1>
+  [redirectform.formrender]
+[/component]
+
+[component workhandlingerrorsform]
+  <h1>Work handling errors form</h1>
+  [workhandlingerrorsform.formrender]
+[/component]
+
+[component arrayform]
+  <h1>Array form</h1>
+  [arrayform.formrender]
+  <div>
+    Last server submit response: <span id="dynamicformsubmitresponse"></span>
+  </div>
+[/component]
+
+[component anyform]
+  <h1>A form</h1>
+  [anyform.formrender]
+  <div>
+    Last server submit response: <span id="dynamicformsubmitresponse"></span><br>
+    Currentpage: <span id="currentpage"></span>
+  </div>
+  <div>
+    <button id="datetime_debugging" type="button">Datetime debugging</button>
+  </div>
+[/component]

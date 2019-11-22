@@ -1,0 +1,114 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+MACRO PrepIt()
+{
+  testfw->BeginWork();
+  testfw->SetupTestWebdesignWebsite("");
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE, TRUE);
+  testfw->CommitWork();
+}
+
+OBJECT ASYNC FUNCTION FilteredFolders()
+{
+  testfw->SetTestUser("lisa");
+
+  testfw->BeginWork();
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  OBJECT folder := root->CreateFolder([name := "filtered"]);
+  OBJECT folder2 := root->CreateFolder([name := "filtered2"]);
+
+  folder->CreateFile([ name := "a", title := "Alpha", publish := TRUE ]);
+  folder->CreateFile([ name := "b", title := "Bravo", publish := TRUE ]);
+  folder->CreateFile([ name := "c", title := "Charlie", publish := TRUE ]);
+  folder->CreateFile([ name := "d", title := "Delta", publish := TRUE ]);
+
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["/webhare_testsuite.site/filtered"], target := DEFAULT RECORD ]));
+
+  TestEq("filtered", TT("foldertree")->selection.name);
+  //first test: klopt initiele display
+  TestEq(TRUE, ObjectExists(TT("filelist")->folderfilter->contents), "Filterpanel did not load");
+  TestEq(4, Length(TT("filelist")->rows));
+  TestEq([ "a", "b", "c", "d" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+  // Test if the filtering behaves as expected:
+  TT("filelist")->folderfilter->contents->filterit->value := TRUE;
+  TestEq(TRUE, TT("filelist")->filterbutton->TolliumClick());
+  TestEq(2, Length(TT("filelist")->rows), "Filter was not applied correctly or list did not update");
+  TestEq([ "a", "b" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+  // Test if disabling the filtering yields the same result as initial display
+  TT("filelist")->folderfilter->contents->filterit->value := FALSE;
+  TestEq(TRUE, TT("filelist")->filterbutton->TolliumClick());
+  TestEq(4, Length(TT("filelist")->rows), "Filter was not applied correctly or list did not update");
+  TestEq([ "a", "b", "c", "d" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+  // Test if re-enabling the filter does what we expect
+  TT("filelist")->folderfilter->contents->filterit->value := TRUE;
+  TestEq(TRUE, TT("filelist")->filterbutton->TolliumClick());
+  TestEq([ "a", "b" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+  TestEq(TRUE, TT("filelist")->filterbutton->TolliumClick());
+
+  // Create a new file and test if the filtering is reset and the file is displayed
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("types")->value := "type:21"; //plain text
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit()); // ok new file, immediately opens props
+
+  TT("name")->value := "e";
+
+  //ok new file dialog
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  TestEq(5, Length(TT("filelist")->rows), "Filter was not reset after creating a new file");
+  TestEq([ "a", "b", "c", "d", "e" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+  TestEq(1, Length(TT("filelist")->selection));
+  TestEq("e", TT("filelist")->selection[0].name, "Selection was not set to newly created file");
+  // Test if re-enabling the filter does what we expect
+  TT("filelist")->folderfilter->contents->filterit->value := TRUE;
+  TestEq(TRUE, TT("filelist")->filterbutton->TolliumClick());
+  TestEq([ "a", "b" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+  TestEq(TRUE, TT("filelist")->filterbutton->TolliumClick());
+
+  // Create a new folder and test if the filtering is reset and the file is displayed
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TT("types")->value := "type:0"; //standard folder
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit()); // ok new folder, immediately opens props
+  TT("name")->value := "f";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+
+  TestEq(6, Length(TT("filelist")->rows), "Filter was not reset after creating a new folder");
+  TestEq([ "a", "b", "c", "d", "e", "f" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+  TestEq(1, Length(TT("filelist")->selection));
+  TestEq("f", TT("filelist")->selection[0].name, "Selection was not set to newly created folder");
+
+  //Verify custom list setup
+  TestEq(TRUE, RecordExists(SELECT FROM TT("filelist")->columns WHERE name="custom_sticky"));
+  TestEq(2, Length(SELECT FROM TT("filelist")->rows WHERE custom_sticky != 0));
+
+  // Test if re-enabling the filter does what we expect
+  TT("filelist")->folderfilter->contents->filterit->value := TRUE;
+  TestEq(TRUE, TT("filelist")->filterbutton->TolliumClick());
+  TestEq([ "a", "b" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+  TestEq(TRUE, TT("filelist")->filterbutton->TolliumClick());
+
+  //Test delete action
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "b";
+  topscreen->frame->focused := TT("filelist");
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("delete")->TolliumClick(), [ awaitcall := TRUE ]);
+  TestEq([ "a" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+
+  //Select a second filtered folder, make sure the panel doesn't crash
+  TT("foldertree")->value := folder2->id;
+  GetTestController()->GrabInstructions(); //make sure onshow handlers get a chance to run - this triggered Duplicate registration of a component named 'PULLDOWN$7' (TolliumProxyComponent pulldown$7 in mod::webhare_testsuite/screens/tests/publisher.xml#filterpanel)
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  RETURN TRUE;
+}
+
+RunTestframework([ PTR PrepIt
+                 , PTR FilteredFolders
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);

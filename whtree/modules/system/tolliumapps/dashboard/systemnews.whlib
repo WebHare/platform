@@ -1,0 +1,209 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/internal/backend/newsapi.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+PUBLIC OBJECTTYPE Overview EXTEND MonitorPanelBase
+<
+  OBJECT wrdschema;
+  OBJECT announcement_type;
+
+  MACRO Init()
+  {
+    this->wrdschema := this->contexts->userapi->wrdschema;
+    this->announcement_type := this->wrdschema->GetType("WHUSER_ANNOUNCEMENT");
+    this->ReloadNews(TRUE);
+  }
+
+  STRING ARRAY FUNCTION GetNewsStyle(DATETIME now, DATETIME publish_from, DATETIME publish_until)
+  {
+    IF (publish_from != DEFAULT DATETIME)
+    {
+      IF (publish_from > now OR (now > publish_until AND NOT IsDefaultValue(publish_until)))
+        RETURN ["grayedout"];
+    }
+
+    RETURN STRING[];
+  }
+
+  MACRO ReloadNews(BOOLEAN firstload)
+  {
+    DATETIME now := GetCurrentDateTime();
+
+    RECORD ARRAY newsentries := this->announcement_type->RunQuery( [ outputcolumns := [ "WRD_CREATIONDATE"
+                                                                                      , "ANNOUNCEMENT_TITLE"
+                                                                                      , "ANNOUNCEMENT_AUTHOR"
+                                                                                      , "ANNOUNCEMENT_UNIT"
+                                                                                      , "WRD_ID"
+                                                                                      , "PUBLISH_FROM"
+                                                                                      , "PUBLISH_UNTIL"
+                                                                                      ]
+                                                                   ] );
+
+    this->newslist->rows := SELECT title := announcement_title
+                                 , creationdate := wrd_creationdate
+                                 , createdby_string := (announcement_author = 0) ? GetTid("system:sysmgmt.systemnews.unknown") : this->contexts->userapi->GetUserDisplayName(this->contexts->userapi->GetTolliumUserFromEntityId(announcement_author)->authobjectid)
+                                 , rowkey := wrd_id
+                                 , id := wrd_id
+                                 , listrowclasses := this->GetNewsStyle(now, publish_from, publish_until)
+                              FROM newsentries;
+
+    // If we've added/edited/deleted some newsitem, broadcast this to all interested clients
+    IF (NOT firstload)
+    {
+      BroadcastToAllSessions( [ type := "tollium:shell.refreshdashboard" ]);
+    }
+  }
+
+  MACRO DoAdd()
+  {
+    OBJECT screen := this->LoadScreen(".updatenewsitem", [ id := 0 ] );
+    IF (screen->RunModal() = "ok")
+      this->ReloadNews(FALSE);
+  }
+
+  MACRO DoEdit()
+  {
+    RECORD selection := this->newslist->selection;
+    OBJECT screen := this->LoadScreen(".updatenewsitem", [ id := selection.id ] );
+    IF (screen->RunModal() = "ok")
+      this->ReloadNews(FALSE);
+  }
+
+  MACRO DoDelete()
+  {
+    RECORD ARRAY selection := this->newslist->selection;
+    STRING q := LENGTH(selection) = 1 ? this->GetTid(".deletenews_single", selection[0].title) : this->GetTid(".deletenews_multiple");
+    IF(this->RunSimpleScreen("confirm", q) != "yes")
+      RETURN;
+
+    OBJECT work := this->beginwork();
+    IF(NOT work->HasFailed())
+    {
+      FOREVERY(RECORD row FROM selection)
+        this->announcement_type->GetEntity(row.rowkey)->CloseEntity();
+    }
+
+    IF (work->Finish())
+      this->ReloadNews(FALSE);
+  }
+>;
+
+PUBLIC OBJECTTYPE UpdateNewsItem EXTEND TolliumScreenBase
+< INTEGER newsitemid;
+  RECORD ARRAY audience;
+  OBJECT wrdtype;
+  OBJECT wrdschema;
+
+  MACRO Init(RECORD params)
+  {
+    this->wrdschema := this->contexts->userapi->wrdschema;
+    this->wrdtype := this->wrdschema->GetType("WHUSER_ANNOUNCEMENT");
+    this->newsitem->LoadEntity(this->wrdtype, params.id);
+
+    RECORD thispage := LookupPublisherURL(this->contexts->controller->baseurl);
+    this->message->SetupForFSObject(thispage.file ?? thispage.folder);
+
+    IF (params.id = 0) // Add
+    {
+      this->frame->title := GetTid("system:sysmgmt.systemnews.update.window_add");
+      this->creationdate->value := GetCurrentDateTime();
+      this->publish_date_from->value := GetCurrentDatetime();
+      this->usepublishdate->value := TRUE;
+      this->userid->value := this->tolliumuser->entityid;
+    }
+    ELSE // Edit
+    {
+      RECORD newsitem := GetNewsItem(params.id, this->contexts->controller);
+
+      this->frame->title := GetTid("system:sysmgmt.systemnews.update.window_edit", newsitem.title);
+
+      // Get the intended audience:
+      OBJECT unittype := this->wrdschema->GetType("WHUSER_UNIT");
+      RECORD ARRAY units := unittype->RunQuery( [ outputcolumns := [ "WRD_ID", "WRD_TITLE" ], filters := [ [ field := "WRD_ID", matchtype := "IN", value := newsitem.audience ] ] ] );
+      this->audience := SELECT wrd_title AS title, wrd_id AS rowkey FROM units;
+
+      this->userid->value := newsitem.author;
+
+      this->usepublishdate->value := newsitem.publish_from != DEFAULT DATETIME;
+      this->OnPublishDateChange();
+    }
+    this->newsitemid := params.id;
+  }
+
+  MACRO OnPublishDateChange()
+  {
+    this->publish_date_from->required := this->usepublishdate->value;
+    //this->publish_date_until->required := this->usepublishdate->value;
+  }
+
+  RECORD ARRAY FUNCTION DoGetUnits(RECORD params)
+  {
+    RETURN this->audience;
+  }
+
+  MACRO DoAddUnit(RECORD row)
+  {
+    OBJECT screen := this->LoadScreen("system:userrights/dialogs.selectunit", [ selectright := "system:manageroles", canselectroot := TRUE ]);
+    STRING result := screen->RunModal();
+    IF(result = "ok" AND ObjectExists(screen->value))
+    {
+      OBJECT unit := screen->value;
+      IF(NOT ObjectExists(unit->authobject))
+      {
+        //INSERT [ title := "All units", rowkey := unit->entityid ] INTO this->audience AT END;
+        RETURN;// root node
+      }
+
+      RECORD unitrec := [ title := unit->authobject->name, rowkey := unit->entityid ];
+      INSERT unitrec INTO this->audience AT END;
+    }
+  }
+
+  MACRO DoDeleteUnit(RECORD row)
+  {
+    DELETE FROM this->audience WHERE rowkey = row.rowkey;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    // Add the selected units to the additional fields record
+    RECORD additional := [ announcement_unit := (SELECT AS INTEGER ARRAY rowkey FROM this->audience) ];
+    IF(Length(additional.announcement_unit) = 0)
+      INSERT 0 INTO additional.announcement_unit AT END;
+
+    // Set publication dates to default if the checkbox for it was unchecked
+    IF (NOT this->usepublishdate->value)
+    {
+      this->publish_date_from->value  := DEFAULT DATETIME;
+      this->publish_date_until->value := DEFAULT DATETIME;
+      // This is a workaround for the default behaviour of not including disabled components' value when storing an entity.
+      INSERT CELL publish_from := DEFAULT DATETIME INTO additional;
+      INSERT CELL publish_until := DEFAULT DATETIME INTO additional;
+    }
+    ELSE
+    {
+      //Check dates
+      IF (this->publish_date_from->value != DEFAULT DATETIME
+          AND this->publish_date_until->value != DEFAULT DATETIME
+          AND this->publish_date_from->value >= this->publish_date_until->value)
+      {
+        work->AddError(GetTid("system:sysmgmt.systemnews.update.from_later_than_now"));
+      }
+    }
+
+    this->newsitem->StoreEntity(work, additional);
+
+    RETURN work->Finish();
+  }
+>;

@@ -1,0 +1,25 @@
+﻿<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+// Open channel to parent
+OBJECT iochan := GetIPCLinkToParent();
+IF (NOT ObjectExists(iochan))
+  THROW NEW Exception("Could not open IPC link to job owner");
+
+RECORD rec := iochan->ReceiveMessage(MAX_DATETIME);
+IF (rec.status != "ok")
+  THROW NEW Exception("Expected a message to be present from IPC parent link at startup");
+
+RECORD launchinfo := rec.msg;
+SetTidLanguage(launchinfo.tidlanguage);
+
+OBJECT task := MakeObject(launchinfo.lib, launchinfo.objname);
+IF(NOT ObjectExists(task))
+  ABORT("Cannot find task object");
+
+iochan->SendReply([ type := "ack" ], rec.msgid);
+
+task->__Setup(iochan, launchinfo);
+iochan->Close();

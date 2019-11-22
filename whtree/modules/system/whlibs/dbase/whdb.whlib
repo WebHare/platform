@@ -1,0 +1,1077 @@
+﻿<?wh
+/** @topic internals/whdb
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::internal/transservices.whlib";
+LOADLIB "wh::internal/transbase.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+
+
+BOOLEAN FUNCTION WHDBColumnExistsInternal(TABLE atable, STRING tablename, STRING columnname) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Accessing the WebHare database
+    @long This library is provides access to data stored inside a WebHare database.
+*/
+//
+PUBLIC SCHEMA
+  < TABLE
+    < STRING "table_catalog"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_name"
+    , INTEGER "object_id"
+    , STRING "table_type"
+    , STRING "self_referencing_column_name"
+    , STRING "reference_generation"
+    , STRING "user_defined_type_catalog"
+    , STRING "user_defined_type_schema"
+    , STRING "user_defined_type_name"
+    , STRING "primary_key_name"
+    , INTEGER "primary_key_id"
+    , STRING "read_access_manager"
+    , STRING "write_access_manager"
+    , INTEGER "maximum_row_size"
+    > tables
+  , TABLE
+    < INTEGER "object_id"
+    , STRING "table_catalog"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_name"
+    , INTEGER "table_id"
+    , STRING "column_name"
+    , INTEGER "ordinal_position"
+    , STRING "column_default"
+    , STRING "is_nullable"
+    , STRING "data_type"
+    , INTEGER "character_maximum_length"
+    , INTEGER "character_octet_length"
+    , INTEGER "numeric_precision"
+    , INTEGER "numeric_precision_radix"
+    , INTEGER "numeric_precision_scale"
+    , INTEGER "datetime_precision"
+    , STRING "interval_type"
+    , STRING "interval_precision"
+    , STRING "character_set_catalog"
+    , STRING "character_set_schema"
+    , STRING "character_set_name"
+    , STRING "collation_set_catalog"
+    , STRING "collation_set_schema"
+    , STRING "collation_set_name"
+    , STRING "domain_catalog"
+    , STRING "domain_schema"
+    , STRING "domain_name"
+    , STRING "udt_catalog"
+    , STRING "udt_schema"
+    , STRING "udt_name"
+    , STRING "scope_catalog"
+    , STRING "scope_schema"
+    , STRING "scope_name"
+    , INTEGER "maximum_cardinality"
+    , STRING "dtd_identifier"
+    , STRING "is_self_referencing"
+    , BOOLEAN "is_primary"
+    , INTEGER "autonumber_start"
+    , STRING "internal_column_name"
+    , STRING "referenced_table_catalog"
+    , STRING "referenced_table_schema"
+    , INTEGER "referenced_table_schema_id"
+    , STRING "referenced_table_name"
+    , INTEGER "referenced_table_id"
+    , STRING "on_delete"
+    , BOOLEAN "unique"
+    , BOOLEAN "noupdate"
+    , BOOLEAN "not_null"
+    , INTEGER "on_disk_column_id"
+    , STRING "reference_by_column_name"
+    , INTEGER "reference_by_column_id"
+    > columns
+  , TABLE
+    < INTEGER "object_id"
+    , STRING "catalog_name"
+    , STRING "schema_name"
+    , STRING "schema_owner"
+    , INTEGER "schema_owner_id"
+    , STRING "schema_owner_schema"
+    , INTEGER "schema_owner_schema_id"
+    , STRING "default_character_set_catalog"
+    , STRING "default_character_set_schema"
+    , STRING "default_character_set_name"
+    , STRING "sql_path"
+    > schemata
+  , TABLE
+    < INTEGER "role_id"
+    , STRING "role_name"
+    , STRING "role_schema"
+    , INTEGER "role_schema_id"
+    > enabled_roles
+  , TABLE
+    < INTEGER "role_id"
+    , STRING "role_name"
+    , STRING "role_schema"
+    , INTEGER "role_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "is_grantable"
+    > applicable_roles
+  , TABLE
+    < INTEGER "user_id"
+    , STRING "user_name"
+    > users
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "privilege_type"
+    , STRING "is_grantable"
+    , STRING "table_catalog"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_name"
+    , INTEGER "table_id"
+    , STRING "with_hierarchy"
+    > table_privileges
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "privilege_type"
+    , STRING "is_grantable"
+    , STRING "table_catalog"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_name"
+    , INTEGER "table_id"
+    , STRING "column_name"
+    , INTEGER "column_id"
+    > column_privileges
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "privilege_type"
+    , STRING "is_grantable"
+    , STRING "catalog_name"
+    , STRING "schema_name"
+    , INTEGER "schema_id"
+    > schema_privileges
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "privilege_type"
+    , STRING "is_grantable"
+    , STRING "table_catalog"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_name"
+    , INTEGER "table_id"
+    , STRING "with_hierarchy"
+    > role_table_grants
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "privilege_type"
+    , STRING "is_grantable"
+    , STRING "table_catalog"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_name"
+    , INTEGER "table_id"
+    , STRING "column_name"
+    , INTEGER "column_id"
+    > role_column_grants
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "privilege_type"
+    , STRING "is_grantable"
+    , STRING "catalog_name"
+    , STRING "schema_name"
+    , INTEGER "schema_id"
+    > role_schema_grants
+  , TABLE
+    < STRING "index_name"
+    , INTEGER "index_id"
+    , STRING "table_name"
+    , INTEGER "table_id"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_catalog"
+    , BOOLEAN "is_unique"
+    , BOOLEAN "is_uppercase"
+    , INTEGER "ordering"
+    , STRING "column_name"
+    , INTEGER "column_id"
+    , INTEGER "column_length"
+    , BOOLEAN "nonullstores"
+    > indices
+  , TABLE
+    < STRING "role_name"
+    , INTEGER "role_id"
+    , STRING "role_schema"
+    , INTEGER "role_schema_id"
+    > all_roles
+  , TABLE
+    < INTEGER "object_id"
+    , STRING "catalog_name"
+    , STRING "schema_name"
+    , STRING "schema_owner"
+    , INTEGER "schema_owner_id"
+    , STRING "schema_owner_schema"
+    , INTEGER "schema_owner_schema_id"
+    , STRING "default_character_set_catalog"
+    , STRING "default_character_set_schema"
+    , STRING "default_character_set_name"
+    , STRING "sql_path"
+    > all_schemata
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "privilege_type"
+    , STRING "is_grantable"
+    , STRING "table_catalog"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_name"
+    , INTEGER "table_id"
+    , STRING "with_hierarchy"
+    > explicit_table_grants
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "privilege_type"
+    , STRING "is_grantable"
+    , STRING "table_catalog"
+    , STRING "table_schema"
+    , INTEGER "table_schema_id"
+    , STRING "table_name"
+    , INTEGER "table_id"
+    , STRING "column_name"
+    , INTEGER "column_id"
+    > explicit_column_grants
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "privilege_type"
+    , STRING "is_grantable"
+    , STRING "catalog_name"
+    , STRING "schema_name"
+    , INTEGER "schema_id"
+    > explicit_schema_grants
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "role"
+    , INTEGER "role_id"
+    , STRING "role_schema"
+    , INTEGER "role_schema_id"
+    , BOOLEAN "with_admin"
+    > explicit_role_grants
+  , TABLE
+    < STRING "grantor"
+    , INTEGER "grantor_id"
+    , STRING "grantor_schema"
+    , INTEGER "grantor_schema_id"
+    , STRING "grantee"
+    , INTEGER "grantee_id"
+    , STRING "grantee_schema"
+    , INTEGER "grantee_schema_id"
+    , STRING "role"
+    , INTEGER "role_id"
+    , STRING "role_schema"
+    , INTEGER "role_schema_id"
+    , BOOLEAN "with_admin"
+    > all_role_grants
+  > information_schema;
+
+
+MACRO __BeginWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+RECORD ARRAY FUNCTION __CommitWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+MACRO __RollbackWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+MACRO __CloseWHDBAutoTransaction(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+INTEGER FUNCTION __StartWHDBTransaction(RECORD transinfo) __ATTRIBUTES__(EXTERNAL);
+MACRO __RollbackWHDBTransaction(INTEGER transid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, EXECUTESHARESCRIPT);
+RECORD ARRAY FUNCTION __CommitWHDBTransaction(INTEGER transid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+INTEGER ARRAY seenids;
+
+OBJECTTYPE WHDBTransaction EXTEND BuiltinTransactionBase
+< /** Whether this looks like an autotransaction to the outside world (underlying transaction is always auto)
+  */
+  BOOLEAN pvt_isauto;
+
+  PUBLIC PROPERTY allowerrordelay(-, SetAllowErrorDelay);
+
+  INTEGER waithandler;
+
+  MACRO NEW(INTEGER id, BOOLEAN auto)
+  {
+    this->RegisterTransaction(id);
+    this->pvt_isauto := auto;
+    this->__is_whdb := TRUE;
+
+    IF(this->pvt_isauto)
+    {
+      IF(IsWHDBWorkOpen(this->id)) //work=open means we got a marshalled transaction. ADDME prevent closure on our side of such a trans/work
+      {
+        this->pvt_numworks := 1;
+      }
+    }
+    ELSE IF (NOT IsWHDBWorkOpen(this->id))
+    {
+      // non-auto transaction: automatically open work
+      this->BeginWork();
+    }
+  }
+
+  UPDATE PUBLIC MACRO __ResetTransactionId(INTEGER transid)
+  {
+    BuiltinTransactionBase::__ResetTransactionId(transid);
+    this->pvt_numworks := IsWHDBWorkOpen(transid) ? 1 : 0;
+  }
+
+  UPDATE STRING FUNCTION GetType()
+  {
+    RETURN "whdb";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION HasWorkSupport()
+  {
+    RETURN this->pvt_isauto;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsWorkOpen()
+  {
+    RETURN IsWHDBWorkOpen(this->id);
+  }
+
+  UPDATE MACRO DoBeginWork()
+  {
+    __BeginWHDBWork(this->id);
+  }
+
+  PUBLIC MACRO SetAllowErrorDelay(BOOLEAN allow)
+  {
+    IF(allow)
+      SendWHDBCommand(this->id, "SET CLIENT CATCH_ERRORS TO WRITE");
+    ELSE
+      SendWHDBCommand(this->id, "SET CLIENT CATCH_ERRORS TO NONE");
+  }
+
+  UPDATE PUBLIC MACRO DoRollbackWork()
+  {
+    __RollbackWHDBWork(this->id);
+  }
+  UPDATE RECORD ARRAY FUNCTION DoCommitWork()
+  {
+    RETURN __CommitWHDBWork(this->id);
+  }
+
+  UPDATE PUBLIC MACRO Rollback()
+  {
+    IF(this->pvt_isauto)
+      THROW NEW Exception("Rollback cannot be used on auto transactions, use RollbackWork");
+    BuiltinTransactionBase::Rollback();
+  }
+
+  UPDATE PUBLIC MACRO __CallCommitHandlers(BOOLEAN iscommit)
+  {
+    // Change to auto transaction. Close work if open.
+    this->pvt_isauto := TRUE;
+    BuiltinTransactionBase::__CallCommitHandlers(iscommit);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION Commit()
+  {
+    IF(this->pvt_isauto)
+      THROW NEW Exception("Commit cannot be used on auto transactions, use CommitWork");
+
+    TRY
+    {
+      RECORD ARRAY result := this->CommitWork();
+      RETURN result;
+    }
+    FINALLY
+    {
+      this->Close();
+    }
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    IF (this->IsWorkOpen())
+    {
+      this->pvt_numworks := 1;
+      this->RollbackWork();
+    }
+
+    __CloseWHDBAutoTransaction(this->id);
+    BuiltinTransactionBase::Close();
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
+  {
+    SCHEMA is LIKE information_schema;
+    is := BindTransactionToSchema(this->id, "information_schema");
+
+    RETURN SELECT schema_name
+                , schema_owner
+                , schema_owner_schema
+                , is_system_schema := ToUppercase(schema_name) IN ["DEFINITION_SCHEMA","INFORMATION_SCHEMA"]
+             FROM is.all_schemata;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetTableListing(STRING schemaname)
+  {
+    SCHEMA is LIKE information_schema;
+    is := BindTransactionToSchema(this->id, "information_schema");
+
+    RETURN
+        SELECT object_id
+             , table_name
+             , primary_key_name
+             , isview := toUpperCase(table_type) = "VIEW"
+          FROM is.tables
+         WHERE ToUppercase(table_schema) = ToUppercase(schemaname);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetColumnListing(STRING schemaname, STRING tablename)
+  {
+    SCHEMA is LIKE information_schema;
+    is := BindTransactionToSchema(this->id, "information_schema");
+
+    RETURN
+        SELECT column_name
+             , data_type
+             , character_octet_length
+             , character_maximum_length
+             , is_nullable := not_null = FALSE
+             , column_default
+             , is_unique := columns."unique"
+             , referenced_table_schema
+             , referenced_table_name
+             , on_delete
+             , autonumber_start // FIXME: needed? wenselijk?
+          FROM is.columns
+         WHERE ToUppercase(table_schema) = ToUppercase(schemaname)
+           AND ToUppercase(table_name) = ToUppercase(tablename);
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    //FIXME EFFICENT IMPLEMENTATION
+    TABLE < INTEGER id > test := BindTransactionToTable(this->id, schemaname || '.' || tablename);
+    RETURN MakeWHDBAutonumber(test, columnname);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION SchemaExists(STRING schemaname)
+  {
+    SCHEMA is LIKE information_schema;
+    is := BindTransactionToSchema(this->id, "information_schema");
+    RETURN RecordExists(SELECT FROM information_schema.schemata WHERE ToUppercase(schema_name)=ToUppercase(VAR schemaname));
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ColumnExists(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    //FIXME EFFICENT IMPLEMENTATION
+    TABLE < INTEGER id > test := BindTransactionToTable(this->id, schemaname || '.' || tablename);
+    RETURN WHDBColumnExistsInternal(test, schemaname || '.' || tablename, columnname);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IndexExists(STRING schemaname, STRING tablename, STRING indexname)
+  {
+    RETURN WHDBIndexExists(schemaname || '.' || tablename, indexname);
+  }
+
+  UPDATE PUBLIC MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
+  {
+    IF (ownerrole = "")
+    {
+      ownerrole := "_SYSTEM";
+      ownerschema := "DEFINITION_SCHEMA";
+    }
+
+    SendWHDBCommand(this->id, `CREATE SCHEMA '${EncodeJava(schemaname)}' AUTHORIZATION ${ownerschema = "" ? "" : `"${EncodeJava(ownerschema)}".`}"${EncodeJava(ownerrole)}"`);
+  }
+
+  UPDATE PUBLIC MACRO DropSchema(STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ cascade := FALSE ], options);
+    SendWHDBCommand(this->id, "DROP SCHEMA '" || EncodeJava(schemaname) || "'"); // Always cascading
+  }
+
+  STRING FUNCTION GetForeignKeyDef(RECORD col)
+  {
+    STRING c;
+    IF(col.referenced_table_name != "" AND col.referenced_table_schema != "")
+    {
+      c := c || " REFERENCES '" || EncodeJava(col.referenced_table_schema) || "'.'" || EncodeJava(col.referenced_table_name) || "'";
+      IF(ToLowercase(col.on_delete) NOT IN [ "", "restrict", "no action" ])
+        c := c || " ON DELETE " || ToUppercase(col.on_delete);
+    }
+    RETURN c;
+  }
+
+
+  STRING FUNCTION GetColDef(RECORD col)
+  {
+    IF (ToUppercase(col.data_type) IN [ "BYTEA", "STRING" ])
+    {
+      col.data_type := "VARCHAR";
+      IF (col.character_octet_length = 0)
+        col.character_octet_length := 4096;
+    }
+
+    STRING c := "'" || EncodeJava(col.column_name) || "' "
+                || col.data_type
+                || (col.data_type = "VARCHAR" ? '(' || col.character_octet_length || ')' : '')
+                || (col.autonumber_start > 0 ? " AUTONUMBER " || col.autonumber_start : "")
+                || (NOT col.nullable ? " NOT NULL" : "")
+                || (col.isunique ? " UNIQUE" : "")
+                || (col.noupdate ? " NOUPDATE" : "")
+                || this->GetForeignKeyDef(col);
+
+    RETURN c;
+  }
+
+  UPDATE PUBLIC MACRO CreateTable(STRING schemaname, STRING tablename, RECORD tablestructure)
+  {
+    tablestructure := ValidateTableStructure(tablestructure);
+
+    STRING ARRAY cols;
+    FOREVERY(RECORD col FROM tablestructure.cols)
+    {
+      STRING c := this->GetColDef(col)
+                  || (tablestructure.primarykey = col.column_name ? " PRIMARY KEY" : "");
+      INSERT c INTO cols AT END;
+    }
+    SendWHDBCommand(this->id, "CREATE TABLE '" || EncodeJava(schemaname) || "'.'" || EncodeJava(tablename) || "'"
+                              || " (" || Detokenize(cols,",") || ")"
+                   );
+  }
+
+  UPDATE PUBLIC MACRO AlterTable(STRING schemaname, STRING tablename, RECORD tablemanip)
+  {
+    STRING alterprefix := "ALTER TABLE '" || EncodeJava(schemaname) || "'.'" || EncodeJava(tablename) || "' ";
+
+    //FIXME renames and deletes
+    FOREVERY(RECORD change FROM tablemanip.changed)
+    {
+      STRING changeprefix := alterprefix || "ALTER COLUMN '" || EncodeJava(change.newversion.column_name) || "' ";
+      IF(NOT RecordExists(change.oldversion)) //new one
+      {
+        SendWHDBCommand(this->id, alterprefix || "ADD COLUMN " || this->GetColDef(change.newversion));
+      }
+      IF(change.foreignkey)
+      {
+        IF(change.oldversion.referenced_table_name != "")
+          SendWHDBCommand(this->id, changeprefix || " DROP REFERENCES");
+        IF(change.newversion.referenced_table_name != "")
+          SendWHDBCommand(this->id, changeprefix || " SET REFERENCES" || this->GetForeignKeyDef(change.newversion));
+      }
+    }
+    //FIXME validate no attempt to change primary key
+  }
+
+  UPDATE PUBLIC MACRO DropColumn(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    SendWHDBCommand(this->id, 'ALTER TABLE "' || EncodeJava(schemaname) || '"."' || EncodeJava(tablename) || '" DROP COLUMN "' || EncodeJava(columnname) || '"');
+  }
+
+  UPDATE PUBLIC MACRO DropTable(STRING schemaname, STRING tablename)
+  {
+    SendWHDBCommand(this->id, 'DROP TABLE "' || EncodeJava(schemaname) || '"."' || EncodeJava(tablename) || '" CASCADE');
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetRoleId(STRING rolename) //FIXME: Optimize using local metadata cache!(don't bother with schema PUBLIC)
+  {
+    IF(ToUppercase(rolename)="_SYSTEM")
+      RETURN -1;
+    IF(ToUppercase(rolename)="PUBLIC")
+      RETURN -2;
+
+    SCHEMA myinfo LIKE information_schema := BindTransactionToSchema(this->id,"information_schema");
+
+    STRING orig_rolename := rolename;
+    STRING schemaname;
+    INTEGER dotplace := SearchSubstring(rolename, ".");
+    IF (dotplace = -1)
+      RETURN 0;
+
+    schemaname := SubString(rolename, 0, dotplace);
+    rolename := SubString(rolename, dotplace + 1, Length(rolename));
+    RETURN SELECT AS INTEGER role_id
+            FROM myinfo.all_roles
+            WHERE
+                  ToUppercase(role_schema) = ToUppercase(schemaname)
+              AND ToUppercase(role_name) = ToUppercase(rolename);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsRoleEnabled(INTEGER roleid)
+  {
+    SCHEMA myinfo LIKE information_schema := BindTransactionToSchema(this->id,"information_schema");
+    //FIXME: Maak hier RETURN RecordExists(SELECT FROM myinfo.enabled_roles WHERE id=roleid) van en je krijgt een Internal Error!
+    RETURN RecordExists(SELECT FROM myinfo.enabled_roles WHERE role_id=roleid);
+  }
+
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION GetEnabledRoles()
+  {
+    SCHEMA myinfo LIKE information_schema := BindTransactionToSchema(this->id,"information_schema");
+    RETURN
+        SELECT AS INTEGER ARRAY role_id
+          FROM myinfo.enabled_roles;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION __GetTableTypeInfoCols(TABLE tbl, STRING ARRAY cols)
+  {
+    STRING table_name := GetBindingFromTable(tbl).tablename;
+    STRING schema_name := "PUBLIC";
+    IF (table_name LIKE "*.*")
+    {
+      schema_name := Tokenize(table_name, ".")[0];
+      table_name := Tokenize(table_name, ".")[1];
+    }
+
+    // WHDB has uppercase names, PostgreSQL will get lowercase. Make this one case-insensitive
+    // to to be able to convert wrd dynqueries.
+
+    RECORD ARRAY tablecols :=
+        SELECT name :=        ToUppercase(column_name)
+             , dbase_name :=  column_name
+             , type :=        GetHarescriptTypeIdByName(__whdb_GetHareScriptType(data_type))
+             , flags :=       0
+             , fase :=        0
+          FROM this->GetColumnListing(schema_name, table_name)
+      ORDER BY ToUppercase(column_name);
+
+    RECORD ARRAY retval;
+    FOREVERY (STRING col FROM cols)
+    {
+      RECORD pos := RecordLowerBound(tablecols, [ name := ToUppercase(col) ], [ "NAME" ]);
+      IF (NOT pos.found)
+      {
+        IF (ToUppercase(col) = "__INTERNAL_RECORDID")
+        {
+          INSERT
+              [ name :=        ToUppercase(col)
+              , dbase_name :=  col
+              , type :=        TYPEID(INTEGER)
+              , flags :=       0
+              , fase :=        0
+              ] INTO retval AT END;
+          CONTINUE;
+        }
+        ELSE
+        {
+          STRING ARRAY allowed := SELECT AS STRING ARRAY name FROM tablecols;
+          STRING didyoumean := GetBestMatch(ToUppercase(col), allowed);
+          THROW NEW Exception(`Could not find column "${EncodeJava(col)}" in table "${schema_name}"."${table_name}"${didyoumean = "" ? "" : `, did you mean "${didyoumean}"?`}`);
+        }
+      }
+      INSERT tablecols[pos.position] INTO retval AT END;
+    }
+
+    RETURN retval;
+  }
+
+  UPDATE PUBLIC MACRO DisableWorkTimeout()
+  {
+    BuiltinTransactionBase::DisableWorkTimeout();
+    __SendWHDBCommand(this->id,"SET LOCAL TRANSACTIONTIMEOUT TO OFF");
+  }
+>;
+
+/** @short Converts a WHDB database type to the equivalent HareScript type name.
+    @param dbase_type The WHDB database type to convert
+    @return Returns conversion of WHDB database type to the equivalent Harescript type name
+    @example
+// harescriptType = "STRING"
+STRING harescriptType := GetHarescriptType("VARCHAR2");
+
+// harescriptType = "INTEGER"
+STRING harescriptType := GetHarescriptType("TABLE");
+
+// harescriptType = argument
+STRING argument := "...";
+STRING harescriptType := GetHarescriptType(argument);
+*/
+PUBLIC STRING FUNCTION __whdb_GetHarescriptType(STRING dbase_type)
+{
+  //FIXME unshare between PGSQL and WHDB. wh sql uses us for both....
+  IF(dbase_type LIKE "varchar(*") //postgresql 'varchar(nnn)'
+    RETURN "STRING";
+
+  SWITCH(dbase_type)
+  {
+    CASE "VARCHAR"
+    {
+      RETURN "STRING";
+    }
+    CASE "TABLE",  "ROLE"
+    {
+      RETURN "INTEGER";
+    }
+    //WHDB returns native types in uppercase
+    CASE "BOOLEAN", "STRING", "INTEGER", "INTEGER64", "MONEY", "FLOAT", "DATETIME", "BLOB"
+    {
+      RETURN dbase_type;
+    }
+
+    //postgresql types
+    CASE "_text","name","text"
+    {
+      RETURN "STRING";
+    }
+    CASE "float4","_float4"
+    {
+      RETURN "float";
+    }
+    CASE "oid", "int2", "int4"
+    {
+      RETURN "INTEGER";
+    }
+    CASE "timestamp"
+    {
+      RETURN "DATETIME";
+    }
+    CASE "webhare_blob"
+    {
+      RETURN "BLOB";
+    }
+    CASE "bool"
+    {
+      RETURN "BOOLEAN";
+    }
+    DEFAULT
+    {
+      RETURN "STRING";
+    }
+  }
+}
+
+
+
+PUBLIC INTEGER FUNCTION __avoiddepwarning_StartWHDBTransaction(RECORD transinfo)
+{
+  BOOLEAN become_auto := CellExists(transinfo,'AUTO') AND transinfo.auto;
+  IF (CellExists(transinfo, 'AUTO'))
+    transinfo.auto := TRUE;
+  ELSE
+    INSERT CELL auto := TRUE INTO transinfo;
+
+  IF(transinfo.user="")
+    transinfo.user:="~webhare";
+  ELSE IF(transinfo.user NOT IN ["~webhare","~recovery","~cluster"])
+    THROW NEW Exception("WebHare no longer supports user logins, you need to log in using '~webhare'");
+
+  INTEGER transid := __StartWHDBTransaction(transinfo);
+  IF(transid<=0)
+    RETURN transid;
+
+  OBJECT trans;
+
+  IF(CellExists(transinfo,"BINDTO")) //this is a replacing transaction...
+  {
+    trans := GetTransactionObjectById(transinfo.bindto);
+    IF(NOT ObjectExists(trans))
+      THROW NEW Exception("Replaced transaction #" || transinfo.bindto || " does not exist");
+    IF(trans->HasWorkSupport() != become_auto)
+      THROW NEW Exception("Replaced transaction #" || transinfo.bindto || " has different auto setting");
+    IF(trans->isWorkOpen())
+      THROW NEW Exception("Replaced transaction #" || transinfo.bindto || " still has work open");
+  }
+
+  IF(NOT ObjectExists(trans))
+    trans := __CreateWHDBTransactionObject(transid, become_auto);
+  RETURN trans->id;
+}
+
+
+/*  Create a WHDB transaction object frontend for a newly gotten WHDB transaction
+    @param trans ID of new transaction
+    @param isauto Whether the transaction is an auto-transasction
+*/
+PUBLIC OBJECT FUNCTION __CreateWHDBTransactionObject(INTEGER trans, BOOLEAN isauto)
+{
+  RETURN NEW WHDBTransaction(trans, isauto);
+}
+
+/** @short Get any errors so far
+    @param transid Transaction to request errors for
+    @return a record array with errors, empty if the commit succeeded
+    @cell return.code Error code for this error
+    @cell return.message Readable error message describing this error
+    @cell return.tablename Table effected by this error
+    @cell return.columnname Column effected by this error
+*/
+PUBLIC RECORD ARRAY FUNCTION GetWHDBTransactionErrors(INTEGER transid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, DEPRECATED "All WHDB specific APIs are deprecated - GetWHDBTransactionErrors will be removed");
+
+/** @short Commit a WebHare database transaction
+    @long Attempts to make all database changes permanent, and closes the transaction.
+          If the commit fails, the transaction will be rolled back and the errors will
+          be returned - the transaction will never remain open after a CommitWHDBTransaction call.
+    @param transid Transaction to commit and close
+    @return a record array with errors, empty if the commit succeeded
+    @cell return.code Error code for this error
+    @cell return.message Readable error message describing this error
+    @cell return.tablename Table effected by this error
+    @cell return.columnname Column effected by this error
+*/
+PUBLIC RECORD ARRAY FUNCTION CommitWHDBTransaction(INTEGER transid) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - CommitWHDBTransaction can generally be replaced with GetPrimary()->CommitWork")
+{
+  RETURN GetWHDBTransaction(transid)->Commit();
+}
+
+/** @short Rollback a WebHare database transaction
+    @long Closes the WebHare database transaction and rolls back all changes made in this transaction
+    @param transid Transaction to rollback
+    @see CommitWHDBTransaction
+*/
+PUBLIC MACRO RollbackWHDBTransaction(INTEGER transid) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - RollbackWHDBWork can generally be replaced with GetPrimary()->Rollback")
+{
+  GetWHDBTransaction(transid)->Rollback();
+}
+
+/** @short Bind the WebHare database metadata tables
+    @long Bind the tables meta_columns, meta_tables, meta_indices, and meta_indexcolumns to the specified transaction
+    @param whdbtrans Transaction to bind these tables to
+*/
+PUBLIC MACRO __BindWHDBMetaTables(INTEGER whdbtrans)
+{
+  OBJECT trans := GetWHDBTransaction(whdbtrans);
+  IF(NOT ObjectExists(trans) OR NOT trans->__is_whdb)
+    RETURN;
+  information_schema := BindTransactionToSchema(whdbtrans, "information_schema");
+}
+
+SetupPrimaryTransactionBinder(PTR __BindWHDBMetaTables);
+
+/** @short Check if a schema exists
+    @long Check the existence of a schema in the WebHare database.
+    @param schemaname Schame to look for
+    @return True if the specified schema exists
+    @see WHDBIndexExists, WHDBColumnExists
+*/
+PUBLIC BOOLEAN FUNCTION WHDBSchemaExists(STRING schemaname) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - WHDBSchemaExists can generally be replaced with GetPrimary()->SchemaExists")
+{
+  RETURN RecordExists(SELECT FROM information_schema.schemata WHERE ToUppercase(schema_name)=ToUppercase(VAR schemaname));
+}
+
+/** @short Check if a column exists
+    @long Check the existence of a certain table and a column in the WebHare database.
+    @param tablename Table to look for
+    @param columnname Column to look for
+    @return True if the specified table and column exist
+    @see WHDBIndexExists, WHDBSchemaExists
+*/
+PUBLIC BOOLEAN FUNCTION WHDBColumnExists(STRING tablename, STRING columnname) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - WHDBColumnExists can generally be replaced with GetPrimary()->ColumnExists")
+{
+  BOOLEAN fastresult := WHDBColumnExistsInternal(information_schema.columns, tablename, columnname);
+  RETURN fastresult;
+}
+
+/** @short Check if an index exists
+    @long Check the existence of a specific table index in the WebHare database. This
+          function can only find explicitly-created indexes (ie. those created through CREATE INDEX)
+    @param tablename Table to look for
+    @param indexname Index to look for
+    @return True if the specified table and column exist
+    @see WHDBColumnExists
+*/
+PUBLIC BOOLEAN FUNCTION WHDBIndexExists(STRING tablename, STRING indexname) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - low level index managed will no longer be supported")
+{
+  STRING orig_tablename := tablename;
+  STRING schemaname;
+  INTEGER dotplace := SearchSubstring(tablename, ".");
+  IF (dotplace = -1)
+  {
+    schemaname := "PUBLIC";
+  }
+  else
+  {
+    schemaname := SubString(tablename, 0, dotplace);
+    tablename := SubString(tablename, dotplace + 1, Length(tablename));
+  }
+  RETURN RecordExists(SELECT FROM information_schema.indices WHERE ToUppercase(table_schema)=ToUppercase(VAR schemaname)
+                                                                   AND ToUppercase(table_name)=ToUppercase(VAR tablename)
+                                                                   AND ToUppercase(index_name)=ToUppercase(VAR indexname));
+}
+
+/** @short Get the next autonumber ID for a table
+    @long Reserves an autonumber ID in the WebHare database, and returns that ID. In WebHare tables,
+          all IDs are specfic for that column and table - autonumber ids are not guaranteed to be
+          unique across all tables.
+    @param gettable Table for which an autonumber value should be generated
+    @param columnname Name of the autonumber column for a value is requested
+    @return The next available autonumber value
+*/
+INTEGER FUNCTION MakeWHDBAutoNumber(TABLE gettable, STRING columnname) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+PUBLIC RECORD ARRAY FUNCTION __SendWHDBCommand(INTEGER transid, STRING cmd) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Send raw SQL commands to the WHDB
+    @long This function allows you to directly send SQL commands to the WebHare database
+    @param transid Transaction to send this command in
+    @param cmd The raw command to send
+    @return SQL command results
+*/
+PUBLIC RECORD ARRAY FUNCTION SendWHDBCommand(INTEGER transid, STRING cmd) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - directly accessing SendWHDBCommand will not be possible in the future")
+{
+  RETURN __SendWHDBCommand(transid, cmd);
+}
+
+PUBLIC INTEGER FUNCTION __GetWHDBBlobInternalId(BLOB blb) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Get the internal blob id from the database
+    @long This function retrieves the id that the Webhare database uses for this blob. It can
+          be used to determine whether two blob variables point to the same blob in a database
+    @param blb Blob to retrieve the internal id for
+    @return The internal blob id, or 0 if the blob is not stored in a Webhare database */
+PUBLIC INTEGER FUNCTION GetWHDBBlobInternalId(BLOB blb) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - GetWHDBBlobInternalId should not be used in portable code")
+{
+  RETURN __GetWHDBBlobInternalId(blb);
+}
+
+/** @short Retrieve the table id for a bound table
+    @long This function retrieves the ID the database uses for the specified table. This function will abort if the transaction is not a WebHare database transaction
+    @param tbl Table to get the id of
+    @return Id of the table, or 0 if the table does not exist.
+*/
+PUBLIC INTEGER FUNCTION GetWHDBTableId(TABLE tbl) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, DEPRECATED "All WHDB specific APIs are deprecated - GetWHDBTableId should not be used in portable code");
+
+
+PUBLIC OBJECT FUNCTION GetWHDBTransaction(INTEGER trans) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - transactions should be tracked by object, not ID!")
+{
+  // ADDME: check if it really is a whdb transaction
+  RETURN MakePublicObjectReference(GetTransactionObjectByIdInternal(trans));
+}
+
+/** @short Begin work (physical writable transaction) in an auto transaction
+    @param trans ID of the auto transaction */
+PUBLIC MACRO BeginWHDBWork(INTEGER trans) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - BeginWHDBWork can usually be replaced with GetPrimary()->BeginWork")
+{
+  GetWHDBTransaction(trans)->BeginWork();
+}
+
+/** @short Commit changes made inside a work block after BeginWHDBWork
+    @param trans ID of the auto transaction
+    @return a record array with errors, empty if the commit succeeded
+    @cell return.code Error code for this error
+    @cell return.message Readable error message describing this error
+    @cell return.tablename Table effected by this error
+    @cell return.columnname Column effected by this error
+*/
+PUBLIC RECORD ARRAY FUNCTION CommitWHDBWork(INTEGER trans) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - CommitWHDBWork can usually be replaced with GetPrimary()->CommitWork")
+{
+  RETURN GetWHDBTransaction(trans)->CommitWork();
+}
+
+/** @short Rollback changes made inside a work block after BeginWHDBWork
+    @param trans ID of the auto transaction
+*/
+PUBLIC MACRO RollbackWHDBWork(INTEGER trans) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - RollbackWHDBWork can usually be replaced with GetPrimary()->RollbackWork")
+{
+  GetWHDBTransaction(trans)->RollbackWork();
+}
+
+/** @short Close an auto transaction
+    @param trans ID of the auto transaction
+*/
+PUBLIC MACRO CloseWHDBAutoTransaction(INTEGER trans) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - CloseWHDBAutoTransaction can usually be replaced with GetPrimary()->Close")
+{
+  GetWHDBTransaction(trans)->Close();
+}
+
+/** @short Test whether work is currently open on an auto transaction
+    @param trans ID of the auto transaction
+    @return True if work has begun on the transaction */
+PUBLIC BOOLEAN FUNCTION IsWHDBWorkOpen(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, DEPRECATED "All WHDB specific APIs are deprecated - IsWHDBWorkOpen can usually be replaced with GetPrimary()->IsWorkOpen");
+
+/* the __whdbdc api will be removed in future versions. for most functions, you can use the dnyamicquery api instead */
+PUBLIC INTEGER FUNCTION __WHDBDCOpen(INTEGER trans, STRING tablename, STRING ARRAY columns, BOOLEAN allcolumns, BOOLEAN for_updating) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
+PUBLIC BOOLEAN FUNCTION __WHDBDCNextRow(INTEGER qid) __ATTRIBUTES__(EXTERNAL, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
+PUBLIC RECORD FUNCTION __WHDBDCGetRow(INTEGER qid) __ATTRIBUTES__(EXTERNAL, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
+PUBLIC MACRO __WHDBDCUpdate(INTEGER qid, RECORD rec) __ATTRIBUTES__(EXTERNAL, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
+PUBLIC MACRO __WHDBDCDelete(INTEGER qid) __ATTRIBUTES__(EXTERNAL, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
+PUBLIC MACRO __WHDBDCClose(INTEGER qid) __ATTRIBUTES__(EXTERNAL, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
+PUBLIC MACRO __WHDBDCInsert(INTEGER trans, STRING tablename, RECORD rec) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, DEPRECATED "All WHDB specific APIs are deprecated - __WHDBDCInsert can generally be replaced with INSERT RECORD xx INTO");
+
+/** @short Hash a password
+    @long This hashes the password into the format preferred by the WebHare database, although the data can be stored anywhere 8-bit data is accepted.
+    @param pwd Password to hash
+    @return The hashed password string. Note that this string may contain binary bytes and thus may not be valid UTF8 */
+PUBLIC STRING FUNCTION CreatePasswordHash(STRING pwd) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - replace CreatePasswordHash with CreateWebHarePasswordHash")
+{
+  RETURN CreateWebHarePasswordHash(pwd);
+}
+/** @short Verify a password against a stored hash
+    @param pwd Password to verify
+    @param hash Hash against which the password should match
+    @return True if the password matches the specified hash
+*/
+PUBLIC BOOLEAN FUNCTION VerifyPasswordHash(STRING pwd, STRING hash) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - replace VerifyPasswordHash with VerifyWebHarePasswordHash")
+{
+  RETURN VerifyWebHarePasswordHash(pwd,hash);
+}

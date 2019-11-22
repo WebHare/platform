@@ -1,0 +1,6 @@
+<?wh
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+
+PUBLIC OBJECTTYPE TestPageForm EXTEND FormBase
+<
+>;

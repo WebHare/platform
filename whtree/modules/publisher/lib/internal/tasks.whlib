@@ -1,0 +1,60 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/printer.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+PUBLIC OBJECTTYPE GenerateWidgetPreviewTask EXTEND ManagedTaskBase
+<
+  UPDATE PUBLIC MACRO RunTask(RECORD taskdata)
+  {
+    OBJECT previewtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/previewinfo");
+
+    RECORD widget :=
+        SELECT fs_objects.id
+             , modificationdate
+             , type
+             , generatepreview
+          FROM system.fs_objects
+             , system.fs_types
+         WHERE fs_objects.id = taskdata.id
+           AND fs_types.id = type;
+
+    IF (NOT RecordExists(widget))
+    {
+      this->ResolveByCompletion([ status := "nosuchfile"
+                                ]);
+      RETURN;
+    }
+    IF (NOT widget.generatepreview)
+    {
+      previewtype->SetInstanceData(widget.id, DEFAULT RECORD);
+      this->ResolveByCompletion([ status := "notpreviewable"
+                                ]);
+      RETURN;
+    }
+
+    STRING link := CreateWidgetPreviewLink(MAX_DATETIME, "", widget.id, widget.id);
+    IF(link="")
+    {
+      this->ResolveByCompletion([ status := "nourl"
+                                ]);
+      RETURN;
+    }
+    RECORD screenshotdata := GenerateBrowserScreenshot(link, [ withalpha := TRUE ]);
+
+    previewtype->SetInstanceData(widget.id,
+        [ previewmodificationdate :=  widget.modificationdate
+        , previewimage :=             screenshotdata.screenshot
+        ]);
+
+    this->ResolveByCompletion([ status := "ok"
+                              ]);
+  }
+>;

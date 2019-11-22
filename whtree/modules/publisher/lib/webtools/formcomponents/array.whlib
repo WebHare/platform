@@ -1,0 +1,259 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+PUBLIC RECORD FUNCTION ParseFormArray(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  RECORD form := parsecontext.ParseSubnode(node);
+  RETURN
+      CELL[ ...fielddef
+          , subfields := form.fields
+          , min := ParseXSInt(node->GetAttribute("min"))
+          , max := ParseXSInt(node->GetAttribute("max"))
+          ];
+}
+
+PUBLIC OBJECT ARRAY FUNCTION ExpandToAllChildren(OBJECT parentcomp)
+{
+  OBJECT ARRAY expanded := [ parentcomp ];
+  FOREVERY(OBJECT child FROM parentcomp->GetChildComponents())
+    expanded := expanded CONCAT ExpandToAllChildren(child);
+  RETURN expanded;
+}
+
+PUBLIC STATIC OBJECTTYPE ArrayField EXTEND FormFieldBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY pvt_rows;
+
+  OBJECT ARRAY subfields;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Current value (all rows)
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// The minimum number of rows that must be added
+  PUBLIC INTEGER min;
+
+  /// The maximum number of rows that may be added
+  PUBLIC INTEGER max;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+    FOREVERY (RECORD subfield FROM field.subfields)
+    {
+      OBJECT newfield;
+      STRING membername := subfield.name;
+      TRY
+      {
+        subfield.name := this->name || "." || subfield.name;
+        newfield := subfield.fieldobject(form, this, subfield);
+      }
+      CATCH (OBJECT e)
+        THROW NEW Exception(`Error while instantiating field ${membername} of type ${subfield.type}: ${e->what}`, [ trace := e->trace ]);
+
+      INSERT newfield INTO this->subfields AT END;
+      MemberInsert(this, "^" || membername, FALSE, newfield);
+    }
+    this->min := field.min;
+    this->max := field.max;
+
+    IF(this->__havepreinited)
+      this->__EnsurePreInit(); //rerun for the new fields, if needed
+  }
+
+  UPDATE PUBLIC MACRO __EnsurePreInit()
+  {
+    FormFieldBase::__EnsurePreInit();
+    FOREVERY(OBJECT line FROM this->subfields)
+      line->__EnsurePreInit();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RECORD base := this->GetBaseRenderData();
+    base := CELL[ ...base
+                , this->min
+                , this->max
+                , type := "array"
+                , this->subfields
+                , rows := this->pvt_rows
+                ];
+    RETURN base;
+  }
+
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    /* We receive an array from our remote with values our subfields should
+       understand. We can use them to parse the incoming data, but our subfields
+       don't offer a non-destructive "ParseFromJS" so we'll need to restore them
+       after use
+       */
+
+    RECORD ARRAY outrows;
+    FOREVERY (RECORD inputrow FROM RECORD ARRAY(jsdata))
+    {
+      RECORD outrow := CELL[];
+      IF(inputrow.formrowid LIKE "cur*")
+      {
+        INTEGER id := ToInteger(Substring(inputrow.formrowid,3),-1);
+        IF(id >= 0 AND id < Length(this->pvt_rows))
+          outrow := this->pvt_rows[id].cells;
+      }
+
+      FOREVERY (OBJECT field FROM this->subfields)
+      {
+        VARIANT originalvalue := field->value;
+        VARIANT cellvalue;
+
+        //TODO arbitrary depth support
+        OBJECT ARRAY children := field->GetChildComponents();
+        VARIANT ARRAY originalchildvalues;
+
+        FOREVERY(OBJECT child FROM children)
+        {
+          INSERT child->value INTO originalchildvalues AT END;
+          STRING childcellname := Substring(child->name, Length(this->name) + 1);
+          IF(CellExists(inputrow, childcellname))
+            child->UpdateFromJS(GetCell(inputrow, childcellname));
+        }
+
+        STRING cellname := Substring(field->name, Length(this->name) + 1);
+        IF(CellExists(inputrow, cellname)) //we're not transparent (ie there's an actual field for us on the client, and we're receiving data for that)
+          field->UpdateFromJS(GetCell(inputrow, cellname));
+
+        cellvalue := field->value;
+
+        FOREVERY(OBJECT child FROM children)
+          child->value := originalchildvalues[#child];
+
+        IF(CellExists(inputrow, cellname))
+          field->value := originalvalue; //restore - TODO we should just build up a template row for 'defaults' so we don't need to save/restore all the time
+
+        outrow := CellDelete(outrow, cellname);
+        outrow := CellInsert(outrow, cellname, cellvalue);
+      }
+      INSERT CELL[ rowid := "cur" || #inputrow, cells := outrow ] INTO outrows AT END;
+    }
+    this->pvt_rows := outrows;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN Length(this->pvt_rows) > 0;
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF (Length(this->pvt_rows) < this->min)
+      work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.minarray", ToString(this->min)));
+    IF (this->max > 0 AND Length(this->pvt_rows) > this->max)
+      work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.maxarray", ToString(this->max)));
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetComposableData()
+  {
+    RETURN CELL[ ...FormFieldBase::GetComposableData()
+               , text := GetTid("publisher:formcomponents.array.items", ToString(Length(this->value)))
+               ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    RETURN [ [ title := this->title
+             , name := "value"
+             , type := "text"
+           ] ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    FOREVERY (RECORD row FROM inputvalues)
+    {
+      inputvalues[#row] := CELL[ ...row, value := GetTid("publisher:formcomponents.array.items", ToString(Length(row.value))) ];
+    }
+    RETURN inputvalues;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+  RECORD ARRAY FUNCTION GetValue()
+  {
+    RETURN SELECT AS RECORD ARRAY cells FROM this->pvt_rows;
+  }
+
+  MACRO SetValue(RECORD ARRAY rows)
+  {
+    //TODO should we also support a setvalueifvalid? but then we probably need componentbase to support it for all fields
+
+    /* We receive an array with values our subfields should
+       understand. We can use them to parse the incoming data, but our subfields
+       don't offer a non-destructive "Validate/Set/Enforce" so we'll need to restore them
+       after use */
+
+    STRING ARRAY fieldlist;
+    FOREVERY (OBJECT field FROM this->subfields)
+      INSERT ToUppercase(field->name) INTO fieldlist AT END;
+
+    RECORD ARRAY outrows;
+    FOREVERY (RECORD row FROM rows)
+    {
+      FOREVERY (OBJECT field FROM this->subfields)
+      {
+        VARIANT originalvalue := field->value;
+        VARIANT cellvalue;
+
+        STRING cellname := Substring(field->name, Length(this->name) + 1);
+        IF(CellExists(row, cellname))
+        {
+          field->value := GetCell(row, cellname); //mostly just to validate
+          cellvalue := field->value;
+          field->value := originalvalue; //restore
+        }
+        ELSE
+        {
+          cellvalue := originalvalue;
+        }
+
+        row := CellDelete(row, cellname);
+        row := CellInsert(row, cellname, cellvalue);
+      }
+      INSERT CELL[ rowid := "cur" || #row
+                 , cells := row
+                 ] INTO outrows AT END;
+    }
+    this->pvt_rows := outrows;
+  }
+>;

@@ -1,0 +1,527 @@
+﻿<?wh
+
+
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+/** Dummy dialog for revoking grants
+*/
+OBJECTTYPE RevokeDialog
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+  //
+
+  /// Parent screen
+  OBJECT screen;
+
+
+  /// List of grants to revoke
+  RECORD ARRAY pvt_grants;
+
+
+  /// List of role grants to revoke
+  RECORD ARRAY pvt_rolegrants;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW(OBJECT screen, RECORD ARRAY grants, RECORD ARRAY rolegrants)
+  {
+    this->screen := screen;
+
+    // Copy with a select to check contents.
+    this->pvt_grants :=
+        SELECT grantee
+             , rightname
+             , objectid
+          FROM grants;
+
+    this->pvt_rolegrants :=
+        SELECT grantee
+             , roleobj
+          FROM rolegrants;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @return
+       ""        -> user has cancelled
+       ok
+       cancel    -> work has failed
+       deleted   -> one of the user's or role's don't exist anymore
+       dangerous
+  */
+  PUBLIC STRING FUNCTION RunModal()
+  {
+    OBJECT rightsinfo := GetRightsInfoObject(this->screen->tolliumuser);
+
+    // user is sure he wants to do this?
+    IF (LENGTH(this->pvt_grants) != 0 AND LENGTH(this->pvt_rolegrants) != 0)
+    {
+      IF (this->screen->RunMessageBox("system:userrights/userrights.revokegrants") != "yes")
+        RETURN "";
+    }
+    ELSE IF (LENGTH(this->pvt_grants) != 0)
+    {
+      OBJECT ARRAY authobjects :=
+          SELECT AS OBJECT ARRAY Any(grantee)
+            FROM this->pvt_grants
+        GROUP BY grantee->entityid;
+
+      SWITCH (LENGTH(authobjects))
+      {
+      CASE 0
+        {
+          RETURN "";
+        }
+      CASE 1
+        {
+          OBJECT grantee := authobjects[0];
+          BOOLEAN one_grant := LENGTH(this->pvt_grants) = 1;
+
+          STRING name := grantee->GetUserRightsName();
+
+          IF (one_grant)
+          {
+            IF (this->screen->RunMessageBox(grantee->type = 1 ? "system:userrights/userrights.revokegrantfromuser" : "system:userrights/userrights.revokegrantfromrole", rightsinfo->GetRightTitle(this->pvt_grants[0].rightname), name) != "yes")
+              RETURN "";
+          }
+          ELSE
+          {
+            IF (this->screen->RunMessageBox(grantee->type = 1 ? "system:userrights/userrights.revokegrantsfromuser" : "system:userrights/userrights.revokegrantsfromrole", name) != "yes")
+              RETURN "";
+          }
+        }
+      DEFAULT
+        {
+          IF (this->screen->RunMessageBox("system:userrights/userrights.revokegrants") != "yes")
+            RETURN "";
+        }
+      }
+    }
+    ELSE IF (LENGTH(this->pvt_rolegrants) != 0)
+    {
+      OBJECT ARRAY authobjects :=
+          SELECT AS OBJECT ARRAY Any(grantee)
+            FROM this->pvt_rolegrants
+        GROUP BY grantee->entityid;
+
+      SWITCH (LENGTH(authobjects))
+      {
+      CASE 0
+        {
+          RETURN "";
+        }
+      CASE 1
+        {
+          OBJECT grantee := authobjects[0];
+//          INTEGER granteeid := authobjects[0];
+//          INTEGER type := GetAuthObjectType(granteeid);
+          BOOLEAN one_grant := LENGTH(this->pvt_rolegrants) = 1;
+
+//          STRING name := grantee->GGetAuthObjectName(granteeid);
+
+          IF (one_grant)
+          {
+            IF (this->screen->RunMessageBox("system:userrights/userrights.revokerolefromuser", this->pvt_rolegrants[0].roleobj->GetUserRightsName(), grantee->GetUserRightsName()) != "yes")
+              RETURN "";
+          }
+          ELSE
+          {
+            IF (this->screen->RunMessageBox("system:userrights/userrights.revokerolesfromuser", grantee->GetUserRightsName()) != "yes")
+              RETURN "";
+          }
+        }
+      DEFAULT
+        {
+          IF (this->screen->RunMessageBox("system:userrights/userrights.revokegrants") != "yes")
+            RETURN "";
+        }
+      }
+    }
+
+    BOOLEAN is_dangerous;
+
+    RECORD ARRAY raw_grants :=
+        SELECT grantee :=   grantee->authobjectid
+             , rightname
+             , objectid
+          FROM this->pvt_grants;
+
+    RECORD ARRAY raw_rolegrants :=
+        SELECT grantee :=   grantee->authobjectid
+             , roleid :=    roleobj->authobjectid
+          FROM this->pvt_rolegrants;
+
+    IF (AreRevokesDangerous(this->screen->tolliumuser->authobject, raw_grants, raw_rolegrants))
+    {
+      STRING numgrants := ToString(LENGTH(this->pvt_grants CONCAT this->pvt_rolegrants));
+      IF (this->screen->RunSimpleScreen("verify", GetTid("system:userrights.dialogues.dangerousrightsrevoke", numgrants)) != "yes")
+        RETURN "";
+      is_dangerous := TRUE;
+    }
+
+    OBJECT work    := this->screen->BeginWork();
+    OBJECT grantor := this->screen->tolliumuser;
+
+    RECORD ARRAY existing_raw_grants;
+    RECORD ARRAY existing_raw_rolegrants;
+
+    BOOLEAN found_deleted;
+
+    FOREVERY (RECORD grant FROM this->pvt_grants)
+    {
+      IF (grant.grantee->ExistsInDatabase())
+      {
+        INSERT
+            [ grantee :=      grant.grantee->authobjectid
+            , rightname :=    grant.rightname
+            , objectid :=     grant.objectid
+            ] INTO existing_raw_grants AT END;
+        TolliumRevokeRightFrom(work, rightsinfo, grantor, grant.grantee, grant.rightname, grant.objectid, FALSE, TRUE);
+      }
+      ELSE
+        found_deleted := TRUE;
+    }
+    FOREVERY (RECORD grant FROM this->pvt_rolegrants)
+    {
+      IF (grant.grantee->ExistsInDatabase() AND grant.roleobj->ExistsInDatabase())
+      {
+        INSERT
+            [ grantee :=      grant.grantee->authobjectid
+            , roleid :=       grant.roleobj->authobjectid
+            ] INTO existing_raw_rolegrants AT END;
+        IF (NOT this->screen->tolliumuser->HasRightOn("system:manageroles", grant.roleobj->authobjectid))
+          work->AddError(GetTid("system:userrights.commondialogs.errors.norighttorevokerole", grant.roleobj->GetUserRightsName()));
+      }
+      ELSE
+        found_deleted := TRUE;
+    }
+
+    IF (found_deleted)
+      work->AddWarning(GetTid("system:userrights.commondialogs.errors.founddeleteduserorrole"));
+
+    IF (NOT work->HasFailed())
+    {
+      TRY
+      {
+        UserRightsBigRevoke(grantor->authobject, existing_raw_grants, existing_raw_rolegrants);
+      }
+      CATCH (OBJECT e)
+      {
+        work->AddError(e->what);
+      }
+    }
+
+    IF (NOT work->Finish())
+      RETURN "cancel";
+
+    IF (found_deleted)
+      RETURN "deleted";
+    ELSE IF (is_dangerous)
+      RETURN "dangerous";
+    ELSE
+      RETURN "ok";
+  }
+>;
+
+/** Dummy dialog for deleting users, roles and units
+*/
+OBJECTTYPE DeleteDialog
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+  //
+
+  OBJECT authapi;
+
+  /// Parent screen
+  OBJECT screen;
+
+  RECORD ARRAY todelete;
+
+  OBJECT ARRAY authobjs;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW(OBJECT screen, OBJECT ARRAY authobjs)
+  {
+    this->authapi := screen->tolliumcontroller->userapi;
+    this->screen := screen;
+
+    this->authobjs := authobjs;
+  }
+
+  PUBLIC STRING FUNCTION RunModal()
+  {
+    IF (this->screen->RunMessageBox("system:userrights/dialogs.suredelete", ToString(LENGTH(this->todelete))) != "yes")
+      RETURN "cancel";
+
+    // Recalc within work
+    OBJECT work := this->screen->BeginUnvalidatedWork();
+    this->todelete := this->authapi->GetTypedRecursiveAuthobjects(this->authobjs);
+
+    INTEGER ARRAY authids_user :=
+        SELECT AS INTEGER ARRAY obj->authobjectid
+          FROM this->todelete
+         WHERE type IN [ "user" ];
+
+    INTEGER ARRAY authids_unit :=
+        SELECT AS INTEGER ARRAY obj->authobjectid
+          FROM this->todelete
+         WHERE type IN [ "unit" ];
+
+    INTEGER ARRAY authids_role :=
+        SELECT AS INTEGER ARRAY obj->authobjectid
+          FROM this->todelete
+         WHERE type IN [ "role" ];
+
+
+    IF (LENGTH(authids_unit CONCAT authids_user) != LENGTH(this->screen->tolliumuser->HasRightOnMultiple("system:manageunit", authids_unit CONCAT authids_user)))
+      work->AddError(GetTid("system:userrights.norightstodeleteall"));
+    IF (LENGTH(authids_role) != LENGTH(this->screen->tolliumuser->HasRightOnMultiple("system:manageroles", authids_role)))
+      work->AddError(GetTid("system:userrights.norightstodeleteall"));
+
+    IF (NOT work->Finish())
+      RETURN "cancel";
+
+    OBJECT ARRAY allobjs := SELECT AS OBJECT ARRAY obj FROM this->todelete;
+    this->authapi->DeleteMultiple(allobjs);
+
+    RETURN "ok";
+  }
+>;
+
+
+/** Makes a grant to user dialog
+    @param parent Parent screen
+    @param objecttypename Name of objecttype of the object
+    @param objectid Id of object to add a grant on (0 for all objects of the type)
+    @return Dialog, use RunModal to run it.
+    @cell return.RunModal Function to run the dialog (returns "ok" on success)
+    @cell return.grantees Grantee (readwrite)
+    @cell return.rightname Selected right (readonly)
+    @cell return.objectid Objectid (readonly)
+    @cell return.withgrantoption Whether with grantoption is selected (readonly)
+*/
+PUBLIC OBJECT FUNCTION MakeAddGrantToUsersDialog(OBJECT parent, OBJECT ARRAY grantees)
+{
+  OBJECT scr := parent->LoadScreen("system:userrights/dialogs/addgranttousers.addgranttousers",
+      [ grantees := grantees
+      ]);
+
+  RETURN scr;
+}
+
+/** Makes a grant dialog where users can select rights from a the global rights in a rightsgroup
+    @param parent Parent screen
+    @param rightsgroup Rightsgroup to show the rights of
+    @return Dialog, use RunModal to run it.
+    @cell return.RunModal Function to run the dialog (returns "ok" on success)
+    @cell return.grantee Grantee (readwrite)
+    @cell return.rightname Selected right (readonly)
+    @cell return.objectid Objectid (readonly)
+    @cell return.withgrantoption Whether with grantoption is selected (readonly)
+*/
+PUBLIC OBJECT FUNCTION MakeAddGrantOnRightsGroupDialog(OBJECT parent, STRING rightsgroup)
+{
+  OBJECT scr := parent->LoadScreen("system:userrights/dialogs/addgrantonobject.addgrantonobject",
+      [ rightsgroup :=   rightsgroup
+      , objectid :=     0
+      ]);
+
+  RETURN scr;
+}
+
+/** Makes a grant on object dialog
+    @param parent Parent screen
+    @param objecttypename Name of objecttype of the object
+    @param objectid Id of object to add a grant on (0 for all objects of the type)
+    @return Dialog, use RunModal to run it.
+    @cell return.RunModal Function to run the dialog (returns "ok" on success)
+    @cell return.grantee Grantee (readwrite)
+    @cell return.rightname Selected right (readonly)
+    @cell return.objectid Objectid (readonly)
+    @cell return.withgrantoption Whether with grantoption is selected (readonly)
+*/
+PUBLIC OBJECT FUNCTION MakeAddGrantOnObjectDialog(OBJECT parent, STRING objecttypename, INTEGER objectid)
+{
+  OBJECT scr := parent->LoadScreen("system:userrights/dialogs/addgrantonobject.addgrantonobject",
+      [ objecttypename := objecttypename
+      , objectid :=       objectid
+      ]);
+
+  RETURN scr;
+}
+
+/** Makes a dialog to grant a selectable role to specific users.
+    @param parent Parent screen
+    @param grantees Users to grant the role to
+    @return Dialog, use RunModal to run it.
+    @cell return.RunModal Function to run the dialog (returns "ok" on success)
+    @cell return.grantees Grantees (readonly)
+    @cell return.roleid Selected role (settable)
+*/
+PUBLIC OBJECT FUNCTION MakeAddGrantOfSelectableRoleToUserDialog(OBJECT parent, OBJECT ARRAY grantees)
+{
+  OBJECT scr := parent->LoadScreen("system:userrights/dialogs/addroletousers.addroletousers",
+      [ grantees := grantees
+      ]);
+
+  RETURN scr;
+}
+
+/** Makes a dialog to grant a specific role to selectable users.
+    @param parent Parent screen
+    @param roleid Id of role to grant
+    @return Dialog, use RunModal to run it.
+    @cell return.RunModal Function to run the dialog (returns "ok" on success)
+    @cell return.grantees Grantees (settable)
+    @cell return.roleid Role (settable)
+*/
+PUBLIC OBJECT FUNCTION MakeAddGrantOfRoleToSelectableUsersDialog(OBJECT parent, OBJECT roleobj)
+{
+  OBJECT scr := parent->LoadScreen("system:userrights/dialogs/giveusersrolegrant.giveusersrolegrant",
+      [ roleobj := roleobj
+      ]);
+
+  RETURN scr;
+}
+
+/** Makes a edit grant dialog
+    @param parent Parent screen
+    @param grantee Grantee of the right to edit
+    @param rightname Name of right in current grant
+    @param objectid Objectid of current grant (use 0 for global rights)
+    @return Dialog, use RunModal to run it.
+    @cell return.RunModal Function to run the dialog (returns "ok" on success)
+    @cell return.grantee Grantee (readwrite)
+    @cell return.rightname Selected right (readonly)
+    @cell return.objectid Objectid (readonly)
+    @cell return.withgrantoption Whether with grantoption is selected (readonly)
+*/
+PUBLIC OBJECT FUNCTION MakeEditRightGrantDialog(OBJECT parent, OBJECT grantee, STRING rightname, INTEGER objectid)
+{
+  OBJECT scr := parent->LoadScreen("system:userrights/dialogs/editgrant.editrightgrant",
+      [ grantee :=      grantee
+      , rightname :=    rightname
+      , objectid :=     objectid
+      ]);
+
+  RETURN scr;
+}
+
+/** Makes a edit grant dialog
+    @param parent Parent screen
+    @param grantee Grantee of the right to edit
+    @param rightname Name of right in current grant
+    @param roleobj Role in the grant
+    @return Dialog, use RunModal to run it.
+    @cell return.RunModal Function to run the dialog (returns "ok" on success)
+*/
+PUBLIC OBJECT FUNCTION MakeEditRoleGrantDialog(OBJECT parent, OBJECT grantee, OBJECT roleobj)
+{
+  OBJECT scr := parent->LoadScreen("system:userrights/dialogs/editgrant.editrolegrant",
+      [ grantee :=      grantee
+      , roleobj :=      roleobj
+      ]);
+
+  RETURN scr;
+}
+
+/** Makes a revoke grants executing object
+    @param parent Parent screen
+    @param grants Grants to revoke
+    @cell grants.grantee
+    @cell grants.rightname
+    @cell grants.objectid
+    @param rolegrants
+    @cell rolegrants.grantee
+    @cell rolegrants.roleobj
+    @return Object that can execute the revoke
+    @cell return.RunModal Function to run the dialog (returns "ok" on success, "dangerous" on success on dangerous revoke, "deleted" on success and one of the grantees was found to be deleted)
+*/
+PUBLIC OBJECT FUNCTION MakeRevokeDialog(OBJECT parent, RECORD ARRAY grants, RECORD ARRAY rolegrants)
+{
+  OBJECT screen := NEW RevokeDialog(parent, grants, rolegrants);
+  RETURN screen;
+}
+
+PUBLIC OBJECT FUNCTION MakeDeleteDialog(OBJECT parent, OBJECT ARRAY authobjs)
+{
+  OBJECT screen := NEW DeleteDialog(parent, authobjs);
+  RETURN screen;
+}
+
+/** Makes a screen to select a unit
+    @param parent Parent screen
+    @param callback Function that will be called when 'ok' is pressed (signature: BOOLEAN FUNCTION func(OBJECT dialog, INTEGER unitid) )
+    @param neededright One of 'system:manageunit', 'system:manageroles', 'system:browseunits'
+    @param canselectroot Whether the root unit can be selected
+    @return Screen with the stuff
+    @return screen.title Title of the screen
+    @return screen.value Selected unit (0 is root unit)
+*/
+PUBLIC OBJECT FUNCTION MakeSelectUnitDialog(OBJECT parent, OBJECT defaultunit, STRING neededright, BOOLEAN canselectroot)
+{
+  IF (neededright NOT IN [ 'system:manageunit', 'system:manageroles', 'system:browseunits' ])
+    THROW NEW Exception('Illegal right given to MakeSelectUnitDialog: "' || neededright || '"');
+
+  OBJECT screen := parent->LoadScreen("system:userrights/dialogs.selectunit", [ unit := defaultunit, selectright := neededright, canselectroot := canselectroot ]);
+  RETURN screen;
+}
+
+/** Makes a screen to add/edit a role
+    @return
+    @cell return.roleobj New/edited role
+*/
+PUBLIC OBJECT FUNCTION MakeAddEditRoleDialog(OBJECT parent, OBJECT roleobj, OBJECT parentunit)
+{
+  RETURN parent->LoadScreen("system:userrights/dialogs/editauthobject.editrole", [ roleobj := roleobj, parent := parentunit ]);
+}
+
+PUBLIC OBJECT FUNCTION MakeUserRoleSelectionDialog(OBJECT parent)
+{
+  OBJECT screen := parent->LoadScreen("system:userrights/dialogs.selectuserrole");
+  RETURN screen;
+}
+
+/** Makes a screen to add/edit a unit
+    @return
+    @cell return.unit New/edited unit
+*/
+PUBLIC OBJECT FUNCTION MakeAddEditUnitDialog(OBJECT parent, OBJECT unit, OBJECT parentunit)
+{
+  RETURN parent->LoadScreen("system:userrights/dialogs/editauthobject.editunit", [ unit := unit, parent := parentunit ]);
+}
+
+/** Makes a screen to add/edit a user
+    @return
+    @cell return.unit New/edited user
+*/
+PUBLIC OBJECT FUNCTION MakeAddEditUserDialog(OBJECT parent, OBJECT user, OBJECT parentunit)
+{
+  RETURN parent->LoadScreen("system:userrights/dialogs/users.edituser", [ user := user, parent := parentunit, toedit := "userinfo" ]);
+}
+
+/** Makes a screen to manage the rights on a specific object
+*/
+PUBLIC OBJECT FUNCTION MakeManageObjectRightsDialog(OBJECT parent, STRING objecttypename, INTEGER objectid)
+{
+  RETURN parent->LoadScreen("system:userrights/dialogs/manageobjectrights.manageobjectrights", [ type := "object", objecttypename := objecttypename, objectid := objectid ]);
+}

@@ -1,0 +1,34 @@
+.wh-anchor
+{
+  position:absolute; /* absolute so we don't expand our parent */
+  display:inline-block; /* what most users in practice preferred */
+  pointer-events: none; /* shifting the anchor up may causing overlapping clickable areas */
+  visibility: hidden;
+}
+.wh-rtd__img
+{
+  max-width:100%;
+  height:auto;
+}
+.wh-rtd__img--floatleft
+{
+  float: left;
+  margin: 0 10px 0 0;
+}
+.wh-rtd__img--floatright
+{
+  float: right;
+  margin: 0 0px 0 10px;
+}
+.wh-rtd__table
+{
+  border-collapse: collapse;
+  border: none;
+}
+.wh-rtd__tablecell
+{
+  padding: 0;
+  vertical-align: top;
+  text-align: left;
+  empty-cells: show;
+}

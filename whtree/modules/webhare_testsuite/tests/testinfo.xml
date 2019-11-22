@@ -1,0 +1,33 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="hsengine">
+  <!-- TODO make hsengine work like other testframework tests, with testinfo.xml -->
+
+  <!-- Some tests to test the tester -->
+  <test name="system"     path="system/" />
+  <test name="wh"         path="wh/" />
+
+  <test name="publisher"  path="publisher/" />
+  <test name="consilio"   path="consilio/"  />
+  <test name="publisher-versioning"  path="publisher-versioning/" />
+  <test name="publisher-webdesign"  path="publisher-webdesign/" />
+
+  <test name="socialite"  path="socialite/" />
+  <test name="tollium"    path="tollium/" />
+  <test name="tollium-components"    path="tollium-components/" />
+  <test name="baselibs"   path="baselibs/" />
+
+  <test name="wrd"        path="wrd/" />
+
+  <group name="checkmodules">
+    <test name="checktestlists" script="mod::system/scripts/whcommands/checkmodule.whscr">
+      <arg value="--nowarnings" />
+      <arg value="--filemask" />
+      <arg value="testinfo.xml" />
+      <arg value="webhare_testsuite" />
+    </test>
+    <test name="coremodules" script="mod::system/scripts/whcommands/checkmodule.whscr">
+      <arg value="--async" />
+      <arg value="coremodules" />
+      <!-- <arg value="webhare_testsuite" />   we're pretty far from fully validating ourselves... so we'll stick to testinfo.xml -->
+    </test>
+  </group>
+</group>

@@ -1,0 +1,1922 @@
+﻿<?wh
+/** @topic sitedev/webdesign */
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
+LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/webpagebase.whlib" EXPORT WebPageBase;
+
+VARIANT FUNCTION CleanupWittyData(VARIANT indata)
+{
+  IF(IsTypeIDArray(TYPEID(indata)))
+  {
+    VARIANT ARRAY vals;
+    FOREVERY(VARIANT val FROM indata)
+      INSERT CleanupWittyData(val) INTO vals AT END;
+    RETURN vals;
+  }
+  IF(TYPEID(indata) = TYPEID(RECORD) AND RecordExists(indata))
+    RETURN RepackRecord(SELECT name, value := CleanupWittyData(value) FROM UnpackRecord(indata));
+  IF(TYPEID(indata) = TYPEID(FUNCTION PTR))
+    RETURN indata != DEFAULT FUNCTION PTR ? "functionptr" : "default functionptr";
+  IF(TYPEID(indata) = TYPEID(OBJECT))
+    RETURN ObjectExists(indata) ? "object" : "default object";
+  IF(TYPEID(indata) = TYPEID(BLOB))
+    RETURN `blob (${Length(indata)} bytes)`;
+  RETURN indata;
+}
+
+OBJECT ARRAY FUNCTION GenerateUniqueAnchors(OBJECT ARRAY anchors)
+{
+  STRING ARRAY seenanchors;
+  FOREVERY(OBJECT anchor FROM anchors)
+    IF(anchor->anchor != "")
+      INSERT anchor->anchor INTO seenanchors AT END;
+
+  OBJECT ARRAY outanchors;
+  FOREVERY(OBJECT anchor FROM anchors)
+  {
+    IF(anchor->anchor != "") //need to generate one
+    {
+      INSERT anchor INTO outanchors AT END;
+      CONTINUE;
+    }
+
+    STRING basetext := TrimWhitespace(anchor->SuggestAnchor());
+    IF(basetext="")
+      CONTINUE;
+
+    STRING suggestedbase := GetSafeName(basetext, [utf8:=true]);
+    FOR(INTEGER attempt := 1;;attempt := attempt+1)
+    {
+      STRING tryanchor := attempt=1 ? suggestedbase : suggestedbase || "-" || attempt;
+      IF(tryanchor NOT IN seenanchors)
+      {
+        INSERT tryanchor INTO seenanchors AT END;
+        anchor->SetAnchor(tryanchor);
+        BREAK;
+      }
+    }
+    INSERT anchor INTO outanchors AT END;
+  }
+  RETURN outanchors;
+}
+
+PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY insertions;
+  RECORD pvt_pageconfig;
+  BOOLEAN pvt_startedrendering;
+  OBJECT pvt_webtoolform;
+
+  //Link mode. FIXME: make private or add public property to access
+  PUBLIC STRING pvt_linkmode;
+  //JavaScript config, global
+  RECORD __jsconfig;
+  //Site specific JS settings
+  RECORD __jssiteconfig;
+  //Obj(ect) specific JS settings
+  RECORD __jsobjconfig;
+  //HTML classnames
+  STRING ARRAY pvt_htmlclasses;
+  //BODY classnames
+  STRING ARRAY pvt_bodyclasses;
+  //HTML data attributes
+  RECORD pvt_htmldata;
+  //HTML direction
+  STRING pvt_htmldirection;
+  //HTML manifest
+  STRING pvt_htmlmanifest;
+  //HTML prefixes
+  RECORD ARRAY pvt_htmlprefixes;
+  //Inserted harescript code (id: id, code: string)
+  RECORD ARRAY codesubstitutions;
+  //Static pages to create
+  PUBLIC RECORD ARRAY __staticpages;
+  //Whether we're rendering a widget preview
+  BOOLEAN pvt_renderwidgetpreview;
+  //Macro ptr to render the widget preview
+  PUBLIC MACRO PTR __renderwidgetpreview;
+  OBJECT ARRAY pvt_anchors;
+  //The dependency resolver
+  OBJECT pvt_dependencyresolver;
+  //The dependency resolver v2
+  OBJECT pvt_dependencyresolverv2;
+  //Whether a dependencyresolver warning has been issued
+  BOOLEAN warned_dependencyresolver;
+  //preparing for page? (ie can't change contentnavstops)
+  BOOLEAN __preparingforpage;
+  //is pageobject a new style page object?
+  PUBLIC BOOLEAN __is_newstyle_pageobject;
+  //content nav stops
+  STRING ARRAY pvt_contentnavstops;
+  RECORD ARRAY __invokedwitties;
+  //enable ecmascript modules. experimental and likely broken
+  PUBLIC BOOLEAN __esm;
+
+  OBJECT defaultformrenderer;
+  /// Extra resource dependencies (for automatic outputtools reload)
+  STRING ARRAY resourcedeps;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables and properties
+  //
+
+  ///The relative link scope (defaults to "protocol", which is safe for multimode http/https sites) used for designfiles and GetRelUrl
+  PUBLIC STRING relativelinksscope;
+  ///Create relative bases (imgroot, designroot, siteroot), according to the relative scope
+  PUBLIC BOOLEAN relativebases;
+  ///Base folder of the design, either site::x/y/z/ or moduleroot::a/b/c/
+  PUBLIC PROPERTY designfolder(this->__config.designfolder,-);
+  ///URL of the design root folder. Passed as 'designroot' to the Witty
+  PUBLIC STRING designrooturl;
+  ///URL of the CDN version of the design root folder. Passed as 'designcdnroot' to the Witty. If the design-holding site isn't published to a cdn, this just returns designroot
+  PUBLIC STRING designcdnrooturl;
+  ///URL of the image root folder. Passed as 'imgroot' to the Witty (if not set, [imgroot] = [designcdnroot]img/)
+  PUBLIC STRING imgrooturl;
+  ///The page title
+  PUBLIC STRING pagetitle;
+  ///The page description
+  PUBLIC STRING pagedescription;
+  ///The page keywords
+  PUBLIC STRING pagekeywords;
+  ///The page witty
+  PUBLIC OBJECT pagewitty;
+  ///The page object (dynamic or static page)
+  PUBLIC OBJECT pageobject;
+  /** The structured breadcrumb path, ordered from the root
+      @cell(string) link Path link
+      @cell(string) title Title associated with link */
+  PUBLIC RECORD ARRAY structuredbreadcrumb;
+  ///The content body generator (the main body, which is then followed by any plugin adds)
+  PUBLIC MACRO PTR contentbody;
+  ///The page setup
+  PUBLIC PROPERTY pageconfig(pvt_pageconfig, SetPageConfig);
+  ///Maximum content width
+  PUBLIC STRING maxcontentwidth;
+  ///The page canonical URL (eg, it's unique reference in a search engine). This is automatically set to file->url by static pages
+  PUBLIC STRING canonicalurl;
+  ///HTML classes
+  PUBLIC PROPERTY htmlclasses(pvt_htmlclasses, SetHTMLClasses);
+  ///BODY classes
+  PUBLIC PROPERTY bodyclasses(pvt_bodyclasses, SetBodyClasses);
+  ///HTML data attributes
+  PUBLIC PROPERTY htmldata(pvt_htmldata, SetHTMLData);
+  ///HTML direction
+  PUBLIC PROPERTY htmldirection(pvt_htmldirection, SetHTMLDirection);
+  ///HTML manifest
+  PUBLIC PROPERTY htmlmanifest(pvt_htmlmanifest, SetHTMLManifest);
+  ///Site-specific js settings
+  PUBLIC PROPERTY jssiteconfig(__jssiteconfig, SetJSSiteConfig);
+  ///Obj-specific js settings
+  PUBLIC PROPERTY jsobjconfig(__jsobjconfig, SetJSObjConfig);
+  ///Are we in the rendering phase? (too late to add anything but footers)
+  PUBLIC PROPERTY startedrendering(pvt_startedrendering, -);
+  ///Witty encoding to use
+  PUBLIC STRING wittyencoding;
+  ///Lazy load CSS ?
+  PUBLIC BOOLEAN lazyloadcss;
+  ///Content navigation stops, a list of tagnames (eg ['h1','h2']) that will be included in content navigation
+  PUBLIC PROPERTY contentnavstops(pvt_contentnavstops, SetContentNavStops);
+  ///Current site configuration record
+  PUBLIC PROPERTY siteconfig(__GetSiteConfig, -);
+
+  PUBLIC PROPERTY dependencyresolver(GetDependencyResolver,-);
+
+  PUBLIC PROPERTY webtoolform(GetWebtoolForm, -);
+
+  ///the 'real' content body, set per page by static publication
+  PUBLIC MACRO PTR __truecontentbody;
+
+  ///inject the script bundle with async tags
+  PUBLIC BOOLEAN asyncbundle;
+  ///set a timestamp or other prefix to trigger unique bundles
+  PUBLIC STRING assetcachebuster;
+  ///suppress ?c= timestamps
+  PUBLIC BOOLEAN __suppresstimestamps;
+  ///If set, we're rendering a 'standard content page' - a builtin page that expects to be able to simply render <h2>, <p> etc.
+  PUBLIC BOOLEAN isstandardcontentpage;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    IF(NOT RecordExists(__webdesign_config))
+      THROW NEW Exception("A webdesign cannot be directly instantiated using NEW - use GetWebDesign to open a webdesign for a specific object");
+
+    this->wittyencoding := __webdesign_config.wittyencoding;
+    this->lazyloadcss := __webdesign_config.lazyloadcss;
+    this->contentbody := PTR this->__RenderCurrentPage; //we provide this wrapper to allow simple hooking of the content rendering
+    this->maxcontentwidth := __webdesign_config.maxcontentwidth;
+    this->pageobject := this->__config.pageobject;
+    this->pvt_renderwidgetpreview := this->__config.renderwidgetpreview;
+    this->pvt_contentnavstops := this->__config.contentnavstops;
+
+    IF (ObjectExists(__webdesign_config.applytester))
+      this->__SetObjectId(__webdesign_config.applytester->__Deprecated_GetObjInfo().obj.id, __webdesign_config.applytester);
+
+    this->relativelinksscope := "protocol";
+
+    IF(ObjectExists(this->pvt_targetobject))
+    {
+      IF(NOT ObjectExists(this->pvt_targetsite))
+        THROW NEW Exception("A webdesign requires a target site, but target object " || this->pvt_targetobject->whfspath || " is outside any site");
+
+      this->pagetitle := this->pvt_targetobject->title ?? this->pvt_targetfolder->title;
+      IF(this->pagetitle = "" AND this->pvt_targetfolder->id != this->pvt_targetfolder->parentsite) // try the site root folder's title
+        this->pagetitle := this->pvt_targetsite->rootobject->title;
+      IF(this->pagetitle = "") //still no title
+        this->pagetitle := this->pvt_targetsite->name;
+
+      this->pagedescription := this->pvt_targetobject->description; //No fallback to folder. a folder's description is unlikely to apply to a file?
+      this->pagekeywords := this->pvt_targetobject->keywords;
+    }
+    SetTidLanguage(this->languagecode); //FIXME This should probably be done at instantiation, not just whenever NEW is called.
+
+    IF(__errorrequesturl != "")
+      this->baseurl := __errorrequesturl;
+    ELSE IF(IsRequest())
+      this->baseurl := GetRequestURL();
+    ELSE
+      this->baseurl := this->targetobject->url;
+
+    IF(this->IsStaticPublication() AND RecordExists(this->__config.renderinfo))
+    {
+      this->canonicalurl := this->pvt_targetobject->url;
+      IF(this->__config.renderinfo.objectname != "")
+      {
+        DELETE CELL pagefolder FROM __pageinfo;
+        INSERT CELL pagefolder := GetDirectoryFromPath(this->__config.renderinfo.webpagelibrary) INTO __pageinfo;
+        this->pageobject := MakeObject(this->__config.renderinfo.webpagelibrary, this->__config.renderinfo.objectname, this->contentobject);
+      }
+    }
+
+    IF(this->__config.designfolder LIKE "mod::*")
+    {
+      this->pvt_dependencyresolverv2 := CreateDependencyResolverForModuleDesign(this->__config, FALSE);
+
+      this->designrooturl := this->pvt_dependencyresolverv2->designroot; //FIXME readd the version hash, see below
+      this->asyncbundle := this->__config.asyncbundle;
+
+      IF(this->pvt_targetsite->cdnbaseurl != "")
+      {
+        this->designcdnrooturl := ResolveToAbsoluteURL(this->pvt_targetsite->cdnbaseurl, this->designrooturl);
+        imgcache_globalbaseurl := this->designcdnrooturl;
+      }
+      ELSE
+      {
+        this->designcdnrooturl := this->designrooturl;
+      }
+    }
+    ELSE IF(this->__config.designfolder != "")
+    {
+      OBJECT designfolder := OpenWHFSObjectByPath(this->__config.designfolder);
+      IF(NOT ObjectExists(designfolder) OR NOT designfolder->isfolder)
+        THROW NEW Exception("Design folder '" || this->__config.designfolder || "' could not be located");
+      IF(designfolder->url="")
+        THROW NEW Exception("Design folder '" || this->__config.designfolder || "' has no output location");
+      IF(designfolder->typens!="http://www.webhare.net/xmlns/publisher/designfolder")
+        THROW NEW Exception("Design folder '" || this->__config.designfolder || "' is not of 'design folder' type");
+
+      this->designrooturl := designfolder->url;
+      RECORD unp := UnpackURL(this->designrooturl);
+      IF(unp.scheme IN ['http','https'] AND UnpackURL(this->baseurl).scheme = unp.scheme)
+        this->designrooturl := Substring(this->designrooturl,Length(unp.scheme)+1); //Create protocol-relative urls
+
+      OBJECT designparentsite := this->pvt_targetsite->id = designfolder->parentsite
+          ? this->pvt_targetsite
+          : OpenSite(designfolder->parentsite);
+
+      IF(designparentsite->cdnbaseurl != "") //only set ! urls if we really have a CDN (ADDME: you may still want to opt in to this to force image caches to update?)
+      {
+        this->designcdnrooturl := Substitute(designfolder->url, designparentsite->webroot, designparentsite->cdnroot);
+        this->designcdnrooturl := Left(this->designcdnrooturl, Length(this->designcdnrooturl)-1); //strip the '/'
+        INTEGER timestamp := GetDayCount(designfolder->modificationdate) * 864000 + (GetMsecondCount(designfolder->modificationdate)/100);
+        this->designcdnrooturl := this->designcdnrooturl || "/!" || ToString(timestamp,36) || "/";
+
+        RECORD cdnunp := UnpackURL(this->designcdnrooturl);
+        IF(cdnunp.scheme IN ['http','https'] AND UnpackURL(this->baseurl).scheme = cdnunp.scheme)
+          this->designcdnrooturl := Substring(this->designcdnrooturl,Length(cdnunp.scheme)+1); //Create protocol-relative urls
+      }
+      ELSE
+      {
+        this->designcdnrooturl := this->designrooturl;
+      }
+
+      //ADDME also init depsolver if no base dependency is given?
+      this->pvt_dependencyresolver := CreateDependencyResolver(designfolder->id, this->__config.basedependency ?? "--none--");
+    }
+    ELSE IF(this->__config.basedependency != "")
+    {
+      THROW NEW Exception("The base dependency was specified, but no designfolder was given");
+    }
+
+    IF(IsRequest())
+    {
+      IF(IsWHDebugOptionSet("sht"))
+        __shortfailtid := TRUE;
+      IF(IsWHDebugOptionSet("win") OR AreOutputToolsActive()) //record witty data themselves, or at least resources for the outputtools
+        __AddWittyInvocationHook(PTR this->__OnWitty);
+    }
+
+    IF(ObjectExists(this->__config.applytester))
+    {
+      this->__SetAvailablePlugins(this->__config.applytester->GetWebDesignPlugins());
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  OBJECT FUNCTION GetWebtoolForm()
+  {
+    IF(NOT ObjectExists(this->pvt_webtoolform))
+    {
+      /* plain types need not be hosted by ourselves, just send them straight to their RPC...
+         however, this currently breaks merge fields, directly because __mergefields is missing but indirectly because MergeThankYouPageRTDFields needs CallwithScope
+         and the short-circuit path doesn't open the webdesign
+      BOOLEAN selfhosted := this->contentobject->typens NOT IN [ "http://www.webhare.net/xmlns/publisher/formwebtool", "http://www.webhare.net/xmlns/publisher/formwidget"];
+      */
+      this->pvt_webtoolform := this->DoOpenWebtoolForm(this->contentobject, TRUE /*selfhosted*/);
+    }
+
+    RETURN this->pvt_webtoolform;
+  }
+  RECORD FUNCTION __GetSiteConfig()
+  {
+    RECORD libinfo := GetHarescriptLibraryInfo(this->__config.library);
+    RETURN GetAdhocCached(
+        CELL[ siteid :=     this->targetsite->id
+            , this->__config.library
+            , this->__config.objectname
+            , compileid :=  libinfo.compile_id
+            ], PTR this->__CalculateSiteConfig());
+  }
+
+  MACRO SetContentNavStops(STRING ARRAY stops)
+  {
+    IF(this->__preparingforpage)
+      THROW NEW Exception("The content navigation stops cannot be modified after the page has started opening its rendered objects");
+    this->pvt_contentnavstops := stops;
+  }
+
+  MACRO SetPageConfig(RECORD newpageconfig)
+  {
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The pageconfig cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+    this->pvt_pageconfig := newpageconfig;
+  }
+
+  MACRO SetJSSiteConfig(RECORD newconfig)
+  {
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The JS Site settings cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+    this->__jssiteconfig := newconfig;
+  }
+
+  MACRO SetJSObjConfig(RECORD newconfig)
+  {
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The JS Obj(ect) settings cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+    this->__jsobjconfig := newconfig;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO __OnWitty(OBJECT witty, INTEGER scriptid, STRING component, RECORD data, BOOLEAN before)
+  {
+    IF(NOT IsAbsoluteResourcePath(component))
+    {
+      STRING scriptname := witty->__GetScriptNameById(scriptid);
+      component := scriptname || ":" || component;
+    }
+    IF(before)
+    {
+      INSERT CELL[ component, data := CleanupWittyData(data), stacktrace := GetStackTrace() ] INTO this->__invokedwitties AT END;
+
+      STRING resourcename := Detokenize(ArraySlice(Tokenize(component, ":"), 0, 3), ":");
+      __HS_INTERNAL_REGISTERLOADEDRESOURCE(resourcename);
+    }
+
+    IF(IsWHDebugOptionSet("win"))
+      Print(`<!-- ${before ? "START" : "END"} WITTY: ${component} -->`);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO __PrepareAnchors()
+  {
+    //FIXME deal with duplicate explicitly suggested anchors.
+    OBJECT ARRAY anchors;
+    IF(ObjectExists(this->pageobject))
+    {
+      IF (this->__is_newstyle_pageobject)
+        anchors := this->pageobject->GatherSuggestedAnchors();
+      ELSE
+        anchors := this->pageobject->GatherSuggestedAnchors(this);
+    }
+
+    this->pvt_anchors := GenerateUniqueAnchors(anchors);
+  }
+
+  UPDATE MACRO PreparePlugins()
+  {
+    WebContext::PreparePlugins();
+    FOREVERY(RECORD plugin FROM this->pvt_plugins)
+      plugin.pluginobj->PrepareForRendering(this);
+  }
+
+  MACRO DoInserts(STRING location)
+  {
+    FOR (INTEGER i := 0; i < LENGTH(this->insertions); i := i + 1)
+    {
+      RECORD item := this->insertions[i];
+      IF(item.location = location)
+        item.callback();
+    }
+  }
+
+  MACRO PTR FUNCTION __GetContentBodyPtr()
+  {
+    RECORD renderinfo := this->__config.renderinfo;
+    IF((ObjectExists(this->targetobject) AND this->targetobject->isfolder) OR NOT RecordExists(renderinfo))
+      RETURN DEFAULT MACRO PTR;
+
+    IF(ObjectExists(this->pageobject))
+    {
+      IF(this->IsStaticPublication())
+      {
+        this->__staticpages := SELECT preparepage := CellExists(page, "preparepage") ? page.preparepage : DEFAULT MACRO PTR
+                                    , runbody
+                                    , name := CellExists(page,"name") ? page.name : ""
+                                FROM this->GetStaticPages() AS page;
+
+        IF(Length(this->__staticpages)=0)
+          THROW NEW Exception("No pages to generate specified");
+        RETURN this->__staticpages[0].runbody; //return the body, as most templates who don't expect a split page may still want to invoke the contentbodyptr before a page is opened
+      }
+      IF (this->__is_newstyle_pageobject)
+        RETURN PTR this->pageobject->RunBody();
+      ELSE
+        RETURN PTR this->pageobject->RunBody(this);
+    }
+    RETURN DEFAULT MACRO PTR;
+  }
+
+  MACRO RunPageWitty(RECORD data)
+  {
+    BOOLEAN prettyspacing := this->wittyencoding NOT LIKE "*-NI";
+    IF(this->pagewitty->HasComponent("htmlbody"))
+    {
+      STRING header :=
+        '<!DOCTYPE html>\n'
+        || '<html lang="' || EncodeValue(this->languagecode) || '"';
+
+      STRING ARRAY html_classes := this->pvt_htmlclasses;
+      IF (this->pvt_renderwidgetpreview)
+        INSERT "wh-widgetpreview" INTO html_classes AT END;
+
+      IF(Length(html_classes) > 0)
+      {
+        header := header || ' class="';
+        FOREVERY(STRING classname FROM html_classes)
+        {
+          IF(classname = "" OR classname LIKE "* *")
+            THROW NEW Exception("Illegal HTML class name '" || classname || "'");
+          header := header || (#classname=0?'':' ') || EncodeValue(classname);
+        }
+        header := header || '"';
+      }
+      IF(Length(this->pvt_htmlprefixes) > 0)
+      {
+        header := header || ' prefix="';
+        FOREVERY(RECORD prefix FROM this->pvt_htmlprefixes)
+        {
+          IF(#prefix>0)
+            header := header || ' ';
+          header := header || EncodeValue(prefix.prefix) || ": " || EncodeValue(prefix.namespace);
+        }
+        header := header || '"';
+      }
+      IF(this->htmldirection != "")
+        header := header || ' dir="' || EncodeValue(this->htmldirection) || '"';
+      IF(this->pvt_htmlmanifest != "")
+        header := header || ' manifest="' || EncodeValue(this->pvt_htmlmanifest) || '"';
+      FOREVERY(RECORD toset FROM UnpackRecord(this->pvt_htmldata))
+      {
+        header := header || ' data-' || EncodeValue(ToLowercase(toset.name)) || '="' || EncodeValue(''||toset.value) || '"';
+      }
+      header := header || '>\n<head>\n';
+      header := header || '  <meta charset="utf-8">\n';
+      header := header || '  <meta http-equiv="X-UA-Compatible" content="IE=edge">\n';
+      header := header || '  <title>' || EncodeValue(data.pagetitle) || '</title>\n';
+      IF(data.pagedescription!="")
+        header := header || '  <meta name="description" content="' || EncodeValue(data.pagedescription) || '">\n';
+      IF(data.canonicalurl!="")
+        header := header || '  <link rel="canonical" href="' || EncodeValue(data.canonicalurl) || '">\n';
+
+      IF(NOT prettyspacing)
+        header := Substitute(Substitute(header,'\n  ',''),'\n','');
+      Print(header);
+
+      IF(this->pagewitty->HasComponent("htmlhead"))
+        this->pagewitty->RunComponent("htmlhead", data);
+
+      this->__PrintHeadFinale(data);
+
+      //Note: we reset the header variable here..
+      header := prettyspacing ? '\n</head><body' : '</head><body';
+      IF(Length(this->pvt_bodyclasses) > 0)
+      {
+        header := header || ' class="';
+        FOREVERY(STRING classname FROM this->pvt_bodyclasses)
+        {
+          IF(classname = "" OR classname LIKE "* *")
+            THROW NEW Exception("Illegal BODY class name '" || classname || "'");
+          header := header || (#classname=0?'':' ') || EncodeValue(classname);
+        }
+        header := header || '"';
+      }
+      header := header || (prettyspacing ? '>\n' : '>');
+      Print(header);
+      IF (this->pvt_renderwidgetpreview)
+      {
+        data.contents := this->__renderwidgetpreview;
+
+        IF (this->pagewitty->HasComponent("htmlwidgetbody"))
+          this->pagewitty->RunComponent("htmlwidgetbody", data);
+        ELSE
+          this->pagewitty->CallWithScope(data.contents, data);
+      }
+      ELSE
+      {
+        this->__PrintBodyOpening();
+        this->pagewitty->RunComponent("htmlbody", data);
+        this->__PrintBodyFinale(data);
+      }
+      Print("</body></html>");
+    }
+    ELSE
+    {
+      IF (this->pvt_renderwidgetpreview)
+        THROW NEW Exception("Widget previews not supported in legacy webdesigns");
+      this->pagewitty->Run(data);
+    }
+  }
+
+  OBJECT FUNCTION DoOpenWebtoolForm(OBJECT formobject, BOOLEAN selfhosted)
+  {
+    OBJECT formdefs := OpenWHFSFormDefinitionsFile(formobject);
+    OBJECT mainform := formdefs->OpenFormDefinition("webtoolform");
+    IF(NOT ObjectExists(mainform))
+      RETURN DEFAULT OBJECT;
+
+    INTEGER webtoolformid := formobject->id;
+    OBJECT openasdraft := OpenWHFSDraft(webtoolformid);
+    IF(ObjectExists(openasdraft))
+      webtoolformid := openasdraft->source;
+
+    RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, [/* externalformname := formname
+                                                                                        , */webtoolformid := webtoolformid
+                                                                                        ]);
+    IF(parseresult.objectname = "")
+      parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
+
+    OBJECT form := OpenFormByDef(parseresult, [ webcontext := this
+                                              , applytester := this->targetapplytester
+                                              ]);
+    IF(NOT selfhosted)
+      form->__form.externalformname := "__formwidget:" || EncryptForThisServer("publisher:formwidget", [target := formobject->id]);
+
+    RETURN form;
+  }
+
+  /** Open an external webtool form
+      @param forombject WHFS object to open
+      @return(object %WebtoolFormBase) The requested form */
+  PUBLIC OBJECT FUNCTION OpenWebtoolForm(OBJECT formobject)
+  {
+    /* OpenWebtoolForm sets up a route through the general form rpc straight
+       to the webtool handlers. But custom form filetypes have their own validate
+       and submit handlers in the WebPage object so they only work on their own page */
+    IF(formobject->typens NOT IN [ "http://www.webhare.net/xmlns/publisher/formwebtool", "http://www.webhare.net/xmlns/publisher/formwidget"])
+      THROW NEW Exception(`OpenWebtoolForm is not supported for files of type '${formobject->typens}`);
+
+    RETURN this->DoOpenWebtoolForm(formobject, FALSE);
+  }
+
+  /** Render specified function as body for a widget preview
+      @param instancerender Render function */
+  PUBLIC MACRO RunAsWidgetPreview(MACRO PTR instancerender)
+  {
+    this->pvt_renderwidgetpreview := TRUE;
+    this->__renderwidgetpreview := instancerender;
+    this->RunPage();
+  }
+
+  /** Generate a breadcrum trail useful for structured data. Override this
+      function if you want to overwrite the initial breadcrumb (or just modify
+      this->structuredbreadcrumb in GetPageConfig or later)
+      @return breadcrum*/
+  PUBLIC RECORD ARRAY FUNCTION GetStructuredBreadcrumb()
+  {
+    // TODO move path generation to a free or WHFS function, with options... so users can invoke an efficient implementation when the standard one doesn't do
+    OBJECT tree_end := this->targetobject->id = this->targetfolder->indexdoc ? this->targetfolder : this->targetobject;
+    INTEGER ARRAY tree := tree_end->GetFullTree();
+    RECORD ARRAY crumbs := SELECT title := title ?? name
+                                , link
+                             FROM system.fs_objects
+                            WHERE id IN tree
+                                  AND link != ""
+                                  AND id != this->targetfolder->indexdoc
+                         ORDER BY SearchElement(tree,id);
+    RETURN crumbs;
+  }
+
+  PUBLIC MACRO __RunWithContents(MACRO PTR contents, MACRO PTR pagerenderfunc)
+  {
+    RECORD pageconfig := this->__GetFinalPageConfig(contents);
+
+    this->pvt_startedrendering := TRUE;
+    pagerenderfunc(pageconfig);
+  }
+
+  PUBLIC RECORD FUNCTION __GetFinalPageConfig(MACRO PTR contents)
+  {
+    /* We wrap the user's page renderer inside a witty call, so that we can push a few 'higher level' variables */
+    STRING designroot    := this->designrooturl;
+    STRING imgroot       := this->imgrooturl ?? this->designcdnrooturl || "img/";
+    STRING siteroot      := ObjectExists(this->targetsite) ? this->targetsite->webroot : "about:blank";
+
+    RECORD data := [ headfinale := DEFAULT MACRO PTR
+                   , contents   := contents
+                   , bodyopening := PTR this->__PrintBodyOpening
+                   , bodyfinale := DEFAULT MACRO PTR
+                   , languagecode := this->languagecode
+                   , pagetitle := this->pagetitle
+                   , pagedescription := this->pagedescription
+                   , pagekeywords := this->pagekeywords
+                   , canonicalurl := this->canonicalurl
+                   , isstandardcontentpage := this->isstandardcontentpage
+                   , baseurl       := this->baseurl
+                   , siteroot      := this->relativebases ? this->GetRelURL(siteroot) : siteroot
+                   , abssiteroot   := siteroot
+
+                   , designroot    := this->relativebases ? this->GetRelURL(designroot) : designroot
+                   , designcdnroot := this->designcdnrooturl
+                   , imgroot       := this->relativebases ? this->GetRelURL(imgroot) : imgroot
+
+                   , absdesignroot := ResolveToAbsoluteURL(this->baseurl, designroot)
+                   , absimgroot    := ResolveToAbsoluteURL(this->baseurl, imgroot)
+
+                   , ishomepage    := ObjectExists(this->targetsite) AND this->targetsite->id = this->targetfolder->id AND this->targetobject->id = this->targetfolder->indexdoc
+                   , isindexdoc    := ObjectExists(this->targetsite) AND this->targetobject->id = this->targetfolder->indexdoc
+                   , isrtdpreview  := FALSE
+                   ];
+
+    IF(NOT this->IsUsingModuleDesign())
+    {
+      data := CELL[ ...data
+                  , gettid := PTR this->GetTid
+                  , gethtmltid := PTR this->__GetHTMLTid
+                  ];
+    }
+
+    IF(this->pvt_linkmode = "absolute")
+    {
+      data.imgroot := data.absimgroot;
+      data.designroot := data.absdesignroot;
+      data.designcdnroot := ResolveToAbsoluteURL(data.absdesignroot, data.designcdnroot);
+    }
+
+    //We freeze the data to head/body finale as late as possible TODO can't they just use GetWittyVariable?
+    data.headfinale := PTR this->__PrintHeadFinale(data);
+    data.bodyfinale := PTR this->__PrintBodyFinale(data);
+
+    //pageconfig data takes precedence over our 'fallback' fields. UpdatePageConfig is a last chance to update this fina lresult
+    RETURN this->UpdatePageConfig(CELL[ ...data, ...this->pageconfig ]);;
+  }
+
+  RECORD FUNCTION __CalculateSiteConfig()
+  {
+    STRING ARRAY eventmasks :=
+        STRING[ ...GetResourceEventMasks(STRING[this->__config.library])
+              , "publisher:internal.siteprofiles.recompiled"
+              , "system:modulesupdate"
+              , `system:whfs.site.${this->targetsite->id}`
+              ];
+
+    RECORD config := this->GetCacheableSiteConfig();
+    IF (CellExists(config, "eventmasks"))
+      eventmasks := eventmasks CONCAT config.eventmasks;
+
+    RETURN
+        [ value :=        config
+        , eventmasks :=   eventmasks
+        ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private API
+  //
+
+  // This function takes the place of contentbodyptr, so users can have fun wrapping, calling, and replacing it, but we can still replace the real contentbody ptr
+  PUBLIC MACRO __RenderCurrentPage()
+  {
+    IF(this->__truecontentbody != DEFAULT MACRO PTR)
+      this->__truecontentbody();
+  }
+
+  PUBLIC MACRO __PreparePage()
+  {
+    this->__preparingforpage := TRUE;
+    IF(ObjectExists(this->pageobject))
+    {
+      IF(MemberExists(this->pageobject, "__is_newstyle_pagebase"))
+        THROW NEW Exception("Unexpected __is_newstyle_pagebase"); //we shouldn't have them available yet at this stage
+      this->__is_newstyle_pageobject := MemberExists(this->pageobject, "__is_newstyle_pagebase");
+      IF (NOT this->__is_newstyle_pageobject)
+        this->pageobject->PrepareForPageconfig(this);
+    }
+
+    this->structuredbreadcrumb := this->GetStructuredBreadcrumb();
+
+    this->pageconfig := this->GetPageConfig();
+    ///Setting designroot or imgroot also overwrites the variables WE use, or we consider them very dangerous to set.. so warning
+    FOREVERY(STRING tocheck FROM ["designroot", "imgroot"])
+      IF(CellExists(this->pageconfig, tocheck))
+        THROW NEW Exception(`For maximum compatibility, your pageconfig should not define a '${tocheck}' cell`);
+    this->PreparePlugins();
+    this->SetupPageWitty();
+
+    IF(ObjectExists(this->pageobject))
+    {
+      //Bad idea, it gets too recursive
+      //this->pagewitty->CallWithScope(PTR this->pageobject->PrepareForRendering(this), this->__GetFinalPageConfig(DEFAULT MACRO PTR));
+      IF (this->__is_newstyle_pageobject)
+        this->__truecontentbody := this->pageobject->GetPageBody();
+      ELSE
+        this->pageobject->PrepareForRendering(this);
+    }
+
+    this->__PrepareAnchors();
+    IF(NOT this->__is_newstyle_pageobject)
+      this->__truecontentbody := this->__GetContentBodyPtr();
+
+    this->PrepareForRendering();
+  }
+  PUBLIC MACRO __PostPreparePage(OBJECT pageobject, BOOLEAN isservicecall)
+  {
+    IF(ObjectExists(this->pageobject))
+      THROW NEW Exception("Page already prepared!");
+    this->pageobject := pageobject;
+    if(NOT isservicecall)
+      this->__truecontentbody := this->pageobject->GetPageBody();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Override hooks
+  //
+
+  /** Calculates site-specific configuration, will be cached per-site
+      @return Data to be cached, accessible through this->siteconfig.
+  */
+  RECORD FUNCTION GetCacheableSiteConfig()
+  {
+    RETURN this->GetCachableSiteconfig();
+  }
+  RECORD FUNCTION GetCachableSiteConfig() //old name, renamed for consistentcy
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Invoked when pageconfig and pageobject are fully setup */
+  PUBLIC MACRO PrepareForRendering()
+  {
+  }
+
+  /** Invoked to get the current page configuration
+      @long Most webdesigns will override GetPageConfig to provide the witty variables their template needs
+      @return Page configuration (witty variables for your templates) */
+  PUBLIC RECORD FUNCTION GetPageConfig()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Invoked at last chance to influence the witty variables
+      @long UpdatePageConfig is invoked on the final combination of the fallback data (eg designroot) and pageconfig. It's
+            often overriden to update the witty variables depending on last-minute updates done by the page code.
+      @return The pageconfig, updated if desired */
+  PUBLIC RECORD FUNCTION UpdatePageConfig(RECORD pageconfig)
+  {
+    RETURN pageconfig;
+  }
+
+  /** @short Rewrite a link from an RTD
+      @long Override RewriteHyperlink to convert custom hyperlink schemes back to real URLs
+      @param href URL to update
+      @return The final URL to use
+  */
+  PUBLIC STRING FUNCTION RewriteHyperlink(STRING href)
+  {
+    RETURN href;
+  }
+
+  PUBLIC MACRO RunAfterStaticPage()
+  {
+
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SetLinkingMode(STRING linkmode)
+  {
+    IF(linkmode NOT IN ["absolute"])
+      THROW NEW Exception("Invalid linking mode '" || linkmode || "'");
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The linking settings cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+
+    this->pvt_linkmode := linkmode;
+    IF(linkmode = "absolute")
+    {
+    }
+  }
+
+  ///@private Part of the sitedesign API, deprecated
+  PUBLIC OBJECT FUNCTION GetDependencyResolver()
+  {
+    IF(NOT this->warned_dependencyresolver)
+    {
+      this->AddPublicationWarning("Directly accessing the dependencyresolver is deprecated and will be removed"); //So we can properly integrate it
+      this->warned_dependencyresolver := TRUE;
+    }
+    RETURN this->pvt_dependencyresolver;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetAllDependedAssets() //This function is deprecated! Serviceworkers should download the assetpack manifest
+  {
+    IF(NOT ObjectExists(this->pvt_dependencyresolverv2))
+      THROW NEW Exception("This feature is only available when using a module-based webdesign");
+    IF(NOT this->pvt_startedrendering)
+      THROW NEW Exception("The list of required assets cannot be requested in the preparation phase");
+    RETURN SELECT subpath, rooturl, compressed, sourcemap FROM this->pvt_dependencyresolverv2->GetAllAssets(this->assetcachebuster);
+  }
+
+  ///@private Deprecated, will be rmoved when sitedesign API is removed
+  PUBLIC BOOLEAN FUNCTION IsUsingModuleDesign()
+  {
+    RETURN ObjectExists(this->pvt_dependencyresolverv2);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsRTDPreview()
+  {
+    RETURN FALSE;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetDesignRequires()
+  {
+    RETURN this->pvt_dependencyresolverv2->GetRequires();
+  }
+
+  ///@private Part of the sitedesign API, deprecated
+  PUBLIC MACRO AddDesignLoad(STRING module)
+  {
+    IF(ObjectExists(this->pvt_dependencyresolverv2))
+    {
+      this->pvt_dependencyresolverv2->AddRequire(module);
+      RETURN;
+    }
+
+    IF(NOT ObjectExists(this->pvt_dependencyresolver))
+      THROW NEW Exception("No designfolder specified");
+
+    this->pvt_dependencyresolver->AddLoad(module);
+  }
+
+  ///@private Part of the sitedesign API, deprecated
+  PUBLIC RECORD ARRAY FUNCTION GetDesignRepositories()
+  {
+    RETURN ObjectExists(this->pvt_dependencyresolver) ? this->pvt_dependencyresolver->GetRepositoryNameAndVersions() : DEFAULT RECORD ARRAY;
+  }
+
+  /** Return the pages to render */
+  PUBLIC RECORD ARRAY FUNCTION GetStaticPages()
+  {
+    RETURN this->pageobject->GetStaticPages(this);
+  }
+
+  /** @short Run the callback inside our context
+      @long Invokes the callback, as if it were invoked from the pagewitty, without actually rendering the pagewitty.
+      EmbedWittyLibrary and GetWittyVariable will be available as if this function were invoked from the witty, and witty variables like [siteroot] are accesisble
+      @return Returns whatever CallWithScope returned */
+  PUBLIC VARIANT FUNCTION CallWithScope(MACRO PTR callback)
+  {
+    RETURN this->pagewitty->CallWithScope(callback, this->__GetFinalPageConfig(DEFAULT MACRO PTR));
+  }
+
+  PUBLIC MACRO SetJSPluginConfig(STRING pluginname, RECORD data)
+  {
+    this->__jsconfig := CellDelete(this->__jsconfig, pluginname);
+    IF(RecordExists(data))
+      this->__jsconfig := CellInsert(this->__jsconfig, pluginname, data);
+  }
+
+  PUBLIC STRING FUNCTION GetRelURL(STRING inurl)
+  {
+    RETURN MakeRelativeLinkFromURL(this->baseurl, inurl, this->relativelinksscope);
+  }
+
+  PUBLIC STRING FUNCTION GetAbsUrl(STRING inurl)
+  {
+    RETURN ResolveToAbsoluteURL(this->baseurl, inurl);
+  }
+
+  PUBLIC INTEGER FUNCTION GetMaximumContentWidthPixels()
+  {
+    IF(this->maxcontentwidth LIKE "*px")
+      RETURN ToInteger(Left(this->maxcontentwidth, Length(this->maxcontentwidth)-2),0);
+    RETURN 0;
+  }
+
+  //invoked after PrepareForRendering
+  PUBLIC MACRO PrepareErrorPage(INTEGER errorcode, RECORD harescriptinfo, STRING url)
+  {
+    RECORD msg := GetErrorMessages(this->languagecode, errorcode);
+    this->pagetitle := msg.title;
+    this->isstandardcontentpage := TRUE;
+    this->__truecontentbody := PTR this->PrintErrorPage(errorcode, harescriptinfo, url);
+    IF (CellExists(harescriptinfo, "resources"))
+    {
+      // Get resources, and add libraries with errors (might be compile errors)
+      STRING ARRAY resources := harescriptinfo.resources CONCAT
+          SELECT AS STRING ARRAY filename
+            FROM harescriptinfo.allerrors
+           WHERE filename LIKE "mod::*";
+
+      // Filter out anything inside the builtinmodules
+      resources :=
+          SELECT AS STRING ARRAY uri
+            FROM TorecordArray(resources, "uri")
+           WHERE uri LIKE "mod::*/*"
+             AND SubString(Tokenize(uri, "/")[0], 5) NOT IN VAR whconstant_builtinmodules;
+
+      this->AddResourceDependencies(resources);
+    }
+  }
+
+  PUBLIC MACRO PrintErrorPage(INTEGER errorcode, RECORD harescriptinfo, STRING url)
+  {
+    RECORD msg := GetErrorMessages(this->languagecode, errorcode);
+    PrintErrorBody(msg, errorcode, harescriptinfo);
+  }
+
+  /** @short Initialize pagewitty with the template to use */
+  PUBLIC MACRO SetupPageWitty()
+  {
+    STRING wittypath := this->__config.witty;
+    this->pagewitty := LoadWittyLibrary(wittypath,this->wittyencoding);
+  }
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC BOOLEAN FUNCTION IsStaticPublication() //are we running a static publication ?
+  {
+    RETURN ObjectExists(publishingbackendlink);
+  }
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC BOOLEAN FUNCTION IsDynamicPublication() //are we running a dynamic publication ?
+  {
+    RETURN IsRequest();
+  }
+
+  /** @short Check if the webdesign is in a specific language
+      @param languages Case insensitive comma separated list of language to match, eg "nl" or "en,en-us". If the current languagecode is 'en-us', 'en' would match too
+      @return True if the webdesign->languagecode is one of the specified languages
+      */
+  PUBLIC BOOLEAN FUNCTION MatchLanguage(VARIANT languages)
+  {
+    RETURN MatchLanguage(this->languagecode, languages);
+  }
+
+  /** @short Generate a publication warning
+      @param text Warning text */
+  UPDATE PUBLIC MACRO AddPublicationWarning(STRING text)
+  {
+    WebContext::AddPublicationWarning(text);
+
+    IF(this->IsStaticPublication())
+    {
+      RECORD rec := publishingbackendlink->DoRequest(
+          [ type := "ADDWARNING"
+          , text := text
+          ]);
+
+      IF (rec.status != "ok")
+        THROW NEW Exception("AddWarning IPC message failed");
+      RETURN;
+    }
+  }
+
+  /** @short Insert a HTML fragment
+      @long Insert a predetermined HTML fragment at a specific insert location. This function cannot be called when rendering has started.
+      @param htmlcode Raw code to insert
+      @param location Insert location, one of "dependencies-top","dependencies-bottom","content-top","content-bottom","body-top","body-bottom" */
+  PUBLIC MACRO InsertHTML(STRING htmlcode, STRING location)
+  {
+    this->InsertWithCallback(PTR Print(htmlcode), location);
+  }
+
+  /** @short Insert a callback
+      @long Insert callback that will be invoked when rendering a specific insert location. This function cannot be called when rendering has started.
+      @param callback Function to call
+      @param location @copyfrom InsertHTML */
+  PUBLIC MACRO InsertWithCallback(MACRO PTR callback, STRING location)
+  {
+    IF(this->pvt_startedrendering AND location != "body-bottom")
+      THROW NEW Exception("Insertions cannot be added anymore when the page is being rendered");
+
+    IF(location NOT IN ["dependencies-top","dependencies-bottom","content-top","content-bottom","body-top","body-bottom"])
+      THROW NEW Exception("Unrecognized insert position '" || location || "'");
+
+    INSERT [ location := location, callback := callback ] INTO this->insertions AT END;
+  }
+
+  MACRO __PrintHeadFinale(RECORD data)
+  {
+    this->DoInserts("dependencies-top");
+
+    RECORD finaljsconfig := this->__jsconfig;
+    FOREVERY(STRING varname FROM ["siteroot", "designroot", "designcdnroot", "imgroot"])
+      finaljsconfig := CellInsert(finaljsconfig, varname, GetCell(data, varname));
+    INSERT CELL site := this->__jssiteconfig ?? CELL[] INTO finaljsconfig;
+    INSERT CELL obj := this->__jsobjconfig ?? CELL[] INTO finaljsconfig;
+    INSERT CELL dtapstage := GetDTAPStage() INTO finaljsconfig;
+    INSERT CELL islive := IsDTAPLive() INTO finaljsconfig;
+    INSERT CELL locale := this->languagecode = "en" ? "en-US" : this->languagecode || "-" || ToUppercase(this->languagecode) INTO finaljsconfig;
+    INSERT CELL server := GetWebhareVersionNumber() INTO finaljsconfig;
+
+    BOOLEAN uselegacyscripttag;
+    IF(NOT this->IsUsingModuleDesign())
+    {
+      INSERT CELL repos := DEFAULT RECORD INTO finaljsconfig;
+      FOREVERY (RECORD rec FROM this->GetDesignRepositories())
+        finaljsconfig.repos := CellInsert(finaljsconfig.repos, rec.repository, rec.version);
+    }
+
+    Print('<script type="application/json" id="wh-config">' || EncodeJSON(finaljsconfig) || '</script>');
+
+    IF(ObjectExists(this->pvt_dependencyresolver))
+    {
+      this->pvt_dependencyresolver->designrooturl := data.designcdnroot;
+      this->pvt_dependencyresolver->relativelinksscope := this->relativelinksscope;
+      this->pvt_dependencyresolver->baseurl := this->baseurl;
+      this->pvt_dependencyresolver->suppresstimestamps :=this->__suppresstimestamps;
+      this->pvt_dependencyresolver->PrintHeaders();
+    }
+    ELSE IF(ObjectExists(this->pvt_dependencyresolverv2))
+    {
+      /* If linkmode is absolute:
+          our path needs to the design needs to be absolute. take the CDN in prod, and take our own design in dev
+         If linkmode is normal:
+          take an absolute path if the CDN is not local. but in dev mode, always local */
+
+      STRING designroot;
+      IF(this->pvt_linkmode="absolute" OR data.designroot != data.designcdnroot)
+        designroot := data.designcdnroot;
+
+      this->pvt_dependencyresolverv2->PrintHeaders(this, designroot, this->assetcachebuster, this->lazyloadcss, this->__esm);
+    }
+
+    this->DoInserts("dependencies-bottom");
+
+    IF(Length(this->structuredbreadcrumb) > 0)
+      this->__PrintStructuredData();
+  }
+
+  MACRO __PrintStructuredData()
+  {
+    IF(Length(this->structuredbreadcrumb) > 0)
+    {
+      CONSTANT RECORD translations := CELL["itemListElement"];
+      RECORD ARRAY listelements := SELECT position := #structuredbreadcrumb + 1
+                                        , "@type" := "ListItem"
+                                        , item :=  link
+                                        , name := title
+                                     FROM this->structuredbreadcrumb
+                                    WHERE title != "" AND link != ""; //eliminate unnamed items, only gives errors...
+
+      RECORD data := [ "@context" := "https://schema.org"
+                     , "@type" := "BreadcrumbList"
+                     , "itemListElement" := listelements
+                     ];
+      Print(`<script type="application/ld+json">${EncodeJSON(data, translations)}</script>`);
+    }
+  }
+
+  PUBLIC MACRO __PrintContentBody()
+  {
+    IF(this->contentbody != DEFAULT MACRO PTR)
+      this->contentbody();
+  }
+
+  MACRO __PrintContents()
+  {
+    this->DoInserts("content-top");
+    this->__PrintContentBody();
+    this->DoInserts("content-bottom");
+  }
+
+  MACRO __PrintBodyOpening()
+  {
+    this->DoInserts("body-top");
+  }
+
+  MACRO __PrintBodyFinale(RECORD data)
+  {
+    this->DoInserts("body-bottom");
+    IF(ObjectExists(this->pvt_dependencyresolverv2))
+    {
+      STRING designroot;
+      IF(this->pvt_linkmode="absolute" OR data.designroot != data.designcdnroot)
+        designroot := data.designcdnroot;
+
+      this->pvt_dependencyresolverv2->PrintBodyFinale(this, designroot, this->assetcachebuster, this->lazyloadcss);
+    }
+
+    IF (IsRequest())
+    {
+      IF (IsWHDebugOptionSet("win") AND Length(this->__invokedwitties) > 0) //we were recording witties
+      {
+        Print(`<script type="application/json" id="wh-rendering-summary">${EncodeJSON([ invokedwitties := this->__invokedwitties ])}</script>`);
+      }
+
+      IF (AreOutputToolsActive())
+      {
+        // List all harescript libraries outside of the base modules
+        STRING ARRAY resources :=
+            SELECT AS STRING ARRAY liburi
+              FROM GetAllUsedHarescriptLibraries();
+
+        resources := resources CONCAT
+            SELECT AS STRING ARRAY DISTINCT Detokenize(ArraySlice(Tokenize(component, ":"), 0, 3), ":")
+              FROM this->__invokedwitties;
+
+        // Filter out anything inside the builtinmodules
+        resources :=
+            SELECT AS STRING ARRAY uri
+              FROM TorecordArray(resources, "uri")
+             WHERE uri LIKE "mod::*/*"
+               AND SubString(Tokenize(uri, "/")[0], 5) NOT IN VAR whconstant_builtinmodules;
+
+        RECORD outputtoolsdata := CELL
+            [ resources :=      GetSortedSet(resources CONCAT this->resourcedeps)
+            ];
+
+        Print(`<script type="application/json" id="wh-outputtoolsdata">${EncodeJSON(outputtoolsdata)}</script>`);
+      }
+    }
+  }
+
+  PUBLIC MACRO RunPage()
+  {
+    this->RunPageWithContents(PTR this->__PrintContents);
+  }
+
+  ///@private ->GetTid should no longer be invoked on webdesigns directly
+  PUBLIC STRING FUNCTION GetTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    IF(ObjectExists(this->pvt_dependencyresolverv2) AND NOT IsDTAPLive())
+      THROW NEW Exception("webdesign ->GetTID should no longer be used!");
+
+    IF(ObjectExists(this->pvt_dependencyresolverv2) OR tid LIKE "*:*") //new style
+    {
+      RETURN GetTidForLanguage(this->languagecode,tid,p1,p2,p3,p4);
+    }
+
+    RETURN __CalcSiteProfileTID(this->targetsite->id, this->languagecode, tid, p1, p2, p3, p4, FALSE);
+  }
+
+  ///@private ->GetHTMLTid should no longer be invoked on webdesigns directly
+  STRING FUNCTION __GetHTMLTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    IF(ObjectExists(this->pvt_dependencyresolverv2) AND NOT IsDTAPLive())
+      THROW NEW Exception("webdesign ->GetHTMLTID should no longer be used!");
+
+    IF(ObjectExists(this->pvt_dependencyresolverv2) OR tid LIKE "*:*") //new style
+    {
+      RETURN GetHTMLTidForLanguage(this->languagecode,tid,p1,p2,p3,p4);
+    }
+
+    RETURN __CalcSiteProfileTID(this->targetsite->id, this->languagecode, tid, p1, p2, p3, p4, TRUE);
+  }
+
+  PUBLIC MACRO RunPageWithContents(MACRO PTR contents)
+  {
+    IF(ObjectExists(this->pagewitty))
+      this->__RunWithContents(contents, PTR this->RunPageWitty);
+  }
+
+  /** @short Open RTD data using an rtdtype
+      @signature OBJECT FUNCTION OpenRTD(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+      @param richdoc The rich document
+      @cell(string) options.rtdtype Path to structure to use. If not set, the parent RTD type is used
+      @return(object %RichDocument) The requested document */
+  PUBLIC OBJECT FUNCTION OpenRTD(RECORD richdoc, VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(TypeID(options) = TypeID(STRING))
+      options := [ rtdtype := options ];
+    options := ValidateOptions([ rtdtype := "" ], options);
+
+    OBJECT rtd := NEW PublishableRichDocument;
+    rtd->ImportFromrecord(richdoc);
+    rtd->webdesign := this;
+    rtd->pvt_baseobject := this->targetobject;
+    rtd->pvt_applytester := this->pvt_targetapplytester;
+
+    IF(options.rtdtype = "")
+    {
+      RECORD parenttype := GetRTDTypeSettings(this->pvt_targetapplytester);
+      IF(NOT RecordExists(parenttype))
+        THROW NEW Exception("No RTDType registered - make sure a <rtddoc> node is set. Older sites should use MakeRTD");
+
+      rtd->rtdtype := parenttype.rtdtype;
+    }
+    ELSE
+    {
+      rtd->rtdtype := options.rtdtype;
+    }
+    RETURN rtd;
+  }
+
+  /** @short Open RTD from WHFS using an rtdtype
+  */
+  PUBLIC OBJECT FUNCTION OpenRTDFromFile(OBJECT inputfile, VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->OpenRTD(inputfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data, options);
+  }
+
+  /** @short Open and render a RTD */
+  PUBLIC MACRO RenderRTD(RECORD richdoc, VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT RecordExists(richdoc))
+      RETURN;
+
+    OBJECT torender := this->OpenRTD(richdoc, options);
+    torender->RenderAllObjects();
+  }
+
+  /** @short Open and render a RTD from WHFS */
+  PUBLIC MACRO RenderRTDFromFile(OBJECT inputfile, VARIANT options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->RenderRTD(inputfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data, options);
+  }
+
+  /** @short Return a renderer for a RTD from an instance record
+      @param richdoc The rich document
+      @cell(string) options.rtdtype Path to structure to use. If not set, the parent RTD type is used
+      @return A Function PTR rendering the RTD, or a DEFAULT MACRO PTR if the RTD was empty */
+  PUBLIC MACRO PTR FUNCTION GetRTDBody(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ rtdtype := "" ], options);
+    IF(NOT RecordExists(richdoc))
+      RETURN DEFAULT MACRO PTR;
+    RETURN PTR (this->OpenRTD(richdoc,options)->RenderAllObjects);
+  }
+
+  /** @short Return a renderer for a RTD fomr a WHFS object
+      @param inputfile The file to render
+      @cell(string) options.rtdtype Path to structure to use. If not set, the parent RTD type is used
+      @return A Function PTR rendering the RTD, or a DEFAULT MACRO PTR if the RTD was empty */
+  PUBLIC MACRO PTR FUNCTION GetRTDBodyFromFile(OBJECT inputfile, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ rtdtype := "" ], options);
+    IF(NOT ObjectExists(inputfile))
+      RETURN DEFAULT MACRO PTR;
+
+    RETURN PTR this->GetRTDBody(inputfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data, options);
+  }
+
+  /** @private obsolete, use OpenRTD */
+  PUBLIC OBJECT FUNCTION MakeRTD(RECORD richdoc, STRING structuredefpath)
+  {
+    IF(structuredefpath NOT LIKE "*::*" AND structuredefpath NOT LIKE "/*")
+      structuredefpath := this->__config.designfolder || structuredefpath;
+
+    OBJECT rtd := NEW PublishableRichDocument;
+    rtd->ImportFromrecord(richdoc);
+    rtd->webdesign := this;
+    rtd->pvt_baseobject := this->targetobject;
+    rtd->pvt_applytester := this->pvt_targetapplytester;
+
+    BLOB structuredef := this->targetsite->rootobject->GetResource(structuredefpath);
+    rtd->ApplyStructureDefinition(LoadClassicStructureDef(structuredef));
+    rtd->PrepareForRendering(this);
+    RETURN rtd;
+  }
+
+  /** @private obsolete, use OpenRTDFromFile */
+  PUBLIC OBJECT FUNCTION MakeRTDFromFile(INTEGER fileid)
+  {
+    OBJECT file := __OpenWHFSRichDocument(OpenWHFSObject(fileid), DEFAULT OBJECT);
+    file->PrepareForRendering(this);
+    file->webdesign := this;
+    RETURN file;
+  }
+
+  /** @short Get a link to the specified static file
+      @long This function returns a protocol-relative link to the file. It can be called before the file is actually created
+      @return A link to the file. http:// links are converted to start with "//" to ensure they're usable on dual http/https sites
+      @private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting */
+  PUBLIC STRING FUNCTION GetStaticFileLink(STRING filename)
+  {
+    IF(NOT this->IsStaticPublication())
+      THROW NEW Exception("Only static publications can create extra static files");
+
+    STRING link := DoMakeFileLinkByName(-1, filename);
+    IF(link LIKE "http://*")
+      link := Substring(link,5);
+    ELSE IF(link LIKE "https://*")
+      link := Substring(link,6);
+    RETURN link;
+  }
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC STRING FUNCTION AddStaticFile(STRING filename, BLOB data)
+  {
+    IF(NOT this->IsStaticPublication())
+      THROW NEW Exception("Only static publications can create extra static files");
+
+    INTEGER outputid;
+    TRY
+    {
+      outputid := OpenOutputFile(filename, FALSE);
+      SendBLobTo(outputid,data);
+    }
+    FINALLY
+    {
+      PUBLISHER_CloseOutput(outputid);
+    }
+
+    RETURN this->GetStaticFileLink(filename);
+  }
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC STRING FUNCTION CreateStaticFile(STRING filename, MACRO PTR contentgenerator)
+  {
+    IF(NOT this->IsStaticPublication())
+      THROW NEW Exception("Only static publications can create extra static files");
+
+    INTEGER saveredirect;
+    INTEGER outputid;
+    TRY
+    {
+      outputid := OpenOutputFile(filename, FALSE);
+      saveredirect := RedirectOutputTo(outputid);
+      contentgenerator();
+    }
+    FINALLY
+    {
+      RedirectOutputTo(saveredirect);
+      PUBLISHER_CloseOutput(outputid);
+    }
+
+    RETURN this->GetStaticFileLink(filename);
+  }
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC MACRO AddDBFile(STRING filename, BLOB data)
+  {
+    //ADDME: create directly, dont go through function ptrs
+    this->CreateDBFile(filename, PTR SendBlobTo(0,data));
+  }
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC MACRO CreateDBFile(STRING filename, MACRO PTR callback)
+  {
+    IF(NOT this->IsStaticPublication())
+      THROW NEW Exception("Only static publications can create database pages");
+
+    INSERT [ filename := filename, callback := callback ] INTO dbfiles AT END;
+  }
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC MACRO AddLoadlibToOutput(STRING libname)
+  {
+    IF(NOT this->IsStaticPublication())
+      THROW NEW Exception("Only static publications can add output loadlibs");
+    __publishwebdesign_callbacks.addloadlib(libname);
+  }
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC MACRO PrintTrustedCode(STRING code)
+  {
+    IF(NOT this->IsStaticPublication())
+      THROW NEW Exception("Only static publications can print HareScript code");
+    __publishwebdesign_callbacks.addcode(code);
+  }
+
+  PUBLIC MACRO Close()
+  {
+    IF(ObjectExists(this->pvt_dependencyresolverv2))
+      this->pvt_dependencyresolverv2->Close();
+  }
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC MACRO SetInstanceDataOnPublish(STRING typens, RECORD data)
+  {
+    IF(NOT this->IsStaticPublication())
+      THROW NEW Exception("SetInstanceDataOnPublish is only available during static publications");
+    SetInstanceDataOnPublish(typens, data);
+  }
+
+  MACRO SetHTMLClasses(STRING ARRAY classnames)
+  {
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The HTML tag cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+    this->pvt_htmlclasses := classnames;
+  }
+
+  MACRO SetBodyClasses(STRING ARRAY classnames)
+  {
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The BODY tag cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+    this->pvt_bodyclasses := classnames;
+  }
+
+  MACRO SetHTMLData(RECORD data)
+  {
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The HTML tag cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+    this->pvt_htmldata := data;
+  }
+
+  MACRO SetHTMLDirection(STRING dir)
+  {
+    IF(dir NOT IN ["ltr","rtl","auto",""])
+      THROW NEW Exception("Invalid HTML direction '" || dir || "'");
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The HTML tag cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+    this->pvt_htmldirection := dir;
+  }
+
+  MACRO SetHTMLManifest(STRING manifesturl)
+  {
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The HTML tag cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+    this->pvt_htmlmanifest := manifesturl;
+  }
+
+  /** Register a prefix on the <html> node
+      @param addprefix Prefix
+      @param addnamespace Namespace UIR for the prefix */
+  PUBLIC MACRO RegisterHTMLPrefix(STRING addprefix, STRING addnamespace)
+  {
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The HTML tag cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+
+    IF(addprefix="" OR addprefix LIKE " * ")
+      THROW NEW Exception("Invalid prefix '" || addprefix || "'");
+    IF(addnamespace="" OR addnamespace LIKE " * ")
+      THROW NEW Exception("Invalid prefix '" || addnamespace || "'");
+
+    STRING alreadyknownns := SELECT AS STRING namespace
+                               FROM this->pvt_htmlprefixes
+                              WHERE ToUppercase(pvt_htmlprefixes.prefix) = ToUppercase(VAR addprefix);
+    IF(alreadyknownns != "")
+    {
+      IF(alreadyknownns = addnamespace)
+        RETURN;
+      THROW NEW Exception("Prefix '" || addprefix || "' already registered with namespace '" || alreadyknownns || "'");
+    }
+    INSERT [ prefix := addprefix, namespace := addnamespace ] INTO this->pvt_htmlprefixes AT END;
+  }
+
+  /** Create an anchor.
+      @param tagname The tag your anchor will be using
+      @param title The title your anchor will have
+    */
+  PUBLIC OBJECT FUNCTION CreateAnchor(STRING tagname, STRING title)
+  {
+    RETURN NEW CustomAnchor(tagname, title);
+  }
+
+  // @deprecated
+  PUBLIC RECORD ARRAY FUNCTION GetContentNav()
+  {
+    RETURN SELECT AS RECORD ARRAY anchor->GetInfo() FROM TorecordArray(this->pvt_anchors,'anchor');
+  }
+
+  /** @short Render a block from GetSharedBlocks/ResolveLocalSharedBlocks as a widget */
+  PUBLIC MACRO RenderSharedBlock(RECORD sharedblock)
+  {
+    RECORD rtdinfo := GetRTDTypeSettings(this->pvt_targetapplytester);
+    IF(NOT RecordExists(rtdinfo))
+      THROW NEW Exception("No rtdtype setup for the current object");
+
+    RECORD data := sharedblock.data;
+    INSERT CELL whfssettingid := 0
+              , whfsfileid := sharedblock.id
+              , whfstype := sharedblock.type_ns
+           INTO data;
+
+    OBJECT embobj := GetEmbeddedObjectRenderer(this->targetobject, this->pvt_targetapplytester, rtdinfo.rtdtype, data, this).widget;
+    embobj->RenderLive();
+  }
+
+  /** @short Render a widget directly
+      @param widgetdata Widget instance data
+      @cell(string) options.whfstype WHFS Type of the widget to render */
+  PUBLIC MACRO RenderWidgetInstance(RECORD widgetdata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ whfstype := "" ], options);
+    IF(options.whfstype != "")
+    {
+      DELETE CELL whfstype FROM widgetdata;
+      INSERT CELL whfstype := options.whfstype INTO widgetdata;
+    }
+    ELSE
+    {
+      IF(NOT CellExists(widgetdata,'whfstype'))
+        THROW NEW Exception("The passed object does not appear to be a widget instance (did not find whfstype cell, and it wasn't explicitly specified)");
+    }
+
+    IF(NOT CellExists(widgetdata,'whfssettingid'))
+      INSERT CELL whfssettingid := 0 INTO widgetdata;
+    IF(NOT CellExists(widgetdata,'whfsfileid'))
+      INSERT CELL whfsfileid := 0 INTO widgetdata;
+
+    RECORD rtdinfo := GetRTDTypeSettings(this->pvt_targetapplytester); //TODO don't we already have this?
+    IF(NOT RecordExists(rtdinfo))
+      THROW NEW Exception("No rtdtype setup for the current object");
+
+    OBJECT embobj := GetEmbeddedObjectRenderer(this->targetobject, this->pvt_targetapplytester, rtdinfo.rtdtype, widgetdata, this).widget;
+    embobj->RenderLive();
+  }
+
+  ///@private GetSuggestedAnchorsForFile is deprecated - we want to stop doing this preparation phase
+  PUBLIC RECORD ARRAY FUNCTION GetSuggestedAnchorsForFile(INTEGER fileid)
+  {
+    OBJECT infile := OpenWHFSObject(fileid);
+    OBJECT rtd := this->OpenRTDFromFile(infile);
+    OBJECT ARRAY anchors := rtd->GatherSuggestedAnchors(this);
+    anchors := GenerateUniqueAnchors(anchors);
+
+    RECORD ARRAY outanchors := SELECT AS RECORD ARRAY anchor->GetInfo() FROM TorecordArray(anchors,"anchor");
+    outanchors := SELECT title
+                       , anchor := link
+                       , tagname
+                       , link := infile->indexurl != "" ? infile->indexurl || link : ""
+                    FROM outanchors;
+    RETURN outanchors;
+  }
+
+  ///@private Creating your own Form renderer may be removed - noone has succesfully managed it yet (or not without regretting it)
+  PUBLIC OBJECT FUNCTION GetFormRenderer()
+  {
+    IF(NOT ObjectExists(this->defaultformrenderer))
+      this->defaultformrenderer := NEW FormRenderingBase(this);
+    RETURN this->defaultformrenderer;
+  }
+
+  /** Add a list of resource dependencies (for automatic reload by outputtools if they have changed)
+      @param deps List of resourcenames
+  */
+  PUBLIC MACRO AddResourceDependencies(STRING ARRAY deps)
+  {
+    this->resourcedeps := this->resourcedeps CONCAT deps;
+  }
+>;
+
+///Base object for webdesign plugins such a `<wrdauth>`
+PUBLIC OBJECTTYPE WebDesignPluginBase
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Override hooks
+  //
+
+  PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration) //override this to receive configuration
+  {
+  }
+
+  PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+  }
+
+  /** Explain which attributes are set for the configuration node (ie, which attributes a later webdesignplugin node overrides.
+      By default, returns the names of all attributes */
+  PUBLIC STRING ARRAY FUNCTION ListConfigurationNodeAttributes(OBJECT node)
+  {
+    STRING ARRAY names;
+    FOREVERY(OBJECT attr FROM node->attributes->GetCurrentNodes())
+      IF(attr->namespaceuri = "")
+        INSERT ToUppercase(attr->nodename) INTO names AT END;
+    RETURN names;
+  }
+
+  /** Override with a function that parses node. Unless you override ListSetAttributes too, the cellnames used in the returned
+      record must match the attribute names */
+  PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO HookObjectProps(OBJECT objectpropsapi)
+  {
+    THROW NEW Exception("After setting hooksfeatures=\"objectprops\" you should override the HookObjectProps function");
+  }
+  PUBLIC RECORD ARRAY FUNCTION HookGetDebugSettings()
+  {
+    THROW NEW Exception("After setting hooksfeatures=\"debugsettings\" you should override the HookGetDebugSettings function");
+  }
+
+  /** Return merge record extensions used by the composer returned by %PrepareMailWitty. Enabled by hookfeature 'preparemail'.
+      @return Merge record data
+  */
+  PUBLIC RECORD FUNCTION HookPrepareMail()
+  {
+    THROW NEW Exception("After setting hooksfeatures=\"preparemail\" you should override the HookPrepareMail function");
+  }
+>;
+
+///Base class for static pagetypes
+PUBLIC OBJECTTYPE StaticPageBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD __pageinfo;
+  OBJECT contentobject;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// @private pagefolder is deprecated - use Resolve
+  PUBLIC PROPERTY pagefolder(this->__pageinfo.pagefolder,-);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Static pagetype constructor
+      @param contentobject Object with actual content (either the targetobject or a the content object we're linked to */
+  MACRO NEW(OBJECT contentobject)
+  {
+    this->__pageinfo := __pageinfo;
+    INSERT CELL body := PTR this->__sendcontentobjectdata INTO this->__pageinfo;
+    this->contentobject := contentobject;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO __sendcontentobjectdata()
+  {
+    SendBlobTo(0, this->contentobject->data);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // User overrides
+  //
+
+  PUBLIC MACRO PrepareForPageConfig(OBJECT webdesign)
+  {
+  }
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC MACRO RunAfterRendering(OBJECT webdesign)
+  {
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetCheckableLinks()
+  {
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  ///@private GatherSuggestedAnchors is deprecated - we want to stop doing this preparation phase
+  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
+  {
+    RETURN DEFAULT OBJECT ARRAY;
+  }
+
+  PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    DELETE CELL body FROM this->__pageinfo;
+    INSERT CELL body := this->GetPageBody(webdesign) INTO this->__pageinfo;
+  }
+
+  PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
+  {
+    RETURN PTR this->__sendcontentobjectdata;
+  }
+
+  PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    IF(CellExists(this->__pageinfo,'body') AND this->__pageinfo.body != DEFAULT MACRO PTR)
+      this->__pageinfo.body();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
+  PUBLIC RECORD ARRAY FUNCTION GetStaticPages(OBJECT webdesign)
+  {
+    RETURN [[ runbody := PTR this->RunBody(webdesign) ]];
+  }
+>;
+
+/** @short Older base class for static pagetypes (new pages should use %WebPageBase)
+ */
+PUBLIC OBJECTTYPE DynamicPageBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD __pageinfo;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  ///The full URL up to the current dynamic file
+  PUBLIC PROPERTY absolutebaseurl(this->__pageinfo.absolutebaseurl, -);
+  ///The remainder of the URL, excluding any variables
+  PUBLIC PROPERTY subpath(this->__pageinfo.subpath, -);
+
+  //@private Use %Resolve
+  PUBLIC PROPERTY pagefolder(this->__pageinfo.pagefolder,-);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  ///Constructs the dynamic page, sets up the absolutebaseurl and subpath propertires
+  MACRO NEW()
+  {
+    //__pageinfo is from support.whlib, communicated by the systemnredirect.whlib
+    this->__pageinfo := __pageinfo ?? [ absolutebaseurl := "", subpath := "", append := "", pagefolder := "" ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // User overrides
+  //
+
+  PUBLIC MACRO PrepareForPageConfig(OBJECT webdesign)
+  {
+  }
+
+  PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    DELETE CELL body FROM this->__pageinfo;
+    INSERT CELL body := this->GetPageBody(webdesign) INTO this->__pageinfo;
+  }
+
+  PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
+  {
+    RETURN DEFAULT MACRO PTR;
+  }
+
+  PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    IF(CellExists(this->__pageinfo,'body') AND this->__pageinfo.body != DEFAULT MACRO PTR)
+      this->__pageinfo.body();
+  }
+
+  ///@private GatherSuggestedAnchors is deprecated - we want to stop doing this preparation phase
+  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
+  {
+    RETURN DEFAULT OBJECT ARRAY;
+  }
+
+  /** Override GetDynamicPageCacheSettings to set your own cache settings. The page
+      must already have been marked as cacheable (ie have a cachettl) */
+  PUBLIC RECORD FUNCTION GetDynamicPageCacheSettings()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO RunPageForWHFSId(INTEGER whfsid)
+  {
+    OBJECT applytester := GetApplyTesterForObject(whfsid);
+    IF (NOT ObjectExists(applytester))
+      THROW NEW Exception("No such fsobject #" || whfsid);
+
+    RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+    IF(NOT RecordExists(webdesigninfo))
+      THROW NEW Exception("Unable to locate the <webdesign> for fsobject #" || whfsid);
+
+    OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, DEFAULT OBJECT, this, FALSE);
+    webdesign->__truecontentbody := PTR this->RunBody(webdesign);
+    webdesign->RunPage();
+  }
+
+  PUBLIC MACRO RunPage()
+  {
+    this->RunPageForWHFSId(GetStoredScriptProperty("FILEID"));
+  }
+
+>;
+
+
+/** Return parameters of the dynamic page
+    @return Dynamic page config
+    @cell(string) return.absolutebaseurl Base URL for this page
+    @cell(string) return.subpath Subpath under absolutebaseurl
+*/
+PUBLIC RECORD FUNCTION GetDynamicPageParameters()
+{
+  RETURN CellExists(__pageinfo,'absolutebaseurl') ? CELL[ __pageinfo.absolutebaseurl, __pageinfo.subpath, __pageinfo.append ] : DEFAULT RECORD;
+}
+
+/// A simple webpage that renders the specified body
+PUBLIC OBJECTTYPE SimpleWebPage EXTEND WebPageBase
+<
+  MACRO PTR body;
+  /** Construct a simple webpage
+      @param body Page body to render */
+  MACRO NEW(MACRO PTR body)
+  {
+    this->body := body;
+  }
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    RETURN this->body;
+  }
+>;

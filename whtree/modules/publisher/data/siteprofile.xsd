@@ -1,0 +1,1910 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ADDME Try to share language and gid stuff with tollium, but need a proper importer for that -->
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
+  xmlns:n="http://www.webhare.net/xmlns/newsletter/siteprofile"
+  xmlns:w="http://www.webhare.net/xmlns/wrd/siteprofile"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+  xmlns:c="http://www.webhare.net/xmlns/consilio"
+  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/publisher/siteprofile"
+  xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:annotation>
+    <xs:documentation>
+      Site profiles XML file schema specification.
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="x-webhare-builtin-xsd:components.xsd?type=tolliumcomponents&amp;skipns=http://www.webhare.net/xmlns/publisher/siteprofile" />
+  <xs:import namespace="http://www.webhare.net/xmlns/system/moduledefinition" schemaLocation="mod::system/data/moduledefinition.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/newsletter/siteprofile" schemaLocation="mod::publisher/data/siteprofile_newsletter.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/wrd/siteprofile" schemaLocation="mod::wrd/data/siteprofile.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/consilio" schemaLocation="mod::consilio/data/siteprofile.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common"  schemaLocation="mod::system/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+
+  <xs:simpleType name="PixelWidth">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]+px"/> <!-- requiring px to allow future %/em etc support to be added without having to deal with naked '450's -->
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="ModuleNamespacedName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="...+:.+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="siteprofile">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice>
+          <xs:element ref="s:language" minOccurs="0" maxOccurs="unbounded" />
+          <xs:element name="languagefolder" minOccurs="1" maxOccurs="1">
+            <xs:complexType>
+              <xs:annotation>
+                <xs:documentation>
+                  use to specify the location of the folder containing languagefiles
+                </xs:documentation>
+              </xs:annotation>
+              <xs:attribute name="fullpath" type="xs:string">
+                <xs:annotation>
+                  <xs:documentation>
+                    fullpath to the languagefiles (relative to the site the siteprofile is in)
+                  </xs:documentation>
+                </xs:annotation>
+              </xs:attribute>
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:group ref="s:ScreenParts" />
+          <xs:element name="contenttype" type="ContentType">
+            <xs:unique name="membernames">
+              <xs:selector xpath="./sp:member" />
+              <xs:field xpath="@name" />
+            </xs:unique>
+          </xs:element>
+          <xs:element name="rtdtype" type="RTDType" />
+          <xs:element ref="propertyeditor" />
+          <xs:element name="filetype" type="FileType" />
+          <xs:element name="foldertype" type="FolderType" />
+          <xs:element name="grouptype" type="GroupType" />
+          <xs:element name="embeddedobjecttype" type="EmbeddedObjectType" />
+          <xs:element name="widgettype" type="WidgetType" />
+          <xs:element ref="n:maildesigntype" />
+          <xs:element name="apply" type="Apply" />
+          <xs:element ref="s:imgsizepreset" />
+        </xs:choice>
+        <xs:element name="applysiteprofile" type="ApplySiteProfile" minOccurs="0" maxOccurs="unbounded" />
+        <xs:element name="loadpackage" type="LoadPackage" minOccurs="0" maxOccurs="unbounded" />
+        <xs:element name="sitesettings" type="SiteSettings" minOccurs="0" maxOccurs="unbounded" />
+        <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##other" processContents="lax" />
+      </xs:sequence>
+      <xs:attributeGroup ref="sc:Gid" />
+      <xs:attribute name="isscoped" type="xs:boolean" />
+    </xs:complexType>
+
+    <xs:key name="TabExtensions">
+      <xs:selector xpath="./s:tabsextension" />
+      <xs:field xpath="@name" />
+    </xs:key>
+    <xs:key name="Fragments">
+    <xs:selector xpath="./s:fragment" />
+      <xs:field xpath="@name" />
+    </xs:key>
+    <xs:keyref name="embeddededitors" refer="sp:TabExtensions">
+      <xs:selector xpath=".//sp:embeddededitor" />
+      <xs:field xpath="@extension" />
+    </xs:keyref>
+
+
+    <xs:key name="PropertyEditors">
+      <xs:selector xpath="./sp:propertyeditor" />
+      <xs:field xpath="@name" />
+    </xs:key>
+    <xs:keyref name="propertyeditorrefs" refer="sp:PropertyEditors">
+      <xs:selector xpath="./sp:apply/sp:extendproperties" />
+      <xs:field xpath="@name" />
+    </xs:keyref>
+
+  </xs:element>
+
+  <xs:complexType name="ContentType">
+    <xs:sequence>
+      <xs:element name="member" type="Member" minOccurs="0" maxOccurs="unbounded">
+        <xs:unique name="membernames2">
+          <xs:selector xpath="./sp:member" />
+          <xs:field xpath="@name" />
+        </xs:unique>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="namespace" type="xs:anyURI" use="required" />
+    <xs:attribute name="cloneoncopy" type="xs:boolean" default="true" />
+  </xs:complexType>
+
+  <xs:complexType name="RTDType">
+    <xs:sequence>
+      <xs:element name="css" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="path" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="blockstyles" minOccurs="1" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="textstyle" type="TextStyle" maxOccurs="unbounded" />
+            <xs:element name="tablestyle" type="TableStyle" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+          <xs:attribute name="defaultstyle" type="xs:string" use="required" />
+        </xs:complexType>
+        <!-- All root-level block text styles -->
+        <xs:key name="TextStylesKey">
+          <xs:selector xpath="./sp:textstyle" />
+          <xs:field xpath="@tag" />
+        </xs:key>
+        <!-- The global default style refers to a root block text style -->
+        <xs:keyref name="DefaultBlockStyle" refer="TextStylesKey">
+          <xs:selector xpath="."/>
+          <xs:field xpath="@defaultstyle"/>
+        </xs:keyref>
+        <!-- The default table style refers to a root block text style -->
+        <xs:keyref name="DefaultTableStyle" refer="TextStylesKey">
+          <xs:selector xpath="./sp:tablestyle"/>
+          <xs:field xpath="@defaultstyle"/>
+        </xs:keyref>
+        <!-- All root-level block text and table styles -->
+        <xs:key name="BlockStylesKey">
+          <xs:selector xpath="./sp:textstyle|./sp:tablestyle" />
+          <xs:field xpath="@tag" />
+        </xs:key>
+      </xs:element>
+      <xs:element name="widgets" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="allowtype" minOccurs="0" maxOccurs="unbounded" type="sc:AllowWidgetType"/>
+          </xs:sequence>
+          <xs:attribute name="ignoresiteprofilewidgets" type="xs:boolean">
+            <xs:annotation>
+              <xs:documentation>Ignore widget modifications made by siteprofiles (ie allowwidgettype). Often used for email-contents RTDs</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+      <xs:element ref="s:linkhandlers" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="namespace" type="xs:anyURI" use="required" />
+    <xs:attribute name="htmlclass" />
+    <xs:attribute name="bodyclass" />
+    <xs:attribute name="allownewwindowlinks" type="xs:boolean" />
+  </xs:complexType>
+
+  <xs:simpleType name="WittyEncoding">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="HTML"/>
+      <xs:enumeration value="HTML-NI"/>
+      <xs:enumeration value="XML"/>
+      <xs:enumeration value="XML-NI"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="BlockstyleContainerTag">
+    <xs:restriction base="xs:string">
+      <!-- The subset of the flow elements in http://www.w3.org/TR/html-markup/common-models.html#common.elem.phrasing
+           that may hold phrasing elements -->
+      <xs:enumeration value="p"/>
+      <xs:enumeration value="div"/>
+      <xs:enumeration value="h1"/>
+      <xs:enumeration value="h2"/>
+      <xs:enumeration value="h3"/>
+      <xs:enumeration value="h4"/>
+      <xs:enumeration value="h5"/>
+      <xs:enumeration value="h6"/>
+      <xs:enumeration value="pre"/>
+      <xs:enumeration value="address"/>
+      <xs:enumeration value="blockquote"/>
+      <xs:enumeration value="section"/>
+      <xs:enumeration value="nav"/>
+      <xs:enumeration value="article"/>
+      <xs:enumeration value="aside"/>
+      <xs:enumeration value="header"/>
+      <xs:enumeration value="footer"/>
+
+      <xs:enumeration value="ol"/>
+      <xs:enumeration value="ul"/>
+
+      <xs:enumeration value="code"/> <!-- code is multiuse and should be allowed too... TODO figure out if this needs we need to d more than phrasing explained above -->
+
+      <!-- ADDME: dl? it's like ol/ul, has a specific form -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Tag">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z][-A-Z0-9_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="AllowTextStyles">
+    <xs:list itemType="TextStyleType" />
+  </xs:simpleType>
+
+  <xs:simpleType name="TextStyleType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="b"/>
+      <xs:enumeration value="i"/>
+      <xs:enumeration value="u"/>
+      <xs:enumeration value="sub"/>
+      <xs:enumeration value="sup"/>
+      <xs:enumeration value="a-href"/>
+      <xs:enumeration value="strike"/>
+      <xs:enumeration value="img"/>
+      <xs:enumeration value="code"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+
+  <xs:complexType name="TextStyle">
+    <xs:attribute name="tag" type="Tag" use="required" />
+    <xs:attribute name="title" type="xs:string" />
+    <xs:attribute name="split" type="xs:boolean" />
+    <xs:attribute name="containertag" type="BlockstyleContainerTag" />
+    <xs:attribute name="textstyles" type="AllowTextStyles" use="required"/>
+    <xs:attribute name="nextstyle" type="Tag" />
+  </xs:complexType>
+
+  <xs:complexType name="TableStyle">
+    <xs:sequence>
+      <xs:element name="importfrom" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="selector" use="required" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="tag" type="Tag" use="required" />
+    <xs:attribute name="title" type="xs:string" />
+    <xs:attribute name="defaultstyle" type="xs:string" />
+    <xs:attribute name="resizing" default="all">
+      <xs:annotation>
+        <xs:documentation>
+          Either "all" or zero or more of "rows", "columns", "table". "table" only has effect when combined with "rows" or
+          "columns".
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:union>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="all" />
+            </xs:restriction>
+          </xs:simpleType>
+          <xs:simpleType>
+            <xs:list>
+              <xs:simpleType>
+                <xs:restriction base="xs:string">
+                  <xs:enumeration value="rows" />
+                  <xs:enumeration value="columns" />
+                  <xs:enumeration value="table" />
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:list>
+          </xs:simpleType>
+        </xs:union>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:attributeGroup name="WidgetBaseAttrs">
+    <xs:attribute name="namespace" type="xs:anyURI" use="required" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attribute name="tolliumicon" type="ImageSrc" />
+    <xs:attribute name="editextension" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Reference to a tabs extension to edit this widget. The extension should derive from %TolliumTabsExtensionBase and receive a composition named 'contentdata'
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="editlibrary" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Reference to the library containing the function referenced in editfunctioname.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="editfunctionname" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Name of the function in the library referenced in editlibrary.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="editfragment" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Deprecated!
+          Use editextension or editlibrary/editfunctionname instead.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="editscreen" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Deprecated!
+          Use editextension or editlibrary/editfunctionname instead.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="renderlibrary" type="xs:string" />
+    <xs:attribute name="renderobjectname" type="xs:string" />
+    <xs:attribute name="requiremergefieldscontext" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          Indicates that this widget/embedded object expects a MergeFieldsContext to be available within the rendering context.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:complexType name="EmbeddedObjectType">
+    <xs:sequence>
+      <xs:element name="member" type="Member" minOccurs="0" maxOccurs="unbounded">
+        <xs:unique name="membernames4">
+          <xs:selector xpath="./sp:member" />
+          <xs:field xpath="@name" />
+        </xs:unique>
+      </xs:element>
+      <xs:element name="ingroup" type="InGroup" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attributeGroup ref="WidgetBaseAttrs" />
+    <xs:attribute name="isfiletype" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If true, registers this embeddedobjecttype as a file type
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="ispublishable" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If true, and if 'isfiletype 'is set, allows this embeddedobjecttype to be published for previews.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="generatepreview" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          Generate widget preview for files of this type.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="WidgetType">
+    <xs:sequence>
+      <xs:element ref="members" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="wittycomponent" />
+    <xs:attribute name="previewcomponent" />
+    <xs:attribute name="ingroup" type="xs:anyURI" />
+    <xs:attribute name="embedtype">
+      <xs:annotation>
+        <xs:documentation>
+          Widget type, either block or inline. Defaults to block
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="block"/>
+          <xs:enumeration value="inline"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attributeGroup ref="WidgetBaseAttrs" />
+  </xs:complexType>
+
+  <xs:complexType name="UploadTypeMapping">
+    <xs:annotation>
+      <xs:documentation>Change the mimetype-based filetype detection in the Publisher. Must be applied to a folder, not the files themselves</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="filenamemask" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>case insensitive wildcard match to apply to filename</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="mimetypemask" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>case insensitive wildcard match to apply to the mimetype (as returned by ScanBlob)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="filetype" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>xml namespace of filetype to map to</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="TagSource">
+    <xs:attribute name="contenttype" type="xs:anyURI" use="required" />
+    <xs:attribute name="member" type="Name" use="required" />
+    <xs:attribute name="tagfolder" type="xs:string" use="required" />
+    <xs:attribute name="repository" type="xs:string" />
+    <xs:attribute name="allowcreate" type="xs:boolean" />
+  </xs:complexType>
+
+  <xs:complexType name="Source">
+    <xs:attribute name="path" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          The path can either be an absolute path like "site::path/to/folder" or "whfs::/path/to/folder" or a path relative to
+          either the current site profile or the target object, based on the 'relativeto' setting. If the relative path starts
+          with a slash ('/'), it is resolved to the the root of the site or module that contains the site profile or the site
+          containing the target object.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="relativeto" default="siteprofile">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="siteprofile"/>
+          <xs:enumeration value="targetobject"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="SetLibrary">
+    <xs:sequence>
+      <xs:element name="source" type="Source" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          The name for this library. Commonly used names are 'media' (for image edits) and 'widgets'
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="MailTemplate">
+    <xs:sequence>
+      <xs:element name="source" type="Source" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="path" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          (relative) path to template
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="ordering" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>
+          ordering for sort order of this template in selections. also determines the 'default' template. negative numbers generally sort before any fs object sources
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+  </xs:complexType>
+
+  <xs:complexType name="DebugSettings">
+    <xs:sequence>
+      <xs:element name="option" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="tag" type="xs:string" use="required">
+            <xs:annotation>
+              <xs:documentation>
+                Debug option tag (three-letter debug flag)
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="title" type="xs:string" use="required">
+            <xs:annotation>
+              <xs:documentation>
+                Debug option title
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="title" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Debug settings option group title
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="userwarning" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Warning to show users visiting this page
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="CustomPlugin">
+    <xs:attribute name="library" type="xs:string" />
+    <xs:attribute name="objectname" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>Path to the plugin objecte (must derive from %WebdesignPluginBase)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="FormDefinitions">
+    <xs:attribute name="path" type="xs:string" use="required" />
+    <xs:attribute name="name" type="ModuleNamespacedName" />
+  </xs:complexType>
+
+  <xs:complexType name="DynamicExecution">
+    <xs:sequence>
+      <xs:sequence />  <!-- prevents us from suddenly breaking <dynamicexecution>  </dynamicexecution> -->
+    </xs:sequence>
+
+    <xs:attribute name="library" type="xs:string" />
+    <xs:attribute name="startmacro" type="xs:string" />
+    <xs:attribute name="webpageobjectname" type="xs:string" />
+    <xs:attribute name="routerfunction" type="xs:string" />
+
+    <xs:attribute name="cachettl" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>
+          If set to a value > 0, cache responses to GET and HEAD requests. cachettl is in seconds.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="cachewebvariables" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          A list of web variables that will be used as the cache key. If "*", all webvariables will be considered.
+          You should probably set this unless you're sure that no webvariable ever affects the content
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="cacheblacklistvariables" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          A list of web variables that, if set, will prevent caching. (These variables are not ignored for caching - they completely block it!)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="cachewebcookies" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          A list of cookies that will be used as the cache key. If "*", all cookies will be considered.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="cacheblacklistcookies" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          A list of web cookies that, if set, will prevent caching. You might want to set this to eg 'webharelogin'
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="PrebuiltPage">
+    <xs:annotation>
+      <xs:documentation>
+        Deprecated!
+      </xs:documentation>
+    </xs:annotation>
+
+    <xs:complexContent>
+      <xs:extension base="DynamicExecution">
+        <xs:attribute name="tag" type="xs:string" use="required" />
+        <xs:attribute name="type">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="static"/>
+              <xs:enumeration value="dynamic"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:attribute>
+        <xs:attributeGroup ref="sc:TidOrTitle" />
+        <xs:attributeGroup ref="CaptureSubPaths" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- ADDME: Can we clean this up? -->
+  <!-- duplicated propertyeditor in sitepropfilecomponentes.xsd to break a recursive import causing two imports for tollium components
+       without it siteprofile extensions in the publisher won't work -->
+  <xs:element name="propertyeditor">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="screens"/>
+          <s:childcomponents field="compositions" target="./sp:compositions" adoptfields="compositions" />
+          <s:childcomponents field="newtabs" target="./sp:newtab" />
+          <s:childcomponents field="inserts" target="./sp:insert" adoptfields="lines position where" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:element ref="compositions" minOccurs="0" maxOccurs="1" />
+        <xs:element ref="insert" minOccurs="0" maxOccurs="unbounded" />
+        <xs:element ref="newtab" minOccurs="0" maxOccurs="unbounded" />
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="compositions" type="s:Compositions" />
+  <xs:element name="newtab" type="s:NewTab" />
+  <xs:element name="insert" type="s:TabsExtensionInsert" />
+
+  <!-- FIXME: enforce no duplicate names between extensions inside a propeditor, even though we don't actually support xrefs yet -->
+
+  <xs:element name="members">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="member" minOccurs="0" maxOccurs="unbounded" type="Member">
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="Member">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="value">
+        <xs:complexType>
+          <xs:attribute name="name" type="xs:string" use="required" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="member" type="Member">
+        <xs:unique name="membernames3">
+          <xs:selector xpath="./sp:member" />
+          <xs:field xpath="@name" />
+        </xs:unique>
+      </xs:element>
+    </xs:choice>
+    <xs:attribute name="name" type="Name" use="required"/>
+    <xs:attribute name="type" type="MemberTypes" use="required" />
+    <xs:attribute name="publish" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          Deprecated!
+          Use the image/file cache to expose the content's of a "file" member.
+          For "richdocument" members webdesign->MakeRTD will already use the image cache. (FIXME: what about GetRichDocumentFragment?)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:simpleType name="MemberTypes">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="boolean" />
+      <xs:enumeration value="datetime" />
+      <xs:enumeration value="integer" />
+      <xs:enumeration value="file" />
+      <xs:enumeration value="float" />
+      <xs:enumeration value="money" />
+      <xs:enumeration value="string" />
+      <xs:enumeration value="array" />
+      <xs:enumeration value="whfsref" />
+      <xs:enumeration value="whfsrefarray" />
+      <xs:enumeration value="stringarray" />
+      <xs:enumeration value="richdocument" />
+      <xs:enumeration value="formdefinition" />
+      <xs:enumeration value="formcondition" />
+      <xs:enumeration value="intextlink" />
+      <xs:enumeration value="instance" /><!-- instance of a specific contenttype -->
+      <xs:enumeration value="url" />
+      <xs:enumeration value="record" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="GroupType">
+    <xs:attribute name="namespace" type="xs:anyURI" use="required"/>
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attribute name="tolliumicon" type="ImageSrc" />
+  </xs:complexType>
+
+  <xs:complexType name="InGroup">
+    <xs:attribute name="type" type="xs:anyURI" use="required" />
+  </xs:complexType>
+
+  <xs:complexType name="ObjectType">
+    <xs:attribute name="typedef" type="xs:anyURI" use="required"/>
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attribute name="icon" type="xs:string" />
+    <xs:attribute name="tolliumicon" type="ImageSrc" />
+    <xs:attribute name="webhare_builtintypeid" type="xs:integer" />
+    <xs:attribute name="isdevelopertype" type="xs:boolean" />
+    <xs:attribute name="searchprovider" type="s:ScreenFragmentReference" />
+  </xs:complexType>
+
+  <xs:complexType name="FileType">
+    <xs:complexContent>
+      <xs:extension base="sp:ObjectType">
+        <!-- A list of extensions for this file type, used for new files -->
+        <xs:sequence>
+          <xs:choice minOccurs="0">
+            <xs:element name="dynamicexecution" type="DynamicExecution" />
+          </xs:choice>
+        </xs:sequence>
+        <xs:attribute name="extensions">
+          <xs:simpleType>
+            <xs:list itemType="xs:string" />
+          </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="blobiscontent" type="xs:boolean" use="required" />
+        <xs:attribute name="requirescontent" type="xs:boolean" />
+        <xs:attribute name="needstemplate" type="xs:boolean" />
+        <xs:attribute name="needsprofile" type="xs:boolean" />
+        <xs:attribute name="isacceptableindex" type="xs:boolean" />
+        <xs:attribute name="ispublishable" type="xs:boolean" />
+        <xs:attribute name="ispublishedassubdir" type="xs:boolean" />
+        <!-- If this type is viewable within the browser, e.g. when previewing files in the publisher, default: false -->
+        <xs:attribute name="isviewable" type="xs:boolean">
+          <xs:annotation>
+            <xs:documentation>Deprecated - no longer used</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="previewlibrary" type="xs:string">
+          <xs:annotation>
+            <xs:documentation>
+              If this a file of this type has never been published, generate a preview for files of this type using the object previewobjectname in this library.
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="previewobjectname" type="xs:string">
+          <xs:annotation>
+            <xs:documentation>
+              If this a file of this type has never been published, generate a preview for files of this type using this object in the library previewlibrary.
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attributeGroup ref="CaptureSubPaths" />
+        <xs:attribute name="pagelistprovider">
+          <xs:annotation>
+            <xs:documentation>Object which describes the URLs this type provides for consilio and sitemaps</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:attributeGroup name="CaptureSubPaths">
+    <xs:attribute name="capturesubpaths" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If set, the file is published in such a way that all requests to URLs below this file are also routed to this file (a sort of 'virtual folder' implementing a whole namespace as one file).
+          These files can be static or dynamic in their execution type but cannot be the index of a folder.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:complexType name="FolderType">
+    <xs:complexContent>
+      <xs:extension base="sp:ObjectType">
+        <xs:sequence>
+          <xs:choice minOccurs="0">
+            <xs:element name="dynamicexecution" type="DynamicExecution" />
+          </xs:choice>
+        </xs:sequence>
+        <xs:attribute name="indexfile" type="FolderIndexFile" />
+        <xs:attribute name="indextype" type="xs:string" />
+        <xs:attribute name="protectindexfile" type="xs:boolean" />
+        <xs:attribute name="ishidden" type="xs:boolean" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="ApplySiteProfile">
+    <xs:annotation>
+      <xs:documentation>Apply another siteprofile to sites using this site profile</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="fullpath" type="xs:string" />
+    <xs:attribute name="site" type="xs:string" />
+    <xs:attribute name="path" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Path to the site profile</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attributeGroup ref="m:ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="LoadPackage">
+    <xs:annotation>
+      <xs:documentation>
+        Load a (npm) package
+      </xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="module" type="xs:string" use="required" />
+    <xs:attribute name="scopenamespace" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <xs:complexType name="Apply">
+    <xs:sequence minOccurs="1">
+      <xs:group minOccurs="1" maxOccurs="unbounded" ref="ApplyConstraint" />
+      <xs:group minOccurs="1" maxOccurs="unbounded" ref="ApplyItem" />
+    </xs:sequence>
+    <xs:attributeGroup ref="m:ApplicabletoWebHare" />
+    <xs:attribute name="priority" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>
+          Relative priority of this apply rule. All apply rules default their priority to 0, lower priority rules get evaluated earlier
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="ApplyContraints">
+    <xs:sequence>
+      <xs:group minOccurs="1" maxOccurs="unbounded" ref="ApplyConstraint" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:group name="ApplyConstraint">
+    <xs:choice>
+      <xs:element name="and" type="ApplyContraints" />
+      <xs:element name="or" type="ApplyContraints" />
+      <xs:element name="not">
+        <xs:complexType>
+          <xs:group ref="ApplyConstraint" minOccurs="1" maxOccurs="1" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="to" type="ApplyTo" />
+      <xs:element name="testdata" type="TestData" />
+    </xs:choice>
+  </xs:group>
+
+  <xs:group name="ApplyItem">
+    <xs:choice>
+      <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##other" processContents="lax" />
+      <xs:element name="republish" type="Republish" />
+      <xs:element name="allowtemplate" type="AllowTemplateProfile" />
+      <xs:element name="allowprofile" type="AllowTemplateProfile" />
+      <xs:element name="folderindex" type="FolderIndex" />
+      <xs:element name="contentlisting" type="ContentListing" />
+      <xs:element ref="extendproperties" />
+      <xs:element ref="undoextendproperties" />
+      <xs:element ref="baseproperties" />
+      <xs:element name="allowfoldertype" type="AllowDenyFolderType" />
+      <xs:element name="denyfoldertype" type="AllowDenyFolderType" />
+      <xs:element name="allowfiletype" type="AllowDenyFileType" />
+      <xs:element name="denyfiletype" type="AllowDenyFileType" />
+      <xs:element name="allowwidgettype" type="sc:AllowWidgetType" />
+      <xs:element name="setobjecteditor" type="SetObjectEditor" />
+      <xs:element name="setembeddedobjectrenderer" type="SetEmbeddedObjectRenderer" />
+      <xs:element name="setwidget" type="SetWidget" />
+      <xs:element name="embeddededitor" type="EmbeddedEditor" />
+      <xs:element name="defaultsettings" type="DefaultSettings" />
+      <xs:element name="sitelanguage" type="SiteLanguage" />
+      <xs:element name="foldersettings" type="FolderSettings" />
+      <xs:element name="bodyrenderer" type="BodyRenderer" />
+      <xs:element name="webdesign" type="WebDesign" />
+      <xs:element name="urlhistory" />
+      <xs:element name="urlevents" type="UrlEvents" />
+      <xs:element name="mswordconversion" type="MSWordConversion" />
+      <xs:element name="scheduletimedtask" type="ScheduleTimedTask" />
+      <xs:element name="disablelegacysitesettings" type="DisableLegacySiteSettings" />
+      <xs:element name="usepublishtemplate" type="UsePublishTemplate" />
+      <xs:element name="richdocumenteditor" type="RichDocumentEditor" />
+      <xs:element name="uploadtypemapping" type="UploadTypeMapping" />
+      <xs:element name="tagsource" type="TagSource" />
+      <xs:element name="customplugin" type="CustomPlugin" />
+      <xs:element name="rtddoc" type="RTDDoc" />
+      <xs:element name="setlibrary" type="SetLibrary" />
+      <xs:element name="prebuiltpage" type="PrebuiltPage" />
+      <xs:element name="mailtemplate" type="MailTemplate" />
+      <xs:element name="debugsettings" type="DebugSettings" />
+
+      <xs:element name="formdefinitions" type="FormDefinitions" />
+      <xs:element name="formintegration" type="FormIntegration" />
+      <xs:element name="captchaintegration" type="CaptchaIntegration" />
+      <xs:element name="forumplugin" type="ForumPlugin" />
+
+      <!-- widget config -->
+      <xs:element name="videowidget" type="VideoWidget" />
+
+      <!-- former 'socialite' plugins -->
+      <xs:element name="gtm" type="GTMPlugin" />
+      <xs:element name="googleanalytics" type="GoogleAnalyticsPlugin" />
+
+      <xs:element name="pollsettings" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:attribute name="allowvotingagainafter" type="xs:integer">
+            <xs:annotation>
+              <xs:documentation>
+                The amount of minutes after which voting is allowed again.
+                (this check is cookie based, so it can be circumvented by any user which clears his cookies)
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="extendformeditor">
+        <xs:annotation>
+          <xs:documentation>
+            Extend the form editor with extra functionality
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="extendobject" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>
+                Deprecated, use settingsextension instead
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="settingsextension" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>
+                The editor settings tabs extension as screenpath#objectname
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="validationfunc" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>
+                A macro to validate the complete form before saving as librarypath#functionname. The macro received three
+                parameters: a work object to report errors to, the form definitions object and a contexts object with the
+                currently active contexts.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="manual" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>
+                Tag of the manual
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="manuallanguages">
+            <xs:annotation>
+              <xs:documentation>
+                Languages in which the manual is available
+              </xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:list itemType="xs:string" />
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="manualaccesstoken" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>
+                Access token (shared secret) to access private manuals
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="allowformquestion" type="AllowDenyFormComponent">
+        <xs:annotation>
+          <xs:documentation>
+            Allow question types using a like mask on namespace#componentname
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="denyformquestion" type="AllowDenyFormComponent">
+        <xs:annotation>
+          <xs:documentation>
+            Disallow question types using a like mask on namespace#componentname
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="allowformhandler" type="AllowDenyFormComponent">
+        <xs:annotation>
+          <xs:documentation>
+            Allow formhandler types using a like mask on namespace#componentname
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="denyformhandler" type="AllowDenyFormComponent">
+        <xs:annotation>
+          <xs:documentation>
+            Disallow formhandler types using a like mask on namespace#componentname
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="allowformrtdtype" type="AllowDenyFormComponent">
+        <xs:annotation>
+          <xs:documentation>
+            Allow rtd field document types using a like mask on rtdtype namespace
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="denyformrtdtype" type="AllowDenyFormComponent">
+        <xs:annotation>
+          <xs:documentation>
+            Disallow rtd field document types using a like mask on rtdtype namespace
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:choice>
+  </xs:group>
+
+  <xs:element name="baseproperties">
+    <xs:complexType>
+      <xs:attribute name="title" type="xs:boolean" />
+      <xs:attribute name="description" type="xs:boolean" />
+      <xs:attribute name="keywords" type="xs:boolean" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="extendproperties">
+    <xs:complexType>
+      <xs:attribute name="name" type="xs:string" />
+      <xs:attribute name="extension" type="xs:string" />
+      <xs:attribute name="contenttype" type="xs:anyURI" />
+      <xs:attribute name="requireright" type="xs:string" />
+      <xs:attribute name="requirewebdesign" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>
+            Only apply these extensions if a webdesign rule applies
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="undoextendproperties">
+    <xs:complexType>
+      <xs:attribute name="mask" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="FolderSettings">
+    <xs:annotation>
+      <xs:documentation>
+        Modify the file/folder listing when the folder is shown in the publisher
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="contentslisthandler" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:attribute name="library" use="required" />
+          <xs:attribute name="objectname" use="required" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="filterscreen">
+      <xs:annotation>
+        <xs:documentation>
+          Path to screen (eg mod::mymodule/screens/publisher.xml#newsfilter) to show above the folder contents to allow filtering of the list, similar to the recycle bon
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="ordering">
+      <xs:simpleType>
+        <xs:annotation>
+          <xs:documentation>
+            Configure ordering for this folder
+          </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="none">
+            <xs:annotation>
+              <xs:documentation>
+                There is no ordering, the website ordering option should be unavailable
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="fixed">
+            <xs:annotation>
+              <xs:documentation>
+                A website ordering is available, but cannot be modified through the publisher drag/drop and buttons
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="orderable">
+            <xs:annotation>
+              <xs:documentation>
+                Ordering can be changed through the website
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="AllowDenyFolderType">
+    <xs:attribute name="typedef" type="xs:anyURI" />
+  </xs:complexType>
+
+  <xs:complexType name="AllowDenyFileType">
+    <xs:attribute name="typedef" type="xs:anyURI" />
+  </xs:complexType>
+
+  <xs:complexType name="Republish">
+    <xs:attribute name="folder" type="xs:string" />
+    <xs:attribute name="sitemask" type="xs:string" />
+    <xs:attribute name="mask" type="xs:string" />
+    <xs:attribute name="recursive" type="xs:boolean" />
+    <xs:attribute name="indexonly" type="xs:boolean" />
+
+    <xs:attribute name="onchange">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="metadata">
+            <xs:annotation>
+              <xs:documentation>
+                Republish only if metadata changed
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+
+    <xs:attribute name="scope">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="references">
+            <xs:annotation>
+              <xs:documentation>
+                Interpret the republish instruction from the point of view of any references to this file (internal links, content links and contenttype whfsrefs)
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="DefaultSettings">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="member">
+        <xs:complexType mixed="true">
+          <xs:attribute name="name" type="xs:string" />
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+    <xs:attribute name="typedef" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Specify the content type namespace to which these settings apply.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="FolderIndex">
+    <xs:attribute name="indexfile" type="IndexFile" use="required" />
+    <xs:attribute name="protectindexfile" type="xs:boolean" />
+    <xs:attribute name="fullpath" type="xs:string" />
+    <xs:attribute name="site" type="xs:string" />
+    <xs:attribute name="newfiletype" type="xs:anyURI" />
+    <xs:attribute name="newfilename" type="xs:string" />
+  </xs:complexType>
+
+  <xs:simpleType name="IndexFile">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="none" />
+      <xs:enumeration value="contentlisting" />
+      <xs:enumeration value="copy_of_file" />
+      <xs:enumeration value="contentlink" />
+      <xs:enumeration value="newfile" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="FolderIndexFile">
+    <!-- copy_of_file and contentlink_to_file cannot be specified within folder types -->
+    <!-- If any other values would be supported here, change folder type code in the Publisher would have to be updated too! -->
+    <xs:restriction base="sp:IndexFile">
+      <xs:enumeration value="none" />
+      <xs:enumeration value="contentlisting" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="ContentListing">
+    <xs:attribute name="fullpath" type="xs:string" use="required" />
+    <xs:attribute name="site" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="AllowTemplateProfile">
+    <xs:attribute name="fullpath" type="xs:string" use="required" />
+    <xs:attribute name="site" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="SetObjectEditor">
+    <xs:attribute name="name" type="xs:string" />
+    <xs:attribute name="screen" type="xs:string" />
+    <xs:attribute name="separateapp" type="xs:boolean" />
+    <xs:attribute name="supportsversioning" type="xs:boolean" />
+  </xs:complexType>
+
+  <xs:complexType name="SetEmbeddedObjectRenderer">
+    <xs:attribute name="contenttype" type="xs:string" use="required" />
+    <xs:attribute name="library" type="xs:string" use="required" />
+    <xs:attribute name="objectname" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <xs:complexType name="SetWidget">
+    <xs:attribute name="contenttype" type="xs:string" use="required" />
+    <xs:attribute name="renderlibrary" type="xs:string" />
+    <xs:attribute name="renderobjectname" type="xs:string"  />
+    <xs:attribute name="editfragment" type="xs:string" />
+    <xs:attribute name="editlibrary" type="xs:string" />
+    <xs:attribute name="editfunctionname" type="xs:string" />
+    <xs:attribute name="wittycomponent" />
+    <xs:attribute name="previewcomponent" />
+  </xs:complexType>
+
+  <xs:complexType name="AllowEmbeddedObject">
+    <xs:attribute name="type" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <xs:complexType name="EmbeddedEditor">
+    <xs:attribute name="extension" type="xs:string" use="required" />
+    <xs:attribute name="contenttype" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <xs:complexType name="SiteDesign">
+    <xs:attribute name="library" type="xs:string" use="required" />
+    <xs:attribute name="design" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <xs:complexType name="BodyRenderer">
+    <xs:attribute name="library" type="xs:string" />
+    <xs:attribute name="objectname" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="WebDesign">
+    <xs:sequence>
+      <xs:sequence />  <!-- prevents us from suddenly breaking <webdesign>  </webdesign> -->
+    </xs:sequence>
+    <xs:attribute name="library" type="xs:string"  />
+    <xs:attribute name="objectname" type="xs:string" />
+    <xs:attribute name="witty" type="xs:string" />
+    <xs:attribute name="designfolder" type="xs:string" />
+    <xs:attribute name="basedependency" type="xs:string" />
+    <xs:attribute name="wittyencoding" type="WittyEncoding" default="HTML" />
+    <xs:attribute name="maxcontentwidth" type="PixelWidth" />
+    <xs:attribute name="lazyloadcss" type="xs:boolean" />
+    <xs:attribute name="assetpack" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The assetpack to use
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="supportserrors" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If false, errors are not handled by the webdesign (default to true)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="supportsaccessdenied" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If true, also handle access denied errors (401 and 403) - this defaults to false, because usually we set up HTTP authentication for complete sites, and the error page would be trying to access inacessible assets
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="supportedlanguages">
+      <xs:annotation>
+        <xs:documentation>
+          The list of languages that are supported for client-side getTid calls
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list itemType="xs:string" />
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="async" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If true, enable async attribute on included javascripts
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="contentnavstops">
+      <xs:annotation>
+        <xs:documentation>
+          Tags which should trigger a content navigation item
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list itemType="BlockstyleContainerTag" />
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:element name="urlhistory">
+    <xs:complexType>
+      <xs:attribute name="redirecton404" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>
+            Enable redirecting using the URL history on this site after a 404. This property must be activated on the root folder of the site (you cannot selectively enable searching of the URL history after a 404)
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="store" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>
+            Record the URLs on which a file was published, to allow URL history searching
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="passthrough" /> <!-- deprecated, no longer used -->
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="UrlEvents">
+    <xs:attribute name="enabled" type="xs:boolean" />
+  </xs:complexType>
+
+  <xs:complexType name="MSWordConversion">
+    <xs:sequence>
+      <xs:element name="deletetextstyles" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="deletetextstyle" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="mask" />
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="profile" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="style" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="mswordstyleid" />
+                <xs:attribute name="mswordcustomstyle" />
+                <xs:attribute name="split" />
+                <xs:attribute name="toclevel" />
+                <xs:attribute name="hide" />
+                <xs:attribute name="fgcolor" />
+                <xs:attribute name="bgcolor" />
+                <xs:attribute name="fontsize" />
+                <xs:attribute name="fontfamily" />
+                <xs:attribute name="bold" />
+                <xs:attribute name="italic" />
+                <xs:attribute name="underline" />
+                <xs:attribute name="showhiddentext" />
+                <xs:attribute name="vertspacebefore" />
+                <xs:attribute name="vertspaceafter" />
+                <xs:attribute name="leftindent" />
+                <xs:attribute name="rightindent" />
+                <xs:attribute name="firstindent" />
+                <xs:attribute name="hidenumbering" />
+                <xs:attribute name="smallcaps" />
+                <xs:attribute name="align" />
+                <xs:attribute name="tag" />
+                <xs:attribute name="istableheader" />
+                <xs:attribute name="embedtype">
+                  <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                      <xs:enumeration value="rawhtml" />
+                    </xs:restriction>
+                  </xs:simpleType>
+                </xs:attribute>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+          <xs:attribute name="emptydocobjects" type="xs:boolean" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="languageattributes" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If true, add xml:lang attributes assuming the base document language is webdesign->languagecode
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="relativefontbase" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>
+          If set, create relative font sizes assuming 100% is the specified font size in pixels
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="webharecss" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If true, generate a separate webhare.css file based on the Word document's stylesheet and the profile settings
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+
+  <xs:complexType name="AllowDenyFormComponent">
+    <xs:attribute name="type" type="xs:anyURI" />
+  </xs:complexType>
+
+
+  <xs:complexType name="SiteLanguage">
+    <xs:attribute name="lang" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>ISO 2 char language code</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="getlanguagefunction" type="xs:string"
+      >
+      <xs:annotation>
+        <xs:documentation>Reference to function of type STRING FUNCTION GetLanguage(OBJECT webcontext) which will return the langauge code to use.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="UsePublishTemplate">
+    <xs:attribute name="script" type="xs:string" />
+    <xs:attribute name="fullpath" type="xs:string" />
+    <xs:attribute name="site" type="xs:string" />
+    <xs:attribute name="skipnormalrepublish" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          Mark a published file as not being design-dependent if this template is used.
+          If true, a normal republish will skip file using this template.
+          Explicit republishes or a 'republish, including files not dependent on a template' will always republish.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="haswebdesign" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          Ignored, this is now the default. To prevent normal republishes from republishing this file, use skipnormalrepublish=true
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="RTDDoc">
+    <xs:attribute name="rtdtype" type="xs:anyURI">
+      <xs:annotation>
+        <xs:documentation>
+          Set the RTD type to use for richeditors
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="htmlclass" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Override the &lt;html&gt; class
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="bodyclass" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Override the &lt;body&gt; class
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="margins" type="sc:RTDMargins">
+      <xs:annotation>
+        <xs:documentation>
+          Set the margins for the RTD editor
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="RichDocumentEditor">
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="1" name="structuredefinition">
+        <xs:complexType>
+          <xs:attribute name="fullpath" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="css">
+        <xs:complexType>
+          <xs:attribute name="fullpath" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element minOccurs="0" maxOccurs="1" name="limitinternallinks">
+        <xs:complexType>
+          <xs:attribute name="root" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="css" type="xs:string" />
+    <xs:attribute name="htmlclass" type="xs:string" />
+    <xs:attribute name="bodyclass" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="ScheduleTimedTask">
+    <xs:annotation>
+      <xs:documentation>Schedule the specified timed task when the applied items are modified</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="task" type="ModuleNamespacedName" use="required">
+      <xs:annotation>
+        <xs:documentation>Timed task to run</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="DisableLegacySiteSettings">
+    <xs:annotation>
+      <xs:documentation>
+        Disable the "Legacy settings" tab (containing filelinks, folder indices and content listing) if no more settings are present on it
+      </xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="notemplateprofile" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          Disable template and profile selection
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="TestData">
+    <xs:attribute name="target" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string" >
+          <xs:enumeration value="root">
+            <xs:annotation>
+              <xs:documentation>
+                This condition matches the root folder
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="parent">
+            <xs:annotation>
+              <xs:documentation>
+                This condition matches the parent folder
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="self">
+            <xs:annotation>
+              <xs:documentation>
+                This condition matches the affected object
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+
+    <xs:attribute name="typedef" type="xs:anyURI" />
+    <xs:attribute name="member" type="xs:string" />
+    <xs:attribute name="value" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="SiteSettings">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="m:webruleset" />
+        <xs:element ref="c:addtoindex" />
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="sitename" />
+    <xs:attribute name="sitemask" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Mask against which the site (in which the object resides) it's name is case-insensitively matched.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="siteregex" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Regular expression against which the site (in which the object resides) it's name is case-insensitively matched.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attributeGroup ref="m:ApplicabletoWebHare" />
+  </xs:complexType>
+
+
+  <xs:complexType name="ApplyTo">
+    <xs:attribute name="type" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="all">
+            <xs:annotation>
+              <xs:documentation>
+                This condition matches both files and folders
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="folder">
+            <xs:annotation>
+              <xs:documentation>
+                This condition matches only folders
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="file">
+            <xs:annotation>
+              <xs:documentation>
+                This condition matches only files
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="index">
+            <xs:annotation>
+              <xs:documentation>
+                This condition matches only files marked as the index document of a folder
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+
+    <xs:attribute name="parentmask" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Mask against which the parent folder fullpath is case-insensitively matched. If the tested object is the site root, its fullpath ("/") is matched.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="parentregex" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Regular expression against which the parent folder fullpath is case-insensitively matched. If the tested object is the site root, its fullpath ("/") is matched.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="parenttype" type="xs:string" />
+    <xs:attribute name="sitetype" type="xs:string" />
+    <xs:attribute name="pathmask" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Mask against which the object fullpath is case-insensitively matched. If the tested object is the site root, its fullpath ("/") is matched.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="pathregex" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Regular expression against which the object fullpath is case-insensitively matched. If the tested object is the site root, its fullpath ("/") is matched.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="prebuiltmasks" type="sc:WildcardMasks">
+      <xs:annotation>
+        <xs:documentation>
+          Masks of prebuilttags to match
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="webfeatures" type="sc:WildcardMasks">
+      <xs:annotation>
+        <xs:documentation>
+          Masks of active webfeatures to match
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="contentfiletype" type="xs:string" />
+    <xs:attribute name="filetype" type="xs:string" />
+    <xs:attribute name="foldertype" type="xs:string" />
+    <xs:attribute name="sitename" type="xs:string" />
+
+    <xs:attribute name="sitemask" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Mask against which the site (in which the object resides) it's name is case-insensitively matched.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="siteregex" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Regular expression against which the site (in which the object resides) it's name is case-insensitively matched.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="typeneedstemplate" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If true, apply only to filetypes that require a template (or webdesign) during publication
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+  <!-- end of ApplyTo definition -->
+
+  <xs:complexType name="FormIntegration">
+    <xs:attribute name="dontencodewebpackquestions" type="xs:boolean" />
+    <xs:attribute name="usecaptcha" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Enable captcha checks by default for webtool forms</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="allowsubmittype" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Allow to match conditions based on submit type (new, change, cancel)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="enablepagetitles" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Enable page-level titles</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="enableinfotexts" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Enable info texts (explanation)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="infotextrtdtype" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>RTD type to use for info texts (if not set, falls back to the &lt;rtddoc /> specified type)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="mailrtdtype" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>RTD type to use for mails (if not set, falls back to http://www.webhare.net/xmlns/publisher/defaultmailrtdtype)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="defaultstoredays" type="xs:nonNegativeInteger">
+      <xs:annotation>
+        <xs:documentation>Default days we store visible results.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="maxstoredays" type="xs:nonNegativeInteger">
+      <xs:annotation>
+        <xs:documentation>Maximum days we allow storing visible results</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="processdays" type="xs:positiveInteger">
+      <xs:annotation>
+        <xs:documentation>Maximum days we allow to keep results for processing (minimal: 1)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="countrylist">
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <!-- A list of two-letter country codes and "-" (a divider in the country select option list) -->
+              <xs:pattern value="[A-Z]{2}|-"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="addressoptions" type="sc:FormAddressOptions" />
+    <!-- TODO move these to FormAddressOptions -->
+    <xs:attribute name="addressvalidationkey" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Registry key to get address verification settings from. Takes precedence over any wrdschema</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="addressvalidationschema" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Schema to get verification settings from</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="CaptchaIntegration">
+    <xs:attribute name="skipfunction">
+      <xs:annotation>
+        <xs:documentation>
+          Reference to function of type BOOLEAN SkipFunction(OBJECT webcontext) which will return 'TRUE' if the captcha check can be skipped
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="GTMPlugin">
+    <xs:attribute name="account" />
+    <xs:attribute name="integration">
+      <xs:annotation>
+        <xs:documentation>How GTM will be included into the page</xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="script">
+            <xs:annotation>
+              <xs:documentation>Include as inline script (default)</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="assetpack">
+            <xs:annotation>
+              <xs:documentation>Have the assetpack launch GTM. This may be needed to ensure datalayer values are ready. Requires you to import the @mod-publisher/js/analytics/gtm script</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="selfhosted">
+            <xs:annotation>
+              <xs:documentation>Locally host the GTM code. Requires you to import the @mod-publisher/js/analytics/gtm script</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="launch">
+      <xs:annotation>
+        <xs:documentation>When the load of the GTM script will start</xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="pagerender">
+            <xs:annotation>
+              <xs:documentation>Launch while rendering the page (default)</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="manual">
+            <xs:annotation>
+              <xs:documentation>Manually control when the script is started</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="GoogleAnalyticsPlugin">
+    <xs:attribute name="account" />
+    <xs:attribute name="tracklinks" type="xs:boolean" />
+    <xs:attribute name="sendpageview" type="xs:boolean" />
+    <xs:attribute name="anonymizeip" type="xs:boolean" />
+  </xs:complexType>
+
+  <xs:complexType name="ForumPlugin">
+    <xs:sequence>
+      <xs:element name="imagedisplaymethod" minOccurs="0" maxOccurs="1">
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="type">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="comments"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="autoclose" type="xs:boolean" />
+    <xs:attribute name="usecaptcha" type="xs:boolean" />
+    <xs:attribute name="postsperpage" type="xs:integer" />
+    <xs:attribute name="newestfirst" type="xs:boolean" />
+    <xs:attribute name="mailpostingsto" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Email address(es) that will receive a copy of every posting made</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="VideoWidget">
+    <xs:annotation>
+      <xs:documentation>
+        Configure the video widget. If this tag is set, the videowidget is replaced by a click-before-load and it can optionally require consent too
+      </xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="requireconsent">
+      <xs:annotation>
+        <xs:documentation>The type of consent required (as defined in your consent handler, eg 'marketing')</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="breakpoints">
+      <xs:annotation>
+        <xs:documentation>A list of pixel sizes for which smaller images will be prepared</xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list itemType="xs:positiveInteger" />
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:simpleType name="Name">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ImageSrc">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(\c+:)?(\c+/)*\c+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

@@ -1,0 +1,6 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test name="compat" path="compat/" />
+  <test name="dom"    path="dom/" />
+  <test name="list"    path="list/" />
+  <test name="rte"    path="rte/" />
+</group>

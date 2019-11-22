@@ -1,0 +1,105 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+
+
+// command: wrd:scannonutf8 [schema]
+// short: Scan schema(s) for non UTF8 data that cannot be loaded into PostgreSQL
+
+INTEGER totalbroken;
+RECORD ARRAY options :=
+  [ [ name := "showall", type := "switch" ]
+  , [ name := "schemaname", type := "param" ]
+  ];
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+IF(NOT RecordExists(cmdargs))
+{
+  Print("Syntax: wh wrd:scannonutf8 [schemaname]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+MACRO ScanSchema(OBJECT wrdschema)
+{
+  Print(`Scanning ${wrdschema->tag}\n`);
+  FOREVERY(RECORD typerec FROM wrdschema->ListTypes())
+  {
+    OBJECT wrdtype := wrdschema->GetTypeById(typerec.id);
+
+    /* when scanning entities, we limit us to 1 utf8 call but merge using dots to detect utf8 sequences that unbreak while
+       merging. this works because a truncated utf8 sequence can never become valid by adding a character without the high bit set */
+    RECORD ARRAY brokencore;
+    IF(wrdtype->tag = "WRD_PERSON")
+    {
+      brokencore := SELECT id
+                      FROM wrd.entities
+                     WHERE type = wrdtype->id
+                           AND NOT IsValidUTF8(tag || '.' || title || '.' || initials || '.'
+                                               || '.' || firstname
+                                               || '.' || firstnames
+                                               || '.' || infix
+                                               || '.' || lastname
+                                               || '.' || titles
+                                               || '.' || titles_suffix);
+
+    }
+    ELSE
+    {
+      //for non persons, only title and tag can contain invalid values
+      brokencore := SELECT id
+                      FROM wrd.entities
+                     WHERE type = wrdtype->id
+                           AND NOT IsValidUTF8(tag || '.' || title);
+    }
+
+    IF(Length(brokencore) = 0)
+      CONTINUE;
+
+    Print(`${typerec.tag}:base fields: ${Length(brokencore)} broken entities: ${Detokenize(SELECT AS STRING ARRAY ToString(id) FROM brokencore LIMIT cmdargs.showall ? 2000000000 : 10,', ')}\n`);
+    totalbroken := totalbroken + Length(brokencore);
+
+    FOREVERY(RECORD attr FROM SELECT * FROM wrdtype->ListAttributes(-1) ORDER BY tag)
+    {
+      RECORD ARRAY brokenentities := SELECT DISTINCT entity
+                                       FROM wrd.entity_settings
+                                      WHERE attribute = attr.id
+                                            AND rawdata != ""
+                                            AND NOT IsValidUTF8(rawdata);
+
+      IF(Length(brokenentities) = 0)
+        CONTINUE;
+
+      Print(`${typerec.tag}:${attr.tag}: ${Length(brokenentities)} broken entities: ${Detokenize(SELECT AS STRING ARRAY ToString(entity) FROM brokenentities LIMIT cmdargs.showall ? 2000000000 : 10,', ')}\n`);
+      totalbroken := totalbroken + Length(brokenentities);
+    }
+  }
+}
+
+OBJECT trans := OpenPrimary();
+IF(cmdargs.schemaname != "")
+{
+  OBJECT wrdschema := OpenWRDSchema(cmdargs.schemaname);
+  IF(NOT ObjectExists(wrdschema))
+    TerminateScriptWithError(`No such WRD schema '${cmdargs.wrdschema}`);
+}
+ELSE
+{
+  FOREVERY(RECORD wrdschema FROM SELECT * FROM ListWRDSchemas() ORDER BY ToUppercase(tag))
+    ScanSchema(OpenWRDSchemaById(wrdschema.id));
+}
+
+IF(totalbroken > 0)
+{
+  Print(`${totalbroken} broken values\n`);
+  SetConsoleExitCode(1);
+}
+ELSE
+{
+  Print(`All WRD schemas are okay!\n`);
+}

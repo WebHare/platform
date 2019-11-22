@@ -1,0 +1,6 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <backgroundlayer src="tollium:backgrounds/folder" color="b"/>
+  <layer src="tollium:objects/folder" />
+  <layer src="tollium:overlays/filetypes/user2" />
+  <layer src="tollium:overlays/filetypes/user" />
+</icon>

@@ -1,0 +1,10 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+// command: publisher:dumpcsp
+// short: show the contents of the siteprofile cache
+
+OpenPrimary();
+RECORD csp := GetCachedSiteProfiles();
+DumpValue(csp,'tree');

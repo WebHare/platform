@@ -1,0 +1,672 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+
+
+LOADLIB "mod::wrd/lib/database.whlib";
+
+PUBLIC STRING FUNCTION CreatePasswordId(STRING userguid, STRING inpassword)
+{
+  RETURN Left(EncodeUFS(GetMD5Hash(userguid || inpassword)),4);
+}
+
+PUBLIC STATIC OBJECTTYPE WRDAuthObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER pvt_authobjectid;
+
+  OBJECT pvt_authobject;
+
+  OBJECT pvt_entity;
+
+  INTEGER pvt_type;
+
+  /// Cache for name, for when object disappears
+  RECORD pvt_namecache;
+
+  OBJECT pvt_authapi;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Id of the corresponding authobject
+  PUBLIC PROPERTY authobjectid(GetAuthObjectId, -);
+
+  /// Authobject object (from rightsmgmt)
+  PUBLIC PROPERTY authobject(GetAuthObject, -);
+
+  /// WRD entity
+  PUBLIC PROPERTY entity(pvt_entity, -);
+
+  /// Id of wrd entity
+  PUBLIC PROPERTY entityid(GetEntityId, -);
+
+  /// Type of object (1: user, 2: unit, 3: role, 5: database role)
+  PUBLIC PROPERTY type(pvt_type, -);
+
+  // WRD schema contianing the entity
+  PUBLIC PROPERTY wrdschema(GetWRDSchema, -);
+
+  /// Authentication API (only set when this object was made through the authapi
+  PUBLIC PROPERTY authapi(pvt_authapi, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT authapi, OBJECT entity)
+  {
+    this->pvt_authapi := authapi;
+    this->pvt_entity := entity;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  OBJECT FUNCTION GetWRDSchema()
+  {
+    RETURN this->entity->wrdtype->wrdschema;
+  }
+
+  INTEGER FUNCTION GetAuthObjectId()
+  {
+    IF (this->pvt_authobjectid = 0 AND ObjectExists(this->pvt_entity))
+    {
+      this->pvt_authobjectid :=
+          SELECT AS INTEGER id
+            FROM system.authobjects
+           WHERE guid = this->pvt_entity->GetField("WRD_GUID");
+    }
+    RETURN this->pvt_authobjectid;
+  }
+
+  OBJECT FUNCTION GetAuthObject()
+  {
+    IF (NOT ObjectExists(this->pvt_authobject) AND this->authobjectid != 0)
+      this->InitAuthObject(this->authobjectid);
+    RETURN this->pvt_authobject;
+  }
+
+  INTEGER FUNCTION GetEntityId()
+  {
+    RETURN ObjectExists(this->pvt_entity) ? this->pvt_entity->id : 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Return user data for logging purposes
+      @return @includecelldef mod::system/lib/internal/rightsmgmt.whlib#RightsUserObject::GetUserDataForLogging.return
+      @cell return.wrd_guid GUID of the WRD entity of the user
+  */
+  RECORD FUNCTION GetUserDataForLogging()
+  {
+    RETURN CELL[ ...this->GetAuthObject()->GetUserDataForLogging()
+               , wrd_guid := ObjectExists(this->entity) ? this->entity->guid : "" //FIXME actually log something about override users, but this level knows nothing about overrides
+               ];
+  }
+
+  MACRO InitAuthObject(INTEGER authid)
+  {
+    THROW NEW Exception("This function must be overridden");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns the rights authobject for this object
+      @return(object mod::system/lib/internal/rightsmgmt.whlib#RightsUserObject) Rights authobject for this user
+  */
+  PUBLIC OBJECT FUNCTION EnsureAuthObject()
+  {
+    OBJECT authobj := this->authobject;
+    IF (NOT ObjectExists(authobj))
+      THROW NEW Exception("Could not operate on WRD " || Detokenize(GetObjectExtendNames(this),"/") || " auth object #" || this->entity->id || " - it doesn't have a corresponding rights object");
+    RETURN authobj;
+  }
+
+  /** Returns the id of the parent unit
+      @return Parent unit entity id
+  */
+  PUBLIC INTEGER FUNCTION GetParentUnitId()
+  {
+    IF (NOT ObjectExists(this->pvt_entity))
+      RETURN 0;
+
+    RETURN this->pvt_entity->GetField("WRD_LEFTENTITY");
+  }
+
+  /** Returns whether this user has a global right
+      @param rightname Name of the right
+      @return TRUE if the user has the right, FALSE if not. Throws on error.
+      @see HasRightOn, HasRightOnAny
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION HasRight(STRING rightname)
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj))
+      RETURN FALSE;
+
+    RETURN authobj->HasRight(rightname);
+  }
+
+  /** Returns whether this user has an object-based right on an object.
+      @param rightname Name of the right
+      @param objectid Id of the object, 0 for a global grant on all objects.
+      @return TRUE if the user has the right, FALSE if not. Throws on error.
+      @see HasRight, HasRightOnAny
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION HasRightOn(STRING rightname, INTEGER objectid)
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj))
+      RETURN FALSE;
+
+    RETURN authobj->HasRightOn(rightname, objectid);
+  }
+
+  /** Returns on which objects from a list this user has an object-based right on
+      @param rightname Name of the right
+      @param objectids Ids of the object, include 0 for a global grant on all objects.
+      @return List of object ids the user has right on
+      @see HasRight, HasRightOnAny
+  */
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION HasRightOnMultiple(STRING rightname, INTEGER ARRAY objectids)
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj))
+      RETURN DEFAULT INTEGER ARRAY;
+
+    RETURN authobj->HasRightOnMultiple(rightname, objectids);
+  }
+
+  /** Returns whether this user has a right on any object for an object-based right, or, if
+      no objects exist at all, whether the user would automatically have that right on newly
+      created objects.
+      @param rightname Right to query
+      @return Whether the user has the queried right on any object (or newly created objects)
+      @see HasRight, HasRightOn
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION HasRightOnAny(STRING rightname)
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj))
+      RETURN FALSE;
+
+    RETURN authobj->HasRightOnAny(rightname);
+  }
+
+  /** Return whether the object has the specified role
+      @param roleobj Role to test for
+      @return TRUE if the user has the specified role
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION HasRole(OBJECT roleobj)
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj) OR roleobj->authobjectid = 0)
+      RETURN FALSE;
+
+    RETURN authobj->HasRole(roleobj->authobjectid);
+  }
+
+  /** Returns whether this authobject has any grantable right
+      @return TRUE when the user has any grantable right
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION HasAnyGrantableRight()
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj))
+      RETURN FALSE;
+
+    RETURN authobj->HasAnyGrantableRight();
+  }
+
+  /** @short List accessible root objects for a list of rights
+      @long Given a list of rights of one specific objecttype, give the list of objects the user has any right (from the list) on, but not on the parent object.
+      @param rights Rights to check. If the user has any of these rights (possibly implied) on an object, it will be returned
+      @return The list of accessible object roots. [ 0 ] if the user has rights on all objects.
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsForRights(STRING ARRAY rights)
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj))
+      RETURN DEFAULT INTEGER ARRAY;
+
+    RETURN authobj->GetRootObjectsForRights(rights);
+  }
+
+  /** @short List accessible root objects for a list of grantable rights
+      @long Given a list of rights of one specific objecttype, give the list of objects the user has any right (from the list) on, but not on the parent object.
+      @param rights Rights to check. If the user has any of these rights (possibly implied) on an object, it will be returned
+      @return The list of accessible object roots. [ 0 ] if the user has rights on all objects.
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsForGrantableRights(STRING ARRAY rights)
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj))
+      RETURN DEFAULT INTEGER ARRAY;
+
+    RETURN authobj->GetRootObjectsForGrantableRights(rights);
+  }
+
+  /** Returns whether this user still exists in the database
+      @return TRUE if the user still exists
+  */
+  PUBLIC BOOLEAN FUNCTION ExistsInDatabase()
+  {
+    IF (this->entityid != 0)
+      RETURN RecordExists(SELECT FROM wrd.entities WHERE id = this->entityid);
+    IF (this->authobjectid != 0)
+      RETURN RecordExists(SELECT FROM system.authobjects WHERE id = this->authobjectid);
+    RETURN FALSE;
+  }
+
+  /** @short Get a identifier to construct user events
+      @long Return a user identifier, which is suitable for use in broadcast events.
+            This identifier should be as unique as possible, but is not guaranteed to be unique. The events can be used to broadcast about changes to registry keys for this user
+      @return Identifier for the user
+  */
+  PUBLIC STRING FUNCTION GetUserEventIdentifier()
+  {
+    INTEGER wrdid := this->entityid;
+    IF (wrdid != 0)
+      RETURN "wrd:" || wrdid;
+
+    RETURN "user:" || this->authobjectid;
+  }
+
+  /** Returns the tree with all visible objects of a specific type
+      @param type Name of objecttype (fully qualified with module)
+      @return Root object
+      @cell return.id Id of root object (must be 0)
+      @cell return.name Local name of the object
+      @cell return.fullname Full name of the object (must be unique among all objects)
+      @cell return.icon Name of icon to display for this object
+      @cell return.sortkey Case-sensitive string the children are sorted on
+      @cell return.subnodes List of subnodes for this object type
+      @cell return.haschildren Whether the object has children
+  */
+  PUBLIC RECORD FUNCTION GetObjectsTree(STRING type)
+  {
+    RETURN GetPresentationRightObjectsTree(type, this->authobject);
+  }
+
+  /** Returns the children of an object (sorted on sortkey)
+      @param type Name of objecttype (fully qualified with module)
+      @param parentobjid Parent object id
+      @param describe Include object descriptions
+      @return List of children objects
+      @cell return.id Id of object
+      @cell return.name Local name of the object
+      @cell return.icon Name of icon to display for this object
+      @cell return.haschildren Whether the object itself has children
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetObjectsChildren(STRING type, INTEGER parentobjid, BOOLEAN describe DEFAULTSTO TRUE)
+  {
+    RETURN GetPresentationRightObjectsChildren(type, this->authobject, parentobjid, describe);
+  }
+
+  /** Returns the path of an object to the root of the object tree for a specific user. Returns a partial
+      path if objects in the path have disappeared.
+      @param type Name of objecttype (fully qualified with module)
+      @param objectid Object to calculate the path to
+      @return Path to object
+      @cell return.id Id of object
+      @cell return.name Local name of the object
+      @cell return.icon Name of icon to display for this object
+  */
+  PUBLIC RECORD FUNCTION GetObjectPath(STRING type, INTEGER objectid)
+  {
+    RETURN GetPresentationRightsObjectPath(type, objectid, this->authobject);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsVisibleFor(OBJECT authobj)
+  {
+    IF (authobj->HasRightOn("system:browseunits", authobj->authobjectid))
+      RETURN TRUE;
+    IF (authobj->type != 1) // user
+      RETURN FALSE;
+
+    INTEGER parentunit := SELECT AS INTEGER parent FROM system.authobjects WHERE id = this->authobjectid;
+    INTEGER id := authobj->authobjectid;
+    WHILE (id != 0 AND id != parentunit)
+      id := SELECT AS INTEGER parent FROM system.authobjects WHERE COLUMN id = VAR id;
+    RETURN id = parentunit;
+  }
+
+  PUBLIC STRING FUNCTION GetUncachedUserRightsName()
+  {
+    RETURN SELECT AS STRING name FROM system.authobjects WHERE id = this->authobjectid;
+  }
+
+  PUBLIC STRING FUNCTION GetUserRightsName()
+  {
+    STRING name := this->GetUncachedUserRightsName();
+    IF (name != "")
+    {
+      this->pvt_namecache := [ name := name ];
+      RETURN name;
+    }
+    ELSE IF (RecordExists(this->pvt_namecache))
+      RETURN this->pvt_namecache.name;
+
+    RETURN [ "user", "unit", "role", "module", "databaserole" ][this->type] || (this->entityid!=0?" #" || this->entityid:" auth:#" || this->authobjectid);
+  }
+>;
+
+PUBLIC OBJECTTYPE WRDAuthUnit EXTEND WRDAuthObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT authapi, OBJECT entity)
+  : WRDAuthObject(authapi, entity)
+  {
+    this->pvt_type := 2;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE MACRO InitAuthObject(INTEGER authid)
+  {
+    this->pvt_authobject := GetWebhareUnitObject(authid);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+>;
+
+PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
+< // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT authapi, OBJECT entity, INTEGER authobjectid)
+  : WRDAuthObject(authapi, entity)
+  {
+    this->pvt_authobjectid := authobjectid;
+    this->pvt_type := 1;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Return user data for logging purposes
+      @return @includecelldef #WRDAuthObject::GetUserDataForLogging.return
+      @cell return.wrd_guid GUID of the WRD entity of the user
+  */
+  UPDATE RECORD FUNCTION GetUserDataForLogging()
+  {
+    RETURN CELL[ ...WRDAuthObject::GetUserDataForLogging()
+               , authobjectid := this->pvt_authobjectid
+               ];
+  }
+  UPDATE MACRO InitAuthObject(INTEGER authid)
+  {
+    this->pvt_authobject := GetWebhareUserObject(authid);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Grants the specified global right to another user. Throws on failure.
+      @param rightname Right to grant
+      @param grantee User object to grant the right to.
+      @param withgrantoption Whether to grant the right with the right to grant it to other users
+      @param allowselfassignment If TRUE, skip rights validation if this is a self assignment
+      @param comment Comment for this grant
+      @see GrantRightToOn, RevokeRightFrom, RevokeRightFromOn
+  */
+  PUBLIC MACRO GrantRightTo(STRING rightname, OBJECT grantee, BOOLEAN withgrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE, STRING comment DEFAULTSTO "")
+  {
+    OBJECT authobj := this->EnsureAuthObject();
+    authobj->GrantRightTo(rightname, grantee->EnsureAuthObject(), withgrantoption, allowselfassignment, comment, this->GetUserDataForLogging());
+  }
+
+  /** Grants the specified object right on the specified object to another user. Throws on failure
+      @param grantee User to grant the right to
+      @param rightname Right to grant
+      @param objectid Object to grant the right on (0 for all objects)
+      @param withgrantoption Whether to grant the right with the right to grant it to other users
+      @param allowselfassignment If TRUE, skip rights validation if this is a self assignment
+      @param comment Comment for this grant
+      @see GrantRightTo, RevokeRightFrom, RevokeRightFromOn
+  */
+  PUBLIC MACRO GrantRightToOn(STRING rightname, OBJECT grantee, INTEGER objectid, BOOLEAN withgrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE, STRING comment DEFAULTSTO "")
+  {
+    OBJECT authobj := this->EnsureAuthObject();
+    authobj->GrantRightToOn(rightname, grantee->EnsureAuthObject(), objectid, withgrantoption, allowselfassignment, comment, this->GetUserDataForLogging());
+  }
+
+  /** Revokes the specified global right from another user. Throws on failure.
+      @param grantee User object to revoke the right from.
+      @param rightname Right to revoke
+      @param onlyremovegrantoption If TRUE, only remove the grant option for this right
+      @param allowselfassignment If TRUE, skip rights validation if this is a self assignment
+      @see GrantRightTo, GrantRightToOn, RevokeRightFromOn
+  */
+  PUBLIC MACRO RevokeRightFrom(STRING rightname, OBJECT grantee, BOOLEAN onlyremovegrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE)
+  {
+    OBJECT authobj := this->EnsureAuthObject();
+    authobj->RevokeRightFrom(rightname, grantee->EnsureAuthObject(), onlyremovegrantoption, allowselfassignment);
+  }
+
+  /** Revokes the specified object right on the specified object from another user. Throws on failure.
+      @param grantee User to revoke the right from
+      @param rightname Right to revoke
+      @param objectid Object to revoke the right on (0 for a grant on all objects). Revoking the right on objectid 0
+          will only revoke a global grant, not grants on individual objects.
+      @param onlyremovegrantoption If TRUE, only remove the grant option for this right
+      @param allowselfassignment If TRUE, skip rights validation if this is a self assignment
+      @see GrantRightTo, GrantRightToOn, RevokeRightFrom
+  */
+  PUBLIC MACRO RevokeRightFromOn(STRING rightname, OBJECT grantee, INTEGER objectid, BOOLEAN onlyremovegrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE)
+  {
+    OBJECT authobj := this->EnsureAuthObject();
+    authobj->RevokeRightFromOn(rightname, grantee->EnsureAuthObject(), objectid, onlyremovegrantoption, allowselfassignment);
+  }
+
+  /** Grants a role to a user
+      @param roleobj Role to grant
+      @param grantee User object to grant this role to
+      @param options @includecelldef mod::system/lib/internal/rightsmgmt.whlib#RightsUserObject::GrantRoleTo.options
+  */
+  PUBLIC MACRO GrantRoleTo(OBJECT roleobj, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    OBJECT authobj := this->EnsureAuthObject();
+    //because we have two layers of objects and we pass the lower one, we need to forward our own getuserdataforlogging...
+    authobj->GrantRoleTo(roleobj->authobjectid, grantee->EnsureAuthObject(), CELL[...options, grantoruserdata := this->GetUserDataForLogging() ]);
+  }
+
+  /** Revokes a role to a user
+      @param roleobj Role to revoke
+      @param grantee User object to revoke this role from
+  */
+  PUBLIC MACRO RevokeRoleFrom(OBJECT roleobj, OBJECT grantee)
+  {
+    OBJECT authobj := this->EnsureAuthObject();
+    authobj->RevokeRightFromOn("system:manageroles", grantee->EnsureAuthObject(), roleobj->authobjectid, FALSE);
+  }
+
+  /** Returns whether this user can manage a role
+      @param roleobj Role to test
+      @return TRUE if this user can managed the role
+  */
+  PUBLIC BOOLEAN FUNCTION CanManageRole(OBJECT roleobj)
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj))
+      RETURN FALSE;
+
+    RETURN authobj->CanManageRole(roleobj->authobjectid);
+  }
+
+  /** Returns whether this user can manage a global right
+      @param rightname Name of the global right
+      @return TRUE if this user can managed the right
+  */
+  PUBLIC BOOLEAN FUNCTION CanManageRight(STRING rightname)
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj))
+      RETURN FALSE;
+
+    RETURN authobj->CanManageRight(rightname);
+  }
+
+  /** Returns whether this user can manage a right for a specific object
+      @param rightname Name of the global right
+      @param objectid Id of the object
+      @return TRUE if this user can managed the right for the specific object
+  */
+  PUBLIC BOOLEAN FUNCTION CanManageRightOn(STRING rightname, INTEGER objectid)
+  {
+    OBJECT authobj := this->GetAuthObject();
+    IF (NOT ObjectExists(authobj))
+      RETURN FALSE;
+
+    RETURN authobj->CanManageRightOn(rightname, objectid);
+  }
+
+  /** @short Create an app specific password
+      @param scope Password scope/application (eg system:webdav)
+      @param device Device for which this password will be created
+      @return Password data
+      @cell(string) return.password The password
+      @cell(integer) return.id ID of the apppassword record */
+  PUBLIC RECORD FUNCTION CreateAppPassword(STRING scope, STRING device)
+  {
+    OBJECT apppasswordtype := this->pvt_entity->wrdtype->wrdschema->GetType("WHUSER_APPACCOUNT");
+
+    //FIXME collision guard!
+    STRING usepassword := GenerateRandomText(16,'abcdefghijkmnpqrstuvwxyz');
+    usepassword := Substring(usepassword, 0, 4) || "-" || Substring(usepassword, 4, 4) || "-" || Substring(usepassword, 8, 4) || "-" || Substring(usepassword, 12 ,4);
+
+    OBJECT entity := apppasswordtype->CreateEntity(
+      [ wrd_leftentity := this->pvt_entity->id
+      , device := device
+      , scope := scope
+      , passwordid := CreatePasswordId(this->pvt_entity->guid, usepassword)
+      , password := CreateWebharePasswordHash(usepassword)
+      ]);
+
+    RETURN [ password := usepassword
+           , id := entity->id
+           ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListAppPasswords(STRING limittoscope)
+  {
+    OBJECT apppasswordtype := this->pvt_entity->wrdtype->wrdschema->GetType("WHUSER_APPACCOUNT");
+    RECORD ARRAY filters := [[ field := "WRD_LEFTENTITY", value := this->pvt_entity->id ]];
+    IF(limittoscope != "")
+      INSERT [[ field := "SCOPE", value := limittoscope ]] INTO filters AT END;
+
+    RETURN SELECT * FROM apppasswordtype->RunQuery( [ outputcolumns := [ "DEVICE", "SCOPE", "WRD_CREATIONDATE", "WRD_LIMITDATE", "LASTUSE"]
+                                                    , filters := filters
+                                                    ]);
+  }
+
+  /** Returns the id of the unit of this user
+      @return Unit WRD ID
+  */
+  UPDATE PUBLIC INTEGER FUNCTION GetParentUnitId()
+  {
+    IF (NOT ObjectExists(this->pvt_entity)) // overrideuser
+      RETURN 0;
+
+    RETURN this->pvt_entity->GetField("WHUSER_UNIT");
+  }
+
+  /** Returns the name of the broadcast target (for updating the frontend)
+      @return Broadcast target identifier
+  */
+  PUBLIC STRING FUNCTION GetBroadcastTarget()
+  {
+    IF (ObjectExists(this->pvt_entity))
+      RETURN EncodeUFS(GetSHA1Hash("broadcastuser" || this->pvt_entity->guid));
+    RETURN "anonymous";
+  }
+
+  /** Broadcasts a message to the frontend
+      @param message Message to broadcast
+  */
+  PUBLIC MACRO BroadcastToClient(RECORD message)
+  {
+    IF (NOT ObjectExists(this->pvt_entity))
+      RETURN;
+
+    DATETIME now := GetCurrentDatetime();
+    BroadcastEvent("wh:eventserver", [ data := EncodeJSON( [ now := FormatISO8601Datetime(now, "day", "milliseconds"), message := message ])
+                                     , groupid := this->GetBroadcastTarget()
+                                     , expires := AddTimeToDate(5000, now)
+                                     ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE WRDAuthRole EXTEND WRDAuthObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  MACRO NEW(OBJECT authapi, OBJECT entity)
+  : WRDAuthObject(authapi, entity)
+  {
+    this->pvt_type := 3;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE MACRO InitAuthObject(INTEGER authid)
+  {
+    this->pvt_authobject := GetRoleObject(authid);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+>;

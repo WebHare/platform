@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <g id="file-fill" fill="none">
+      <path d="M30,12l0,17c0,1-1,1-1,1H11c-1,0-1-1-1-1V3c0,0,0-1,1-1h9"/>
+    </g>
+    <path id="file-corner" d="M32,1c0-1-1-1-1-1h-6.2c-0.3,0-0.6,0-0.7,0.3c-0.1,0.3-0.1,0.6,0.2,0.8l6.5,6.1c0.2,0.2,0.6,0.3,0.8,0.2C31.8,7.2,32,6.9,32,6.6"/>
+    <path id="file-outline" d="M21,0H10C8,0,8,2,8,2v28c0,0,0,2,2,2h20c2,0,2-2,2-2V11L21,0zM30,29c0,0,0,1-1,1H11c-1,0-1-0.6-1-0.9V3c0,0,0-1,1-1h9l10,10L30,29z"/>
+    <path id="filelabelbg" d="M19,5H1c0,0-1,0.016-1,1v8.033C0,15,1,15,1,15h18c0,0,1,0,1-1V6C20,5,19,5,19,5z"/>
+    <rect id="maskcanvas" width="32px" height="32px" fill="#ffffff"/>
+    <mask id="siteprofilemask">
+      <use xlink:href="#maskcanvas"/>
+      <use xlink:href="#siteprofiletext" font-family="&quot;roboto&quot;" font-variant="&quot;black&quot;" transform="translate(4 13)" fill="#000000" font-size="9"/>
+    </mask>
+    <text id="siteprofiletext" font-family="&quot;roboto&quot;" font-variant="&quot;black&quot;">SP</text>
+  </defs>
+  <g style="mask:url(&quot;#siteprofilemask&quot;);">
+    <use xlink:href="#file-fill" fill="#ffffff"/>
+    <use xlink:href="#file-outline" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+    <use xlink:href="#file-corner" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+    <use xlink:href="#filelabelbg" fill="#ffffff"/>
+    <path d="M15.155,21.485v0.059l3.511,1.774v3.01l-5.624-3.529v-2.607l5.624-3.53v3L15.155,21.485z" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+    <path d="M24.821,21.524v-0.059l-3.479-1.784v-3l5.592,3.53v2.607l-5.592,3.529v-3L24.821,21.524z" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+    <use xlink:href="#siteprofiletext" font-family="&quot;roboto&quot;" font-variant="&quot;black&quot;" transform="translate(4 13)" fill="#ffffff" font-size="9"/>
+  </g>
+</svg>

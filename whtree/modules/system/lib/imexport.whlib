@@ -1,0 +1,1569 @@
+﻿<?wh
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/modulemanager.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+//FIXME how to avoid this?
+MACRO __WHDBDCInsert(INTEGER trans, STRING tablename, RECORD rec) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/* FIXME
+   Experimental XML and WHDB import/export code. After stabilizing the API, it should move to wh::..xml.whlib  and wh:..whdb.whlib */
+
+/////////////////////////////////////////////////////////////////////
+//
+// Generic HareScript to XML export code
+//
+STRING FUNCTION GetHarescriptTypeName(INTEGER hstype)
+{
+  SWITCH(hstype)
+  {
+    CASE TypeID(BOOLEAN)
+    {
+      RETURN "boolean";
+    }
+    CASE TypeID(STRING)
+    {
+      RETURN "string";
+    }
+    CASE TypeID(DATETIME)
+    {
+      RETURN "datetime";
+    }
+    CASE TypeID(INTEGER)
+    {
+      RETURN "integer";
+    }
+    CASE TypeID(MONEY)
+    {
+      RETURN "money";
+    }
+    CASE TypeID(INTEGER64)
+    {
+      RETURN "integer64";
+    }
+    CASE TypeID(BLOB)
+    {
+      RETURN "blob";
+    }
+    CASE TypeID(FLOAT)
+    {
+      RETURN "float";
+    }
+    DEFAULT
+    {
+      ABORT("WriteWHDBTableStructure: Unrecognized type " || hstype);
+    }
+  }
+}
+
+BOOLEAN FUNCTION HasExportFilters(RECORD tablerec)
+{
+  IF(Length(tablerec.exportfilters) > 0)
+    RETURN TRUE;
+  IF(RecordExists(SELECT FROM tablerec.cols WHERE exportcol = TRUE AND exportfunction != DEFAULT MACRO PTR))
+    RETURN TRUE;
+  RETURN FALSE;
+}
+
+
+RECORD ARRAY FUNCTION ApplyBulkImportFunction(STRING cellname, RECORD ARRAY inrows, FUNCTION PTR bulkfunction, VARIANT defaultvalue)
+{
+  RETURN ApplyBulkTranslateFunction(cellname, inrows, bulkfunction, defaultvalue);
+}
+
+RECORD ARRAY FUNCTION ApplyBulkExportFunction(STRING cellname, RECORD ARRAY inrows, FUNCTION PTR bulkfunction, VARIANT defaultvalue)
+{
+  RETURN ApplyBulkTranslateFunction(cellname, inrows, bulkfunction, defaultvalue);
+}
+
+VARIANT FUNCTION GetColumnDefaultValue(RECORD colinfo)
+{
+  IF(colinfo.dbtype="INTEGER")
+    RETURN ToInteger(colinfo.defval,0);
+  IF(colinfo.dbtype="INTEGER64")
+    RETURN ToInteger64(colinfo.defval,0);
+  IF(colinfo.dbtype="BOOLEAN")
+    RETURN ToUppercase(colinfo.defval) IN ["TRUE","1"];
+  IF(colinfo.dbtype="VARCHAR" OR colinfo.dbtype="BYTEA")
+    RETURN "";
+  IF(colinfo.dbtype="DATETIME")
+    RETURN DEFAULT DATETIME;
+  IF(colinfo.dbtype="BLOB")
+    RETURN DEFAULT BLOB;
+  IF(colinfo.dbtype="MONEY")
+    RETURN DEFAULT MONEY;
+  IF(colinfo.dbtype="FLOAT")
+    RETURN DEFAULT FLOAT;
+  ABORT( colinfo ); //no default reader yet ?
+}
+
+RECORD ARRAY FUNCTION ApplyBulkTranslateFunction(STRING cellname, RECORD ARRAY inrows, FUNCTION PTR bulkfunction, VARIANT defaultvalue)
+{
+  IF(Length(inrows)=0)
+    RETURN DEFAULT RECORD ARRAY;
+
+  RECORD arrayholder := DEFAULT RECORD;
+  FOREVERY(RECORD row FROM inrows)
+  {
+    VARIANT tolookup := GetCell(row, cellname);
+    IF(IsDefaultValue(tolookup))
+      CONTINUE;
+
+    IF(NOT RecordExists(arrayholder))
+      arrayholder := [ deduped := GetTypeDefaultArray(TypeiD(tolookup)) ];
+
+    RECORD posinfo := LowerBound(arrayholder.deduped, tolookup);
+    IF(posinfo.found)
+      CONTINUE;
+
+    INSERT tolookup INTO arrayholder.deduped AT posinfo.position;
+  }
+
+
+  RECORD ARRAY mapping;
+  IF(RecordExists(arrayholder))
+  {
+    mapping := bulkfunction(arrayholder.deduped);
+    mapping := SELECT * FROM mapping ORDER BY inval;
+  }
+
+  FOREVERY(RECORD row FROM inrows)
+  {
+    VARIANT tolookup := GetCell(row, cellname);
+    VARIANT outputvalue := defaultvalue;
+
+    IF(NOT IsDefaultValue(tolookup))
+    {
+      INTEGER pos := RecordBinaryFind(mapping, [ inval := tolookup ], ["INVAL"]);
+      IF(pos != -1)
+        outputvalue := mapping[pos].outval;
+    }
+
+    row := CellDelete(row, cellname);
+    row := CellInsert(row, cellname, outputvalue);
+    inrows[#row] := row;
+  }
+  RETURN inrows;
+}
+
+MACRO CreateXMLSchema(INTEGER outputid, RECORD schema_rec, STRING schema_owner)
+{
+  PrintTo(outputid, '\n<schema schema_owner="' || schema_owner || '" '
+                           || 'xmlns="http://www.webhare.net/xmlns/hs/metadata" '
+                           || '>\n');
+}
+MACRO FinishXMLSchema(INTEGER outputid)
+{
+  PrintTo(outputid, '</schema>\n');
+}
+MACRO CreateXMLSchemaTable(INTEGER outputid, RECORD table_rec)
+{
+  PrintTo(outputid, '  <table table_name="' || table_rec.table_name || '" '
+                          || 'read_access_manager="' || table_rec.read_access_manager || '" '
+                          || 'write_access_manager="' || table_rec.write_access_manager || '" '
+                          || '>\n');
+}
+MACRO FinishXMLSchemaTable(INTEGER outputid)
+{
+  PrintTo(outputid, '  </table>\n');
+}
+MACRO AddXMLSchemaTableColumn(INTEGER outputid, RECORD column_rec)
+{
+  STRING data_type := column_rec.data_type;
+  PrintTo(outputid, '    <column column_name="' || column_rec.column_name || '" '
+                             || 'data_type="' || data_type || '" '
+                             || 'character_octet_length="' || column_rec.character_octet_length || '" '
+                             || 'is_primary="' || (column_rec.is_primary ? "yes" : "no") || '" '
+                             || 'autonumber_start="' || column_rec.autonumber_start || '" '
+                             || 'internal_column_name="' || column_rec.internal_column_name || '" '
+                             || 'unique="' || (column_rec."unique" ? "yes" : "no") || '" '
+                             || 'noupdate="' || (column_rec.noupdate ? "yes" : "no") || '" '
+                             || 'not_null="' || (column_rec.not_null ? "yes" : "no") || '" '
+                             || 'referenced_table_schema="' || (column_rec.referenced_table_schema_id != column_rec.table_schema_id ? column_rec.referenced_table_schema : "") || '" '
+                             || 'referenced_table_name="' || column_rec.referenced_table_name || '" '
+                             || 'on_delete="' || column_rec.on_delete || '" '
+                             || '/>\n');
+}
+MACRO AddXMLSchemaIndex(INTEGER outputid, RECORD index_rec)
+{
+  PrintTo(outputid, '  <index index_name="' || index_rec.index_name || '" '
+                          || 'table_name="' || index_rec.table_name || '" '
+                          || 'column_name="' || index_rec.column_name || '" '
+                          || 'is_unique="' || (index_rec.is_unique ? "yes" : "no") || '" '
+                          || 'is_uppercase="' || (index_rec.is_uppercase ? "yes" : "no") || '" '
+                          || 'ordering="' || index_rec.ordering || '" '
+                          || '/>\n');
+}
+MACRO AddXMLSchemaRole(INTEGER outputid, RECORD role_rec)
+{
+  PrintTo(outputid, '  <role role_name="' || role_rec.role_name || '" '
+                         || '/>\n');
+}
+MACRO AddXMLSchemaRoleGrant(INTEGER outputid, RECORD grant_rec)
+{
+  PrintTo(outputid, '  <rolegrant role="' || grant_rec.role || '" '
+                              || 'grantor_schema="' || (grant_rec.grantor_schema_id != grant_rec.role_schema_id ? grant_rec.grantor_schema : "") || '" '
+                              || 'grantor="' || grant_rec.grantor || '" '
+                              || 'grantee_schema="' || (grant_rec.grantee_schema_id != grant_rec.role_schema_id ? grant_rec.grantee_schema : "") || '" '
+                              || 'grantee="' || grant_rec.grantee || '" '
+                              || 'with_admin="' || (grant_rec.with_admin ? "yes" : "no") || '" '
+                              || '/>\n');
+}
+MACRO AddXMLMappedColumn(INTEGER outputid, STRING table_name, STRING column_name)
+{
+  PrintTo(outputid, '<mappedcolumn table_name="' || table_name || '" '
+                               || 'column_name="' || column_name || '" '
+                               || '/>\n');
+}
+
+STRING whdb_xml_curtable := "";
+INTEGER whdb_xml_outputid;
+BOOLEAN whdb_xml_writtenstructure;
+BOOLEAN whdb_xml_marshalformat;
+RECORD ARRAY whdb_xml_cellstructure;
+RECORD ARRAY whdb_xml_cached_records;
+STRING ARRAY whdb_xml_blobcolumns;
+RECORD ARRAY xml_saved_blobs;
+INTEGER xml_blob_counter;
+RECORD ARRAY xml_saved_recs;
+INTEGER xml_recs_counter;
+
+INTEGER FUNCTION CreateXMLTable(INTEGER outputid, STRING tablename)
+{
+  IF(whdb_xml_curtable!="")
+    ABORT("Last table not closed");
+  whdb_xml_curtable := tablename;
+  whdb_xml_outputid := outputid;
+  whdb_xml_writtenstructure := FALSE;
+
+  //FIXME: Validate that 'tablename' is a proper XML name
+  PrintTo(outputid, '\n<' || tablename || ' hs:type="table" xmlns:hs="http://www.webhare.net/xmlns/hs/xmlrecord">\n');
+  RETURN 1; //FIXME: Actual separate write contexts!
+}
+
+//ADDME: Merge with xml.whlib counterpart
+STRING FUNCTION CellToString(RECORD cellrec, RECORD datarec)
+{
+  SWITCH(TypeID(cellrec.value))
+  {
+    CASE TypeID(BOOLEAN)
+    {
+      RETURN ">" || (GetCell(datarec, cellrec.name) ? "true":"false") || "</";
+    }
+    CASE TypeID(STRING)
+    {
+      STRING value := GetCell(datarec, cellrec.name);
+
+      IF (NOT IsPrintableASCII(value)) //Non printable data cannot always be safely transferred in XML (Valid UTF8 is not a strong enough check)
+        RETURN ' hs:base64="true">' || EncodeBase64(GetCell(datarec, cellrec.name)) || "</";
+
+      RETURN ">" || EncodeValue(GetCell(datarec, cellrec.name)) || "</";
+    }
+    CASE TypeID(DATETIME) //FIXME: Proper XML encoding
+    {
+      DATETIME val := GetCell(datarec, cellrec.name);
+      RETURN ">" || GetDayCount(val) || "," || GetMsecondCount(val)  || "</";
+    }
+    CASE TypeID(INTEGER), TypeID(INTEGER64)
+    {
+      RETURN ">" || ToString(GetCell(datarec, cellrec.name)) || "</";
+    }
+    CASE TypeID(MONEY)
+    {
+      RETURN ">" || FormatMoney(GetCell(datarec, cellrec.name),0,'.','',FALSE) || "</";
+    }
+    CASE TypeID(FLOAT)
+    {
+      //FIXME E-notatie support voor grote/hele kleine floats
+      RETURN ">" || FormatFloat(GetCell(datarec, cellrec.name), 20) || "</";
+    }
+    CASE TypeID(BLOB)
+    {
+      BLOB data := GetCell(datarec,cellrec.name);
+      IF (length(data)=0)
+        RETURN "></";
+
+      /* ADDME: Blob merging? - need HareScript suppport for that ! */
+      INSERT INTO xml_saved_blobs(output, code, data) VALUES(whdb_xml_outputid, xml_blob_counter + 1, GetCell(datarec,cellrec.name)) AT END;
+      xml_blob_counter := xml_blob_counter + 1;
+      RETURN ">" || ToString(xml_blob_counter) || "</";
+    }
+    DEFAULT
+    {
+      ABORT("Unsupported node");
+    }
+  }
+}
+
+RECORD ARRAY FUNCTION EncodeBlobColumns(RECORD ARRAY data, STRING ARRAY blobcols)
+{
+  INTEGER blobcolslen := LENGTH(blobcols);
+  IF (blobcolslen = 0)
+    RETURN data;
+  RECORD ARRAY newdata;
+  FOREVERY (RECORD r FROM data)
+  {
+    FOR (INTEGER i := 0; i < blobcolslen; i := i + 1)
+    {
+      STRING colname := blobcols[i];
+      BLOB blobdata := GetCell(r, colname);
+      STRING blobname;
+      IF (LENGTH(blobdata) > 0)
+      {
+        INSERT INTO xml_saved_blobs(output, code, data) VALUES(whdb_xml_outputid, xml_blob_counter + 1, blobdata) AT END;
+        xml_blob_counter := xml_blob_counter + 1;
+
+        blobname := "blob." || xml_blob_counter;
+      }
+      r := CellInsert(CellDelete(r, colname), colname, blobname);
+    }
+    INSERT r INTO newdata AT END;
+  }
+  RETURN newdata;
+}
+
+MACRO FlushXMLTableRecords(INTEGER tableid)
+{
+  IF (LENGTH(whdb_xml_cached_records) = 0)
+    RETURN;
+
+  IF (NOT whdb_xml_writtenstructure)
+  {
+    whdb_xml_blobcolumns := DEFAULT STRING ARRAY;
+    whdb_xml_cellstructure := UnpackRecord(whdb_xml_cached_records[0]);
+    PrintTo(whdb_xml_outputid,' <hs:recordstructure>\n');
+    FOREVERY(RECORD cellrec FROM whdb_xml_cellstructure)
+    {
+      //FIXME: Validate that 'storename' is a proper XML name, and regenate a name if it isn't
+      STRING storename := tolowercase(cellrec.name); //"x" || #cellrec;
+      INSERT CELL storename := storename INTO whdb_xml_cellstructure[#cellrec];
+
+      PrintTo(whdb_xml_outputid,'  <hs:cell hs:name="' || EncodeValue(cellrec.name)
+                                    || '" hs:type="' || EncodeValue(GetHarescriptTypeName(TypeId(cellrec.value)))
+                                    || '" hs:store="' || storename
+                                    || '" />\n');
+      IF (TypeId(cellrec.value) = TypeId(Blob))
+        INSERT ToUppercase(cellrec.name) INTO whdb_xml_blobcolumns AT END;
+    }
+    PrintTo(whdb_xml_outputid,' </hs:recordstructure>\n');
+    whdb_xml_writtenstructure := TRUE;
+  }
+
+  IF(whdb_xml_marshalformat)
+  {
+    whdb_xml_cached_records := EncodeBlobColumns(whdb_xml_cached_records, whdb_xml_blobcolumns);
+
+    INTEGER str := CreateStream();
+    __HS_MarshalWriteTo(str, whdb_xml_cached_records);
+    BLOB blobdata := MakeBlobFromStream(str);
+
+    INSERT INTO xml_saved_recs(output, code, data) VALUES(whdb_xml_outputid, xml_recs_counter + 1, blobdata) AT END;
+    xml_recs_counter := xml_recs_counter + 1;
+
+    PrintTo(whdb_xml_outputid," <hs:records filename='recs." || xml_recs_counter || "' />\n");
+  }
+  ELSE
+  {
+    FOREVERY(RECORD rec FROM whdb_xml_cached_records)
+    {
+      PrintTo(whdb_xml_outputid," <hs:record>\n  ");
+      FOREVERY(RECORD cellrec FROM whdb_xml_cellstructure)
+        PrintTo(whdb_xml_outputid,"<" || cellrec.storename || CellToString(cellrec, rec) || cellrec.storename || ">");
+      PrintTo(whdb_xml_outputid,"\n </hs:record>\n");
+    }
+  }
+  whdb_xml_cached_records := DEFAULT RECORD ARRAY;
+}
+
+
+MACRO WriteXMLTableRecord(INTEGER tableid, RECORD rec)
+{
+  INSERT rec INTO whdb_xml_cached_records AT END;
+  IF (LENGTH(whdb_xml_cached_records) >= 4096)
+    FlushXMLTableRecords(tableid);
+}
+
+MACRO FinishXMLTable(INTEGER tableid)
+{
+  IF(whdb_xml_curtable="")
+    ABORT("No table opened");
+  FlushXMLTableRecords(tableid);
+  PrintTo(whdb_xml_outputid,'</' || whdb_xml_curtable || '>\n');
+  whdb_xml_curtable:="";
+}
+RECORD ARRAY FUNCTION GetXMLOutoflineBlobs(INTEGER outputid)
+{
+  RECORD ARRAY retval := SELECT * FROM xml_saved_blobs WHERE COLUMN output = VAR outputid;
+  DELETE FROM xml_saved_blobs WHERE COLUMN output = VAR outputid;
+  RETURN retval;
+}
+RECORD ARRAY FUNCTION GetXMLOutoflineRecordFiles(INTEGER outputid)
+{
+  RECORD ARRAY retval := SELECT * FROM xml_saved_recs WHERE COLUMN output = VAR outputid;
+  DELETE FROM xml_saved_recs WHERE COLUMN output = VAR outputid;
+  RETURN retval;
+}
+
+
+//ADDME: Not really a suitable name, this is the whole DB stuff, not just a table
+MACRO WriteXMLTableBegin(INTEGER outputid, STRING origin, STRING version)
+{
+  PrintTo(outputid,'<dbexport origin="'||origin||'" version="'||version||'">');
+}
+
+MACRO WriteXMLTableEnd(INTEGER outputid)
+{
+  PrintTo(outputid,'</dbexport>');
+}
+
+BLOB FUNCTION CreateXMLDatabaseArchiveInternal(BLOB xmlfile, RECORD ARRAY outoflinerecs, RECORD ARRAY outoflineblobs)
+{
+  DATETIME now := GetCurrentDatetime();
+  OBJECT archive := CreateNewArchive("tar.gz");
+  archive->AddFolder("hsxml", now);
+  archive->AddFile("hsxml/database.xml", xmlfile, now);
+
+  FOREVERY(RECORD recsrec FROM outoflinerecs)
+    archive->AddFile("hsxml/recs." || recsrec.code, recsrec.data, now);
+
+  FOREVERY(RECORD blobrec FROM outoflineblobs)
+    archive->AddFile("hsxml/blob." || blobrec.code, blobrec.data, now);
+
+  RETURN archive->MakeBlob();
+}
+
+BLOB FUNCTION CreateXMLDatabaseArchive(BLOB str, RECORD ARRAY blobs)
+{
+  RETURN CreateXMLDatabaseArchiveInternal(str, DEFAULT RECORD ARRAY, blobs);
+}
+
+/////////////////////////////////////////////////////////////////////
+//
+// Generic HareScript to XML import code
+//
+
+RECORD importxml_user_callbacks;
+//FUNCTION PTR importxml_tablereader;
+RECORD ARRAY importxml_records;
+RECORD importxml_recordstructure_types;
+RECORD importxml_recordstructure_names;
+RECORD ARRAY importxml_archive;
+STRING importxml_cellsofar;
+RECORD importxml_recordsofar;
+INTEGER importxml_depth;
+STRING importxml_currenttable;
+BOOLEAN importxml_header_ok;
+STRING importxml_origin;
+BOOLEAN importxml_webpacklegacyhacks;
+STRING importxml_version;
+BOOLEAN importxml_base64;
+STRING ARRAY importxml_blobcols;
+STRING importxml_recordsfile;
+INTEGER importxml_recordsseen;
+FLOAT importxml_recordfilesseensize , importxml_recordfilestotalsize;
+MACRO PTR importxml_progresscallback;
+
+INTEGER FUNCTION GetHarescriptTypeId(STRING hstype)
+{
+  SWITCH(hstype)
+  {
+    CASE "boolean" { RETURN TypeID(BOOLEAN); }
+    CASE "string" { RETURN TypeID(STRING); }
+    CASE "datetime" { RETURN TypeID(DATETIME); }
+    CASE "integer" { RETURN TypeID(INTEGER); }
+    CASE "integer64" { RETURN TypeID(INTEGER64); }
+    CASE "money" { RETURN TypeID(MONEY); }
+    CASE "blob" { RETURN TypeID(BLOB); }
+    CASE "float" { RETURN TypeID(FLOAT); }
+    DEFAULT { RETURN -1; }
+  }
+}
+
+//ADDME: Merge with DecodeRecord
+RECORD FUNCTION InsertStringCell(RECORD recordsofar, STRING cellname, INTEGER celltype, STRING celldata)
+{
+  IF (CellExists(recordsofar,cellname))
+    RETURN recordsofar;
+
+  SWITCH(celltype)
+  {
+    CASE TypeID(BOOLEAN)
+    {
+      RETURN CellInsert(recordsofar, cellname, celldata="true");
+    }
+    CASE TypeID(STRING)
+    {
+      IF (importxml_base64)
+        RETURN CellInsert(recordsofar, cellname, DecodeBase64(celldata));
+      ELSE
+        RETURN CellInsert(recordsofar, cellname, celldata);
+    }
+    CASE TypeID(DATETIME) //FIXME: Proper XML encoding
+    {
+      STRING ARRAY toks := Tokenize(celldata,",");
+      IF (Length(toks)=2)
+        Return CellInsert(recordsofar, cellname, MakeDateFromParts(ToInteger(toks[0],0),ToInteger(toks[1],0)));
+    }
+    CASE TypeID(INTEGER)
+    {
+      Return CellInsert(recordsofar, cellname, ToInteger(celldata,0));
+    }
+    CASE TypeID(FLOAT)
+    {
+      Return CellInsert(recordsofar, cellname, ToFloat(celldata,0));
+    }
+    CASE TypeID(MONEY)
+    {
+      Return CellInsert(recordsofar, cellname, ToMoney(celldata,0));
+    }
+    CASE TypeID(INTEGER64)
+    {
+      Return CellInsert(recordsofar, cellname, ToInteger64(celldata,0));
+    }
+    CASE TypeID(BLOB)
+    {
+      BLOB data;
+      INTEGER blobid := ToInteger(celldata,0);
+      IF(blobid!=0)
+      {
+        RECORD blobfile := SELECT * FROM importxml_archive WHERE path="hsxml" AND name="blob." || blobid;
+        IF (RecordExists(blobfile))
+          data := blobfile.data;
+      }
+      RETURN CellInsert(recordsofar, cellname, data);
+    }
+    DEFAULT
+    {
+      ABORT("Unsupported node");
+    }
+  }
+  RETURN recordsofar;
+}
+
+RECORD ARRAY FUNCTION DecodeBlobColumns(RECORD ARRAY data, STRING ARRAY blobcols)
+{
+  INTEGER blobcolslen := LENGTH(blobcols);
+  IF (blobcolslen = 0)
+    RETURN data;
+  RECORD ARRAY newdata;
+  FOREVERY (RECORD r FROM data)
+  {
+    FOR (INTEGER i := 0; i < blobcolslen; i := i + 1)
+    {
+      STRING colname := blobcols[i];
+//      PrintRecordTo(0, r, "boxed");
+      STRING blobname := GetCell(r, colname);
+      r := CellDelete(r, colname);
+      BLOB blobdata;
+
+      RECORD blobfile;
+      IF (blobname != "")
+        blobfile := SELECT * FROM importxml_archive WHERE path="hsxml" AND name=blobname;
+      IF (RecordExists(blobfile))
+        blobdata := blobfile.data;
+
+      r := CellInsert(r, colname, blobdata);
+    }
+    INSERT r INTO newdata AT END;
+  }
+  RETURN newdata;
+}
+
+MACRO ImportXML_StartElement(STRING elementname, RECORD ARRAY attrs)
+{
+//  PRINT("StaElt: Depth: " || importxml_depth || ", element: " || elementname || "\n");
+  IF (importxml_header_ok)
+  {
+    IF (importxml_depth=0)
+    {
+      //Inside someone else's XML data..
+
+      //FIXME: Support using other namespaces than 'hs'! Properly recognize our namespace URI!
+      //FIXME: Our use of the namespace is not entirely proper, we don't need to put 'hs' on attributes of 'hs' elements
+      STRING attr_type;
+      FOREVERY(RECORD attr FROM attrs)
+        IF(attr.field='hs:type')
+          attr_type := attr.value;
+
+      IF (attr_type='table') //this is what we were waiting for!
+      {
+        importxml_currenttable := elementname;
+        importxml_depth := 1;
+        importxml_recordstructure_types := DEFAULT RECORD;
+        importxml_recordstructure_names := DEFAULT RECORD;
+        RETURN; //Let's start listening for that table!
+      }
+
+      IF (importxml_user_callbacks.start_element != DEFAULT MACRO PTR)
+        importxml_user_callbacks.start_element(elementname,attrs);
+      RETURN;
+    }
+
+    //We are inside our own data!
+    importxml_base64:=FALSE;
+    FOREVERY(RECORD attr FROM attrs)
+      IF(attr.field='hs:base64' AND attr.value='true')
+        importxml_base64:=TRUE;
+
+    importxml_depth := importxml_depth + 1;
+    IF (importxml_depth = 2)
+    {
+//      PRINT("New depth: " || importxml_depth || ", element: '" || elementname || "'\n");
+//      FOREVERY(RECORD attr FROM attrs)
+//        PRINT("FIELD:'"||attr.field ||"': "||attr.value||"\n");
+
+      importxml_recordsofar := DEFAULT RECORD;
+      IF (elementname = "hs:blobcolumn")
+      {
+        FOREVERY(RECORD attr FROM attrs)
+          IF(attr.field='name')
+            INSERT attr.value INTO importxml_blobcols AT END;
+      }
+      ELSE IF (elementname = "hs:records")
+      {
+        FOREVERY(RECORD attr FROM attrs)
+          IF(attr.field='filename')
+            importxml_recordsfile := attr.value;
+      }
+//      PRINT("Filename: " || importxml_recordsfile || "\n");
+    }
+    IF (importxml_depth = 3)
+    {
+      IF(elementname = "hs:cell")
+      {
+        STRING name, type, store;
+        FOREVERY(RECORD attr FROM attrs)
+          IF(attr.field='hs:name')
+            name:=attr.value;
+          ELSE IF(attr.field='hs:type')
+            type:=attr.value;
+          ELSE IF(attr.field='hs:store')
+            store:=attr.value;
+
+        INTEGER typefieldid := GetHarescriptTypeId(type);
+        IF (typefieldid!=-1)
+        {
+          importxml_recordstructure_types := CellInsert(importxml_recordstructure_types, store, typefieldid);
+          importxml_recordstructure_names := CellInsert(importxml_recordstructure_names, store, name);
+        }
+        IF (type = "blob")
+          INSERT name INTO importxml_blobcols AT END;
+      }
+      ELSE
+      {
+        importxml_cellsofar := "";
+      }
+    }
+  }
+  ELSE
+  {
+    IF (elementname = "dbexport")
+    {
+      RECORD originfield := SELECT * FROM attrs WHERE field='origin';
+      RECORD versionfield := SELECT * FROM attrs WHERE field='version';
+      IF (RecordExists(originfield) AND RecordExists(originfield))
+      {
+        //Webpack legacy support hacks
+        IF(importxml_origin IN ["survey"] AND originfield.value = importxml_origin AND versionfield.value="1.0")
+        {
+          importxml_webpacklegacyhacks := TRUE;
+          versionfield.value := "1.1";
+        }
+
+        IF ((importxml_origin = "" OR originfield.value = importxml_origin) AND (importxml_version="" OR versionfield.value = importxml_version))
+          importxml_header_ok := TRUE;
+      }
+    }
+  }
+}
+
+MACRO ImportXML_EndElement(STRING elementname)
+{
+  IF (importxml_header_ok)
+  {
+    IF (importxml_depth=0)
+    {
+      IF (importxml_user_callbacks.end_element != DEFAULT MACRO PTR)
+        importxml_user_callbacks.end_element(elementname);
+      RETURN;
+    }
+
+    IF (importxml_depth = 1) //this finishes the current table
+    {
+      importxml_user_callbacks.harescript_table(importxml_currenttable, importxml_records);
+      importxml_records := DEFAULT RECORD ARRAY;
+      importxml_blobcols := DEFAULT STRING ARRAY;
+    }
+
+    IF (importxml_depth = 2)
+    {
+      IF (elementname = "hs:record") //had a record
+      {
+        INSERT importxml_recordsofar INTO importxml_records AT END;
+        //ADDME would prefer byte offsets...
+        importxml_recordsseen := importxml_recordsseen + 1;
+        IF(importxml_progresscallback != DEFAULT FUNCTION PTR)
+          importxml_progresscallback(importxml_recordsseen, -1);
+      }
+      ELSE IF (elementname = "hs:records") // Had records marshalled to blob
+      {
+//        PRINT("Records file: " || importxml_recordsfile || "\n");
+        RECORD blobfile := SELECT * FROM importxml_archive WHERE path="hsxml" AND name=importxml_recordsfile;
+        IF (NOT RecordExists(blobfile))
+          ABORT("Could not find record file in archive");
+
+        RECORD ARRAY data := __HS_MarshalReadFromBlob(blobfile.data);
+        data := DecodeBlobColumns(data, importxml_blobcols);
+        importxml_user_callbacks.harescript_table(importxml_currenttable, data);
+
+        importxml_recordfilesseensize := importxml_recordfilesseensize + Length(blobfile.data);
+        IF(importxml_progresscallback != DEFAULT FUNCTION PTR)
+          importxml_progresscallback(importxml_recordfilesseensize, importxml_recordfilestotalsize);
+
+      }
+    }
+
+    IF (importxml_depth = 3) //had a cell
+    {
+      IF (CellExists(importxml_recordstructure_names, elementname))
+        importxml_recordsofar := InsertStringCell(importxml_recordsofar,
+                                                  GetCell(importxml_recordstructure_names, elementname),
+                                                  GetCell(importxml_recordstructure_types, elementname),
+                                                  importxml_cellsofar);
+    }
+    importxml_depth := importxml_depth - 1;
+  }
+}
+MACRO ImportXML_TextNode(STRING data)
+{
+  IF (importxml_header_ok)
+  {
+    IF (importxml_depth = 0 AND importxml_user_callbacks.end_element != DEFAULT MACRO PTR)
+      importxml_user_callbacks.end_element(data);
+
+    IF (importxml_depth = 3) //inside a cell
+      importxml_cellsofar := importxml_cellsofar || data;
+  }
+}
+/** @short Parse an archive as a HS XML table
+    @param archive Archive blob to parse
+    @param callbacks Record with pointers to macros to be called while parsing. Set the callbacks you want to use.
+    @cell callbacks.start_element Pointer to a MACRO with a STRING argument containing the element's name and a RECORD ARRAY
+                                  argument containing records with a 'field' STRING cell containing the attribute's name
+                                  and a 'value' STRING cell containing the attribute's value.
+                                  Called for every a new element that is found.
+    @cell callbacks.end_element Pointer to a MACRO with a STRING argument containing the element's name.
+                                Called when an element is closed.
+    @cell callbacks.text_node Pointer to a MACRO with a STRING argument containing the text.
+                              Called for text withing elements.
+    @cell callbacks.comment_node Pointer to a MACRO with a STRING argument containing the comment.
+                                 Called for comments
+    @cell callbacks.harescript_table Called when a HareScript-exported table is found, with the name of the table as a parameter.
+                                     The start_element etc. functions will not be called for the HareScript-exported table. This function should
+                                     return a function pointer to a function accepting a record. This function will be invoked for every record
+                                     in this table, and with a non-existing record when the table is finshed
+*/
+MACRO ImportXMLDatabaseArchive(BLOB archive, RECORD callbacks)
+{
+  // ADDME: Support recursive calls (push/pop callback state)
+  IF (RecordExists(importxml_user_callbacks))
+    ABORT("Recursive calls to ImportXMLDatabaseArchive are not supported");
+
+  importxml_archive := UnpackArchive(archive,".tar.gz");
+  RECORD xmlfile := SELECT * FROM importxml_archive WHERE path="hsxml" AND name="database.xml";
+
+  IF (NOT RecordExists(xmlfile))
+  {
+    importxml_archive := DEFAULT RECORD ARRAY;
+    RETURN; //no data!
+  }
+
+  importxml_recordfilestotalsize := 0;
+  FOREVERY(RECORD file FROM importxml_archive)
+    IF(file.name!="database.xml")
+      importxml_recordfilestotalsize := importxml_recordfilestotalsize + Length(file.data);
+
+  importxml_user_callbacks := callbacks;
+  importxml_depth := 0;
+  importxml_header_ok := FALSE;
+  callbacks.start_element := PTR ImportXML_StartElement;
+  callbacks.end_element := PTR ImportXML_EndElement;
+  callbacks.text_node := PTR ImportXML_TextNode;
+  ResetMappings();
+
+  ParseXMLWithCallbacks(xmlfile.data, callbacks, "UTF-8");
+  importxml_user_callbacks := DEFAULT RECORD;
+  importxml_archive := DEFAULT RECORD ARRAY;
+}
+
+/////////////////////////////////////////////////////////////////////
+//
+// WHDB support for XML imports
+//
+
+RECORD ARRAY whdb_id_mappings;
+
+STRING last_autoidtable;
+TABLE <INTEGER id> autoidtable;
+
+MACRO ResetMappings()
+{
+  whdb_id_mappings := DEFAULT RECORD ARRAY;
+  last_autoidtable := "";
+}
+
+//Look up an id, and create a mapping if it doesn't exist yet
+INTEGER FUNCTION MapImportedId(INTEGER trans, STRING tablename, INTEGER id)
+{
+  IF (id=0) //0 is always 0!
+    RETURN 0;
+  RECORD groupdata := [ "0" := id, "1" := tablename ];
+
+  INTEGER grouppos := __HS_SQL_GetGroupPosition(whdb_id_mappings, groupdata);
+  IF (grouppos < 0)
+  {
+    IF (last_autoidtable != tablename)
+    {
+      autoidtable := BindTransactionToTable(trans, tablename);
+      last_autoidtable := tablename;
+    }
+    INTEGER newid := MakeAutonumber(autoidtable, "id"); //FIXME: Allow users to specify the name of the table primary key (not always "id" !)
+
+    INSERT CELL id := newid INTO groupdata;
+    INSERT groupdata INTO whdb_id_mappings AT (-grouppos) - 1;
+    RETURN newid;
+  }
+  ELSE
+    RETURN whdb_id_mappings[grouppos].id;
+}
+
+MACRO TableImporter(INTEGER trans, RECORD tabledescription, RECORD newrec, OBJECT inserter)
+{
+  IF (NOT RecordExists(newrec)) //we are not really interested in table completion notifications
+    RETURN;
+
+  FOREVERY(RECORD reference FROM tabledescription.reference_columns)
+  {
+    IF(CellExists(newrec, reference.name))
+      newrec := CellUpdate(newrec, reference.name, MapImportedId(trans, reference.tablename, GetCell(newrec,reference.name)));
+  }
+
+  IF (CellExists(tabledescription,"pre_insert_filter") AND tabledescription.pre_insert_filter != DEFAULT MACRO PTR)
+    newrec := tabledescription.pre_insert_filter(newrec);
+  IF (NOT RecordExists(newrec))
+    RETURN;
+
+//fixme:debug
+//print(touppercase(tabledescription.output_table)||"\n");
+//printrecordto(0,newrec,'boxed');
+
+  IF (ObjectExists(inserter))
+    inserter->InsertRecords([ newrec ]);
+  ELSE
+    __WHDBDCInsert(trans, tabledescription.output_table, newrec);
+}
+
+MACRO ImportRecords(INTEGER trans, RECORD ARRAY importspecification, STRING tablename, RECORD ARRAY toimport)
+{
+  IF(importxml_webpacklegacyhacks)
+  {
+    IF(tablename="instance")
+      tablename := "webpack.instances";
+    ELSE IF(tablename="general")
+      tablename := "webpack.surveys";
+    ELSE
+      tablename := "webpack.survey_" || tablename;
+  }
+
+  RECORD tabledescription := SELECT * FROM importspecification WHERE input_table = tablename;
+
+  IF(NOT RecordExists(tabledescription))
+  {
+    STRING ARRAY acceptabletables := SELECT AS STRING ARRAY input_table FROM importspecification ORDER BY input_table;
+    THROW NEW Exception("Unexpected table '" || tablename || "', expected one of '" || Detokenize(acceptabletables, "', '") || "'");
+  }
+  IF(tabledescription.output_table="")
+    RETURN;
+
+  IF(tabledescription.bulk_insert_filter)
+  {
+    //First throw all rows through toimport
+    FOREVERY(RECORD col FROM tabledescription.cols)
+    {
+      IF(col.importbulkfunction != DEFAULT FUNCTION PTR)
+        toimport := ApplyBulkImportFunction(col.name, toimport, col.importbulkfunction, col.importdefaultvalue);
+    }
+  }
+
+  OBJECT inserter;
+  IF (GetDatabaseType() != "whdb")
+    inserter := GetDynamicInserter(GetTransactionObjectById(trans), tabledescription.output_table, [ cols := SELECT AS STRING ARRAY name FROM tabledescription.cols ]);
+
+  FOREVERY(RECORD newrec FROM toimport)
+  {
+    IF (NOT RecordExists(newrec)) //we are not really interested in table completion notifications
+      CONTINUE;
+
+    FOREVERY(RECORD reference FROM tabledescription.reference_columns)
+    {
+      IF(CellExists(newrec, reference.name))
+        newrec := CellUpdate(newrec, reference.name, MapImportedId(trans, reference.tablename, GetCell(newrec,reference.name)));
+    }
+
+    IF (CellExists(tabledescription,"pre_insert_filter") AND tabledescription.pre_insert_filter != DEFAULT MACRO PTR)
+      newrec := tabledescription.pre_insert_filter(newrec);
+    IF (NOT RecordExists(newrec))
+      CONTINUE;
+
+    IF (ObjectExists(inserter))
+      inserter->InsertRecords([ newrec ]);
+    ELSE
+      __WHDBDCInsert(trans, tabledescription.output_table, newrec);
+  }
+}
+
+MACRO ImportXMLDatabaseArchiveIntoWHDB(INTEGER trans, BLOB importarchive, RECORD ARRAY importspecification, STRING origin, STRING version, MACRO PTR progresscallback DEFAULTSTO DEFAULT MACRO PTR)
+{
+  /* ADDME: Version handling in importxmldatabasearchive is a bit of a hack, we should just register our own callbacks ?
+     Besides this, if the version number of the import doesn't match the export version number, nothing happens...
+     A warning would be nice!
+  */
+  importxml_origin := origin;
+  importxml_webpacklegacyhacks := FALSE;
+  importxml_version := version;
+  importxml_progresscallback := progresscallback;
+  importxml_recordsseen := 0;
+  importxml_recordfilesseensize := 0;
+
+  ImportXMLDatabaseArchive(importarchive, [ start_element := DEFAULT MACRO PTR
+                                          , end_element := DEFAULT MACRO PTR
+                                          , text_node := DEFAULT MACRO PTR
+                                          , comment_node := DEFAULT MACRO PTR
+                                          , harescript_table := PTR ImportRecords(trans,importspecification,#1,#2)
+                                          ]);
+  importxml_origin:="";
+  importxml_version:="";
+  importxml_progresscallback := DEFAULT MACRO PTR;
+  //fixme: debug
+  //printrecordarrayto(0,whdb_id_mappings,'html');
+}
+
+PUBLIC OBJECTTYPE DatabaseImExport
+<
+  STRING fileformat;
+  STRING fileversion;
+  INTEGER trans;
+
+  RECORD ARRAY tables;
+  STRING ARRAY topleveltablenames;
+
+  PUBLIC BOOLEAN usemarshalformat;
+  PUBLIC BOOLEAN ignore_extrefs;
+  PUBLIC MACRO PTR onprogresscallback;
+
+  MACRO NEW(STRING fileformat, STRING fileversion)
+  {
+    this->trans := GetPrimaryWebhareTransaction();
+    this->fileformat := fileformat;
+    this->fileversion := fileversion;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetSchemaToplevels(STRING schemaname)
+  {
+    //ADDME don't blindly assume schemaname==modulename?
+
+    RECORD schemainfo := SELECT * FROM GetModuleDatabaseSchema(Tolowercase(schemaname)) WHERE ToUppercase(name)=ToUppercase(VAR schemaname);
+    IF(NOT RecordExists(schemainfo))
+    {
+      RETURN SELECT name := ToLowercase(schemaname || "." || table_name)
+               FROM GetPrimary()->GetTableListing(schemaname);
+    }
+
+    RETURN SELECT name := ToLowercase(schemaname || "." || tables.name)
+             FROM schemainfo.tables
+            WHERE parentlinkcolumn="";
+  }
+
+  PUBLIC MACRO SetupByModule(STRING modulename, STRING ARRAY topleveltables)
+  {
+    IF(Length(this->tables)>0)
+      THROW NEW Exception("Multiple invocations of SetupByModule not supported yet");
+
+    //ADDME Guard against circular dependencies in the table structure. Preferably GetModuleDatabaseSchema should already reject these and break cycles so no other code has to deal with it.
+
+    RECORD schemainfo := SELECT * FROM GetModuleDatabaseSchema(modulename) WHERE ToUppercase(name)=ToUppercase(VAR modulename);
+    RECORD ARRAY basetableinfo;
+
+    IF(RecordExists(schemainfo)) //then we'll use the module information
+    {
+      basetableinfo := schemainfo.tables;
+      UPDATE basetableinfo SET cols := (SELECT *,
+                                             importdefaultvalue := GetColumnDefaultValue(cols)
+                                         FROM cols);
+
+    }
+    ELSE
+    {
+      basetableinfo := SELECT name := table_name
+                            , parentlinkcolumn := ""
+                            , primarykey := primary_key_name
+                            , cols := (SELECT name := column_name
+                                            , references_schema := referenced_table_schema
+                                            , references_table := referenced_table_name
+                                            , importdefaultvalue := defval
+                                         FROM GetPrimary()->GetColumnListing(modulename, table_name))
+                        FROM GetPrimary()->GetTableListing(modulename)
+                       WHERE isview = FALSE;
+    }
+
+    this->tables :=
+              SELECT input_table  := ToLowercase(modulename || "." || tables.name)
+                   , output_table := ToLowercase(modulename || "." || tables.name)
+                   , exportconstraints := DEFAULT RECORD ARRAY
+                   , parentlinkcolumn
+                   , cols := (SELECT cols.name
+                                   , cols.references_schema
+                                   , cols.references_table
+                                   , referred_table := cols.references_table != "" ? ToLowercase(cols.references_schema||"."||cols.references_table) : ""
+                                   , importfunction := DEFAULT FUNCTION PTR
+                                   , exportfunction := DEFAULT FUNCTION PTR
+                                   , exportbulkfunction := DEFAULT FUNCTION PTR
+                                   , importbulkfunction := DEFAULT FUNCTION PTR
+                                   , exportcol := TRUE
+                                   , exportdefaultvalue := DEFAULT RECORD
+                                   , importdefaultvalue
+                                FROM cols)
+                   , schemaname := modulename
+                   , primarykey
+                   , importfilters := DEFAULT FUNCTION PTR ARRAY
+                   , exportfilters := DEFAULT FUNCTION PTR ARRAY
+                FROM basetableinfo AS tables;
+
+    this->tables := SELECT *
+                         , parenttable := (SELECT AS STRING referred_table
+                                             FROM tables.cols
+                                            WHERE cols.name = tables.parentlinkcolumn
+                                                  AND ToUppercase(cols.references_schema) = ToUppercase(modulename)
+                                          )
+                      FROM this->tables;
+
+    FOREVERY(STRING topleveltablename FROM topleveltables)
+    {
+      topleveltablename := ToLowercasE(topleveltablename);
+      IF(NOT RecordExists(SELECT FROM this->tables WHERE input_table = topleveltablename))
+        THROW NEW Exception("Could not find the specified top level table '" || topleveltablename || "'");
+      INSERT topleveltablename INTO this->topleveltablenames AT END;
+    }
+  }
+
+  PUBLIC MACRO AddExportConstraint(STRING tablename, STRING columnname, STRING type, VARIANT val)
+  {
+    INTEGER pos := SELECT AS INTEGER #tables+1 FROM this->tables WHERE ToUppercase(input_table) = ToUppercase(tablename);
+    IF(pos=0)
+      THROW NEW Exception("No such table '" || tablename || "'");
+
+    INSERT [ columnname := columnname
+           , type := type
+           , val := val
+           ] INTO this->tables[pos-1].exportconstraints AT END;
+  }
+
+
+  /** @short Remove an external reference column
+      @long Removes the column from exports, and specifies an optional function which will regenerate a value on import
+      @param tablename Table name
+      @param columnname Column name
+      @param importfunction Function to invoke to get a value for this column. If not set, the column will receive a default value
+  */
+  PUBLIC MACRO RemoveExternalReference(STRING tablename, STRING columnname, FUNCTION PTR importfunction)
+  {
+    INTEGER pos := SELECT AS INTEGER #tables+1 FROM this->tables WHERE ToUppercase(input_table) = ToUppercase(tablename);
+    IF(pos=0)
+      THROW NEW Exception("No such table '" || tablename || "'");
+
+    INTEGER colpos := SELECT AS INTEGER #cols+1 FROM this->tables[pos-1].cols WHERE ToUppercase(name) = ToUppercase(VAR columnname);
+    IF(colpos=0)
+      THROW NEW Exception("No such column '" || columnname || "' in table '" || tablename || "'");
+
+    this->tables[pos-1].cols[colpos-1].exportcol := FALSE;
+    this->tables[pos-1].cols[colpos-1].importfunction := importfunction;
+  }
+
+  /** @short Remap an external reference column
+      @long Specifies how to rewrite an externally referencing column on export/import
+      @param tablename Table name
+      @param columnname Column name
+      @param importfunction Function to invoke to get a value for this column. If not set, the column will receive a default value
+  */
+  PUBLIC MACRO RemapExternalReference(STRING tablename, STRING columnname, FUNCTION PTR exportfunction, FUNCTION PTR importfunction)
+  {
+    this->SetColumnOptions(tablename, columnname, [ exportfunction := exportfunction, importfunction := importfunction ]);
+  }
+
+  PUBLIC MACRO SetColumnOptions(STRING tablename, STRING columnname, RECORD options)
+  {
+    INTEGER pos := SELECT AS INTEGER #tables+1 FROM this->tables WHERE ToUppercase(input_table) = ToUppercase(tablename);
+    IF(pos=0)
+      THROW NEW Exception("No such table '" || tablename || "'");
+
+    INTEGER colpos := SELECT AS INTEGER #cols+1 FROM this->tables[pos-1].cols WHERE ToUppercase(name) = ToUppercase(VAR columnname);
+    IF(colpos=0)
+      THROW NEW Exception("No such column '" || columnname || "' in table '" || tablename || "'");
+
+    RECORD toupdate := this->tables[pos-1].cols[colpos-1];
+    FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+    {
+      IF(cellrec.name = "EXPORTDEFAULTVALUE")
+        toupdate := CellUpdate(toupdate, "EXPORTDEFAULTVALUE", [ val := cellrec.value ]);
+      IF(cellrec.name IN ["IMPORTFUNCTION","EXPORTFUNCTION","EXPORTBULKFUNCTION","IMPORTBULKFUNCTION"])
+        toupdate := CellUpdate(toupdate, cellrec.name, cellrec.value);
+      ELSE
+        THROW NEW Exception("Unknown column option '" || cellrec.name || "'");
+    }
+    this->tables[pos-1].cols[colpos-1] := toupdate;
+  }
+
+  /** @short Remove a table, and all its children or external references */
+  PUBLIC MACRO RemoveTableCascade(STRING deletetablename)
+  {
+    RECORD tableinfo := SELECT * FROM this->tables WHERE ToUppercase(input_table) = ToUppercase(deletetablename);
+    IF(NOT RecordExists(tableinfo))
+      THROW NEW Exception("No such table '" || deletetablename || "'");
+
+    //Find tables that have us as a parent. They must go too
+    RECORD ARRAY dependent_tables := SELECT * FROM this->tables WHERE parenttable = tableinfo.input_table;
+    FOREVERY(RECORD tab FROM dependent_tables)
+      this->RemoveTableCascade(tab.input_table);
+
+    //Find columns that refer to us. They must be removed from export and remain empty on inmport
+    FOREVERY(RECORD tab FROM this->tables)
+    {
+      UPDATE this->tables[#tab].cols
+             SET exportcol := FALSE
+               , importfunction := DEFAULT FUNCTION PTR
+               , importbulkfunction := DEFAULT FUNCTION PTR
+             WHERE cols.referred_table = tableinfo.input_table;
+    }
+
+    DELETE FROM this->tables WHERE input_table = tableinfo.input_table;
+    IF(tableinfo.input_table IN this->topleveltablenames)
+      DELETE FROM this->topleveltablenames AT SearchElement(this->topleveltablenames,tableinfo.input_table);
+  }
+
+  PUBLIC MACRO IgnoreImportTable(STRING tablename)
+  {
+    INSERT [ input_table := ToLowercase(tablename)
+           , output_table := ""
+           , exportconstraints := DEFAULT RECORD ARRAY
+           , parentlinkcolumn := ""
+           , cols := DEFAULT RECORD ARRAY
+           , schemaname := ToLowercase(Tokenize(tablename,'.')[0])
+           , primarykey := ""
+           , importfilters := DEFAULT FUNCTION PTR ARRAY
+           , exportfilters := DEFAULT FUNCTION PTR ARRAY
+           , parenttable := ""
+           ] INTO this->tables AT END;
+  }
+
+  PUBLIC MACRO AddImportRowFilter(STRING tablename, FUNCTION PTR importfunction)
+  {
+    INTEGER pos := SELECT AS INTEGER #tables+1 FROM this->tables WHERE ToUppercase(input_table) = ToUppercase(tablename);
+    IF(pos=0)
+      THROW NEW Exception("No such table '" || tablename || "'");
+
+    INSERT importfunction INTO this->tables[pos-1].importfilters AT END;
+  }
+
+  PUBLIC MACRO AddExportRowFilter(STRING tablename, FUNCTION PTR exportfunction)
+  {
+    INTEGER pos := SELECT AS INTEGER #tables+1 FROM this->tables WHERE ToUppercase(input_table) = ToUppercase(tablename);
+    IF(pos=0)
+      THROW NEW Exception("No such table '" || tablename || "'");
+
+    INSERT exportfunction INTO this->tables[pos-1].exportfilters AT END;
+  }
+
+  ////////////////////////////
+  //
+  // Import code
+  RECORD ARRAY savedmappings;
+
+  RECORD FUNCTION ImportFilter(RECORD tablerec, RECORD row)
+  {
+    FOREVERY(RECORD col FROM tablerec.cols)
+      IF(col.importfunction != DEFAULT FUNCTION PTR AND (col.exportcol = FALSE OR CellExists(row,col.name)))
+      {
+        VARIANT newval := col.exportcol ? col.importfunction(GetCell(row, col.name)) : col.importfunction();
+        row := CellDelete(row, col.name);
+        row := CellInsert(row, col.name, newval);
+      }
+
+    FOREVERY(FUNCTION PTR filter FROM tablerec.importfilters)
+    {
+      row := filter(row);
+      IF(NOT RecordExists(row))
+        RETURN DEFAULT RECORD;
+    }
+    RETURN row;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetImportMapping(STRING tablename)
+  {
+    tablename := ToLowercase(tablename);
+    IF(NOT RecordExists(SELECT FROM this->tables WHERE tables.input_table=tablename))
+      THROW NEW Exception("No such table '" || tablename || "'");
+
+    RETURN SELECT sourceid := savedmappings."0"
+                , destid := savedmappings.id
+             FROM this->savedmappings
+            WHERE savedmappings."1" = tablename;
+  }
+
+  //Deal with primarykeys that themselves refer to other primarykeys (inheritance)
+  STRING FUNCTION GetFinallyReferredTable(STRING tablename)
+  {
+    RECORD inputtable := SELECT * FROM this->tables WHERE input_table = tablename;
+    RECORD primarykey := SELECT * FROM inputtable.cols WHERE cols.name = inputtable.primarykey;
+    IF(primarykey.references_table="")
+      RETURN tablename;
+    ELSE
+      RETURN this->GetfinallyreferredTable(primarykey.referred_table);
+  }
+
+  RECORD ARRAY FUNCTION GetImportInfo()
+  {
+    RECORD ARRAY importinfo :=
+      SELECT input_table
+           , output_table
+           , reference_columns := (SELECT name
+                                          //self-refer for non-referring primary keys
+                                        , tablename := cols.referred_table = ""
+                                                          ? tables.input_table
+                                                          : this->GetFinallyReferredTable(cols.referred_table)
+                                     FROM tables.cols
+                                    WHERE cols.exportcol = TRUE
+                                          AND (ToLowercase(cols.references_schema) = tables.schemaname
+                                               OR cols.name = tables.primarykey)
+                                  )
+           , bulk_insert_filter := RecordExists(SELECT FROM tables.cols WHERE importbulkfunction != DEFAULT MACRO PTR)
+           , pre_insert_filter := (RecordExists(SELECT FROM tables.cols WHERE importfunction != DEFAULT MACRO PTR)
+                                   OR Length(tables.importfilters)>0)
+                                      ? PTR this->ImportFilter(tables, #1)
+                                      : DEFAULT MACRO PTR
+           , tables.cols
+        FROM this->tables;
+
+    RETURN importinfo;
+  }
+
+  PUBLIC MACRO RunImport(BLOB data)
+  {
+    RECORD ARRAY importinfo := this->GetImportInfo();
+
+    ImportXMLDatabaseArchiveIntoWHDB(this->trans
+                                    ,data
+                                    ,importinfo
+                                    ,this->fileformat
+                                    ,this->fileversion, this->onprogresscallback);
+
+    this->savedmappings := whdb_id_mappings;
+  }
+
+  ////////////////////////////
+  //
+  // Export code
+
+  RECORD ARRAY exported_tables;
+  OBJECT whfssender;
+
+  MACRO ResetExportState()
+  {
+    this->exported_tables := DEFAULT RECORD ARRAY;
+  }
+
+  RECORD ARRAY FUNCTION GetOpenExternalReferencesRecurse(RECORD tablerec)
+  {
+    RECORD ARRAY cols;
+    IF(Length(tablerec.exportfilters) = 0) //if you have a filter, we'll assume you'll be dealing with it
+    {
+       cols :=  SELECT table_name := tablerec.input_table
+                     , column_name := name
+                     , references_schema
+                     , references_table
+                  FROM tablerec.cols
+                 WHERE cols.references_schema != ""
+                       AND ToUppercase(cols.references_schema) != ToUppercase(tablerec.schemaname)
+                       AND exportcol = TRUE
+                       AND exportfunction = DEFAULT MACRO PTR
+                       AND exportbulkfunction = DEFAULT MACRO PTR;
+    }
+
+    FOREVERY(RECORD subtable FROM (SELECT * FROM this->tables WHERE tables.parenttable = tablerec.input_table))
+      cols := cols CONCAT this->GetOpenExternalReferencesRecurse(subtable);
+    RETURN cols;
+  }
+
+  PUBLIC MACRO SetDefaultImExports()
+  {
+    RECORD ARRAY openexports := this->GetOpenExternalReferences();
+    FOREVERY(RECORD openexport FROM openexports)
+    {
+      IF(ToUppercase(openexport.references_schema || "." || openexport.references_table) = "SYSTEM.FS_OBJECTS")
+      {
+        this->RemapExternalReference(openexport.table_name, openexport.column_name, PTR this->ExportWHFSRef, PTR this->ImportWHFSRef);
+      }
+    }
+  }
+
+  INTEGER FUNCTION ImportWHFSRef(STRING whfsref)
+  {
+    IF(whfsref="")
+      RETURN 0;
+
+    //FIXME: look in a cache
+    //FIXME: share with UnmapWHFSRef in system/whfs.whlib
+    INTEGER colon := SearchSubstring(whfsref,":");
+
+    IF(colon<=0)//lacking site name
+    {
+      OBJECT whfsobj := OpenWHFSObjectByPath(Substring(whfsref,1));
+      INTEGER objid := LookupWHFSObject(0, Substring(whfsref,1));
+      IF(objid<0)
+        objid:=0;
+      RETURN objid;
+    }
+    ELSE
+    {
+      INTEGER siteid := SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(sites.name)=ToUppercase(Left(whfsref,colon));
+      INTEGER objid;
+      IF(siteid!=0)
+        objid := LookupWHFSObject(siteid, substring(whfsref,colon+1));
+      IF(objid<0)
+        objid:=0;
+      RETURN objid;
+    }
+  }
+
+  STRING FUNCTION ExportWHFSRef(INTEGER inid)
+  {
+    IF(inid=0)
+      RETURN "";
+    IF(NOT ObjectExists(this->whfssender))
+      this->whfssender := NEW WHFSBulkSender(0,"");
+    RETURN this->whfssender->MapWHFSRef(inid);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetOpenExternalReferences()
+  {
+    RECORD ARRAY retval;
+    FOREVERY(STRING topleveltablename FROM this->topleveltablenames)
+    {
+      RECORD topleveltable := SELECT * FROM this->tables WHERE ToUppercase(input_table) = ToUppercase(topleveltablename);
+      retval := retval CONCAT this->GetOpenExternalReferencesRecurse(topleveltable);
+    }
+    RETURN retval;
+  }
+
+  OBJECT FUNCTION PrepareExportQuery(RECORD tablerec, INTEGER ARRAY selectids, BOOLEAN istop)
+  {
+    IF(RecordExists(SELECT FROM this->exported_tables WHERE tablename = tablerec.input_table))
+      THROW NEW Exception("Duplicate export of '" || tablerec.input_table || "'");
+
+    INSERT [ tablename := tablerec.input_table
+           ]
+           INTO this->exported_tables AT END;
+
+
+    OBJECT dynquery := NEW DynamicQuery;
+    STRING ARRAY select_columns := SELECT AS STRING ARRAY name FROM tablerec.cols WHERE exportcol = TRUE;
+
+    dynquery->AddTable("tab", this->trans, tablerec.input_table, select_columns);
+    FOREVERY(RECORD constraint FROM tablerec.exportconstraints)
+      dynquery->AddConstraint("tab." || constraint.columnname, constraint.type, constraint.val);
+
+    IF(NOT istop)
+      dynquery->AddConstraint("tab." || tablerec.parentlinkcolumn, "IN", selectids);
+
+    RETURN dynquery;
+  }
+
+  RECORD FUNCTION UpdateExportRow(RECORD tablerec, RECORD row)
+  {
+    FOREVERY(FUNCTION PTR filter FROM tablerec.exportfilters)
+    {
+      row := filter(row);
+      IF(NOT RecordExists(row))
+        RETURN DEFAULT RECORD;
+    }
+
+    FOREVERY(RECORD col FROM tablerec.cols)
+    {
+      IF(NOT col.exportcol)
+       CONTINUE;
+
+      IF(col.exportfunction != DEFAULT MACRO PTR)
+      {
+        VARIANT newval := col.exportfunction(GetCell(row,col.name));
+        row := CellDelete(row, col.name);
+        row := CellInsert(row, col.name, newval);
+      }
+    }
+    RETURN row;
+  }
+
+  //////////////////////////////////
+  // Bulk database->file stream exporter
+  INTEGER ARRAY seenrowids;
+
+  BOOLEAN FUNCTION ReceiveExportRows(INTEGER outtable, RECORD tablerec, RECORD ARRAY rows, BOOLEAN gatherrowids)
+  {
+    //note: we currently receive up to 4096 rows per batch
+    RECORD ARRAY outrows := SELECT AS RECORD ARRAY tab FROM rows;
+    IF(Length(outrows) > 0)
+    {
+      FOREVERY(RECORD col FROM tablerec.cols)
+      {
+        IF(col.exportbulkfunction = DEFAULT MACRO PTR)
+          CONTINUE;
+
+        outrows := ApplyBulkExportFunction(col.name, outrows, col.exportbulkfunction, RecordExists(col.exportdefaultvalue) ? col.exportdefaultvalue.val : FALSE);
+      }
+    }
+
+    IF(HasExportFilters(tablerec))
+    {
+      outrows := SELECT AS RECORD ARRAY this->UpdateExportRow(tablerec, outrows) FROM outrows;
+      outrows := SELECT AS RECORD ARRAY outrows FROM outrows WHERE RecordExists(outrows);
+    }
+
+    FOREVERY(RECORD row FROM outrows)
+      WriteXMLTableRecord(outtable, row);
+
+    IF(gatherrowids)
+      this->seenrowids := this->seenrowids CONCAT SELECT AS INTEGER ARRAY id FROM outrows;
+
+    RETURN TRUE;
+  }
+
+  MACRO ExportTable(INTEGER outputid, RECORD tablerec, INTEGER ARRAY selectids, BOOLEAN istop)
+  {
+    RECORD ARRAY childtables := SELECT * FROM this->tables WHERE tables.parenttable = tablerec.input_table;
+    OBJECT dynquery := this->PrepareExportQuery(tablerec, selectids, istop);
+
+    INTEGER outtable := CreateXMLTable(outputid, tablerec.output_table);
+    BOOLEAN gatherrowids := Length(childtables) > 0;
+    this->seenrowids := INTEGER[];
+    dynquery->ExecuteTo(PTR this->ReceiveExportRows(outtable, tablerec, #1, gatherrowids)); //also fills seenrowids with all seen ids
+
+    INTEGER ARRAY selected_ids := this->seenrowids;
+    FinishXMLTable(outtable);
+
+    IF(gatherrowids AND Length(selected_ids) > 0)
+    {
+      FOREVERY(RECORD childtable FROM childtables)
+        this->ExportTable(outputid, childtable, selected_ids, FALSE);
+    }
+  }
+
+  PUBLIC BLOB FUNCTION RunExport()
+  {
+    TRY
+    {
+      GetPrimary()->PushWork();
+
+      IF(NOT this->ignore_extrefs)
+      {
+        RECORD badref := this->GetOpenExternalReferences();
+        IF(RecordExists(badref))
+          THROW NEW Exception("Column '" || badref.table_name || "." || badref.column_name || " has an unhandled external reference to '" || badref.references_schema || "." || badref.references_table || "'");
+      }
+
+      this->ResetExportState();
+      whdb_xml_marshalformat := this->usemarshalformat;
+
+      INTEGER outputid := CreateStream();
+      WriteXMLTableBegin(outputid, this->fileformat, this->fileversion);
+
+      FOREVERY(STRING topleveltablename FROM this->topleveltablenames)
+      {
+        RECORD topleveltable := SELECT * FROM this->tables WHERE ToUppercase(input_table) = ToUppercase(topleveltablename);
+        this->ExportTable(outputid, topleveltable, DEFAULT INTEGER ARRAY, TRUE);
+      }
+      WriteXMLTableEnd(outputid);
+      RETURN CreateXMLDatabaseArchiveInternal(MakeBlobFromStream(outputid), GetXMLOutoflineRecordFiles(outputid), GetXMLOutoflineBlobs(outputid));
+    }
+    FINALLY
+    {
+      GetPrimary()->PopWork();
+    }
+  }
+
+
+
+  ////////////////////////////
+  //
+  // Internal copy code. Equivalent to export, import
+
+  MACRO CopyTable(RECORD tablerec, INTEGER ARRAY selectids, BOOLEAN istop, RECORD ARRAY importspecification)
+  {
+    //export prep
+    OBJECT dynquery := this->PrepareExportQuery(tablerec, selectids, istop);
+
+    //import prep
+    RECORD tabledescription := SELECT * FROM importspecification WHERE input_table = tablerec.input_table;
+
+    OBJECT inserter;
+    IF (GetDatabaseType() != "whdb")
+      inserter := GetDynamicInserter(GetTransactionObjectById(this->trans), tabledescription.output_table, [ cols := SELECT AS STRING ARRAY name FROM tabledescription.cols ]);
+
+    RECORD ARRAY outrows := SELECT AS RECORD ARRAY tab FROM dynquery->Execute();
+    FOREVERY(RECORD row FROM outrows)
+    {
+      row := this->UpdateExportRow(tablerec, row);
+      IF(RecordExists(row)) //not dropped?
+        TableImporter(this->trans, tabledescription, row, inserter);
+    }
+
+    RECORD ARRAY childtables := SELECT * FROM this->tables WHERE tables.parenttable = tablerec.input_table;
+    IF(Length(childtables) > 0)
+    {
+      INTEGER ARRAY selected_ids := SELECT AS INTEGER ARRAY id FROM outrows;
+      FOREVERY(RECORD childtable FROM childtables)
+      {
+        this->CopyTable(childtable, selected_ids, FALSE, importspecification);
+      }
+    }
+  }
+
+  PUBLIC MACRO RunCopy()
+  {
+    //export prep
+    this->ResetExportState();
+
+    //import prep
+    RECORD ARRAY importinfo := this->GetImportInfo();
+    ResetMappings();
+
+    //actual copy
+    FOREVERY(STRING topleveltablename FROM this->topleveltablenames)
+    {
+      RECORD topleveltable := SELECT * FROM this->tables WHERE ToUppercase(input_table) = ToUppercase(topleveltablename);
+      this->CopyTable(topleveltable, DEFAULT INTEGER ARRAY, TRUE, importinfo);
+    }
+
+    //import finalize
+    this->savedmappings := whdb_id_mappings;
+  }
+
+>;

@@ -1,0 +1,40 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/sysmgmt/filesystem.whlib"
+         gid="sysmgmt"
+         >
+
+  <screen name="filesystem" gid=".filesystem" tid=".title" icon="tollium:filemgr/mydocuments" minwidth="400px" minheight="350px" allowresize="true" savestate="size">
+    <body>
+      <box name="publication">
+        <line>
+          <textedit name="processes" valuetype="integer" minvalue="1" maxvalue="32" width="8x" />
+        </line>
+        <line>
+          <textedit name="maxpublishtime" valuetype="integer" minvalue="60" maxvalue="1000000" width="8x" emptyvalue="0" />
+          <text valuetid="tollium:common.units.seconds" />
+        </line>
+        <select name="queueloglevel" type="pulldown" rowkeytype="integer">
+          <option rowkey="0" tid=".loglevel-fatalerrors" />
+          <option rowkey="1" tid=".loglevel-statistics" />
+          <option rowkey="2" tid=".loglevel-debug" />
+        </select>
+        <textedit name="defaultcontentlisting" width="1pr" />
+      </box>
+
+      <box name="trashcan">
+        <line>
+          <textedit name="trashcanexpire" valuetype="integer" minvalue="0" maxvalue="1000000" width="8x" />
+          <text valuetid="tollium:common.units.days" />
+        </line>
+        <line>
+          <textedit name="trashcanmaxsize" valuetype="integer" minvalue="0" maxvalue="1000000" width="8x" />
+          <text value="MB" />
+        </line>
+      </box>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

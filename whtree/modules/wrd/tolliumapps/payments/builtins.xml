@@ -1,0 +1,34 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         library="builtins.whlib"
+         gid="tolliumapps.payments.builtins">
+
+  <tabsextension name="configtestpsp" implementation="lib">
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <select composition="methodsettings" cellname="interactiontype" name="interactiontype" type="radio">
+        <option rowkey="redirect" />
+        <option rowkey="form" />
+      </select>
+      <line>
+        <textedit composition="methodsettings" cellname="sleep" name="sleep" width="8x" valuetype="integer" minvalue="0" maxvalue="60000" />
+        <text valuetid="~units.milliseconds" />
+      </line>
+      <checkbox composition="methodsettings" cellname="disablewithissuer" name="disablewithissuer" title="" labeltid=".disablewithissuer" />
+      <checkbox composition="methodsettings" cellname="disablenoissuer" name="disablenoissuer" title="" labeltid=".disablenoissuer" />
+    </insert>
+  </tabsextension>
+
+  <tabsextension name="configexternalpsp" implementation="lib">
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <textedit composition="methodsettings" cellname="methodtitle" required="true" name="methodtitle" tid="~title" />
+    </insert>
+  </tabsextension>
+
+</screens>

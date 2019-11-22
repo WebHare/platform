@@ -1,0 +1,344 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/smtp.whlib";
+LOADLIB "wh::internet/mime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY uploadedfiles;
+  INTEGER nextid;
+
+  BOOLEAN pvt_to_is_bcc_description;
+  STRING pvt_description_to;
+
+  BLOB mailblob;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables and properties
+  //
+
+  PUBLIC INTEGER max_attachments_size;
+
+  /* Here is the glue to merge with the old ComposeMailDialog */
+
+  PUBLIC PROPERTY mailfrom(^mailerfrom->value, ^mailerfrom->value);
+
+  PUBLIC PROPERTY mailto(this->mailerto->value, this->mailerto->value);
+
+  PUBLIC PROPERTY mailcc(this->mailercc->value, this->mailercc->value);
+
+  PUBLIC PROPERTY mailbcc(this->mailerbcc->value, this->mailerbcc->value);
+
+  PUBLIC PROPERTY mailsubject(this->mailersubject->value, this->mailersubject->value);
+
+  /** Set to TRUE to use the mailto value as a description, actually send mail to additionalbcc */
+  PUBLIC PROPERTY to_is_bcc_description(pvt_to_is_bcc_description, SetToIsBCCDescription);
+
+  /** If to_is_bcc_description is set, use this address as the address for the description, otherwise the sender address is used */
+  PUBLIC PROPERTY description_to(pvt_description_to,pvt_description_to);
+
+  PUBLIC PROPERTY readonlyfrom(GetReadonlyFrom,SetReadonlyFrom);
+
+  PUBLIC PROPERTY mailbody(this->textareahtml->value, -);
+
+  PUBLIC PROPERTY allowattachments(this->attachmentpanel->visible, SetAllowAttachments);
+
+  PUBLIC PROPERTY mailattachments(GetMailAttachments, -);
+
+  PUBLIC STRING ARRAY additionalbcc;
+
+  PUBLIC FUNCTION PTR onqueuedmail;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init & submit
+  //
+
+  PUBLIC MACRO Init()
+  {
+    this->nextid := 1;
+    this->attachmentpanel->visible := TRUE;
+    ^mailerfrom->placeholder := ReadRegistryKey("system.services.smtp.mailfrom");
+    ^mailerfrom->required := ^mailerfrom->placeholder = "";
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (NOT work->HasFailed())
+    {
+      RECORD exp := this->textareahtml->value;
+      IF(NOT RecordExists(exp))
+        exp := [ htmltext := DEFAULT BLOB, embedded := DEFAULT RECORD ARRAY ];
+
+      RECORD ARRAY embed := SELECT data
+                                 , filename := contentid || extension
+                                 , contenttype := mimetype
+                                 , contentid := "<" || contentid || ">"
+                                 , contentdisposition := "inline"
+                              FROM exp.embedded;
+
+      RECORD toppart := CreateMIMEMailingTopPart(DEFAULT BLOB, exp.htmltext, embed);
+
+      STRING ARRAY receivers := this->additionalbcc;
+      FOREVERY(STRING tok FROM tokenize((this->pvt_to_is_bcc_description ? "" : this->mailerto->value) || "," || this->mailercc->value || "," || this->mailerbcc->value,","))
+      {
+        tok:=TrimWhitespace(tok);
+        IF(tok!="")
+          INSERT tok INTO receivers AT END;
+      }
+
+      STRING mailfrom := ^mailerfrom->value ?? ^mailerfrom->placeholder;
+      RECORD ARRAY headers := GetSMTPEmailHeader(mailfrom, this->mailersubject->value,"");
+      IF (this->pvt_to_is_bcc_description)
+      {
+        // Use the BCC description ('To' field value) as name and the sender's e-mail if not otherwise specified using
+        // description_to
+        STRING sender := this->pvt_description_to ?? SplitEmailName(mailfrom).email;
+        INSERT INTO headers(field,value) VALUES("To", MakeEmailAddress(this->mailerto->value, sender, this->mailerto->value != "")) AT END;
+      }
+      ELSE IF (Length(this->mailerto->value)>0)
+        INSERT INTO headers(field,value) VALUES("To", this->mailerto->value) AT END;
+      IF (Length(this->mailercc->value)>0)
+        INSERT INTO headers(field,value) VALUES("Cc", this->mailercc->value) AT END;
+
+      toppart := AddAttachmentsToMail(toppart, this->uploadedfiles);
+      INTEGER ARRAY taskids := QueueMailInWork("Tollium Mailer", receivers, mailfrom, headers, toppart);
+      this->mailblob := EncodeMIMEMessage(headers, toppart);
+
+      IF (this->onqueuedmail != DEFAULT FUNCTION PTR)
+        this->onqueuedmail(work, CELL[ taskids
+                                     , headers
+                                     , toppart
+                                     , subject := ^mailersubject->value
+                                     , mailfrom := mailfrom
+                                     , mailto := TokenizeEmailAddresses(^mailerto->value)
+                                     , mailcc := TokenizeEmailAddresses(^mailercc->value)
+                                     , mailbcc := TokenizeEmailAddresses(^mailerbcc->value)
+                                     ]);
+    }
+
+    RETURN work->Finish();
+  }
+
+  BOOLEAN FUNCTION Cancel()
+  {
+    IF(RecordExists(this->mailbody) = FALSE)
+      RETURN TRUE;
+
+    RETURN this->RunSimpleScreen("confirm", GetTid("system:mailer.messages.confirm_cancel")) = "yes";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  MACRO SetToIsBCCDescription(BOOLEAN value)
+  {
+    this->mailerto->enabled := NOT value;
+    this->pvt_to_is_bcc_description := value;
+  }
+
+  MACRO SetReadonlyFrom(BOOLEAN value)
+  {
+    this->mailerfrom->enabled := NOT value;
+  }
+
+  BOOLEAN FUNCTION GetReadonlyFrom()
+  {
+    RETURN NOT this->mailerfrom->enabled;
+  }
+
+  MACRO SetAllowAttachments(BOOLEAN allow)
+  {
+    this->attachmentpanel->visible := allow;
+    this->addattachmentbutton->visible := allow;
+  }
+
+  RECORD ARRAY FUNCTION GetMailAttachments()
+  {
+     RETURN SELECT data
+                 , filename := name
+                 , mimetype := contenttype
+              FROM this->uploadedfiles;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List fills
+  //
+
+  MACRO RefreshAttachments()
+  {
+    this->attachments->rows := SELECT id
+                                    , filename := name
+                                    , filetype := contenttype
+                                    , filesize := LENGTH(data)
+                                    , data
+                                 FROM this->uploadedfiles;
+
+    this->attachmentpanel->visible := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAttach(RECORD ARRAY files)
+  {
+    FOREVERY(RECORD file FROM files)
+    {
+      INSERT [ id          := this->nextid
+             , name        := file.filename
+             , contenttype := file.mimetype
+             , data        := file.data
+             ] INTO this->uploadedfiles AT END;
+      this->nextid := this->nextid + 1;
+    }
+    this->RefreshAttachments();
+  }
+
+  MACRO DoDownloadAttachment(OBJECT obj)
+  {
+    obj->SendFile(this->attachments->selection.data, this->attachments->selection.filetype, this->attachments->selection.filename);
+  }
+
+  MACRO DoDeleteAttachment()
+  {
+    IF(this->RunSimpleScreen("confirm", GetTid("system:mailer.messages.confirm_delete_attachment", ^attachments->selection.filename)) != "yes")
+      RETURN;
+
+    DELETE FROM this->uploadedfiles WHERE id = ^attachments->selection.id;
+    this->RefreshAttachments();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC BLOB FUNCTION GetSentMail()
+  {
+    RETURN this->mailblob;
+  }
+
+  PUBLIC BOOLEAN FUNCTION RunDialog()
+  {
+    RETURN this->RunModal()="ok";
+  }
+
+  PUBLIC MACRO SetHTMLContents(STRING html)
+  {
+    this->textareahtml->value := [ htmltext := StringToBlob(html)
+                                 , embedded := DEFAULT RECORD ARRAY
+                                 ];
+  }
+
+  PUBLIC MACRO SetFromRTD(RECORD rtd)
+  {
+    IF (RecordExists(rtd.instances))
+      THROW NEW Exception("Using embedded instances is not supported yet");
+
+    this->textareahtml->value := CELL[ rtd.htmltext, rtd.embedded ];
+  }
+
+  PUBLIC MACRO Quote(STRING html)
+  {
+    this->SetHTMLContents("<blockquote style='margin:0 0 0 10px; border-left: 1px solid red'>" || html || "<blockquote>");
+  }
+
+  /** @short add an attachment
+      @param filedata in the attachment
+      @param filename of the attachment/file
+      @param mimetype mimetype override, if empty the mimetype will be detected
+  */
+  PUBLIC MACRO AddAttachment(BLOB filedata, STRING filename, STRING mimetype)
+  {
+    INSERT [ id          := this->nextid
+           , name        := filename
+           , contenttype := mimetype
+           , data        := filedata
+           ] INTO this->uploadedfiles AT END;
+
+    this->nextid := this->nextid + 1;
+
+    this->RefreshAttachments();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailViewer EXTEND TolliumScreenBase
+<
+  BLOB original;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->original := data.mailblob;
+    ^mailcontents->LoadEML(data.mailblob);
+  }
+
+  PUBLIC MACRO DoViewSource()
+  {
+    OBJECT dialog := this->LoadScreen(".viewsource", [ message := this->original ]);
+    dialog->RunModal();
+  }
+
+  PUBLIC BOOLEAN FUNCTION RunDialog()
+  {
+    RETURN this->RunModal()="ok";
+  }
+>;
+
+PUBLIC OBJECTTYPE ViewSource EXTEND TolliumScreenBase
+< PUBLIC MACRO Init(RECORD data)
+  {
+    STRING datastr := BlobToString(data.message); //FIXME limit size?
+
+    datastr := SubStitute(datastr, "\r\n", "\n");
+    datastr := SubStitute(datastr, "\r", "\n");
+
+    this->text->value := datastr;
+  }
+>;
+
+PUBLIC OBJECTTYPE MailQueueDialog EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    //RegisterEventCallback("system:softreset", PTR this->OnSoftReset);
+    OBJECT screen := this->LoadScreen("mod::system/screens/monitor/mailqueue.xml#mailqueuepanel", [ runembedded := TRUE, filter := data.sourcefilter ]);
+    IF (ObjectExists(screen))
+    {
+      IF(NOT (screen EXTENDSFROM MonitorPanelBase))
+        THROW NEW Exception("The monitor panel does not extend from MonitorPanelBase");
+
+      screen->__pvt_yourmonitor := PRIVATE THIS; //ADDME use some sort of messaging interface? better not to expose privatedata
+    }
+    this->monitor->contents := screen;
+    this->monitor->contents->EnableRefresh();
+    this->monitor->contents->RefreshMonitorPanel();
+  }
+>;
+
+PUBLIC OBJECTTYPE RightsProblem EXTEND TolliumScreenBase
+< PUBLIC MACRO Init(RECORD data)
+  {
+    IF (this->tolliumcontroller->debugging)
+      this->RunMessageBox(".notenoughrights_spec", data.needed_rights);
+    ELSE
+      this->RunMessageBox(".notenoughrights");
+    this->tolliumresult := "cancel";
+  }
+>;

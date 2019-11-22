@@ -1,0 +1,34 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
+         lib="screens/userrights/dialogs/manageobjectrights.whlib">
+
+  <!-- Manage the rights on an object -->
+  <screen name="manageobjectrights"
+          title=""
+          minwidth="80x"
+          width="120x"
+          minheight="20x"
+          height="35x"
+          allowresize="true"
+          gid=".rights" >
+    <body>
+      <grid width="1pr" height="1pr">
+        <col width="1pr"/>
+        <col/>
+        <row height="1pr">
+          <cell>
+            <includefragment name="objectrightslist" fragment="userrights/parts/objectrightslist.objectrightslist" />
+          </cell>
+          <cell>
+            <button tid="tollium:common.actions.add" action="objectrightslist->grantrightonobject" />
+            <button tid="tollium:common.actions.edit" action="objectrightslist->edit"/>
+            <button tid="tollium:common.actions.delete" action="objectrightslist->revokerightonobject"/>
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+</screens>

@@ -1,0 +1,198 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+PUBLIC MACRO __SetCSPCacheFromSourceData(RECORD data)
+{
+  StoreAdhocCached([ type := "siteprofiles" ],
+      [ ttl :=          60 * 60 * 1000 // 1 hour
+      , value :=        data
+      , eventmasks :=   [ "publisher:internal.siteprofiles.recompiled" ]
+      ]);
+  whfscache_csp := data;
+  EnsureWHFSCacheListener();
+}
+
+RECORD FUNCTION DoGetCacheableSiteProfiles()
+{
+  RECORD fileinfo := SELECT files.data
+                       FROM system.fs_objects AS files, system.fs_objects AS folders
+                      WHERE ToUppercase(files.name)="COMPILED-SITEPROFILES.BIN"
+                            AND files.parent=folders.id
+                            AND folders.parent = whconstant_whfsid_private
+                            AND folders.name="publisher";
+  IF(NOT RecordExists(fileinfo))
+    THROW NEW Exception("Site profiles not yet available");
+
+  RETURN
+      [ ttl :=          60 * 60 * 1000 // 1 hour
+      , value :=        __HS_MarshalReadFromBlob(fileinfo.data)
+      , eventmasks :=   [ "publisher:internal.siteprofiles.recompiled" ]
+      ];
+}
+RECORD FUNCTION GetCacheableSiteProfiles()
+{
+  RETURN RunInSeparatePrimary(PTR DoGetCacheableSiteProfiles);
+}
+
+PUBLIC RECORD FUNCTION GetCachedSiteProfiles()
+{
+  IF(NOT RecordExists(whfscache_csp))
+  {
+    whfscache_csp := GetAdhocCached([ type := "siteprofiles" ], PTR GetCacheableSiteProfiles);
+    EnsureWHFSCacheListener();
+  }
+  RETURN whfscache_csp;
+}
+
+/** Describes a content type
+    @param id Id of the content type
+    @cell(boolean) options.isfolder If provided, fallback on normal file / normal folder when the provided id is 0.
+    @cell(boolean) options.mockifmissing If set and isfolder has been set, also return 'normal file' / 'normal folder' descriptions
+      when the content type could not be found.
+    @return Metadata for the content type
+    @cell(integer) return.id Id of the content type
+    @cell(string) return.namespace Namespace of the content type
+    @cell(boolean) return.ispublishable Whether the content type is publishable
+    @cell(boolean) return.needstemplate Whether files of this type need a template
+    @cell(boolean) return.needsprofile Whether files of this type nee a sprofile
+    @cell(string) return.title Tid with the title of the content type
+    @cell(string) return.tolliumicon Icon of this content type
+    @cell(record) return.dynamicexecution
+    @cell(boolean) return.isacceptableindex Wether files of this type can be used as index
+    @cell(string array) return.extensions
+    @cell(string) return.searchprovider
+    @cell(boolean) return.blobiscontent
+    @cell(boolean) return.ishidden
+    @cell(boolean) return.capturesubpaths
+    @cell(string) return.siteprofile Siteprofile that defines this content type
+    @cell(integer) return.line Line on which this content type is defined
+    @cell(string) return.indexfile For folders, type of the index file
+    @cell(boolean) return.protectindexfile For folders, whether the index file is protected (pinned automatically)
+    @topic siteprofiles/api
+    @public
+    @loadlib mod::publisher/lib/siteprofiles.whlib
+*/
+PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ isfolder := FALSE
+                             , mockifmissing := FALSE
+                             ], options, [optional := ["isfolder"]]);
+
+  IF(options.mockifmissing AND NOT CellExists(options,'isfolder'))
+   THROW NEW Exception("The 'mockifmissing' option requires 'isfolder' to be set");
+
+  RECORD type;
+  IF(id=0)
+  {
+    IF(NOT CellExists(options,'isfolder'))
+      RETURN DEFAULT RECORD;
+    type := LookupContentTypeByName(options.isfolder ? "http://www.webhare.net/xmlns/publisher/normalfolder" : "http://www.webhare.net/xmlns/publisher/unknownfile");
+  }
+  ELSE
+  {
+    type := LookupContentTypeById(id);
+  }
+
+  BOOLEAN ismissing;
+  RECORD fstype;
+  IF(NOT RecordExists(type))
+  {
+    IF(NOT options.mockifmissing)
+      RETURN DEFAULT RECORD;
+
+    ismissing := TRUE;
+    type := LookupContentTypeByName(options.isfolder ? "http://www.webhare.net/xmlns/publisher/normalfolder" : "http://www.webhare.net/xmlns/publisher/unknownfile");
+    fstype := SELECT * FROM system.fs_types WHERE fs_types.id = VAR id;
+  }
+  ELSE IF(CellExists(options,'isfolder'))
+  {
+    IF(options.isfolder AND NOT RecordExists(type.foldertype))
+      IF(options.mockifmissing)
+        type.fstype := DEFAULT RECORD;
+      ELSE
+        RETURN DEFAULT RECORD;
+
+    IF(NOT options.isfolder AND NOT RecordExists(type.filetype))
+      IF(options.mockifmissing)
+        type.fstype := DEFAULT RECORD;
+      ELSE
+        RETURN DEFAULT RECORD;
+  }
+
+  STRING ns := ismissing ? RecordExists(fstype) ? fstype.namespace : "#" || id : type.namespace;
+  RETURN [ id := id
+         , namespace := ns
+         , ispublishable := RecordExists(type.fstype) AND type.fstype.ispublishable
+         , needstemplate := RecordExists(type.fstype) AND type.fstype.needstemplate
+         , needsprofile := RecordExists(type.fstype) AND type.fstype.needsprofile
+         , title := ismissing ? ":"||ns : RecordExists(type.filetype) ? type.filetype.title : RecordExists(type.foldertype) ? type.foldertype.title : ":"||ns
+         , tolliumicon := RecordExists(type.filetype) ? type.filetype.tolliumicon ?? "tollium:files/application_x-webhare-unknown"
+                         : RecordExists(type.foldertype) ? type.foldertype.tolliumicon ?? "tollium:folders/normal"
+                         : "tollium:files/application_x-webhare-unknown"
+         , dynamicexecution := RecordExists(type.filetype) ? type.filetype.dynamicexecution : RecordExists(type.foldertype) ? type.foldertype.dynamicexecution : DEFAULT RECORD
+         , isacceptableindex := RecordExists(type.fstype) AND type.fstype.isacceptableindex
+         , extensions := RecordExists(type.filetype) ? type.filetype.extensions : STRING[]
+         , searchprovider := RecordExists(type.filetype) ? type.filetype.searchprovider : ""
+         , blobiscontent := RecordExists(type.filetype) AND type.filetype.blobiscontent
+         , ishidden := RecordExists(type.foldertype) AND type.foldertype.ishidden
+         , capturesubpaths := RecordExists(type.fstype) AND type.fstype.capturesubpaths
+         , siteprofile := ismissing ? "" : type.siteprofile
+         , line := ismissing ? 0 : type.line
+
+         , indexfile        := RecordExists(type.foldertype) ? type.foldertype.indexfile : ""
+         , protectindexfile := RecordExists(type.foldertype) ? type.foldertype.protectindexfile : FALSE
+
+         ];
+}
+PUBLIC RECORD FUNCTION LookupContentTypeById(INTEGER id)
+{
+  IF(id=0)
+    THROW NEW Exception("LookupContentTypeById cannot be invoked with id 0");
+  //FIXME cache or optimize
+  RETURN SELECT * FROM GetCachedSiteProfiles().contenttypes WHERE contenttypes.id = VAR id;
+}
+PUBLIC RECORD FUNCTION LookupContentTypeByName(STRING ns)
+{
+  //FIXME its sorted so use that
+  RETURN SELECT * FROM GetCachedSiteProfiles().contenttypes WHERE contenttypes.namespace = VAR ns;
+}
+PUBLIC INTEGER ARRAY FUNCTION GetDynamicExecuteFolderTypes()
+{
+  RETURN SELECT AS INTEGER ARRAY id
+           FROM GetCachedSiteProfiles().contenttypes
+          WHERE RecordExists(foldertype) AND RecordExists(foldertype.dynamicexecution);
+}
+
+BOOLEAN FUNCTION IsReferenced(INTEGER typid)
+{
+  RETURN RecordExists(SELECT FROM system.fs_objects AS objects WHERE type = typid LIMIT 1);
+}
+
+///list the contenttypes known in system.fs_types
+PUBLIC RECORD ARRAY FUNCTION ListFSContentTypes(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ mask := "*" ],options);
+
+  RECORD ARRAY contenttypes :=
+    SELECT id
+         , namespace
+         , candelete := orphan //AND NOT this->IsReferenced(namespace)
+         , isfoldertype
+      FROM system.fs_types
+     WHERE (options.mask != "*" ? ToUppercase(namespace) LIKE ToUppercase(options.mask) : TRUE);
+
+  RECORD ARRAY iconinfo := SELECT id
+                                , tolliumicon := RecordExists(filetype) ? filetype.tolliumicon : foldertype.tolliumicon
+                             FROM GetCachedSiteProfiles().contenttypes
+                            WHERE RecordExists(filetype) OR RecordExists(foldertype);
+
+  contenttypes := JoinArrays(contenttypes, "id", iconinfo, [ tolliumicon := "" ], [ rightouterjoin := TRUE ]);
+
+  UPDATE contenttypes SET candelete := FALSE WHERE candelete = TRUE AND IsReferenced(id);
+  RETURN contenttypes;
+}

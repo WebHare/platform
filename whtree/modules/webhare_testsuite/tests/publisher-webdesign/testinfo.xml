@@ -1,0 +1,20 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="basetest.whscr"/>
+  <test script="basetest-moduledesign.whscr"/>
+  <test script="testwebdesign-template.whscr"/>
+  <test script="gziptest.whscr"/>
+  <test script="testembeddedobject.whscr"/>
+  <test script="urlhistory.whscr"/>
+  <test script="urlpushevents.whscr"/>
+  <test script="assetmgrtest.whscr"/>
+  <test script="assetmgr-brokentest.whscr"/>
+  <test script="testcdn-moduledesign.whscr"/>
+  <test script="webfeatures.whscr"/>
+  <test script="test_forms.whscr"/>
+  <test script="test_widgets.whscr"/>
+  <test script="test-nodesign.whscr"/>
+  <jstest file="test-common-widgets-online.es"/>
+  <test script="test_outputanalyzer.whscr"/>
+  <jstest file="testwebdesign.es" />
+  <test script="test_structureddata.whscr"/>
+</group>

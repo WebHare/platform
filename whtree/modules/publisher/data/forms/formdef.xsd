@@ -1,0 +1,1079 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ADDME Try to share language and gid stuff with tollium, but need a proper importer for that -->
+
+<xs:schema
+  xmlns="http://www.webhare.net/xmlns/publisher/forms"
+  xmlns:forms="http://www.webhare.net/xmlns/publisher/forms"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/publisher/forms"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+
+  <!--FIXME: Remove when all form definition files refer to system common instead of tollium screens -->
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
+
+  <xs:simpleType name="Pins"> <!-- NOTE use sc:FormFormComponentPins or sc:FormHandlerPins -->
+    <xs:list>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="existence">
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:list>
+  </xs:simpleType>
+
+  <xs:simpleType name="InstanceId">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:attributeGroup name="PageAttributes">
+    <xs:attribute name="name" type="xs:string" />
+    <xs:attribute name="pagetitle" type="xs:string" />
+    <xs:attribute name="pagetid"  type="sc:Tid" />
+    <xs:attribute name="pins" type="sc:FormComponentPins" />
+    <xs:attribute name="guid" type="xs:string" />
+    <xs:attribute name="comment" type="xs:string" />
+    <xs:attribute name="role">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="" />
+          <xs:enumeration value="overview" />
+          <xs:enumeration value="thankyou" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="visibleconditionid" type="InstanceId" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="GroupAttributes">
+    <xs:attributeGroup ref="sc:FormGroupAttributes" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="BaseAttributes">
+    <xs:attributeGroup ref="sc:FormBaseAttributes" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="HandlerAttributes">
+    <xs:attributeGroup ref="sc:FormHandlerAttributes" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="LabelAttributes">
+    <xs:attribute name="label" type="xs:string" />
+    <xs:attribute name="labeltid"  type="sc:Tid" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="PlaceholderAttributes">
+    <xs:attributeGroup ref="sc:Placeholder"/>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="PrefixSuffixAttributes">
+    <xs:attribute name="prefix" type="xs:string" />
+    <xs:attribute name="prefixtid"  type="sc:Tid" />
+    <xs:attribute name="suffix" type="xs:string" />
+    <xs:attribute name="suffixtid"  type="sc:Tid" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="MapUnmapAttributes">
+    <!--
+    <xs:attribute name="onmapvalue" />
+    <xs:attribute name="onunmapvalue" />
+  -->
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="AutocompleteAttributes">
+    <xs:attribute name="autocomplete">
+      <xs:annotation>
+        <xs:documentation>
+          See https://html.spec.whatwg.org/multipage/forms.html#attr-fe-autocomplete
+          and https://developers.google.com/web/fundamentals/design-and-ui/input/forms/#recommended_input_name_and_autocomplete_attribute_values
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:element name="formdefinitions">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          Applies a formdefinition file. Please note that if you're going to apply a formdefinitino to a specific file,
+          you should probably match against the contentfiletype and not the filetype.
+        </xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:element name="form" type="Form" minOccurs="0" maxOccurs="unbounded">
+          <xs:unique name="elementnames">
+            <xs:selector xpath="./forms:page/*|./forms:page/*/forms:option/*" /> <!-- also catch fields inside options, they need to form-level unique -->
+            <xs:field xpath="@name" />
+          </xs:unique>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="gid" type="sc:Gid" />
+      <xs:attribute name="library" />
+    </xs:complexType>
+    <xs:unique name="formnames">
+      <xs:selector xpath="./*" />
+      <xs:field xpath="@name" />
+    </xs:unique>
+  </xs:element>
+
+  <xs:simpleType name="SelectRowkeyTypes">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="string">
+      </xs:enumeration>
+      <xs:enumeration value="integer">
+      </xs:enumeration>
+      <xs:enumeration value="boolean">
+      </xs:enumeration>
+      <xs:enumeration value="money">
+      </xs:enumeration>
+      <xs:enumeration value="float">
+      </xs:enumeration>
+      <xs:enumeration value="datetime">
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TextEditValueTypes">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="string">
+      </xs:enumeration>
+      <xs:enumeration value="integer">
+      </xs:enumeration>
+      <xs:enumeration value="money">
+      </xs:enumeration>
+      <xs:enumeration value="float">
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="DateOrNow">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="now(\+\d+d)?"/>
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base="xs:date"/>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+
+
+  <xs:group name="LineComponents">
+    <xs:choice>
+      <xs:element ref="customfield" />
+      <xs:element ref="textedit" />
+      <xs:element ref="password" />
+      <xs:element ref="date" />
+      <xs:element ref="time" />
+      <xs:element ref="select" />
+      <xs:element ref="checkbox" />
+    </xs:choice>
+  </xs:group>
+
+  <xs:group name="BlockComponents">
+    <xs:choice>
+      <xs:element ref="textarea" />
+      <xs:element ref="rtd" />
+      <xs:element ref="imgedit" />
+      <xs:element ref="upload" />
+      <xs:element ref="richtext" />
+      <xs:element ref="address" />
+      <xs:element ref="captcha" />
+    </xs:choice>
+  </xs:group>
+
+  <xs:group name="LegacyContents">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:group ref="LineComponents" />
+        <xs:element ref="textarea" />
+        <xs:element ref="rtd" />
+        <xs:element ref="imgedit" />
+        <xs:element ref="upload" />
+        <xs:element ref="richtext" />
+        <xs:element ref="address" />
+      </xs:choice>
+      <xs:element name="defaultformbuttons" type="DefaultFormButtons" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+  </xs:group>
+
+  <xs:group name="PageContents">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:group ref="LineComponents" />
+        <xs:group ref="BlockComponents" />
+        <xs:element ref="array" />
+        <xs:any namespace="##other" processContents="strict" />
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+
+  <xs:complexType name="Form">
+    <xs:sequence>
+      <xs:element name="handlers" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element ref="mailresultshandler" />
+            <xs:element ref="mailfeedbackhandler" />
+            <xs:element ref="mailconfirmationhandler" />
+            <xs:element ref="customhandler" />
+            <xs:any namespace="##other" processContents="strict" />
+          </xs:choice>
+        </xs:complexType>
+      </xs:element>
+      <xs:choice>
+        <!-- A form contains either form components or pages -->
+        <xs:group ref="LegacyContents" />
+        <xs:sequence>
+          <xs:element ref="page" minOccurs="0" maxOccurs="unbounded" />
+        </xs:sequence>
+      </xs:choice>
+      <!-- Deleted nodes which may have been answered -->
+      <xs:element name="trash" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:choice minOccurs="0" maxOccurs="unbounded" >
+            <xs:any namespace="##targetNamespace" processContents="strict" />
+            <xs:any namespace="##other" processContents="strict" />
+          </xs:choice>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>Name for the form, used in OpenForm calls</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="gid" type="sc:Gid" />
+    <xs:attribute name="library" />
+    <xs:attribute name="objectname" />
+    <xs:attribute name="jshandler" />
+    <xs:attribute name="idprefix" />
+    <xs:attribute name="prevlabel" />
+    <xs:attribute name="nextlabel" />
+    <xs:attribute name="submitlabel" />
+    <xs:attribute name="prevlabeltid" type="sc:Tid" />
+    <xs:attribute name="nextlabeltid" type="sc:Tid" />
+    <xs:attribute name="submitlabeltid" type="sc:Tid" />
+    <xs:attribute name="ignorefields"/> <!-- deprecated since 4.17 -->
+  </xs:complexType>
+
+  <xs:attributeGroup name="EmailHandlerAttributes">
+    <xs:attributeGroup ref="HandlerAttributes" />
+    <xs:attribute name="subject" type="xs:string" />
+    <xs:attribute name="mailtemplate" type="xs:string" />
+    <xs:attribute name="originaltemplate" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Stores the original template path - useful when reporting errors, as mailtemplate may only refer to a file id
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="textid" type="xs:string" />
+    <xs:attribute name="addresults" type="xs:boolean" />
+    <xs:attribute name="applytemplate" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Path to template to apply
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:element name="mailresultshandler">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardhandlers
+        </xs:documentation>
+        <xs:appinfo>
+          <formhandler
+            tolliumicon="tollium:actions/send"
+            tid="formhandlers.mailresults.name"
+            descriptiontid="formhandlers.mailresults.description"
+            editextension="/screens/formhandlers.xml#mailresultseditor"
+            editdefaults="condition"
+            parserfunc="/lib/webtools/formhandlers/mailhandler.whlib#parsemailresultshandler"
+            handlerobject="/lib/webtools/formhandlers/mailhandler.whlib#mailresultshandler"
+            handlertask="publisher:mailresults"
+            handlertaskfor="submit cancel"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:element name="mailto" minOccurs="0" maxOccurs="unbounded">
+          <xs:annotation>
+            <xs:documentation>
+              A list of recipients for the email
+            </xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:attribute name="email" use="required">
+              <xs:annotation>
+                <xs:documentation>
+                  Email address
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="conditionid" type="InstanceId">
+              <xs:annotation>
+                <xs:documentation>
+                  Optional condition which must be satisfied for this user to receive the email
+                </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attributeGroup ref="EmailHandlerAttributes" />
+      <xs:attribute name="receivers" type="xs:string" /> <!-- DEPRECATED -->
+      <xs:attribute name="sendernamefield" type="xs:string" />
+      <xs:attribute name="replytofield" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="mailfeedbackhandler">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardhandlers
+        </xs:documentation>
+        <xs:appinfo>
+          <formhandler
+            tolliumicon="tollium:mailclient/replied"
+            tid="formhandlers.mailfeedback.name"
+            descriptiontid="formhandlers.mailfeedback.description"
+            editextension="/screens/formhandlers.xml#mailfeedbackeditor"
+            editdefaults="condition"
+            parserfunc="/lib/webtools/formhandlers/mailhandler.whlib#parsemailfeedbackhandler"
+            handlerobject="/lib/webtools/formhandlers/mailhandler.whlib#mailfeedbackhandler"
+            handlertask="publisher:mailfeedback"
+            handlertaskfor="submit cancel"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="EmailHandlerAttributes" />
+      <xs:attribute name="sender" type="xs:string" use="required" />
+      <xs:attribute name="sendername" type="xs:string" />
+      <xs:attribute name="receiverfield" type="xs:string" />
+      <xs:attribute name="bcc" type="xs:string" />
+      <xs:attribute name="sendoncanceltoo" type="xs:boolean" /> <!-- LEGACY no longer supported -->
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="mailconfirmationhandler">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardhandlers
+        </xs:documentation>
+        <xs:appinfo>
+          <formhandler
+            tolliumicon="tollium:objects/envelope+tollium:status/checked"
+            tid="formhandlers.mailconfirmation.name"
+            descriptiontid="formhandlers.mailconfirmation.description"
+            editextension="/screens/formhandlers.xml#mailconfirmationeditor"
+            editdefaults="condition"
+            parserfunc="/lib/webtools/formhandlers/mailhandler.whlib#parsemailconfirmationhandler"
+            handlerobject="/lib/webtools/formhandlers/mailhandler.whlib#mailconfirmationhandler"
+            handlertask="publisher:mailconfirmation"
+            handlertaskfor="confirmation"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="EmailHandlerAttributes" />
+      <xs:attribute name="sender" type="xs:string" use="required" />
+      <xs:attribute name="sendername" type="xs:string" />
+      <xs:attribute name="receiverfield" type="xs:string" />
+      <xs:attribute name="bcc" type="xs:string" />
+      <xs:attribute name="onduplicate">
+        <xs:annotation>
+          <xs:documentation>
+            If set to `reject`, this prevents multiple submissions with the same email address.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="reject" />
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="customhandler">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          Custom handlers are used for manually added one-off form handler definitions. Use this if you don't want to set up
+          an XSD for this handler and don't need any XML configurability or support in the form editor.
+          @topic forms/standardhandlers
+        </xs:documentation>
+        <xs:appinfo>
+          <formhandler
+            tid="formhandlers.custom.name"
+            parserfunc="/lib/webtools/internal/formhandlers.whlib#ParseCustomHandler"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="HandlerAttributes" />
+      <xs:attribute name="title" type="xs:string" use="required" />
+      <xs:attribute name="handlerobject" type="xs:string" use="required" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="page">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            matchattribute="hson:{'role':''}"
+            linecomponent="false"
+            tolliumicon="tollium:files/normal"
+            tid="formcomponents.page.name"
+            editextension="/screens/formcomponents.xml#formpage"
+            editdefaults=""
+            defaultvalue=""
+            />
+          <formcomponent
+            matchattribute="hson:{'role':'overview'}"
+            linecomponent="false"
+            tolliumicon="tollium:files/normal"
+            tid="formcomponents.page.name-overview"
+            editextension="/screens/formcomponents.xml#formoverviewpage"
+            editdefaults=""
+            defaultvalue=""
+            />
+          <formcomponent
+            matchattribute="hson:{'role':'thankyou'}"
+            linecomponent="false"
+            tolliumicon="tollium:files/normal"
+            tid="formcomponents.page.name-thankyou"
+            editextension="/screens/formcomponents.xml#formthankyoupage"
+            editdefaults=""
+            defaultvalue=""
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:group ref="PageContents" />
+          <xs:element ref="group" />
+        </xs:choice>
+      </xs:sequence>
+      <xs:attributeGroup ref="PageAttributes" />
+      <xs:attribute name="redirect" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          An external link (a url) or an internal link (an "x-wh-internallink" reference)
+        </xs:documentation>
+      </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="group">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            linecomponent="true"
+            tolliumicon="tollium:folders/normal"
+            tid="formcomponents.group.name"
+            editextension="/screens/formcomponents.xml#formgroup"
+            editdefaults="title hidetitle"
+            defaultvalue=""
+            parserfunc="/lib/webtools/formcomponents/group.whlib#parseformgroup"
+            fieldobject="/lib/webtools/formcomponents/group.whlib#FormGroupField"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:group ref="PageContents" />
+      <xs:attributeGroup ref="GroupAttributes" />
+      <xs:attribute name="blockstyle" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="customfield">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          Custom fields are used for manually added one-off form field definitions. Use this if you don't want to set up an
+          XSD for this field and don't need any XML configurability or support in the form editor.
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            linecomponent="true"
+            tid="formcomponents.custom.name"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attribute name="fieldobject" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Specifies the object that directly implements this field.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="textedit">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            matchattribute="hson:{'valuetype':sa['integer','money','float']}"
+            linecomponent="true"
+            tolliumicon="tollium:forms/numeric"
+            tid="formcomponents.textedit.name-numeric"
+            descriptiontid="formcomponents.textedit.description-numeric"
+            editextension="/screens/formcomponents.xml#formnumerictextedit"
+            editdefaults="name title hidetitle required groupclasses placeholder prefix suffix infotext"
+            supportedvaluesfunc="/lib/webtools/formcomponents/textedit.whlib#getformtexteditsupportedvalues"
+            parserfunc="/lib/webtools/formcomponents/textedit.whlib#parseformtextedit"
+            fieldobject="/lib/webtools/formcomponents/textedit.whlib#NumericTextEditField"
+            ordering="4"
+            />
+          <formcomponent
+            matchattribute="hson:{'validationchecks':sa['email']}"
+            linecomponent="true"
+            tolliumicon="tollium:forms/email"
+            tid="formcomponents.textedit.name-email"
+            descriptiontid="formcomponents.textedit.description-email"
+            editdefaults="name title hidetitle required groupclasses placeholder prefix suffix infotext"
+            supportedvaluesfunc="/lib/webtools/formcomponents/textedit.whlib#getformtexteditsupportedvalues"
+            parserfunc="/lib/webtools/formcomponents/textedit.whlib#parseformtextedit"
+            fieldobject="/lib/webtools/formcomponents/textedit.whlib#TextEditField"
+            ordering="3"
+            />
+          <formcomponent
+            linecomponent="true"
+            tolliumicon="tollium:forms/textedit"
+            tid="formcomponents.textedit.name"
+            descriptiontid="formcomponents.textedit.description"
+            editextension="/screens/formcomponents.xml#formtextedit"
+            editdefaults="name title hidetitle required groupclasses placeholder prefix suffix infotext"
+            supportedvaluesfunc="/lib/webtools/formcomponents/textedit.whlib#getformtexteditsupportedvalues"
+            parserfunc="/lib/webtools/formcomponents/textedit.whlib#parseformtextedit"
+            fieldobject="/lib/webtools/formcomponents/textedit.whlib#TextEditField"
+            ordering="1"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attributeGroup ref="MapUnmapAttributes" />
+      <xs:attributeGroup ref="PlaceholderAttributes" />
+      <xs:attributeGroup ref="PrefixSuffixAttributes" />
+      <xs:attributeGroup ref="AutocompleteAttributes" />
+      <xs:attribute name="valuetype" type="TextEditValueTypes" />
+      <!-- only support integer now -->
+      <xs:attribute name="min" type="xs:integer" />
+      <xs:attribute name="max" type="xs:integer" />
+      <xs:attribute name="maxlength" type="xs:integer" />
+      <xs:attribute name="emptyvalue" />
+      <xs:attribute name="value" type="xs:string" />
+      <xs:attribute name="validationchecks" type="sc:ValidationChecks">
+        <xs:annotation>
+          <xs:documentation>
+            <html:p>A list of checks the entered value must pass.</html:p>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="textarea">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            linecomponent="true"
+            tolliumicon="tollium:forms/textarea"
+            tid="formcomponents.textarea.name"
+            descriptiontid="formcomponents.textarea.description"
+            editextension="/screens/formcomponents.xml#formtextarea"
+            editdefaults="name title hidetitle required groupclasses placeholder infotext"
+            parserfunc="/lib/webtools/formcomponents/textarea.whlib#parseformtextarea"
+            fieldobject="/lib/webtools/formcomponents/textarea.whlib#TextAreaField"
+            ordering="2"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attributeGroup ref="MapUnmapAttributes" />
+      <xs:attributeGroup ref="PlaceholderAttributes" />
+      <xs:attributeGroup ref="AutocompleteAttributes" />
+      <xs:attribute name="maxlength" type="xs:integer" />
+      <xs:attribute name="value" type="xs:string" />
+      <xs:attribute name="validationchecks" type="sc:ValidationChecks">
+        <xs:annotation>
+          <xs:documentation>
+            <html:p>A list of checks the entered value must pass.</html:p>
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="rtd">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            linecomponent="false"
+            tolliumicon="tollium:forms/rtd"
+            tid="formcomponents.rtd.name"
+            descriptiontid="formcomponents.rtd.description"
+            editextension="/screens/formcomponents.xml#formrtd"
+            editdefaults="name title hidetitle required groupclasses"
+            defaultvalue="rtd record"
+            parserfunc="/lib/webtools/formcomponents/rtd.whlib#parseformrtd"
+            fieldobject="/lib/webtools/formcomponents/rtd.whlib#RTDField"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attribute name="rtdtype" type="xs:anyURI" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="imgedit">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            linecomponent="false"
+            tolliumicon="tollium:forms/image"
+            tid="formcomponents.imgedit.name"
+            descriptiontid="formcomponents.imgedit.description"
+            editdefaults="name title hidetitle required groupclasses infotext"
+            defaultvalue="file record"
+            fieldobject="/lib/webtools/formcomponents/imgedit.whlib#ImgEditField"
+            ordering="12"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="password">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            linecomponent="true"
+            tolliumicon="tollium:forms/password"
+            tid="formcomponents.password.name"
+            descriptiontid="formcomponents.password.description"
+            editdefaults="name title hidetitle required groupclasses placeholder prefix suffix infotext"
+            parserfunc="/lib/webtools/formcomponents/password.whlib#parseformpassword"
+            fieldobject="/lib/webtools/formcomponents/textedit.whlib#TextEditField"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attributeGroup ref="PlaceholderAttributes" />
+      <xs:attributeGroup ref="PrefixSuffixAttributes" />
+      <xs:attributeGroup ref="AutocompleteAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="date">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            linecomponent="true"
+            tolliumicon="tollium:forms/date"
+            tid="formcomponents.date.name"
+            descriptiontid="formcomponents.date.description"
+            editextension="/screens/formcomponents.xml#formdate"
+            editdefaults="name title hidetitle required groupclasses placeholder infotext"
+            defaultvalue="datetime string"
+            parserfunc="/lib/webtools/formcomponents/date.whlib#parseformdate"
+            fieldobject="/lib/webtools/formcomponents/date.whlib#DateField"
+            ordering="9"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attributeGroup ref="PlaceholderAttributes" />
+      <xs:attribute name="min" type="DateOrNow" />
+      <xs:attribute name="max" type="DateOrNow" />
+      <xs:attribute name="value" type="DateOrNow" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="time">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            linecomponent="true"
+            tolliumicon="tollium:forms/time"
+            tid="formcomponents.time.name"
+            descriptiontid="formcomponents.time.description"
+            editextension="/screens/formcomponents.xml#formtime"
+            editdefaults="name title hidetitle required groupclasses placeholder infotext"
+            defaultvalue="integer string"
+            parserfunc="/lib/webtools/formcomponents/time.whlib#parseformtime"
+            fieldobject="/lib/webtools/formcomponents/time.whlib#TimeField"
+            ordering="10"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attributeGroup ref="PlaceholderAttributes" />
+      <xs:attribute name="precision">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="minutes" />
+            <xs:enumeration value="seconds" />
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="upload">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            linecomponent="true"
+            tolliumicon="tollium:forms/upload"
+            tid="formcomponents.upload.name"
+            descriptiontid="formcomponents.upload.description"
+            editdefaults="name title hidetitle required groupclasses infotext"
+            defaultvalue="file record"
+            fieldobject="/lib/webtools/formcomponents/upload.whlib#UploadField"
+            ordering="13"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:simpleType name="SelectTypes">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="pulldown" />
+      <xs:enumeration value="radio" />
+      <xs:enumeration value="checkbox" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="select">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            matchattribute="hson:{'type':'pulldown'}"
+            linecomponent="true"
+            tolliumicon="tollium:forms/pulldown"
+            tid="formcomponents.select.name-pulldown"
+            descriptiontid="formcomponents.select.description-pulldown"
+            editextension="/screens/formcomponents.xml#formselectpulldown"
+            editdefaults="name title hidetitle required groupclasses placeholder infotext"
+            supportedvaluesfunc="/lib/webtools/formcomponents/select.whlib#getformselectsupportedvalues"
+            parserfunc="/lib/webtools/formcomponents/select.whlib#parseformselect"
+            fieldobject="/lib/webtools/formcomponents/select.whlib#SelectField"
+            ordering="6"
+            />
+          <formcomponent
+            matchattribute="hson:{'type':'radio'}"
+            linecomponent="true"
+            tolliumicon="tollium:forms/radio"
+            tid="formcomponents.select.name-radio"
+            descriptiontid="formcomponents.select.description-radio"
+            editextension="/screens/formcomponents.xml#formselectradio"
+            editdefaults="name title hidetitle required groupclasses"
+            supportedvaluesfunc="/lib/webtools/formcomponents/select.whlib#getformselectsupportedvalues"
+            parserfunc="/lib/webtools/formcomponents/select.whlib#parseformselect"
+            fieldobject="/lib/webtools/formcomponents/select.whlib#SelectField"
+            ordering="5"
+            />
+          <formcomponent
+            matchattribute="hson:{'type':'checkbox'}"
+            linecomponent="true"
+            tolliumicon="tollium:forms/checkboxes"
+            tid="formcomponents.select.name-checkbox"
+            descriptiontid="formcomponents.select.description-checkbox"
+            editextension="/screens/formcomponents.xml#formselectmultiple"
+            editdefaults="name title hidetitle groupclasses"
+            supportedvaluesfunc="/lib/webtools/formcomponents/select.whlib#getformselectsupportedvalues"
+            parserfunc="/lib/webtools/formcomponents/select.whlib#parseformselect"
+            fieldobject="/lib/webtools/formcomponents/select.whlib#SelectField"
+            ordering="7"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="option" type="SelectOption" />
+          <xs:element name="optgroup">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="option" type="SelectOption" minOccurs="0" maxOccurs="unbounded" />
+              </xs:sequence>
+              <xs:attribute name="title" />
+              <xs:attribute name="tid"  type="sc:Tid" />
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+        <xs:element name="deletedoptions" minOccurs="0" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="option" type="SelectOption" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attributeGroup ref="PlaceholderAttributes" />
+      <xs:attributeGroup ref="AutocompleteAttributes" />
+      <xs:attribute name="type" type="SelectTypes" use="required" />
+      <xs:attribute name="orientation" type="sc:HVOrientation" />
+      <xs:attribute name="horizontal" type="xs:boolean" /> <!-- DEPRECATED! -->
+      <xs:attribute name="rowkeytype" type="SelectRowkeyTypes" />
+      <!-- min and max are used when type = checkbox -->
+      <xs:attribute name="min" type="xs:integer" />
+      <xs:attribute name="max" type="xs:integer" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="SelectOption">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:group ref="LineComponents" />
+        <xs:any namespace="##other" processContents="strict" />
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="rowkey" use="required" />
+    <xs:attribute name="title" />
+    <xs:attribute name="tid"  type="sc:Tid" />
+    <xs:attribute name="selected" type="xs:boolean" />
+    <xs:attribute name="enabled" type="xs:boolean" />
+    <xs:attribute name="invalidselection" type="xs:boolean" />
+    <xs:attribute name="guid" />
+    <xs:attribute name="visibleconditionid" type="InstanceId" />
+    <xs:attribute name="infotextid" type="InstanceId" />
+  </xs:complexType>
+
+  <xs:element name="checkbox">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <formcomponent
+            linecomponent="true"
+            tolliumicon="tollium:forms/checkbox"
+            tid="formcomponents.checkbox.name"
+            descriptiontid="formcomponents.checkbox.description"
+            editdefaults="name title hidetitle label required groupclasses infotext"
+            defaultvalue="boolean"
+            parserfunc="/lib/webtools/formcomponents/checkbox.whlib#parseformcheckbox"
+            fieldobject="/lib/webtools/formcomponents/checkbox.whlib#CheckboxField"
+            editextension="/screens/formcomponents.xml#formcheckbox"
+            ordering="8"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attributeGroup ref="LabelAttributes" />
+      <xs:attribute name="value" type="xs:boolean" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="richtext">
+    <xs:annotation>
+      <xs:documentation>
+        @topic forms/standardcomponents
+      </xs:documentation>
+      <xs:appinfo>
+        <formcomponent
+          linecomponent="false"
+          tolliumicon="tollium:forms/richtext"
+          tid="formcomponents.richtext.name"
+          descriptiontid="formcomponents.richtext.description"
+          editdefaults="groupclasses noenabled"
+          editextension="/screens/formcomponents.xml#richtext"
+          parserfunc="/lib/webtools/formcomponents/richtext.whlib#parseformrichtext"
+          fieldobject="/lib/webtools/formcomponents/richtext.whlib#RichTextField"
+          defaultvalue=""
+          />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attribute name="textid" type="InstanceId" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="AddressType">
+    <xs:attributeGroup ref="BaseAttributes" />
+    <xs:attributeGroup ref="AutocompleteAttributes" />
+    <xs:attribute name="countrylist">
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <!-- A list of two-letter country codes and "-" (a divider in the country select option list) -->
+              <xs:pattern value="[A-Z]{2}|-"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="options" type="sc:FormAddressOptions" />
+  </xs:complexType>
+
+  <xs:element name="address">
+    <xs:annotation>
+      <xs:documentation>
+        @topic forms/standardcomponents
+      </xs:documentation>
+      <xs:appinfo>
+        <formcomponent
+          linecomponent="false"
+          tolliumicon="tollium:forms/address"
+          tid="formcomponents.address.name"
+          descriptiontid="formcomponents.address.description"
+          editdefaults="name title groupclasses"
+          editextension="/screens/formcomponents.xml#address"
+          parserfunc="/lib/webtools/formcomponents/address.whlib#parseformaddress"
+          fieldobject="/lib/webtools/formcomponents/address.whlib#AddressField"
+          defaultvalue="address record"
+          />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <!-- using a restriction to remove the required* attributes from BaseAttributes -->
+      <xs:complexContent>
+        <xs:restriction base="AddressType">
+          <xs:sequence>
+            <xs:element name="fieldtitle" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="tag" type="xs:string" use="required" />
+                <xs:attributeGroup ref="sc:TidOrTitle" />
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+          <xs:attribute name="required" use="prohibited"/>
+          <xs:attribute name="requiredconditionid" use="prohibited" />
+        </xs:restriction>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="captcha">
+    <xs:annotation>
+      <xs:documentation>
+        @topic forms/standardcomponents
+      </xs:documentation>
+      <xs:appinfo>
+        <formcomponent
+          linecomponent="false"
+          tid="formcomponents.captcha.name"
+          descriptiontid="formcomponents.captcha.description"
+          editdefaults="name title"
+          fieldobject="/lib/webtools/formcomponents/captcha.whlib#CaptchaField"
+          defaultvalue="boolean"
+          />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="BaseAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="array">
+    <xs:annotation>
+      <xs:documentation>
+        @topic forms/standardcomponents
+      </xs:documentation>
+      <xs:appinfo>
+        <formcomponent
+          linecomponent="false"
+          tolliumicon="tollium:forms/array"
+          tid="formcomponents.array.name"
+          descriptiontid="formcomponents.array.description"
+          editdefaults="name title"
+          parserfunc="/lib/webtools/formcomponents/array.whlib#parseformarray"
+          fieldobject="/lib/webtools/formcomponents/array.whlib#ArrayField"
+          defaultvalue="recordarray"
+          />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:group ref="LineComponents" />
+          <xs:group ref="BlockComponents" />
+          <xs:any namespace="##other" processContents="strict" />
+        </xs:choice>
+      </xs:sequence>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attribute name="min" type="xs:integer" />
+      <xs:attribute name="max" type="xs:integer" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="DefaultFormButtons">
+    <xs:attribute name="buttons" type="sc:NameList" use="required" />
+    <xs:attribute name="default" type="sc:Name" />
+  </xs:complexType>
+
+</xs:schema>

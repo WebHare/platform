@@ -1,0 +1,47 @@
+﻿<?wh
+/** @short handler of files not requiring a custom template
+    @long This file handles the publication of files that don't have a template associated. */
+
+LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/template-v2.whlib";
+
+
+LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "wh::files.whlib";
+
+IF (folder.type = 3 /* Fotoalbum */ AND file.type = 12 /* Image */)
+{
+  RECORD props := GetPhotoalbumProps(folder.id);
+  OBJECT photocanvas := CreateResizedCanvasFromBlob(file.data, [ method := "fit", setwidth := props.photowidth, setheight := props.photoheight ]);
+  IF(NOT ObjectExists(photocanvas))
+    ABORT("The image appears to be corrupted");
+  OBJECT thumbcanvas := CreateResizedCanvasFromBlob(file.data, [ method := "fit", setwidth := props.thumbnailwidth, setheight := props.thumbnailheight ]);
+
+  BLOB photoblob, thumbnailblob;
+  photoblob := photocanvas->ExportAsJPEG();
+  thumbnailblob := thumbcanvas->ExportAsJPEG();
+
+  //Output the blobs
+  STRING basename := Left(GetBasenameFromPath(file.name),200);
+  IF (Touppercase(file.name) LIKE "*.JPG")
+  {
+    //We can publish the resized version under the file's original name
+    CreateFileFromBlob(file.name, photoblob);
+    IF(props.publishoriginals)
+      CreateFileFromBlob("full-" || basename || ".jpg", file.data);
+  }
+  ELSE
+  {
+    //We have to publish the resized version under a separate name, and publish the original file
+    CreateFileFromBlob(file.name, file.data);
+    CreateFileFromBlob("resized-" || basename || ".jpg", photoblob);
+  }
+  CreateFileFromBlob("thumbnail-" || basename || ".jpg", thumbnailblob);
+  RETURN;
+}
+
+OpenFile(1);
+IF (LENGTH(contentfile.DATA) != 0)
+  SendBlobTo(0,contentfile.DATA);
+CloseFile();

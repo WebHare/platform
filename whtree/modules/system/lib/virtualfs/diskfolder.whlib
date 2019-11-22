@@ -1,0 +1,250 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/virtualfs/base.whlib";
+
+/**
+ * @short Copy a disk file
+ * @param from_filename   Filename of file to read
+ * @param to_filename     Filename of new file to write
+ */
+MACRO CopyFile(STRING from_filename, STRING to_filename)
+{
+  TRY
+  {
+    StoreDiskFile(to_filename, GetDiskResource(from_filename));
+  }
+  CATCH(OBJECT e)
+  {
+    THROW NEW VirtualFSException("XS","Copy failed:" || e->what);
+  }
+}
+
+/**
+ * @short Copy a disk directory recursive
+ * @param root             HTTP root of this webdav module
+ * @param from_directory   Filename of directory to read
+ * @param to_directory     Filename of new directory to write
+ * @param overwrite        Should we overwrite existing file, or fail
+ */
+MACRO CopyDirectory(STRING from_directory, STRING to_directory)
+{
+  RECORD ARRAY result;
+  RECORD directory := GetDiskFileProperties(from_directory);
+
+  IF(NOT CreateDiskDirectoryRecursive(to_directory, TRUE))
+    THROW NEW VirtualFSException("XS","Unable to create destination directory");
+
+  RECORD ARRAY files := ReadDiskDirectory(from_directory, "*");
+  FOREVERY(RECORD file FROM files)
+  {
+    IF(file.type = 1)
+    {
+      IF(file.name != ".." AND file.name != ".")
+      {
+        CopyDirectory(from_directory || "/" || file.name, to_directory || "/" || file.name);
+      }
+    }
+    ELSE
+    {
+      CopyFile(from_directory || "/" || file.name, to_directory || "/" || file.name);
+    }
+  }
+}
+
+
+PUBLIC OBJECTTYPE DiskFolderFS EXTEND VirtualFSBase
+<
+  BOOLEAN fullaccess;
+  STRING basepath;
+  BOOLEAN lowercasemode;
+
+  STRING ARRAY pvt_readonlymasks;
+
+  PUBLIC PROPERTY readonlymasks(pvt_readonlymasks, pvt_readonlymasks);
+
+  MACRO NEW(STRING basepath, BOOLEAN fullaccess, BOOLEAN lowercasemode)
+  {
+    this->basepath := basepath;
+    this->fullaccess := fullaccess;
+    this->lowercasemode := lowercasemode;
+    this->casesensitive := NOT lowercasemode;
+  }
+
+  BOOLEAN FUNCTION IsWritable(STRING path)
+  {
+    IF (NOT this->fullaccess)
+      RETURN FALSE;
+
+    IF (NOT this->casesensitive)
+    {
+      FOREVERY (STRING mask FROM this->pvt_readonlymasks)
+        IF (ToUppercase(path) LIKE ToUppercase(mask))
+          RETURN FALSE;
+    }
+    ELSE
+    {
+      IF (this->lowercasemode)
+        path := ToLowercase(path);
+
+      FOREVERY (STRING mask FROM this->pvt_readonlymasks)
+        IF (path LIKE mask)
+          RETURN FALSE;
+    }
+    RETURN TRUE;
+  }
+
+  MACRO CheckWritable(STRING path)
+  {
+    IF (NOT this->IsWritable(path))
+      THROW NEW VirtualFSException("XS", "No write access");
+  }
+
+  STRING FUNCTION FixupPath(STRING inpath)
+  {
+    RETURN MergePath(this->basepath, this->lowercasemode ? ToLowercase(inpath) : inpath);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetDirectoryListing(STRING path)
+  {
+    STRING fixedpath := this->FixupPath(path);
+    RECORD ARRAY files := ReadDiskDirectory(this->FixupPath(path), "*");
+    IF(Length(files)=0) //does it even exist
+    {
+      IF(path="/") //never claim the root doesn't exist, as it may be a confused mapping (the mapping points to a nonexisting dir, but too late to handle)
+        RETURN DEFAULT RECORD ARRAY;
+
+      IF(NOT RecordExists(GetDiskFileProperties(fixedpath)))
+        THROW NEW VirtualFSException("BADPATH", "No such path");
+    }
+
+    BOOLEAN have_masks := LENGTH(this->pvt_readonlymasks) != 0;
+
+    files :=
+        SELECT name :=              this->lowercasemode ? ToLowercase(name) : name
+             , type
+             , size := size64
+             , read :=              TRUE
+             , creationdate :=      DEFAULT DATETIME
+             , modificationdate :=  modified
+           FROM files
+          WHERE name NOT IN [".",".."];
+
+    RETURN
+        SELECT *
+             , write := this->fullaccess AND (NOT have_masks OR this->IsWritable(MergePath(path, name)))
+          FROM files;
+  }
+
+  UPDATE PUBLIC MACRO PutFile(STRING origpath, BLOB data, BOOLEAN overwrite)
+  {
+    this->CheckWritable(origpath);
+
+    STRING putpath := this->Fixuppath(origpath);
+    TRY
+    {
+      StoreDiskFile(putpath, data, [ overwrite := overwrite ]);
+    }
+    CATCH(OBJECT e)
+    {
+      IF(NOT overwrite AND RecordExists(this->GetPathInfo(origpath)))
+        THROW NEW VirtualFSException("ALREADYEXISTS", "File already exists");
+
+      THROW NEW VirtualFSException("XS", "Cannot create file");
+    }
+  }
+
+  UPDATE PUBLIC MACRO SetMetadata(STRING origpath, RECORD newmetadata)
+  {
+    this->CheckWritable(origpath);
+
+    IF(CellExists(newmetadata,"modificationdate"))
+    {
+      IF(NOT SetFileModificationDate(this->FixupPath(origpath), newmetadata.modificationdate))
+        THROW NEW VirtualFSException("XS", "Cannot update metadata");
+    }
+  }
+
+  UPDATE PUBLIC MACRO DeletePath(STRING path)
+  {
+    this->CheckWritable(path);
+
+    RECORD pathinfo := this->GetPathInfo(path);
+    IF(NOT RecordExists(pathinfo))
+      THROW NEW VirtualFSException("BADPATH", "No such path");
+
+    path := this->Fixuppath(path);
+
+    IF(pathinfo.type=1)
+      DeleteDiskDirectory(path);
+    ELSE
+      DeleteDiskFile(path);
+  }
+
+  UPDATE PUBLIC BLOB FUNCTION GetFile(STRING origpath)
+  {
+    TRY
+    {
+      RETURN GetDiskResource(this->fixupPath(origpath));
+    }
+    CATCH(OBJECT e)
+    {
+      THROW NEW VirtualFSException("BADPATH", "Cannot GetFile: " || e->what);
+    }
+  }
+
+  UPDATE PUBLIC MACRO Copy(STRING src, STRING dst, BOOLEAN overwrite)
+  {
+    this->CheckWritable(dst);
+
+    src := this->FixupPath(src);
+    dst := this->FixupPath(dst);
+
+    RECORD sourceprops := GetDiskFileProperties(src);
+    IF(NOT RecordExists(sourceprops))
+        THROW NEW VirtualFSException("BADPATH","Source path does not exist");
+
+    IF(RecordExists(GetDiskFileProperties(dst)))
+    {
+      //Move the destination out of the way
+      IF(NOT overwrite OR NOT DeleteDiskDirectoryRecursive(dst))
+        THROW NEW VirtualFSException("XS","Unable to move destination out of the way");
+     }
+
+    IF(sourceprops.type=1) //dir
+      CopyDirectory(src, dst);
+    ELSE
+      CopyFile(src, dst);
+  }
+
+  UPDATE PUBLIC MACRO Move(STRING src, STRING dst, BOOLEAN overwrite)
+  {
+    this->CheckWritable(src);
+    this->CheckWritable(dst);
+
+    src := this->FixupPath(src);
+    dst := this->FixupPath(dst);
+
+    RECORD sourceprops := GetDiskFileProperties(src);
+    IF(NOT RecordExists(sourceprops))
+        THROW NEW VirtualFSException("BADPATH","Source path does not exist");
+
+    IF(RecordExists(GetDiskFileProperties(dst)))
+    {
+      //Move the destination out of the way
+      IF(NOT overwrite OR NOT DeleteDiskDirectoryRecursive(dst))
+        THROW NEW VirtualFSException("XS","Unable to move destination out of the way");
+    }
+
+    IF(NOT MoveDiskPath(src, dst))
+      THROW NEW VirtualFSException("XS","Unable to execute move");
+  }
+
+  UPDATE PUBLIC MACRO MakeDir(STRING path)
+  {
+    this->CheckWritable(path);
+
+    path := this->FixupPath(path);
+    IF(NOT CreateDiskDirectory(path, TRUE))
+      THROW NEW VirtualFSException("XS","Cannot create the requested directory");
+  }
+>;

@@ -1,0 +1,34 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE EditMergeField EXTEND TolliumFragmentBase
+<
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    this->fieldname->options := SELECT rowkey := name, title FROM this->contexts->mergefields->mergefields;
+  }
+>;
+
+PUBLIC OBJECTTYPE MergeFieldWidget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    IF (NOT ObjectExists(this->mergefields))
+      THROW NEW Exception("No merge fields context available");
+    STRING fieldtitle := SELECT AS STRING title FROM this->mergefields->mergefields WHERE name = this->data.fieldname;
+    Print(`(${EncodeHTML(fieldtitle ?? this->data.fieldname)})`); //TODO what to really do if field is deleted?
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    IF (NOT ObjectExists(this->mergefields))
+      THROW NEW Exception("No merge fields context available");
+    RECORD value := SELECT AS RECORD COLUMN value FROM this->mergefields->mergefields WHERE name = this->data.fieldname;
+    IF (CellExists(value, "text"))
+      Print(EncodeHTML(value.text));
+  }
+>;

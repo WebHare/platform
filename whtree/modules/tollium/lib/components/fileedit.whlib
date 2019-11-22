@@ -1,0 +1,268 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// The file edit component
+
+PUBLIC OBJECTTYPE FileEdit EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// The file information
+  RECORD pvt_fileinfo;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Is there an active file?
+  PUBLIC PROPERTY hasfile(HasFileInfo,-);
+
+  /// The maximum size an uploaded file can be
+  PUBLIC INTEGER maxsize;
+
+  /// A list of acceptable MIME types for uploaded files (an empty list means no restrictions)
+  PUBLIC PROPERTY mimetypes(this->replacefile->mimetypes, this->replacefile->mimetypes);
+
+  /// Can multiple file be uploaded? (Currently unsupported)
+  PUBLIC BOOLEAN multiple;
+
+  /// Function that is called when a new file is stored
+  PUBLIC FUNCTION PTR onchange;
+
+  /// Function that is called before an uploaded file is stored, if this returns false, the file is not accepted
+  PUBLIC FUNCTION PTR onbeforechange;
+
+  /// The currently uploaded file, or a DEFAULT RECORD when there is no file
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium init & delete
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    //this->pvt_invisibletitle := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->maxsize := def.maxsize;
+
+    this->mimetypes := def.mimetypes;
+
+    this->onchange := def.onchange;
+    this->onbeforechange := def.onbeforechange;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    this->filename->title := this->title;
+    this->UpdateFileInfo(this->pvt_fileinfo);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other tollium stuff
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(RECORD)
+           AND (NOT RecordExists(value)
+                OR (CellExists(value, "data")
+                    AND CellExists(value, "mimetype")
+                    AND CellExists(value, "filename")
+                    AND CellExists(value, "extension")));
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel!="" ? this->errorlabel : this->title;
+
+    //FIXME: handle when labels are not present!
+    IF(this->required AND NOT this->hasfile)
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO DoReplaceFile(RECORD newfile)
+  {
+    IF(NOT this->AllowExternalUpdates())
+      RETURN;
+
+    IF(RecordExists(newfile))
+    {
+      this->SetFile(newfile.data, newfile.filename);
+    }
+  }
+
+  MACRO DoSaveFile(OBJECT downloadhandler)
+  {
+    IF (RecordExists(this->pvt_fileinfo))
+      downloadhandler->SendFile(this->pvt_fileinfo.data, this->pvt_fileinfo.mimetype, this->pvt_fileinfo.filename);
+  }
+
+  MACRO DoRemoveFile()
+  {
+    IF (NOT RecordExists(this->pvt_fileinfo) OR NOT this->AllowExternalUpdates())
+      RETURN; // No file to remove
+
+    IF (this->owner->RunMessageBox("tollium:commondialogs.remove_file_confirmation", "") = "yes")
+    {
+      this->value := DEFAULT RECORD;
+      IF (this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  UPDATE MACRO SetEnabled(BOOLEAN newstate)
+  {
+    TolliumFragmentBase::SetEnabled(newstate);
+
+    this->replace->enabled := newstate;
+    this->remove->enabled := newstate AND RecordExists(this->pvt_fileinfo);
+  }
+
+  UPDATE MACRO SetReadOnly(BOOLEAN newstate)
+  {
+    TolliumFragmentBase::SetReadOnly(newstate);
+
+    this->replace->visible := NOT newstate;
+    this->remove->visible := NOT newstate;
+  }
+
+  //ADDME: Does this have to be public? It's a property getter function...
+  PUBLIC BOOLEAN FUNCTION HasFileInfo()
+  {
+    RETURN RecordExists(this->pvt_fileinfo);
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    RETURN this->pvt_fileinfo;
+  }
+
+  MACRO SetValue(RECORD newinfo)
+  {
+    IF (RecordExists(newinfo))
+    {
+      IF (NOT CellExists(newinfo, "data")
+          OR NOT CellExists(newinfo, "filename"))
+        THROW NEW Exception("Not a valid file scannedblob record");
+
+      IF(NOT IsCompleteScanData(newinfo))
+        newinfo := WrapBlob(newinfo.data, newinfo.filename);
+
+      // Set fields for download.shtml
+      newinfo := [ ...newinfo
+                 , lastmod := GetCurrentDateTime()
+                 , disposition := "inline"
+                 ];
+    }
+    this->UpdateFileInfo(newinfo);
+    IF (this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other public API
+  //
+
+  PUBLIC MACRO SetFile(BLOB file, STRING filename)
+  {
+    RECORD fileinfo := WrapBlob(file, filename);
+    IF(this->onbeforechange != DEFAULT MACRO PTR AND NOT this->onbeforechange(fileinfo))
+      RETURN;
+
+    BOOLEAN accepted := Length(this->mimetypes) = 0;
+    IF (NOT accepted)
+    {
+      FOREVERY (STRING mimetype FROM this->mimetypes)
+      {
+        // Mimetypes can have additional type extensions and type names. These
+        // are separated by '|', so we'll tokenize and take the first part.
+        IF (fileinfo.mimetype LIKE Tokenize(mimetype,'|')[0])
+        {
+          accepted := TRUE;
+          BREAK;
+        }
+      }
+    }
+
+    IF (accepted)
+      this->value := fileinfo;
+    ELSE
+      this->value := DEFAULT RECORD;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Internal functionality
+  //
+
+  MACRO UpdateFileInfo(RECORD fileinfo)
+  {
+    this->pvt_fileinfo := fileinfo;
+
+    IF (RecordExists(this->pvt_fileinfo))
+    {
+      this->filename->value := GetTid("tollium:components.fileedit.filename",
+                                      this->pvt_fileinfo.filename,
+                                      this->owner->tolliumuser->FormatFilesize(Length(this->pvt_fileinfo.data), 0));
+
+      this->replace->title := GetTid("tollium:common.actions.replace");
+      this->replace->hint := GetTid("tollium:components.fileedit.hints.replace_file");
+      this->replace->icon := "tollium:actions/replace";
+
+      this->save->enabled := TRUE;
+      this->remove->enabled := this->enabled;
+    }
+    ELSE
+    {
+      this->filename->value := GetTid("tollium:components.fileedit.nofile");
+
+      this->replace->title := GetTid("tollium:common.actions.add");
+      this->replace->hint := GetTid("tollium:components.fileedit.hints.add_file");
+      this->replace->icon := "tollium:actions/add";
+
+      this->save->enabled := FALSE;
+      this->remove->enabled := this->enabled;
+    }
+  }
+
+>;
+

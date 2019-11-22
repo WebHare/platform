@@ -1,0 +1,835 @@
+<?wh
+
+/* This file provides an API to sync a wrd schema metadata
+
+   Low-level stuff for creating/updating multiple schemas
+   loadlibs go schemaupdate2.whlib -> objectapi.whlib -> schemaupdate.whlib
+
+   Example schema definition:
+    [ types :=
+          [ [ title :=      "Season"
+            , tag :=        "SEASON"
+            , type :=       "DOMAIN"
+            , attrs :=
+                  [ [ type := "FREE",         title :=  "Season",                     tag := "WRD_TITLE" ]
+                  ]
+            , domvalsyncattr := "WRD_TAG" // the following dom values are synced on tag (and only added, never removed)
+            , vals :=
+                  [ [ wrd_tag :=  "SS09",   wrd_title :=  "Spring/summer 2009" ]
+                  , [ wrd_tag :=  "FW10",   wrd_title :=  "Fall/Winter 2010" ]
+                  , [ wrd_tag :=  "SS10",   wrd_title :=  "Spring/summer 2010" ]
+                  , [ wrd_tag :=  "FW11",   wrd_title :=  "Fall/Winter 2011" ]
+                  ]
+            ]
+          ]
+    ];
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/graphs.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/queries.whlib";
+LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
+
+
+RECORD wrdtype_default :=
+    [ id :=                 0
+    , name :=               ""
+    , tag :=                ""
+    , linkfrom :=   0
+    , linkto :=  0
+    , title :=              ""
+    , description :=        ""
+    , metatype :=           0
+    , parenttype :=             0
+    ];
+
+STRING ARRAY wrdtype_allowed :=
+    [ "ID", "NAME", "TAG", "LINKFROM", "LINKFROM_TAG", "LINKTO", "LINKTO_TAG"
+    , "TITLE", "DESCRIPTION", "TYPE", "METATYPE", "PARENTTYPE", "PARENTTYPE_TAG"
+    ];
+
+RECORD wrdattr_default :=
+    [ title :=              ""
+    , tag :=                ""
+    , localtag :=           ""
+    , description :=        ""
+    , isrequired :=         FALSE
+    , isunique :=           FALSE
+    , attributetypename :=  ""
+    , domaintag :=          ""
+    , parent :=             0
+    , isordered :=          FALSE
+    , hasvalues :=          FALSE
+    , multiline :=          FALSE
+    , allowedvalues :=      DEFAULT STRING ARRAY
+    ];
+
+STRING ARRAY wrdattr_allowed :=
+    [ "TITLE", "TAG", "LOCALTAG", "DESCRIPTION", "ISREQUIRED", "ISUNIQUE", "ATTRIBUTETYPENAME"
+    , "TYPE", "DOMAINTAG", "PARENT", "ISORDERED", "ATTRS", "HASVALUES", "MULTILINE", "ALLOWEDVALUES"
+    ];
+
+RECORD FUNCTION InsertDefaultFields(RECORD val, RECORD defaults, STRING ARRAY allowed)
+{
+  RECORD base := MakeUpdatedRecord(defaults, val);
+  FOREVERY (RECORD r FROM UnpackRecord(base))
+  {
+    IF (r.name NOT IN allowed)
+      THROW NEW Exception("Cell '"||r.name ||"' not allowed");
+    IF (CellExists(val, r.name))
+    {
+      IF (TypeId(GetCell(val, r.name)) != TypeID(r.value))
+        PRINT("Mixing types in " || r.name || "\n");
+      val := CellUpdate(val, r.name, r.value);
+    }
+    ELSE
+      val := CellInsert(val, r.name, r.value);
+  }
+
+  RETURN val;
+}
+
+INTEGER FUNCTION GetTypeByTag(RECORD ARRAY types, STRING tag)
+{
+  INTEGER id := SELECT AS INTEGER COLUMN id FROM types WHERE ToUppercase(types.tag) = ToUppercase(VAR tag);
+  IF (id = 0 AND tag != "")
+    THROW NEW Exception("Cannot locate type with tag '" || tag || "'");
+  RETURN id;
+}
+
+RECORD ARRAY FUNCTION SetAttributeDefaults(RECORD ARRAY types, RECORD ARRAY attrs, STRING tagbase)
+{
+  FOREVERY (RECORD attr FROM attrs)
+  {
+    attr := InsertDefaultFields(attr, wrdattr_default, wrdattr_allowed);
+
+    IF (attr.tag NOT LIKE tagbase || "*")
+      attr.localtag := attr.tag;
+    ELSE
+      attr.localtag := SubString(attr.tag, LENGTH(tagbase));
+
+    IF (attr.attributetypename IN [ "DOMAIN", "DOMAINARRAY" ] AND attr.domaintag = "")
+      THROW NEW Exception("No domain set for attribute '" || attr.tag || "'");
+
+    IF (CellExists(attr, "ATTRS"))
+      attr.attrs := SetAttributeDefaults(types, attr.attrs, tagbase || attr.tag || ".");
+    ELSE IF (attr.attributetypename = "ARRAY")
+      THROW NEW Exception("Missing children attributes for attribute '" || tagbase || attr.tag || "'");
+
+    attrs[#attr] := attr;
+  }
+
+  RETURN attrs;
+}
+
+RECORD ARRAY FUNCTION SetDefinitionDefaults(RECORD ARRAY types, RECORD ARRAY tagidmapping)
+{
+  //Get the highest in-use id
+  INTEGER last_id := SELECT AS INTEGER MAX(id) FROM (tagidmapping CONCAT types) AS row WHERE CellExists(row,"ID");
+
+  FOREVERY (RECORD rec FROM types)
+  {
+    rec := InsertDefaultFields(rec, wrdtype_default, wrdtype_allowed);
+    IF (CellExists(rec, "TYPE"))
+    {
+      rec.metatype := SearchElement([ "", "OBJECT", "LINK", "ATTACHMENT", "DOMAIN" ], ToUppercase(rec.type));
+    }
+    IF (rec.metatype <= 0)
+      THROW NEW Exception("Unknown wrd entity type '" || rec.type || "'");
+
+    // Try to get id from existing id->tags
+    IF (rec.id = 0)
+      rec.id := SELECT AS INTEGER id FROM tagidmapping WHERE tag = rec.tag;
+
+    // No, this is a new type
+    IF (rec.id = 0)
+    {
+      last_id := last_id + 1;
+      rec.id := last_id;
+    }
+
+    types[#rec] := rec;
+  }
+
+  FOREVERY (RECORD rec FROM types)
+  {
+    IF (CellExists(rec, "LINKFROM_TAG"))
+      types[#rec].linkfrom := GetTypeByTag(types, rec.linkfrom_tag);
+    IF (CellExists(rec, "LINKTO_TAG"))
+      types[#rec].linkto := GetTypeByTag(types, rec.linkto_tag);
+    IF (CellExists(rec, "PARENTTYPE_TAG"))
+      types[#rec].parenttype := GetTypeByTag(types, rec.parenttype_tag);
+    IF (CellExists(rec, "ATTRS"))
+      types[#rec].attrs := SetAttributeDefaults(types, rec.attrs, "");
+  }
+
+  RETURN types;
+}
+
+MACRO UpdateAttrs(RECORD ARRAY local_types, OBJECT local_type, INTEGER local_parent, RECORD ARRAY remote_types, RECORD ARRAY remote_attrs, STRING baseattr, STRING attrtagbase)
+{
+  RECORD ARRAY local_attrs := local_type->ListAttributes(local_parent);
+
+  RECORD adiff := GetDiff(local_attrs, remote_attrs, "LOCALTAG");
+
+  FOREVERY (RECORD a FROM adiff.shared)
+  {
+    IF (a.left.id = 0)
+      CONTINUE;
+
+    IF(a.right.attributetypename = "") //deleting
+    {
+      local_type->DeleteAttribute(a.left.tag);
+      CONTINUE;
+    }
+
+    INTEGER type_left := SELECT AS INTEGER id FROM local_types WHERE ToUppercase(tag) = ToUppercase(a.right.domaintag);
+
+    RECORD attrdef := local_type->GetAttribute(a.left.tag);
+    BOOLEAN is_type_mismatch := attrdef.attributetypename != a.right.attributetypename
+                                AND a.right.attributetypename NOT IN DescribeAttributeType(attrdef.attributetypename).canchangeto;
+    BOOLEAN is_domain_mismatch := attrdef.domain != type_left;
+
+    IF(is_type_mismatch OR is_domain_mismatch)
+    {
+      IF(NOT RecordExists(SELECT FROM wrd.entity_settings WHERE attribute = a.left.id)) //no value has actually been set yet
+      {
+        //let's just forgive this, probably an initial declaration mistake
+        local_type->DeleteAttribute(a.left.tag);
+        INSERT a.right INTO adiff.right_added AT END;
+        CONTINUE;
+      }
+    }
+    IF(is_type_mismatch)
+      THROW NEW Exception(`Type for attribute '${local_type->tag || "." || a.left.tag}' has changed from ${GetAttributeTypeNameByTypeId(attrdef.attributetype)} to ${GetAttributeTypeNameByTypeId(a.right.attributetype)}`);
+    IF(is_domain_mismatch)
+      THROW NEW Exception(`Domain for attribute '${local_type->tag || "." || a.left.tag}' has changed from #${attrdef.domain} to #${type_left}`);
+
+    IF (attrdef.attributetype != a.right.attributetype)
+    {
+      // Attribute type changed, need extra checks?
+      IF (a.right.attributetype = 21) // to URL - make sure that all values are valid URLs
+      {
+        STRING ARRAY failed_entities :=
+            SELECT AS STRING ARRAY ToString(entity)
+              FROM wrd.entity_settings
+             WHERE attribute = a.left.id
+               AND rawdata != ""
+               AND NOT IsValidURL(rawdata)
+             LIMIT 5;
+
+        IF (LENGTH(failed_entities) != 0)
+        {
+          THROW NEW Exception(`Type for attribute '${local_type->tag|| "." || a.left.tag}' has changed from ${GetAttributeTypeNameByTypeId(attrdef.attributetype)} to ${GetAttributeTypeNameByTypeId(a.right.attributetype)}`
+                              || `, but not all settings contain valid URLs (eg: ${Detokenize(failed_entities, ", ")})`);
+        }
+      }
+    }
+
+    RECORD metadata := a.right;
+    DELETE CELL attributetype, localtag, domaintag, parent, hasvalues, attrs FROM metadata;
+    local_type->UpdateAttribute(a.left.tag, metadata);
+
+    IF (attrdef.attributetype = 13 AND CellExists(a.right, "ATTRS"))
+    {
+      // Compute the local tag of this attr (within its parent)
+      STRING localtag := Tokenize(attrdef.tag, ".")[END-1];
+      UpdateAttrs(local_types, local_type, a.left.id, remote_types, a.right.attrs, baseattr || localtag || ".", attrtagbase || localtag || ".");
+    }
+  }
+
+  // Gather all new attributes (and array subattributes) in a single list
+  RECORD ARRAY tocreate;
+  RECORD ARRAY worklist := adiff.right_added;
+  WHILE (NOT IsDefaultValue(worklist))
+  {
+    RECORD a := worklist[0];
+    DELETE FROM worklist AT 0;
+
+    IF(a.attributetype=0) //deleted
+      CONTINUE;
+
+    INTEGER type_left := SELECT AS INTEGER id FROM local_types WHERE ToUppercase(tag) = ToUppercase(a.domaintag);
+    IF (a.domaintag != ""AND type_left = 0)
+      THROW NEW Exception(`Could not resolve domain '${a.domaintag}' for attribute ${a.tag}`);
+
+    RECORD metadata := a;
+    DELETE CELL attributetype, localtag, parent, hasvalues, attributetypename, tag, attrs FROM metadata;
+    INSERT [ tag := attrtagbase || a.tag, attributetype := a.attributetypename, ...metadata ] INTO tocreate AT END;
+
+    IF (a.attributetypename = "ARRAY")
+      worklist := worklist CONCAT (SELECT *, tag := `${a.tag}.${tag}` FROM a.attrs);
+  }
+
+
+  IF (LENGTH(tocreate) != 0)
+    local_type->__DoCreateAttributes(tocreate);
+}
+
+RECORD ARRAY FUNCTION SortTypesOnDependencies(RECORD ARRAY unsorted)
+{
+  // Create new graph
+  OBJECT graph := NEW GraphObject;
+
+  // Create vertices for every record
+  FOREVERY (RECORD rec FROM unsorted)
+  {
+    OBJECT vertex := NEW GraphVertex;
+    vertex->data := rec;
+    INSERT CELL vertex := vertex INTO unsorted[#rec];
+    graph->AddVertex(vertex);
+  }
+
+  // Add edges for every dependency (edge must point from depencency to dependent to use normal topological ordering)
+  FOREVERY (RECORD rec FROM unsorted)
+  {
+    FOREVERY(STRING checkfield FROM [ "LINKFROM_TAG", "LINKTO_TAG", "PARENTTYPE_TAG" ])
+      IF (GetCell(rec, checkfield) != "")
+      {
+        RECORD pos := RecordLowerBound(unsorted, [ tag := GetCell(rec, checkfield) ], [ "TAG" ]);
+        IF (pos.found)
+          unsorted[pos.position].vertex->AddSimpleEdge(rec.vertex);
+      }
+  }
+
+  // Get the topological ordering and return the sorted list
+  RETURN
+      SELECT AS RECORD ARRAY vertex->data
+        FROM ToRecordArray(TopologicalSort(graph), "vertex");
+}
+
+PUBLIC STRING FUNCTION GetUpdateSchemaLockName(STRING tag)
+{
+  RETURN "wrd:updateschema:" || tag;
+}
+
+/** Updates a schema
+    @param work Tollium work object
+    @param local_schema WRD schema to update
+    @param schemadef Schema definition
+    @cell(record array) schemadef.types
+    @cell(string) schemadef.types.title
+    @cell(string) schemadef.types.tag
+    @cell(string) schemadef.types.type "OBJECT"/"ATTACHMENT"/"LINK"/"DOMAIN"
+    @cell(string) schemadef.types.requiretype_left_tag For "ATTACHMENT", "LINK", tag of type of WRD_LEFTENTITY
+    @cell(string) schemadef.types.requiretype_left_tag For "LINK", tag of type of WRD_RIGHTENTITY
+    @cell(record array) schemadef.types.attrs
+    @cell(string) schemadef.types.attrs.type One of "DOMAIN_SINGLE", "FREE", "ADDRESS", "EMAIL", "TELEPHONE", "DATE",
+          "PASSWORD", "DOMAIN_MULTIPLE", "IMAGE", "FILE", "TIME", "DATETIME", "ARRAY", "MONEY", "INTEGER", "BOOLEAN", "RICHDOCUMENT", "
+          "WHFS_INSTANCE", "WHFS_INTEXTLINK", "URL", "RECORD"
+    @cell(string) schemadef.types.attrs.title
+    @cell(string) schemadef.types.attrs.tag
+    @cell(string) schemadef.types.attrs.domaintag For DOMAIN_SINGLE, DOMAIN_MULTIPLE, tag of the type
+    @cell(string) schemadef.types.domvalsyncattr Attribute to sync the domain values on
+    @cell(record array) schemadef.types.vals Domain values (must all contain the @a domvalsyncattr)
+    @cell(record) schemadef.metadata
+    @cell(string) schemadef.metadata.accounttype
+    @cell(record) schemadef.metadata.accountloginfield
+    @cell(record) schemadef.metadata.accountemailfield
+    @cell(record) schemadef.metadata.accountpasswordfield
+    @cell(record) schemadef.keyvaluestore key := value cells
+    @cell(string) schemadef.keyvaluestore.value.data
+    @cell(blob) schemadef.keyvaluestore.value.blobdata
+    @cell(integer) schemadef.keyvaluestore.value.type
+    @param options
+    @cell(boolean) options.fromexternal Set to true if the source is an external server
+*/
+PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ fromexternal :=   FALSE
+      ], options);
+
+  /* Many existing code paths do not ensure they get the lock initially, and we
+     will rarely race... so take the lock ourselves and throw if we can't get it */
+  STRING mutexname := GetUpdateSchemaLockName(local_schema->tag);
+  IF(NOT GetPrimary()->HasMutex(mutexname) AND NOT GetPrimary()->TryLockMutex(mutexname, DEFAULT DATETIME))
+    THROW NEW Exception(`Two transactions are trying to update schema '${local_schema->tag}' at the same time`);
+
+  IF (NOT options.fromexternal)
+    local_schema->SetSchemaSetting("wrd:schemaresources", schemadef.schemaresources);
+
+  RECORD ARRAY local_types := local_schema->ListTypes();
+
+  RECORD ARRAY remote_types :=
+      SELECT *
+        FROM schemadef.types
+    ORDER BY tag;
+
+  FOREVERY (RECORD type FROM local_types)
+  {
+    RECORD pos := RecordLowerBound(remote_types, type, [ "TAG" ]);
+    IF (NOT pos.found)
+    {
+      INSERT CELL attrs := DEFAULT RECORD ARRAY INTO type;
+      INSERT type INTO remote_types AT pos.position;
+    }
+  }
+
+  remote_types := SetDefinitionDefaults(remote_types, local_types);
+
+  RECORD diff := GetDiff(local_types, remote_types, "TAG");
+
+  STRING ARRAY added_types;
+
+  // Add new types, sorted on depencencies
+  FOREVERY (RECORD data FROM SortTypesOnDependencies(diff.right_added))
+  {
+    STRING type_left_tag := (SELECT AS STRING tag FROM remote_types WHERE id = data.linkfrom);
+    STRING type_right_tag := (SELECT AS STRING tag FROM remote_types WHERE id = data.linkto);
+
+    INTEGER type_left := (SELECT AS INTEGER id FROM local_types WHERE tag = type_left_tag);
+    INTEGER type_right := (SELECT AS INTEGER id FROM local_types WHERE tag = type_right_tag);
+
+    SWITCH (data.metatype)
+    {
+    CASE 1
+      {
+        local_schema->CreateType(data.tag, [ title := data.title, description := data.description ]);
+      }
+    CASE 2
+      {
+        IF (type_left = 0)
+          THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}`);
+
+        IF (type_right = 0)
+          THROW NEW Exception(`Could not resolve link to '${type_right_tag}' for type '${data.tag}`);
+
+        local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left, linkto := type_right ]);
+      }
+    CASE 3
+      {
+        IF (type_left = 0)
+          THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}`);
+
+        local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left ]);
+      }
+    CASE 4
+      {
+        local_schema->CreateDomain(data.tag, [ title := data.title, description := data.description ]);
+      }
+    }
+
+    local_types := local_schema->ListTypes();
+    INSERT data.tag INTO added_types AT END;
+  }
+
+  diff := GetDiff(local_types, remote_types, "TAG");
+
+  FOREVERY (RECORD r FROM diff.shared) //please note: we already creatd missing types above, so diff.right_added is empty here
+  {
+    OBJECT local_type := local_schema->GetType(r.left.tag);
+    IF(NOT ObjectExists(local_type)) //no longer exists. must have been recursively deleted by its parent disappearing
+      CONTINUE;
+
+    INTEGER req_type_left := (SELECT AS INTEGER id FROM local_types WHERE tag = (SELECT AS STRING tag FROM remote_types WHERE id = r.right.linkfrom));
+    INTEGER req_type_right := (SELECT AS INTEGER id FROM local_types WHERE tag = (SELECT AS STRING tag FROM remote_types WHERE id = r.right.linkto));
+    INTEGER req_parent := (SELECT AS INTEGER id FROM local_types WHERE tag = (SELECT AS STRING tag FROM remote_types WHERE id = r.right.parenttype));
+
+    IF (r.left.metatype != r.right.metatype OR r.left.linkfrom != req_type_left OR r.left.linkto != req_type_right)
+    {
+      INTEGER ARRAY alltypeids := [INTEGER(local_type->id)] CONCAT local_type->__childtypeids;
+      IF(NOT RecordExists(SELECT FROM wrd.entities WHERE entities.type IN alltypeids LIMIT 1)
+          AND NOT RecordExists(SELECT FROM wrd.types WHERE requiretype_left IN alltypeids)
+          AND NOT RecordExists(SELECT FROM wrd.types WHERE requiretype_right IN alltypeids))
+      { //safe to recreate
+        local_type->DeleteSelf();
+        CONTINUE;
+      }
+      ELSE
+      {
+        IF (r.left.metatype != r.right.metatype)
+          THROW NEW Exception(`Cannot update type '${r.left.tag}', metatype has changed (is ${r.left.metatype}, you want ${r.right.metatype})`);
+        IF (r.left.linkfrom != req_type_left)
+          THROW NEW Exception(`Cannot update type '${r.left.tag}', required left type has to change from ${r.left.linkfrom} to ${req_type_left}`);
+        IF (r.left.linkto != req_type_right)
+          THROW NEW Exception(`Cannot update type '${r.left.tag}', required right type has changed`);
+      }
+    }
+
+    IF(r.left.parenttype != req_parent AND r.left.tag NOT IN ["WRD_PERSON","WRD_ORGANIZATION","WRD_RELATION"])
+    {
+      //FIXME always safe to do this ?!?
+      local_type->UpdateMetadata([parenttype := req_parent]);
+    }
+
+    IF (r.left.keephistorydays != r.right.keephistorydays)
+      local_type->UpdateMetadata(CELL[ r.right.keephistorydays ]);
+
+    IF(CellExists(r.right,'attrs'))
+      UpdateAttrs(local_types, local_type, 0, remote_types, r.right.attrs, r.left.tag || ".", "");
+  }
+
+  local_types := local_schema->ListTypes();
+  diff := GetDiff(local_types, remote_types, "TAG");
+
+  FOREVERY (RECORD r FROM (SELECT * FROM diff.shared WHERE CellExists(shared.right,'hasvalues') AND shared.right.hasvalues ORDER BY shared.right.valslinenum)) //HACK: process them in source order, giving more chance to resolve dependencies
+  {
+    IF (r.left.metatype NOT IN [1,3,4])
+      CONTINUE;
+
+    IF (NOT CellExists(r.right,'hasvalues') OR NOT r.right.hasvalues)
+      CONTINUE;
+
+    STRING syncattr := r.right.domvalsyncattr;
+
+    OBJECT local_type := local_schema->GetType(r.left.tag);
+    local_type->__ReloadType();
+    RECORD ARRAY remote_attrs := CellExists(r.right, "ATTRS") ? r.right.attrs : DEFAULT RECORD ARRAY;
+
+    RECORD oc;
+    FOREVERY (RECORD o FROM remote_attrs)
+      IF(o.attributetype != 0)
+        oc := CellInsert(oc, o.tag, o.tag);
+    IF (NOT CellExists(oc, "WRD_TAG"))
+      INSERT CELL wrd_tag := "WRD_TAG" INTO oc;
+    IF (NOT CellExists(oc, "WRD_ID"))
+      INSERT CELL wrd_id := "WRD_ID" INTO oc;
+    IF (r.left.metatype = 4 AND NOT CellExists(oc, "WRD_LEFTENTITY"))
+      INSERT CELL wrd_leftentity := "WRD_LEFTENTITY" INTO oc;
+
+   IF (CellExists(r.right, "DOMVALSOVERWRITEFIELDS"))
+      FOREVERY(STRING tooverwrite FROM r.right.domvalsoverwritefields)
+        IF(NOT CellExists(oc, tooverwrite))
+          oc := CellInsert(oc, tooverwrite, tooverwrite);
+
+    IF (NOT CellExists(oc, syncattr))
+      THROW NEW Exception("Domain values sync attibute '"||syncattr||"' is not valid for type '"||r.left.tag||"'");
+
+    RECORD ARRAY all_local_domvals := local_type->RunQuery([ outputcolumns := oc ]);
+
+    VARIANT ARRAY allsyncattrvalues := GetSyncAttrValuesrecursive(r.right.vals, syncattr);
+    VARIANT ARRAY doubles :=
+       SELECT AS VARIANT ARRAY val
+         FROM ToRecordArray(allsyncattrvalues, "VAL")
+     GROUP BY val
+       HAVING Count(*) > 1
+     ORDER BY val;
+
+    IF (LENGTH(doubles) > 0)
+      THROW NEW Exception("Multiple values found for type '" || r.left.title || "' (" || r.left.tag || ") with the same value for '" || syncattr || "': " || FormatValueList(doubles));
+
+    UpdateValuesRecursive(local_type, all_local_domvals, r.right.vals, r.left.metatype = 4 ? 0 : -1, syncattr, r.right);
+  }
+
+  RECORD ARRAY localqueries := SELECT * FROM wrd.storedqueries WHERE wrd_schema = local_schema->id;
+  FOREVERY(RECORD query FROM schemadef.queries)
+  {
+    RECORD fullquery := ImportQueryFromXML(local_schema, query.querynode);
+    RECORD matchingquery := SELECT * FROM localqueries WHERE ToUppercase(localqueries.tag) = ToUppercase(query.tag);
+    //FIXME update queries only if needed
+    IF(RecordExists(matchingquery))
+      DELETE FROM wrd.storedqueries WHERE id = matchingquery.id;
+
+    INSERT CELL query_rec := fullquery INTO query;
+    NEW WRDStoredQuery(local_schema, query, TRUE);
+  }
+
+  IF (RecordExists(schemadef.metadata))
+  {
+    IF (CellExists(schemadef.metadata, "ACCOUNTTYPE"))
+    {
+      IF ((ObjectExists(local_schema->accounttype) ? local_schema->accounttype->tag : "") != ToUppercase(schemadef.metadata.accounttype))
+      {
+        OBJECT type;
+        IF (schemadef.metadata.accounttype != "")
+        {
+          type := local_schema->GetType(schemadef.metadata.accounttype);
+          IF (NOT ObjectExists(type))
+            THROW NEW Exception("No such accounttype '" || schemadef.metadata.accounttype || "'");
+
+        }
+        local_schema->UpdateMetadata([ accounttype := ObjectExists(type) ? type->id : 0 ]);
+      }
+    }
+
+    FOREVERY (STRING field FROM [ "accountloginfield", "accountpasswordfield", "accountemailfield" ])
+    {
+      IF (CellExists(schemadef.metadata, field))
+      {
+        STRING value := GetCell(schemadef.metadata, field);
+        IF (value != "" AND NOT ObjectExists(local_schema->accounttype))
+          THROW NEW Exception("Can't set a accountfield without setting the accounttype");
+
+        STRING namebase := Left(field, LENGTH(field) - 5);
+
+        IF (ToUppercase(GetMember(local_schema, namebase || "TAG")) = ToUppercase(value))
+          CONTINUE;
+
+        RECORD attr := local_schema->accounttype->GetAttribute(value);
+        IF (value != "" AND NOT RecordExists(attr))
+          THROW NEW Exception("Could not find " || field || " '" || value || "' in accounttype '" || local_schema->accounttype->tag || "'");
+
+        local_schema->UpdateMetadata(CellInsert(DEFAULT RECORD, namebase, RecordExists(attr) ? attr.id : 0));
+      }
+    }
+  }
+
+  FOREVERY (RECORD setting FROM UnpackRecord(schemadef.keyvaluestore))
+  {
+    VARIANT value := AnyTypeFromBlobString(setting.value.data, setting.value.blobdata, setting.value.type);
+    local_schema->SetSchemaSetting(setting.name, value);
+  }
+  local_schema->__SignalMetadataChanged();
+}
+
+VARIANT ARRAY FUNCTION GetSyncAttrValuesRecursive(RECORD ARRAY rightvalues, STRING syncattr)
+{
+  VARIANT ARRAY vals := SELECT AS VARIANT ARRAY GetCell(rightvalues, syncattr) FROM rightvalues;
+  FOREVERY (RECORD rec FROM rightvalues)
+    IF (CellExists(rec, "__SUBVALUES"))
+      vals := vals CONCAT GetSyncAttrValuesRecursive(rec.__subvalues, syncattr);
+  RETURN vals;
+}
+
+STRING FUNCTION FormatValueList(VARIANT ARRAY vals)
+{
+  STRING res := "[";
+  FOREVERY (VARIANT v FROM vals)
+  {
+    IF (#v != 0)
+      res := res || ", ";
+    IF (#v = 4)
+    {
+      res := res || "...";
+      BREAK;
+    }
+    res := res || Substitute(AnyToString(v, "tree"), "\n", "");
+  }
+  RETURN res || "]";
+}
+
+MACRO UpdateValuesRecursive(OBJECT local_type, RECORD ARRAY local_domvals, RECORD ARRAY rightvalues, INTEGER parent, STRING syncattr, RECORD rconfig)
+{
+  RECORD ARRAY remote_domvals;
+  FOREVERY(RECORD domval FROM rightvalues)
+  {
+    BOOLEAN skip;
+    FOREVERY(RECORD fld FROM UnpackRecord(domval))
+    {
+      IF (fld.name = "__SUBVALUES")
+        CONTINUE;
+
+      RECORD attrinfo := local_type->GetAttribute(fld.name);
+      IF (NOT RecordExists(attrinfo))
+      {
+        Print("Unable to find attribute '" || fld.name || "' in type '" || local_type->tag || "' in schema '" || local_type->wrdschema->tag || "'\n");
+        skip:=TRUE;
+        BREAK;
+      }
+      IF(attrinfo.attributetypename="DOMAIN") //domain single
+      {
+        INTEGER value;
+        IF(fld.value!="")
+        {
+          value := local_type->GetDomVal(fld.name, fld.value);
+          IF(value=0)
+          {
+            //ADDME: properly deal with ordering issues
+            //THROW NEW Exception("Unable to find domain value '" || fld.value || "' for attribute '" || fld.name || "'");
+            Print("Unable to find domain value '" || fld.value || "' for attribute '" || fld.name || "' in type '" || local_type->tag || "' in schema '" || local_type->wrdschema->tag || "'\n");
+            skip:=TRUE;
+            BREAK;
+          }
+        }
+        //replace it
+        domval := CellInsert(CellDelete(domval, fld.name), fld.name, value);
+      }
+      IF(attrinfo.attributetypename="DOMAINARRAY") //domain single
+      {
+        INTEGER ARRAY vals;
+        FOREVERY(STRING val FROM fld.value)
+        {
+          INTEGER value := local_type->GetDomVal(fld.name, val);
+          IF(value=0)
+          {
+            //ADDME: properly deal with ordering issues
+            //THROW NEW Exception("Unable to find domain value '" || fld.value || "' for attribute '" || fld.name || "'");
+            Print("Unable to find domain value '" || val || "' for attribute '" || fld.name || "' in type '" || local_type->name || "' in schema '" || local_type->wrdschema->tag || "'\n");
+            skip:=TRUE;
+            BREAK;
+          }
+          INSERT value INTO vals AT END;
+        }
+        vals := SELECT AS INTEGER ARRAY valid FROM ToRecordARray(vals,"valid") ORDER BY valid;
+        //replace it
+        domval := CellInsert(CellDelete(domval, fld.name), fld.name, vals);
+      }
+    }
+    IF(NOT skip)
+    {
+      IF (parent != -1)
+        INSERT CELL wrd_leftentity := parent INTO domval;
+      INSERT domval INTO remote_domvals AT END;
+    }
+  }
+
+  RECORD ddiff := GetDiff(local_domvals, remote_domvals, syncattr);
+
+  IF (CellExists(rconfig, "DOMVALSOVERWRITEFIELDS") AND LENGTH(rconfig.domvalsoverwritefields) != 0)
+  {
+    FOREVERY (RECORD dr FROM ddiff.shared)
+    {
+      RECORD toupdate;
+      FOREVERY (STRING s FROM rconfig.domvalsoverwritefields)
+      {
+        IF(NOT CellExists(dr.right, s))
+          CONTINUE;
+
+        BOOLEAN differs;
+        IF(TypeID(GetCell(dr.right, s)) = TypeID(INTEGER ARRAY))
+        {
+          INTEGER ARRAY destvals := GetCell(dr.right,s);
+          INTEGER ARRAY sourcevals := SELECT AS INTEGER ARRAY valid FROM ToRecordArray(GetCell(dr.left,s),"valid") ORDER BY valid;
+
+          differs := Length(sourcevals) != Length(destvals);
+          IF(NOT differs)
+            FOREVERY(INTEGER inval FROM sourcevals)
+              IF(inval != destvals[#inval])
+              {
+                differs := TRUE;
+                BREAK;
+              }
+        }
+        ELSE IF(TypeID(GetCell(dr.right, s)) = TypeID(STRING ARRAY))
+        {
+          STRING ARRAY destvals := GetCell(dr.right,s);
+          STRING ARRAY sourcevals := SELECT AS STRING ARRAY valid FROM ToRecordArray(GetCell(dr.left,s),"valid") ORDER BY valid;
+
+          differs := Length(sourcevals) != Length(destvals);
+          IF(NOT differs)
+            FOREVERY(STRING inval FROM sourcevals)
+              IF(inval != destvals[#inval])
+              {
+                differs := TRUE;
+                BREAK;
+              }
+        }
+        ELSE
+        {
+          differs := GetCell(dr.right, s) != GetCell(dr.left, s);
+        }
+        IF (differs)
+          toupdate := CellInsert(toupdate, s, GetCell(dr.right, s));
+      }
+
+      IF (RecordExists(toupdate))
+      {
+        TRY
+        {
+          local_type->UpdateEntity(dr.left.wrd_id, toupdate);
+        }
+        CATCH (OBJECT e)
+        {
+          STRING strvalue := Substitute(AnyToString(GetCell(dr.left, syncattr), "tree"), "\n", "");
+          THROW NEW Exception(`Cannot update domval of type '${local_type->tag}' with '${syncattr}' = '${strvalue}': ${e->what}`);
+        }
+      }
+    }
+  }
+
+  FOREVERY (RECORD dr FROM ddiff.shared)
+  {
+    IF (CellExists(dr.right, "__SUBVALUES"))
+      UpdateValuesRecursive(local_type, local_domvals, dr.right.__subvalues, dr.left.wrd_id, syncattr, rconfig);
+  }
+
+  FOREVERY (RECORD dr FROM ddiff.right_added)
+  {
+    // Keep org record, we can't use modificationdate or guid in createentity
+    RECORD org_dr := GetCloneableEntityFields(dr);
+    DELETE CELL __subvalues FROM dr;
+
+    TRY
+    {
+      INTEGER newid := local_type->__DoCreateEntity(dr)->id;
+      IF (CellExists(org_dr, "WRD_GUID"))
+      {
+        UPDATE wrd.entities
+           SET guid :=                  DecodeWRDGUID(org_dr.wrd_guid)
+             , modificationdate :=      GetCurrentDateTime()
+         WHERE id = newid;
+        GetWRDCommitHandler()->EntityUpdated(local_type->wrd_schema->id, local_type->id, newid);
+      }
+      IF (CellExists(org_dr, "WRD_MODIFICATIONDATE"))
+      {
+        UPDATE wrd.entities
+           SET modificationdate :=      org_dr.wrd_modificationdate
+         WHERE id = newid;
+        GetWRDCommitHandler()->EntityUpdated(local_type->wrd_schema->id, local_type->id, newid);
+      }
+      IF (CellExists(org_dr, "__SUBVALUES"))
+        UpdateValuesRecursive(local_type, local_domvals, org_dr.__subvalues, newid, syncattr, rconfig);
+    }
+    CATCH (OBJECT e)
+    {
+      STRING strvalue := Substitute(AnyToString(GetCell(dr, syncattr), "tree"), "\n", "");
+      THROW NEW Exception(`Cannot insert domval of type '${local_type->tag}' with '${syncattr}' = '${strvalue}': ${e->what}`);
+    }
+  }
+}
+
+BOOLEAN FUNCTION AreCellsEqual(RECORD left, RECORD right, STRING name)
+{
+  IF (TypeID(GetCell(left, name)) = TypeID(STRING))
+    RETURN ToUppercase(GetCell(left, name)) = ToUppercase(GetCell(right, name));
+  RETURN GetCell(left, name) = GetCell(right, name);
+}
+
+RECORD FUNCTION GetDiff(RECORD ARRAY left, RECORD ARRAY right, STRING cellname)
+{
+  RECORD ARRAY comb;
+  FOREVERY (RECORD rec FROM left)
+  {
+    VARIANT rowkey := GetCell(rec, cellname);
+    IF (TypeID(rowkey) = TypeID(STRING))
+      rowkey := ToUppercase(rowkey);
+
+    RECORD pos := RecordLowerBound(comb, CELL[ rowkey ], [ "ROWKEY" ]);
+    IF (pos.found)
+      comb[pos.position].left := rec;
+    ELSE
+      INSERT CELL[ rowkey, left := rec, right := DEFAULT RECORD ] INTO comb AT pos.position;
+  }
+
+  FOREVERY (RECORD rec FROM right)
+  {
+    VARIANT rowkey := GetCell(rec, cellname);
+    IF (TypeID(rowkey) = TypeID(STRING))
+      rowkey := ToUppercase(rowkey);
+
+    RECORD pos := RecordLowerBound(comb, CELL[ rowkey ], [ "ROWKEY" ]);
+    IF (pos.found)
+      comb[pos.position].right := rec;
+    ELSE
+      INSERT CELL[ rowkey, left := DEFAULT RECORD, right := rec ] INTO comb AT pos.position;
+  }
+
+  RECORD retval :=
+      [ left_added :=   RECORD[]
+      , right_added :=  RECORD[]
+      , shared :=       RECORD[]
+      ];
+
+  FOREVERY (RECORD rec FROM comb)
+    IF (RecordExists(rec.left))
+    {
+      IF (RecordExists(rec.right))
+        INSERT rec INTO retval.shared AT END;
+      ELSE
+        INSERT rec.left INTO retval.left_added AT END;
+    }
+    ELSE
+      INSERT rec.right INTO retval.right_added AT END;
+
+  RETURN retval;
+}
+

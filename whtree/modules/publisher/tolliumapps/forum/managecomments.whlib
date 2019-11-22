@@ -1,0 +1,21 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE CommentsTab EXTEND TolliumTabsExtensionBase
+<
+  DATETIME originalclosedate;
+
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    this->postings->SetupForComments(this->extensionoptions.id);
+    this->originalclosedate := this->postings->GetCurrentCloseDate();
+    this->closedate->value := this->originalclosedate;
+  }
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    this->postings->HandleSubmission(work);
+
+    IF(this->closedate->value != this->originalclosedate)
+      this->postings->__forum->SetCloseDate(this->closedate->value);
+  }
+>;

@@ -1,0 +1,491 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+PUBLIC STATIC OBJECTTYPE PhotoGalleryRenderer EXTEND StaticPageBase
+<
+  INTEGER thumbnail_maxheight;
+  INTEGER thumbnail_maxwidth;
+  INTEGER photo_max_width;
+  INTEGER thumbnails_per_page;
+  INTEGER thumbnail_background_color;
+  BOOLEAN originals_available;
+  RECORD ARRAY photopages;
+  RECORD ARRAY thumbnailpages;
+  RECORD photoalbum_props;
+
+  MACRO NEW(OBJECT contentobject)
+  : StaticPageBase(contentobject)
+  {
+    this->thumbnail_maxheight        := 128;
+    this->thumbnail_maxwidth         := 128;
+    this->photo_max_width            := 320;
+    this->thumbnails_per_page        := 9;
+    this->thumbnail_background_color := 0xFF000000;
+    this->originals_available        := false;
+  }
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    this->photoalbum_props := GetPhotoalbumProps(webdesign->targetobject->parent);
+  }
+
+  /*******************************************************************************
+
+   FUNCTIONS
+
+  ********************************************************************************/
+
+  //limit a picture's size to specific dimensions
+  RECORD FUNCTION CalcOutputPicSize(INTEGER picturewidth, INTEGER pictureheight, INTEGER maxwidth, INTEGER maxheight)
+  {
+    //Calculate required horizonal compression
+    INTEGER x_compression_factor := maxwidth * 100000 / picturewidth;
+    INTEGER y_compression_factor := maxheight * 100000 / pictureheight;
+
+    //Get the smallest compression factor (this will guarantee both height and width fall inside their max)
+    INTEGER image_compression_factor;
+    IF (y_compression_factor < x_compression_factor)
+      image_compression_factor := y_compression_factor;
+    ELSE
+      image_compression_factor := x_compression_factor;
+
+    IF (image_compression_factor < 100000)
+    {
+      RETURN [resize_width  := picturewidth * image_compression_factor / 100000,
+              resize_height := pictureheight * image_compression_factor / 100000,
+              resize := TRUE];
+    }
+    ELSE
+    {
+      RETURN [resize_width  := picturewidth,
+              resize_height := pictureheight,
+              resize := FALSE];
+    }
+  }
+
+  /** @short Retrieves the thumbnail page id of a photo
+      @long  This function returns the id of the thumbnail page where the thumbnail of the photo with ID photoid
+             is shown.
+      @param photoid The id of the photo
+      @return The id of the thumbnail page
+  */
+  INTEGER FUNCTION GetThumbnailPageId(INTEGER photoid)
+  {
+    RETURN 1 + ((photoid-1) / this->thumbnails_per_page);
+  }
+
+
+
+
+  /** @short  Get the name of the thumbnail part on which a photo is shown
+      @param  photoid The ID of the photo
+      @return The file name of the page that contains the photo's thumbnail
+      @see    GetPhotoPartName
+  */
+  PUBLIC STRING FUNCTION GetThumbnailPartName(INTEGER photoid)
+  {
+    RETURN "index_page_" || ToString(this->GetThumbnailPageId(photoid));
+  }
+
+
+
+
+  /** @short  Get the name of the photo part on which a photo is shown
+      @param  photoid The ID of the photo
+      @return The file name of the page that contains the photo
+      @see    GetThumbnailPartName
+  */
+  PUBLIC STRING FUNCTION GetPhotoPartName(INTEGER photoid)
+  {
+    RETURN "photo_page_" || ToString(photoid);
+  }
+
+
+
+
+  /** @short  Get the thumbnail page records
+      @long   This function calculates how many thumnail pages are needed in the gallery based on the number of photos in the
+              gallery and the user settings of a thumbnail page. This function creates the thumbnail pages accordingly.
+      @return A record array filled with the thumbnail pages.
+   */
+  PUBLIC RECORD ARRAY FUNCTION GetThumbnailPages(OBJECT webdesign, RECORD ARRAY photofiles)
+  {
+    RECORD ARRAY thumbnailpages;
+
+    integer rest :=     LENGTH(photofiles) % this->thumbnails_per_page;
+    integer totalpages:=LENGTH(photofiles) / this->thumbnails_per_page;
+
+    if (rest>0)
+      totalpages:=totalpages+1;
+
+    //fill each page with thumbnails
+    for (integer i:=0; i<totalpages; i:=i+1)
+    {
+      record array thumbnails;
+      record thumbnail;
+      record thumbnailpage;
+      for (integer j:=0; j< this->thumbnails_per_page; j:=j+1)
+      {
+        integer pos := i * this->thumbnails_per_page + j;
+        if (pos<LENGTH(photofiles))
+        {
+          thumbnail   := photofiles[pos];             //a thumbnail is just a copy of the photo
+          INSERT thumbnail INTO thumbnails AT END;
+        }
+      }
+      INSERT CELL pageid := i+1 INTO thumbnailpage;              //give the thumbnailpage an id.
+      INSERT CELL thumbnails := thumbnails INTO thumbnailpage;    //and add the thumbnails as well
+      INSERT CELL link := i=0 ? webdesign->targetobject->indexurl : webdesign->GetStaticFileLink("index_page_" || i+1 || ".html") INTO thumbnailpage;
+      INSERT thumbnailpage INTO thumbnailpages AT END;
+    }
+    return thumbnailpages;
+  }
+
+
+
+
+  /** @short Set the maximum width of the photos.
+      @long  Set max. width for landscape photos and the max. height for portrait photos. The aspect ratio of the original
+             picture is maintained. This is to keep the size of the photos under control in your website and to keep the area
+             covered by the photos identical.
+      @param max The maximum width (or height) of a photo
+  */
+  PUBLIC MACRO SetPhotoMaxWidth(INTEGER max)
+  {
+    IF (max>=0)
+      this->photo_max_width := max;
+  }
+
+
+
+
+  /** @short Set the number of thumbnails on a page
+      @param number_of_thumbnails Number of thumbnails to show on each thumbnail page
+   */
+  PUBLIC MACRO SetThumbnailsPerPage(integer number_of_thumbnails)
+  {
+      IF (number_of_thumbnails>=0)
+        this->thumbnails_per_page := number_of_thumbnails;
+  }
+
+
+
+
+  /** @short Set the size of the thumbnails.
+      @long  The photos are scaled to fit within the maximum width and height of the thumbnails. The aspect ratio of
+             the original picture is maintained.
+      @param maxwidth Maximum thumbnail width
+      @param maxheight Maximum thumbnail height
+  */
+  PUBLIC MACRO SetThumbnailMaxSize(integer maxwidth, integer maxheight)
+  {
+      IF (maxwidth>=0)
+        this->thumbnail_maxwidth := maxwidth;
+      IF (maxheight>=0)
+        this->thumbnail_maxheight := maxheight;
+  }
+
+  /** FIXME: IMPLEMENT !@short Sets the background images
+      @param hor  The bitmap used for landscape photos
+      @param vert The bitmap used for portrait  photos
+
+  public macro SetThumbnailBackground(blob hor, blob vert)
+  {
+      background_horizontal:=hor ;
+      background_vertical  :=vert;
+      uses_background_images:=true;
+  }
+  */
+  /** FIXME: IMPLEMENT ! Set the color of the thumbnail background. Only used when no background is set
+      @param red   The value of the red   channel. Must be 0-255.
+      @param green The value of the green channel. Must be 0-255.
+      @param blue  The value of the blue  channel. Must be 0-255.
+  public macro SetThumbnailBackgroundColor(integer red, integer green, integer blue)
+  {
+      thumbnail_background_color := GfxCreateColor (red,green,blue,255);
+  }
+   */
+
+
+
+
+  /** @short Sets the original photos available or not
+      @long  This macro can be used if you want the orginal photos to be available when you click on a photo in your website.
+             If TRUE a link to the original photo is created. If FALSE a link to the thumbnail page is created.
+      @param originals If TRUE, link to the original photos, if FALSE it links to the thumbnail page
+   */
+  PUBLIC MACRO SetOriginalsAvailable(BOOLEAN originals)
+  {
+    this->originals_available := originals;
+  }
+
+
+
+
+  /** @short Prints a thumbnail page
+      @param currentfile The thumbnail page to print
+      @see PrintPhoto
+   */
+  PUBLIC MACRO PrintThumbnail(OBJECT webdesign, RECORD currentfile)
+  {
+    //get the alt tag of the image. It currently uses the title of the file.
+    STRING alt_tag;
+    IF (CellExists(currentfile,"title"))
+      alt_tag:=currentfile.title;
+    IF (alt_tag="" AND CellExists(currentfile,"name"))
+      alt_tag:=currentfile.name;
+
+    //Actual writing takes place here! And linking too,
+    //note that it is only HTML linkage. so no XML is supported here!
+    PRINT('<a href="');
+    Print(encodevalue(webdesign->GetStaticFileLink("photo_page_" || ToString(currentfile.photoid) || ".html")));
+    PRINT('">');
+    Print('<img src="' || currentfile.thumbnaillink || '" alt="' || EncodeValue(alt_tag) || '"  border="0" />');
+    PRINT('</a>');
+  }
+
+
+
+
+  /** @short Prints a photo page
+      @param currentfile The file for which a photo page is created
+      @see PrintThumbnail
+    */
+  PUBLIC MACRO PrintPhoto(OBJECT webdesign, RECORD currentfile)
+  {
+    STRING alt_tag:="";
+    IF (CellExists(currentfile,"title"))
+      alt_tag:=currentfile.title;
+
+    STRING origurl := this->originals_available ? currentfile.url : CellExists(currentfile,"originallink") AND currentfile.originallink != "" ? currentfile.originallink : "";
+
+    //if originals are available, link to them.
+    IF (origurl!="")
+    {
+      PRINT ("<a href="|| origurl || ">" );
+    }
+    ELSE
+    {
+      integer thumbnailpage:=this->GetThumbnailPageId(currentfile.photoid);
+      PRINT('<a href="');
+      IF(thumbnailpage=1)
+        Print(EncodeValue(webdesign->targetobject->indexurl));
+      ELSE
+        Print(encodevalue(webdesign->GetStaticFileLink("index_page_" || ToString(thumbnailpage) || ".html")));
+      PRINT('">');
+    }
+    Print('<img src="' || EncodeValue(currentfile.photolink) || '" alt="' || EncodeValue(alt_tag) || '" border="0" />');
+
+    PRINT ("</a>");
+  }
+
+
+  // ************************************************************************** //
+  // * Photoalbum ************************************************************* //
+  // ************************************************************************** //
+
+  MACRO MakePhotoalbumNavLink(OBJECT webdesign, string partname, string alttext)
+  {
+    IF (partname != "")
+    {
+      PRINT('<a href="');
+      IF(partname="index_page_1")
+        Print(EncodeValue(webdesign->targetobject->indexurl));
+      ELSE
+        Print(encodevalue(webdesign->GetStaticFileLink(partname || ".html")));
+      PRINT('">' || EncodeHTML(alttext) ||'</a>');
+    }
+    ELSE
+    {
+      PRINT(EncodeHTML(alttext));
+    }
+  }
+
+  // print the navigation
+  MACRO PrintThumbnailPageButtons(OBJECT webdesign, INTEGER curThumbpage)
+  {
+    IF (Length(this->thumbnailpages) <= 1)
+      RETURN;
+
+    INTEGER thumbs_per_page := this->photoalbum_props.rows * this->photoalbum_props.columns;
+
+    PRINT('<table width="100%" cellpadding="0" cellspacing="0" border="0">\n');
+    PRINT('  <tr>\n');
+    PRINT('<td width="33%" align="left">\n');
+
+    IF (curThumbpage > 1)
+      this->MakePhotoalbumNavLink(webdesign, this->GetThumbnailPartName((curThumbpage-1) * (thumbs_per_page)),"<<");
+    ELSE
+      this->MakePhotoalbumNavLink(webdesign, "","<<");
+    PRINT('</td>\n');
+    PRINT('<td width="33%" align="center">\n');
+    FOR (integer i := 1; i <= Length(this->thumbnailpages); i:= i + 1)
+    {
+      IF (i != CurThumbPage)
+      {
+        PRINT('<a href="');
+        IF(i=1)
+          Print(EncodeValue(webdesign->targetobject->indexurl));
+        ELSE
+          Print(encodevalue(webdesign->GetStaticFileLink(this->GetThumbnailPartName(i * thumbs_per_page) || ".html")));
+        PRINT('">' || i || '</a>&nbsp;&nbsp;');
+      }
+      ELSE
+      {
+        PRINT(i || '&nbsp;&nbsp;');
+      }
+    }
+    PRINT('</td>\n');
+    PRINT('<td width="33%" align="right">\n');
+
+    IF (curThumbpage < Length(this->thumbnailpages))
+      this->MakePhotoalbumNavLink(webdesign, this->GetThumbnailPartName((curthumbpage+1) * thumbs_per_page),">>");
+    ELSE
+      this->MakePhotoalbumNavLink(webdesign, "",">>");
+    PRINT('</td>\n');
+    PRINT('  </tr>\n');
+    PRINT('</table>\n');
+  }
+
+  MACRO PrintPhotoPageButtons(OBJECT webdesign, INTEGER curPhotopage)
+  {
+    IF (Length(this->photopages) <= 1)
+      RETURN;
+
+    PRINT('<table width="100%" cellpadding="0" cellspacing="0" border="0">\n');
+    PRINT('  <tr>\n');
+    PRINT('<td width="33%" align="left">\n');
+
+    IF (curphotopage > 1)
+      this->MakePhotoalbumNavLink(webdesign, this->GetPhotoPartName(curphotopage-1),"<<");
+    ELSE
+      this->MakePhotoalbumNavLink(webdesign, "","<<");
+    PRINT('</td>\n');
+
+    PRINT('<td width="33%" align="center">\n');
+      this->MakePhotoalbumNavLink(webdesign, this->GetThumbnailPartName(curphotopage),"^");
+    PRINT('</td>\n');
+
+    PRINT('<td width="33%" align="right">\n');
+    IF (curphotopage < Length(this->photopages))
+      this->MakePhotoalbumNavLink(webdesign, this->GetPhotoPartName(curphotopage+1),">>");
+    ELSE
+      this->MakePhotoalbumNavLink(webdesign, "",">>");
+    PRINT('</td>\n');
+    PRINT('  </tr>\n');
+    PRINT('</table>\n');
+  }
+
+   MACRO RenderPhotoPage(OBJECT webdesign, RECORD photopage)
+  {
+    PRINT('<div class="whp_contentlisting">\n');
+
+    IF (photopage.title != "")
+       PRINT('<h2>'|| EncodeHTMl(photopage.title) ||'</h2>');
+    ELSE
+       PRINT('<h2>'|| EncodeHTMl(webdesign->targetobject->title) ||'</h2>');
+
+    this->PrintPhotoPageButtons(webdesign, photopage.photoid);
+    PRINT('<table cellspacing="0" cellpadding="0" border="0" width="100%">\n');
+    PRINT('<tr>\n<td>&nbsp;</td>\n</tr>\n');
+    PRINT('<tr>\n');
+    PRINT('<td width="100%" align="center">');
+    this->PrintPhoto(webdesign, photopage);
+    PRINT('</td>\n</tr>\n');
+    IF (photopage.description != "")
+      PRINT('<tr><td>' || ENCODEHTML(photopage.description) || '</td>\n</tr>\n');
+
+    PRINT('<tr>\n<td>&nbsp;</td>\n</tr>\n</table>'); //close the table.
+    this->PrintPhotoPageButtons(webdesign, photopage.photoid);
+
+    PRINT('</div>\n');
+
+  }
+
+  MACRO RenderThumbnailPage(OBJECT webdesign, RECORD thumbnailpage)
+  {
+    PRINT('<div class="whp_contentlisting">\n');
+
+    INTEGER count:=0;                                 //counter used to make tablerows
+
+    IF (webdesign->targetobject->title != "")
+     PRINT('<h2>'|| EncodeHTML(webdesign->targetobject->title) ||'</h2>');
+
+    this->PrintThumbnailPageButtons(webdesign, thumbnailpage.pageid);
+    PRINT('<table cellspacing="0" cellpadding="0" border="0" width="100%">\n');
+    PRINT('<tr>\n<td>&nbsp;</td>\n</tr>\n');
+    FOREVERY (RECORD thumbnail FROM thumbnailpage.thumbnails) //walk through the thumbnails of this page
+    {
+      IF (count % this->photoalbum_props.columns = 0)  //if we start a new row, HTML it!
+        PRINT("  <tr>\n");
+
+      PRINT('    <td width="' || (100 / this->photoalbum_props.columns) || '%" valign="middle" align="center">'); //print a table cell filled with a thumbnail
+      this->PrintThumbnail(webdesign, thumbnail);
+      PRINT("    </td>");
+
+      count := count + 1; //increase the count
+
+      IF (count % this->photoalbum_props.columns = 0)   //if we are the last thumbnail in the row, close the row
+        PRINT("  </tr>\n");
+    }
+    PRINT("\n</tr>\n<tr>\n<td>&nbsp;</td>\n</tr>\n</table>"); //close the table.
+
+    this->PrintThumbnailPageButtons(webdesign, thumbnailpage.pageid);
+    PRINT('</div>\n');
+  }
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    INTEGER thumbs_per_page := this->photoalbum_props.rows * this->photoalbum_props.columns;
+
+    //pass information  -on how many thumbnails there are per page- on to the album-generator.
+    this->SetThumbnailsPerPage(thumbs_per_page);
+
+    this->photopages := GetPhotoalbumContents(webdesign->targetobject->parent);
+    this->photopages := SELECT TEMPORARY onpage := (#photopages / thumbs_per_page) + 1
+                             , *
+                             , link := webdesign->GetStaticFileLink("photo_page_" || photoid || ".html")
+                             , thumbnailpageid := onpage
+                             , thumbnailpagelink := onpage = 1 ? webdesign->targetobject->indexurl : webdesign->GetStaticFileLink("index_page_" || onpage || ".html")
+                          FROM this->photopages;
+
+
+    this->thumbnailpages := this->GetThumbnailPages(webdesign, this->photopages);    //get all the thumbnail pages
+                                                           //the number of thumbnails has to be set,
+                                                           //or else the deafult of 9 will be used.
+
+    integer NumberOfPhotos := length(this->photopages);          //calculate the number of photos. If it
+                                                           //is smaller than 1 (i.e. 0) then nothing has to be done.
+    if (NumberOfPhotos<1)   //if no sensible record array is passed print a decent message.
+      RETURN;
+
+    FOREVERY (RECORD thumbnailpage FROM this->thumbnailpages)   //walk thourgh the thumbailpages
+    {
+      INTEGER out, saveout;
+      IF(#thumbnailpage > 0)
+      {
+        out := CreateSTream();
+        saveout := RedirectOutputTo(out);
+      }
+
+      this->RenderThumbnailPage(webdesign, thumbnailpage);
+      IF(#thumbnailpage>0)
+      {
+        webdesign->CreateStaticFile("index_page_" || ToString(thumbnailpage.pageid) || ".html", PTR webdesign->RunPageWithContents(PTR SendBlobTo(0,MAkeBlobFromStream(out))));
+        RedirectOutputTo(saveout);
+      }
+    }
+
+    FOREVERY (RECORD photopage FROM this->photopages)                     //walk through the photos
+    {
+      INTEGER out := CreateSTream();
+      INTEGER saveout := RedirectOutputTo(out);
+      this->renderPhotoPage(webdesign, photopage);
+
+      webdesign->CreateStaticFile("photo_page_" || ToString(photopage.photoid) || ".html", PTR webdesign->RunPageWithContents(PTR SendBlobTo(0,MAkeBlobFromStream(out))));
+      RedirectOutputTo(saveout);
+    }
+
+  }
+>;

@@ -1,0 +1,62 @@
+<?wh
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+
+  }
+
+  MACRO DoGenerateLinks()
+  {
+    OBJECT feedback := this->BeginFeedback();
+    IF(NOT feedback->Finish())
+      RETURN;
+
+    OBJECT writer := NEW XLSXColumnFileWriter;
+    writer->columns := [[ name := "variables", title := "Original variables", type := "text" ]
+                       ,[ name := "link", title := "Encoded TAB url", type := "text" ]
+                       ];
+
+    FOREVERY(STRING inlink FROM Tokenize(this->utmtags->value,"\n"))
+    {
+      IF(inlink="")
+      {
+        writer->WriteRow([variables:="",link:=""]);
+        CONTINUE;
+      }
+
+      RECORD ARRAY forwardvars;
+
+      STRING varslink := Substitute(inlink,"?","&");
+      FOREVERY(STRING invar FROM Tokenize(varslink,"&"))
+      {
+        STRING lhs := Left(invar, SearchSubstring(invar,'='));
+        IF(lhs="")
+          CONTINUE;
+        STRING rhs := Substring(invar, Length(lhs)+1);
+
+        lhs := DecodeURL(TrimWhitespace(lhs));
+        rhs := DecodeURL(TrimWhitespace(rhs));
+
+        INSERT [ name := lhs, value := rhs ] INTO forwardvars AT END;
+      }
+
+      RECORD appdata;
+      IF(Length(forwardvars)>0)
+        appdata := [ f := forwardvars ];
+
+      STRING gotourl := this->taburl->value;
+      IF(RecordExists(appdata))
+        gotourl := UpdateURLVariables(gotourl, [ "app_data" := "xRt" || EncodeUFS(EncodeJSON(appdata)) ]);
+
+      writer->WriteRow([variables:=inlink,link:=gotourl]);
+    }
+
+    BLOB final := writer->MakeOutputFile();
+    this->frame->SendFileToUser(final,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","links.xlsx",DEFAULT DATETIME);
+  }
+>;

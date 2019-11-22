@@ -1,0 +1,458 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib"; // FIXME: do we want to use the system table?
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::system/lib/internal/monitoring/apps.whlib";
+
+BOOLEAN FUNCTION __HS_ABORTJOBBYGROUPID(STRING groupid) __ATTRIBUTES__(EXTERNAL);
+
+STRING FUNCTION GetSessionTypeName(INTEGER type)
+{
+  SWITCH (type)
+  {
+    CASE 1 { RETURN GetTid("system:monitor.users.types.basic"); }  // Basic
+    DEFAULT { RETURN GetTid("system:monitor.users.types.cookie"); } // Cookie
+  }
+}
+
+INTEGER64 FUNCTION GetMemUsage(RECORD info)
+{
+  IF(NOT RecordExists(info))
+    RETURN 0;
+
+  RETURN info.stack+info.heap+info.backingstore+info.blobstore;
+}
+
+INTEGER FUNCTION GetObjectCount(RECORD info)
+{
+  IF(NOT RecordExists(info))
+    RETURN 0;
+
+  RETURN info.objectcount;
+}
+
+STRING ARRAY FUNCTION DistinctAndOrderStringArray(STRING ARRAY list)
+{
+  RETURN
+      SELECT AS STRING ARRAY DISTINCT item
+        FROM ToRecordArray(list, "ITEM")
+    ORDER BY item;
+}
+
+VARIANT AGGREGATE FUNCTION AnyNonDefault(VARIANT vals)
+{
+  FOREVERY (VARIANT v FROM vals)
+    IF (NOT IsDefaultValue(v))
+      RETURN v;
+  RETURN vals[0];
+}
+
+RECORD FUNCTION MyBinaryFind(RECORD ARRAY list, RECORD value, STRING ARRAY keys, RECORD defaultvalue DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD pos := RecordLowerBound(list, value, keys);
+  IF (pos.found)
+    RETURN list[pos.position];
+  RETURN defaultvalue;
+}
+
+
+
+PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
+<
+  UPDATE MACRO Init()
+  {
+    TolliumAppListBase::Init();
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    this->RefreshUserList();
+    this->OnUserSelect();
+    this->OnApplicationSelect();
+
+    BOOLEAN sysoponly := ReadRegistryKey("system.webserver.global.locking.sysoponly");
+    DATETIME downtime := ReadRegistryKey("system.webserver.global.locking.scheduleddowntime");
+    this->scheduledowntime->enabled := IsDefaultValue(downtime);
+    this->cancelscheduleddowntime->enabled := NOT IsDefaultValue(downtime);
+    this->scheduleddowntime->value := IsDefaultValue(downtime)? "" : "Er is " || ReadRegistryKey("system.webserver.global.locking.estimateddowntime") || " min. downtime ingepland vanaf " || FormatDateTime("%H:%M:%S", downtime);
+
+    this->loginstatus->value := sysoponly ? GetTid("system:monitor.users.loginstatus_closed") : GetTid("system:monitor.users.loginstatus_open");
+    this->openwebharelogin->enabled := sysoponly;
+    this->closewebharelogin->enabled := NOT sysoponly;
+  }
+
+  MACRO RefreshUserList()
+  {
+    RECORD ARRAY loggedonusers;// := GetLoggedOnUsers();
+
+    RECORD ARRAY userrecs;
+
+    RECORD ARRAY normalusers :=
+        SELECT userid :=          "system:" || userid
+             , wh_userid :=       userid
+             , username :=        name
+             , realname :=        ""
+             , logintime
+             , lastaccess
+             , ipaddress :=       ipaddress
+             , ipaddress_sort :=  ipaddress //ADDME
+             , sessionid
+             , canclose
+             , type
+             , typename :=        GetSessionTypeName(type)
+             , tolliumapp :=      DEFAULT RECORD
+          FROM loggedonusers
+         WHERE type != 2;
+
+       RECORD ARRAY tolliumusers :=
+        SELECT typename := GetTid("system:monitor.users.types.tollium")
+             , sessionid :=       appid
+             , userid :=          use.wrdentityid != 0
+                                      ? "wrd:" || use.wrdentityid
+                                      : "system:" || use.authobjectid
+             , ipaddress :=       requestdata.remoteip
+             , ipaddress_sort :=  requestdata.remoteip
+             , wh_userid :=       use.authobjectid
+             , username :=        use.username
+             , realname :=        use.realname
+             , lastaccess :=      use.lastactive
+             , logintime :=       use.started
+             , tolliumapp :=      [ library :=          ""
+                                  , starturl :=         ""
+                                  , active :=           TRUE
+                                  , lastactive :=       use.lastactive
+                                  , lastpoll :=         DEFAULT DATETIME
+                                  , started :=          use.started
+                                  , ipaddress :=        requestdata.remoteip
+                                  , ipaddress_sort :=   requestdata.remoteip
+                                  , stats :=            use.stats
+                                  , sessionid :=        appid
+                                  , app :=              app
+                                  , title :=            title
+                                  , browser :=          use.browser
+                                  ]
+          FROM this->GetCurrentApps();
+
+    RECORD ARRAY allusers :=
+        SELECT rowkey :=          userid
+             , userid
+             , wh_userid :=       Any(wh_userid)
+             , username :=        Any(username)
+             , realname :=        AnyNonDefault(realname) ?? MyBinaryFind(userrecs, [ id := Any(wh_userid) ], [ "ID" ], [ realname := "" ]).realname
+             , ipaddress :=       ipaddress
+             , ipaddress_sort :=  Any(ipaddress_sort)
+             , lastaccess :=      MAX(lastaccess)
+             , logintime :=       MIN(logintime)
+             , canclose :=        FALSE
+             , tolliumapps :=     (SELECT * FROM GroupedValues(tolliumapp) AS x WHERE RecordExists(x))
+             , isself :=          userid = "system:" || GetEffectiveUserId()
+             , typename :=        Detokenize(DistinctAndOrderStringArray(GroupedValues(typename)), ", ")
+          FROM normalusers CONCAT tolliumusers
+      GROUP BY userid, ipaddress;
+
+    allusers :=
+        SELECT *
+             , appcount :=      LENGTH(tolliumapps) != 0 ? ToString(LENGTH(tolliumapps)) : ""
+             , appcount_i :=    LENGTH(tolliumapps)
+             , appmemory :=     LENGTH(tolliumapps) != 0 ? (SELECT AS INTEGER64 SUM(GetMemUsage(stats)) FROM tolliumapps) || " KB" : ""
+             , appmemory_i :=   (SELECT AS INTEGER64 SUM(GetMemUsage(stats)) FROM tolliumapps)
+             , haveapplications := LENGTH(tolliumapps) != 0
+          FROM allusers;
+
+    this->total_onlineusers->value := ToString(LENGTH(SELECT FROM allusers WHERE username != ""));
+    this->total_appcount->value := ToString(SELECT AS INTEGER64 Sum(appcount_i) FROM allusers);
+    this->total_appmemory->value := ToString(SELECT AS INTEGER64 Sum(appmemory_i) FROM allusers) || " KB";
+
+    this->onlineusers->rows := allusers;
+  }
+
+  MACRO OnUserSelect()
+  {
+    RECORD sel := this->onlineusers->selection;
+    IF (NOT RecordExists(sel))
+    {
+      this->apps->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    this->apps->rows :=
+        SELECT rowkey :=        sessionid
+             , sessionid
+             , ipaddress
+             , ipaddress_sort
+             , running :=       active ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+             , app
+             , title
+             , library
+             , memusage :=      active ? "" : GetMemUsage(stats) || " KB"
+             , objects :=       active ? "" : ToString(GetObjectCount(stats))
+             , started :=       started != DEFAULT DATETIME ? this->tolliumuser->FormatTime(started, 'seconds', TRUE) : ""
+             , lastactive :=    lastactive != DEFAULT DATETIME ? this->tolliumuser->FormatTime(lastactive, 'seconds', TRUE) : ""
+             , lastpoll :=      lastpoll != DEFAULT DATETIME ? this->tolliumuser->FormatTime(lastpoll, 'seconds', TRUE) : ""
+             , starturl
+             , stats
+             , browser
+          FROM sel.tolliumapps;
+  }
+
+  MACRO OnApplicationSelect()
+  {
+    RECORD sel := this->apps->selection;
+    IF(RecordExists(sel) AND RecordExists(sel.stats))
+    {
+      this->appstats->visible := TRUE;
+
+      this->backingstore->value := sel.stats.backingstore || " KB";
+      this->blobstore->value := sel.stats.blobstore || " KB";
+      this->heap->value := sel.stats.heap || " KB";
+      this->stack->value := sel.stats.stack || " KB";
+      this->instructions->value := ToString(sel.stats.instructions);
+      this->library->value := sel.stats.library;
+      this->objectcount->value := ToString(sel.stats.objectcount);
+    }
+    ELSE
+    {
+      this->appstats->visible := FALSE;
+    }
+  }
+
+  MACRO DoKillAllSessions()
+  {
+    RECORD sel := this->onlineusers->selection;
+
+    IF (this->RunSimpleScreen("confirm", GetTid("system:monitor.surekillallsessions", sel.username), [ dontshowkey := "tollium.surekillallsessions"]) != "yes")
+      RETURN;
+
+    FOREVERY (RECORD rec FROM sel.tolliumapps)
+      IF (RecordExists(rec))
+      {
+        __HS_ABORTJOBBYGROUPID(rec.sessionid);
+      }
+  }
+
+  MACRO DoKillSession()
+  {
+    IF (this->RunSimpleScreen("confirm", GetTid("system:monitor.surekillsession"), [ dontshowkey := "tollium.surekillsession"]) != "yes")
+      RETURN;
+
+    __HS_ABORTJOBBYGROUPID(this->apps->value);
+    this->RefreshMonitorPanel();
+  }
+
+  MACRO DoSendGlobalMessage()
+  {
+    OBJECT screen := this->LoadScreen(".sendmessage", [ userid := 0, allids := (SELECT AS INTEGER ARRAY wh_userid FROM this->onlineusers->rows) ]);
+    IF (ObjectExists(screen))
+      screen->RunModal();
+  }
+
+  MACRO DoSendMessageToUser()
+  {
+    OBJECT screen := this->LoadScreen(".sendmessage",
+        [ userid :=     this->onlineusers->selection.wh_userid // this is the session.userid
+        , name :=       this->onlineusers->selection.username
+        ]);
+    IF (ObjectExists(screen))
+      screen->RunModal();
+  }
+
+  MACRO DoOpenWebhareLogin()
+  {
+    OBJECT work := this->BeginWork();
+    WriteRegistryKey("system.webserver.global.locking.sysoponly", FALSE);
+    work->Finish();
+    this->RefreshMonitorPanel();
+  }
+
+  MACRO DoCloseWebhareLogin()
+  {
+    IF (this->RunMessageBox(".sureclosewebharelogin") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      WriteRegistryKey("system.webserver.global.locking.sysoponly", TRUE);
+      work->Finish();
+    }
+    this->RefreshMonitorPanel();
+  }
+
+  MACRO DoCancelScheduledDowntime()
+  {
+    IF(this->RunMessageBox(".surecancelscheduleddowntime") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      WriteRegistryKey("system.webserver.global.locking.scheduleddowntime", DEFAULT DATETIME);
+      work->Finish();
+    }
+    this->RefreshMonitorPanel();
+  }
+
+  MACRO DoScheduleDowntime()
+  {
+    OBJECT screen := this->LoadScreen(".scheduledowntime", DEFAULT RECORD);
+    IF(ObjectExists(screen))
+      screen->RunModal();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE SendMessage EXTEND TolliumScreenBase
+< INTEGER userid;
+  INTEGER ARRAY allids;
+  STRING lasttitle;
+
+  MACRO Init(RECORD data)
+  {
+    this->userid := data.userid;
+    IF (this->userid != 0)
+    {
+      this->template->value := "none";
+      this->frame->title := GetTid("system:monitor.sendmessage.title_touser", data.name);
+    }
+    ELSE //global message
+    {
+      this->frame->title := GetTid("system:monitor.sendmessage.title_toall");
+      this->title->value := GetTid("system:monitor.sendmessage.global_msgtitle");
+      this->allids := data.allids;
+
+      this->applytemplate->visible := TRUE;
+      DATETIME now := UTCToLocal(GetCurrentDateTime(),"CET");
+      this->updatewhen->value := GetRoundedDateTime(AddTimeToDate(20 * 60 * 1000 - 1, now), 10 * 60 * 1000);
+    }
+
+    this->OnTemplateChange();
+
+    //FIXME: Would be nicer to be able to show both a Dutch as an English message,
+    //       e.g. x messages per server (where x is the number of installed languages).
+    //       Messages templates would be even nicer!
+    //this->msg->value := GetTid("system:monitor.sendmessage.defaultmessage");
+  }
+
+  MACRO OnTemplateChange()
+  {
+    STRING template := this->template->value;
+    this->title->readonly := template != "none";
+    this->msg->readonly := template != "none";
+
+    IF (template = "none")
+    {
+      this->title->value := this->lasttitle;
+    }
+    ELSE
+    {
+      this->lasttitle := this->title->value; // save it when going back to template 'none'
+
+      IF (template = "serverupdate")
+      {
+        this->title->value := "Server update"; // same in Dutch as in English
+
+        BOOLEAN updatetoday := GetDayCount(UTCToLocal(GetCurrentDateTime(),"CET")) = GetDayCount(this->updatewhen->value);
+        STRING ARRAY tidparams;
+        STRING tid;
+        IF(updatetoday)
+          this->msg->value := GetTidForLanguage(this->tolliumuser->language, "system:notifications.maintenance.today",  FormatDateTime("%H:%M", this->updatewhen->value), ToString(this->updatetime->value) );
+        ELSE
+          this->msg->value := GetTidForLanguage(this->tolliumuser->language, "system:notifications.maintenance.otherday",  FormatDateTime("%Y-%m-%d", this->updatewhen->value), FormatDateTime("%H:%M", this->updatewhen->value), ToString(this->updatetime->value) );
+
+      }
+    }
+  }
+
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(NOT work->HasFailed())
+    {
+      RECORD event;
+      RECORD targetusers;
+      IF (this->userid = 0)
+      {
+        BOOLEAN updatetoday := GetDayCount(UTCToLocal(GetCurrentDateTime(),"CET")) = GetDayCount(this->updatewhen->value);
+        STRING ARRAY tidparams;
+        STRING tid;
+        IF(updatetoday)
+        {
+          tid := ".today";
+          tidparams := [ FormatDateTime("%H:%M", this->updatewhen->value), ToString(this->updatetime->value) ];
+        }
+        ELSE
+        {
+          tid := ".otherday";
+          tidparams := [ FormatDateTime("%Y-%m-%d", this->updatewhen->value), FormatDateTime("%H:%M", this->updatewhen->value), ToString(this->updatetime->value) ];
+        }
+        event := [ id := "system_notification_" || Random(0,99)
+                 , type := "tollium:towl.event"
+                 , tid := ":Server update" //"system:notifications.announcement"
+                 , descriptionparams := tidparams
+                 , descriptiontid := "system:notifications.maintenance" || tid// || this->title->value
+                 , titleparams := DEFAULT RECORD ARRAY
+                 , icon := ""
+                 , persistent := TRUE
+                 , timeout := -1
+                 , priority := 3
+                 , applicationmessage := DEFAULT RECORD
+                 , defaultenabled := TRUE
+                 ];
+        targetusers := [ webhare_users := this->allids ];
+      }
+      ELSE
+      {
+        event := [ id := "system_notification_" || Random(0,99)
+                 , type := "tollium:towl.event"
+                 , descriptiontid := ":" || this->msg->value //"system:notifications.announcement"
+                 , descriptionparams := DEFAULT RECORD ARRAY
+                 , tid := ":" || this->title->value
+                 , titleparams := DEFAULT RECORD ARRAY
+                 , icon := ""
+                 , persistent := TRUE
+                 , timeout := -1
+                 , priority := 3
+                 , applicationmessage := DEFAULT RECORD
+                 , defaultenabled := TRUE
+                 ];
+        targetusers := [ webhare_users := [ this->userid ] ];
+      }
+      __OpenLocalService("tollium:towlservice")->BroadcastNotification(targetusers, event);
+    }
+
+    RETURN work->Finish();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE Announcement EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->frame->title := data.title;
+    this->msg->value := data.message;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE ScheduleDowntime EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(NOT work->HasFailed())
+    {
+      WriteRegistryKey("system.webserver.global.locking.scheduleddowntime", this->scheduletime->value);
+      WriteRegistryKey("system.webserver.global.locking.estimateddowntime", this->estimateddowntime->value);
+      WriteRegistryKey("system.webserver.global.locking.sysoponly", this->locklogin->value);
+    }
+
+    RETURN work->Finish();
+  }
+>;

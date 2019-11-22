@@ -1,0 +1,143 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+
+OBJECT trans := OpenPrimary();
+INTEGER ARRAY updated_contentsources;
+BOOLEAN changes;
+BOOLEAN debug := "--debug" IN GetConsoleArguments();
+
+// Delete indices from the index managers that are no longer referred to or are marked for deletion
+INTEGER ARRAY indexedcatalogs;
+FOREVERY (RECORD indexmanager FROM SELECT id FROM consilio.indexmanagers)
+{
+  RECORD result := GetIndexmanagerIndexList(indexmanager.id);
+  IF (debug)
+    Print(`Checking index manager ${indexmanager.id}: ${result.status}\n`);
+  IF (result.status != SearchOk)
+    CONTINUE;
+  FOREVERY (INTEGER indexid FROM result.indices)
+  {
+    RECORD cat := SELECT * FROM consilio.indices WHERE id = indexid;
+    IF (NOT RecordExists(cat) OR cat.name LIKE "$consilio$deleted$*")
+    {
+      // This catalog does not exist anymore or is marked for deletion, delete it from the index manager, then from the database
+      result := DeleteIndexManagerContentSource(indexmanager.id, indexid, 0);
+      IF (debug)
+        Print(`  Deleted index ${indexid} from index manager: ${result.status}\n`);
+      IF (result.status IN [ SearchOk, SearchIndexNotFound ])
+      {
+        IF (RecordExists(cat))
+        {
+          trans->BeginWork();
+          DELETE FROM consilio.indices WHERE id = cat.id;
+          trans->CommitWork();
+          IF (debug)
+            Print(`  Deleted catalog '${cat.tag}' (${cat.id}) from database\n`);
+        }
+      }
+    }
+    ELSE
+      INSERT indexid INTO indexedcatalogs AT END;
+  }
+}
+
+RECORD ARRAY catalogs := ListConsilioCatalogs([ __withdeleted := TRUE ]);
+FOREVERY (RECORD cat FROM catalogs)
+{
+  IF (debug)
+    Print(`Checking catalog '${cat.tag}' (${cat.id})\n`);
+  IF (cat.isdeleted AND cat.id NOT IN indexedcatalogs)
+  {
+    // This catalog didn't exist on the index manager, delete it from the database
+    IF (debug)
+      Print(`Delete catalog '${cat.tag}' (${cat.id}) from database\n`);
+    trans->BeginWork();
+    DELETE FROM consilio.indices WHERE id = cat.id;
+    trans->CommitWork();
+    DELETE FROM catalogs WHERE id = cat.id;
+    CONTINUE;
+  }
+
+  // Open the catalog
+  OBJECT catalog := OpenConsilioCatalogById(cat.id);
+  IF(NOT ObjectExists(catalog))
+    CONTINUE; //already gone..
+
+  // Check the catalog's content sources
+  RECORD ARRAY sources := catalog->ListContentSources([ __withdeleted := TRUE ]);
+  FOREVERY (RECORD src FROM sources)
+  {
+    IF (debug)
+      Print(`  Checking content source '${src.tag}' (${src.id})${src.isdeleted ? " deleted" : src.isorphan ? " orphaned" : ""}\n`);
+    IF (src.isdeleted)
+    {
+      // This content source is marked for deletion, delete it from the index manager, then from the database
+      RECORD result := DeleteIndexManagerContentSource(cat.indexmanager, cat.id, src.id);
+      IF (debug)
+        Print(`  Deleted content source: ${result.status}\n`);
+      IF (result.status = SearchOk)
+      {
+        trans->BeginWork();
+        DELETE FROM consilio.contentsources WHERE id = src.id;
+        trans->CommitWork();
+      }
+      CONTINUE;
+    }
+    IF (src.isorphan)
+      CONTINUE;
+
+    // Update content source fields and titles
+    trans->BeginWork();
+    OBJECT source := catalog->OpenContentSourceById(src.id);
+    TRY
+    {
+      OBJECT provider := source->OpenProvider();
+      IF (UpdateContentSourceFields(provider))
+        INSERT src.id INTO updated_contentsources AT END;
+
+      STRING title := provider->GetContentSourceTitle();
+      IF (title != src.title)
+        UPDATE consilio.contentsources SET title := VAR title WHERE id = src.id;
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      //TODO what to do? log, scream, go into error mode?
+    }
+    trans->CommitWork();
+  }
+
+  IF (catalog->tag NOT LIKE "*:*") //does not look like a managed catalog (yet?) - prevent us from immediately deleting manually created indices
+    CONTINUE;
+  IF (catalog->type IN [ whconstant_consilio_catalogtype_moduleindex, whconstant_consilio_catalogtype_fieldgroup ])
+    CONTINUE; // Unmanaged index or fieldgroup
+}
+
+IF (Length(updated_contentsources) > 0) //ADDME also fire something on eg priority change ?
+{
+  FOREVERY (INTEGER srcid FROM updated_contentsources)
+  {
+    BroadcastEvent("consilio:contentsource." || srcid, DEFAULT RECORD);
+    CheckConsilioContentSource(srcid);
+  }
+  changes := TRUE;
+}
+
+IF (changes)
+{
+  BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
+  BroadcastEvent("consilio:fetchers.config", DEFAULT RECORD);
+}

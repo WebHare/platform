@@ -1,0 +1,1157 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/saml.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/signature.whlib";
+
+LOADLIB "mod::wrd/lib/auth/saml.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+
+// SAML coder (to generate SAML documents)
+OBJECT coder;
+
+/** Get the data needed to decode a HTTP-Redirect or HTTP-POST message in the webserver
+    @param binding Binding
+    @return
+    @cell(string) binding
+    @cell(string) requeststr Raw SAML message (in XML form)
+    @cell(string) relaystate
+    @cell(string) sigalg Signature algorithm (HTTP-Redirect only)
+    @cell(string) signvalue Value over which the signature is calculated (HTTP-Redirect only)
+    @cell(string) signature Signature (HTTP-Redirect only)
+*/
+PUBLIC RECORD FUNCTION GetSAMLDataFromWebData(STRING binding)
+{
+  IF (NOT ObjectExists(coder))
+    coder := NEW SAMLCoder;
+
+  RECORD result;
+  SWITCH (binding)
+  {
+    CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+    {
+      STRING requeststr := GetWebVariable("SAMLRequest");
+      STRING responsestr := GetWebVariable("SAMLResponse");
+      STRING relaystate := GetWebVariable("RelayState");
+      STRING sigalg := GetWebVariable("SigAlg");
+      STRING signature := GetWebVariable("Signature");
+      STRING signvalue := GetHTTPRedirectSAMLSignableValue(GetRequestURL());
+
+      IF (requeststr != "")
+      {
+        // Undo Base64 encoding
+        requeststr := DecodeBase64(Substitute(NormalizeWhitespace(requeststr), " ", ""));
+
+        // Undo ZLIB DEFLATE
+        requeststr := BlobToString(MakeZlibDecompressedFile(StringToBlob(requeststr), "ZLIBRAW:" ||  LENGTH(requeststr)), -1);
+      }
+
+      IF (responsestr != "")
+      {
+        // Undo Base64 encoding
+        responsestr := DecodeBase64(Substitute(NormalizeWhitespace(responsestr), " ", ""));
+
+        // Undo ZLIB DEFLATE
+        responsestr := BlobToString(MakeZlibDecompressedFile(StringToBlob(responsestr), "ZLIBRAW:" ||  LENGTH(requeststr)), -1);
+      }
+
+      result :=
+          [ binding :=        binding
+          , requeststr :=     requeststr
+          , responsestr :=    responsestr
+          , requestdoc :=     DEFAULT OBJECT
+          , responsedoc :=    DEFAULT OBJECT
+          , relaystate :=     relaystate
+          , sigalg :=         sigalg
+          , signvalue :=      signvalue
+          , signature :=      signature
+          ];
+    }
+    CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+    {
+      STRING requeststr := GetWebVariable("SAMLRequest");
+      STRING responsestr := GetWebVariable("SAMLResponse");
+      STRING relaystate := GetWebVariable("RelayState");
+
+      // Decode request and response strings
+      requeststr := DecodeBase64(Substitute(NormalizeWhitespace(requeststr), " ", ""));
+      responsestr := DecodeBase64(Substitute(NormalizeWhitespace(responsestr), " ", ""));
+
+      result :=
+          [ binding :=        binding
+          , requeststr :=     requeststr
+          , responsestr :=    responsestr
+          , relaystate :=     relaystate
+          , requestdoc :=     DEFAULT OBJECT
+          , responsedoc :=    DEFAULT OBJECT
+          ];
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unsupported binding '" || EncodeJava(binding) || "'");
+    }
+  }
+
+  result.requestdoc := MakeXMLDocument(StringToBlob(result.requeststr));
+  result.responsedoc := MakeXMLDocument(StringToBlob(result.responsestr));
+
+  RETURN result;
+}
+
+/** Get a list of all variables on an URL
+    @param url
+    @return
+    @cell return.name Name of variable
+    @cell return.value Value of variable (empty if no value is present)
+*/
+RECORD ARRAY FUNCTION GetRawURLVars(STRING url)
+{
+  INTEGER hashstart := SearchSubstring(url,'#');
+  IF (hashstart != -1)
+    url := Left(url, hashstart);
+
+  INTEGER startvars := SearchSubstring(url, '?');
+  IF (startvars = -1)
+    RETURN DEFAULT RECORD ARRAY;
+
+  STRING vars := Substring(url, startvars+1);
+  vars := Substitute(vars,';','&');
+  vars := Substitute(vars,'?','&');
+
+  RECORD ARRAY result;
+  FOREVERY (STRING part FROM Tokenize(vars, "&"))
+  {
+    INTEGER eqpos := SearchSubstring(part||"=", "=");
+    INSERT
+        [ name :=   Left(part, eqpos)
+        , value :=  SubString(part, eqpos + 1)
+        ] INTO result AT END;
+  }
+  RETURN result;
+}
+
+/** Get the string to sign for a SAML HTTP-Redirect URL.
+*/
+PUBLIC STRING FUNCTION GetHTTPRedirectSAMLSignableValue(STRING url)
+{
+  RECORD ARRAY urlvars := GetRawURLVars(url);
+
+  RETURN
+      (SELECT AS STRING name || "=" || value FROM urlvars WHERE name IN [ "SAMLResponse", "SAMLRequest" ]) || "&" ||
+      (SELECT AS STRING name || "=" || value || "&" FROM urlvars WHERE name = "RelayState") ||
+      (SELECT AS STRING name || "=" || value FROM urlvars WHERE name = "SigAlg");
+}
+
+/** Validate a SAML document. Throws if the document could not be validated.
+    @param data Decoded SAML document (from DecodeSAMLMessage)
+    @param certificates List of certificates to use
+    @cell certificates.data Wrapped certificate blob
+    @cell certificates.acceptuntil Date until the vertificate mey be used
+*/
+MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates)
+{
+  BOOLEAN validated;
+  OBJECT laste;
+  FOREVERY (RECORD cert FROM certificates)
+  {
+    IF (cert.acceptuntil < GetCurrentDateTime())
+      CONTINUE;
+
+    TRY
+    {
+      SWITCH (data.type)
+      {
+        CASE "redirect"
+        {
+          STRING publickey := GetCertificateData(BlobToString(cert.data.data)).publickey;
+
+          IF (Verify_RSA_SHA1(GetSHA1Hash(data.signvalue), DecodeBase64(data.signature), publickey))
+          {
+            validated := TRUE;
+            BREAK;
+          }
+        }
+        CASE "xml"
+        {
+          data.scontext->SetX509Certificate(BlobToString(cert.data.data));
+          data.scontext->ValidateSignature();
+          validated := TRUE;
+          BREAK;
+        }
+        DEFAULT
+        {
+          THROW NEW Exception("Unknown SAML response format '" || data.type || "'");
+        }
+      }
+    }
+    CATCH (OBJECT e)
+    {
+      laste := e;
+    }
+  }
+  IF (NOT validated)
+    THROW laste ?? NEW Exception("No valid certificates have been configured");
+
+
+
+
+}
+
+/** Decodes a SAML request
+    @param data Data of a request/response (from GetSAMLDataFromWebData)
+    @cell(string) data.binding
+    @param isrequest Whether this is a request (FALSE for a response)
+    @return
+    @cell(string) return.binding Binding type
+    @cell(function ptr) return.validate Validation function (signature: MACRO validate(RECORD ARRAY certificates))
+*/
+PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
+{
+  IF (NOT ObjectExists(coder))
+    coder := NEW SAMLCoder;
+
+  STRING sourcecell := isrequest ? "REQUESTDOC" : "RESPONSEDOC";
+  OBJECT xmldoc := GetCell(data, sourcecell);
+
+  RECORD ARRAY errors := VerifySAMLProtocolDocument(xmldoc);
+  IF (LENGTH(errors) != 0)
+    THROW NEW Exception(`Malformed SAML ${isrequest?"request":"response"} document`);
+
+  RECORD message := coder->ParseProtocolDocument(xmldoc->documentelement);
+  IF (NOT RecordExists(message.issuer))
+    THROW NEW Exception("No issuer present in the SAML document");
+
+  SWITCH (data.binding)
+  {
+    CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+    {
+      STRING signvalue := GetHTTPRedirectSAMLSignableValue(GetRequestURL());
+
+      RETURN
+          [ binding :=      data.binding
+          , message :=      message
+          , relaystate :=   data.relaystate
+
+          , validate :=     PTR ValidateSAMLDocument(
+                [ type :=       "redirect"
+                , signvalue :=  data.signvalue
+                , signature :=  data.signature
+                ], #1)
+          ];
+    }
+    CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+    {
+      OBJECT query := xmldoc->CreateXPathQuery();
+      query->RegisterNamespace("saml", "urn:oasis:names:tc:SAML:2.0:assertion");
+      query->RegisterNamespace("samlp", "urn:oasis:names:tc:SAML:2.0:protocol");
+
+      // Require assertions and authnrequests to be signed. FIXME: what more stuff do we want signed?
+      OBJECT ARRAY signednodes :=
+          query->ExecuteQuery("//saml:Assertion")->GetCurrentElements() CONCAT
+          query->ExecuteQuery("//samlp:AuthnRequest")->GetCurrentElements();
+
+      // Fallback to the whole document
+      signednodes := signednodes ?? [ OBJECT(xmldoc->documentelement) ];
+
+      OBJECT scontext := GetXMLSignatureContextByNodes(signednodes);
+
+      OBJECT signeddoc := scontext->GetSignedXMLDocument();
+      RECORD signedmessage := coder->ParseProtocolDocument(signeddoc->documentelement);
+
+      RETURN
+          [ binding :=      data.binding
+          , message :=      signedmessage
+          , relaystate :=   data.relaystate
+
+          , validate :=     PTR ValidateSAMLDocument(
+                [ type :=       "xml"
+                , scontext :=   scontext
+                ], #1)
+          ];
+    }
+  DEFAULT
+    {
+      THROW NEW Exception("Unsupported binding '" || EncodeJava(data.binding) || "'");
+    }
+  }
+}
+
+/** Generates a SAML document from raw data
+    @param data Record describing the SAML message
+    @param binding Binding to use
+    @param isrequest Whether this is a request (otherwise, it is a response)
+    @cell options.destination Destination URL (URI of target service)
+    @cell options.sign Private key to sign the document with
+    @cell options.relaystate relaystate for the request
+    @return Submit instruction to execute (see [ExecuteSubmitInstruction](%ExecuteSubmitInstruction))
+*/
+PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN isrequest, RECORD options)
+{
+  BOOLEAN to_sign := CellExists(options, "SIGN");
+
+  IF (CellExists(options, "DESTINATION"))
+    INSERT CELL destination := options.destination INTO data;
+
+  // Add signature template when missing & signing the XML document (not for http-redirect, uses other signature mechanism)
+  IF (to_sign AND NOT CellExists(data, "SIGNATURE") AND binding != "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect")
+  {
+    INSERT CELL signature :=
+        [ signedinfo :=
+              [ canonicalizationmethod :=
+                    [ algorithm :=    "http://www.w3.org/2001/10/xml-exc-c14n#" ]
+              , signaturemethod :=
+                    [ algorithm :=    "http://www.w3.org/2000/09/xmldsig#rsa-sha1" ]
+              , reference :=
+                    [ [ transforms :=
+                            [ transform :=
+                                    [ [ algorithm :=    "http://www.w3.org/2000/09/xmldsig#enveloped-signature" ]
+                                    , [ algorithm :=    "http://www.w3.org/2001/10/xml-exc-c14n#" ]
+                                    ]
+                            ]
+                      , digestmethod :=
+                            [ algorithm :=    "http://www.w3.org/2000/09/xmldsig#sha1"
+                            ]
+                      ]
+                    ]
+              ]
+        ] INTO data;
+  }
+
+  IF (NOT ObjectExists(coder))
+    coder := NEW SAMLCoder;
+
+  OBJECT doc := coder->CodeProtocolDocument(data);
+
+  // Sign document when not in HTTP-Redirect binding
+  IF (binding != "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" AND to_sign)
+  {
+    OBJECT scontext := GetXMLSignatureContextByNodes([ OBJECT(doc->documentelement) ]);
+    scontext->SignDocument(options.sign, "");
+  }
+
+  // Verify document
+  RECORD ARRAY errors := VerifySAMLProtocolDocument(doc);
+  IF (LENGTH(errors) != 0)
+    THROW NEW Exception("Internal verification error, generated document doesn't validate: " || AnyToString(errors, "tree"));
+
+  STRING attrname := isrequest ? "SAMLRequest" : "SAMLResponse";
+
+  SWITCH (binding)
+  {
+    CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+    {
+      IF (NOT CellExists(options, "DESTINATION"))
+        THROW NEW Exception("Option 'DESTINATION' is required for HTTP-Redirect binding");
+     IF (NOT CellExists(options, "RELAYSTATE"))
+        THROW NEW Exception("Option 'RELAYSTATE' is required for HTTP-Redirect binding");
+
+      STRING returnurl := options.destination;
+
+      STRING encodedreq := EncodeBase64(BlobToString(MakeZlibCompressedFile(doc->GetDocumentBlob(FALSE), "ZLIBRAW", 5),-1));
+      STRING vars := attrname || "=" || EncodeURL(encodedreq);
+
+      STRING sigalg := "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
+      vars := vars || "&RelayState="||EncodeURL(options.relaystate)||"&SigAlg=" || EncodeURL(sigalg);
+
+      STRING sign := EncodeBase64(Create_RSA_SHA1(GetHashForString(vars,"SHA-1"), options.sign, ""));
+
+      returnurl := AddVariableToURL(returnurl, attrname, encodedreq);
+      returnurl := AddVariableToURL(returnurl, "RelayState", options.relaystate);
+      returnurl := AddVariableToURL(returnurl, "SigAlg", sigalg);
+      returnurl := AddVariableToURL(returnurl, "Signature", sign);
+
+      RETURN
+          [ type :=     "redirect"
+          , url :=      returnurl
+          ];
+    }
+    CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+    {
+      IF (NOT CellExists(options, "DESTINATION"))
+        THROW NEW Exception("Option 'DESTINATION' is required for HTTP-Post binding");
+
+      RETURN
+          [ type :=     "form"
+          , form :=
+                [ method :=   "POST"
+                , action :=   options.destination
+                , vars :=     [ [ name := attrname, value := EncodeBase64(BlobToString(doc->GetDocumentBlob(FALSE), -1)) ]
+                              , [ name := "RelayState", value :=  options.relaystate ]
+                              ]
+                ]
+          ];
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unsupported binding '" || EncodeJava(binding) || "'");
+    }
+  }
+}
+
+/** This object contains the base functions for a local SAML SP or IDP
+*/
+PUBLIC STATIC OBJECTTYPE SAMLProviderBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// WRD schema
+  OBJECT wrdschema;
+
+  /// WRD type for the provider type (IDP or SP)
+  OBJECT wrdtype;
+
+  /// Provider entity
+  OBJECT entity;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties / variables
+  //
+
+  /// WRD id of this provider
+  PUBLIC PROPERTY wrd_id(this->entity->id, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT wrdschema, INTEGER id, BOOLEAN is_idp)
+  {
+    this->wrdschema := wrdschema;
+    this->wrdtype := wrdschema->GetType(is_idp ? "WRD_AUTHDOMAIN_SAML_IDP" : "WRD_AUTHDOMAIN_SAML_SP");
+    this->entity := this->wrdtype->GetEntity(id);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Get a connected entity, from the SAML entity id
+      @param samlentityid SAML entityid of connected entity
+      @return Connected entity, throws on failure
+  */
+  OBJECT FUNCTION GetConnectedEntityByEntityId(STRING samlentityid, BOOLEAN is_idp)
+  {
+    RECORD ARRAY filters;
+    IF (samlentityid != "")
+      INSERT [ field := "SAMLENTITYID", value := samlentityid ] INTO filters AT END;
+
+    RETURN this->GetConnectedEntityByFilters(samlentityid, filters, is_idp);
+  }
+
+  /** Get a connected entity, from a list of WRD filters
+      @param filters Filters to use on WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY
+      @return Connected entity, throws on failure
+  */
+  OBJECT FUNCTION GetConnectedEntityByFilters(STRING samlentityid, RECORD ARRAY filters, BOOLEAN is_idp)
+  {
+    INSERT [ field := "WRD_LEFTENTITY", value := this->entity->id ] INTO filters AT 0;
+
+    OBJECT wrd_connected_entity := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY");
+    RECORD ARRAY entities := wrd_connected_entity->RunQuery(
+        [ outputcolumns := [ "WRD_ID" ]
+        , filters := filters
+        ]);
+
+    IF (NOT RecordExists(entities))
+      THROW NEW Exception(samlentityid = "" ? "No connected SAML entity" : "No such connected entity '" || samlentityid || "'");
+    ELSE IF (LENGTH(entities) > 1)
+      THROW NEW Exception("Multiple connected entities with the same entityid '" || samlentityid || "'");
+
+    RETURN is_idp
+        ? NEW SAMLConnectedIdentityProvider(wrd_connected_entity->GetEntity(entities[0].wrd_id))
+        : NEW SAMLConnectedServiceProvider(wrd_connected_entity->GetEntity(entities[0].wrd_id));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /// Get the SAML entityid of this provider
+  PUBLIC STRING FUNCTION GetSAMLEntityID()
+  {
+    RETURN this->entity->GetField("SAMLENTITYID");
+  }
+
+  /// Get the WRD tag of this provider (SP only)
+  PUBLIC STRING FUNCTION GetTag()
+  {
+    RETURN this->entity->GetField("WRD_TAG");
+  }
+
+  /// Get the keypair for this provider
+  PUBLIC OBJECT FUNCTION GetKeyPair()
+  {
+    RECORD keypairlink := this->entity->GetField("KEYPAIR");
+    IF (NOT RecordExists(keypairlink) OR keypairlink.internallink = 0)
+      THROW NEW Exception("No private key configured for this SAML service provider");
+
+    RETURN OpenKeyPair(keypairlink.internallink);
+  }
+
+  /** Creates and signs a SAML document
+      @param doc Document data
+      @param endpoint Endpoint where this document is sent to
+      @param relaystate Relaystate to accompany the document
+      @param isrequest Whether this is a reqest (otherwise it is a response)
+      @return Submit instruction (redirection/form post) for transmitting the document
+      @cell return.type Instruction type ('redirect'/'form')
+  */
+  PUBLIC RECORD FUNCTION EncodeAndSignDocument(RECORD doc, RECORD endpoint, STRING relaystate, BOOLEAN isrequest)
+  {
+    RETURN EncodeSAMLDocument(
+        doc,
+        endpoint.binding,
+        isrequest,
+        [ destination :=      endpoint.location
+        , sign :=             BlobToString(this->GetKeyPair()->privatekey)
+        , relaystate :=       relaystate
+        ]);
+  }
+
+  /** Get the contact data for this provider
+      @return
+      @cell return.organization_name
+      @cell return.organization_displayname
+      @cell return.organization_url
+      @cell return.contacts
+      @cell return.contacts.type
+      @cell return.contacts.company
+      @cell return.contacts.givenname
+      @cell return.contacts.surname
+      @cell return.contacts.email
+      @cell return.contacts.telephone
+  */
+  PUBLIC RECORD FUNCTION GetContactData()
+  {
+    RETURN this->entity->GetFields([ "ORGANIZATION_NAME", "ORGANIZATION_DISPLAYNAME", "ORGANIZATION_URL", "CONTACTS" ]);
+  }
+
+  /// Return whether the redirect binding is allowed for this service provider
+  PUBLIC BOOLEAN FUNCTION IsRedirectBindingAllowed()
+  {
+    RETURN this->entity->GetField("ALLOW_REDIRECTBINDING");
+  }
+>;
+
+/** This object contains functions for a local SAML SP
+*/
+PUBLIC STATIC OBJECTTYPE SAMLServiceProvider EXTEND SAMLProviderBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT wrdschema, INTEGER id)
+  : SAMLProviderBase(wrdschema, id, FALSE)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /// Get the connected IDP (only for SPs)
+  PUBLIC OBJECT FUNCTION GetConnectedIDP()
+  {
+    RETURN this->GetConnectedEntityByEntityId("", TRUE);
+  }
+
+  /// Get the configured name identifier policy to use with the connected IDP
+  PUBLIC STRING FUNCTION GetNameIDPolicy()
+  {
+    RETURN this->entity->GetField("NAMEIDPOLICY");
+  }
+
+>;
+
+/** This object contains functions for a local SAML IDP
+*/
+PUBLIC STATIC OBJECTTYPE SAMLIdentityProvider EXTEND SAMLProviderBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT wrdschema, INTEGER id)
+  : SAMLProviderBase(wrdschema, id, TRUE)
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns the list of supported name identifier formats
+      @return
+      @cell nameidformat
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetSupportedNameIDFormats()
+  {
+    RETURN this->entity->GetField("SUPPORTEDNAMEIDFORMATS");
+  }
+
+  /// Get a connected SP by entityid (only for IDPs)
+  PUBLIC OBJECT FUNCTION GetConnectedSP(STRING samlentityid)
+  {
+    RETURN this->GetConnectedEntityByEntityId(samlentityid, FALSE);
+  }
+
+  /// Get a connected SP by WRD id (only for IDPs)
+  PUBLIC OBJECT FUNCTION GetConnectedSPById(INTEGER wrd_id)
+  {
+    RETURN this->GetConnectedEntityByFilters("#" || wrd_id, [ [ field := "WRD_ID", value := wrd_id ] ], FALSE);
+  }
+>;
+
+/** This objecttype describe a connected (remote) SAML entity
+*/
+OBJECTTYPE SAMLConnectedEntity
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// WRD entity
+  OBJECT entity;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY id(entity->id, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT entity)
+  {
+    this->entity := entity;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /// Return the SAML entity id of this entity
+  PUBLIC STRING FUNCTION GetSAMLEntityId()
+  {
+    RETURN this->entity->GetField("SAMLENTITYID");
+  }
+
+  /** Return all the service endpoints of a specific type
+      @param type One of ("ArtifactResolutionService", "AssertionConsumerService", "AttributeConsumingService" "SingleLogoutService", "SingleSignOnService")
+      @return List of matching services
+      @cell return.type Type of the service endpoint
+      @cell return.binding Service endpoint binding (...:HTTP-POST or ...:HTTP-Redirect)
+      @cell return.location Location URL
+      @cell return.responselocation Response location URL override (use location URL if empty)
+      @cell return.index Index (only valid for types "ArtifactResolutionService" and "AssertionConsumerService")
+      @cell return.isdefault Whether this is the default endpoint (only valid for types "ArtifactResolutionService" and "AssertionConsumerService")
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetEndpointsOfType(STRING type)
+  {
+    RETURN
+        SELECT *
+          FROM this->entity->GetField("SERVICEENDPOINTS")
+         WHERE COLUMN type = VAR type;
+  }
+
+  /** Return an endpoint with some selection params
+      @return Endpoint record
+      @cell return.type Type of the service endpoint
+      @cell return.binding Service endpoint binding (...:HTTP-POST or ...:HTTP-Redirect)
+      @cell return.location Location URL
+      @cell return.responselocation Response location URL override (use location URL if empty)
+      @cell return.index Index (only valid for types "ArtifactResolutionService" and "AssertionConsumerService")
+      @cell return.isdefault Whether this is the default endpoint (only valid for types "ArtifactResolutionService" and "AssertionConsumerService")
+  */
+  PUBLIC RECORD FUNCTION SelectEndpointOfType(STRING type, STRING preferbinding DEFAULTSTO "", INTEGER preferidx DEFAULTSTO -1)
+  {
+    RECORD ARRAY matches := this->GetEndpointsOfType(type);
+
+    IF (type IN
+        [ "ArtifactResolutionService"
+        , "AssertionConsumerService"
+        ])
+    {
+      matches :=
+          SELECT *
+            FROM matches
+        ORDER BY binding != preferbinding
+               , COLUMN "index" != preferidx
+               , isdefault;
+    }
+    ELSE
+    {
+      matches :=
+          SELECT *
+            FROM matches
+        ORDER BY binding != preferbinding;
+    }
+
+    RETURN RECORD(matches);
+  }
+
+  /** Return an endpoint with a specific index
+      @param type Type of endpoint
+      @param preferidx Preferred endpoint index
+      @return Endpoint record
+      @cell return.type Type of the service endpoint
+      @cell return.binding Service endpoint binding (...:HTTP-POST or ...:HTTP-Redirect)
+      @cell return.location Location URL
+      @cell return.responselocation Response location URL override (use location URL if empty)
+      @cell return.index Index (only valid for types "ArtifactResolutionService" and "AssertionConsumerService")
+      @cell return.isdefault Whether this is the default endpoint (only valid for types "ArtifactResolutionService" and "AssertionConsumerService")
+  */
+  PUBLIC RECORD FUNCTION GetEndpointOfTypeByIdx(STRING type, INTEGER preferidx)
+  {
+    RECORD match := this->SelectEndpointOfType(type, "", preferidx);
+    IF (RecordExists(match) AND match."index" != preferidx)
+      RETURN DEFAULT RECORD;
+
+    RETURN match;
+  }
+
+  /** Returns list of certificates usable for verification
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetCertificates()
+  {
+    RETURN
+        SELECT *
+          FROM this->entity->GetField("CERTIFICATES");
+  }
+>;
+
+PUBLIC OBJECTTYPE SAMLConnectedIdentityProvider EXTEND SAMLConnectedEntity
+< // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns the list of supported name identifier formats
+      @return
+      @cell nameidformat
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetSupportedNameIDFormats()
+  {
+    RETURN this->entity->GetField("SUPPORTEDNAMEIDFORMATS");
+  }
+>;
+
+PUBLIC OBJECTTYPE SAMLConnectedServiceProvider EXTEND SAMLConnectedEntity
+<
+>;
+
+/** Get the IDP object for an authentication domain. Throws if no IDP is configured
+    @return IDP object
+*/
+PUBLIC OBJECT FUNCTION GetAuthPluginIDP(OBJECT wrdauthplugin)
+{
+  OBJECT wrd_samlidp := wrdauthplugin->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_IDP");
+  IF (NOT ObjectExists(wrd_samlidp))
+    THROW NEW Exception("SAML is not configured for this authentication domain");
+
+  RECORD idp_data := wrd_samlidp->RunQuery(
+      [ filters :=
+            [ [ field := "WRD_LEFTENTITY", value := wrdauthplugin->wrdauth->id ]
+            ]
+      , outputcolumns :=
+            [ "WRD_ID"
+            ]
+      ]);
+
+  IF (NOT RecordExists(idp_data))
+    THROW NEW Exception("No IDP configured for this authentication domain");
+
+  RETURN NEW SAMLIdentityProvider(wrdauthplugin->wrdschema, idp_data.wrd_id);
+}
+
+
+/** Generate a SAML login request. Returns a form instruction (redirect/form post)
+    @param wrdauthplugin WRD auth plugin
+    @param sp_id Tag of SAML SP
+    @param redirectto Redirect to this URL after login
+    @cell(boolean) options.forcelogin Set tot
+    @cell(boolean) options.passive Whether to do a passive login (don't show login ui if not logged in)
+    @cell options.action 'redirect' / 'postmessage' / 'proofredirect'
+    @cell(boolean) options.allowlogout Whether to allow logout
+    @return @includecelldef #EncodeSAMLDocument.return
+    @cell return.requestid Request ID
+*/
+PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, INTEGER sp_id, STRING redirectto, RECORD options)
+{
+  FOREVERY (RECORD rec FROM UnpackRecord(options))
+    IF (rec.name NOT IN [ "FORCELOGIN", "PASSIVE", "ACTION", "ALLOWLOGOUT" ])
+      THROW NEW Exception("Illegal option '" || rec.field || "' in options");
+
+  OBJECT sp := NEW SAMLServiceProvider(wrdauthplugin->wrdschema, sp_id);
+  OBJECT idp := sp->GetConnectedIDP();
+
+  // Get SSO service endpoint, prefer post
+  RECORD endpoint := idp->SelectEndpointOfType("SingleSignOnService", "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
+  IF (NOT RecordExists(endpoint))
+    THROW NEW Exception("No compatible SingleSignOnService endpoint found in connected IDP");
+
+  STRING request_id := "_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+  DATETIME now := GetCurrentDateTime();
+
+  RECORD request :=
+      [ type :=               "AuthnRequest"
+      , id :=                 request_id
+      , version :=            "2.0"
+      , issueinstant :=       now
+      , issuer :=             [ value := sp->GetSAMLEntityID() ]
+      , assertionconsumerserviceindex := 1 // respond via post (see generated SP metadata)
+      , providername :=       UnpackURL(redirectto).host
+      ];
+
+  STRING nameidpolicy := sp->GetNameIDPolicy();
+  IF (nameidpolicy != "")
+  {
+    INSERT CELL nameidpolicy :=
+          [ format :=       nameidpolicy
+          , allowcreate :=  TRUE
+          ] INTO request;
+  }
+
+  IF (CellExists(options, "FORCELOGIN") AND options.forcelogin)
+    INSERT CELL forceauthn := TRUE INTO request;
+  IF (CellExists(options, "PASSIVE") AND options.passive)
+    INSERT CELL ispassive := TRUE INTO request;
+
+  BOOLEAN allowlogout := NOT CellExists(options, "ALLOWLOGOUT") OR options.allowlogout;
+
+  RECORD relaystate;
+  SWITCH (options.action)
+  {
+    CASE "redirect" // login, reload
+    {
+      relaystate :=
+          [ t := "r"
+          , u := redirectto
+          , id := request_id
+          , lo := allowlogout
+          ];
+    }
+    CASE "postmessage"
+    {
+      relaystate :=
+          [ t := "p"
+          , id := request_id
+          , lo := allowlogout
+          ];
+    }
+    CASE "proofredirect"
+    {
+      relaystate :=
+          [ t := "e"
+          , u := redirectto
+          , id := request_id
+          , lo := allowlogout
+          ];
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unknown action in SAML login request: '" || EncodeJava(options.action) || "'");
+    }
+  }
+
+  STRING relaystate_str := EncryptForThisServer("wrd:samlauth", relaystate);
+
+  RECORD res := sp->EncodeAndSignDocument(request, endpoint, relaystate_str, TRUE);
+
+  IF (IsRPCTrafficLogged("wrd:saml"))
+    LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), request_id, res);
+
+  INSERT CELL requestid := request_id INTO res;
+  RETURN res;
+}
+
+/** Creates a SAML login response
+    @param wrdauthplugin
+    @param decoded_req Dense request (encoded by samledpendpoint)
+    @cell decoded_req.r Request
+    @cell decoded_req.r.id Request ID
+    @cell decoded_req.r.acs Assertion consumer service requested index (used for service lookup)
+    @cell decoded_req.sp WRD ID of issuer SP
+    @cell decoded_req.ip Client IP of authenticated user
+    @return Submit instruction
+*/
+PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD decoded_req)
+{
+  OBJECT idp := GetAuthPluginIDP(wrdauthplugin);
+  OBJECT sp := idp->GetConnectedSPById(decoded_req.sp);
+
+  DATETIME now := GetCurrentDateTime();
+
+  // Must be an xs:NCNAME
+  STRING response_id := "_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+
+  RECORD response :=
+      [ type :=           "Response"
+      , id :=             response_id
+      , inresponseto :=   decoded_req.r.id
+      , version :=        "2.0"
+      , issueinstant :=   now
+      , issuer :=
+            [ value := idp->GetSAMLEntityID()
+            ]
+      , status :=
+            [ statuscode :=
+                  [ value :=  ""
+                  ]
+            ]
+      , assertion :=      DEFAULT RECORD ARRAY
+      ];
+
+  RECORD user;
+
+  IF (wrdauthplugin->GetLoggedInEntity() != 0)
+  {
+    INSERT CELL consent := "urn:oasis:names:tc:SAML:2.0:consent:obtained" INTO response;
+    response.status.statuscode.value := "urn:oasis:names:tc:SAML:2.0:status:Success";
+
+    STRING assertion_id := "_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+
+    OBJECT idp_config := wrdauthplugin->GetSAMLIDPConfig();
+
+    RECORD statdata := idp_config->GenerateAuthenticationStatement();
+
+    // Round time, and decrease a little to allow differing clocks
+    DATETIME reference_time := AddTimeToDate(-1000, GetRoundedDateTime(GetCurrentDateTime(), 1000));
+
+    response.assertion :=
+        [ [ version :=        "2.0"
+          , id :=             assertion_id
+          , issueinstant :=   now
+          , issuer :=
+                [ value := idp->GetSAMLEntityID()
+                , format := "urn:oasis:names:tc:SAML:1.0:nameid-format:entity"
+                ]
+          , subject :=        statdata.subject
+          , authnstatement :=
+                [ [ authninstant :=       reference_time
+                  , subjectlocality :=
+                        [ address :=      decoded_req.ip
+                        ]
+                  , authncontext :=
+                        [ authncontextclassref := "urn:oasis:names:tc:SAML:2.0:ac:classes:Password"
+                        ]
+                  ]
+                ]
+          , conditions :=
+                [ notbefore :=      reference_time
+                , notonorafter :=   AddTimeToDate(5 * 6000, reference_time) // valid for 5 mins
+                , audiencerestriction :=
+                                    [ [ audience := [ STRING(sp->GetSAMLEntityID()) ]
+                                      ]
+                                    ]
+                ]
+          ]
+        ];
+
+    IF (LENGTH(statdata.attributes) != 0)
+    {
+      RECORD ARRAY attributestatement :=
+          [ [ attribute :=
+                  SELECT name
+                       , attributevalue :=  [ [ value := value ] ]
+                    FROM statdata.attributes
+            ]
+          ];
+
+      INSERT CELL attributestatement := attributestatement INTO response.assertion[0];
+    }
+  }
+  ELSE
+  {
+    response.status.statuscode.value := "urn:oasis:names:tc:SAML:2.0:status:Responder";
+    INSERT CELL statuscode :=
+        [ value := "urn:oasis:names:tc:SAML:2.0:status:AuthnFailed"
+        ] INTO response.status.statuscode;
+  }
+
+  RECORD endpoint := sp->GetEndpointOfTypeByIdx("AssertionConsumerService", decoded_req.r.acs);
+
+  RETURN idp->EncodeAndSignDocument(response, endpoint, decoded_req.rs, FALSE);
+}
+
+/** Implements a SAML SP that connects to a Webhare IDP
+*/
+PUBLIC OBJECTTYPE SAMLWebhareSPConfig EXTEND SAMLSPConfigBase
+< // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  STRING FUNCTION GetAttribute(RECORD ARRAY attributes, STRING attrname)
+  {
+    RETURN SELECT AS STRING value FROM attributes WHERE name = attrname;
+  }
+
+  STRING FUNCTION GetFullName(RECORD ARRAY attributes)
+  {
+    RETURN TrimWhitespace(TrimWhitespace(
+                this->GetAttribute(attributes, "http://b-lex.com/saml/attribute/firstname") || " " ||
+                this->GetAttribute(attributes, "http://b-lex.com/saml/attribute/infix")) || " " ||
+                this->GetAttribute(attributes, "http://b-lex.com/saml/attribute/lastname"));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overridden functions
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION ProcessAuthenticationStatement(RECORD statement)
+  {
+    IF (statement.subject.nameid.format NOT IN
+        [ "http://b-lex.com/saml/nameidformat/webhare-guid"
+        , "http://b-lex.com/saml/nameidformat/webhare-login"
+        ])
+      THROW NEW Exception("Unsupported SAML nameid format '" || statement.subject.nameid.format || "'. Please use a custom SP support object.");
+
+    STRING fullname := this->GetFullName(statement.attributes);
+    STRING login := this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/login");
+    IF (fullname = "")
+      fullname := login;
+    ELSE
+      fullname := fullname || " (" || login || ")";
+
+    OBJECT authdomain := this->plugin->GetWRDAuthDomain();
+    INTEGER userid;
+
+    IF (statement.subject.nameid.format = "http://b-lex.com/saml/nameidformat/webhare-guid")
+      userid := authdomain->LookupGUID(statement.subject.nameid.value);
+    ELSE
+      userid := authdomain->LookupLogin(statement.subject.nameid.value);
+
+    IF (userid = 0)
+    {
+      IF (this->config.autocreate)
+      {
+        OBJECT trans := GetPrimary();
+        trans->BeginWork();
+
+        RECORD fields :=
+            [ wrd_firstname :=  this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/firstname")
+            , wrd_infix :=      this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/infix")
+            , wrd_lastname :=   this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/lastname")
+            ];
+
+        IF (statement.subject.nameid.format = "http://b-lex.com/saml/nameidformat/webhare-guid")
+          INSERT CELL wrd_guid := statement.subject.nameid.value INTO fields;
+
+        IF (authdomain->emailfieldtag != "")
+          fields := CellInsert(fields, authdomain->emailfieldtag, this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/email"));
+        IF (authdomain->loginfieldtag != "" AND authdomain->emailfieldtag != authdomain->loginfieldtag)
+          fields := CellInsert(fields, authdomain->loginfieldtag, this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/login"));
+
+        OBJECT entity := authdomain->accounttype->__DoCreateEntity(fields);
+
+        trans->CommitWork();
+
+        RETURN
+            [ entityid :=   entity->id
+            , name :=       fullname
+            , code :=       "ok"
+            ];
+      }
+
+      // ADDME: Autocreate?
+      RETURN
+          [ entityid :=   0
+          , name :=       fullname
+          , code :=       "unknownlogin"
+          ];
+    }
+
+    // ADDME: sync fields?
+    RETURN
+        [ entityid :=   userid
+        , name :=       fullname
+        , code :=       "ok"
+        ];
+  }
+>;
+
+/** Implements a SAML IDP that exports Webhare data
+*/
+PUBLIC OBJECTTYPE SAMLWebhareIDPConfig EXTEND SAMLIDPConfigBase
+< // ---------------------------------------------------------------------------
+  //
+  // overridden functions
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION GenerateAuthenticationStatement()
+  {
+    STRING ARRAY getfields :=
+        [ "WRD_GUID"
+        , "WRD_FIRSTNAME"
+        , "WRD_INFIX"
+        , "WRD_LASTNAME"
+        ];
+
+    OBJECT authdomain := this->plugin->GetWRDAuthDomain();
+    INSERT authdomain->loginfieldtag INTO getfields AT END;
+    IF (authdomain->emailfieldtag != "" AND authdomain->emailfieldtag NOT IN getfields)
+      INSERT authdomain->emailfieldtag INTO getfields AT END;
+
+    RECORD fields := this->plugin->GetLoggedinEntityFields(getfields);
+
+    RECORD ARRAY attributes :=
+        [ [ name :=             "http://b-lex.com/saml/attribute/firstname"
+          , value :=            fields.wrd_firstname
+          ]
+        , [ name :=             "http://b-lex.com/saml/attribute/infix"
+          , value :=            fields.wrd_infix
+          ]
+        , [ name :=             "http://b-lex.com/saml/attribute/lastname"
+          , value :=            fields.wrd_lastname
+          ]
+        , [ name :=             "http://b-lex.com/saml/attribute/login"
+          , value :=            GetCell(fields, authdomain->loginfieldtag)
+          ]
+        ];
+
+    IF (authdomain->emailfieldtag != "")
+    {
+      INSERT
+          [ name :=             "http://b-lex.com/saml/attribute/email"
+          , value :=            GetCell(fields, authdomain->emailfieldtag)
+          ] INTO attributes AT END;
+    }
+
+    RETURN
+        [ subject :=
+              [ nameid :=
+                    [ format :=       "http://b-lex.com/saml/nameidformat/webhare-guid"
+                    , value :=        fields.wrd_guid
+                    ]
+              ]
+        , attributes :=     attributes
+        ];
+  }
+>;

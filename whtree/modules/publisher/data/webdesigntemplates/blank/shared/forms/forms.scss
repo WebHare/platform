@@ -1,0 +1,32 @@
+//Form styling
+@import '~@mod-publisher/js/forms/styles';
+
+
+@at-root
+{
+  @include wh-form-flex; //Use flex layout
+}
+
+.wh-form__label
+{
+  min-width:240px; //Set a minimum width for form labels
+}
+.wh-form__imgedit //imgedits aren't visible unless it has a width/height
+{
+  width:250px;
+  height:250px;
+}
+
+@media (max-width: 550px) //Below 550px labels won't fix next to their fields
+{
+  .wh-form__fieldgroup //order the vertical inputs below their labels
+  {
+    -ms-flex-direction: column;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+  }
+  .wh-form__fields //and give fields the full width
+  {
+    width:100%;
+  }
+}

@@ -1,0 +1,147 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO TestAccessLogFileReader()
+{
+  STRING lines :=
+    'remoteip - username [01/Aug/2011:15:06:13 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 7636\n' ||
+    'remoteip - username [01/Aug/2011:15:06:14 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 trackerid 7636\n' ||
+    'remoteip - username [01/Aug/2011:15:06:15 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 trackerid "mimetype" 7636\n';
+
+  RECORD ARRAY rows;
+  BLOB logdata := StringToBlob(lines);
+  OBJECT r := __OpenLogFileBlob(logdata, LENGTH(logdata), "access", 0);
+  WHILE (TRUE)
+  {
+    RECORD rec := r->ReadRecord();
+    IF (NOT RecordExists(rec))
+      BREAK;
+    INSERT rec INTO rows AT END;
+  }
+
+  TestEQ(
+      [ [ stream :=         "hit"
+        , remoteip :=       "remoteip"
+        , time :=           MakeDateTime(2011,8,1,15,6,13)
+        , url :=            "url"
+        , httpcode :=       200
+        , download :=       300i64
+        , upload :=         244i64
+        , referrer :=       "referrer"
+        , useragent :=      "useragent"
+        , host :=           "hostname"
+        , port :=           81
+        , trackingstamp :=  ""
+        , pagetime :=       7636i64
+        , mimetype :=       ""
+        , method :=         "GET"
+        ]
+      , [ stream :=         "hit"
+        , remoteip :=       "remoteip"
+        , time :=           MakeDateTime(2011,8,1,15,6,14)
+        , url :=            "url"
+        , httpcode :=       200
+        , download :=       300i64
+        , upload :=         244i64
+        , referrer :=       "referrer"
+        , useragent :=      "useragent"
+        , host :=           "hostname"
+        , port :=           81
+        , trackingstamp :=  "trackerid"
+        , mimetype :=       ""
+        , pagetime :=       7636i64
+        , method :=         "GET"
+        ]
+      , [ stream :=         "hit"
+        , remoteip :=       "remoteip"
+        , time :=           MakeDateTime(2011,8,1,15,6,15)
+        , url :=            "url"
+        , httpcode :=       200
+        , download :=       300i64
+        , upload :=         244i64
+        , referrer :=       "referrer"
+        , useragent :=      "useragent"
+        , host :=           "hostname"
+        , port :=           81
+        , trackingstamp :=  "trackerid"
+        , mimetype :=       "mimetype"
+        , pagetime :=       7636i64
+        , method :=         "GET"
+        ]
+      ], rows);
+  r->Close();
+}
+
+MACRO TestLineReader()
+{
+  BLOB linesblob := StringToBlob(
+      RepeatText("a", 40000) || "\n" ||
+      RepeatText("b", 40000) || "\n" ||
+      "c\n");
+
+  BLOB zippedlinesblob := MakeZlibCompressedFile(linesblob, "GZIP", 9);
+
+  OBJECT reader := NEW __LineReader([ type := "blob", data := linesblob, format := 0, startposition := 0 ]);
+  TestEQ(
+      [ [ position := 0i64,     newposition := 40001i64,  line := RepeatText("a", 40000) ]
+      , [ position := 40001i64, newposition := 80002i64,  line := RepeatText("b", 40000) ]
+      , [ position := 80002i64, newposition := 80004i64,  line := "c" ]
+      ], reader->ReadLines());
+
+  TestEQ(DEFAULT RECORD ARRAY, reader->ReadLines());
+
+  reader->Close();
+
+  // Test with non-0 starting position
+  reader := NEW __LineReader([ type := "blob", data := linesblob, format := 0, startposition := 40001 ]);
+  TestEQ(
+      [ [ position := 40001i64, newposition := 80002i64,  line := RepeatText("b", 40000) ]
+      , [ position := 80002i64, newposition := 80004i64,  line := "c" ]
+      ], reader->ReadLines());
+  TestEQ(DEFAULT RECORD ARRAY, reader->ReadLines());
+  reader->Close();
+
+  // zipped tst with non-0 starting position
+  reader := NEW __LineReader([ type := "blob", data := zippedlinesblob, format := 1, startposition := 40001 ]);
+  TestEQ(
+      [ [ position := 40001i64, newposition := 80002i64,  line := RepeatText("b", 40000) ]
+      , [ position := 80002i64, newposition := 80004i64,  line := "c" ]
+      ], reader->ReadLines());
+  TestEQ(DEFAULT RECORD ARRAY, reader->ReadLines());
+  reader->Close();
+}
+
+MACRO TestCheckpointedLogReader()
+{
+  OBJECT logstream;
+
+  logstream := OpenWebHareLogStream("servicemanager", DEFAULT DATETIME, MAX_DATETIME);
+
+  STRING checkpoint_top := logstream->checkpoint;
+  RECORD rec_top := logstream->ReadRecord();
+  TestEq(TRUE, RecordExists(rec_top));
+
+  STRING checkpoint_2nd := logstream->checkpoint;
+  RECORD rec_2nd := logstream->ReadRecord();
+  TestEq(TRUE, RecordExists(rec_2nd));
+
+  STRING checkpoint_3rd := logstream->checkpoint;
+
+  logstream->checkpoint := checkpoint_2nd;
+  TestEq(logstream->checkpoint, checkpoint_2nd);
+
+  RECORD rec_2nd_again := logstream->ReadRecord();
+  TestEq(TRUE, RecordExists(rec_2nd_again));
+  TestEq(rec_2nd, rec_2nd_again);
+  TestEq(checkpoint_3rd, logstream->checkpoint);
+}
+
+RunTestframework([ PTR TestLineReader
+                 , PTR TestAccessLogFileReader
+                 , PTR TestCheckpointedLogReader
+                 ]);

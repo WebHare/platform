@@ -1,0 +1,247 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/components/addressvalidation.whlib";
+LOADLIB "mod::wrd/lib/country/nl.whlib";
+
+
+/** This library contains hardcoded postcode.nl address verification calls
+
+    Documentation: https://api.postcode.nl/documentation
+    Request account: https://api.postcode.nl/documentation
+*/
+
+
+CONSTANT RECORD addressreturnformat :=
+    [ street :=                     ""
+    , streetNen :=                  ""
+    , houseNumber :=                0
+    , houseNumberAddition :=        ""
+    , postcode :=                   ""
+    , city :=                       ""
+    , cityShort :=                  ""
+    , municipality :=               ""
+    , municipalityShort :=          ""
+    , province :=                   ""
+    , rdX :=                        0
+    , rdY :=                        0
+    , latitude :=                   0f
+    , longitude :=                  0f
+    , bagNumberDesignationId :=     ""
+    , bagAddressableObjectId :=     ""
+    , addressType :=                ""
+    , purposes :=                   STRING[]
+    , surfaceArea :=                0
+    , houseNumberAdditions :=       STRING[]
+    ];
+
+PUBLIC STATIC OBJECTTYPE PostcodeNLAPI EXTEND WRDNLAddressVerificationBase
+<
+  OBJECT browser;
+  RECORD settings;
+
+  MACRO NEW(RECORD settings)
+  {
+    this->settings := ValidateOptions( [ apikey := "", secret := "", fullsubscription := FALSE ], settings, [ required := [ "apikey", "secret" ]]);
+    IF (this->settings.apikey = "")
+      THROW NEW Exception("Empty api key");
+    IF (this->settings.secret = "")
+      THROW NEW Exception("Empty secret");
+
+    this->browser := NEW WebBrowser;
+    this->browser->SetPassword("https://api.postcode.eu/*", this->settings.apikey, this->settings.secret);
+
+    IF (IsRPCTrafficLogged("wrd:postcode.nl"))
+      LogRPCForWebbrowser("wrd:postcode.nl", "", this->browser);
+  }
+
+  UPDATE RECORD FUNCTION GetAccountingHitInfo()
+  {
+    RETURN CELL[ account := this->settings.apikey ];
+  }
+
+  UPDATE RECORD FUNCTION __LookupNLAddressByZip(STRING zip, INTEGER houseno)
+  {
+    // B-Lex is built-in so we can test that without having to sign up for address valiadtion
+    IF (ToUppercase(zip) = "7521 AM" AND houseno < 1000 AND (houseno % 2) = 0)
+      RETURN [ status := "ok"
+             , street := "Hengelosestraat"
+             , zip    := "7521 AM"
+             , city   := "Enschede"
+             , iscached := TRUE
+             ];
+
+    RECORD addr := this->__GetAddressByPostCode(zip, ToString(houseno));
+    IF (NOT RecordExists(addr) OR addr.status NOT IN [ "ok","address_not_found" ])
+      RETURN [ status := "lookup_failed" ];
+    IF (addr.status != "ok")
+      RETURN CELL[ status := "zip_not_found" ];
+
+    RETURN CELL
+        [ status :=         "ok"
+        , addr.street
+        , zip :=            addr.postcode
+        , addr.city
+        ];
+  }
+
+  UPDATE RECORD FUNCTION __LookupNLAddressByAddress(STRING city, STRING street, INTEGER houseno, STRING housenoaddition)
+  {
+    IF (NOT this->settings.fullsubscription)
+      RETURN [ status := "not_supported" ];
+
+    IF (ToUppercase(city) = "ENSCHEDE" AND houseno = 296 AND street = "Hengelosestraat")
+      RETURN [ status := "ok"
+             , street := "Hengelosestraat"
+             , zip    := "7521 AM"
+             , city   := "Enschede"
+             , iscached := TRUE
+             ];
+
+    RECORD addr := this->GetExactMatch(city, street, `${houseno} ${housenoaddition}`);
+    IF (NOT RecordExists(addr) OR addr.status NOT IN [ "ok", "address_not_found" ])
+      RETURN [ status := "lookup_failed" ];
+    IF (addr.status != "ok")
+      RETURN CELL[ status := "address_not_found" ];
+
+    RETURN CELL
+        [ status :=         "ok"
+        , addr.street
+        , zip :=            addr.postcode
+        , addr.city
+        ];
+  }
+
+  STRING FUNCTION DecodeErrorStatus()
+  {
+    RECORD data := DecodeJSONBlob(this->browser->content);
+
+    IF (this->browser->GetHTTPStatusCode() = 503)
+      RETURN "service_unavailable";
+
+    IF (NOT CellExists(data, "exceptionId"))
+      RETURN "unknown_error";
+
+    STRING exceptionId := data.exceptionId;
+
+    IF (this->browser->GetHTTPStatusCode() = 401 AND exceptionId = 'PostcodeNl_Controller_Plugin_HttpBasicAuthentication_PasswordNotCorrectException')
+      RETURN "invalid_secret";
+    IF (this->browser->GetHTTPStatusCode() = 401 AND exceptionId = 'PostcodeNl_Controller_Plugin_HttpBasicAuthentication_NotAuthorizedException')
+      RETURN "invalid_key";
+    IF (this->browser->GetHTTPStatusCode() = 403 AND exceptionId = "PostcodeNl_Controller_RpcAction_SubscriptionInsufficientException")
+      RETURN "subscription_insufficient";
+    IF (this->browser->GetHTTPStatusCode() = 404 AND exceptionId = 'PostcodeNl_Service_PostcodeAddress_AddressNotFoundException')
+      RETURN "address_not_found";
+    IF (this->browser->GetHTTPStatusCode() = 400)
+      RETURN "invalid_input";
+    IF (this->browser->GetHTTPStatusCode() = 409)
+      RETURN "multiple_matching_cities";
+    RETURN "exception:" || exceptionId;
+  }
+
+  RECORD FUNCTION __GetAddressByPostCode(STRING zip, STRING nr_detail)
+  {
+    RECORD housenorec := SplitNLNrDetail(nr_detail);
+    INTEGER houseno := ToInteger(housenorec.nr, 0);
+    IF (houseno <= 0)
+      RETURN [ status := "invalid_nr_detail" ];
+    STRING housenoaddition := housenorec.detail;
+    IF (LENGTH(housenoaddition) > 6)
+      RETURN [ status := "invalid_nr_detail" ];
+
+    zip := Substitute(zip, " ", "");
+    STRING url := `https://api.postcode.eu/nl/v1/addresses/postcode/${EncodeURL(ToUppercase(zip))}/${houseno}/${EncodeURL(housenoaddition)}`;
+
+    //Logging just country + first 4 ZIP characters shouldn't be PII but still gives us a general idea if calls are being duplicated
+    LogAccountingHit("wrd:checkaddress." || this->type,
+                       CELL[ account := this->settings.apikey
+                           , source := this->accountingsource
+                           , extra := CELL[ method := "postcode", zip4 := "NL-" || Left(zip, 4) ]
+                           , cached := FALSE
+                           ]);
+
+    IF (NOT this->browser->GotoWebPage(url))
+      RETURN [ status := this->DecodeErrorStatus() ];
+
+    RECORD data := EnforceStructure(addressreturnformat, DecodeJSONBlob(this->browser->content));
+
+    RETURN CELL
+        [ status :=           "ok"
+        , ...data
+        , postcode :=         NormalizeNLZipCode(data.postcode)
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION GetAddressByPostCode(STRING zip, STRING nr_detail, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ accountingtag :=    ""
+        ], options);
+
+    RETURN this->__GetAddressByPostCode(zip, nr_detail);
+  }
+
+  PUBLIC RECORD FUNCTION GetExactMatch(STRING city, STRING street, STRING nr_detail)
+  {
+    IF (NOT this->settings.withallmethods)
+      RETURN [ status := "not_supported" ];
+
+    RECORD housenorec := SplitNLNrDetail(nr_detail);
+    INTEGER houseno := ToInteger(housenorec.nr, 0);
+    IF (houseno <= 0)
+      RETURN [ status := "invalid_nr_detail" ];
+
+    STRING housenoaddition := housenorec.detail;
+    IF (LENGTH(housenoaddition) > 6)
+      RETURN [ status := "invalid_nr_detail" ];
+
+    STRING url := `https://api.postcode.eu/nl/v1/addresses/exact/${EncodeURL(city)}/${EncodeURL(street)}/${houseno}/${EncodeURL(housenoaddition)}`;
+
+    // No logging of parameters, might combine with later ZIP-code validation and become too identifying
+    STRING hash := Right(EncodeBase16(GetHashForString(url, "SHA-256")), 2);
+    LogAccountingHit("wrd:checkaddress." || this->type,
+                       CELL[ account := ""
+                           , source := this->accountingsource
+                           , extra := CELL[ method := "exact" ]
+                           , cached := FALSE
+                           , ...this->GetAccountingHitInfo()
+                           ]);
+
+    IF (NOT this->browser->GotoWebPage(url))
+      RETURN [ status := this->DecodeErrorStatus() ];
+
+    RECORD data := EnforceStructure(addressreturnformat, DecodeJSONBlob(this->browser->content));
+
+    RETURN CELL
+        [ status :=           "ok"
+        , ...data
+        , postcode :=         NormalizeNLZipCode(data.postcode)
+        ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PostcodeNLSettings EXTEND WRDAddressVerificationExtensionBase
+<
+  UPDATE RECORD FUNCTION GetValue()
+  {
+    RETURN [ apikey := ^apikey->value, secret := ^secret->value, fullsubscription := ^fullsubscription->value ];
+  }
+
+  UPDATE MACRO SetValue(RECORD value)
+  {
+    ^apikey->value := value.apikey;
+    ^secret->value := value.secret;
+    ^fullsubscription->value := value.fullsubscription;
+  }
+
+  MACRO DoShowMoreInfo(OBJECT openhandler)
+  {
+    openhandler->SendUrl("https://api.postcode.nl/documentation");
+  }
+>;

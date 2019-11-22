@@ -1,0 +1,307 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/webserver/support.whlib";
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::system/lib/webserver/errors.whlib";
+
+
+PUBLIC OBJECT FUNCTION GetCurrentUserAPI()
+{
+  STRING schemaname := SELECT AS STRING data.wrdschema FROM GetWebhareAccessRules() AS rules WHERE data.wrdschema != "" ORDER BY #rules DESC;
+  IF(schemaname="")
+    RETURN GetPrimaryWebhareUserApi();
+
+  OBJECT wrdschema := OpenWRDSchemaByName(schemaname);
+  IF(NOT Objectexists(wrdschema))
+    THROW NEW Exception("Access rules refers to non-existing WRD schema '" || schemaname || "'");
+
+  RETURN wrdschema->GetUserAPI();
+}
+
+PUBLIC BOOLEAN FUNCTION TryOauthLogin()
+{
+  IF (GetClientRequestUrl() NOT LIKE "https://*" AND GetDtapStage()!="development")
+    RETURN FALSE;
+
+  STRING access_token := GetWebVariable("access_token");
+  IF (access_token = "")
+  {
+    access_token := GetWebHeader("Authorization");
+    IF (ToUppercase(access_token) NOT LIKE "BEARER *")
+      RETURN FALSE;
+
+    access_token := TrimWhitespace(SubString(access_token, 7));
+  }
+
+  OBJECT userapi := GetCurrentUserAPI();
+  GetPrimary()->BeginWork();
+  RECORD result := userapi->TryOAuthLogin(access_token);
+  IF(NOT result.success)
+    RETURN FALSE; //ADDME audit log
+  GetPrimary()->CommitWork();
+
+  IF (RecordExists(result))
+  {
+    STRING hash := GetHashForString(access_token, "SHA-256");
+    STRING sessionid := EncodeUFS(hash);
+
+    RECORD rule := GetCurrentWebhareAccessRule();
+    IF (RecordExists(rule.data.checkandvm) AND RecordExists(rule.data.checkandvm.accesscheck))
+    {
+      OBJECT user := userapi->GetUser(result.wrdentityid);
+      IF (NOT DoAccessCheckFor(rule.data.checkandvm.accesscheck, user))
+      {
+        // No access with current credentials
+        AddHTTPHeader("Status", "403", TRUE);
+        RETURN TRUE;
+      }
+    }
+    // Create a session with the UFS encoded SHA-256 hash of the oauth token - webserver accelerated
+    __UpdateWebSession(sessionid, "system:oauth2",
+        [ authtype :=   "oauth2"
+        , scope :=      result.scope
+        ], TRUE, 5);
+
+    AuthenticateWebSession(sessionid, "system:oauth2", result.loginname, TRUE, 0, result.wrdentityid, TRUE);
+
+    RETURN TRUE;
+  }
+
+  // Error with the Oauth credentions
+  AddHTTPHeader("Status", "403", TRUE);
+  RETURN TRUE;
+}
+
+PUBLIC MACRO TryUserLogin(STRING realm)
+{
+  IF (TryOauthLogin())
+    RETURN;
+
+  RECORD auth_params := GetParsedAuthenticationHeader();
+  IF(auth_params.type = "BASIC")
+  {
+    OBJECT userapi := GetCurrentUserAPI();
+    STRING username := TrimWhitespace(auth_params.username);
+    RECORD userrec := userapi->LookupUserByLogin(username);
+
+    IF(RecordExists(userrec) AND VerifyWebharePasswordHash(TrimWhitespace(auth_params.password), userrec.password))
+    {
+      RECORD rule := GetCurrentWebhareAccessRule();
+      IF (RecordExists(rule.data.checkandvm) AND RecordExists(rule.data.checkandvm.accesscheck))
+      {
+        OBJECT user := userapi->GetUser(userrec.entityid);
+        IF (NOT DoAccessCheckFor(rule.data.checkandvm.accesscheck, user))
+        {
+          // No access with current credentials
+          AddHTTPHeader("Status", "403", TRUE);
+          RETURN;
+        }
+      }
+
+      AcceptBasicAuthCredentials(username, userrec.authobjectid, userrec.entityid);
+      RETURN;
+    }
+  }
+
+  AddHTTPHeader("Status", "401", TRUE);
+  AddHTTPHeader("WWW-Authenticate", 'Basic realm="' || EncodeJava(realm) || '"', TRUE);
+}
+
+PUBLIC MACRO TryAppLogin(STRING scope, STRING realm, STRING expectuserprefix, BOOLEAN allownormalpassword)
+{
+  IF(GetAuthenticatedWebhareUser() != 0 AND GetAuthenticatedWebhareUserEntityId() != 0) //already authenticated (eg access rules doing this)
+    RETURN;
+
+  IF (TryOauthLogin())
+    RETURN;
+
+  RECORD auth_params := GetParsedAuthenticationHeader();
+  IF(auth_params.type = "BASIC")
+  {
+    STRING user := TrimWhitespace(auth_params.username);
+    IF(ToUppercase(user) LIKE ToUppercase(expectuserprefix || "*"))
+      user := Substring(user, Length(expectuserprefix));
+
+    OBJECT userapi := GetCurrentUserAPI();
+    GetPrimary()->BeginWork();
+    RECORD result := userapi->TryAppPasswordLogin(scope, user, TrimWhitespace(auth_params.password), allownormalpassword);
+    IF(NOT RecordExists(result) AND user LIKE "\\*") //Word 2016 does this, prefixing with backslsah
+      result := userapi->TryAppPasswordLogin(scope, Substring(user,1), TrimWhitespace(auth_params.password), allownormalpassword);
+    GetPrimary()->CommitWork();
+
+    IF(RecordExists(result))
+    {
+      RECORD rule := GetCurrentWebhareAccessRule();
+      IF (RecordExists(rule.data.checkandvm) AND RecordExists(rule.data.checkandvm.accesscheck))
+      {
+        OBJECT checkuser := userapi->GetUser(result.entityid);
+        IF (NOT DoAccessCheckFor(rule.data.checkandvm.accesscheck, checkuser))
+        {
+          // No access with current credentials
+          AddHTTPHeader("Status", "403", TRUE);
+          RETURN;
+        }
+      }
+
+      AcceptBasicAuthCredentials(scope || ":" || user, result.authobjectid, result.entityid);
+      RETURN;
+    }
+  }
+
+  AddHTTPHeader("Status", "401", TRUE);
+  AddHTTPHeader("WWW-Authenticate", 'Basic realm="' || EncodeJava(realm) || '"', TRUE);
+}
+
+PUBLIC MACRO TryHTTPLogin(STRING realm, FUNCTION PTR getpassword)
+{
+  INTEGER reg_sessionexpiry := 15;
+  BOOLEAN reg_log_extensively := TRUE;
+  BOOLEAN offer_basic := TRUE;
+  BOOLEAN stale_session;
+
+  RECORD header := GetParsedAuthenticationHeader();
+
+  IF(header.type="BASIC")
+  {
+    RECORD pwd := getpassword(TrimWhitespace(header.username));
+    IF(RecordExists(pwd) AND pwd.password = TrimWhitespace(header.password))
+    {
+      AcceptBasicAuthCredentials(pwd.username, 0);
+      RETURN;
+    }
+  }
+
+  AddHTTPHeader("Status","401",FALSE);
+  // Basic authentication
+  STRING basic_auth := "Basic realm=\"" || EncodeJava(realm) || "\"";
+  AddHTTPHeader("WWW-Authenticate", basic_auth, TRUE);
+  IF (reg_log_extensively)
+    LogWebserverError("Auth: offering basic: " || basic_auth);
+}
+
+RECORD FUNCTION GetCachableFullAccessIPs()
+{
+  STRING ARRAY value := Tokenize(Substitute(ReadRegistryKey("system.webserver.security.fullaccessips"), " ", ""), ",");
+  RETURN
+      [ value :=        value
+      , eventmasks :=   [ "system:registry.webserver.security" ]
+      ];
+}
+
+PUBLIC BOOLEAN FUNCTION IsFullAccessIP()
+{
+  RETURN GetClientRemoteIP() IN GetAdhocCached([ type := "fullaccessips" ], PTR GetCachableFullAccessIPs);
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetLoggedOnUsers()
+{
+  RECORD ARRAY results;
+  DATETIME inactivity_cutoff := AddTimeToDate(-(15*60*1000), GetCurrentDatetime());
+
+  FOREVERY (RECORD rec FROM GetWebserverSessionList(0))
+  {
+    IF(NOT rec.isuser OR rec.lastaccess < inactivity_cutoff)
+      CONTINUE;
+    INSERT rec INTO results AT END;
+  }
+  RETURN results;
+}
+
+/** @short Get the user ID authenticated for a session
+    @param sessid Session ID to open
+    @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
+    @return The user id stored with AuthenticateWebSession, or 0 if the session doesn't exist or doesn't have a user
+*/
+PUBLIC INTEGER FUNCTION GetWebSessionUserid(STRING sessid, STRING scope) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the type of session
+    @param sessid Session ID to open
+    @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
+    @return The type of the session (0 for normal session, 1 for basic authentication, 2 for digest authentication, -1 if not found
+*/
+PUBLIC INTEGER FUNCTION GetWebSessionType(STRING sessid, STRING scope) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+
+/** @short Mark a session as an authenticating session
+    @long When invoked by a authentication script, owners of the specified
+          session can 'pass' the external script for this access rule.
+    @param sessid Session ID to mark
+    @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
+    @param username User name to use in the session list (logged on users)
+    @param canclose If true, allow system operators to close this session in the session list
+    @param webhareuserid If not 0, the WebHare user id to authenticate owners of this session with. When used in an authorization script, the current page also receives this user id. Setting a user id requires "FULLDB" (full access to the webhare database) privileges
+    @param userentityid WRD entity id (used to default to 0)
+    @param authaccessrule Authenticate the current access rule, if any (used to default to TRUE)
+*/
+PUBLIC MACRO AuthenticateWebSession(STRING sessid, STRING scope, STRING username, BOOLEAN canclose, INTEGER webhareuserid, INTEGER userentityid, BOOLEAN authaccessrule) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Revoke the authentication for a session
+    @long This revokes the authentication for a session. Requires "FULLDB" (full access to the webhare database) privileges to execute
+    @param sessid Session id to close */
+PUBLIC MACRO RevokeWebSessionAuthentication(STRING sessid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Authenticate a basic-authenticating user
+    @long Authenticates a user based on its current basic authentication credentials (username and password). Implies AuthenticateWebhareUser
+    @param username User name to use in the session list (logged on users)
+    @param webhareuserid WebHare user id */
+PUBLIC MACRO AcceptBasicAuthCredentials(STRING username, INTEGER webhareuserid, INTEGER userentityid DEFAULTSTO 0) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Authenticate the user for the current request as a webhare user
+    @long When invoked by a authentication script, this sets the webhare user id for
+          the remainder of the request
+    @param userid If not 0, the WebHare user id to authenticate owners of this session with
+*/
+PUBLIC MACRO AuthenticateWebhareUser(INTEGER userid, INTEGER userentityid DEFAULTSTO 0) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the authenticated WebHare user id */
+PUBLIC INTEGER FUNCTION GetAuthenticatedWebhareUser() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+/** @short Get the authenticated WebHare user entity id */
+PUBLIC INTEGER FUNCTION GetAuthenticatedWebhareUserEntityId() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+//Not documented yet: we might decide to switch to an approach where you just request a record with details instead of an id (ADDME, see GetAccessRuleProperties in webhare-auth.whscr)
+PUBLIC INTEGER FUNCTION GetWebHareAccessRuleId() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD ARRAY FUNCTION GetWebHareAccessRules() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING FUNCTION GetAuthenticatingSessionId() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD FUNCTION GetCurrentWebhareAccessRule()
+{
+  RETURN
+      SELECT *
+        FROM GetWebHareAccessRules()
+       WHERE id = GetWebHareAccessRuleId();
+}
+
+PUBLIC RECORD FUNCTION GetParsedAuthenticationHeader()
+{
+  STRING authheader := GetWebHeader("Authorization");
+  IF(ToUppercase(authheader) LIKE "BASIC *")
+  {
+    STRING authdata := DecodeBase64(Substring(authheader,6));
+    INTEGER usernamestart := SearchSubstring(authdata,':');
+    IF(usernamestart >= 0)
+      RETURN [ type := "BASIC"
+             , username := Left(authdata,usernamestart)
+             , password := Substring(authdata,usernamestart+1)
+             ];
+  }
+  RETURN [ type := "NONE" ];
+}
+
+PUBLIC MACRO FlushAuthentication() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+
+PUBLIC MACRO RevokeAllWebsessionAUthentications()
+{
+  FOREVERY(RECORD sess FROM GetWebserverSessionList(0))
+    IF(sess.userid != 0 OR LEngth(sess.accessruleids)>0 OR sess.isuser)
+      RevokeWebSessionAuthentication(sess.sessionid);
+}

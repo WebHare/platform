@@ -1,0 +1,539 @@
+﻿<?wh
+
+
+
+/** This library contains objecttypes and algorithms to work graphs.
+    Currently, only directed, unweighted graphs are supported.
+
+    BETA library, in development. Don't use.
+*/
+
+// -----------------------------------------------------------------------------
+//
+// Objecttypes
+//
+
+/** A graphobject describes a graph contains a number of vertices (nodes)
+*/
+PUBLIC STATIC OBJECTTYPE GraphObject
+< // -----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// List of all vertices
+  OBJECT ARRAY pvt_vertices;
+
+  // -----------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY vertices(pvt_vertices, -);
+
+  // -----------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Adds a vertex to the graph
+  */
+  PUBLIC MACRO AddVertex(OBJECT vertex)
+  {
+    INSERT vertex INTO this->pvt_vertices AT END;
+  }
+
+
+  /** Deletes a vertex from the graph; also removes all the edges of the vertex
+  */
+  PUBLIC MACRO DeleteVertex(OBJECT vertex)
+  {
+    FOREVERY (OBJECT other FROM vertex->pvt_edges)
+      DELETE FROM other->pvt_reverse_edges AT SearchElement(other->pvt_reverse_edges, vertex);
+
+    FOREVERY (OBJECT other FROM vertex->pvt_reverse_edges)
+      DELETE FROM other->pvt_edges AT SearchElement(other->pvt_edges, vertex);
+
+    DELETE FROM this->pvt_vertices AT SearchElement(this->pvt_vertices, vertex);
+  }
+>;
+
+/** A vertex (or node) within a graph. Edges are represented by the vertex they point to.
+*/
+PUBLIC STATIC OBJECTTYPE GraphVertex
+< // -----------------------------------------------------------------------------
+  //
+  // Variables (only public to make manipulation cheap, don't use them yourself!)
+  //
+
+  PUBLIC OBJECT ARRAY pvt_edges;
+  PUBLIC OBJECT ARRAY pvt_reverse_edges;
+  PUBLIC RECORD pvt_algo_data;
+  PUBLIC RECORD pvt_data;
+
+  // -----------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** List of vertices to which a edge exists (no doubles)
+  */
+  PUBLIC PROPERTY linked_vertices(pvt_edges, -);
+
+  /** List of vertices that have a link to this vertex
+  */
+  PUBLIC PROPERTY reverse_linked_vertices(pvt_reverse_edges, -);
+
+  /// Data for storage by algorithms
+  PUBLIC PROPERTY algo_data(pvt_algo_data, pvt_algo_data);
+
+  /// Data for private storage by the user
+  PUBLIC PROPERTY data(pvt_data, pvt_data);
+
+  PUBLIC MACRO AddSimpleEdge(OBJECT vertex_to)
+  {
+    INSERT vertex_to INTO this->pvt_edges AT END;
+    INSERT this INTO vertex_to->pvt_reverse_edges AT END;
+  }
+
+  PUBLIC MACRO DeleteSimpleEdge(OBJECT vertex_to)
+  {
+    DELETE FROM this->pvt_edges AT SearchElement(this->pvt_edges, vertex_to);
+    DELETE FROM vertex_to->pvt_reverse_edges AT SearchElement(vertex_to->pvt_reverse_edges, this);
+  }
+
+  PUBLIC MACRO DeleteAllEdges()
+  {
+    FOREVERY (OBJECT vertex_to FROM this->pvt_edges)
+      DELETE FROM vertex_to->pvt_reverse_edges AT SearchElement(vertex_to->pvt_reverse_edges, this);
+
+    this->pvt_edges := DEFAULT OBJECT ARRAY;
+  }
+>;
+
+// -----------------------------------------------------------------------------
+//
+// Algorithms
+//
+
+PUBLIC OBJECT ARRAY FUNCTION TopologicalSort(OBJECT graph)
+{
+  /* http://en.wikipedia.org/wiki/Topological_sorting
+
+  L <- Empty list where we put the sorted elements
+  Q <- Set of all nodes with no incoming linked_vertices
+  while Q is non-empty do
+      remove a node n from Q
+      insert n into L
+      for each node m with an edge e from n to m do
+          remove edge e from the graph
+          if m has no other incoming linked_vertices then
+              insert m into Q
+  if graph has linked_vertices then
+      output error message (graph has a cycle)
+  else
+      output message (proposed topologically sorted order: L)
+  */
+
+  OBJECT ARRAY l;
+  OBJECT ARRAY q;
+
+  FOREVERY (OBJECT vertex FROM graph->vertices)
+  {
+    IF (LENGTH(vertex->reverse_linked_vertices) = 0)
+      INSERT vertex INTO q AT END;
+    vertex->algo_data := [ re := vertex->reverse_linked_vertices ];
+  }
+
+  WHILE (LENGTH(q) != 0)
+  {
+    OBJECT n := q[0];
+    DELETE FROM q AT 0;
+
+    INSERT n INTO l AT END;
+
+    FOREVERY (OBJECT m FROM n->linked_vertices)
+    {
+      DELETE FROM m->algo_data.re AT SearchElement(m->algo_data.re, n);
+      IF (LENGTH(m->algo_data.re) = 0)
+        INSERT m INTO q AT END;
+    }
+  }
+
+  IF (LENGTH(l) != LENGTH(graph->vertices))
+    THROW NEW Exception("Cannot create a topological sorting of this graph; it contains a cycle");
+
+  RETURN l;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetTreeLevels(OBJECT graph)
+{
+  // Get topological sort, so the graph is in increasing tree depth and there are no cycles.
+  OBJECT ARRAY topo_sort := TopologicalSort(graph);
+
+  RECORD ARRAY result;
+  RECORD curr :=
+    [ level :=    0
+    , vertices := DEFAULT OBJECT ARRAY
+    ];
+
+  FOREVERY (OBJECT vertex FROM topo_sort)
+  {
+    INTEGER new_level := 0;
+    FOREVERY (OBJECT node FROM vertex->reverse_linked_vertices)
+      IF (node->algo_data.level >= new_level)
+        new_level := node->algo_data.level + 1;
+
+    IF (new_level != curr.level)
+    {
+      INSERT curr INTO result AT END;
+      curr :=
+          [ level :=    new_level
+          , vertices := [ vertex ]
+          ];
+    }
+    ELSE
+      INSERT vertex INTO curr.vertices AT END;
+
+    vertex->algo_data := [ level := new_level ];
+  }
+
+  INSERT curr INTO result AT END;
+  RETURN result;
+}
+
+/*
+Tarjan's algorithm, to find the strongly connected components in a graph.
+http://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+
+Input: Graph G = (V, E), Start node v0
+
+index = 0                       // DFS node number counter
+S = empty                       // An empty stack of nodes
+tarjan(v0)                      // Start a DFS at the start node
+
+procedure tarjan(v)
+  v.index = index               // Set the depth index for v
+  v.lowlink = index
+  index = index + 1
+  S.push(v)                     // Push v on the stack
+  forall (v, v') in E do        // Consider successors of v
+    if (v'.index is undefined)  // Was successor v' visited?
+      tarjan(v')                // Recurse
+      v.lowlink = min(v.lowlink, v'.lowlink)
+    elseif (v' in S)            // Is v' on the stack?
+      v.lowlink = min(v.lowlink, v'.index)
+  if (v.lowlink == v.index)     // Is v the root of an SCC?
+    print "SCC:"
+    repeat
+      v' = S.pop
+      print v'
+    until (v' == v)
+*/
+
+OBJECTTYPE TarjanExecutor
+< INTEGER idx;
+  OBJECT ARRAY stack;
+
+  PUBLIC RECORD ARRAY sccs;
+
+  MACRO NEW(OBJECT graph)
+  {
+    FOREVERY (OBJECT vertex FROM graph->vertices)
+      vertex->algo_data := [ idx := -1, lowlink := -1 ];
+
+    this->idx := 0;
+    this->stack := DEFAULT OBJECT ARRAY;
+
+    // Restart tarjan algo for every component in the graph.
+    // A call will visit all connected vertices.
+    FOREVERY (OBJECT vertex FROM graph->vertices)
+      IF (vertex->algo_data.idx = -1)
+        this->Tarjan(vertex);
+  }
+
+  MACRO Tarjan(OBJECT v)
+  {
+    v->algo_data.idx := this->idx;
+    v->algo_data.lowlink := this->idx;
+    this->idx := this->idx + 1;
+    INSERT v INTO this->stack AT END;
+    FOREVERY (OBJECT va FROM v->linked_vertices)
+    {
+      IF (va->algo_data.idx = -1)
+      {
+        this->Tarjan(va);
+        IF (va->algo_data.lowlink < v->algo_data.lowlink)
+          v->algo_data.lowlink := va->algo_data.lowlink;
+      }
+      ELSE IF (va IN this->stack)
+      {
+        IF (va->algo_data.idx < v->algo_data.lowlink)
+          v->algo_data.lowlink := va->algo_data.idx;
+      }
+    }
+    IF (v->algo_data.lowlink = v->algo_data.idx)
+    {
+      OBJECT ARRAY scc;
+      INTEGER i := LENGTH(this->stack) - 1;
+      WHILE (i >= 0)
+      {
+        OBJECT p := this->stack[i];
+        DELETE FROM this->stack AT i;
+        i := i - 1;
+        INSERT p INTO scc AT END;
+        IF (p = v)
+          BREAK;
+      }
+      INSERT [ vertices := scc ] INTO this->sccs AT END;
+    }
+  }
+>;
+
+/** Finds out what are the strongly connected components in a graph
+    @param graph Graph to analyse
+    @return List of strongly connected components, one record per component
+    @cell return.vertices List of vertices within the strongly connected component
+*/
+PUBLIC RECORD ARRAY FUNCTION CalculateStronglyConnectedComponents(OBJECT graph)
+{
+  OBJECT t := NEW TarjanExecutor(graph);
+  RETURN t->sccs;
+}
+
+
+PUBLIC STRING FUNCTION DebugGetGraphDisplay(OBJECT graph, FUNCTION PTR display_name)
+{
+  STRING s;
+
+  FOREVERY (OBJECT vertex FROM graph->vertices)
+  {
+    s := s || "vertex " || display_name(vertex) || "\n-> ";
+    FOREVERY (OBJECT v FROM vertex->linked_vertices)
+      s := s || " " || display_name(v);
+    s := s || "\n";
+  }
+  RETURN s;
+}
+
+
+/** Breaks all cycles in a graph by deleting edges
+    @return
+    @cell return.edge_from
+    @cell return.edge_to
+*/
+PUBLIC RECORD ARRAY FUNCTION BreakGraphCycles(OBJECT graph)
+{
+  RECORD ARRAY retval;
+  WHILE (TRUE)
+  {
+    /* Find all strongly connected components (components in which
+         all vertices are reachable from every other vertices). Those are the cycles.
+    */
+    RECORD ARRAY sccs := CalculateStronglyConnectedComponents(graph);
+    IF (LENGTH(sccs) = LENGTH(graph->vertices))
+      BREAK;
+
+    FOREVERY (RECORD c FROM sccs)
+    {
+      // Break the cycle by deleting an edge from the first node
+      OBJECT ARRAY vs := c.vertices;
+
+      IF (LENGTH(vs) = 0)
+        CONTINUE;
+
+      OBJECT node := vs[0];
+      FOREVERY (OBJECT other FROM node->linked_vertices)
+      {
+        IF (other IN vs)
+        {
+          INSERT [ edge_from := node, edge_to := other ] INTO retval AT END;
+          node->DeleteSimpleEdge(other);
+          BREAK;
+        }
+      }
+
+      BREAK;
+    }
+  }
+  RETURN retval;
+}
+
+/* From Modern Compiler Implementation in ML, Algorithm 19.9 + 19.10
+
+DFS(node p, node n)=
+  if dfnum[n] = 0
+    dfnum[n] <- N; vertex[N] <- n; parent[n] <- p
+    N <- N + 1
+    for each successor w of n
+      DFS(n, w)
+
+Link(node p, node n) = add edge p → n to spanning forest implied by ancestor array
+AncestorWithLowestSemi(node n) = in the forest, find the nonroot ancestor of n that
+                                   has the lowest-numbered semidominator
+Dominators() =
+  N <- 0; forall n. bucket[n] <- {}
+  forall n. dfnum[n] <- 0, semi[n] <- ancestor[n] <- idom[n] <- samedom[n] <- none
+  DFS(none, r)
+  for i <- N - 1 downto 1                                 Skip over node 0, the root node.
+    n <- vertex[i]; p <- parent[n]; s <- p
+    for each predecessor v of n                           These lines calcu-
+      if dfnum[v]≤ dfnum[n]                               late the semidom-
+        s′ v                                              inator of n, based
+      else s′ <- semi[AncestorWithLowestSemi(v)]          on the Semidom-
+        if dfnum[s′] < dfnum[s]                           inator Theorem.
+          s <- s′
+    semi[n] <- s                             Calculation of n's dominator is deferred
+    bucket[s] <- bucket[s] ∪ {n}             until the path from s to n has been linked
+    Link(p, n)                               into the forest.
+    for each v in bucket[p]             Now that the path from p to v has been linked into
+      y <- AncestorWithLowestSemi(v)    the spanning forest, these lines calculate the dom-
+        if semi[y] = semi[v]            inator of v, based on the first clause of the Domi-
+          idom[v] <- p                  nator Theorem, or else defer the calculation until
+        else samedom[v] <- y            y's dominator is known.
+    bucket[p] <- {}
+  for i <- 1 to N - 1
+    n <- vertex[i]                        Now all the deferred dominator calcula-
+    if samedom[n] != none                 tions, based on the second clause of the
+idom[n] <- idom[samedom[n]]               Dominator Theorem, are performed.
+
+ALGORITHM 19.10: Two versions of AncestorWithLowestSemi and Link functions for operations on spanning forest. The naive version (a) takes O(N) per operation (so the algorithm runs in time O(N2)) and the efficient version (b) takes O(log N) amortized time per operation, for an O(N log N) algorithm.
+Start example
+
+(a) Naive version, O(N) per operation.
+AncestorWithLowestSemi(node v)=
+  u <- v
+  while ancestor[v] != none
+    if dfnum[semi[v]] < dfnum[semi[u]]
+      u <- v
+  v <- ancestor[v]
+  return u
+
+Link(node p, node n)=
+  ancestor[n] <- p
+
+(b) With path-compression, O(log N) per operation.
+AncestorWithLowestSemi(node v)=
+  a <- ancestor[v]
+  if ancestor[a] != none
+    b <- AncestorWithLowestSemi(a)
+    ancestor[v] <- ancestor[a]
+    if dfnum[semi[b]] < dfnum[semi[best[v]]]
+      best[v] <- b
+   return best[v]
+
+Link(node p, node n)=
+   ancestor[n] <- p; best[n] <- n
+*/
+
+/** Calculate all dominators in a graph, starting at a source node
+    @param graph
+    @param sourcenode
+    @return
+    @cell return.node Node
+    @cell return.dominator Dominator of that node
+*/
+PUBLIC RECORD ARRAY FUNCTION CalculateDominatorTree(OBJECT graph, OBJECT sourcenode)
+{
+  FOREVERY (OBJECT vertex FROM graph->vertices)
+    vertex->algo_data :=
+        [ dfnum :=    0
+        , parent :=   DEFAULT OBJECT
+        , semi :=     DEFAULT OBJECT
+        , ancestor := DEFAULT OBJECT
+        , idom :=     DEFAULT OBJECT
+        , samedom :=  DEFAULT OBJECT
+        , bucket :=   DEFAULT OBJECT ARRAY
+        , best :=     DEFAULT OBJECT
+        ];
+
+  // Run DFS
+  RECORD ARRAY worklist := [ [ parent := DEFAULT OBJECT, node := sourcenode ] ];
+  OBJECT ARRAY dfu_ordered_vertices;
+
+  INTEGER cnt := 0;
+  WHILE (NOT IsDefaultValue(worklist))
+  {
+    RECORD rec := worklist[0];
+    DELETE FROM worklist AT 0;
+    IF (rec.node->algo_data.dfnum != 0)
+      CONTINUE;
+
+    cnt := cnt + 1;
+    rec.node->algo_data.dfnum := cnt;
+    rec.node->algo_data.parent := rec.parent;
+    INSERT rec.node INTO dfu_ordered_vertices AT END;
+
+    worklist :=
+     (SELECT parent := rec.node
+           , node
+        FROM ToRecordArray(rec.node->linked_vertices, "NODE")) CONCAT worklist;
+  }
+
+  OBJECT ARRAY processlist := ReverseArray(ArraySlice(dfu_ordered_vertices, 1));
+
+  FOREVERY (OBJECT n FROM processlist)
+  {
+    OBJECT p := n->algo_data.parent;
+    OBJECT s := p;
+    OBJECT sacc;
+
+    FOREVERY (OBJECT v FROM n->reverse_linked_vertices)
+    {
+      IF (v->algo_data.dfnum <= n->algo_data.dfnum)
+        sacc := v;
+      ELSE
+        sacc := DominatorAncestorWithLowestSemi(v)->algo_data.semi;
+      IF (sacc->algo_data.dfnum < s->algo_data.dfnum)
+        s := sacc;
+    }
+
+    n->algo_data.semi := s;
+    INSERT n INTO s->algo_data.bucket AT END;
+
+    DominatorLink(p, n);
+
+    FOREVERY (OBJECT v FROM p->algo_data.bucket)
+    {
+      OBJECT y := DominatorAncestorWithLowestSemi(v);
+      IF (y->algo_data.semi = v->algo_data.semi)
+        v->algo_data.idom := p;
+      ELSE
+        v->algo_data.samedom := y;
+    }
+    p->algo_data.bucket := DEFAULT OBJECT ARRAY;
+  }
+
+  FOREVERY (OBJECT n FROM dfu_ordered_vertices)
+  {
+    IF (ObjectExists(n->algo_data.samedom))
+      n->algo_data.idom := n->algo_data.samedom->algo_data.idom;
+  }
+
+  RETURN
+      SELECT node
+           , dominator := node->algo_data.idom
+        FROM ToRecordArray(dfu_ordered_vertices, "NODE")
+       WHERE ObjectExists(node->algo_data.idom);
+}
+
+OBJECT FUNCTION DominatorAncestorWithLowestSemi(OBJECT v)
+{
+  OBJECT a := v->algo_data.ancestor;
+  IF (ObjectExists(a->algo_data.ancestor))
+  {
+    OBJECT b := DominatorAncestorWithLowestSemi(a);
+    v->algo_data.ancestor := a->algo_data.ancestor;
+    IF (b->algo_data.semi->algo_data.dfnum < v->algo_data.best->algo_data.semi->algo_data.dfnum)
+      v->algo_data.best := b;
+  }
+  RETURN v->algo_data.best;
+}
+
+
+MACRO DominatorLink(OBJECT p, OBJECT n)
+{
+  n->algo_data.ancestor := p;
+  n->algo_data.best := n;
+}
+

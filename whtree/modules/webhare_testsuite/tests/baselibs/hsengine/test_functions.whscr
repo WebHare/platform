@@ -1,0 +1,532 @@
+﻿<?wh
+/// @short Functions test
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "test::testdata_functions_loadlib.whlib";
+
+PUBLIC STRING pubdata;
+RECORD ARRAY errors;
+RECORD result;
+STRING varesult;
+
+
+
+STRING FUNCTION Test1()
+{
+  RETURN "test 1";
+}
+STRING FUNCTION Test2()
+{
+  pubdata := "test 2";
+  RETURN "";
+}
+MACRO test3()
+{
+  pubdata := "test 3";
+}
+STRING FUNCTION TestAny(INTEGER data)
+{
+  pubdata := "Test" || data;
+  RETURN "return" || data;
+}
+STRING FUNCTION Test4(VARIANT indata)
+{
+  RETURN ToUppercase(indata);
+}
+STRING FUNCTION TestDefaults(STRING a DEFAULTSTO "a", STRING b DEFAULTSTO "b")
+{
+  RETURN a || b;
+}
+STRING FUNCTION TestVarArg(STRING a, INTEGER b DEFAULTSTO 10, VARIANT ARRAY varargs) __ATTRIBUTES__(VARARG)
+{
+  STRING res := "'" || EncodeJava(a) || "', " || b;
+  FOREVERY (VARIANT v FROM varargs)
+  {
+    SWITCH (TypeID(v))
+    {
+    CASE TypeID(INTEGER) { res := res || ", " || v; }
+    CASE TypeID(STRING) { res := res || ", '" || EncodeJava(v) || "'"; }
+    DEFAULT { res := res || ", ???"; }
+    }
+  }
+  RETURN res;
+}
+STRING FUNCTION TestVA(STRING a, VARIANT ARRAY vararg) __ATTRIBUTES__(VARARG)
+{
+  STRING result := a;
+  FOREVERY (VARIANT v FROM vararg)
+    result := result || "-" || a;
+  RETURN result;
+}
+STRING FUNCTION TestVADefaults(STRING a DEFAULTSTO "a", VARIANT ARRAY vararg) __ATTRIBUTES__(VARARG)
+{
+  STRING result := a;
+  FOREVERY (VARIANT v FROM vararg)
+    result := result || "-" || a;
+  RETURN result;
+}
+MACRO TestVAMDefaults(STRING a DEFAULTSTO "a", VARIANT ARRAY vararg) __ATTRIBUTES__(VARARG)
+{
+  varesult := a;
+  FOREVERY (VARIANT v FROM vararg)
+    varesult := varesult || "-" || a;
+}
+VARIANT ARRAY FUNCTION TestVASyntax(STRING a DEFAULTSTO "a", VARIANT ARRAY ...vararg)
+{
+  RETURN vararg;
+}
+
+MACRO PtrSyntaxTest()
+{
+  OpenTest("TestFunctions: PtrSyntaxTest");
+
+  result := TestCompileAndRun('<?wh MACRO PTR MyPrint := PTR PRINT; MyPrint(); ');
+  MustContainError(1, result.errors, 140, "MACRO PRINT(STRING data)");
+
+  //Test forward declarations, references to functions and references to macros
+  result := TestCompileAndRun('<?wh STRING str; MACRO PTR MyPrint := PTR str; ');
+  MustContainError(2, result.errors, 162); // Expect illegal bind.
+  TestCleanCompile(3, '<?wh MACRO PTR Test := PTR MyTest; MACRO MyTest() { }');
+  result := TestCompileAndRun('<?wh MACRO PTR Test := PTR MyTest;');
+  MustContainError(4, result.errors, 139, "MYTEST");
+
+  //Test calling default function ptrs
+  result := TestCompileAndRun('<?wh FUNCTION PTR x; x(); ?>');
+  MustContainError(5, result.errors, 23);
+
+  //Test mismatching function ptr args
+  result := TestCompileAndRun('<?wh MACRO PTR x := PTR Print; x(15); ?>');
+  MustContainError(6, result.errors, 62, "INTEGER", "STRING");
+
+  //Test indirect loadlib messing up
+  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_functions_loadlib.whlib"; test2ptr(); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "Test", result.output);
+
+  //Test passing a string to a variant function
+  TEstEqualString(9, "TEST", (PTR Test4)("Test"));
+
+  CloseTest("TestFunctions: PtrSyntaxTest");
+}
+
+OBJECTTYPE PtrTest
+< PUBLIC FUNCTION PTR fptr;
+  PUBLIC STRING FUNCTION func(STRING a, STRING b) { RETURN a || b; }
+  PUBLIC STRING FUNCTION funcva(STRING a, STRING b, VARIANT ARRAY c) __ATTRIBUTES__(VARARG)
+  {
+    INSERT b INTO c AT 0;
+    INSERT a INTO c AT 0;
+    RETURN Detokenize(STRING ARRAY(c), ",");
+  }
+>;
+
+
+MACRO PtrRunningTest()
+{
+  OpenTest("TestFunctions: PtrRunningTest");
+
+  TestEqualString(1, "test 1", Test1());
+
+  FUNCTION PTR TestFuncPtr := PTR test1;
+  TestEqualString(2, "test 1", TestFuncPtr());
+
+  MACRO PTR TestMacroPtr := PTR test2;
+  TestMacroPtr();
+  TestEqualString(3, "test 2", pubdata);
+
+  TestMacroPtr := PTR test3;
+  TestMacroPtr();
+  TestEqualString(4, "test 3", pubdata);
+
+  TestFuncPtr := PTR TestAny;
+  TestEqualString(5, "return7", TestFuncPtr(7));
+  TestEqualString(6, "Test7", pubdata);
+
+  TestFuncPtr := PTR TestAny(#1);
+  TestEqualString(7, "return9", TestFuncPtr(9));
+  TestEqualString(8, "Test9", pubdata);
+
+  TestFuncPtr := PTR TestAny(12);
+  TestEqualString(9, "return12", TestFuncPtr());
+  TestEqualString(10, "Test12", pubdata);
+
+  FUNCTION PTR defaultptr;
+  TestEqualBoolean (11, TRUE, defaultptr = DEFAULT FUNCTION PTR);
+  TestEqualBoolean (12, TRUE, defaultptr = DEFAULT MACRO PTR);
+  TestEqualBoolean (13, TRUE, defaultptr != testfuncptr);
+  TestEqualBoolean (14, TRUE, DEFAULT MACRO PTR != testfuncptr);
+  testfuncptr := DEFAULT MACRO PTR;
+  TestEqualBoolean (15, FALSE, DEFAULT MACRO PTR != testfuncptr);
+
+  TestEqualString(16, "AB", (PTR TestDefaults)("A", "B"));
+  TestEqualString(17, "Ab", (PTR TestDefaults(#1))("A"));
+  TestEqualString(18, "BA", (PTR TestDefaults(#2, #1))("A", "B"));
+
+  FUNCTION PTR TestRebind1 := PTR TestDefaults;
+  FUNCTION PTR TestRebind2 := PTR TestRebind1(#1, "B");
+  TestEqualString(20, "AB", TestRebind2("A"));
+
+  OBJECT o := NEW PtrTest;
+  o->fptr := PTR TestDefaults;
+
+  TestEqualString(21, "AC", (PTR o->fptr)("A", "C"));
+
+  TestEqualString(22, "AD", (PTR (PTR o->fptr)(#1, "D"))("A"));
+  TestEqualString(23, "AC", (PTR o->func)("A", "C"));
+  TestEqualString(24, "AD", (PTR (PTR o->func)(#1, "D"))("A"));
+
+  result := TestCompileAndRun('<?wh OBJECTTYPE t < PUBLIC INTEGER a; >; FUNCTION PTR c := PTR (NEW t)->a; c(); ?>');
+  MustContainError(25, result.errors, 62, "INTEGER", "FUNCTION PTR");
+
+  result := TestCompileAndRun('<?wh FUNCTION PTR c; FUNCTION PTR d := c(#1); d(); ?>');
+  MustContainError(26, result.errors, 161);
+
+  result := TestCompileAndRun('<?wh OBJECT d; FUNCTION PTR c := d->test(#1); ?>');
+  MustContainError(27, result.errors, 161);
+
+  result := TestCompileAndRun('<?wh MACRO yeey(INTEGER f) {} FUNCTION PTR c := yeey(#1); ?>');
+  MustContainError(28, result.errors, 161);
+
+  errors := TestCompile('<?wh MACRO x(INTEGER i) {} x(#1); ?>');
+  MustContainError(29, errors, 161);
+
+  //Test mismatching function ptr args - FIXME rob:test shouldn't fail, but no time to fix right now. Problem lies in function-ptr instead of function in ptr-expression.
+  result := TestCompileAndRun('<?wh FUNCTION PTR y; MACRO PTR x := PTR y(1); x();');
+  MustContainError(30, result.errors, 166);
+
+
+RECORD ARRAY params :=
+      [ [ source :=     0
+        , value :=      "X1"
+        ]
+      , [ source :=     0
+        , value :=      "X2"
+        ]
+      , [ source :=     1
+        , type :=       TypeID(STRING)
+        ]
+      , [ source :=     -2
+        , type :=       TypeID(STRING)
+        ]
+      ];
+
+  FUNCTION PTR f2 :=__HS_REBINDFUNCTIONPTR2(PTR o->funcva, params, 2, FALSE);
+  TestEQ("X1,X2,a", f2("a"));
+  TestEQ("X1,X2,a,b", f2("a,b"));
+
+  FUNCTION PTR f3 :=__HS_REBINDFUNCTIONPTR2(PTR o->funcva, params, 2, FALSE);
+  TestEQ("X1,X2,a", f3("a"));
+  TestEQ("X1,X2,a,b", f3("a,b"));
+  TestEQ("X1,X2,a,b,c", f3("a,b,c"));
+
+  CloseTest("TestFunctions: PtrRunningTest");
+}
+
+MACRO PtrCodeEmitTest()
+{
+  OpenTest("TestFunctions: PtrCodeEmitTest");
+
+  result := TestCompileAndRun('<?wh BOOLEAN FUNCTION Test(BOOLEAN a) { RETURN a; } PRINT("len: " || LENGTH(SELECT (PTR Test(#1))(a.what) AS test FROM DEFAULT RECORD ARRAY));');
+  TestCleanResult(1, result.errors);
+
+  CloseTest("TestFunctions: PtrCodeEmitTest");
+}
+
+MACRO PtrLoadlibTest()
+{
+  OpenTest("TestFunctions: PtrLoadlibTest");
+
+  FUNCTION PTR PtrRetTest3_local := PTR RetTest3;
+
+  TestEqualString(1, "test3", RetTest3());
+  TestEqualString(2, "test3", PtrRetTest3_local());
+  TestEqualString(3, "test3", PtrRetTest3_loadlib());
+  TestEqualString(4, "test3", CallPtrRetTest3_loadlib());
+
+  CloseTest("TestFunctions: PtrLoadlibTest");
+}
+
+MACRO PtrInDeInitTest()
+{
+  OpenTest("TestFunctions: PtrInDeInitTest");
+
+  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_functions_loadlib.whlib"; STRING FUNCTION CallMe() { RETURN "WHAT?"; } CallOnDeinit := PTR CallMe; ?>');
+  MustContainError(1, result.errors, 0, "Function called in already unloaded library");
+
+  CloseTest("TestFunctions: PtrInDeInitTest");
+}
+
+MACRO AggregatesTest()
+{
+  OpenTest("TestFunctions: AggregatesTest");
+
+  /* PRINT(""||COUNT([1,2,3]); */ // fail
+  errors := TestCompile('<?wh PRINT(""||COUNT([1,2,3]); ?>');
+//  MustContainError(1, errors, 54, "COUNT"); // Later, als COUNT meer dan (*) ondersteunt
+  MustContainError(1, errors, 59);
+
+  /* XFAIL: PRINT(""||AGGREGATE COUNT([1,2,3]); */ // ok, xfail totdat als COUNT meer dan (*) ondersteunt
+//  result := TestCompileAndRun('<?wh PRINT(""||COUNT[]([1,2,3]); ? *** >');
+//  TestCleanResult(2, result.errors);
+//  TestEqualString(3, "3", result.output);
+
+  /* INTEGER AGGREGATE FUNCTION test1(INTEGER nr1) { RETURN 0; } */ //FAIL, 55
+  errors := TestCompile('<?wh INTEGER AGGREGATE FUNCTION test1(INTEGER nr1) { RETURN 0; } ?>');
+  MustContainError(4, errors, 55);
+
+  /* INTEGER AGGREGATE FUNCTION test1(INTEGER ARRAY nr1) { RETURN 0; } */ //ok
+  errors := TestCompile('<?wh INTEGER AGGREGATE FUNCTION test1(INTEGER ARRAY nr1) { RETURN 0; } ?>');
+  TestCleanResult(5, result.errors);
+
+  /* INTEGER AGGREGATE FUNCTION test1(INTEGER ARRAY nr1, BOOLEAN nr2) { RETURN 0; } */ //FAIL, 55
+  errors := TestCompile('<?wh INTEGER AGGREGATE FUNCTION test1(INTEGER ARRAY nr1, BOOLEAN nr2) { RETURN 0; } ?>');
+  MustContainError(6, errors, 55);
+
+  /* INTEGER AGGREGATE FUNCTION test1(INTEGER ARRAY nr1, BOOLEAN := 0) { RETURN 0; } */ //FAIL, 55
+  errors := TestCompile('<?wh INTEGER AGGREGATE FUNCTION test1(INTEGER ARRAY nr1, BOOLEAN nr2 := 0) { RETURN 0; } ?>');
+  MustContainError(7, errors, 55);
+
+  /* Using aggregate function in normal form */
+  errors := TestCompile('<?wh STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } PRINT(test1(DEFAULT STRING ARRAY)); ?>');
+  MustContainError(8, errors, 54, 'TEST1');
+
+  /* Using aggregate function in PTR form */
+  errors := TestCompile('<?wh STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } PRINT((PTR test1(DEFAULT STRING ARRAY))()); ?>');
+  MustContainError(9, errors, 54, 'TEST1');
+
+  /* Using aggregate function in PTR form, with passthroughs */
+  errors := TestCompile('<?wh STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } PRINT((PTR test1(#1))(DEFAULT STRING ARRAY)); ?>');
+  MustContainError(10, errors, 54, 'TEST1');
+
+  /* Using aggregate function in normal form */
+  result := TestCompileAndRun('<?wh STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } PRINT(test1[](DEFAULT STRING ARRAY)); ?>');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "a", result.output);
+
+  /* Using aggregate function in PTR form */
+  result := TestCompileAndRun('<?wh STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } PRINT((PTR test1[](DEFAULT STRING ARRAY))()); ?>');
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "a", result.output);
+
+  /* Using aggregate function in PTR form, with passthroughs */
+  result := TestCompileAndRun('<?wh STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } PRINT((PTR test1[](#1))(DEFAULT STRING ARRAY)); ?>');
+  TestCleanResult(15, result.errors);
+  TestEqualString(16, "a", result.output);
+
+  /* Using aggregate function in normal form, before decl */
+  result := TestCompileAndRun('<?wh PRINT(test1[](DEFAULT STRING ARRAY)); STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } ?>');
+  TestCleanResult(17, result.errors);
+  TestEqualString(18, "a", result.output);
+
+  /* Using aggregate form for normal function */
+  errors := TestCompile('<?wh PRINT[](""); ?>');
+  MustContainError(19, errors, 229);
+
+  /* Using aggregate form for function ptrs */
+  errors := TestCompile('<?wh FUNCTION PTR a := PTR PRINT[](""); ?>');
+  MustContainError(20, errors, 229);
+
+  CloseTest("TestFunctions: AggregatesTest");
+}
+
+MACRO DynamicTest()
+{
+  FUNCTION PTR test;
+  OpenTest("TestFunctions: DynamicTest");
+
+  TestThrowsLike("Cannot find library*", PTR MakeFunctionPtr("test::blablabla.whlib", "blablafunc", 0, DEFAULT INTEGER ARRAY));
+  TestThrowsLike("Cannot find library*", PTR MakeFunctionPtr("test::blablabla.whlib#blablafunc", 0, DEFAULT INTEGER ARRAY));
+
+  TestThrowsLike("*not found*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "toowrongtomatch_x35225dsd", 0, DEFAULT INTEGER ARRAY));
+  TestThrowsLike("*not found*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib#toowrongtomatch_x35225dsd", 0, DEFAULT INTEGER ARRAY));
+
+  TestThrowsLike("*did you mean*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "RetTest3x", TypeId(STRING), DEFAULT INTEGER ARRAY));
+  TestThrowsLike("*did you mean*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib#RetTest3x", TypeId(STRING), DEFAULT INTEGER ARRAY));
+
+  TestThrowsLike("*signature*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "RetTest3", 0, [ TypeId(STRING) ]));
+  TestThrowsLike("*signature*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib#RetTest3", 0, [ TypeId(STRING) ]));
+
+  TestThrowsLike("*signature*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "RetTest3", TypeId(STRING), [ TypeId(STRING) ]));
+
+  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "RetTest3", TypeId(STRING), DEFAULT INTEGER ARRAY);
+  TestEq(TRUE, test != DEFAULT FUNCTION PTR);
+  TestEq("test3", test());
+
+  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib#RetTest3", TypeId(STRING), DEFAULT INTEGER ARRAY);
+  TestEq(TRUE, test != DEFAULT FUNCTION PTR);
+  TestEq("test3", test());
+
+  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "passthrough", TypeId(STRING), [TypeId(STRING)]);
+  TestEq(TRUE, test != DEFAULT FUNCTION PTR);
+  TestEq("test5", test("test5"));
+
+  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib#passthrough", TypeId(STRING), [TypeId(STRING)]);
+  TestEq(TRUE, test != DEFAULT FUNCTION PTR);
+  TestEq("test5", test("test5"));
+
+  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "defaultvalue", TypeId(STRING), [TypeId(STRING),TypeId(STRING)]);
+  TestEq(TRUE, test != DEFAULT FUNCTION PTR);
+  TestEq("1-2", test("1"));
+
+  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib#defaultvalue", TypeId(STRING), [TypeId(STRING),TypeId(STRING)]);
+  TestEq(TRUE, test != DEFAULT FUNCTION PTR);
+  TestEq("1-2", test("1"));
+
+  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "RetTest3");
+  TestEq(TRUE, test != DEFAULT FUNCTION PTR);
+
+  CloseTest("TestFunctions: DynamicTest");
+}
+
+MACRO VarargTest()
+{
+  OpenTest("TestFunctions: VarargTest");
+
+  TestEQ("'a', 10", TestVarArg("a"));
+  TestEQ("'a', 11", TestVarArg("a", 11));
+  TestEQ("'a', 11, 'b'", TestVarArg("a", 11, "b"));
+  TestEQ("'a', 11, 'b', 10", TestVarArg("a", 11, "b", 10));
+  TestEQ("'a', 11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20",
+      TestVarArg("a", 11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20));
+  FUNCTION PTR fptr;
+
+  fptr := PTR TestVarArg;
+  TestEQ("'a', 10", fptr("a"));
+  TestEQ("'a', 11", fptr("a", 11));
+  TestEQ("'a', 11, '6'", fptr("a", 11, "6"));
+  TestEQ("'a', 11, '6', 3", fptr("a", 11, "6", 3));
+
+  fptr := PTR TestVarArg("a");
+  TestEQ("'a', 10", fptr());
+
+  fptr := PTR TestVarArg("a", 11);
+  TestEQ("'a', 11", fptr());
+
+  fptr := PTR TestVarArg("a", 11, "6");
+  TestEQ("'a', 11, '6'", fptr());
+
+  fptr := PTR TestVarArg("a", 11, "6", "a");
+  TestEQ("'a', 11, '6', 'a'", fptr());
+
+  fptr := PTR TestVarArg(#1);
+  TestEQ("'a', 10", fptr("a"));
+
+  fptr := PTR TestVarArg(#1, 11);
+  TestEQ("'a', 11", fptr("a"));
+
+  fptr := PTR TestVarArg(#1, 11, "6");
+  TestEQ("'a', 11, '6'", fptr("a"));
+
+  fptr := PTR TestVarArg(#1, 11, "6", "a");
+  TestEQ("'a', 11, '6', 'a'", fptr("a"));
+
+  fptr := PTR TestVarArg(#1, 11, "6", #2);
+  TestEQ("'a', 11, '6', 33", fptr("a", 33));
+
+  fptr := PTR TestVarArg(#1, 11, #3, #2);
+  TestEQ("'a', 11, 8, 33", fptr("a", 33, 8));
+
+  /* Using aggregate function in normal form, before decl */
+  result := TestCompileAndRun('<?wh STRING FUNCTION TestVarArg(STRING a, INTEGER b DEFAULTSTO 10, VARIANT ARRAY varargs) __ATTRIBUTES__(VARARG) { RETURN ""; } FUNCTION PTR fptr := PTR TestVarArg(#1, 11, #3, #2); fptr("a", 33, 8, 10);');
+  MustContainError(1, result.errors, 140, "PTR TESTVARARG(#1, fixed2, #3, #2), with signature STRING FUNCTION function_ptr(STRING a, VARIANT param2, VARIANT param3)");
+  result := TestCompileAndRun('<?wh MACRO TestVarArg(STRING a, INTEGER b DEFAULTSTO 10, VARIANT ARRAY varargs) __ATTRIBUTES__(VARARG) {} FUNCTION PTR fptr := PTR TestVarArg(#1, 11, #3, #2); fptr("a", 33, 8, 10);');
+  MustContainError(1, result.errors, 140, "PTR TESTVARARG(#1, fixed2, #3, #2), with signature MACRO function_ptr(STRING a, VARIANT param2, VARIANT param3)");
+
+  TestEQ(VARIANT[1], TestVASyntax("a", 1));
+
+  CloseTest("TestFunctions: VarargTest");
+}
+
+OBJECT FUNCTION ExecuteProcess(STRING executable, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG)
+{ RETURN DEFAULT OBJECT; }
+OBJECT FUNCTION CheckedExecuteProcess(VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{ CallFunctionPTRVA(PTR ExecuteProcess, args);
+  RETURN DEFAULT OBJECT;
+}
+MACRO CrashVA()
+{
+  OpenTest("TestFunctions: CrashVA");
+  CallFunctionPTRVA(PTR CheckedExecuteProcess, ["x" ]);
+  /* Caused:
+SIGSEGV received
+Abnormal program termination, trace:
+0   libblex_base.dylib                  0x000000010eeac236 _ZN4Blex10FatalAbortEv + 54
+1   libblex_base.dylib                  0x000000010eeb9da6 _ZN4Blex17BlexSignalHandlerEi + 214
+2   libsystem_platform.dylib            0x00007fff895f6f1a _sigtramp + 26
+3   ???                                 0x0000000000000000 0x0 + 0
+4   libblex_hsvm.dylib                  0x000000010ec63f10 _ZN10HareScript14VirtualMachine22PrepareCallFunctionPtrEbb + 1952
+5   libblex_hsvm.dylib                  0x000000010ec66b13 _ZN10HareScript14VirtualMachine11RunInternalEb + 3283
+6   libblex_hsvm.dylib                  0x000000010ec7339c _ZN10HareScript7VMGroup3RunEbb + 60
+7   libblex_hsvm.dylib                  0x000000010ecb8b31 _ZN10HareScript10JobManager5DoRunEPNS_7VMGroupE + 65
+8   libblex_hsvm.dylib                  0x000000010ecb79bc _ZN10HareScript10JobManager20WorkerThreadFunctionEj + 268
+*/
+  CloseTest("TestFunctions: CrashVA");
+
+}
+
+// Test if errors are handled correctly
+MACRO PtrErrorDetectionTest()
+{
+  OpenTest("TestFunctions: PtrErrorDetectionTest");
+
+  // Declaring parameters that don't exist
+  result := TestCompileAndRun('<?wh MACRO y() {}; FUNCTION PTR x := PTR y(1);');
+  MustContainError( 1, result.errors, 140, "MACRO Y()");
+  result := TestCompileAndRun('<?wh MACRO y() {}; FUNCTION PTR z := PTR y; FUNCTION PTR x := PTR z(1);');
+  MustContainError( 2, result.errors, 140, "MACRO Y()");
+
+  result := TestCompileAndRun('<?wh MACRO y() {}; FUNCTION PTR x := PTR y(#1);');
+  MustContainError( 3, result.errors, 140, "MACRO Y()");
+  result := TestCompileAndRun('<?wh MACRO y() {}; FUNCTION PTR z := PTR y; FUNCTION PTR x := PTR y(#1);');
+  MustContainError( 4, result.errors, 140, "MACRO Y()");
+
+  result := TestCompileAndRun('<?wh OBJECTTYPE t< PUBLIC MACRO y() {} >; OBJECT o := NEW t; FUNCTION PTR x := PTR o->y(1);');
+  MustContainError( 5, result.errors, 140, "PTR T::Y(fixed1), with signature MACRO function_ptr()");
+  result := TestCompileAndRun('<?wh OBJECTTYPE t< PUBLIC MACRO y() {} >; OBJECT o := NEW t; FUNCTION PTR z := PTR o->y; FUNCTION PTR x := PTR z(1);');
+  MustContainError( 6, result.errors, 140, "PTR T::Y(fixed1), with signature MACRO function_ptr()");
+
+  result := TestCompileAndRun('<?wh OBJECTTYPE t< PUBLIC MACRO y() {} >; OBJECT o := NEW t; FUNCTION PTR x := PTR o->y(#1);');
+  MustContainError( 7, result.errors, 140, "PTR T::Y(fixed1), with signature MACRO function_ptr()");
+  result := TestCompileAndRun('<?wh OBJECTTYPE t< PUBLIC MACRO y() {} >; OBJECT o := NEW t; FUNCTION PTR z := PTR o->y; FUNCTION PTR x := PTR z(#1);');
+  MustContainError( 8, result.errors, 140, "PTR T::Y(fixed1), with signature MACRO function_ptr()");
+
+  // Adding defaults that are not castable to the right type
+  result := TestCompileAndRun('<?wh MACRO y(INTEGER a) {}; FUNCTION PTR x := PTR y(1m);'); // compiletime
+  MustContainError( 9, result.errors, 62, "MONEY", "INTEGER");
+  result := TestCompileAndRun('<?wh MACRO y(INTEGER a) {}; FUNCTION PTR z := PTR y; FUNCTION PTR x := PTR z(1m);');
+  MustContainError(11, result.errors, 62, "MONEY", "INTEGER");
+  MustContainError(12, result.errors, 146, "MACRO Y(INTEGER a)");
+  result := TestCompileAndRun('<?wh MACRO y(INTEGER a) {}; FUNCTION PTR z := PTR y; FUNCTION PTR x := PTR z(#1); x(1m);');
+  MustContainError(13, result.errors, 62, "MONEY", "INTEGER");
+  MustContainError(14, result.errors, 146, "MACRO Y(INTEGER a)");
+
+  result := TestCompileAndRun('<?wh OBJECTTYPE t< PUBLIC MACRO y(INTEGER a) {} >; OBJECT o := NEW t; FUNCTION PTR x := PTR o->y(1m);');
+  MustContainError(15, result.errors, 62, "MONEY", "INTEGER");
+  MustContainError(16, result.errors, 146, "PTR T::Y(fixed1, #1), with signature MACRO function_ptr(INTEGER a)");
+  result := TestCompileAndRun('<?wh OBJECTTYPE t< PUBLIC MACRO y(INTEGER a) {} >; OBJECT o := NEW t; FUNCTION PTR z := PTR o->y; FUNCTION PTR x := PTR z(1m);');
+  MustContainError(17, result.errors, 62, "MONEY", "INTEGER");
+  MustContainError(18, result.errors, 146, "PTR T::Y(fixed1, #1), with signature MACRO function_ptr(INTEGER a)");
+  result := TestCompileAndRun('<?wh OBJECTTYPE t< PUBLIC MACRO y(INTEGER a) {} >; OBJECT o := NEW t; FUNCTION PTR z := PTR o->y; FUNCTION PTR x := PTR z(#1); x(1m);');
+  MustContainError(19, result.errors, 62, "MONEY", "INTEGER");
+  MustContainError(20, result.errors, 146, "PTR T::Y(fixed1, #1), with signature MACRO function_ptr(INTEGER a)");
+
+  result := TestCompileAndRun('<?wh MACRO y(INTEGER a) {}; FUNCTION PTR x := PTR y(); x(1);');
+  MustContainError(21, result.errors, 140, "MACRO Y(INTEGER A)");
+  result := TestCompileAndRun('<?wh OBJECTTYPE t< PUBLIC MACRO y(INTEGER a) {} >; OBJECT o := NEW t; FUNCTION PTR x := PTR o->y(); x(1);');
+  MustContainError(22, result.errors, 140, "PTR T::Y(fixed1, #1), with signature MACRO function_ptr(INTEGER a)");
+
+  CloseTest("TestFunctions: PtrErrorDetectionTest");
+}
+
+
+PRINT("\n === Running TestFunctions\n");
+VarargTest();
+CrashVA();
+PtrRunningTest();
+PtrSyntaxTest();
+PtrCodeEmitTest();
+PtrLoadlibTest();
+//FIXME: DISABLED FOR NOW: PtrInDeInitTest();
+AggregatesTest();
+DynamicTest();
+PtrErrorDetectionTest();

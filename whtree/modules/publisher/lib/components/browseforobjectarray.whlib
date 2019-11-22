@@ -1,0 +1,568 @@
+﻿<?wh
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+
+PUBLIC OBJECTTYPE PublisherBrowseForObjectArray EXTEND TolliumComponentBase
+<
+// ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC STRING site;
+  PUBLIC STRING fullpath;
+
+  PUBLIC RECORD attrinfo;
+  PUBLIC RECORD ARRAY cols;
+
+  /** return all files/rows (not the selection like in <list>)
+  */
+  PUBLIC PROPERTY value(GetFileIds, SetFileIds); // selected items
+  INTEGER ARRAY pvt_files;
+
+  /** If TRUE, files are accepted
+  */
+  BOOLEAN pvt_acceptfiles;
+  PUBLIC PROPERTY acceptfiles(pvt_acceptfiles, SetAcceptFiles);
+
+  /** If TRUE, folders are accepted
+  */
+  BOOLEAN pvt_acceptfolders;
+  PUBLIC PROPERTY acceptfolders(pvt_acceptfolders, SetAcceptFolders);
+
+  /** Space-separated list of file/folder type namespaces of accepted files/folders, leave empty to accept all types
+  */
+  PUBLIC STRING ARRAY accepttypes;
+
+  /** If TRUE, non-published files will also be shown
+  */
+  PUBLIC BOOLEAN acceptunpublished;
+
+  PUBLIC BOOLEAN orderable;
+
+  OBJECT mytable;
+  RECORD ARRAY currows;
+
+  PUBLIC PROPERTY type(pvt_type, SetType);
+  STRING pvt_type;
+
+  /// type of display to use for the browse dialog ('list' or 'thumbnails')
+  PUBLIC STRING browsetype;
+
+  OBJECT currentview;
+  OBJECT thumbview;
+  OBJECT listview;
+
+  OBJECT addaction;
+
+  OBJECT editaction;
+  OBJECT deleteaction;
+  OBJECT moveupaction;
+  OBJECT movedownaction;
+
+  STRING empty;
+  BOOLEAN sortable;
+  BOOLEAN sortascending;
+  STRING sortcolumn;
+
+  /// WHFS objecttype in which the thumbnail can be found (FIXME: make dynamic)
+  STRING thumbnailwhfstype;
+
+  /// name of the field in the WHFS object which contains the thumbnail image (FIXME: make dynamic)
+  STRING thumbnailwhfsfield;
+
+  PUBLIC PROPERTY __debug_addaction(addaction,-); //needed for debugging until we restructure to fragment and can use 'allpublic'
+
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+
+    this->pvt_acceptfiles := TRUE;
+    this->pvt_acceptfolders := TRUE;
+    this->acceptunpublished := TRUE;
+    this->browsetype := "list";
+    this->pvt_type := 'thumbnails';
+    this->invisibletitle := TRUE;
+
+    //FIXME: Make box (a border) or panel a property of the component
+    //this->mybox := this->CreateSubComponent("box");
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    IF(NOT ObjectExists(this->listview))
+      this->CreateMyGrid();
+
+    this->parentpanel->InsertComponentAfter(this->mytable, this, FALSE);
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    //this->cols := ResolveParsedListColumns(this->frame, def.columns);
+
+    //this->basescreenname := def.basescreenname;
+    this->orderable := def.orderable;
+
+    // Only set sortable if orderable is not set (sortable is set to TRUE if not specified)
+    this->sortable := def.sortable AND NOT this->orderable;
+    this->sortascending := def.sortascending;
+    this->sortcolumn := def.sortcolumn;
+
+    this->pvt_acceptfiles := def.acceptfiles;
+    this->pvt_acceptfolders := def.acceptfolders;
+    this->accepttypes := def.accepttypes;
+    this->acceptunpublished := def.acceptunpublished;
+    this->empty := def.empty;
+
+    this->site := def.site;
+    this->fullpath := def.fullpath;
+
+    this->thumbnailwhfstype := def.thumbnailwhfstype;
+    this->thumbnailwhfsfield := def.thumbnailwhfsfield;
+    this->browsetype := def.browsetype;
+  }
+
+  MACRO SetType(STRING type)
+  {
+    IF (NOT (type IN ['list','thumbnails']))
+      ABORT('Unknown type '||type);
+
+    IF (type = "list")
+      THROW NEW Exception("List mode not supported in browseforobjectarray component");
+
+    this->pvt_type := type;
+    this->UpdateToView();
+  }
+/*
+  MACRO SetAcceptTypes(STRING ARRAY types)
+  {
+    this->accepttypedefs := types;
+    this->accepttypeids := SELECT AS INTEGER ARRAY ftypeid FROM this->alltypes WHERE namespace IN types;
+  }
+*/
+  MACRO UpdateToView()
+  {
+    IF (NOT ObjectExists(this->mytable))
+      RETURN;
+
+    this->listview->visible := (this->pvt_type = 'list');
+    this->thumbview->visible := (this->pvt_type = 'thumbnails');
+
+    IF(this->pvt_type = 'list')
+      this->currentview := this->listview;
+
+    IF(this->pvt_type = 'thumbnails')
+    {
+      this->currentview := this->thumbview;
+      this->currentview->SetThumbnailWHFSType(this->thumbnailwhfstype, this->thumbnailwhfsfield);
+    }
+
+    this->editaction->enableon := [ [ source := this->currentview, min := 1, max := 1, checkflags := DEFAULT STRING ARRAY, onexecute := PTR this->EditValue(), requirefocus := FALSE, frameflags := DEFAULT STRING ARRAY ] ];
+    this->deleteaction->enableon := [ [ source := this->currentview, min := 1, max := -1, checkflags := DEFAULT STRING ARRAY, onexecute := PTR this->DeleteValue(), requirefocus := FALSE, frameflags := DEFAULT STRING ARRAY ] ];
+
+    IF(this->orderable)
+    {
+      this->moveupaction->onexecute := PTR this->MoveUpValue;
+      this->movedownaction->onexecute := PTR this->MoveDownValue;
+      //this->moveupaction->enableon := [ [ source := this->currentview, min := 1, max := 1, checkflags := [ "canmoveup" ], onexecute := PTR this->MoveUpValue(), requirefocus := FALSE, frameflags := DEFAULT STRING ARRAY ] ];
+      //this->movedownaction->enableon := [ [ source := this->currentview, min := 1, max := 1, checkflags := [ "canmovedown" ], onexecute := PTR this->MoveDownValue(), requirefocus := FALSE, frameflags := DEFAULT STRING ARRAY ] ];
+    }
+  }
+
+  PRIVATE INTEGER ARRAY FUNCTION GetFileIds()
+  {
+    //RETURN SELECT AS INTEGER ARRAY id FROM this->currows;
+    IF(this->type="thumbnails" AND ObjectExists(this->currentview))
+      RETURN this->currentview->files;
+    RETURN this->pvt_files;
+  }
+
+  PRIVATE MACRO SetFileIds(INTEGER ARRAY fileids)
+  {
+    this->pvt_files := fileids;
+    IF(NOT ObjectExists(this->currentview)) //not initialized yet
+      RETURN;
+
+/*
+check filetype
+      OBJECT newvalue := OpenWHFSObject(value);
+      IF (ObjectExists(newvalue) AND Length(this->accepttypes) > 0 AND (SELECT AS STRING namespace FROM system.fs_types WHERE id = newvalue->type) NOT IN this->accepttypes)
+        RETURN;
+*/
+
+    SWITCH(this->type)
+    {
+      CASE 'thumbnails'
+      {
+        this->currentview->files := fileids;
+      }
+      CASE 'list'
+      {
+        // TODO: implement
+        this->currentview->rows := SELECT rowkey := id
+                                        , title := (title!='' ? title : name)
+                                     FROM system.fs_objects
+                                    WHERE id IN fileids;
+      }
+    }
+  }
+
+  MACRO SetAcceptFiles(BOOLEAN acceptfiles)
+  {
+    this->pvt_acceptfiles := acceptfiles;
+    this->thumbview->acceptfiles := acceptfiles;
+  }
+
+  MACRO SetAcceptFolders(BOOLEAN acceptfolders)
+  {
+    this->pvt_acceptfolders := acceptfolders;
+    this->thumbview->acceptfolders := acceptfolders;
+  }
+
+  MACRO CreateMyGrid()
+  {
+    //Start building the grid
+    this->mytable := this->CreateSubComponent("table");
+    this->mytable->SetupTable([/*rows*/1],[/*cols*/2]);
+    this->mytable->width := this->width;
+    this->mytable->height := this->height;
+    this->mytable->minwidth := this->minwidth;
+    this->mytable->minheight := this->minheight;
+    this->mytable->SetRowHeight(0, '1pr');
+
+    this->mytable->SetColWidth(0, "1pr");
+    this->mytable->SetColWidth(1, "1px");
+
+
+    // Give the list a border by adding it to a panel
+    OBJECT listpanel := this->CreateSubComponent("panel");
+    listpanel->width := "1pr";
+    listpanel->height := "1pr";
+
+    // Create the 'Thumbnail view'
+    OBJECT thumbview := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/publisher/components","thumbnailview");
+    thumbview->width  := "1pr";
+    thumbview->height := "1pr";
+    thumbview->selectmode := "multiple";
+    thumbview->sortby := "ordering";
+    thumbview->orderable := this->orderable;
+    thumbview->acceptfiles := this->pvt_acceptfiles;
+    thumbview->acceptfolders := this->pvt_acceptfolders;
+    thumbview->acceptunpublished := this->acceptunpublished;
+    this->thumbview := thumbview;
+    //thumbview->columns := 4;
+
+    // Create the 'List view'
+    OBJECT listview := this->CreateSubComponent("list");
+    listview->width := "1pr";
+    listview->columns := this->cols;
+    listview->sortable := this->sortable;
+    listview->sortcolumn := this->sortcolumn;
+    listview->sortascending := this->sortascending;
+    listview->empty := this->empty;
+
+    IF (this->orderable)
+    {
+      listview->flags := [ "canmoveup", "canmovedown" ];
+    }
+
+    this->listview := listview;
+
+
+    // Add the list to the top-left column of the table
+    OBJECT tablelistcol := this->mytable->GetCell(/*row*/0, /*col*/0);
+
+    // listpanel->InsertComponentAfter(listview, DEFAULT OBJECT, FALSE);
+    listpanel->InsertComponentAfter(thumbview, DEFAULT OBJECT, FALSE);
+
+
+    // Insert the panel containing the list
+    tablelistcol->panel->InsertComponentAfter(listpanel, DEFAULT OBJECT, FALSE);
+
+
+
+    // Create the list editing buttons
+
+    // "Add" button
+    OBJECT addaction := this->CreateSubComponent("action");
+    addaction->onexecute := PTR this->AddValue;
+    this->addaction := addaction;
+
+    OBJECT addbutton := this->CreateSubComponent("button");
+    addbutton->width := "1pr";
+    addbutton->title := GetTid("tollium:common.actions.add");
+    addbutton->action := addaction;
+
+    // "Edit" button
+    OBJECT editaction := this->CreateSubComponent("action");
+    this->editaction := editaction;
+
+    listview->openaction := editaction;
+    thumbview->openaction := editaction;
+
+    OBJECT editbutton := this->CreateSubComponent("button");
+    editbutton->width := "1pr";
+    editbutton->title := GetTid("tollium:common.actions.edit");
+    editbutton->action := editaction;
+
+    // "Delete" button
+    OBJECT deleteaction := this->CreateSubComponent("action");
+    this->deleteaction := deleteaction;
+
+    OBJECT deletebutton := this->CreateSubComponent("button");
+    deletebutton->width := "1pr";
+    deletebutton->title := GetTid("tollium:common.actions.delete");
+    deletebutton->action := deleteaction;
+
+    OBJECT moveupbutton;
+    OBJECT movedownbutton;
+    OBJECT orderingpanel;
+    IF (this->orderable)
+    {
+      // "Move Up" button
+      OBJECT moveupaction := this->CreateSubComponent("action");
+      this->moveupaction := moveupaction;
+
+      moveupbutton := this->CreateSubComponent("button");
+      moveupbutton->width := "1pr";
+      moveupbutton->title := GetTid("tollium:common.actions.up");
+      moveupbutton->action := moveupaction;
+
+      // "Move Down" button
+      OBJECT movedownaction := this->CreateSubComponent("action");
+      this->movedownaction := movedownaction;
+
+      movedownbutton := this->CreateSubComponent("button");
+      movedownbutton->width := "1pr";
+      movedownbutton->title := GetTid("tollium:common.actions.down");
+      movedownbutton->action := movedownaction;
+
+      orderingpanel := this->CreateSubComponent("panel");
+
+      orderingpanel->InsertComponentAfter(moveupbutton,   DEFAULT OBJECT, TRUE);
+      orderingpanel->InsertComponentAfter(movedownbutton, moveupbutton,   TRUE);
+    }
+
+    // Add the buttons to the top-right column
+    tablelistcol := this->mytable->GetCell(/*row*/0, /*col*/1);
+    tablelistcol->panel->InsertComponentAfter(addbutton,        DEFAULT OBJECT, TRUE);
+    tablelistcol->panel->InsertComponentAfter(editbutton,       addbutton,      TRUE);
+    tablelistcol->panel->InsertComponentAfter(deletebutton,     editbutton,     TRUE);
+
+    IF (this->orderable)
+      tablelistcol->panel->InsertComponentAfter(orderingpanel,  deletebutton,   TRUE);
+
+    this->UpdateToView();
+  }
+
+  // toselect is 1-based position of row to select
+  MACRO RefreshList(INTEGER toselect DEFAULTSTO 0)
+  {
+    IF(this->pvt_type = 'list' AND ObjectExists(this->listview))
+    {
+      IF (this->orderable)
+      {
+        INTEGER numrows := Length(this->currows);
+        this->listview->rows := SELECT *
+                                    , canmoveup := #currows > 0
+                                    , canmovedown := #currows < numrows - 1
+                                 FROM this->currows;
+      }
+      ELSE
+        this->listview->rows := this->currows;
+
+      IF (toselect > 0 AND (toselect - 1) < Length(this->listview->rows))
+        this->listview->selection := this->listview->rows[toselect - 1];
+    }
+
+    IF (this->pvt_type = 'thumbnails' AND ObjectExists(this->thumbview))
+    {
+      this->thumbview->files := SELECT AS INTEGER ARRAY id FROM this->currows;
+    }
+  }
+
+  MACRO AddValue()
+  {
+    OBJECT browse := this->InternalBrowseForFiles(0, DEFAULT INTEGER ARRAY);
+    STRING result := browse->RunModal();
+
+    IF (result != 'ok')
+      RETURN;
+
+    INTEGER ARRAY newfileids := browse->value;
+
+    INTEGER ARRAY beforeinlist := SELECT AS INTEGER ARRAY id FROM this->currentview->rows;//this->currentview->files
+    INTEGER ARRAY alreadyused;
+    FOREVERY(INTEGER newfileid FROM newfileids)
+    {
+      IF (newfileid IN beforeinlist)
+        INSERT newfileid INTO alreadyused AT END;
+    }
+
+    IF(Length(alreadyused)>0 AND this->owner->RunMessageBox("publisher:commondialogs.fsobjectalreadyinlist", ToString(Length(alreadyused)))!="yes")
+      RETURN;
+
+
+    RECORD row := SELECT *, pos := #rows + 1 FROM this->currentview->rows WHERE tolliumselected;
+
+    INTEGER insertpos := RecordExists(row) ? row.pos : LENGTH(this->currentview->rows);
+    INTEGER ARRAY oldfiles := this->currentview->files;
+    INTEGER ARRAY newfiles := ArraySlice(oldfiles, 0, insertpos) CONCAT browse->value CONCAT ArraySlice(oldfiles, insertpos);
+    newfiles :=
+        SELECT AS INTEGER ARRAY id
+          FROM ToRecordArray(newfiles, "ID") AS newfile
+      ORDER BY #newfile;
+
+    this->currentview->files := newfiles;
+  }
+
+  // Selected items will be replaced with the new selection from the dialog
+  MACRO EditValue()
+  {
+    INTEGER fileid := this->currentview->value[0];
+    RECORD file := SELECT * FROM system.fs_objects WHERE id=this->currentview->value[0];
+
+    OBJECT browse;
+    IF (RecordExists(file))
+    {
+      // preselect folder and file
+      browse := this->InternalBrowseForFiles(file.parent, this->currentview->value);
+    }
+    ELSE
+    {
+      // if the file isn't found anymore, don't preselect anything
+      browse := this->InternalBrowseForFiles(0, DEFAULT INTEGER ARRAY);
+    }
+
+    STRING result := browse->RunModal();
+
+    IF (result != 'ok')
+      RETURN;
+
+    RECORD row := SELECT *, pos := #rows FROM this->currentview->rows WHERE tolliumselected;
+    INTEGER ARRAY newfiles := this->currentview->files;
+    IF (RecordExists(row))
+      newfiles := ArraySlice(newfiles, 0, row.pos) CONCAT browse->value CONCAT ArraySlice(newfiles, row.pos + 1);
+    ELSE
+      newfiles := newfiles CONCAT browse->value;
+
+      this->currentview->files := newfiles;
+  }
+
+  MACRO DeleteValue()
+  {
+    IF(this->owner->RunMessageBox("publisher:commondialogs.deletefsobjects", ToString(Length(this->currentview->value)))!="yes")
+      RETURN;
+
+    this->value := SELECT AS INTEGER ARRAY id FROM this->currentview->rows WHERE NOT tolliumselected;
+  }
+
+  MACRO MoveUpValue()
+  {
+    INTEGER ARRAY oldfiles := this->currentview->files;
+
+    RECORD ARRAY rows := this->currentview->rows;
+    FOR(INTEGER pos:=1; pos<Length(rows); pos:=pos+1)
+    {
+      // move item one up
+      IF (rows[pos].tolliumselected AND NOT rows[pos-1].tolliumselected)
+      {
+        RECORD row := rows[pos];
+        DELETE FROM rows AT pos;
+        INSERT row INTO rows AT pos-1;
+      }
+    }
+
+    this->value := SELECT AS INTEGER ARRAY id FROM rows ORDER BY #rows;
+  }
+
+  MACRO MoveDownValue()
+  {
+    INTEGER ARRAY oldfiles := this->value;
+
+    RECORD ARRAY rows := this->currentview->rows;
+    FOR(INTEGER pos:=Length(rows)-2; pos>=0; pos:=pos-1)
+    {
+      // move item one down
+      IF (rows[pos].tolliumselected AND NOT rows[pos+1].tolliumselected)
+      {
+        RECORD row := rows[pos];
+        DELETE FROM rows AT pos;
+        INSERT row INTO rows AT pos+1;
+      }
+    }
+
+    this->value := SELECT AS INTEGER ARRAY id FROM rows ORDER BY #rows;
+  }
+
+  MACRO DropValue(OBJECT src, RECORD target, STRING action, STRING type)
+  {
+    INTEGER sourcepos := SELECT AS INTEGER #rows + 1 FROM this->listobj->rows WHERE rowkey = this->listobj->value;
+    INTEGER targetpos := RecordExists(target) ? SELECT AS INTEGER #rows + 1 FROM this->listobj->rows WHERE rowkey = target.rowkey : 0;
+    IF (sourcepos > 0 AND sourcepos != targetpos)
+    {
+      RECORD item := this->currows[sourcepos - 1];
+      this->currows := SELECT * FROM this->currows WHERE #currows != sourcepos - 1;
+      IF (targetpos > 0)
+      {
+        IF (sourcepos < targetpos)
+          targetpos := targetpos - 1;
+
+        // There is a target, insert the item just before target
+        INSERT item INTO this->currows AT targetpos - 1;
+      }
+      ELSE
+      {
+        // There is no target, append the item to the end of the list
+        INSERT item INTO this->currows AT END;
+        targetpos := Length(this->currows);
+      }
+      this->RefreshList(targetpos);
+    }
+  }
+
+  OBJECT FUNCTION InternalBrowseForFiles(INTEGER folderid, INTEGER ARRAY fileids)
+  {
+    IF (folderid = 0 AND this->fullpath != "")
+    {
+      IF(this->site != "")
+      {
+        folderid := LookupWHFSObject(0, "site::" || this->site || "/" || this->fullpath);
+      }
+      ELSE
+      {
+        OBJECT applytester := this->owner->contexts->applytester ?? this->owner->GetAppContext("publisher:applytester");
+        IF(ObjectExists(applytester) AND applytester->objsite != 0)
+          folderid := LookupWHFSObject(applytester->objsite, this->fullpath);
+      }
+    }
+
+    OBJECT browse := CreateBrowseForWHFSObjectDialog(this->owner);
+    browse->acceptfiles   := this->pvt_acceptfiles;
+    browse->acceptfolders := this->pvt_acceptfolders;
+    browse->accepttypes   := this->accepttypes;
+
+    browse->acceptunpublished := this->acceptunpublished;
+
+    browse->type          := this->browsetype;
+    browse->selectmode    := 'multiple';
+
+    // setting for thumbnail view
+    browse->thumbnailwhfstype  := this->thumbnailwhfstype;
+    browse->thumbnailwhfsfield := this->thumbnailwhfsfield;
+
+    IF (folderid > 0)
+      browse->folder := folderid;
+
+    IF (Length(fileids) > 0)
+      browse->value := fileids;
+
+    RETURN browse;
+  }
+>;

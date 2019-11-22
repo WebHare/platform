@@ -1,0 +1,42 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/sysmgmt/adhoccache.whlib"
+         gid="sysmgmt.adhoccache">
+
+  <screen name="status" interval="5000" oninterval="dorefresh">
+    <actions>
+      <action name="settings" onexecute="dosettings" />
+      <action name="refresh" onexecute="dorefresh" />
+      <action name="flushcache" onexecute="doflushcache" />
+    </actions>
+    <body>
+      <text name="oldestitem" />
+      <text name="cachesize" />
+      <text name="requests" />
+      <text name="hits" />
+      <text name="misses" />
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="settings" />
+        <button action="refresh" />
+        <button action="flushcache" />
+        <button tid="tollium:common.actions.close" tolliumresult="close" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="settings" tid=".settingstitle" >
+    <body>
+      <line>
+        <textedit name="maxentries" valuetype="integer" width="8x" required="true" />
+        <text name="maxentries_current" title="" />
+      </line>
+      <textedit name="minperlibrary" valuetype="integer" width="8x" required="true" />
+      <panel height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

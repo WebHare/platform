@@ -1,0 +1,187 @@
+<?wh
+/** @private WRD database definitions, should never be directly accessed as that's what the WRD API is for
+*/
+
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC SCHEMA
+  < TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , STRING "title"
+    , STRING "description"
+    , BOOLEAN "protected"
+    , STRING "required_fields"
+    , STRING "unique_fields"
+    , BOOLEAN "usermgmt"
+    , INTEGER "accounttype" NULL := 0
+    , INTEGER "accountemail" NULL := 0
+    , INTEGER "accountlogin" NULL := 0
+    , INTEGER "accountpassword" NULL := 0
+    , DATETIME "creationdate"
+    , STRING "creationsource"
+    ; KEY id
+    > schemas
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "wrd_schema"
+    , STRING "name"
+    , STRING "data"
+    , BLOB "blobdata"
+    ; KEY id
+    > keyvaluestore
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "wrd_schema"
+    , STRING "title"
+    , STRING "tag"
+    , STRING "description"
+    , INTEGER "metatype"
+    , INTEGER "requiretype_left" NULL := 0
+    , INTEGER "requiretype_right" NULL := 0
+    , STRING "required_fields"
+    , STRING "unique_fields"
+    , INTEGER "parenttype" NULL := 0
+    , BOOLEAN "abstract"
+    , INTEGER "keephistorydays"
+    ; KEY id
+    > types
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "domain" NULL := 0
+    , INTEGER "attributetype"
+    , INTEGER "type"
+    , STRING "title"
+    , STRING "tag"
+    , STRING "description"
+    , BOOLEAN "required"
+    , BOOLEAN "isunique"
+    , INTEGER "parent" NULL := 0
+    , BOOLEAN "ordered"
+    , BOOLEAN "checklinks"
+    , BOOLEAN "multiline"
+    , STRING "allowedvalues"
+    ; KEY id
+    > attrs
+  , TABLE
+    < INTEGER "id"
+    , STRING "guid" __ATTRIBUTES__(BINARY)
+    , STRING "tag"
+    , DATETIME "creationdate"
+    , DATETIME "modificationdate"
+    , DATETIME "limitdate"
+    , INTEGER "type"
+    , INTEGER "leftentity" NULL := 0
+    , INTEGER "rightentity" NULL := 0
+    , STRING "title"
+    , STRING "initials"
+    , STRING "firstname"
+    , STRING "firstnames"
+    , STRING "infix"
+    , STRING "lastname"
+    , STRING "titles"
+    , STRING "titles_suffix"
+    , INTEGER "gender"
+    , DATETIME "dateofbirth"
+    , DATETIME "dateofdeath"
+    , INTEGER "ordering"
+    ; KEY id
+    > entities
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "entity"
+    , INTEGER "attribute"
+    , INTEGER "setting" NULL := 0
+    , STRING "rawdata"
+    , STRING "unique_rawdata"
+    , INTEGER "ordering"
+    , BLOB "blobdata"
+    , INTEGER "parentsetting" NULL := 0
+    ; KEY id
+    > entity_settings
+
+  , TABLE
+    < INTEGER "id" NULL := 0
+    , INTEGER "fsobject" NULL := 0
+    , INTEGER "linktype"
+    ; KEY id
+    > entity_settings_whfslink
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "tag"
+    , BLOB "query"
+    , INTEGER "wrd_schema" NULL := 0
+    ; KEY id
+    > storedqueries
+
+  , TABLE
+    < INTEGER "id"
+    , DATETIME "creationdate"
+    , DATETIME "nextcheck"
+    , STRING "uuid"
+    , STRING "returnurl"
+    , INTEGER "paymentattr" NULL := 0
+    , INTEGER "providerattr" NULL := 0
+    , INTEGER "paymententity" NULL := 0
+    , STRING error
+    ; KEY id
+    > pendingpayments
+
+  , TABLE
+    < INTEGER "id"
+    , DATETIME "creationdate"
+    , INTEGER "wrdschema" NULL := 0
+    , INTEGER "entity" NULL := 0
+    , BOOLEAN "impersonated"
+    , STRING "ip"
+    , STRING "login"
+    , STRING "type"
+    , STRING "data"
+    ; KEY id
+    > auditevents
+
+  , TABLE
+    < INTEGER "id"
+    , DATETIME "creationdate"
+    , INTEGER "wrdschema" NULL := 0
+    , INTEGER "entity" NULL := 0
+    , STRING "userdata"
+    ; KEY id
+    > changesets
+
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "changeset" NULL := 0
+    , DATETIME "creationdate"
+    , INTEGER "type" NULL := 0
+    , STRING "entity" __ATTRIBUTES__(BINARY)
+    , STRING "summary"
+    , STRING "oldsettings"
+    , BLOB "oldsettings_blob"
+    , STRING "modifications"
+    , BLOB "modifications_blob"
+    , STRING "source"
+    , BLOB "source_blob"
+    ; KEY id
+    > changes
+
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "change" NULL := 0
+    , INTEGER "seqnr"
+    , BLOB "data"
+    ; KEY id
+    > change_attachments
+  > wrd;
+
+/** @short Bind the WRD tables
+    @long This macro binds all of the WRD module's tables to the specified transaction
+    @param transaction Transaction ID to bind the tables to */
+MACRO BindWrdTables(INTEGER transaction)
+{
+  wrd := BindTransactionToSchema(transaction, "wrd");
+}
+
+//Autobind to primary transaction, if available
+SetupPrimaryTransactionBinder(PTR BindWrdTables);

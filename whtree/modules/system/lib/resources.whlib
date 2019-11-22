@@ -1,0 +1,302 @@
+﻿<?wh
+/** @topic modules/resources */
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "mod::system/lib/database.whlib" EXPORT OpenLocalService;
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT RetrieveResourceException;
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/validation/extracttids.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib" EXPORT RetrieveWebHareResource, GetModuleNameFromResourcePath, IsAbsoluteResourcePath, MakeAbsoluteResourcePath, GetResourceEventMasks;
+LOADLIB "wh::internal/interface.whlib";
+
+RECORD FUNCTION GetCacheableIntercepts(STRING targetname)
+{
+  INTEGER colonpos := SearchSubString(targetname, ":");
+  IF (colonpos = -1)
+    THROW NEW Exception("Illegal hook target name, expected the form modulename ':' targetname.");
+
+  STRING modulename := LEFT(targetname, colonpos);
+  RECORD module := SELECT * FROM MakeFunctionPtr("mod::system/lib/internal/resourcemanager.whlib", "GetWebHareModules", TYPEID(RECORD ARRAY),DEFAULT INTEGER ARRAY)() WHERE name=modulename;
+  IF (NOT RecordExists(module))
+    THROW NEW Exception("Illegal hook target name, the module '"||modulename||"' could not be found.");
+
+  STRING targetlocalname := SubString(targetname, colonpos + 1);
+  RECORD target := SELECT * FROM module.hooktargets WHERE targetname = name;
+
+  IF (NOT RecordExists(target))
+    THROW NEW Exception("Illegal hook name, the hook target '"||targetname||"' could not be found.");
+
+  IF(Length(target.intercepts) > 0)
+  {
+    STRING ARRAY mods := GetInstalledModuleNames();
+    target.intercepts := SELECT * FROM target.intercepts WHERE intercepts.module IN mods;
+  }
+
+  RETURN [ ttl := 24 * 60 * 60 * 1000
+         , value := target.intercepts
+         , eventmasks := ["system:modulesupdate"]
+         ];
+
+}
+
+/** @short Invoke the intercepts for a hook target
+    @long Module hooks are a low-level mechanism to allow external code to hook into your code.
+    @param targetname Hook target to invoke (module:targetname)
+    @param data Data to pass to the intercept functions. Each intercept can update the data
+    @return The data as returned by the last intercept. If the target was not intercepted it will simply return the original data */
+PUBLIC RECORD FUNCTION RunModuleHookTarget(STRING targetname, RECORD data)
+{
+  RECORD ARRAY intercepts := GetAdhocCached([interceptsfor := targetname], PTR GetCacheableIntercepts(targetname));
+  FOREVERY (RECORD intercept FROM intercepts)
+  {
+    FUNCTION PTR func := MakeFunctionPtr(intercept.interceptfunction, TypeID(RECORD), [ TypeID(RECORD) ]);
+    data := func(data);
+  }
+  RETURN data;
+}
+
+/** @short Get a WebHare resource (like GetHareScriptResource, but adds support for site::, whfsbyid:: etc)
+    @param resourcepath Resource path
+    @cell options.allowmissing If set to TRUE, don't throw if the resource doesn't exist but return a DEFAULT BLOB
+    @return Contents of resource file
+*/
+PUBLIC BLOB FUNCTION GetWebHareResource(STRING resourcepath, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ allowmissing := FALSE ], options);
+  RECORD res := RetrieveWebHareResource(resourcepath, options);
+  RETURN RecordExists(res) ? res.data : DEFAULT BLOB;
+}
+
+/** Get the disk path for a resource. Throws for invalid module names or things which are not a disk path
+    @param inpath Resource path
+    @return Disk path of the resource file
+*/
+PUBLIC STRING FUNCTION GetWebHareResourceDiskPath(STRING inpath)
+{
+  STRING path := GetDiskPathForAsset(inpath, inpath, FALSE);
+  IF(path="")
+    THROW NEW Exception("Resource '" || inpath || "' is not stored on disk");
+  RETURN path;
+}
+
+/** Returns the contents of a resource folder.
+    @param resourcepath Path to the resource folder
+    @return List of resources and folders within a resource folder
+    @cell(integer) return.id Database id of the resource (folder), if applicable.
+    @cell(string) return.name Name of the resource (folder)
+    @cell(boolean) return.isfolder Whether this entry is a folder
+    @cell(datetime) return.modified Modificationdate of a resource
+    @cell(string) return.resourcepath Full path to the resource (folder). Ends with '/' for folders.
+*/
+PUBLIC RECORD ARRAY FUNCTION ReadWebHareResourceFolder(STRING resourcepath)
+{
+  RETURN ReadGlobalResourceDirByPath(0, resourcepath, resourcepath);
+}
+
+/** Get the resource name module definition for a module
+    @param modulename Name of the module
+    @return Resource name for the moduledefinition file of the module
+*/
+PUBLIC STRING FUNCTION GetModuleDefinitionXMLResourceName(STRING modulename)
+{
+  STRING res := "mod::" || modulename || "/moduledefinition.xml";
+  RETURN RecordExists(RetrieveWebHareResource(res, [ allowmissing := TRUE ])) ? res : "";
+}
+
+/** Get the XML module definition for a module
+    @param modulename Name of the module
+    @return XML document with the moduledefinition
+*/
+PUBLIC OBJECT FUNCTION GetModuleDefinitionXML(STRING modulename)
+{
+  STRING resname := GetModuleDefinitionXMLResourceName(modulename);
+  IF(resname="")
+    RETURN DEFAULT OBJECT;
+
+  RETURN OpenXMLDoc(resname, FALSE).doc;
+}
+/** Get a list of installed modules
+    @return List of module names */
+PUBLIC STRING ARRAY FUNCTION GetInstalledModuleNames()
+{
+  RETURN __SYSTEM_GETINSTALLEDMODULENAMES();
+}
+
+/** @short Gather custom moduledefinition setting nodes
+    @param ns Namespace URI to look up
+    @param localname Local ame of the node to look up
+    @return Matching settings
+    @cell(string) return.module Module name
+    @cell(string) return.resource Resource name of moduledefinition referring to the file
+    @cell(object) return.node XML node */
+PUBLIC RECORD ARRAY FUNCTION GetCustomModuleSettings(STRING ns, STRING localname)
+{
+  RECORD ARRAY retval;
+
+  FOREVERY(STRING mod FROM GetInstalledModuleNames())
+  {
+    TRY
+    {
+      OBJECT xmldoc := GetModuleDefinitionXML(mod);
+      IF(NOT ObjectExists(xmldoc))
+        CONTINUE;
+
+      OBJECT ARRAY applynode := xmldoc->GetElementsByTagNameNS(ns, localname)->GetCurrentElements();
+      FOREVERY(OBJECT apply FROM applynode)
+      {
+        INSERT [ module := mod
+               , node := apply
+               , resource := GetModuleDefinitionXMLResourceName(mod)
+               ] INTO retval AT END;
+      }
+    }
+    CATCH (OBJECT e)
+      LogHarescriptException(e);
+  }
+  RETURN retval;
+}
+
+/** Open a XML document read-only
+    @param module Module to search the xml document
+    @param type Type of file: one of "screens", "language", "data", "moduledefinition", "manifest"
+    @param subcode Subcode of the file
+    @return Record with xml document object data, DEFAULT RECORD if the document did not exist
+    @cell return.modulename
+    @cell return.type
+    @cell return.subcode
+    @cell return.doc XML document object
+    @cell return.modtime Modtime of the schema file
+    @cell return.validations List of already performed validations against this document
+    @cell return.validations.xsdschema Schema against which the validation has been done
+    @cell return.validations.xsdschema.modulename
+    @cell return.validations.xsdschema.type
+    @cell return.validations.xsdschema.subcode
+    @cell return.validations.xsdschema.modtime
+    @cell return.validations.errors List of validation errors
+*/
+PUBLIC RECORD FUNCTION RetrieveCachedXMLResource(STRING path)
+{
+  RETURN OpenXMLDoc(path, FALSE);
+}
+
+/** Open a XML document as a read-only schema
+    @param module Module to search the xml document
+    @param type Type of file: one of "screens", "language", "data", "moduledefinition", "manifest"
+    @param subcode Subcode of the file
+    @return Record with xml document object data, DEFAULT RECORD if the schema did not exist
+    @cell return.modulename
+    @cell return.type
+    @cell return.subcode
+    @cell return.doc Schema document object
+    @cell return.modtime Modtime of the schema file
+*/
+PUBLIC RECORD FUNCTION __RetrieveCachedXMLSchema(STRING path) //This API will be removed as soon as loaded XML docs can be converted to schemas
+{
+  RETURN OpenXMLDoc(path, TRUE);
+}
+
+/** Returns the resource name for a disk path. Also accept webhare resource paths, which are normalized
+    @param diskpath Disk path / resource name
+    @param options
+    @cell options.allowdiskpath If TRUE, return 'direct::...' path when no other resource name could be found. Otherwise return an empty string (default).
+    @return Resource path. Empty value if the path does not have a resource name
+*/
+PUBLIC STRING FUNCTION GetResourceNameFromDiskPath(STRING diskpath, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ allowdiskpath :=  FALSE
+      ], options);
+
+  IF (diskpath LIKE "direct::*")
+    diskpath := SubString(diskpath, 8);
+  ELSE IF (diskpath LIKE "*::*") // Accept and normalize resource paths
+    RETURN __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", diskpath);
+
+  // Translate disk->module path
+  diskpath := __HS_INTERNAL_TRANSLATELIBRARYPATH(diskpath);
+  RETURN diskpath LIKE "direct::*" AND NOT options.allowdiskpath ? "" : diskpath;
+}
+
+/** Returns a URL for a WebHare module resource, if available
+    @param resourcename The resource, eg moduleroot::mymodule/webdesigns/mydesign/web/myimage.png
+    @return The URL, if available - it will usually start with '/', similar to the image cache urls. To get an absolute URL, you may have to ResolvetoAbsoluteURL(GetPrimaryWebhareInterfaceURL(), ....) the result */
+PUBLIC STRING FUNCTION GetModuleResourceURL(STRING resourcename)
+{
+  IF(resourcename NOT LIKE "moduleroot::?*/webdesigns/?*/web/*" AND resourcename NOT LIKE "mod::?*/webdesigns/?*/web/*")
+    RETURN "";
+
+  resourcename := Substring(resourcename, resourcename LIKE "mod::*" ? 5 : 12);
+  STRING ARRAY pathtoks := Tokenize(resourcename,'/');
+  IF(pathtoks[0]="" OR pathtoks[1]!="webdesigns" OR pathtoks[2]="" OR pathtoks[3]!="web")
+    RETURN "";
+  RETURN "/.publisher/sd/" || pathtoks[0] || '/' || pathtoks[2] || "/" || Detokenize(ArraySlice(pathtoks,4),'/');
+}
+
+/** Base objecttype for resource validators
+*/
+PUBLIC OBJECTTYPE ResourceValidationBase
+<
+  /** Process a resource to extract tids and optionally fully validate */
+  PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  {
+    //Default implementation, process both Validate and ExtractTidReferences
+    RECORD temp := RunAndExtractTids(resourcename, PTR this->Validate(doc, resourcename, xsd));
+    IF(CellExists(temp.returnvalue,'tids'))
+      temp.tids := temp.tids CONCAT temp.returnvalue.tids;
+    temp.tids := temp.tids CONCAT this->ExtractTidReferences(resourcename, doc);
+    temp.tids := SELECT DISTINCT resourcename := VAR resourcename, line, col, attrname, tid FROM temp.tids;
+    RETURN CELL[ errors := temp.returnvalue.errors
+               , warnings := temp.returnvalue.warnings
+               , tids := temp.tids
+               ];
+  }
+
+  /** Returns the list of tids within a resource
+      @param resourcename Resource
+      @param doc Resource XML document
+      @return
+      @cell(integer) return.line Line number within the source resouce
+      @cell(integer) return.col Column number within the source resouce
+      @cell(string) return.tid Tid
+      @cell(string) return.path Source resource
+  */
+  PUBLIC RECORD ARRAY FUNCTION ExtractTidReferences(STRING resourcename, OBJECT doc)
+  {
+    RETURN RECORD[];
+  }
+
+  /** Validates a resource. Any tids parsed will be
+      @param doc XML document
+      @param resourcename Resource name
+      @param xsd Schema for this document
+      @return Warnings and errors
+      @cell(record array) return.errors
+      @cell(string) return.errors.filename
+      @cell(string) return.errors.line
+      @cell(string) return.errors.col
+      @cell(string) return.errors.message
+  */
+  PUBLIC RECORD FUNCTION Validate(OBJECT doc, STRING resourcename, OBJECT xsd)
+  {
+    RECORD ARRAY errors;
+    IF(ObjectExists(xsd))
+    {
+      errors := xsd->ValidateDocument(doc);
+      IF(Length(errors)>0)
+      {
+        errors := SELECT message
+                       , line
+                       , col :=     0
+                       , resourcename := resourcename
+                    FROM SimplifyXMLValidationErrors(errors, doc->documentelement);
+      }
+    }
+    RETURN
+        [ errors :=   errors
+        , warnings := RECORD[]
+        , tids :=     RECORD[]
+        ];
+  }
+>;
+

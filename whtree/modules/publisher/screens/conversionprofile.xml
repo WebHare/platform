@@ -1,0 +1,373 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/conversionprofile.whlib"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components">
+
+  <messageboxes gid="profileeditor.dialogues">
+    <messagebox name="profilecorrupted"         icon="error" buttons="ok" />
+    <messagebox name="nostylelinked"            icon="warning" buttons="ok" />
+    <messagebox name="nocustomstylenamegiven"   icon="warning" buttons="ok" />
+    <messagebox name="alreadylinkedtothisstyle" icon="warning" buttons="ok" />
+    <messagebox name="warningdeletestyle"       icon="question" buttons="yes no" />
+    <!--messagebox name="invalidvaluefor" icon="warning" buttons="ok" -->
+  </messageboxes>
+
+  <screen name="editor" tid="profileeditor.screentitle" allowresize="false">
+
+    <actions gid="profileeditor.actions">
+      <action name="addstyle" onexecute="doaddstyle"/>
+      <action name="editstyle">
+        <enableon source="styles" min="1" max="1" onexecute="doeditstyle" />
+      </action>
+      <action name="deletestyle">
+        <enableon source="styles" min="1" onexecute="dodeletestyle" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item title="Application">
+        </item>
+      </menu>
+
+      <menu name="stylecontextmenu">
+        <item title="Edit" action="editstyle" />
+        <item title="Delete" action="deletestyle" />
+      </menu>
+    </menus>
+    <body>
+      <box height="1pr" tid=".styles" gid="profileeditor">
+        <grid height="1pr">
+          <col width="1pr" />
+          <col />
+
+          <row height="1pr">
+            <cell>
+              <panel height="1pr">
+                <list height="15x"
+                      name="styles"
+                      selectmode="multiple"
+                      icons="tollium:status/negative tollium:status/checked"
+                      gid="profileeditor.columns"
+                      selectcontextmenu="stylecontextmenu"
+                      openaction="editstyle"
+                      >
+                  <column name="name"
+                          type="text"
+                          width="1pr"
+                          />
+                  <column name="type"
+                          type="text"
+                          width="1pr"
+                          />
+                  <column name="toc"
+                          width="5x"
+                          align="right"
+                          type="text"
+                          />
+                  <column name="tag"
+                          type="text"
+                          width="5x"
+                          />
+                  <column name="split"
+                          type="icon"
+                          align="center"
+                          width="4x"
+                          />
+                </list>
+              </panel>
+            </cell>
+            <cell gid=".actions">
+              <button tid=".addstyle"    action="addstyle" width="1pr"/>
+              <button tid=".editstyle"   action="editstyle" width="1pr"/>
+              <button tid=".deletestyle" action="deletestyle" width="1pr"/>
+            </cell>
+          </row>
+        </grid>
+      </box>
+      <box name="docsummary" gid="profileeditor">
+        <checkbox name="chknolonelytitle" title="" labeltid=".noempty" onchange="doupdatenoempty" />
+        <checkbox name="chkemptydocobjects" title="" labeltid=".nolonely" onchange="doupdateemptydocobjects" />
+      </box>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="styleeditor" allowresize="false" tid="profileeditor.settings.screentitle">
+    <actions>
+    </actions>
+    <compositions>
+      <radiogroup name="linkedstyle" />
+    </compositions>
+    <body>
+      <tabs name="tabs" gid="profileeditor.settings">
+        <tab name="general" tid=".general">
+          <box tid=".style" layout="left" >
+            <grid>
+              <col/>
+              <col/>
+              <row>
+                <cell>
+                  <radiobutton group="linkedstyle" title="" labeltid=".usewordstyle" name="existing" rowkey="existing" enablecomponents="wordstyleid" value="true" />
+                </cell>
+                <cell>
+                  <select name="wordstyleid" type="pulldown" title="" />
+                </cell>
+              </row>
+              <row>
+                <cell>
+                  <radiobutton group="linkedstyle" name="custom" title="" labeltid=".usecustom" rowkey="custom" enablecomponents="customstylename"/>
+                </cell>
+                <cell>
+                  <textedit name="customstylename" title="" />
+                </cell>
+              </row>
+              <row>
+                <cell colspan="2">
+                  <radiobutton group="linkedstyle" name="allother" title="" labeltid=".useimplicit" rowkey="allother"/>
+                </cell>
+              </row>
+            </grid>
+          </box>
+
+          <box tid=".other" layout="left">
+            <select type="pulldown" name="tag">
+              <option rowkey=""   title="" />
+              <option rowkey="h1" title="&lt;H1&gt;" />
+              <option rowkey="h2" title="&lt;H2&gt;" />
+              <option rowkey="h3" title="&lt;H3&gt;" />
+              <option rowkey="h4" title="&lt;H4&gt;" />
+              <option rowkey="h5" title="&lt;H5&gt;" />
+              <option rowkey="h6" title="&lt;H6&gt;" />
+              <option rowkey="h7" title="&lt;H7&gt;" />
+              <option rowkey="h8" title="&lt;H8&gt;" />
+              <option rowkey="h9" title="&lt;H9&gt;" />
+            </select>
+            <checkbox name="chksplit" title="" labeltid=".splitdoconstyle" />
+          </box>
+        </tab>
+        <tab name="font">
+
+          <box name="fontsettings" layout="left">
+            <grid width="1pr">
+              <col width="1pr"/>
+              <col width="1pr"/>
+              <row>
+                <cell>
+                  <checkbox name="overridefontfamily" title="" labeltid=".overridefontfamily"
+                            enablecomponents="fontfamily" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <combobox name="fontfamily" title="" enabled="false" errorlabeltid=".overridefontfamily"/>
+                </cell>
+              </row>
+              <row>
+                <cell>
+                  <checkbox name="overridefontsize" title="" labeltid=".overridefontsize"
+                            enablecomponents="fontsize" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <line>
+                    <combobox name="fontsize" title="" width="8x" maxlength="3" enabled="false" errorlabeltid=".overridefontsize">
+                      <option title="6" />
+                      <option title="7" />
+                      <option title="8" />
+                      <option title="9" />
+                      <option title="10" />
+                      <option title="11" />
+                      <option title="12" />
+                      <option title="14" />
+                      <option title="16" />
+                      <option title="18" />
+                      <option title="20" />
+                      <option title="24" />
+                    </combobox>
+                    <text valuetid=".points" />
+                  </line>
+                </cell>
+              </row>
+              <row>
+                <cell>
+                  <checkbox name="overridefontcolor" title="" labeltid=".overridefontcolor"
+                            enablecomponents="fontcolor" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <line>
+                    <textedit name="fontcolor" title="" width="10x" enabled="false" errorlabeltid=".overridefontcolor"/>
+                    <text valuetid=".hexnumber" />
+                  </line>
+                </cell>
+              </row>
+              <row>
+                <cell>
+                  <checkbox name="overridebgcolor" title="" labeltid=".overridebackgroundcolor"
+                            enablecomponents="bgcolor" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <line>
+                    <textedit name="bgcolor" title="" width="10x" enabled="false" errorlabeltid=".overridebackgroundcolor"/>
+                    <text valuetid=".hexnumber" />
+                  </line>
+                </cell>
+              </row>
+            </grid>
+          </box>
+          <box tid=".fonteffects" layout="left">
+            <grid>
+              <col/>
+              <col/>
+              <row>
+                <cell>
+                  <checkbox name="overridebold" title="" labeltid=".overridebold"
+                            enablecomponents="optbold" onchange="updaterequired" />
+                </cell>
+                <cell>
+                  <select type="pulldown" name="optbold" title="" errorlabeltid=".overridebold" enabled="false">
+                    <option rowkey="" title="" invalidselection="true" />
+                    <option rowkey="never"     tid=".neverbold"/>
+                    <option rowkey="always"    tid=".alwaysbold"/>
+                  </select>
+                </cell>
+              </row>
+              <row>
+                <cell>
+                  <checkbox name="overrideitalic" title="" labeltid=".overrideitalic"
+                            enablecomponents="optitalic" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <select type="pulldown" name="optitalic" title="" errorlabeltid=".overrideitalic" enabled="false">
+                    <option rowkey="" title="" invalidselection="true" />
+                    <option rowkey="never"     tid=".neveritalic"/>
+                    <option rowkey="always"    tid=".alwaysitalic"/>
+                  </select>
+                </cell>
+              </row>
+              <row>
+                <cell>
+                  <checkbox name="overrideunderline" title="" labeltid=".overrideunderline"
+                            enablecomponents="optunderline" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <select type="pulldown" name="optunderline" title="" errorlabeltid=".overrideunderline" enabled="false">
+                    <option rowkey="" title="" invalidselection="true" />
+                    <option rowkey="never"     tid=".neverunderline"/>
+                    <option rowkey="always"    tid=".alwaysunderline"/>
+                  </select>
+                </cell>
+              </row>
+              <row>
+                <cell>
+                  <checkbox name="overridecaps" title="" labeltid=".overridecaps"
+                            enablecomponents="optcaps" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <select name="optcaps" type="pulldown" title="" errorlabeltid=".overridecaps" enabled="false">
+                    <option rowkey="" title="" invalidselection="true" />
+                    <option rowkey="allcaps"   tid=".allcaps"/>
+                    <option rowkey="small"     tid=".smallcaps"/>
+                    <option rowkey="never"     tid=".nocaps"/>
+                  </select>
+                </cell>
+              </row>
+            </grid>
+          </box>
+        </tab>
+        <tab name="paragraph">
+          <box tid=".alignment" layout="left">
+            <grid>
+              <col/>
+              <col/>
+              <row>
+                <cell>
+                  <checkbox name="overridealignment" title="" labeltid=".overridealignment"
+                            enablecomponents="optalign" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <select name="optalign" type="pulldown" title="" errorlabeltid=".overridealignment" enabled="false">
+                    <option rowkey="" invalidselection="true" />
+                    <option rowkey="left"      tid=".left"/>
+                    <option rowkey="right"     tid=".right"/>
+                    <option rowkey="center"    tid=".center"/>
+                    <option rowkey="justified" tid=".justify"/>
+                  </select>
+                </cell>
+              </row>
+            </grid>
+          </box>
+          <box tid=".indentation" layout="left">
+            <grid>
+              <col/>
+              <col/>
+              <row>
+                <cell>
+                  <checkbox name="overrideleftindent" title="" labeltid=".overrideleftindentation"
+                            enablecomponents="leftindentation" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <line><textedit name="leftindentation" title="" errorlabeltid=".overrideleftindentation" width="5x" maxlength="3"/><text valuetid=".points" /></line>
+                </cell>
+              </row>
+              <row>
+                <cell>
+                  <checkbox name="overriderightindent" title="" labeltid=".overriderightindentation"
+                            enablecomponents="rightindentation" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <line><textedit name="rightindentation" title="" errorlabeltid=".overriderightindentation" width="5x" maxlength="3"/><text valuetid=".points" /></line>
+                </cell>
+              </row>
+              <row>
+                <cell>
+                  <checkbox name="overridefirstlineindent" title="" labeltid=".overridefirstlineindentation"
+                            enablecomponents="firstlineindentation" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <line><textedit name="firstlineindentation" title="" errorlabeltid=".overridefirstlineindentation" width="5x" maxlength="3"/><text valuetid=".points" /></line>
+                </cell>
+              </row>
+            </grid>
+          </box>
+          <box tid=".spacing" layout="left">
+            <grid>
+              <col/>
+              <col/>
+              <row>
+                <cell>
+                  <checkbox name="overridespaceabove" title="" labeltid=".overridespaceabove"
+                            enablecomponents="vertspaceabove" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <line><textedit name="vertspaceabove" title="" errorlabeltid=".overridespaceabove" width="5x"/><text valuetid=".points" /></line>
+                </cell>
+              </row>
+              <row>
+                <cell>
+                  <checkbox name="overridespacebelow" title="" labeltid=".overridespacebelow"
+                            enablecomponents="vertspacebelow" onchange="updaterequired"/>
+                </cell>
+                <cell>
+                  <line><textedit name="vertspacebelow" title="" errorlabeltid=".overridespacebelow" width="5x"/><text valuetid=".points" /></line>
+                </cell>
+              </row>
+            </grid>
+          </box>
+        </tab>
+        <tab name="advanced" layout="left">
+          <panel layout="left">
+            <text valuetid=".advancedexplanation" wordwrap="true"/>
+          </panel>
+          <box tid=".exclusion">
+            <checkbox name="dontpublish" title="" labeltid=".dontpublish" />
+            <checkbox name="opthidenumbering" title="" labeltid=".hidebullets" />
+            <checkbox name="optshowhidden" title="" labeltid=".hiddentexts" />
+          </box>
+          <textedit name="toclevel" tid=".toclevel" width="5x"/>
+          <checkbox name="chkistableheader" title="" labeltid=".istableheader" />
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+</screens>

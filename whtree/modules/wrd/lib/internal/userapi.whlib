@@ -1,0 +1,1542 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::tollium/lib/users.whlib";
+LOADLIB "mod::wrd/lib/internal/authobjects.whlib";
+LOADLIB "mod::wrd/lib/internal/authsupport.whlib";
+
+
+OBJECTTYPE LocalWork
+< OBJECT trans;
+  MACRO NEW(OBJECT trans)
+  {
+    IF (trans->HasWorkSupport() AND NOT trans->IsWorkOpen())
+    {
+      trans->BeginWork();
+      this->trans := trans;
+    }
+  }
+
+  PUBLIC MACRO Finish()
+  {
+    IF (ObjectExists(this->trans))
+      this->trans->PopWork();
+  }
+>;
+//FIXME isnt this reimplementing push/pop work?
+OBJECT FUNCTION StartLocalWork(OBJECT trans) { RETURN NEW LocalWork(trans); }
+
+RECORD ARRAY FUNCTION GetSomeDBObjects(STRING whichguid)
+{
+  RETURN SELECT id
+           , parent
+           , guid
+           , name
+           , deletiondate
+           , type
+           , action :=  "delete"
+        FROM system.authobjects
+       WHERE (whichguid = "" ? TRUE : guid = whichguid)
+         AND type IN [ 1, 2, 3 ]
+         AND guid NOT LIKE "<*>"
+    ORDER BY guid;
+}
+
+RECORD ARRAY FUNCTION GetAllDBObjects()
+{
+  RETURN GetSomeDBObjects("");
+}
+
+RECORD ARRAY FUNCTION GetDBObjectsForAuthobjects(RECORD ARRAY syncables)
+{
+  RECORD ARRAY output;
+  FOREVERY(RECORD syncable FROM syncables)
+    output := output CONCAT GetSomeDBObjects(syncable.guid);
+  RETURN SELECT * FROM output ORDER BY guid;
+}
+
+MACRO AddAuthObjects(RECORD ARRAY syncables)
+{
+  DATETIME now := GetCurrentDateTime();
+  FOREVERY (RECORD rec FROM syncables)
+  {
+    INSERT INTO system.authobjects(id, type, name, guid, creationdate, parent)
+      VALUES (rec.id, rec.type, rec.want.name, rec.guid, now, rec.want.parent);
+  }
+}
+
+RECORD FUNCTION EnrichAuthObjectsWithDBObjects(RECORD ARRAY allwantauthobjs, RECORD ARRAY dbobjects)
+{
+  // Keep sorted on wrd_id
+  allwantauthobjs :=
+      SELECT id :=           0
+           , parent := 0
+           , *
+           , name := name ?? guid
+        FROM allwantauthobjs
+    ORDER BY wrd_id;
+
+  // Add missing authobjects to the list of dbobjects (and calc their ids, so we can lookup parent for new units)
+  FOREVERY (RECORD rec FROM allwantauthobjs)
+  {
+    RECORD pos := RecordLowerBound(dbobjects, rec, [ "GUID" ]);
+    IF (NOT pos.found)
+    {
+      allwantauthobjs[#rec].id := MakeAutoNumber(system.authobjects, "ID");
+      INSERT
+          [ id :=           allwantauthobjs[#rec].id
+          , type :=         rec.type
+          , name :=         rec.name
+          , guid :=         rec.guid
+          , parent :=       0
+          , action :=       "insert"
+          ] INTO dbobjects AT pos.position;
+    }
+    ELSE
+    {
+      allwantauthobjs[#rec].id := dbobjects[pos.position].id;
+    }
+  }
+
+  // Lookup the parent ids for all the objects we want to be in the system authobjects
+  FOREVERY (RECORD rec FROM allwantauthobjs)
+  {
+    IF (rec.parentwrdid = 0) //that's okay, we already inited the allwantauthobj to '0'
+      CONTINUE;
+
+    RECORD pos := RecordLowerBound(allwantauthobjs, [ wrd_id := rec.parentwrdid ], [ "WRD_ID" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception(`Cannot find expected parent wrd#${rec.parentwrdid} for object wrd#${rec.wrd_id} (${rec.name}) in allwantauthobjs`);
+
+    allwantauthobjs[#rec].parent := allwantauthobjs[pos.position].id;
+  }
+
+  RETURN [ allwantauthobjs := allwantauthobjs, dbobjects := dbobjects ];
+}
+
+RECORD ARRAY FUNCTION CheckDBObjectsAgainstAuthObjects(RECORD ARRAY dbobjects, RECORD ARRAY allwantauthobjs)
+{
+  FOREVERY (RECORD rec FROM allwantauthobjs)
+  {
+    RECORD pos := RecordLowerBound(dbobjects, rec, [ "GUID" ]);
+    RECORD dbrec := dbobjects[pos.position];
+
+    IF (dbrec.action = "delete") //existing dbobjects are always set to 'delete', here is where we decide to preserve them (if they are still wanted)
+    {
+      IF (dbrec.name != rec.name OR dbrec.parent != rec.parent OR dbrec.deletiondate != DEFAULT DATETIME)
+      {
+        //TODO shouldn't we clear the name in authobjects if the user should be deleted?
+        dbobjects[pos.position].action := "update"; //we need to update it
+      }
+      ELSE
+      {
+        dbobjects[pos.position].action := "nothing"; //mark it as do-nothing
+        CONTINUE; //and no new data to write
+      }
+    }
+    IF (NOT CellExists(dbobjects[pos.position], "WANT"))
+      INSERT CELL want := rec INTO dbobjects[pos.position]; //add the wanted data for update & insert
+  }
+
+  FOREVERY(RECORD dbrec FROM dbobjects)
+    IF(dbrec.action = "delete" AND dbrec.type = 1 AND dbrec.deletiondate != DEFAULT DATETIME) //a user still marked for deletion, so we didn't want him
+      dbobjects[#dbrec].action := "nothing";
+
+  RETURN dbobjects;
+}
+
+RECORD ARRAY FUNCTION ApplyDBWantedAuthObjects(RECORD ARRAY allwantauthobjs, BOOLEAN fullsync)
+{
+  // Get the current system authobjects
+  RECORD ARRAY dbobjects := fullsync ? GetAllDBObjects() : GetDBObjectsForAuthobjects(allwantauthobjs);
+
+  // Add missing authobjects to the list of dbobjects (and calc their ids, so we can lookup parent for new units)
+  RECORD res := EnrichAuthObjectsWithDBObjects(allwantauthobjs, dbobjects);
+  allwantauthobjs := res.allwantauthobjs;
+  dbobjects := res.dbobjects;
+
+  // Check all system authobjects if they still match with the WRD data
+  dbobjects := CheckDBObjectsAgainstAuthObjects(dbobjects, allwantauthobjs);
+
+  // Remove all objects that are ok
+  DELETE FROM dbobjects WHERE action = "nothing";
+
+// Insert all new records first
+  AddAuthObjects(SELECT * FROM dbobjects WHERE action = "insert");
+
+  // Do modifications, including changing parent
+  FOREVERY (RECORD rec FROM SELECT * FROM dbobjects WHERE action = "update")
+  {
+    UPDATE system.authobjects
+       SET parent :=      rec.want.parent
+         , name :=        rec.want.name
+         , deletiondate := DEFAULT DATETIME
+     WHERE id = rec.id;
+  }
+
+  // Delete units and roles that have been deleted
+  // ADDME When to delete a user? Since they can still be referred externally, when is it safe to delete? (ie modifiedby)
+  INTEGER ARRAY tokill := SELECT AS INTEGER ARRAY id FROM dbobjects WHERE action="delete" AND type != 1; //select all roles (3) and units (2)
+  UPDATE system.authobjects SET parent := 0 WHERE parent IN tokill; //move their children to the root unit
+  DELETE FROM system.authobjects WHERE id IN tokill;
+
+  INTEGER ARRAY toclose := SELECT AS INTEGER ARRAY id FROM dbobjects WHERE action="delete" AND deletiondate = DEFAULT DATETIME AND type = 1;
+  UPDATE system.authobjects SET deletiondate := GetCurrentDatetime()
+                            WHERE id IN toclose;
+
+  __INTERNAL_GetSystemSchemaBinding()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
+  RETURN dbobjects;
+}
+
+//Get the unit structure as desired
+RECORD ARRAY FUNCTION GetSyncableUnits(OBJECT wrdunittype, INTEGER ARRAY limitunits)
+{
+  RECORD ARRAY wrd_units := wrdunittype->RunQuery([ outputcolumns := [ "WRD_ID", "WRD_GUID", "WRD_TITLE", "WRD_LEFTENTITY", "WRD_CREATIONDATE" ]
+                                                  , historymode := "all"
+                                                  ]);
+
+  RECORD legacy_whmodules := SELECT * FROM wrd_units WHERE wrd_title = "__whmodules__";
+  IF(RecordExists(legacy_whmodules))
+  {
+    wrdunittype->DeleteEntity(legacy_whmodules.wrd_id); //there's no need to have this one anymore
+    DELETE FROM wrd_units WHERE wrd_title = "__whmodules__";
+  }
+
+  // Construct the system authobject records as we want them to be (only types 1, 2, 3)
+  RECORD ARRAY wantauthobjs :=
+      SELECT wrd_id
+           , parentwrdid :=   wrd_leftentity
+           , guid :=          wrd_guid
+           , name :=          wrd_title
+           , type :=          2
+        FROM wrd_units;
+  RETURN wantauthobjs;
+}
+
+//Get the user structure as desired
+RECORD ARRAY FUNCTION GetSyncableUsers(OBJECT wrdusertype, INTEGER ARRAY limitusers)
+{
+  RECORD ARRAY users := wrdusertype->RunQuery(
+        [ outputcolumns := [ wrd_id := "WRD_ID"
+                           , wrd_guid := "WRD_GUID"
+                           , wrd_title := "WRD_TITLE"
+                           , whuser_unit := "WHUSER_UNIT"
+                           , wrd_creationdate := "WRD_CREATIONDATE"
+                           , loginname := wrdusertype->wrdschema->accountlogintag
+                           , email := wrdusertype->wrdschema->accountemailtag
+                           ]
+        , historymode := "all"
+        , filters := Length(limitusers)>0 ? [[ field := "WRD_ID", matchtype := "IN", value := limitusers ]]
+                                          : DEFAULT RECORD ARRAY
+        ]);
+  RETURN SELECT wrd_id
+             , parentwrdid :=   whuser_unit
+             , guid :=          wrd_guid
+             , name :=          loginname
+             , type :=          1
+             , realname :=      wrd_title
+             , email :=         email
+          FROM users;
+}
+
+//Get the role structures as desired
+RECORD ARRAY FUNCTION GetSyncableRoles(OBJECT wrdroletype, INTEGER ARRAY limitroles)
+{
+  RECORD ARRAY roles := wrdroletype->RunQuery(
+        [ outputcolumns := [ "WRD_ID", "WRD_GUID", "WRD_TITLE", "WRD_LEFTENTITY", "WRD_CREATIONDATE" ]
+        , filters := Length(limitroles)>0 ? [[ field := "WRD_ID", matchtype := "IN", value := limitroles ]]
+                                          : DEFAULT RECORD ARRAY
+        ]);
+
+  RETURN SELECT wrd_id
+             , parentwrdid :=   wrd_leftentity
+             , guid :=          wrd_guid
+             , name :=          wrd_title
+             , type :=          3
+          FROM roles;
+}
+
+
+/** Webhare user API object
+    @topic wrdauth/api
+    @public
+*/
+PUBLIC STATIC OBJECTTYPE WHUserApi
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_wrdunit;
+  OBJECT pvt_wrdrole;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  /** @type(object %WRDSchema2017) Associated WRD schema */
+  PUBLIC OBJECT wrdschema;
+
+  /** @type(object %WRDType2017) WRD type where units are stored */
+  PUBLIC PROPERTY wrd_unit(GetUnitType, -);
+
+  /** @type(object %WRDType2017) WRD type where roles are stored */
+  PUBLIC PROPERTY wrd_role(GetRoleType, -);
+
+  /** @type(object %WRDType2017) WRD type where users are stored */
+  PUBLIC PROPERTY accounttype(this->wrdschema->accounttype, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @private Should not be constructed manually
+      @param wrdschema WRD schema
+  */
+  MACRO NEW(OBJECT wrdschema)
+  {
+    this->wrdschema := wrdschema;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  OBJECT FUNCTION GetRoleType()
+  {
+    IF (NOT ObjectExists(this->pvt_wrdrole))
+      this->pvt_wrdrole := this->wrdschema->GetType("WHUSER_ROLE");
+    RETURN this->pvt_wrdrole;
+  }
+
+  OBJECT FUNCTION GetUnitType()
+  {
+    IF (NOT ObjectExists(this->pvt_wrdunit))
+      this->pvt_wrdunit := this->wrdschema->GetType("WHUSER_UNIT");
+    RETURN this->pvt_wrdunit;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  PUBLIC RECORD ARRAY FUNCTION ResyncToSystemTables()
+  {
+    //ADDME as an optimization, for most actions a non-destructive schema-only sync would suffice...
+    RETURN ResyncAllToSystemTables();
+  }
+
+  RECORD ARRAY FUNCTION GetUnitContents(OBJECT unit)
+  {
+    RECORD ARRAY subunits := this->wrd_unit->RunQuery(
+        [ outputcolumns := [ "WRD_ID" ]
+        , filters := [ [ field := "WRD_LEFTENTITY", value := unit->entityid ] ]
+        ]);
+    RECORD ARRAY subroles := this->wrd_role->RunQuery(
+        [ outputcolumns := [ "WRD_ID" ]
+        , filters := [ [ field := "WRD_LEFTENTITY", value := unit->entityid ] ]
+        ]);
+    RECORD ARRAY subpersons := this->wrdschema->accounttype->RunQuery(
+        [ outputcolumns := [ "WRD_ID" ]
+        , filters := [ [ field := "WHUSER_UNIT", value := unit->entityid ] ]
+        ]);
+
+    RETURN
+       (SELECT type :=      "unit"
+             , entityid :=  wrd_id
+             , obj :=       this->GetUnit(wrd_id)
+          FROM subunits) CONCAT
+       (SELECT type :=      "role"
+             , entityid :=  wrd_id
+             , obj :=       this->GetRole(wrd_id)
+          FROM subroles) CONCAT
+       (SELECT type :=      "person"
+             , entityid :=  wrd_id
+             , obj :=       this->GetUser(wrd_id)
+          FROM subpersons);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Get the user object for a user
+      @param entityid Entity id of the user
+      @return(object %TolliumUser) User object
+  */
+  PUBLIC OBJECT FUNCTION GetUser(INTEGER entityid)
+  {
+    OBJECT entity := this->wrdschema->accounttype->GetEntity(entityid);
+    IF (NOT ObjectExists(entity))
+      RETURN DEFAULT OBJECT;
+
+    RECORD fields := entity->GetFields(GetSortedSet([ "wrd_fullname", "wrd_contact_email", ToLowercase(this->wrdschema->accountlogintag) ]));
+
+    OBJECT user := NEW TolliumUser(this, entity, 0, `<${entity->guid}>`);
+    user->realname := fields.wrd_fullname;
+    user->login := GetCell(fields, this->wrdschema->accountlogintag);
+    user->emailaddress := fields.wrd_contact_email;
+    RETURN user;
+  }
+
+  /** Get the user object for a user, by looking up the GUID of the user
+      @param guid GUID of the user
+      @return(object %TolliumUser) User object
+  */
+  PUBLIC OBJECT FUNCTION GetUserByGUID(STRING guid)
+  {
+    INTEGER entityid := this->wrdschema->accounttype->Search("WRD_GUID", guid);
+    IF(entityid = 0)
+      RETURN DEFAULT OBJECT;
+
+    RETURN NEW WRDAuthUser(this, this->wrdschema->accounttype->GetEntity(entityid), 0);
+  }
+
+  PUBLIC OBJECT FUNCTION GetRole(INTEGER entityid)
+  {
+    RETURN NEW WRDAuthRole(this, this->wrd_role->GetEntity(entityid));
+  }
+
+  PUBLIC OBJECT FUNCTION GetUnit(INTEGER entityid)
+  {
+    RETURN NEW WRDAuthUnit(this, this->wrd_unit->GetEntity(entityid));
+  }
+
+  PUBLIC INTEGER FUNCTION LookupUnitByName(INTEGER parent, STRING unitname)
+  {
+    RECORD ARRAY result := this->wrd_unit->RunQuery ( [ outputcolumns := [ id := "WRD_ID" ]
+                                                      , filters := [[ field := "WRD_LEFTENTITY", value := parent ]
+                                                                   ,[ field := "WRD_TITLE", value := unitname, match_case := FALSE ]
+                                                                   ]
+                                                      ]);
+    RETURN Length(result) = 1 ? result[0].id : 0;
+  }
+
+  PUBLIC MACRO SetAuthorizedUser(INTEGER entityid)
+  {
+    RECORD authrec := GetAuthenticationRecord();
+
+    // Already set & the same?
+    IF (CellExists(authrec, "WRDAUTHAPI") AND authrec.wrdauthapi.wrdentityid = entityid)
+      RETURN;
+
+    IF (CellExists(authrec, "WRDAUTHAPI"))
+      DELETE CELL wrdauthapi FROM authrec;
+
+    INSERT CELL wrdauthapi :=
+        [ wrdentityid :=    entityid
+        ] INTO authrec;
+
+    SetAuthenticationRecord(authrec);
+  }
+
+  /** Looks up a user based on the login name
+      @param loginname Login name
+      @return Lookup result, DEFAULT RECORD if not found
+      @cell return.wrd_id entityid id of the user
+      @cell return.guid GUID of the user
+      @cell return.password Hashed password of the user
+      @cell return.authobjectid Authobject id of the user
+  */
+  PUBLIC RECORD FUNCTION LookupUserByLogin(STRING loginname)
+  {
+    RECORD ARRAY filters := [[ field := this->wrdschema->accountlogintag, value := loginname, matchcase := FALSE ]];
+    IF(RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_DISABLED")))
+      INSERT [ field := "WHUSER_DISABLED", value := FALSE ] INTO filters AT END;
+
+    RECORD ARRAY res := this->wrdschema->accounttype->RunQuery(
+          [ outputcolumns := [ entityid := "WRD_ID", guid := "WRD_GUID", password := this->wrdschema->accountpasswordtag ]
+          , filters := filters
+          ]);
+
+    IF(Length(res) != 1)
+      RETURN DEFAULT RECORD;
+
+    RECORD retval := res[0];
+    INTEGER authid := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = res[0].guid;
+    IF(authid=0)
+      RETURN DEFAULT RECORD;
+
+    INSERT CELL authobjectid := authid INTO retval;
+    RETURN retval;
+  }
+
+  /** Checks if the name for a user/unit is allowed in a unit
+      @param unit Unit to create the entity in / move the entity to
+      @param name Name to check
+      @param existing_id Id of the original entity (0 for new entities)
+      @param foruser TRUE to check for usernames, FALSE for units
+      @param work Work object
+      @return TRUE if the name is ok, FALSE (and work errors) if any problem was found
+  */
+  PUBLIC BOOLEAN FUNCTION CheckName(OBJECT unit, STRING name, INTEGER existing_id, BOOLEAN foruser, OBJECT work)
+  {
+    INTEGER parent := unit->entityid;
+    WHILE (parent != 0)
+    {
+      IF (existing_id = parent)
+      {
+        IF (ObjectExists(work))
+        {
+          work->AddError(GetTid("wrd:authobjects.unitmoveintoitself", name));
+          RETURN FALSE;
+        }
+        THROW NEW Exception("Cannot move a unit into itself or any of its children");
+      }
+      parent := this->wrd_unit->GetEntity(parent)->GetField("WRD_LEFTENTITY");
+    }
+
+    IF (RecordExists(this->wrd_unit->RunQuery(
+          [ filters :=
+                [ [ field := "WRD_LEFTENTITY", value := unit->entityid ]
+                , [ field := "WRD_TITLE", value := name ]
+                , [ field := "WRD_ID", matchtype := "!=", value := existing_id ]
+                ]
+          ])))
+    {
+      IF (ObjectExists(work))
+      {
+        work->AddError(GetTid("wrd:authobjects.unitsamenamealreadyexists", name));
+        RETURN FALSE;
+      }
+      THROW NEW Exception("Cannot rename, a unit with name '" || EncodeJava(name) || "' already exists in this unit");
+    }
+
+    IF (RecordExists(this->wrd_role->RunQuery(
+          [ filters :=
+                [ [ field := "WRD_LEFTENTITY", value := unit->entityid ]
+                , [ field := "WRD_TITLE", value := name ]
+                , [ field := "WRD_ID", matchtype := "!=", value := existing_id ]
+                ]
+          ])))
+    {
+      IF (ObjectExists(work))
+      {
+        work->AddError(GetTid("wrd:authobjects.rolesamenamealreadyexists", name));
+        RETURN FALSE;
+      }
+      THROW NEW Exception("Cannot rename, a role with name '" || EncodeJava(name) || "' already exists in this unit");
+    }
+
+    IF (RecordExists(this->wrdschema->accounttype->RunQuery(
+          [ filters :=
+                [ [ field := this->wrdschema->accountlogintag, value := name ]
+                , [ field := "WRD_ID", matchtype := "!=", value := existing_id ]
+                ] CONCAT (foruser ? [ [ field := "WHUSER_UNIT", value := unit->entityid ] ] : DEFAULT RECORD ARRAY)
+          ])))
+    {
+      IF (ObjectExists(work))
+      {
+        work->AddError(GetTid("wrd:authobjects.usersamenamealreadyexists", name));
+        RETURN FALSE;
+      }
+      THROW NEW Exception("Cannot rename, a user with name '" || EncodeJava(name) || "' already exists");
+    }
+
+    RETURN TRUE;
+  }
+
+  /** Creates a new user
+      @param data User data
+      @cell data.whuser_unit Id of the unit to create this user in
+      @cell data.whuser_login Login name
+      @cell data.wrd_contact_email User email address
+      @return Id of the new user
+  */
+  PUBLIC INTEGER FUNCTION CreateUser(RECORD data)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    OBJECT lock;
+    lock := OpenLockManager()->LockMutex("wrd:usermgmt");
+    TRY
+    {
+      INTEGER unitid := data.whuser_unit;
+      OBJECT unit := this->GetUnit(data.whuser_unit);
+      this->CheckName(unit, GetCell(data, this->wrdschema->accountlogintag), 0, TRUE, DEFAULT OBJECT);
+
+      OBJECT work := StartLocalWork(trans);
+
+      TRY
+      {
+        OBJECT newuser := this->wrdschema->accounttype->CreateEntity(data);
+        RECORD ARRAY tosync := GetSyncableUsers(this->wrdschema->accounttype, [INTEGER(newuser->id)]) CONCAT GetSyncableUnits(this->wrd_unit, [unitid]);;
+        ApplyDBWantedAuthObjects(tosync, FALSE);
+        RETURN newuser->id;
+      }
+      FINALLY
+      {
+        work->Finish();
+      }
+    }
+    FINALLY
+    {
+      lock->Close();
+    }
+  }
+
+  /** Updates the data of a user
+      @param id User id
+      @param data User data updates
+      @cell data.whuser_unit Id of the unit to move the user to
+  */
+  PUBLIC MACRO UpdateUser(INTEGER id, RECORD data)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
+    TRY
+    {
+      OBJECT entity := this->wrdschema->accounttype->GetEntity(id);
+      IF (NOT ObjectExists(entity))
+        THROW NEW Exception("Could not find user to update");
+
+      IF (CellExists(data, this->wrdschema->accountlogintag) OR CellExists(data, "WHUSER_UNIT"))
+      {
+        INTEGER unit := CellExists(data, "WHUSER_UNIT") ? data.whuser_unit : entity->GetField("WHUSER_UNIT");
+        STRING name := CellExists(data, this->wrdschema->accountlogintag) ? GetCell(data, this->wrdschema->accountlogintag) : entity->GetField(this->wrdschema->accountlogintag);
+        this->CheckName(this->GetUnit(unit), name, id, TRUE, DEFAULT OBJECT);
+      }
+
+      OBJECT work := StartLocalWork(trans);
+
+      TRY
+      {
+        entity->UpdateEntity(data);
+        this->ResyncToSystemTables();
+      }
+      FINALLY
+      {
+        work->Finish();
+      }
+    }
+    FINALLY
+    {
+      lock->Close();
+    }
+  }
+
+  PUBLIC MACRO DeleteUser(INTEGER id)
+  {
+    this->UpdateUser(id, [ wrd_limitdate := GetCurrentDateTime() ]);
+  }
+
+  PUBLIC MACRO SyncUserAfterUpdate(INTEGER id)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+    OBJECT work := StartLocalWork(trans);
+    TRY
+    {
+      this->ResyncToSystemTables();
+    }
+    FINALLY
+    {
+      work->Finish();
+    }
+  }
+
+  PUBLIC INTEGER FUNCTION CreateUnit(RECORD data)
+  {
+    IF(NOT CellExists(data,'wrd_title'))
+      THROW NEW Exception("WRD_TITLE is a required field");
+
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    OBJECT lock;
+    lock := OpenLockManager()->LockMutex("wrd:usermgmt");
+    TRY
+    {
+      INTEGER unitid := CellExists(data, "WRD_LEFTENTITY") ? data.wrd_leftentity : 0;
+      this->CheckName(this->GetUnit(unitid), data.wrd_title, 0, FALSE, DEFAULT OBJECT);
+
+      OBJECT work := StartLocalWork(trans);
+
+      TRY
+      {
+        INTEGER res := this->wrd_unit->__DoCreateEntity(data)->id;
+        INTEGER ARRAY syncunits := [res];
+        IF(unitid!=0)
+          INSERT unitid INTO syncunits AT END;
+
+        RECORD ARRAY tosync := GetSyncableUnits(this->wrd_unit, syncunits);
+        ApplyDBWantedAuthObjects(tosync, FALSE);
+        RETURN res;
+      }
+      FINALLY
+      {
+        work->Finish();
+      }
+    }
+    FINALLY
+    {
+      lock->Close();
+    }
+  }
+
+  PUBLIC MACRO UpdateUnit(INTEGER id, RECORD data)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
+    TRY
+    {
+      OBJECT entity := this->wrd_unit->GetEntity(id);
+      IF (NOT ObjectExists(entity))
+        THROW NEW Exception("Could not find unit to update");
+
+      IF (CellExists(data, "WRD_LEFTENTITY") OR CellExists(data, "WRD_TITLE"))
+      {
+        INTEGER unit := CellExists(data, "WRD_LEFTENTITY") ? data.wrd_leftentity : entity->GetField("WRD_LEFTENTITY");
+        STRING name := CellExists(data, "WRD_TITLE") ? data.wrd_title : entity->GetField("WRD_TITLE");
+        this->CheckName(this->GetUnit(unit), name, id, FALSE, DEFAULT OBJECT);
+      }
+
+      OBJECT work := StartLocalWork(trans);
+
+      TRY
+      {
+        entity->UpdateEntity(data);
+        this->ResyncToSystemTables();
+      }
+      FINALLY
+      {
+        work->Finish();
+      }
+    }
+    FINALLY
+    {
+      lock->Close();
+    }
+  }
+
+  PUBLIC MACRO DeleteUnit(INTEGER id)
+  {
+    this->UpdateUnit(id, [ wrd_limitdate := GetCurrentDateTime() ]);
+  }
+
+  PUBLIC MACRO SyncUnitAfterUpdate(INTEGER id)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+    OBJECT work := StartLocalWork(trans);
+    TRY
+    {
+      this->ResyncToSystemTables();
+    }
+    FINALLY
+    {
+      work->Finish();
+    }
+  }
+
+  PUBLIC INTEGER FUNCTION CreateRole(RECORD data)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
+    TRY
+    {
+      INTEGER unitid := CellExists(data, "WRD_LEFTENTITY") ? data.wrd_leftentity : 0;
+      this->CheckName(this->GetUnit(unitid), data.wrd_title, 0, FALSE, DEFAULT OBJECT);
+
+      OBJECT work := StartLocalWork(trans);
+
+      TRY
+      {
+        INTEGER res := this->wrd_role->CreateEntity(data)->id;
+        RECORD ARRAY tosync := GetSyncableRoles(this->wrd_role, [res]);
+        IF(unitid != 0)
+          tosync := tosync CONCAT GetSyncableUnits(this->wrd_unit, [unitid]);
+        ApplyDBWantedAuthObjects(tosync, FALSE);
+        RETURN res;
+      }
+      FINALLY
+      {
+        work->Finish();
+      }
+    }
+    FINALLY
+    {
+      lock->Close();
+    }
+  }
+
+  PUBLIC MACRO UpdateRole(INTEGER id, RECORD data)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
+    TRY
+    {
+      OBJECT entity := this->wrd_role->GetEntity(id);
+      IF (NOT ObjectExists(entity))
+        THROW NEW Exception("Could not find role to update");
+
+      IF (CellExists(data, "WRD_LEFTENTITY") OR CellExists(data, "WRD_TITLE"))
+      {
+        INTEGER unit := CellExists(data, "WRD_LEFTENTITY") ? data.wrd_leftentity : entity->GetField("WRD_LEFTENTITY");
+        STRING name := CellExists(data, "WRD_TITLE") ? data.wrd_title : entity->GetField("WRD_TITLE");
+        this->CheckName(this->GetUnit(unit), name, id, FALSE, DEFAULT OBJECT);
+      }
+
+      OBJECT work := StartLocalWork(trans);
+
+      TRY
+      {
+        entity->UpdateEntity(data);
+        this->ResyncToSystemTables();
+      }
+      FINALLY
+      {
+        work->Finish();
+      }
+    }
+    FINALLY
+    {
+      lock->Close();
+    }
+  }
+
+  PUBLIC INTEGER ARRAY FUNCTION __GetRoleMembersByAuthObjectId(INTEGER role_authobjectid)
+  {
+    RECORD ARRAY rolegrants :=
+       SELECT DISTINCT grantee
+         FROM system.rolegrants
+        WHERE COLUMN role = VAR role_authobjectid;
+    RETURN SELECT AS INTEGER ARRAY entityid FROM this->EnrichUsers("GRANTEE", rolegrants, [ celltype := "authobjectid" ]);
+  }
+
+  /** @short Set the members of a role, removing all unmentioned members
+      @param role Entity id of the role
+      @return Entity ids with this role
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetRoleMembers(INTEGER role)
+  {
+    STRING roleguid := SELECT AS STRING EncodeWRDGUID(guid) FROM wrd.entities WHERE id = role;
+    INTEGER roleauthobjectid := SELECT AS INTEGER id FROM system.authobjects WHERE guid=roleguid;
+    IF(roleauthobjectid=0)
+      THROW NEW Exception("No authobject for role #" || role);
+    RETURN this->__GetRoleMembersByAuthObjectId(roleauthobjectid);
+  }
+
+  /** @short Set the members of a role, removing all unmentioned members
+      @param role Entity id of the role
+      @param memberlist Entity id of members
+      @param grantedby Entity id of the user setting the member list
+  */
+  PUBLIC MACRO SetRoleMembers(INTEGER role, INTEGER ARRAY memberlist, INTEGER grantedby)
+  {
+    INTEGER grantorauthobjectid;
+    IF(grantedby != 0)
+    {
+      STRING grantorguid := SELECT AS STRING EncodeWRDGUID(guid) FROM wrd.entities WHERE id = grantedby;
+      grantorauthobjectid := SELECT AS INTEGER id FROM system.authobjects WHERE guid=grantorguid;
+      IF(grantorauthobjectid=0)
+        THROW NEW Exception("No authobject for user #" || grantedby || " (grantor");
+    }
+
+    STRING roleguid := SELECT AS STRING EncodeWRDGUID(guid) FROM wrd.entities WHERE id = role;
+    STRING ARRAY userguids := SELECT AS STRING ARRAY EncodeWRDGUID(guid) FROM wrd.entities WHERE id IN memberlist;
+
+    INTEGER roleauthobjectid := SELECT AS INTEGER id FROM system.authobjects WHERE guid=roleguid;
+    IF(roleauthobjectid=0)
+      THROW NEW Exception("No authobject for role #" || role);
+
+    INTEGER ARRAY userauthobjectids := SELECT AS INTEGER ARRAY id FROM system.authobjects WHERE guid IN userguids AND id != 0;
+
+    DELETE FROM system.rolegrants WHERE rolegrants.role = roleauthobjectid AND grantee NOT IN userauthobjectids;
+    INTEGER ARRAY currentmembers := SELECT AS INTEGER ARRAY grantee FROM system.rolegrants WHERE rolegrants.role = roleauthobjectid;
+    RECORD ARRAY addmembers := SELECT * FROM ToRecordArray(userauthobjectids,"AUTHOBJECTID") WHERE authobjectid NOT IN currentmembers;
+    FOREVERY(RECORD toadd FROM addmembers)
+      INSERT INTO system.rolegrants(role, grantee, grantor, creationdate)
+             VALUES(roleauthobjectid, toadd.authobjectid, grantorauthobjectid, GetCurrentDatetime());
+  }
+
+  PUBLIC MACRO DeleteRole(INTEGER id)
+  {
+    this->UpdateRole(id, [ wrd_limitdate := GetCurrentDateTime() ]);
+  }
+
+  PUBLIC MACRO SyncRoleAfterUpdate(INTEGER id)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+    OBJECT work := StartLocalWork(trans);
+    TRY
+    {
+      this->ResyncToSystemTables();
+    }
+    FINALLY
+    {
+      work->Finish();
+    }
+  }
+
+  PUBLIC OBJECT FUNCTION GetObjectByAuthObjectId(INTEGER authobjectid)
+  {
+    RECORD rec := SELECT type, guid FROM system.authobjects WHERE id = authobjectid;
+    IF (NOT RecordExists(rec))
+      RETURN DEFAULT OBJECT;
+
+    SWITCH (rec.type)
+    {
+      CASE 1 // user
+        {
+          INTEGER id := this->wrdschema->accounttype->Search("WRD_GUID", rec.guid);
+          RETURN id = 0 ? DEFAULT OBJECT : this->GetUser(id);
+        }
+      CASE 2 // unit
+        {
+          INTEGER id := this->wrd_unit->Search("WRD_GUID", rec.guid);
+          RETURN id = 0 ? DEFAULT OBJECT : this->GetUnit(id);
+        }
+      CASE 3 // role
+        {
+          INTEGER id := this->wrd_role->Search("WRD_GUID", rec.guid);
+          RETURN id = 0 ? DEFAULT OBJECT : this->GetRole(id);
+        }
+    }
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetObjectsByAuthObjectId(INTEGER ARRAY authobjectids)
+  {
+    OBJECT ARRAY result;
+    FOREVERY (INTEGER authobjectid FROM authobjectids)
+    {
+      OBJECT obj := this->GetObjectByAuthObjectId(authobjectid);
+      IF (ObjectExists(obj))
+        INSERT obj INTO result AT END;
+    }
+    RETURN result;
+  }
+
+  PUBLIC OBJECT FUNCTION GetUnitOf(OBJECT authobj)
+  {
+    RETURN this->GetUnit(authobj->GetParentUnitId());
+  }
+
+  PUBLIC MACRO DeleteMultiple(OBJECT ARRAY authobjs)
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
+    TRY
+    {
+      OBJECT work := StartLocalWork(trans);
+      TRY
+      {
+        DATETIME now := GetCurrentDateTime();
+
+        FOREVERY (OBJECT obj FROM authobjs)
+        {
+          /// The first element may be different if we're called from the default delete dialog...
+          IF(NOT obj EXTENDSFROM WRDAuthObject OR NOT ObjectExists(obj->entity))
+            CONTINUE;
+
+          obj->entity->UpdateEntity([ wrd_limitdate := now ]);
+        }
+
+        this->ResyncToSystemTables();
+      }
+      FINALLY
+      {
+        work->Finish();
+      }
+    }
+    FINALLY
+    {
+      lock->Close();
+    }
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetTypedRecursiveAuthobjects(OBJECT ARRAY authobjs)
+  {
+    RECORD ARRAY result;
+
+    FOREVERY (OBJECT authobj FROM authobjs)
+    {
+      STRING type;
+      IF (authobj EXTENDSFROM WRDAuthUser)
+        type := "user";
+      ELSE IF (authobj EXTENDSFROM WRDAuthRole)
+        type := "user";
+      ELSE IF (authobj EXTENDSFROM WRDAuthUnit)
+        type := "unit";
+      ELSE
+        THROW NEW Exception("Got non-wrdauthobject in GetTypedRecursiveAuthobjects");
+
+      RECORD rec := [ type := type, obj := authobj, entityid := authobj->entityid ];
+      RECORD pos := RecordLowerBound(result, rec, [ "TYPE", "ENTITYID" ]);
+      IF (NOT pos.found)
+        INSERT rec INTO result AT pos.position;
+    }
+
+    RECORD ARRAY unitworklist := SELECT * FROM result WHERE type = "unit";
+    WHILE (LENGTH(unitworklist) != 0)
+    {
+      RECORD unit := unitworklist[0];
+      DELETE FROM unitworklist AT 0;
+
+      RECORD ARRAY subs := this->GetUnitContents(unit.obj);
+      FOREVERY (RECORD rec FROM subs)
+      {
+        RECORD pos := RecordLowerBound(result, rec, [ "TYPE", "ENTITYID" ]);
+        IF (NOT pos.found)
+        {
+          INSERT rec INTO result AT pos.position;
+          IF (rec.type = "unit")
+            INSERT rec INTO unitworklist AT END;
+        }
+      }
+    }
+    RETURN result;
+  }
+
+  PUBLIC RECORD FUNCTION TryOAuthLogin(STRING access_token)
+  {
+    IF (access_token = "")
+      RETURN [ success := FALSE, errormessage := "Access token is empty" ];
+
+    RECORD data := DecryptForThisServer("wrd:userapi-oauth", access_token, [ fallback := DEFAULT RECORD ]);
+    IF (NOT RecordExists(data))
+      RETURN [ success := FALSE, errormessage := "Cannot decrypt the oauth token" ];
+
+    IF (data.v != 1)
+      RETURN [ success := FALSE, errormessage := `Incompatible version ${data.v}` ];
+
+    DATETIME expiry := MakeDatetimeFromUnixTimestamp(data.e);
+    DATETIME now := GetCurrentDatetime();
+    IF (expiry < now)
+      RETURN [ success := FALSE, errormessage := `Token expired at ${FormatISO8601Datetime(expiry)}, it is now ${FormatISO8601Datetime(now)}` ];
+
+    RECORD fields := this->accounttype->GetEntityFields(data.u,
+        [ "WRD_GUID"
+        , this->wrdschema->accountpasswordtag
+        , this->wrdschema->accountlogintag
+        ]);
+
+    // User deleted?
+    IF (NOT RecordExists(fields))
+      RETURN [ success := FALSE, errormessage := `User does not exist` ];
+
+    // Password changed?
+    IF (data.p != GetCell(fields, this->wrdschema->accountpasswordtag))
+      RETURN [ success := FALSE, errormessage := `Password has changed` ];
+
+    STRING loginname := GetCell(fields, this->wrdschema->accountlogintag);
+
+    RETURN
+        [ success := TRUE
+        , errormessage := ""
+        , wrdentityid :=  data.u
+        , loginname :=    loginname
+        , scope :=        data.s
+        , expires :=      expiry
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION GenerateOAuthAccessToken(INTEGER userid, STRING ARRAY scopes, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD fields := this->accounttype->GetEntityFields(userid,
+        [ "WRD_GUID"
+        , this->wrdschema->accountpasswordtag
+        , this->wrdschema->accountlogintag
+        ]);
+
+    //Your oauth token will always be valid till 5am UTC the next day (ADDME long lived tokens, base on localtime or config ?)
+    DATETIME expirydate := AddTimeTodate(whconstant_oauthtoken_validuntil, GetRoundedDatetime(AddDaysTodate(whconstant_oauthoken_days,GetCurrentDatetime()),86400*1000));
+
+    RECORD data :=
+        [ v := 1
+        , u := userid
+        , p := GetCell(fields, this->wrdschema->accountpasswordtag)
+        , s := scopes
+        , e := GetUnixTimeStamp(expirydate)
+        ];
+
+    RETURN
+        [ token :=    EncryptForThisServer("wrd:userapi-oauth", data)
+        , expires :=  expirydate
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION TryAppPasswordLogin(STRING scope, STRING username, STRING password, BOOLEAN allownormalpassword)
+  {
+    RECORD user := this->LookupUserByLogin(username);
+    IF(NOT RecordExists(user))
+      RETURN DEFAULT RECORD;
+
+    STRING passwordid := CreatePasswordId(user.guid, password);
+    OBJECT apppasswordtype := this->wrdschema->GetType("WHUSER_APPACCOUNT");
+    RECORD passwordmatch := apppasswordtype->RunQuery(
+      [ outputcolumns := ["WRD_ID","PASSWORD","LASTUSE"]
+      , filters := [[ field := "WRD_LEFTENTITY", value := user.entityid ]
+                   ,[ field := "PASSWORDID", value := passwordid ]
+                   ,[ field := "SCOPE", value := scope ]
+                   ]
+      ]);
+
+    IF (NOT RecordExists(passwordmatch))
+    {
+      IF (allownormalpassword AND user.password != "" AND VerifyWebharePasswordHash(password, user.password))
+      {
+        RETURN
+            [ entityid := user.entityid
+            , authobjectid := user.authobjectid
+            , previoususe := GetCurrentDatetime()
+            ];
+      }
+      RETURN DEFAULT RECORD;
+    }
+
+    IF (NOT VerifyWebharePasswordHash(password, passwordmatch.password))
+      RETURN DEFAULT RECORD;
+
+    apppasswordtype->UpdateEntity(passwordmatch.wrd_id, [ lastuse := GetCurrentDateTime() ]);
+    RETURN [ entityid := user.entityid
+           , authobjectid := user.authobjectid
+           , previoususe := passwordmatch.lastuse
+           ];
+  }
+
+
+  /** @short Gets a user's display name
+      @param authobjectid The user's ID
+      @return The user's display name.
+  */
+  PUBLIC STRING FUNCTION GetUserDisplayName(INTEGER authobjectid)
+  {
+    // Admittedly, this is a serious abuse of an enrichment function, but it works and I'm in a hurry ;)
+    RECORD userdata := this->EnrichUsers("userid", [ [ userid := authobjectid ] ], [ celltype := "authobjectid" ]);
+    IF(NOT RecordExists(userdata))
+      RETURN authobjectid != 0 ? GetTid("wrd:authobjects.deleteduser", ToString(authobjectid)) : GetTid("wrd:authobjects.unknowndeleteduser");
+
+    RETURN userdata.fullname ?? userdata.login;
+  }
+
+  /** @short Enriches the given record array with user data
+      @long Enriches the given record array with users' login, firstname, lastname and full name based on their ID which must be given in the cell 'userid'.
+      @param cellname Cellname where the entityid or authobjectid can be found
+      @param input The RECORD ARRAY to enrich, must contain a cell named 'userid' with the ID of the user.
+      @cell(string) options.celltype Type of the cell referred by cellname, "authobjectid"/"entityid"/"guid", defaults to "entityid"
+      @cell(boolean) options.defaultfields If not passed or TRUE, add default fields ('firstname', 'lastname', 'fullname', 'login', 'email' and 'entityid')
+      @cell options.extrafields Record/string with extra outputcolumns
+      @cell(boolean) options.rightouterjoin If TRUE, don't remove records with non-existing users, but add the fields with default value.
+      @return Returns the given array enriched with login, realname, firstname, lastname and optional fields
+      @cell(string) return.entityid The user's entity id
+      @cell(string) return.login The user's login name
+      @cell(string) return.fullname The user's full name (as stored in wrd_title)
+      @cell(string) return.firstname The user's first name
+      @cell(string) return.lastname The user's last name
+      @cell(string) return.displayname The displayname as normally returned by GetUserDisplayName
+      @cell(string) return.email The user's email address
+  */
+  PUBLIC RECORD ARRAY FUNCTION EnrichUsers(STRING cellname, RECORD ARRAY input, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD defaultfields :=
+        [ fullname :=       "WRD_TITLE"
+        , firstname :=      "WRD_FIRSTNAME"
+        , lastname :=       "WRD_LASTNAME"
+        , login :=          this->wrdschema->accountlogintag
+        , email :=          this->wrdschema->accountemailtag
+        , entityid :=       "WRD_ID"
+        ];
+
+    RECORD ARRAY results := this->__Enrich(this->wrdschema->accounttype, cellname, input, defaultfields, 1, options);
+    IF(Length(results)>0 AND CellExists(results[0], "FULLNAME") AND CellExists(results[0], "LOGIN"))
+      results := SELECT *, displayname := fullname ?? login FROM results;
+    RETURN results;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION EnrichRoles(STRING cellname, RECORD ARRAY input, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    OBJECT wrdtype := this->wrdschema->GetType("WHUSER_ROLE");
+    IF (NOT ObjectExists(wrdtype))
+      THROW NEW Exception("No WRD type 'WHUSER_ROLE' present");
+
+    RECORD defaultfields :=
+        [ title :=      "WRD_TITLE"
+        , entityid :=   "WRD_ID"
+        ];
+    RETURN this->__Enrich(wrdtype, cellname, input, defaultfields, 3, options);
+  }
+
+
+  RECORD ARRAY FUNCTION __Enrich(OBJECT wrdtype, STRING cellname, RECORD ARRAY input, RECORD defaultfields, INTEGER authobjtype, RECORD options)
+  {
+    FOREVERY (RECORD rec FROM UnpackRecord(options))
+      IF (rec.name NOT IN [ "CELLTYPE", "DEFAULTFIELDS", "EXTRAFIELDS", "RIGHTOUTERJOIN" ])
+        THROW NEW Exception("Illegal option '" || rec.name || "' used");
+
+    // Shortcut
+    IF (Length(input) = 0)
+      RETURN DEFAULT RECORD ARRAY;
+
+    BOOLEAN rightouterjoin := CellExists(options, "RIGHTOUTERJOIN") AND options.rightouterjoin;
+
+    STRING type := CellExists(options, "CELLTYPE") ? options.celltype : "entityid";
+    IF (type NOT IN [ "authobjectid", "entityid", "guid" ])
+      THROW NEW Exception("Illegal celltype '" || type || "'");
+
+    RECORD ARRAY filters;
+
+    IF (type = "guid")
+    {
+      input :=
+          SELECT *
+               , __wrd_guid := GetCell(input, cellname)
+            FROM input;
+      filters := [ [ field := "WRD_GUID", matchtype := "IN", value := (SELECT AS STRING ARRAY __wrd_guid FROM input) ] ];
+    }
+    ELSE
+    {
+      // Gather ids
+      INTEGER ARRAY ids := SELECT AS INTEGER ARRAY DISTINCT GetCell(input, cellname) FROM input;
+      IF (type = "authobjectid")
+      {
+        RECORD ARRAY guidmapping :=
+            SELECT __authobjectid :=  id
+                 , __wrd_guid :=      guid
+              FROM system.authobjects
+             WHERE id IN ids
+               AND COLUMN type = authobjtype
+          ORDER BY id;
+
+        input := JoinArrays(input, cellname, guidmapping, [ __wrd_guid := "" ], [ joinfield := "__authobjectid", rightouterjoin := TRUE ]);
+        filters := [ [ field := "WRD_GUID", matchtype := "IN", value := (SELECT AS STRING ARRAY __wrd_guid FROM guidmapping) ] ];
+      }
+      ELSE
+        filters := [ [ field := "WRD_ID", matchtype := "IN", value := ids ] ];
+    }
+
+    RECORD fields :=
+        [ __entityid := "WRD_ID"
+        , __wrd_guid := "WRD_GUID"
+        ];
+
+    IF (NOT CellExists(options, "DEFAULTFIELDS") OR options.defaultfields)
+      fields := MakeMergedRecord(fields, defaultfields);
+
+    IF (CellExists(options, "EXTRAFIELDS"))
+    {
+      IF (TypeID(options.extrafields) = TypeID(RECORD))
+        fields := MakeMergedRecord(fields, options.extrafields);
+      ELSE
+        FOREVERY (STRING field FROM options.extrafields)
+          fields := CellInsert(fields, field, field);
+    }
+
+    RECORD selectfields := fields;
+    IF (type != "entityid")
+    {
+      RECORD baserecord;
+      IF (rightouterjoin)
+      {
+        baserecord := [ __entityid := 0 ];
+        selectfields := [ __entityid := "WRD_ID", "__WRD_GUID" := "WRD_GUID" ];
+        DELETE CELL __wrd_guid FROM fields;
+      }
+
+      RECORD ARRAY enrichdata :=
+          SELECT *
+            FROM wrdtype->RunQuery(
+                        [ outputcolumns := selectfields
+                        , filters := filters
+                        ]);
+
+      input := JoinArrays(input, "__WRD_GUID", enrichdata, baserecord, [ rightouterjoin := rightouterjoin ]);
+      cellname := "__ENTITYID";
+    }
+
+    IF (type = "entityid" OR rightouterjoin)
+      input := wrdtype->Enrich(input, cellname, fields, [ rightouterjoin := rightouterjoin ]);
+
+    RETURN
+        SELECT *
+             , DELETE __authobjectid
+             , DELETE __entityid
+             , DELETE __wrd_guid
+          FROM input;
+  }
+
+  PUBLIC OBJECT FUNCTION GetAnonymousUser()
+  {
+    RETURN NEW TolliumUser(this, DEFAULT OBJECT, 0, "<anonymous>");
+  }
+
+  /** Looks up a user based on its username, returns a tollium user object
+      @param username Login name
+      @return @includecelldef #GetTolliumUserFromEntityId.return
+  */
+  PUBLIC OBJECT FUNCTION GetTolliumUserByLogin(STRING username)
+  {
+    RECORD res := this->LookupUserByLogin(username);
+    RETURN RecordExists(res) ? this->GetTolliumUserFromEntityId(res.entityid) : DEFAULT OBJECT;
+  }
+
+  /** Returns the tollium user object for a specific user
+      @param entityid Entity id of the user
+      @return @includecelldef #GetTolliumUserByIdAndImpersonation.return
+  */
+  PUBLIC OBJECT FUNCTION GetTolliumUserFromEntityId(INTEGER entityid)
+  {
+    RECORD res := this->GetTolliumUserByIdAndImpersonation(entityid, "");
+    RETURN ObjectExists(res.userobject) ? res.userobject : DEFAULT OBJECT;
+  }
+
+  /** Returns the tollium user object for a specific user, optionally opened as another user
+      @param entityid Entity id of the user
+      @param openas Name of the user that opens this object
+      @return Result - either userobject or error will be set
+      @cell(object #TolliumUser) return.userobject Tollium user
+      @cell(boolean) return.isimpersonation Whether this is a (failed) impersonation (generally not requiring a forced logout)
+      @cell(string) return.error Failure reason
+  */
+  PUBLIC RECORD FUNCTION GetTolliumUserByIdAndImpersonation(INTEGER entityid, STRING openas)
+  {
+    IF (entityid = 0)
+      RETURN [ userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "entityid=0" ];
+
+    OBJECT userentity;
+    INTEGER userid, rightsauthobject;
+    RECORD userinfo;
+
+    IF(entityid = -1)
+    {
+      userid := LookupMagicSysop("<overrideuser>");
+      IF(userid = 0)
+        THROW NEW Exception("No overrideuser defined");
+    }
+    ELSE
+    {
+      OBJECT accounttype := this->wrdschema->accounttype;
+      IF(NOT ObjectExists(accounttype))
+        THROW NEW Exception("WRD Schema '" || this->wrdschema->tag || "' hasn't configured an account type");
+
+      userentity := this->wrdschema->accounttype->GetEntity(entityid);
+      IF (NOT ObjectExists(userentity))
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "No such entity #" || entityid ];
+
+      RECORD getfields := CELL["WRD_GUID","WRD_CREATIONDATE","WRD_LIMITDATE","WRD_TITLE", login := this->wrdschema->accountlogintag ];
+      IF(RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_DISABLED")))
+        INSERT CELL whuser_disabled := "WHUSER_DISABLED" INTO getfields;
+
+      userinfo := userentity->GetFields(getfields);
+      DATETIME now := GetCurrentDatetime();
+      IF(Cellexists(getfields, "WHUSER_DISABLED") AND userinfo.whuser_disabled)
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is disabled" ];
+      IF(now < userinfo.wrd_creationdate)
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is not yet active" ];
+      IF(userinfo.wrd_limitdate <= now )
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is expired" ];
+
+      userid := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = userinfo.wrd_guid;
+    }
+
+    rightsauthobject := userid;
+
+    INTEGER impersonatedentity;
+    BOOLEAN impersonatingrole;
+    STRING impersonationtarget := `user '${openas}'`;
+    STRING loginname, logintitle;
+    IF(RecordExists(userinfo))
+    {
+      loginname := userinfo.login;
+      logintitle := userinfo.wrd_title;
+    }
+
+    IF(openas != "")
+    {
+      OBJECT impersonatinguser := GetWebhareRightsObject(userid);
+      IF (NOT ObjectExists(impersonatinguser))
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " has no rights object" ];
+      IF (NOT impersonatinguser->ExistsInDatabase())
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " does not exist in in the database" ];
+
+      IF(openas LIKE "wrd:*")
+      {
+        impersonatedentity := this->wrdschema->accounttype->Search("WRD_GUID", openas);
+        IF(impersonatedentity=0)
+        {
+          OBJECT roletype := this->wrdschema->GetType("WHUSER_ROLE");
+          IF(ObjectExists(roletype)) //or is this guaranteed?
+          {
+            impersonatedentity := roletype->Search("WRD_GUID", openas);
+            IF(impersonatedentity != 0)
+            {
+              impersonatingrole := TRUE;
+              impersonationtarget := `role '${openas}'`;
+            }
+          }
+        }
+
+        IF(impersonatedentity = 0)
+          RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not resolve to an entity` ];
+
+        rightsauthobject := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = openas;
+      }
+      ELSE
+      {
+        RECORD lookup := this->LookupUserByLogin(openas);
+        IF(NOT RecordExists(lookup))
+          RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} did not resolve to any user` ];
+        IF(lookup.entityid = 0)
+          RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} did not resolve to an entity` ];
+
+        impersonatedentity := lookup.entityid;
+        rightsauthobject := lookup.authobjectid;
+      }
+
+
+      impersonationtarget := `${impersonationtarget} with entity #${rightsauthobject}`;
+      IF(rightsauthobject = 0)
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not have an authobject` ];
+
+      IF(NOT impersonatingrole)
+      {
+        userid := rightsauthobject;
+        userentity := this->wrdschema->accounttype->GetEntity(impersonatedentity);
+        userinfo := userentity->GetFields(CELL["WRD_TITLE","WHUSER_UNIT", login := this->wrdschema->accountlogintag]);
+        loginname := userinfo.login;
+        logintitle := userinfo.wrd_title;
+      }
+      ELSE
+      {
+        userinfo := this->wrdschema->^whuser_role->GetEntityFields(impersonatedentity, CELL[ whuser_unit := "WRD_LEFTENTITY" ]);
+      }
+
+      OBJECT impersonateduser := GetWebhareRightsObject(rightsauthobject);
+      IF (NOT ObjectExists(impersonateduser))
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} has no rights object` ];
+      IF (NOT impersonateduser->ExistsInDatabase())
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not exist in in the database` ];
+      IF(entityid != -1 AND impersonateduser->HasRight("system:sysop"))
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} is a sysop and can only be impersonated using an overridetoken` ];
+
+      //Look up the user's unit
+      RECORD impersonatedunit;
+      IF(userinfo.whuser_unit != 0)
+        impersonatedunit := this->wrdschema->^whuser_unit->GetEntityFields(userinfo.whuser_unit,["WRD_GUID"]);
+
+      INTEGER dbunitid;
+      IF(RecordExists(impersonatedunit))
+        dbunitid := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = impersonatedunit.wrd_guid;
+
+      IF(NOT impersonatinguser->HasRightOn("system:openas", dbunitid))
+        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " is not allowed to impersonate users in unit " || impersonatedunit.wrd_guid || " (unit authobject #" || dbunitid || ")" ];
+    }
+
+    OBJECT userobject;
+    IF(ObjectExists(userentity))
+      userobject := this->GetTolliumUserObject(userentity, rightsauthobject, loginname, logintitle);
+    ELSE
+      userobject := NEW TolliumMagicSysopUserObject(userid);
+
+    RETURN [ userobject := userobject
+           , impersonatedentity := impersonatedentity
+           , isimpersonation := impersonatedentity != 0
+           ];
+  }
+
+  OBJECT FUNCTION GetTolliumUserObject(OBJECT userentity, INTEGER authobjectid, STRING login, STRING usertitle)
+  {
+    OBJECT user := NEW TolliumUser(this, userentity, authobjectid, "<" || userentity->guid || ">");
+    this->SetAuthorizedUser(userentity->id);
+
+    user->realname := usertitle;
+    user->login := login;
+    user->emailaddress := userentity->GetField("WRD_CONTACT_EMAIL");
+
+    RETURN user;
+  }
+>;
+
+/** Get the user API of a WRD schema
+    @param(object %WRDSchema2017) wrdschema WRD schema
+    @return(object #WHUserApi) User api
+    @topic wrdauth/api
+    @public
+    @loadlib mod::wrd/lib/auth.whlib
+    @return(object #WHUserApi) User API
+*/
+PUBLIC OBJECT FUNCTION GetWRDAuthUserAPI(OBJECT wrdschema)
+{
+  IF(NOT wrdschema->usermgmt)
+    THROW NEW Exception(`Requesting the user api of schema ${wrdschema->tag} which is not configured for user management`);
+  RETURN NEW WHUserApi(wrdschema);
+}
+
+
+PUBLIC RECORD ARRAY FUNCTION ResyncAllToSystemTables()
+{
+  RECORD ARRAY syncschemas := SELECT id
+                                   , name
+                                FROM wrd.schemas
+                               WHERE usermgmt
+                            ORDER BY id; //ensure consistent ordering
+
+  RECORD ARRAY allwantauthobjs;
+  FOREVERY(RECORD syncschema FROM syncschemas)
+  {
+    TRY
+    {
+      OBJECT wrdschema := OpenWRDSchemaById(syncschema.id);
+      IF(NOT ObjectExists(wrdschema)) //deleted?
+        CONTINUE;
+
+      OBJECT wrdunit := wrdschema->GetType("WHUSER_UNIT");
+      OBJECT wrdrole := wrdschema->GetType("WHUSER_ROLE");
+      OBJECT wrduser := wrdschema->accounttype;
+      IF(NOT ObjectExists(wrdunit) OR NOT ObjectExists(wrdrole) OR NOT ObjectExists(wrduser))
+        CONTINUE;
+      allwantauthobjs := allwantauthobjs CONCAT GetSyncableUnits(wrdunit, DEFAULT INTEGER ARRAY) CONCAT GetSyncableRoles(wrdrole, DEFAULT INTEGER ARRAY) CONCAT GetSyncableUsers(wrduser, DEFAULT INTEGER ARRAY);
+    }
+    CATCH(OBJECT e)
+    {
+      Print("Failed to synchronize schema " || syncschema.name || ": " || e->What ||"\n");
+    }
+  }
+
+  RETURN ApplyDBWantedAuthObjects(allwantauthobjs, TRUE);
+
+  //PRINT("Sync result\n" || AnyToString((SELECT parent, name, id, guid FROM system.authobjects WHERE type <= 3 ORDER BY parent, name), "boxed"));
+  //PRINT(AnyToString((select a.* from system.authobjects as a, system.authobjects as b WHERE a.parent = b.parent And a.name = b.name and a.id != b.id), "boxed"));
+}
+
+
+PUBLIC OBJECT FUNCTION ReconstructUserFromMarshallInfo(RECORD marshallinfo)
+{
+  IF(RecordExists(marshallinfo) AND marshallinfo.__usermarshallinfo.wrdschema != 0)
+  {
+    OBJECT wrdschema := OpenWRDSchemaById(marshallinfo.__usermarshallinfo.wrdschema);
+    OBJECT userapi := GetWRDAuthUserAPI(wrdschema);
+    IF (marshallinfo.__usermarshallinfo.entityid != 0)
+      RETURN userapi->GetTolliumUserFromEntityId(marshallinfo.__usermarshallinfo.entityid);
+    ELSE
+      RETURN userapi->GetAnonymousUser();
+  }
+
+  RETURN NEW TolliumUser(DEFAULT OBJECT, DEFAULT OBJECT, 0, "<anonymous>");
+}

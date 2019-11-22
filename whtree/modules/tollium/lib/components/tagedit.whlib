@@ -1,0 +1,366 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/components/textedit.whlib";
+
+PUBLIC OBJECTTYPE TolliumTagEdit EXTEND __TolliumAutoSuggestableBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /** Current list of tags
+      @cell tag
+  */
+  RECORD ARRAY pvt_value;
+
+  /// Whether the tollium component contains unprocessed input
+  BOOLEAN hasunprocessedinput;
+
+  /// Separator
+  STRING pvt_separator;
+
+  /// Whether multiple tags can be selected
+  BOOLEAN pvt_allowmultiple;
+
+  /// Whether matching of duplicates is done case-sensitive
+  BOOLEAN pvt_casesensitive;
+
+  /// Placeholder string to show when no tags are present
+  STRING pvt_placeholder;
+
+  FUNCTION PTR pvt_onvalidatetags;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Called when list of tags changes
+  PUBLIC FUNCTION PTR onchange;
+
+  /// Called to validate list of tags. May filter the list.
+  PUBLIC PROPERTY onvalidatetags(pvt_onvalidatetags, SetOnValidateTags);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Current list of tags (STRING ARRAY)
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// Separator (can't be used in tags). Used to separate tags in frontend INPUT and to allow user to jump to next tag
+  PUBLIC PROPERTY separator(pvt_separator, SetSeparator);
+
+  /// Whether multiple tags are allowed
+  PUBLIC PROPERTY allowmultiple(pvt_allowmultiple, SetAllowMultiple);
+
+  /// Whether matching of duplicates is done case-sensitive
+  PUBLIC PROPERTY casesensitive(pvt_casesensitive, SetCaseSensitive);
+
+  /// Placeholder string to show when no tags are present
+  PUBLIC PROPERTY placeholder(pvt_placeholder, SetPlaceholder);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->componenttype := "tagedit";
+    this->formfieldtype := "string";
+    this->pvt_separator := ",";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    __TolliumAutoSuggestableBase::StaticInit(def);
+    this->pvt_separator := def.separator;
+    this->pvt_allowmultiple := def.allowmultiple;
+    this->pvt_casesensitive := def.casesensitive;
+    this->pvt_placeholder := def.placeholder;
+    IF (this->separator = "")
+      THROW NEW TolliumException(this, "The tag separator cannot be empty");
+    // Set value after setting separator, allowmultiple and casesensitive
+    this->SetStringValue(def.value);
+    this->onchange := def.onchange;
+    this->pvt_onvalidatetags := def.onvalidatetags;
+
+    this->pvt_optionsources := def.optionsources;
+    this->UpdateOptionsFromSources();
+  }
+
+  PUBLIC UPDATE MACRO __RemoveChildComponent(OBJECT comp)
+  {
+    //no-op,but we need this to convince tollium its safe to remove the autocomplete
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+//    IF(this->readonly)
+//      RETURN "";
+    RETURN "30x";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(STRING ARRAY);
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ enabled       := FALSE
+        , value         := FALSE
+        , separator     := FALSE
+        , allowmultiple := FALSE
+        , casesensitive := FALSE
+        , placeholder   := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      IF(this->readonly)
+      {
+        STRING showtags := Detokenize(this->value,", ");
+        this->TolliumWebReadOnly(showtags, TRUE);
+        RETURN;
+      }
+
+      RECORD compinfo := [ value := Detokenize(this->value, this->separator)
+                         , separator := this->separator
+                         , allowmultiple := this->allowmultiple
+                         , casesensitive := this->casesensitive
+                         , placeholder := this->placeholder
+                         , validatetags := this->pvt_onvalidatetags != DEFAULT FUNCTION PTR
+                         , autosuggest := this->GetAutoSuggestSetting()
+                         ];
+
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.enabled)
+        this->ToddUpdate([type:="enabled", enabled := this->enabled]);
+
+      IF (this->dirtyflags.value)
+        this->ToddUpdate([type:="value", value := Detokenize(this->value, this->separator)]);
+
+      IF (this->dirtyflags.separator)
+        this->ToddUpdate([type:="separator", value := this->separator]);
+
+      IF (this->dirtyflags.allowmultiple)
+        this->ToddUpdate([type:="allowmultiple", value := this->allowmultiple]);
+
+      IF (this->dirtyflags.casesensitive)
+        this->ToddUpdate([type:="casesensitive", value := this->casesensitive]);
+
+      IF (this->dirtyflags.placeholder)
+        this->ToddUpdate([type:="placeholder", value := this->placeholder]);
+    }
+    __TolliumAutoSuggestableBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(RECORD indata)
+  {
+    RECORD ARRAY newvalue;
+    FOREVERY (STRING val FROM Tokenize(indata.tags, this->separator))
+      IF (this->IsTagAllowed(val, newvalue))
+        INSERT [ tag := val ] INTO newvalue AT END;
+
+    this->pvt_value := newvalue;
+    this->hasunprocessedinput := indata.hasunprocessedinput;
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel ?? this->title;
+    IF (this->hasunprocessedinput)
+      work->AddErrorFor(this, GetTid("tollium:common.errors.tagedit_unprocessed_text", fieldtitle));
+  }
+
+  PUBLIC STRING ARRAY FUNCTION ValidateTags(STRING ARRAY tags)
+  {
+    IF (this->onvalidatetags != DEFAULT FUNCTION PTR)
+      tags := this->onvalidatetags(tags);
+    RETURN tags;
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH (type)
+    {
+      CASE "validatetags"
+      {
+        this->QueueOutboundMessage("ValidateTagsReply", [ tags := this->ValidateTags(msgdata.tags), replyto := msgdata.msgid  ]);
+      }
+      DEFAULT
+      {
+        __TolliumAutoSuggestableBase::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedValue()
+  {
+    this->ExtUpdatedComponent();/*diabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.value := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedSeparator()
+  {
+    this->ExtUpdatedComponent();/*diabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.separator := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedAllowMultiple()
+  {
+    this->ExtUpdatedComponent();/*diabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.allowmultiple := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedCaseSensitive()
+  {
+    this->ExtUpdatedComponent();/*diabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.casesensitive := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedPlaceholder()
+  {
+    this->ExtUpdatedComponent();/*diabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.placeholder := TRUE;
+    */
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING ARRAY FUNCTION GetValue()
+  {
+    RETURN this->ValidateTags(SELECT AS STRING ARRAY tag FROM this->pvt_value);
+  }
+
+  MACRO SetValue(STRING ARRAY value)
+  {
+    // This will cause single tags containing the separator to be split
+    this->SetStringValue(Detokenize(this->ValidateTags(value), this->separator));
+  }
+
+  MACRO SetSeparator(STRING separator)
+  {
+    IF (separator = this->pvt_separator)
+      RETURN;
+
+    this->pvt_separator := separator;
+    this->ExtUpdatedSeparator();
+  }
+
+  MACRO SetAllowMultiple(BOOLEAN allowmultiple)
+  {
+    IF (allowmultiple = this->pvt_allowmultiple)
+      RETURN;
+
+    this->pvt_allowmultiple := allowmultiple;
+    this->ExtUpdatedAllowMultiple();
+
+    // Check the value if multiples are no longer allowed
+    IF (this->pvt_allowmultiple)
+      this->value := this->value;
+  }
+
+  MACRO SetCaseSensitive(BOOLEAN casesensitive)
+  {
+    IF (casesensitive = this->pvt_casesensitive)
+      RETURN;
+
+    this->pvt_casesensitive := casesensitive;
+    this->ExtUpdatedCaseSensitive();
+
+    // Check the value if tag existence check is now case sensitive
+    IF (this->pvt_casesensitive)
+      this->value := this->value;
+  }
+
+  MACRO SetPlaceholder(STRING placeholder)
+  {
+    IF (placeholder = this->pvt_placeholder)
+      RETURN;
+
+    this->pvt_placeholder := placeholder;
+    this->ExtUpdatedPlaceholder();
+  }
+
+  MACRO SetStringValue(STRING value, BOOLEAN hasunprocessedinput DEFAULTSTO FALSE)
+  {
+    RECORD ARRAY newvalue;
+    FOREVERY (STRING val FROM Tokenize(value, this->separator))
+      IF (this->IsTagAllowed(val, newvalue))
+        INSERT [ tag := val ] INTO newvalue AT END;
+
+    // Check if the value has changed
+    IF (Detokenize(this->value, this->separator) != Detokenize((SELECT AS STRING ARRAY tag FROM newvalue), this->separator) OR this->hasunprocessedinput != hasunprocessedinput)
+    {
+      this->pvt_value := newvalue;
+      this->hasunprocessedinput := hasunprocessedinput;
+      this->ExtUpdatedValue();
+    }
+  }
+
+  MACRO  SetOnValidateTags(FUNCTION PTR onvalidatetags)
+  {
+    this->pvt_onvalidatetags := onvalidatetags;
+    this->ExtUpdatedComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BOOLEAN FUNCTION IsTagAllowed(STRING tag, RECORD ARRAY tags)
+  {
+    tag := TrimWhitespace(NormalizeWhitespace(tag));
+    // Empty tags are not allowed
+    IF (tag = "")
+      RETURN FALSE;
+    // If a tag may occur multiple times, all tags are allowed
+    IF (this->allowmultiple)
+      RETURN TRUE;
+    // The tag is allowed if it doesn't already exist
+    IF (this->casesensitive)
+      RETURN NOT RecordExists(SELECT FROM tags WHERE COLUMN tag = VAR tag);
+    RETURN NOT RecordExists(SELECT FROM tags WHERE ToUppercase(COLUMN tag) = ToUppercase(VAR tag));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+>;

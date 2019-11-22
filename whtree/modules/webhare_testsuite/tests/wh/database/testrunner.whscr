@@ -1,0 +1,376 @@
+<?wh
+/** @short dbase test runner  */
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+
+RECORD ARRAY clients;
+INTEGER clients_needed := 0;
+INTEGER testend := 0;
+BOOLEAN failed := FALSE;
+INTEGER current_section := 0;
+OBJECT trans;
+
+trans := OpenPrimary();
+IF (GetDatabaseType() = "whdb")
+  trans->BeginWork(); // Need a transaction for WHDB 'show transactions'
+
+
+// Show client status
+MACRO ShowClients()
+{
+  PRINT("Clients: \n");
+  FOREVERY (RECORD r FROM clients)
+  {
+    PRINT(" Client " || #r || ": section: " || r.sid || " handle: " || r.handle || " State: ");
+    SWITCH (r.status)
+    {
+    CASE "?" { PRINT("Between sessions"); }
+    CASE "S" { PRINT("Starting session " || r.sid); }
+    CASE "R" { PRINT("Running in session " || r.sid); }
+    CASE "E" { PRINT("Finished session " || r.sid); }
+    CASE "H" { PRINT("Hanging in session " || r.sid); }
+    CASE "X" { PRINT("Exited"); }
+    CASE "F" { PRINT("Crashed"); }
+    DEFAULT  { PRINT("?? (" || r.status || ")"); }
+    }
+    PRINT("\n");
+  }
+}
+
+// Reads input for a client, returns wether input awas available
+BOOLEAN FUNCTION ReadInput(INTEGER clientid)
+{
+  STRING newstuff := ReadProcessOutput(clients[clientid].handle);
+  IF (newstuff = "")
+    RETURN FALSE;
+
+  clients[clientid].line := clients[clientid].line || newstuff;
+  RETURN TRUE;
+}
+
+// Processes input; returns TRUE if a line was consumed.
+BOOLEAN FUNCTION ProcessInput(INTEGER clientid)
+{
+  // No line: exit
+  IF (SearchSubString(clients[clientid].line, "\012") = -1)
+    RETURN FALSE;
+
+  WHILE (SearchSubString(clients[clientid].line, "\012") != -1)
+  {
+    // Get the current line
+    INTEGER pos := SearchSubString(clients[clientid].line, "\012");
+    STRING line := LEFT(clients[clientid].line, pos);
+    // Remove extracted line from buffer
+    clients[clientid].line := Right(clients[clientid].line, length(clients[clientid].line) - pos - 1);
+
+    // Strip CR if present (windows only)
+    IF (Right(line, 1) = "\r")
+      line := LEFT(line, Length(line) - 1);
+
+    // Extract the first word
+    pos := SearchSubString(line, " ");
+    IF (pos = -1) pos := Length(line);
+    STRING command := ToUppercase(SubString(line, 0, pos));
+    IF (command = "" OR LEFT(command,1) != ">")
+    {
+      // No command; display comment line
+      PRINT (clientid || ": " || line || "\n");
+      CONTINUE;
+    }
+
+    // Don't execute commands when we've failed
+    IF (failed)
+      RETURN TRUE;
+
+    // Read attached ID
+    INTEGER nextpos := SearchSubString(line, " ", pos + 1);
+    IF (nextpos = -1)
+      nextpos := Length(line);
+
+    STRING c2 := SubString(line, pos + 1, nextpos - pos - 1);
+    INTEGER sid := ToInteger(c2, 0);
+    STRING linerest := SubString(line, nextpos + 1, LENGTH(line) - nextpos - 1);
+
+    SWITCH (command)
+    {
+    CASE ">NOP" // Sent after SECTIONEND, to avoid being in wait state at the end of a test
+          {
+          }
+    CASE ">FAIL" // Trivial
+          {
+                failed := TRUE;
+          }
+    CASE ">TESTNEEDS" // ID is number of clients needed for this test
+          {
+                  clients_needed := sid;
+          }
+    CASE ">TESTEND"
+          {
+                  testend := sid;
+                  clients[clientid].status := "X";
+          }
+    CASE ">SECTIONSTART"
+          {
+                  IF (clients[clientid].status != "?")
+                      ABORT("Client " || clientid || " was in wrong state ("||clients[clientid].status||")");
+                  clients[clientid].sid := sid;
+                  clients[clientid].status := "S";
+          }
+    CASE ">RUNNING"
+          {
+                  IF (clients[clientid].status != "S" AND clients[clientid].status != "C")
+                      ABORT("Client " || clientid || " was in wrong state ("||clients[clientid].status||")");
+                  clients[clientid].status := "R";
+          }
+    CASE ">UPCOMINGHANG"
+          {
+                  IF (clients[clientid].status != "R")
+                      ABORT("Client " || clientid || " was in wrong state ("||clients[clientid].status||")");
+                  clients[clientid].status := "H";
+                  IF (linerest != "")
+                  {
+                    INTEGER waiting := 0;
+                    INTEGER maxtimes := 28;
+                    INTEGER sleeptime := 50;
+                    WHILE (maxtimes > 0)
+                    {
+                      waiting := SELECT AS INTEGER waitsfor FROM SendWHDBCommand(trans->id, "SHOW TRANSACTIONS") WHERE client = linerest;
+                      IF (waiting != 0)
+                        BREAK;
+                      Sleep(sleeptime);
+                      sleeptime := sleeptime + 50;
+                      maxtimes := maxtimes - 1;
+                    }
+                    IF (waiting = 0)
+                      ABORT("Waited too long (20secs) for transaction to go into wait");
+                  }
+          }
+    CASE ">SECTIONEND"
+          {
+                  IF (clients[clientid].status != "R" AND clients[clientid].status != "H")
+                      ABORT("Client " || clientid || " was in wrong state ("||clients[clientid].status||")");
+
+                  clients[clientid].status := "E";
+          }
+    DEFAULT { ABORT("Unkown command " || command || " received"); }
+    }
+  }
+  RETURN TRUE;
+}
+
+// Finds client id by published session-id
+INTEGER FUNCTION FindClientBySid(INTEGER sid)
+{
+  INTEGER cid := -1;
+  FOREVERY (RECORD r FROM clients)
+  {
+    IF (r.sid = sid)
+    {
+      IF (cid != -1)
+        ABORT("Multiple clients running the same session-id");
+      cid := #r;
+    }
+  }
+  RETURN cid;
+}
+
+// Waits for and reads all available input for all processes; also processing is done. Returns whether input is left.
+BOOLEAN FUNCTION WaitForClientInput(BOOLEAN wait)
+{
+  IF (failed) RETURN FALSE;
+  INTEGER ARRAY handles;
+  // Collect valid handles
+  FOREVERY (RECORD r FROM clients)
+    IF (r.handle != 0)
+      INSERT r.handle INTO handles AT END;
+  IF (LENGTH(handles) = 0)
+  {
+    // No input left; process all that is in the buffers
+    FOREVERY (RECORD r FROM clients)
+      WHILE (ProcessInput(#r)) ;
+    RETURN FALSE;
+  }
+  INTEGER handle := WaitForMultiple(handles,DEFAULT INTEGER ARRAY, wait ? 600000 : 20000);
+  IF (handle = -1)
+  {
+    IF (wait)
+      ABORT("Clients all hanging; aborting test");
+    RETURN false;
+  }
+  WHILE (handle != -1)
+  {
+    // Search process that had input
+    INTEGER cid := -1;
+    FOREVERY (RECORD r FROM clients)
+      IF (r.handle = handle)
+        cid := #r;
+
+    IF (NOT ReadInput(cid))
+    {
+       IF (clients[cid].status != "X")
+       {
+         PRINT("Client " || cid || " has exited abnormally.\n");
+         clients[cid].status := "F";
+       }
+       clients[cid].handle := 0;
+    }
+    // Process all input lines
+    ProcessInput(cid);
+
+    // Recollect all valid handles
+    DELETE FROM handles ALL;
+    FOREVERY (RECORD r FROM clients)
+      IF (r.handle != 0)
+        INSERT r.handle INTO handles AT END;
+
+    IF (LENGTH(handles) = 0)
+      BREAK;
+
+    handle := WaitForMultiple(handles,DEFAULT INTEGER ARRAY, 0);
+  }
+
+  RETURN TRUE;
+}
+
+INTEGER FUNCTION WaitGreeting(INTEGER pid)
+{
+  WHILE (clients_needed = 0)
+  {
+    IF (NOT WaitForClientInput(TRUE))
+      ABORT("Expected test script greeting with number of needed clients");
+  }
+  RETURN clients_needed;
+}
+
+BOOLEAN FUNCTION RunSection(INTEGER sid)
+{
+  INTEGER cid := FindClientBySid(sid);
+  WHILE (cid = -1)
+  {
+    FOREVERY (RECORD r FROM clients)
+      IF (r.status = "E")
+      {
+        IF (r.sid = current_section)
+          ABORT("Client " || #r || " was supposed to hang, but didn't");
+        PrintTo(r.handle, ">ACK\n");
+        clients[#r].status := "?";
+      }
+
+    IF (NOT WaitForClientInput(TRUE))
+    {
+       IF (testend != 0 AND sid = testend)
+         RETURN false;
+       ABORT("No client in session " || sid || "/" || testend);
+    }
+    cid := FindClientBySid(sid);
+  }
+
+  IF (clients[cid].status != "S")
+    ABORT("Client "||cid||" not in session start state");
+  IF (NOT PrintTo(clients[cid].handle,">GO " || sid || "\n"))
+    ABORT("Client "||cid||" write error");
+
+  WHILE (TRUE)
+  {
+    IF (NOT WaitForClientInput(TRUE))
+        RETURN FALSE;
+    cid := FindClientBySid(sid);
+
+    IF (cid < 0)
+      ABORT("Could not find client with sid " || sid || "\n");
+
+    IF (clients[cid].status = "X" OR clients[cid].status = "F")
+    {
+      ShowClients();
+      ABORT("Client " || cid || " exited without finishing tests");
+    }
+
+    IF (clients[cid].status = "E" OR clients[cid].status = "H")
+        BREAK;
+  }
+
+  IF (clients[cid].status = "H")
+    RETURN TRUE;
+
+  IF (clients[cid].handle != 0)
+    PrintTo(clients[cid].handle, ">ACK\n");
+
+  clients[cid].status := "?";
+
+  RETURN TRUE;
+}
+
+STRING ARRAY commandline := GetConsoleArguments();
+IF (LENGTH(commandline) != 2)
+{
+  PRINT("\nSyntax: testrunner testscriptdir testscript\n");
+}
+STRING testscript := commandline[0] || commandline[1];
+STRING scriptrun := GetInstallationRoot() || "bin/runscript";
+STRING ARRAY arguments;
+
+
+PRINT("Running " || testscript || "\n");
+
+// Run the first client
+INTEGER pid := StartProcess(scriptrun,arguments CONCAT [testscript, "0"],TRUE,TRUE,FALSE,TRUE);
+  IF (pid = 0)
+    ABORT("Failed starting testscript");
+INSERT [handle := pid, status := "?", sid := 0, line := "", finished := 0, wait := false] INTO clients AT END;
+INTEGER needed := WaitGreeting(pid);
+
+// Run more clients as needed
+FOR (INTEGER idx := 1; idx < needed; idx := idx + 1)
+{
+  pid := StartProcess(scriptrun,arguments CONCAT [testscript, ToString(idx)],TRUE,TRUE,FALSE,TRUE);
+  IF (pid = 0)
+    ABORT("Failed starting script #" || idx);
+  INSERT [handle := pid, status := "?", sid := 0, line := "", finished := 0, wait := false] INTO clients AT END;
+}
+
+// Execute all tests serially
+INTEGER sid := 1;
+WHILE (testend = 0 OR sid != testend)
+{
+  current_section := sid;
+  IF (NOT RunSection(sid))
+      BREAK;
+  sid := sid + 1;
+}
+// Testing has been done; retrieve and display all pending input
+BOOLEAN done := FALSE;
+WHILE (NOT done)
+{
+  done := TRUE;
+  FOREVERY (RECORD r FROM clients)
+    IF (r.status != "X" AND r.status != "F")
+      done := FALSE;
+  IF (NOT WaitForClientInput(FALSE))
+    BREAK;
+}
+FOREVERY (RECORD r FROM clients)
+{
+  IF (r.line != "")
+    PRINT(#r||": " ||r.line || "\n");
+  IF (r.status = "F")
+    failed := TRUE;
+}
+
+// Show state at the end of the tests
+IF (NOT done OR failed)
+{
+  IF (failed)
+    PRINT("Test failed\n");
+  ELSE
+    PRINT("Test ended; not all clients have correctly shut down\n");
+  PRINT("Current session: " || sid || "\n");
+  ShowClients();
+  ABORT("Test failed");
+}
+ELSE
+  PRINT("Test completed OK\n");
+trans->Close();

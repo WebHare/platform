@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  targetNamespace="http://www.webhare.net/xmlns/wrd/schemadefinition"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+
+  <xs:element name="wrdschemas">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" name="schema">
+          <xs:complexType>
+            <xs:attribute name="name" />
+            <xs:attribute name="title" />
+            <xs:attribute name="tag" />
+            <xs:attribute name="definitionfile" />
+            <xs:attribute name="originalname" />
+            <xs:attribute name="autocreate" use="required" type="xs:boolean" />
+            <xs:attributeGroup ref="sc:ApplicabletoWebHare" />
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+
+</xs:schema>

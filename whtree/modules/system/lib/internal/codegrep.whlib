@@ -1,0 +1,318 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+
+PUBLIC RECORD ARRAY FUNCTION ScanDirectory(STRING module, STRING modulepath, STRING localpath, STRING ARRAY module_extensions)
+{
+  RECORD ARRAY results;
+
+  RECORD ARRAY entries := ReadDiskDirectory(modulepath || localpath, "*");
+  entries := SELECT * FROM entries ORDER BY name;
+  FOREVERY (RECORD entry FROM entries)
+  {
+    IF (entry.name IN [ ".", "..", "node_modules" ])
+      CONTINUE;
+    STRING subpath := localpath || entry.name;
+    IF (entry.type = 1)
+      results := results CONCAT ScanDirectory(module, modulepath, subpath || "/", module_extensions);
+    ELSE IF (GetExtensionFromPath(entry.name) IN module_extensions)
+      INSERT [ data :=        GetDiskResource(modulepath || subpath)
+             , source :=
+                  [ source :=       "module"
+                  , module :=       module
+                  , localpath :=    subpath
+                  , fullpath :=     modulepath || subpath
+                  ]
+             ] INTO results AT END;
+  }
+  RETURN results;
+}
+
+PUBLIC STATIC OBJECTTYPE GlobalTextSearcher
+< STRING searchregex;
+  RECORD options;
+
+  OBJECT pattern;
+
+  RECORD ARRAY results;
+  RECORD ARRAY errors;
+
+  RECORD ARRAY sources;
+  INTEGER currentsource;
+
+  STRING filedata;
+  RECORD match;
+  INTEGER context;
+
+  STRING ARRAY scanmasks;
+  STRING ARRAY skipmasks;
+  BOOLEAN skipdatabase;
+
+  MACRO NEW(STRING xsearchregex, RECORD xoptions)
+  {
+    this->searchregex := xsearchregex;
+    this->options := xoptions;
+
+    IF (CellExists(this->options, "SCANPATHMASKS"))
+      this->scanmasks := this->options.scanpathmasks;
+    IF (CellExists(this->options, "SKIPPATHMASKS"))
+      this->skipmasks := this->options.skippathmasks;
+    IF (CellExists(this->options, "CONTEXT"))
+      this->context := this->options.context;
+    IF (CellExists(this->options, "skipdatabase"))
+      this->skipdatabase := this->options.skipdatabase;
+
+    INTEGER publisher_languagefile := this->skipdatabase ? 0 : OpenWHFSType("http://www.webhare.net/xmlns/publisher/languagefile")->id;
+
+    RECORD ARRAY searchtypes :=
+        [ [ name :=   "js"
+          , exts :=   [ ".js", ".es" ]
+          , types :=  [ 6 ]
+          ]
+        , [ name :=   "css"
+          , exts :=   [ ".css", ".less", ".scss" ]
+          , types :=  [ 9 ]
+          ]
+        , [ name :=   "harescript"
+          , exts :=   [ ".shtml", ".whlib", ".whscr" ]
+          , types :=  [ 7, 16, 22, 25, 28, 38 ]
+          ]
+        , [ name :=   "html"
+          , exts :=   [ ".html", "*.shtml" ]
+          , types :=  [ 5 ]
+          ]
+        , [ name :=   "witty"
+          , exts :=   [ ".witty" ]
+          , types :=  [ 26 ]
+          ]
+        , [ name :=   "xml"
+          , exts :=   [ ".siteprl", ".xml", ".wsdl", ".xsd", ".webfields" ]
+          , types :=  [ 27, 34, publisher_languagefile ]
+          ]
+        ];
+
+    INTEGER ARRAY db_types;
+    STRING ARRAY module_extensions;
+
+    IF (CellExists(this->options, "TYPES"))
+      FOREVERY (STRING type FROM this->options.types)
+      {
+        RECORD rec := SELECT * FROM searchtypes WHERE name = type;
+
+        db_types := db_types CONCAT rec.types;
+        module_extensions := module_extensions CONCAT rec.exts;
+      }
+
+    IF (LENGTH(module_extensions) = 0)
+      FOREVERY (RECORD rec FROM searchtypes)
+      {
+        db_types := db_types CONCAT rec.types;
+        module_extensions := module_extensions CONCAT rec.exts;
+      }
+
+    RECORD ARRAY toscan_modules;
+    FOREVERY (STRING modulename FROM __SYSTEM_GETINSTALLEDMODULENAMES())
+    {
+      STRING path := GetModuleInstallationRoot(modulename);
+      IF (path NOT LIKE "*/")
+        path := path || "/";
+      toscan_modules := toscan_modules CONCAT ScanDirectory(modulename, path, "", module_extensions);
+    }
+
+    RECORD ARRAY toscan_db;
+    IF(NOT this->skipdatabase)
+    {
+      toscan_db :=
+        SELECT type
+            , data
+            , source :=
+                    [ source :=   "db"
+                    , whfspath := whfspath
+                    ]
+          FROM system.fs_objects
+        WHERE fs_objects.type IN db_types
+              AND isactive
+              AND (fs_objects.type != 5 OR ToUppercase(fs_objects.name) LIKE "*.SHTML")
+      ORDER BY ToUppercase(whfspath);
+    }
+
+    this->pattern := NEW RegEx(this->searchregex);
+    this->pattern->ignorecase := NOT CellExists(this->options, "CASESENSITIVE") OR NOT this->options.casesensitive;
+    this->pattern->global := TRUE;
+
+    this->sources :=
+        SELECT *
+          FROM toscan_db CONCAT toscan_modules
+         WHERE this->TestInclude(source);
+
+    this->currentsource := -1;
+  }
+
+  BOOLEAN FUNCTION TestInclude(RECORD source)
+  {
+    STRING path := ToUppercase(source.source = "db" ? "whfs::" || source.whfspath : "mod::" || source.module || "/" || source.localpath);
+    FOREVERY (STRING skipmask FROM this->skipmasks)
+      IF (path LIKE ToUppercase(skipmask))
+        RETURN FALSE;
+    IF (LENGTH(this->scanmasks) = 0)
+      RETURN TRUE;
+
+    FOREVERY (STRING scanmask FROM this->scanmasks)
+      IF (path LIKE ToUppercase(scanmask))
+        RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+  PUBLIC STRING FUNCTION TestPattern()
+  {
+    TRY
+    {
+      this->pattern->Exec("");
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN e->what;
+    }
+    RETURN "";
+  }
+
+  PUBLIC RECORD FUNCTION GetNextResult()
+  {
+    IF (this->currentsource >= LENGTH(this->sources))
+      RETURN DEFAULT RECORD;
+
+    RECORD source := this->currentsource = -1 ? DEFAULT RECORD : this->sources[this->currentsource];
+
+    WHILE (TRUE)
+    {
+      // At first iteration, source doesn't exist
+      IF (RecordExists(source))
+      {
+        TRY
+        {
+          // Try to find the search pattern in the raw filedata
+          this->match := this->pattern->Exec(this->filedata);
+        }
+        CATCH
+        {
+          TRY
+          {
+            // Try to find the search pattern after rewriting the filedata
+            this->filedata := DecodeValue(EncodeValue(this->filedata));
+            this->match := this->pattern->Exec(this->filedata);
+          }
+          CATCH (OBJECT e)
+          {
+            // Return the error
+            RECORD err := source;
+            INSERT CELL what := e->what INTO err;
+            DELETE CELL type FROM err;
+            INSERT CELL type := "error" INTO err;
+            RETURN err;
+          }
+        }
+
+        IF (RecordExists(this->match))
+          BREAK;
+      }
+
+      // If we got here, read the next file
+      this->currentsource := this->currentsource + 1;
+      IF (this->currentsource = LENGTH(this->sources))
+        RETURN DEFAULT RECORD;
+
+      source := this->sources[this->currentsource];
+      this->filedata := BlobToString(source.data,-1);
+
+      // Signal that we're reading a new file (so the codegrep script can flush search results)
+      IF (this->context > 0)
+        RETURN [ type := "newfile" ];
+    }
+
+    // Find the start and end of the match line
+    INTEGER linestart := SearchLastSubstring(this->filedata, "\n", this->match.start);
+    INTEGER lineend := SearchSubstring(this->filedata,"\n", this->match.start + this->match.len);
+    IF(lineend=-1)
+      lineend := Length(this->filedata);
+    //INTEGER lastlinestart := SearchLastSubstring(this->filedata,"\n", this->match.start + this->match.len);
+
+    // Determine the line number and content of the match line
+    INTEGER linenum := Length(Tokenize(Substring(this->filedata, 0, linestart + 1), "\n"));
+    STRING linedata := Substring(this->filedata, linestart+1, lineend-linestart-1);
+
+    // If context is requested, read <context> lines before and after the match line
+    RECORD ARRAY contextbefore, contextafter;
+    IF (this->context > 0)
+    {
+      INTEGER contextstart := linestart;
+      FOR (INTEGER i := 0; i < this->context; i := i + 1)
+      {
+        INTEGER newstart := SearchLastSubstring(this->filedata, "\n", contextstart - 1);
+        contextstart := newstart;
+        IF (newstart < 0)
+          BREAK;
+      }
+      INTEGER contextend := lineend;
+      FOR (INTEGER i := 0; i < this->context; i := i + 1)
+      {
+        INTEGER newend := SearchSubstring(this->filedata, "\n", contextend + 1);
+        IF (newend < 0)
+        {
+          contextend := Length(this->filedata) + 1;
+          BREAK;
+        }
+        contextend := newend;
+      }
+
+      // First context before line number
+      INTEGER contextline := Length(Tokenize(Substring(this->filedata, 0, contextstart + 1), "\n"));
+      // Read the context lines with their line numbers and split into context before the match and context after the match
+      RECORD ARRAY context :=
+          SELECT linedata := line
+               , line := contextline + #lines
+            FROM ToRecordArray(Tokenize(Substring(this->filedata, contextstart+1, contextend-contextstart-1), "\n"), "line") AS lines;
+      contextbefore := SELECT * FROM context WHERE line < linenum;
+      contextafter := SELECT * FROM context WHERE line > linenum;
+    }
+
+    INTEGER col := UCLength(Left(linedata, this->match.start - linestart - 1)) + 1;
+
+    RECORD matchdata :=
+        [ type :=          "result"
+        , linedata :=      linedata
+        , line :=          linenum
+        , col :=           col
+
+        , lineofs :=       linestart + 1
+        , ofs :=           this->match.start
+        , len :=           this->match.len
+        , uclen :=         UCLength(Substring(this->filedata, this->match.start, this->match.len))
+        , contextbefore := contextbefore
+        , contextafter :=  contextafter
+        ];
+
+    RETURN MakeMergedRecord(source.source, matchdata);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetNextResults(INTEGER count)
+  {
+    RECORD ARRAY results;
+    FOR (INTEGER i := 0; i < count; i := i + 1)
+    {
+      RECORD result := this->GetNextResult();
+      IF (NOT RecordExists(result))
+        BREAK;
+
+      INSERT result INTO results AT END;
+    }
+    RETURN results;
+  }
+
+>;

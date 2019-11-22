@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
+  <import definitionfile="mod::wrd/data/wrdschemas/authschema_saml.xml" />
+
+  <attachment tag="WHUSER_ROLE" title="WebHare usermanagement role" linkfrom="WHUSER_UNIT">
+    <attributes>
+      <free tag="WRD_TITLE" title="Role title"/>
+      <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
+    </attributes>
+  </attachment>
+
+  <domain tag="WHUSER_UNIT" title="WebHare usermanagement unit">
+    <attributes>
+      <free tag="WRD_TITLE" title="Unit title"/>
+      <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
+    </attributes>
+  </domain>
+
+  <object tag="WRD_PERSON" title="Person">
+    <attributes>
+      <boolean tag="WHUSER_DISABLED" title="Disabled"/>
+      <free tag="WHUSER_DISABLEREASON" title="Reason for disabling"/>
+      <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
+      <domainsingle tag="WHUSER_UNIT" title="Unit" domain="WHUSER_UNIT" />
+      <domainmultiple tag="WHUSER_HIDDENANNOUNCEMENTS" title="Hidden desktop announcements" domain="WHUSER_ANNOUNCEMENT" />
+    </attributes>
+  </object>
+
+  <attachment tag="WHUSER_APPACCOUNT" title="WebHare app account" linkfrom="WRD_RELATION">
+    <attributes>
+      <free tag="DEVICE" title="Device"/>
+      <datetime tag="LASTUSE" title="Last usage"/>
+      <integer tag="TYPE" title="Account type" />
+      <free tag="PASSWORDID" title="Password identifier" />
+      <password tag="PASSWORD" title="Actual password" />
+      <free tag="SCOPE" title="Account scope" />
+    </attributes>
+  </attachment>
+
+  <attachment tag="WHUSER_PEERSERVER" title="WebHare peer server" linkfrom="WRD_RELATION">
+    <attributes>
+      <free tag="WRD_TITLE" title="Title"/>
+      <free tag="SERVERURL" title="Server URL"/>
+      <obsolete tag="USERNAME" />
+      <obsolete tag="PASSWORD" />
+      <datetime tag="LASTUSE" title="Last usage"/>
+      <record tag="VERSIONINFO" />
+      <record tag="CURRENTTOKEN" />
+    </attributes>
+  </attachment>
+
+  <object tag="WHUSER_ANNOUNCEMENT" title="Desktop announcement">
+    <attributes>
+      <free tag="ANNOUNCEMENT_TITLE" title="Announcement title" />
+      <richdocument tag="ANNOUNCEMENT_TEXT" title="Announcement text" />
+      <domainmultiple tag="ANNOUNCEMENT_UNIT" title="Unit" domain="WHUSER_UNIT" />
+      <domainsingle tag="ANNOUNCEMENT_AUTHOR" title="Author" domain="WRD_PERSON" />
+      <datetime tag="PUBLISH_FROM" title="Start publication" />
+      <datetime tag="PUBLISH_UNTIL" title="End publication" />
+      <integer tag="TARGET_LANGUAGE" title="Target language" required="false" />
+    </attributes>
+  </object>
+
+  <object tag="WHUSER_SYSTEMMESSAGE_SNOOZES" title="System message snoozes">
+    <attributes>
+      <domainsingle tag="SNOOZER" title="Snoozer" domain="WRD_PERSON" description="User that created this snooze" />
+      <datetime tag="UNTIL" title="Snooze until" />
+      <free tag="MESSAGETAGHASH" title="Base16-encoded SHA1 hash of the message tag record" />
+      <file tag="MESSAGETAG" title="HSON-encoded message tag" />
+      <free tag="MESSAGETIDATSNOOZE" title="System message text when it was snoozed" />
+      <free tag="COMMENT" title="Comment" />
+    </attributes>
+  </object>
+
+
+</schemadefinition>

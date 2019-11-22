@@ -1,0 +1,31 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+RECORD info := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "recursive", type := "switch" ]
+                              , [ name := "allfiles", type := "switch" ]
+                              , [ name := "failed", type := "switch" ]
+                              , [ name := "torepub", type := "paramlist" ]
+                              ]);
+
+IF(NOT RecordExists(info))
+{
+  Print("Syntax: republish [--recursive] [--allfiles] [--failed] sitemask:folder/filemask [...]\n");
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary();
+
+IF(Length(info.torepub)=0)
+{
+  PrintTo(2, "No files to republish specified\n");
+  RETURN;
+}
+FOREVERY(STRING arg FROM info.torepub)
+{
+  RECORD res := __DoRepublishByMask(arg, info.allfiles, info.recursive, DEFAULT MACRO PTR, info.failed,"");
+  FOREVERY(STRING err FROM res.errors)
+    Print(err||"\n");
+}

@@ -1,0 +1,6 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <backgroundlayer src="tollium:backgrounds/banknoteright"/>
+  <backgroundlayer src="tollium:objects/banknoteright"/>
+  <backgroundlayer src="tollium:backgrounds/banknote"/>
+  <layer src="tollium:objects/banknoteleft"/>
+</icon>

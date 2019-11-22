@@ -1,0 +1,23 @@
+<?wh
+/** @private Format parser. (may be replaced with tika at some point) */
+
+LOADLIB "wh::ooxml/presentation.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
+
+PUBLIC RECORD FUNCTION ParsePPTX(BLOB infile)
+{
+  STRING lines;
+  OBJECT pptx := OpenOOXMLPresentationFileFile(infile);
+  FOREVERY(RECORD slide FROM pptx->getslides())
+    lines := lines || pptx->OpenSlide(#slide)->getAllSlideText();
+
+  RECORD parsed_page := CreateParsedPage();
+  parsed_page.type_ext := "ppt";
+  parsed_page.follow_links := FALSE;
+  parsed_page.text := CleanWhitespace(lines);
+  RETURN parsed_page;
+}
+
+
+//dumpvalue(pptx,'tree');

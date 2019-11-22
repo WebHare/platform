@@ -1,0 +1,35 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC SCHEMA
+< TABLE
+  < INTEGER id
+  , INTEGER parent NULL := 0
+  , STRING name
+  ; KEY id
+  > rights_tree
+, TABLE
+  < integer id
+  , STRING groupid
+  , STRING objectid
+  , STRING text
+  , DATETIME adate
+  , DATETIME grouprequiredindexdate
+  , DATETIME objectrequiredindexdate
+  , DATETIME indexdate
+  , INTEGER spiderfrom NULL := 0
+  ; KEY id
+  > consilio_index
+, TABLE
+  < INTEGER id
+  , STRING text
+  ; KEY id
+  > exporttest
+> webhare_testsuite;
+
+MACRO BindWebHareTestsuiteTables(INTEGER trans)
+{
+  webhare_testsuite:= BindTransactionToSchema(trans, "webhare_testsuite");
+}
+
+SetupPrimaryTransactionBinder(PTR BindWebHareTestsuiteTables);

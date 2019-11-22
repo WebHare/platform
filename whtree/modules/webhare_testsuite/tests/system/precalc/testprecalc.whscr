@@ -1,0 +1,297 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/precalc/cache.whlib";
+LOADLIB "mod::system/lib/internal/precalc/support.whlib";
+
+
+STRING ARRAY testfuncruns;
+MACRO GotTestFuncRun(STRING event, RECORD data)
+{
+  INSERT event INTO testfuncruns AT END;
+}
+
+ASYNC MACRO ResetCache()
+{
+  OBJECT link := AWAIT OpenWebHareService("system:precalc");
+  TRY
+    AWAIT link->DeleteFromModule("webhare_testsuite");
+  FINALLY
+    link->CloseService();
+}
+
+ASYNC FUNCTION GetPrecalcMetadata(RECORD keydata, STRING func)
+{
+  OBJECT link := AWAIT OpenWebHareService("system:precalc");
+  TRY
+    RETURN AWAIT link->DescribePrecalculatedData(keydata, func);
+  FINALLY
+    link->CloseService();
+}
+
+ASYNC MACRO PrecalcTest()
+{
+  RegisterEventCallback("webhare_testsuite:system.precalc.*", PTR GotTestFuncRun);
+
+  DATETIME timetag := GetCurrentDateTime();
+
+  OBJECT data1 := GetPrecalculatedData(CELL[ type := "test1", timetag ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc");
+  OBJECT data2 := GetPrecalculatedData(CELL[ type := "test1", timetag ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc");
+
+  RECORD val1 := AWAIT data1;
+  TestEQ(10, val1.result);
+  TestEQ(val1.now, (AWAIT data2).now);
+
+  DATETIME stoprefreshat;
+
+  // softttl
+  stoprefreshat := AddTimeToDate(1000, GetCurrentDateTime());
+  testfuncruns := STRING[];
+  val1 := AWAIT GetPrecalculatedData(CELL[ type := "test1", stoprefreshat, softttl := 100 ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc2");
+  TestEQ(11, val1.result);
+  AWAIT Delay(10); // no refresh in 10ms
+  RECORD val2 := AWAIT GetPrecalculatedData(CELL[ type := "test1", stoprefreshat, softttl := 100 ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc2");
+  TestEQ(val1.now, val2.now);
+  AWAIT Delay(190); // after 70ms, expect refreshed
+  val2 := AWAIT GetPrecalculatedData(CELL[ type := "test1", stoprefreshat, softttl := 100 ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc2");
+  TestEQ(FALSE, val1.now = val2.now);
+
+  // ttl
+  stoprefreshat := AddTimeToDate(1000, GetCurrentDateTime());
+  testfuncruns := STRING[];
+  BroadcastEvent("webhare_testsuite:system.precalc.lookup1", DEFAULT RECORD);
+  val1 := AWAIT GetPrecalculatedData(CELL[ type := "test1", stoprefreshat, ttl := 100 ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc2");
+  TestEQ(11, val1.result);
+  BroadcastEvent("webhare_testsuite:system.precalc.lookup2", DEFAULT RECORD);
+  val2 := AWAIT GetPrecalculatedData(CELL[ type := "test1", stoprefreshat, ttl := 100 ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc2");
+  TestEQ(val1.now, val2.now);
+  AWAIT Delay(200); // after 200ms, expect refreshed
+  BroadcastEvent("webhare_testsuite:system.precalc.lookup3", DEFAULT RECORD);
+  val2 := AWAIT GetPrecalculatedData(CELL[ type := "test1", stoprefreshat, ttl := 100 ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc2");
+  TestEQ(FALSE, val1.now = val2.now);
+
+  // soft expire by eventmasks
+  val1 := AWAIT GetPrecalculatedData(CELL[ type := "test1", stoprefreshat ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc3");
+  TestEQ(12, val1.result);
+  BroadcastEvent("webhare_testsuite:test.system.precalc.cache.f3.soft", DEFAULT RECORD);
+  AWAIT Delay(200); // after 50ms, expect refreshed
+  val2 := AWAIT GetPrecalculatedData(CELL[ type := "test1", stoprefreshat ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc3");
+  TestEQ(FALSE, val1.now = val2.now);
+
+  // hard expire by eventmasks
+  val1 := AWAIT GetPrecalculatedData(CELL[ type := "test2", stoprefreshat ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc3");
+  TestEQ(12, val1.result);
+  BroadcastEvent("webhare_testsuite:test.system.precalc.cache.f3.hard", DEFAULT RECORD);
+  AWAIT Delay(200); // after 50ms, expect refreshed
+  val2 := AWAIT GetPrecalculatedData(CELL[ type := "test2", stoprefreshat ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc3");
+  TestEQ(FALSE, val1.now = val2.now);
+
+  //DumpValue(AWAIT GetPrecalculatedData(CELL[ type := "test1" ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc4"));
+  // crash at first lookup should persist
+  TestThrowsLike("*Boem*", PTR WaitForPromise(GetPrecalculatedData(CELL[ type := "test1", stoprefreshat ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc4")));
+  TestThrowsLike("*Boem*", PTR WaitForPromise(GetPrecalculatedData(CELL[ type := "test1", stoprefreshat ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc4")));
+
+  // discard
+  DATETIME pre := GetCurrentDateTime();
+  val1 := AWAIT GetPrecalculatedData(CELL[ type := "test5" ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc5");
+  DATETIME post := GetCurrentDateTime();
+  TestEQ(14, val1.result);
+
+  val2 := AWAIT GetPrecalcMetadata(CELL[ type := "test5" ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc5");
+  testEQ("valid", val2.cachestate);
+  TestEQ(TRUE, val2.lastuse >= pre AND val2.lastuse <= post);
+
+  AWAIT Delay(60); // after 50ms, should be gone
+  val2 := AWAIT GetPrecalcMetadata(CELL[ type := "test5" ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc5");
+  TestEQ("n/a", val2.cachestate);
+
+  // Test if calculated requests during which are reset during first calculation give back correct value
+  OBJECT pval1 := GetPrecalculatedData(CELL[ type := "test6-1", sleep := 100, liverefreshtimeout := 0, crashat := MAX_DATETIME ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+  AWAIT Delay(50); // wait for calc to start
+  ResetCache();
+  TestEQ(15, (AWAIT pval1).result);
+
+  // make sure that value is in cache
+  AWAIT GetPrecalculatedData(CELL[ type := "test6-1", sleep := 100, liverefreshtimeout := 0, crashat := MAX_DATETIME ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+
+  // run hard expire, then lookup which timeouts
+  BroadcastEvent("webhare_testsuite:test.system.precalc.cache.f6.hard", DEFAULT RECORD);
+  pval1 := GetPrecalculatedData(CELL[ type := "test6-1", sleep := 100, liverefreshtimeout := 0, crashat := MAX_DATETIME ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+  AWAIT Delay(50); // wait for calc to start
+  ResetCache();
+  TestEQ(15, (AWAIT pval1).result);
+
+  // make sure that value is in cache
+  AWAIT GetPrecalculatedData(CELL[ type := "test6-2", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+
+  // run hard expire, then lookup which succeeds
+  BroadcastEvent("webhare_testsuite:test.system.precalc.cache.f6.hard", DEFAULT RECORD);
+  pval1 := GetPrecalculatedData(CELL[ type := "test6-2", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+  AWAIT Delay(50); // wait for calc to start
+  ResetCache();
+  TestEQ(15, (AWAIT pval1).result);
+
+  // make sure that value is in cache
+  DATETIME crashat := AddTimeToDate(150, GetCurrentDateTime());
+  AWAIT GetPrecalculatedData(CELL[ type := "test6-3", sleep := 100, liverefreshtimeout := 1000, crashat := crashat ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+
+  // run hard expire, then lookup which crashes
+  BroadcastEvent("webhare_testsuite:test.system.precalc.cache.f6.hard", DEFAULT RECORD);
+  pval1 := GetPrecalculatedData(CELL[ type := "test6-3", sleep := 100, liverefreshtimeout := 1000, crashat := crashat ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+  AWAIT Delay(50); // wait for calc to start
+  ResetCache();
+  TestEQ(15, (AWAIT pval1).result);
+
+  {
+    // waitforrefresh ignoring soft-expired data
+    ResetCache();
+    // Place data in cache
+    val1 := AWAIT GetPrecalculatedData(
+          CELL[ type := "test7", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+
+    BroadcastEvent("webhare_testsuite:test.system.precalc.cache.f6.soft", DEFAULT RECORD);
+    // In the next 100ms, recalc will be running. Normal lookup will return cached data immediately
+    val2 := AWAIT GetPrecalculatedData(
+          CELL[ type := "test7", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+    TestEQ(TRUE, val1.now = val2.now);
+
+    // waitforrefresh will wait until data is recalculated, so 'now' will differ
+    val2 := AWAIT GetPrecalculatedData(
+          CELL[ type := "test7", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6",
+          [ waitforrefresh := TRUE ]);
+    TestEQ(FALSE, val1.now = val2.now);
+
+    // subsequent normal lookup should return the new version
+    RECORD val3 := AWAIT GetPrecalculatedData(
+          CELL[ type := "test7", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+    TestEQ(TRUE, val2.now = val3.now);
+  }
+
+  {
+    // ignoring liverefreshtimeout by liverefreshtimeout
+    ResetCache();
+    // Place data in cache (new item, so indefinite wait)
+    val1 := AWAIT GetPrecalculatedData(
+          CELL[ type := "test8", sleep := 100, liverefreshtimeout := 10, crashat := MAX_DATETIME ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+    // hard expire with data in cache
+    BroadcastEvent("webhare_testsuite:test.system.precalc.cache.f6.hard", DEFAULT RECORD);
+    // normal get will wait for new value, but liverefreshtimeout is much smaller than sleep, so will get stale data
+    val2 := AWAIT GetPrecalculatedData(
+          CELL[ type := "test8", sleep := 100, liverefreshtimeout := 10, crashat := MAX_DATETIME ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+    TestEQ(TRUE, val1.now = val2.now);
+
+    // waitforrefresh will wait until data is recalculated, ignoring liverefreshtimeout, so will get new data
+    val2 := AWAIT GetPrecalculatedData(
+          CELL[ type := "test8", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6",
+          [ waitforrefresh := TRUE ]);
+    TestEQ(FALSE, val1.now = val2.now);
+  }
+
+  {
+    // ignoring liverefreshtimeout by liverefreshtimeout
+    ResetCache();
+
+    // Place data in cache (new item, so indefinite wait)
+    DATETIME cancelat := AddTimeToDate(30, GetCurrentDateTime());
+    val1 := AWAIT GetPrecalculatedData(
+          CELL[ type := "test9", cancelat ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc7");
+
+    TestEQ(17, val1.result);
+    AWAIT Delay(50); // after 20ms, cancelat should trigger
+
+    // hard expire with data in cache
+    BroadcastEvent("webhare_testsuite:test.system.precalc.cache.f7.hard", DEFAULT RECORD);
+
+    AWAIT Delay(50); // little time for recalc to start
+
+    AWAIT TestRejected(GetPrecalculatedData(
+          CELL[ type := "test9", cancelat ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc7"));
+  }
+
+  ResetCache();
+}
+
+STRING ARRAY statechanged;
+
+MACRO GotStateChange(STRING hash, RECORD olditem, RECORD item)
+{
+  INSERT hash INTO statechanged AT END;
+}
+
+ASYNC MACRO TestCache()
+{
+  OBJECT cache := NEW PrecalcCache(FALSE);
+  cache->OnStateChange := PTR GotStateChange;
+  cache->Init();
+
+  DATETIME now := GetCurrentDateTime();
+
+  cache->StoreCacheItem(
+      [ hash :=             "h1"
+      , state :=            "valid"
+      , softeventmasks :=   [ "webhare_testsuite:test.system.precalc.cache.h1.soft" ]
+      , eventmasks :=       [ "webhare_testsuite:test.system.precalc.cache.h1.hard" ]
+      ]);
+
+  AWAIT Delay(100);
+  TestEQ(STRING[], statechanged);
+
+  BroadcastEvent("webhare_testsuite:test.system.precalc.cache.h1.soft", DEFAULT RECORD);
+  AWAIT Delay(100);
+  TestEQ([ "h1" ], statechanged);
+  TestEQ("softexpired", cache->LookupItem("h1").state);
+
+  BroadcastEvent("webhare_testsuite:test.system.precalc.cache.h1.hard", DEFAULT RECORD);
+  AWAIT Delay(100);
+  TestEQ([ "h1", "h1" ], statechanged);
+  TestEQ("expired", cache->LookupItem("h1").state);
+
+  BroadcastEvent("webhare_testsuite:test.system.precalc.cache.h1.soft", DEFAULT RECORD);
+  AWAIT Delay(100);
+  TestEQ([ "h1", "h1" ], statechanged);
+  TestEQ("expired", cache->LookupItem("h1").state);
+}
+
+MACRO TestDurations()
+{
+  TestEQ(6, ParseDuration(6));
+  TestEQ(6, ParseDuration("6ms"));
+  TestEQ(5 * 1000, ParseDuration("5s"));
+  TestEQ(5 * 1000 + 6, ParseDuration("5s6ms"));
+  TestEQ(4 * 60 * 1000, ParseDuration("4m"));
+  TestEQ(4 * 60 * 1000 + 5 * 1000 + 6, ParseDuration("4m5s6ms"));
+  TestEQ(3 * 60 * 60 * 1000, ParseDuration("3h"));
+  TestEQ(3 * 60 * 60 * 1000 + 4 * 60 * 1000 + 5 * 1000 + 6, ParseDuration("3h4m5s6ms"));
+  TestEQ(2 * 24 * 60 * 60 * 1000, ParseDuration("2d"));
+  TestEQ(2 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000 + 4 * 60 * 1000 + 5 * 1000 + 6, ParseDuration("2d3h4m5s6ms"));
+  TestEQ(7 * 24 * 60 * 60 * 1000, ParseDuration("1w"));
+  TestEQ(9 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000 + 4 * 60 * 1000 + 5 * 1000 + 6, ParseDuration("1w2d3h4m5s6ms"));
+
+  TestThrows(PTR ParseDuration(1.0));
+  TestThrows(PTR ParseDuration("1"));
+  TestThrows(PTR ParseDuration("1MS"));
+  TestThrows(PTR ParseDuration("1msa"));
+  TestThrows(PTR ParseDuration("1ms1s"));
+  TestThrows(PTR ParseDuration("1d1w"));
+}
+
+RunTestFramework([ PTR ResetCache
+                 , PTR TestDurations
+                 , PTR TestCache
+                 , PTR PrecalcTest
+                 , PTR ResetCache
+                 ]);

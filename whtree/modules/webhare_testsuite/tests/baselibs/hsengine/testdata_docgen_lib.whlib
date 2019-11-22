@@ -1,0 +1,177 @@
+﻿<?wh
+/** @short Helper script for docgenerator to generate help files based on comments
+   @author B-Lex I.T.
+   @copyright B-Lex I.T.
+   @version 1.0
+   @long This is the long description for this file
+*/
+LOaDLiB "wh::devsupport.whlib" EXPORT
+    EnableFunctionProfile,
+    DisableFunctionProfile __ATTRIBUTES__(DEPRECATED),
+    EnableMemoryProfile  __ATTRIBUTES__(DEPRECATED "DeprecationText");
+
+public table
+ < integer id
+ , string str
+ > table1;
+
+public schema
+<
+ table
+ < integer id
+ , string str
+ >
+ b
+, table
+ < integer i1
+ , string s2
+ >
+ c
+> s;
+
+PUBLIC STRING xx;
+
+/** @short Dit is een leuke functie
+    @long Long test description
+    @param param1 Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1Description of param1
+    @param param2 Description of @bold param2
+    @param param3 Description of @link url tekst
+    @param param4 Description of @italic record
+    @cell(integer) param4.id   Id of record
+    @cell(string) param4.name Name of record
+    @deprecated   Information about deprecation
+    @example
+Test example
+*/
+PUBLIC MACRO PublicMacro(STRING param1, INTEGER param2, BOOLEAN param3, RECORD ARRAY param4 DEFAULTSTO [[ a := ([ b := 1, c := 2 ]), d := 1 ]])
+{
+}
+
+/********************************* inserted an unused docgen description to confuse docgen */
+/** @short Short test description
+    @long Long test description
+*/
+MACRO PrivateMacro()
+{
+}
+
+/********************************* inserted an unused docgen description to confuse docgen */
+/** @short Short test description
+    @long Long test description
+    @cell return.id   Return id
+    @return This function returns something
+*/
+PUBLIC RECORD FUNCTION PublicFunction()
+{ RETURN DEFAULT RECORD;
+}
+
+/** @short Short test description
+    @long Long test description
+    @return This function returns something
+*/
+INTEGER FUNCTION PrivateFunction()
+{ RETURN 0;
+}
+
+PUBLIC MACRO UndocumentedMacro() { }
+PUBLIC INTEGER FUNCTION UndocumentedFunction() { RETURN 0; }
+
+
+PUBLIC OBJECT FUNCTION* TestGenerator()
+{
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC OBJECT ASYNC FUNCTION TestAsyncFunction()
+{
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC OBJECT ASYNC FUNCTION* TestAsyncGenerator()
+{
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC ASYNC MACRO TestAsyncMacro()
+{
+}
+
+PUBLIC ASYNC FUNCTION TestAsyncFunction2()
+{
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC ASYNC FUNCTION* TestAsyncGenerator2()
+{
+  RETURN DEFAULT RECORD;
+}
+
+
+/** Objecttype
+*/
+OBJECTTYPE DocumentedObjectType EXTEND Exception
+< /// Member
+  INTEGER obj_member;
+
+  /** Macro
+      @param param1 Param1
+  */
+  MACRO OBJ_DocMacro(INTEGER param1)
+  {
+  }
+
+  /** Function
+      @param param1 Param1
+      @return Retval
+  */
+  RECORD FUNCTION OBJ_DocFunction(INTEGER param1)
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Asyncfunction
+      @return retval
+  */
+  OBJECT ASYNC FUNCTION OBJ_DocAsyncFunction()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  OBJECT ASYNC FUNCTION *OBJ_DocAsyncGenerator()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  ASYNC MACRO OBJ_DocAsyncMacro()
+  {
+  }
+
+  ASYNC FUNCTION OBJ_DocAsyncAsyncFunction2()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  ASYNC FUNCTION* OBJ_DocAsyncAsyncGenerator2()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  UPDATE PUBLIC MACRO OBJ_UpPubMacro()
+  {
+  }
+
+>;
+
+STATIC OBJECTTYPE ObjectTypeWithAttr __ATTRIBUTES__(DEPRECATED "This is deprecated outer")
+< INTEGER FUNCTION Test() __ATTRIBUTES__(DEPRECATED "This is deprecated") { RETURN 42; }
+>;
+
+STATIC OBJECTTYPE StaticObjectType<  >;
+PUBLIC STATIC OBJECTTYPE PublicStaticObjectType<  >;
+
+// Template strings
+PRINT(`${1}b${`${2 || "3"}`}`);
+
+PUBLIC CONSTANT INTEGER constint := 5;
+
+PUBLIC __CONSTREF INTEGER constrefint := 5;

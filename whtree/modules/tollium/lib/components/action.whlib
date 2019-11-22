@@ -1,0 +1,1116 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/shortcuts.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE TolliumActionForwardBase EXTEND TolliumSpecialComponent
+<
+  STRING pvt_icon;
+
+  RECORD ARRAY dependencies;
+
+  RECORD pvt_shortcut;
+
+  BOOLEAN pvt_ellipsis;
+
+  PUBLIC PROPERTY ellipsis(pvt_ellipsis, SetEllipsis);
+
+  /** @short Icon specified from tollium. Findable in documentation - common images.
+      @example icon="tollium:folders/normal"
+  */
+  PUBLIC PROPERTY icon(pvt_icon, SetIcon);
+
+  /** @short shortcut
+  */
+  PUBLIC PROPERTY shortcut(GetShortcut, SetShortcut);
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumComponentBase::StaticInit(definition);
+    this->pvt_icon := definition.icon;
+    this->shortcut := definition.shortcut;
+    this->SetTitle(definition.title); //make sure dependencies receive it, forward referring menuitems (eg fragment users) may not have their action yet initialized.
+  }
+
+  STRING FUNCTION GetShortcutCode(RECORD shortcut)
+  {
+    IF (NOT RecordExists(shortcut))
+      RETURN "";
+
+    RETURN (shortcut.alt ? "alt+" : "")
+        || (shortcut.ctrl ? "ctrl+" : "")
+        || (shortcut.shift ? "shift+" : "")
+        || ToLowercase(shortcut.keystr);
+  }
+  STRING FUNCTION GetShortcut()
+  {
+    RETURN this->GetShortcutCode(this->pvt_shortcut);
+  }
+
+  MACRO SetShortcut(STRING shortcut)
+  {
+    RECORD parsedshortcut := ParseShortcut(shortcut);
+    IF (this->GetShortcutCode(this->pvt_shortcut) = this->GetShortcutCode(parsedshortcut))
+      RETURN;
+
+    this->pvt_shortcut := parsedshortcut;
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE MACRO SetEllipsis(BOOLEAN ellipsis)
+  {
+    this->pvt_ellipsis := ellipsis;
+    this->ExtUpdatedTitle();
+    this->UpdateDependentComponents("ellipsis");
+  }
+
+  /* @short Register or unregister component dependencies
+     @long Set, update or removes dependencies for a component. This function takes the dependent component, and fields
+           that specify which component properties are dependent on the corresponding action component. Only specified
+           dependencies are updated and only properties for which the specified field is TRUE are updated by this action.
+     @param component The dependent component
+     @param fields Which property fields are dependent on this action (a RECORD with BOOLEAN cells)
+     @cell fields.title If the component's title should be updated by this action
+     @cell fields.icon If the component's icon should be updated by this action
+     @cell fields.hint If the component's hint should be updated by this action
+  */
+  PUBLIC MACRO SetDependency(OBJECT component, RECORD fields)
+  {
+    FOREVERY (RECORD dep FROM this->dependencies)
+      IF (dep.component->name = component->name)
+      {
+        // Update existing dependencies
+        IF (CellExists(fields, "title"))
+          this->dependencies[#dep].title := fields.title;
+        IF (CellExists(fields, "icon"))
+          this->dependencies[#dep].icon := fields.icon;
+        IF (CellExists(fields, "hint"))
+          this->dependencies[#dep].hint := fields.hint;
+        IF (CellExists(fields, "ellipsis"))
+          this->dependencies[#dep].ellipsis := fields.ellipsis;
+        RETURN;
+      }
+
+    // Register new component with dependencies
+    INSERT [ component := component
+           , title := CellExists(fields, "title") AND fields.title
+           , icon := CellExists(fields, "icon") AND fields.icon
+           , hint := CellExists(fields, "hint") AND fields.hint
+           , ellipsis := CellExists(fields, "ellipsis") AND fields.ellipsis
+           ] INTO this->dependencies AT END;
+  }
+
+  /* @short Unregister a dependent component
+     @long Remove a component from the list of dependent components, for example after it is destroyed.
+     @param component The dependent component
+  */
+  PUBLIC MACRO UnregisterDependency(OBJECT component)
+  {
+    FOREVERY (RECORD dep FROM this->dependencies)
+      IF (ObjectExists(dep.component) AND dep.component->name = component->name)
+      {
+        DELETE FROM this->dependencies AT #dep;
+        RETURN;
+      }
+  }
+
+  /** @short UpdateDependentComponents
+  */
+  PUBLIC MACRO UpdateDependentComponents(STRING field)
+  {
+    FOREVERY (RECORD dep FROM this->dependencies)
+      IF (ObjectExists(dep.component) AND GetCell(dep, field))
+        dep.component->UpdatedDependentField(field);
+  }
+
+  UPDATE MACRO SetTitle(STRING newtitle)
+  {
+    TolliumComponentBase::SetTitle(newtitle);
+    this->UpdateDependentComponents("title");
+  }
+
+  MACRO SetIcon(STRING newicon)
+  {
+    newicon := this->owner->frame->ParseIconPointer(newicon);
+    IF (this->pvt_icon != newicon)
+    {
+      this->pvt_icon := newicon;
+      this->UpdateDependentComponents("icon");
+    }
+  }
+
+  UPDATE MACRO SetHint(STRING newhint)
+  {
+    TolliumComponentBase::SetHint(newhint);
+    this->UpdateDependentComponents("hint");
+  }
+
+  /** @short Get a (localized) printable shortcut, e.g. for use in menus
+  */
+  PUBLIC STRING FUNCTION GetShortcutString()
+  {
+    IF (RecordExists(this->pvt_shortcut))
+    {
+      SWITCH (this->pvt_shortcut.keystr)
+      {
+        CASE 'ESC'
+        {
+          RETURN GetTid("tollium:common.labels.esc");
+        }
+        CASE 'ENTER'
+        {
+          RETURN GetTid("tollium:common.labels.enter");
+        }
+        CASE 'LEFT'
+        {
+          RETURN GetTid("tollium:common.labels.left");
+        }
+        CASE 'UP'
+        {
+          RETURN GetTid("tollium:common.labels.up");
+        }
+        CASE 'RIGHT'
+        {
+          RETURN GetTid("tollium:common.labels.right");
+        }
+        CASE 'DOWN'
+        {
+          RETURN GetTid("tollium:common.labels.down");
+        }
+        CASE 'TAB'
+        {
+          RETURN GetTid("tollium:common.labels.tab");
+        }
+        CASE 'BKSP'
+        {
+          RETURN GetTid("tollium:common.labels.bksp");
+        }
+        CASE 'DEL'
+        {
+          RETURN GetTid("tollium:common.labels.del");
+        }
+        CASE 'HOME'
+        {
+          RETURN GetTid("tollium:common.labels.home");
+        }
+        CASE 'END'
+        {
+          RETURN GetTid("tollium:common.labels.end");
+        }
+        CASE 'PGUP'
+        {
+          RETURN GetTid("tollium:common.labels.pgup");
+        }
+        CASE 'PGDN'
+        {
+          RETURN GetTid("tollium:common.labels.pgdn");
+        }
+        DEFAULT
+        {
+          RETURN this->pvt_shortcut.keystr;
+        }
+      }
+    }
+    RETURN "";
+  }
+
+  UPDATE BOOLEAN FUNCTION CalculateIsNowVisible()
+  {
+    RETURN ObjectExists(this->pvt_owner);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE TolliumForward EXTEND TolliumActionForwardBase
+<
+  OBJECT pvt_action;
+  PUBLIC PROPERTY action(pvt_action, SetAction);
+
+  MACRO NEW()
+  {
+    this->componenttype := "forward";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumActionForwardBase::StaticInit(definition);
+    this->pvt_action := definition.action;
+  }
+
+  MACRO SetAction(OBJECT newaction)
+  {
+    IF(this->pvt_action = newaction)
+      RETURN;
+
+    this->pvt_action := newaction;
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    RECORD compinfo := [ action := GetComponentName(this->action)
+                       , shortcut := RecordExists(this->pvt_shortcut) ? CellInsert(this->pvt_shortcut, "titlekeystr", this->GetShortcutString()) : DEFAULT RECORD
+                       ];
+
+    this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  /** @short TolliumClick
+  */
+  PUBLIC BOOLEAN FUNCTION TolliumClick()
+  {
+    RETURN ObjectExists(this->action) ? this->action->TolliumClick() : FALSE;
+  }
+
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    IF (ObjectExists(this->action))
+      this->action->ExecutePathAction(path);
+  }
+>;
+
+/** @short The action
+*/
+PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
+< RECORD baseactionrecord;
+  STRING handlername;
+
+  RECORD ARRAY pvt_enableons;
+  STRING ARRAY pvt_frameflags;
+
+//, RECORD FUNCTION GetActionInfo()
+
+
+  /** @short List of enableons (the action will be enable if this array is empty, or one of the sources is focused
+      and meets all other requirements (flags, number of selected items)
+      @example value can be one of: "source", "checkflags", "frameflags", "requirefocus", "min", "max", "selectionmatch", "onexecute"
+
+               source Source component that must be focused to be enabled (must be unique)
+               checkflags (Optional) Array of names of source component flags that must be set for selected sub-items. Prefix with '!' to reverse the meaning of the flag.
+               frameflags (Optional) Array of names of frame flags that must be set. Prefix with '!' to reverse the meaning of the flag.
+               requirefocus (Optional) If the source component should be focused, default FALSE
+               min (Optional) Minimum number of selected items, default 0
+               max (Optional) Maximum number of selected items (-1 for unlimited (default))
+               selectionmatch (Optional) Selection match type, one of "all" (default) or "any"
+               onexecute (Optional) Handler that must be executed when the source of this rule was enabled. If default, the global action handler is used.
+  */
+  PUBLIC PROPERTY enableon(pvt_enableons, SetEnableOns);
+
+  /** @short List of frame flags that must be set (prefix with '!' to reverse meaning of the flag)
+  */
+  PUBLIC PROPERTY frameflags(pvt_frameflags, SetFrameFlags);
+
+  MACRO NEW()
+  {
+    this->baseactionrecord := [ source := DEFAULT OBJECT
+                              , checkflags := DEFAULT STRING ARRAY
+                              , frameflags := DEFAULT STRING ARRAY
+                              , min := 0
+                              , max := -1
+                              , selectionmatch := "all"
+                              , requirefocus := FALSE
+                              , requirevisible := FALSE
+                              ];
+    this->componenttype := "action";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumActionForwardBase::StaticInit(definition);
+
+    this->frameflags := definition.frameflags;
+    this->enableon := definition.enableon;
+  }
+
+  BOOLEAN FUNCTION MayExecuteAction()
+  {
+    IF(NOT this->enabled)
+      RETURN FALSE;
+    IF (Length(this->pvt_frameflags) > 0 AND NOT this->owner->frame->EnabledOn(1, 1, this->pvt_frameflags, "all"))
+      RETURN FALSE;
+    RETURN TRUE;
+  }
+  BOOLEAN FUNCTION MayExecuteEnableOn(RECORD rec)
+  {
+    IF(Length(rec.frameflags)>0 AND NOT this->owner->frame->EnabledOn(1, 1, rec.frameflags, "all"))
+      RETURN FALSE;
+
+    OBJECT source := rec.source->GetEnableOnComponent();
+    RETURN source->EnabledOn(rec.min, rec.max, rec.checkflags, rec.selectionmatch);
+  }
+
+
+  /** @short Is an action enabled?
+      @param skipfocusobject Object to skip when evaluating enabled status. Skipping 'frame' is not supported. The object is assumed to have focus
+      @return Function to invoke*/
+  MACRO PTR FUNCTION ResolveActionHandler(OBJECT skipfocusobject) //FIXME eliminate if toddng is final
+  {
+    IF(NOT this->MayExecuteAction())
+      RETURN DEFAULT MACRO PTR;
+
+    IF(__debugactions)PRINT("- ResolveActionHandler for " || this->name || "\n");
+
+    IF (LENGTH(this->pvt_enableons) > 0)
+    {
+      // Count the number of enableons with source other than frame. If there is only one relevant source, is
+      // does not have to be focused
+      RECORD ARRAY check_enableons := SELECT * FROM this->pvt_enableons WHERE requirevisible = FALSE OR source->IsNowDisplayed();
+
+      BOOLEAN enabled := FALSE;
+      FOREVERY (RECORD rec FROM check_enableons)
+      {
+        IF(Length(rec.frameflags)>0)
+          IF (NOT this->owner->frame->EnabledOn(1, 1, rec.frameflags, "all"))
+          {
+            IF(__debugactions)PRINT(`- - Frame doesn't meet frameflags constraints ('${Detokenize(rec.frameflags, " ")}')\n`);
+            CONTINUE;
+          }
+
+        IF(__debugactions)Print("- - Test source " || rec.source->name || "\n");
+        // Find out the object this object forwards its enableons to.
+        OBJECT source := rec.source->GetEnableOnComponent();
+        IF (source != rec.source)
+        IF(__debugactions)PRINT("- - Forwards to " || source->name || "\n");
+
+        /* we assume the 'skipfocusobject' has focus, and we're not allowed to test the object itself */
+        IF(source = skipfocusobject)
+        {
+          IF(__debugactions)Print("- - Don't test\n");
+          RETURN GetCell(rec,this->handlername) != DEFAULT FUNCTION PTR ? GetCell(rec,this->handlername) : GetMember(this, this->handlername);
+        }
+
+        IF(__debugactions)PRINT("- - Checking source " || source->name||", focused: "||(source->IsFocused()?"yes":"no")||"\n");
+        IF ((this->ShouldAlwaysRequireFocus() OR rec.requirefocus)
+            AND (ObjectExists(skipfocusobject) OR NOT source->IsFocused()))
+        {
+          IF(__debugactions)PRINT("- - Focus is required, but the source is not focused\n");
+          CONTINUE;
+        }
+
+        IF (source->EnabledOn(rec.min, rec.max, rec.checkflags, rec.selectionmatch))
+        {
+          IF(__debugactions)PRINT("- - Selection meets constraints\n");
+
+          IF(GetCell(rec, this->handlername) != DEFAULT FUNCTION PTR)
+            RETURN GetCell(rec, this->handlername);
+
+          IF (GetMember(this, this->handlername) != DEFAULT FUNCTION PTR)
+          {
+            IF(__debugactions)PRINT("- - Calling local handler\n");
+            RETURN GetMember(this, this->handlername);
+          }
+          IF(__debugactions)PRINT("- - No local handler has been registered\n");
+          enabled := TRUE;
+          BREAK;
+        }
+        ELSE
+        {
+          IF(__debugactions)PRINT(`- - Selection doesn't meet constraints (min: ${rec.min}, max: ${rec.max}, flags: '${Detokenize(rec.checkflags, " ")}', selectionmatch: ${rec.selectionmatch})\n`);
+        }
+      }
+      IF (NOT enabled)
+      {
+        IF(__debugactions)PRINT("- - Action is not enabled\n");
+        RETURN DEFAULT MACRO PTR;
+      }
+    }
+
+    IF(__debugactions)PRINT("- - Calling global handler\n");
+    RETURN GetMember(this, this->handlername);
+  }
+
+  /** @short TolliumClick
+  */
+  PUBLIC BOOLEAN FUNCTION TolliumClick()
+  {
+    MACRO PTR handler := this->ResolveActionHandler(DEFAULT OBJECT);
+    IF(handler=DEFAULT FUNCTION PTR)
+    {
+      Print("Ignoring click on " || this->name || " because we didn't find an actionhandler to execute\n");
+      IF (IsValueSet(this->owner->tolliumcontroller->__onnoactionhandlerfound))
+        this->owner->tolliumcontroller->__onnoactionhandlerfound(PRIVATE this);
+      RETURN FALSE;
+    }
+
+    this->owner->__ExecuteCallback(handler);
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    IF(path!="")
+      THROW NEW TolliumException(this, "<action>s do not support any subactions");
+    IF(NOT this->TolliumClick())
+      THROW NEW TolliumException(this, "Did not find an actionhandle to execute");
+  }
+
+  /** @short ExtUpdatedConditions
+  */
+  MACRO ExtUpdatedConditions()
+  {
+    this->ExtUpdatedComponent();
+  }
+
+  /** @short SetEnableOns
+  */
+  PUBLIC MACRO SetEnableOns(RECORD ARRAY enableons)
+  {
+    // Check validity of enableons
+    FOREVERY (RECORD enableon FROM enableons)
+    {
+      IF (NOT CellExists(enableon, "source"))
+        THROW NEW TolliumException(this, "Enableon #" || #enableon || " has no cell 'source'");
+      IF (NOT ObjectExists(enableon.source))
+        THROW NEW TolliumException(this, "Enableon #" || #enableon || " must refer to an existing object");
+      // ADDME: check whether the component supports flags ?
+
+      enableons[#enableon] := MakeUpdatedRecord(this->baseactionrecord, enableon);
+    }
+    this->pvt_enableons := enableons;
+    this->ExtUpdatedConditions();
+  }
+
+  /** @short SetFrameFlags
+  */
+  MACRO SetFrameFlags(STRING ARRAY newcheckedons)
+  {
+    this->pvt_frameflags := newcheckedons;
+    this->ExtUpdatedConditions();
+  }
+
+  STRING FUNCTION GetTitleWithEllipsis()
+  {
+    RETURN this->title || (this->ellipsis?"…":"");
+  }
+  /** @short SetVisible
+  */
+  UPDATE PUBLIC MACRO SetVisible(BOOLEAN newvisible)
+  {
+    IF(newvisible=FALSE)
+      THROW NEW TolliumException(this, "An action cannot be made invisible");
+  }
+
+  MACRO PTR FUNCTION GetCurrentActionHandler(RECORD msgdata)
+  {
+    IF(NOT this->MayExecuteAction())
+    {
+      Print("action ignoring execute - action is globally disabled\n");
+      RETURN DEFAULT MACRO PTR;
+    }
+
+    //ADDME what if the order of enableon rules changes serverside and old events are still pending ?
+    IF(Length(this->pvt_enableons)=0)
+    {
+      IF(GetMember(this, this->handlername) != DEFAULT MACRO PTR)
+        RETURN Getmember(this, this->handlername);
+
+      Print("action ignoring execute - action has no onexecute handler\n");
+      RETURN DEFAULT MACRO PTR;
+    }
+
+    RECORD enableon := this->pvt_enableons[msgdata.rule];
+    IF(NOT this->MayExecuteEnableOn(enableon))
+    {
+      Print("action ignoring execute - enableon #" || msgdata.rule || " MayExecuteEnableOn failed\n");
+      RETURN DEFAULT MACRO PTR;
+    }
+
+    IF(GetCell(enableon, this->handlername) != DEFAULT MACRO PTR)
+      RETURN GetCell(enableon, this->handlername);
+
+    IF(GetMember(this, this->handlername) != DEFAULT MACRO PTR)
+      RETURN GetMember(this, this->handlername);
+
+    Print("action ignoring execute - enableon #" || msgdata.rule || " has no onexecute handler\n");
+    RETURN DEFAULT MACRO PTR;
+  }
+
+  /// Extra fields to put in the component info
+  RECORD FUNCTION GetExtraWebRenderFields()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  BOOLEAN FUNCTION ShouldAlwaysRequireFocus()
+  {
+    FOREVERY (RECORD enableon FROM this->enableon)
+      IF (#enableon > 0 AND enableon.source != this->enableon[0].source)
+        RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    STRING ARRAY unmasked_events;
+    IF(this->handlername = "copytoclipboard") //hack to implement copytoclipboard, we don't actually want a callbcak
+      unmasked_events := ["copytoclipboard"];
+    ELSE IF (GetMember(this, this->handlername) != DEFAULT FUNCTION PTR OR (RecordExists(SELECT FROM this->enableon WHERE GetCell(enableon, this->handlername) != DEFAULT FUNCTION PTR)))
+      INSERT Substring(this->handlername, 2) INTO unmasked_events AT END; //ADDME now if all this handlername handling isn't a hack :P
+
+    IF(NOT ObjectExists(this->owner))
+      THROW NEW Exception(this->name || " (" || this->title || ") has no owner");
+
+    BOOLEAN alwaysrequirefocus := this->ShouldAlwaysRequireFocus();
+    RECORD compinfo := [ unmasked_events := unmasked_events
+                       , frameflags := this->owner->frame->GetFlagNames(this->frameflags)
+                       , enableons := (SELECT source := GetComponentName(source->GetEnableOnComponent())
+                                            , checkflags := enableon.checkflags
+                                            , frameflags := this->owner->frame->GetFlagNames(enableon.frameflags)
+                                            , requirefocus := requirefocus OR alwaysrequirefocus
+                                            , requirevisible
+                                            , COLUMN min
+                                            , COLUMN max
+                                            , selectionmatch
+                                         FROM this->enableon)
+                       , shortcut := RecordExists(this->pvt_shortcut) ? CellInsert(this->pvt_shortcut, "titlekeystr", this->GetShortcutString()) : DEFAULT RECORD
+                       , ...this->GetExtraWebRenderFields()
+                       ];
+
+    this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE TolliumAction EXTEND ActionBase
+< /** @short Here you give a function ptr. When action is completed, the function is started.
+      @example onexecute="completefunction"
+  */
+  PUBLIC FUNCTION PTR onexecute;
+  PUBLIC STRING customaction;
+
+  MACRO NEW()
+  {
+    INSERT CELL onexecute := DEFAULT FUNCTION PTR INTO this->baseactionrecord;
+    INSERT CELL customaction := "" INTO this->baseactionrecord;
+    this->handlername := "onexecute";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    this->ellipsis := definition.ellipsis;
+
+    ActionBase::StaticInit(definition);
+    this->onexecute := definition.onexecute;
+    this->customaction := definition.customaction;
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH(type)
+    {
+      CASE "execute"
+      {
+        MACRO PTR handler := this->GetCurrentActionHandler(msgdata);
+        IF(handler != DEFAULT MACRO PTR)
+          this->owner->__ExecuteCallback(handler);
+      }
+      DEFAULT
+      {
+        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+  UPDATE RECORD FUNCTION GetExtraWebRenderFields()
+  {
+    RETURN
+        [ customaction :=   this->customaction
+        ];
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumDownloadAction EXTEND ActionBase
+<
+  PUBLIC FUNCTION PTR ondownload;
+  PUBLIC FUNCTION PTR ondownloadstarted;
+
+  MACRO NEW()
+  {
+    INSERT CELL ondownload := DEFAULT FUNCTION PTR INTO this->baseactionrecord;
+    this->handlername := "ondownload";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    ActionBase::StaticInit(definition);
+    this->ondownload := definition.ondownload;
+    this->ondownloadstarted := definition.ondownloadstarted;
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH(type)
+    {
+      CASE "download"
+        {
+          OBJECT download := this->owner->tolliumcontroller->GetAsyncObject(this, "asyncdownload", msgdata.ftid, TRUE);
+
+          MACRO PTR handler := this->GetCurrentActionHandler(msgdata);
+          IF(handler != DEFAULT MACRO PTR)
+            this->owner->__ExecuteCallback(handler, download);
+          IF (download->status = "pending")
+            download->Cancel();
+        }
+
+      CASE "download-started"
+        {
+          OBJECT download := this->owner->tolliumcontroller->GetAsyncObject(this, "asyncdownload", msgdata.ftid, FALSE);
+          IF(this->ondownloadstarted != DEFAULT MACRO PTR)
+            this->ondownloadstarted();
+
+          IF (ObjectExists(download))
+          {
+            IF (download->onstarted != DEFAULT FUNCTION PTR)
+              download->onstarted(); //this callback is used by headless controller to detect and respond to download start
+          }
+        }
+
+      CASE "download-failed"
+        {
+          OBJECT download := this->owner->tolliumcontroller->GetAsyncObject(this, "asyncdownload", msgdata.ftid, FALSE);
+          IF (ObjectExists(download))
+          {
+            IF (download->onfailed != DEFAULT FUNCTION PTR)
+              download->onfailed();
+          }
+        }
+
+      DEFAULT
+        {
+          TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+        }
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE WindowOpenActionBase EXTEND ActionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING pvt_target;
+
+  FUNCTION PTR pvt_onwindowopen;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & Init
+  //
+
+  MACRO NEW()
+  {
+    INSERT CELL onwindowopen := DEFAULT FUNCTION PTR INTO this->baseactionrecord;
+    this->handlername := "onwindowopen";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetTarget(STRING newtarget)
+  {
+    IF (this->pvt_target != newtarget)
+    {
+      this->pvt_target := newtarget;
+      this->QueueOutboundMessage("Target", [ target := newtarget ]);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium communication
+  //
+
+  UPDATE RECORD FUNCTION GetExtraWebRenderFields()
+  {
+    RETURN
+        [ targetname :=     this->pvt_target
+        ];
+  }
+
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH(type)
+    {
+      CASE "windowopen"
+        {
+          OBJECT windowopen := this->owner->tolliumcontroller->GetAsyncObject(this, "asyncwindowopen", msgdata.ftid, TRUE);
+
+          MACRO PTR handler := this->GetCurrentActionHandler(msgdata);
+          IF(handler != DEFAULT MACRO PTR)
+            this->owner->__ExecuteCallback(handler, windowopen);
+          IF (windowopen->status = "pending")
+            windowopen->Cancel();
+        }
+
+      DEFAULT
+        {
+          TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+        }
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase
+<
+  STRING ARRAY pvt_mimetypes;
+  BOOLEAN pvt_multiple;
+
+  PUBLIC FUNCTION PTR onupload;
+
+  /// List of accepted mimetypes (enforced when not empty)
+  PUBLIC PROPERTY mimetypes(pvt_mimetypes, SetMimeTypes);
+
+  PUBLIC PROPERTY multiple(pvt_multiple, pvt_multiple);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumFileDropAccepter;
+    INSERT CELL onupload := DEFAULT FUNCTION PTR INTO this->baseactionrecord;
+    this->handlername := "onupload";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    this->ellipsis := TRUE;
+
+    ActionBase::StaticInit(definition);
+    this->onupload := definition.onupload;
+    this->pvt_mimetypes := definition.mimetypes;
+    this->pvt_multiple := definition.multiple;
+  }
+
+  MACRO SetMimeTypes(STRING ARRAY mimetypes)
+  {
+    this->pvt_mimetypes := mimetypes;
+  }
+
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    IF(path!="")
+      THROW NEW TolliumException(this, "<uploadaction>s do not support any subactions");
+
+    RECORD uploadresult := this->owner->frame->GetUserFile(-1, this->mimetypes);
+    IF(RecordExists(uploadresult))
+      this->ExecuteUpload([uploadresult]);
+  }
+
+  UPDATE RECORD FUNCTION GetExtraWebRenderFields()
+  {
+    RETURN [ mimetypes := this->pvt_mimetypes
+           , multiple := this->multiple
+           ];
+  }
+
+  BOOLEAN FUNCTION IsLikeMatch(STRING tomatch, STRING ARRAY masks)
+  {
+    FOREVERY (STRING mask FROM masks)
+      IF (tomatch LIKE mask)
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  //Simulate an upload
+  PUBLIC MACRO ExecuteUpload(RECORD ARRAY files)
+  {
+    //ADDME how to select the rule properly?
+    this->ProcessInboundMessage("upload", [ rule := 0, items := SELECT filename, data, type := "file" FROM files ]);
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH(type)
+    {
+      CASE "upload"
+      {
+        MACRO PTR handler := this->GetCurrentActionHandler(msgdata);
+        IF(handler != DEFAULT MACRO PTR)
+        {
+          RECORD ARRAY files := this->ProcessUpload(msgdata).items;
+          IF (LENGTH(this->pvt_mimetypes) != 0)
+          {
+            RECORD ARRAY orgfiles := files;
+
+            DELETE
+              FROM files
+             WHERE NOT this->IsLikeMatch(mimetype, this->pvt_mimetypes);
+
+            STRING ARRAY correct := SELECT AS STRING ARRAY filename FROM files ORDER BY ToUppercase(filename);
+            STRING ARRAY incorrect := SELECT AS STRING ARRAY filename FROM orgfiles WHERE filename NOT IN correct ORDER BY ToUppercase(filename);
+
+            IF (LENGTH(files) = 0)
+              this->owner->RunMessageBox("tollium:commondialogs.wrong_file_type", Detokenize(incorrect, "', '"), ToString(LENGTH(incorrect)));
+            ELSE IF (LENGTH(files) != LENGTH(orgfiles))
+            {
+              IF (this->owner->RunMessageBox("tollium:commondialogs.some_wrong_file_type",
+                  "'" || Detokenize(incorrect, "', '") || "'",
+                  "'" || Detokenize(correct, "', '") || "'") != "yes")
+              {
+                files := DEFAULT RECORD ARRAY;
+              }
+            }
+          }
+
+          IF (LENGTH(files) != 0)
+            this->owner->__ExecuteCallback(handler, files);
+        }
+      }
+      CASE "upload-dataurl"
+      {
+        MACRO PTR handler := this->GetCurrentActionHandler(msgdata);
+        IF(handler != DEFAULT MACRO PTR)
+        {
+          RECORD parsed := ParseDataURL(msgdata.dataurl);
+          IF (RecordExists(parsed))
+          {
+            this->owner->__ExecuteCallback(handler, [ [ data := parsed.data, mimetype := parsed.contenttype ] ]);
+          }
+        }
+      }
+      DEFAULT
+      {
+        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumImageAction EXTEND TolliumUploadAction
+<
+  STRING pvt_type;
+
+  BOOLEAN pvt_rendered; //FIXME: A bit of a hack to check if we can send an update
+  RECORD pvt_editimage;
+  RECORD pvt_imgsize;
+
+  PUBLIC UPDATE PROPERTY multiple(pvt_multiple, SetMultiple);
+
+  PUBLIC PROPERTY type(pvt_type, SetType);
+
+  PUBLIC PROPERTY imgsize(pvt_imgsize, SetImgSize);
+
+  PUBLIC FUNCTION PTR onresend;
+
+  MACRO NEW()
+  {
+    this->mimetypes := [ "image/*" ];
+    this->enabled := FALSE;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumUploadAction::StaticInit(definition);
+    this->pvt_multiple := FALSE;
+    this->type := definition.imageactiontype;
+    this->imgsize := definition.imgsize;
+    this->onresend := definition.onresend;
+  }
+
+  UPDATE RECORD FUNCTION GetExtraWebRenderFields()
+  {
+    RECORD fields := TolliumUploadAction::GetExtraWebRenderFields();
+    INSERT CELL imageaction := TRUE INTO fields;
+    INSERT CELL actiontype := this->type INTO fields;
+    INSERT CELL imgsize := this->imgsize INTO fields;
+    IF (RecordExists(this->pvt_editimage))
+    {
+      INSERT CELL editimage := this->pvt_editimage INTO fields;
+      this->pvt_editimage := DEFAULT RECORD;
+    }
+    this->pvt_rendered := TRUE;
+    RETURN fields;
+  }
+
+  PUBLIC MACRO SetMultiple(BOOLEAN newsetting)
+  {
+    IF(newsetting)
+      THROW NEW Exception("TolliumImageActions do not support multiple file uploads");
+  }
+
+  /** @short Execute the image action
+      @long This executes the image action, except if type = "download", in which case the action can only be initiated
+            client-side.
+      @param data Extra data
+      @cell(record) data.image If type = "edit", the image to edit (containing either 'data' or 'src')
+      @cell(blob) data.image.data The image data
+      @cell(string) data.image.src A link to the image data
+      @cell(string) data.image.filename The image file name
+      @cell(string) data.image.mimetype The image file MIME type (e.g. "image/jpeg" or "image/png")
+  */
+  PUBLIC MACRO Execute(RECORD data)
+  {
+    IF (this->type = "upload")
+    {
+      // Upload actions can only be initiated client-side
+    }
+    ELSE IF (this->type = "edit")
+    {
+      IF (NOT CellExists(data, "image") OR NOT RecordExists(data.image))
+        THROW NEW TolliumException(this, "An existing 'image' record cell has to be provided when executing 'edit' imageaction");
+
+      STRING src := CellExists(data.image, "src") ? data.image.src : GetDataURL(data.image.data, data.image.mimetype);
+      RECORD image := [ url := src
+                      , name := data.image.filename
+                      , type := data.image.mimetype
+                      , source_fsobject := CellExists(data.image, "SOURCE_FSOBJECT") ? data.image.source_fsobject : 0
+                      ];
+      IF (CellExists(data.image, "REFPOINT") AND RecordExists(data.image.refpoint))
+        INSERT CELL refpoint := data.image.refpoint INTO image;
+
+      //FIXME: It's nicer to turn this into a component update with its own dirtyflag, but the base Action doesn't do dirtyflags
+      IF (this->pvt_rendered)
+        this->ToddUpdate([ type := "execute", image := image ]);
+      ELSE
+        this->pvt_editimage := [ image := image ];
+    }
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH(type)
+    {
+      CASE "resend"
+      {
+        IF (this->onresend != DEFAULT FUNCTION PTR)
+          this->owner->__ExecuteCallback(this->onresend);
+      }
+
+      DEFAULT
+      {
+        TolliumUploadAction::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+  MACRO SetType(STRING type)
+  {
+    IF (type NOT IN [ "upload", "edit" ])
+      THROW NEW TolliumException(this, type || " is not a valid imageaction type");
+    this->pvt_type := type;
+  }
+
+  MACRO SetImgSize(RECORD imgsize)
+  {
+    this->pvt_imgsize := FixImgSize(imgsize);
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumWindowOpenAction EXTEND WindowOpenActionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY onwindowopen(pvt_onwindowopen, pvt_onwindowopen);
+
+  PUBLIC PROPERTY target(pvt_target, SetTarget);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    WindowOpenActionBase::StaticInit(definition);
+    this->onwindowopen := definition.onwindowopen;
+    this->target := definition.target;
+  }
+>;
+
+
+/** The help actions opens a new window with help.
+*/
+PUBLIC OBJECTTYPE TolliumHelpAction EXTEND WindowOpenActionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC STRING manual;
+  PUBLIC STRING ARRAY languages;
+  PUBLIC STRING accesstoken;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private properties
+  //
+
+  PROPERTY onwindowopen(pvt_onwindowopen, pvt_onwindowopen);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    INSERT CELL enableon := DEFAULT RECORD ARRAY INTO definition;
+
+    WindowOpenActionBase::StaticInit(definition);
+    this->manual := definition.manual;
+    this->languages:= definition.languages;
+    this->accesstoken := definition.accesstoken;
+
+    this->pvt_target := "x-webhare-manual-" || (this->manual);
+    this->pvt_onwindowopen := PTR this->GotWindowOpen;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters and setters
+  //
+
+  MACRO SetHelpTarget(STRING newtarget)
+  {
+    IF (newtarget NOT LIKE "?*:?*")
+      THROW NEW Exception("Illegal help target syntax, expected 'modulename:manualname/manualtarget'");
+
+
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO GotWindowOpen(OBJECT handler)
+  {
+    handler->SendURL(GenerateProtectedManualURL(this->manual, this->accesstoken, this->contexts->user->language, this->languages));
+  }
+>;
+
+
+PUBLIC OBJECTTYPE TolliumCopyAction EXTEND ActionBase
+<
+  PUBLIC OBJECT source;
+
+  MACRO NEW()
+  {
+    this->handlername := "copytoclipboard";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    INSERT CELL enableon := DEFAULT RECORD ARRAY INTO definition;
+    ActionBase::StaticInit(definition);
+    this->source := definition.source;
+  }
+
+  /// Extra fields to put in the component info
+  UPDATE RECORD FUNCTION GetExtraWebRenderFields()
+  {
+    RETURN [ source := GetComponentName(this->source) ];
+  }
+>;

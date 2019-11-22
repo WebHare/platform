@@ -1,0 +1,58 @@
+<?wh
+
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+
+MACRO TestLevenshteinDistance()
+{
+  TestEq(0, CalculateLevenshteinDistance("", ""));
+  TestEq(0, CalculateLevenshteinDistance("a", "a"));
+  TestEq(0, CalculateLevenshteinDistance("ab", "ab"));
+
+  // Single add / remove
+  TestEq(1, CalculateLevenshteinDistance("", "a"));
+  TestEq(1, CalculateLevenshteinDistance("a", ""));
+  TestEq(1, CalculateLevenshteinDistance("ab", "b"));
+  TestEq(1, CalculateLevenshteinDistance("ba", "b"));
+  TestEq(1, CalculateLevenshteinDistance("abc", "bc"));
+  TestEq(1, CalculateLevenshteinDistance("bac", "bc"));
+  TestEq(1, CalculateLevenshteinDistance("bca", "bc"));
+
+  // Single replace
+  TestEq(1, CalculateLevenshteinDistance("a", "b"));
+  TestEq(1, CalculateLevenshteinDistance("ab", "bb"));
+  TestEq(1, CalculateLevenshteinDistance("abc", "adc"));
+
+  // Transposition
+  TestEq(1, CalculateLevenshteinDistance("ab", "ba"));
+  TestEq(1, CalculateLevenshteinDistance("abcd", "bacd"));
+  TestEq(1, CalculateLevenshteinDistance("abcd", "acbd"));
+  TestEq(1, CalculateLevenshteinDistance("abcd", "abdc"));
+  TestEq(2, CalculateLevenshteinDistance("abcd", "cbad")); // no transposition
+
+  // Multiple stuff
+  TestEq(2, CalculateLevenshteinDistance("", "ab"));
+  TestEq(2, CalculateLevenshteinDistance("b", "abc"));
+  TestEq(2, CalculateLevenshteinDistance("c", "abc"));
+  TestEq(2, CalculateLevenshteinDistance("bc", "ab"));
+  TestEq(2, CalculateLevenshteinDistance("a", "bc"));
+  TestEq(2, CalculateLevenshteinDistance("bacd", "bc"));
+  TestEq(2, CalculateLevenshteinDistance("dbca", "bc"));
+}
+
+MACRO TestGetBestMatch()
+{
+  TestEq("a", GetBestMatch("a", [ "a" ]));
+  TestEq("b", GetBestMatch("a", [ "b" ]));
+  TestEq("testa", GetBestMatch("test", [ "testa", "texta" ]));
+
+  TestEq("123", GetBestMatch("12", [ "123" ]));
+  TestEq("", GetBestMatch("12", [ "1234" ]));
+  TestEq("12345", GetBestMatch("123", [ "12345" ]));
+  TestEq("", GetBestMatch("123", [ "123456" ]));
+}
+
+PRINT("\n === Running TestComparisons\n");
+TestLevenshteinDistance();
+TestGetBestMatch();

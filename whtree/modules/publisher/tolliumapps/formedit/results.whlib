@@ -1,0 +1,328 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER fsobjid;
+  OBJECT form;
+  OBJECT formresults;
+  OBJECT exporter;
+  STRING language;
+  STRING ARRAY boolean_columns;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->frame->flags.issupervisor := this->tolliumuser->HasRight("system:supervisor");
+    this->frame->flags.canedit := this->contexts->formcomponentapi->canedit;
+    this->fsobjid := data.fsobjid;
+    this->form := data.formobj;
+    this->language := data.uselanguage;
+    //Note current formfields. Ignore any changes to the form as long as we're open
+    //ADDME allow user to pick columns?
+
+    ^showpendingresults->visible := data.showpending AND this->frame->flags.issupervisor;
+    ^showpendingspacer->visible := data.showpending AND this->frame->flags.issupervisor;
+    ^showexpiredresults->visible := this->frame->flags.issupervisor;
+    ^migrationexportbutton->visible := this->frame->flags.issupervisor;
+    ^migrationimportbutton->visible := this->frame->flags.issupervisor;
+
+    this->formresults := OpenWebtoolFormResultsForFormdef(OpenWHFSObject(this->fsobjid), this->form->name, this->form);
+    this->exporter := this->formresults->CreateExporter( [ language := data.uselanguage
+                                                         , isfullexport := FALSE //don't need extended data
+                                                         , formfields := SELECT * FROM this->form->ListFields() LIMIT 5
+                                                         ]);
+
+    RECORD ARRAY columns := SELECT *
+                                 , type := type = "boolean" ? "icon" : type
+                              FROM this->exporter->columns
+                             WHERE name NOT IN ["useragent","ipcountrycode","ipaddress","url"];
+    ^results->columns := columns;
+    ^results->sortcolumn := "when";
+    ^results->sortascending := FALSE;
+    this->boolean_columns := SELECT AS STRING ARRAY name FROM this->exporter->columns WHERE type = "boolean";
+
+    // Reload automatically if new results are submitted
+    ^eventlistener->masks := this->formresults->GetEventMasks();
+    this->ReloadResults();
+
+    IF(this->frame->flags.issupervisor)
+    {
+      FOREVERY(RECORD testaction FROM data.testablehandlers)
+      {
+        OBJECT menuitem := this->CreateTolliumComponent("menuitem");
+        menuitem->action := this->CreateTolliumComponent("action");
+        menuitem->title := testaction.title;
+
+        menuitem->action->onexecute := PTR this->ExecuteTestAction(testaction);
+        menuitem->action->enableon := [[ source := ^results
+                                       , min := 1
+                                       , max := 1
+                                      ]];
+
+        INSERT [ menuitem := menuitem
+               , isdivider := FALSE
+               ] INTO ^test->items AT END;
+      }
+    }
+    ^test->visible := Length(^test->items) > 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoDeleteResult()
+  {
+    STRING question := Length(^results->value) > 1 ? this->GetTid(".confirmdeleteresults", ToString(Length(^results->value)))
+                                                   : this->GetTid(".confirmdeleteresult");
+    IF(this->RunSimpleScreen("verify", question) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork([validate := OBJECT[]]);
+    //FIXME add to audit log for this form
+    this->formresults->DeleteResultsById(^results->value);
+    work->Finish();
+  }
+
+  MACRO DoDeleteAllResults()
+  {
+    IF(this->RunSimpleScreen("verify", this->GetTid(".confirmdeleteallresults")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork([validate := OBJECT[]]);
+    //FIXME add to audit log for this form
+    this->formresults->DeleteAllResults();
+    work->Finish();
+  }
+
+  MACRO DoShowResult()
+  {
+    OBJECT exporter := this->formresults->CreateExporter( [ language := this->language
+                                                          , isfullexport := TRUE
+                                                          , showpendingresults := TRUE
+                                                          , showexpiredresults := TRUE
+                                                          , inlineattachments := TRUE
+                                                          ]);
+    RECORD data := exporter->ExportAllResults([ resultids := INTEGER[^results->selection.id]]);
+    IF(NOT RecordExists(data))
+      RETURN;
+
+    RECORD ARRAY cols := exporter->columns;
+    IF(NOT this->contexts->user->HasRight("system:supervisor")) //hide sensitive data - but even for supervisors it should be optional to export these
+      DELETE FROM cols WHERE name IN ["ipaddress","useragent"];
+
+    this->RunScreen("#singleresult",
+        CELL[ row := data
+            , cols
+            , resultid := ^results->selection.id
+            ]);
+  }
+
+  MACRO DoExportResults()
+  {
+    //ADDME: Let user choose which results (finished, cancelled, etc.) and fields to export
+    //create an new exporter with fullfields enabled
+    OBJECT exporter := this->formresults->CreateExporter( [ language := this->language
+                                                          , isfullexport := FALSE
+                                                          , showsensitivefields := this->contexts->user->HasRight("system:supervisor")
+                                                          ]);
+
+    RunColumnFileExportDialog(this, CELL[ columns := (SELECT *, DELETE storename, DELETE precision FROM exporter->columns)
+                                        , rows := exporter->ExportAllResults()
+                                        ]);
+  }
+
+  MACRO DoExportResultsWithAttachments()
+  {
+    STRING exportbasename := "export-" || OpenWHFSObject(this->fsobjid)->name || "-" || FormatDateTime("%Y-%m-%dT%H.%M.%S", UTCToLocal(GetCurrentDateTime(), this->tolliumuser->timezone));
+
+    OBJECT exporter := this->formresults->CreateExporter( [ language := this->language
+                                                          , isfullexport := TRUE
+                                                          , withattachments := TRUE
+                                                          ]);
+
+    RECORD data := exporter->ExportAllResultsWithAttachments();
+
+    IF(NOT this->contexts->user->HasRight("system:supervisor")) //hide sensitive data - but even for supervisors it should be optional to export these
+      DELETE FROM data.columns WHERE name IN ["ipaddress","useragent"];
+
+    OBJECT writer := NEW XLSXColumnFileWriter;
+    writer->timezone := this->tolliumuser->timezone;
+    writer->columns := data.columns;
+    writer->WriteRows(data.rows);
+    BLOB xlsxfile := writer->MakeOutputFile();
+
+    OBJECT arc := CreateNewArchive("zip");
+    arc->AddFile(`${exportbasename}.xlsx`, xlsxfile, DEFAULT DATETIME);
+    FOREVERY(RECORD attachment FROM data.attachments)
+      arc->AddFile(attachment.path, attachment.file.data, DEFAULT DATETIME);
+
+    BLOB result := arc->MakeBlob();
+    arc->Close();
+
+    this->frame->SendFileToUser(result, "application/zip", `${exportbasename}.zip`, GetCurrentDateTime());
+  }
+
+  MACRO DoExportResultsForMigration(OBJECT downloadhandler)
+  {
+    RECORD exportfile := ExportFormResults(this->fsobjid);
+    downloadhandler->SendFile(exportfile.data, exportfile.mimetype, exportfile.filename);
+  }
+
+  MACRO DoImportResultsFromMigration(RECORD ARRAY files)
+  {
+    IF (RecordExists(files))
+    {
+      RECORD importfile := files[0];
+      IF (importfile.mimetype != "application/zip")
+        this->RunSimpleScreen("error", this->GetTid(".importwrongfiletype", importfile.filename));
+      ELSE
+      {
+        OBJECT work := this->BeginWork();
+        RECORD result := ImportFormResults(importfile.data, [ formid := this->fsobjid ]);
+        IF (NOT result.success)
+        {
+          work->Cancel();
+          this->RunSimpleScreen("error", this->GetTid(".importerror", result.error));
+        }
+        ELSE
+        {
+          work->Finish();
+          this->RunSimpleScreen("info", this->GetTid(".importresults", ToString(result.numresults)));
+        }
+      }
+    }
+  }
+
+  MACRO ExecuteTestAction(RECORD testaction)
+  {
+    RECORD result := this->formresults->GetSingleResultById(^results->selection.id);
+    testaction.handlerobj->RunTestResult(this, result, [ formresults := this->formresults
+                                                       , form := this->form
+                                                       ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnNewResults(RECORD ARRAY events)
+  {
+    this->ReloadResults();
+  }
+
+  MACRO OnShowPendingResults()
+  {
+    this->formresults->showpendingresults := ^showpendingresults->value;
+    this->exporter->showpendingresults := ^showpendingresults->value;
+    this->ReloadResults();
+  }
+
+  MACRO OnShowExpiredResults()
+  {
+    this->formresults->showexpiredresults := ^showexpiredresults->value;
+    this->exporter->showexpiredresults := ^showexpiredresults->value;
+    this->ReloadResults();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ReloadResults()
+  {
+    // Merge the results fields into the main result records
+    RECORD ARRAY rows :=
+        SELECT *
+             , rowkey := id
+             , style := CellExists(results, "__expired") AND __expired ? "expired" : CellExists(results, "__pending") AND __pending ? "pending" : ""
+          FROM this->exporter->ExportAllResults() AS results;
+    FOREVERY (STRING col FROM this->boolean_columns)
+      rows := SELECT AS RECORD ARRAY CellInsert(CellDelete(rows, col), col, GetCell(rows, col) ? 1 : 2) FROM rows;
+
+    ^results->rows := rows;
+    ^numresults->value := ToString(Length(rows));
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE SingleResult EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    //delete unsubmitted fields
+    DELETE FROM data.cols WHERE storename != "" AND ToUppercase(storename) NOT IN data.row.__rowmeta.setfields;
+
+    FOREVERY(RECORD col FROM data.cols)
+    {
+      OBJECT text := this->CreateTolliumComponent("text");
+      VARIANT celldata := GetCell(data.row, col.name);
+      text->title := UCTruncate(col.title,30);
+
+      IF(col.type = "file")
+      {
+        text->value := celldata.title;
+        OBJECT downloadaction := this->CreateTolliumComponent("downloadaction");
+        downloadaction->ondownload := PTR this->DoDownload(#1, celldata, data.resultid, col);
+        text->action := downloadaction;
+      }
+      ELSE
+      {
+        IF(col.type = "datetime")
+          text->value := this->contexts->user->FormatDatetime(celldata, "minutes", col.storeutc, FALSE);
+        ELSE IF(col.type = "date")
+          text->value := this->contexts->user->FormatDate(celldata, FALSE, FALSE);
+        ELSE IF(col.type = "boolean")
+          text->value := GetTid(celldata ? "tollium:tilde.yes" : "tollium:tilde.no");
+        ELSE IF(col.type = "integer")
+          text->value := ToString(celldata);
+        ELSE
+          text->value := celldata;
+
+        text->selectable := TRUE; //selectable is incompatible with clickable hyperlink
+      }
+
+      ^fields->InsertComponentAfter(text, DEFAULT OBJECT, TRUE);
+    }
+  }
+
+  MACRO DoDownload(OBJECT filereceiver, RECORD file, INTEGER resultid, RECORD col)
+  {
+    RECORD ARRAY attachments :=
+        SELECT *
+          FROM publisher.formattachments
+         WHERE formattachments.formresult = resultid
+               AND formattachments.question = col.storename
+      ORDER BY formattachments.formresult;
+
+    IF(Length(attachments)>0)
+    {
+      RECORD meta := DecodeHSON(attachments[0].metadata);
+      filereceiver->SendFile(attachments[0].file, meta.m, meta.f);
+    }
+  }
+>;

@@ -1,0 +1,197 @@
+﻿<?wh
+/** @topic wrd/tollium
+*/
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+/** Base tabsextension to derive a PSP settings component from
+*/
+PUBLIC OBJECTTYPE PSPSettingsExtensionBase EXTEND TolliumTabsExtensionBase
+<
+  /** Called at submit to get the updated settings
+      @return Updated PSP settings
+  */
+  PUBLIC RECORD FUNCTION GetPaymentProviderValue()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Called at initialization with the current settings
+      @param settings PSP settings
+  */
+  PUBLIC MACRO SetPaymentProviderValue(RECORD settings)
+  {
+  }
+>;
+
+/** Base screen to implement entityedit screens with
+    @long When creating an screen that edits entities (used as `entityeditscreen` in an `<entitiesedit>` component,
+    the screen must be built with have the attribute `implementation="wrd:entityedit"`, or its screen object
+    must derive from WRDEntityEditScreenBase
+*/
+PUBLIC OBJECTTYPE WRDEntityEditScreenBase EXTEND TolliumScreenBase
+<
+  RECORD entitycontext;
+  RECORD storedvalue;
+  BOOLEAN initordering;
+
+  /** Screen initialization
+      @long If you override the Init function be sure to invoke the parent version using `WRDEntityEditScreenBase::Init(data)`
+      @param data Entity initialization record */
+  MACRO Init(RECORD data)
+  {
+    //FIXME Should've caught this while parsing
+    IF(NOT MemberExists(this, this->__tolliumscope_isstatic ? "^entity" : "entity"))
+      THROW NEW TolliumException(this->frame,"Screen with implementation 'wrd:entityedit' requires a composition named 'entity'");
+
+    OBJECT entitycomp := this->__tolliumscope_isstatic ? ^entity : this->entity;
+    this->entitycontext := data.entitycontext;
+    this->initordering := data.id = 0 AND CellExists(data, "initordering") AND data.initordering;
+    IF(entitycomp->__hasstaticwrdtype)
+      entitycomp->Load(data.id);
+    ELSE
+      entitycomp->LoadEntity(data.wrdtype, data.id);
+
+    FOREVERY(RECORD cellrec FROM UnpackRecord(data.entitycontext))
+    {
+      OBJECT cellobj := entitycomp->GetComponent(cellrec.name);
+      IF(ObjectExists(cellobj))
+      {
+        IF(NOT ObjectExists(entitycomp->wrdentity))
+          cellobj->value := cellrec.value; //copy from the entitycontext for NEW entities
+        cellobj->readonly := TRUE;
+      }
+    }
+
+    IF(data.id = 0 AND CellExists(data,'prefill'))
+    {
+      entitycomp->value := data.prefill;
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    INTEGER storedentity;
+
+    OBJECT entitycomp := this->__tolliumscope_isstatic ? ^entity : this->entity;
+    RECORD updatevalue := entitycomp->__GetEntityUpdates(DEFAULT RECORD);
+
+    OBJECT feedback := this->BeginFeedback();
+    this->Validator(feedback, updatevalue);
+    IF (NOT feedback->Finish())
+      RETURN FALSE;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    FOREVERY(RECORD incell FROM UnpackRecord(updatevalue))
+    {
+      IF(CellExists(this->entitycontext, incell.name)) //FIXME can't wrd:entity handle this? just forward it the entitycontext ?
+      {
+        OBJECT cellobj := entitycomp->GetComponent(incell.name);
+        IF(NOT ObjectExists(cellobj) OR NOT cellobj->readonly)
+          THROW NEW Exception("The screen tried to set cell '" || incell.name || "' which was already locked in the WRD entity's entitycontext");
+        updatevalue := CellDelete(updatevalue, incell.name);
+      }
+    }
+
+    updatevalue := MakeMergedRecord(this->entitycontext, updatevalue);
+
+    IF (this->initordering AND NOT CellExists(updatevalue, "wrd_ordering"))
+    {
+      RECORD listquery :=
+          [ outputcolumns :=  [ "wrd_ordering" ]
+          , filters :=        SELECT field := name
+                                   , value
+                                FROM UnpackRecord(this->entitycontext)
+          ];
+
+      INTEGER newordering :=
+         (SELECT AS INTEGER Max(wrd_ordering)
+            FROM entitycomp->wrdtype->RunQuery(listquery)) + 1;
+
+      INSERT CELL wrd_ordering := newordering INTO updatevalue;
+    }
+
+    updatevalue := this->Submitter(work, updatevalue);
+
+    IF (NOT work->HasFailed())
+    {
+      this->storedvalue := updatevalue;
+      IF(entitycomp->__hasstaticwrdtype)
+      {
+        entitycomp->extradata := this->entitycontext;
+        entitycomp->Store(work, [ extradata := updatevalue ]);
+      }
+      ELSE
+      {
+        entitycomp->__StoreEntityWithValues(work, updatevalue);
+      }
+
+      DELETE CELL wrd_id FROM this->storedvalue;
+      INSERT CELL wrd_id := this->GetNewEntityId() INTO this->storedvalue;
+
+      IF (NOT work->HasFailed())
+        this->AfterStore(work);
+    }
+
+    IF(NOT work->Finish())
+    {
+      this->storedvalue := DEFAULT RECORD;
+      RETURN FALSE;
+    }
+
+    RETURN TRUE;
+  }
+
+  /** Returns the id of the entity. Set when an existing entity has been edited or a new entity has been created
+      @return WRD entity id
+  */
+  PUBLIC INTEGER FUNCTION GetNewEntityId()
+  {
+    RETURN this->__tolliumscope_isstatic ? ^entity->entityid : this->entity->entityid;
+  }
+
+  /** When the submit has succeeded, this function returns the updates performed on the entity
+      @return Updated fields
+  */
+  PUBLIC RECORD FUNCTION GetUpdatedFields()
+  {
+    RETURN this->storedvalue;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // User-overridable functions
+  //
+
+  /** Called in first validation check
+      @param work Feedback object
+      @param updatevalue Updates for the entity
+  */
+  MACRO Validator(OBJECT work, RECORD updatevalue)
+  {
+  }
+
+  /** Called in final submit work section
+      @long Update the Submitter function to modify the value that will be passed to the entity Store
+      @param work Work object (with database)
+      @param updatevalue Updates for the entity
+      @return Updated update value. Submitter should return the `updatevalue` parameter after making any necessary changes
+      @example
+UPDATE RECORD FUNCTION Submitter(OBJECT work, RECORD updatevalue)
+{
+  RETURN CELL[ ...updatevalue, nextrun := GetCurrentDatetime() ];
+}
+  */
+  RECORD FUNCTION Submitter(OBJECT work, RECORD updatevalue)
+  {
+    RETURN updatevalue;
+  }
+
+  /** Called after the entity update has been performed
+      @param work Work object (with database)
+  */
+  MACRO AfterStore(OBJECT work)
+  {
+  }
+>;

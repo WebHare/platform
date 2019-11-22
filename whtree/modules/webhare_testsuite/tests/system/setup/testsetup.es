@@ -1,0 +1,258 @@
+import test from '@mod-tollium/js/testframework';
+
+//FIXME have testapi deliver this url
+var webroot = test.getTestSiteRoot();
+var setupdata = null;
+var pietjeguid = '';
+
+function getAppInStartMenuByName(name)
+{
+  return Array.from(test.$$t('li li')).filter(node => node.textContent == name)[0];
+}
+
+test.registerTests(
+  [ { test: async function()
+      {
+        setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupForTestSetup');
+      }
+    }
+  , { name: "Start backend"
+    , loadpage: function() { return webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en" + test.getTestArgument(0) ; }
+    , waits:[ 'ui'] // Also wait for user profile data (applications & such)
+    }
+  , { name: "Launch usermanagement"
+    , test:function(doc,win)
+      {
+        //verify whether we see the Publisher as an option (we need to make sure this selector works, otherwise our test as pietje makes no sense)
+        test.click(test.qSA('li li').filter(node=>node.textContent.includes("User Management")) [0]);
+      }
+    , waits: [ 'ui' ]
+    }
+
+  , { name: "Create unit"
+    , test: function(doc,win)
+      {
+        test.click(test.qSA('div.listrow').filter(node=>node.textContent.includes("Units")) [0]);
+        // Wait for selection update
+      }
+    , waits: [ "ui" ]
+    }
+  , { test: function(doc,win)
+      {
+        test.clickToddToolbarButton("Add", "New unit");
+      }
+    , waits: [ 'ui' ]
+    }
+  , { test: function(doc,win)
+      {
+        test.setTodd('wrd_title', "Testunit");
+        test.clickToddButton('OK');
+      }
+    , waits: [ 'ui' ]
+    }
+  , ToddTest.toolbarButton("Create user pietje", "Add", "New user")
+  , { test: function(doc,win)
+      {
+        test.setTodd('username', "pietje@example.com");
+        //hit the password edit button
+        test.clickToddButton('Edit');
+      }
+    , waits: [ 'ui' ]
+    }
+  , async function(doc,win)
+    {
+      test.setTodd('newpassword', "secret");
+      test.setTodd('confirmpassword', "secret");
+      test.clickToddButton('OK');
+      await test.wait('ui');
+
+      test.eqMatch(/does not comply/, test.getCurrentScreen().getNode().textContent);
+      test.clickToddButton('OK');
+      await test.wait('ui');
+
+      test.setTodd('newpassword', "xecret");
+      test.setTodd('confirmpassword', "xecret");
+      test.clickToddButton('OK');
+      await test.wait('ui');
+    }
+  , { test: function(doc,win)
+      {
+        test.click('t-tabs nav *[data-tab$=":advanced"]');
+        var guidcomponent = test.compByName('wrd_guid').querySelector('input');
+        pietjeguid = guidcomponent.value;
+        console.error("Pietje will receive guid: " + pietjeguid);
+        test.clickToddButton('OK');
+      }
+    , waits: [ 'ui' ]
+    }
+
+  , ToddTest.toolbarButton("Create user jantje", "Add", "New user")
+  , { test: function(doc,win)
+      {
+        test.setTodd('username', 'jantje@example.com');
+        //hit the password edit button
+        test.clickToddButton('Edit');
+      }
+    , waits: [ 'ui' ]
+    }
+  , { test: function(doc,win)
+      {
+        test.setTodd('newpassword', "xecret2");
+        test.setTodd('confirmpassword', "xecret2");
+        test.clickToddButton('OK');
+      }
+    , waits: [ 'ui' ]
+    }
+  , ToddTest.plainButton("Confirm user", "OK")
+  , ToddTest.selectListRow("Select jantje", 'unitcontents!userandrolelist', 'jantje', {rightclick:true})
+  , { test: function(doc,win)
+      {
+        test.click(test.qSA('.wh-menulist.open li').filter(node=>node.textContent.includes("Grant right")) [0]);
+      }
+    , waits: [ 'ui' ]
+    }
+  , ToddTest.selectListRow("Select MISC", '', 'Miscellaneous', { waits:[ "ui" ] })
+  , ToddTest.selectListRow("Select SYSOP", '', 'Sysop', {waitforrow: true})
+  , ToddTest.plainButton("Confirm user as sysop", "OK")
+
+  , { name: "login as jantje"
+    , loadpage: function() { return webroot + 'portal1/?language=en' + test.getTestArgument(0); }
+    }
+  , { test: function()
+      {
+        //force a logout, as we may still have a cookie referring to a session lingering referring to a now delete schema
+        test.wrdAuthLogout();
+      }
+    , waits:['pageload','ui']
+    }
+  , { test:function(doc,win)
+      {
+        test.setTodd('loginname', 'jantje@example.com');
+        test.setTodd('password', 'xecret2');
+        test.clickToddButton('Login');
+      }
+    , waits: ['pageload', 'ui'] //login currently refreshes
+    }
+  , { test:function(doc,win)
+      {
+        test.true($t('dashboard-user-name'), 'where is the portal? (looking for jantje)');
+        test.eq('jantje@example.com', $t('dashboard-user-name').textContent);
+        test.true(getAppInStartMenuByName('Publisher'),"should be able to see the publisher");
+      }
+    }
+  , { name: "login as pietje"
+    , loadpage: function() { return webroot + "portal1/?openas=" + pietjeguid + "&language=en" + test.getTestArgument(0); }
+    , waits: ['ui']
+    }
+  , { test:function(doc,win)
+      {
+        test.true($t('dashboard-user-name'), 'where is the portal? (looking for pietje)');
+        test.eq('pietje@example.com', $t('dashboard-user-name').textContent);
+        test.false(getAppInStartMenuByName('Publisher'),"shouldn't be able to see the publisher. openas failed?");
+      }
+    }
+  , { name: "logout as pietje action"
+    , loadpage: function() { return webroot + 'portal1/?language=en' + test.getTestArgument(0) + '?wh-debug=aut'; }
+    , waits: [ 'ui' ]
+    }
+  , { test:function(doc,win)
+      {
+        test.click('#dashboard-logout');
+      }
+    , waits: ['ui']
+    }
+  , { test:function(doc,win)
+      {
+        test.clickToddButton('Yes');
+      }
+    , waits: ['pageload','ui']
+    }
+     //logout refreshes, and then we need to wait for tollium to get online
+  , { test: function(doc,win)
+      {
+        test.true(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
+      }
+    }
+  , { name: "to the requiresysop page"
+    , loadpage: function() { return webroot + 'portal1/requiresysop/?language=en&wh-debug=aut' ; } //we should get redirected to portal1
+    , waits: ['ui']
+    }
+  , { test:function(doc,win)
+      {
+        test.setTodd('loginname', 'pietje@example.com');
+        test.setTodd('password', 'xecret');
+        test.clickToddButton('Login');
+      }
+    , waits: ['pageload']
+    }
+  , { name:'should be access denied'
+    , test:function(doc,win)
+      {
+        test.eq("Access denied", doc.title);
+      }
+    }
+  , { loadpage: function(doc,win) { return webroot + 'portal1/?language=en&wh-debug=aut'; }
+    , waits: [ 'ui' ]
+    }
+    //logout, so we can become jantje
+  , { name: "click logout"
+    , test:function(doc,win)
+      {
+        test.click('#dashboard-logout');
+      }
+    , waits: [ 'ui' ]
+    }
+  , { name: "confirm logout"
+    , test:function(doc,win)
+      {
+        test.clickToddButton('Yes');
+      }
+    , waits: ['pageload','ui']
+    }
+     //logout refreshes, and then we need to wait for tollium to get online
+  , { test: function(doc,win)
+      {
+        test.true(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
+      }
+    }
+  , { loadpage: function(doc,win) { return webroot + 'portal1/requiresysop/?language=en&wh-debug=aut'; }
+    , waits:['ui']
+    }
+  , { test:function(doc,win)
+      {
+        test.setTodd('loginname', 'jantje@example.com');
+        test.setTodd('password', 'xecret2');
+        test.click(test.compByName('savelogintext'));
+        test.clickToddButton('Login');
+      }
+    , waits: ['pageload']
+    }
+  , { test:function(doc,win)
+      {
+        test.true(test.qS('#success'));
+      }
+    }
+  , { loadpage: function(doc,win) { return webroot + 'portal1/?language=en'; }
+    , waits: [ 'ui' ]
+    }
+  , { name: "click logout"
+    , test:function(doc,win)
+      {
+        test.click('#dashboard-logout');
+      }
+    , waits: [ 'ui' ]
+    }
+  , { name: "confirm logout"
+    , test:function(doc,win)
+      {
+        test.clickToddButton('Yes');
+      }
+    , waits: ['pageload','ui'] //logout refreshes, and then we need to wait for tollium to get online
+    }
+  , { test: function(doc,win)
+      {
+        test.true(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
+      }
+    }
+  ]
+);

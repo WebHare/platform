@@ -1,0 +1,81 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+
+/////////////////////////////////////////////////////////////////////
+// The infamous split
+
+PUBLIC OBJECTTYPE TolliumSplit EXTEND TolliumComponentBase
+<
+  PUBLIC OBJECT ARRAY parts;
+  PUBLIC BOOLEAN horizontal;
+  STRING pvt_splitter;
+
+  PUBLIC PROPERTY splitter(pvt_splitter, SetSplitter);
+
+  MACRO NEW()
+  {
+    this->pvt_blockelement := TRUE;
+    this->componenttype := "split";
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+  UPDATE PUBLIC STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "1pr";
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    RETURN this->parts;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->parts := SELECT AS OBJECT ARRAY component FROM def.children;
+    this->horizontal := def.type="horizontal";
+    this->splitter := def.splitter;
+
+    FOREVERY(RECORD child FROM def.children)
+    {
+      IF(this->horizontal AND (child.height != "" OR child.minheight != ""))
+        THROW NEW TolliumException(this, "A horizontal split should not specify height constraints on a part");
+      IF(NOT this->horizontal AND (child.width != "" OR child.minwidth != ""))
+        THROW NEW TolliumException(this, "A vertical split should not specify width constraints on a part");
+    }
+  }
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
+  {
+    FOREVERY(OBJECT comp FROM this->parts)
+      IF(comp = oldcomponent)
+      {
+        DELETE FROM this->parts AT #comp;
+        RETURN;
+      }
+    THROW NEW TolliumException(this, 'Cannot find component to delete ' || this->name || ',' || oldcomponent->name);
+  }
+
+  MACRO SetSplitter(STRING splittertype)
+  {
+    IF(splittertype NOT IN ["","transparent"])
+      THROW NEW Exception(`Invalid splitter type '${splittertype}'`);
+    this->pvt_splitter := splittertype;
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    BOOLEAN horizontal := this->horizontal;
+    RECORD compinfo := [ horizontal := this->horizontal
+                       , items := GetVisibleComponentNames(this->parts)
+                       , splitter := this->splitter
+                       ];
+    this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    TolliumComponentBase::TolliumWebRender();
+  }
+>;

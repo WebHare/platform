@@ -1,0 +1,562 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/editorsupport.whlib";
+
+// command: logreader
+// short: (RPC) log reader
+
+
+STRING FUNCTION EncodeSingleQuoted(STRING input)
+{
+  input := Substitute(input,"\\","\\\\");
+  input := Substitute(input,"'","\\'");
+  RETURN input;
+}
+
+STRING FUNCTION FindLogFile(STRING logfilepath)
+{
+  IF(RecordExists(GetDiskFileProperties(logfilepath)))
+    RETURN logfilepath;
+
+  IF(logfilepath NOT LIKE "*/*") //no path info
+  {
+    //Try to discover the intended file
+    STRING trylogfile := MergePath(GetWebHareConfiguration().logroot, logfilepath);
+    IF(RecordExists(GetDiskFileProperties(trylogfile)))
+      RETURN trylogfile;
+
+    // Missing .log?
+    IF (logfilepath NOT LIKE "*.log")
+      logfilepath := logfilepath || ".log";
+
+    trylogfile := MergePath(GetWebHareConfiguration().logroot, logfilepath);
+    IF(RecordExists(GetDiskFileProperties(trylogfile)))
+      RETURN trylogfile;
+
+    //Is it of the form "*.log" ?
+    IF(logfilepath LIKE "*.log")
+    {
+      //Search the most recent datetime logged file
+      STRING searchpath := Substitute(logfilepath, ".log",".*.log");
+      RECORD ARRAY logfiles := SELECT name, nametoks := Tokenize(name,'.') FROM ReadDiskDirectory(GetWebHareConfiguration().logroot, searchpath);
+      RECORD mostrecent := SELECT * FROM logfiles ORDER BY nametoks[Length(nametoks)-2] DESC;
+      IF(RecordExists(mostrecent))
+        RETURN MergePath(GetWebHareConfiguration().logroot, mostrecent.name);
+    }
+  }
+  RETURN "";
+}
+
+STRING FUNCTION GuessLogfileFormat(STRING inline)
+{
+  STRING ARRAY datatoks := Tokenize(inline,"\t");
+
+  //RPC format - \t separated. 0:timestamp source   1: srhid  2: sourcetracker  3: >|< transport  4: transactionid (currently assume UFSids) 5: rawdata
+  IF(Length(datatoks) = 6 AND Left(datatoks[3],1) IN ["<",">"] AND Length(datatoks[4]) = 22 AND Left(datatoks[5],6)="hson:{")
+    RETURN "rpc";
+  IF(Length(datatoks) = 7 AND Left(datatoks[4],1) IN ["<",">"] AND Length(datatoks[5]) = 22 AND Left(datatoks[6],6)="hson:{")
+    RETURN "rpc";
+
+  RETURN "";
+}
+
+OBJECTTYPE LogReaderBase
+<
+  STRING fullline;
+
+  MACRO NEW()
+  {
+
+  }
+
+  PUBLIC MACRO AddData(STRING inline)
+  {
+    this->fullline := this->fullline || inline;
+  }
+
+  //Raw RPC line reader
+  PUBLIC RECORD FUNCTION ReadLine()
+  {
+    INTEGER lfpos := SearchSubstring(this->fullline, '\n');
+    IF(lfpos = -1)
+      RETURN DEFAULT RECORD;
+
+    STRING line := Left(this->fullline, lfpos);
+    this->fullline := Substring(this->fullline, lfpos+1);
+
+    IF(Right(line,1)="\r")
+      line := Left(line, Length(line)-1);
+
+    RETURN this->ProcessLine(line);
+  }
+
+  RECORD FUNCTION ProcessLine(STRING line)
+  {
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+OBJECTTYPE RPCLogReader EXTEND LogReaderBase
+< UPDATE RECORD FUNCTION ProcessLine(STRING line)
+  {
+    STRING ARRAY linetoks := Tokenize(line,"\t");
+    IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
+      RETURN DEFAULT RECORD;
+    IF ((Length(linetoks) != 6 OR Left(linetoks[3],1) NOT IN [ "<", ">"])
+        AND (Length(linetoks) != 7 OR Left(linetoks[4],1) NOT IN [ "<", ">"]))
+      RETURN DEFAULT RECORD;
+
+    // Add missing session id
+    IF (Left(linetoks[3],1) IN ["<",">"])
+      INSERT "" INTO linetoks AT 2;
+
+    STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
+    STRING source := Substring(linetoks[0], Length(whentext)+3);
+
+
+    RECORD retval := [ raw           := line
+                     , when          := MakeDateFromText(whentext)
+                     , source        := source
+                     , srhid         := linetoks[1] != "-" ? linetoks[1] : ""
+                     , externalsource:= linetoks[2] != "-" ? linetoks[2] : ""
+                     , sourcetracker := linetoks[3]
+                     , incoming      := Left(linetoks[4],1) = "<"
+                     , transport     := Substring(linetoks[4],1)
+                     , transactionid := linetoks[5]
+                     , rawdata       := DecodeHSON(linetoks[6])
+                     ];
+    RETURN retval;
+  }
+>;
+
+OBJECTTYPE DebugLogReader EXTEND LogReaderBase
+<
+  VARIANT FUNCTION DecodeHSONParam(STRING param)
+  {
+    TRY
+    {
+      IF (param = "-")
+        RETURN "(omitted)";
+      IF (param NOT LIKE "hson:*")
+        RETURN param;
+      RETURN DecodeHSON(param);
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN "HSON decode error: " || e->what;
+    }
+  }
+
+
+  UPDATE RECORD FUNCTION ProcessLine(STRING line)
+  {
+    STRING ARRAY linetoks := Tokenize(line,"\t");
+    IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
+      RETURN DEFAULT RECORD;
+    IF (Length(linetoks) < 4)
+      RETURN DEFAULT RECORD;
+
+    STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
+    STRING source := Substring(linetoks[0], Length(whentext)+3);
+
+    BOOLEAN hasmessage := linetoks[3] NOT LIKE "hson:*";
+    RECORD retval := [ raw :=             line
+                     , when :=            MakeDateFromText(whentext)
+                     , source :=          source
+                     , srhid :=           linetoks[1]
+                     , externalsource :=  linetoks[2]
+                     , message :=         hasmessage ? DecodeJava(linetoks[3]) : ""
+                     , params :=          SELECT AS VARIANT ARRAY this->DecodeHSONParam(part) FROM ToRecordArray(ArraySlice(linetoks, hasmessage ? 4 : 3), "PART")
+                     ];
+    RETURN retval;
+  }
+>;
+
+OBJECTTYPE NoticeLogReader EXTEND LogReaderBase
+<
+  UPDATE RECORD FUNCTION ProcessLine(STRING line)
+  {
+    STRING ARRAY linetoks := Tokenize(line,"\t");
+    IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
+      RETURN DEFAULT RECORD;
+    IF (Length(linetoks) < 4)
+      RETURN DEFAULT RECORD;
+
+    STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
+    STRING source := Substring(linetoks[0], Length(whentext)+3);
+
+    RECORD retval := [ raw :=             line
+                     , when :=            MakeDateFromText(whentext)
+                     , source :=          source
+                     , code :=            linetoks[1]
+                     , srhid :=           linetoks[2]
+                     , externalsource :=  linetoks[3]
+                     , type :=            linetoks[4]
+                     , message :=         DecodeHSON(linetoks[5])
+                     ];
+    RETURN retval;
+  }
+>;
+
+RECORD FUNCTION DecodeHTTPLogLine(RECORD inline)
+{
+  IF(inline.transport NOT LIKE "* *")
+    RETURN DEFAULT RECORD;
+
+  //parses the rawdata and transport associated with a http request
+  INSERT CELL method := Left(inline.transport, SearchSubstring(inline.transport," ")) INTO inline;
+  INSERT CELL url    := Substring(inline.transport, Length(inline.method) + 1) INTO inline;
+  inline := MakeMergedRecord(inline, inline.rawdata);
+
+  RETURN inline;
+}
+
+STRING FUNCTION ParseContextInfo(STRING contextinfo)
+{
+  IF (contextinfo = "")
+    RETURN "";
+  RECORD data := DecodeHSON(contextinfo);
+  IF (NOT RecordExists(data))
+    RETURN "raw: " || EncodeJSON(contextinfo);
+  IF (NOT CellExists(data, "SOURCE"))
+    RETURN "raw: " || EncodeJSON(contextinfo);
+  SWITCH (data.source)
+  {
+    CASE "publisher:publishing" { RETURN `Publishing file #${data.id}`; }
+    CASE "tollium:app"          { RETURN `Tollium-app: ${data.app}, wrduser: ${data.user_wrdid}, language: ${data.language}`; }
+    DEFAULT                     { RETURN `${data.source}: ${EncodeHSON(CellDelete(data, "SOURCE"))}`; }
+  }
+}
+
+RECORD info := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "format", type := "stringopt" ]
+                              , [ name := "output", type := "stringopt" ]
+                              , [ name := "d", type := "switch" ]
+                              , [ name := "f", type := "switch" ]
+                              , [ name := "x", type := "switch" ]
+                              , [ name := "n", type := "stringopt" ]
+                              , [ name := "s", type := "stringlist" ]
+                              , [ name := "logfile", type := "param" ]
+                              ]);
+
+IF(NOT RecordExists(info))
+{
+  Print("Syntax: logreader.whscr [ -d ] [ -f ] [ -n lines ] [ -s sourcemask ]* <logfile>\n");
+  Print("Valid lognames: rpc, debug, notice\n");
+  Print("Switches:\n");
+  Print("  -d        Show debug info\n");
+  Print("  -f        Output new data as file grows\n");
+  Print("  -n lines  Show the last <lines> lines (defaults to all lines, or last 5 when -f is present)\n");
+  Print("  -x        Reformat HTTP body (rpc log only)\n");
+  Print("  -s mask   Show only those RPC's whose source match these masks (rpc log only)\n");
+  Print("\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+INTEGER logfile;
+STRING logfilepath;
+
+INTEGER lastlinescount := ToInteger(info.n, -1);
+IF (info.f AND lastlinescount = -1)
+  lastlinescount := 5;
+
+IF (info.logfile != "")
+{
+  logfilepath := FindLogFile(info.logfile);
+  IF(logfilepath="")
+    ABORT("Unable to find log file: " || info.logfile);
+
+  IF (info.d)
+    PRINT("Opened file: " || logfilepath || "\n");
+
+  logfile := OpenDiskFile(logfilepath, FALSE);
+  IF(logfile <= 0)
+    ABORT("Unable to open file: " || logfilepath);
+}
+
+STRING firstline := ReadLineFrom(logfile, 16384, FALSE);
+//detect gzip data
+IF(Left(firstline,2) = "\x1F\x8B") //it's a gzip compressed file
+{
+  IF (logfile = 0)
+    ABORT("Cannot decompress from stdin");
+
+
+  CloseDiskFile(logfile); //it better be a blob
+
+  IF(NOT IsPathAbsolute(logfilepath))
+    logfilepath := MergePath(GetCurrentPath(), logfilepath);
+
+  logfile := OpenBlobAsDecompressingStream(GetDiskResource(logfilepath), "GZIP");
+  IF(logfile<=0)
+    ABORT("Unable to decompress file: " || logfilepath);
+  firstline := ReadLineFrom(logfile, 16384, FALSE);
+}
+
+IF(info.format="")
+  info.format := GuessLogfileFormat(firstline);
+IF (info.format = "" AND logfilepath LIKE "*debug.*")
+  info.format := "debug";
+IF (info.format = "" AND logfilepath LIKE "*notice.*")
+  info.format := "notice";
+
+IF(info.format NOT IN ["rpc", "debug", "notice"])
+  ABORT("Unrecognized logformat '" || info.format || "'. Please use --format with eg 'rpc'");
+
+OBJECT linereader;
+SWITCH (info.format)
+{
+  CASE "rpc"      { linereader := NEW RPCLogReader; }
+  CASE "debug"    { linereader := NEW DebugLogReader; }
+  CASE "notice"   { linereader := NEW NoticeLogReader; }
+}
+linereader->AddData(firstline); //throw in the line we already had
+
+STRING ARRAY lastlines := [ "" ];
+BOOLEAN cache := lastlinescount != -1;
+BOOLEAN filtersources := LENGTH(info.s) != 0;
+BOOLEAN lastmultiline := FALSE;
+
+WHILE(TRUE)
+{
+  WHILE(TRUE)
+  {
+    RECORD line := linereader->ReadLine();
+    IF(NOT RecordExists(line))
+      BREAK;
+
+    SWITCH (info.format)
+    {
+      CASE "rpc"
+      {
+        RECORD httpline := DecodeHTTPLogLine(line);
+        IF(NOT RecordExists(httpline))
+          CONTINUE;
+
+        // Apply filters immediately after parsing
+        IF (filtersources)
+        {
+          BOOLEAN have_match;
+          FOREVERY (STRING mask FROM info.s)
+            have_match := have_match OR httpline.source LIKE mask;
+          IF (NOT have_match)
+          {
+            IF (info.d)
+              PRINT("Ignored line from source " || httpline.source || "\n");
+
+            lastlines[END-1] := "";
+            CONTINUE;
+          }
+        }
+
+        // Also add body to current line data
+        IF(CellExists(httpline,'body'))
+        {
+          IF (info.x)
+          {
+            STRING contenttype := CellExists(httpline,'headers') ? SELECT AS STRING value FROM httpline.headers WHERE ToUppercase(field) = "CONTENT-TYPE" : "";
+            IF(contenttype LIKE "text/xml*")
+            {
+              STRING encoding := contenttype LIKE "*charset=*" ? Tokenize(contenttype, "charset=")[1] : "";
+              OBJECT doc := MakeXMLDocument(httpline.body, encoding);
+              IF (ObjectExists(doc))
+                httpline.body := doc->GetDocumentBlob(TRUE);
+            }
+            ELSE IF(contenttype LIKE "application/json*")
+            {
+              httpline.body := StringToBlob(AnyToString(DecodeJSONBlob(httpline.body), "tree"));
+            }
+          }
+        }
+
+        IF (NOT info.d)
+        {
+          DELETE CELL raw FROM httpline;
+          DELETE CELL rawdata FROM httpline;
+        }
+
+        IF(info.output = "curl")
+        {
+          lastlines[END-1] := `curl '${EncodeSingleQuoted(httpline.url)}' `;
+
+          FOREVERY(RECORD header FROM httpline.headers)
+            IF(ToUppercase(header.field) NOT IN ["CONTENT-LENGTH","HOST","TRANSFER-ENCODING"])
+              lastlines[END-1] := lastlines[END-1] || ` -H '${header.field}: ${EncodeSingleQuoted(header.value)}'`;
+
+          //FIXME what if data is unreadable?
+          IF(Length(httpline.body) > 0)
+            lastlines[END-1] := lastlines[END-1] || ` --data-binary '${EncodeSingleQuoted(BlobToString(httpline.body))}'`;
+          lastlines[END-1] := lastlines[END-1] || "\n";
+        }
+        ELSE
+        {
+          // Add http line to the current line data
+          lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q] ", httpline.when) || httpline.source || " " || (httpline.incoming ? ">in " : "<out ") ||httpline.transport || "\n";
+          lastlines[END-1] := lastlines[END-1] || AnyToString(httpline,'tree');
+          IF(CellExists(httpline,'body'))
+          {
+            lastlines[END-1] := lastlines[END-1] || BlobToString(httpline.body, -1);
+            IF (lastlines[END-1] NOT LIKE "*\n")
+              lastlines[END-1] := lastlines[END-1] || "\n";
+          }
+        }
+      }
+      CASE "debug"
+      {
+        lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || " " || line.srhid || " " || line.source || " " ||
+            Substitute(line.message, "\n", "\n  > ") || "\n";
+
+        IF (filtersources)
+        {
+          BOOLEAN have_match;
+          FOREVERY (STRING mask FROM info.s)
+            have_match := have_match OR line.source LIKE mask;
+          IF (NOT have_match)
+          {
+            IF (info.d)
+              PRINT("Ignored line from source " || line.source || "\n");
+
+            lastlines[END-1] := "";
+            CONTINUE;
+          }
+        }
+
+        FOREVERY (VARIANT part FROM line.params)
+        {
+          STRING data := TrimWhitespace(TypeID(part) != TypeID(STRING) ? AnyToString(part, "tree") : part);
+          FOREVERY (STRING partline FROM Tokenize(data, "\n"))
+            lastlines[END-1] := lastlines[END-1] || #part || " > " || partline || "\n";
+        }
+      }
+      CASE "notice"
+      {
+        lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || " " || line.srhid || " " || line.source || " " || line.type || "\n";
+        //lastlines[END-1] := lastlines[END-1] || AnyToString(line.message, "tree");
+
+        IF (CellExists(line.message, "SCRIPT"))
+          lastlines[END-1] := lastlines[END-1] || "Script: " || line.message.script || "\n";
+        IF (CellExists(line.message, "CONTEXTINFO"))
+        {
+          STRING parsed := ParseContextInfo(line.message.contextinfo);
+          IF (parsed != "")
+            lastlines[END-1] := lastlines[END-1] || "Context: " || parsed || "\n";
+        }
+
+        IF (CellExists(line.message, "ERRORS"))
+          FOREVERY (RECORD t FROM line.message.errors)
+          {
+            lastlines[END-1] := lastlines[END-1] || "Error: " || t.message || "\n";
+            IF (NOT CellExists(line.message, "TRACE") OR LENGTH(line.message.trace) = 0)
+            {
+              STRING file := CellExists(t, "FILENAME") ? t.filename : CellExists(t, "FILE") ? t.file : "";
+              INTEGER linenum := CellExists(t, "LINENUM") ? t.linenum : CellExists(t, "LINE") ? t.line : 1;
+              INTEGER col := CellExists(t, "COLNUM") ? t.colnum : CellExists(t, "COL") ? t.col : 1;
+              STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
+              lastlines[END-1] := lastlines[END-1] || "At " || file || "(" || linenum || "," || col || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
+            }
+          }
+
+        IF (CellExists(line.message, "BROWSER") AND TypeID(line.message.browser) = TypeID(RECORD) AND CellExists(line.message.browser, "LOCATION"))
+          lastlines[END-1] := lastlines[END-1] || "URL: " || line.message.browser.location || "\n";
+        ELSE IF (CellExists(line.message, "LOCATION"))
+          lastlines[END-1] := lastlines[END-1] || "URL: " || line.message.location || "\n";
+
+        IF (line.type = "javascript-error")
+        {
+          RECORD entry := AnalyzeJavascriptNoticeLogEntry(line.message);
+          IF (RecordExists(entry))
+          {
+            FOREVERY (RECORD t FROM entry.errors)
+            {
+              lastlines[END-1] := lastlines[END-1] || (t.message LIKE "Error *" ? t.message : "Error: " || t.message) || "\n";
+              STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
+              lastlines[END-1] := lastlines[END-1] || "At " || t.filename || "(" || (CellExists(t, "LINE") ? t.line : 1) || "," || (CellExists(t, "COL") ? t.col : 1) || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
+            }
+            FOREVERY (RECORD t FROM entry.trace)
+            {
+              STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
+              lastlines[END-1] := lastlines[END-1] || "At " || t.filename || "(" || (CellExists(t, "LINE") ? t.line : 1) || "," || (CellExists(t, "COL") ? t.col : 1) || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
+            }
+            DELETE CELL trace FROM line.message;
+          }
+        }
+
+        IF (CellExists(line.message, "TRACE"))
+        {
+          FOREVERY (RECORD t FROM line.message.trace)
+          {
+            STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
+            lastlines[END-1] := lastlines[END-1] || "At " || t.filename || "(" || (CellExists(t, "LINE") ? t.line : 1) || "," || (CellExists(t, "COL") ? t.col : 1) || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
+          }
+        }
+
+        IF (CellExists(line.message, "TESTSCRIPT"))
+          lastlines[END-1] := lastlines[END-1] || "Test script: " || line.message.testscript || "\n";
+
+        IF (line.type NOT IN [ "javascript-error", "harescript-error", "siteprofilecompilation-error" ] AND RecordExists(line.message))
+          lastlines[END-1] := lastlines[END-1] || "log entry type: " || line.type || "\n" || AnyToString(line.message, "tree");
+      }
+    }
+
+    // When caching (used when -n is in effect) initialize a new rpc, throw away first item when cache overflows
+    IF (cache)
+    {
+      IF (LENGTH(lastlines) > lastlinescount)
+        DELETE FROM lastlines AT 0;
+      INSERT "" INTO lastlines AT END;
+    }
+    ELSE // not caching - print all mode
+    {
+      FOREVERY (STRING s FROM lastlines)
+      {
+        BOOLEAN nowmultiline := s LIKE "*\n*?";
+        IF (lastmultiline OR nowmultiline)
+          PRINT("\n");
+        PRINT(s);
+        lastmultiline := nowmultiline;
+      }
+      lastlines := [ "" ];
+    }
+  }
+
+  STRING data := ReadLineFrom(logfile, 16384, FALSE);
+  IF(data="") //eof!
+  {
+    // No more data - reached the end of the file. If still caching, this is the time to print the cache
+    FOREVERY (STRING s FROM lastlines)
+      IF (s != "")
+      {
+        BOOLEAN nowmultiline := s LIKE "*\n*?";
+        IF (lastmultiline OR nowmultiline)
+          PRINT("\n");
+        PRINT(s);
+        lastmultiline := nowmultiline;
+      }
+    lastlines := [ "" ];
+    cache := FALSE;
+
+
+    // Not in 'follow' mode? We're done
+    IF (NOT info.f)
+      BREAK;
+
+
+    // Check every 250 ms for new data from the log file
+    WHILE (data = "")
+    {
+      Sleep(250);
+      data := ReadLineFrom(logfile, 16384, FALSE);
+    }
+  }
+
+  // Add data to the current line data
+  //lastlines[END-1] := lastlines[END-1] || '['||data||']\n';
+
+  linereader->AddData(data);
+}

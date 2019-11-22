@@ -1,0 +1,990 @@
+﻿<?wh
+/** @short Hypertext transfer (HTTP)
+    @long These functions allow access to HTTP sites.
+*/
+
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internal/tcputils.whlib";
+LOADLIB "wh::internet/urls.whlib" EXPORT IsValidPlainHTTPURL,GetVariableFromUrl,DeleteVariableFromUrl,AddVariableToUrl,ReplaceVariableInUrl,ResolveToAbsoluteURL,IsAbsoluteUrl,MakeRelativeLinkFromURL;
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::ipc.whlib";
+
+MACRO DummyProgress(INTEGER bytes, INTEGER total)
+{
+}
+
+PUBLIC MACRO PTR http_download_progress := PTR DummyProgress;
+
+MACRO PrintToProgress(INTEGER stream, INTEGER total, STRING output)
+{
+  PrintTo(stream, output);
+  http_download_progress(Length(output), total);
+}
+
+RECORD ARRAY currentconnections;
+
+/** @short ReceiveHeader will get a header from a connection, which can be used for MIMEDecodeHeader
+    @param connectionid ID of the connection to use
+    @param size The length of the data to use
+    @return String of the received data */
+STRING FUNCTION ReceiveHeader(INTEGER connectionid)
+{
+  STRING received := ReadLineFrom(connectionid,32768,TRUE);
+  STRING header := received;
+  WHILE (received != "")
+  {
+    received := ReadLineFrom(connectionid, 4096, TRUE);
+    header := header || "\r\n" || received;
+  }
+  RETURN header;
+}
+
+/** @short AsyncReceiveHeader will asynchronously get a header from a connection, which can be used for MIMEDecodeHeader
+    @param connectionid ID of the connection to use
+    @param size The length of the data to use
+    @return String of the received data */
+OBJECT ASYNC FUNCTION AsyncReceiveHeader(INTEGER connectionid)
+{
+  STRING received := AWAIT AsyncReadLineFrom(connectionid,32768,TRUE);
+  STRING header := received;
+  WHILE (received != "")
+  {
+    received := AWAIT AsyncReadLineFrom(connectionid, 4096, TRUE);
+    header := header || "\r\n" || received;
+  }
+  RETURN header;
+}
+
+
+/** @short FindSettings is used to find the index of connection in the settings array
+    @param connectionid Integer id of the connection */
+INTEGER FUNCTION FindSettings(INTEGER connectionid)
+{
+  // Search in the array of settings for this connection
+  INTEGER i := 0;
+  WHILE (i < Length(currentconnections))
+  {
+    IF (currentconnections[i].id = connectionid)
+      RETURN i;
+    i := i + 1;
+  }
+
+  // Settings not found
+  RETURN -1;
+}
+
+/** @short Formats a datetime in the HTTP required format
+    @long This function will format a datetime for HTTP, eg for use inside a Last-Modified header
+    @param whattime Time to format, in UTC time.
+    @return The formatted time
+    @topic sitedev/dynamic
+    @public
+    @loadlib mod::system/lib/webserver.whlib
+*/
+PUBLIC STRING FUNCTION FormatHttpDateTime(DATETIME whattime)
+{
+  RETURN FormatDateTime("%a, %d %b %Y %H:%M:%S GMT", whattime);
+}
+
+/** @short GetSettings is used to get the existing settings from a connection
+    @param connectionid Integer indicating the if of the connection to get the settings from */
+RECORD FUNCTION GetSettings(INTEGER connectionid)
+{
+  RECORD settings_ := SELECT * FROM currentconnections WHERE id = connectionid;
+  IF (RecordExists(settings_))
+    RETURN settings_.data;
+
+  RETURN DEFAULT RECORD;
+}
+
+/** @short UpdateSettings is used to update the settings belonging to a connection
+    @param connectionid Integer indicating the id of the connection to set the setting to
+    @param settings_ Record with the new settings */
+MACRO UpdateSettings(INTEGER connectionid, RECORD settings_)
+{
+  // Delete the old setting
+  INTEGER oldsetting := FindSettings(connectionid);
+  IF (oldsetting != -1)
+    DELETE FROM currentconnections AT oldsetting;
+
+  // Now define a new setting
+  INSERT INTO currentconnections(id,data) VALUES(connectionid,settings_) AT 0;
+}
+
+/** @short FormatWhiteSpaces will convert all (neighboring) whitespace characters into single spaces
+    @param data Input data
+    @return Formatted data*/
+STRING FUNCTION FormatWhiteSpaces(STRING data)
+{
+  data := Substitute(data, "\t", " ");
+  WHILE (SearchSubString(data, "  ") >= 0)
+  {
+    data := Substitute(data, "  ", " ");
+  }
+  RETURN data;
+}
+
+OBJECT FUNCTION* SendContent(INTEGER stream, STRING data, BOOLEAN isasync)
+{
+  DATETIME wait_until;
+  WHILE (data != "")
+  {
+    INTEGER sent := WriteTo(stream, data);
+    IF (sent < 0 AND sent != -13)
+      RETURN FALSE;
+    IF (sent > 0)
+      data := SubString(data, sent);
+    ELSE
+    {
+      IF (wait_until = DEFAULT DATETIME)
+      {
+        INTEGER timeout := GetSocketTimeout(stream);
+        IF (timeout < 0)
+          wait_until := MAX_DATETIME;
+        ELSE
+          wait_until := AddTimeToDate(timeout, GetCurrentDateTime());
+      }
+
+      BOOLEAN waitresult := isasync
+          ? (YIELD AsyncWaitHandleWriteSignalled(stream, wait_until)) != -1
+          : WaitForMultipleUntil(DEFAULT INTEGER ARRAY, [ stream ], wait_until) != -1;
+
+      IF (NOT waitresult)
+        RETURN FALSE; // timeout
+    }
+  }
+
+  RETURN TRUE;
+}
+
+/** @short This function will decode a http response
+    @param connectionid Integer of the connectionid
+    @param discard_content Only retrieve headers (don't wait for content)
+    @param isasync Whether to run asynchronous
+    @return Record with the response
+    @cell return.protocol String of the protocol (example "HTTP/1.1")
+    @cell return.code Integer of the return code, or 0 if the connection was closed
+    @cell return.content String with the returned message
+    @cell return.headers A record array of (field,value) strings containing the headers received with this request */
+OBJECT FUNCTION* GetHTTPResponse(INTEGER connectionid, BOOLEAN discard_content, BOOLEAN isasync)
+{
+  RECORD response := [ protocol := "HTTP/0.9"
+                     , code := 0
+                     , message :=  ""
+                     , headers := DEFAULT RECORD ARRAY
+                     , content := DEFAULT BLOB
+                     , content_length := 0
+                     , keepalive := FALSE
+                     , sendfailed := FALSE
+                     , receivefailed := FALSE
+                     ];
+
+  // Connection was closed by previous read action
+  RECORD settings := GetSettings(connectionid);
+  IF (settings.conn_closed)
+  {
+    response.message := "Connection already closed (no keep alive)";
+    RETURN response;
+  }
+
+  STRING received := isasync
+      ? YIELD AsyncReadLineFrom(connectionid, 4096, TRUE)
+      : ReadLineFrom(connectionid, 4096, TRUE);
+
+  IF (Length(received) = 0 AND GetLastSocketError(connectionid) =0) //Superfluous newline..... buggy servers do this. accept once more (to accept multiple, we'd still need our timeout check)
+  {
+    received := isasync
+        ? YIELD AsyncReadLineFrom(connectionid, 4096, TRUE)
+        : ReadLineFrom(connectionid, 4096, TRUE);
+  }
+
+  IF (Length(received) = 0 AND GetLastSocketError(connectionid) < 0) //Connection was closed
+  {
+    response.message := GetSocketErrorText(GetLastSocketError(connectionid));
+    response.receivefailed := TRUE; //FIXME Also check later paths
+    RETURN response;
+  }
+
+  //ADDME: Do we really need this?
+  received := FormatWhiteSpaces(received);
+
+/* The first line of a Full-Response message is the Status-Line,
+   consisting of the protocol version followed by a numeric status code
+   and its associated textual phrase, with each element separated by SP
+   characters. No CR or LF is allowed except in the final CRLF sequence.
+
+       Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF
+
+   Since a status line always begins with the protocol version and
+   status code
+
+       "HTTP/" 1*DIGIT "." 1*DIGIT SP 3DIGIT SP
+
+   (e.g., "HTTP/1.0 200 "), the presence of that expression is
+   sufficient to differentiate a Full-Response from a Simple-Response.
+   Although the Simple-Response format may allow such an expression to
+   occur at the beginning of an entity body, and thus cause a
+   misinterpretation of the message if it was given in response to a
+   Full-Request, most HTTP/0.9 servers are limited to responses of type
+   "text/html" and therefore would never generate such a response. */
+
+  STRING ARRAY parts := Tokenize(received, " ");
+  IF (Length(received) >= 12 /* Minimum length of valid status line */
+    AND Length(parts) >= 2 /* HTTP-Version, Status-Code and Reason-Phrase */)
+  {
+    // Check valid protocol
+    STRING proto := Substring(parts[0],0,5);
+    INTEGER major := ToInteger(Substring(parts[0],5,1),-1);
+    INTEGER minor := ToInteger(Substring(parts[0],7,1),-1);
+
+    INTEGER code := ToInteger(parts[1],-1);
+
+    IF (proto = "HTTP/" AND major >= 0 AND minor >= 0 AND code >= 0)
+    {
+      response.protocol := parts[0];
+      response.code := code;
+      response.message := Detokenize(ArraySlice(parts,2),' ');
+    }
+  }
+  ELSE
+  {
+    response.message:="Received a non-HTTP/1.0 response";
+    RETURN response;
+  }
+
+  // Response header
+  STRING header := isasync
+      ? YIELD AsyncReceiveHeader(connectionid)
+      : ReceiveHeader(connectionid);
+  response.headers := DecodeMIMEHeader(header);
+
+  // Check if this connection will stay alive
+  STRING ARRAY connection_definitions := __internal_CombineMIMEHeaders(response.headers, "Connection");
+
+  // Search for a connection: close and keep-alive
+  BOOLEAN connection_should_close := FALSE;
+  BOOLEAN connection_should_keepalive := FALSE;
+  FOREVERY (STRING connection_def FROM connection_definitions)
+  {
+    IF (ToLowerCase(connection_def) = "close")
+      connection_should_close := TRUE;
+    IF (ToLowerCase(connection_def) = "keep-alive")
+      connection_should_keepalive := TRUE;
+  }
+
+  // Assign the detected keep alive value (if possible)
+  BOOLEAN set_keepalive := FALSE;
+  IF (connection_should_close)
+    set_keepalive := FALSE;
+  ELSE IF (connection_should_keepalive)
+    set_keepalive := TRUE;
+  ELSE // Not possible...
+  {
+    // Let the keep-alive be determined by protocol default (version >= HTTP/1.1 means keep-alive)
+    STRING ARRAY protocolparts := Tokenize(response.protocol, "/");
+    IF (Length(protocolparts) = 2)
+    {
+      MONEY version := ToMoney(protocolparts[1], 1);
+      IF (version >= 1.1)
+        set_keepalive := TRUE;
+      ELSE
+        set_keepalive := FALSE;
+    }
+  }
+  response.keepalive := set_keepalive;
+
+  BOOLEAN have_content_length;
+  IF (GetMIMEHeader(response.headers, "Content-Length") != "")
+  {
+    INTEGER cl := ToInteger(GetMIMEHeader(response.headers, "Content-Length"), -1);
+    IF(cl>=0)
+    {
+      have_content_length := TRUE;
+      response.content_length := cl;
+    }
+  }
+
+  //ADDME: Either closing the socket before receiving the content, and re-opening it when needed, or reading the content into
+  //       'nothing' would be nicer than reading the content into a stream and then ignoring the stream. Some servers (e.g.
+  //       http://www.pensioenfederatie.nl/) send response content with a HEAD call, which we must ignore to prevent the next
+  //       request on the same connection from reading it.
+  IF (discard_content)
+    RETURN response;
+
+  // Content
+  INTEGER contentstream := CreateStream();
+  IF (NOT ((response.code > 100 AND response.code < 200) /* Informational */
+           OR response.code = 204 /* No content */
+           OR response.code = 304 /* Not modified */ ))
+  {
+    // Find out how the data will be sent
+    IF ((Left(ToLowerCase(GetMIMEHeader(response.headers, "Transfer-Encoding")), 7) = "chunked"))
+    {
+      have_content_length := TRUE;
+      response.content_length := 0;
+
+      // HTTP/1.1 chunked transfer encoding (RFC2616 3.6.1)
+      WHILE (TRUE)
+      {
+        STRING chunkstart := isasync
+            ? YIELD AsyncReadLineFrom(connectionid, 4096, TRUE)
+            : ReadLineFrom(connectionid, 4096, TRUE);
+        IF (chunkstart="")
+        {
+          IF (GetLastSocketError(connectionid) < 0)
+            BREAK;
+          CONTINUE; //empty line after or between chunks
+        }
+        STRING ARRAY chunkparts := Tokenize(TrimWhitespace(chunkstart), ";"); //just using tokenize to split everything after the ';'
+        INTEGER chunksize := ToInteger(chunkparts[0], 0, 16); //decode chunk size in hex
+        IF (chunksize=0)
+        {
+          // Receive the trailing headers after the last chunk. Ignoring the headers for now.
+          IF (isasync)
+            YIELD AsyncReceiveHeader(connectionid);
+          ELSE
+            ReceiveHeader(connectionid);
+          BREAK; //this was the last chunk
+        }
+
+        response.content_length := response.content_length + chunksize;
+        IF (isasync)
+          YIELD AsyncReceiveIntoStream(connectionid, chunksize, contentstream);
+        ELSE
+          ReceiveIntoStream(connectionid, chunksize, contentstream);
+        // Empty line after chunk is handled by code at the start of the loop
+      }
+    }
+    ELSE IF (have_content_length)
+    {
+      // We will receive a predefined amount of bytes
+      IF (response.content_length > 0) //No content
+      {
+        IF (isasync)
+          YIELD AsyncReceiveData(connectionid, response.content_length, PTR PrintToProgress(contentstream, response.content_length, #1));
+        ELSE
+          ReceiveData(connectionid, response.content_length, PTR PrintToProgress(contentstream, response.content_length, #1));
+      }
+    }
+    ELSE
+    {
+      response.keepalive := FALSE; //there's no way we can accept keep alive without a content length or TE..  work around broken Hyves servers
+
+      // The connection will be close when all data has been sent
+      // We will receive a predefined amount of bytes
+      IF (isasync)
+        YIELD AsyncReceiveIntoStream(connectionid, 0, contentstream);
+      ELSE
+        ReceiveIntoStream(connectionid, 0, contentstream);
+    }
+  }
+
+  // Always convert the stream to a blob, streams leak and blobs are garbage collected.
+  BLOB content := MakeBlobFromSTream(contentstream);
+
+  IF (have_content_length AND LENGTH(content) != response.content_length)
+    response.code := -response.code;
+
+  response.content := content;
+  RETURN response;
+}
+
+
+/** @short This function will try to open a connection to an http server
+    @param servername Host name of the HTTP server (also used in the HTTP request itself!)
+    @param serverport Integer of the port of the http server
+    @return Integer of the connection (> 0 if successfull) */
+PUBLIC INTEGER FUNCTION OpenHTTPServer(STRING servername, INTEGER serverport)
+{
+  // Open the connection
+  INTEGER connectionid := CreateTCPSocket();
+  IF (connectionid <= 0)
+  {
+    RETURN 0;
+  }
+
+  IF (NOT ConnectSocket(connectionid,servername,serverport))
+  {
+    CloseSocket(connectionid);
+    RETURN -1;
+  }
+
+  RETURN OpenHTTPServerOnSocket(connectionid,FALSE,servername,serverport);
+}
+
+/** @short This function will try to open a secure (SSL) connection to an http server
+    @param servername Host name of the HTTP server (also used in the HTTP request itsefl!)
+    @param serverport Integer of the port of the http server
+    @return Integer of the connection (> 0 if successfull) */
+PUBLIC INTEGER FUNCTION OpenSecureHTTPServer(STRING servername, INTEGER serverport)
+{
+  // Open the connection
+  INTEGER connectionid := OpenHTTPServer(servername, serverport);
+  IF (connectionid <= 0)
+  {
+    RETURN connectionid;
+  }
+
+  IF (NOT SetSecureConnection(connectionid, TRUE))
+  {
+    CloseSocket(connectionid);
+    RETURN -2;
+  }
+
+  // Set secure flag in settings
+  INTEGER settingspos := FindSettings(connectionid);
+  IF (settingspos != -1)
+    currentconnections[settingspos].data.secure := TRUE;
+
+  RETURN connectionid;
+}
+
+/* @short This function will try to open an HTTP connection on a connected TCP socket
+   @param tcpsocket A connected TCP socket
+   @param secure Whether the TCP socket is secure
+   @param servername Host name of the HTTP server (used in the HTTP requests)
+   @param serverport Integer of the port of the http server
+   @return Integer of the connection */
+PUBLIC INTEGER FUNCTION OpenHTTPServerOnSocket(INTEGER tcpsocket, BOOLEAN secure, STRING servername, INTEGER serverport)
+{
+  UpdateSettings(tcpsocket, [ servername := servername, serverport := serverport, conn_closed := FALSE, secure := secure ]);
+  RETURN tcpsocket;
+}
+
+RECORD FUNCTION HTTPLibError(STRING text, BOOLEAN sendfailed)
+{
+  RETURN [ protocol := "HTTP/0.9", code := 0, message := text, headers := DEFAULT RECORD ARRAY, content := DEFAULT BLOB, keepalive := FALSE, sendfailed := sendfailed ];
+}
+
+string temp;
+macro mysendline(integer unused, string data)
+{
+  temp := temp || data || "\r\n";
+}
+
+/** @short This function will send a formatted http header to a webserver
+    @long A request will be send in keepalive mode with "Webhare" as user-agent
+    @param connectionid Integer id of the connection to use (opened by OpenHTTPServer)
+    @param document Document to get (/path/page?query)
+    @param method Method to perform (GET, POST or HEAD)
+    @param headers Additional headers to send
+    @cell headers.field Name of this field
+    @cell headers.value Value of this field
+    @param entity Entity to pass with the request (eg, a POST message body or a document to PUT)
+    @return Record containing the page
+    @cell return.content Contents of the url retrieved
+    @cell return.protocol String of the protocol (example "HTTP/1.1")
+    @cell return.code Integer of the return code
+    @cell return.headers A record array of (field,value) strings containing the headers received with this request
+    @cell return.content_length The content-length header received from the server (does not necessarily match Length(content) !). 0 if no content-length header was received */
+PUBLIC RECORD FUNCTION SendHTTPRequest(INTEGER connectionid, STRING document, STRING method, RECORD ARRAY headers, BLOB entity, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN RunGeneratorUntilReturn(SendHTTPRequestInternal(connectionid, document, method, headers, entity, options, FALSE));
+}
+
+/** @short This function will send a formatted http header to a webserver
+    @long A request will be send in keepalive mode with "Webhare" as user-agent
+    @param connectionid Integer id of the connection to use (opened by OpenHTTPServer)
+    @param document Document to get (/path/page?query)
+    @param method Method to perform (GET, POST or HEAD)
+    @param headers Additional headers to send
+    @cell headers.field Name of this field
+    @cell headers.value Value of this field
+    @param entity Entity to pass with the request (eg, a POST message body or a document to PUT)
+    @return Promise resolving to a record containing the page.
+    @cell return.content Contents of the url retrieved
+    @cell return.protocol String of the protocol (example "HTTP/1.1")
+    @cell return.code Integer of the return code
+    @cell return.headers A record array of (field,value) strings containing the headers received with this request
+    @cell return.content_length The content-length header received from the server (does not necessarily match Length(content) !). 0 if no content-length header was received */
+PUBLIC OBJECT FUNCTION AsyncSendHTTPRequest(INTEGER connectionid, STRING document, STRING method, RECORD ARRAY headers, BLOB entity, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN GeneratorSpawn(SendHTTPRequestInternal(connectionid, document, method, headers, entity, options, TRUE));
+}
+
+PUBLIC OBJECT FUNCTION* SendHTTPRequestInternal(INTEGER connectionid, STRING document, STRING method, RECORD ARRAY headers, BLOB entity, RECORD options, BOOLEAN isasync)
+{
+  IF(__HasURLInvalidCharacters(document))
+    THROW NEW Exception("Illegal URL '" || EncodeJava(document) || "'");
+
+  options := ValidateOptions([ discard_content := FALSE
+                             , debug := FALSE
+                             ], options);
+  RECORD settings := GetSettings(connectionid);
+
+  IF (NOT RecordExists(settings))
+    THROW NEW Exception("Unknown connection " || connectionid);
+
+  IF(method != "HEAD")
+    INSERT INTO headers(field,value) VALUES("Content-Length", ToString(Length(entity))) AT END;
+
+  //ADDME: Support alternative hosts (decode URL to get real host name).
+  INTEGER defaultport := settings.secure ? 443 : 80; //Leave out the port if it is the default port.
+  IF (GetMIMEHeader(headers, "Host") = "")
+    INSERT INTO headers(field,value) VALUES("Host", settings.servername || (settings.serverport = defaultport ? "" : ":" || settings.serverport)) AT END;
+
+  IF (GetMIMEHeader(headers, "User-Agent") = "")
+    INSERT INTO headers(field, value) VALUES("User-Agent", "HareScript/2 (HareScript HTTP library)") AT END;
+
+  IF (GetMIMEHeader(headers, "Connection") = "")
+    INSERT INTO headers(field, value) VALUES("Connection", "Keep-Alive") AT END;
+
+  // Check if we use authentication
+  IF (CellExists(settings, "authentication"))
+  {
+    IF (CellExists(settings, "digest_data"))
+    {
+      STRING cnonce := GenerateUFS128BitId();
+
+      STRING digest_header := EncodeDigestAuthorizationHeader(
+                /*nonce=*/      settings.digest_data.nonce,
+                /*cnonce*/      cnonce,
+                /*request_id=*/ settings.digest_data.counter,
+                /*username=*/   settings.authentication.username,
+                /*realm=*/      settings.digest_data.realm,
+                /*password=*/   settings.authentication.password,
+                /*method=*/     method,
+                /*uri=*/        document);
+
+      INSERT INTO headers(field,value) VALUES("Authorization", digest_header) AT END;
+
+      // Increase counter
+      settings.digest_data.counter := settings.digest_data.counter + 1;
+      UpdateSettings(connectionid, settings);
+    }
+    ELSE
+    {
+      INSERT INTO headers(field,value) VALUES("Authorization", "Basic " || EncodeBase64((settings.authentication).username || ":" || (settings.authentication).password)) AT END;
+    }
+  }
+
+  IF(options.debug)
+  {
+    Print(`REQUEST${options.discard_content ? " (discarding content)" : ""}: ${method} ${document} (to ${GetRemoteSocketIP(connectionid)}:${GetRemoteSocketPort(connectionid)})\n`);
+    DumpValue(headers,'boxed');
+    SendBlobTo(0,entity);
+    Print('\n');
+  }
+
+  RECORD response := YIELD* __SendRawHTTPRequestInternal(connectionid, method || " " || document || " HTTP/1.1", headers, entity, method != "HEAD" AND NOT options.discard_content, FALSE, isasync);
+
+  IF (response.code = 0)
+  {
+    settings.conn_closed := TRUE;
+    UpdateSettings(connectionid, settings);
+  }
+  // If 401 and digest, store it.
+  IF (response.code = 401)
+  {
+      RECORD digest_header := SELECT * FROM response.headers WHERE ToUppercase(field)="WWW-AUTHENTICATE" AND Touppercase(value) LIKE "DIGEST *";
+      RECORD digest_auth := RecordExists(digest_header) ? DecodeHTTPAuthenticationHeader(digest_header.value, FALSE) : DEFAULT RECORD;
+      BOOLEAN is_ok := CellExists(digest_auth, "NONCE") AND CellExists(digest_auth, "REALM");
+      IF (CellExists(settings, "digest_data"))
+        DELETE CELL digest_data FROM settings;
+      IF (is_ok)
+      {
+        INSERT CELL counter := 1 INTO digest_auth;
+        INSERT CELL digest_data := digest_auth INTO settings;
+      }
+      UpdateSettings(connectionid, settings);
+  }
+
+  RETURN response;
+}
+
+/** @short This function will send a raw http request to a webserver
+    @long A request will be sent as specified. Headers are not inspected or added (not even a "Host" header), digest session state is not used/updated
+    @param connectionid Integer id of the connection to use (opened by OpenHTTPServer)
+    @param document Document to get (/path/page?query)
+    @param method Method to perform (GET, POST or HEAD)
+    @param headers Additional headers to send
+    @cell headers.field Name of this field
+    @cell headers.value Value of this field
+    @param entity Entity to pass with the request (eg, a POST message body or a document to PUT)
+    @return Record containing the page
+    @cell return.content Contents of the url retrieved
+    @cell return.protocol String of the protocol (example "HTTP/1.1")
+    @cell return.code Integer of the return code
+    @cell return.headers A record array of (field,value) strings containing the headers received with this request
+    @cell return.content_length The content-length header received from the server (does not necessarily match Length(content) !). 0 if no content-length header was received */
+PUBLIC RECORD FUNCTION __SendRawHTTPRequest(INTEGER connectionid, STRING requestline, RECORD ARRAY headers, BLOB entity, BOOLEAN expect_body_in_response, BOOLEAN shutdown_after_send)
+{
+  RETURN RunGeneratorUntilReturn(__SendRawHTTPRequestInternal(connectionid, requestline, headers, entity, expect_body_in_response, shutdown_after_send, FALSE));
+}
+
+/** @short This function will send a raw http request to a webserver
+    @long A request will be sent as specified. Headers are not inspected or added (not even a "Host" header), digest session state is not used/updated
+    @param connectionid Integer id of the connection to use (opened by OpenHTTPServer)
+    @param document Document to get (/path/page?query)
+    @param method Method to perform (GET, POST or HEAD)
+    @param headers Additional headers to send
+    @cell headers.field Name of this field
+    @cell headers.value Value of this field
+    @param entity Entity to pass with the request (eg, a POST message body or a document to PUT)
+    @return Record containing the page
+    @cell return.content Contents of the url retrieved
+    @cell return.protocol String of the protocol (example "HTTP/1.1")
+    @cell return.code Integer of the return code
+    @cell return.headers A record array of (field,value) strings containing the headers received with this request
+    @cell return.content_length The content-length header received from the server (does not necessarily match Length(content) !). 0 if no content-length header was received */
+PUBLIC OBJECT FUNCTION __AsyncSendRawHTTPRequest(INTEGER connectionid, STRING requestline, RECORD ARRAY headers, BLOB entity, BOOLEAN expect_body_in_response, BOOLEAN shutdown_after_send)
+{
+  RETURN GeneratorSpawn(__SendRawHTTPRequestInternal(connectionid, requestline, headers, entity, expect_body_in_response, shutdown_after_send, TRUE));
+}
+
+
+PUBLIC OBJECT FUNCTION* __SendRawHTTPRequestInternal(INTEGER connectionid, STRING requestline, RECORD ARRAY headers, BLOB entity, BOOLEAN expect_body_in_response, BOOLEAN shutdown_after_send, BOOLEAN isasync)
+{
+  temp:="";
+  MySendLine(connectionid, requestline);
+
+  // Now process the rest of the headers
+  FOREVERY (RECORD header FROM headers)
+    MySendLine(connectionid, header.field||": "||header.value);
+
+  MySendLine(connectionid, "");
+
+  IF (Length(entity) = 0)
+  {
+    BOOLEAN sendresult := YIELD* SendContent(connectionid, temp, isasync);
+    IF (NOT sendresult)
+      RETURN HTTPLibError("Unable to send HTTP Request", TRUE);
+  }
+  ELSE
+  {
+    // Gather the request in a single blob
+    INTEGER stream := CreateStream();
+    PrintTo(stream, temp);
+    IF (NOT SendBlobTo(stream, entity))
+      RETURN HTTPLibError("Unable to create the HTTP Request (entity)", TRUE);
+    BLOB request := MakeBlobFromStream(stream);
+
+    BOOLEAN sendresult := isasync
+        ? YIELD AsyncSendBlobTo(connectionid, request)
+        : SendBlobTo(connectionid, request);
+
+    IF (NOT sendresult)
+      RETURN HTTPLibError("Unable to send HTTP Request", TRUE);
+  }
+
+  IF(shutdown_after_send)
+    ShutdownSocket(connectionid, FALSE, TRUE);
+
+  RECORD response;
+  WHILE(TRUE)
+  {
+    response := YIELD* GetHTTPResponse(connectionid, NOT expect_body_in_response, isasync);
+    IF(response.code = 100) //ADDME Limit number of 100s? Allow users to set an option to actually receive 100s?
+      CONTINUE;
+    BREAK;
+  }
+
+  RETURN response;
+}
+
+/** @short This function will get a url from the webserver
+    @param connectionid Integer id of the connection (opened by OpenHTTPServer)
+    @param query String containing the query to load (example /path/script.shtml?a=b&d=c)
+    @return Record containing the page
+    @cell return.content Contents of the url retrieved
+    @cell return.protocol String of the protocol (example "HTTP/1.1")
+    @cell return.code Integer of the return code
+    @cell return.headers A record array of (field,value) strings containing the headers received with this request */
+PUBLIC RECORD FUNCTION GetHTTPPage(INTEGER connectionid, STRING query)
+{
+  RETURN SendHTTPRequest(connectionid, query, "GET", DEFAULT RECORD ARRAY, DEFAULT BLOB);
+}
+
+/** @short This function will get the headers for a url, but not its content, from the webserver
+    @long This function performs a HEAD request, which is similair to GET but does not retrieve
+          the body. The most common use of HEAD is to check whether an URL still exists (ie. linkchecking)
+          If you need both the headers and the content for a HTTP request, you can simply
+          read the 'headers' cell in the returned value of that request command.
+    @param connectionid Integer id of the connection (opened by OpenHTTPServer)
+    @param query String containing the query to load (example /path/script.shtml?a=b&d=c)
+    @return Record containing the page
+    @cell return.protocol String of the protocol (example "HTTP/1.1")
+    @cell return.code Integer of the return code
+    @cell return.headers A record array of (field,value) strings containing the headers received with this request */
+PUBLIC RECORD FUNCTION GetHTTPPageHeaders(INTEGER connectionid, STRING query)
+{
+  RETURN SendHTTPRequest(connectionid, query, "HEAD", DEFAULT RECORD ARRAY, DEFAULT BLOB);
+}
+
+/** @short This function will get a url from the webserver
+    @param connectionid Integer id of the connection (opened by OpenHTTPServer)
+    @param query String containing the url to post to (example /path/script.shtml)
+    @param variables Record array with variables to post
+    @cell variables.name
+    @cell variables.value
+    @return Record containing the server response
+    @cell return.content String with response (body) from the server
+    @cell return.protocol String of the protocol (example "HTTP/1.1")
+    @cell return.code Integer of the return code
+    @cell return.headers A record array of (field,value) strings containing the headers received with this request
+    @see PostHTTPPageMultiPart */
+PUBLIC RECORD FUNCTION PostHTTPPage(INTEGER connectionid, STRING query, RECORD ARRAY variables)
+{
+  RECORD settings := GetSettings(connectionid);
+
+  //ADDME: Support alternative hosts (decode URL to get real host name)
+
+  // Setup the entity-body for the POST data
+
+  RECORD req := CreateHTTPUrlencodedRequest(variables);
+  RETURN SendHTTPRequest(connectionid, query, "POST", req.headers, req.body);
+}
+
+/** @short Prepare am application/x-www-form-urlencoded POST request
+    @param variables Variables to pass
+    @cell(string) variables.name Variable name
+    @cell(string) variables.value Variable value
+    @param charset Character set (defaults to UTF-8)
+    @return Headers and body representing this request
+    @cell(record array) return.headers Headers to use with %WebBrowser::PostWebPageBlob
+    @cell(blob) return.body Requets body to use with %WebBrowser::PostWebPageBlob */
+PUBLIC RECORD FUNCTION CreateHTTPUrlencodedRequest(RECORD ARRAY variables, STRING charset DEFAULTSTO "UTF-8")
+{
+  INTEGER entitybody := CreateStream();
+  FOREVERY (RECORD variable FROM variables)
+  {
+    STRING val := Touppercase(charset)="UTF-8" ? variable.value : EncodeCharset(variable.value, charset);
+
+    IF (#variable > 0)
+      PrintTo(entitybody, "&" || EncodeURL(variable.name) || "=" || EncodeURL(val));
+    ELSE
+      PrintTo(entitybody, EncodeURL(variable.name) || "=" || EncodeURL(val));
+  }
+
+  // Initialize headers
+  RECORD ARRAY headers := [ [ field := "Content-Type", value := "application/x-www-form-urlencoded; charset=" || charset ]
+                          ];
+
+  RETURN [ headers := headers, body := MakeBlobFromStream(entitybody) ];
+}
+
+PUBLIC RECORD FUNCTION CreateHTTPMultipartRequest(RECORD ARRAY variables)
+{
+  RECORD ARRAY multipartdata;
+
+  // Setup the entity-body for the POST data
+  FOREVERY (RECORD variable FROM variables)
+  {
+    RECORD thispart;
+    RECORD ARRAY partheader;
+    partheader := [ [ field := "Content-Disposition", value := 'form-data; name="' || EncodeJava(variable.name) || '"' || (CellExists(variable, "filename") ? '; filename="' || GetSafeFilename(variable.filename) || '"' : "") ] ];
+
+    IF (CellExists(variable, "type"))
+      INSERT INTO partheader(field,value) VALUES("Content-Type", variable.type) AT END;
+
+    IF (CellExists(variable, "binary") AND variable.binary)
+      INSERT INTO partheader(field,value) VALUES("Content-Transfer-Encoding", "binary") AT END;
+
+    INSERT INTO multipartdata(header,data) VALUES(partheader,variable.value) AT END;
+  }
+
+  // ADDME: Use the normal MIME code generators
+  RECORD body := __internal_ComposeMIMEMultiPartData(multipartdata);
+
+  // Initialize headers
+  RECORD ARRAY headers := [ [ field := "Content-Type", value := 'multipart/form-data; boundary="' || ENcodeJava(body.boundary) || '"' ]
+                          ];
+
+  RETURN [ headers := headers, body := body.data ];
+
+}
+
+/** @short This function will get a page from the webserver, and post data using the form/multi-part format
+    @param connectionid Integer id of the connection (opened by OpenHTTPServer)
+    @param query String containing the query to load (example /path/script.shtml)
+    @param variables Record array containing the variables to post
+    @cell variables.type (optional) Content-Type of the variable (example image/jpeg)
+    @cell variables.name
+    @cell variables.filename (Optional, name of the source file)
+    @cell variables.binary Boolean indicating if this variable contains binary data
+    @cell variables.value
+    @return Record containing the server response
+    @cell return.content String with response (body) from the server
+    @cell return.protocol String of the protocol (example "HTTP/1.1")
+    @cell return.code Integer of the return code
+    @cell return.headers A record array of (field,value) strings containing the headers received with this request
+    @see PostHTTPPage */
+PUBLIC RECORD FUNCTION PostHTTPPageMultipart(INTEGER connectionid, STRING query, RECORD ARRAY variables)
+{
+  RECORD settings := GetSettings(connectionid);
+  RECORD req := CreateHTTPMultipartRequest(variables);
+  RETURN SendHTTPRequest(connectionid, query, "POST", req.headers, req.body);
+}
+
+
+/** @short This function will close the connection to the http server
+    @param connectionid Integer id of the connection (opened by OpenHTTPServer) */
+PUBLIC MACRO CloseHTTPServer(INTEGER connectionid)
+{
+  // Close the connection to the http server
+  CloseSocket(connectionid);
+}
+
+/** @short SetHTTPAuthentication can be used to set a user/passwd when authentication is required
+    @param connectionid Integer indicating the if of the connection to get the settings from
+    @param set_username String with the username to authenticate with
+    @param set_password String with the password to authenticate with */
+PUBLIC MACRO SetHTTPAuthentication(INTEGER connectionid, STRING set_username, STRING set_password)
+{
+  RECORD settings := GetSettings(connectionid);
+  IF (set_username = "")
+    DELETE CELL authentication FROM settings;
+  ELSE
+  {
+    DELETE CELL authentication FROM settings;
+    INSERT CELL authentication := [ username := set_username, password := set_password ] INTO settings;
+  }
+  UpdateSettings(connectionid, settings);
+}
+
+/** @short Reads the authentication parameters for http digest authentication headers
+    @param header Line with the header data, starting with 'DIGEST '
+    @param broken_mime Don't decode of quoted strings (usefull for non-complient clients, like IE, which uses unescaped '\' characters)
+    @return Record with all (dequoted) parameters as cells. Returns default record if an error is encountered/
+    @seealso DecodeBasicAuthentication
+*/
+PUBLIC RECORD FUNCTION DecodeHTTPAuthenticationHeader(STRING header, BOOLEAN broken_mime)
+{
+  RECORD headers;
+
+  // Get authentication type from the header
+  header := TrimWhiteSpace(header);
+  INTEGER firstspace := SearchSubstring(header,' ');
+  INSERT CELL authtype := ToUppercase(Left(header,firstspace)) INTO headers;
+  header := TrimWhiteSpace(Substring(header, firstspace, LENGTH(header)));
+
+
+  // No parameters at all? That MUST be an error.
+  IF (header = "")
+    RETURN DEFAULT RECORD;
+
+  // Loop through all parameters
+  WHILE (TRUE)
+  {
+    // INV: TrimWhiteSpace(header) != "" (so a parameter MUST be present)
+
+    // Find parameter-value separator
+    INTEGER separator := SearchSubstring(header, "=");
+    IF (separator = -1)
+      RETURN DEFAULT RECORD; // Parameter must be present, so not finding the = is an error
+
+    // Get the separator (ADDME: this doesn't take errors like 'test =blaat' in account. Finding this error is not important, though, and checking takes valuable time)
+    STRING parameter := LEFT(header, separator);
+    header := SubString(header, separator + 1, LENGTH(header));
+
+    // Parse the value of the parameter
+    INTEGER param_limit := -1;
+    IF (LEFT(header, 1) = "\"")
+    {
+      // Quoted parameter. Walk through the string, ignoring escaped quotes.
+      BOOLEAN isescaped := FALSE;
+      FOR (INTEGER i := 1; i < LENGTH(header); i := i + 1)
+      {
+        STRING character := Substring(header,i,1);
+        IF (isescaped)
+          isescaped := FALSE; // Ignore escaped characters
+        ELSE
+        {
+          IF (character = "\\")
+            isescaped := TRUE; // Next character is escaped
+          ELSE IF (character = "\"")
+          {
+            param_limit := i + 1; // Unescaped quote, the value ends after this quote
+            BREAK;
+          }
+        }
+      }
+      // Ending quote not found?
+      IF (param_limit = -1)
+        RETURN DEFAULT RECORD; // That is an error!
+    }
+    ELSE
+    {
+      // Normal value parameter, ends at first ' ' or ','
+      param_limit := SearchSubstring(header, ",");
+      INTEGER first_space := SearchSubstring(header, " ");
+      IF (first_space >= 0 AND param_limit > first_space)
+        param_limit := first_space;
+
+      // Not found? Rest of header is value
+      IF (param_limit = -1)
+        param_limit := LENGTH(header);
+    }
+
+    // Get the value and erase it from the remainder. Also trim the remainder.
+    STRING value := LEFT(header, param_limit);
+    header := TrimWhiteSpace(SubString(header, param_limit, LENGTH(header)));
+
+    // Remove quotes from quoted variables, we don't need them.
+    IF (value LIKE "\"*\"")
+    {
+      // Get the value between the quotes
+      value := SubString(value, 1, LENGTH(value) - 2);
+
+      // Replace all escaped quotes. No unescaped quotes can exist due to the parsing process, so we're safe here
+      IF (NOT broken_mime) // IE uses unescaped '\' chars; so we need a way to not decode.
+        value := DecodeJava(value);
+    }
+
+    // Have we already seen this parameter?
+    IF (CellExists(headers, parameter))
+      RETURN DEFAULT RECORD; // That would be an error, thank you.
+
+    // Insert the cell (cellinsert used because of variable parameter name)
+    headers := CellInsert(headers, parameter, value);
+
+    // No more parameters left? If so, we're done.
+    IF (header = "")
+      RETURN headers;
+
+    // We need the ',' separator between parameters.
+    IF (LEFT(header, 1) != ",")
+      RETURN DEFAULT RECORD; // ERROR!
+
+    // Remove leading ',', and trim again.
+    header := TrimWhiteSpace(SubString(header, 1, LENGTH(header)));
+  }
+}
+
+/** @short Constructs a digest authorization header (qop=auth, algorithm=md5)
+    @param nonce Nonce, as sent by server in WWW-Authenticate header
+    @param cnonce Client supplied unique value (generate it yourself, make it like 8/16 characters)
+    @param request_id Unique id for this request; id's may be used only once in a given session
+    @param username Username
+    @param realm Realm
+    @param password Password
+    @param method HTTP method (GET, POST, etc)
+    @param uri Requested URI
+*/
+PUBLIC STRING FUNCTION EncodeDigestAuthorizationHeader(STRING nonce, STRING cnonce, INTEGER request_id, STRING username, STRING realm, STRING password, STRING method, STRING uri)
+{
+  // Implemented from rfc 2617.
+  STRING nc_value := Right("00000000" || ToString(request_id, 16), 8);
+
+  STRING HA1 := ToLowercase(EncodeBase16(GetMD5Hash(username||":"||realm||":"||password)));
+  STRING HA2 := ToLowercase(EncodeBase16(GetMD5Hash(method||":"||uri)));
+  STRING response := ToLowercase(EncodeBase16(GetMD5Hash(HA1||":"||nonce||":"||nc_value||":"||cnonce||":auth:"||HA2)));
+
+  STRING header := 'DIGEST ';
+  header := header ||   'username="' || EncodeJava(username)||'"';
+  header := header || ', realm="' || EncodeJava(realm)||'"';
+  header := header || ', nonce="' || EncodeJava(nonce)||'"';
+  header := header || ', uri="' || EncodeJava(uri)||'"';
+  header := header || ', algorithm="MD5"';
+  header := header || ', cnonce="' || EncodeJava(cnonce)||'"';
+  header := header || ', qop="auth"';
+  header := header || ', nc="' || nc_value || '"';
+  header := header || ', response="' || EncodeJava(response)||'"';
+
+  RETURN header;
+}

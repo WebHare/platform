@@ -1,0 +1,531 @@
+﻿<?wh
+
+/* The apprunner script
+
+   To specifically debug this script:
+
+   wh console --dontlaunch=apprunner
+   wh run mod::system/scripts/internal/apprunner.whscr --debug
+*/
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/services/apprunner.whlib";
+
+
+INTEGER restart_wait := 50; // Restart wait, in milliseconds
+INTEGER restart_longwait := 1000; // Long restart wait, in milliseconds (when app has crashed 5 times in the last 10 seconds)
+BOOLEAN debug;
+OBJECT theapprunner;
+BOOLEAN shuttingdown;
+
+STRING FUNCTION PrintOutputLine(STRING appname, BOOLEAN is_error, STRING data)
+{
+  STRING line := Left(data, SearchSubstring(data,'\n'));
+  data := Substring(data, Length(line)+1);
+
+  IF(line LIKE "*\r")
+    line := Left(line,Length(line)-1);
+
+  PRINT("Application " || appname || " "||(is_error?"errors":"output")||": " || line || "\n");
+  RETURN data;
+}
+
+OBJECTTYPE Application
+<
+  PUBLIC STRING name;
+  PUBLIC STRING app;
+  PUBLIC BOOLEAN runnable;
+  PUBLIC STRING ARRAY args;
+  PUBLIC OBJECT process;
+  PUBLIC DATETIME since;
+  PUBLIC DATETIME next_restart;
+  PUBLIC STRING lasterror;
+  PUBLIC STRING module;
+  PUBLIC STRING regkey;
+  PUBLIC STRING output;
+  PUBLIC STRING errors;
+  PUBLIC INTEGER backoff;
+  PUBLIC BOOLEAN runatsoftreset;
+  PUBLIC BOOLEAN runnow; //set to TRUE to (re)launch the apps
+
+  INTEGER outputcallback;
+  INTEGER errorcallback;
+
+  MACRO NEW(STRING name)
+  {
+    this->name := name;
+    this->since := GetCurrentDateTime();
+    this->backoff := 5000;
+  }
+  MACRO CleanupHandlers()
+  {
+    IF(this->outputcallback != 0)
+    {
+      UnregisterCallback(this->outputcallback);
+      this->outputcallback:=0;
+    }
+    IF(this->errorcallback != 0)
+    {
+      UnregisterCallback(this->errorcallback);
+      this->errorcallback:=0;
+    }
+  }
+  PUBLIC MACRO CreateProcess()
+  {
+    this->CleanupHandlers();
+    OBJECT proc := CreateProcess(
+        this->app,
+        this->args,
+        FALSE, //takeinput
+        TRUE,  //takeoutput
+        TRUE,  //takeerrors
+        FALSE,  //mergeerrors
+        TRUE); //spearategroup
+
+    this->outputcallback := RegisterHandleReadCallback(proc->output_handle, PTR this->OnAppOutput);
+    this->errorcallback := RegisterHandleReadCallback(proc->errors_handle, PTR this->OnAppErrors);
+
+    IF (NOT proc->Start())
+    {
+      PRINT("Cannot start service " || this->name || "\n");
+      this->lasterror := "The service could not be started. Please make sure the path to the service is correct.";
+      this->next_restart := AddTimeToDate(restart_longwait, GetCurrentDateTime());
+      proc->Close();
+      this->CleanupHandlers();
+    }
+    ELSE
+    {
+      this->process := proc;
+      this->since := GetCurrentDateTime();
+    }
+  }
+
+  MACRO OnAppOutput()
+  {
+    STRING outp := ReadFrom(this->process->output_handle,-400);
+    this->output := this->output || outp;
+
+    IF(outp="") //might indicate a termination
+      ScheduleMicroTask(PTR this->CheckDeadApp);
+    ELSE WHILE(this->output LIKE "*\n")
+      this->output := PrintOutputLine(this->name, FALSE, this->output);
+  }
+  MACRO OnAppErrors()
+  {
+    STRING errp := ReadFrom(this->process->errors_handle,-400);
+    this->errors := this->errors || errp;
+
+    IF(errp="") //might indicate a termination
+      ScheduleMicroTask(PTR this->CheckDeadApp);
+    ELSE WHILE(this->errors LIKE "*\n")
+      this->errors := PrintOutputLine(this->name, TRUE, this->errors);
+  }
+
+  MACRO CheckDeadApp()
+  {
+    IF (this->process->IsRunning())
+      RETURN;
+
+    WHILE(TRUE)
+    {
+      STRING outp := ReadFrom(this->process->output_handle,-400);
+      IF(outp="")
+        BREAK;
+      this->output := this->output || outp;
+    }
+    WHILE(TRUE)
+    {
+      STRING errp := ReadFrom(this->process->errors_handle,-400);
+      IF(errp="")
+        BREAK;
+      this->errors := this->errors || errp;
+    }
+
+    IF(this->output != "" AND this->output NOT LIKE "*\n")
+      this->output:=this->output||"\n";
+    IF(this->errors != "" AND this->errors NOT LIKE "*\n")
+      this->errors:=this->errors||"\n";
+
+    WHILE(this->output LIKE "*\n")
+      this->output := PrintOutputLine(this->name, FALSE, this->output);
+    WHILE(this->errors LIKE "*\n")
+      this->errors := PrintOutputLine(this->name, TRUE, this->errors);
+
+    INTEGER exitcode := this->process->exitcode;
+
+    IF(this->since > AddTimeToDate(-10000, GetCurrentDateTime()))
+    {
+      //too quick a crash, slow down restart
+      this->backoff := this->backoff * 2;
+      IF(this->backoff > 60 * 60 * 1000)
+        this->backoff := 60 * 60 * 1000;
+    }
+    ELSE
+    {
+      this->backoff := exitcode = 0 ? 0 : 1000; //back to default
+    }
+
+    DATETIME next_restart := AddTimeToDate(this->backoff, GetCurrentDateTime());
+
+    IF(exitcode != 0 AND NOT shuttingdown)
+      PRINT("Application " || this->name || " terminated unexpectedly, errorcode " || exitcode || ", next restart: "||FormatDatetime("%Y-%m-%d %H:%M:%S.%Q", next_restart)||"\n");
+    ELSE IF(debug)
+      PRINT("Application " || this->name || " terminated with no errorcode, next restart: "||FormatDatetime("%Y-%m-%d %H:%M:%S.%Q", next_restart)||"\n");
+
+    this->process->Close();
+    this->CleanupHandlers();
+    this->process := DEFAULT OBJECT;
+
+    this->lasterror := exitcode != 0 ? "Terminated unexpectedly, errorcode " || exitcode : "Terminated";
+
+    IF(NOT (this->runatsoftreset AND NOT this->runnow))
+    {
+      this->next_restart := next_restart;
+      theapprunner->RecheckAt(this->next_restart);
+    }
+  }
+  PUBLIC BOOLEAN FUNCTION IsRunning()
+  {
+    RETURN ObjectExists(this->process) AND this->process->IsRunning();
+  }
+  PUBLIC MACRO SendInterrupt()
+  {
+    IF(ObjectExists(this->process))
+      this->process->SendInterrupt();
+  }
+  PUBLIC MACRO Terminate()
+  {
+    IF(ObjectExists(this->process))
+    {
+      this->process->Terminate();
+      this->process->Close();
+    }
+    this->CleanupHandlers();
+    this->process := DEFAULT OBJECT;
+    this->since := GetCurrentDateTime();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE AppRunner
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT ARRAY applications;
+
+  STRING ARRAY disabledtasks;
+
+  INTEGER timercallback;
+  DATETIME nextcheck;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->nextcheck := MAX_DATETIME;
+  }
+  PUBLIC MACRO BootUp()
+  {
+    RegisterEventCallback("system:softreset", PTR this->OnReloadApps(TRUE, #1, #2));
+    RegisterEventCallback("system:apprunner.internal.rescan", PTR this->OnReloadApps(FALSE, #1, #2));
+    RegisterEventCallback("system:systemconfig", PTR this->OnReloadApps(FALSE, #1, #2));
+
+    this->IntegrateApplications(ListExpectedApps(), NOT RecordExists(PollWHServiceState("poststartdone")));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnReloadApps(BOOLEAN issoftreset, STRING event, RECORD data)
+  {
+    this->IntegrateApplications(ListExpectedApps(), issoftreset);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BOOLEAN FUNCTION StartApplicationByName(STRING name)
+  {
+    IF(shuttingdown)
+      RETURN FALSE;
+    FOREVERY (OBJECT app FROM this->applications)
+    {
+      IF (app->name != name)
+        CONTINUE;
+
+      IF (NOT app->runnable AND ObjectExists(app->process))
+      {
+        this->TerminateAppByName(app->name, "Task cannot run at the moment");
+        CONTINUE;
+      }
+
+      IF(app->name IN this->disabledtasks AND ObjectExists(app->process))
+      {
+        this->TerminateAppByName(app->name, "Task has been disabled");
+        CONTINUE;
+      }
+
+      app->runnow := FALSE;
+      IF (NOT ObjectExists(app->process) AND app->name NOT IN this->disabledtasks AND app->runnable)
+      {
+        IF(debug)
+          PRINT("Starting service: " || app->name || "\n");
+        app->CreateProcess();
+        RETURN ObjectExists(app->process);
+      }
+    }
+    RETURN FALSE;
+  }
+
+  MACRO StartApplications()
+  {
+    FOREVERY (OBJECT app FROM this->applications)
+    {
+      IF(app->runnow OR NOT app->runatsoftreset)
+        this->StartApplicationByName(app->name);
+    }
+  }
+
+  INTEGER FUNCTION GetAppIdxByName(STRING name)
+  {
+    RETURN (SELECT AS INTEGER #apps + 1 FROM ToRecordArray(this->applications,'obj') AS apps WHERE apps.obj->name=name)-1;
+  }
+  OBJECT FUNCTION GetAppByName(STRING name)
+  {
+    RETURN SELECT AS OBJECT obj FROM ToRecordArray(this->applications,'obj') AS apps WHERE apps.obj->name=name;
+  }
+
+  MACRO IntegrateApplications(RECORD ARRAY newapps, BOOLEAN launchsoftresetapps)
+  {
+    OBJECT ARRAY seenapps;
+    FOREVERY(RECORD app FROM newapps)
+    {
+      OBJECT appobj;
+      BOOLEAN mustrestart;
+
+      INTEGER idx := this->GetAppIdxByName(app.name);
+      IF(idx >= 0)
+      {
+        appobj := this->applications[idx];
+        IF(appobj->app != app.app OR Detokenize(appobj->args,'\t') != Detokenize(app.args,'\t'))
+          mustrestart := TRUE;
+      }
+      ELSE
+      {
+        appobj := NEW Application(app.name);
+        INSERT appobj INTO this->applications AT END;
+      }
+
+      appobj->app := app.app;
+      appobj->args := app.args;
+      INSERT appobj INTO seenapps AT END;
+      appobj->runatsoftreset := app.runatsoftreset;
+      appobj->module := app.module;
+
+      IF(launchsoftresetapps AND appobj->runatsoftreset AND NOT appobj->runnow)
+      {
+        IF(debug)
+          Print("Marking soft-reset app '" || appobj->name || "' as needing to run\n");
+        appobj->runnow := TRUE;
+      }
+
+      appobj->runnable := TRUE;
+      IF(mustrestart)
+        this->Restart(appobj->name);
+    }
+
+    FOREVERY (OBJECT app FROM this->applications)
+      IF(app NOT IN seenapps)
+        this->TerminateAppByName(app->name, "Not needed anymore");
+
+    this->StartApplications();
+    BroadcastEvent("system:internal.apprunner.refresh",DEFAULT RECORD);
+  }
+
+  BOOLEAN FUNCTION TerminateAppByName(STRING name, STRING reason)
+  {
+    FOREVERY (OBJECT app FROM this->applications)
+    {
+      IF (app->name = name AND ObjectExists(app->process))
+      {
+        IF(debug)
+          Print("Terminating " || app->name || "\n");
+
+        app->Terminate();
+        app->lasterror := reason;
+        BroadcastEvent("system:internal.apprunner.refresh",DEFAULT RECORD);
+        RETURN TRUE;
+      }
+    }
+    RETURN FALSE;
+  }
+
+  PUBLIC MACRO RecheckAt(DATETIME when)
+  {
+    IF(when >= this->nextcheck)
+      RETURN;
+    IF(this->timercallback != 0)
+      UnregisterCallback(this->timercallback);
+
+    this->nextcheck := when;
+    this->timercallback := RegisterTimedCallback(when, PTR theapprunner->CheckClock);
+  }
+  PUBLIC MACRO CheckClock()
+  {
+    this->nextcheck := MAX_DATETIME;
+    this->timercallback := 0;
+
+    STRING ARRAY restart_apps;
+
+    DATETIME now := GetCurrentDateTime();
+    DATETIME wait := MAX_DATETIME;
+    FOREVERY (OBJECT proc FROM this->applications)
+    {
+      IF (ObjectExists(proc->process) OR proc->name IN this->disabledtasks OR NOT proc->runnable)
+        CONTINUE;
+      IF (proc->runatsoftreset)
+        CONTINUE; // Don't restart runatsoftreset scripts
+
+      IF (proc->next_restart < now)
+      {
+        INSERT proc->name INTO restart_apps AT END;
+      }
+      ELSE IF (proc->next_restart < wait)
+        wait := proc->next_restart;
+    }
+
+    IF(wait<MAX_DATETIME)
+      this->RecheckAt(wait);
+
+    FOREVERY(STRING app FROM restart_apps)
+      this->StartApplicationByName(app);
+  }
+
+  PUBLIC MACRO Restart(STRING appname)
+  {
+    IF(NOT ObjectExists(this->GetAppByName(appname)))
+      THROW NEW Exception("No such application " || appname);
+
+    this->TerminateAppByName(appname, "Manually restarted");
+    this->StartApplicationByName(appname);
+  }
+
+  PUBLIC MACRO OnInterrupt()
+  {
+    //FIXME graceful shutdown
+    shuttingdown := TRUE;
+    IF(debug)
+      Print("Shutdown request received\n");
+    FOREVERY(OBJECT app FROM this->applications)
+      app->SendInterrupt();
+
+    RegisterTimedCallback(AddTimeToDate(100, GetCurrentDatetime()), PTR this->TryShutdown);
+    RegisterTimedCallback(AddTimeToDate(100, GetCurrentDatetime()), PTR this->ForceShutdown);
+  }
+  MACRO ForceShutdown()
+  {
+    FOREVERY(OBJECT app FROM this->applications)
+      this->TerminateAppByName(app->name, "Service manager is shutting down");
+    TerminateScript();
+  }
+  MACRO TryShutdown()
+  {
+    BOOLEAN anyrunning;
+    FOREVERY(OBJECT app FROM this->applications)
+      IF(app->IsRunning())
+        anyrunning := TRUE;
+   IF(NOT anyrunning)
+     TerminateScript();
+  }
+
+  PUBLIC RECORD FUNCTION GetReport()
+  {
+    RECORD ARRAY data :=
+        SELECT name := app->name
+             , runnable := app->runnable
+             , running := ObjectExists(app->process)
+             , runatsoftreset := app->runatsoftreset
+             , since := app->since
+             , lasterror := app->lasterror
+             , regkey := app->regkey
+             , enabled := app->name NOT IN this->disabledtasks
+             , app := app->app
+             , args := app->args
+          FROM ToRecordArray(this->applications,'app');
+
+    RETURN [ report := data
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION SetEnabled(STRING servicename, BOOLEAN enable)
+  {
+    OBJECT appobj := this->GetAppByName(servicename);
+    IF(NOT ObjectExists(appobj))
+      THROW NEW Exception("No such application " || servicename);
+
+    IF(enable = TRUE AND servicename IN this->disabledtasks)
+      DELETE FROM this->disabledtasks AT SearchElement(this->disabledtasks, servicename);
+    ELSE IF(enable = FALSE AND servicename NOT IN this->disabledtasks)
+      INSERT servicename INTO this->disabledtasks AT END;
+
+    this->IntegrateApplications(ListExpectedApps(), FALSE);
+    RETURN [ app := appobj->app, args := appobj->args ];
+  }
+>;
+
+
+RECORD ARRAY options :=
+  [ [ name := "debug", type := "switch" ]
+  ];
+
+RECORD args := ParseArguments(GetConsoleArguments(), options);
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: wh run apprunner.whscr [--debug]\n");
+  RETURN;
+}
+debug := args.debug;
+
+OBJECTTYPE AppRunnerControl
+<
+  PUBLIC RECORD FUNCTION GetReport()
+  {
+    RETURN theapprunner->GetReport();
+  }
+  PUBLIC RECORD FUNCTION SetEnabled(STRING servicename, BOOLEAN enable)
+  {
+    RETURN theapprunner->SetEnabled(servicename, enable);
+  }
+  PUBLIC MACRO Restart(STRING servicename)
+  {
+    theapprunner->Restart(servicename);
+  }
+ >;
+
+OBJECT FUNCTION Constructor()
+{
+  RETURN NEW AppRunnerControl;
+}
+
+//some callbacks require theapprunner to be set, so we need a two-phase start
+theapprunner := NEW AppRunner;
+theapprunner->BootUp();
+AddInterruptCallback(PTR theapprunner->OnInterrupt);
+RunWebHareService("system:apprunner", PTR Constructor, [ autorestart := FALSE ]);

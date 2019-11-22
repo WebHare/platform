@@ -1,0 +1,164 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/commondialogs.whlib";
+
+PUBLIC OBJECTTYPE TolliumWRDAddressField EXTEND TolliumFragmentBase
+<
+  PUBLIC BOOLEAN verification;
+  PUBLIC BOOLEAN force_verification;
+  PUBLIC STRING defaultcountry;
+  RECORD addressvalue;
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY wrdschema(pvt_wrdschema, SetWRDSchema);
+  UPDATE PUBLIC PROPERTY height(pvt_height, SetHeight);
+
+  OBJECT pvt_wrdschema;
+
+  /////////////////////////////////////////////////////////////////////
+  //
+  // TolliumWRDAddressField
+  //
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->invisibletitle := TRUE;
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD description)
+  {
+    TolliumFragmentBase::StaticInit(description);
+
+    this->readonly     := description.readonly;
+    this->required     := description.required;
+    this->verification := description.verification;
+    this->force_verification := description.forceverification;
+    this->defaultcountry := description.defaultcountry;
+    this->title              := description.title;
+
+    IF (description.height != "")
+      this->block->height := description.height;
+
+    this->UpdateSubcomponents(); //if enabled or readonly changed during init
+  }
+
+  UPDATE PUBLIC MACRO CompositionMetadataIsUpdated()
+  {
+    IF(ObjectExists(this->composition) AND MemberExists(this->composition,"UpdateEntityAt"))
+    {
+      this->wrdschema := this->composition->wrdtype->wrdschema;
+    }
+  }
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN this->addressvalue;
+  }
+
+  MACRO SetValue(VARIANT val)
+  {
+    this->addressvalue := val;
+    this->addressfield->value := FormatAddress(val, [ language := this->tolliumuser->language ]);
+  }
+
+  MACRO ChangeAddress()
+  {
+    OBJECT diag := MakeWRDEditAddressDialog(this->owner, this->wrdschema);
+    diag->verification := this->verification;
+    diag->force_verification := this->force_verification;
+    diag->required := this->required;
+    diag->address := this->value;
+    diag->defaultcountry := this->defaultcountry;
+
+    IF(diag->RunDialog())
+    {
+      this->value := diag->address;
+    }
+  }
+
+  PUBLIC MACRO SetWRDSchema(OBJECT wrdschema)
+  {
+    this->pvt_wrdschema := wrdschema;
+  }
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+    STRING fieldtitle := this->errorlabel!="" ? this->errorlabel : this->title;
+
+    // Can't do anything about a readonly field
+    IF (NOT this->readonly AND (this->enabled AND this->required))
+    {
+      // Get the country code
+      STRING countryvalue;
+      IF (CellExists(this->addressvalue, "country"))
+        countryvalue := GetCell(this->addressvalue, "country");
+
+      // Empty country code? that is an error!
+      IF (countryvalue = "")
+        work->AddErrorFor(this, GetTid("wrd:components.addressfield_incomplete", fieldtitle));
+      ELSE
+      {
+        RECORD ARRAY fields := GetAddressFormat(this->addressvalue.country).fields;
+        FOREVERY (RECORD field FROM fields)
+        {
+          IF (NOT field.required)
+            CONTINUE;
+
+          STRING cellvalue;
+          IF (CellExists(this->addressvalue, field.tag))
+            cellvalue := GetCell(this->addressvalue, field.tag);
+
+          IF (cellvalue = "")
+          {
+            // First failing field: break out of the loop, we need only one error
+            work->AddErrorFor(this, GetTid("wrd:components.addressfield_incomplete", fieldtitle));
+            BREAK;
+          }
+        }
+      }
+    }
+  }
+
+  UPDATE MACRO SetTitle(STRING title)
+  {
+    TolliumFragmentBase::SetTitle(title);
+    this->block->title := title;
+  }
+
+  UPDATE MACRO SetHeight(STRING newheight)
+  {
+    this->pvt_height := newheight;
+    this->block->height := newheight;
+    this->block->ExtUpdatedComponent();
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newstate)
+  {
+    this->pvt_enabled := newstate;
+    this->UpdateSubcomponents();
+  }
+
+  UPDATE MACRO SetReadonly(BOOLEAN newstate)
+  {
+    this->pvt_readonly := newstate;
+    this->UpdateSubcomponents();
+  }
+
+  MACRO UpdateSubcomponents()
+  {
+    BOOLEAN enable := this->enabled AND NOT this->readonly;
+    ^changeaction->enabled := enable;
+    ^changebutton->enabled := enable;
+    ^addressfield->readonly := this->readonly;
+  }
+
+  UPDATE MACRO SetVisibility(BOOLEAN visible)
+  {
+    TolliumFragmentBase::SetVisible(visible);
+    FOREVERY(OBJECT comp FROM this->currentobjects)
+      comp->visible := visible;
+  }
+>;
+

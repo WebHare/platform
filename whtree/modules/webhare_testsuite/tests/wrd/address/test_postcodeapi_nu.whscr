@@ -1,0 +1,38 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+LOADLIB "mod::wrd/lib/address.whlib";
+
+MACRO TestPostcodeAPiNU_External()
+{
+  /* APIKEY
+     - get from https://www.postcodeapi.nu/#pakketten
+     - our CI key is stored in 1password, serverbeheer, GitLab CI secrets
+     - sublime: set up a buildenv. Prefs, user settings, eg:
+           "build_env":
+              {
+                "TESTFW_POSTCODENU_APIKEY": "YUxxxxxxxxxx",
+              },
+
+*/
+  STRING apikey := GetEnvironmentVariable("TESTFW_POSTCODENU_APIKEY");
+  IF(apikey="")
+    THROW NEW Exception("TESTFW_POSTCODENU_APIKEY not set, cannot test postcodeapi.nu!");
+
+  testfw->BeginWork();
+  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "postcodeapi.nu"
+                                                      , apikey := apikey
+                                                      ]);
+
+  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
+  TestCoreAddressAPI(api, [ postbus := FALSE ]);
+
+  //ADDME want API to set this stuff
+  //testfw->GetWRDSchema()->SetSchem
+
+  testfw->RollbackWork();
+}
+
+Runtestframework([ PTR TestPostcodeAPiNU_External
+                 ]);

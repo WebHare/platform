@@ -1,0 +1,21 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="filemanager.whscr"/>
+  <test script="objectprops.whscr"/>
+  <test script="testfilemgr-newobject.whscr"/>
+  <test script="testfilemgr-upload.whscr"/>
+
+  <test script="recyclebin.whscr"/>
+  <test script="testfoldersettings.whscr"/>
+  <test script="rte-workflow.whscr"/>
+  <test script="testrte-links.whscr"/>
+  <test script="testrte-rtdtype.whscr"/>
+  <test script="testrte-images.whscr"/>
+  <test script="testrte-misc.whscr"/>
+  <test script="testrte-widgets.whscr"/>
+  <test script="test-publisher-search.whscr"/>
+  <test script="test_browseforobject.whscr"/>
+  <test script="test-managedtagedit.whscr"/>
+  <test script="test-libraryobjects.whscr"/>
+
+  <jstest file="testapp-editrtd.es" exclusive="true" tags="rte" />
+</group>

@@ -1,0 +1,195 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/catalog.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+
+
+INTEGER indexid;
+INTEGER contentsource;
+
+BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
+{
+  RETURN event.groupid = ToString(expectfile);
+}
+
+MACRO TestSuggestFields()
+{
+  testfw->StartTrans("sysop", TRUE);
+
+  // Prefix for object/group ids, just to stress the itf
+  STRING idprefix := "\n\r\t()[]{}^$+-%!\"";//" \n\r\t()[]{}^$+-%!\"";
+
+  testfw->BeginWork();
+
+  // Clear the current contents
+  DELETE FROM webhare_testsuite.consilio_index;
+
+  indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
+  contentsource := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
+      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
+      , maxgroupobjects :=      1000
+      , discardsummaries :=     TRUE
+      ]);
+
+  testfw->CommitWork();
+
+  // Clear the index
+  CheckConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  testfw->BeginWork();
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"a", idprefix||"a1", MakeDate(1970, 1, 10), "aap anders azerty achilles ajax affligem aardbei a alex a_b_c afhankelijkheidsverklaringendossier");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"a", idprefix||"a2", MakeDate(1970, 1, 10), "aap aapje azerty boom noot");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"b", idprefix||"b1", MakeDate(1970, 1, 10), "boom");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"c", idprefix||"c1", MakeDate(1970, 1, 10), "c_aap");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES(idprefix||"c", idprefix||"c2", MakeDate(1970, 1, 10), "c_boom");
+  testfw->CommitWork();
+
+  // Rebuild the index
+  CheckConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  // Create a suggester object
+  OBJECT suggest_obj := OpenSuggestObject(testfw->GetCatalogName_1());
+
+  // Return all terms starting with "a"
+  RECORD ARRAY suggestions := suggest_obj->GetSuggestions("a", 0);
+  TestEq(12, Length(suggestions)); // aap (2), azerty (2), a (1), a_b_c (1), aapje (1), aardbei (1), achilles (1), affligem (1), afhankelijkheidsverklaringendossier (1), ajax (1), alex (1), anders (1)
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "a");
+  TestEq(2, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "aap");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "aapje");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "aardbei");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "afhankelijkheidsverklaringendossier");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "anders");
+  TestEq(2, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "azerty");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "a_b_c");
+
+  // Return first term starting with "a"
+  suggestions := suggest_obj->GetSuggestions("a", 1);
+  TestEq(1, Length(suggestions)); // aap
+  TestEq(2, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "aap");
+
+  // Return default number (10) of terms starting with "a" ("alex" and "anders" aren't returned anymore)
+  suggestions := suggest_obj->GetSuggestions("a", -1);
+  TestEq(10, Length(suggestions)); // aap (2), azerty (2), a (1), a_b_c (1), aapje (1), aardbei (1), achilles (1), affligem (1), afhankelijkheidsverklaringendossier (1), ajax (1)
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "a");
+  TestEq(2, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "aap");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "aapje");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "aardbei");
+  TestEq(0, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "anders");
+  TestEq(2, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "azerty");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "a_b_c");
+
+  // Return all terms starting with "boo"
+  suggestions := suggest_obj->GetSuggestions("boo", 0);
+  TestEq(1, Length(suggestions)); // boom
+  TestEq(2, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "boom");
+
+  // Return all terms starting with "boo" with a url restriction
+  suggest_obj->restrict_url := "obj://" || idprefix || "b/";
+  suggestions := suggest_obj->GetSuggestions("boo", 0);
+  TestEq(1, Length(suggestions)); // boom
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "boom");
+  suggest_obj->restrict_url := "";
+
+  // Return all terms starting with "noot" (should return "noot")
+  suggestions := suggest_obj->GetSuggestions("noot", 0);
+  TestEq(1, Length(suggestions)); // noot
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "noot");
+
+  // Return all terms starting with "aa", prefixed with "myprefix "
+  suggestions := suggest_obj->GetSuggestions("myprefix aa", 0);
+  TestEq(3, Length(suggestions)); // aap, aapje, aardbei
+  TestEq(2, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "myprefix aap");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "myprefix aapje");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "myprefix aardbei");
+
+  // Only return terms starting with "aa", don't return suggestions for "no"
+  suggestions := suggest_obj->GetSuggestions("no aa", 0);
+  TestEq(3, Length(suggestions)); // aap, aapje, aardbei
+  TestEq(2, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "no aap");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "no aapje");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "no aardbei");
+
+  // Preserve user case
+  suggestions := suggest_obj->GetSuggestions("No aA", 0);
+  TestEq(3, Length(suggestions)); // aap, aapje, aardbei
+  TestEq(2, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "No aAp");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "No aApje");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "No aArdbei");
+
+  // Return all terms starting with "boo" in documents also containing "aap"
+  suggest_obj->and_search := TRUE;
+  suggestions := suggest_obj->GetSuggestions("aap boo", 0);
+  TestEq(1, Length(suggestions)); // boom
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "aap boom");
+
+  // No results; there are no document containing "no"
+  suggestions := suggest_obj->GetSuggestions("no boo", 0);
+  TestEq(0, Length(suggestions));
+}
+
+MACRO TestSuggestFieldsLegacy()
+{
+  // Create and fill the test site
+  testfw->BeginWork();
+
+  OBJECT site := testfw->SetupTestWebdesignWebsite("");
+
+
+  OBJECT siteroot := site->rootobject;
+
+  AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
+
+  OBJECT file_1 := siteroot->CreateFile([name:="testfile1.txt", title := "blafile", data := StringToBlob("blabla"), publish := TRUE]);
+
+  OBJECT ARRAY fileevents := [ OBJECT(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_1->id,#1)))
+                             ];
+
+  testfw->CommitWork();
+
+  testfw->RefreshWebserverConfig();
+  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPromise(CreatePromiseAll(fileevents));
+  testfw->WaitConsilioQueueEmpty();
+
+  OBJECT suggest_obj := OpenSuggestObject(testfw->GetCatalogName_1());
+
+  // Return all terms starting with "bla"
+  RECORD ARRAY suggestions := suggest_obj->GetSuggestions("bla", 0);
+  TestEq(2, Length(suggestions));
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "blabla");
+  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "blafile");
+
+  //Test new api
+  suggestions := GetConsilioSuggestions(testfw->GetCatalogName_1(), "bla");
+  TestEq(2, Length(suggestions));
+  TestEq(1, SELECT AS INTEGER num FROM suggestions WHERE text = "blabla");
+  TestEq(1, SELECT AS INTEGER num FROM suggestions WHERE text = "blafile");
+}
+
+
+RunTestframework(
+    [ PTR TestSuggestFields
+    , PTR TestSuggestFieldsLegacy
+    ],
+    [ consilio := TRUE
+    , testusers :=
+        [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
+        ]
+    ]);

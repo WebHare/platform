@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <div>
+      [richcontent]
+    </div>
+    [if addresults]
+      [embed resultstable]
+    [/if]
+  </body>
+</html>
+
+[component resultstable]
+  <table>
+    <tbody>
+      [forevery pages]
+        [forevery groups]
+          [if anysubmitted]
+            [if title] [! group title !]
+              <tr>
+                <th class="groupheader" colspan="2">
+                  <br><b>[title]</b>
+                </th>
+              </tr>
+            [/if]
+            [forevery fields]
+              [if issubmitted]
+                <tr>
+                  <th class="resultheader">
+                    [title]
+                  </th>
+                  <td class="resultvalue">
+                    [if link]<a href="[link]">[text]</a>[else][text][/if]
+                  </td>
+                </tr>
+              [/if]
+            [/forevery]
+          [/if]
+         [/forevery]
+      [/forevery]
+    </tbody>
+  </table>
+[/component]

@@ -1,0 +1,152 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+
+PUBLIC STRING ARRAY validstatusses := [ "pending", "approved", "failed" ];
+
+PUBLIC RECORD FUNCTION ValidatePaymentValue(RECORD val)
+{
+  IF(NOT CellExists(val,"payments") OR TypeID(val.payments) != TYPEID(RECORD ARRAY))
+  {
+    IF(NOT CellExists(val,"__paymentdata")) //not a legacy format either
+    {
+      RETURN DEFAULT RECORD;
+    }
+
+    val := CELL[ ...val, payments := RecordExists(val.__paymentdata) ? [val] : RECORD[] ]; //legacy format, probalby received from wrd sync
+  }
+
+  FOREVERY(RECORD payment FROM val.payments)
+  {
+    IF(NOT CellExists(payment,"__paymentdata") OR TypeID(payment.__paymentdata) != TYPEID(RECORD))
+      RETURN DEFAULT RECORD;
+    IF(NOT CellExists(payment.__paymentdata,'m') OR TypeID(payment.__paymentdata.m) != TYPEID(RECORD))
+      RETURN DEFAULT RECORD;
+    IF(NOT CellExists(payment.__paymentdata,'s') OR TypeID(payment.__paymentdata.s) != TYPEID(STRING) OR payment.__paymentdata.s NOT IN validstatusses)
+      RETURN DEFAULT RECORD;
+    IF(NOT CellExists(payment,'paymentprovider') OR TypeID(payment.paymentprovider) != TYPEID(INTEGER))
+      RETURN DEFAULT RECORD;
+  }
+  RETURN val;
+}
+
+RECORD __wrdpaymenthandlerbase_passthrough;
+
+/** @topic payments/payments
+    @public
+    @loadlib mod::wrd/lib/payments.whlib
+*/
+PUBLIC STATIC OBJECTTYPE WRDPaymentHandlerBase
+<
+  OBJECT paymententity;
+
+  /// Constructs a new WRDPaymentHandlerBase object
+  MACRO NEW()
+  {
+    this->paymententity := __wrdpaymenthandlerbase_passthrough.paymententity;
+  }
+
+  /** Invoked whenever the payment is started
+      @param payment Payment data
+  */
+  PUBLIC MACRO OnPaymentStarted(RECORD payment)
+  {
+  }
+
+  /** Invoked whenever the payment reaches a final status
+      @param payment Payment data
+  */
+  PUBLIC MACRO OnPaymentFinalized(RECORD payment)
+  {
+    THROW NEW Exception("OnPaymentFinalized should be overridden");
+  }
+>;
+
+PUBLIC OBJECT FUNCTION InstantiatePaymentHandler(OBJECT paymententity, STRING handler)
+{
+  RECORD save := __wrdpaymenthandlerbase_passthrough;
+  TRY
+  {
+    __wrdpaymenthandlerbase_passthrough := CELL[ paymententity ];
+    OBJECT retval := MakeObject(handler);
+    IF(NOT (retval EXTENDSFROM WRDPaymentHandlerBase))
+      THROW NEW Exception("Your handler must extend from WRDPaymentHandlerBase");
+    RETURN retval;
+  }
+  FINALLY
+  {
+    __wrdpaymenthandlerbase_passthrough := save;
+  }
+}
+
+PUBLIC MACRO ProcessStartedPayment(STRING paymenthandler, STRING paymentattribute, OBJECT paymentobject, OBJECT paymententity)
+{
+  RECORD currentstatus := paymententity->GetField(paymentattribute);
+  IF(currentstatus.status != "pending")
+    THROW NEW Exception(`Status should not be '${currentstatus.status}' when invoking ProcessStartedPayment`);
+
+  IF(paymenthandler != "")
+  {
+    OBJECT handler := InstantiatePaymentHandler(paymententity, paymenthandler);
+    handler->OnPaymentStarted(paymentobject->MakePaymentValue());
+  }
+}
+
+PUBLIC BOOLEAN FUNCTION ProcessCompletedPayment(STRING paymenthandler, STRING paymentattribute, OBJECT paymentobject, OBJECT paymententity, BOOLEAN nostatuscheck)
+{
+  IF(paymentobject->pvt_paymentdate = DEFAULT DATETIME)
+    paymentobject->pvt_paymentdate := GetCurrentDatetime();
+
+  RECORD currentstatus := paymententity->GetField(paymentattribute);
+
+  IF(NOT nostatuscheck)
+  {
+    IF(currentstatus.status NOT IN [ "pending", "failed" ])
+      RETURN FALSE; //no longer safe to update
+  }
+
+  RECORD setstatus := paymentobject->MakePaymentValue();
+  INTEGER pos := (SELECT AS INTEGER #payments + 1 FROM currentstatus.payments WHERE __paymentdata.u = paymentobject->paymentuuid)-1;
+  IF(pos<0)
+    THROW NEW Exception(`Cannot find payment status '${paymentobject->paymentuuid}' in entity #${paymententity->id}`);
+
+  currentstatus.payments[pos] := setstatus.payments[0];
+  RECORD upd := CellInsert(DEFAULT RECORD, paymentattribute, currentstatus);
+  paymententity->UpdateEntity(upd);
+
+  IF(paymenthandler != "")
+  {
+    OBJECT handler := InstantiatePaymentHandler(paymententity, paymenthandler);
+    handler->OnPaymentFinalized(paymentobject->MakePaymentValue());
+  }
+
+  UPDATE wrd.pendingpayments SET nextcheck := MAX_DATETIME WHERE uuid = paymentobject->paymentuuid AND COLUMN paymententity = VAR paymententity->id;
+
+  RETURN TRUE;
+}
+
+PUBLIC RECORD FUNCTION CreatePaymentRecord(RECORD ARRAY paymentrows)
+{
+  RECORD ARRAY payments := SELECT amountpayable := MONEY(a)
+                                , paymentprovider := INTEGER(provider)
+                                , status := STRING(s)
+                                , paymentref := STRING(p)
+                                , paymentdate := DATETIME(d)
+                                , __paymentdata := CELL[ ...paymentrows, DELETE provider ]
+                             FROM paymentrows;
+
+  //Get last approved, or if not, last payment
+  RECORD bestpayment := SELECT * FROM payments ORDER BY status = "approved" DESC, #payments DESC;
+  MONEY amountpaid := SELECT AS MONEY SUM(amountpayable) FROM payments WHERE status = "approved";
+  MONEY amountpayable := RecordExists(bestpayment) ? bestpayment.amountpayable : 0m;
+
+  RETURN [ paymentprovider := RecordExists(bestpayment) ? bestpayment.paymentprovider : 0
+         , amountpayable   := amountpayable
+         , amountpaid      := amountpaid
+         , status          := RecordExists(bestpayment) ? bestpayment.status : "pending"
+         , paymentref      := RecordExists(bestpayment) ? bestpayment.paymentref : ""
+         , paymentdate     := RecordExists(bestpayment) ? bestpayment.paymentdate : DEFAULT DATETIME
+         , payments        := payments
+         , __bestpayment   := bestpayment
+         ];
+}

@@ -1,0 +1,211 @@
+﻿<?wh
+/** @short A place for HareScript tests too heavy for normal compilation runs */
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO __HS_MARSHALWRITETO(INTEGER stream, VARIANT data) __ATTRIBUTES__(EXTERNAL);
+VARIANT FUNCTION __HS_MARSHALREADFROMBLOB(BLOB blobdata) __ATTRIBUTES__(EXTERNAL);
+
+// Returns a blob 4097 MB in size, with the first 8 bytes of every mb counter of mb's
+BLOB FUNCTION GetHugeBlob()
+{
+  RECORD ARRAY chunks;
+  BLOB mb_blob := StringToBlob(RepeatText("12345678",1024 * 1024 / 8 - 1)); // 1MB - 8 bytes
+  FOR (INTEGER i := 0; i < 4097; i := i + 1)
+  {
+    INSERT [ data := StringToBlob(Right("0000000" || i, 8)) ] INTO chunks AT END;
+    INSERT [ data := mb_blob ] INTO chunks AT END;
+  }
+
+  BLOB final := MakeComposedBlob(chunks);
+  TestEq(4097i64*1024*1024, Length64(final));
+  RETURN final;
+}
+
+MACRO GeoffreySizedBlobs()
+{
+  PRINT("Creating huge blob by stream prints\n");
+//  PRINT("Pre\n" || AnyToString(__INTERNAL_GetVMStatistics(), "tree"));
+
+  PRINT("- 2GB");
+  STRING data := RepeatText("x",1024*1024);
+  INTEGER str := CreateStream();
+  FOR(INTEGER i:=0;i<2047;i:=i+1)
+    PrintTo(str, data);
+  PRINT(" - done\n");
+
+  // Stream size: 2047 MB
+  TestEq(2047*1024*1024i64,GetStreamLength(str));
+
+  FOR(INTEGER i:=2047;i<2048;i:=i+1)
+    PrintTo(str, data);
+
+  // Stream size: 2048 MB = 2GB
+  TestEq(2048*1024*1024i64, GetStreamLength(str));
+
+  PRINT("- 4GB");
+  FOR(INTEGER i:=2048;i<4096;i:=i+1)
+    PrintTo(str, data);
+  PRINT(" - done\n");
+
+  // Stream size: 4096 MB = 4GB
+  TestEq(4096i64*1024*1024, GetStreamLength(str));
+
+  FOR(INTEGER i:=4096;i<4097;i:=i+1)
+    PrintTo(str, data);
+
+  // Stream size: 4097 MB = 4GB + 1MB
+  TestEq(4097i64*1024*1024, GetStreamLength(str));
+
+  BLOB final := MakeBlobFromStream(str);
+  TestEq(2048*1024*1024 - 1,Length(final)); //2147483647 due to saturation of int32
+  TestEq(4097i64*1024*1024, Length64(final));
+
+//  PRINT("Post\n" || AnyToString(__INTERNAL_GetVMStatistics(), "tree"));
+}
+
+MACRO BigSendTo()
+{
+  PRINT("SendTo test\n");
+//  PRINT("Pre\n" || AnyToString(__INTERNAL_GetVMStatistics(), "tree"));
+  BLOB final := GetHugeBlob();
+
+  // Read last 8 bytes
+  INTEGER file := OpenBlobAsFile(final);
+  SetFilePointer(file, LENGTH64(final) - 8);
+  TestEQ(4097i64*1024*1024-8, GetFilePointer(file));
+  STRING line := ReadFrom(file, 16);
+  TestEQ("12345678", line);
+  CloseBlobFile(file);
+
+  // Send whole blob
+  PRINT("- Send 4GB");
+  INTEGER str2 := CreateStream();
+  SendBlobTo(str2, final);
+  PRINT(" - done\n");
+  TestEq(4097i64*1024*1024, GetStreamLength(str2));
+  BLOB final2 := MakeBlobFromStream(str2);
+  TestEq(4097i64*1024*1024, Length64(final2));
+
+  PRINT("- Calc SHA-1 hash");
+  STRING s := EncodeBase16(GetHashForBlob(final2, "SHA-1"));
+  PRINT(" - done\n");
+  TestEQ("5D9971B458080B4527BF98281190CC3F69A69772", s);
+
+//  PRINT("Post\n" || AnyToString(__INTERNAL_GetVMStatistics(), "tree"));
+}
+
+MACRO HugeDiskFile()
+{
+  PRINT("Huge disk file test\n");
+//  PRINT("Pre\n" || AnyToString(__INTERNAL_GetVMStatistics(), "tree"));
+  STRING filename := MergePath(testfw->GetTempDir(), "hugefile.dat");
+
+  INTEGER file := CreateDiskFile(filename, TRUE, FALSE);
+
+  // Test setdiskfilelength & getdiskfilelength
+  SetDiskFilelength(file, 10);
+  TestEQ(10i64, GetFilelength(file));
+  TestEQ(10i64, GetDiskFileProperties(filename).size64);
+
+  SetDiskFilelength(file, 4097i64*1024*1024);
+  TestEQ(4097i64*1024*1024, GetFilelength(file));
+  TestEQ(4097i64*1024*1024, GetDiskFileProperties(filename).size64);
+
+  SetFilePointer(file, 4097i64*1024*1024);
+  TestEQ(4097i64*1024*1024, GetFilePointer(file));
+  SetDiskFilelength(file, 2i64*1024*1024);
+  TestEQ(2i64*1024*1024, GetFilePointer(file));
+
+  // Fill file with known contents
+  PRINT("- 4GB fill");
+  SetFilePointer(file, 0);
+  SendBlobTo(file, GetHugeBlob());
+  PRINT(" - done\n");
+  TestEQ(4097i64*1024*1024, GetFilelength(file));
+
+  SetFilePointer(file, 0);
+  TestEQ("00000000", ReadFrom(file, 8));
+  SetFilePointer(file, 4096i64*1024*1024);
+  TestEQ("00004096", ReadFrom(file, 8));
+  SetFilePointer(file, GetFilelength(file)-8);
+  TestEQ("12345678", ReadFrom(file, 16));
+  SetFilePointer(file, 4097i64*1024*1024-8);
+  TestEQ("12345678", ReadFrom(file, 16));
+
+  CloseDiskFile(file);
+
+  PRINT("- Calc SHA-1 hash");
+  BLOB diskblob := GetDiskResource(filename);
+  STRING s := EncodeBase16(GetHashForBlob(diskblob, "SHA-1"));
+  PRINT(" - done\n");
+  TestEQ("5D9971B458080B4527BF98281190CC3F69A69772", s);
+
+//  PRINT("Post\n" || AnyToString(__INTERNAL_GetVMStatistics(), "tree"));
+}
+
+MACRO HugeBlobIPC()
+{
+  PRINT("Huge blob IPC test\n");
+//  PRINT("Pre\n" || AnyToString(__INTERNAL_GetVMStatistics(), "tree"));
+  BLOB final := GetHugeBlob();
+
+  OBJECT port := CreateIPCPort(GenerateUFS128BitId());
+  OBJECT link := ConnectToIPCPort(port->name);
+  OBJECT link2 := port->Accept(DEFAULT DATETIME);
+  PRINT("- Send blob through IPC");
+  link->SendMessage([ data := final ]);
+  RECORD rec := link2->ReceiveMessage(DEFAULT DATETIME);
+  PRINT(" - done\n");
+
+  TestEQ(4097i64*1024*1024, LENGTH64(rec.msg.data));
+
+  PRINT("- Calc SHA-1 hash");
+  STRING s := EncodeBase16(GetHashForBlob(rec.msg.data, "SHA-1"));
+  PRINT(" - done\n");
+  TestEQ("5D9971B458080B4527BF98281190CC3F69A69772", s);
+
+//  PRINT("Post\n" || AnyToString(__INTERNAL_GetVMStatistics(), "tree"));
+}
+
+MACRO HugeBlobMarshal()
+{
+  PRINT("Huge blob marshalling\n");
+//  PRINT("Pre\n" || AnyToString(__INTERNAL_GetVMStatistics(), "tree"));
+
+  BLOB final := GetHugeBlob();
+
+  {
+    INTEGER str := CreateStream();
+    __HS_MARSHALWRITETO(str, [ data := StringToBlob("a") ]);
+    BLOB marshaldata := MakeBlobFromStream(str);
+    RECORD res := __HS_MARSHALREADFROMBLOB(marshaldata);
+  }
+
+  INTEGER str := CreateStream();
+  PRINT("- Create marshal data");
+  __HS_MARSHALWRITETO(str, [ data := final ]);
+  PRINT(" - done\n");
+  BLOB marshaldata := MakeBlobFromStream(str);
+
+  PRINT("- Reading marshal data");
+  RECORD res := __HS_MARSHALREADFROMBLOB(marshaldata);
+  PRINT(" - done\n");
+
+  TestEQ(4097i64*1024*1024, LENGTH64(res.data));
+  PRINT("- Calc SHA-1 hash");
+  STRING s := EncodeBase16(GetHashForBlob(res.data, "SHA-1"));
+  PRINT(" - done\n");
+  TestEQ("5D9971B458080B4527BF98281190CC3F69A69772", s);
+
+//  PRINT("Post\n" || AnyToString(__INTERNAL_GetVMStatistics(), "tree"));
+}
+
+RunTestframework([ PTR GeoffreySizedBlobs
+                 , PTR BigSendTo
+                 , PTR HugeDiskFile
+                 , PTR HugeBlobIPC
+                 , PTR HugeBlobMarshal
+                 ]);

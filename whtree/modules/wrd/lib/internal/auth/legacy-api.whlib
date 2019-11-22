@@ -1,0 +1,1357 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
+
+PUBLIC BOOLEAN __wrdauth_allow_requestless_login; //In Case Of Emergency - should be removed
+
+INTEGER session_version := 6;
+
+OBJECTTYPE WRDAuthExtensionBase
+<
+  OBJECT authdomain;
+
+  MACRO NEW(OBJECT authdomain)
+  {
+    this->authdomain := authdomain;
+  }
+>;
+
+STATIC OBJECTTYPE WRDAuth
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT wrdschema;
+  OBJECT domaintype;
+  OBJECT extensions;
+  INTEGER domainid;
+  RECORD domainrec;
+  RECORD loginfield;
+  RECORD passwordfield;
+  RECORD emailfield;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY domainentity(GetDomainEntity,-);
+  PUBLIC PROPERTY id(domainid,-);
+  PUBLIC PROPERTY accounttype(this->wrdschema->accounttype,-);
+  PUBLIC PROPERTY loginfieldtag(this->loginfield.tag,-);
+  PUBLIC PROPERTY passwordfieldtag(this->passwordfield.tag,-);
+  PUBLIC PROPERTY emailfieldtag(this->emailfield.tag,-);
+  PUBLIC PROPERTY lastloginfieldtag(this->domainrec.wrdauth_lastloginfield,-);
+  PUBLIC PROPERTY title(this->domainrec.wrd_title,-);
+  PUBLIC PROPERTY language(this->domainrec.wrdauth_language,-);
+  PUBLIC PROPERTY domainguid(this->domainrec.wrd_guid,-);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT wrdschema, INTEGER domainid)
+  {
+    this->wrdschema := wrdschema;
+    this->domaintype := wrdschema->GetType("wrd_authdomain");
+    this->domainid := domainid;
+    this->RefreshMetadata();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION GetCachableDomainRec()
+  {
+    RECORD configfields;
+    IF(this->domainid != 0)
+      configfields := this->domaintype->GetEntityFields(this->domainid,
+                            [ "WRDAUTH_LASTLOGINFIELD", "WRD_GUID"
+                            , "WRD_TITLE", "WRDAUTH_LANGUAGE", "WRDAUTH_LASTIPFIELD"
+                            , "WRDAUTH_DOMAINSECRET"
+                            ]);
+    ELSE
+    {
+      configfields := [ wrdauth_lastloginfield := ""
+                      , wrdauth_lastipfield := ""
+                      , wrd_title := ""
+                      ];
+    }
+
+    IF(configfields.wrdauth_lastloginfield = "")
+      configfields.wrdauth_lastloginfield := this->wrdschema->GetSchemaSetting("wrd:auth.lastloginfield", [fallback := ""]);
+    IF(configfields.wrdauth_lastipfield = "")
+      configfields.wrdauth_lastipfield := this->wrdschema->GetSchemaSetting("wrd:auth.lastipfield", [fallback := ""]);
+
+    configfields := CELL
+        [ ...configfields
+        , wrdauth_accounttype :=    ObjectExists(this->wrdschema->accounttype)
+                                        ? this->wrdschema->accounttype->tag
+                                        : ""
+        , wrdauth_loginfield :=     this->wrdschema->accountlogintag
+        , wrdauth_emailfield :=     this->wrdschema->accountemailtag
+        , wrdauth_passwordfield :=  this->wrdschema->accountpasswordtag
+        ];
+
+    RETURN
+        [ ttl :=        60 * 1000
+        , eventmasks := ObjectExists(this->domaintype) ? this->domaintype->GetEventMasks() : this->wrdschema->GetEventMasks()
+        , value :=      configfields
+        ];
+  }
+
+  MACRO RefreshMetadata()
+  {
+    this->domainrec := GetAdhocCached(
+        [ wrdschemaid := this->wrdschema->id
+        , domaintype := Objectexists(this->domaintype) ? this->domaintype->id : 0
+        , domainid := this->domainid
+        ], PTR this->GetCachableDomainRec);
+
+    IF(NOT RecordExists(this->domainrec))
+      THROW NEW Exception("No such authentication domain #" || this->domainid);
+
+    this->loginfield :=    this->accounttype->GetAttribute(this->domainrec.wrdauth_loginfield);
+    IF(NOT RecordExists(this->loginfield))
+      THROW NEW Exception("The login name field '" || this->domainrec.wrdauth_loginfield || "' does not exist in account type '" || this->domainrec.wrdauth_accounttype || "'");
+
+    this->passwordfield := this->accounttype->GetAttribute(this->domainrec.wrdauth_passwordfield);
+    IF(NOT RecordExists(this->passwordfield))
+      THROW NEW Exception("The password field '" || this->domainrec.wrdauth_passwordfield || "' does not exist in account type '" || this->domainrec.wrdauth_accounttype || "'");
+
+    IF(this->domainrec.wrdauth_emailfield!="")
+    {
+      this->emailfield := this->accounttype->GetAttribute(this->domainrec.wrdauth_emailfield);
+      IF(NOT RecordExists(this->emailfield))
+        THROW NEW Exception("The email field '" || this->domainrec.wrdauth_emailfield || "' does not exist in account type '" || this->domainrec.wrdauth_accounttype || "'");
+    }
+  }
+
+  /** Lookup a user based on field and contents of that field
+      @param field to search. If field isn't WRD_GUID, the password field must be filled
+      @param value Contents of field to match
+      @return Id of user iff exactly one user matched.
+  */
+  INTEGER FUNCTION DoLookup(STRING field, STRING value)
+  {
+    RECORD ARRAY filters := [[ field := field, value := TrimWhitespace(value), matchcase := FALSE ]
+                            ];
+
+    IF (field != "WRD_GUID")
+      INSERT [ field := this->domainrec.wrdauth_passwordfield, matchtype := "!=", value := "" ] INTO filters AT END;
+
+    RECORD ARRAY q := this->accounttype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
+                                                   , filters := filters
+                                                   ]);
+
+    RETURN Length(q)=1 ? q[0].id : 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  RECORD FUNCTION GetDomainEntity()
+  {
+    RETURN this->domaintype->GetEntity(this->domainid);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Semi-public API
+  //
+
+  /** Creates login cookies
+      @param userid
+      @param types List if "session", "external", "persistent"
+      @param extra
+      @cell extra.path Path to encode in external cookie (optional)
+      @return Encoded cookies
+      @cell return.session Session cookie
+      @cell return.persistent Persistent cookie
+      @cell return.external External cookie
+  */
+  PUBLIC RECORD FUNCTION __CreateLoginCookies(INTEGER userid, STRING ARRAY types, RECORD extra DEFAULTSTO DEFAULT RECORD)
+  {
+    extra := ValidateOptions([ path := "" ], extra);
+
+    RECORD cookies :=
+        [ session :=    ""
+        , persistent := ""
+        , external :=   ""
+        ];
+
+    STRING ARRAY fieldnames := ["WRD_GUID", this->domainrec.wrdauth_passwordfield ];
+    RECORD fields := this->accounttype->GetEntityFields(userid, fieldnames, [ historymode := "now" ]);
+    IF(NOT RecordExists(fields))
+      THROW NEW Exception("Invalid account #" || userid);
+
+    RECORD cookiedata := [ v := 2, dom := this->id, user := userid, cs := GetCurrentDatetime(), wg := fields.wrd_guid ];
+
+    IF ("session" IN types)
+      cookies.session := this->EncryptData(cookiedata, "session");
+    IF ("external" IN types)
+    {
+      RECORD copy := cookiedata;
+      IF (CellExists(extra, "PATH"))
+        INSERT CELL pa := extra.path INTO copy;
+      cookies.external := this->EncryptData(copy, "external");
+    }
+    IF ("persistent" IN types)
+    {
+      RECORD copy := cookiedata;
+      INSERT CELL p := GetCell(fields, this->domainrec.wrdauth_passwordfield) INTO copy; //FIXME shouldn't we still hash the password someway, even though encrypte?
+      cookies.persistent := this->EncryptData(copy, "persistent");
+    }
+
+    RETURN cookies;
+  }
+
+  /** Decodes and validates cookie data
+      @param cookie
+      @param type Type of cookie, one of "session", "external", "persistent"
+      @return User data (DEFAULT RECORD if decoding/validating failed)
+      @cell return.userid User (existence has been checked)
+      @cell return.creationdate
+      @cell return.path Path (only available for some external cookies)
+  */
+  PUBLIC RECORD FUNCTION __ParseCookie(STRING cookie, STRING type)
+  {
+    IF (type NOT IN [ "session", "persistent", "external" ])
+      THROW NEW Exception("Illegal cookie type '" || type || "'");
+
+    RECORD data := this->DecryptData(cookie, type);
+    IF(NOT Recordexists(data) OR data.v != 2 OR data.dom != this->id)
+      RETURN DEFAULT RECORD;
+
+    STRING ARRAY fieldnames := ["WRD_GUID", this->domainrec.wrdauth_passwordfield ];
+    RECORD fields := this->accounttype->GetEntityFields(data.user, fieldnames, [ historymode := "now" ]);
+    IF(NOT RecordExists(fields))
+      RETURN DEFAULT RECORD;
+
+    IF(fields.wrd_guid != data.wg)
+      RETURN DEFAULT RECORD;
+    IF(type = "persistent" AND data.p != GetCell(fields, this->domainrec.wrdauth_passwordfield))
+      RETURN DEFAULT RECORD;
+
+    RECORD cookiedata := [ userid := data.user
+                         , creationdate := data.cs
+                         ];
+    IF (CellExists(data, "PA"))
+      INSERT CELL path := data.pa INTO cookiedata;
+    RETURN cookiedata;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SetupExtensions()
+  {
+//    IF(this->domainrec.wrdauth_extensionlibrary != "")
+  //    this->extensions := MakeObject(this->domainrec.wrdauth_extensionlibrary, "WRDAuthExtension", this);
+  }
+
+  /** Returns the user entityid from a cookie
+      @param cookie Cookie
+      @param ispersistentcookie Whether the cookie is a persistent cookie (otherwise it is a session cookie)
+      @return User entityid (if not 0, the cookie is valid and the user exists)
+  */
+  PUBLIC INTEGER FUNCTION GetCookieEntityId(STRING cookie, BOOLEAN ispersistentcookie)
+  {
+    RECORD data := this->__ParseCookie(cookie, ispersistentcookie ? "persistent" : "session");
+    RETURN RecordExists(data) ? data.userid : 0;
+  }
+
+  /** Returns the tag of the password field
+      @return Tag of the password field
+  */
+  PUBLIC STRING FUNCTION GetPasswordFieldTag()
+  {
+    RETURN this->passwordfield.tag;
+  }
+
+  /** Updates the metadata for this authentication domain
+      @param newfields Fields to update
+      @cell newfields.wrdauth_lastloginfield
+      @cell newfields.wrd_title
+      @cell newfields.wrdauth_language
+      @cell newfields.wrdauth_lastipfield
+      @cell newfields.wrdauth_domainsecret
+  */
+  PUBLIC MACRO UpdateMetadata(RECORD newfields)
+  {
+    this->domaintype->UpdateEntity(this->domainid, newfields);
+    BroadcastEvent("wrd:auth.domain.change." || this->domainid, DEFAULT RECORD);
+    this->RefreshMetadata();
+  }
+
+  /** Verifies the password for an entity
+      @param the_entity Entity to check
+      @param password Password
+      @return 0: no match, 1: user password matched, 2: master password matched
+  */
+  PUBLIC INTEGER FUNCTION VerifyEntityPassword(OBJECT the_entity, STRING password)
+  {
+    IF(NOT ObjectExists(the_entity) OR password="")
+      RETURN 0;
+    IF(the_entity->VerifyPassword(this->passwordfield.tag, password))
+      RETURN 1;
+    RETURN 0;
+  }
+
+  /** Updates the last login date for an entity
+      @param the_entity Entity
+  */
+  PUBLIC MACRO UpdateLastLogin(OBJECT the_entity)
+  {
+    IF(NOT ObjectExists(the_entity)
+       OR this->domainrec.wrdauth_lastloginfield = ""
+       OR NOT RecordExists(this->accounttype->GetAttribute(this->domainrec.wrdauth_lastloginfield))
+       )
+      RETURN;
+
+    RECORD upd := CellInsert(DEFAULT RECORD, this->domainrec.wrdauth_lastloginfield, GetCurrentDatetime());
+    the_entity->UpdateEntity(upd);
+  }
+
+  /** Updates the last login date and ip address for an entity
+      @param the_entity Entity
+      @param ip IP address
+  */
+  PUBLIC MACRO UpdateLastLoginAndIp(OBJECT the_entity, STRING ip, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT ObjectExists(the_entity))
+      RETURN;
+
+    RECORD upd;
+    STRING firstloginfield := CellExists(options,'FIRSTLOGINFIELD') ? options.firstloginfield : "";
+    IF(firstloginfield != "" AND RecordExists(the_entity->wrdtype->GetAttribute(firstloginfield)) AND the_entity->GetField(firstloginfield) = DEFAULT DATETIME)
+      upd := CellInsert(upd, firstloginfield, GetCurrentDatetime());
+
+    STRING lastloginfield := CellExists(options,'LASTLOGINFIELD') ? options.lastloginfield : this->domainrec.wrdauth_lastloginfield;
+    IF(lastloginfield != "" AND RecordExists(the_entity->wrdtype->GetAttribute(lastloginfield)))
+      upd := CellInsert(upd, lastloginfield, GetCurrentDatetime());
+
+    IF(this->domainrec.wrdauth_lastipfield != "" AND RecordExists(the_entity->wrdtype->GetAttribute(this->domainrec.wrdauth_lastipfield)))
+      upd := CellInsert(upd, this->domainrec.wrdauth_lastipfield, ip);
+
+    IF(RecordExists(upd))
+      the_entity->UpdateEntity(upd);
+  }
+
+  /// Returns the domain secret for this authentication domain
+  STRING FUNCTION GetDomainSecret()
+  {
+    RETURN this->domainrec.wrdauth_domainsecret ?? this->domainrec.wrd_guid;
+  }
+
+  /** Encrypts and signes data with the domain secret
+      @param indata Data to encrypt
+      @param type Type of data (also needed for descryption)
+      @return Encoded and encrypted data
+  */
+  PUBLIC STRING FUNCTION EncryptData(RECORD indata, STRING type DEFAULTSTO "")
+  {
+    IF(NOT RecordExists(indata))
+      THROW NEW Exception("Trying to encrypt a default record");
+
+    STRING ds := this->wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ]);
+    IF(ds = "")
+      ds := this->GetDomainSecret();
+    STRING encrypteddata := EncryptAndSignData(EncodeHSON(indata), "SHA-1,BLOWFISH+CBC,8", ds || type);
+    RETURN encrypteddata;
+  }
+
+  /** Decodes previously encrypted data
+      @param encrypteddata Encrypted data
+      @param type Type of data (must match type used in EncryptData)
+      @return Decrypted data (DEFAULT RECORD if decryption or validation failed)
+  */
+  PUBLIC RECORD FUNCTION DecryptData(STRING encrypteddata, STRING type DEFAULTSTO "")
+  {
+    STRING data;
+    STRING ds := this->wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ]);
+    IF(ds != "") //new wrdauth_domain-less secrets
+      data := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+CBC,8", ds || type);
+
+    IF(data = "" AND this->domainid != 0) //try domain secrets, if we actually have an auth domain
+    {
+      data := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+CBC,8", this->GetDomainSecret() || type);
+      IF(data="")
+        data := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+ECB,8", this->GetDomainSecret() || type); //fallback
+    }
+    RETURN data != "" ? DecodeHSON(data) : DEFAULT RECORD;
+  }
+
+  /** Returns the login name of a user
+      @param id Id of user
+      @return Login name
+  */
+  PUBLIC STRING FUNCTION GetUserLogin(INTEGER id)
+  {
+    RECORD fields := this->accounttype->GetEntityFields(id, [ login := this->domainrec.wrdauth_loginfield ] );
+
+    IF(NOT RecordExists(fields)) //try as role..
+    {
+      OBJECT roletype := this->wrdschema->GetType("WHUSER_ROLE");
+      IF(ObjectExists(roletype))
+        fields := roletype->GetEntityFields(id, [ login := "WRD_TITLE" ]);
+    }
+
+    RETURN RecordExists(fields) ? fields.login : "";
+  }
+
+  /** Looks up a user based on the login name. The user must have a non-default password.
+      @param login Login name
+      @return User id
+  */
+  PUBLIC INTEGER FUNCTION LookupLogin(STRING login)
+  {
+    IF(ObjectExists(this->extensions))
+      RETURN this->extensions->LookupLogin(login);
+    ELSE
+      RETURN this->DoLookup(this->loginfield.tag, login);
+  }
+
+  /** Looks up a user based on the email address. The user must have a non-default password.
+      @param email Email address
+      @return User id
+  */
+  PUBLIC INTEGER FUNCTION LookupEmail(STRING email)
+  {
+    RETURN this->DoLookup(this->emailfield.tag, email);
+  }
+
+  /** Looks up a user based on the guid
+      @param guid Entity GUID
+      @return User id
+  */
+  PUBLIC INTEGER FUNCTION LookupGUID(STRING guid)
+  {
+    RETURN this->DoLookup("WRD_GUID", guid);
+  }
+
+  PUBLIC RECORD FUNCTION LoginById(INTEGER entityid, BOOLEAN impersonate, BOOLEAN persistent)
+  {
+    OBJECT the_entity := this->accounttype->GetEntity(entityid);
+    IF(NOT ObjectExists(the_entity))
+      RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
+
+    RETURN this->FinalizeLogin(the_entity, impersonate, persistent, "", "", TRUE);
+  }
+
+  PUBLIC RECORD FUNCTION Login(STRING login, STRING password, BOOLEAN persistent, STRING ip, INTEGER userid DEFAULTSTO 0, BOOLEAN requiremasterpassword DEFAULTSTO FALSE, BOOLEAN skippasswordcheck DEFAULTSTO FALSE, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(requiremasterpassword)
+      THROW NEW Exception("We no longer support master passwords"); //parameter is hard to remove with all the defaults - at least its an internal api
+    INTEGER entityid := userid ?? this->LookupLogin(login);
+    OBJECT the_entity := this->accounttype->GetEntity(entityid);
+    IF(NOT ObjectExists(the_entity))
+      RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
+
+    INTEGER res;
+    IF(NOT skippasswordcheck)
+    {
+      IF(CellExists(options,'verifypassword') AND options.verifypassword != DEFAULT FUNCTION PTR)
+        res := options.verifypassword(the_entity, password);
+      ELSE
+        res := this->VerifyEntityPassword(the_entity, password);
+
+      IF(res=0)
+        RETURN [ success := FALSE, code := "INCORRECTPASSWORD" ];
+    }
+
+    RETURN this->FinalizeLogin(the_entity, res=2, persistent, login, ip, TRUE, options);
+  }
+
+  PUBLIC RECORD FUNCTION LoginByCookie(STRING cookie, INTEGER logintime, BOOLEAN updatelogindata /*defaulted to TRUE */, BOOLEAN islogincookie)
+  {
+    RECORD cookiedata := this->__ParseCookie(cookie, islogincookie ? "persistent" : "session");
+    IF(NOT RecordExists(cookiedata))
+      RETURN DEFAULT RECORD;
+
+    IF(logintime > 0) //there's a maximum cookie validity
+    {
+      DATETIME now := GetCurrentDatetime();
+      DATETIME cookieend := AddTimeToDate(logintime * 1000i64, cookiedata.creationdate);
+      IF(NOT (cookiedata.creationdate <= now AND now < cookieend))
+        RETURN DEFAULT RECORD; //expired cookie
+    }
+
+    OBJECT the_entity := this->accounttype->GetEntity(cookiedata.userid);
+    IF(NOT ObjectExists(the_entity))
+      RETURN DEFAULT RECORD;
+
+    RETURN this->FinalizeLogin(the_entity, FALSE, islogincookie, "", "", updatelogindata);
+  }
+
+  RECORD FUNCTION FinalizeLogin(OBJECT the_entity, BOOLEAN isimpersonation, BOOLEAN persistent, STRING login, STRING ip, BOOLEAN updatelogindata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT isimpersonation AND updatelogindata)
+      this->UpdateLastLoginAndIp(the_entity, ip, options);
+
+    IF(isimpersonation) //impersonations NEVER persist
+      persistent := FALSE;
+
+    RECORD cookies := this->__CreateLoginCookies(the_entity->id, persistent ? [ "session", "persistent" ] : [ "session" ]);
+
+    RETURN [ success := TRUE
+           , code := ""
+           , entityid := the_entity->id
+           , entityguid :=  the_entity->guid
+           , domain := this->id
+           , login := the_entity->GetField(this->loginfieldtag)
+           , domaintitle := this->title
+           , sessioncookie := cookies.session
+           , persistentcookie := cookies.persistent
+           , isimpersonation := isimpersonation
+           , persistent := persistent
+           ];
+  }
+
+  PUBLIC BOOLEAN FUNCTION VerifyCurrentPassword(INTEGER entityid, STRING password)
+  {
+    OBJECT the_entity := this->accounttype->GetEntity(entityid);
+    RETURN this->VerifyEntityPassword(the_entity, password) IN [1,2];
+  }
+>;
+
+PUBLIC OBJECT FUNCTION OpenWRDAuthDomain(OBJECT wrdschema, STRING domaintag)
+{
+  IF(domaintag = "")
+    RETURN NEW WRDAuth(wrdschema, 0);
+
+  OBJECT domaintype := wrdschema->GetType("WRD_AUTHDOMAIN");
+  INTEGER domain := domaintype->Search("WRD_TAG", domaintag, [matchcase := FALSE]);
+  IF(domain != 0)
+    RETURN NEW WRDAuth(wrdschema, domain);
+  ELSE
+    RETURN DEFAULT OBJECT;
+}
+
+PUBLIC OBJECT FUNCTION OpenWRDAuthDomainById(OBJECT wrdschema, INTEGER domainid)
+{
+  IF(domainid = 0)
+    RETURN NEW WRDAuth(wrdschema, 0);
+
+  OBJECT domaintype := wrdschema->GetType("WRD_AUTHDOMAIN");
+  IF(ObjectExists(domaintype->GetEntity(domainid)))
+    RETURN NEW WRDAuth(wrdschema, domainid);
+  ELSE
+    RETURN DEFAULT OBJECT;
+}
+
+// Writes an audit log event to the database in separated transactions
+MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER account, STRING ip, STRING login, BOOLEAN isimpersonation, RECORD message)
+{
+  type := ToLowercase(type);
+  IF(type NOT LIKE "?*:?*")
+    THROW NEW Exception(`Invalid audit event type '${type}'`);
+
+  RECORD toinsert := CELL[ creationdate := GetCurrentDatetime()
+                         , wrdschema :=    accounttype->wrdschema->id
+                         , entity :=       account
+                         , impersonated := isimpersonation
+                         , login
+                         , ip
+                         , type
+                         , data := RecordExists(message) ? EncodeHSON(message) : ""
+                         ];
+
+  LogAuditEventBy("wrd:auth", CELL[ authobjectid := account, login ],
+      CELL[ type
+          , ip
+          , login
+          , isimpersonation
+          , message
+          , wrdschema :=      accounttype->wrdschema->tag
+          ]);
+
+  GetPrimary()->BeginWork();
+  INSERT toinsert INTO wrd.auditevents;
+
+  TRY
+  {
+    GetPrimary()->CommitWork();
+    RETURN;
+  }
+  CATCH(OBJECT e)
+  {
+    //if commit fails, we might be racing against deletion of the entity (especially when logging out of a cleaned up wrd schema). are we ?
+    IF(NOT RecordExists(SELECT FROM wrd.entities WHERE entities.id = VAR account))
+      RETURN; //okay, we can live with this
+
+    //retry once more, but if this fails, too bad
+    GetPrimary()->BeginWork();
+    INSERT toinsert INTO wrd.auditevents;
+    GetPrimary()->CommitWork();
+  }
+}
+
+STATIC OBJECTTYPE WRDAuthIntegration
+<
+  OBJECT pvt_service;
+  PROPERTY service(GetService, -);
+
+  STRING sessionid;
+  RECORD sessiondata;
+  INTEGER domainid;
+  BOOLEAN debugtoclient;
+  STRING debugmessages;
+  INTEGER loggedinentity;
+  OBJECT wrdschema;
+
+  /// Maximum idle time used for our session. Note that people will simply reestablish a session if they still have a login cookie.
+  PUBLIC INTEGER maxidle_minutes;
+
+  /// Cache current cookie values. Used specially to implement logout-relogin properly
+  RECORD cookiecache;
+
+  /// Cookie in which to store the session id. If changed, change it to the form webharelogin-123-456-789 (appending -s and numbers will allow optimization, multiple sets of numbers are unlikely to collide with webhare generated 'webharelogin's)
+  PUBLIC STRING cookiename;
+
+  /// Disable httponly flag on sensitive cookies
+  PUBLIC BOOLEAN nohttponlycookies;
+  /// Cookie domain. Leave empty to make the cookie apply only to the current domain
+  PUBLIC STRING cookiedomain;
+  /// Set the time in minutes the loginstate cookie should last (keeping a user logged in). Defaults to 0 (no limit, and 365 days for a permanent cookie)
+  PUBLIC INTEGER logintime;
+  /// Set whether to autoextend the logintime whenever we see the cookie
+  PUBLIC BOOLEAN autoextend;
+  /// Set whether to set a cookie that will persist afer browser close
+  PUBLIC BOOLEAN persistentcookie;
+  /// Set to make the cookies secure (only transferrable over https)
+  PUBLIC BOOLEAN securecookie;
+  /// Set the samesite value of the cookie
+  PUBLIC STRING samesitecookie;
+  /// Automatically authenticate the web session for the access rule ? (defaults to TRUE)
+  PUBLIC BOOLEAN authenticatewebsession;
+
+  PUBLIC MACRO PTR loginfilter;
+
+  PUBLIC PROPERTY loginname(GetLoginName, -);
+  PUBLIC PROPERTY id(domainid, -);
+
+  PUBLIC BOOLEAN debug;
+
+  MACRO NEW(OBJECT wrdschema, INTEGER id)
+  {
+    this->wrdschema := wrdschema;
+    this->loggedinentity := -1;
+    this->domainid := id;
+    this->authenticatewebsession := TRUE;
+    this->debugtoclient := IsRequest() AND IsWHDebugOptionSet("aut");
+    IF(this->debugtoclient)
+      this->debug := TRUE;
+
+    this->maxidle_minutes := 15;
+    this->cookiename := "webharelogin"; //ADDME Make webhare webserver optimize access checking for other cookie names
+    this->samesitecookie := "lax";
+  }
+
+  OBJECT FUNCTION GetService()
+  {
+    IF (NOT ObjectExists(this->pvt_service))
+      this->pvt_service := NEW WRDAuth(this->wrdschema, this->domainid);
+
+    RETURN this->pvt_service;
+  }
+
+  MACRO AddDebugMessage(STRING text)
+  {
+    IF(this->debugtoclient)
+    {
+      IF(this->debugmessages="")
+      {
+        this->debugmessages := GetWebCookie("wh-wrdauth-debug"); //preserve existing debuglog
+        this->debugmessages := (this->debugmessages != "" ? this->debugmessages || "\t" : "") || "Debugging for " || GetrequestURL();
+      }
+      this->debugmessages := (this->debugmessages != "" ? this->debugmessages || "\t" : "") || text;
+      IF(Length(this->debugmessages) > 1000) //
+        this->debugmessages := "....." || Substring(this->debugmessages,1000);
+      UpdateWebCookie("wh-wrdauth-debug", this->debugmessages, this->GetCookieOpts(FALSE, FALSE));
+    }
+    LogDebug("wrd:auth", text);
+  }
+
+  RECORD FUNCTION GetCachedCookies()
+  {
+    IF(NOT RecordExists(this->cookiecache))
+    {
+      STRING sessioncookie := GetWebCookie(this->cookiename);
+      STRING sessionid := Tokenize(sessioncookie,' ')[0];
+      STRING sessiondata := Substring(sessioncookie,Length(sessionid)+1);
+      STRING persistentcookie := GetWebCookie(this->cookiename || "_p");
+
+      this->cookiecache := [ pers := persistentcookie
+                           , sessionid := sessionid
+                           , sessiondata := sessiondata
+                           ];
+      IF(this->debug)
+        this->AddDebugMessage(`Cookie '${this->cookiename}' sessionid: [${this->MaskInternalId(this->cookiecache.sessionid)}]`);
+    }
+    RETURN this->cookiecache;
+  }
+
+  PUBLIC MACRO UpdatedUserPassword()
+  {
+    //It's no longer needed to invoke us
+  }
+
+  STRING FUNCTION MaskInternalId(STRING id)
+  {
+    IF(Length(id) <= 8)
+      RETURN RepeatText("x", Length(id));
+    RETURN RepeatText("x", Length(id) - 8) || Right(id,8);
+  }
+
+  STRING FUNCTION __CheckSession(BOOLEAN autokill)
+  {
+    //__CheckSession is only invoked if IsRequest() and if this->sessionid = ""
+    RECORD cookieinfo := this->GetCachedCookies();
+    RECORD sessiondata;
+
+    IF(cookieinfo.sessionid != "")
+    {
+      sessiondata := GetWebSessionData(cookieinfo.sessionid, "wrd:authsession");
+      IF(this->debug AND NOT RecordExists(sessiondata))
+        this->AddDebugMessage("No session found with that session id");
+    }
+
+    IF(RecordExists(sessiondata) AND CellExists(sessiondata, "session_version") AND sessiondata.session_version = session_version)
+    {
+      IF(this->debug)
+        this->AddDebugMessage("Found webserver session with id: " || this->MaskInternalId(cookieinfo.sessionid));
+
+      INTEGER userid := this->service->GetCookieEntityId(cookieinfo.sessiondata, FALSE);
+      IF(userid = sessiondata.entityid)
+      {
+        IF(this->debug)
+          this->AddDebugMessage("User identity proven" ||  (this->authenticatewebsession ? ", authenticating access rule" : ""));
+
+        // ADDME: also calc authobjectid?
+        AuthenticateWebSession(cookieinfo.sessionid, "wrd:authsession", sessiondata.login, TRUE, 0, sessiondata.entityid, this->authenticatewebsession); //this also skips this access rule for further checks for this session
+        this->sessiondata := sessiondata;
+        RETURN cookieinfo.sessionid;
+      }
+      IF(this->debug)
+        this->AddDebugMessage("User identity was not proven");
+    }
+
+    IF(autokill AND (cookieinfo.pers != "" OR cookieinfo.sessionid != ""))
+    {
+      IF(this->debug)
+        this->AddDebugMessage("Closing webserver session and resetting session cookie");
+
+      //There's a session, but it's incorrect. Destroy it
+      CloseWebSession(cookieinfo.sessionid, "");
+      this->SetSessionCookie("");
+    }
+    IF(autokill AND GetWebCookie(this->cookiename || "_j") != "")
+    {
+      UpdateWebCookie(this->cookiename || "_j", "", this->GetCookieOpts(FALSE, FALSE));
+    }
+
+    RETURN "";
+  }
+
+  RECORD FUNCTION GetCurrentSession()
+  {
+    STRING sessid := this->GetLoginSessionId();
+    RETURN this->sessiondata; // GetWebSessionData(sessid, "");
+  }
+
+  STRING FUNCTION GetLoginName()
+  {
+    RECORD sessdata := this->GetCurrentSession();
+    RETURN RecordExists(sessdata) ? sessdata.login : "";
+  }
+
+  PUBLIC MACRO __ReestablishSession(BOOLEAN force)
+  {
+    //Can we reestablish a session ?
+    RECORD cookies := this->GetCachedCookies();
+
+    this->loggedinentity := -1;
+    IF(cookies.sessiondata != "")
+    {
+      IF(this->debug)
+        this->AddDebugMessage("Trying to reestablish web session using session cookie: " || this->MaskInternalId(cookies.sessiondata));
+
+      RECORD logindata := RunInSeparatePrimary(PTR this->service->LoginByCookie(cookies.sessiondata, this->logintime*60, TRUE, FALSE), [ work := TRUE ]);
+      IF(RecordExists(logindata))
+      {
+        IF(this->debug)
+            this->AddDebugMessage("Session cookie accepted");
+        IF (this->CompleteLogin(logindata, (force OR this->autoextend)).success) //FIXME autoextend = false and force=true should not further extend cookie lifetime, but they should keep their current lifetime
+          this->WriteAuditEvent("WRD:LOGINCOOKIE",
+              [ account := logindata.entityid
+              , isimpersonation := logindata.isimpersonation
+              ]);
+        RETURN;
+      }
+      ELSE
+      {
+        IF(this->debug)
+            this->AddDebugMessage("Session cookie REJECTED");
+      }
+    }
+    IF(cookies.pers != "")
+    {
+      IF(this->debug)
+        this->AddDebugMessage("Trying to reestablish web session using persistent cookie: " || this->MaskInternalId(cookies.pers));
+
+      RECORD logindata := RunInSeparatePrimary(PTR this->service->LoginByCookie(cookies.pers, this->logintime*60, TRUE, TRUE), [ work := TRUE ]);
+      IF(RecordExists(logindata))
+      {
+        IF(this->debug)
+            this->AddDebugMessage("Persistent cookie accepted");
+        IF (this->CompleteLogin(logindata, (force OR this->autoextend)).success) //FIXME autoextend = false and force=true should not further extend cookie lifetime, but they should keep their current lifetime
+          this->WriteAuditEvent("WRD:LOGINCOOKIE",
+              [ account := logindata.entityid
+              , isimpersonation := logindata.isimpersonation
+              ]);
+        RETURN;
+      }
+      ELSE
+      {
+        IF(this->debug)
+            this->AddDebugMessage("Persistent cookie REJECTED");
+      }
+    }
+
+    IF(cookies.sessiondata != "" OR cookies.pers != "")
+    {
+      IF(this->debug)
+        this->AddDebugMessage("Unable to reestablish a session, no persistent cookie");
+
+      this->SetLoginTokenCookie("", "", FALSE);
+    }
+  }
+
+  /** @short Get sessionid of current login session
+      @return The id of the current login session. An empty string if the user is not logged in*/
+  PUBLIC STRING FUNCTION GetLoginSessionId()
+  {
+    IF(this->sessionid != "" OR NOT IsRequest())
+      RETURN this->sessionid;
+
+    this->sessionid := this->__CheckSession(FALSE);
+    IF(this->sessionid != "")
+    {
+      this->loggedinentity := -1; //clear cached loggedin info
+      RETURN this->sessionid;
+    }
+
+    this->__ReestablishSession(FALSE);
+    RETURN this->sessionid;
+  }
+
+  PUBLIC INTEGER FUNCTION GetLoggedinEntity()
+  {
+    IF(this->loggedinentity = -1)
+    {
+      RECORD sessdata := this->GetCurrentSession();
+      this->loggedinentity := RecordExists(sessdata) ? sessdata.entityid : 0;
+    }
+    RETURN this->loggedinentity;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsLogoutAllowed()
+  {
+    IF (this->GetLoginSessionId() != "")
+    {
+      RECORD sessdata := this->GetCurrentSession();
+      RETURN RecordExists(sessdata) ? sessdata.allowlogout : TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  /** @short Are we currently logged in ? */
+  PUBLIC BOOLEAN FUNCTION IsLoggedIn()
+  {
+    RETURN RecordExists(this->sessiondata) OR this->GetLoginSessionId() != "";
+  }
+
+  /** @short Login as a specific user
+      @param userid WRD Entity id to login
+      @param is_impersonation If true, consider this an impersonation login - don't update lastlogin etc
+      @cell options.allowlogout If present, controls whether logout actions are presented to the user
+      @return Login result
+      @cell return.success TRUE if login was successfull
+      @cell return.code Error code
+  */
+  PUBLIC RECORD FUNCTION LoginById(INTEGER userid, BOOLEAN is_impersonation, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT IsRequest() AND NOT IsDtapLive() AND NOT __wrdauth_allow_requestless_login)
+      THROW NEW Exception("Support for request-less WRDAuth logins is considered for deprecation");
+
+    IF(this->debug)
+      this->AddDebugMessage("LoginById: " || this->MaskInternalId(ToString(userid)));
+
+    STRING remoteip := CellExists(options,"REMOTEIP") ? options.remoteip : IsRequest() ? GetClientRemoteIp() : "";
+
+    this->loggedinentity := -1;
+    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->service->LoginById(userid, is_impersonation, is_impersonation = FALSE AND this->persistentcookie));
+    IF(NOT trylogin.success)
+    {
+      //this->WriteAuditEvent("WRD:" || trylogin.code,
+      //    [ account := userid
+      //    , remoteip := remoteip
+      //    , isimpersonation := is_impersonation
+      //    ]);
+      IF(this->debug)
+        this->AddDebugMessage("LoginById failed");
+      RETURN trylogin;
+    }
+
+    RECORD res := this->CompleteLogin(trylogin, TRUE, options);
+    //IF (res.success)
+    //  this->WriteAuditEvent("WRD:LOGINID",
+    //      [ account := trylogin.entityid
+    //      , remoteip := remoteip
+    //      , isimpersonation := trylogin.isimpersonation
+    //      ]);
+    RETURN res;
+  }
+
+  /** @short Verify the password for the currently loggedin user (used for change password interactions) */
+  PUBLIC BOOLEAN FUNCTION VerifyCurrentPassword(STRING password)
+  {
+    INTEGER id := this->GetLoggedinEntity();
+    IF(id=0)
+      THROW NEW Exception("VerifyCurrentPassword requires a loggedin user");
+    RETURN this->service->VerifyCurrentPassword(id, password);
+  }
+
+  /** @short Login
+      @return A record
+      @cell return.success True if the login was successful
+      @cell return.code Error code ("", "UNKNOWNLOGIN", "INCORRECTPASSWORD")
+  */
+  PUBLIC RECORD FUNCTION Login(STRING loginname, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT IsRequest() AND NOT IsDtapLive() AND NOT __wrdauth_allow_requestless_login)
+      THROW NEW Exception("Support for request-less WRDAuth logins is considered for deprecation");
+
+    STRING remoteip;
+    FUNCTION PTR lookuplogin;
+    INTEGER userid;
+    BOOLEAN skippasswordcheck := CellExists(options,'SKIPPASSWORDCHECK') AND options.skippasswordcheck;
+
+    STRING auditusername := CellExists(options,'auditloginname') AND options.auditloginname != "" ? options.auditloginname : loginname;
+    RECORD auditmessage := CellExists(options,'auditmessage') ? options.auditmessage : DEFAULT RECORD;
+
+    IF(CellExists(options,"REMOTEIP"))
+      remoteip := options.remoteip;
+    ELSE
+    {
+      remoteip := IsRequest() ? GetClientRemoteIp() : "";
+      INSERT CELL remoteip := remoteip INTO options;
+    }
+
+    IF(CellExists(options,"LOOKUPLOGIN") AND options.lookuplogin != DEFAULT FUNCTION PTR)
+    {
+      userid := options.lookuplogin(loginname);
+      IF(userid=0)
+        RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
+    }
+
+    this->loggedinentity := -1;
+    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->service->Login(loginname, password, this->persistentcookie, remoteip, userid, FALSE, skippasswordcheck, options));
+    IF(NOT trylogin.success)
+    {
+      //this->WriteAuditEvent("wrd:" || trylogin.code,
+      //    [ account := userid ?? this->service->LookupLogin(loginname)
+      //    , remoteip := remoteip
+      //    , login := auditusername
+      //    , message := auditmessage
+      //    ]);
+      RETURN trylogin;
+    }
+
+    RECORD res := this->CompleteLogin(trylogin, TRUE, options);
+    IF (res.success)
+    {
+      //this->WriteAuditEvent("wrd:login",
+      //    [ account := trylogin.entityid
+      //    , remoteip := remoteip
+      //    , login := auditusername
+      //    , isimpersonation := trylogin.isimpersonation
+      //    , message := auditmessage
+      //    ]);
+    }
+    RETURN res;
+  }
+
+  RECORD FUNCTION GetCookieOpts(BOOLEAN httponly, BOOLEAN persist)
+  {
+    RETURN [ domain := this->cookiedomain
+           , httponly := httponly AND NOT this->nohttponlycookies
+           , secure := this->securecookie
+           , lifetime := persist ? this->GetPersistentCookieLifetime() : -1
+           , samesite := this->samesitecookie
+           ];
+  }
+
+  MACRO SetSessionCookie(STRING value)
+  {
+    UpdateWebCookie(this->cookiename, value, this->GetCookieOpts(TRUE, FALSE));
+  }
+
+  PUBLIC INTEGER FUNCTION GetPersistentCookieLifetime()
+  {
+    RETURN this->logintime > 0 ? this->logintime * 60 : 365*86400;
+  }
+
+  MACRO SetLoginTokenCookie(STRING sessionvalue, STRING persistentvalue, BOOLEAN persistent)
+  {
+    IF(persistent)
+      UpdateWebCookie(this->cookiename || "_p", persistentvalue, this->GetCookieOpts(TRUE, TRUE));
+    UpdateWebCookie(this->cookiename || "_j", sessionvalue != "" ? EncodeUFS(GetMD5Hash(sessionvalue)) || "." : "", this->GetCookieOpts(FALSE,FALSE)); //_j = javascript user info
+  }
+
+  PUBLIC RECORD FUNCTION CompleteLogin(RECORD trylogin, BOOLEAN setlogincookie, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT IsRequest() AND NOT IsDtapLive() AND NOT __wrdauth_allow_requestless_login)
+      THROW NEW Exception("Support for request-less WRDAuth logins is considered for deprecation");
+
+    IF(this->debug)
+    {
+      this->AddDebugMessage("Completing user login, impersonation: " || (trylogin.isimpersonation ? "true" : "false")
+                            || ", setlogincookie: " || (setlogincookie ? "true" : "false")
+                            || ", sessioncookie: " || this->MaskInternalId(trylogin.sessioncookie));
+    }
+    IF(this->loginfilter != DEFAULT MACRO PTR)
+    {
+      RECORD errordata := this->loginfilter(trylogin.entityid,
+          [ login := trylogin.login
+          , isimpersonation := trylogin.isimpersonation
+          ]);
+      IF(RecordExists(errordata))
+      {
+        IF(this->debug)
+          this->AddDebugMessage("Login filter refused this user");
+
+        IF (NOT CellExists(errordata, "code"))
+          THROW NEW Exception("Login denied without error code");
+
+        // Don't return internal fields
+        FOREVERY (RECORD field FROM UnpackRecord(errordata))
+          IF (field.name LIKE "_*")
+            errordata := CellDelete(errordata, field.name);
+
+        RETURN CellInsert(errordata, "success", FALSE);
+      }
+    }
+
+    //Set up a login session
+    RECORD data := [ session_version := session_version
+                   , entityid := trylogin.entityid
+                   , domain := trylogin.domain
+                   , domaintitle := trylogin.domaintitle
+                   , login := trylogin.login
+                   , blockedmultisession := FALSE
+                   , allowlogout := NOT CellExists(options, "ALLOWLOGOUT") OR options.allowlogout
+                   ];
+
+    this->sessiondata := data;
+    IF(IsRequest())
+    {
+      this->sessionid := CreateWebSession("wrd:authsession"
+                                         , this->sessiondata
+                                         , this->maxidle_minutes
+                                         , /*limit to server: */ FALSE);
+
+      IF(this->debug)
+        this->AddDebugMessage("Setting up user websession: " || this->MaskInternalId(this->sessionid));
+      this->SetSessionCookie(this->sessionid || " " || trylogin.sessioncookie);
+
+      IF(this->debug)
+        this->AddDebugMessage("Authenticating the websession");
+      AuthenticateWebSession(this->sessionid, "wrd:authsession", trylogin.login || " (" || trylogin.domaintitle || ")", TRUE, 0,0, this->authenticatewebsession);
+
+      IF(setlogincookie)
+      {
+        IF(this->debug)
+          this->AddDebugMessage("Setting up login cookie (name: " || this->cookiename || ")");
+        this->SetLoginTokenCookie(trylogin.sessioncookie, trylogin.persistentcookie, trylogin.persistent);
+      }
+    }
+
+    RETURN [ success := TRUE, code := "" ];
+  }
+
+  PUBLIC MACRO Logout(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT IsRequest() AND NOT IsDtapLive() AND NOT __wrdauth_allow_requestless_login)
+      THROW NEW Exception("Support for request-less WRDAuth logins is considered for deprecation");
+
+    options := ValidateOptions([ logauditevent := TRUE ], options);
+
+    INTEGER entityid := this->GetLoggedinEntity();
+    this->loggedinentity := -1;
+    IF(this->sessionid = "")
+      this->sessionid := this->GetCachedCookies().pers;
+
+    CloseWebSession(this->sessionid, "wrd:authsession");
+    this->sessiondata := DEFAULT RECORD;
+    this->SetSessionCookie("");
+    this->SetLoginTokenCookie("", "", FALSE);
+    this->SetLoginTokenCookie("", "", TRUE);
+    UpdateWebCookie(this->cookiename || "_j", "", this->GetCookieOpts(FALSE, FALSE));
+
+    this->sessionid := "";
+    this->cookiecache := [ pers := "", sessionid := "", sessiondata := ""]; //prevent GetWebCookie from seeing the (now stale) cookies
+
+    IF(entityid != 0 AND options.logauditevent)
+    {
+      this->WriteAuditEvent("wrd:logout",
+          [ account := entityid > 0 ? entityid : 0
+          , remoteip := IsRequest() ? GetClientRemoteIp() : ""
+          ]);
+    }
+  }
+
+  PUBLIC MACRO WriteAuditEvent(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ account := 0
+        , remoteip := IsRequest() ? GetClientRemoteIp() : ""
+        , login := ""
+        , isimpersonation := FALSE
+        , message := DEFAULT RECORD
+        ], options);
+
+    RunInSeparatePrimary(PTR DoWriteAuditEvent(this->service->accounttype, type, options.account, options.remoteip, options.login, options.isimpersonation, options.message));
+  }
+
+  /** @short Create a verification link
+      @long Create a verifiable link for email, with optionally a raw code-enty for verification
+      @param baseurl Base url to redirect the user to
+      @param data Data to encrypt on the URL
+      @param lifetime Lifetime of this link in minutes
+      @return Link data
+      @cell return.verifier The verification code (should be emailed to the user)
+      @cell return.verifiedlink The verified link (should be emailed to the user)
+      @cell return.entrylink The code-entry link (user may be redirected or navigate here)
+  */
+  PUBLIC RECORD FUNCTION CreateEmailVerificationLink(STRING baseurl, RECORD data, INTEGER lifetime)
+  {
+    STRING verifier := GeneratePassword("", 6, FALSE);
+    DATETIME until := AddTimeToDate( (lifetime%(24*60)) * 6000, AddDaystoDate(lifetime / (24*60), GetCurrentDatetime()));
+    STRING baselink := UpdateURLVariables(baseurl, [ _ed := this->service->EncryptData([ v := verifier, d := data, m := until ]) ]);
+    RETURN [ verifier := verifier
+           , entrylink := baselink
+           , verifiedlink := UpdateURLVariables(baselink, [ "verifier" := verifier ] )
+           ];
+  }
+
+  /** @short Handle an e-mail verification page
+      @return @includecelldef #HandleEmailVerificationData.return
+  */
+  PUBLIC RECORD FUNCTION HandleEmailVerificationPage()
+  {
+    RETURN this->HandleEmailVerificationData(GetWebVariable("verifier"), GetWebVariable("_ed"));
+  }
+
+  /** Handles an e-mail verification page from the raw verification data
+      @param verifier Verification code
+      @param encrypted_data Contents of the `_ed` variable on the verification/entry link returned by [CreateEmailVerificationLink](#CreateEmailVerificationLink)
+      @return Verification result
+      @cell return.expired True if the link was valid in the past, but expired
+      @cell return.expireson Expiration date/time
+      @cell return.data Decrypted data
+      @cell return.success True if the user successfully validated and the link was still valid
+      @cell return.failed True if a verifier was entered and success failed
+  */
+  PUBLIC RECORD FUNCTION HandleEmailVerificationData(STRING verifier, STRING encrypted_data)
+  {
+    RECORD retval := [ expired := FALSE
+                     , expireson := DEFAULT DATETIME
+                     , data := DEFAULT RECORD
+                     , success := FALSE
+                     , failed := FALSE
+                     ];
+
+    RECORD decrypted;
+    IF(encrypted_data!="")
+      decrypted := this->service->DecryptData(encrypted_data);
+
+    IF(RecordExists(decrypted))
+    {
+      retval.data := decrypted.d;
+      retval.expireson := decrypted.m;
+      retval.expired := retval.expireson < GetCurrentDatetime();
+
+      IF(NOT retval.expired)
+        retval.success := ToUppercase(verifier) = decrypted.v;
+    }
+    retval.failed := verifier != "" AND NOT retval.success;
+    RETURN retval;
+  }
+>;
+
+/** @topic wrdauth/api
+    @loadlib mod::wrd/lib/auth.whlib
+    @public
+*/
+PUBLIC OBJECTTYPE WRDAuthSupportBase
+<
+  OBJECT plugin;
+
+  MACRO NEW(OBJECT plugin)
+  {
+    this->plugin := plugin;
+  }
+  PUBLIC RECORD FUNCTION GetJSUserInfo()
+  {
+    IF(Length(this->plugin->cachefields) > 0)
+      RETURN this->plugin->GetWRDAuthDomain()->accounttype->GetEntityFields(this->plugin->GetLoggedinEntity(), this->plugin->cachefields);
+    RETURN DEFAULT RECORD;
+  }
+  //return a non-default record to block the login. this string is returned as the error code from the login functions
+  /** @short Additional login check after username and password were accepted
+      @param userid The entity id of the user that is logging in
+      @param options Additional information
+      @cell(string) options.login Name used to login
+      @cell(boolean) options.isimpersonation If this login is impersonated
+      @return A default record if the user may login, or a record containing information about why the login failed
+      @cell(string) return.code Error code for denied login, must be present and non-empty
+  */
+  PUBLIC RECORD FUNCTION IsLoginDenied(INTEGER userid, RECORD options)
+  {
+    RETURN DEFAULT RECORD;
+  }
+  /** @short Lookup a login */
+  PUBLIC INTEGER FUNCTION LookupLogin(STRING loginname)
+  {
+    RETURN this->plugin->GetWRDAuthDomain()->LookupLogin(loginname);
+  }
+  /** @short Login
+      @return A record
+      @cell return.success True if the login was successful
+      @cell return.code Error code ("", "UNKNOWNLOGIN", "INCORRECTPASSWORD")
+  */
+  PUBLIC RECORD FUNCTION Login(STRING login, STRING password, RECORD options)
+  {
+    RETURN this->plugin->wrdauth->Login(login, password, options);
+  }
+
+  PUBLIC OBJECT FUNCTION GetSAMLSPConfig(OBJECT plugin, STRING sp_tag, RECORD configdata)
+  {
+    RETURN NEW SAMLWebhareSPConfig(plugin, configdata);
+  }
+
+  PUBLIC OBJECT FUNCTION GetSAMLIDPConfig(OBJECT plugin, RECORD configdata)
+  {
+    RETURN NEW SAMLWebhareIDPConfig(plugin, configdata);
+  }
+
+  /** @short Get the current user editing policy
+      @long Get the current policry for editing users<br>
+      This function is called:<br>
+      - when the user data has just been loaded (atsubmit is FALSE)<br>
+      - when the user presses submit (atsubmit is TRUE)<br>
+      - when the submit request has been handled  (atsubmit is FALSE)<br>
+      The state of input fields is then updated according to the returned policy.
+      @param userid Current user id. 0 for new users
+      @param fields Current values. Is DEFAULT RECORD at user screen initialization and when getting searchable fields.
+      @cell(string) fields.username Current filled in username
+      @cell(string) fields.email Currently filled in email
+      @cell(integer) fields.unit Currently selected unit
+      @param atsubmit Whether the data is being submitted (might have more stringent rules)
+      @return Policy record
+      @cell(boolean) return.haspassword Whether the user can set a password in WebHare (eg not synced to AD or LDAP)
+      @cell(string) return.passwordpolicy Password policy
+      @cell(function ptr) return.passwordcheck Function to call to check the password policy, should return FALSE if not set
+      @cell(record) return.searchablefields For every authorixation object (unit, role and person) the list of searchable fields
+      @cell(string array) return.searchablefields.unit List of searchable fields for a unit
+      @cell(string array) return.searchablefields.role List of searchable fields for a role
+      @cell(string array) return.searchablefields.person List of searchable fields for a person
+      @cell(record) return.screenextension Optional screen extension to load for the user screen
+      @cell(string) return.screenextension.file File with the screen tabextension
+      @cell(string) return.screenextension.name Name of the tabextension node
+  */
+  PUBLIC RECORD FUNCTION GetUserEditPolicy(INTEGER userid, RECORD fields, BOOLEAN atsubmit)
+  {
+    // When updating this function, please call WRDAuthSupportBase::GetUserEditPolicy, and then
+    // edit the returned policy record
+    RETURN
+        [ haspassword :=        TRUE
+        , searchablefields := [ unit   := [ "WRD_TITLE", "WHUSER_COMMENT" ]
+                              , role   := [ "WRD_TITLE", "WHUSER_COMMENT" ]
+                              , person := [ "WRD_FIRSTNAME", "WRD_FIRSTNAMES", "WRD_FULLNAME", "WRD_LASTNAME", "WHUSER_LOGIN", "WRD_TITLE", "WHUSER_COMMENT", "WRD_CONTACT_EMAIL" ]
+                              ]
+        , screenextension := DEFAULT RECORD
+        , passwordpolicy := ""
+        , passwordcheck := DEFAULT FUNCTION PTR
+        ];
+  }
+
+  PUBLIC INTEGER FUNCTION VerifyPassword(OBJECT userentity, STRING password)
+  {
+    IF(password="")
+      RETURN 0;
+    IF(userentity->VerifyPassword(this->plugin->GetPasswordFieldTag(), password))
+      RETURN 1;
+    RETURN 0;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION OpenWRDAuthIntegration(OBJECT wrdschema, STRING tag)
+{
+  IF(tag="") //no need to open a subdomain
+    RETURN NEW WRDAuthIntegration(wrdschema, 0);
+
+  OBJECT authdomaintype := wrdschema->GetType("WRD_AUTHDOMAIN");
+  IF(NOT ObjectExists(authdomaintype))
+    THROW NEW Exception(`The WRD schema '${wrdschema->tag}' does not have a type WRD_AUTHDOMAIN, needed to resolve '${tag}'`);
+
+  INTEGER authid;
+  IF(tag != "")
+  {
+    authid := authdomaintype->Search("WRD_TAG", tag, [matchcase := FALSE]);
+    IF(authid=0)
+      RETURN DEFAULT OBJECT;
+  }
+
+  RETURN NEW WRDAuthIntegration(wrdschema, authid);
+}
+
+/** @short Get the authentication plugin for the specified url
+    @long This function looks up the fsobject for the url (using LookupPublisherURL) and then obtains the wrdauth plugin object, if ant
+    @param url URL to look up
+    @return The auth plugin. Throws an exception if no plugin is registered */
+PUBLIC OBJECT FUNCTION GetAuthIntegrationPlugin(STRING url, INTEGER clientwebserver DEFAULTSTO -1)
+{
+  OBJECT wrdauthplugin := GetWebContextForURL(url, clientwebserver)->GetPlugin("http://www.webhare.net/xmlns/wrd", "wrdauth");
+  IF(NOT ObjectExists(wrdauthplugin))
+    THROW NEW Exception("No wrdauth plugin registered for URL " || url);
+
+  RETURN wrdauthplugin;
+}
+

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <linearGradient id="file-paper-gradient" gradientUnits="userSpaceOnUse" x1="5.9205" y1="6.643" x2="29.3585" y2="30.081">
+      <stop offset="0" style="stop-color:#ffffff"/>
+      <stop offset="1" style="stop-color:#f2f2f2"/>
+    </linearGradient>
+    <g id="file-fill" style="fill:url(&quot;#file-paper-gradient&quot;);">
+      <path d="M30,12l0,17c0,1-1,1-1,1H11c-1,0-1-1-1-1V3c0,0,0-1,1-1h9"/>
+    </g>
+    <path id="file-corner" d="M32,1c0-1-1-1-1-1h-6.2c-0.3,0-0.6,0-0.7,0.3c-0.1,0.3-0.1,0.6,0.2,0.8l6.5,6.1c0.2,0.2,0.6,0.3,0.8,0.2C31.8,7.2,32,6.9,32,6.6"/>
+    <path id="file-outline" d="M21,0H10C8,0,8,2,8,2v28c0,0,0,2,2,2h20c2,0,2-2,2-2V11L21,0zM30,29c0,0,0,1-1,1H11c-1,0-1-0.6-1-0.9V3c0,0,0-1,1-1h9l10,10L30,29z"/>
+    <linearGradient id="musicnotegradient" gradientUnits="userSpaceOnUse" x1="10.7188" y1="30.0605" x2="10.7188" y2="3.0002">
+      <stop offset="0" style="stop-color:#FF8133"/>
+      <stop offset="1" style="stop-color:#FBB040"/>
+    </linearGradient>
+    <path id="musicnote" d="M18,11.6c-1.2-2.1-2.5-4.4-2.9-8c0-0.3-0.3-0.6-0.6-0.6c-0.3,0-0.6,0.2-0.7,0.5c-0.2,1.1-0.4,2.2-0.5,3.2L10.1,22c-1.4-0.4-4.3-1.3-5.9-0.3c-2.5,1.6-4.3,4.7-1.6,7.2c0.5,0.5,1,0.8,2,1.1c1.3,0.3,3-0.1,4.5-1c2.1-1.3,3.3-3.4,2.9-5.1l2.3-11c0.7,1.4,1.6,2.3,2.4,3.2c1.3,1.3,2.2,2.3,1.9,4.3c0,0.3,0.2,0.7,0.5,0.7c0,0,0,0,0,0c0.3,0.1,0.7-0.1,0.8-0.5C20.9,16.7,19.5,14.2,18,11.6z"/>
+    <path id="musicnoteglare" d="M3.093,24.179C3.587,22.828,4.879,22.001,6.26,22c0.396,0.002,0.808,0.066,1.199,0.212c0.355,0.129,0.535,0.506,0.408,0.852c-0.126,0.342-0.509,0.519-0.864,0.386c-0.292-0.105-0.593-0.138-0.885-0.116c-0.089,0.009-0.174,0.019-0.258,0.037c-0.383,0.075-0.732,0.264-1.016,0.536c-0.207,0.203-0.378,0.446-0.484,0.736c-0.128,0.342-0.509,0.516-0.864,0.387C3.15,24.9,2.966,24.52,3.093,24.179z"/>
+  </defs>
+  <g>
+    <use xlink:href="#file-fill" fill="#ffffff"/>
+    <use xlink:href="#file-outline" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#file-corner" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#musicnote" transform="translate(0 0)" style="fill:url(&quot;#musicnotegradient&quot;);"/>
+    <use xlink:href="#musicnoteglare" fill="#ffffff"/>
+  </g>
+</svg>

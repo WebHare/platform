@@ -1,0 +1,100 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+STRING targeturl := Tokenize(GetRequestURL(),'?')[0];
+
+IF(targeturl LIKE "*/payments")
+{
+  STRING webhookurl := GetWebVariable("webhookurl");
+  STRING paymentid := "tr_001";
+  STRING paymenturl := UpdateURLVariables(ResolveToAbsoluteURL(GetRequestURL(), "/.webhare_testsuite/tests/wrd/mollie/!/payit")
+                                         , [ webhook := webhookurl
+                                           , paymentid := paymentid
+                                           , returnurl := GetWebVariable("redirecturl")
+                                           ]);
+
+  //taken from https://www.mollie.com/en/docs/reference/payments/get
+  AddHTTPHeader("Content-Type", "application/json; charset=utf-8", FALSE);
+  SendWebFile(StringToBlob(`{
+    "resource": "payment",
+    "id": ${EncodeJSON(paymentid)},
+    "mode": "test",
+    "createdAt": ${EncodeJSON(GetCurrentDatetime())},
+    "status": "open",
+    "paidDatetime": null,
+    "amount": ${EncodeJSON([ currency := "EUR", value := GetWebVariable("amount[value]")])},
+    "description": ${EncodeJSON(GetWebVariable("description"))},
+    "method": null,
+    "metadata": {
+        "paymentref": ${EncodeJSON(GetWebVariable("metadata[paymentref]"))}
+       ,"paymenttok": ${EncodeJSON(GetWebVariable("metadata[paymenttok]"))}
+    },
+    "details": null,
+    "locale": "nl",
+    "profileId": "pfl_QkEhN94Ba",
+    "redirectUrl": ${EncodeJSON(GetWebVariable("redirecturl"))},
+    "webhookUrl": ${EncodeJSON(webhookurl)},
+    "_links": {
+        "checkout": {"type":"text/html","href":${EncodeJSON(paymenturl)}}
+    }
+}`));
+  RETURN;
+}
+ELSE IF(targeturl LIKE "*/payments/tr_001")
+{
+  //taken from https://www.mollie.com/en/docs/reference/payments/get
+  AddHTTPHeader("Content-Type", "application/json; charset=utf-8", FALSE);
+  //ADDME should probably verify amount ? Give more storable details?
+  SendWebFile(StringToBlob(`{
+    "resource": "payment",
+    "id": ${EncodeJSON("tr_001")},
+    "status": "paid",
+    "method": null,
+    "metadata": {
+        "paymentref": ${EncodeJSON(GetWebVariable("metadata[paymentref]"))}
+       ,"paymenttok": ${EncodeJSON(GetWebVariable("metadata[paymenttok]"))}
+    },
+    "details": null,
+    "locale": "nl",
+    "profileId": "pfl_QkEhN94Ba",
+}`));
+
+}
+ELSE IF(targeturl LIKE "*/payit")
+{
+  //should really be a post, but we don't really care ourselves anyway
+  IF(IsRequestPost())
+  {
+    IF(GetWebVariable("webhook") != "")
+    {
+      STRING finalhookurl := UpdateURLVariables(GetWebVariable("webhook"), [ id := GetWebVariable("paymentid") ]);
+      IF(NOT (NEW WebBrowser)->GotoWebPage(finalhookurl))
+        ABORT("Failed to invoke webhook at '" || finalhookurl || "'");
+    }
+    Redirect(GetWebVariable("returnurl"));
+  }
+  ELSE
+  {
+    Print(`<form method="POST" action="payit" id="body">
+             <input name="returnurl" value="${EncodeValue(GetWebVariable("returnurl"))}">
+             <input name="webhook" value="${EncodeValue(GetWebVariable("webhook"))}">
+             <input name="paymentid" value="${EncodeValue(GetWebVariable("paymentid"))}">
+             <input type="radio" name="final_state" value="paid">
+             <input type="submit"></form>`);
+    RETURN;
+  }
+}
+ELSE IF(targeturl LIKE "*/v2/methods")
+{
+  AddHTTPHeader("Content-Type", "application/json; charset=utf-8", FALSE);
+  SendWebFile(GetWebhareResource(Resolve("get-methods-with-issuers.json")));
+}
+
+ABORT("Did not understand request");

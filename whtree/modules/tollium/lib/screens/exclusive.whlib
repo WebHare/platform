@@ -1,0 +1,260 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+
+/** Screen that signals to the user that another user wants to take over
+    its exclusive screen. Retrieves the data of the connecting users from the
+    ExclusivityHandler. The ExclusivityHandler calls GotUpdate when that list
+    has changed. Is the screen responsible for the timeout!
+*/
+PUBLIC OBJECTTYPE SignalTakeOver EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// ExclusivityHandler
+  OBJECT control;
+
+  /// Timer callback
+  INTEGER cb;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->control := data.control;
+    this->GotUpdate();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotTimerCallback()
+  {
+    this->cb := 0;
+    this->GotUpdate();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO GotUpdate()
+  {
+    RECORD req := this->control->requests;
+
+    IF (NOT RecordExists(req))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    // Get nr of msecs to wait
+    DATETIME now := GetCurrentDateTime();
+    INTEGER diff := GetDateTimeDifference(now, req.deadline).msecs;
+    IF (diff <= 0)
+    {
+      this->tolliumresult := "timeout";
+      RETURN;
+    }
+
+    // Round msecs up to number of of seconds (29001 msecs -> 30 secs)
+    INTEGER seconds := (diff + 999) / 1000;
+    this->signaltakeovertext->value := this->GetTid(".signaltakeovertext", req.login, req.realname, ToString(seconds));
+    this->btn_release->title := this->GetTid(".release") || " (" || ToString(seconds) || ")";
+
+    IF (this->cb != 0)
+      UnregisterCallback(this->cb);
+
+    // Schedule update at the next x001 msecs mark (callbacks are never early, so this is a relatively stable computation
+    // max 1 invocation per second, a few msecs after the nr of seconds changes
+    RegisterTimedCallback(Min[]([ AddTimeToDate((diff % 1000) + 1, now), req.deadline ]), PTR this->GotTimerCallback);
+  }
+>;
+
+/** Asks the user if he/she wants to take over the screen from the another user
+    that currently holds it. Listens to comm link from other side
+*/
+PUBLIC OBJECTTYPE StealDialog EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // Link listen callback
+  INTEGER cb;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    // Separate message when taking over dialog from current user
+    IF (data.isown)
+      this->stealdialogtext->value := this->GetTid(".stealowndialog", data.msg.login, data.msg.realname);
+    ELSE
+      this->stealdialogtext->value := this->GetTid(".stealdialogtext", data.msg.login, data.msg.realname);
+
+    this->frame->title := this->frame->title || ": " || data.title;
+
+    // Wait for status changes in link. Link won't be close async at the requester's side, so this is safe.
+    this->cb := RegisterHandleReadCallback(data.link->handle, PTR this->GotLinkSignalled(data.link));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  /// Something happened on the link
+  MACRO GotLinkSignalled(OBJECT link)
+  {
+    IF (link->ReceiveMessage(DEFAULT DATETIME).status = "gone") // Warning: this eats messages!
+    {
+      this->tolliumresult := "linkbroken";
+      this->OnUnload();
+    }
+  }
+
+  MACRO OnUnload()
+  {
+    // Unregister link callback
+    IF (this->cb != 0)
+      UnregisterCallback(this->cb);
+
+    this->cb := 0;
+  }
+>;
+
+/** Runs a takeover request. Sends the request & waits for it to come back.
+*/
+PUBLIC OBJECTTYPE RunTakeOverRequest EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // Callback for comm link
+  INTEGER cb;
+
+  // Timer callback
+  INTEGER timer_cb;
+
+  // Comm link
+  OBJECT link;
+
+  // Time the request was made
+  DATETIME requesttime;
+
+  /// Time to wait for the other user to respond
+  DATETIME deadline;
+
+  // External user data
+  RECORD extuserdata;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    // Init texts
+    this->link := data.link;
+    this->extuserdata := data.msg;
+
+    this->frame->title := this->frame->title || ": " || data.title;
+
+    // Wait for response of link, send takeover request. Link won't be close async at the requester's side, so this is safe.
+    this->cb := RegisterHandleReadCallback(data.link->handle, PTR this->GotLinkSignalled);
+
+    INTEGER waitsecs := ReadRegistryKey("system.backend.exclusiveaccess.takeovertime");
+
+    this->requesttime := GetCurrentDateTime();
+    this->deadline := AddTimeToDate(waitsecs * 1000, this->requesttime);
+
+    // Request the close timeout to start at the other side
+    this->link->SendMessage(CELL
+        [ type :=     "requestclose"
+        , login :=    this->tolliumuser->login
+        , realname := this->tolliumuser->realname
+        , this->deadline
+        ]);
+
+    this->GotTimerCallback();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  /// Link response handler
+  MACRO GotLinkSignalled()
+  {
+    RECORD rec := this->link->ReceiveMessage(DEFAULT DATETIME);
+
+    // Other side is gone is a good result
+    IF (rec.status = "gone")
+      this->tolliumresult := "ok";
+    ELSE IF (rec.status != "timeout")
+    {
+      // [ success := FALSE ] means the request is denied (manually or by granting other user access)
+      IF (NOT rec.msg.success)
+        this->tolliumresult := "denied";
+      else
+        this->tolliumresult := "ok";
+    }
+
+    // Unload immediately when we've got result
+    IF (this->tolliumresult != "")
+      this->OnUnload();
+  }
+
+  // Timer callback (allow direct call!)
+  MACRO GotTimerCallback()
+  {
+    this->timer_cb := 0;
+
+    // Get nr of msecs to wait
+    DATETIME now := GetCurrentDateTime();
+    INTEGER diff := GetDateTimeDifference(now, this->deadline).msecs;
+    IF (diff <= 0)
+      diff := 0;
+
+    // Round msecs up to number of of seconds (29001 msecs -> 30 secs)
+    INTEGER seconds := (diff + 999) / 1000;
+    this->waitforreplytext->value := this->GetTid(".waitforreplytext", this->extuserdata.login, this->extuserdata.realname, ToString(seconds));
+
+    // Schedule update at the next x001 msecs mark (callbacks are never early, so this is a relatively stable computation
+    // max 1 invocation per second, a few msecs after the nr of seconds changes
+    IF (diff != 0)
+      RegisterTimedCallback(AddTimeToDate((diff % 1000) + 1, now), PTR this->GotTimerCallback);
+  }
+
+  MACRO OnUnload()
+  {
+    IF (this->cb != 0)
+      UnregisterCallback(this->cb);
+    IF (this->timer_cb != 0)
+      UnregisterCallback(this->timer_cb);
+    this->cb := 0;
+    this->timer_cb := 0;
+  }
+>;

@@ -1,0 +1,54 @@
+<?wh
+LOADLIB "wh::internal/testfuncs.whlib";
+
+MACRO TestStructureTest()
+{
+  RECORD x := [ a := "A", b := "B", c := "test" ];
+  RECORD y := [ a := "bla", b := "test" ];
+  RECORD z := [ a := "test", b := "A", c := "B" ];
+  RECORD t := [ a := "bla", b := 1, c := "bla" ];
+
+  TestEqStructure(x, x);/// No problem: Exactly the same record (obviously)
+  TestThrowsTestException(PTR TestEqStructure(x, y));/// Throws, as the structure differs
+
+  TestEqStructure(x, z);/// No problem: Data differs, structure is equal.
+  TestThrowsTestException(PTR TestEqStructure(x, t));/// Throws: Cell 'B' is of wrong type
+  TestEqStructure([ x ], [ x, z ]);/// No problem: Structue is equal
+  TestThrowsTestException(PTR TestEqStructure([ x, z ], [ x, y ]));/// Throws: Structure is different
+  TestThrowsTestException(PTR TestEqStructure([ x, t ], [ x, t ]));/// Throws: Structure differs within the array, but the ordering is correct
+  TestThrowsTestException(PTR TestEqStructure([ x, t ], [ t, x ]));/// Throws: Type is different
+
+  TestEqStructure([ 1 ], [ 1, 2 ]);/// No problem: Same structure
+
+  TestEqStructure(DEFAULT INTEGER ARRAY, DEFAULT INTEGER ARRAY);/// No problem: both empty arrays
+  TestEqStructure(DEFAULT INTEGER ARRAY, [1]); //if you define an array as empty, it must remain so
+
+  TestThrowsTestException(PTR TestEqStructure([ 1, 2 ], [ "1", "2" ]));/// Throws: Type differs
+
+                              TestEqStructure([ a := [ b := [ c := x ] ] ], [ a := [ b := [ c := x ] ] ]);
+  TestThrowsTestException(PTR TestEqStructure([ a := [ b := [ c := x ] ] ], [ a := [ b := [ c := y ] ] ]));
+                              TestEqStructure([ a := [ b := [ c := x ] ] ], [ a := [ b := [ c := z ] ] ]);
+  TestThrowsTestException(PTR TestEqStructure([ a := [ b := [ c := x ] ] ], [ a := [ b := [ c := t ] ] ]));
+
+                              TestEqStructure([ a := [[ b := [ x ] ]] ], [ a := [[ b := [ x ] ]] ]) ;
+                              TestEqStructure([ a := [[ b := [ x ] ]] ], [ a := [[ b := [ x, z ] ]] ]) ;
+  TestThrowsTestException(PTR TestEqStructure([ a := [[ b := [ x ] ]] ], [ a := [[ b := [ x, y ] ]] ]) );
+  TestThrowsTestException(PTR TestEqStructure([ a := [[ b := [ x ] ]] ], [ a := [[ b := [ x, t ] ]] ]) );
+
+  TestThrows(PTR TestEqMembers(x, x, "*,a"));
+  TestThrows(PTR TestEqMembers(x, x, "*,a,-b"));
+  TestThrows(PTR TestEqMembers(x, x, "-a,*"));
+  TestEqMembers(x, x, "a,nonexistant");
+  TestEqMembers(x, CellDelete(x,"a"), "b,nonexistant");
+  TestEqMembers(x, CellUpdate(x,"a","A!"), "b,nonexistant");
+  TestThrowsTestException(PTR TestEqMembers(x, CellDelete(x,"a"), "a,nonexistant"));
+  TestThrowsTestException(PTR TestEqMembers(x, CellUpdate(x,"a","A!"), "a,nonexistant"));
+
+  TestEqMembers([m1:=1,m2:=1],[m1:=1,m2:=1],"*");
+  TestThrowsTestException(PTR TestEqMembers([m1:=1,m2:=1],[m1:=1,m2:=2],"*")); //m2 differs
+  TestEqMembers([m1:=1,m2:=1],[m1:=1,m2:=2],"*,-m2"); //m2 differs but is ignored
+}
+
+PRINT("\n === Running TestsTests\n");
+TestStructureTest();
+

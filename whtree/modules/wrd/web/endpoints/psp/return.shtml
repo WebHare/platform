@@ -1,0 +1,35 @@
+<?wh
+/* This is a generic PSP returnpage. It will recheck the payment status
+   if we're still pending or failed (FIXME flood control!)
+
+   The 'notification' parameter is simply the encrypted 'pi' */
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
+
+OBJECT trans := OpenPrimary();
+RECORD data := ReinstantiatePayment(GetWebVariable("pi"));
+BOOLEAN isnotification := DecryptForThisServer("wrd:payments.isnotification", GetWebVariable("notification"), [fallback := "" ]) = GetWebVariable("pi");
+STRING currentstatus := data.payment->status;
+IF(currentstatus IN [ "pending", "failed" ])
+{
+  //TODO if this is not a notification but we recently got a notification, no need to recheck with the provider
+  IF(NOT data.payment->ProcessReturnURL(GetRequestURL()))
+    THROW NEW Exception("Unable to process the return url");
+  IF(data.payment->status = "pending" AND currentstatus != "pending")
+    THROW NEW Exception("Not permitting a final status to go back to 'pending'"); //it can cause completion handlers to re-execute unnecessarily
+
+  trans->BeginLockedWork("wrd:payments.payment:" || data.paymententity->id);
+  ProcessCompletedPayment(data.payment->paymenthandler, data.paymentattr.tag, data.payment, data.paymententity, FALSE);
+  trans->CommitWork();
+}
+IF(isnotification)
+  RETURN; //no need to redirect
+
+IF(data.returnurl="")
+  THROW NEW Exception("No returnurl specified!");
+Redirect(data.returnurl);

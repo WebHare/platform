@@ -1,0 +1,17 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+PUBLIC OBJECT FUNCTION OpenTestsuiteSite()
+{
+  RETURN OpenSiteByName("WebHare testsuite site");
+}
+PUBLIC OBJECT FUNCTION GetTestsuiteTempFolder()
+{
+  RETURN OpenSiteByName("WebHare testsuite site")->OpenByPath("tmp");
+}
+
+PUBLIC OBJECT FUNCTION OpenTestsuiteAltSite()
+{
+  RETURN OpenSiteByName("WebHare testsuite site - alt host");
+}

@@ -1,0 +1,84 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+
+OBJECT plugin;
+OBJECT myschema;
+OBJECT trans := OpenPrimary();
+myschema := OpenTestsuiteWRDSchema();
+IF(NOT ObjectExists(myschema))
+  THROW NEW Exception("No test schema");
+
+BOOLEAN hasdomaintype := ObjectExists(myschema->GetType("WRD_AUTHDOMAIN"));
+IF(hasdomaintype)
+  plugin := GetWRDAuthPlugin(OpenTestsuiteSite()->webroot || "portal1/");
+ELSE //domainless test
+  plugin := GetWRDAuthPlugin(OpenTestsuiteSite()->webroot || "portal1-domainless/");
+
+plugin->wrdauth->persistentcookie := GetWebVariable("persistent") = "1";
+plugin->wrdauth->debug := TRUE;
+
+RECORD FUNCTION GetStatus()
+{
+  BOOLEAN isloggedin := plugin->IsLoggedIn();
+  IF(isloggedin != plugin->IsLoggedIn())
+    THROW NEW Exception("IsLoggedIn is inconsistent!"); //This was triggered by deleting a user when a sessioncookie still points to him, caused by this->sessiondata not being cleared
+
+  RETURN [ isloggedin := isloggedin
+         , loginname := plugin->wrdauth->loginname
+         , entityid := plugin->GetLoggedinEntity()
+         ];
+}
+
+RECORD FUNCTION ProcessReq()
+{
+  SWITCH(GetWebVariable("action"))
+  {
+    CASE "login"
+    {
+      RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"));
+      RETURN res;
+    }
+    CASE "loginid"
+    {
+      RECORD res := plugin->LoginById(ToInteger(GetWebVariable("userid"), 0), GetWebVariable("impersonation") = "1");
+      RETURN res;
+    }
+    CASE "logout-checkstatus"
+    {
+      RECORD oldstatus := GetStatus();
+      plugin->wrdauth->Logout();
+
+      RECORD res := CELL[...GetStatus(), oldstatus];
+      RETURN res;
+    }
+    CASE "requirelogin"
+    {
+      OBJECT user := GetTestsuiteWRDauthPlugin()->RequireExternalLoggedinUser();
+      RETURN [ login := user->login ];
+    }
+    CASE "checkstatus"
+    {
+      RECORD res := GetStatus();
+      RETURN res;
+    }
+    CASE "checkstatus-work"
+    {
+      trans->BeginWork();
+      RECORD res := GetStatus();
+      trans->RollbackWork();
+      RETURN res;
+    }
+  }
+  THROW NEW Exception("Unrecognized function '" || GetwebVariable('action') || "'");
+}
+
+RECORD res := ProcessReq();
+AddHTTPHeader("Content-Type","application/x-hson",FALSE);
+Print(EncodeHSON(res));

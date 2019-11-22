@@ -1,0 +1,501 @@
+﻿<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::system/lib/commonxml.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+// 50 is the max vimeo will return per page
+INTEGER resultsperpage := 25;
+
+INTEGER description_maxchars := 125;
+INTEGER description_maxlines := 3; // ADDME: not implemented truncating at X lines yet
+
+// 320 x 180
+// 240 x 135
+// 160 x  90
+INTEGER videoimage_width := 240;
+INTEGER videoimage_height := 135;
+RECORD resizespecs := [ search_thumb := [ method := "fill", setwidth := videoimage_width, setheight := videoimage_height ]
+                      ];
+
+INTEGER thumb_right_margin := 10;
+
+
+
+PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD pvt_value;
+  STRING pvt_src;
+  BOOLEAN initialvalueset;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC STRING ARRAY limitnetworks;
+  PUBLIC PROPERTY value(pvt_value, SetValue);
+  UPDATE PUBLIC PROPERTY title(this->thumbnail->title, this->thumbnail->title);
+  UPDATE PUBLIC PROPERTY width(this->thumbnail->width, this->thumbnail->width);
+  UPDATE PUBLIC PROPERTY height(this->thumbnail->height, this->thumbnail->height);
+  UPDATE PUBLIC PROPERTY hint(this->thumbnail->hint, this->thumbnail->hint);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+    EXTEND this BY TolliumDownloadKeeper;
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+
+    this->title := def.title;
+    this->required := def.required;
+    this->errorlabel := def.errorlabel;
+    this->limitnetworks := ParseXSList(def.limitnetworks);
+
+/*
+    this->SetReadonly(def.readonly);
+*/
+    this->SetEnabled(def.enabled);
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    IF (this->width = "" AND this->height = "")
+    {
+      this->width := "320px";
+      this->height := "180px";
+    }
+    this->UpdateButtonState();
+  }
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel!="" ? this->errorlabel : this->title;
+
+    IF(this->required AND NOT RecordExists(this->value))
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  UPDATE PUBLIC MACRO SetEnabled(BOOLEAN enable)
+  {
+    TolliumFragmentBase::SetEnabled(enable);
+    this->UpdateButtonState();
+  }
+
+  MACRO SetValue(RECORD value)
+  {
+    this->pvt_value := value;
+    IF (RecordExists(this->pvt_value))
+    {
+      this->videotype->SetImageSrc("tollium:social_media/" || this->pvt_value.network);
+      this->videotype->visible := TRUE;
+      this->videotitle->value := this->pvt_value.title;
+      this->duration->value := (this->pvt_value.duration / 60) || ":" || Right("0" || (this->pvt_value.duration % 60), 2);
+    }
+    ELSE
+    {
+      this->videotype->value := DEFAULT RECORD;
+      this->videotype->visible := FALSE;
+      this->videotitle->value := GetTid("publisher:components.embedvideo.no_video");
+      this->duration->value := "";
+    }
+
+    IF (RecordExists(this->pvt_value) AND RecordExists(this->pvt_value.thumbnail))
+    {
+      this->pvt_src := this->AddInlineDownload(this->pvt_value.thumbnail.data, this->pvt_value.thumbnail.mimetype, this->pvt_value.thumbnail.filename);
+
+      // The fit|width|height value is a special value that is interpreted by the panel/inline component JavaScript code
+      this->thumbnail->backgroundimages := [ [ src := this->pvt_src
+                                             , repeat := "no-repeat", size := "fit|" || this->pvt_value.thumbnail.width || "|" || this->pvt_value.thumbnail.height
+                                             ]
+                                           ];
+    }
+    ELSE
+    {
+      this->RemoveDownload(this->pvt_src);
+      this->pvt_src := "";
+
+      this->thumbnail->backgroundimages := DEFAULT RECORD ARRAY;
+    }
+
+    this->UpdateButtonState();
+    IF (this->initialvalueset)
+      this->SetDirty();
+    ELSE
+      this->initialvalueset := TRUE;
+  }
+
+/*
+  UPDATE MACRO SetReadonly(BOOLEAN readonly)
+  {
+    this->pvt_readonly := readonly;
+    this->textedit->enabled := NOT readonly;
+    this->replace->visible := NOT readonly;
+    this->remove->visible := NOT readonly;
+    this->preview->visible := NOT readonly;
+  }
+*/
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoEdit()
+  {
+    OBJECT dlg := this->owner->LoadScreen("publisher:components/embedvideo.searchvideo", [ value := this->value, limitnetworks := this->limitnetworks ]);
+    IF (dlg->RunModal() = "ok")
+      this->value := dlg->selectedvideo;
+  }
+
+  MACRO DoClear()
+  {
+    this->value := DEFAULT RECORD;
+  }
+
+  MACRO DoPreview()
+  {
+    OBJECT dlg := this->owner->LoadScreen("publisher:components/embedvideo.playvideo", [ video := this->value ]);
+    dlg->RunModal();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // Set button titles and enabled states (after value has changed)
+  MACRO UpdateButtonState()
+  {
+    this->act_search->enabled := NOT this->readonly;
+    this->searchbutton->visible := this->enabled AND this->act_search->enabled;
+
+    IF (RecordExists(this->value))
+    {
+      this->preview->enabled := TRUE;
+      this->clear->enabled := NOT this->readonly;
+
+      this->previewbutton->visible := this->enabled;
+      this->clearbutton->visible := this->enabled AND this->clear->enabled;
+    }
+    ELSE
+    {
+      this->preview->enabled := FALSE;
+      this->clear->enabled := FALSE;
+
+      this->previewbutton->visible := FALSE;
+      this->clearbutton->visible := FALSE;
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE EmbedVideoObject EXTEND TolliumFragmentBase
+<
+  UPDATE PUBLIC PROPERTY value(this->video->value, this->video->value);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+>;
+
+PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
+<
+  PUBLIC RECORD selectedvideo;
+  PUBLIC OBJECT wittylib;
+  RECORD ARRAY foundmovies;
+
+  MACRO Init(RECORD data)
+  {
+    RECORD ARRAY providers := GetVideoEmbedProviders();
+    IF(Length(data.limitnetworks) > 0)
+      providers := SELECT * FROM providers WHERE MatchCommonXMLWildcardMasks(name, data.limitnetworks);
+
+    this->network->options := SELECT rowkey := name, title := GetTid(tid) FROM providers;
+
+    this->frame->flags.movieselected := FALSE;
+
+    RECORD pagedata := [ searchfirst := TRUE
+                       , searchtext  := this->GetTid(".searchfirst")
+                       , toddresourcebase := this->tolliumcontroller->baseurl
+                       ];
+
+    this->selectedvideo := data.value;
+    IF(RecordExists(data.value) AND this->network->IsValidValue(data.value.network))
+    {
+      this->network->value := data.value.network;
+      this->movietext->value := data.value.videoid;
+      this->DoSearch();
+    }
+  }
+
+  MACRO OnNetworkChange()
+  {
+    IF(this->network->value="youku" AND ToUppercase(this->movietext->value) IN ["BEAGLE","BEAGLES"])
+    {
+      this->movietext->value := "小猎犬";
+    }
+    ELSE IF(this->network->value!="youku" AND this->movietext->value = "小猎犬")
+    {
+      this->movietext->value := "Beagle";
+    }
+  }
+
+  MACRO DoSearch()
+  {
+    this->infotextpanel->visible := FALSE;
+
+    RECORD tryguess := GuessEmbeddedVideoFromCode(this->movietext->value);
+    IF(RecordExists(tryguess) AND this->network->IsValidValue(tryguess.network))
+    {
+      this->network->value := tryguess.network;
+      this->SearchFor(tryguess.videoid);
+    }
+    ELSE
+    {
+      this->SearchFor(this->movietext->value);
+    }
+  }
+  MACRO SearchFor(STRING text)
+  {
+    RECORD ARRAY results;
+    TRY
+    {
+      results := GetVideoEmbedProvider(this->network->value)->Search(text, resultsperpage+1);
+    }
+    CATCH(OBJECT e)
+    {
+      this->RunMessageBox("publisher:components/embedvideo.searchunavailable", e->what);
+      RETURN;
+    }
+
+    results :=
+        SELECT *
+             , video := [ network := this->network->value, videoid := videoid ]
+             , thumbnail := RecordExists(thumbnail) ? thumbnail.url : ""
+             , creationdate
+          FROM results;
+
+    this->foundmovies := results;
+
+    IF(Length(this->foundmovies) = 0)
+    {
+      this->errorimage->SetImageSrc("tollium:status/error");
+      this->errortext->value := this->GetTid(".error_noresults");
+    }
+    ELSE IF(Length(this->foundmovies) >= resultsperpage)
+    {
+      this->errorimage->SetImageSrc("tollium:status/warning");
+      this->errortext->value := this->GetTid(".error_maxresults", ToString(resultsperpage));
+    }
+    ELSE
+    {
+      this->errortext->value := "";
+    }
+
+    this->errortextpanel->visible := this->errortext->value != "";
+
+    /* Search results table, 1 column:
+
+       *--------------------------------------------------------------*
+       | *------------*---------------------------------------------* | <=== selectable table col
+       | |            |                                             | |
+       | |   video    |                video description            | |
+       | |            |                                             | |
+       | *------------*---------------------------------------------* |
+       *--------------------------------------------------------------*
+       *--------------------------------------------------------------*
+       | *------------*---------------------------------------------* | <=== selectable table col
+       | |            |                                             | |
+       | |   video    |                video description            | |
+       | |            |                                             | |
+       | *------------*---------------------------------------------* |
+       *--------------------------------------------------------------*
+    */
+
+    STRING label_duration := this->GetTid(".duration");
+    STRING label_description := this->GetTid(".description");
+    STRING label_creationdate := this->GetTid(".creationdate");
+    STRING label_preview := this->GetTid(".openinwindow");
+
+    this->searchresults->SetupTable([INTEGER(Length(this->foundmovies))],[1]);
+    FOREVERY (RECORD movie FROM ArraySlice(this->foundmovies, 0, resultsperpage))
+    {
+      // Create a new table: 1 row, 2 columns
+      OBJECT videotable := this->CreateTolliumComponent("table");
+      videotable->SetupTable([1],[2]);
+      //videotable->SetColWidth(0, "150px"); // img is 120px
+      videotable->SetColWidth(0, (videoimage_width + thumb_right_margin) || "px"); // 16x9 preview for YouTube (mqdefault) is 320x180... vimeo..
+      videotable->SetColWidth(1, "1pr");
+
+      // First column: movie image
+      OBJECT moviecol := videotable->GetCell(0,0);
+      IF(movie.thumbnail != "")
+      {
+        OBJECT image := this->CreateTolliumComponent("image");
+        image->SetSrc(movie.thumbnail, videoimage_width, videoimage_height);
+        image->width := ToString(videoimage_width) || "px";
+        image->height := ToString(videoimage_height) || "px";
+        image->objectfit := "scale-down";
+        moviecol->panel->InsertComponentAfter(image, DEFAULT OBJECT, TRUE);
+      }
+
+      // Second column: video description: title, duration, description, creationdate, preview link
+      OBJECT descrcol := videotable->GetCell(0,1);
+
+      OBJECT descriptionpanel := this->CreateTolliumComponent("panel");
+
+      OBJECT titlepanel := this->CreateTolliumComponent("panel");
+      titlepanel->layout := "left";
+      OBJECT title := this->CreateTolliumComponent("text");
+      title->value := movie.title;
+      title->bold := TRUE;
+      titlepanel->InsertComponentAfter(title, DEFAULT OBJECT, TRUE);
+      descriptionpanel->InsertComponentAfter(titlepanel, DEFAULT OBJECT, TRUE);
+
+
+      OBJECT duration ;
+      IF(movie.duration > 0)
+      {
+        duration := this->CreateTolliumComponent("text");
+        duration->value := ToString((movie.duration / 60)) || ":" || Right("0" || ToString((movie.duration%60)), 2);
+        duration->title := label_duration;
+        descriptionpanel->InsertComponentAfter(duration, titlepanel, TRUE);
+      }
+
+      OBJECT description := this->CreateTolliumComponent("text");
+      description->wordwrap := TRUE;
+      description->value := UCTruncate(movie.description, description_maxchars);
+
+      description->title := label_description;
+      descriptionpanel->InsertComponentAfter(description, duration ?? titlepanel, TRUE);
+
+      OBJECT creationdate := this->CreateTolliumComponent("text");
+      creationdate->value := this->tolliumuser->FormatDateTime(movie.creationdate, "minutes", TRUE, FALSE);
+      creationdate->title := label_creationdate;
+      descriptionpanel->InsertComponentAfter(creationdate, description, TRUE);
+
+      OBJECT previewpanel := this->CreateTolliumComponent("panel");
+      previewpanel->layout := "left";
+
+      OBJECT preview := this->CreateTolliumComponent("text");
+      preview->value := label_preview;
+      preview->action := this->preview;
+      previewpanel->InsertComponentAfter(preview, DEFAULT OBJECT, TRUE);
+
+      OBJECT previewimage := this->CreateTolliumComponent("image");
+      previewimage->width := "16px";
+      previewimage->height := "16px";
+      previewimage->SetImageSrc("google:pop_up");
+      previewimage->action := this->preview;
+      previewpanel->InsertComponentAfter(previewimage, preview, FALSE);
+
+      descriptionpanel->InsertComponentAfter(previewpanel, creationdate, TRUE);
+
+      descrcol->panel->InsertComponentAfter(descriptionpanel, DEFAULT OBJECT, TRUE);
+
+      // Add the video table to the main table
+      this->searchresults->GetCell(#movie, 0)->panel->InsertComponentAfter(videotable, DEFAULT OBJECT, TRUE);
+    }
+    IF(Length(this->foundmovies) > 0)
+      this->searchresults->selection := this->searchresults->GetCell(0, 0);
+  }
+
+  MACRO DoClear()
+  {
+    this->movietext->value := "";
+    this->errortextpanel->visible := FALSE;
+    this->infotextpanel->visible := TRUE;
+    this->searchresults->SetupTable(DEFAULT INTEGER ARRAY, DEFAULT INTEGER ARRAY);
+    this->frame->focused := this->searchresults;
+  }
+
+  MACRO DoPreview()
+  {
+    RECORD video := this->GetSelectedMovie();
+    IF (RecordExists(video))
+    {
+      OBJECT dlg := this->LoadScreen(".playvideo", [ video := video.video ]);
+      dlg->RunModal();
+    }
+  }
+
+  RECORD FUNCTION GetSelectedMovie()
+  {
+    OBJECT selectedcell := this->searchresults->selection;
+    IF (ObjectExists(selectedcell))
+    {
+      INTEGER moviepos := selectedcell->row;
+      IF (Length(this->foundmovies) >= moviepos+1)
+        RETURN this->foundmovies[moviepos];
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO DoSubmit()
+  {
+    IF(this->submit())
+      this->tolliumresult := "ok";
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RECORD video := this->GetSelectedMovie();
+    IF (NOT RecordExists(video))
+    {
+      this->RunMessageBox(".novideoselected");
+      RETURN FALSE;
+    }
+
+    this->selectedvideo := MakeVideoEmbedInstance(video.video.network, video.video.videoid);
+    RETURN TRUE;
+  }
+>;
+
+// FIXME: check which options we can pass
+PUBLIC OBJECTTYPE PlayVideo EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    //this->movieplayer->width  := "486px";
+    //this->movieplayer->height := "313px";
+    this->movieplayer->src := GetVideoEmbedProvider(data.video.network)->GetIFramePlayerURL(data.video.videoid);
+  }
+>;
+
+PUBLIC RECORD FUNCTION EditEmbeddedVideoInstance(OBJECT parent, RECORD currentinstance)
+{
+  OBJECT dlg := parent->LoadScreen("publisher:components/embedvideo.searchvideo", [ value := currentinstance, limitnetworks := STRING[] ]);
+  RETURN dlg->RunModal() = "ok" ? dlg->selectedvideo : DEFAULT RECORD;
+}

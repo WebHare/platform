@@ -1,0 +1,21 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/embeddededitor.whlib"
+         gid="embeddededitor">
+
+  <messageboxes>
+    <messagebox name="noembeddedconfigured" buttons="ok" />
+  </messageboxes>
+
+  <screen name="editor" title="" allowresize="1" savestate="true" minwidth="700px" minheight="400px">
+    <compositions>
+      <record name="objectdata" />
+    </compositions>
+    <body spacers="none">
+      <tabs name="edittabs" height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+</screens>

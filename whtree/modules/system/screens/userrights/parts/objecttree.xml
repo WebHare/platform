@@ -1,0 +1,35 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components">
+
+  <!-- objectttree -->
+  <fragment name="objecttree" lib="screens/userrights/parts/objecttree.whlib" gid="userrights.objecttree">
+    <actions gid="userrights.actions">
+      <action name="grantrightonobject" onexecute="dograntrightonobject" ellipsis="true">
+        <enableon source="objectlist" min="1" max="1" checkflags="cangrantany" />
+      </action>
+      <action name="exportobjectrights" onexecute="doexportobjectrights">
+        <enableon source="objectlist" min="1" max="1" checkflags="!isglobal" />
+      </action>
+      <action name="reload" onexecute="doreload" />
+    </actions>
+    <menus>
+      <menu name="selectcontextmenu">
+        <item action="grantrightonobject" />
+        <item action="reload" />
+      </menu>
+      <menu name="newcontextmenu">
+        <item action="reload" />
+      </menu>
+    </menus>
+    <contents>
+      <system:rightobjecttree
+          name="objectlist"
+          onselect="onselecthandler"
+          onextendchildren="onextendobjecttreechildren"
+          selectcontextmenu="selectcontextmenu"
+          flags="cangrantany isglobal"
+          width="1pr" />
+    </contents>
+  </fragment>
+</screens>

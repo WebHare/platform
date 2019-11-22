@@ -1,0 +1,341 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/internal/xpath.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+
+LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
+LOADLIB "mod::system/lib/internal/validation/extracttids.whlib";
+LOADLIB "mod::system/lib/internal/validation/support.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
+
+
+RECORD ARRAY schemata;
+
+RECORD ARRAY FUNCTION GetXMLValidators()
+{
+  OBJECT resolver := NEW IndependentXPathNSResolver;
+  resolver->AddNS("m", "http://www.webhare.net/xmlns/system/moduledefinition");
+
+  RECORD ARRAY xmlfiletypes;
+  FOREVERY (STRING module FROM GetInstalledModuleNames())
+  {
+    OBJECT doc;
+    TRY
+      doc := GetModuleDefinitionXML(module);
+    CATCH
+      CONTINUE;
+    IF(NOT ObjectExists(doc))
+      CONTINUE;
+
+    OBJECT ARRAY xmltypes := doc->GetEvaluatedElements(resolver, "/m:module/m:validation/m:xmlfiletype");
+    FOREVERY (OBJECT node FROM xmltypes)
+    {
+      RECORD filetype := [ module :=         module
+                         , rootnodes :=      ParseXSList(node->GetAttribute("rootnodes"))
+                         , namespaceuri :=   node->GetAttribute("namespaceuri")
+                         , schemalocation := MakeAbsoluteResourcePath("mod::"||module||"/", node->GetAttribute("schemalocation"))
+                         , validator :=      MakeAbsoluteResourcePath("mod::"||module||"/", node->GetAttribute("validator"))
+                         ];
+
+      IF(filetype.validator = "" AND node->GetAttribute("objectname") != "")
+        filetype.validator := MakeAbsoluteResourcePath("mod::"||module||"/", node->GetAttribute("library") || "#" || node->GetAttribute("objectname"));
+
+      INSERT filetype INTO xmlfiletypes AT END;
+    }
+  }
+  RETURN xmlfiletypes;
+}
+
+PUBLIC OBJECTTYPE LegacyTestInfoValidator EXTEND ResourceValidationBase
+<
+  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  {
+    RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
+    INSERT [ line := 0, col := 0, resourcename := resourcename, message := `You should add xmlns="http://www.webhare.net/xmlns/system/testinfo" to the root node of the tests `] INTO result.warnings AT END;
+    RETURN result;
+  }
+>;
+
+PUBLIC OBJECTTYPE TestInfoValidator EXTEND ResourceValidationBase
+<
+  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  {
+    RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
+    IF(NOT tidsonly)
+    {
+      RECORD ARRAY unreferred := SELECT *
+                                   FROM ReadWebHareResourceFolder(GetDirectoryFromPath(resourcename))
+                                  WHERE name != GetNameFromPath(resourcename)
+                                        AND name != "testdata"
+                                        AND name != "data"
+                              ORDER BY ToUppercase(name);
+
+      FOREVERY(STRING toignore FROM ParseXSList(doc->documentelement->GetAttribute("ignoremasks")))
+        DELETE FROM unreferred WHERE ToUppercase(name) LIKE ToUppercase(toignore);
+
+      /* Quick and dirty filename gathering. It would be nicer if a real parser existed for testfiles, but runtest.whlib just
+         enumaretes nodes directly without parsing first (and we probably want to ignore Applicalbe anyway) */
+      FOREVERY(OBJECT checknode FROM doc->GetElements("test[script]"))
+        DELETE FROM unreferred WHERE name = checknode->GetAttribute("script");
+      FOREVERY(OBJECT checknode FROM doc->GetElements("jstest[file],mochanodetest[file]"))
+        DELETE FROM unreferred WHERE name = checknode->GetAttribute("file");
+
+      FOREVERY(OBJECT checknode FROM doc->GetElements("test[path]"))
+      {
+        STRING strippath := checknode->GetAttribute("path");
+        IF(strippath LIKE "?*/")
+        {
+          strippath := Left(strippath, Length(strippath)-1); //delete trailing slash
+          DELETE FROM unreferred WHERE name = strippath;
+        }
+      }
+
+      FOREVERY(RECORD entry FROM unreferred)
+        INSERT CELL[ line := 0, col := 0, resourcename, message := `Directory entry '${entry.name}' not referred in tests and not on ignoremasks list` ] INTO result.warnings AT END;
+    }
+    RETURN result;
+  }
+>;
+
+PUBLIC OBJECTTYPE XSDValidator EXTEND ResourceValidationBase
+<
+  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  {
+    RECORD baseresult := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
+    STRING module := GetModuleNameFromResourcePath(resourcename);
+
+    //ADDME generalize?
+    IF(doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formcomponent")->length > 0
+       OR doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formhandler")->length > 0)
+    {
+      RECORD res := ParseFormDefComponents(resourcename, doc);
+      baseresult.errors := baseresult.errors CONCAT res.errors;
+      baseresult.warnings := baseresult.warnings CONCAT res.warnings;
+    }
+    IF(doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "tolliumcomponent")->length > 0)
+    {
+      RECORD res := ParseComponentsXSD(resourcename, doc, RECORD[]);
+      baseresult.errors := baseresult.errors CONCAT res.errors;
+    }
+    RETURN baseresult;
+  }
+>;
+
+BOOLEAN FUNCTION CaptureOtherTids(STRING modulename, OBJECT moduledeffile)
+{
+  GetModuleDashboardInfo(modulename, moduledeffile);
+  GetAppGroups(modulename, moduledeffile);
+  GetWHFSRegisterSlots(modulename, moduledeffile);
+  RETURN TRUE;
+}
+
+RECORD FUNCTION GetWebruleMessage(RECORD rule, STRING message)
+{
+  INTEGER lastcolon := SearchLastSubstring(rule.source,':');
+  RETURN CELL[ line := ToInteger(Substring(rule.source, lastcolon+1), 0), col := 0, resourcename := Left(rule.source,lastcolon), message ];
+}
+RECORD FUNCTION ValidateWebRuleData(RECORD rule)
+{
+  RECORD retval := [ errors := RECORD[], warnings := RECORD[] ];
+  FOREVERY(RECORD datastore FROM rule.datastorage)
+  {
+    IF(NOT datastore.isfolder
+       AND IsAbsoluteResourcePath(datastore.resource)  //ignores __legacy and siteoutput:: paths
+       AND datastore.resource NOT LIKE "*[*" //ignores [modulename]
+       AND NOT RecordExists(RetrieveWebhareResource(datastore.resource, [ allowmissing := TRUE ])))
+    {
+      INSERT GetWebruleMessage(rule,`No such resource '${datastore.resource}'`) INTO retval.errors AT END;
+    }
+  }
+  RETURN retval;
+}
+
+MACRO CheckModuleWebservices(OBJECT validatingdoc)
+{
+  FOREVERY(OBJECT servicenode FROM validatingdoc->xml->ListElements("http://www.webhare.net/xmlns/system/moduledefinition", "services"))
+    FOREVERY(OBJECT webservice FROM servicenode->ListElements("http://www.webhare.net/xmlns/system/moduledefinition", "webservice"))
+    {
+      IF(webservice->GetAttribute("prefix") = "")
+        validatingdoc->AddWarning(webservice, `A webservice should define a prefix= to prevent accidental exports (eg prefix="RPC_")`);
+    }
+
+}
+
+PUBLIC OBJECTTYPE ModuleDefinitionValidator EXTEND ResourceValidationBase
+<
+  UPDATE PUBLIC RECORD FUNCTION Validate(OBJECT doc, STRING resourcename, OBJECT xsd)
+  {
+    RECORD result := ResourceValidationBase::Validate(doc, resourcename, xsd);
+
+    STRING modulename := GetModuleNameFromResourcePath(resourcename);
+    IF(modulename = "")
+      THROW NEW Exception(`Unable to determine the module name for moduledefinition ${resourcename}`);
+
+    OBJECT validatingdoc := NEW ValidatingXMLDocument(doc, resourcename);
+    OBJECT moddefparser := NEW ModuleDefParser(modulename);
+    RECORD md := moddefparser->ParseAndValidate(validatingdoc);
+
+    ListModuleWebruleSets(modulename, doc); //parse <webruleset> titles
+    ParseModuleDefRunonce(validatingdoc);
+    CheckModuleWebservices(validatingdoc);
+
+    FOREVERY(OBJECT dbschema FROM doc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema")->GetCurrentElements())
+    {
+      RECORD parsed := ParseWHDBSchemaSpec(modulename, dbschema);
+      FOREVERY (RECORD rec FROM parsed.msgs)
+        IF (rec.iserror)
+          validatingdoc->AddErrorForLine(rec.line, rec.text);
+        ELSE
+          validatingdoc->AddWarningForLine(rec.line, rec.text);
+    }
+
+    result.errors   := result.errors   CONCAT validatingdoc->errors;
+    result.warnings := result.warnings CONCAT validatingdoc->warnings;
+
+    FOREVERY(RECORD task FROM md.tasks)
+    {
+      IF(task.runtz NOT IN ["","maintenance"] AND GetCanonicalTimeZoneID(task.runtz) = "")
+        INSERT CELL[ resourcename, col := 0, line := task.line, message := `Invalid timezone '${task.runtz}'` ] INTO result.errors AT END;
+
+      IF(task.runat != "")
+      {
+        TRY GetNextCronTime(GetCurrentDatetime(), task.runat);
+        CATCH(OBJECT e) { INSERT CELL[ resourcename, col := 0, line := task.line, message := `Invalid runat '${task.runat}': '${e->what}` ] INTO result.errors AT END; }
+      }
+    }
+
+    FOREVERY(OBJECT nodewithrunmodel FROM doc->GetElements("*[runmodel]"))
+      INSERT CELL[ resourcename, col := 0, line := nodewithrunmodel->linenum, message := "The runmodel attribute has been deprecated and should be removed" ] INTO result.warnings AT END;
+
+    FOREVERY(OBJECT rulenode FROM doc->GetElements("webrule"))
+    {
+      //We don't currently have an easier way to parse rules..
+      RECORD baserule := GetBaseWebRule(-9999999, rulenode->GetAttribute("path"), ParseWebRulePriority(rulenode->GetAttribute("priority")), resourcename || ":" || rulenode->linenum);
+      RECORD parsed := ParseWebRuleData(modulename, baserule, rulenode, resourcename, [ forvalidation := TRUE ]);
+      result.errors   := result.errors   CONCAT parsed.errors;
+      result.warnings := result.warnings CONCAT parsed.warnings;
+      IF (RecordExists(parsed.rule))
+      {
+        RECORD validateres := ValidateWebRuleData(parsed.rule);
+        result.errors   := result.errors   CONCAT validateres.errors;
+        result.warnings := result.warnings CONCAT validateres.warnings;
+      }
+    }
+
+    RETURN result;
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION ExtractTidReferences(STRING resourcename, OBJECT doc)
+  {
+    STRING modulename := GetModuleNameFromResourcePath(GetResourceNameFromDiskPath(resourcename));
+    IF(modulename="")
+      THROW NEW Exception(`Unable to determine the module name for moduledefinition ${resourcename}`);
+
+    RECORD modinfo := RunAndExtractTids(resourcename, PTR ParseModuleDefinition(modulename, doc));
+
+    RECORD ARRAY tids := modinfo.tids
+                         CONCAT
+                         RunAndExtractTids(modulename, PTR CaptureOtherTids(modulename, doc)).tids;
+    RETURN tids;
+  }
+>;
+
+PUBLIC RECORD FUNCTION DetermineXMLFileValidationType(OBJECT doc, STRING name)
+{
+  IF (LENGTH(schemata) = 0)
+    schemata := GetXMLValidators();
+
+  RETURN SELECT *
+           FROM schemata
+          WHERE doc->documentelement->namespaceuri = namespaceuri
+                AND (doc->documentelement->localname ?? doc->documentelement->nodename) IN rootnodes;
+}
+
+PUBLIC RECORD FUNCTION RunXMLValidator(BLOB doc_blob, STRING resourcename, RECORD options)
+{
+  OBJECT doc := resourcename LIKE "*.xsd" ? MakeXMLSchema(doc_blob) : MakeXMLDocument(doc_blob);
+  RETURN RunXMLValidatorOnDOM(doc, resourcename, options);
+}
+
+PUBLIC RECORD FUNCTION RunXMLValidatorOnDOM(OBJECT doc, STRING resourcename, RECORD options)
+{
+  IF(Length(doc->GetParseErrors())>0)
+  {
+    RETURN [ errors := (SELECT message
+                             , resourcename :=  COLUMN filename ?? VAR resourcename
+                             , localname
+                             , namespaceuri
+                             , line
+                             , col :=       0
+                        FROM doc->GetParseErrors()) ];
+  }
+
+  RECORD srec := DetermineXMLFileValidationType(doc, resourcename);
+  IF(NOT RecordExists(srec))
+    RETURN DEFAULT RECORD; //can't validate anything else
+
+  RECORD schemarec;
+  RECORD ARRAY errors;
+  STRING ARRAY eventmasks;
+  IF(srec.schemalocation != "")
+  {
+    TRY
+    {
+      schemarec := __RetrieveCachedXMLSchema(srec.schemalocation);
+      eventmasks := GetResourceEventMasks(SELECT AS STRING ARRAY path FROM schemarec.files);
+    }
+    CATCH(OBJECT e)
+    {
+      //Blame XSD issues on the document element
+      INSERT [[ message := e->what, line := doc->documentelement->linenum, col := 0, resourcename := VAR resourcename ]] INTO errors AT END;
+    }
+  }
+
+  OBJECT validator := srec.validator != "" ? MakeObject(srec.validator) : NEW ResourceValidationBase;
+  IF(ObjectExists(validator) AND NOT validator EXTENDSFROM ResourceValidationBase)
+    THROW NEW Exception(`Validator '${srec.validator}' must derive from ResourceValidationBase`);
+
+  RECORD temp := RunAndExtractTids(resourcename, PTR validator->ProcessResource(doc, resourcename, RecordExists(schemarec) ? schemarec.doc : DEFAULT OBJECT, options.onlytids));
+  RECORD result := temp.returnvalue;
+  result.errors := errors CONCAT result.errors;
+  result.tids := result.tids CONCAT temp.tids;
+  result.tids := SELECT DISTINCT resourcename := VAR resourcename, line, col, attrname, tid FROM result.tids;
+  RETURN CELL[...result, eventmasks];
+}
+
+PUBLIC OBJECTTYPE TopicValidator EXTEND ResourceValidationBase
+<
+  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  {
+    RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
+    IF (NOT tidsonly AND ObjectExists(doc->documentelement))
+    {
+      STRING ARRAY docorder := ParseXSList(doc->documentelement->GetAttribute("docorder"));
+
+      RECORD ARRAY realdocs :=
+          SELECT name
+               , basename :=      GetBasenameFromPath(name)
+            FROM ReadWebHareResourceFolder(Left(resourcename, SearchLastSubString(resourcename, "/")))
+           WHERE name LIKE "*.md"
+             AND name != "intro.md";
+
+      STRING ARRAY missing := GetSortedSet(ArrayDelete(docorder, SELECT AS STRING ARRAY basename FROM realdocs));
+      STRING ARRAY notordered := SELECT AS STRING ARRAY DISTINCT basename FROM realdocs WHERE basename NOT IN docorder ORDER BY name;
+
+      IF (LENGTH(missing) != 0)
+        INSERT CELL[ resourcename, col := 0, line := doc->documentelement->linenum, message := `The following documents mentioned in docorder could not be found: ${Detokenize(missing, ", ")}` ] INTO result.warnings AT END;
+      IF (LENGTH(notordered) != 0)
+        INSERT CELL[ resourcename, col := 0, line := doc->documentelement->linenum, message := `The following documents are not mentioned in docorder: ${Detokenize(notordered, ", ")}` ] INTO result.warnings AT END;
+    }
+    RETURN result;
+  }
+>;

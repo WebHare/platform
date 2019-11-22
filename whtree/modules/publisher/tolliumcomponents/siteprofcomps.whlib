@@ -1,0 +1,53 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE SelectMailTemplate EXTEND TolliumFragmentBase
+<
+  //ensure this value exists
+  STRING ensurevalue;
+  RECORD ARRAY baseoptions;
+
+  PUBLIC PROPERTY value(this->applytemplate->value, SetValue);
+  PUBLIC PROPERTY options(this->applytemplate->options, -);
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD defs)
+  {
+    EXTEND this BY TolliumIsComposable;
+    TolliumFragmentBase::StaticInit(defs);
+    this->title := defs.title;
+    this->baseoptions := this->applytemplate->options;
+    this->RefreshOptions();
+  }
+  MACRO RefreshOptions()
+  {
+    RECORD ARRAY options;
+    IF(ObjectExists(this->owner->contexts->applytester))
+    {
+      RECORD ARRAY mailtemplates := this->owner->contexts->applytester->GetMailTemplates();
+      IF(Length(mailtemplates) > 0)
+      {
+        RECORD ARRAY temploptions := SELECT rowkey := path, title := GetTid(title) FROM mailtemplates;
+        IF(this->ensurevalue != "" AND NOT RecordExists(SELECT FROM temploptions WHERE rowkey = this->ensurevalue))
+          INSERT CELL[ rowkey := this->ensurevalue, title := this->ensurevalue ] INTO temploptions AT END;
+
+        options := SELECT * FROM temploptions ORDER BY ToUppercase(title);
+      }
+    }
+    this->applytemplate->options := this->baseoptions CONCAT options;
+  }
+
+  MACRO SetValue(STRING newval)
+  {
+    this->ensurevalue := newval;
+    this->RefreshOptions();
+    this->applytemplate->value := newval;
+  }
+
+  UPDATE MACRO SetTitle(STRING newtitle)
+  {
+    this->applytemplate->title := newtitle;
+  }
+>;

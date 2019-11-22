@@ -1,0 +1,37 @@
+<style>template {display:none;}</style>
+<h1>Template polyfill demo</h1>
+
+It will appear here:
+<div id="receiver"></div>
+<hr/>
+<template id="basetocopy">
+  <span class="contents">I am a template<template>and i live inside that template</template></span>
+</template>
+
+<div id="expansion">
+  <template>
+    <div class="expandednode">
+      expanded! <span class="date" data-template-set='{"textContent":"date","style":{"color":"coleure"}}'>none</span> <br/>
+    </div>
+  </template>
+</div>
+
+<div id="simpletemplateuse" data-template-set='{"innerHTML":"xxx"}'></div>
+
+<div id="listexpansion">
+</div>
+<div id="listexpansion2">
+</div>
+
+<template id="listexpansiontemplate">
+  <div data-template-iterate="items" data-template-set='{"dataset":{"yy":"yy"}}'><b data-template-if=" yo ">YO!</b><b data-template-if=" yo   title ">YO!</b><b data-template-if="yo nonexisting">YO!</b><span data-template-set='{"textContentBR":"title"}'></span>|</div>
+</template>
+<template id="listexpansiontemplate2">
+  <div data-template-repeat="items" data-template-set='{"dataset":{"yy":"yy"}}'><b data-template-if=" yo ">YO!</b><b data-template-if=" yo   title ">YO!</b><b data-template-if="yo nonexisting">YO!</b><span data-template-set='{"textContentBR":"title"}'></span>|</div>
+</template>
+
+<div id="testifholder"><template id="testif"><span data-template-if="yo">Yo is set</span><span data-template-if="notyo">Notyo is set</span><b data-template-set='{"textContent":"text"}'>next</b></template></div>
+
+<div id="testifnotholder"><template id="testifnot"><span data-template-if="!yo">Yo is not set</span><span data-template-if="!notyo">Notyo is not set</span><b data-template-set='{"textContent":"text"}'>next</b></template></div>
+
+<div id="testif2holder"><template id="testif2"><span data-template-if="yo" data-template-flatten>Yo is set</span><b data-template-set='{"textContent":"text"}' data-template-flatten>next</b><div data-template-iterate="go" data-template-flatten>Go!</div></template></div>

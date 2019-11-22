@@ -1,0 +1,253 @@
+import * as dompack from 'dompack';
+import * as test from './testframework.es';
+import * as richdebug from '@mod-tollium/web/ui/components/richeditor/internal/richdebug';
+import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
+import * as snapshots from '@mod-tollium/web/ui/components/richeditor/internal/snapshots';
+import * as diff from 'diff';
+
+
+export function getTextChild(node)
+{
+  while(node&&node.nodeType != 3)
+    node=node.firstChild;
+  return node;
+}
+
+export function RunIteratorOnRange2(win,range)
+{
+  var itr = new domlevel.RangeIterator2(range);
+  var list = [];
+
+  while (!itr.atEnd())
+  {
+    var name = itr.node.nodeType == 3 ? '#text: ' + itr.node.nodeValue : itr.node.nodeName.toLowerCase();
+    list.push(name);
+    itr.nextRecursive();
+  }
+
+  return list;
+}
+
+export function getRTESelection(win, rte)
+{
+  return rte.getSelectionRange().toDOMRange();
+}
+
+export function setRTESelection(win, rte, domrange)
+{
+  if(!domrange.endContainer)
+  {
+    domrange.endContainer = domrange.startContainer;
+    if(!domrange.endOffset)
+      domrange.endOffset = domrange.startOffset;
+  }
+  rte.selectRange(domlevel.Range.fromDOMRange(domrange));
+}
+
+export function getCompStyle(node, prop)
+{
+  return node.ownerDocument.defaultView.getComputedStyle(node).getPropertyValue(prop);
+}
+
+export function testEqHTMLEx(unused, expect, node, locators)
+{
+  var actual = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, locators || []).innerHTML;
+  test.eqHTML(expect, actual);
+}
+
+export function testEqSelHTMLEx(win, expect)
+{
+  testEqSelHTMLEx2(null, test.getWin().rte.getEditor(), expect);
+}
+
+export function testEqSelHTMLEx2(unused, rte, expect)
+{
+  var range = rte.getSelectionRange();
+  testEqHTMLEx(unused, expect, rte.getContentBodyNode(), [ range.start, range.end ]);
+}
+
+export function getHTML(node)
+{
+  let rte = rteGetForNode(node);
+  if(!rte)
+    throw new Error("Cannot find RTE for the node");
+
+  let range = rte.getEditor().getSelectionRange();
+  let result = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, [ range.start, range.end ]);
+  return result.nodeType == 3 ? result.textContent : result.outerHTML;
+}
+
+export function setRawStructuredContent(win, structuredhtml)
+{
+  setStructuredContent(win, structuredhtml, true);
+}
+
+// copied from richeditor/index.es, so we won't have to import the whole editor
+function rteGetForNode(node)
+{
+  for(;node;node=node.parentNode)
+    if(node.whRTD)
+      return node.whRTD;
+  return null;
+}
+
+export function setStructuredContent(win, structuredhtml, options)
+{
+  options = Object.assign({ raw: false, verify: true }, typeof options == "boolean" ? { raw: options } : options || {});
+  let rte=null;
+  if(win && win.rte)
+  {
+    rte=win.rte.getEditor();
+  }
+  else
+  {
+    let node = win.closest('.wh-rtd__editor');
+    if(!node)
+      throw new Error("Cannot find .wh-rtd__editor");
+    rte = rteGetForNode(node).getEditor();
+  }
+
+  if (options.raw)
+    rte.setContentsHTMLRaw(structuredhtml);
+  else
+    rte.setContentsHTML(structuredhtml);
+
+  var locators = richdebug.unstructureDom(win, rte.getContentBodyNode());
+  if (options.verify)
+    testEqHTMLEx(win, structuredhtml, rte.getContentBodyNode(), locators);
+
+  if (locators[0])
+  {
+    if (locators[1])
+      rte.selectRange(new domlevel.Range(locators[0], locators[1]));
+    else
+      rte.setCursorAtLocator(locators[0]);
+  }
+  else // Must set selection because of our unstructuredom manipulations
+    rte.setCursorAtLocator(new domlevel.Locator(rte.getContentBodyNode()));
+
+  return locators;
+}
+
+export function getRawHTMLTextArea(win)
+{
+  var ta = test.compByName('code').querySelector('textarea');
+  return ta;
+}
+
+export function getRawHTMLCode(win)
+{
+  var code = getRawHTMLTextArea(win).value;
+  code=code.split('\n').join('').split('</html>')[0]; //strip comments behind the </html>
+  return code;
+}
+
+export function getRTE(win,toddname)
+{
+  var comp = test.compByName(toddname);
+  if (!comp)
+    throw new Error("No such component with name '" + toddname + "'");
+  return comp.propTodd.rte;
+}
+
+export function getPreActionState(rte)
+{
+  let snapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
+  return { __snapshot: snapshot, __undopos: rte.undopos };
+}
+
+function getStack(message)
+{
+  try { throw new Error(message); } catch(e) { return e.stack; }
+}
+
+export async function testUndoRedo(rte, preactionstate, { stack } = {})
+{
+  //console.log(`testUndoRedo prestate`, "\n" + dumpSnapShot(preactionstate.__snapshot), preactionstate.__snapshot);
+  stack = stack || getStack(`trace`);
+
+  if (!rte.options.allowundo)
+    throw new Error(`Undo is not enabled in the RTE\n` + stack);
+
+  if (rte.undopos === preactionstate.__undopos)
+    throw new Error(`Expected an action that recorded an undo event\n` + stack);
+
+  let last = rte.undostack.length && rte.undostack[rte.undostack.length - 1];
+  if (!last.finished)
+    throw new Error(`Last undo item wasn't finished\n` + stack);
+
+  //console.log("wait for undo stack to update");
+  await test.sleep(1);
+
+  let currentsnapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
+  //console.log(`testUndoRedo current`, "\n" + dumpSnapShot(currentsnapshot));
+
+  //console.log('undo supported: ', document.queryCommandSupported("undo"), rte.undonode);
+  //rte.undonode.focus();
+  //await test.sleep(1);
+
+  test.getDoc().execCommand("undo");
+  //console.log("executed undo, waiting for effects");
+
+  await test.sleep(1);
+
+  //console.log(`testUndoRedo after undo`, "\n" + dumpSnapShot(currentsnapshot));
+
+  let undosnapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
+  if (!snapshots.snapshotsEqual(preactionstate.__snapshot, undosnapshot))
+  {
+    console.log(`State after undo doesn't match pre-action state.`);
+    console.log(`Expected:\n`, snapshots.dumpSnapShot(preactionstate.__snapshot));
+    console.log(`Got:\n` + snapshots.dumpSnapShot(undosnapshot));
+
+    let str = "diff:\n";
+    let colors = [];
+    for (const change of diff.diffChars(snapshots.dumpSnapShot(preactionstate.__snapshot), snapshots.dumpSnapShot(undosnapshot)))
+    {
+      str += `%c${change.value}`;
+      colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
+    }
+    console.log(str, ...colors);
+
+    throw new Error(`Undo failed\n` + stack);
+  }
+
+  //console.log('redo supported: ', document.queryCommandSupported("undo"));
+  test.getDoc().execCommand("redo");
+
+  await test.sleep(5);
+
+  //console.log(`testUndoRedo after redo`, "\n" + dumpSnapShot(currentsnapshot));
+
+  let redosnapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
+  if (!snapshots.snapshotsEqual(currentsnapshot, redosnapshot))
+  {
+    console.log(`State after redo doesn't match original state. Expected:`);
+    console.log(snapshots.dumpSnapShot(currentsnapshot), `Got:`);
+    console.log(snapshots.dumpSnapShot(redosnapshot));
+
+    let str = "diff: ";
+    let colors = [];
+    for (const change of diff.diffChars(snapshots.dumpSnapShot(currentsnapshot), snapshots.dumpSnapShot(redosnapshot)))
+    {
+      str += `%c${change.value}`;
+      colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
+    }
+    console.log(str, ...colors);
+
+    throw new Error(`Redo failed\n` + stack);
+  }
+}
+
+export async function runWithUndo(rte, func, options = {})
+{
+  let prestate = getPreActionState(rte);
+  let stack = getStack(`stack`);
+
+  await func();
+
+  if (options.waits)
+    await test.wait(options.waits);
+
+  await testUndoRedo(rte, prestate, { stack });
+}

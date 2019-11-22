@@ -1,0 +1,43 @@
+<?wh
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+PUBLIC OBJECTTYPE FormdefValidator EXTEND ResourceValidationBase
+<
+  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  {
+    RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
+    STRING modulename := GetModuleNameFromResourcePath(resourcename);
+    FOREVERY(OBJECT formnode FROM doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms","form")->GetCurrentElements())
+    {
+      STRING formname := formnode->GetAttribute("name");
+      RECORD res := ParseFormDef(formnode, formname, resourcename, formname, DEFAULT OBJECT, [ validatexmlonly := TRUE, accepterrors := TRUE ]);
+      result.errors := result.errors CONCAT res.errors;
+      result.warnings := result.warnings CONCAT res.warnings;
+    }
+    RETURN result;
+  }
+>;
+
+MACRO FixGUIDs(OBJECT formdef, OBJECT parentnode)
+{
+  FOREVERY(RECORD comp FROM GatherFormComponentsFromChildren(parentnode, [ getallchildren := FALSE ]))
+  {
+    IF(comp.type="component" AND NOT comp.node->HasAttribute("guid"))
+      comp.node->SetAttribute("guid", formdef->formdefinitions->__CreateGUID(parentnode->localname = "handlers" ? "formhandler" : "formcomp"));
+    ELSE IF(comp.type="option")
+      comp.node->RemoveAttribute("guid"); //some 4.18 pre-releases incorrectly added this to options
+  }
+}
+
+PUBLIC MACRO RepairFormIfNeeded(OBJECT formdef)
+{
+  //Fix any missing GUIDs
+  FOREVERY(STRING fixgroupname FROM ["handlers","trash","page"])
+    FOREVERY(OBJECT fixgroup FROM formdef->node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", fixgroupname)->GetCurrentElements())
+    {
+      IF(fixgroupname="page" AND NOT fixgroup->HasAttribute("guid"))
+        fixgroup->SetAttribute("guid", formdef->formdefinitions->__CreateGUID("formpage"));
+      FixGUIDs(formdef, fixgroup);
+    }
+}

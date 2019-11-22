@@ -1,0 +1,24 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/tests/tolliumtids.whlib"
+         gid="testtids">
+
+  <screen name="screen" gid=".screen">
+    <body name="body">
+      <includefragment name="fragmentcomp" fragment=".fragment" />
+      <tabs name="tabs"><tab /></tabs>
+    </body>
+  </screen>
+
+  <fragment name="fragment" gid=".fragment">
+    <contents>
+    </contents>
+  </fragment>
+
+  <tabsextension name="tabsextension" gid=".tabsextension" implementation="lib">
+    <newtab>
+    </newtab>
+  </tabsextension>
+
+</screens>

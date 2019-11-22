@@ -1,0 +1,1163 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="common" keepemptyreason="Common texts are available to all modules and cannot be deleted once in use">   <!-- common -->
+    <textgroup gid="actions">   <!-- common.actions -->
+      <text tid="about">About</text>
+      <text tid="about_app">About <param p="1"/></text>
+      <text tid="add">Add</text>
+      <text tid="addasportlet">Add as Portlet</text>
+      <text tid="addtostartmenu">Show in Favorites</text>
+      <text tid="apply">Apply</text>
+      <text tid="browse">Browse</text>
+      <text tid="cancel">Cancel</text>
+      <text tid="change">Change</text>
+      <text tid="clear">Clear</text>
+      <text tid="close">Close</text>
+      <text tid="columns">Select Columns</text>
+      <text tid="connect">Connect</text>
+      <text tid="copy">Copy</text>
+      <text tid="copyto">Copy To</text>
+      <text tid="cut">Cut</text>
+      <text tid="delete">Delete</text>
+      <text tid="disable">Disable</text>
+      <text tid="disconnect">Disconnect</text>
+      <text tid="down">Down</text>
+      <text tid="download">Download</text>
+      <text tid="duplicate">Duplicate</text>
+      <text tid="edit">Edit</text>
+      <text tid="enable">Enable</text>
+      <text tid="exit">Exit</text>
+      <text tid="export">Export</text>
+      <text tid="finish">Finish</text>
+      <text tid="help">Help</text>
+      <text tid="import">Import</text>
+      <text tid="inspect">Inspect</text>
+      <text tid="invertselection">Invert Selection</text>
+      <text tid="link">Link to</text>
+      <text tid="logoff">Logoff</text>
+      <text tid="menu">Menu</text>
+      <text tid="moveto">Move To</text>
+      <text tid="new">New</text>
+      <text tid="newinstance">New Instance</text>
+      <text tid="next">Next</text>
+      <text tid="no">No</text>
+      <text tid="ok">OK</text>
+      <text tid="open">Open</text>
+      <text tid="ordering">Set ordering</text>
+      <text tid="paste">Paste</text>
+      <text tid="preferences">Preferences</text>
+      <text tid="previous">Previous</text>
+      <text tid="print">Print</text>
+      <text tid="properties">Properties</text>
+      <text tid="redo">Redo</text>
+      <text tid="refresh">Refresh</text>
+      <text tid="rename">Rename</text>
+      <text tid="replace">Replace</text>
+      <text tid="reset">Reset</text>
+      <text tid="save">Save</text>
+      <text tid="saveas">Save As</text>
+      <text tid="search">Search</text>
+      <text tid="select">Select</text>
+      <text tid="selectall">Select All</text>
+      <text tid="settings">Settings</text>
+      <text tid="startmenuhint">Open the Start Menu</text>
+      <text tid="synchronize">Synchronize</text>
+      <text tid="tobottom">To bottom</text>
+      <text tid="today">Today</text>
+      <text tid="totop">To top</text>
+      <text tid="undo">Undo</text>
+      <text tid="up">Up</text>
+      <text tid="upload">Upload</text>
+      <text tid="view">View</text>
+      <text tid="yes">Yes</text>
+      <text tid="yestoall">Yes to All</text>
+    </textgroup>
+    <textgroup gid="errors">   <!-- common.errors -->
+      <text tid="field_required">Field '<param p="1"/>' is a required field</text>
+      <text tid="invalid_date">Field '<param p="1"/>' contains an invalid date</text>
+      <text tid="invalid_float">Field '<param p="1"/>' must contain a valid value</text>
+      <text tid="invalid_hostname">Field '<param p="1"/>' must contain a hostname (eg 'myserver.example.net')</text>
+      <text tid="invalid_integer">Field '<param p="1"/>' must contain a valid numeric value</text>
+      <text tid="invalid_money">Field '<param p="1"/>' must contain a valid value</text>
+      <text tid="invalid_time">Field '<param p="1"/>' contains an invalid time</text>
+      <text tid="invalid_year">Field '<param p="1"/>' contains an invalid year; you need to enter at least 4 digits (prepend with zeroes for years before the year 1000, eg. 0954)</text>
+      <text tid="passwordmismatch">The entered passwords do not match</text>
+      <text tid="tagedit_unprocessed_text">Field '<param p="1"/>' contains a tag that has not yet been committed</text>
+      <text tid="too_long">Field '<param p="1"/>' may not contain more than <param p="2"/> characters</text>
+      <text tid="too_many_decimals">Field '<param p="1"/>' may not contain <ifparam p="2" value="0">any decimals<else/>more than <param p="2"/> <ifparam p="2" value="1">decimal<else/>decimals</ifparam></ifparam></text>
+      <text tid="value_out_of_range">Field '<param p="1"/>' contains an invalid value; you need to enter a value <ifparam p="2" value="">of at most <param p="3"/><else/><ifparam p="3" value="">of at least <param p="2"/><else/>between <param p="2"/> and <param p="3"/></ifparam></ifparam></text>
+    </textgroup>
+    <textgroup gid="examples" keepemptyreason="Voorbeeldteksten">   <!-- common.examples -->
+      <text tid="email">email@example.com</text>
+      <text tid="emailcomma">email@example.com, another@example.net, ...</text>
+      <text tid="http-url">http://www.example.com/folder/</text>
+      <text tid="https-url">https://www.example.com/folder/</text>
+      <text tid="urls">https://www.example.com/folder/<br/>http://www.anotherexample.com/</text>
+    </textgroup>
+    <textgroup gid="labels">   <!-- common.labels -->
+      <text tid="bksp">Backspace</text>
+      <text tid="creationdate">Creation date</text>
+      <text tid="del">Del</text>
+      <text tid="deletiondate">Deletion date</text>
+      <text tid="description">Description</text>
+      <text tid="down">Down</text>
+      <text tid="email">Email</text>
+      <text tid="end">End</text>
+      <text tid="enter">Enter</text>
+      <text tid="esc">Escape</text>
+      <text tid="home">Home</text>
+      <text tid="id">ID</text>
+      <text tid="keywords">Keywords</text>
+      <text tid="left">Left</text>
+      <text tid="modificationdate">Modification date</text>
+      <text tid="name">Name</text>
+      <text tid="no">No</text>
+      <text tid="none">None</text>
+      <text tid="ordering">Ordering</text>
+      <text tid="pgdn">Page Down</text>
+      <text tid="pgup">Page Up</text>
+      <text tid="right">Right</text>
+      <text tid="status">Status</text>
+      <text tid="subject">Subject</text>
+      <text tid="tab">Tab</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Title</text>
+      <text tid="type">Type</text>
+      <text tid="up">Up</text>
+      <text tid="yes">Yes</text>
+    </textgroup>
+    <textgroup gid="languages">   <!-- common.languages -->
+      <text tid="aa">Afar</text>
+      <text tid="ab">Abkhaz</text>
+      <text tid="ae">Avestan</text>
+      <text tid="af">Afrikaans</text>
+      <text tid="ak">Akan</text>
+      <text tid="am">Amharic</text>
+      <text tid="an">Aragonese</text>
+      <text tid="ar">Arabic</text>
+      <text tid="as">Assamese</text>
+      <text tid="av">Avaric</text>
+      <text tid="ay">Aymara</text>
+      <text tid="az">Azerbaijani</text>
+      <text tid="ba">Bashkir</text>
+      <text tid="be">Belarusian</text>
+      <text tid="bg">Bulgarian</text>
+      <text tid="bh">Bihari</text>
+      <text tid="bi">Bislama</text>
+      <text tid="bm">Bambara</text>
+      <text tid="bn">Bengali</text>
+      <text tid="bo">Tibetan</text>
+      <text tid="br">Breton</text>
+      <text tid="bs">Bosnian</text>
+      <text tid="ca">Catalan</text>
+      <text tid="ce">Chechen</text>
+      <text tid="ch">Chamorro</text>
+      <text tid="co">Corsican</text>
+      <text tid="cr">Cree</text>
+      <text tid="cs">Czech</text>
+      <text tid="cu">Old Church Slavonic</text>
+      <text tid="cv">Chuvash</text>
+      <text tid="cy">Welsh</text>
+      <text tid="da">Danish</text>
+      <text tid="de">German</text>
+      <text tid="dv">Divehi</text>
+      <text tid="dz">Dzongkha</text>
+      <text tid="ee">Ewe</text>
+      <text tid="el">Greek</text>
+      <text tid="en">English</text>
+      <text tid="eo">Esperanto</text>
+      <text tid="es">Spanish</text>
+      <text tid="et">Estonian</text>
+      <text tid="eu">Basque</text>
+      <text tid="fa">Persian</text>
+      <text tid="ff">Fula</text>
+      <text tid="fi">Finnish</text>
+      <text tid="fj">Fijian</text>
+      <text tid="fo">Faroese</text>
+      <text tid="fr">French</text>
+      <text tid="fy">Western Frisian</text>
+      <text tid="ga">Irish</text>
+      <text tid="gd">Gaelic</text>
+      <text tid="gl">Galician</text>
+      <text tid="gn">Guaraní</text>
+      <text tid="gu">Gujarati</text>
+      <text tid="gv">Manx</text>
+      <text tid="ha">Hausa</text>
+      <text tid="he">Hebrew</text>
+      <text tid="hi">Hindi</text>
+      <text tid="ho">Hiri Motu</text>
+      <text tid="hr">Croatian</text>
+      <text tid="ht">Haitian</text>
+      <text tid="hu">Hungarian</text>
+      <text tid="hy">Armenian</text>
+      <text tid="hz">Herero</text>
+      <text tid="ia">Interlingua</text>
+      <text tid="id">Indonesian</text>
+      <text tid="ie">Interlingue</text>
+      <text tid="ig">Igbo</text>
+      <text tid="ii">Nuosu</text>
+      <text tid="ik">Inupiaq</text>
+      <text tid="io">Ido</text>
+      <text tid="is">Icelandic</text>
+      <text tid="it">Italian</text>
+      <text tid="iu">Inuktitut</text>
+      <text tid="ja">Japanese</text>
+      <text tid="jv">Javanese</text>
+      <text tid="ka">Georgian</text>
+      <text tid="kg">Kongo</text>
+      <text tid="ki">Kikuyu</text>
+      <text tid="kj">Kwanyama</text>
+      <text tid="kk">Kazakh</text>
+      <text tid="kl">Kalaallisut</text>
+      <text tid="km">Khmer</text>
+      <text tid="kn">Kannada</text>
+      <text tid="ko">Korean</text>
+      <text tid="kr">Kanuri</text>
+      <text tid="ks">Kashmiri</text>
+      <text tid="ku">Kurdish</text>
+      <text tid="kv">Komi</text>
+      <text tid="kw">Cornish</text>
+      <text tid="ky">Kyrgyz</text>
+      <text tid="la">Latin</text>
+      <text tid="lb">Luxembourgish</text>
+      <text tid="lg">Ganda</text>
+      <text tid="li">Limburgish</text>
+      <text tid="ln">Lingala</text>
+      <text tid="lo">Lao</text>
+      <text tid="lt">Lithuanian</text>
+      <text tid="lu">Luba-Katanga</text>
+      <text tid="lv">Latvian</text>
+      <text tid="mg">Malagasy</text>
+      <text tid="mh">Marshallese</text>
+      <text tid="mi">Maori</text>
+      <text tid="mk">Macedonian</text>
+      <text tid="ml">Malayalam</text>
+      <text tid="mn">Mongolian</text>
+      <text tid="mo">Moldovan</text>
+      <text tid="mr">Marathi</text>
+      <text tid="ms">Malay</text>
+      <text tid="mt">Maltese</text>
+      <text tid="my">Burmese</text>
+      <text tid="na">Nauru</text>
+      <text tid="nb">Norwegian Bokmal</text>
+      <text tid="nd">North Ndebele</text>
+      <text tid="ne">Nepali</text>
+      <text tid="ng">Ndonga</text>
+      <text tid="nl">Dutch</text>
+      <text tid="nn">Norwegian Nynorsk</text>
+      <text tid="no">Norwegian</text>
+      <text tid="nr">South Ndebele</text>
+      <text tid="nv">Navajo</text>
+      <text tid="ny">Chichewa</text>
+      <text tid="oc">Occitan</text>
+      <text tid="oj">Ojibwe</text>
+      <text tid="om">Oromo</text>
+      <text tid="or">Oriya</text>
+      <text tid="os">Ossetian</text>
+      <text tid="pa">Panjabi</text>
+      <text tid="pi">Pali</text>
+      <text tid="pl">Polish</text>
+      <text tid="ps">Pashto, Pushto</text>
+      <text tid="pt">Portuguese</text>
+      <text tid="qu">Quechua</text>
+      <text tid="rm">Romansh</text>
+      <text tid="rn">Kirundi</text>
+      <text tid="ro">Romanian</text>
+      <text tid="ru">Russian</text>
+      <text tid="rw">Kinyarwanda</text>
+      <text tid="sa">Sanskrit</text>
+      <text tid="sc">Sardinian</text>
+      <text tid="sd">Sindhi</text>
+      <text tid="se">Northern Sami</text>
+      <text tid="sg">Sango</text>
+      <text tid="sh">Serbo-Croatian</text>
+      <text tid="si">Sinhala</text>
+      <text tid="sk">Slovak</text>
+      <text tid="sl">Slovene</text>
+      <text tid="sm">Samoan</text>
+      <text tid="sn">Shona</text>
+      <text tid="so">Somali</text>
+      <text tid="sq">Albanian</text>
+      <text tid="sr">Serbian</text>
+      <text tid="ss">Swati</text>
+      <text tid="st">Southern Sotho</text>
+      <text tid="su">Sundanese</text>
+      <text tid="sv">Swedish</text>
+      <text tid="sw">Swahili</text>
+      <text tid="ta">Tamil</text>
+      <text tid="te">Telugu</text>
+      <text tid="tg">Tajik</text>
+      <text tid="th">Thai</text>
+      <text tid="ti">Tigrinya</text>
+      <text tid="tk">Turkmen</text>
+      <text tid="tl">Tagalog</text>
+      <text tid="tn">Tswana</text>
+      <text tid="to">Tonga</text>
+      <text tid="tr">Turkish</text>
+      <text tid="ts">Tsonga</text>
+      <text tid="tt">Tatar</text>
+      <text tid="tw">Twi</text>
+      <text tid="ty">Tahitian</text>
+      <text tid="ug">Uyghur</text>
+      <text tid="uk">Ukrainian</text>
+      <text tid="ur">Urdu</text>
+      <text tid="uz">Uzbek</text>
+      <text tid="ve">Venda</text>
+      <text tid="vi">Vietnamese</text>
+      <text tid="vo">Volapük</text>
+      <text tid="wa">Walloon</text>
+      <text tid="wo">Wolof</text>
+      <text tid="xh">Xhosa</text>
+      <text tid="yi">Yiddish</text>
+      <text tid="yo">Yoruba</text>
+      <text tid="za">Zhuang</text>
+      <text tid="zh">Chinese</text>
+      <text tid="zu">Zulu</text>
+    </textgroup>
+    <textgroup gid="menus">   <!-- common.menus -->
+      <text tid="edit">Edit</text>
+      <text tid="file">File</text>
+      <text tid="help">Help</text>
+      <text tid="new">New</text>
+      <text tid="tools">Tools</text>
+      <text tid="view">View</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- common.messages -->
+      <text tid="dontaskagain">Remember my choice</text>
+      <text tid="dontshowagain">Do not show me this message again</text>
+      <text tid="searchnoresults">No results were found when searching for '<param p="1"/>'.</text>
+    </textgroup>
+    <textgroup gid="richstyles" keepemptyreason="These styles are mapped from RTE style tags">   <!-- common.richstyles -->
+      <text tid="blocktext">Block Text</text>
+      <text tid="bodytext">Body Text</text>
+      <text tid="bodytext2">Body Text 2</text>
+      <text tid="bodytext3">Body Text 3</text>
+      <text tid="bodytextfirstindent">Body Text First Indent</text>
+      <text tid="bodytextfirstindent2">Body Text First Indent 2</text>
+      <text tid="bodytextindent">Body Text Indent</text>
+      <text tid="bodytextindent2">Body Text Indent 2</text>
+      <text tid="bodytextindent3">Body Text Indent 3</text>
+      <text tid="caption">Caption</text>
+      <text tid="closing">Closing</text>
+      <text tid="commentreference">Comment Reference</text>
+      <text tid="commenttext">Comment Text</text>
+      <text tid="date">Date</text>
+      <text tid="defaultparagraphfont">Default Paragraph Font</text>
+      <text tid="documentmap">Document Map</text>
+      <text tid="emphasis">Emphasis</text>
+      <text tid="endnotereference">Endnote Reference</text>
+      <text tid="endnotetext">Endnote Text</text>
+      <text tid="envelopeaddress">Envelope Address</text>
+      <text tid="envelopereturn">Envelope Return</text>
+      <text tid="followedhyperlink">Followed Hyperlink</text>
+      <text tid="footer">Footer</text>
+      <text tid="footnotereference">Footnote Reference</text>
+      <text tid="footnotetext">Footnote Text</text>
+      <text tid="header">Header</text>
+      <text tid="heading1">Heading 1</text>
+      <text tid="heading2">Heading 2</text>
+      <text tid="heading3">Heading 3</text>
+      <text tid="heading4">Heading 4</text>
+      <text tid="heading5">Heading 5</text>
+      <text tid="heading6">Heading 6</text>
+      <text tid="heading7">Heading 7</text>
+      <text tid="heading8">Heading 8</text>
+      <text tid="heading9">Heading 9</text>
+      <text tid="hyperlink">Hyperlink</text>
+      <text tid="index1">Index 1</text>
+      <text tid="index2">Index 2</text>
+      <text tid="index3">Index 3</text>
+      <text tid="index4">Index 4</text>
+      <text tid="index5">Index 5</text>
+      <text tid="index6">Index 6</text>
+      <text tid="index7">Index 7</text>
+      <text tid="index8">Index 8</text>
+      <text tid="index9">Index 9</text>
+      <text tid="indexheading">Index Heading</text>
+      <text tid="linenumber">Line Number</text>
+      <text tid="list">List</text>
+      <text tid="list2">List 2</text>
+      <text tid="list3">List 3</text>
+      <text tid="list4">List 4</text>
+      <text tid="list5">List 5</text>
+      <text tid="listbullet">List Bullet</text>
+      <text tid="listbullet2">List Bullet 2</text>
+      <text tid="listbullet3">List Bullet 3</text>
+      <text tid="listbullet4">List Bullet 4</text>
+      <text tid="listbullet5">List Bullet 5</text>
+      <text tid="listcontinue">List Continue</text>
+      <text tid="listcontinue2">List Continue 2</text>
+      <text tid="listcontinue3">List Continue 3</text>
+      <text tid="listcontinue4">List Continue 4</text>
+      <text tid="listcontinue5">List Continue 5</text>
+      <text tid="listnumber">List Number</text>
+      <text tid="listnumber2">List Number 2</text>
+      <text tid="listnumber3">List Number 3</text>
+      <text tid="listnumber4">List Number 4</text>
+      <text tid="listnumber5">List Number 5</text>
+      <text tid="macrotext">Macro Text</text>
+      <text tid="messageheader">Message Header</text>
+      <text tid="normal">Normal</text>
+      <text tid="normalindent">Normal Indent</text>
+      <text tid="noteheadiong">Note Heading</text>
+      <text tid="ordered">Ordered list</text>
+      <text tid="pagenumber">Page Number</text>
+      <text tid="plaintext">Plain Text</text>
+      <text tid="salutation">Salutation</text>
+      <text tid="signature">Signature</text>
+      <text tid="strong">Strong</text>
+      <text tid="subtitle">Subtitle</text>
+      <text tid="tableofauthorities">Table of Authorities</text>
+      <text tid="tableoffigures">Table of Figures</text>
+      <text tid="title">Title</text>
+      <text tid="toaheading">TOA Heading</text>
+      <text tid="toc1">TOC 1</text>
+      <text tid="toc2">TOC 2</text>
+      <text tid="toc3">TOC 3</text>
+      <text tid="toc4">TOC 4</text>
+      <text tid="toc5">TOC 5</text>
+      <text tid="toc6">TOC 6</text>
+      <text tid="toc7">TOC 7</text>
+      <text tid="toc8">TOC 8</text>
+      <text tid="toc9">TOC 9</text>
+      <text tid="unordered">Unordered list</text>
+    </textgroup>
+    <textgroup gid="units">   <!-- common.units -->
+      <text tid="centuries">centuries</text>
+      <text tid="century">century</text>
+      <text tid="day">day</text>
+      <text tid="days">days</text>
+      <text tid="hour">hour</text>
+      <text tid="hours">hours</text>
+      <text tid="millisecond">millisecond</text>
+      <text tid="milliseconds">milliseconds</text>
+      <text tid="minute">minute</text>
+      <text tid="minutes">minutes</text>
+      <text tid="month">month</text>
+      <text tid="months">months</text>
+      <text tid="second">second</text>
+      <text tid="seconds">seconds</text>
+      <text tid="week">week</text>
+      <text tid="weeks">weeks</text>
+      <text tid="year">year</text>
+      <text tid="years">years</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="browseserverpath">   <!-- commondialogs.browseserverpath -->
+      <text tid="browseserverpath">Browse for path on server</text>
+      <text tid="name">Name</text>
+      <text tid="showpath">Path</text>
+    </textgroup>
+    <textgroup gid="columnfileexport">   <!-- commondialogs.columnfileexport -->
+      <text tid="charset">Character set</text>
+      <text tid="columnfileexport">Column file export</text>
+      <text tid="comma">Comma</text>
+      <text tid="csvinfo">If you will be using Microsoft Excel to read the CSV file, make sure the list separator matches the one specified in your Windows regional settings.</text>
+      <text tid="csvoptions">CSV export options</text>
+      <text tid="decimal">Decimal sign</text>
+      <text tid="exportisempty">This export did not have any results</text>
+      <text tid="exporttitle">Download export '<param p="1"/>'</text>
+      <text tid="outputformat-csv">CSV (Comma separated values, for older Excel versions and other software)</text>
+      <text tid="outputformat-xlsx">XLSX (Excel 2007 and up, optionally supported by older Excel versions)</text>
+      <text tid="period">Period</text>
+      <text tid="selectoutputformat">Select the export file type</text>
+      <text tid="semicolon">Semicolon</text>
+      <text tid="separator">Separator</text>
+      <text tid="tab">Tabs</text>
+    </textgroup>
+    <textgroup gid="editpassword">   <!-- commondialogs.editpassword -->
+      <text tid="confirmpassword">Confirm new password</text>
+      <text tid="current_password_not_equal">The password you entered does not match your current password.</text>
+      <text tid="new_passwords_not_equal">The newly entered passwords do not match.</text>
+      <text tid="newpassword">New password</text>
+      <text tid="oldpassword">Current password</text>
+      <text tid="pagetitle">Change password</text>
+      <text tid="password_fails_policy">The password does not comply with the specified policy.</text>
+      <text tid="showpasswords">Show passwords as plain text</text>
+      <text tid="sureclearpassword">You are now clearing the password of this user. Are you sure you want to do this?</text>
+    </textgroup>
+    <textgroup gid="exception">   <!-- commondialogs.exception -->
+      <text tid="additionaltitle">Additional information</text>
+      <text tid="description">Error details</text>
+      <text tid="email">Report this error</text>
+      <text tid="emailsent">The report has been successfully sent</text>
+      <text tid="exception">The application encountered an unexpected error and had to be terminated.</text>
+      <text tid="explainadditional">You may provide additional information here, for example what you were doing when this error occurred. This information can be useful for solving the problem. It is not required to provide this information.</text>
+      <text tid="title">An application error occured</text>
+    </textgroup>
+    <textgroup gid="getuserfile">   <!-- commondialogs.getuserfile -->
+      <text tid="title">Select file to upload</text>
+      <text tid="upload">Upload</text>
+    </textgroup>
+    <textgroup gid="imageedit">   <!-- commondialogs.imageedit -->
+      <textgroup gid="main">   <!-- commondialogs.imageedit.main -->
+        <text tid="crop">Crop</text>
+        <text tid="main">Image edit</text>
+        <text tid="undo">Undo</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="loaderror">   <!-- commondialogs.loaderror -->
+      <text tid="filename">Filename</text>
+      <text tid="linenum">Line number</text>
+      <text tid="loaderror">An error occurred loading the requested page</text>
+      <text tid="loadfailure">The requested page could not be loaded.</text>
+      <text tid="message">Message</text>
+      <text tid="parsererrors">There were errors processing the screen's definition file</text>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
+      <text tid="addedtostartmenu">This item has been added to your Start Menu Favorites. <br/><br/>You can manage your favorites in your Personal Settings: click on your username displayed at the bottom of the Start Menu.</text>
+      <text tid="alreadyaddedtostartmenu">This item has already been added to the favorites.</text>
+      <text tid="applaunchfailure">The application '<param p="1"/>' could not be started</text>
+      <text tid="applaunchfailure_invalidappname">The specified application name '<param p="1"/>' is invalid</text>
+      <text tid="applaunchfailure_nosuchapp">Module '<param p="1"/>' does not have an application '<param p="2"/>'</text>
+      <text tid="applaunchfailure_nosuchmodule">Module '<param p="1"/>' does not exist</text>
+      <text tid="confirmclearcontents">Are you sure you want to delete all contents?<br/><br/>This operation cannot be undone.</text>
+      <text tid="confirmclearformatting">Are you sure you want to discard all style?<br/><br/>This operation cannot be undone.</text>
+      <text tid="confirmdeleteembeddedobject">Are you sure you want to delete this embedded object?<br/><br/>This operation cannot be undone.</text>
+      <text tid="confirmrowdeletion">Are you sure you want to delete the selected item?</text>
+      <text tid="errors"><param p="1"/></text>
+      <text tid="notimplemented">This feature has not yet been implemented</text>
+      <text tid="remove_file_confirmation">Are you sure you want to remove the file?</text>
+      <text tid="remove_image_confirmation">Are you sure you want to remove the image?</text>
+      <text tid="showmessage"><param p="1"/></text>
+      <text tid="some_wrong_file_type">Some of the uploaded files have the wrong file type (<param p="1"/>). Do you want to continue uploading the file with the correct file type (<param p="2"/>)?</text>
+      <text tid="warnings"><param p="1"/></text>
+      <text tid="webhareclosedformaintenance">WebHare has been closed for maintainance. Please try again later.  <br/><br/>We apologise for the inconvienence.</text>
+      <text tid="wrong_file_type"><ifparam p="2" value="1">The uploaded file(s) <param p="1"/> has the wrong file type.<else/>The uploaded files '<param p="1"/>' all have the wrong file type.</ifparam></text>
+    </textgroup>
+    <textgroup gid="ordering">   <!-- commondialogs.ordering -->
+      <text tid="onedown">One down</text>
+      <text tid="oneup">One up</text>
+      <text tid="ordering">Ordering</text>
+      <text tid="tobottom">To bottom</text>
+      <text tid="totop">To top</text>
+    </textgroup>
+    <textgroup gid="progress">   <!-- commondialogs.progress -->
+      <text tid="estminutes">estimating <param p="1"/> <ifparam p="1" value="1">minute<else/>minutes</ifparam> remaining</text>
+      <text tid="estseconds">estimating <param p="1"/> <ifparam p="1" value="1">seconds<else/>seconds</ifparam> remaining</text>
+      <text tid="initializing">Initializing.</text>
+      <text tid="minutesseconds"><param p="1"/> <ifparam p="1" value="1">minute<else/>minutes</ifparam> <param p="2"/>  <ifparam p="2" value="1">second<else/>seconds</ifparam></text>
+      <text tid="progress">Progress</text>
+      <text tid="seconds"><param p="1"/> <ifparam p="1" value="1">second<else/>seconds</ifparam></text>
+      <text tid="timeelapsed">Time elapsed</text>
+      <text tid="title">Progress</text>
+      <text tid="zeroseconds">0 seconds</text>
+    </textgroup>
+    <textgroup gid="qrcallback">   <!-- commondialogs.qrcallback -->
+      <text tid="description">Scan this QR code with a mobile phone or tablet</text>
+      <text tid="title">QR Code</text>
+    </textgroup>
+    <textgroup gid="senduserfile">   <!-- commondialogs.senduserfile -->
+      <text tid="download">Download file</text>
+      <text tid="file">File name</text>
+      <text tid="size">Size</text>
+      <text tid="title">Download file</text>
+      <text tid="type">Type</text>
+    </textgroup>
+    <textgroup gid="windowopen">   <!-- commondialogs.windowopen -->
+      <text tid="title">Open URL</text>
+      <text tid="windowopen">Open URL</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="components">   <!-- components -->
+    <textgroup gid="arrayedit">   <!-- components.arrayedit -->
+      <text tid="notenoughrows">Field '<param p="1"/>' must contain at least <param p="2"/> <ifparam p="2" value="1">item<else/>items</ifparam>.</text>
+      <text tid="toomanyrows">Field '<param p="1"/>' may not contain more than <param p="2"/> <ifparam p="2" value="1">item<else/>items</ifparam>.</text>
+    </textgroup>
+    <textgroup gid="browsecustom">   <!-- components.browsecustom -->
+      <textgroup gid="browsecustom">   <!-- components.browsecustom.browsecustom -->
+        <text tid="titletext">Name</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="colorpicker">   <!-- components.colorpicker -->
+      <textgroup gid="hints">   <!-- components.colorpicker.hints -->
+        <text tid="clear_color">Clear color</text>
+        <text tid="select_color">Select a color</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- components.colorpicker.messages -->
+        <text tid="nocolorselected">No color selected</text>
+      </textgroup>
+      <textgroup gid="picker">   <!-- components.colorpicker.picker -->
+        <text tid="bslider">Blue</text>
+        <text tid="colorpicker">Color Picker</text>
+        <text tid="colorvalue">Color value</text>
+        <text tid="gslider">Green</text>
+        <text tid="rslider">Red</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="emailcontents">   <!-- components.emailcontents -->
+      <text tid="errorsto">Errors-To</text>
+      <text tid="replyto">Reply-To</text>
+    </textgroup>
+    <textgroup gid="file">   <!-- components.file -->
+      <text tid="alltypes">All Files</text>
+      <text tid="filetype"><param p="1"/> (<param p="2"/>)</text>
+    </textgroup>
+    <textgroup gid="fileedit">   <!-- components.fileedit -->
+      <text tid="filename"><param p="1"/> (<param p="2"/>)</text>
+      <text tid="nofile">No file uploaded</text>
+      <textgroup gid="hints">   <!-- components.fileedit.hints -->
+        <text tid="add_file">Upload a file</text>
+        <text tid="delete_file">Delete this file</text>
+        <text tid="replace_file">Upload a file to replace the current file with</text>
+        <text tid="save_file">Download this file</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="imageedit">   <!-- components.imageedit -->
+      <text tid="delete_image">Delete this image</text>
+      <text tid="replace_image">Upload an image to replace the current image with</text>
+    </textgroup>
+    <textgroup gid="imgedit">   <!-- components.imgedit -->
+      <text tid="add_image">Upload an image</text>
+      <text tid="clear_image">Clear the image</text>
+      <text tid="dominantcolor">Dominant color</text>
+      <text tid="edit_image">Edit the image</text>
+      <text tid="filename">File name</text>
+      <text tid="invalidextension">The file name should end in '<param p="1"/>'</text>
+      <text tid="media_library">Select an image from the media library</text>
+      <text tid="no_image">No image set</text>
+      <text tid="other_actions">Other actions</text>
+      <text tid="replace-medialibrary">Replace from media library</text>
+      <text tid="replace-publisher">Replace from Publisher</text>
+      <text tid="replace-upload">Replace by upload</text>
+      <text tid="select_image">Select an image from the Publisher</text>
+      <textgroup gid="editor">   <!-- components.imgedit.editor -->
+        <text tid="autocontrast">Automatic Contrast</text>
+        <text tid="blur">Blur</text>
+        <text tid="brightnesscontrast">Brightness and Contrast</text>
+        <text tid="coloradjust">Adjust Colors</text>
+        <text tid="crop">Crop</text>
+        <text tid="delrefpoint">Delete Reference Point</text>
+        <text tid="filters">Apply Filters</text>
+        <text tid="findfaces">Find face</text>
+        <text tid="fliphorizontal">Flip Horizontal</text>
+        <text tid="flipvertical">Flip Vertical</text>
+        <text tid="grayscale">Grayscale</text>
+        <text tid="invert">Invert</text>
+        <text tid="posterize">Limit colors</text>
+        <text tid="refpoint">Reference Point</text>
+        <text tid="rotate">Rotate</text>
+        <text tid="rotateleft">Rotate 90° Left</text>
+        <text tid="rotateright">Rotate 90° Right</text>
+        <text tid="sepia">Sepia</text>
+        <text tid="sharpen">Sharpen</text>
+        <text tid="smartcrop">Automatic Crop</text>
+        <text tid="title">Edit image</text>
+      </textgroup>
+      <textgroup gid="filters">   <!-- components.imgedit.filters -->
+        <text tid="autocontrast">Automatic Contrast</text>
+        <text tid="blue">Blue</text>
+        <text tid="blur">Blur</text>
+        <text tid="brightness">Brightness</text>
+        <text tid="brightnesscontrast">Brightness and Contrast</text>
+        <text tid="coloradjust">Adjust Colors</text>
+        <text tid="contrast">Contrast</text>
+        <text tid="green">Green</text>
+        <text tid="level">Level</text>
+        <text tid="posterize">Limit colors</text>
+        <text tid="preview">Preview</text>
+        <text tid="radius">Radius</text>
+        <text tid="red">Red</text>
+      </textgroup>
+      <textgroup gid="hints">   <!-- components.imgedit.hints -->
+        <text tid="add_image">Upload an image</text>
+        <text tid="save_image">Save image</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- components.imgedit.messages -->
+        <text tid="confirmdiscardchanges">There are unsaved changes.<br/><br/>Do you want to apply the changes before closing the editor?</text>
+        <text tid="confirmdiscardtool">The tool is not yet applied.<br/><br/>Are you sure you want to close the editor without applying the tool?</text>
+        <text tid="confirmreset">This will discard all current changes and reset the image to its original.<br/><br/>Are you sure you want to reset the image?</text>
+        <text tid="corruptimage">This image cannot be loaded, it is corrupt or has an unsupported format.</text>
+        <text tid="maxsizewarning">The image is downscaled because of browser limitations</text>
+        <text tid="minsizewarning">The image will be upscaled to meet the requested size requirement</text>
+        <text tid="unsupportedtype">The image has an unsupported format.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="listedit">   <!-- components.listedit -->
+      <textgroup gid="arrayedit_addscreen">   <!-- components.listedit.arrayedit_addscreen -->
+        <text tid="windowtitle">Choose type</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="rte">   <!-- components.rte -->
+      <text tid="externallink">External link</text>
+      <text tid="externallink-placeholder">http://www.example.com/example/</text>
+      <text tid="properties">Properties</text>
+      <text tid="sureremovetable">Are you sure you want to remove this table?</text>
+      <text tid="table_addcolumn_after">Add Column to the Right</text>
+      <text tid="table_addcolumn_before">Add Column to the Left</text>
+      <text tid="table_addpara_after">Add Paragraph after Table</text>
+      <text tid="table_addpara_before">Add Paragraph above table</text>
+      <text tid="table_addrow_after">Add Row Below</text>
+      <text tid="table_addrow_before">Add Row Above</text>
+      <text tid="table_deletecolumn">Remove Column</text>
+      <text tid="table_deleterow">Remove Row</text>
+      <text tid="table_mergedown">Merge With Cells Below</text>
+      <text tid="table_mergeright">Merge With Cells to the Right</text>
+      <text tid="table_splitcols">Split Columns</text>
+      <text tid="table_splitrows">Split Rows</text>
+      <text tid="toomanyplaintextbytes">Field '<param p="1"/>' contains more bytes (<param p="2"/>) than recommended (<param p="3"/>) after conversion to plain text.</text>
+      <text tid="toomanyplaintextcharacters">Field '<param p="1"/>' contains more characters (<param p="2"/>) than recommended (<param p="3"/>) after conversion to plain text.</text>
+      <textgroup gid="hyperlink">   <!-- components.rte.hyperlink -->
+        <text tid="destination">Destination</text>
+        <text tid="hyperlink">Hyperlink</text>
+        <text tid="openinnewwindow">Open link in new window</text>
+        <text tid="removehyperlink">Remove hyperlink</text>
+      </textgroup>
+      <textgroup gid="imageproperties">   <!-- components.rte.imageproperties -->
+        <text tid="accessibility">Accessibility</text>
+        <text tid="alttext">Alternative text</text>
+        <text tid="destination">Destination</text>
+        <text tid="dimensions">Dimensions</text>
+        <text tid="height">Height</text>
+        <text tid="hyperlink">Hyperlink</text>
+        <text tid="imageproperties">Image properties</text>
+        <text tid="img_inline">In line with text</text>
+        <text tid="img_left">Floating left</text>
+        <text tid="img_right">Floating right</text>
+        <text tid="keepaspectratio">Keep aspect ratio</text>
+        <text tid="nohyperlink">No hyperlink</text>
+        <text tid="openinnewwindow">Open in new window</text>
+        <text tid="position">Positioning</text>
+        <text tid="properties">Properties</text>
+        <text tid="width">Width</text>
+      </textgroup>
+      <textgroup gid="tableproperties">   <!-- components.rte.tableproperties -->
+        <text tid="leftheader">The left column is a header column</text>
+        <text tid="removetable">Remove Table</text>
+        <text tid="tableproperties">Table Properties</text>
+        <text tid="tablestyle">Table style</text>
+        <text tid="topheader">The first row is a header row</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="debugging" limitlanguages="en">   <!-- debugging -->
+    <textgroup gid="missingtids">   <!-- debugging.missingtids -->
+      <text tid="missingtids">Missing tids</text>
+      <text tid="module">Module</text>
+      <text tid="openlangedit">Open language editor</text>
+      <text tid="showreference">Show stack trace</text>
+      <text tid="tid">TID</text>
+    </textgroup>
+    <textgroup gid="reflect">   <!-- debugging.reflect -->
+      <text tid="browse">Browse</text>
+      <text tid="data">Data</text>
+      <text tid="download">Download</text>
+      <text tid="filename">File</text>
+      <text tid="func">Function</text>
+      <text tid="getvalue">Get value</text>
+      <text tid="getvalueas">Get as</text>
+      <text tid="getvalueas-decodehson">DecodeHSON</text>
+      <text tid="getvalueas-hson">HSON</text>
+      <text tid="getvalueas-none">None</text>
+      <text tid="line">Line</text>
+      <text tid="openindebugger">Debug</text>
+      <text tid="openineditor">Open in editor</text>
+      <text tid="openinnewtab">Open in new tab</text>
+      <text tid="reflectdialog">Reflect</text>
+      <text tid="showbrowser">Show in browser</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="exclusive">   <!-- exclusive -->
+    <text tid="abandon">Transfer</text>
+    <text tid="dialogstolen"><ifparam p="1" value="">Another user <else/>User <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> has taken over this screen. <br/>The screen will be closed now.</text>
+    <text tid="keep">Keep</text>
+    <text tid="release">Allow take-over</text>
+    <text tid="runtakeoverrequest">Take over screen</text>
+    <text tid="signaltakeover">Take-over request</text>
+    <text tid="signaltakeovertext"><ifparam p="1" value="">Another user <else/>User <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> requests to take over this screen. Unsaved changes will be discarded. <br/><br/>Do you wish to allow this?</text>
+    <text tid="stealdialog">Take over screen</text>
+    <text tid="stealdialogtext"><ifparam p="1" value="">Another user <else/>User <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> is currently using this screen. <br/>When you take over the screen it will be closed for this user.<br/><br/>Are you sure you want to take over the screen?</text>
+    <text tid="stealowndialog">The screen has already been opened in another browser tab. <br/>Do you want to take over the screen?</text>
+    <text tid="takeover">Take-over</text>
+    <text tid="takeoverdenied">Your request to take over the screen has been denied.</text>
+    <text tid="waitforreplytext">Waiting for <ifparam p="1" value="">the other user <else/>user <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> to respond to your take-over request.<br/><br/>When left unanswered you will be allowed to take over the screen automatically after <ifparam p="3" value="1">1 second<else/><param p="3"/> seconds</ifparam>.</text>
+  </textgroup>
+  <textgroup gid="langedit">   <!-- langedit -->
+    <text tid="apptitle">Language editor</text>
+    <textgroup gid="main">   <!-- langedit.main -->
+      <textgroup gid="issues">   <!-- langedit.main.issues -->
+        <text tid="untranslated">This text is missing in one or more languages</text>
+      </textgroup>
+      <textgroup gid="langeditreferences">   <!-- langedit.main.langeditreferences -->
+        <text tid="langeditreferences">References</text>
+        <text tid="line">Line number</text>
+        <text tid="opencontext">Show file</text>
+        <text tid="openineditor">Open in editor</text>
+        <text tid="resourcename">Path</text>
+        <text tid="tid">References for '<param p="1"/>' were found in:</text>
+      </textgroup>
+      <textgroup gid="langtext">   <!-- langedit.main.langtext -->
+        <text tid="next">Next</text>
+        <text tid="previous">Previous</text>
+        <text tid="tid">Text ID</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- langedit.main.main -->
+        <text tid="apptitle">Language file editor</text>
+        <textgroup gid="actions">   <!-- langedit.main.main.actions -->
+          <text tid="showreferences">Show references</text>
+        </textgroup>
+        <textgroup gid="toolbar">   <!-- langedit.main.main.toolbar -->
+          <text tid="contextview">Context</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="messageboxes">   <!-- langedit.main.messageboxes -->
+        <text tid="nolanguagefiles">Please create a language file before editing texts.</text>
+        <text tid="removehighlighted">Are you sure you want to remove the highlighted entries?</text>
+      </textgroup>
+      <textgroup gid="namedialog" keepemptyreason="test keep me">   <!-- langedit.main.namedialog -->
+        <text tid="elementname">Name</text>
+        <text tid="namedialog">Rename</text>
+      </textgroup>
+      <textgroup gid="showcontext">   <!-- langedit.main.showcontext -->
+        <text tid="showcontext">Show context</text>
+      </textgroup>
+      <textgroup gid="translate">   <!-- langedit.main.translate -->
+        <text tid="translate">Translate</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="notifications">   <!-- notifications -->
+    <text tid="testnotification">Test Notification</text>
+    <text tid="testnotification-desc"><ifparam p="1" value="">It works!<else/><param p="1"/></ifparam></text>
+  </textgroup>
+  <textgroup gid="shell">   <!-- shell -->
+    <text tid="editfavorites">Manage</text>
+    <text tid="frontendclose">Application sessions have expired</text>
+    <text tid="frontendclose_description">The connection between your browser and WebHare was broken. The impacted applications have been closed.</text>
+    <text tid="loadingapp">Starting application...</text>
+    <text tid="nowebhareconnect">WebHare connect unavailable</text>
+    <text tid="nowebhareconnect_description">You have enabled WebHare connect for this server, but the service could not be contacted on <param p="1"/></text>
+    <text tid="offline">Connection lost</text>
+    <text tid="offline_description">The connection to the server has been lost. Please wait for it to recover.</text>
+    <text tid="openedas">Opened as '<param p="1"/>'</text>
+    <text tid="personalmenu">Favorites</text>
+    <text tid="restartapp">Restart application</text>
+    <textgroup gid="checks">   <!-- shell.checks -->
+      <text tid="errors"><ifparam p="1" value="0"><param p="2"/><else/>'<param p="2"/>' and <param p="1"/> more <ifparam p="1" value="1">error<else/>errors</ifparam></ifparam></text>
+      <text tid="unresolvedissues">There are unresolved issues!</text>
+    </textgroup>
+    <textgroup gid="controller">   <!-- shell.controller -->
+      <text tid="untrustedparams">You are not allowed to open this application with additional URL parameters.</text>
+    </textgroup>
+    <textgroup gid="dashboard">   <!-- shell.dashboard -->
+      <text tid="apptitle">WebHare</text>
+      <text tid="connect-success">Received new WebHare connect-helper settings</text>
+      <text tid="connect-title">WebHare connect</text>
+      <text tid="logout">Log out</text>
+      <text tid="mountwebhare">Mount server over WebDav</text>
+      <text tid="noapps">No match for '<param p="1"/>'</text>
+      <text tid="resetimagecache">Reset image cache</text>
+      <text tid="showallapps">Show all apps</text>
+    </textgroup>
+    <textgroup gid="errors">   <!-- shell.errors -->
+      <text tid="appstartfailed">Unable to start the application. The server may be unreachable or you may need to login again</text>
+      <text tid="appstartfailed-development">Unable to start the application. The server may be unreachable or you may need to login again<br/><br/>You may also need to softreset WebHare (wh softreset) or inspect the log files for issues (wh watchlog)</text>
+      <text tid="debug">Debug</text>
+      <text tid="encounterederror">The application encountered an error and has terminated.</text>
+      <text tid="errordialogtitle">Application</text>
+      <text tid="errortitle">An error took place, please contact the system operator.</text>
+      <text tid="restart">Restart</text>
+    </textgroup>
+    <textgroup gid="login">   <!-- shell.login -->
+      <text tid="apptitle">WebHare</text>
+      <text tid="disabledlogin">Login failed: this user account is disabled</text>
+      <text tid="enterusernameandpassword">Please enter your username and password.</text>
+      <text tid="forgotpassword">Forgot password</text>
+      <text tid="genericerror">An error occurred. Please try again, if the error keeps occurring please contact your system administrator.</text>
+      <text tid="infotitle">Important information</text>
+      <text tid="invalidlogin">Invalid username and/or password.</text>
+      <text tid="loginbutton">Login</text>
+      <text tid="loginidentityservices">Login using identity services</text>
+      <text tid="logintitle">Login</text>
+      <text tid="loginwithwebhareaccount">Login with a WebHare account</text>
+      <text tid="nowebhareaccount">No corresponding WebHare account found. Please contact your system administrator.</text>
+      <text tid="password">Password</text>
+      <text tid="savelogin">Remember me</text>
+      <text tid="username">Username</text>
+    </textgroup>
+    <textgroup gid="logout">   <!-- shell.logout -->
+      <text tid="surelogout">Are you sure you want to logout?</text>
+      <text tid="title">Log out</text>
+    </textgroup>
+    <textgroup gid="messagebox">   <!-- shell.messagebox -->
+      <text tid="defaulttitle">Message</text>
+    </textgroup>
+    <textgroup gid="oauth">   <!-- shell.oauth -->
+      <text tid="apptitle">OAuth authorization</text>
+      <text tid="clientid">Client</text>
+      <text tid="errortitle">An error has occurred</text>
+      <text tid="explanation">The following server wants to get access to this server:</text>
+      <text tid="oauthtitle">Authorization</text>
+      <text tid="question">Do you want to grant this access?</text>
+      <text tid="scopes">Scopes</text>
+      <textgroup gid="messages">   <!-- shell.oauth.messages -->
+        <text tid="invalid_redirect">An invalid redirect URL has been specified (must lie within the client URL.)</text>
+        <text tid="missing_client">No client has been specified.</text>
+        <text tid="missing_redirect">No redirect URL has been specified.</text>
+        <text tid="missing_scopes">No scopes have been specified.</text>
+        <text tid="unknownclient">Client '<param p="1"/>' has not been registered in Webhare Connect.</text>
+        <text tid="unknownerror">An unknown error has occurred. Please try again, and if this error keeps occurring please contact the system administrator.</text>
+        <text tid="webhareconnecterror">Could not connect to Webhare Connect. Please contact your system administrator if this problem persists.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="towl">   <!-- shell.towl -->
+      <text tid="gonativedescription">Click here to show notifications on your desktop.</text>
+      <text tid="gonativetitle">Desktop notifications</text>
+      <text tid="notificationtitle">WebHare notification</text>
+    </textgroup>
+    <textgroup gid="upload">   <!-- shell.upload -->
+      <textgroup gid="messages">   <!-- shell.upload.messages -->
+        <text tid="errortitle">An error occurred</text>
+        <text tid="unknownerror">Something went wrong during uploading. Please try again.</text>
+      </textgroup>
+      <textgroup gid="progress">   <!-- shell.upload.progress -->
+        <text tid="calculating">Calculating...</text>
+        <text tid="progress">Progress</text>
+        <text tid="size">Size</text>
+        <text tid="speed">Speed</text>
+        <text tid="title">Uploading</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tilde" keepemptyreason="These are the new common texts, and cannot be revoked once used">   <!-- tilde -->
+    <text tid="add">Add</text>
+    <text tid="advanced">Advanced</text>
+    <text tid="apikey">API key</text>
+    <text tid="apply">Apply</text>
+    <text tid="browse">Browse</text>
+    <text tid="cancel">Cancel</text>
+    <text tid="change">Change</text>
+    <text tid="city">City</text>
+    <text tid="clear">Clear</text>
+    <text tid="close">Close</text>
+    <text tid="comments">Comments</text>
+    <text tid="connect">Connect</text>
+    <text tid="copy">Copy</text>
+    <text tid="copyto">Copy To</text>
+    <text tid="country">Country</text>
+    <text tid="creationdate">Creation date</text>
+    <text tid="cut">Cut</text>
+    <text tid="date">Date</text>
+    <text tid="defaultvalue">Default value</text>
+    <text tid="delete">Delete</text>
+    <text tid="deleteall">Delete all</text>
+    <text tid="deletiondate">Deletion date</text>
+    <text tid="description">Description</text>
+    <text tid="disable">Disable</text>
+    <text tid="disconnect">Disconnect</text>
+    <text tid="down">Down</text>
+    <text tid="download">Download</text>
+    <text tid="duplicate">Duplicate</text>
+    <text tid="edit">Edit</text>
+    <text tid="email">Email</text>
+    <text tid="enable">Enable</text>
+    <text tid="exit">Exit</text>
+    <text tid="export">Export</text>
+    <text tid="filename">File name</text>
+    <text tid="filesize">File size</text>
+    <text tid="finish">Finish</text>
+    <text tid="firstname">First name</text>
+    <text tid="fullname">Full name</text>
+    <text tid="help">Help</text>
+    <text tid="id">ID</text>
+    <text tid="import">Import</text>
+    <text tid="inspect">Inspect</text>
+    <text tid="invertselection">Invert Selection</text>
+    <text tid="keywords">Keywords</text>
+    <text tid="lastname">Last name</text>
+    <text tid="left">Left</text>
+    <text tid="line">Line</text>
+    <text tid="linkto">Link to</text>
+    <text tid="logoff">Logoff</text>
+    <text tid="mailbcc">Bcc</text>
+    <text tid="mailcc">Cc</text>
+    <text tid="mailfrom">From</text>
+    <text tid="mailto">To</text>
+    <text tid="mimetype">MIME type</text>
+    <text tid="modificationdate">Modification date</text>
+    <text tid="moveto">Move To</text>
+    <text tid="name">Name</text>
+    <text tid="new">New</text>
+    <text tid="next">Next</text>
+    <text tid="no">No</text>
+    <text tid="none">None</text>
+    <text tid="ok">OK</text>
+    <text tid="open">Open</text>
+    <text tid="openineditor">Open in editor</text>
+    <text tid="ordering">Ordering</text>
+    <text tid="password">Password</text>
+    <text tid="passwordnew">New password</text>
+    <text tid="passwordrepeat">Repeat password</text>
+    <text tid="paste">Paste</text>
+    <text tid="preferences">Preferences</text>
+    <text tid="preview">Preview</text>
+    <text tid="previous">Previous</text>
+    <text tid="print">Print</text>
+    <text tid="properties">Properties</text>
+    <text tid="redo">Redo</text>
+    <text tid="refresh">Refresh</text>
+    <text tid="rename">Rename</text>
+    <text tid="replace">Replace</text>
+    <text tid="reset">Reset</text>
+    <text tid="right">Right</text>
+    <text tid="save">Save</text>
+    <text tid="saveas">Save As</text>
+    <text tid="search">Search</text>
+    <text tid="select">Select</text>
+    <text tid="selectall">Select All</text>
+    <text tid="selectcolumns">Select Columns</text>
+    <text tid="setordering">Set Ordering</text>
+    <text tid="settings">Settings</text>
+    <text tid="showhistory">Show history</text>
+    <text tid="showinfavorites">Show in Favorites</text>
+    <text tid="status">Status</text>
+    <text tid="subject">Subject</text>
+    <text tid="synchronize">Synchronize</text>
+    <text tid="tag">Tag</text>
+    <text tid="title">Title</text>
+    <text tid="tobottom">To bottom</text>
+    <text tid="today">Today</text>
+    <text tid="totop">To top</text>
+    <text tid="type">Type</text>
+    <text tid="undo">Undo</text>
+    <text tid="up">Up</text>
+    <text tid="upload">Upload</text>
+    <text tid="username">Username</text>
+    <text tid="view">View</text>
+    <text tid="yes">Yes</text>
+    <text tid="yestoall">Yes to All</text>
+    <textgroup gid="examples" keepemptyreason="Voorbeeldteksten">   <!-- tilde.examples -->
+      <text tid="email">email@example.com</text>
+      <text tid="emailcomma">email@example.com, another@example.net, ...</text>
+      <text tid="http-url">http://www.example.com/folder/</text>
+      <text tid="https-url">https://www.example.com/folder/</text>
+    </textgroup>
+    <textgroup gid="menus">   <!-- tilde.menus -->
+      <text tid="edit">Edit</text>
+      <text tid="file">File</text>
+      <text tid="help">Help</text>
+      <text tid="new">New</text>
+      <text tid="tools">Tools</text>
+      <text tid="view">View</text>
+    </textgroup>
+    <textgroup gid="units">   <!-- tilde.units -->
+      <text tid="centuries">centuries</text>
+      <text tid="century">century</text>
+      <text tid="day">day</text>
+      <text tid="days">days</text>
+      <text tid="hour">hour</text>
+      <text tid="hours">hours</text>
+      <text tid="millisecond">millisecond</text>
+      <text tid="milliseconds">milliseconds</text>
+      <text tid="minute">minute</text>
+      <text tid="minutes">minutes</text>
+      <text tid="month">month</text>
+      <text tid="months">months</text>
+      <text tid="second">second</text>
+      <text tid="seconds">seconds</text>
+      <text tid="week">week</text>
+      <text tid="weeks">weeks</text>
+      <text tid="year">year</text>
+      <text tid="years">years</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="todd">   <!-- todd -->
+    <textgroup gid="misc">   <!-- todd.misc -->
+      <text tid="applicationstarter">Tollium Application starter</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="langedit">   <!-- tolliumapps.langedit -->
+      <textgroup gid="langedit">   <!-- tolliumapps.langedit.langedit -->
+        <text tid="add">Add</text>
+        <text tid="addgroup">Add group</text>
+        <text tid="addlanguagefile">Add language file</text>
+        <text tid="addtext">Add text</text>
+        <text tid="allsaved">All language files in this module have been rewritten</text>
+        <text tid="allunreferenced">All texts in this group appear to be unused</text>
+        <text tid="askreload">Are you sure you want to reload? Unsaved changes will be lost.</text>
+        <text tid="badtext">The language text has a syntax error.</text>
+        <text tid="cannoteditmodule">The language files of core modules may only be edited when the DTAP stage is 'Development'.</text>
+        <text tid="cannotparselanguagefile">Cannot parse language file '<param p="1"/>'</text>
+        <text tid="collapserecursive">Collapse all</text>
+        <text tid="contextview">Context</text>
+        <text tid="currenttid">References of node</text>
+        <text tid="deleteconfirmation">Are you sure you want to delete the selected nodes?</text>
+        <text tid="duplicategroupname">This name already exists in this group</text>
+        <text tid="duplicatenodename">This name already exists in this group</text>
+        <text tid="edittext">Edit text</text>
+        <text tid="elementname">Group name</text>
+        <text tid="error_badlanguagecode">Invalid language code. A language code must be two characters long, and be in lowercase</text>
+        <text tid="exit">Exit</text>
+        <text tid="expandrecursive">Expand all</text>
+        <text tid="export">Export</text>
+        <text tid="find">Display search bar</text>
+        <text tid="fromlang">From language</text>
+        <text tid="fromtext">Translate</text>
+        <text tid="gid">Group ID</text>
+        <text tid="illegaltidname">This TID does not have a valid name</text>
+        <text tid="import">Import</text>
+        <text tid="issues">Issues</text>
+        <text tid="keepemptyreason">Reason</text>
+        <text tid="keepifempty">Keep empty/unreferenced texts</text>
+        <text tid="langcode">Language code</text>
+        <text tid="langtext">Language text</text>
+        <text tid="languagefile">Language file</text>
+        <text tid="limitlanguages">Limit languages</text>
+        <text tid="main">Language editor</text>
+        <text tid="mi_unreferenced">Highlight unused teksts</text>
+        <text tid="mi_untranslated">Highlight missing texts</text>
+        <text tid="movefrom">Move texts from</text>
+        <text tid="movemissingfrom">Move missing texts from</text>
+        <text tid="next">Next</text>
+        <text tid="nosuchgroup">No such group '<param p="1"/>'</text>
+        <text tid="notalanguagefile">File '<param p="1"/>' doesn't seem to be a language file.</text>
+        <text tid="notfound">Could not find a node when searching for string '<param p="1"/>'.</text>
+        <text tid="occurrences">Occurences</text>
+        <text tid="open">Open</text>
+        <text tid="possiblecvsconflict">Failed to load the language file '<param p="1"/>'. It appears to contain SVN/CVS conflict markers.</text>
+        <text tid="previous">Previous</text>
+        <text tid="references">References of node <param p="1"/></text>
+        <text tid="regex">RegEx</text>
+        <text tid="reload">Reload</text>
+        <text tid="reloadwarning">The language files have been modified outside the language editor. You should reload</text>
+        <text tid="removehighlighted">Remove highlighted</text>
+        <text tid="removenodes">Remove node</text>
+        <text tid="saveall">Rewrite all languagefiles</text>
+        <text tid="search">Search</text>
+        <text tid="searchbtn">Search</text>
+        <text tid="searchfor">Search for</text>
+        <text tid="searchintexts">Also within texts</text>
+        <text tid="selectunreferenced">Select unrefenced nodes</text>
+        <text tid="targetgroup">Receiving group</text>
+        <text tid="textgroup">Text group</text>
+        <text tid="title">Entry</text>
+        <text tid="tolang">To language</text>
+        <text tid="totext">Translation</text>
+        <text tid="translate">Translate</text>
+        <text tid="translateword">Translate</text>
+        <text tid="unlinked">This text is not linked to anything</text>
+        <text tid="unreferenced">Unreferenced</text>
+        <text tid="untranslated">Untranslated</text>
+        <text tid="untranslated_button">Untranslated</text>
+        <text tid="verifyfirstlanguagefile">The first language file you create will be the default language file for the module. Are you sure you want to make this language the default?</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="validation">   <!-- validation -->
+    <textgroup gid="errors">   <!-- validation.errors -->
+      <text tid="invalid_email">Field '<param p="1"/>' contains an invalid email address</text>
+      <text tid="invalid_emails">Field '<param p="1"/>' contains the invalid email address '<param p="2"/>'</text>
+      <text tid="invalid_hostname">Field' <param p="1"/>' contains an invalid hostname</text>
+      <text tid="invalid_http_url">Field '<param p="1"/>' contains an invalid http URL</text>
+      <text tid="invalid_insecure_url">Field '<param p="1"/>' does not contain an insecure URL</text>
+      <text tid="invalid_secure_url">Field '<param p="1"/>' does not contain a secure URL</text>
+      <text tid="invalid_url">Field '<param p="1"/>' does not contain a valid URL. Perhaps it needs to be prefixed with 'http://' or 'https://'</text>
+      <text tid="invalid_whfsname">Field '<param p="1"/>' does not contain a valid name. It cannot be longer than 256 characters, it may not end with a dot and the following characters may not be used: / \ : * ? " &lt; &gt; |</text>
+      <text tid="receiver_not_whitelisted">Field '<param p="1"/>' contains email address '<param p="2"/>' but this address is not allowed to receive email from this server.</text>
+      <text tid="sender_not_whitelisted">Field '<param p="1"/>' contains email address '<param p="2"/>' but this address is not allowed to send email from this server.</text>
+      <text tid="too_long_url">Field '<param p="1"/>' contains an URL that is too long (the maximum is 2000 characters)</text>
+    </textgroup>
+  </textgroup>
+</language>

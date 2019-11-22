@@ -1,0 +1,129 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
+
+STRING FUNCTION DescribePayment(RECORD paymentrecord, RECORD paymentattr, OBJECT wrdschema)
+{
+  RETURN `Payment #${paymentrecord.id} for ${ToLowercase(wrdschema->tag || "." || paymentattr.wrdtypetag)} entity #${paymentrecord.paymententity} (${paymentrecord.paymentdata.paymentref})`;
+}
+
+PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, BOOLEAN allowdelete)
+{
+  STRING ARRAY block_payments := SELECT AS STRING ARRAY uuid FROM wrd.pendingpayments GROUP BY uuid HAVING COUNT(*)>1;
+  IF(Length(block_payments)>0)
+  {
+    PrintTo(2, `There are ${Length(block_payments)} duplicate payments - they cannot be polled for status. Maybe you need to remove a .bak schema?\n`);
+    SetConsoleExitCode(1);
+  }
+
+  RECORD ARRAY paymentgroups := SELECT payments := GroupedValues(pendingpayments)
+                                     , providerattr
+                                     , paymentattr
+                                  FROM wrd.pendingpayments
+                                 WHERE nextcheck < GetCurrentDatetime()
+                                       AND uuid NOT IN block_payments
+                              GROUP BY providerattr, paymentattr
+                              ORDER BY Random(1,65535);
+
+  //ADDME limit the amount of work per run
+  FOREVERY(RECORD paymentgroup FROM paymentgroups)
+  {
+    RECORD providerattr := DescribeWRDAttribute(paymentgroup.providerattr);
+    RECORD paymentattr := DescribeWRDAttribute(paymentgroup.paymentattr);
+    OBJECT wrdschema := OpenWRDSchemaById(providerattr.wrdschema);
+    IF(NOT ObjectExists(wrdschema))
+      CONTINUE; //this schema has been deleted
+
+    IF( (wrdschema->tag = whconstant_wrd_testschema) != for_test)
+      CONTINUE;
+
+    OBJECT api := GetPaymentAPI(wrdschema, [ providertypeid := providerattr.wrdtype
+                                           , providerfield := providerattr.attributetag
+                                           , paymenttypeid := paymentattr.wrdtype
+                                           , paymentfield := paymentattr.attributetag
+                                           ]);
+
+    OBJECT paymenttype := wrdschema->GetTypeById(paymentattr.wrdtype);
+    RECORD ARRAY paymentgrouppayments := paymenttype->Enrich(paymentgroup.payments, "PAYMENTENTITY", CELL[ "WRD_ID", paymentdata := paymentattr.attributetag ]);
+
+    RECORD ARRAY providergroups := SELECT payments := GroupedValues(paymentgrouppayments)
+                                        , provider := ANY(paymentdata.paymentprovider)
+                                     FROM paymentgrouppayments
+                                 GROUP BY paymentdata.paymentprovider
+                              ORDER BY Random(1,65535);
+
+    FOREVERY(RECORD providergroup FROM providergroups)
+    {
+      //ADDME open the provider instead of individual payments, group requests to the provider where possible
+      FOREVERY(RECORD paymentrecord FROM providergroup.payments)
+      {
+        STRING seterror;
+        OBJECT paymentobject := api->__OpenPSP(paymentrecord.paymentdata, paymentrecord.creationdate, paymentrecord.uuid);
+        TRY
+        {
+          paymentobject->RecheckPayment();
+        }
+        CATCH(OBJECT e)
+        {
+          LogHarescriptException(e);
+          seterror := `${DescribePayment(paymentrecord, paymentattr, wrdschema)} triggered an exception during check: ${e->what}\n`;
+        }
+
+        IF(paymentobject->status != "pending") //we now know the reality of this payment
+        {
+          GetPrimary()->BeginLockedWork("wrd:payments.payment:" || paymentrecord.paymententity);
+          ProcessCompletedPayment(paymentobject->paymenthandler, paymentattr.attributetag, paymentobject, paymenttype->GetEntity(paymentrecord.paymententity), FALSE);
+          UPDATE wrd.pendingpayments SET nextcheck := MAX_DATETIME, error := "" WHERE id = paymentrecord.id;
+          GetPrimary()->CommitWork();
+        }
+        ELSE
+        {
+          IF(paymentrecord.creationdate <= AddDaysToDate(-14, GetCurrentDatetime()))
+            seterror := `${DescribePayment(paymentrecord, paymentattr, wrdschema)} hasn't been able to leave 'pending' status for more than two weeks\n` || seterror;
+
+          DATETIME setnextcheck;
+          RECORD diff := GetDatetimeDifference(paymentrecord.creationdate, GetCurrentDatetime());
+          IF(diff.days > 0) //check payments older than a day once every 6 hours
+            setnextcheck := AddTimeToDate(6*60*60*1000, GetCurrentDatetime());
+          ELSE IF(diff.msecs >= 2*60*60*1000) //after 2 hours, checking every 30 minutes is enough
+            setnextcheck := AddTimeToDate(30*60*1000, GetCurrentDatetime());
+          ELSE //check every 5 minutes (TODO reschedule pollpaymentstatus ourselves instead of having to actually wait for the next tick)
+            setnextcheck := AddTimeToDate(5*60*1000, GetCurrentDatetime());
+
+          GetPrimary()->BeginWork();
+          UPDATE wrd.pendingpayments SET nextcheck := setnextcheck, error := seterror WHERE id = paymentrecord.id;
+          GetPrimary()->CommitWork();
+
+        }
+      }
+    }
+  }
+
+  FOREVERY(RECORD failpay FROM SELECT error FROM wrd.pendingpayments WHERE error != "")
+  {
+    PrintTo(2, failpay.error || "\n"); //TODO after an import, the ids in the error might be incorrect
+    SetConsoleExitCode(1);
+  }
+
+  IF(allowdelete)
+  {
+    INTEGER deletedays := ReadRegistryKey("wrd.globalconfig.keeppaymentsdays");
+    DATETIME delete_threshold := GetCurrentDatetime();
+    IF(NOT for_test)
+      delete_threshold := AddDaysToDate(-deletedays, delete_threshold); //we'll keep the transactions for at least 30 days as we can still receive updates
+
+    GetPrimary()->BeginWork();
+    DELETE FROM wrd.pendingpayments WHERE creationdate < delete_threshold AND nextcheck = MAX_DATETIME;
+    GetPrimary()->CommitWork();
+  }
+}

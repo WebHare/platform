@@ -1,0 +1,22 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+IF(trans->ColumnExists("SYSTEM","AUTHOBJECTS","ID"))
+  DELETE FROM system.authobjects WHERE type IN [4,5];
+
+IF(trans->ColumnExists("SYSTEM","FS_OBJECTS","ID"))
+{
+  OBJECT examplefolder := OpenWHFSObject(9);
+  IF(ObjectExists(examplefolder))
+  {
+    examplefolder->UpdateMetadata([ispinned:=FALSE]);
+    examplefolder->RecycleSelf(); //remove example folder
+  }
+}
+
+trans->CommitWork();

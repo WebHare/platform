@@ -1,0 +1,4 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <layer src="tollium:files/normal" size="24px"/>
+  <layer src="tollium:overlays/filetypes/news"/>
+</icon>

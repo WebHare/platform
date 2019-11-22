@@ -1,0 +1,426 @@
+﻿<?wh
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/html.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+STRING FUNCTION ConcatText(STRING a, STRING b)
+{
+  RETURN a || b;
+}
+
+MACRO TestInternals()
+{
+  OpenTest("TestInternals");
+
+  RECORD ARRAY res;
+  res := ParseNSPI("ns='urn:uuid:C4ED1820-6207-11d1-A29F-00AA00C14882/' src='http://www.w3.org' prefix='w3c'");
+  TestEq([[ name := "ns", value := "urn:uuid:C4ED1820-6207-11d1-A29F-00AA00C14882/" ]
+         ,[ name := "src", value := "http://www.w3.org" ]
+         ,[ name := "prefix", value := "w3c" ]
+         ], res);
+
+  res := ParseNSPI(' prefix = o ns = "urn:schemas-microsoft-com:office:office" /');
+  TestEq([[ name := "prefix", value := "o" ]
+         ,[ name := "ns", value := "urn:schemas-microsoft-com:office:office" ]
+         ], res);
+
+  res := ParseNSPI("ns='urn:ISBN:0-395-36341-6/' prefix='bk'");
+  TestEq([[ name := "ns", value := "urn:ISBN:0-395-36341-6/" ]
+         ,[ name := "prefix", value := "bk" ]
+         ], res);
+
+  res := ParseNSPI("ns='urn:uuid:C4ED1820-6207-11d1-A29F-00AA00C14882/'\n src='http://www.w3.org' prefix='w3c'");
+  TestEq([[ name := "ns", value := "urn:uuid:C4ED1820-6207-11d1-A29F-00AA00C14882/" ]
+         ,[ name := "src", value := "http://www.w3.org"]
+         ,[ name := "prefix", value := "w3c" ]
+         ], res);
+
+  res := ParseNSPI("&#38;='&#38;#38;'");
+  TestEq([[ name := "&", value := "&#38;" ]
+         ], res);
+
+  CloseTest("TestInternals");
+}
+
+MACRO TestOpenHTML()
+{
+  OpenTest("TestOpenHTML");
+
+  BLOB xmlblob := StringToBlob('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">\n<html><body>test</body></html>');
+  OBJECT doc  := MakeXMLDocumentFromHTML(xmlblob,"UTF-8");
+  TestEq(10,doc->firstchild->nodetype);
+  TestEq('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">',doc->firstchild->outerxml);
+
+  xmlblob := StringToBlob('<html><body>test</body></html>');
+  doc := MakeXMLDocumentFromHTML(xmlblob,"UTF-8");
+  TestEq(1,doc->firstchild->nodetype);
+  TestEq("<html><body>test</body></html>", doc->outerhtml);
+
+  xmlblob := StringToBlob('test');
+  doc := MakeXMLDocumentFromHTML(xmlblob,"UTF-8");
+  TestEq(1,doc->firstchild->nodetype);
+  TestEq("<html><body><p>test</p></body></html>", doc->outerhtml);
+
+  xmlblob := StringToBlob('<i>test</i>');
+  doc := MakeXMLDocumentFromHTML(xmlblob,"UTF-8");
+  TestEq(1,doc->firstchild->nodetype);
+  TestEq("<html><body><i>test</i></body></html>", doc->outerhtml);
+
+  xmlblob := StringToBlob('test');
+  doc := MakeXMLDocumentFromHTML(xmlblob,"UTF-8",FALSE,TRUE);
+  TestEq(1,doc->firstchild->nodetype);
+  TestEq("<p>test</p>", doc->outerhtml);
+
+  xmlblob := StringToBlob('<i>test</i>');
+  doc := MakeXMLDocumentFromHTML(xmlblob,"UTF-8",FALSE,TRUE);
+  TestEq(1,doc->firstchild->nodetype);
+  TestEq("<i>test</i>", doc->outerhtml);
+
+  CloseTest("TestOpenHTML");
+}
+
+MACRO TestInlineMode()
+{
+  OpenTest("TestInlineMode");
+
+  OBJECT rewriter := NEW HtmlRewriter;
+
+  rewriter->strict_filtering := TRUE;
+  rewriter->parsemode := "inline";
+  rewriter->allowed_tags := [ "I", "BR", "PRE" ];
+
+  // Leading brs
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<br><br><br>a")));
+  TestEQ("a", rewriter->parsed_text);
+  rewriter->trim_whitespace := FALSE;
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<br><br><br>a")));
+  TestEQ("<br/><br/><br/>a", rewriter->parsed_text);
+  rewriter->trim_whitespace := TRUE;
+
+  // Leading brs and other whitespace
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<br> <br> <br> a")));
+  TestEQ("a", rewriter->parsed_text);
+  rewriter->ParseXmlDocument(MakeXMLDocument(StringToBlob("<div><br/> <br/> <br/> a</div>")));
+  TestEQ("a", rewriter->parsed_text);
+  rewriter->trim_whitespace := FALSE;
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<br> <br> <br> a")));
+  TestEQ("<br/> <br/> <br/> a", rewriter->parsed_text);
+  rewriter->ParseXmlDocument(MakeXMLDocument(StringToBlob("<div><br/> <br/> <br/> a</div>")));
+  TestEQ("<br/> <br/> <br/> a<br/>", rewriter->parsed_text);
+  rewriter->trim_whitespace := TRUE;
+
+  // Leading br introduced by block tag
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<div> </div> a")));
+  TestEQ("a", rewriter->parsed_text);
+  rewriter->trim_whitespace := FALSE;
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<div> </div> a")));
+  TestEQ("  a", rewriter->parsed_text);
+  rewriter->trim_whitespace := TRUE;
+
+  // Trailing brs & whitespace
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("a<br> <br> <br>")));
+  TestEQ("a", rewriter->parsed_text);
+  rewriter->trim_whitespace := FALSE;
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("a<br> <br> <br>")));
+  TestEQ("a<br/> <br/> <br/>", rewriter->parsed_text);
+  rewriter->ParseXmlDocument(MakeXMLDocument(StringToBlob("<div>a<br> <br> <br></div>")));
+  TestEQ("a<br/> <br/> <br/>", rewriter->parsed_text);
+  rewriter->trim_whitespace := TRUE;
+
+  // Trailing br introduced by block tag
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("a<div></div>")));
+  TestEQ("a", rewriter->parsed_text);
+  rewriter->trim_whitespace := FALSE;
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("a<div></div>")));
+  // The libxml HTML parser wraps the content before the div in a <p>
+  TestEQ("a<br/>", rewriter->parsed_text);
+  rewriter->ParseXmlDocument(MakeXMLDocument(StringToBlob("<div>a<div></div></div>")));
+  TestEQ("a<br/>", rewriter->parsed_text);
+  rewriter->trim_whitespace := TRUE;
+
+  // Internal whitespace
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<i> aa <br/> </i>")));
+  TestEQ("<i>aa</i>", rewriter->parsed_text);
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<i> <br/> aa </i>")));
+  TestEQ("<i>aa</i>", rewriter->parsed_text);
+
+  rewriter->trim_whitespace := FALSE;
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<i> <br/> aa </i>")));
+  TestEQ("<i> <br/> aa </i>", rewriter->parsed_text);
+  //rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<pre> aa <br/> </pre>")));
+  //TestEQ("<i> aa <br/> </i>", rewriter->parsed_text);
+  rewriter->trim_whitespace := TRUE;
+
+  rewriter->clean_newlines := TRUE;
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<i>a\nb\r\nc\n</i>d")));
+  TestEQ("<i>a b c </i>d", rewriter->parsed_text);
+  rewriter->clean_newlines := FALSE;
+
+  // Element removal, block element removal with br insertion (before, after)
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<b>Hoi<i>test</i></b><div><u>B</u>lok</div>text<div>text2</div>")));
+  TestEQ("Hoi<i>test</i><br/>Blok<br/>text<br/>text2", rewriter->parsed_text);
+
+  // Block element substitution without br allowed
+  rewriter->parsemode := "inline";
+  rewriter->allowed_tags := [ "I" ];
+
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<b>Hoi<i>test</i></b><div><u>B</u>lok</div>")));
+  TestEQ(EncodeJava("Hoi<i>test</i> Blok"), EncodeJava(rewriter->parsed_text));
+
+  // Unknown attributes
+  rewriter->parsemode := "inline";
+  rewriter->allowed_tags := [ "I" ];
+
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<i xattr='dontallow'>test</i>")));
+  TestEQ("<i>test</i>", rewriter->parsed_text);
+
+  // Image link rewrite
+  rewriter := NEW HtmlRewriter;
+  rewriter->parsemode := "inline";
+  rewriter->allowed_tags := [ "IMG" ];
+  rewriter->rewrite_img := PTR ConcatText(#1, "_img");
+
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<img src='image' />")));
+  TestEQ('<img src="image_img"/>', rewriter->parsed_text);
+
+  // Unsafe tag filtering
+  rewriter := NEW HtmlRewriter;
+  rewriter->parsemode := "inline";
+  rewriter->allow_scripting := FALSE;
+
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("a<script> script <i>italic</i> <!-- comment --> </script>yeey")));
+  TestEQ("ayeey", rewriter->parsed_text);
+
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("a<applet> applet <i>italic</i> <!-- comment --> </applet>yeey")));
+  TestEQ("ayeey", rewriter->parsed_text);
+
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<b onclick='alert()'>a</b>")));
+  TestEQ("<b>a</b>", rewriter->parsed_text);
+
+  // Delayed whitespace
+  rewriter := NEW HtmlRewriter;
+  rewriter->parsemode := "block";
+  rewriter->strict_filtering := TRUE;
+  rewriter->allowed_tags := [ "BR", "UL", "LI" ];
+
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("a<br/><ul><li>text</li></ul>")));
+  // The libxml HTML parser automatically wraps the content before the <ul> in a <p>, which in turns yields an extra <br/>
+  TestEQ("a<br/><ul><li>text</li></ul>", rewriter->parsed_text);
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<div>a<br/><ul><li>text</li></ul></div>")));
+  TestEQ("a<br/><ul><li>text</li></ul>", rewriter->parsed_text);
+
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob("<br/><ul><li>text</li></ul>")));
+  TestEQ("<ul><li>text</li></ul>", rewriter->parsed_text);
+
+  CloseTest("TestInlineMode");
+}
+
+MACRO TestNodeContentsParse()
+{
+  OpenTest("TestNodeContentsParse");
+  OBJECT doc := MakeXMLDocumentFromHTML(StringToBlob("<div><i>I</i><b>BOLD</b></div>"));
+  OBJECT node := doc->documentelement->firstchild->firstchild->firstchild->nextsibling; // Is <b>BOLD</b>
+
+  OBJECT rewriter := NEW HtmlRewriter;
+  rewriter->parsemode := "block";
+  rewriter->ParseXmlNodeContents(node);
+  TestEQ("BOLD", rewriter->parsed_text);
+
+  doc := MakeXMLDocumentFromHTML(StringToBlob("<html><head><title>title</title></head><body><div><i>I</i><b>BOLD</b></div></body></html>"));
+  OBJECT newdoc := (NEW XmlDOMImplementation)->CreateDocument("urn::", "root", DEFAULT OBJECT);
+  newdoc->documentelement->AppendChild(newdoc->ImportNode(doc->documentelement, TRUE));
+  rewriter->ParseXmlNodeContents(newdoc->documentelement);
+  TestEQ("<div><i>I</i><b>BOLD</b></div>", rewriter->parsed_text);
+
+  CloseTest("TestNodeContentsParse");
+}
+
+STRING FUNCTION RewriteImage(STRING addsubdomain, STRING data)
+{
+  IF (data LIKE "http://*example.com/*")
+    RETURN Left(data, 7) || addsubdomain || "." || SubString(data, 7);
+  RETURN data;
+}
+
+// Old html rewriter (used in newmailer)
+MACRO TestImageURLRewrite()
+{
+  OpenTest("TestImageURLRewrite");
+
+  INTEGER stream := CreateStream();
+  RewriteHTMLDocumentTo(
+      stream,
+      StringToBlob('<div style="background: url(http://example.com/1); background: url(\'http://example.com/&#34;2&#34;\');">data</div>'),
+      [ imageurlrewrite := PTR RewriteImage("iuw", #1)
+      , globallinkrewrite := PTR RewriteImage("glrw", #1)
+      ]);
+
+  STRING result := BlobToString(MakeBlobFromStream(stream), -1);
+  TestEQ('<html><body><div style="background: url(&#39;http://glrw.iuw.example.com/1&#39;); background: url(&#39;http://glrw.iuw.example.com/\\&#34;2\\&#34;&#39;);">data</div></body></html>',
+      result);
+
+  stream := CreateStream();
+  RewriteHTMLDocumentTo(
+      stream,
+      StringToBlob(result),
+      [ imageurlrewrite := PTR RewriteImage("iuw2", #1)
+      , globallinkrewrite := PTR RewriteImage("glrw2", #1)
+      ]);
+
+  result := BlobToString(MakeBlobFromStream(stream), -1);
+  TestEQ('<html><body><div style="background: url(&#39;http://glrw2.iuw2.glrw.iuw.example.com/1&#39;); background: url(&#39;http://glrw2.iuw2.glrw.iuw.example.com/\\&#34;2\\&#34;&#39;);">data</div></body></html>',
+      result);
+
+  CloseTest("TestImageURLRewrite");
+}
+
+MACRO TestDocumentMode()
+{
+  OpenTest("TestDocumentMode");
+
+  OBJECT rewriter := NEW HtmlRewriter;
+  STRING doc := "<html><head><style type='text/css'>a:visited {color:black;}</style><body></body></html>";
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob(doc)));
+  TestEQ("<html><head><style type=\"text/css\">a:visited {color:black;}</style></head><body></body></html>", rewriter->parsed_text);
+
+  CloseTest("TestDocumentMode");
+}
+
+MACRO TestHTMLCleanup() //uses HTML Rewriter
+{
+  OpenTest("TestHTMLCleanup");
+
+  OBJECT rewriter := NEW HtmlRewriter();
+  rewriter->strict_filtering := TRUE;
+  rewriter->allow_scripting := FALSE;
+  rewriter->fix_loose_tags := TRUE;
+
+  STRING data := '<P style="MARGIN: 0in 0in 0pt" class=MsoNormal><SPAN>Fragment :<?xml:namespace prefix = o ns = "urn:schemas-microsoft-com:office:office" /><o:p></o:p></SPAN></P>\n';
+
+  OBJECT xmldoc := MakeXmlDocumentFromHtml(StringToBlob(data), "utf-8");
+  rewriter->ParseXmlDocument(xmldoc);
+  TestEq('<html><body><p style="MARGIN: 0in 0in 0pt" class="MsoNormal"><span>Fragment :</span></p></body></html>', rewriter->parsed_text);
+
+  rewriter := NEW HtmlRewriter();
+  rewriter->strict_filtering := TRUE;
+  rewriter->allow_scripting := FALSE;
+  rewriter->fix_loose_tags := TRUE;
+  rewriter->trim_whitespace := FALSE;
+  rewriter->allowed_tags := [ "UL", "LI", "BR" ];
+  rewriter->parsemode := "block";
+
+  // Test for superfluous <br> generated by disallowed </div> after </ul>
+  data := '<div><ul><li>a</li></ul></div><div>b</div>';
+  xmldoc := MakeXmlDocumentFromHtml(StringToBlob(data), "utf-8");
+  rewriter->ParseXmlDocument(xmldoc);
+  TestEq('<ul><li>a</li></ul>b<br/>', rewriter->parsed_text);
+
+  CloseTest("TestHTMLCleanup");
+}
+
+MACRO TestNewRewriter()
+{
+  OpenTest("TestNewRewriter");
+
+  OBJECT rewritedoc := MakeXMLDocumentFromHTML(OpenTestFile("rewritetest.html"),"UTF-8");
+  OBJECT rewritecontext := NEW HtmlRewriterContext;
+
+  rewritecontext->AddLinkAttribute("body", "data-designroot");
+  rewritecontext->RewriteLinksToRelative("http://sites.moe.btc.b-lex.com/tourdesofa/", "http://sites.moe.btc.b-lex.com/tourdesofa/submap/", rewritedoc);
+
+  //IF(NOT CreateDiskFileFromBlob("/tmp/rewriteresult.html", FALSE, TRUE, rewritecontext->GenerateHTML(rewritedoc))) abort("i/o error"); abort("overwrote /tmp/rewriteresult.html");
+  TestEqTextBlob(OpenTestFile("rewriteresult.html"), rewritecontext->GenerateHTML(rewritedoc));
+
+  //test DTD preservation
+  BLOB xmlblob := StringToBlob('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><body>test</body></html>');
+  rewritedoc := MakeXMLDocumentFromHTML(xmlblob,"UTF-8");
+  TestEqTextBlob(xmlblob, rewritecontext->GenerateHTML(rewritedoc));
+
+  //test attribute ordering normalization
+  xmlblob := StringToBlob('<!DOCTYPE html><html><body><img src="urn::test" width="200"  height=\'300\'   />test</body></html>');
+  rewritedoc := MakeXMLDocumentFromHTML(xmlblob,"UTF-8");
+  TestEqTextBlob(StringToBlob('<!DOCTYPE html><html><body><img height="300" src="urn::test" width="200"/>test</body></html>')
+                  , rewritecontext->GenerateHTML(rewritedoc));
+
+
+  rewritedoc->body->AppendChild(rewritedoc->createelement("div"));
+  TestEqLike("*<div></div>*", rewritedoc->outerhtml);
+
+  CloseTest("TestNewRewriter");
+}
+
+STRING FUNCTION AddUp(STRING inlink)
+{
+  RETURN "../" || inlink;
+}
+
+MACRO TestCleanupHTML()
+{
+  OpenTest("TestCleanupHTML");
+
+  OBJECT indoc, rewritecontext;
+
+  rewritecontext := NEW HtmlRewriterContext;
+
+  indoc := MakeXmlDocument(StringToBlob("<script>alert(1);</script>"));
+  TestThrows(PTR rewritecontext->CleanupHTML(indoc, [ allowscript := FALSE ]));
+
+  indoc := MakeXmlDocument(StringToBlob("<script>alert(1);</script>"));
+  TestThrows(PTR rewritecontext->CleanupHTML(indoc, [ removetags := ["SCRIPT"] ]));
+
+  indoc := MakeXmlDocumentFromHtml(OpenTestFile("html/cleanup01.html"));
+  TestThrows(PTR rewritecontext->CleanupHTML(indoc, [bla := 1]));
+  rewritecontext->CleanupHTML(indoc, DEFAULT RECORD); //should not be changing anything interesting really..
+  rewritecontext->CleanupHTML(indoc->GetElementById("removescript"), [ allowscript := FALSE ]);
+  rewritecontext->CleanupHTML(indoc->GetElementById("removeembed"),  [ allowembed := FALSE ]);
+  rewritecontext->CleanupHTML(indoc->GetElementById("removetags"),   [ limittags := ["I"] ]);
+  rewritecontext->CleanupHTML(indoc->GetElementById("blocktoinline"),[ converttoinline := TRUE ]);
+  rewritecontext->TrimWhitespaceStart(indoc->GetElementById("trimwhitespace_begin"));
+  rewritecontext->TrimWhitespaceEnd(indoc->GetElementById("trimwhitespace_end"));
+  rewritecontext->RewriteEmbeddedLinks(indoc->GetElementById("rewritelinks1"), PTR AddUp);
+  rewritecontext->RewriteLinks(indoc->GetElementById("rewritelinks2"), DEFAULT MACRO PTR, [ baseurl := "http://nu.nl/"]);
+  rewritecontext->RewriteLinks(indoc->GetElementById("rewritelinks3"), PTR Substitute(#1, 'x', 'Y'), [ baseurl := "http://nu.nl/", basecontext := indoc ]);
+
+  TestEqTextBlob(OpenTestFile("html/cleanup01.out.html"), rewritecontext->GenerateHTML(indoc));
+
+  indoc := MakeXmlDocumentFromHtml(OpenTestFile("html/cleanup02.html"));
+  rewritecontext->CleanupHTML(indoc,   [ limittags := ["HTML","B","I"] ]);
+  TestEqTextBlob(OpenTestFile("html/cleanup02.out.html"), rewritecontext->GenerateHTML(indoc));
+
+  CloseTest("TestCleanupHTML");
+}
+
+MACRO TestElementTraversal()
+{
+  OpenTest("TestElementTraversal");
+
+  OBJECT dom := MakeXMLDocumentFromHTML(OpenTestFile("rewritetest.html"),"UTF-8");
+
+  TestEq(TRUE, ObjectExists(dom->firstElementChild));//DOCUMENT_TYPE_NODE
+  TestEq("html", dom->firstElementChild->nodename);
+  TestEq(1, dom->lastElementChild->nodetype);//ELEMENT_NODE
+  TestEq("body", dom->firstElementChild->lastElementChild->nodename);
+  TestEq(2, dom->lastElementChild->childElementCount);//Should only contain <head> and <body> elements
+  TestEq(3, dom->lastElementChild->lastElementChild->childElementCount);// The document body contains three element-type nodes.
+
+  TestEq("branding", dom->GetElement("#topmenuwrapper")->previousElementSibling->GetAttribute("id"));
+  TestEq("topmenuwrapper", dom->GetElement("#branding")->nextElementSibling->GetAttribute("id"));
+
+  CloseTest("TestElementTraversal");
+}
+
+PRINT("\n === Running TestHTML\n");
+TestInternals();
+TestOpenHTML();
+TestInlineMode();
+TestNewRewriter();
+TestCleanupHTML();
+TestNodeContentsParse();
+TestImageURLRewrite();
+TestDocumentMode();
+TestHTMLCleanup();
+TestElementTraversal();

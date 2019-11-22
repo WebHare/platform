@@ -1,0 +1,93 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::socialite/lib/database.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE GoogleApiKeys EXTEND TolliumScreenBase
+<
+  STRING ARRAY keytypes;
+  STRING ARRAY scopetypes;
+
+  MACRO Init(RECORD data)
+  {
+    this->keytypes   := STRING[ this->GetTid(".keytype-google"), this->GetTid(".keytype-google-recaptcha") ];
+    this->scopetypes := STRING[ this->GetTid(".scopetype-any"), this->GetTid(".scopetype-client"), this->GetTid(".scopetype-server") ];
+    ^localoverrides->ReadFromRegistry();
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    ^localoverrides->WriteToRegistry();
+    RETURN work->Finish();
+  }
+
+  RECORD ARRAY FUNCTION GetApiKeys()
+  {
+    RETURN SELECT rowkey := id
+                , creationdate
+                , domain
+                , keytype   := keytype >= 0 AND keytype < Length(this->keytypes) ? this->keytypes[keytype] : ""
+                , scopetype := scopetype >= 0 AND scopetype < Length(this->scopetypes) ? this->scopetypes[scopetype] : ""
+                , comment
+             FROM socialite.google_apikeys
+            WHERE keytype IN [0,1];
+  }
+
+  MACRO EditApiKey(RECORD row)
+  {
+    this->RunScreen("#editapikey", [ id := RecordExists(row) ? row.rowkey : 0 ]);
+  }
+
+  MACRO DeleteApiKeys(RECORD row)
+  {
+    RECORD ARRAY rows := [row]; //FIXME listeedit should support multiple row deletion
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmdeleteapikeys")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    DELETE FROM socialite.google_apikeys WHERE id IN (SELECT AS INTEGER ARRAY rowkey FROM rows);
+    work->Finish();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditApiKey EXTEND TolliumScreenBase
+< INTEGER keyid;
+
+  MACRO Init(RECORD data)
+  {
+    IF(data.id != 0)
+    {
+      RECORD keyrec := SELECT * FROM socialite.google_apikeys WHERE id = data.id;
+      this->keyid := data.id;
+      ^apikey->value := keyrec;
+      ^apikey->^keytype->enabled := FALSE;
+    }
+
+    this->OnTypeChange();
+  }
+
+  MACRO OnTypeChange()
+  {
+    ^apikey->^privatekey->visible := ^apikey->^keytype->value = 1; //google recaptcha
+    ^apikey->^privatekey->required := ^apikey->^privatekey->visible;
+    ^apikey->^scopetype->visible := ^apikey->^keytype->value = 0;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (this->keyid = 0)
+    {
+      INSERT CELL[...^apikey->value, creationdate := GetCurrentDatetime() ] INTO socialite.google_apikeys;
+    }
+    ELSE
+    {
+      UPDATE socialite.google_apikeys SET RECORD ^apikey->value WHERE id = this->keyid;
+    }
+    RETURN work->Finish();
+  }
+>;
+

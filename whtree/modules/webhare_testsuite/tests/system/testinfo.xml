@@ -1,0 +1,30 @@
+﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="test_mailersmtp_performance.whscr">
+  <test name="testfw" path="testfw/" />
+  <test script="test_mailerlib.whscr" />
+  <test script="test_mailersmtp.whscr" />
+  <test script="test_mailerrules.whscr" />
+  <test script="asynctools.whscr" />
+  <test script="rights.whscr" />
+  <test script="fs_objects.whscr" />
+  <test script="registry.whscr" />
+  <test script="virtualfs.whscr" />
+  <test script="adhoccache.whscr" runmode="process" /> <!-- Needs isolation because adhoccache is per-process -->
+  <test script="testunifiedcache.whscr" />
+  <test script="ipc.whscr" />
+  <test script="promises.whscr" />
+  <test script="promises2.whscr" />
+  <test script="ipcremoter.whscr" />
+  <test name="userrights" path="userrights/" />
+  <test name="whfs" path="whfs/" />
+  <test name="queues" path="queues/" />
+  <test script="logfile.whscr" />
+  <test script="testwebhareservice.whscr" />
+  <test script="testresources.whscr" />
+  <test script="appserver.whscr" />
+  <test name="devtools" path="devtools/" />
+  <test name="nodejs" path="nodejs/" />
+  <test name="setup" path="setup/" />
+  <test name="services" path="services/" />
+  <test name="heavy" path="heavy/" />
+  <test name="precalc" path="precalc/" />
+</group>

@@ -1,0 +1,177 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/richdocument.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+
+
+
+STRING testsiteprofile :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/consiliotest">'
+      || '<member name="str" type="string" />'
+      || '<member name="rich" type="richdocument" />'
+      || '<member name="intextlink" type="intextlink" />'
+      || '<member name="url" type="url" />'
+    || '</contenttype>'
+  || '</siteprofile>';
+
+STRING testsiteprofile_nonurl :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/consiliotest">'
+      || '<member name="str" type="string" />'
+      || '<member name="rich" type="richdocument" />'
+      || '<member name="intextlink" type="intextlink" />'
+      || '<member name="url" type="string" />'
+    || '</contenttype>'
+  || '</siteprofile>';
+
+
+//OBJECT testsite;
+
+MACRO Prepare()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  //cleanup for a reliable repeatable test (without executerecomp whfs_types fails if executed twice in a row, FIXME?€)
+  FlushUnreferredContentData();
+
+  testfw->CommitWork();
+}
+
+MACRO TestCheckedLinks()
+{
+  testfw->BeginWork();
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT testdatafile := testsite->rootobject->CreateFile([ name := "test.txt" ]);
+
+  OBJECT doc := NEW RichDocument;
+  doc->ImportFromRecord([ htmltext := StringToBlob('<html><body>'
+                                                   || '<a href="http://example.com/4">4</a><a href="http://example.com/5">5</a><a href="/test">test</a>'
+                                                   || '</body></html')
+                        , embedded := DEFAULT RECORD ARRAY
+                       ]);
+
+  OBJECT whfs_consiliotest := OpenWHFSType("http://www.webhare.net/xmlns/beta/consiliotest");
+
+  whfs_consiliotest->SetInstanceData(testdatafile->id,
+      [ str :=          "http://example.com/1"
+      , intextlink :=   MakeIntExtExternalLink("http://example.com/2")
+      , url :=          "http://example.com/3"
+      , rich :=         doc->ExportAsRecord()
+      ]);
+
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/2", referrer := "intextlink" ]
+      , [ url :=    "http://example.com/3", referrer := "url" ]
+      , [ url :=    "http://example.com/4", referrer := "rich" ]
+      , [ url :=    "http://example.com/5", referrer := "rich" ]
+      , [ url :=    ResolveToAbsoluteURL(testdatafile->url,"/test"), referrer := "rich" ]
+      ], SELECT url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url LIKE "http://example.com/*" DESC, url);
+
+  testfw->BeginWork();
+
+//ADDME test links in embedded objects
+//ADDME mailto and invalid links
+//ADDME hash links
+  doc->ImportFromRecord([ htmltext := StringToBlob('<html><body>'
+                                                   || '<a href="http://example.com/4a">4</a><a href="http://example.com/5a">5\u00EA</a>'
+                                                   || '</body></html')
+                        , embedded := DEFAULT RECORD ARRAY
+                       ]);
+
+
+  whfs_consiliotest->SetInstanceData(testdatafile->id,
+      [ str :=          "http://example.com/1a"
+      , intextlink :=   MakeIntExtExternalLink("http://example.com/2a")
+      , url :=          "http://example.com/3a"
+      , rich :=         doc->ExportAsRecord()
+      ]);
+
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ text := "", url :=    "http://example.com/2a", referrer := "intextlink" ]
+      , [ text := "", url :=    "http://example.com/3a", referrer := "url" ]
+      , [ text := "4", url :=    "http://example.com/4a", referrer := "rich" ]
+      , [ text := "5\u00EA", url :=    "http://example.com/5a", referrer := "rich" ]
+      ], SELECT text, url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url);
+
+  testfw->BeginWork();
+
+  whfs_consiliotest->SetInstanceData(testdatafile->id,
+      [ str :=          ""
+      , rich :=         DEFAULT RECORD
+      , intextlink :=   DEFAULT RECORD
+      , url :=          ""
+      ]);
+
+  testfw->CommitWork();
+
+  TestEQ(DEFAULT RECORD ARRAY, SELECT url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url);
+
+  testfw->BeginWork();
+  siteprof->DeleteSelf();
+  testdatafile->DeleteSelf();
+  testfw->CommitWork();
+}
+
+MACRO TestTypeChange()
+{
+  testfw->BeginWork();
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile_nonurl)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT testdatafile := testsite->rootobject->CreateFile([ name := "test.txt" ]);
+
+  OBJECT whfs_consiliotest := OpenWHFSType("http://www.webhare.net/xmlns/beta/consiliotest");
+
+  whfs_consiliotest->SetInstanceData(testdatafile->id,
+      [ url :=          "http://example.com/3"
+      ]);
+
+  testfw->CommitWork();
+
+  TestEQ(DEFAULT RECORD ARRAY, GetLinksForFSObject(testdatafile->id));
+
+  testfw->BeginWork();
+  siteprof->UpdateMetadata([ data := StringToBlob(testsiteprofile)]);
+  testfw->CommitWork();
+
+  TestEQ(
+      [ [ url :=    "http://example.com/3", referrer := "url" ]
+      ], SELECT url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url);
+
+  testfw->BeginWork();
+  siteprof->UpdateMetadata([ data := StringToBlob(testsiteprofile_nonurl)]);
+  testfw->CommitWork();
+
+  TestEQ(DEFAULT RECORD ARRAY, GetLinksForFSObject(testdatafile->id));
+}
+
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
+                 , PTR Prepare
+                 , PTR TestCheckedLinks
+                 , PTR TestTypeChange
+                 ]);

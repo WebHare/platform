@@ -1,0 +1,84 @@
+PKCS-1 {
+    iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1)
+    modules(0) pkcs-1(1)
+}
+
+-- Manually constructed to support PKCS extra decoding
+
+DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+
+PrivateKeyInfo ::= SEQUENCE {
+  version         Version,
+  algorithm       AlgorithmIdentifier,
+  PrivateKey      OCTET STRING
+}
+
+PublicKeyInfo ::= SEQUENCE {
+  algorithm       AlgorithmIdentifier,
+  PublicKey       BIT STRING
+}
+
+AlgorithmIdentifier ::= SEQUENCE {
+  algorithm       OBJECT IDENTIFIER,
+  parameters      ANY DEFINED BY algorithm OPTIONAL
+}
+
+RSAPublicKey ::= SEQUENCE {
+    modulus           INTEGER,  -- n
+    publicExponent    INTEGER   -- e
+}
+
+RSAPrivateKey ::= SEQUENCE {
+  version Version,
+  modulus INTEGER, -- n
+  publicExponent INTEGER, -- e
+  privateExponent INTEGER, -- d
+  prime1 INTEGER, -- p
+  prime2 INTEGER, -- q
+  exponent1 INTEGER, -- d mod (p-1)
+  exponent2 INTEGER, -- d mod (q-1)
+  coefficient INTEGER -- (inverse of q) mod p }
+}
+
+Version ::= INTEGER
+
+-- PKCS #10 (from RFC 2314, which is obsoleted by RFC 2986, but we don't support the ASN.1 version used there)
+CertificationRequestInfo ::= SEQUENCE {
+  version Version,
+  subject Name,
+  subjectPublicKeyInfo SubjectPublicKeyInfo,
+  attributes [0] IMPLICIT Attributes 
+}
+
+Attributes ::= SET OF Attribute
+
+CertificationRequest ::= SEQUENCE {
+  certificationRequestInfo CertificationRequestInfo,
+  signatureAlgorithm SignatureAlgorithmIdentifier,
+  signature Signature 
+}
+
+SignatureAlgorithmIdentifier ::= AlgorithmIdentifier
+
+Signature ::= BIT STRING
+
+-- Any stuff
+Any-1-2-840-113549-1-1-1 ::= NULL
+Any-1-2-840-113549-1-1-2 ::= NULL
+Any-1-2-840-113549-1-1-4 ::= NULL
+Any-1-2-840-113549-1-1-5 ::= NULL
+Any-1-2-840-113549-1-1-11 ::= NULL
+Any-1-2-840-113549-1-1-12 ::= NULL
+Any-1-2-840-113549-1-1-13 ::= NULL
+Any-2-5-29-14 ::= SubjectKeyIdentifier
+Any-2-5-29-15 ::= KeyUsage
+Any-2-5-29-17 ::= SubjectAltName
+Any-2-5-29-19 ::= BasicConstraints
+Any-2-5-29-31 ::= CRLDistributionPoints
+Any-2-5-29-35 ::= AuthorityKeyIdentifier
+Any-2-5-29-37 ::= ExtKeyUsageSyntax
+Any-1-2-840-113549-1-9-14 ::= Extensions
+
+END

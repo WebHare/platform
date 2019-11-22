@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <path id="translateblock" d="M18,18H3c-0.5,0-1-0.5-1-1V3c0-0.5,0.5-1,1-1h15c0.5,0,1,0.5,1,1v14C19,17.5,18.5,18,18,18z"/>
+    <path id="translatechinesecharacter" d="M7.4,8.2c0.5,0,1,0,1.5,0c0.1,0,0.2,0.1,0.2,0.2c0.3,0.8,0.8,1.5,1.4,2.2c0.1,0.1,0.1,0.2,0.2,0.2c0.1,0,0.1,0,0.1,0c1-1,1.8-2.1,2-3.6c0.1-0.4,0-0.4-0.3-0.4c-2.3,0-4.5,0-6.8,0c-0.1,0-0.2,0-0.4,0c0-0.5,0-0.9,0-1.4c1.5,0,3.1,0,4.7,0c0-0.5,0-0.9,0-1.4c0.5,0,0.9,0,1.4,0c0,0.4,0,0.9,0,1.4c1.6,0,3.1,0,4.7,0c0,0.5,0,0.9,0,1.4c-0.6,0-1.2,0-1.8,0c-0.1,2-1.3,3.5-2.6,4.9c0.4,0.3,3.2,1.7,3.6,2c-0.2,0.4-0.7,0.8-1,1c-0.5-0.4-3-1.7-3.5-2.1c-1.3,1.1-2.7,2-4.2,2.7c-0.3-0.3-0.6-0.7-0.9-1c1.6-0.6,2.9-1.5,4.2-2.5c-0.5-0.6-0.9-1.1-1.3-1.7C7.9,9.5,7.6,8.9,7.4,8.2z"/>
+    <rect id="maskcanvas" width="32px" height="32px" fill="#ffffff"/>
+    <mask id="translatetopleftmask">
+      <use xlink:href="#maskcanvas"/>
+      <use xlink:href="#translatechinesecharacter" fill="#000000"/>
+      <use xlink:href="#translateblock" transform="translate(11 13)" stroke="#000000" stroke-width="2"/>
+    </mask>
+    <mask id="translatebottomrightmask">
+      <use xlink:href="#maskcanvas"/>
+      <text font-family="&quot;roboto&quot;" font-variant="&quot;black&quot;" transform="translate(6 15)" font-size="14" fill="#000000">A</text>
+    </mask>
+  </defs>
+  <g>
+    <path d="M10,28.6l1.6-2.5c0.1-0.1,0.1-0.2,0-0.3c0-0.1-0.1-0.2-0.3-0.2l-2.9-0.7c-0.1,0-0.3,0-0.4,0.1C8,25,8,25.2,8.1,25.3L8.3,26c-1.3-0.3-2.3-1.2-2.7-2.5c-0.2-0.8-0.2-1.7,0.1-2.4c0.2-0.4,0-0.8-0.4-1c-0.4-0.2-0.8,0-1,0.4c-0.5,1.1-0.5,2.3-0.2,3.4c0,0.1,0.1,0.3,0.1,0.4c0.7,1.9,2.6,3.2,4.6,3.2l0.4,1c0,0,0,0,0,0c0.1,0.2,0.3,0.3,0.5,0.2C9.9,28.7,10,28.7,10,28.6z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M20.6,7.6l3,0.2c0.1,0,0.3-0.1,0.3-0.2c0.1-0.1,0.1-0.3,0-0.4l-0.4-0.7c1.3,0.1,2.5,0.8,3.1,2c0.4,0.8,0.5,1.6,0.3,2.4c-0.1,0.4,0.1,0.8,0.5,0.9c0.4,0.1,0.8-0.1,0.9-0.5c0.3-1.2,0.1-2.4-0.4-3.4c-1-2-3.1-3.1-5.3-2.8l-0.6-0.9c-0.1-0.1-0.2-0.2-0.3-0.2c-0.1,0-0.3,0.1-0.3,0.2l-1.2,2.8c0,0.1,0,0.2,0,0.3C20.4,7.5,20.5,7.6,20.6,7.6z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#translateblock" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" style="mask:url(&quot;#translatetopleftmask&quot;);"/>
+    <use xlink:href="#translateblock" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" transform="translate(11 13)" style="mask:url(&quot;#translatebottomrightmask&quot;);"/>
+  </g>
+</svg>

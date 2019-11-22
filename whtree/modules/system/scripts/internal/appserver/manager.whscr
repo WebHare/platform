@@ -1,0 +1,13 @@
+<?wh
+
+//this script is used by appserver.cpp to manage itself
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/internal/scriptmanager.whlib";
+
+
+OBJECT srh_mgmt := CreateIPCPort("system:scriptmanager");
+
+OBJECT handler := NEW ManagementPortHandler(srh_mgmt, "appserver");
+handler->Run();

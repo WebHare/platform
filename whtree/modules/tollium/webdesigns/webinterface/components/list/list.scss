@@ -1,0 +1,300 @@
+div.wh-ui-listview .listheader
+{
+  border-bottom: 1px solid black;
+  height: 28px;
+}
+div.wh-ui-listview .listbodyholder
+{
+}
+
+div.wh-ui-listview .listheader > span
+{
+  height: 20px;
+  padding: 6px 4px 0 4px;
+  vertical-align: bottom;
+  border-left: 1px solid #000000;
+  height: 100%;
+  cursor: pointer;
+}
+div.wh-ui-listview .listheader > span:first-child
+{
+  border: none;
+}
+
+div.wh-ui-listview .listheader  span.sortdirection
+{
+}
+
+div.wh-ui-listview .listrow
+{
+  line-height: 20px;
+}
+/*
+  .wh-ui-listview > div > .listbodyholder > div > .listrow
+, .wh-ui-listview > div > .listfooterholder > div > .listrow {
+    cursor: pointer;
+    position: absolute;
+    white-space: nowrap;
+    width: 100%;
+}
+*?
+
+
+/* FIXME: why do we apply to both span and span>span ?? */
+
+/* single line row */
+div.wh-ui-listview .listrow > span
+{
+  padding: 0 4px;
+/* we don't borders unless we are able to do odd/even marking till the bottom of the list
+  border-left: 1px solid #000000;
+  */
+  /*text-overflow: ellipsis;
+  breaks FF and IE with icon columns
+  */
+}
+
+div.wh-ui-listview .listheader > span.leftside
+{
+  padding-left: 12px;
+}
+
+div.wh-ui-listview__small-left-padding .listheader > span.leftside
+{
+  padding-left: 4px;
+}
+
+div.wh-ui-listview .listheader > span.rightside
+{
+  padding-right: 12px;
+}
+
+div.wh-ui-listview .listrow > span.leftside
+{
+  padding-left: 12px;
+}
+
+div.wh-ui-listview__small-left-padding .listrow > span.leftside
+{
+  padding-left: 4px;
+}
+
+div.wh-ui-listview .listrow > span.rightside
+{
+  padding-right: 12px;
+}
+
+/* div.wh-ui-listview .listrow > span span */
+div.wh-ui-listview .listrow span/*.text*/
+{
+  //text-overflow: ellipsis; - disabled for now, Chrome 61 broke it
+
+  overflow: hidden;
+  vertical-align: top; /* we need this because the overflow interferes with the alignment. the line-height will center the text, so we can use top alignment. */
+}
+/*
+div.wh-ui-listview .listrow > span
+{
+  outline: 1px solid #0F0;
+}
+div.wh-ui-listview .listrow span.text
+{
+  background-color: rgba(0,0,0,0.2);
+}
+*/
+
+/* multi line row */
+div.wh-ui-listview-multiline .listrow
+{
+  border-bottom: 1px solid #ededed;
+}
+
+div.wh-ui-listview-multiline .listrow > span
+{
+  border: none;
+}
+
+/* remove padding from cell text when not displaying cell icon in multi-line rowlayout */
+div.wh-ui-listview-multiline .listrow span span
+{
+  padding: 0;
+}
+/* line 1077, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+div.wh-ui-listview .listrow img
+{
+  margin-top: -2px;
+  vertical-align: middle;
+}
+div.wh-ui-listview .listrow img.overlay
+{
+  position: absolute;
+  pointer-events: none;
+  bottom:2px;
+}
+div.wh-ui-listview .listrow span:first-child
+{
+  border: none;
+}
+
+div.wh-ui-listview .listrow span.bigicon *
+{
+  margin-top: 6px;
+}
+/*
+.wh-ui-listview .listrow span.firsticonmargin > :first-child > img
+{
+  margin-left: 4px;
+}
+*/
+div.wh-ui-treeview .listrow span
+{
+  border: none;
+}
+
+div.wh-ui-listview.multiline .listrow
+{
+  border-bottom: 1px solid #ededed;
+}
+
+div.wh-ui-listview span.row_0
+{
+  top: 0px;
+}
+
+div.wh-ui-listview.multiline span.row_0
+{
+  top: 4px;
+}
+
+div.wh-ui-listview.multiline span.row_1
+{
+  top: 20px;
+}
+
+
+
+div.wh-ui-listview .listrow.rowclass-grayedout > *
+{
+  opacity:0.46;
+}
+
+div.wh-ui-listview .listrow.rowclass-bold > *
+{
+  font-weight:bold;
+}
+
+
+.wh-ui-listview--normal
+{
+
+}
+.wh-ui-listview--verticaltabs
+{
+  background:#4a4a4a;
+}
+
+
+div.wh-ui-listview .listheader > span
+{
+  background-image: linear-gradient(to top, #EBEBEB 0%, #FCFCFC 83%);
+  background-color: #f3f3f3;
+}
+div.wh-ui-listview .listheader > span:hover
+{
+  background-image: linear-gradient(to bottom, #EBEBEB 0%, #FCFCFC 83%);
+}
+div.wh-ui-listview .listheader > span:before
+, div.wh-ui-listview .listheader > span:after
+{
+  color: #52aefe;/* was: #2284d9; */
+  font-size: 9px;
+}
+
+div.wh-ui-listview .listheader
+{
+  border-color:#b3b3b3;
+}
+div.wh-ui-listview .listheader > span
+{
+  border-color:#b3b3b3;
+}
+
+div.wh-ui-listview .listbodyholder
+{
+  border-color:#b3b3b3;
+}
+
+
+div.wh-ui-listview--normal .listrow
+{
+  color: #000000;
+}
+div.wh-ui-listview--verticaltabs .listrow
+{
+  color: #ffffff;
+}
+
+div.wh-ui-listview--normal.flatview.singleline .listrow.even
+{
+  background-color: #f7f7f7;
+}
+
+  div.wh-ui-listview--normal .listrow.selected
+, div.wh-ui-listview--normal.flatview.singleline .listrow.even.selected
+{
+  background: #e1e1e1;
+}
+  div:focus.wh-ui-listview--normal .listrow.selected
+, div:focus.wh-ui-listview--normal.flatview.singleline .listrow.even.selected
+{
+  background: #95cdfe;
+}
+  div.wh-ui-listview--verticaltabs .listrow.selected
+, div.wh-ui-listview--verticaltabs.flatview.singleline .listrow.even.selected
+{
+  background: #595959;
+}
+  div:focus.wh-ui-listview--verticaltabs .listrow.selected
+, div:focus.wh-ui-listview--verticaltabs.flatview.singleline .listrow.even.selected
+{
+  background: #595959;
+}
+.wh-ui-listview .dragbodyholder
+{
+  background-color: #7dafdd;
+}
+
+div.wh-ui-listview .listrow.highlighted:before
+{
+  width: 9px;
+  background: #289224 url(~@mod-tollium/web/ui/skins/default/triangle.png) center center / 6px 6px no-repeat;
+  border-right: 1px solid #f7f7f7;
+}
+
+div.wh-ui-listview-multiline .listrow.even
+{
+  background-color: transparent;
+}
+
+div.wh-ui-listview.treeview /* explicitly set all treeviews to a lighter background */
+{
+  background-color: #f8f8f8;
+}
+
+div.wh-ui-listview .insertpoint
+{
+  background-color: rgba(40, 146, 36, .9);
+  pointer-events: none;
+}
+
+div.wh-ui-listview .insertpoint > div
+{
+  border: 2px solid rgba(40, 146, 36, .9);
+  border-radius: 4px;
+  background-color: white;
+}
+
+div.wh-ui-listview .listfooterholder > div > div:first-child
+{
+  border-top: 1px solid rgba(40, 146, 36, .9);
+}

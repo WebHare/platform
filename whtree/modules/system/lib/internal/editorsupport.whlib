@@ -1,0 +1,630 @@
+﻿<?wh
+
+// Minimze the loadlibs by this script, so it will also function to translate core library paths
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+
+
+PUBLIC SCHEMA
+  < TABLE
+    < STRING "fullpath" __ATTRIBUTES__(READONLY)
+    , STRING "whfspath" __ATTRIBUTES__(READONLY)
+    , INTEGER "highestparent" __ATTRIBUTES__(READONLY)
+    , STRING "name"
+    , INTEGER "id"
+    , INTEGER "parent"
+    > fs_objects
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , INTEGER "outputweb"
+    , STRING "outputfolder"
+    , INTEGER "id" AS "root" __ATTRIBUTES__(READONLY)
+    > sites
+  , TABLE
+    < INTEGER "id"
+    , STRING "diskfolder"
+    > webservers
+  , TABLE
+    < INTEGER "id"
+    , STRING "foldername"
+    , STRING "diskfolder"
+    , BOOLEAN "forcelowercase"
+    > webdav_datafolders
+  > local_system;
+
+// Merge two urls together, and fix the '/'s at the merge point. No further checks
+STRING FUNCTION MergeURL(STRING url, STRING append)
+{
+  IF (url NOT LIKE "*/")
+    url := url || "/";
+  IF (append LIKE "/*")
+    append := SubString(append, 1);
+  RETURN url || append;
+}
+
+MACRO EnsurePrimary()
+{
+  FUNCTION PTR haveprimarytransaction := MakeFunctionPTR("mod::system/lib/database.whlib", "haveprimarytransaction", TypeID(BOOLEAN), DEFAULT INTEGER ARRAY);
+  IF (NOT haveprimarytransaction())
+  {
+    FUNCTION PTR openprimary := MakeFunctionPTR("mod::system/lib/database.whlib", "openprimary", TypeID(OBJECT), [ TypeID(RECORD) ]);
+    OBJECT trans := OpenPrimary(DEFAULT RECORD);
+
+    local_system := BindTransactionToSchema(trans->id, "system");
+  }
+  ELSE
+  {
+    FUNCTION PTR getprimary := MakeFunctionPTR("mod::system/lib/database.whlib", "getprimary", TypeID(OBJECT), DEFAULT INTEGER ARRAY);
+    local_system := BindTransactionToSchema(getprimary()->id, "system");
+  }
+}
+
+/** Get a list of errors from today's error log
+    @param options
+    @cell(integer) options.count Number of errors to get
+*/
+PUBLIC RECORD ARRAY FUNCTION GetLastNoticeErrors(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  __SYSTEM_FLUSHREMOTELOG("system:notice");
+
+  INTEGER count := CellExists(options, "COUNT") ? options.count : 16;
+  STRING logfile := MergeURL(__SYSTEM_WHCOREPARAMETERS().logroot, "notice." || FormatDateTime("%Y%m%d", GetCurrentDateTime()) || ".log");
+
+  BLOB logdata := GetDiskResource(logfile, [ allowmissing := TRUE ]);
+  INTEGER64 len := LENGTH64(logdata);
+
+  INTEGER64 ofs := len;
+  RECORD ARRAY allerrors;
+  INTEGER errorcount;
+
+  STRING firstlinepart;
+
+  WHILE (LENGTH(allerrors) < count AND ofs > 0)
+  {
+    INTEGER64 lastofs := ofs;
+    ofs := ofs - 65536;
+    IF (ofs < 0)
+      ofs := 0;
+    STRING data := BlobToString(MakeSlicedBlob(logdata, ofs, lastofs - ofs)) || firstlinepart;
+
+    STRING ARRAY lines := Tokenize(data, "\n");
+    IF (ofs > 0)
+    {
+      firstlinepart := lines[0];
+      DELETE FROM lines AT 0;
+    }
+    ELSE
+      firstlinepart := "";
+
+    RECORD ARRAY parterrors;
+
+    FOREVERY (STRING line FROM lines)
+    {
+      STRING ARRAY linetoks := Tokenize(line,"\t");
+      IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
+        CONTINUE;
+      IF (Length(linetoks) < 4)
+        CONTINUE;
+
+      STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
+      STRING source := Substring(linetoks[0], Length(whentext)+3);
+
+      RECORD linedata :=
+          [ when :=            MakeDateFromText(whentext)
+          , source :=          source
+          , channel :=         linetoks[1]
+          , srhid :=           linetoks[2]
+          , externalsource :=  DecodeJava(linetoks[3])
+          , message :=         DecodeJava(linetoks[4])
+          , encodeddata_raw := linetoks[5]
+          , data :=            linetoks[5] IN [ "", "-" ] ? DEFAULT RECORD : DecodeHSON(linetoks[5])
+          ];
+
+      IF (linedata.message IN [ "harescript-error", "javascript-error" ])
+        INSERT linedata INTO parterrors AT END;
+    }
+
+    allerrors := parterrors CONCAT allerrors;
+  }
+
+  IF (LENGTH(allerrors) > count)
+    allerrors := ArraySlice(allerrors, LENGTH(allerrors) - count);
+
+  RETURN allerrors;
+}
+
+STRING FUNCTION FSObjectsLookup(INTEGER base, STRING path)
+{
+  EnsurePrimary();
+  STRING ARRAY parts := Tokenize(path, "/");
+
+  FOREVERY (STRING part FROM parts)
+  {
+    IF (part = "")
+      CONTINUE;
+
+    base := SELECT AS INTEGER id FROM local_system.fs_objects WHERE ToUppercase(name) = ToUppercase(part) AND parent = base;
+    IF (base = 0)
+      BREAK;
+  }
+
+  IF (base = 0)
+    RETURN "";
+
+  RETURN "whfs::" || (SELECT AS STRING whfspath FROM local_system.fs_objects WHERE id = base);
+}
+
+STRING FUNCTION ResolveOutputBaseFolder(STRING folder)
+{
+  IF (folder NOT LIKE "/*")
+  {
+    STRING output_basefolder := __SYSTEM_WHCOREPARAMETERS().basedataroot || 'output/';
+    folder := output_basefolder || folder;
+  }
+  IF (folder NOT LIKE "*/")
+    folder := folder || "/";
+  RETURN folder;
+}
+
+
+/** Try to translate any path to a mod:: or whfs:: path
+    @param anyurl
+    @return
+    @cell filepath Path to file on disk (empty for whfs)
+    @cell rootpath Translated url, '' if failed.
+*/
+PUBLIC RECORD FUNCTION TranslateURLToRootPath(STRING anyurl, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  TRY
+  {
+    STRING retval;
+    STRING filepath;
+
+    STRING proto := anyurl NOT LIKE "/*" ? Left(anyurl, SearchSubString(anyurl, ":")) : "";
+    STRING path := SubString(anyurl, proto = "" ? 0 : LENGTH(proto) + 2);
+
+    // Remove "!" parts
+    path := Detokenize((SELECT AS STRING ARRAY elt FROM ToRecordArray(Tokenize(path, "/"), "ELT") WHERE elt NOT LIKE "!*"), "/");
+
+    IF (proto IN [ "http", "https" ] AND UnpackURL(anyurl).urlpath LIKE "webdav/*")
+      proto := Substitute(proto, "http", "webdav");
+
+    IF (proto IN [ "webdav", "webdavs" ])
+    {
+      RECORD up := UnpackURL(anyurl);
+      IF (up.urlpath LIKE "webdav/publisher/*")
+        retval := "whfs::" || DecodeUrl(SubString(up.urlpath, 16)); // With '/' at start!
+      ELSE IF (up.urlpath LIKE "webdav/system/modules/*")
+      {
+        STRING subpath := DecodeUrl(SubString(up.urlpath, 22));
+        retval := "mod::" || subpath;
+      }
+      ELSE IF (up.urlpath LIKE "webdav/data/*")
+      {
+        STRING dataname := Tokenize(up.urlpath, "/")[2];
+
+        EnsurePrimary();
+        path := SELECT AS STRING diskfolder FROM local_system.webdav_datafolders WHERE foldername = dataname;
+        path := MergePath(path, Substring(up.urlpath, 12 + Length(dataname)));
+        proto := "";
+      }
+    }
+
+    SWITCH (proto)
+    {
+      CASE "", "direct", "file"
+      {
+        WHILE (path LIKE "//*")
+          path := SubString(path, 1);
+
+        filepath := path;
+
+        // Try to translate module paths to mod::
+        FOREVERY (STRING module FROM __SYSTEM_GETINSTALLEDMODULENAMES())
+        {
+          STRING root := GetModuleInstallationRoot(module);
+          IF (path LIKE root || "*")
+            retval := MergeURL("mod::" || module, SubString(path, LENGTH(root)));
+        }
+
+        IF (retval = "")
+        {
+          EnsurePrimary();
+
+          // ADDME: pickup output paths too
+          RECORD webserver :=
+              SELECT resolved_diskfolder := ResolveOutputBaseFolder(diskfolder)
+                   , *
+                FROM local_system.webservers
+               WHERE diskfolder != "" AND ToUppercase(path) LIKE ToUppercase(ResolveOutputBaseFolder(diskfolder) || "*");
+
+          IF (RecordExists(webserver))
+          {
+            STRING subpath := SubString(path, LENGTH(webserver.resolved_diskfolder) - 1);
+
+            RECORD site :=
+                SELECT *
+                  FROM local_system.sites
+                 WHERE outputweb = webserver.id
+                   AND ToUppercase(subpath) LIKE ToUppercase(outputfolder || "*")
+              ORDER BY LENGTH(outputfolder) DESC;
+
+            IF (RecordExists(site))
+            {
+              STRING sitepath := SubString(subpath, LENGTH(site.outputfolder) - 1);
+              retval := FSObjectsLookup(site.id, sitepath);
+              filepath := "";
+            }
+          }
+        }
+
+        IF (retval = "")
+          retval := "direct::" || path;
+      }
+
+      CASE "wh"
+      {
+        retval := MergeURL("mod::system/whlibs/", path);
+        filepath := MergeURL(MergeURL(GetModuleInstallationRoot("system"), "/whlibs/"), path);
+      }
+
+      CASE "mod", "module", "modulescript", "moduleroot", "moduledata"
+      {
+        STRING module := Left(path, SearchSubString(path, "/"));
+        path := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", proto || "::" || path);
+
+        retval := path;
+        filepath := MergeURL(GetModuleInstallationRoot(module), SubString(path, SearchSubString(path, "/") + 1));
+      }
+
+      CASE "site"
+      {
+        EnsurePrimary();
+
+        STRING sitepath := SubString(anyurl, 6);
+        INTEGER pos := SearchSubString(sitepath, "/");
+
+        STRING sitename := Left(sitepath, pos);
+        STRING fullpath := SubString(sitepath, pos);
+
+        //ABORT(sitename || " " || fullpath);
+
+        RECORD site := SELECT root FROM local_system.sites WHERE ToUppercase(name) = ToUppercase(sitename);
+        IF (RecordExists(site))
+          retval := FSObjectsLookup(site.root, fullpath);
+      }
+
+      CASE "whfs"
+      {
+        EnsurePrimary();
+
+        STRING whfspath := Substring(Substitute(anyurl, "::", ":"), 5);
+        IF (whfspath NOT LIKE "/*")
+          whfspath := "/" || whfspath;
+
+        retval := "whfs::" || whfspath;
+      }
+
+/*      CASE "filebyid"
+      {
+        EnsurePrimary();
+
+        INTEGER fileid := ToInteger(SubString(Substitute(anyurl, "::", ":"), 9), 0);
+        RECORD file := SELECT whfspath FROM local_system.fs_objects WHERE id = fileid;
+
+        IF (RecordExists(file))
+          retval := "whfs::" || file.whfspath;
+      }
+*/
+      CASE "http", "https"
+      {
+        EnsurePrimary();
+
+        STRING urlpath := Tokenize(Tokenize(SubString(path, SearchSubString(path, "/", 1)), "?")[0], "#")[0];
+        STRING ARRAY urlparts := Tokenize(urlpath, "/");
+
+        IF (urlpath LIKE "/tollium_todd.res/*/*")
+        {
+          retval := "mod::" || urlparts[2] || "/web/resources/" || Detokenize(ArraySlice(urlparts, 3), "/");
+          filepath := MergeURL(MergeURL(GetModuleInstallationRoot(urlparts[2]), "/web/resources/"), Detokenize(ArraySlice(urlparts, 3), "/"));
+        }
+        ELSE IF (urlpath LIKE "/.tollium/ui/*")
+        {
+          retval := "mod::tollium/web/ui/" || Detokenize(ArraySlice(urlparts, 3), "/");
+          filepath := MergeURL(MergeURL(GetModuleInstallationRoot("tollium"), "/web/ui/"), Detokenize(ArraySlice(urlparts, 3), "/"));
+        }
+        ELSE
+        {
+          // Don't want to depend on the loadlib
+          FUNCTION PTR lookuppublisherurl := MakeFunctionPTR("mod::publisher/lib/publisher.whlib", "LookupPublisherURL", TypeID(RECORD), [ TypeID(STRING) ]);
+
+          RECORD rec := LookupPublisherURL(Left(anyurl, SearchSubString(anyurl||"?","?")));
+          IF (rec.file != 0)
+          {
+            RECORD file := SELECT whfspath FROM local_system.fs_objects WHERE id = rec.file;
+            IF (RecordExists(file))
+              retval := "whfs::" || file.whfspath;
+          }
+        }
+      }
+    }
+
+    RETURN
+        [ rootpath :=   retval
+        , filepath :=   filepath
+        ];
+  }
+  CATCH (OBJECT e)
+  {
+    // FIXME: log?
+    RETURN DEFAULT RECORD;
+  }
+}
+
+STRING FUNCTION RewriteFilenameToSite(STRING filename)
+{
+  IF (filename LIKE "whfs::*")
+  {
+    EnsurePrimary();
+    FUNCTION PTR func := MakeFunctionPTR("mod::system/lib/whfs.whlib", "OpenWHFSObjectByPath", TypeID(OBJECT), [ TypeID(STRING) ]);
+
+    OBJECT obj := func(filename);
+    IF (ObjectExists(obj) AND obj->highestparent != 0)
+      filename := "site::" || obj->highestparentobject->name || obj->fullpath;
+    ELSE IF (NOT ObjectExists(obj))
+      RETURN "whfs::";
+
+  }
+
+  RETURN filename;
+}
+
+PUBLIC RECORD FUNCTION RecompileFile(STRING filename, RECORD options)
+{
+  RECORD result :=
+      [ errors :=     DEFAULT RECORD ARRAY
+      , warnings :=   DEFAULT RECORD ARRAY
+      ];
+
+  filename := RewriteFilenameToSite(filename);
+  IF (filename LIKE "whfs::*")
+  {
+    result.errors :=
+        [ filename :=   filename
+        , message :=    filename = "whfs::" ? "File not found" : "Can only recompile files within a site"
+        , line :=       1
+        , pos :=        1
+        , iserror :=    TRUE
+        ];
+
+    RETURN result;
+  }
+
+  BOOLEAN force := CellExists(options, "FORCE") ? options.force : FALSE;
+
+  RETURN __SYSTEM_RECOMPILELIBRARY(filename, force);
+}
+
+/** Validates HareScript source
+    @param liburi URI of the source file
+    @param source Source data
+    @param options (none just yet)
+    @cell options.documentation Whether to validate documentation too
+    @return List of errors and warnings
+    @cell return.iserror Whether this record contains an error
+    @cell return.iswarning Whether this record contains a warning
+    @cell return.filename Relevant filename
+    @cell return.line Line number
+    @cell return.col Column number
+    @cell return.code Message code
+    @cell return.msg1 Message parameter 1
+    @cell return.msg2 Message parameter 2
+    @cell return.message Error/warning message
+*/
+PUBLIC RECORD FUNCTION ValidateHarescriptSource(STRING liburi, BLOB source, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := CELL
+      [ documentation :=    TRUE
+      , ...options
+      ];
+
+  EnsurePrimary();
+  RECORD result := ValidateSingleFile(liburi, CELL[ overridedata := source, options.documentation ]);
+
+  RETURN
+      [ messages :=
+              (SELECT iserror :=    TRUE
+                    , iswarning :=  FALSE
+                    , filename :=   resourcename
+                    , line
+                    , col
+                    , code :=       COLUMN source = "harescript" ? metadata.code : 0
+                    , msg1 :=       COLUMN source = "harescript" ? metadata.msg1 : ""
+                    , msg2 :=       COLUMN source = "harescript" ? metadata.msg2 : ""
+                    , message
+                    , istopfile :=  COLUMN source = "harescript" ? metadata.istopfile : TRUE
+                 FROM result.errors) CONCAT
+              (SELECT iserror :=    FALSE
+                    , iswarning :=  TRUE
+                    , filename :=   resourcename
+                    , line
+                    , col
+                    , code :=       COLUMN source = "harescript" ? metadata.code : 0
+                    , msg1 :=       COLUMN source = "harescript" ? metadata.msg1 : ""
+                    , msg2 :=       COLUMN source = "harescript" ? metadata.msg2 : ""
+                    , message
+                    , istopfile :=  COLUMN source = "harescript" ? metadata.istopfile : TRUE
+                 FROM result.warnings)
+      ];
+}
+
+PUBLIC RECORD FUNCTION AnalyzeJavascriptNoticeLogEntry(RECORD javascriptmsg)
+{
+  STRING errormsg := javascriptmsg.error;
+  STRING browser := TypeID(javascriptmsg.browser) = TypeID(STRING)
+      ? javascriptmsg.browser
+      : javascriptmsg.browser.name;
+  STRING testscript := CellExists(javascriptmsg, "TESTSCRIPT") ? javascriptmsg.testscript : "";
+
+  // decode browser triplet
+  IF (browser LIKE "*-*-*")
+    browser := Tokenize(browser, "-")[1];
+
+  STRING msg;
+  OBJECT test;
+  IF (browser = "chrome" OR browser = "nodejs")
+    test := NEW Regex("^ *at (.*) \\((.*):(\\d*):(\\d*)\\)");
+  ELSE IF (browser = "firefox")
+    test := NEW Regex("^ *(.*)@(.*):(\\d*):(\\d*)\n");
+  ELSE IF (browser = "safari")
+    test := NEW Regex("^ *(.*)@(.*):(\\d*):(\\d*)\n");
+  ELSE IF (browser = "ie")
+    test := NEW Regex("^ *at (.*) \\((.*):(\\d*):(\\d*)\\)");
+  ELSE
+    RETURN DEFAULT RECORD;
+
+  test->global := TRUE;
+
+  STRING error := Tokenize(errormsg, "\n")[0];
+  INTEGER cnt;
+  BOOLEAN isfirst := TRUE;
+  RECORD ARRAY trace, errors;
+  WHILE (TRUE)
+  {
+    RECORD ARRAY match := test->Exec(errormsg);
+    IF (NOT RecordExists(match))
+      BREAK;
+
+    IF (isfirst)
+    {
+      error := TrimWhitespace(Left(errormsg, SearchSubString(errormsg, match[0].value)));
+      msg := msg || match[0].value || "\n";
+    }
+
+    isfirst := FALSE;
+
+    // Ignore mootools & test framework & test functions
+    IF (match[2].value LIKE "*/jstests/jstests.js*"
+        OR match[2].value LIKE "*/jstests/rte/jstests-rte.js*"
+        OR match[2].value LIKE "*/mootools/core/core.js*"
+        OR match[2].value LIKE "*/mootools/core/core-debug.js*"
+        OR match[2].value LIKE "*/jstests/testsuite.js*")
+    {
+      // Chrome:
+      IF (match[1].value IN
+          [ "wrapper.extend.$owner", "Class.startNextStepNow", "Class.executeTestStep"
+          , "null.<anonymous>", "testDeepEq", "window.testEq", "window.testEqHTML", "window.testEqHTMLEx"
+          , "window.testEqSelHTMLEx2", "window.testEqSelHTMLEx"
+          ])
+        CONTINUE;
+
+      // Safari:
+      IF (match[1].value IN
+          [ "wrapper.extend.$owner", "Class.startNextStepNow", "executeStepTestFunction"
+          , "null.<anonymous>", "testDeepEq", "testEq", "testEqHTML", "testEqHTMLEx"
+          , "testEqSelHTMLEx2", "testEqSelHTMLEx"
+          ])
+        CONTINUE;
+
+      // Firefox:
+      IF (match[1].value IN
+          [ "TestFramework<.startNextStepNow", "TestFramework<.executeTestStep", "TestFramework<.startNextStepNow"
+          , "TestFramework<.doWaitForTollium/<"
+          ,  "wrap/wrapper<", ".pass/<"
+          ])
+        CONTINUE;
+    }
+
+    IF (match[2].value LIKE "*/.system/jstests/!/*.js")
+      match[2].value := testscript;
+
+    WHILE (LENGTH(match) <= 4)
+      INSERT [ value := 1 ] INTO match AT END;
+
+    msg := msg || "At " || match[2].value || " (" || match[3].value || "," || (match[4].value ?? "1") || "): "||match[1].value||"\n";
+    cnt := cnt + 1;
+
+    STRING filename := match[2].value;
+    filename := Substitute(filename, "~", "node_module");
+
+    IF (filename LIKE "file://*")
+      filename := Substring(filename, 7);
+
+    IF (error != "")
+    {
+      INSERT
+          [ filename :=   filename
+          , line :=       ToInteger(match[3].value, 1)
+          , col :=        ToInteger(match[4].value, 1)
+          , message :=    error
+          ] INTO errors AT END;
+      error := "";
+    }
+    ELSE
+    {
+      INSERT
+          [ filename :=   filename
+          , line :=       ToInteger(match[3].value, 1)
+          , col :=        ToInteger(match[4].value, 1)
+          , func :=       match[1].value
+          ] INTO trace AT END;
+    }
+  }
+
+  IF (CellExists(javascriptmsg, "TRACE"))
+  {
+    trace :=
+        SELECT TEMPORARY normalized_filename := Substitute(Substitute(filename, "file://", ""), "webpack://", "")
+             , filename :=    normalized_filename LIKE "webpack://*"
+                                    ? SubString(normalized_filename, 10)
+                                    : normalized_filename LIKE "*/.system/jstests/!/*.?s"
+                                          ? testscript
+                                          : normalized_filename
+             , line :=        CellExists(trace, "LINE") ? line : 0
+             , col :=         CellExists(trace, "COL") ? col : 0
+             , func :=        CellExists(trace, "FUNC") ? func : ""
+          FROM javascriptmsg.trace;
+
+    IF (LENGTH(trace) > 0)
+    {
+      IF (LENGTH(errors) != 0)
+        errors[0] := MakeReplacedRecord(errors[0], trace[0]);
+      ELSE
+      {
+        IF (error LIKE "Error: Error *")
+          error := SubString(error, 7);
+        errors := [ CELL[ ...trace[0], message := error ] ];
+      }
+      trace := ArraySlice(trace, 1);
+    }
+  }
+
+  // Test for compilation errors
+  OBJECT babeltest := NEW Regex("(SyntaxError): ([^:]*): (.*) \\((\\d*):(\\d*)\\)");
+  RECORD ARRAY babelmatch := babeltest->Exec(errormsg);
+  IF (LENGTH(babelmatch) != 0)
+  {
+    errors :=
+        [ [ message :=    babelmatch[1].value || ": " || babelmatch[3].value
+          , filename :=   babelmatch[2].value
+          , line :=       ToInteger(babelmatch[4].value, 1)
+          , col :=        ToInteger(babelmatch[5].value, 1)
+          ]
+        ];
+    trace := DEFAULT RECORD ARRAY;
+  }
+
+  RETURN
+      [ msg :=        msg
+      , errors :=     errors
+      , trace :=      trace
+      , warnings :=   DEFAULT RECORD ARRAY
+      ];
+}

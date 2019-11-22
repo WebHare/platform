@@ -1,0 +1,106 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="select.whlib" gid="webhare_testsuite:dummy">
+  <screen name="testselect" implementation="none">
+    <body name="body">
+      <select name="comp" type="radio" rowkeytype="integer">
+        <option rowkey="0" title="None" />
+        <option rowkey="1" title="Ext">
+          <textedit name="textedit1" />
+        </option>
+      </select>
+    </body>
+  </screen>
+
+  <screen name="testsubscreen">
+    <body>
+      <select name="pulldown" type="pulldown" />
+    </body>
+  </screen>
+
+  <screen name="generateinvoice">
+    <body>
+      <select name="whichinvoice" type="radio" title="">
+        <option rowkey="new" enablecomponents="invoicedate">
+          <date name="invoicedate" required="true" title="" />
+        </option>
+        <option rowkey="existing" enablecomponents="existinginvoices">
+          <select type="pulldown" name="existinginvoices" required="true" title=""/>
+        </option>
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="testinvisibleselect">
+    <compositions>
+      <record name="contentitem_nl" />
+    </compositions>
+    <body>
+      <select name="invisibleradio" type="pulldown" visible="false">
+        <option rowkey="1" enablecomponents="enable1" />
+        <option rowkey="2" enablecomponents="enable2" />
+      </select>
+      <textedit name="enable1" />
+      <textedit name="enable2" />
+
+      <select composition="contentitem_nl" cellname="usestandardtext" name="nl_usestandardtext" type="radio" title="" rowkeytype="boolean">
+        <option rowkey="true">
+          <select composition="contentitem_nl" cellname="standardtext" name="nl_standardtext" type="pulldown" rowkeytype="integer" title="" />
+        </option>
+        <option rowkey="false" enablecomponents="nl_shorttext nl_mediatype" />
+      </select>
+      <panel height="16x">
+        <heading tid=".shorttext"/>
+        <textarea title="" composition="contentitem_nl" cellname="shorttext" name="nl_shorttext" height="1pr" maxlength="500" showcounter="true" errorlabeltid=".shorttext_nl" />
+        <line>
+          <select composition="contentitem_nl" cellname="mediatype" name="nl_mediatype" type="pulldown" tid=".mediatype">
+            <option rowkey="video" enablecomponents="nl_mediaurl" />
+            <option rowkey="image" enablecomponents="nl_mediaurl" />
+            <option rowkey="website" enablecomponents="nl_mediaurl" />
+          </select>
+          <textedit composition="contentitem_nl" cellname="mediaurl" name="nl_mediaurl" tid=".mediaurl" width="1pr" maxlength="4096" />
+          <!-- <s:selectvideo composition="contentblock" cellname="videourl" name="videourl" /> -->
+        </line>
+      </panel>
+      <tabs name="tabs">
+        <tab></tab>
+      </tabs>
+    </body>
+  </screen>
+
+  <tabsextension name="extension">
+    <newtab>
+      <select composition="contentitem_nl" cellname="usestandardtext2" name="nl_usestandardtext" type="radio" title="" rowkeytype="boolean">
+        <option rowkey="true">
+          <select composition="contentitem_nl" cellname="standardtext" name="nl_standardtext" type="pulldown" rowkeytype="integer" title="" />
+        </option>
+        <option rowkey="false" enablecomponents="nl_shorttext nl_mediatype" />
+      </select>
+      <panel height="16x">
+        <heading tid=".shorttext"/>
+        <textarea title="" composition="contentitem_nl" cellname="shorttext2" name="nl_shorttext" height="1pr" maxlength="500" showcounter="true" errorlabeltid=".shorttext_nl" />
+        <line>
+          <select composition="contentitem_nl" cellname="mediatype" name="nl_mediatype" type="pulldown" tid=".mediatype">
+            <option rowkey="video" enablecomponents="nl_mediaurl" />
+            <option rowkey="image" enablecomponents="nl_mediaurl" />
+            <option rowkey="website" enablecomponents="nl_mediaurl" />
+          </select>
+          <textedit composition="contentitem_nl" cellname="mediaurl" name="nl_mediaurl" tid=".mediaurl" width="1pr" maxlength="4096" />
+          <!-- <s:selectvideo composition="contentblock" cellname="videourl" name="videourl" /> -->
+        </line>
+      </panel>
+    </newtab>
+  </tabsextension>
+
+  <screen name="testoptionsource">
+    <body>
+      <select name="pulldown" type="pulldown">
+        <optionsource name="os1" ongetoptions="select.whlib#GetFreeOptions" />
+        <optionsource name="os2" ongetoptions="GetLocalOptions" />
+      </select>
+    </body>
+  </screen>
+
+</screens>
+

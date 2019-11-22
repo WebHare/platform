@@ -1,0 +1,5 @@
+﻿<?wh
+/** @topic rpc/server */
+
+LOADLIB "mod::system/lib/internal/remoting/support.whlib" EXPORT RPCInvalidArgsException, RPCBadRequestException;
+

@@ -1,0 +1,4 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <backgroundlayer src="tollium:backgrounds/photofile" />
+  <layer src="tollium:objects/file"/>
+</icon>

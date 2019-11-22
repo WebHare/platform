@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- WARNING! modifications to this file may require you to update testvalidate.whscr -->
+
+<xs:schema
+  xmlns="http://www.webhare.net/xmlns/socialite/forms"
+  xmlns:forms="http://www.webhare.net/xmlns/publisher/forms"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/socialite/forms"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+
+  <xs:element name="gtmdatalayer">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <forms:formhandler
+            tid="module.forms.gtmdatalayer"
+            descriptiontid="module.forms.gtmdatalayerdesc"
+            handlerobject="../../lib/internal/forms/gtmdatalayer.whlib#gtmdatalayer"
+            editextension="/screens/forms/gtmdatalayer.xml#settings"
+            parserfunc="/lib/internal/forms/gtmdatalayer.whlib#ParseGTMDataLayer"
+            /> <!-- tolliumicon="tollium:actions/save" -->
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="sc:FormHandlerAttributes" />
+      <xs:attribute name="formname" type="xs:string" use="required" />
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

@@ -1,0 +1,14 @@
+﻿<?wh
+
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/testfw/testpage.whlib";
+
+MACRO RunBody(OBJECT testcontext)
+{
+  RECORD data;
+  LoadWittyLibrary(testcontext->basefolder || "upload.witty","HTML")->Run(data);
+}
+
+InvokeTestPage(PTR RunBody, [ jsfile := "upload.es"
+                             ]);

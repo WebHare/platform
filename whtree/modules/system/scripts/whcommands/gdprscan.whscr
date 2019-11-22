@@ -1,0 +1,81 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+
+DATETIME now := GetCurrentDatetime();
+
+OBJECT trans := OpenPrimary();
+BOOLEAN anydbschema := FALSE;
+FOREVERY (RECORD dbschema FROM trans->GetSchemaListing())
+{
+  IF(dbschema.schema_name IN ["GOOGLE","SYSTEM_RIGHTS","CONSILIO","WRD","PUBLISHER","WEBSHOP"]) //FIXME modules thmeselves should explicitly indicate tables as safe
+    CONTINUE;
+
+  BOOLEAN printed := FALSE;
+  FOREVERY(RECORD tabledef FROM trans->GetTableListing(dbschema.schema_name))
+  {
+    IF(tabledef.isview)
+      CONTINUE;
+    IF(dbschema.schema_name IN ["WEBPACK"] AND tabledef.table_name NOT IN ["POLL_VOTES","SURVEY_USERS","THREAD_ENTRIES"])
+      CONTINUE;
+
+    OBJECT q := NEW DynamicQuery;
+    q->AddTable("tab", trans->id, `${dbschema.schema_name}.${tabledef.table_name}`, STRING[]);
+
+    INTEGER numrecs := Length(q->Execute());
+    IF(numrecs = 0)
+      CONTINUE;
+
+    IF(NOT printed)
+    {
+      Print(`Database schema: ${dbschema.schema_name}\n`);
+      printed := TRUE;
+      anydbschema := TRUE;
+    }
+    Print(` - table ${tabledef.table_name}: ${numrecs} records\n`);
+  }
+  IF(printed)
+    Print("\n");
+}
+
+IF(anydbschema)
+  Print("Visit https://my.webhare.dev/?app=system:dba to manage database schemas\n\n");
+
+FOREVERY(RECORD wrdschema FROM SELECT * FROM wrd.schemas WHERE name NOT LIKE "$wrd$deleted*" ORDER BY ToUppercase(name))
+{
+  Print("WRD Schema: " || wrdschema.name || (wrdschema.title != "" ? " (" || wrdschema.title || ")" : "") || "\n");
+  Print("   created: " || FormatDatetime("%Y-%m-%d", wrdschema.creationdate) || " " || wrdschema.creationsource || "\n");
+  STRING mod := Tokenize(wrdschema.name,':')[0];
+  IF(wrdschema.name NOT LIKE "*:*")
+  {
+    Print("- this schema is not claimed by a module\n");
+  }
+  ELSE
+  {
+    IF(NOT IsModuleInstalled(mod))
+      Print(`- the module '${mod}' is no longer installed!\n`);
+  }
+
+  //ADDME other types to scan...  look for emails?
+  OBJECT schemaobj := OpenWRDSchemaById(wrdschema.id);
+  RECORD personstats := SELECT oldest := MIN(creationdate)
+                             , newest := MAX(creationdate)
+                             , numactive := SUM(limitdate >= now ? 1 : 0)
+                             , inactive := SUM(limitdate < now ? 1 : 0)
+                             , oldestinactive := MIN(limitdate)
+                          FROM wrd.entities
+                         WHERE type = schemaobj->^wrd_person->id;
+
+  IF(RecordExists(personstats))
+  {
+    Print(`- PERSONS! ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive), from ${FormatDatetime("%Y-%m-%d",personstats.oldest)} to ${FormatDatetime("%Y-%m-%d",personstats.newest)}\n`);
+  }
+
+  Print("\n");
+}

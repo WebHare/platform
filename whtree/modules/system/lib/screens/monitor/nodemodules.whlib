@@ -1,0 +1,121 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/devtools/node.whlib";
+
+
+PUBLIC OBJECTTYPE Panel EXTEND MonitorPanelBase
+<
+  RECORD ARRAY sites;
+
+  // FIXME: auto refresh NOT RECOMMENDED
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  {
+    this->RefreshModules();
+  }
+
+  MACRO Init()
+  {
+  }
+
+  MACRO RefreshModules()
+  {
+    RECORD ARRAY modules;
+    RECORD ARRAY node_modules_maps;
+    RECORD ARRAY node_modules;
+
+    FOREVERY (STRING modulename FROM GetInstalledModuleNames())
+    {
+      // ADDME: show icon (no linked, NPM linked, handmade alias)
+      RECORD ARRAY folders :=
+          SELECT TEMPORARY __link := type = 2 ? GetSoftlinkInfo(COLUMN path) : DEFAULT RECORD
+               , *
+               , linksto := RecordExists(__link) ? __link.final : ""
+            FROM ListNodeModuleFolders(GetModuleInstallationRoot(modulename));
+
+      RECORD module :=
+          [ name := modulename
+          , modulemaps := (SELECT * FROM folders WHERE name IN ["nodejs", "node_modules"])
+          , nodemodulemaps := (SELECT * FROM folders WHERE isnodemodule)
+          ];
+
+      node_modules_maps := node_modules_maps CONCAT module.modulemaps;
+      node_modules := node_modules CONCAT module.nodemodulemaps;
+
+      INSERT module INTO modules AT END;
+    }
+
+    this->modules->rows :=
+        SELECT name
+             , style := "module"
+             , subnodes := (SELECT name := localpath
+                                 , linksto
+                                 , links := 0
+                                 , ismodule := FALSE
+                                 , isnodemodule := TRUE
+                                 , expanded := FALSE
+                              FROM nodemodulemaps)
+             , linksto := ""
+             , links := 0
+             , ismodule := TRUE
+             , isnodemodule := FALSE
+             , expanded := TRUE
+          FROM modules;
+  }
+>;
+
+
+RECORD FUNCTION GetSoftlinkInfo(STRING path)
+{
+  path := MergePath(GetDirectoryFromPath(path), ReadSoftLink(path));
+
+  // NOTE: To be 100% failsafe we should keep following symlinks (with some failsafe against circular references)
+  //       But this should always be enough unless someone is messing around.
+
+  STRING nextsoftlink := ReadSoftLink(path); // NPM links to the global list and from there to the eindpoint
+  IF (nextsoftlink = "")
+    RETURN [ first := path, final := path ];
+
+  STRING finalpath := MergePath(GetDirectoryFromPath(path), ReadSoftLink(path));
+
+  RETURN [ first := path, final := finalpath ];
+}
+
+
+RECORD ARRAY FUNCTION RecursiveGetFiles(STRING path)
+{
+  RETURN __RecursiveGetFiles(path, "", FALSE);
+}
+
+
+RECORD ARRAY FUNCTION __RecursiveGetFiles(STRING path, STRING localpath, BOOLEAN in_nodemodules_map)
+{
+  RECORD ARRAY fslist :=
+      SELECT *
+           , localpath := localpath || "/" || name // path (in the module)
+           , isnodemodule := in_nodemodules_map
+        FROM ReadDiskDirectory(path, "*") WHERE name NOT IN [".", "..", ".DS_Store", ".git" ];
+
+  RECORD ARRAY extrafiles;
+
+  IF (path NOT LIKE "* /")
+    path := path || "/";
+
+  IF (in_nodemodules_map)
+    RETURN fslist; // don't recurse into a node_module (FIXME: how does node handle the different versions needed of a module if modules use different versions of the same module?)
+
+  FOREVERY(RECORD folder FROM (SELECT * FROM fslist WHERE type = 1))
+  {
+    extrafiles := extrafiles CONCAT __RecursiveGetFiles(path || folder.name, folder.localpath, folder.name IN ["nodejs", "node_modules"]);
+  }
+
+  RETURN fslist CONCAT extrafiles;
+}

@@ -1,0 +1,179 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_AFTERPAY_MERCHANTID") = "";
+
+ASYNC MACRO SetupAfterpay()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("addprovider"));
+  TT("methods")->value := "wrd:afterpay";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+  TT(":Merchant ID")->value := offlineonly ? "dummy-id" : GetEnvironmentVariable("TESTFW_AFTERPAY_MERCHANTID");
+  TT(":PortefeuilleID")->value := 1;
+  TT(":Password")->value := offlineonly ? "password" : GetEnvironmentVariable("TESTFW_AFTERPAY_PASSWORD");
+  TT("paymentextension->testmode")->value := true;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+
+  testfw->BeginWork();
+  paymentapi->UpdateConfig([ ordernrformat := "TST|" || GenerateUFS128BitId() || "|%d%03n"]);
+  testfw->CommitWork();
+}
+
+ASYNC MACRO SetupAfterpay_BE()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+  TestEq(1, Length(TT("providers")->rows));
+  TT("providers")->selection := TT("providers")->rows;
+  AWAIT ExpectScreenChange(+1, PTR TTClick("editprovider"));
+  TT(":Merchant ID")->value    := offlineonly ? "dummy-id" : GetEnvironmentVariable("TESTFW_AFTERPAY_MERCHANTID_BE");
+  TT(":PortefeuilleID")->value := 4;
+  TT(":Password")->value       := offlineonly ? "password" : GetEnvironmentVariable("TESTFW_AFTERPAY_PASSWORD_BE");
+  TT("paymentextension->afterpaytype")->value := "BE";
+  TT("paymentextension->methodtitle")->value := "Afterpay BE";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+}
+
+RECORD FUNCTION BuildRequest(OBJECT paymentapi, OBJECT testperson, STRING fortype, MONEY linetotal)
+{
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  RECORD afterpay := SELECT * FROM methods WHERE Tokenize(title,'(')[0] = TrimWhitespace("Afterpay " || fortype);
+  TestEq(TRUE, RecordExists(afterpay), 'Cannot find afterpay method');
+
+  RETURN [ paymentprovider := methods[0].paymentprovider
+         , paymentoptiontag := afterpay.paymentoptiontag
+         , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+         , ipaddress := "127.0.0.1"
+         , billingaddress := fortype = "BE" ? [ street := "Rue de la Loi"
+                                              , city :="Brussel"
+                                              , country := "BE"
+                                              , nr_detail := "6"
+                                              , zip := "1000"
+                                              ]
+                                            : [ street := "Teststraat"
+                                              , city :="Testplaats"
+                                              , country := "NL"
+                                              , nr_detail := "1"
+                                              , zip := "8443 ER"
+                                              ]
+         , wrdpersonentity := testperson
+         , wrdpersonfields := CELL[]
+         , orderlines := [[ title := "Product title", sku := "SKU 123", amount := 2, linetotal := linetotal - 2m, vatpercentage := 21m ]
+                         ,[ title := "Something else", sku := "", amount := 1, linetotal := 2m, vatpercentage := 21m ]
+                         ]
+         , orderid := GenerateUFS128BitId()
+         ];
+}
+
+ASYNC MACRO TestPaymentsAfterpay(STRING fortype)
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  //testdata used as recommend by https://mip.afterpay.nl/en/direct-api-integration/
+  OBJECT testperson := paymentapi->wrdschema->^wrd_person->CreateEntity(
+      [ wrd_gender := 1
+      , wrd_firstname := "Test"
+      , wrd_lastname := "Acceptatie 123"
+      , wrd_contact_email := "afterpaytest@example.net"
+      , wrd_dateofbirth := MakeDate(1990,1,1)
+      , wrd_contact_phone := fortype = "BE"  ? "0032472067761" : "+31513744112"
+      //, wrd_contact_phone2 := fortype = "BE" ? "+32
+      //4720677610" : "+31513744112"
+      ]);
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD properrequest := BuildRequest(paymentapi, testperson, fortype, fortype="BE" ? 231.69 : 231.67);
+
+  Print("Planned return url: " || properrequest.returnurl || "\n");
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, fortype="BE" ? 231.69 : 231.67, properrequest);
+  TestEq(FALSE, paymentinstruction.complete);
+  TestEq(1, Length(paymentinstruction.errors));
+  TestEq("WRD_LASTNAME", paymentinstruction.errors[0].field);
+  //NL reports field.billto.person.lastname.invalid, BE reports field.invalid
+  TestEqLike("*invalid", paymentinstruction.errors[0].description);
+  IF(fortype="NL") //BE doesn't give any error
+    TestEqLike("*achternaam*", paymentinstruction.errors[0].error);
+
+  //Fix lastname and retry
+  INSERT CELL wrd_lastname := "Acceptatie" INTO properrequest.wrdpersonfields;
+  paymentinstruction := paymentapi->StartPayment(entity->id, fortype="BE" ? 231.69 : 231.67, properrequest);
+  TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(paymentinstruction.submitinstruction));
+  RECORD status := DecodeJSONBlob(testfw->browser->content);
+  TestEq(entity->id, status.returninfo.paymentid);
+  TestEq("approved", status.payinfo.status);
+  TestEq("approved", entity->GetField("DATA").status);
+
+  paymentapi->ForceRecheckPayment(entity->id);
+  TestEq("approved", entity->GetField("DATA").status);
+
+  //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  testfw->BeginWork();
+  testperson->UpdateEntity([ wrd_contact_email := "rejection@beta.webhare.net" ]);
+  properrequest.orderid := GenerateUFS128BitId();
+
+  entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+
+  testfw->CommitWork();
+
+  properrequest := BuildRequest(paymentapi, testperson, fortype, fortype="BE" ? 230.69 : 230.67);
+  INSERT CELL wrd_lastname := "Acceptatie" INTO properrequest.wrdpersonfields;
+
+  paymentinstruction := paymentapi->StartPayment(entity->id, fortype="BE" ? 230.69 : 230.67, properrequest);
+  TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(paymentinstruction.submitinstruction));
+  status := DecodeJSONBlob(testfw->browser->content);
+  TestEq(entity->id, status.returninfo.paymentid);
+  TestEq("failed", status.payinfo.status);
+  TestEq("failed", entity->GetField("DATA").status);
+  IF(fortype="NL") //not getting a reason for BE, or the rejection address doesn't really work there. we'll trust it worked fine on NL...
+    TestEqLike("*reden hiervoor is: *????*. Voor vragen*<a*href*_blank*",  paymentapi->ExplainPayment(entity->GetField("DATA")).htmlstatusforuser);
+
+  /* FIXME afterpay can also do its own rejection based on the data instead of thecreditcheck..
+    and then we should go back to the order form and highlight the right fields. but we have no support for that yet in the payments api
+    To verify and process a validation error, place a regular order, but use invalid data, for example:
+
+    a telephone number consisting of 9 digits, i.e.: 051322334
+    a postal code using only letters, i.e.: ABCD
+    a name with number in it, i.e.: John Doe 123
+    */
+
+
+  testfw->BeginWork();
+  testperson->CloseEntity();
+  testfw->CommitWork();
+}
+
+IF(offlineonly)
+  Print("*** Mocking some API calls as TESTFW_AFTERPAY_MERCHANTID is not set\n\n");
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR SetupAfterpay
+                 , PTR RunStandardPaymentMethodTests
+                 , PTR TestPaymentsAfterpay("")
+                 , PTR SetupAfterpay_BE
+                 , PTR RunStandardPaymentMethodTests
+                 , PTR TestPaymentsAfterpay("BE")
+                ]);

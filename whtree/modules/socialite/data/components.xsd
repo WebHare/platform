@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns="http://www.webhare.net/xmlns/socialite/components"
+  targetNamespace="http://www.webhare.net/xmlns/socialite/components"
+  xmlns:socialite="http://www.webhare.net/xmlns/socialite/components"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+
+  <xs:simpleType name="NonEmptyString">
+    <xs:restriction base="xs:string">
+      <xs:pattern value=".+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+
+  <!--
+
+  New generic video components
+
+  -->
+
+  <!-- components which use this group must offer a 'value' member which accepts a RECORD with 'network' and 'id' -->
+  <xs:attributeGroup name="movieselection">
+    <xs:attribute name="network"><!-- type="xs:string" -->
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="youtube" />
+          <xs:enumeration value="vimeo" />
+          <xs:enumeration value="youku">
+            <xs:annotation>
+              <xs:documentation>
+                Which video network the video comes from
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+
+    <xs:attribute name="videoid" type="xs:string"><!-- stored as 'id' when getting/setting value of any video component -->
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The default value (video id) to use</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="thumbnailsettings">
+    <xs:attribute name="showthumbnail" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Whether to show a thumbnail of the video</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="thumbnailwidth" type="tc:Size" default="320px">
+      <xs:annotation>
+        <xs:documentation>
+          The width of the thumbnail
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="thumbnailheight" type="tc:Size" default="180px">
+      <xs:annotation>
+        <xs:documentation>
+          The height of the thumbnail
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:element name="map">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" lib="screens/components/map.whlib" objecttype="GoogleMapComponent" />
+        <s:extraparser field="icons" type="s:array" target="./socialite:icon" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="icon" minOccurs="0" maxOccurs="unbounded" />
+      </xs:sequence>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+      <xs:attribute name="maptype" type="xs:string" default="map" />
+      <xs:attribute name="center" type="xs:string" />
+      <xs:attribute name="zoom" type="xs:integer" default="10" />
+      <xs:attribute name="restrictto" type="xs:string" />
+      <xs:attribute name="moveable" type="xs:boolean" default="true" />
+      <xs:attribute name="showcontrols" type="xs:boolean" default="true" />
+      <xs:attribute name="backgroundcolor" type="tc:Color" />
+      <xs:attribute name="clusteroverlays" type="xs:boolean" default="true" />
+      <xs:attribute name="clusteredicon" type="xs:string" />
+      <xs:attribute name="flags" type="tc:Flags" />
+      <xs:attribute name="selectcontextmenu" type="tc:ComponentRef" />
+      <xs:attribute name="newcontextmenu" type="tc:ComponentRef" />
+      <xs:attribute name="onclick" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature arguments="record" />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="onmove" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature  />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="onzoom" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature  />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="onselect" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature  />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="onmoveoverlay" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature arguments="record record" />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="ondirections" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature arguments="string" />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="icon">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="mapicon" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="name" type="NonEmptyString" use="required"/>
+      <xs:attribute name="icon" type="NonEmptyString" use="required"/>
+      <xs:attribute name="shadow" type="xs:string" />
+      <xs:attribute name="anchor_x" type="xs:integer" />
+      <xs:attribute name="anchor_y" type="xs:integer" />
+      <xs:attribute name="label_x" type="xs:integer" />
+      <xs:attribute name="label_y" type="xs:integer" />
+      <xs:attribute name="popup_x" type="xs:integer" />
+      <xs:attribute name="popup_y" type="xs:integer" />
+      <xs:attribute name="width" type="xs:string" />
+      <xs:attribute name="height" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="locationedit">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" lib="screens/components/locationedit.whlib" objecttype="GoogleLocationEdit" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attribute name="addressfield" type="tc:ComponentRef" />
+      <xs:attribute name="zoom" type="xs:boolean" default="true" />
+      <xs:attributeGroup ref="sc:Required" />
+      <xs:attributeGroup ref="sc:Errorlabel" />
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

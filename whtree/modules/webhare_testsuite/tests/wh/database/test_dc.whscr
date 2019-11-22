@@ -1,0 +1,188 @@
+<?wh
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "mod::webhare_testsuite/lib/db/test_funcs.whlib";
+LOADLIB "wh::os.whlib";
+
+TABLE <INTEGER id, STRING str, BLOB blb> beta_table;
+INTEGER testsequencenumber := 0;
+INTEGER runonly := 0;
+
+BOOLEAN FUNCTION RunTest(STRING testname)
+{
+  testsequencenumber := testsequencenumber + 1;
+  IF (runonly != 0 AND testsequencenumber != runonly)
+    RETURN false;
+
+  PRINT("Running test " || testsequencenumber || ": " || testname || "\n");
+  RETURN true;
+}
+
+MACRO WaitForIndex(INTEGER transid)
+{
+  SendWHDBCommand(transid,"WAIT INDEX");
+}
+
+INTEGER FUNCTION OpenTestTrans()
+{
+  INTEGER tr := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  __BindWHDBMetaTables(tr);
+  beta_table := BindTransactionToTable(tr,"beta_table");
+  RETURN tr;
+}
+
+MACRO TestCommitSuccess(INTEGER transid)
+{
+  RECORD ARRAY errors := CommitWHDBTransaction(transid);
+  IF(Length(errors)>0)
+  {
+    FOREVERY(RECORD err FROM errors)
+    {
+      PRINT(err.message||"\n");
+    }
+    ABORT("Unexpected commit errors");
+  }
+}
+
+MACRO TestRecordArraysEqual(RECORD ARRAY got, RECORD ARRAY want, STRING location)
+{
+  IF (NOT RecordArraysEqual(got, want))
+  {
+      Print("Didn't get wanted data:\nWanted:\n");
+      PrintRecordArrayTo(0, want, "boxed");
+      Print("Got:\n");
+      PrintRecordArrayTo(0, got, "boxed");
+      ABORT("Test failed (" || location || ")");
+  }
+}
+
+MACRO TestCommitFailure(INTEGER transid)
+{
+  IF(Length(CommitWHDBTransaction(transid))=0)
+    ABORT("Unexpected commit success");
+}
+
+STRING ARRAY args := GetConsoleArguments();
+IF (Length(args)=1)
+  runonly := ToInteger(args[0],-1);
+
+INTEGER test_fp_trans ;
+
+//First create the tables
+test_fp_trans := OpenTestTrans();
+
+IF(whdbcolumnexists("beta_table","id"))
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_table CASCADE");
+
+TestCommitSuccess(test_fp_trans);
+
+//--------------------------------------------------------------------------------
+//
+// Start of the tests
+//
+
+
+IF (RunTest("Basic insert test"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_table(id INTEGER AUTONUMBER 1 PRIMARY KEY, str VARCHAR(256), blb BLOB)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  __WHDBDCInsert(test_fp_trans, "beta_table", [id := 4, str := "test"]);
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  RECORD ARRAY ra := SELECT id, str FROM beta_table;
+  TestRecordArraysEqual(ra, [[id := 4, str := "test"]], "Insert test");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_table CASCADE");
+  TestCommitSuccess(test_fp_trans);
+
+} //end metadata integrity tests
+
+IF (RunTest("Basic cursoring test"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_table(id INTEGER AUTONUMBER 1 PRIMARY KEY, str VARCHAR(256), blb BLOB)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  RECORD ARRAY ra;
+  __WHDBDCInsert(test_fp_trans, "beta_table", [id := 4, str := "test"]);
+  INTEGER dc_id := __WHDBDCOpen(test_fp_trans, "beta_table", ["id", "str"], false, false);
+  if (dc_id = 0)
+    ABORT("Opening cursor failed");
+  WHILE (__WHDBDCNextRow(dc_id))
+    INSERT __WHDBDCGetRow(dc_id) INTO ra AT END;
+  __WHDBDCClose(dc_id);
+  TestRecordArraysEqual(ra, [[id := 4, str := "test"]], "Basic cursoring");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_table CASCADE");
+  TestCommitSuccess(test_fp_trans);
+
+} //end metadata integrity tests
+
+IF (RunTest("Basic update test"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_table(id INTEGER AUTONUMBER 1 PRIMARY KEY, str VARCHAR(256), blb BLOB)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  __WHDBDCInsert(test_fp_trans, "beta_table", [id := 10, str := "test"]);
+
+  INTEGER dc_id := __WHDBDCOpen(test_fp_trans, "beta_table", ["id", "str"], false, true);
+  if (dc_id = 0)
+    ABORT("Opening cursor failed");
+  WHILE (__WHDBDCNextRow(dc_id))
+    __WHDBDCUpdate(dc_id, [str := "changed"]);
+  __WHDBDCClose(dc_id);
+
+  dc_id := __WHDBDCOpen(test_fp_trans, "beta_table", ["id", "str"], false, true);
+  if (dc_id = 0)
+    ABORT("Opening cursor failed");
+  WHILE (__WHDBDCNextRow(dc_id))
+    __WHDBDCUpdate(dc_id, [str := __WHDBDCGetRow(dc_id).str || "-updated"]);
+  __WHDBDCClose(dc_id);
+
+  RECORD ARRAY ra := SELECT id, str FROM beta_table;
+  TestRecordArraysEqual(ra, [[id := 10, str := "changed-updated"]],"Basic update");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_table CASCADE");
+  TestCommitSuccess(test_fp_trans);
+
+} //end metadata integrity tests
+
+IF (RunTest("Basic delete test"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE beta_table(id INTEGER AUTONUMBER 1 PRIMARY KEY, str VARCHAR(256), blb BLOB)");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  __WHDBDCInsert(test_fp_trans, "beta_table", [id := 10, str := "test"]);
+  __WHDBDCInsert(test_fp_trans, "beta_table", [id := 20, str := "test2"]);
+
+  INTEGER dc_id := __WHDBDCOpen(test_fp_trans, "beta_table", ["id", "str"], false, true);
+  if (dc_id = 0)
+    ABORT("Opening cursor failed");
+  WHILE (__WHDBDCNextRow(dc_id))
+    IF (__WHDBDCGetRow(dc_id).id = 20)
+      __WHDBDCDelete(dc_id);
+  __WHDBDCClose(dc_id);
+
+  RECORD ARRAY ra := SELECT id, str FROM beta_table;
+  TestRecordArraysEqual(ra, [[id := 10, str := "test"]], "Basic update");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP TABLE beta_table CASCADE");
+  TestCommitSuccess(test_fp_trans);
+
+} //end metadata integrity tests

@@ -1,0 +1,24 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/tests/shortcuts.whlib">
+
+  <screen name="shortcuttest" menubar="menubar" title="Shortcut test">
+    <actions>
+      <action name="fkey_vanilla" onexecute="dofkey_vanilla" shortcut="f7" title="f7" />
+      <action name="fkey_ctrl" onexecute="dofkey_ctrl" shortcut="ctrl+f7" title="ctrl+f7" />
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item title="topitem">
+          <item action="fkey_vanilla" />
+          <item action="fkey_ctrl" />
+        </item>
+      </menu>
+    </menus>
+    <body>
+      <textedit name="textedit" title="lastaction" />
+    </body>
+  </screen>
+
+</screens>

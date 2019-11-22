@@ -1,0 +1,273 @@
+﻿<?wh
+/** @short Floating point tests */
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::util/geo.whlib";
+RECORD ARRAY errors;
+RECORD result;
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// The basic datatypes are assumed to be working correctly
+
+// There are no extensive tests on the results of the mathematical functions, except
+// for the functions which are implemented in HareScript directly, i.e. not as an
+// __EXTERNAL function. However, range checking and error messages are tested for all
+// functions.
+
+/*** FormatFloat ***/
+MACRO FormatFloatTest()
+{
+  OpenTest("TestFloat: FormatFloatTest");
+
+  TestEqualString(1, '9.8765432100', FormatFloat(9.87654321, 10));
+  TestEqualString(2, '9.876543210', FormatFloat(9.87654321, 9));
+  TestEqualString(3, '9.87654321', FormatFloat(9.87654321, 8));
+  TestEqualString(4, '9.8765432', FormatFloat(9.87654321, 7));
+  TestEqualString(5, '9.876543', FormatFloat(9.87654321, 6));
+  TestEqualString(6, '9.87654', FormatFloat(9.87654321, 5));
+  TestEqualString(7, '9.8765', FormatFloat(9.87654321, 4));
+  TestEqualString(8, '9.877', FormatFloat(9.87654321, 3));
+  TestEqualString(9, '9.88', FormatFloat(9.87654321, 2));
+  TestEqualString(10, '9.9', FormatFloat(9.87654321, 1));
+  TestEqualString(11, '10', FormatFloat(9.87654321, 0));
+
+  TestEQ("99.99999999999998578914", formatfloat(99.99999999999998223643,99));
+  TestEQ("-99.99999999999998578914", formatfloat(-99.99999999999998223643,99));
+
+  errors := TestCompile('<?wh FormatFloat("0", "1"); ?>');
+  MustContainError(12, errors, 62, 'STRING', 'FLOAT');
+  MustContainError(13, errors, 62, 'STRING', 'INTEGER');
+
+  CloseTest("TestFloat: FormatFloatTest");
+}
+
+/*** Tofloat ***/
+MACRO TofloatTest()
+{
+  OpenTest("TestFloat: TofloatTest");
+
+  TestEq(1f, ToFloat("1",-1));
+  TestEq(1f, ToFloat("1.",-1));
+  TestEqFloat(.1, ToFloat(".1",-999), 0.01);
+  TestEq(1.5f, ToFloat("1.5",-1));
+  TestEq(1.5f, ToFloat("+1.5",-1));
+  TestEq(-1f, ToFloat("+-1.5",-1));
+  TestEq(-1f, ToFloat("-+1.5",-1));
+  TestEq(-1f, ToFloat("-+1.5",-1));
+  TestEq(11f/2, ToFloat("5.5",-1));
+  TestEqFloat(1234567.8, ToFloat("1234567.8",-1), 0.01);
+  TestEqFloat(1234.5678, ToFloat("1234,5678",-1), 0.01);
+  TestEqFloat(-1234567.8, ToFloat("-1234567.8",-1), 0.01);
+
+  TestEqFloat(4294967296.0, ToFloat("4294967296.0",-1), 0.01);
+  TestEqFloat(-4294967296.0, ToFloat("-4294967296.0",-1), 0.01);
+
+  TestEqFloat(-1, ToFloat("",-1), 0.01);
+  TestEqFloat(-1, ToFloat(".",-1), 0.01);
+  TestEqFloat(-1, ToFloat(",",-1), 0.01);
+  TestEqFloat(-1, ToFloat("a",-1), 0.01);
+  TestEqFloat(-1, ToFloat("11.111.11",-1), 0.01);
+  TestEqFloat(-1, ToFloat("11,111,11",-1), 0.01);
+  TestEqFloat(123400, ToFloat("1.234e5",-1), 0.01);
+  TestEqFloat(123400, ToFloat("1.234e+5",-1), 0.01);
+  TestEqFloat(123400, ToFloat("1.234e+5",-1), 0.01);
+  TestEqFloat(170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, ToFloat("1.7e+308",-1), 1e+300);
+  TestEqFloat(.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022, ToFloat("2.2E-308",-1), 0);
+  TestEqFloat(-1, ToFloat("1e",-1), 0.01);
+  TestEqFloat(-1, ToFloat("1ea",-1), 0.01);
+  TestEqFloat(-1, ToFloat("1e+",-1), 0.01);
+  TestEqFloat(-1, ToFloat("1e+a",-1), 0.01);
+  TestEqFloat(-1, ToFloat("1e-",-1), 0.01);
+  TestEqFloat(-1, ToFloat("1e-a",-1), 0.01);
+  TestEqFloat(1, ToFloat("1e0",-1), 0.01);
+  TestEqFloat(-1, ToFloat("1e0a",-1), 0.01);
+  TestEqFloat(1, ToFloat("1e+0",-1), 0.01);
+  TestEqFloat(1, ToFloat("1e-0",-1), 0.01);
+  TestEqFloat(1, ToFloat("1e+0",-1), 0.01);
+  TestEqFloat(0, ToFloat("1e-400",-1), 0.01); // underflow
+  TestEqFloat(-1, ToFloat("1e+400",-1), 0.01); // overflow
+  TestEqFloat(1.1111111111111111111e40, ToFloat("1.11111111111111111111111111111111111111111e+40",-1), 1e30);
+  TestEqFloat(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, ToFloat("1.7976931348623157e+308", 0), 1e+291); // max float
+  TestEqFloat(-1, ToFloat("1.7976931348623159e+308", -1), 0.01); // overflow
+
+  // Miscalculating exponent of inaccurate floats
+  TestEq(TRUE, ToFloat("79769313486231574472640204476192593574523925781250000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", 0) > 7e+307);
+
+  CloseTest("TestFloat: TofloatTest");
+}
+
+/*** Conversion tests ***/
+MACRO ConversionTest()
+{
+  OpenTest("TestFloat: ConversionTest");
+
+  TestEqualFloat(1, 0., (0));
+  TestEqualFloat(2, 2147483647., (2147483647));
+  TestEqualFloat(3, -2147483647., (-2147483647));
+
+  TestEqualFloat(4, .12345, (.12345));
+  TestEqualFloat(5, 1122334455.66778, (1122334455.66778));
+  TestEqualFloat(6, -1122334455.66778, (-1122334455.66778));
+
+  TestEqualInteger(7, 0, FloatToInteger(0.));
+  TestEqualInteger(8, 2147483647, FloatToInteger(2147483647.123456));
+
+  CloseTest("TestFloat: ConversionTest");
+}
+
+/*** Mathematical functions ***/
+MACRO MathematicsTest()
+{
+  OpenTest("TestFloat: MathematicsTest");
+
+  TestEqualFloat(1, 987654321.123456789, Abs(987654321.123456789));
+  TestEqualFloat(2, 987654321.123456789, Abs(-987654321.123456789));
+  TestEqualFloat(3, Pi-1, Abs(1-Pi));
+
+  TestEqualFloat(4, 4, Ceil(Pi));
+
+  TestEqualFloat(5, 0, Sqrt(0));
+  result := TestCompileAndRun('<?wh Sqrt(-1); ?>');
+  MustContainError(6, result.errors, 172);
+
+  TestCleanCompile(7, '<?wh Pow(0, 1); ?>');
+  TestCleanCompile(8, '<?wh Pow(1, -1); ?>');
+  TestCleanCompile(9, '<?wh Pow(1, 1.1); ?>');
+  TestCleanCompile(10, '<?wh Pow(-1, 2); ?>');
+  result := TestCompileAndRun('<?wh Pow(0, 0); ?>');
+  MustContainError(11, result.errors, 173, "POW");
+  result := TestCompileAndRun('<?wh Pow(0, -1); ?>');
+  MustContainError(12, result.errors, 173, "POW");
+  result := TestCompileAndRun('<?wh Pow(-1, .5); ?>');
+  MustContainError(13, result.errors, 173, "POW");
+  result := TestCompileAndRun('<?wh Pow(2, 1023); ?>');
+  TestCleanResult(14, result.errors);
+  /* FIXME: Kris - why not overflow ON BSD?
+  result := TestCompileAndRun('<?wh Pow(2, 1024);');
+  MustContainError(15, result.errors, 175);
+ */
+  result := TestCompileAndRun('<?wh ACos(-1.0); ?>');
+  TestCleanResult(16, result.errors);
+  result := TestCompileAndRun('<?wh ACos(1.0); ?>');
+  TestCleanResult(17, result.errors);
+  result := TestCompileAndRun('<?wh ACos(-1.1); ?>');
+  MustContainError(18, result.errors, 173, "ACOS");
+  result := TestCompileAndRun('<?wh ACos(1.1); ?>');
+  MustContainError(19, result.errors, 173, "ACOS");
+
+  result := TestCompileAndRun('<?wh ASin(-1.0); ?>');
+  TestCleanResult(20, result.errors);
+  result := TestCompileAndRun('<?wh ASin(1.0); ?>');
+  TestCleanResult(21, result.errors);
+  result := TestCompileAndRun('<?wh ASin(-1.1); ?>');
+  MustContainError(22, result.errors, 173, "ASIN");
+  result := TestCompileAndRun('<?wh ASin(1.1); ?>');
+  MustContainError(23, result.errors, 173, "ASIN");
+
+  result := TestCompileAndRun('<?wh ATan2(1, 10000000000.); ?>');
+  TestCleanResult(24, result.errors);
+  result := TestCompileAndRun('<?wh ATan2(1, 0); ?>');
+  TestCleanResult(25, result.errors);
+  result := TestCompileAndRun('<?wh ATan2(0, 0); ?>');
+  MustContainError(26, result.errors, 173, "ATAN2");
+
+  result := TestCompileAndRun('<?wh SinH(710); ?>');
+  TestCleanResult(27, result.errors);
+  /* FIXME: Test fails on Linux release mode
+  result := TestCompileAndRun('<?wh SinH(711); ? >');
+  MustContainError(28, result.errors, 175);
+  */
+
+  result := TestCompileAndRun('<?wh CosH(710); ?>');
+  TestCleanResult(29, result.errors);
+  /* FIXME: Test fails on Linux release mode
+  result := TestCompileAndRun('<?wh CosH(711); ? >');
+  MustContainError(30, result.errors, 175);
+  */
+
+  result := TestCompileAndRun('<?wh Exp(708); ?>');
+  TestCleanResult(31, result.errors);
+  result := TestCompileAndRun('<?wh Exp(709); ?>');
+  TestCleanResult(31, result.errors);
+  /* FIXME: Test fails on Linux release mode
+  result := TestCompileAndRun('<?wh Exp(710); ? >');
+  MustContainError(32, result.errors, 175);
+  */
+
+  result := TestCompileAndRun('<?wh Log(.00000000001); ?>');
+  TestCleanResult(33, result.errors);
+  result := TestCompileAndRun('<?wh Log(0); ?>');
+  MustContainError(34, result.errors, 174);
+  result := TestCompileAndRun('<?wh Log(-1); ?>');
+  MustContainError(35, result.errors, 174);
+
+  result := TestCompileAndRun('<?wh Log10(.00000000001); ?>');
+  TestCleanResult(36, result.errors);
+  result := TestCompileAndRun('<?wh Log10(0); ?>');
+  MustContainError(37, result.errors, 174);
+  result := TestCompileAndRun('<?wh Log10(-1); ?>');
+  MustContainError(38, result.errors, 174);
+
+  result := TestCompileAndRun('<?wh FMod(1, .00000000001); ?>');
+  TestCleanResult(39, result.errors);
+  result := TestCompileAndRun('<?wh FMod(1, 10000000000.); ?>');
+  TestCleanResult(40, result.errors);
+  result := TestCompileAndRun('<?wh FMod(1, 0); ?>');
+  MustContainError(41, result.errors, 57);
+
+  result := TestCompileAndRun('<?wh LdExp(1, 1023); ?>');
+  TestCleanResult(42, result.errors);
+  /* FIXME: Test fails on Linux release mode
+  result := TestCompileAndRun('<?wh LdExp(1, 1024); ? >');
+  MustContainError(43, result.errors, 175);
+  */
+  result := TestCompileAndRun('<?wh LdExp(1099511627776., 983); ?>');
+  TestCleanResult(44, result.errors);
+  /* FIXME: Test fails on Linux release mode
+  result := TestCompileAndRun('<?wh LdExp(1099511627776., 984); ? >');
+  MustContainError(45, result.errors, 175);
+  */
+
+  TestEqualInteger(46, Abs(4), 4);
+  TestEqualInteger(47, Abs(-4), 4);
+  TestEqualInteger(48, Abs(-2147483648), -2147483648);
+
+  TestEqualMoney(49, Abs(4m), 4m);
+  TestEqualMoney(50, Abs(-4m), 4m);
+  TestEqualMoney(51, Abs(-92233720368547.75808), -92233720368547.75808);
+
+  TestEqualFloat(52, Abs(4f), 4f);
+  TestEqualFloat(53, Abs(-4f), 4f);
+
+  TestEq(4i64, Abs(4i64));
+  TestEq(4i64, Abs(-4i64));
+  TestEq(9223372036854775807i64, Abs(-9223372036854775807i64));
+  TestEq(-9223372036854775808i64, Abs(-9223372036854775808i64));
+
+  result := TestCompileAndRun('<?wh PRINT(""||Abs("")); ?>');
+  MustContainError(54, result.errors, 169, "STRING");
+
+  CloseTest("TestFloat: MathematicsTest");
+}
+MACRO GeoTest()
+{
+  TestEqFloat(0, GetLatLngDistance([ lat := 51.91844800, lng := 4.47621400 ], [ lat := 51.91844800, lng := 4.47621400 ]), 0.001);
+
+  CONSTANT RECORD cp1 := [ lat := 51.91844800, lng := 4.47621400 ];
+  RECORD box := GetLatLngBoundingCoordinates(cp1, 2000);
+  //take the 4 direct edges of the box, should be 2000m from us
+  TestEqFloat(2000f, GetLatLngDistance(cp1, CELL[ cp1.lat, lng := box.minlng ]), 1);
+  TestEqFloat(2000f, GetLatLngDistance(cp1, CELL[ cp1.lat, lng := box.maxlng ]), 1);
+  TestEqFloat(2000f, GetLatLngDistance(cp1, CELL[ lat := box.minlat, cp1.lng ]), 1);
+  TestEqFloat(2000f, GetLatLngDistance(cp1, CELL[ lat := box.maxlat, cp1.lng ]), 1);
+}
+
+PRINT("\n === Running TestFloat\n");
+FormatFloatTest();
+TofloatTest();
+ConversionTest();
+MathematicsTest();
+GeoTest();

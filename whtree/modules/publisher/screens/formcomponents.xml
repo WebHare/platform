@@ -1,0 +1,416 @@
+<screens
+    xmlns="http://www.webhare.net/xmlns/tollium/screens"
+    xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+    gid="formcomponents">
+
+  <tabsextension
+      name="formpage"
+      gid=".page"
+      implementation="lib"
+      lib="webtools/formcomponents/page.whlib">
+    <insert position="titles" where="after">
+      <textedit name="pagetitle" width="1pr" visible="false" />
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formoverviewpage"
+      gid=".page"
+      implementation="lib"
+      lib="webtools/formcomponents/page.whlib">
+    <insert position="titles" where="after">
+      <textedit name="pagetitle" width="1pr" visible="false" />
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formthankyoupage"
+      gid=".page"
+      implementation="lib"
+      lib="webtools/formcomponents/page.whlib">
+    <insert position="titles" where="after">
+      <textedit name="pagetitle" width="1pr" visible="false" />
+    </insert>
+    <newtab tid=".redirection">
+      <line layout="left">
+        <text tid=".redirect"/>
+      </line>
+      <p:intextlink name="redirect" title="" />
+    </newtab>
+  </tabsextension>
+
+  <tabsextension
+      name="formgroup"
+      gid=".group"
+      implementation="lib"
+      lib="webtools/formcomponents/group.whlib">
+    <insert position="presentation" where="after">
+      <select name="blockstyle" type="pulldown" />
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formnumerictextedit"
+      gid=".textedit"
+      implementation="lib"
+      lib="webtools/formcomponents/textedit.whlib">
+    <insert position="validation" where="after">
+      <!-- Using -1000000001 as emptyvalue so users can explicitly these values to 0 -->
+      <panel layout="form">
+        <textedit name="minvalue" valuetype="integer" width="12x" emptyvalue="-1000000001" minvalue="-1000000000" maxvalue="1000000000" value="0"/>
+        <textedit name="maxvalue" valuetype="integer" width="12x" emptyvalue="-1000000001" minvalue="-1000000000" maxvalue="1000000000" value="1000000000" />
+      </panel>
+    </insert>
+    <insert position="advanced" where="after">
+      <textedit name="emptyvalue" valuetype="integer" width="12x" emptyvalue="-1000000001" minvalue="-1000000000" maxvalue="1000000000" />
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formtextedit"
+      gid=".textedit"
+      implementation="lib"
+      lib="webtools/formcomponents/textedit.whlib">
+    <insert position="validation" where="after">
+      <panel name="maxlengthoptions">
+        <line>
+          <checkbox name="usemaxlength" title="" labeltid=".maxlength" enablecomponents="maxlength" />
+          <textedit name="maxlength" title="" valuetype="integer" minvalue="0" emptyvalue="0" width="10x" />
+          <text title="" valuetid=".characters" />
+        </line>
+      </panel>
+      <select name="validationchecks" type="pulldown">
+        <option rowkey="" tid=".none" />
+        <option rowkey="emails" />
+        <option rowkey="url-plus-relative" />
+        <option rowkey="http-url" />
+      </select>
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formtextarea"
+      gid=".textarea"
+      implementation="lib"
+      lib="webtools/formcomponents/textarea.whlib">
+    <insert position="validation" where="after">
+      <panel name="maxlengthoptions">
+        <line>
+          <checkbox name="usemaxlength" title="" labeltid=".maxlength" enablecomponents="maxlength" />
+          <textedit name="maxlength" title="" valuetype="integer" minvalue="0" emptyvalue="0" width="10x" />
+          <text title="" valuetid=".characters" />
+        </line>
+      </panel>
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formrtd"
+      gid=".rtd"
+      implementation="lib"
+      lib="webtools/formcomponents/rtd.whlib">
+    <insert position="advanced" where="after">
+      <select name="rtdtype" type="pulldown" required="true" />
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formdate"
+      gid=".date"
+      implementation="lib"
+      lib="webtools/formcomponents/date.whlib">
+    <insert position="validation" where="after">
+      <line>
+        <date name="minvalue" />
+        <checkbox name="minnow" title="" labeltid=".now" onchange="onminnowselect" />
+        <textedit name="minrel" title="" valuetype="integer" emptyvalue="0" width="10x" />
+        <text title="" valuetid=".days" name="minrel_days" />
+      </line>
+      <line>
+        <date name="maxvalue" />
+        <checkbox name="maxnow" title="" labeltid=".now" onchange="onmaxnowselect" />
+        <textedit name="maxrel" title="" valuetype="integer" emptyvalue="0" width="10x" />
+        <text title="" valuetid=".days" name="maxrel_days" />
+      </line>
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formtime"
+      gid=".time"
+      implementation="lib"
+      lib="webtools/formcomponents/time.whlib">
+    <insert position="answers" where="after">
+      <select name="precision" type="pulldown">
+        <option rowkey="minutes" />
+        <option rowkey="seconds" />
+      </select>
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formselectpulldown"
+      gid=".select"
+      implementation="lib"
+      lib="webtools/formcomponents/select.whlib"
+      allowresize="true">
+    <insert position="answers" where="after">
+      <panel>
+        <select name="rowkeytype" type="pulldown" onchange="onrowkeytypeselect" visible="false">
+          <option rowkey="string" />
+          <option rowkey="integer" />
+          <option rowkey="boolean" />
+        </select>
+      </panel>
+      <arrayedit
+          name="options"
+          orderable="true"
+          onmaprows="mapoptions"
+          onrowedit="oneditselectoption"
+          highlightname="selected"
+          minwidth="65x" height="1pr"
+          errorlabeltid="tolliumapps.formedit.editcomponent.answers"
+          >
+        <column name="title" type="text" width="2pr" />
+        <!--column name="value" type="text" width="1pr" /-->
+      </arrayedit>
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formselectradio"
+      gid=".select"
+      implementation="lib"
+      lib="webtools/formcomponents/select.whlib">
+    <insert position="answers" where="after">
+      <panel>
+        <select name="rowkeytype" type="pulldown" onchange="onrowkeytypeselect" visible="false">
+          <option rowkey="string" />
+          <option rowkey="integer" />
+          <option rowkey="boolean" />
+        </select>
+      </panel>
+      <arrayedit
+          name="options"
+          orderable="true"
+          onmaprows="mapoptions"
+          onrowedit="oneditselectoption"
+          highlightname="selected"
+          minwidth="65x" height="1pr"
+          errorlabeltid="tolliumapps.formedit.editcomponent.answers"
+          >
+        <column name="title" type="text" width="2pr" />
+        <!--column name="value" type="text" width="1pr" /-->
+      </arrayedit>
+    </insert>
+    <insert position="presentation" where="after">
+      <select name="horizontal" type="pulldown" rowkeytype="boolean">
+        <option rowkey="false" tid=".horizontal-false"/>
+        <option rowkey="true" tid=".horizontal-true"/>
+      </select>
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="formselectmultiple"
+      gid=".select"
+      implementation="lib"
+      lib="webtools/formcomponents/select.whlib">
+    <insert position="answers" where="after">
+      <select name="rowkeytype" type="pulldown" onchange="onrowkeytypeselect"  visible="false">
+        <option rowkey="string" />
+        <option rowkey="integer" />
+        <option rowkey="boolean" />
+      </select>
+      <arrayedit
+          name="options"
+          orderable="true"
+          onmaprows="mapoptions"
+          onrowedit="oneditselectoption"
+          icons="tollium:status/checked"
+          minwidth="65x" height="1pr"
+          errorlabeltid="tolliumapps.formedit.editcomponent.answers"
+          >
+        <column name="title" type="text" width="2pr" />
+        <!--column name="value" type="text" width="1pr" /-->
+        <column name="selectedicon" type="icon" tid=".selected-column" width="15x" />
+      </arrayedit>
+    </insert>
+    <insert position="presentation" where="after">
+      <select name="horizontal" type="pulldown" rowkeytype="boolean">
+        <option rowkey="false" />
+        <option rowkey="true" />
+      </select>
+    </insert>
+    <insert position="validation" where="after">
+      <textedit name="min" valuetype="integer" emptyvalue="0" minvalue="0" width="10x" />
+      <textedit name="max" valuetype="integer" emptyvalue="0" minvalue="0" width="10x" />
+    </insert>
+  </tabsextension>
+
+  <screen
+      name="editselectoption"
+      gid=".select"
+      lib="webtools/formcomponents/select.whlib"
+      allowresize="true"
+      savestate="size">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit composition="row" cellname="title" width="1pr" name="title" required="true"/>
+      <select name="booleanvalue" tid=".value" type="pulldown" rowkeytype="boolean" visible="false">
+        <option rowkey="true" />
+        <option rowkey="false" />
+      </select>
+      <date name="datevalue" tid=".value" visible="false" />
+
+      <lines layout="left">
+        <checkbox composition="row" cellname="selected" title="" labeltid=".selected" />
+        <checkbox composition="row" cellname="openanswer" name="openanswer" title="" labeltid=".openanswer" onchange="openanswerchanged" />
+        <line>
+          <spacer width="16px" />
+          <checkbox composition="row" cellname="openrequired" name="openrequired" title="" labeltid=".openrequired" />
+        </line>
+      </lines>
+
+      <panel >
+        <!--line>
+          <spacer width="16px" />
+          <checkbox name="usemaxlength" title="" labeltid=".maxlength" enablecomponents="maxlength" />
+          <textedit composition="row" cellname="maxlength" name="maxlength" title="" valuetype="integer" minvalue="0" emptyvalue="0" width="10x" />
+          <text name="characters" title="" valuetid=".characters" />
+        </line-->
+        <line>
+          <!-- The checkbox is used to store the internal 'othersubcomponents' flag -->
+          <checkbox composition="row" cellname="othersubcomponents" title="" visible="false" />
+          <text name="othersubcomponents" title="" valuetid=".othersubcomponents" wordwrap="true" />
+        </line>
+        <textedit composition="row" errorlabeltid=".value" cellname="value" name="value" width="1pr" visible="false" />
+      </panel>
+
+      <heading tid="tolliumapps.formedit.editcomponent.infotext" name="infotextheading" />
+      <richdocument name="infotext" width="1pr" height="1pr" minheight="6gr" errorlabeltid="tolliumapps.formedit.editcomponent.infotext" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <tabsextension
+      name="richtext"
+      gid=".richtext"
+      implementation="lib"
+      lib="webtools/formcomponents/richtext.whlib"
+      allowresize="true">
+    <insert position="titles" where="after">
+      <richdocument
+          name="text"
+          width="1pr"
+          height="1pr"
+          minheight="8gr" />
+    </insert>
+  </tabsextension>
+
+  <tabsextension
+      name="address"
+      gid=".address"
+      implementation="lib"
+      lib="webtools/formcomponents/address.whlib">
+    <actions>
+      <action name="editcountries" tid="~edit" onexecute="doeditcountries" />
+    </actions>
+    <insert position="answers" where="after">
+      <line>
+        <textedit name="countries" enabled="false" width="1pr" />
+        <button action="editcountries" />
+      </line>
+    </insert>
+  </tabsextension>
+
+  <screen
+      name="editcountries"
+      gid=".address.editcountries"
+      lib="webtools/formcomponents/address.whlib"
+      width="75x"
+      height="30x"
+      allowresize="true">
+    <actions>
+      <action name="copy" title="" onexecute="docopy">
+        <enableon source="regions" min="1" />
+      </action>
+      <action name="adddivider" onexecute="doadddivider" />
+      <action name="delete" tid="~delete" onexecute="dodelete">
+        <enableon source="countries" min="1" requirefocus="true" />
+      </action>
+      <action name="deduplicate" onexecute="dodeduplicate" />
+      <action name="movetop" tid="~totop" onexecute="domovetop">
+        <enableon source="countries" min="1" checkflags="canmoveup" selectionmatch="any" requirefocus="true" />
+      </action>
+      <action name="moveup" tid="~up" onexecute="domoveup">
+        <enableon source="countries" min="1" checkflags="canmoveup" selectionmatch="any" requirefocus="true" />
+      </action>
+      <action name="movedown" tid="~down" onexecute="domovedown">
+        <enableon source="countries" min="1" checkflags="canmovedown" selectionmatch="any" requirefocus="true" />
+      </action>
+      <action name="movebottom" tid="~tobottom" onexecute="domovebottom">
+        <enableon source="countries" min="1" checkflags="canmovedown" selectionmatch="any" requirefocus="true" />
+      </action>
+      <action name="sort" onexecute="dosort" />
+    </actions>
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list
+              name="regions"
+              sortable="false"
+              columnheaders="false"
+              selectmode="multiple"
+              rowselect="true"
+              openaction="copy">
+            <column name="title" title="" type="text" tree="true" />
+          </list>
+        </cell>
+        <cell>
+          <spacer height="1pr" />
+          <button action="copy" type="icon" icon="tollium:actions/right" />
+          <spacer height="1pr" />
+        </cell>
+        <cell width="1pr">
+          <list
+              name="countries"
+              sortable="false"
+              columnheaders="false"
+              selectmode="multiple"
+              rowselect="true"
+              flags="canmoveup canmovedown">
+            <column name="title" title="" type="text" />
+          </list>
+        </cell>
+        <cell>
+          <button action="adddivider" width="1pr" />
+          <button action="delete" width="1pr" />
+          <button action="deduplicate" width="1pr" />
+          <spacer height="1x" />
+          <button action="movetop" width="1pr" />
+          <button action="moveup" width="1pr" />
+          <button action="movedown" width="1pr" />
+          <button action="movebottom" width="1pr" />
+          <button action="sort" width="1pr" />
+        </cell>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <tabsextension
+      name="formcheckbox"
+      implementation="lib"
+      lib="webtools/formcomponents/checkbox.whlib">
+    <insert position="answers" where="after">
+    </insert>
+  </tabsextension>
+
+</screens>

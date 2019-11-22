@@ -1,0 +1,23 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="mod::socialite/lib/screens/plugins/seotab.whlib"
+         gid="screens.plugins.seotab"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         >
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="seotab" implementation="lib">
+    <newtab gid=".seotab" tid=".tabtitle">
+      <heading tid=".indexing" />
+      <lines layout="left">
+        <checkbox composition="contentdata" cellname="noindex" name="noindex" title="" labeltid=".noindex" />
+        <checkbox composition="contentdata" cellname="nofollow" name="nofollow" title="" labeltid=".nofollow" />
+        <checkbox composition="contentdata" cellname="noodp" name="noodp" title="" labeltid=".noodp" />
+        <checkbox composition="contentdata" cellname="noydir" name="noydir" title="" labeltid=".noydir" />
+        <checkbox composition="contentdata" cellname="noarchive" name="noarchive" title="" labeltid=".noarchive" />
+      </lines>
+      <heading tid=".canonical" name="canonicalheading" />
+      <lines layout="left">
+        <p:intextlink composition="contentdata" cellname="canonical" name="canonical" errorlabeltid=".canonical" title="" />
+      </lines>
+    </newtab>
+  </tabsextension>
+
+</screens>

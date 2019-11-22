@@ -1,0 +1,1207 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/publisher/siteprofiles.whlib";
+
+LOADLIB "mod::publisher/lib/rtd.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/conversion.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+
+STRING emptysiteprofile := '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" />';
+
+STRING wpkoopsiteprofile := '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"><contenttype namespace="http://www.wpkoop.nl/broken" /></siteprofile>';
+
+//PublisherTestSiteInit(DEFAULT BLOB);
+
+OBJECT testsite;
+
+MACRO Prepare()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+
+  testsite := CreateSiteFromFolder(firstfolder->id);
+
+  // Hard cleanup for all referenced types
+  FOREVERY (STRING type FROM
+      [ "http://www.webhare.net/xmlns/beta/autocreatetest"
+      , "http://www.webhare.net/xmlns/beta/autocreatefiletest"
+      , "http://www.webhare.net/xmlns/beta/autocreatefoldertest"
+      , "http://www.webhare.net/xmlns/beta/autocreatefoldertest"
+      , "http://www.webhare.net/xmlns/beta/instance1"
+      , "http://www.webhare.net/xmlns/beta/instance2"
+      , "http://www.webhare.net/xmlns/beta/instance3"
+      ])
+  {
+    OBJECT whfs_type := OpenWHFSType(type, [ openorphans := TRUE]);
+    IF (ObjectExists(whfs_type))
+    {
+      DELETE FROM system.fs_objects WHERE COLUMN type = whfs_type->id;
+      DELETE FROM system.fs_types WHERE COLUMN id = whfs_type->id;
+    }
+  }
+
+  //cleanup for a reliable repeatable test (without executerecomp whfs_types fails if executed twice in a row, FIXME?€)
+  FlushUnreferredContentData();
+
+  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+
+  testfw->CommitWork();
+}
+
+MACRO MockedTypes()
+{
+  OBJECT normalfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/normalfolder");
+  TestEq("http://www.webhare.net/xmlns/publisher/normalfolder", normalfoldertype->namespace);
+  TestEq(TRUE, normalfoldertype->foldertype);
+  TestEq(FALSE, normalfoldertype->filetype);
+  TestEq(FALSE, normalfoldertype->orphan);
+  TestEq(0, Length(normalfoldertype->members));
+  TestEq(0, normalfoldertype->id);
+
+  OBJECT unknownfiletype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/unknownfile");
+  TestEq("http://www.webhare.net/xmlns/publisher/unknownfile", unknownfiletype->namespace);
+  TestEq(FALSE, unknownfiletype->foldertype);
+  TestEq(TRUE, unknownfiletype->filetype);
+  TestEq(FALSE, unknownfiletype->isacceptableindex);
+  TestEq(FALSE, unknownfiletype->ispublishedassubdir);
+}
+
+MACRO VerifyAutoCreateTestFile(OBJECT testfile, BOOLEAN after)
+{
+  OBJECT autocreatetesttype := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ]);
+  RECORD result := autocreatetesttype->GetInstanceData(testfile->id, [ orphans := after ]);
+
+  TestEq(FALSE, autocreatetesttype->isdynamicexecution);
+  TestEq("String", result.str);
+  TestEq(15, result.int);
+  TestEq(StringToBlob("Dit is een test"), result.blub.data);
+  TestEq(testfile->id, result.blub.source_fsobject);
+  TestEq("", result.emptystr);
+  TestEq(1.5m, result.price);
+  TestEQ(TRUE, result.yesno);
+  TestEQ(1.25f, result.afloat);
+  TestEQ(TRUE, RecordExists(result.aninstance));
+  TestEQ("http://example.com", result.url);
+  TestEQ([ arbitrarydata := "val" ], result.arecord);
+  IF(NOT after)
+  {
+    TestEQ("http://www.webhare.net/xmlns/beta/instance1", result.aninstance.whfstype);
+    TestEQ("str1", result.aninstance.str1);
+  }
+  TestEQ(TRUE, RecordExists(result.rich));
+  TestEQ(StringToBlob("htmltext"), result.rich.htmltext);
+  TestEQ(1, LENGTH(result.rich.embedded));
+  TestEqMembers([ contentid := "cid:1"
+                , mimetype := "application/octet-stream"
+                , data := StringToBlob("text")
+                , width := 0
+                , height := 0
+                , hash := "mC2ePrmW9VnmM_TRlN7zdh2Qn1o7ZH0ahR_q1nwyydE"
+                , filename := "cid:1"
+                , extension := ""
+                , rotation := 0
+                , mirrored := FALSE
+                , refpoint := DEFAULT RECORD
+                , source_fsobject := testfile->id
+                , dominantcolor := ""
+                ], result.rich.embedded[0], "*,-__blobsource,-settingid,-link");
+
+  TestEq(2, Length(result.rich.instances));
+  IF(NOT after)
+  {
+    RECORD inp := [ instanceid := "TAG1"
+                  , data :=
+                         [ whfstype := "http://www.webhare.net/xmlns/beta/instance1"
+                         , str1 := "str3"
+                         , whfssettingid := 0
+                         , whfsfileid := 0
+                         ]
+                  ];
+    TestEqStructure(inp, result.rich.instances[0]);
+    TestEqMembers(inp, result.rich.instances[0], "INSTANCEID,DATA,WHFSTYPE,STR1");
+  }
+
+  RECORD inp := [ instanceid := "TAG3"
+                 , data :=
+                        [ whfstype := "http://www.webhare.net/xmlns/beta/instance3"
+                        , str3 := "str3"
+                        , whfssettingid := 0
+                         , whfsfileid := 0
+                        ]
+                 ];
+
+  TestEqStructure(inp, result.rich.instances[1]);
+  TestEqMembers(inp, result.rich.instances[1], "INSTANCEID,DATA,WHFSTYPE,STR3");
+}
+
+MACRO AutoCreateTypes()
+{
+  testfw->BeginWork();
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatedynexectest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3", [ openorphans := TRUE ])));
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatedynexectest")));
+
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
+  OBJECT siteprof_without_str := testsite->rootobject->CreateFile([name:="test_without_str.siteprl", data := StringToBlob(testsiteprofile_without_str)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  TestEq(FALSE, OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest")->isdynamicexecution);
+  TestEq(TRUE,  OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatedynexectest")->isdynamicexecution);
+
+  testfw->BeginWork();
+  OBJECT testdatafolder := testsite->rootobject->CreateFolder(
+            [ name:="testdata"
+            , type := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest")->id
+            ]);
+
+  OBJECT innersiteprof := testdatafolder->CreateFile([name:="emptysiteprofile.siteprl", data := StringToBlob(emptysiteprofile)]);
+
+  OBJECT testfile := testdatafolder->CreateFile(
+            [ name:="testfile"
+            , type := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest")->id
+            ]);
+
+  OBJECT dynexecfile := testdatafolder->CreateFile(
+            [ name:="dynexecfile"
+            , type := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatedynexectest")->id
+            ]);
+
+  // Test empty values
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ str := ""
+      , int := 0
+      , blub := DEFAULT RECORD
+      , price := 0m
+      , yesno := FALSE
+      , rich := DEFAULT RECORD
+      , afloat := 0f
+      , aninstance := DEFAULT RECORD
+      , url := ""
+      , arecord := DEFAULT RECORD
+      ]);
+
+  RECORD result := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest");
+
+  TestEq("", result.str);
+  TestEq(0, result.int);
+  TestEq(DEFAULT RECORD, result.blub);
+  TestEq("", result.emptystr);
+  TestEq(0m, result.price);
+  TestEQ(FALSE, result.yesno);
+  TestEq(DEFAULT RECORD, result.rich);
+  TestEQ(0f, result.afloat);
+  TestEq(DEFAULT RECORD, result.aninstance);
+  TestEq("", result.url);
+  TestEq(DEFAULT RECORD, result.arecord);
+
+  // Test casting
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ str := ""
+      , afloat := 0
+      , price := 0
+      ]);
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ str := ""
+      , afloat := 0m
+      ]);
+
+  RECORD file_blub := WrapBlob(StringToBlob("Dit is een test"),"blub");
+  file_blub.source_fsobject := testfile->id;
+  RECORD file_embedded := WrapBlob(StringToBlob("text"),"text.txt");
+  file_embedded.source_fsobject := testfile->id;
+
+  // Normal data
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ str := "String"
+      , int := 15
+      , blub := file_blub
+      , price := 1.5
+      , yesno := TRUE
+      , rich :=
+          [ htmltext :=   StringToBlob("htmltext")
+          , embedded :=   [MakeMergedRecord(file_embedded, [ contentid := "cid:1" ])]
+          , instances := [ [ instanceid := "TAG1"
+                           , data :=
+                                [ whfstype := "http://www.webhare.net/xmlns/beta/instance1"
+                                , str1 := "str3"
+                                ]
+                           ]
+                         , [ instanceid := "TAG3"
+                           , data :=
+                                [ whfstype := "http://www.webhare.net/xmlns/beta/instance3"
+                                , str3 := "str3"
+                                ]
+                           ]
+                         ]
+          ]
+      , afloat := 1.25
+      , aninstance :=
+          [ whfstype := "http://www.webhare.net/xmlns/beta/instance1"
+          , str1 := "str1"
+          ]
+      , url := "http://example.com"
+      , arecord := [ arbitrarydata := "val" ]
+      ]);
+
+  INTEGER ARRAY instanceids := SELECT AS INTEGER ARRAY id FROM system.fs_instances WHERE fs_object = testfile->id;
+
+  VerifyAutoCreateTestFile(testfile, FALSE);
+
+  // Sub-instances should not leak - we shouldn't be seeing the embedded instances
+  TestEQ("", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/instance1").str1);
+  TestEQ("", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/instance3").str3);
+
+  OBJECT fstype_instance1 := OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1");
+  TestEQ(TRUE, testfile->id IN fstype_instance1->FindObjectsByMemberValue("STR1", "str1", TRUE));
+  OBJECT fstype_instance3 := OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3");
+  TestEQ(TRUE, testfile->id IN fstype_instance3->FindObjectsByMemberValue("STR3", "str3", TRUE));
+
+  // Test throw when setting invalid URL in URL field
+  TestThrows(PTR testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ url := "invalid_url"
+      ]));
+
+  // Test throw when forgetting whfstype field
+  TestThrows(PTR testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ aninstance :=
+          [ str2 := "str2"
+          ]
+      ]));
+
+  // Update instance
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ aninstance :=
+          [ whfstype := "http://www.webhare.net/xmlns/beta/instance2"
+          , str2 := "str2"
+          ]
+      ]);
+
+  result := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest");
+  TestEQ("http://www.webhare.net/xmlns/beta/instance2", result.aninstance.whfstype);
+  TestEQ("str2", result.aninstance.str2);
+
+  RECORD saverich := result.rich;
+
+  OBJECT fstype_instance2 := OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2");
+  TestEQ(FALSE, testfile->id IN fstype_instance1->FindObjectsByMemberValue("STR1", "str1", TRUE));
+  TestEQ(TRUE, testfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "str2", TRUE));
+
+  // Update instance
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ aninstance := DEFAULT RECORD ]);
+
+  TestEQ(DEFAULT RECORD, testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest").aninstance);
+
+  TestEQ(FALSE, testfile->id IN fstype_instance1->FindObjectsByMemberValue("STR1", "str1", TRUE));
+  TestEQ(FALSE, testfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "str2", TRUE));
+
+  DATETIME now := GetCurrentDateTime();
+  Sleep(1);
+
+  file_embedded := WrapBlob(StringToBlob("text"),"text.txt");
+  file_embedded.source_fsobject := testfile->id;
+
+  // overflow 4096 bytes storage of record
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ arecord := [ longdata := RepeatText("word", 16384)] ]);
+  TestEQ([ longdata := RepeatText("word", 16384)], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest").arecord);
+
+  // Restore to filling for archive test
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ aninstance :=
+          [ whfstype := "http://www.webhare.net/xmlns/beta/instance2"
+          , str2 := "str2"
+          ]
+      , rich :=
+          [ htmltext :=   StringToBlob("htmltext")
+          , embedded :=   [ MakeMergedRecord(file_embedded, [ contentid := "cid:1" ]) ]
+          , instances := [ [ instanceid := "TAG1"
+                           , data :=
+                                [ whfstype := "http://www.webhare.net/xmlns/beta/instance2"
+                                , str2 := "str2-2"
+                                ]
+                           ]
+                         ]
+                         CONCAT SELECT * FROM result.rich.instances WHERE instanceid="TAG3"
+          ]
+      , arecord := [ arbitrarydata := "val" ]
+      ]);
+
+  //TestEQ(TRUE, now < (SELECT AS DATETIME modificationdate FROM system.fs_objects WHERE id = testfile->id));
+
+  //Create an archive out of this
+  BLOB arc := testdatafolder->ExportFolder().files[0].data;
+
+  testdatafolder->DeleteSelf();
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id));
+
+  testfw->CommitWork();
+
+  testfw->BeginWOrk();
+  FlushUnreferredContentData(); //needed to reliably test
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatedynexectest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3", [ openorphans := TRUE ])));
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatedynexectest")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3")));
+
+  //Extract the archive again
+  RECORD imp := ImportWHFSArchive(testsite->rootobject, arc, [ overwrite := TRUE ]);
+  testfw->CommitWork();
+
+  testdatafolder := testsite->rootobject->OpenByName("testdata");
+  TestEq(TRUE, ObjectExists(testdatafolder));
+
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ])));
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest", [ openorphans := TRUE ])));
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest", [ openorphans := TRUE ])));
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatedynexectest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1", [ openorphans := TRUE ])));
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2", [ openorphans := TRUE ])));
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3", [ openorphans := TRUE ])));
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest")));
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ]))); //test the new API to OpenWHFSType
+  TestEq(FALSE, ObjectExists(OpenWHFSType(", [ openorphans := TRUE ]http://www.webhare.net/xmlns/beta/autocreatefiletest")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2")));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3")));
+
+  TestEq(FALSE, OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ])->isdynamicexecution);
+  TestEq(TRUE,  OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatedynexectest", [ openorphans := TRUE ])->isdynamicexecution);
+
+  testfile := testdatafolder->OpenByName("testfile");
+  TestEq(TRUE, ObjectExists(testfile));
+  VerifyAutoCreateTestFile(testfile, TRUE);
+
+  testfw->BeginWork();
+  FlushUnreferredContentData(); //needed to reliably test
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  result := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ])->ExportInstanceData(testfile->id, DEFAULT OBJECT, TRUE);
+
+  TestEq("String", result.str);
+  TestEq(15, result.int);
+  TestEq(StringToBlob("Dit is een test"), result.blub.data);
+  TestEq(FALSE, CellExists(result,"emptystr")); //it DOESN'T know about emptystr...
+  TestEQ("http://www.webhare.net/xmlns/beta/instance2", result.aninstance.whfstype);
+  TestEQ("str2", result.aninstance.str2);
+  TestEq(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest", [ openorphans := TRUE ])->id, testdatafolder->type);
+  TestEq(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest", [ openorphans := TRUE ])->id, testfile->type);
+
+  //Associate the site profile again
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest")));
+  result := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest");
+  TestEq(TRUE, CellExists(result,"emptystr")); //it DOESN'T know about emptystr...
+
+  //Create an outside dependence to check whether unused instances are not discarded
+  testsite->rootobject->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ aninstance :=
+          [ whfstype := "http://www.webhare.net/xmlns/beta/instance3"
+          //no further content!
+          ]
+      ]);
+
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->WaitForPublishCompletion(testdatafolder->id);
+  testfw->BeginWork();
+
+
+  //Remove the stuff again and force a recompile directly (no way to trigger this indirectly)
+  //It should make all the types go away again, except those referred by an instance
+  testdatafolder->DeleteSelf();
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  FlushUnreferredContentData(); //needed to reliably test
+  testfw->CommitWork();
+
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2", [ openorphans := TRUE ])));
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3", [ openorphans := TRUE ])));
+
+  //Now remove the outside dependency
+  testfw->BeginWork();
+  OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ])->SetInstanceData(testsite->rootobject->id , [ aninstance := DEFAULT RECORD ], [ orphans := TRUE ]);
+  FlushUnreferredContentData(); //needed to reliably test
+  testfw->CommitWork();
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3", [ openorphans := TRUE ])));
+
+  //add the second site profile to try to force an internal conflict. this is what siteprofiledelaymode should fix
+  testfw->BeginWork();
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof_without_str->id));
+  testfw->CommitWork();
+
+
+  testfw->BeginWork();
+  OBJECT autocreatetesttype := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest");
+
+  TestEq(TRUE, ObjectExists(autocreatetesttype));
+  TestEq(2, Length(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest")->members));
+  TestEq([emptystr := "", int := 0], autocreatetesttype->defaultinstance);
+  TestEq([emptystr := "", int := 0], autocreatetesttype->structure);
+
+  imp := ImportWHFSArchive(testsite->rootobject, arc, [ overwrite := TRUE ]);
+  testdatafolder := testsite->rootobject->OpenByName("testdata");
+  TestEq(2, Length(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest")->members));
+  TestEq(19, Length(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest")->allmembers));
+  testfw->RollbackWork();
+
+  testfw->BeginWork();
+
+  siteprof->RecycleSelf();
+  siteprof_without_str->RecycleSelf();
+  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  FlushUnreferredContentData(); //needed to reliably test
+  testfw->CommitWork();
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2", [ openorphans := TRUE ])));
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3", [ openorphans := TRUE ])));
+}
+
+MACRO AutoCreateTypesIncompleteMetadata()
+{
+  testfw->BeginWork();
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.wpkoop.nl/broken", [ openorphans := TRUE ])));
+  OBJECT wpkoopsiteprof := testsite->rootobject->CreateFile([name:="wpkoop.siteprl", data := StringToBlob(wpkoopsiteprofile)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(wpkoopsiteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.wpkoop.nl/broken", [ openorphans := TRUE ])));
+  RECORD imp := ImportWHFSArchive(testsite->rootobject, testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/wpkoop_crash.zip"), [ overwrite := TRUE ]);
+
+  testfw->RollbackWork();
+}
+
+MACRO MergeTypeInto()
+{
+  OBJECT srctype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dynfolder", [ openorphans := TRUE ]);
+  TestEq(TRUE, srctype->foldertype);
+
+  OBJECT desttype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dynfile", [ openorphans := TRUE ]);
+  TestEq(FALSE, desttype->foldertype);
+
+  testfw->BeginWork();
+
+  OBJECT testdatafolder := testsite->rootobject->CreateFolder(
+            [ name := "converttest"
+            , type := srctype->id
+            ]);
+  OBJECT tempfile := testdatafolder->CreateFile([name:="img1.jpg", type := 12, publish := TRUE]);
+
+  srctype->MergeTypeInto(desttype);
+  TestEq(0, Length(SELECT FROM system.fs_objects WHERE type = srctype->id));
+  TestEq(FALSE, OpenWHFSObject(tempfile->id)->isactive);
+
+  OBJECT converttestfile := testsite->rootobject->OpenByName("converttest");
+  TestEq(TRUE, converttestfile->publish);
+
+  testfw->RollbackWork();
+}
+
+MACRO DupeSiteProfs()
+{
+  testfw->BeginWork();
+
+  STRING siteprofdata1 :=
+    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+      || '<contenttype namespace="http://www.webhare.net/xmlns/beta/dupesiteproftest">'
+        || '<member name="str1" type="string" />'
+        || '<member name="str2" type="string" />'
+      || '</contenttype>'
+      || '<foldertype typedef="http://www.webhare.net/xmlns/beta/dupesiteproftest" />'
+    || '</siteprofile>';
+
+  STRING siteprofdata2 :=
+    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+      || '<contenttype namespace="http://www.webhare.net/xmlns/beta/dupesiteproftest">'
+        || '<member name="str1" type="string" />'
+        || '<member name="str3" type="string" />'
+      || '</contenttype>'
+      || '<foldertype typedef="http://www.webhare.net/xmlns/beta/dupesiteproftest" />'
+    || '</siteprofile>';
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest")));
+
+  OBJECT siteprof1 := testsite->rootobject->CreateFile([name:="test1.siteprl", data := StringToBlob(siteprofdata1)]);
+  OBJECT siteprof2 := testsite->rootobject->CreateFile([name:="test2.siteprl", data := StringToBlob(siteprofdata2)]);
+
+  TestEq(0, Length(GetSitesUsingSiteProfile(siteprof1->id)));
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof1->id));
+  TestEq([INTEGER(testsite->Id)], GetSitesUsingSiteProfile(siteprof1->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT thetype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest");
+  TestEq(TRUE, ObjectExists(thetype));
+  TestEq(2, Length(thetype->members));
+
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof2->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  thetype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest");
+  TestEq(2, Length(thetype->members)); // duplicates are now ignored!
+  TestEq([INTEGER(testsite->Id)], GetSitesUsingSiteProfile(siteprof1->id));
+  TestEq([INTEGER(testsite->Id)], GetSitesUsingSiteProfile(siteprof2->id));
+
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof1->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  thetype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest");
+  TestEq(2, Length(thetype->members));
+  TestEq(["str1","str3"], SELECT AS STRING ARRAY name FROM thetype->members ORDER BY name);
+
+
+  testfw->CommitWork();
+}
+
+MACRO FindTest()
+{
+  testfw->BeginWork();
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT findtest1 := firstfolder->CreateFile([name:="findtest1"]);
+  OBJECT findtest2 := firstfolder->CreateFile([name:="findtest2"]);
+  OBJECT findtest3 := firstfolder->CreateFile([name:="findtest3"]);
+
+  OBJECT ctype := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest");
+  INTEGER ARRAY result;
+
+  findtest1->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ int := 15
+      , yesno := TRUE
+      ]);
+  findtest2->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ int := 30
+      ]);
+  findtest3->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ yesno := TRUE
+      ]);
+  findtest1->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ strarray := [ "a" ]
+      ]);
+  findtest2->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ strarray := [ "a", "a" ]
+      ]);
+  findtest3->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ strarray := [ "" ]
+      ]);
+
+  TestThrows(PTR ctype->FindObjectsByMemberValue("str", ""));
+  TestThrows(PTR ctype->FindObjectsByMemberValue("int", 0));
+  TestThrows(PTR ctype->FindObjectsByMemberValue("yesno", FALSE));
+  TestThrows(PTR ctype->FindObjectsByMemberValue("str", "overlong" || RepeatText("X",2048)));
+  TestThrows(PTR ctype->FindObjectsByMemberValue("strarray", ""));
+
+//  ABORT(ctype->FindObjectsByMemberValue("int", 15));
+
+  TestEq([INTEGER(findtest1->id)], ctype->FindObjectsByMemberValue("int", 15));
+  TestEq([INTEGER(findtest2->id)], ctype->FindObjectsByMemberValue("int", 30));
+  TestEq(DEFAULT INTEGER ARRAY, ctype->FindObjectsByMemberValue("int", 40));
+  TestEq([INTEGER(findtest1->id), findtest2->id], ctype->FindObjectsByMemberValue("strarray", "a"));
+
+  result := SELECT AS INTEGER ARRAY val FROM ToRecordArray(ctype->FindObjectsByMemberValue("yesno", TRUE),"val") ORDER BY val;
+  TestEq([INTEGER(findtest1->id), findtest3->id], result);
+
+  testfw->RollbackWork();
+}
+
+MACRO InplaceUpdateTest()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT testfile := firstfolder->CreateFile([name:="inplaceupdatetest"]);
+  OBJECT testfile2 := firstfolder->CreateFile([name:="inplaceupdateotherfile"]);
+
+  RECORD defaultdata :=
+      [ stringtest :=     ""
+      , arraytest :=      DEFAULT RECORD ARRAY
+      , _whfsarray :=     DEFAULT INTEGER ARRAY
+      , stringarray :=    DEFAULT STRING ARRAY
+      , richtest  :=      DEFAULT RECORD
+      , instancetest  :=  DEFAULT RECORD
+      , recordtest :=     DEFAULT RECORD
+      ];
+
+  BLOB testbloba := StringToBlob("mybloba");
+  BLOB testblobb := StringToBlob("myblobb8");
+  BLOB testblobc := StringToBlob("myblobc89");
+
+  TestEq(defaultdata,     testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test"));
+
+  OBJECT myrichdoc := NEW RichDocument;
+  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  RECORD richdocrec := myrichdoc->ExportAsRecord();
+  richdocrec.embedded := SELECT *, hash := EncodeUFS(GetHashForBlob(data, "SHA-256")), link := "" FROM richdocrec.embedded;
+
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test",
+      [ arraytest :=
+          [ [ textcell :=         "cell1"
+            , _whfscell :=        0
+            , stringarray :=      [ "a", "b" ]
+            , blobcell :=         [ data := testbloba
+                                  , mimetype :=     "text/html"
+                                  , filename :=     "filea.html"
+                                  ]
+            ]
+          , [ textcell :=         "cell2"
+            , _whfscell :=        0
+            , stringarray :=      [ "c" ]
+            , blobcell :=         [ data := testblobb
+                                  , mimetype :=   "text/html"
+                                  , filename :=     "fileb.html"
+                                  , extension :=    "html" //allowed to specify but should be ignored!
+                                  ]
+            , intextcell :=       [ internallink := 0
+                                  , externallink := "http://www.b-lex.nl"
+                                  , append := ""
+                                  ]
+            ]
+          , [ textcell :=         ""
+            , _whfscell :=        0
+            , stringarray :=      DEFAULT STRING ARRAY
+            , blobcell :=         DEFAULT RECORD
+            , intextcell :=       DEFAULT RECORD
+            ]
+          ]
+      , richtest := richdocrec
+      , instancetest :=
+            [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
+            , id := "TestInstance-1"
+            , styletitle := ""
+            , fsref := 0
+            ]
+      ]);
+
+  testfw->CommitWork();
+
+  RECORD got := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+
+  testfw->BeginWork();
+
+  RECORD expect :=
+      [ stringtest :=   "x"
+      , _whfsarray :=   [ INTEGER(testfile->id), testfile2->id ]
+      , stringarray :=  [ "b", "a" ]
+      , richtest  :=    richdocrec
+      , recordtest :=   [ va := VARIANT[42, "BEAGLE" ]]
+      , arraytest :=
+            [ [ textcell :=         "cell1"
+              , _whfscell :=        0
+              , stringarray :=      [ "a", "b" ]
+              , blobcell :=         [ data := testbloba
+                                    , mimetype :=       "text/html"
+                                    , filename :=       "filea.html"
+                                    , extension := ".html"
+                                    , width :=          0
+                                    , height :=         0
+                                    , link :=           [linkisobsolete:=FALSE]
+                                    , hash :=           "Bf3iZwRB7squ2ZaOUdEAMvH34xsIJSI80pPBfPoYus0"
+                                    , rotation := 0
+                                    , mirrored := FALSE
+                                    , refpoint := DEFAULT RECORD
+                                    , __blobsource :=   ""
+                                    , source_fsobject := 0
+                                    , dominantcolor := ""
+                                    ]
+              , intextcell :=       DEFAULT RECORD
+              ]
+            , [ textcell :=         "cell2"
+              , _whfscell :=        0
+              , stringarray :=      [ "c" ]
+              , blobcell :=         [ data := testblobb
+                                    , mimetype :=   "text/html"
+                                    , filename :=     "fileb.html"
+                                    , extension := ".html"
+                                    , width :=          0
+                                    , height :=         0
+                                    , link :=           [linkisobsolete:=FALSE]
+                                    , hash :=           "1CnmE60L3fFIRAkN4qyTurNAeW4anI-m5Zrsa20OHEM"
+                                    , rotation := 0
+                                    , mirrored := FALSE
+                                    , refpoint := DEFAULT RECORD
+                                    , __blobsource :=   ""
+                                    , source_fsobject := 0
+                                    , dominantcolor := ""
+                                    ]
+              , intextcell :=       [ internallink := 0
+                                    , externallink := "http://www.b-lex.nl"
+                                    , append := ""
+                                    ]
+              ]
+            , [ textcell :=         ""
+              , _whfscell :=        0
+              , stringarray :=      DEFAULT STRING ARRAY
+              , blobcell :=         DEFAULT RECORD
+              , intextcell :=       DEFAULT RECORD
+              ]
+            ]
+      , instancetest :=
+            [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
+            , id := "TestInstance-1"
+            , styletitle := ""
+            , fsref := 0
+            ]
+      ];
+
+  // Updates with inner default value fields omitted
+  RECORD expect_eq := expect;
+  expect_eq.arraytest[2] := DEFAULT RECORD;
+  DELETE CELL styletitle FROM expect_eq.instancetest;
+
+  ///////////////////////////
+  //  Test whether intextlinks are correctly updated
+  got := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  TestEq([ internallink := 0, externallink := "http://www.b-lex.nl", append := "" ], got.arraytest[1].intextcell);
+
+
+  // change a single setting in the intextcell RECORD
+  RECORD nextupdate := got;
+  nextupdate.arraytest[1].intextcell := [ internallink := 0
+                                        , externallink := "http://www.b-lex.nl/test/"
+                                        , append := ""
+                                        ];
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", nextupdate);
+  got := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  TestEq([ internallink := 0, externallink := "http://www.b-lex.nl/test/", append := "" ], got.arraytest[1].intextcell);
+
+
+  // change a single setting in the intextcell RECORD
+  nextupdate := got;
+  nextupdate.arraytest[1].intextcell := [ internallink := 0
+                                        , externallink := "http://www.b-lex.nl"
+                                        , append := ""
+                                        ];
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", nextupdate);
+  got := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  TestEq([ internallink := 0, externallink := "http://www.b-lex.nl", append := "" ], got.arraytest[1].intextcell);
+  ///////////////////////////
+
+  // Set remaining stuff
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test",
+        [ stringtest :=   "x"
+        , _whfsarray :=   [ INTEGER(testfile->id), testfile2->id ]
+        , stringarray :=  [ "b", "a" ]
+        , recordtest :=   [ va := VARIANT[42, "BEAGLE" ]]
+        ]);
+
+  got := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+
+  //Find arraytest[1].blobcell
+
+  testfw->CommitWork();
+  TestEqMembers(RecurseDeleteSettingIds(expect, DEFAULT STRING ARRAY), RecurseDeleteSettingIds(got, DEFAULT STRING ARRAY), "*,-LINK");
+  RECORD f := testfile->FilterInstanceDataUpdates("http://www.webhare.net/xmlns/beta/test", expect);
+  TestEQ(DEFAULT RECORD, testfile->FilterInstanceDataUpdates("http://www.webhare.net/xmlns/beta/test", expect));
+  TestEQ(expect, testfile2->FilterInstanceDataUpdates("http://www.webhare.net/xmlns/beta/test", expect));
+
+  testfw->BeginWork();
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", got);
+
+  TestEQ(DEFAULT RECORD, testfile->FilterInstanceDataUpdates("http://www.webhare.net/xmlns/beta/test", expect));
+  TestEQ(DEFAULT RECORD, testfile->FilterInstanceDataUpdates("http://www.webhare.net/xmlns/beta/test", expect_eq));
+
+  // Stability of blob settings ids after identity update
+  RECORD got2 := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  TestEq(got.arraytest[0].blobcell.settingid, got2.arraytest[0].blobcell.settingid);
+  TestEq(got.arraytest[0].fs_settingid, got2.arraytest[0].fs_settingid);
+  TestEq(got.arraytest[1].fs_settingid, got2.arraytest[1].fs_settingid);
+
+  RECORD newval := got;
+  newval.arraytest[0].blobcell.data := testblobc;
+  TestThrowsLike("Trying to overwrite*", PTR testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", newval));
+
+  newval := got;
+  //setting it with the same blob, even if now external source, should still be accepted
+  newval.arraytest[0].blobcell.data := StringToBlob(BlobToString(newval.arraytest[0].blobcell.data));
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", newval);
+
+   // Stability of blob elements that are updated in place
+  RECORD got3 := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  TestEq(got.arraytest[0].blobcell.settingid, got3.arraytest[0].blobcell.settingid);
+  TestEq(got.arraytest[0].fs_settingid, got3.arraytest[0].fs_settingid);
+  TestEq(got.arraytest[1].fs_settingid, got3.arraytest[1].fs_settingid);
+
+  // Switch elements 0 and 1
+  newval := got;
+  INSERT newval.arraytest[0] INTO newval.arraytest AT 2;
+  DELETE FROM newval.arraytest AT 0;
+
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", newval);
+  RECORD got4 := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  TestEq(got.arraytest[1].blobcell.settingid, got4.arraytest[0].blobcell.settingid);
+  TestEq(got.arraytest[0].blobcell.settingid, got4.arraytest[1].blobcell.settingid);
+  TestEq(got.arraytest[0].fs_settingid, got4.arraytest[1].fs_settingid);
+  TestEq(got.arraytest[1].fs_settingid, got4.arraytest[0].fs_settingid);
+
+  // Add element copy
+  newval := got;
+  INSERT newval.arraytest[0] INTO newval.arraytest AT END;
+
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", newval);
+  RECORD got5 := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  TestEq(got.arraytest[0].blobcell.settingid, got5.arraytest[0].blobcell.settingid);
+  TestEq(got.arraytest[1].blobcell.settingid, got5.arraytest[1].blobcell.settingid);
+  TestEq(got.arraytest[0].fs_settingid, got5.arraytest[0].fs_settingid);
+  TestEq(got.arraytest[1].fs_settingid, got5.arraytest[1].fs_settingid);
+
+  // got5.arraytest[2] must have unique settingid
+  TestEq(FALSE, got5.arraytest[2].fs_settingid IN [ INTEGER(got.arraytest[0].fs_settingid), got.arraytest[1].fs_settingid ]);
+
+  // Copy data to other file, may not alter original data
+  testfile2->SetInstanceData("http://www.webhare.net/xmlns/beta/test", got5);
+  TestEQ(got5, testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test"));
+
+  // Reset rich document, may not alter original data
+  testfile2->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ richtest := DEFAULT RECORD ]);
+  TestEQ(got5, testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test"));
+
+  //Partially update an array element, expect unnamed cells to get reset
+  RECORD ARRAY inarray := got.arraytest;
+  inarray[1] := [ fs_settingid := inarray[1].fs_settingid, stringarray := ["d","e"] ];
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ arraytest := inarray ]);
+
+  got := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
+  TestEq(DEFAULT RECORD, got.arraytest[1].blobcell);
+  TestEq("", got.arraytest[1].textcell);
+  TestEq(["d","e"], got.arraytest[1].stringarray);
+
+  // Test for illegal richdoc updates
+  RECORD illegal_richdocrec := richdocrec;
+  INSERT DEFAULT RECORD INTO illegal_richdocrec.instances AT END;
+  TestThrows(PTR testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ richtest := illegal_richdocrec ]));
+
+  testfw->CommitWork();
+}
+
+MACRO TestPhotoAlbum()
+{
+  testfw->BeginWork();
+
+  OBJECT soontobe_fotoalbum := testsite->rootobject->CreateFolder([name:="imgfolder"]);
+  OBJECT img1 := soontobe_fotoalbum->CreateFile([name:="img1.jpg", type := 12, publish := TRUE]);
+
+  TestEq(TRUE, IsBeingPublished(img1->id));
+  MarkAsPublished(img1->id, FALSE);
+  TestEq(FALSE , IsBeingPublished(img1->id));
+
+  soontobe_fotoalbum->UpdateMetadata([ type := 2/*system folder*/]);
+  TestEq(FALSE , IsBeingPublished(img1->id));
+
+  soontobe_fotoalbum->UpdateMetadata([ type := 3/*foto album*/]);
+  TestEq(TRUE, IsBeingPublished(img1->id));
+
+
+  MarkAsPublished(img1->id, FALSE);
+  soontobe_fotoalbum->UpdateMetadata([ type := 2/*system folder*/]);
+  TestEq(TRUE, IsBeingPublished(img1->id));
+
+  testfw->RollbackWork();
+}
+
+MACRO TestTypeChange()
+{
+  STRING pre_siteprofile :=
+     '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/typechangetest">'
+      || '<member name="str_to_url" type="string" />'
+    || '</contenttype>'
+  || '</siteprofile>';
+
+  STRING post_siteprofile :=
+     '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/typechangetest">'
+      || '<member name="str_to_url" type="url" />'
+    || '</contenttype>'
+  || '</siteprofile>';
+
+  testfw->BeginWork();
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="testtypechange.siteprl", data := StringToBlob(pre_siteprofile)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT testfile1 := testsite->rootobject->CreateFile([ name:="testfile1", type := 0]);
+  testfile1->SetInstanceData("http://www.webhare.net/xmlns/beta/typechangetest",
+      [ str_to_url := "http://example.com"
+      ]);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  siteprof->UpdateMetadata([ data := StringToBlob(post_siteprofile) ]);
+  testfw->CommitWork();
+
+  // Test if value didn't change, and whether type change has happened
+  testfw->BeginWork();
+  TestEQ([ str_to_url := "http://example.com"
+         ], testfile1->GetInstanceData("http://www.webhare.net/xmlns/beta/typechangetest"));
+  TestThrows(PTR testfile1->SetInstanceData("http://www.webhare.net/xmlns/beta/typechangetest",
+      [ str_to_url := "invalid_url"
+      ]));
+  testfw->CommitWork();
+}
+
+MACRO TestArrayMembers()
+{
+  // Test finding objects by (array) members values
+  STRING siteprofile :=
+     `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+        <contenttype namespace="http://www.webhare.net/xmlns/beta/arraymembertest">
+          <member name="mystring" type="string" />
+          <member name="myarray" type="array">
+            <member name="mystring" type="string" />
+            <member name="myarray2" type="array">
+              <member name="mystring2" type="string" />
+            </member>
+          </member>
+        </contenttype>
+      </siteprofile>`;
+
+  testfw->BeginWork();
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="arraymembertest.siteprl", data := StringToBlob(siteprofile)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  TestEq([ mystring := ""
+         , myarray := RECORD[]
+         ], OpenWHFSType("http://www.webhare.net/xmlns/beta/arraymembertest")->defaultinstance);
+
+  TestEq([ mystring := ""
+         , myarray := RECORD[ [ fs_settingid := 0, mystring := "", myarray2 := [[ fs_settingid := 0, mystring2 := "" ]] ]]
+         ], OpenWHFSType("http://www.webhare.net/xmlns/beta/arraymembertest")->structure);
+
+  testfw->BeginWork();
+  OBJECT arraytestfile := testsite->rootobject->CreateFile([ name:="arraytestfile", type := 0]);
+  arraytestfile->SetInstanceData("http://www.webhare.net/xmlns/beta/arraymembertest",
+      [ mystring := "asdf"
+      , myarray := [ [ mystring := "qwer" ] ]
+      ]);
+
+  OBJECT whfstype := OpenWHFSType("http://www.webhare.net/xmlns/beta/arraymembertest");
+  INTEGER ARRAY foundfile := [ INTEGER(arraytestfile->id) ];
+  INTEGER ARRAY nomatches;
+
+  TestThrows(PTR whfstype->FindObjectsByMemberValue("mystr", "x"));
+  TestThrows(PTR whfstype->FindObjectsByMemberValue("myarray.mystr", "x"));
+  TestThrows(PTR whfstype->FindObjectsByMemberValue("myarr.mystring", "x"));
+
+  TestEq(foundfile, whfstype->FindObjectsByMemberValue("mystring", "asdf"));
+  TestEq(foundfile, whfstype->FindObjectsByMemberValue("myarray.mystring", "qwer"));
+  TestEq(nomatches, whfstype->FindObjectsByMemberValue("mystring", "qwer"));
+  TestEq(nomatches, whfstype->FindObjectsByMemberValue("myarray.mystring", "asdf"));
+
+  TestThrows(PTR whfstype->FindObjectsByMemberValueMask("mystr", "x"));
+  TestThrows(PTR whfstype->FindObjectsByMemberValueMask("myarray.mystr", "x"));
+  TestThrows(PTR whfstype->FindObjectsByMemberValueMask("myarr.mystring", "x"));
+
+  TestEq(foundfile, whfstype->FindObjectsByMemberValueMask("mystring", "asdf"));
+  TestEq(foundfile, whfstype->FindObjectsByMemberValueMask("myarray.mystring", "qwer"));
+  TestEq(nomatches, whfstype->FindObjectsByMemberValueMask("mystring", "qwer"));
+  TestEq(nomatches, whfstype->FindObjectsByMemberValueMask("myarray.mystring", "asdf"));
+
+  TestEq(foundfile, whfstype->FindObjectsByMemberValueMask("*", "asdf"));
+  TestEq(foundfile, whfstype->FindObjectsByMemberValueMask("*", "qwer"));
+
+  testfw->RollbackWork();
+}
+
+MACRO TestDirectInstanceData()
+{
+  testfw->BeginWork();
+  OBJECT siteprof := testsite->rootobject->EnsureFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT testdatafolder := testsite->rootobject->CreateFolder(
+            [ name:="instancetestdata"
+            , type := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest")->id
+            ]);
+  OBJECT testfile := testdatafolder->CreateFile(
+            [ name:="testfile"
+            , type := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest")->id
+            ]);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  // Update instance
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ aninstance :=
+          [ whfstype := "http://www.webhare.net/xmlns/beta/instance2"
+          , str2 := "str2"
+          ]
+      ]);
+
+  OBJECT whfstype_instance1 := OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1");
+  OBJECT whfstype_instance2 := OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2");
+
+  RECORD rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest");
+  TestEQ(rec.aninstance, GetWHFSInstanceDirect(rec.aninstance.whfssettingid));
+
+  RECORD irec := SELECT * FROM whfstype_instance2->ListAllInstances() WHERE settingid = rec.aninstance.whfssettingid;
+  TestEQ(rec.aninstance, whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
+
+  // Wrong type
+  TestThrows(PTR whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ whfstype := "http://www.webhare.net/xmlns/beta/instance3" ]));
+  whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ str2 := "str3" ]);
+
+  TestEQ(
+      [ str2 :=           "str3"
+      , whfsfileid :=     0
+      , whfssettingid :=  rec.aninstance.whfssettingid
+      , whfstype :=       "http://www.webhare.net/xmlns/beta/instance2"
+      ], GetWHFSInstanceDirect(rec.aninstance.whfssettingid));
+
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+      [ rich :=
+          [ htmltext :=   StringToBlob("htmltext")
+          , embedded :=   DEFAULT RECORD ARRAY
+          , instances :=  [ [ instanceid := "TAG1"
+                            , data :=
+                                 [ whfstype := "http://www.webhare.net/xmlns/beta/instance1"
+                                 , str1 := "str3"
+                                 ]
+                            ]
+                          , [ instanceid := "TAG3"
+                            , data :=
+                                 [ whfstype := "http://www.webhare.net/xmlns/beta/instance3"
+                                 , str3 := "str3"
+                                 ]
+                            ]
+                          ]
+          ]
+      ]);
+
+  rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest");
+  TestEQ(rec.rich.instances[0].data, GetWHFSInstanceDirect(rec.rich.instances[0].data.whfssettingid));
+
+  irec := SELECT * FROM whfstype_instance1->ListAllInstances() WHERE settingid = rec.rich.instances[0].data.whfssettingid;
+  TestEQ(rec.rich.instances[0].data, whfstype_instance1->GetInstanceDataByDirectRef(irec.directref));
+
+//  PRINT("After first set\n");
+//  DumpValue((SELECT * FROM system.fs_instances WHERE fs_object = testfile->id), "boxed");
+//  DumpValue((SELECT fs_settings.* FROM system.fs_settings, system.fs_instances WHERE fs_instances.fs_object = testfile->id AND fs_instances.id = fs_instance), "boxed");
+
+  whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ whfstype := "http://www.webhare.net/xmlns/beta/instance2", str2 := "str2" ]);
+
+  rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest");
+  TestEQ("TAG1", rec.rich.instances[0].instanceid, "Instanceid isn't preserved for type changes");
+  TestEQ("http://www.webhare.net/xmlns/beta/instance2", rec.rich.instances[0].data.whfstype);
+
+  testfw->CommitWork();
+
+  // instances at object
+  testfw->BeginWork();
+
+  // Update instance
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/instance2",
+      [ str2 := "str2"
+      ]);
+
+  rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/instance2");
+  irec := SELECT * FROM whfstype_instance2->ListAllInstances() WHERE settingid = 0 AND fsobject = testfile->id;
+  TestEQ(rec, whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
+
+  DATETIME now := GetCurrentDateTime();
+  whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ str2 := "str2" ]);
+
+  TestEQ([ str2 := "str2" ], whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
+  testfile->Refresh();
+  TestEQ(TRUE, testfile->modificationdate >= now);
+
+  Sleep(1);
+  now := GetCurrentDateTime();
+  whfstype_instance1->SetInstanceDataByDirectRef(irec.directref, [ str1 := "str1" ], [ isvisibleedit := FALSE ]);
+  TestEQ([ str1 := "str1" ], whfstype_instance1->GetInstanceData(testfile->id));
+  TestEQ([ str2 := "" ], whfstype_instance2->GetInstanceData(testfile->id));
+  TestEQ([ str2 := "" ], whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
+  testfile->Refresh();
+  TestEQ(TRUE, testfile->modificationdate < now); // no update to modificationdate
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id));
+  siteprof->RecycleSelf();
+  testdatafolder->RecycleSelf();
+  testfw->CommitWork();
+}
+
+RunTestframework([ PTR Prepare
+                 , PTR MockedTypes
+                 , PTR AutoCreateTypes
+                 , PTR AutoCreateTypesIncompleteMetadata
+                 , PTR MergeTypeInto
+                 , PTR FindTest
+                 , PTR InplaceUpdateTest
+                 , PTR DupeSiteProfs
+                 , PTR TestPhotoAlbum
+                 , PTR TestTypeChange
+                 , PTR TestArrayMembers
+                 , PTR TestDirectInstanceData
+                 ]);

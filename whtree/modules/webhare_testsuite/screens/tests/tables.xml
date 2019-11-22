@@ -1,0 +1,261 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/tables.whlib">
+
+  <screen name="layouttest1" implementation="none">
+    <body>
+      <!-- Correct grid, should not throw -->
+      <grid>
+        <col />
+        <col />
+        <row>
+          <cell colspan="2" rowspan="2">
+            <text title="colspan rowspan" />
+          </cell>
+        </row>
+        <row />
+      </grid>
+    </body>
+  </screen>
+  <screen name="layouttest2" implementation="none">
+    <body>
+      <!-- Cell has colspan 2, but there is only one column -->
+      <grid>
+        <col />
+        <row>
+          <cell colspan="2">
+            <text title="colspan" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+  <screen name="layouttest3" implementation="none">
+    <body>
+      <!-- Cell has rowspan 2, but there is only one row -->
+      <grid>
+        <col />
+        <row>
+          <cell rowspan="2">
+            <text title="rowspan" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+  <screen name="layouttest4" implementation="none">
+    <body>
+      <!-- Two cells span over the same cell -->
+      <grid>
+        <col />
+        <col />
+        <row>
+          <cell>
+            <text title="cell" />
+          </cell>
+          <cell rowspan="2">
+            <text title="rowspan" />
+          </cell>
+        </row>
+        <row>
+          <cell colspan="2">
+            <text title="colspan" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+  <screen name="layouttest5" implementation="none">
+    <body>
+      <!-- Cell spans over cell with content -->
+      <grid>
+        <col />
+        <col />
+        <row>
+          <cell colspan="2">
+            <text title="colspan" />
+          </cell>
+          <cell>
+            <text title="nonexisting" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+  <screen name="layouttest6" implementation="none">
+    <body>
+      <!-- Cell spans over cell with content -->
+      <grid>
+        <col />
+        <row>
+          <cell rowspan="2">
+            <text title="rowspan" />
+          </cell>
+        </row>
+        <row>
+          <cell>
+            <text title="nonexisting" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+  <screen name="layouttest7" implementation="none">
+    <body>
+      <!-- Not enough cells to fill the columns -->
+      <grid>
+        <col />
+        <col />
+        <row>
+          <cell>
+            <text title="cell" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="selectiontest" title="Selection table testing" width="600px" height="500px" menubar="menubar">
+    <actions>
+      <action name="showselection" onexecute="doshowselection" title="M01 show selection" />
+      <action name="toggleselectmode" onexecute="dotoggleselectmode" title="M02 toggle selectmode" />
+      <action name="toggleinnerselectmode" onexecute="dotoggleinnerselectmode" title="M03 toggle inner selectmode" />
+      <action name="openaction" onexecute="doopenaction" title="M04 dummy open action">
+        <enableon source="tbl" min="1" requirefocus="true" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item action="showselection" />
+        <item action="toggleselectmode" />
+        <item action="toggleinnerselectmode" />
+      </menu>
+    </menus>
+    <body>
+      <table name="tbl" selectmode="single" rows="3" cols="3" height="100px" width="100px" />
+      <text value="Info" />
+      <textarea name="info" height="200px" title="" />
+      <list name="list" selectmode="single">
+        <column name="title" type="text"/>
+        <row><element name="title" data="list for focus changes"></element></row>
+      </list>
+      <button name="button" action="openaction" title="open action" />
+    </body>
+  </screen>
+
+  <screen name="calendartest" title="Calendar Test" width="160x" height="46x" allowresize="true">
+    <actions>
+      <action name="prevweek_action" title="&lt;&lt;" hint="Previous week" onexecute="PrevWeek" />
+      <action name="nextweek_action" title=">>" hint="Next week" onexecute="NextWeek" />
+      <action name="godate_action" title="Go" hint="Go to the given date" onexecute="GoDate" />
+      <action name="gotoday_action" title="Today" hint="Go to today" onexecute="GoToday" />
+      <action name="addevent_action" title="Add" hint="Add a new event" onexecute="AddEvent" />
+      <action name="updateevent_action" title="Update" hint="Edit the selected event" onexecute="UpdateEvent">
+        <enableon source="cal" min="1" checkflags="tolliumevent editable" />
+      </action>
+      <action name="logevents_action" title="Log events" hint="Print the iCalendar to the Log" onexecute="DoLogEvents"/>
+      <action name="deleteevent_action" title="Delete" hint="Delete the selected event" onexecute="DeleteEvent">
+        <enableon source="cal" min="1" checkflags="tolliumevent editable" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="newmenu">
+        <item action="addevent_action" />
+      </menu>
+      <menu name="editmenu">
+        <item action="updateevent_action" />
+        <item action="deleteevent_action" />
+      </menu>
+    </menus>
+    <body name="aap">
+      <split type="horizontal">
+        <part width="25x">
+          <list name="categories" selectmode="single">
+            <column type="text" name="category" title="Category" />
+          </list>
+        </part>
+        <part width="3pr">
+
+          <box title="Calender settings">
+            <line>
+              <button name="prevweek_button" action="prevweek_action" />
+              <datetime name="curdate" type="datetime" precision="minutes" storeutc="true" />
+              <button name="godate_button" action="godate_action" />
+              <button name="gotoday_button" action="gotoday_action" />
+              <button name="nextweek_button" action="nextweek_action" />
+            </line>
+            <line>
+              <button name="updateevent_button" action="updateevent_action" />
+              <button name="deleteevent_button" action="deleteevent_action" />
+              <select name="calendartype" type="pulldown" onchange="dochangecalendartype">
+                <option rowkey="DAY"   title="Day"/>
+                <option rowkey="WEEK"  title="Week"/>
+                <option rowkey="MONTH" title="Month"/>
+              </select>
+              <button action="logevents_action" />
+            </line>
+          </box>
+
+          <panel height="1pr" name="calendarholder">
+            <calendar name="cal" type="week"
+              storeutc="true"
+              onloaditems="GetAppointments"
+              onchange="AppointmentChange"
+              openaction="updateevent_action"
+              selectmode="single"
+              newcontextmenu="newmenu"
+              selectcontextmenu="editmenu"
+              flags="editable"
+              workcolor="#ffffff"
+              freecolor="#eaf2f6"
+              weekendcolor="#aaffaa"
+              todaycolor="#fff5d0"
+              workstarttime="8:30"
+              workendtime="18:00"
+              showallday="false"
+              workdays="monday tuesday wednesday thursday friday"
+              height="1pr">
+              <acceptdrops ondrop="dropcell">
+                <accepttype type="local:calendartest.category" targetflags="tolliumtime" />
+              </acceptdrops>
+              <category name="green"       color="#c9f4a9" />
+              <category name="yellow"      color="#fff19b" />
+              <category name="orange"      color="#ffca8b" />
+              <category name="red"         color="#ff9892" />
+              <category name="purple"      color="#d7b4e5" />
+              <category name="blue"        color="#9bc9ff" />
+              <category name="gray"        color="#c7d0db" />
+              <category name="transparent" color="transparent" />
+            </calendar>
+          </panel>
+        </part>
+      </split>
+    </body>
+  </screen>
+  <screen name="updateevent" title="Update Event">
+    <body>
+      <panel layout="form">
+        <textedit name="summary" title="Summary" required="true" />
+        <datetime name="dtstart" title="Event start" required="true" type="datetime" precision="minutes" storeutc="true" />
+        <datetime name="dtend" title="Event end" required="true" type="datetime" precision="minutes" storeutc="true" />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+  <screen name="updatecategory" title="New Category">
+    <body>
+      <panel layout="form">
+        <textedit name="name" title="Name" required="true" />
+        <textedit name="color" title="Color" required="true" />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+
+
+</screens>

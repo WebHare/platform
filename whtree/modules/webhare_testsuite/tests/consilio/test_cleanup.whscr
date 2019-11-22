@@ -1,0 +1,90 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/catalog.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+
+
+
+MACRO RunCleanupTest()
+{
+  OBJECT search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+  search_obj->empty_result_record :=
+      [ groupid :=        ""
+      , objectid :=       ""
+      , date_indexdate := DEFAULT DATETIME
+      , contentsource :=  0
+      ];
+
+
+  // Prepare the content to index
+  testfw->BeginWork();
+
+  DELETE FROM webhare_testsuite.consilio_index;
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, adate, text)
+      VALUES("a", "a1", MakeDate(1970, 1, 10), MakeDate(2010, 1, 1), "a a1");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, adate, text)
+      VALUES("a", "a2", MakeDate(1970, 1, 10), MakeDate(2011, 1, 1), "a a2");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES("b", "b1", MakeDate(1970, 1, 10), "b b1");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES("c", "c1", MakeDate(1970, 1, 10), "c c1");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES("c", "c2", MakeDate(1970, 1, 10), "c c2");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
+      VALUES("c", "c3", MakeDate(1970, 1, 10), "c c3");
+
+  testfw->CommitWork();
+
+  // Build an index
+  testfw->BeginWork();
+
+  INTEGER indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
+  INTEGER contentsource_1 := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
+      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
+      , maxgroupobjects :=      1000
+      , discardsummaries :=     TRUE
+      ]);
+
+  testfw->CommitWork();
+
+  // Build the index
+  CheckConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  TestEQ((SELECT groupid, objectid, date_indexdate := indexdate, contentsource := contentsource_1 FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid),
+         (SELECT groupid, objectid, date_indexdate, contentsource FROM search_obj->SearchQuery(CQAll(), 0, 1000).results ORDER BY groupid, objectid), "Initial index build didn't work");
+
+  // Clean the contentsource from the DB without cleaning the index, add another contentsource
+  // clean the list of index stuff
+  testfw->BeginWork();
+  DELETE FROM consilio.contentsources WHERE id = contentsource_1;
+
+  INTEGER contentsource_2 := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
+      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
+      , maxgroupobjects :=      1000
+      , discardsummaries :=     TRUE
+      ]);
+
+  DELETE FROM webhare_testsuite.consilio_index;
+
+  testfw->CommitWork();
+
+  // Rebuild the index
+  CheckConsilioIndex(indexid);
+  testfw->WaitQueueEmpty();
+
+  TestEQ(RECORD[],
+         (SELECT groupid, objectid, date_indexdate, contentsource FROM search_obj->SearchQuery(CQAll(), 0, 1000).results ORDER BY groupid, objectid), "Cleanup wasn't executed");
+}
+
+RunTestframework([ PTR RunCleanupTest
+                 ], [ consilio := TRUE ]);

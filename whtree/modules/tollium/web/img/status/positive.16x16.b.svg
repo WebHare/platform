@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <path id="checkmark" d="M20.6,14.6c0.2,0.3,0.6,0.4,0.9,0.4l0,0l0,0c0.4,0,0.7-0.2,0.9-0.5l6.9-8.7c0.4-0.5,0.3-1.3-0.2-1.7s-1.3-0.3-1.7,0.2l-6,7.5l-2.8-3.4C18.3,8,17.5,7.9,17,8.3s-0.6,1.2-0.1,1.7L20.6,14.6z"/>
+  </defs>
+  <g>
+    <ellipse cx="16" cy="15.8" rx="12" ry="12.5" fill="#289224"/>
+    <use xlink:href="#checkmark" fill="#ffffff" transform="translate(-7 6)"/>
+  </g>
+</svg>

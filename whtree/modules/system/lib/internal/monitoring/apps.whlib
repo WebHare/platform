@@ -1,0 +1,165 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE TolliumAppListBase EXTEND MonitorPanelBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY moduleapps;
+  RECORD ARRAY moduleappslookup;
+
+  /** @cell(string) id
+      @cell(object) link
+  */
+  RECORD ARRAY applicationstarters;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init()
+  {
+    this->RefreshModuleInformation();
+
+    RegisterEventCallback("system:softreset", PTR this->GotSoftReset);
+    RegisterEventCallback("tollium:applicationstarter.exists", PTR this->GotApplicationStarter);
+
+    BroadcastEvent("tollium:applicationstarter.query", DEFAULT RECORD);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotSoftReset(STRING event, RECORD data)
+  {
+    this->RefreshModuleInformation();
+  }
+
+  MACRO GotApplicationStarter(STRING event, RECORD data)
+  {
+    RECORD pos := RecordLowerBound(this->applicationstarters, data, [ "ID" ]);
+    IF (pos.found)
+      RETURN;
+
+    // Should be running inside the webserver
+    OBJECT link := ConnectToIPCPort("tollium:link." || data.id);
+    IF (NOT ObjectExists(link))
+      RETURN;
+
+    INSERT
+        [ id :=     data.id
+        , link :=   link
+        ] INTO this->applicationstarters AT pos.position;
+
+    this->RefreshMonitorPanel();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RefreshModuleInformation()
+  {
+    // we store this now, because GetWebHareModules doesn't use a cache, so it reloads all moduledefinitions.
+    // unfortunately there's also no event for reloading modules/softreset....
+
+    this->moduleapps := SELECT name
+                             , isbuiltinmodule
+                             , applications := RecordExists(portal) ? portal.applications : DEFAULT RECORD ARRAY
+                          FROM GetWebHareModules(); // or GetWebHareModules()
+
+    // create a list for quick lookup of the title based on the application name
+
+    this->moduleappslookup := DEFAULT RECORD ARRAY;
+
+    FOREVERY(RECORD module FROM this->moduleapps)
+    {
+      this->moduleappslookup := this->moduleappslookup
+                                CONCAT
+                                // add applications
+                                (SELECT fullname := app.name
+                                      , title := GetTid(title)
+                                      , description := GetTid(description)
+                                   FROM module.applications AS app);
+
+    }
+  }
+
+  RECORD ARRAY FUNCTION GetCurrentApps()
+  {
+    RECORD ARRAY running_jobs;
+
+    RECORD jobmgr_status := __HS_GETJOBMANAGERSTATUS(TRUE);
+
+    RECORD ARRAY jobs :=
+        SELECT *
+          FROM jobmgr_status.jobs CONCAT jobmgr_status.finished
+      ORDER BY groupid;
+
+    FOREVERY (RECORD starter FROM this->applicationstarters)
+    {
+      RECORD rec := starter.link->DoRequest([ task := "getapps" ]);
+      IF (rec.status = "gone")
+      {
+        starter.link->Close();
+        DELETE FROM this->applicationstarters WHERE id = starter.id;
+      }
+
+      running_jobs := running_jobs CONCAT rec.msg.apps;
+    }
+
+    RECORD default_job :=
+        [ statistics :=     DEFAULT RECORD
+        , creationdate :=   DEFAULT DATETIME
+        ];
+
+    RECORD ARRAY apps :=
+        SELECT TEMPORARY pos := RecordLowerBound(jobs, [ groupid := appid ], [ "GROUPID" ])
+             , *
+             , jobdata :=   pos.found ? jobs[pos.position] : default_job
+             , title := (SELECT AS STRING title FROM this->moduleappslookup WHERE fullname = running_jobs.app) // RecordLowerBound!
+          FROM running_jobs
+         WHERE stopped = VAR MAX_DATETIME; //VAR to prevent datetime.whlib from being compiled away
+
+    apps :=
+        SELECT *
+             , use :=
+                    [ authobjectid :=     jobdata.authenticationrecord.tollium.user.authobjectid
+                    , wrdentityid :=      jobdata.authenticationrecord.tollium.user.wrdentityid
+                    , sessionid :=        appid
+                    , username :=         jobdata.authenticationrecord.tollium.user.login
+                    , realname :=         jobdata.authenticationrecord.tollium.user.realname
+                    , stats :=            CellExists(jobdata, "STATISTICS") ? jobdata.statistics : DEFAULT RECORD
+                    , started :=          jobdata.creationdate
+                    , lastactive :=       lastactivity
+                    , lastpoll :=         DEFAULT DATETIME
+                    , active :=           TRUE
+                    , browser :=          browsertriplet
+                    ]
+          FROM apps;
+
+    //IF (LENGTH(apps) != 0)
+     // ABORT(apps);
+    RETURN apps;
+  }
+
+  BOOLEAN FUNCTION HaveContact()
+  {
+    RETURN LENGTH(this->applicationstarters) != 0;
+  }
+>;
+
+
+

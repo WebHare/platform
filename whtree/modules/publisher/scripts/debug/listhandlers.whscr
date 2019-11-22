@@ -1,0 +1,18 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+OpenPrimary();
+RECORD ARRAY allformhandlers :=
+    SELECT uri := namespace
+         , handlers := GroupedValues(allhandlers)
+      FROM GetAllFormHandlers() AS allhandlers
+     GROUP BY namespace;
+FOREVERY (RECORD handler FROM allformhandlers)
+{
+  Print("Component namespace " || handler.uri || "\n");
+  DumpValue(handler.handlers, "boxed");
+}

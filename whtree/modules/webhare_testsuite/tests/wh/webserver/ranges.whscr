@@ -1,0 +1,93 @@
+<?wh
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+INTEGER mmapbuffersize := 65536; //whitebox testing, allow us to test the 'sensitive' spots. Get this from webhare/ap/libwebhare/webscon.h
+
+STRING FUNCTION GetFileRange(INTEGER fileid, INTEGER startoffset, INTEGER len)
+{
+  SetFilePointer(fileid, startoffset);
+  STRING result;
+  WHILE (len != 0)
+  {
+    STRING data := ReadFrom(fileid, len);
+    IF (data = "")
+      BREAK;
+    len := len - LENGTH(data);
+    result := result || data;
+  }
+  RETURN EncodeBase16(result);
+}
+
+STRING testfile_diskbase := GetModuleInstallationRoot("webhare_testsuite") || "web/resources/";
+STRING testfile := "tests/rangetestfile.jpg";
+
+//Test ranges
+MACRO Ranges()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING resbaseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/";
+
+  RECORD unp_resbaseurl := UnpackUrL(resbaseurl || testfile);
+  INTEGER diskversion := OpenDiskFile(testfile_diskbase || testfile, FALSE);
+  INTEGER http := OpenHTTPServer(unp_resbaseurl.host, unp_resbaseurl.port);
+  RECORD req;
+
+  TestEq(TRUE, http>0);
+  TestEq(TRUE, diskversion>0);
+
+  INTEGER diskversionlen := INTEGER(GetFileLength(diskversion));
+
+  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", [[field:="Range",value:="bytes=1-4"]], DEFAULT BLOB);
+  TestEq(206, req.code);
+  TestEq("bytes 1-4/" || diskversionlen, SELECT AS STRING value FROM req.headers WHERE ToUppercase(field)="CONTENT-RANGE");
+  TestEq(GetFileRange(diskversion, 1, 4), EncodeBase16(BlobToString(req.content,-1)));
+
+  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", [[field:="Range",value:="bytes=10000-"]], DEFAULT BLOB);
+  TestEq(206, req.code);
+  TestEq("bytes 10000-" || (diskversionlen-1) || "/" || diskversionlen, SELECT AS STRING value FROM req.headers WHERE ToUppercase(field)="CONTENT-RANGE");
+  TestEq(diskversionlen-10000, LENGTH(req.content));
+  TestEq(GetFileRange(diskversion, 10000, diskversionlen-10000), EncodeBase16(BlobToString(req.content,-1)));
+
+  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", [[field:="Range",value:="bytes=-10000"]], DEFAULT BLOB);
+  TestEq(206, req.code);
+  TestEq("bytes " || (diskversionlen - 10000) || "-" || (diskversionlen - 1) || "/" || diskversionlen, SELECT AS STRING value FROM req.headers WHERE ToUppercase(field)="CONTENT-RANGE");
+  TestEq(GetFileRange(diskversion, diskversionlen-10000, 10000), EncodeBase16(BlobToString(req.content,-1)));
+
+  //Syntax error handling
+  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", [[field:="Range",value:="bytes="]], DEFAULT BLOB);
+  TestEq(200, req.code); //it should be ignored? or Bad Requested ?
+
+  //Unsatisfiable range checking.
+  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", [[field:="Range",value:="bytes=-0"]], DEFAULT BLOB);
+  TestEq(416, req.code);
+  TestEq("bytes */" || diskversionlen, SELECT AS STRING value FROM req.headers WHERE ToUppercase(field)="CONTENT-RANGE");
+  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", [[field:="Range",value:="bytes=" || diskversionlen+1 || "-" ]], DEFAULT BLOB);
+  TestEq(416, req.code);
+  TestEq("bytes */" || diskversionlen, SELECT AS STRING value FROM req.headers WHERE ToUppercase(field)="CONTENT-RANGE");
+
+  //Satisfiable though half-out-of-range checks: asking more tail bytes than available
+  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", [[field:="Range",value:="bytes=-" || (diskversionlen + 12345)]], DEFAULT BLOB);
+  TestEq(206, req.code);
+  TestEq("bytes 0-" || (diskversionlen - 1) || "/" || diskversionlen, SELECT AS STRING value FROM req.headers WHERE ToUppercase(field)="CONTENT-RANGE");
+  TestEq(GetFileRange(diskversion, 0, diskversionlen), EncodeBase16(BlobToString(req.content,-1)));
+
+  //Verify multiple byte ranges not yet supported
+  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", [[field:="Range",value:="bytes=0-1,2-3"]], DEFAULT BLOB);
+  TestEq(200, req.code);
+
+  //Try an edge
+  INTEGER startpos := 2*mmapbuffersize-100;
+  INTEGER limitpos := 2*mmapbuffersize+100;
+  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", [[field:="Range",value:="bytes=" || startpos || "-" || (limitpos-1)]], DEFAULT BLOB);
+  TestEq(206, req.code);
+  TestEq("bytes " || startpos || "-" || (limitpos-1) || "/" || diskversionlen, SELECT AS STRING value FROM req.headers WHERE ToUppercase(field)="CONTENT-RANGE");
+  TestEq(GetFileRange(diskversion, startpos, limitpos-startpos), EncodeBase16(BlobToString(req.content,-1)));
+
+}
+
+RunTestframework([ PTR Ranges ]);

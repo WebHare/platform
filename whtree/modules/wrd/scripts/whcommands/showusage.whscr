@@ -1,0 +1,93 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+
+// command: wrd:showusage [schema]
+// short: Show data usage of WRD schema(s)
+
+RECORD ARRAY options :=
+  [ [ name := "schemaname", type := "param" ]
+  ];
+RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+IF(NOT RecordExists(cmdargs))
+{
+  Print("Syntax: runscript showusage.whscr [schemaname]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary();
+
+iF(cmdargs.schemaname = "") //show all
+{
+  RECORD ARRAY schemas := SELECT * FROM wrd.schemas;
+  RECORD ARRAY outlist;
+  FOREVERY(RECORD s FROM schemas)
+  {
+    INTEGER numentities := Length(SELECT FROM wrd.entities, wrd.types WHERE entities.type = types.id AND types.wrd_schema=s.id);
+    DATETIME newest := SELECT AS DATETIME modificationdate FROM wrd.entities, wrd.types WHERE entities.type = types.id AND types.wrd_schema=s.id ORDER BY modificationdate DESC;
+    INSERT [ num := numentities, newest := newest, name := s.name, id := s.id ] INTO outlist AT END;
+  }
+
+  outlist := SELECT * FROM outlist ORDER BY num DESC, newest DESC;
+  DumpValue(outlist,'boxed');
+}
+ELSE
+{
+  Print("Usage per type:\n");
+  OBJECT wrdschema := OpenWRDSchemaByName(cmdargs.schemaname);
+  RECORD ARRAY wrdtypes := SELECT id, tag, title
+                             FROM wrd.types
+                            WHERE types.wrd_schema=wrdschema->id
+                         ORDER BY tag;
+  FOREVERY(RECORD wrdtype FROM wrdtypes)
+  {
+    Print("#" || wrdtype.id || ": " || wrdtype.tag || " (" || wrdtype.title || "): ");
+    FlushOutputBuffer();
+
+    DATETIME now := GetCurrentDatetime();
+    RECORD counts := SELECT total := Count(*), active := Sum(creationdate < now AND now < limitdate ? 1 : 0) FROM wrd.entities WHERE entities.type = wrdtype.id;
+    IF(NOT RecordExists(counts))
+      Print("none\n");
+    ELSE IF(counts.active = counts.total)
+      Print(counts.active || "\n");
+    ELSE
+      Print(counts.active || " (" || counts.total || " total)\n");
+  }
+
+  Print("Blob storage:\n");
+  FOREVERY(RECORD wrdtype FROM wrdtypes)
+  {
+    OBJECT typeobj := wrdschema->GetTypeById(wrdtype.id);
+    RecurseBlobAttrs(typeobj, 0);
+  }
+}
+
+MACRO RecurseBlobAttrs(OBJECT typeobj, INTEGER currentparent)
+{
+  FOREVERY(RECORD attr FROM SELECT * FROM typeobj->ListAttributes(currentparent) ORDER BY ToUppercase(tag))
+  {
+    IF(attr.attributetype IN [9,10,17,22])
+    {
+      //FIXME deal with outside stored blobs
+      Print("#" || attr.id || ": " || typeobj->tag || "." || attr.tag || " (" || attr.title || "): ");
+      FlushOutputBuffer();
+      INTEGER64 blobstorage :=
+          SELECT AS INTEGER64 Sum(Length64(blobdata))
+            FROM wrd.entity_settings
+               , wrd.entities
+           WHERE attribute = attr.id
+             AND entities.id = entity_settings.entity
+             AND entities.type = typeobj->id;
+
+      Print((blobstorage / 1024 / 1024) || " MB\n");
+    }
+    ELSE IF(attr.attributetype = 13) //array
+    {
+      RecurseBlobAttrs(typeobj, attr.id);
+    }
+  }
+}

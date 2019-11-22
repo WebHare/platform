@@ -1,0 +1,266 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" lib="screens/types.whlib" gid="types">
+
+  <messageboxes gid="types.messages">
+    <messagebox name="deleteattr" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="managetypes" gid=".managetypes" width="100x" height="45x" allowresize="true"
+          >
+    <actions>
+      <action name="addtype" onexecute="doaddtype">
+      </action>
+      <action name="edittype" onexecute="doedittype">
+        <enableon source="types" min="1" max="1" />
+      </action>
+      <action name="manageattrs" onexecute="domanageattrs">
+        <enableon source="types" min="1" max="1" />
+      </action>
+      <action name="import" onexecute="doimport">
+        <enableon source="types" min="1" max="1" />
+      </action>
+      <action name="editvalues" onexecute="doeditvalues">
+        <enableon source="types" min="1" max="1" checkflags="isdomain" />
+      </action>
+      <action name="deltype" onexecute="dodeltype" shortcut="del">
+        <enableon source="types" min="1" max="1" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="modifydomain">
+        <item action="edittype" disablemode="hidden" />
+        <item action="deltype" disablemode="hidden" />
+        <divider />
+        <item action="editvalues" disablemode="hidden" />
+        <divider />
+        <item action="manageattrs" disablemode="hidden" />
+        <divider />
+        <item action="import" disablemode="hidden" />
+      </menu>
+
+      <menu name="emptyspace">
+        <item action="addtype" disablemode="hidden" />
+      </menu>
+    </menus>
+
+    <body>
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="types"
+                  minwidth="60x"
+                  width="1pr"
+                  minheight="30x"
+                  height="1pr"
+                  selectmode="single"
+                  selectcontextmenu="modifydomain"
+                  newcontextmenu="emptyspace"
+                  openaction="manageattrs"
+                  flags="isdomain"
+                  ongetrows="ongettypes"
+                  >
+              <column name="tag"      type="text" tid="terminology.tag" />
+              <column name="title"    type="text" tid="terminology.type" />
+              <column name="metatype" type="text" tid="terminology.metatype" optiongid="common.metatypes" width="14x" /><!-- object, classification, link, domain -->
+            </list>
+          </cell>
+          <cell>
+            <button action="addtype" width="1pr" tid="tollium:common.actions.add"/>
+            <button action="edittype" width="1pr" tid="tollium:common.actions.edit"/>
+            <button action="deltype" width="1pr" tid="tollium:common.actions.delete"/>
+            <panel spacers="top bottom">
+              <button action="editvalues" width="1pr" />
+              <button action="manageattrs" width="1pr" />
+            </panel>
+            <button action="import" width="1pr"  />
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="edittype" width="65x" gid="types.update" allowresize="true">
+    <compositions>
+      <record name="type" />
+    </compositions>
+    <body>
+      <heading tid=".form" />
+      <text     name="metatype" />
+      <text     name="dbid" />
+      <select   composition="type" cellname="parenttype" name="parenttype" rowkeytype="integer" type="pulldown" />
+      <textedit composition="type" cellname="tag" required="true" name="tag" />
+      <textedit composition="type" cellname="title" />
+      <textarea composition="type" cellname="description" />
+      <text     name="linkfrom" visible="false" />
+      <text     name="linkto"   visible="false" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+
+  </screen>
+
+  <screen name="addtype" title="">
+    <compositions>
+      <record name="type" />
+    </compositions>
+    <body>
+      <box gid=".update" tid=".form" height="1pr">
+        <select name="metatype" type="pulldown" onchange="doupdateform">
+          <option tid="types.metatypes.object" rowkey="object" selected="true" />
+          <option tid="types.metatypes.attachment" rowkey="attachment" />
+          <option tid="types.metatypes.link" rowkey="link" />
+          <option tid="types.metatypes.domain" rowkey="domain" />
+        </select>
+        <select name="parenttype" type="pulldown" onchange="doupdateform" />
+        <textedit name="tag" composition="type" cellname="tag" required="true" />
+        <textedit composition="type" cellname="title" />
+        <textarea composition="type" cellname="description" height="1pr" />
+        <select name="requiretype_left" type="pulldown" visible="false" onchange="doupdateform" rowkeytype="integer" />
+        <select name="requiretype_right" type="pulldown" visible="false" onchange="doupdateform" rowkeytype="integer" />
+      </box>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+
+  </screen>
+
+  <screen name="manageattrs" gid=".attributes" width="140x" height="30x" allowresize="true">
+    <actions>
+      <action name="addattr" onexecute="doaddattr" tid="tollium:common.actions.add" />
+
+      <action name="editattr" onexecute="doeditattr" tid="tollium:common.actions.edit" >
+        <enableon source="attrs" min="1" max="1" />
+      </action>
+
+      <action name="deleteattr" onexecute="dodeleteattr" tid="tollium:common.actions.delete" shortcut="del">
+        <enableon source="attrs" min="1" max="1" checkflags="!base" />
+      </action>
+
+      <action name="addchildattr" onexecute="doaddchildattr">
+        <enableon source="attrs" min="1" max="1" checkflags="canaddchildren" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="selection">
+        <item action="editattr" />
+        <item action="deleteattr" />
+        <divider />
+        <item action="addchildattr" disablemode="hidden" />
+      </menu>
+
+      <menu name="noselection">
+        <item action="addattr" />
+      </menu>
+    </menus>
+
+    <body>
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="attrs"
+                  height="1pr"
+                  selectmode="single"
+                  selectcontextmenu="selection"
+                  newcontextmenu="noselection"
+                  icons="tollium:status/checked"
+                  flags="canaddchildren base"
+                  openaction="editattr"
+                  ongetrows="ongetattrs">
+              <column name="tag" type="text" tree="true" tid="terminology.tag" />
+              <column name="title" type="text" tid="tollium:common.labels.title" />
+              <column name="type" type="text" width="20x" tid="terminology.attrtype" />
+              <!--column name="required" type="text" width="5x" /-->
+              <!-- <column name="uniquetxt" type="text" width="5x" /> -->
+              <column name="reqicon" type="icon" />
+              <column name="uniqueicon" type="icon" />
+
+            </list>
+          </cell>
+          <cell>
+            <button action="addattr" width="1pr" />
+            <button name="addchildattrbutton" action="addchildattr" width="1pr" tid=".addchildattr" />
+            <button action="editattr" width="1pr" />
+            <button action="deleteattr" width="1pr" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+
+  </screen>
+
+  <screen name="editattr" width="60x" gid=".attributes.update">
+    <body>
+      <text name="id" />
+      <select name="type" type="pulldown" required="true" onchange="ontypechange"/>
+      <textedit name="tag" required="true" />
+      <textedit name="title"  />
+      <select name="domain" type="pulldown" visible="false" />
+      <textarea name="description" />
+      <panel layout="left">
+        <checkbox title="" name="isrequired" labeltid=".isrequireddesc"/>
+        <checkbox title="" name="isunique" labeltid=".isuniquedesc"/>
+        <checkbox title="" name="isordered" labeltid=".isordered" />
+        <checkbox title="" name="checklinks" labeltid=".checklinks" />
+        <checkbox title="" name="multiline" labeltid=".multiline" />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+
+  </screen>
+
+  <screen name="deletetype" gid=".deletetype">
+    <body>
+      <line layout="left">
+        <text name="verifydeletion" title="" />
+      </line>
+
+      <select type="radio" name="deletehow">
+        <option rowkey="closeentities" selected="true" />
+        <option rowkey="delentities" />
+        <option rowkey="deltype" />
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="managepaymentproviders" gid=".managepaymentproviders">
+    <actions>
+      <action name="manageproviders" onexecute="domanageproviders">
+        <enableon source="possiblefields" min="1" max="1" />
+      </action>
+    </actions>
+    <body>
+      <grid>
+        <cell width="1pr">
+          <list name="possiblefields" selectmode="single" emptytid=".nosuitablefields" openaction="manageproviders" width="90x" height="7x">
+            <column name="providerfield" type="text"/>
+          </list>
+        </cell>
+        <cell>
+          <button action="manageproviders" />
+        </cell>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+</screens>

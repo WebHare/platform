@@ -1,0 +1,142 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
+/* Test <rtddoc> in site profiles */
+RECORD anchortestdoc :=  [ htmltext := StringToBlob('<h1 class="heading1">Eerste kop</h1>'  //h1s[0]
+                                                 || '<h1 class="heading1">Tweedekop</h1>' //h1s[1]
+                                                 || '<h1 class="heading1">Eerste kop</h1>' //h1s[2]
+                                                 || '<h1 class="heading1"></h1>' //h1s[3] do not generate an anchor
+                                                 || '<div class="wh-rtd-embeddedobject" data-instanceid="level2doc">noise</div>' //contains h1s[4] and [5]
+                                                 || '<h1 class="heading1">Tweedekop</h1>' //h1s[6]
+                                                 || '<h1 class="heading1"></h1>' //h1s[7]
+                                                 )
+                          , instances := [[ instanceid := "level2doc"
+                                          , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"
+                                                    , richdoc := [ htmltext := StringToBlob('<h1 class="heading1">Eerste kop</h1>' //h1s[4]
+                                                                                         || '<h1 class="heading1">Eerste kop</h1>') //h1s[5]
+                                                                 ]
+                                                    ]
+                                          ]
+                                        ]
+                          ];
+
+
+INTEGER testrtdfileid, overridefileid;
+
+MACRO PrepIt()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  testfw->BeginWork();
+
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT testrtd := testloc->CreateFile( [ name := "lvl1.rtd", type := richdoctype->id, publish := TRUE ]);
+  richdoctype->SetInstanceData(testrtd->id, [data := anchortestdoc]);
+  OBJECT testoverride := testloc->CreateFile( [ name := "override", type := richdoctype->id, publish := TRUE ]);
+  testrtdfileid := testrtd->id;
+  overridefileid := testoverride->id;
+  testfw->CommitWork();
+}
+
+MACRO VerifyIt()
+{
+  RECORD settings_testrtd := GetRTDSettingsForApplyTester(GetApplyTesterForObject(testrtdfileid));
+  TestEq("gohtml", settings_testrtd.htmlclass);
+
+  RECORD settings_override := GetRTDSettingsForApplyTester(GetApplyTesterForObject(overridefileid));
+  TestEq("other", settings_override.htmlclass);
+}
+
+MACRO GatherAnchors()
+{
+  //Test manual anchor gathering
+  RECORD ARRAY anchors := GetWebDesign(overridefileid)->GetSuggestedAnchorsForFile(testrtdfileid);
+  STRING baseurl := OpenWHFSObject(testrtdfileid)->indexurl;
+  TestEq([[ title := "Eerste kop", anchor := "#eerste-kop"   , tagname := "h1", link := baseurl || "#eerste-kop"   ]
+        , [ title := "Tweedekop",  anchor := "#tweedekop"    , tagname := "h1", link := baseurl || "#tweedekop"    ]
+        , [ title := "Eerste kop", anchor := "#eerste-kop-2" , tagname := "h1", link := baseurl || "#eerste-kop-2" ]
+        , [ title := "Eerste kop", anchor := "#eerste-kop-3" , tagname := "h1", link := baseurl || "#eerste-kop-3" ]
+        , [ title := "Eerste kop", anchor := "#eerste-kop-4" , tagname := "h1", link := baseurl || "#eerste-kop-4" ]
+        , [ title := "Tweedekop",  anchor := "#tweedekop-2"  , tagname := "h1", link := baseurl || "#tweedekop-2"  ]
+        ], anchors);
+}
+
+MACRO GenerateAnchors()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  RECORD publishres := RunFilePublish(testrtdfileid, FALSE);
+  TestEq(TRUE, publishres.success);
+
+  OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+  OBJECT ARRAY h1s := doc->GetElements("h1");
+  TestEq(8, Length(h1s));
+  TestEq("eerste-kop",h1s[0]->QuerySelector("a")->GetAttribute("id"));
+  TestEq('wh-anchor', h1s[0]->QuerySelector("a")->GetAttribute("class"));
+  TestEq("tweedekop",h1s[1]->QuerySelector("a")->GetAttribute("id"));
+  TestEq("eerste-kop-2",h1s[2]->QuerySelector("a")->GetAttribute("id"), "If eerste-kop-2, the embedded richdoc was ignored");
+  TestEq(FALSE,Objectexists(h1s[3]->QuerySelector("a")));
+  TestEq("eerste-kop-3",h1s[4]->QuerySelector("a")->GetAttribute("id"));
+  TestEq("eerste-kop-4",h1s[5]->QuerySelector("a")->GetAttribute("id"));
+  TestEq("tweedekop-2",h1s[6]->QuerySelector("a")->GetAttribute("id"));
+
+  RECORD ARRAY anchors := RECORD ARRAY(DecodeJSON(doc->GetElement("#content")->GetAttribute("data-anchors")));
+  IF(testfw->debug)
+    dumpvalue(anchors,'boxed');
+  TestEq(6, Length(anchors));
+  TestEq("#eerste-kop", anchors[0].link);
+  TestEq("Eerste kop", anchors[0].title);
+  TestEq("h1", anchors[0].tagname);
+}
+
+MACRO RewriteLinks()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  testfw->BeginWork();
+
+  richdoctype->SetInstanceData(testrtdfileid,
+     [ data := [ htmltext := StringToBlob('<p class="normal"><a href="x-rewritelink:1">link</a></p>'
+                                       || '<p class="normal"><a href="x-rewritelink:3">link</a></p>'
+                                       || '<div class="wh-rtd-embeddedobject" data-instanceid="level2doc">noise</div>'
+                                       )
+               , instances := [[ instanceid := "level2doc"
+                               , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"
+                                         , richdoc := [ htmltext := StringToBlob('<p class="normal"><a href="x-rewritelink:2">link</a></p>') //h1s[5]
+                                                      ]
+                                         ]
+                               ]
+                              ]
+               ]
+     ]);
+
+  testfw->CommitWork();
+
+  RECORD publishres := RunFilePublish(testrtdfileid, FALSE);
+  IF(NOT publishres.success) dumpvalue(publishres,'tree');
+  TestEq(TRUE, publishres.success);
+
+  OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+  OBJECT ARRAY links := doc->GetElements("a");
+  IF(testfw->debug)
+    dumpvalue(links, "boxed");
+  // 1 is rewritten first, 2 is rewritten to second, 3 is removed
+  TestEq(2, Length(links));
+  TestEq("https://example.org/first.html", links[0]->GetAttribute("href"));
+  TestEq("https://example.org/second.html", links[1]->GetAttribute("href"));
+}
+
+RunTestframework([ PTR PrepIt
+                 , PTR VerifyIt
+                 , PTR GatherAnchors
+                 , PTR GenerateAnchors
+                 , PTR RewriteLinks
+                 ]);
+

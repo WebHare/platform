@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="it" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Seleziona la casella qui sotto</text>
+      <text tid="title">Verifica</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">Prossimo</text>
+      <text tid="previouspage">Precedente</text>
+      <text tid="selectfile">Seleziona il file</text>
+      <text tid="starsrequired">* indica un campo richiesto</text>
+      <text tid="submit">Invia</text>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">Questo valore deve essere di tipo alfanumerico.</text>
+        <text tid="check">Devi scegliere tra <param p="1"/> e <param p="2"/> opzioni.</text>
+        <text tid="default">Questo valore sembra essere non valido.</text>
+        <text tid="digits">Questo valore deve essere di tipo numerico.</text>
+        <text tid="email">Questo valore deve essere un indirizzo email valido.</text>
+        <text tid="equalto">Questo valore deve essere identico.</text>
+        <text tid="integer">Questo valore deve essere un numero valido.</text>
+        <text tid="length">La lunghezza di questo valore deve essere compresa fra <param p="1"/> e <param p="2"/> caratteri.</text>
+        <text tid="max">Questo valore deve essere minore di <param p="1"/>.</text>
+        <text tid="maxcheck">Devi scegliere al più <param p="1"/> opzioni.</text>
+        <text tid="maxlength">Questo valore è troppo lungo. La lunghezza massima è di <param p="1"/> caratteri.</text>
+        <text tid="min">Questo valore deve essere maggiore di <param p="1"/>.</text>
+        <text tid="mincheck">Devi scegliere almeno <param p="1"/> opzioni.</text>
+        <text tid="minlength">Questo valore è troppo corto. La lunghezza minima è di <param p="1"/> caratteri.</text>
+        <text tid="notblank">Questo valore non deve essere vuoto.</text>
+        <text tid="number">Questo valore deve essere un numero valido.</text>
+        <text tid="pattern">Questo valore non è corretto.</text>
+        <text tid="range">Questo valore deve essere compreso tra <param p="1"/> e <param p="2"/>.</text>
+        <text tid="required">Questo valore è richiesto.</text>
+        <text tid="url">Questo valore deve essere un URL valido.</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

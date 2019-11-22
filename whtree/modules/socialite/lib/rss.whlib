@@ -1,0 +1,9 @@
+<?wh
+LOADLIB "mod::socialite/lib/internal/feeds.whlib";
+
+/** @short Request a RSS feed
+  */
+PUBLIC RECORD FUNCTION GetRSSFeed(STRING url, INTEGER maxnum)
+{
+  RETURN RequestFeed("", "", "", "rss:" || url, maxnum, FALSE);
+}

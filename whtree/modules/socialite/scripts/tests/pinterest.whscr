@@ -1,0 +1,14 @@
+<?wh
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "mod::socialite/lib/api.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+OBJECT trans := OpenPrimary();
+OBJECT conn := OpenSocialiteConnection("SOCIALITE_TESTS", "PINTEREST");
+conn->OpenPersistentSessionByTag("TESTUSER");
+__webbrowser_debugall := TRUE;
+
+//RECORD res := conn->Searches_Video_ByKeyword("Test",1);
+RECORD res := conn->GetLoggedinUserData();
+dumpvalue(res,'tree');
+

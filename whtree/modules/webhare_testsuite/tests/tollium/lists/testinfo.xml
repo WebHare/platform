@@ -1,0 +1,10 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="list">
+  <test script="testlistcomponent.whscr" />
+  <jstest file="testbase.es" />
+  <jstest file="testjump.es" />
+  <jstest file="testresize.es" />
+  <jstest file="testcolumntypes.es" />
+  <jstest file="testmultirow.es" />
+  <jstest file="testfindasyoutype.es" />
+  <jstest file="testcelledit.es" />
+</group>

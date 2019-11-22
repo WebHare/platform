@@ -1,0 +1,216 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+OBJECT FUNCTION GetIndexFieldDefinitionNode(STRING name, STRING type)
+{
+  IF(name NOT LIKE "?*:?*" OR name LIKE "*:*:*")
+    THROW NEW Exception(`No such definition '${name}'`);
+
+  STRING ARRAY parts := Tokenize(name, ':');
+  OBJECT xmldoc := GetModuleDefinitionXML(parts[0]); //FIXME require validation to succeed ? use lastknown good if so unless on test/dev?
+  IF (NOT ObjectExists(xmldoc))
+    THROW NEW Exception(`Cannot retrieve moduledefinition for module '${parts[0]}'`);
+
+  FOREVERY(OBJECT consilionode FROM xmldoc->documentelement->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "consilio"))
+    FOREVERY(OBJECT indexnode FROM consilionode->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", type))
+      IF(indexnode->localname = type AND indexnode->GetAttribute("tag") = parts[1])
+        RETURN indexnode;
+
+  RETURN DEFAULT OBJECT;
+}
+
+CONSTANT RECORD defaultparentstate := [ strict := TRUE
+                                      , curdepth := 0
+                                      ];
+
+RECORD FUNCTION GetFieldDefinition(STRING name, STRING type, RECORD parentstae)
+{
+  OBJECT node := GetIndexFieldDefinitionNode(name, type);
+  IF(NOT ObjectExists(node))
+    THROW NEW Exception(`Cannot find ${type} mapping for '${name}'`);
+
+  RETURN ParseIndexField(node, Tokenize(name,':')[0], parentstae);
+}
+
+PUBLIC RECORD FUNCTION GetIndexFieldDefinition(STRING name)
+{
+  RETURN GetFieldDefinition(name, 'index', defaultparentstate);
+}
+PUBLIC RECORD FUNCTION GetFieldgroupFieldDefinition(STRING fieldgroup, BOOLEAN strict)
+{
+  RETURN GetFieldDefinition(fieldgroup, 'fieldgroup', CELL[...defaultparentstate, strict]);
+}
+
+
+STRING FUNCTION QualifyName(STRING qualification, STRING name)
+{
+  IF (name != "" AND SearchSubstring(name, "*") = -1 AND name NOT LIKE "*:*")
+    name := qualification || ":" || name;
+
+  RETURN name;
+}
+
+RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
+{
+  state.curdepth := state.curdepth + 1;
+  IF(state.curdepth > 6)
+    THROW NEW Exception(`Index is too deep!`);
+
+  IF(fieldnode->HasAttribute("strict"))
+    state.strict := ParseXSBoolean(fieldnode->GetAttribute("strict"));
+
+  RECORD ARRAY properties;
+
+  FOREVERY(OBJECT subfield FROM fieldnode->ListChildren("*","*"))
+  {
+    STRING type := subfield->localname;
+
+    IF(type = "addfieldgroup") //inclusion, not a sublevel!
+    {
+      RECORD subresult := GetFieldDefinition(QualifyName(module, subfield->GetAttribute("ref")), "fieldgroup", state);
+      properties := properties CONCAT subresult.properties;
+
+      ////TODO conflict check?
+      CONTINUE;
+    }
+
+    RECORD field := [ name := subfield->GetAttribute("name")
+                    , settings := DEFAULT RECORD
+                    , subfields := ParseIndexField(subfield, module, state)
+                    , type := type
+                    ];
+
+    SWITCH(type)
+    {
+      CASE "text"
+      {
+        STRING analyzer := subfield->GetAttribute("analyzer");
+        IF (analyzer != "")
+          INSERT CELL analyzer := analyzer INTO field.settings;
+        STRING search_analyzer := subfield->GetAttribute("search_analyzer");
+        IF (search_analyzer != "")
+          INSERT CELL search_analyzer := search_analyzer INTO field.settings;
+        STRING search_quote_analyzer := subfield->GetAttribute("search_quote_analyzer");
+        IF (search_quote_analyzer != "")
+          INSERT CELL search_quote_analyzer := search_quote_analyzer INTO field.settings;
+      }
+      CASE "keyword"
+      {
+        INTEGER ignore_above := ParseXSInt(subfield->GetAttribute("ignore_above"));
+        IF (ignore_above != 0)
+          INSERT CELL ignore_above := ignore_above INTO field.settings;
+      }
+    }
+
+    INSERT field INTO properties AT END;
+  }
+
+  STRING dupename := SELECT AS STRING ANY(name) FROM properties GROUP BY ToUppercase(name) HAVING COUNT(*)>1;
+  IF(dupename != "")
+    THROW NEW Exception(`Duplicate property name '${dupename}'`);
+
+  RETURN CELL[ properties, state.strict ];
+}
+
+// Remove field and all subfields from the list of fields
+RECORD ARRAY FUNCTION DontDeleteField(INTEGER fieldid, RECORD ARRAY currentfields)
+{
+  FOREVERY (RECORD subfield FROM SELECT * FROM currentfields WHERE parent = fieldid)
+    currentfields := DontDeleteField(subfield.id, currentfields);
+  DELETE FROM currentfields WHERE id = fieldid;
+  RETURN currentfields;
+}
+
+/** @cell input.properties
+    @cell input.strict
+    @cell return.properties
+    @cell return.dynamic_templates
+    */
+PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD input)
+{
+  RECORD properties;
+  RECORD ARRAY dynamic_templates;
+
+  FOREVERY(RECORD prop FROM input.properties)
+  {
+    RECORD esfielddata := [ type := prop.type
+                          , ...prop.settings
+                          ];
+
+    RECORD subfields := PrepareMappingUpdate(prop.subfields);
+    IF(RecordExists(subfields.properties))
+    {
+      IF(prop.type="record")
+      {
+        //A record has properties - these subfields can individually receive values to index
+        INSERT CELL properties := subfields.properties INTO esfielddata;
+      }
+      ELSE
+      {
+        //Other types have fields. these cannot index a separate value, they just receive their parent's value but store it differently
+        INSERT CELL fields := subfields.properties INTO esfielddata;
+      }
+    }
+
+    SWITCH(prop.type)
+    {
+      CASE "record"
+      {
+        esfielddata.type := "object";
+        INSERT CELL dynamic := subfields.dynamic INTO esfielddata;
+      }
+
+      // No additional changes
+      CASE "text", "keyword", "integer", "boolean" {}
+
+      // Change type to Elasticsearch type
+      CASE "integer64" { esfielddata.type := "long"; }
+      CASE "float"     { esfielddata.type := "double"; }
+      CASE "datetime"  { esfielddata.type := "date"; }
+      CASE "latlng"    { esfielddata.type := "geo_point"; }
+      CASE "ipaddress" { esfielddata.type := "ip"; }
+
+      /* Not supported yet
+      CASE "completion"
+      {
+      }*/
+      DEFAULT
+      {
+        THROW NEW Exception(`Unknown field type '${prop.type}'`);
+      }
+    }
+
+    IF(Length(subfields.dynamic_templates)>0)
+    {
+      IF(prop.type != "record")
+        THROW NEW Exception('Only records may contain wildcarded fields');
+
+      //We need to rename the templates AND regenerate its namebashed hash..
+      FOREVERY(RECORD templ FROM subfields.dynamic_templates)
+      {
+        RECORD template := UnpackRecord(templ)[0].value;
+        template.path_match := prop.name || "." || template.path_match;
+
+        INSERT CellInsert(DEFAULT RECORD, `dyntempl_${EncodeUFS(GetSHA1Hash(prop.name))}`, template) INTO dynamic_templates AT END;
+      }
+    }
+
+    IF(SearchSubstring(prop.name,'*') = -1) //plain field
+    {
+      properties := CellInsert(properties, prop.name, esfielddata);
+    }
+    ELSE //wildcard!
+    {
+      RECORD template :=
+          [ path_match := prop.name
+          , mapping := esfielddata
+          ];
+
+      //Using hash of name to ensure we stay below HSVM_MaxColumnName
+      INSERT CellInsert(DEFAULT RECORD, `dyntempl_${EncodeUFS(GetSHA1Hash(prop.name))}`, template) INTO dynamic_templates AT END;
+    }
+  }
+  RETURN CELL[properties, dynamic_templates, dynamic := input.strict ? "strict" : "true"];
+}

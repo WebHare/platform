@@ -1,0 +1,2231 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/publisher/versioning.whlib";
+
+
+OBJECT FUNCTION Rte()
+{
+  RETURN TT("doceditor")->contents->rte;
+}
+
+OBJECT ASYNC FUNCTION PublisherNewFileProperties()
+{
+  SetTidLanguage("debug");
+
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  RECORD rec;
+
+  OBJECT testfolder, testfile;
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+
+  // Open the new file screen
+  rec := AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+
+  TT("types")->value := "type:" || OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id;
+
+  // Open properties dialog
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+
+  TT("name")->value := "new-unversioned-rtd.rtd";
+  TT("title")->value := "new title";
+  TT("description")->value := "new description";
+
+  //ok new file dialog
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  // New file must be selected
+  TestEQ("new-unversioned-rtd.rtd", TT("filelist")->selection.name);
+  INTEGER fileid := TT("filelist")->selection.id;
+
+  // Open properties screen
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  TT("name")->value := "new-unversioned-rtd-changed.rtd";
+  TT("title")->value := "new title-changed";
+  TT("description")->value := "new description-changed";
+
+  //ok props dialog
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  // ------
+  // Test: file properties of a new (non-published) file should apply directly
+
+  TestEQ(
+      [ [ name :=          "new-unversioned-rtd-changed.rtd"
+        , title :=         "new title-changed"
+        , description :=   "new description-changed"
+        ]
+      ], SELECT name, title, description FROM system.fs_objects WHERE id = fileid);
+  TestEQ(FALSE, policy->HasVersionEvents(OpenWHFSObject(fileid)));
+
+  // Open properties screen again
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // enable publish, triggering events
+  TT("publish")->value := TRUE;
+
+  // ------
+  // Test: when setting published to TRUE should create a draft
+
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Not versioned yet, but with draft
+  TestEQ(FALSE, policy->HasVersionEvents(OpenWHFSObject(fileid)));
+  TestEQ(TRUE, ObjectExists(GetPublicDraft(fileid)));
+
+  // Open properties screen, submit approval request
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  AWAIT ExpectApprovalRequest(TRUE, PTR TT("requestapproval")->ProcessInboundMessage("execute", [ rule := 0 ]));
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Now there should be version events, and the file should not be published
+  TestEQ(TRUE, policy->HasVersionEvents(OpenWHFSObject(fileid)));
+  TestEQ(FALSE, SELECT AS BOOLEAN IsPublish(published) FROM system.fs_objects WHERE id = fileid);
+
+  // ------
+  // Test: RTD with draft should create draft version with all live properties, RTD data overwritten with public draft
+  //   1: first create draft, then change properties and submit for audit
+  rec := AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("types")->value := "type:"||OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id;
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit()); // ok new file, immediately opens props
+  TT("name")->value := "rtd-with-draft.rtd";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  testfile := OpenWHFSObject(TT("filelist")->selection.id);
+  // Open rich document editor
+  rec := AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+  // Insert some content and save as draft
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is new content saved as draft</p>');
+  RTE()->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
+  TestEq(TRUE, topscreen->saveasdraftbutton->TolliumClick());
+  //close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  AWAIT rec.expectcallreturn();
+
+  // Open properties screen again
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  // enable publish, triggering events (also change title for test)
+  TT("title")->value := "changed title";
+  TT("publish")->value := TRUE;
+
+  // ok the dialog, expect an submit for audit? ok
+  AWAIT ExpectApprovalRequest(TRUE, PTR TT("requestapproval")->ProcessInboundMessage("execute", [ rule := 0 ]));
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  TestEQ(TRUE, policy->HasVersionEvents(OpenWHFSObject(fileid)));
+  AWAIT rec.expectcallreturn();
+
+  OBJECT draft := GetPublicDraft(testfile->id);
+  TestEQ("changed title", draft->fsobject->title); // fails because the RTD make drafts for non-versioned files.
+  RECORD rtd_data := draft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  TestEQLike("*saved as draft*", BlobToString(rtd_data.data.htmltext));
+
+  DeleteFSObjects([ OpenWHFSObject(fileid), testfile ]);
+
+  // ------
+  // Test: disallow create file with name index.html into a versioned folder with existing indexdoc
+
+  testfw->BeginWork();
+  testfolder := testfw->GetTestSite()->rootobject->CreateFolder([ name := "indextest" ]);
+  testfile := testfolder->CreateFile(
+      [ name := "indexdoc.rtd"
+      , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
+  UpdateDraftPublish(testfile, TRUE);
+  testfolder->UpdateMetadata([indexdoc := testfile->id]);
+  testfw->CommitWork();
+
+  ConvertToVersionedContent(testfile);
+  TT("foldertree")->value := testfolder->id;
+
+  rec := AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT("showalltypes")->value := TRUE;
+  TT("types")->value := "type:"||OpenWHFSType("http://www.webhare.net/xmlns/publisher/htmlfile")->id;
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());  // ok new file, immediately opens props
+  TT("name")->value := "index.html";
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->TolliumExecuteSubmit(),
+      [ messagemask := "*replaceindexconfirm*"
+      ]);
+  AWAIT ExpectWorkErrors(DEFAULT FUNCTION PTR,
+      [ messagemask := "*cannotstealindexfromversionedfile*"
+      ]);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT rec.expectcallreturn();
+
+  //Test duplication, may not set the 'publish' flag by itself! - first without setting 'publish'
+  Testeq("indexdoc.rtd", TT("filelist")->selection[0].name);
+  topscreen->frame->focused := TT("filelist");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
+  TestEq("indexdoc-1.rtd", TT("name")->value);
+  TestEq(FALSE, TT("publish")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":{tollium:common.actions.save}"));
+
+  TestEq("indexdoc-1.rtd", TT("filelist")->selection[0].name);
+  TestEq(FALSE, OpenWHFSObject(TT("filelist")->value[0])->publish);
+
+  //Test duplication, may not set the 'publish' flag by itself! - now WITH setting 'publish'
+  Testeq("indexdoc-1.rtd", TT("filelist")->selection[0].name);
+  topscreen->frame->focused := TT("filelist");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
+  TestEq("indexdoc-2.rtd", TT("name")->value);
+  TT("publish")->value := TRUE;
+
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  TestEq("indexdoc-2.rtd", TT("filelist")->selection[0].name);
+  TestEq(FALSE, OpenWHFSObject(TT("filelist")->value[0])->publish);
+
+  DeleteFSObjects([ testfolder ]);
+
+  //close publisher
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION PublisherVersionedFileProperties()
+{
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+
+  // ------
+  // Test: properties should be edited in draft (so if no draft is present, one should be created at submit-time)
+  // Test: when editing a draft, a message should be visible that indicates that
+
+  // Edit an published versioned file, draft should be created with new properties
+  OBJECT testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "versioned-file-nodraft.html"
+      , title := "original title"
+      , isversioned := TRUE
+      , publish := TRUE
+      ]);
+
+  // Test autocreation of draft
+  RECORD rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  TT("title")->value := "changed title";
+
+  //ok props dialog, creates the draft
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  testfile->Refresh();
+  TestEQ("original title", testfile->title);
+  TestEQ("changed title", GetPublicDraft(testfile->id)->fsobject->title);
+
+  // Edit an versioned file with draft, draft should be updated
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Test that message showing that we're editing a draft
+  TestEQ(TRUE, TT("versioningmessagesbox")->visible);
+  TestEQ(TRUE, TT("versioningmessagepanel")->visible);
+  TestEQLike("*editingversioneddraft*", TT("versioningmessage")->value);
+
+  TestEQ("changed title", TT("title")->value);
+  TT("title")->value := "changed title twice";
+  //ok props dialog, save
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  TestEQ("changed title twice", GetPublicDraft(testfile->id)->fsobject->title);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: no draft creation when only editing non-versioned metadata
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "versioned-file-nodraft2.html"
+      , isversioned := TRUE
+      ]);
+
+  // Open props
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  // edit unversioned field
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/unversionedctype", "str")->value := "Nodraft 2";
+  // Must be applied directly to live file
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestEQ("Nodraft 2", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: editing non-versioned metadata in file with draft directly applies them
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "versioned-file-nodraft3.html"
+      , isversioned := FALSE
+      , makeindex := FALSE
+      ]);
+
+  testfw->BeginWork();
+  OBJECT testdraft := CreateDraftFromFile(testfile);
+  testfw->CommitWork();
+
+  // Open props
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  // edit unversioned field
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/unversionedctype", "str")->value := "Nodraft 3";
+  // Must be applied directly to live file
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+  TestEQ("Nodraft 3", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: when a version has been transmitted for approval, the versioned metadata should be readonly
+  //       initial file is not published, draft is not published
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "unversioned-file-nodraft5.html"
+      , isversioned := TRUE
+      , publish := FALSE
+      , makeindex := FALSE
+      ]);
+
+  testfw->BeginWork();
+  testdraft := CreateDraftFromFile(testfile);
+  SubmitApprovalRequestForDraft(testdraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test readonlyness" ]);
+  testfw->CommitWork();
+
+  // Open props, test for readonly
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Test readonly fields, should follow the 'not published' filepolicy
+  TestEQ(FALSE, TT("name")->enabled);
+  TestEQ(TRUE, TT("title")->enabled);
+  TestEQ(TRUE, TT("description")->enabled);
+
+  // edit other metadata
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/unversionedctype", "str")->value := "Nodraft 5";
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // ADDME: should we test for changes at draft??
+  TestEQ("Nodraft 5", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: when a version has been transmitted for approval, the versioned metadata should be readonly
+  //       initial file is not published, draft is published
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "unversioned-file-nodraft5.html"
+      , isversioned := FALSE
+      , publish := FALSE
+      , makeindex := FALSE
+      ]);
+
+  // Open props, test for readonly
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Test readonly fields, should follow the 'unpublished' filepolicy
+  TestEQ(TRUE, TT("name")->enabled);
+  TestEQ(TRUE, TT("title")->enabled);
+  TestEQ(TRUE, TT("description")->enabled);
+
+  // Ok the dialog, don't submit for approval
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  testfw->BeginWork();
+  testdraft := CreateDraftFromFile(testfile);
+
+  // Want to publish the draft
+  RECORD testdraft_draftdata := testdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+  testdraft_draftdata.flags := DraftFlag_Publish;
+  testdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata);
+
+  SubmitApprovalRequestForDraft(testdraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test readonlyness" ]);
+  testfw->CommitWork();
+
+  // Open props, test for readonly
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Test readonly fields, should follow the 'published' filepolicy (file is unpublished, draft is published)
+  TestEQ(FALSE, TT("name")->enabled);
+  TestEQ(FALSE, TT("title")->enabled);
+  TestEQ(FALSE, TT("description")->enabled);
+
+  // edit other metadata
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/unversionedctype", "str")->value := "Nodraft 5b";
+
+  // Ok the dialog, don't submit for approval
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // ADDME: should we test for changes at draft??
+  TestEQ("Nodraft 5b", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+
+  // Approve request, unpublish file and approve
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+
+  testdraft := CreateDraftFromFile(testfile);
+
+  // Want to publish the draft
+  testdraft_draftdata := testdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+  testdraft_draftdata.flags := testdraft_draftdata.flags - DraftFlag_Publish;
+  testdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata);
+
+  SubmitApprovalRequestForDraft(testdraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test readonlyness" ]);
+  testfw->CommitWork();
+
+  // Open props, test for readonly
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Test readonly fields, should follow the 'published' filepolicy (file is published, draft is unpublished)
+  TestEQ(FALSE, TT("name")->enabled);
+  TestEQ(FALSE, TT("title")->enabled);
+  TestEQ(FALSE, TT("description")->enabled);
+
+  // Ok the dialog, don't submit for approval
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  // Open props, test for readonly
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Test readonly fields, should follow the 'unpublished' filepolicy again (file is now unpublished)
+  TestEQ(TRUE, TT("name")->enabled);
+  TestEQ(TRUE, TT("title")->enabled);
+  TestEQ(TRUE, TT("description")->enabled);
+
+  // Ok the dialog, don't submit for approval
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  DeleteFSObjects([ testfile ]);
+
+
+  // ------
+  // Test: when a version has been transmitted for approval, the versioned metadata should be readonly (published)
+  //       initial file has already been published
+  // Test: when a version has been transmitted for approval, a message should be visible that indicates that
+  // Test: when editing all other metadata of a draft submitted for approval, draft should not be modified
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "versioned-file-nodraft6.html"
+      , isversioned := TRUE
+      , publish := TRUE
+      , makeindex := FALSE
+      ]);
+
+  testfw->BeginWork();
+  testdraft := CreateDraftFromFile(testfile);
+  SubmitApprovalRequestForDraft(testdraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test readonlyness" ]);
+  testfw->CommitWork();
+
+  // Open props, test for readonly
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Test for readonly
+  TestEQ(FALSE, TT("name")->enabled);
+  TestEQ(FALSE, TT("title")->enabled);
+  TestEQ(FALSE, TT("description")->enabled);
+
+  // Test that message showing a request for approval has been submitted is visible
+  TestEQ(TRUE, TT("versioningmessagesbox")->visible);
+  TestEQ(TRUE, TT("versioningmessagepanel")->visible);
+  TestEQLike("*requestforapproval*", TT("versioningmessage")->value);
+
+  // edit other metadata
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/unversionedctype", "str")->value := "Nodraft 6";
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // ADDME: should we test for changes at draft??
+  TestEQ("Nodraft 6", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: versioned contenttype settings should be edited in draft (so if no draft is present, one should be created at submit-time)
+  // Test: unversioned contenttype settings should be saved directly, not in draft
+  // Test: when editing a draft, a message should be visible that indicates that
+
+  // Edit an published versioned file, draft should be created with new properties
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type := "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name := "versioned-file-nodraft7.html"
+      , isversioned := TRUE
+      , publish := TRUE
+      ]);
+
+  // Test autocreation of draft
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/versionedctype", "str")->value := "changed value";
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/unversionedctype", "str")->value := "changed value";
+
+  //ok props dialog, creates the draft
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  testfile->Refresh();
+  TestEQ("", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/versionedctype").str);
+  TestEQ("changed value", GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/versionedctype").str);
+  TestEQ("changed value", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+  TestEQ("", GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+
+  // Edit an versioned file with draft, draft should be updated
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Test that message showing that we're editing a draft
+  TestEQ(TRUE, TT("versioningmessagesbox")->visible);
+  TestEQ(TRUE, TT("versioningmessagepanel")->visible);
+  TestEQLike("*editingversioneddraft*", TT("versioningmessage")->value);
+
+  TestEQ("changed value", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/versionedctype", "str")->value);
+  TestEQ("changed value", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/unversionedctype", "str")->value);
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/versionedctype", "str")->value := "changed value twice";
+  //ok props dialog, save
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  TestEQ("", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/versionedctype").str);
+  TestEQ("changed value twice", GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/versionedctype").str);
+  TestEQ("changed value", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+  TestEQ("", GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+
+  // Submit request, versioned contenttype fields should be disabled. Copies unversioned data from live to draft
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test readonlyness" ]);
+  testfw->CommitWork();
+
+  // Open props, test for readonly
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Test for readonly
+  TestEQ(FALSE, topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/versionedctype", "str")->enabled);
+  TestEQ(TRUE, topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/unversionedctype", "str")->enabled);
+
+  // Test that message showing a request for approval has been submitted is visible
+  TestEQ(TRUE, TT("versioningmessagesbox")->visible);
+  TestEQ(TRUE, TT("versioningmessagepanel")->visible);
+  TestEQLike("*requestforapproval*", TT("versioningmessage")->value);
+
+  // edit other metadata
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/beta/unversionedctype", "str")->value := "changed value twice";
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  TestEQ("", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/versionedctype").str);
+  TestEQ("changed value twice", GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/versionedctype").str);
+  TestEQ("changed value twice", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+  TestEQ("changed value", GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+
+  // Approve request
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
+  testfw->CommitWork();
+
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestEQ("changed value twice", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/versionedctype").str);
+  TestEQ("changed value twice", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
+
+  DeleteFSObjects([ testfile ]);
+
+  // Close publisher
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION PublisherVersionedFolderProperties()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+
+  // ------
+  // Test: folders with versioned content (recursive) can't be moved (via move to...)
+
+  INTEGER orgroot := TT("foldertree")->value;
+
+  // Create a destination folder
+  OBJECT destinationfolder := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "move-destination-folder1"
+      , isversioned := FALSE
+      ]);
+
+  // Create a folder
+  OBJECT testfolder := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "folder-with-versioned-content1"
+      , isversioned := FALSE
+      ]);
+
+  // Select the folder, create a versioned file in it
+  TT("foldertree")->value := testfolder->id;
+  OBJECT testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "versioned.html"
+      , isversioned := TRUE
+      , makeindex := FALSE
+      ]);
+
+  TT("foldertree")->value := testfolder->id;
+
+  // Execute 'move to... ' action. Gets an error, ok it
+  AWAIT ExpectAndAnswerMessageBox(
+        "ok",
+        PTR TT("moveto")->ProcessInboundMessage("execute", [ rule := 0 ]), // rule 0: folder tree
+        [ awaitcall := TRUE
+        , messagemask := "*modifyingreadonlyfield*"
+        ]);
+
+  // ------
+  // Test: folders with versioned content (recursive) can't be moved (via drag 'n drop)
+
+  // Execute 'move to... ' action with drag-drop
+  TT("foldertree")->value := testfolder->parent;
+
+  // Execute 'move to... ' action with drag-drop, expect 'sure to move' dialog
+  RECORD rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist, // from
+          [ INTEGER(testfolder->id) ], // from rowkeys
+          TT("filelist")->mylist, // to
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := destinationfolder->id
+          ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  // Expect failure dialog
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*versionedmovedisallowed*" ]);
+
+  AWAIT rec.expectcallreturn();
+
+  // ------
+  // Test: folders with versioned content (recursive) can't be renamed
+
+  TT("filelist")->value := [ INTEGER(testfolder->id) ];
+
+  // Open properties screen
+  AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Name field should be disabled
+  TestEQ(FALSE, TT("name")->enabled);
+
+  // Close the screen
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  // ------
+  // Test: folders without versioned content (recursive) can be moved or renamed
+
+  // Create a folder
+  OBJECT testfolder2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "folder-without-versioned-content1"
+      , isversioned := FALSE
+      ]);
+
+  // Select the folder, create a versioned file in it
+  TT("foldertree")->value := testfolder2->id;
+  OBJECT testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , makeindex := FALSE
+      , isversioned := FALSE
+      ]);
+
+  // Select the testfolder2 in the filelist
+  TT("foldertree")->value := testfolder2->parent;
+  TT("filelist")->value := [ INTEGER(testfolder2->id) ];
+
+  // Open properties screen
+  AWAIT ExpectScreenChange(+1, PTR TT("props")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file tree
+
+  // Name field should be enabled
+  TestEQ(TRUE, TT("name")->enabled);
+
+  // Close the screen
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  // Move the file to the destinationfolder, via drag 'n drop
+  AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist, // from
+          [ INTEGER(testfolder2->id) ], // from rowkeys
+          TT("filelist")->mylist, // to
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := destinationfolder->id
+          ]),
+      [ awaitcall := TRUE, messagemask := "*confirmmove*" ]);
+
+  // Close publisher
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  // ------
+  // Test: indexdocument changes must create a draft
+  // TODO: build test
+
+  // ------
+  // Test: indexdocument change from one document to another also creates a draft (one?)
+  // TODO: build test
+
+  // ------
+  // Cleanup
+
+  DeleteFSObjects([ testfolder, destinationfolder ]);
+
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION PublisherNewObject()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+
+  // Open the new folder screen
+  OBJECT webdesign_dynfolder1 := OpenWHFSType("http://www.webhare.net/xmlns/beta/dynfolder");
+  OBJECT webdesign_dynfolder2 := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder");
+
+  // Open the new folder screen
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+
+  // Enable showing all types
+  TT("showalltypes")->value := TRUE;
+
+  // ------
+  // Test: No dynamic folder types may be present
+  TestEQ(DEFAULT RECORD ARRAY, SELECT * FROM TT("types")->rows WHERE type IN [ INTEGER(webdesign_dynfolder1->id), webdesign_dynfolder2->id ]);
+
+  //cancel new folder dialog
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  // Open the new file screen
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+
+  // Enable showing all types
+  TT("showalltypes")->value := TRUE;
+
+  // ------
+  // Test: None of the types 'internal link', 'external link', 'content link' are allowed
+  TestEQ(DEFAULT RECORD ARRAY, SELECT * FROM TT("types")->rows WHERE type IN [ 18, 19, 20 ]);
+
+  //cancel new file dialog
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  // ------
+
+  //close publisher
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION PublisherWebsiteSettings()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+
+  // Open site properties screen
+  AWAIT ExpectScreenChange(+1, PTR TT("siteproperties")->ProcessInboundMessage("execute", [ rule := 0 ])); // rule 0: folder tree
+
+  // ------
+  // Test: Editing output URL, subfolder in output url is not allowed (not enabled)
+  TestEq(FALSE, TT("outputweb")->enabled);
+  TestEq(FALSE, TT("outputfolder")->enabled);
+
+  //cancel site properties dialog
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  //close publisher
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION PublisherActions()
+{
+  OBJECT testfolder;
+  OBJECT testfile, testfiledraft;
+  OBJECT testfile2, testfiledraft2;
+  STRING answer;
+  FUNCTION PTR executemsg;
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+
+  OBJECT testsite2 := testfw->GetTestSite("webhare_testsuite.site2");
+
+  // Create 2 destination folders
+  OBJECT destinationfolder := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "move-destination-folder1"
+      , isversioned := FALSE
+      ]);
+
+  // Create a destination folder
+  OBJECT destinationfolder2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "move-destination-folder2"
+      , isversioned := FALSE
+      ]);
+
+  // ------
+  // Test: Move of folders with versioned content is disallowed
+  // already tested in PublisherVersionedFolderProperties
+
+  // ------
+  // Test: Move of folders without versioned content is allowed
+  // already tested in PublisherVersionedFolderProperties
+
+  // ------
+  // Test: Move of never-versioned content is allowed
+
+  // Select the folder, create a versioned file in it
+  TT("foldertree")->value := destinationfolder->parent;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := FALSE
+      ]);
+
+  // Move the file to the destinationfolder, via drag 'n drop.
+  RECORD rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist, // from
+          [ INTEGER(testfile->id) ], // from rowkeys
+          TT("filelist")->mylist, // to
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := destinationfolder->id
+          ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  AWAIT rec.expectcallreturn();
+
+  // Test new location
+  testfile->Refresh();
+  TestEQ(destinationfolder->id, testfile->parent);
+
+  // Cleanup
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Move of versioned content creates a draft (disallowed when moving out of site)
+
+  TT("foldertree")->value := destinationfolder->parent;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "versioned.html"
+      , isversioned := TRUE
+      ]);
+
+    // Move the file to the destinationfolder, via drag 'n drop.
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist, // from
+          [ INTEGER(testfile->id) ], // from rowkeys
+          TT("filelist")->mylist, // to
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := destinationfolder->id
+          ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  AWAIT rec.expectcallreturn();
+
+  // Test location hasn't changed
+  testfile->Refresh();
+  TestEQ(destinationfolder->parent, testfile->parent);
+
+  // Test the new location of the draft
+  OBJECT draft := GetPublicDraft(testfile->id);
+  TestEQ(destinationfolder->id, draft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata").parent);
+
+  // Cleanup
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Move of versioned content out of site is disallowed
+
+  TT("foldertree")->value := testfw->GetTestSite()->root;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "versioned.html"
+      , isversioned := TRUE
+      , makeindex := FALSE
+      ]);
+
+  // Move the file to the destinationfolder, via drag 'n drop. Expect 'confirmmove' dialog
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist, // from
+          [ INTEGER(testfile->id) ], // from rowkeys
+          TT("foldertree")->thelist, // to
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := testfw->GetWHFSTestRoot2()->id
+          ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  // Expect disallow messagebox
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*nomoveoutversionedsite*" ]);
+
+  AWAIT rec.expectcallreturn();
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Move of already moved versioned content modifies the draft
+
+  TT("foldertree")->value := testfw->GetTestSite()->root;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "versioned.html"
+      , isversioned := TRUE
+      ]);
+
+    // Move the file to the destinationfolder, via drag 'n drop.
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist, // from
+          [ INTEGER(testfile->id) ], // from rowkeys
+          TT("filelist")->mylist, // to
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := destinationfolder->id
+          ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  AWAIT rec.expectcallreturn();
+
+  testfiledraft := GetPublicDraft(testfile->id);
+  TestEQ(destinationfolder->parent, testfile->parent);
+  TestEQ(destinationfolder->id, testfiledraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata").parent);
+
+    // Move the file to the destinationfolder2, via drag 'n drop.
+  rec := AWAIT ExpectAndAnswerMessageBox("yes", PTR ExecuteListDragDrop(
+      TT("filelist")->mylist, // from
+      [ INTEGER(testfile->id) ], // from rowkeys
+      TT("foldertree")->thelist, // to
+      [ dropeffect := "move"
+      , droplocation := "ontarget"
+      , target := destinationfolder2->id
+      ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  AWAIT rec.expectcallreturn();
+
+  testfiledraft := GetPublicDraft(testfile->id);
+  TestEQ(destinationfolder->parent, testfile->parent);
+  TestEQ(destinationfolder2->id, testfiledraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata").parent);
+
+  AWAIT rec.expectcallreturn();
+
+  // Cleanup
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Move of approval-requested versioned content is disallowed
+
+  TT("foldertree")->value := destinationfolder->parent;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "versioned.html"
+      , isversioned := TRUE
+      ]);
+
+  testfw->BeginWork();
+  testfiledraft := CreateDraftFromFile(testfile);
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test move failure" ]);
+  testfw->CommitWork();
+
+  // Move the file to the destinationfolder, via drag 'n drop. Should get error with 'close' button
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist, // from
+          [ INTEGER(testfile->id) ], // from rowkeys
+          TT("foldertree")->thelist, // to
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := destinationfolder2->id
+          ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  // Expect disallow messagebox
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*versionedmovedisallowed*" ]);
+
+  AWAIT rec.expectcallreturn();
+
+  testfiledraft := GetPublicDraft(testfile->id);
+  TestEQ(destinationfolder->parent, testfile->parent);
+  TestEQ(destinationfolder->parent, testfiledraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata").parent);
+
+  // Cleanup
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Overwrite (by copy) of non-versioned content is allowed
+
+// Overwriting isn't allowed!!
+/*
+  TT("foldertree")->value := destinationfolder->parent;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := FALSE
+      , title :=    "overwritten"
+      ]);
+
+  TT("foldertree")->value := destinationfolder->id;
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := FALSE
+      , title :=    "original"
+      ]);
+
+  TT("foldertree")->value := destinationfolder->parent;
+  AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist, // from
+          [ INTEGER(testfile->id) ], // from rowkeys
+          TT("filelist")->mylist, // to
+          [ dropeffect := "copy"
+          , droplocation := "ontarget"
+          , target := destinationfolder->id
+          ]),
+      [ awaitcall := TRUE, messagemask := "*confirmmove*" ]);
+
+  // Title should be overwritten
+  testfile2->Refresh();
+  TestEq("overwritten", testfile2->title);
+
+  // Cleanup
+  testfw->BeginWork();
+  testfile->DeleteSelf();
+  testfile2->DeleteSelf();
+  testfw->CommitWork();
+*/
+  // ------
+  // Test: Overwrite (by copy) of versioned content creates a draft
+
+// Overwriting isn't allowed!!
+
+  // ------
+  // Test: Overwrite (by copy) of approval-requested versioned content is not allowed
+
+// Overwriting isn't allowed!!
+
+  // ------
+  // Test: Blob replace a non-versioned file is allowed (blobiscontent)
+
+  TT("foldertree")->value := destinationfolder->parent;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/mswordfile"
+      , name :=     "unversioned.doc"
+      , isversioned := FALSE
+      ]);
+
+  // Place a valid wordt doc into the file
+  testfw->BeginWork();
+  testfile->UpdateMetadata([ data := GetWebHareResource("mod::webhare_testsuite/tests/system/testdata/links.docx") ]);
+  testfw->CommitWork();
+
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+
+  STRING ARRAY uploadtokens := TT("replace")->PrepareUpload(
+      [ data :=     GetWebHareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx")
+      , filename := "replace.doc"
+      , mimetype := "application/msword"
+      ]);
+
+  AWAIT ExpectNoScreenChange(PTR TT("replace")->ProcessInboundMessage("upload",
+      [ rule := 0 // rule 1: file tree
+      , items :=
+            [ [ type := "file"
+              , token := uploadtokens[0]
+              ]
+            ]
+      ]));
+
+  testfile->Refresh();
+  TestEQ(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx"), testfile->data);
+
+  // Cleanup
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Blob replace of unpublished versioned content does not create a draft
+
+  TT("foldertree")->value := destinationfolder->parent;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/mswordfile"
+      , name :=     "unpublished_versioned.doc"
+      , isversioned := TRUE
+      ]);
+
+  // Place a valid wordt doc into the file
+  testfw->BeginWork();
+  testfile->UpdateMetadata([ data := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/links.docx") ]);
+  testfw->CommitWork();
+
+  uploadtokens := TT("replace")->PrepareUpload(
+      [ data :=     GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx")
+      , filename := "replace.doc"
+      , mimetype := "application/msword"
+      ]);
+
+  AWAIT ExpectNoScreenChange(PTR TT("replace")->ProcessInboundMessage("upload",
+      [ rule := 0 // rule 1: file tree
+      , items :=
+            [ [ type := "file"
+              , token := uploadtokens[0]
+              ]
+            ]
+      ]));
+
+  // No draft, file data is replaced in live version
+  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestEQ(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx"), testfile->data);
+
+  // Cleanup
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Blob replace of published versioned content creates a draft.
+
+  TT("foldertree")->value := destinationfolder->parent;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/mswordfile"
+      , name :=     "published_versioned.doc"
+      , isversioned := TRUE
+      , publish :=  TRUE
+      ]);
+
+  // Place a valid wordt doc into the file
+  testfw->BeginWork();
+  testfile->UpdateMetadata([ data := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/links.docx") ]);
+  testfw->CommitWork();
+
+  uploadtokens := TT("replace")->PrepareUpload(
+      [ data :=     GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx")
+      , filename := "replace.doc"
+      , mimetype := "application/msword"
+      ]);
+
+  // Get a approval dialog
+  AWAIT ExpectNoScreenChange(PTR TT("replace")->ProcessInboundMessage("upload",
+      [ rule := 0 // rule 1: file tree
+      , items :=
+            [ [ type := "file"
+              , token := uploadtokens[0]
+              ]
+            ]
+      ]));
+
+  testfiledraft := GetPublicDraft(testfile->id);
+  TestEQ(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/links.docx"), testfile->data);
+  TestEQ(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx"), testfiledraft->fsobject->data);
+
+  // Cleanup
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Blob replace of approval-requested versioned content is not allowed
+
+  TT("foldertree")->value := destinationfolder->parent;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/mswordfile"
+      , name :=     "unversioned.doc"
+      , isversioned := FALSE
+      ]);
+
+  // Place a valid wordt doc into the file
+  testfw->BeginWork();
+  testfile->UpdateMetadata([ data := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/links.docx") ]);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(CreateDraftFromFile(testfile), [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test disallow blob replace" ]);
+  testfw->CommitWork();
+
+  uploadtokens := TT("replace")->PrepareUpload(
+      [ data :=     GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx")
+      , filename := "replace.doc"
+      , mimetype := "application/msword"
+      ]);
+
+  executemsg := PTR TT("replace")->ProcessInboundMessage("upload",
+      [ rule := 0 // rule 1: file tree
+      , items :=
+            [ [ type := "file"
+              , token := uploadtokens[0]
+              ]
+            ]
+      ]);
+
+  // Got a work error dialog with error message, ok it
+  AWAIT ExpectAndAnswerMessageBox("ok", executemsg);
+
+  // Test draft hasn't changed
+  TestEQ(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/links.docx"), GetPublicDraft(testfile->id)->fsobject->data);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Delete of a folder with only non-versioned content is allowed
+
+  // Create a folder
+  testfolder := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "folder-with-versioned-content1"
+      , isversioned := FALSE
+      ]);
+
+  // Select the folder, create a versioned file in it
+  TT("foldertree")->value := testfolder->id;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := FALSE
+      , makeindex := FALSE
+      ]);
+
+  TT("foldertree")->value := testfolder->parent;
+  TT("filelist")->value := [ INTEGER(testfolder->id) ];
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("delete")->ProcessInboundMessage("execute", [ rule := 1 ]), [ awaitcall := TRUE ]);
+
+  // Test if move to recycle bin happened
+  testfolder->Refresh();
+  TestEQ(FALSE, TT("foldertree")->value = testfolder->parent);
+
+  // Cleanup
+  DeleteFSObjects([ testfolder ]);
+
+  // ------
+  // Test: Delete of a folder with versioned content is not allowed
+
+  // Create a folder
+  testfolder := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "folder-with-versioned-content1"
+      , isversioned := FALSE
+      ]);
+
+  // Select the folder, create a versioned file in it
+  TT("foldertree")->value := testfolder->id;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "versioned.html"
+      , isversioned := TRUE
+      , makeindex := FALSE
+      ]);
+
+  TT("foldertree")->value := testfolder->parent;
+  TT("filelist")->value := [ INTEGER(testfolder->id) ];
+
+  // Expect a 'sure delete?', then a 'delete not allowed'
+  rec := AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("delete")->ProcessInboundMessage("execute", [ rule := 1 ])); // to keep the test from failing
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR); // immediately get an error
+  AWAIT rec.expectcallreturn();
+
+  // Test if move to recycle bin failed
+  testfolder->Refresh();
+  TestEQ(TT("foldertree")->value, testfolder->parent);
+
+  // Cleanup
+  DeleteFSObjects([ testfolder ]);
+
+  // ------
+  // Test: Delete of non-versioned content is allowed
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := FALSE
+      , makeindex := FALSE
+      ]);
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("delete")->ProcessInboundMessage("execute", [ rule := 1 ]), [ awaitcall := TRUE ]);
+
+  // Test if move to recycle bin happened
+  testfile->Refresh();
+  TestEQ(FALSE, testfile->isactive);
+
+  // ------
+  // Test: Delete of versioned content creates a draft
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := TRUE
+      , makeindex := FALSE
+      ]);
+
+  rec := AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("delete")->ProcessInboundMessage("execute", [ rule := 1 ]));
+  AWAIT rec.expectcallreturn();
+
+  testfiledraft := GetPublicDraft(testfile->id);
+  TestEQ(0, testfiledraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata").parent);
+
+  // Cleanup
+  DeleteFSObjects([ testfile, testfolder ]);
+
+  // ------
+  // Test: Delete of content with a approval request is disallowed
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := FALSE
+      , makeindex := FALSE
+      ]);
+
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(CreateDraftFromFile(testfile), [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test disallowing delete" ]);
+  testfw->CommitWork();
+
+  // Do you want to delete?
+  rec := AWAIT ExpectAndAnswerMessageBox(
+        "yes",
+        PTR TT("delete")->ProcessInboundMessage("execute", [ rule := 1 ]),
+        [ messagemask := "*movetotrashconfirm*" ]);
+
+  // Denied!
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*modifyinglockedfiles*" ]);
+  AWAIT rec.expectcallreturn();
+
+  // Cleanup
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Creating an archive - creates a non-published draft
+
+  // Create a folder
+  testfolder := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "folder-with-versioned-content1"
+      , isversioned := FALSE
+      ]);
+
+  TT("foldertree")->value := testfolder->id;
+
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("createarchive")->ProcessInboundMessage("execute", [ rule := 0 ])); // rule 0: folder tree
+  topscreen->filename->value := "testfile2.zip";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":{tollium:common.actions.ok}")); //expect warning about creatingarchives
+  AWAIT rec.expectcallreturn();
+
+  // Test not published, no public draft
+  testfile2 := testfolder->parentobject->OpenByName("testfile2.zip");
+  TestEQ(0, testfile2->published);
+  TestThrows(PTR GetValidatePublicDraft(testfile2));
+
+  // Cleanup
+  TT("foldertree")->value := testfolder->parent;
+  DeleteFSObjects([ testfolder, testfile2 ]);
+
+  // ------
+  // Test: Type edit of a folder with only non-versioned content is allowed (2. but not to dynamic folder types)
+
+  // Create a folder
+  testfolder := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "folder-with-versioned-content1"
+      , isversioned := FALSE
+      ]);
+
+  // Select the folder, create a unversioned file in it
+  TT("foldertree")->value := testfolder->id;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := FALSE
+      , makeindex := FALSE
+      ]);
+
+  TT("foldertree")->value := testfolder->id;
+
+  // Open edit type screen
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("editfileorfoldertype")->ProcessInboundMessage("execute", [ rule := 0 ])); // rule 0: folder tree
+
+  // Make sure that dynamic folder types can't be chosen
+  TestEQ(FALSE, RecordExists(SELECT FROM TT("types")->rows WHERE contenttype = "http://www.webhare.net/xmlns/beta/dynfolder"));
+
+  TT("types")->value := "type:2"; // systemfolder
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT rec.expectcallreturn();
+
+  testfolder->Refresh();
+  TestEq(2, testfolder->type);
+
+  // Cleanup
+  TT("foldertree")->value := testfolder->parent;
+  DeleteFSObjects([ testfolder ]);
+
+  // ------
+  // Test: Type edit of a folder with versioned content is not allowed
+
+  // Create a folder
+  testfolder := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "folder-with-versioned-content1"
+      , isversioned := FALSE
+      ]);
+
+  // Select the folder, create a unversioned file in it
+  TT("foldertree")->value := testfolder->id;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := TRUE
+      , makeindex := FALSE
+      ]);
+
+  TT("foldertree")->value := testfolder->id;
+
+  // Open edit type screen - should give an error
+  AWAIT ExpectAndAnswerMessageBox(
+      "ok",
+      PTR TT("editfileorfoldertype")->ProcessInboundMessage("execute", [ rule := 0 ]), // rule 0: folder tree
+      [ awaitcall := TRUE
+      , messagemask := "*modifyingreadonlyfield*"
+      ]);
+
+  // Cleanup
+  TT("foldertree")->value := testfolder->parent;
+  DeleteFSObjects([ testfile, testfolder ]);
+
+  // ------
+  // Test: Type edit of non-versioned content is allowed
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := FALSE
+      , makeindex := FALSE
+      ]);
+
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+
+  // Open edit type screen
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("editfileorfoldertype")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: filelist, files
+
+  // No link types are available
+  TestEQ(DEFAULT INTEGER ARRAY, SELECT AS INTEGER ARRAY rowkey FROM TT("types")->rows WHERE type IN [ 18, 19, 20 ]);
+
+  TT("types")->value := "type:11"; // PDF file
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT rec.expectcallreturn();
+
+  testfile->Refresh();
+  TestEQ(11, testfile->type);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Type edit of versioned content is disallowed
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "versioned.html"
+      , isversioned := TRUE
+      , makeindex := FALSE
+      ]);
+
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+
+  // Open edit type screen, should be an error
+  AWAIT ExpectAndAnswerMessageBox(
+        "ok",
+        PTR TT("editfileorfoldertype")->ProcessInboundMessage("execute", [ rule := 1 ]), // rule 1: filelist, files
+        [ awaitcall := TRUE
+        , messagemask := "*modifyingreadonlyfield*"
+        ]);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Type edit of non-versioned content with a submitted draft is disallowed
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := FALSE
+      , makeindex := FALSE
+      ]);
+
+  testfw->BeginWork();
+  SubmitApprovalRequestForDraft(CreateDraftFromFile(testfile), [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test disallowed type edit" ]);
+  testfw->CommitWork();
+
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+
+  // Open edit type screen, should be an error
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TT("editfileorfoldertype")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: filelist, files
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: Reorder of all content (versioned or not) is allowed
+
+  // Create a folder
+  testfolder := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := TRUE
+      , type :=     "http://www.webhare.net/xmlns/publisher/normalfolder"
+      , name :=     "folder-with-versioned-content1"
+      , isversioned := FALSE
+      ]);
+
+  // Select the folder, create a unversioned file in it
+  TT("foldertree")->value := testfolder->id;
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "unversioned.html"
+      , isversioned := FALSE
+      , makeindex := FALSE
+      ]);
+
+  testfile2 := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/htmlfile"
+      , name :=     "versioned.html"
+      , isversioned := TRUE
+      , makeindex := FALSE
+      ]);
+
+  TT("sortorderselect")->value := "ordering";
+  TestEQ([ "unversioned.html", "versioned.html" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+
+  // select the versioned file
+  TT("filelist")->value := [ INTEGER(testfile2->id) ];
+  dumpvalue(TT("filelist")->rows,'boxed'); //this is being flaky... debug it
+
+  // Move versioned.html up in the ordering
+  AWAIT ExpectNoScreenChange(PTR TT("moveup")->ProcessInboundMessage("execute", [ rule := 0 ]));
+
+  TestEQ([ "versioned.html", "unversioned.html" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+
+  // Cleanup
+  TT("sortorderselect")->value := "name";
+  TT("foldertree")->value := testfolder->parent;
+  DeleteFSObjects([ testfolder ]);
+
+  // ------
+  // Test: unpack archive cannot overwrite versioned content
+
+  testfw->BeginWork();
+  testfolder := testfw->GetTestSite()->rootobject->CreateFolder([ name := "folder-with-versioned-content1" ]);
+  testfile := testfolder->CreateFile([ name := "plain.txt" ]);
+  UpdateDraftPublish(testfile, TRUE);
+  testfw->CommitWork();
+
+  ConvertToVersionedContent(testfile);
+
+  TT("foldertree")->value := testfolder->id;
+
+  // Create an archive
+  AWAIT ExpectScreenChange(+1, PTR TT("createarchive")->ProcessInboundMessage("execute", [ rule := 0 ])); // rule 0: folder tree
+  topscreen->filename->value := "testfile3.zip";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":{tollium:common.actions.ok}")); //expect warning about creatingarchives
+
+  // Select the new zip
+  testfile := testfolder->parentobject->OpenByName("testfile3.zip");
+  TT("foldertree")->value := testfolder->parent;
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+
+  // Unpack, expect an error
+  rec := AWAIT ExpectScreenChange(
+      +1,
+      PTR TT("open")->ProcessInboundMessage("execute", [ rule := 0 ])); // rule 0: active & canedit
+
+  topscreen->unpack_options->value := "overwrite";
+  AWAIT ExpectScreenChange(+1, PTR topscreen->TolliumExecuteSubmit());
+
+  BOOLEAN have_progress := NOT MemberExists(topscreen, "BUTTONMAP"); // Not a messagebox?
+  IF (have_progress) // Not a messagebox?
+    AWAIT ExpectScreenChange(1, DEFAULT FUNCTION PTR); // close progress screen, open messagebox
+
+  AWAIT AnswerMessageBox(
+        "ok",
+        [ messagemask := "*noversionedoverwrite*"
+        ]);
+
+  AWAIT ExpectScreenChange(have_progress ? -2 : -1, DEFAULT FUNCTION PTR);
+  AWAIT rec.expectcallreturn();
+
+  // Cleanup
+  TT("foldertree")->value := testfolder->parent;
+  DeleteFSObjects([ testfolder, testfile ]);
+
+  // ------
+  // Test: Moving of folders with forbidden file types to a versioned site is not allowed
+
+  // Create a test folder with an internal link
+  testfw->BeginWork();
+  testfolder := testfw->GetWHFSTestRoot2()->CreateFolder([ name := "movetest" ]);
+  testfile := testfolder->CreateFile([ name := "index.html" ]);
+  testfile2 := testfolder->CreateFile([ name := "link", type := 19, filelink := testfile->id ]);
+  testfw->CommitWork();
+
+  TT("foldertree")->value := testfolder->id;
+
+  // Move and copy the folder to the versioned site
+
+  // Expect denial
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("foldertree")->thelist,
+          [ INTEGER(testfolder->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->root
+          ]),
+      [ messagemask := "*confirmmove*"
+      ]);
+
+  AWAIT ExpectAndAnswerMessageBox(
+      "ok",
+      DEFAULT FUNCTION PTR,
+      [ messagemask := "*notallowedtypeinversionedsite*"
+      ]);
+
+  AWAIT rec.expectcallreturn();
+
+  // Expect imeediate denial denial
+  AWAIT ExpectAndAnswerMessageBox(
+      "ok",
+      PTR ExecuteListDragDrop(
+          TT("foldertree")->thelist,
+          [ INTEGER(testfolder->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "copy"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->root
+          ]),
+      [ messagemask := "*notallowedtypeinversionedsite*"
+      , awaitcall := TRUE
+      ]);
+
+  TT("foldertree")->value := testfw->GetTestSite()->root;
+  DeleteFSObjects([ testfolder ]);
+
+  // ------
+  // Test: Download of a file with a draft downloads the draft
+
+  testfile := AWAIT RunNewObjectDialogInPublisher(
+      [ isfolder := FALSE
+      , type :=     "http://www.webhare.net/xmlns/publisher/plaintextfile"
+      , name :=     "versioned.txt"
+      , isversioned := TRUE
+      , publish :=  TRUE
+      ]);
+
+  testfw->BeginWork();
+  testfiledraft := CreateDraftFromFile(testfile);
+  testfiledraft->fsobject->UpdateMetadata([ data := StringToBlob("overwritten") ]);
+  RECORD testdraft_draftdata := testfiledraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+  testdraft_draftdata.name := "versioned-modified.txt";
+  testfiledraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata);
+  testfw->CommitWork();
+
+  RECORD download := (AWAIT ExpectSentWebFile(PTR TTClick("download"))).file;
+  TestEQ(StringToBlob("overwritten"), download.data);
+  TestEQ("versioned.txt", download.filename, "Expected filename of live file");
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: disallow copy of multiple objects at a time into site
+
+  // Create a test folder with an internal link
+  testfw->BeginWork();
+  testfolder := testfw->GetWHFSTestRoot2()->CreateFolder([ name := "copytest" ]);
+  testfile := testfolder->CreateFile([ name := "file1.txt" ]);
+  testfile2 := testfolder->CreateFile([ name := "file2.txt" ]);
+  testfw->CommitWork();
+
+  TT("foldertree")->value := testfolder->id;
+
+  // Copy to versioned site, expect 'confirm copy', 'deny copy of multiple objects'
+  AWAIT ExpectAndAnswerMessageBox(
+      "ok",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfile->id), testfile2->id ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "copy"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->root
+          ]),
+      [ messagemask := "*toomanyobjectsatatimeinversionedsite*"
+      , awaitcall := TRUE
+      ]);
+
+  DeleteFSObjects([ testfolder ]);
+
+  // ------
+  // Test: disallow copy of disallowed type into site
+
+  testfw->BeginWork();
+  testfolder := testfw->GetWHFSTestRoot2()->CreateFolder([ name := "copytest" ]);
+  testfile := testfolder->CreateFile([ name := "link", type := 18 ]);
+  testfw->CommitWork();
+
+  // Copy folder to versioned site, expect 'type not allowed'
+  TT("foldertree")->value := testfolder->parent;
+  AWAIT ExpectAndAnswerMessageBox(
+      "ok",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfolder->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "copy"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->root
+          ]),
+      [ messagemask := "*notallowedtypeinversionedsite*"
+      , awaitcall := TRUE
+      ]);
+
+  // Copy file to versioned site, expect 'type not allowed'
+  TT("foldertree")->value := testfile->parent;
+  AWAIT ExpectAndAnswerMessageBox(
+      "ok",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfile->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "copy"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->root
+          ]),
+      [ messagemask := "*notallowedtypeinversionedsite*"
+      , awaitcall := TRUE
+      ]);
+
+  DeleteFSObjects([ testfolder ]);
+
+  // ------
+  // Test: disallow move of disallowed type into site
+
+  testfw->BeginWork();
+  testfolder := testfw->GetWHFSTestRoot2()->CreateFolder([ name := "movetest" ]);
+  testfile := testfolder->CreateFile([ name := "link", type := 18 ]);
+  testfw->CommitWork();
+
+  // Copy folder to versioned site, expect 'type not allowed'
+  TT("foldertree")->value := testfolder->parent;
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfolder->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->root
+          ]),
+      [ messagemask := "*confirmmove*"
+      ]);
+
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*notallowedtypeinversionedsite*" ]);
+  AWAIT rec.expectcallreturn();
+
+  // Copy file to versioned site, expect 'type not allowed'
+  TT("foldertree")->value := testfile->parent;
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfile->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->root
+          ]),
+      [ messagemask := "*confirmmove*"
+      ]);
+
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*notallowedtypeinversionedsite*" ]);
+  AWAIT rec.expectcallreturn();
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: disallow creating links (internal/content) via copymove handler
+
+  testfw->BeginWork();
+  testfile := testfw->GetWHFSTestRoot2()->CreateFile([ name := "plain.txt" ]);
+  testfw->CommitWork();
+
+  TT("foldertree")->value := testfw->GetWHFSTestRoot2()->id;
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+
+  // Execute 'content link to... ' action, expect
+  rec := AWAIT ExpectScreenChange(+1, PTR TT("contentlinkto")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: file list
+
+  // Select the versioned site, ok the dialog
+  TT("folders")->value := testfw->GetTestSite()->root;
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  // Expect denial, not allowed type
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*notallowedtypeinversionedsite*" ]);
+  AWAIT rec.expectcallreturn();
+
+  // ------
+  // Test: allow move of non-versioned object out of a versioned site
+
+  testfw->BeginWork();
+  testfolder := testfw->GetTestSite()->rootobject->CreateFolder([ name := "tomovefolder" ]);
+  testfile := testfw->GetTestSite()->rootobject->CreateFile([ name := "tomovefile.txt" ]);
+  testfw->CommitWork();
+
+  TT("foldertree")->value := testfw->GetTestSite()->root;
+
+  // Move both out of versioned site, should be allowed
+  AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfile->id), testfolder->id ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := testfw->GetWHFSTestRoot2()->id
+          ]),
+      [ messagemask := "*confirmmove*"
+      , awaitcall := TRUE
+      ]);
+
+  // Test if move happened
+  testfile->Refresh();
+  TestEQ(testfw->GetWHFSTestRoot2()->id, testfile->parent);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: disallow move of versioned file and folder out of a versioned site
+
+  testfw->BeginWork();
+  testfolder := testfw->GetTestSite()->rootobject->CreateFolder([ name := "versioned" ]);
+  testfile := testfolder->CreateFile([ name := "versioned.txt" ]);
+  testfw->CommitWork();
+
+  ConvertToVersionedContent(testfile);
+
+  // Move file out of versioned site, should be disallowed
+  TT("foldertree")->value := testfolder->id;
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfile->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := testfw->GetWHFSTestRoot2()->id
+          ]),
+      [ messagemask := "*confirmmove*"
+      ]);
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*nomoveoutversionedsite*" ]);
+  AWAIT rec.expectcallreturn();
+
+  // Move versioned folder (folder with versioned content) out of versioned site, should be disallowed
+  TT("foldertree")->value := testfw->GetTestSite()->root;
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfolder->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := testfw->GetWHFSTestRoot2()->id
+          ]),
+      [ messagemask := "*confirmmove*"
+      ]);
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*nomoveoutversionedsite*" ]);
+  AWAIT rec.expectcallreturn();
+
+  // Test if moves did not happen
+  testfile->Refresh();
+  testfolder->Refresh();
+  TestEQ(testfolder->id, testfile->parent);
+  TestEQ(testfw->GetTestSite()->root, testfolder->parent);
+
+  DeleteFSObjects([ testfile ]);
+
+  // ------
+  // Test: copy of published files into versioned site as unpublished
+
+  testfw->BeginWork();
+  testfolder := testsite2->rootobject->CreateFolder([ name := "tocopy" ]);
+  testfile := testfolder->CreateFile([ name := "plain.txt", publish := TRUE ]);
+  testfw->CommitWork();
+
+  // Copy file into versioned site
+  TT("foldertree")->value := testfile->parent;
+  rec := AWAIT ExpectNoScreenChange(
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfile->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "copy"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->id
+          ]));
+
+  // Copy folder into versioned site
+  TT("foldertree")->value := testfolder->parent;
+  rec := AWAIT ExpectNoScreenChange(
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfolder->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "copy"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->id
+          ]));
+
+  // Copied files should not be published
+  TestEQ(FALSE, testfw->GetTestSite()->rootobject->OpenByName("plain.txt")->publish);
+  TestEQ(FALSE, testfw->GetTestSite()->rootobject->OpenByPath("tocopy/plain.txt")->publish);
+
+  DeleteFSObjects(
+      [ testfolder
+      , testfw->GetTestSite()->rootobject->OpenByName("plain.txt")
+      , testfw->GetTestSite()->rootobject->OpenByName("tocopy")
+      ]);
+
+  // ------
+  // Test: move of published files into versioned site as unpublished
+
+  testfw->BeginWork();
+  testfolder := testsite2->rootobject->CreateFolder([ name := "tomove" ]);
+  testfile := testfolder->CreateFile([ name := "plain.txt", publish := TRUE ]);
+  testfile2 := testfolder->CreateFile([ name := "plain2.txt", publish := TRUE ]);
+  testfw->CommitWork();
+
+  // Move file into versioned site
+  TT("foldertree")->value := testfile->parent;
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfile->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->id
+          ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  // Move folder into versioned site
+  TT("foldertree")->value := testfolder->parent;
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfolder->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := testfw->GetTestSite()->id
+          ]),
+      [ messagemask := "*confirmmove*" ]);
+
+  // Moved files should not be published
+  TestEQ(FALSE, testfw->GetTestSite()->rootobject->OpenByName("plain.txt")->publish);
+  TestEQ(FALSE, testfw->GetTestSite()->rootobject->OpenByPath("tomove/plain2.txt")->publish);
+
+  DeleteFSObjects(
+      [ testfolder
+      , testfile
+      , testfile2
+      ]);
+
+  // ------
+  // Test: disallow copy or move file with name index.html into a versioned folder with existing indexdoc
+
+  testfw->BeginWork();
+  testfile := destinationfolder->CreateFile(
+      [ name := "indexdocument.rtd"
+      , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
+  UpdateDraftPublish(testfile, TRUE);
+  destinationfolder->UpdateMetadata([ indexdoc := testfile->id ]);
+  testfile2 := testsite2->rootobject->CreateFile([ name := "index.html" ]);
+  testfw->CommitWork();
+
+  ConvertToVersionedContent(testfile);
+
+  // Copy file into versioned site
+  TT("foldertree")->value := testfile2->parent;
+  AWAIT ExpectAndAnswerMessageBox(
+      "ok",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfile2->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "copy"
+          , droplocation := "ontarget"
+          , target := destinationfolder->id
+          ]),
+      [ messagemask := "*noindexhtmlinversionedfolderwithindex*"
+      , awaitcall := TRUE
+      ]);
+
+  // Copy file into versioned site
+  TT("foldertree")->value := testfile2->parent;
+  rec := AWAIT ExpectAndAnswerMessageBox(
+      "yes",
+      PTR ExecuteListDragDrop(
+          TT("filelist")->mylist,
+          [ INTEGER(testfile2->id) ],
+          TT("foldertree")->thelist,
+          [ dropeffect := "move"
+          , droplocation := "ontarget"
+          , target := destinationfolder->id
+          ]),
+      [ messagemask := "*confirmmove*"
+      ]);
+
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "*noindexhtmlinversionedfolderwithindex*" ]);
+  AWAIT rec.expectcallreturn();
+
+  DeleteFSObjects([ testfile, testfile2 ]);
+
+  // ------
+  // Test: Editing of versioned files where the editor does not have draft support is not allowed
+  // FIXME: Build test
+
+  // ------
+  // Test: synchronized folders are not allowed!!
+  // FIXME: Build test
+
+  //cleanup and close publisher
+  DeleteFSObjects([ destinationfolder, destinationfolder2 ]);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION PublisherLimitedRightsActions()
+{
+  OBJECT testfolder;
+  OBJECT testfile, testfiledraft;
+  OBJECT testfile2, testfiledraft2;
+  STRING answer;
+  FUNCTION PTR executemsg;
+
+  testfw->BeginWork();
+  OBJECT limitedroot := testfw->GetTestSite()->rootobject->CreateFolder([ name := "limited" ]);
+  testfw->GetUserObject("sysop")->GrantRightToOn(
+      "system:fs_fullaccess",
+      testfw->GetUserObject("limited"),
+      limitedroot->id,
+      FALSE);
+  testfw->CommitWork();
+
+  testfw->SetTestUser("limited");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+
+  RECORD rec;
+
+  // ------
+  // Test: test if move destination dialog correctly handles limited rights within versioned site
+
+  testfw->BeginWork();
+  testfile := limitedroot->CreateFile([ name := "tomove.txt" ]);
+  testfolder := limitedroot->CreateFolder([ name := "dest" ]);
+  testfw->GetUserObject("sysop")->GrantRightToOn(
+      "system:fs_fullaccess",
+      testfw->GetUserObject("limited"),
+      limitedroot->id,
+      FALSE);
+  testfw->CommitWork();
+
+  // Execute 'move to... ' action. Gets an error, ok it
+  TT("foldertree")->value := limitedroot->id;
+  TT("filelist")->value := [ INTEGER(testfile->id) ];
+  rec := AWAIT ExpectScreenChange(
+        +1,
+        PTR TT("moveto")->ProcessInboundMessage("execute", [ rule := 1 ])); // rule 1: filelist
+
+  TestEQ([ INTEGER(limitedroot->id), testfolder->id ],
+      (SELECT AS INTEGER ARRAY rowkey FROM TT("folders")->rows),
+      "Only 'limited' and 'dest' should be visible in move destination selection dialog");
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  AWAIT rec.expectcallreturn();
+
+  DeleteFSObjects([ testfolder, testfile ]);
+
+  //close publisher
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  DeleteFSObjects([ limitedroot ]);
+
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION PublisherUpload()
+{
+  testfw->SetTestUser("sysop");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+
+  // ------
+  // Test: uploaded file should not be published
+
+  STRING ARRAY uploadtokens := TT("upload")->PrepareUpload(
+      [ data :=     GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx")
+      , filename := "new-upload.doc"
+      , mimetype := "application/msword"
+      ]);
+
+  AWAIT ExpectNoScreenChange(PTR TT("upload")->ProcessInboundMessage("upload",
+      [ rule := 0 // rule 1: file tree
+      , items :=
+            [ [ type := "file"
+              , token := uploadtokens[0]
+              ]
+            ]
+      ]));
+
+  OBJECT root := testfw->GetTestSite()->rootobject;
+
+  OBJECT testfile := root->OpenByName("new-upload.doc");
+  TestEQ(FALSE, testfile->publish);
+
+  DeleteFSObjects([ testfile ]);
+
+  //close publisher
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION PublisherPreview()
+{
+  // ------
+  // Test: preview of draft should use properties of draft version (title, name, etc)
+  // FIXME: Build test
+
+  RETURN DEFAULT RECORD;
+}
+
+
+RunTestFramework(
+    [ PTR CreateVersioningTestSite()
+    , PTR PublisherNewFileProperties
+    , PTR PublisherVersionedFileProperties
+    , PTR PublisherVersionedFolderProperties
+    , PTR PublisherNewObject
+    , PTR PublisherWebsiteSettings
+    , PTR PublisherActions
+    , PTR PublisherLimitedRightsActions
+    , PTR PublisherUpload
+    , PTR PublisherPreview
+    ],
+    [ testusers :=
+            [ [ login := "sysop", grantrights := ["system:sysop"] ]
+            , [ login := "limited" ]
+            ]
+    ]);

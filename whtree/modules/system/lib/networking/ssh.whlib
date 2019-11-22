@@ -1,0 +1,175 @@
+<?wh
+/** @topic internet/filetransfer */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+
+/** Regenerate a blob from a disk file. This function makes a real copy, so the original file can be deleted */
+BLOB FUNCTION RegenerateBlobFromDiskfile(STRING path)
+{
+  INTEGER outstream := CreateStream();
+  TRY SendBlobTo(outstream, GetDiskResource(path));
+  CATCH ;
+  RETURN MakeBlobFromStream(outstream);
+}
+
+STATIC OBJECTTYPE SFTPConnection
+<
+  STRING pvt_password;
+
+  PUBLIC BOOLEAN debug;
+  PUBLIC STRING server;
+  PUBLIC INTEGER port;
+  PUBLIC STRING username;
+  PUBLIC PROPERTY password(-, pvt_password);
+  PUBLIC BOOLEAN ignorecertificate;
+
+  MACRO NEW(STRING server, STRING username, STRING password)
+  {
+    this->server := server;
+    STRING ARRAY parts := Tokenize(this->server, ":");
+    IF (Length(parts) = 2)
+    {
+      this->server := parts[0];
+      this->port := ToInteger(parts[1], 0);
+    }
+    this->username := username;
+    this->pvt_password := password;
+  }
+
+  STRING FUNCTION ConstructConnectURL()
+  {
+    RETURN `sftp://${this->username != "" ? `${this->username}:${this->pvt_password}@` : ""}${this->server}${this->port != 22 ? `:${this->port}` : ``}`;
+  }
+
+  STRING FUNCTION Escape(STRING str)
+  {
+    RETURN Substitute(Substitute(str, "\\", "\\\\"), " ", "\\ ");
+  }
+
+  INTEGER FUNCTION RunLFTPClient(RECORD options)
+  {
+    options := ValidateOptions(
+        [ command :=      ""
+        , localpath :=    ""
+        , remotepath :=   ""
+        ], options,
+        [ required := [ "command", "localpath", "remotepath" ] ]);
+
+    /* lftp -e "<commands>"
+      commands:
+      - set ssl:verify-certificate no
+      - set sftp:auto-confirm yes
+      - connect sftp://FE000424:8cOlvM1cuj@127.0.0.1:26009
+      - cd /
+      - put /tmp/test-local.txt -o test-remote.txt
+      - bye
+    */
+
+    STRING ext_dir := options.remotepath LIKE "*/*" ? GetDirectoryFromPath(options.remotepath) : "";
+    STRING extfile := Tokenize(options.remotepath, "/")[END - 1];
+
+    STRING ARRAY lftp_commands := STRING
+        [ ...(this->debug ? [ "set cmd:trace true" ] : STRING[])
+        , ...(this->ignorecertificate ? [ "set ssl:verify-certificate no" ] : STRING[])
+        , `set net:max-retries 1`
+        , `set sftp:auto-confirm yes`
+        , `connect ${this->Escape(this->ConstructConnectURL())}`
+        , ...(ext_dir = "" ? STRING[] : [ `cd "${ext_dir}"` ])
+        , `${options.command} ${this->Escape(options.command = "put" ? options.localpath : extfile)} -o ${this->Escape(options.command = "put" ? extfile : options.localpath)}`
+        , `bye`
+        ];
+
+    STRING ARRAY args := STRING
+        [ "-e"
+        , Detokenize(lftp_commands, ";")
+        ];
+
+    IF (this->debug)
+      DumpValue(CELL[ lftp_commands, args ], "tree");
+
+    //ABORT(args);
+
+    // Create and start the smbclient process
+    STRING cmd;
+    FOREVERY (STRING trycmd FROM [ "/usr/local/bin/lftp", "/usr/bin/lftp" ])
+      IF (RecordExists(GetDiskFileProperties(trycmd)))
+      {
+        cmd := trycmd;
+        BREAK;
+      }
+    IF (cmd = "")
+      THROW NEW Exception("Could not find lftp");
+
+    OBJECT proc := CreateProcess(cmd, args, FALSE, TRUE, TRUE, TRUE);
+    proc->Start();
+    STRING output;
+    WHILE (proc->IsRunning())
+    {
+      // Capture output, print if debugging is switched on
+      WHILE (TRUE)
+      {
+        STRING text := ReadFrom(proc->output_handle, -1024);
+        IF (text="")
+          BREAK;
+        output := output || text;
+        IF (this->debug)
+          Print(text);
+      }
+    }
+    proc->Wait(MAX_DATETIME);
+
+    INTEGER exitcode := proc->exitcode;
+    proc->Close();
+    RETURN exitcode;
+  }
+
+  PUBLIC BLOB FUNCTION GetFile(STRING path)
+  {
+    STRING downloadtemp := GenerateTemporaryPathname();
+    IF (path LIKE "/*")
+      path := Substring(path, 1);
+
+    TRY
+    {
+      INTEGER retval := this->RunLFTPClient([ command := "get", localpath := downloadtemp, remotepath := path ]);
+      IF(retval > 0 OR NOT RecordExists(GetDiskFileProperties(downloadtemp)))
+        THROW NEW Exception(`Could not retrieve file`); //don't leak external paths!
+
+      RETURN RegenerateBlobFromDiskfile(downloadtemp);
+    }
+    FINALLY
+    {
+      DeleteDiskFile(downloadtemp);
+    }
+  }
+
+  PUBLIC MACRO PutFile(STRING path, BLOB data)
+  {
+    STRING uploadtemp := GenerateTemporaryPathname();
+    IF (path LIKE "/*")
+      path := Substring(path, 1);
+
+    TRY
+    {
+      StoreDiskFile(uploadtemp, data, [ overwrite := FALSE, publicfile := FALSE ]);
+      INTEGER retval := this->RunLFTPClient([ command := "put", localpath := uploadtemp, remotepath := path ]);
+      IF(retval>0)
+        THROW NEW Exception(`Could not store file`); // don't leak external paths!
+    }
+    FINALLY
+    {
+      DeleteDiskFile(uploadtemp);
+    }
+  }
+>;
+
+PUBLIC OBJECT FUNCTION MakeSFTPConnection(STRING server, STRING username, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ ignorecertificate := FALSE ], options);
+  OBJECT conn := NEW SFTPConnection(server, username, password);
+  conn->ignorecertificate := options.ignorecertificate;
+  RETURN conn;
+}

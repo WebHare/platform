@@ -1,0 +1,274 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/remoting/client.whlib";
+
+LOADLIB "mod::publisher/lib/internal/blit/api.whlib";
+
+/** Read the designfiles header from a file
+    @param data File data
+    @param allow_legacy ???
+    @param basefilename Base file
+    @return
+    @cell(record array) return.depends List of dependencies
+    @cell(string) return.depends.name Package name
+    @cell(integer) return.depends.version Required version of dependency (here always 0)
+    @cell(string) return.depends.hash Dependency hash (here always '')
+    @cell(string) package Package (here always '')
+    @cell(string array) after List of stuff marked as 'AFTER'
+    @cell(string array) use Site paths ('site::...') marked as 'USE'.
+    @cell(string array) usegrid  Site paths ('site::...') marked as 'USE'.
+    @cell(string) media CSS media (deprecated)
+*/
+PUBLIC RECORD FUNCTION ExtractHeader(BLOB data, BOOLEAN allow_legacy, STRING basefilename)
+{
+  RECORD retval := [ depends := DEFAULT RECORD ARRAY
+                   , package := ""
+                   , after := DEFAULT STRING ARRAY
+                   , use := DEFAULT STRING ARRAY
+                   , usegrid := DEFAULT STRING ARRAY
+                   , media := ""
+                   ];
+
+  /* Look for the fileinfo section */
+  STRING fileheader := BlobToString(data,32768);
+  INTEGER startlibinfo := SearchSubstring(fileheader,"/*!");
+  INTEGER endlibinfo := SearchSubstring(fileheader,"!*/",startlibinfo);
+  IF(startlibinfo = -1 OR endlibinfo = -1)
+    RETURN retval;
+
+  STRING infodoc := TrimWhitespace(Substring(fileheader, startlibinfo+3, endlibinfo-startlibinfo-3));
+
+  STRING ARRAY lines := Tokenize(infodoc,"\n");
+  FOREVERY(STRING line FROM lines)
+  {
+    line := TrimWhitespace(line);
+    IF(line="")
+      CONTINUE;
+
+    IF( (line LIKE "REQUIRE:*" AND allow_legacy) OR line LIKE "LOAD:*")
+    {
+      IF(line LIKE "REQUIRE:*")
+        line := Substring(line, 8);
+      ELSE
+        line := Substring(line, 5);
+
+      FOREVERY(STRING item FROM Tokenize(line,","))
+      {
+        item := TrimWhitespace(item);
+        IF(item="")
+          CONTINUE;
+
+        STRING ARRAY parts := Tokenize(item," ");
+        RECORD dependency := [ name := ToUppercase(parts[0])
+                             , version := 0
+                             , hash := ""
+                             , url := ""
+                             ];
+
+        BOOLEAN skip;
+        FOREVERY(STRING part FROM parts)
+        {
+          IF(#part=0)
+            CONTINUE; // this is the name
+          part := TrimWhitespace(part);
+          IF(part="")
+            CONTINUE;
+
+          //ADDME: The flag= construction is no longer used, deprecate it
+          IF(part LIKE "flag=*")
+          {
+            //INSERT Substring(part,5) INTO dependency.flags AT END;
+          }
+          ELSE
+          {
+            THROW NEW Exception("Unrecognized option '" || part || "'" || " in file " || basefilename);
+          }
+        }
+        IF(NOT skip)
+          INSERT dependency INTO retval.depends AT END;
+      }
+    }
+    ELSE IF(line LIKE "USE:*")
+    {
+      IF(ToUppercase(basefilename) NOT LIKE "SITE::*/*" AND basefilename != "JUSTIMPORT:")
+        IF(basefilename!="")
+          THROW NEW Exception("basefilename '" || basefilename || "' not recognized, '" || line || "' not supported"); //ADDME implement use for packages
+        ELSE
+          THROW NEW Exception("basefilename unknown, '" || line || "' not supported"); //ADDME implement use for packages
+
+      line := Substring(line, 4);
+      FOREVERY(STRING item FROM Tokenize(line,","))
+      {
+        item := TrimWhitespace(item);
+        IF(item="")
+          CONTINUE;
+
+        IF(item NOT LIKE "*::*" AND basefilename != "JUSTIMPORT:")
+        {
+          //Assuming and resolving relating path (FIXME cleanup. don't we have a central function of this,eg system/mailer.whlib ?)
+          STRING basesite := Substring(basefilename, 6, SearchSubstring(basefilename, "/")-6);
+          STRING subpath := GetDirectoryFromPath(Substring(basefilename, Length(basesite)+7));
+
+          subpath := CollapsePath(subpath || item);
+          item := "site::" || basesite || "/" || subpath;
+        }
+        INSERT item INTO retval.use AT END;
+      }
+    }
+    ELSE IF(line LIKE "USEGRID:*")
+    {
+      IF(ToUppercase(basefilename) NOT LIKE "SITE::*/*")
+        THROW NEW Exception("basefilename unknown, USEGRID not supported"); //ADDME implement use for packages
+
+      line := Substring(line, 8);
+      FOREVERY(STRING item FROM Tokenize(line,","))
+      {
+        item := TrimWhitespace(item);
+        IF(item="")
+          CONTINUE;
+
+        //Assuming and resolving relating path (FIXME cleanup. don't we have a central function of this,eg system/mailer.whlib ?)
+        STRING basesite := Substring(basefilename, 6, SearchSubstring(basefilename, "/")-6);
+        STRING subpath := GetDirectoryFromPath(Substring(basefilename, Length(basesite)+7));
+
+        subpath := CollapsePath(subpath || item);
+        INSERT "site::" || basesite || "/" || subpath INTO retval.usegrid AT END;
+      }
+    }
+    ELSE IF(line LIKE "AFTER:*" AND allow_legacy)
+    {
+      line := Substring(line, 6);
+      FOREVERY(STRING item FROM Tokenize(line,","))
+      {
+        item := TrimWhitespace(item);
+        IF(item="")
+          CONTINUE;
+        INSERT item INTO retval.after AT END;
+      }
+    }
+    ELSE IF(line LIKE "MEDIA:*")
+    {
+      retval.media := TrimWhitespace(Substring(line, 6));
+    }
+    ELSE
+    {
+      THROW NEW Exception("Instruction not understood: " || line || " in file " || basefilename);
+    }
+  }
+  RETURN retval;
+}
+
+/** Open designfiles repository
+    @param server HTTP URL of server
+    @param repository Name of repository (Like 'public')
+    @return Repository object
+*/
+PUBLIC OBJECT FUNCTION OpenDesignfilesRepository(STRING server, STRING repository)
+{
+  RETURN OpenAnonymousRepository(server, "Designfiles/designfiles " || repository);
+}
+
+/** Open anonymous access repository
+    @param server HTTP URL of server
+    @param repository Name of repository (Like 'public')
+    @return Repository object
+*/
+PUBLIC OBJECT FUNCTION OpenAnonymousRepository(STRING server, STRING repository)
+{
+  STRING repositoryurl := ResolveToAbsoluteURL(server, "/wh_services/blitserver/repository_anon/OpenByPath");
+  OBJECT browser := NEW WebBrowser;
+  RETURN InvokeRemoteFunctionWithBrowser(browser, repositoryurl, repository, 1).repo;
+}
+
+/** Determine the asset settings from the package folder description
+    @param description Description of the folder
+    @return
+    @cell return.flags List of flags
+    @cell return.conflictgroup Conflict group
+*/
+PUBLIC RECORD FUNCTION GetAssetSettings(STRING description)
+{
+  STRING ARRAY flags;
+  STRING conflictgroup;
+
+  IF(description!="")
+  {
+    STRING ARRAY instructions := Tokenize(description,' ');
+    FOREVERY(STRING instr FROM instructions)
+    {
+      instr := TrimWhitespace(instr);
+      IF(instr="")
+        CONTINUE;
+      IF(instr LIKE "flags=*")
+      {
+        FOREVERY(STRING flag FROM Tokenize(Substring(instr,6),","))
+        {
+          flag := TrimWhitespace(flag);
+          IF(flag!="")
+            INSERT flag INTO flags AT END;
+        }
+      }
+      ELSE IF(instr LIKE "conflictgroup=*")
+      {
+        conflictgroup := TrimWhitespace(Substring(instr,14));
+      }
+      ELSE
+      {
+        THROW NEW Exception("Unrecognized instruction '" || instr || "'");
+      }
+    }
+  }
+  RETURN [ flags := Detokenize(flags," ")
+         , conflictgroup := conflictgroup
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetDependencySettings(INTEGER fsobjectid)
+{
+  OBJECT designfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfolder");
+  OBJECT localsettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/localdesignsettings");
+
+  //Validate folder type
+  RECORD folderinfo := SELECT type,parent FROM system.fs_objects WHERE id=fsobjectid;
+  IF(folderinfo.type != designfoldertype->id)
+    THROW NEW Exception("Folder #" || fsobjectid || " is not a design folder");
+
+  //Get the settings from the design folder first
+  RECORD currentdeps := designfoldertype->GetInstanceData(fsobjectid);
+  RECORD currentlocaldeps := localsettingstype->GetInstanceData(fsobjectid);
+
+  RECORD ARRAY repos := SELECT server, repository, uuid, version FROM currentdeps.repositories;
+  FOREVERY(RECORD repo FROM repos)
+    INSERT CELL localversion := (SELECT AS INTEGER localversion FROM currentlocaldeps.repositories WHERE repositories.uuid = repo.uuid) INTO repos[#repo];
+
+  RETURN [ repositories := repos
+         ];
+}
+
+PUBLIC MACRO ForceCacheFolderRebuild(STRING repo_uuid, INTEGER version, STRING path)
+{
+  OBJECT reporoot := GetRepositoryStoreFolder(repo_uuid);
+
+  STRING versionfoldername := "v" || version;
+  OBJECT versionfolder := reporoot->OpenByPath(versionfoldername);
+
+  OBJECT rebuildfolder := versionfolder->OpenByPath(path);
+
+  IF (ObjectExists(rebuildfolder) AND rebuildfolder->isfolder)
+  {
+    OBJECT lockmgr := OpenLockManager();
+    OBJECT lock := lockmgr->LockMutex("publisher:create_designfiles_checkout");
+
+    OBJECT fstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfiles/cachedfolder");
+    WriteWorkingCopyPackagesToDisk(rebuildfolder, TRUE, FALSE, fstype);
+
+    lock->Close();
+  }
+}

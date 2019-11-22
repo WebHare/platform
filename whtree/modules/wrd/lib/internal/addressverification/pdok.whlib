@@ -1,0 +1,177 @@
+<?wh
+
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/components/addressvalidation.whlib";
+
+
+// Documentation: https://github.com/PDOK/locatieserver/wiki/API-Locatieserver
+
+STRING apiurl := "https://geodata.nationaalgeoregister.nl/locatieserver/v3/";
+
+PUBLIC STATIC OBJECTTYPE PDOKLocationServerAPI EXTEND WRDNLAddressVerificationBase
+<
+  OBJECT webbrowser;
+
+  MACRO NEW(RECORD settings)
+  {
+    this->webbrowser := NEW WebBrowser();
+  }
+
+  UPDATE RECORD FUNCTION __LookupNLAddressByZip(STRING zip, INTEGER houseno)
+  {
+    // B-Lex is built-in so we can test that without having to sign up for address valiadtion
+    IF (ToUppercase(zip) = "7521 AM" AND houseno < 1000 AND (houseno % 2) = 0)
+      RETURN
+          [ status := "ok"
+          , street := "Hengelosestraat"
+          , zip    := "7521 AM"
+          , city   := "Enschede"
+          , iscached := TRUE
+          ];
+
+    RECORD result := this->GetAddresses(
+        [ postcode := Substitute(zip,' ','')
+        , huisnummer := houseno
+        ], 1);
+
+    IF (NOT result.success)
+      RETURN [ status := "lookup_failed" ];
+    IF (Length(result.addresses) = 0)
+      RETURN [ status := "zip_not_found" ];
+
+    RETURN
+        [ status := "ok"
+        , street := CellExists(result.addresses[0], 'straatnaam') ? result.addresses[0].straatnaam : ""
+        , zip    := CellExists(result.addresses[0], 'postcode') ? result.addresses[0].postcode : ""
+        , city   := CellExists(result.addresses[0], 'woonplaatsnaam') ? result.addresses[0].woonplaatsnaam : ""
+        ];
+  }
+
+  UPDATE RECORD FUNCTION __LookupNLAddressByAddress(STRING city, STRING street, INTEGER houseno, STRING housenoaddition)
+  {
+    IF (ToUppercase(city) = "ENSCHEDE" AND houseno = 296 AND street = "Hengelosestraat")
+      RETURN [ status := "ok"
+             , street := "Hengelosestraat"
+             , zip    := "7521 AM"
+             , city   := "Enschede"
+             , iscached := TRUE
+             ];
+
+    RECORD result := this->GetAddresses(
+        [ woonplaatsnaam := city
+        , straatnaam := street
+        , huisnummer := houseno
+        , huisletter := housenoaddition
+        ], 1);
+    IF (NOT result.success)
+      RETURN [ status := "lookup_failed" ];
+    IF (Length(result.addresses) = 0)
+      RETURN [ status := "address_not_found" ];
+
+    RETURN
+        [ status := "ok"
+        , street := result.addresses[0].straatnaam
+        , zip    := result.addresses[0].postcode
+        , city   := result.addresses[0].woonplaatsnaam
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION GetAddresses(RECORD query, INTEGER maxresults DEFAULTSTO 0)
+  {
+    STRING ARRAY query_fields :=
+        SELECT AS STRING ARRAY `${ToLowercase(name)}:"${value}"`
+          FROM UnpackRecord(query)
+         WHERE NOT IsDefaultValue(value);
+    STRING url := AddVariableToUrl(`${apiurl}suggest`, "q", Detokenize(query_fields, " and "));
+
+    //Logging just country + first 4 ZIP characters shouldn't be PII but still gives us a general idea if calls are being duplicated
+    STRING zip4;
+    IF (CellExists(query, "postcode"))
+      zip4 := "NL-" || Left(query.postcode, 4);
+
+    LogAccountingHit("wrd:checkaddress." || this->type,
+                       CELL[ account := ""
+                           , source := this->accountingsource
+                           , extra := CELL[ method := "suggest", zip4 ]
+                           , cached := FALSE
+                           ]);
+
+    IF (NOT this->webbrowser->SendRawRequest("GET", url, RECORD[], DEFAULT BLOB))
+      RETURN [ success := FALSE, status := this->webbrowser->GetHTTPStatusCode() ];
+
+    RECORD result := DecodeJSONBlob(this->webbrowser->content);
+    RECORD ARRAY addresses;
+    IF (result.response.numfound > 0)
+      FOREVERY (RECORD doc FROM result.response.docs)
+      {
+        IF (doc.type = "adres")
+        {
+          RECORD address := this->GetSingleAddress(doc.id);
+          IF (RecordExists(address))
+          {
+            INSERT address INTO addresses AT END;
+            IF (maxresults > 0 AND Length(addresses) = maxresults)
+              BREAK;
+          }
+        }
+      }
+    RETURN
+        CELL[ success := TRUE
+            , addresses
+            ];
+  }
+
+  RECORD FUNCTION GetSingleAddress(STRING id)
+  {
+    // Not logging ID - combination search for 4 ZIP digits + some address ID info is too identifying
+    LogAccountingHit("wrd:checkaddress." || this->type,
+                       CELL[ account := ""
+                           , source := this->accountingsource
+                           , extra := CELL[ method := "lookup" ]
+                           , cached := FALSE
+                           ]);
+
+    STRING url := UpdateUrlVariables(`${apiurl}lookup`, [ id := id, fl := "straatnaam,postcode,woonplaatsnaam,huis_nlt,centroide_ll" ]);
+    IF (NOT this->webbrowser->SendRawRequest("GET", url, RECORD[], DEFAULT BLOB))
+      RETURN [ success := FALSE, status := this->webbrowser->GetHTTPStatusCode() ];
+
+    RECORD result := DecodeJSONBlob(this->webbrowser->content);
+    IF (result.response.numfound = 0)
+      RETURN DEFAULT RECORD;
+
+    RECORD rec := result.response.docs[0];
+
+    // Parse latitude/longitude
+    INSERT CELL latitude := 0f, longitude := 0f INTO rec;
+    IF (rec.centroide_ll LIKE "POINT(* *)")
+    {
+      RECORD ARRAY centroide_match := NEW Regex("^POINT\\(([0-9.]*) ([0-9.]*)\\)$")->Exec(rec.centroide_ll);
+      rec.longitude := ToFloat(centroide_match[1].value, 0f);
+      rec.latitude := ToFloat(centroide_match[2].value, 0f);
+    }
+
+    DELETE CELL centroide_ll FROM rec;
+    RETURN rec;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetFrontendName()
+  {
+    RETURN "PDOK (Publieke Dienstverlening Op de Kaart)";
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE PDOKSettings EXTEND WRDAddressVerificationExtensionBase
+<
+  MACRO DoShowMoreInfo(OBJECT openhandler)
+  {
+    openhandler->SendUrl("https://github.com/PDOK/locatieserver/wiki/API-Locatieserver");
+  }
+>;

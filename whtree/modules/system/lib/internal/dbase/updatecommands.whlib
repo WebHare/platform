@@ -1,0 +1,332 @@
+﻿<?wh
+
+LOADLIB "wh::internal/transbase.whlib";
+
+LOADLIB "mod::system/lib/internal/dbase/base.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+LOADLIB "mod::system/lib/internal/dbase/whdb.whlib";
+
+
+RECORD ARRAY FUNCTION ValidateSchemaSpecs(RECORD ARRAY schemaspecs)
+{
+  FOREVERY (RECORD rec FROM schemaspecs)
+  {
+    rec := ValidateOptions(
+        [ name :=             ""
+        , authorization :=    DEFAULT RECORD
+        , grants :=           RECORD[]
+        , obsoleteroles :=    RECORD[]
+        , obsoletetables :=   RECORD[]
+        , roles :=            RECORD[]
+        , tables :=           RECORD[]
+        ], rec,
+        [ discard :=        STRING[ "success", "msgs", "documentation", "location" ]
+        ]);
+
+    // rec.obsoleteroles and rec.roles not used in PostgreSQL anymore
+
+    rec.obsoletetables := ValidateObsoleteTables(rec.obsoletetables);
+    rec.tables := ValidateTables(rec.tables);
+
+    schemaspecs[#rec] := rec;
+  }
+  RETURN schemaspecs;
+}
+
+RECORD ARRAY FUNCTION ValidateObsoleteTables(RECORD ARRAY obsoletetables)
+{
+  FOREVERY (RECORD rec FROM obsoletetables)
+  {
+    obsoletetables[#rec] := ValidateOptions(
+        [ name :=       ""
+        , drop :=       ""
+        ], rec,
+        [ enums :=      [ drop := [ "restrict" ] ]
+        ]);
+  }
+  RETURN obsoletetables;
+}
+
+RECORD ARRAY FUNCTION ValidateTables(RECORD ARRAY tables)
+{
+  FOREVERY (RECORD rec FROM tables)
+  {
+    rec := ValidateOptions(
+        [ name :=                   ""
+        , primarykey :=             ""
+        , legacy_readaccessmgr :=   ""
+        , legacy_writeaccessmgr :=  ""
+        , parentlinkcolumn :=       ""
+        , cols :=                   RECORD[]
+        , indices :=                RECORD[]
+        , obsoletecols :=           RECORD[]
+        , obsoleteindices :=        RECORD[]
+        ], rec,
+        [ discard :=        STRING[ "documentation", "location" ]
+        ]);
+
+    rec.cols := ValidateColumns(rec.cols);
+    rec.indices := ValidateIndices(rec.indices);
+    rec.obsoletecols := ValidateObsoleteColumns(rec.obsoletecols);
+    rec.obsoleteindices := ValidateObsoleteIndices(rec.obsoleteindices);
+
+    tables[#rec] := rec;
+  }
+  RETURN tables;
+}
+
+RECORD ARRAY FUNCTION ValidateObsoleteColumns(RECORD ARRAY obsoletecolumns)
+{
+  FOREVERY (RECORD rec FROM obsoletecolumns)
+  {
+    obsoletecolumns[#rec] := ValidateOptions(
+        [ name :=       ""
+        ], rec);
+  }
+  RETURN obsoletecolumns;
+}
+
+RECORD ARRAY FUNCTION ValidateObsoleteIndices(RECORD ARRAY obsoleteindices)
+{
+  FOREVERY (RECORD rec FROM obsoleteindices)
+  {
+    obsoleteindices[#rec] := ValidateOptions(
+        [ name :=         ""
+        ], rec);
+  }
+  RETURN obsoleteindices;
+}
+
+RECORD ARRAY FUNCTION ValidateColumns(RECORD ARRAY columns)
+{
+  FOREVERY (RECORD rec FROM columns)
+  {
+    columns[#rec] := ValidateOptions(
+        [ autonumberstart :=      0
+        , dbtype :=               ""
+        , defval :=               ""
+        , internalcolumnname :=   ""
+        , isunique :=             FALSE
+        , maxlength :=            0
+        , name :=                 ""
+        , nullable :=             FALSE
+        , noupdate :=             FALSE
+        , ondelete :=             ""
+        , references_schema :=    ""
+        , references_table :=     ""
+        ], rec,
+        [ discard :=              [ "documentation", "location" ]
+        , enums :=                [ ondelete :=   [ "", "cascade", "set default", "no action" ]
+                                  , dbtype :=     [ "INTEGER", "BOOLEAN", "STRING", "VARCHAR", "INTEGER64", "FLOAT", "DATETIME", "BLOB", "BYTEA", "MONEY" ]
+                                  ]
+        ]);
+  }
+  RETURN columns;
+}
+
+RECORD ARRAY FUNCTION ValidateIndices(RECORD ARRAY indices)
+{
+  FOREVERY (RECORD rec FROM indices)
+  {
+    rec := ValidateOptions(
+        [ name :=         ""
+        , is_unique :=    FALSE
+        , is_uppercase := FALSE
+        , nonullstores := FALSE
+        , columns :=      RECORD[]
+        ], rec);
+
+    FOREVERY (RECORD col FROM rec.columns)
+    {
+      rec.columns[#col] := ValidateOptions(
+        [ name :=       ""
+        , length :=     0
+        ], col);
+    }
+
+    indices[#rec] := rec;
+  }
+  RETURN indices;
+}
+
+
+PUBLIC MACRO ClearAllSchemaCaches()
+{
+  ClearAllWHDBSchemaCaches();
+  ClearAllPostgreSQLSchemaCaches();
+}
+
+PUBLIC RECORD FUNCTION GenerateIndependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
+{
+  schemaspecs := ValidateSchemaSpecs(schemaspecs);
+  SWITCH (trans->type)
+  {
+    CASE "whdb"       { RETURN GenerateWHDBIndependentSQLCommands(schemaspecs, trans); }
+    CASE "postgresql" { RETURN GeneratePostgreSQLIndependentSQLCommands(schemaspecs, trans); }
+    DEFAULT           { THROW NEW Exception(`Unknown database type ${trans->type}`); }
+  }
+}
+
+PUBLIC RECORD FUNCTION GeneratePostupdateSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
+{
+  schemaspecs := ValidateSchemaSpecs(schemaspecs);
+  SWITCH (trans->type)
+  {
+    CASE "whdb"       { RETURN GenerateWHDBPostupdateSQLCommands(schemaspecs, trans); }
+    CASE "postgresql" { RETURN GeneratePostgreSQLPostupdateSQLCommands(schemaspecs, trans); }
+    DEFAULT           { THROW NEW Exception(`Unknown database type ${trans->type}`); }
+  }
+}
+
+PUBLIC RECORD FUNCTION GenerateDependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
+{
+  schemaspecs := ValidateSchemaSpecs(schemaspecs);
+  SWITCH (trans->type)
+  {
+    CASE "whdb"       { RETURN GenerateWHDBDependentSQLCommands(schemaspecs, trans); }
+    CASE "postgresql" { RETURN GeneratePostgreSQLDependentSQLCommands(schemaspecs, trans); }
+    DEFAULT           { THROW NEW Exception(`Unknown database type ${trans->type}`); }
+  }
+}
+
+PUBLIC RECORD FUNCTION GetSchemaModuleDefinition(OBJECT trans, STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ withimplicitindices := FALSE ], options);
+
+  SWITCH (trans->type)
+  {
+    CASE "whdb"       { RETURN GetWHDBDatabaseSchemaDef(schemaname); }
+    CASE "postgresql" { RETURN GetPostgreSQLDatabaseSchemaDef(trans, schemaname, options); }
+    DEFAULT           { THROW NEW Exception(`Unknown database type ${trans->type}`); }
+  }
+}
+
+PUBLIC STRING FUNCTION GetSchemaModuleDef(OBJECT trans, STRING schemaname)
+{
+  SWITCH (trans->type)
+  {
+    CASE "whdb"       { RETURN GetWHDBSchemaModuleDef(schemaname); }
+    CASE "postgresql"
+    {
+      RECORD schemadef := GetPostgreSQLDatabaseSchemaDef(trans, schemaname);
+      RETURN RecordExists(schemadef) ? GenerateDatabaseSchemaXMLFromSchemaDef(schemadef) : "";
+    }
+    DEFAULT           { THROW NEW Exception(`Unknown database type ${trans->type}`); }
+  }
+}
+
+PUBLIC STRING FUNCTION GenerateDatabaseSchemaXMLFromSchemaDef(RECORD schemadef)
+{
+  STRING def := '<databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">\n';
+
+  FOREVERY (RECORD tabledef FROM schemadef.tables)
+  {
+    def := `${def}  <d:table name="${ToLowercase(EncodeValue(tabledef.name))}"`;
+    IF (tabledef.primarykey != "")
+      def := `${def} primarykey="${ToLowercase(EncodeValue(tabledef.primarykey))}"`;
+    IF (tabledef.legacy_readaccessmgr != "")
+      def := `${def} legacy_readaccessmgr="${ToLowercase(EncodeValue(tabledef.legacy_readaccessmgr))}"`;
+    IF (tabledef.legacy_writeaccessmgr != "")
+      def := `${def} legacy_writeaccessmgr="${ToLowercase(EncodeValue(tabledef.legacy_writeaccessmgr))}"`;
+    def := `${def} >\n`;
+
+    FOREVERY (RECORD coldef FROM tabledef.cols)
+    {
+      def := `${def}    <d:${coldef.dbtype} name="${EncodeValue(ToLowercase(coldef.name))}"`;
+      IF (coldef.references_table != "")
+      {
+        STRING refto := `${coldef.references_schema = schemadef.name ? "" : `${coldef.references_schema}`}.${coldef.references_table}`;
+        def := `${def} references="${EncodeValue(ToLowercase(refto))}"`;
+        IF (coldef.ondelete != "")
+          def := def || ' ondelete="' || ToLowercase(coldef.ondelete) || '"';
+      }
+
+      IF (coldef.isunique)
+        def := def || ' unique="true"';
+      IF (NOT coldef.nullable)
+        def := def || ' nullable="false"';
+      IF (coldef.noupdate)
+        def := def || ' noupdate="true"';
+      IF (coldef.defval != "")
+          def := def || ` default="${coldef.defval}"`;
+      IF (CellExists(coldef, "autonumberstart") AND coldef.autonumberstart > 0)
+        def := def||' autonumberstart="' || coldef.autonumberstart || '"';
+      IF (CellExists(coldef, "maxlength") AND coldef.maxlength != 0)
+        def := def||' maxlength="' || coldef.maxlength || '"';
+      IF(coldef.internalcolumnname!="")
+        def := def||' internalcolumnname="' || EncodeValue(coldef.internalcolumnname) || '"';
+
+      def := def || ' />\n';
+    }
+
+    FOREVERY (RECORD indexdef FROM tabledef.indices)
+    {
+      STRING cols;
+      FOREVERY (RECORD col FROM indexdef.cols)
+      {
+        IF (#col != 0)
+          cols := cols || " ";
+        cols := cols || col.name;
+        IF (col.len != 0)
+          cols := cols || "(" || col.len || ")";
+      }
+      def := def || '    <d:index name="' || EncodeValue(indexdef.name) || '" columns="' || EncodeValue(cols) || '"';
+      IF (indexdef.is_unique)
+        def := def || ' unique="true"';
+      IF (indexdef.is_uppercase)
+        def := def || ' uppercase="true"';
+      def := def || ' />\n';
+
+    }
+    def := def || '  </d:table>\n';
+  }
+
+  def := def || '</databaseschema>';
+  RETURN def;
+}
+
+PUBLIC MACRO ExecuteSQLUpdates(OBJECT trans, RECORD ARRAY cmds)
+{
+  FOREVERY(RECORD cmd FROM cmds)
+  {
+    //ADDME: IF a command caused an error, store that with the command for better error reporting
+    IF(cmd.type = "transop")
+      cmd.cmd();
+    ELSE
+      ABORT(cmd.type);
+  }
+  IF(Length(cmds)>0)
+    ClearAllSchemaCaches();
+}
+
+PUBLIC MACRO __LegacyCreateTable(OBJECT trans, STRING schemaname, STRING tablename, RECORD tabledef)
+{
+  tabledef := ValidateTableStructure(tabledef);
+
+  // Translate to schema definition, run to table updater
+  RECORD schemadef :=
+      [ name :=       schemaname
+      , tables :=     [ [ name :=           tablename
+                        , primarykey :=     tabledef.primarykey
+                        , cols :=           SELECT name :=                column_name
+                                                 , dbtype :=              data_type
+                                                 , maxlength :=           character_octet_length
+                                                 , autonumberstart :=     autonumber_start
+                                                 , nullable
+                                                 , isunique
+                                                 , noupdate
+                                                 , references_schema :=   referenced_table_schema
+                                                 , references_table :=    referenced_table_name
+                                                 , ondelete :=            on_delete
+                                              FROM tabledef.cols
+                        ]
+                      ]
+      ];
+
+  RECORD cmd := GenerateDependentSQLCommands([ schemadef ], trans);
+  IF (LENGTH(cmd.errors) > 0)
+    THROW NEW Exception(cmd.errors[0]);
+
+  ExecuteSQLUpdates(trans, cmd.commands);
+}
+

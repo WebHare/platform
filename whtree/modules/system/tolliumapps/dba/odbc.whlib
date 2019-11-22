@@ -1,0 +1,241 @@
+<?wh
+LOADLIB "wh::dbase/odbc.whlib";
+
+OBJECT FUNCTION GetTrans(STRING dsn)
+{
+  //FIXME auto mode
+  TRY
+  {
+    RETURN StartODBCTransaction([dsn:="arnold",type:="dsn",username:="",password:=""]);
+  }
+  CATCH(OBJECT e)
+  {
+    RETURN DEFAULT OBJECT; //ADDME give user a chance to inform us of missing credentials or to see the actual errors
+  }
+}
+
+PUBLIC RECORD ARRAY FUNCTION EnumerateDatabaseTypes()
+{
+  RECORD ARRAY sources := GetODBCDataSources(0,"");
+  RETURN SELECT title := name || " (" || driver || ")"
+              , gettrans := PTR GetTrans(name)
+              , rowkey := "odbc"
+           FROM sources;
+}
+
+
+/* for a property screen alter on:
+
+
+/*    @cell return.database_name Name of the connected database
+    @cell return.database_version Version of the connected database
+    @cell return.database_application Application name of the connected database
+    @cell return.driver_name
+    @cell return.driver_version Version of the driver used to connect
+    @cell return.driver_odbc_version ODBC Version of the driver used to connect
+    @cell return.readonly True if this data source is read-only
+    @cell return.pos_options A string listing the options offered by SetPos
+    @cell return.scroll_options A string listing the capabilities of cursors
+    @cell return.dynamic_attributes A string listing the attributes supported by dynamic cursors
+    @cell return.forward_only_attributes A string listing the attributes supported by forward-only cursors
+    @cell return.keyset_driven_attributes A string listing the attributes supported by keyset-driven cursors
+    @cell return.static_attributes A string listing the attributes supported by static cursors
+    @cell return.need_long_data_length True if this database needs to know the length beforehand of LONG data passed to it
+    * /
+
+CreateFieldGroup("info","General driver info",TRUE,FALSE);
+AddReadonlyField("info","Database name",driverinfo.database_name);
+AddReadonlyField("info","Database version",driverinfo.database_version);
+AddReadonlyField("info","Database application",driverinfo.database_application);
+AddReadonlyField("info","Driver name",driverinfo.driver_name);
+AddReadonlyField("info","Driver version",driverinfo.driver_version);
+AddReadonlyField("info","Driver ODBC version",driverinfo.driver_odbc_version);
+
+CreateFieldGroup("caps","Driver capabilities, relevant to HareScript",FALSE,FALSE);
+AddReadonlyField("caps","Setpos position",(driverinfo.cap_setpos_modify?"Enabled":"Disabled") || " (If available, HareScript native SELECT will be faster because they can fetch blocks instead of single rows)");
+AddReadonlyField("caps","Setpos modify",(driverinfo.cap_setpos_Position?"Enabled":"Disabled") || " (If available, HareScript native UPDATE and DELETE will be faster because they can fetch blocks instead of single rows)");
+AddReadonlyField("caps","Column binding",(driverinfo.cap_bind?"Enabled":"Disabled") || " (Every ODBC driver should support column binding, which is faster, but disabling column binding may help track down problems with an individual ODBC driver)");
+AddReadonlyField("caps","GetData when bound",(driverinfo.cap_getdata_when_bound?"Enabled":"Disabled") || " (If available, both native and raw commands will be faster because transferring small blobs and strings requires less ODBC driver communication)");
+AddReadonlyField("caps","GetData on any column",(driverinfo.cap_getdata_any_column?"Enabled":"Disabled") || " (If available, the ordering of selected columns in raw commands should have no effect on speed. If unavailable, larger columns should be selected after smaller columns)");
+
+CreateFieldGroup("props","General driver properties",FALSE,FALSE);
+AddReadonlyField("props","Access type",driverinfo.readonly ? "read-only" : "read-write");
+AddReadonlyField("props","Long data length",driverinfo.need_long_data_length ? "This driver requires prior knowledge of the length of LONG data fields" : "This driver can accept LONG data fields without prior knowledge of its length");
+AddReadonlyField("props","SetPos options",driverinfo.pos_options);
+AddReadonlyField("props","Scroll options",driverinfo.scroll_options);
+AddReadonlyField("props","Dynamic cursor attributes",driverinfo.dynamic_attributes);
+AddReadonlyField("props","Forward-only cursor attributes",driverinfo.forward_only_attributes);
+AddReadonlyField("props","Keyset-driven cursor attributes",driverinfo.keyset_driven_attributes);
+AddReadonlyField("props","Static cursor cursor attributes",driverinfo.static_attributes);
+*/
+
+
+/* if we ever want to do a discovering connect:
+
+RECORD ARRAY FUNCTION ParseConnectionQueryString(STRING str)
+{
+  RECORD ARRAY retval;
+
+  STRING ARRAY splitconnstring := Tokenize(str,';');
+  FOREVERY(STRING tok FROM splitconnstring)
+  {
+    IF(tok="")
+      CONTINUE;
+
+    STRING ARRAY paramsplit := Tokenize(tok,'=');
+    IF(Length(paramsplit)<2)
+      CONTINUE;
+
+    STRING ARRAY questionsplit := Tokenize(paramsplit[0],':');
+
+    STRING fieldname := Left(questionsplit[0],1)='*' ? Substring(questionsplit[0],1,256) : questionsplit[0];
+    STRING fieldtitle := Length(questionsplit)>1 ? questionsplit[1] : fieldname;
+
+    IF(paramSplit[1] LIKE '{*')
+    {
+      RECORD ARRAY vals;
+      FOREVERY(STRING val FROM Tokenize(Substring(paramsplit[1], 1, Length(paramsplit[1])-2), ','))
+        INSERT INTO vals(value,title) VALUES(val,val) AT END;
+
+      INSERT INTO retval(name,title,type,vals) VALUES(fieldname, fieldtitle, 1, vals) AT END;
+    }
+    ELSE IF (paramsplit[1]='?')
+    {
+      INSERT INTO retval(name,title,type) VALUES(fieldname, fieldtitle, 2) AT END;
+    }
+    ELSE
+    {
+      INSERT INTO retval(name,title,type) VALUES(fieldname, fieldtitle, 0) AT END;
+    }
+  }
+
+  RETURN retval;
+}
+
+IF (NOT IsUserSysop())
+  Redirect("/wh");
+
+STRING dsn := GetWebVariable("dsn");
+STRING driver := GetWebVariable("driver");
+STRING codepage := GetWebVariable("codepage");
+
+IF (codepage = "")
+  codepage := "Unicode";
+
+//ADDME: Just keep vars in official order
+RECORD ARRAY connvars := SELECT * FROM GetAllFormVariables()
+                          WHERE name LIKE 'conn_*'
+                          ORDER BY name IN ['conn_DSN', 'conn_DRIVER'] DESC
+                                 , name = 'conn_SERVER' DESC
+                                 , name = 'conn_UID' DESC
+                                 , name = 'conn_PWD' DESC
+                                 , name = 'conn_DATABASE' DESC
+                                 , name = 'conn_LANGUAGE' DESC
+                                 ;
+STRING askstring := "";
+
+IF(Length(connvars)=0)
+{
+  //Discover if we can browse
+  STRING connstring := "DSN=" || dsn || "";
+  RECORD conn := StartODBCTransaction([type:="BROWSE", connection_string:=connstring, codepage := codepage]);
+  IF(conn.id>0)
+    Redirect("tables.shtml?connstring=" || EncodeURL(connstring) || "&codepage=" || EncodeURL(codepage) ||"&dsn=" || EncodeURL(dsn));
+//  IF(conn.id=0 AND conn.error="") //browse support
+//    Redirect("connect.shtml?conn_DSN=" || EncodeURL(dsn) || "&codepage=" || EncodeURL(codepage) ||"&dsn=" || EncodeURL(dsn));
+
+  //Try through driver
+  connstring := "DRIVER={" || driver || "}";
+  conn := StartODBCTransaction([type:="BROWSE", connection_string:=connstring, codepage := codepage]);
+  IF(conn.id>0)
+    Redirect("tables.shtml?connstring=" || EncodeURL(connstring) || "&codepage=" || EncodeURL(codepage) ||"&dsn=" || EncodeURL(dsn));
+//  IF(conn.id=0 AND conn.error="") //browse support
+//    Redirect("connect.shtml?conn_DRIVER={" || EncodeURL(driver) || "}&codepage=" || EncodeURL(codepage) ||"&dsn=" || EncodeURL(dsn));
+
+}
+/*ELSE
+
+ADDME
+Browser voorlopig maar uitgezet.  Het werkt wel, maar je moet de verschillende BROWSE calls binnen 1 transactie
+context doen (Steeds extra parameters voor elke stap geven). Dus de API moet toch significant anders :(
+
+{
+
+
+
+  WHILE(TRUE)
+  {
+    //Iteratively connect
+    RECORD conn := StartODBCTransaction([type:="BROWSE", connection_string:=connstring, codepage := codepage]);
+
+  }
+
+
+
+  //Build connection string
+  STRING connstring := Detokenize( (SELECT AS STRING ARRAY Substring(name,5,256)||'='||value FROM connvars), ';');
+  Print(connstring);
+  //RECORD conn := StartODBCTransaction([type:="DRIVER", connection_string:=connstring, codepage := codepage]);
+
+  //ADDME: BROWSE seems to fail just for the fun of it if a connection string is complete?
+  //IF(conn.id>0)
+  //  Redirect("tables.shtml?connstring=" || EncodeURL(connstring) || "&codepage=" || EncodeURL(codepage) ||"&dsn=" || EncodeURL(dsn));
+
+  RECORD conn := StartODBCTransaction([type:="BROWSE", connection_string:=connstring, codepage := codepage]);
+  IF(conn.id>0)
+    Redirect("tables.shtml?connstring=" || EncodeURL(connstring) || "&codepage=" || EncodeURL(codepage) ||"&dsn=" || EncodeURL(dsn));
+  askstring := conn.connection_string;
+}
+
+* /
+SetPageTitle("Connect to '" || dsn ||"'");
+SetBackLink("index.shtml");
+SetStatusBar(GetText("system",1400,2));
+
+CreateFieldGroup("table", "Connection parameters", FALSE, FALSE);
+IF(askstring!="")
+{
+  CreateApplyForm("connect.shtml");
+  Print('<br>'||askstring);
+  FOREVERY(RECORD pcq FROM ParseConnectionQueryString(askstring))
+  {
+    SWITCH(pcq.type)
+    {
+      CASE 1
+      {
+        AddPulldownField("table", "conn_" || pcq.name, pcq.title, "", pcq.vals);
+      }
+      CASE 2
+      {
+        AddTextField("table", "conn_" || pcq.name, pcq.title, "", 256);
+      }
+      DEFAULT
+      {
+        AddReadonlyField("table", pcq.title,"Don't know how to handle this field");
+      }
+    }
+  }
+}
+ELSE
+{
+  CreateApplyForm("tables.shtml");
+  AddTextField("table", "user", "Username", "", 64);
+  AddTextField("table", "passwd", "Password", "", 64);
+}
+
+AddPulldownField("table", "codepage", "Codepage", "Unicode", [
+        [ title := "Unicode"      , value := "Unicode" ],
+        [ title := "CP437"        , value := "CP437" ],
+        [ title := "CP1252"       , value := "CP1252" ],
+        [ title := "WINDOWS-1252" , value := "WINDOWS-1252" ],
+        [ title := "Symbol"       , value := "Symbol" ],
+        [ title := "US-ASCII"     , value := "US-ASCII" ],
+        [ title := "ISO-8859-1"   , value := "ISO-8859-1" ],
+        [ title := "ISO-8859-15"  , value := "ISO-8859-15" ],
+        [ title := "CPMacWord"    , value := "CPMacWord" ],
+        [ title := "CPWingdings"  , value := "CPWingdings" ]]);
+
+//PrintRecordTo(0,conn,'html');
+//BuildColumnForm("");
+GenerateInterfacePage();
+*/

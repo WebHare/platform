@@ -1,0 +1,265 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::parser/msword.whlib";
+LOADLIB "wh::parser/objects.whlib";
+LOADLIB "wh::formatter/html.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::system/lib/internal/conversionprofiles.whlib";
+
+/** @short Get all checkable links from a HTML DOM
+    @return Array of links */
+RECORD ARRAY FUNCTION ExtractCheckableLinksFromHTMLDocument(OBJECT htmldoc, STRING base)
+{
+  //ADDME imagemap and other odd link types, longdesc, etc
+
+  RECORD ARRAY links;
+  FOREVERY(OBJECT link FROM htmldoc->GetElements("a"))
+  {
+    STRING href := link->GetAttribute("href");
+    IF(IsValidURL(href))
+      INSERT [ link := ResolveToAbsoluteURL(base,href)
+             , text := UCTruncate(link->textcontent, 500)
+             ] INTO links AT END;
+  }
+  RETURN links;
+}
+
+/** @short Clean up duplicate and unsupported (by the linkchecker) links
+    @param links Links to clean
+    @return Array of links */
+RECORD ARRAY FUNCTION CleanupLinkcheckerLinks(RECORD ARRAY links)
+{
+  links := SELECT DISTINCT link, text FROM links;
+  RETURN links;
+}
+
+STRING FUNCTION MyEmbedCallback(OBJECT webdesign, STRING filename, STRING type, BOOLEAN create, BLOB data)
+{
+  IF(create)
+    webdesign->AddStaticFile(filename, data);
+
+  RETURN webdesign->GetStaticFileLink(filename);
+}
+PUBLIC RECORD FUNCTION GetMSWordConversionSettings(INTEGER forfileid)
+{
+  RECORD settings;
+  FOREVERY(RECORD mswordsetting FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "mswordconversion", forfileid))
+  {
+    IF(NOT RecordExists(settings))//first hit
+    {
+      settings := [ languageattributes := FALSE
+                  , relativefontbase := 0
+                  , conversionprofile := [ emptydocobjects := FALSE
+                                         , styles := DEFAULT RECORD ARRAY
+                                         ]
+                  , webharecss := TRUE
+                  , deletetextstyles := DEFAULT STRING ARRAY
+                  ];
+    }
+
+    IF(mswordsetting.node->HasAttribute("languageattributes"))
+      settings.languageattributes := ParseXSBoolean(mswordsetting.node->GetAttribute("languageattributes"));
+    IF(mswordsetting.node->HasAttribute("relativefontbase"))
+      settings.relativefontbase := ToInteger(mswordsetting.node->GetAttribute("relativefontbase"),0);
+    IF(mswordsetting.node->HasAttribute("webharecss"))
+      settings.webharecss := ParseXSBoolean(mswordsetting.node->GetAttribute("webharecss"));
+
+    OBJECT conversionprofile := mswordsetting.node->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "profile")->Item(0);
+    IF(ObjectExists(conversionprofile))
+      settings.conversionprofile := ParseXMLProfileNode(conversionprofile);
+
+    OBJECT deletetextstyles := mswordsetting.node->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "deletetextstyles")->Item(0);
+    IF(ObjectExists(deletetextstyles))
+    {
+      settings.deletetextstyles := DEFAULT STRING ARRAY;
+      FOREVERY(OBJECT textstyle FROM deletetextstyles->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "deletetextstyle")->GetCurrentElements())
+      {
+        INSERT textstyle->GetATtribute("mask") INTO settings.deletetextstyles AT END;
+      }
+    }
+  }
+
+  RETURN settings;
+}
+
+PUBLIC OBJECTTYPE RenderMSWordFIle EXTEND StaticPageBase
+<
+  RECORD wordsettings; //FIXME port to object structure!
+  RECORD ARRAY rawtoclevels;
+  OBJECT htmloutput;
+  MACRO PTR ARRAY postprochtmlfuncs;
+  RECORD ARRAY seenlinks;
+
+  MACRO NEW(OBJECT contentobject)
+  : StaticPageBase(contentobject)
+  {
+  }
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    IF(NOT webdesign->IsStaticPublication())
+      THROW NEW Exception("MS Word documents are currently only supported during static publications");
+
+    //Link to our CSS file
+    this->wordsettings := this->GetWordConversionSettings(webdesign);
+    IF(NOT RecordExists(this->wordsettings))
+      THROW NEW Exception("MS Word document conversion was not setup for this site");
+
+    IF(this->wordsettings.webharecss)
+      webdesign->InsertHTML('<link rel="stylesheet" href="' || EncodeValue(webdesign->GetStaticFileLink("webhare.css")) || '"/>\n', 'dependencies-top');
+
+    this->htmloutput := MakeHTMLPublicationOutput("HTML4.01", FALSE, this->wordsettings.webharecss, TRUE);
+  }
+
+  PUBLIC MACRO AddHTMLPostProcessor(MACRO PTR postprocessor)
+  {
+    INSERT postprocessor INTO this->postprochtmlfuncs AT END;
+  }
+
+  PUBLIC RECORD FUNCTION GetWordConversionSettings(OBJECT webdesign) //UPDATEable function for users who need to overwrite the settings
+  {
+    RETURN GetMSWordConversionSettings(webdesign->targetobject->id);
+  }
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    INTEGER maxpx := webdesign->GetMaximumContentWidthPixels();
+    IF(maxpx>0)
+    {
+      this->htmloutput->imagemaxwidth := maxpx;
+      SetHTMLDocTableSize(this->htmloutput->id, maxpx, FALSE);
+    }
+    this->htmloutput->embedcallback := PTR MyEmbedCallback(webdesign, #1, #2, #3, #4);
+
+    IF(this->wordsettings.languageattributes)
+      SetHTMLDocLanguageCode(this->htmloutput->id, webdesign->languagecode = "en" ? "en-us" : webdesign->languagecode);
+    IF(this->wordsettings.relativefontbase != 0)
+      SetHTMLDocRelativeFonts(this->htmloutput->id, this->wordsettings.relativefontbase);
+
+    //ADDME Do we want to be able to enable relative fonts?
+    INTEGER outstream, saveoutput;
+    BOOLEAN postprocess := Length(this->postprochtmlfuncs) > 0 OR Length(this->wordsettings.deletetextstyles) > 0;
+
+    IF(postprocess)
+    {
+      outstream := CreateStream();
+      saveoutput := RedirectOutputTo(outstream);
+    }
+
+    OBJECT outpage := this->htmloutput->CreatePage(outstream);
+    TRY
+    {
+      INTEGER doc := OpenMSWordDocument(this->contentobject->data);
+      //ReadConversionProfile(OpenWHFSObjectByPath("/repository/utwente/dottwente/ut.prl")->id);
+      RECORD result := ScanMSWordDocument(doc, this->wordsettings.conversionprofile.emptydocobjects, this->wordsettings.conversionprofile.styles);
+
+      this->rawtoclevels := SELECT toclevel, embedtype FROM this->wordsettings.conversionprofile.styles WHERE embedtype!="";
+      FOREVERY(RECORD rawlvl FROM this->rawtoclevels)
+      {
+        IF(rawlvl.toclevel<=0)
+          THROW NEW Exception("The style option 'embedtype' requires that style to have a toclevel");
+        IF(RecordExists(SELECT FROM this->wordsettings.conversionprofile.styles WHERE toclevel = rawlvl.toclevel AND embedtype != rawlvl.embedtype))
+          THROW NEW Exception("When enabling 'embedtype', all styles sharing a toclevel must have the same setting for this option. Toclevel #" || rawlvl.toclevel ||  " is inconsistenly defined");
+      }
+
+      this->RunPageContents(webdesign, outpage, result.parserobjects);
+    }
+    FINALLY
+    {
+      IF(postprocess)
+      {
+        RedirectOutputTo(saveoutput);
+
+        BLOB finalpage := MakeBlobFromStream(outstream);
+        this->PostProcessPage(finalpage, webdesign->baseurl);
+      }
+    }
+    outpage->Close();
+  }
+
+  UPDATE PUBLIC MACRO RunAfterRendering(OBJECT webdesign)
+  {
+    this->htmloutput->CloseOutput();
+  }
+
+  MACRO PostProcessPage(BLOB indata, STRING baseurl)
+  {
+    OBJECT indoc := MakeXMLDocumentFromHTML(indata);
+
+    IF(Length(this->wordsettings.deletetextstyles)>0)
+    {
+      FOREVERY(OBJECT tag FROM indoc->GetElementsByTagName("*")->GetCurrentElements())
+      {
+        IF(tag->tagname NOT IN ["h1","h2","h3","h4","h5","h6","span","p"])
+          CONTINUE;
+
+        STRING style := tag->GetAttribute("style");
+        IF(style!="")
+        {
+          STRING ARRAY outtoks;
+          FOREVERY(STRING tok FROM Tokenize(style,";"))
+          {
+            STRING checktok := ToLowercase(tok);
+            BOOLEAN skip;
+
+            FOREVERY(STRING killstyle FROM this->wordsettings.deletetextstyles)
+              IF(checktok LIKE ToLowercase(killstyle))
+              {
+                skip:=TRUE;
+                BREAK;
+              }
+
+            IF(NOT skip)
+              INSERT tok INTO outtoks AT END;
+          }
+
+          style := Detokenize(outtoks,";");
+          IF(style="")
+            tag->RemoveAttribute("style");
+          ELSE
+            tag->SetAttribute("style", style);
+        }
+      }
+    }
+
+    OBJECT writer := NEW HtmlRewriterContext;
+    FOREVERY(MACRO PTR postproc FROM this->postprochtmlfuncs)
+      postproc(indoc);
+
+    this->seenlinks := this->seenlinks CONCAT ExtractCheckableLinksFromHTMLDocument(indoc, baseurl);
+
+    SendBlobTo(0, writer->GenerateHTML(indoc->GetElementsByTagName("body")->Item(0)));
+  }
+
+  PUBLIC MACRO RunPageContents(OBJECT webdesign, OBJECT outpage, RECORD ARRAY parserobjects)
+  {
+    FOREVERY(RECORD obj FROM parserobjects)
+    {
+      RECORD matchraw := SELECT * FROM this->rawtoclevels WHERE toclevel = obj.toclevel;
+      IF(RecordExists(matchraw))
+      {
+        //ADDME support for more embedtypes...
+        outpage->Print(GetParserobjectRawText(obj.id, 65535, TRUE));
+      }
+      ELSE
+      {
+        outpage->PrintParserObject(obj.id);
+      }
+    }
+  }
+
+  PUBLIC MACRO SetDeleteTextStyleMasks(STRING ARRAY masks)
+  {
+    this->wordsettings.deletetextstyles := masks;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetCheckableLinks()
+  {
+    RETURN this->seenlinks;
+  }
+>;

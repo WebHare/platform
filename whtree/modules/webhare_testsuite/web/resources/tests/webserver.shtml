@@ -1,0 +1,147 @@
+﻿<?wh
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/errors.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "wh::datetime.whlib";
+
+STRING cookieteststr := ' abc%def"ghi&jkl ';
+
+IF(GetWebVariable("contentdisp")!="")
+  AddHTTPHeader("Content-Disposition", GetWebVariable("contentdisp"), FALSE);
+
+SWITCH(GetWebVariable("type"))
+{
+  CASE "refreshconfig"
+  {
+    ReloadWebhareConfig(TRUE, FALSE);
+  }
+  CASE "echorequest"
+  {
+    SendWebFile(EncodeHSONBlob([ allvars := GetAllWebVariables() ]));
+  }
+  CASE "echobody"
+  {
+    SendWebFile(GetRequestBody());
+  }
+  CASE "echo"
+  {
+    IF(GetWebVariable("mimetype")!="")
+      AddHTTPHeader("Content-Type",GetWebVariable("mimetype"),FALSE);
+    SendWebFile(GetWebBlobVariable("data"));
+  }
+  CASE "flushwebresponse"
+  {
+    AddHTTPHeader("Content-Type","text/plain", FALSE);
+    Print("First test flush web response");
+    FlushWebResponse(MAX_DATETIME);
+    Print("Second test flush web response");
+    FlushWebResponse(MAX_DATETIME);
+    LogWebserverError("EXPECT HareScript error: Cannot AddHeader after flushing the response");
+    AddHTTPHeader("Content-Type","text/html", FALSE);
+    ABORT("This point shouldn't be reached (above code should've triggered ABORT)");
+  }
+  CASE "flushwebresponse2"
+  {
+    FOR(INTEGER i:=0;i<10;i:=i+1)
+    {
+      Print(i||"\r\n");
+      FlushWebResponse(MAX_DATETIME);
+      Sleep(500);
+    }
+  }
+  CASE "404"
+  {
+    AddHTTPHeader("Status","404 Bla Bla", FALSE);
+  }
+  CASE "statusbad"
+  {
+    AddHTTPHeader("Status","404 Bad\r\nBad: Header\r\nBad bad bad!\r\n\0Even: worse", FALSE); //must not end in a line feed, the error
+  }
+  CASE "statuslong"
+  {
+     AddHTTPHeader("Status","404 " || RepeatText("I'm a lumberjack and I'm okay, I sleep all night and I work all day.",1000), FALSE);
+  }
+  /* cookie tests */
+  CASE "setcookie1", "setencryptedcookie1"
+  {
+    BOOLEAN encrypt := GetWebVariable("type") LIKE "*encrypt*";
+    UpdateWebCookie("cookietest", " a;b,c,%,&,\" ", [ encrypt := encrypt ]);
+    AddHTTPHeader("Set-Cookie", "classic=\"" || encodeJava(Cookieteststr) || "\"; Path=/;Domain=", TRUE);
+  }
+  CASE "setcookie2", "setencryptedcookie2"
+  {
+    BOOLEAN encrypt := GetWebVariable("type") LIKE "*encrypt*";
+
+    //ensure first that webbrowser did it properly
+    IF(NOT encrypt)
+    {
+      STRING cookies := GetWebHeader("Cookie");
+      IF(cookies != 'cookietest=%20a%3Bb%2Cc%2C%25%2C%26%2C%22%20; classic="' || EncodeJAva(cookieteststr) || '"')
+        ABORT("Unexpected cookie header [" || GetWebHeader("Cookie") || "]");
+    }
+
+    //that worked. verify that the first cookie was read properly
+    STRING firstcookie := encrypt ? GetDecryptedWebCookie("COOKIETEST") : GetWebCookie("COOKIETEST");
+    IF(firstcookie != " a;b,c,%,&,\" ")
+      ABORT("Unexpected cookietest result [" || firstcookie || "] " || GetWebCookie("COOKIETEST"));
+
+    //now verify that the old-style webhare cookie was read properly
+    IF(GetWebCookie("ClAssIC") != cookieteststr)
+      ABORT("Unexpected classic cookie result [" || GetWebCookie("ClAssIC") || "]");
+
+    UpdateWebCookie("cookie2", "ja");
+    UpdateWebCookie("COOKIE2", "oh nee toch niet");
+  }
+  CASE "setcookie3"
+  {
+    // Test overwrite
+    UpdateWebCookie("sc3-test1", "val1-org");
+    UpdateWebCookie("sc3-test1", "val1-overwrite");
+
+    UpdateWebCookie("sc3-test2", "val2-org", [ path := "/" ]);
+    UpdateWebCookie("sc3-test2", "val2-overwrite");
+
+    UpdateWebCookie("sc3-test3", "val3-org", [ path := "/blaah/" ]);
+    UpdateWebCookie("sc3-test3", "val3-nooverwrite1", [ path := "/blaah/meh/" ]);
+    UpdateWebCookie("sc3-test3", "val3-overwrite", [ path := "/blaah/" ]);
+
+    UpdateWebCookie("sc3-test4", "val4-org", [ path := "/blaah/", domain := "www.example.com" ]);
+    UpdateWebCookie("sc3-test4", "val4-nooverwrite1", [ path := "/blaah/" ]);
+    UpdateWebCookie("sc3-test4", "val4-nooverwrite2", [ path := "/blaah/", domain := "www.b-lex.com" ]);
+    UpdateWebCookie("sc3-test4", "val4-overwrite", [ path := "/blaah/", domain := "www.example.com" ]);
+  }
+  CASE "getmyip"
+  {
+    Print(GeTClientRemoteIP());
+  }
+  CASE "getrequesturl"
+  {
+    Print(GetRequestUrl());
+  }
+  CASE "describe"
+  {
+    Print(EncodeJSON( [ remoteip := GetClientRemoteIP()
+                      , url := GetRequestURL()
+                      ]));
+  }
+  CASE "redirect"
+  {
+    STRING status := GetWebVariable("status");
+    AddHTTPHeader("Status",status, FALSE);
+    AddHTTPHeader("Location","http://www.test.invalid/"||status, FALSE);
+  }
+  CASE "redirectencoding"
+  {
+    AddHTTPHeader("X-Test-2","\r\nX-Test-3: 4", FALSE);
+    Redirect("/.wrd/auth/gologin?x\"><script>alert(1)</script>x=1\r\nTest: 1");
+  }
+  DEFAULT
+  {
+    ABORT("Unknown test type '" || GetWebVariable("type") || "'");
+  }
+}
+
+/*
+GET /tollium_todd.res/beta/tests/webserver.shtml?type=flushwebresponse2 HTTP/1.0
+Host: webhare.moe.btc.b-lex
+*/

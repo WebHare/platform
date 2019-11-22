@@ -1,0 +1,35 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="blob-tests.whscr updaterefrecord-tests.whscr deadlock-tests.whscr massive-client-locking.whscr chase-tests.whscr">
+
+  <!-- whdb only -->
+  <group name="whdb" unlessenvironset="WEBHARE_DBASENAME">
+    <test script="test_dc.whscr"/>
+    <test script="test_dbase.whscr"/>
+    <test script="test_recordoverrides.whscr"/>
+    <test script="test_privileges.whscr"/>
+    <test script="test_grants.whscr"/>
+    <test script="test_information_schema.whscr"/>
+    <test script="test_unique.whscr" />
+    <test script="test_index.whscr" />
+    <group name="chase">          <test script="testrunner.whscr" flaky="true"><arg param="scriptpath"/><arg value="chase-tests.whscr"/></test></group>
+    <group name="locking">        <test script="testrunner.whscr"><arg param="scriptpath"/><arg value="massive-client-locking.whscr"/></test></group>
+    <group name="deadlock">       <test script="testrunner.whscr"><arg param="scriptpath"/><arg value="deadlock-tests.whscr"/></test></group>
+    <group name="refupdate">      <test script="testrunner.whscr"><arg param="scriptpath"/><arg value="updaterefrecord-tests.whscr"/></test></group>
+    <group name="schemas">        <test script="test_schemas.whscr"/></group>
+  </group>
+
+  <!-- psql only -->
+  <test script="primitivevalues.whscr" ifenvironset="WEBHARE_DBASENAME" />
+  <test script="pg_locking.whscr" ifenvironset="WEBHARE_DBASENAME" />
+  <test script="pg_procedures.whscr" ifenvironset="WEBHARE_DBASENAME" />
+  <test script="pg_blobcleanup.whscr" ifenvironset="WEBHARE_DBASENAME" />
+
+  <!-- both -->
+  <test script="test_blobstore.whscr" />
+  <test script="test_cascade.whscr" />
+  <test script="test_dynquery.whscr" />
+  <test script="test_sqlclient.whscr" />
+  <test script="test_work.whscr"/>
+  <test script="test_whtrans.whscr"/>
+  <group name="blobs"><test script="testrunner.whscr"><arg param="scriptpath"/><arg value="blob-tests.whscr"/></test></group>
+  <test script="test_schemadefs.whscr"/>
+</group>

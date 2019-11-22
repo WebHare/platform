@@ -1,0 +1,289 @@
+<?wh
+/** @short RSS/Atom
+    @topic file-formats/rss
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+PUBLIC OBJECTTYPE RssReaderException EXTEND Exception
+<
+  MACRO NEW(STRING error)
+  : Exception(error)
+  {
+
+  }
+>;
+
+/* References:
+   The myth of RSS Compatibility: http://diveintomark.org/archives/2004/02/04/incompatible-rss
+   http://en.wikipedia.org/wiki/RSS_(file_format)
+*/
+
+RECORD FUNCTION NewsfeedBaseRetval(STRING version)
+{
+  RETURN [ title := ""
+         , description := ""
+         , version := version
+         , items := DEFAULT RECORD ARRAY
+         ];
+}
+
+
+// http://tools.ietf.org/html/rfc4287
+RECORD FUNCTION ParseNewsFeed_Atom10(OBJECT doc)
+{
+  RECORD retval := NewsfeedBaseRetval("ATOM1.0");
+
+  OBJECT titlenode := doc->documentelement->GetElementsByTagName("title")->Item(0);
+  IF(ObjectExists(titlenode))
+    retval.title := titlenode->textcontent;
+
+  OBJECT subtitlenode := doc->documentelement->GetElementsByTagName("subtitle")->Item(0);
+  IF(ObjectExists(subtitlenode))
+    retval.description := subtitlenode->textcontent;
+
+  STRING ARRAY hrefs;
+  FOREVERY(OBJECT item FROM doc->documentelement->GetElementsByTagName("entry")->GetCurrentElements())
+  {
+    OBJECT itemtitlenode := item->GetElementsByTagName("title")->Item(0);
+    OBJECT itemlinknode := item->GetElementsByTagName("link")->Item(0);
+    OBJECT itemdatenode := item->GetElementsByTagName("updated")->Item(0);
+
+    OBJECT itemsummarynode := item->GetElementsByTagName("summary")->Item(0);
+    OBJECT itemcontentnode := item->GetElementsByTagName("content")->Item(0);
+
+    STRING description;
+    IF(ObjectExists(itemcontentnode) AND itemcontentnode->GetAttribute("type")="html")
+    {
+      description := itemcontentnode->textcontent;
+    }
+    ELSE IF(ObjectExists(itemcontentnode) AND itemcontentnode->GetAttribute("type")="text/html") //Google news does this :(
+    {
+      description := itemcontentnode->textcontent;
+    }
+    ELSE IF(ObjectExists(itemcontentnode) AND itemcontentnode->GetAttribute("type")="text")
+    {
+      description := EncodeHTML(itemcontentnode->textcontent);
+    }
+    ELSE IF(ObjectExists(itemsummarynode))
+    {
+      description := EncodeHTML(itemsummarynode->textcontent);
+    }
+
+    //Yeay! Found an item for our resource!
+    RECORD newitem := [ title       := TrimWhitespace(ObjectExists(itemtitlenode)       ? itemtitlenode->textcontent       : "")
+                      , url         := TrimWhitespace(ObjectExists(itemlinknode)        ? itemlinknode->GeTAttribute('href') : "")
+                      , description := description
+                      , date        := ObjectExists(itemdatenode) ? MakeDateFromText(itemdatenode->textcontent) : DEFAULT DATETIME
+                      ];
+
+    IF(newitem.url IN hrefs)
+      CONTINUE;
+    INSERT newitem.url INTO hrefs AT END;
+
+    IF(newitem.title!="")
+      INSERT newitem INTO retval.items AT END;
+  }
+  RETURN retval;
+}
+
+// http://www.rssboard.org/rss-specification
+RECORD FUNCTION ParseNewsFeed_RSS20(OBJECT doc)
+{
+  RECORD retval := NewsfeedBaseRetval("RSS2.0");
+
+  OBJECT channelinfo := doc->documentelement->GetElementsByTagName("channel")->Item(0);
+  IF(NOT ObjectExists(channelinfo))
+    THROW NEW RssReaderException("Channel info element 'channel' not found");
+
+  OBJECT titlenode := channelinfo->GetElementsByTagName("title")->Item(0);
+  IF(ObjectExists(titlenode))
+    retval.title := titlenode->textcontent;
+
+  OBJECT descriptionnode := channelinfo->GetElementsByTagName("description")->Item(0);
+  IF(ObjectExists(descriptionnode))
+    retval.description := descriptionnode->textcontent;
+
+  OBJECT ARRAY items := channelinfo->GetElementsByTagName("item")->GetCurrentElements();
+  STRING ARRAY hrefs;
+  FOREVERY(OBJECT item FROM items)
+  {
+    OBJECT itemtitlenode := item->GetElementsByTagName("title")->Item(0);
+    OBJECT itemlinknode := item->GetElementsByTagName("link")->Item(0);
+    OBJECT itemdescriptionnode := item->GetElementsByTagName("description")->Item(0);
+    OBJECT itemdatenode := item->GetElementsByTagName("pubDate")->Item(0);
+
+    //Yeay! Found an item for our resource!
+    RECORD newitem := [ title       := TrimWhitespace(ObjectExists(itemtitlenode)       ? itemtitlenode->textcontent       : "")
+                      , url         := TrimWhitespace(ObjectExists(itemlinknode)        ? itemlinknode->textcontent        : "")
+                      , description := TrimWhitespace(ObjectExists(itemdescriptionnode) ? itemdescriptionnode->textcontent : "")
+                      , date        := ObjectExists(itemdatenode) ? MakeDateFromText(itemdatenode->textcontent) : DEFAULT DATETIME
+                      ];
+
+    IF(newitem.url IN hrefs)
+      CONTINUE;
+    INSERT newitem.url INTO hrefs AT END;
+
+    IF(newitem.title!="")
+      INSERT newitem INTO retval.items AT END;
+  }
+  RETURN retval;
+}
+
+// http://web.resource.org/rss/1.0/spec
+RECORD FUNCTION ParseNewsFeed_RSS10(OBJECT doc)
+{
+  RECORD retval := NewsfeedBaseRetval("RSS1.0");
+
+  //RSS1.0
+  OBJECT channelinfo := doc->documentelement->GetElementsByTagNameNS("http://purl.org/rss/1.0/", "channel")->Item(0);
+  IF(NOT ObjectExists(channelinfo))
+    THROW NEW RssReaderException("Channel info element {http://purl.org/rss/1.0/}channel not found");
+
+  OBJECT titlenode := channelinfo->GetElementsByTagNameNS("http://purl.org/rss/1.0/", "title")->Item(0);
+  IF(ObjectExists(titlenode))
+    retval.title := titlenode->textcontent;
+
+  OBJECT descriptionnode := channelinfo->GetElementsByTagNameNS("http://purl.org/rss/1.0/", "description")->Item(0);
+  IF(ObjectExists(descriptionnode))
+    retval.description := descriptionnode->textcontent;
+
+  OBJECT ARRAY itemdatanodes := doc->documentelement->GetElementsByTagNameNS("http://purl.org/rss/1.0/", "item")->GetCUrrentElements();
+  RECORD ARRAY dataitems;
+  FOREVERY(OBJECT item FROM itemdatanodes)
+    INSERT INTO dataitems(about,item) VALUES(item->GetAttributeNS("http://www.w3.org/1999/02/22-rdf-syntax-ns#", "about"), item) AT END;
+
+  //Gather all the resources themselves
+  STRING ARRAY hrefs;
+  OBJECT itemsnode := channelinfo->GetElementsByTagNameNS("http://purl.org/rss/1.0/", "items")->Item(0);
+  IF(ObjectExists(itemsnode))
+  {
+    OBJECT seqelement := itemsnode->GetElementsByTagNameNS("http://www.w3.org/1999/02/22-rdf-syntax-ns#", "Seq")->Item(0);
+    IF(ObjectExists(seqelement))
+    {
+      OBJECT ARRAY lis := seqelement->GetElementsByTagNameNS("http://www.w3.org/1999/02/22-rdf-syntax-ns#", "li")->GetCurrentElements();
+      FOREVERY(OBJECT li FROM lis)
+      {
+        //Look up the resource itself
+        STRING res := li->GetAttributeNS("http://www.w3.org/1999/02/22-rdf-syntax-ns#", "resource");
+        IF(res="") //lwn.net doesn't put the attribute in a namespace. yeay, another rss1.0 variant
+          res := li->GetAttribute("resource");
+
+        IF(res!="")
+        {
+
+          RECORD match := SELECT * FROM dataitems WHERE about = res;
+          IF(RecordExists(match))
+          {
+            OBJECT itemtitlenode := match.item->GetElementsByTagNameNS("http://purl.org/rss/1.0/", "title")->Item(0);
+            OBJECT itemlinknode := match.item->GetElementsByTagNameNS("http://purl.org/rss/1.0/", "link")->Item(0);
+            OBJECT itemdescriptionnode := match.item->GetElementsByTagNameNS("http://purl.org/rss/1.0/", "description")->Item(0);
+            OBJECT itemdatenode := match.item->GetElementsByTagNameNS("http://purl.org/dc/elements/1.1/", "date")->Item(0);
+
+            //Yeay! Found an item for our resource!
+            RECORD item := [ title       := TrimWhitespace(ObjectExists(itemtitlenode)       ? itemtitlenode->textcontent       : "")
+                           , url         := TrimWhitespace(ObjectExists(itemlinknode)        ? itemlinknode->textcontent        : "")
+                           , description := TrimWhitespace(ObjectExists(itemdescriptionnode) ? itemdescriptionnode->textcontent : "")
+                           , date        := ObjectExists(itemdatenode)        ? MakeDateFromText(itemdatenode->textcontent) : DEFAULT DATETIME
+                           ];
+
+            IF(item.url IN hrefs)
+              CONTINUE;
+            INSERT item.url INTO hrefs AT END;
+
+            IF(item.title!="")
+              INSERT item INTO retval.items AT END;
+          }
+        }
+      }
+    }
+  }
+  RETURN retval;
+}
+
+RECORD FUNCTION ParseNewsFeed(OBJECT doc)
+{
+  IF(NOT ObjectExists(doc) OR NOT ObjectExists(doc->documentelement))
+    THROW NEW RssReaderException("RSS feed is not proper XML");
+
+  IF(doc->documentelement->namespaceuri = "http://www.w3.org/1999/02/22-rdf-syntax-ns#" AND doc->documentelement->localname="RDF")
+  {
+    RETURN ParseNewsFeed_RSS10(doc);
+  }
+  IF(doc->documentelement->namespaceuri = "http://www.w3.org/2005/Atom" AND doc->documentelement->localname="feed")
+  {
+    RETURN ParseNewsFeed_Atom10(doc);
+  }
+  IF(doc->documentelement->namespaceuri = "http://purl.org/atom/ns#" AND doc->documentelement->localname="feed")//Google news does this :( (atom 0.3)
+  {
+    RETURN ParseNewsFeed_Atom10(doc);
+  }
+  IF(doc->documentelement->namespaceuri = ""
+     AND doc->documentelement->nodename="rss"
+     AND doc->documentelement->GetAttribute("version")="2.0")
+  {
+    RETURN ParseNewsFeed_RSS20(doc);
+  }
+
+  IF(doc->documentelement->namespaceuri!="")
+    THROW NEW RssReaderException("RSS feed starting with element {" || doc->documentelement->namespaceuri || "}" || doc->documentelement->localname || " not recognized");
+  ELSE
+    THROW NEW RssReaderException("RSS feed starting with tag " || doc->documentelement->tagname || " not recognized");
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetRSSFeedsOnHTMLPage(STRING baseurl, OBJECT htmldoc)
+{
+  OBJECT ARRAY linktags := htmldoc->GetElementsByTagName("link")->GetCurrentElements();
+  RECORD ARRAY feeds;
+
+  //ADDME: Base href support (even needed for links? I guess so)
+  //ADDME: Move link pickup and base href/relative href resolving to WebBrowser class
+  FOREVERY(OBJECT linktag FROM linktags)
+  {
+    IF(ToUppercase(linktag->GetAttribute("rel"))="ALTERNATE"
+       AND ToUppercase(linktag->GetAttribute("type")) IN ["APPLICATION/RSS+XML","APPLICATION/ATOM+XML"])
+    {
+      STRING href := linktag->GetATtribute("href");
+      IF(href="")
+        CONTINUE;
+
+      href:=ResolveToAbsoluteUrl(baseurl, href);
+      INSERT INTO feeds(title, url) VALUES(linktag->GetAttribute("title"), href) AT END;
+    }
+  }
+  RETURN feeds;
+}
+
+STRING FUNCTION ResolveRelativeLinks(STRING indata, STRING baseurl)
+{
+  OBJECT rewriter := NEW HTMLRewriter;
+  rewriter->rewrite_link := PTR ResolveToAbsoluteURL(baseurl, #1);
+  rewriter->rewrite_hyperlink := PTR ResolveToAbsoluteURL(baseurl, #1);
+  rewriter->rewrite_img := PTR ResolveToAbsoluteURL(baseurl, #1);
+  rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob(indata),"UTF-8"));
+  RETURN rewriter->parsed_text;
+}
+
+
+PUBLIC RECORD FUNCTION ParseRSSFeedFromDocument(STRING baseurl, OBJECT rssdoc)
+{
+  RECORD result := ParseNewsFeed(rssdoc);
+
+  STRING xmlbase := rssdoc->documentelement->GetAttribute("xml:base");
+  IF(xmlbase != "")
+    baseurl := xmlbase;
+
+  UPDATE result.items
+     SET url :=         ResolveToAbsoluteURL(baseurl, url)
+       , description := ResolveRelativeLinks(description, baseurl);
+
+  UPDATE result.items
+     SET enclosure :=       CELL[ ...enclosure, url := ResolveToAbsoluteURL(baseurl, enclosure.url) ]
+   WHERE CellExists(items, "ENCLOSURE") AND RecordExists(enclosure);
+
+  RETURN result;
+}

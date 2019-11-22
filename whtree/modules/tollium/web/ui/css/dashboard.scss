@@ -1,0 +1,309 @@
+//  Dashboard
+#dashboard
+{
+  position: absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+  z-index:0;
+}
+
+#dashboard-bg
+{
+  position: absolute;
+  left:313px;
+  right:0;
+  top:0;
+  bottom:0;
+}
+
+#dashboard-newsarea
+{
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 350px;
+  padding: 6px;
+  overflow: auto; //make newsitems scrollable if the list is too long
+}
+
+.dashboard__newsitem
+{
+  overflow-x: hidden;
+  background-color: white;
+  margin-bottom: 6px;
+  padding: 12px;
+  box-shadow:0 0 7px rgba(0,0,0,.3);
+  border: 1px solid rgba(125,125,125,0.3);
+}
+
+.dashboard__newsitem > hr
+{
+  height: 1px;
+  width: 100%;
+  background-color: #eeeeee;
+  border: none;
+}
+.dashboard__newsitemtitle
+{
+  width: 100%;
+  font-weight: bold;
+  font-size: 1.4em;
+  color: #52aefe;
+}
+.dashboard__newsitem > p
+{
+  padding: 4px;
+}
+.dashboard__newsitem a
+{
+  color: #52aefe;
+  text-decoration: none;
+}
+.dashboard__newsitem a:hover
+{
+  text-decoration: underline;
+}
+
+
+.dashboard__apps
+{
+  position:absolute;
+  top:0;
+  left:0;
+  bottom:50px;
+  right:0;
+  overflow-y:auto;
+  width:313px;
+  padding: 0px 10px 20px;
+  z-index:1; /*in dashboard scoping context */
+  box-shadow:0 0 7px rgba(0,0,0,.3);
+  background-color: #4a4a4a;
+}
+.dashboard__menuitem
+{
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  position: relative;
+  transition: opacity .25s, max-height .25s;
+}
+.dashboard__menuitem--hidden
+{
+  opacity: 0;
+  overflow:hidden;
+}
+.dashboard__apps ul
+{
+  margin:0;
+  padding:0;
+}
+.dashboard__app
+{
+  list-style: none;
+  position: relative;
+  cursor: pointer;
+}
+.dashboard__applink
+{
+  display: block;
+  color: inherit;
+  padding: 1px 4px;
+}
+.dashboard__applink:focus
+{
+  background:#6a6a6a;
+}
+.dashboard__menusection
+{
+  margin-bottom: 6px;
+  padding: 30px 0 3px 0;
+}
+.dashboard__menusectiontitle
+{
+  margin: 0 4px;
+}
+.dashboard__editgroup
+{
+  cursor: pointer;
+  position: absolute;
+  top: 24px;
+  right: -6px;
+  width:28px;
+  height:28px;
+  opacity: 0;
+  transition: opacity 200ms;
+}
+.dashboard__menuitem:hover .dashboard__editgroup
+{
+  opacity: 1;
+  transition: opacity 200ms 500ms;
+}
+.dashboard__menuitem:hover .dashboard__editgroup:hover
+{
+  opacity: 1;
+  transition: opacity 200ms;
+}
+.dashboard__editgroupicon
+{
+  box-sizing: content-box;
+  padding: 6px;
+  opacity: .7;
+  transition: opacity 200ms;
+}
+.dashboard__menuitem:hover .dashboard__editgroupicon:hover
+{
+  opacity: 1;
+}
+.dashboard__appicon
+{
+  width:16px;
+  height:16px;
+  display: inline-block;
+  vertical-align:middle;
+}
+.dashboard__apptitle
+{
+ // position:relative;
+ // top:4px;
+  margin-left: 20px;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align:middle;
+  width:calc(100% - 20px);
+  overflow:hidden;
+  text-overflow: ellipsis;
+
+  color:inherit;
+  text-decoration:none;
+}
+.dashboard__apptitle:hover
+{
+  text-decoration:underline;
+}
+.dashboard__appicon + .dashboard__apptitle
+{
+  margin-left: 4px;
+}
+
+.dashboard__footer
+{
+  bottom: 0px;
+  height: 50px;
+  font-size: 13px;
+  left: 0px;
+  position: absolute;
+  width: 313px;
+}
+
+#dashboard-user
+{
+  left: 14px;
+  top: 20px;
+  position: absolute;
+}
+
+#dashboard-user-name
+{
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  cursor: pointer;
+}
+
+#dashboard-logout
+{
+  display:none;
+  position:absolute;
+  top:20px;
+  right:14px;
+  cursor: pointer;
+  display: none;
+}
+
+ #dashboard-user-name:hover
+,#dashboard-logout:hover
+{
+  text-decoration: underline;
+}
+
+#dashboard-user .dashboard__userimg
+{
+  float: left;
+  margin-right: 2px;
+  width:16px;
+  height:16px;
+}
+
+#dashboard-logout .dashboard__logoutimg
+{
+  float: right;
+  margin-left: 2px;
+  width:16px;
+  height:16px;
+}
+
+html.wh-wrdauth--isloggedin #dashboard-logout.dashboard-logout--allowed
+{
+  display:block;
+}
+
+.dashboard__apps, .dashboard__footer
+{
+  color: #ffffff;
+}
+.dashboard__menusection
+{
+  border-bottom: 1px solid #818181;
+  line-height: 16px;
+  font-size:16px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.dashboard__apptitle
+{
+  font-size:13px;
+  line-height: 20px;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+#dashboard__footer
+{
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  background-color: #4a4a4a;
+  border-top: 1px solid #ffffff;
+  box-shadow: inset 0px 5px 1px rgba(0,0,0,.2);
+}
+
+.dasboard__noapps
+{
+  display:none;
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+  font-size:13px;
+}
+.dashboard__apps--nomatches .dasboard__noapps
+{
+  top:calc(50% - 12px);
+  text-align:center;
+  display:block;
+}
+.dashboard__showallapps
+{
+  display:block;
+  margin-top:15px;
+  text-decoration:underline;
+  color:inherit;
+}
+
+#dashboard-logout
+{
+}

@@ -1,0 +1,558 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/webdav.whlib";
+
+LOADLIB "mod::system/lib/internal/webserver/webdav-diversionfs.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/virtualfs/api.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+STRING tempwebdavfolder := "beta-datafolder-test";
+STRING webdavtestbase := "/data/" || tempwebdavfolder || "/";
+
+MACRO BaseTest()
+{
+  OBJECT vfs;
+  RECORD ARRAY entries;
+
+  testfw->SetTestUser("homer");
+  testfw->BeginWork();
+
+  //No rights users shouldn't be able to see beta_tests
+  vfs := OpenVirtualFS();
+
+  entries := vfs->GetDirectoryListing("/");
+  TestEq(FALSE, RecordExists(SELECT FROM entries WHERE name='beta_tests'));
+
+  testfw->CommitWork();
+
+  testfw->SetTestUser("sysop");
+  testfw->BeginWork();
+  //sysop should be able to see beta_tests
+  vfs := OpenVirtualFS();
+
+  entries := vfs->GetDirectoryListing("/");
+  TestEq(TRUE, RecordExists(SELECT FROM entries WHERE name='beta_tests'));
+
+  TestEq(TRUE, vfs->IsValidDirectory("/"));
+  TestEq(TRUE, vfs->IsValidDirectory("/beta_tests/"));
+  TestEq(FALSE, vfs->IsValidDirectory("beta_tests/"));
+  TestEq(FALSe, vfs->IsValidDirectory("/surely-a-nonexisting-path/"));
+
+  testfw->CommitWork();
+}
+
+MACRO DiskfolderReadonlyMaskTest()
+{
+  OBJECT vfs;
+  RECORD ARRAY entries;
+
+  testfw->SetTestUser("sysop");
+  testfw->BeginWork();
+  //sysop should be able to see beta_tests
+  vfs := OpenVirtualFS();
+
+  entries := vfs->GetDirectoryListing("/");
+  TestEq(TRUE, RecordExists(SELECT FROM entries WHERE name='beta_tests2'));
+
+  TestEq(TRUE, vfs->IsValidDirectory("/beta_tests2/"));
+
+  DeleteDiskDirectoryRecursive(MergePath(GetTempDir(), "beta-test"));
+  CreateDiskDirectoryRecursive(MergePath(GetTempDir(), "beta-test"), TRUE);
+
+  // Normal writability
+  vfs->MakeDir("/beta_tests2/test-1/folder");
+  vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/folder2", FALSE);
+  vfs->Copy("/beta_tests2/test-1/folder2", "/beta_tests2/test-1/folder", FALSE);
+  vfs->DeletePath("/beta_tests2/test-1/folder");
+  vfs->DeletePath("/beta_tests2/test-1/folder2");
+  vfs->PutFile("/beta_tests2/test-1/file", StringToBlob("aaa"), FALSE);
+  TestEQ("aaa", BlobToString(vfs->GetFile("/beta_tests2/test-1/file"), -1));
+  vfs->DeletePath("/beta_tests2/test-1/file");
+
+  vfs->MakeDir("/beta_tests2/test-1/folder");
+  TestThrows(PTR vfs->MakeDir("/beta_tests2/test-1/wonly-1"));
+  TestThrows(PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-1", FALSE));
+  TestThrows(PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-1", FALSE));
+  TestThrows(PTR vfs->PutFile("/beta_tests2/test-1/wonly-1", StringToBlob("aaa"), FALSE));
+  vfs->DeletePath("/beta_tests2/test-1/folder");
+
+  vfs->MakeDir("/beta_tests2/test-1/folder");
+  vfs->MakeDir("/beta_tests2/test-1/wonly-12");
+  vfs->DeletePath("/beta_tests2/test-1/wonly-12");
+  vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-12", FALSE);
+  vfs->DeletePath("/beta_tests2/test-1/wonly-12");
+  vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-12", FALSE);
+  vfs->DeletePath("/beta_tests2/test-1/wonly-12");
+  vfs->PutFile("/beta_tests2/test-1/wonly-12", StringToBlob("aaa"), FALSE);
+  TestEQ("aaa", BlobToString(vfs->GetFile("/beta_tests2/test-1/wonly-12"), -1));
+  vfs->DeletePath("/beta_tests2/test-1/wonly-12");
+
+  vfs->MakeDir("/beta_tests2/test-1/folder");
+  TestThrows(PTR vfs->MakeDir("/beta_tests2/test-1/wonly-2"));
+  TestThrows(PTR vfs->MakeDir("/beta_tests2/test-1/wonly-2a"));
+  TestThrows(PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2", FALSE));
+  TestThrows(PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2", FALSE));
+  TestThrows(PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2a", FALSE));
+  TestThrows(PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2a", FALSE));
+  TestThrows(PTR vfs->PutFile("/beta_tests2/test-1/wonly-2", StringToBlob("aaa"), FALSE));
+  TestThrows(PTR vfs->PutFile("/beta_tests2/test-1/wonly-2a", StringToBlob("aaa"), FALSE));
+  vfs->DeletePath("/beta_tests2/test-1/folder");
+
+  vfs->MakeDir("/beta_tests2/test-1/folder");
+  vfs->MakeDir("/beta_tests2/test-1/wonly-3");
+  TestThrows(PTR vfs->MakeDir("/beta_tests2/test-1/wonly-3/test"));
+  TestThrows(PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-3/test", FALSE));
+  TestThrows(PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-3/test", FALSE));
+  TestThrows(PTR vfs->PutFile("/beta_tests2/test-1/wonly-3/test", StringToBlob("aaa"), FALSE));
+  vfs->DeletePath("/beta_tests2/test-1/wonly-3");
+  vfs->DeletePath("/beta_tests2/test-1/folder");
+
+  testfw->CommitWork();
+}
+
+//FIXME extend with readonly testing!
+
+//Run generic test on a specified path. This path is expected to look like this: /a/b/c/
+MACRO GenericTests(OBJECT vfs, STRING basepath)
+{
+  RECORD ARRAY entries;
+  OBJECT ex;
+
+  /* Verify that all parents exist */
+  STRING pathsofar := "/";
+  TestEq(TRUE, basepath LIKE "/*/");
+
+  FOREVERY(STRING tok FROM Tokenize(Substring(basepath,1,Length(basepath)-2),"/"))
+  {
+//    Print(pathsofar||'\n');
+    TestEq(TRUE, vfs->IsValidDirectory(pathsofar));
+
+    entries := vfs->GetDirectoryListing(pathsofar);
+    TestEq(TRUE, RecordExists(SELECT FROM entries WHERE name=tok));
+
+    pathsofar := pathsofar || (#tok=0 ? "" : "/") || tok;
+  }
+
+  //Expect the testfolder to be empty
+  entries := vfs->GetDirectoryListing(basepath);
+  TestEq(0, Length(entries));
+
+  //Create a file in the testfolder
+  vfs->PutFile(basepath || "gf1.txt", StringToBlob("Dit is gf1.txt"), FALSE);
+
+  //Verify it arrived
+  TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
+
+  //Try to create a new file with the same name but without the overwrite flag. Should throw a VirtualFSException
+  ex := TestThrows(PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Dit is een geupdate gf1"), FALSE));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException);
+  TestEq(TRUE, ex->IsAlreadyExists());
+
+  TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
+
+  vfs->PutFile(basepath || "gf1.txt", StringToBlob("Deze overwite moet lukken"), TRUE);
+  TestEq(StringToBlob("Deze overwite moet lukken"), vfs->GetFile(basepath||"gf1.txt"));
+
+  //Read a nonexisting file
+  ex := TestThrows(PTR vfs->GetFile(basepath || "gf2.txt"));
+  TestEq(TRUE, ex EXTENDSFROM VirtualFSException);
+  TestEq(FALSE, ex->IsAlreadyExists());
+  TestEq(TRUE, ex->IsBadPath());
+
+
+  //Verify the complete directory listing for our testfolder
+  entries := vfs->GetDirectoryListing(basepath);
+  TestEq(1, Length(entries));
+  TestEq("gf1.txt", entries[0].name);
+  TestEq(Length64("Deze overwite moet lukken"), entries[0].size);
+  TestEq(TRUE, entries[0].read);
+  TestEq(0, entries[0].type);
+  TestEq(TRUE, entries[0].write);
+
+  //Test IsValidDirectory
+  TestEq(FALSE, vfs->IsValidDirectory(basepath||"gf1.txt")); //is a file
+  TestEq(FALSE, vfs->IsValidDirectory(basepath||"blabla.txt")); //doesn't exist at all
+
+  //In-folder rename
+  TestEq(TRUE, Recordexists(vfs->GetPathInfo(basepath||"gf1.txt")));
+  TestEq(FALSE, Recordexists(vfs->GetPathInfo(basepath||"gf2.txt")));
+  vfs->Move(basepath||"gf1.txt", basepath||"gf2.txt", FALSE);
+  TestEq(FALSE, Recordexists(vfs->GetPathInfo(basepath||"gf1.txt")));
+  TestEq(TRUE, Recordexists(vfs->GetPathInfo(basepath||"gf2.txt")));
+  TestEq(StringToBlob("Deze overwite moet lukken"), vfs->GetFile(basepath||"gf2.txt"));
+
+  //Make us a directory!
+  TestEq(FALSE, vfs->IsValidDirectory(basepath||"newdir"));
+  vfs->MakeDir(basepath || "newdir");
+  TestEq(TRUE, vfs->IsValidDirectory(basepath||"newdir"));
+
+  //Delete a directory
+  vfs->DeletePath(basepath||"newdir");
+  TestEq(FALSE, vfs->IsValidDirectory(basepath||"newdir"));
+
+  //Set a modification date on test3.txt
+  vfs->SetMetadata(basepath||"gf2.txt", [ modificationdate := MakeDate(2010,6,15) ]);
+  TestEq(MakeDate(2010,6,15), vfs->GetPathInfo(basepath||"gf2.txt").modificationdate);
+
+  //Delete gf2
+  vfs->DeletePath(basepath||"gf2.txt");
+  entries := vfs->GetDirectoryListing(basepath);
+  TestEq(0, Length(entries));
+}
+
+MACRO PublisherTests(STRING asuser, STRING basedir)
+{
+  OBJECT vfs;
+  RECORD ARRAY entries;
+  OBJECT ex;
+
+  vfs := OpenVirtualFS();
+  testfw->SetTestUser(asuser);
+
+  GenericTests(vfs, "/publisher" || basedir);
+
+  OBJECT firstfolder := OpenWHFSObjectByPath(basedir);
+
+  //Create a file in the testfolder
+  STRING vfsbase := "/publisher" || basedir;
+  vfs->PutFile(vfsbase || "test.txt", StringToBlob("Dit is een test"), FALSE);
+
+  OBJECT testtxt := firstfolder->OpenByName("test.txt");
+  TestEq(TRUE, ObjectExists(testtxt));
+  TestEq(TRUE, testtxt->publish);
+  TestEQ(testfw->GetUserAuthObjectId(asuser), (SELECT AS INTEGER modifiedby FROM system.fs_objects WHERE id = testtxt->id)); //make sure WHFS figured out who we are
+  testfw->BeginWork();
+  DATETIME setlastpublishdate := AddTimeToDate(-1000, GetCurrentDatetime());
+  MarkAsPublished(testtxt->id, FALSE, setlastpublishdate);
+  testfw->CommitWork();
+
+  //Overwrite it. should be allowed
+  DATETIME now := GetCurrentDatetime();
+  vfs->PutFile(vfsbase || "test.txt", StringToBlob("Dit is een 2e test"), TRUE);
+  testtxt := firstfolder->OpenByName("test.txt");
+  TestEq(TRUE, IsBeingPublishedSince(testtxt->id, now));
+  testfw->WaitForPublishCompletion(testtxt->parent);
+  setlastpublishdate := firstfolder->OpenByName("test.txt")->lastpublishdate;
+
+  //Try to create a new file with the same name but without the overwrite flag. Should throw a VirtualFSException
+  now := GetCurrentDatetime();
+  TestThrows(PTR vfs->PutFile(vfsbase || "test.txt", StringToBlob("Dit is een 3e test"), FALSE));
+  testtxt := firstfolder->OpenByName("test.txt");
+  TestEq(FALSE, IsBeingPublishedSince(testtxt->id,now));
+
+  //Verify the complete directory listing for our testfolder
+  entries := vfs->GetDirectoryListing(vfsbase);
+  TestEq(1, Length(entries));
+  testtxt := firstfolder->OpenByName("test.txt");
+  TestEq(testtxt->modificationdate, entries[0].modificationdate);
+  TestEq(testtxt->creationdate, entries[0].creationdate);
+
+  //Set a modification date on test.txt
+  vfs->SetMetadata(vfsbase||"test.txt", [ modificationdate := MakeDate(2010,6,15) ]);
+  TestEq(MakeDate(2010,6,15), firstfolder->OpenByName("test.txt")->modificationdate);
+
+  //Create a folder
+  testfw->BeginWork();
+  OBJECT newfolder := firstfolder->CreateFolder( [ name := "design" ]);
+
+  entries := vfs->GetDirectoryListing(vfsbase);
+  TestEq(2, Length(entries));
+  newfolder->UpdateMetadata([type:=2]);
+
+  entries := vfs->GetDirectoryListing(vfsbase);
+  TestEq(asuser="sysop"? 2 : 1, Length(entries));
+
+  //Pin the directory
+  newfolder->UpdateMetadata([ispinned:=TRUE]);
+  testfw->CommitWork();
+
+  //It should not be moveable
+  TestThrows(PTR vfs->Move(vfsbase || "design", vfsbase || "design2", FALSE));
+  //It should not be deletable
+  TestThrows(PTR vfs->DeletePath(vfsbase || "design"));
+
+  //Unpin the directory
+  testfw->BeginWork();
+  newfolder->UpdateMetadata([ispinned:=FALSE]);
+  testfw->CommitWork();
+
+  //It should be moveable
+  vfs->Move(vfsbase || "design", vfsbase || "design2", FALSE);
+  //It should be deletable
+  vfs->DeletePath(vfsbase || "design2");
+}
+
+MACRO PublisherTestsAsSysop()
+{
+  testfw->SetTestUser("sysop");
+  OBJECT testsite := testfw->GetTestSite();
+
+  PublisherTests("sysop", testsite->rootobject->whfspath);
+
+  testfw->BeginWork();
+  DELETE FROM system.fs_objects WHERE parent = testsite->rootobject->id;
+  testfw->CommitWork();
+}
+
+MACRO PublisherTestsAsMarge()
+{
+  testfw->BeginWork();
+
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT testdir := testsite->rootobject;
+  testfw->GetUserObject("marge")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("marge"), testfw->GetWHFSTestRoot()->id, FALSE, TRUE);
+  testfw->GetUserObject("marge")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("marge"), testdir->id, FALSE, TRUE);
+  testfw->CommitWork();
+
+  PublisherTests("marge", testdir->whfspath);
+
+  /*testfw->BeginWork();
+  testsite->rootobject->DeleteSelf();
+  testfw->CommitWork();*/ //our data is still used by TestMargeThroughWebdav
+}
+
+MACRO DataTests()
+{
+  STRING tempdiskfolder := MergePath(GetTempDir(),GenerateTemporaryPathnameFromBasepath("beta-datafolder-test"));
+  CreateDiskDirectory(tempdiskfolder, FALSE);
+
+  testfw->SetTestUser("sysop");
+  testfw->BeginWork();
+
+  DELETE FROM system.webdav_datafolders WHERE foldername = tempwebdavfolder;
+  INTEGER webdavfolderid := MakeAutonumber(system.webdav_datafolders, "id");
+  INSERT INTO system.webdav_datafolders(id, foldername,diskfolder)
+         VALUES(webdavfolderid, tempwebdavfolder, tempdiskfolder);
+
+  testfw->GetUserObject("homer")->GrantRightToOn("system:webdav_fullaccess", testfw->GetUserObject("homer"), webdavfolderid, FALSE, TRUE);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT vfs := OpenVirtualFS();
+  GenericTests(vfs, webdavtestbase);
+  testfw->RollbackWork();
+}
+
+
+MACRO MacForkLayer()
+{
+  STRING tempdiskfolder := MergePath(GetTempDir(),GenerateTemporaryPathnameFromBasepath("beta-datafolder-test"));
+  CreateDiskDirectory(tempdiskfolder, FALSE);
+
+  testfw->BeginWork();
+
+  DELETE FROM system.webdav_datafolders WHERE foldername = tempwebdavfolder;
+  INTEGER webdavfolderid := MakeAutonumber(system.webdav_datafolders, "id");
+  INSERT INTO system.webdav_datafolders(id, foldername,diskfolder)
+         VALUES(webdavfolderid, tempwebdavfolder, tempdiskfolder);
+
+  testfw->GetUserObject("homer")->GrantRightToOn("system:webdav_fullaccess", testfw->GetUserObject("homer"), webdavfolderid, FALSE, TRUE);
+  testfw->CommitWork();
+
+  OBJECT user := testfw->GetUserObject("homer");
+  OBJECT diverted_vfs := NEW VirtualDiversionFS(user->authobjectid, PTR OpenVirtualFS);
+
+  //Run my specific tests first to prove a differnece between original and diverted
+  diverted_vfs->divertmasks := [ "*divert*" ];
+
+  STRING divertbase := webdavtestbase || "divertbase/";
+  STRING realbase := webdavtestbase || "realbase/";
+
+  //Test the diversion
+  TestThrows(PTR diverted_vfs->GetDirectoryListing(divertbase || "testdir"));
+  TestThrows(PTR diverted_vfs->GetWrappedFS()->GetDirectoryListing(divertbase || "testdir"));
+
+  diverted_vfs->MakeDir(divertbase || "testdir");
+  TestEq(0, Length(diverted_vfs->GetDirectoryListing(divertbase || "testdir")));
+  TestThrows(PTR diverted_vfs->GetWrappedFS()->GetDirectoryListing(divertbase || "testdir"));
+
+  TestThrows(PTR diverted_vfs->GetFile(divertbase || "testfile.txt"));
+  TestThrows(PTR diverted_vfs->GetWrappedFS()->GetFile(divertbase || "testfile.txt"));
+  TestEq(FALSE, RecordExists(diverted_vfs->GetPathInfo(divertbase || "testfile.txt")));
+  diverted_vfs->PutFile(divertbase || "testfile.txt", StringToBlob("Dit is een test"), FALSE);
+  TestEq("Dit is een test", BlobToString(diverted_vfs->GetFile(divertbase || "testfile.txt"),-1));
+  TestEq(TRUE, RecordExists(diverted_vfs->GetPathInfo(divertbase || "testfile.txt")));
+  TestEq(15, diverted_vfs->GetPathInfo(divertbase || "testfile.txt").size);
+  TestThrows(PTR diverted_vfs->GetWrappedFS()->GetFile(divertbase || "testfile.txt"));
+
+  diverted_vfs->DeletePath(divertbase||"testfile.txt");
+  TestEq(FALSE, RecordExists(diverted_vfs->GetPathInfo(divertbase || "testfile.txt")));
+
+
+  //And now run the standard tests
+  diverted_vfs->GetWrappedFS()->MakeDir(divertbase);
+  diverted_vfs->GetWrappedFS()->MakeDir(realbase);
+
+  GenericTests(diverted_vfs, realbase);
+  GenericTests(diverted_vfs->GetWrappedFS(), divertbase);
+  GenericTests(diverted_vfs->GetWrappedFS(), realbase);
+
+  diverted_vfs->GetWrappedFS()->DeletePath(divertbase);
+  diverted_vfs->GetWrappedFS()->DeletePath(realbase);
+}
+
+MACRO TestHomerThroughWebdav()
+{
+  //__webbrowser_debugall := TRUE;
+
+  //We need to use our testing site
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT webdavserver := NEW WebdavConnection(testsite->webroot || "webdav/");
+
+  TestThrowsLike("*401*", PTR webdavserver->ListDirectory("/data/"));
+
+  //Create a webdav account for homer
+  testfw->BeginWork();
+
+  OBJECT homer := testfw->GetUserObject("homer");
+  STRING pwd := homer->CreateAppPassword("system:webdav","Homer's iMac").password;
+  TestEqLike("????-????-????-????", pwd); //this is the format
+  TestEqLike("????????????????", Substitute(pwd,'-',''));
+
+  TestEq(1,Length(homer->ListAppPasswords("")));
+  TestEq(0,Length(homer->ListAppPasswords("system:xx")));
+  RECORD ARRAY passes := homer->ListAppPasswords("system:webdav");
+  TestEq(1,Length(passes));
+  Testeq("system:webdav", passes[0].scope);
+  Testeq("Homer's iMac", passes[0].device);
+
+  testfw->CommitWork();
+
+  STRING username := '  webdav-' || testfw->GetUserLogin("homer") || '     ';
+  webdavserver->webbrowser->SetPassword(testsite->webroot || "webdav/", username, ' ' || pwd || '  ');
+  RECORD ARRAY dirlisting := webdavserver->ListDirectory("/data/");
+  TestEq(207, webdavserver->webbrowser->GetHTTPStatusCode(), 'should have a 207 on the PROPFIND. a 401 means access denied. ' || webdavserver->webbrowser->url || " user=" || username || " pwd=" || pwd);
+  TestEq(1, length(dirlisting), "No directory entries returned by " || webdavserver->webbrowser->url || " user=" || testfw->GetUserLogin("homer") || " pwd=" || pwd); //we should only see the beta folder
+  TestEq(tempwebdavfolder, dirlisting[0].name);
+
+  dirlisting := webdavserver->ListDirectory(webdavtestbase);
+  TestEq(0, length(dirlisting)); //and it should be empty
+}
+
+MACRO TestMargeThroughWebdav()
+{
+//  __webbrowser_debugall := TRUE;
+
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT webdavserver := NEW WebdavConnection(testsite->webroot);
+  OBJECT marge := testfw->GetUserObject("marge");
+
+  // Test with normal password
+  webdavserver->webbrowser->SetPassword(testsite->webroot, testfw->GetUserLogin("marge"), testfw->GetUserPassword("marge"));
+
+  IF(testfw->debug)
+    print("Root: " || testsite->webroot||'\nLogin: '|| testfw->GetUserLogin("marge")||'\nPassword: '|| testfw->GetUserPassword("marge")||'\n');
+
+//FIXME the href returned here is '/', not the full scripturl, test and fix
+  RECORD ARRAY org_passwd_dirlisting := webdavserver->ListDirectory("/");
+
+//ADDME recursive dirlist should request privs
+  TestEq(1, length(org_passwd_dirlisting));
+  TestEq("webdav", org_passwd_dirlisting[0].name);
+
+  // test with app password
+  testfw->BeginWork();
+  STRING pwd := marge->CreateAppPassword("system:webdav","Homer's iMac").password;
+  testfw->CommitWOrk();
+
+  //webdavserver->webbrowser->debug:=TRUE;
+  webdavserver->webbrowser->SetPassword(testsite->webroot, testfw->GetUserLogin("marge"), pwd);
+
+//FIXME the href returned here is '/', not the full scripturl, test and fix
+  RECORD ARRAY dirlisting := webdavserver->ListDirectory("/");
+
+//ADDME recursive dirlist should request privs
+
+  TestEq(1, length(dirlisting));
+  TestEq("webdav", dirlisting[0].name);
+
+
+  dirlisting := webdavserver->ListDirectory("/webdav");
+  TestEq(1, length(dirlisting));
+  TestEq("publisher", dirlisting[0].name);
+
+  dirlisting := webdavserver->ListDirectory("/webdav/");
+  TestEq(1, length(dirlisting));
+  TestEq("publisher", dirlisting[0].name);
+
+  dirlisting := webdavserver->ListDirectory("/webdav/publisher/");
+
+/* ADDME SHOULD WORK TOO, REQUESTING / FROM ROOT
+  RECORD ARRAY fulldirlisting := webdavserver->ListDirectoryRecursive("/");
+  dumpvalue(fulldirlisting,'boxed');
+  */
+
+  TestThrowsLike('*not allowed on this server*', PTR webdavserver->ListDirectoryRecursive("/webdav"), 'full list is no longer accessible');
+
+  STRING subtestpath := "publisher/webhare_testsuite.testfolder/webhare_testsuite.site";
+  BLOB testdata := StringToBlob("Ik ben een testbestandje");
+  webdavserver->Put("/webdav/" || subtestpath || '/test2.txt', testdata, TRUE);
+
+  STRING tryopenpath := Tokenize(subtestpath||"/test2.txt","publisher/")[1];
+  IF(testfw->debug)
+    Print("try open path: " || subtestpath || "\n");
+  OBJECT testtxt := OpenWHFSObjectByPath("/"||tryopenpath);
+  TestEq(TRUE, ObjectExists(testtxt));
+  TestEq(TRUE, testtxt->publish);
+  TestEQ(testfw->GetUserAuthObjectId("marge"), (SELECT AS INTEGER modifiedby FROM system.fs_objects WHERE id = testtxt->id)); //make sure WHFS figured out who we are
+
+  dirlisting := webdavserver->ListDirectory("/webdav/" ||subtestpath);
+  TestEq(TRUE, RecordExists(SELECT FROM dirlisting WHERE name='test.txt'));
+  TestEq(TRUE, RecordExists(SELECT FROM dirlisting WHERE name='test2.txt'));
+  TestEq(TRUE, RecordExists(SELECT FROM dirlisting WHERE name='test2.txt' AND iscollection = FALSE));
+  TestEq(TRUE, RecordExists(SELECT FROM dirlisting WHERE name='test2.txt' AND size = Length(testdata)));
+  DATETIME test2_modified := SELECT AS DATETIME modified FROM dirlisting WHERE name='test2.txt';
+  TestEq(TRUE, test2_modified <= GetCurrentDatetime());
+  TestEq(TRUE, test2_modified >= AddTimeToDate(-10000,GetCurrentDatetime()));
+
+  //manual tests of modificationdates and if-modified-since
+  STRING test2_url := testsite->webroot || "webdav/" || subtestpath || "/test2.txt";
+  TestEq(TRUE, webdavserver->webbrowser->GotoWebPage(test2_url));
+  TestEq(test2_modified, MakeDateFromText(webdavserver->webbrowser->GetResponseHeader("Last-Modified")));
+
+  webdavserver->SetModified("/webdav/" || subtestpath || '/test2.txt', MakeDateTime(2010,1,2,3,4,5));
+  dirlisting := webdavserver->ListDirectory("/webdav/" ||subtestpath);
+  TestEq(TRUE, RecordExists(SELECT FROM dirlisting WHERE name='test2.txt' AND modified = MakeDateTime(2010,1,2,3,4,5)));
+
+  TestEq(TRUE, webdavserver->webbrowser->GotoWebPage(test2_url));
+  TestEq(MakeDateTime(2010,1,2,3,4,5), MakeDateFromText(webdavserver->webbrowser->GetResponseHeader("Last-Modified")));
+
+  TestEq(TRUE, webdavserver->webbrowser->SendRawRequest("GET", test2_url, [[ field := "If-Modified-Since", value := FormatHttpDateTime(MakeDateTime(2010,1,2,3,4,4)) ]], DEFAULT BLOB));
+  TestEq(200, webdavserver->webbrowser->GetHTTPStatusCode());
+  TestEq(Length(testdata), Length(webdavserver->webbrowser->content));
+  TestEq(FALSE, webdavserver->webbrowser->SendRawRequest("GET", test2_url, [[ field := "If-Modified-Since", value := FormatHttpDateTime(MakeDateTime(2010,1,2,3,4,5)) ]], DEFAULT BLOB));
+  TestEq(304, webdavserver->webbrowser->GetHTTPStatusCode());
+  TestEq(0, Length(webdavserver->webbrowser->content));
+  TestEq(FALSE, webdavserver->webbrowser->SendRawRequest("GET", test2_url, [[ field := "If-Modified-Since", value := FormatHttpDateTime(MakeDateTime(2010,1,2,3,4,6)) ]], DEFAULT BLOB));
+  TestEq(304, webdavserver->webbrowser->GetHTTPStatusCode());
+  TestEq(0, Length(webdavserver->webbrowser->content));
+
+
+
+  webdavserver->DeleteResource("/webdav/" || subtestpath || '/test.txt');
+  dirlisting := webdavserver->ListDirectory("/webdav/" ||subtestpath);
+  TestEq(FALSE, RecordExists(SELECT FROM dirlisting WHERE name='test.txt'));
+}
+
+
+Runtestframework( [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := FALSE, withcontent := FALSE ])
+                  , PTR BaseTest
+                  , PTR DiskfolderReadonlyMaskTest
+                  , PTR DataTests
+                  , PTR MacForkLayer
+                  , PTR PublisherTestsAsSysop
+                  , PTR PublisherTestsAsMarge
+                  , PTR TestHomerThroughWebdav
+                  , PTR TestMargeThroughWebdav
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ,[ login := "homer"]
+                                    ,[ login := "marge"]
+                                    ]
+                     ]
+                  );

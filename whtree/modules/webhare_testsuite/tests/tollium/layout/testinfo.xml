@@ -1,0 +1,17 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="testautosuggest.whscr"/>
+  <jstest file="testautosuggest.es"/>
+  <jstest file="testsplits.es"/>
+  <jstest file="testbox.es"/>
+  <jstest file="testform.es"/>
+  <jstest file="testgrid.es"/>
+  <jstest file="testmargins.es"/>
+  <jstest file="testboxesingrid.es"/>
+  <jstest file="testwizard.es"/>
+  <jstest file="testtabs.es"/>
+  <jstest file="testtable.es"/>
+  <jstest file="testtable2.es"/>
+  <jstest file="testcalendar.es"/>
+  <jstest file="testtabsspace.es"/>
+  <jstest file="testvscroll.es"/>
+</group>

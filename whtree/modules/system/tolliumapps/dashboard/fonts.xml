@@ -1,0 +1,39 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="fonts.whlib"
+         gid="tolliumapps.dashboard.fonts">
+
+  <screen name="installedfonts" allowresize="true" savestate="size">
+    <actions>
+      <action name="inspect" tid="~inspect" onexecute="DoInspect">
+        <enableon source="fonts" min="1" max="1" />
+      </action>
+    </actions>
+    <body height="1pr">
+      <panel height="1pr">
+        <list name="fonts"
+              height="1pr"
+              icons="tollium:status/checked"
+              borders="top right bottom"
+              selectmode="single"
+              openaction="inspect">
+          <column type="text" name="family" width="2pr" sortkeyname="familystyle" />
+          <column type="text" name="style" width="1pr" />
+          <column type="icon" name="isboldicon" width="8x" align="center" />
+          <column type="icon" name="isitalicicon" width="8x" align="center" />
+          <column type="icon" name="istruetypeicon" width="8x" align="center" />
+          <column type="text" name="filename" width="2pr" />
+        </list>
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="fontinfo" allowresize="true" height="10gr" width="60x">
+    <body>
+      <textarea enabled="false" name="css" minwidth="30x" minheight="5x" width="1pr" height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+</screens>

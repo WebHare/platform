@@ -1,0 +1,829 @@
+<?wh
+/** @short Payments
+    @topic payments/payments
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::money.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/support.whlib" EXPORT WRDPaymentHandlerBase;
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/psps.whlib";
+
+BOOLEAN FUNCTION IsAStartedPayment(RECORD payment)
+{
+  RETURN RecordExists(payment) AND NOT (payment.status = "pending" AND payment.paymentref = "" AND payment.amountpayable = 0);
+}
+
+STRING FUNCTION ConstructMethodTag(RECORD paymentprovider, STRING paymentoptiontag)
+{
+  RETURN ToUppercase( (paymentprovider.tag ?? "__" || Substring(paymentprovider.guid,4)) || (paymentoptiontag != "" ? "__" || paymentoptiontag : ""));
+}
+
+/** @public
+*/
+STATIC OBJECTTYPE PaymentAPI
+<
+  OBJECT pvt_providertype;
+  RECORD pvt_providerattr;
+  OBJECT pvt_paymenttype;
+  RECORD pvt_paymentattr;
+  STRING paymenthandler;
+  INTEGER firstchecktime;
+
+  PUBLIC PROPERTY wrdschema(this->pvt_providertype->wrdschema, -);
+  PUBLIC PROPERTY providertype(pvt_providertype, -);
+  PUBLIC PROPERTY providerattribute(this->pvt_providerattr.tag, -);
+  PUBLIC PROPERTY providerattributeid(this->pvt_providerattr.id, -);
+  PUBLIC PROPERTY paymenttype(pvt_paymenttype, -);
+  PUBLIC PROPERTY paymentattribute(this->pvt_paymentattr.tag, -);
+  PUBLIC PROPERTY paymentattributeid(this->pvt_paymentattr.id, -);
+
+  MACRO NEW(OBJECT wrdschema, RECORD options)
+  {
+    options := ValidateOptions([ providerfield := ""
+                               , providertypeid := 0
+                               , paymentfield := ""
+                               , paymenttypeid := 0
+                               , paymenthandler := ""
+                               , firstchecktime := 60000 //when to do the first check
+                               ], options, [ required := [ "providerfield" ] ]);
+
+    STRING attrname;
+    this->paymenthandler := options.paymenthandler;
+    this->firstchecktime := options.firstchecktime;
+
+    IF(options.providertypeid = 0)
+    {
+      IF(options.providerfield LIKE "*.*.*" OR options.providerfield NOT LIKE "?*.?*")
+        THROW NEW Exception(`Invalid provider field '${options.providerfield}'`);
+
+      STRING ARRAY toks := Tokenize(options.providerfield, '.');
+
+      this->pvt_providertype := wrdschema->GetType(toks[0]);
+      attrname := toks[1];
+    }
+    ELSE
+    {
+      IF(options.providerfield LIKE "*.*" OR options.providerfield NOT LIKE "?*")
+        THROW NEW Exception(`Invalid provider field '${options.providerfield}'`);
+
+      this->pvt_providertype := wrdschema->GetTypeById(options.providertypeid);
+      attrname := options.providerfield;
+    }
+
+    IF(ObjectExists(this->pvt_providertype))
+      this->pvt_providerattr := this->pvt_providertype->GetAttribute(attrname);
+
+    IF(NOT RecordExists(this->pvt_providerattr) OR this->pvt_providerattr.attributetypename != "PAYMENTPROVIDER")
+      THROW NEW Exception(`Invalid provider attribute '${options.providerfield}'`);
+
+    IF(options.paymenttypeid != 0)
+    {
+      IF(options.paymentfield LIKE "*.*" OR options.paymentfield NOT LIKE "?*")
+        THROW NEW Exception(`Invalid payment field '${options.paymentfield}'`);
+
+      this->pvt_paymenttype := wrdschema->GetTypeById(options.paymenttypeid);
+      IF(NOT ObjectExists(this->pvt_paymenttype))
+        THROW NEW Exception(`No such payment type #${options.paymenttypeid}`);
+
+      attrname := options.paymentfield;
+    }
+    ELSE IF(options.paymentfield != "")
+    {
+      IF(options.paymentfield LIKE "*.*.*" OR options.paymentfield NOT LIKE "?*.?*")
+        THROW NEW Exception(`Invalid payment field '${options.paymentfield}'`);
+
+      STRING ARRAY toks := Tokenize(options.paymentfield, '.');
+
+      this->pvt_paymenttype := wrdschema->GetType(toks[0]);
+      IF(NOT ObjectExists(this->pvt_paymenttype))
+        THROW NEW Exception(`No such payment type '${toks[0]}'`);
+      attrname := toks[1];
+    }
+
+    IF(ObjectExists(this->pvt_paymenttype))
+    {
+      this->pvt_paymentattr := this->pvt_paymenttype->GetAttribute(attrname);
+      IF(NOT RecordExists(this->pvt_paymentattr) OR this->pvt_paymentattr.attributetypename != "PAYMENT")
+        THROW NEW Exception(`Invalid payment attribute '${options.paymentfield}'`);
+    }
+  }
+
+  PUBLIC OBJECT FUNCTION __InstantiatePSP(INTEGER paymentprovider)
+  {
+    IF(paymentprovider = 0)
+      RETURN OpenPSPHandler(GetAvailablePSPs()[0].tag, DEFAULT RECORD);
+
+    RECORD paymententity := this->pvt_providertype->GetEntityFields(paymentprovider, [STRING(this->providerattribute)]);
+    IF(NOT RecordExists(paymententity))
+      THROW NEW Exception(`No such payment provider #${paymentprovider}`);
+
+    //FIXME condiser passing payment info through creation, so a PSP can never existing without payment, and we can start eliminating edge cases
+    RECORD paymentinfo := GetCell(paymententity, this->providerattribute).__paymentprovider;
+    OBJECT psp := OpenPSPHandler(paymentinfo.type, paymentinfo.meta);
+    RETURN psp;
+  }
+
+  PUBLIC STRING FUNCTION AllocateOrderNumber()
+  {
+    RETURN GetWRDSequenceNext(this->pvt_providertype->wrdschema->id, "wrd:payments.paymentrefstate",
+                              [ mutex := "wrd:source_ordernr_alloc"
+                              , nrformat := this->GetConfig().ordernrformat
+                              ]);
+  }
+
+  RECORD FUNCTION FixupPaymentMethod(RECORD paymentmethod)
+  {
+    IF(TypeID(paymentmethod.paymentprovider) = TypeID(STRING))
+    {
+      INTEGER payprovid := this->providertype->Search("WRD_GUID", paymentmethod.paymentprovider);
+      IF(payprovid = 0)
+        THROW NEW Exception(`Unable to resolve payment provider '${paymentmethod.paymentprovider}'`);
+
+      paymentmethod := CELL[...paymentmethod, paymentprovider := payprovid ];
+    }
+    IF(paymentmethod.paymentmethodtag != "")
+    {
+      IF(paymentmethod.paymentprovider != 0 OR paymentmethod.paymentoptiontag != "")
+        THROW NEW Exception(`Should specify either a paymentmethodtag or paymentprovider+paymentoptiontag, but not both!`);
+
+      RECORD chosenprov := SELECT * FROM this->ListAllPaymentOptions() WHERE paymentmethodtag = paymentmethod.paymentmethodtag;
+      IF(NOT RecordExists(chosenprov))
+        THROW NEW Exception(`Unable to resolve payment method '${paymentmethod.paymentmethodtag}'`);
+
+      paymentmethod := CELL[...paymentmethod, paymentprovider := chosenprov.paymentprovider, paymentoptiontag := chosenprov.paymentoptiontag ];
+    }
+
+    RETURN paymentmethod;
+  }
+
+  /** Describe a payment method */
+  PUBLIC RECORD FUNCTION DescribePaymentMethod(RECORD paymentmethod)
+  {
+    paymentmethod := ValidateOptions([ paymentprovider := 0
+                                     , paymentoptiontag := ""
+                                     , paymentmethodtag := ""
+                                     , issuer := ""
+                                     ], paymentmethod, [ notypecheck := ["paymentprovider" ], title := "paymentmethod" ]);
+    paymentmethod := this->FixupPaymentMethod(paymentmethod);
+
+    OBJECT psp := this->__InstantiatePSP(paymentmethod.paymentprovider);
+    RETURN [ psptype := psp->psptype
+           ];
+  }
+
+  /** Create a value that can be stored in a PAYMENT value to store the method used to pay, but without actually setting up the PSP
+      @param paymentdata Payment data
+      @cell(string) paymentdata.paymentoptiontag Tag of the payment option
+      @cell paymentdata.paymentprovider Id or GUID of the payment provider
+      @cell(string) paymentdata.paymentmethodtag Payment method tag (if set, don't set paymentprovider or paymentoptiontag)
+      @cell(string) paymentdata.issuer Issuer
+      @cell(boolean) paymentdata.isexternal Ignored
+      @return Payment method record
+  */
+  PUBLIC RECORD FUNCTION MakePaymentMethod(RECORD paymentdata)
+  {
+    IF(NOT RecordExists(paymentdata))
+      RETURN DEFAULT RECORD;
+    paymentdata := ValidateOptions(CELL[ paymentoptiontag := ""
+                                       , paymentprovider := 0
+                                       , paymentmethodtag := ""
+                                       , issuer := ""
+                                       , isexternal := FALSE
+                                       ], paymentdata, [ notypecheck := ["paymentprovider" ], title := "paymentdata" ]);
+    paymentdata := this->FixupPaymentMethod(paymentdata);
+
+    RECORD __paymentdata := [ a := 0m
+                            , m := paymentdata.issuer != "" ? [ issuer := paymentdata.issuer ] : DEFAULT RECORD
+                            , s := "pending"
+                            , o := paymentdata.paymentoptiontag
+                            , p := ""
+                            , d := DEFAULT DATETIME
+                            , h := ""
+                            , provider := paymentdata.paymentprovider
+                            ];
+    RETURN CreatePaymentRecord([__paymentdata]);
+  }
+
+  MACRO LogPaymentEvent(INTEGER entityid, STRING type, RECORD extradata)
+  {
+    LogAuditEvent("wrd:payments", CELL[ entity := entityid
+                                      , type
+                                      , wrdschema := this->wrdschema->tag
+                                      , paymenttype := this->pvt_paymenttype->tag
+                                      , paymentattribute := this->pvt_paymentattr
+                                      , entityid
+                                      , ...extradata
+                                      ]);
+  }
+
+  /** Reset a payment. Resetting should be avoided as you lose tracking information for the previous payment.
+      Instead, keep separate entities (eg attachments) for every payment action */
+  PUBLIC MACRO ResetPayment(INTEGER entityid)
+  {
+    //FIXME remove this function. resetting is no longer needed since 4.20
+  }
+
+  /** Start a payment
+      @long Initiates the payment with the remote PSP. The payment must already
+            be committed to the database and be in the 'pending' status. The PSP
+            may do some final checks and stil return 'errors' - if so, the payment
+            itself remains in pending status and no payment(reference) is recorded
+            (but the next payment WILL have a different paymentreference)
+      @param entityid Entity in which to record payment. This entity must be of the paymenttype. If 0, this is a precheck, not an actual payment attempt
+      @param amount Amount to request
+      @param paymentdata Payment metadata
+      @cell(integer) paymentdata.paymentprovider Id of a payment provider
+      @cell(string) paymentdata.paymentoptiontag Optional tag for payment provider (to select payment option)
+      @cell(string) paymentdata.paymentmethodtag Method tag (combines provider + optional tag). Specify either this tag or both provider + optiontag
+      @cell(boolean) paymentdata.isexternal Request the external provider (for safety reasons setting paymentprovider=0 is not sufficient)
+      @cell(boolean) paymentdata.forceapproved Force the transaction to be approved immediately, to allow us to 'shortcircuit' transaction flows
+      @cell(string) paymentdata.language Customer language code
+      @cell(object) paymentdata.wrdpersonentity WRD_PERSON entity describing the customer
+      @return Payment instruction
+      @cell(boolean) return.complete If true, the payment has already reached a final status
+      @cell(record) return.submitinstruction If set, submitinstruction to send to the client to complete payment
+      @cell(record array) return.errors If set, errors returned by the PSP which aborted this payment.
+      @cell(string) return.errors.field Affected field, if known. Eg WRD_LASTNAME
+      @cell(string) return.errors.error Message to show to user, translated into the current language, if any
+      @cell(string) return.errors.description Internal description of the error
+  */
+  PUBLIC RECORD FUNCTION StartPayment(INTEGER entityid, MONEY amount, RECORD paymentdata DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(GetPrimary()->IsWorkOpen())
+    {
+      // 1) API users may get confused about the requirement to actually commit their entity before invoking us
+      // 2) preflighting may invoke external APIs and that should never be done with open work
+      THROW NEW Exception(`You may not have open work when invoking StartPayment`);
+    }
+
+    amount := amount / 1000 * 1000; //round to two digits, rounding down (by default)
+    paymentdata := ValidateOptions(CELL[ ...paymentbaseoptions
+                                       , paymentmethodtag := ""
+                                       , paymentprovider := 0
+                                       , paymentref := ""
+                                       , isexternal := FALSE
+                                       , paymenthandler := this->paymenthandler
+                                       , returnurl := ""
+                                       , setstatus := "pending"
+                                       ], paymentdata, [ passthrough := TRUE, notypecheck := ["paymentprovider" ], title := "paymentdata" ]);
+
+    IF(paymentdata.setstatus NOT IN validstatusses)
+      THROW NEW Exception(`Invalid initial payment status '${paymentdata.setstatus}'`);
+
+    IF(paymentdata.returnurl != "" AND NOT IsValidPlainHTTPURL(paymentdata.returnurl)) //returnurl is the only method for now.. the url to which we will return after handling the payment
+      THROW NEW Exception(`No absolute returnurl specified, got: ${paymentdata.returnurl}`);
+
+    // FIXME do some paymentproviders permit negative amounts? you probably still should explicitly optin to process negative paymetns
+    IF(paymentdata.isexternal = FALSE AND (amount <= 0 OR amount > 999999999))
+      THROW NEW Exception(`Invalid transaction amount ${FormatMoney(amount,0,'.','',FALSE)}`);
+
+    paymentdata := this->FixupPaymentMethod(paymentdata);
+    OBJECT psp;
+    IF(paymentdata.isexternal AND paymentdata.paymentprovider != 0)
+        THROW NEW Exception(`Cannot select external handling if a payment provider is selected`);
+    IF(NOT paymentdata.isexternal AND paymentdata.paymentprovider = 0)
+        THROW NEW Exception(`No paymentprovider requested`);
+
+    psp := this->__InstantiatePSP(paymentdata.paymentprovider);
+
+    RECORD transoptions := CELL[...paymentdata, DELETE paymentprovider, DELETE paymentref, DELETE isexternal, DELETE returnurl, DELETE setstatus, DELETE paymentmethodtag ];
+    RECORD precheckresult := psp->CheckPaymentRequest(amount, transoptions);
+    IF(Length(precheckresult.errors) > 0)
+    {
+      RECORD retval := [ submitinstruction := DEFAULT RECORD
+                       , errors := (SELECT field := ToUppercase(field), error, description FROM precheckresult.errors)
+                       , complete := FALSE
+                       , processnow := FALSE
+                       ];
+      RETURN retval;
+    }
+    psp->pvt_paymentref := paymentdata.paymentref;
+
+    RECORD ARRAY paymentoptions := psp->GetPaymentOptions();
+    IF(Length(paymentoptions) = 0)
+      THROW NEW Exception(`Payment GetPaymentOptions '${psp->psptype}' is not offering any payment options`);
+
+    RECORD paymentoption := SELECT * FROM paymentoptions WHERE paymentoptiontag = paymentdata.paymentoptiontag;
+    IF(NOT RecordExists(paymentoption))
+      THROW NEW Exception(`Invalid payment option '${paymentdata.paymentoptiontag}'`);
+
+    STRING issuer := CellExists(paymentdata,'issuer') ? paymentdata.issuer : '';
+    IF(issuer != "")
+    {
+      IF(Length(paymentoption.issuers) = 0)
+        THROW NEW Exception(`The selected payment option '${paymentoption.paymentoptiontag}' does not want an issuer`);
+      IF(NOT RecordExists(SELECT FROM paymentoption.issuers WHERE rowkey = issuer))
+        THROW NEW Exception(`No such issuer '${issuer}'`);
+    }
+
+    IF(entityid = 0)
+    { //precheck succesful!
+      RETURN [ submitinstruction := DEFAULT RECORD
+             , errors := RECORD[]
+             , complete := FALSE
+             , processnow := FALSE
+             ];
+    }
+
+    psp->__paymentapi_mydata := [ paymentprovider := paymentdata.paymentprovider
+                                ];
+
+    //Setting up a new payment
+    psp->__SetupNewTransaction(amount, transoptions);
+
+    RETURN RunInSeparatePrimary(PTR this->DoStartPayment(entityid, psp, paymentdata));
+  }
+
+  RECORD FUNCTION DoStartPayment(INTEGER entity, OBJECT psp, RECORD options)
+  {
+    RECORD entityinfo := DescribeWRDEntity(entity);
+    IF(NOT RecordExists(entityinfo))
+      THROW NEW Exception(`Entity #${entity} no longer exists`);
+    IF(entityinfo.wrdtype != this->pvt_paymenttype->id)
+      THROW NEW Exception(`Entity #${entity} is of type #${entityinfo.wrdtype} (${entityinfo.wrdtypetag}) but we expect an entity of type #${this->pvt_paymenttype->id} (${this->pvt_paymenttype->tag})`);
+
+    OBJECT entitytype := this->pvt_providertype->wrdschema->GetTypeById(entityinfo.wrdtype);
+    OBJECT paymententity := entitytype->GetEntity(entity);
+    OBJECT handler;
+    IF(options.paymenthandler != "")
+      handler := InstantiatePaymentHandler(paymententity, options.paymenthandler);
+
+    IF(psp->needspaymentref AND psp->pvt_paymentref="")
+      psp->pvt_paymentref := this->AllocateOrderNumber();
+
+    GetPrimary()->BeginLockedWork("wrd:payments.payment:" || entity);
+    TRY
+    {
+      //Prevent launching a payment if it's already completed
+      RECORD currentpayment := paymententity->GetField(this->pvt_paymentattr.tag);
+      IF(IsAStartedPayment(currentpayment) AND currentpayment.status = "approved")
+        THROW NEW Exception(`An earlier payment process has already been completed for entity #${entity}`);
+      IF(IsAStartedPayment(currentpayment) AND currentpayment.amountpayable != psp->amountpayable)
+        THROW NEW Exception(`Cannot change payment amount if an earlier payment has already started for entity #${entity}`);
+
+      //Inform your custom handlers a transaction will be starting. Gives a chance to inform external processes
+      RECORD newpayment := psp->MakePaymentValue();
+      IF(NOT IsAStartedPayment(currentpayment) AND ObjectExists(handler))
+        handler->OnPaymentStarted(newpayment);
+
+      IF(options.setstatus != "pending") //immediately update!
+      {
+        psp->SetStatus(options.setstatus, options.paymentref);
+        newpayment := psp->MakePaymentValue();
+      }
+
+      //Commit to database, so finalized handlers can safely modify the value
+      IF(IsAStartedPayment(currentpayment))
+      {
+        currentpayment.payments := currentpayment.payments CONCAT newpayment.payments;
+      }
+      ELSE
+      {
+        currentpayment := newpayment;
+      }
+
+      RECORD upd := CellInsert(DEFAULT RECORD, this->pvt_paymentattr.tag, currentpayment);
+      paymententity->UpdateEntity(upd);
+      currentpayment := paymententity->GetField(this->pvt_paymentattr.tag); //refresh the calculated values
+
+      //Avoid logging personal metadata, auditlogs may persist for a long time
+      this->LogPaymentEvent(entity, "startpayment", CELL[ currentpayment.paymentref
+                                                        , currentpayment.amountpaid
+                                                        , currentpayment.amountpayable
+                                                        , paymentuuid := psp->paymentuuid
+                                                        ]);
+
+      RECORD retval := [ submitinstruction := DEFAULT RECORD
+                       , errors := RECORD[]
+                       , complete := FALSE
+                       , processnow := FALSE
+                       ];
+
+      INTEGER paymentid;
+      IF(psp->interactiontype = "external" OR psp->status != "pending")
+      {
+        IF(psp->status != "pending") //already completed (explicitly set)
+          handler->OnPaymentFinalized(currentpayment);
+        GetPrimary()->CommitWork();
+
+        IF(options.returnurl != "")
+          retval.submitinstruction := [ type := "redirect" , url := options.returnurl ];
+      }
+      ELSE
+      {
+        //we're going to communicate with a PSP. store in pendingpayments so we can deal with asynchronous confirms and expiry
+        paymentid := MakeAutonumber(wrd.pendingpayments,"id");
+        INSERT INTO wrd.pendingpayments(id, uuid, creationdate, nextcheck, returnurl, paymentattr, providerattr, paymententity)
+               VALUES(paymentid, psp->paymentuuid, GetCurrentDatetime(), AddTimeToDate(this->firstchecktime, GetCurrentDatetime()), options.returnurl, this->pvt_paymentattr.id, this->pvt_providerattr.id, entity);
+
+        GetPrimary()->CommitWork(); //The psp functions may cause external communication, so we need to save our state before talking to them
+
+        retval := CELL[ ...retval, ...psp->RunPaymentRequest(psp->paymentuuid) ];
+        IF(retval.processnow)
+        {
+          GetPrimary()->BeginLockedWork("wrd:payments.payment:" || paymententity->id);
+          ProcessCompletedPayment(options.paymenthandler, this->paymentattribute, psp, paymententity, FALSE);
+          GetPrimary()->CommitWork();
+
+          retval.submitinstruction := [ type := "redirect", url := GetInternalReturnURL(psp->paymentuuid) ];
+        }
+      }
+
+      retval := CELL[ ...retval, DELETE processnow ]; //delete internal-use cell
+
+      this->LogPaymentEvent(entity, "startpaymentresult", CELL[ paymentuuid := psp->paymentuuid, ...retval ]);
+
+      IF(Length(retval.errors) > 0)
+      {
+        retval.errors := SELECT field := ToUppercase(field), error, description FROM retval.errors;
+        retval.submitinstruction := DEFAULT RECORD; //reset submitinstruction to ensure no callers get confused
+
+        //Back out the payment in the database (but we can't un-spend the paymentreference, so we'll have holes. use the auditlogs to check them if needed)
+        GetPrimary()->BeginLockedWork("wrd:payments.payment:" || entity);
+        DELETE FROM wrd.pendingpayments WHERE id = paymentid;
+
+        //remove payment attempt
+        RECORD paymentvalue := paymententity->GetField(this->pvt_paymentattr.tag); //refresh the calculated values
+        DELETE FROM paymentvalue.payments WHERE __paymentdata.u = psp->paymentuuid;
+        paymententity->UpdateEntity(CellInsert(CELL[], this->pvt_paymentattr.tag, paymentvalue));
+
+        GetPrimary()->CommitWork();
+      }
+
+      retval.complete := NOT RecordExists(retval.submitinstruction) AND Length(retval.errors) = 0;
+      RETURN retval;
+    }
+    FINALLY
+    { //ensure work is closed
+      IF(GetPrimary()->IsWorkOpen())
+        GetPrimary()->RollbackWork();
+    }
+  }
+
+  PUBLIC RECORD FUNCTION GetPaymentData(INTEGER entityid)
+  {
+    IF(NOT ObjectExists(this->paymenttype))
+      THROW NEW Exception("No payment type configured");
+
+    RETURN this->paymenttype->GetEntityField(entityid, this->pvt_paymentattr.tag);
+  }
+
+  PUBLIC MACRO SetPaymentStatus(INTEGER entityid, STRING newstatus, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT ObjectExists(this->paymenttype))
+      THROW NEW Exception("No payment type configured");
+
+    options := ValidateOptions([ paymentref := ""
+                               , forcestatus := FALSE
+                               , iscancel := FALSE
+                               ], options);
+
+    IF(GetPrimary()->IsWorkOpen())
+      THROW NEW Exception("Cannot be invoked with open work");
+
+    GetPrimary()->BeginLockedWork("wrd:payments.payment:" || entityid);
+    TRY
+    {
+      RECORD paymentdata := this->GetPaymentData(entityid);
+      OBJECT paymentobject := this->__OpenPSP(paymentdata, DEFAULT DATETIME, "");
+      STRING currentstatus := paymentdata.status;
+      IF(currentstatus != "pending" AND NOT options.forcestatus)
+        THROW NEW Exception("Payment must still be pending to be cancellable");
+
+      IF(options.iscancel)
+        paymentobject->CancelPayment(); //FIXME note explicit cancellation in the object
+      ELSE
+        paymentobject->SetStatus(newstatus, options.paymentref);
+
+      ProcessCompletedPayment(paymentobject->paymenthandler, this->pvt_paymentattr.tag, paymentobject, this->paymenttype->GetEntity(entityid), TRUE);
+      GetPrimary()->CommitWork();
+    }
+    CATCH(OBJECT e)
+    {
+      GetPrimary()->RollbackWork();
+      THROW;
+    }
+  }
+
+  PUBLIC MACRO CancelPendingPayment(INTEGER entityid)
+  {
+    this->SetPaymentStatus(entityid, "failed", [ iscancel := TRUE ]);
+  }
+
+  PUBLIC RECORD FUNCTION ForceRecheckPayment(INTEGER entityid)
+  {
+    IF(NOT ObjectExists(this->paymenttype))
+      THROW NEW Exception("No payment type configured");
+
+    IF(GetPrimary()->IsWorkOpen())
+      THROW NEW Exception("Cannot be invoked with open work");
+
+    RECORD paymentdata := this->GetPaymentData(entityid);
+    STRING currentstatus := paymentdata.status;
+
+    OBJECT paymentobject := this->__OpenPSP(paymentdata, DEFAULT DATETIME, "");
+    paymentobject->RecheckPayment();
+    IF(paymentobject->status != currentstatus)
+    {
+      TRY
+      {
+        GetPrimary()->BeginLockedWork("wrd:payments.payment:" || entityid);
+        ProcessCompletedPayment(paymentobject->paymenthandler, this->pvt_paymentattr.tag, paymentobject, this->paymenttype->GetEntity(entityid), TRUE);
+        GetPrimary()->CommitWork();
+      }
+      CATCH(OBJECT e)
+      {
+        GetPrimary()->RollbackWork();
+      }
+    }
+
+    RETURN [ statechange := paymentobject->status != currentstatus
+           , oldstatus := currentstatus
+           , newstatus := paymentobject->status
+           ];
+  }
+
+  PUBLIC OBJECT FUNCTION __OpenPSP(RECORD pd, DATETIME creationdate, STRING openuuid)
+  {
+    OBJECT psp := this->__InstantiatePSP(pd.paymentprovider);
+    RECORD exactpayment;
+    IF(openuuid != "")
+    {
+      exactpayment := SELECT * FROM pd.payments WHERE __paymentdata.u = openuuid;
+      IF(NOT RecordExists(exactpayment))
+        THROW NEW Exception(`Payment '${openuuid}' not found`);
+    }
+    ELSE
+    {
+      exactpayment := pd.__bestpayment;
+    }
+
+    //Setting up an existing transaction
+    psp->__paymentapi_mydata := [ paymentprovider := pd.paymentprovider
+                                ];
+
+    RECORD data := CELL[...pd, creationdate, __paymentdata := RecordExists(exactpayment) ? exactpayment.__paymentdata : DEFAULT RECORD];
+    psp->__SetupExistingTransaction(data);
+    RETURN psp;
+  }
+
+  /** Returns the list of payment providers
+      @cell(record) options.extrafields Extra fields to return
+      @cell(boolean) options.externalonly If TRUE, return only payment providers of type 'wrd:external'
+      @cell(string) options.withhistoric if TRUE, also return deleted payment providers
+      @return List of payment providers
+      @cell return.id Id of the provider
+      @cell return.guid GUID of the provider
+      @cell return.tag Tag of the provider
+      @cell return.ordering Relative ordering of this provider
+      @cell return.creationdate Creationdate of this provider
+      @cell return.extra Extra selected fields
+      @cell return.provider Provider attribute
+  */
+  RECORD ARRAY FUNCTION GetAllPaymentProviders(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ extrafields := DEFAULT RECORD
+                               , externalonly := FALSE
+                               , withhistoric := FALSE
+                               , filters := RECORD[]
+                               ], options);
+
+    RECORD ARRAY providers :=
+          SELECT * FROM this->pvt_providertype->RunQuery(
+                            [ outputcolumns := [ id := "WRD_ID"
+                                               , guid := "WRD_GUID"
+                                               , tag := "WRD_TAG"
+                                               , ordering := "WRD_ORDERING"
+                                               , creationdate := "WRD_CREATIONDATE"
+                                               , extra := options.extrafields
+                                               , provider := this->providerattribute
+                                               ]
+                            , historymode := options.withhistoric ? "all" : "now"
+                            , filters := options.filters
+                            ])
+                    ORDER BY ordering, id;
+
+    IF(options.externalonly)
+      providers := SELECT * FROM providers WHERE RecordExists(provider.__paymentprovider) AND provider.__paymentprovider.type="wrd:external";
+
+    RETURN SELECT *, DELETE provider FROM providers;
+  }
+
+  /** @param options @includecelldef #GetAllPaymentProviders.options
+      @return List of payment options @includecelldef #ListPaymentOptions.return
+      @cell(integer) return.paymentprovider Id of the payment provider
+      @cell(string) return.paymentproviderguid GUID of the payment provider
+      @cell(record) return.extra Extra selected fields
+      @cell(string) return.paymentmethodtag Tag of the payment method option
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListAllPaymentOptions(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    //GetAllPaymentProviders validates our options
+
+    RECORD ARRAY alloptions;
+    FOREVERY(RECORD opt FROM this->GetAllPaymentProviders(options))
+    {
+      alloptions := alloptions CONCAT SELECT *
+                                           , paymentprovider := opt.id
+                                           , paymentproviderguid := opt.guid
+                                           , extra := opt.extra
+                                           , paymentmethodtag := ConstructMethodTag(opt, paymentoptiontag)
+                                        FROM this->ListPaymentOptions(opt.id);
+    }
+    RETURN alloptions;
+  }
+
+  /** Lists the payment options for a specific payment provider
+      @param paymentprovider Id of the payment provider
+      @return List of payment options
+      @cell(string) return.title payment method title (eg iDEAL)
+      @cell(string) return.paymentoptiontag key to use when selecting this payment method
+      @cell(record array) return.issuers List of issuers
+      @cell(string) return.issuers.rowkey key to use for 'issuer' when prepareing the payment
+      @cell(string) return.issuers.title title for this issuer (eg ABN Amro bank)
+      @cell(string) return.requirements List of specific requirements when calling this method (wrd_gender, wrd_dateofbirth)
+      @cell(string) return.htmlagreeterms If set, HTML of an agreement option that must be offered to use this payment method (terms and conditions)
+      @cell(boolean) return.islive Whether this option connects to a live platform
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListPaymentOptions(INTEGER paymentprovider)
+  {
+    OBJECT psp := this->__InstantiatePSP(paymentprovider);
+    RETURN SELECT paymentoptiontag
+                , title
+                , issuers := (SELECT rowkey, title FROM paymentoption.issuers)
+                , requirements
+                , htmlagreeterms
+                , islive
+             FROM psp->GetPaymentOptions() AS paymentoption
+         ORDER BY ToUppercase(title);
+  }
+
+  PUBLIC MACRO RunManagePaymentProvidersDialog(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    parent->RunScreen("mod::wrd/tolliumapps/payments/commondialogs.xml#paymentproviders"
+                     , [ paymentapi := this
+                       , options := options
+                       ]
+                     ,[ contexts := [ wrdschema := this->providertype->wrdschema ]]);
+  }
+
+  PUBLIC MACRO RunShowPaymentDetailsDialog(OBJECT parent, INTEGER entity, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT ObjectExists(this->paymenttype))
+      THROW NEW Exception("No payment type configured");
+
+    parent->RunScreen("mod::wrd/tolliumapps/payments/commondialogs.xml#paymentinfo",
+                       [ paymentapi := this
+                       , entity := entity
+                       , options := options
+                       ]
+                     ,[ contexts := [ wrdschema := this->providertype->wrdschema ]]);
+  }
+
+  /** Explain a payment status
+      @cell(money) return.amountpayable The total amount that had to be paid
+      @cell(string) return.status Current status (approved, pending, failed)
+      @cell(string) return.htmlstatusforuser Rich additional description as passed by the payment provider */
+  PUBLIC RECORD FUNCTION ExplainPayment(RECORD paymentdata)
+  {
+    IF(NOT RecordExists(paymentdata))
+      RETURN DEFAULT RECORD;
+
+    OBJECT psp := this->__OpenPSP(paymentdata, DEFAULT DATETIME, "");
+    //FIXME historic option support (ie options that are not currently available but were used in a historic payment)
+    STRING paymenttag := psp->paymentoptiontag;
+    RECORD paymentoption := SELECT * FROM psp->GetPaymentOptions() WHERE paymentoptiontag = paymenttag;
+
+    //FIXME combine calls so we don't have to request paymentdata twice (and it gets even worse if we run the enrich variant)
+    RECORD paymentprovider := this->pvt_providertype->GetEntityFields(paymentdata.paymentprovider, [ "WRD_GUID", "WRD_TAG"]);
+    STRING paymentmethodtag;
+    IF(RecordExists(paymentprovider))
+      paymentmethodtag := ConstructMethodTag([ guid := paymentprovider.wrd_guid, tag := paymentprovider.wrd_tag ], paymenttag);
+
+    RETURN CELL[ paymentdata.amountpayable
+               , paymentdata.status
+               , paymentmethodtag
+               , psp->paymentoptiontag
+               , paymentdata.paymentref
+               , paymentmethodtitle :=  RecordExists(paymentoption) ? paymentoption.title : ""
+               , paymentdata.paymentdate
+               , psp->cardnumber
+               , htmlstatusforuser := psp->GetHTMLStatusForUser()
+               ];
+  }
+
+  /** Enrich an array with payment explanations
+      @param payments List contanining payments
+      @cell(string) options.cellname Cell containing the payment information (defaults to the payment attribute)
+      @cell(string) options.explaincell Cell in which to store explained cells. If not set, explanation will be merged into the records.
+      @return Array with the payment information
+  */
+  PUBLIC RECORD ARRAY FUNCTION EnrichWithExplainedPayments(RECORD ARRAY payments, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ cellname := this->paymentattribute
+                               , explaincell := ""
+                               ], options);
+
+    //FIXME use enrich and combine PSP use
+    FOREVERY(RECORD payment FROM payments)
+    {
+      RECORD paydata := GetCell(payment, options.cellname);
+      IF(options.explaincell = "")
+        payment := MakeOverwrittenRecord(payment, this->ExplainPayment(paydata));
+      ELSE
+        payment := CellInsert(payment, options.explaincell, this->ExplainPayment(paydata));
+      payments[#payment] := payment;
+    }
+    RETURN payments;
+  }
+  PUBLIC RECORD FUNCTION GetConfig()
+  {
+    RETURN GetPaymentAPIConfig(this->pvt_providertype->wrdschema);
+  }
+  PUBLIC MACRO UpdateConfig(RECORD updates)
+  {
+    UpdatePaymentAPIConfig(this->pvt_providertype->wrdschema, updates);
+  }
+
+  //Get payment information from the URL on a return page
+  PUBLIC RECORD FUNCTION GetReturnInfo(STRING url)
+  {
+    RECORD decrypted := DecryptForThisServer("wrd:payments-endpoint", GetvariableFromURL(url,"_p"), [ fallback := DEFAULT RECORD ]);
+    IF(NOT RecordExists(decrypted))
+      RETURN DEFAULT RECORD;
+
+    RETURN [ paymentid := decrypted.e ];
+  }
+>;
+
+PUBLIC RECORD FUNCTION MakePaymentProviderValue(STRING type, RECORD metadata DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD pspinfo := GetPSPInfo(type);
+  RECORD meta := ValidateOptions(pspinfo.metadataoptions, metadata);
+  RETURN [ __paymentprovider := CELL[ type, meta ] ];
+}
+
+/** @short Open the payment api
+    @param wrdschema Base WRD schema
+    @cell options.providerfield Field to the payment provider (eg PAYMENTPROVIDER.PROVIDER)
+    @return(object %PaymentAPI) Payment API
+*/
+PUBLIC OBJECT FUNCTION GetPaymentAPI(OBJECT wrdschema, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN NEW PaymentAPI(wrdschema, options);
+}
+
+PUBLIC RECORD FUNCTION GetMethodFromPayment(RECORD indata)
+{
+  RETURN [ paymentprovider := indata.paymentprovider
+         , paymentoptiontag := indata.__bestpayment.__paymentdata.o
+         , issuer := RecordExists(indata.__bestpayment.__paymentdata.m) AND CellExists(indata.__bestpayment.__paymentdata.m,'issuer') ? indata.__bestpayment.__paymentdata.m.issuer : ""
+         ];
+}
+
+RECORD FUNCTION ValidateConfig(RECORD inconfig)
+{
+  //FIXME rename to paymentrefformat for less ambiguity? these are not really ordernubmers
+  RETURN ValidateOptions( [ ordernrformat := "%012n"
+                          , nextordernr := ""
+                          ], inconfig);
+}
+
+PUBLIC RECORD FUNCTION GetPaymentAPIConfig(OBJECT wrdschema)
+{
+  RECORD settings := wrdschema->GetSchemaSetting("wrd:payments.config", [ fallback := DEFAULT RECORD ]);
+  RETURN ValidateConfig(settings);
+}
+PUBLIC MACRO UpdatePaymentAPIConfig(OBJECT wrdschema, RECORD updates)
+{
+  ValidateConfig(updates);
+  RECORD settings := CELL[ ...GetPaymentAPIConfig(wrdschema), ...updates ];
+  wrdschema->SetSchemaSetting("wrd:payments.config", settings);
+}
+
+PUBLIC STRING FUNCTION GetPaymentAPINextOrderNr(OBJECT wrdschema)
+{
+  RETURN GetWRDSequenceNext(wrdschema->id, "wrd:payments.paymentrefstate",
+                              [ mutex := "wrd:source_ordernr_alloc"
+                              , nrformat := GetPaymentAPIConfig(wrdschema).ordernrformat
+                              , peek := TRUE
+                              ]);
+
+}
+PUBLIC MACRO SetPaymentAPINextOrderNr(OBJECT wrdschema, STRING newordernr)
+{
+  UpdateWRDSequenceParameters(wrdschema->id, "wrd:payments.paymentrefstate",
+                               [ mutex := "wrd:source_ordernr_alloc"
+                               , nrformat := GetPaymentAPIConfig(wrdschema).ordernrformat
+                               , next := newordernr
+                               ]);
+}

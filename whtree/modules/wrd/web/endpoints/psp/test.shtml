@@ -1,0 +1,95 @@
+<?wh
+
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+OpenPrimary();
+
+BOOLEAN issubmit := IsRequestPost() AND GetWebVariable("postpayment") = "";
+
+RECORD data := ReinstantiatePayment(GetWebVariable("pi"));
+
+IF (issubmit OR GetWebVariable("notified") = "") //don't sleep until PI is verified, light abuse check (we don't want users to generate thousands of sleeping jobs by hitting this endpoint)
+{
+  INTEGER sleeptime := ToInteger(GetWebVariable("sleep"),1000);
+  IF(sleeptime > 0 AND sleeptime <= 60000)
+    Sleep(sleeptime); //sleep allows to simulate slower payment processors
+}
+
+STRING ARRAY paymentdetails;
+
+IF (NOT issubmit)
+{
+  IF (IsRequestPost() AND GetWebVariable("UcasE") != "1")
+    ABORT("Case of variable names is not preserved in form post");
+
+  PRINT(`<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Test provider payment page</title>
+  </head>
+  <body>
+  <fieldset>
+    This is a test payment. No actual money will be charged, any outstanding balance will still have to be settled.
+  </fieldset>`);
+
+  IF (GetWebVariable("push") = "")
+  {
+    PRINT(`Approve payment of ${FormatMoney(data.payment->amountpayable,2,'.','',FALSE)} ref ${data.payment->paymentref} ? <br>`);
+
+    PRINT('<form method="POST" action="' || EncodeValue(GetClientRequestURL()) || '">');
+    PRINT('<input type="hidden" name="pi" value="'||EncodeValue(GetWebVariable("pi"))||'" />');
+
+    IF (GetWebVariable("approve") != "no")
+      PRINT('<button type="submit" name="approve" value="yes" id="approvepayment">Yes, approve</button>');
+    IF (GetWebVariable("approve") != "yes")
+      PRINT('<button type="submit" name="approve" value="no" id="rejectpayment">No, cancel payment</button>');
+    PRINT('</form>');
+    //PRINT(`<br><button onclick="javascript:window.open(location.href + '&push=1', '_blank')">Send separate HTTP notification</button>`);
+  }
+
+  PRINT(`<br>Send HTTP push for payment of ${FormatMoney(data.payment->amountpayable,2,'.','',FALSE)} ref ${data.payment->paymentref}<br>`);
+  PRINT(
+`<script>
+function sendNotification(form, approve)
+{
+  var xhr = new XMLHttpRequest();
+  var formdata = new FormData(form);
+  formdata.append("approve", approve);
+  formdata.append("sleep", "0");
+  formdata.append("isnotify", "1");
+  xhr.onload = () =>
+  {
+    // navigate on load (is easy for tests to wait for)
+    var strippedurl = location.href.replace(/&notified=[^&]*/, "");
+    location.href = strippedurl + "&notified=" + approve;
+  };
+  xhr.open("POST", "${EncodeValue(GetClientRequestURL())}");
+  xhr.send(formdata);
+  return false;
+};
+</script>`);
+
+  PRINT(`<form onsubmit="javascript:return false;">`);
+  PRINT('<input type="hidden" name="pi" value="'||EncodeValue(GetWebVariable("pi"))||'" />');
+  PRINT(`<button type="submit" name="notified" value="approved" id="notifyapprovepayment" onclick="javascript:sendNotification(this.parentNode, 'approved');" >Approved</button>`);
+  PRINT(`<button type="submit" name="notified" value="rejected" id="notifyrejectpayment" onclick="javascript:sendNotification(this.parentNode,'rejected');" >Rejected</button>`);
+  PRINT(`<button type="submit" name="notified" value="pending" id="notifypending" onclick="javascript:sendNotification(this.parentNode, 'pending');" >Pending</button>`);
+  PRINT('</form>');
+  PRINT(`Notified: <input disabled id="notified" value="${EncodeValue(GetWebVariable("notified"))}"></input>`);
+}
+ELSE
+{
+  RECORD notify;
+  IF (GetWebVariable("isnotify") != "")
+    notify := [ notification := EncryptForThisServer("wrd:payments.isnotification", GetWebVariable("pi")) ];
+
+  Redirect(UpdateURLVariables("return.shtml", [ pi := GetWebVariable("pi"), test_approve := GetWebVariable("approve"), ...notify ]));
+}

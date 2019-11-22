@@ -1,0 +1,185 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
+
+INTEGER FUNCTION GetAssociatedFSObject(RECORD submitinfo)
+{
+  STRING url := GetWebOriginURL(submitinfo.url);
+  RECORD lookupres := LookupPublisherURL(url);
+
+  IF(lookupres.folder=0)
+    THROW NEW Exception(`Unable to determine the source of the request (${url})`);
+
+  RETURN lookupres.file ?? lookupres.folder;
+}
+
+OBJECT FUNCTION GetFormObject(RECORD submitinfo)
+{
+  STRING url := GetWebOriginURL(submitinfo.url);
+  INTEGER objid := GetAssociatedFSObject(submitinfo);
+  OBJECT applytester := GetApplyTesterForObject(objid);
+
+  OBJECT webcontext := __GetWebContextForApplyTester(applytester, objid);
+  webcontext->baseurl := url;
+  originalformrequesturl := url;
+  SetTidLanguage(webcontext->languagecode);
+
+  IF(submitinfo.formid LIKE "__formwidget:*")
+  {
+    RECORD targetinfo := DecryptForThisServer("publisher:formwidget", Substring(submitinfo.formid,13));
+    ////FIXME duplicated from WebdesignBase::OpenWebtoolForm
+    OBJECT formdefs := OpenWHFSFormDefinitionsFile(OpenWHFSObject(targetinfo.target));
+
+    OBJECT mainform := formdefs->OpenFormDefinition("webtoolform");
+    RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, [ webtoolformid := targetinfo.target
+                                                                                        ]);
+    IF(parseresult.objectname = "")
+      parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
+
+    RETURN OpenFormByDef(parseresult, [ webcontext := webcontext
+                                      , applytester := applytester
+                                      ]);
+
+  }
+  ELSE
+  {
+    STRING formid := submitinfo.formid;
+    STRING formref := CellExists(submitinfo,'formref') ? submitinfo.formref : "";
+    OBJECT targetform := webcontext->OpenForm(formid, [ formref := formref ]);
+    RETURN targetform;
+  }
+}
+
+RECORD FUNCTION Submit(RECORD submitinfo)
+{
+  OpenPrimary();
+  OBJECT form := GetFormObject(submitinfo);
+  form->__FormSetData(submitinfo.fields);
+  RETURN form->__FormDoSubmit(submitinfo);
+}
+
+VARIANT FUNCTION Invoke(RECORD submitinfo)
+{
+  OpenPrimary();
+  OBJECT form := GetFormObject(submitinfo);
+  form->__FormSetData(submitinfo.fields);
+  RETURN form->__FormDoInvoke(submitinfo.methodname, submitinfo.args);
+}
+
+PUBLIC STRING FUNCTION RPC_GetUploadedFileFinalURL(STRING uploadurl)
+{
+  STRING tok := GetVariableFromURL(uploadurl, "file");
+  RECORD ARRAY files := PeekUploadedFiles([tok]);
+  IF(Length(files) != 1)
+    THROW NEW Exception("Didn't receive a file");
+
+  IF(files[0].filename = "mytestfile.txt" AND GetDtapStage()="development") //slow down tests to make it less racy
+    Sleep(1000);
+
+  RECORD wrapped := WrapBlob(files[0].data, files[0].filename);
+  OpenPrimary();
+  RETURN wrapped.mimetype LIKE "image/*" ? GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE])
+                                         : GetCachedFSFileURL("", CreateTempUploadedFile(wrapped)->id);
+}
+PUBLIC STRING FUNCTION RPC_GetImgFromRemoteURL(STRING uploadurl)
+{
+  OpenPrimary();
+
+  RECORD unp := UnpackURL(uploadurl);
+  IF(unp.user != "" OR unp.password != "") //we're not a password tryout service either
+    THROW NEW Exception("Authority information may not be specified on a URL");
+  IF(unp.scheme NOT IN ['http','https'])
+    THROW NEW Exception("Unsupported URL: " || uploadurl);
+  IF(NOT unp.isdefaultport) //we're not a port knocker (though we allow it for this WebHare installation)
+  {
+    IF (GetDtapStage() != "development")
+      THROW NEW Exception("Not supporting URLs with a nonstandard port: " || uploadurl);
+    RECORD unp_primary := UnpackURL(GetPrimaryWebhareInterfaceURL());
+    IF (unp.host != unp_primary.host)
+      THROW NEW Exception("Not supporting URLs with a nonstandard port: " || uploadurl || ". Please run tests on the primary interface host.");
+  }
+
+  OBJECT browser := NEW WebBrowser;
+  browser->timeout := 30000;
+
+  IF (NOT browser->GotoWebPage(uploadurl))
+    THROW NEW Exception("Cannot retrieve URL " || uploadurl);
+
+  RECORD wrapped := WrapBlob(browser->content,"");
+  IF(wrapped.width = 0 OR wrapped.height = 0)
+    THROW NEW Exception("Unsupported image");
+
+  RETURN GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE]);
+}
+PUBLIC RECORD FUNCTION RPC_RequestBuiltinForm(RECORD submitinfo, STRING filename, STRING formname)
+{
+  OpenPrimary();
+  INTEGER objid := GetAssociatedFSObject(submitinfo);
+  OBJECT form := GetWebdesign(objid)->OpenForm("__builtin:" || filename || ":" || formname);
+  RETURN [ html := BlobToString(GetPrintedAsBlob(PTR form->RenderForm))
+         ];
+}
+
+//TODO should probably be in a RTE service and not formservice lib...
+PUBLIC RECORD FUNCTION RPC_ValidateEmbeddedObjects(STRING ARRAY objrefs)
+{
+  STRING ARRAY tokill;
+  OpenPrimary();
+  FOREVERY(STRING objref FROM objrefs)
+    IF(NOT ValidateObjectDataRef(objref))
+      INSERT objref INTO tokill AT END;
+  RETURN [ tokill := tokill ];
+}
+
+PUBLIC VARIANT FUNCTION RPC_CallFormService(STRING method, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  SWITCH (ToUppercase(method))
+  {
+    CASE "SUBMIT"                  { RETURN Submit(args[0]); }
+    CASE "INVOKE"                  { RETURN Invoke(args[0]); }
+  }
+  THROW NEW Exception(`Unknown form request method '${method}'`);
+}
+
+PUBLIC RECORD FUNCTION RPC_ValidateEmail(STRING langcode, STRING emailaddress)
+{
+  OpenPrimary();
+  RECORD tocheck := SplitEmailName(emailaddress);
+  RECORD correction := GetEmailAutocorrection(tocheck.email);
+  IF(RecordExists(correction))
+  {
+    IF(correction.blocked)
+    {
+      langcode := Tokenize(langcode,'-')[0]; //GetTidForLanguage isn't smart enough for that
+      STRING domain := '@' || ToLowercase(Tokenize(tocheck.email,'@')[1]);
+      RETURN [ blocked := GetTidForLanguage(langcode, "publisher:site.forms.commonerrors.email_baddomain", domain) ?? "blocked"
+             ];
+    }
+    IF(correction.force) //TODO work properly with multiple emails, but these don't get passed to the RPC anyway (we only get triggered for type=email)
+    {
+      RETURN [ force := correction.suggestion ];
+    }
+    RETURN [ suggestion := correction.suggestion ];
+  }
+  RETURN DEFAULT RECORD;
+}

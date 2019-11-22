@@ -1,0 +1,998 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webdriver.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+
+LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/coverage.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
+LOADLIB "mod::/system/lib/internal/browsers/chrome/support.whlib";
+
+
+PUBLIC RECORD basetestsettings :=
+ [ tags := DEFAULT STRING ARRAY
+ ];
+
+RECORD ARRAY modulevalidationconfigcache;
+
+RECORD FUNCTION ApplyTestSettings(RECORD settings, OBJECT elt)
+{
+  IF(elt->HasAttribute("tags"))
+    settings.tags := ParseXSList(elt->GetAttribute("tags"));
+  RETURN settings;
+}
+
+PUBLIC STRING FUNCTION GetSeleniumHubURL()
+{
+  STRING seleniumhub := GetEnvironmentVariable("WH_SELENIUMHOST");
+  IF (seleniumhub != "" AND seleniumhub NOT LIKE "http://*")
+    seleniumhub := `http://${seleniumhub}${seleniumhub NOT LIKE "*:*"?":4444":""}/wd/hub/`;
+  RETURN seleniumhub ?? "http://ci.b-lex.com:4444/wd/hub/";
+}
+
+RECORD FUNCTION GetCachedModuleValidationConfig(STRING modulename)
+{
+  RECORD pos := RecordLowerBound(modulevalidationconfigcache, CELL[ modulename ], [ "MODULENAME" ]);
+  IF (NOT pos.found)
+    INSERT CELL[ modulename, ...GetModuleValidationConfig(modulename) ] INTO modulevalidationconfigcache AT pos.position;
+
+  RETURN modulevalidationconfigcache[pos.position];
+}
+
+
+PUBLIC STATIC OBJECTTYPE RunTests
+<
+  PUBLIC BOOLEAN print_debug;
+  PUBLIC RECORD ARRAY cmdparams;
+
+  STRING tempdir;
+  STRING outputdir;
+  STRING installroot;
+  STRING basetesturl;
+
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->installroot := GetInstallationRoot();
+    this->tempdir := GenerateTemporaryPathnameFromBasepath(GetTempDir() || "beta-" || FormatDatetime("%Y%m%d%H%M%S", GetCurrentDatetime()) || "-");
+    IF (this->tempdir NOT LIKE "*/")
+      this->tempdir := this->tempdir || "/";
+    IF (CellExists(options, "OUTPUTDIR") AND options.outputdir != "")
+      this->outputdir := options.outputdir;
+    ELSE
+      this->outputdir := this->tempdir;
+
+    this->basetesturl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.system/jstests/");
+  }
+
+  STRING FUNCTION GetRunscript()
+  {
+    STRING runscript := this->installroot || "bin/runscript";
+    RETURN runscript;
+  }
+
+  STRING FUNCTION SubstituteArg(STRING testfile, STRING arg)
+  {
+    arg := Substitute(arg, "$webhare_dir$", this->installroot);
+    arg := Substitute(arg, "$testbasedir$", GetDirectoryFromPath(testfile));
+    arg := Substitute(arg, "$temp_dir$", this->tempdir);
+    arg := Substitute(arg, "$output_dir$", this->outputdir);
+    RETURN Substitute(arg, "$binary_extension$", "");
+  }
+
+  RECORD ARRAY FUNCTION UpdateParams(STRING testfile, RECORD ARRAY params, RECORD ARRAY updates)
+  {
+    FOREVERY (RECORD rec FROM updates)
+    {
+      IF(RecordExists(SELECT FROM params WHERE COLUMN name = rec.name))
+      {
+        IF (this->print_debug)
+          Print("; Setting test param " || rec.name || " := '" || rec.value || "'\n");
+        UPDATE params SET value := this->SubstituteArg(testfile, rec.value) WHERE COLUMN name = rec.name;
+      }
+      ELSE
+      {
+        IF (this->print_debug)
+          Print("; Adding test param " || rec.name || " := '" || rec.value || "'\n");
+        INSERT [ name := rec.name, value := this->SubstituteArg(testfile, rec.value) ] INTO params AT END;
+      }
+    }
+    RETURN params;
+  }
+
+  RECORD FUNCTION GetTestArguments(OBJECT node, RECORD ARRAY params, STRING testfile)
+  {
+    STRING ARRAY args;
+    STRING ARRAY runscriptargs;
+
+    FOREVERY (OBJECT arg FROM node->childnodes->GetCurrentElements())
+    {
+      STRING param := arg->GetAttribute("param");
+      STRING value := arg->GetAttribute("value");
+
+      IF (param != "")
+      {
+        RECORD r := SELECT * FROM params WHERE name = param;
+        IF (NOT RecordExists(r))
+          THROW NEW Exception("Unknown parameter '" || param || "'");
+
+        value := r.value;
+      }
+      ELSE
+        value := this->SubstituteArg(testfile, value);
+
+      IF (arg->nodename = "arg")
+        INSERT value INTO args AT END;
+      ELSE IF (arg->nodename = "runscriptarg")
+        INSERT value INTO runscriptargs AT END;
+    }
+    RETURN [ args:=args
+           , runscriptargs := runscriptargs
+           ];
+  }
+
+  RECORD ARRAY FUNCTION ParseXMLNode(RECORD testsettings, STRING testfile, OBJECT node, STRING testname, RECORD ARRAY params, BOOLEAN skipauto, STRING webroot, STRING sitename, BOOLEAN exclusive, RECORD validationconfig)
+  {
+    STRING url := webroot != "" ? UpdateURLVariables(ResolveToAbsoluteURL(webroot, "/.system/jstests/"), [ site := sitename ]) : "";
+    RECORD ARRAY tests;
+
+    FOREVERY (OBJECT elt FROM node->childnodes->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(elt))
+        CONTINUE;
+      SWITCH (elt->nodename)
+      {
+      CASE "param"
+        {
+          STRING name := elt->GetAttribute("name");
+          STRING value := elt->GetAttribute("value");
+
+          params := this->UpdateParams(testfile, params, [ [ name := name, value := value ] ]);
+        }
+      CASE "group"
+        {
+          STRING name := elt->GetAttribute("name");
+          BOOLEAN inner_skipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ];
+          BOOLEAN nodeexclusive := elt->HasAttribute("exclusive") ? elt->GetAttribute("exclusive") IN [ "true", "1" ] : exclusive;
+
+          STRING inner_site := sitename;
+          STRING inner_webroot := webroot;
+
+          IF(elt->HasAttribute("site"))
+          {
+            inner_site := elt->GetAttribute("site");
+            OBJECT subsite := OpenSiteByName(inner_site);
+            inner_webroot := ObjectExists(subsite) ? subsite->webroot : GetPrimaryWebhareInterfaceURL();
+          }
+
+          STRING subtestname := testname;
+          IF(name!="")
+            subtestname := subtestname || (subtestname != "" ? "." : "") || name;
+
+          RECORD localtestsettings := ApplyTestSettings(testsettings, elt);
+          tests := tests CONCAT this->ParseXMLNode(localtestsettings, testfile, elt, subtestname, params, inner_skipauto, inner_webroot, inner_site, nodeexclusive, validationconfig);
+        }
+
+      CASE "jstest", "mochanodetest"
+        {
+          OBJECT testnode := elt->GetChildElementsByTagName("testscript")->Item(0);
+          IF(NOT ObjectExists(testnode))
+            testnode := elt;
+
+          RECORD arginfo := this->GetTestArguments(testnode, params, testfile);
+
+          STRING name := elt->GetAttribute("name");
+          STRING file := testnode->GetAttribute("file");
+          BOOLEAN nodeexclusive := elt->HasAttribute("exclusive") ? elt->GetAttribute("exclusive") IN [ "true", "1" ] : exclusive;
+          IF(name="")
+          {
+            name := Tokenize(file,'.')[0];
+            IF(Length(arginfo.args)>0)
+            {
+              name := name || "-" || Detokenize(arginfo.args,"-");
+            }
+          }
+
+          STRING subtestname := testname;
+          IF(name!="")
+            subtestname := subtestname || (subtestname != "" ? "." : "") || name;
+
+          STRING path := this->SubstituteArg(testfile, file);
+          STRING subfile := IsPathAbsolute(path) ? path : MergePath(GetDirectoryFromPath(testfile), path);
+
+          RECORD test := MakeMergedRecord(ApplyTestSettings(testsettings, elt)
+                        ,[ type := elt->nodename
+                         , script := path
+                         , testname := subtestname
+                         , skipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ]
+                         , harescripttestdata := "harescript" IN ParseXSList(testnode->GetAttribute("testdata"))
+                         , testscript := [ args := arginfo.args
+                                         , scriptpath := subfile
+                                         ]
+                         , exclusive := nodeexclusive
+                         , baseurl := url
+                         , sitename := sitename
+                         , flaky := ParseXSBoolean(testnode->GetAttribute("flaky"))
+                         , xfail := ParseXSBoolean(testnode->GetAttribute("xfail"))
+                         , validationconfig := validationconfig
+                         ]);
+          INSERT test INTO tests AT END;
+        }
+
+      CASE "test"
+        {
+          STRING script := elt->GetAttribute("script");
+          STRING path := elt->GetAttribute("path");
+          STRING name := elt->GetAttribute("name");
+          params := this->UpdateParams(testfile, params, this->cmdparams);
+          IF (path != "")
+          {
+            path := this->SubstituteArg(testfile, path);
+
+            STRING subfile := (IsPathAbsolute(path) ? path : MergePath(GetDirectoryFromPath(testfile), path)) || "/testinfo.xml";
+            IF(name="")
+              name := Tokenize(path,'/')[0];
+
+            BOOLEAN nodeexclusive := elt->HasAttribute("exclusive") ? elt->GetAttribute("exclusive") IN [ "true", "1" ] : exclusive;
+
+            STRING subtestname := testname;
+            IF(name!="")
+              subtestname := subtestname || (subtestname != "" ? "." : "") || name;
+
+            BOOLEAN localskipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ];
+            BOOLEAN okifmissing := ParseXSBoolean(elt->GetAttribute("okifmissing"));
+            RECORD localtestsettings := ApplyTestSettings(testsettings, elt);
+            tests := tests CONCAT this->GatherTests(localtestsettings, subfile, subtestname, localskipauto, webroot, sitename, nodeexclusive, okifmissing, validationconfig);
+  /*
+            INSERT
+                [ type := "file"
+                , testname := subtestname
+                , skipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ]
+                , path := subfile
+                , params := params
+                , exclusive := nodeexclusive
+                ] INTO tests AT END;*/
+          }
+          ELSE IF (script != "")
+          {
+            STRING type := "test";
+            STRING errormsg;
+            BOOLEAN xfail := ToUppercase(elt->GetAttribute("xfail")) IN [ "1", "TRUE" ];
+
+            RECORD arginfo;
+            TRY
+            {
+              arginfo := this->GetTestArguments(elt, params, testfile);
+            }
+            CATCH(OBJECT e)
+            {
+              errormsg := e->what;
+              type := "fail";
+            }
+
+            BOOLEAN nodeexclusive := elt->HasAttribute("exclusive") ? elt->HasAttribute("exclusive") IN [ "true", "1" ] : exclusive;
+
+            INSERT MakeMergedRecord(ApplyTestSettings(testsettings, elt),
+                [ type := type
+                , errormsg := errormsg
+                , testname := (testname = "" ? "" : testname || ".") || (name ?? GetbasenameFromPath(script))
+                , skipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ]
+                , script := script
+                , params := params
+                , xfail := xfail
+                , runscriptarguments := RecordExists(arginfo) ? arginfo.runscriptargs : DEFAULT STRING ARRAY
+                , arguments := RecordExists(arginfo) ? arginfo.args : DEFAULT STRING ARRAY
+                , exclusive := nodeexclusive
+                , baseurl := url
+                , sitename := sitename
+                , flaky := ParseXSBoolean(elt->GetAttribute("flaky"))
+                , runmode := elt->GetAttribute("runmode")
+                , validationconfig := validationconfig
+                ]) INTO tests AT END;
+          }
+        }
+        DEFAULT
+        {
+          THROW NEW Exception("Unrecognized node '" || elt->nodename || "' in file " || testfile);
+        }
+      }
+    }
+
+    RETURN tests;
+  }
+
+  BOOLEAN FUNCTION IsMatch(STRING name, STRING ARRAY masks, STRING ARRAY skips)
+  {
+    FOREVERY (STRING skip FROM skips)
+      IF (ToUppercase(name) LIKE ToUppercase(skip))
+        RETURN FALSE;
+    IF (LENGTH(masks) = 0)
+      RETURN TRUE;
+    FOREVERY (STRING mask FROM masks)
+      IF (ToUppercase(name) LIKE ToUppercase(mask) OR ToUppercase(name) LIKE ToUppercase(mask||".*"))
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GatherTests(RECORD testsettings, STRING testfile, STRING rootpath, BOOLEAN localskipauto, STRING webroot, STRING sitename, BOOLEAN exclusive, BOOLEAN okifmissing, RECORD validationconfig DEFAULTSTO DEFAULT RECORD)
+  {
+
+  //  IF (print_debug)
+  //    Print("; mask: " || AnyToString(testpath);
+
+    //Get info from test XML file
+    RECORD ARRAY tests;
+    OBJECT dom;
+    TRY
+    {
+      dom := RetrieveCachedXMLResource(testfile).doc;
+    }
+    CATCH(OBJECT <RetrieveResourceException> e)
+    {
+      IF(okifmissing)
+        RETURN DEFAULT RECORD ARRAY;
+      THROW;
+    }
+    OBJECT root := dom->documentelement;
+
+    RECORD ARRAY root_parameters :=
+      [ [ name := "runscript", value := this->GetRunscript() ]
+      , [ name := "scriptpath", value := GetDirectoryFromPath(testfile) ]
+      ];
+
+    tests := this->ParseXMLNode(testsettings, testfile, dom, rootpath, root_parameters, localskipauto, webroot, sitename, exclusive, validationconfig);
+    RETURN tests;
+  }
+
+  STRING FUNCTION ReadTestMask(STRING inmask)
+  {
+    STRING testmask := inmask = "" ? "*" : inmask;
+    IF(testmask='all')
+      testmask := '*';
+    ELSE IF(testmask LIKE '*.all')
+      testmask := Left(testmask,Length(testmask)-4) || ".*";
+    RETURN testmask;
+  }
+
+  STRING ARRAY FUNCTION ReadTestMasks(STRING ARRAY inmasks)
+  {
+    IF (LENGTH(inmasks) = 0)
+      RETURN [ "*" ];
+    RETURN SELECT AS STRING ARRAY this->ReadTestMask(val) FROM ToRecordArray(inmasks, "VAL");
+  }
+
+  RECORD FUNCTION GetCacheableTestList()
+  {
+    RETURN
+        [ ttl :=          60 * 1000
+        , value :=        this->GatherAllModuleTests() CONCAT this->GatherAllSiteTests()
+        , eventmasks :=   [ "system:modulefolder.mod::*/tests/*" ]
+        ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetTestList()
+  {
+    RETURN GetAdhocCached(
+        [ type :=           "testlist"
+        ], PTR RunInSeparatePrimary(PTR this->GetCacheableTestList));
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION FilterTestList(RECORD ARRAY tests, STRING ARRAY masks, STRING ARRAY skips)
+  {
+    STRING ARRAY testmasks := this->ReadTestMasks(masks);
+    tests := SELECT *
+               FROM tests
+              WHERE this->IsMatch(testname, testmasks, skips);
+    RETURN tests;
+  }
+
+  /** @param masks
+      @param skips
+  */
+  PUBLIC RECORD ARRAY FUNCTION GatherAllTests(STRING ARRAY masks, STRING ARRAY skips)
+  {
+    RETURN this->FiltertestList(this->GetTestList(), masks, skips);
+  }
+
+  RECORD ARRAY FUNCTION GatherAllSiteTests()
+  {
+    OBJECT designfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfolder");
+
+    RECORD ARRAY testfolders := SELECT testfolders.id
+                                     , path := "whfs::" || testfolders.whfspath
+                                     , webroot := sites.webroot
+                                     , sitename := sites.name
+                                  FROM system.fs_objects AS testfolders
+                                     , system.fs_objects AS designfolders
+                                     , system.sites
+                                 WHERE testfolders.name="tests"
+                                       AND testfolders.parent = designfolders.id
+                                       AND designfolders.type = designfoldertype->id
+                                       AND testfolders.parentsite = sites.id;
+    RECORD ARRAY tests;
+    FOREVERY(RECORD folder FROM testfolders)
+    {
+      tests := tests CONCAT this->GatherTests(basetestsettings, folder.path || "testinfo.xml", "", FALSE, folder.webroot, folder.sitename, FALSE, FALSE);
+    }
+    RETURN tests;
+  }
+
+  RECORD ARRAY FUNCTION GatherAllModuleTests()
+  {
+    RECORD ARRAY tests;
+
+    FOREVERY(STRING mod FROM GetInstalledModuleNames())
+    {
+      STRING modtestfile := "mod::" || mod || "/tests/testinfo.xml";
+      RECORD res := RetrieveWebHareResource(modtestfile, [ allowmissing := TRUE ]);
+      IF(NOT RecordExists(res))
+        CONTINUE;
+
+      RECORD validationconfig := GetModuleValidationConfig(mod);
+      tests := tests CONCAT this->GatherTests(basetestsettings, modtestfile, mod="webhare_testsuite"?"":mod, FALSE, this->basetesturl, "WebHare testsuite site", FALSE, FALSE, validationconfig);
+    }
+
+    RETURN tests;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE TestRunnerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// debug, keepsessions
+  RECORD options;
+
+  /// Browser this testrunner is for
+  STRING browser;
+
+  /// Whether a test is running
+  BOOLEAN pvt_isrunning;
+  BOOLEAN pvt_isclosed;
+
+  /// Nr of completed tests for this session
+  INTEGER sessiontestcount;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY isrunning(pvt_isrunning, -);
+
+  PUBLIC PROPERTY isclosed(pvt_isclosed, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @param browser
+      @param options
+      @cell options.debug
+      @cell options.webdriverurl
+  */
+  MACRO NEW(STRING browser, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->options := ValidateOptions(
+          [ debug := FALSE
+          , keepsessions := FALSE
+          , screenshotonfail := FALSE
+          ], options);
+
+    this->browser := browser;
+  }
+
+  ASYNC MACRO StartSession()
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  ASYNC MACRO LoadTestPage(STRING testurl)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  ASYNC MACRO StartTests()
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  ASYNC MACRO ProcessDevtoolRequest(RECORD msg, STRING reportid)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  ASYNC FUNCTION GetLogs(RECORD report)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+  ASYNC MACRO DiscardSession()
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Runs a test, yields progress
+      @param test Test record
+      @yield Progress events
+      @cell yield.status 'gotsession', 'pageloaded', 'started', 'progress'
+      @cell yield.progress Progress record (see return value)
+      @return Returns report record
+      @cell return.finished
+      @cell return.id Test ID
+      @cell(record array) return.tests Individual test results (only 1)
+      @cell return.tests.finished Whether the test is finished
+      @cell return.name Name of the test
+      @cell return.fails List of failed steps
+      @cell return.runsteps List of steps that were run
+      @cell return.xfail List of xfailed steps
+  */
+  PUBLIC OBJECT ASYNC FUNCTION* RunTest(RECORD test)
+  {
+    BOOLEAN finishednormally;
+
+    TRY
+    {
+      IF (this->pvt_isrunning)
+        THROW NEW Exception("Can only run one test at a time");
+      IF (this->pvt_isclosed)
+        THROW NEW Exception("Cannot run tests on closed test runner");
+
+      this->pvt_isrunning := TRUE;
+      STRING reportid := GetSystemHostName(FALSE) || "-" || this->browser || "-" || GenerateUFS128BitId();
+
+      AWAIT this->StartSession();
+      YIELD [ status := "gotsession" ];
+
+      DATETIME test_timeout := AddTimeToDate(3 * 60 * 1000, GetCurrentDateTime());
+
+      STRING testurl := AddVariableToURL(test.baseurl, "mask", test.testname);
+      testurl := AddVariableToURL(testurl, "autostart", "0");
+      IF (this->options.debug)
+        PRINT("Got session for " || this->browser || ", start test at " || testurl || "\n");
+      testurl := AddVariableToURL(testurl, "reportid", reportid);
+
+      // Begin listening for reports before setting the URL
+      OBJECT eventmgr := NEW EventManager;
+      eventmgr->RegisterInterest("system:jstest.report." || reportid);
+      eventmgr->RegisterInterest("system:jstest.devtools." || reportid);
+
+      AWAIT this->LoadTestPage(testurl);
+      YIELD [ status := "pageloaded" ];
+
+      AWAIT this->StartTests();
+      YIELD [ status := "started" ];
+
+      RECORD ARRAY logdata;
+
+      RECORD report := [ finished := FALSE, gotexception := FALSE, tests := DEFAULT RECORD ARRAY, logdata := DEFAULT RECORD ARRAY, screenshot := DEFAULT RECORD ];
+      WHILE (TRUE)
+      {
+        // And now we wait until the report comes in (or timeout of 90 secs). Don't care about the event contents
+        //PRINT("Waiting for event\n");
+        RECORD evt := AWAIT eventmgr->AsyncReceiveEvent(test_timeout);
+        IF(evt.event = "system:jstest.devtools." || reportid)
+        {
+          this->ProcessDevtoolRequest(evt.msg, reportid)->OnError(PTR abort);
+          CONTINUE;
+        }
+
+        // Fill with default report
+        report := CELL[ ...report, ...evt.msg ];
+
+        YIELD [ status := "reporting", report := report, logonly := FALSE ];
+
+        IF (report.finished)
+          BREAK;
+
+        IF (test_timeout <= GetCurrentDateTime())
+          BREAK;
+      }
+
+      report := AWAIT this->GetLogs(report);
+
+      // Close on timeout
+      IF (NOT report.finished)
+      {
+        // Async close, don't need to wait
+        IF(NOT this->options.keepsessions)
+          AWAIT this->DiscardSession();
+      }
+      ELSE
+      {
+        this->sessiontestcount := this->sessiontestcount + 1;
+        IF (this->sessiontestcount > 5 AND NOT this->options.keepsessions)
+          AWAIT this->DiscardSession();
+      }
+
+      finishednormally := TRUE;
+      RETURN
+          [ status := "finished"
+          , report := report
+          ];
+    }
+    CATCH (OBJECT e)
+    {
+      RECORD report;
+      TRY
+      {
+        RECORD tryreport := [ finished := FALSE, gotexception := TRUE, tests := DEFAULT RECORD ARRAY, logdata := DEFAULT RECORD ARRAY, screenshot := DEFAULT RECORD ];
+        report := AWAIT this->GetLogs(tryreport);
+      }
+      CATCH; // ignore exceptions when trying to get the logs
+
+      RECORD rec :=
+          [ status := "exception"
+          , report := report
+          , msg := e->what
+          ];
+      RETURN rec;
+    }
+    FINALLY (OBJECT e)
+    {
+      this->pvt_isrunning := FALSE;
+      IF (NOT finishednormally AND NOT this->options.keepsessions)
+        AWAIT this->DiscardSession();
+    }
+  }
+
+  PUBLIC ASYNC MACRO Close()
+  {
+    IF (this->options.debug)
+      PRINT("Close session for " || this->browser || "\n");
+    this->pvt_isclosed := TRUE;
+    IF(NOT this->options.keepsessions)
+      AWAIT this->DiscardSession();
+  }
+>;
+
+
+
+PUBLIC STATIC OBJECTTYPE WebDriverTestRunner EXTEND TestRunnerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// URL to webdriver interface
+  STRING webdriverurl;
+
+  /// Webdriver connection object
+  OBJECT webdriver;
+
+  /// Webdriver capabilities object
+  OBJECT capa;
+
+  /// Current webdriver test session
+  OBJECT session;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @param browser
+      @param options
+      @cell options.debug
+      @cell options.webdriverurl
+  */
+  MACRO NEW(STRING browser, RECORD options DEFAULTSTO DEFAULT RECORD)
+  : TestRunnerBase(browser, CELL[ ...options, DELETE webdriverurl])
+  {
+    this->webdriverurl := GetSeleniumHubURL();
+
+    IF (CellExists(options, "WEBDRIVERURL"))
+      this->webdriverurl := options.webdriverurl;
+
+    this->webdriver := NEW WebDriverConnection(this->webdriverurl);
+    this->capa := NEW WebDriverCapabilities(browser);
+  }
+
+  UPDATE ASYNC MACRO StartSession()
+  {
+    IF (NOT ObjectExists(this->session))
+    {
+      IF (this->options.debug)
+        PRINT("Creating a new session for " || this->browser || "\n");
+      this->session := AWAIT this->webdriver->CreateSession(this->capa);
+      this->sessiontestcount := 0;
+    }
+  }
+
+  UPDATE ASYNC MACRO LoadTestPage(STRING testurl)
+  {
+    STRING seleniumref := EncryptForThisServer("system:runtest",
+        [ h := this->webdriverurl
+        , s := this->session->sessionid
+        ]);
+
+    testurl := AddVariableToUrl(testurl, "seleniumref", seleniumref);
+
+    AWAIT this->session->SetURL(testurl);
+  }
+
+  UPDATE ASYNC MACRO StartTests()
+  {
+    OBJECT startbuttonref := AWAIT this->session->LookupElement("id", "starttests");
+    AWAIT this->session->ClickElement(startbuttonref);
+  }
+
+  UPDATE ASYNC FUNCTION GetLogs(RECORD report)
+  {
+    THROW NEW Exception("Must be overridden");
+    // FireFox, EDGE and IE don't support getting browser logs at the moment
+    IF (this->browser NOT LIKE "ie*" AND this->browser NOT LIKE "edge*" AND this->browser NOT LIKE "firefox*")
+    {
+      //VARIANT logtypes := AWAIT this->session->GetLogTypes();
+
+      // Wait a second to give the logs time to settle
+      AWAIT NEW WaitableTimer(1000);
+      report.logdata := AWAIT this->session->GetLog("browser");
+    }
+  }
+
+  UPDATE ASYNC MACRO DiscardSession()
+  {
+    IF (ObjectExists(this->session))
+    {
+      this->session->Close();
+      this->session := DEFAULT OBJECT;
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ChromeDevtoolsTestRunner EXTEND TestRunnerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// URL to devtools API
+  STRING url;
+
+  /// Test runner service
+  OBJECT testrunnerservice;
+
+  /// Connector
+  OBJECT connector;
+
+  /// session record
+  RECORD session;
+
+  /// Devtools raw connection
+  OBJECT conn;
+
+  /// Page
+  OBJECT page;
+
+  RECORD ARRAY consolelogentries;
+
+  /// Coverage object
+  OBJECT coverage;
+
+  RECORD ARRAY coverage_profiles;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @param browser
+      @param options
+      @cell options.debug
+      @cell options.webdriverurl
+  */
+  MACRO NEW(STRING browser, RECORD options DEFAULTSTO DEFAULT RECORD)
+  : TestRunnerBase(browser, CELL[ ...options
+                                , DELETE devtoolsurl
+                                , DELETE coverage
+                                ])
+  {
+    this->options := CELL
+        [ ...this->options
+        , ...ValidateOptions(
+            [ devtoolsurl :=      ""
+            , coverage :=         FALSE
+            ], options,
+            [ passthrough := TRUE
+            ])
+        ];
+
+    IF (this->options.devtoolsurl != "")
+    {
+      this->url := this->options.devtoolsurl;
+      this->connector := NEW ChromeConnector(this->url, [ debug := this->options.debug ]);
+    }
+    ELSE
+    {
+      this->testrunnerservice :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+    }
+  }
+
+  UPDATE ASYNC MACRO StartSession()
+  {
+    // reusing the session doesn't work for now
+    AWAIT this->DiscardSession();
+
+    IF (NOT RecordExists(this->session))
+    {
+      IF (ObjectExists(this->testrunnerservice))
+      {
+        this->session := AWAIT this->testrunnerservice->CreateSession();
+        this->connector := NEW ChromeConnector(this->session.connectorurl, [ debug := this->options.debug ]);
+        this->conn := AWAIT this->connector->ConnectToSession(this->session);
+      }
+      ELSE
+      {
+        this->session := AWAIT this->connector->NewSession();
+        this->conn := AWAIT this->connector->ConnectToSession(this->session);
+      }
+      this->sessiontestcount := 0;
+
+      this->page := NEW Page(this->conn);
+      AWAIT this->page->Init();
+
+      this->page->AddListener("Page.Events.ConsoleRaw", PTR this->GotLogEntry);
+
+      this->page->AddListener("Page.Events.RequestFailed", PTR this->GetNetworkRequestEnd(#1, "failure"));
+      this->page->AddListener("Page.Events.RequestFinished", PTR this->GetNetworkRequestEnd(#1, "load"));
+
+      IF (this->options.coverage)
+      {
+        this->coverage := NEW Coverage(this->conn);
+        AWAIT this->coverage->StartJSCoverage([ resetOnNavigation := FALSE ]);
+        AWAIT this->coverage->StartCSSCoverage([ resetOnNavigation := FALSE ]);
+      }
+    }
+  }
+
+  MACRO GotLogEntry(RECORD event)
+  {
+    INSERT CELL[ line := FormatChromeConsoleEntry(event).message
+               , source := "log"
+               , event
+               ] INTO this->consolelogentries AT END;
+  }
+
+  MACRO GetNetworkRequestEnd(RECORD event, STRING result)
+  {
+    STRING line := `network ${result = "load" ? result : `${result} (${event.request->failure.errortext})`}: ${UCTruncate(event.request->url, 100)}`;
+    INSERT CELL[ line, source := "network", event ] INTO this->consolelogentries AT END;
+  }
+
+  UPDATE ASYNC MACRO ProcessDevtoolRequest(RECORD msg, STRING reportid)
+  {
+    RECORD options := CellExists(msg, 'options') ? msg.options : DEFAULT RECORD;
+    IF(msg.type = "pressKeys")
+    {
+      options := ValidateOptions([ shiftkey := FALSE, ctrlkey := FALSE ], options);
+      IF(options.shiftkey)
+        AWAIT this->page->keyboard->Down("ShiftLeft");
+      IF(options.ctrlkey)
+        AWAIT this->page->keyboard->Down("ControlLeft");
+
+      FOREVERY(STRING keyname FROM msg.keys)
+        AWAIT this->page->keyboard->Press(keyname, options);
+
+      IF(options.ctrlkey)
+        AWAIT this->page->keyboard->Up("ControlLeft");
+      IF(options.shiftkey)
+        AWAIT this->page->keyboard->Up("ShiftLeft");
+    }
+    ELSE IF(msg.type = "mouseClick")
+    {
+      AWAIT this->page->mouse->Click(INTEGER(msg.x), INTEGER(msg.y), options);
+    }
+    ELSE
+    {
+      THROW NEW Exception(`Unsupported devtools request type '${msg.type}'`);
+    }
+    BroadcastEvent("system:jstest.devresponse." || reportid, DEFAULT RECORD);
+  }
+
+  UPDATE ASYNC MACRO LoadTestPage(STRING testurl)
+  {
+    this->consolelogentries := RECORD[];
+    AWAIT this->page->Navigate(testurl);
+  }
+
+  UPDATE ASYNC MACRO StartTests()
+  {
+    OBJECT node := AWAIT this->page->mainFrame->"$"("#starttests");
+    IF (NOT ObjectExists(node))
+      THROW NEW Exception("Frontend test page hasn't been loaded correctly, could not find 'start' button");
+    AWAIT node->Click();
+  }
+
+  UPDATE ASYNC FUNCTION GetLogs(RECORD report)
+  {
+    RECORD screenshot;
+    BOOLEAN anyfailure := RecordExists(SELECT FROM report.tests WHERE RecordExists(RECORD ARRAY(fails)));
+
+    IF ((anyfailure OR report.gotexception) AND this->options.screenshotonfail AND ObjectExists(this->conn))
+    {
+      TRY
+      {
+        IF (this->options.debug)
+          PRINT(`Taking screenshot after test failure\n`);
+
+        RECORD res := AWAIT this->conn->^Page->^captureScreenshot([ format := "png" ]);
+        report.screenshot := WrapBlob(StringToBlob(DecodeBase64(res.data)), "image.png");
+      }
+      CATCH {}
+    }
+
+    report.logdata := this->consolelogentries;
+    RETURN report;
+  }
+
+  UPDATE ASYNC MACRO DiscardSession()
+  {
+    IF (RecordExists(this->session))
+    {
+      IF (ObjectExists(this->coverage))
+      {
+        TRY
+        {
+          VARIANT jscoverage := AWAIT this->coverage->StopJSCoverage();
+          VARIANT csscoverage := AWAIT this->coverage->StopCSSCoverage();
+
+          DumpValue(CELL[ jscoverage, csscoverage ], "tree");
+
+          INSERT CELL[ jscoverage, csscoverage ] INTO this->coverage_profiles AT END;
+        }
+        CATCH (OBJECT e)
+          ABORT(e);
+      }
+
+      IF (ObjectExists(this->testrunnerservice))
+      {
+        this->testrunnerservice->CloseSession(this->session.id);
+      }
+      ELSE
+      {
+        AWAIT this->connector->CloseSession(CELL[ this->session.id ]);
+      }
+      this->session := DEFAULT RECORD;
+    }
+  }
+>;

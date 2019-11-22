@@ -1,0 +1,259 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="common">   <!-- common -->
+    <textgroup gid="errors">   <!-- common.errors -->
+      <text tid="incorrectapp">Het token lijkt niet voor deze applicatie bedoeld te zijn, omdat het niet met behulp van de sleutel van deze applicatie ontcijferd kan worden.</text>
+      <text tid="invalidtoken">Het token lijkt geen valide beveiligde Socialite token te zijn.</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="authorize">   <!-- commondialogs.authorize -->
+      <text tid="authorize">Applicatie autoriseren</text>
+      <text tid="authorize_text">Autoriseer deze applicatie alstublieft in de popup. Deze popup zou automatisch moeten sluiten wanneer u deze gemachtigd heeft. Als u een verificatiecode heeft ontvangen, kunt u die hier invullen om de machtiging te voltooien.</text>
+      <text tid="norighttoauthorize">U heeft geen rechten gekregen om sessies the authorizeren voor account "<param p="1"/>"</text>
+      <text tid="retrytext">Machtiging is mislukt (heeft u dit misschien geweigerd?). Probeert u het nogmaals.</text>
+      <text tid="verify">Verificatiecode</text>
+    </textgroup>
+    <textgroup gid="location">   <!-- commondialogs.location -->
+      <text tid="mapbox">Locatie</text>
+      <text tid="noresults">Er zijn geen zoekresultaten</text>
+      <text tid="results">Resultaten</text>
+      <text tid="searchbox">Zoeken</text>
+      <text tid="searchbutton">Zoeken</text>
+      <text tid="title">Locatie kiezen</text>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
+      <text tid="confirmclear">Weet u zeker dat u de locatie wilt leegmaken?</text>
+      <text tid="noresults">Er zijn geen resultaten gevonden.</text>
+      <text tid="queryfailed">Google API verzoek mislukt - we ontvingen foutcode '<param p="1"/>' met als toelichting '<param p="2"/>'</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="components">   <!-- components -->
+    <textgroup gid="map">   <!-- components.map -->
+      <text tid="loading">De Google-kaart wordt geladen...</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="components_vimeo">   <!-- components_vimeo -->
+    <text tid="novideoselected">Er was geen Vimeo filmpje geselecteerd.</text>
+    <text tid="vimeounavailable">Het zoeken naar videos is niet gelukt. De systeembeheer moet mogelijk controleren of de Vimeo toegang correct ingesteld is.</text>
+    <textgroup gid="movieplayer">   <!-- components_vimeo.movieplayer -->
+      <text tid="screentitle">Vimeo media player</text>
+    </textgroup>
+    <textgroup gid="searchmovie">   <!-- components_vimeo.searchmovie -->
+      <text tid="creationdate">Geplaatst op</text>
+      <text tid="description">Omschrijving</text>
+      <text tid="duration">Duur</text>
+      <text tid="error_maxresults">Uw zoekopdracht leverde meer dan <param p="1"/> resultaten op. Probeert u a.u.b. een specifiekere zoekopdracht.</text>
+      <text tid="error_noresults">Uw zoekopdracht leverde geen resultaten op. Probeert u a.u.b. een andere zoekopdracht.</text>
+      <text tid="openinwindow">Afspelen in nieuw venster</text>
+      <text tid="preview">Voorbeeld</text>
+      <text tid="screentitle">Vimeo media browser</text>
+      <text tid="search">Zoeken</text>
+      <text tid="searchfirst">Geef een aantal sleutelwoorden op om te zoeken naar een film</text>
+      <text tid="searchwords">Zoekopdracht</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="config">   <!-- config -->
+    <text tid="apptitle">Socialite Configuratie</text>
+    <textgroup gid="account">   <!-- config.account -->
+      <text tid="tag">Tag</text>
+      <text tid="title">Titel</text>
+      <text tid="windowtitle">Account</text>
+    </textgroup>
+    <textgroup gid="application">   <!-- config.application -->
+      <text tid="applicationtype">Type applicatie</text>
+      <text tid="appsettingsbox">Applicatie instellingen</text>
+      <text tid="authenticationcallbackhost">Host voor authenticatie-callbacks</text>
+      <text tid="developerkey">Developer key</text>
+      <text tid="emulationurl">Imitatie URL</text>
+      <text tid="jsredirecturl">JS api redirect</text>
+      <text tid="logrpc">Registreer aanroepen in het RPC log</text>
+      <text tid="privatekey">Geheime sleutel</text>
+      <text tid="publickey">Gebruikers/API sleutel</text>
+      <text tid="remarksbox">Opmerkingen</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Titel</text>
+      <text tid="windowtitle">Applicatie</text>
+    </textgroup>
+    <textgroup gid="exportaccount">   <!-- config.exportaccount -->
+      <text tid="copyaccountinfo">Kopieer de accountinformatie hieronder, en plak deze op de doelserver</text>
+      <text tid="exportaccount">Exporteer account</text>
+    </textgroup>
+    <textgroup gid="importaccount">   <!-- config.importaccount -->
+      <text tid="accountexists">Er bestaat reeds een account met de tag '<param p="1"/>'</text>
+      <text tid="importaccount">Importeer account</text>
+      <text tid="invalidxml">De aangeleverde XML is niet valide</text>
+      <text tid="notaccountxml">De aangeleverde XML is geen socialite account</text>
+      <text tid="pasteaccountinfo">Plak hieronder de geexporteerde accountinformatie</text>
+    </textgroup>
+    <textgroup gid="importsecuretoken">   <!-- config.importsecuretoken -->
+      <text tid="import">Importeren</text>
+      <text tid="importsecuretoken">Importeren beveiligde Socialite token</text>
+      <text tid="inputtoken">Ingaande token</text>
+      <text tid="outputtoken">Uitgaande token</text>
+    </textgroup>
+    <textgroup gid="main">   <!-- config.main -->
+      <text tid="addaccount">Account toevoegen</text>
+      <text tid="addapplication">Applicatie toevoegen</text>
+      <text tid="addpersistent">Doorlopende sessie toevoegen</text>
+      <text tid="addtostartmenu">Toevoegen aan het start menu</text>
+      <text tid="app">Socialite Instellingen</text>
+      <text tid="authorize">Machtigen</text>
+      <text tid="authorized">Gemachtigd</text>
+      <text tid="authorizedat">Gemachtigd op</text>
+      <text tid="deauthorize">Machtiging intrekken</text>
+      <text tid="delete">Verwijderen</text>
+      <text tid="deletepersistent">Verwijderen</text>
+      <text tid="documentation">Documentatie</text>
+      <text tid="edit">Bewerken</text>
+      <text tid="editpersistent">Doorlopende sessie bewerken</text>
+      <text tid="exportaccount">Exporteer account</text>
+      <text tid="importaccount">Importeer account</text>
+      <text tid="importsecuretoken">Beveiligde token importeren</text>
+      <text tid="main">Socialite instellingen</text>
+      <text tid="persistent">Doorlopende sessies</text>
+      <text tid="sessions">Sessies</text>
+      <text tid="setsecuretoken">Machtigen middels een beveiligde token</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Titel</text>
+      <text tid="toomanysessions">Te veel sessies om te tonen (<param p="1"/>)</text>
+      <text tid="viewanonymousfeeds">Toon anonieme feeds</text>
+      <text tid="viewfeeds">Toon feeds</text>
+      <text tid="viewsession">Bekijk sessie data</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- config.messages -->
+      <text tid="delete_confirmation">Weet u zeker dat u dit item wilt verwijderen?</text>
+      <text tid="suredeauthorizesession">Weet u zeker dat u de machtiging voor deze sessie wilt intrekken?</text>
+      <text tid="verifyneeded">Deze dialoog zou automatisch moeten sluiten of u moet een verificatiecode opgeven.</text>
+    </textgroup>
+    <textgroup gid="persistent">   <!-- config.persistent -->
+      <text tid="authorizationremark">Opmerking bij machtiging</text>
+      <text tid="expirationwarning">Waarschuwing bij verlopen</text>
+      <text tid="requestpermissions">Benodigde machtigingen</text>
+      <text tid="securetoken">Beveiligde token</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Titel</text>
+      <text tid="windowtitle">Doorlopende sessie</text>
+    </textgroup>
+    <textgroup gid="setsecuretoken">   <!-- config.setsecuretoken -->
+      <text tid="inputtoken">Ingegeven token</text>
+      <text tid="setsecuretoken">Machtigen middels een beveiligde Socialite token.</text>
+    </textgroup>
+    <textgroup gid="viewsession">   <!-- config.viewsession -->
+      <text tid="sessionkeys">Sessie sleutels</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Sessie</text>
+      <text tid="value">Waarde</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="embedvideo">   <!-- embedvideo -->
+    <textgroup gid="network">   <!-- embedvideo.network -->
+      <text tid="vimeo">Vimeo</text>
+      <text tid="youku">Youku</text>
+      <text tid="youtube">YouTube</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="feeds">   <!-- feeds -->
+    <text tid="confirmdeletefeed">Weet u zeker dat u deze feed wil verwijderen? Let erop dat een feed opnieuw zal worden aangemaakt indien opnieuw aangevraagd.</text>
+    <textgroup gid="feed">   <!-- feeds.feed -->
+      <text tid="created">Aanmaakdatum</text>
+      <text tid="hideitem">Verbergen</text>
+      <text tid="message">Bericht</text>
+      <text tid="messageid">Bericht id</text>
+      <text tid="screentitle">Overzicht van feeds</text>
+      <text tid="unhideitem">Tonen</text>
+    </textgroup>
+    <textgroup gid="feedentry">   <!-- feeds.feedentry -->
+      <text tid="publish">Publiceer dit bericht</text>
+      <text tid="rawentry">Feed item</text>
+      <text tid="screentitle">Feed item</text>
+    </textgroup>
+    <textgroup gid="feeds">   <!-- feeds.feeds -->
+      <text tid="lastupdate">Laatst geupdate</text>
+      <text tid="numentries">Aantal</text>
+      <text tid="query">Zoekopdracht</text>
+      <text tid="screentitle">Feeds</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="linkbuilder">   <!-- linkbuilder -->
+    <text tid="apptitle">Link builder</text>
+    <textgroup gid="main">   <!-- linkbuilder.main -->
+      <text tid="generatelinks">Genereer links</text>
+      <text tid="main">Linkbuilder</text>
+      <text tid="taburl">URL naar FB tab</text>
+      <text tid="utmtags">Lijst van links met UTM tags</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="module">   <!-- module -->
+    <textgroup gid="forms">   <!-- module.forms -->
+      <text tid="gtmdatalayer">Doorsturen naar GTM Datalayer</text>
+      <text tid="gtmdatalayerdesc">Stuur de formulierinhoud als event naar de GTM Datalayer</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="rights">   <!-- rights -->
+    <text tid="accounts">Socialite accounts</text>
+    <text tid="authorizesessions">Sessies machtigen</text>
+    <text tid="authorizesessions-descr">Autoriseren van voorgeconfigureerde Socialite sessies</text>
+    <text tid="fullaccess">Volledige toegang</text>
+    <text tid="fullaccess-descr">Volledige toegang tot deze Socialige account</text>
+  </textgroup>
+  <textgroup gid="screens">   <!-- screens -->
+    <textgroup gid="forms">   <!-- screens.forms -->
+      <textgroup gid="gtmdatalayer">   <!-- screens.forms.gtmdatalayer -->
+        <text tid="formname">Formulier naam</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="plugins">   <!-- screens.plugins -->
+      <textgroup gid="seotab">   <!-- screens.plugins.seotab -->
+        <textgroup gid="seotab">   <!-- screens.plugins.seotab.seotab -->
+          <text tid="canonical">Canonieke link</text>
+          <text tid="indexing">Zoekmachine indexering</text>
+          <text tid="noarchive">Niet archiveren/cachen (noarchive)</text>
+          <text tid="nofollow">Volg geen links (nofollow)</text>
+          <text tid="noindex">Niet opslaan in index (noindex)</text>
+          <text tid="noodp">ODP omschrijving niet gebruiken</text>
+          <text tid="noydir">Yahoo! Directory omschrijving niet gebruiken</text>
+          <text tid="tabtitle">SEO</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="sysmgmt">   <!-- sysmgmt -->
+    <textgroup gid="googleapikeys">   <!-- sysmgmt.googleapikeys -->
+      <text tid="aboutoverrides">U kunt de identifier overschrijven die naar google's analyse/tagging frameworks gestuurd, om er zeker van te zijn dat lokale/test sites niet per ongeluk productiestatistieken overschrijven.<br/><br/>De hier ingevoerde identifiers overschrijven alleen de &lt;google:analytics&gt; secties in siteprofielen - het heeft geen invloed op analytics snippets die handmatig in templates zijn opgenomen, of die via de wh.google.analytics designfile ingesteld zijn.</text>
+      <text tid="apikey">API-sleutel</text>
+      <text tid="apitab">API sleutels</text>
+      <text tid="confirmdeleteapikeys">Weet u zeker dat u de geselecteede sleutel(s) wil verwijderen ?</text>
+      <text tid="description">Deze API-sleutel wordt naar Google gestuurd om de Google Maps te kunnen gebruiken binnen de WebHare interface. Een sleutel die voor een bepaald domein is gegenereerd, is ook bruikbaar voor alle subdomeinen ervan. U kunt dus het beste een sleutel aanvragen voor een second-level-domein, dus gebruik bijvoorbeeld 'example.org' in plaats van 'www.example.org'.</text>
+      <text tid="domain">Domein</text>
+      <text tid="editapikey">API sleutel</text>
+      <text tid="googleapikeys">Google API-sleutelbeheer</text>
+      <text tid="keytype">Sleuteltype</text>
+      <text tid="keytype-google">Google cloud APIs</text>
+      <text tid="keytype-google-recaptcha">Google Recaptcha</text>
+      <text tid="nokeys">Er zijn nog geen sleutels ingevoerd</text>
+      <text tid="overrides">Overschrijven</text>
+      <text tid="privatekey">Prive sleutel</text>
+      <text tid="recaptchatab">reCAPTCHA sleutels</text>
+      <text tid="requestkey">Een nieuwe Google Maps API-sleutel aanvragen</text>
+      <text tid="requestrecaptchakey">Een recaptcha sleutel aanvragen</text>
+      <text tid="scopetype">Scope</text>
+      <text tid="scopetype-any">Elke</text>
+      <text tid="scopetype-client">Client</text>
+      <text tid="scopetype-server">Server</text>
+      <text tid="title">Google API-sleutelbeheer</text>
+      <text tid="title_edit">API-sleutel</text>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- sysmgmt.messageboxes -->
+      <text tid="deletekeyconfirm">Weet u zeker dat u de API-sleutel voor het domein '<param p="1"/>' wilt verwijderen?</text>
+    </textgroup>
+    <textgroup gid="recaptchakey">   <!-- sysmgmt.recaptchakey -->
+      <text tid="apikey">Publieke sleutel</text>
+      <text tid="description">Deze API-sleutel wordt naar Google gestuurd om reCAPTCHA te kunnen gebruiken in WebHare applicaties.<br/><br/>Een sleutel die voor een bepaald domein is gegenereerd, is ook bruikbaar voor alle subdomeinen ervan. U kunt dus het beste een sleutel aanvragen voor een second-level-domein, dus gebruik bijvoorbeeld 'example.org' in plaats van 'www.example.org'. <br/><br/>Indien u een globale sleutel (global key) heeft aangevraagd bij reCAPTCHA, kunt u als domein een asterisk '*' opgeven.</text>
+      <text tid="domain">Domein</text>
+      <text tid="privatekey">Private sleutel</text>
+      <text tid="requestkey">Een nieuwe reCAPTCHA sleutel aanvragen</text>
+      <text tid="screentitle">reCAPTCHA sleutels</text>
+    </textgroup>
+  </textgroup>
+</language>

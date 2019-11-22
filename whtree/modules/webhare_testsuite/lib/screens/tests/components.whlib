@@ -1,0 +1,7 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE MultiLineComponent EXTEND TolliumFragmentBase
+<
+>;
+

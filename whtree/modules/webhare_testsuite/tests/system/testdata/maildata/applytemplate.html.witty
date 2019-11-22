@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Mail subject</title>
+    <meta name="wh-mailcomposer-applytemplate" value="../mailtemplate/template.html.witty" />
+  </head>
+  <body>
+    <div id="test">Hi [firstname]!</div>
+    <img id="smallbob" src="mod::webhare_testsuite/data/test/smallbob.jpg" />
+  </body>
+</html>

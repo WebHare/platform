@@ -1,0 +1,558 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns="http://www.webhare.net/xmlns/system/common"
+           targetNamespace="http://www.webhare.net/xmlns/system/common"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           xml:lang="en">
+
+  <xs:simpleType name="DeprecatedAttribute">
+    <xs:annotation>
+      <xs:documentation>This attribute is deprecated and using it will trigger a warning</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+     </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="InstanceId">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="NonEmptyString">
+    <xs:restriction base="xs:string">
+      <xs:pattern value=".+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- A gid: ( modulename ":" (gid.)* gid | "."? gid ( "." gid )* | <empty> )
+       See Tid explanation for more info -->
+  <xs:simpleType name="Gid">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([-\w_]+:([^:. ]+\.)*[^:. ]+|\.?[^:. ]+(\.[^:. ]+)*)?" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:attributeGroup name="Gid">
+    <xs:attribute name="gid" type="Gid">
+      <xs:annotation>
+        <xs:documentation>
+          The group id used by language files for this component and its subcomponents.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <!-- A tid: ( module ":" (gid ".")+ tid | gid? ("." gid)* ("." tid) ) | ~ (gid ".")? tid
+              module: === [-\w_]+:
+              [^:. ]+ = anything but space or the two tid/gid separators
+              gid/tid === word === [^:. ]+
+              gid?/tid? === word? === ([^:. ]+)? === [^:. ]*
+              ("." gid)* ("." tid) === ("." word)+ === (\.[^:. ]+)+
+     -->
+  <xs:simpleType name="Tid">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[-\w_]+:([^:. ]+\.)+[^:. ]+|[^:. ]*(\.[^:. ]+)+|~([^:. ]+\.)?[^:. ]+" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- a list of '*' or '!*' masks. excluding all special characters for now except for the two globs, in case we want to add more complex patterns-->
+  <xs:simpleType name="WildcardMasks">
+    <xs:list>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="!?[-\w_*?:]+" /> <!-- note '-' must appear first, otherwise it looks like a range -->
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:list>
+  </xs:simpleType>
+
+  <xs:simpleType name="TidPtr">
+    <xs:annotation>
+      <xs:documentation>
+        A TidPtr is like a Tid, but without any intention to have a 'title' counterpart.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="Tid" />
+  </xs:simpleType>
+
+  <xs:attributeGroup name="TidOrTitle">
+    <xs:attribute name="title" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The title that you want to give to an component
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="tid" type="Tid">
+      <xs:annotation>
+        <xs:documentation>
+          You need to specify the path to the text, if filled in the title will be ignored
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:simpleType name="Name">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="NameList">
+    <xs:list itemType="Name" />
+  </xs:simpleType>
+
+  <xs:attributeGroup name="Required">
+    <xs:attribute name="required" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If set to true, this field will must contain a non-empty value.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="Placeholder">
+    <xs:attribute name="placeholder" type="xs:string" />
+    <xs:attribute name="placeholdertid"  type="Tid" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="Errorlabel">
+    <xs:attribute name="errorlabel" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The text to use as the name of this component in error messages.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="errorlabeltid" type="Tid">
+      <xs:annotation>
+        <xs:documentation>
+          The tid to use as the name of this component in error messages.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:simpleType name="ValidationChecks">
+    <xs:list>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="email">
+            <xs:annotation>
+              <xs:documentation>
+                Accept a single valid email adress.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="email-maysendfrom">
+            <xs:annotation>
+              <xs:documentation>
+                Accept a single valid email adress which must be whitelisted for sending.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="email-maysendto">
+            <xs:annotation>
+              <xs:documentation>
+                Accept a single valid email adress which must be whitelisted for receiving.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="emails">
+            <xs:annotation>
+              <xs:documentation>
+                Accept a list of valid email adresses (use TokenizeEmailAddressList to tokenize them).
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="emails-maysendto">
+            <xs:annotation>
+              <xs:documentation>
+                Accept a list of valid email adresses which must be whitelisted for receiving.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="url">
+            <xs:annotation>
+              <xs:documentation>
+                Accepts any URL.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="url-plus-relative">
+            <xs:annotation>
+              <xs:documentation>
+                Accepts any URL, protocol-relative URLs (any URLs starting with //, usually used for https-independent URLs), and explicit relative urls (#abc, ../xyz, ./def, /...) as long as they don't look like a typo.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="http-url">
+            <xs:annotation>
+              <xs:documentation>
+                Accepts a valid http url (both http and https).
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="secure-url">
+            <xs:annotation>
+              <xs:documentation>
+                Accepts only secure urls (imaps and https).
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="insecure-url">
+            <xs:annotation>
+              <xs:documentation>
+                Accepts only insecure urls (http, imap, ftp, etc).
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="hostname">
+            <xs:annotation>
+              <xs:documentation>
+                Accepts only valid hostnames (eg myserver.example.net).
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="whfsname">
+            <xs:annotation>
+              <xs:documentation>
+                Accepts only valid WHFS names, without slashes (like IsValidWHFSName)
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:list>
+  </xs:simpleType>
+
+  <!-- ************************** form specific stuff ***************** -->
+
+  <xs:simpleType name="FormComponentPins">
+    <xs:list>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="existence">
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:list>
+  </xs:simpleType>
+
+  <xs:simpleType name="FormHandlerPins">
+    <xs:list>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="existence">
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:list>
+  </xs:simpleType>
+
+  <!-- These are shared between groups and other components -->
+  <xs:attributeGroup name="FormCommonAttributes">
+    <xs:attribute name="name" type="xs:string" />
+    <xs:attribute name="pins" type="FormComponentPins" />
+    <xs:attribute name="guid" type="xs:string" />
+    <xs:attributeGroup ref="TidOrTitle" />
+    <xs:attribute name="hidetitle" type="xs:boolean" />
+    <xs:attribute name="comment" type="xs:string" />
+
+    <xs:attribute name="requiredconditionid" type="InstanceId" />
+    <xs:attribute name="enabledconditionid" type="InstanceId" />
+    <xs:attribute name="visibleconditionid" type="InstanceId" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="FormGroupAttributes">
+    <xs:attributeGroup ref="FormCommonAttributes" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="FormBaseAttributes">
+    <xs:attributeGroup ref="FormCommonAttributes" />
+    <xs:attributeGroup ref="Required" />
+    <xs:attribute name="enabled" type="xs:boolean" />
+    <xs:attribute name="visible" type="xs:boolean" />
+    <xs:attribute name="groupclasses" type="xs:string" />
+    <xs:attribute name="hideinresults" />
+    <xs:attribute name="infotextid" type="InstanceId" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="FormHandlerAttributes">
+    <xs:attribute name="name" type="xs:string" />
+    <xs:attribute name="guid" type="xs:string" />
+    <xs:attribute name="pins" type="FormHandlerPins" />
+    <xs:attribute name="comment" type="xs:string" />
+    <xs:attribute name="conditionid" type="InstanceId" />
+  </xs:attributeGroup>
+
+  <xs:simpleType name="FormAddressOptions">
+    <xs:list>
+      <xs:simpleType>
+        <!-- TODO at some point we'll probably have too many possible values -->
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="nl-zip-suggest">
+            <xs:annotation>
+              <xs:documentation>Place the zip and house nr first for NL addresses, allow editing of street and city</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="nl-zip-force">
+            <xs:annotation>
+              <xs:documentation>Place the zip and house nr first for NL addresses, do not editing of street and city</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="!nl-zip-suggest">
+            <xs:annotation>
+              <xs:documentation>Disables nl-zip-suggest</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="!nl-zip-force">
+            <xs:annotation>
+              <xs:documentation>Disables nl-zip-force</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:list>
+  </xs:simpleType>
+
+  <xs:complexType name="AllowWidgetType">
+    <xs:attribute name="type" type="xs:anyURI" />
+    <xs:attribute name="inherit" type="xs:boolean"/>
+  </xs:complexType>
+
+  <xs:attributeGroup name="ApplicabletoWebHare">
+    <xs:attribute name="ifenvironset">
+      <xs:annotation>
+        <xs:documentation>Space separated list of environment variables that must be set (have a nonempty value) for this rule to apply</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="unlessenvironset">
+      <xs:annotation>
+        <xs:documentation>Space separated list of environment variables that must NOT be set (not present or empty value) for this rule to apply</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="requireversion" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>Minimum version number, eg 41002 matches 4.10.02 and up</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="beforeversion" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>Limit version number, eg a rule specifying beforeversion=41002 matches up and until 4.10.01, but not to 4.10.02 and up</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="minservertype" type="ServerType">
+      <xs:annotation>
+        <xs:documentation>Minimum server type, eg minservertype=acceptance will only apply this node to acceptance and production stages</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="maxservertype" type="ServerType">
+      <xs:annotation>
+        <xs:documentation>Maximum server type, eg maxservertype=test will only apply this node to development and test stages</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="restrictservers">
+      <xs:annotation>
+        <xs:documentation>If set, a list of wildcard masks applied against which the server's name must apply for this node to have effect</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:simpleType name="ServerType">
+    <xs:list>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="production"/>
+          <xs:enumeration value="acceptance"/>
+          <xs:enumeration value="test"/>
+          <xs:enumeration value="development"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:list>
+  </xs:simpleType>
+
+  <xs:simpleType name="Color">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="#[0-9,a-f,A-F]{6}"/>
+          <xs:pattern value="#[0-9,a-f,A-F]{8}"/>
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="transparent"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+
+  <xs:simpleType name="__absolutepixelcount">
+    <xs:annotation>
+      <xs:documentation>
+        A size in pixels
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value='(\d+px)|0'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:attributeGroup name="ImageResizeSettings">
+    <xs:attribute name="imagesetwidth" type="__absolutepixelcount">
+      <xs:annotation>
+        <xs:documentation>
+          The width to which the image must be set
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="imagesetheight" type="__absolutepixelcount">
+      <xs:annotation>
+        <xs:documentation>
+          The height to which the image must be set
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="conversionbackground" type="Color" default="#ffffff">
+      <xs:annotation>
+        <xs:documentation>
+          The background color to use if the image has to be modified. Defaults to white. Valid values are a HTML hex color or 'transparent'.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="imageresizemethod" default="none">
+      <xs:annotation>
+        <xs:documentation>
+          The method that needs to be used to resize the image, options are: none, fit, scale, fitcanvas, scalecanvas, fill, stretch
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="none" />
+          <xs:enumeration value="fit" />
+          <xs:enumeration value="scale" />
+          <xs:enumeration value="fitcanvas" />
+          <xs:enumeration value="scalecanvas" />
+          <xs:enumeration value="fill" />
+          <xs:enumeration value="stretch" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="imageforcetype">
+      <xs:annotation>
+        <xs:documentation>
+          To which type the image should be forced, options are: image/png, image/jpeg, image/gif
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="image/png" />
+          <xs:enumeration value="image/jpeg" />
+          <xs:enumeration value="image/gif" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+
+    <xs:attribute name="preserveifunchanged" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          Do not modify the image if it isn't needed to enforce the size or type
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="fixorientation" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          Rotate the image so the top is pointing up (i.e. set the image orientation by rotating the pixels instead of
+          reading the orientation flag)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:simpleType name="HVOrientation">
+    <xs:annotation>
+      <xs:documentation>horizontal/vertical orientation</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="horizontal"/>
+      <xs:enumeration value="vertical"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:attributeGroup name="ImageEditSettings">
+    <xs:attributeGroup ref="ImageResizeSettings" />
+    <xs:attribute name="allowedactions" default="all">
+      <xs:annotation>
+        <xs:documentation>
+          The editing actions that a user can perform, defaults to 'all'. 'all' doesn't include 'refpoint', which must be set
+          separately and is only available if the resize method is set to 'fill'.
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="all" />
+              <xs:enumeration value="crop" />
+              <xs:enumeration value="rotate" />
+              <xs:enumeration value="filters" />
+              <xs:enumeration value="refpoint" />
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="allowedfilters" default="all">
+      <xs:annotation>
+        <xs:documentation>
+          The filters that a user can use, defaults to 'all'. Only applies if the 'filters' action is allowed.
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="all" />
+              <xs:enumeration value="grayscale" />
+              <xs:enumeration value="invert" />
+              <xs:enumeration value="sharpen" />
+              <xs:enumeration value="blur" />
+              <xs:enumeration value="brightnesscontrast" />
+              <xs:enumeration value="autocontrast" />
+              <xs:enumeration value="coloradjust" />
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:simpleType name="RTDMargins">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="none">
+        <xs:annotation>
+          <xs:documentation>Do not show any margins</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="compact">
+        <xs:annotation>
+          <xs:documentation>Compact margins (the default)</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="wide">
+        <xs:annotation>
+          <xs:documentation>Wide margins, which allows easy visual differentiation between normal and wide widgets</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

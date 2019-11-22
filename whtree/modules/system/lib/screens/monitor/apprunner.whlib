@@ -1,0 +1,117 @@
+<?wh
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// AppRunner controller
+//
+PUBLIC OBJECTTYPE AppRunner EXTEND MonitorPanelBase
+<
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+  /** @short This monitor has been activated, start refreshing */
+  UPDATE PUBLIC MACRO EnableRefresh()
+  {
+    this->listener->enabled := TRUE;
+  }
+  /** @short This monitor has been deactivated, stop refreshing */
+  UPDATE PUBLIC MACRO DisableRefresh()
+  {
+    this->listener->enabled := FALSE;
+  }
+
+  MACRO OnAppRunnerRefreshEvent(RECORD ARRAY events)
+  {
+    this->RefreshMonitorPanel();
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    TRY
+    {
+      OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
+      RECORD response := WaitForPromise(link->GetReport());
+      link->CloseService();
+
+      this->applist->rows :=
+            SELECT rowkey := name
+                 , icon :=      NOT enabled
+                                    ? 3 // not enabled
+                                    : running
+                                          ? runatsoftreset
+                                                ? 4 // neutral (task running)
+                                                : 1 // checked (running now)
+                                          : runatsoftreset
+                                                ? lasterror IN [ "Terminated", "" ]
+                                                      ? 1 // checked, should not be running
+                                                      : 2
+                                                : 2 // terminated
+                 , type :=      runatsoftreset
+                                    ? GetTid("system:sysmgmt.apprunner.ondemand")
+                                    : GetTid("system:sysmgmt.apprunner.persistent")
+                 , status :=    running
+                                    ? GetTid("system:sysmgmt.apprunner.running")
+                                    : lasterror IN [ "", "Terminated" ] AND runatsoftreset
+                                          ? GetTid("system:sysmgmt.apprunner.inactive")
+                                          : GetTid("system:sysmgmt.apprunner.notrunning")
+                 , since
+                 , lasterror    := lasterror = "Terminated" AND runatsoftreset ? "" : lasterror
+                 , regkey
+                 , canedit :=   regkey != ""
+                 , enabled
+              FROM response.report
+          ORDER BY name;
+
+      this->applist->empty := ""; //this is currently not happening in practice, so no need to provide a "there are no processes configured" text
+    }
+    CATCH(OBJECT e)
+    {
+      this->applist->empty := GetTid("system:system.apprunner.apprunnerdown");
+      this->applist->rows := DEFAULT RECORD ARRAY;
+    }
+  }
+
+  MACRO DoRestart()
+  {
+    STRING appname := this->applist->value;
+    TRY
+    {
+      OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
+      WaitForPromise(link->Restart(appname));
+      link->CloseService();
+    }
+    CATCH(OBJECT e)
+    {
+      this->RunMessageBox(".restartfailed", appname);
+    }
+  }
+  MACRO SetEnabled(STRING appname, BOOLEAN doenable)
+  {
+    TRY
+    {
+      OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
+      RECORD response := WaitForPromise(link->SetEnabled(appname, doenable));
+      link->CloseService();
+    }
+    CATCH(OBJECT e)
+    {
+    }
+  }
+
+  MACRO DoEnable()
+  {
+    this->SetEnabled(this->applist->value, TRUE);
+  }
+
+  MACRO DoDisable()
+  {
+    this->SetEnabled(this->applist->value, FALSE);
+  }
+>;

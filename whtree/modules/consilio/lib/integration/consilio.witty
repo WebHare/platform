@@ -1,0 +1,74 @@
+<div class="whc">
+  [if showsearchbox]
+    <form action="[actionurl]" method="get" class="whc_searchbox">
+      <span>
+        [lang.field_searchfor]&nbsp;
+      </span>
+
+      <input class="whc_searchfield" name="words" type="text" value="[words]" />
+
+      [if buttonpath]
+        <input type="image" name="submit" alt="[lang.button_search]" src="[buttonpath]searchbutton.gif"/>
+      [else]
+        <input class="whc_searchbutton" type="submit" name="submit" value="[lang.button_search]" />
+      [/if]
+
+      <input type="hidden" name="restrict" value="[restrict]" />
+
+      [forevery webvariables]
+        <input type="hidden" name="[name]" value="[value]" />
+      [/forevery]
+    </form>
+  [/if]
+  [if showsearchresults]
+    <p class="whc_header">
+      [resultstitle]
+    </p>
+
+    [forevery result]
+      <div>
+        <span class="result_header">[num].
+          <a href="[url]">
+          [if title][title:none][else][lang.label_notitle][/if]</a>
+        </span>
+      </div>
+      <div>
+        [summary:none]
+      </div>
+      <div class="result_footer">
+        <a href="[url]">[shorturl]</a>
+        -
+        <span class="whc_result_size">[lang.label_size]: [size]</span>
+        [if date] -
+          <span class="whc_result_date">[lang.label_modified]: [date]</span>
+        [/if]
+        [if type] -
+          <span class="whc_result_type">[lang.label_type]: [type]</span>
+        [/if]
+      </div><br />
+    [/forevery]
+
+    [if multiplepages]
+      <div class="navpages">
+        [lang.label_pages]
+        [if prevlink]
+          &nbsp;<a href="[prevlink]">[if buttonpath]
+                                       <img src="[buttonpath]backimage.gif" alt="" border="0" />
+                                     [else]&lt;&lt;
+                                     [/if]</a>
+        [/if]
+        [forevery directpagelink]
+          [if url]<a href="[url]">
+          [else]<span class="whc_current_page">[/if][text]
+          [if url]</a>[else]</span>[/if]
+        [/forevery]
+        [if nextlink]
+          &nbsp;<a href="[nextlink]">[if buttonpath]
+                                       <img src="[buttonpath]nextimage.gif" alt="" border="0" />
+                                     [else]&gt;&gt;
+                                     [/if]</a>
+        [/if]
+      </div>
+    [/if]
+  [/if]
+</div>

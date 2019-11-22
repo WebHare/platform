@@ -1,0 +1,6 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="Graphics"
+       shortdescription="Graphics and image manipulation">
+  <section name="scancodes" title="Bar and QR codes" />
+  <section name="canvas" title="Canvas and paths" />
+</topic>

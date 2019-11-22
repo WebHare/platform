@@ -1,0 +1,646 @@
+﻿<?wh
+/** @private Interesting dialogs should be moved to dialogs.whlib AND use a Run... instead of Make... workflow */
+
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::wrd/lib/address.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// Browse domain values
+//
+
+PUBLIC OBJECTTYPE __WRDEntityBrowser
+< PRIVATE OBJECT dialog;
+  PRIVATE BOOLEAN readonly;
+  PRIVATE INTEGER ARRAY pvt_value;
+  STRING ARRAY pvt_eventmasks;
+  PUBLIC STRING ARRAY pvt_icons;
+
+
+  /* PRIVATE */PUBLIC OBJECT parentform;
+  /* PRIVATE */PUBLIC OBJECT wrdtype;
+
+  PUBLIC MACRO PTR OnEntityEdit;
+  PUBLIC RECORD ARRAY listcolumns;
+  PUBLIC STRING ARRAY edittags;
+  PUBLIC STRING ARRAY requiredtags;
+
+  //FIXME: Make this do something
+  PUBLIC BOOLEAN selectionrequired;
+
+  PUBLIC BOOLEAN sortable;
+  PUBLIC BOOLEAN multiple;
+  PUBLIC BOOLEAN canmanage;
+
+  PUBLIC RECORD add_additional_values;
+
+  PUBLIC RECORD listquery;
+  PUBLIC RECORD ARRAY listfilters;
+
+  /** @cell tag
+      @cell title (optional)
+  */
+  PUBLIC RECORD ARRAY searchattributes;
+
+// Current selected value
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  PUBLIC PROPERTY icons(GetIcons, SetIcons);
+
+  PUBLIC PROPERTY eventmasks(pvt_eventmasks, SetEventMasks);
+
+  PUBLIC STRING title;
+
+  PUBLIC MACRO NEW(BOOLEAN readonly)
+  {
+    this->readonly := readonly;
+    this->sortable := TRUE;
+    this->multiple := FALSE;
+  }
+
+  PUBLIC MACRO SetValue(VARIANT value)
+  {
+    IF (this->multiple)
+      this->pvt_value := INTEGER ARRAY(value);
+    ELSE
+      this->pvt_value := INTEGER(value) = 0 ? DEFAULT INTEGER ARRAY : [ INTEGER(value) ];
+  }
+
+  PUBLIC VARIANT FUNCTION GetValue()
+  {
+    IF (this->multiple)
+      RETURN this->pvt_value;
+    ELSE
+      RETURN LENGTH(this->pvt_value) = 0 ? 0 : this->pvt_value[0];
+  }
+
+  STRING ARRAY FUNCTION GetIcons()
+  {
+    RETURN ObjectExists(this->dialog) ? this->dialog->icons : this->pvt_icons;
+  }
+
+  MACRO SetIcons(STRING ARRAY newicons)
+  {
+    IF (ObjectExists(this->dialog))
+      this->dialog->icons := newicons;
+    ELSE
+      this->pvt_icons := newicons;
+  }
+
+  PUBLIC INTEGER FUNCTION GetIcon(STRING name)
+  {
+    INTEGER pos := SearchElement(this->icons, name);
+    IF (pos != -1)
+      RETURN pos + 1;
+    INSERT name INTO this->icons AT END;
+    RETURN LENGTH(this->icons);
+  }
+
+  MACRO SetEventMasks(STRING ARRAY neweventmasks)
+  {
+    this->pvt_eventmasks := neweventmasks;
+    IF (ObjectExists(this->dialog))
+      this->dialog->eventmasks := neweventmasks;
+  }
+
+  PUBLIC OBJECT FUNCTION __OpenDialog()
+  {
+    IF(Length(this->listcolumns)=0)
+    {
+      //FIXME: 'proper' type-specific default lists
+      STRING ARRAY tags := [ "WRD_LASTNAME","WRD_ORGNAME","WRD_TITLE" ];
+      this->listcolumns :=
+          SELECT tag
+               , width := "1pr"
+            FROM this->wrdtype->ListAttributes(0)
+           WHERE attributetype IN [0,2]
+        ORDER BY tag IN tags DESC, SearchElement(tags, tag), ToUpperCase(tag);
+  /*
+      this->listcolumns := [ [ tag := "WRD_TITLE", width := "1pr" ]
+                           , [ tag := "WRD_TAG",   width := "1pr" ]
+                           ]; //FIXME: 'proper' type-specific default lists
+  */
+    }
+    this->dialog := this->parentform->LoadScreen("wrd:commondialogs.entities", [ isselectentity := this->readonly ]);
+    this->dialog->multiple := this->multiple;
+    this->dialog->eventmasks := this->pvt_eventmasks;
+
+    // If 'readonly' is TRUE, we have an entity-select dialog. If it's FALSE, it's a browse dialog (e.g. add/edit/delete buttons)
+    // However, we sometimes want a select dialog with add/edit/delete buttons: check the 'canmanage' variable
+
+    IF(this->readonly) // Select-only dialog
+    {
+      this->dialog->closebutton->visible := FALSE;
+      this->dialog->ents->openaction := this->dialog->ok;
+
+      IF (NOT this->canmanage) // If not a select dialog with add/edit/del buttons, hide some stuff
+      {
+        this->dialog->frame->menubar := DEFAULT OBJECT;
+    //    this->dialog->toolbar->visible := FALSE;
+        this->dialog->ents->selectcontextmenu := DEFAULT OBJECT;
+        this->dialog->ents->newcontextmenu := DEFAULT OBJECT;
+        this->dialog->addeditdel->visible := FALSE;
+      }
+      ELSE
+      {
+        this->dialog->cancelbutton->visible := FALSE;
+      }
+    }
+    ELSE // Browse dialog: possibly with editing options
+    {
+      this->dialog->cancelbutton->visible := FALSE;
+      IF (NOT this->canmanage)
+        this->dialog->okbutton->visible := FALSE;
+    }
+
+    this->dialog->ents->sortable := this->sortable;
+    this->dialog->listquery := this->listquery;
+    this->dialog->listfilters := this->listfilters;
+    this->dialog->searchattributes := this->searchattributes;
+
+    IF(this->title!="")
+      this->dialog->frame->title := this->title;
+    ELSE IF(this->readonly)
+      this->dialog->frame->title := GetTid("wrd:entities.selecttitle");
+    ELSE
+      this->dialog->frame->title := GetTid("wrd:entities.browsetitle");
+
+    IF(this->onentityedit != DEFAULT FUNCTION PTR)
+      this->dialog->onentityedit := this->onentityedit;
+
+
+    IF(RecordExists(SELECT FROM this->listcolumns AS cols WHERE CellExists(cols,"TAG"))
+       AND NOT RecordExists(SELECT FROM this->listcolumns AS cols WHERE CellExists(cols,"NAME")))
+    {
+      //legacy list
+      this->dialog->listcolumns        := this->listcolumns;
+    }
+    ELSE
+    {
+      this->dialog->columns            := this->listcolumns;
+    }
+    this->dialog->icons              := this->pvt_icons;
+    this->dialog->edittags           := this->edittags;
+
+    // We had no other way to make WRD_TITLE a required field... perhaps with our new interface, because the WRD
+    // database is prepared for required (built-in) fields
+
+    IF (LENGTH(this->requiredtags) > 0)
+    {
+      FOREVERY (STRING s FROM this->requiredtags)
+        this->requiredtags[#s] := ToUpperCase(s);
+    }
+
+    this->dialog->requiredtags := this->requiredtags;
+    this->dialog->Setup(this->wrdtype);
+
+    IF (this->multiple)
+    {
+      UPDATE this->dialog->ents->rows
+         SET __wrd_checked := rowkey IN this->pvt_value;
+    }
+    ELSE IF (LENGTH(this->pvt_value) = 0)
+      this->dialog->ents->value := 0;
+    ELSE
+      this->dialog->ents->value := this->pvt_value[0];
+
+    this->dialog->add_additional_values := this->add_additional_values;
+    RETURN this->dialog;
+  }
+
+  PUBLIC BOOLEAN FUNCTION __InvokeDialog(OBJECT dialog)
+  {
+    dialog->RunModal();
+
+    IF (this->multiple)
+      this->pvt_value := SELECT AS INTEGER ARRAY rowkey FROM dialog->ents->rows WHERE __wrd_checked;
+    ELSE
+      this->pvt_value := RecordExists(dialog->ents->selection) ? [ INTEGER(dialog->ents->selection.rowkey) ] : DEFAULT INTEGER ARRAY;
+
+    RETURN dialog->tolliumresult="ok";
+  }
+
+  PUBLIC BOOLEAN FUNCTION RunDialog()
+  {
+    RETURN this->__InvokeDialog(this->__OpenDialog());
+  }
+
+>;
+
+/** @short Make a WRD entity browse dialog (can select or edit entities)
+*/
+PUBLIC OBJECT FUNCTION MakeWRDEntityBrowseDialog(OBJECT parentform, OBJECT wrdtype)
+{
+  OBJECT editor := NEW __WRDEntityBrowser(FALSE);
+  IF (NOT ObjectExists(wrdtype))
+    THROW NEW Exception("wrdtype for MakeWRDEntityBrowseDialog cannot be an DEFAULT OBJECT");
+
+  editor->parentform := parentform;
+  editor->wrdtype := wrdtype;
+  RETURN editor;
+}
+
+/** @short Make a WRD entity select dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDEntitySelectDialog(OBJECT parentform, OBJECT wrdtype)
+{
+  OBJECT editor := NEW __WRDEntityBrowser(TRUE);
+  IF (NOT ObjectExists(wrdtype))
+    THROW NEW Exception("wrdtype for MakeWRDEntitySelectDialog cannot be an DEFAULT OBJECT");
+
+  editor->parentform := parentform;
+  editor->wrdtype := wrdtype;
+  RETURN editor;
+}
+
+
+
+/* ------------------------------------------------------------------
+   Edit entity
+   ------------------------------------------------------------------*/
+OBJECTTYPE WRDEditEntity
+< PUBLIC MACRO NEW(OBJECT parentform, OBJECT wrdtype, OBJECT entity, STRING array_base_attr)
+  {
+    this->parentform := parentform;
+    this->wrdtype := wrdtype;
+    this->entity := entity;
+    this->array_base_attr := array_base_attr;
+  }
+  PRIVATE OBJECT dialog;
+
+  PRIVATE OBJECT parentform;
+  PRIVATE OBJECT wrdtype;
+  PRIVATE OBJECT entity;
+
+  PRIVATE STRING array_base_attr;
+
+// Updateable columns
+  PUBLIC STRING ARRAY typetags;
+  PUBLIC STRING ARRAY requiredtags;
+  PUBLIC RECORD additional_values;
+
+  PUBLIC RECORD value;
+
+  PUBLIC INTEGER FUNCTION RunDialog()
+  {
+    this->dialog := this->parentform->LoadScreen("wrd:commondialogs.editentity",
+                                                 [ typetags := this->typetags
+                                                 , wrdtype := this->wrdtype
+                                                 , entity := this->entity
+                                                 , array_base_attr := this->array_base_attr
+                                                 , requiredtags := this->requiredtags
+                                                 ]);
+    this->dialog->additional_values := this->additional_values;
+    IF (RecordExists(this->value))
+      this->dialog->entity_value := this->value;
+    IF(this->dialog->RunModal()="ok")
+    {
+      this->value := this->dialog->entity_value;
+      RETURN this->array_base_attr != "" ? -1 : this->dialog->entityid;
+    }
+    RETURN 0;
+  }
+>;
+
+/** @short Make a WRD edit array row dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDEditArrayRowDialog(OBJECT parentform, OBJECT wrdtype, STRING attr)
+{
+  IF (NOT ObjectExists(wrdtype))
+    THROW NEW Exception("wrdtype for MakeWRDEditArrayRowDialog cannot be an DEFAULT OBJECT");
+
+  OBJECT editor := NEW WRDEditEntity(parentform, wrdtype, DEFAULT OBJECT, attr);
+  RETURN editor;
+}
+
+/** @short Make a WRD edit entity browse dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDEditEntityDialog(OBJECT parentform, OBJECT wrdtype, INTEGER entityid)
+{
+  IF (NOT ObjectExists(wrdtype))
+    THROW NEW Exception("wrdtype for MakeWRDEditEntityDialog cannot be an DEFAULT OBJECT");
+
+  OBJECT editor := NEW WRDEditEntity(parentform, wrdtype, entityid!=0 ? wrdtype->GetEntity(entityid) : DEFAULT OBJECT, "");
+  RETURN editor;
+}
+
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// Common WRD address edit dialog
+//
+//
+OBJECTTYPE WRDEditAddress
+<
+  PUBLIC MACRO NEW(OBJECT parentform, OBJECT wrdschema)
+  {
+    this->parentform := parentform;
+    this->wrdschema := wrdschema;
+  }
+  PRIVATE OBJECT parentform;
+  PRIVATE OBJECT wrdschema;
+
+  PUBLIC RECORD address;
+  PUBLIC BOOLEAN verification;
+  PUBLIC BOOLEAN force_verification;
+  PUBLIC BOOLEAN required;
+  PUBLIC STRING defaultcountry;
+
+  PUBLIC BOOLEAN FUNCTION RunDialog()
+  {
+    OBJECT diag := this->parentform->LoadSCreen("wrd:commondialogs.editaddress", [ wrdschema := this->wrdschema, address := this->address, defaultcountry := this->defaultcountry ]);
+    diag->verification := this->verification;
+    diag->required := this->required;
+    diag->force_verification := this->force_verification;
+    IF (diag->RunModal()!="ok")
+      RETURN FALSE;
+
+    this->address := FixupAddress(diag->value);
+    RETURN TRUE;
+  }
+>;
+
+/** @short Make a WRD edit address browse dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDEditAddressDialog(OBJECT parentform, OBJECT wrdschema)
+{
+  RETURN NEW WRDEditAddress(parentform, wrdschema);
+}
+
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// Common WRD edit password dialog
+//
+
+OBJECTTYPE WRDEditPasswordDialog
+<
+
+  PUBLIC MACRO NEW(OBJECT parent)
+  {
+    this->parentform := parent;
+    this->requirenewpassword := TRUE;
+  }
+  PRIVATE OBJECT dialog;
+  PRIVATE FUNCTION PTR checkpassword;
+  PRIVATE STRING explanation;
+  PRIVATE OBJECT parentform;
+  PRIVATE STRING curval;
+  PRIVATE BOOLEAN curvalishash;
+  PRIVATE BOOLEAN pvt_requirenewpassword;
+  PUBLIC PROPERTY newpassword(GetNewPassword, -);
+  PUBLIC BOOLEAN requirenewpassword;
+
+  PRIVATE STRING FUNCTION GetNewPassword()
+  {
+    RETURN this->dialog->GetNewPassword();
+  }
+
+  /** Setup restrictions on the new password
+      @param checkfunction Function taking the new password, and returning a boolean whether
+          the password meets the restrictions
+      @param explanation Explanation of the restrictions
+  */
+  PUBLIC MACRO SetupPolicy(FUNCTION PTR checkfunction, STRING explanation)
+  {
+    this->checkpassword := checkfunction;
+    this->explanation := explanation;
+  }
+
+  PUBLIC MACRO SetAskCurrentPassword(STRING pwd, BOOLEAN ishashed)
+  {
+    this->curval := pwd;
+    this->curvalishash := ishashed;
+  }
+
+  PUBLIC BOOLEAN FUNCTION RunDialog()
+  {
+    this->dialog := CreatePasswordChangeDialog(this->parentform);
+    this->dialog->value := this->curval;
+    this->dialog->ishashed := this->curvalishash;
+    this->dialog->onpolicycheck := this->checkpassword;
+    this->dialog->policy := this->explanation;
+    this->dialog->requirepassword := this->requirenewpassword;
+    RETURN this->dialog->RunModal()="ok";
+  }
+>;
+
+/** @short Make a WRD edit password dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDEditPasswordDialog(OBJECT parentform)
+{
+  OBJECT editor := NEW WRDEditPasswordDialog(parentform);
+  RETURN editor;
+}
+
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// Common stats dialog
+//
+
+OBJECTTYPE WRDQueryDialog
+  < PRIVATE OBJECT screen;
+    PRIVATE OBJECT query;
+
+    PRIVATE RECORD ARRAY FUNCTION ParseOutputColumns()
+    {
+      RECORD ARRAY outputcolumns := this->outputcolumns;
+      IF (LENGTH(this->outputcolumns) = 0)
+      {
+        this->screen->emailcolumn := "";
+        IF (this->filter != DEFAULT FUNCTION PTR)
+          ABORT("Setting the output columns is mandatory when using a filter");
+
+        RECORD ARRAY cols := this->query->GetOutputColumns();
+        FOREVERY (RECORD col FROM cols)
+        {
+          RECORD ocol := [ name := col.name, title := col.name, type := "" ];
+          IF (CellExists(col, "SORTKEYNAME"))
+            INSERT CELL sortkeyname := col.sortkeyname INTO ocol;
+
+          INSERT CELL exportonly := CellExists(col, "EXPORTONLY") AND col.exportonly INTO ocol;
+          SWITCH (col.attr.attributetype)
+          {
+          CASE 1, 15
+            { ocol.type := "integer"; }
+          CASE 18
+            { ocol.type := "integer64"; }
+          CASE 2
+            { ocol.type := "text"; }
+            CASE 4 /*email*/
+            {
+              IF(this->screen->emailcolumn="")
+                this->screen->emailcolumn := ocol.name;
+              ocol.type:="text";
+            }
+
+          }
+          IF (ocol.type != "")
+            INSERT ocol INTO outputcolumns AT END;
+        }
+      }
+      ELSE
+      {
+        this->screen->emailcolumn := this->emailcolumn;
+        FOREVERY (RECORD rec FROM outputcolumns)
+          IF (NOT CellExists(rec, "EXPORTONLY"))
+            INSERT CELL exportonly := FALSE INTO outputcolumns[#rec];
+      }
+      RETURN outputcolumns;
+    }
+
+    PUBLIC FUNCTION PTR filter;
+    PUBLIC RECORD ARRAY outputcolumns;
+    PUBLIC STRING emailcolumn;
+    PUBLIC STRING pagetitle;
+
+    PUBLIC PROPERTY parameterfields(this->screen->parameterfields,-);
+
+    PUBLIC MACRO NEW(OBJECT parent, OBJECT query)
+    {
+      this->screen := parent->LoadScreen("wrd:commondialogs.resultgrid");
+      this->screen->runner := PTR this->MyRunner;
+      this->query := query;
+    }
+
+    PUBLIC MACRO RunDialog()
+    {
+      RECORD ARRAY parameters := this->query->GetParameters();
+
+      IF (LENGTH(parameters) > 0)
+      {
+        OBJECT last_object;
+        FOREVERY (RECORD param FROM parameters)
+        {
+          OBJECT field := this->screen->CreateCustomComponent("http://www.webhare.net/xmlns/wrd/components", "paramfield");
+          field->DynamicInit(param.type, param.subtype, param);
+          field->title := param.title;
+          this->screen->fields->InsertComponentAfter(field, DEFAULT OBJECT, TRUE);
+          field->WRD_Setup();
+
+          INSERT [ name := param.name, field := field ] INTO this->screen->parameterfields AT END;
+          last_object := field;
+        }
+      }
+      ELSE
+        this->screen->parameters->visible := FALSE;
+
+
+      RECORD ARRAY outputcolumns := this->ParseOutputColumns();
+      this->screen->SetOutputColumns(outputcolumns);
+
+      IF (LENGTH(parameters) = 0)
+        this->DoRun();
+
+      IF (this->pagetitle != "")
+        this->screen->frame->title := this->pagetitle;
+
+      this->screen->RunModal();
+    }
+
+    PUBLIC MACRO DoRun()
+    {
+      this->screen->DoRun();
+    }
+
+    PUBLIC RECORD ARRAY FUNCTION MyRunner()
+    {
+      RECORD params;
+      FOREVERY (RECORD field FROM this->screen->parameterfields)
+        params := CellInsert(params, field.name, field.field->value);
+
+      RECORD ARRAY results := this->query->Execute(params);
+      IF (this->filter != DEFAULT FUNCTION PTR)
+        results := this->filter(results, params);
+
+      // Might have updated output columns
+      RECORD ARRAY outputcolumns := this->ParseOutputColumns();
+      this->screen->SetOutputColumns(outputcolumns);
+
+      results := SELECT rowkey := #results + 1, * FROM results;
+
+      RETURN results;
+    }
+
+    PUBLIC MACRO DoExportDirect()
+    {
+      this->screen->DoExportDirect();
+    }
+  >;
+
+/** @short Create a query display dialog
+    @param parentform Form which should be the parent of this dialog
+    @param query WRD query to execute
+    */
+PUBLIC OBJECT FUNCTION MakeWRDQueryDialog(OBJECT parentform, OBJECT query)
+{
+  OBJECT dialog := NEW WRDQueryDialog(parentform,query);
+  RETURN dialog;
+}
+
+
+
+////////////////////////////////////////////////////////////////
+//
+// Generic importers
+//
+/** @short Make a WRD import wizard dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDImportWizardDialog(OBJECT parentform, OBJECT intype)
+{
+  OBJECT diag := parentform->LoadScreen("wrd:exchange.import", [ intype := intype  ]);
+  RETURN diag;
+}
+
+
+
+////////////////////////////////////////////////////////////////
+//
+// Other stuff (simplified wrappers who do not rely on public properties)
+//
+
+/** @short Make a WRD create schema dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDCreateSchemaDialog(OBJECT parentform)
+{
+  RETURN parentform->LoadScreen("wrd:schemamanager.newschema");
+}
+
+/** @short Make a WRD manage types dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDManageTypesDialog(OBJECT parentform, OBJECT wrdschema)
+{
+  OBJECT dialog := parentform->LoadScreen("wrd:types.managetypes", [ curschema := wrdschema ]);
+  RETURN dialog;
+}
+
+/** @short Make a WRD edit type dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDEditTypeDialog(OBJECT parentform, OBJECT wrdtype)
+{
+  OBJECT dialog := parentform->LoadScreen("wrd:types.edittype");
+  dialog->Setup(wrdtype->wrdschema, wrdtype->id);
+  RETURN dialog;
+}
+
+/** @short Make a WRD manage attributes dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDManageAttributesDialog(OBJECT parentform, OBJECT wrdtype)
+{
+  OBJECT dialog := parentform->LoadScreen("wrd:types.manageattrs");
+  dialog->Setup(wrdtype->wrdschema, wrdtype->id);
+  RETURN dialog;
+}
+
+/** @short Make a WRD simple query builder dialog
+*/
+PUBLIC OBJECT FUNCTION MakeWRDSimpleQueryBuilderDialog(OBJECT parentform)
+{
+  OBJECT dialog := parentform->LoadScreen("wrd:commondialogs/simplequerybuilder.simplequerybuilder");
+  RETURN dialog;
+}

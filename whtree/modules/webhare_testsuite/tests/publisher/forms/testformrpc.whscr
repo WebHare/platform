@@ -1,0 +1,132 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/testfw/upload.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+PUBLIC MACRO TestTestsuiteForms()   //Run through the testsuite forms. this may alreay expose some issues
+{
+  OBJECT testfile := OpenTestsuiteSite()->OpenBypath("testpages/formtest");
+  IF(testfw->debug)
+    Print(testfile->indexurl || "\n");
+
+  OBJECT webdesign := GetWebDesign(testfile->id);
+  OBJECT coreform := webdesign->OpenForm("coretest", [ formref := "CORE-TEST-FORM"]);
+  OBJECT dynamicform := webdesign->OpenForm("dynamictest");
+  OBJECT rtdform := webdesign->OpenForm("rtdtest");
+  OBJECT addressform := webdesign->OpenForm("addressform");
+}
+
+
+MACRO ApiTest()
+{
+  testfw->browser->SetSessionCookie("wh-debug", GetSignedWHDebugOptions([ "win", "etr" ])); //get witties and error traces
+
+  STRING formurl := OpentestsuiteSite()->OpenByPath("testpages/formtest")->url;
+  TestEq(TRUE, testfw->browser->GotoWebPage(formurl));
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser, [ selector := "#coreform" ]);
+  TestThrowsLike('*Record variable*PROOF*', PTR tester->SubmitForm([ agree := "1"
+                                                                   ]));
+
+  RECORD formresult := tester->SubmitForm([ agree := "1" ], [extrasubmit := [ proof := 42 ]]);
+  TestEq(4, Length(formresult.errors));
+  Testeq([name:="email",message:="Dit veld is verplicht.",metadata := DEFAULT RECORD], formresult.errors[0]);
+  TestEq(TRUE, RecordExists(SELECT FROM formresult.errors WHERE name = "pulldowntest"));
+
+  RECORD correctformvars := [ agree := "1"
+                            , pulldowntest := "1"
+                            , email := "pietje@example.net"
+                            , requiredradio := ["x"]
+                            , "address.country" := "NL"
+                            , "address.street" := "Hengelosestraat"
+                            , "address.nr_detail" := "296"
+                            , "address.zip" := "7521AM"
+                            , "address.city" := "Enschede"
+                            ];
+  formresult := tester->SubmitForm(correctformvars, [ extrasubmit := [ proof := 42 ] ]);
+
+
+  Testeq(TRUE, formresult.success);
+  TestEq("InvisValue", formresult.result.form.nevervisible);
+  TestEq("InvisValue", formresult.result.form.invisible);
+
+  RECORD trysubmitdisabled := CELL[ ...correctformvars
+                                  , disabledpulldowntest := "this"
+                                  ];
+
+  formresult := tester->SubmitForm(trysubmitdisabled, [ extrasubmit := [ proof := 42 ] ]);
+  // Disabled fields are updated; form handler should take care of this
+  TestEq("this", formresult.result.form.disabledpulldowntest);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(formurl));
+  tester := OpenFormsapiFormTester(testfw->browser, [ selector := "#coreform" ]);
+  formresult := tester->SubmitForm(trysubmitdisabled, [ extrasubmit := [ proof := 42 ] ]);
+  TestEq("this", formresult.result.form.disabledpulldowntest);
+
+  //Formapi normally doesn't submit hidden fields, but if it does, the server should still fix it
+  RECORD trysubmithiddenradio := CELL[ ...correctformvars
+                                     , requiredradio := ["y"]
+                                     , showradioy := STRING[]
+                                     ];
+  formresult := tester->SubmitForm(trysubmithiddenradio, [ extrasubmit := [ proof := 42 ] ]);
+  TestEq(1, Length(formresult.errors));
+
+  //Formapi normally doesn't submit disabled fields, but if it does, the server should still fix it
+  RECORD trysubmitdisabledradio := CELL[ ...correctformvars
+                                       , requiredradio := ["z"]
+                                       ];
+  formresult := tester->SubmitForm(trysubmitdisabledradio, [ extrasubmit := [ proof := 42 ] ]);
+  TestEq(1, Length(formresult.errors));
+
+  RECORD swappedformfars := CELL[ ...correctformvars
+                                , agree := ["1"]
+                                , pulldowntest := ["1"]
+                                , requiredradio := "x"
+                                ];
+  formresult := tester->SubmitForm(swappedformfars, [ extrasubmit := [ proof := 42 ] ]);
+
+  Testeq(TRUE, formresult.success);
+  TestEq(TRUE, formresult.result.form.agree);
+  TestEq(1, formresult.result.form.pulldowntest);
+  TestEq("x", formresult.result.form.requiredradio);
+}
+
+MACRO TestUpload()
+{
+  STRING formurl := OpentestsuiteSite()->OpenByPath("testpages/formtest")->url || "?rtd=1&accept=image/gif,image/jpeg";
+  TestEq(TRUE, testfw->browser->GotoWebPage(formurl));
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+
+  RECORD res := DoHTML5Upload(StringToBlob("1234"), "file1.txt", [ baseurl := formurl ]);
+  STRING formservice := ResolveToAbsoluteURL(formurl, "/wh_services/publisher/forms");
+
+  STRING finalurl := testfw->browser->CallJSONRPC(formservice, "getUploadedFileFinalURL", res.downloadurl);
+
+  RECORD submitrec := [ file := [ filename := "file1.txt"
+                                , link := finalurl
+                                ]
+                      , img := [ filename := "file1.txt"
+                               , link := finalurl
+                               ]
+                      ];
+  //submitrec := CellInsert(submitrec, emailfieldname, "testfw+uploadtest@beta.webhare.net");
+
+  RECORD submitres := tester->SubmitForm(submitrec);
+  dumpvalue(submitres,'tree');
+  TestEq(FALSE, submitres.success);
+}
+
+RunTestFramework([ PTR TestTestsuiteForms
+                 , PTR ApiTest
+                 , PTR TestUpload
+                 ]);

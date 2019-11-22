@@ -1,0 +1,19 @@
+@import url("//fast.fonts.net/cssapi/accde30c-be09-41b3-9719-22771c54c341.css");
+
+h1
+{
+  color:blue;
+}
+h6:after
+{
+  content:"DUMMY-TEXT-TO-VERIFY-RTD.CSS-GOT-INCLUDED";
+}
+.testrtd
+{
+  font: 12px "Test 1";
+  background-image:url("../web/img/smallbob.jpg");
+}
+.testrtd2
+{
+  background-image:url("../smallbob.jpg");
+}

@@ -1,0 +1,140 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+// List all SVG files recursively
+STRING ARRAY FUNCTION GetSVGFiles(STRING dir)
+{
+  STRING ARRAY files;
+  FOREVERY (RECORD file FROM SELECT * FROM ReadDiskDirectory(dir, "*") ORDER BY ToUppercase(name))
+  {
+    IF (file.type = 1)
+      files := files CONCAT GetSVGFiles(MergePath(dir, file.name));
+    IF (file.name NOT LIKE "*.svg")
+      CONTINUE;
+    INSERT file.path INTO files AT END;
+  }
+  RETURN files;
+}
+
+PUBLIC STRING ARRAY FUNCTION FixSVGlayers()
+{
+  STRING ARRAY paths;
+  FOREVERY (STRING module FROM GetInstalledModuleNames())
+  {
+    FOREVERY (STRING filepath FROM GetSVGFiles(MergePath(GetModuleInstallationRoot(module), "web/img")))
+    {
+      BLOB filedata := GetDiskResource(filepath);
+      RECORD result := RunInternalSVGValidator(filedata, TRUE);
+      IF(result.anychanges)
+      {
+        StoreDiskFile(filepath, result.newdata, [ overwrite := TRUE ]);
+        INSERT filepath INTO paths AT END;
+      }
+    }
+  }
+  RETURN paths;
+}
+
+RECORD FUNCTION RunInternalSVGValidator(BLOB doc_blob, BOOLEAN fixup)
+{
+  // SVG files bigger than 3030 bytes aren't processed well in IE11
+  //ADDME: More subtle than that unfortunately...
+  //IF (Length(filedata) >= 3030)
+  //  INSERT [ path := filepath, type := "filesize" ] INTO svgpaths AT END;
+  RECORD retval := [ errors := RECORD[]
+                   , newdata := DEFAULT BLOB
+                   , anychanges := FALSE
+                   ];
+
+  // Open the SVG file as XML document
+  OBJECT svgdoc := MakeXMLDocument(doc_blob);
+  IF (NOT ObjectExists(svgdoc) OR svgdoc->documentelement->namespaceuri != "http://www.w3.org/2000/svg")
+  {
+    INSERT [ message := "Could not read file" ] INTO retval.errors AT END;
+    RETURN retval;
+  }
+
+  // Get the contents of the <style> nodes
+  STRING styles;
+  FOREVERY (OBJECT style FROM svgdoc->documentelement->GetElementsByTagName("style")->GetCurrentElements())
+  {
+    styles := styles || TrimWhitespace(style->childrentext);
+  }
+  IF (styles != "")
+  {
+    // Parse CSS and get a list of classes having display: none
+    OBJECT stylesheet := MakeCSSStyleSheet(StringToBlob(styles));
+    STRING ARRAY selectors;
+    FOR (INTEGER i := 0; i < stylesheet->cssrules->length; i := i + 1)
+    {
+      OBJECT rule := stylesheet->cssrules->Item(i);
+      IF (rule->type = 1) // CSSStyleRule
+      {
+        IF (RecordExists(SELECT FROM rule->style->rulelist
+                          WHERE name = "display"
+                                AND RecordExists(SELECT FROM tokens WHERE value = "none")))
+          INSERT rule->selectortext INTO selectors AT END;
+      }
+    }
+
+    IF (Length(selectors) > 0)
+    {
+      // Warn if there are <g> nodes with these classes
+      OBJECT hiddenlayers := svgdoc->QuerySelectorAll(Detokenize(selectors, ","));
+      IF (Length(hiddenlayers->GetCurrentElements()) > 0)
+      {
+        IF(fixup)
+        {
+          OBJECT ARRAY hiddenelements := hiddenlayers->GetCurrentElements();
+          FOR (INTEGER i := Length(hiddenelements) - 1; i >= 0; i := i - 1)
+            hiddenelements[i]->parentnode->RemoveChild(hiddenelements[i]);
+
+          retval.anychanges := TRUE;
+        }
+        ELSE //fail on this if we're not allowed to fix it
+        {
+          INSERT [ message := "Hidden layers! (consider `wh fixsvgs`)", line := 1 ] INTO retval.errors AT END;
+        }
+      }
+    }
+  }
+
+  FOREVERY(OBJECT tocheck FROM svgdoc->GetElements("*[xlink:href]"))
+  {
+    STRING pointsto := tocheck->GetAttributeNS("http://www.w3.org/1999/xlink","href");
+    IF(pointsto LIKE "*:*") //Chrome 62 hates us for this
+      INSERT [ message := `Invalid xlink:href references '${pointsto}'`, line := tocheck->linenum ] INTO retval.errors AT END;
+  }
+  IF(retval.anychanges)
+    retval.newdata := svgdoc->GetDocumentBlob(FALSE);
+
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION RunSVGIconValidator(BLOB doc_blob, STRING resourcename, RECORD options)
+{
+  OBJECT doc := MakeXMLDocument(doc_blob);
+  IF(Length(doc->GetParseErrors())>0)
+  {
+    RETURN [ errors := (SELECT message
+                            , resourcename :=  COLUMN filename ?? VAR resourcename
+                            , localname
+                            , namespaceuri
+                            , line
+                            , col :=       0
+                        FROM doc->GetParseErrors()) ];
+  }
+
+  RECORD result := RunInternalSVGValidator(doc_blob, FALSE);
+  RETURN [ errors := SELECT message
+                          , resourcename := VAR resourcename
+                          , col := 1
+                          , line
+                       FROM result.errors
+         ];
+}

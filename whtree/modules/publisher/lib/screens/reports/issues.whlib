@@ -1,0 +1,177 @@
+<?wh
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+/*
+total rewrite by Mark
+This function is totally optimized for only getting errors as fast as possible
+
+FIXME: per laag/niveau folders oppikken (highestparent is een berekend veld)
+
+FIXME: !!!! Webhare has a huge issue with DELETE FROM with huge amounts of RECORDS !
+       in this case SELECT..FROM.. can be over 50x - 100x as fast
+*/
+PUBLIC RECORD ARRAY FUNCTION TurboGetSiteErrors()
+{
+  RECORD ARRAY sites := SELECT * FROM system.sites;
+
+  INTEGER ARRAY siteids := SELECT AS INTEGER ARRAY id FROM sites WHERE NOT locked AND outputweb != 0;
+
+  // FIXME: or don't get STRING's and in a later pass get the strings for the files we need them from?
+  RECORD ARRAY sitefiles :=
+          SELECT id
+               , highestparent
+               , url
+               , title
+               , name
+               , fullpath
+               , errordata
+               , published
+               , status := GetErrorFromPublished(published) // aka %100000 .. FIXME: rename to status?
+               , warning := TestFlagFromPublished(published, PublishedFlag_Warning)
+            FROM system.fs_objects
+           WHERE NOT isfolder
+             AND publish
+             AND highestparent IN siteids // since WH 3.?? the site id is the root folder id
+             AND published % 100000 > 100;
+
+  RECORD ARRAY rsites :=
+          SELECT highestparent := Any(highestparent)
+               , filerecs := GroupedValues(sitefiles)
+            FROM sitefiles
+        GROUP BY highestparent;
+
+  rsites :=
+         SELECT *
+              //, puberrors   := Length(SELECT FROM filerecs WHERE status > 100 AND status != 112/*site locked*/)
+              , fileswitherrors := (SELECT * FROM filerecs WHERE  status > 100 AND status != 112/*site locked*/)
+              //, pubwarnings := Length(SELECT FROM filerecs WHERE warning AND status = 0)
+              , site := RECORD(SELECT * FROM sites WHERE id = rsites.highestparent) // FIXME: use lowerbound stuff?
+           FROM rsites;
+
+  rsites :=
+         SELECT id := site.id
+              , root := site.id // since recent Webhare's
+              , name := site.name
+              , published := site.outputweb != 0
+              //, puberrors := Length(fileswitherrors)
+              //, pubwarnings
+              , fileswitherrors := (SELECT *, errorcode := status FROM fileswitherrors) // FIXME: double field
+           FROM rsites;
+
+  RETURN rsites;
+}
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->RefreshList();
+  }
+
+  MACRO RefreshList()
+  {
+    INTEGER icon_site := this->errors->GetIcon("tollium:filemgr/site");
+    INTEGER icon_siteprofile := this->errors->GetIcon("tollium:files/application_x-webhare-siteprofile");
+
+    RECORD ARRAY total := SELECT * FROM TurboGetSiteErrors() ORDER BY ToUppercase(name);
+
+    RECORD ARRAY rows_x :=
+          SELECT rowkey := id
+               , name
+               , url := ""
+               , fullpath := ""
+               , errordata := ""
+               , expanded := TRUE
+               , style := "site"
+
+               , selectable := TRUE
+               , viewable := TRUE
+
+               , subnodes := (SELECT rowkey := id
+                                   , url
+                                   , name := title ?? name
+                                   , name_order := #fileswitherrors
+                                   , errorcode
+                                   , errordata
+
+                                   , selectable := TRUE
+                                   , viewable := TRUE
+                                   , icon := 0
+
+                                   , fullpath
+                                   , published
+                                   , expanded := FALSE
+                                   , style := ""
+                                   , subnodes := DEFAULT RECORD ARRAY
+                                FROM fileswitherrors
+                            ORDER BY ToUpperCase(title ?? name)
+                              //LIMIT this->limitresults->value ? 5 : 1000
+                             )
+            FROM total
+           WHERE Length(fileswitherrors) > 0 //puberrors > 0
+        ORDER BY ToUpperCase(name);
+
+    // insert empty rows and give them negative rowkeys so as not to clash with the fsobjectids
+    RECORD ARRAY rows;
+    FOREVERY(RECORD row FROM rows_x)
+    {
+      INSERT row INTO rows AT END;
+      IF (#row < (Length(rows_x)-1))
+      {
+        INSERT [ rowkey := -#row-1
+               , name   := ""
+               , url    := ""
+               , fullpath := ""
+               , errordata := ""
+               , expanded := FALSE
+
+               , selectable := FALSE
+               , viewable := FALSE
+               //, style := ""
+
+               , subnodes := DEFAULT RECORD ARRAY
+               ] INTO rows AT END;
+      }
+    }
+    rows := SELECT *, name_order := #row FROM rows AS row;
+
+
+    RECORD ARRAY rows2 :=
+          SELECT *
+               , icon := icon_site
+               , subnodes := (SELECT rowkey := Any(#rows) * 1000 + Any(#subnodes)
+                                   , icon := 0
+                                   , url := ""
+                                   //, name := Count(*) || "x " || Any(errorcode) || " - " || (Any(errordata) ?? "???")
+                                   , name := Count(*) || "x "
+                                             || GetPublicationErrorMsg(Any(errorcode), "")
+                                   , name_order := Any(#subnodes)
+                                   , errordata := ""
+                                   , fullpath := ""
+                                   , published := FALSE
+                                   , expanded := FALSE
+
+                                   , selectable := TRUE
+                                   , viewable   := FALSE
+                                   , style := ""
+
+                                   , subnodes := (SELECT * FROM GroupedValues(subnodes))
+                                FROM subnodes
+                            GROUP BY errorcode //errordata
+                             )
+            FROM rows;
+
+      this->errors->rows := rows2;
+  }
+
+
+  MACRO DoViewInPublisher()
+  {
+    //IF (RecordExists(this->errors->selection))
+    this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := this->errors->selection.rowkey ], DEFAULT RECORD, FALSE);
+  }
+
+>;

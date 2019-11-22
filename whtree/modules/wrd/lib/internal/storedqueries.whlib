@@ -1,0 +1,222 @@
+<?wh
+LOADLIB "wh::xml/dom.whlib";
+
+
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/queries.whlib" ;
+
+PUBLIC STATIC OBJECTTYPE WRDStoredQuery
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER pvt_id;
+  INTEGER pvt_entity;
+  STRING pvt_tag;
+  STRING pvt_title;
+  STRING pvt_description;
+  RECORD pvt_query_rec;
+  OBJECT pvt_wrd_query;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Id of the stored query
+  */
+  PUBLIC PROPERTY id(pvt_id, -);
+
+  /** Tag of the stored query
+  */
+  PUBLIC PROPERTY tag(pvt_tag, -);
+
+
+  /** Record describing the query
+  */
+  PUBLIC PROPERTY query(pvt_query_rec, -);
+
+
+  /** WRD query interface for the query
+  */
+  PUBLIC PROPERTY wrd_query(GetWRDQuery, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Constructor
+      @param wrd_schema WRD schema this stored query is placed in
+      @param db_record Database record
+      @cell db_record.id
+      @cell db_record.entity
+      @cell db_record.tag
+      @cell db_record.title
+      @cell db_record.description
+      @cell db_record.query Query blob (xml encoded) (when do_create is FALSE)
+      @cell db_record.query_rec Query record (when do_create is TRUE)
+      @param do_create If TRUE, create a new query in the DB, based on the db_record
+  */
+  MACRO NEW(OBJECT wrd_schema, RECORD db_record, BOOLEAN do_create)
+  {
+    this->pvt_entity := CellExists(db_record, "ENTITY") ? db_record.entity : 0;
+    this->pvt_tag := CellExists(db_record, "TAG") ? db_record.tag : "";
+    this->pvt_title := CellExists(db_record, "TITLE") ? db_record.title : "";
+    this->pvt_description := CellExists(db_record, "DESCRIPTION") ? db_record.description : "";
+
+    IF (do_create)
+    {
+      this->pvt_query_rec := db_record.query_rec;
+      BLOB queryblob := this->SerializeQuery();
+
+      this->pvt_id := MakeAutonumber(wrd.storedqueries, "ID");
+      INSERT INTO wrd.storedqueries(id, tag, query, wrd_schema)
+           VALUES (this->pvt_id, this->tag, queryblob, wrd_schema->id);
+    }
+    ELSE
+    {
+      OBJECT xml_query := MakeXMLDocument(db_record.query);
+      IF (NOT ObjectExists(xml_query))
+        THROW NEW Exception("Could not parse the xml data of stored query '"||db_record.tag||"'");
+
+      RECORD query_rec := ImportQueryFromXML(wrd_schema, xml_query->documentelement);
+      IF (NOT RecordExists(query_rec))
+        THROW NEW Exception("Could not parse the query data of stored query '"||db_record.tag||"'");
+
+      this->pvt_id := db_record.id;
+      this->pvt_query_rec := query_rec;
+    }
+  }
+
+  BLOB FUNCTION SerializeQuery()
+  {
+    OBJECT domimpl := NEW XmlDOMImplementation;
+    OBJECT doc := domimpl->CreateDocument("http://www.webhare.net/xmlns/wrd/query", "query", DEFAULT OBJECT);
+    this->wrd_query->SerializeToXML(doc->documentElement);
+    doc->NormalizeDocument();
+    RETURN doc->GetDocumentBlob(true);
+  }
+
+
+  /** Sets the data within the stored query object. Resets wrd_query object.
+      @param id Id of this stored query
+      @param dbdata Data to store
+      @cell dbdata.entity Entity
+      @cell dbdata.tag Tag
+      @cell dbdata.title Title
+      @cell dbdata.description Description
+      @cell query_rec WRD query record
+  */
+  MACRO Init(INTEGER id, RECORD dbdata, RECORD query_rec)
+  {
+    this->pvt_id := id;
+    this->pvt_entity := dbdata.entity;
+    this->pvt_tag := dbdata.tag;
+    this->pvt_title := dbdata.title;
+    this->pvt_description := dbdata.title;
+    this->pvt_query_rec := query_rec;
+    this->pvt_wrd_query := DEFAULT OBJECT;
+  }
+
+
+  OBJECT FUNCTION GetWRDQuery()
+  {
+    IF (NOT ObjectExists(this->pvt_wrd_query))
+      this->pvt_wrd_query := MakeWRDQuery(this->pvt_query_rec);
+
+    RETURN this->pvt_wrd_query;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Executes the query.
+      @param parameters Parameters to the query
+      @return List of results for the query
+  */
+  PUBLIC RECORD ARRAY FUNCTION Execute(RECORD parameters DEFAULTSTO DEFAULT RECORD)
+  {
+    this->wrd_query->ResetCurrentTime();
+    RETURN this->wrd_query->Execute(parameters);
+  }
+
+
+  /** Deletes this query from the current schema
+  */
+  PUBLIC MACRO DeleteQuery()
+  {
+    DELETE FROM wrd.storedqueries WHERE id = this->pvt_id;
+    this->pvt_id := 0;
+  }
+
+
+  /** Updates fields of this stored query
+  */
+  PUBLIC MACRO UpdateFields(RECORD querydata)
+  {
+    // Check if all passed fields are legal
+    STRING ARRAY allowed_fields := [ "ENTITY", "TAG", "TITLE", "DESCRIPTION", "QUERY" ];
+    FOREVERY (RECORD rec FROM UnpackRecord(querydata))
+      IF (rec.name NOT IN allowed_fields)
+        THROW NEW Exception("Cannot update field '"||rec.name||"' in stored query '"||this->pvt_tag||"', this field does not exist.");
+
+    RECORD updates;
+
+    IF (CellExists(querydata, "ENTITY"))
+    {
+      INSERT CELL entity := querydata.entity INTO updates;
+      this->pvt_entity := querydata.entity;
+    }
+
+    IF (CellExists(querydata, "TAG"))
+    {
+      INSERT CELL tag := querydata.tag INTO updates;
+      this->pvt_tag := querydata.tag;
+    }
+
+    IF (CellExists(querydata, "TITLE"))
+    {
+      IF (querydata.title = "")
+        THROW NEW Exception("Cannot clear the title of a stored WRD query");
+      INSERT CELL title := querydata.title INTO updates;
+      this->pvt_title := querydata.title;
+    }
+
+    IF (CellExists(querydata, "DESCRIPTION"))
+    {
+      INSERT CELL description := querydata.description INTO updates;
+      this->pvt_description := querydata.description;
+    }
+
+    IF (CellExists(querydata, "QUERY"))
+    {
+      this->pvt_query_rec := querydata.query;
+      this->pvt_wrd_query := DEFAULT OBJECT;
+      BLOB serialized_query := this->SerializeQuery();
+      INSERT CELL query := serialized_query INTO updates;
+    }
+
+    // Write the updates to the database
+    UPDATE wrd.storedqueries
+       SET RECORD updates
+     WHERE id = this->pvt_id;
+  }
+
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    STRING ARRAY eventmasks;
+    IF (RecordExists(this->pvt_query_rec))
+    {
+      FOREVERY (RECORD source FROM this->pvt_query_rec.sources)
+        FOREVERY (STRING mask FROM source.type->GetEventMasks())
+          IF (mask NOT IN eventmasks)
+            INSERT mask INTO eventmasks AT END;
+    }
+    RETURN eventmasks;
+  }
+>;

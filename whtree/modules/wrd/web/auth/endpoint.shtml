@@ -1,0 +1,77 @@
+﻿<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+
+OBJECT primary := OpenPrimary();
+STRING urlpath := UnpackURL(GetRequestURL()).urlpath;
+
+IF (urlpath LIKE ".wrd/auth/gologin?*")
+{
+  STRING gotourl := GetWebVariable("url");
+  IF( (gotourl LIKE 'https:/*' AND gotourl NOT LIKE 'https://*')
+      OR (gotourl LIKE 'http:/*' AND gotourl NOT LIKE 'http://*'))
+  {
+    //single slash is something confused bots love to do, but legitimate browsers never do
+    AbortWithHTTPError(410, "Login url is not valid");
+    RETURN;
+  }
+
+  STRING logintarget := ResolveToAbsoluteURL(GetRequestURL(), gotourl);
+  OBJECT authplugin := GetWRDAuthPlugin(logintarget);
+
+  //If we get here, 'logintarget' is a locally hosted url, prevents us from being an open redirect
+  //ProcessReturnTo will immediately redirect the user, with a proof, if he's logged in AND the wrdauth_challenge has a flag allowing us to shortcut back to the page (ie not force a login)
+  authplugin->ProcessReturnTo(GetVariableFromURL(logintarget, "wrdauth_returnto"), GetVariableFromURL(logintarget, "wrdauth_challenge"));
+
+  //If we get here, ensure that the user has to log in
+  authplugin->Logout();
+  Redirect(logintarget);
+}
+
+STRING claimedbackurl := GetWebVariable("b"); //new wrd.auth code - passes relative url with starting '/' stripped
+IF(claimedbackurl = "")
+{
+  STRING legacyurl := GetWebVariable("back"); //backwards compat code. this should be a full url
+  IF(legacyurl != "")
+  {
+    IF(NOT IsAbsoluteURL(legacyurl, FALSE))
+      THROW NEW Exception("Invalid URL received on as 'back' variable");
+    claimedbackurl := UnpackURL(claimedbackurl).urlpath;
+  }
+}
+
+//get our plugin. claimedbackurl lacks the starting '/', so add it (and empty just means 'server root')
+OBJECT authplugin := GetWRDAuthPlugin(ResolveToAbsoluteURL(GetRequestURL(), "/" || claimedbackurl));
+
+IF (urlpath LIKE ".wrd/auth/logout.shtml*")
+{
+  authplugin->Logout([explicit := TRUE]);
+  Redirect("/" || claimedbackurl);
+}
+ELSE IF (urlpath LIKE ".wrd/auth/restoresession.shtml*")
+{
+  SetCurrentStateCookie(authplugin->wrdauth, authplugin);
+
+  IF (IsWHDebugOptionSet("aut"))
+    LogDebug("wrd:auth", "restoresession to " || "/" || claimedbackurl);
+
+  Redirect("/" || claimedbackurl);
+}
+ELSE IF (urlpath LIKE ".wrd/auth/importsession.shtml*")
+{
+  // The authentication script will have picked up authentication. If we arrive here, the client is authenticated
+  // for this url, so we can redirect to the backurl
+  Redirect("/" || claimedbackurl);
+}
+
+// No crash needed here, just ignore
+IF("aut" IN Tokenize(GetWebCookie("wh-debug"),'.'))
+  THROW NEW Exception("Unknown WRD auth endpoint action");

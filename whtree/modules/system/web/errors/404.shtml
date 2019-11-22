@@ -1,0 +1,6 @@
+<?wh
+LOADLIB "mod::publisher/lib/urlhistory.whlib";
+LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+
+TryRedirectUsingURLHistory();
+GenerateHTTPErrorPage(404, DEFAULT RECORD);

@@ -1,0 +1,573 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/checks/checker.whlib";
+
+
+RECORD FUNCTION GetGitRepoInfo(STRING repo, BOOLEAN query_remote) __ATTRIBUTES__(EXTERNAL "wh_git");
+
+/* FIXME/ADDME
+  - consider how rights fit into this. <accessright> support on monitor panels,
+    or autoregistration in database and delegate to sysop?
+  - should softreset be some sort of monitor panel, making it possible to give
+    non-sysops access to it ?
+  - cache flushing should perhaps be available to non-sysop on development servers? or 'not our problem' ?
+*/
+
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  RECORD ARRAY allgroups;
+  RECORD ARRAY allpanels;
+  RECORD versioninfo;
+  BOOLEAN developerbuild;
+  OBJECT wrd_systemmessages_snoozes;
+
+  MACRO NEW()
+  {
+    /* under extreme configuration issues, such as a 427->426 downgrade, userapi may not exist
+       and that blocked us from reaching the Dashboard to SEE that we were back to 4.26
+
+       TODO maybe messages shouldn't be the PRIMARY monitoring panel or at least
+            not autoselected unless you followed Towl?
+    */
+
+    IF(ObjectExists(this->contexts->userapi))
+      this->contexts->wrdschema := this->contexts->userapi->wrdschema;
+  }
+
+  MACRO Init(RECORD data)
+  {
+    this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
+
+    IF(ObjectExists(this->contexts->wrdschema))
+    {
+      this->wrd_systemmessages_snoozes := this->contexts->wrdschema->^whuser_systemmessage_snoozes;
+
+      ^results->eventmasks := this->wrd_systemmessages_snoozes->GetEventMasks();
+      ^snoozes->eventmasks := this->wrd_systemmessages_snoozes->GetEventMasks();
+    }
+
+    this->versioninfo := GetWebhareVersionInfo();
+    IF(this->versioninfo.committag = "")
+    {
+      this->developerbuild := TRUE;
+      RECORD info := GetGitRepoInfo(ResolveToAbsolutePath(GetModuleInstallationRoot("system") || "../../.."), FALSE);
+      IF(RecordExists(info) AND info.status != "error")
+      {
+        this->versioninfo.branch := `${info.remote_url}:${info.branch}`;
+        this->versioninfo.committag := info.head_oid;
+      }
+      ELSE
+        this->versioninfo.committag := "unknown";
+    }
+
+    this->frame->flags.refreshcontents := FALSE;
+    ^togglerefreshbutton->pressed := FALSE;
+
+    this->SetupGroups();
+    RegisterEventCallback("system:softreset", PTR this->OnSoftReset);
+
+    IF (RecordExists(data) AND data.calltype = "direct" AND Length(data.params) = 1)
+      ^monitorpanels->value := data.params[0];
+    ELSE
+      ^monitorpanels->value := ^monitorpanels->rows[0].rowkey;
+  }
+
+  MACRO UpdateIntervalSetting()
+  {
+    INTEGER suggestedfrequency;
+    IF(ObjectExists(^currentmonitor->contents))
+      suggestedfrequency := ^currentmonitor->contents->GetSuggestedRefreshFrequency();
+    ELSE
+      suggestedfrequency := 60;
+
+    ^togglerefreshbutton->enabled := suggestedfrequency > 0;
+
+    IF(suggestedfrequency > 0 AND ^togglerefreshbutton->pressed)
+    {
+      this->frame->interval := suggestedfrequency * 1000;
+    }
+    ELSE
+    {
+      this->frame->interval := 0;
+    }
+    this->RefreshNow();
+  }
+
+  MACRO RefreshNow()
+  {
+    DATETIME updstart := GetCurrentDatetime();
+    IF(ObjectExists(^currentmonitor->contents))
+      ^currentmonitor->contents->RefreshMonitorPanel();
+    ELSE
+      this->RefreshMainPanel();
+
+    DATETIME updend := GetCurrentDatetime();
+    ^lastupdate->value := this->tolliumuser->FormatTime(updend, "seconds", TRUE) || " (" || GetMsecsDifference(updstart, updend) || "ms)";
+  }
+
+  MACRO OnSoftReset(STRING event, RECORD data)
+  {
+    this->RefreshNow();
+  }
+
+  MACRO OnMessage(RECORD message)
+  {
+    IF (CellExists(message, "PANEL") AND message.panel != "")
+      ^monitorpanels->value := message.panel;
+
+    this->OnMonitorPanelsSelect();
+    IF(MemberExists(^currentmonitor->contents, "ONMESSAGE"))
+      ^currentmonitor->contents->OnMessage(message);
+  }
+
+  MACRO OnMonitorPanelsSelect()
+  {
+    RECORD sel := ^monitorpanels->selection;
+    IF(NOT RecordExists(sel) OR sel.screen="")
+    {
+      IF(ObjectExists(^currentmonitor->contents))
+        ^currentmonitor->contents->DisableRefresh();
+      ^currentmonitor->contents := DEFAULT OBJECT;
+    }
+    ELSE
+    {
+      IF(NOT ObjectExists(sel.panel))
+      {
+        //The panel still needs loading!
+        OBJECT screen := this->LoadScreen(sel.screen);
+        IF (ObjectExists(screen))
+        {
+          IF(NOT (screen EXTENDSFROM MonitorPanelBase))
+            THROW NEW Exception("The monitor panel '" || sel.screen || "' does not extend from MonitorPanelBase");
+
+          sel.panel := screen;
+          sel.panel->__pvt_yourmonitor := PRIVATE THIS; //ADDME use some sort of messaging interface? better not to expose privatedata
+          ^monitorpanels->UpdateSingleRow(sel);
+        }
+        // ELSE: display warning/error??
+      }
+
+      IF (ObjectExists(sel.panel))
+      {
+        ^currentmonitor->contents := sel.panel;
+        ^currentmonitor->contents->EnableRefresh();
+        ^currentmonitor->contents->RefreshMonitorPanel();
+      }
+    }
+
+    this->UpdateIntervalSetting();
+  }
+
+  MACRO DoClearCaches()
+  {
+    BroadcastEvent("system:clearcaches", DEFAULT RECORD);
+    this->RunSimpleScreen("info", this->GetTid(".cachescleared"), [ dontshowkey := "system.clearcaches" ]);
+  }
+
+  MACRO DoSoftReset()
+  {
+    //Confirm it, and don't allow users to disable that confirmation. Soft reset is pretty heavy for a server and should be rarely needed
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmsoftreset")) != "yes")
+      RETURN;
+
+    RunModuleScriptDialog(this, "mod::system/scripts/whcommands/softreset.whscr", DEFAULT STRING ARRAY);
+  }
+
+  MACRO SetupGroups()
+  {
+    this->allgroups := DEFAULT RECORD ARRAY;
+    this->allpanels := DEFAULT RECORD ARRAY;
+
+    FOREVERY(RECORD mod FROM GetWebHareModules())
+    {
+      OBJECT moddef;
+      TRY
+        moddef := GetModuleDefinitionXML(mod.name);
+      CATCH
+        CONTINUE;
+
+      IF(ObjectExists(moddef))
+      {
+        RECORD dashboardinfo := GetModuleDashboardInfo(mod.name, moddef);
+        this->allgroups := this->allgroups CONCAT dashboardinfo.groups;
+        this->allpanels := this->allpanels CONCAT dashboardinfo.panels;
+      }
+    }
+
+    this->allgroups := SELECT *, title := GetTid(title) FROM this->allgroups;
+    this->allgroups := OrderIntercepts(SELECT * FROM this->allgroups ORDER BY ToUppercase(title)).intercepts;
+    this->allpanels := SELECT *, title := GetTid(title) FROM this->allpanels;
+
+    //FIXME Stabilize ordering of groups and applets, especially if multiple modules supply them!
+
+    //Kill ungrouped applets, move applets with unknown groups to system:other
+    STRING ARRAY groupnames := SELECT AS STRING ARRAY name FROM this->allgroups;
+    UPDATE this->allpanels SET grp := "system:other" WHERE grp NOT IN groupnames;
+
+    //Set up the list
+    RECORD ARRAY toprows := SELECT rowkey := name
+                                 , title
+                                 , expanded := TRUE
+                                 , subnodes := (SELECT rowkey := name
+                                                     , title
+                                                     , subnodes := DEFAULT RECORD ARRAY
+                                                     , expanded := FALSE
+                                                     , panel := DEFAULT OBJECT
+                                                     , screen
+                                                  FROM this->allpanels
+                                                 WHERE allpanels.grp = allgroups.name
+                                              ORDER BY ToUppercase(title)
+                                               )
+                                 , panel := DEFAULT OBJECT
+                                 , screen := ""
+                              FROM this->allgroups;
+
+    toprows := SELECT * FROM toprows WHERE Length(subnodes) > 0;
+
+    ^monitorpanels->rows := toprows;
+  }
+
+  MACRO OnInterval()
+  {
+    this->RefreshNow();
+  }
+
+  MACRO DoToggleRefresh()
+  {
+    IF (^togglerefreshbutton->pressed)
+    {
+      ^togglerefreshbutton->pressed := FALSE;
+      this->frame->flags.refreshcontents := FALSE;
+    }
+    ELSE
+    {
+      ^togglerefreshbutton->pressed := TRUE;
+      this->frame->flags.refreshcontents := TRUE;
+    }
+    this->UpdateIntervalSetting();
+  }
+
+  MACRO DoRefresh()
+  {
+    this->RefreshNow();
+  }
+
+  MACRO RefreshMainPanel()
+  {
+    // get the system description
+    STRING systemdescr := GetSystemOsName();
+
+    IF (GetSystemNumProcessors() > 1)
+      systemdescr := systemdescr || "; " || GetSystemNumProcessors() || " CPUs";
+
+    // get the server uptime
+    DATETIME boottime := CELL[ start := GetCurrentDateTime(), ...PollWHServiceState("startup") ].start;
+    DATETIME webserverboottime := GetHostingProcessStartTime();
+    DATETIME now := GetCurrentDatetime();
+
+    INTEGER numdays := GetDayCount(now) - GetDayCount(boottime);
+    INTEGER numMsecs := GetMsecondCount(now) - GetMsecondCount(boottime);
+
+    INTEGER numwebdays := GetDayCount(now) - GetDayCount(webserverboottime);
+    INTEGER numwebMsecs := GetMsecondCount(now) - GetMsecondCount(webserverboottime);
+
+    ///////////////////////////////////////////////////////////////////////////////
+    //
+    // Setup the page
+    //
+
+    STRING buildinfo := `${this->versioninfo.builddate} ${this->versioninfo.buildtime}`;
+    IF (this->developerbuild)
+      buildinfo := buildinfo || `, developer's build: `;
+    ElSE
+      buildinfo := buildinfo || `, `;
+    IF (this->versioninfo.branch != "")
+      buildinfo := buildinfo || `branch ${this->versioninfo.branch}, commit ${Left(this->versioninfo.committag, 10)}`;
+    IF (this->versioninfo.buildid != 0)
+      buildinfo := buildinfo || `, build ${this->versioninfo.buildid}`;
+
+    // Server info
+    RECORD config := GetWebhareConfiguration();
+    ^txtServer->value      := this->versioninfo.fullname
+                              || " ("
+                              || GetDTAPStage()
+                              || (IsRestoredWebHare() ? " / restored" : "")
+                              || ")";
+    ^buildinfo->value      := buildinfo;
+    ^txtPlatform->value    := systemdescr;
+    ^txtDateTime->value    := this->tolliumuser->FormatDateTime(now, "minutes", TRUE, FALSE);
+    ^txtUptime->value      := this->Gettid(".uptimedata",
+                                  this->tolliumuser->FormatTimespan(numdays, nummsecs, "minutes"),
+                                  this->tolliumuser->FormatDateTime(boottime, "minutes", TRUE, FALSE),
+                                  this->tolliumuser->FormatTimespan(numwebdays, numwebmsecs, "minutes"),
+                                  this->tolliumuser->FormatDateTime(webserverboottime, "minutes", TRUE, FALSE));
+
+    ^results->Invalidate();
+    ^snoozes->Invalidate();
+  }
+
+  RECORD ARRAY FUNCTION OnGetErrors()
+  {
+    RECORD ARRAY messages :=
+         SELECT *
+              , message :=      GetTid(msg)
+                                    || (CellExists(checks, "FILENAME") ? ` (${this->GetTid(".infile", filename)})` : "")
+                                    || (snoozed ? " (" || this->GetTid(".snoozed_until", this->tolliumuser->FormatDateTime(snooze_data.until, "minutes", TRUE, TRUE)) || ")": "")
+              , canjumpto :=    CellExists(checks, "JUMPTO") OR CellExists(checks, "FILENAME")
+              , style :=        snoozed ? "snoozed" : ""
+              , rowkey := messagetaghash
+           FROM RunChecks() AS checks;
+
+    RETURN messages;
+  }
+
+  RECORD ARRAY FUNCTION OnGetSnoozes()
+  {
+    IF(NOT ObjectExists(this->wrd_systemmessages_snoozes))
+      RETURN RECORD[];
+
+    RECORD ARRAY rows :=
+        SELECT *
+             , rowkey :=    wrd_id
+             , message :=   GetTid(messagetidatsnooze)
+          FROM this->wrd_systemmessages_snoozes->RunQuery(
+                  [ outputcolumns :=
+                        [ "WRD_ID"
+                        , "MESSAGETIDATSNOOZE"
+                        , "SNOOZER"
+                        , "UNTIL"
+                        , "COMMENT"
+                        ]
+                  ]);
+
+    rows := this->contexts->userapi->EnrichUsers("SNOOZER", rows, [ celltype := "entityid" ]);
+    RETURN rows;
+  }
+
+  MACRO DoGotoTask()
+  {
+    RECORD sel := ^results->selection[0];
+    IF (CellExists(sel, "JUMPTO") AND RecordExists(sel.jumpto))
+    {
+      RECORD jumpto := ^results->selection[0].jumpto;
+      this->tolliumcontroller->StartApplication(jumpto.app, DEFAULT RECORD, jumpto, [ reusemode := "whennotbusy" ]);
+    }
+    ELSE IF (CellExists(sel, "FILENAME"))
+    {
+      RECORD target := MakeReplacedRecord([ rowkey := 1, line := 0, col := 0, filename := "", func := "" ], sel);
+      OBJECT screen := this->LoadScreen("monitor/processlist.codeview",
+          [ rows :=   [ target ]
+          , value :=  target.rowkey
+          ]);
+      screen->RunModal();
+    }
+  }
+
+  MACRO DoEditMessageSnooze()
+  {
+    RECORD ARRAY sel := ^results->selection;
+    RECORD ARRAY data :=
+        SELECT messagetid :=    msg
+             , messagetag
+             , messagetaghash
+             , until :=         snoozed ? snooze_data.until : DEFAULT DATETIME
+             , comment :=       snoozed ? snooze_data.comment : ""
+          FROM sel;
+
+    this->RunScreen("#editsnooze", [ data := data, isdirectedit := FALSE ]);
+  }
+
+  MACRO DoEditSnooze()
+  {
+    RECORD data := this->wrd_systemmessages_snoozes->GetEntityFields(^snoozes->value[0],
+        [ "MESSAGETAGHASH"
+        ]);
+
+    this->RunScreen("#editsnooze", [ data := [ data ], isdirectedit := TRUE ]);
+  }
+
+  MACRO DoDeleteSnooze()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    FOREVERY (INTEGER id FROM ^snoozes->value)
+    {
+      this->wrd_systemmessages_snoozes->DeleteEntity(id);
+      LogAuditEvent("system:systemmessages",
+          [ id :=                 id
+          , type :=               "delete"
+          ]);
+    }
+    work->Finish();
+  }
+
+  MACRO DoOpenInSeparateTab(OBJECT receiver)
+  {
+    receiver->SendURL(`/?app=system:dashboard(${EncodeURL(^monitorpanels->value)})`);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditSnooze EXTEND MonitorPanelBase
+< OBJECT wrd_systemmessages_snoozes;
+
+  RECORD ARRAY items;
+
+  MACRO Init(RECORD data)
+  {
+    this->wrd_systemmessages_snoozes := this->contexts->wrdschema->^whuser_systemmessage_snoozes;
+    this->items :=
+        SELECT *
+          FROM data.data
+      ORDER BY messagetaghash;
+
+    RECORD ARRAY existing := this->GetExistingSnoozes();
+    IF (LENGTH(this->items) = 1 AND LENGTH(existing) = 1) // edit single existing snooze
+    {
+      RECORD userdata := this->contexts->userapi->EnrichUsers("userid", [ [ userid := existing[0].snoozer ] ]);
+
+      ^messagetidatsnooze->value := GetTid(existing[0].messagetidatsnooze);
+      ^until->value := existing[0].until;
+      ^comment->value := existing[0].comment;
+      ^snoozer->value := userdata.displayname;
+      ^created->value := existing[0].wrd_creationdate;
+      ^snoozer->visible := TRUE;
+      ^created->visible := TRUE;
+    }
+    ELSE
+    {
+      IF (data.isdirectedit)
+      {
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+
+      // After 9:00 local time, place next at the next day
+      DATETIME next := AddTimeToDate(15 * 60 * 60 * 1000, UTCToLocal(GetCurrentDateTime(), "CET"));
+      next := GetRoundedDateTime(next, 86400 * 1000);
+
+      // Always at 10:00, on workdays
+      next := AddTimeToDate(10 * 60 * 60 * 1000, next);
+      IF (UnpackDateTime(next).dayofweek >= 6) // saturday or sunday
+        next := AddDaysToDate(8 - UnpackDateTime(next).dayofweek, next);
+      next := LocalToUTC(next, "CET");
+
+      ^until->value := next;
+      IF (LENGTH(this->items) = 1) // add new single snooze
+        ^messagetidatsnooze->value := GetTid(this->items[0].messagetid);
+      ELSE // add/override multple messages
+        ^messagetidatsnooze->value := this->GetTid(".multiplemessages");
+    }
+    ^remove->enabled := LENGTH(existing) > 0;
+  }
+
+  RECORD ARRAY FUNCTION GetExistingSnoozes()
+  {
+    RETURN
+      SELECT *
+        FROM this->wrd_systemmessages_snoozes->RunQuery(
+              [ outputcolumns :=
+                    [ "MESSAGETAGHASH"
+                    , "MESSAGETAG"
+                    , "WRD_ID"
+                    , "MESSAGETIDATSNOOZE"
+                    , "UNTIL"
+                    , "COMMENT"
+                    , "SNOOZER"
+                    , "WRD_CREATIONDATE"
+                    ]
+              ]) AS rec
+       WHERE RecordLowerBound(this->items, rec, [ "MESSAGETAGHASH" ]).found
+    ORDER BY messagetaghash;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    IF (^until->value < GetCurrentDateTime())
+      work->AddError(this->GetTid(".untilinpast"));
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    RECORD ARRAY existing := this->GetExistingSnoozes();
+
+    FOREVERY (RECORD rec FROM this->items)
+    {
+      RECORD pos := RecordLowerBound(existing, rec, [ "MESSAGETAGHASH" ]);
+      IF (pos.found)
+      {
+        RECORD ex := existing[pos.position];
+        IF (LENGTH(this->items) = 1 OR ex.until <= ^until->value)
+        {
+          // Only update snooze when prolonging it, or editing only one message
+          this->wrd_systemmessages_snoozes->GetEntity(ex.wrd_id)->UpdateEntity(
+              [ snoozer :=            this->tolliumuser->entityid
+              , until :=              ^until->value
+              , messagetidatsnooze := ex.messagetidatsnooze
+              , comment :=            ^comment->value
+              ]);
+
+          LogAuditEvent("system:systemmessages",
+              [ id :=                 ex.wrd_id
+              , type :=               "update"
+              , until :=              ^until->value
+              , messagetidatsnooze := ex.MESSAGETIDATSNOOZE
+              , comment :=            ^comment->value
+              , messagetag :=         RecordExists(ex.messagetag) ? DecodeHSONBlob(ex.messagetag.data) : DEFAULT RECORD
+              ]);
+        }
+      }
+      ELSE
+      {
+        OBJECT obj := this->wrd_systemmessages_snoozes->CreateEntity(
+          [ snoozer :=            this->tolliumuser->entityid
+          , until :=              ^until->value
+          , messagetaghash :=     rec.messagetaghash
+          , messagetag :=         WrapBlob(EncodeHSONBlob(rec.messagetag), "messagetag.hson")
+          , messagetidatsnooze := rec.messagetid
+          , comment :=            ^comment->value
+          ]);
+
+        LogAuditEvent("system:systemmessages",
+            [ id :=                 obj->id
+            , type :=               "create"
+            , until :=              ^until->value
+            , messagetidatsnooze := rec.messagetid
+            , comment :=            ^comment->value
+            , messagetag :=         rec.messagetag
+            ]);
+      }
+    }
+    RETURN work->Finish();
+  }
+
+  MACRO DoRemove()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    FOREVERY (RECORD rec FROM this->GetExistingSnoozes())
+    {
+      LogAuditEvent("system:systemmessages",
+          [ id :=                 rec.wrd_id
+          , type :=               "delete"
+          ]);
+    }
+    this->wrd_systemmessages_snoozes->DeleteEntities(SELECT AS INTEGER ARRAY wrd_id FROM this->GetExistingSnoozes());
+    work->Finish();
+    this->tolliumresult := "remove";
+  }
+>;

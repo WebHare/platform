@@ -1,0 +1,376 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+
+OBJECT FUNCTION CreateRunscriptProcess(
+                        STRING scriptname,
+                        STRING ARRAY arguments,
+                        BOOLEAN take_input,
+                        BOOLEAN take_output,
+                        BOOLEAN take_errors,
+                        BOOLEAN merge_output_errors)
+{
+  RECORD arginfo := GetWebhareConfiguration();
+
+  //ADDME: Request the binary dir from configure.whlib (it can be overriden in whcore!)
+  //ADDME: Supply other important values as well (compilecache dir etc) as runscript
+  //       only reads the dbserver location from the environment. Or even better, add a
+  //       HS RunScript command to the WHCore
+  STRING runscriptname := arginfo.installationroot
+                           || "bin/runscript";
+
+  OBJECT proc := CreateProcess(
+          runscriptname,
+          [scriptname] CONCAT arguments,
+          take_input,
+          take_output,
+          take_errors,
+          merge_output_errors);
+
+  IF (ObjectExists(GetEffectiveUser()) AND GetEnvironmentVariable("WEBHARE_CLI_USER") = "")
+  {
+    proc->SetEnvironment(
+        [ ...GetEnvironment()
+        , [ name := "WEBHARE_CLI_USER", value := GetEffectiveUser()->login ]
+        ]);
+  }
+
+  RETURN proc;
+}
+
+/** Dialog that shows the output of a script
+*/
+PUBLIC OBJECTTYPE RunScriptDialog EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Runscript process
+  OBJECT pvt_process;
+
+
+  /// Current output stream (0 when not in use). All output is saved to this stream
+  INTEGER pvt_stream;
+
+
+  /** Last output blob
+  */
+  BLOB pvt_lastoutput;
+
+
+  /// Current running status, one of "" (not started), "running", "stopped"
+  STRING pvt_status;
+
+
+  /// Whether the user can input data
+  BOOLEAN pvt_inputenabled;
+
+
+  /// Name of the script to execute
+  STRING pvt_script;
+
+
+  /// Parameters to the script
+  STRING ARRAY pvt_scriptarguments;
+
+
+  /// Callback registration for process
+  INTEGER pvt_process_cbreg;
+
+
+  /// Callback registration for output stream
+  INTEGER pvt_processoutput_cbreg;
+
+
+  /// Currently displayed output (max 2000 lines)
+  STRING pvt_displayedoutput;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY script(pvt_script, SetScript);
+
+
+  PUBLIC PROPERTY arguments(pvt_scriptarguments, SetScriptArguments);
+
+
+  PUBLIC PROPERTY inputenabled(pvt_inputenabled, SetInputEnabled);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->pvt_stream := CreateStream();
+    this->frame->focused := this->line;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO UpdateFrameTitle()
+  {
+    STRING ARRAY args;
+    FOREVERY (STRING s FROM [ this->pvt_script ] CONCAT this->pvt_scriptarguments)
+    {
+      IF (s LIKE "* *")
+        INSERT '"' || Substitute(s, '"', '\\"') || '"' INTO args AT END;
+      ELSE
+        INSERT s INTO args AT END;
+    }
+
+    SWITCH (this->pvt_status)
+    {
+    CASE ""
+      {
+        this->frame->title := GetTid("system:commondialogs.runscriptdialog.title_notstarted", Detokenize(args, " "));
+      }
+    CASE "running"
+      {
+        this->frame->title := GetTid("system:commondialogs.runscriptdialog.title_running", Detokenize(args, " "));
+      }
+    CASE "stopped"
+      {
+        this->frame->title := GetTid("system:commondialogs.runscriptdialog.title_terminated", Detokenize(args, " "));
+      }
+    }
+  }
+
+  STRING FUNCTION AddLine(STRING line)
+  {
+    line := Substitute(line, "\r\n", "\n");
+    IF (this->pvt_stream != 0)
+      PrintTo(this->pvt_stream, line);
+
+    RETURN line;
+  }
+
+
+  MACRO AddOutput(STRING output)
+  {
+    IF (output != "")
+    {
+      STRING ARRAY lines := Tokenize(this->pvt_displayedoutput || output, "\n");
+      IF (LENGTH(lines) > 500)
+        lines := ArraySlice(lines, LENGTH(lines) - 500, 500);
+
+      this->pvt_displayedoutput := Detokenize(lines, "\n");
+      this->output->value := '<div id="contentdiv" style="white-space: pre; font-family: monospace">'
+          || Substitute(EncodeHTML(this->pvt_displayedoutput), "<br />", "\n") // Nice formattting for source too
+          || '</div>\n'
+          || '<script>\n'
+          || '  window.scrollTo(0, document.body.scrollHeight);\n'
+          || '</script>';
+    }
+  }
+
+
+  MACRO FinishCurrentStream()
+  {
+    IF (this->pvt_stream != 0)
+    {
+      this->pvt_lastoutput := MakeBlobFromStream(this->pvt_stream);
+      IF (this->pvt_status = "running")
+      {
+        this->pvt_stream := CreateStream();
+        SendBlobTo(this->pvt_stream, this->pvt_lastoutput);
+      }
+      ELSE
+        this->pvt_stream := 0;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetScript(STRING scriptname)
+  {
+    IF (this->pvt_status != "")
+      THROW NEW Exception("Can only set the script before starting");
+
+    this->pvt_script := scriptname;
+    this->UpdateFrameTitle();
+  }
+
+
+  MACRO SetScriptArguments(STRING ARRAY arguments)
+  {
+    IF (this->pvt_status != "")
+      THROW NEW Exception("Can only set the script before starting");
+
+    this->pvt_scriptarguments := arguments;
+    this->UpdateFrameTitle();
+  }
+
+
+  MACRO SetInputEnabled(BOOLEAN enable)
+  {
+    this->pvt_inputenabled := enable;
+    this->input->visible := enable;
+    this->frame->focused := this->line;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnHaveData()
+  {
+    IF (this->pvt_status = "running")
+    {
+      STRING added;
+
+      // Wait max 50 ms. wait for -1 only reads ~600 bytes per update in windows
+      DATETIME wait_until := AddTimeToDate(50, GetCurrentDateTime());
+
+      WHILE (WaitForMultipleUntil([ INTEGER(this->pvt_process->output_handle) ], DEFAULT INTEGER ARRAY, wait_until) != -1)
+      {
+        STRING line := ReadLineFrom(this->pvt_process->output_handle, -32768, FALSE);
+        IF (line = "")
+        {
+          IF (IsAtEndOfStream(this->pvt_process->output_handle))
+          {
+            this->pvt_status := "stopped";
+            this->UpdateFrameTitle();
+
+            this->line->enabled := FALSE;
+            this->sendline->enabled := FALSE;
+            this->terminate->enabled := FALSE;
+
+            BREAK;
+          }
+        }
+        ELSE
+          added := added || this->AddLine(line);
+      }
+
+      this->AddOutput(added);
+    }
+
+    IF (ObjectExists(this->pvt_process) AND NOT this->pvt_process->IsRunning())
+    {
+      STRING added := this->AddLine("\n");
+      added := added || this->AddLine(GetTid("system:commondialogs.runscriptdialog.script_terminated", ToString(this->pvt_process->exitcode)));
+      this->AddOutput(added);
+
+      this->TerminateProcess();
+    }
+  }
+
+  MACRO TerminateProcess()
+  {
+    this->FinishCurrentStream();
+
+    IF (this->pvt_process_cbreg != 0)
+    {
+      UnregisterCallback(this->pvt_process_cbreg);
+      this->pvt_process_cbreg := 0;
+    }
+    IF (this->pvt_processoutput_cbreg != 0)
+    {
+      UnregisterCallback(this->pvt_processoutput_cbreg);
+      this->pvt_processoutput_cbreg := 0;
+    }
+    IF (ObjectExists(this->pvt_process))
+    {
+      this->pvt_process->Terminate();
+      this->pvt_process->Close();
+      this->pvt_process := DEFAULT OBJECT;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoSaveOutput()
+  {
+    this->FinishCurrentStream();
+    this->frame->SendFileToUser(this->pvt_lastoutput, "text/plain", "output", GetCurrentDateTime());
+  }
+
+
+  MACRO DoSendLine()
+  {
+    STRING line := this->line->value || "\n";
+
+    IF (this->line->value != "")
+    {
+      INSERT [ title := this->line->value ] INTO this->line->options AT 0;
+      this->line->value := "";
+    }
+
+    PrintTo(this->pvt_process->handle, line);
+    this->AddOutput(this->AddLine(line));
+  }
+
+
+  MACRO DoTerminate()
+  {
+    this->TerminateProcess();
+
+    this->line->enabled := FALSE;
+    this->sendline->enabled := FALSE;
+    this->terminate->enabled := FALSE;
+  }
+
+
+  BOOLEAN FUNCTION Cancel()
+  {
+    this->TerminateProcess();
+
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC MACRO Start()
+  {
+    IF (this->pvt_status != "")
+      THROW NEW Exception("Script already started");
+
+    this->pvt_process := CreateRunscriptProcess(
+                        this->pvt_script,
+                        this->pvt_scriptarguments,
+                        /*take_input=*/TRUE,
+                        /*take_output=*/TRUE,
+                        /*take_errors=*/TRUE,
+                        /*merge_output_errors=*/TRUE);
+
+    IF (NOT ObjectExists(this->pvt_process))
+      THROW NEW Exception("Could not start process");
+
+    this->pvt_process->Start();
+
+    this->pvt_process_cbreg := RegisterHandleReadCallback(this->pvt_process->handle, PTR this->OnHaveData());
+    this->pvt_processoutput_cbreg := RegisterHandleReadCallback(this->pvt_process->output_handle, PTR this->OnHaveData());
+
+    this->pvt_status := "running";
+    this->UpdateFrameTitle();
+  }
+>;
+
+

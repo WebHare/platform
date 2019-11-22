@@ -1,0 +1,897 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+
+LOADLIB "mod::publisher/lib/hooks.whlib";
+LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN and_search; // If all words must be found
+  INTEGER results_limit;
+  OBJECT ARRAY filtercomps;
+  STRING lastdeletedtype; // To re-add the filter that was just deleted
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  UPDATE PUBLIC MACRO Init(RECORD data)
+  {
+    WHFSFilterScreenBase::Init(data);
+
+    this->allowsallresults := TRUE;
+    this->and_search := TRUE;
+    this->results_limit := 100;
+
+    this->RegisterAppContext("publisher:searchfilters", NEW SearchFilterContext(PRIVATE this));
+
+    this->filterbuttontitle := GetTid("~search");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updates
+  //
+
+  UPDATE PUBLIC MACRO ResetFilter()
+  {
+    this->ClearAllFilters();
+
+    // Restore last search query
+    RECORD filter := this->tolliumuser->GetRegistryKey("publisher.prefs.lastsearchquery", DEFAULT RECORD);
+    IF (RecordExists(filter))
+      this->SetFilterData(filter);
+    ELSE
+      this->AddFilter(DEFAULT OBJECT);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RunFilter(RECORD options)
+  {
+    // Save this search query
+    this->tolliumuser->SetRegistryKey("publisher.prefs.lastsearchquery", this->GetFilterData());
+
+    // Construct the user query
+    RECORD ARRAY subqueries;
+    RECORD ARRAY filterqueries;
+    FOREVERY (OBJECT comp FROM this->filtercomps)
+    {
+      RECORD filterquery := comp->query;
+      IF (RecordExists(filterquery))
+      {
+        //ADDME: Date and range queries are added separately, as Consilio only supports date range filters. We'll support a
+        //       single date/range query or a boolean AND query with date/range queries
+        IF (filterquery._type IN [ "date", "range" ])
+          INSERT filterquery INTO filterqueries AT END;
+        ELSE
+        {
+          IF (filterquery._type = "boolean")
+          {
+            filterqueries := filterqueries CONCAT SELECT AS RECORD ARRAY query FROM filterquery.subqueries WHERE query._type IN [ "date", "range" ];
+            filterquery.subqueries := SELECT * FROM filterquery.subqueries WHERE query._type NOT IN [ "date", "range" ];
+          }
+          INSERT filterquery INTO subqueries AT END;
+        }
+      }
+    }
+    IF (Length(subqueries) = 0 AND Length(filterqueries) = 0)
+      RETURN DEFAULT RECORD;
+
+    RECORD query := CQAnd(RECORD[]);
+    IF (Length(subqueries) > 0)
+      query := CQAnd([ this->and_search ? CQAnd(subqueries) : CQOr(subqueries) ]);
+
+    // Only search for objects within one of the accessible root objects
+    INTEGER ARRAY accessible_objects := this->tolliumuser->GetRootObjectsForRights([ "system:fs_browse" ]);
+    IF (0 NOT IN accessible_objects)
+    {
+      RECORD ARRAY rightsqueries :=
+          SELECT AS RECORD ARRAY CQMatch("whfstree", "CONTAINS", id)
+            FROM ToRecordArray(accessible_objects, "id");
+      query := CQAnd([ query, CQOR(rightsqueries) ]);
+    }
+
+    // Hide objects that should not be shown
+    INTEGER ARRAY objects_to_hide := GetWHFSObjectsToHide(this->tolliumuser);
+    IF (Length(objects_to_hide) > 0)
+    {
+      RECORD ARRAY hidequeries :=
+          SELECT AS RECORD ARRAY CQNot(CQMatch("whfstree", "CONTAINS", id)).subqueries[0]
+            FROM ToRecordArray(objects_to_hide, "id");
+      IF (NOT RecordExists(query))
+      query.subqueries := query.subqueries CONCAT hidequeries;
+    }
+    IF (NOT this->tolliumuser->GetRegistryKey("publisher.prefs.showforeignfolders", FALSE))
+      query.subqueries := query.subqueries CONCAT CQNot(CQMatch("whfstype", "=", 1)).subqueries;
+
+    // Never return items from webhare-private
+    query.subqueries := query.subqueries CONCAT CQNot(CQMatch("whfstree", "CONTAINS", 10)).subqueries;
+
+    // There must at least be one positive query to search for
+    IF (NOT RecordExists(SELECT FROM query.subqueries WHERE NOT prohibited))
+      query.subqueries := query.subqueries CONCAT CQAnd([ CQMatch("whfsobject", "IN", [ "file", "folder" ]) ]).subqueries;
+
+    //ADDME: Date queries are added separately, as Consilio only supports date range filters
+    IF (Length(filterqueries) > 0)
+      query.subqueries := query.subqueries CONCAT (this->and_search ? CQAnd(filterqueries) : CQOr(filterqueries)).subqueries;
+
+    // Run the query
+    RECORD res;
+    TRY
+    {
+      res := RunConsilioSearch(whconstant_consilio_catalog_whfs, query,
+          [ summary_length := 0
+          , count := options.allresults ? -1 : this->results_limit
+          ]);
+    }
+    CATCH (OBJECT<SearchException> e)
+    {
+      this->GetAppContext("publisher:searchfilters")->filterscreen->RunSimpleScreen("error", GetTid("publisher:filemanager.search.filterpanel.searchexception", e->what));
+      RETURN DEFAULT RECORD;
+    }
+    CATCH (OBJECT e)
+    {
+      this->GetAppContext("publisher:searchfilters")->filterscreen->RunSimpleScreen("error", GetTid("publisher:filemanager.search.filterpanel.searcherror", e->what));
+      RETURN DEFAULT RECORD;
+    }
+
+    // Test for deleted objects
+    INTEGER ARRAY deleted_results :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE id IN (SELECT AS INTEGER ARRAY whfsid FROM res.results)
+               AND NOT isactive;
+
+    // Keep only active results
+    RECORD ARRAY finalresults :=
+        SELECT id := whfsid
+             , parent := whfsparent
+          FROM res.results
+         WHERE whfsid NOT IN deleted_results;
+
+    RETURN
+        [ numresults := res.totalcount
+        , moreresults := res.totalcount > Length(res.results)
+        , showresults :=  finalresults
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetFilterData()
+  {
+    RETURN
+        [ filters :=
+            SELECT type := comp->type
+                 , value := comp->value
+              FROM ToRecordArray(this->filtercomps, "comp")
+        ];
+  }
+
+  UPDATE PUBLIC MACRO SetFilterData(RECORD filterdata)
+  {
+    this->ClearAllFilters();
+    IF (CellExists(filterdata, "filters") AND Length(filterdata.filters) > 0)
+      FOREVERY (RECORD filter FROM filterdata.filters)
+        this->AddInitializedFilter(DEFAULT OBJECT, filter.type, filter.value);
+    ELSE
+      this->AddFilter(DEFAULT OBJECT);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Search filter callbacks
+  //
+
+  MACRO AddFilter(OBJECT after_filter)
+  {
+    // Determine the type of filter to add
+    STRING nexttype := this->lastdeletedtype;
+    IF (nexttype = "")
+    {
+      // Get a list of filters currently in use so we can determine the first unused filter type
+      STRING ARRAY curtypes := SELECT AS STRING ARRAY DISTINCT comp->type FROM ToRecordArray(this->filtercomps, "comp");
+      nexttype :=
+          SELECT AS STRING rowkey
+            FROM this->GetAppContext("publisher:searchfilters")->filtertypes
+           WHERE rowkey NOT IN curtypes;
+    }
+
+    this->AddInitializedFilter(after_filter, nexttype, DEFAULT RECORD);
+
+    this->lastdeletedtype := "";
+  }
+
+  MACRO DeleteFilter(OBJECT filter)
+  {
+    IF (Length(this->filtercomps) = 1)
+      RETURN;
+
+    INTEGER idx := SearchElement(this->filtercomps, filter);
+    IF (idx >= 0)
+    {
+      this->lastdeletedtype := filter->type;
+      filter->DeleteComponent();
+      DELETE FROM this->filtercomps AT idx;
+    }
+
+    // The first filter can only be deleted if there is more than 1 filter (otherwise it's the only filter)
+    this->filtercomps[0]->candelete := Length(this->filtercomps) > 1;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ClearAllFilters()
+  {
+    FOREVERY (OBJECT comp FROM this->filtercomps)
+      comp->DeleteComponent();
+    this->filtercomps := DEFAULT OBJECT ARRAY;
+    this->lastdeletedtype := "";
+  }
+
+  MACRO AddInitializedFilter(OBJECT after_filter, STRING type, RECORD value)
+  {
+    // Create the new filter
+    OBJECT comp := this->/*tolliumparent->*/CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "searchfilter");
+    this->filters->InsertComponentAfter(comp, after_filter, TRUE);
+    INSERT comp INTO this->filtercomps AT END;
+
+    // Initialize filter
+    IF (type != "")
+      comp->type := type;
+    IF (RecordExists(value))
+      comp->value := value;
+
+    // The first filter can only be deleted if there is more than 1 filter (otherwise it's the only filter)
+    this->filtercomps[0]->candelete := Length(this->filtercomps) > 1;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING lastfiltertype;
+  BOOLEAN changingtype;
+  BOOLEAN changingvalue;
+  RECORD datequeryvalue;
+  RECORD selectqueryvalue;
+  OBJECT customquerycomp;
+
+  // Filter type can only be set after the filter type options are initialized. Because the filter options are initialized in
+  // in PostInitComponent (so the app using the static searchfilter component has a chance to register the searchfilters app
+  // context) which is run after StaticInit, the type is stored here and set in PostInitComponent.
+  STRING statictype;
+  RECORD staticvalues;
+  RECORD initvalue;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY type(this->filtertype->value, this->filtertype->value);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY query(GetQuery, -);
+  PUBLIC PROPERTY candelete(this->deletefilter->enabled, this->deletefilter->enabled);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD data)
+  {
+    TolliumFragmentBase::StaticInit(data);
+
+    this->statictype := data.type;
+
+    // For a static search filter, the type cannot be changed by the user
+    this->filtertype->readonly := TRUE;
+    IF (data.title != "")
+    {
+      this->filtertype->visible := FALSE;
+      this->comp->title := data.title;
+    }
+
+    IF (data.matchtype != "")
+      INSERT CELL matchtype := data.matchtype INTO this->staticvalues;
+    IF (data.textquery != "")
+      INSERT CELL textquery := data.textquery INTO this->staticvalues;
+    IF (data.datequeryperiod != 999999) // The default value if not explicitly set
+      INSERT CELL datequeryperiod := data.datequeryperiod INTO this->staticvalues;
+    IF (data.datequeryunit != "")
+      INSERT CELL datequeryunit := data.datequeryunit INTO this->staticvalues;
+    IF (data.datequerydate != "")
+      INSERT CELL datequerydate := MakeDateFromText(data.datequerydate) INTO this->staticvalues;
+    IF (data.valuequery != "")
+      INSERT CELL valuequery := data.valuequery INTO this->staticvalues;
+
+    // Hide the add and delete buttons
+    this->addfilterbutton->visible := FALSE;
+    this->deletefilterbutton->visible := FALSE;
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    this->filtertype->options := this->GetAppContext("publisher:searchfilters")->filtertypes;
+
+    // If this is a static component, set the static filter type (this will in turn run OnSelectType)
+    IF (this->statictype != "")
+      this->type := this->statictype;
+
+    FOREVERY (RECORD comp FROM UnpackRecord(this->staticvalues))
+    {
+      IF (comp.name = "VALUEQUERY")
+      {
+        IF (this->valuequery->type = "checkbox")
+          this->valuequery->value := Tokenize(comp.value, " ");
+        ELSE
+          this->valuequery->value := comp.value;
+      }
+      ELSE
+        GetMember(this, comp.name)->value := comp.value;
+    }
+    IF (RecordExists(this->initvalue))
+      this->SetValue(this->initvalue);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoSelectQuerySelect()
+  {
+    RECORD value := this->filtertype->selection.filterobject->SelectQuery(this->value);
+    IF (RecordExists(value))
+      this->value := value;
+  }
+
+  MACRO DoSelectQueryClear()
+  {
+    this->value := DEFAULT RECORD;
+  }
+
+  MACRO DoAddFilter()
+  {
+    this->GetAppContext("publisher:searchfilters")->AddFilter(this);
+  }
+
+  MACRO DoDeleteFilter()
+  {
+    this->GetAppContext("publisher:searchfilters")->DeleteFilter(this);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnSelectType()
+  {
+    RECORD filter := this->filtertype->selection;
+    IF (NOT RecordExists(filter) AND this->statictype != "")
+      THROW NEW TolliumException(this, `Unknown search filter type '${this->statictype}'`);
+    IF (NOT RecordExists(filter) OR filter.rowkey = this->lastfiltertype)
+      RETURN;
+    this->lastfiltertype := filter.rowkey;
+
+    BOOLEAN waschanging := this->changingtype;
+    this->changingtype := TRUE;
+
+    this->matchlabel->visible := CellExists(filter, "matchlabel");
+    IF (this->matchlabel->visible)
+      this->matchlabel->value := filter.matchlabel;
+    this->matchtype->visible := CellExists(filter, "matchtype");
+    IF (this->matchtype->visible)
+    {
+      this->matchtype->options := filter.matchtype;
+      RECORD selected := SELECT rowkey FROM filter.matchtype WHERE CellExists(matchtype, "selected") ? matchtype.selected : FALSE;
+      this->matchtype->value := RecordExists(selected) ? selected.rowkey : this->matchtype->options[0].rowkey;
+      this->matchtype->readonly := Length(this->matchtype->options) = 1;
+    }
+
+    this->textquery->visible := CellExists(filter, "textquery");
+    IF (this->textquery->visible)
+      this->textquery->value := filter.textquery;
+
+    this->datequeryvalue := CellExists(filter, "datequery") ? filter.datequery : DEFAULT RECORD;
+
+    this->valuequery->visible := CellExists(filter, "valuequery");
+    IF (this->valuequery->visible)
+    {
+      STRING type := "pulldown";
+      IF (CellExists(filter, "valuequerytype") AND filter.valuequerytype IN [ "pulldown", "checkbox", "radio" ])
+        type := filter.valuequerytype;
+      this->valuequery->type := type;
+      this->valuequery->options := filter.valuequery;
+      this->matchtype->readonly := Length(this->valuequery->options) = 1;
+    }
+
+    this->selectqueryvalue := CellExists(filter, "selectquery") ? filter.selectquery : DEFAULT RECORD;
+    this->selectquery->visible := CellExists(filter, "selectquery");
+    IF (this->selectquery->visible)
+    {
+      this->selectqueryselectbutton->visible := TRUE;
+      // The clear button is available if this is a static component (the filter cannot be deleted, so it should be cleared instead)
+      this->selectqueryclearbutton->visible := this->statictype != "";
+      this->ShowSelectQuery();
+    }
+    ELSE
+    {
+      this->selectqueryselectbutton->visible := FALSE;
+      this->selectqueryclearbutton->visible := FALSE;
+    }
+
+    IF (CellExists(filter, "customquery"))
+    {
+      OBJECT customcomp := filter.customquery(this->owner);
+      IF (ObjectExists(this->customquerycomp) AND this->customquerycomp != customcomp)
+        this->customquerycomp->RemoveFromParent();
+      this->customquerycomp := customcomp;
+      this->customquery->InsertComponentAfter(this->customquerycomp, DEFAULT OBJECT, FALSE);
+      this->customquery->visible := TRUE;
+    }
+    ELSE
+    {
+      IF (ObjectExists(this->customquerycomp))
+        this->customquerycomp->RemoveFromParent();
+      this->customquery->visible := FALSE;
+    }
+
+    // The space is visible if there are no 1pr width fields visible to push the -/+ buttons to the right
+    this->buttonspacer->visible := NOT this->textquery->visible AND NOT this->selectquery->visible;
+
+    this->changingtype := waschanging;
+
+    IF (CellExists(filter, "datequery"))
+    {
+      this->datequeryperiod->visible := TRUE;
+      this->datequeryunit->visible := TRUE;
+      this->datequerydate->visible := TRUE;
+      this->OnSelectMatchType();
+      this->ShowDateQuery();
+    }
+    ELSE
+    {
+      this->datequeryperiod->visible := FALSE;
+      this->datequeryunit->visible := FALSE;
+      this->datequerydate->visible := FALSE;
+    }
+  }
+
+  MACRO OnSelectMatchType()
+  {
+    IF (NOT this->changingtype)
+    {
+      RECORD value := this->filtertype->selection.filterobject->OnSelectMatchType(this->value);
+      IF (RecordExists(value))
+        this->value := value;
+
+      IF (this->datequeryperiod->visible OR this->datequerydate->visible)
+      {
+        SWITCH (this->matchtype->value)
+        {
+          CASE "past", "future"
+          {
+            this->datequeryperiod->visible := TRUE;
+            this->datequeryunit->visible := TRUE;
+            this->datequerydate->visible := FALSE;
+          }
+          CASE "before", "after", "exact"
+          {
+            this->datequeryperiod->visible := FALSE;
+            this->datequeryunit->visible := FALSE;
+            this->datequerydate->visible := TRUE;
+          }
+        }
+        this->ShowDateQuery();
+      }
+    }
+  }
+
+  MACRO OnChangeDateQuery()
+  {
+    IF (NOT this->changingvalue)
+    {
+      this->changingvalue := TRUE;
+
+      RECORD value;
+      IF (this->datequeryperiod->visible)
+      {
+        INSERT CELL period := this->datequeryperiod->value INTO value;
+        INSERT CELL unit := this->datequeryunit->value INTO value;
+      }
+      ELSE IF (this->datequerydate->visible)
+        INSERT CELL date := this->datequerydate->value INTO value;
+      this->value := [ ...this->value, datequery := value ];
+
+      this->changingvalue := FALSE;
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  RECORD FUNCTION GetValue()
+  {
+    RECORD filter := this->filtertype->selection;
+    RECORD value;
+    IF (this->matchtype->visible)
+      INSERT CELL matchtype := this->matchtype->value INTO value;
+    IF (this->textquery->visible)
+      INSERT CELL textquery := this->textquery->value INTO value;
+    IF (this->datequeryperiod->visible)
+    {
+      IF (NOT CellExists(this->datequeryvalue, "period")
+          OR this->datequeryvalue.period != 0)
+        INSERT CELL datequery := this->datequeryvalue INTO value;
+      ELSE
+        INSERT CELL datequery := DEFAULT RECORD INTO value;
+    }
+    ELSE IF (this->datequerydate->visible)
+      INSERT CELL datequery := this->datequeryvalue INTO value;
+    IF (this->valuequery->visible)
+      INSERT CELL valuequery := this->valuequery->value INTO value;
+    IF (this->selectquery->visible)
+      INSERT CELL selectquery := this->selectqueryvalue INTO value;
+    IF (this->customquery->visible)
+      INSERT CELL customquery := filter.filterobject->GetCustomValue() INTO value;
+    RETURN value;
+  }
+
+  MACRO SetValue(RECORD value)
+  {
+    RECORD filter := this->filtertype->selection;
+    IF (NOT RecordExists(filter))
+    {
+      this->initvalue := value;
+      RETURN;
+    }
+    IF (this->matchtype->visible)
+      this->matchtype->value := CellExists(value, "matchtype") ? value.matchtype : GetTypeDefaultValue(TypeID(this->matchtype->value));
+    IF (this->textquery->visible)
+      this->textquery->value := CellExists(value, "textquery") ? value.textquery : GetTypeDefaultValue(TypeID(this->textquery->value));
+    IF (this->datequeryperiod->visible OR this->datequerydate->visible)
+    {
+      this->datequeryvalue := CellExists(value, "datequery") ? value.datequery : DEFAULT RECORD;
+      this->ShowDateQuery();
+    }
+    IF (this->valuequery->visible)
+      this->valuequery->value := CellExists(value, "valuequery") ? value.valuequery : GetTypeDefaultValue(TypeID(this->valuequery->value));
+    IF (this->selectquery->visible)
+    {
+      this->selectqueryvalue := CellExists(value, "selectquery") ? value.selectquery : DEFAULT RECORD;
+      this->ShowSelectQuery();
+    }
+    IF (this->customquery->visible)
+      filter.filterobject->SetCustomValue(CellExists(value, "customquery") ? value.customquery : DEFAULT RECORD);
+  }
+
+  RECORD FUNCTION GetQuery()
+  {
+    RECORD filter := this->filtertype->selection;
+    RETURN filter.filterobject->GetQuery(this->value);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ShowDateQuery()
+  {
+    IF (NOT this->changingvalue)
+    {
+      this->changingvalue := TRUE;
+
+      this->datequeryperiod->value := CellExists(this->datequeryvalue, "period") ? this->datequeryvalue.period : 0;
+      this->datequeryunit->value := CellExists(this->datequeryvalue, "unit") ? this->datequeryvalue.unit : "";
+      this->datequerydate->value := CellExists(this->datequeryvalue, "date") ? this->datequeryvalue.date : DEFAULT DATETIME;
+
+      this->changingvalue := FALSE;
+    }
+  }
+
+  MACRO ShowSelectQuery()
+  {
+    this->selectquery->value := CellExists(this->selectqueryvalue, "showvalue") ? this->selectqueryvalue.showvalue : "";
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
+<
+  RECORD ARRAY initialcolumns;
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  MACRO Init()
+  {
+    this->initialcolumns := ^typeslist->columns;
+
+    IF (NOT this->GetAppContext("publisher:searchfilters")->showdeveloper)
+    {
+      ^showall->value := FALSE;
+      ^showall->visible := FALSE;
+    }
+    this->RefreshList();
+  }
+
+  MACRO RefreshList()
+  {
+    IF (^showall->value)
+    {
+      ^typeslist->columns := this->initialcolumns;
+      ^filter->visible := TRUE;
+    }
+    ELSE
+    {
+      ^typeslist->columns := SELECT * FROM this->initialcolumns WHERE name = "title";
+      ^filter->visible := FALSE;
+    }
+
+    STRING ARRAY masks := ^filter->value = ""
+        ? DEFAULT STRING ARRAY
+        : SELECT AS STRING ARRAY "*" || ToUppercase(token) || "*"
+            FROM ToRecordArray(Tokenize(NormalizeWhitespace(^filter->value), " "), "TOKEN");
+
+    RECORD ARRAY rows :=
+        SELECT rowkey := id
+             , title := GetTid(title)
+             , icon := ^typeslist->GetIcon(tolliumicon ?? "tollium:files/application_x-webhare-unknown")
+             , namespace
+          FROM this->GetAppContext("publisher:searchfilters")->whfstypes
+         WHERE ^showall->value OR (NOT ishidden AND NOT isdevelopertype);
+
+    FOREVERY (RECORD row FROM rows)
+    {
+      STRING teststring := ToUppercase(row.title || " " || row.namespace);
+      FOREVERY (STRING mask FROM masks)
+        IF (teststring NOT LIKE mask)
+        {
+          DELETE FROM rows WHERE rowkey = row.rowkey;
+          BREAK;
+        }
+    }
+
+    ^typeslist->rows := rows;
+  }
+
+  MACRO OnFilterChange()
+  {
+    this->RefreshList();
+  }
+
+  MACRO OnShowAllChange()
+  {
+    ^filter->value := "";
+    this->RefreshList();
+  }
+
+  INTEGER ARRAY FUNCTION GetValue()
+  {
+    RETURN ^typeslist->value;
+  }
+
+  MACRO SetValue(INTEGER ARRAY value)
+  {
+    ^typeslist->value := value;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE SearchResultsListHandler EXTEND ContentsListHandlerBase
+<
+  MACRO NEW()
+  {
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetOrderedColumn()
+  {
+    RETURN "custom_rank";
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetAddedColumns()
+  {
+    RETURN
+        [ [ name := "custom_rank"
+          , type := "integer"
+          , title := ""
+          , sorttitle := GetTid("publisher:filemanager.main.app.sortorderselect-searchresults")
+          ]
+        , [ name := "custom_whfspath"
+          , type := "text"
+          , title := GetTid("publisher:components.filelist.searchresults-whfspath")
+          , sorttitle := GetTid("publisher:filemanager.main.app.sortorderselect-whfspath")
+          ]
+        ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION OnMapItems(INTEGER parentfolder, RECORD ARRAY items)
+  {
+    RECORD ARRAY rootobjects;
+    IF (this->tolliumuser->HasRightOn("system:fs_browse", 0))
+      rootobjects := [ [ id := 0, name := "" ] ];
+    ELSE
+      rootobjects :=
+          SELECT id
+               , name
+            FROM system.fs_objects
+           WHERE id IN this->tolliumuser->GetRootObjectsForRights([ "system:fs_browse" ]);
+
+    items :=
+        SELECT id
+             , type
+             , custom_rank := #items // We receive the items in the same order as we supplied them in RunFilter, so the rank is the position of the item
+             , custom_whfspath := CalculateFSObjectFullPathFromRoots(id, rootobjects)
+          FROM items;
+    RETURN items;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetOneRowLayout()
+  {
+    RETURN
+        [ [ name := "custom_whfspath", width := "2pr" ]
+        , [ name := "title",           width := "1pr" ]
+        , [ name := "modified",        width := "13x" ]
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetMultiRowLayout()
+  {
+    RETURN
+        [ headers :=
+            [ [ name := "icon",            combinewithnext := TRUE,  width := "" ]
+            , [ name := "custom_whfspath", combinewithnext := FALSE, width := "" ]
+            , [ name := "modified",        combinewithnext := FALSE, width := "13x" ]
+            ]
+        , rows :=
+            [ [ cells :=
+                [ [ name := "icon", rowspan := 2 ]
+                , [ name := "custom_whfspath", colspan := 2 ]
+                ]
+              ]
+            , [ cells :=
+                [ [ name := "title" ]
+                , [ name := "modified" ]
+                ]
+              ]
+            ]
+        ];
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE SearchPublisher EXTEND TolliumScreenBase
+<
+  BOOLEAN openinpublisher;
+
+  MACRO Init(RECORD data)
+  {
+    this->openinpublisher := CellExists(data, "calltype") AND data.calltype = "direct";
+    IF (this->openinpublisher)
+    {
+      IF (CellExists(data.message, "query"))
+        ^query->value := data.message.query;
+    }
+
+    INTEGER ARRAY accessible_objects := this->tolliumuser->GetRootObjectsForRights([ "system:fs_browse" ]);
+    IF(0 NOT IN accessible_objects)
+      ^autosuggest->data := CELL[ accessible_objects ];
+  }
+
+  MACRO DoOpen()
+  {
+    IF (NOT RecordExists(^results->selection))
+    {
+      IF (Length(^results->rows) = 0)
+        RETURN;
+      ^results->selection := ^results->rows[0];
+    }
+    IF (this->openinpublisher)
+    {
+      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := ^results->value ], DEFAULT RECORD, FALSE);
+      this->tolliumresult := "cancel";
+    }
+    ELSE
+      this->TolliumExecuteSubmit();
+  }
+
+  INTEGER FUNCTION Submit()
+  {
+    RETURN 0;
+  }
+
+  BOOLEAN FUNCTION Cancel()
+  {
+    IF (^query->value != "")
+    {
+      ^query->value := "";
+      RETURN FALSE;
+    }
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE SearchPublisherAutocomplete EXTEND TolliumAutoSuggestBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER ARRAY accessible_objects;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO NEW(RECORD data)
+  {
+    IF (RecordExists(data))
+      this->accessible_objects := data.accessible_objects;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  PUBLIC UPDATE RECORD ARRAY FUNCTION Lookup(STRING curtext)
+  {
+    RECORD query := CQParseUserQuery(curtext);
+    IF (Length(this->accessible_objects) > 0)
+    {
+      // Only search for objects within one of the accessible root objects
+      RECORD ARRAY rightsqueries :=
+          SELECT AS RECORD ARRAY CQMatch("whfstree", "CONTAINS", id)
+            FROM ToRecordArray(this->accessible_objects, "id");
+      query := CQAnd([ query, CQOR(rightsqueries) ]);
+    }
+
+    RECORD res := RunConsilioSearch(whconstant_consilio_catalog_whfs, query,
+        [ summary_length := 0
+        , count := 15
+        ]);
+
+    RETURN
+        SELECT value := whfspath
+          FROM res.results;
+  }
+
+>;

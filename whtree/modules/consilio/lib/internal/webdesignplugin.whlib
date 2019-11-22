@@ -1,0 +1,72 @@
+<?wh
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+PUBLIC STATIC OBJECTTYPE RobotsPlugin EXTEND WebDesignPluginBase
+<
+  BOOLEAN pvt_rendered;
+  BOOLEAN pvt_noindex;
+  BOOLEAN pvt_nofollow;
+  BOOLEAN pvt_noarchive;
+
+  PUBLIC PROPERTY noindex(pvt_noindex, SetNoIndex);
+  PUBLIC PROPERTY nofollow(pvt_nofollow, SetNoFollow);
+  PUBLIC PROPERTY noarchive(pvt_noarchive, SetNoArchive);
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ noindex  := ParseXSBoolean(node->GetAttribute("noindex"))
+           , nofollow := ParseXSBoolean(node->GetAttribute("nofollow"))
+           , noarchive := ParseXSBoolean(node->GetAttribute("noarchive"))
+           ];
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration) //override this to receive configuration
+  {
+    this->noindex := mergedconfiguration.noindex;
+    this->nofollow := mergedconfiguration.nofollow;
+    this->noarchive := mergedconfiguration.noarchive;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    // Don't render directly, so webdesign and pages have a chance to update the values
+    webdesign->InsertWithCallback(PTR this->RenderMetaTag, "dependencies-top");
+  }
+
+  MACRO RenderMetaTag()
+  {
+    STRING ARRAY content;
+    IF (this->noindex) INSERT "noindex" INTO content AT END;
+    IF (this->nofollow) INSERT "nofollow" INTO content AT END;
+    IF (this->noarchive) INSERT "noarchive" INTO content AT END;
+
+    // Only print a meta tag if there are restrictions
+    // See also: http://noarchive.net/meta/
+    IF (Length(content) > 0)
+      Print('<meta name="robots" content="' || Detokenize(content, ", ") || '">\n');
+
+    this->pvt_rendered := TRUE;
+  }
+
+  MACRO SetNoIndex(BOOLEAN noindex)
+  {
+    IF (this->pvt_rendered)
+      THROW NEW Exception("Robots values cannot be updated after the <meta> tag has been rendered");
+    this->pvt_noindex := noindex;
+  }
+
+  MACRO SetNoArchive(BOOLEAN noarchive)
+  {
+    IF (this->pvt_rendered)
+      THROW NEW Exception("Robots values cannot be updated after the <meta> tag has been rendered");
+    this->pvt_noarchive := noarchive;
+  }
+
+  MACRO SetNoFollow(BOOLEAN nofollow)
+  {
+    IF (this->pvt_rendered)
+      THROW NEW Exception("Robots values cannot be updated after the <meta> tag has been rendered");
+    this->pvt_nofollow := nofollow;
+  }
+>;

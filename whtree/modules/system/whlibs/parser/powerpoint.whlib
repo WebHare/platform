@@ -1,0 +1,10 @@
+<?wh
+
+
+PUBLIC INTEGER FUNCTION OpenPowerpointFile(BLOB filedata) __ATTRIBUTES__(EXTERNAL "parser_office_powerpoint");
+PUBLIC BOOLEAN FUNCTION DoPowerpointConversion(INTEGER id) __ATTRIBUTES__(EXTERNAL "parser_office_powerpoint");
+PUBLIC INTEGER ARRAY FUNCTION GetPowerpointSlideList(INTEGER id) __ATTRIBUTES__(EXTERNAL "parser_office_powerpoint");
+PUBLIC RECORD ARRAY FUNCTION GetPowerpointSlideTexts(INTEGER id, INTEGER slideid) __ATTRIBUTES__(EXTERNAL "parser_office_powerpoint");
+PUBLIC RECORD ARRAY FUNCTION GetPowerpointCustomShows(INTEGER id) __ATTRIBUTES__(EXTERNAL "parser_office_powerpoint");
+PUBLIC MACRO RenderPowerpointSlide(INTEGER id, INTEGER slideid, INTEGER canvasid) __ATTRIBUTES__(EXTERNAL "parser_office_powerpoint");
+PUBLIC MACRO RenderPowerpointNotes(INTEGER id, INTEGER slideid, INTEGER canvasid) __ATTRIBUTES__(EXTERNAL "parser_office_powerpoint");

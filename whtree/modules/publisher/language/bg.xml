@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="bg" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Моля, проверете полето отдолу</text>
+      <text tid="title">Почти е готово</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">Напред.</text>
+      <text tid="previouspage">Назад.</text>
+      <text tid="selectfile">Избери файл.</text>
+      <text tid="starsrequired">* Обозначава задължително поле</text>
+      <text tid="submit">Качи.</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">Адресът не бе намерен.</text>
+        <text tid="invalid_nr_detail">Невалиден номер.</text>
+        <text tid="invalid_zip">Невалиден пощенски код.</text>
+        <text tid="zip_not_found">Непозната комбинация на пощенски код и номер на къщата.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">Стойността трябва да садържа само букви или цифри.</text>
+        <text tid="check">Трябва да изберете между <param p="1"/> и <param p="2"/> стойности.</text>
+        <text tid="default">Невалидна стойност.</text>
+        <text tid="digits">Невалидни цифри.</text>
+        <text tid="email">Невалиден имейл адрес.</text>
+        <text tid="email_baddomain">Поради технически причини, Ви молим да използвате различен имейл доставчик.</text>
+        <text tid="email_suggestion">Имахте предвид <param p="1"/>?</text>
+        <text tid="equalto">Стойността трябва да съвпада.</text>
+        <text tid="integer">Невалиден номер.</text>
+        <text tid="length">Дължината на стойността трябва да бъде между <param p="1"/> и <param p="2"/> символа.</text>
+        <text tid="max">Стойността трябва да бъде по-малка или равна на <param p="1"/>.</text>
+        <text tid="maxcheck">Трябва да изберете най-много <param p="1"/> стойности.</text>
+        <text tid="maxlength">Стойността е прекалено дълга. Макс. дължина: <param p="1"/> символа.</text>
+        <text tid="min">Стойността трябва да бъде по-голяма или равна на <param p="1"/>.</text>
+        <text tid="mincheck">Трябва да изберете поне <param p="1"/> стойности.</text>
+        <text tid="minlength">Стойността е прекалено кратка. Мин. дължина: <param p="1"/> символа.</text>
+        <text tid="notblank">Полето е задължително.</text>
+        <text tid="number">Невалиден номер.</text>
+        <text tid="pattern">Невалидна стойност.</text>
+        <text tid="range">Стойността трябва да бъде между <param p="1"/> и <param p="2"/>.</text>
+        <text tid="required">Полето е задължително.</text>
+        <text tid="url">Невалиден URL адрес.</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

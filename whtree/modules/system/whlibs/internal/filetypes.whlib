@@ -1,0 +1,459 @@
+﻿<?wh
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/graphics-tags.whlib";
+
+PUBLIC CONSTANT RECORD basescannedblob :=
+  [ mimetype := "application/octet-stream"
+  , width := 0
+  , height := 0
+  , rotation := 0
+  , mirrored := FALSE
+  , refpoint := DEFAULT RECORD
+  , dominantcolor := ""
+  , hash := ""
+  , extension := ""
+  ];
+PUBLIC CONSTANT RECORD basestoredfile :=
+  [ ...basescannedblob
+  , __blobsource := ""
+  , filename := ""
+  //, extension := ""
+  , source_fsobject := 0
+  ];
+
+PUBLIC RECORD FUNCTION ValidateScannedData(RECORD indata)
+{
+  indata := ValidateOptions(basestoredfile, indata, [ title := "ScanBlob data"]);
+  IF(indata.dominantcolor NOT IN ["","transparent"])
+  {
+    IF(indata.dominantcolor NOT LIKE "#??????" OR ToInteger(Substring(indata.dominantcolor,1),-1,16)=-1)
+      THROW NEW Exception(`Invalid color code '${indata.dominantcolor}'' for dominant color`);
+    indata.dominantcolor := ToUppercase(indata.dominantcolor);
+  }
+  RETURN indata;
+}
+
+RECORD FUNCTION MakeFile(STRING contenttype)
+{
+  RETURN [ contenttype := contenttype
+         , imginfo := DEFAULT RECORD
+         ];
+}
+STRING FUNCTION BinToStringCLSID(STRING binclsid)
+{
+  STRING clsid := EncodeBase16(binclsid);
+  clsid := "{" || Substring(clsid,6,2) || Substring(clsid,4,2) || Substring(clsid,2,2) || Substring(clsid,0,2)
+           || "-" || Substring(clsid,8,4)
+           || "-" || Substring(clsid,12,4)
+           || "-" || Substring(clsid,16,4)
+           || "-" || SubString(clsid,20,12) || "}";
+  RETURN clsid;
+}
+
+RECORD FUNCTION UnpackOleProps(BLOB indata)
+{
+  RECORD retval := __HS_UnpackOleProps(indata); //FIXME Port to HareScript
+  IF (RecordExists(retval))
+    INSERT CELL clsid := BinToStringCLSID(retval.__clsid) INTO retval;
+  RETURN retval;
+}
+
+STRING FUNCTION ReadFromTIFF(INTEGER filehandle, INTEGER start, INTEGER length)
+{
+  SetFilePointer(filehandle, start);
+  RETURN ReadFrom(filehandle, length);
+}
+
+RECORD FUNCTION MakeTIFFFile(STRING header, INTEGER filehandle)
+{
+  RECORD filedata := MakeFile("image/tiff");
+
+  RECORD ARRAY tiff_fields := __ParseTIFFTags(PTR ReadFromTIFF(filehandle, #1, #2));
+  filedata.imginfo := [ height := SELECT AS INTEGER singlevalue FROM tiff_fields WHERE tag = 257 AND TypeId(singlevalue)=TypeId(INTEGER)
+                      , width := SELECT AS INTEGER singlevalue FROM tiff_fields WHERE tag = 256 AND TypeId(singlevalue)=TypeId(INTEGER)
+                      , bpp := SELECT AS INTEGER singlevalue FROM tiff_fields WHERE tag = 258 AND TypeId(singlevalue)=TypeId(INTEGER)
+                      , rotation := 0 //FIXME in exif data for tiffs too ?
+                      , mirrored := FALSE
+                      , refpoint := DEFAULT RECORD
+                      ];
+
+  RETURN filedata;
+}
+RECORD FUNCTION MakeBitmapFile(STRING header)
+{
+  RECORD filedata := MakeFile("image/x-bmp");
+  filedata.imginfo := DecodePacket(":@18,width:L,height:L,:@28,bpp:S", header);
+  IF(filedata.imginfo.height < 0)
+    filedata.imginfo.height := - filedata.imginfo.height;
+
+  IF(NOT RecordExists(filedata.imginfo) OR filedata.imginfo.width <= 0 OR filedata.imginfo.height <= 0) //corrupt bmp
+    RETURN DEFAULT RECORD;
+  INSERT CELL rotation := 0, mirrored := FALSE, refpoint := DEFAULT RECORD INTO filedata.imginfo;
+  RETURN filedata;
+}
+RECORD FUNCTION MakeGIFFile(STRING header)
+{
+  RECORD filedata := MakeFile("image/gif");
+  filedata.imginfo := DecodePacket(":@6,width:S,height:S,bpp:C", header);
+  IF(NOT RecordExists(filedata.imginfo) OR filedata.imginfo.width <= 0 OR filedata.imginfo.height <= 0)
+    RETURN DEFAULT RECORD;
+
+  filedata.imginfo.bpp := 1 BITLSHIFT ((filedata.imginfo.bpp BITXOR 0x70) BITRSHIFT 4) ;
+  INSERT CELL rotation := 0, mirrored := FALSE, refpoint := DEFAULT RECORD INTO filedata.imginfo;
+  RETURN filedata;
+}
+RECORD FUNCTION MakePNGFile(STRING header)
+{
+  RECORD filedata := MakeFile("image/png");
+  RECORD pngheader := DecodePacket(":@16,width:P,height:P,bitdepth:C,color:C", header);
+  IF (NOT RecordExists(pngheader) OR pngheader.width <= 0 OR pngheader.height <= 0)
+    RETURN DEFAULT RECORD;
+
+  filedata.imginfo := [ height := pngheader.height
+                      , width := pngheader.width
+                      , bpp := pngheader.color = 0 /*grayscale*/? pngheader.bitdepth : pngheader.bitdepth*3
+                      , rotation := 0
+                      , mirrored := FALSE
+                      , refpoint := DEFAULT RECORD
+                      ];
+
+  RETURN filedata;
+}
+
+RECORD FUNCTION MakeJPEGFile(STRING header, INTEGER filehandle, INTEGER filelen)
+{
+  RECORD filedata := MakeFile("image/jpeg");
+  filedata.imginfo := [ height := 0, width := 0, bpp := 0, rotation := 0, mirrored := FALSE, refpoint := DEFAULT RECORD ];
+  BOOLEAN have_imginfo, have_orientation;
+
+  //JPEG is a much complexer file format. We must scan for a 'SOFn' header, containing image data
+  INTEGER filepos := 2; //initial segment
+
+  WHILE (filepos < filelen AND NOT (have_imginfo AND have_orientation))
+  {
+    SetFilePointer(filehandle, filepos);
+    STRING segmentdata := ReadFrom(filehandle, 64);
+    RECORD segmentinfo := DecodePacket("start:C,type:C,len:N", segmentdata);
+    IF (NOT RecordExists(segmentinfo))
+    {
+      IF (have_imginfo)
+        RETURN filedata;
+
+      RETURN DEFAULT RECORD; //This is a corrupted JPEG file, ignore it!
+    }
+
+    /* JPEG:
+       "Any marker may optionally be preceded by any number of fill bytes, which are bytes assigned code X’FF’."
+       apparently, hitting a type of '255' might mean switching one byte and restarting the parse. we're not handling that yet, then */
+    IF (segmentinfo.start = 255 AND segmentinfo.type IN [0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF])// Any SOF marker
+    {
+      RECORD imageinfo := DecodePacket(":@5,height:N,width:N,components:C", segmentdata);
+      IF(imageinfo.height <= 0 OR imageinfo.width <= 0)
+        RETURN DEFAULT RECORD;
+
+      filedata.imginfo.height := imageinfo.height;
+      filedata.imginfo.width := imageinfo.width;
+      filedata.imginfo.bpp := 8*imageinfo.components;
+
+      have_imginfo := TRUE;
+    }
+    IF (segmentinfo.start = 255 AND segmentinfo.type = 225 AND Substring(segmentdata,4,6) = "Exif\0\0") //An APP1 EXIF data block
+    {
+      SetFilePointer(filehandle, filepos+10);
+      STRING exifdata := ReadFrom(filehandle, segmentinfo.len-8);
+      RECORD ARRAY tags := __ParseTIFFTags(PTR ReadEXIFData(exifdata, #1, #2));
+      RECORD orientation := SELECT * FROM tags WHERE tag=274 AND type=3;
+
+      IF(RecordExists(orientation) AND orientation.singlevalue >= 1 AND orientation.singlevalue <= 8)
+      {
+        //the mirror is understood to be applied before rotation. so to reverse the properties below: first rotate 360-rotation, then unmirror
+        have_orientation := TRUE;
+        filedata.imginfo.mirrored := [FALSE,TRUE,FALSE,TRUE,TRUE,FALSE,TRUE,FALSE][orientation.singlevalue - 1];
+        filedata.imginfo.rotation := [0,0,180,180,270,270,90,90][orientation.singlevalue - 1];
+      }
+    }
+
+    filepos := filepos + 2 + segmentinfo.len; //to the next segment
+  }
+  RETURN have_imginfo ? filedata : DEFAULT RECORD;
+}
+
+
+RECORD FUNCTION DetectZipFile(BLOB indata, STRING ext)
+{
+  RECORD filetype := MakeFile("application/zip");
+
+  INTEGER zip := OpenZipFile(indata);
+  IF(zip<=0)
+    RETURN DEFAULT RECORD;
+
+  RECORD ARRAY dir := GetZipFileDirectory(zip);
+  IF(RecordExists(SELECT FROM dir WHERE path='' AND name='[Content_Types].xml')
+     AND RecordExists(SELECT FROM dir WHERE path='_rels' AND name='.rels')
+    )
+  {
+    //This looks like a OOXML Package
+    //I can't find any proper rules for autodetecting ooxml, so we'll just assume a word/document.xml will have to exist
+    IF(RecordExists(SELECT FROM dir WHERE path='word' AND name='document.xml'))
+      filetype := MakeFile("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    ELSE IF(RecordExists(SELECT FROM dir WHERE path='ppt' AND name='presentation.xml'))
+      filetype := MakeFile("application/vnd.openxmlformats-officedocument.presentationml.presentation");
+    ELSE IF(RecordExists(SELECT FROM dir WHERE path='xl' AND name='workbook.xml'))
+      filetype := MakeFile("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  }
+  ELSE IF(RecordExists(SELECT FROM dir WHERE name='^^webhare_folder_metadata.xml'))
+  {
+    filetype := MakeFile("application/x-webhare-archive");
+  }
+
+  CloseZipFile(zip);
+
+  // Detect some special zip files by extension
+  SWITCH (ext)
+  {
+    CASE ".apk"
+    {
+      filetype := MakeFile("application/vnd.android.package-archive");
+    }
+    CASE ".ipa"
+    {
+      filetype := MakeFile("application/octet-stream");
+    }
+    CASE ".xap"
+    {
+      filetype := MakeFile("application/x-silverlight-app");
+    }
+  }
+
+  RETURN filetype;
+}
+
+/** @short Detect an read docfile properties
+    @long This function opens docfiles (OLE structured storage files), such as Microsoft Word files,
+          and returns the class ID and property sets of the file
+    @param filedata File to analyze
+    @return A record describing the ole file, or a non-existing record if the properties could not be retrieved (eg. the file is corrupted or not a real OLE file)
+    */
+PRIVATE RECORD FUNCTION DetectOLEtype(BLOB filedata)
+{
+  RECORD ourfile := MakeFile("application/octet-stream");
+  RECORD oleprops := UnpackOleProps(filedata);
+  IF (RecordExists (oleprops))
+    ourfile.contenttype := LookupCLSID(oleprops.clsid).ctype;
+  RETURN ourfile;
+}
+RECORD FUNCTION LookupCLSID(STRING clsid)
+{
+  SWITCH(clsid)
+  {
+    CASE "{00020906-0000-0000-C000-000000000046}" //Word8
+        ,"{00020900-0000-0000-C000-000000000046}" //Word6
+    {
+      RETURN [ ctype := "application/msword" ];
+    }
+    CASE "{00020810-0000-0000-C000-000000000046}" //Excel5
+        ,"{00020820-0000-0000-C000-000000000046}" //Excel8
+    {
+      RETURN [ ctype := "application/vnd.ms-excel" ];
+    }
+    CASE "{64818D10-9B4F-CF11-86EA-00AA00B929E8}" //Powerpoint.Show.8
+    {
+      RETURN [ ctype := "application/vnd.ms-powerpoint" ];
+    }
+    CASE "{597CAA70-AA72-CF11-831E-524153480000}" //Flash source
+    {
+      RETURN [ ctype := "application/x-webhare-fla" ];
+    }
+    DEFAULT
+    {
+      RETURN [ ctype := "application/octet-stream" ];
+    }
+  }
+}
+
+
+RECORD FUNCTION GuessXMLFile(STRING fileheader, STRING filename, STRINg ext)
+{
+  // Apple mobile provisioning profiles contain an XML document within binary data, which makes the file type detector
+  // incorrectly think it's an XML file
+  IF (ext=".mobileprovision")
+    RETURN MakeFile("application/octet-stream");
+
+  //ADDME: Do an initial abortable SAX parse and actually read the root element
+  IF(SearchSubstring(fileheader, 'xmlns="http://www.webhare.net/xmlns/publisher/conversionprofile"') != -1)
+    RETURN MakeFile("application/x-webhare-conversionprofile");
+  IF(SearchSubstring(fileheader, 'xmlns="http://www.w3.org/2000/svg"') != -1)
+    RETURN MakeFile("image/svg+xml");
+
+  RETURN MakeFile("text/xml");
+}
+
+RECORD FUNCTION GuessHarescriptFile(STRING filename, STRING ext)
+{
+  IF (ext=".tpl")
+    RETURN MakeFile("application/x-webhare-template");
+  IF (ext=".whlib")
+    RETURN MakeFile("application/x-webhare-library");
+  IF (ext=".shtml")
+    RETURN MakeFile("application/x-webhare-shtmlfile");
+
+  RETURN MakeFile("application/x-webhare-harescriptfile");
+}
+
+RECORD FUNCTION GuessFileTypeByName(STRING filename, STRING header, STRING ext)
+{
+  IF (ext=".js")
+    RETURN MakeFile("application/x-javascript");
+  IF (ext=".css")
+    RETURN MakeFile("text/css");
+  IF (ext=".csv")
+    RETURN MakeFile("text/csv");
+  IF (ext=".xml")
+    RETURN MakeFile("text/xml");
+  IF (ext=".wav")
+    RETURN MakeFile("audio/x-wav");
+  IF (ext=".mp3")
+    RETURN MakeFile("audio/mpeg");
+  IF (ext=".mpg")
+    RETURN MakeFile("video/mpeg");
+  IF (ext=".avi")
+    RETURN MakeFile("video/x-msvideo");
+  IF (ext=".mov")
+    RETURN MakeFile("video/quicktime");
+  IF (ext=".mp4") // FIXME: and m4a,m4b,m4p,m4u,m4v ?
+    RETURN MakeFile("video/mp4");
+  IF (ext=".ico")
+    RETURN MakeFile("image/vnd.microsoft.icon");
+  IF (ext=".rar")
+    RETURN MakeFile("application/x-rar-compressed");
+  IF (ext=".htm" OR ext=".html")
+    RETURN MakeFile("text/html");
+  IF (ext=".txt")
+    RETURN MakeFile("text/plain");
+  IF (ext=".siteprl")
+    RETURN MakeFile("application/x-webhare-siteprofile");
+  IF (ext=".pdf")
+    RETURN MakeFile("application/pdf");
+  IF (ext=".eml")
+    RETURN MakeFile("message/rfc822");
+  IF (ext=".vcf")
+    RETURN MakeFile("text/x-vcard");
+  IF (ext=".flv")
+    RETURN MakeFile("video/x-flv");
+  IF (ext=".ics")
+    RETURN MakeFile("text/calendar");
+//  IF (ext=".doc")
+//    RETURN MakeFile("application/msword", "doc");
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION __DetectFileType(BLOB filedata, STRING filename)
+{
+  IF(Length(filedata) = 0) //nothing to detect
+    RETURN MakeFile("application/octet-stream");
+
+  INTEGER filehandle := OpenBlobAsFile(filedata);
+  TRY
+  {
+    STRING fileheader := ReadFrom(filehandle,1024);
+    STRING ext := ToLowercase(Tokenize(filename,'.')[END-1]);
+    IF(ext!='')
+      ext:='.'||ext;
+
+    RECORD filetype;
+
+    //Archives
+    IF(Left(fileheader,3) = "\x1F\x8B\x08")
+      filetype := MakeFile("application/x-gzip");
+    ELSE IF(Left(fileheader,4) = "PK\x03\x04" OR Left(fileheader,8) = "PK00PK\x03\x04")
+      filetype := DetectZipFile(filedata, ext);
+
+    //Graphics
+    ELSE IF(Left(fileheader,6) = "GIF89a" OR Left(fileheader,6)="GIF87a")
+      filetype := MakeGIFFile(fileheader);
+    ELSE IF(Left(fileheader,3) = "\xFF\xD8\xFF")
+      filetype := MakeJPEGFile(fileheader, filehandle, Length(filedata));
+    ELSE IF(fileheader LIKE "\x89PNG\r\n\x1a\n*")
+      filetype := MakePNGFile(fileheader);
+    ELSE IF(fileheader LIKE "BM????\0\0\0\0*")
+      filetype := MakeBitmapFile(fileheader);
+    ELSE IF(Left(fileheader,4)="II*\0" OR Left(fileheader,4)="MM\0*")
+      filetype := MakeTiffFile(fileheader, filehandle);
+
+    //Audio
+    ELSE IF(Left(fileheader,6)="\x23\x21\x41\x4D\x52\x0A")
+      filetype := MakeFile("audio/amr");
+
+    // Quicktime and MP4 usually start with an "moov" or "ftyp" atom
+    ELSE IF(   (Left(fileheader,8) LIKE "????moov") // detect the "moov" atom (which contains movie information)
+            OR (Left(fileheader,8) LIKE "????ftyp") // detect the "ftyp" atom (which identifies the type of encoding used)
+          )
+    {
+      // since mp4 is derived from the Quicktime mov format,
+      // the only easy way to keep them apart from eachother is looking at the file extension
+      IF (ext = ".mov")
+        RETURN MakeFile("video/quicktime");
+      ELSE
+        RETURN MakeFile("video/mp4");
+    }
+    //Other applications
+    ELSE IF(Left(fileheader,5) = "%PDF-")
+    {
+      filetype := MakeFile("application/pdf");
+    }
+    ELSE IF(Left(fileheader,3) IN [ "FWS", "CWS" ]) // http://www.digitalpreservation.gov/formats/fdd/fdd000130.shtml
+      filetype := MakeFile("application/x-shockwave-flash");
+    ELSE IF(Left(fileheader,8) = "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1")
+      filetype := DetectOLEtype(filedata);
+    ELSE IF(Left(fileheader,15) = "BEGIN:VCALENDAR")
+      filetype := MakeFile("text/calendar");
+
+    //Any textfile can be a witty file, but often looks like its original format. Simply check the extension for witties before doing any text analysis
+    IF (ext=".witty")
+      RETURN MakeFile("application/x-webhare-wittytemplate");
+    IF(ext IN [".xml",".svg"])
+      RETURN GuessXMLFile(fileheader, filename, ext);
+
+    IF (NOT RecordExists(filetype))
+    {
+      //Header detection failed
+      STRING upperheader := TrimWhitespace(ToUppercase(fileheader));
+      IF (upperheader LIKE "\xEF\xBB\xBF*") // skip UTF-8 BOM
+        upperheader := SubString(upperheader, 3);
+
+      //The better types of 'guessing'
+      IF (SearchSubstring(fileheader,"<?wh")!=-1)
+        filetype := GuessHarescriptFile(filename, ext);
+      ELSE IF (SearchSubstring(fileheader,"<?xml ")!=-1)
+        filetype := GuessXMLFile(fileheader, filename, ext);
+      ELSE IF(upperheader LIKE "<HTML*" OR upperheader LIKE "*<!DOCTYPE HTML *" OR upperheader LIKE "*<!DOCTYPE HTML>*")
+        filetype := MakeFile("text/html");
+      ELSE
+        filetype := GuessFileTypeByName(filename, fileheader, ext);
+    }
+
+    IF (NOT RecordExists(filetype) AND Length(fileheader)>16)
+    {
+      //Try to detect if this is a plain text file
+
+      //ASCII control characters (0-31 except 9 (HT/tab), 10 (LF) and 13 (CR) and 127 (DEL))
+      INTEGER ARRAY control_chars := [0,1,2,3,4,5,6,7,8,11,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,127];
+      INTEGER i;
+      FOR (i := 0; i < Length(fileheader); i := i + 1)
+        IF (GetByteValue(Substring(fileheader,i,1)) IN control_chars)
+          BREAK;
+
+      IF (i >= Length(fileheader))
+        //No control characters found in first KB of file, assume it's ASCII
+        filetype := MakeFile("text/plain");
+    }
+    IF(NOT RecordExists(filetype))
+      filetype := MakeFile("application/octet-stream");
+
+    RETURN filetype;
+  }
+  FINALLY
+  {
+    __HS_CloseFile(filehandle);
+  }
+}

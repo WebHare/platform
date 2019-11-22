@@ -1,0 +1,185 @@
+<?wh
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib"; //FIXME Have some non internal lib
+
+PUBLIC OBJECTTYPE TolliumBrowseServerPath EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // The textedit object
+  OBJECT path;
+
+  // The button object
+  OBJECT browse;
+
+  // The button title
+  STRING pvt_button;
+
+  // Allow manual editing
+  BOOLEAN pvt_allowmanualedit;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Id of the selected file or folder, returns 0 if no file/folder was selected (the Publisher root cannot be selected)
+  */
+  PUBLIC PROPERTY value(this->path->value, this->path->value);
+
+  ///Starting point of browser dialog if nothing selected yet
+  PUBLIC STRING startfolder;
+
+  /** If TRUE, files are accepted
+  */
+  PUBLIC BOOLEAN acceptfiles;
+
+  /** If TRUE, folders are accepted
+  */
+  PUBLIC BOOLEAN acceptfolders;
+
+  /** If TRUE, manual editing of the path is allowed */
+  PUBLIC PROPERTY allowmanualedit(GetAllowManualEdit, SetALlowManualEdit);
+
+  /** The title of the browse button, leave empty for default text
+  */
+  PUBLIC PROPERTY button(pvt_button, SetButton);
+
+  /** The description in the browse dialog, leave empty for default text
+  */
+  PUBLIC STRING description;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->pvt_invisibletitle := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->acceptfiles := def.acceptfiles;
+    this->acceptfolders := def.acceptfolders;
+    this->pvt_button := def.button;
+    this->description := def.description;
+    this->pvt_allowmanualedit := def.allowmanualedit;
+
+    this->path := this->CreateSubComponent("textedit");
+    this->value := def.value;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    this->path->enabled := this->pvt_allowmanualedit AND this->enabled;
+    this->path->readonly := this->readonly;
+    this->path->visible := this->visible;
+    this->path->title := this->title;
+    this->path->width := this->width;
+    this->parent->InsertComponentAfter(this->path, DEFAULT OBJECT, FALSE);
+
+    this->browse := this->CreateSubComponent("button");
+    this->browse->visible := this->visible AND NOT this->readonly;
+    this->browse->enabled := this->enabled;
+    this->browse->title := this->pvt_button != "" ? this->pvt_button : GetTid("tollium:common.actions.browse");
+    this->browse->action := this->CreateSubComponent("action");
+    this->browse->action->onexecute := PTR this->DoBrowse;
+    this->parent->InsertComponentAfter(this->browse, this->path, FALSE);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel!="" ? this->errorlabel : this->title;
+
+    IF(this->required AND this->value = "")
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetButton(STRING button)
+  {
+    IF (button != this->pvt_button)
+    {
+      this->pvt_button := button;
+      IF (ObjectExists(this->browse))
+        this->browse->title := this->pvt_button;
+    }
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newstate)
+  {
+    TolliumComponentBase::SetEnabled(newstate);
+    IF (ObjectExists(this->browse))
+      this->browse->enabled := newstate;
+  }
+
+  UPDATE MACRO SetReadOnly(BOOLEAN newstate)
+  {
+    TolliumComponentBase::SetReadOnly(newstate);
+    IF (ObjectExists(this->path))
+      this->path->readonly := newstate;
+    IF (ObjectExists(this->browse))
+      this->browse->visible := NOT newstate;
+  }
+
+  UPDATE MACRO SetVisible(BOOLEAN newstate)
+  {
+    TolliumComponentBase::SetVisible(newstate);
+    IF (ObjectExists(this->path))
+      this->path->visible := newstate;
+    IF (ObjectExists(this->browse))
+      this->browse->visible := newstate;
+  }
+
+  BOOLEAN FUNCTION GetAllowManualEdit()
+  {
+    RETURN this->pvt_allowmanualedit;
+  }
+
+  MACRO SetAllowManualEdit(BOOLEAN newval)
+  {
+    IF(newval = this->pvt_allowmanualedit)
+      RETURN;
+
+    this->pvt_allowmanualedit := newval;
+    IF(this->enabled)
+      this->path->enabled := this->pvt_allowmanualedit;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO DoBrowse()
+  {
+    IF (NOT this->acceptfiles AND NOT this->acceptfolders)
+      THROW NEW TolliumException(this, "BrowseServerPath not accepting anything");
+
+    OBJECT filedlg := CreateBrowseServerPathDialog(this->owner);
+
+    IF (this->description != "")
+      filedlg->description := this->description;
+
+    filedlg->acceptfiles := this->acceptfiles;
+    filedlg->acceptfolders := this->acceptfolders;
+    filedlg->path := this->value ?? this->startfolder;
+
+    IF (filedlg->RunModal() = "ok")
+      this->value := filedlg->path;
+  }
+>;

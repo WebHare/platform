@@ -1,0 +1,758 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/imexport.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/whfs-service.whlib";
+
+//FIXME Convert all to a nice im/export api. DO NOT CALL THIS FUNCTION FROM EXTERNAL MODULES NOT SHIPPED WITH WEBHARE - THE API _WILL_ CHANGE
+
+PUBLIC OBJECTTYPE OverwritingProtectedWRDSchemaException EXTEND Exception
+<
+  MACRO NEW() : Exception("Trying to overwrite a protected schema")
+  {
+
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
+<
+  OBJECT export_wrdschema;
+  OBJECT import_wrdschema;
+  STRING oldschemaname;
+  OBJECT rtdtype;
+  OBJECT instancetype;
+  RECORD options;
+  OBJECT importmapper;
+  OBJECT exportmapper;
+  INTEGER newschemaid;
+  DATETIME now;
+
+  PUBLIC STRING newschemaname;
+  PUBLIC MACRO PTR onoverwritingschema;
+  PUBLIC MACRO PTR onimportedreference;
+  PUBLIC BOOLEAN ignoremissingreferences;
+  INTEGER ARRAY skipattrids;
+  INTEGER ARRAY skiptypeids;
+
+  MACRO NEW(OBJECT wrdschema, RECORD options) : DatabaseImExport("wrd", "v1.3")
+  {
+    this->now := GetCurrentDatetime();
+    this->options := ValidateOptions([ renameto := ""
+                                     , onoverwritingschema := DEFAULT MACRO PTR
+                                     ], options);
+    this->onoverwritingschema := this->options.onoverwritingschema;
+    this->rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+    this->instancetype := OpenWHFSType("http://www.webhare.net/xmlns/wrd/instancefile");
+
+    this->export_wrdschema := wrdschema;
+    this->SetupByModule("wrd", ["wrd.schemas"]);
+    this->AddImportRowFilter("wrd.schemas", PTR this->SchemasFilter);
+    this->AddExportRowFilter("wrd.schemas", PTR this->ExportSchemasFilter);
+    this->AddImportRowFilter("wrd.types", PTR this->typesfilter);
+    this->AddImportRowFilter("wrd.changesets", PTR this->ChangeSetFilter);
+    this->AddImportRowFilter("wrd.auditevents", PTR this->AuditEventsFilter);
+    this->AddImportRowFilter("wrd.entity_settings", PTR this->EntitySettingsFilter);
+
+    this->AddImportRowFilter("wrd.attrs", PTR this->attrsfilter);
+    this->AddImportRowFilter("wrd.storedqueries", PTR this->StoredQueriesFilter);
+    this->AddImportRowFilter("wrd.keyvaluestore", PTR this->StoredKeyValueFilter);
+    this->AddImportRowFilter("wrd.entity_settings_whfslink", PTR this->ImportWHFSLink);
+    this->AddExportRowFilter("wrd.entity_settings_whfslink", PTR this->ExportwHFSLink);
+    this->IgnoreImportTable("wrd.events");
+    this->IgnoreImportTable("wrd.eventsubtags");
+    this->IgnoreImportTable("wrd.translate_types");
+    this->IgnoreImportTable("wrd.translate_entities");
+    this->IgnoreImportTable("wrd.registrynodes");
+    this->IgnoreImportTable("wrd.registrykeys");
+
+    IF(ObjectExists(wrdschema)) //is export
+    {
+      this->AddExportConstraint("wrd.schemas", "id", "=", wrdschema->id);
+      this->exportmapper := NEW WHFSBulkSender(0, "");
+    }
+    ELSE
+    {
+      this->importmapper := OpenWHFSRootObject()->MakeBulkReceiver();
+    }
+  }
+
+  /** Skip types by mask.
+      @param mask A mask for <TYPE TAG>
+      @return Full tags of actual types skipped */
+  PUBLIC STRING ARRAY FUNCTION SkipTypesByMask(STRING mask)
+  {
+    RECORD ARRAY toskip := SELECT *
+                             FROM this->export_wrdschema->ListTypes()
+                            WHERE ToUppercase(tag) LIKE ToUppercase(mask);
+
+    this->SkipTypes(SELECT AS INTEGER ARRAY id FROM toskip);
+    RETURN SELECT AS STRING ARRAY tag FROM toskip;
+  }
+
+  PUBLIC MACRO SkipAttributes(INTEGER ARRAY toskip)
+  {
+    IF(Length(toskip)=0)
+      RETURN;
+
+    FOREVERY(INTEGER id FROM toskip)
+      IF(id NOT IN this->skipattrids)
+        INSERT id INTO this->skipattrids AT END;
+  }
+
+  /** Skip attributes by mask.
+      @param mask A mask for <TYPE TAG>[.<PARENT TAGS>...].<ATTRIBUTE TAG>
+      @return Full tags of actual attributes skipped */
+  PUBLIC STRING ARRAY FUNCTION SkipAttributesByMask(STRING mask)
+  {
+    INTEGER ARRAY skipids;
+    STRING ARRAY skipped;
+    FOREVERY(RECORD type FROM this->export_wrdschema->ListTypes())
+    {
+      RECORD ARRAY toskip := SELECT id, tag
+                               FROM this->export_wrdschema->GetTypeById(type.id)->__pvt_GetAllAttrs()
+                              WHERE (ToUppercase(type.tag || "." || tag) LIKE ToUppercase(VAR mask))
+                                    OR (ToUppercase(type.tag || "." || tag) LIKE ToUppercase(VAR mask || ".*"));
+
+      FOREVERY(RECORD skip FROM toskip)
+      {
+        INSERT skip.id INTO skipids AT END;
+        INSERT ToUppercase(type.tag || "." || skip.tag) INTO skipped AT END;
+      }
+    }
+
+    this->SkipAttributes(skipids);
+    RETURN skipped;
+  }
+
+  PUBLIC MACRO SkipTypes(INTEGER ARRAY toskip)
+  {
+    IF(Length(toskip)=0)
+      RETURN;
+
+    FOREVERY(INTEGER skipid FROM toskip)
+      IF(skipid NOT IN this->skiptypeids)
+      {
+        //also remove all attributes referred by the type
+        OBJECT typeobj := this->export_wrdschema->GetTypeById(skipid);
+        IF(NOT ObjectExists(typeobj))
+          CONTINUE; //gone?
+
+        this->SkipAttributes(SELECT AS INTEGER ARRAY id FROM typeobj->__pvt_GetAllAttrs());
+        INSERT skipid INTO this->skiptypeids AT END;
+
+        //skip child types too
+        this->SkipTypes(typeobj->__childtypeids);
+
+        //skip referring types too
+        this->SkipTypes(SELECT AS INTEGER ARRAY id FROM this->export_wrdschema->ListTypes() WHERE linkfrom = skipid OR linkto = skipid);
+      }
+  }
+
+  RECORD FUNCTION ExportWHFSLink(RECORD inrow)
+  {
+    IF(inrow.linktype=0)
+    {
+      INSERT CELL data := EncodeHSON(this->rtdtype->ExportInstanceData(inrow.fsobject, this->exportmapper, FALSE).data) INTO inrow;
+      DELETE CELL fsobject FROM inrow;
+      RETURN inrow;
+    }
+    IF(inrow.linktype=1)
+    {
+      INSERT CELL data := EncodeHSON(this->instancetype->ExportInstanceData(inrow.fsobject, this->exportmapper, FALSE).instance) INTO inrow;
+      DELETE CELL fsobject FROM inrow;
+      RETURN inrow;
+    }
+    IF(inrow.linktype=2)
+    {
+      INSERT CELL data := MapExternalWHFSRef(inrow.fsobject) INTO inrow;
+      DELETE CELL fsobject FROM inrow;
+      RETURN inrow;
+    }
+    THROW NEW Exception("Unable to export schema - unrecognized linktype #" || inrow.linktype);
+  }
+  RECORD FUNCTION ImportWHFSLink(RECORD inrow)
+  {
+    IF(inrow.linktype = 0) //RTD
+    {
+      RECORD data := DecodeHSON(inrow.data);
+      DELETE CELL data FROM inrow;
+      INSERT CELL fsobject := StoreRTDInWHFS(this->GetImportedSchemaID(), data, this->importmapper) INTO inrow;
+      RETURN inrow;
+    }
+    IF(inrow.linktype = 1) //Instance
+    {
+      RECORD data := DecodeHSON(inrow.data);
+      DELETE CELL data FROM inrow;
+      INSERT CELL fsobject := StoreInstanceInWHFS(this->GetImportedSchemaID(), data, this->importmapper) INTO inrow;
+      RETURN inrow;
+    }
+    IF(inrow.linktype = 2) //FSObject
+    {
+      IF(inrow.data = "") //nothing set in this reference
+        RETURN DEFAULT RECORD;
+
+      OBJECT dest := OpenWHFSObjectByPath(inrow.data);
+      IF(this->onimportedreference != DEFAULT MACRO PTR)
+        this->onimportedreference(inrow.data, ObjectExists(dest) ? dest->id : 0);
+
+      IF(NOT ObjectExists(dest) OR dest->id = 0)
+      {
+        IF (this->ignoremissingreferences)
+          RETURN DEFAULT RECORD;
+        THROW NEW Exception("Unable to import schema - unable to restore reference to '" || inrow.data || "'");
+      }
+
+      DELETE CELL data FROM inrow;
+      INSERT CELL fsobject := dest->id INTO inrow;
+      RETURN inrow;
+    }
+    THROW NEW Exception("Unable to import schema - unrecognized linktype #" || inrow.linktype);
+  }
+
+  RECORD FUNCTION SchemasFilter(RECORD inrec)
+  {
+    IF(this->newschemaname != "")
+      THROW NEW Exception("The WRD import contains multiple schema records");
+
+    inrec := CELL[...inrec
+                 , DELETE authkey
+                 , DELETE protected
+                 , DELETE worldinfo
+                 , DELETE languages
+                 , DELETE schemadata_xml
+                 , creationdate := GetCurrentDateTime()
+                 , id := this->newschemaid
+                 , creationsource := LimitUTF8Bytes(CellExists(inrec,"creationsource") ? inrec.creationsource : "", 1024)
+                 ];
+
+    STRING usename := this->options.renameto ?? inrec.name;
+
+    // See if the original schema name already exists. If so, rename the old schema to .bak (x)
+    RECORD currschema :=
+         SELECT id, name, protected
+           FROM wrd.schemas
+          WHERE ToUppercase(name) = ToUppercase(usename);
+
+    IF (RecordExists(currschema))
+    {
+      IF(this->onoverwritingschema != DEFAULT MACRO PTR)
+        this->onoverwritingschema(currschema.id);
+
+      IF (currschema.protected)
+        THROW NEW OverwritingProtectedWRDSchemaException;
+
+      //Make sure the schema name is unique
+      FOR(INTEGER trycount:=0;TRUE;trycount:=trycount+1)
+      {
+        STRING tryname := currschema.name || ".bak" || (trycount=0?"":" ("||trycount||")");
+        IF (NOT RecordExists( SELECT FROM wrd.schemas WHERE ToUppercase(name) = ToUppercase(tryname) ))
+        {
+          UPDATE wrd.schemas
+             SET name := tryname
+           WHERE id = currschema.id;
+          this->oldschemaname := tryname;
+          BREAK;
+        }
+      }
+
+      // Renamed the schema, clear caches for it
+      GetWRDCommitHandler()->SchemaNameChanged(currschema.id);
+    }
+    GetWRDCommitHandler()->SchemaCreated();
+
+    inrec.name := usename;
+    this->newschemaname := usename;
+
+    RETURN inrec;
+  }
+
+  RECORD FUNCTION ExportSchemasFilter(RECORD inrec)
+  {
+    inrec.creationdate := GetCurrentDatetime();
+    inrec.creationsource := `Exported from ${GetServerName()} at ${FormatISO8601DateTime(inrec.creationdate)} (${inrec.creationsource})`;
+    RETURN inrec;
+  }
+
+  RECORD FUNCTION TypesFilter(RECORD inrec)
+  {
+    DELETE CELL wrd_schema, list_attributes FROM inrec;
+    INSERT CELL wrd_schema := this->newschemaid INTO inrec;
+    RETURN inrec;
+  }
+  RECORD FUNCTION ChangeSetFilter(RECORD inrec)
+  {
+    DELETE CELL wrdschema, entity FROM inrec; //remote entityid is generally meaningless, so drop it
+    INSERT CELL wrdschema := this->newschemaid INTO inrec;
+    RETURN inrec;
+  }
+  RECORD FUNCTION AuditEventsFilter(RECORD inrec)
+  {
+    inrec := CELL[...inrec, wrdschema := this->newschemaid ];
+    RETURN inrec;
+  }
+  RECORD FUNCTION EntitySettingsFilter(RECORD inrec)
+  {
+    IF(CellExists(inrec,'creationdate'))
+    {
+      IF(inrec.limitdate < this->now OR inrec.creationdate >= this->now)
+        RETURN DEFAULT RECORD;
+      inrec := CELL[...inrec, DELETE creationdate, DELETE limitdate ];
+    }
+    RETURN inrec;
+  }
+  RECORD FUNCTION StoredQueriesFilter(RECORD inrec)
+  {
+    DELETE CELL wrd_schema, title, description, entity, ispublic FROM inrec;
+    INSERT CELL wrd_schema := this->newschemaid INTO inrec;
+    RETURN inrec;
+  }
+  RECORD FUNCTION StoredKeyValueFilter(RECORD inrec)
+  {
+    DELETE CELL wrd_schema FROM inrec;
+    INSERT CELL wrd_schema := this->newschemaid INTO inrec;
+    RETURN inrec;
+  }
+  RECORD FUNCTION AttrsFilter(RECORD inrec)
+  {
+    DELETE CELL creationdate, limitdate, confidential, keephistory, ordering, maxlength, maxwidth FROM inrec;
+    RETURN inrec;
+  }
+
+  PUBLIC INTEGER FUNCTION GetImportedSchemaID()
+  {
+    RETURN this->newschemaid;
+  }
+
+  RECORD FUNCTION FilterWHFSLinks(INTEGER ARRAY killthis, RECORD inrec)
+  {
+    IF(inrec.id IN killthis)
+      RETURN DEFAULT RECORD;
+    RETURN inrec;
+  }
+
+  UPDATE PUBLIC BLOB FUNCTION RunExport()
+  {
+    IF(Length(this->skiptypeids)>0)
+    {
+      INTEGER ARRAY typeids := SELECT AS INTEGER ARRAY id FROM wrd.types WHERE wrd_schema = this->export_wrdschema->id AND id NOT IN this->skiptypeids;
+      this->AddExportConstraint("wrd.entities", "type", "IN", typeids);
+    }
+    IF(Length(this->skipattrids)>0)
+    {
+      //Make sure we don't export noninteresting settings
+      INTEGER ARRAY keepattrs := SELECT AS INTEGER ARRAY attrs.id
+                                   FROM wrd.attrs, wrd.types
+                                  WHERE types.wrd_schema = this->export_wrdschema->id
+                                        AND attrs.type = types.id
+                                        AND attrs.id NOT IN this->skipattrids;
+
+      this->AddExportConstraint("wrd.entity_settings", "attribute", "IN", keepattrs);
+
+      //Are any of these attributes of types that may contain WHFSLINKS ?
+      INTEGER ARRAY whfslinkattrs := SELECT AS INTEGER ARRAY id
+                                       FROM wrd.attrs
+                                      WHERE attrs.id IN this->skipattrids
+                                            AND attrs.attributetype IN [17,19,20];
+
+      IF(Length(whfslinkattrs) > 0 )
+      {
+        INTEGER ARRAY skipwhfslinks := SELECT AS INTEGER ARRAY entity_settings_whfslink.id
+                                         FROM wrd.entity_settings_whfslink, wrd.entity_settings
+                                        WHERE entity_settings.attribute IN whfslinkattrs
+                                              AND entity_settings_whfslink.id = entity_settings.id;
+
+        IF(Length(skipwhfslinks) > 0)
+          this->AddExportRowFilter("wrd.entity_settings_whfslink", PTR this->FilterWHFSLinks(skipwhfslinks, #1));
+      }
+    }
+    RETURN DatabaseImExport::RunExport();
+  }
+
+  UPDATE PUBLIC MACRO RunImport(BLOB data)
+  {
+    this->newschemaid := MakeAutonumber(wrd.schemas,"id");
+    DatabaseImExport::RunImport(data);
+    RescanWRDConsilioLinks(this->newschemaid);
+  }
+
+  UPDATE PUBLIC MACRO RunCopy()
+  {
+    this->newschemaid := MakeAutonumber(wrd.schemas,"id");
+    this->importmapper := OpenWHFSRootObject()->MakeBulkReceiver();
+    DatabaseImExport::RunCopy();
+    RescanWRDConsilioLinks(this->newschemaid);
+  }
+>;
+
+STATIC OBJECTTYPE HumanReadableExporter
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// WRD schema
+  OBJECT wrdschema;
+
+  /// Used filenames for blobs
+  STRING ARRAY usednames;
+
+  /// Archive to add files to
+  OBJECT archive;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Don't export types that match any mask in this list
+  PUBLIC STRING ARRAY to_skip;
+
+  /// If not empty, only include types that match the masks in this list
+  PUBLIC STRING ARRAY to_include;
+
+  /// Progress callback
+  PUBLIC FUNCTION PTR progresscallback;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT wrdschema)
+  {
+    this->wrdschema := wrdschema;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ExportRecord(INTEGER str, INTEGER entityid, RECORD value, INTEGER indent)
+  {
+    FOREVERY (RECORD field FROM SELECT * FROM UnpackRecord(value) ORDER BY name)
+    {
+      IF (field.name IN [ "FILEID", "IMAGEID", "WRD_SETTINGID" ])
+        CONTINUE;
+
+      SWITCH (TypeID(field.value))
+      {
+        CASE TYPEID(BOOLEAN)
+        {
+          PrintTo(str, RepeatText("  ", indent+1) || "<" || ToLowercase(field.name) || ">" || (field.value?"true":"false") || "</" || ToLowercase(field.name) || ">\n");
+        }
+        CASE TypeID(STRING)
+        {
+          PrintTo(str, RepeatText("  ", indent+1) || "<" || ToLowercase(field.name) || ">" || EncodeValue(field.value) || "</" || ToLowercase(field.name) || ">\n");
+        }
+        CASE TypeID(INTEGER)
+        {
+          PrintTo(str, RepeatText("  ", indent+1) || "<" || ToLowercase(field.name) || ">" || EncodeValue(ToString(field.value)) || "</" || ToLowercase(field.name) || ">\n");
+        }
+        CASE TypeID(BLOB)
+        {
+          STRING filename;
+          FOR (INTEGER i := 1;; i := i + 1)
+          {
+            filename := entityid || (i = 1 ? "" : "-" || i);
+            IF (CellExists(value, "FILENAME"))
+              filename := filename || "-" || GetSafeFileName(value.filename);
+            IF (filename NOT LIKE "*.*" AND CellExists(value, "EXTENSION"))
+              filename := filename || "." || value.extension;
+            IF (filename NOT LIKE "*.*" AND field.name = "HTMLTEXT")
+              filename := filename || ".html";
+
+            RECORD pos := LowerBound(this->usednames, filename);
+            IF (NOT pos.found)
+            {
+              INSERT filename INTO this->usednames AT pos.position;
+              BREAK;
+            }
+          }
+
+//          PRINT("Filename: " || filename || "\n" || AnyToString(value, "boxed"));
+          this->archive->AddFile("blobs/" || filename, field.value, GetCurrentDateTime());
+
+          PrintTo(str, RepeatText("  ", indent+1) || "<" || ToLowercase(field.name) || ">" || EncodeValue("blobs/" || filename) || "</" || ToLowercase(field.name) || ">\n");
+        }
+        CASE TypeID(RECORD)
+        {
+          PrintTo(str, RepeatText("  ", indent+1) || "<" || ToLowercase(field.name) || ">" || EncodeValue(EncodeJSON(field.value)) || "</" || ToLowercase(field.name) || ">\n");
+        }
+        CASE TypeID(RECORD ARRAY)
+        {
+          PrintTo(str, RepeatText("  ", indent+1) || "<" || ToLowercase(field.name) || ">\n");
+          FOREVERY (RECORD rec FROM field.value)
+          {
+            PrintTo(str, RepeatText("  ", indent+2) || "<part>\n");
+            this->ExportRecord(str, entityid, rec, indent+2);
+            PrintTo(str, RepeatText("  ", indent+2) || "</part>\n");
+          }
+          PrintTo(str, RepeatText("  ", indent+1) || "</" || ToLowercase(field.name) || ">\n");
+        }
+        DEFAULT
+        {
+          THROW NEW Exception(`Missing support for field '${field.name}' type ${GetTypeName(TypeID(field.value))}`);
+        }
+      }
+    }
+  }
+
+  MACRO ExportAttributes(INTEGER str, INTEGER entityid, RECORD ARRAY allattrs, INTEGER pos, RECORD data, INTEGER indent)
+  {
+    RECORD ARRAY attrs := allattrs[pos].attrs;
+
+    FOREVERY (RECORD attr FROM attrs)
+    {
+      RECORD encode;
+
+      IF (NOT CellExists(data, attr.localtag))
+        CONTINUE;
+
+      VARIANT value := GetCell(data, attr.localtag);
+
+      SWITCH (attr.attributetype)
+      {
+      CASE 0, 2 /* Free form */, 4 /* E-mail address */, 5 /* Telephone */, 21 /* URL */
+        {
+        }
+      CASE 1 /*Single*/
+         , 8 /*Multiple*/
+        {
+          IF (attr.localtag = "WRD_GENDER")
+          {
+            value := value >= 0 AND value < 2 ? [ "", "Male", "Female" ][value] : "";
+          }
+          ELSE
+          {
+            IF (attr.attributetype = 1)
+              value := value = 0 ? DEFAULT INTEGER ARRAY : [ INTEGER(value) ];
+
+            value := Detokenize((SELECT AS STRING ARRAY ToLowercase(attr.domain_tag) || "-" || id FROM ToRecordArray(value, "ID")), " ");
+          }
+        }
+      CASE 3 /* Postal address */
+        {
+        }
+      CASE 6 /* date */, 12 /* datetime */
+        {
+          value := FormatISO8601DateTime(value);
+        }
+      CASE 11
+        {
+          value := FormatTimeStamp("%H:%M:%S.%Q", value);
+        }
+      CASE 7 /* Password */
+        {
+          CONTINUE; // ignored
+        }
+      CASE 9 /* Image */
+        {
+        }
+      CASE 10 /* File */
+        {
+        }
+      CASE 13 /* Array */
+        {
+  /*        OBJECT comp := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/wrd/components", "arraybox");
+          comp->title := this->autotitle ? this->attrinfo.title : this->title;
+          comp->readonly := this->fieldreadonly;
+          comp->attrinfo := this->attrinfo;
+          //comp->EnsurePreInit();
+          comp->WRD_Setup(wrdtype);
+
+          this->currentobjects := [ comp ];
+  */
+        }
+      CASE 14 /* Money */
+        {
+          value := FormatMoney(value, 0, ".", "", FALSE);
+        }
+      CASE 15 /* Integer */, 18 /* Integer64 */
+        {
+          value := ToString(value);
+        }
+      CASE 16 /* Boolean */
+        {
+          value := value ? "1" : "0";
+        }
+      CASE 17 /*Rich*/
+        {
+        }
+      }
+
+      SWITCH (TypeID(value))
+      {
+      CASE TypeID(STRING)
+        {
+          PrintTo(str, RepeatText("  ", indent) || "<" || EncodeValue(ToLowercase(attr.localtag)) || ">" || EncodeValue(value) || "</" || EncodeValue(ToLowercase(attr.localtag)) || ">\n");
+        }
+      CASE TypeID(RECORD)
+        {
+          PrintTo(str, RepeatText("  ", indent) || "<" || EncodeValue(ToLowercase(attr.localtag)) || ">\n");
+          this->ExportRecord(str, entityid, value, indent);
+          PrintTo(str, RepeatText("  ", indent) || "</" || EncodeValue(ToLowercase(attr.localtag)) || ">\n");
+        }
+      CASE TypeID(RECORD ARRAY)
+        {
+          PrintTo(str, RepeatText("  ", indent) || "<" || EncodeValue(ToLowercase(attr.localtag)) || ">\n");
+
+          FOREVERY (RECORD val FROM value)
+          {
+            PrintTo(str, RepeatText("  ", indent+1) || "<element>\n");
+            IF (attr.childpos != -1)
+              this->ExportAttributes(str, entityid, allattrs, attr.childpos, val, indent+2);
+            PrintTo(str, RepeatText("  ", indent+1) || "</element>\n");
+          }
+          PrintTo(str, RepeatText("  ", indent) || "</" || EncodeValue(ToLowercase(attr.localtag)) || ">\n");
+        }
+      }
+    }
+  }
+
+  RECORD ARRAY FUNCTION GetAllAttributes(OBJECT type, INTEGER parent)
+  {
+    RECORD ARRAY attrs := type->ListAttributes(parent);
+    FOREVERY (RECORD rec FROM attrs)
+      IF (rec.attributetype = 13)
+        attrs := attrs CONCAT this->GetAllAttributes(type, rec.id);
+
+    RETURN attrs;
+  }
+
+  BOOLEAN FUNCTION IncludeType(STRING tag)
+  {
+    BOOLEAN include_type := LENGTH(this->to_include) = 0;
+
+    FOREVERY (STRING mask FROM this->to_include)
+      IF (tag LIKE ToUppercase(mask))
+        include_type := TRUE;
+    FOREVERY (STRING mask FROM this->to_skip)
+      IF (tag LIKE ToUppercase(mask))
+        include_type := FALSE;
+
+    RETURN include_type;
+  }
+
+  MACRO OnArchivingProgress(RECORD data)
+  {
+    this->progresscallback(75m + data.progress / 4);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC BLOB FUNCTION CreateExport()
+  {
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+    IF(trans->HasWorkSupport())
+      trans->PushWork(); //speed up exports
+
+    this->archive := CreateNewArchive("zip");
+    this->archive->AddFolder("blobs", GetCurrentDateTime());
+    this->archive->AddFolder("tables", GetCurrentDateTime());
+
+    RECORD ARRAY types := SELECT * FROM wrd.types WHERE wrd_schema = this->wrdschema->id AND this->IncludeType(tag) ORDER BY id;
+    FOREVERY (RECORD type FROM types)
+    {
+      OBJECT wrd_type := this->wrdschema->GetTypeById(type.id);
+
+      IF (this->progresscallback != DEFAULT FUNCTION PTR)
+        this->progresscallback(MONEY(#type) / LENGTH(types) * 75m);
+
+      RECORD ARRAY allattrs :=
+          SELECT *
+               , domain_tag := domain = 0 ? "" : types[RecordLowerBound(types, [ id := domain ], [ "ID" ]).position].tag
+            FROM this->GetAllAttributes(wrd_type, 0)
+        ORDER BY ToUppercase(tag);
+
+      allattrs :=
+          SELECT parent
+               , attrs :=     GroupedValues(allattrs)
+            FROM allattrs
+        GROUP BY parent
+        ORDER BY parent;
+
+      allattrs :=
+          SELECT *
+              , attrs :=
+                    SELECT *
+                         , childpos :=    RecordLowerBound(VAR allattrs, [ parent := id ], [ "PARENT" ])
+                      FROM attrs
+            FROM allattrs;
+
+      allattrs :=
+          SELECT *
+              , attrs :=
+                    SELECT *
+                         , childpos :=    id != 0 AND childpos.found ? childpos.position : -1
+                      FROM attrs
+            FROM allattrs;
+
+
+      RECORD ARRAY rootattrs;
+      RECORD pos := RecordLowerBound(allattrs, [ parent := 0 ], [ "PARENT" ]);
+      IF (pos.found)
+        rootattrs := allattrs[pos.position].attrs;
+
+      RECORD exportrec;
+      FOREVERY (RECORD attr FROM rootattrs)
+        exportrec := CellInsert(exportrec, attr.tag, attr.tag);
+
+      RECORD ARRAY entities :=
+          SELECT *
+            FROM wrd_type->RunQuery([ outputcolumns := exportrec ])
+           WHERE COLUMN wrd_type = VAR wrd_type->id;
+
+//      PRINT("Type: " || typetag || "\n" || AnyToString(rootattrs, "boxed"));
+
+      INTEGER str := CreateStream();
+      PrintTo(str, "<type name='" || EncodeValue(ToLowercase(type.tag)) || "'>\n");
+      FOREVERY (RECORD entity FROM entities)
+      {
+        IF ((#entity % 100) = 0 AND this->progresscallback != DEFAULT FUNCTION PTR)
+          this->progresscallback((#type + MONEY(#entity) / LENGTH(entities)) / LENGTH(types) * 75m);
+
+        PrintTo(str, "  <"||ToLowercase(type.tag)||" id='" || ToLowercase(type.tag) || "-" || entity.wrd_id || "'>\n");
+        this->ExportAttributes(str, entity.wrd_id, allattrs, pos.position, entity, 2);
+        PrintTo(str, "  </"||ToLowercase(type.tag)||">\n");
+      }
+      PrintTo(str, "</type>\n");
+
+      this->archive->AddFile("tables/" || ToLowercase(type.tag)||".xml", MakeBlobFromStream(str), GetCurrentDateTime());
+    }
+
+    IF(trans->HasWorkSupport())
+      trans->PopWork();
+
+    IF (this->progresscallback != DEFAULT FUNCTION PTR)
+    {
+      this->progresscallback(75m);
+      this->archive->onarchivingprogress := PTR this->OnArchivingProgress;
+    }
+
+    BLOB data := this->archive->MakeBlob();
+    this->archive->Close();
+
+    RETURN data;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION MakeWRDSchemaHumanReadableExporter(OBJECT wrdschema)
+{
+  RETURN NEW HumanReadableExporter(wrdschema);
+}

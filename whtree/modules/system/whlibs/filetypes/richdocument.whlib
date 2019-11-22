@@ -1,0 +1,5 @@
+<?wh
+/** @private Deprecated. Use publisher/lib/rtd.whlib */
+
+LOADLIB "mod::publisher/lib/rtd.whlib" EXPORT RichDocument;
+

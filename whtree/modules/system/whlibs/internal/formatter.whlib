@@ -1,0 +1,1014 @@
+﻿<?wh (* ISSYSTEMLIBRARY *)
+LOADLIB "wh::internal/interface.whlib";
+
+BOOLEAN FUNCTION RecordExists(RECORD rec) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+INTEGER FUNCTION SearchElement(VARIANT list, VARIANT element, INTEGER start DEFAULTSTO 0)  __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION Substring(STRING text, INTEGER start, INTEGER numbytes) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION __HS_FloatToString(FLOAT val, INTEGER digits) __ATTRIBUTES__(EXTERNAL);
+STRING FUNCTION ToString(INTEGER64 val, INTEGER radix DEFAULTSTO 10) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+INTEGER FUNCTION Length(VARIANT obj) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+INTEGER64 FUNCTION Length64(VARIANT obj) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION Left(STRING text, INTEGER numbytes) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+INTEGER FUNCTION ToInteger(STRING str, INTEGER defaultvalue, INTEGER radix DEFAULTSTO 10) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION Right(STRING text, INTEGER numbytes) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+RECORD FUNCTION CellInsert(RECORD rec, STRING cellname, VARIANT value) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+INTEGER FUNCTION __HS_TYPEID(VARIANT a) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION EncodeJava(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+VARIANT FUNCTION GetCell(RECORD rec, STRING cellname) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+BOOLEAN FUNCTION CellExists(RECORD rec, STRING cellname) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+RECORD ARRAY FUNCTION UnpackRecord(RECORD rec) __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION CellUpdate(RECORD rec, STRING cellname, VARIANT newvalue) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+INTEGER FUNCTION GetMsecondCount(DATETIME endTime) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION Substitute(STRING text, STRING search, STRING replace) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+INTEGER FUNCTION GetDayCount(DATETIME date) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION DecodeJava(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION EncodeHTML(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+FUNCTION PTR FUNCTION MakeFunctionPtr(STRING libname, STRING functionname, INTEGER returntypeid, INTEGER ARRAY parametertypeids) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+STRING FUNCTION GetObjectTypeName(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
+STRING FUNCTION GetTypeName(INTEGER type) __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION GetBindingFromTable(TABLE bound_table) __ATTRIBUTES__(EXTERNAL);
+
+RECORD  FUNCTION __HS_SQL_MergeRecords(Record A, Record B) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+RECORD  FUNCTION __HS_SQL_OverwriteRecord(Record A, Record B) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+RECORD ARRAY FUNCTION __HS_SQL_Reorder_Results(RECORD ARRAY inputdata, STRING ordering) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/*
+PUBLIC RECORD FUNCTION __HS_FUNCTIONRECORDTORECORD(FUNCTION PTR a) __ATTRIBUTES__(EXTERNAL);
+PUBLIC FUNCTION PTR FUNCTION __HS_RECORDTOFUNCTIONRECORD(RECORD a) __ATTRIBUTES__(EXTERNAL);*/
+
+BOOLEAN FUNCTION IsLeapYear(INTEGER yr)
+{ RETURN (yr % 400 = 0) OR ((yr % 4 = 0) AND  (yr % 100 != 0)); }
+
+INTEGER FUNCTION GetMonthLength( INTEGER month, INTEGER year)
+{
+  SWITCH(month)
+  {
+    CASE 4,6,9,11 { return 30; }
+    CASE 2 { return IsLeapYear(year) ? 29 : 28; }
+    DEFAULT { return 31; }
+  }
+}
+STRING FUNCTION FormatDateTime(DATETIME time)
+{
+  IF(time=MAX_DATETIME)
+    RETURN "MAX_DATETIME";
+  IF (time = DEFAULT DATETIME)
+    RETURN "DEFAULT DATETIME";
+
+  INTEGER daycount := GetDayCount(time);            //returns the number of days since 01/01/01
+  INTEGER msecondcount := GetMsecondCount(time);
+
+  INTEGER year :=   ((daycount/146097)       *400) //400 years take 146097 days
+                  +(((daycount%146097)/36524)*100) //100 years take 36524 days inside a period of 400 years (eg 1601-2000)
+                  +(((daycount%146097%36524) /1461) *4);  //4 years take 3*365+1 days inside a period of 100 years (eg 1701-1800)
+  year := year + (daycount%146097%36524%1461+364)/365;
+
+  INTEGER dayofyear := daycount - (((year-1) * 365) + ((year-1) / 4) - ((year-1) / 100) + ((year-1) / 400));
+  INTEGER dayofmonth := dayofyear;
+  INTEGER month := 1;
+  WHILE (TRUE)
+  {
+    INTEGER monthlength := GetMonthLength(month,year);
+    IF (dayofmonth > monthlength)
+    {
+      dayofmonth := dayofmonth - monthlength;
+      month := month + 1;
+    }
+    ELSE
+    {
+      BREAK;
+    }
+  }
+
+  RETURN year
+              || "-" || Right("0" || month,2)
+              || "-" || Right("0" || dayofmonth,2)
+              || " (" || dayofyear || ")"
+              || " " || Right("0"||(msecondcount/(1000*60*60)),2)
+              || ":" || Right("0"||((msecondcount%(1000*60*60)) / (1000*60)),2)
+              || ":" || Right("0"||((msecondcount%(1000*60)) / (1000)),2)
+              || "." || Right("000" || msecondcount%1000,3);
+}
+
+STRING FUNCTION FormatMoney(MONEY value)
+{
+  STRING formattedmoney := "";
+  STRING strvalue := __HS_MoneyToString(value);
+
+  //When negative, remove minus sign
+  BOOLEAN negative := FALSE;
+  IF (LEFT(strvalue, 1) = '-')
+  {
+    strvalue := RIGHT(strvalue, LENGTH(strvalue)-1);
+    negative := TRUE;
+  }
+
+  // Add 0' to the strvalue till it's length >= 6 characters
+  WHILE (Length(strvalue) < 6)
+    strvalue := '0'||strvalue;
+
+  INTEGER decimalStart := Length(strvalue) - 5;
+  BOOLEAN roundup := FALSE;
+  BOOLEAN decimalsStarted := FALSE;
+  FOR (INTEGER i := Length(strvalue)-1; i >= 0; i := i - 1)
+  {
+    INTEGER newValue := ToInteger(SubString(strvalue, i, 1),0) + (roundup ? 1 : 0);
+    STRING thisValue := newValue > 9 ? "0" : ToString(newValue);
+
+    // decimals
+    IF (i >= decimalStart)
+    {
+      // Check if the decimals have been started
+      decimalsStarted := decimalsStarted OR (thisValue != '0');
+
+      // Should we start here?
+      IF (i < (decimalStart + 1) OR (decimalsStarted))
+        formattedmoney := thisValue || formattedmoney;
+    }
+    // last digit before decimals
+    ELSE IF (i = (decimalStart - 1))
+      formattedmoney := thisValue || (Length(formattedmoney) > 0 ? "." : "") || formattedmoney;
+    // normal digits
+    ELSE
+      formattedmoney := (((Length(strvalue)-(i-4))%3 = 0 AND i > 0) ? "," : "") || thisValue || formattedmoney;
+  }
+  formattedmoney := (negative ? '-' : '') || formattedmoney;
+
+  RETURN formattedmoney;
+}
+
+// Extends (or truncates) a string to a certain length
+STRING FUNCTION ExtendString(STRING s, INTEGER len, STRING ex)
+{
+  INTEGER l := len - LENGTH(s);
+  IF (l > 0)
+  {
+    INTEGER exlen := LENGTH(ex);
+    l := (l + exlen - 1) / exlen;
+    WHILE (TRUE)
+    {
+      IF ((l BITAND 1) != 0)
+      {
+        s := s || ex;
+        IF (l = 1)
+          BREAK;
+      }
+      l := l BITRSHIFT 1;
+      ex := ex || ex;
+    }
+    RETURN s;
+  }
+  RETURN Left(s, len);
+}
+STRING FUNCTION Detokenize(STRING ARRAY elements, STRING separator)
+{
+  STRING str;
+  FOREVERY (STRING elt FROM elements)
+  {
+    IF (#elt != 0)
+      str := str || separator;
+    str := str || elt;
+  }
+  RETURN str;
+}
+
+
+PUBLIC OBJECTTYPE ConverterType
+  < PUBLIC INTEGER ARRAY seenobjects;
+    PUBLIC BOOLEAN multilevel;
+    PUBLIC RECORD FUNCTION ConvertInternal(RECORD ARRAY contents)
+    {
+      RECORD retval;
+      contents := SELECT * FROM contents ORDER BY TypeID(value) < 0x80 AND TypeID(value) NOT IN [TypeID(OBJECT),TypeID(RECORD)] DESC, name;
+      FOREVERY (RECORD field FROM contents)
+      {
+        STRING value;
+        SWITCH(TYPEID(field.value))
+        {
+          CASE TYPEID(INTEGER), TYPEID(INTEGER64)
+          {
+            retval := CellInsert(retval, field.name, field.value || "");
+          }
+          CASE TYPEID(MONEY)
+          {
+            retval := CellInsert(retval, field.name, FormatMoney(field.value));
+          }
+          CASE TYPEID(FLOAT)
+          {
+            retval := CellInsert(retval, field.name, __HS_FloatToString(field.value, 20));
+          }
+          CASE TYPEID(BOOLEAN)
+          {
+            retval := CellInsert(retval, field.name, field.value ? "TRUE" : "FALSE");
+          }
+          CASE TYPEID(STRING)
+          {
+            retval := CellInsert(retval, field.name, "'" || EncodeJava(field.value) || "'");
+          }
+          CASE TYPEID(DATETIME)
+          {
+            DATETIME time := field.value;
+            STRING dtvalue := FormatDateTime(time);
+            retval := CellInsert(retval, field.name, dtvalue);
+          }
+          CASE TYPEID(BLOB)
+          {
+            retval := CellInsert(retval, field.name, "BLOB (" || Length64(field.value) || " bytes)");
+          }
+          CASE TYPEID(TABLE)
+          {
+            RECORD binding := GetBindingFromTable(field.value);
+            IF (NOT RecordExists(binding))
+              retval := CellInsert(retval, field.name, "TABLE(UNBOUND)");
+            ELSE
+              retval := CellInsert(retval, field.name, "TABLE("||binding.transaction || ":'" || EncodeJava(binding.tablename)||"')");
+          }
+          CASE TYPEID(RECORD)
+          {
+            IF (NOT RecordExists(field.value))
+              retval := CellInsert(retval, field.name, "DEFAULT RECORD");
+            ELSE
+            {
+              RECORD ARRAY unpacked := UnpackRecord(field.value);
+              IF (LENGTH(unpacked) = 0)
+                retval := CellInsert(retval, field.name, "EMPTY RECORD");
+              ELSE
+                IF (NOT this->multilevel)
+                  retval := CellInsert(retval, field.name, "RECORD[" || Length(unpacked) || "]");
+                ELSE
+                  retval := CellInsert(retval, field.name, this->ConvertInternal(unpacked));
+            }
+          }
+          CASE TYPEID(OBJECT), TYPEID(WEAKOBJECT)
+          {
+            STRING weak := TYPEID(field.value) = TYPEID(WEAKOBJECT) ? "WEAK" : "";
+            field.value := OBJECT(field.value);
+            IF (field.value = DEFAULT OBJECT)
+              retval := CellInsert(retval, field.name, "DEFAULT "||weak||"OBJECT");
+            ELSE
+            {
+              RECORD objvalue := __INTERNAL_DebugCopyObjectToRecord(field.value);
+              STRING typename := GetObjectTypeName(field.value);
+              STRING objectdisplayname := "#" || __INTERNAL_GETOBJECTID(field.value) || " [" || Length(UnpackRecord(objvalue)) || "] " || typename;
+
+              IF (NOT this->multilevel)
+              {
+                retval := CellInsert(retval, field.name, weak||"OBJECT " || objectdisplayname);
+              }
+              ELSE IF(__INTERNAL_GETOBJECTID(field.value) IN this->seenobjects)
+              {
+                retval := CellInsert(retval, field.name, weak||"OBJECT " || objectdisplayname || " (already displayed)");
+              }
+              ELSE
+              {
+                INSERT __INTERNAL_GETOBJECTID(field.value) INTO this->seenobjects AT END;
+
+                RECORD ARRAY unpacked := UnpackRecord(objvalue);
+                INSERT [ name := "  __OBJECT", value := objectdisplayname ] INTO unpacked AT 0;
+                retval := CellInsert(retval, field.name, this->ConvertInternal(unpacked));
+              }
+            }
+          }
+          CASE TYPEID(BLOB ARRAY)
+          {
+            IF (NOT this->multilevel)
+              retval := CellInsert(retval, field.name, "BLOB ARRAY[" || Length(field.value) || "]");
+            ELSE
+            {
+              STRING ARRAY ss;
+              FOREVERY (BLOB i FROM field.value)
+                INSERT "BLOB (" || Length64(field.value) || " bytes)" INTO ss AT END;
+
+              retval := CellInsert(retval, field.name, ss);
+            }
+          }
+          CASE TYPEID(INTEGER ARRAY)
+          {
+            IF (NOT this->multilevel)
+              retval := CellInsert(retval, field.name, "INTEGER ARRAY[" || Length(field.value) || "]");
+            ELSE
+            {
+              STRING ARRAY ss;
+              FOREVERY (INTEGER i FROM field.value) INSERT i || "" INTO ss AT END;
+              retval := CellInsert(retval, field.name, ss);
+            }
+          }
+          CASE TYPEID(MONEY ARRAY)
+          {
+            IF (NOT this->multilevel)
+              retval := CellInsert(retval, field.name, "MONEY ARRAY[" || Length(field.value) || "]");
+            ELSE
+            {
+              STRING ARRAY ss;
+              FOREVERY (MONEY m FROM field.value) INSERT FormatMoney(m) INTO ss AT END;
+              retval := CellInsert(retval, field.name, ss);
+            }
+          }
+          CASE TYPEID(FLOAT ARRAY)
+          {
+            IF (NOT this->multilevel)
+              retval := CellInsert(retval, field.name, "FLOAT ARRAY[" || Length(field.value) || "]");
+            ELSE
+            {
+              STRING ARRAY ss;
+              FOREVERY (FLOAT f FROM field.value) INSERT __HS_FloatToString(f, 20) INTO ss AT END;
+              retval := CellInsert(retval, field.name, ss);
+            }
+          }
+          CASE TYPEID(BOOLEAN ARRAY)
+          {
+            IF (NOT this->multilevel)
+              retval := CellInsert(retval, field.name, "BOOLEAN ARRAY[" || Length(field.value) || "]");
+            ELSE
+            {
+              STRING ARRAY ss;
+              FOREVERY (BOOLEAN i FROM field.value) INSERT (i?"TRUE":"FALSE") INTO ss AT END;
+              retval := CellInsert(retval, field.name, ss);
+            }
+          }
+          CASE TYPEID(STRING ARRAY)
+          {
+            IF (NOT this->multilevel)
+              retval := CellInsert(retval, field.name, "STRING ARRAY[" || Length(field.value) || "] ");
+            ELSE
+            {
+              STRING ARRAY ss;
+              FOREVERY (STRING s FROM field.value) INSERT "'" || EncodeJava(s) || "'" INTO ss AT END;
+              retval := CellInsert(retval, field.name, ss);
+            }
+          }
+          CASE TYPEID(OBJECT ARRAY), TYPEID(WEAKOBJECT ARRAY)
+          {
+            STRING weak := TYPEID(field.value) = TYPEID(WEAKOBJECT ARRAY) ? "WEAK" : "";
+            IF (NOT this->multilevel)
+            {
+              retval := CellInsert(retval, field.name, weak || "OBJECT ARRAY[" || Length(field.value) || "]");
+            }
+            ELSE
+            {
+              RECORD ARRAY rs;
+              FOREVERY (OBJECT o FROM OBJECT ARRAY(field.value))
+              {
+                IF (o = DEFAULT OBJECT)
+                {
+                  INSERT DEFAULT RECORD INTO rs AT END;
+                }
+                ELSE
+                {
+                  STRING typename := GetObjectTypeName(o);
+                  RECORD ARRAY unpacked := UnpackRecord(__INTERNAL_DebugCopyObjectToRecord(o));
+                  STRING objectdisplayname := "#" || __INTERNAL_GETOBJECTID(o) || " [" || Length(unpacked) || "] " || typename;
+
+                  IF(__INTERNAL_GETOBJECTID(o) IN this->seenobjects)
+                  {
+                    INSERT [ obj := weak || "OBJECT " || objectdisplayname || " (already displayed)" ] INTO rs AT END;
+                  }
+                  ELSE
+                  {
+                    INSERT __INTERNAL_GETOBJECTID(o) INTO this->seenobjects AT END;
+
+                    INSERT [ name := "  __OBJECT", value := objectdisplayname ] INTO unpacked AT 0;
+                    INSERT this->ConvertInternal(unpacked) INTO rs AT END;
+                  }
+                }
+              }
+              retval := CellInsert(retval, field.name, rs);
+            }
+          }
+          CASE TYPEID(DATETIME ARRAY)
+          {
+            IF (NOT this->multilevel)
+              retval := CellInsert(retval, field.name, "DATETIME ARRAY[" || Length(field.value) || "]");
+            ELSE
+            {
+              STRING ARRAY ss;
+              FOREVERY (DATETIME d FROM field.value)
+                INSERT FormatDateTime(d) INTO ss AT END;
+
+              retval := CellInsert(retval, field.name, ss);
+            }
+          }
+          CASE TYPEID(RECORD ARRAY)
+          {
+            IF (NOT this->multilevel)
+              retval := CellInsert(retval, field.name, "RECORD ARRAY[" || Length(field.value) || "]");
+            ELSE
+            {
+              IF (LENGTH(field.value) = 0)
+                retval := CellInsert(retval, field.name, "DEFAULT RECORD ARRAY");
+              ELSE
+              {
+                RECORD ARRAY rs;
+                FOREVERY (RECORD r FROM field.value)
+                  INSERT this->ConvertInternal(UnpackRecord(r)) INTO rs AT END;
+                retval := CellInsert(retval, field.name, rs);
+              }
+            }
+          }
+          CASE TYPEID(FUNCTION PTR)
+          {
+            retval := CellInsert(retval, field.name, (field.value!=DEFAULT FUNCTION PTR)?"ACTIVE FUNCTION PTR":"DEFAULT FUNCTION PTR");
+          }
+          CASE TYPEID(VARIANT ARRAY)
+          {
+            IF (NOT this->multilevel)
+              retval := CellInsert(retval, field.name, "VARIANT ARRAY[" || Length(field.value) || "]");
+            ELSE
+            {
+              STRING ARRAY ss;
+              BOOLEAN old_multilevel := this->multilevel;
+              this->multilevel := FALSE;
+              FOREVERY (VARIANT v FROM field.value)
+              {
+                RECORD result := this->ConvertInternal([ [ value := v, name := "data" ] ]);
+                INSERT result.data INTO ss AT END;
+              }
+              this->multilevel := old_multilevel;
+              retval := CellInsert(retval, field.name, ss);
+            }
+          }
+          DEFAULT
+          {
+            retval := CellInsert(retval, field.name, "???");
+          }
+        }
+      }
+      RETURN retval;
+    }
+
+    PUBLIC RECORD ARRAY FUNCTION ConvertInternal2(RECORD ARRAY contents, BOOLEAN allow_reorder, INTEGER maxdepth, BOOLEAN expandstringarrays DEFAULTSTO FALSE)
+    {
+      RECORD ARRAY retvals;
+      IF (allow_reorder)
+        contents := SELECT * FROM contents ORDER BY TypeID(value) < 0x80 AND TypeID(value) NOT IN [TypeID(OBJECT),TypeID(RECORD)] DESC, name;
+
+      RECORD defaultretval :=
+          [ single   := TRUE
+          , type     := 0
+          , text     := ""
+          , subnodes := DEFAULT RECORD ARRAY
+          , name     := ""
+          , subnames := TRUE
+          ];
+
+      FOREVERY (RECORD field FROM contents)
+      {
+        RECORD retval := defaultretval;
+
+        retval.type := TYPEID(field.value);
+        retval.name := field.name;
+
+        STRING value;
+        SWITCH(TYPEID(field.value))
+        {
+        CASE TYPEID(INTEGER)
+          {
+            retval.text := ToString(field.value);
+          }
+        CASE TYPEID(INTEGER64)
+          {
+            retval.text := ""||field.value;
+          }
+        CASE TYPEID(MONEY)
+          {
+            retval.text := FormatMoney(field.value);
+          }
+        CASE TYPEID(FLOAT)
+          {
+            retval.text := __HS_FloatToString(field.value, 20);
+          }
+        CASE TYPEID(BOOLEAN)
+          {
+            retval.text := field.value ? "TRUE" : "FALSE";
+          }
+        CASE TYPEID(STRING)
+          {
+            retval.text := "'" || EncodeJava(field.value) || "'";
+          }
+        CASE TYPEID(DATETIME)
+          {
+            IF (field.value = DEFAULT DATETIME)
+              retval.text := "DEFAULT DATETIME";
+            ELSE
+              retval.text := FormatDateTime(field.value);
+          }
+        CASE TYPEID(BLOB)
+          {
+            IF (LENGTH(field.value) = 0)
+              retval.text := "DEFAULT BLOB";
+            ELSE
+              retval.text := "BLOB (" || Length64(field.value) || " bytes)";
+          }
+        CASE TYPEID(TABLE)
+          {
+            RECORD binding := GetBindingFromTable(field.value);
+            IF (NOT RecordExists(binding))
+              retval.text := "TABLE(UNBOUND)";
+            ELSE
+              retval.text := "TABLE("||binding.transaction || ":'" || EncodeJava(binding.tablename)||"')";
+          }
+        CASE TYPEID(FUNCTION PTR)
+          {
+            IF(field.value != DEFAULT FUNCTION PTR)
+            {
+              STRING funcname := Tokenize(__INTERNAL_DEBUGFUNCTIONPTRTORECORD(field.value)."function",':')[0];
+              funcname := Substitute(funcname,'#','::');
+              retval.text := "ACTIVE FUNCTION PTR (" || funcname || ")";
+            }
+            ELSE
+            {
+              retval.text := "DEFAULT FUNCTION PTR";
+            }
+          }
+        CASE TYPEID(RECORD)
+          {
+            IF (NOT RecordExists(field.value))
+              retval.text := "DEFAULT RECORD";
+            ELSE
+            {
+              RECORD ARRAY unpacked := UnpackRecord(field.value);
+              IF (LENGTH(unpacked) = 0)
+                retval.text := "EMPTY RECORD";
+              ELSE
+                IF (NOT this->multilevel OR maxdepth<=0)
+                  retval.text := "RECORD[" || Length(unpacked) || "]";
+                ELSE
+                {
+                  retval.single := FALSE;
+                  retval.text := "RECORD";
+                  retval.subnodes := this->ConvertInternal2(unpacked, TRUE, maxdepth-1);
+                }
+            }
+          }
+        CASE TYPEID(OBJECT), TYPEID(WEAKOBJECT)
+          {
+            OBJECT obj := OBJECT(field.value);
+            STRING weak := retval.type = TypeID(WEAKOBJECT) ? "WEAK" : "";
+            IF (obj = DEFAULT OBJECT)
+              retval.text := "DEFAULT " || weak || "OBJECT";
+            ELSE
+            {
+              RECORD objvalue := __INTERNAL_DebugCopyObjectToRecord(obj);
+              STRING typename := GetObjectTypeName(obj);
+              STRING objectdisplayname := "#" || __INTERNAL_GETOBJECTID(obj) || " [" || Length(UnpackRecord(objvalue)) || "] " || typename;
+
+              IF (NOT this->multilevel OR maxdepth <= 0)
+              {
+                retval.text := weak || "OBJECT " || objectdisplayname;
+              }
+              ELSE IF(__INTERNAL_GETOBJECTID(obj) IN this->seenobjects)
+              {
+                retval.text := weak || "OBJECT " || objectdisplayname || " (already displayed)";
+              }
+              ELSE
+              {
+                INSERT __INTERNAL_GETOBJECTID(obj) INTO this->seenobjects AT END;
+                RECORD ARRAY unpacked := UnpackRecord(objvalue);
+
+                retval.single := FALSE;
+                retval.text := weak || "OBJECT " || objectdisplayname;
+                retval.subnodes := this->ConvertInternal2(unpacked, TRUE, maxdepth-1);
+              }
+            }
+          }
+        DEFAULT
+          {
+            IF (TypeId(field.value) >= 0x80)
+            {
+              // Array
+              IF (NOT this->multilevel OR maxdepth <= 0)
+                retval.text := GetTypeName(TypeId(field.value)) || "[" || Length(field.value) || "]";
+              ELSE
+              {
+                IF (LENGTH(field.value) = 0)
+                  retval.text := "DEFAULT " || GetTypeName(TypeId(field.value));
+                ELSE
+                {
+                  RECORD ARRAY list;
+                  FOREVERY (VARIANT item FROM field.value)
+                    INSERT [ name := "", value := item ] INTO list AT END;
+
+                  IF (TypeId(field.value) IN [ TypeId(OBJECT ARRAY), TypeId(RECORD ARRAY) ])
+                  {
+                    RECORD ARRAY converted := this->ConvertInternal2(list, TRUE, maxdepth-1);
+
+                    retval.single := FALSE;
+                    retval.text := GetTypeName(TypeId(field.value));
+                    retval.subnodes := converted;
+                    retval.subnames := FALSE;
+                  }
+                  ELSE IF (TypeId(field.value) = TypeId(VARIANT ARRAY))
+                  {
+                    RECORD ARRAY converted := this->ConvertInternal2(list, FALSE, maxdepth - 1);
+
+                    retval.single := FALSE;
+                    retval.text := GetTypeName(TypeId(field.value));
+                    retval.subnodes := converted;
+                    retval.subnames := FALSE;
+                  }
+                  ELSE
+                  {
+                    STRING ARRAY texts;
+                    FOREVERY (RECORD rec FROM this->ConvertInternal2(list, TRUE, maxdepth-1))
+                      INSERT rec.text INTO texts AT END;
+
+                    IF(NOT expandstringarrays)
+                      retval.text := "[" || Detokenize(texts, ", ") || "]";
+                    ELSE
+                      retval.text := this->StringArrayExpanded(texts);
+                  }
+                }
+              }
+            }
+            ELSE
+            {
+              retval.text := GetTypeName(TypeId(field.value)) || ", value: ???";
+            }
+          }
+        }
+        INSERT retval INTO retvals AT END;
+      }
+      RETURN retvals;
+    }
+
+    STRING FUNCTION StringArrayExpanded(STRING ARRAY input, STRING preface DEFAULTSTO "")
+    {
+      STRING zeroes, output;
+      FOR(INTEGER i := 0; i < Length(ToString(Length(input))); i := i + 1)
+        zeroes := zeroes || "0";
+
+      output := output || "STRING ARRAY:\n";
+      FOREVERY(STRING line FROM input)
+        output := output || preface || " +" || LEFT(zeroes, Length(zeroes) - Length(ToString(#line))) || #line || ": " || line || "\n";
+
+      RETURN output;
+    }
+
+  >;
+
+// Converts a record to a record with all values replaced by their string representation
+PUBLIC RECORD FUNCTION ConvertToStrings(RECORD ARRAY contents, BOOLEAN multilevel)
+{
+  OBJECT converter := NEW ConverterType;
+  converter->multilevel := multilevel;
+  RETURN converter->ConvertInternal(contents);
+}
+
+PUBLIC RECORD ARRAY FUNCTION ConvertToStrings2(RECORD ARRAY contents, BOOLEAN multilevel, INTEGER maxdepth)
+{
+  OBJECT converter := NEW ConverterType;
+  converter->multilevel := multilevel;
+  RETURN converter->ConvertInternal2(contents, TRUE, maxdepth);
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// HTML converter
+
+/* Shows a record array in html table format
+   @param printlist Record array, with every record containing only string values
+   @param allcontents Record array containing list of all (possible) columns in printlist. Must contain:
+       .name Name of column
+       .width Width of column */
+PUBLIC MACRO ShowHTML(INTEGER outputdevice,RECORD ARRAY printlist, RECORD ARRAY allcontents)
+{
+  IF (LENGTH(printlist) = 0)
+    PrintTo (outputdevice,"EMPTY<br />\n");
+  ELSE IF (LENGTH(allcontents) = 0)
+    PrintTo (outputdevice,"NO COLUMNS, LENGTH " || LENGTH(printlist) || "<br />\n");
+  ELSE
+  {
+    STRING separator_line;
+    PrintTo (outputdevice,"<table><thead>");
+
+    // print table header
+    PrintTo (outputdevice,"<tr>");
+    FOREVERY (RECORD field FROM allcontents)
+    {
+      PrintTo (outputdevice,"<th>");
+      PrintTo (outputdevice,ExtendString(field.name, field.width," "));
+      PrintTo (outputdevice," </th>"); //the extra space keeps things readable after ->textcontent conversion
+    }
+    PrintTo (outputdevice,"</tr>\n");
+
+    PrintTo(outputdevice,"</thead><tbody>");
+
+    // print table cells
+    FOREVERY (RECORD r FROM printlist)
+    {
+      PrintTo (outputdevice,"<tr>");
+      FOREVERY (RECORD field FROM allcontents)
+      {
+        PrintTo (outputdevice,"<td>");
+
+        IF (CellExists(r, field.name))
+          PrintTo (outputdevice,EncodeHtml(GETCELL(r, field.name)));
+
+        PrintTo (outputdevice," </td>");  //the extra space keeps things readable after ->textcontent conversion
+      }
+      PrintTo (outputdevice,"</tr>\n");
+    }
+    PrintTo (outputdevice,"</tbody></table>\n");
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// BOXED converter
+
+/* Shows a record array in boxed format
+   @param printlist Record array, with every record containing only string values
+   @param allcontents Record array containing list of all (possible) columns in printlist. Must contain:
+       .name Name of column
+       .width Width of column */
+PUBLIC MACRO ShowBoxed(INTEGER outputdevice,RECORD ARRAY printlist, RECORD ARRAY allcontents, BOOLEAN star)
+{
+  IF (LENGTH(printlist) = 0)
+    PrintTo (outputdevice,"EMPTY\n");
+  ELSE IF (LENGTH(allcontents) = 0)
+    PrintTo (outputdevice,"NO COLUMNS, LENGTH " || LENGTH(printlist) || "\n");
+  ELSE
+  {
+    STRING separator_line;
+    separator_line := star?"*":"+";
+    FOREVERY (RECORD field FROM allcontents)
+      separator_line := separator_line || ExtendString("", field.width, star?"*":"-") || (star?"*":"+");
+    separator_line := separator_line || "\n";
+    PrintTo (outputdevice,separator_line);
+
+    // print table header
+    PrintTo (outputdevice,star?"*":"|");
+    FOREVERY (RECORD field FROM allcontents)
+    {
+      PrintTo (outputdevice,ExtendString(field.name, field.width," "));
+      PrintTo (outputdevice,star?"*":"|");
+    }
+    PrintTo (outputdevice,"\n" || separator_line);
+
+    // print table cells
+    FOREVERY (RECORD r FROM printlist)
+    {
+      PrintTo (outputdevice,star?"*":"|");
+      FOREVERY (RECORD field FROM allcontents)
+      {
+        IF (CellExists(r, field.name))
+          PrintTo (outputdevice,ExtendString(GETCELL(r, field.name), field.width, " "));
+        ELSE
+          PrintTo (outputdevice,ExtendString("", field.width, " "));
+
+        PrintTo (outputdevice,star?"*":"|");
+      }
+      PrintTo (outputdevice,"\n");
+    }
+    PrintTo (outputdevice,separator_line);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// CSV converter
+
+/* Shows a record array in csv format
+   @param printlist Record array, with every record containing only string values
+   @param allcontents Record array containing list of all (possible) columns in printlist. Must contain:
+       .name Name of column
+       .width Width of column */
+PUBLIC MACRO ShowCSV(INTEGER outputdevice,RECORD ARRAY printlist, RECORD ARRAY allcontents, STRING sep)
+{
+  //ADDME:Proper excel-parseable CSV output (also requires different date formats etc)
+
+  IF (LENGTH(printlist) = 0)
+    PrintTo (outputdevice,"EMPTY\n");
+  ELSE IF (LENGTH(allcontents) = 0)
+    PrintTo (outputdevice,"NO COLUMNS, LENGTH " || LENGTH(printlist) || "\n");
+  ELSE
+  {
+    STRING separator_line;
+
+    // print table header
+    FOREVERY (RECORD field FROM allcontents)
+    {
+      IF (#field != 0)
+        PrintTo (outputdevice,sep);
+      PrintTo (outputdevice,field.name);
+    }
+    PrintTo (outputdevice,"\n");
+
+    // print table cells
+    FOREVERY (RECORD r FROM printlist)
+    {
+      FOREVERY (RECORD field FROM allcontents)
+      {
+        IF (#field != 0)
+          PrintTo (outputdevice,sep);
+        IF (CellExists(r, field.name))
+        {
+          STRING data := GetCell(r, field.name);
+          IF(Left(data,1)="'")
+            PrintTo (outputdevice,'"' || Substitute(DecodeJava(Substring(data,1,Length(data)-2)),'"','""') || '"');
+          ELSE
+            PrintTo (outputdevice,data);
+        }
+      }
+      PrintTo (outputdevice,"\n");
+    }
+  }
+}
+
+PUBLIC RECORD FUNCTION BoxedStringConvert(RECORD ARRAY recarr, INTEGER max_len)
+{
+  RECORD widths;
+  RECORD ARRAY printlist;
+  FOREVERY (RECORD r FROM recarr)
+  {
+    RECORD ARRAY contents := UnpackRecord(r);
+    RECORD strings := ConvertToStrings(contents, FALSE);
+    FOREVERY (RECORD field FROM contents)
+    {
+      IF (CellExists(widths, field.name))
+      {
+        widths := CellUpdate(widths, field.name, myMAX(GetCell(widths,field.name), LENGTH(GETCELL(strings, field.name))));
+      }
+      ELSE
+      {
+        widths := CellInsert(widths, field.name, LENGTH(GETCELL(strings, field.name)));
+      }
+    }
+    INSERT strings INTO printlist AT END;
+  }
+
+  RECORD ARRAY allcontents := UnpackRecord(widths);
+  FOR (INTEGER i := 0; i < LENGTH(allcontents); i := i + 1)
+    INSERT CELL width := myMAX(GETCELL(widths, allcontents[i].name), LENGTH(allcontents[i].name)) INTO allcontents[i];
+
+  IF (max_len > 0)
+  {
+    FOR (INTEGER i := 0; i < LENGTH(allcontents); i := i + 1)
+      IF (allcontents[i].width < max_len)
+        allcontents[i].width := max_len;
+  }
+
+  RETURN [list := printlist, contents := allcontents];
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// TREE converter
+
+PUBLIC MACRO ShowTree2(INTEGER outputdevice, VARIANT data, BOOLEAN properhtml, INTEGER maxdepth)
+{
+  RECORD ARRAY contents := ConvertToStrings2([ [ name := "root", value := data ] ], TRUE, maxdepth);
+  PrintTree2(outputdevice, contents, 0, FALSE, properhtml);
+}
+
+MACRO PrintTree2(INTEGER outputdevice, RECORD ARRAY items, INTEGER depth, BOOLEAN show_name, BOOLEAN properhtml)
+{
+  IF (LENGTH(items) = 1 AND NOT show_name AND LENGTH(items[0].subnodes) = 0 AND depth = 0)
+  {
+    PrintTo(outputdevice, items[0].text || "\n");
+    RETURN;
+  }
+
+  IF(properhtml)
+    PrintTo(outputdevice,"<ul>");
+  FOREVERY (RECORD item FROM items)
+  {
+    STRING name := show_name ? item.name : "";
+
+    IF(properhtml)
+    {
+      PrintTo(outputdevice,"<li>" || (show_name ? EncodeHTML(name) || ": ":"")||EncodeHTML(item.text));
+    }
+    ELSE
+    {
+      Spaces(outputdevice,depth);
+      PrintTo(outputdevice,"+" || (show_name ? (name || ": ") : "") ||item.text || "\n");
+    }
+    IF (LENGTH(item.subnodes) > 0)
+      PrintTree2(outputdevice, item.subnodes, depth + 1, item.subnames, properhtml);
+
+    IF(properhtml)
+      PrintTo(outputdevice,'</li>');
+  }
+  IF(properhtml)
+    PrintTo(outputdevice,"</ul>");
+}
+
+
+MACRO TreeRecArray(INTEGER outputdevice,RECORD ARRAY list, INTEGER depth, BOOLEAN properhtml)
+{
+  IF(Length(list)=0)
+  {
+    PrintTo(outputdevice,"RECORD ARRAY\n");
+    RETURN;
+  }
+
+  PrintTo(outputdevice,properhtml?"RECORD ARRAY<ul>":"RECORD ARRAY\n");
+  INTEGER len := LENGTH(list);
+  FOR (INTEGER idx := 0; idx < len; idx := idx + 1)
+  {
+    IF(properhtml)
+    {
+      PrintTo(outputdevice,'<li>');
+    }
+    ELSE
+    {
+      Spaces(outputdevice,depth+1);
+      PrintTo(outputdevice,"+");
+    }
+    TreeRec(outputdevice,list[idx], depth + 1,properhtml);
+    IF(properhtml)
+      PrintTo(outputdevice,'</li>');
+  }
+  IF(properhtml)
+    PrintTo(outputdevice,"</ul>");
+}
+MACRO TreeRec(INTEGER outputdevice,RECORD rec, INTEGER depth, BOOLEAN properhtml)
+{
+  IF(NOT RecordExists(rec))
+  {
+    PrintTo(outputdevice,"DEFAULT RECORD\n");
+    RETURN;
+  }
+
+  RECORD ARRAY contents := UnpackRecord(rec);
+  IF(Length(contents)=0)
+  {
+    PrintTo(outputdevice,"EMPTY RECORD\n");
+    RETURN;
+  }
+
+  PrintTo(outputdevice,properhtml?"RECORD<ul>":"RECORD\n");
+  FOREVERY (RECORD r FROM contents)
+  {
+    IF(properhtml)
+    {
+      PrintTo(outputdevice,"<li>" || EncodeHTML(r.name) || ": ");
+    }
+    ELSE
+    {
+      Spaces(outputdevice,depth+1);
+      PrintTo(outputdevice,"+" || r.name || ": ");
+    }
+    SWITCH (TYPEID(r.value))
+    {
+    CASE TYPEID(RECORD ARRAY) { TreeRecArray(outputdevice,r.value, depth + 1,properhtml); }
+    CASE TYPEID(RECORD)       { TreeRec(outputdevice,r.value, depth + 1,properhtml); }
+    DEFAULT                   { TreeOther(outputdevice,rec, r.name, depth + 1,properhtml); }
+    }
+    IF(properhtml)
+    {
+      PrintTo(outputdevice,"</li>");
+    }
+  }
+  IF(properhtml)
+    PrintTo(outputdevice,"</ul>");
+}
+
+MACRO TreeOther(INTEGER outputdevice,RECORD rec, STRING cellname, INTEGER depth, BOOLEAN properhtml)
+{
+  IF (TYPEID(GetCell(rec,cellname)) = TYPEID(STRING))
+  {
+    PrintTo(outputdevice,properhtml ? EncodeHTML(GetCell(rec, cellname)) : GetCell(rec, cellname) || "\n");
+  }
+  ELSE IF (Length(GetCell(rec,cellname))>0)
+  {
+    PrintTo(outputdevice,properhtml?"<ul>":"[");
+    INTEGER len := LENGTH(GetCell(rec,cellname));
+    FOR (INTEGER idx := 0; idx < len; idx := idx + 1)
+    {
+      IF(properhtml)
+      {
+        PrintTo(outputdevice,'<li>'||EncodeHTML(GetCell(rec,cellname)[idx])||'</li>');
+      }
+      ELSE
+      {
+        IF (idx != 0)
+          PrintTo(outputdevice,", ");
+        PrintTo(outputdevice,GetCell(rec,cellname)[idx]);
+      }
+    }
+    PrintTo(outputdevice,properhtml?"</ul>":"]\n");
+  }
+  ELSE
+  {
+    IF(NOT properhtml)
+      PrintTo(outputdevice,"\n");
+  }
+}
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Helper functions
+
+MACRO Spaces(INTEGER outputdevice,INTEGER space)
+{
+  FOR (INTEGER idx := 0; idx < space; idx := idx + 1)
+    PrintTo(outputdevice," ");
+}
+
+INTEGER FUNCTION myMAX(INTEGER a, INTEGER b)
+{
+  IF (a > b) RETURN a; ELSE RETURN b;
+}
+
+RECORD FUNCTION __INTERNAL_DebugCopyObjectToRecord(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER FUNCTION __INTERNAL_GETOBJECTID(OBJECT obj) __ATTRIBUTES__(EXTERNAL); // Don't use in user code!

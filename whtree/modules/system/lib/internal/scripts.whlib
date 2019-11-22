@@ -1,0 +1,57 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+PUBLIC RECORD FUNCTION LaunchScript(STRING scriptname, STRING ARRAY args)
+{
+  RECORD jobdata := CreateJob(scriptname);
+  IF (NOT RecordExists(jobdata))
+    ABORT("Don't have permission to start scripts"); // FATAL!
+
+  IF (NOT ObjectExists(jobdata.job))
+  {
+    IF(Length(jobdata.errors)>0)
+      RETURN [ error := TRUE, output := AnyToString(jobdata.errors,'boxed') ];
+    ELSE
+      RETURN [ error := TRUE, output := "Unknown error" ];
+  }
+
+  jobdata.job->SetConsoleArguments(args);
+  INTEGER outputpipe := jobdata.job->CaptureOutput();
+  jobdata.job->Start();
+
+  STRING output;
+  WHILE(TRUE)
+  {
+    INTEGER res := WaitForMultipleUntil([outputpipe, jobdata.job->handle], DEFAULT INTEGER ARRAY, MAX_DATETIME);
+
+    STRING outputdata := ReadFrom(outputpipe,-16384);
+    IF(outputdata!="")
+      output := output || outputdata;
+    ELSE IF(jobdata.job->IsSignalled()) //it's over?
+      BREAK;
+  }
+
+  IF(output != "" AND output NOT LIKE "*\n")
+    output := output || "\n";
+
+  RECORD ARRAY errors := jobdata.job->GetErrors();
+  IF(Length(errors)>0)
+  {
+    jobdata.job->Close();
+    LogHarescriptErrors(errors, [ script := scriptname ]);
+    RETURN [ error := TRUE, output := output || FormatHarescriptErrors(errors) ];
+  }
+  INTEGER exitcode := jobdata.job->GetConsoleExitCode();
+  IF(exitcode != 0)
+  {
+    jobdata.job->Close();
+    RETURN [ error := TRUE, output := (output = "" ? "" : output || "\n") || `Script returned exit code ${exitcode}` ];
+  }
+  jobdata.job->Close();
+  RETURN [ error := FALSE, output := output ];
+}

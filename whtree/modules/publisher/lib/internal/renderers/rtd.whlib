@@ -1,0 +1,33 @@
+﻿<?wh
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+
+/* DO NOT USE THIS FILE AS AN EXAMPLE - the __OpenWHFSRichDocument API will go away.
+   You need to use MakeRTD (classic) or OpenRTD (rtdtype)
+*/
+PUBLIC OBJECTTYPE RenderRTD EXTEND StaticPageBase
+<
+  OBJECT doc;
+
+  MACRO NEW(OBJECT contentobject)
+  : StaticPageBase(contentobject)
+  {
+  }
+  UPDATE PUBLIC MACRO PrepareForPageConfig(OBJECT webdesign)
+  {
+    this->doc := __OpenWHFSRichDocument(this->contentobject, webdesign); //__OpenWHFSRichDocument supports both rtdtype and old structuredefs\
+  }
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    IF(this->doc->rtdtype = "")
+      this->doc->PrepareForRendering(webdesign);
+  }
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    this->doc->RenderAllObjects();
+  }
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
+  {
+    RETURN this->doc->GatherSuggestedAnchors(webdesign);
+  }
+>;

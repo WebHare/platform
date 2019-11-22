@@ -1,0 +1,182 @@
+<?wh
+/** @short WRD common dialogs
+    @topic wrd/tollium
+*/
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/commondialogs.whlib";
+
+/** @short Make a WRD manage attributes dialog
+*/
+PUBLIC MACRO RunWRDAttributesDialog(OBJECT parentform, OBJECT wrdtype, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ allowattributetypes := attrtypes
+                              , hideattributes := DEFAULT STRING ARRAY
+                              ], options);
+  OBJECT dialog := parentform->LoadScreen("wrd:types.manageattrs", [ wrdtype := wrdtype, options := options ]);
+  dialog->RunModal();
+}
+
+////////////////////////////////////////////////////////////////
+//
+// Audit log
+//
+/*
+OBJECTTYPE WRDAuditLog
+< OBJECT dialog;
+  PUBLIC OBJECT parentscreen;
+  PUBLIC OBJECT wrdschema;
+  PUBLIC INTEGER accountid;
+  PUBLIC STRING accountfield;
+  PUBLIC STRING ARRAY success_types;
+  PUBLIC STRING ARRAY warning_types;
+  PUBLIC STRING ARRAY failure_types;
+  PUBLIC FUNCTION PTR onshowevent;
+  PUBLIC FUNCTION PTR onmaptype;
+
+  PUBLIC MACRO RunDialog()
+  {
+    this->dialog := this->parentscreen->LoadScreen("wrd:commondialogs.auditlog",
+        [ wrdschema := this->wrdschema
+        , account := this->accountid
+        ]);
+
+    IF (this->accountfield != "")
+      this->dialog->accountfield := this->accountfield;
+    IF (Length(this->success_types) > 0)
+      this->dialog->success_types := this->dialog->success_types CONCAT this->success_types;
+    IF (Length(this->warning_types) > 0)
+      this->dialog->warning_types := this->dialog->warning_types CONCAT this->warning_types;
+    IF (Length(this->failure_types) > 0)
+      this->dialog->failure_types := this->dialog->failure_types CONCAT this->failure_types;
+    IF (this->onshowevent != DEFAULT FUNCTION PTR)
+      this->dialog->onshowevent := this->onshowevent;
+    IF (this->onmaptype != DEFAULT FUNCTION PTR)
+      this->dialog->onmaptype := this->onmaptype;
+
+    this->dialog->RunModal();
+  }
+>;
+*/
+PUBLIC MACRO RunWRDAuditLogDialog(OBJECT parentscreen, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD setcontexts;
+  options := ValidateOptions( [ wrdschema := DEFAULT OBJECT
+                              , accountid := 0
+                              , success_types := DEFAULT STRING ARRAY
+                              , warning_types := DEFAULT STRING ARRAY
+                              , failure_types := DEFAULT STRING ARRAY
+                              , onshow := DEFAULT MACRO PTR
+                              , onmaptype := DEFAULT MACRO PTR
+                              ], options);
+  parentscreen->RunScreen("mod::wrd/screens/commondialogs.xml#auditlog", options);
+}
+
+/** Run an entity selection screen
+    @param owner Owner screen
+    @param wrdtype WRD type
+    @param entityid WRD id of the entity to preselect, 0 if none
+    @param options
+    @cell(record) options.entitycontext Values that are set at creation/update, and cannot be edited
+    @cell(string) options.columns Names of columns to show when selecting. Defaults to WRD_TITLE if present, WRD_GUID otherwise
+    @return The id of the created or edited entity. 0 if the dialog was cancelled
+*/
+PUBLIC INTEGER FUNCTION RunWRDEntitySelectDialog(OBJECT owner, OBJECT wrdtype, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ entitycontext :=    DEFAULT RECORD
+      , columns :=          STRING[] //we use 'columns' so 'listcolumns' stays available as a name for a record array of exact definitions
+      ], options);
+
+  IF (NOT ObjectExists(wrdtype))
+    THROW NEW Exception("wrdtype for RunWRDEntitySelectDialog cannot be an DEFAULT OBJECT");
+
+  //just wrapping the old dialog for now ,but should really create a clean version. at least we hide it
+  OBJECT dialog := NEW __WRDEntityBrowser(TRUE);
+  dialog->parentform := owner;
+  dialog->wrdtype := wrdtype;
+
+  FOREVERY(RECORD cellrec FROM UnpackRecord(options.entitycontext))
+    INSERT [ field := cellrec.name, value := cellrec.value ] INTO dialog->listfilters AT END;
+
+  //FIXME autoadd 'entityid' if not selected
+  IF(entityid != 0)
+    dialog->value := entityid;
+
+  IF(Length(options.columns) = 0)
+    options.columns := [ RecordExists(wrdtype->GetAttribute("WRD_TITLE")) ? "WRD_TITLE" : "WRD_GUID" ];
+
+  dialog->listcolumns := SELECT tag, width := "1pr" FROM ToRecordArray(options.columns, "TAG");
+
+  OBJECT screen := dialog->__OpenDialog();
+
+  //ADDME make this configurable, but it turns out it's often unwanted
+  screen->freesearchbox->visible := FALSE;
+
+  IF(NOT dialog->__InvokeDialog(screen))
+    RETURN 0;
+
+  RETURN dialog->value;
+
+}
+
+/** Run an entity add/edit screen
+    @param owner Owner screen
+    @param wrdtype WRD type
+    @param entityid WRD id of the entity to edit, 0 to add a new entity
+    @cell(record) options.entitycontext Values that are set at creation/update, and cannot be edited
+    @cell(object) options.component Component for error reporting
+    @cell(string) options.screen Reference to the screen to use. If not set, runs a default editor
+    @cell(boolean) options.initordering If TRUE, initialize WRD_ORDERING for new entities to one higher than other entities matching the entitycontext
+    @return The id of the created or edited entity. 0 if the dialog was cancelled
+*/
+PUBLIC INTEGER FUNCTION RunWRDEntityEditDialog(OBJECT owner, OBJECT wrdtype, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ entitycontext :=    DEFAULT RECORD
+      , component :=        DEFAULT OBJECT
+      , screen :=           "mod::wrd/screens/entity.xml#edit"
+      , initordering :=     FALSE
+      ], options);
+
+  OBJECT editor := owner->contexts->opener->LoadScreen(options.screen, CELL[ calltype :=     "wrd:entityedit"
+                                                                 , wrdtype
+                                                                 , id :=           entityid
+                                                                 , options.entitycontext
+                                                                 , options.initordering
+                                                                 ]);
+
+  IF(NOT ObjectExists(editor))
+    THROW NEW TolliumException(options.component, `Screen '${options.screen}' could not be loaded`);
+  IF(entityid = 0 AND NOT MemberExists(editor,"GetNewEntityId"))
+    THROW NEW TolliumException(options.component, `Screen '${options.screen}' does not implement GetNewEntityId`);
+
+  IF(editor->RunModal() != "ok")
+    RETURN 0;
+
+  RETURN entityid ?? editor->GetNewEntityId();
+}
+
+PUBLIC MACRO RunWRDPendingPaymentsDialog(OBJECT owner, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  owner->contexts->opener->RunScreen("mod::wrd/tolliumapps/payments/commondialogs.xml#pendingpayments", options);
+}
+
+/** Shows a dialog with the changes for a specific entity
+    @param owner Owner screen
+    @param(object %WRDEntityBase) entity Show the history of this entity
+    @param options Options.
+    @cell(string array) options.recursetypes Also show attachments of these types.
+    @cell(string array) options.hideattributes Masks for tags of attributes to hide (format: 'type:attr' glob mask)
+    @cell(string array) options.showattributes Masks for tags to show anyway, even if they match hideattributes (format: 'type:attr' glob mask)
+    @cell(function ptr) options.mapchangesrows Mapping function for titles (RECORD ARRAY FUNCTION map(OBJECT type, RECORD ARRAY rows)
+      In: [ entity := id, title := 'default title', type := 'default typename' ]
+      Out:= [ entity := id, title := 'updatetitle', type := "updated typename", sortkey := "optional title sortkey" ]
+    @cell(boolean) options.mergechanges If TRUE, merge multiple changes to the same entity within a changeset
+*/
+PUBLIC MACRO RunWRDHistoryDialog(OBJECT owner, OBJECT entity, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  owner->contexts->opener->RunScreen("mod::wrd/screens/changes.xml#entitychanges", CELL[ entity, ...options ]);
+}

@@ -1,0 +1,1217 @@
+﻿<?wh
+
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+//FIXME merge combobox/textedit staticinit as much as possible
+//      allow same properties in compparser/xsd
+//      remove nonsense props (ie password) from texteditbase and move to textedit
+
+PUBLIC OBJECTTYPE __TolliumAutoSuggestableBase EXTEND TolliumComponentBase
+<
+  /** The option source list, from the static init.
+  */
+  RECORD ARRAY pvt_optionsources;
+
+  ///The individual options
+  RECORD ARRAY pvt_options;
+
+  ///Minimum suggest length
+  INTEGER minimumsuggestlength;
+
+  MACRO NEW()
+  {
+    this->minimumsuggestlength := 3;//default
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->minimumsuggestlength := def.minimumsuggestlength;
+  }
+
+  RECORD FUNCTION GetAutoSuggestSetting()
+  {
+    RECORD autosuggest;
+    IF(Length(this->pvt_options) >= 1 AND NOT ObjectExists(this->pvt_options[0].__autosuggestcomp))
+      autosuggest := [ type := "static", vals := SELECT AS STRING ARRAY title FROM this->pvt_options ];
+    ELSE IF (Length(this->pvt_options) = 1)
+      autosuggest := [ type := "dynamic" ];
+
+    IF(RecordExists(autosuggest))
+      autosuggest := CELL[...autosuggest, minlength := this->minimumsuggestlength ];
+    RETURN autosuggest;
+  }
+
+  MACRO UpdateOptionsFromSources()
+  {
+    IF(Length(this->pvt_optionsources)=0)
+      RETURN; //if no sources are set, leave 'options' alone!
+
+    RECORD ARRAY newoptions;
+    FOREVERY (RECORD source FROM this->pvt_optionsources)
+    {
+     IF(source.type="option")
+        INSERT [ title := GetTid(source.item.tp), __autosuggestcomp := DEFAULT OBJECT ] INTO newoptions AT END;
+      ELSE IF(source.type="optionsource" AND MemberExists(source.comp,"Lookup"))
+        INSERT [ title := "", __autosuggestcomp := source.comp ] INTO newoptions AT END;
+      ELSE
+        THROW NEW Exception(`Unsupported option source '${source.type}'`);
+    }
+    this->__SetOptions(newoptions);
+
+    this->pvt_options := newoptions;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetOptions(RECORD ARRAY newoptions)
+  {
+    IF(Length(this->pvt_optionsources) > 0)
+      THROW NEW Exception("Options may not be directly set if a component has option sources");
+
+    newoptions := SELECT title
+                       , __autosuggestcomp := CellExists(newoptions, '__autosuggestcomp') ? newoptions.__autosuggestcomp : DEFAULT OBJECT
+                    FROM newoptions;
+
+    this->__SetOptions(newoptions);
+  }
+
+  MACRO __SetOptions(RECORD ARRAY newoptions)
+  {
+    FOREVERY(RECORD source FROM this->pvt_options)
+      IF(ObjectExists(source.__autosuggestcomp))
+        source.__autosuggestcomp->StopJob();
+
+    IF(Length(newoptions) > 1 OR (Length(newoptions) = 1 AND NOT ObjectExists(newoptions[0].__autosuggestcomp)))
+    {
+       IF(RecordExists(SELECT FROM newoptions WHERE ObjectExists(__autosuggestcomp)))
+         THROW NEW Exception("Only one option may be an autosuggest");
+    }
+
+    this->pvt_options := newoptions;
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE PUBLIC MACRO OnUnloadComponent()
+  {
+    //the autcomplete children don't seem to get explicitly unloaded... so we'll at least signal them to stop their job
+    this->__SetOptions(DEFAULT RECORD ARRAY);
+  }
+
+  MACRO ReturnLookupResult(RECORD ARRAY vals)
+  {
+    this->QueueOutboundMessage("LookupResult", CELL[ vals ]);
+  }
+
+  PUBLIC ASYNC FUNCTION LookupForAutosuggest(STRING text)
+  {
+    IF(Length(this->pvt_options) = 1 AND ObjectExists(this->pvt_options[0].__autosuggestcomp))
+    {
+      RECORD ARRAY results := AWAIT this->pvt_options[0].__autosuggestcomp->Lookup(text);
+      results := SELECT value
+                      , append := CellExists(results,"append") ? results.append : ""
+                   FROM results;
+      RETURN results;
+    }
+    THROW NEW Exception("Unsupported autosuggest settings");
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    IF(type="lookup")
+    {
+      this->LookupForAutosuggest(msgdata.word)->Then(PTR this->ReturnLookupResult)->OnError(PTR ABORT);
+      RETURN;
+    }
+    TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+  }
+
+>;
+
+
+/////////////////////////////////////////////////////////////////////
+// A text field
+
+PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Types of state to save
+  STRING ARRAY pvt_savestate;
+
+  /// Type of value: "string"/"integer"/"integer64"/"money"/"float"
+  STRING pvt_valuetype;
+
+
+  /// Whether this is a password field
+  BOOLEAN pvt_password;
+
+
+  /// List of input validation checks
+  STRING ARRAY pvt_validationchecks;
+
+
+  /// Current text value
+  STRING pvt_textvalue;
+
+
+  /** Record containing values
+      @cell val Current value
+      @cell emptyval Empty value (only used when pvt_emptyvalueisset is TRUE)
+      @cell minimumval Min value (only used when pvt_minimumvalueisset is TRUE)
+      @cell maxval Max value (only used when pvt_maximumvalueisset is TRUE)
+  */
+  RECORD valstore;
+
+
+  /// Whether the empty value is valid
+  BOOLEAN pvt_emptyvalueisset;
+
+
+  /// Whether the minimum value is valid
+  BOOLEAN pvt_minimumvalueisset;
+
+
+  /// Whether the maximum value is valid
+  BOOLEAN pvt_maximumvalueisset;
+
+
+  /// Number of decimals to show
+  INTEGER pvt_decimals;
+
+
+  /// Whether to round money values
+  BOOLEAN pvt_round;
+
+
+  /// How length of value is measured ("characters" or "bytes")
+  STRING pvt_maxlengthmeasure;
+
+
+  /// Placeholder text
+  STRING pvt_placeholder;
+  BOOLEAN pvt_implicitplaceholder;
+
+  /// Whether to show a character/byte counter
+  BOOLEAN pvt_showcounter;
+
+  INTEGER pvt_maxlength;
+
+  /// HTML5 autocomplete attribute contents
+  STRING ARRAY pvt_autocomplete;
+
+  STRING pvt_prefix;
+  STRING pvt_suffix;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Whether whitespace must be trimmed
+  PUBLIC BOOLEAN trimwhitespace;
+
+
+  /// Whether the textedit contains an invalid value
+  PUBLIC BOOLEAN invalid;
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Current value
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /** Contains the type of state to save. Allowed states: 'value'.
+  */
+  PUBLIC PROPERTY savestate(pvt_savestate, SetSaveState);
+
+  /** Type of the value in this textedit ("string"/"integer"/"integer64"/"money"/"float")
+      Setting this property clears the value, textvalue and emptyvalue
+  */
+  PUBLIC PROPERTY valuetype(GetValueType, SetValueType);
+
+
+  /// Text value of this textedit
+  PUBLIC PROPERTY textvalue(GetTextValue, SetTextValue);
+
+
+  /// Placeholder text to show if nothing is filled in
+  PUBLIC PROPERTY placeholder(pvt_placeholder, SetPlaceholder);
+
+
+  /// How length of value is measured (Unicode "characters" vs UTF-8 "bytes")
+  PUBLIC PROPERTY maxlengthmeasure(pvt_maxlengthmeasure, SetMaxLengthMeasure);
+
+  /// Maximum length of the value
+  PUBLIC PROPERTY maxlength(pvt_maxlength, SetMaxLength);
+
+  /// Whether to show a character/byte counter
+  PUBLIC PROPERTY showcounter(pvt_showcounter, SetShowCounter);
+
+  /// Whether this textedit contains a password
+  PUBLIC PROPERTY password(pvt_password, SetPassword);
+
+  ///// The options (enables autocomplete)
+  PUBLIC PROPERTY options(pvt_options, SetOptions);
+
+  /// List of input validation checks to run
+  PUBLIC PROPERTY validationchecks(pvt_validationchecks, SetValidationChecks);
+
+  /// List of input validation checks to run
+  PUBLIC PROPERTY implicitplaceholder(pvt_implicitplaceholder, SetImplicitPlaceholder);
+
+  /// Whether the empty value is set (deprecated)
+  PUBLIC PROPERTY emptyisset(pvt_emptyvalueisset, SetEmptyValueIsSet);
+
+
+  /// Whether the empty value is set
+  PUBLIC PROPERTY emptyvalueisset(pvt_emptyvalueisset, SetEmptyValueIsSet);
+
+
+  /// The value that is converted to an empty textedit (and vv). Only used when @a emptyvalueisset is TRUE.
+  PUBLIC PROPERTY emptyvalue(GetEmptyValue, SetEmptyValue);
+
+
+  /// Whether the minimum value is set
+  PUBLIC PROPERTY minimumvalueisset(pvt_minimumvalueisset, SetMinimumValueIsSet);
+
+
+  /** The minimum value used in validation checks. May not be used when valuetype="string".
+      This value will only be used for validation when @a minimumvalueisset is TRUE.
+
+      Defaults to 0 after valuetype change
+  */
+  PUBLIC PROPERTY minimumvalue(GetMinimumValue, SetMinimumValue);
+
+
+  /// Whether the maximum value is set
+  PUBLIC PROPERTY maximumvalueisset(pvt_maximumvalueisset, SetMaximumValueIsSet);
+
+
+  /** The maximum value used in validation checks. Only used when @a maximumvalueisset is TRUE.
+      Defaults to 0 (or '') after valuetype change
+  */
+  PUBLIC PROPERTY maximumvalue(GetMaximumValue, SetMaximumValue);
+
+
+  /** Minimum number of decimals to show (for valuetypes money and float). If @a round is TRUE, then
+      this is also the maximum number of decimals (for valuetype money only).
+  */
+  PUBLIC PROPERTY decimals(pvt_decimals, SetDecimals);
+
+
+  /** Whether money values must be rounded to the specified number of decimals. If TRUE, the user
+      may not specify more than @a decimals decimals, and values set by using the @a value property
+      are automatically rounded.
+  */
+  PUBLIC PROPERTY round(pvt_round, SetRound);
+
+  /** Value of autocomplete attribute on DOM input node.
+  */
+  PUBLIC PROPERTY autocomplete(pvt_autocomplete, SetAutoComplete);
+
+  ///Readonly prefix text
+  PUBLIC PROPERTY prefix(pvt_prefix, SetPrefix);
+
+  ///Readonly suffix text
+  PUBLIC PROPERTY suffix(pvt_suffix, SetSuffix);
+
+  /// Called when value has changed
+  PUBLIC FUNCTION PTR onchange;
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->componenttype := "textedit";
+    this->trimwhitespace := TRUE;
+    this->SetValueType("string");
+    this->maxlength := -1;
+    this->maxlengthmeasure := "characters";
+    this->pvt_round := FALSE;
+    this->pvt_decimals := 0;
+    this->formfieldtype := "string";
+    this->pvt_implicitplaceholder := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+
+    STRING fieldtitle := this->errorlabel!="" ? this->errorlabel : this->title;
+    BOOLEAN any_error := FALSE;
+
+    STRING textvalue := this->textvalue;
+    IF(this->trimwhitespace OR this->pvt_valuetype!="string")
+      textvalue := TrimWhitespace(textvalue);
+
+    //FIXME: handle when labels are not present!
+    IF(this->required AND textvalue = "")
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+      any_error := TRUE;
+    }
+    ELSE IF(this->maxlength>0 AND this->pvt_valuetype="string" AND (
+      (this->maxlengthmeasure = "bytes" AND Length(this->valstore.val) > this->maxlength)
+        OR
+      (this->maxlengthmeasure = "characters" AND UCLength(this->valstore.val) > this->maxlength)))
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.too_long", fieldtitle, ToString(this->maxlength)));
+      //"Field '" || this->title || "' must be less than " || this->maxlength || " characters in width");
+      any_error := TRUE;
+    }
+    ELSE IF(this->pvt_valuetype = "integer" AND this->invalid)
+    {
+      /* ADDME: If you want to allow empty values, supply a defaultvalue="" to return by the component which must be outside min/max range
+         ADDME: Min/max range support */
+      work->AddErrorFor(this, GetTid("tollium:common.errors.invalid_integer", fieldtitle));
+      any_error := TRUE;
+    }
+    ELSE IF(this->pvt_valuetype = "integer64" AND this->invalid)
+    {
+      /* ADDME: If you want to allow empty values, supply a defaultvalue="" to return by the component which must be outside min/max range
+         ADDME: Min/max range support */
+      work->AddErrorFor(this, GetTid("tollium:common.errors.invalid_integer", fieldtitle));
+      any_error := TRUE;
+    }
+    ELSE IF(this->pvt_valuetype = "money")
+    {
+      IF (this->invalid)
+      {
+        /* ADDME: If you want to allow empty values, supply a defaultvalue="" to return by the component which must be outside min/max range
+           ADDME: Min/max range support */
+        work->AddErrorFor(this, GetTid("tollium:common.errors.invalid_money", fieldtitle));
+        any_error := TRUE;
+      }
+      ELSE IF (this->pvt_round AND NOT this->CheckMoneyTextDecimals())
+      {
+        work->AddErrorFor(this, GetTid("tollium:common.errors.too_many_decimals", fieldtitle, ToString(this->pvt_decimals)));
+        any_error := TRUE;
+      }
+    }
+    ELSE IF(this->pvt_valuetype = "float" AND this->invalid)
+    {
+      /* ADDME: If you want to allow empty values, supply a defaultvalue="" to return by the component which must be outside min/max range
+         ADDME: Min/max range support */
+      work->AddErrorFor(this, GetTid("tollium:common.errors.invalid_float", fieldtitle));
+      any_error := TRUE;
+    }
+    IF (NOT any_error AND textvalue != "") // don't check if empty
+    {
+      IF (this->pvt_valuetype != "string" AND
+                ((this->pvt_minimumvalueisset AND this->value < this->minimumvalue) OR
+                 (this->pvt_maximumvalueisset AND this->value > this->maximumvalue)))
+      {
+        work->AddErrorFor(this, GetTid("tollium:common.errors.value_out_of_range",
+                                       fieldtitle,
+                                       this->ConvertToText(this->minimumvalue, NOT this->pvt_minimumvalueisset),
+                                       this->ConvertToText(this->maximumvalue, NOT this->pvt_maximumvalueisset)));
+      }
+      ELSE IF (LENGTH(this->pvt_validationchecks) != 0)
+      {
+        STRING error := ValidateInput(textvalue, fieldtitle, this->pvt_validationchecks);
+        IF (error != "")
+          work->AddErrorFor(this, error);
+      }
+    }
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ value   := FALSE
+        , options := FALSE
+        ];
+  }
+
+  STRING FUNCTION GeneratePlaceholder()
+  {
+    IF(this->pvt_placeholder != "" OR NOT this->pvt_implicitplaceholder)
+      RETURN this->pvt_placeholder;
+
+    IF("email" IN this->validationchecks)
+      RETURN GetTid("tollium:common.examples.email");
+    IF("emails" IN this->validationchecks)
+      RETURN GetTid("tollium:common.examples.emailcomma");
+    IF("http-url" IN this->validationchecks)
+      RETURN "insecure-url" NOT IN this->validationchecks ? GetTid("tollium:common.examples.https-url") : GetTid("tollium:common.examples.http-url") ;
+
+    RETURN "";
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      IF(this->readonly)
+      {
+        STRING displayvalue := (this->pvt_prefix != "" ? this->pvt_prefix || " " : "")
+                               || this->textvalue
+                               || (this->pvt_suffix != "" ? this->pvt_suffix || " " : "");
+        this->TolliumWebReadOnly(displayvalue, FALSE);
+        RETURN;
+      }
+
+      RECORD compinfo := [ comptype := "textedit"
+                         , password := this->password
+                         , required := this->required
+                         , maxlength := this->maxlength
+                         , maxlengthmeasure := this->maxlengthmeasure
+                         , showcounter := this->showcounter
+                         , value := this->textvalue
+                         , hint := this->hint
+                         , unmasked_events := GetUnmask(this,["change"])
+                         , placeholder := this->GeneratePlaceholder()
+                         , autocomplete := this->pvt_autocomplete
+                         , autosuggest := this->GetAutoSuggestSetting()
+                         , validationchecks := this->validationchecks
+                         , prefix := this->pvt_prefix
+                         , suffix := this->pvt_suffix
+                         ];
+
+      OBJECT ARRAY iconbuttons;
+      FOREVERY (OBJECT button FROM this->buttons)
+        IF (button->type = "icon")
+          INSERT button INTO iconbuttons AT END;
+      INSERT CELL buttons := GetVisibleComponentNames(iconbuttons) INTO compinfo;
+
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.value)
+        this->ToddUpdate([type:="value", value := this->textvalue]);
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(STRING indata)
+  {
+    this->textvalue := indata;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN this->valstore.val;
+  }
+
+
+  STRING FUNCTION GetTextValue()
+  {
+    RETURN this->pvt_textvalue;
+  }
+
+  MACRO SetMaxLengthMeasure(STRING measure)
+  {
+    measure := ToLowercase(measure);
+    IF (measure NOT IN [ "bytes", "characters" ])
+      measure := "characters";
+
+    IF (this->pvt_maxlengthmeasure != measure)
+    {
+      this->pvt_maxlengthmeasure := measure;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetShowCounter(BOOLEAN showcounter)
+  {
+    IF (this->pvt_showcounter != showcounter)
+    {
+      this->pvt_showcounter := showcounter;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetMaxLength(INTEGER maxlength)
+  {
+    IF (this->pvt_maxlength != maxlength)
+    {
+      this->pvt_maxlength := maxlength;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetSaveState(STRING ARRAY savestate)
+  {
+    this->pvt_savestate := DEFAULT STRING ARRAY;
+    IF ("value" IN savestate)
+      INSERT "value" INTO this->pvt_savestate AT END;
+  }
+
+  MACRO SetTextValue(STRING newval, BOOLEAN check DEFAULTSTO TRUE)
+  {
+    IF (this->pvt_textvalue != newval)
+    {
+      this->pvt_textvalue := newval;
+
+      RECORD res := this->ParseTextValue(newval, TRUE);
+      this->valstore.val := res.value;
+      IF (check)
+        this->invalid := NOT res.valid;
+
+      this->owner->tolliumscreenmanager->QueueEvent(this,"change",DEFAULT RECORD);
+    }
+  }
+
+  MACRO SetValue(VARIANT contents)
+  {
+    IF(NOT this->IsValidValue(contents))
+      THROW NEW TolliumException(this, "Textedit '" || this->name || "' of type '" || this->pvt_valuetype || "' received a value of type " || GetTypeName(TypeID(contents)));
+
+    IF (this->valstore.val != contents)
+    {
+      this->valstore.val := this->CastToValueType(contents);
+      this->pvt_textvalue := this->GenerateTextValue();
+      IF (this->valuetype = "money" OR this->valuetype = "float")
+        this->valstore.val := this->ParseTextValue(this->pvt_textvalue, TRUE).value;
+
+      IF (this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
+
+      this->ExtUpdatedValue();
+    }
+  }
+
+
+  MACRO SetPlaceholder(STRING placeholder)
+  {
+    IF (placeholder = this->pvt_placeholder)
+      RETURN;
+
+    this->pvt_placeholder := placeholder;
+    this->ExtUpdatedPlaceholder();
+  }
+  MACRO SetValidationChecks(STRING ARRAY validationchecks)
+  {
+    IF (EncodeHSON(this->pvt_validationchecks) = EncodeHSON(validationchecks))
+      RETURN;
+
+    this->pvt_validationchecks := validationchecks;
+    this->ExtUpdatedPlaceholder();
+  }
+  MACRO SetImplicitPlaceholder(BOOLEAN implicitplaceholder)
+  {
+    IF (this->pvt_implicitplaceholder = implicitplaceholder)
+      RETURN;
+
+    this->pvt_implicitplaceholder := implicitplaceholder;
+    this->ExtUpdatedPlaceholder();
+  }
+
+
+  STRING FUNCTION GetValueType()
+  {
+    RETURN this->pvt_valuetype;
+  }
+
+
+  MACRO SetValueType(STRING newvaluetype)
+  {
+    IF (newvaluetype NOT IN [ "string", "integer", "integer64", "money", "float" ])
+      THROW NEW TolliumException(this, "Illegal value type '" || newvaluetype || "' set in textedit");
+
+    this->pvt_valuetype := newvaluetype;
+    this->pvt_decimals := 0;
+    this->pvt_round := FALSE;
+    IF (newvaluetype = "money")
+      this->pvt_decimals := 5;
+    ELSE IF (newvaluetype = "float")
+      this->pvt_decimals := 20;
+    ELSE
+      this->pvt_decimals := 0;
+
+    VARIANT defaultval := this->GetDefaultValue();
+    this->valstore:= [ val :=           defaultval
+                     , emptyval :=      defaultval
+                     , minval :=        defaultval
+                     , maxval :=        defaultval
+                     ];
+    this->pvt_emptyvalueisset := FALSE;
+    this->pvt_minimumvalueisset := FALSE;
+    this->pvt_maximumvalueisset := FALSE;
+
+    this->pvt_textvalue := this->GenerateTextValue();
+
+    this->ExtUpdatedValue();
+  }
+
+
+  MACRO SetPassword(BOOLEAN new_password)
+  {
+    IF (this->pvt_password = new_password)
+      RETURN;
+
+    this->pvt_password := new_password;
+    this->ExtUpdatedComponent();
+  }
+
+
+  MACRO SetEmptyValueIsSet(BOOLEAN new_emptyvalueisset)
+  {
+    IF (this->pvt_emptyvalueisset != new_emptyvalueisset)
+    {
+      this->pvt_emptyvalueisset := new_emptyvalueisset;
+
+      // Update text value if needed
+      IF (this->valstore.val = this->valstore.emptyval)
+      {
+        this->pvt_textvalue := this->GenerateTextValue();
+        this->ExtUpdatedValue();
+      }
+    }
+  }
+
+
+  VARIANT FUNCTION GetEmptyValue()
+  {
+    RETURN this->valstore.emptyval;
+  }
+
+
+  MACRO SetEmptyValue(VARIANT newvalue)
+  {
+    IF(NOT this->IsValidValue(newvalue))
+      THROW NEW TolliumException(this, "Textedit '" || this->name || "' of type '" || this->pvt_valuetype || "' received an empty value of type " || GetTypeName(TypeID(newvalue)));
+
+    BOOLEAN is_empty_before := this->valstore.val = this->valstore.emptyval;
+    this->valstore.emptyval := this->CastToValueType(newvalue);
+    BOOLEAN is_empty_after := this->valstore.val = this->valstore.emptyval;
+
+    IF (is_empty_before OR is_empty_after)
+    {
+      this->pvt_textvalue := this->GenerateTextValue();
+      this->ExtUpdatedValue();
+    }
+  }
+
+
+  MACRO SetDecimals(INTEGER decimals)
+  {
+    SWITCH (this->pvt_valuetype)
+    {
+    CASE "string", "integer", "integer64"
+      {
+        IF (decimals != 0)
+          THROW NEW TolliumException(this, "Textedit '" || this->name || "' of type '" || this->pvt_valuetype || "' received an invalid number of decimals (" || decimals || "). Only 0 is allowed.");
+      }
+    CASE "money"
+      {
+        IF (decimals < 0 OR decimals > 5)
+          THROW NEW TolliumException(this, "Textedit '" || this->name || "' of type '" || this->pvt_valuetype || "' received an invalid number of decimals (" || decimals || "). Only values from 0 to 5 inclusive are allowed.");
+      }
+    CASE "float"
+      {
+        IF (decimals < 0 OR decimals > 20)
+          THROW NEW TolliumException(this, "Textedit '" || this->name || "' of type '" || this->pvt_valuetype || "' received an invalid number of decimals (" || decimals || "). Only values from 0 to 5 inclusive are allowed.");
+      }
+    }
+
+    this->pvt_decimals := decimals;
+
+    IF (this->pvt_valuetype = "money" OR this->pvt_valuetype = "float")
+    {
+      this->pvt_textvalue := this->GenerateTextValue();
+      this->valstore.val := this->ParseTextValue(this->pvt_textvalue,TRUE).value;
+      this->ExtUpdatedValue();
+    }
+  }
+
+
+  MACRO SetRound(BOOLEAN round)
+  {
+    IF (this->pvt_round != round)
+    {
+      this->pvt_round := round;
+      IF (this->pvt_valuetype = "money")
+      {
+        this->pvt_textvalue := this->GenerateTextValue();
+        this->valstore.val := this->ParseTextValue(this->pvt_textvalue,TRUE).value;
+        this->ExtUpdatedValue();
+      }
+    }
+  }
+
+
+  MACRO SetMinimumValueIsSet(BOOLEAN newval)
+  {
+    IF (newval AND this->pvt_valuetype = "string")
+      THROW NEW Exception("Minimum value cannot be set in a textedit of type 'string'");
+
+    this->pvt_minimumvalueisset := newval;
+  }
+
+
+  VARIANT FUNCTION GetMinimumValue()
+  {
+    RETURN this->valstore.minval;
+  }
+
+
+  MACRO SetMinimumValue(VARIANT newvalue)
+  {
+    IF(NOT this->IsValidValue(newvalue))
+      THROW NEW TolliumException(this, "Textedit '" || this->name || "' of type '" || this->pvt_valuetype || "' received an minimum value of type " || GetTypeName(TypeID(newvalue)));
+
+    this->minimumvalueisset := TRUE;
+    this->valstore.minval := newvalue;
+  }
+
+
+  MACRO SetMaximumValueIsSet(BOOLEAN newval)
+  {
+    IF (newval AND this->pvt_valuetype = "string")
+      THROW NEW Exception("Maximum value cannot be set in a textedit of type 'string'");
+
+    this->pvt_maximumvalueisset := newval;
+  }
+
+
+  VARIANT FUNCTION GetMaximumValue()
+  {
+    RETURN this->valstore.maxval;
+  }
+
+
+  MACRO SetMaximumValue(VARIANT newvalue)
+  {
+    IF(NOT this->IsValidValue(newvalue))
+      THROW NEW TolliumException(this, "Textedit '" || this->name || "' of type '" || this->pvt_valuetype || "' received an maximum value of type " || GetTypeName(TypeID(newvalue)));
+
+    this->maximumvalueisset := TRUE;
+    this->valstore.maxval := newvalue;
+  }
+
+  MACRO SetAutoComplete(STRING ARRAY autocomplete)
+  {
+    IF (EncodeHSON(this->pvt_autocomplete) != EncodeHSON(autocomplete))
+    {
+      this->pvt_autocomplete := autocomplete;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetPrefix(STRING newprefix)
+  {
+    IF(this->pvt_prefix = newprefix)
+      RETURN;
+
+    this->pvt_prefix := newprefix;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetSuffix(STRING newsuffix)
+  {
+    IF(this->pvt_suffix = newsuffix)
+      RETURN;
+
+    this->pvt_suffix := newsuffix;
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE PUBLIC MACRO RestoreComponentState()
+  {
+    IF (Length(this->savestate) > 0 AND "value" IN this->savestate)
+    {
+      RECORD state := this->owner->tolliumuser->GetComponentState(this->GetSaveStateKey());
+      IF (RecordExists(state))
+      {
+        this->textvalue := state.value;
+      }
+    }
+    TolliumComponentBase::RestoreComponentState();
+  }
+
+  UPDATE PUBLIC MACRO SaveComponentState()
+  {
+    IF (Length(this->savestate) > 0 AND "value" IN this->savestate)
+    {
+      this->owner->tolliumuser->SetComponentState(this->GetSaveStateKey(), [ value := this->textvalue ]);
+    }
+    TolliumComponentBase::SaveComponentState();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Returns the default value for the current valuetype
+  VARIANT FUNCTION GetDefaultValue()
+  {
+    SWITCH(this->pvt_valuetype)
+    {
+    CASE "string"       { RETURN ""; }
+    CASE "integer"      { RETURN 0; }
+    CASE "integer64"    { RETURN 0i64; }
+    CASE "money"        { RETURN 0m; }
+    CASE "float"        { RETURN 0f; }
+    }
+    ABORT("Illegal value type '"||this->pvt_valuetype||"' encountered in TextEdit GetDefaultValue");
+  }
+
+
+  STRING FUNCTION ConvertToText(VARIANT value, BOOLEAN is_empty)
+  {
+    IF (is_empty)
+      RETURN "";
+
+    SWITCH(this->pvt_valuetype)
+    {
+    CASE "string"
+      {
+        RETURN value;
+      }
+    CASE "integer", "integer64"
+      {
+        RETURN ToString(value);
+      }
+    CASE "money"
+      {
+        RETURN this->contexts->user->FormatMoney(value, this->pvt_decimals, this->pvt_round);
+      }
+    CASE "float"
+      {
+        // FIXME: determine how many decimals are needed for correct representation
+        STRING text := FormatFloat(value, this->pvt_decimals);
+        RETURN Substitute(text, ".", ObjectExists(this->owner->tolliumuser) ? this->owner->tolliumuser->decimalseparator : ".");
+      }
+    }
+    ABORT("Illegal value type '"||this->pvt_valuetype||"' encountered in TextEdit ConvertToText");
+  }
+
+
+  /// Generates the canonical text value for the current value
+  STRING FUNCTION GenerateTextValue()
+  {
+    VARIANT value := this->valstore.val;
+
+    BOOLEAN is_empty := this->pvt_valuetype != "string"
+                    AND this->pvt_emptyvalueisset
+                    AND value = this->valstore.emptyval;
+
+    RETURN this->ConvertToText(value, is_empty);
+  }
+
+
+  VARIANT FUNCTION CastToValueType(VARIANT value)
+  {
+    SWITCH(this->pvt_valuetype)
+    {
+    CASE "string"       { RETURN this->trimwhitespace ? TrimWhitespace(STRING(value)) : STRING(value); }
+    CASE "integer"      { RETURN INTEGER(value); }
+    CASE "integer64"    { RETURN INTEGER64(value); }
+    CASE "money"        { RETURN MONEY(value); }
+    CASE "float"        { RETURN FLOAT(value); }
+    }
+    ABORT("Illegal value type '"||this->pvt_valuetype||"' encountered in TextEdit CastToValueType");
+  }
+
+
+  // Interprets number (for different decimal/thousands seperators)
+  RECORD FUNCTION InterpretDecimalNumber(STRING text, BOOLEAN fromuser)
+  {
+    // Algo:
+    // - Remove all occurrences of user's thousand separator
+    // - Take last seperator found in number
+    // - Convert that to '.', erase all other separators
+    // - Error out if last separator occurs twice
+
+    STRING thousandseparator;
+    STRING ARRAY decimalseperators;
+    IF(fromuser)
+    {
+      thousandseparator := ObjectExists(this->owner->tolliumuser) ? this->owner->tolliumuser->thousandseparator : ",";
+      decimalseperators := [ ".", ",", ":" ];
+    }
+    ELSE
+    {
+      thousandseparator := ",";
+      decimalseperators := ["."];
+    }
+
+    text := Substitute(TrimWhitespace(text), thousandseparator, "");
+    INTEGER last := -1;
+    STRING finalsep;
+    FOREVERY (STRING sep FROM decimalseperators)
+    {
+      INTEGER pos := SearchLastSubstring(text, sep);
+      IF (last = -1 OR pos > last)
+      {
+        last := pos;
+        finalsep := sep;
+      }
+    }
+    IF (last = -1)
+      RETURN [ valid := TRUE, number := text ];
+    IF (SearchSubString(text, finalsep) != last)
+      RETURN [ valid := FALSE, number := text ];
+
+    // Convert finalsep to '.', all other to ''
+    FOREVERY (STRING sep FROM decimalseperators)
+      text := Substitute(text, sep, sep = finalsep ? "." : "");
+
+    RETURN [ valid := TRUE, number := text ];
+  }
+
+
+  BOOLEAN FUNCTION CheckMoneyTextDecimals()
+  {
+    RECORD res := this->InterpretDecimalNumber(this->pvt_textvalue,TRUE);
+    IF (NOT res.valid)
+      RETURN FALSE;
+
+    INTEGER pos := SearchSubString(res.number, ".");
+    IF (pos = -1) // No . -> no decimals
+      RETURN TRUE;
+
+    RETURN LENGTH(res.number) - (pos + 1) <= this->pvt_decimals OR NOT this->pvt_round;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedValue()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.value := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedPlaceholder()
+  {
+    this->ExtUpdatedComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /// Returns whether the given value is a valid value for this textedit
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN CanCastTypeTo(TypeID(value), TypeID(this->valstore.val));
+  }
+
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    if(NOT this->IsUpdateable())
+      THROW NEW TolliumException(this, `Cannot update this field`);
+    this->textvalue := path;
+  }
+
+  /** Parses a text value
+      @param textvalue Text value to parse
+      @return Parsed value, and indicator whether the value was a valid value for the current value type.
+          No validation checks are performed.
+      @cell return.value Parsed value
+      @cell return.valid Whether the text value is a valid value for the current value type (a valid integer/money/etc.)
+          Validation checks are not performed.
+  */
+  RECORD FUNCTION ParseTextValue(STRING textvalue, BOOLEAN fromuser)
+  {
+    // Trim whitespace if needed
+    IF (this->trimwhitespace OR this->pvt_valuetype != "string")
+      textvalue := TrimWhitespace(textvalue);
+
+    // Check for empty values first.
+    IF (textvalue = "" AND this->pvt_emptyvalueisset)
+      RETURN
+          [ value := this->valstore.emptyval
+          , valid := TRUE
+          ];
+
+    SWITCH(this->pvt_valuetype)
+    {
+    CASE "string"
+      {
+        RETURN
+            [ value := textvalue
+            , valid := TRUE
+            ];
+      }
+    CASE "integer"
+      {
+        INTEGER value := ToInteger(textvalue, 0);
+        RETURN
+            [ value := value
+            , valid := value != 0 OR ToInteger(textvalue, -1) != -1
+            ];
+      }
+    CASE "integer64"
+      {
+        INTEGER64 value := ToInteger64(textvalue, 0);
+        RETURN
+            [ value := value
+            , valid := value != 0 OR ToInteger64(textvalue, -1) != -1
+            ];
+      }
+    CASE "money"
+      {
+        MONEY value;
+        RECORD res := this->InterpretDecimalNumber(textvalue, fromuser);
+        IF (res.valid)
+          value := ToMoney(res.number,0);
+        RETURN
+            [ value := value
+            , valid := res.valid AND (value != 0m OR ToMoney(res.number,-1) != -1)
+            ];
+      }
+    CASE "float"
+      {
+        FLOAT value;
+        RECORD res := this->InterpretDecimalNumber(textvalue, fromuser);
+        IF (res.valid)
+          value := ToFloat(res.number, 0);
+        RETURN
+            [ value := value
+            , valid := res.valid AND (value != 0f OR ToFloat(res.number, -1) != -1)
+            ];
+      }
+    }
+    ABORT("Illegal value type '"||this->pvt_valuetype||"' encountered in TextEdit ParseTextValue");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT ARRAY pvt_buttons;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** The buttons within the textedit
+  */
+  PUBLIC PROPERTY buttons(pvt_buttons, SetButtons);
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    __TolliumAutoSuggestableBase::StaticInit(def);
+
+    this->SetValueType(def.valuetype);
+    IF (def.emptyvalue != "")
+    {
+      RECORD parsed_emptyval := this->ParseTextValue(def.emptyvalue,FALSE);
+      IF (NOT parsed_emptyval.valid)
+        THROW NEW TolliumException(this, "Empty value '" || def.emptyvalue || "' is not a valid value for textedits of type '" || def.valuetype || "'");
+
+      this->emptyvalue := parsed_emptyval.value;
+      this->emptyvalueisset := TRUE;
+    }
+    IF (def.value != "") // Set value after emptyvalue, to ensure emptyvalue's effect on textvalue
+    {
+      RECORD parsed_val := this->ParseTextValue(def.value,FALSE);
+      IF (NOT parsed_val.valid)
+        THROW NEW TolliumException(this, "Value '" || def.value || "' is not a valid value for textedits of type '" || def.valuetype || "'");
+
+      this->value := parsed_val.value;
+    }
+    IF (def.minvalue != "")
+    {
+      RECORD parsed_val := this->ParseTextValue(def.minvalue,FALSE);
+      IF (NOT parsed_val.valid)
+        THROW NEW TolliumException(this, "Value '" || def.minvalue || "' is not a valid value for textedits of type '" || def.valuetype || "'");
+
+      this->minimumvalue := parsed_val.value;
+    }
+    IF (def.maxvalue != "")
+    {
+      RECORD parsed_val := this->ParseTextValue(def.maxvalue,FALSE);
+      IF (NOT parsed_val.valid)
+        THROW NEW TolliumException(this, "Value '" || def.maxvalue || "' is not a valid value for textedits of type '" || def.valuetype || "'");
+
+      this->maximumvalue := parsed_val.value;
+    }
+    this->password := def.password;
+    this->maxlength := def.maxlength;
+    this->maxlengthmeasure := def.maxlengthmeasure;
+    this->showcounter := def.showcounter;
+    this->trimwhitespace := def.trimwhitespace;
+    this->decimals := def.decimals;
+    this->pvt_round := def.round;
+    this->pvt_validationchecks := def.validationchecks;
+    this->onchange := def.onchange;
+    this->placeholder := def.placeholder;
+    this->savestate := def.savestate;
+    this->autocomplete := def.autocomplete;
+    this->prefix := def.prefix;
+    this->suffix := def.suffix;
+
+    this->pvt_optionsources := def.optionsources;
+    this->UpdateOptionsFromSources();
+
+    this->pvt_buttons := SELECT AS OBJECT ARRAY component FROM def.buttons;
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    RETURN this->buttons;
+  }
+
+  MACRO SetButtons(OBJECT ARRAY buttons)
+  {
+    FOREVERY (OBJECT button FROM buttons)
+      IF (ObjectExists(button->parent) AND button->parent != this)
+        THROW NEW Exception(`Cannot move components to another parent component`);
+
+    FOREVERY (OBJECT button FROM this->buttons)
+      IF (button NOT IN buttons)
+        button->RemoveFromParent();
+
+    FOREVERY (OBJECT button FROM buttons)
+    {
+      IF (NOT ObjectExists(button->parent))
+      {
+        button->pvt_parent := this;
+        button->RecursiveUpdateIsNowVisible();
+      }
+    }
+
+    this->pvt_buttons := buttons;
+    this->TolliumHandleAfterInsert(); // also calls this->ExtUpdatedComponent
+  }
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT comp)
+  {
+    INTEGER pos := SearchElement(this->pvt_buttons, comp);
+    IF (pos >= 0)
+      DELETE FROM this->pvt_buttons AT pos;
+  }
+
+>;

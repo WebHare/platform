@@ -1,0 +1,98 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+
+
+ASYNC MACRO TestFIFO()
+{
+  OBJECT f := NEW FIFO;
+
+  TestEQ(FALSE, f->signalled);
+  TestEQ(DEFAULT RECORD, f->Shift());
+  TestEQ(DEFAULT RECORD, f->Peek());
+
+  f->Push([ a := 1 ]);
+
+  TestEQ(TRUE, f->signalled);
+  TestEQ([ a := 1 ], f->Peek());
+  TestEQ([ a := 1 ], f->Shift());
+
+  TestEQ(FALSE, f->signalled);
+  TestEQ(DEFAULT RECORD, f->Shift());
+  TestEQ(DEFAULT RECORD, f->Peek());
+
+  f->Push([ a := 3 ]);
+  f->Push([ a := 4 ]);
+  TestEQ(TRUE, f->signalled);
+  TestEQ([ a := 3 ], f->Shift());
+  TestEQ(TRUE, f->signalled);
+  TestEQ([ a := 4 ], f->Shift());
+  TestEQ(FALSE, f->signalled);
+
+  f->Close();
+  TestEQ(TRUE, f->signalled);
+  TestEQ(DEFAULT RECORD, f->Shift());
+  TestEQ(TRUE, f->signalled);
+
+  // Async tests
+  f := NEW FIFO;
+  f->Push([ a := 5 ]);
+  f->Push([ a := 6 ]);
+  TestEQ([ a := 5 ], AWAIT f->AsyncPeek());
+  TestEQ([ a := 5 ], AWAIT f->AsyncShift());
+  TestEQ([ a := 6 ], AWAIT f->AsyncShift());
+
+  OBJECT nextshift := f->AsyncShift();
+  OBJECT next2peek := f->AsyncPeek();
+  OBJECT next2shift := f->AsyncShift();
+
+  // Shift waits for first item?
+  TestEQ([ type := "timeout", handle := -1 ], RECORD(WaitUntil([ promise := nextshift ], AddTimeToDate(100, GetCurrentDateTime()))));
+
+  f->Push([ a := 7 ]);
+  TestEQ([ a := 7 ], AWAIT nextshift);
+  f->Push([ a := 8 ]);
+  f->Close();
+
+  TestEQ([ a := 8 ], AWAIT next2peek);
+  TestEQ([ a := 8 ], AWAIT next2shift);
+  TestEQ(DEFAULT RECORD, AWAIT f->AsyncPeek());
+  TestEQ(DEFAULT RECORD, AWAIT f->AsyncShift());
+
+  // Throw when pushing if closed
+  TestThrows(PTR f->Push([ a := 9 ]));
+
+  f := NEW FIFO;
+  f->Push([ a := 20]);
+  f->Push([ a := 21 ]);
+
+  OBJECT aitr := f->AsyncReader();
+  TestEQ([ done := FALSE, value := [ a := 20 ] ], AWAIT aitr->Next());
+
+  // Shifts delayed when asyncreader is active
+  OBJECT nextashift := f->AsyncShift();
+  TestEQ([ type := "timeout", handle := -1 ], RECORD(WaitUntil([ promise := nextashift ], AddTimeToDate(100, GetCurrentDateTime()))));
+
+  TestEQ([ done := FALSE, value := [ a := 21 ] ], AWAIT aitr->Next());
+  f->Close();
+  TestEQ([ done := TRUE, value := DEFAULT RECORD ], AWAIT aitr->Next());
+  TestEQ(DEFAULT RECORD, AWAIT nextashift);
+
+
+  f := NEW FIFO;
+  f->Push([ a := 30 ]);
+  f->Push([ a := 31 ]);
+
+  aitr := f->AsyncReader();
+  TestEQ([ done := FALSE, value := [ a := 30 ] ], AWAIT aitr->Next());
+  OBJECT nextashift2 := f->AsyncShift();
+  aitr->SendReturn(DEFAULT RECORD);
+
+  TestEQ([ a := 31 ], AWAIT nextashift2);
+}
+
+RunTestframework([ PTR TestFIFO
+                 ]);

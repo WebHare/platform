@@ -1,0 +1,190 @@
+<?wh
+
+LOADLIB "wh::promise.whlib";
+
+
+// Inspired by puppeteer Coverage (https://github.com/GoogleChrome/puppeteer/blob/master/lib/Coverage.js)
+PUBLIC STATIC OBJECTTYPE Coverage
+<
+  OBJECT _client;
+  OBJECT _jscoverage;
+  OBJECT _csscoverage;
+
+  MACRO NEW(OBJECT client)
+  {
+    this->_client := client;
+    this->_jscoverage := NEW JSCoverage(client);
+    this->_csscoverage := NEW CSSCoverage(client);
+  }
+
+  PUBLIC ASYNC MACRO StartJSCoverage(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    AWAIT this->_jscoverage->Start(options);
+  }
+
+  PUBLIC ASYNC FUNCTION StopJSCoverage()
+  {
+    RETURN this->_jscoverage->Stop();
+  }
+
+  PUBLIC ASYNC MACRO StartCSSCoverage(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    AWAIT this->_csscoverage->Start(options);
+  }
+
+  PUBLIC ASYNC FUNCTION StopCSSCoverage()
+  {
+    RETURN this->_csscoverage->Stop();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE JSCoverage
+<
+  OBJECT _client;
+  BOOLEAN _enabled;
+  RECORD ARRAY _scripts;
+  RECORD options;
+  OBJECT eventlisteners;
+
+
+  MACRO NEW(OBJECT client)
+  {
+    this->_client := client;
+  }
+
+  PUBLIC ASYNC MACRO Start(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF (this->_enabled)
+      THROW NEW Exception("JSCoverage is already enabled");
+
+    this->options := ValidateOptions(
+        [ resetOnNavigation :=    TRUE
+        ], options);
+
+    this->eventlisteners := this->_client->GetListenGroup();
+    this->eventlisteners->AddListener("Debugger.scriptParsed", PTR this->GotScriptParsed);
+    this->eventlisteners->AddListener("Runtime.executionContextsCleared", PTR this->GotExecutionContextsCleared);
+
+    AWAIT CreatePromiseAll(OBJECT
+        [ this->_client->^Profiler->^Enable()
+        , this->_client->^Profiler->^startPreciseCoverage([ callcount := FALSE, detailed := TRUE ])
+        , this->_client->^Debugger->^Enable()
+        , this->_client->^Debugger->^setSkipAllPauses([ skip := TRUE ])
+        ]);
+  }
+
+  MACRO GotExecutionContextsCleared(RECORD event)
+  {
+    IF (NOT this->options.resetOnNavigation)
+      RETURN;
+
+    this->_scripts := RECORD[];
+  }
+
+  ASYNC MACRO GotScriptParsed(RECORD event)
+  {
+    IF (event.url = "")
+      RETURN;
+    TRY
+    {
+      RECORD response := AWAIT this->_client->^Debugger->^GetScriptSource([ scriptid := event.scriptid ]);
+      INSERT CELL[ event.scriptid, event.url, text := response.scriptSource ] INTO this->_scripts AT END;
+    }
+    CATCH (OBJECT e)
+    {
+      // might happen when the page has already navigated away
+    }
+  }
+
+  PUBLIC ASYNC FUNCTION Stop()
+  {
+    RECORD profileresponse := (AWAIT CreatePromiseAll(OBJECT
+        [ this->_client->^Profiler->^takePreciseCoverage()
+        , this->_client->^Profiler->^stopPreciseCoverage()
+        , this->_client->^Profiler->^Disable()
+        , this->_client->^Debugger->^Disable()
+        ]))[0];
+
+    this->_enabled := FALSE;
+    this->eventlisteners->Close();
+
+    // ADDME: process
+    RETURN profileresponse.result;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE CSSCoverage
+<
+  OBJECT _client;
+  BOOLEAN _enabled;
+  RECORD ARRAY _stylesheets;
+  RECORD options;
+  OBJECT eventlisteners;
+
+
+  MACRO NEW(OBJECT client)
+  {
+    this->_client := client;
+  }
+
+  PUBLIC ASYNC MACRO Start(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF (this->_enabled)
+      THROW NEW Exception("CSSCoverage is already enabled");
+
+    this->options := ValidateOptions(
+        [ resetOnNavigation :=    TRUE
+        ], options);
+
+    this->eventlisteners := this->_client->GetListenGroup();
+    this->eventlisteners->AddListener("CSS.styleSheetAdded", PTR this->GotStyleSheet);
+    this->eventlisteners->AddListener("Runtime.executionContextsCleared", PTR this->GotExecutionContextsCleared);
+
+    PRINT(`start csscoverage\n`);
+    AWAIT CreatePromiseAll(OBJECT
+        [ this->_client->^DOM->^Enable()
+        , this->_client->^CSS->^Enable()
+        , this->_client->^CSS->^startRuleUsageTracking()
+        ]);
+    PRINT(`csscoverage started\n`);
+  }
+
+  MACRO GotExecutionContextsCleared(RECORD event)
+  {
+    IF (NOT this->options.resetOnNavigation)
+      RETURN;
+
+    this->_stylesheets := RECORD[];
+  }
+
+  ASYNC MACRO GotStyleSheet(RECORD event)
+  {
+    DumpValue(event);
+    IF (event.header.sourceurl = "")
+      RETURN;
+    TRY
+    {
+      RECORD response := AWAIT this->_client->^CSS->^GetStyleSheetText([ styleSheetId := event.header.styleSheetId ]);
+      INSERT CELL[ event.header.styleSheetId, url := event.header.sourceURL, source := response.text ] INTO this->_stylesheets AT END;
+    }
+    CATCH (OBJECT e)
+    {
+      // might happen when the page has already navigated away
+    }
+  }
+
+  PUBLIC ASYNC FUNCTION Stop()
+  {
+    RECORD ruleTrackingResponse := (AWAIT CreatePromiseAll(OBJECT
+        [ this->_client->^CSS->^stopRuleUsageTracking()
+        , this->_client->^CSS->^Disable()
+        , this->_client->^DOM->^Disable()
+        ]))[0];
+
+    this->_enabled := FALSE;
+    this->eventlisteners->Close();
+
+    // ADDME: process
+    RETURN ruleTrackingResponse.ruleUsage;
+  }
+>;

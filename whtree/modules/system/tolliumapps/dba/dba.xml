@@ -1,0 +1,140 @@
+<?xml version="1.0" ?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="dba.whlib" gid="tolliumapps.dba">
+
+  <screen name="main" allowresize="true" savestate="size" gid=".main" tid=".dba" menubar="menubar" width="160x" height="40x">
+    <!-- All possible global actions -->
+    <actions>
+      <action name="addcolumn">
+        <enableon source="columns" max="-1" />
+      </action>
+      <action name="delete" tid="~delete">
+        <enableon source="databases" checkflags="candelete" min="1" max="1" onexecute="dodelete" />
+        <enableon source="columns" checkflags="candelete" min="1" max="1" onexecute="dodeletecolumn" />
+      </action>
+      <action name="exportschema" onexecute="doexportschema">
+        <enableon source="databases" checkflags="isschema" min="1" max="1" />
+      </action>
+      <action name="importschema" onexecute="doimportschema" />
+      <action name="runsqlclient" onexecute="dorunsqlclient" />
+      <action name="updateschemas" onexecute="doupdateschemas"/>
+    </actions>
+
+    <menus>
+      <menu name="menubar">
+        <item action="exportschema" />
+        <item action="importschema" />
+        <divider />
+        <item action="updateschemas" />
+        <divider />
+        <item action="runsqlclient" />
+        <divider />
+        <item action="delete" />
+      </menu>
+
+      <menu name="selection_databases">
+        <item action="delete" />
+        <item action="exportschema" />
+      </menu>
+
+      <menu name="selection_columns">
+        <item action="delete" />
+      </menu>
+
+      <menu name="noselection_columns">
+        <item action="addcolumn" />
+      </menu>
+
+    </menus>
+
+    <!-- The button bar -->
+    <toolbar name="buttons">
+      <button action="runsqlclient" />
+      <divider />
+      <button action="delete" icon="tollium:actions/delete" />
+    </toolbar>
+
+    <body spacers="none">
+      <split type="horizontal">
+        <part width="1pr">
+          <list name="databases"
+                width="1pr"
+                height="1pr"
+                borders="none"
+                selectmode="single"
+                onselect="onselectschema"
+                columnheaders="0"
+                flags="candelete isschema istable"
+                ongetpath="ondatabasestreepath"
+                ongetchildren="ondatabasesloaditems"
+                selectcontextmenu="selection_databases"
+                oncelledit="ondatabasescelledit"
+                icons="tollium:database/database tollium:database/schema tollium:database/table tollium:database/view"
+                savestate="selection">
+            <column type="text" tree="1" name="name" iconname="icon" edittype="textedit" title="" />
+          </list>
+        </part>
+        <part width="5pr">
+          <tabs width="5pr" height="1pr" name="dbtabs">
+            <tab tid=".columns">
+              <visibleon source="databases" checkflags="istable" min="1" max="1" />
+              <panel height="1pr">
+                <list name="columns"
+                      selectmode="single"
+                      icons="tollium:security/key"
+                      selectcontextmenu="selection_columns"
+                      newcontextmenu="noselection_columns"
+                      flags="candelete"
+                      >
+                  <column width="2pr"  type="text" name="columnname" iconname="icon" />
+                  <column width="2pr"  type="text" name="columntype" />
+                  <column width="2pr"  type="text" name="references" />
+                  <column width="3pr"  type="text" name="constraints" />
+                </list>
+              </panel>
+            </tab>
+            <tab tid=".indices">
+              <visibleon source="databases" checkflags="istable" min="1" max="1" />
+              <panel height="1pr">
+                <list name="indices"
+                      selectmode="single"
+                      icons="tollium:security/key"
+                      >
+                  <column width="2pr"  type="text" name="name" />
+                  <column width="5x"  type="text" name="is_unique" />
+                  <column width="5x"  type="text" name="is_uppercase" />
+                  <column width="3pr"  type="text" name="cols" tid=".columns" />
+                </list>
+              </panel>
+            </tab>
+            <tab tid=".defs" name="definitionstab" spacers="none">
+              <visibleon source="databases" checkflags="isschema" min="1" max="1" />
+              <codeedit name="definition" width="1pr" height="1pr" />
+            </tab>
+            <tab tid=".databasewhlib" name="databasewhlibtab" spacers="none">
+              <visibleon source="databases" checkflags="isschema" min="1" max="1" />
+              <codeedit name="databasewhlib" width="1pr" height="1pr" />
+            </tab>
+            <tab tid=".roles">
+              <visibleon source="databases" checkflags="isschema" min="1" max="1" />
+              <list name="roles"
+                    selectmode="single">
+                <column width="12x" type="integer" name="roleid" />
+                <column type="text" name="name" />
+              </list>
+            </tab>
+          </tabs>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="importwizard" gid=".importwizard">
+    <body spacers="none">
+      <wizard>
+        <page isfinish="true">
+          <textedit name="schemaname" required="true" />
+        </page>
+      </wizard>
+    </body>
+  </screen>
+</screens>

@@ -1,0 +1,121 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+
+ASYNC MACRO TestRunQuery()
+{
+  OBJECT browser := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components" library="${Resolve("test_wrdcomponents.whlib")}">
+  <screen name="testrunquery">
+    <body>
+      <select name="select1" type="pulldown">
+        <wrd:runquery wrdschema="wrd:testschema" wrdtype="test_domain_1" />
+      </select>
+    </body>
+  </screen>
+</screens>#testrunquery`);
+
+  //Test whether directly setting the value without asking for options works
+  OBJECT domvaltype := testfw->wrdschema->^test_domain_1;
+  browser->select1->value := domvaltype->Search("WRD_TAG", "TEST_DOMAINVALUE_1_2");
+  TestEq(domvaltype->Search("WRD_TAG", "TEST_DOMAINVALUE_1_2"), browser->select1->value);
+}
+
+ASYNC MACRO TestWRDGender()
+{
+  OBJECT browser := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+  <screen name="testwrdgender" implementation="none">
+    <compositions>
+      <record name="entity" />
+    </compositions>
+    <body>
+      <wrd:gender composition="entity" cellname="wrd_gender" required="true" />
+    </body>
+  </screen>
+</screens>#testwrdgender`);
+
+  AWAIT ExpectScreenChange(+1, PTR browser->RunModal());
+
+  TestEQ([ wrd_gender := 0 ], topscreen->^entity->value);
+  topscreen->^entity->value := [ wrd_gender := 1 ];
+  TestEQ([ wrd_gender := 1 ], topscreen->^entity->value);
+  topscreen->^entity->value := [ wrd_gender := 2 ];
+  TestEQ([ wrd_gender := 2 ], topscreen->^entity->value);
+  topscreen->^entity->^wrd_gender->value := 1;
+  TestEQ([ wrd_gender := 1 ], topscreen->^entity->value);
+
+  TestEq(TRUE, topscreen->^entity->^wrd_gender->required);
+  TestEq(TRUE, topscreen->^entity->^wrd_gender->gender->required);
+  topscreen->^entity->^wrd_gender->required := FALSE;
+  TestEq(FALSE, topscreen->^entity->^wrd_gender->gender->required);
+
+  TestThrowsLike("*'GENDER'*", PTR GetMember(topscreen->^entity,"^GENDER"));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+ASYNC MACRO TestEntitiesEdit()
+{
+  // Test entities edit, in 'ordered' mode new values should be added with a wrd_ordering, higher than the other orderings
+  OBJECT wrdschema := OpenWRDSchema("wrd:testschema");
+
+  STRING screenfile := `
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components" library="${Resolve("test_wrdcomponents.whlib")}">
+  <screen name="testentitiesedit">
+    <body>
+      <wrd:entitiesedit name="entities" wrdtype="test_domain_1" orderable="true" entityeditscreen="#editentity" deletemode="close" onchangeorder="GotChangeOrder">
+        <column name="wrd_title" type="text" />
+      </wrd:entitiesedit>
+    </body>
+  </screen>
+  <screen name="editentity" implementation="wrd:entityedit">
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+    <body>
+      <textedit composition="entity" cellname="wrd_title" title="Title" required="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+</screens>`;
+
+  OBJECT testscreen := GetTestController()->LoadScreen(`inline-base64::${EncodeBase64(screenfile)}#testentitiesedit`, DEFAULT RECORD, [ contexts := CELL[ wrdschema ] ]);
+
+  AWAIT ExpectScreenChange(+1, PTR testscreen->RunModal());
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT(":Title")->value := "new domain value";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  RECORD ARRAY allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
+  TestEQMembers(
+      [ [ wrd_title := "Domain value 1.1", wrd_ordering := 1 ]
+      , [ wrd_title := "Domain value 1.2", wrd_ordering := 2 ]
+      , [ wrd_title := "Domain value 1.3", wrd_ordering := 3 ]
+      , [ wrd_title := "new domain value", wrd_ordering := 4 ]
+      ], allvals, "*");
+
+  TTFillByTitle("entities->entities->list", "new domain value");
+  TTClick(":Up");
+  TestEQ(INTEGER[ allvals[0].wrd_id, allvals[1].wrd_id, allvals[3].wrd_id, allvals[2].wrd_id ], testscreen->__lastchangeorderlist);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+RunTestFramework([ PTR CreateWRDTestSchema
+                 , PTR TestRunQuery
+                 , PTR TestWRDGender
+                 , PTR TestEntitiesEdit
+                 ],
+                 [ testusers := [[ login := "user", grantrights := DEFAULT STRING ARRAY ]]
+                 ]);

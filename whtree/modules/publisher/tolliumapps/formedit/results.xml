@@ -1,0 +1,98 @@
+<screens
+    xmlns="http://www.webhare.net/xmlns/tollium/screens" library="results.whlib" gid="tolliumapps.formedit.results">
+
+  <screen
+      name="results"
+      width="120x" height="40x"
+      allowresize="true"
+      savestate="size"
+      flags="issupervisor canedit">
+    <actions>
+       <action name="exportresults" onexecute="doexportresults" tid="~export" />
+       <action name="exportresultswithattachments" onexecute="DoExportResultsWithAttachments" />
+       <downloadaction name="exportresultsformigration" ondownload="DoExportResultsForMigration" />
+       <uploadaction name="importresultsfrommigration" onupload="DoImportResultsFromMigration" />
+       <action name="showresult" onexecute="doshowresult" tid="~open">
+        <enableon source="results" min="1" max="1" />
+      </action>
+       <action name="delete" frameflags="canedit" tid="~delete">
+        <enableon source="results" min="1" onexecute="dodeleteresult" />
+      </action>
+       <action name="deleteallresults" onexecute="dodeleteallresults" frameflags="canedit" tid="~deleteall" />
+    </actions>
+    <menus>
+      <menu name="resultsmenu">
+        <item action="showresult" />
+        <item name="test" />
+        <divider />
+        <item action="delete" />
+      </menu>
+    </menus>
+    <compositions>
+      <eventlistener name="eventlistener" onevents="onnewresults" />
+    </compositions>
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list
+              name="results"
+              emptytid=".noresults"
+              selectcontextmenu="resultsmenu"
+              selectmode="multiple"
+              openaction="showresult"
+              icons="tollium:buttonbar/plus tollium:buttonbar/minus"
+              sortcolumn="when"
+              sortascending="false">
+            <style name="pending" textcolor="#888888" />
+            <style name="expired" textcolor="#888888" />
+            <!-- Columns are inserted dynamically -->
+          </list>
+        </cell>
+        <cell>
+          <button width="1pr" action="showresult"/>
+          <button width="1pr" action="delete"/>
+          <spacer height="1gr" />
+          <button width="1pr" action="exportresults"/>
+          <button width="1pr" action="exportresultswithattachments"/>
+          <button width="1pr" action="deleteallresults"/>
+          <spacer height="1gr" />
+          <button name="migrationexportbutton" width="1pr" action="exportresultsformigration" tid=".exportresultsformigration"/>
+          <button name="migrationimportbutton" width="1pr" action="importresultsfrommigration" tid=".importresultsfrommigration"/>
+          <spacer height="1pr" />
+          <line layout="right">
+            <text name="numresults" />
+          </line>
+        </cell>
+      </grid>
+    </body>
+    <footer>
+      <grid width="1pr">
+        <cell width="1pr">
+          <line>
+            <checkbox name="showpendingresults" title="" labeltid=".showpendingresults" onchange="onshowpendingresults" />
+            <spacer name="showpendingspacer" width="1x" />
+            <checkbox name="showexpiredresults" title="" labeltid=".showexpiredresults" onchange="onshowexpiredresults" />
+          </line>
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="close" />
+        </cell>
+      </grid>
+    </footer>
+  </screen>
+
+  <screen
+      name="singleresult"
+      allowresize="true"
+      width="75x"
+      height="30x">
+    <body name="fields" vscroll="true">
+      <!-- Fields are inserted dynamically -->
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+
+</screens>

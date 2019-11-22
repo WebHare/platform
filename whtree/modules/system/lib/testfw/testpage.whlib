@@ -1,0 +1,42 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+OBJECTTYPE TestContext
+<
+  PUBLIC STRING basefolder;
+>;
+
+PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+    IF(cellrec.name NOT IN ["JSFILE"])
+    {
+      THROW NEW Exception("Unknown option '" || cellrec.name || "'");
+    }
+
+  STRING jsfile := CellExists(options,"JSFILE") ? options.jsfile : "";
+
+  IF(jsfile="")
+    THROW NEW Exception("Expected a JS file to include"); //can we run without ?
+
+  //ADDME more intelligent resolving
+  STRING caller := GetStackTrace()[1].filename;
+  IF(caller NOT LIKE "direct::" || GetModuleInstallationRoot("webhare_testsuite") || "*")
+    ABORT("Unable to resolve caller " || caller || ", testsuite = " || GetModuleInstallationRoot("webhare_testsuite"));
+
+  STRING basepath := "mod::webhare_testsuite/" || GetDirectoryFromPath(Substring(caller, Length("direct::" || GetModuleInstallationRoot("webhare_testsuite"))));
+  IF(jsfile NOT LIKE "/*" AND jsfile NOT LIKE "mod::*")
+    jsfile := basepath || jsfile;
+
+  OBJECT context := NEW TestContext;
+  context->basefolder := basepath;
+
+  OBJECT depresolver := CreateDependencyResolverForJSFile(GetWebHareResourceDiskPath(jsfile), [ supportedlanguages := [ "en" ]]);
+  LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->Run( [ printheaders := PTR depresolver->PrintHeaders(DEFAULT OBJECT,"")
+                                                                         , body := PTR pagebody(context)
+                                                                         ]);
+}

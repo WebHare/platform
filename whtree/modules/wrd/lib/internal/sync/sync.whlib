@@ -1,0 +1,708 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::internal/any.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
+
+LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
+LOADLIB "mod::wrd/lib/internal/sync/service.whlib";
+LOADLIB "mod::wrd/lib/internal/sync/support.whlib";
+
+
+/// Settings that will be ignored
+CONSTANT STRING ARRAY ignore_schemasettings :=
+    [ "wrd:syncpoints"
+    , "wrd:schemaresources"
+    , "wrd:sync.history"
+    ];
+
+RECORD ARRAY FUNCTION GetExisting(RECORD ARRAY newcurrentcontents, INTEGER id)
+{
+  RECORD ARRAY existing;
+  INTEGER cnt;
+  FOREVERY (RECORD rec FROM newcurrentcontents)
+  {
+    IF (id IN rec.parents)
+    {
+      existing := existing CONCAT rec.existing;
+      cnt := cnt + 1;
+    }
+  }
+  IF (cnt > 1)
+    existing := SELECT * FROM existing ORDER BY wrd_guid;
+  RETURN existing;
+}
+
+STRING FUNCTION GetTypeTagById(RECORD ARRAY newcurrentcontents, INTEGER id)
+{
+  RETURN SELECT AS STRING tag FROM newcurrentcontents WHERE COLUMN id = VAR id;
+}
+
+PUBLIC RECORD ARRAY FUNCTION EnrichLocalLinksAttrEntities(RECORD ARRAY newcurrentcontents, RECORD ARRAY attrs)
+{
+  FOREVERY (RECORD attr FROM attrs)
+  {
+    IF (attr.attributetypename IN [ "IMAGE", "FILE" ])
+      CONTINUE;
+
+    IF (attr.attributetypename = "ARRAY")
+      attrs[#attr].fields := EnrichLocalLinksAttrEntities(newcurrentcontents, attr.fields);
+    ELSE
+      INSERT CELL __map := GetExisting(newcurrentcontents, attr.domain) INTO attrs[#attr];
+  }
+  RETURN attrs;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetKnownBlobs(RECORD ARRAY attrs, RECORD ARRAY data)
+{
+  RECORD ARRAY result;
+  FOREVERY (RECORD attr FROM attrs)
+  {
+    IF (attr.attributetypename IN [ "IMAGE", "FILE" ])
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD filerec := GetCell(rec, attr.localtag);
+        IF (RecordExists(filerec))
+          INSERT CELL[ filerec.hash, filerec.data ] INTO result AT END;
+      }
+    }
+    ELSE IF (attr.attributetypename = "RICHDOCUMENT")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD docrec := GetCell(rec, attr.localtag);
+        IF (RecordExists(docrec))
+          FOREVERY (RECORD embed FROM docrec.embedded)
+            INSERT CELL[ embed.hash, embed.data ] INTO result AT END;
+      }
+    }
+    ELSE IF (attr.attributetypename = "ARRAY")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD ARRAY elts := GetCell(rec, attr.localtag);
+        result := result CONCAT GetKnownBlobs(attr.fields, elts);
+      }
+    }
+  }
+  RETURN result;
+}
+
+PUBLIC RECORD ARRAY FUNCTION RestoreLocalLinks(RECORD ARRAY newcurrentcontents, RECORD ARRAY attrs, RECORD ARRAY data, RECORD ARRAY sortedblobs, STRING fortype)
+{
+  IF (LENGTH(data) = 0)
+    RETURN data;
+
+  FOREVERY (RECORD attr FROM attrs)
+  {
+    // Skip attributes that don't exist locally
+    IF (NOT CellExists(data[0], attr.localtag))
+      CONTINUE;
+
+    IF (attr.attributetypename IN [ "IMAGE", "FILE" ])
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD filerec := GetCell(rec, attr.localtag);
+        IF (RecordExists(filerec) AND NOT CellExists(filerec, "DATA"))
+        {
+          RECORD pos := RecordLowerBound(sortedblobs, filerec, [ "HASH" ]);
+          IF (NOT pos.found)
+            THROW NEW exception(`Could not find blob with hash '${filerec.hash}'`);
+
+          __sync_reusedblobs := __sync_reusedblobs + 1;
+          INSERT CELL data := sortedblobs[pos.position].data INTO filerec;
+          data[#rec] := CellUpdate(rec, attr.localtag, filerec);
+        }
+      }
+
+      CONTINUE;
+    }
+
+    IF (attr.attributetypename = "RICHDOCUMENT")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD docrec := GetCell(rec, attr.localtag);
+        IF (RecordExists(docrec))
+        {
+          FOREVERY (RECORD embed FROM docrec.embedded)
+            IF (NOT CellExists(embed, "DATA"))
+            {
+              RECORD pos := RecordLowerBound(sortedblobs, embed, [ "HASH" ]);
+              IF (NOT pos.found)
+                THROW NEW exception(`Could not find blob with hash '${embed.hash}'`);
+
+              __sync_reusedblobs := __sync_reusedblobs + 1;
+              INSERT CELL data := sortedblobs[pos.position].data INTO docrec.embedded[#embed];
+            }
+          data[#rec] := CellUpdate(rec, attr.localtag, docrec);
+        }
+      }
+
+      CONTINUE;
+    }
+
+    IF (attr.attributetypename = "ARRAY")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD ARRAY elts := GetCell(rec, attr.localtag);
+        FOR (INTEGER i := 0, e := LENGTH(elts); i < e; i := i + 1)
+          DELETE CELL wrd_settingid FROM elts[i];
+        data[#rec] := DEFAULT RECORD;
+        data[#rec] := CellUpdate(rec, attr.localtag, RestoreLocalLinks(newcurrentcontents, attr.fields, elts, sortedblobs, fortype));
+      }
+      CONTINUE;
+    }
+
+    // domain or domain array
+    RECORD ARRAY map := attr.__map;
+
+    INTEGER ARRAY alllinks;
+    IF (attr.attributetypename = "DOMAIN")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        STRING link := GetCell(rec, attr.localtag);
+        data[#rec] := DEFAULT RECORD;
+        rec := CellDelete(rec, attr.localtag);
+        INTEGER rewrite;
+        IF (link != "")
+        {
+          RECORD pos := RecordLowerBound(map, [ wrd_guid := link ], [ "WRD_GUID" ]);
+          IF (NOT pos.found)
+            THROW NEW Exception(`Could not find entity with guid '${link}' of type '${GetTypeTagById(newcurrentcontents, attr.domain)}'`);
+          rewrite := map[pos.position].wrd_id;
+        }
+        data[#rec] := CellInsert(rec, attr.localtag, rewrite);
+      }
+    }
+    ELSE IF (attr.attributetypename = "DOMAINARRAY")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        data[#rec] := DEFAULT RECORD;
+        STRING ARRAY links := GetCell(rec, attr.localtag);
+        INTEGER ARRAY rewrite;
+
+        FOREVERY (STRING link FROM links)
+        {
+          RECORD pos := RecordLowerBound(map, [ wrd_guid := link ], [ "WRD_GUID" ]);
+          IF (NOT pos.found)
+            THROW NEW Exception(`Could not find entity of type '${GetTypeTagById(newcurrentcontents, attr.domain)}'`);
+          INSERT map[[pos].position].wrd_id INTO rewrite AT END;
+        }
+
+        rec := CellDelete(rec, attr.localtag);
+        data[#rec] := CellInsert(rec, attr.localtag, rewrite);
+      }
+    }
+    ELSE IF (attr.attributetypename = "PAYMENT")
+    {
+      FOREVERY (RECORD rec FROM data)
+      {
+        RECORD payment := GetCell(rec, attr.localtag);
+        data[#rec] := DEFAULT RECORD;
+        INTEGER top_rewrite;
+        IF (payment.paymentprovider != "")
+        {
+          RECORD pos := RecordLowerBound(map, [ wrd_guid := payment.paymentprovider ], [ "WRD_GUID" ]);
+          IF (NOT pos.found)
+            THROW NEW Exception(`Could not find entity of type '${GetTypeTagById(newcurrentcontents, attr.domain)}'`);
+          top_rewrite := map[pos.position].wrd_id;
+        }
+        payment := CELL[ ...payment, paymentprovider := top_rewrite ];
+        FOREVERY (RECORD prec FROM payment.payments)
+        {
+          INTEGER arr_rewrite;
+          IF (prec.paymentprovider != "")
+          {
+            RECORD pos := RecordLowerBound(map, [ wrd_guid := prec.paymentprovider ], [ "WRD_GUID" ]);
+            IF (NOT pos.found)
+              THROW NEW Exception(`Could not find entity of type '${GetTypeTagById(newcurrentcontents, attr.domain)}'`);
+            arr_rewrite := map[pos.position].wrd_id;
+          }
+          payment.payments[#prec] := CELL[ ...prec, paymentprovider := arr_rewrite ];
+        }
+        data[#rec] := CellUpdate(rec, attr.localtag, payment);
+      }
+    }
+
+  }
+
+  RETURN data;
+}
+
+/** Synchronize a local schema with the contents of an external schema
+    @param wrdschema WRD schema to update
+    @param remotepeer Peer where the source schema is located (DEFAULT OBJECT to use this WebHare installation)
+    @param remoteschemaname Name of the source schema
+    @cell(string array)  options.excludetypes List of types that must not be updated
+    @cell(string array)  options.includetypes If not empty, list of types that must be updated (excludedtypes takes priority over this list)
+    @cell(string array) options.forcetypes List of mask for types for which all entities must be updated
+    @cell(object %WebBrowser) options.browser Optional browser to use
+    @cell(boolean) options.commitoften Whether to commit multiple times during the syncing process (instead of only once, after the sync)
+    @cell(boolean) options.updateall Set to TRUE to update all entities with their source data
+    @cell(boolean) options.updatesynchistory Update the creation source with sync data
+*/
+PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepeer, STRING remoteschemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ excludetypes :=   STRING[]
+      , includetypes :=   STRING[]
+      , forcetypes :=     STRING[]
+      , browser :=        DEFAULT OBJECT
+      , commitoften :=    FALSE
+      , updateall :=      FALSE
+      , updatesynchistory := TRUE
+      ], options);
+
+  // Is this a full synchronization?
+  BOOLEAN isfullsync := LENGTH(options.excludetypes) = 0 AND (LENGTH(options.includetypes) = 0 OR "*" IN options.includetypes);
+
+  FOREVERY (STRING s FROM options.excludetypes)
+    options.excludetypes[#s] := ToUppercase(s);
+  FOREVERY (STRING s FROM options.includetypes)
+    options.includetypes[#s] := ToUppercase(s);
+
+  RECORD ARRAY currentcontents;
+
+  OBJECT whfsmapper;
+
+  IF (ObjectExists(remotepeer))
+  {
+    RECORD connectinfo := remotepeer->InvokeAdminService("connect");
+    IF (connectinfo.version >= 41501)
+      whfsmapper := NEW WHFSResourceNameMapper;
+  }
+  ELSE
+    whfsmapper := NEW WHFSResourceNameMapper;
+
+  GetPrimary()->BeginWork();
+  GetPrimary()->DisableWorkTimeout();
+
+  RECORD ARRAY localtypes := SELECT * FROM wrdschema->ListTypes() ORDER BY tag;
+
+  RECORD ARRAY knownblobs;
+  FOREVERY (RECORD typerec FROM localtypes)
+  {
+    BOOLEAN isexcluded;
+    FOREVERY(STRING exclude FROM options.excludetypes)
+      IF(ToUppercase(typerec.tag) LIKE exclude)
+        isexcluded := TRUE;
+
+    IF (isexcluded)
+      CONTINUE;
+//    IF (LENGTH(options.includetypes) != 0 AND typerec.tag NOT IN options.includetypes)
+//      CONTINUE;
+
+    YIELD [ status := `Gather local entities for domain ${typerec.tag}`, progress := 20m * #typerec / LENGTH(localtypes) ];
+
+    OBJECT type := wrdschema->GetType(typerec.tag);
+
+    RECORD ARRAY attrs := GenerateProcessingInstructions(type, 0, [ "*" ]);
+    DELETE FROM attrs WHERE NOT __haveblob;
+    STRING ARRAY blobattrs := SELECT AS STRING ARRAY COLUMN localtag FROM attrs WHERE __haveblob;
+
+    RECORD ARRAY currententities :=
+        SELECT *
+          FROM type->RunQuery(
+                  [ outputcolumns :=  [ "wrd_id", "wrd_guid", "wrd_modificationdate", ...blobattrs ]
+                  , filters :=        [ [ field := "WRD_TYPE", value := type->id ] ]
+                  , historymode :=    "__getfields"
+                  ])
+      ORDER BY wrd_guid;
+
+    IF (options.updateall OR __MatchesAnyMask(typerec.tag, options.forcetypes))
+    {
+
+      // Update modificationdate so sync will update all
+      FOR (INTEGER i := 0, e := LENGTH(currententities); i < e; i := i + 1)
+        currententities[i].wrd_modificationdate := DEFAULT DATETIME;
+    }
+
+    knownblobs := knownblobs CONCAT GetKnownBlobs(attrs, currententities);
+
+    // Remove the blob attributes
+    currententities := SELECT wrd_id, wrd_guid, wrd_modificationdate FROM currententities;
+
+    INSERT [ type := typerec.tag, entities := currententities ] INTO currentcontents AT END;
+  }
+
+  knownblobs := SELECT * FROM knownblobs ORDER BY hash;
+
+  RECORD res;
+  RECORD syncinstructionoptions := CELL
+      [ ...options
+      , DELETE browser
+      , DELETE commitoften
+      , DELETE updateall
+      , DELETE forcetypes
+      , DELETE updatesynchistory
+      , knownblobs :=     (SELECT AS STRING ARRAY DISTINCT hash FROM knownblobs)
+      ];
+
+  IF (ObjectExists(whfsmapper))
+    INSERT CELL mapwhfslinks := TRUE INTO syncinstructionoptions;
+
+  YIELD [ status := `Getting sync instructions`, progress := 20m, important := TRUE ];
+  IF (NOT ObjectExists(remotepeer))
+    res := RPC_GetSyncInstructions(remoteschemaname, currentcontents, syncinstructionoptions);
+  ELSE
+    res := remotepeer->InvokeWRDSyncService("GetSyncInstructions", remoteschemaname, currentcontents, syncinstructionoptions);
+
+  RECORD updateres := ApplyWRDSchemaDefinitionFile(wrdschema, res.schemadefinition, [ fromexternal := TRUE, applysettings := FALSE ]);
+
+  RECORD ARRAY types := SortWRDTypesOnDependencies(wrdschema->ListTypes(), [ forinsert := TRUE ]);
+  RECORD ARRAY newcurrentcontents;
+
+  INTEGER totalrecords, nowrecords;
+  FOREVERY (RECORD typerec FROM res.types)
+    totalrecords := totalrecords + 2 * LENGTH(typerec.updates) + 2 * LENGTH(typerec.deletes);
+
+  DATETIME now := GetCurrentDateTime();
+  DATETIME limitinpast := AddTimeToDate(-1, now);
+
+  FOREVERY (RECORD typerec FROM types)
+  {
+    OBJECT type := wrdschema->GetType(typerec.tag);
+
+    RECORD current := SELECT * FROM currentcontents WHERE COLUMN type = typerec.tag;
+    RECORD ARRAY existing2 := RecordExists(current) ? current.entities : RECORD[];
+    RECORD ARRAY existing := RecordExists(current) ? current.entities : RECORD[];
+
+    RECORD updatetyperec := SELECT * FROM res.types WHERE COLUMN type = typerec.tag;
+    RECORD ARRAY updates := RecordExists(updatetyperec) ? updatetyperec.updates : RECORD[];
+
+    IF (typerec.isdomain)
+    {
+      //DumpValue(existing, [ name := "existing", format := "boxed" ]);
+
+      FOREVERY (RECORD entity FROM updates)
+      {
+        YIELD [ status := `Create entities for domain ${typerec.tag}`, progress := 40m + 50m * nowrecords / totalrecords ];
+        //PRINT(` import ${entity.wrd_guid} (parent: ${entity.wrd_leftentity})\n`);
+        nowrecords := nowrecords + 1;
+
+        INTEGER wrd_leftentity;
+        IF (entity.wrd_leftentity != "")
+        {
+          RECORD lpos := RecordLowerBound(existing, [ wrd_guid := entity.wrd_leftentity ], [ "WRD_GUID" ]);
+          IF (NOT lpos.found)
+            ABORT("failed looking up parent of domain entity");
+          wrd_leftentity := existing[lpos.position].wrd_id;
+        }
+
+        DATETIME new_modtime := AddTimeToDate(-1, entity.wrd_modificationdate);
+
+        RECORD pos := RecordLowerBound(existing, entity, [ "WRD_GUID" ]);
+        IF (NOT pos.found)
+        {
+          RECORD entityrec := CELL[ entity.wrd_guid, wrd_leftentity, wrd_modificationdate := new_modtime ];
+          OBJECT obj := type->CreateEntity(entityrec, CELL[ importmode := TRUE, whfsmapper ]);
+          INSERT CELL wrd_id := obj->id INTO entityrec;
+          INSERT entityrec INTO existing AT pos.position;
+        }
+        ELSE
+        {
+          // Disable updated records, so we won't get unique conflicts
+          type->UpdateEntity(existing[pos.position].wrd_id, CELL[ wrd_leftentity, wrd_modificationdate := new_modtime, wrd_limitdate := limitinpast ], CELL[ importmode := TRUE, whfsmapper ]);
+        }
+      }
+    }
+    ELSE
+    {
+//      DumpValue(existing, [ name := "existing", format := "boxed" ]);
+
+      RECORD ARRAY lexisting := GetExisting(newcurrentcontents, typerec.linkfrom);
+      RECORD ARRAY rexisting := GetExisting(newcurrentcontents, typerec.linkto);
+
+      STRING ltypetag := SELECT AS STRING tag FROM types WHERE id = typerec.linkfrom;
+      STRING rtypetag := SELECT AS STRING tag FROM types WHERE id = typerec.linkto;
+
+      BOOLEAN linkfrom := typerec.linkfrom != 0;
+      BOOLEAN linkto := typerec.linkto != 0;
+
+/*
+      IF (linkfrom)
+        DumpValue(lexisting, [ name := "left existing " || ltypetag, format := "boxed" ]);
+      IF (linkto)
+        DumpValue(rexisting, [ name := "right existing" || rtypetag, format := "boxed" ]);
+*/
+
+      FOREVERY (RECORD entity FROM updates)
+      {
+//        RECORD dbg := [ wrd_leftentity := "n/a", wrd_rightentity := "n/a", ...entity ];
+        YIELD [ status := `Create entities for non-domain ${typerec.tag}`, progress := 40m + 50m * nowrecords / totalrecords ];
+        nowrecords := nowrecords + 1;
+
+        RECORD entityrec := CELL[ entity.wrd_guid, wrd_modificationdate := AddTimeToDate(-1, entity.wrd_modificationdate) ];
+        IF (linkfrom)
+        {
+          RECORD xpos := RecordLowerBound(lexisting, [ wrd_guid := entity.wrd_leftentity ], [ "WRD_GUID" ]);
+          IF (NOT xpos.found)
+            THROW NEW Exception(`Could not locate wrd_leftentity ${entity.wrd_leftentity} from ${ltypetag} for ${typerec.tag}`);
+          INSERT CELL wrd_leftentity := lexisting[xpos.position].wrd_id INTO entityrec;
+        }
+        IF (linkto)
+        {
+          RECORD xpos := RecordLowerBound(rexisting, [ wrd_guid := entity.wrd_rightentity ], [ "WRD_GUID" ]);
+          IF (NOT xpos.found)
+            THROW NEW Exception(`Could not locate wrd_rightentity ${entity.wrd_rightentity} from ${rtypetag} for ${typerec.tag}`);
+          INSERT CELL wrd_rightentity := rexisting[xpos.position].wrd_id INTO entityrec;
+        }
+
+        RECORD pos := RecordLowerBound(existing, entity, [ "WRD_GUID" ]);
+        IF (NOT pos.found)
+        {
+          OBJECT obj := type->CreateEntity(entityrec, CELL[ importmode := TRUE, whfsmapper ]);
+          INSERT CELL wrd_id := obj->id INTO entityrec;
+          INSERT entityrec INTO existing AT pos.position;
+        }
+        ELSE
+        {
+          // Disable updated records, so we won't get unique conflicts
+          DELETE CELL wrd_guid FROM entityrec;
+          type->UpdateEntity(existing[pos.position].wrd_id, CELL[ ...entityrec, wrd_limitdate := limitinpast ], CELL[ importmode := TRUE, whfsmapper ]);
+        }
+      }
+    }
+
+    INTEGER ARRAY children := INTEGER[ typerec.id, ...type->__childtypeids ];
+    INSERT CELL
+        [ ...typerec
+        , existing
+        , ids :=        INTEGER[ typerec.id, ...type->__childtypeids ]
+        , parents :=    INTEGER[ typerec.id ]
+        ] INTO newcurrentcontents AT END;
+
+    UPDATE newcurrentcontents
+      SET parents :=    INTEGER[ ...parents, typerec.id ]
+    WHERE id IN type->__childtypeids;
+
+    IF (options.commitoften)
+    {
+      GetPrimary()->CommitWork();
+      GetPrimary()->BeginWork();
+    }
+  }
+
+  RECORD ARRAY deferreddeletes;
+
+  /* Close entities that will be deleted later, don't want them to interfere with unique constraints
+     Can't delete them now, they might cascade entities away that will have their links updated.
+  */
+  FOREVERY (RECORD typerec FROM types)
+  {
+    OBJECT type := wrdschema->GetType(typerec.tag);
+
+    RECORD ARRAY existing := (SELECT * FROM newcurrentcontents WHERE COLUMN tag = typerec.tag).existing;
+
+    RECORD updatetyperec := SELECT * FROM res.types WHERE COLUMN type = typerec.tag;
+    STRING ARRAY deletes := RecordExists(updatetyperec) ? updatetyperec.deletes : STRING[];
+
+    INTEGER ARRAY ids;
+    FOREVERY (STRING todelete FROM deletes)
+    {
+      YIELD [ status := `Close entities for type ${typerec.tag}`, progress := 40m + 50m * nowrecords / totalrecords ];
+      nowrecords := nowrecords + 1;
+
+      RECORD pos := RecordLowerBound(existing, [ wrd_guid := todelete ], [ "WRD_GUID" ]);
+      IF (NOT pos.found)
+        CONTINUE;
+
+      INTEGER entityid := existing[pos.position].wrd_id;
+      INSERT entityid INTO ids AT END;
+      type->UpdateEntity(entityid, CELL[ wrd_limitdate := limitinpast ]);
+    }
+
+    INSERT CELL
+        [ type
+        , ids
+        ] INTO deferreddeletes AT END;
+
+    IF (options.commitoften)
+    {
+      GetPrimary()->CommitWork();
+      GetPrimary()->BeginWork();
+    }
+  }
+
+  FOREVERY (RECORD typerec FROM types)
+  {
+    OBJECT type := wrdschema->GetType(typerec.tag);
+
+    RECORD ARRAY existing := (SELECT * FROM newcurrentcontents WHERE COLUMN tag = typerec.tag).existing;
+
+    RECORD updatetyperec := SELECT * FROM res.types WHERE COLUMN type = typerec.tag;
+    RECORD ARRAY updates := RecordExists(updatetyperec) ? updatetyperec.updates : RECORD[];
+
+    RECORD ARRAY attrs := GenerateProcessingInstructions(type, 0, [ "*" ]);
+    attrs := EnrichLocalLinksAttrEntities(newcurrentcontents, attrs);
+
+    updates := RestoreLocalLinks(newcurrentcontents, attrs, updates, knownblobs, typerec.tag);
+
+    FOREVERY (RECORD entity FROM updates)
+    {
+      YIELD [ status := `Update entities for type ${typerec.tag}`, progress := 40m + 50m * nowrecords / totalrecords ];
+      nowrecords := nowrecords + 1;
+      RECORD pos := RecordLowerBound(existing, entity, [ "WRD_GUID" ]);
+      IF (NOT pos.found)
+        CONTINUE;
+
+      TRY
+      {
+        type->UpdateEntity(existing[pos.position].wrd_id, entity, CELL[ importmode := TRUE, whfsmapper, decodeinvalidutf8as := "ISO-8859-15" ]);
+      }
+      CATCH (OBJECT e)
+      {
+        e->what := `${e->what} (while synchronizing ${typerec.tag} entity ${entity.wrd_guid})`;
+        THROW;
+      }
+    }
+
+    IF (options.commitoften)
+    {
+      GetPrimary()->CommitWork();
+      GetPrimary()->BeginWork();
+    }
+  }
+
+  FOREVERY (RECORD typerec FROM deferreddeletes)
+  {
+    OBJECT type := typerec.type;
+
+    IF (LENGTH(typerec.ids) = 0)
+      CONTINUE;
+
+    YIELD [ status := `Delete entities for type ${type->tag}`, progress := 40m + 50m * nowrecords / totalrecords ];
+    nowrecords := nowrecords + LENGTH(typerec.ids);
+    type->DeleteEntities(typerec.ids);
+
+    IF (options.commitoften)
+    {
+      GetPrimary()->CommitWork();
+      GetPrimary()->BeginWork();
+    }
+  }
+
+  YIELD [ status := `Updating settings`, progress := 90m, important := TRUE ];
+
+  BOOLEAN settingschanges;
+
+  OBJECT schemadefdoc := MakeXMLDocument(res.schemadefinition);
+  IF (Length(schemadefdoc->GetParseErrors()) != 0)
+    THROW NEW Exception(`Invalid schema definition`); // should have crashed earlier anyway
+
+  RECORD schemadef := ReadSchemaDefFromXML(schemadefdoc->documentelement, "mod::wrd/dummyresource.xml", res.schemadefinition, DEFAULT DATETIME);
+
+  // Decode the schema settings from the remote schema
+  RECORD ARRAY schemadef_settings  :=
+      SELECT name :=    ToLowercase(name)
+           , value :=   AnyTypeFromBlobString(value.data, value.blobdata, value.type)
+        FROM UnpackRecord(schemadef.keyvaluestore);
+
+  // Get current settings of the target schema
+  RECORD ARRAY allorgsettings := wrdschema->ListSchemaSettings();
+
+  RECORD ARRAY settings := JoinArrays(
+      (SELECT name, orgdata := CELL[ value ] FROM allorgsettings),
+      "name",
+      (SELECT name, newdata := CELL[ value ] FROM schemadef_settings),
+      [ newdata := DEFAULT RECORD ],
+      [ presentfield :=     "present"
+      , rightouterjoin :=   TRUE
+      , leftouterjoin :=    [ orgdata := DEFAULT RECORD ]
+      ]);
+
+  // Sync all (non-ignored) settings when changed
+  FOREVERY (RECORD rec FROM settings)
+  {
+    IF (__MatchesAnyMask(rec.name, ignore_schemasettings))
+      CONTINUE;
+
+    IF (rec.present = "left")
+    {
+      settingschanges := TRUE;
+      wrdschema->RemoveSchemaSetting(rec.name);
+    }
+    ELSE IF (rec.present = "right" OR EncodeHSON(rec.orgdata.value) != EncodeHSON(rec.newdata.value))
+    {
+      settingschanges := TRUE;
+      wrdschema->SetSchemaSetting(rec.name, rec.newdata.value);
+    }
+  }
+
+  // Remove wrd:schemaresources to force new updates, but don't report it as change
+  IF (RecordExists(SELECT FROM allorgsettings WHERE name = "wrd:schemaresources"))
+    wrdschema->RemoveSchemaSetting("wrd:schemaresources");
+
+  IF (options.updatesynchistory)
+  {
+    // Record the synchistory
+    STRING remoteschema := (ObjectExists(remotepeer) ? remotepeer->url || "#" : "local schema ") || remoteschemaname;
+    STRING remotecreationsource := CellExists(res, "creationsource") ? res.creationsource : "unknown creationsource";
+    DATETIME remotecreationdate := CellExists(res, "creationdate") ? res.creationdate : DEFAULT DATETIME;
+
+    // Gather remote sync history
+    RECORD ARRAY remotesynchistory;
+    FOREVERY (RECORD rec FROM schemadef_settings)
+      IF (rec.name = "wrd:sync.history")
+        remotesynchistory := rec.value;
+
+    // Get local sync history for partial syncs
+    RECORD ARRAY synchistory := isfullsync
+        ? DEFAULT RECORD ARRAY
+        : (wrdschema->GetSchemaSetting("wrd:sync.history", [ fallback := DEFAULT RECORD ARRAY ])
+              ?? [ [ type :=            "existingschema"
+                   , creationsource :=  wrdschema->creationsource
+                   , creationdate :=    wrdschema->creationdate
+                   ]
+                 ]);
+
+    INSERT CELL
+        [ type :=                 isfullsync ? "fullsync" : "partialsync"
+        , creationsource :=       remotecreationsource
+        , creationdate :=         remotecreationdate
+        , remoteschema
+        , options.excludetypes
+        , options.includetypes
+        , remotesynchistory
+        , when :=                 now
+        , user :=                 ObjectExists(GetEffectiveUser()) ? GetEffectiveUser()->GetUserDataForLogging() : DEFAULT RECORD
+        ] INTO synchistory AT END;
+
+    wrdschema->SetSchemaSetting("wrd:sync.history", synchistory);
+
+    IF (remotecreationsource != "")
+    {
+      IF (isfullsync)
+      {
+        wrdschema->UpdateMetadata(CELL
+            [ creationdate :=     now
+            , creationsource :=   `Synchronized from ${remoteschema} at ${FormatISO8601DateTime(now)}${remotecreationsource = "" ? "" : `(${remotecreationsource}`})`
+            ]);
+      }
+      ELSE
+      {
+        wrdschema->UpdateMetadata(CELL
+            [ creationsource :=   Left(`${wrdschema->creationsource}, partially synchronized from ${remoteschema} at ${FormatISO8601DateTime(now)}${remotecreationsource = "" ? "" : ` (${remotecreationsource})`}`, 1024)
+            ]);
+      }
+    }
+  }
+
+  YIELD [ status := `Committing`, progress := 95m, important := TRUE ];
+  GetPrimary()->CommitWork();
+
+  RETURN [ anychanges := totalrecords != 0 OR Length(updateres.updates) > 0 OR settingschanges ];
+}

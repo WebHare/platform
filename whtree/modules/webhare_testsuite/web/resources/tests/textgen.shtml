@@ -1,0 +1,17 @@
+<?wh
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+OBJECT font := GfxOpenFont("DWP ScalaSans", "bold");
+font->pointsize := 35;
+font->antialiasing := TRUE;
+font->color := 0xFF007732;
+font->lineheight := "40px";
+
+RECORD txt := font->PreparetextWrapped("Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Morbi commodo, ipsum sed pharetra gravida, orci magna rhoncus neque, id pulvinar odio lorem non turpis. Nullam sit amet enim. Suspendisse id. Nulla libero. Vivamus pharetra posuere sapien. Nam consectetuer. Sed aliquam, nunc eget euismod ullamcorper, lectus nunc ullamcorper orci, fermentum bibendum enim nibh eget ipsum. Donec porttitor ligula eu dolor. Maecenas vitae nulla consequat libero cursus venena", 400);
+
+INTEGER canvas := GfxCreateCanvas(400, txt.totalheight, 0xFFFFFFFF);
+font->RenderPreparedText(txt, canvas, 0, 0);
+
+AddHTTPHEader("Content-Type", "image/png", FALSE);
+SendBlobTo(0,GfxCreatePNGBlobFromCanvas(canvas, FALSE, FALSE));

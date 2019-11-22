@@ -1,0 +1,20 @@
+<?wh
+/// @short Loadlib test; sublibrary C
+
+PUBLIC INTEGER FUNCTION deep_func1() { RETURN 0; }
+PUBLIC STRING deep_var1;
+PUBLIC OBJECTTYPE deep_objecttype1 < PUBLIC INTEGER memberx; >;
+PUBLIC OBJECTTYPE deep_objecttype2
+  < PUBLIC INTEGER memberx;
+    PUBLIC MACRO NEW()
+    {
+      this->memberx := 7;
+    }
+>;
+
+PUBLIC STATIC OBJECTTYPE deep_objecttype3
+< PUBLIC INTEGER memberx3;
+>;
+
+OBJECTTYPE a < >;
+PUBLIC MACRO ThrowAnAObject() { THROW NEW a; }

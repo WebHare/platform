@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <path id="arrow" d="M16.5,8.5c-0.1-0.2-0.3-0.3-0.5-0.3c-0.2,0-0.4,0.1-0.5,0.3l-4.3,6C11,14.7,11,15,11.1,15.2c0.1,0.2,0.3,0.4,0.6,0.4h2.8v7.9c0,0.8,0.7,1.5,1.5,1.5c0.8,0,1.5-0.7,1.5-1.5v-7.9h2.8c0.2,0,0.5-0.1,0.6-0.4c0.1-0.2,0.1-0.5-0.1-0.7L16.5,8.5z"/>
+  </defs>
+  <g>
+    <rect x="4" y="28" width="24" height="2" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#arrow" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" transform="rotate(180)" style="transform-origin:16px 16px;"/>
+  </g>
+</svg>

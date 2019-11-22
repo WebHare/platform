@@ -1,0 +1,15 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         library="managecomments.whlib"
+         gid="tolliumapps.forum.managecomments">
+
+  <tabsextension name="commentstab" implementation="lib">
+    <newtab tid=".commentstab">
+      <heading tid=".settings"/>
+      <datetime name="closedate" type="date" />
+      <heading tid=".reactions" height="1pr"/>
+      <p:forumpostings name="postings" />
+    </newtab>
+  </tabsextension>
+
+</screens>

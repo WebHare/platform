@@ -1,0 +1,128 @@
+﻿<?wh (* ISSYSTEMLIBRARY *)
+
+
+/** List of transactions->object mappings
+    @cell "0" Id of transction
+    @cell obj Transaction object
+*/
+RECORD ARRAY transactions;
+
+/// Primary transaction
+INTEGER primarytrans;
+
+/// Primary transaction binders
+MACRO PTR ARRAY bindfuncs;
+
+PUBLIC MACRO RegisterTransaction(OBJECT trans)
+{
+  INTEGER id := trans->id;
+  IF (id != 0)
+  {
+    INTEGER pos := __HS_SQL_GetGroupPosition(transactions, [ "0" := id ]);
+    IF (pos >= 0) // Update
+      transactions[pos].obj := trans;
+    ELSE
+      INSERT
+          [ "0" := id
+          , obj := trans
+          ] INTO transactions AT -(pos+1);
+  }
+}
+
+
+
+/** Unregisters the transaction object.
+*/
+PUBLIC MACRO UnregisterTransaction(OBJECT trans)
+{
+  INTEGER id := trans->id;
+  IF (id != 0)
+  {
+    INTEGER pos := __HS_SQL_GetGroupPosition(transactions, [ "0" := id ]);
+    IF (pos >= 0 AND transactions[pos].obj = trans)
+      DELETE FROM transactions AT pos;
+  }
+  IF (primarytrans = id)
+    primarytrans := 0;
+}
+
+
+
+/** Returns the transactions object for a specific transaction
+*/
+PUBLIC OBJECT FUNCTION GetTransactionObjectByIdInternal(INTEGER transid)
+{
+  INTEGER pos := __HS_SQL_GetGroupPosition(transactions, [ "0" := transid ]);
+  IF (pos < 0)
+    RETURN DEFAULT OBJECT;
+
+  RETURN transactions[pos].obj;
+}
+
+/** Returns the ID of the primary WebHare transaction
+    @topic database/webharedb
+    @public
+    @loadlib mod::system/lib/database.whlib
+    @long In some contexts, such as a SHTML file parsed by the WebHare webserver,
+          or a template used for conversion, a WebHare database transaction is opened
+          by WebHare when calling the script. This function can be used to obtain the
+          ID for that transaction
+    @return Transaction ID for the primary transaction, or 0 if no primary transaction
+            was set up */
+PUBLIC INTEGER FUNCTION GetPrimaryWebhareTransaction()
+{
+  RETURN primarytrans;
+}
+
+/** Returns the primary WebHare transaction object
+    @topic database/webharedb
+    @public
+    @loadlib mod::system/lib/database.whlib
+    @long In some contexts, such as a SHTML file parsed by the WebHare webserver,
+          or a template used for conversion, a WebHare database transaction is opened
+          by WebHare when calling the script. This function can be used to obtain the
+          transaction object.
+    @return Transaction object for the primary transaction, or DEFAULT OBJECT if no
+            primary transaction was set up
+*/
+PUBLIC OBJECT FUNCTION GetPrimaryWebhareTransactionObject()
+{
+  RETURN primarytrans = 0 ? DEFAULT OBJECT : GetTransactionObjectByIdInternal(primarytrans);
+}
+
+RECORD ARRAY FUNCTION GetStackTrace() __ATTRIBUTES__(EXTERNAL);
+
+/** Sets the primary WeHhare transaction
+    @param transid Id of the transaction to use
+    @topic database/webharedb
+    @public
+    @loadlib mod::system/lib/database.whlib
+*/
+PUBLIC MACRO SetPrimaryWebhareTransaction(INTEGER transid)
+{
+  primarytrans := transid;
+ // IF (transid != 0)
+    FOREVERY (MACRO PTR bindfunc FROM bindfuncs)
+      bindfunc(primarytrans);
+}
+
+/** Register a transaction binder function, that will be called with the
+    id of the primary WebHare transaction when that changes
+    @param bindfunction Function to call, signature: MACRO bindfunc(INTEGER transactionid)
+    @topic database/webharedb
+    @public
+    @loadlib mod::system/lib/database.whlib
+*/
+PUBLIC MACRO SetupPrimaryTransactionBinder(MACRO PTR bindfunc)
+{
+  INSERT bindfunc INTO bindfuncs AT END;
+  IF(primarytrans != 0)
+    bindfunc(primarytrans);
+}
+
+
+
+
+// Private decls, needed because we're a system library.
+INTEGER FUNCTION __HS_SQL_GetGroupPosition(RECORD ARRAY groups, RECORD groupdata) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+INTEGER FUNCTION Length(VARIANT obj) __ATTRIBUTES__(EXTERNAL, CONSTANT);

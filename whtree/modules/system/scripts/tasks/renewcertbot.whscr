@@ -1,0 +1,86 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/pkcs.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webserver/certbot.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch" ]
+    ]);
+
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: wh run mod::system/scripts/tasks/renewcertbot.whscr [ --debug ]\n");
+  RETURN;
+}
+
+BOOLEAN debug := args.debug;
+OBJECT trans := OpenPrimary();
+
+FOREVERY (RECORD keypair FROM ListKeyPairs())
+{
+  IF(keypair.name NOT LIKE "certbot-*")
+    CONTINUE;
+
+  OBJECT obj := OpenKeyPair(keypair.id);
+  IF(NOT ObjectExists(obj))
+    CONTINUE;
+
+  STRING certfile := BlobToString(obj->certificatechain);
+  IF(certfile="")
+    CONTINUE;
+
+  RECORD certdata := DecodePEMFile(certfile);
+  IF (certdata.type = "multiple")
+    certdata := RECORD(certdata.parts);
+
+  IF(certdata.valid_until > AddDaysToDate(30,GetCurrentDatetime()))
+    CONTINUE;
+
+  IF(debug)
+    Print("Certbot certificate " || certdata.subject || " is up for renewal\n");
+
+  STRING ARRAY requestfor := certdata.servernames;
+  STRING ARRAY allhostnames := GetCertifiableHostnames();
+
+  STRING ARRAY certifiable;
+  FOREVERY(STRING host FROM requestfor)
+    IF(Left(host, 2) = "*." OR ToUppercase(host) IN allhostnames)
+      INSERT host INTO certifiable AT END;
+
+  IF(Length(certifiable)=0) //we are no longer hosting this site
+  {
+    Print("Certificate for " || Detokenize(requestfor,', ') || " is no longer needed here, deleting it\n");
+    trans->BeginWork();
+    OpenWHFSObject(keypair.id)->RecycleSelf();
+    trans->CommitWork();
+    CONTINUE;
+  }
+
+  IF(Left(requestfor[0], 2) != "*." AND ToUppercase(requestfor[0]) NOT IN allhostnames)
+  {
+    PrintTo(2,"Primary certname " || requestfor[0] || " is no longer hosted here, can't renew its cert\n");
+    SetConsoleExitCode(1);
+    CONTINUE;
+  }
+  FOREVERY(STRING torequest FROM requestfor)
+    IF(Left(torequest, 2) != "*." AND ToUppercase(torequest) NOT IN allhostnames)
+      DELETE FROM requestfor AT SearchElement(requestfor, torequest);
+
+  IF(debug)
+    Print("Requesting for " || Detokenize(requestfor,', ') || "\n");
+  RECORD res := RequestCertbotCertificate(requestfor, FALSE);
+  IF(res.success)
+    Print("Renewed certificate for " || certdata.subject || "\n");
+  ELSE
+  {
+    PrintTo(2,"Renewal for " || certdata.subject || " failed: " || res.error || " " || res.errordata || "\n");
+    SetConsoleExitCode(1);
+  }
+}

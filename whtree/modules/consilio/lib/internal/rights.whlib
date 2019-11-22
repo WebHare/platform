@@ -1,0 +1,36 @@
+<?wh
+
+LOADLIB "mod::consilio/lib/database.whlib";
+
+LOADLIB "mod::system/lib/userrights.whlib";
+
+
+PUBLIC OBJECTTYPE CatalogObjectTypeDescriber EXTEND ObjectTypeDescriber
+< PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RETURN
+        SELECT id
+             , name
+             , icon := "consilio:consilio"
+             , wrdschemaid := id
+          FROM consilio.indices
+         WHERE id = objectid
+               AND type != 2
+               AND name NOT LIKE "$consilio$deleted$*";
+  }
+
+  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetRootObjects(OBJECT user)
+  {
+    RETURN
+        SELECT AS INTEGER ARRAY id
+          FROM consilio.indices
+         WHERE type != 2
+               AND user->HasRightOn("consilio:read", id)
+               AND name NOT LIKE "$consilio$deleted$*";
+  }
+
+  PUBLIC UPDATE BOOLEAN FUNCTION IsObjectVisibleForUser(INTEGER id, OBJECT user)
+  {
+    RETURN user->HasRightOn("consilio:read", id);
+  }
+>;

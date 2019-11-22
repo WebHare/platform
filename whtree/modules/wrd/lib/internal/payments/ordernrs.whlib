@@ -1,0 +1,229 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::regex.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdschema.whlib";
+
+/** Format an ordernr based on an order string
+    @param orderstr
+    @param state Current state
+    @param newordernr If TRUE, generate new nr (and update state), else return last order nr
+    @return
+    @cell return.success
+    @cell return.orderstr
+    @cell return.newstate
+*/
+RECORD FUNCTION FormatOrderNumber(STRING orderstr, RECORD state, BOOLEAN newordernr, DATETIME now, BOOLEAN generateregex)
+{
+  OBJECT s := NEW StringParser(orderstr);
+  STRING result;
+  BOOLEAN have_nr;
+  BOOLEAN used_date;
+
+  DATETIME now_day := GetRoundedDateTime(UTCToLocal(now, "CET"), 86400 * 1000);
+  STRING regex;
+  STRING ARRAY regexparams;
+
+  IF (NOT RecordExists(state))
+  {
+    state :=
+        [ lastorderdate :=      now_day
+        , lastordernumber :=    1i64
+        ];
+  }
+
+  WHILE (NOT s->eof)
+  {
+    STRING notinset := s->ParseWhileNotInSet("%");
+    result := result || notinset;
+    regex := regex || notinset; //FIXME escape regexlike stuff
+
+    IF (NOT s->TryParse("%"))
+      BREAK;
+
+    IF (s->TryParse("y") OR s->TryParse("Y"))
+    {
+      IF(generateregex)
+      {
+        regex := regex || "([0-9]{4})";
+        INSERT "year" INTO regexparams AT END;
+        CONTINUE;
+      }
+      used_date := TRUE;
+      IF (newordernr)
+      {
+        INTEGER newyear := UnpackDatetime(now_day).year;
+        INTEGER oldyear := state.lastorderdate = DEFAULT DATETIME ? 0 : UnpackDatetime(state.lastorderdate).year;
+
+        IF (newyear != oldyear)
+        {
+          state.lastorderdate   := now_day;
+          state.lastordernumber := 0;
+        }
+      }
+      result := result || FormatDateTime("%Y", state.lastorderdate);
+      CONTINUE;
+    }
+    IF (s->TryParse("d"))
+    {
+      IF(generateregex)
+      {
+        regex := regex || "([0-9]{8})";
+        INSERT "date" INTO regexparams AT END;
+        CONTINUE;
+      }
+
+      used_date := TRUE;
+      IF (newordernr)
+      {
+        INTEGER newday := GetDayCount(now_day);
+        INTEGER oldday := GetDayCount(state.lastorderdate);
+
+        IF (newday != oldday)
+        {
+          state.lastorderdate := now_day;
+          state.lastordernumber := 0;
+        }
+      }
+
+      result := result || FormatDateTime("%Y%m%d", state.lastorderdate);
+      CONTINUE;
+    }
+
+    IF (NOT s->TryParse("0"))
+      RETURN [ success := FALSE ];
+
+    INTEGER len := ToInteger(s->ParseWhileInSet("0123456789"), -1);
+    IF (len = -1)
+      RETURN [ success := FALSE ];
+
+    IF (NOT s->TryParse("n"))
+      RETURN [ success := FALSE ];
+
+    IF(generateregex)
+    {
+      regex := regex || "([0-9]+)";
+      INSERT "number" INTO regexparams AT END;
+      CONTINUE;
+    }
+
+    IF (newordernr)
+      state.lastordernumber := state.lastordernumber + 1;
+
+    STRING nr := ToString(state.lastordernumber);
+    IF (LENGTH(nr) < len)
+      nr := Right(RepeatText("0", len) || nr, len);
+
+    result := result || nr;
+    have_nr := TRUE;
+  }
+
+  RETURN
+      CELL[ success :=    have_nr
+          , result :=     ToUppercase(result)
+          , newstate :=   state
+          , regex
+          , regexparams
+          ];
+}
+
+PUBLIC STRING FUNCTION AllocateSourceOrderNumber(INTEGER wrdschemaid, STRING statekey, RECORD options)
+{
+  IF(options.mutex!="")
+    GetPrimary()->BeginLockedWork(`${options.mutex}.schema-${wrdschemaid}`);
+
+  //RECORD config := GetPaymentsConfig(wrdschema);
+  RECORD state := ValidateOptions([ lastordernumber :=  0i64
+                                  , lastorderdate :=    DEFAULT DATETIME
+                                  , nrformat :=         ""
+                                  ], GetWRDSchemaSetting(wrdschemaid, statekey, [ fallback := DEFAULT RECORD ]));
+  STRING nrformat := options.nrformat ?? state.nrformat ?? "%012n";
+
+  RECORD res := FormatOrderNumber(nrformat, state, TRUE, options.now, FALSE);
+  IF (NOT res.success)
+    THROW NEW Exception(`Could not allocate new order number, order number format string '${nrformat}' is not valid`);
+
+  IF(NOT options.peek)
+    SetWRDSchemaSetting(wrdschemaid, statekey, res.newstate);
+
+  IF(options.mutex!="")
+    GetPrimary()->CommitWork();
+
+  RETURN res.result;
+}
+
+PUBLIC BOOLEAN FUNCTION UpdateSourceOrderNumberParameters(INTEGER wrdschemaid, STRING statekey, RECORD options)
+{
+  IF(statekey="")
+    THROW NEW Exception("Invalid state key");
+
+  IF(options.mutex!="")
+    GetPrimary()->BeginLockedWork(`${options.mutex}.schema-${wrdschemaid}`);
+
+  TRY
+  {
+    //RECORD config := GetPaymentsConfig(wrdschema);
+    RECORD state := ValidateOptions([ lastordernumber :=  0i64
+                                    , lastorderdate :=    DEFAULT DATETIME
+                                    , nrformat :=         ""
+                                    ], GetWRDSchemaSetting(wrdschemaid, statekey, [ fallback := DEFAULT RECORD ]));
+
+    IF (options.nrformat != "")
+      state.nrformat := options.nrformat;
+
+   INTEGER64 minnumber;
+
+   IF(CellExists(options, 'next'))
+   {
+     //Trying to set a sequence number using 'next'..
+     RECORD parsednext := FormatOrderNumber(state.nrformat, DEFAULT RECORD, FALSE, DEFAULT DATETIME, TRUE);
+     OBJECT nextregex := NEW RegEx("^" || parsednext.regex || "$");
+     RECORD ARRAY results := nextregex->Exec(options.next);
+     IF(Length(results) = 0)
+       THROW NEW Exception(`Next number '${options.next}' does not match the order format '${state.nrformat}`);
+
+     FOREVERY(STRING part FROM parsednext.regexparams)
+       IF(part="number")
+         minnumber := ToInteger64(results[#part+1].value,1) - 1;
+   }
+   ELSE
+   {
+     IF(CellExists(options, 'minnumber'))
+       minnumber := options.minnumber;
+   }
+
+    // Round mindate
+    DATETIME mindate := options.mindate = DEFAULT DATETIME
+        ? DEFAULT DATETIME
+        : GetRoundedDateTime(UTCToLocal(options.mindate, "CET"), 86400 * 1000);
+
+    DATETIME now := GetCurrentDateTime();
+    DATETIME now_day := GetRoundedDateTime(UTCToLocal(now, "CET"), 86400 * 1000);
+    IF (mindate > now_day)
+      THROW NEW Exception("Cannot set mindate in future");
+
+    // Update the nr/date when they are bigger than the current settings
+    IF (mindate = DEFAULT DATETIME OR mindate = state.lastorderdate)
+    {
+      IF (state.lastordernumber < minnumber)
+        state.lastordernumber := minnumber;
+    }
+    ELSE IF (mindate > state.lastorderdate)
+    {
+      state.lastorderdate := mindate;
+      state.lastordernumber := minnumber;
+    }
+
+    SetWRDSchemaSetting(wrdschemaid, statekey, state);
+  }
+  FINALLY
+  {
+    IF(options.mutex!="")
+      GetPrimary()->CommitWork();
+  }
+
+  RETURN TRUE;
+}

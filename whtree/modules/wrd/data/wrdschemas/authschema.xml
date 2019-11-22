@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <object tag="WRD_AUTHDOMAIN" title="Authentication domain">
+    <attributes>
+      <free tag="WRD_TITLE" title="Descriptive domain title" />
+      <free tag="WRDAUTH_EMAILBCC" title="BCC address for emails"/>
+<!--      <free tag="WRDAUTH_EXTENSIONLIBRARY" title="Library to load for WRDAuth extensions"/> -->
+      <free tag="WRDAUTH_LANGUAGE" title="Default language"/>
+      <free tag="WRDAUTH_LASTIPFIELD" title="Last login from IP"/>
+      <free tag="WRDAUTH_LASTLOGINFIELD" title="Last login field"/>
+      <obsolete tag="WRDAUTH_MASTERPASSWORD" />
+      <free tag="WRDAUTH_EMAILSUBJECTPREFIX" title="Prefix for email subjects"/>
+      <email tag="WRDAUTH_EMAILSENDER" title="Sender for emails"/>
+      <free tag="WRDAUTH_LOGINPAGE" title="URL to login page"/>
+      <free tag="WRDAUTH_DOMAINSECRET" title="Domain secret (used in preference to GUID for hashes)" />
+
+<!--  Now stored in schema metadata
+      <free tag="WRDAUTH_ACCOUNTTYPE" title="WRD type containing accounts"/>
+      <free tag="WRDAUTH_EMAILFIELD" title="Email address field"/>
+      <free tag="WRDAUTH_LOGINFIELD" title="Login field"/>
+      <free tag="WRDAUTH_PASSWORDFIELD" title="Password field"/>
+-->
+    </attributes>
+  </object>
+
+</schemadefinition>

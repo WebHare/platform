@@ -1,0 +1,149 @@
+﻿<?wh
+/** @topic tollium/appdev */
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/internal/userapi.whlib";
+
+
+PUBLIC OBJECTTYPE TolliumBackgroundTask
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // Link to controller
+  OBJECT pvt_link;
+
+  // Current status
+  RECORD pvt_status;
+
+  // Current result
+  RECORD pvt_result;
+
+  // Time of last status update, for throttling
+  DATETIME laststatusupdate;
+
+  // Current user
+  OBJECT pvt_user;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Status update frequency limiter (defaults to 100ms to limit status updates to 10 per sec)
+  PUBLIC INTEGER status_freq_limit;
+
+  /// Current status
+  PUBLIC PROPERTY status(pvt_status, SetStatus);
+
+  /// Current result
+  PUBLIC PROPERTY result(pvt_result, SetResult);
+
+  /// Current user
+  PUBLIC PROPERTY user(pvt_user, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->status_freq_limit := 100;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Callback of TolliumFeedbackObject
+  PUBLIC MACRO HandleWorkResult(RECORD workresult)
+  {
+    // No need to wait for the result
+    this->pvt_link->SendMessage(
+        [ type :=       "workresult"
+        , errors :=     (SELECT AS STRING ARRAY text FROM workresult.errors)
+        , warnings :=   (SELECT AS STRING ARRAY text FROM workresult.warnings)
+        ]);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters/setters
+  //
+
+  MACRO SetStatus(RECORD statusrec)
+  {
+//    PRINT("XX^ Set status:\n"||AnyToString(statusrec, "tree"));
+    this->pvt_status := statusrec;
+
+    IF(this->status_freq_limit != 0) //check frequency
+    {
+      DATETIME now := GetCurrentDatetime();
+      IF(AddTimeToDate(100, this->laststatusupdate) >= now)
+        RETURN;
+      this->laststatusupdate := now;
+    }
+
+    this->pvt_link->SendMessage([ type := "status", status := statusrec ]);
+  }
+
+
+  MACRO SetResult(RECORD result)
+  {
+//    PRINT("XX^ Set result:\n"||AnyToString(result, "tree"));
+    this->pvt_result := result;
+    this->pvt_link->SendMessage([ type := "result", result := result ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC MACRO __Setup(OBJECT link, RECORD launchinfo)
+  {
+    OpenPrimary();
+
+    this->pvt_user := ReconstructUserFromMarshallInfo(launchinfo.user);
+    __SetEffectiveUser(this->pvt_user);
+
+    this->pvt_link := link;
+    IF(memberexists(this,"INIT"))
+      this->Init(launchinfo.data);
+    IF(memberexists(this,"RUN"))
+      this->Run();
+  }
+
+  PUBLIC OBJECT FUNCTION BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ mutex := "" ], options);
+    RETURN NEW TolliumFeedbackObject(this, GetPrimary(), options.mutex);
+  }
+
+  /** See if a message is available (transmitted by SendMessage on the background task), if so, return it */
+  PUBLIC RECORD FUNCTION GetMessage()
+  {
+    RECORD data := this->pvt_link->ReceiveMessage(DEFAULT DATETIME);
+    IF(data.status="ok" AND data.msg.type="sendmessage")
+      RETURN data.msg.msg;
+
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Force set status, ignoring frequency limits */
+  PUBLIC MACRO ForceSetStatus(RECORD statusrec)
+  {
+    this->pvt_status := statusrec;
+    this->laststatusupdate := GetCurrentDatetime();
+    this->pvt_link->SendMessage([ type := "status", status := statusrec ]);
+  }
+>;

@@ -1,0 +1,907 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+PUBLIC MACRO EnableSiteVersionHistory(OBJECT siteobj, OBJECT user, STRING versioningpolicy, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ deletedrafts :=   FALSE
+      , expirydate :=     MAX_DATETIME
+      ], options);
+
+  LogAuditEvent("publisher:manageversioning",
+      [ type :=         "setpolicy"
+      , site :=         siteobj->name
+      , policy :=       versioningpolicy
+      ]);
+
+  siteobj->UpdateSiteMetadata([ versioningpolicy := versioningpolicy ]);
+
+  OBJECT policy := GetVersioningPolicyForSite(siteobj->id);
+
+  // No object in the site may have a task
+  INTEGER ARRAY all_objects := [ INTEGER(siteobj->id) ] CONCAT siteobj->rootobject->GetDescendantObjectIds();
+
+  RECORD task := SELECT whfspath FROM publisher.schedule, system.fs_objects WHERE fs_objects.id = file AND file IN all_objects;
+  IF (RecordExists(task))
+    THROW NEW Exception("Cannot enable versioning, file '" || task.whfspath || "' still has a task");
+
+  // Get the list of objects that need to be approved
+  INTEGER ARRAY to_approve := policy->GetPossibleVersionedObjects(all_objects);
+
+  // See if any of those has a public draft
+  IF(options.deletedrafts)
+  {
+    DELETE FROM system.fs_objects WHERE id IN to_approve AND TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
+  }
+  ELSE
+  {
+    RECORD draft :=
+        SELECT whfspath
+          FROM system.fs_objects
+         WHERE id IN to_approve AND TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
+
+    IF (RecordExists(draft))
+      THROW NEW Exception("Cannot enable versioning, can't approve file '" || draft.whfspath || "' because it has a public draft");
+  }
+
+  // All checks done
+
+  FOREVERY (INTEGER fileid FROM to_approve)
+  {
+    OBJECT file := OpenWHFSObject(fileid);
+    IF(NOT ObjectExists(file))
+      CONTINUE; //deleted by deletedrafts
+
+    TRY
+    {
+      OBJECT draft := CreateDraft(file, TRUE);
+
+      SubmitApprovalRequestForDraft(draft, [ userobject := user, message := "Initial import request", expirydate := options.expirydate ]);
+      AcceptApprovalRequestForDraft(draft, [ userobject := user, message := "Initial import approval" ]);
+    }
+    CATCH (OBJECT e)
+    {
+      e->what := e->what || ` (when approving file ${file->whfspath})`;
+      THROW;
+    }
+  }
+
+  // Clear all caches on commit
+  GetPrimary()->BroadcastOnCommit("system:clearcaches", DEFAULT RECORD);
+}
+
+PUBLIC MACRO CreateVersioningEvent(OBJECT live_file, OBJECT draft, INTEGER type, OBJECT user, STRING comment, INTEGER requestid, DATETIME now, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ tag :=          ""
+      , newurl :=       ""
+      , newfullpath :=  ""
+      , orgurl :=       ""
+      , orgfullpath :=  ""
+      , versionnumber := ""
+      , orgparentsite := 0
+      , expirydate :=   MAX_DATETIME
+      ],
+      options,
+      [ optional := [ "newurl", "newfullpath", "orgurl", "orgfullpath", "orgparentsite" ] ]);
+
+  IF (draft->fsobject->parent != 15 OR live_file->id = draft->id)
+    THROW NEW Exception("Must have an actual draft");
+
+  IF (type != VersionEventType_Request AND requestid = 0)
+    THROW NEW Exception("Previous request id is mandatory");
+
+  // ADDME: check if the live_file is in a versioned site?
+
+  RECORD draftdata := draft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+
+  RECORD rec := CalculateFSObjectFullPathAndURL(live_file->id, [ followlinks := FALSE ]);
+  IF (NOT live_file->isactive)
+    rec.fullpath := "";
+
+  RECORD fsdata :=
+      [ orgurl :=       rec.url
+      , orgfullpath :=  rec.fullpath
+      , newurl :=       rec.url
+      , newfullpath :=  rec.fullpath
+      , orgparentsite := live_file->parentsite
+      ];
+
+  fsdata := MakeReplacedRecord(fsdata, options);
+
+  IF (fsdata.orgparentsite = 0)
+    THROW NEW Exception("Missing parentsite for versionevent");
+
+  RECORD ARRAY relevant_events :=
+      SELECT id
+           , eventtype
+           , ordering
+        FROM system.fs_versionevents
+       WHERE live_object = live_file->id
+         AND iscurrent
+    ORDER BY ordering DESC;
+
+  // The last event must be in the list of relevant_events
+  INTEGER newordering := RecordExists(relevant_events) ? relevant_events[0].ordering + 1 : 1;
+
+  INTEGER ARRAY to_uncurrent;
+  SWITCH (type)
+  {
+    CASE 0 // VersionEventType_Request
+    {
+      // Only keep applies
+      to_uncurrent := SELECT AS INTEGER ARRAY id FROM relevant_events WHERE eventtype != VersionEventType_AcceptApply;
+    }
+    CASE 1 // VersionEventType_AcceptApply
+    {
+      // this event will become the only current event
+      to_uncurrent := SELECT AS INTEGER ARRAY id FROM relevant_events;
+    }
+    CASE 2 // VersionEventType_FinalDenial
+    {
+      // Only keep the last apply
+      to_uncurrent := SELECT AS INTEGER ARRAY id FROM relevant_events WHERE eventtype != VersionEventType_AcceptApply;
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unhandled eventtype " || type);
+    }
+  }
+
+  IF (NOT IsDefaultValue(to_uncurrent))
+    UPDATE system.fs_versionevents SET iscurrent := FALSE WHERE id IN to_uncurrent;
+
+  INSERT INTO system.fs_versionevents(fs_site, when, live_object, draft_object, user, comment, tag, eventtype, orgfullpath, orgurl, newfullpath, newurl, isdelete, newflags, previousrequest, versionnumber, iscurrent, ordering, expirydate)
+     VALUES (fsdata.orgparentsite, now, live_file->id, draft->id, user->authobjectid, comment, options.tag, type, fsdata.orgfullpath, fsdata.orgurl, fsdata.newfullpath, fsdata.newurl, draftdata.parent = 0, draftdata.flags, requestid, options.versionnumber, TRUE, newordering, options.expirydate);
+
+  IF (fsdata.orgparentsite = 0)
+    ABORT("Illegal orgparentsite");
+
+  GetPrimary()->BroadcastOnCommit("system:versionevent." || fsdata.orgparentsite || "." || live_file->id, [ type := "add", eventtype := type, live_file := live_file->id, draft := draft->id ]);
+}
+
+PUBLIC MACRO SubmitApprovalRequestForDraft(OBJECT draftobject, RECORD options)
+{
+  options := ValidateOptions(
+      [ tag :=          ""
+      , userobject :=   DEFAULT OBJECT
+      , message :=      ""
+      , expirydate :=   MAX_DATETIME
+      ], options);
+
+  INTEGER requestid :=
+      SELECT AS INTEGER id
+        FROM system.fs_versionevents
+       WHERE live_object = draftobject->source
+         AND eventtype = VersionEventType_Request
+         AND finished = DEFAULT DATETIME;
+
+  IF (requestid != 0)
+    THROW NEW Exception("Already an outstanding request for accept");
+
+  RECORD lastevent := GetLastVersionEvent(draftobject->source);
+
+  IF (NOT ObjectExists(draftobject->fsobject))
+    ABORT("no fsobject");
+
+  // Determine the right parentsite (also for deleted items)
+  OBJECT source := OpenWHFSObject(draftobject->source);
+  INTEGER orgparentsite := RecordExists(lastevent) ? lastevent.fs_site : source->parentsite;
+
+  // Set the submitted for approval flag
+  source->UpdateMetadata([ published := SetFlagsInPublished(source->published, PublishedFlag_SubmittedForApproval, TRUE) ]);
+
+  // Get the policy for the object
+  OBJECT policy := GetVersioningPolicyForFileObject(source);
+
+  IF (NOT ObjectExists(policy))
+    THROW NEW Exception("Cannot accept create approval request outside versioned sites");
+
+  OBJECT filepolicy := policy->EnrichWithObjectPolicy(
+        [ [ id := source->id
+          , isfolder := source->isfolder
+          , published := source->published
+          ]
+        ])[0].policy;
+
+  INTEGER type := "type" IN filepolicy->GetFields().versioned_fields
+      ? draftobject->fs_object->type
+      : source->type;
+
+  IF (IsDefaultValue(policy->FilterAllowedFSObjectTypes([ type ])))
+    THROW NEW Exception("This type of file or folder cannot be versioned");
+
+  // Make sure all non-versioned fields are reflected in the draft
+  UpdateSubmittedDraft(draftobject, filepolicy->GetFields());
+
+  RECORD newurlandfullpath := GetNewURLAndFullPath(filepolicy, draftobject);
+
+  CreateVersioningEvent(
+      OpenWHFSObject(draftobject->source),
+      draftobject,
+      VersionEventType_Request,
+      options.userobject,
+      options.message,
+      0,
+      GetCurrentDateTime(),
+      [ tag := options.tag
+      , newfullpath :=    newurlandfullpath.newfullpath
+      , newurl :=         newurlandfullpath.newurl
+      , versionnumber :=  policy->CalculateNextVersionNumber("request", (lastevent ?? [ versionnumber := ""]).versionnumber)
+      , orgparentsite :=  orgparentsite
+      , expirydate :=     options.expirydate
+      ]);
+}
+
+PUBLIC MACRO CancelApprovalRequestForDraft(OBJECT draftobject)
+{
+  // Remove the submitted for approval flag
+  OBJECT source := OpenWHFSObject(draftobject->source);
+  source->UpdateMetadata(
+      [ published := SetFlagsInPublished(source->published, PublishedFlag_SubmittedForApproval, FALSE)
+      ]);
+
+  RECORD request :=
+      SELECT id
+           , fs_site
+        FROM system.fs_versionevents
+       WHERE live_object = draftobject->source
+         AND eventtype = VersionEventType_Request
+         AND finished = DEFAULT DATETIME;
+
+  IF (NOT RecordExists(request))
+    THROW NEW Exception("No outstanding request for accept");
+
+  DELETE FROM system.fs_versionevents
+   WHERE id = request.id;
+
+  // Make sure the last event in the ordering has its iscurrent flag set
+  INTEGER last_event :=
+      SELECT AS INTEGER id
+        FROM system.fs_versionevents
+       WHERE live_object = draftobject->source
+    ORDER BY ordering DESC;
+
+  IF (last_event != 0)
+  {
+    UPDATE system.fs_versionevents
+       SET iscurrent := TRUE
+     WHERE id = last_event;
+  }
+
+  GetPrimary()->BroadcastOnCommit("system:versionevent." || request.fs_site || "." || draftobject->source, [ type := "delete", live_file := draftobject->source, draft := draftobject->id ]);
+}
+
+
+/** Accept a request for approval
+    @param draftobject
+    @param options
+    @cell options.userobject
+    @cell options.message
+*/
+PUBLIC MACRO AcceptApprovalRequestForDraft(OBJECT draftobject, RECORD options)
+{
+  OBJECT whfs_draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
+
+  DATETIME now := GetCurrentDateTime();
+
+  RECORD request :=
+      SELECT id
+           , versionnumber
+           , fs_site
+           , expirydate
+        FROM system.fs_versionevents
+       WHERE live_object = draftobject->source
+         AND eventtype = VersionEventType_Request
+         AND finished = DEFAULT DATETIME;
+
+  IF (NOT RecordExists(request))
+    THROW NEW Exception("No outstanding request for accept");
+
+  // Get the policy for the object BEFORE creating the accept versioning event - that one changes the policy
+  OBJECT source := OpenWHFSObject(draftobject->source);
+  OBJECT policy := GetVersioningPolicyForSite(request.fs_site);
+
+  IF (NOT ObjectExists(policy))
+  {
+    DumpValue(request, "tree");
+    THROW NEW Exception("Cannot accept approval request outside versioned sites");
+  }
+
+  OBJECT filepolicy := policy->EnrichWithObjectPolicy(
+        [ [ id := source->id
+          , isfolder := source->isfolder
+          , published := source->published
+          ]
+        ])[0].policy;
+
+  RECORD fields := filepolicy->GetFields();
+
+  // Finish any outstanding approval requests
+  UPDATE system.fs_versionevents
+     SET finished := now
+   WHERE id = request.id;
+
+  // Move the draft to the persistent storage
+  UPDATE system.fs_objects
+     SET parent := 17
+   WHERE id = draftobject->fsobject->id;
+
+  // Save original fullpath and url
+  RECORD versionevent_options :=
+      [ orgfullpath :=    source->isactive ? source->fullpath : ""
+      , orgurl :=         source->url
+      , versionnumber :=  policy->CalculateNextVersionNumber("acceptrequest", request.versionnumber)
+      , orgparentsite :=  request.fs_site
+      , expirydate :=     request.expirydate
+      ];
+
+  // Apply the draft fields, indicated by the policy. Refresh the source whfsobject, its data has changed
+  ApplyDraftByVersionedFields(draftobject, fields);
+  source->Refresh();
+
+  // Create a draft with the contents after apply
+  OBJECT applied_draft := CreateDraft(source, TRUE);
+
+  // Copy the flags from the old draft (except wasindex, need that from the new draft)
+  RECORD metadata := whfs_draftmetadata->GetInstanceData(draftobject->id);
+  RECORD newmetadata := whfs_draftmetadata->GetInstanceData(applied_draft->id);
+  newmetadata.flags :=
+      (metadata.flags BITAND BITNEG DraftFlag_WasIndex) +
+      (newmetadata.flags BITAND DraftFlag_WasIndex);
+  whfs_draftmetadata->SetInstanceData(applied_draft->id, newmetadata);
+
+  // Move that draft to the persistent storage too
+  UPDATE system.fs_objects
+     SET parent := 17
+   WHERE id = applied_draft->fsobject->id;
+
+  CreateVersioningEvent(source, applied_draft, VersionEventType_AcceptApply, options.userobject, options.message, request.id, now, versionevent_options);
+
+  // The file does not have a public draft anymore, and isn't submitted for approval anymore.
+  source->Refresh();
+  INTEGER newpublished := SetFlagsInPublished(
+                              SetFlagsInPublished(source->published, PublishedFlag_SubmittedForApproval, FALSE),
+                              PublishedFlag_HasPublicDraft, FALSE);
+  source->UpdateMetadata([ published := newpublished ]);
+
+  // Hook for policy-specific actions
+  policy->OnApprovalRequestAccepted(applied_draft);
+}
+
+/** Denies a request for approval
+    @param draftobject
+    @param options
+    @cell options.userobject
+    @cell options.message
+*/
+PUBLIC MACRO DenyApprovalRequestForDraft(OBJECT draftobject, RECORD options)
+{
+  DATETIME now := GetCurrentDateTime();
+
+  RECORD request :=
+      SELECT id
+           , versionnumber
+           , fs_site
+           , expirydate
+        FROM system.fs_versionevents
+       WHERE live_object = draftobject->source
+         AND eventtype = VersionEventType_Request
+         AND finished = DEFAULT DATETIME;
+
+  IF (NOT RecordExists(request))
+    THROW NEW Exception("No outstanding request for accept");
+
+  // Get the policy for the object
+  OBJECT source := OpenWHFSObject(draftobject->source);
+  OBJECT policy := GetVersioningPolicyForSite(request.fs_site);
+
+  IF (NOT ObjectExists(policy))
+    THROW NEW Exception("Cannot accept create approval request outside versioned sites");
+
+  OBJECT filepolicy := policy->EnrichWithObjectPolicy(
+        [ [ id := source->id
+          , isfolder := source->isfolder
+          , published := source->published
+          ]
+        ])[0].policy;
+
+  RECORD newurlandfullpath := GetNewURLAndFullPath(filepolicy, draftobject);
+
+  // Finish any outstanding approval requests
+  UPDATE system.fs_versionevents
+     SET finished := GetCurrentDateTime()
+   WHERE id = request.id;
+
+  UPDATE system.fs_objects
+     SET parent := 17
+   WHERE id = draftobject->fsobject->id;
+
+  UPDATE system.fs_objects
+     SET published := SetFlagsInPublished(published, PublishedFlag_SubmittedForApproval, FALSE)
+   WHERE id = draftobject->source;
+
+  CreateVersioningEvent(
+      OpenWHFSObject(draftobject->source),
+      draftobject,
+      VersionEventType_FinalDenial,
+      options.userobject,
+      options.message,
+      request.id,
+      now,
+      [ newfullpath :=    newurlandfullpath.newfullpath
+      , newurl :=         newurlandfullpath.newurl
+      , versionnumber :=  policy->CalculateNextVersionNumber("denyrequest", request.versionnumber)
+      , orgparentsite :=  request.fs_site
+      , expirydate :=     request.expirydate
+      ]);
+
+  // Clone the old draft as new public draft
+  __CloneDraftAsPublicDraft(draftobject->id);
+}
+
+/** Updates a sumbitted draft so its non-versioned fields reflect the current live object
+    @param draftobject Draft to update
+    @param ignorefields
+    @cell ignorefields.versioned_fields Fields to NOT copy back (published is never copied back)
+    @cell ignorefields.versioned_contenttypes Contenttypes to NOT copy back
+*/
+PUBLIC MACRO UpdateSubmittedDraft(OBJECT draftobject, RECORD ignorefields)
+{
+  INTEGER ARRAY copyableinstances :=
+      SELECT AS INTEGER ARRAY fs_types.id
+        FROM system.fs_instances, system.fs_types
+       WHERE fs_instances.fs_type = fs_types.id
+             AND fs_instances.fs_object = draftobject->source
+             AND fs_types.cloneoncopy = TRUE;
+
+  RECORD orginfo := SELECT * FROM system.fs_objects WHERE id = draftobject->source;
+
+  BOOLEAN isindex := RecordExists(SELECT FROM system.fs_objects WHERE id = orginfo.parent AND indexdoc = draftobject->source);
+
+  // Remove all fields we don't want to overwrite. Never update 'published', though
+  STRING ARRAY tocopy :=
+      [ "DATA"
+      , "DESCRIPTION"
+      , "ISPINNED"
+      , "INDEXDOC"
+      , "KEYWORDS"
+      , "NAME"
+      , "ORDERING"
+      , "PARENT"
+      , "TITLE"
+      , "TYPE"
+      ];
+
+  RECORD draftdata := draftobject->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+
+  RECORD updates;
+  FOREVERY (STRING field FROM tocopy)
+  {
+    // Always update whether the file is index
+    IF (ToLowercase(field) IN ignorefields.versioned_fields OR field = "INDEXDOC")
+      CONTINUE;
+
+    SWITCH (field)
+    {
+      CASE "PARENT"     { draftdata.parent := orginfo.parent; }
+      CASE "NAME"       { draftdata.name := orginfo.name; }
+      CASE "INDEXDOC"   { draftdata.flags := isindex ? draftdata.flags BITOR DraftFlag_WasIndex : draftdata.flags BITAND BITNEG DraftFlag_WasIndex; }
+      DEFAULT           { updates := CellInsert(updates, field, GetCell(orginfo, field)); }
+    }
+  }
+
+  // Update draft directly, no need to update modificationdate and modifiedby
+  UPDATE system.fs_objects
+     SET RECORD updates
+   WHERE id = draftobject->id;
+
+  FOREVERY (INTEGER cancopy FROM copyableinstances)
+    IF (cancopy NOT IN ignorefields.versioned_contenttypes)
+    {
+      OBJECT typeobj := OpenWHFSTypeById(cancopy);
+      typeobj->SetInstanceData(draftobject->fsobject->id, typeobj->GetInstanceData(draftobject->source));
+    }
+
+  draftobject->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", draftdata);
+
+  // Make sure the cached fsobject reflects reality
+  draftobject->fsobject->Refresh();
+}
+
+/** Applies the versioned fields of a draft
+    @param draftobject
+    @param fields Fields to apply
+    @param options
+    @cell options.removeflagpublicdraft If true, remove the 'publicdraft' flag from the target file
+    @cell options.applyreadonlyfields If true, also write the readonly fields
+    @cell options.target If set, apply the changes to another object, otherwise use the draftobject source
+*/
+PUBLIC MACRO ApplyDraftByVersionedFields(OBJECT draftobject, RECORD fields, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ removeflagpublicdraft :=  FALSE
+      , applyreadonlyfields :=    FALSE
+      , target :=                 DEFAULT OBJECT
+      ], options);
+
+  OBJECT source := options.target ?? OpenWHFSObject(draftobject->source);
+  OBJECT whfs_draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
+
+  // Get the draft source data, overwrite with draftmetadata contenttype data
+  RECORD draft_data := SELECT *, flags := 0 FROM system.fs_objects WHERE id = draftobject->id;
+  draft_data := MakeReplacedRecord(draft_data, whfs_draftmetadata->GetInstanceData(draftobject->id));
+
+  BOOLEAN indexdoc_versioned, isindex;
+
+  STRING ARRAY apply_fields := fields.versioned_fields;
+  IF (options.applyreadonlyfields)
+    apply_fields := apply_fields CONCAT fields.readonly_fields;
+
+  // Copy all versioned fields
+  RECORD updates, parentupdates;
+  FOREVERY (STRING field FROM apply_fields)
+  {
+    IF (ToLowercase(field) = "published")
+    {
+      // Special case for published field
+      BOOLEAN is_draft_publish := (draft_data.flags BITAND DraftFlag_Publish) != 0;
+      IF (is_draft_publish != IsPublish(source->published))
+      {
+        INTEGER new_publish := is_draft_publish
+            ? ConvertToWillPublish(source->published, FALSE, TRUE, PubPrio_DirectEdit)
+            : ConvertToWontPublish(source->published);
+
+        INSERT CELL published := new_publish INTO updates;
+      }
+    }
+    ELSE IF (ToLowercase(field) = "indexdoc")
+    {
+      indexdoc_versioned := TRUE;
+      isindex := source->parentobject->indexdoc = source->id;
+    }
+    ELSE
+      updates := CellInsert(updates, field, GetCell(draft_data, field));
+  }
+
+  IF (options.removeflagpublicdraft)
+  {
+    IF (NOT CellExists(updates, "PUBLISHED"))
+      INSERT CELL published := source->published INTO updates;
+    updates.published := SetFlagsInPublished(updates.published, PublishedFlag_HasPublicDraft, FALSE);
+  }
+
+  RECORD toapply := updates;
+
+  BOOLEAN executemove;
+  IF (CellExists(toapply, "PARENT"))
+  {
+    IF (toapply.parent != source->parent)
+    {
+      executemove := TRUE;
+      DELETE CELL parent, name FROM toapply;
+    }
+    ELSE
+      DELETE CELL parent FROM toapply;
+  }
+
+  source->UpdateMetadata(toapply);
+  source->Refresh();
+
+  // Move after applying any updates, can't apply updates to deleted objects
+  BOOLEAN isdeleted;
+  IF (executemove)
+  {
+    IF (updates.parent = 0)
+    {
+      isdeleted := TRUE;
+      RunAnyDelete([ INTEGER(source->id) ], "accept version deletion request");
+    }
+    ELSE
+    {
+      STRING name := CellExists(updates, "NAME") ? updates.name : source->name;
+
+      // FIXME: run right republish handlers
+      source->MoveTo(OpenWHFSObject(updates.parent), name);
+      source->Refresh();
+    }
+  }
+
+  // Indexdoc updates (only when not deleted)
+  IF (NOT isdeleted AND indexdoc_versioned)
+  {
+    BOOLEAN makeindex;
+    BOOLEAN republish;
+
+    IF (executemove)
+    {
+      isindex := ToLowercase(source->name) IN whconstant_webserver_indexpages;
+
+      IF ((draft_data.flags BITAND DraftFlag_MakeIndex) != 0)
+        isindex := TRUE;
+      IF ((draft_data.flags BITAND DraftFlag_UnmarkAsIndex) != 0)
+        isindex := FALSE;
+
+      IF (isindex AND source->parentobject->indexdoc != source->id)
+        makeindex := TRUE;
+    }
+    ELSE
+    {
+      IF ((draft_data.flags BITAND DraftFlag_MakeIndex) != 0 AND NOT isindex)
+        makeindex := TRUE;
+      ELSE IF ((draft_data.flags BITAND DraftFlag_UnmarkAsIndex) != 0 AND isindex)
+      {
+        source->parentobject->UpdateMetadata([indexdoc := 0]);
+        republish := TRUE;
+      }
+    }
+
+    IF (makeindex)
+    {
+      IF (source->parentobject->indexdoc != 0)
+      {
+        RECORD indexfile := SELECT * FROM system.fs_objects WHERE id = source->parentobject->indexdoc;
+        IF (RecordExists(indexfile))
+        {
+          OBJECT indexfileobj := OpenWHFSObject(indexfile.id);
+          IF (ToLowercase(indexfile.name) IN whconstant_webserver_indexpages)
+            indexfileobj->RecycleSelf();
+          ELSE
+            ScheduleFileRepublish(indexfile.id); //republish the old index
+        }
+      }
+
+      source->parentobject->UpdateMetadata([indexdoc := source->id]);
+    }
+  }
+
+  // Copy the versioned contenttypes
+  FOREVERY (INTEGER contenttype FROM fields.versioned_contenttypes)
+  {
+    OBJECT type := OpenWHFSTypeById(contenttype);
+    RECORD data := type->GetInstanceData(draftobject->id);
+    type->SetInstanceData(source->id, data);
+  }
+}
+
+RECORD FUNCTION GetNewURLAndFullPath(OBJECT objectpolicy, OBJECT draft)
+{
+  RECORD draftmetadata := draft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+
+  RECORD targetdata :=
+      SELECT id
+           , name
+           , parent
+           , isfolder
+           , type
+           , filelink
+           , externallink
+           , published
+        FROM system.fs_objects
+       WHERE id = draft->source;
+
+  RECORD draftdata :=
+      SELECT id
+           , name :=      draftmetadata.name
+           , parent :=    draftmetadata.parent
+           , isfolder
+           , type
+           , filelink
+           , externallink
+           , published
+        FROM system.fs_objects
+       WHERE id = draft->id;
+
+
+  RECORD options :=
+      [ followlinks := FALSE
+      ];
+
+  IF ((draftmetadata.flags BITAND DraftFlag_IndexActionMask) != 0)
+    INSERT CELL overrideindexdoc := (draftmetadata.flags BITAND DraftFlag_MakeIndex) != 0 INTO options;
+  ELSE IF (targetdata.parent != draftdata.parent)
+    INSERT CELL overrideindexdoc := FALSE INTO options;
+
+  FOREVERY (STRING field FROM objectpolicy->GetFields().versioned_fields)
+    IF (CellExists(draftdata, field))
+      targetdata := CellUpdate(targetdata, field, GetCell(draftdata, field));
+
+  IF (draftdata.parent = 0)
+    RETURN [ newfullpath := "", newurl := "" ];
+
+  RECORD rec := CalculateFSObjectFullPathAndURLFromRec(targetdata, [ followlinks := FALSE ]);
+
+  RETURN
+      [ newfullpath :=    rec.fullpath
+      , newurl :=         rec.url
+      ];
+}
+
+/** Get versioning events for all files in a site
+    @param siteid
+    @param options
+    @cell options.filter_user
+    @cell options.filter_user_negative
+    @cell options.eventtypes
+    @cell options.iscurrent
+    @cell options.from_date
+    @cell options.to_date
+    @cell options.max_expirydate
+    @cell options.toreturn "", "request", "current"
+*/
+PUBLIC RECORD ARRAY FUNCTION RetrieveSiteVersioningEvents(INTEGER siteid, RECORD options)
+{
+  options := ValidateOptions(
+      [ filter_user :=            0
+      , filter_user_negative :=   FALSE
+      , eventtypes :=             DEFAULT INTEGER ARRAY
+      , iscurrent :=              FALSE
+      , from_date :=              DEFAULT DATETIME
+      , to_date :=                MAX_DATETIME
+      , max_expirydate :=         MAX_DATETIME
+      , toreturn :=               ""
+      , newpublished :=           ""
+      , tag :=                    ""
+      ], options);
+
+  IF (options.toreturn NOT IN [ "", "requestresult", "current" ])
+    THROW NEW Exception("Illegal 'toreturn' value");
+  IF (options.newpublished NOT IN [ "", "published", "nonpublished" ])
+    THROW NEW Exception("Illegal 'newpublished' value");
+
+  RECORD ARRAY events :=
+      SELECT id
+           , previousrequest
+           , when
+           , live_object
+           , draft_object
+           , user
+           , comment
+           , eventtype
+           , finished
+           , fs_site
+           , orgfullpath
+           , newfullpath
+           , versionnumber
+           , expirydate
+           , ordering
+        FROM system.fs_versionevents
+       WHERE fs_site = siteid
+         AND (options.filter_user != 0
+                ? options.filter_user_negative
+                      ? user != options.filter_user
+                      : user = options.filter_user
+                : TRUE)
+         AND (options.tag = "" ? TRUE : tag = options.tag)
+         AND (IsDefaultValue(options.eventtypes) ? TRUE : eventtype IN options.eventtypes)
+         AND (options.iscurrent ? iscurrent : TRUE)
+         AND when >= options.from_date
+         AND when < options.to_date
+         AND expirydate <= options.max_expirydate
+         AND (options.newpublished != ""
+                  ? (options.newpublished = "published") = (NOT isdelete AND (newflags BITAND DraftFlag_Publish) != 0)
+                  : TRUE)
+    ORDER BY when DESC;
+
+  IF (options.toreturn != "")
+  {
+    INTEGER ARRAY ids := SELECT AS INTEGER ARRAY id FROM events;
+    INTEGER ARRAY live_objects := SELECT AS INTEGER ARRAY live_object FROM events;
+
+    RECORD ARRAY followevents :=
+        SELECT id
+             , previousrequest
+             , when
+             , live_object
+             , draft_object
+             , user
+             , comment
+             , eventtype
+             , finished
+             , fs_site
+             , orgfullpath
+             , newfullpath
+             , versionnumber
+             , expirydate
+             , ordering
+          FROM system.fs_versionevents
+         WHERE (options.toreturn = "requestresult"
+                  ? previousrequest IN ids
+                  : live_object IN live_objects AND iscurrent)
+      ORDER BY ordering DESC;
+
+    IF (options.toreturn = "current")
+    {
+      // Retain only the newest event
+      followevents :=
+          SELECT AS RECORD ARRAY Any(followevents)
+            FROM followevents
+        GROUP BY live_object
+        ORDER BY live_object;
+
+      FOREVERY (RECORD event FROM events)
+      {
+        RECORD pos := RecordLowerBound(followevents, event, [ "LIVE_OBJECT" ]);
+        IF (pos.found)
+          events[#event] := followevents[pos.position];
+      }
+    }
+    ELSE // options.toreturn = "requestresult"
+    {
+      // Retain only the newest event for a request
+      followevents :=
+          SELECT AS RECORD ARRAY Any(followevents)
+            FROM followevents
+        GROUP BY previousrequest
+        ORDER BY previousrequest;
+
+      FOREVERY (RECORD event FROM events)
+      {
+        RECORD pos := RecordLowerBound(followevents, [ previousrequest := event.id ], [ "PREVIOUSREQUEST" ]);
+        IF (pos.found)
+          events[#event] := followevents[pos.position];
+      }
+    }
+  }
+
+  RETURN events;
+}
+
+
+RECORD ARRAY AGGREGATE FUNCTION KeepNewestEvents(RECORD ARRAY events)
+{
+  // Only return the most recently finished event chain
+  RETURN (SELECT * FROM events ORDER BY objevents[0].when DESC)[0].objevents;
+}
+
+PUBLIC RECORD FUNCTION GetLastVersionEvent(INTEGER fileid)
+{
+  RETURN
+      SELECT id
+           , eventtype
+           , when
+           , draft_object
+           , comment
+           , orgfullpath
+           , newfullpath
+           , versionnumber
+           , fs_site
+        FROM system.fs_versionevents
+       WHERE live_object = fileid
+    ORDER BY when DESC
+           , previousrequest = 0; // want stuff with previousrequest set first
+}
+
+PUBLIC RECORD FUNCTION GetLastVersionApplyEvent(INTEGER fileid)
+{
+  RETURN
+      SELECT id
+           , eventtype
+           , when
+           , draft_object
+           , comment
+           , orgfullpath
+           , newfullpath
+           , versionnumber
+           , fs_site
+           , expirydate
+        FROM system.fs_versionevents
+       WHERE live_object = fileid
+         AND iscurrent
+         AND eventtype = VersionEventType_AcceptApply;
+}
+

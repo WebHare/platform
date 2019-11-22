@@ -1,0 +1,117 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!-- invoke this test through /tollium_todd.res/beta/tollium/datepicker.html -->
+<html>
+<head>
+<title>datepicker tests</title>
+<script type="text/javascript" src="/tollium_todd/comp/base.js"></script>
+<script type="text/javascript" src="/tollium_todd/comp/datepicker.js"></script>
+
+<script type="text/javascript">
+function d1change()
+{
+  var d1 = document.getElementById('d1');
+
+  var removing = d1.PreviousValue && d1.PreviousValue.length > d1.value.length;
+  var value = d1.value;
+
+  var mask='##-##-####';
+  var lastseppos=-1;
+
+  for(var i=0;i<value.length;++i)
+  {
+    var expected = mask.substr(i,1);
+
+    var atpos = value.substr(i,1);
+    var isnum = atpos>='0' && atpos<='9';
+    var issep = atpos==' ' || atpos=='-' || atpos=='/';
+
+    if(expected=='#' && issep)
+    {
+      //We didnt expect a separator yet. Insert 0s to compensate
+      var addzeroes = 0;
+      while(i+addzeroes<mask.length && mask.substr(i+addzeroes,1)=='#')
+        ++addzeroes;
+
+      //The position to add zeroes, is at the posistion of the last separator + 1;
+      for(var i=0;i<addzeroes;++i)
+        value = value.substr(0,lastseppos+1) + '0' + value.substr(lastseppos+1);
+    }
+    else if(expected=='-' && isnum)
+    {
+      //Auto-add separator
+      value=value.substr(0,i) + expected + value.substr(i);
+    }
+    else if (issep) //normal separator addition
+    {
+      value=value.substr(0,i) + expected + value.substr(i+1);
+    }
+    else if (!isnum) //invalid character
+    {
+      value=value.substr(0,i) + value.substr(i+1);
+    }
+
+    if(expected=='-')
+      lastseppos=i;
+  }
+
+  if(value.length > mask.length)
+  {
+    value=value.substr(0,mask.length);
+  }
+
+  if(d1.value!=value)
+    d1.value=value;
+}
+
+function d1showpicker()
+{
+  var d1 = document.getElementById('d1');
+
+  if(!d1.mypicker)
+  {
+    d1.mypicker = new toddCompDatePicker({ left: 0
+                                 , top: d1.offsetHeight
+                                 , parentnode: document.getElementById('d1parent')
+                                 , textfield: d1
+                                 , textformat: 'D-M-Y'
+                                 , hideafterselect: true
+                                 });
+  }
+
+  if(d1.mypicker.visible)
+    d1.mypicker.Hide();
+  else
+    d1.mypicker.Show();
+}
+
+function runtestcode()
+{
+  var x = new toddCompDatePicker({ left: 50
+                         , top: 50
+                         , date: new Date(2008,0,1)
+                         , showweeknumbers: true
+                         , weekstartday:7
+                         });
+  x.Show();
+
+  var x2 = new toddCompDatePicker({ left: 300
+                          , top: 50
+                          , browsemonths: true
+                          , daysoutsidemonth: true
+                          });
+  x2.Show();
+
+  var x3 = new toddCompDatePicker({ left: 550
+                          , top: 50
+                          , browsemonths: true
+                          , weekstartday: 3
+                          });
+  x3.Show();
+}
+</script>
+
+</head>
+<body onload="runtestcode()">
+<input id="d1" onkeydown="return d1change();">
+</body>
+</html>

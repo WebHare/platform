@@ -1,0 +1,24 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
+
+// command: wrd:updateschemas [schema...]
+// short: Update specified WRD schemas from their metata definitions
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "force", type := "switch" ]
+    , [ name := "schemamasks", type := "paramlist" ]
+    ]);
+
+IF (NOT RecordExists(args))
+{
+  PRINT("Syntax: wh wrd:updateschemas [ schemamasks ]\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+
+OpenPrimary();
+
+IF(NOT UpdateAllModuleSchemas(CELL[ schemamasks := args.schemamasks, args.force ]))
+  SetConsoleExitCode(1);

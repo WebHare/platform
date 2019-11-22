@@ -1,0 +1,52 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+RECORD ARRAY FUNCTION ExtractLDJSONData()
+{
+  RECORD ARRAY structuredrecords;
+  FOREVERY(OBJECT script FROM testfw->browser->QSA(`script[type="application/ld+json"]`))
+  {
+    RECORD data := DecodeJSON(script->textcontent, [ "item-list-element" := "itemListElement" ]);
+    IF(NOT RecordExists(data))
+      THROW NEW Exception(`Invalid LD+JSON data in script at line ${script->linenum}`);
+
+    INSERt data INTO structuredrecords AT END;
+  }
+  RETURN structuredrecords;
+}
+
+MACRO CheckBreadcrumbs()
+{
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->OpenByPath("testpages/staticpage")->url) );
+
+  //TODO we should use the canonical links of pages where available.
+
+  RECORD ARRAY data := ExtractLDJSONData();
+  //dumpvalue(data,'tree');
+
+  TestEqStructure([[ "@context" := ""
+                   , "@type" := ""
+                   , "item-list-element" := [[ "@type" := "", position := 0, name := "", item := "" ]]
+                  ]], data);
+
+  TestEq(1, Length(data));
+  TestEq("https://schema.org", data[0]."@context");
+  TestEq("BreadcrumbList", data[0]."@type");
+  TestEq(2, Length(data[0]."item-list-element"));
+  TestEq("ListItem", data[0]."item-list-element"[0]."@type");
+  TestEq(OpenTestsuiteSite()->webroot, data[0]."item-list-element"[0]."item");
+  TestEq('WebHare testsuite site', data[0]."item-list-element"[0]."name");
+  TestEq(2, data[0]."item-list-element"[1].position);
+  TestEq('staticpage', data[0]."item-list-element"[1]."name");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate/staticpage")->url) );
+  data := ExtractLDJSONData();
+  TestEq(2, Length(data[0]."item-list-element")); //index should not appear in path
+  TestEq("Testsuite Folder Template", data[0]."item-list-element"[end-1].name);
+}
+
+RunTestframework([ PTR CheckBreadcrumbs
+                 ]);

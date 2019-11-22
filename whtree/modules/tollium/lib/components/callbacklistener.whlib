@@ -1,0 +1,63 @@
+<?wh
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+// ---------------------------------------------------------------------------
+//
+// Callback listener
+//
+
+/** This component can be used to have a callback function called when a certain URL is requested.
+*/
+
+PUBLIC STATIC OBJECTTYPE TolliumCallbackListener EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// The function that is called with a TolliumWebAsyncCallback argument when the GetCallbackURL is opened
+  PUBLIC FUNCTION PTR oncallback;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & Init
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_invisibletitle := TRUE;
+    this->componenttype := "eventlistener";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumComponentBase::StaticInit(definition);
+    this->oncallback := definition.oncallback;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium communication
+  //
+
+  PUBLIC MACRO HandleCallback(OBJECT handler)
+  {
+    IF (this->oncallback != DEFAULT FUNCTION PTR)
+      this->oncallback(handler);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** @short Generate a URL that, when called, triggers the oncallback function to be called
+      @param data Optional data record that is encoded into the URL and can be retrieved using the data property of the
+                  TolliumWebAsyncCallback object
+  */
+  PUBLIC STRING FUNCTION GetCallbackURL(RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN ResolveToAbsoluteUrl(this->owner->tolliumcontroller->baseurl, this->GetFileTransferUrl("asynccallback", data, DEFAULT RECORD));
+  }
+>;

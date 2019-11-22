@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs/>
+  <g>
+    <path d="M23,2H9C8,2,8,3,8,3v26c0,0,0,1,1,1h14c1,0,1-1,1-1V3C24,3,24,2,23,2zM22,28H10V4h12V28z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M24,11V5h7L24,11zM24,6v4l4.5-4H24z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M24,18v-6h7L24,18zM24,13v4l4.5-4H24z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M1,5h7v6L1,5zM3.5,6L8,10V6H3.5z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M1,12h7v6L1,12zM3.5,13L8,17v-4H3.5z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <circle cx="15.8" cy="20.9" r="3.3" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M15.8,8.6c1.3,0,2.3,1,2.3,2.3s-1,2.3-2.3,2.3s-2.3-1-2.3-2.3S14.5,8.6,15.8,8.6M15.8,7.6c-1.8,0-3.3,1.5-3.3,3.3s1.5,3.3,3.3,3.3s3.3-1.5,3.3-3.3S17.7,7.6,15.8,7.6L15.8,7.6z" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+  </g>
+</svg>

@@ -1,0 +1,50 @@
+﻿<?wh
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+PUBLIC OBJECTTYPE LangSystemBackend
+<
+  OBJECT langsystem;
+
+  PUBLIC OBJECT FUNCTION GetLanguageSystem()
+  {
+    RETURN this->langsystem;
+  }
+>;
+
+PUBLIC OBJECTTYPE ModuleLangSystemBackend EXTEND LangSystemBackend
+<
+  STRING module;
+  MACRO NEW(STRING module)
+  {
+    this->module := module;
+    IF(NOT IsModuleInstalled(this->module))
+      THROW NEW Exception("No such module '" || module || "'");
+
+    this->langsystem := __MakeTolliumLanguageFileSystem(this->module);
+  }
+
+>;
+
+PUBLIC OBJECTTYPE SiteLangSystemBackend EXTEND LangSystemBackend
+<
+  OBJECT whfsfile;
+  OBJECT siteprofile;
+  STRING siteprofilepath;
+
+  MACRO NEW(STRING siteprofilepath)
+  {
+    this->siteprofilepath := ToLowercase(siteprofilepath);
+
+    this->whfsfile := OpenWHFSObjectByPath(siteprofilepath);
+    IF(NOT ObjectExists(this->whfsfile))
+      ABORT("Failed to find the specified file " || siteprofilepath);
+
+    this->siteprofile := OpenSiteProfileById(this->whfsfile->id);
+    this->langsystem := this->siteprofile->GetLanguageSystem();
+  }
+>;
+

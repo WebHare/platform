@@ -1,0 +1,18 @@
+<?wh
+/// @short Loadlib test; sublibrary A
+
+LOADLIB "test::testdata_loadlib_c.whlib" EXPORT deep_func1, deep_var1, deep_objecttype1;
+
+
+PUBLIC INTEGER FUNCTION func1() { RETURN 0; }
+PUBLIC MACRO mac1() { }
+PUBLIC INTEGER int1;
+
+PUBLIC INTEGER i __ATTRIBUTES__(DEPRECATED);
+PUBLIC INTEGER j __ATTRIBUTES__(DEPRECATED "Stop using j");
+
+PUBLIC MACRO T1() __ATTRIBUTES__(DEPRECATED) {};
+PUBLIC BOOLEAN FUNCTION T2() __ATTRIBUTES__(DEPRECATED "Stop using T2") { RETURN TRUE; };
+
+PUBLIC OBJECTTYPE O1 __ATTRIBUTES__(DEPRECATED) < MACRO NEW() {} >;
+PUBLIC OBJECTTYPE O2 __ATTRIBUTES__(DEPRECATED "Stop using O2") < MACRO NEW() {} >;

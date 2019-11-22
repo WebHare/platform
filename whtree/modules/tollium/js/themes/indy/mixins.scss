@@ -1,0 +1,36 @@
+@mixin theme-indy-pulldown
+{
+  &__current
+  {
+    position:relative;
+
+    border: 1px solid #000000;
+    border-radius: 6px;
+    background-image: linear-gradient(to bottom, #FCFCFC 0%, #EBEBEB 89%);
+  }
+  &__current, &__item, &__optgroup
+  {
+    padding: 4px 24px 4px 4px;
+  }
+
+  &__current:after
+  {
+    content:"";
+
+    float: none;
+    height: 6px;
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    width: 10px;
+    background: url("~@mod-tollium/js/themes/indy/pulldown-arrow.png") no-repeat 0 -18px;
+  }
+  &__item
+  {
+    background:#ffffff;
+  }
+  &__item:hover
+  {
+    background-color: #95cdfe;
+  }
+}

@@ -1,0 +1,17 @@
+<?wh
+/** @short Common publication code
+    @long This library offers information about the current publishing context, eg the current file,
+          the folder it is contained in, and the current site. These variables are also available
+          through template-v2.whlib and harescriptfile-v2.whlib
+    @private Legacy publishing APIs */
+
+PUBLIC OBJECTTYPE NotAPublishingContextException EXTEND Exception
+<
+  MACRO NEW()
+  : Exception("The current script is not running in the context of a publication process")
+  {
+  }
+>;
+
+//Initialize variables that the coders expect
+PUBLIC RECORD file, folder, site;

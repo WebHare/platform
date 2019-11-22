@@ -1,0 +1,84 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+
+OBJECT ASYNC FUNCTION TestIntExtLink()
+{
+  OBJECT screen := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+                                                   [ component := "http://www.webhare.net/xmlns/publisher/components:intextlink"
+                                                   , settings := DEFAULT RECORD
+                                                   ]);
+  AWAIT ExpectScreenChange(+1, PTR screen->RunModal());
+  TestEQ(DEFAULT RECORD, topscreen->comp->value);
+
+  // Set external link
+  topscreen->comp->value := [ append := "", externallink := "http://example.com", internallink := 0 ];
+  TestEQ([ append := "", externallink := "http://example.com", internallink := 0 ], topscreen->comp->value);
+
+  // Set internal link
+  topscreen->comp->value := [ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ];
+  TestEQ([ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ], topscreen->comp->value);
+
+  // Change to external link again (had clearing bug)
+  topscreen->comp->value := [ append := "", externallink := "http://example.com", internallink := 0 ];
+  TestEQ([ append := "", externallink := "http://example.com", internallink := 0 ], topscreen->comp->value);
+
+  // Change to internal link again (had clearing bug)
+  topscreen->comp->value := [ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ];
+  TestEQ([ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ], topscreen->comp->value);
+
+  // With append
+  topscreen->comp->value := [ append := "#jo", externallink := "", internallink := GetTestsuiteTempFolder()->id ];
+  TestEQ([ append := "#jo", externallink := "", internallink := GetTestsuiteTempFolder()->id ], topscreen->comp->value);
+
+  // Test conversion to external link (without index doc)
+  topscreen->comp->SetLinkType("external");
+  TestEQ([ append := "", externallink := GetTestsuiteTempFolder()->url || "#jo", internallink := 0 ], topscreen->comp->value);
+
+  // Test conversion to internal link (without index doc)
+  topscreen->comp->SetLinkType("internal");
+  TestEQ([ append := "#jo", externallink := "", internallink := GetTestsuiteTempFolder()->id ], topscreen->comp->value);
+
+  // Folder with indexdoc
+  testfw->BeginWork();
+  OBJECT whfs_folderwithindex := GetTestsuiteTempFolder();
+  OBJECT whfs_index := whfs_folderwithindex->CreateFile([ name := "index.html", publish := TRUE ]);
+  whfs_folderwithindex->UpdateMetadata([ indexdoc := whfs_index->id ]);
+  testfw->CommitWork();
+
+  topscreen->comp->value := [ append := "#jo", externallink := "", internallink := whfs_folderwithindex->id ];
+  TestEQ([ append := "#jo", externallink := "", internallink := whfs_folderwithindex->id ], topscreen->comp->value);
+  topscreen->comp->SetLinkType("external");
+  TestEQ([ append := "", externallink := whfs_folderwithindex->indexurl || "#jo", internallink := 0 ], topscreen->comp->value);
+
+  // Preference to resolving to index files instead of folders
+  topscreen->comp->SetLinkType("internal");
+  TestEQ([ append := "#jo", externallink := "", internallink := whfs_folderwithindex->indexdoc ], topscreen->comp->value);
+  topscreen->comp->SetLinkType("external");
+  TestEQ([ append := "", externallink := whfs_folderwithindex->indexurl || "#jo", internallink := 0 ], topscreen->comp->value);
+
+  // Folder with indexdoc
+  testfw->BeginWork();
+  OBJECT whfs_publishedfile := whfs_folderwithindex->CreateFile([ name := "other.html", publish := TRUE ]);
+  testfw->CommitWork();
+
+  topscreen->comp->value := [ append := "#jo", externallink := "", internallink := whfs_publishedfile->id ];
+  TestEQ([ append := "#jo", externallink := "", internallink := whfs_publishedfile->id ], topscreen->comp->value);
+  topscreen->comp->SetLinkType("external");
+  TestEQ([ append := "", externallink := whfs_publishedfile->indexurl || "#jo", internallink := 0 ], topscreen->comp->value);
+  topscreen->comp->SetLinkType("internal");
+  TestEQ([ append := "#jo", externallink := "", internallink := whfs_publishedfile->id ], topscreen->comp->value);
+
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->tolliumexecutecancel());
+
+  RETURN TRUE;
+}
+
+RunTestframework([ PTR TestIntExtLink
+                 ]);

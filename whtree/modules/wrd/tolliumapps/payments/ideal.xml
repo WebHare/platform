@@ -1,0 +1,26 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         library="ideal.whlib"
+         gid="tolliumapps.payments.ideal">
+
+  <tabsextension name="configideal" implementation="lib">
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <select composition="methodsettings" cellname="acquirer" type="pulldown" name="acquirer" />
+      <textedit composition="methodsettings" cellname="merchantid" valuetype="integer" required="true" name="merchantid" />
+      <textedit composition="methodsettings" cellname="merchantsubid" valuetype="integer" />
+      <select composition="methodsettings" cellname="keypair" required="true" type="pulldown" name="keypair" />
+      <checkbox composition="methodsettings" cellname="testmode" value="true" title="" labeltid="tolliumapps.payments.common.testmode" name="testmode" />
+      <textedit composition="methodsettings" cellname="privatekeypassword" password="true" name="privatekeypassword" />
+    </insert>
+  </tabsextension>
+
+  <screen name="payinfo" title="">
+    <body>
+      <text name="transactionid" selectable="true" />
+    </body>
+  </screen>
+
+</screens>

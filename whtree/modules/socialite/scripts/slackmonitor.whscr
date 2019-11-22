@@ -1,0 +1,86 @@
+<?wh
+LOADLIB "mod::socialite/lib/slack/api.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::ipc.whlib";
+
+// NOTE: get your token from https://api.slack.com/web
+
+RECORD info := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "monitor", type := "switch" ]
+                              , [ name := "debug", type := "switch" ]
+                              , [ name := "extended", type := "switch" ]
+                              , [ name := "persistent", type := "switch" ]
+                              , [ name := "nomagic", type := "switch" ]
+                              , [ name := "post", type := "stringopt" ]
+                              , [ name := "postasbot", type := "stringopt" ]
+                              , [ name := "channel", type := "stringopt" ]
+                              , [ name := "token", type := "stringopt"]
+                              , [ name := "sendim", type := "stringlist" ]
+                              , [ name := "stop", type := "switch" ]
+                              ]);
+
+IF (NOT RecordExists(info))
+{
+  PRINT("Invalid options\n\n");
+  RETURN;
+}
+
+// FIXME: doesn't seem to work yet. investigate why.
+IF (info.stop)
+{
+  PRINT("Requested to stop all running slack monitors.\n");
+  BroadcastEvent("socialite:stopslackmonitor", DEFAULT RECORD);
+  RETURN;
+}
+
+IF(info.token = "")
+  THROW NEW Exception("You must provide a valid authentication token to use this script.");
+
+OBJECT api := GetSlackAPI();
+api->SetAuthenticationToken(info.token);
+
+api->usemagic := NOT info.nomagic;
+
+BOOLEAN debug := info.debug;
+BOOLEAN extended := info.extended;
+
+IF(NOT info.nomagic AND info.debug AND info.extended)
+  api->debugmagic := TRUE;
+
+IF(info.monitor)
+{
+  IF(info.persistent)
+    api->MonitorServerPersistent(500, debug, extended);
+  ELSE
+    api->MonitorServer(500, debug, extended);
+}
+ELSE IF(info.post != "")
+{
+  api->debug := debug;
+  api->showunknoweventcontents := extended;
+  api->authenticate();
+  IF(info.channel != "")
+    api->channel := info.channel;
+
+  api->PostMessage(info.post);
+  PRINT("Message posted\n");
+}
+ELSE IF(info.postasbot != "")
+{
+  api->debug := debug;
+  api->showunknoweventcontents := extended;
+  IF(info.channel != "")
+    api->channel := info.channel;
+
+  api->MakeBotSay(info.postasbot);
+  PRINT("Message posted\n");
+}
+ELSE IF(Length(info.sendim) = 2)
+{
+  api->debug := debug;
+  api->showunknoweventcontents := extended;
+  api->authenticate();
+
+  api->PostPrivateMessage(info.sendim[0], info.sendim[1]);
+  PRINT("Message posted\n");
+}

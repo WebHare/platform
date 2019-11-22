@@ -1,0 +1,735 @@
+﻿<?wh
+/** @short XML Signature processing
+    @topic xml/signature
+*/
+
+/** This library implements XML Signature processing following the XML Signature Syntax and Processing
+    standard (http://www.w3.org/TR/xmldsig-core/).<br>
+    <br>
+    It expects an XML document where a signature with the following format is present:<br>
+    <code>
+    &lt;Signature ID?&gt;
+      &lt;SignedInfo&gt;
+        &lt;CanonicalizationMethod/&gt;
+        &lt;SignatureMethod/&gt;
+        (&lt;Reference URI? &gt;
+          (&lt;Transforms&gt;)?
+          &lt;DigestMethod&gt;
+          &lt;DigestValue&gt;
+        &lt;/Reference&gt;)+
+      &lt;/SignedInfo&gt;
+      &lt;SignatureValue&gt;
+      (&lt;KeyInfo&gt;)?
+      (&lt;Object ID?&gt;)*
+    &lt;/Signature&gt;
+    </code><br>
+
+    Signature calculation is roughly done with the following steps:
+    <ul>
+      <li>For all nodes referenced by the &lt;Reference&gt; nodes, perform the specififed transforms, and
+      calculate the digest. These are stored in the &lt;DigestValue&gt; node within the &lt;Reference&gt;.</li>
+      <li>Then, transform the &lt;SignedInfo&gt; node with the CanonicalizationMethod transform, and calculate
+      the signature. This is stored in the &lt;SignatureValue&gt; node.</li>
+    </ul>
+    The authenticity of embedded certificates isn't checked!
+
+   @example
+// -- Validation
+
+// Validate a signature
+OBJECT doc := MakeXMLDocument(...);
+
+OBJECT mynode := doc->GetElementByTag('signednode');
+
+OBJECT context := GetSignatureContextByNodes([ mynode ]);
+
+// Check if the embedded certificate matches the expected vertificate
+UserCheckExpectedCertificate(context->certificate);
+
+// Validate the signature. Throws on failure.
+context->ValidateSignature();
+
+// Get the document with all unsigned nodes beneath signed nodes removed.
+OBJECT signeddoc := context->GetSignedXMLDocument();
+
+
+// -- Signing
+
+// We have a document, &lt;Signature&gt; element present and filled in with requested algorithms and references.
+OBJECT doc := MakeXMLDocument(...);
+
+// Get the node(s) that need to be signed from the document.
+OBJECT mynode := doc->GetElementByTag('signednode');
+
+OBJECT context := GetSignatureContextByNodes([ mynode ]);
+
+context->SignDocument(privatekey, passhrase);
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+
+/// XML Signature node namespace
+STRING ns_xmldsig := "http://www.w3.org/2000/09/xmldsig#";
+
+/** @short Ensure the PEM certificate headers are present around certificate data
+    @param indata Certificate (PEM-encoded, or just base64 encoded DER without headers)
+    @return PEM-encoded certificate
+*/
+STRING FUNCTION X509Base64ToPEM(STRING indata)
+{
+  IF (indata LIKE "*-----BEGIN CERTIFICATE-----*")
+    RETURN indata;
+  IF (indata LIKE "*-----BEGIN *")
+    THROW NEW Exception("This data isn't a PEM-encoded certificate");
+
+  // Remove all whitespace
+  indata := Substitute(NormalizeWhitespace(indata), " ", "");
+
+  STRING out := "-----BEGIN CERTIFICATE-----\r\n";
+  FOR(INTEGER p := 0; p < Length(indata); p := p + 64)
+    out := out  || Substring(indata, p, 64) || "\r\n";
+  out := out || "-----END CERTIFICATE-----\r\n";
+  RETURN out;
+}
+
+OBJECT FUNCTION FindNodeByURI(OBJECT signaturenode, STRING uri)
+{
+  // Empty URI means parent of the signature node
+  IF (uri = "")
+    RETURN signaturenode->parentnode;
+
+  // URI references the ID. Have seen docs where the id could be found in ResponseID attribute.
+  STRING id := SubString(uri, 1);
+  OBJECT query := signaturenode->ownerdocument->CreateXpathQuery();
+  OBJECT ARRAY nodes := query->ExecuteQuery("//*[@Id='" || id || "' or @ID='" || id || "' or @ResponseID='" || id || "']")->GetCurrentElements();
+
+  IF (LENGTH(nodes) = 1)
+    RETURN nodes[0];
+
+  RETURN DEFAULT OBJECT;
+}
+
+/** Get the signature node that signs all the elements
+    @param elements Elements that need to be signed
+    @param startsearch Node to start the search (can also be the document itself)
+    @return Signature node, if found
+*/
+OBJECT FUNCTION FindSigNode(OBJECT ARRAY elements, OBJECT startsearch)
+{
+  OBJECT ARRAY signatures := startsearch->GetElementsByTagNameNS(ns_xmldsig, "Signature")->GetCurrentElements();
+  //addme should or shouldn't documentelement be in this list?
+  IF(MemberExists(startsearch, "documentelement") AND startsearch->documentelement->namespaceuri = ns_xmldsig AND startsearch->documentelement->localname="Signature")
+    INSERT startsearch->documentelement INTO signatures AT 0;
+
+  IF (LENGTH(signatures) = 0)
+    RETURN DEFAULT OBJECT;
+
+  FOREVERY(OBJECT sig FROM signatures)
+  {
+    OBJECT ARRAY references := sig->GetElementsByTagNameNS(ns_xmldsig, "Reference")->GetCurrentElements();
+    IF(LENGTH(references) = 0)
+      CONTINUE;
+
+    // Look up the signed nodes
+    OBJECT ARRAY signednodes;
+    FOREVERY (OBJECT reference FROM references)
+    {
+      STRING uri := reference->GetAttribute("URI");
+
+      // Unsupported reference type?
+      IF(uri != "" AND uri NOT LIKE "#*")
+        BREAK;
+
+      // Empty URI means parent of the signature node
+      OBJECT signednode := FindNodeByURI(sig, uri);
+      IF (ObjectExists(signednode))
+        INSERT signednode INTO signednodes AT END;
+    }
+
+    // See if all nodes are same as or child of one of the signed nodes
+    BOOLEAN all_nodes_signed := TRUE;
+    FOREVERY (OBJECT element FROM elements)
+    {
+      BOOLEAN found := FALSE;
+      FOREVERY (OBJECT signednode FROM signednodes)
+      {
+        OBJECT checkelement := element;
+        FOR (;ObjectExists(checkelement); checkelement := checkelement->parentnode)
+          IF (checkelement->IsSameNode(signednode))
+          {
+            found := TRUE;
+            BREAK;
+          }
+        IF (found)
+          BREAK;
+      }
+
+      IF (NOT found)
+      {
+        all_nodes_signed := FALSE;
+        BREAK;
+      }
+    }
+
+    // All nodes are signed by this signature, return it
+    IF (all_nodes_signed)
+      RETURN sig;
+  }
+  RETURN DEFAULT OBJECT;
+}
+
+/** Checks a list of nodes if a reference refers to one of them
+    @param nodes Nodes to check
+    @param signatureobj Originating signature
+    @param uri URI reference
+    @return Node where the URI reference refers to, if that node exists in the nodes array
+*/
+OBJECT FUNCTION GetReferencedNode(OBJECT ARRAY nodes, OBJECT signatureobj, STRING uri)
+{
+  FOREVERY (OBJECT node FROM nodes)
+  {
+    IF (uri = ""
+            ? node->IsSameNode(signatureobj->parentnode)
+            : ("#" || node->GetAttribute("Id") = uri
+                OR "#" || node->GetAttribute("ID") = uri
+                OR "#" || node->GetAttribute("ResponseID") = uri))
+      RETURN node;
+  }
+  RETURN DEFAULT OBJECT;
+}
+
+/** Object containing functions to sign and validate XML documents with the XML Signature standard
+    @public
+*/
+STATIC OBJECTTYPE SignatureContext
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Current document
+  OBJECT doc;
+
+  OBJECT ARRAY nodes;
+
+  /// Selected &lt;Signature&gt; element
+  OBJECT signature;
+
+  /// &lt;SignedInfo&gt; node within the signature element
+  OBJECT signinfo;
+
+  /// Certificate used for validating
+  STRING pvt_certificate;
+
+  /// Whether the list of references has been filled and is valid
+  BOOLEAN havesignedcanonical;
+
+  /** Elements that need to be signed / validated (from the &lt;Reference&gt; elements in the signature)
+      @cell(object) obj Element node
+      @cell(string) refuri URI used to reference this node in the &lt;Reference&gt; element
+      @cell(string array) signedcanonical Canonical data (result of performing the specified transformations)
+      @cell(string) digest Calculated digest (base-64 encoded)
+  */
+  RECORD ARRAY references;
+
+  /// Whether the &lt;SignedInfo&gt; element in canonical form has been generated
+  BOOLEAN havesigninfocanonical;
+
+  /// The &lt;SignedInfo&gt; element, in canonical form
+  STRING signinfocanonical;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** Current certificate, read from the &lt;Signature&gt; element. Write to set/override.
+  */
+  PUBLIC PROPERTY certificate(GetCertificate, SetX509Certificate);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Construct a new SignatureContext. The document should contain a &lt;Signature&gt; element that references
+      all the signed nodes.
+      @param nodes Nodes that are signed (or need to be signed). All must be from the same document
+      @param signaturedocument Document containing the signature (optional, defaults to the document of the signed nodes)
+  */
+  MACRO NEW(OBJECT ARRAY nodes, OBJECT signaturedocument DEFAULTSTO DEFAULT OBJECT)
+  {
+    // ADDME: add DEFAULT
+    this->doc := nodes[0]->ownerdocument;
+    this->nodes := nodes;
+
+    // Lookup the signature that signes ALL the nodes
+    this->signature := FindSigNode(this->nodes, signaturedocument ?? this->doc);
+    IF(NOT ObjectExists(this->signature))
+      THROW NEW Exception("Could not find a <Signature> element that signs all requested nodes");
+
+    this->signinfo := this->signature->GetElementsByTagNameNS(ns_xmldsig, "SignedInfo")->Item(0);
+    IF (NOT ObjectExists(this->signinfo))
+      THROW NEW Exception("Missing <SignInfo> element within the <Signature> element");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper function
+  //
+
+  /** Checks the algname if it is a supported canonicalization algorithm
+      @param algname Name of the algorithm
+      @return TRUE if the algorithm is supported
+  */
+  BOOLEAN FUNCTION IsCanonicalizeAlgorithm(STRING algname)
+  {
+    RETURN algname IN [ "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"
+                      , "http://www.w3.org/2001/10/xml-exc-c14n#"
+                      , "http://www.w3.org/2006/12/xml-c14n11"
+                      ];
+  }
+
+  /** Checks the algname if it is a supported digest algorithm
+      @param algname Name of the algorithm
+      @return TRUE if the algorithm is supported
+  */
+  BOOLEAN FUNCTION IsDigestAlgorithm(STRING algname)
+  {
+    RETURN algname IN [ "http://www.w3.org/2000/09/xmldsig#sha1"
+                      , "http://www.w3.org/2001/04/xmlenc#sha256"
+                      ];
+  }
+
+  /** Checks the algname if it is a supported signature algorithm
+      @param algname Name of the algorithm
+      @return TRUE if the algorithm is supported
+  */
+  BOOLEAN FUNCTION IsSignatureAlgorithm(STRING algname)
+  {
+    RETURN algname IN [ "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+                      , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
+                      ];
+  }
+
+  /** Canonicalize a nodeset with a canonicalization algorithm
+      @param nodelist Listof nodes
+      @param algorithm Algorithm to use
+      @return Blob with canonicalizated nodeset.
+  */
+  BLOB FUNCTION CanonicalizeDoc(RECORD nodelist, STRING algorithm)
+  {
+    SWITCH (algorithm)
+    {
+      CASE "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"
+      {
+        RETURN this->doc->GetCanonicalizedDocument("C14N 1.0", [ nodelist := nodelist ]);
+      }
+      CASE "http://www.w3.org/2001/10/xml-exc-c14n#"
+      {
+        RETURN this->doc->GetCanonicalizedDocument("EXC-C14N 1.0", [ nodelist := nodelist ]);
+      }
+      CASE "http://www.w3.org/2006/12/xml-c14n11"
+      {
+        RETURN this->doc->GetCanonicalizedDocument("C14N 1.1", [ nodelist := nodelist ]);
+      }
+    }
+    THROW NEW Exception("Canonicalization method '" || algorithm || "' not supported");
+  }
+
+  /** Get the (base64-encoded) digest of a string
+      @param digestalgorithm URI of digest algorithm
+      @param todigest (Raw) string to digest
+      @return Base64 encoded digest
+  */
+  STRING FUNCTION GetDigest(STRING digestalgorithm, STRING todigest)
+  {
+    SWITCH (digestalgorithm)
+    {
+      CASE "http://www.w3.org/2000/09/xmldsig#sha1"
+      {
+        RETURN EncodeBase64(GetSHA1Hash(todigest));
+      }
+      CASE "http://www.w3.org/2001/04/xmlenc#sha256"
+      {
+        RETURN EncodeBase64(GetHashForString(todigest, "SHA-256"));
+      }
+      DEFAULT
+      {
+        THROW NEW Exception("Used unsupported digest algorithm '" || digestalgorithm || "'");
+      }
+    }
+  }
+
+  /** Calculate the final signature
+      @param signaturealgorithm URI of signature algorithm
+      @param data Data to sign
+      @param privatekey Private key to use for signing
+      @param passphrase Passphrase for private key
+      @return Base-64 encoded signature
+  */
+  STRING FUNCTION GetSignature(STRING signaturealgorithm, STRING data, STRING privatekey, STRING passphrase)
+  {
+    SWITCH (signaturealgorithm)
+    {
+      CASE "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+      {
+        RETURN EncodeBase64(Create_RSA_SHA1(GetSHA1Hash(data), privatekey, passphrase));
+      }
+      CASE "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
+      {
+        RETURN EncodeBase64(Create_RSA_Hash(GetHashForString(data, "SHA-256"), "SHA-256", privatekey, passphrase));
+      }
+      DEFAULT
+      {
+        THROW NEW Exception("Used unsupported signature creation algorithm '" || signaturealgorithm || "'");
+      }
+    }
+  }
+
+  /** Validate a signature hash
+      @param signaturealgorithm URI of signature algorithm
+      @param data Signed data
+      @param signature_base64 Base64 encoded signature
+      @param publickey PEM-encoded public key to use for signing
+      @return Whether the signature validates with this publickey
+  */
+  BOOLEAN FUNCTION VerifySignature(STRING signaturealgorithm, STRING data, STRING signature_base64, STRING publickey)
+  {
+    SWITCH (signaturealgorithm)
+    {
+      CASE "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+      {
+        RETURN Verify_RSA_SHA1(GetSHA1Hash(data), DecodeBase64(signature_base64), publickey);
+      }
+      CASE "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
+      {
+        RETURN Verify_RSA_Hash(GetHashForString(data, "SHA-256"), "SHA-256", DecodeBase64(signature_base64), publickey);
+      }
+      DEFAULT
+      {
+        THROW NEW Exception("Used unsupported signature verification algorithm '" || signaturealgorithm || "'");
+      }
+    }
+  }
+
+  /** Calculates the digests for all the referenced nodes in the selected &lt;Signature&gt; node
+  */
+  MACRO CalculateReferenceDigests()
+  {
+    FOREVERY (OBJECT reference FROM this->signinfo->GetElementsByTagNameNS(ns_xmldsig, "Reference")->GetCurrentElements())
+    {
+      //Apply transformations
+      OBJECT ARRAY transforms := reference->GetElementsByTagNameNS(ns_xmldsig, "Transform")->GetCurrentElements();
+
+      OBJECT digestmethod := reference->GetElementsByTagNameNS(ns_xmldsig, "DigestMethod")->Item(0);
+      IF (NOT this->IsDigestAlgorithm(digestmethod->GetAttribute("Algorithm")))
+        THROW NEW Exception("Digest algorithm '" || digestmethod->GetAttribute("Algorithm") || "' not supported");
+
+      STRING uri := reference->GetAttribute("URI");
+      OBJECT element := FindNodeByURI(this->signature, uri);
+      IF (NOT ObjectExists(element))
+        THROW NEW Exception("Signed node with URI '" || EncodeJava(uri) || "' not in set of passed nodes");
+
+      // Get an XPath object
+      RECORD signednodeset := [ query := ".//. | .//@* | .//namespace::*"
+                              , namespaces := [[ prefix := "dsig", namespaceuri := ns_xmldsig ]
+                                              ]
+                              , node := element
+                              , herenode := DEFAULT OBJECT
+                              ];
+
+      STRING octetversion;
+      FOREVERY(OBJECT transform FROM transforms)
+      {
+        IF(transform->GetAttribute("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature")
+        {
+          IF(octetversion!="")
+            THROW NEW Exception("Invalid transform once we switched to octet version");
+
+          /*  http://www.w3.org/TR/xmldsig-core/#sec-c14nAlg
+              Remove the Signature element containing us
+          */
+          signednodeset.herenode := transform;
+          signednodeset.query := "(.//. | .//@* | .//namespace::*)[count(ancestor-or-self::dsig:Signature | here()/ancestor::dsig:Signature[1]) > count(ancestor-or-self::dsig:Signature)]";
+        }
+        ELSE IF(this->IsCanonicalizeAlgorithm(transform->GetAttribute("Algorithm")))
+        {
+          octetversion := BlobToString(this->CanonicalizeDoc(signednodeset, transform->GetAttribute("Algorithm")),-1);
+        }
+        ELSE
+        {
+          THROW NEW Exception("Unrecognized transformation method '" || transform->GetAttribute("Algorithm") || "'");
+        }
+      }
+
+      // http://www.w3.org/TR/xmldsig-core 4.3.3.2:
+      // > If the data object is a node-set and the next transform requires octets, the signature application MUST attempt to convert the node-set to an octet stream using Canonical XML [XML-C14N].
+      IF(octetversion = "")
+        octetversion := BlobToString(this->CanonicalizeDoc(signednodeset, "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"),-1);
+
+      STRING digest := this->GetDigest(digestmethod->GetAttribute("Algorithm"), octetversion);
+
+      INSERT
+          [ element :=          element
+          , refuri :=           uri
+          , signedcanonical :=  octetversion
+          , digest :=           digest
+          ] INTO this->references AT END;
+    }
+
+    this->havesignedcanonical := TRUE;
+  }
+
+  /// Make sure the references array is filled
+  MACRO EnsureSignedCanonical()
+  {
+    IF (NOT this->havesignedcanonical)
+      this->CalculateReferenceDigests();
+  }
+
+  /** Get the reference record for a specific &lt;Reference&gt; node
+      @param reference &lt;Reference&gt; node
+      @return Record with the digest from the references array
+  */
+  RECORD FUNCTION GetReferenceDigest(OBJECT reference)
+  {
+    this->EnsureSignedCanonical();
+    STRING uri := reference->GetAttribute("URI");
+
+    RECORD rec :=
+        SELECT signedcanonical
+             , digest
+          FROM this->references
+         WHERE refuri = uri;
+
+    IF (NOT RecordExists(rec))
+      THROW NEW Exception("No element found for signature reference with URI '" || EncodeJava(uri) || "'!");
+
+    RETURN rec;
+  }
+
+  /** Check if the digests in the &lt;Reference&gt; nodes match with the calculated digests
+  */
+  MACRO ValidateReferencesDigestValues()
+  {
+    FOREVERY (OBJECT reference FROM this->signinfo->GetElementsByTagNameNS(ns_xmldsig, "Reference")->GetCurrentElements())
+    {
+      RECORD res := this->GetReferenceDigest(reference);
+
+      OBJECT digestvalue := reference->GetElementsByTagNameNS(ns_xmldsig, "DigestValue")->Item(0);
+
+      IF (digestvalue->childrentext != res.digest)
+        THROW NEW Exception("Digest of reference #" || #reference || " (uri: " || reference->GetAttribute("URI") || ") did not match: got "
+            || res.digest || ", expected: "
+            || digestvalue->childrentext);
+    }
+  }
+
+  /** Write the generated digestvalues to the &lt;Reference&gt; nodes
+  */
+  MACRO WriteReferencesDigestValues()
+  {
+    FOREVERY (OBJECT reference FROM this->signinfo->GetElementsByTagNameNS(ns_xmldsig, "Reference")->GetCurrentElements())
+    {
+      RECORD res := this->GetReferenceDigest(reference);
+
+      OBJECT digestvalue := reference->GetElementsByTagNameNS(ns_xmldsig, "DigestValue")->Item(0);
+      IF (NOT ObjectExists(digestvalue))
+      {
+        digestvalue := reference->ownerdocument->CreateElementNS(
+            ns_xmldsig,
+            (reference->prefix != "" ? reference->prefix || ":" : "") || "DigestValue");
+        reference->AppendChild(digestvalue);
+      }
+
+      WHILE (ObjectExists(digestvalue->firstchild))
+        digestvalue->RemoveChild(digestvalue->firstchild);
+
+      digestvalue->AppendChild(digestvalue->ownerdocument->CreateTextNode(res.digest));
+    }
+  }
+
+  /** Created the canonicalized version of the &lt;SignedInfo&gt; node
+  */
+  MACRO CreateSigninfoCanonical()
+  {
+    RECORD nodelist := [ query := ".//. | .//@* | .//namespace::*"
+                       , node := this->signinfo
+                       ];
+
+    //its the <SignedInfo> that is actually signed. grab a canonicalization of it
+    //execute the canonicalizationmethod
+    OBJECT canonicalizationmethod := this->signinfo->GetElementsByTagNameNS(ns_xmldsig, "CanonicalizationMethod")->Item(0);
+    STRING signedinfotext := BlobToString(this->CanonicalizeDoc(nodelist, canonicalizationmethod->GetAttribute("Algorithm")),-1);
+    IF(signedinfotext="")
+      THROW NEW Exception("<SignedInfo> canonicalization failed");
+
+    this->signinfocanonical := signedinfotext;
+    this->havesigninfocanonical := TRUE;
+  }
+
+  STRING FUNCTION GetCertificate()
+  {
+    IF (this->pvt_certificate = "")
+      this->pvt_certificate := this->signature->GetElementsByTagNameNS(ns_xmldsig, "X509Certificate")->Item(0)->childrentext;
+
+    RETURN this->pvt_certificate;
+  }
+
+  /** Get the public key from the current certificate. If no certificate is set, it is pulled from the certificate
+      embedded in the signature
+      @return PEM-encoded public key
+  */
+  STRING FUNCTION GetPublicKey()
+  {
+    STRING publickey := GetCertificateData(X509Base64ToPEM(this->certificate)).publickey;
+    RETURN publickey;
+  }
+
+  /** Validate signature by comparing it to the digest of the &lt;SignedInfo&gt; element. Warning: this does
+      not validate the digests within the &lt;SignedInfo&gt; element.
+  */
+  MACRO ValidateStoredDigest()
+  {
+    IF(NOT this->havesigninfocanonical)
+      this->CreateSigninfoCanonical();
+
+    STRING signaturevalue := this->signature->GetElementsByTagNameNS(ns_xmldsig, "SignatureValue")->Item(0)->childrentext;
+
+    OBJECT signaturemethod := this->signinfo->GetElementsByTagNameNS(ns_xmldsig, "SignatureMethod")->Item(0);
+    STRING signaturealgorithm := signaturemethod->GetAttribute("Algorithm");
+
+    IF(NOT this->VerifySignature(signaturealgorithm, this->signinfocanonical, signaturevalue, this->GetPublicKey()))
+      THROW NEW Exception("Signature mismatch");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Use to override the certificate used for validation
+      @param cert Certificate to use (X509 base64 encoded)
+  */
+  PUBLIC MACRO SetX509Certificate(STRING cert)
+  {
+    this->pvt_certificate := X509Base64ToPEM(cert);
+  }
+
+  /** Extract the signed part of an element (as a separate document)
+      @param elt Signed node
+      @return New XML document with a copy of the signed node as root node. All non-signed nodes (removed by transformations before calculating the digest) are not included.
+  */
+  PUBLIC OBJECT FUNCTION GetSignedPart(OBJECT elt)
+  {
+    this->EnsureSignedCanonical();
+
+    RECORD rec :=
+        SELECT signedcanonical
+          FROM this->references
+         WHERE element = elt;
+
+    RETURN MakeXMLDocument(StringToBlob(rec.signedcanonical));
+  }
+
+  /** Validates the signature. Throws if it doesn't validate.
+  */
+  PUBLIC MACRO ValidateSignature()
+  {
+    this->ValidateReferencesDigestValues();
+    this->ValidateStoredDigest();
+  }
+
+  /** Fills the &lt;Signature&gt; node by with the &lt;Reference&gt; element digests, and the final signature.
+      @param privatekey Private key to use
+      @param passhrase Passphrase for the private key
+  */
+  PUBLIC MACRO SignDocument(STRING privatekey, STRING passhrase)
+  {
+    // Calculate and fill in the digest values
+    this->WriteReferencesDigestValues();
+
+    // Calculate the new signinfo node, and get the signature
+    this->CreateSigninfoCanonical();
+
+    OBJECT signaturemethod := this->signinfo->GetElementsByTagNameNS(ns_xmldsig, "SignatureMethod")->Item(0);
+    STRING signaturealgorithm := signaturemethod->GetAttribute("Algorithm");
+
+    STRING str_signaturevalue := this->GetSignature(signaturealgorithm, this->signinfocanonical, privatekey, passhrase);
+
+    // Get the <SignatureValue> node, or create it if it doesn't exist
+    OBJECT signaturevalue := this->signature->GetElementsByTagNameNS(ns_xmldsig, "SignatureValue")->Item(0);
+    IF (NOT ObjectExists(signaturevalue))
+    {
+      signaturevalue := this->signature->ownerdocument->CreateElementNS(
+          ns_xmldsig,
+          (this->signinfo->prefix != "" ? this->signinfo->prefix || ":" : "") || "SignatureValue");
+      this->signature->AppendChild(signaturevalue);
+    }
+
+    // Remove the existing signature if present
+    WHILE (ObjectExists(signaturevalue->firstchild))
+      signaturevalue->RemoveChild(signaturevalue->firstchild);
+
+    signaturevalue->AppendChild(signaturevalue->ownerdocument->CreateTextNode(str_signaturevalue));
+  }
+
+  /** @short Return a copy of the document with all the unsigned nodes within the selected nodes removed.
+      @long The transformations within XML signature can exclude nodes from the signature calculation. Subsequently,
+            modifications within these nodes don't invalidate the signature.
+
+            This function generates an XML document where all such unsigned nodes within nodes signed by the
+            selected &lt;Signature&gt; item are removed. This document can be used safely without worries of
+            using unsigned data.
+      @return Copy of the document with unsigned nodes within the signed nodes removed
+  */
+  PUBLIC OBJECT FUNCTION GetSignedXMLDocument()
+  {
+    RECORD ARRAY recs := this->references;
+    INTEGER idctr := 1;
+
+    FOREVERY (RECORD rec FROM recs)
+    {
+      WHILE (ObjectExists(this->doc->GetElementById("__xmlsign" || idctr)))
+        idctr := idctr + 1;
+      INSERT CELL hadid := rec.element->HasAttributeNS("http://www.w3.org/XML/1998/namespace", "xml:id") INTO recs[#rec];
+      INSERT CELL oldid := rec.element->GetAttributeNS("http://www.w3.org/XML/1998/namespace", "xml:id") INTO recs[#rec];
+      rec.element->SetAttributeNS("http://www.w3.org/XML/1998/namespace", "xml:id", "__xmlsign" || idctr);
+      INSERT CELL id := "__xmlsign" || idctr INTO recs[#rec];
+    }
+
+    OBJECT newdoc := MakeXMLDocument(this->doc->GetDocumentBlob(FALSE));
+    FOREVERY (RECORD rec FROM recs)
+    {
+      OBJECT toreplace := newdoc->GetElementById(rec.id);
+      OBJECT newpartdoc := this->GetSignedPart(rec.element);
+      OBJECT newnode := newdoc->ImportNode(newpartdoc->documentelement, TRUE);
+      toreplace->parentnode->ReplaceChild(newnode, toreplace);
+    }
+
+    FOREVERY (RECORD rec FROM recs)
+    {
+      IF (rec.hadid)
+        rec.element->SetAttributeNS("http://www.w3.org/XML/1998/namespace", "xml:id", rec.oldid);
+      ELSE
+        rec.element->RemoveAttributeNS("http://www.w3.org/XML/1998/namespace", "xml:id");
+    }
+
+    RETURN newdoc;
+  }
+>;
+
+/** Return a new SignatureContext. The document should contain a &lt;Signature&gt; element that references
+    all the signed nodes.
+    @param nodes Nodes that are signed (or need to be signed). All must be from the same document
+    @param signaturesearchroot Root node where to start searching for the signature (optional, defaults to the document of the signed nodes)
+    @return(object #SignatureContext) SignatureContext object
+*/
+PUBLIC OBJECT FUNCTION GetXMLSignatureContextByNodes(OBJECT ARRAY nodes, OBJECT signaturesearchroot DEFAULTSTO DEFAULT OBJECT)
+{
+  RETURN NEW SignatureContext(nodes, signaturesearchroot);
+}

@@ -1,0 +1,1451 @@
+﻿<?wh
+
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::money.whlib";
+
+
+/** CSS specific functions
+
+    Please note an API has already been partly defined which we may be able to use:
+    http://dev.w3.org/csswg/cssom/
+    And a CSS3 parser algorithm is here:
+    http://www.w3.org/TR/css3-syntax
+
+    This may be interesting for tests:
+    https://github.com/ChromiumWebApps/blink/tree/master/LayoutTests/cssom
+
+*/
+
+// String tokens that don't need escaping. ASCII minus control chars, " (hex 22)
+STRING unescaped_stringtokens := DecodeBase16("2021232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F404142434445464748494A4B4C4D4E4F505152535455565758595A5B5C5D5E5F606162636465666768696A6B6C6D6E6F707172737475767778797A7B7C7D7E7F");
+
+// a-z, A-Z, '-', '_'
+STRING unescaped_identtokens := DecodeBase16("2D5F4142434445464748494A4B4C4D4E4F505152535455565758595A6162636465666768696A6B6C6D6E6F707172737475767778797A");
+
+STRING FUNCTION EncodeCharacterAsCodePoint(INTEGER codepoint, STRING next)
+{
+  STRING encoded := ToString(codepoint, 16);
+  IF (LENGTH(encoded) < 4) // Should encode to smallest number of digits - but we won't do that
+    encoded := Right("000" || encoded, 4);
+  STRING retval := "\\" || encoded;
+
+  // Append whitespace if needed for disambiguation
+  IF (SearchSubString((LENGTH(encoded) = 6 ? " " : "0123456789ABCDEFabcdef "), next) != -1)
+    retval := retval || " ";
+
+  RETURN retval;
+}
+
+/**
+*  @param indata The string as given by the CSS parser (for a string token), without surrounding quotes
+*  @return STRING The string, with any control characters, quotes, et cetera escaped to CSS spec (which is to say: NO control characters)
+*
+*  UTF-8 May be encoded as: \0000 ; 0x0000 ; \u0000 ; \\u0000
+*  We will use \uXXXXXX.
+*  However, we will follow the CSSOM spec of U+[A-Fa-f0-9\?]{2,6}
+*/
+PUBLIC STRING FUNCTION EncodeCSSString(STRING indata)
+{
+  // http://www.w3.org/TR/2015/WD-cssom-1-20150220/ 2.1 Common serializing idions
+  STRING retval;
+  OBJECT s := NEW StringParser(indata);
+  WHILE (TRUE)
+  {
+    retval := retval || s->ParseWhileInSet(unescaped_stringtokens);
+    IF (s->eof)
+      RETURN retval;
+
+    STRING ucchars := UCLeft(s->remaining_data, 1);
+    s->ParseN(LENGTH(ucchars));
+
+    INTEGER codepoint := GetUCValue(ucchars);
+    IF (codepoint >= 127 OR codepoint < 32)
+      retval := retval || EncodeCharacterAsCodePoint(codepoint, s->current);
+    ELSE  // quote ' and "
+      retval := retval || "\\" || ucchars;
+  }
+}
+
+STRING FUNCTION SerializeIdentifier(STRING indata)
+{
+  // http://www.w3.org/TR/2015/WD-cssom-1-20150220/ 2.1 Common serializing idions
+  STRING retval;
+  OBJECT s := NEW StringParser(indata);
+
+  WHILE (TRUE)
+  {
+    retval := retval || s->ParseWhileInSet(unescaped_identtokens);
+    IF (s->eof)
+      RETURN retval;
+
+    STRING ucchars := UCLeft(s->remaining_data, 1);
+    s->ParseN(LENGTH(ucchars));
+
+    INTEGER codepoint := GetUCValue(ucchars);
+    IF (codepoint < 32)
+      retval := retval || EncodeCharacterAsCodePoint(codepoint, s->current);
+    ELSE IF (codepoint >= 48 AND codepoint <= 57)
+    {
+      IF (retval IN [ "", "-" ])
+        retval := retval || EncodeCharacterAsCodePoint(codepoint, s->current);
+      ELSE
+        retval := retval || ucchars;
+    }
+    ELSE IF (codepoint >= 127) // Escape unicode stuff with \u (contra-spec, but more readable)
+      retval := retval || EncodeCharacterAsCodePoint(codepoint, s->current);
+    ELSE
+      retval := retval || "\\" || ucchars; // Otherwise, the escaped character
+  }
+  RETURN retval;
+}
+
+PUBLIC STRING FUNCTION GetMirrorToken(STRING associatedtoken)
+{
+  IF(associatedtoken="{")
+    RETURN "}";
+  IF(associatedtoken="[")
+    RETURN "]";
+  IF(associatedtoken="(")
+    RETURN ")";
+  THROW NEW Exception("Invalid associatedtoken");
+}
+
+STRING FUNCTION GetTokenDisplayText(RECORD token, BOOLEAN withcomments)
+{
+  SWITCH (token.type)
+  {
+    CASE "ws"
+    {
+      RETURN " ";
+    }
+    CASE "ws-comment"
+    {
+      RETURN withcomments ? token.value : " ";
+    }
+    CASE "string"
+    {
+      RETURN '"' || EncodeCSSString(token.value) || '"';
+    }
+    CASE "dimension"
+    {
+      RETURN ((token.value = "0") ? "0" : token.value || token.unit);
+    }
+    CASE "percentage"
+    {
+      RETURN token.value || "%";
+    }
+    CASE "ident"
+    {
+      RETURN SerializeIdentifier(token.value);
+    }
+    CASE "number", "delim", "include-match", "dash-match", "prefix-match", "suffix-match", "substring-match"
+    {
+      RETURN token.value;
+    }
+    CASE ","
+    {
+      RETURN ",";
+    }
+    CASE "#"
+    {
+      RETURN "#" || token.value;
+    }
+    CASE "url"
+    {
+      RETURN 'url("' || EncodeCSSString(token.value) || '")';
+    }
+    CASE "bad-url"
+    {
+      RETURN 'url()';
+    }
+    CASE "at-rule"
+    {
+      RETURN "@" || token.value;
+    }
+    CASE "function" // Tokenize function-token (='blabla(')
+    {
+      RETURN token.name || "(";
+    }
+    CASE "parsed-simpleblock"
+    {
+      RETURN token.associatedtoken || SerializeTokenListLine(token.value, withcomments) || GetMirrorToken(token.associatedtoken);
+    }
+    CASE "parsed-function"
+    {
+      RETURN token.name || "(" || SerializeTokenListLine(token.value, withcomments) || ")";
+    }
+    CASE "parsed"
+    {
+      ABORT(token);
+    }
+    DEFAULT
+    {
+      IF (token.type LIKE "parsed-*")
+        THROW NEW Exception("No displayer for " || token.type || " defined yet");
+
+      RETURN token.type;
+    }
+/*
+
+    CASE "at-rule"
+    {
+      RETURN "@" || token.value;
+    }
+    CASE "importrule"
+    {
+      RETURN token.value;
+    }
+    CASE "simpleblock"
+    {
+      ABORT("Not a token");
+      RETURN token.associatedtoken || SerializeTokenListLine(token.value, withcomments) || GetMirrorToken(token.associatedtoken);
+    }
+*/
+  }
+}
+
+PUBLIC STRING FUNCTION SerializeTokenListLine(RECORD ARRAY tokens, BOOLEAN withcomments)
+{
+  STRING result;
+
+  BOOLEAN emit_ws;
+  FOREVERY (RECORD token FROM tokens)
+  {
+    SWITCH (token.type)
+    {
+      CASE "ws"
+      {
+        emit_ws := result != "";
+      }
+      CASE "ws-comment"
+      {
+        IF (withcomments)
+        {
+          IF (emit_ws)
+            result := result || " ";
+          emit_ws := FALSE;
+          result := result || GetTokenDisplayText(token, withcomments);
+        }
+        ELSE
+          emit_ws := result != "";
+      }
+      CASE ","
+      {
+        // No whitespace needed before a ','
+        result := result || GetTokenDisplayText(token, withcomments);
+        emit_ws := TRUE;
+      }
+      DEFAULT
+      {
+        IF (emit_ws)
+          result := result || " ";
+        emit_ws := FALSE;
+        result := result || GetTokenDisplayText(token, withcomments);
+      }
+    }
+  }
+
+//  PRINT("Serialize to <" || result || ">, source:\n");
+//  DumpValue(tokens, "boxed");
+  RETURN result;
+}
+
+PUBLIC STRING FUNCTION SerializeValue(RECORD ARRAY tokens, BOOLEAN withcomments)
+{
+  RETURN SerializeTokenListLine(tokens, withcomments);
+}
+
+
+PUBLIC STRING FUNCTION SerializeValue_old(RECORD ARRAY tokens, BOOLEAN withcomments)
+{
+  STRING ARRAY parts;
+  STRING current;
+
+  FOREVERY (RECORD token FROM tokens)
+  {
+    IF (NOT CELLExists(token, "TOKEN"))
+      ABORT(token);
+
+    SWITCH (token.type)
+    {
+      CASE "ws"
+      {
+        INSERT current INTO parts AT END;
+        current := "";
+      }
+      CASE "ws-comment"
+      {
+        IF (withcomments)
+        {
+          current := current || token.value;
+        }
+        ELSE IF (current != "")
+        {
+          INSERT current INTO parts AT END;
+          current := "";
+        }
+      }
+      CASE "string"
+      {
+        current := current || '"' || EncodeCSSString(token.value) || '"';
+      }
+      CASE "dimension"
+      {
+        current := current || ((token.value = "0") ? "0" : token.value || token.unit);
+      }
+      CASE "percentage"
+      {
+        current := current || token.value || "%";
+      }
+      CASE "ident"
+      {
+        current := current || SerializeIdentifier(token.value);
+      }
+      CASE "number", "delim"
+      {
+        current := current || token.value;
+      }
+      CASE ","
+      {
+        INSERT current || token.token INTO parts AT END;
+        current := "";
+      }
+      CASE "#"
+      {
+        current := current || "#" || token.value;
+      }
+      CASE "url"
+      {
+        current := current || 'url("' || EncodeCSSString(token.value) || '")';
+      }
+      CASE "bad-url"
+      {
+        current := current || 'url()';
+      }
+      CASE "function"
+      {
+        current := current || token.name || "(" || SerializeTokenOrValue(token.value, withcomments) || ")";
+      }
+      CASE "at-rule"
+      {
+        current := current || "@" || token.value;
+      }
+      CASE "importrule"
+      {
+        current := current || token.value;
+      }
+      CASE "simpleblock"
+      {
+        current := current || token.associatedtoken || SerializeTokenOrValue(token.value, withcomments) || GetMirrorToken(token.associatedtoken);
+      }
+      CASE "__internal_copy"
+      {
+        current := current || token.value;
+      }
+      DEFAULT
+      {
+        //PRINT("Serialize missed spec for token " || token.token || "\n");
+        current := current || token.token;
+      }
+    }
+  }
+
+  IF (current != "")
+    INSERT current INTO parts AT END;
+  STRING retval := Detokenize(parts, " ");
+
+  // String spaces before a newline
+  WHILE (SearchSubstring(retval, " \n") != -1)
+    retval := Substitute(retval, " \n", "\n");
+
+  RETURN retval;
+}
+
+PUBLIC STRING FUNCTION SerializeTokenOrValue(RECORD ARRAY parts, BOOLEAN withcomments)
+{
+  RETURN SerializeValue(parts, withcomments);
+}
+
+PUBLIC STRING FUNCTION SerializeTokenOrValue_old(RECORD ARRAY parts, BOOLEAN withcomments)
+{
+  RECORD ARRAY tokens;
+
+  FOREVERY (RECORD part FROM parts)
+  {
+    SWITCH (part.type)
+    {
+      CASE "token", "importrule"
+      {
+        INSERT part.token INTO tokens AT END;
+      }
+      CASE "comment"
+      {
+        IF (withcomments )
+          INSERT part INTO tokens AT END;
+      }
+      CASE "simpleblock"
+      {
+        INSERT
+            [ token := "__internal_copy"
+            , value :=      part.associatedtoken
+                            || SerializeTokenOrValue(part.value, withcomments)
+                            || GetMirrorToken(part.associatedtoken)
+            ] INTO tokens AT END;
+      }
+      CASE "declarations"
+      {
+        INSERT
+            [ token := "__internal_copy"
+            , value :=      part.associatedtoken
+                            || SerializeTokenOrValue(part.value, withcomments)
+                            || GetMirrorToken(part.associatedtoken)
+            ] INTO tokens AT END;
+      }
+      DEFAULT
+      {
+        INSERT part INTO tokens AT END;
+      }
+    }
+  }
+
+  STRING retval := SerializeValue(tokens, withcomments);
+  RETURN retval;
+}
+
+
+/* This is an as-literal-as-possible implementation of the CSS Tokenizer
+   as specfied by http://www.w3.org/TR/css3-syntax/#tokenization
+
+   Better make it complete and tested before optimizing it..
+*/
+PUBLIC STATIC OBJECTTYPE CSSTokenizer
+<
+  OBJECT strp;
+  BOOLEAN reconsume;
+  BOOLEAN verbose;
+//  BOOLEAN inRuleGroup;
+//  BOOLEAN justEndedRuleGroup;
+//  BOOLEAN inAtRule;
+//  STRING atRuleType;
+  STRING csstext;
+
+  PUBLIC STRING type;
+  PUBLIC STRING valuetype;
+  PUBLIC STRING value;
+  PUBLIC MONEY numbervalue;
+  PUBLIC STRING unit;
+  PUBLIC INTEGER startpos;
+  PUBLIC INTEGER line;
+  PUBLIC INTEGER linestart;
+//  PUBLIC INTEGER blockdepth;
+//  PUBLIC INTEGER ruleBlockStartDepth;
+  STRING ARRAY arguments;
+  INTEGER length;
+
+//  PUBLIC PROPERTY inRuleGroupBody(inRuleGroup, -);
+//  PUBLIC PROPERTY lastTokenEndsRuleGroup(justEndedRuleGroup, -);
+
+  MACRO NEW(STRING value, BOOLEAN verbose DEFAULTSTO FALSE)
+  {
+    this->csstext := value;
+    this->strp := NEW StringParser(value);
+    this->line := 1;
+    this->linestart := 0;
+//    this->blockdepth := 0;
+    this->verbose := verbose;
+//    this->inRuleGroup := FALSE;
+//    this->justEndedRuleGroup := FALSE;
+//    this->inAtRule := FALSE;
+  }
+
+  PUBLIC RECORD FUNCTION GetToken()
+  {
+    RETURN [ type :=        this->type
+           , value :=       this->value
+           , valuetype :=   this->valuetype
+           , numbervalue := this->numbervalue
+           , arguments :=   this->arguments
+           , unit :=        this->unit
+           , startpos :=    this->startpos
+           , length :=      this->length
+           , csstext :=     SubString(this->csstext, this->startpos, this->length)
+           ];
+  }
+
+  PUBLIC MACRO ReconsumeToken()
+  {
+    this->reconsume := TRUE;
+  }
+
+  PUBLIC MACRO ConsumeToken()
+  {
+    IF(this->reconsume AND NOT this->strp->eof)
+    {
+      this->reconsume := FALSE;
+      RETURN;
+    }
+
+//    IF(this->justEndedRuleGroup)
+//      this->justEndedRuleGroup := FALSE;
+
+    this->type := "";
+    this->value := "";
+    this->valuetype := "";
+    this->numbervalue := 0;
+    this->type := "";
+    this->unit := "";
+    this->startpos := this->strp->position;
+    this->arguments := DEFAULT STRING ARRAY;
+
+    IF(this->strp->eof)
+    {
+      this->type := "eof";
+      RETURN;
+    }
+    ELSE SWITCH(this->strp->current)
+    {
+      CASE "\r","\n","\t"," "
+      {
+        //this->strp->ParseWhileInSet("\r\n\t "); //whitespace: A newline, U+0009 CHARACTER TABULATION, or U+0020 SPACE.
+//         // Re-implemented to enable line and column numbers in verbose mode.
+        WHILE(this->strp->current IN ["\r", "\n", "\t", " "])
+        {
+          IF(this->strp->current = "\n")
+          {
+            this->line := this->line + 1;
+            this->linestart := this->startpos;
+          }
+          this->strp->ParseN(1);
+        }
+        this->type := "ws";
+      }
+      CASE '"',"'" //quotation mark
+      {
+        STRING delimiter := this->strp->current;
+        this->strp->next();
+        this->GetStringToken(delimiter);
+      }
+      /*U+0023 NUMBER SIGN (#)
+        Create a <hash-token>.
+        If the next 3 input code points would start an identifier, set the <hash-token>’s type flag to "id".
+        Consume a name, and set the <hash-token>’s value to the returned string.
+        Return the <hash-token>.
+      */
+      CASE '#' //number sign
+      {
+        IF (this->IsNameCodePoint(this->strp->PeekN(1)) OR ( this->strp->PeekN(1) = "\\" AND this->strp->PeekN(2) != "\n" ) )
+        {
+          this->type := "#";
+          this->strp->Next();
+
+          IF (this->CheckIfThreeCPStartIdentifier())
+          {
+            this->value := this->ConsumeName();
+            this->valuetype := "id";
+          }
+          ELSE IF (ToInteger(left(this->strp->remaining_data, 3), -1, 16) = -1)
+            this->ConsumeDelimToken();
+
+          // 3 or 6 chars long names compatible with colors are not valid ids
+          IF (this->type != "delim" AND this->value = "")
+          {
+            this->GetNumericToken();
+            this->valuetype := "hex-digits";
+            this->type := "#";
+          }
+        }
+        ELSE
+          this->ConsumeDelimToken();
+      }
+      CASE ',', ':', ';'
+      {
+/*        IF(this->inAtRule AND this->atRuleType = "import" AND this->strp->current = ";")
+        {
+          // end the at-rule
+          this->inRuleGroup := FALSE;
+          this->justEndedRuleGroup := TRUE;
+          this->inAtRule := FALSE;
+          this->ruleBlockStartDepth := 0;
+          IF(this->verbose)
+            PRINT("[TOKENIZER] Ended an @import rule;\n");
+        }*/
+        this->type := this->strp->current;
+        this->strp->Next();
+      }
+      CASE '(', '[', '{'
+      {
+//        this->blockdepth := this->blockdepth + 1;
+//        IF(this->verbose)
+//          PRINT("[TOKENIZER] Encountered token '" || this->strp->current || " on line " || this->line || " (at " || (this->startpos - this->linestart) || "), increased block depth to " || this->blockdepth || ";\n");
+        this->type := this->strp->current;
+/*        IF(this->inAtRule AND this->token = "{" AND NOT this->inRuleGroup)
+        {
+          this->ruleBlockStartDepth := this->blockdepth - 1;
+          this->inRuleGroup := TRUE;
+          IF(this->verbose)
+            PRINT("[TOKENIZER] Started a rule group after last token and set it's starting depth to " || this->blockdepth - 1 || ";\n");
+        }*/
+        this->strp->Next();
+      }
+      CASE ')', ']', '}'
+      {
+//        this->blockdepth := this->blockdepth - 1;
+//        IF(this->verbose)
+//          PRINT("[TOKENIZER] Encountered token '" || this->strp->current || "' on line " || this->line || " (at " || (this->startpos - this->linestart) || "), decreased block depth to " || this->blockdepth || ";\n");
+        this->type := this->strp->current;
+/*        IF(this->inRuleGroup AND this->token = "}" AND this->blockdepth = this->ruleBlockStartDepth)
+        {
+          this->inRuleGroup := FALSE;
+          this->justEndedRuleGroup := TRUE;
+          this->inAtRule := FALSE;
+          this->ruleBlockStartDepth := 0;
+          IF(this->verbose)
+            PRINT("[TOKENIZER] Ended a rule group after last token;\n");
+        }*/
+        this->strp->Next();
+      }
+      /*U+005C REVERSE SOLIDUS (\)
+        If the input stream starts with a valid escape, reconsume the current input code point, consume an ident-like token, and return it.
+        Otherwise, this is a parse error. Return a <delim-token> with its value set to the current input code point.
+      */
+      CASE '\\'
+      {
+        // FIXME: rob says: I am not convinced this code is correct. The ReconsumeToken looks very suspicious.
+        IF(this->strp->PeekN(1) = "\\")
+        {
+          //Double escape, ignore both:
+          this->strp->Next();
+          this->strp->Next();
+        }
+        ELSE IF(this->strp->PeekN(1) != "\n")
+        {
+          //Handle an escape;
+          this->type := this->strp->current;
+          this->ReconsumeToken();
+          this->type := "ident";
+          this->strp->Next(); // consume the '\'
+          this->value := this->ConsumeEscapedCodePoint();
+        }
+      }
+      CASE '/'
+      {
+        /*U+002F SOLIDUS (/)
+          If the next input code point is U+002A ASTERISK (*), consume it and all following code points up to and including the first U+002A ASTERISK (*) followed by a U+002F SOLIDUS (/), or up to an EOF code point. Then consume a token and return it.
+          Otherwise, return a <delim-token> with its value set to the current input code point.
+        */
+        IF(this->strp->PeekN(1) = "*")
+        {
+          this->strp->ParseN(1);
+          this->ParseCommentRest();
+        }
+        ELSE
+          this->ConsumeDelimToken();
+      }
+      /*U+0040 COMMERCIAL AT (@)
+        If the next 3 input code points would start an identifier, consume a name, create an <at-keyword-token> with its value set to the returned value, and return it.
+        Otherwise, return a <delim-token> with its value set to the current input code point.
+      */
+      CASE '@'
+      {
+        IF(this->CheckIfThreeCPStartIdentifier(1))
+        {
+          //Start an at-rule
+          this->type := "at-rule";
+          //this->token := "@";
+          this->strp->Next();
+          this->value := this->ConsumeName();
+//          this->inAtRule := TRUE;
+          IF(this->verbose)
+            PRINT("[TOKENIZER] Encountered an at-rule with a value of " || this->value || " on line " || this->line || ", at " || (this->startpos - this->linestart) || "\n");
+
+          IF(this->value IN [ "media", "page", "device", "capability", "import", "-moz-document" ])// An actual, qualified at-rule token
+          {
+//            this->atRuleType := this->value;
+//            this->ruleBlockStartDepth := this->blockdepth;
+//            this->inAtRule := TRUE;
+          }
+        }
+        ELSE
+        {
+          IF(this->verbose)
+            PRINT("[TOKENIZER] Encountered a literal '@' without a valid at-rule with a value of " || this->strp->PeekN(13) || " on line " || this->line || ", at " || (this->startpos - this->linestart) || "\n");
+
+          IF(this->strp->PeekN(13) = "-moz-document")
+          {
+            IF(this->verbose)
+              PRINT("[TOKENIZER] Encountered an @-moz-document mediaquery on line " || this->line || ", at " || (this->startpos - this->linestart) || "\n");
+
+            this->type := "at-rule";
+            this->value := "-moz-document";
+//            this->inAtRule := TRUE;
+            this->strp->ParseN(13);
+//            this->atRuleType := "media";
+//            this->ruleBlockStartDepth := this->blockdepth;
+//            this->inAtRule := TRUE;
+          }
+
+          this->ConsumeDelimToken();
+        }
+      }
+      /*U+003C LESS-THAN SIGN (<)
+        If the next 3 input code points are U+0021 EXCLAMATION MARK U+002D HYPHEN-MINUS U+002D HYPHEN-MINUS (!--), consume them and return a <CDO-token>.
+        Otherwise, return a <delim-token> with its value set to the current input code point.
+      */
+      CASE '<'
+      {
+        IF(this->strp->PeekN(3) = "!--")
+        {
+          this->type := "cdo";
+          this->value := "<!--";
+          this->strp->Next();
+          this->strp->Next();
+          this->strp->Next();
+          this->strp->Next();
+        }
+        ELSE
+          this->ConsumeDelimToken();
+      }
+      /*U+002D HYPHEN-MINUS (-)
+        If the input stream starts with a number, reconsume the current input code point, consume a numeric token, and return it.
+        Otherwise, if the input stream starts with an identifier, reconsume the current input code point, consume an ident-like token, and return it.
+
+        Otherwise, if the next 2 input code points are U+002D HYPHEN-MINUS U+003E GREATER-THAN SIGN (->), consume them and return a <CDC-token>.
+
+        Otherwise, return a <delim-token> with its value set to the current input code point.
+      */
+      CASE '-'
+      {
+        IF(ToInteger(this->strp->PeekN(1), -1) != -1)//Numeric?
+          this->GetNumericToken();
+        ELSE IF(this->strp->PeekN(1) != "-")
+        {
+          this->type := "ident";
+          this->value := this->ConsumeName();
+
+          if (this->strp->TryParse("("))
+          {
+            this->ParseWhitespace(TRUE);//consume as much whitespace as possible while parsing the function name
+            this->type := "function";
+          }
+        }
+        ELSE IF(this->strp->PeekN(2) = "->")
+        {
+          this->type := "cdc";
+          this->value := "-->";
+          this->strp->Next();
+          this->strp->Next();
+          this->strp->Next();
+        }
+        ELSE
+          this->ConsumeDelimToken();
+      }
+      /*U+002A ASTERISK (*)
+        If the next input code point is U+003D EQUALS SIGN (=), consume it and return a <substring-match-token>.
+        Otherwise, return a <delim-token> with its value set to the current input code point.
+      */
+      CASE '*'
+      {
+        IF(this->strp->PeekN(1) = '=')
+        {
+          this->type := 'substring-match';
+          this->value := "*=";
+          this->strp->Next();
+          this->strp->Next();
+        }
+        ELSE
+          this->ConsumeDelimToken();
+      }
+      /*U+0024 DOLLAR SIGN ($)
+        If the next input code point is U+003D EQUALS SIGN (=), consume it and return a <suffix-match-token>.
+        Otherwise, emit a <delim-token> with its value set to the current input code point.
+      */
+      CASE '$'
+      {
+        IF(this->strp->PeekN(1) = "=")
+        {
+          this->type := "suffix-match";
+          this->value := "$=";
+          this->strp->Next();
+          this->strp->Next();
+        }
+        ELSE
+          this->ConsumeDelimToken();
+      }
+      /*U+005E CIRCUMFLEX ACCENT (^)
+        If the next input code point is U+003D EQUALS SIGN (=), consume it and return a <prefix-match-token>.
+        Otherwise, return a <delim-token> with its value set to the current input code point.
+      */
+      CASE '^'
+      {
+        IF(this->strp->PeekN(1) = "=")
+        {
+          this->type := "prefix-match";
+          this->value := "^=";
+          this->strp->Next();
+          this->strp->Next();
+        }
+        ELSE
+          this->ConsumeDelimToken();
+      }
+      /*U+007C VERTICAL LINE (|)
+        If the next input code point is U+003D EQUALS SIGN (=), consume it and return a <dash-match-token>.
+        Otherwise, if the next input code point is U+0073 VERTICAL LINE (|), consume it and return a <column-token>.
+      */
+      CASE '|'
+      {
+        IF(this->strp->PeekN(1) = "=")
+        {
+          this->type := "dash-match";
+          this->value := "|=";
+          this->strp->Next();
+          this->strp->Next();
+        }
+        ELSE
+          this->ConsumeDelimToken();
+      }
+      /*U+007E TILDE (~)
+        If the next input code point is U+003D EQUALS SIGN (=), consume it and return an <include-match-token>.
+        Otherwise, return a <delim-token> with its value set to the current input code point.
+      */
+      CASE '~'
+      {
+        IF(this->strp->PeekN(1) = "=")
+        {
+          this->type := "include-match";
+          this->value := "~=";
+          this->strp->Next();
+          this->strp->Next();
+        }
+        ELSE
+          this->ConsumeDelimToken();
+      }
+      /*U+002E FULL STOP (.), U+002B PLUS SIGN (+)
+        If the input stream starts with a number, reconsume the current input code point, consume a numeric token, and return it.
+        Otherwise, return a <delim-token> with its value set to the current input code point.
+      */
+      CASE '.', '+'
+      {
+        IF(ToInteger(this->strp->PeekN(1), -1) IN [1,2,3,4,5,6,7,8,9,0])//Numeric?
+        {
+          //Parse a numeric token:
+          this->ReConsumeToken();
+          this->GetNumericToken();
+        }
+        ELSE
+          this->ConsumeDelimToken();
+      }
+      /*U+0055 LATIN CAPITAL LETTER U (U), U+0075 LATIN SMALL LETTER U (u)
+        If the next 2 input code points are U+002B PLUS SIGN (+) followed by a hex digit or U+003F QUESTION MARK (?), consume the next input code point. Note: don’t consume both of them. Consume a unicode-range token and return it.
+        Otherwise, reconsume the current input code point, consume an ident-like token, and return it.
+      */
+      // This implementation is incorrect and, for the moment, not very important.
+      // FIXME: Write a proper ConsumeUnicodeRangeToken method (which is a tad more complicated than it sounds).
+      CASE 'U', 'u'
+      {
+        IF(this->strp->PeekN(1) = "+")
+        {
+          this->strp->Next();
+          this->strp->Next();
+          this->type := "unicode-range";
+          this->value := "U+" || this->ConsumeEscapedCodePoint();
+        }
+        ELSE
+          this->GetIdentLikeToken();
+      }
+      DEFAULT
+      {
+        IF(SearchSubstring(this->strp->set_digit, this->strp->current) != -1) // Reconsume the current input code point, consume a numeric token, and return it.
+        {
+          this->GetNumericToken();
+        }
+        ELSE IF(this->IsNameStartCodePoint(this->strp->current))
+        {
+          this->GetIdentLikeToken();
+        }
+        ELSE // anything else: Return a <delim-token> with its value set to the current input code point.
+          this->ConsumeDelimToken();
+      }
+    }
+    this->length := this->strp->position - this->startpos;
+  }
+
+  MACRO ConsumeDelimToken()
+  {
+    this->type := "delim";
+    this->value := this->strp->current;
+    this->strp->Next();
+  }
+
+  MACRO ConsumeBadURLRemnants()
+  {
+    // http://www.w3.org/TR/css3-syntax/ 4.3.14 Consume the remnants of a bad URL
+    // Rob: Ignore the rest of the bad URL (not including it in the token value)
+    WHILE (NOT this->strp->eof)
+    {
+      IF (this->strp->TryParse(")")) // stop when ')' is encountered
+        BREAK;
+      this->strp->TryParse("\\"); // Escaped? Skip. This here skips just enough to handle '\)' and handle other escapes.
+      this->strp->Next();
+    }
+  }
+
+  MACRO GetIdentLikeToken() // Reconsume the current input code point, consume a numeric token, and return it.
+  {
+//    PRINT("GetIdentLikeToken " || this->strp->remaining_data || "\n");
+    STRING name := this->ConsumeName();
+    IF(this->strp->current = "(")
+    {
+      //If the returned string’s value is an ASCII case-insensitive match for "url", and the next input code point is U+0028 LEFT PARENTHESIS ((), consume it. Consume a url token, and return it.
+      IF(ToLowerCase(name) = "url")
+      {
+        // Parse the '('
+        this->strp->Next();
+
+        this->type := "url";
+
+        // http://www.w3.org/TR/css3-syntax/ 4.3.5 step 1 - empty url token
+        this->value := "";
+
+        // http://www.w3.org/TR/css3-syntax/ 4.3.5 step 2 - consume all whitespace
+        this->ParseWhitespace(TRUE);//consume as much whitespace as possible while parsing the url
+
+        // http://www.w3.org/TR/css3-syntax/ 4.3.5 step 3 - eof? return emtpty token
+        IF (this->strp->eof)
+          RETURN;
+
+        // http://www.w3.org/TR/css3-syntax/ 4.3.5 step 4 - quote or apostroph?
+        IF (this->strp->current IN [ '"', "'" ])
+        {
+          // 4.1: consume a string token
+          STRING delimiter := this->strp->ParseN(1);
+          this->GetStringToken(delimiter);
+
+          this->value := this->value;
+
+          // 4.2: Handle bad string (consume remnants, create bad-url-token, return that)
+          IF (this->type = "bad-string")
+          {
+            this->ConsumeBadURLRemnants();
+            this->type := "bad-url";
+            RETURN;
+          }
+
+          // 4.3 set url-token value to string
+          this->type := "url";
+
+          // 4.4 parse rest of whitespace
+          this->ParseWhitespace(TRUE);
+
+          // 4.5 Consume ')' or EOF & return url-token - else consume remnants, create bad-url-token, return that
+          IF (this->strp->current = ")" OR this->strp->eof)
+          {
+            this->strp->Next();
+            RETURN;
+          }
+
+          this->ConsumeBadURLRemnants();
+          this->type := "bad-url";
+          RETURN;
+        }
+
+        // http://www.w3.org/TR/css3-syntax/ 4.3.5 step 5 - repeated consume
+        WHILE (TRUE)
+        {
+          // ')' or EOF: return the token
+          IF (this->strp->current = ")" OR this->strp->eof)
+          {
+            this->strp->Next();
+            RETURN;
+          }
+
+          IF (this->strp->current IN [ " ", "\t", "\r", "\n" ])
+          {
+            // Consume as much whitespace as possible. Next is ')' or EOF: return token
+            this->ParseWhiteSpace(FALSE);
+            IF (this->strp->current = ")" OR this->strp->eof)
+            {
+              this->strp->Next();
+              RETURN;
+            }
+
+
+            this->ConsumeBadURLRemnants();
+            this->type := "bad-url";
+            RETURN;
+          }
+
+          IF (this->strp->current IN [ "'", '"', ")" ])
+          {
+            // Parse error
+            this->ConsumeBadURLRemnants();
+            this->type := "bad-url";
+            RETURN;
+          }
+
+          IF (this->strp->current = "\\")
+          {
+            // Valid escape: consume the escaped code point, append the returned code point to the url-token's value
+            this->strp->Next(); // consume the '\'
+            STRING parsed := this->ConsumeEscapedCodePoint();
+            this->value := this->value || parsed;
+          }
+          ELSE
+          {
+            // Anything else: append to value
+            this->value := this->value || this->strp->ParseN(1);
+          }
+        }
+      }
+      IF(this->strp->current = "(" AND ToLowerCase(name) IN [ "and", "not", "only" ])
+      {
+        //Media query / at-rule stuff
+        this->type := "ident";
+        this->value := name;
+      }
+      //Otherwise, if the next input code point is U+0028 LEFT PARENTHESIS ((), consume it. Create a <function-token> with its value set to the returned string and return it.
+      IF(this->strp->current = "(" AND ToLowercase(name) NOT IN [ "and", "not", "only", "url" ])
+      {
+        //Function token
+        this->strp->Next();// Discard the literal "("
+        this->ParseWhitespace(TRUE);//consume as much whitespace as possible while parsing the function name
+
+        this->type := "function";
+        this->value := name;
+/*
+
+        STRING args := this->strp->ParseUntilCharacter(")");
+        STRING ARRAY argumentdirty := Tokenize(args, ",");
+
+        STRING ARRAY arguments;
+        FOREVERY(STRING argument FROM argumentdirty)
+        {
+          INSERT TrimWhitespace(argument) INTO arguments AT END;
+        }
+
+        this->token := "function";
+        this->arguments := arguments;
+        this->value := name;
+        this->strp->Next();// Discard the literal ")"
+
+        /*
+        WHILE(this->strp->current NOT IN [ ")", "eof" ])
+        {
+          this->ReConsumeToken();
+          STRING argument := this->strp->ParseWhileNotInSet(",)");
+          INSERT argument INTO arguments AT END;
+        }
+
+        this->token := "function";
+        this->arguments := arguments;
+        this->name := name;
+
+        /*
+        RECORD ARRAY arguments;
+        WHILE (NOT this->strp->eof AND this->strp->current != ")")
+        {
+          STRING val := this->strp->ParseUntilCharacter(")");
+          IF (val = "")
+          {
+            this->arguments := DEFAULT RECORD ARRAY;
+            BREAK;
+          }
+          ELSE
+            INSERT [ value := val ] INTO arguments AT END;
+        }
+
+        IF (NOT this->strp->TryParse(")"))
+          this->arguments := DEFAULT RECORD ARRAY;
+
+        this->token := "function";
+        this->value := name;
+        this->arguments := arguments;
+        */
+      }
+    }
+    ELSE
+    {
+      this->type := "ident";
+      this->value := name;
+    }
+  }
+
+  MACRO GetStringToken(STRING delimiter)
+  {
+    /*This section describes how to consume a string token from a stream of code points. It returns either a <string-token> or <bad-string-token>.
+
+This algorithm must be called with an ending code point, which denotes the code point that ends the string.
+
+Initially create a <string-token> with its value set to the empty string.
+
+Repeatedly consume the next input code point from the stream:
+
+ending code point
+EOF
+Return the <string-token>.
+newline
+This is a parse error. Reconsume the current input code point, create a <bad-string-token>, and return it.
+U+005C REVERSE SOLIDUS (\)
+If the next input code point is EOF, do nothing.
+Otherwise, if the next input code point is a newline, consume it.
+
+Otherwise, if the stream starts with a valid escape, consume an escaped code point and append the returned code point to the <string-token>’s value.
+
+anything else
+Append the current input code point to the <string-token>’s value.
+    */
+    this->type := "string";
+    WHILE(TRUE)
+    {
+      IF(this->strp->eof)
+        RETURN;
+
+      STRING cp := this->strp->current;
+      IF(cp=delimiter)
+      {
+        this->strp->next();
+        RETURN;
+      }
+
+      IF(cp = "\n" OR cp = "\r")
+      {
+        //This is a parse error. Reconsume the current input code point, create a <bad-string-token>, and return it.
+        this->type := "bad-string";
+        RETURN;
+      }
+      IF(cp = "\\")
+      {
+        //U+005C REVERSE SOLIDUS (\)
+        this->strp->next();
+        IF(this->strp->eof) //If the next input code point is EOF, do nothing.
+          RETURN;
+
+        //Otherwise, if the next input code point is a newline, consume it.
+        IF (this->strp->TryParse("\r"))
+        {
+          this->strp->TryParse("\n");
+          CONTINUE;
+        }
+        IF (this->strp->TryParse("\n"))
+          CONTINUE;
+
+        //Otherwise, if the stream starts with a valid escape, consume an escaped code point and append the returned code point to the <string-token>’s value.
+        this->value := this->value || this->ConsumeEscapedCodePoint();
+        CONTINUE;
+      }
+
+      this->value := this->value || this->strp->current;
+      this->strp->next();
+    }
+  }
+
+  BOOLEAN FUNCTION IsNameStartCodePoint(STRING cp)
+  {
+    RETURN cp = '_' OR (cp >= 'A' AND cp <='Z') OR (cp >='a' AND cp <= 'z') OR cp >= "\x80";
+  }
+
+  BOOLEAN FUNCTION IsNameCodePoint(STRING cp)
+  {
+    RETURN this->IsNameStartCodePoint(cp) OR (cp >= '0' AND cp <= '9') OR cp = '-';
+  }
+
+  BOOLEAN FUNCTION CheckIfThreeCPStartIdentifier(INTEGER peek DEFAULTSTO 0) // http://www.w3.org/TR/css3-syntax/#check-if-three-code-points-would-start-an-identifier
+  {
+    STRING first := ((peek > 0)?this->strp->PeekN(peek):this->strp->current);
+    SWITCH(first)
+    {
+      /*U+002D HYPHEN-MINUS
+        If the second code point is a name-start code point or the second and third code points are a valid escape, return true. Otherwise, return false.
+      */
+      CASE '-'
+      {
+        IF(this->IsNameStartCodePoint(this->strp->PeekN(1 + peek)) OR this->strp->PeekN(1 + peek) = '-' OR (this->strp->PeekN(1 + peek) = "\\" AND this->strp->PeekN(2 + peek) != "\n") )
+          RETURN TRUE;
+        ELSE
+          RETURN FALSE;
+      }
+      /*U+005C REVERSE SOLIDUS (\)
+        If the first and second code points are a valid escape, return true. Otherwise, return false.
+      */
+      CASE "\\"
+      {
+        IF(this->strp->PeekN(1 + peek) != "\n")
+          RETURN TRUE;
+        ELSE
+          RETURN FALSE;
+      }
+      DEFAULT
+      {
+        IF(this->IsNameStartCodePoint(first))
+          RETURN TRUE;
+        ELSE
+          RETURN FALSE;
+      }
+    }
+  }
+
+  MACRO GetNumericToken()
+  {
+    RECORD number := this->ConsumeNumber();
+    this->valuetype := number.type;
+    this->value := number.repr;
+    this->numbervalue := number.value;
+
+    IF(this->CheckIfThreeCPStartIdentifier())
+    {
+      this->type := "dimension";
+      this->unit := this->ConsumeName();
+      RETURN;
+    }
+    IF(this->strp->current="%")
+    {
+      this->strp->Next();
+      this->type := "percentage";
+      RETURN;
+    }
+    this->type := "number";
+    RETURN;
+  }
+
+  RECORD FUNCTION ConsumeNumber() // http://www.w3.org/TR/css3-syntax/#consume-a-number0
+  {
+    STRING repr;
+    STRING type := "integer";
+
+    repr := repr || this->strp->ParseWhileInSet("+-");
+    IF(SearchSubstring("+-", repr) != -1)
+      repr := repr || this->strp->ParseWhileInSet("0123456789");// Can't possibly be HEX
+    ELSE
+      repr := repr || this->strp->ParseWhileInSet("0123456789ABCDEFabcdef");// Could in fact be HEX
+
+    IF(this->strp->current = "." AND SearchSubstring("01234567890", this->strp->PeekN(1)) != -1)
+    {
+      repr := repr || this->strp->ParseN(2);
+      repr := repr || this->strp->ParseWhileInSet("0123456789");
+      type := "number";
+    }
+    IF( (this->strp->current = "e" OR this->strp->current = "E"))
+    {
+      IF(this->strp->PeekN(1) IN ["+","-"] AND SearchSubstring("01234567890", this->strp->PeekN(2)) != -1)
+      {
+        repr := repr || this->strp->ParseN(3);
+        repr := repr || this->strp->ParseWhileInSet("0123456789");
+        type := "number";
+      }
+      ELSE IF(SearchSubstring("01234567890", this->strp->PeekN(1)) != -1)
+      {
+        repr := repr || this->strp->ParseN(2);
+        repr := repr || this->strp->ParseWhileInSet("0123456789");
+        type := "number";
+      }
+    }
+    IF(SearchSubstring("ABCDEFabcdef", repr) != -1)
+    {
+      type := "hex-digits";
+    }
+
+    RETURN [ repr := repr
+           , value := ToMoney(repr, 0) //FIXME support E notations
+           , type := type
+           ];
+  }
+
+  STRING FUNCTION ConsumeName()
+  {
+    STRING result;
+    WHILE(TRUE)
+    {
+      IF(this->IsNameCodePoint(this->strp->current))
+      {
+        result := result || this->strp->ParseN(1);
+        CONTINUE;
+      }
+      ELSE IF(this->strp->current = "\\")
+      {
+        IF(this->strp->PeekN(1) = "\n")
+        {
+          //Invalid escape, return:
+          RETURN result;
+        }
+        ELSE
+        {
+          // Consume an escaped code point. Append the returned code point to result.
+          result := result || this->ConsumeEscapedCodePoint();
+          CONTINUE;
+        }
+      }
+      RETURN result;
+    }
+
+  }
+
+  STRING FUNCTION ConsumeEscapedCodePoint()
+  {
+    // Implements http://www.w3.org/TR/css3-syntax/ 4.3.7
+
+    // No hex-escaped code point? Ignore the escaping
+    IF (SearchSubString("0123456789ABCDEFU", ToUppercase(this->strp->current)) = -1)
+      RETURN this->strp->ParseN(1);
+
+    IF (this->strp->current IN [ "u", "U" ])
+      this->strp->ParseN(1);
+    this->strp->TryParse("+");
+
+    STRING nr;
+    FOR (INTEGER i := 0; i < 6; i := i + 1)
+    {
+      IF (ToInteger(this->strp->current, -1, 16) = -1)
+        BREAK;
+
+      nr := nr || this->strp->ParseN(1);
+    }
+
+    IF (this->strp->current IN [ " ", "\t", "\r", "\n" ])
+      this->strp->Next();
+
+    INTEGER codepoint := ToInteger(nr, -1, 16) ?? 0xFFFD;
+    RETURN UCToString(codepoint);
+  }
+
+  /// Parse whitespace(4.1.1)
+  MACRO ParseWhitespace(BOOLEAN withcomments) // Parses S* and comments
+  {
+    /* The token S in the grammar above stands for white space. Only the characters "space" (U+0020),
+       "tab" (U+0009), "line feed" (U+000A) and "carriage return" (U+000D) can occur in white space.
+       Other space-like characters, such as "em-space" (U+2003) and "ideographic space" (U+3000), are
+       never part of white space.
+    */
+    this->strp->ParseWhileInSet(" \t\r\n");
+
+    IF (withcomments)
+      WHILE (this->strp->TryParse('/*'))
+        this->ParseCommentRest();
+  }
+
+  MACRO ParseCommentRest() // Parses comment, ex '/*' part
+  {
+    // COMMENT: '/' '*' [^*]* '*'+ ([^/*][^*]* '\*'+)* '/'
+    IF(this->verbose)
+      PRINT("[TOKENIZER] Encountered a comment on line " || this->line || ", at " || (this->startpos - this->linestart) || "\n");
+
+    STRING comment := "/";
+
+    WHILE (NOT this->strp->eof)
+    {
+      IF(this->strp->current = "\n")
+      {
+        this->line := this->line + 1;
+        this->linestart := this->startpos;
+      }
+      comment := comment || this->strp->current;
+      this->strp->ParseN(1);
+      IF(this->strp->current = "*" AND this->strp->PeekN(1) = "/")
+      {
+        this->strp->ParseN(2);
+        this->type := "ws-comment";
+        this->value := comment || "*/";
+        RETURN;
+      }
+    }
+  }
+>;
+
+RECORD eof_token :=
+    [ type :=         "eof"
+    , value :=        ""
+    , valuetype :=    ""
+    , numbervalue :=  0
+    , arguments :=    DEFAULT STRING ARRAY
+    , unit :=         ""
+    , startpos :=     0
+    , length :=       0
+    , csstext :=      ""
+    ];
+
+/** Tokenizer for reparsing a list of tokens / simpleblocks
+*/
+PUBLIC OBJECTTYPE ReparseTokenizer
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// List of tokens to parse
+  RECORD ARRAY pvt_tokens;
+
+  /// Current index within tokens
+  INTEGER pvt_idx;
+
+  BOOLEAN pvt_eof;
+
+  /// Whether the current token must be returned again
+  BOOLEAN pvt_reconsume;
+
+  /// Current token
+  RECORD curtoken;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY token(curtoken.token, -);
+  PUBLIC PROPERTY type(curtoken.type, -);
+  PUBLIC PROPERTY value(curtoken.value, -);
+  PUBLIC PROPERTY numbervalue(curtoken.numbervalue, -);
+  PUBLIC PROPERTY unit(curtoken.unit, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD ARRAY tokens)
+  {
+    this->pvt_tokens := tokens;
+    this->pvt_reconsume := TRUE;
+    this->pvt_eof := LENGTH(tokens) = 0;
+
+    // Update curtoken
+    this->GetToken();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /// Get current token
+  PUBLIC RECORD FUNCTION GetToken()
+  {
+    RECORD item := this->pvt_eof ? eof_token : this->pvt_tokens[this->pvt_idx];
+    this->curtoken := item;
+
+    RETURN this->curtoken;
+  }
+
+  /// Reconsume the token (ignore the next ConsumeToken action)
+  PUBLIC MACRO ReconsumeToken()
+  {
+    this->pvt_reconsume := TRUE;
+  }
+
+  /// Move to the next token
+  PUBLIC MACRO ConsumeToken()
+  {
+    IF (NOT this->pvt_reconsume AND NOT this->pvt_eof)
+    {
+      this->pvt_idx := this->pvt_idx + 1;
+      this->pvt_eof := this->pvt_idx = LENGTH(this->pvt_tokens);
+    }
+    this->pvt_reconsume := FALSE;
+
+    // Update curtoken
+    this->GetToken();
+  }
+>;
+

@@ -1,0 +1,25 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::publisher/lib/webtools/formcomponents/upload.whlib";
+
+PUBLIC STATIC OBJECTTYPE ImgEditField EXTEND FileEditFieldBase
+<
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RETURN CELL[ ...FileEditFieldBase::__GetRenderData()
+               , type := "imgedit"
+               ];
+  }
+
+  UPDATE MACRO SetValue(RECORD val)
+  {
+    FileEditFieldBase::SetValue(val);
+    IF(RecordExists(val) AND CellExists(this->pvt_value,'__BLOBSOURCE') AND this->pvt_value.__blobsource != "")
+      this->pvt_url := GetCachedImageLink(this->pvt_value, [ method := "none", fixorientation := TRUE ]);
+  }
+>;
+

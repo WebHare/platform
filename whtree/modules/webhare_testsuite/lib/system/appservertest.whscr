@@ -1,0 +1,116 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/internal/appserver.whlib";
+
+
+RECORD conndata := GetAppserverConnection()->GetConnectionData();
+
+STRING conn_id := RIGHT("00000" || Random(0, 999999), 6);
+
+//PRINT("Start conn " || conn_id || "\n");
+
+OBJECT conn := GetAppserverConnection();
+
+PUBLIC OBJECTTYPE AppserverTest
+<
+  OBJECT conn;
+
+  PUBLIC MACRO NEW(OBJECT conn)
+  {
+    this->conn := conn;
+
+    // Set connection callbacks
+    this->conn->OnLineReceive := PTR this->ClientReceiveLine;
+    this->conn->OnBinaryDataReceive := PTR this->ClientReceiveBinaryData;
+    this->conn->OnTimerExpire := PTR this->HandleTimeout;
+
+    RegisterEventCallback("webhare_testsuite:appserver_event", PTR this->GotEvent);
+  }
+
+  MACRO ClientReceiveLine(STRING data, BOOLEAN complete)
+  {
+//    PRINT("Got line '" || data || (complete ? "' (complete)" : "' (not complete)") || "\n");
+    IF (NOT complete)
+    {
+//      PRINT("Send LineTooLong\n");
+      this->conn->SendData("LineTooLong\r\n");
+      this->conn->FlushData();
+    }
+    ELSE
+    {
+      STRING ARRAY params := Tokenize(data, " ");
+      STRING command := params[0];
+      DELETE FROM params AT 0;
+
+      SWITCH (command)
+      {
+        CASE "bye"
+        {
+          this->conn->Disconnect(90);
+          RETURN;
+        }
+        CASE "command"
+        {
+//          PRINT("Send Thanks\n");
+          this->conn->SendData("Thanks\r\n");
+          this->conn->FlushData();
+        }
+        CASE "bin"
+        {
+//          PRINT("Send Thanks\n");
+          this->conn->SendData("SendBin\r\n");
+          this->conn->FlushData();
+          this->conn->ExpectBinaryData(20);
+          RETURN;
+        }
+        DEFAULT
+        {
+//          PRINT("Send UnknownCommand\n");
+          this->conn->SendData("UnknownCommand:" || data ||"\r\n");
+          this->conn->FlushData();
+        }
+      }
+    }
+    this->conn->ExpectLine(40);
+  }
+
+  MACRO ClientReceiveBinaryData(STRING data)
+  {
+    this->conn->SendData("GotBin:" || data ||"\r\n");
+    this->conn->FlushData();
+    this->conn->ExpectLine(40);
+  }
+
+  MACRO HandleTimeout()
+  {
+//    PRINT("Send Timeout\n");
+    this->conn->SendData("Timeout\r\n");
+    this->conn->FlushData();
+  }
+
+  MACRO GotEvent(STRING event, RECORD data)
+  {
+//    PRINT("Send Event\n");
+    this->conn->SendData("Event: " || data.id || "\r\n");
+    this->conn->FlushData();
+  }
+
+  PUBLIC MACRO Run()
+  {
+    this->conn->SendData("Welcome\r\n");
+    this->conn->FlushData();
+    this->conn->ExpectLine(40);
+
+    // Start the connection loop
+//    PRINT("Starting connection loop\n");
+    this->conn->Run();
+  }
+>;
+
+OBJECT server := NEW AppserverTest(conn);
+
+//PRINT("Starting test server connection\n");
+server->Run();
+//PRINT("Finished test server connection\n");

@@ -1,0 +1,16 @@
+﻿<?wh
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/errors.whlib";
+LOADLIB "mod::system/lib/internal/remoting/server.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+
+
+TRY
+{
+  RECORD errorinfo := GetRequestErrorInfo();
+  RunRequest(errorinfo.errors, errorinfo.groupid, TRUE);
+}
+CATCH(OBJECT<RPCBadRequestException> e)
+{
+  AbortWithHTTPError(400,"Bad request: " || e->what);
+}

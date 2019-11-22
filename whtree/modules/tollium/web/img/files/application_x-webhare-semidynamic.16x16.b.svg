@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <linearGradient id="file-paper-gradient" gradientUnits="userSpaceOnUse" x1="5.9205" y1="6.643" x2="29.3585" y2="30.081">
+      <stop offset="0" style="stop-color:#ffffff"/>
+      <stop offset="1" style="stop-color:#f2f2f2"/>
+    </linearGradient>
+    <g id="file-fill" style="fill:url(&quot;#file-paper-gradient&quot;);">
+      <path d="M30,12l0,17c0,1-1,1-1,1H11c-1,0-1-1-1-1V3c0,0,0-1,1-1h9"/>
+    </g>
+    <path id="file-corner" d="M32,1c0-1-1-1-1-1h-6.2c-0.3,0-0.6,0-0.7,0.3c-0.1,0.3-0.1,0.6,0.2,0.8l6.5,6.1c0.2,0.2,0.6,0.3,0.8,0.2C31.8,7.2,32,6.9,32,6.6"/>
+    <path id="file-outline" d="M21,0H10C8,0,8,2,8,2v28c0,0,0,2,2,2h20c2,0,2-2,2-2V11L21,0zM30,29c0,0,0,1-1,1H11c-1,0-1-0.6-1-0.9V3c0,0,0-1,1-1h9l10,10L30,29z"/>
+  </defs>
+  <g>
+    <use xlink:href="#file-fill" fill="#ffffff"/>
+    <use xlink:href="#file-outline" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <use xlink:href="#file-corner" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <rect x="3" y="6" width="14" height="14px" fill="#185675"/>
+    <text font-family="&quot;roboto&quot;" font-variant="&quot;black&quot;" transform="translate(6 18)" fill="#FFFFFF" font-size="14">1</text>
+  </g>
+</svg>

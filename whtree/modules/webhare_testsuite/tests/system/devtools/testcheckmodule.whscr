@@ -1,0 +1,72 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/devtools/checkmodule.whlib";
+
+MACRO TestCheckModule()
+{
+  testfw->SetupTestModule();
+  BroadcastEvent("system:clearcaches", DEFAULT RECORD); //FIXME shouldn't be needed but apparently the exclusion list is ignored without this
+
+  STRING temproot := GetModuleInstallationRoot("webhare_testsuite_temp");
+
+  StoreDiskFile(`${temproot}/moduledefinition.xml`, StringToBlob(`<?xml version="1.0"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <meta>
+    <version>0.1.0</version>
+    <description>webhare_testsuite_temp moduledef overwritten by testcheckmodule.whscr</description>
+    <packaging download="true" />
+    <validation>
+      <exclude mask="exclude.whlib" why="test exclusion" />
+    </validation>
+  </meta>
+
+</module>
+`), [ overwrite := TRUE ]);
+
+  StoreDiskFile(`${temproot}/testcompileerror.whscr`, StringToBlob(`<?wh
+LOADLIB "files.whlib";
+`));
+
+  StoreDiskFile(`${temproot}/testwarning.whlib`, StringToBlob(`<?wh
+LOADLIB "wh::files.whlib";
+CreateDiskFileFromBlob("", TRUE, TRUE, DEFAULT BLOB);
+PUBLIC MACRO JustAPublicMacro() {}
+`));
+
+  //ensure compilation... see if validation still picks up the warning if compilation is already done
+  MakeFunctionPtr(`mod::webhare_testsuite_temp/testwarning.whlib`,"JustAPublicMacro"); //webhare/webhare#814
+
+  StoreDiskFile(`${temproot}/exclude.whlib`, StringToBlob(`<?wh
+LOADLIB "mod::tollium/lib/gettid.whlib";
+GetTid("webhare_testsuite_temp:just.a.test.ignore");
+`));
+
+  StoreDiskFile(`${temproot}/test.siteprl`, StringToBlob(`<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:odd="urn:oddnamespace">
+  <fragment name="editlocation" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="none">
+    <contents>
+      <odd:locationedit />
+    </contents>
+  </fragment>
+</siteprofile>`));
+
+  RECORD ARRAY issues := CheckModule("webhare_testsuite_temp", [ printissues := testfw->debug
+                                                               , debug := testfw->debug
+                                                               ]);
+  IF(testfw->debug)
+    DumpValue(issues,'boxed');
+
+  TestEq(RECORD[], SELECT * FROM issues WHERE resourcename LIKE "*exclude.whlib*", "Exclusion list not honored");
+  TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/testcompileerror.whscr" AND iserror = TRUE AND message LIKE "*Invalid LOADLIB*" AND line = 2));
+  TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/testwarning.whlib" AND iserror = FALSE AND message LIKE "*CreateDiskFileFromBlob*deprecated*" AND line = 3));
+  TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/test.siteprl" AND iserror = TRUE AND message LIKE "*odd:locationedit*" AND line = 5));
+}
+
+RunTestFramework([ PTR TestCheckModule
+                 ]);

@@ -1,0 +1,102 @@
+<?wh
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECT FUNCTION GetTabsExtension(OBJECT xmldoc, STRING name)
+{
+  FOREVERY(OBJECT editor FROM xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "tabsextension")->GetCurrentElements())
+    IF(editor->GetAttribute("name")=name)
+      RETURN editor;
+  RETURN DEFAULT OBJECT;
+}
+
+PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
+<
+  INTEGER fsobjectid;
+  RECORD ARRAY editors;
+  //OBJECT objectpropscontext;
+
+  MACRO Init(RECORD data)
+  {
+    this->fsobjectid := data.id;
+
+    RECORD ARRAY embedded := GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "embeddededitor", this->fsobjectid);
+    IF(Length(embedded)=0)
+    {
+      this->RunMessageBox(".noembeddedconfigured");
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    OBJECT fileobj := OpenWHFSObject(this->fsobjectid);
+    this->frame->title := this->GetTid(".editingfile", fileobj->name);
+
+    FOREVERY(RECORD toembed FROM embedded)
+    {
+      STRING findname := toembed.node->GetAttribute("extension");
+      STRING edittype := toembed.node->GetAttribute("contenttype");
+      OBJECT instance := SELECT AS OBJECT whfsinstance FROM this->editors WHERE contenttype = edittype;
+      IF(NOT ObjectExists(instance))
+      {
+        instance := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "whfsinstance");
+        instance->datastore := "self";
+        instance->basefsobject := fileobj;
+        instance->type := OpenWHFSType(edittype);
+        IF(NOT ObjectExists(instance->type))
+          THROW NEW Exception("No such WHFS type '" || edittype || "' installed (for embedded editor)");
+        INSERT  [ whfsinstance := instance, contenttype := edittype ] INTO this->editors AT END;
+      }
+      this->edittabs->extendcomponents := [[ name := "objectdata", component := this->objectdata ]
+                                          ,[ name := "contentdata", component := instance ]
+                                          ];
+      RECORD ext := this->edittabs->LoadTabsExtension(toembed.siteprofile->name, findname);
+
+      // Disable all cells connecting to the composition when user has no write access
+      IF (NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", fileobj->id))
+      {
+        FOREVERY (OBJECT elt FROM ext.components)
+          elt->enabled := FALSE;
+      }
+
+      // Run the postinit for all extensions
+      this->edittabs->RunExtensionsPostInit();
+    }
+
+    IF(Length(this->edittabs->pages)=1)
+      this->edittabs->type := "server";
+
+    FOREVERY(RECORD editor FROM this->editors)
+    {
+      editor.whfsinstance->ReadInstanceFromFSObject();
+    }
+
+    this->objectdata->value := [ title := fileobj->title
+                               , description := fileobj->description
+                               ];
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT fileobj := OpenWHFSObject(this->fsobjectid);
+    IF(NOT Objectexists(fileobj) OR NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fsobjectid)) //give feedback that file is gone ?
+      RETURN TRUE;
+
+    OBJECT work := this->BeginWork();
+    //Grab siteprofile stuff
+    FOREVERY(RECORD editor FROM this->editors)
+    {
+      editor.whfsinstance->WriteInstanceToFSObject();
+    }
+
+    //FIXME history stuff
+    fileobj->UpdateMetadata(this->objectdata->value);
+    SCheduleFIleRepublish(this->fsobjectid);
+    RunEditFileHooks(__FindFile(this->fsobjectid), this->fsobjectid);
+
+    RETURN work->Finish();
+  }
+>;

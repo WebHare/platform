@@ -1,0 +1,2012 @@
+<?wh
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::xml/internal/xpath.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+STRING cbresult := "";
+BOOLEAN cbtext := FALSE;
+
+MACRO DebugNode(OBJECT node)
+{
+  print('--\n');
+  print(node->outerxml||'\n\n');
+  forevery(object attrs from node->attributes->getcurrentnodes())
+    print(attrs->prefix || " " || attrs->namespaceuri || " " || attrs->localname || "\n");
+  print('--\n');
+}
+
+MACRO XMLEltStart(STRING node, RECORD ARRAY attrs)
+{
+  IF (cbtext)
+  {
+    cbtext := FALSE;
+    cbresult := cbresult || "'";
+  }
+  cbresult := cbresult || "<" || node;
+  FOREVERY(RECORD attr FROM attrs)
+    cbresult := cbresult || " " || attr.field || "=\"" || EncodeValue(attr.value) || "\"";
+  cbresult := cbresult || ">";
+}
+MACRO XMLEltEnd (STRING node)
+{
+  IF (cbtext)
+  {
+    cbtext := FALSE;
+    cbresult := cbresult || "'";
+  }
+  cbresult := cbresult || ("</" || node || ">");
+}
+MACRO XMLEltText (STRING node)
+{
+  IF (NOT cbtext)
+  {
+    cbtext := TRUE;
+    cbresult := cbresult || "'";
+  }
+  cbresult := cbresult || EncodeValue(node);
+}
+MACRO XMLEltComment (STRING node)
+{
+  IF (cbtext)
+  {
+    cbtext := FALSE;
+    cbresult := cbresult || "'";
+  }
+  cbresult := cbresult || ("<!--" || node || "-->");
+}
+MACRO XMLEltPi (STRING target, STRING data)
+{
+  IF(target="xml")
+    RETURN;
+
+  IF (cbtext)
+  {
+    cbtext := FALSE;
+    cbresult := cbresult || "'";
+  }
+  cbresult := cbresult || ("<?" || EncodeValue(target) || " " || data || "?>");
+}
+MACRO XMLError(INTEGER code, INTEGER linenum, STRING error)
+{
+  IF (cbtext)
+  {
+    cbtext := FALSE;
+    cbresult := cbresult || "'";
+  }
+  cbresult := cbresult || ("<!-- ERROR: " || code || " " || linenum || " " || error || " -->");
+}
+
+RECORD XMLCallbacks := [ start_element := PTR XMLEltStart
+                       , end_element := PTR XMLEltEnd
+                       , text_node := PTR XMLEltText
+                       , comment_node := PTR XMLEltComment
+                       , pi_node := PTR XMLEltPi
+                       , error := PTR XMLError
+                       ];
+
+
+MACRO TestXML()
+{
+//  BLOB xmlblob := MakeBlobFromDiskfile(testdata_dir || "books.xml");
+  BLOB xmlblob := OpenTestFile("books.xml");
+  INTEGER xmldoc := ParseXML(xmlblob);
+
+  OpenTest("TestXML");
+
+  // Select all elements in the urn::book namespace which are children of the root 'books' element
+  AddXpathNamespace(xmldoc,"b","urn::book");
+  RECORD ARRAY xmlresult := SelectXML(xmldoc, "/b:books/*");
+
+  /* Test node names */
+  TestEqualInteger( 1, 2, Length(xmlresult));
+  TestEqualString(  2, "book", xmlresult[0].xml_name);
+  TestEqualInteger( 3, XmlElementNode, xmlresult[0].xml_type);
+  TestEqualString(  4, "book", xmlresult[1].xml_name);
+  TestEqualInteger( 5, XmlElementNode, xmlresult[1].xml_type);
+
+  /* Test attributes */
+  TestEqualString(  6, "book_4", xmlresult[0]."xml:id");
+  TestEqualString(  7, "book_8", xmlresult[1]."xml:id");
+
+  TestEqualString(  8, "abcdefghi", xmlresult[0].xml_content);
+  TestEqualString(  9, "defjklmno", xmlresult[1].xml_content);
+
+  /* Test text */
+  // Select all text subnodes of the first 'book' element
+  xmlresult := SelectXML(xmldoc, "//b:book[1]/text()");
+  TestEq(3, Length(xmlresult));
+  TestEqualString( 11, "#text", xmlresult[0].xml_name);
+  TestEq(XmlTextNode, xmlresult[0].xml_type);
+  TestEqualString( 13, "abc", xmlresult[0].xml_content);
+  TestEqualString( 14, "#text", xmlresult[1].xml_name);
+  TestEq(XmlTextNode, xmlresult[1].xml_type);
+  TestEqualString( 16, "def", xmlresult[1].xml_content);
+  TestEqualString( 17, "#text", xmlresult[2].xml_name);
+  TestEq(XmlTextNode, xmlresult[2].xml_type);
+  TestEqualString( 19, "ghi", xmlresult[2].xml_content);
+
+  /* Test comments */
+  // Select all comment nodes
+  xmlresult := SelectXML(xmldoc, "//comment()");
+  TestEq(3, Length(xmlresult));
+  TestEqualString( 21, "#comment", xmlresult[0].xml_name);
+  TestEq(XmlCommentNode, xmlresult[0].xml_type);
+  TestEqualString( 23, " A list of books ", xmlresult[0].xml_content);
+  TestEqualString( 24, "#comment", xmlresult[1].xml_name);
+  TestEq(XmlCommentNode, xmlresult[1].xml_type);
+  TestEqualString( 26, " First book ", xmlresult[1].xml_content);
+  TestEqualString( 27, "#comment", xmlresult[2].xml_name);
+  TestEq(XmlCommentNode, xmlresult[2].xml_type);
+  TestEqualString( 29, " Second book ", xmlresult[2].xml_content);
+
+  /* Test processing instructions - FIXME
+  // Select all processing instruction nodes
+  xmlresult := SelectXML(xmldoc, "//processing-instruction()");
+  TestEq(1, Length(xmlresult));
+  TestEqualString( 31, "xml-stylesheet", xmlresult[0].xml_name);
+  TestEq(XmlPiNode, xmlresult[0].xml_type);
+  TestEqualString( 33, "href=\"booklist.xsl\" type=\"text/xml\"", xmlresult[0].xml_content);
+*/
+
+  /* Test squashing */
+  RECORD ARRAY squash := SelectAndSquashXML(xmldoc,"/b:books/*");
+  TestEq(2, Length(squash));
+  TestEqualString( 35, "book", squash[0].xml_name);
+  TestEqualString( 36, "book", squash[1].xml_name);
+  TestEq(XmlElementNode, squash[0].xml_type);
+  TestEq(XmlElementNode, squash[1].xml_type);
+  TestEqualString( 39, "book_4", squash[0]."attr_xml:id");
+  TestEqualString( 40, "book_8", squash[1]."attr_xml:id");
+  TestEqualString( 41, "abcdefghi", squash[0].xml_content);
+  TestEqualString( 42, "defjklmno", squash[1].xml_content);
+  TestEqualString( 43, "John Smith", squash[0].author);
+  TestEqualString( 44, "<Jim Doe> & \"Jane Doe\"", squash[1].author);
+  TestEqualString( 45, "About a John", squash[0].title);
+  TestEqualString( 46, "My first book", squash[1].title);
+
+  /* Test selecting of nodes */
+  // Select all nodes, whatever their type, within the 'book' element with an attribute id="4"
+  xmlresult := SelectXML(xmldoc, "//b:book[@xml:id='book_4']/node()");
+  TestEq(6, Length(xmlresult));
+  TestEqualString( 48, "#comment", xmlresult[0].xml_name);
+  TestEq(XmlCommentNode, xmlresult[0].xml_type);
+  TestEqualString( 50, "#text", xmlresult[1].xml_name);
+  TestEq(XmlTextNode, xmlresult[1].xml_type);
+  TestEqualString( 52, "author", xmlresult[2].xml_name);
+  TestEq(XmlElementNode, xmlresult[2].xml_type);
+  TestEqualString( 54, "#text", xmlresult[3].xml_name);
+  TestEq(XmlTextNode, xmlresult[3].xml_type);
+  TestEqualString( 56, "title", xmlresult[4].xml_name);
+  TestEq(XmlElementNode, xmlresult[4].xml_type);
+  TestEqualString( 58, "#text", xmlresult[5].xml_name);
+  TestEq(XmlTextNode, xmlresult[5].xml_type);
+
+  // Who is the author of 'My first book'?
+  xmlresult := SelectXML(xmldoc, "//b:book[b:title='My first book']/b:author");
+  TestEqualString( 60, "<Jim Doe> & \"Jane Doe\"", xmlresult[0].xml_content);
+
+  /* Test node namespaces */
+  // Select all elements which are children of the root 'books' element
+  AddXpathNamespace(xmldoc,"t","urn::test");
+  xmlresult := SelectXML(xmldoc, "/b:books/*");
+
+  // Test node names
+  TestEq(3, Length(xmlresult));
+  TestEq("book", xmlresult[0].xml_name);
+  TestEq("book", xmlresult[1].xml_name);
+  TestEq("test:book", xmlresult[2].xml_name);
+
+  // Test attributes
+  TestEq("b", xmlresult[0].xml_ns);
+  TestEq("b", xmlresult[1].xml_ns);
+  TestEq("t", xmlresult[2].xml_ns);
+
+  TestEq("book_4", xmlresult[0]."xml:id");
+  TestEq("book_8", xmlresult[1]."xml:id");
+  TestEq("book_12", xmlresult[2]."xml:id");
+
+  TestEq("abcdefghi", xmlresult[0].xml_content);
+  TestEq("defjklmno", xmlresult[1].xml_content);
+  TestEq("pqr", xmlresult[2].xml_content);
+
+  //Test new evaluator code
+  OBJECT xml := MakeXMLDocument(xmlblob);
+  OBJECT myresolver := NEW IndependentXPathNSResolver();
+  myresolver->AddNS("b", "urn::book");
+
+  TestEq(TRUE, ObjectExists(xml->GetEvaluatedElement(myresolver, "//b:book[b:title='My first book']/b:author")));
+  TestEq(TRUE, ObjectExists(xml->GetEvaluatedElement(myresolver, "//b:book[b:title='My first book']")->GetEvaluatedElement(myresolver, "b:author")));
+  TestEq(FALSE, ObjectExists(xml->GetEvaluatedElement(myresolver, "//b:book[b:title='My first book']/b:dsfauthor")));
+
+  TestThrows(PTR xml->GetEvaluatedElement(myresolver, '//:syntaxerror:'));
+
+  CloseTest("TestXML");
+}
+
+MACRO TestXMLAttributeNS()
+{
+//  BLOB xmlblob := MakeBlobFromDiskfile(testdata_dir || "books.xml");
+  BLOB xmlblob := OpenTestFile("books.xml");
+  INTEGER xmldoc := ParseXML(xmlblob);
+  RECORD xmlresult;
+
+  OpenTest("TestXMLAttributeNS");
+
+  //Make sure namespaced and out-of-namespace properties are properly filtered
+  AddXpathNamespace(xmldoc,"b","urn::book");
+  xmlresult := SelectXML(xmldoc, "//b:book[@id='book_4']");
+  TestEq(FALSE, RecordExists(xmlresult)); // id should be prefixed with "xml:" (fixed prefix for default XML namespace)
+
+  xmlresult := SelectXML(xmldoc, "//b:book[@xml:id='book_4']");
+  TestEq(TRUE, RecordExists(xmlresult));
+  TestEq(FALSE, CellExists(xmlresult,"id2")); // id2 is in namespace "urn::test", which is not registered
+  TestEq(FALSE, CellExists(xmlresult,"test:id2"));
+
+  AddXpathNamespace(xmldoc,"t","urn::test");
+  xmlresult := SelectXML(xmldoc, "//b:book[@xml:id='book_4']");
+  TestEq(TRUE, RecordExists(xmlresult));
+  TestEq(FALSE, CellExists(xmlresult,"id2")); // id2 should be prefixed with "t:"
+  TestEq(TRUE, CellExists(xmlresult,"t:id2"));
+
+  CloseTest("TestXMLAttributeNS");
+}
+
+RECORD FUNCTION MakeSimpleNode(INTEGER id)
+{
+  RETURN [ id := id
+         , str := "My string " || id
+         , dat := MakeDatetime(2004,12,31,14,12,10)
+         , boo := TRUE
+         , int := 12345
+         , mon := 123.45
+         , fl := 123.45f
+         , emptyrecord := CELL[]
+         , defaultrecord := DEFAULT RECORD
+         , recarray := [ CELL[], DEFAULT RECORD ]
+         , blobje := DEFAULT BLOB
+         , strings := ["bla","bli"]
+         , ints := [1,2,4]
+         ];
+}
+
+/** @short Decode a WebHare record generated by EncodeRecordAsXML
+    @param rec String containing XML document
+    @param node Xpath to the node to parse
+    @return The record parsed from the document, or a non-existing record if the parse failed
+    @see EncodeRecordAsXML DecodeRecordFromXML GetXMLRecord
+*/
+PUBLIC RECORD FUNCTION DecodeRecordFromXMLString(STRING rec, STRING node) //Only tests are using this function, so moved here
+{
+  INTEGER str := CreateStream();
+  PrintTo(str,rec);
+  RETURN DecodeRecordFromXML(MakeBlobFromstream(str),node);
+}
+
+/** @short Decode a WebHare record generated by EncodeRecordAsXML
+    @param rec Blob containing XML document
+    @param node Xpath to the node to parse
+    @return The record parsed from the document, or a non-existing record if the parse failed
+    @see EncodeRecordAsXML DecodeRecordFromXML GetXMLRecord
+*/
+PUBLIC RECORD FUNCTION DecodeRecordFromXML(BLOB rec, STRING node) //Only tests are using this function, so moved here
+{
+  OBJECT xmldoc := MakeXMLDocument(rec,"",TRUE);
+  RETURN xmldoc->CreateXPathQuery()->GetHarescriptRecord(node);
+}
+
+
+
+
+MACRO TestXMLRecord()
+{
+  RECORD complextest := [ node := MakeSimpleNode(1)
+                        , nodearray := [ MakeSimpleNode(2)
+                                       , MakeSimpleNode(3)
+                                       , MakeSimpleNode(4)
+                                       ]
+                        , recnodearray := [ [ n8 := MakeSimpleNode(8)
+                                            , n9 := MakeSimpleNode(9)
+                                            ]
+                                          , [ n10 := MakeSimpleNode(10)
+                                            ]
+                                          ]
+                        , dupenode := MakeSimpleNode(1)
+                        , variantarray := VARIANT[42,"beagle"]
+                        ];
+
+  OpenTest("TestXMLDevsupport");
+
+  STRING xmlversion;
+  RECORD backversion;
+
+  TestEq([ x:= 42], DecodeRecordFromXMLString(`<?xml version="1.0" ?><basic xmlns:hs='http://www.webhare.net/xmlns/hs/xmlrecord' hs:type='record'><x hs:type='integer'>42</x></basic>`,"/basic"));
+
+  xmlversion := '<?xml version="1.0" ?>' || EncodeRecordAsXML(DEFAULT RECORD,"basic");
+  backversion := DecodeRecordFromXMLString(xmlversion,"/basic");
+  TestEq(DEFAULT RECORD, backversion);
+
+  xmlversion := '<?xml version="1.0" ?>' || EncodeRecordAsXML(CELL[],"basic");
+  backversion := DecodeRecordFromXMLString(xmlversion,"/basic");
+  TestEq(CELL[], backversion);
+
+  xmlversion := '<?xml version="1.0" ?>' || EncodeRecordAsXML([ rec := DEFAULT RECORD ],"basic");
+  backversion := DecodeRecordFromXMLString(xmlversion,"/basic");
+  TestEq([ rec := DEFAULT RECORD ], backversion);
+
+  xmlversion := '<?xml version="1.0" ?>' || EncodeRecordAsXML([ rec := CELL[] ],"basic");
+  backversion := DecodeRecordFromXMLString(xmlversion,"/basic");
+  TestEq([ rec := CELL[] ], backversion);
+
+  xmlversion := '<?xml version="1.0" ?>' || EncodeRecordAsXML(complextest,"basic");
+  backversion := DecodeRecordFromXMLString(xmlversion,"/basic");
+  TestEq(complextest, backversion);
+
+  xmlversion := '<?xml version="1.0" ?><test xmlns="urn::test">' || EncodeRecordAsXML(complextest,"basic") || "</test>";
+  INTEGER str := CreateStream();
+  PrintTo(str,xmlversion);
+  BLOB recdata := MakeBlobFromstream(str);
+  INTEGER xmldoc := ParseXML(recdata);
+  AddXpathNamespace(xmldoc,"prefix","urn::test");
+  TestEq(complextest, backversion);
+
+  OBJECT encoder := NEW __INTERNAL_XMLDataEncoder;
+  encoder->allowseparateblobs := TRUE;
+  str := CreateStream();
+  encoder->EncodeRecordTo(str, "test", [[ rec := [ data := StringToBlob(RepeatText("X",8192))]]]);
+  recdata := MakeBlobFromstream(str);
+  TestEq(TRUE, Length(recdata) < 1000, "Blobs should have been out-of-lined");
+  TestEq(TRUE, Length(encoder->blobs) > 0);
+
+  CloseTest("TestXMLDevsupport");
+}
+
+MACRO TestHTML()
+{
+  //BLOB xmlblob := MakeBlobFromDiskfile(testdata_dir || "test.html");
+  BLOB xmlblob := OpenTestFile("test.html");
+  INTEGER xmldoc := ParseHTMLAsXML(xmlblob);
+
+  OpenTest("TestHTML");
+  RECORD ARRAY xmlresult;
+  xmlresult := SelectXML(xmldoc, "//title");
+  TestEq(xmlresult[0].xml_name, "title");
+  TestEq(xmlresult[0].xml_content, "B-Lex Information Technologies - Homepage");
+
+  xmlresult := SelectXML(xmldoc, "//a");
+  TestEq(17, Length(xmlresult));
+  TestEq(xmlresult[0].href, "http://www.b-lex.nl/");
+  TestEq(xmlresult[16].href, "http://www.lemon8.nl/");
+
+  STRING testdoc := '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">\n<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns:m="http://schemas.microsoft.com/office/2004/12/omml" xmlns="http://www.w3.org/TR/REC-html40"><body>testgeblaat!</body></html>';
+  OBJECT doc := MakeXMLDocumentFromHTML(StringToBlob(testdoc));
+  TestEq('<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"/>\n</head><body>testgeblaat!</body></html>\n', BlobToString(doc->GetDocumentBlob(FALSE),65535));
+
+  CloseTest("TestHTML");
+}
+
+MACRO TestParseXMLWithCallbacks()
+{
+  BLOB xmlblob := StringToBlob(`<books id='books_1' hs:x='2' xmlns:hs='http://test'><!-- A list of books --><book amp="&amp;" lt="&#60;" amp38="&#38;amp;" a="&#65;"><!-- First book -->abc<author>John Smith</author>def<title>About a John</title>ghi</book><book><!-- Second book -->def<author>&lt;Jim Doe&gt; &amp; &quot;Jane Doe&quot;</author>jkl<title>My first book</title>mno</book></books>`);
+
+  OpenTest("TestParseXMLWithCallbacks");
+
+  cbresult:="";
+  ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
+  TestEq(`<books id="books_1" hs:x="2" xmlns:hs="http://test"><!-- A list of books --><book amp="&#38;" lt="&#60;" amp38="&#38;amp;" a="A"><!-- First book -->'abc'<author>'John Smith'</author>'def'<title>'About a John'</title>'ghi'</book><book><!-- Second book -->'def'<author>'&#60;Jim Doe&#62; &#38; &#34;Jane Doe&#34;'</author>'jkl'<title>'My first book'</title>'mno'</book></books>`, cbresult);
+
+  cbresult:="";
+  xmlblob := StringToBlob("<test><?wh print('yeay') ?></test>");
+  ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
+  TestEq("<test><?wh print('yeay') ?></test>", cbresult);
+
+  CloseTest("TestParseXMLWithCallbacks");
+}
+
+MACRO TestDOM()
+{
+  OpenTest("TestDOM");
+
+  BLOB xmlblob := StringToBlob('<test xmlns:a="urn::a"><test2 attr="1" a:attr="2" xmlns=""/><test3 xmlns="urn::test" /></test>');
+  OBJECT xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+  TestEq(XmlDocumentNode, xmldoc->nodetype);
+  TestEq(TRUE, xmldoc->documentelement->HasAttributes());
+  TestEq(1, xmldoc->documentelement->attributes->length);
+  TestEq("xmlns", xmldoc->documentelement->attributes->item(0)->prefix);
+  TestEq("http://www.w3.org/2000/xmlns/", xmldoc->documentelement->attributes->item(0)->namespaceuri);
+  TestEq("a", xmldoc->documentelement->attributes->item(0)->localname);
+  TestEq("urn::a", xmldoc->documentelement->attributes->item(0)->nodevalue);
+  TestEq("xmlns:a", xmldoc->documentelement->attributes->item(0)->nodename);
+  TestEq("urn::a", xmldoc->documentelement->GetAttributeNS("http://www.w3.org/2000/xmlns/", "a"));
+
+  TestEq("attr", xmldoc->documentelement->firstchild->getattributenode("attr")->name);
+  TestEq("a:attr", xmldoc->documentelement->firstchild->getattributenodens("urn::a", "attr")->name);
+  TestEq("urn::a", xmldoc->documentelement->firstchild->getattributenodens("urn::a", "attr")->namespaceuri);
+  TestEq("attr", xmldoc->documentelement->firstchild->getattributenodens("urn::a", "attr")->localname);
+  TestEq("a", xmldoc->documentelement->firstchild->getattributenodens("urn::a", "attr")->prefix);
+
+  TestEq([[ namespaceuri := "http://www.w3.org/2000/xmlns/", nodename := "xmlns:a", prefix := "xmlns", localname := "a", nodevalue := "urn::a" ]
+         ], SELECT * FROM xmldoc->documentelement->ListAttributes() ORDER BY nodevalue);
+
+  TestEq([[ namespaceuri := "http://www.w3.org/2000/xmlns/", nodename := "xmlns",  prefix := "",  localname := "xmlns", nodevalue := "" ]
+         ,[ namespaceuri := "",       nodename := "attr",   prefix := "",  localname := "", nodevalue := "1" ]
+         ,[ namespaceuri := "urn::a", nodename := "a:attr", prefix := "a", localname := "attr", nodevalue := "2" ]
+         ], SELECT * FROM xmldoc->documentelement->firstchild->ListAttributes() ORDER BY nodevalue);
+
+  TestEq(3, Length(xmldoc->documentelement->firstchild->attributes->GetcurrentNodes()));
+  TestEq(1, Length(xmldoc->documentelement->attributes->GetcurrentNodes()));
+
+  TestEq("a", xmldoc->documentelement->attributes->item(0)->localname);
+  TestEq("xmlns:a", xmldoc->documentelement->attributes->item(0)->nodename);
+
+  TestEq("xmlns", xmldoc->documentelement->childnodes->item(1)->attributes->item(0)->localname);
+  TestEq("xmlns", xmldoc->documentelement->childnodes->item(1)->attributes->item(0)->nodename);
+
+  TestEq(1, xmldoc->documentelement->GetChildElementsByTagNameNS("urn::test", "test3")->length);
+  TestEq(0, xmldoc->documentelement->GetChildElementsByTagNameNS("urn::test", "test2")->length);
+
+  /* FIXME TestEq("", Length(xmldoc->documentelement->attributes->item(0)->name));*/
+  /* FIXME TestEq("", Length(xmldoc->documentelement->attributes->item(0)->value));*/
+
+  OBJECT impl := NEW XmlDomImplementation;
+  OBJECT doc1 := impl->CreateDocument("root","f:test",DEFAULT OBJECT);
+  OBJECT doc2 := doc1->CloneNode(TRUE);
+  TestThrows(PTR TryAppendChildFromWrongDocument(doc1, doc2));
+  doc1->documentelement->AppendChild(doc1->CreateElement("one"));
+  doc2->documentelement->AppendChild(doc2->CreateElement("two"));
+  TestEq("one", doc1->documentelement->lastchild->nodename);
+  TestEq("two", doc2->documentelement->lastchild->nodename);
+
+  xmlblob := StringToBlob('<test xml:lang="en" xmlns:a="urn::a" />');
+  xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+  xmldoc->documentelement->AppendChild(xmldoc->CreateElementNS("urn::a", "a:yeey"));
+
+  TestEq("xml:lang", xmldoc->documentelement->attributes->item(1)->nodename);
+
+  //Test creating a domlevel 1 node - we'll now fail that as we just create more complex out-of-spec stuff
+  TestThrows(PTR xmldoc->documentelement->SetAttribute("xsi:schemaLocation", "http://www.hodex.nl http://www.hodex.nl/hodex.xsd"));
+  TestEq(DEFAULT OBJECT, xmldoc->documentelement->GetAttributeNode('xsi:schemaLocation'));
+
+  xmldoc->documentelement->SetAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
+  TestEq("http://www.w3.org/2001/XMLSchema-instance", xmldoc->documentelement->GetAttributeNS("http://www.w3.org/2000/xmlns/", "xsi"));
+  TestEq("http://www.w3.org/2001/XMLSchema-instance", xmldoc->documentelement->GetAttributeNodeNS("http://www.w3.org/2000/xmlns/", "xsi")->value);
+  TestEq("http://www.w3.org/2001/XMLSchema-instance", xmldoc->documentelement->GetAttribute("xmlns:xsi"));
+
+  OBJECT attrnode := xmldoc->documentelement->GetAttributeNode('xmlns:xsi');
+  TestEq('xmlns',attrnode->prefix);
+  TestEq('xsi',attrnode->localname);
+  TestEq('xmlns:xsi',attrnode->nodename);
+
+  //Test GetElementsByTagName finding the root node too
+  xmlblob := StringToBlob('<node><node/></node>');
+  xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+
+  OBJECT nodelist := xmldoc->GetElementsByTagName("node");
+  testeq(2, nodelist->length);
+  testeq(TRUE, Objectexists(nodelist->item(0)->firstchild));
+  testeq(FALSE, Objectexists(nodelist->item(1)->firstchild));
+
+  TestEq(1, Length(xmldoc->documentelement->ListChildren("", "node")));
+  TestEq(1, Length(xmldoc->documentelement->ListChildren("*", "node")));
+  TestEq(2, Length(xmldoc->ListElements("", "node")));
+  TestEq(2, Length(xmldoc->ListElements("*", "node")));
+
+  nodelist := xmldoc->GetElementsByTagNameNS("urn::x","node");
+  testeq(0, nodelist->length);
+  TestEq(0, Length(xmldoc->ListElements("urn::x", "node")));
+
+  //Test GetElementsByTagNameNS finding the root node too
+  xmlblob := StringToBlob('<x:node xmlns:x="urn::x"><x:node/></x:node>');
+  xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+
+  nodelist := xmldoc->GetElementsByTagNameNS("urn::x", "node");
+  testeq(2, nodelist->length);
+  testeq(TRUE, Objectexists(nodelist->item(0)->firstchild));
+  testeq(FALSE, Objectexists(nodelist->item(1)->firstchild));
+
+  nodelist := xmldoc->GetElementsByTagName("node");
+  testeq(0, nodelist->length);
+
+  // RemoveAttribute("xmlns") should remove xmlns node too
+  xmlblob := StringToBlob('<x:node xmlns="urn::x" xmlns:x="urn::x"/>');
+  xmldoc := MakeXMLDocument(xmlblob, "", FALSE);
+  xmldoc->documentelement->RemoveAttribute("xmlns");
+  TestEQ('<x:node xmlns:x="urn::x"/>', xmldoc->documentelement->outerxml);
+
+  xmlblob := StringToBlob('<text>text<more>more</more><!--comment--></text>');
+  xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+  TestEq("", xmldoc->textcontent);
+  TestEq("textmore", xmldoc->documentelement->textcontent);
+  TestEq("text", xmldoc->documentelement->childnodes->Item(0)->textcontent);
+  TestEq("more", xmldoc->documentelement->childnodes->Item(1)->textcontent);
+  TestEq("comment", xmldoc->documentelement->childnodes->Item(2)->textcontent);
+
+  xmldoc := MakeXMLDocument(StringToBlob('<testnode><a/>hi!<!-- comment --></testnode>'));
+  TestEq(3, xmldoc->documentelement->childnodes->length);
+  TestEq(3, Length(xmldoc->documentelement->childnodes->GetCurrentNodes()));
+  TestEq(1, Length(xmldoc->documentelement->childnodes->GetCurrentElements()));
+
+  xmlblob := StringToBlob('<node xmlns="urn::x"><node/><node><node/></node></node>');
+  xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+  TestEq(2, Length(xmldoc->documentelement->ListChildren("urn::x", "node")));
+  TestEq(4, Length(xmldoc->ListElements("urn::x", "node")));
+  TestEq(3, Length(xmldoc->documentelement->ListElements("urn::x", "node")));
+
+  //test namespaces
+  xmlblob := StringToBlob('<node xmlns="urn::x" xmlns:x="urn::x"><x:node><x:node/></x:node><node xmlns=""/><x:y><y xmlns=""/></x:y>!!!</node>');
+  xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+  TestEq(3, Length(xmldoc->ListElements("urn::x", "node")));
+  TestEq(2, Length(xmldoc->documentelement->ListElements("urn::x", "node")));
+  TestEq(1, Length(xmldoc->documentelement->ListChildren("urn::x", "node")));
+
+  TestEq(1, Length(xmldoc->ListElements("", "node")));
+  TestEq(1, Length(xmldoc->documentelement->ListElements("", "node")));
+  TestEq(1, Length(xmldoc->documentelement->ListChildren("", "node")));
+
+  TestEq(3, Length(xmldoc->documentelement->ListElements("*", "node")));
+  TestEq(2, Length(xmldoc->documentelement->ListChildren("*", "node")));
+
+  TestEq(2, Length(xmldoc->documentelement->ListElements("*", "y")));
+  TestEq(1, Length(xmldoc->documentelement->ListChildren("*", "y")));
+
+  TestEq(5, Length(xmldoc->documentelement->ListElements("*", "*")));
+  TestEq(3, Length(xmldoc->documentelement->ListChildren("*", "*")));
+  TestEq(4, Length(xmldoc->documentelement->GetAllChildNodes()));
+
+  CloseTest("TestDOM");
+}
+
+MACRO TestDOMDocType()
+{
+  OpenTest("TestDOMDocType");
+
+  BLOB xmlblob;
+  OBJECT xmldoc;
+  OBJECT doctypenode;
+
+  xmlblob := StringToBlob('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><body>test</body></html>');
+  xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+  doctypenode := xmldoc->firstchild;
+
+  TestEq(10, doctypenode->nodetype);
+  //FIXME nodevalue
+  TestEq("HTML", doctypenode->name);
+  TestEq("-//W3C//DTD HTML 4.01 Transitional//EN", doctypenode->publicid);
+  TestEq("http://www.w3.org/TR/html4/loose.dtd", doctypenode->systemid);
+  TestEQ('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">', doctypenode->outerxml);
+
+  xmlblob := StringToBlob('<!DOCTYPE html SYSTEM "DTD_location"><html><body>test</body></html>');
+  xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+  doctypenode := xmldoc->firstchild;
+
+  TestEq(10, doctypenode->nodetype);
+  TestEq("html", doctypenode->name);
+  TestEq("", doctypenode->publicid);
+  TestEq("DTD_location", doctypenode->systemid);
+  TestEQ('<!DOCTYPE html SYSTEM "DTD_location">', doctypenode->outerxml);
+
+  xmlblob := StringToBlob('<!DOCTYPE html><html><body>test</body></html>');
+  xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+  doctypenode := xmldoc->firstchild;
+
+  TestEq(10, doctypenode->nodetype);
+  TestEq("html", doctypenode->name);
+  TestEq("", doctypenode->publicid);
+  TestEq("", doctypenode->systemid);
+  TestEQ('<!DOCTYPE html>', doctypenode->outerxml);
+
+  CloseTest("TestDOMDocType");
+}
+
+MACRO TestCloneNode()
+{
+  STRING docnamespace  := "urn::rootnamespace";
+  OBJECT impl := NEW XmlDomImplementation;
+  OBJECT doc1 := impl->CreateDocument(docnamespace, "program", DEFAULT OBJECT);
+
+  OBJECT firstnode := doc1->CreateElementNS(docnamespace,"firstchild");
+  doc1->documentelement->appendchild(firstnode);
+  TestEq(0,Length(firstnode->ListAttributes()));
+
+  OBJECT clonednode := firstnode->CloneNode(FALSE);
+  doc1->documentelement->appendchild(clonednode);
+  TestEq(0,Length(clonednode->ListAttributes()));
+}
+
+MACRO TestDomCopy()
+{
+  OpenTest("TestDOMCopy");
+
+  STRING docnamespace  := "urn::rootnamespace";
+  STRING xml_namespace := "http://www.w3.org/XML/1998/namespace";
+
+  OBJECT impl := NEW XmlDomImplementation;
+  OBJECT doc1 := impl->CreateDocument(docnamespace, "program", DEFAULT OBJECT);
+
+  OBJECT firstnode := doc1->CreateElementNS(docnamespace||"2","firstchild");
+  firstnode->SetAttributeNS(xml_namespace,"xml:lang","nl");
+  doc1->documentelement->appendchild(firstnode);
+
+  OBJECT cloneddoc := doc1->cloneNode(TRUE);
+  firstnode := cloneddoc->documentelement->firstchild;
+  TestEq(1, firstnode->attributes->length);
+
+  OBJECT firstattr := firstnode->attributes->item(0);
+  TestEq(xml_namespace, firstattr->namespaceuri);
+  TestEq("xml", firstattr->prefix);
+  TestEq("xml:lang", firstattr->nodename);
+  TestEq("lang", firstattr->localname);
+  TestEq("nl", firstattr->value);
+
+  CloseTest("TestDOMCopy");
+}
+
+MACRO TestDomCopy2()
+{
+  OpenTest("TestDOMCopy2");
+
+  STRING docnamespace  := "urn::rootnamespace";
+  STRING xml_namespace := "http://www.w3.org/XML/1998/namespace";
+
+  OBJECT impl := NEW XmlDomImplementation;
+  OBJECT doc1 := impl->CreateDocument("", "program", DEFAULT OBJECT);
+
+  OBJECT firstnode := doc1->CreateElementNS(docnamespace||"2","firstchild");
+  firstnode->SetAttributeNS(xml_namespace,"xml:lang","nl");
+  doc1->documentelement->appendchild(firstnode);
+
+  OBJECT cloneddoc := doc1->cloneNode(TRUE);
+  firstnode := cloneddoc->documentelement->firstchild;
+  TestEq(1, firstnode->attributes->length);
+
+  OBJECT firstattr := firstnode->attributes->item(0);
+  TestEq(xml_namespace, firstattr->namespaceuri);
+  TestEq("xml", firstattr->prefix);
+  TestEq("xml:lang", firstattr->nodename);
+  TestEq("lang", firstattr->localname);
+  TestEq("nl", firstattr->value);
+
+  CloseTest("TestDOMCopy2");
+}
+
+MACRO TestDomCData()
+{
+  OpenTest("TestDOMCData");
+
+  BLOB xmlblob := StringToBlob('<test><![CDATA[Testvalue]]>xyz<![CDATA[2]]></test>');
+  OBJECT xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+
+  OBJECT cdatanode := xmldoc->documentelement->firstchild;
+  TestEq(XmlCdataSectionNode, cdatanode->nodetype);
+  TestEq("Testvalue", cdatanode->data);
+  TestEq("Testvalue", cdatanode->nodevalue);
+  TestEq("#cdata-section", cdatanode->nodename);
+
+  CloseTest("TestDOMCData");
+}
+
+MACRO TestNodeAttributeValue() //tests xmlNodeSetContent
+{
+  OpenTest("TestNodeAttributeValue");
+
+  BLOB xmlblob := StringToBlob('<test x="&amp;" />');
+  OBJECT xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+
+  OBJECT attr := xmldoc->documentelement->GetAttributeNode("x");
+  TestEQ("&", attr->nodevalue);
+  attr->nodevalue := attr->nodevalue;
+  TestEQ("&", attr->nodevalue);
+  TestEQ("&", attr->textcontent);
+
+  attr->nodevalue := "a&lt;b";
+  TestEQ("a&lt;b", attr->nodevalue);
+  TestEQ("a&lt;b", attr->textcontent);
+
+  CloseTest("TestNodeAttributeValue");
+}
+
+MACRO TryAppendChildFromWrongDocument(OBJECT doc1, OBJECT doc2)
+{
+  doc2->documentelement->AppendChild(doc1->CreateElement("one"));
+}
+
+MACRO TestEncodings()
+{
+  BLOB xmlblob;
+  INTEGER xmldoc;
+  RECORD ARRAY xmlresult;
+  OBJECT doc;
+
+  OpenTest("TestEncodings");
+
+  // Try detection and forcing of character encodings
+  //  Auto-detect UTF-8
+  xmlblob := StringToBlob('<?xml version="1.0"?><test>\xE2\x82\xAC\xC2\xA9\xC3\xAB</test>');
+  xmldoc := ParseXML(xmlblob);
+  xmlresult := SelectXML(xmldoc, "/test");
+  TestEq(1, Length(xmlresult));
+  TestEq("test", xmlresult[0].xml_name);
+  TestEq("\xE2\x82\xAC\xC2\xA9\xC3\xAB", xmlresult[0].xml_content);
+  doc := MakeXMLDocument(xmlblob);
+  TestEq("\xE2\x82\xAC\xC2\xA9\xC3\xAB", doc->documentelement->textcontent);
+
+  //  Force UTF-8
+  xmlblob := StringToBlob('<?xml version="1.0"?><test>\xE2\x82\xAC\xC2\xA9\xC3\xAB</test>');
+  xmldoc := ParseXML(xmlblob, "UTF-8");
+  xmlresult := SelectXML(xmldoc, "/test");
+  TestEq(1, Length(xmlresult));
+  TestEq("test", xmlresult[0].xml_name);
+  TestEq("\xE2\x82\xAC\xC2\xA9\xC3\xAB", xmlresult[0].xml_content);
+
+  //  Auto-detect Latin-1
+  xmlblob := StringToBlob('<?xml version="1.0" encoding="iso-8859-1"?><test>\xA9\xBD\xE6\xFE</test>');
+  xmldoc := ParseXML(xmlblob);
+  xmlresult := SelectXML(xmldoc, "/test");
+  TestEq(1, Length(xmlresult));
+  TestEq("test", xmlresult[0].xml_name);
+  TestEq("\xC2\xA9\xC2\xBD\xC3\xA6\xC3\xBE", xmlresult[0].xml_content);
+  doc := MakeXMLDocument(xmlblob);
+  TestEq("\xC2\xA9\xC2\xBD\xC3\xA6\xC3\xBE", doc->documentelement->textcontent);
+
+  //  Force Latin-1
+  xmlblob := StringToBlob('<?xml version="1.0"?><test>\xA9\xBD\xE6\xFE</test>');
+  xmldoc := ParseXML(xmlblob, "LATIN-1");
+  xmlresult := SelectXML(xmldoc, "/test");
+  TestEq(1, Length(xmlresult));
+  TestEq("test", xmlresult[0].xml_name);
+  TestEq("\xC2\xA9\xC2\xBD\xC3\xA6\xC3\xBE", xmlresult[0].xml_content);
+
+  //  This is not Latin-1 (encoding attribute is misleading) - force UTF-8
+  xmlblob := StringToBlob('<?xml version="1.0" encoding="iso-8859-1"?><test>\xE2\x82\xAC\xC2\xA9\xC3\xAB</test>');
+  xmldoc := ParseXML(xmlblob, "UTF-8");
+  xmlresult := SelectXML(xmldoc, "/test");
+  TestEq(1, Length(xmlresult));
+  TestEq("test", xmlresult[0].xml_name);
+  TestEq("\xE2\x82\xAC\xC2\xA9\xC3\xAB", xmlresult[0].xml_content);
+
+  //  This is not UTF-8 (encoding attribute is misleading) - force Latin-1
+  xmlblob := StringToBlob('<?xml version="1.0" encoding="utf-8"?><test>\xA9\xBD\xE6\xFE</test>');
+  xmldoc := ParseXML(xmlblob, "ISO-8859-1");
+  xmlresult := SelectXML(xmldoc, "/test");
+  TestEq(1, Length(xmlresult));
+  TestEq("test", xmlresult[0].xml_name);
+  TestEq("\xC2\xA9\xC2\xBD\xC3\xA6\xC3\xBE", xmlresult[0].xml_content);
+
+  // Try some other character encodings
+  //  UTF-16 Little Endian
+  xmlblob := StringToBlob('<\x00?\x00x\x00m\x00l\x00 \x00v\x00e\x00r\x00s\x00i\x00o\x00n\x00=\x00"\x001\x00.\x000\x00"\x00?\x00>\x00<\x00t\x00e\x00s\x00t\x00>\x00\xA9\x00\xBD\x00\xE6\x00\xFE\x00<\x00/\x00t\x00e\x00s\x00t\x00>\x00');
+  xmldoc := ParseXML(xmlblob, "UTF-16-LE");
+  xmlresult := SelectXML(xmldoc, "/test");
+  TestEq(1, Length(xmlresult));
+  TestEq("test", xmlresult[0].xml_name);
+  TestEq("\xC2\xA9\xC2\xBD\xC3\xA6\xC3\xBE", xmlresult[0].xml_content);
+  // Test bom autodetect
+  doc := MakeXMLDocument(MakeComposedBlob([ [ data := StringToBlob(DecodeBase16("FFFE")) ], [ data := xmlblob ] ]));
+  TestEq("\xC2\xA9\xC2\xBD\xC3\xA6\xC3\xBE", doc->documentelement->textcontent);
+
+
+  //  UTF-16 Big Endian
+  xmlblob := StringToBlob('\x00<\x00?\x00x\x00m\x00l\x00 \x00v\x00e\x00r\x00s\x00i\x00o\x00n\x00=\x00"\x001\x00.\x000\x00"\x00?\x00>\x00<\x00t\x00e\x00s\x00t\x00>\x00\xA9\x00\xBD\x00\xE6\x00\xFE\x00<\x00/\x00t\x00e\x00s\x00t\x00>');
+  xmldoc := ParseXML(xmlblob, "UTF-16-BE");
+  xmlresult := SelectXML(xmldoc, "/test");
+  TestEq(1, Length(xmlresult));
+  TestEq("test", xmlresult[0].xml_name);
+  TestEq("\xC2\xA9\xC2\xBD\xC3\xA6\xC3\xBE", xmlresult[0].xml_content);
+  // Test bom autodetect
+  doc := MakeXMLDocument(MakeComposedBlob([ [ data := StringToBlob(DecodeBase16("FEFF")) ], [ data := xmlblob ] ]));
+  TestEq("\xC2\xA9\xC2\xBD\xC3\xA6\xC3\xBE", doc->documentelement->textcontent);
+
+  CloseTest("TestEncodings");
+}
+
+MACRO TestRegression()
+{
+  OpenTest("XMLRegression");
+
+  //Test a message which was incorrectly recognized as UTF-16, even though we explicitly ask for UTF-8 decoding
+//  BLOB msgblob := MakeBlobFromDiskfile(testdata_dir || "false_utf16.eml");
+  BLOB msgblob := OpenTestFile("false_utf16.eml");
+  RECORD message := DecodeMIMEMessage(msgblob);
+
+  cbresult:="";
+  ParseHTMLAsXMLWithCallbacks(message.data.subparts[1].data, XMLCallbacks, "UTF-8");
+  TestEq('<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-16"></meta></head><body><p>\'&#13;&#10;DIT IS EEN TESTMAIL&#13;&#10;\'</p></body></html>', cbresult);
+
+  /* Passing an empty document to a validator was a good way to crash stuff */
+  STRING validationdoc := '<?xml version="1.0" encoding="UTF-8"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn::x"></xs:schema>';
+  OBJECT emptyvalidation := MakeXMLSchema(StringToBlob(validationdoc));
+  TestEq(0, Length(emptyvalidation->GetParseErrors()));
+  TestEq(1, LEngth(emptyvalidation->ValidateDocument(MakeXMLDocument(DEFAULT BLOB))));
+
+  CloseTest("XMLRegression");
+}
+
+MACRO TestBom()
+{
+  OpenTest("XMLBom");
+
+  // Test BOM filtering
+  BLOB xmlblob := StringToBlob('\xEF\xBB\xBF<?xml version=\"1.0\" ?><html lang="en"><head><title>test</title></head><body><p>test</p></body></html>');
+  INTEGER xmldoc;
+  RECORD ARRAY xmlresult;
+
+  // XML DOM
+  xmldoc := ParseXML(xmlblob, "UTF-8");
+  xmlresult := SelectXML(xmldoc, "/html");
+  TestEq(1, Length(xmlresult));
+  TestEq("html", xmlresult[0].xml_name);
+  xmlresult := SelectXML(xmldoc, "/html/attribute::lang");
+  TestEq(1, Length(xmlresult));
+  TestEq("lang", xmlresult[0].xml_name);
+  TestEq("en", xmlresult[0].xml_content);
+
+  // XML DOM Autodetect
+  xmldoc := ParseXML(xmlblob);
+  xmlresult := SelectXML(xmldoc, "/html");
+  TestEq(1, Length(xmlresult));
+  TestEq("html", xmlresult[0].xml_name);
+  xmlresult := SelectXML(xmldoc, "/html/attribute::lang");
+  TestEq(1, Length(xmlresult));
+  TestEq("lang", xmlresult[0].xml_name);
+  TestEq("en", xmlresult[0].xml_content);
+
+  // HTML DOM
+  xmldoc := ParseHTMLAsXML(xmlblob, "UTF-8");
+  xmlresult := SelectXML(xmldoc, "/html");
+  TestEq(1, Length(xmlresult));
+  TestEq("html", xmlresult[0].xml_name);
+  xmlresult := SelectXML(xmldoc, "/html/attribute::lang");
+  TestEq(1, Length(xmlresult));
+  TestEq("lang", xmlresult[0].xml_name);
+  TestEq("en", xmlresult[0].xml_content);
+
+  // HTML DOM Autodetect
+  xmldoc := ParseHTMLAsXML(xmlblob);
+  xmlresult := SelectXML(xmldoc, "/html");
+  TestEq(1, Length(xmlresult));
+  TestEq("html", xmlresult[0].xml_name);
+  xmlresult := SelectXML(xmldoc, "/html/attribute::lang");
+  TestEq(1, Length(xmlresult));
+  TestEq("lang", xmlresult[0].xml_name);
+  TestEq("en", xmlresult[0].xml_content);
+
+  // XML SAX
+  cbresult:="";
+  ParseXMLWithCallbacks(xmlblob, XMLCallbacks, "UTF-8");
+  TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
+
+  // XML SAX Autodetect
+  cbresult:="";
+  ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
+  TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
+
+  // HTML SAX
+  cbresult:="";
+  ParseHTMLAsXMLWithCallbacks(xmlblob, XMLCallbacks, "UTF-8");
+  TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
+
+  // HTML SAX Autodetect
+  cbresult:="";
+  ParseHTMLAsXMLWithCallbacks(xmlblob, XMLCallbacks);
+  TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
+
+  CloseTest("XMLBom");
+}
+
+MACRO TestValidation()
+{
+  OpenTest("TestValidation");
+
+  BLOB xmlblob := OpenTestFile("validation.xml");
+  BLOB xsdblob := OpenTestFile("validation.xsd");
+
+  OBJECT xml := MakeXMLDocument(xmlblob, "", TRUE);
+  OBJECT xsd := MakeXMLSchema(xsdblob, "", TRUE);
+  TestEq(XmlDocumentNode, xsd->nodetype);
+  RECORD ARRAY errors := xsd->ValidateDocument(xml);
+  TestEq(0, Length(errors));
+
+  /* FIXME
+
+  //Now marshal the xml and xsd and make sure they still work. use a ipclink to force marshalling
+  OBJECT a := CreateIPCPort("testvalidation_marshalling");
+  OBJECT b := ConnectTOIPCPort("testvalidation_marshalling");
+  OBJECT aport := a->Accept(MAX_DATETIME);
+  b->SendMessage([xml:=xml,xsd:=xsd]);
+  RECORD result := aport->ReceiveMessage(MAX_DATETIME);
+  TestEq('ok', result.status);
+  TestEq(XmlDocumentNode, result.msg.xsd->nodetype);
+  TestEq(XmlDocumentNode, result.msg.xml->nodetype);
+
+  */
+
+  CloseTest("TestValidation");
+}
+
+MACRO TestPreventIllegalOutput()
+{
+  OpenTest("TestPreventIllegalOutput");
+
+  /* test uf8. \b should be stripped as it breaks XML:
+
+     https://www.w3.org/TR/2008/REC-xml-20081126/#wf-Legalchar
+     Characters referred to using character references must match the production for Char.
+     https://www.w3.org/TR/2008/REC-xml-20081126/#NT-Char
+     #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]  /* any Unicode character, excluding the surrogate blocks, FFFE, and FFFF.
+
+     So: the output may never reproduce a '\b'. But it's hard to fix this in libxml's output code. We may be better off
+     preventing it from entrying
+  */
+
+  OBJECT doc3 := NEW XMLDOMImplementation->CreateDocument("urn::rootnamespace","doc", DEFAULT OBJECT);
+  doc3->documentelement->SetAttributeNS("urn::ns1","ns1:attr_ns1","ns2");
+
+  OBJECT firstnode := doc3->CreateElementNS("urn::rootnamespace","firstchild");
+  firstnode->textcontent := "\bmay i";
+  TestEq("may i", firstnode->textcontent);
+  firstnode->firstchild->nodevalue := "\bmay i";
+  TestEq("may i", firstnode->textcontent);
+  TestEq("may i", firstnode->firstchild->nodevalue);
+
+  CloseTest("TestPreventIllegalOutput");
+}
+
+MACRO TestDocumentWriter()
+{
+  OpenTest("TestDocumentWriter");
+
+  OBJECT domimpl := NEW XMLDOMImplementation;
+
+  OBJECT doc := domimpl->CreateDocument("urn::test", "test", DEFAULT OBJECT);
+
+  doc->documentelement->appendchild(doc->createelementns("urn::test2", "test2"));
+  doc->documentelement->setattributens("urn::test","b:bla","bla_bla");
+  doc->documentelement->setattributens("urn::test3","d:bla3","bla_bla3");
+  doc->documentelement->setattribute("bla5","bla_bla5");
+  //doc->documentelement->setattribute("xmlns","urn::test3");
+
+  doc->documentelement->NormalizeNamespaces();
+
+  BLOB temp := doc->GetDocumentBlob(false);
+  //SendBlobTo(0,temp);
+
+  OBJECT doc2 := MakeXMLDocument(temp);
+
+  TestEq("test",doc2->documentelement->localname);
+  TestEq("urn::test",doc2->documentelement->namespaceuri);
+
+  TestEq("test2",doc2->documentelement->firstchild->localname);
+  TestEq("urn::test2",doc2->documentelement->firstchild->namespaceuri);
+
+  TestEq("bla_bla3",doc2->documentelement->getattributens("urn::test3","bla3"));
+  TestEq("bla_bla",doc2->documentelement->getattributens("urn::test","bla"));
+  TestEq("bla_bla5",doc2->documentelement->getattribute("bla5"));
+
+  /* test xmlns assignment to unprefixed attribute
+     this used to incorrectly create: <firstchild xmlns="urn::ns1" ns1:attr_ns1="ns2"/>
+     */
+  OBJECT doc3 := domimpl->CreateDocument("urn::rootnamespace","doc", DEFAULT OBJECT);
+  doc3->documentelement->SetAttributeNS("urn::ns1","ns1:attr_ns1","ns2");
+
+  OBJECT firstnode := doc3->CreateElementNS("urn::rootnamespace","firstchild");
+  firstnode->SetAttributeNS("urn::ns1","attr_ns1","ns2");
+  doc3->documentelement->appendchild(firstnode);
+  doc3->NormalizeDocument();
+
+  STRING output := BlobToString(doc3->GetDocumentBLob(FALSE),-1);
+  TestEq('<?xml version="1.0" encoding="UTF-8"?>\n<doc xmlns="urn::rootnamespace" xmlns:ns1="urn::ns1" ns1:attr_ns1="ns2"><firstchild ns1:attr_ns1="ns2"/></doc>\n', output);
+
+  CloseTest("TestDocumentWriter");
+}
+
+PUBLIC MACRO TestRegressions()
+{
+  OpenTest("TestRegressions");
+
+  TestThrowsLike("*'../test'*", PTR GetHarescriptResource("../test"));
+  TestThrowsLike("*'/test'*", PTR GetHarescriptResource("/test"));
+  TestThrowsLike("*'xml/./xml.xsd'*", PTR GetHarescriptResource("xml/./xml.xsd"));
+  TestThrowsLike("*'xml/../xml/xml.xsd'*", PTR GetHarescriptResource("xml/../xml/xml.xsd"));
+  //verify against uppercase and backslahes, as they break win32/linux compatibility
+  TestThrowsLike("*'xml/xml.XSD'*", PTR GetHarescriptResource("xml/xml.XSD"));
+  TestThrowsLike("*'xml\\xml.xsd'*", PTR GetHarescriptResource("xml\\xml.xsd"));
+
+  //verify old style paths
+  TestThrowsLike("*'xml/xml.xsd'*", PTR GetHarescriptResource("xml/xml.xsd"));
+
+  TestThrowsLike("No such HareScript resource whres::xml/xml.xs", PTR GetHarescriptResource("whres::xml/xml.xs"));
+  TestEq(5829, Length(GetHarescriptResource("whres::xml/xml.xsd")));
+  TestEq("E8E6289942E65F613753BDFAEF2FC8DC", EncodeBase16(GetHashForBlob(GetHarescriptResource("whres::xml/xml.xsd"),"MD5")));
+
+  // Test node moving
+  STRING ns_screens := "http://www.webhare.net/xmlns/tollium/screens";
+
+  // Test crashes if it fails
+  OBJECT impl := NEW XmlDOMImplementation;
+  OBJECT surveydoc := impl->CreateDocument(ns_screens, "mydocument", DEFAULT OBJECT);
+
+  OBJECT screen := surveydoc->CreateElementNS(ns_screens, "screen");
+  surveydoc->documentelement->AppendChild(screen);
+
+  OBJECT container1 := surveydoc->CreateElementNS(ns_screens, "page");
+  screen->AppendChild(container1);
+
+  OBJECT container2 := surveydoc->CreateElementNS(ns_screens, "page");
+  screen->AppendChild(container2);
+
+  OBJECT dummy := surveydoc->CreateElementNS(ns_screens, "text");
+  dummy->setAttribute('name', 'test');
+  container1->AppendChild(dummy);
+
+  container2->AppendChild(dummy);
+
+  // Test IsSameNode
+  TestEq(FALSE, surveydoc->documentelement->IsSameNode(DEFAULT OBJECT));
+  TestEq(TRUE, surveydoc->documentelement->IsSameNode(surveydoc->documentelement));
+  TestEq(FALSE, container1->IsSameNode(container2));
+
+  // Xpath crash test (Item(0) not validating when searching deep)
+  OBJECT xpathexpr := surveydoc->CreateXpathQuery();
+  xpathexpr->RegisterNamespace("ns", ns_screens);
+  OBJECT xpathres := xpathexpr->executeQuery("/ns:notexist/ns:deeper");
+  TestEq(DEFAULT OBJECT, xpathres->Item(0));
+
+  TestThrowsLike("XPath error: Undefined namespace prefix", PTR xpathexpr->executeQuery("/bad:namespace"));
+
+  //1 byte document for the XML parser
+  OBJECT doc := MakeXMLDocumentFromHTML(StringToBlob("1"));
+  TestEq(9, doc->nodetype);
+  TestEq(9, doc->documentelement->parentnode->nodetype);
+  TestEqualString(3
+                 , '<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<html><body><p>1</p></body></html>\n'
+                 , BlobToString(doc->GetDocumentBlob(FALSE),65535)
+                 );
+
+  doc := MakeXMLDocument(DEFAULT BLOB);
+  TestEq(TRUE, ObjectExists(doc));
+  doc := MakeXMLDocumentFromHTML(DEFAULT BLOB);
+  TestEq(TRUE, ObjectExists(doc));
+  TestEq(TRUE, ObjectExists(doc->body));
+  doc := MakeXMLDocument(StringToBlob("\xEF\xBB\xBF"));
+  TestEq(TRUE, ObjectExists(doc));
+  doc := MakeXMLDocumentFromHTML(StringToBlob("\xEF\xBB\xBF"));
+  TestEq(TRUE, ObjectExists(doc));
+  TestEq(TRUE, ObjectExists(doc->body));
+  doc := MakeXMLDocumentFromHTML(StringToBlob(" "));
+  TestEq(TRUE, ObjectExists(doc));
+  TestEq(TRUE, ObjectExists(doc->body));
+  doc := MakeXMLDocumentFromHTML(StringToBlob("  "));
+  TestEq(TRUE, ObjectExists(doc));
+  TestEq(TRUE, ObjectExists(doc->body));
+
+  ////////////
+  // XML_XML_NAMESPACE overwrites
+  doc := impl->CreateDocument("urn::rootnamespace","doc", DEFAULT OBJECT);
+  OBJECT firstnode := doc->CreateElementNS("urn::rootnamespace", "firstchild");
+
+  firstnode->SetAttributeNS("http://www.w3.org/XML/1998/namespace", "attr_ns0", "ns2");
+  OBJECT attrnode := firstnode->GetAttributeNodeNS("http://www.w3.org/XML/1998/namespace", "attr_ns0");
+  TestEq(TRUE, ObjectExists(attrnode));
+  TestEq("xml", attrnode->prefix);
+  TestEq("http://www.w3.org/XML/1998/namespace", attrnode->namespaceuri);
+  TestEq("xml:attr_ns0", attrnode->nodename);
+  TestEq("attr_ns0", attrnode->localname);
+
+  firstnode->SetAttributeNS("http://www.w3.org/XML/1998/namespace", "xml:attr_ns1", "ns2");
+  attrnode := firstnode->GetAttributeNodeNS("http://www.w3.org/XML/1998/namespace", "attr_ns1");
+  TestEq(TRUE, ObjectExists(attrnode));
+  TestEq("xml", attrnode->prefix);
+  TestEq("http://www.w3.org/XML/1998/namespace", attrnode->namespaceuri);
+  TestEq("xml:attr_ns1", attrnode->nodename);
+  TestEq("attr_ns1", attrnode->localname);
+
+  firstnode->SetAttributeNS("http://www.w3.org/XML/1998/namespace", "badns:attr_ns2", "ns2");
+  attrnode := firstnode->GetAttributeNodeNS("http://www.w3.org/XML/1998/namespace", "attr_ns2");
+  TestEq(TRUE, ObjectExists(attrnode));
+  TestEq("xml", attrnode->prefix);
+  TestEq("http://www.w3.org/XML/1998/namespace", attrnode->namespaceuri);
+  TestEq("xml:attr_ns2", attrnode->nodename);
+  TestEq("attr_ns2", attrnode->localname);
+
+  //test internal setattribute => setattributeNS conversion.
+  doc := impl->CreateDocument("urn::rootnamespace","d:doc", DEFAULT OBJECT);
+  attrnode := doc->documentelement->GetAttributeNodeNS("http://www.w3.org/2000/xmlns/", "xmlns");
+  TestEq(FALSE, ObjectExists(attrnode));
+
+  TestEq(FALSE, doc->documentelement->HasAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns"));
+  doc->documentelement->SetAttribute("xmlns", "urn::paashaas");
+  TestEq(TRUE, doc->documentelement->HasAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns"));
+  attrnode := doc->documentelement->GetAttributeNodeNS("http://www.w3.org/2000/xmlns/", "xmlns");
+  TestEq(TRUE, ObjectExists(attrnode));
+  TestEq(TRUE, doc->documentelement->GetAttributeNode("xmlns")->IsSameNode(attrnode));
+  TestEq("", attrnode->prefix);
+  TestEq("http://www.w3.org/2000/xmlns/", attrnode->namespaceuri);
+  TestEq("xmlns", attrnode->nodename);
+  TestEq("xmlns", attrnode->localname);
+  TestEq("urn::paashaas", attrnode->value);
+
+  doc->documentelement->RemoveAttributeNode(attrnode);
+  TestEq(FALSE, doc->documentelement->HasAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns"));
+  doc->documentelement->SetAttribute("xmlns", "urn::paashaas");
+  TestEq(TRUE, doc->documentelement->HasAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns"));
+  doc->documentelement->RemoveAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns");
+  TestEq(FALSE, doc->documentelement->HasAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns"));
+
+  doc->documentelement->SetAttribute("xmlns:ns2", "urn::paashaas2");
+  attrnode := doc->documentelement->GetAttributeNodeNS("http://www.w3.org/2000/xmlns/", "ns2");
+  TestEq(TRUE, ObjectExists(attrnode));
+  TestEq(FALSE, ObjectExists(doc->documentelement->GetAttributeNode("ns2")));
+  TestEq(TRUE, doc->documentelement->GetAttributeNode("xmlns:ns2")->IsSameNode(attrnode));
+  TestEq("xmlns", attrnode->prefix);
+  TestEq("http://www.w3.org/2000/xmlns/", attrnode->namespaceuri);
+  TestEq("xmlns:ns2", attrnode->nodename);
+  TestEq("ns2", attrnode->localname);
+  TestEq("urn::paashaas2", attrnode->value);
+
+  doc->documentelement->SetAttribute("xml:lang", "nl");
+  attrnode := doc->documentelement->GetAttributeNodeNS("http://www.w3.org/XML/1998/namespace", "lang");
+  TestEq(TRUE, ObjectExists(attrnode));
+  TestEq(FALSE, ObjectExists(doc->documentelement->GetAttributeNode("lang")));
+  TestEq(TRUE, doc->documentelement->GetAttributeNode("xml:lang")->IsSameNode(attrnode));
+  TestEq("xml", attrnode->prefix);
+  TestEq("http://www.w3.org/XML/1998/namespace", attrnode->namespaceuri);
+  TestEq("xml:lang", attrnode->nodename);
+  TestEq("lang", attrnode->localname);
+  TestEq("nl", attrnode->value);
+
+  TestThrows(PTR doc->documentelement->SetAttribute("fb:like", "1"));
+
+  CloseTest("TestRegressions");
+}
+
+PUBLIC MACRO TestXSParsers()
+{
+  OpenTest("TestXSParsers");
+  TestEq([ "abc", "def", "ghi" ], ParseXSList("  \n abc   \t\tdef  ghi  "));
+  TestEq(TRUE, ParseXSBoolean("true"));
+  TestEq(TRUE, ParseXSBoolean("1"));
+  TestEq(FALSE, ParseXSBoolean("0"));
+  TestEq(FALSE, ParseXSBoolean("false"));
+  TestEq(123, ParseXSInt("123"));
+  TestEq(-456, ParseXSInt("-456"));
+  TestEq(DEFAULT STRING ARRAY, ParseXSList(""));
+  TestEq(DEFAULT STRING ARRAY, ParseXSList(" \t  \n  "));
+  CloseTest("TestXSParsers");
+}
+
+RECORD ARRAY testcanonicalizations :=
+  [ [ inputdoc := '<?xml version="1.0"?>\n\n<?xml-stylesheet   href="doc.xsl"\n   type="text/xsl"   ?>\n\n<!DOCTYPE doc SYSTEM "doc.dtd">\n\n<doc>Hello, world!<!-- Comment 1 --></doc>\n\n<?pi-without-data     ?>\n\n<!-- Comment 2 -->\n\n<!-- Comment 3 -->'
+    , mode := "C14N 1.0"
+    , comments := FALSE
+    , canonical := '<?xml-stylesheet href="doc.xsl"\n   type="text/xsl"   ?>\n<doc>Hello, world!</doc>\n<?pi-without-data?>'
+    , xpath := DEFAULT RECORD
+    ]
+  , [ inputdoc := '<?xml version="1.0"?>\n\n<?xml-stylesheet   href="doc.xsl"\n   type="text/xsl"   ?>\n\n<!DOCTYPE doc SYSTEM "doc.dtd">\n\n<doc>Hello, world!<!-- Comment 1 --></doc>\n\n<?pi-without-data     ?>\n\n<!-- Comment 2 -->\n\n<!-- Comment 3 -->'
+    , mode := "C14N 1.0"
+    , comments := TRUE
+    , canonical := '<?xml-stylesheet href="doc.xsl"\n   type="text/xsl"   ?>\n<doc>Hello, world!<!-- Comment 1 --></doc>\n<?pi-without-data?>\n<!-- Comment 2 -->\n<!-- Comment 3 -->'
+    , xpath := DEFAULT RECORD
+    ]
+  , [ inputdoc := '<doc>\n   <clean>   </clean>\n   <dirty>   A   B   </dirty>\n   <mixed>\n      A\n      <clean>   </clean>\n      B\n      <dirty>   A   B   </dirty>\n      C\n   </mixed>\n</doc>'
+    , mode := "C14N 1.0"
+    , comments := FALSE
+    , canonical := '<doc>\n   <clean>   </clean>\n   <dirty>   A   B   </dirty>\n   <mixed>\n      A\n      <clean>   </clean>\n      B\n      <dirty>   A   B   </dirty>\n      C\n   </mixed>\n</doc>'
+    , xpath := DEFAULT RECORD
+    ]
+    /* ADDME this is the PROPER version of the test below
+  , [ inputdoc := '<!DOCTYPE doc [<!ATTLIST e9 attr CDATA "default">]>\n<doc>\n   <e1   />\n   <e2   ></e2>\n   <e3   name = "elem3"   id="elem3"   />\n   <e4   name="elem4"   id="elem4"   ></e4>\n   <e5 a:attr="out" b:attr="sorted" attr2="all" attr="I\'m"\n      xmlns:b="http://www.ietf.org"\n      xmlns:a="http://www.w3.org"\n      xmlns="http://example.org"/>\n   <e6 xmlns="" xmlns:a="http://www.w3.org">\n      <e7 xmlns="http://www.ietf.org">\n         <e8 xmlns="" xmlns:a="http://www.w3.org">\n            <e9 xmlns="" xmlns:a="http://www.ietf.org"/>\n         </e8>\n      </e7>\n   </e6>\n</doc>'
+    , mode := "C14N 1.0"
+    , canonical := '<doc>\n   <e1></e1>\n   <e2></e2>\n   <e3 id="elem3" name="elem3"></e3>\n   <e4 id="elem4" name="elem4"></e4>\n   <e5 xmlns="http://example.org" xmlns:a="http://www.w3.org" xmlns:b="http://www.ietf.org" attr="I\'m" attr2="all" b:attr="sorted" a:attr="out"></e5>\n   <e6 xmlns:a="http://www.w3.org">\n      <e7 xmlns="http://www.ietf.org">\n         <e8 xmlns="">\n            <e9 xmlns:a="http://www.ietf.org" attr="default"></e9>\n         </e8>\n      </e7>\n   </e6>\n</doc>'
+    ]*/
+  , [ inputdoc := '<!DOCTYPE doc >\n<doc>\n   <e1   />\n   <e2   ></e2>\n   <e3   name = "elem3"   id="elem3"   />\n   <e4   name="elem4"   id="elem4"   ></e4>\n   <e5 a:attr="out" b:attr="sorted" attr2="all" attr="I\'m"\n      xmlns:b="http://www.ietf.org"\n      xmlns:a="http://www.w3.org"\n      xmlns="http://example.org"/>\n   <e6 xmlns="" xmlns:a="http://www.w3.org">\n      <e7 xmlns="http://www.ietf.org">\n         <e8 xmlns="" xmlns:a="http://www.w3.org">\n            <e9 xmlns="" xmlns:a="http://www.ietf.org"/>\n         </e8>\n      </e7>\n   </e6>\n</doc>'
+    , mode := "C14N 1.0"
+    , comments := FALSE
+    , canonical := '<doc>\n   <e1></e1>\n   <e2></e2>\n   <e3 id="elem3" name="elem3"></e3>\n   <e4 id="elem4" name="elem4"></e4>\n   <e5 xmlns="http://example.org" xmlns:a="http://www.w3.org" xmlns:b="http://www.ietf.org" attr="I\'m" attr2="all" b:attr="sorted" a:attr="out"></e5>\n   <e6 xmlns:a="http://www.w3.org">\n      <e7 xmlns="http://www.ietf.org">\n         <e8 xmlns="">\n            <e9 xmlns:a="http://www.ietf.org"></e9>\n         </e8>\n      </e7>\n   </e6>\n</doc>'
+    , xpath := DEFAULT RECORD
+    ]
+  , [ inputdoc := '<!DOCTYPE doc [\n<!ATTLIST normId id ID #IMPLIED>\n<!ATTLIST normNames attr NMTOKENS #IMPLIED>\n]>\n<doc>\n   <text>First line&#x0d;&#10;Second line</text>\n   <value>&#x32;</value>\n   <compute><![CDATA[value>"0" && value<"10" ?"valid":"error"]]></compute>\n   <compute expr=\'value>"0" &amp;&amp; value&lt;"10" ?"valid":"error"\'>valid</compute>\n   <norm attr=\' &apos;   &#x20;&#13;&#xa;&#9;   &apos; \'/>\n   <normNames attr=\'   A   &#x20;&#13;&#xa;&#9;   B   \'/>\n   <normId id=\' &apos;   &#x20;&#13;&#xa;&#9;   &apos; \'/>\n</doc>'
+    , mode := "C14N 1.0"
+    , comments := FALSE
+    , canonical := '<doc>\n   <text>First line&#xD;\nSecond line</text>\n   <value>2</value>\n   <compute>value&gt;"0" &amp;&amp; value&lt;"10" ?"valid":"error"</compute>\n   <compute expr="value>&quot;0&quot; &amp;&amp; value&lt;&quot;10&quot; ?&quot;valid&quot;:&quot;error&quot;">valid</compute>\n   <norm attr=" \'    &#xD;&#xA;&#x9;   \' "></norm>\n   <normNames attr="A &#xD;&#xA;&#x9; B"></normNames>\n   <normId id="\' &#xD;&#xA;&#x9; \'"></normId>\n</doc>'
+    , xpath := DEFAULT RECORD
+    ]
+    //ADDME test 3.5 entity references (needs external files)
+  , [ inputdoc := '<?xml version="1.0" encoding="ISO-8859-1"?>\n<doc>&#169;</doc>'
+    , mode := "C14N 1.0"
+    , comments := FALSE
+    , canonical := '<doc>\xC2\xA9</doc>'
+    , xpath := DEFAULT RECORD
+    ]
+    //ADDME test 3.7 Document Subsets
+  , [
+    /* ADDME this is the PROPER version of the test below
+      inputdoc := '<!DOCTYPE doc [\n<!ATTLIST e2 xml:space (default|preserve) \'preserve\'>\n<!ATTLIST e3 id ID #IMPLIED>\n]>\n<doc xmlns="http://www.ietf.org" xmlns:w3c="http://www.w3.org">\n   <e1>\n      <e2 xmlns="">\n         <e3 id="E3"/>\n      </e2>\n   </e1>\n</doc>'
+    */
+      inputdoc := '<!DOCTYPE doc [\n<!ATTLIST e2 xml:space (default|preserve) \'preserve\'>\n<!ATTLIST e3 id ID #IMPLIED>\n]>\n<doc xmlns="http://www.ietf.org" xmlns:w3c="http://www.w3.org">\n   <e1>\n      <e2 xmlns="" xml:space="preserve">\n         <e3 id="E3"/>\n      </e2>\n   </e1>\n</doc>'
+    , mode := "C14N 1.0"
+    , comments := FALSE
+    , xpath := [ query := '(//. | //@* | //namespace::*) [    self::ietf:e1 or (parent::ietf:e1 and not(self::text() or self::e2))    or    count(id("E3")|ancestor-or-self::node()) = count(ancestor-or-self::node()) ]'
+               , namespaces := [[ prefix := "ietf", namespaceuri := "http://www.ietf.org" ]
+                               ]
+               ]
+    , canonical := '<e1 xmlns="http://www.ietf.org" xmlns:w3c="http://www.w3.org"><e3 xmlns="" id="E3" xml:space="preserve"></e3></e1>'
+    ]
+
+    //example from http://www.w3.org/TR/xml-exc-c14n/
+  , [ inputdoc := '<n0:pdu xmlns:n0="http://a.example">\n      <n1:elem1 xmlns:n1="http://b.example">\n          content\n      </n1:elem1>\n   </n0:pdu>'
+    , mode := "C14N 1.0"
+    , comments := FALSE
+    , xpath := [ query := '(//. | //@* | //namespace::*)[ancestor-or-self::n1:elem1]'
+               , namespaces := [[ prefix := "n1", namespaceuri := "http://b.example" ]
+                               ]
+               ]
+    , canonical := '<n1:elem1 xmlns:n0="http://a.example" xmlns:n1="http://b.example">\n          content\n      </n1:elem1>'
+    ]
+  , [ inputdoc := '<n0:pdu xmlns:n0="http://a.example">\n      <n1:elem1 xmlns:n1="http://b.example">\n          content\n      </n1:elem1>\n   </n0:pdu>'
+    , mode := "EXC-C14N 1.0"
+    , comments := FALSE
+    , xpath := [ query := '(//. | //@* | //namespace::*)[ancestor-or-self::n1:elem1]'
+               , namespaces := [[ prefix := "n1", namespaceuri := "http://b.example" ]
+                               ]
+               ]
+    , canonical := '<n1:elem1 xmlns:n1="http://b.example">\n          content\n      </n1:elem1>'
+    ]
+
+
+  , [ inputdoc := '<n2:pdu xmlns:n1="http://example.com" xmlns:n2="http://foo.example" xml:lang="fr" xml:space="retain"><n1:elem2 xmlns:n1="http://example.net" xml:lang="en"><n3:stuff xmlns:n3="ftp://example.org"/></n1:elem2></n2:pdu>'
+    , mode := "EXC-C14N 1.0"
+    , comments := FALSE
+    , xpath := [ query := '(//. | //@* | //namespace::*)[ancestor-or-self::n1:elem2]'
+               , namespaces := [[ prefix := "n1", namespaceuri := "http://example.net" ]
+                               ]
+               ]
+    , canonical := '<n1:elem2 xmlns:n1="http://example.net" xml:lang="en"><n3:stuff xmlns:n3="ftp://example.org"></n3:stuff></n1:elem2>'
+    ]
+
+  ];
+
+MACRO TestCanonicalization()
+{
+  OpenTest("TestCanonicalization");
+
+  FOREVERY(RECORD canon FROM testcanonicalizations)
+  {
+    OBJECT doc := MakeXMLDocument(StringToBlob(canon.inputdoc));
+    BLOB output := doc->GetCanonicalizedDocument(canon.mode, [ keepcomments := canon.comments
+                                                             , nodelist := canon.xpath
+                                                             ]);
+    STRING outputdoc := BlobToString(output,-1);
+    TestEq(canon.canonical, outputdoc);
+  }
+
+  CloseTest("TestCanonicalization");
+}
+
+MACRO TestOuterXML()
+{
+  OpenTest("TestOuterXML");
+
+  STRING elttext :=
+      '<element xmlns:a="urn:a">data<a:b>ab<!--comment--><![CDATA[cdata]]></a:b><c xmlns="urn:v"/><?name pidata?></element>';
+  STRING doctext :=
+      '<?xml version="1.0" encoding="utf-8"?>' || elttext;
+
+  OBJECT doc := MakeXMLDocument(StringToBlob(doctext));
+
+  TestEQ(elttext, doc->documentelement->outerxml);
+
+  CloseTest("TestOuterXML");
+}
+
+MACRO TestImportNode()
+{
+  OpenTest("TestImportNode");
+
+  STRING elttext :=
+      '<element xmlns:a="urn:a">data<a:b>ab<!--comment--><![CDATA[cdata]]></a:b><c xmlns="urn:v"/><?name pidata?></element>';
+  STRING doctext :=
+      '<?xml version="1.0" encoding="utf-8"?>' || elttext;
+  STRING nondeepelttext :=
+      '<element xmlns:a="urn:a"/>';
+
+  OBJECT doc := MakeXMLDocument(StringToBlob(doctext));
+
+  OBJECT impl := NEW XmlDomImplementation;
+
+  OBJECT doc2 := impl->CreateDocument("", "test", DEFAULT OBJECT);
+  OBJECT newroot := doc2->ImportNode(doc->documentelement, TRUE);
+  doc2->documentelement->AppendChild(newroot);
+  TestEQ(elttext, newroot->outerxml);
+
+  OBJECT doc3 := impl->CreateDocument("", "test", DEFAULT OBJECT);
+  newroot := doc3->ImportNode(doc->documentelement, FALSE);
+  doc3->documentelement->AppendChild(newroot);
+  TestEQ(nondeepelttext, newroot->outerxml);
+
+  OBJECT outdoc := impl->CreateDocument("", "test", DEFAULT OBJECT);
+  doc := MakeXMLDocumentFromHTML(StringToBlob(`<element xmlns="urn:a"/>`));
+  newroot := outdoc->ImportNode(doc->body->firstchild, TRUE);
+  TestEQ(`<element xmlns="urn:a"/>`, newroot->outerxml);
+
+  CloseTest("TestImportNode");
+}
+
+MACRO TestDocumentFragmentInserts()
+{
+  // Tests for inserting document fragments (mainly problem with document nodes)
+
+  OpenTest("TestDocumentFragmentInserts");
+
+  OBJECT frag;
+
+  OBJECT impl := NEW XmlDomImplementation;
+  OBJECT doc := impl->CreateDocument("", "test", DEFAULT OBJECT);
+  TestEQ("<test/>", doc->outerxml);
+
+  frag := doc->CreateDocumentFragment();
+  frag->AppendChild(doc->CreateElement("test2"));
+  frag->AppendChild(doc->CreateComment("comment"));
+
+  TestThrows(PTR doc->AppendChild(frag));
+  TestThrows(PTR doc->InsertBefore(frag, DEFAULT OBJECT));
+
+  doc->ReplaceChild(frag, doc->documentelement);
+  TestEQ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<test2/>\n<!--comment-->\n", BlobToString(doc->GetDocumentBlob(FALSE),-1));
+
+  OBJECT comment := doc->CreateComment("comment");
+  frag->AppendChild(doc->CreateElement("test3"));
+  frag->AppendChild(doc->CreateComment("comment2"));
+
+  TestThrows(PTR comment->AppendChild(frag));
+  TestThrows(PTR comment->InsertBefore(frag, DEFAULT OBJECT));
+
+  doc->documentelement->AppendChild(frag);
+  TestEq("<test2><test3/><!--comment2--></test2>", doc->documentelement->outerxml);
+
+  frag->AppendChild(doc->CreateElement("test4"));
+  frag->AppendChild(doc->CreateComment("comment3"));
+  doc->documentelement->InsertBefore(frag, DEFAULT OBJECT);
+  TestEq("<test2><test3/><!--comment2--><test4/><!--comment3--></test2>", doc->documentelement->outerxml);
+
+  frag->AppendChild(doc->CreateElement("test5"));
+  frag->AppendChild(doc->CreateComment("comment4"));
+  doc->documentelement->InsertBefore(frag, doc->documentelement->childnodes->GetCurrentNodes()[2]);
+  TestEq("<test2><test3/><!--comment2--><test5/><!--comment4--><test4/><!--comment3--></test2>", doc->documentelement->outerxml);
+
+  CloseTest("TestDocumentFragmentInserts");
+}
+
+MACRO TestXMLNSError()
+{
+  OpenTest("TestXMLNSError");
+
+  OBJECT doc := MakeXMLDocument(StringToBlob('<program xmlns="http://www.hodex.nl" />'));
+  doc->CreateElementNS("http://www.hodex.nl", "testtag"); //this confused xmlmodule because of incorrect oldNs creation
+  doc->documentelement->SetAttributeNS("http://www.w3.org/XML/1998/namespace", 'xml:lang', "en");
+
+  TestEq('<program xml:lang="en" xmlns="http://www.hodex.nl"/>', doc->outerxml);
+
+  CloseTest("TestXMLNSError");
+}
+
+MACRO TestSchematron()
+{
+  OpenTest("TestSchematron");
+
+  OBJECT domimpl := NEW XMLDOMImplementation;
+
+  BLOB schema_fail_data := OpenTestFile("schematron-fail.sch");
+  OBJECT schema_fail := domimpl->MakeSchematronSchema(schema_fail_data);
+  TestEQ(
+      [ [ code :=     0
+        , line :=     0
+        , message :=  "rule has no assert nor report element"
+        , filename := ""
+        , localname := ""
+        , namespaceuri := ""
+        ]
+      ], schema_fail->GetParseErrors());
+
+  BLOB schema_ok_data := OpenTestFile("schematron.sch");
+  OBJECT schema_ok := domimpl->MakeSchematronSchema(schema_ok_data);
+  TestEQ(DEFAULT RECORD ARRAY, schema_ok->GetParseErrors());
+
+  BLOB verify_data := OpenTestFile("schematron-data.xml");
+  OBJECT verify := MakeXMLDocument(verify_data);
+
+  TestEQ(
+      [ [ code :=     4000
+        , line :=     3
+        , filename := ""
+        , message :=  "/*/* line 3: the sum is not 100"
+        , localname := "node"
+        , namespaceuri := "http://www.blex.nl"
+        ]
+      ], schema_ok->ValidateDocument(verify));
+
+  CloseTest("TestSchematron");
+}
+
+
+MACRO TestHTMLDocument()
+{
+  OpenTest("TestHTMLDocument");
+
+  BLOB basedoc := StringToBlob('<html><head><title>The Title</title></head><body><div id="xyz"></div></body></html>');
+
+  OBJECT xmldoc := MakeXMLDocument(basedoc);
+  //should fail, 'id' is not declared as ID
+  TestEq(FALSE, ObjectExists(xmldoc->GetElementById("xyz")));
+  TestEq(FALSE, xmldoc EXTENDSFROM HTMLDocument);
+
+  //should succeed for HTML docs
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(basedoc);
+  TestEq(TRUE, htmldoc EXTENDSFROM HTMLDocument);
+  TestEq('<div id="xyz"/>', htmldoc->GetElementById("xyz")->outerxml);
+
+  TestEq("The Title", htmldoc->title);
+  htmldoc->title:="Some Other Title";
+  TestEq("<title>Some Other Title</title>", htmldoc->head->innerxml);
+
+  htmldoc->head->empty();
+  TestEq("", htmldoc->title);
+  htmldoc->title := "A new title";
+  TestEq("<title>A new title</title>", htmldoc->head->innerxml);
+
+  htmldoc->head->Remove();
+  TestEq(FALSE, ObjectExists(htmldoc->head));
+  htmldoc->title := "A new title #2";
+  TestEq("<title>A new title #2</title>", htmldoc->head->innerxml);
+  TestEq("head",htmldoc->documentelement->firstelementchild->nodename);
+
+  CloseTest("TestHTMLDocument");
+}
+
+MACRO TestExtensions()
+{
+  OpenTest("TestExtensions");
+
+  BLOB basedoc;
+  OBJECT xmldoc;
+
+  basedoc := StringToBlob('<html><body><div xml:id="xyz"></div><div xml:id="test"></div><div xml:id="tokill" dummy="1"></div></body></html>');
+  xmldoc := MakeXMLDocument(basedoc);
+
+  OBJECT tokill := xmldoc->GetElementById('tokill');
+  tokill->Remove();
+  TestEq(DEFAULT OBJECT, xmldoc->GetElementById('tokill'));
+
+  xmldoc->GetElementsByTagName('div')->Dispose();
+  TestEq(0,xmldoc->GetELementsByTagName("body")->Item(0)->childnodes->length);
+
+  xmldoc->documentelement->Remove();
+  TestEq("",xmldoc->outerxml);
+
+  basedoc := StringToBlob('<x><y xml:id="p1"><middle/></y></x>');
+  xmldoc := MakeXMLDocument(basedoc);
+  xmldoc->CreateElement("a")->Inject(xmldoc->GetElementById('p1'), "after");
+  xmldoc->CreateElement("b")->Inject(xmldoc->GetElementById('p1'), "before");
+  xmldoc->CreateElement("c")->Inject(xmldoc->GetElementById('p1'), "top");
+  xmldoc->CreateElement("d")->Inject(xmldoc->GetElementById('p1'), "bottom");
+  xmldoc->CreateElement("e")->Inject(xmldoc->GetElementById('p1'));
+  TestThrows(PTR xmldoc->CreateElement("f")->Inject(xmldoc->GetElementById('p1'), 'xxx'));
+  TestEq('<x><b/><y xml:id="p1"><c/><middle/><d/><e/></y><a/></x>', xmldoc->outerxml);
+
+  xmldoc->GetElementById('p1')->Empty();
+  TestEq('<x><b/><y xml:id="p1"/><a/></x>', xmldoc->outerxml);
+
+  xmldoc->GetElementById('p1')->AppendText("nij");
+  xmldoc->GetElementById('p1')->AppendText("n",'bottom');
+  xmldoc->GetElementById('p1')->AppendText("ko",'top');
+  xmldoc->GetElementById('p1')->AppendText("beestje:",'before');
+  xmldoc->GetElementById('p1')->AppendText("=bunny",'after');
+  TestEq('<x><b/>beestje:<y xml:id="p1">konijn</y>=bunny<a/></x>', xmldoc->outerxml);
+  TestEQ('beestje:=bunny', xmldoc->documentelement->childrentext);
+
+  TestEq("beestje:",xmldoc->documentelement->childnodes->item(1)->textcontent);
+  xmldoc->documentelement->childnodes->item(1)->textcontent := "Beest:";
+  TestEQ('Beest:konijn=bunny', xmldoc->documentelement->textcontent);
+  xmldoc->documentelement->textcontent := "haai";
+  TestEQ('haai', xmldoc->documentelement->textcontent);
+  TestEQ('haai', xmldoc->documentelement->innerxml);
+
+  //textcontent + cdata
+  basedoc := StringToBlob('<x><![CDATA[a & b < c &amp;]]></x>');
+  xmldoc := MakeXMLDocument(basedoc);
+  TestEQ('a & b < c &amp;', xmldoc->documentelement->textcontent);
+  xmldoc->documentelement->firstchild->nodevalue := "&amp; c < b & a";
+  TestEQ('&amp; c < b & a', xmldoc->documentelement->firstchild->nodevalue);
+  TestEQ('&amp; c < b & a', xmldoc->documentelement->firstchild->textcontent);
+  TestEQ('<x><![CDATA[&amp; c < b & a]]></x>', xmldoc->documentelement->outerxml);
+  xmldoc->documentelement->firstchild->textcontent := "&amp; c < b & a";
+  TestEQ('&amp; c < b & a', xmldoc->documentelement->firstchild->nodevalue);
+  TestEQ('&amp; c < b & a', xmldoc->documentelement->firstchild->textcontent);
+  TestEQ('<x><![CDATA[&amp; c < b & a]]></x>', xmldoc->documentelement->outerxml);
+  xmldoc->documentelement->textcontent := "&amp; c < b & a";
+  TestEQ('&amp; c < b & a', xmldoc->documentelement->textcontent);
+  TestEQ('<x>&amp;amp; c &lt; b &amp; a</x>', xmldoc->documentelement->outerxml);
+
+  basedoc := StringToBlob('<x>A<br/>B</x>');
+  xmldoc := MakeXMLDocument(basedoc);
+  TestEQ('AB', xmldoc->documentelement->textcontent);
+
+  CloseTest("TestExtensions");
+
+}
+
+MACRO TestCorruptOutput() //test corrupt output being filtered somewhere in the process...
+{
+  OpenTest("TestCorruptOutput");
+
+  OBJECT impl := NEW XmlDomImplementation;
+  OBJECT doc := impl->CreateDocument("", "test", DEFAULT OBJECT);
+  doc->documentelement->AppendChild(doc->CreateTextNode(DecodeBase16("EC6E666F407175616C6974793270726F636573732E636F6D"))); //corrupt utf-8: EC 6E is not valid
+
+  STRING output := BlobToString(doc->GetDocumentBlob(FALSE), -1);
+  TestEq(TRUE, IsValidUTF8(output));
+  TestEq("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<test>nfo@quality2process.com</test>\n", output);
+
+  CloseTest("TestCorruptOutput");
+}
+
+MACRO TestQuerySelectors()
+{
+  OpenTest("TestQuerySelectors");
+
+  OBJECT dom := MakeXMLDocumentFromHTML(OpenTestFile("rewritetest.html"));
+  STRING single   := "body #branding a";// The very first hyperlink in the document.
+  STRING multiple := "#header #topmenu li";// Every <li> in the element with ID "topmenu" (which is an <ul>).
+
+  OBJECT node := dom->querySelector(single);
+  OBJECT nodelist := dom->querySelectorAll(multiple);
+
+  TestEq("_blank", node->GetAttribute("target"));
+  TestEq(6, nodelist->Length);
+
+  OBJECT subnode := node->QuerySelector("img");
+  TestEQ(TRUE, ObjectExists(subnode));
+
+  subnode := dom->QuerySelector("ul");
+  TestEQ("topmenu", subnode->GetAttribute("id"));
+
+  subnode := dom->QuerySelector("ul#topmenu");
+  TestEQ("topmenu", subnode->GetAttribute("id"));
+
+  OBJECT footernav := dom->QuerySelector("#footernav");
+  OBJECT firstlink := footernav->QuerySelector("a");
+  Testeq("Terms & conditions", firstlink->textcontent);
+
+  CloseTest("TestQuerySelectors");
+}
+
+/*
+MACRO TestErrorNoise()
+{
+  //ADDME: How to actually test? it's hard for us to redirect our output? We'll just rely on visual inspection
+  OpenTest("TestErrorNoise");
+  OBJECT indata := MakeXMLDocument(StringToBlob('<?xml version="1" encoding="utf-8"?><body>\xA0\x48\x61\x72</body>'), "", FALSE);
+  SendBlobTo(0, indata->GetDocumentBlob(false));
+  CloseTest("TestErrorNoise");
+}
+*/
+
+MACRO TestUserData()
+{
+  OBJECT doc := MakeXMLDocumentFromHTML(OpenTestFile("rewritetest.html"));
+
+  OBJECT elt1 := doc->documentelement;
+  OBJECT elt2 := doc->documentelement;
+  TestEQ(FALSE, elt1 = elt2);
+
+  elt1->userdata := [ yeey := 1 ];
+  TestEq([ yeey := 1 ], elt1->userdata);
+
+  BLOB xmlblob := StringToBlob('<test xmlns:a="urn::a"><test2 attr="1" a:attr="2" /><test3 xmlns="urn::test" /></test>');
+  OBJECT xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+
+  xmldoc->documentelement->userdata := [ a := 1 ];
+  TestEQ([ a := 1 ], xmldoc->documentelement->userdata);
+}
+
+MACRO TestDOMRemoveChildCrash()
+{
+  STRING testcode :=
+   '<?wh\n' ||
+   '  LOADLIB "wh::files.whlib";\n' ||
+   '  LOADLIB "wh::xml/dom.whlib";\n' ||
+   '  STRING doc :=\n' ||
+   '           \'<?xml version="1.0" encoding="UTF-8"?>\'\n' ||
+   '        || \'<svg width="121px" height="145px" viewBox="0 0 121 145" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">\'\n' ||
+   '        || \'    <!-- Generator: Sketch 40.3 (33839) - http://www.bohemiancoding.com/sketch -->\'\n' ||
+   '        || \'    <title>Shape</title>\'\n' ||
+   '        || \'    <desc>Created with Sketch.</desc>\'\n' ||
+   '        || \'</svg>\';\n' ||
+   '\n' ||
+   '  OBJECT xmldoc := MakeXMLDocument(StringToBlob(doc), "");\n' ||
+   '  OBJECT svgnode := xmldoc->documentelement;\n' ||
+   '  svgnode->RemoveChild( DEFAULT OBJECT );\n' ||
+   '  OBJECT descnode := svgnode->GetElementsByTagName("desc");\n' ||
+   '  svgnode->RemoveChild( descnode ); //this crashed\n' ||
+   '  PRINT("noabort");\n';
+
+   RECORD result := TestCompileAndRun(testcode);
+   MustContainError(0, result.errors, 0, 'Object parameter does not have the right type');
+}
+
+MACRO TestDOMNormalize()
+{
+  OBJECT xmldoc := MakeXMLDocument(StringToBlob("<test>textnode</test>"));
+  TestEq(1, xmldoc->documentelement->childnodes->length);
+
+  OBJECT firsttextnode := xmldoc->documentelement->firstchild;
+  OBJECT secondtextnode := xmldoc->CreateTextNode("textnode2");
+  xmldoc->documentelement->AppendChild(secondtextnode);
+  TestEq(2, xmldoc->documentelement->childnodes->length);
+
+  TestEq("#text", secondtextnode->nodename);
+  xmldoc->documentelement->Normalize();
+  TestEq("#text", secondtextnode->nodename);;
+
+  TestEq(1, xmldoc->documentelement->childnodes->length);
+  TestEq("textnodetextnode2", firsttextnode->nodevalue);
+  TestEq("", secondtextnode->nodevalue);
+
+  secondtextnode->nodevalue := "textnode3";
+  xmldoc->documentelement->AppendChild(secondtextnode);
+  TestEq(2, xmldoc->documentelement->childnodes->length);
+
+  xmldoc->documentelement->Normalize();
+  TestEq(1, xmldoc->documentelement->childnodes->length);
+}
+
+MACRO TestXXE()
+{
+  STRING billionlaughs :=
+`<!DOCTYPE lolz [
+ <!ENTITY lol "lol">
+ <!ENTITY lol1 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+ <!ENTITY lol2 "&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;">
+ <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
+ <!ENTITY lol4 "&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;">
+ <!ENTITY lol5 "&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;">
+ <!ENTITY lol6 "&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;">
+ <!ENTITY lol7 "&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;">
+ <!ENTITY lol8 "&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;">
+ <!ENTITY lol9 "&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;">
+]>
+<root><attack1>&lol1;</attack1><attack9>&lol3;</attack9></root>`;
+
+  OBJECT dom := MakeXMLDocument(StringToBlob(billionlaughs));
+
+  TestEq('<attack1>lollollollollollollollollollol</attack1>', dom->documentelement->childnodes->item(0)->outerxml);
+  TestEq('<attack9/>', dom->documentelement->childnodes->item(1)->outerxml); //LIBMLX2 discards this for us
+
+  STRING xxe :=
+`<!DOCTYPE xxe [
+    <!ENTITY externalEntity SYSTEM "file://${GetTestFilePath("validation.xml")}">
+]><attack>&externalEntity;</attack>`;
+  dom := MakeXMLDocument(StringToBlob(xxe));
+  TestEq('<!DOCTYPE xxe><attack></attack>', dom->outerxml); //entity is not really deccoded
+
+}
+
+MACRO TestHSValue()
+{
+  OBJECT impl := NEW XmlDomImplementation;
+  OBJECT doc := impl->CreateDocument("", "root", DEFAULT OBJECT);
+
+  RECORD vals :=
+    [ b :=      TRUE
+    , b2 :=     FALSE
+    , i :=      44
+    , ia :=     [ -2147483648, -1, 0, 1, 2147483647 ]
+    , s :=      "str"
+    , sa :=     [ "", "------", "&[]<>" ]
+    , i64 :=    0i64
+    , i64a :=   [ -9223372036854775808i64, -1i64, 0i64, 1, 1i64, -9223372036854775807i64 ]
+    , m :=      0.12345
+    , m2 :=     -92233720368547.75808m
+    , m3 :=     -0.00001m
+    , m4 :=     0m
+    , m5 :=     0.00001m
+    , m6 :=     92233720368547.75807m
+    , bl :=     DEFAULT BLOB
+    , bl2 :=    StringToBlob("Xxxx")
+    , dt :=     MakeDateTime(2000, 1, 2, 3, 4, 5, 6)
+    , dt2 :=    DEFAULT DATETIME
+    , dt3 :=    MakeDateFromDayCount(1)
+    , dt4 :=    MAX_DATETIME
+    , dt5 :=    MakeDateTime(9999, 1, 2, 3, 4, 5, 6)
+    , dt6 :=    MakeDateTime(10000, 1, 2, 3, 4, 5, 6)
+    , dt7 :=    AddTimeToDate(-1, MAX_DATETIME)
+    , f :=      1e-10
+    , f2 :=     0f
+    , f3 :=     -1f
+    , r :=      [ i := 1, m := 0m ]
+    , ra :=     [ DEFAULT RECORD, CELL[], [ a := 1 ] ]
+    , va :=     VARIANT[42,"beagle"]
+    ];
+
+  doc->documentelement->__SetHSValue(vals);
+  TestEQ(vals, doc->documentelement->__INTERNAL_GetHSValue());
+}
+
+MACRO TestValidationWithEntities()
+{
+  STRING xmlsource :=
+      `<?xml version="1.0"?>
+      <!DOCTYPE program [
+      <!ENTITY nbsp "&#160;">
+      ]>
+      <program xmlns="urn:test">&nbsp;</program>`;
+
+  STRING xmlschema :=
+      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                  elementFormDefault="qualified"
+                  targetNamespace="urn:test">
+         <xs:element name="program" type="xs:string" />
+       </xs:schema>`;
+
+  OBJECT doc := MakeXMLDocument(StringToBlob(xmlsource));
+  OBJECT programschema := MakeXMLSchema(StringToBlob(xmlschema));
+  TestEQMembers(
+      [ [ line := 5
+        , localname := 'program'
+        , message := 'Using XML entities is not supported when validating XML documents'
+        , namespaceuri := 'urn:test'
+        ]
+      ], programschema->ValidateDocument(doc), "*");
+}
+
+// del="xmlns xmlns:a" : remove these attributes before processing
+// _="..." add a xmlns="..." before processing
+// _X="..." add a xmlns:X="..." before processing
+// RX="..." rename the attribute with nodename X to "..."
+RECORD ARRAY normalizetests :=
+    [ [ annotation := `simple`
+      , source := `<a b=""/>`
+      , expect := `<a b=""/>`
+      ]
+    , [ annotation := `restore xmlns from missing`
+      , source := `<a xmlns="urn::a" del="xmlns" />`
+      , denorm := `<a/>`
+      , expect := `<a xmlns="urn::a"/>`
+      ]
+    , [ annotation := `restore xmlns from wrong`
+      , source := `<a xmlns="urn::a" _="urn::b" />`
+      , expect := `<a xmlns="urn::a"/>`
+      ]
+    , [ annotation := `restore xml from wrong, use parent xmlns for removing extra ns`
+      , source := `<a xmlns="urn::a"><b xmlns="urn::a" _="urn::b"/></a>`
+      , denorm := `<a xmlns="urn::a"><b xmlns="urn::b"/></a>`
+      , expect := `<a xmlns="urn::a"><b/></a>`
+      ]
+    , [ annotation := `remove duplicate xmlns`
+      , source := `<a xmlns="urn::a"><b xmlns="urn::a"/></a>`
+      , expect := `<a xmlns="urn::a"><b/></a>`
+      ]
+    , [ annotation := `keep child xmlns intact`
+      , source := `<a xmlns="urn::a"><b xmlns="urn::b"/></a>`
+      , expect := `<a xmlns="urn::a"><b xmlns="urn::b"/></a>`
+      ]
+    , [ annotation := `fix missing wrong child xmlns correctly`
+      , source := `<a xmlns="urn::a"><b xmlns="urn::b" del="xmlns"/></a>`
+      , expect := `<a xmlns="urn::a"><b xmlns="urn::b"/></a>`
+      ]
+    , [ annotation := `fix wrong child xmlns correctly`
+      , source := `<a xmlns="urn::a"><b xmlns="urn::b" _="urn::c"/></a>`
+      , expect := `<a xmlns="urn::a"><b xmlns="urn::b"/></a>`
+      ]
+    , [ annotation := `fix wrong empty xmlns`
+      , source := `<a _="urn::b" />`  //
+      , denorm := `<a xmlns="urn::b"/>`
+      , expect := `<a xmlns=""/>`
+      ]
+    , [ annotation := `restore missing prefix decl`
+      , source := `<x:a xmlns:x="urn::a" del="xmlns:x" />`
+      , denorm := `<x:a/>`
+      , expect := `<x:a xmlns:x="urn::a"/>`
+      ]
+    , [ annotation := `fix wrong prefix decl`
+      , source := `<x:a xmlns:x="urn::a" _x="urn::b" />`
+      , denorm := `<x:a xmlns:x="urn::b"/>`
+      , expect := `<x:a xmlns:x="urn::a"/>`
+      ]
+    , [ annotation := `remove duplicate prefix decl`
+      , source := `<a xmlns:x="urn::a"><b xmlns:x="urn::a"></a>`
+      , expect := `<a xmlns:x="urn::a"><b/></a>`
+      ]
+    , [ annotation := `keep override prefix decl`
+      , source := `<a xmlns:x="urn::a"><b xmlns:x="urn::b"/></a>`
+      , expect := `<a xmlns:x="urn::a"><b xmlns:x="urn::b"/></a>`
+      ]
+
+    , [ annotation := `keep attrs xmlns intact`
+      , source := `<a xmlns:x="urn::a" x:a=""/>`
+      , expect := `<a xmlns:x="urn::a" x:a=""/>`
+      ]
+    , [ annotation := `restore attr xmlns decl`
+      , source := `<a xmlns:x="urn::a" x:a="" del="xmlns:x"/>`
+      , denorm := `<a x:a=""/>`
+      , expect := `<a xmlns:x="urn::a" x:a=""/>`
+      ]
+    , [ annotation := `attributes without prefix but with namespace`
+      , source := `<a xmlns:x="urn::a" x:b="" del="xmlns:x" Rb="b"/>` // HareScript automatically uses a matching prefix if available, so must delete xmlns:x before renaming x:b
+      , denorm := `<a b=""/>`
+      , expect := `<a xmlns:NS1="urn::a" NS1:b=""/>`
+      ]
+    , [ annotation := `rename attr with undeclared prefix to most local binding`
+      , source := `<a xmlns:x="urn::a"><b xmlns:y="urn::a" x:a="" Ra="z:a"/></a>`
+      , denorm := `<a xmlns:x="urn::a"><b xmlns:y="urn::a" z:a=""/></a>`
+      , expect := `<a xmlns:x="urn::a"><b xmlns:y="urn::a" y:a=""/></a>`
+      ]
+    , [ annotation := `rename attr with undeclared prefix to most local binding`
+      , source := `<a xmlns:x="urn::a"><b xmlns:y="urn::a" xmlns:z="urn::b" x:a="" Ra="z:a" del="xmlns:z"/></a>`
+      , denorm := `<a xmlns:x="urn::a"><b xmlns:y="urn::a" z:a=""/></a>`
+      , expect := `<a xmlns:x="urn::a"><b xmlns:y="urn::a" y:a=""/></a>`
+      ]
+    , [ annotation := `add missing decl for existing attr prefix without corr. decl`
+      , source := `<a xmlns:x="urn::a" x:a="" del="xmlns:x"/>`
+      , denorm := `<a x:a=""/>`
+      , expect := `<a xmlns:x="urn::a" x:a=""/>`
+      ]
+    , [ annotation := `change the prefix if it conflicts`
+      , source := `<a xmlns:x="urn::a" x:a="" _x="urn::b"/>`
+      , denorm := `<a xmlns:x="urn::b" x:a=""/>`
+      , expect := `<a xmlns:x="urn::b" xmlns:NS1="urn::a" NS1:a=""/>`
+      ]
+    , [ annotation := `extension: don't reuse NS nodes from any context`
+      , source := `<a xmlns:NS1="urn::x"><b xmlns:x="urn::a" x:a="" _x="urn::b"/></a>`
+      , denorm := `<a xmlns:NS1="urn::x"><b xmlns:x="urn::b" x:a=""/></a>`
+      , expect := `<a xmlns:NS1="urn::x"><b xmlns:x="urn::b" xmlns:NS2="urn::a" NS2:a=""/></a>`
+      ]
+
+    ];
+
+MACRO TransformSource(OBJECT node)
+{
+  RECORD ARRAY attrs := node->ListAttributes();
+  IF (node->HasAttribute("del"))
+  {
+    STRING ARRAY todels := Tokenize(node->GetAttribute("del"), " ");
+    node->RemoveAttribute("del");
+
+    FOREVERY (STRING todel FROM todels)
+    {
+      RECORD attr := SELECT * FROM attrs WHERE nodename = todel;
+      IF (NOT REcordExists(attr))
+      {
+        DumpValue(attrs, [ name := "current attrs" ]);
+        Print("Outer xml: " || node->outerxml || "\n");
+        ABORT(`No such attr to del '${todel}'`);
+      }
+      node->RemoveAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename);
+    }
+  }
+
+  FOREVERY (RECORD attr FROM attrs)
+    IF (attr.nodename LIKE "_*")
+    {
+      node->RemoveAttribute(attr.nodename);
+      IF (attr.nodename = "_")
+        node->SetAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns", attr.nodevalue);
+      ELSE
+        node->SetAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:" || SubString(attr.nodename, 1), attr.nodevalue);
+    }
+    ELSE IF (attr.nodename LIKE "R*")
+    {
+      node->RemoveAttribute(attr.nodename);
+      RECORD rattr := SELECT * FROM attrs WHERE localname = SubString(attr.nodename, 1);
+      IF (NOT RecordExists(rattr))
+        ABORT(`Attr ${SubString(attr.nodename, 1)} not found`);
+      IF (rattr.localname = "")
+      {
+        node->SetAttribute(rattr.nodevalue, node->GetAttribute(rattr.nodename));
+        node->RemoveAttribute(rattr.nodename);
+      }
+      ELSE
+      {
+        STRING attrval := node->GetAttributeNS(rattr.namespaceuri, rattr.localname);
+        node->RemoveAttributeNS(rattr.namespaceuri, rattr.localname);
+        node->SetAttributeNS(rattr.namespaceuri, attr.nodevalue, attrval);
+      }
+    }
+
+  FOREVERY (OBJECT c FROM node->childnodes->GetCurrentElements())
+    TransformSource(c);
+}
+
+MACRO TestNormalization()
+{
+  FOREVERY (RECORD test FROM normalizetests)
+  {
+    test := ValidateOptions(
+        [ annotation := ""
+        , source := ""
+        , denorm := ""
+        , expect := ""
+        ], test,
+        [ required := [ "annotation", "source", "expect" ]
+        , optional := [ "denorm" ]
+        ]);
+
+    OBJECT doc := MakeXMLDocument(StringToBlob(test.source));
+    STRING readdoc := BlobToString(doc->GetDocumentBlob(FALSE));
+    readdoc := TrimWhitespace(SubString(readdoc, SearchSubstring(readdoc, "\n"))); // remove <?xml line
+    TransformSource(doc->documentelement);
+    STRING transf := BlobToString(doc->GetDocumentBlob(FALSE));
+    transf := TrimWhitespace(SubString(transf, SearchSubstring(transf, "\n"))); // remove <?xml line
+    IF (CellExists(test, "denorm"))
+      TestEQ(test.denorm, transf, `Denormalized value doesn't match expectation, test: ${test.annotation}`);
+    doc->documentelement->NormalizeNamespaces();
+    STRING got := BlobToString(doc->GetDocumentBlob(FALSE));
+    got := TrimWhitespace(SubString(got, SearchSubstring(got, "\n"))); // remove <?xml line
+    TestEq(test.expect, got, `Normalized value doesn't match expectation, test: ${test.annotation}`);
+  }
+}
+
+MACRO TestCanonizalization()
+{
+  // error in namespace handling caused an xmlns="" to appear on the 'c' node
+  OBJECT impl := new XmlDOMImplementation();
+  OBJECT programdoc  := impl->CreateDocument("urn::a", "a", DEFAULT OBJECT);
+  OBJECT sub := programdoc->CreateElementNS("urn::a", "b");
+  programdoc->documentelement->AppendChild(sub);
+  OBJECT subsub := programdoc->CreateElementNS("urn::a", "c");
+  sub->AppendChild(subsub);
+
+  RECORD signednodeset := [ query := ".//. | .//@* | .//namespace::*"
+                          , namespaces := RECORD[]
+                          , node := programdoc->documentElement
+                          , herenode := DEFAULT OBJECT
+                          ];
+
+  STRING canonicalized := BlobToString(programdoc->GetCanonicalizedDocument("C14N 1.0", [ nodelist := signednodeset ]));
+  TestEQ(`<a xmlns="urn::a"><b><c></c></b></a>`, canonicalized);
+}
+
+PRINT("\n === Running TestXML\n");
+TestValidation();
+TestEncodings();
+TestBom();
+TestXML();
+TestXMLATtributeNS();
+TestXMLRecord();
+TestParseXMLWithCallbacks();
+TestDOM();
+TestDOMDocType();
+TestCloneNode();
+TestDOMCopy();
+TestDomCopy2();
+TestDOMCdata();
+TestHTML();
+TestHTMLDocument();
+TestQuerySelectors();
+TestNodeAttributeValue();
+TestPreventIllegalOutput();
+TestDocumentWriter();
+TestRegressions();
+TestXSParsers();
+TestCanonicalization();
+TestOuterXML();
+TestImportNode();
+TestDocumentFragmentInserts();
+TestXMLNSError();
+TestSchematron();
+TestCorruptOutput();
+//TestErrorNoise();
+TestRegression();
+TestExtensions();
+TestUserData();
+TestDOMRemoveChildCrash();
+TestDOMNormalize();
+TestXXE();
+TestHSValue();
+TestValidationWithEntities();
+TestNormalization();
+TestCanonizalization();

@@ -1,0 +1,311 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+STRING output;
+OBJECT siteprofschema;
+
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenbase
+<
+  INTEGER errorfile;
+
+  INTEGER openfileid;
+  STRING origtext;
+  DATETIME origmodtime;
+
+  MACRO Init(RECORD data)
+  {
+    IF(data.calltype = "objecteditor")
+    {
+      this->LoadFile(data.id);
+    }
+    ELSE
+    {
+      this->errorfile := data.errorfile;
+      this->LoadFile(data.fileid);
+    }
+
+    IF(this->errorfile != 0)
+    {
+      this->messagestabs->visible := TRUE;
+
+      RECORD errorinfo := OpenWHFSType("http://www.webhare.net/xmlns/publisher/errorinfo")->GetInstanceData(this->errorfile);
+
+      this->messages->rows := SELECT filename
+                                   , line
+                                   , col
+                                   , error := GetHareScriptMessageText(type=0, code, param1, param2)
+                                   , file
+                                   , canopen := file!=0
+                                FROM errorinfo.messages;
+      this->trace->rows := SELECT filename
+                                , line
+                                , col
+                                , func
+                                , file
+                                , canopen := file!=0
+                             FROM errorinfo.trace AS trace
+                         ORDER BY #trace DESC;
+    }
+  }
+
+  BOOLEAN FUNCTION LoadFile(INTEGER fileid)
+  {
+    OBJECT fileobj := OpenWHFSObject(fileid);
+    IF(NOT ObjectExists(fileobj) OR fileobj->isfolder)
+      RETURN FALSE;
+
+    //ADDME: Validate that this file is suitable for Unicode text editing. Editor should prevent launching its window if so or if too large!
+    STRING filetext := BlobToString(fileobj->data, -1);
+    filetext := Substitute(filetext,"\r","");
+
+    this->openfileid := fileid;
+    this->origtext := filetext;
+    this->origmodtime := fileobj->modificationdate;
+    this->source->value := filetext;
+
+    this->frame->title := fileobj->name;
+    this->statusbar->value := '';
+    RETURN TRUE;
+  }
+
+  MACRO DoSetSyntaxToText()  { this->SetSyntaxTo('text'); }
+  MACRO DoSetSyntaxToC()     { this->SetSyntaxTo('c');    }
+  MACRO DoSetSyntaxToCPP()   { this->SetSyntaxTo('cpp');  }
+  MACRO DoSetSyntaxToCSS()   { this->SetSyntaxTo('css');  }
+  MACRO DoSetSyntaxToJAVA()  { this->SetSyntaxTo('java'); }
+  MACRO DoSetSyntaxToJS()    { this->SetSyntaxTo('javascript'); }
+  MACRO DoSetSyntaxToHS()    { this->SetSyntaxTo('harescript'); }
+  MACRO DoSetSyntaxToHTML()  { this->SetSyntaxTo('html'); }
+  MACRO DoSetSyntaxToPHP()   { this->SetSyntaxTo('php');  }
+  MACRO DoSetSyntaxToXML()   { this->SetSyntaxTo('xml');  }
+  MACRO DoSetSyntaxToSQL()   { this->SetSyntaxTo('sql');  }
+
+  MACRO SetSyntaxTo(STRING newsyntax)
+  {
+    this->source->type := newsyntax;
+
+    RECORD ARRAY mapping := [
+                              [ syntax:='text',       item:=this->syntax_text ]
+                            , [ syntax:='c',          item:=this->syntax_c    ]
+                            , [ syntax:='cpp',        item:=this->syntax_cpp  ]
+                            , [ syntax:='css',        item:=this->syntax_css  ]
+                            , [ syntax:='harescript', item:=this->syntax_harescript ]
+                            , [ syntax:='java',       item:=this->syntax_java ]
+                            , [ syntax:='javascript', item:=this->syntax_javascript ]
+                            , [ syntax:='html',       item:=this->syntax_html ]
+                            , [ syntax:='php',        item:=this->syntax_php  ]
+                            , [ syntax:='xml',        item:=this->syntax_xml  ]
+                            , [ syntax:='sql',        item:=this->syntax_sql  ]
+                            ];
+
+    FOREVERY(RECORD item FROM mapping)
+      item.item->selected := FALSE;
+
+    OBJECT selecteditem := SELECT AS OBJECT item FROM mapping WHERE syntax = newsyntax;
+    selecteditem->selected := TRUE;
+  }
+
+  // TODO: handle c, cpp, php and sql
+  STRING FUNCTION GetCodeType(RECORD file)
+  {
+    RECORD ARRAY mimetypeToCodeType :=
+           [ // .txt files
+             [ mimetype := "text/plain"
+             , codetype := "text"
+             ]
+           ,
+             [ mimetype := "text/x-vcard"
+             , codetype := "text"
+             ]
+           ,
+             [ mimetype := "text/css"
+             , codetype := "css"
+             ]
+           ,
+             [ mimetype := "text/html"
+             , codetype := "html"
+             ]
+           ,
+             [ mimetype := "text/xml"
+             , codetype := "xml"
+             ]
+           ,
+             [ mimetype := "application/x-javascript"
+             , codetype := "javascript"
+             ]
+
+           , // .witty (witty template)
+             [ mimetype := "application/x-webhare-wittytemplate"
+             , codetype := "html" // Although Witty isn't pure HTML, it's the closest we got
+             ]
+
+           , // .siteprl (site profile)
+             [ mimetype := "application/x-webhare-siteprofile"
+             , codetype := "xml"
+             ]
+
+           , // .whlib files
+             [ mimetype := "application/x-webhare-library"
+             , codetype := "harescript"
+             ]
+
+           , // .shtml files
+             [ mimetype := "application/x-webhare-shtmlfile"
+             , codetype := "harescript"
+             ]
+
+           , // .tpl files
+             [ mimetype := "application/x-webhare-template"
+             , codetype := "harescript"
+             ]
+
+           , // files which start with <?wh but with a filename not ending in .shtml, .whlib or .tpl
+             [ mimetype := "application/x-webhare-harescriptfile"
+             , codetype := "harescript"
+             ]
+           ];
+
+    STRING type;
+
+    RECORD filetype := ScanBlob(file.data, file.name);
+    type := SELECT AS STRING codetype FROM mimetypeToCodeType WHERE COLUMN mimetype = filetype.mimetype;
+
+    // fall back to plain text if it's none of the above
+    IF (type = '')
+      type := 'text';
+
+    RETURN type;
+  }
+
+  RECORD ARRAY FUNCTION CheckSiteprofile(BLOB indata)
+  {
+    OBJECT doc := MakeXMLDocument(indata);
+    RECORD ARRAY errors := doc->GetParseErrors();
+    IF(Length(errors) = 0)
+    {
+      IF(NOT ObjectExists(siteprofschema))
+      {
+        RECORD sdef := __RetrieveCachedXMLSchema("mod::publisher/data/siteprofile.xsd");
+        siteprofschema := sdef.doc;
+      }
+
+      IF(Length(siteprofschema->GetParseErrors()) = 0)
+        errors := siteprofschema->ValidateDocument(doc);
+    }
+    RETURN errors;
+  }
+
+  PUBLIC MACRO DoSave()
+  {
+    this->TrySave();
+  }
+
+  BOOLEAN FUNCTION TrySave()
+  {
+    STRING datetimestr := this->tolliumuser->FormatTime(GetCurrentDateTime(), 'seconds', TRUE);
+    this->statusbar->value := GetTid('publisher:texteditor.status.savedat', datetimestr);
+
+    BLOB contents := StringToBlob(this->source->value);
+    OBJECT fileobj := OpenWHFSObject(this->openfileid);
+
+    IF(fileobj->type = 27) //site profile
+    {
+      RECORD ARRAY inerrors := this->CheckSiteprofile(contents);
+      IF(Length(inerrors) > 0)
+      {
+        STRING errors := Detokenize((SELECT AS STRING ARRAY line || ": " || message FROM inerrors),"\n");
+        IF(this->RunMessageBox(".siteprofileerrors", errors) != "yes")
+          RETURN FALSE; //save aborted
+      }
+    }
+
+    // Warn against parallel updates (check mod date)
+    WHILE(TRUE)
+    {
+      OBJECT work := this->BeginWork();
+      fileobj := OpenWHFSObject(this->openfileid);
+
+      IF(NOT ObjectExists(Fileobj))
+      {
+        work->Cancel();
+        this->RunMessageBox(".failedtosave");
+        RETURN FALSE;
+      }
+
+      IF(fileobj->modificationdate != this->origmodtime)
+      {
+        work->Cancel();
+        IF(this->RunMessageBox(".saveignoreconflict")!="yes")
+          RETURN FALSE; //save aborted
+
+        this->origmodtime := fileobj->modificationdate;
+        CONTINUE; //reloop
+      }
+
+      fileobj->UpdateMetadata( [data:=contents] );
+      IF(NOT work->Finish())
+        RETURN FALSE;
+
+      this->RunMessageBox(".succesfullysaved");
+      this->origmodtime := fileobj->modificationdate;
+      RETURN TRUE;
+    }
+  }
+
+  BOOLEAN FUNCTION CanUnloadFile()
+  {
+    IF(TrimWhitespace(this->source->value) = TrimWhitespace(this->origtext))
+      RETURN TRUE;
+
+    WHILE(TRUE)
+    {
+      STRING action := this->RunMessageBox(".unsavedchanges");
+      IF(action = "no")
+        RETURN TRUE;
+      IF(action != "yes")
+        RETURN FALSE;
+
+      IF(this->TrySave())
+        RETURN TRUE;
+    }
+  }
+
+  MACRO DoOpenFile(RECORD row)
+  {
+    IF(this->openfileid != row.file)
+    {
+      IF(NOT this->CanUnloadFile())
+        RETURN;
+
+      RECORD file := SELECT * FROM system.fs_objects WHERE id = row.file AND isactive;
+      IF(NOT RecordExists(file)) //ADDME Verify whether the erroring file is source code editable ?
+      {
+        this->RunMessageBox(".cannotopenerroredfile");
+        RETURN;
+      }
+
+      //FIXME WARN IF UNSAVED CHANGES
+      IF(NOT this->LoadFile(file.id))
+        RETURN;
+    }
+    this->source->GotoLine(row.line);
+    this->frame->focused := this->source;
+  }
+
+  MACRO DoOpenFile_Messages()
+  {
+    this->DoOpenFile(this->messages->selection);
+  }
+  MACRO DoOpenFile_StackTrace()
+  {
+    this->DoOpenFile(this->trace->selection);
+  }
+>;

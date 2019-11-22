@@ -1,0 +1,141 @@
+﻿<?wh
+
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
+INTEGER FUNCTION ReturnXplusY(INTEGER x, INTEGER y) { RETURN x + y; }
+INTEGER FUNCTION ReturnXplusEY(INTEGER x, OBJECT y) { RETURN x + ToInteger(y->what, -1); }
+MACRO DoNothin() { }
+VARIANT FUNCTION ReturnId(VARIANT e) { RETURN e; }
+VARIANT FUNCTION ThrowE(OBJECT e) { THROW e; }
+
+OBJECTTYPE atype < >;
+
+
+MACRO TestCreateResolvedPromise()
+{
+  // Resolving
+  TestEQ(66, WaitForPromise(CreateResolvedPromise(66)));
+  OBJECT promise := CreateResolvedPromise(123);
+  TestEQ(promise, CreateResolvedPromise(promise));
+}
+
+MACRO TestCreateRejectedPromise()
+{
+  TestThrows(PTR WaitForPromise(CreateRejectedPromise(NEW Exception("throw"))));
+}
+
+MACRO TestThen()
+{
+  OBJECT x := NEW atype;
+
+  OBJECT c := CreateResolvedPromise(1);
+
+  // Different parameter formats
+  TestEQ(3, WaitForPromise(c->Then(PTR ReturnXplusY(2, #1)))); // function with parameter
+  TestEQ(5, WaitForPromise(c->Then(PTR ReturnXplusY(2, 3)))); // function without parameter
+  TestEQ(DEFAULT RECORD, WaitForPromise(c->Then(PTR DoNothin))); // macro
+
+  TestEQ(1, WaitForPromise(c->Then(DEFAULT FUNCTION PTR, DEFAULT FUNCTION PTR))); // no functions
+
+  // Returning promises
+  TestEQ(5, WaitForPromise(c->Then(PTR CreateResolvedPromise(5))));
+
+  // Other objects
+  TestEQ(x, WaitForPromise(c->Then(PTR ReturnId(x))));
+
+  OBJECT e := CreateRejectedPromise(NEW Exception("1"));
+  e->OnError(PTR DoNothin); // Prevent 'unhandled async exception)
+
+  // Different parameter formats
+  TestEQ(3, WaitForPromise(e->Then(DEFAULT FUNCTION PTR, PTR ReturnXplusEY(2, #1)))); // function with parameter
+  TestEQ(5, WaitForPromise(e->Then(DEFAULT FUNCTION PTR, PTR ReturnXplusY(2, 3)))); // function without parameter
+  TestEQ(DEFAULT RECORD, WaitForPromise(e->Then(DEFAULT FUNCTION PTR, PTR DoNothin))); // macro
+
+  // Returning promises
+  TestEQ(5, WaitForPromise(e->Then(DEFAULT FUNCTION PTR, PTR CreateResolvedPromise(5))));
+
+  // Other objects
+  TestEQ(x, WaitForPromise(e->Then(DEFAULT FUNCTION PTR, PTR ReturnId(x))));
+
+  // Throwing stuff
+  TestThrows(PTR WaitForPromise(c->Then(PTR ThrowE(NEW Exception("thrown")))));
+  TestThrows(PTR WaitForPromise(e->Then(DEFAULT FUNCTION PTR, PTR ThrowE(NEW Exception("thrown")))));
+}
+
+MACRO TestCancel()
+{
+  RECORD d;
+
+  // Cancel normally does nothing
+  d := CreateDeferredPromise();
+  d.promise->Cancel();
+  d.resolve(1);
+  TestEQ(1, WaitForPromise(d.promise));
+
+  // With autocancel on, promise is rejected immediately
+  d := CreateDeferredPromise();
+  d.promise->rejectoncancel := TRUE;
+  d.promise->Cancel();
+  d.resolve(1);
+  TestThrows(PTR WaitForPromise(d.promise));
+
+  // Cancel status is remembered and applied immediately when autocancel is set to true
+  d := CreateDeferredPromise();
+  d.promise->Cancel();
+  d.promise->rejectoncancel := TRUE;
+  d.resolve(1);
+  TestThrows(PTR WaitForPromise(d.promise));
+}
+
+MACRO Dummy(VARIANT inval)
+{
+}
+
+MACRO TestUncaught()
+{
+  OBJECT prom := CreateRejectedPromise(NEW Exception("dead"));
+  TestThrows(PTR WaitForPromise(prom));
+
+  TestEq(TRUE, WaitForPromise(CreateResolvedPromise(TRUE))); //this one works
+
+  prom := CreateRejectedPromise(NEW Exception("dead"))->Then(PTR Dummy);
+  TestThrows(PTR WaitForPromise(prom));
+
+  TestEq(TRUE, WaitForPromise(CreateResolvedPromise(TRUE))); //this now fails
+}
+
+MACRO TestPromiseAll()
+{
+  OBJECT a := CreateResolvedPromise(1), b := CreateResolvedPromise(2);
+  TestEQ(VARIANT ARRAY([ 1, 2 ]), WaitForPromise(CreatePromiseAll([ a, b ])));
+  TestThrows(PTR WaitForPromise(CreatePromiseAll([ a, b, CreateRejectedPromise(NEW Exception("thrown")) ])));
+}
+
+MACRO TestPromiseRace()
+{
+  OBJECT a := CreateDeferredPromise().promise, b := CreateResolvedPromise("1");
+  TestEQ(1, WaitForPromise(CreatePromiseRace([ CreateResolvedPromise(1) ])));
+  TestEQ(1, WaitForPromise(CreatePromiseRace([ OBJECT(a), CreateResolvedPromise(1) ])));
+  TestEQ([ source := b, value := "1" ], WaitForPromise(CreatePromiseRace([ OBJECT(a), b ], [ wrap := TRUE ])));
+  TestThrows(PTR WaitForPromise(CreatePromiseRace([ a, CreateRejectedPromise(NEW Exception("thrown")) ])));
+}
+
+MACRO TestPromiseAllSettled()
+{
+  OBJECT a := CreateResolvedPromise(1), b := CreateResolvedPromise("2"), c := NEW Exception("test"), d := CreateRejectedPromise(c);
+
+  TestEQ([ [ status := "fulfilled", value := 1 ], [ status := "fulfilled", value := "2" ] ], WaitForPromise(CreatePromiseAllSettled([ a, b ])));
+  TestEQ([ [ status := "fulfilled", value := 1 ], [ status := "rejected", reason := c ] ], WaitForPromise(CreatePromiseAllSettled([ a, d ])));
+}
+
+PRINT("\n === Running TestPromise\n");
+
+TestCreateResolvedPromise();
+TestCreateRejectedPromise();
+TestThen();
+TestCancel();
+// TestUncaught();
+TestPromiseAll();
+TestPromiseRace();
+TestPromiseAllSettled();

@@ -1,0 +1,661 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+
+RECORD FUNCTION __HS_GETJOBMANAGERSTATUS(BOOLEAN with_history) __ATTRIBUTES__(EXTERNAL);
+RECORD ARRAY FUNCTION __HS_GETLOCALLOCKSTATUS() __ATTRIBUTES__(EXTERNAL);
+BOOLEAN FUNCTION __HS_ABORTJOBBYGROUPID(STRING groupid) __ATTRIBUTES__(EXTERNAL);
+
+INTEGER64 FUNCTION GetMemUsage(RECORD info)
+{
+  IF(NOT RecordExists(info))
+    RETURN 0;
+
+  RETURN info.stack+info.heap+info.backingstore+info.blobstore;
+}
+
+STRING FUNCTION BuildURL(RECORD data)
+{
+  STRING uri := (data.secure ? "https://" : "http://");
+  IF (data.host LIKE "*:*")
+    uri := uri || data.host;
+  ELSE
+  {
+    IF (data.host = "")
+      uri:= uri || data.ip;
+    ELSE
+      uri:= uri || data.host;
+    IF (data.port != (data.secure ? 443 : 80))
+      uri := uri || ":" || data.port;
+  }
+  RETURN uri || data.url;
+}
+
+PUBLIC OBJECTTYPE ProcessDetails EXTEND TolliumFragmentBase
+< STRING pvt_groupid;
+
+  PUBLIC MACRO HideStateBox()
+  {
+    this->appstatusbox->visible := FALSE;
+  }
+
+  PUBLIC MACRO SetData(RECORD data, BOOLEAN finished)
+  {
+    IF (NOT RecordExists(data))
+    {
+      this->trace->rows := DEFAULT RECORD ARRAY;
+      this->errors->rows := DEFAULT RECORD ARRAY;
+
+      this->pvt_groupid := "";
+
+      this->groupid->value := "";
+      this->status->value := "";
+      this->creationdate->value := DEFAULT DATETIME;
+      this->finishdate->value := DEFAULT DATETIME;
+      this->total_running_txt->value := "";
+    }
+    ELSE
+    {
+      IF (NOT finished)
+      {
+        this->trace->rows := SELECT *, rowkey := #stacktrace + 1 FROM data.stacktrace;
+        this->errors->rows := DEFAULT RECORD ARRAY;
+
+        this->status->value := data.status;
+      }
+      ELSE
+      {
+        this->trace->rows :=
+            SELECT *
+                 , rowkey :=    #messages + 1
+                 , filename
+              FROM data.messages
+             WHERE code < 0;
+        this->errors->rows :=
+            SELECT *
+                 , rowkey :=    #messages + 1
+                 , filename
+              FROM data.messages
+             WHERE code > 0;
+
+        this->status->value := "Terminated";
+      }
+
+      this->pvt_groupid := data.groupid;
+
+      this->groupid->value := data.groupid;
+      this->creationdate->value := data.creationdate;
+      this->finishdate->value := data.finishdate = MAX_DATETIME ? DEFAULT DATETIME : data.finishdate;
+      this->total_running_txt->value := this->owner->tolliumuser->FormatTime(data.total_running, "milliseconds", FALSE);
+    }
+
+    IF (RecordExists(data) AND NOT finished AND CellExists(data.authenticationrecord, "DATABASE") AND CellExists(data.authenticationrecord.database, "USERID"))
+    {
+      this->databaseuser->value := data.authenticationrecord.database.userid = 0
+                                      ? ""
+                                      : ToString(data.authenticationrecord.database.userid);
+    }
+    ELSE
+      this->databaseuser->value := "";
+
+    IF (RecordExists(data) AND NOT finished AND CellExists(data.authenticationrecord, "TOLLIUM"))
+    {
+      this->appname->value := data.authenticationrecord.tollium.app.name;
+      this->username->value := data.authenticationrecord.tollium.user.login;
+      this->useremail->value := data.authenticationrecord.tollium.user.emailaddress;
+    }
+    ELSE
+    {
+      this->appname->value := "";
+      this->username->value := "";
+      this->useremail->value := "";
+    }
+
+    IF (RecordExists(data) AND RecordExists(data.statistics))
+    {
+      this->backingstore->value := data.statistics.backingstore || " KB";
+      this->blobstore->value := data.statistics.blobstore || " KB";
+      this->heap->value := data.statistics.heap || " KB";
+      this->stack->value := data.statistics.stack || " KB";
+      this->instructions->value := ToString(data.statistics.instructions);
+      this->objectcount->value := ToString(data.statistics.objectcount);
+    }
+    ELSE
+    {
+      this->backingstore->value := "";
+      this->blobstore->value := "";
+      this->heap->value := "";
+      this->stack->value := "";
+      this->instructions->value := "";
+      this->objectcount->value := "";
+    }
+
+    this->errorsbox->visible := finished;
+  }
+
+  PUBLIC MACRO ProcessLockData(RECORD ARRAY data)
+  {
+    IF (this->pvt_groupid = "")
+    {
+      this->locks->rows := DEFAULT RECORD ARRAY;
+    }
+    ELSE
+    {
+      this->locks->rows :=
+          SELECT rowkey :=      grouplockposition + 1
+               , lockorder :=   grouplockposition + 1
+               , name
+               , maxconcurrent
+               , status :=      lockposition < maxconcurrent ? "Locked" : "Wait " || lockposition - maxconcurrent + 1
+            FROM data
+           WHERE groupid = this->pvt_groupid
+        ORDER BY grouplockposition;
+    }
+
+    this->appstats->hr := TRUE;
+    this->locksbox->visible := TRUE;
+  }
+
+
+  MACRO DoOpenTraceRow()
+  {
+    OBJECT screen := this->owner->LoadScreen(".codeview",
+        [ rows :=   this->errors->rows CONCAT this->trace->rows
+        , value :=  this->trace->value
+        ]);
+
+    screen->RunModal();
+  }
+
+  MACRO DoOpenErrorRow()
+  {
+    OBJECT screen := this->owner->LoadScreen(".codeview",
+        [ rows :=   this->errors->rows CONCAT this->trace->rows
+        , value :=  this->errors->value
+        ]);
+
+    screen->RunModal();
+  }
+
+>;
+
+PUBLIC OBJECTTYPE ProcessList EXTEND MonitorPanelBase
+<
+
+  RECORD ARRAY unfiltered_rows;
+
+  RECORD last_status;
+
+  INTEGER64 totalcpu;
+
+  RECORD ARRAY current_locks;
+
+  MACRO Init()
+  {
+    this->hidetolliuminternals->value := TRUE;
+    this->hidetolliuminternalshistory->value := TRUE;
+    this->processdetails->HideStateBox();
+    this->history_secs->value := ReadRegistryKey("system.webserver.global.historyseconds");
+
+    // Configure using user prefs
+    this->prefslistener->masks := [ "tollium:userprefs." || this->tolliumuser->entityid ];
+    this->OnPrefsChange();
+
+/*    this->cpu_data :=
+        [ total_running := 0i64
+        , time :=         GetCurrentDateTime()
+        ];*/
+  }
+
+  MACRO OnPrefsChange(RECORD ARRAY events DEFAULTSTO DEFAULT RECORD ARRAY)
+  {
+    // Disable debugging when debugger isn't visible in the menu
+    this->debugprocess->enabled :=
+        this->tolliumuser->GetRegistryKey("system.prefs.showdeveloperapps", FALSE)
+        OR this->tolliumuser->entityid = 0; // allow for overrideuser
+  }
+
+  STRING FUNCTION GetScriptShow(RECORD authrec, STRING script)
+  {
+    IF (CellExists(authrec, "TOLLIUM") AND recordExists(authrec.tollium.app))
+      RETURN "Tollium: " || authrec.tollium.app.name || " (" || authrec.tollium.user.login || ")";
+    IF (CellExists(authrec, "WEBSERVERREQUEST"))
+    {
+      IF (authrec.webserverrequest.url LIKE "/wh_services/*")
+      {
+        STRING res := "Remoting: " || SubString(authrec.webserverrequest.url, 13);
+        IF (CellExists(authrec, "REMOTING"))
+          res := res || " (" || authrec.remoting.functionname || ")";
+        RETURN res;
+      }
+      RETURN BuildURL(authrec.webserverrequest);
+    }
+    RETURN script;
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    RECORD current_status := __HS_GETJOBMANAGERSTATUS(TRUE);
+    INSERT CELL time := GetCurrentDateTime() INTO current_status;
+    this->current_locks := __HS_GETLOCALLOCKSTATUS();
+
+    PRINT(AnyToString(this->current_locks, "boxed"));
+
+    DATETIME now := current_status.time;
+
+    RECORD ARRAY lockrows :=
+        SELECT rowkey :=    name
+             , name
+             , locked :=    Sum(waiting ? 0 : 1)
+             , waiting :=   Sum(waiting ? 1 : 0)
+             , queue :=     GroupedValues(current_locks)
+             , maxwaitms := Max(waiting ? GetMsecsDifferenceLocal(waitstart, now) : 0)
+             , maxlockedms := Max(waiting ? 0 : GetMsecsDifferenceLocal(lockstart, now))
+          FROM this->current_locks
+      GROUP BY name;
+
+    this->locks->rows :=
+        SELECT *
+             , maxwaittime :=   FormatMoney(maxwaitms / 1000m, 3, ".", "", TRUE) || " s"
+             , maxlocktime :=   FormatMoney(maxlockedms / 1000m, 3, ".", "", TRUE) || " s"
+          FROM lockrows;
+
+    RECORD ARRAY rows :=
+        SELECT *
+             , total_running_msecs := INTEGER64(GetMsecondCount(total_running))
+             , rowkey :=              groupid
+             , size :=                RecordExists(statistics) ? GetMemUsage(statistics) : 0i64
+//             , sessdata :=            GetWebSessionData(groupid, "")
+          FROM current_status.jobs;
+
+    rows :=
+        SELECT *
+             , total_running_txt :=   this->tolliumuser->FormatTime(total_running, "milliseconds", FALSE)
+             , priorityicon :=        highpriority ? 1 : 0
+             , requesturl :=          CellExists(authenticationrecord, "WEBSERVERREQUEST") ? authenticationrecord.webserverrequest.url : ""
+             , script_show :=         this->GetScriptShow(authenticationrecord, script)
+             , size_txt :=            size != 0 ? size || " KB" : "N/A"
+             , cpu :=                 ""
+          FROM rows;
+
+    RECORD ARRAY rowsforfooter := LENGTH(rows) = 0 ? [ [ status := "", size := 0 ] ] : rows;
+
+    RECORD footerrow :=
+        SELECT priorityicon :=        0
+             , groupid :=             this->GetTid(".groupcount", ToString(Count(*)))
+             , script_show :=         ""
+             , status :=              this->GetTid(".runningcount", ToString(Sum(status = "Running" ? 1 : 0)))
+             , creationdate :=        DEFAULT DATETIME
+             , total_running_txt :=   ""
+             , size_txt :=            Sum(size) || " KB"
+             , cpu :=                 ""
+          FROM rowsforfooter;
+
+    RECORD locksum :=
+        SELECT maxlockedms :=   SUM(maxlockedms)
+             , maxwaitms :=     SUM(maxwaitms)
+             , waiting :=       SUM(waiting)
+          FROM lockrows;
+
+    IF (RecordExists(locksum))
+    {
+      footerrow.script_show := this->GetTid(".lockstatus",
+          FormatMoney(locksum.maxlockedms / 1000m, 3, ".", "", TRUE) || "s",
+          FormatMoney(locksum.maxwaitms / 1000m, 3, ".", "", TRUE) || "s",
+          ToString(locksum.waiting));
+    }
+
+    // Remove internals before
+    IF (this->hidetolliuminternals->value)
+    {
+      DELETE
+        FROM rows
+       WHERE (requesturl LIKE "/tollium_todd/comm.shtml?*");
+    }
+
+
+    IF (RecordExists(this->last_status))
+    {
+      INTEGER diff := GetMsecsDifferenceLocal(this->last_status.time, now);
+      IF (diff <= 30000 AND diff >= 100)
+      {
+        DATETIME diff_cutoff := AddTimeToDate(-1000, this->last_status.time);
+        INTEGER64 nowcpu;
+
+        STRING ARRAY cols := [ "GROUPID" ];
+        FOREVERY (RECORD row FROM rows)
+        {
+          INTEGER64 cpudiff := row.total_running_msecs;
+          RECORD pos := RecordLowerBound(this->last_status.jobs, row, cols);
+          IF (pos.found)
+           cpudiff := cpudiff - GetMsecondCount(this->last_status.jobs[pos.position].total_running);
+
+          IF (cpudiff != 0)
+          {
+            nowcpu := nowcpu + cpudiff;
+            rows[#row].cpu := FormatMoney(MONEY(cpudiff * 10000 / diff) / 100m, 1, ".", "", TRUE) || "%";
+          }
+        }
+
+        INTEGER64 oldrunning :=
+            SELECT AS INTEGER64 SUM(INTEGER64(GetMsecondCount(total_running)))
+              FROM this->last_status.finished CONCAT this->last_status.jobs
+             WHERE finishdate >= diff_cutoff;
+        INTEGER64 newrunning :=
+            SELECT AS INTEGER64 SUM(INTEGER64(GetMsecondCount(total_running)))
+              FROM current_status.finished CONCAT current_status.jobs
+             WHERE finishdate >= diff_cutoff;
+
+        MONEY totalcpuval := MONEY((newrunning - oldrunning) * 10000 / diff) / 100m;
+        INTEGER decimals := totalcpuval > 1000 ? 0 : 1;
+        MONEY nowcpuval := MONEY((nowcpu) * 10000 / diff) / 100m;
+        MONEY histcpuval := totalcpuval - MONEY((nowcpu) * 10000 / diff) / 100m;
+
+        footerrow.cpu := FormatMoney(totalcpuval, decimals, ".", "", TRUE) || "%";
+        footerrow.total_running_txt := FormatMoney(nowcpuval, decimals, ".", "", TRUE) || "%+" || FormatMoney(histcpuval, decimals, ".", "", TRUE) || "%";
+      }
+    }
+
+    // Sort current jobs, for quickly finding total_running on next iteration
+    current_status.jobs :=
+        SELECT *
+          FROM current_status.jobs
+      ORDER BY groupid;
+
+    this->last_status := current_status;
+
+    DATETIME cutoff := AddTimeToDate(-this->history_secs->value * 1000, current_status.time);
+
+    RECORD ARRAY historyrows :=
+        SELECT *
+             , time :=          GetMsecsDifferenceLocal(creationdate, finishdate)
+             , running :=       GetMsecondCount(total_running)
+             , requesturl :=    CellExists(authenticationrecord, "WEBSERVERREQUEST") ? authenticationrecord.webserverrequest.url : ""
+             , script_show :=   this->GetScriptShow(authenticationrecord, script)
+          FROM current_status.finished
+         WHERE finishdate >= cutoff;
+
+    this->historyerrors->rows :=
+        SELECT rowkey :=        groupid
+             , finishdate
+             , script_show
+             , message :=       messages[0].message
+             , filename :=      messages[0].filename
+             , line :=          messages[0].line
+             , col :=           messages[0].col
+             , func :=          messages[0].func
+             , data :=          historyrows
+          FROM historyrows
+         WHERE LENGTH(messages) != 0
+           AND messages[0].message NOT LIKE "Custom error message: 'WHS_* termination'*" // WHS_Send*(SendWebFile)
+           AND messages[0].code != 35; // disconnection
+
+    IF (this->hidetolliuminternalshistory->value)
+    {
+      DELETE
+        FROM historyrows
+       WHERE (requesturl LIKE "/tollium_todd/comm.shtml?*");
+    }
+
+    IF (this->ignoreparameters->value)
+      UPDATE historyrows
+         SET script_show := Left(script_show, SearchSubString(script_show || "?", "?"));
+
+    historyrows :=
+        SELECT rowkey :=        script_show
+             , script_show
+             , count :=         Count(*)
+             , totaltime :=     Sum(time)
+             , avgtime :=       Avg(time)
+             , total_running := Sum(running)
+             , avgrunning :=    Avg(running)
+          FROM historyrows
+      GROUP BY script_show;
+
+    this->jobs->rows := rows;
+    this->jobs->footerrows := [ footerrow ];
+    this->historylist->rows := historyrows;
+
+    this->OnJobSelect();
+    this->OnLockSelect();
+  }
+
+  MACRO OnLockSelect()
+  {
+    IF (NOT RecordExists(this->locks->selection))
+      this->lockslist->rows := DEFAULT RECORD ARRAY;
+    ELSE
+    {
+      STRING str_yes := GetTid("tollium:common.labels.yes");
+      STRING str_no := GetTid("tollium:common.labels.no");
+
+      DATETIME now := this->last_status.time;
+
+      RECORD ARRAY running_jobs :=
+          SELECT *
+            FROM this->jobs->rows
+        ORDER BY groupid;
+
+      RECORD sel := this->locks->selection;
+      RECORD ARRAY rows :=
+          SELECT rowkey :=    sel.name || "_" || lockposition + 1
+               , groupid
+               , position :=  lockposition + 1
+               , locked :=    waiting ? str_no : str_yes
+               , maxconcurrent
+               , rpos :=      RecordLowerBound(running_jobs, queue, [ "GROUPID" ])
+               , waittime := FormatMoney(GetMsecsDifferenceLocal(waitstart, lockstart = DEFAULT DATETIME ? now : lockstart) / 1000m, 3, ".", "", TRUE) || " s"
+               , locktime := lockstart = DEFAULT DATETIME ? "" : FormatMoney(GetMsecsDifferenceLocal(lockstart, now) / 1000m, 3, ".", "", TRUE) || " s"
+            FROM sel.queue;
+
+      rows :=
+          SELECT *
+               , jobdata :=   rpos.found ? running_jobs[rpos.position] : DEFAULT RECORD
+            FROM rows;
+
+      rows :=
+          SELECT *
+               , script_show := RecordExists(jobdata) ? jobdata.script_show : ""
+            FROM rows;
+
+
+      this->lockslist->rows := rows;
+    }
+  }
+
+  MACRO OnJobSelect()
+  {
+    RECORD data;
+    IF (LENGTH(this->jobs->selection) = 1)
+      data := this->jobs->selection[0];
+
+    this->processdetails->SetData(data, FALSE);
+  }
+
+  MACRO DoViewProcess()
+  {
+    this->LoadScreen(".processview", [ data := this->jobs->selection[0], finished := FALSE, current_locks := this->current_locks ])->RunModal();
+  }
+
+  MACRO DoViewLockProcess()
+  {
+    this->LoadScreen(".processview", [ data := this->lockslist->selection[0].jobdata, finished := FALSE, current_locks := this->current_locks ])->RunModal();
+  }
+
+  MACRO DoViewErrorProcess()
+  {
+    this->LoadScreen(".processview", [ data := this->historyerrors->selection.data, finished := TRUE, current_locks := DEFAULT RECORD ARRAY ])->RunModal();
+  }
+
+  MACRO DoAbortProcess()
+  {
+    FOREVERY (RECORD rec FROM this->jobs->selection)
+      __HS_ABORTJOBBYGROUPID(rec.groupid);
+  }
+
+  MACRO DoAbortLockProcess()
+  {
+    FOREVERY (RECORD rec FROM this->lockslist->selection)
+      __HS_ABORTJOBBYGROUPID(rec.groupid);
+  }
+
+  MACRO DoDebugProcess()
+  {
+    RECORD message :=
+        [ groupid := this->jobs->selection[0].groupid
+        ];
+
+    this->tolliumcontroller->SendApplicationMessage(
+          "system:debugger",
+          DEFAULT RECORD,
+          message,
+          FALSE);
+  }
+
+  MACRO DoDebugLockProcess()
+  {
+    RECORD message :=
+        [ groupid := this->lockslist->selection[0].groupid
+        ];
+
+    this->tolliumcontroller->SendApplicationMessage(
+          "system:debugger",
+          DEFAULT RECORD,
+          message,
+          FALSE);
+  }
+
+>;
+
+PUBLIC OBJECTTYPE CodeView EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->trace->rows := data.rows;
+    this->trace->value := data.value;
+
+    this->OnSelectTraceRow();
+  }
+
+  MACRO OnSelectTraceRow()
+  {
+    IF (NOT RecordExists(this->trace->selection))
+    {
+      this->tabs->selectedtab := this->cannotfindsourcetab;
+      RETURN;
+    }
+
+    TRY
+    {
+      STRING lib := this->trace->selection.filename;
+      BLOB data := GetWebhareResource(this->trace->selection.filename);
+
+      this->tabs->selectedtab := this->viewtab;
+
+      this->codeview->value := BlobToString(data, -1);
+      this->codeview->GotoLine(this->trace->selection.line);
+      this->codeview->markers :=
+          [ [ line := this->trace->selection.line
+            , type := "line-current"
+            , color := "#CCCCFF"
+            ]
+          ];
+    }
+    CATCH
+    {
+      this->tabs->selectedtab := this->cannotfindsourcetab;
+    }
+  }
+
+  MACRO DoOpenInEditor()
+  {
+    RECORD sel := this->trace->selection;
+    this->contexts->controller->ExecuteClientCall("OpenInEditor", sel.filename, [ line := sel.line, col := sel.col ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE ProcessView EXTEND TolliumScreenBase
+< STRING groupid;
+  BOOLEAN finished;
+
+  MACRO Init(RECORD data)
+  {
+    this->groupid := data.data.groupid;
+    this->processdetails->SetData(data.data, data.finished);
+    this->processdetails->ProcessLockData(data.current_locks);
+
+    this->finished := data.finished;
+
+    // present in jobs list
+    this->script->value := data.data.script_show;
+    this->mainscript->value := data.data.script;
+
+    this->abort->enabled := NOT data.finished;
+    this->refresh->enabled := NOT data.finished;
+  }
+
+  MACRO DoAbort()
+  {
+    __HS_ABORTJOBBYGROUPID(this->groupid);
+    Sleep(250);
+    this->DoRefresh();
+  }
+
+  MACRO DoRefresh()
+  {
+    // First try to get in current job list (usually, that one is short and quick to get)
+    RECORD current_status := __HS_GETJOBMANAGERSTATUS(FALSE);
+    RECORD data :=
+        SELECT *
+             , finished := FALSE
+          FROM current_status.jobs
+         WHERE groupid = this->groupid;
+
+    IF (NOT RecordExists(data))
+    {
+      current_status := __HS_GETJOBMANAGERSTATUS(TRUE);
+      data :=
+        SELECT *
+             , finished := TRUE
+          FROM current_status.finished
+         WHERE groupid = this->groupid;
+    }
+
+    IF (NOT RecordExists(data))
+    {
+      this->RunMessage(".processgone");
+      this->abort->enabled := FALSE;
+      this->refresh->enabled := FALSE;
+      RETURN;
+    }
+    ELSE
+    {
+      this->processdetails->SetData(data, data.finished);
+      this->processdetails->ProcessLockData(__HS_GETLOCALLOCKSTATUS());
+      this->finished := data.finished;
+
+      this->abort->enabled := NOT data.finished;
+      this->refresh->enabled := NOT data.finished;
+    }
+  }
+
+>;
+
+INTEGER FUNCTION GetMsecsDifferenceLocal(DATETIME tfrom, DATETIME tto)
+{
+  INTEGER64 tfromm := 86400000i64 * GetDayCount(tfrom) + GetMsecondCount(tfrom);
+  INTEGER64 ttom := 86400000i64 * GetDayCount(tto) + GetMsecondCount(tto);
+
+  RETURN INTEGER(ttom - tfromm);
+}

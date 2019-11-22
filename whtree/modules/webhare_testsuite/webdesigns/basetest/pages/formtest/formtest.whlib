@@ -1,0 +1,817 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/conditions.whlib";
+
+LOADLIB "mod::system/lib/mailer.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
+<
+  UPDATE PUBLIC MACRO PrepareForRendering()
+  {
+    IF(GetWebVariable("scrollzone")="1")
+      INSERT "scrollzone" INTO this->webdesign->htmlclasses AT END;
+  }
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    IF(GetWebVariable("email")="1")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:anyform")
+           , [ anyform  := this->webdesign->GetWittyDataForForm("emailform")
+             ]);
+    }
+    ELSE IF(GetWebVariable("rtd")="1")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:rtdform")
+           , [ rtdform  := this->webdesign->GetWittyDataForForm("rtdtest")
+             ]);
+    }
+    ELSE IF(GetWebVariable("dynamic")="1")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:dynamicform")
+           , [ dynamicform := this->webdesign->GetWittyDataForForm("dynamictest")
+             ]);
+    }
+    ELSE IF(GetWebVariable("multipage")="1")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:multipageform")
+           , [ multipageform := this->webdesign->GetWittyDataForForm("multipagetest")
+               ]);
+    }
+    ELSE IF(GetWebVariable("address") IN ["1","2"])
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:addressform")
+           , [ addressform := this->webdesign->GetWittyDataForForm("addressform")
+             ]);
+    }
+    ELSE IF(GetWebVariable("redirect")="1")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:redirectform")
+           , [ redirectform := this->webdesign->GetWittyDataForForm("redirectform")
+             ]);
+    }
+    ELSE IF(GetWebVariable("workhandlingerrors")="1")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:workhandlingerrorsform")
+           , [ workhandlingerrorsform := this->webdesign->GetWittyDataForForm("workhandlingerrorsform")
+                            ]);
+    }
+    ELSE IF(GetWebVariable("array")="1")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:arrayform")
+           , [ arrayform := this->webdesign->GetWittyDataForForm("arrayform")
+             ]);
+    }
+    ELSE IF(GetWebVariable("datetime")="1")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:anyform")
+           , [ anyform := this->webdesign->GetWittyDataForForm("datetimeform")
+             ]);
+    }
+    ELSE
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:forms")
+           , [ coreform := this->webdesign->GetWittyDataForForm("coretest", [ formref := "CORE-TEST-FORM"])
+             , globalform := this->webdesign->GetWittyDataForForm("webhare_testsuite:global#globaltest")
+             ]);
+    }
+  }
+>;
+
+//TODO test that setting up a select type=radio with an option with empty rowkey autoselects that rowkey (otherwise we can't distinguish between no-selection and that-selection)
+
+PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
+<
+  MACRO NEW()
+  {
+    IF(this->formref != "CORE-TEST-FORM")
+      ABORT("formref not set");
+
+    BOOLEAN nocheckboxselect := IsRequest() AND GetFormWebVariable("nocheckboxselect") = "1";
+
+    ^invisible->visible := FALSE;
+    IF(ObjectExists(this->formcontext)) //we're invoked by the webdesign
+    {
+      TestEq('formtest', this->formcontext->targetobject->name);
+      TestEq('nl', this->formcontext->languagecode);
+    }
+
+    TestEq('nl', GetTidLanguage());
+    TestEq('Uploaden', ^upload->title); //ensure NL version was picked up. we need something that translates differently in EN..
+    TEstEq(TRUE, ^text->enabled);
+    TEstEq(FALSE, ^email->enabled);
+    ^email->enabled := TRUE;
+    ^text->enabled := FALSE;
+    ^setvalidator->placeholder := "PlaceHolder";
+
+    TestEq(TRUE, ^radiotest->required);
+    TestEq(FALSE, ^email->required);
+    ^email->required := TRUE;
+    ^email->groupdataset := [ bunny := "rabbit" ];
+
+    //Radio test addendum
+    TestEq(15, ^radiotestnamelijk->value);
+    ^radiotestnamelijk->value := 21;
+    TestEq(21, ^radiotestnamelijk->value);
+
+    ^radioboolean->groupclasses := ["radioboolean"];
+    ^radioboolean->groupdataset := [ x := [ y := false ] ];
+
+    //Radio test
+    TestThrowsLike("Duplicate rowkey*", PTR MemberUpdate(^radiotest,'options', [[ rowkey := 1, title := "1" ], [ rowkey := 1, title := "2" ]]));
+
+    TestEq( [[ rowkey := 1, title := "Option 1", selected := FALSE ]
+            ,[ rowkey := 2, title := "Option 2", selected := TRUE ] //also test auto-gettid
+            ], SELECT rowkey, title,selected FROM ^radiotest->options);
+
+    TestEq(2, ^radiotest->value);
+    TestEq(2, ^radiotest->selection.rowkey);
+
+    ^radiotest->options := SELECT AS RECORD ARRAY CellDelete(options,'selected') FROM ^radiotest->options;
+    TestEq(2, ^radiotest->value);
+
+    ^radiotest->options := [ RECORD(^radiotest->options[0])
+                                , [ rowkey := 3, title := "Option 3" ]
+                                ];
+
+    TestEq(0, ^radiotest->value);
+    TestEq( [[ rowkey := 1, title := "Option 1", selected := FALSE ]
+            ,[ rowkey := 3, title := "Option 3", selected := FALSE ]
+            ], SELECT rowkey, title,selected FROM ^radiotest->options);
+
+    TestThrows(PTR MemberUpdate(^radiotest,'value',2));
+    TestThrowsLike("Rowkey*not of type INTEGER*", PTR MemberUpdate(^radiotest,'options', [[ rowkey := "1", title :="Option 1"]]));
+
+    ^radiotest->value := 3;
+    TestEq(3, ^radiotest->value);
+
+    TestEq( [[ rowkey := 1, title := "Option 1", selected := FALSE ]
+            ,[ rowkey := 3, title := "Option 3", selected := TRUE ]
+            ], SELECT rowkey, title, selected FROM ^radiotest->options);
+
+    //Checkbox test
+    TestEq([1,3], ^checkboxes->value);
+    TestEq(3, ^checkboxes->selection[1].rowkey);
+    ^checkboxes->selection := [RECORD(^checkboxes->options[2])];
+    TestEq([2], ^checkboxes->value);
+    ^checkboxes->value := [1,3];
+    TestEq(3, ^checkboxes->selection[1].rowkey);
+
+    TestThrows(PTR MemberUpdate(^checkboxes, 'value', 4));
+    TestThrows(PTR MemberUpdate(^checkboxes, 'value', 0));
+
+    //Note, if both options selected are FALSE, autoselect of defaultvalue in SetOptions may have failed
+    TestEq( [[ rowkey := TRUE, title := "Truth", selected := FALSE ]
+            ,[ rowkey := FALSE, title := "Lie", selected := TRUE ]
+            ], SELECT rowkey, title, selected FROM ^radioboolean->options);
+    // Change a title
+    UPDATE ^radioboolean->options
+       SET title := "Falsehood"
+     WHERE rowkey = FALSE;
+    TestEq( [[ rowkey := TRUE, title := "Truth", selected := FALSE ]
+            ,[ rowkey := FALSE, title := "Falsehood", selected := TRUE ]
+            ], SELECT rowkey, title, selected FROM ^radioboolean->options);
+    // Change an htmltitle
+    ^radioboolean->options[1].htmltitle := "Dare";
+    TestEq( [[ rowkey := TRUE, title := "Truth", selected := FALSE ]
+            ,[ rowkey := FALSE, title := "Dare", selected := TRUE ]
+            ], SELECT rowkey, title, selected FROM ^radioboolean->options);
+
+    OBJECT opt5_pulldown := this->AppendFormField(^radiotest, "select", "opt5_select");
+    opt5_pulldown->type := "pulldown";
+    opt5_pulldown->options := [[ rowkey := "", title := "select bank", enabled := FALSE ]
+                              ,[ rowkey := "BANK1", title := "Bank #1" ]
+                              ,[ rowkey := "BANK2", title := "Bank #2" ]
+                              ];
+    opt5_pulldown->required := TRUE;
+
+    OBJECT opt5_textedit := this->AppendFormField(^radiotest, "textedit", "opt5_textedit");
+    opt5_textedit->required := TRUE;
+
+    ^radiotest->options := ^radiotest->options
+                                CONCAT
+                                [ [ rowkey := 4, title := "Option 4", selected := FALSE ]
+                                , [ rowkey := 5, title := "Option 5", selected := FALSE, subfields := [ opt5_pulldown, opt5_textedit ], enablecomponents := [ opt5_textedit, opt5_pulldown ] ]
+                                ];
+
+    //Pulldowntest (the placeholder option "Make a selection" is added when rendered)
+    TestEq("Maak selectie", ^pulldowntest->placeholder);
+    ^pulldowntest->placeholder := "Maak een selectie";
+    TestEq(FALSE, ^pulldowntest->options[0].ingroup);
+    TestEq(TRUE, ^pulldowntest->options[1].ingroup);
+
+    TestEq(TRUE, ^pulldowntest->options[0].isoptgroup);
+    TestEq(FALSE, CellExists(^pulldowntest->options[0], 'CHILDREN'));
+
+    TestEq(0, ^pulldowntest->value);
+    ^pulldowntest->options[0].dataset := [ universe := 42*42 ];
+    ^pulldowntest->options[1].dataset := [ x := "test-x", y_y := [ z := 42 ] ];
+    TestEQ(FALSE, RecordExists(^pulldowntest->selection));
+    ^pulldowntest->value := 1;
+    TestEq(1,^pulldowntest->value);
+
+    TestEQ("One", ^pulldowntest->selection.title);
+    TestEq('test-x',^pulldowntest->options[1].dataset.x);
+    ^pulldowntest->value := 0;
+    TestEQ(FALSE, RecordExists(^pulldowntest->selection));
+
+    //Pulldown2test
+    TestEq('green', ^pulldown2test->value);
+    ^pulldown2test->value:='red';
+
+    //Datetime
+    TestEq(MakeDate(1900,2,3), ^dateofbirth->min);
+    TestEq(GetRoundedDatetime(GetCurrentDatetime(), 86400*1000), ^dateofbirth->value);
+    TestEq(AddDaysToDate(1,GetRoundedDatetime(GetCurrentDatetime(), 86400*1000)), ^dateofbirth->max);
+
+    TestEq("1900-02-03", ^dateofbirth->abstractmin);
+    TestEq("now", ^dateofbirth->abstractvalue);
+    TestEq("now+1d", ^dateofbirth->abstractmax);
+
+    ^dateofbirth->abstractmin := "";
+    TestEq("", ^dateofbirth->abstractmin);
+    TestEq(DEFAULT DATETIME , ^dateofbirth->min);
+
+    ^dateofbirth->abstractvalue := "";
+    TestEq("", ^dateofbirth->abstractvalue);
+    TestEq(DEFAULT DATETIME , ^dateofbirth->value);
+
+    ^dateofbirth->abstractmax := "";
+    TestEq("", ^dateofbirth->abstractmax);
+    TestEq(MAX_DATETIME , ^dateofbirth->max);
+
+    ^dateofbirth->value := MakeDatetime(1979,6,13,12,11,10);
+    TestEq("1979-06-13", ^dateofbirth->abstractvalue);
+    TestEq(MakeDate(1979,6,13), ^dateofbirth->value);
+
+    TestThrows(PTR MemberUpdate(^dateofbirth, 'min', MAX_DATETIME));
+    TestThrows(PTR MemberUpdate(^dateofbirth, 'value', MAX_DATETIME));
+    TestThrows(PTR MemberUpdate(^dateofbirth, 'max', DEFAULT DATETIME));
+
+    ^dateofbirth->min := MakeDate(1900,1,1);
+    ^dateofbirth->abstractvalue := "now+2d";
+    ^dateofbirth->abstractmax := "now+5d";
+
+    // Countrylist is already set by XML and cannot be updated
+    TestThrows(PTR MemberUpdate(^address, 'countrylist', [ "NL" ]));
+    ^checkboxes->visiblecondition := FCIsSet(^checkboxesvisible);
+    ^condition_or_visible->visiblecondition :=
+        [ matchtype := "OR"
+        , conditions :=
+            [ [ matchtype := "HASVALUE", field := "condition_or_1", value := TRUE ]
+            , [ matchtype := "HASVALUE", field := "condition_or_2", value := TRUE ]
+            ]
+        ];
+    ^condition_and_visible->visiblecondition :=
+        [ matchtype := "AND"
+        , conditions :=
+            [ [ matchtype := "HASVALUE", field := "condition_and_1", value := TRUE ]
+            , [ matchtype := "HASVALUE", field := "condition_and_2", value := TRUE ]
+            ]
+        ];
+    ^condition_not_enabled->enabledcondition :=
+        [ matchtype := "NOT"
+        , condition := [ matchtype := "HASVALUE", field := "condition_not", value := FALSE ]
+        ];
+    ^condition_not_required->requiredcondition :=
+        [ matchtype := "NOT"
+        , condition := [ matchtype := "HASVALUE", field := "condition_not", value := FALSE ]
+        ];
+
+    // Don't make the field conditionally required on the HTML only page
+    ^condition_not_enabled->required := TRUE;
+
+    // Link requiredradio's "Y" option to our checkbox
+    ^requiredradio->options[1].visiblecondition := FCIsset(^showradioy);
+
+    IF(nocheckboxselect)
+      ^checkboxes->value := INTEGER[];
+  }
+
+  PUBLIC MACRO RPC_Prefill()
+  {
+    IF(this->formref != "CORE-TEST-FORM")
+      ABORT("formref not set");
+
+    ^email->value := ^email->value LIKE "*@*" ? Substitute(^email->value,'@','+test@') : "arnold@example.nl";
+    ^dateofbirth->value := MakeDate(2000,1,1);
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
+  {
+    IF(this->formref != "CORE-TEST-FORM")
+      ABORT("formref not set");
+    Sleep(ToInteger(GetFormWebVariable("submitsleep"),0));
+
+    OBJECT work := this->BeginWork();
+
+    TestEq("InvisValue", ^nevervisible->value, `Value should be unmodifiable, expected 'InvisValue' got '${^nevervisible->value}'`);
+    TestEq("InvisValue", ^invisible->value, "Value should be unmodifiable!");
+
+    IF(this->formcontext->targetobject->name != "formtest")
+      ABORT("Expected my name to be 'formtest' - webcontext passing is broken");
+
+    IF(extradata.proof != 42)
+      ABORT("Expecting proof==42");
+
+    IF(^password->value = "secret" OR (^password->value = "secret!" AND ^number->value != -2))
+    {
+      work->AddErrorFor(^password, `'${^password->value}' is a bad password`);
+      work->AddError("The form is generally bad");
+    }
+    ELSE IF(^password->value = " secret")
+    {
+      THROW NEW Exception("Unexpectedly received ' secret' - is trimwhitespace broken?");
+    }
+
+    RECORD formvalue := this->formvalue;
+    IF(RecordExists(formvalue.upload))
+    {
+      STRING data := BLobToSTring(formvalue.upload.data,100);
+      DELETE CELL data FROM formvalue.upload;
+      INSERT CELL data := IsValidUTF8(data) ? data : EncodeBase64(data) INTO formvalue.upload;
+    }
+    work->Finish();
+
+    //Compare mailcomposer output to real form output
+    OBJECT composer := MakeEmailComposer();
+    RECORD composerdata := this->PrepareFormDataForComposer(composer);
+    TestEq(TYPEID(BOOLEAN), TYPEID(composerdata.field.radioboolean.raw));
+    TestEq(^radioboolean->value ? "Truth" : "Dare", composerdata.field.radioboolean.text);
+    TestEq("Ja", composerdata.field.agree.text, "Expected 'Ja' in agree");
+
+    TestEq(^email->value, composerdata.field.email.raw);
+    TestEq(^email->value, composerdata.field.email.text);
+    TestEq(^password->value, composerdata.field.password.raw);
+
+    TestEq(TYPEID(INTEGER), TYPEID(composerdata.field.radiotestnamelijk.raw));
+    TestEq(^radiotestnamelijk->value, composerdata.field.radiotestnamelijk.raw);
+
+    TestEq(^dateofbirth->value, composerdata.field.dateofbirth.raw);
+    TestEq(FormatDatetime("%#d %B %Y",^dateofbirth->value,"nl"), composerdata.field.dateofbirth.text);
+
+    TestEq(^pulldowntest->value, composerdata.field.pulldowntest.raw);
+    TestEq(RecordExists(^pulldowntest->selection) ? ^pulldowntest->selection.title : "", composerdata.field.pulldowntest.text);
+
+    //Test the formfields record array
+    TestEq([[ raw := ^radiotestnamelijk->value ]], (SELECT raw FROM composerdata.allfields WHERE title = composerdata.field.radiotestnamelijk.title));
+    TestEq(^email->value, (SELECT AS STRING COLUMN text FROM composerdata.allfields WHERE title = composerdata.field.email.title));
+
+    TestEq(0, Length(composer->GetAttachments()));
+
+    //Also do tests with an attachment-mailing handler..
+    IF(RecordExists(^upload->value))
+    {
+      composer := MakeEmailComposer();
+      composerdata := this->PrepareFormDataForComposer(composer, [ attachfiles := TRUE ]);
+      TestEq(1, Length(composer->GetAttachments()));
+      TestEq(^upload->value.filename, composer->GetAttachments()[0].filename);
+
+      composer := PrepareMailWitty("inline::dummy");
+      composerdata := this->PrepareFormDataForComposer(composer, [ attachfiles := TRUE ]);
+      TestEq(1, Length(composer->attachments));
+      TestEq(^upload->value.filename, composer->attachments[0].name);
+   }
+
+    RETURN [ ok := work->HasFailed() ? 0 : 43
+           , email := Tokenize(^email->value,'@')[0]
+           , form := formvalue
+           , extradata := extradata
+           ];
+  }
+>;
+
+PUBLIC OBJECTTYPE GlobalTestForm EXTEND FormBase
+<
+  MACRO NEW()
+  {
+  }
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
+  {
+    RETURN [ ok := 42*42 ];
+  }
+>;
+
+PUBLIC OBJECTTYPE DynamicTestForm EXTEND FormBase
+<
+  OBJECT newradiogroup;
+
+  MACRO NEW()
+  {
+    this->formdataset := [ bob := "beagle" ];
+
+    IF(IsRequest())
+      TestEqLike("*dynamic=1*", this->formurl);
+
+    BOOLEAN disablestuff := GetVariableFromURL(this->formurl,'disable') = '1';
+    RECORD ARRAY saveoptions := ^timeslot->options;
+    TestEq(2,Length(saveoptions));
+
+    ^timeslot->rowkeytype := ^timeslot->rowkeytype; //resets the options...
+    TestEq(0,Length(^timeslot->options));
+
+    ^timeslot->options := saveoptions;
+    Testeq(2,Length(^timeslot->options));
+    TestEq(MakeDatetime(2012,5,5,21,0,0,5), ^timeslot->options[1].rowkey);
+
+    //First field
+    TestThrows(PTR this->AppendFormField(this, "textedit", "textfield"));
+    OBJECT newtextfield := this->AppendFormField(DEFAULT OBJECT, "textedit", "textfield");
+    newtextfield->title := "TextField";
+    newtextfield->value := "val 1";
+
+    this->newradiogroup := this->AppendFormField(DEFAULT OBJECT, "select", "myradio");
+    this->newradiogroup->enabled := NOT disablestuff;
+    this->newradiogroup->type := "radio";
+    this->newradiogroup->title := "Radio";
+    this->newradiogroup->rowkeytype := "integer";
+    this->newradiogroup->options := [[ rowkey := 15, title := "Option #15" ]
+                              ,[ rowkey := 42, title := "Option #42" ]
+                              ];
+
+    TestEq(2, Length(this->newradiogroup->options));
+    TestEq(FALSE, this->newradiogroup->options[0].selected);
+    TestEq(FALSE, this->newradiogroup->options[1].selected);
+
+    OBJECT newcheckbox := this->AppendFormField(DEFAULT OBJECT, "checkbox", "mycheckbox");
+    newcheckbox->title := "IsChecked";
+    newcheckbox->value := TRUE;
+
+    //newcheckbox is not a child of newradiogroup, so adding it to options #42 should failed
+    TestThrows(PTR this->AppendFieldToOption(1, newcheckbox));
+
+    OBJECT addendum42 := this->AppendFormField(this->newradiogroup, "textedit", "addendum42");
+    this->AppendFieldToOption(1, addendum42);
+
+    OBJECT newdate := this->AppendFormField(DEFAULT OBJECT, "date", "mydate");
+    newdate->title := "IsAdate";
+    newdate->value := MakeDate(2016,6,13);
+
+    OBJECT newintfield := this->AppendFormField(DEFAULT OBJECT, "textedit", "myint", [ valuetype := "integer" ]);
+    newintfield->title := "MyInt";
+    Testeq("integer", newintfield->valuetype);
+  }
+
+  MACRO AppendFieldToOption(INTEGER which, OBJECT field)
+  {
+    INSERT field INTO this->newradiogroup->options[which].subfields AT END;
+  }
+
+  PUBLIC RECORD FUNCTION RPC_OnDayChange(INTEGER newday)
+  { /* Echt stoere test:
+    IF(newday=1)
+    {
+      DELETE FROM this->timeslot->options WHERE rowkey=12;
+    }
+    ELSE
+    {
+      INSERT [ rowkey := 12, title := "12 o'clock" ] INTO this->timeslot->options AT END;
+    }*/
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION Submit(RECORD data)
+  {
+    RETURN [ form := this->formvalue ];
+  }
+>;
+
+PUBLIC OBJECTTYPE RTDForm EXTEND FormBase
+<
+  STRING filename;
+
+  MACRO NEW()
+  {
+    this->filename := IsRequest() ? GetFormWebVariable('store') : "offline";
+    IF(IsRequest() AND GetFormWebVariable("imgrequired")="1")
+      ^img->required := TRUE;
+    ELSE
+      ^img->requiredcondition := [ matchtype := "HASVALUE", field := "requirefields", value := TRUE ];
+
+    IF(IsRequest() AND GetFormWebVariable("filerequired")="1")
+      ^file->required := TRUE;
+    ELSE
+      ^file->requiredcondition := [ matchtype := "HASVALUE", field := "requirefields", value := TRUE ];
+
+    IF(IsRequest() AND GetFormWebVariable("accept") != "")
+    {
+      ^file->accept := Tokenize(GetFormWebVariable("accept"),",");
+      ^img->accept := Tokenize(GetFormWebVariable("accept"),",");
+    }
+    IF(IsRequest() AND GetFormWebVariable("accepterror") != "")
+    {
+      ^file->accepterror := GetFormWebVariable("accepterror");
+      ^img->accepterror := GetFormWebVariable("accepterror");
+    }
+
+    IF(IsRequest() AND GetFormWebVariable("rtdrequired")="1")
+      ^rtd->required := TRUE;
+    ELSE
+      ^rtd->requiredcondition := [ matchtype := "HASVALUE", field := "requirefields", value := TRUE ];
+
+    ^rtd->enabledcondition := [ matchtype := "HASVALUE", field := "enablefields", value := TRUE ];
+    ^img->enabledcondition := [ matchtype := "HASVALUE", field := "enablefields", value := TRUE ];
+    ^file->enabledcondition := [ matchtype := "HASVALUE", field := "enablefields", value := TRUE ];
+    ^file2->visiblecondition := [ matchtype := "HASVALUE", field := "showfile2", value := TRUE ];
+
+    this->Prefill();
+
+    IF(IsRequest() AND GetFormWebVariable("disabled")="1")
+    {
+      ^rtd->enabled := FALSE;
+      ^img->enabled := FALSE;
+      ^file->enabled := FALSE;
+      ^file2->enabled := FALSE;
+    }
+  }
+
+  PUBLIC MACRO Prefill()
+  {
+    IF(this->filename != "")
+    {
+      IF(NOT IsValidWHFSName(this->filename,FALSE))
+        THROW NEW Exception("Invalid filename");
+
+      OBJECT file := OpenTestsuiteSite()->OpenByPath("temp/" || this->filename || ".rtd");
+      IF(ObjectExists(file))
+        ^rtd->value := file->GetInstancedata("http://www.webhare.net/xmlns/publisher/richdocumentfile").data;
+
+      file := OpenTestsuiteSite()->OpenByPath("temp/" || this->filename || ".img");
+      IF(ObjectExists(file) AND Length(file->data)>0)
+        ^img->value := file->GetWrapped();
+
+      file := OpenTestsuiteSite()->OpenByPath("temp/" || this->filename || ".dat");
+      IF(ObjectExists(file) AND Length(file->data)>0)
+        ^file->value := CELL[...file->GetWrapped(), filename := file->title ];
+    }
+  }
+
+  PUBLIC MACRO RPC_Prefill(STRING filename)
+  {
+    this->filename := filename;
+    this->Prefill();
+  }
+
+  RECORD FUNCTION Submit(RECORD data)
+  {
+    OBJECT work := this->BeginWork();
+
+    IF(this->filename != "")
+    {
+      OBJECT file := OpenTestsuiteSite()->rootobject->EnsureFolder([name := "temp"])->EnsureFile([ name := this->filename || ".rtd" , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"]);
+      file->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [data := ^rtd->value ]);
+
+      file := OpenTestsuiteSite()->rootobject->EnsureFolder([name := "temp"])->EnsureFile([ name := this->filename || ".img" , type := 12 ]);
+      file->UpdateData(RecordExists(^img->value) ? ^img->value.data : DEFAULT BLOB);
+
+      IF(RecordExists(^file->value))
+      {
+        file := OpenTestsuiteSite()->rootobject->EnsureFolder([name := "temp"])->EnsureFile([ name := this->filename || ".dat" , type := 0 ]);
+        file->UpdateMetaData( [ data := ^file->value.data, title := ^file->value.filename ]);
+      }
+      ELSE
+      {
+        file := OpenTestsuiteSite()->rootobject->OpenByPath("temp/" || this->filename || ".dat");
+        IF(ObjectExists(file))
+          file->RecycleSelf();
+      }
+    }
+    work->Finish();
+    RETURN [ htmltext := RecordExists(^rtd->value) ? BlobToSTring(^rtd->value.htmltext) : ""
+           , img := CellDelete(^img->value, 'DATA')
+           , file := CellDelete(^file->value, 'DATA')
+           , file2 := CellDelete(^file2->value, 'DATA')
+           ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MultipageTestForm EXTEND FormBase
+<
+  MACRO NEW()
+  {
+    // Set visibility conditions manually, as they cannot be defined in XML (yet?)
+    ^conditional->visiblecondition := FCAnd([ FCNot(FCIsSet(^skipform)), FCIsSet(^fillmaybe) ]);
+    ^hiddengroup->visible := FALSE;
+    ^extra->visiblecondition := FCMatch(^fillextra, "IN", [ 1 ]);
+    ^lastpage->visiblecondition := FCNot(FCIsSet(^skipform));
+    ^text4->visiblecondition := FCAnd([ FCNot(FCIsSet(^skipform)), FCIsSet(^fillmaybe) ]);
+    ^vertspacetext->visiblecondition :=  FCIsSet(^vertspace);
+    ^vertspacetext2->visiblecondition := FCIsSet(^vertspace);
+    ^vertspacetext3->visiblecondition := FCIsSet(^vertspace);
+    ^img->enabledcondition := FCIsSet(^fillmaybe);
+  }
+
+  RECORD FUNCTION Submit(RECORD data)
+  {
+    OBJECT work := this->BeginWork();
+    IF(^text->value = "FAIL EMAIL")
+      work->AddErrorFor(^email, "Bad email: " || ^email->value);
+    work->Finish();
+    RETURN CELL[...this->formvalue,...data];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PaymentFormHandler EXTEND FormHandlerBase
+<
+  OBJECT payentity;
+
+  UPDATE PUBLIC MACRO PrepareSubmit(OBJECT work)
+  {
+    this->payentity := GetWRDTestPaymentAPI()->paymenttype->CreateEntity(DEFAULT RECORD);
+  }
+  UPDATE PUBLIC RECORD FUNCTION UpdateResultAfterSubmit(RECORD result)
+  {
+    STRING returnurl := GetWRDTestPaymentReturnURL(GetWRDTestPaymentAPI());
+    RECORD pmresult := GetWRDTestPaymentAPI()->StartPayment(this->payentity->id, 2.42m, CELL[...this->form->^pm->value, returnurl]);
+    RETURN CELL[...result, submitinstruction := pmresult.submitinstruction ];
+  }
+>;
+
+PUBLIC OBJECTTYPE AddressForm EXTEND FormBase
+<
+  STRING filename;
+
+  MACRO NEW()
+  {
+    ^addressgroup->visiblecondition := [ matchtype := "HASVALUE", field := "visiblegroup", value := true ];
+    ^addressgroup->enabledcondition := [ matchtype := "HASVALUE", field := "enablegroup", value := true ];
+    ^address->visiblecondition := [ matchtype := "HASVALUE", field := "visiblefields", value := true ];
+    ^address->enabledcondition := [ matchtype := "HASVALUE", field := "enablefields", value := true ];
+    ^address3group->visible := IsRequest() AND GetFormWebVariable("address") = "2";
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
+  {
+    OBJECT work := this->BeginWork();
+    work->Finish();
+
+    RETURN
+        [ ok :=       NOT work->HasFailed()
+        , value :=    this->formvalue
+        , address :=  ^address->value
+        ];
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE RedirectForm EXTEND FormBase
+<
+  RECORD FUNCTION Submit(RECORD extradata)
+  {
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE EmailForm EXTEND FormBase
+<
+  RECORD FUNCTION Submit(RECORD extradata)
+  {
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE WorkHandlingErrorsForm EXTEND FormBase
+<
+  RECORD FUNCTION Submit(RECORD extradata)
+  {
+    OBJECT work := this->BeginWork();
+    SWITCH (^mode->value)
+    {
+      CASE "normal"       { work->Finish(); }
+      CASE "nofinish"     { RETURN DEFAULT RECORD; }
+      CASE "throws"       { THROW NEW Exception("Form exception"); }
+      CASE "doublework"   {
+                            work->Finish();
+                            work := this->BeginWork();
+                            work->Finish();
+                          }
+      CASE "doublebegin"  {
+                            work := this->BeginWork();
+                            work->Finish();
+                          }
+    }
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+MACRO SetValueMember(OBJECT prop, RECORD ARRAY suggesteddata)
+{
+  prop->value := suggesteddata;
+}
+
+OBJECTTYPE TestObject
+<
+  PUBLIC INTEGER val;
+
+  MACRO NEW(INTEGER val)
+  {
+    this->val := val;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ArrayForm EXTEND FormBase
+<
+  OBJECT m1;
+  OBJECT m2;
+
+  MACRO NEW()
+  {
+    IF (GetFormWebVariable("prefill") = "1")
+    {
+      ^text->value := "prefilled name";
+
+      TestThrows(PTR SetValueMember(^contacts, [[ name := 42 ]])); //should throw, invalid type
+
+      SetValueMember(^contacts, [ [ name := "first contact"
+                                  , photo := OpenTestsuiteSite()->OpenByPath("/testpages/imgeditfile.jpeg")->GetWrapped()
+                                  ]
+                                ]);
+
+      TestEQ(DEFAULT DATETIME, ^contacts->value[0].wrd_dateofbirth);
+    }
+    ELSE IF (GetFormWebVariable("prefill") = "2")
+    {
+      ^contacts->^gender->value := 1;
+
+      //Test cell preservation
+      this->m1 := NEW TestObject(42);
+      this->m2 := NEW TestObject(43);
+
+      SetValueMember(^contacts, [ [ name := "Row 1", wrd_settingid := -1, myobject := this->m1 ]
+                                , [ name := "Row 2", anotherobject := DEFAULT OBJECT]
+                                , [ name := "Row 3", wrd_settingid := -3, myobject := this->m2 ]
+                                ]);
+
+      TestEq(0, ^contacts->value[0].gender, "The prefill should only work clientside");
+      TestEq(-1, ^contacts->value[0].wrd_settingid);
+      TestEq(DEFAULT OBJECT, ^contacts->value[1].anotherobject);
+      TestEq(this->m2, ^contacts->value[2].myobject);
+    }
+
+    ^contacts->^name->placeholder := "Your full name";
+    ^contacts->^gender->options := [ [rowkey := 0, title := "Other"]
+                                   , [rowkey := 1, title := "Male"]
+                                   , [rowkey := 2, title := "Female"]
+                                   ];
+    ^customarray->^twolevel->field2->visiblecondition := DEFAULT RECORD; //FIXME support visible conditions on subfields (they need scoping/renaming), but out of scope for #1396
+  }
+
+  RECORD FUNCTION Submit(RECORD extradata)
+  {
+    OBJECT work := this->BeginWork();
+    work->Finish();
+
+    RECORD value := this->formvalue;
+    value.contacts := SELECT *
+                           , myobject      := CellExists(contacts,'myobject') ? Objectexists(contacts.myobject) ? contacts.myobject->val : -1 : -2
+                           , anotherobject := CellExists(contacts,'anotherobject') ? Objectexists(contacts.anotherobject) ? contacts.anotherobject->val : -1 : -2
+                        FROM value.contacts;
+
+    RETURN
+        [ ok :=       NOT work->HasFailed()
+        , value :=    value
+        ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE DateTimeTestForm EXTEND FormBase
+<
+  MACRO NEW()
+  {
+    ^dateofbirth->enabledcondition := FCIsSet(^enable_fields);
+    ^dateofbirth->requiredcondition := FCIsSet(^require_fields);
+    ^dateofbirth->visiblecondition := FCIsSet(^show_fields);
+    ^time->enabledcondition := FCIsSet(^enable_fields);
+    ^time->requiredcondition := FCIsSet(^require_fields);
+    ^time->visiblecondition := FCIsSet(^show_fields);
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
+  {
+    OBJECT work := this->BeginWork();
+
+    work->Finish();
+
+    RETURN [ ok := work->HasFailed() ? 0 : 424140
+           , form := this->formvalue
+           , extradata := extradata
+           ];
+  }
+>;

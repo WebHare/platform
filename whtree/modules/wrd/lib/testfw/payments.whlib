@@ -1,0 +1,39 @@
+<?wh
+/** @short Testframework helpers for paymnet pages
+    @topic testframework/wrd
+*/
+
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+/** @short Accept or reject testprovider payment
+    @long Navigates to the requested payment URL (if using the test-provider) and click the specified approval button. Use this when testing payment flows from HareScript tests
+    @param payurl Payment URL as received in the payment submitinstruction
+    @param approvetype Either 'approved' or 'failed'
+*/
+PUBLIC MACRO CompleteWRDTestpayment(STRING payurl, STRING approvetype)
+{
+  payurl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), payurl);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(payurl), "Failed to navigate to payment URL " || payurl);
+  PushWRDTestPaymentButton(approvetype);
+}
+
+/** @short Click testprovider payment approval button
+    @long Click the specified approval button if the testframework browser is already on the payment page.
+    @param approvetype Either 'approved' or 'failed'
+*/
+PUBLIC MACRO PushWRDTestPaymentButton(STRING approvetype)
+{
+  IF(approvetype NOT IN ["approved","failed"])
+    THROW NEW Exception(`Unsupported approvetype '${approvetype} - use 'approved' or 'failed'`);
+
+  OBJECT button := testfw->browser->QS(`button[name="approve"][value="${approvetype = "approved" ? "yes" : "no"}"]`);
+  TestEq(TRUE, ObjectExists(button), `Cant find '${approvetype}' button`);
+  TestEq(TRUE, testfw->browser->SubmitForm(button), `Cant click '${approvetype}' button`);
+
+  IF(testfw->debug)
+    Print("Return url: " || testfw->browser->href||'\n');
+}
+

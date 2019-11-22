@@ -1,0 +1,129 @@
+﻿<?wh
+
+LOADLIB "wh::dbase/whdb.whlib";
+
+LOADLIB "mod::tollium/lib/backgroundtask.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/exchange.whlib";
+LOADLIB "mod::wrd/lib/internal/sync/sync.whlib";
+
+
+PUBLIC OBJECTTYPE ImportArchive EXTEND TolliumBackgroundTask
+<
+  RECORD data;
+  STRING statuscode;
+  OBJECT overwrittenschema;
+
+  MACRO Init(RECORD data)
+  {
+    this->data := data;
+  }
+
+  MACRO OnStatusUpdate(FLOAT curpos, FLOAT total)
+  {
+    IF(total >= 0)
+      this->status := [ progress := (curpos*1m/total) * 95, status := "" ];
+  }
+
+  MACRO OnImportOverwrite(INTEGER schemaid)
+  {
+    this->overwrittenschema := OpenWRDSchemaById(schemaid);
+
+    IF(this->overwrittenschema->protected)
+    {
+      this->statuscode := "protected";
+      THROW NEW Exception("protected");
+    }
+    IF (NOT this->user->HasRightOn("wrd:metadata", schemaid))
+    {
+      this->statuscode := "cannotreplace";
+      THROW NEW Exception("cannotreplace");
+    }
+  }
+
+  MACRO Run()
+  {
+    INTEGER newschemaid;
+    OBJECT work := this->BeginWork();
+    GetPrimary()->DisableWorkTimeout();
+
+    OBJECT importer := NEW WRDImExport(DEFAULT OBJECT, DEFAULT RECORD);
+    importer->onprogresscallback := PTR this->OnStatusUpdate;
+    importer->onoverwritingschema := PTR this->OnImportOverwrite;
+    importer->ignoremissingreferences := this->data.ignoremissingreferences;
+
+    TRY
+    {
+      importer->RunImport(this->data.data);
+      newschemaid := importer->GetImportedSchemaID();
+      IF(newschemaid=0)
+      {
+        this->result := [ status := "error", errors := ["No schema found"] ];
+        RETURN;
+      }
+    }
+    CATCH(OBJECT<Exception> e)
+    {
+      IF(this->statuscode NOT IN ["protected","cannotreplace"]) //not our exception
+        THROW e;
+
+      this->result := [ status := this->statuscode, schemaname := this->overwrittenschema->tag, schemaid := 0 ];
+      RETURN;
+    }
+
+    IF(NOT work->HasFailed())
+    {
+      IF (NOT this->user->HasRightOn("wrd:metadata", newschemaid))
+        this->user->GrantRightToOn("wrd:metadata", this->user, newschemaid, TRUE);
+    }
+
+    IF(NOT work->Finish())
+    {
+      this->result := [ status := "error"
+                      , errors := (SELECT AS STRING ARRAY text FROM work->errors)
+                      ];
+    }
+
+    IF(ObjectExists(this->overwrittenschema))
+      this->result := [ status := "renamed", schemaname := OpenWRDSchemaById(newschemaid)->tag, renamedschemaname := OpenWRDSchemaById(this->overwrittenschema->id)->tag, schemaid := newschemaid ];
+    ELSE
+      this->result := [ status := "ok", schemaname := OpenWRDSchemaById(newschemaid)->tag, schemaid := newschemaid ];
+  }
+>;
+
+
+PUBLIC OBJECTTYPE SyncSchema EXTEND TolliumBackgroundTask
+<
+  RECORD data;
+
+  MACRO Init(RECORD data)
+  {
+    this->data := data;
+  }
+
+  MACRO Run()
+  {
+    OBJECT peer := OpenMarshalledWebHarePeer(this->data.peerinfo);
+    OBJECT wrdschema := OpenWRDSchemaById(this->data.wrdschema);
+
+    OBJECT itr := SyncFromExternalSchema(wrdschema, peer, this->data.syncpoint.remotewrdschematag);
+
+    RECORD rec;
+    WHILE (TRUE)
+    {
+      rec := itr->Next();
+      IF (rec.done)
+        BREAK;
+
+      IF (CellExists(rec.value, "IMPORTANT") AND rec.value.important)
+        this->ForceSetStatus(CELL[ rec.value.progress, rec.value.status ]);
+      ELSE
+        this->status := CELL[ rec.value.progress, rec.value.status ];
+    }
+    this->result := CELL[ status := "ok", result := rec.value ];
+  }
+>;

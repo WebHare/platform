@@ -1,0 +1,73 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components">
+
+  <!-- find users and/or roles -->
+  <fragment name="userrolesearch" lib="screens/userrights/parts/userrolesearch.whlib" gid="userrights.commondialogs.search">
+
+    <actions gid="userrights.actions">
+      <action name="search" onexecute="dosearch" />
+      <action name="showobject" onexecute="doshowobject">
+        <enableon source="searchresults" min="1" max="1" />
+      </action>
+      <action name="editobject" onexecute="@notimplemented">
+        <enableon source="searchresults" min="1" max="1" />
+      </action>
+      <!--action name="togglesearchbar" shortcut="alt+f3" onexecute="userrights->dotogglesearchbutton" tid=".togglesearchbar"/-->
+    </actions>
+
+    <menus>
+      <menu name="optionsmenu">
+        <item action="showobject" />
+        <item action="editobject" />
+      </menu>
+    </menus>
+
+    <contents>
+      <panel spacers="all" borders="bottom">
+        <line>
+          <textedit name="searchfor" defaultbutton="searchbutton" width="60x" title="" />
+          <button name="searchbutton" action="search" tid="tollium:common.actions.search"/>
+        </line>
+      </panel>
+      <panel height="1pr" name="searchresultspanel">
+        <list name="searchresults"
+              height="1pr"
+              selectmode="multiple"
+              borders="bottom "
+              openaction="showobject"
+              ongetchildren="showsearchresults"
+              icons="tollium:users/user tollium:users/mask tollium:users/users tollium:status/checked tollium:security/lock_closed tollium:users/manager"
+              rowlayout="tworows"
+              gid="userrights.columns"
+              >
+<!--                  selectcontextmenu="optionsmenu"-->
+          <column type="icon" name="icon" title="" sortkeyname="type" />
+          <column type="text" name="name" width="3pr" />
+          <column type="text" name="unitpath" width="2pr" tid=".unit" />
+          <column type="text" name="description" />
+
+          <rowlayout name="tworows">
+            <col coldef="icon" />
+            <col coldef="name"/>
+            <col coldef="unitpath" />
+            <row>
+              <cell rowspan="2" coldef="icon" />
+              <cell coldef="name" />
+              <cell coldef="unitpath" />
+            </row>
+            <row>
+              <cell colspan="2" coldef="description" />
+            </row>
+          </rowlayout>
+        </list>
+      </panel>
+      <panel spacers="all">
+        <line layout="right">
+          <button action="showobject" tid=".goto"/> <!--  action="jumptosearchresult" -->
+        </line>
+      </panel>
+    </contents>
+  </fragment>
+
+</screens>

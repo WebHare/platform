@@ -1,0 +1,52 @@
+<?wh
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE Test_Fragment_Visibility EXTEND TolliumScreenBase
+<
+  OBJECT newbox;
+
+  MACRO Init()
+  {
+  }
+
+  MACRO DoToggle()
+  {
+    this->uploadfield->visible := NOT this->uploadfield->visible;
+    IF (ObjectExists(this->newbox))
+      this->newbox->visible := NOT this->newbox->visible;
+    ELSE
+    {
+      this->boxcheck->visible := NOT this->boxcheck->visible;
+      //ABORT(this->boxcheck->visible);
+    }
+  }
+
+  MACRO DoReplace()
+  {
+    IF (NOT ObjectExists(this->newbox))
+    {
+      this->newbox := this->CreateTolliumComponent("box");
+      this->newbox->title := "Dynamic";
+      this->newbox->checkbox := TRUE;
+      this->newbox->visible := this->boxcheck->visible;
+      OBJECT newcontent := this->CreateTolliumComponent("text");
+      newcontent->value := "Box content";
+      this->newbox->InsertComponentBefore(newcontent, DEFAULT OBJECT, TRUE);
+      this->componentpanel->InsertComponentBefore(this->newbox, this->togglebutton, TRUE);
+      this->boxcheck->DeleteComponent();
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE PanelSwap EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    TestEq(TRUE, this->becomesinvisible->isnowvisible);
+    this->swapme->contents := this->Loadscreen(".dummypanel");
+    TestEq(FALSE, this->becomesinvisible->isnowvisible);
+    this->swapme->contents := DEFAULT OBJECT;
+    TestEq(TRUE, this->becomesinvisible->isnowvisible);
+  }
+>;

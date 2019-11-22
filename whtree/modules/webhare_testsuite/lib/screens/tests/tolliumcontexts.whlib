@@ -1,0 +1,11 @@
+﻿<?wh
+
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE ContextTest EXTEND TolliumScreenBase
+<
+  PUBLIC MACRO Test()
+  {
+  }
+>;

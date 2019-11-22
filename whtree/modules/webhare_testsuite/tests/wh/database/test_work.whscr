@@ -1,0 +1,48 @@
+﻿<?wh
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+STRING ARRAY handlerresult;
+MACRO CommitHandler(OBJECT trans, STRING id, BOOLEAN iscommit)
+{
+  trans->BeginWork();
+  STRING val := iscommit ? "commit-" || id : "rollback-" || id;
+  INSERT val INTO handlerresult AT UpperBound(handlerresult, val);
+  trans->CommitWork();
+}
+
+MACRO TestAutoTransaction()
+{
+  OBJECT trans := OpenPrimary();
+
+  TestThrows(PTR trans->Commit());
+
+  trans->BeginWork();
+  handlerresult := DEFAULT STRING ARRAY;
+  trans->RegisterCommitHandler("", PTR CommitHandler(trans, "1", #1));
+  trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "2", #1));
+  trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "3", #1)); // ignored due to same tag
+  trans->CommitWork();
+  TestEQ([ "commit-1", "commit-2" ], handlerresult);
+
+  trans->BeginWork();
+  handlerresult := DEFAULT STRING ARRAY;
+  trans->RegisterCommitHandler("", PTR CommitHandler(trans, "1", #1));
+  trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "2", #1));
+  trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "3", #1)); // ignored due to same tag
+  trans->RollbackWork();
+  TestEQ([ "rollback-1", "rollback-2" ], handlerresult);
+
+  trans->BeginWork();
+  handlerresult := DEFAULT STRING ARRAY;
+  trans->RegisterCommitHandler("", PTR CommitHandler(trans, "1", #1));
+  trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "2", #1));
+  trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "3", #1)); // ignored due to same tag
+  trans->Close();
+  TestEQ([ "rollback-1", "rollback-2" ], handlerresult);
+}
+
+RunTestFramework( [ PTR TestAutoTransaction
+                  ], [ usedatabase := FALSE ]);

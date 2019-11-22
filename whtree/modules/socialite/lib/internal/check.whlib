@@ -1,0 +1,35 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::socialite/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+PUBLIC OBJECTTYPE SessionsCheck EXTEND CustomCheckBase
+<
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetIssues()
+  {
+    STRING ARRAY issues;
+    DATETIME threshold := AddTimeToDate(-60 * 60 * 1000, GetCurrentDatetime());
+    RECORD ARRAY sessions :=
+        SELECT sessions.id
+             , application
+             , account
+             , accounttag :=        accounts.tag
+             , accounttitle :=      accounts.title
+             , applicationtag :=    applications.tag
+             , applicationtitle :=  applications.title
+             , sessiontag :=        sessions.tag
+             , verifiedat
+          FROM socialite.sessions
+             , socialite.applications
+             , socialite.accounts
+         WHERE sessions.application = applications.id
+           AND applications.account = accounts.id
+           AND verifiedat < threshold
+           AND expirationwarning;
+
+    FOREVERY (RECORD sess FROM sessions)
+      INSERT "Socialite session '" || sess.sessiontag || "' in connection '" || sess.accounttitle || "':'" || sess.applicationtitle || "' has expired" INTO issues AT END;
+
+    RETURN issues;
+  }
+>;

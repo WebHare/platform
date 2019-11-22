@@ -1,0 +1,33 @@
+<?wh
+LOADLIB "wh::promise.whlib";
+
+PUBLIC OBJECTTYPE ClusterTestLink
+<
+  MACRO NEW(STRING testdata)
+  {
+    IF(testdata="abort") ABORT("abort");
+  }
+  PUBLIC INTEGER FUNCTION GetLUE()
+  {
+    RETURN 42;
+  }
+  PUBLIC OBJECT ASYNC FUNCTION GetAsyncLUE()
+  {
+    RETURN CreateResolvedPromise(42);
+  }
+  PUBLIC MACRO Crash()
+  {
+    THROW NEW Exception("Crash()");
+  }
+  PUBLIC OBJECT FUNCTION GetAsyncCrash()
+  {
+    TRY
+    {
+      THROW NEW Exception("Async crash()");
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN CreateRejectedPromise(e);
+    }
+  }
+>;

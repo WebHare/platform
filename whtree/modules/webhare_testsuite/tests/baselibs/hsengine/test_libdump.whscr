@@ -1,0 +1,216 @@
+<?wh
+
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+
+
+/* The following code uses every opcode that is actually generated
+    by the compiler
+*/
+
+INTEGER globali;
+
+INTEGER FUNCTION f(VARIANT s)
+{
+  RETURN INTEGER(s) + 1; // RET
+}
+
+INTEGER FUNCTION f2(INTEGER s) { RETURN s + 2;}
+
+MACRO Terminates() __ATTRIBUTES__(TERMINATES)
+{
+  ABORT("terminate");
+}
+
+OBJECTTYPE otype
+<
+  RECORD rec;
+  MACRO NEW() // OBJSETTYPE
+  {
+    INSERT MEMBER a := 1 INTO this; // OBJMEMBERINSERTTHIS
+    this->a := this->a + 1; // OBJMEMBERGETTHIS, OBJMEMBERSETTHIS
+    DELETE MEMBER a FROM this; // OBJMEMBERDELETETHIS
+    IF (this->f() = 1) // OBJMETHODCALLTHIS
+      this->f(); // OBJMETHODCALLTHISNM
+    EXTEND this BY otype2; // OBJTESTNONSTATICTHIS
+    this->rec := [ b := [ 2 ] ];
+    INSERT 2 INTO this->rec.b AT END; // DEEPARRAYAPPENDTHIS
+    DELETE FROM this->rec.b AT 0; // DEEPARRAYDELETETHIS
+    INSERT TypeID(this->rec.b[0]) INTO this->rec.b[0] AT 0; // DEEPARRAYINSERTTHIS
+    this->rec.b[0] := this->rec.b[0] + 1; // DEEPSETTHIS
+  }
+
+  PUBLIC OBJECT FUNCTION pthis()
+  {
+    RETURN PRIVATE this; // OBJMAKEREFPRIV
+  }
+
+  INTEGER FUNCTION f() { RETURN 1; }
+  ASYNC MACRO asyn() { AWAIT 1; } // YIELD
+>;
+OBJECTTYPE otype2 < >;
+
+TABLE< INTEGER id > t;
+
+MACRO Test(BOOLEAN bfalse)
+{
+  INTEGER i := globali; // LOADG
+  FOR (; i < 2; i := i + 1) // CMP2, LOADS, LOADC, JUMPC2F, JUMP
+  {
+    PRINT(FormatFloat(FLOAT(i) + i, 2) || "\n"); // CASTF, CAST, ADD, MERGE
+    i := (-((i * 2) - 10) / 2) % 100; // MUL, NEG, MOD, DIV
+  }
+  globali := i; // STORES
+
+  globali := f(globali); // LOADGD
+
+  INTEGER ARRAY arr;
+  DELETE FROM arr ALL; // ARRAYDELETEALL
+  INSERT i INTO arr AT END; // ARRAYAPPEND
+  INSERT arr[0] INTO arr AT 0; // ARRAYINSERT
+  DELETE FROM arr AT LENGTH(arr) - 1; // ARRAYDELETE
+
+  i := ((((i BITOR i) BITAND (BITNEG i)) BITLSHIFT 1) BITRSHIFT 1) BITXOR 0; // BIT*
+  RECORD b := [ c := [ d := [ 1 ] ] ];
+  b.c.d[0] := 2; // DEEPSET
+  INSERT 3 INTO b.c.d AT END; // DEEPARRAYAPPEND
+  INSERT 1 INTO b.c.d AT 0; // DEEPARRAYINSERT
+  DELETE FROM b.c.d AT 1; // DEEPARRAYDELETE
+
+  STRING s1 := "l";
+  INTEGER ARRAY e := b.c.d CONCAT b.c.d; // CONCAT
+  IF (e[0] IN e) // ISIN
+    PRINT(s1 LIKE "l*" ? "true" : "false"); // LIKE
+
+  INSERT e[0] INTO e AT END; // ARRAYAPPEND
+  DELETE FROM e AT END - 1; // ARRAYDELETE
+  e[0] := e[0] + 1; // ARRAYINDEX, ARRAYSET
+
+  INSERT CELL e := 2 INTO b; // RECORDCELLCREATE
+  b.e := 3; // RECORDCELLUPDATE
+  DELETE CELL e FROM b; // RECORDCELLDELETE
+  RECORD c := CELL[ ...b ]; // RECORDMAKEEXISTING
+  IF (TypeID(b.e) = TypeID(INTEGER)) //RECORDCELLGET
+  {
+    FUNCTION PTR pf := PTR f; // INITFUNCTIONPTR
+    IF (pf() = 1) // INVOKEFPTR
+      pf(); // INVOKEFPTRNM
+  }
+  DumpValue(CELL[ b, c, e ]); // keepalive
+
+  OBJECT o := NEW otype; // OBJNEW
+  EXTEND o->pthis() BY otype2; // OBJTESTNONSTATIC
+
+  INSERT MEMBER b := 3 INTO o->pthis(); // OBJMEMBERINSERT
+  o->b := o->b + 1; // OBJMEMBERGET, OBJMEMBERSET
+  DELETE MEMBER b FROM o->pthis(); // OBJMEMBERDELETE
+
+  IF (o->pthis()->f() = 1) // OBJMETHODCALL
+    o->pthis()->f(); // OBJMETHODCALLNM
+
+  //f(o->pthis()->f());
+
+  BOOLEAN btrue := bfalse XOR bfalse; // XOR
+
+  IF ((NOT IsDefaultValue(i) OR NOT IsValueSet(i)) AND btrue) // NOT, ISDEFAULTVALUE, ISVALUESET
+    THROW NEW Exception("fail");
+
+  INTEGER g := 10;
+  TRY
+    o->pthis();
+  CATCH // DESTROYS
+    PRINT(`${g}`);
+
+  f2(b.d.d[0]); //CALL, CASTPARAM
+
+  IF ((SELECT AS INTEGER id FROM t) = 0) // RECORDCELLSET, LOADTYPEID
+    PRINT("X");
+
+  Terminates(); // THROW2
+}
+
+
+// These instructions aren't actually generated in code
+STRING ARRAY unused :=
+    [ "AND", "ARRAYSIZE", "CMP", "DEC", "ILLEGAL", "INC", "JUMPC", "JUMPC2"
+    , "NOP", "OBJMEMBERISSIMPLE", "OR", "PRINT", "THROW"
+    ];
+
+STRING ARRAY instrs :=
+    [ "ADD", "AND", "ARRAYAPPEND", "ARRAYDELETE", "ARRAYDELETEALL", "ARRAYINDEX"
+    , "ARRAYINSERT", "ARRAYSET", "ARRAYSIZE", "BITAND", "BITLSHIFT", "BITNEG"
+    , "BITOR", "BITRSHIFT", "BITXOR", "CALL", "CAST", "CASTF", "CASTPARAM"
+    , "CMP", "CMP2", "CONCAT", "COPYS", "DEC", "DEEPARRAYAPPEND"
+    , "DEEPARRAYAPPENDTHIS", "DEEPARRAYDELETE", "DEEPARRAYDELETETHIS"
+    , "DEEPARRAYINSERT", "DEEPARRAYINSERTTHIS", "DEEPSET", "DEEPSETTHIS"
+    , "DESTROYS", "DIV", "DUP", "ILLEGAL", "INC", "INITFUNCTIONPTR", "INITVAR"
+    , "INVOKEFPTR", "INVOKEFPTRNM", "ISDEFAULTVALUE", "ISIN", "ISVALUESET"
+    , "JUMP", "JUMPC", "JUMPC2", "JUMPC2F", "LIKE", "LOADC", "LOADG", "LOADGD"
+    , "LOADS", "LOADSD", "LOADTYPEID", "MERGE", "MOD", "MUL", "NEG", "NOP"
+    , "NOT", "OBJMAKEREFPRIV", "OBJMEMBERDELETE", "OBJMEMBERDELETETHIS"
+    , "OBJMEMBERGET", "OBJMEMBERGETTHIS", "OBJMEMBERINSERT"
+    , "OBJMEMBERINSERTTHIS", "OBJMEMBERISSIMPLE", "OBJMEMBERSET"
+    , "OBJMEMBERSETTHIS", "OBJMETHODCALL", "OBJMETHODCALLNM"
+    , "OBJMETHODCALLTHIS", "OBJMETHODCALLTHISNM", "OBJNEW", "OBJSETTYPE"
+    , "OBJTESTNONSTATIC", "OBJTESTNONSTATICTHIS", "OR", "POP", "PRINT"
+    , "RECORDCELLCREATE", "RECORDCELLDELETE", "RECORDCELLGET"
+    , "RECORDCELLSET", "RECORDCELLUPDATE", "RECORDMAKEEXISTING", "RET"
+    , "STOREG", "STORES", "SUB", "SWAP", "THROW", "THROW2", "XOR", "YIELD"
+    ];
+
+RECORD ARRAY lengths :=
+    [ [ len :=      5
+      , instrs :=   [ "CALL", "JUMP", "JUMPC", "JUMPC2", "JUMPC2F", "LOADC"
+                    , "LOADS", "STORES", "LOADG", "STOREG", "LOADSD", "LOADGD"
+                    , "DESTROYS", "COPYS", "CAST", "CASTF", "CASTPARAM"
+                    , "RECORDCELLGET", "RECORDCELLSET", "RECORDCELLCREATE"
+                    , "RECORDCELLUPDATE", "RECORDCELLDELETE", "OBJMEMBERGET"
+                    , "OBJMEMBERGETTHIS", "OBJMEMBERSET", "OBJMEMBERSETTHIS"
+                    , "OBJMEMBERDELETE", "OBJMEMBERDELETETHIS", "INITVAR"
+                    , "LOADTYPEID"
+                    ]
+      ]
+    , [ len :=      6
+      , instrs :=   [ "OBJMEMBERINSERT", "OBJMEMBERINSERTTHIS"
+                    ]
+      ]
+    , [ len :=      9
+      , instrs :=   [ "CASTPARAM", "OBJMETHODCALL", "OBJMETHODCALLTHIS"
+                    , "OBJMETHODCALLNM", "OBJMETHODCALLTHISNM"
+                    ]
+      ]
+    ];
+
+RECORD FUNCTION __HS_LIBDUMP(STRING libname) __ATTRIBUTES__(EXTERNAL);
+
+MACRO TestLibdump()
+{
+  RECORD dump := __HS_LIBDUMP("mod::webhare_testsuite/tests/baselibs/hsengine/test_libdump.whscr");
+  IF (NOT dump.success)
+    dump := __HS_LIBDUMP("test::test_libdump.whscr");
+
+  TestEQ(TRUE, dump.success);
+
+  STRING ARRAY got := SELECT AS STRING ARRAY code.code FROM dump.code;
+
+  TestEQ(STRING[], ArrayDelete(got, instrs));
+  TestEQ(unused, ArrayDelete(instrs, got));
+
+  FOREVERY (RECORD rec FROM dump.code)
+  {
+    IF (#rec = LENGTH(dump.code) - 1)
+      BREAK;
+
+    INTEGER len := dump.code[#rec+1].codeptr - rec.codeptr;
+    INTEGER expect := 1;
+    FOREVERY (RECORD lrec FROM lengths)
+      IF (rec.code IN lrec.instrs)
+        expect := lrec.len;
+
+    TestEQ(expect, len, `Length for opcode ${rec.code} wrong`);
+  }
+}
+
+PRINT("\n === Running TestLibdump\n");
+TestLibdump();

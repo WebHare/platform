@@ -1,0 +1,269 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "mod::publisher/lib/commondialogs.whlib"; // for browse dialog
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";        // for GetWebhareResource
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+/*
+FIXME: would have been better to use listedit instead of arrayedit?
+
+ADDME: a fun idea (for which probably no-one will ever have time to implement) would be
+       an <imageoverlaylist>, which would be fragment component much like <arrayedit>.
+       It would have
+       - imagecomponent attribute to link it (and sync overlays with it)
+       - support onmaprows and roweditscreen
+       - accept list columns
+*/
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  RECORD image;
+
+  MACRO Init()
+  {
+    this->image := WrapBlob(GetWebhareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), "rangetestfile.jpg");
+    this->icon->value := this->image;
+
+    this->InitTestOverlays();
+
+    this->overlays->value := SELECT *, overlayrowkey := rowkey FROM this->icon->overlays;
+  }
+
+  MACRO InitTestOverlays()
+  {
+    // We need our own rowkey column, because <arrayedit> aggresivaly takes over the rowkey column
+    RECORD ARRAY overlays :=
+        SELECT *
+             , rowkey := #row
+             , overlayrowkey := #row // duplicate of rowkey for use when copying the overlays RECORD ARRAY to <arrayedit> (which kills the original rowkey column)
+             , selectable := FALSE
+             , editable := TRUE
+             , hasurl := url != ""
+             , odd := #row%2=1
+          FROM [ [ title := "Item 1", url := "http://www.b-lex.nl", area := [ type := "rectangle", left := 10, top := 40, width := 120, height := 75 ] ]
+               , [ title := "Item 2", url := "http://www.amigacafe.nl", area := [ type := "rectangle", left := 600, top := 350, width := 175, height := 50 ] ]
+               , [ title := "Item without URL", url := "", area := [ type := "rectangle", left := 350, top := 500, width := 120, height := 75 ] ]
+               ] AS row;
+
+    this->icon->overlays := overlays;
+    this->icon->selection := overlays[0]; // preselect the first overlay
+  }
+
+  MACRO DoPreviewURL(OBJECT openhandler)
+  {
+    openhandler->SendURL(this->icon->selection.url);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAny()
+  {
+
+  }
+
+  MACRO DoOpenPublisherFile()
+  {
+    OBJECT browse := CreateBrowseForWHFSObjectDialog(this);
+    browse->accepttypes   := [ "http://www.webhare.net/xmlns/publisher/imagefile" ];
+    browse->acceptfolders := FALSE;
+    browse->type          := "thumbnails";
+    browse->selectmode    := "single";
+
+    IF (browse->RunModal() != "ok")
+      RETURN; // browsing was cancelled
+
+    INTEGER imagefileid := browse->value;
+
+    RECORD imagefilerec := SELECT name, data FROM system.fs_objects WHERE id = imagefileid;
+    this->icon->value := WrapBlob(imagefilerec.data, imagefilerec.name);;
+  }
+
+  MACRO OnUploadImage(RECORD ARRAY files)
+  {
+    RECORD file := files[0];
+    IF (file.mimetype NOT LIKE "image/*")
+      RETURN; // FIXME: show a messagebox to report this isn't an image
+
+    this->image := WrapBlob(file.data, file.filename);
+    this->icon->value := this->image;
+  }
+
+  MACRO DoDownloadImageMap(OBJECT downloadhandler)
+  {
+    BLOB imagemap := this->GenerateImageMap();
+    downloadhandler->SendFile(imagemap, "text/html", "imagemap.html");
+  }
+
+  // download image + image html in a single ZIP archive
+  MACRO DoDownloadImageMapArchive(OBJECT downloadhandler)
+  {
+    BLOB imagemap := this->GenerateImageMap();
+    BLOB jsondata := EncodeJSONBlob(this->icon->overlays);
+
+    OBJECT zip := CreateNewArchive("zip");
+    zip->AddFile(this->image.filename, this->image.data, GetCurrentDateTime());
+    zip->AddFile("index.html", imagemap, GetCurrentDateTime());
+    zip->AddFile("imagemap.json", jsondata, GetCurrentDateTime());
+    BLOB archive := zip->MakeBlob();
+
+    STRING filename := "imagemap-" || GetSafeFileName(GetBasenameFromPath(this->image.filename)) || ".zip";
+
+    downloadhandler->SendFile(archive, "application/zip", filename);
+  }
+
+  MACRO DoDownloadJSON(OBJECT downloadhandler)
+  {
+    BLOB jsondata := EncodeJSONBlob(this->icon->overlays);
+    downloadhandler->SendFile(jsondata, "text/html", "overlays.json");
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Overlay editting
+  //
+
+  // After the user editted the title inline, store the title and RETURN TRUE to notify the update was approved
+  BOOLEAN FUNCTION DoEditCell(RECORD row, STRING cellname, STRING newvalue)
+  {
+    SWITCH(cellname)
+    {
+      CASE "title"
+      {
+        UPDATE this->overlays->value SET title := newvalue WHERE overlayrowkey = row.overlayrowkey;
+        UPDATE this->icon->overlays SET title := newvalue WHERE rowkey = row.overlayrowkey;
+      }
+      CASE "url"
+      {
+        UPDATE this->overlays->value SET url := newvalue, hasurl := url != "" WHERE overlayrowkey = row.overlayrowkey;
+        UPDATE this->icon->overlays  SET url := newvalue, hasurl := url != "" WHERE rowkey = row.overlayrowkey;
+      }
+    }
+    RETURN TRUE;
+  }
+
+  RECORD FUNCTION OnEditOverlayRow(RECORD row)
+  {
+    INTEGER newrowkey := (SELECT AS INTEGER MAX(overlayrowkey)+1 FROM this->icon->overlays);
+    RECORD newoverlay := [ rowkey := newrowkey
+                         , overlayrowkey := newrowkey
+                         , title := "unnamed"
+                         , url   := ""
+                         , hasurl := FALSE
+                         , area  := [ type := "rectangle", left := 0, top := 0, width := 100, height := 100  ]
+                         , odd   := newrowkey%2=1
+                         ];
+
+    IF (NOT RecordExists(row))
+      INSERT newoverlay INTO this->icon->overlays AT END;
+
+    this->overlays->value := this->icon->overlays;
+
+    RETURN DEFAULT RECORD;
+  }
+
+  BOOLEAN FUNCTION OnDeleteOverlayRow(RECORD row)
+  {
+    this->icon->overlays := SELECT * FROM this->icon->overlays WHERE rowkey != row.rowkey;
+    RETURN TRUE;
+  }
+
+  // Clicked on row, now select the associated overlay
+  MACRO OnSelectOverlayRow()
+  {
+    RECORD sel := this->overlays->selection;
+    IF (RecordExists(sel))
+      this->icon->selection := [ rowkey := sel.overlayrowkey ];
+    ELSE
+      this->icon->selection := DEFAULT RECORD ARRAY;
+
+    this->OnSelectOverlay();
+  }
+
+  // Map the real value contained in the arrayedit to data it can show in it's columns
+  RECORD ARRAY FUNCTION OnMapOverlayRows(RECORD ARRAY rows)
+  {
+    RETURN SELECT rowkey // must keep <arrayedit>'s rowkey
+                , overlayrowkey
+                , title
+                , url
+                , left := area.left
+                , top  := area.top
+                , width := area.width
+                , height := area.height
+             FROM rows;
+  }
+
+  // The existance of this function makes creating an overlay through the image component possible
+  RECORD FUNCTION OnCreateOverlay(RECORD area)
+  {
+    INTEGER newid := (SELECT AS INTEGER MAX(rowkey)+1 FROM this->icon->overlays);
+
+    RECORD newoverlay :=
+           [ rowkey := newid
+           , overlayrowkey := newid
+           , title  := "unnamed"
+           , url    := ""
+           , hasurl := FALSE
+           , area   := area
+           , odd    := newid%2=1
+           ];
+
+    INSERT newoverlay INTO this->overlays->value AT END;
+
+    RETURN newoverlay;
+  }
+
+  MACRO OnChangeOverlays()
+  {
+    this->overlays->value := this->icon->overlays;
+  }
+
+  MACRO OnSelectOverlay()
+  {
+    RECORD sel := this->icon->selection;
+    IF (NOT RecordExists(sel))
+    {
+      this->selectedoverlay->value := "-";
+      RETURN;
+    }
+
+    this->selectedoverlay->value := "rowkey: #" || sel.rowkey || ", title: " || sel.title;
+
+    // reach into the embeddedlist to find
+    RECORD rec_in_arreydit := SELECT * FROM this->overlays->embeddedlist->rows WHERE overlayrowkey = sel.rowkey;
+    this->overlays->embeddedlist->selection := [ RECORD(rec_in_arreydit) ];
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helpers
+  //
+
+  BLOB FUNCTION GenerateImageMap()
+  {
+    OBJECT witty := LoadWittyLibrary("mod::webhare_testsuite/tolliumapps/demo/imagemap_editor/imagemap.witty", "HTML");
+
+    RECORD wittyfields := [ imagefilename := this->image.filename
+                          , overlays := SELECT title
+                                             , url
+                                             , left := area.left
+                                             , top  := area.top
+                                             , right := area.left + area.width
+                                             , bottom := area.top + area.height
+                                          FROM this->icon->overlays
+                          ];
+
+    RETURN witty->RunComponentToBlob("imagemap", wittyfields);
+  }
+>;
+

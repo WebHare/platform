@@ -1,0 +1,54 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+ASYNC MACRO TestWRDBrowser()
+{
+  //Enable history on wrd_persons so we can test the history browser
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->UpdateMetadata([ keephistorydays := 7 ]);
+  testfw->GetWRDSchema()->^whuser_announcement->CreateEntity( [ ANNOUNCEMENT_TITLE := "Announcement test"]) ; //helps trigger selectentity crash
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
+  TT("freetype")->value := testfw->GetWRDSchema()->^wrd_person->id;
+  AWAIT ExpectScreenChange(+1, PTR topscreen->newfree->TolliumClick);
+  TT("entity")->GetComponent("wrd_lastname")->value := "TestAppBrowse";
+  TestEq(0, TT("entity")->GetComponent("personlink")->value);
+
+  INTEGER johndoe := testfw->GetWRDSchema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "other@example.com");
+  TestEQ(TRUE, johndoe != 0);
+
+  TT("entity")->GetComponent("personlink")->value :=  johndoe;
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  TT("quickfilter->freeattr")->value := "WRD_LASTNAME";
+  TT("quickfilter->freevalue")->value := "TestAppBrowse";
+  TTClick("quickfilter->searchfree");
+
+  TestEq(1, Length(TT("results_frees")->rows), 'only our recent entity should return');
+  //ADDME shouldn't we autoselect?
+  //TestEq(1, Length(TT("results_frees")->selection));
+  TT("results_frees")->selection := TT("results_frees")->rows;
+  topscreen->frame->focused := TT("results_frees");
+
+  //Open history
+  AWAIT ExpectScreenChange(+1, PTR TTClick("showhistory"));
+  TestEq(2, Length(TT("changes")->rows)); // one changeset with one changed entity
+  TT("changes")->selection := TT("changes")->rows[1];
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("mergeentity"));
+  TT("ents")->selection := SELECT * FROM TT("ents")->rows WHERE col0="Sysop McTestsuite";
+  TestEq(TRUE, RecordExists(TT("ents")->selection));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("YES", DEFAULT MACRO PTR);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+}
+
+RunTestFramework([ PTR CreateWRDTestSchema
+                 , PTR TestWRDBrowser
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);

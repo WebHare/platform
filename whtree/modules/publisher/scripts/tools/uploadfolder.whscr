@@ -1,0 +1,120 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "replace", type := "switch" ]
+    , [ name := "v", type := "switch" ]
+    , [ name := "include", type := "stringlist" ]
+    , [ name := "localdir", type := "param" ]
+    , [ name := "webharefolder", type := "param" ]
+    ]);
+
+IF (NOT RecordExists(args) OR args.localdir = "" OR args.webharefolder = "")
+{
+  PRINT("Syntax: runscript [ --replace ] [ --include mask ] localdir webharefolder\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+STRING localdir := args.localdir;
+STRING webharefolder := args.webharefolder;
+
+BOOLEAN FUNCTION Matches(STRING localpath)
+{
+  IF (LENGTH(args.include) = 0)
+    RETURN TRUE;
+
+  FOREVERY (STRING mask FROM args.include)
+    IF (localpath LIKE mask)
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+MACRO UploadTree(STRING fullpath, OBJECT destfolder, STRING localpath)
+{
+  RECORD ARRAY foldercontents := ReadDiskDirectory(fullpath, "*");
+  FOREVERY (RECORD rec FROM foldercontents)
+  {
+    STRING item_localpath := localpath = "" ? rec.name : localpath || "/" || rec.name;
+    STRING item_fullpath := MergePath(fullpath, rec.name);
+
+    IF (NOT Matches(item_localpath))
+    {
+      IF (args.v)
+        PRINT("Skip " || item_localpath || "\n");
+      CONTINUE;
+    }
+
+    OBJECT dest := destfolder->OpenByName(rec.name);
+    IF (ObjectExists(dest))
+    {
+      IF (NOT args.replace)
+      {
+        PRINT("An item already exists at path '" || item_localpath || "'\n");
+        PRINT("Use --replace to replace it\n");
+        SetConsoleExitCode(1);
+        RETURN;
+      }
+
+      IF (args.v)
+        PRINT("Replacing " || item_localpath || "\n");
+
+      IF (dest->isfolder != (rec.type = 1))
+      {
+        dest->RecycleSelf();
+        dest := DEFAULT OBJECT;
+      }
+    }
+    ELSE
+    {
+      IF (args.v)
+        PRINT("Copying " || item_localpath || "\n");
+    }
+
+    IF (NOT ObjectExists(dest))
+      dest := rec.type = 1
+          ? destfolder->CreateFolder([ name := rec.name ])
+          : destfolder->CreateFile([ name := rec.name, data := GetDiskResource(item_fullpath) ]);
+    ELSE IF (rec.type = 0)
+      dest->UpdateMetadata([ data := GetDiskResource(item_fullpath) ]);
+
+    IF (rec.type = 1)
+      UploadTree(item_fullpath, dest, item_localpath);
+  }
+}
+
+MACRO Main()
+{
+  OBJECT trans := OpenPrimary();
+  trans->BeginWork();
+
+  //ADDME: Functionality to exclude files
+  RECORD ARRAY foldercontents := ReadDiskDirectory(localdir, "*");
+  IF (LENGTH(foldercontents) = 0)
+  {
+    PRINT("No contents found in directory '" || localdir || "', aborting script\n");
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+
+  OBJECT destination := OpenWHFSObjectByPath(args.webharefolder);
+  IF (NOT ObjectExists(destination) OR NOT destination->isfolder)
+  {
+    PRINT("No such WebHare folder '" || EncodeJava(args.webharefolder) || "'\n");
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+
+  UploadTree(localdir, destination, "");
+
+  IF (args.v)
+    PRINT("Committing\n");
+
+  trans->CommitWork();
+}
+
+Main();

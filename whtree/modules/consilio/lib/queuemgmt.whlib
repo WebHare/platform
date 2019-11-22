@@ -1,0 +1,409 @@
+﻿<?wh
+/** @private direct queuemgt has been deprecated, a limited set of APIs should appear in consilio/lib/api.whlib */
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_commands.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT ConsilioDebugError, ConsilioDebugSkipped, ConsilioDebugInfo, ConsilioDebugAll;
+
+BOOLEAN FUNCTION IsValidIndexId(INTEGER indexid)
+{
+  RETURN indexid IN [ 0 ] CONCAT (SELECT AS INTEGER ARRAY id FROM consilio.indices WHERE type != 2 AND name NOT LIKE "$consilio$deleted$*");
+}
+
+INTEGER FUNCTION GetIndexForContentSource(INTEGER contentsourceid)
+{
+  RETURN SELECT AS INTEGER indexid FROM consilio.contentsources WHERE id = contentsourceid AND tag NOT LIKE "$consilio$deleted$*";
+}
+
+/** @short Rebuild one index or all indexes
+    @param indexid The index to check, or 0 for all indexes
+*/
+PUBLIC BOOLEAN FUNCTION CheckConsilioIndex(INTEGER indexid)
+{
+  IF (NOT IsValidIndexId(indexid))
+    RETURN FALSE;
+
+  LogDebug("consilio", "ContentSourceStatus", "CheckConsilioIndex", indexid);
+  STRING command := "CHECKINDEX " || indexid;
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Update one index or all indexes
+    @param indexid The index to check, or 0 for all indexes
+*/
+PUBLIC BOOLEAN FUNCTION UpdateConsilioIndex(INTEGER indexid)
+{
+  IF (NOT IsValidIndexId(indexid))
+    RETURN FALSE;
+
+  LogDebug("consilio", "ContentSourceStatus", "UpdateConsilioIndex", indexid);
+  STRING command := "UPDATEINDEX " || indexid;
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Delete an index
+    @param indexid The index to delete
+*/
+PUBLIC BOOLEAN FUNCTION DeleteConsilioIndex(INTEGER indexid)
+{
+  IF (indexid = 0)
+    RETURN FALSE;
+
+  STRING command := "DELETEINDEX " || indexid || " 0";
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Check a content source
+    @param contentsourceid The content source to check
+*/
+PUBLIC BOOLEAN FUNCTION CheckConsilioContentSource(INTEGER contentsourceid)
+{
+  INTEGER indexid := GetIndexForContentSource(contentsourceid);
+  IF (indexid = 0)
+    RETURN FALSE;
+
+  LogDebug("consilio", "ContentSourceStatus", "CheckConsilioContentSource", indexid, contentsourceid);
+  STRING command := "CHECKINDEX " || indexid || " " || contentsourceid;
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Check a content source
+    @param contentsourcetag Tag of the content source to check
+*/
+PUBLIC BOOLEAN FUNCTION CheckConsilioContentSourceByTag(STRING contentsourcetag)
+{
+  RECORD ARRAY sources := GetContentSourcesByTag(contentsourcetag);
+  IF(Length(sources) = 0)
+    THROW NEW Exception(`There are no content sources matching the tag '${contentsourcetag}'`);
+
+  FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
+  {
+    LogDebug("consilio", "ContentSourceStatus", "CheckConsilioContentSourceByTag", contentsourcetag, contentsource.indexid, contentsource.id);
+    STRING command := "CHECKINDEX " || contentsource.indexid || " " || contentsource.id;
+    IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
+      RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+/** @short Check a content source
+    @param contentsourceid The content source to update
+*/
+PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSource(INTEGER contentsourceid)
+{
+  INTEGER indexid := GetIndexForContentSource(contentsourceid);
+  IF (indexid = 0)
+    RETURN FALSE;
+
+  LogDebug("consilio", "ContentSourceStatus", "UpdateConsilioContentSource", indexid, contentsourceid);
+  STRING command := "UPDATEINDEX " || indexid || " " || contentsourceid;
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Update a content source
+    @param contentsourcetag Tag of the content source to update
+*/
+PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSourceByTag(STRING contentsourcetag)
+{
+  FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
+  {
+    LogDebug("consilio", "ContentSourceStatus", "UpdateConsilioContentSourceByTag", contentsourcetag, contentsource.indexid, contentsource.id);
+    STRING command := "UPDATEINDEX " || contentsource.indexid || " " || contentsource.id;
+    IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
+      RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+/** @short Delete a content source
+    @param contentsourceid The content source to delete
+*/
+PUBLIC BOOLEAN FUNCTION DeleteConsilioContentSource(INTEGER indexid, INTEGER contentsourceid)
+{
+  IF (indexid = 0)
+    RETURN FALSE;
+
+  STRING command := "DELETEINDEX " || indexid || " " || contentsourceid;
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Add or update a group in the given content source, replacing all content
+    @param contentsourceid Id of the content source which is responsible for the group
+    @param groupid Id of the group to add or update
+*/
+PUBLIC BOOLEAN FUNCTION CheckConsilioGroup(INTEGER contentsourceid, STRING groupid)
+{
+  INTEGER indexid := GetIndexForContentSource(contentsourceid);
+  IF (indexid = 0 AND ToInteger(groupid, -1) <= 0)
+    RETURN FALSE;
+
+  STRING command := "FASTCHECKGROUP " || indexid || " " || contentsourceid || " \"" || EncodeJava(groupid) || "\"";
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Add or update a group in the given content source
+    @param contentsourcetag Tag of the content source which is responsible for the group
+    @param groupid Id of the group to add or update
+*/
+PUBLIC BOOLEAN FUNCTION CheckConsilioGroupByTag(STRING contentsourcetag, STRING groupid)
+{
+  FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
+  {
+    STRING command := "FASTCHECKGROUP " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\"";
+    IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
+      RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+PUBLIC OBJECT FUNCTION CheckConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ force := FALSE ], options);
+
+  RECORD data :=
+      CELL[ action := "CHECKGROUP"
+          , commanddate := GetCurrentDateTime()
+          , contentsourcetag
+          , groupid
+          ];
+  RETURN CreatePromise(PTR HandleCommandSynchronously(data, #1, #2, options));
+}
+
+/** @short Add or update a group in the given content source, only replacing the modified content
+    @param contentsourceid Id of the content source which is responsible for the group
+    @param groupid Id of the group to add or update
+*/
+PUBLIC BOOLEAN FUNCTION UpdateConsilioGroup(INTEGER contentsourceid, STRING groupid)
+{
+  INTEGER indexid := GetIndexForContentSource(contentsourceid);
+  IF (indexid = 0 AND ToInteger(groupid, -1) <= 0)
+    RETURN FALSE;
+
+  STRING command := "UPDATEGROUP " || indexid || " " || contentsourceid || " \"" || EncodeJava(groupid) || "\"";
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Add or update a group in the given content source, only replacing the modified content
+    @param contentsourcetag Tag of the content source which is responsible for the group
+    @param groupid Id of the group to add or update
+*/
+PUBLIC BOOLEAN FUNCTION UpdateConsilioGroupByTag(STRING contentsourcetag, STRING groupid)
+{
+  FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
+  {
+    STRING command := "UPDATEGROUP " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\"";
+    IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
+      RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+PUBLIC OBJECT FUNCTION UpdateConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ force := FALSE ], options);
+
+  RECORD data :=
+      CELL[ action := "UPDATEGROUP"
+          , commanddate := GetCurrentDateTime()
+          , contentsourcetag
+          , groupid
+          ];
+  RETURN CreatePromise(PTR HandleCommandSynchronously(data, #1, #2, options));
+}
+
+
+PUBLIC BOOLEAN FUNCTION __DeactivateConsilioGroup(STRING groupid)
+{
+  STRING command := "DEACTIVATEGROUP " || EncodeJava(groupid);
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Delete the group from the given index or all indexes
+    @param indexid Id of the index to delete the group from, or 0 for all indexes
+    @param groupid Id of the group to delete
+*/
+PUBLIC BOOLEAN FUNCTION DeleteConsilioGroup(INTEGER indexid, STRING groupid)
+{
+  IF (NOT IsValidIndexId(indexid) OR groupid = "")
+    RETURN FALSE;
+
+  STRING command := "DELETEGROUP " || indexid || " 0 \"" || EncodeJava(groupid) || "\"";
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Delete the group from the index of the given content source
+    @param contentsourcetag Tag of the content source which is responsible for the group
+    @param groupid Id of the group to delete
+*/
+PUBLIC BOOLEAN FUNCTION DeleteConsilioGroupByTag(STRING contentsourcetag, STRING groupid)
+{
+  FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
+  {
+    STRING command := "DELETEGROUP " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\"";
+    IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
+      RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+PUBLIC OBJECT FUNCTION DeleteConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid)
+{
+  RECORD data :=
+      CELL[ action := "DELETEGROUP"
+          , commanddate := GetCurrentDateTime()
+          , contentsourcetag
+          , groupid
+          ];
+  RETURN CreatePromise(PTR HandleCommandSynchronously(data, #1, #2, DEFAULT RECORD));
+}
+
+/** @short Add or update a single object in the index
+    @param contentsourceid Id of the content source which is responsible for the object
+    @param groupid Id of the group which contains the object
+    @param objectid Id of the object
+*/
+PUBLIC BOOLEAN FUNCTION CheckConsilioObject(INTEGER contentsourceid, STRING groupid, STRING objectid)
+{
+  INTEGER indexid := GetIndexForContentSource(contentsourceid);
+  IF (indexid = 0 OR objectid = "")
+    RETURN FALSE;
+
+  STRING command := "CHECKOBJECT " || indexid || " " || contentsourceid || " \"" || EncodeJava(groupid) || "\" \"" || EncodeJava(objectid) || "\"";
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Add or update a single object in the index
+    @param contentsourcetag Tag of the content source which is responsible for the object
+    @param groupid Id of the group which contains the object
+    @param objectid Id of the object
+*/
+PUBLIC BOOLEAN FUNCTION CheckConsilioObjectByTag(STRING contentsourcetag, STRING groupid, STRING objectid)
+{
+  FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
+  {
+    STRING command := "CHECKOBJECT " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\" \"" || EncodeJava(objectid) || "\"";
+    IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
+      RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+/** @short Delete the object from the given index or all indexes
+    @param indexid Id of the index to delete the object from, or 0 for all indexes
+    @param groupid Id of the object to delete
+*/
+PUBLIC BOOLEAN FUNCTION DeleteConsilioObject(INTEGER indexid, STRING objectid)
+{
+  IF (NOT IsValidIndexId(indexid) OR objectid = "")
+    RETURN FALSE;
+
+  STRING command := "DELETEOBJECT " || indexid || " \"" || EncodeJava(objectid) || "\"";
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+/** @short Delete the object from the index of the given content source
+    @param contentsourcetag Tag of the content source which is responsible for the object
+    @param groupid Id of the object to delete
+*/
+PUBLIC BOOLEAN FUNCTION DeleteConsilioObjectByTag(STRING contentsourcetag, STRING objectid)
+{
+  FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
+  {
+    STRING command := "DELETEOBJECT " || contentsource.indexid || " \"" || EncodeJava(objectid) || "\"";
+    IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
+      RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+PUBLIC RECORD FUNCTION __ConsilioGetQueueManagerStatus(STRING ARRAY options DEFAULTSTO DEFAULT STRING ARRAY)
+{
+  STRING args := Detokenize(options, " ");
+  STRING command := "STATUS" || (args != "" ? " " || args : "");
+  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
+}
+
+PUBLIC BOOLEAN FUNCTION __ConsilioUpdateConfiguration(STRING ARRAY args)
+{
+  IF (Length(args) = 0)
+    RETURN FALSE;
+
+  STRING command := "CONFIGURE " || Detokenize(args, " ");
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+PUBLIC BOOLEAN FUNCTION __ConsilioRestartQueueManager()
+{
+  STRING command := "SHUTDOWN";
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+PUBLIC RECORD FUNCTION __ConsilioGetErrors()
+{
+  STRING command := "GETERRORS";
+  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
+}
+
+PUBLIC RECORD FUNCTION __ConsilioClearErrors(INTEGER contentsourceid)
+{
+  STRING command := "CLEARERRORS "||contentsourceid;
+  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
+}
+
+PUBLIC BOOLEAN FUNCTION __WaitForEmptyConsilioQueue(INTEGER maxwaitmsecs)
+{
+  DATETIME maxwait := AddTimeToDate(maxwaitmsecs, GetCurrentDateTime());
+  RECORD status := __ConsilioGetQueueManagerStatus();
+  WHILE (RecordExists(status) AND status.queuelength > 0 AND GetCurrentDateTime() < maxwait)
+  {
+    status := __ConsilioGetQueueManagerStatus();
+    Sleep(100);
+  }
+  RETURN RecordExists(status) AND status.queuelength = 0;
+}
+
+MACRO HandleCommandSynchronously(RECORD basedata, FUNCTION PTR resolve, FUNCTION PTR reject, RECORD options)
+{
+  TRY
+  {
+    STRING contentsourcetag := basedata.contentsourcetag;
+    DELETE CELL contentsourcetag FROM basedata;
+    FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
+    {
+      RECORD data :=
+          [ ...basedata
+          , indexid := contentsource.indexid
+          , contentsourceid := contentsource.id
+          ];
+
+      SWITCH (data.action)
+      {
+        CASE "CHECKGROUP", "UPDATEGROUP"
+        {
+            RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP"
+                                              , refresh := TRUE
+                                              , force := options.force
+                                              ]);
+            IF (Length(result.errors) > 0)
+              THROW NEW Exception(result.errors[0].message);
+        }
+        CASE "DELETEGROUP"
+        {
+          RECORD result := DeleteGroup(data, [ refresh := TRUE ]);
+          IF (RecordExists(result.error))
+            THROW NEW Exception(result.error.message);
+        }
+      }
+    }
+    resolve(DEFAULT RECORD);
+  }
+  CATCH (OBJECT e)
+  {
+    reject(e);
+  }
+}

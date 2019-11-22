@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/wrd/query"
+  xmlns="http://www.webhare.net/xmlns/wrd/query"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:element name="queries" />
+
+</xs:schema>

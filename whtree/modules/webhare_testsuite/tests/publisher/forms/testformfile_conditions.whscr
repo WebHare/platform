@@ -1,0 +1,86 @@
+<?wh
+
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+//to open: https://webhare.moe.sf.webhare.nl/?app=publisher:edit(/WebHare%20testsuite%20site/webtools/form)
+
+PUBLIC MACRO BuildForm()
+{
+  BuildWebtoolForm( [ checkboxes := TRUE
+                    , addintegerfield := TRUE
+                    , addcheckboxfield := TRUE
+                    , addconditions := TRUE
+                    ]);
+}
+
+PUBLIC MACRO TestFormConditions()
+{
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  IF(testfw->debug)
+    Print('Form URL: ' || formfile->url||'\n');
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+
+  OBJECT webtoolform := OpenFormFileDefinition(formfile);
+  RECORD ARRAY fields := webtoolform->ListFields();
+
+  RECORD telephone_desc := webtoolform->DescribeField(SELECT AS STRING guid FROM fields WHERE title = ":Telephone");
+  TestEq(TRUE, RecordExists(telephone_desc));
+  TestEq("Page 1 – Contact – Telephone", telephone_desc.pathtitle);
+  TestEq("Telephone", telephone_desc.fieldtitle);
+  TestEq("Contact", telephone_desc.grouptitle);
+  TestEq("Page 1", telephone_desc.pagetitle);
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
+  TestEq(TRUE, emailfieldname!="", "Email field not found");
+
+  RECORD submitrec := CELL[];
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formconditions@beta.webhare.net");
+
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(FALSE, res.success);
+  TestEq([[ message := "This value is required.", name := "firstname", metadata := DEFAULT RECORD ]], res.errors);
+
+  INSERT CELL checkboxfield := "1" INTO submitrec;
+  res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  submitrec := CELL[ hidefirstname := "1"];
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formconditions@beta.webhare.net");
+
+  res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  submitrec := CELL[ enablefirstname := STRING[]
+                   , checkboxes := ["copt1"] //trigger a mail
+                   ];
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formconditions@beta.webhare.net");
+
+  res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  OBJECT webtoolresults := OpenFormFileResults(formfile);
+  RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  RECORD witty := webtoolresults->GetWittyResultdata(submitted);
+  TestEq(FALSE, witty.field.firstname.issubmitted);
+  TestEq(TRUE, witty.field.upload.issubmitted);
+
+  RECORD ARRAY ownermail := testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 60000, count := 1 ]);
+  TestEq(1,Length(ownermail));
+  OBJECT html := MakeXMLDocumentFromHTML(StringToBlob(ownermail[0].html));
+  TestEq(FALSE, html->body->textcontent LIKE "*HiddenOpt1*"); //user never saw this option, so shouldnt be visible even if default (#1171)
+}
+
+RunTestframework([ PTR BuildForm
+                 , PTR TestFormConditions
+                 ], [ canceltasks := ["publisher:mailfeedback","publisher:mailresults"] ]);

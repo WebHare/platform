@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ADDME Try to share language and gid stuff with tollium, but need a proper importer for that -->
+
+<xs:schema
+  xmlns="http://www.webhare.net/xmlns/wrd/forms"
+  xmlns:f="http://www.webhare.net/xmlns/publisher/forms"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/wrd/forms"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/publisher/forms" schemaLocation="mod::publisher/data/forms/formdef.xsd" />
+
+  <xs:element name="paymentmethod">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <f:formcomponent
+            linecomponent="false"
+            editdefaults="name title hidetitle required groupclasses"
+            tid="forms.paymentmethod.name"
+            parserfunc="/lib/webtools/paymentmethod.whlib#__parsepaymentmethod"
+            fieldobject="/lib/webtools/paymentmethod.whlib#PaymentMethodField"
+            defaultvalue="record"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="f:BaseAttributes" />
+      <xs:attribute name="wrdschema" type="xs:string" />
+      <xs:attribute name="paymentfield" type="xs:string" />
+      <xs:attribute name="providerfield" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="wrdauthprefillhandler">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <f:formhandler
+            tolliumicon="tollium:actions/confirm"
+            tid="forms.wrdauthprefill.name"
+            descriptiontid="forms.wrdauthprefill.description"
+            handlerobject="/lib/webtools/formhandlers.whlib#wrdauthprefillhandler"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="f:HandlerAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

@@ -1,0 +1,1324 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/hashapi.whlib";
+
+// Uses first 28 bits of hash + bit for directory/file
+PUBLIC INTEGER FUNCTION GetHashIntegerHash(STRING s)
+{
+  RETURN (s LIKE "d*" ? 1 BITLSHIFT 28 : 0) + ToInteger(SubString(EncodeBase16(DecodeUFS(SubString(s, 2))), 2, 7), 0, 16);
+}
+
+STATIC OBJECTTYPE TreeDatakeeper
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY objects;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO AddTreeDataRecursive(RECORD tree)
+  {
+    IF (CellExists(tree, "CHILDREN"))
+      FOREVERY (RECORD rec FROM tree.children)
+        this->AddTreeDataRecursive(rec);
+
+    IF (NOT CellExists(tree, "HASH") OR NOT CellExists(tree, "ISFOLDER") OR tree.isfolder)
+      RETURN;
+
+    IF (CellExists(tree, "DATA"))
+    {
+      RECORD pos := RecordLowerBound(this->objects, tree, [ "HASH" ]);
+      IF (pos.found)
+        RETURN;
+      INSERT
+          [ hash :=         tree.hash
+          , data :=         tree.data
+          , hashhash :=     GetHashIntegerHash(tree.hash)
+          ] INTO this->objects AT pos.position;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO AddTreeData(OBJECT tree)
+  {
+    this->AddTreeDataRecursive(tree->root);
+  }
+
+  PUBLIC MACRO AddObjects(RECORD ARRAY objects)
+  {
+    FOREVERY (RECORD obj FROM objects)
+    {
+      IF (CellExists(obj, "ISFOLDER") AND NOT obj.isfolder AND CellExists(obj, "HASH") AND CellExists(obj, "DATA"))
+      {
+        RECORD pos := RecordLowerBound(this->objects, obj, [ "HASH" ]);
+        IF (pos.found)
+          CONTINUE;
+        INSERT
+            [ hash :=         obj.hash
+            , data :=         obj.data
+            , hashhash :=     GetHashIntegerHash(obj.hash)
+            ] INTO this->objects AT pos.position;
+      }
+    }
+  }
+
+  /** Get all objects with specific hashes stored in this datakeeper and in the database
+      @param hashes
+      @cell hashes.hash
+      @return List of records, ordered by hash
+      @cell return.hash
+      @cell return.data
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetObjects(RECORD ARRAY hashes)
+  {
+    RECORD ARRAY missing;
+
+    RECORD ARRAY result;
+    FOREVERY (RECORD rec FROM hashes)
+    {
+      RECORD pos := RecordLowerBound(this->objects, rec, [ "HASH" ]);
+      IF (pos.found)
+        INSERT this->objects[pos.position] INTO result AT END;
+      ELSE
+        INSERT rec INTO missing AT END;
+    }
+
+    IF (LENGTH(missing) != 0)
+    {
+      missing :=
+          SELECT *
+               , hashhash := GetHashIntegerHash(hash)
+            FROM missing
+        ORDER BY hash;
+
+      RECORD ARRAY db_objects :=
+          SELECT hash
+               , data
+               , hashhash
+            FROM publisher.blitrepocache
+           WHERE hashhash IN (SELECT AS INTEGER ARRAY hashhash FROM missing)
+             AND RecordLowerBound(missing, blitrepocache, [ "HASH" ]).found;
+
+      // Place into result and into referenced objects
+      result := SELECT * FROM result CONCAT db_objects ORDER BY hash;
+      this->objects  := SELECT * FROM this->objects CONCAT db_objects ORDER BY hash;
+    }
+
+    RETURN result;
+  }
+
+  PUBLIC MACRO WriteToRepositoryCache()
+  {
+    // Update everything that will expire in two weeks, extend it to 4 weeks
+    DATETIME min_expires := AddDaysToDate(14, GetCurrentDateTime());
+    DATETIME new_expires := AddDaysToDate(28, GetCurrentDateTime());
+
+    OBJECT trans := GetPrimaryWebhareTransactionObject();
+    trans->BeginLockedWork("blexdev_blit:repocache");
+
+    // Get all DB records that match the stored records
+    RECORD ARRAY db_records :=
+        SELECT *
+          FROM publisher.blitrepocache
+         WHERE hashhash IN (SELECT AS INTEGER ARRAY hashhash FROM this->objects)
+           AND RecordLowerBound(this->objects, blitrepocache, [ "HASH" ]).found
+      ORDER BY hash;
+
+    RECORD ARRAY to_update;
+
+    FOREVERY (RECORD rec FROM this->objects)
+    {
+      // Record already present in DB?
+      RECORD pos := RecordLowerBound(db_records, rec, [ "HASH" ]);
+      IF (pos.found)
+      {
+        // Yes, already in DB. Need to extend expiry?
+        RECORD dbrec := db_records[pos.position];
+        IF (dbrec.expires < min_expires)
+          INSERT rec INTO to_update AT END;
+      }
+      ELSE
+      {
+        // Nope, not yet in DB. Place it there.
+        INSERT INTO publisher.blitrepocache(hash, hashhash, data, expires) VALUES (rec.hash, rec.hashhash, rec.data, new_expires);
+      }
+    }
+
+    IF (LENGTH(to_update) != 0)
+    {
+      UPDATE publisher.blitrepocache
+         SET expires := new_expires
+       WHERE hashhash IN (SELECT AS INTEGER ARRAY hashhash FROM to_update)
+         AND RecordLowerBound(to_update, blitrepocache, [ "HASH" ]).found;
+    }
+
+    // Remove expired stuff
+    DELETE
+      FROM publisher.blitrepocache
+     WHERE expires < GetCurrentDateTime();
+
+    trans->CommitWork();
+  }
+>;
+
+// ADDME: this doesn't seem to be thrown anymore
+PUBLIC STATIC OBJECTTYPE BlitWHFSRefMapperMapFailureException EXTEND Exception
+< PUBLIC STRING whfspath;
+
+  MACRO NEW(STRING what, STRING path)
+  : Exception(what)
+  {
+    this->whfspath := path;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE BlitWHFSRefMapper EXTEND WHFSResourceNameMapper
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_root;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT rootfolder)
+  {
+    this->pvt_root := rootfolder;
+    this->ignore_missing_members := FALSE;
+
+    this->PopulateCache(this->pvt_root->id);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // Populate cache with all files/folders in the repo, with repo: paths
+  MACRO PopulateCache(INTEGER rootid)
+  {
+    RECORD ARRAY worklist :=
+        [ [ id := rootid, path := DEFAULT STRING ARRAY ]
+        ];
+
+    RECORD ARRAY result;
+
+    WHILE (LENGTH(worklist) != 0)
+    {
+      result := result CONCAT worklist;
+
+      INTEGER ARRAY parentids := SELECT AS INTEGER ARRAY id FROM worklist;
+
+      RECORD ARRAY children :=
+          SELECT rootpath :=    worklist[RecordLowerBound(worklist, [ id := parent ], [ "ID" ]).position].path
+               , children :=    GroupedValues([ id := id, path := [ name ] ])
+            FROM system.fs_objects AS row
+           WHERE COLUMN parent IN parentids
+        GROUP BY parent;
+
+      worklist := DEFAULT RECORD ARRAY;
+      FOREVERY (RECORD rec FROM children)
+        worklist := worklist CONCAT SELECT id, path := rec.rootpath CONCAT path FROM rec.children;
+
+      worklist := SELECT * FROM worklist ORDER BY id;
+    }
+
+    this->mapcache :=
+        SELECT id
+             , path :=    "repo:" || Detokenize(path, "/")
+          FROM result
+      ORDER BY id;
+
+    this->unmapcache :=
+        SELECT path :=    ToUppercase(path)
+             , id
+          FROM this->mapcache
+      ORDER BY ToUppercase(path);
+  }
+
+  UPDATE INTEGER FUNCTION OverrideUnmapWHFSRef(INTEGER currentid, STRING path)
+  {
+    IF (path LIKE "repo:*")
+    {
+      STRING orgpath := path;
+      path := SubString(path, 5);
+      OBJECT obj := path = "" ? this->pvt_root : this->pvt_root->OpenByPath(path);
+      IF (ObjectExists(obj))
+        RETURN obj->id;
+      ELSE
+        RETURN -1;
+    }
+    RETURN currentid;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO RepopulateCache()
+  {
+    this->PopulateCache(this->pvt_root->id);
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE ReferenceChecker
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER pvt_root;
+
+  RECORD ARRAY typecache;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION BuildCheckTreeRecursive(RECORD ARRAY members, INTEGER root)
+  {
+    RECORD pos := RecordLowerBound(members, [ parent := root ], [ "PARENT" ]);
+    IF (NOT pos.found)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN
+        SELECT *
+             , children :=    type = 12 ? this->BuildCheckTreeRecursive(members, id) : DEFAULT RECORD ARRAY
+          FROM members[pos.position].children;
+  }
+
+  RECORD ARRAY FUNCTION GetCheckTree(OBJECT type)
+  {
+    RECORD pos := RecordLowerBound(this->typecache, [ id := type->id ], [ "ID" ]);
+    IF (NOT pos.found)
+    {
+      INSERT
+          [ id :=     type->id
+          , tree :=   this->BuildCheckTreeRecursive(
+                          (SELECT parent
+                                , children :=  GroupedValues(members)
+                             FROM type->allmembers AS members
+                            WHERE COLUMN type IN [ 11, 12, 13 ]
+                         GROUP BY parent
+                         ORDER BY parent), 0)
+          ] INTO this->typecache AT pos.position;
+    }
+    RETURN this->typecache[pos.position].tree;
+  }
+
+  BOOLEAN FUNCTION CheckReference(OBJECT tree, STRING pathstr)
+  {
+    IF (pathstr LIKE "repo:*")
+    {
+      pathstr := SubString(pathstr, 5);
+      STRING ARRAY path := pathstr = "" ? DEFAULT STRING ARRAY : Tokenize(pathstr, "/");
+      RECORD obj := tree->GetObjectByPath(path);
+      RETURN RecordExists(obj);
+    }
+    RETURN TRUE;
+  }
+
+  STRING ARRAY FUNCTION CheckInstanceRecursive(RECORD checkitem, VARIANT data, OBJECT tree, STRING path)
+  {
+    STRING ARRAY failed;
+    SWITCH (checkitem.type)
+    {
+    CASE 11 // WHFSRef
+      {
+        IF (NOT this->CheckReference(tree, data))
+          INSERT data INTO failed AT END;
+      }
+    CASE 13 // WHFSRef array
+      {
+        FOREVERY (STRING elt FROM data)
+          IF (NOT this->CheckReference(tree, elt))
+            INSERT elt INTO failed AT END;
+      }
+    CASE 12
+      {
+        FOREVERY (RECORD child FROM checkitem.children)
+          FOREVERY (RECORD elt FROM data)
+            IF (CellExists(elt, child.name))
+              failed := failed CONCAT this->CheckInstanceRecursive(child, GetCell(elt, child.name), tree, path || "[" || #elt || "]." || child.name);
+      }
+    }
+    RETURN failed;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC STRING ARRAY FUNCTION CheckInstanceReferences(OBJECT type, RECORD instancedata, OBJECT tree)
+  {
+    STRING ARRAY failed;
+
+    IF (NOT RecordExists(instancedata))
+      RETURN failed;
+
+    // Get the tree of members that need to be checked (only containing whfsref(array) and array)
+    RECORD ARRAY checkitems := this->GetCheckTree(type);
+
+    // Check the root members
+    FOREVERY (RECORD checkitem FROM checkitems)
+      IF (CellExists(instancedata, checkitem.name))
+        failed := failed CONCAT this->CheckInstanceRecursive(checkitem, GetCell(instancedata, checkitem.name), tree, checkitem.name);
+
+    RETURN
+        SELECT AS STRING ARRAY DISTINCT str
+          FROM ToRecordArray(failed, "STR")
+      ORDER BY str;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE TreeBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD pvt_root;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY root(pvt_root, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION GetAllTreeObjectsRecursive(RECORD tree, STRING ARRAY path)
+  {
+    RECORD ARRAY results;
+    IF (NOT RecordExists(tree))
+      RETURN results;
+    INSERT CELL path := path INTO tree;
+    IF (tree.isfolder)
+    {
+      FOREVERY (RECORD child FROM tree.children)
+        results := results CONCAT this->GetAllTreeObjectsRecursive(child, path CONCAT [ STRING(child.name) ]);
+    }
+    INSERT tree INTO results AT END;
+    RETURN results;
+  }
+
+  STRING FUNCTION ShortDumpInternal(RECORD rec, INTEGER indent)
+  {
+    IF (NOT RecordExists(rec))
+      RETURN RepeatText("  ", indent) || "* N/A\n";
+    STRING type := CellExists(rec, "ISFOLDER") ? rec.isfolder ? "+" : "o" : "?";
+    STRING conflicts;
+    FOREVERY (STRING s FROM ["t","n","d","b","m" ])
+      IF (CellExists(rec, s||"conflict") AND RecordExists(GetCell(rec, s||"conflict")))
+        conflicts := (conflicts ?? " conf:") || s;
+    STRING res :=
+        Left(RepeatText("  ", indent)
+            || type || " "
+            || rec.name||RepeatText(" ", 50), 50)
+        || " "
+        || Left((CellExists(rec, "STATUS") ? rec.status : "-") || "                  ", 18)
+        || (CellExists(rec, "HASH") ? " " || rec.hash: " -")
+        || (CellExists(rec, "DATA") AND LENGTH(rec.data) < 20
+                  ? " data: '" || EncodeJava(BlobToString(rec.data, -1)) || "'"
+                  : "")
+        || conflicts
+        || "\n";
+    IF (type = "+" AND CellExists(rec, "CHILDREN"))
+      FOREVERY (RECORD child FROM rec.children)
+        res := res || this->ShortDumpInternal(child, indent + 1);
+    RETURN res;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD ARRAY FUNCTION GetAllTreeObjects()
+  {
+    RETURN this->GetAllTreeObjectsRecursive(this->pvt_root, DEFAULT STRING ARRAY);
+  }
+
+  PUBLIC RECORD FUNCTION GetObjectByPath(STRING ARRAY path)
+  {
+    RECORD curr := this->root;
+    FOREVERY (STRING elt FROM path)
+    {
+      IF (NOT CellExists(curr, "CHILDREN"))
+      {
+        curr := DEFAULT RECORD;
+        BREAK;
+      }
+
+      curr :=
+          SELECT *
+            FROM curr.children
+           WHERE ToUppercase(name) = ToUppercase(elt);
+
+      IF (NOT RecordExists(curr))
+        BREAK;
+    }
+    RETURN curr;
+  }
+
+  PUBLIC MACRO TrimToSubTree(STRING ARRAY path)
+  {
+    this->root := this->GetObjectByPath(path);
+  }
+
+  PUBLIC STRING FUNCTION ShortDump(INTEGER indent DEFAULTSTO 0)
+  {
+    RETURN this->ShortDumpInternal(this->root, indent);
+  }
+>;
+
+PUBLIC OBJECT FUNCTION MakeTreeDataKeeper()
+{
+  RETURN NEW TreeDatakeeper;
+}
+
+
+PUBLIC OBJECT FUNCTION FindRepositoryRoot(OBJECT whfsobj)
+{
+  OBJECT repostype := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/checkedoutfolder");
+  WHILE (ObjectExists(whfsobj) AND whfsobj->id != 0)
+  {
+    IF (repostype->GetInstanceData(whfsobj->id).repository_url != "")
+      RETURN whfsobj;
+    whfsobj := whfsobj->parentobject;
+  }
+  RETURN DEFAULT OBJECT;
+}
+
+PUBLIC OBJECT FUNCTION FindAnySubRepository(OBJECT whfsobj)
+{
+  OBJECT repostype := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/checkedoutfolder");
+  INTEGER ARRAY objectids := repostype->FindObjectsByMemberValueMask("repository_url", "*", TRUE);
+
+  INTEGER ARRAY worklist := [ INTEGER(whfsobj->id) ];
+  WHILE (LENGTH(worklist) != 0)
+  {
+    worklist :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE parent IN worklist;
+
+    FOREVERY (INTEGER id FROM worklist)
+      IF (id IN objectids)
+        RETURN OpenWHFSObject(id);
+  }
+
+  RETURN DEFAULT OBJECT;
+}
+
+PUBLIC STRING FUNCTION GetFileDiff(BLOB orgfile, BLOB newfile, STRING path, STRING org_suffix, STRING new_suffix)
+{
+  OBJECT differ := MakeTextDiffGenerator();
+
+  differ->LoadOldVersion(orgfile);
+  differ->LoadNewVersion(newfile);
+
+  RECORD ARRAY diff := differ->GetDifferences();
+
+  STRING s;
+  IF (LENGTH(diff) != 0)
+  {
+    s := s || "--- " || path || org_suffix || "\n";
+    s := s || "+++ " || path || new_suffix || "\n";
+    FOREVERY (RECORD x FROM diff)
+    {
+      s := s || "@@ -" || x.minstart + 1 || "," || x.minlines || " +" || x.plusstart + 1 || "," || x.pluslines  || " @@\n";
+      s := s || Detokenize(x.lines, "\n") || "\n\n";
+    }
+  }
+  RETURN s;
+}
+
+/*
+PUBLIC MACRO AddToRepositoryCache(INTEGER repowhfsroot, RECORD ARRAY objects, BOOLEAN currentversion)
+{
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+  trans->PushWork();
+
+  // Remove duplicates and folders
+  objects :=
+      SELECT hash
+           , data :=  Any(data)
+        FROM objects
+       WHERE NOT isfolder
+    GROUP BY hash;
+
+  RECORD ARRAY current :=
+      SELECT *
+           , inset :=       FALSE
+        FROM publisher.blitrepocache
+       WHERE workingcopy = repowhfsroot
+    ORDER BY hash;
+
+  DATETIME default_expires := AddDaysToDate(1, GetCurrentDateTime());
+  DATETIME new_expires := currentversion ? MAX_DATETIME : default_expires;
+
+  FOREVERY (RECORD rec FROM objects)
+  {
+    RECORD pos := RecordLowerBound(current, rec, [ "HASH" ]);
+    IF (pos.found)
+      current[pos.position].inset := TRUE;
+    ELSE
+      INSERT INTO publisher.blitrepocache(workingcopy, hash, data, expires)
+           VALUES (repowhfsroot, rec.hash, rec.data, new_expires);
+  }
+
+  // Update expires for all objects already in cache when needed
+  INTEGER ARRAY used := SELECT AS INTEGER ARRAY id FROM current WHERE inset AND expires < new_expires;
+  UPDATE publisher.blitrepocache
+     SET expires := new_expires
+   WHERE workingcopy = repowhfsroot
+     AND id IN used
+     AND expires < new_expires;
+
+  // When replacing with the current version, reset all expires of unused objects to default
+  IF (currentversion)
+  {
+    INTEGER ARRAY notused := SELECT AS INTEGER ARRAY id FROM current WHERE NOT inset;
+
+    UPDATE publisher.blitrepocache
+       SET expires := default_expires
+     WHERE workingcopy = repowhfsroot
+       AND id IN notused
+       AND expires > default_expires;
+  }
+
+  // Remove expired stuff
+  DELETE
+    FROM publisher.blitrepocache
+   WHERE workingcopy = repowhfsroot
+     AND expires < GetCurrentDateTime();
+
+  trans->PopWork();
+}
+*/
+/*
+PUBLIC MACRO ReplaceRepositoryCache(INTEGER repowhfsroot, RECORD ARRAY objects)
+{
+  OBJECT cachetype := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/cache");
+
+  RECORD ARRAY current := cachetype->GetInstanceData(repowhfsroot).objectcache;
+
+  current :=
+      SELECT *
+        FROM current
+    ORDER BY hash;
+
+  RECORD ARRAY newlist;
+  FOREVERY (RECORD rec FROM objects)
+  {
+    IF (rec.isfolder)
+      CONTINUE;
+
+    RECORD pos := RecordLowerBound(current, rec, [ "HASH" ]);
+    IF (pos.found)
+      INSERT current[pos.position] INTO newlist AT END;
+    ELSE
+      INSERT
+          [ hash :=       rec.hash
+          , data :=       [ data := rec.data, mimetype := "application/octet-stream", filename := "data.dat" ]
+          ] INTO newlist AT END;
+  }
+
+  cachetype->SetInstanceData(repowhfsroot,
+        [ objectcache :=  newlist
+        ]);
+}
+*/
+
+
+
+RECORD FUNCTION AugmentInstanceByDescriptionRecursive(RECORD instance, RECORD ARRAY members)
+{
+  FOREVERY (RECORD memberrec FROM members)
+  {
+    IF (NOT CellExists(instance, memberrec.name))
+    {
+      VARIANT emptyval := memberrec.emptyval;
+      SWITCH (memberrec.type) // Copied from fsctypes.whlib (ADDME can't we get emptyval?)
+      {
+        CASE 1 // Single
+        {
+          emptyval := "";
+        }
+        CASE 3,14 // Multiple, string array
+        {
+          emptyval := DEFAULT STRING ARRAY;
+        }
+        CASE 2, 19 // Text, URL
+        {
+          emptyval := "";
+        }
+        CASE 11 // whfsref
+        {
+          emptyval := 0;
+        }
+        CASE 13 // whfsrefarray
+        {
+          emptyval := DEFAULT INTEGER ARRAY;
+        }
+        CASE 12 // array
+        {
+          emptyval := DEFAULT RECORD ARRAY;
+        }
+        CASE 5, 15, 16, 18, 21 // File, richdocument, intextlink, instance, record
+        {
+          emptyval := DEFAULT RECORD;
+        }
+        DEFAULT
+        {
+          emptyval := AnyTypeFromString("", memberrec.type);
+        }
+      }
+
+      instance := CellInsert(instance, memberrec.name, emptyval);
+    }
+    ELSE IF (memberrec.type = 12)
+    {
+      instance := CellUpdate(instance, memberrec.name,
+          SELECT AS RECORD ARRAY AugmentInstanceByDescriptionRecursive(elt, memberrec.children)
+            FROM GetCell(instance, memberrec.name) AS elt);
+    }
+  }
+  RETURN instance;
+}
+
+PUBLIC RECORD FUNCTION AddInstanceDataMissingMembers(RECORD instance, RECORD type)
+{
+  RETURN AugmentInstanceByDescriptionRecursive(instance, type.members);
+}
+
+PUBLIC RECORD FUNCTION FilterSubInstance(RECORD instance, RECORD ARRAY types)
+{
+  IF (RecordExists(instance))
+  {
+    STRING whfstype := instance.whfstype;
+    RECORD pos := RecordLowerBound(types, [ namespace := whfstype ], [ "NAMESPACE" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("Cannot filter instancedata of type '" || whfstype || "', description not available in types list");
+
+    instance := FilterInstanceData(instance, types[pos.position], types);
+
+    INSERT CELL whfstype := whfstype INTO instance;
+  }
+  RETURN instance;
+}
+
+PUBLIC RECORD FUNCTION FilterInstanceDataRecursive(RECORD instance, RECORD ARRAY members, RECORD ARRAY types)
+{
+  RECORD result;
+  FOREVERY (RECORD res FROM UnpackRecord(instance))
+  {
+    RECORD pos := RecordLowerBound(members, [ name := ToLowercase(res.name) ], [ "NAME" ]);
+    IF (pos.found)
+    {
+      RECORD memberrec := members[pos.position];
+      IF (memberrec.type = 12) // array
+      {
+        res.value :=
+            SELECT AS RECORD ARRAY FilterInstanceDataRecursive(value, memberrec.children, types)
+              FROM res.value;
+      }
+      ELSE IF (memberrec.type = 15) // rich document
+      {
+        IF (RecordExists(res.value))
+        {
+          res.value.instances :=
+              SELECT *
+                   , data := FilterSubInstance(data, types)
+                FROM res.value.instances;
+        }
+      }
+      ELSE IF (memberrec.type = 18) // instance
+        res.value := FilterSubInstance(res.value, types);
+      result := CellInsert(result, res.name, res.value);
+    }
+  }
+
+  RETURN result;
+}
+
+PUBLIC RECORD FUNCTION FilterInstanceData(RECORD instance, RECORD type, RECORD ARRAY types)
+{
+  RETURN FilterInstanceDataRecursive(instance, type.members, types);
+}
+
+/** @param instances
+    @cell typens
+    @cell data
+*/
+PUBLIC RECORD ARRAY FUNCTION FilterInstances(RECORD ARRAY instances, RECORD ARRAY types)
+{
+  types := SELECT * FROM types ORDER BY namespace;
+  FOREVERY (RECORD rec FROM instances)
+  {
+    RECORD pos := RecordLowerBound(types, [ namespace := rec.typens ], [ "NAMESPACE" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("Cannot filter instancedata of type '" || rec.typens || "', description not available in types list");
+
+    instances[#rec].data := FilterInstanceData(rec.data, types[pos.position], types);
+  }
+
+  RETURN instances;
+}
+
+// Checks if a member is actually used in a list of instances (of array elements)
+RECORD FUNCTION GatherMemberUses(RECORD ARRAY instances, RECORD idata, BOOLEAN orphan)
+{
+  IF (idata.type = 12) // array, check by compare
+  {
+    RECORD ARRAY elts;
+    FOREVERY (RECORD rec FROM instances)
+      IF (CellExists(rec, idata.name))
+        elts := elts CONCAT GetCell(rec, idata.name);
+    RETURN [ used := LENGTH(elts) != 0, elts := elts ];
+  }
+
+  /* Just check if the members are present in the descriptions. For orphans, also check if their value isn't default.
+     Its too much difficulty in applying types filter before commit when all values are checked for non-defaultness.
+  */
+  RETURN
+      [ used := RecordExists(
+            SELECT
+              FROM instances
+             WHERE CellExists(instances, idata.name)
+                    ? NOT orphan OR NOT IsDefaultValue(GetCell(instances, idata.name))
+                    : FALSE)
+      , elts := DEFAULT RECORD ARRAY
+      ];
+}
+
+RECORD ARRAY FUNCTION DescribeMembersRecurse(RECORD ARRAY allmembers, INTEGER curparent, RECORD ARRAY instances)
+{
+  RECORD ARRAY members :=
+      SELECT *
+           , used :=          orphan OR type = 12 ? GatherMemberUses(instances, allmembers, orphan) : [ used := TRUE ]
+        FROM allmembers
+       WHERE parent = curparent
+    ORDER BY name;
+
+  /* Don't describe array members when not actually used. At commit, they will be filtered out from the composed tree
+     by FilterMembersRecurse, so we don't want trees generated from whfs to include them.
+     (so the committed trees and the from-disk trees are exactly equal)
+  */
+  RETURN
+      SELECT name :=        ToLowercase(name)
+           , type
+           , children := type = 12
+                            ? DescribeMembersRecurse(allmembers, id, used.elts)
+                            : DEFAULT RECORD ARRAY
+        FROM members
+       WHERE (NOT orphan OR used.used) AND (type != 12 OR LENGTH(used.elts) != 0);
+}
+
+PUBLIC RECORD FUNCTION DescribeType(OBJECT intype, RECORD ARRAY instances)
+{
+  // Describe all members, including orphaned ones
+  RETURN
+      [ namespace :=    intype->namespace
+      , members :=      DescribeMembersRecurse(intype->allmembers, 0, instances)
+      , foldertype :=   intype->foldertype
+      , filetype :=     intype->filetype
+      , cloneoncopy :=  intype->cloneoncopy
+      ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION FilterMembersRecurse(RECORD ARRAY rootmembers, RECORD ARRAY instances)
+{
+  /* At this point, we don't know if the members are orphan (isn't recorded in DescribeType. Shouldn't be, it can change
+     from server to server)
+  */
+  rootmembers :=
+      SELECT *
+           , used :=          type = 12 ? GatherMemberUses(instances, rootmembers, FALSE) : [ used := TRUE ]
+        FROM rootmembers;
+
+  RETURN
+      SELECT name
+           , type
+           , children :=      type = 12 ? FilterMembersRecurse(rootmembers.children, used.elts) : DEFAULT RECORD ARRAY
+        FROM rootmembers
+       WHERE used.used;
+}
+
+PUBLIC BLOB FUNCTION CleanTextFileWhitespace(BLOB blobdata)
+{
+  BLOB orgdata := blobdata;
+
+  STRING strdata := BlobToString(blobdata, -1);
+  strdata := Substitute(strdata, "\r\n", "\n");
+  strdata := Substitute(strdata, "\r", "\n");
+
+//  IF (strdata NOT LIKE "*\n")
+//    strdata := strdata || "\n";
+
+  blobdata := StringToBlob(strdata);
+
+/*
+  OBJECT pattern := NEW RegEx("(^ *\t)|( +[\r\n])");
+  pattern->global := TRUE;
+
+  BOOLEAN need_rewrite;
+  TRY
+  {
+    need_rewrite := RecordExists(pattern->Exec(strdata));
+  }
+  CATCH (OBJECT e)
+  {
+    need_rewrite := TRUE;
+  }
+
+  IF (need_rewrite) */
+  {
+    OBJECT parser := NEW StringParser(strdata);
+
+    INTEGER out := CreateStream();
+    WHILE (NOT parser->eof)
+    {
+      STRING line;
+
+      // Convert tabs in leading whitespace
+      INTEGER pos := 0;
+      WHILE (TRUE)
+      {
+        STRING ws := parser->ParseWhileInSet(" ");
+        line := line || ws;
+
+        IF (parser->current = "\t")
+        {
+          pos := pos + LENGTH(ws);
+          INTEGER toadd := 8 - (pos % 7);
+          line := line || RepeatText(" ", toadd);
+          pos := pos + toadd;
+          parser->Next();
+        }
+        ELSE
+          BREAK;
+      }
+
+      // Parse rest of line till lf (or eof)
+      line := line || parser->ParseWhileNotInSet("\n");
+
+      // Remove trailing whitespace
+      WHILE (Right(line, 1) IN [ " ", "\t" ])
+        line := Left(line, LENGTH(line) - 1);
+
+      // Emit line with trailing newline (always ends file with newline), but ignore spaces on last line without newline
+      IF (line != "" OR NOT parser->eof)
+        PrintTo(out, line || "\n");
+      parser->Next(); // eat newline, noop if at eof
+    }
+
+    blobdata := MakeBlobFromStream(out);
+  }
+//  ELSE IF (Right(strdata, 1) NOT IN [ "\n")
+//    blobdata := StringToBlob(strdata || "\n");
+
+  RETURN blobdata;
+}
+
+PUBLIC BOOLEAN FUNCTION HasConflictMarker(BLOB blobdata)
+{
+  STRING strdata := BlobToString(blobdata, -1);
+
+  // Split strings, don't want it to match own query
+  RETURN SearchSubString(strdata, "<<<<<<"||"<") != -1 AND SearchSubString(strdata, ">>>>>>"||">") != -1;
+}
+
+BOOLEAN FUNCTION IsCRLF(BLOB data)
+{
+  STRING part := BlobToString(data, 65536);
+  INTEGER crs := LENGTH(part) - LENGTH(Substitute(part, "\r", ""));
+  INTEGER lfs := LENGTH(part) - LENGTH(Substitute(part, "\n", ""));
+
+  // More then half of line endings is crlf
+  RETURN crs >= lfs / 2;
+}
+
+PUBLIC RECORD FUNCTION DoLineEndingCompensatedDiff3(OBJECT repo, BLOB addto, BLOB parent, BLOB changes)
+{
+  BOOLEAN addto_crlf := IsCRLF(addto);
+  BOOLEAN parent_crlf := IsCRLF(parent);
+  BOOLEAN changes_crlf := IsCRLF(changes);
+
+  IF (addto_crlf != parent_crlf OR parent_crlf != changes_crlf)
+  {
+    // Move all to \n line ending
+    addto := StringToBlob(Substitute(BlobToString(addto, -1), "\r\n", "\n"));
+    parent := StringToBlob(Substitute(BlobToString(parent, -1), "\r\n", "\n"));
+    changes := StringToBlob(Substitute(BlobToString(changes, -1), "\r\n", "\n"));
+  }
+
+  RETURN repo->ExecuteDiff3(addto, parent, changes);
+}
+
+PUBLIC MACRO UpdateFSCache(OBJECT rtree)
+{
+  RECORD ARRAY items := rtree->GetCacheData();
+  items :=
+      SELECT *
+        FROM items
+    ORDER BY id;
+
+  INTEGER ARRAY ids := SELECT AS INTEGER ARRAY id FROM items;
+
+  RECORD ARRAY existing :=
+      SELECT *
+        FROM publisher.blithashcache
+       WHERE id IN ids;
+
+  INTEGER ARRAY todelete;
+  INTEGER ARRAY tonotadd;
+  FOREVERY (RECORD rec FROM existing)
+  {
+    RECORD item := items[RecordLowerBound(items, rec, [ "ID" ]).position];
+
+    IF (rec.modificationdate != item.modificationdate
+        OR (rec.contenttype != item.contenttype AND item.contenttype != "")
+        OR rec.hash != item.hash)
+      INSERT rec.id INTO todelete AT END;
+    ELSE
+      INSERT rec.id INTO tonotadd AT END;
+  }
+
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+  trans->PushWork();
+
+  DELETE FROM publisher.blithashcache WHERE id IN todelete;
+  DELETE FROM items WHERE id IN tonotadd;
+
+  FOREVERY (RECORD item FROM items)
+    INSERT INTO publisher.blithashcache(id, contenttype, hash, modificationdate) VALUES (item.id, item.contenttype, item.hash, item.modificationdate);
+
+  trans->PopWork();
+}
+
+PUBLIC RECORD FUNCTION LocateRepository(OBJECT fsobject)
+{
+  OBJECT repostype := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/checkedoutfolder");
+
+  STRING ARRAY path;
+  IF (NOT ObjectExists(fsobject))
+    RETURN DEFAULT RECORD;
+
+  //PRINT("Locating " || fsobject->whfspath || "\n");
+
+  WHILE (fsobject->id != 0)
+  {
+    RECORD repodata := repostype->GetInstanceData(fsobject->id);
+    IF (repodata.repository_url != "")
+    {
+      IF (repodata.repository_url NOT LIKE "http*://*/wh_services/blitserver/repository/"
+          AND repodata.repository_url NOT LIKE "http*://*/wh_services/blitserver/repository_anon/")
+      {
+        IF (repodata.repository_url NOT LIKE "http*://*")
+          repodata.repository_url := "http://" || repodata.repository_url;
+        repodata.repository_url := ResolveToAbsoluteUrl(repodata.repository_url, "/wh_services/blitserver/repository/");
+      }
+
+      //PRINT("Found, local path " || Detokenize(path, "/") || "\n");
+
+      RETURN
+          [ fsobject :=     fsobject
+          , path :=         path
+          , root :=         fsobject
+          , repodata :=     repodata
+          ];
+    }
+
+    INSERT fsobject->name INTO path AT 0;
+    fsobject := fsobject->parentobject;
+  }
+
+  RETURN DEFAULT RECORD;
+}
+
+/// Check server RPC result for api level
+PUBLIC MACRO CheckServerAPILevel(RECORD rpcresult)
+{
+  IF (rpcresult.apilevel < min_server_api)
+    THROW NEW Exception("Repository servers with API level " || rpcresult.apilevel || " cannot be accessed by this version, please upgrade the repository server");
+}
+
+PUBLIC RECORD FUNCTION GetRepositoryByFiles(INTEGER ARRAY fileids)
+{
+  OBJECT root;
+  RECORD repodata;
+  RECORD ARRAY items;
+
+  FOREVERY (INTEGER sel FROM fileids)
+  {
+    OBJECT fsobject := OpenWHFSObject(sel);
+
+    RECORD rec := LocateRepository(OpenWHFSObject(sel));
+    IF (NOT RecordExists(rec))
+      RETURN [ status := "notarepository" ];
+
+    IF (NOT ObjectExists(root))
+    {
+      root := rec.root;
+      repodata := rec.repodata;
+    }
+    ELSE
+      IF (root->id != rec.root->id)
+        RETURN [ status := "mixedrepositories" ];
+    INSERT rec INTO items AT END;
+  }
+
+  RETURN
+      [ status :=     "ok"
+      , root :=       root
+      , repodata :=   repodata
+      , items :=      items
+      ];
+}
+
+PUBLIC RECORD FUNCTION GetDecompressedObjectTree(OBJECT repo, STRING roothash, INTEGER depth DEFAULTSTO -1)
+{
+//  PRINT(AnyToString(repo, "tree"));
+
+  IF (MemberExists(repo, "GetObjectTreeCompressed"))
+  {
+    RECORD data := repo->GetObjectTreeCompressed(roothash, depth);
+    RETURN DecodeHSONBlob(MakeZlibDecompressedFile(data.treedata, "GZIP"));
+  }
+  RETURN repo->GetObjectTree(roothash, depth);
+}
+
+PUBLIC STRING FUNCTION GetConflictsFromText(STRING text)
+{
+  STRING ARRAY lines := Tokenize(Substitute(text, "\r\n", "\n"), "\n");
+
+  RECORD ARRAY conflicts;
+
+  BOOLEAN inconflict := FALSE;
+  INTEGER conflictstart := 0;
+  FOREVERY (STRING line FROM lines)
+  {
+    IF (inconflict AND line LIKE "*>>>>>>>*")
+    {
+      IF (LENGTH(conflicts) > 0 AND conflicts[END-1].endline >= conflictstart - 3)
+        conflicts[END-1].endline := #line + 4;
+      ELSE
+        INSERT [ startline := conflictstart - 3, endline := #line + 4 ] INTO conflicts AT END;
+      inconflict := FALSE;
+    }
+    ELSE IF (NOT inconflict AND line LIKE "*<<<<<<<*")
+    {
+      conflictstart := #line;
+      inconflict := TRUE;
+    }
+  }
+
+  STRING ARRAY newlines;
+  FOREVERY (RECORD conflict FROM conflicts)
+  {
+    INSERT "@@ " || conflict.startline + 1 || "," || conflict.endline - conflict.startline || " @@" INTO newlines AT END;
+    newlines := newlines CONCAT ArraySlice(lines, conflict.startline, conflict.endline - conflict.startline);
+  }
+  RETURN Detokenize(newlines, "\n");
+}
+
+PUBLIC BOOLEAN FUNCTION IsTextFile(BLOB data, STRING name)
+{
+  RECORD det := ScanBlob(data, name);
+  IF (det.mimetype LIKE "text*" OR
+      det.mimetype LIKE "application/*webhare*" OR
+      det.mimetype IN [ "application/x-javascript" ])
+  {
+    RETURN TRUE;
+  }
+
+  RETURN FALSE;
+}
+
+PUBLIC STRING FUNCTION GetCredentialsRegistryKey(STRING serverurl)
+{
+  RETURN "publisher.blit.server." || MapBlitUrl(serverurl);
+}
+STRING FUNCTION MapBlitURL(STRING serverurl)
+{
+  RECORD url := UnpackURL(serverurl);
+  RETURN url.scheme || '|' || Substitute(url.host,'.','|') || "|" || url.port;
+}
+PUBLIC STRING FUNCTION UnmapBlitURL(STRING serverurl)
+{
+  STRING ARRAY toks := Tokenize(serverurl,'|');
+  IF(Length(toks)<3)
+    RETURN serverurl;
+
+  RETURN toks[0] || '://' || Detokenize(ArraySlice(toks,1,Length(toks) - 2),".") || ':' || toks[END-1] || '/';
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetKnownServers(OBJECT tolliumuser)
+{
+  RECORD ARRAY servers;
+  FOREVERY(RECORD subnode FROM tolliumuser->ReadRegistryNode("publisher.blit.server"))
+  {
+    RECORD server := [ registrynode := subnode.subkey
+                     , url := UnmapBlitURL(subnode.subkey)
+                     , username := ""
+                     , password := ""
+                     ];
+    STRING credentials := subnode.data;
+    IF(credentials LIKE "*:*")
+    {
+      server.username := DecodeBase64(Tokenize(credentials,':')[0]);
+      server.password  := Tokenize(credentials,':')[1] != "" ? "******" : "";
+    }
+    INSERT server INTO servers AT END;
+  }
+  RETURN servers;
+}
+PUBLIC RECORD FUNCTION GetServerCredentials(OBJECT tolliumuser, STRING serverurl)
+{
+  STRING ARRAY keyinfo := Tokenize(tolliumuser->GetRegistryKey(GetCredentialsRegistryKey(serverurl),""),':');
+  IF(Length(keyinfo)=2)
+  {
+    RETURN [ username := DecodeBase64(keyinfo[0])
+           , password := DecodeBase64(keyinfo[1])
+           ];
+  }
+  RETURN [ username := "", password := "" ];
+}
+
+/** Returns the list of external folders that have a site mounted in them
+*/
+RECORD ARRAY FUNCTION CalculateAllUsedExternalFolders(INTEGER ARRAY filter_folders)
+{
+  RECORD ARRAY external_folders :=
+      SELECT fs_objects.id
+           , outputweb
+           , outputfolder :=  ToLowercase(MergePath(outputfolder, fullpath) || "/")
+           , sites :=         DEFAULT RECORD ARRAY
+        FROM system.fs_objects
+           , system.sites
+       WHERE fs_objects.type = 1
+         AND isactive
+         AND parentsite != 0
+         AND sites.id = parentsite
+         AND (LENGTH(filter_folders) = 0 ? TRUE : fs_objects.id IN filter_folders)
+    ORDER BY outputweb, ToLowercase(MergePath(outputfolder, fullpath));
+
+  RECORD ARRAY sites :=
+      SELECT id
+           , name
+           , outputweb
+           , outputfolder :=  ToLowercase(outputfolder) || "a"
+        FROM system.sites
+    ORDER BY outputweb, outputfolder;
+
+  FOREVERY (RECORD rec FROM sites)
+  {
+    RECORD pos := RecordLowerBound(external_folders, rec, [ "OUTPUTWEB", "OUTPUTFOLDER" ]);
+    IF (NOT pos.found)
+    {
+      IF (pos.position = 0 OR rec.outputfolder NOT LIKE external_folders[pos.position - 1].outputfolder || "*")
+        CONTINUE;
+      pos.position := pos.position - 1;
+    }
+    INSERT [ id := rec.id, name := rec.name ] INTO external_folders[pos.position].sites AT END;
+  }
+
+  RETURN
+      SELECT id
+           , sites :=   COLUMN sites
+        FROM external_folders
+       WHERE RecordExists(COLUMN sites)
+    ORDER BY id;
+}
+
+/** Returns the list of external folders and their parents in their site that can't be moved or deleted
+    because they contain another site
+*/
+PUBLIC INTEGER ARRAY FUNCTION CalculateAllFolderContainingSites()
+{
+  RECORD ARRAY used_external_folders := CalculateAllUsedExternalFolders(DEFAULT INTEGER ARRAY);
+
+  INTEGER ARRAY worklist := SELECT AS INTEGER ARRAY id FROM used_external_folders;
+  INTEGER ARRAY retval;
+
+  WHILE (LENGTH(worklist) != 0)
+  {
+    retval := retval CONCAT worklist;
+    worklist :=
+        SELECT AS INTEGER ARRAY parent
+          FROM system.fs_objects
+         WHERE id IN worklist
+           AND id != parentsite
+           AND id NOT IN retval;
+  }
+
+  RETURN retval;
+}
+
+PUBLIC STRING ARRAY FUNCTION GetSitesInFolder(INTEGER folderid)
+{
+  INTEGER ARRAY filter_folders := [ folderid ] CONCAT OpenWHFSObject(folderid)->GetDescendantFolderids();
+
+  RECORD ARRAY folders := CalculateAllUsedExternalFolders(filter_folders);
+
+  STRING ARRAY sites;
+  FOREVERY (RECORD folder FROM folders)
+    FOREVERY (RECORD site FROM folder.sites)
+    {
+      RECORD pos := LowerBound(sites, site.name);
+      IF (NOT pos.found)
+        INSERT site.name INTO sites AT pos.position;
+    }
+
+  RETURN sites;
+}

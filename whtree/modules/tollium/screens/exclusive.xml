@@ -1,0 +1,57 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/exclusive.whlib"
+         gid="exclusive">
+
+  <messageboxes>
+    <messagebox name="dialogstolen" buttons="ok" icon="information" />
+    <messagebox name="stealowndialog" buttons="yes no" icon="question" />
+    <messagebox name="takeoverdenied" buttons="ok" icon="information" />
+  </messageboxes>
+
+  <!-- ask the user if the other's screen should be taken over -->
+  <screen name="stealdialog" onunload="onunload">
+    <actions>
+      <action name="abandon" onexecute="cancel" />
+      <action name="takeover" onexecute="submit" />
+    </actions>
+    <body defaultbutton="btn_cancel">
+      <text name="stealdialogtext" title="" />
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="takeover" />
+        <button name="btn_cancel" action="abandon" tid="tollium:common.actions.cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <!-- wait for response on the takeover request -->
+  <screen name="runtakeoverrequest" onunload="onunload">
+    <body>
+      <text name="waitforreplytext" title="" />
+    </body>
+    <footer layout="right">
+      <defaultformbuttons buttons="cancel" />
+    </footer>
+
+  </screen>
+
+  <!-- process the takeover at the target's side -->
+  <screen name="signaltakeover">
+    <actions>
+      <action name="release" onexecute="submit" />
+      <action name="keep" onexecute="cancel" />
+    </actions>
+    <body defaultbutton="btn_keep">
+      <text name="signaltakeovertext" title="" />
+    </body>
+    <footer>
+      <line layout="right">
+        <button name="btn_release" action="release" tid=".release" />
+        <button name="btn_keep" action="keep" tid="tollium:common.actions.cancel" />
+      </line>
+    </footer>
+  </screen>
+
+</screens>
+

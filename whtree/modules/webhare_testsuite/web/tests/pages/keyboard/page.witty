@@ -1,0 +1,20 @@
+<style>
+  #keysdown, #keyspressed { width: 300px; }
+  fieldset { float:left; }
+</style>
+<h1>Keyboard events</h1>
+  <fieldset><legend>raw events</legend>
+  Keys down: <input id="keysdown"> <br/>
+  Keys pressed: <input id="keyspressed"> <br/>
+  Parsed events: <input id="eventlist"> <br/>
+  TEST raw events: <input id="testfield" autofocus>
+  </fieldset>
+
+  <fieldset><legend>keyboard bunny</legend>
+  Last key: <input id="lastkey" /><br/>
+  TEST keyboard bunny: <input id="keyboardbunny">
+  </fieldset>
+
+  <br clear="both">
+<div id="keylog">
+</div>

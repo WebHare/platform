@@ -1,0 +1,920 @@
+﻿<?wh (* ISSYSTEMLIBRARY *)
+
+/** Promises and cancellation
+    @topic harescript-core/promises
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::system.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/callbacks.whlib";
+
+PUBLIC OBJECTTYPE OperationCancelledException EXTEND Exception
+< MACRO NEW()
+  : Exception("The operation has been cancelled")
+  {
+  }
+>;
+
+/// Private THIS of last created promise (only set when creating promise that will be the result of Then() function)
+OBJECT lastcreated_private;
+
+/// Last created defer (used for generating deferred promises)
+RECORD lastcreated_defer;
+
+/// Used to auto-resolve new promises - used to create resolved/rejected promises and more.
+RECORD autoresolve;
+
+/// Counter for promise ids
+INTEGER64 promise_counter;
+
+/// Counter to generate callback id's
+INTEGER64 callback_counter;
+
+/// Number of reported unhandled rejections
+INTEGER unhandled_rejections;
+
+/// Date of last unhandled rejection report
+DATETIME last_unhandled_rejection_report;
+
+/// Did we warn about unhandled rejection throttling?
+BOOLEAN warned_unhandled_rejection_throttling;
+
+
+/** A cancellation token provides the notification that an operation is cancelled
+
+    It is modelled with .NET CancellationTokens as an example.
+*/
+STATIC OBJECTTYPE CancellationToken
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /** Token source.
+  */
+  OBJECT pvt_tokensource;
+
+  /** Exception this token is cancelled with (stored here so it doesn't need a strong ref to the source */
+  OBJECT pvt_cancelexception;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Exception this token was cancelled with (DEFAULT OBJECT when not cancelled)
+  PUBLIC PROPERTY cancelexception(pvt_cancelexception, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT source)
+  {
+    source->pvt_canceltoken := WEAKOBJECT(PRIVATE this);
+    this->pvt_tokensource := source;
+    this->pvt_cancelexception := source->pvt_cancelexception;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SingleCallback(FUNCTION PTR cb)
+  {
+    IF (ValidateFunctionPtr(cb, 0, [ TypeID(OBJECT) ]))
+      cb(this->pvt_cancelexception);
+    ELSE
+      cb();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /// Return if this token has been cancelled
+  PUBLIC BOOLEAN FUNCTION IsCancelled()
+  {
+    RETURN ObjectExists(this->pvt_cancelexception);
+  }
+
+  /// Checks if this token has been cancelled, throws the cancel exception when it is
+  PUBLIC MACRO Check()
+  {
+    IF (this->IsCancelled())
+      THROW NEW OperationCancelledException();
+  }
+
+  /** Adds a callback that will be called when this token is cancelled. If the token has
+      been cancelled, the function will be called immediately, and 0 is returned.
+      Signature: MACRO func() or MACRO func(OBJECT cancelexception)
+      @param func Function that will be called when the token is cancelled
+      @return Registration id, 0 if the token was already cancelled
+  */
+  PUBLIC INTEGER64 FUNCTION AddCallback(FUNCTION PTR func)
+  {
+    IF (this->IsCancelled())
+    {
+      this->SingleCallback(func);
+      RETURN 0;
+    }
+    ELSE
+    {
+      callback_counter := callback_counter + 1;
+      IF (ObjectExists(this->pvt_tokensource))
+        this->pvt_tokensource->AppendCallback(callback_counter, func);
+      RETURN callback_counter;
+    }
+  }
+
+  /** Removes a previously registered callback
+  */
+  PUBLIC MACRO RemoveCallback(INTEGER64 id)
+  {
+    IF (ObjectExists(this->pvt_tokensource))
+      this->pvt_tokensource->RemoveCallback(id);
+  }
+
+>;
+
+
+/** A CancellationTokenSource generates a CancellationToken. Cancellation of that token
+    is done on this class.
+*/
+PUBLIC STATIC OBJECTTYPE CancellationTokenSource
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Exception this source has been cancelled with (DEFAULT OBJECT if not cancelled)
+  OBJECT pvt_cancelexception;
+
+  /// Current cancel token. Weak reference to avoid cycles
+  WEAKOBJECT pvt_canceltoken;
+
+  /// List of callbacks
+  RECORD ARRAY pvt_callbacks;
+
+  /** List of tokens and registrations that will rejectoncancel this tokensource
+      @cell(object) token
+      @cell(integer64) registration
+  */
+  RECORD ARRAY linkfroms;
+
+  BOOLEAN linkfromregistered;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Cancellation token
+  PUBLIC PROPERTY canceltoken(GetCancelToken, -);
+
+  /// If cancelled, cancel exception object
+  PUBLIC PROPERTY cancelexception(pvt_cancelexception, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  OBJECT FUNCTION GetCancelToken()
+  {
+    // See if the weak reference is still alive, else create a new token
+    OBJECT token := OBJECT(this->pvt_canceltoken);
+    IF (NOT ObjectExists(token))
+      token := NEW CancellationToken(PRIVATE this);
+    RETURN token;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Executes a single callback - with test if exception argument is wanted
+  MACRO SingleCallback(FUNCTION PTR cb)
+  {
+    IF (ValidateFunctionPtr(cb, 0, [ TypeID(OBJECT) ]))
+      cb(this->pvt_cancelexception);
+    ELSE
+      cb();
+  }
+
+  MACRO CancelWithExceptionInternal(OBJECT e)
+  {
+    IF (ObjectExists(this->pvt_cancelexception))
+      RETURN;
+
+    // Store the exception in the token if it is still alive
+    this->pvt_cancelexception := e;
+    OBJECT canceltoken := OBJECT(this->pvt_canceltoken);
+    IF (ObjectExists(canceltoken))
+      canceltoken->pvt_cancelexception := e;
+
+    this->UpdateLinkFromRegistration();
+
+    // Fire the callbacks. Defer thrown exceptions until all callbacks have been called.
+    OBJECT first_exception;
+    FOREVERY (RECORD rec FROM this->pvt_callbacks)
+    {
+      TRY
+      {
+        this->SingleCallback(rec.func);
+      }
+      CATCH (OBJECT callbackexception)
+      {
+        IF (NOT ObjectExists(first_exception))
+          first_exception := callbackexception;
+      }
+    }
+    this->pvt_callbacks := DEFAULT RECORD ARRAY;
+
+    IF (ObjectExists(first_exception))
+      THROW first_exception;
+  }
+
+  MACRO AppendCallback(INTEGER64 id, FUNCTION PTR func)
+  {
+    INSERT [ id := id, func := func ] INTO this->pvt_callbacks AT END;
+    IF (LENGTH(this->pvt_callbacks) = 1)
+      this->UpdateLinkFromRegistration();
+  }
+
+  MACRO RemoveCallback(INTEGER64 id)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_callbacks, [ id := id ], [ "ID" ]);
+    IF (pos.found)
+    {
+      DELETE FROM this->pvt_callbacks AT pos.position;
+      IF (LENGTH(this->pvt_callbacks) = 0)
+        this->UpdateLinkFromRegistration();
+    }
+  }
+
+  MACRO UpdateLinkFromRegistration()
+  {
+    BOOLEAN required := NOT ObjectExists(this->pvt_cancelexception) AND LENGTH(this->pvt_callbacks) != 0;
+    IF (this->linkfromregistered = required)
+      RETURN;
+
+    IF (required)
+    {
+      FOREVERY (RECORD rec FROM this->linkfroms)
+        IF (rec.token->IsCancelled())
+        {
+          this->linkfroms := DEFAULT RECORD ARRAY;
+          this->linkfromregistered := required;
+
+          this->CancelWithException(rec.token->cancelexception);
+          RETURN;
+        }
+
+      FOREVERY (RECORD rec FROM this->linkfroms)
+        this->linkfroms[#rec].registration := rec.token->AddCallback(PTR this->CancelWithException);
+    }
+    ELSE
+    {
+      FOREVERY (RECORD rec FROM this->linkfroms)
+        rec.token->RemoveCallback(this->linkfroms[#rec].registration);
+    }
+
+    this->linkfromregistered := required;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Cancels the token with a OperationCancelledException exception
+  */
+  PUBLIC MACRO Cancel()
+  {
+    OBJECT e := NEW OperationCancelledException;
+    e->trace := GetStackTrace();
+    this->CancelWithExceptionInternal(e);
+  }
+
+  /** Cancels the token with a specific exception
+      @param e Exception to cancel the token with.
+  */
+  PUBLIC MACRO CancelWithException(OBJECT e)
+  {
+    IF (NOT ObjectExists(e))
+      THROW NEW Exception("Cannot cancel with a DEFAULT OBJECT");
+
+    this->CancelWithExceptionInternal(e);
+  }
+
+  PUBLIC MACRO LinkToken(OBJECT token)
+  {
+    IF (token->IsCancelled())
+    {
+      this->CancelWithException(token->cancelexception);
+      RETURN;
+    }
+
+    INSERT
+        [ token :=        token
+        , registration := this->linkfromregistered ? token->AddCallback(PTR this->CancelWithException) : 0i64
+        ] INTO this->linkfroms AT END;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE PromiseBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Status: "", "resolved", "rejected"
+  STRING status;
+
+  /// @cell value Resolved/rejected value
+  RECORD keeper;
+
+  /// List of registered thens
+  RECORD ARRAY callbacks;
+
+  /// Generation counter for waits (to invalidate old resolve/reject ptrs when chasing another promise)
+  INTEGER waitgen;
+
+  /// Cancel token source (initialized on-demand)
+  OBJECT pvt_canceltokensource;
+
+  /** If positive, registration id of cancel callback used to cancel the exception when 'rejectoncancel' is set.
+      -1 is used after to signal rejectoncancel is activated after the promise is resolved
+  */
+  INTEGER64 rejectoncancel_cb;
+
+  /// Whether an error handler has been registrered
+  BOOLEAN have_errorhandler;
+
+  /// Whether an unhandled reject has been signalled
+  BOOLEAN have_signalled_unhandledreject;
+
+  /// Promise ID (for logging purposes)
+  INTEGER64 promise_id;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Cancel token (will be cancelled when @a Cancel is called)
+  PUBLIC PROPERTY canceltoken(GetCancelToken, -);
+
+  /// Whether the promise must immediately be resolved with the cancel exception when cancelled
+  PUBLIC PROPERTY rejectoncancel(GetRejectOnCancel, SetRejectOnCancel);
+
+  /// Userdata
+  PUBLIC RECORD userdata;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(FUNCTION PTR func)
+  {
+    promise_counter := promise_counter + 1;
+    this->promise_id := promise_counter;
+
+    IF (RecordExists(autoresolve))
+    {
+      RECORD copy := autoresolve;
+      autoresolve := DEFAULT RECORD;
+
+      IF (ObjectExists(copy.parent))
+        this->pvt_canceltokensource := copy.parent->GetCancelTokenSource();
+
+      IF (copy.status != "")
+        this->ResolveInternal(0, copy.status, copy.value, DEFAULT OBJECT);
+      ELSE
+        lastcreated_private := PRIVATE this; // Only needed in this case
+    }
+    ELSE
+    {
+      func(PTR this->ResolveInternal(0, "resolved", #1, DEFAULT OBJECT), PTR this->ResolveInternal(0, "rejected", #1, DEFAULT OBJECT));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  OBJECT FUNCTION GetCancelToken()
+  {
+    RETURN this->GetCancelTokenSource()->canceltoken;
+  }
+
+  BOOLEAN FUNCTION GetRejectOnCancel()
+  {
+    RETURN this->rejectoncancel_cb != 0;
+  }
+
+  MACRO SetRejectOnCancel(BOOLEAN newcancel)
+  {
+    IF ((this->rejectoncancel_cb != 0) != newcancel)
+    {
+      IF (this->status != "")
+      {
+        // Promise is already resolved, rejectoncancel won't have any effect anymore, no need to register callback
+        // (actively removing them is better for GC, less object cycles)
+        this->rejectoncancel_cb := newcancel ? -1 : 0;
+        RETURN;
+      }
+
+      IF (newcancel)
+        this->rejectoncancel_cb := this->GetCancelTokenSource()->canceltoken->AddCallback(PTR this->ExecuteCancel);
+      ELSE
+      {
+        this->pvt_canceltokensource->canceltoken->RemoveCallback(this->rejectoncancel_cb);
+        this->rejectoncancel_cb := 0;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION GetCancelTokenSource()
+  {
+    IF (NOT ObjectExists(this->pvt_canceltokensource))
+      this->pvt_canceltokensource := NEW CancellationTokenSource;
+    RETURN this->pvt_canceltokensource;
+  }
+
+  MACRO ExecuteCancel(OBJECT e)
+  {
+    this->rejectoncancel_cb := 0;
+    this->ResolveInternal(this->waitgen, "rejected", e, DEFAULT OBJECT);
+    this->rejectoncancel_cb := -1;
+  }
+
+  PUBLIC MACRO __Chain(OBJECT private_promise)
+  {
+    INSERT
+        [ then :=     DEFAULT FUNCTION PTR
+        , onerror :=  DEFAULT FUNCTION PTR
+        , promise :=  private_promise
+        , waitgen :=  private_promise->waitgen
+        , asynccontext := DEFAULT OBJECT
+        ] INTO this->callbacks AT END;
+
+    this->have_errorhandler := TRUE;
+    IF (this->status != "")
+      this->ExecuteCallbacks(FALSE);
+  }
+
+  PUBLIC MACRO __Unchain(OBJECT private_promise)
+  {
+    DELETE FROM this->callbacks WHERE promise = private_promise;
+  }
+
+  MACRO ExecuteCallback(RECORD cb)
+  {
+    TRY
+    {
+      VARIANT result := this->keeper.value;
+      FUNCTION PTR tocall := this->status = "resolved" ? cb.then : cb.onerror;
+
+      IF (tocall != DEFAULT FUNCTION PTR)
+      {
+        BOOLEAN acceptargument := ValidateFunctionPtr(tocall, 0, [ TypeID(VARIANT) ]);
+        BOOLEAN have_returnvalue := ValidateFunctionPtr(tocall, TypeID(VARIANT), acceptargument ? [ TypeID(VARIANT) ] : DEFAULT INTEGER ARRAY);
+
+        IF (have_returnvalue)
+        {
+          VARIANT value := DEFAULT RECORD;
+          IF (acceptargument)
+          {
+            __WITHASYNCCONTEXT(cb.asynccontext)
+              value := tocall(this->keeper.value);
+          }
+          ELSE
+          {
+            __WITHASYNCCONTEXT(cb.asynccontext)
+              value := tocall();
+          }
+
+          cb.promise->ResolveInternal(cb.waitgen, "resolved", value, this);
+        }
+        ELSE
+        {
+          IF (acceptargument)
+          {
+            __WITHASYNCCONTEXT(cb.asynccontext)
+              tocall(this->keeper.value);
+          }
+          ELSE
+          {
+            __WITHASYNCCONTEXT(cb.asynccontext)
+              tocall();
+          }
+
+          // Fulfill with a reasonable 'undefined' value
+          cb.promise->ResolveInternal(cb.waitgen, "resolved", DEFAULT RECORD, this);
+        }
+      }
+      ELSE
+        cb.promise->ResolveInternal(cb.waitgen, this->status, this->keeper.value, this);
+    }
+    CATCH (OBJECT e)
+    {
+      cb.promise->ResolveInternal(cb.waitgen, "rejected", e, this);
+    }
+  }
+
+  /// Called in first microtask. Schedules a timed callback (lower priority than microtasks)
+  MACRO SignalUnhandledRejectionMicroTask()
+  {
+    // The tests create a rejected promise, and attach handlers within another promise's fulfullment handler.
+    // Allow this by creating a lower-priority task which runs after micro-tasks.
+    IF (NOT this->have_errorhandler)
+      RegisterTimedCallback(AddTimeToDate(100, GetCurrentDateTime()), PTR this->SignalUnhandledRejection());
+  }
+
+  MACRO SignalUnhandledRejection()
+  {
+    // Unhandled exception
+    IF (NOT this->have_errorhandler AND __UnhandledRejection != DEFAULT FUNCTION PTR)
+    {
+      IF (unhandled_rejections > 5)
+      {
+        // After first burst, log max 1 unhandled rejection per 5 minutes
+        IF (GetCurrentDateTime() < AddTimeToDate(5 * 60 * 10000, last_unhandled_rejection_report))
+        {
+          IF (NOT warned_unhandled_rejection_throttling)
+          {
+            IF (__TooManyUnhandledRejections != DEFAULT FUNCTION PTR)
+              ScheduleMicroTask(PTR __TooManyUnhandledRejections());
+            warned_unhandled_rejection_throttling := TRUE;
+          }
+          RETURN;
+        }
+      }
+      ELSE
+      {
+        last_unhandled_rejection_report := GetCurrentDateTime();
+        unhandled_rejections := unhandled_rejections + 1;
+      }
+
+      this->have_signalled_unhandledreject := TRUE;
+      ScheduleMicroTask(PTR __UnhandledRejection([ promise := this, promise_id := this->promise_id, e := this->keeper.value ]));
+    }
+  }
+
+  MACRO __RunMicroTask(RECORD context)
+  {
+    this->ExecuteCallback(context);
+  }
+
+  MACRO ExecuteCallbacks(BOOLEAN initial)
+  {
+    IF (this->status != "")
+    {
+      RECORD ARRAY callbacks := this->callbacks;
+      this->callbacks := DEFAULT RECORD ARRAY;
+
+      ScheduleObjectMicroTasks(PRIVATE this, callbacks);
+
+      IF (initial)
+      {
+        // Remove rejectoncancel callback if present
+        IF (this->rejectoncancel_cb > 0)
+        {
+          this->pvt_canceltokensource->canceltoken->RemoveCallback(this->rejectoncancel_cb);
+          this->rejectoncancel_cb := -1;
+        }
+
+        // Throw an error if this promise was rejected without an error handler
+        IF (this->status = "rejected" AND NOT this->have_errorhandler)
+          ScheduleMicroTask(PTR this->SignalUnhandledRejectionMicroTask);
+      }
+    }
+  }
+
+  MACRO ResolveInternal(INTEGER gen, STRING status, VARIANT value, OBJECT originpromise)
+  {
+    IF (this->status != "" OR gen != this->waitgen)
+      RETURN;
+
+    IF (status = "rejected")
+    {
+      IF (TypeID(value) != TypeID(OBJECT) OR NOT (value EXTENDSFROM Exception))
+        THROW NEW Exception("A rejection must be called with an Exception object");
+
+      IF(Length(value->trace)=0)
+        value->trace := GetStackTrace();
+
+      this->status := status;
+      this->keeper := [ value := value ];
+
+      this->ExecuteCallbacks(TRUE);
+      RETURN;
+    }
+
+    IF (status != "resolved")
+      THROW NEW Exception("Illegal new status '" || status || "'");
+
+    IF (TypeID(value) = TypeID(OBJECT) AND MemberExists(value, "THEN"))
+    {
+      IF (value = this)
+      {
+        this->status := "rejected";
+        this->keeper := [ value := NEW Exception("Cannot resolve a promise with itself") ]; // FIXME: trace?
+        this->ExecuteCallbacks(TRUE);
+        RETURN;
+      }
+
+      TRY
+      {
+        this->waitgen := this->waitgen + 1;
+        IF (value EXTENDSFROM PromiseBase)
+        {
+          value->__Chain(PRIVATE this);
+          RETURN;
+        }
+        ELSE IF (MemberExists(value, "THEN"))
+        {
+          value->then(PTR this->ResolveInternal(this->waitgen, "resolved", #1, DEFAULT OBJECT),
+                      PTR this->ResolveInternal(this->waitgen, "rejected", #1, DEFAULT OBJECT));
+          RETURN;
+        }
+      }
+      CATCH (OBJECT e)
+      {
+        status := "rejected";
+        value := e;
+      }
+    }
+
+    this->status := status;
+    this->keeper := [ value := value ];
+
+    this->ExecuteCallbacks(TRUE);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC OBJECT FUNCTION Then(FUNCTION PTR then DEFAULTSTO DEFAULT FUNCTION PTR, FUNCTION PTR onerror DEFAULTSTO DEFAULT FUNCTION PTR)
+  {
+    autoresolve := [ parent := PRIVATE this, status := "" ];
+    OBJECT p := NEW PromiseBase(DEFAULT MACRO PTR);
+    INSERT
+        [ then :=     then
+        , onerror :=  onerror
+        , promise :=  lastcreated_private
+        , waitgen :=  0
+        , asynccontext := NEW __HS_INTERNAL_ASYNCCONTEXT(1)
+        ] INTO this->callbacks AT END;
+
+    lastcreated_private := DEFAULT OBJECT;
+
+    this->have_errorhandler := TRUE;
+    IF (this->have_signalled_unhandledreject AND __RejectionHandled != DEFAULT FUNCTION PTR)
+    {
+      this->have_signalled_unhandledreject := FALSE;
+      ScheduleMicroTask(PTR __RejectionHandled([ promise := this, promise_id := this->promise_id ]));
+    }
+
+    IF (this->status != "")
+      this->ExecuteCallbacks(FALSE);
+
+    RETURN p;
+  }
+
+  PUBLIC OBJECT FUNCTION OnError(FUNCTION PTR onerror)
+  {
+    RETURN this->Then(DEFAULT FUNCTION PTR, onerror);
+  }
+
+  PUBLIC MACRO Cancel()
+  {
+    this->GetCancelTokenSource()->Cancel();
+  }
+
+  PUBLIC OBJECT FUNCTION LinkToken(OBJECT canceltoken)
+  {
+    this->GetCancelTokenSource()->LinkToken(canceltoken);
+    RETURN this;
+  }
+>;
+
+
+MACRO StoreDeferred(FUNCTION PTR resolve, FUNCTION PTR reject)
+{
+  lastcreated_defer :=
+      [ resolve :=    resolve
+      , reject :=     reject
+      , promise :=    DEFAULT OBJECT
+      ];
+}
+
+/** @short Creates a Promise.
+    @param(FUNCTION PTR) f Takes a function pointer for an executor function which takes two function pointers as parameters: One for Resolve and one for Reject, respectively
+    @return(OBJECT) Returns the new Promise.
+*/
+PUBLIC OBJECT FUNCTION CreatePromise(FUNCTION PTR executor)
+{
+  RETURN NEW PromiseBase(executor);
+}
+
+PUBLIC RECORD FUNCTION CreateDeferredPromise()
+{
+  OBJECT promise := NEW PromiseBase(PTR StoreDeferred);
+  RECORD retval := lastcreated_defer;
+  lastcreated_defer := DEFAULT RECORD;
+
+  retval.promise := promise;
+  RETURN retval;
+}
+
+/** The CreateResolvedPromise function returns either a new promise resolved with the passed argument, or the argument itself if the
+    argument is a promise produced by this constructor.
+    @param value Promise or value to resolve new promise with
+    @return Promise
+*/
+PUBLIC OBJECT FUNCTION CreateResolvedPromise(VARIANT value)
+{
+  // If value is already a promise, return that one (ecmascript 2015 also does this)
+  IF (TypeID(value) = TypeID(OBJECT ) AND value EXTENDSFROM PromiseBase)
+    RETURN value;
+
+  autoresolve := [ status := "resolved", value := value, parent := DEFAULT OBJECT ];
+  RETURN NEW PromiseBase(DEFAULT FUNCTION PTR);
+}
+
+/** The CreateRejectedPromise function returns a new promise rejected with the passed argument.
+    @param e Value to reject the promise with
+    @return Rejected promise
+*/
+PUBLIC OBJECT FUNCTION CreateRejectedPromise(VARIANT e)
+{
+  autoresolve := [ status := "rejected", value := e, parent := DEFAULT OBJECT ];
+  RETURN NEW PromiseBase(DEFAULT FUNCTION PTR);
+}
+
+STATIC OBJECTTYPE PromiseListBookkeeping
+< PUBLIC OBJECT promise;
+  OBJECT private_promise;
+
+  RECORD ARRAY elements;
+  WEAKOBJECT ARRAY promises;
+
+  INTEGER waitgen;
+  BOOLEAN wrap;
+  BOOLEAN isall;
+
+  MACRO NEW(OBJECT ARRAY promises, BOOLEAN isall, BOOLEAN wrap)
+  {
+    autoresolve := [ parent := DEFAULT OBJECT, status := "" ];
+    this->promise := NEW PromiseBase(DEFAULT MACRO PTR);
+    this->private_promise := lastcreated_private;
+    lastcreated_private := DEFAULT OBJECT;
+
+    this->isall := isall;
+    this->wrap := wrap;
+    FOREVERY (OBJECT promise FROM promises)
+    {
+      promise->__Chain(PRIVATE this);
+      IF (isall OR wrap)
+      {
+        INSERT DEFAULT RECORD INTO this->elements AT END;
+        this->waitgen := this->waitgen + 1;
+      }
+      INSERT WEAKOBJECT(promise) INTO this->promises AT END;
+    }
+  }
+
+  MACRO ResolveInternal(INTEGER waitgen, STRING resolvetype, VARIANT value, OBJECT originpromise)
+  {
+    IF (this->isall AND this->wrap)
+    {
+      IF (resolvetype = "rejected")
+        value := [ status := "rejected", reason := value ];
+      ELSE
+        value := CELL[ status := "fulfilled", value ];
+      resolvetype := "resolved";
+    }
+    IF (resolvetype = "rejected")
+      this->private_promise->ResolveInternal(0, resolvetype, value, DEFAULT OBJECT);
+    ELSE IF (NOT this->isall)
+    {
+      IF (this->wrap)
+        value := [ source := originpromise, value := value ];
+      this->private_promise->ResolveInternal(0, resolvetype, value, DEFAULT OBJECT);
+    }
+    ELSE
+    {
+      IF (RecordExists(this->elements[waitgen]))
+        RETURN;
+
+      INSERT CELL value := value INTO this->elements[waitgen];
+      this->waitgen := this->waitgen - 1;
+      IF (NOT IsDefaultValue(this->waitgen))
+        RETURN;
+
+      VARIANT vals;
+      IF (this->wrap)
+        vals := SELECT AS RECORD ARRAY COLUMN value FROM this->elements;
+      ELSE
+        vals := SELECT AS VARIANT ARRAY COLUMN value FROM this->elements;
+      this->private_promise->ResolveInternal(0, "resolved", vals, DEFAULT OBJECT);
+    }
+
+    this->Unsubscribe();
+  }
+
+  MACRO Unsubscribe()
+  {
+    FOREVERY (WEAKOBJECT promise FROM this->promises)
+    {
+      OBJECT strong := OBJECT(promise);
+      IF (ObjectExists(strong))
+        strong->__Unchain(PRIVATE this);
+    }
+  }
+>;
+
+/** The CreatePromiseAll function returns a new promise which is fulfilled with an array of fulfillment values
+    for the passed promises, or rejects with the reason of the first passed promise that rejects.
+    @param promises List of promises
+    @return New promise.
+*/
+PUBLIC OBJECT FUNCTION CreatePromiseAll(OBJECT ARRAY promises)
+{
+  RETURN NEW PromiseListBookkeeping(promises, TRUE, FALSE)->promise;
+}
+
+MACRO WrapResolve(RECORD defer, OBJECT promise, VARIANT value)
+{
+  defer.resolve([ source := promise, value := value ]);
+}
+
+/** The race function returns a new promise which is settled in the same way as the first passed promise to settle.
+    @param promises List of promises
+    @param options
+    @cell options.wrap If TRUE, wrap resolved promises values in a record [ source := resolved promise, value := resolved value ]
+    @return New promise.
+*/
+PUBLIC OBJECT FUNCTION CreatePromiseRace(OBJECT ARRAY promises, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  BOOLEAN wrap := CellExists(options, "WRAP") AND options.wrap;
+  RETURN NEW PromiseListBookkeeping(promises, FALSE, wrap)->promise;
+}
+
+/** The CreatePromiseAllSettled returns a promise that is fulfilled with an array of promise state snapshots,
+    but only after all the original promises have settled, i.e. become either fulfilled or rejected.
+    @param promises List of promises
+    @return New promise
+    @cell return.status Promise status: 'fulfilled' or 'rejected'
+    @cell return.value Fulfullment value (only if status is 'fulfilled')
+    @cell(object) return.reason Rejection value (only if status is 'rejected')
+*/
+PUBLIC OBJECT FUNCTION CreatePromiseAllSettled(OBJECT ARRAY promises)
+{
+  RETURN NEW PromiseListBookkeeping(promises, TRUE, TRUE)->promise;
+}
+
+/** @short Asynchronous sleep (allows microtasks to run ie to allow promises to resolve)
+    @param msecs Time to sleep, in milliseconds
+    @return A promise that resolves after time ms */
+PUBLIC OBJECT FUNCTION CreateSleepPromise(INTEGER time)
+{
+  RETURN CreatePromise(PTR AsyncSleepWait(time, #1, #2));
+}
+
+MACRO AsyncSleepWait(INTEGER time, FUNCTION PTR resolve, FUNCTION PTR reject)
+{
+  RegisterTimedCallback(AddTimeToDate(time, GetCurrentDateTime()), PTR AsyncSleepResolve(time, resolve));
+}
+
+MACRO AsyncSleepResolve(INTEGER time, FUNCTION PTR resolve)
+{
+  resolve(time);
+}

@@ -1,0 +1,124 @@
+<?wh
+/** @topic sitedev/analytics */
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+RECORD FUNCTION GetGeoIPCapabilities() __ATTRIBUTES__(EXTERNAL "system_geoip");
+RECORD FUNCTION __GetGeoIPCityByIP(STRING ip_addr) __ATTRIBUTES__(EXTERNAL "system_geoip");
+STRING FUNCTION __GetGeoIPCountryByIP(STRING ip_addr) __ATTRIBUTES__(EXTERNAL "system_geoip");
+
+/** @short Anonymize IP address for further analytics processing
+    @param address IP Address to anonymize
+    @return IP address truncated to signifcant 24 bits (IPv4) or 80 bits (IPv6)
+    */
+PUBLIC STRING FUNCTION AnonymizeIPForAnalytics(STRING address)
+{
+  address := CanonicalizeIPAddress(address, FALSE);
+  IF (address LIKE "*.*")
+  {
+    // IPv4 address, set the last octet to 0
+    STRING ARRAY parts := Tokenize(address, ".");
+    parts[3] := "0";
+    address := Detokenize(parts, ".");
+  }
+  ELSE IF (address LIKE "*:*")
+  {
+    // IPv6 address, set the last 80 bits to zero
+    IF (address LIKE "*::*")
+    {
+      INTEGER numparts := Length(Tokenize(address, ":"));
+      address := Substitute(address, "::", ":" || RepeatText("0:", 8 - numparts + 1));
+      IF (address LIKE ":*")
+        address := "0" || address;
+      IF (address LIKE "*:")
+        address := address || "0";
+    }
+    STRING ARRAY parts := Tokenize(address, ":");
+    parts[3] := "0";
+    parts[4] := "0";
+    parts[5] := "0";
+    parts[6] := "0";
+    parts[7] := "0";
+    address := CanonicalizeIPAddress(Detokenize(parts, ":"), FALSE);
+  }
+  RETURN address;
+}
+
+
+/** @short Quickly look up just the GeoIP country for an IP address
+    @param ip_addr IP address to look up
+    @return Country code, in uppercase, eg "NL" */
+PUBLIC STRING FUNCTION GetGeoIPCountryForIP(STRING ip_addr)
+{
+  IF(IsPrivateIPAddress(ip_addr))
+    RETURN ""; //our geoip binding is suddenly returning hits for private ip addresses, so filter explicitly
+  RETURN __GetGeoIPCountryByIP(ip_addr);
+}
+
+/** @short Look up full geoIP info for an IP address
+    @param ip_addr IP address to look up
+    @return GeoIP information, if available. Please note that there's no promise of accuracy or correctness for the data,
+            and that (country) names might differ from those returned by other APIs
+    @cell(string) return.city City
+    @cell(string) return.country_code Country code (ISO 2 letter code)
+    @cell(string) return.country_name Country name (as stored in GeoIP database)
+    @cell(string) return.postal_code Postal code/zip
+    @cell(float) return.latitude Latitude
+    @cell(float) return.longitude Longitude
+    @cell(string) return.region_code Regional code (eg province, state)
+    @cell(string) return.region_name Regional name (ast store din GeoIP database) */
+PUBLIC RECORD FUNCTION GetGeoIPInfoForIP(STRING ip_addr)
+{
+  IF(IsPrivateIPAddress(ip_addr))
+    RETURN DEFAULT RECORD; //our geoip binding was suddenly returning hits for private ip addresses, so filter explicitly
+  RETURN __GetGeoIPCityByIP(ip_addr);
+}
+
+/** Get the 'assumed' IP address for the client for eg. analytics and redirection. Allows clients to override the IP by setting
+    wh-debug-overrideip (currently on development servers, in the future on all servers if we can verify you're a sysop)
+    @return Client IP address */
+PUBLIC STRING FUNCTION GetClientAssumedIP()
+{
+  IF(NOT IsRequest())
+    THROW NEW Exception(`GetClientAssumedIP can only be used in the context of a request`);
+
+  //TODO move as setting to debug.shtml page and require sysop signature
+  STRING ip := GetWebCookie("wh-debug-overrideip");
+  IF(ip != "" AND GetDtapStage() != "development")
+    ip := ""; //only dev may set IPs
+  IF(ip = "")
+    ip := GetClientRemoteIP();
+  RETURN ip;
+}
+
+RECORD FUNCTION GetDefaultCountryCode()
+{
+  STRING cc := ReadRegistryKey("publisher.analytics.privateipcountry");
+  RETURN [ value := cc
+         , ttl := 5*60*1000
+         , eventmasks := GetRegistryKeyEventMasks(["publisher.analytics.privateipcountry"])
+         ];
+}
+
+/** Get the user's geoip country code. If the user has a private IP address, uses the preconfigured private-ip country
+    @return Client country code (based on %GetClientAssumedIP) in uppercase */
+PUBLIC STRING FUNCTION GetClientGeoIPCountry()
+{
+  IF(NOT IsRequest())
+    THROW NEW Exception(`GetClientAssumedIP can only be used in the context of a request`);
+
+  STRING ip := GetWebCookie("wh-debug-overrideip");
+  IF(ip != "" AND GetDtapStage() != "development")
+    ip := ""; //only dev may set IPs
+  IF(ip = "")
+    ip := GetClientRemoteIP();
+
+  IF(IsPrivateIPAddress(ip))
+    RETURN GetAdhocCached([type:="defaultcountrycode" ], PTR RunInSeparatePrimary(PTR GetDefaultCountryCode));
+
+  RETURN GetGeoIPCountryForIP(ip);
+}

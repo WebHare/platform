@@ -1,0 +1,690 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/formhandlers.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+STRING ARRAY pageorder := [ "", "overview", "thankyou" ];
+
+INTEGER FUNCTION GetPageNumber(OBJECT page)
+{
+  INTEGER pagenum := 1;
+  FOR(page := page->previouselementsibling; ObjectExists(page); page := page->previouselementsibling)
+    IF(page->localname = "page")
+      pagenum := pagenum + 1;
+  RETURN pagenum;
+}
+
+MACRO UpdateAttribute(OBJECT child, RECORD attr, STRING newvalue)
+{
+  IF (attr.localname = "")
+   child->SetAttribute(attr.nodename, newvalue);
+  ELSE
+   child->SetAttributeNS(attr.namespaceuri, attr.nodename, newvalue);
+}
+
+
+STATIC OBJECTTYPE FormPage
+<
+  OBJECT formdefinition;
+  OBJECT pvt_node;
+
+  PUBLIC PROPERTY node(this->pvt_node, -);
+  PUBLIC PROPERTY guid(GetGUID, -);
+  PUBLIC PROPERTY role(GetRole, -);
+  PUBLIC PROPERTY redirect(GetRedirect, -);
+  PUBLIC PROPERTY visiblecondition(GetVisibleCondition, SetVisibleCondition);
+
+  MACRO NEW(OBJECT formdefinition, OBJECT page)
+  {
+    this->formdefinition := formdefinition;
+    this->pvt_node := page;
+  }
+
+  PUBLIC OBJECT FUNCTION AppendComponent(STRING element)
+  {
+    RECORD comptype := GetFormComponentDef("", element, [ nofail := TRUE ]);
+    OBJECT newnode := this->node->ownerdocument->CreateElementNS(comptype.namespace, comptype.name);
+    newnode->SetAttribute("guid", this->formdefinition->formdefinitions->__CreateGUID("formcomp") );
+    this->node->AppendChild(newnode);
+    RETURN newnode;
+  }
+
+  PUBLIC OBJECT FUNCTION LookupComponent(STRING name)
+  {
+    OBJECT match := this->node->GetEvaluatedElement(DEFAULT OBJECT, `//*[@name="${EncodeJava(name)}"]|//*[@guid="${EncodeJava(name)}"]`);
+    //TODO properly verify we've hit a component
+    RETURN match;
+  }
+
+  /** Duplicate the specified component */
+  PUBLIC OBJECT FUNCTION DuplicateComponent(OBJECT source)
+  {
+    //verify it's actually a component TODO: allow components to specify after-clone callbacks?
+    //RECORD comptype := GetFormComponentDef(source->namespaceuri, source->element, [ nofail := TRUE ]);
+
+    OBJECT newquestion := source->CloneNode(TRUE); //deep copy
+    source->parentnode->InsertBefore(newquestion, source->nextelementsibling); //insert behind source
+
+    STRING ARRAY currentinstanceids := this->formdefinition->formdefinitions->__GetInstanceids();
+
+    FOREVERY(RECORD comp FROM GatherFormComponentsFromComponent(newquestion, [ getallchildren := TRUE ]))
+    {
+      IF(comp.type="component")
+      {
+        comp.node->SetAttribute("guid", this->formdefinition->formdefinitions->__CreateGUID("formcomp"));
+        comp.node->RemoveAttribute("name");
+        comp.node->RemoveAttribute("pins");
+      }
+
+      FOREVERY(OBJECT child FROM OBJECT[comp.node] CONCAT comp.allchildren)
+        FOREVERY(RECORD attr FROM child->ListAttributes())
+        {
+          IF(attr.nodevalue IN currentinstanceids)
+          {
+            STRING newinstanceid := this->formdefinition->formdefinitions->CreateInstance(this->formdefinition->formdefinitions->GetInstance(attr.nodevalue));
+            UpdateAttribute(child, attr, newinstanceid);
+          }
+        }
+    }
+    RETURN newquestion;
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetComponents(OBJECT questiongroup DEFAULTSTO DEFAULT OBJECT)
+  {
+    OBJECT node := this->node;
+    IF (ObjectExists(questiongroup))
+    {
+      IF (NOT questiongroup->parentnode->IsSameNode(this->node))
+        THROW NEW Exception("Question group not on this page");
+      node := questiongroup;
+    }
+    RETURN
+        SELECT AS OBJECT ARRAY nodes.node
+          FROM ToRecordArray(node->childnodes->GetCurrentElements(), "node") AS nodes
+         WHERE (nodes.node->namespaceuri = xmlns_forms AND nodes.node->localname = "group")
+               OR RecordExists(GetFormComponentDef(nodes.node->namespaceuri, nodes.node->localname));
+  }
+
+  PUBLIC MACRO DeleteComponent(OBJECT component)
+  {
+    IF (NOT component->parentnode->IsSameNode(this->node))
+      THROW NEW Exception("Component not on this page");
+    this->formdefinition->DeleteComponent(component);
+  }
+
+  STRING FUNCTION GetGUID()
+  {
+    RETURN this->node->GetAttribute("guid");
+  }
+
+  STRING FUNCTION GetRole()
+  {
+    RETURN this->node->GetAttribute("role");
+  }
+
+  STRING FUNCTION GetRedirect()
+  {
+    RETURN this->formdefinition->formdefinitions->ResolveLinkRefToUrl(this->node->GetAttribute("redirect"));
+  }
+
+  RECORD FUNCTION GetVisibleCondition()
+  {
+    RETURN this->formdefinition->formdefinitions->GetConditionAttribute(this->node, "visibleconditionid");
+  }
+  MACRO SetVisibleCondition(RECORD newcondition)
+  {
+    this->formdefinition->formdefinitions->SetConditionAttribute(this->node, "visibleconditionid", newcondition);
+  }
+>;
+
+STATIC OBJECTTYPE FormDefinition
+<
+  OBJECT pvt_formdefinitions;
+  OBJECT pvt_node;
+  OBJECT pvt_results;
+
+  PUBLIC PROPERTY node(pvt_node, -);
+  PUBLIC PROPERTY name(GetName, -);
+  PUBLIC PROPERTY formdefinitions(pvt_formdefinitions, -);
+//  PUBLIC PROPERTY formresults(GetFormResults, -);
+
+  MACRO NEW(OBJECT formdefinitions, OBJECT node)
+  {
+    this->pvt_formdefinitions := formdefinitions;
+    this->pvt_node := node;
+  }
+
+  OBJECT ARRAY FUNCTION GetPageNodes()
+  {
+    OBJECT ARRAY pagenodes := this->node->GetChildElementsByTagNameNS(xmlns_forms, "page")->GetCurrentElements();
+    RETURN Length(pagenodes) > 0 ? pagenodes : OBJECT[this->node];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListPages()
+  {
+    RETURN SELECT pagenum := #nodes
+                , role := node->GetAttribute("role")
+                , guid := node->GetAttribute("guid")
+             FROM ToRecordArray(this->GetPageNodes(), "node") AS nodes;
+  }
+
+  PUBLIC INTEGER FUNCTION GetNumPages()
+  {
+    RETURN Length(this->GetPageNodes());
+  }
+
+  PUBLIC OBJECT FUNCTION GetPage(INTEGER pagenum)
+  {
+    RETURN NEW FormPage(this, this->GetPageNodes()[pagenum]);
+  }
+  PUBLIC OBJECT FUNCTION AddPage(STRING role)
+  {
+    IF(role NOT IN pageorder)
+      THROW NEW Exception(`Invalid role '${role}'`);
+
+    OBJECT newnode := this->node->ownerdocument->CreateElementNS(xmlns_forms, "page");
+    newnode->SetAttribute("guid", this->formdefinitions->__CreateGUID("formpage"));
+    IF(role!="")
+      newnode->SetAttribute("role", role);
+
+    OBJECT refnode;
+    FOREVERY (RECORD page FROM this->ListPages())
+    {
+      IF (role != "" AND page.role = role)
+        THROW NEW Exception(`A page with role '${role}' already exists`); //we don't know how to handle that yet
+
+      IF (SearchElement(pageorder, role) < SearchElement(pageorder, page.role))
+      {
+        refnode := this->GetPage(page.pagenum)->node;
+        BREAK;
+      }
+    }
+    this->node->InsertBefore(newnode, refnode);
+
+    RETURN NEW FormPage(this, newnode);
+  }
+
+  PUBLIC MACRO DeletePage(OBJECT pagenode)
+  {
+    IF (NOT ObjectExists(pagenode) OR pagenode->IsSameNode(this->node) OR pagenode->localname != "page" OR pagenode->GetAttribute("role") = "thankyou")
+      THROW NEW Exception("Cannot delete this page");
+
+    OBJECT page :=NEW FormPage(this, pagenode);
+
+    FOREVERY (OBJECT comp FROM page->GetComponents())
+    {
+      IF (comp->namespaceuri = xmlns_forms AND comp->localname = "group")
+        this->DeleteGroup(comp);
+      ELSE
+        this->DeleteComponent(comp);
+    }
+    pagenode->Dispose();
+  }
+
+
+  PUBLIC MACRO DeleteGroup(OBJECT groupnode)
+  {
+    // Move all group questions to the trash, delete the group node itself
+    FOREVERY (OBJECT comp FROM groupnode->childnodes->GetCurrentElements())
+      this->DeleteComponent(comp);
+    groupnode->Dispose();
+  }
+
+  PUBLIC MACRO DeleteComponent(OBJECT component)
+  {
+    component->Dispose();
+    this->GetTrashNode()->AppendChild(component);
+  }
+
+  STRING FUNCTION GetName()
+  {
+    RETURN this->node->GetAttribute("name");
+  }
+
+  OBJECT FUNCTION GetTrashNode()
+  {
+    OBJECT trashnode := this->node->lastchild;
+    IF (NOT ObjectExists(trashnode)
+        OR NOT (trashnode->namespaceuri = xmlns_forms
+            AND trashnode->localname = "trash"))
+    {
+      trashnode := this->node->ownerdocument->CreateElementNS(xmlns_forms, "trash");
+      this->node->AppendChild(trashnode);
+    }
+    RETURN trashnode;
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetTrashedComponents()
+  {
+    OBJECT trash := this->GetTrashNode();
+    IF(NOT ObjectExists(trash))
+      RETURN OBJECT[];
+
+    RETURN
+        SELECT AS OBJECT ARRAY node
+          FROM ToRecordArray(trash->childnodes->GetCurrentElements(), "node") AS nodes
+         WHERE RecordExists(GetFormComponentDef(nodes.node->namespaceuri, nodes.node->localname));
+  }
+
+  OBJECT FUNCTION GetHandlersNode(BOOLEAN create)
+  {
+    OBJECT handlersnode := this->node->firstchild;
+    IF (NOT ObjectExists(handlersnode)
+        OR NOT (handlersnode->namespaceuri = xmlns_forms
+            AND handlersnode->localname = "handlers"))
+    {
+      IF (NOT create)
+        RETURN DEFAULT OBJECT;
+      handlersnode := this->node->ownerdocument->CreateElementNS(xmlns_forms, "handlers");
+      this->node->InsertBefore(handlersnode, this->node->firstchild);
+    }
+
+    RETURN handlersnode;
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetHandlers()
+  {
+    OBJECT handlersnode := this->GetHandlersNode(FALSE);
+    IF (NOT ObjectExists(handlersnode))
+      RETURN DEFAULT OBJECT ARRAY;
+
+    OBJECT ARRAY handlers := SELECT AS OBJECT ARRAY nodes.node
+          FROM ToRecordArray(handlersnode->childnodes->GetCurrentElements(), "node") AS nodes
+         WHERE RecordExists(GetFormHandlerDef(nodes.node->namespaceuri, nodes.node->localname));
+
+    RETURN handlers;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetParsedHandlers()
+  {
+    RETURN ParseFormHandlers(this->node, "", "", this->formdefinitions, FALSE); //ADDME missing parameters... but who needed 'module' anyway?
+  }
+
+  PUBLIC OBJECT FUNCTION AddHandler(STRING handler)
+  {
+    RECORD handlertype := GetFormHandlerDef("", handler, [ nofail := TRUE ]);
+    OBJECT handlersnode := this->GetHandlersNode(TRUE);
+
+    //ADDME: Add prefix if ns != xmlns_forms
+    OBJECT newnode := this->node->ownerdocument->CreateElementNS(handlertype.namespace, handlertype.name);
+    newnode->SetAttribute("guid", this->formdefinitions->__CreateGUID("formhandler"));
+    handlersnode->AppendChild(newnode);
+    RETURN newnode;
+  }
+
+  PUBLIC MACRO DeleteHandler(OBJECT component)
+  {
+    IF (NOT component->parentnode->IsSameNode(this->GetHandlersNode(FALSE)))
+      THROW NEW Exception("Component not on this page");
+    component->Dispose();
+  }
+
+  PUBLIC OBJECT FUNCTION __OpenAsLiveForm(STRING languagecode)
+  {
+    STRING resourcename := ObjectExists(this->formdefinitions->whfsobject) ? this->formdefinitions->whfsobject->GetResourceName() : "";
+    RECORD formdef := ParseFormDef(this->node, this->name, resourcename, "", this->formdefinitions,
+                                   [ webtoolformid := ObjectExists(this->formdefinitions->whfsobject) ? this->formdefinitions->whfsobject->id : 0 ]);
+    OBJECT form := OpenFormByDef(formdef, CELL[ forcewebtoolformbase := TRUE, languagecode ]);
+    RETURN form;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListFields(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ languagecode := "" ], options);
+    OBJECT actualform := this->__OpenAsLiveForm(options.languagecode);
+    RETURN actualform->ListFields();
+  }
+
+  PUBLIC RECORD FUNCTION DescribeField(STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ field_fallback_title := TRUE // Fall back to field tag (name) or guid if title is empty
+        , languagecode := "en"
+        , __listfields := RECORD[] /* quick hack to pass the known ListFields result.
+                                      we probably need better thought through datastorage if we're starting to build workarounds like this...
+                                      but this hack alone brought a form with 4 fields from 11sec to render the 'edit handler' dialog to <2...
+                                      */
+        ], options);
+
+    OBJECT field := this->node->GetElement(`*[guid="${guid}"]`);
+    IF(NOT ObjectExists(field))
+      RETURN DEFAULT RECORD;
+
+    //TODO DescribeField is repeatedly invoked by GetConditionSources (for every field) so now we're triggering a form reparse for every field.. O^2!
+    RECORD ARRAY listedfields := options.__listfields ?? this->ListFields();
+    STRING fieldtitle := DecodeHTML(SELECT AS STRING GetHTMLTidForLanguage(options.languagecode, title) FROM listedfields WHERE COLUMN guid = VAR guid);
+    IF (options.field_fallback_title AND fieldtitle = "")
+      fieldtitle := field->GetAttribute("name") ?? field->GetAttribute("guid");
+
+    STRING grouptitle;
+    OBJECT page := field->parentnode;
+    IF (page->nodename = "group")
+    {
+      grouptitle := page->GetAttribute("title") ?? GetTidForLanguage(options.languagecode, page->GetAttribute("tid"));
+      page := page->parentnode;
+    }
+
+    //ADDME: Use page component definition instead of hard-coding tid's
+    STRING pagerole := page->GetAttribute("role");
+    STRING pagetitle := pagerole != ""
+        ? GetTid("publisher:formcomponents.page.name-" || pagerole)
+        : GetTid("publisher:formcomponents.page.name", ToString(GetPageNumber(page)));
+    STRING giventitle := page->GetAttribute("pagetitle") ?? GetTidForLanguage(options.languagecode, page->GetAttribute("pagetid"));
+    IF (giventitle != "")
+      pagetitle := pagetitle || ": " || giventitle;
+
+    STRING ARRAY titles;
+    IF (pagetitle != "")
+      INSERT pagetitle INTO titles AT END;
+    IF (grouptitle != "")
+      INSERT grouptitle INTO titles AT END;
+    IF (fieldtitle != "")
+      INSERT fieldtitle INTO titles AT END;
+
+    RETURN
+        CELL[ pagetitle
+            , grouptitle
+            , fieldtitle
+            , pathtitle := Detokenize(titles, " – ")
+            ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE FormDefinitionsFile
+<
+  OBJECT formdoc;
+  OBJECT pvt_whfsobject;
+
+  RECORD ARRAY instances;
+  RECORD ARRAY links;
+
+  PUBLIC PROPERTY whfsobject(pvt_whfsobject, -);
+
+  MACRO NEW()
+  {
+  }
+
+  PUBLIC PROPERTY documentelement(GetDocumentElement, -);
+
+  OBJECT FUNCTION GetFormDoc()
+  {
+    IF(NOT ObjectExists(this->formdoc))
+      this->formdoc := NEW XMLDomImplementation->CreateDocument(xmlns_forms, "formdefinitions", DEFAULT OBJECT);
+    this->RemoveEmptyTextNodes(this->formdoc->documentelement);
+    RETURN this->formdoc;
+  }
+
+  MACRO RemoveEmptyTextNodes(OBJECT node)
+  {
+    FOREVERY (OBJECT subnode FROM node->childnodes->GetCurrentNodes())
+    {
+      IF (subnode->nodetype = subnode->TEXT_NODE AND TrimWhitespace(subnode->nodevalue) = "")
+        subnode->Dispose();
+      ELSE IF (subnode->nodetype = subnode->ELEMENT_NODE)
+        this->RemoveEmptyTextNodes(subnode);
+    }
+  }
+
+  OBJECT FUNCTION GetDocumentElement()
+  {
+    RETURN this->GetFormDoc()->documentelement;
+  }
+
+  PUBLIC STRING ARRAY FUNCTION GetFormDefinitions()
+  {
+    STRING ARRAY names;
+    FOREVERY (OBJECT formnode FROM this->GetFormDoc()->documentelement->GetChildElementsByTagNameNS(xmlns_forms,"form")->GetCurrentElements())
+      INSERT formnode->GetAttribute("name") INTO names AT END;
+    RETURN names;
+  }
+
+  PUBLIC OBJECT FUNCTION OpenFormDefinition(STRING name)
+  {
+    FOREVERY (OBJECT formnode FROM this->GetFormDoc()->documentelement->GetChildElementsByTagNameNS(xmlns_forms,"form")->GetCurrentElements())
+      IF(formnode->GetAttribute("name") = name)
+        RETURN NEW FormDefinition(this, formnode);
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC OBJECT FUNCTION CreateFormDefinition(STRING name)
+  {
+    IF(ObjectExists(this->OpenFormDefinition(name)))
+      THROW NEW Exception(`A form named '${name}' already exists'`);
+
+    OBJECT formnode := this->GetFormDoc()->CreateElementNS(xmlns_forms, "form");
+    formnode->SetAttribute("name",name);
+    this->GetFormDoc()->documentelement->AppendChild(formnode);
+
+    OBJECT formdef := NEW FormDefinition(this, formnode);
+    formdef->AddPage("");
+
+    OBJECT thankyou := formdef->AddPage("thankyou");
+    thankyou->node->SetAttribute("pins","existence");
+
+    RETURN formdef;
+  }
+
+  PUBLIC STRING FUNCTION ResolveLinkRefToUrl(STRING link)
+  {
+    IF (link LIKE "x-wh-internallink:*")
+    {
+      // Internal link
+      STRING ARRAY parts := Tokenize(link, "|");
+      INTEGER fileid := this->GetLinkRef(parts[0]);
+      OBJECT fileobj := OpenWHFSObject(fileid);
+      IF (ObjectExists(fileobj) AND fileobj->isactive AND fileobj->publish)
+      {
+        link := fileobj->indexurl;
+        IF (Length(parts) > 1)
+          link := link || parts[1];
+      }
+      ELSE
+        link := "";
+    }
+    RETURN link;
+  }
+
+  PUBLIC INTEGER FUNCTION GetLinkRef(STRING tag)
+  {
+    IF(tag NOT LIKE "x-wh-internallink:*")
+      RETURN 0;
+
+    RETURN SELECT AS INTEGER linkref FROM this->links WHERE links.tag = Substring(VAR tag, 18);
+  }
+
+  PUBLIC STRING FUNCTION CreateLinkRef(INTEGER newlinkref)
+  {
+    IF(newlinkref=0)
+      RETURN "";
+
+    STRING linkid := SELECT AS STRING tag FROM this->links WHERE linkref = VAR newlinkref;
+    IF(linkid="")
+    {
+      linkid := "RL-" || GenerateUFS128BitId();
+      INSERT [ tag := linkid, linkref := newlinkref ] INTO this->links AT END;
+    }
+    RETURN "x-wh-internallink:" || linkid;
+  }
+
+  PUBLIC MACRO SetLinkRef(STRING tag, INTEGER newlinkref)
+  {
+    IF(tag NOT LIKE "x-wh-internallink:*")
+      THROW NEW Exception("Unrecognized link " || tag);
+
+    INTEGER existinglinkpos := SELECT AS INTEGER #links + 1 FROM this->links WHERE links.tag = Substring(VAR tag, 18);
+    IF(existinglinkpos > 0)
+    {
+      this->links[existinglinkpos-1].linkref := newlinkref;
+    }
+    ELSE
+    {
+      INSERT [ tag := Substring(tag,14), linkref := newlinkref ] INTO this->links AT END;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION GetInstance(STRING getid)
+  {
+    RETURN SELECT AS RECORD data FROM this->instances WHERE instanceid = getid;
+  }
+
+  PUBLIC STRING FUNCTION CreateInstance(RECORD data)
+  {
+    OBJECT type := OpenWHFSType(data.whfstype);
+    IF(NOT ObjectExists(type))
+      THROW NEW Exception(`No such contenttype '${data.whfstype}'`);
+
+    STRING newid := GenerateUFS128BitId();
+    WHILE(RecordExists(SELECT FROM this->instances WHERE instanceid=newid))
+      newid := GenerateUFS128BitId();
+
+    INSERT [ instanceid := newid, data := data ] INTO this->instances AT END;
+    RETURN newid;
+  }
+
+  PUBLIC MACRO SetInstance(STRING updateid, RECORD data)
+  {
+    INTEGER updatepos := SELECT AS INTEGER #instances+1 FROM this->instances WHERE instanceid = updateid;
+    IF(updatepos=0)
+      THROW NEW Exception(`No such instance '${updateid}'`);
+
+    IF(RecordExists(data))
+    {
+      IF(this->instances[updatepos-1].data.whfstype != data.whfstype)
+        THROW NEW Exception(`Cannot update instance with different type (want '${this->instances[updatepos-1].data.whfstype}', got '${data.whfstype}')`);
+
+      this->instances[updatepos-1].data := MakeReplacedRecord(this->instances[updatepos-1].data, data);
+    }
+    ELSE
+    {
+      DELETE FROM this->instances AT updatepos-1;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION GetConditionAttribute(OBJECT node, STRING attributename)
+  {
+    STRING currentinstance := node->GetAttribute(attributename);
+    RECORD res;
+    IF(currentinstance != "")
+      res := this->GetInstance(currentinstance);
+    RETURN RecordExists(res) ? res.data : DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO SetConditionAttribute(OBJECT node, STRING attributename, RECORD cond)
+  {
+    STRING currentinstance := node->GetAttribute(attributename);
+    IF(NOT RecordExists(cond)) //resetting
+    {
+      IF(currentinstance != "")
+        DELETE FROM this->instances WHERE instanceid = currentinstance;
+      node->RemoveAttribute(attributename);
+      RETURN;
+    }
+
+    RECORD toset := [ whfstype := "http://www.webhare.net/xmlns/publisher/formcondition"
+                    , data := ValidateFormCondition(cond)
+                    ];
+
+    IF(currentinstance = "")
+      node->SetAttribute(attributename, this->CreateInstance(toset));
+    ELSE
+      this->SetInstance(currentinstance, toset);
+  }
+
+  PUBLIC RECORD FUNCTION ExportAsRecord()
+  {
+    IF(NOT ObjectExists(this->formdoc))
+      RETURN DEFAULT RECORD;
+
+    this->formdoc->NormalizeDocument();
+    RETURN [ formtext := this->formdoc->GetDocumentBlob(TRUE)
+           , instances := this->instances
+           , links := (SELECT tag, linkref FROM this->links ORDER BY tag)
+           ];
+  }
+
+  PUBLIC MACRO ImportFromRecord(RECORD data)
+  {
+    this->formdoc := DEFAULT OBJECT;
+    data := __ValidateRichDocumentLike(data, FALSE, FALSE);
+
+    IF(RecordExists(data) AND Length(data.formtext) > 0)
+      this->formdoc := MakeXMLDocument(data.formtext);
+    IF(NOT ObjectExists(this->formdoc))
+      this->formdoc := NEW XMLDomImplementation->CreateDocument(xmlns_forms, "formdefinitions", DEFAULT OBJECT);
+
+    IF(CellExists(data,"instances"))
+    {
+      //ensure even manual imports have whfsfileid and whfssettingid set for every instance
+      this->instances := SELECT AS RECORD ARRAY CELL[ instanceid, data := [ whfssettingid := 0, whfsfileid := 0, ...instances.data] ] FROM data.instances;
+    }
+    IF(CellExists(data,"links"))
+    {
+      this->links := SELECT tag
+                          , linkref
+                       FROM data.links;
+    }
+  }
+  PUBLIC MACRO LoadFromWHFS(OBJECT whfsobject)
+  {
+    this->ImportFromRecord(whfsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").data);
+    this->pvt_whfsobject := whfsobject;
+  }
+  PUBLIC MACRO SaveToWHFS(OBJECT whfsobject)
+  {
+    whfsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", [ data := this->ExportAsRecord() ]);
+    whfsobject->UpdateMetadata(DEFAULT RECORD); //ensure modtime update
+    this->pvt_whfsobject := whfsobject;
+  }
+
+  PUBLIC STRING ARRAY FUNCTION __GetInstanceids()
+  {
+    RETURN SELECT AS STRING ARRAY instanceid FROM this->instances;
+  }
+  PUBLIC STRING FUNCTION __CreateGUID(STRING prefix)
+  {
+    RETURN prefix || ":" || GenerateUFS128BitId();
+  }
+
+  PUBLIC RECORD FUNCTION LookupComponentDef(OBJECT question)
+  {
+    RETURN GetFormComponentDef(question->namespaceuri, question->localname);
+  }
+>;
+
+/** @short Creates a new form definition object
+    @return(object #FormDefinitionsFile) Form definition object
+    @topic forms/api
+    @public
+    @loadlib mod::publisher/lib/forms/api.whlib
+*/
+PUBLIC OBJECT FUNCTION CreateNewFormdefinitionsFile()
+{
+  RETURN NEW FormDefinitionsFile;
+}
+
+/** Open a form definition file from WHFS
+    @param whfsobject WHFS object of a form
+    @return(object #FormDefinitionsFile) Form definition object
+    @topic forms/api
+    @public
+    @loadlib mod::publisher/lib/forms/api.whlib
+*/
+PUBLIC OBJECT FUNCTION OpenWHFSFormDefinitionsFile(OBJECT whfsobject)
+{
+  OBJECT def := NEW FormDefinitionsFile;
+  def->LoadFromWHFS(whfsobject);
+  RETURN def;
+}

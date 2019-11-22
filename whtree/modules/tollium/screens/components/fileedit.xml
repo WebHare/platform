@@ -1,0 +1,20 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="components/fileedit.whlib">
+
+  <fragment name="fileedit">
+    <actions>
+      <uploadaction name="replacefile" tid="tollium:common.actions.replace" onupload="doreplacefile" />
+      <downloadaction name="savefile" tid="tollium:common.actions.save" ondownload="dosavefile" />
+      <action name="removefile" tid="tollium:common.actions.delete" onexecute="doremovefile" />
+    </actions>
+    <contents>
+      <line>
+        <text name="filename" title="" />
+        <button name="replace" action="replacefile" type="icon" icon="tollium:actions/replace" hinttid="tollium:components.fileedit.hints.replace_file" />
+        <button name="save" action="savefile" type="icon" icon="tollium:actions/save" hinttid="tollium:components.fileedit.hints.save_file"/>
+        <button name="remove" action="removefile" type="icon" icon="tollium:actions/delete" hinttid="tollium:components.fileedit.hints.delete_file" />
+      </line>
+    </contents>
+  </fragment>
+
+</screens>

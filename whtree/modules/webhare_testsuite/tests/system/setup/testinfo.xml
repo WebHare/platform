@@ -1,0 +1,8 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <jstest file="testsetup.es" name="setup-standard" exclusive="true" tags="wrdauth">
+    <arg value="" />
+  </jstest>
+  <jstest file="testsetup.es" name="setup-commfallback" exclusive="true" tags="wrdauth">
+    <arg value="?commfallback=1" />
+  </jstest>
+</group>

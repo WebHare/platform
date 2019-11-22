@@ -1,0 +1,7 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <layer src="tollium:status/sending" size="16px" translatex="-1px"/>
+  <layer src="tollium:status/sending" size="24px" translatex="-1px"/>  
+
+  <layer src="tollium:overlays/filetypes/clock" size="16px" translatex="1px"/>    
+  <layer src="tollium:overlays/filetypes/clock" size="24px" translatex="2px"/>      
+</icon>

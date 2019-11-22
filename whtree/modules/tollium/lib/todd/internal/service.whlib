@@ -1,0 +1,351 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::tollium/lib/internal/icons.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+// Wait max 4.5 minutes on a message (should _just_ be enough to avoid a 5 min TCP/NAT timeout)
+INTEGER maxmessagewait := 270 * 1000;
+
+/** Send & wait for tollium messages
+    @param request
+    @cell(recordarray) request.links
+    @cell request.links.linkid
+    @cell request.links.frontendid
+    @cell request.links.messages
+    @cell request.links.ack
+    @cell(stringarray) request.frontendids
+*/
+PUBLIC RECORD FUNCTION RPC_RunToddComm(RECORD request)
+{
+  /* Wire format:
+
+    request.links (for linkmessages)
+      - linkid
+      - messages
+      - ack
+      - frontendid
+    request.frontendids
+    request.unloading
+
+    return
+    links
+      - linkid
+      - status ('', 'gone', 'linkmessage')
+      - data (when linkmessage)
+  */
+
+  // Get the apps
+  RECORD ARRAY links :=
+      SELECT linkid
+           , frontendid
+           , messages
+           , ack
+           , needack
+           , status :=      ""
+           , portid :=      linkid LIKE "*/*" ? Left(linkid, SearchSubString(linkid, "/")) : linkid
+        FROM RECORD ARRAY(request.links)
+    ORDER BY linkid;
+
+  STRING ARRAY frontendids := STRING ARRAY(request.frontendids);
+  IF ("" IN frontendids)
+    ABORT("Illegal frontendid specified");
+
+  FOREVERY (RECORD rec FROM links)
+    IF (rec.frontendid NOT IN frontendids)
+      ABORT("Frontendid '" || rec.frontendid || "' not specified in frontendids list");
+
+  STRING ARRAY linkids := SELECT AS STRING ARRAY DISTINCT linkid FROM links;
+  IF(Length(linkids) != Length(links))
+    THROW NEW Exception("Duplicate request for some links"); //client duplicated registration?
+
+  IF(debug_logtransport)
+    LogDebug("todd-comm", "Incoming req", linkids);
+
+  RECORD ARRAY ports :=
+      SELECT portid
+           , links :=       GroupedValues(links)
+           , ipclink :=     DEFAULT OBJECT
+        FROM links
+    GROUP BY portid;
+
+  // Clear messages & ack from links for reuse.
+  UPDATE links
+     SET messages :=    DEFAULT RECORD ARRAY
+       , ack :=         0;
+
+  DATETIME wait_until := request.unloading ? DEFAULT DATETIME : AddTimeToDate(maxmessagewait, GetCurrentDateTime());
+  BOOLEAN have_answer;
+
+  // Connect to all ports, distribute the links. If a port has gone, wait max 10 ms to report back to the client
+  FOREVERY (RECORD port FROM ports)
+  {
+    ports[#port].ipclink := ConnectToIPCPort("tollium:link." || port.portid);
+    IF (NOT ObjectExists(ports[#port].ipclink))
+    {
+      UPDATE links SET status := "gone" WHERE portid = port.portid;
+      IF(debug_logtransport)
+        LogDebug("todd-comm", "Port " || port.portid || " is gone");
+
+      have_answer := TRUE;
+      DATETIME new_wait := AddTimeToDate(10, GetCurrentDateTime());
+      IF (new_wait < wait_until)
+        wait_until := new_wait;
+    }
+    ELSE
+    {
+      IF(debug_logtransport)
+        LogDebug("todd-comm", "Just connected to port " || port.portid);
+      ports[#port].ipclink->autothrow := TRUE;
+      ports[#port].ipclink->userdata := [ portnr := #port, portid := port.portid ];
+
+      IF(debug_logtransport)
+        LogDebug("todd-comm", "Sending message to port " || port.portid);
+      ports[#port].ipclink->SendMessage(
+          [ type := "linkmessages"
+          , data := (SELECT linkid, messages, ack, frontendid, needack FROM port.links)
+          , ispersistentlink := FALSE
+          , frontendids := frontendids
+          ]);
+    }
+  }
+
+  // Gather list of established links
+  OBJECT ARRAY ipclinks := SELECT AS OBJECT ARRAY ipclink FROM ports WHERE ObjectExists(ipclink);
+
+  // Wait for messages
+  WHILE (LENGTH(ipclinks) != 0 AND GetCurrentDateTime() < wait_until)
+  {
+    INTEGER ARRAY handles := SELECT AS INTEGER ARRAY ipclink->handle FROM ToRecordArray(ipclinks, "IPCLINK") WHERE ObjectExists(ipclink);
+
+    IF(debug_logtransport)
+      LogDebug("todd-comm", "Wait for handles until " || FormatISO8601DateTime(wait_until) || ": " || AnyToString(handles, "tree"));
+    INTEGER handle := WaitForMultipleUntil(handles, DEFAULT INTEGER ARRAY, wait_until);
+    IF (handle != -1)
+    {
+      IF(debug_logtransport)
+        LogDebug("todd-comm", "Have signalled handle");
+      FOREVERY (OBJECT ipclink FROM ipclinks)
+      {
+        RECORD rec := ipclink->ReceiveMessage(DEFAULT DATETIME);
+        IF (rec.status = "timeout")
+          CONTINUE;
+
+        IF(debug_logtransport)
+          LogDebug("todd-comm", "Port " || ipclink->userdata.portid || " returned\n" || AnyToString(rec, "boxed"));
+
+        IF (rec.status = "gone")
+        {
+          // Gone without cancel message really means: crash
+          UPDATE links SET status := "gone" WHERE portid = ipclink->userdata.portid;
+
+          have_answer := TRUE;
+          DATETIME new_wait := AddTimeToDate(10, GetCurrentDateTime());
+          IF (new_wait < wait_until)
+            wait_until := new_wait;
+
+          ipclink->Close();
+          DELETE FROM ipclinks AT SearchElement(ipclinks, ipclink);
+        }
+        ELSE
+        {
+          IF(debug_logtransport)
+            LogDebug("todd-comm", "Got message from " || ipclink->userdata.portid || ": " || rec.msg.type, AnyToString(rec.msg, "tree:3"));
+          SWITCH (rec.msg.type)
+          {
+          CASE "cancel"/*, "finishedrequest"*/
+            {
+              UPDATE links SET status := "response" WHERE portid = ipclink->userdata.portid;
+
+              IF (rec.msg.forcesend)
+              {
+                ipclink->Close();
+                DELETE FROM ipclinks AT SearchElement(ipclinks, ipclink);
+
+                // Report this back immediately
+                have_answer := TRUE;
+                wait_until := DEFAULT DATETIME;
+              }
+            }
+          CASE "linkmessages"
+            {
+              BOOLEAN gotmessages;
+
+              FOREVERY (RECORD msg FROM rec.msg.data)
+              {
+                RECORD pos := RecordLowerBound(links, msg, [ "LINKID" ]);
+                IF (pos.found)
+                {
+                  links[pos.position].status := msg.status;
+                  links[pos.position].messages := msg.messages;
+                  links[pos.position].ack := msg.ack;
+                }
+              }
+
+              IF (rec.msg.forcesend)
+              {
+                ipclink->Close();
+                DELETE FROM ipclinks AT SearchElement(ipclinks, ipclink);
+
+                // Report this back immediately
+                have_answer := TRUE;
+                wait_until := DEFAULT DATETIME;
+              }
+            }
+          DEFAULT
+            {
+              ABORT("Unknown response type '" || rec.msg.type || "' received");
+            }
+          }
+        }
+      }
+    }
+    ELSE
+    {
+      IF(debug_logtransport)
+        LogDebug("todd-comm" , "Got timeout, have answer: " || (have_answer?1:0) || ", wait_until: " || AnyToString(wait_until, "tree"));
+      BREAK;
+    }
+  }
+
+  links := SELECT linkid
+                , status
+                , messages
+                , ack
+             FROM links
+            WHERE status != "";
+
+  FOREVERY(RECORD link FROM links)
+    FOR(INTEGER pos:=0;pos<Length(link.messages);pos:=pos+1)  //ADDME why is messages a variant array ?
+      IF(CellExists(links[#link].messages[pos].data, 'response'))
+        links[#link].messages[pos].data := link.messages[pos].data.response; //note: we're cutting out 'response' in this step
+
+  RECORD response := [ links := links ];
+  IF(debug_logtransport)
+    LogDebug("todd-comm" , "Sending response", response);
+  RETURN response;
+}
+
+PUBLIC RECORD FUNCTION RPC_RetrieveImages(RECORD ARRAY images, BOOLEAN nocache, BOOLEAN nobroken, BOOLEAN rewritestyles)
+{
+  RECORD options := [ nocache := nocache
+                    //, nobroken := TRUE // Broken images are handled client-side
+                    , nobroken := nobroken
+                    ];
+  FOREVERY (RECORD img FROM images)
+  {
+    RECORD ARRAY retrieved;
+    FOREVERY (STRING imgname FROM img.data.imgnames)
+    {
+      retrieved := retrieved CONCAT
+          ((SELECT data := EncodeBase64(rewritestyles AND type="image/svg+xml" ? RewriteImgStyles(data, imgname) : BlobToString(data, -1))
+                 , type
+                 , color
+                 , invertable
+                 , knockout
+                 , translatex
+                 , translatey
+                 , imgname := VAR imgname
+              FROM GetImage(imgname, img.data.width, img.data.height, "", img.data.color, options) AS img)
+            ?? [ DEFAULT RECORD ]);
+    }
+    INSERT CELL images := retrieved INTO images[#img];
+    DELETE CELL data FROM images[#img];
+  }
+  RETURN [ images := images ];
+}
+
+STRING ARRAY FUNCTION GetNonlocalIps()
+{
+  RETURN
+      SELECT AS STRING ARRAY ip
+        FROM ToRecordArray(GetLocalIPs(), "IP")
+       WHERE ip NOT IN [ "127.0.0.1", "::1" ]
+         AND ip NOT LIKE "fc*:*" // IPv6 ULA
+         AND ip NOT LIKE "fd*:*" // IPv6 ULA
+         AND ip NOT LIKE "fd*:*"
+         AND ip NOT LIKE "fe*:*"; // IPv6 local addresses (should be fe80::/10)
+}
+
+PUBLIC RECORD FUNCTION RPC_GetWebdavOpenInfo(STRING pathname, STRING item, RECORD data)
+{
+  OpenPrimary();
+  OBJECT authplugin := GetWRDAuthPlugin(GetWebOriginURL(pathname));
+  OBJECT user := authplugin->GetCurrentWebhareUser();
+
+  //Do we have a working app password?
+  STRING apppassword := DecodeBase64(user->GetRegistryKey("system.webhareconnect.webdavpassword", ""));
+  GetPrimary()->BeginWork();
+  IF(apppassword != "")
+  {
+    RECORD status := authplugin->userapi->TryAppPasswordLogin("system:webdav", user->login, apppassword, TRUE);
+    IF(NOT RecordExists(status))
+      apppassword := "";
+  }
+  IF(apppassword = "") //generate one
+  {
+    apppassword := user->CreateAppPassword("system:webdav","WebHare Connect").password;
+    user->SetRegistryKey("system.webhareconnect.webdavpassword", EncodeBase64(apppassword));
+  }
+  GetPrimary()->CommitWork();
+
+  IF(CellExists(data,'componentpath'))
+  {
+    //Look up the component in 'item'
+    STRING resourcename := GetResourceNameFromScreenPath(item);
+    STRING screenname := GetScreenNameFromSCreenPath(item);
+    RECORD docinfo := RetrieveCachedXMLResource(resourcename);
+    RECORD parsedpage := ParseXMLPage(resourcename, `/*/*[@name="${EncodeJava(screenname)}"]`, docinfo.doc, "screen"/*type*/, "");
+
+    IF(NOT RecordExists(parsedpage))
+      THROW NEW Exception(`Did not find screen ${screenname} in ${resourcename}`);
+
+    RECORD match;
+    FOREVERY(STRING trycomponent FROM data.componentpath)
+    {
+      trycomponent := Tokenize(trycomponent,':')[1];
+      match := SELECT * FROM parsedpage.formobjects WHERE fullname = trycomponent;
+      IF(RecordExists(match))
+        BREAK;
+    }
+    IF(NOT RecordExists(match))
+      match := SELECT * FROM parsedpage.formobjects WHERE fullname = 'frame';
+
+    data := [ line := match.data.tolliumscope.line, col := match.data.tolliumscope.col ];
+    item := match.data.tolliumscope.resourcename;
+  }
+
+  STRING resourcepath := Tokenize(item,'#')[0]; //remove any screen reference
+
+  STRING file := resourcepath;
+  IF(file LIKE "wh::*")
+    file := "/system/modules/system/whlibs/" || Substring(file,4);
+  IF(file LIKE "mod::*/*")
+    file := "/system/modules/" || GetModuleNameFromResourcePath(file) || "/" || Substring(file, SearchSubstring(file,'/')+1);
+
+  RECORD config := GetWebhareConfiguration();
+
+  RETURN [ login := user->login
+         , password := apppassword
+         , item := file
+         , data := data
+         , localdata :=
+              [ ips :=      GetNonlocalIps()
+              , wh :=       MergePath(config.installationroot, "bin/wh")
+              , dataroot := config.basedataroot
+              ]
+         ];
+}

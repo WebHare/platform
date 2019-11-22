@@ -1,0 +1,1254 @@
+﻿<?wh
+/** @short Graphics core functions
+    @long This library offers an interface to the built-in graphics functions
+    @private Users should have switched to image cache or graphics/canvas.whlib
+*/
+
+LOADLIB "wh::internal/graphics.whlib" EXPORT GfxCreateColor, GfxCreateColorFromCSS, GfxColorAlpha, GfxRGB2HSV, GfxHSV2RGB,
+                                             GfxHSL2RGB, GfxUnpackColor, GfxCountCanvasColors, Gfx3dTextureFillPath;
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::internal/filetypes.whlib";
+LOADLIB "wh::internal/css/tokenizer.whlib";
+
+
+
+/*--------------------------------------
+*
+*   CANVAS
+*
+****************************************/
+
+
+/** @short          Creates a canvas to draw on.
+    @param width    The width  of the canvas, in pixels
+    @param height   The height of the canvas, in pixels
+    @param color    Initial canvas color
+    @return         The ID of the canvas, used to reference it.
+*/
+PUBLIC INTEGER FUNCTION GfxCreateCanvas(INTEGER width, INTEGER height, INTEGER color)
+{
+        ValidateWidthHeight(width, height);
+
+        return __DRAWLIB_V2_MakeCanvas(width, height, color);
+}
+
+
+
+
+/** @short          Creates a drawable canvas from an existing image (blob)
+    @param image    The image-blob.
+    @return         The ID of the canvas, used to reference it.
+*/
+PUBLIC INTEGER FUNCTION GfxCreateCanvasFromImageBlob(BLOB image)
+{
+        RETURN __DRAWLIB_V2_CreateCanvasFromFile(image);
+}
+
+
+
+
+/**
+@short           Creates a drawable and resized canvas from an existing image (blob)
+@long            This functions creates a canvas from an image blob and resizes this canvas to the specified height and
+                 width.
+@param image     The image-blob.
+@param width  The width of the canvas that is created. The picture is resized to fit the canvas.
+@param height The height of the canvas that is created. The picture is resized to fit the canvas.
+@return          The ID of the canvas, used to reference it.
+*/
+PUBLIC INTEGER FUNCTION GfxCreateResizedCanvasFromImageBlob(BLOB image, INTEGER width, INTEGER height)
+{
+        RETURN __DRAWLIB_V2_CreateResizedCanvasFromFile(image, width, height);
+}
+
+
+
+
+/** @short  Return the dimension (in pixels) of an image blob, it also checks for a JPEG type image.
+    @param image Image to check
+    @return Record containing a 'width' and 'height' field, or a default record if no image was detected
+    @cell return.width Width of image in pixels
+    @cell return.height Height of image in pixels
+    @cell return.isjpeg Is true when the blob is a JPEG file
+*/
+PUBLIC RECORD FUNCTION GfxDimensionsFromImageBlob(BLOB image) __ATTRIBUTES__(DEPRECATED "Use ScanBlob to get file/image information")
+{
+  // detect filetype to get image dimensions
+  RECORD fileinfo := __DetectFileType(image,"");
+  IF (NOT RecordExists(fileinfo.imginfo) OR fileinfo.imginfo.width = 0 OR fileinfo.imginfo.height = 0)
+    RETURN DEFAULT RECORD;
+
+  RETURN [ width := fileinfo.imginfo.width
+         , height := fileinfo.imginfo.height
+         , isjpeg := fileinfo.contenttype = "image/jpeg"
+         ];
+}
+
+
+
+
+
+
+/**
+@short          Get the width of the canvas in pixels
+@param canvas_id The ID of the canvas to get the width from;
+@return         The width in pixels.
+*/
+PUBLIC INTEGER FUNCTION GfxGetCanvasWidth(INTEGER canvas_id)
+{
+        ValidateDrawID(canvas_id);
+        return __DRAWLIB_V2_GetCanvasWidth(canvas_id);
+}
+
+
+
+/**
+@short          Get the height of the canvas in pixels
+@param canvas_id The ID of the canvas to get the height from;
+@return         The height in pixels;
+*/
+PUBLIC INTEGER FUNCTION GfxGetCanvasHeight(INTEGER canvas_id)
+{
+        ValidateDrawID(canvas_id);
+        return __DRAWLIB_V2_GetCanvasHeight(canvas_id);
+}
+
+
+
+/**
+@short          Creates a new canvas by copying a part of another one.
+@param canvas_id The ID of the canvas to copy
+@param left     The left position to start copying;
+@param top      The top position to start copying;
+@param width    The width of the new canvas
+@param height   The height of the new canvas
+@return         The ID of the new canvas, used to reference it.
+*/
+PUBLIC INTEGER FUNCTION GfxCreateCanvasFromCanvas(INTEGER canvas_id, INTEGER left, INTEGER top, INTEGER width, INTEGER height)
+{
+        ValidateDrawID(canvas_id);
+        ValidateWidthHeight(width, height);
+        //FIXME: IS NOT CORRECT IMPLEMENTEN IN C-INTERFACE
+        //__HS_FATALERROR("system",10000,0,"","");
+
+        //RETURN -1;
+        return __DRAWLIB_V2_MakeCanvasFromCanvas(canvas_id, left, top, width, height);
+}
+
+
+
+
+/**
+@short          Creates a duplicate of an existing canvas.
+@param canvas_id The ID of the canvas to duplicate.
+@return         The ID of the new canvas, used to reference it.
+*/
+PUBLIC INTEGER FUNCTION GfxCreateDuplicateCanvas(INTEGER canvas_id)
+{
+        ValidateDrawID(canvas_id);
+
+        INTEGER left  := 0;
+        INTEGER top   := 0;
+        INTEGER width := GfxGetCanvasWidth(canvas_id);
+        INTEGER height:= GfxGetCanvasHeight(canvas_id);
+
+        return GfxCreateCanvasFromCanvas(canvas_id, left, top, width, height);
+}
+
+
+
+
+
+/**
+@short          Clear the canvas by filling it with transparent white.
+@long           Removes everything from the canvas, thus making it empty again
+@param canvas_id The ID of the canvas to clear
+*/
+PUBLIC MACRO   GfxClearCanvas(INTEGER canvas_id)
+{
+        ValidateDrawID(canvas_id);
+        __DRAWLIB_V2_Clear(canvas_id, GfxCreateColor(255,255,255,0));
+}
+
+
+
+
+
+/**
+@short          Resizes the canvas
+@long           Resizes the canvas. The canvas gets a new size, and the contents are scaled to fit
+                this size
+
+@param          canvas_id  The ID of the canvas to resize
+@param          width  The new width
+@param          height The new height
+*/
+PUBLIC MACRO   GfxResizeCanvas(INTEGER canvas_id, INTEGER width, INTEGER height)
+{
+       ValidateDrawID(canvas_id);
+       ValidateWidthHeight(width, height);
+
+        /*
+        FIXME: augment this with a check to see if the canvas resizing factors > 8.
+               if so, use a faster (less accurate) integer decimator first to
+               resize the canvas to a smaller size before calling the expensive kernel resizer.
+               This will result in a significant speed-up and will reduce the aliasing in the output.
+               (integer decimator must still be implemented in C++ code)
+        */
+
+       __Drawlib_v2_ResizeCanvas    (canvas_id, width, height);
+}
+
+/**
+@short          Rotate the canvas to the right
+@param          canvas_id  The ID of the canvas to resize
+*/
+PUBLIC MACRO   GfxRotateRightCanvas(INTEGER canvas_id)
+{
+       ValidateDrawID(canvas_id);
+
+       __Drawlib_v2_RotateCanvas    (canvas_id, TRUE);
+}
+
+/**
+@short          Rotate the canvas to the right
+@param          canvas_id  The ID of the canvas to resize
+*/
+PUBLIC MACRO   GfxRotateLeftCanvas(INTEGER canvas_id)
+{
+       ValidateDrawID(canvas_id);
+
+       __Drawlib_v2_RotateCanvas    (canvas_id, FALSE);
+}
+
+
+
+/**
+@short          Shear the canvas
+@param          canvas_id  The ID of the canvas to resize
+@param          scale_x    Horizontal scale factor
+@param          scale_y    Vertical scale factor
+*/
+PUBLIC MACRO   GfxShearCanvas(INTEGER canvas_id, FLOAT scale_x, FLOAT scale_y)
+{
+       ValidateDrawID(canvas_id);
+
+       __Drawlib_v2_ShearCanvas    (canvas_id, scale_x, scale_y);
+}
+
+
+
+/** @short Write the canvas to a blob in PNG format
+    @param canvasid Canvas to convert to a PNG file
+    @param paletted If true, write the canvas using a 255-color palette
+    @param discard_alpha If true, discard the alpha channel in the generated PNG file
+    @return The PNG file as a blob */
+PUBLIC BLOB FUNCTION GfxCreatePNGBlobFromCanvas(INTEGER canvas_id, BOOLEAN paletted, BOOLEAN discard_alpha)
+{
+        ValidateDrawID(canvas_id);
+        return __DRAWLIB_V2_CREATEPNGBLOBFROMCANVAS(canvas_id, paletted, discard_alpha);
+}
+
+
+
+
+/** @short Write the canvas to a blob in JPEG format
+    @param canvasid Canvas to convert to a JPEG file
+    @param quality Output quality (0 to 100, default is 85)
+    @return The JPEG file as a blob */
+PUBLIC BLOB FUNCTION GfxCreateJPGBlobFromCanvas(INTEGER canvas_id, INTEGER quality DEFAULTSTO 85)
+{
+  IF (quality<0) quality := 0;
+  IF (quality>100) quality := 100;
+
+  ValidateDrawID(canvas_id);
+  return __DRAWLIB_V2_CREATEJPGBLOBFROMCANVAS(canvas_id, quality);
+}
+
+
+
+
+/** @short Write the canvas to a blob in GIF format
+    @param canvasid Canvas to convert to a GIFfile
+    @return The GIF file as a blob */
+PUBLIC BLOB FUNCTION GfxCreateGIFBlobFromCanvas(INTEGER canvas_id)
+{
+  ValidateDrawID(canvas_id);
+  return __DRAWLIB_V2_CREATEGIFBLOBFROMCANVAS(canvas_id);
+}
+
+
+
+
+/** @short Write the canvas to a blob in RAW format
+    @param canvasid Canvas to convert to a RAWfile
+    @return The GIF file as a blob */
+PUBLIC BLOB FUNCTION GfxCreateRAWBlobFromCanvas(INTEGER canvas_id)
+{
+  ValidateDrawID(canvas_id);
+  return __DRAWLIB_V2_CREATERAWBLOBFROMCANVAS(canvas_id,"RGBA");
+}
+
+
+
+/** @short Create a canvas from a blob in 32bpp RGBA RAW format
+    @param rawblob The RAW data
+    @param width Width of the image in the RAW data
+    @param height Height of the image in the RAW data
+    @return The newly created canvas */
+PUBLIC INTEGER FUNCTION GfxCreateCanvasFromRAWBlob(BLOB rawblob, INTEGER width, INTEGER height)
+{
+  ValidateWidthHeight(width, height);
+  return __DRAWLIB_V2_CREATECANVASFROMRAWBLOB(rawblob, width, height,"RGBA",FALSE);
+}
+
+
+/*--------------------------------------
+*
+*   Memory management/Destruction
+*
+****************************************/
+
+/**
+@short          Destroys the canvas.
+@long           Destroys the canvas. When a canvas is no longer needed, call this function so the canvas
+                memory can be released to the system. Using too much memory can slow down the system.
+                After calling this function, the canvas cannot be referenced by other graphics functions!
+                And the canvas cannot be restored.
+@param          canvas_id The ID of the canvas to destroy
+*/
+PUBLIC MACRO   GfxDestroyCanvas(INTEGER canvas_id)
+{
+       ValidateDrawID(canvas_id);
+       __DRAWLIB_V2_DESTROYCANVAS(canvas_id);
+}
+
+
+
+/**
+@short          Destroys the font.
+@long           Destroys the font. When a font is no longer needed, call this function so the font
+                memory can be released to the system. After calling this function, the font cannot be
+                referenced by other graphics functions. The font cannot be restored.(Call GfxCreateFont to
+                create a new font).
+@param          fontID The ID of the font to destroy
+*/
+PUBLIC MACRO   GfxDestroyFont(INTEGER FontID)
+{
+       ValidateFontID(FontId);
+       __DRAWLIB_V2_DESTROYFONT(FontID);
+}
+
+
+
+
+/*--------------------------------------
+*
+*   Alphamode code
+*
+****************************************/
+
+
+/**
+@short          Sets the canvas-alpha-blend mode.
+@long           This is the method how to paste a canvas onto another one. It should be applied to the canvas you're writing to.
+@param canvas_id The ID of the canvas to clear
+@param mode     The alpha mode ("BLEND255", "SET255", "COPYALPHA", "COPYALL", "MINALPHA", "MAXALPHA", "LINEARBURN")
+*/
+PUBLIC MACRO   GfxSetAlphaMode(INTEGER canvas_id, STRING mode)
+{
+  ValidateDrawID(canvas_id);
+  INTEGER m := SearchElement(__alphamodes, ToUppercase(mode));
+  IF(m=-1)
+    THROW NEW Exception("Unrecognized alpha blend mode '" || mode || "'");
+
+  __DRAWLIB_V2_SetAlphaMode(canvas_id, m);
+}
+
+
+/**
+@short          Sets the canvas pixel operation mode
+@long           Use this function if you want to paste a canvas onto another one.
+@param canvas_id The ID of the canvas to clear
+@return         The alpha mode ("BLEND255", "SET255", "COPYALPHA", "COPYALL")
+*/
+PUBLIC STRING FUNCTION   GfxGetAlphaMode(INTEGER canvas_id)
+{
+  ValidateDrawID(canvas_id);
+  RETURN __alphamodes[__DRAWLIB_V2_GetAlphaMode(canvas_id)];
+}
+
+
+/*--------------------------------------
+*
+*   Pixelmode code
+*
+****************************************/
+
+
+/**
+@short          Sets the canvas pixel operation mode.
+@param canvas_id The ID of the canvas to affect
+@param mode     The binary mode ({DEFAULT = 0, AND, OR, XOR, NOP};)
+*/
+PUBLIC MACRO   GfxSetPixelMode(INTEGER canvas_id, STRING mode)
+{
+  ValidateDrawID(canvas_id);
+  STRING upmode := ToUppercase(mode);
+  INTEGER m:=0;
+  SWITCH(upmode)
+  {
+    CASE "DEFAULT" { m:= 0; }
+    CASE "AND"     { m:= 1; }
+    CASE "OR"      { m:= 2; }
+    CASE "XOR"     { m:= 3; }
+    CASE "NOP"     { m:= 4; }
+    DEFAULT        { ABORT ("Unrecognized pixel operation mode '" || mode || "'"); }
+  }
+  __DRAWLIB_V2_SetPixelMode(canvas_id, m);
+}
+
+
+
+
+/**
+@short          Gets the canvas pixel operation mode.
+@param canvas_id The ID of the canvas to affect
+@return The binary mode ({DEFAULT = 0, AND, OR, XOR, NOP};)
+*/
+PUBLIC STRING FUNCTION   GfxGetPixelMode(INTEGER canvas_id)
+{
+  ValidateDrawID(canvas_id);
+  INTEGER m:= __DRAWLIB_V2_GetPixelMode(canvas_id);
+  SWITCH(m)
+  {
+    CASE 0 { RETURN "DEFAULT"; }
+    CASE 1 { RETURN "AND"; }
+    CASE 2 { RETURN "OR"; }
+    CASE 3 { RETURN "XOR"; }
+    CASE 4 { RETURN "NOP"; }
+    DEFAULT{ Abort("GfxGetPixelMode reports unknown pixel opreation mode."); }
+  }
+}
+
+/*------------------------------------------------------------------------------
+*
+*   Drawing
+*
+*******************************************************************************/
+
+
+/*--------------------------------------
+*
+*   Pixel
+*
+****************************************/
+
+
+/**
+@short          Gets the desired pixel color.
+@param canvas_id The ID of the canvas to select the pixel
+@param x        The x coordinate of the pixel
+@param y        The y coordinate of the pixel
+@return color   The color of the specified pixel.
+*/
+PUBLIC INTEGER FUNCTION GfxGetPixel(INTEGER canvas_id, INTEGER x, INTEGER y)
+{
+
+        RETURN __DRAWLIB_V2_Getpixel(canvas_id, x, y);
+}
+
+
+
+
+/**
+@short          Set the desired pixel to a color.
+@long           Sets the pixel at (x,y) to the desired color. The upperleft
+                corner is (0,0). The color consists of 3 levels,
+                the level of red, the level of green, and the level of blue.
+                These levels may vary from 0 to 255. The value of <code>color</code>
+                is calculate as follows: <code>color = 65536 * red + 256 * green + blue
+                You want to use <link>Drawlib_MakeColor</link>
+@param canvas_id The ID of the canvas to set the pixel
+@param x        The x coordinate of the pixel
+@param y        The y coordinate of the pixel
+@param color    The color to set the pixel to.
+@see            GfxCreateColor
+*/
+PUBLIC MACRO GfxDrawPixel(INTEGER canvas_id, INTEGER x, INTEGER y, INTEGER color)
+{
+        ValidateDrawID(canvas_id);
+        __DRAWLIB_V2_DrawPixel(canvas_id, x, y, color);
+}
+
+INTEGER FUNCTION GetTypeID(STRING type)
+{
+  SWITCH (ToUpperCase(type))
+  {
+    CASE "CLOSEPATH" { RETURN 0; }
+    CASE "MOVETO" { RETURN 1; }
+    CASE "LINETO" { RETURN 2; }
+    CASE "BEZIERTO" { RETURN 3; }
+    CASE "ARCTO" { RETURN 4; }
+    CASE "ARCTOR" { RETURN 5; }
+
+    CASE "DEFAULT" { RETURN -1; }
+    DEFAULT { ABORT("Unknown path entry '" || type || "'"); }
+  }
+}
+
+/*-------------------------------------
+ *
+ *   Path
+ *
+ **************************************/
+
+PUBLIC MACRO GfxRenderPath(INTEGER canvas_id, RECORD ARRAY path, BOOLEAN stroke, BOOLEAN fill, FLOAT ARRAY matrix DEFAULTSTO DEFAULT FLOAT ARRAY)
+{
+  RECORD ARRAY newpath;
+
+  // ADDME: give warning?
+  IF (Length(matrix) != 9)
+  {
+    matrix :=
+      [ 1f, 0f, 0f
+      , 0f, 1f, 0f
+      , 0f, 0f, 1f];
+  }
+
+  FOREVERY (RECORD element FROM path)
+  {
+    INTEGER typenr := GetTypeID(element.type);
+    DELETE CELL type FROM element;
+    INSERT CELL type := typenr INTO element;
+
+    INSERT element INTO newpath AT END;
+  }
+
+  ValidateDrawID(canvas_id);
+  __DRAWLIB_V2_DrawPath(canvas_id, newpath, stroke, fill, matrix);
+}
+
+
+PUBLIC MACRO GfxFillPath(INTEGER canvas_id, INTEGER color, INTEGER width, RECORD ARRAY path)
+{
+  __DRAWLIB_V2_SetFillColor(canvas_id, color);
+  __DRAWLIB_V2_SetOutlineColor(canvas_id, color);
+  __DRAWLIB_V2_SetOutlineWidth(canvas_id, width);
+
+  GfxRenderPath(canvas_id, path, FALSE, TRUE);
+}
+
+PUBLIC MACRO GfxTextureFillPath(INTEGER canvas_id, INTEGER texture_id, INTEGER color, INTEGER width, RECORD ARRAY path)
+{
+  __DRAWLIB_V2_SetFillColor(canvas_id, color);
+  __DRAWLIB_V2_SetFillTexture(canvas_id, texture_id, 0, 0);
+  __DRAWLIB_V2_SetOutlineMode (canvas_id, 0); //solid color
+
+  __DRAWLIB_V2_SetFillMode (canvas_id, 1); //texture fill
+  __DRAWLIB_V2_SetOutlineColor(canvas_id, color);
+  __DRAWLIB_V2_SetOutlineWidth(canvas_id, width);
+
+  GfxRenderPath(canvas_id, path, FALSE, TRUE);
+}
+
+PUBLIC MACRO GfxDrawFillPath(INTEGER canvas_id, INTEGER strokecolor, INTEGER fillcolor, INTEGER width, RECORD ARRAY path, BOOLEAN stroke, BOOLEAN fill)
+{
+  __DRAWLIB_V2_SetFillColor(canvas_id, fillcolor);
+  __DRAWLIB_V2_SetOutlineColor(canvas_id, strokecolor);
+  __DRAWLIB_V2_SetOutlineWidth(canvas_id, width);
+
+  GfxRenderPath(canvas_id, path, stroke, fill);
+}
+
+PUBLIC MACRO GfxDrawPath(INTEGER canvas_id, INTEGER color, INTEGER width, RECORD ARRAY path, FLOAT ARRAY translation DEFAULTSTO [ 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f ])
+{
+  __DRAWLIB_V2_SetFillColor(canvas_id, color);
+  __DRAWLIB_V2_SetOutlineColor(canvas_id, color);
+  __DRAWLIB_V2_SetOutlineWidth(canvas_id, width);
+
+  GfxRenderPath(canvas_id, path, TRUE, FALSE);
+}
+
+PUBLIC RECORD FUNCTION GfxPathClose()
+{
+  RETURN [type := "CLOSEPATH"];
+}
+
+PUBLIC RECORD FUNCTION GfxPathMoveTo(FLOAT x, FLOAT y)
+{
+  RETURN [type := "MOVETO", x := x, y := y];
+}
+
+PUBLIC RECORD FUNCTION GfxPathLineTo(FLOAT x, FLOAT y)
+{
+  RETURN [type := "LINETO", x := x, y := y];
+}
+
+PUBLIC RECORD FUNCTION GfxPathClosePath()
+{
+  RETURN [type := "CLOSEPATH"];
+}
+
+PUBLIC RECORD FUNCTION GfxPathArcTo(FLOAT cx, FLOAT cy, FLOAT rx, FLOAT ry, FLOAT x, FLOAT y)
+{
+  RETURN [type := "ARCTO", cx := cx, cy := cy, rx := rx, ry := ry, x := x, y := y];
+}
+
+PUBLIC RECORD FUNCTION GfxPathArcToR(FLOAT cx, FLOAT cy, FLOAT rx, FLOAT ry, FLOAT x, FLOAT y)
+{
+  RETURN [type := "ARCTOR", cx := cx, cy := cy, rx := rx, ry := ry, x := x, y := y];
+}
+
+PUBLIC RECORD FUNCTION GfxPathBezierTo(FLOAT c1x, FLOAT c1y, FLOAT c2x, FLOAT c2y, FLOAT x, FLOAT y)
+{
+  RETURN [type := "BEZIERTO", c1x := c1x, c1y := c1y, c2x := c2x, c2y := c2y, x := x, y := y];
+}
+
+
+
+/*-------------------------------------
+*
+*   Line
+*
+****************************************/
+
+
+/**
+@short          Draws a line in the desired color.
+@long           Draws the line (sx,sy)-(ex,ey) in the desired color. The upperleft
+                corner is (0,0).
+@param canvas_id The ID of the canvas to draw the line on.
+@param sx       The start x coordinate of the line
+@param sy       The start y coordinate of the line
+@param ex       The end x coordinate of the line
+@param ey       The end y coordinate of the line
+@param color    The color of the line.
+@param width    The width of the line;
+@see            GfxCreateColor
+*/
+PUBLIC MACRO GfxDrawLine(INTEGER canvas_id, INTEGER sx, INTEGER sy, INTEGER ex, INTEGER ey, INTEGER color, INTEGER width)
+{
+        ValidateDrawID(canvas_id);
+
+        __DRAWLIB_V2_SetOutlineColor(canvas_id, color);
+        __DRAWLIB_V2_SetOutlinemode(canvas_id, 0); //0=solid, 1=textured
+        __DRAWLIB_V2_SetOutlineWidth(canvas_id, width); //0=solid, 1=textured
+        __DRAWLIB_V2_DrawLine(canvas_id, sx, sy, ex, ey);
+}
+
+
+/*-------------------------------------
+*
+*   Rectangle
+*
+****************************************/
+
+
+/**
+@short          Draws a solid rectangle in the desired color.
+@long           Draws the rectangle  (left,top)-(right,bottom) in the desired color. The upperleft
+                corner is (0,0). The color consists of 3 levels,
+                the level of red, the level of green, and the level of blue.
+                These levels may vary from 0 to 255. The value of <code>color</code>
+                is calculate as follows: <code>color = 65536 * red + 256 * green + blue.
+                You want to use <link>Drawlib_MakeColor</link>
+@param canvas_id The ID of the canvas to draw the line on.
+@param left     The left x coordinate of the rectangle
+@param top      The top y coordinate of the rectangle
+@param right    The right x coordinate of the rectangle
+@param bottom   The bottom y coordinate of the rectangle
+@param color    The color of the rectangle.
+@see            GfxDrawRectangleborder GfxCreateColor
+*/
+PUBLIC MACRO GfxDrawRectangle(INTEGER canvas_id, INTEGER left, INTEGER top, INTEGER right, INTEGER bottom,INTEGER color)
+{
+        ValidateDrawID(canvas_id);
+
+        __DRAWLIB_V2_SetFillColor(canvas_id, color);
+        __DRAWLIB_V2_SetFillmode(canvas_id, 0);
+        __DRAWLIB_V2_DrawRectangle(canvas_id, left, top, right, bottom);
+}
+
+
+
+/**
+@short          Draws a rectangular border in the desired color.
+@long           Draws the rectangle  (left,top)-(right,bottom) in the desired color. The upperleft
+                corner is (0,0).
+@param canvas_id The ID of the canvas to draw the line on.
+@param left     The left x coordinate of the rectangle
+@param top      The top y coordinate of the rectangle
+@param right    The right x coordinate of the rectangle
+@param bottom   The bottom y coordinate of the rectangle
+@param color    The color of the border.
+@param borderwidth The width of the border
+@see            GfxDrawRectangle GfxCreateColor
+*/
+PUBLIC MACRO GfxDrawRectangleBorder(INTEGER canvas_id, INTEGER left, INTEGER top, INTEGER right, INTEGER bottom,INTEGER color, INTEGER borderwidth)
+{
+        ValidateDrawID(canvas_id);
+
+        __DRAWLIB_V2_SetOutlineColor(canvas_id, color);
+        __DRAWLIB_V2_SetOutlinemode (canvas_id, 0);
+        __DRAWLIB_V2_SetOutlineWidth(canvas_id, borderwidth);
+        __DRAWLIB_V2_DrawRectangleBorder(canvas_id, left, top, right, bottom);
+}
+
+
+
+
+/*-------------------------------------
+*
+*   CIRCLE AND ELLIPSE
+*
+****************************************/
+
+
+/**
+@short          Draws a solid ellipse in the desired color.
+@long           Draws the ellipse with width and height and center (cx,cy) in the desired color.
+@param canvas_id The ID of the canvas to draw the line on.
+@param cx       The x coordinate of center of the ellipse
+@param cy       The y coordinate of center of the ellipse
+@param width    The width of the ellipse (size in x-direction)
+@param height   The height of the ellipse (size in y-direction)
+@param color    The color of the ellipse.
+@see            GfxCreateColor
+*/
+PUBLIC MACRO GfxDrawEllipse(INTEGER canvas_id, INTEGER cx, INTEGER cy, INTEGER width, INTEGER height,INTEGER color)
+{
+        ValidateDrawID(canvas_id);
+
+        __DRAWLIB_V2_SetFillColor(canvas_id, color);
+        __DRAWLIB_V2_SetFillmode(canvas_id, 0);
+        __DRAWLIB_V2_DrawEllipse(canvas_id, cx, cy, width, height);
+
+}
+
+
+
+/**
+@short          Draws an elliptical border in the desired color.
+@long           Draws the ellipse with width and height and center (cx,cy) in the desired color.
+@param canvas_id The ID of the canvas to draw the line on.
+@param cx       The x coordinate of center of the ellipse
+@param cy       The y coordinate of center of the ellipse
+@param width    The width of the ellipse (size in x-direction)
+@param height   The height of the ellipse (size in y-direction)
+@param color    The color of the border.
+@param borderwidth The width of the border
+@see            GfxCreateColor
+*/
+PUBLIC MACRO GfxDrawEllipseBorder(INTEGER canvas_id, INTEGER cx, INTEGER cy, INTEGER width, INTEGER height,INTEGER color, INTEGER borderwidth)
+{
+        ValidateDrawID(canvas_id);
+
+        __DRAWLIB_V2_SetOutlineColor(canvas_id, color);
+        __DRAWLIB_V2_SetOutlinemode(canvas_id, 0);
+        __DRAWLIB_V2_SetOutlineWidth(canvas_id, borderwidth);
+        __DRAWLIB_V2_DrawEllipseBorder(canvas_id, cx, cy, width, height);
+}
+
+
+
+/**
+@short          Draws a solid circle in the desired color.
+@long           Draws the circle with radius r and center (cx,cy) in the desired color.
+@param canvas_id The ID of the canvas to draw the line on.
+@param cx       The x coordinate of center of the ellipse
+@param cy       The y coordinate of center of the ellipse
+@param r        The radius of the circle
+@param color    The color of the circle.
+*/
+PUBLIC MACRO GfxDrawCircle(INTEGER canvas_id, INTEGER cx, INTEGER cy, INTEGER r, INTEGER color)
+{
+        ValidateDrawID(canvas_id);
+
+        __DRAWLIB_V2_SetFillColor(canvas_id, color);
+        __DRAWLIB_V2_SetFillmode(canvas_id, 0);
+        __DRAWLIB_V2_DrawEllipse(canvas_id, cx, cy, r*2, r*2);
+}
+
+
+
+/**
+@short          Draws a circular border in the desired color.
+@long           Draws the circle with radius r and center (cx,cy) in the desired color.
+@param canvas_id The ID of the canvas to draw the line on.
+@param cx       The x coordinate of center of the ellipse
+@param cy       The y coordinate of center of the ellipse
+@param r        The radius of the circle
+@param color    The color of the border.
+@param width    The width
+*/
+PUBLIC MACRO GfxDrawCircleBorder(INTEGER canvas_id, INTEGER cx, INTEGER cy, INTEGER r, INTEGER color, INTEGER width)
+{
+        ValidateDrawID(canvas_id);
+
+        __DRAWLIB_V2_SetOutlineWidth(canvas_id, width);
+        __DRAWLIB_V2_SetOutlineColor(canvas_id, color);
+        __DRAWLIB_V2_SetOutlineMode (canvas_id, 0);
+        __DRAWLIB_V2_DrawEllipseBorder(canvas_id, cx, cy, r*2, r*2);
+
+}
+
+
+
+
+/**
+@short                Copies the bitmap from one canvas onto the other
+@param DestCanvasID   The ID of the destination canvas to copy the sourcecanvas to.
+@param SourceCanvasID The ID of the source canvas where to get the bitmap from
+@param offsetx        The x offset (the upperleft corner where the source is pasted on the destination canvas)
+@param offsety        The y offset (the upperleft corner where the source is pasted on the destination canvas)
+*/
+PUBLIC MACRO GfxDrawCanvas(INTEGER DestCanvasID, INTEGER SourceCanvasID, INTEGER offsetx, INTEGER offsety)
+{
+        ValidateDrawID(SourceCanvasID);
+        ValidateDrawID(DestCanvasID);
+        __DRAWLIB_V2_DRAWCANVAS(DestCanvasID, SourceCanvasID, offsetx,offsety);
+}
+
+
+
+
+
+/*-------------------------------------
+*
+*   TEXT
+*
+****************************************/
+
+/**
+@short          Draws the string text on the canvas.
+@long
+
+The baselinepoint is the point that positions the text:
+
+Left aligment:          .TEXT
+Right aligment:     TEXT.
+Center                TE.XT
+
+The baseline combined with the orientation of the font define the textlayout
+
+Orientation = 90 degrees; alignment = LEFT
+
+T
+X
+E
+T
+.  etc.
+
+@param canvas_id The ID of the canvas to draw the text on.
+@param basex    The x coordinate of the baseline point
+@param basey    The y coordinate of the baseline point
+@param text     The text to render.
+@param fontID   The fontID. The font takes care of a lot of things, like size, color, orientation, aligment etc.
+*/
+PUBLIC MACRO GfxDrawText(INTEGER canvas_id, INTEGER basex, INTEGER basey,  INTEGER fontID, STRING text)
+{
+        ValidateDrawID(canvas_id);
+        __DRAWLIB_V2_DRAWTEXT(canvas_id, fontID, basex, basey, text);
+}
+
+
+
+/** @short Get the width of text when rendered
+    @long Tell the width  of the requested text, using the already configured font and alias settings
+    @param fontid Font to use when calculating the text width
+    @param text Text to render
+    @return The maximum width  of the specified text in pixels */
+PUBLIC INTEGER FUNCTION GfxGetTextWidth(INTEGER FontID, STRING text)
+{
+        ValidateFontID(FontID);
+        return __DRAWLIB_V2_GETTEXTWIDTH(FontID, text);
+}
+
+
+
+/** @short Get the height of text when rendered
+    @long Tell the height of the requested text, using the already configured font and alias settings
+    @param fontid Font to use when calculating the text height
+    @param text Text to render
+    @return The maximum height of the specified text in pixels */
+PUBLIC INTEGER FUNCTION GfxGetTextHeight(INTEGER FontID, STRING text)
+{
+        ValidateFontID(FontID);
+        return __DRAWLIB_V2_GETTEXTHEIGHT(FontID, text);
+}
+
+
+
+/*-------------------------------------
+*
+*   FONT stuff goes here.
+*
+****************************************/
+
+OBJECTTYPE GfxFont
+<
+  INTEGER fonthandle;
+  FLOAT pvt_pointsize;
+  STRING pvt_lineheight;
+
+  INTEGER lineheighttype;
+  INTEGER lineheightsetting;
+  BOOLEAN pvt_antialiasing;
+  INTEGER pvt_color;
+
+  PUBLIC PROPERTY pointsize(pvt_pointsize, SetPointSize);
+  PUBLIC PROPERTY lineheight(pvt_lineheight, SetLineHeight);
+  PUBLIC PROPERTY antialiasing(pvt_antialiasing, SetAntiAliasing);
+  PUBLIC PROPERTY color(pvt_color, SetColor);
+
+  MACRO NEW(INTEGER fonthandle, INTEGER size)
+  {
+    this->fonthandle := fonthandle;
+    this->pvt_pointsize := size;
+  }
+
+  MACRO SetAntiAliasing(BOOLEAN enable)
+  {
+    this->pvt_antialiasing := enable;
+    __DRAWLIB_v2_SetFontAntiAliasMode(this->fonthandle, enable ? 0 : 1);
+  }
+
+  MACRO SetColor(INTEGER newcolor)
+  {
+    this->pvt_color := newcolor;
+    GfxSetFontColor(this->fonthandle, newcolor);
+  }
+
+  MACRO SetPointSize(FLOAT newpointsize)
+  {
+    GfxSetFontSize(this->fonthandle, FloatToInteger(newpointsize)); //FIXME support halfpoint sizes in drawlib
+    this->pvt_pointsize := newpointsize;
+  }
+
+  MACRO SetLineHeight(STRING newlineheight)
+  {
+    IF(newlineheight="")
+    {
+      this->lineheighttype := 0;
+    }
+    ELSE IF(newlineheight LIKE "*px")
+    {
+      INTEGER height := ToInteger(Left(newlineheight,Length(newlineheight)-2),-9999999);
+      IF(height = -9999999)
+        THROW NEW Exception("Invalid lineheight");
+      this->lineheighttype := 1;
+      this->lineheightsetting := height;
+    }
+    ELSE
+    {
+      THROW NEW Exception("Invalid lineheight");
+    }
+    this->pvt_lineheight := newlineheight;
+  }
+
+  /* the return values of the following function are limited on purpose. we need a better gfx api, because bounding box != text box
+     eg "w" and "g" have a different bounding box height, but the relevant text boxes have the same height.
+  */
+
+  /** @short Calculate the space required to layout a text, wrapped
+      @long Note that you currently _must_ set lineheight to a fixed value, if you want to have repeatable results after WebHare upgrades
+      @return Record
+      @cell return.totalheight Total height, in pixels (number of lines * lineheight)
+  */
+  PUBLIC RECORD FUNCTION PrepareTextWrapped(STRING text, INTEGER wraplimit)
+  {
+    RECORD layout := [ parts := DEFAULT RECORD ARRAY
+                     , lines := 0
+                     , totalheight := 0
+                     ];
+
+    //Split text at every ' '
+    STRING ARRAY texttoks := Tokenize(text, ' ');
+    STRING ARRAY tokssofar;
+    INTEGER y;
+
+    IF(Length(texttoks)=0)
+      RETURN layout;
+
+    //iterate number of toks + 1, the +1 finalizes everything
+    FOR(INTEGER i := 0; i <= Length(texttoks); i := i + 1)
+    {
+      STRING tok := i < Length(texttoks) ? texttoks[i] : "";
+
+      IF(i = Length(texttoks)
+         OR GfxGetTextWidth(this->fonthandle, Detokenize(tokssofar CONCAT [tok],' ')) > wraplimit)
+      {
+        //time for the next line
+        INSERT [ x := 0
+               , y := y
+               , text := Detokenize(tokssofar,' ')
+               ] INTO layout.parts AT END;
+
+        layout.lines := layout.lines + 1;
+        tokssofar := DEFAULT STRING ARRAY;
+
+        IF(this->lineheighttype=1)
+          y := y + this->lineheightsetting;
+        ELSE
+          y := y + FloatToInteger(this->pvt_pointsize);
+      }
+
+      IF(i < Length(texttoks))
+        INSERT tok INTO tokssofar AT END;
+    }
+
+    layout.totalheight := y;
+    RETURN layout;
+  }
+
+  PUBLIC MACRO RenderPreparedText(RECORD layout, INTEGER canvas, INTEGER x, INTEGER y)
+  {
+    GfxSetFontAlignment(this->fonthandle, "LEFT", "TOP");
+    FOREVERY(RECORD part FROM layout.parts)
+    {
+      GfxDrawText(canvas, x + part.x, y + part.y, this->fonthandle, part.text);
+    }
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GfxOpenFont(STRING fontname, STRING style)
+{
+  INTEGER fontid := __DRAWLIB_V2_MAKEFONT(fontname, style, 10);
+  IF(fontid<=0)
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW GfxFont(fontid, 10);
+}
+
+
+/**
+@short          Creates a font, to draw a string on a canvas
+@param fontname The name of the font ('Arial', 'Verdana', 'Times New Roman' etc.)
+@param style    The style of the font ('Regular', 'Italic', 'Bold' or 'Bold Italic')
+@param size     The size of the font in points.
+@return         The ID of the font, used to reference it, or <=0 if an error occurred
+*/
+PUBLIC INTEGER FUNCTION GfxCreateFont(STRING fontname, STRING style, INTEGER size)
+{
+  RETURN __DRAWLIB_V2_MAKEFONT(fontname, style, size);
+}
+
+
+
+/**
+@short          Sets the font color
+@param fontID   The ID of the font
+@param color    The color of the font
+@see            GfxCreateColor
+*/
+PUBLIC MACRO GfxSetFontColor(INTEGER fontID, INTEGER color)
+{
+        ValidateFontID (fontID);
+        __DRAWLIB_V2_SetFontColor(fontID, color);
+}
+
+
+
+/**
+@short          Sets the font AntiAliasing
+@param aa_mode  Valid options are: ON   =  true
+                                 : OFF  =  false;
+@param fontID   The font to set the anti-alias mode
+*/
+PUBLIC MACRO GfxSetFontAntiAliasing(INTEGER fontID, BOOLEAN aa_mode)
+{
+        ValidateFontID (fontID);
+        if (aa_mode)
+                __DRAWLIB_v2_SetFontAntiAliasMode(fontID, 1);
+        else
+                __DRAWLIB_v2_SetFontAntiAliasMode(fontID, 0);
+}
+
+
+
+
+/**
+@short          Sets the font size
+@param fontID   The ID of the font
+@param size     THe font size in points
+*/
+PUBLIC MACRO GfxSetFontSize(INTEGER fontID, INTEGER size)
+{
+        ValidateFontID (fontID);
+        __DRAWLIB_V2_SetFontSize(fontID, size);
+}
+
+
+
+
+/**
+@short          Sets the font Alignment
+@param horizontalAlignment "LEFT" | "CENTER" | "RIGHT";
+@param verticalAlignment   "BASELINE"  | "TOP" | "CENTER" | "BOTTOM";
+@param fontID   The font to set the alignment
+*/
+PUBLIC MACRO GfxSetFontAlignment(INTEGER fontID, STRING horizontalAlignment, STRING verticalAlignment)
+{
+        ValidateFontID (fontID);
+        INTEGER ha :=0;
+        INTEGER va :=0;
+
+        /* see: drawobject.h at the top of the file for defines... */
+
+        IF (TOUPPERCASE(horizontalAlignment)="CENTER") ha:= 1;
+        IF (TOUPPERCASE(horizontalAlignment)="RIGHT")  ha:= 2;
+        IF (TOUPPERCASE(verticalAlignment)="TOP")      va:= 1;
+        IF (TOUPPERCASE(verticalAlignment)="BOTTOM")   va:= 2;
+        IF (TOUPPERCASE(verticalAlignment)="CENTER")   va:= 3;
+        IF (TOUPPERCASE(verticalAlignment)="ASCENDER")   va:= 4;
+        IF (TOUPPERCASE(verticalAlignment)="DESCENDER")   va:= 5;
+
+        __DRAWLIB_V2_SetFontAlignment(fontID, ha, va);
+}
+
+
+
+/**
+@short          Sets the font orientation
+@long           Sets the angle between the X-axis and the baseline of the text.
+                If you want the text to turn 90 degrees counter-clockwise, use 90.
+                If you want to turn it 50 clockwise, use -50 etc.
+@param fontID           The font to set orientation
+@param baseangle        The angle between the X-axis and the baseline of the complete text
+@param glyphangle       The angle between the X-axis and the base of each glyph
+*/
+PUBLIC MACRO GfxSetFontOrientation(INTEGER fontID, INTEGER baseangle, INTEGER glyphangle )
+{
+        ValidateFontID (fontID);
+        __DRAWLIB_V2_SetFontOrientation(fontID, baseangle, glyphangle);
+}
+
+
+PUBLIC MACRO GfxSetFontLetterSpacing(INTEGER fontID, FLOAT letterspacing)
+{
+  ValidateFontID (fontID);
+  __DRAWLIB_V2_SETFONTLETTERSPACING(fontid,letterspacing);
+}
+
+/**
+@short   Create a new canvas from two other canvases by subtracting canvas2 from canvas1
+@long    Create a new canvas from two other canvases by subtracting canvas2 from canvas1.
+         This function is primarily meant for comparing bitmaps and other testing stuff.
+
+@param Canvas1ID  first source canvas
+@param Canvas2ID  second source canvas
+@return the ID of the newly created canvas
+*/
+PUBLIC INTEGER FUNCTION GfxCreateDifferenceCanvas(INTEGER Canvas1ID, INTEGER Canvas2ID)
+{
+        ValidateDrawID(Canvas1ID);
+        ValidateDrawID(Canvas2ID);
+
+        INTEGER id := __DRAWLIB_V2_CreateDifferenceCanvas(Canvas1ID, Canvas2ID);
+        return id;
+}
+
+
+/**
+@short          Compare two canvases by calculating the mean square error between them.
+@long           Calculate the mean square error between two canvases. If the canvases are exactly the same,
+                the result is equal to 0. If an error occurs, the return value is < 0.
+                If the canvases are different, the error will be > 0
+
+@param Canvas1ID  first source canvas
+@param Canvas2ID  second source canvas
+@return the mean square error (float)
+*/
+PUBLIC FLOAT FUNCTION GfxCompareCanvases(INTEGER Canvas1ID, INTEGER Canvas2ID)
+{
+        ValidateDrawID(Canvas1ID);
+        ValidateDrawID(Canvas2ID);
+
+        FLOAT mse := __DRAWLIB_V2_COMPARECANVASES(Canvas1ID, Canvas2ID);
+        return mse;
+}
+
+
+/** @short Get a list of all available fonts */
+PUBLIC RECORD ARRAY FUNCTION GfxGetAvailableFonts()
+{
+  RETURN __DRAWLIB_V2_GETAVAILABLEFONTS();
+}
+
+/** @short Describe the CSS for a font as returned by GfxGetAvailableFonts */
+PUBLIC RECORD FUNCTION GfxGetFontCSSCode(RECORD font)
+{
+  IF(font.family = "" OR NOT font.istruetype)
+    RETURN DEFAULT RECORD;
+
+    /* http://www.webtype.com/info/articles/fonts-weights/
+    100    Extra Light or Ultra Light
+    200    Light or Thin
+    300    Book or Demi
+    400    Normal or Regular
+    500    Medium
+    600    Semibold, Demibold
+    700    Bold
+    800    Black, Extra Bold or Heavy
+    900    Extra Black, Fat, Poster or Ultra Black
+    */
+
+    STRING fontstyle := "normal", fontweight := "normal", fontstretch := "normal";
+    FOREVERY(STRING styletok FROM Tokenize(font.style,' '))
+    {
+      styletok := ToLowercase(styletok);
+      SWITCH(styletok)
+      {
+        CASE "italic","oblique"
+        {
+          fontstyle := styletok;
+        }
+        CASE "bold"
+        {
+          fontweight := styletok;
+        }
+        CASE "thin"
+        {
+          fontweight := "200";
+        }
+        CASE "light"
+        {
+          fontweight := "300";
+        }
+        CASE "medium"
+        {
+          fontweight := "500";
+        }
+        CASE "black"
+        {
+          fontweight := "900";
+        }
+        CASE "condensed"
+        {
+          fontstretch := styletok;
+        }
+      }
+    }
+
+    //FIXME prevent dupes
+
+    //FIXME EncodeCSSSTring instead of EncodeJava, but we'll need everyone at 3.13.03+
+    RECORD fontinfo := [ family := font.family
+                       , filename := Tokenize(font.filename,'/')[END-1]
+                       , weight := fontweight
+                       , style := fontstyle
+                       , stretch := fontstretch
+                       ];
+    fontinfo := CELL[ ...fontinfo
+                    , csstext :=
+`@font-face
+{
+  src: url('${EncodeCSSString(fontinfo.filename)}') format('truetype');
+  font-family:'${EncodeCSSString(font.family)}';
+  font-weight:${fontweight};
+  font-style:${fontstyle};
+  font-stretch:${fontstretch};
+}\n`];
+  RETURN fontinfo;
+}

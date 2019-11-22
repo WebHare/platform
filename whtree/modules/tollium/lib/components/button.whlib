@@ -1,0 +1,415 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+
+/////////////////////////////////////////////////////////////////////
+// The button (forms)
+
+PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING pvt_icon;
+  STRING pvt_disablemode;
+  BOOLEAN pvt_pressed;
+  STRING pvt_type;
+  STRING pvt_align;
+  BOOLEAN pvt_ellipsis;
+  OBJECT pvt_menu;
+  OBJECT pvt_action;
+
+  PUBLIC STRING tolliumresult;
+
+  UPDATE PUBLIC PROPERTY renderedtitle(GetTitleWithEllipsis, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Icon shown on the button
+  */
+  PUBLIC PROPERTY icon(pvt_icon, SetIcon);
+
+
+  /** Whether the button is pressed. (ADDME: verify text: This property only applies to toolbar buttons.)
+  */
+  PUBLIC PROPERTY pressed(pvt_pressed, SetPressed);
+
+
+  PUBLIC PROPERTY type(pvt_type, SetType);
+
+
+  PUBLIC PROPERTY disablemode(pvt_disablemode, SetDisableMode);
+
+
+  /** Alignment of the icon and text within the button. Possible values: "left", "center", "right".
+  */
+  PUBLIC PROPERTY align(pvt_align, SetAlign);
+
+  PUBLIC PROPERTY ellipsis(pvt_ellipsis, SetEllipsis);
+
+  /** Action to execute when the button is clicked. Ignored when menu is set. */
+  PUBLIC PROPERTY action(pvt_action, SetAction);
+
+  /** Menu to display when the button is clicked */
+  PUBLIC PROPERTY menu(pvt_menu, SetMenu);
+
+  ///Behaves like the menubar button
+  PUBLIC BOOLEAN ismenubutton;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_invisibletitle := TRUE;
+    this->pvt_type := "standard";
+    this->pvt_align := "center";
+    this->pvt_disablemode := "grayed";
+    this->componenttype := "button";
+  }
+
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    IF (definition.tolliumresult != "" AND ObjectExists(definition.action))
+      THROW NEW TolliumException(this, "Button "||definition.name||" has both a tolliumresult and an action");
+
+    TolliumComponentBase::StaticInit(definition);
+    this->pvt_ellipsis := definition.ellipsis;
+    this->action := definition.action;
+    this->menu := definition.menu;
+
+    IF(definition.isdefault)
+      IF(this->owner->frame->defaultbutton!=DEFAULT OBJECT)
+        THROW NEW TolliumException(this, "Duplicate default button");
+      ELSE
+        this->owner->frame->defaultbutton := this;
+
+    IF(this->pvt_title = "" /* FIXME? NOT RecordExists(definition.tp) */ AND ObjectExists(this->action))
+    {
+      this->action->SetDependency(this, [ title := TRUE ]);
+      this->pvt_title := this->action->title;
+    }
+
+    // Toolbar buttons don't have column 'ALIGN'.
+    IF (CellExists(definition, "ALIGN"))
+      this->pvt_align := definition.align;
+    ELSE
+      this->pvt_align := "center";
+
+    this->pvt_icon := definition.icon;
+    IF (this->pvt_icon = "" AND ObjectExists(this->action))
+    {
+      this->action->SetDependency(this, [ icon := TRUE ]);
+      this->pvt_icon := this->action->icon;
+    }
+
+    // Toolbar buttons don't have column 'TYPE'.
+    this->pvt_type := CellExists(definition, "TYPE") ? definition.type : "standard";
+    this->pvt_disablemode := definition.disablemode;
+
+    IF (this->pvt_hint = "" AND ObjectExists(this->action))
+    {
+      this->action->SetDependency(this, [ hint := TRUE ]);
+      this->pvt_hint := this->action->hint;
+    }
+
+    SWITCH (definition.tolliumresult)
+    {
+    CASE "ok"     { this->tolliumresult := "tollium_submit"; }
+    CASE "cancel" { this->tolliumresult := "tollium_cancel"; }
+    DEFAULT       { this->tolliumresult := definition.tolliumresult; }
+    }
+  }
+
+  STRING FUNCTION GetTitleWithEllipsis()
+  {
+    IF(ObjectExists(this->parent) AND this->parent->componenttype="toolbar")
+      RETURN this->title;
+    RETURN this->title || (this->ellipsis?"…":"");
+  }
+
+  PUBLIC BOOLEAN FUNCTION TolliumClick()
+  {
+    IF(NOT this->enabled OR NOT this->isnowvisible)
+      RETURN FALSE;
+
+    IF(this->tolliumresult = "tollium_submit") //the special OK/SUBMIT button
+      RETURN this->owner->TolliumExecuteSubmit();
+    ELSE IF(this->tolliumresult="tollium_cancel")
+      RETURN this->owner->TolliumExecuteCancel();
+    ELSE IF(this->action != DEFAULT OBJECT)
+      RETURN this->action->TolliumClick();
+    ELSE IF(this->tolliumresult != "")
+    {
+      this->owner->tolliumresult := this->tolliumresult;
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    IF(path!="")
+    {
+      this->owner->RunSimpleScreen("error", "<action>s do not support any subactions");
+      RETURN;
+    }
+    IF(NOT this->TolliumClick())
+    {
+      this->owner->RunSimpleScreen("error", `'${this->name}' did not find an actionhandler to execute`);
+    }
+  }
+
+  UPDATE PUBLIC MACRO DeleteComponent()
+  {
+    IF (ObjectExists(this->action))
+      this->action->UnregisterDependency(this);
+    TolliumComponentBase::DeleteComponent();
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    IF(ObjectExists(this->menu) AND this->menu->visible)
+      RETURN [ OBJECT(this->menu) ];
+
+    RETURN DEFAULT OBJECT ARRAY;
+  }
+
+  UPDATE PUBLIC MACRO UpdatedDependentField(STRING fieldname)
+  {
+    SWITCH (fieldname)
+    {
+    CASE "title"
+      {
+        TolliumComponentBase::SetTitle(this->action->title);
+      }
+    CASE "hint"
+      {
+        TolliumComponentBase::SetHint(this->action->hint);
+      }
+    CASE "icon"
+      {
+        this->SetIconBase(this->action->hint);
+      }
+    }
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ title     := FALSE
+        , pressed   := FALSE
+        , icon      := FALSE
+        , hint      := FALSE
+        , enabled   := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      STRING type := this->type;
+
+      RECORD compinfo := [ icon := this->icon
+                         , hint := this->hint
+                         , action := GetComponentName(this->action)
+                         , menu := GetComponentName(this->menu)
+                         , unmasked_events := this->tolliumresult != "" ? [ "click" ] : DEFAULT STRING ARRAY
+                         , ispressed := this->pvt_pressed
+                         , align := this->align
+                         , disablemode := this->disablemode
+                         , buttontype := this->type
+                         , title := this->renderedtitle
+                         , ismenubutton := this->ismenubutton
+                         ];
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.title)
+        this->ToddUpdate([type:="title", title:=this->title]);
+
+      IF (this->dirtyflags.pressed)
+        this->ToddUpdate([type:="pressed", pressed:=this->pvt_pressed]);
+
+      IF (this->dirtyflags.icon)
+        this->ToddUpdate([type:="icon", icon:=this->icon]);
+
+      IF (this->dirtyflags.hint)
+        this->ToddUpdate([type:="hint", hint:=this->hint]);
+
+      IF (this->dirtyflags.enabled)
+        this->ToddUpdate([type:="enabled", enabled := this->enabled]);
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+  UPDATE MACRO SetEllipsis(BOOLEAN ellipsis)
+  {
+    this->pvt_ellipsis := ellipsis;
+    this->ExtUpdatedTitle();
+  }
+
+  UPDATE MACRO SetTitle(STRING newtitle)
+  {
+    TolliumComponentBase::SetTitle(newtitle);
+    IF (ObjectExists(this->action))
+      this->action->SetDependency(this, [ title := FALSE ]);
+  }
+
+
+  MACRO SetDisableMode(STRING newmode)
+  {
+    this->pvt_disablemode := newmode;
+    this->ExtUpdatedComponent();
+  }
+
+
+  MACRO SetIcon(STRING newicon)
+  {
+    this->SetIconBase(newicon);
+    IF (ObjectExists(this->action))
+      this->action->SetDependency(this, [ icon := FALSE ]);
+  }
+
+
+  UPDATE MACRO SetHint(STRING newhint)
+  {
+    TolliumComponentBase::SetHint(newhint);
+    IF (ObjectExists(this->action))
+      this->action->SetDependency(this, [ hint := FALSE ]);
+  }
+
+
+  MACRO SetPressed(BOOLEAN newpressed)
+  {
+    IF (this->pvt_pressed != newpressed)
+    {
+      this->pvt_pressed := newpressed;
+      this->ExtUpdatedPressed();
+    }
+  }
+
+
+  MACRO SetType(STRING newtype)
+  {
+    IF (this->pvt_type != newtype)
+    {
+      this->pvt_type := newtype;
+
+      this->ExtUpdatedComponent();
+    }
+  }
+
+
+  MACRO SetAlign(STRING newalign)
+  {
+    IF (this->pvt_align != newalign)
+    {
+      IF (newalign NOT IN [ "left", "center", "right" ])
+        newalign := "center";
+      this->pvt_align := newalign;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetMenu(OBJECT newmenu)
+  {
+    IF (this->pvt_menu != newmenu)
+    {
+      this->pvt_menu := newmenu;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetAction(OBJECT newaction)
+  {
+    IF (this->pvt_action != newaction)
+    {
+      this->pvt_action := newaction;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetIconBase(STRING newicon)
+  {
+    IF (this->pvt_icon != newicon)
+    {
+      BOOLEAN do_replace := newicon != "" AND this->pvt_icon = "";
+      this->pvt_icon := newicon;
+      IF (do_replace)
+        this->ExtUpdatedComponent();
+      ELSE
+        this->ExtUpdatedIcon();
+    }
+  }
+
+
+  PUBLIC BOOLEAN FUNCTION TolliumSetResult()
+  {
+    IF(this->tolliumresult = "tollium_submit") //the special OK/SUBMIT button
+    {
+      RETURN TRUE;
+    }
+    ELSE IF(this->tolliumresult = "tollium_cancel") //the special CANCEL button
+    {
+      RETURN TRUE;
+    }
+    ELSE IF(this->tolliumresult!="")
+    {
+      this->owner->tolliumresult := this->tolliumresult;
+      RETURN TRUE;
+    }
+    ELSE
+    {
+      RETURN FALSE;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  UPDATE MACRO ExtUpdatedTitle()
+  {
+    // Button renders its own title, it's parent is not responsible
+    // Invisible title, so notifying the parent is not needed.
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.title := TRUE;
+  }
+
+
+  MACRO ExtUpdatedPressed()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.pressed := TRUE;
+  }
+
+
+  MACRO ExtUpdatedIcon()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.icon := TRUE;
+    */
+  }
+>;

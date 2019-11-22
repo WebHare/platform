@@ -1,0 +1,64 @@
+﻿<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:socialite="http://www.webhare.net/xmlns/socialite/components"
+         lib="screens/commondialogs.whlib"
+         gid="commondialogs">
+
+
+  <messageboxes gid=".messageboxes">
+    <messagebox name="confirmclear" icon="question" buttons="yes no" />
+    <messagebox name="noresults" icon="information" buttons="ok" />
+  </messageboxes>
+
+  <screen name="location"
+          gid=".location"
+          tid=".title"
+          allowresize="true"
+          minwidth="500px"
+          minheight="500px"
+          savestate="size">
+    <actions>
+      <action name="search" onexecute="dosearch" title="" />
+    </actions>
+    <body layout="left" spacers="none">
+      <panel spacers="top bottom left right">
+        <heading tid=".searchbox"/>
+        <line>
+          <textedit name="query" title="" defaultbutton="searchbutton" width="1pr" />
+          <button name="searchbutton" action="search" />
+        </line>
+        <text tid=".results" value="" wordwrap="true" labelfor="results" />
+        <line>
+          <select name="results" title="" emptytid=".noresults" type="pulldown" onchange="onresultselect" />
+        </line>
+        <hr/>
+        <heading tid=".mapbox" height="1pr" />
+      </panel>
+      <socialite:map name="map"
+                  zoom="1"
+                  onclick="onclick"
+                  onmoveoverlay="onmoveoverlay"
+                  width="1pr" height="1pr"
+                  minwidth="200px" minheight="150px"/>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="authorize" gid=".authorize" width="40x" onshow="onshow" onunload="onunload">
+    <body>
+      <panel height="1pr">
+        <text name="authorize_text" title="" valuetid=".authorize_text" wordwrap="true" />
+        <line>
+          <text name="authorize_remark" title="" value="" wordwrap="true" visible="false" />
+        </line>
+        <text title="" name="clicklink" />
+        <textedit name="verify" visible="false" />
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="pt" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Por favor, marque o campo abaixo.</text>
+      <text tid="title">Quase pronto.</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">Próximo.</text>
+      <text tid="previouspage">Anterior</text>
+      <text tid="selectfile">Selecionar o arquivo</text>
+      <text tid="starsrequired">* Preenchimento obrigatório</text>
+      <text tid="submit">Enviar</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">O endereço não pôde ser encontrado.</text>
+        <text tid="invalid_nr_detail">Número de casa inválido.</text>
+        <text tid="invalid_zip">CEP ou caixa postal inválido.</text>
+        <text tid="zip_not_found">Combinação desconhecida de código postal e número de casa.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">Este campo deve ser alfa numérico.</text>
+        <text tid="check">Você deve escolher entre <param p="1"/> e <param p="2"/> opções.</text>
+        <text tid="default">Este valor parece ser inválido.</text>
+        <text tid="digits">Este campo deve conter apenas dígitos.</text>
+        <text tid="email">Este campo deve ser um email válido.</text>
+        <text tid="email_baddomain">Devido a dificuldades com o envio de correio para <param p="1"/> endereços de e-mail, pedimos que use um provedor de e-mail alternativo</text>
+        <text tid="email_suggestion">Você quis dizer <param p="1"/>?</text>
+        <text tid="equalto">Este valor deveria ser igual.</text>
+        <text tid="integer">Este campo deve ser um inteiro válido.</text>
+        <text tid="length">O tamanho deste campo é inválido. Ele deveria ter entre <param p="1"/> e <param p="2"/> caracteres.</text>
+        <text tid="max">Este campo deve ser menor ou igual a <param p="1"/>.</text>
+        <text tid="maxcheck">Você deve escolher <param p="1"/> opções ou mais</text>
+        <text tid="maxlength">Este campo é grande demais. Ele deveria ter <param p="1"/> caracteres ou menos.</text>
+        <text tid="min">Este campo deve ser maior ou igual a <param p="1"/>.</text>
+        <text tid="mincheck">Você deve escolher pelo menos <param p="1"/> opções.</text>
+        <text tid="minlength">Este campo é pequeno demais. Ele deveria ter <param p="1"/> caracteres ou mais.</text>
+        <text tid="notblank">Este campo não pode ficar vazio.</text>
+        <text tid="number">Este campo deve ser um número válido.</text>
+        <text tid="pattern">Este campo parece estar inválido.</text>
+        <text tid="range">Este campo deve estar entre <param p="1"/> e <param p="2"/>.</text>
+        <text tid="required">Este campo é obrigatório.</text>
+        <text tid="url">Este campo deve ser um URL válida.</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

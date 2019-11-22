@@ -1,0 +1,964 @@
+﻿<?wh
+/** @private Interesting dialogs should be moved to dialogs.whlib AND use a Run... instead of Make... workflow */
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::graphics/qrcode.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/errors.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
+
+PUBLIC STATIC OBJECTTYPE ShowMessageBox EXTEND TolliumScreenBase
+<
+  PUBLIC RECORD buttonmap;
+  OBJECT ARRAY disablebuttons;
+  STRING dontshowkey;
+  STRING ARRAY dontshowbuttons;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    RECORD options := ValidateOptions([ type := "info"
+                                      ], data.options
+                                      , [ enums := [ type := [ "warning", "error", "info", "verify", "confirm", "question" ]]
+                                        , passthroughin := "other"
+                                        ]);
+
+    RECORD defaults := [ buttons := [ "ok" ]
+                       , defaultbutton := "ok"
+                       , dontshowbuttons := STRING[]
+                       , dontshowkey := ""
+                       , icon := "tollium:messageboxes/information"
+                       , title := ""
+                       ];
+
+    SWITCH(options.type)
+    {
+      CASE "error", "warning"
+      {
+        defaults := CELL[ ...defaults
+                        , icon := "tollium:messageboxes/" || options.type
+                        , buttons := [ "ok" ]
+                        , defaultbutton := "ok"
+                        , dontshowbuttons := [ "ok" ]
+                        ];
+      }
+      CASE "verify"
+      {
+        defaults := CELL[ ...defaults
+                        , icon := "tollium:messageboxes/warning"
+                        , buttons := [ "yes", "no" ]
+                        , defaultbutton := "no"
+                        , dontshowbuttons := [ "yes" ]
+                        ];
+      }
+      CASE "confirm"
+      {
+        defaults := CELL[ ...defaults
+                        , icon := "tollium:messageboxes/question"
+                        , buttons := [ "yes", "no" ]
+                        , defaultbutton := "yes"
+                        , dontshowbuttons := [ "yes" ]
+                        ];
+      }
+      CASE "question"
+      {
+        defaults := CELL[ ...defaults
+                        , icon := "tollium:messageboxes/question"
+                        , buttons := [ "yes", "no" ]
+                        ];
+      }
+      DEFAULT
+      {
+        defaults := CELL[ ...defaults
+                        , dontshowbuttons := [ "ok" ]
+                        ];
+      }
+    }
+
+    options := ValidateOptions(defaults, options.other);
+
+    this->frame->title := options.title;
+    IF(this->frame->title = "" AND Objectexists(this->contexts->screen->tolliumparent))
+      this->frame->title := this->contexts->screen->tolliumparent->frame->title;
+    IF(this->frame->title = "")
+      this->frame->title := this->contexts->controller->apptitle;
+
+    ^message->value := data.message;
+    IF (options.icon NOT LIKE "*:*")
+      options.icon := `tollium:messageboxes/${options.icon}`;
+
+    // Get the preselected return value if the messagebox can be hidden
+    STRING modalresult;
+    IF(options.dontshowkey != "")
+    {
+      this->dontshowkey := options.dontshowkey;
+      this->dontshowbuttons := options.dontshowbuttons;
+      modalresult := this->tolliumuser->GetMessageBoxResult(EncodeBase16(GetMD5Hash(this->dontshowkey)), options.dontshowbuttons);
+    }
+
+    // Convert the default buttons
+    RECORD ARRAY buttons;
+    FOREVERY(STRING button FROM options.buttons)
+    {
+      STRING buttonresult := button="ok" ? "tollium_submit" : button;
+
+      INSERT INTO buttons(name, tp, isdefault, tolliumresult)
+             VALUES(button, "", button = options.defaultbutton, buttonresult)
+             AT END;
+    }
+
+    FOREVERY (RECORD def FROM buttons)
+    {
+      // If this was the preselected modalresult, return it immediately (this will only return if the preselected return
+      // value is still a valid button)
+      IF (modalresult != "" AND modalresult = def.name)
+      {
+        this->tolliumresult := modalresult;
+        RETURN;
+      }
+
+      OBJECT button := this->CreateTolliumComponent("button");
+      button->title := def.tp != "" ? GetTid(def.tp) : GetTid("tollium:common.actions." || def.name);
+      IF (def.isdefault)
+        this->frame->defaultbutton := button;
+      button->tolliumresult := def.tolliumresult;
+      IF (def.name NOT IN this->dontshowbuttons)
+        INSERT button INTO this->disablebuttons AT END;
+
+      ^buttons->InsertComponentAfter(button, DEFAULT OBJECT, FALSE);
+      this->buttonmap := CellInsert(this->buttonmap, def.name, button);
+    }
+
+    IF (options.icon != "")
+      ^pvt_icon->SetImageSrc(options.icon);
+    ELSE
+      ^pvt_icon->visible := FALSE;
+
+    // Show the don't bug me checkbox
+    OBJECT dontbugmecheck;
+    IF(Length(this->dontshowbuttons) > 0)
+    {
+      ^pvt_dontbugme->visible := TRUE;
+      IF (Length(options.buttons) > 1)
+        ^pvt_dontbugme->label := GetTid("tollium:common.messages.dontaskagain");
+      ELSE
+        ^pvt_dontbugme->label := GetTid("tollium:common.messages.dontshowagain");
+      ^pvt_dontbugme->value := FALSE;
+    }
+  }
+
+  UPDATE PUBLIC STRING FUNCTION RunModal()
+  {
+    IF(this->tolliumresult != "")
+      RETURN this->tolliumresult;
+
+    // Run the message box
+    STRING result := TolliumScreenBase::RunModal();
+
+    // If the user checked the don't bug me checkbox, save the result in the registry
+    IF (this->dontshowkey != "" AND ^pvt_dontbugme->value AND this->tolliumresult IN this->dontshowbuttons)
+      this->tolliumuser->SetMessageBoxResult(EncodeBase16(GetMD5Hash(this->dontshowkey)), result);
+
+    // Return the result
+    RETURN result;
+  }
+
+  MACRO DontBugMeChanged()
+  {
+    FOREVERY (OBJECT button FROM this->disablebuttons)
+      button->enabled := NOT ^pvt_dontbugme->value;
+  }
+>;
+
+PUBLIC OBJECTTYPE MessageBox EXTEND TolliumScreenBase
+<
+  STRING dlgid;
+  STRING savedresult;
+  OBJECT ARRAY disablebuttons; // buttons which are disabled when setting dontbugme
+
+  PUBLIC RECORD buttonmap;
+
+  /// @short Set to TRUE to add the "don't show again" checkbox, but don't save the result or return a saved result
+  PUBLIC BOOLEAN dontsaveresult;
+
+  /// @short The message box title
+  PUBLIC PROPERTY title(GetTitle, SetTitle);
+  /// @short The message text
+  PUBLIC PROPERTY message(GetMessage, SetMessage);
+  /** @short The message icon
+      @long The message icon is the icon shown at the left of the message. Possible values are 'error', 'information',
+            'question', 'unrecoverable' and 'warning'. If set to empty, no icon is shown. The default value is 'information'.
+  */
+  PUBLIC PROPERTY icon(-, SetIcon);
+  /// @short If the "don't show again" checkbox is checked
+  PUBLIC PROPERTY dontshowagain(GetDontShowAgain, SetDontShowAgain);
+  /// @short The "don't show again" checkbox label
+  PUBLIC PROPERTY dontshowagainlabel(-, SetDontShowAgainLabel);
+
+  /// @short The screen icon (the icon shown in the title bar)
+  PUBLIC PROPERTY screenicon(-, SetScreenIcon);
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    //ADDME: Move more to the xml code?
+    this->dlgid := data.name;
+
+    //Load the required page file
+    //RECORD docinfo := RetrieveCachedXMLResource(GetResourceNameFromSCreenPath(data.name));
+    RECORD dialog := GetMessageBox(data.name);
+    IF(NOT RecordExists(dialog))
+      THROW NEW Exception("Cannot find message box '" || data.name || "'");
+
+    dialog.msg := GetTid(dialog.msgdef, data.p1, data.p2, data.p3, data.p4);
+
+    // Get the preselected return value if the messagebox can be hidden
+    STRING modalresult := Length(dialog.dontshowagain) > 0 ? this->tolliumuser->GetMessageBoxResult(this->dlgid, dialog.dontshowagain) : "";
+
+    // Convert the default buttons
+    FOREVERY(STRING button FROM dialog.defaultbuttons)
+    {
+      STRING buttonresult := button="ok" ? "tollium_submit" : button;
+
+      INSERT INTO dialog.buttons(name, tp, isdefault, tolliumresult)
+             VALUES(button, "", button = dialog.defaultbutton, buttonresult)
+             AT END;
+    }
+
+    // Show the message icon
+    //ADDME Using an image component in its current state sucks, as it just moves its SetImageSRc paramter into a session no matter what!
+    this->icon := dialog.icon;
+
+    // Set the message text
+    this->message := dialog.msg;
+
+    // Add the buttons
+    //ADDME: Use defaultformbuttons and dynamically select the buttons to show, instead of creating the buttons we want
+    OBJECT ARRAY disablebuttons; // Buttons to disable when dontbugme is set
+    FOREVERY (RECORD def FROM dialog.buttons)
+    {
+      // If this was the preselected modalresult, return it immediately (this will only return if the preselected return
+      // value is still a valid button)
+      IF (modalresult != "" AND modalresult = def.name)
+        this->savedresult := modalresult;
+
+      OBJECT button := this->CreateTolliumComponent("button");
+      button->title := def.tp != "" ? GetTid(def.tp) : GetTid("tollium:common.actions." || def.name);
+      IF (def.isdefault)
+        this->frame->defaultbutton := button;
+      button->tolliumresult := def.tolliumresult;
+      IF (def.name NOT IN dialog.dontshowagain)
+        INSERT button INTO disablebuttons AT END;
+
+      this->buttons->InsertComponentAfter(button, DEFAULT OBJECT, FALSE);
+      this->buttonmap := CellInsert(this->buttonmap, def.name, button);
+    }
+
+    // Show the don't bug me checkbox
+    OBJECT dontbugmecheck;
+    IF(Length(dialog.dontshowagain) > 0)
+    {
+      this->pvt_dontbugme->visible := TRUE;
+      IF (Length(dialog.buttons) > 1)
+        this->pvt_dontbugme->label := GetTid("tollium:common.messages.dontaskagain");
+      ELSE
+        this->pvt_dontbugme->label := GetTid("tollium:common.messages.dontshowagain");
+      this->pvt_dontbugme->value := FALSE;
+      this->disablebuttons := disablebuttons;
+    }
+  }
+
+  MACRO OnShow()
+  {
+    // Focus the default button, if any
+    IF (ObjectExists(this->frame->defaultbutton))
+      this->frame->focused := this->frame->defaultbutton;
+  }
+
+  MACRO DontBugMeChanged()
+  {
+    FOREVERY (OBJECT button FROM this->disablebuttons)
+      button->enabled := NOT this->pvt_dontbugme->value;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION RunModal()
+  {
+    // Run the message box
+    STRING result := (NOT this->dontsaveresult AND this->savedresult != "") ? this->savedresult : TolliumScreenBase::RunModal();
+
+    // If the user checked the don't bug me checkbox, save the result in the registry
+    IF (NOT this->dontsaveresult AND this->pvt_dontbugme->value)
+      this->tolliumuser->SetMessageBoxResult(this->dlgid, result);
+
+    // Return the result
+    RETURN result;
+  }
+
+  STRING FUNCTION GetTitle()
+  {
+    RETURN this->frame->title;
+  }
+  MACRO SetTitle(STRING title)
+  {
+    this->frame->title := title;
+  }
+
+  STRING FUNCTION GetMessage()
+  {
+    RETURN this->pvt_message->value;
+  }
+  MACRO SetMessage(STRING message)
+  {
+    this->pvt_message->value := message;
+  }
+
+  MACRO SetIcon(STRING icon)
+  {
+    IF(icon != "")
+    {
+      this->pvt_icon->visible := TRUE;
+      this->pvt_icon->SetImageSrc("tollium:messageboxes/" || EncodeURL(icon), "");
+    }
+    ELSE
+      this->pvt_icon->visible := FALSE;
+  }
+
+  BOOLEAN FUNCTION GetDontShowAgain()
+  {
+    RETURN this->pvt_dontbugme->value;
+  }
+  MACRO SetDontShowAgain(BOOLEAN dontshowagain)
+  {
+    this->pvt_dontbugme->value := dontshowagain;
+  }
+
+  MACRO SetDontShowAgainLabel(STRING label)
+  {
+    this->pvt_dontbugme->label := label;
+  }
+
+  MACRO SetScreenIcon(STRING icon)
+  {
+    this->frame->icon := icon;
+  }
+>;
+
+PUBLIC OBJECTTYPE Ordering EXTEND TolliumScreenBase
+  < PUBLIC MACRO DoToTop()
+    {
+      IF(NOT REcordExists(this->orderlist->selection))
+        RETURN;
+      this->orderlist->rows := SELECT * FROM this->orderlist->rows ORDER BY rowkey = this->orderlist->selection.rowkey DESC;
+    }
+
+    PUBLIC MACRO DoToBottom()
+    {
+      IF(NOT REcordExists(this->orderlist->selection))
+        RETURN;
+
+      this->orderlist->rows := SELECT * FROM this->orderlist->rows ORDER BY rowkey = this->orderlist->selection.rowkey ASC;
+    }
+
+    PUBLIC MACRO DoOneUp()
+    {
+      IF(NOT REcordExists(this->orderlist->selection))
+        RETURN;
+
+      RECORD ARRAY rows := this->orderlist->rows;
+      INTEGER selectpos := SELECT AS INTEGER #rows FROM rows WHERE rowkey = this->orderlist->selection.rowkey;
+      IF(selectpos!=0) //not at top yet
+      {
+        //Swap selectpos and selecptos-1
+        RECORD temp := rows[selectpos];
+        rows[selectpos] := rows[selectpos-1];
+        rows[selectpos-1] := temp;
+        this->orderlist->rows := rows;
+      }
+    }
+
+    PUBLIC MACRO DoOneDown()
+    {
+      IF(NOT REcordExists(this->orderlist->selection))
+        RETURN;
+
+      RECORD ARRAY rows := this->orderlist->rows;
+      INTEGER selectpos := SELECT AS INTEGER #rows FROM rows WHERE rowkey = this->orderlist->selection.rowkey;
+      IF(selectpos!=Length(rows)-1) //not at top yet
+      {
+        //Swap selectpos and selecptos+1
+        RECORD temp := rows[selectpos];
+        rows[selectpos] := rows[selectpos+1];
+        rows[selectpos+1] := temp;
+        this->orderlist->rows := rows;
+      }
+    }
+
+    PUBLIC INTEGER FUNCTION GetPosition(VARIANT rkey)
+    {
+      INTEGER pos := SELECT AS INTEGER #rows + 1 FROM this->orderlist->rows AS rows WHERE rowkey=rkey;
+      RETURN pos-1;
+    }
+  >;
+
+PUBLIC OBJECTTYPE GetUserFile EXTEND TolliumScreenBase
+<
+  RECORD ARRAY files;
+
+  PUBLIC INTEGER maxsize;
+  PUBLIC STRING ARRAY mimetypes;
+  PUBLIC FUNCTION PTR check_file;
+  PUBLIC RECORD error_file;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->okbutton->visible := data.offer_ok_button;
+    //FIXME x2
+    //this->file->multiple := data.multiple;
+    //this->file->maxsize := this->maxsize;
+  }
+
+  MACRO DoUpload(RECORD ARRAY files)
+  {
+    this->files := files;
+    FOREVERY (RECORD file FROM files)
+      IF (NOT this->CheckFile(file))
+      {
+        this->tolliumresult := "typeerror";
+        this->error_file := file;
+        //this->file->Clear();
+        RETURN;
+      }
+    this->tolliumresult := "ok";
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN TRUE;
+  }
+
+  PUBLIC STRING FUNCTION GetFileUploadSesssionId()
+  {
+    RETURN "";//RETURN this->file->pvt_tolliumweb_sessionid;
+  }
+
+  PUBLIC VARIANT FUNCTION GetResult()
+  {
+    RETURN this->files;
+  }
+
+  BOOLEAN FUNCTION CheckFile(RECORD filerec)
+  {
+    // No type restrictions
+    IF (this->check_file = DEFAULT FUNCTION PTR AND Length(this->mimetypes) = 0)
+      RETURN TRUE;
+
+    RECORD type := ScanBlob(filerec.data, filerec.filename);
+    IF (this->check_file != DEFAULT FUNCTION PTR)
+    {
+      // Check by external function
+      RECORD file := [ data      := filerec.data
+                     , mimetype  := type.mimetype
+                     , filename  := filerec.filename
+                     , extension := GetExtensionFromPath(filerec.filename)
+                     ];
+      RETURN this->check_file(file);
+    }
+    ELSE IF (RecordExists(type))
+    {
+      // Check types
+      FOREVERY (STRING mimetype FROM this->mimetypes)
+        IF (type.mimetype LIKE mimetype)
+          RETURN TRUE;
+    }
+
+    // Type was not accepted
+    RETURN FALSE;
+  }
+
+/*  PUBLIC MACRO FlashUploadEvent()
+  {
+    // Set the file upload value
+    this->file->TolliumWeb_FormUpdate(param);
+    // Call the callback function
+    this->FlashUploaded();
+  }
+*/
+  PUBLIC MACRO FlashUploaded()
+  {
+    this->error_file := DEFAULT RECORD;
+    IF (NOT RecordExists(this->file->value))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    IF (this->file->multiple)
+    {
+      FOREVERY (RECORD file FROM this->file->value)
+        IF (NOT this->CheckFile(file))
+        {
+          this->tolliumresult := "typeerror";
+          this->error_file := file;
+          this->file->Clear();
+          RETURN;
+        }
+      this->tolliumresult := "ok";
+    }
+    ELSE
+    {
+      IF (this->CheckFile(this->file->value))
+        this->tolliumresult := "ok";
+      ELSE
+      {
+        this->tolliumresult := "typeerror";
+        this->error_file := this->file->value;
+        this->file->Clear();
+      }
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE SendUserFile EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD filedata;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO Init(RECORD file)
+  {
+    this->filedata := file;
+
+    this->file->value := file.filename;
+    this->file->visible := file.filename != "";
+    this->type->value := file.mimetype;
+    this->size->value := this->tolliumuser->FormatFileSize(Length64(file.data), 2, TRUE);
+  }
+
+  MACRO DoDownload(OBJECT obj)
+  {
+    obj->SendFile(this->filedata.data, this->filedata.mimetype, this->filedata.filename);
+  }
+
+  MACRO OnDownloadStarted()
+  {
+    this->tolliumresult := "close";
+  }
+>;
+
+PUBLIC OBJECTTYPE WindowOpen EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING url;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->url := data.url;
+    this->windowopen->target := data.target;
+  }
+
+  MACRO DoWindowOpen(OBJECT obj)
+  {
+    obj->SendUrl(this->url);
+  }
+>;
+
+PUBLIC OBJECTTYPE QRCallback EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC FUNCTION PTR oncallback;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    STRING qrurl := this->callbacklistener->GetCallbackURL(data);
+    OBJECT qrcode := CreateQRCode(qrurl, [ size := 500, correctlevel := "L" ]);
+    BLOB qrpng := qrcode->ExportAsPalettedPNG(TRUE);
+    RECORD qrdata := ScanBlob(qrpng, "qr.png");
+    this->qrcode->width := qrdata.width || "px";
+    this->qrcode->height := qrdata.height || "px";
+    this->qrcode->SetImage(qrpng, "qr.png");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Event handlers
+  //
+
+  MACRO OnQRCallback(OBJECT handler)
+  {
+    this->tolliumresult := "ok";
+    IF (this->oncallback != DEFAULT FUNCTION PTR)
+      this->oncallback(handler);
+  }
+>;
+
+PUBLIC OBJECTTYPE ProgressScreen EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Backgroundtask
+  OBJECT pvt_task;
+
+
+  /// Result of the task
+  RECORD pvt_result;
+
+
+  /// Start time
+  DATETIME pvt_starttime;
+
+
+  /// First progress
+  DATETIME pvt_firstprogress;
+
+
+  /// Show estimates
+  BOOLEAN pvt_showestimate;
+
+
+  /// Pollcallback
+  INTEGER pollcb;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY result(pvt_result, -);
+
+  PUBLIC PROPERTY title(GetTitle, SetTitle);
+
+  PUBLIC PROPERTY showestimate(pvt_showestimate, pvt_showestimate);
+
+  PUBLIC PROPERTY allowcancel(GetAllowCancel, SetAllowCancel);
+
+  PUBLIC MACRO PTR oncancel;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->pvt_task := this->tolliumcontroller->LoadBackgroundTask(this, data.lib, data.func, data.data);
+    this->pvt_starttime := GetCurrentDateTime();
+
+    // If the loading failed, LoadBackgroundTask has already shown the errors
+    IF (NOT ObjectExists(this->pvt_task))
+      this->tolliumresult := "errors";
+    ELSE
+      this->OnPoll();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium callbacks
+  //
+
+  MACRO OnPoll()
+  {
+    this->pollcb := 0;
+
+    IF (this->pvt_task->finished)
+    {
+      IF (this->pvt_task->anyerrors)
+      {
+        this->tolliumresult := "errors";
+
+        PRINT(AnyToString(this->pvt_task->errors, "boxed"));
+        OBJECT scr := CreateHarescriptErrorsDialog(this, this->pvt_task->errors);
+        scr->RunModal();
+      }
+      ELSE
+      {
+        this->tolliumresult := "ok";
+        this->pvt_result := this->pvt_task->result;
+      }
+      this->pvt_task->Close();
+    }
+    ELSE
+    {
+      RECORD status := this->pvt_task->status;
+
+      DATETIME now := GetCurrentDateTime();
+      RECORD diff := GetDatetimeDifference(this->pvt_starttime, now);
+      FLOAT elapsed := diff.msecs / 1000;
+      elapsed := elapsed + diff.days * FLOAT(24 * 60 * 60);
+
+      INTEGER secs := FloatToInteger(elapsed);
+
+      // Schedule an update every 300msec
+      this->pollcb := RegisterTimedCallback(AddTimeToDate(300, now), PTR this->OnPoll);
+
+      STRING remaininfo;
+
+      IF (RecordExists(status))
+      {
+        IF (this->pvt_firstprogress = DEFAULT DATETIME)
+          this->pvt_firstprogress := GetCurrentDateTime();
+
+        this->status->value := status.status;
+        IF(CellExists(status,"progress"))
+        {
+          RECORD progressdiff := GetDatetimeDifference(this->pvt_firstprogress, GetCurrentDateTime());
+          FLOAT elapsed2 := progressdiff.msecs / 1000;
+          elapsed2 := elapsed2 + progressdiff.days * FLOAT(24 * 60 * 60);
+
+          this->progress->value := FloatToMoney(status.progress);
+
+          IF (elapsed2 > 5 AND status.progress > 0.5 AND this->pvt_showestimate)
+          {
+            // Wait 5 seconds before giving out estimates
+            FLOAT togo := elapsed2 / (FLOAT(status.progress) / 100) - elapsed2;
+
+            IF (togo > 60)
+              remaininfo := GetTid("tollium:commondialogs.progress.estminutes", ToString(FloatToInteger(Ceil(togo/60))));
+            ELSE
+              remaininfo := GetTid("tollium:commondialogs.progress.estseconds", ToString(FloatToInteger(Ceil(togo / 5) * 5)));
+          }
+        }
+      }
+
+      STRING elapsedinfo;
+      IF (secs > 60)
+        elapsedinfo := GetTid("tollium:commondialogs.progress.minutesseconds", ToString(secs / 60), ToString(secs % 60));
+      ELSE
+        elapsedinfo := GetTid("tollium:commondialogs.progress.seconds", ToString(FloatToInteger(secs)));
+
+     this->timeelapsed->value := elapsedinfo || (remaininfo="" ? "" : " (" || remaininfo || ")");
+
+    }
+  }
+
+  MACRO DoCancel()
+  {
+    IF(this->oncancel != DEFAULT FUNCTION PTR AND NOT this->oncancel())
+      RETURN;
+
+    IF (this->pollcb != 0)
+      UnregisterCallback(this->pollcb);
+
+    this->pvt_task->Close();
+    this->tolliumresult := "cancel";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  STRING FUNCTION GetTitle()
+  {
+    RETURN this->frame->title;
+  }
+
+
+  MACRO SetTitle(STRING newtitle)
+  {
+    this->frame->title := newtitle;
+  }
+
+  BOOLEAN FUNCTION GetAllowCancel()
+  {
+    RETURN this->cancelaction->enabled;
+  }
+  MACRO SetAllowCancel(BOOLEAN newsetting)
+  {
+    this->cancelaction->enabled := newsetting;
+    this->frame->allowclose := newsetting;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Send a message to the background task */
+  PUBLIC MACRO SendMessage(RECORD msg)
+  {
+    this->pvt_task->SendMessage(msg);
+  }
+>;
+
+
+/** Shows a screen describing errors or exceptions
+*/
+PUBLIC OBJECTTYPE ExceptionScreen EXTEND TolliumScreenBase
+<
+  RECORD overrides;
+
+  /// Show a list of harescript errors
+  MACRO ShowErrors(RECORD ARRAY errors, RECORD ARRAY trace)
+  {
+    STRING errtext;
+
+    FOREVERY (RECORD error FROM errors)
+      errtext := errtext || "At " || error.filename || " " || error.line || ":" || error.col || "\n" ||
+          GetHareScriptMessageText(error.iserror, error.code, error.param1, error.param2) || "\n\n";
+
+    // Ignore trace items without function, they are also mentioned in the error message (always compile errors)
+    errtext := errtext || Detokenize( (SELECT AS STRING ARRAY filename || ' at ' || line || ':' || col || ': ' || func
+                                         FROM trace AS tracelines
+                                        WHERE func != "" OR #tracelines != LENGTH(trace) - 1), '\n');
+
+    this->description->value := errtext;
+    PRINT(errtext);
+  }
+
+  MACRO ShowException(OBJECT e)
+  {
+    STRING errtext;
+    IF(Length(e->trace)>0)
+    {
+      FOREVERY (RECORD pos FROM e->trace)
+        IF(pos.filename NOT LIKE 'module::tollium*')
+        {
+          errtext := "At " || pos.filename || " " || pos.line || ":" || pos.col || "\n";
+          BREAK;
+        }
+
+      errtext := errtext || e->what || "\n\n"
+                         || Detokenize( (SELECT AS STRING ARRAY filename || ' at ' || line || ':' || col || ': ' || func FROM e->trace AS tracelines), '\n');
+    }
+    ELSE
+    {
+      errtext := e->what;
+    }
+
+    this->description->value := errtext;
+    PRINT(errtext);
+  }
+
+
+  MACRO Init(RECORD data)
+  {
+    this->sendemailbutton->visible := FALSE; //ADDME reimplement in some form,  but probably send all through the webservice.... this->tolliumcontroller->sendapplicationreport != DEFAULT FUNCTION PTR;
+    IF (CellExists(data, "OVERRIDES"))
+      this->overrides := data.overrides;
+
+    RECORD options := ValidateOptions( [ description := ""
+                                       ], CellExists(data,'options') ? data.options : CELL[]);
+
+    SWITCH (data.type)
+    {
+    CASE "errors"
+      {
+        LogHarescriptErrors(data.errors);
+
+        this->ShowErrors(
+          (SELECT * FROM data.errors WHERE code >= 0),
+          (SELECT * FROM data.errors WHERE code < 0));
+
+      }
+    CASE "exception"
+      {
+        IF (data.exception EXTENDSFROM HarescriptErrorException)
+        {
+          LogHarescriptException(data.exception);
+
+          this->ShowErrors(data.exception->errors, data.exception->trace);
+        }
+        ELSE IF (data.exception EXTENDSFROM Exception)
+        {
+          LogHarescriptException(data.exception);
+
+          this->ShowException(data.exception);
+        }
+        ELSE
+        {
+          this->description->value := "An object of type '"||GetObjectTypeName(data.exception)||"' was raised as an exception";
+        }
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Unknown error type: '" || data.type || "'");
+      }
+    }
+
+    IF(options.description != "")
+    {
+      this->description->value := options.description || "\n\n" || this->description->value;
+    }
+
+    IF (IsRequest()) // Not when running in headless mode
+      LogWebserverError("Exception screen triggered with the following error(s):\n" || SubStitute(this->description->value, "\n\n", "\n"));
+  }
+
+  MACRO DoSendEmail()
+  {
+    IF (this->tolliumcontroller->sendapplicationreport = DEFAULT FUNCTION PTR)
+      RETURN;
+
+    OBJECT dlg := this->LoadScreen(".exceptionadditional");
+    IF (dlg->RunModal() != "ok")
+      RETURN;
+
+    this->sendemailbutton->enabled := FALSE;
+
+    STRING mailfrom;
+
+    IF (this->tolliumuser->emailaddress != "")
+    {
+      IF (this->tolliumuser->realname != "")
+        mailfrom := this->tolliumuser->realname || " <" || this->tolliumuser->emailaddress || ">"; //FIXME Proper encoding
+      ELSE
+        mailfrom := this->tolliumuser->emailaddress;
+    }
+
+    STRING login := this->tolliumuser->login;
+
+    IF (CellExists(this->overrides, "USERNAME") AND this->overrides.username != "")
+      login := this->overrides.username;
+    IF (CellExists(this->overrides, "USERREALNAME") AND this->overrides.userrealname != "")
+      mailfrom := this->overrides.userrealname;
+
+    RECORD appdata :=
+        [ errors      := this->description->value
+        , mailfrom    := mailfrom
+        , login       := login
+        , usercomment := dlg->usercomment->value
+        ];
+
+    this->tolliumcontroller->sendapplicationreport(appdata);
+    this->RunMessageBox(".exceptionemailsent");
+  }
+
+  MACRO DoClose()
+  {
+    this->tolliumresult := "close";
+  }
+>;

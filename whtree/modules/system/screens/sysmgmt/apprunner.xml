@@ -1,0 +1,74 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/sysmgmt/apprunner.whlib"
+         gid="sysmgmt.apprunner">
+
+  <messageboxes gid=".messages" >
+    <messagebox name="deleteapp" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="apprunner"
+          allowresize="true"
+          savestate="size"
+          width="120x"
+          height="25x"
+          tid=".title"
+          menubar="menubar"
+          >
+    <actions gid=".actions">
+      <action name="add" onexecute="doadd" tid="tollium:common.actions.add"  shortcut="ctrl+n" />
+      <action name="edit" onexecute="doedit" tid="tollium:common.actions.edit">
+        <enableon source="applist" min="1" max="1" checkflags="canedit" />
+      </action>
+      <action name="delete" onexecute="dodelete" tid="tollium:common.actions.delete"  shortcut="del">
+        <enableon source="applist" min="1" checkflags="canedit" />
+      </action>
+      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="tollium:common.actions.close"/>
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item action="add"/>
+        <item action="edit"/>
+        <item action="delete"/>
+        <divider/>
+        <item action="close" />
+      </menu>
+      <menu name="newcontextmenu">
+        <item action="add" disablemode="hidden"/>
+      </menu>
+      <menu name="contextmenu">
+        <item action="edit" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
+      </menu>
+    </menus>
+    <toolbar>
+      <button action="add" icon="tollium:actions/add"/>
+      <button action="edit" icon="tollium:actions/edit"/>
+      <button action="delete" icon="tollium:actions/delete"/>
+    </toolbar>
+    <body layout="form" height="1pr">
+      <panel height="1pr">
+        <list name="applist"
+              selectmode="single"
+              height="1pr"
+              selectcontextmenu="contextmenu"
+              newcontextmenu="newcontextmenu"
+              openaction="edit"
+              flags="canedit"
+              >
+          <column name="name"  type="text" width="21x"/>
+        </list>
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="editappdata" gid=".editappdata" >
+    <body>
+      <textedit name="name" required="true" />
+      <textarea name="cmdline" required="true" width="60x" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

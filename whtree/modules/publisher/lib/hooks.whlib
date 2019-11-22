@@ -1,0 +1,75 @@
+<?wh
+LOADLIB "mod::publisher/lib/screenbase.whlib" EXPORT WHFSFilterScreenBase;
+
+PUBLIC OBJECTTYPE ContentsListHandlerBase
+<
+  PUBLIC FUNCTION PTR __ongeticon;
+  PUBLIC OBJECT tolliumuser;
+
+  INTEGER folderid;
+
+  MACRO NEW()
+  {
+  }
+
+  PUBLIC STRING FUNCTION GetOrderedColumn()
+  {
+    RETURN "ordering";
+  }
+
+  /** @long Provide the definitions of extra columns this handler is  be providing. If empty,
+      the remapping function won't be invoked. Names must start with 'custom_'.
+      Add a 'sorttitle' for columns that can be sorted on */
+  PUBLIC RECORD ARRAY FUNCTION GetAddedColumns()
+  {
+    RETURN DEFAULT RECORD ARRAY;
+  }
+
+  /** The layout ordering of the one-row design. Should include 'name', 'title', 'modified' and 'statusicons' on the positions where you want to keep them, if any.
+     May not return anything but these four or 'custom_' columns.  */
+  PUBLIC RECORD ARRAY FUNCTION GetOneRowLayout()
+  {
+    RETURN [ [ name := "name",        width := "1pr" ]
+           , [ name := "title",       width := "1pr" ]
+           , [ name := "modified",    width := "13x" ]
+           , [ name := "statusicons", width := "2x" ]
+           ];
+  }
+
+  /** Provide the multirow layout.
+      @cell return.headers - The header sto show
+      @cell return.headers.name
+      @cell return.headers.combinewithnext
+      @cell return.rows - The row layout */
+  PUBLIC RECORD FUNCTION GetMultiRowLayout()
+  {
+    RETURN [ headers := [ [ name := "icon", combinewithnext := TRUE,  width := "" ]
+                        , [ name := "name", combinewithnext := FALSE, width := "" ]
+                        , [ name := "modified", combinewithnext := FALSE, width := "13x" ]
+                        ]
+           , rows := [[ cells := [[ name := "icon", rowspan := 2 ]
+                                 ,[ name := "name_noicon" ]
+                                 ,[ name := "modified" ]
+                                 ]
+                      ]
+                     ,[ cells := [[ name := "title"]
+                                 ,[ name := "statusicons"]
+                                 ]
+                      ]
+                     ]
+           ];
+  }
+
+  /** Only invoked if GetAddedColumns provided extra columns. Receives 'id' and 'parent' of files, should add 'custom_' columns
+      Standard fields (such as name, title) can never be modified, as that would break future 'click to edit' support
+      This function should not remove or reorder items. Make sure to use right outer joins in Enrich calls */
+  PUBLIC RECORD ARRAY FUNCTION OnMapItems(INTEGER parentfolder, RECORD ARRAY items)
+  {
+    RETURN items;
+  }
+
+  PUBLIC INTEGER FUNCTION GetListIcon(STRING iconname)
+  {
+    RETURN this->__ongeticon(iconname);
+  }
+>;

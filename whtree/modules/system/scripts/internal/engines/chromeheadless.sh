@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Inside the Docker image: /opt/wh/whtree/modules/system/scripts/internal/engines/chromeheadless.sh --no-sandbox --headless --remote-debugging-port=9002
+
+if [ -n "$WEBHARE_IN_DOCKER" ]; then
+  PROFILEDIR=/home/chrome/profile
+else
+  PROFILEDIR="$HOME/.chrome-headless-profile"
+fi
+
+# Make sure our chrome state is completely clean
+if [ -e "$PROFILEDIR" ]; then
+  mv -- "$PROFILEDIR" "$PROFILEDIR.bak"
+  rm -rf -- "$PROFILEDIR.bak"
+fi
+
+mkdir -p -- "$PROFILEDIR"
+
+ARGS="--disable-gpu
+      --no-first-run
+      --disable-translate
+      --disable-extensions
+      --disable-background-networking
+      --safebrowsing-disable-auto-update
+      --disable-sync
+      --metrics-recording-only
+      --disable-default-apps
+      --disk-cache-dir=/dev/null
+      --window-size=1280,1024
+      --force-color-profile=srgb
+      --disable-dev-shm-usage
+      --user-data-dir=$PROFILEDIR"
+
+if [ -n "$WEBHARE_IN_DOCKER" ]; then
+  # http://smarden.org/runit/chpst.8.html - part of runit tools
+  # start chrome sa safe user. keep it away from stdin just in case.
+  export HOME=/home/chrome
+  chown -R chrome:chrome -- "$PROFILEDIR"
+  exec chpst -u chrome:chrome /usr/bin/google-chrome $ARGS "$@" < /dev/null
+else
+  # Starting chrome 'normally'
+  if [ "`uname`" == "Darwin" ]; then
+    exec "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" $ARGS "$@"
+  else
+    exec "/usr/bin/google-chrome" $ARGS "$@"
+  fi
+fi

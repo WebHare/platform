@@ -1,0 +1,476 @@
+<?wh
+/*
+
+LinkedIn V2 API
+
+- "Currently, all access tokens are issued with a 60 day lifespan" (https://developer.linkedin.com/docs/oauth2)
+
+
+- V2 notes:
+  - App settings requires the "Authorized Redirect URLs" field,
+    otherwise when trying to log in using the application id/secret you'll get a "Bummer, something went wrong." error page.
+
+  - Doesn't provide the vanityName or profileUrl anymore
+
+
+- Technical implementation info
+  - LinkedIn V2 API protocol version 2.0 only supports JSON
+  - To use version 2.0, you must pass X-Restli-Protocol-Version: 2.0.0 as the header in your API
+  - Uses authorization header ("Authorization: Bearer {YOUR_TOKEN}")
+  - "Object Types"
+    https://docs.microsoft.com/en-us/linkedin/shared/references/v2/object-types
+
+
+- Authorization
+  - Member Authorization - 60 day lifespan
+  - Application Authorization - 30 minute timespan
+
+
+
+Important URLs:
+
+- Manage Applications
+  https://www.linkedin.com/developer/apps
+
+- API documentation (old)
+  https://developer.linkedin.com/docs
+
+- API documentation - Profile
+  https://docs.microsoft.com/en-us/linkedin/shared/references/v2/
+
+- API documentation - Organisations
+  https://docs.microsoft.com/en-us/linkedin/marketing/integrations/community-management/organizations
+
+- Terms of use
+  https://legal.linkedin.com/api-terms-of-use
+
+- Requesting more permissions
+  https://business.linkedin.com/marketing-solutions/marketing-partners/become-a-partner/marketing-developer-program#submit
+
+
+
+TO IMPLEMENT:
+
+    - Retrieve current member's profile
+      https://api.linkedin.com/v2/me
+
+    - Retieve a specific member's profile:
+      https://api.linkedin.com/v2/people/(id:{person ID})
+
+    - Retrieve multiple member's profiles:
+      https://api.linkedin.com/v2/people?ids=List((id:{Person ID1}),(id:{Person ID2}),(id:{Person ID3}))
+
+    - Lookup company by (vanity)name
+      https://api.linkedin.com/v2/organizations?q=vanityName&vanityName=Linkedin
+      (see https://docs.microsoft.com/en-us/linkedin/marketing/integrations/community-management/organizations/organization-lookup-api)
+
+    - Search companies
+      https://api.linkedin.com/v2/search?q=companiesV2
+
+
+
+Requesting a Client token:
+
+    https://www.linkedin.com/oauth/v2/accessToken
+        ?grant_type=client_credentials
+        &client_id=
+        &client_secret=
+
+    Returns: { "access_token": "", "expires_in": "1800" }
+
+*/
+
+
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+LOADLIB "mod::socialite/lib/internal/support.whlib";
+
+
+/*
+
+Working for getting r_liteprofile information you will get firstName, lastName, profilePicture, id
+
+
+Description the user gets
+
+r_liteprofile
+  Use your name, headline, and photo
+
+r_basicprofile
+  Use your basic profile including your name, photo, headline, and current positions
+
+r_emailaddress
+  Use the primary email address associated with your LinkedIn account
+
+
+NOTE: There doesn't seem to be a documentation page which lists all permissions.
+      We combined the rights found on the V1 to V2 API migration and V2 API documentation.
+
+      (NOTE: the r_basedprofile below is only available for the V1 API)
+
+      - https://docs.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/migration-faq
+      - r_liteprofile:  https://docs.microsoft.com/en-us/linkedin/shared/references/v2/profile/lite-profile
+      - r_basicprofile: https://docs.microsoft.com/en-us/linkedin/shared/references/v2/profile/basic-profile
+      - r_fullprofile:  https://docs.microsoft.com/en-us/linkedin/shared/references/v2/profile/full-profile
+*/
+RECORD ARRAY linkedin_scopes :=
+  [
+  // Profile API
+  // https://developer.linkedin.com/docs/guide/v2/people/profile-api
+    [ name := "r_liteprofile"  ]   // (FREE)
+  , [ name := "r_fullprofile"  ]   // (REVIEW)
+
+  // Primary Contact API
+  // https://developer.linkedin.com/docs/guide/v2/people/primary-contact-api
+  , [ name := "r_emailaddress" ]   // (FREE)
+  , [ name := "r_primarycontact" ] // ?? not mentioned in v1/v2 permissions migration, but exists in API documentation
+
+  , [ name := "w_member_social" ]  // (replacement for V1 w_share)
+
+  // Connections API
+  // https://developer.linkedin.com/docs/guide/v2/people/connections-api
+  //, [ name := "r_network" ]        // (REVIEW) Required to retrieve 1st degree connections
+  //, [ name := "r_compliance" ]     // (REVIEW) Required to retrieve your activity for compliance monitoring and archiving
+  ];
+
+
+
+PUBLIC OBJECTTYPE LinkedInV2Connection EXTEND OauthV2NetworkConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC PROPERTY applicationid(this->pvt_publickey, -);
+
+  /// Base URL for calls
+  STRING pvt_apiurl;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW() : OauthV2NetworkConnection(linkedin_scopes)
+  {
+    this->pvt_newpermissionmodel := TRUE;
+    this->SetMode("linkedinv2");
+    this->pvt_apiurl         := "https://api.linkedin.com/v2/";
+    this->pvt_authorizeurl   := "https://www.linkedin.com/oauth/v2/authorization";
+    this->pvt_accesstokenurl := "https://www.linkedin.com/oauth/v2/accessToken";
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // oAuth connection support
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION SupportsValidityCheck()
+  {
+    RETURN FALSE;
+  }
+
+
+  /** Returns an URI the client needs to be redirected to. The client can then authorize the
+      app, and will be redirected to the Spotify redirect page. The redirect url must
+      then be passed to FinishLogin
+      @param callbackurl Custom callback url, will be ignored when the callback host is set in the app settings
+      @param force_authorization Force authorization
+      @return Login data
+      @cell(string) sessiontoken Session token (must be given to FinishLogin)
+      @cell(string) authorize_uri URI to show to the user
+  */
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY permissions, STRING state)
+  {
+    STRING url := UpdateURLVariables(this->pvt_authorizeurl, [ state := state ]);
+    RETURN this->GetV2AuthorizationCodeURI(url, permissions, callbackurl);
+  }
+
+
+  /** Finish the login sequence, using the uri that facebook redirected to after login
+      @param sessiontoken Sessiontoken returned by StartLogin
+      @param returned_uri URI that facebook redirected the user to
+      @return Undef
+  */
+  UPDATE PUBLIC RECORD FUNCTION FinishLogin(STRING sessiontoken, STRING returned_uri)
+  {
+    STRING code := GetVariableFromURL(returned_uri, "code");
+    RECORD res := this->DoV2AccessTokenRequest(this->pvt_accesstokenurl, sessiontoken, code);
+    RETURN res;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION GetAndParse(STRING url)
+  {
+    this->browser->GotoWebPage(url);
+    RECORD response := this->HandleLastResponse();
+    RETURN response;
+  }
+
+  /** @short handle decoding of response and handle errors
+  */
+  RECORD FUNCTION HandleLastResponse()
+  {
+    RECORD data := DecodeJSONBlob(this->browser->content);
+
+    // We expect an RECORD as response
+    // FIXME: should we check for 'application/json' in the parts of the "Content-Type" responseheader ? (split on ;)
+    IF (TypeID(data) != TypeID(RECORD))
+      THROW NEW SocialiteException("TRANSPORT", "Response from LinkedIn isn't a JSON object");
+
+    // For a list of errors see: https://developer.spotify.com/documentation/web-api/#response-status-codes
+    IF (CellExists(data, "ERROR"))
+      THROW NEW SocialiteException("TRANSPORT", data.error.message);
+
+    // NOTE: "405 Method Not Allowed" isn't documented but is given when trying to cause an action without using a POST request
+    RECORD httpstatus := this->browser->GetHTTPStatus();
+
+    // https://docs.microsoft.com/en-us/linkedin/shared/api-guide/concepts/error-handling?
+    IF (httpstatus.code < 200 OR httpstatus.code > 299) // We only expect an "Succes" code
+    {
+      IF (httpstatus.code IN [ 401 // Unauthorized
+                             , 403 // Access Denied
+                             ])
+        THROW NEW SocialiteException("TRANSPORT", `HTTP status ${httpstatus.code} (${httpstatus.message}), missing a permission?`);
+
+      THROW NEW SocialiteException("TRANSPORT", `HTTP status ${httpstatus.code} (${httpstatus.message})`);
+    }
+
+    RETURN data;
+  }
+
+  STRING FUNCTION GetPreferredValue_From_MultiLocaleString(RECORD localizedrichtext)
+  {
+    STRING preferredlocale := `${localizedrichtext.preferredLocale.language}_${localizedrichtext.preferredLocale.country}`;
+    RETURN GetCell(localizedrichtext.localized, preferredlocale);
+  }
+
+  STRING FUNCTION GetPreferredValue_From_MultiLocaleRichTextField(RECORD localizedrichtext)
+  {
+    STRING preferredlocale := `${localizedrichtext.preferredLocale.language}_${localizedrichtext.preferredLocale.country}`;
+    RECORD pl_value := GetCell(localizedrichtext.localized, preferredlocale);
+    RETURN pl_value.rawText;
+  }
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API / Data retrieval
+  //
+
+
+  /** @short directly call an endpoint
+  */
+  PUBLIC RECORD FUNCTION DoGetRequest(STRING apipath)
+  {
+    STRING url := `${this->pvt_apiurl}${apipath}`;
+    RECORD response := this->GetAndParse(url);
+    RETURN response;
+  }
+
+
+  /** @short get the email addresses and phone numbers of the current user
+      @long You require the "r_primarycontact" (for email & phone) or "r_emailaddress" (email only) permission for this
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetContactMethods()
+  {
+    // https://developer.linkedin.com/docs/guide/v2/people/primary-contact-api
+    RECORD response := this->DoGetRequest("clientAwareMemberHandles?q=members&projection=(elements*(primary,type,handle~))");
+
+    /*
+    Example response:
+
+    {
+      "elements": [
+        {
+          "handle": "urn:li:emailAddress:3775708763",
+          "type": "EMAIL",
+          "handle~": {
+            "emailAddress": "ding_wei_stub@example.com"
+          },
+          "primary": true
+        },
+        {
+          "handle": "urn:li:phoneNumber:6146249836070047744",
+          "type": "PHONE",
+          "handle~": {
+            "phoneNumber": {
+              "number": "158****1473"
+            }
+          },
+          "primary": true
+        }
+      ]
+    }
+    */
+
+    RECORD ARRAY contactdata;
+    FOREVERY (RECORD contact FROM response.elements)
+    {
+      SWITCH(contact.type)
+      {
+        CASE "EMAIL"
+        {
+          INSERT [ type    := "EMAIL"
+                 , primary := contact.primary
+                 , handle  := contact.handle
+                 , value   := contact."handle~".emailAddress
+                 ] INTO contactdata AT END;
+        }
+        CASE "PHONE"
+        {
+          INSERT [ type    := "PHONE"
+                 , primary := contact.primary
+                 , handle  := contact.handle
+                 , value   := contact."handle~".phoneNumber.number
+                 ] INTO contactdata AT END;
+        }
+      }
+    }
+
+    RETURN contactdata;
+  }
+
+
+
+// https://docs.microsoft.com/en-us/linkedin/shared/references/fields/positions
+
+
+  /** @short get information on the logged in user
+      @param responsefields (if not specified, id, firstName, lastName and profilePicture will be returned)
+
+      @param return profile fields (to which the app has permission)
+             Default available fields (for r_liteprofile permission):
+             - id
+             - firstName
+             - lastName
+             - profilePicture
+             - primaryEmail
+
+      List of which fields are available for which permission level
+      - r_liteprofile:  https://docs.microsoft.com/en-us/linkedin/shared/references/v2/profile/lite-profile
+      - r_basicprofile: https://docs.microsoft.com/en-us/linkedin/shared/references/v2/profile/basic-profile
+      - r_fullprofile:  https://docs.microsoft.com/en-us/linkedin/shared/references/v2/profile/full-profile
+  */
+  PUBLIC RECORD FUNCTION GetCurrentUser(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ include_raw := FALSE ]
+                              , options
+                              );
+
+    // https://docs.microsoft.com/en-us/linkedin/shared/integrations/people/profile-api
+    // https://developer.linkedin.com/docs/guide/v2/people/profile-api
+
+    STRING url := this->pvt_apiurl || "me?projection=(id,firstName,lastName,profilePicture(displayImage~:playableStreams),headline,positions~(company~))"; //location,position,industryId~)";
+    RECORD response := this->GetAndParse(url);
+
+
+    RECORD ARRAY contactmethods := this->GetContactMethods();
+    //DumpValue(AnyToString(response, "tree"));
+
+    STRING firstname := this->GetPreferredValue_From_MultiLocaleString(response.firstname);
+    STRING lastname := this->GetPreferredValue_From_MultiLocaleString(response.lastname);
+
+
+    RECORD ARRAY images;
+    FOREVERY(RECORD imagerec FROM response.profilepicture."displayimage~".elements)
+    {
+      RECORD scandata := imagerec.data."com.linkedin.digitalmedia.mediaartifact.stillimage";
+      INSERT [ mimetype := scandata.mediatype
+             , aspectw  := scandata.storageaspectratio.widthaspect
+             , aspecth  := scandata.storageaspectratio.heightaspect
+             , width    := scandata.storagesize.width
+             , height   := scandata.storagesize.height
+             , url      := imagerec.identifiers[0].identifier
+             ] INTO images AT END;
+    }
+
+    RECORD largestprofileimage :=
+        SELECT * FROM images ORDER BY width * height DESC;
+
+
+    RECORD returnvalue :=
+        CELL[ id := response.id
+            , firstname
+            , lastname
+            , name := `${firstname} ${lastname}`
+            , profilepicture := largestprofileimage
+            , profilepictures := images
+            , pictureurl := RecordExists(largestprofileimage) ? largestprofileimage.url : ""
+
+            , contactmethods
+            , primaryemail := (SELECT AS STRING value FROM contactmethods WHERE primary AND type = "EMAIL")
+            , primaryphone := (SELECT AS STRING value FROM contactmethods WHERE primary AND type = "PHONE")
+            ];
+
+    /*
+    Disabled because we could not test this.
+    You need a partner program with LinkedIn and "r_fullprofile" permission before you
+    are able to retrieve this information (and be able to test)
+
+
+    // In case of r_fullprofile permission (??) we also get "positions"
+    // https://docs.microsoft.com/en-us/linkedin/shared/references/fields/positions
+    // https://docs.microsoft.com/en-us/linkedin/shared/references/fields/companies
+    IF (CellExists(response, "positions~"))
+    {
+      returnvalue :=
+          CELL[ ...returnvalue
+              , positions := SELECT id
+                                  , title
+                                  , summary
+                                  , startdate := COLUMN "start-date"
+                                  , enddate := COLUMN "end-date"
+                                  , iscurrent := COLUMN "is-current"
+                                  , company := [ id       := COLUMN "company~.id"
+                                               , name     := COLUMN "company~.name"
+                                               , type     := COLUMN "company~.type"     // "public" or "private"
+                                               , industry := COLUMN "company~.industry" // https://docs.microsoft.com/en-us/linkedin/shared/references/reference-tables/industry-codes
+                                               , ticker   := COLUMN "company~.ticker"
+                                               ]
+                               FROM response."positions~"
+              ];
+    }
+    */
+
+    IF (options.include_raw)
+      INSERT CELL raw := response INTO returnvalue;
+
+    RETURN returnvalue;
+  }
+
+
+
+  PUBLIC RECORD FUNCTION GetCompany(STRING companyid, STRING ARRAY responsefields)
+  {
+    STRING url := `${this->pvt_apiurl}organizations/${companyid}`;
+    RECORD response := this->GetAndParse(url);
+    RETURN response;
+  }
+
+  PUBLIC RECORD FUNCTION GetCompanyByName(STRING companyname, STRING ARRAY responsefields)
+  {
+    // https://docs.microsoft.com/en-us/linkedin/marketing/integrations/community-management/organizations/organization-lookup-api#find-organization-by-vanity-name
+    STRING url := `${this->pvt_apiurl}organizations?q=vanityName&vanityName=${EncodeURL(companyname)}`;
+    RECORD response := this->GetAndParse(url);
+    RETURN response;
+  }
+
+  PUBLIC RECORD FUNCTION SearchCompany(STRING query, STRING ARRAY responsefields)
+  {
+    STRING url := `${this->pvt_apiurl}organizations?q=${EncodeURL(query)}`;
+    RECORD response := this->GetAndParse(url);
+    RETURN response;
+  }
+
+  // PUBLIC RECORD FUNCTION PostShare(...)
+  // https://docs.microsoft.com/en-us/linkedin/marketing/integrations/community-management/shares/share-api
+
+>;

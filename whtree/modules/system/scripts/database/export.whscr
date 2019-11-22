@@ -1,0 +1,30 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/imexport.whlib";
+
+OpenPrimary();
+
+OBJECT imexporter := NEW DatabaseImExport("system.dba.schemaexport", "0.1");
+imexporter->ignore_extrefs := TRUE;
+
+STRING modulename := ToLowercase(GetConsoleArguments()[0]);
+
+RECORD ARRAY toplevels := imexporter->GetSchemaToplevels(modulename);
+RECORD res;
+IF(Length(toplevels) = 0)
+  ABORT("NOSCHEMADEF");
+
+imexporter->SetupByModule(modulename, SELECT AS STRING ARRAY name FROM toplevels);
+imexporter->SetDefaultImExports();
+
+IF(Length(imexporter->GetOpenExternalReferences()) > 0)
+{
+  //ADDME allow users to 'map' external references in a wizard, or at least show them the references we have issues with
+  Print("Cannot deal yet with schemas that have external references. Please create your own export code for now.\n");
+  DumpValue(imexporter->GetOpenExternalReferences(),'boxed');
+  RETURN;
+}
+
+StoreDiskFile(GetConsoleArguments()[1], imexporter->RunExport());

@@ -1,0 +1,59 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+
+
+//Temporary library to start gathering shared code between filemgrextensions and usermgrextensions - perhaps some generic parts will grow out of this
+
+PUBLIC RECORD ARRAY FUNCTION GetApplicableExtensions(OBJECT tolliumuser, STRING cellname)
+{
+  RECORD ARRAY allexts;
+
+  FOREVERY(RECORD mod FROM GetWebHareModules())
+    FOREVERY(RECORD ext FROM GetCell(mod, cellname))
+    {
+      IF(NOT DoAccessCheckFor(ext.accesscheck, tolliumuser))
+        CONTINUE;
+
+      INSERT ext INTO allexts AT END;
+    }
+
+  RETURN allexts;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetExtensionActions(OBJECT owner, RECORD extension, STRING menu)
+{
+  RECORD ARRAY results;
+  FOREVERY(RECORD action FROM extension.addactions)
+  {
+    IF(action.addtomenu != menu)
+      CONTINUE;
+
+    OBJECT actionobj;
+    IF(action.windowopenmacro != "")
+    {
+      actionobj := owner->CreateTolliumComponent("windowopenaction");
+    }
+    ELSE
+    {
+      actionobj := owner->CreateTolliumComponent("action");
+    }
+
+    OBJECT menuitemobj := owner->CreateTolliumComponent("menuitem");
+    menuitemobj->title := actionobj->title;
+    menuitemobj->action := actionobj;
+
+
+    actionobj->title := GetTid(action.title);
+    action := CELL[ ...action
+                  , onwindowopen := DEFAULT MACRO PTR
+                  , onexecute := DEFAULT MACRO PTR
+                  , __action := actionobj
+                  , __menuitem := menuitemobj
+                  ];
+    INSERT action INTO results AT END;
+  }
+  RETURN results;
+}

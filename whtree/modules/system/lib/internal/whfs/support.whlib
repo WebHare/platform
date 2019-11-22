@@ -1,0 +1,1206 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+/** Exception thrown when a resource cannot be retrieved
+    @topic modules/resources
+    @public
+    @loadlib mod::system/lib/resources.whlib
+*/
+PUBLIC OBJECTTYPE RetrieveResourceException EXTEND Exception
+<
+  STRING pvt_resourcename;
+  STRING pvt_mainerror;
+  RECORD ARRAY pvt_errors;
+
+  /// @type(string) Resource name
+  PUBLIC PROPERTY resourcename(pvt_resourcename, -);
+
+  /// @type(string) Main errors
+  PUBLIC PROPERTY mainerror(pvt_mainerror, -);
+
+  /** @type(record array) List of XML errors
+      @cell(string) message Error message
+      @cell(string) resourcename Resource name for this error
+      @cell(integer) line Error line
+      @cell(integer) column Error column
+  */
+  PUBLIC PROPERTY xmlerrors(pvt_errors, -);
+
+  /** Constructs a new RetrieveResourceException
+      @private
+      @param resourcename Resource name
+      @param mainerror Main error message
+      @param errors @includecelldef #xmlerrors
+  */
+  MACRO NEW(STRING resourcename, STRING mainerror, RECORD ARRAY errors)
+  : Exception("")
+  {
+    this->pvt_errors := SELECT line, col := 0, resourcename := CellExists(errors,'resourcename') ? errors.resourcename : VAR resourcename, message FROM errors;
+    IF(Length(errors) > 0)
+    {
+      IF (mainerror = "")
+        mainerror := `Parse error: ${errors[0].message} at line ${errors[0].line}`;
+      this->pvt_trace := [ CELL[ this->pvt_errors[0].line, this->pvt_errors[0].col, filename := this->pvt_errors[0].resourcename, func := "" ] ];
+    }
+
+    this->what := `Failed to retrieve '${resourcename}': ${mainerror}`;
+    this->pvt_resourcename := resourcename;
+    this->pvt_mainerror := mainerror;
+  }
+>;
+
+PUBLIC INTEGER PubPrio_Scheduled := 6;            //put on queue because of a scheduled task
+PUBLIC INTEGER PubPrio_DirectEdit := 11;          //put on queue because of user action (edit, replace)
+PUBLIC INTEGER PubPrio_FolderRepub := 16;         //put on queue because of a republish on this folder (or root folder of a republish_all)
+PUBLIC INTEGER PubPrio_SubFolderRepub := 21;      //put on queue because of a republish of parent folder
+
+// Published flag masks
+PUBLIC INTEGER PublishedFlag_OncePublished  := 100000;
+PUBLIC INTEGER PublishedFlag_Scheduled      := 200000;
+PUBLIC INTEGER PublishedFlag_Warning        := 400000;
+PUBLIC INTEGER PublishedFlag_HasWebDesign   :=  800000; //this file depends on a <webdesign> or template, so it needs to be republished even if template=0x
+PUBLIC INTEGER PublishedFlag_StripExtension := 1600000; //strip the extension from the file's url
+PUBLIC INTEGER PublishedFlag_HasPublicDraft := 3200000; //there are drafts associated with the file
+PUBLIC INTEGER PublishedFlag_SubmittedForApproval := 6400000; // the draft has been submitted for approval (versioning)
+
+// Draft flag masks
+PUBLIC INTEGER DraftFlag_Publish :=                 1; // Whether the draft should be published
+PUBLIC INTEGER DraftFlag_IndexActionMask :=         6; // Action wrt index-ness
+PUBLIC INTEGER DraftFlag_MakeIndex :=               2; // Make this file the index
+PUBLIC INTEGER DraftFlag_UnmarkAsIndex :=           4; // Make this file not the index
+PUBLIC INTEGER DraftFlag_WasIndex :=                8; // Original was index at the moment of draft creation
+PUBLIC INTEGER DraftFlag_WasPublished :=           16; // Original was published at the moment of draft creation
+
+// Versioningevents types
+PUBLIC INTEGER VersionEventType_Request :=          0; // Request for applying draft changes
+PUBLIC INTEGER VersionEventType_AcceptApply :=      1; // Accepting and applying changes
+PUBLIC INTEGER VersionEventType_FinalDenial :=      2; // Final denial of request
+
+/** Converts publisher status to trigger a republish
+    @param published Current published status
+    @param firsttime Whether this is the first time the file is published at this place.
+    @param enable_publish_if_disabled If the file is currently not published (from the @a published parameter), and
+           enable_publish_if_disabled is TRUE, the file will be republished
+    @param prio Priority to republish the file
+    @return New publisher status
+*/
+PUBLIC INTEGER FUNCTION ConvertToWillPublish(INTEGER published, BOOLEAN firsttime, BOOLEAN enable_publish_if_disabled, INTEGER prio)
+{
+  INTEGER errorpart := published%100000;
+  BOOLEAN oncepublished := ((published % (100000*2)) / 100000) = 1;
+
+  IF (NOT /*ispublish*/(errorpart != 0 OR oncepublished) AND NOT enable_publish_if_disabled)
+    RETURN published;
+
+  IF(errorpart>=1 AND errorpart<prio)
+    prio:=errorpart; //Never decrease priority
+
+  //recombine priority with flags
+  published := prio /* will publish */ + published - errorpart;
+  IF (firsttime AND oncepublished)
+    published := published - 100000; //remove 'once published' flag
+
+  RETURN published;
+}
+
+/** Converts publisher status to disable publication
+    @param published Current published status
+    @return New publish status
+*/
+PUBLIC INTEGER FUNCTION ConvertToWontPublish(INTEGER published)
+{
+  published := GetFlagsFromPublished(published);
+  IF (TestFlagFromPublished(published, PublishedFlag_OncePublished))
+    published := published - PublishedFlag_OncePublished;
+  RETURN published;
+}
+
+/** @short Test if a flag is set in the published cell
+    @param published A file.published cell
+    @param flag_to_test The flag to test (eg. PublishedFlag_OncePublished or PublishedFlag_Scheduled)
+    @return True if the flag is set
+*/
+
+PUBLIC BOOLEAN FUNCTION TestFlagFromPublished(INTEGER published, INTEGER flag_to_test)
+{
+  RETURN ((published % (flag_to_test*2)) / flag_to_test) = 1;
+}
+
+/** @short Get the flags from a published cell
+    @param published A file.published cell
+    @return The status code from the published cell */
+PUBLIC INTEGER FUNCTION GetFlagsFromPublished(INTEGER published)
+{
+  RETURN published - (published%100000);
+}
+
+/** @short See if a document was ever succesfully published
+    @param published A file.published cell
+    @return True if the file was erver succesfully published (its file.url cell is valid) */
+PUBLIC BOOLEAN FUNCTION GetOncePublishedFromPublished(INTEGER published)
+{
+  RETURN TestFlagFromPublished(published, PublishedFlag_OncePublished);
+}
+/** @short Get the status or error code from a published cell
+    @param published A file.published cell
+    @return The status code from the published cell */
+PUBLIC INTEGER FUNCTION GetErrorFromPublished(INTEGER published)
+{
+  RETURN published % 100000;
+}
+PUBLIC BOOLEAN FUNCTION IsQueuedForPublication(INTEGER published)
+{
+  INTEGER code := published % 100000;
+  RETURN code > 0 AND code <= 100;
+}
+
+
+/** @short See if a document should be published
+    @param published A file.published cell
+    @return True if the file has been published or should be published */
+PUBLIC BOOLEAN FUNCTION IsPublish(INTEGER published)
+{
+  RETURN GetErrorFromPublished(published) != 0 OR GetOncePublishedFromPublished(published);
+}
+
+PUBLIC INTEGER ARRAY FUNCTION GetNeedsTemplateTypes()
+{
+  RETURN SELECT AS INTEGER ARRAY id FROM system.fs_types WHERE needstemplate ; //FIXME cache but invalidate with site profiles
+}
+
+PUBLIC INTEGER ARRAY FUNCTION GetNeedsProfileTypes()
+{
+  RETURN SELECT AS INTEGER ARRAY id FROM system.fs_types WHERE needsprofile ; //FIXME cache but invalidate with site profiles
+}
+
+/** @short Look up the WebHare Publisher file ID for a mimetype
+    @param mimetype Mimetype to lookup
+    @return WebHare type id, or 1 if the mimetype was not recognized
+    @see wh::filetypes/detect.whlib#DetectFiletype */
+PUBLIC INTEGER FUNCTION MimetypeToFiletype(STRING mimetype)
+{
+  SWITCH(mimetype)
+  {
+    CASE "application/x-webhare-wittytemplate"  { RETURN 26; }
+    CASE "application/x-webhare-conversionprofile" { RETURN  29; }
+    CASE "application/x-webhare-webfieldsfile"  { RETURN 34; }
+    CASE "application/x-webhare-archive"        { RETURN TypeNamespaceToFiletype("http://www.webhare.net/xmlns/publisher/webharearchivefile"); }
+    CASE "application/x-webhare-template"       { RETURN 28; }
+    CASE "application/msword"
+       , "application/vnd.openxmlformats-officedocument.wordprocessingml.document" { RETURN  4; }
+    CASE "text/html"                            { RETURN  5; }
+    CASE "application/x-javascript"             { RETURN  6; }
+    CASE "application/x-webhare-harescriptfile" { RETURN  7; }
+    CASE "text/css"                             { RETURN  9; }
+    CASE "application/x-gzip"                   { RETURN 10; }
+    CASE "application/pdf"                      { RETURN 11; }
+    CASE "application/zip"                      { RETURN 14; }
+    CASE "application/x-rar-compressed"         { RETURN 15; }
+    CASE "application/x-webhare-library"        { RETURN 16; }
+    CASE "application/x-shockwave-flash"        { RETURN 17; }
+    CASE "text/xml"                             { RETURN 23; }
+    CASE "application/x-webhare-siteprofile"    { RETURN 27; }
+    CASE "application/x-webhare-shtmlfile"      { RETURN 25; }
+    CASE "audio/mpeg"                           { RETURN TypeNamespaceToFiletype("http://www.webhare.net/xmlns/publisher/mp3audiofile"); }
+    CASE "video/x-flv"                          { RETURN TypeNamespaceToFiletype("http://www.webhare.net/xmlns/publisher/flvvideofile"); }
+  }
+
+  IF (mimetype LIKE "image/*")
+    RETURN 12; //image
+  IF (mimetype LIKE "audio/*" OR mimetype LIKE "video/*")
+    RETURN 13; //multimedia
+  IF (mimetype LIKE "text/*")
+    RETURN 21; //plain text
+
+  RETURN 0; //Unknown file type (although we DID discover its content type?!)
+}
+
+INTEGER FUNCTION TypeNamespaceToFiletype(STRING typenamespace)
+{
+  RETURN SELECT AS INTEGER id FROM system.fs_types WHERE namespace = typenamespace;
+}
+
+PUBLIC OBJECTTYPE WHFSBulkSender
+<
+  PUBLIC STRING archive_export_basewhfspath;
+  PUBLIC STRING assume_prepend;
+  PUBLIC STRING archive_export_rootname;
+
+  PUBLIC MACRO NEW(INTEGER baseobject, STRING newname)
+  {
+    IF(baseobject != 0)
+    {
+      RECORD folderinfo := SELECT name, isfolder, whfspath FROM system.fs_objects WHERE id=baseobject;
+      this->archive_export_rootname := folderinfo.isfolder ? "./" : (newname = "" ? folderinfo.name : newname);
+      this->archive_export_basewhfspath := folderinfo.whfspath;
+
+      this->assume_prepend := folderinfo.isfolder ? newname : "";
+      IF(this->assume_prepend NOT LIKE "*/")
+        this->assume_prepend := this->assume_prepend || "/";
+      IF(this->assume_prepend LIKE "/*")
+        this->assume_prepend := SubString(this->assume_prepend, 1);
+    }
+  }
+
+  PUBLIC RECORD FUNCTION ExportMetadata(RECORD sourceinfo, FUNCTION PTR legacysourceinfo)
+  {
+    RECORD data := legacysourceinfo(sourceinfo);
+    IF (NOT RecordExists(data))
+      RETURN DEFAULT RECORD;
+
+    RETURN  [ ...data
+            , indexdoc := this->MapWHFSRef(data.indexdoc)
+            , template := this->MapWHFSRef(data.template)
+            , profile := this->MapWHFSRef(data.profile)
+            , filelink := this->MapWHFSRef(data.filelink)
+            ];
+  }
+
+  //ADDME: Speed up by using a cache!
+  PUBLIC STRING FUNCTION MapWHFSRef(INTEGER objid)
+  {
+    IF(objid=0)
+      RETURN "";
+
+    STRING map;
+    RECORD fileinfo := SELECT fs_objects.fullpath, fs_objects.parentsite, fs_objects.whfspath, isactive
+                         FROM system.fs_objects
+                        WHERE fs_objects.id=objid;
+
+    IF (RecordExists(fileinfo))
+    {
+      IF(debugmapping)
+        Print("MapWHFSRef: whfspath = " || fileinfo.whfspath || ", base = " || this->archive_export_basewhfspath || "\n");
+
+      //Is this file OUTSIDE the part of the site that is being archived?
+      IF(this->archive_export_basewhfspath = "" OR (fileinfo.whfspath NOT LIKE this->archive_export_basewhfspath || "*"))
+      {
+        IF(NOT IsRecycleOrHistoryWHFSPath(fileinfo.whfspath))
+        {
+          RECORD site := SELECT name FROM system.sites WHERE id = fileinfo.parentsite;
+          map := RecordExists(site) ? site.name || ":" || fileinfo.fullpath : ":" || fileinfo.whfspath;
+        }
+      }
+      ELSE
+      {
+        map := this->assume_prepend || SubString(fileinfo.whfspath, Length(this->archive_export_basewhfspath));
+        IF(map="") //special case: referring to the root of the export action
+          map := this->archive_export_rootname;
+      }
+    }
+    ELSE
+    {
+      IF(debugmapping)
+        Print("MapWHFSRef: objid not found\n");
+    }
+    IF(debugmapping)
+      Print("MapWHFSRef: object #" || objid || " mapped to [" || map || "]\n");
+    RETURN map;
+  }
+>;
+
+
+
+PUBLIC RECORD FUNCTION ParseImportMetadata(BLOB infile, OBJECT decoder)
+{
+  INTEGER xmldata := ParseXML(infile,"");
+  IF(xmldata<=0)
+    RETURN DEFAULT RECORD;
+
+  //Look up the version
+  AddXPathNamespace(xmldata,"arc","http://www.webhare.net/xmlns/publisher/archive");
+  RECORD versiondata := SelectXML(xmldata,"/arc:archive");
+
+  IF (NOT RecordExists(versiondata) OR NOT CellExists(versiondata,"version") OR NOT CellExists(versiondata,"source") OR versiondata.version!="1")
+  {
+    CloseXML(xmldata);
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD meta := decoder->DecodeHareScriptRecordFromXPathQuery(xmldata, "/arc:archive/arc:meta");
+  RECORD thisfolder := decoder->DecodeHareScriptRecordFromXPathQuery(xmldata, "/arc:archive/arc:folder");
+  RECORD ARRAY files;
+
+  FOREVERY(RECORD importfile FROM SelectXML(xmldata,"/arc:archive/arc:file"))
+  {
+    //Reconstruct filedata so we can reuse ImportSingleFile
+    RECORD filerec := decoder->DecodeHareScriptRecordFromXPathQuery(xmldata, "/arc:archive/arc:file[" || (#importfile+1) || "]");
+    INSERT filerec INTO files AT END;
+  }
+  CloseXML(xmldata);
+  RETURN [folder := thisfolder, files := files, meta := meta ];
+}
+
+
+PUBLIC MACRO FixupTemplateProfileInfo(INTEGER folderid, BOOLEAN set_template_subfolders, BOOLEAN set_profile_subfolders)
+{
+  IF(folderid=0)
+    RETURN;
+
+  RECORD ARRAY filerec :=
+      SELECT id
+           , template, requiretemplate, requiretemplateinsubfolders
+           , profile, requireprofile, requireprofileinsubfolders
+        FROM system.fs_objects
+       WHERE id = folderid;
+
+  RecursiveSetTemplateAndProfileInfo(filerec, set_template_subfolders, set_profile_subfolders);
+}
+
+
+/** Recursively sets the template and profile info
+    @param filerecdata Data describing a folder
+    @cell filerecdata.id
+    @cell filerecdata.template
+    @cell filerecdata.requiretemplate
+    @cell filerecdata.requiretemplateinsubfolders
+    @cell filerecdata.profile
+    @cell filerecdata.requireprofile
+    @cell filerecdata.requireprofileinsubfolders
+*/
+MACRO RecursiveSetTemplateAndProfileInfo(RECORD filerecdata, BOOLEAN set_template_subfolders, BOOLEAN set_profile_subfolders)
+{
+  IF (filerecdata.requiretemplate OR filerecdata.requireprofile)
+  {
+    INTEGER ARRAY types_needs_profiletypes := GetNeedsProfileTypes();
+    INTEGER ARRAY types_needs_templatetypes := GetNeedsTemplateTypes();
+
+    // Update profile and template when needed
+    UPDATE system.fs_objects
+       SET profile    := filerecdata.requireprofile AND type IN types_needs_profiletypes ? filerecdata.profile : profile
+         , template   := filerecdata.requiretemplate AND type IN types_needs_templatetypes ? filerecdata.template : template
+         , published  := ConvertToWillPublish(published, true, false, PubPrio_FolderRepub)
+     WHERE parent = filerecdata.id
+       AND NOT isfolder
+       AND type != 20 // Skip contentlinks
+       AND ((profile != filerecdata.profile AND type IN types_needs_profiletypes) OR
+            (template != filerecdata.template AND type IN types_needs_templatetypes));
+
+    // For contentlinks, consider the destination type to see if profile/template is required.
+    RECORD ARRAY mod_contentlinks :=
+        SELECT file.id
+             , profile :=   filerecdata.requireprofile AND dest.type IN types_needs_profiletypes ? filerecdata.profile : file.profile
+             , template :=  filerecdata.requiretemplate AND dest.type IN types_needs_templatetypes ? filerecdata.template : file.template
+          FROM system.fs_objects AS file
+             , system.fs_objects AS dest
+         WHERE file.type = 20
+           AND file.filelink = dest.id
+           AND file.parent = filerecdata.id
+           AND ((file.profile != filerecdata.profile AND dest.type IN types_needs_profiletypes) OR
+                (file.template != filerecdata.template AND dest.type IN types_needs_templatetypes));
+
+    FOREVERY (RECORD rec FROM mod_contentlinks)
+      UPDATE system.fs_objects
+         SET profile :=     rec.profile
+           , template :=    rec.template
+           , published  :=  ConvertToWillPublish(published, true, false, PubPrio_FolderRepub)
+      WHERE id = rec.id;
+  }
+
+  /* Wanneer updaten van subfolder?
+
+     filerecdata.requiretemplateinsubfolders &&
+        (template != filerecdata.template OR
+         NOT requiretemplate OR
+         NOT requiretemplateinsubfolders) -> zet template, requiretemplate, requiretemplateinsubfolders
+
+     set_template_subfolders -> zet requiretemplate, requiretemplateinsubfolders
+
+     Zelfde voor profiles
+  */
+
+  RECORD ARRAY subfolders :=
+      SELECT id
+           , template
+           , requiretemplate
+           , requiretemplateinsubfolders
+           , profile
+           , requireprofile
+           , requireprofileinsubfolders
+           , updates := DEFAULT RECORD
+           , setrequiretemplate := FALSE
+           , setrequireprofile := FALSE
+        FROM system.fs_objects
+       WHERE parent = filerecdata.id
+         AND isfolder;
+
+  FOREVERY (RECORD rec FROM subfolders)
+  {
+    IF (filerecdata.requiretemplateinsubfolders AND rec.template != filerecdata.template)
+    {
+      INSERT CELL template := filerecdata.template INTO rec.updates;
+      rec.template := filerecdata.template;
+      rec.setrequiretemplate := TRUE;
+    }
+    IF (filerecdata.requiretemplateinsubfolders OR set_template_subfolders)
+    {
+      IF (rec.requiretemplate != filerecdata.requiretemplateinsubfolders OR rec.requiretemplateinsubfolders != filerecdata.requiretemplateinsubfolders)
+      {
+        INSERT CELL requiretemplate := filerecdata.requiretemplate INTO rec.updates;
+        INSERT CELL requiretemplateinsubfolders := filerecdata.requiretemplate INTO rec.updates;
+        rec.setrequiretemplate := TRUE;
+        rec.requiretemplate := TRUE;
+        rec.requiretemplateinsubfolders := TRUE;
+      }
+    }
+
+    IF (filerecdata.requireprofileinsubfolders AND rec.profile != filerecdata.profile)
+    {
+      INSERT CELL profile := filerecdata.profile INTO rec.updates;
+      rec.setrequireprofile := TRUE;
+      rec.profile := filerecdata.profile;
+    }
+    IF (filerecdata.requireprofileinsubfolders OR set_profile_subfolders)
+    {
+      IF (rec.requireprofile != filerecdata.requireprofileinsubfolders OR rec.requireprofileinsubfolders != filerecdata.requireprofileinsubfolders)
+      {
+        INSERT CELL requireprofile := filerecdata.requireprofile INTO rec.updates;
+        INSERT CELL requireprofileinsubfolders := filerecdata.requireprofile INTO rec.updates;
+        rec.setrequireprofile := TRUE;
+        rec.requireprofile := TRUE;
+        rec.requireprofileinsubfolders := TRUE;
+      }
+    }
+    IF (RecordExists(rec.updates))
+    {
+      UPDATE system.fs_objects
+         SET RECORD rec.updates
+       WHERE id = rec.id;
+
+      RecursiveSetTemplateAndProfileInfo(rec, rec.setrequiretemplate, rec.setrequireprofile);
+    }
+  }
+}
+
+/** Set templates and profiles recursively on files and folders in a subfolder and below
+*/
+PUBLIC MACRO RecurseTemplProf(INTEGER startid,
+                       BOOLEAN doreqtempl, BOOLEAN doreqprofl, BOOLEAN dosettempl, BOOLEAN dosetprofl,
+                       BOOLEAN newreqtempl, BOOLEAN newreqprofl, INTEGER newtempl, INTEGER newprofl)
+{
+  INTEGER ARRAY subs := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = startid AND isfolder = TRUE;
+  FOREVERY(INTEGER folder FROM subs)
+    RecurseTemplProf(folder, doreqtempl, doreqprofl, dosettempl, dosetprofl, newreqtempl, newreqprofl, newtempl, newprofl);
+
+  INTEGER ARRAY needstemplatetypes := GetNeedsTemplateTypes();
+  INTEGER ARRAY needsprofiletypes := GetNeedsProfileTypes();
+
+  UPDATE system.fs_objects
+         SET template := dosettempl AND (isfolder OR type IN needstemplatetypes) ? newtempl : template
+           , profile  := dosetprofl AND (isfolder OR type IN needsprofiletypes) ?  newprofl : profile
+           , requiretemplate  := doreqtempl AND isfolder ? newreqtempl : requiretemplate
+           , requireprofile   := doreqprofl AND isfolder ? newreqprofl : requireprofile
+           , requiretemplateinsubfolders := doreqtempl AND isfolder ? newreqtempl : requiretemplateinsubfolders
+           , requireprofileinsubfolders  := doreqprofl AND isfolder ? newreqprofl : requireprofileinsubfolders
+         WHERE parent = startid;
+}
+
+
+PUBLIC BOOLEAN FUNCTION IsParentObjectOf(INTEGER suspectedparent, INTEGER child)
+{
+  IF(child=0)
+    RETURN FALSE;
+  IF(suspectedparent=0)
+    RETURN TRUE;
+
+  INTEGER maxiterations := 16;
+  WHILE(maxiterations>0 AND child != 0)
+  {
+    maxiterations := maxiterations - 1;
+    child := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = child;
+    IF(child=suspectedparent)
+      RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+
+/** @short Get all ids from a specific starting point
+    @param basefolder Starting folder
+    @param maximumdepth Maximum depth. Depth=1 only gets the direct subfolders. Suggested
+    @param returnfolders Return folders too*/
+PUBLIC INTEGER ARRAY FUNCTION GetWHFSDescendantIds(INTEGER basefolder, BOOLEAN returnfolders, BOOLEAN returnfiles, INTEGER maximumdepth DEFAULTSTO 32, BOOLEAN onlypublished DEFAULTSTO FALSE)
+{
+  IF(NOT returnfiles AND NOT returnfolders)
+    RETURN DEFAULT INTEGER ARRAY;
+
+  INTEGER ARRAY allsubs;
+  INTEGER ARRAY currentlevel := [basefolder];
+
+  IF(maximumdepth>32)
+    maximumdepth:=32; //safety against corrupted databases
+
+  WHILE(maximumdepth >= 1 AND Length(currentlevel) > 0)
+  {
+    //If we're not returning files, don't even get them
+    RECORD ARRAY currentsubs := SELECT id, isfolder
+                                  FROM system.fs_objects
+                                 WHERE parent IN currentlevel
+                                       AND (returnfiles ? TRUE : isfolder = TRUE)
+                                       AND (onlypublished ? isfolder OR publish : TRUE);
+
+    currentlevel := SELECT AS INTEGER ARRAY id
+                      FROM currentsubs
+                     WHERE isfolder = TRUE;
+    allsubs := allsubs CONCAT (SELECT AS INTEGER ARRAY id FROM currentsubs WHERE NOT returnfiles ? isfolder = TRUE : TRUE);
+    maximumdepth := maximumdepth - 1;
+  }
+  RETURN allsubs;
+}
+
+
+PUBLIC STRING FUNCTION GetNamespaceForType(INTEGER find_id, BOOLEAN isfolder)
+{
+  IF(find_id=0)
+    RETURN isfolder ? "http://www.webhare.net/xmlns/publisher/normalfolder"
+                    : "http://www.webhare.net/xmlns/publisher/unknownfile";
+  RETURN SELECT AS STRING namespace FROM system.fs_types WHERE id = find_id;
+}
+PUBLIC INTEGER FUNCTION GetTypeForNamespace(STRING namespace)
+{
+  //ADDME: remove this 2.31rc series workaround in later versions
+  IF(namespace LIKE "http://www.webhare.net/publisher/*")
+    namespace := Substitute(namespace,"http://www.webhare.net/publisher/","http://www.webhare.net/xmlns/publisher/");
+
+  IF(namespace="http://www.webhare.net/xmlns/publisher/normalfolder")
+    RETURN 0;
+  IF(namespace="http://www.webhare.net/xmlns/publisher/unknownfile")
+    RETURN 0;
+
+  RETURN SELECT AS INTEGER id FROM system.fs_types WHERE fs_types.namespace=VAR namespace;
+}
+
+/** Set the owner of all files in parentfolder (recursive). Published is set to trigger republish
+    if currently republished
+    @param parentfolder Folder to process all files in
+    @param newowner New owner
+*/
+PUBLIC MACRO UpdatePublishedRecursive(INTEGEr parentsite, INTEGER parentfolder, BOOLEAN disablepublish, OBJECT commithandler)
+{
+  INTEGER ARRAY republishes :=
+      SELECT AS INTEGER ARRAY id
+        FROM system.fs_objects
+       WHERE parent = parentfolder
+         AND NOT isfolder
+         AND IsPublish(published);
+
+  IF(ObjectExists(commithandler) AND NOT disablepublish)
+    FOREVERY (INTEGER id FROM republishes)
+      commithandler->FileRepublish(parentsite, parentfolder, id);
+
+  // Update files and folders in the parent folder
+  UPDATE system.fs_objects
+     SET published  := isfolder
+                            ? published
+                            : disablepublish
+                                  ? ConvertToWontPublish(published)
+                                  : ConvertToWillPublish(published,
+                                           /*firsttime=*/true,
+                          /*enable_publish_if_disabled=*/false,
+                                                         PubPrio_SubFolderRepub)
+   WHERE parent = parentfolder;
+
+  // Get all childfolders
+  INTEGER ARRAY subfolders :=
+      SELECT AS INTEGER ARRAY id
+        FROM system.fs_objects
+       WHERE parent = parentfolder
+         AND isfolder;
+
+  // And process them too
+  FOREVERY (INTEGER folder FROM subfolders)
+    UpdatePublishedRecursive(parentsite, folder, disablepublish, commithandler);
+}
+
+//ADDME would be nice to cache this too, or we should roll this into a new RemapperBase class shared by WRD exchange, BLIT exchange and WHFS exchange
+PUBLIC STRING FUNCTION MapExternalWHFSRef(INTEGER objid)
+{
+  RECORD objinfo := SELECT parentsite, fullpath, whfspath, isactive FROM system.fs_objects WHERE id = objid;
+  IF(NOT RecordExists(objinfo) OR NOT objinfo.isactive)
+    RETURN "";
+  IF(objinfo.parentsite!=0)
+  {
+    STRING sitename := SELECT AS STRING name FROM system.sites WHERE id=objinfo.parentsite;
+    IF(sitename != "")
+      RETURN "site::" || sitename || objinfo.fullpath;
+  }
+  RETURN "whfs::" || objinfo.whfspath;
+}
+
+/** @short Resolve a WHFS object
+    @param startingpoint Folder id where we start looking. Set to 0 to start from root
+    @param fullpath Full path, from starting point. May contain '..' and '.' parts. If the fullpath starts with a '/', any '..'
+           component can't move beyond the initial path. May also contain a site:: or whfs:: absolute path
+    @cell(integer) return.lastmatch Last path part we succesfully matched
+    @cell(string) return.leftover Leftover path parts (empty if we found the destination) */
+PUBLIC RECORD FUNCTION ResolveWHFSObjectByPath(INTEGER startingpoint, STRING fullpath)
+{
+  INTEGER ARRAY route;
+  INTEGER now := startingpoint;
+  INTEGER limitparent;
+
+  IF(fullpath LIKE "/*") //starting at an absolute point?
+    limitparent := now; //then we can't move past that point
+
+  STRING ARRAY pathtoks := Tokenize(fullpath,"/");
+  FOREVERY(STRING tok FROM pathtoks)
+  {
+    INTEGER trynew;
+
+    IF(#tok = 0 AND now = 0 AND tok LIKE "site::*")
+    {
+      trynew := SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(name) = ToUppercase(Substring(tok,6));
+      IF(trynew = 0)
+        RETURN [ id := -1, leftover := fullpath, route := route ];
+
+      limitparent := trynew;
+      now := trynew;
+      INSERT now INTO route AT END;
+      CONTINUE;
+    }
+    IF(#tok = 0 AND now = 0 AND tok LIKE "whfs::*")
+      tok := Substring(tok,6);
+
+    IF(tok="")
+      CONTINUE;
+    IF(tok=".")
+      CONTINUE;
+
+    IF(tok="..")
+    {
+      IF(now != limitparent)
+      {
+        trynew := SELECT AS INTEGER parent FROM system.fs_objects WHERE id=now;
+        INSERT trynew INTO route AT END;
+      }
+      ELSE
+        trynew := now; //don't leave a site when using site:: paths
+    }
+    ELSE
+    {
+      trynew := SELECT AS INTEGER id FROM system.fs_objects WHERE parent=now and ToUppercase(name)=ToUppercase(tok);
+      IF(trynew = 0)
+        RETURN [ id := now, leftover := Detokenize(ArraySlice(pathtoks,#tok),'/'), route := route ];
+      ELSE
+         INSERT trynew INTO route AT END;
+    }
+
+    now := trynew;
+  }
+  RETURN [ id := now, leftover := "", route := route ];
+}
+
+/** @short Look up an object id by path
+    @param startingpoint Folder id where we start looking. Set to 0 to start from root
+    @param fullpath Full path, from starting point. May contain '..' and '.' parts. If the fullpath starts with a '/', any '..'
+           component can't move beyond the initial path. May also contain a site:: or whfs:: absolute path
+    @return The destination folder id, 0 if we wound up at the WHFS root, or -1 if the object was not found
+    @topic modules/resources
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+*/
+PUBLIC INTEGER FUNCTION LookupWHFSObject(INTEGER startingpoint, STRING fullpath)
+{
+  RECORD res := ResolveWHFSObjectByPath(startingpoint, fullpath);
+  RETURN res.leftover = "" ? res.id : -1;
+}
+
+PUBLIC STRING FUNCTION GetDiskPathForAsset(STRING inpath, STRING reportpath, BOOLEAN usemoduleroot)
+{
+  IF(reportpath="")
+    reportpath := inpath;
+
+  IF(inpath LIKE "moduleroot::*" OR inpath LIKE "modulescript::*" OR inpath LIKE "module::*" OR inpath LIKE "mod::*" OR inpath LIKE 'moduledata::*')
+  {
+    inpath := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", inpath);
+    IF(usemoduleroot)
+      RETURN inpath;
+  }
+
+  STRING namespace := ToLowercase(Left(inpath, SearchSubstring(inpath, '::')));
+  STRING restpath := Substring(inpath, Length(namespace)+2);
+  BOOLEAN terminatewithslash := inpath LIKE "*/";
+
+  IF(namespace="direct")
+  {
+    RETURN restpath;
+  }
+  IF(namespace="wh")
+  {
+    IF (usemoduleroot)
+      RETURN "wh::" || restpath;
+    RETURN MergePath(GetModuleInstallationRoot('system') || 'whlibs', restpath) || (terminatewithslash ? "/" : "");
+  }
+  IF(namespace="whres")
+  {
+    IF (usemoduleroot)
+      RETURN "whres::" || restpath;
+    RETURN MergePath(GetModuleInstallationRoot('system') || 'whres', restpath) || (terminatewithslash ? "/" : "");
+  }
+  IF(namespace="test")
+  {
+    IF (usemoduleroot)
+      RETURN "test::" || restpath;
+    RETURN MergePath(GetModuleInstallationRoot('webhare_testsuite') || 'tests/baselibs/hsengine', restpath) || (terminatewithslash ? "/" : "");
+  }
+  IF(namespace="mod")
+  {
+    STRING modulename := Left(restpath, SearchSubstring(restpath,'/'));
+    IF(modulename="")
+      THROW NEW RetrieveResourceException(reportpath, "No such resource: missing module name", DEFAULT RECORD ARRAY);
+
+    restpath := Substring(restpath, Length(modulename));
+
+    STRING basedir := GetModuleInstallationRoot(modulename);
+    IF(basedir="")
+      THROW NEW RetrieveResourceException(reportpath, `No such resource: no such module '${modulename}'`, DEFAULT RECORD ARRAY);
+
+    RETURN MergePath(basedir, restpath) || (terminatewithslash ? "/" : "");
+  }
+  RETURN "";
+}
+
+/** @param startfolder WHFS id of the start folder
+    @param findpath Relative path
+    @param reportpath Path to report for errors
+    @param withrawinfo If TRUE, add a cell 'info' with WHFS data
+    @return Resource data
+    @cell(blob) return.data Resource data
+    @cell(datetime) return.modified Resource modification date (if known)
+    @cell(string) return.path Path of the resource
+*/
+PUBLIC RECORD FUNCTION LookupGlobalResourceByPath(INTEGER startfolder, STRING findpath, STRING reportpath, BOOLEAN withrawinfo DEFAULTSTO FALSE)
+{
+  IF(findpath LIKE "inline::*")
+  {
+    RETURN [ data := StringToBlob(Substring(findpath, 8))
+           , modified := DEFAULT DATETIME //an inline would have a different path if its contents changed
+           , path := findpath
+           ];
+  }
+  IF(findpath LIKE "inline-base64::*")
+  {
+    RETURN [ data := StringToBlob(DecodeBase64(Substring(findpath, 15)))
+           , modified := DEFAULT DATETIME //an inline would have a different path if its contents changed
+           , path := findpath
+           ];
+  }
+
+  STRING diskresult := GetDiskPathForAsset(findpath, reportpath, FALSE);
+  IF(diskresult != "")
+  {
+    //ADDME we need a RetrieveDiskResource or RetrieveHarescriptResource
+    RECORD pathinfo := GetDiskFileProperties(diskresult);
+    IF(NOT RecordExists(pathinfo))
+      THROW NEW RetrieveResourceException(reportpath, "No such resource", DEFAULT RECORD ARRAY);
+    IF(pathinfo.type=1)
+      THROW NEW RetrieveResourceException(reportpath, "The resource is a directory", DEFAULT RECORD ARRAY);
+    RETURN [ data :=     GetDiskResource(diskresult)
+           , path :=     findpath
+           , modified := pathinfo.modified
+           ];
+  }
+  IF(NOT HavePrimaryTransaction())
+    THROW NEW RetrieveResourceException(reportpath, "Looking up this resource requires a primary transaction", DEFAULT RECORD ARRAY);
+
+  INTEGER tryid := LookupWHFSObject(startfolder, findpath);
+  IF(tryid <= 0)
+    THROW NEW RetrieveResourceException(reportpath, "No such resource", DEFAULT RECORD ARRAY);
+
+  RECORD info := SELECT id, data, isfolder, modificationdate, parent, whfspath FROM system.fs_objects WHERE id = tryid;
+  IF(NOT RecordExists(info) OR IsRecycleOrHistoryWHFSPath(info.whfspath))
+    THROW NEW RetrieveResourceException(reportpath, "The resource has been deleted", DEFAULT RECORD ARRAY);
+  IF(info.isfolder)
+    THROW NEW RetrieveResourceException(reportpath, "The resource is a folder", DEFAULT RECORD ARRAY);
+
+  RECORD retval :=
+      [ data :=     info.data
+      , path :=     "whfsbyid::" || tryid
+      , modified :=  info.modificationdate
+      ];
+
+  IF (withrawinfo)
+    INSERT CELL info := info INTO retval;
+  RETURN retval;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ReadGlobalResourceDirByPath(INTEGER startfolder, STRING findpath, STRING reportpath)
+{
+  INTEGER whfsid;
+
+  // Ensure / at end, need it for stuff like "module::tollium"
+  IF (findpath NOT LIKE "*/")
+    findpath := findpath || "/";
+
+  STRING diskresult := GetDiskPathForAsset(findpath, reportpath, FALSE);
+  IF(diskresult != "")
+  {
+    RETURN
+        SELECT id :=                0
+             , name
+             , isfolder :=         type = 1
+             , modified
+             , resourcepath :=     findpath || name || (type = 1 ? "/" : "")
+          FROM ReadDiskDirectory(diskresult || "/", "*")
+         WHERE name NOT LIKE ".*";
+  }
+
+  whfsid := LookupWHFSObject(startfolder, findpath);
+
+  IF(whfsid <= 0)
+    THROW NEW RetrieveResourceException(reportpath, "No such resource", DEFAULT RECORD ARRAY);
+
+  RECORD rec := SELECT isfolder,whfspath FROM system.fs_objects WHERE id = whfsid;
+  IF (NOT RecordExists(rec) OR IsRecycleOrHistoryWHFSPath(rec.whfspath))
+    THROW NEW RetrieveResourceException(reportpath, "The resource has been deleted", DEFAULT RECORD ARRAY);
+  IF (NOT rec.isfolder)
+    THROW NEW RetrieveResourceException(reportpath, "The resource is not a folder", DEFAULT RECORD ARRAY);
+
+  RETURN
+      SELECT id
+           , name
+           , isfolder
+           , modified :=        modificationdate
+           , resourcepath :=    findpath || name || (type = 1 ? "/" : "")
+        FROM system.fs_objects
+       WHERE parent = whfsid;
+}
+
+
+/** @short Change a flag in a published cell
+    @param published A file.published cell
+    @param flag_to_set The flag to modify (eg. PublishedFlag_OncePublished or PublishedFlag_Scheduled)
+    @param setflag True to set the flag, false to reset the flag
+    @return The published parameter with the requested flags modified
+*/
+PUBLIC INTEGER FUNCTION SetFlagsInPublished(INTEGER published, INTEGER flag_to_set, BOOLEAN setflag)
+{
+  IF (TestFlagFromPublished(published,flag_to_set))
+  {
+    IF (setflag)
+        RETURN published;
+    ELSE
+        RETURN published - flag_to_set;
+  }
+  ELSE
+  {
+    IF (setflag)
+        RETURN published + flag_to_set;
+    ELSE
+        RETURN published;
+  }
+}
+
+RECORD ARRAY FUNCTION ContainedSitesRecurse(RECORD ARRAY folderlist)
+{
+  INTEGER ARRAY relevantroots := SELECT AS INTEGER ARRAY cur FROM folderlist;
+  RECORD ARRAY hitsites := SELECT base := folderlist.base, root := sites.root, name := sites.name
+                             FROM system.sites, folderlist
+                            WHERE sites.root IN relevantroots
+                                  AND sites.root = folderlist.cur;
+
+  //no need to search deeper in matched sites
+  IF(Length(hitsites)>0)
+  {
+    INTEGER ARRAY foundroots := SELECT AS INTEGER ARRAY root FROM hitsites;
+    DELETE FROM folderlist WHERE folderlist.cur IN foundroots;
+  }
+
+  INTEGER ARRAY scanroots := SELECT AS INTEGER ARRAY cur FROM folderlist;
+  RECORD ARRAY subfolders := SELECT base := folderlist.base, cur := fs_objects.id
+                               FROM system.fs_objects, folderlist
+                              WHERE fs_objects.isfolder = TRUE
+                                    AND fs_objects.parent IN scanroots
+                                    AND fs_objects.parent = folderlist.cur;
+  IF(Length(subfolders)>0)
+    hitsites := hitsites CONCAT ContainedSitesRecurse(subfolders);
+
+  RETURN hitsites;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetContainedSites(INTEGER ARRAY folderlist)
+{
+  RETURN ContainedSitesRecurse(SELECT base := id, cur := id FROM ToRecordArray(folderlist,"id"));
+}
+PUBLIC RECORD ARRAY FUNCTION GetUniqueNamesForRoots(RECORD ARRAY objects)
+{
+  objects := SELECT * FROM objects ORDER BY id;
+  STRING ARRAY seennames;
+  FOREVERY(RECORD basefolder FROM objects)
+  {
+    FOR(INTEGER attempt := 0; ; attempt := attempt + 1)
+    {
+      STRING tryname := basefolder.name || (attempt=0? "" : " (" || attempt || ")");
+      IF(ToUppercase(tryname) NOT IN seennames)
+      {
+        INSERT ToUppercase(tryname) INTO seennames AT END;
+        basefolder.name := tryname;
+        BREAK;
+      }
+    }
+    objects[#basefolder] := basefolder;
+  }
+  RETURN objects;
+}
+PUBLIC STRING FUNCTION CalculateFSObjectFullPathFromRoots(INTEGER fileid, RECORD ARRAY rootobjects)
+{
+  INTEGER ARRAY rootids := SELECT AS INTEGER ARRAY id FROM rootobjects;
+
+  RECORD filerec :=
+      SELECT id
+           , fullpath
+           , parentsite
+           , whfspath
+        FROM system.fs_objects
+       WHERE id = fileid;
+
+  // If the object is within a site and that site is directly accessible, show sitename:/fullpath
+  IF (filerec.parentsite > 0)
+  {
+    RECORD site :=
+        SELECT name
+          FROM system.sites
+         WHERE id = filerec.parentsite;
+    BOOLEAN has_access := 0 IN rootids;
+
+    INTEGER cur := filerec.parentsite; // site id is site root folder id
+    WHILE (NOT has_access AND cur != 0)
+    {
+      has_access := cur IN rootids;
+      cur := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = cur;
+    }
+    IF (has_access)
+      RETURN `${site.name}:${filerec.fullpath}`;
+  }
+
+  // If everything is visible, show the object's full WHFS path
+  IF (0 IN rootids)
+    RETURN filerec.whfspath;
+
+  // Show the full WHFS path, starting with the highest accessible root folder (using the name within the folder, it might
+  // be renamed to avoid duplicates)
+  INTEGER cur := filerec.id; // site id is site root folder id
+  INTEGER ARRAY fsobjpath;
+  WHILE (cur != 0)
+  {
+    INSERT cur INTO fsobjpath AT 0;
+    cur := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = cur;
+    IF (cur NOT IN rootids)
+      BREAK;
+  }
+  STRING ARRAY path := SELECT AS STRING ARRAY name FROM system.fs_objects WHERE id IN fsobjpath ORDER BY SearchElement(fsobjpath, id);
+  path[0] := SELECT AS STRING name FROM GetUniqueNamesForRoots(rootobjects) WHERE id = fsobjpath[0];
+  RETURN  "/" || Detokenize(path, "/");
+}
+
+PUBLIC STRING FUNCTION GetDirectResourceName(INTEGER fsobjid) //get direct without going through openwhfsobject
+{
+  RECORD objinfo := SELECT parentsite, fullpath, whfspath FROM system.fs_objects WHERE id = fsobjid;
+  IF(NOT RecordExists(objinfo))
+    THROW NEW Exception("No such object #" || fsobjid);
+
+  IF(objinfo.parentsite!=0)
+  {
+    STRING sitename := SELECT AS STRING name FROM system.sites WHERE id=objinfo.parentsite;
+    IF(sitename != "")
+      RETURN "site::" || sitename || objinfo.fullpath;
+  }
+  RETURN "whfs::" || objinfo.whfspath;
+}
+
+PUBLIC RECORD FUNCTION CalculateFSObjectFullPathAndURL(INTEGER fileid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ followlinks :=    TRUE
+      , overrideisindex :=  FALSE
+      ],
+      options,
+      [ optional := [ "overrideisindex" ] ]);
+
+  RECORD data :=
+      SELECT id
+           , name
+           , parent
+           , type
+           , filelink
+           , externallink
+           , isfolder
+           , published
+        FROM system.fs_objects
+       WHERE id = fileid;
+
+  RETURN CalculateFSObjectFullPathAndURLFromRec(data, options);
+}
+
+/** Calculates a file/folder url from a data record.
+    @param data
+    @cell data.id
+    @cell data.name
+    @cell data.parent
+    @cell data.isfolder
+    @cell data.type
+    @cell data.filelink
+    @cell data.externallink
+    @cell data.published
+    @param options
+    @cell options.followlinks
+    @return
+    @cell return.fullpath
+    @cell return.url
+*/
+PUBLIC RECORD FUNCTION CalculateFSObjectFullPathAndURLFromRec(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  /* This function is ported from SYS_FS_GetUrl from the database
+     Because parent can be overridden, the folder check at the start has been removed.
+  */
+  options := ValidateOptions(
+      [ followlinks :=      TRUE
+      , overrideisindex :=  FALSE
+      ],
+      options,
+      [ optional := [ "overrideisindex" ] ]);
+
+  // See if this is a site. If so, name or parent changes won't affect the url
+  IF (data.isfolder)
+  {
+    RECORD site :=
+        SELECT sites.id
+             , url := objecturl
+          FROM system.sites
+             , system.fs_objects
+         WHERE sites.id = VAR data.id
+           AND fs_objects.id = sites.id;
+
+    IF (RecordExists(site))
+      RETURN [ url := site.url, fullpath := "/" ];
+  }
+
+  IF (data.parent = 0)
+    RETURN [ url := "", fullpath := "/" ]; // The database does this too
+
+  RECORD parentdata :=
+      SELECT url := objecturl
+           , indexdoc
+           , highestparent
+           , fullpath
+        FROM system.fs_objects
+       WHERE id = VAR data.parent;
+
+  STRING fullpath := parentdata.fullpath || data.name;
+  IF (data.isfolder)
+    fullpath := fullpath || "/";
+
+  IF (data.type = 18 AND options.followlinks) /* External link */
+    RETURN [ url := data.externallink, fullpath := fullpath ];
+
+  IF ((data.type = 19 /* Internal link */ AND options.followlinks) OR data.type = 20 /* Content link */)
+  {
+    //Look up the linked-to file
+    RECORD target :=
+        SELECT id
+             , name
+             , parent
+             , isfolder
+             , type
+             , filelink
+             , externallink
+             , published
+          FROM system.fs_objects
+         WHERE id = VAR data.filelink;
+
+    IF (NOT RecordExists(target) AND options.followlinks)
+      RETURN [ url := "", fullpath := fullpath ];
+    ELSE IF (RecordExists(target))
+    {
+      //Check destination type (avoid circulair links)
+      IF (target.type = 19) //Linking to an internal link is never valid
+        RETURN [ url := "", fullpath := fullpath ];
+
+      IF (data.type = 19) //internal link
+        RETURN [ url := CalculateFSObjectFullPathAndURLFromRec(target).url, fullpath := fullpath ];
+      ELSE  //content link
+        data.type := target.type; //internal link
+    }
+  }
+
+  STRING url := parentdata.url;
+  IF (url = "")
+    RETURN [ url := "", fullpath := fullpath ];
+
+  IF (data.isfolder)
+    RETURN [ url := url || EncodeURL(data.name) || "/", fullpath := fullpath ];
+
+  BOOLEAN is_index_doc := data.id = parentdata.indexdoc;
+  IF (CellExists(options, "OVERRIDEISINDEX"))
+    is_index_doc := options.overrideisindex;
+
+  BOOLEAN is_subdir_doc;
+  IF (data.type != 0)
+  {
+    is_subdir_doc :=
+        SELECT AS BOOLEAN ispublishedassubdir
+          FROM system.fs_types
+         WHERE id = data.type;
+  }
+
+  IF (NOT is_index_doc)
+  {
+    STRING name := data.name;
+    IF (TestFlagFromPublished(data.published, PublishedFlag_StripExtension))
+    {
+      INTEGER dpos := SearchLastSubstring(name, ".");
+      IF (dpos != -1)
+        name := SubString(name, 0, dpos);
+    }
+    url := url || EncodeURL(name);
+
+     //if it's a worddoc, add a '/'
+    IF (is_subdir_doc)
+      url := url || "/";
+  }
+
+  RETURN [ url := url, fullpath := fullpath ];
+}
+
+///Ensure the necessary module folders are in place
+PUBLIC MACRO EnsureModulePrivateFolders()
+{
+  RECORD ARRAY currentmodulefolders := SELECT id, name, isfolder, ispinned FROM system.fs_objects WHERE parent = whconstant_whfsid_private;
+  FOREVERY(STRING mod FROM __SYSTEM_GetInstalledModuleNames())
+  {
+    RECORD match := SELECT * FROM currentmodulefolders WHERE ToUppercase(name) = ToUppercase(mod);
+    IF(NOT RecordExists(match))
+    {
+      INTEGER newfolderid := MakeAutonumber(system.fs_objects, "id");
+      INSERT INTO system.fs_objects(id, parent, name, ispinned, creationdate, modificationdate, isfolder)
+             VALUES(newfolderid, whconstant_whfsid_private, mod, TRUE, GetCurrentDatetime(), GetCurrentDatetime(), TRUE);
+
+      //TODO: GetWHFSCommitHandler()->ObjectCreate(0, whconstant_whfsid_private, newfolderid); - but can't reach it from here...
+      CONTINUE;
+    }
+
+    IF(NOT match.isfolder OR match.name != mod OR NOT match.ispinned)
+    {
+      UPDATE system.fs_objects SET type := 0
+                                 , isfolder := TRUE
+                                 , name :=mod
+                                 , ispinned := TRUE
+                             WHERE id = match.id;
+
+      //Doesn't seem necessary to broadcast this? shouldn't really happen or matter
+    }
+    DELETE FROM currentmodulefolders WHERE id = match.id;
+  }
+
+  FOREVERY(RECORD remaining FROM currentmodulefolders)
+    IF(remaining.ispinned)
+      UPDATE system.fs_objects SET ispinned := FALSE WHERE id = remaining.id;
+}

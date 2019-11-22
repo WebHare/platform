@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="intextlink.whscr"/>
+  <jstest file="test-captcha.es" />
+</group>

@@ -1,0 +1,15 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumcomponents"
+         library="siteprofcomps.whlib">
+
+  <fragment name="selectmailtemplate" gid=".selectmailtemplate">
+    <contents>
+      <line>
+        <select name="applytemplate" type="pulldown" public="true" width="1pr" title="">
+          <option rowkey="" tid=".notemplate" />
+        </select>
+      </line>
+    </contents>
+  </fragment>
+</screens>

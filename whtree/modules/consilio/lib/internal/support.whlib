@@ -1,0 +1,258 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+/** @short Consilio debug levels
+*/
+PUBLIC CONSTANT INTEGER
+    ConsilioDebugError := 0,   ///< Log (fatal) fetching/parsing errors
+    ConsilioDebugSkipped := 1, ///< Log skipped documents/pages
+    ConsilioDebugInfo := 2,    ///< Log extended debugging information
+    ConsilioDebugAll := 3;     ///< Log as much as possible
+
+/** @short Public error codes (returned by the public search functions)
+*/
+PUBLIC CONSTANT STRING
+    SearchOk                := "ok",                  ///< Everything went fine, we have results
+    SearchError             := "unknownerror",        ///< An (unknown) error has occurred
+    SearchIndexNotFound     := "indexnotfound",       ///< The requested index was not found
+    SearchCommandUnsupported := "commandunsupported", ///< The requested command is not supported by the index
+    SearchNoAccess          := "noaccess",            ///< No access to the requested index manager or index
+    SearchConnectError      := "connecterror",        ///< Could not connect to the index manager
+    SearchSendError         := "senderror",           ///< Could not send search request to the index manager
+    SearchHTTPError         := "httperror",           ///< HTTP error (no 200 response received)
+    SearchNoTotalError      := "nototalerror",        ///< No total number of search results received
+    SearchUnavailable       := "unavailable",         ///< No indices are currently available
+    SearchTimeOutError      := "timeouterror",        ///< Connection to index manager timed out
+    SearchInvalidArgument   := "invalidargument",     ///< Invalid argument
+    SearchSleep             := "sleep",               ///< Slept trying to send to index manager
+    SearchRebuildCatalog    := "rebuild";             ///< Catalog must be rebuilt after content source type update
+
+/** IP address reported by the consilio fetcher
+    @topic consilio/api
+    @public
+    @loadlib mod::consilio/lib/api.whlib
+*/
+PUBLIC CONSTANT STRING fetcher_trusted_ip := whconstant_consilio_fetcher_trusted_ip;
+
+/// The default search window to use, before switching to retrieving all results which uses scroll contexts
+PUBLIC CONSTANT INTEGER fetcher_search_window := 1000;
+
+/// The default number of results to return when using RunConsilioSearch
+PUBLIC CONSTANT INTEGER default_consilio_search_count := 100;
+
+PUBLIC INTEGER FUNCTION GetBuiltinElasticSearchId()
+{
+  RETURN SELECT AS INTEGER id
+           FROM consilio.indexmanagers
+          WHERE address IN ["builtin-elasticsearch"];
+}
+
+PUBLIC INTEGER FUNCTION GetDefaultIndexManager()
+{
+  BOOLEAN setup_elasticsearch := GetEnvironmentVariable("TESTFW_SETUP_ELASTICSEARCH") != "";
+  RETURN SELECT AS INTEGER id
+           FROM consilio.indexmanagers
+          WHERE address IN ["builtin","builtin-elasticsearch"]
+       ORDER BY address = (setup_elasticsearch ? "builtin-elasticsearch" : "builtin") DESC; //prefer consilio - for now, unless testfw indicates ES should have priority
+}
+
+PUBLIC INTEGER FUNCTION GetConsilioURLHash(STRING url)
+{
+  RETURN ToInteger(SubString(EncodeBase16(GetMD5Hash(url)), 0, 7), 0, 16);
+}
+
+PUBLIC STRING FUNCTION GetIndexManagerIcon(INTEGER indexmanager)
+{
+  INTEGER mgrtype := SELECT AS INTEGER type FROM consilio.indexmanagers WHERE id = indexmanager;
+  RETURN mgrtype = 1 ? "consilio:consilio" : mgrtype = 2 ? "consilio:elastic" : "tollium:status/unknown";
+}
+
+
+/** @short Clean up whitespace
+    @long Replace all occurrences of multiple space, tab, newline and non-breaking space characters with a single space and
+          trim whitespace at beginning and end of text.
+*/
+PUBLIC STRING FUNCTION CleanWhitespace(STRING text)
+{
+  IF (text = "")
+    RETURN "";
+
+  // Change carriage returns, newlines, tabs and non-breaking spaces to spaces
+  text := Substitute(text, "\r", " ");
+  text := Substitute(text, "\n", " ");
+  text := Substitute(text, "\t", " ");
+  text := Substitute(text, "\xC2\xA0", " ");  // C2 A0 is the UTF-8 sequence for the &#160; character (non-breaking space)
+
+  // Remove all extra spaces
+  WHILE (SearchSubString(text, "  ") >= 0)
+    text := Substitute(text, "  ", " ");
+
+  // Trim leading and trailing whitespace and return
+  RETURN TrimWhitespace(text);
+}
+
+PUBLIC STRING FUNCTION DetectContentType(RECORD contenttypeheader, STRING filename, BLOB filecontent)
+{
+  STRING contenttype;
+
+  // First look at the content type the server sent us
+  IF (RecordExists(contenttypeheader))
+  {
+    INTEGER typeend := SearchSubstring(contenttypeheader.value, ";");
+    IF (typeend >= 0)
+      contenttype := Substring(contenttypeheader.value, 0, typeend);
+    ELSE
+      contenttype := contenttypeheader.value;
+  }
+
+  // Some standard content types that we assume being defined
+  // by the webserver in order to be able to view websites on it
+  IF (ToUppercase(contenttype) IN [ "TEXT/HTML", "TEXT/CSS", "IMAGE/JPEG", "IMAGE/GIF", "IMAGE/PNG" ])
+    RETURN contenttype;
+
+  // If we can detect the file type ourselved, use that, otherwise
+  // use the content type received from the server
+  RETURN ScanBlob(filecontent, filename).mimetype;
+}
+
+PUBLIC STRING FUNCTION DateTimeToString(DATETIME value)
+{
+  IF (value = DEFAULT DATETIME)
+    RETURN "";
+
+  RETURN "@" || Right("0000000" || ToString(GetDayCount(value), 16), 8) || Right("0000000" || ToString(GetMsecondCount(value), 16), 8);
+}
+
+PUBLIC DATETIME FUNCTION StringToDateTime(STRING value)
+{
+  IF (value NOT LIKE "@????????????????") // invalid datetime string
+    RETURN DEFAULT DATETIME;
+
+  RETURN MakeDateFromParts(ToInteger(Substring(value,1,8),0,16), ToInteger(Substring(value,9,8),0,16));
+}
+
+PUBLIC STRING FUNCTION NormalizeUrl(STRING url, STRING fromurl)
+{
+  // UrlEncode all '^' characters to make sure we don't have mixed '^'s and '%5E's
+  STRING result := Substitute(url, "^", "%5E");
+  result := ResolveToAbsoluteURL(fromurl, result);
+
+  IF (NOT IsValidPlainHTTPURL(result))
+  {
+    // Not indexing non-HTTP URLs
+    RETURN "";
+  }
+  RETURN result;
+}
+
+INTEGER contextbefore := 6;
+
+// HareScript implementation of Consilio's IndexManager::HighlightWords
+/** @short Highlight words in a token stream
+    @param tokenstream The token stream to highlight
+    @param words All words that should be highlighted
+*/
+PUBLIC STRING FUNCTION HighlightWords(OBJECT tokenstream, STRING ARRAY words, INTEGER maxlength, STRING match_start, STRING match_end)
+{
+  STRING lang := tokenstream->GetLanguage();
+  FOREVERY (STRING word FROM words)
+  {
+    STRING stemmed := StemWord(word, lang);
+    IF (stemmed NOT IN words)
+      INSERT stemmed INTO words AT END;
+  }
+
+  RECORD ARRAY tokens;
+  FOR (RECORD t := tokenstream->GetNextToken(); RecordExists(t) AND Length(tokens) < 10000; t := tokenstream->GetNextToken())
+  {
+    INSERT CELL match := FALSE INTO t;
+    IF (t.type = TokenTypeWord)
+    {
+      t.match := t.normalizedtext IN words OR (t.stemmedtext != "" AND t.stemmedtext IN words);
+      IF (t.match)
+        t.text := match_start || t.text || match_end;
+    }
+
+    INSERT t INTO tokens AT END;
+  }
+
+  INTEGER firstmatch := (SELECT AS INTEGER #tokens + 1 FROM tokens WHERE match) - 1;
+  IF (maxlength > 0 AND firstmatch >= 0)
+  {
+    IF (firstmatch > contextbefore)
+      firstmatch := firstmatch - contextbefore;
+  }
+  ELSE
+    firstmatch := 0;
+
+  INTEGER it;
+  STRING hilite;
+  IF (maxlength > 0 AND firstmatch > 0)
+    hilite := "... ";
+  FOR (it := firstmatch; it < Length(tokens) AND (maxlength = 0 OR Length(hilite) < maxlength); it := it + 1)
+    hilite := hilite || tokens[it].text;
+  IF (maxlength > 0 AND it < Length(tokens))
+    hilite := hilite || " ...";
+
+  RETURN hilite;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
+{
+  OpenPrimary();
+  RECORD ARRAY apps := [ [ name :=       "consilio:queuemanager"
+                         , args :=       STRING["runscript","mod::consilio/scripts/queuemanager.whscr"]
+                         , databasemodes := [ "online" ]
+                         ]
+                       ];
+
+  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=1 AND address="builtin"))
+    INSERT
+        [ name := "consilio:indexmanager"
+        , args := STRING["consilio","--listenport",ToString(GetWebHareConfiguration().baseport+3)]
+        , isstandalone := TRUE
+        ] INTO apps AT END;
+  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=2 AND address="builtin-elasticsearch"))
+    INSERT
+        [ name := "consilio:elasticsearch"
+        , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_elasticsearch.sh" ]
+        , isstandalone := TRUE
+        ] INTO apps AT END;
+  RETURN apps;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetContentSourcesByTag(STRING contentsourcetag)
+{
+  IF (contentsourcetag = "")
+    RETURN DEFAULT RECORD ARRAY;
+  IF (contentsourcetag LIKE "#*")
+    RETURN SELECT id
+                , indexid
+             FROM consilio.contentsources
+            WHERE id = ToInteger(Substring(VAR contentsourcetag,1),0)
+                  AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+
+  RETURN SELECT id
+              , indexid
+           FROM consilio.contentsources
+          WHERE ToUppercase(tag) = ToUppercase(contentsourcetag);
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetIndexThesaurus(INTEGER indexid)
+{
+  RETURN
+      SELECT word
+           , wordgroup
+        FROM consilio.thesaurus
+       WHERE COLUMN indexid = VAR indexid;
+
+}

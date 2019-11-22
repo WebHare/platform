@@ -1,0 +1,169 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// A toolbar (buttonbar or panel bar)
+
+PUBLIC OBJECTTYPE TolliumToolbar EXTEND TolliumComponentBase
+<
+  RECORD ARRAY pvt_items;
+  OBJECT pvt_menubutton;
+
+  PUBLIC PROPERTY items(pvt_items, SetItems);
+  PUBLIC PROPERTY menubutton(pvt_menubutton, SetMenuButton);
+
+  MACRO NEW()
+  {
+    this->pvt_blockelement := TRUE;
+    this->componenttype := "toolbar";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->items := def.items;
+  }
+
+  MACRO SetMenuButton(OBJECT menubutton)
+  {
+    IF(this->pvt_menubutton = menubutton)
+      RETURN;
+
+    IF(ObjectExists(menubutton))
+    {
+      IF (this->pvt_havepreinited)
+        menubutton->EnsurePreInit();
+
+      menubutton->pvt_parent := this;
+      menubutton->RecursiveUpdateIsNowVisible();
+    }
+
+    this->pvt_menubutton := menubutton;
+    this->ExtUpdatedComponent();
+
+    IF (this->pvt_havepostinited AND ObjectExists(menubutton))
+      menubutton->EnsurePostInit();
+  }
+
+  MACRO SetItems(RECORD ARRAY newitems)
+  {
+    // Make sure all subitems inserted after our pre-init are also preinited (ADDME: dupe with menuitem.whlib, refactor component addition)
+    IF (this->pvt_havepreinited)
+    {
+      FOREVERY (RECORD item FROM newitems)
+        IF (ObjectExists(item.component))
+          item.component->EnsurePreInit();
+    }
+    FOREVERY (RECORD item FROM newitems)
+      IF (ObjectExists(item.component))
+      {
+        item.component->pvt_parent := this;
+        item.component->RecursiveUpdateIsNowVisible();
+      }
+
+    this->pvt_items := SELECT component
+                            , type := ObjectExists(component) ? "" : type
+                         FROM newitems;
+    this->ExtUpdatedComponent();
+
+    // Make sure all subitems inserted after our post-init are also postinited (ADDME: dupe with menuitem.whlib, refactor component addition)
+    IF (this->pvt_havepostinited)
+    {
+      FOREVERY (RECORD item FROM newitems)
+        IF (ObjectExists(item.component))
+          item.component->EnsurePostInit();
+    }
+  }
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
+  {
+    IF(ObjectExists(oldcomponent))
+    {
+      DELETE FROM this->items WHERE component = oldcomponent;
+      IF(oldcomponent = this->pvt_menubutton)
+        this->pvt_menubutton := DEFAULT OBJECT;
+    }
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    OBJECT ARRAY comps := SELECT AS OBJECT ARRAY component FROM this->items WHERE component != DEFAULT OBJECT;
+    IF(ObjectExists(this->pvt_menubutton))
+      INSERT this->pvt_menubutton INTO comps AT END;
+    RETURN comps;
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    RECORD compinfo := [ items := DEFAULT RECORD ARRAY
+                       ];
+
+    BOOLEAN printed_item := FALSE;
+    STRING divider_type := "";
+
+    // This handles superfluous dividers (at start, multiple after each other, at end)
+    FOREVERY (RECORD item FROM this->items)
+    {
+      IF(NOT ObjectExists(item.component))
+      {
+        IF (NOT printed_item)
+          CONTINUE;
+
+        SWITCH (item.type) // Priorities: flex, then line, then single
+        {
+          CASE "flex"
+          {
+            divider_type := "flex";
+          }
+          CASE "line", ""
+          {
+            IF (divider_type != "flex")
+              divider_type := "line";
+          }
+          CASE "single"
+          {
+            IF (divider_type = "")
+              divider_type := "single";
+          }
+          DEFAULT
+          {
+            ABORT("Unknown toolbar divider type '" || item.type || "'");
+          }
+        }
+      }
+      ELSE
+      {
+        IF (NOT item.component->isnowvisible)
+          CONTINUE;
+
+        IF (divider_type != "")
+        {
+          INSERT [ divider := true, type := divider_type ] INTO compinfo.items AT END;
+          divider_type := "";
+        }
+        INSERT [ divider := false, name := GetComponentName(item.component) ] INTO compinfo.items AT END;
+        printed_item := TRUE;
+      }
+    }
+
+    IF(ObjectExists(this->menubutton) AND this->menubutton->isnowvisible)
+    {
+      // Only insert a flex div if there isn’t one already present, to allow for buttons to be inserted next to the menu button
+      IF (NOT RecordExists(SELECT FROM compinfo.items WHERE divider AND type = "flex"))
+        INSERT [ divider := TRUE, name := "", type := "flex" ] INTO compinfo.items AT END;
+
+      INSERT [ divider := FALSE, name := GetComponentName(this->menubutton) ] INTO compinfo.items AT END;
+    }
+
+    this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  UPDATE PUBLIC MACRO ExtUpdatedComponent()
+  {
+    this->parent->ExtUpdatedComponent(); //ADDE optimize - just update ourselves, don't bother our parent
+    TolliumComponentBase::ExtUpdatedComponent();
+  }
+>;

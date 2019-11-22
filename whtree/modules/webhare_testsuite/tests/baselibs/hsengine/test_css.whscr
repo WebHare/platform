@@ -1,0 +1,497 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::internal/css/tokenizer.whlib";
+
+BLOB basertdcss := StringToBlob(
+`.wh-rtd h1.heading1 { font:bold 16px/150% 'Arial Narrow', Verdana; margin: 10px 0  ! important ; color:#dddddd; }
+.wh-rtd p.mystyle { font-weight:bold;color:#ff0000; }
+html, body, p { padding:0; margin: 0; }
+body { width:200px; }
+html.ws2013 .applylinkbgtoggle a[href=\"#\"]:hover { text-decoration: none; }
+.widget-docblock ul li:before { content:\"x\u2022x\\2022 x\\2022 b\"; }
+@media screen and (device-width > 400px), braille {\n\t html p { font-size: 10pt; background-image: url(\"some/path/to/image1.png\"); }\n }
+.someElement { background-image: url(\"some/path/to/image2.png\"); }
+.someOtherElement { background-image: url(   some/path/to/image3.png  ); }
+.someOtherElement { background-color : pink; }
+.whatever \\a, .something { color: pink; }
+@import url(\"path/to/file4.css\");
+.whatever { background-image: url( ../path/to/image5.png ); }
+.whatever { background: transparent url( \"../path/to/image6(\\\"yeey'\\\").png\" ); }
+.widget-docblock ul li { padding-left: .7em; text-indent: -.7em; }
+@unknown-rule url(../path/to/image7.png);
+@unknown-rule2 url(../path/to/image8.png) { test: url(../path/to/image9.png); }
+@font-face { font-family:"FF"; src:url(fontpath); src: url(../fontpath2) format("eot") url(../fontpath3); }
+`);
+
+// Test wether every token actually returns a valid token record:
+MACRO TestCSSTokenizer()
+{
+  OpenTest("TestCSSTokenizer");
+
+  OBJECT tokenizer;
+  tokenizer := NEW CSSTokenizer(BlobToString(basertdcss));
+  RECORD ARRAY alltokens;
+
+  WHILE(tokenizer->type != "eof")
+  {
+    tokenizer->ConsumeToken();
+    TestEq(RecordExists(tokenizer->GetToken()), TRUE);
+    INSERT tokenizer->GetToken() INTO alltokens AT END;
+  }
+
+  //DumpValue((SELECT value, pos := #alltokens FROM alltokens), "boxed"); // Use this to dump the tokens and positions
+  TestEq("wh-rtd", alltokens[1].value);// ident token
+  TestEq("dddddd", alltokens[38].value);// hash token
+  TestEq("media", alltokens[141].value);// at-rule token
+  TestEq("some/path/to/image1.png", alltokens[175].value);// url token
+  TestEq("some/path/to/image2.png", alltokens[190].value);// url token
+  TestEq("some/path/to/image3.png", alltokens[203].value);// url token
+  TestEq("eof", alltokens[END-1].type);// eof token
+
+  CloseTest("TestCSSTokenizer");
+}
+
+MACRO TestBaseRTDCSS(OBJECT cssom)
+{
+  TestEq(TRUE, ObjectExists(cssom));
+
+  TestEq(18, cssom->cssrules->length);
+  TestEq(".wh-rtd h1.heading1", cssom->cssrules->item(0)->selectortext);
+  TestEq(".wh-rtd p.mystyle",   cssom->cssrules->item(1)->selectortext);
+  TestEq("html, body, p", cssom->cssrules->item(2)->selectortext);
+  TestEq("html.ws2013 .applylinkbgtoggle a[href=\"#\"]:hover", cssom->cssrules->item(4)->selectortext);
+  TestEq(".widget-docblock ul li:before", cssom->cssrules->item(5)->selectortext);
+
+  TestEq("bold 16px/150% \"Arial Narrow\", Verdana", cssom->cssrules->item(0)->style->GetPropertyValue("FONT"));
+  TestEq("important", cssom->cssrules->item(0)->style->GetPropertyPriority("margin"));
+  TestEq("\"x\\2022x\\2022x\\2022 b\"", cssom->cssrules->item(5)->style->GetPropertyValue("content"));
+
+  TestEq("font: bold 16px/150% \"Arial Narrow\", Verdana; margin: 10px 0 !important; color: #dddddd;", cssom->cssrules->item(0)->style->csstext);
+
+  TestEQ(TRUE, cssom->cssrules->item(6) EXTENDSFROM CSSMediaRule, "Rule 6 should be a media rule");
+  TestEq("screen and (device-width > 400px), braille", cssom->cssrules->item(6)->media->mediatext);
+  TestEq(".whatever \\000A, .something", cssom->cssrules->item(10)->selectortext);
+  TestEQ(TRUE, cssom->cssrules->item(11) EXTENDSFROM CSSImportRule);
+//  TestEq("__IMPORT__", cssom->cssrules->item(11)->selectortext, "An @import rule should not have any selectortext (__IMPORT__ is the internal representation)");
+  TestEq("@import url(\"path/to/file4.css\");", cssom->cssrules->item(11)->csstext, "The full CSSText should always be the entire at-rule.");
+  TestEq("@unknown-rule url(\"../path/to/image7.png\");", cssom->cssrules->item(15)->csstext, "Should keep unknown rules as-is.");
+  TestEq("@unknown-rule2 url(\"../path/to/image8.png\") { test: url(\"../path/to/image9.png\"); }", cssom->cssrules->item(16)->csstext, "Should keep unknown rules as-is.");
+
+  //FIXME
+  //TestEq(".widget-docblock ul li { padding-left: .7em; text-indent: -.7em;}", cssom->cssrules->item(14)->csstext);
+}
+
+MACRO TestCSSParser()
+{
+  OpenTest("TestCSSParser");
+
+  OBJECT cssom;
+  cssom := MakeCSSStyleSheet(basertdcss);
+  TestBaseRTDCSS(cssom);
+
+  //serialize and retest
+  BLOB final := cssom->GetDocumentBlob(FALSE);
+  OBJECT reparsed_cssom := MakeCSSStylesheet(final);
+  TestBaseRTDCSS(reparsed_cssom);
+
+  OBJECT ARRAY bodyrules := reparsed_cssom->cssrules->GetRulesForSelector("body");
+  TestEq(2,Length(bodyrules));
+
+  CloseTest("TestCSSParser");
+}
+
+MACRO TestUTCSS()
+{
+  /*OpenTest("TestUTCSS");
+
+  BLOB utcss := OpenTestFile("css/ut-basedesign.css");
+  OBJECT cssom;
+  cssom := MakeCSSStyleSheet(utcss);
+
+  TestEq(417, cssom->cssrules->length);
+
+  CloseTest("TestUTCSS");*/
+}
+
+/* The RTD rewriter 'basically' needs:
+
+  html.xyz => #wh-rtd-HASH.wh-rtd-editor-htmlnode.xyz
+  body.abc => #wh-rtd-HASH.div.wh-rtd-editor-bodynode.abc
+
+  ALL OTHER SELECTORS TO BE PREFIXED
+  "#wh-rtd-HASH "
+*/
+
+MACRO TestCSSRTDRewrite()
+{
+  OpenTest("TestCSSRTDRewrite");
+
+  OBJECT cssom;
+  cssom := MakeCSSStyleSheet(basertdcss);
+  cssom->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
+
+  TestEq(18, cssom->cssrules->length);
+  TestEq(".wh-rtd-HASH .wh-rtd h1.heading1", cssom->cssrules->item(0)->selectortext);
+  TestEq(".wh-rtd-HASH .wh-rtd-editor-bodynode", cssom->cssrules->item(3)->selectortext);
+  TestEq(".wh-rtd-HASH .wh-rtd-editor-htmlnode, .wh-rtd-HASH .wh-rtd-editor-bodynode, .wh-rtd-HASH p", cssom->cssrules->item(2)->selectortext);
+  TestEq(".wh-rtd-HASH .wh-rtd-editor-htmlnode.ws2013 .applylinkbgtoggle a[href=\"#\"]:hover", cssom->cssrules->item(4)->selectortext);
+  TestEq("screen and (device-width > 400px), braille", cssom->cssrules->item(6)->media->mediatext);
+  TestEq(".wh-rtd-HASH .someOtherElement", cssom->cssrules->item(9)->selectortext);
+  TestEq("@import url(\"path/to/file4.css\");", cssom->cssrules->item(11)->csstext);
+
+  // FIXME: the last space before the } is eaten...
+  TestEq(".wh-rtd-HASH .wh-rtd-editor-htmlnode p { font-size: 10pt; background-image: url(\"some/path/to/image1.png\"); }", cssom->cssrules->item(6)->cssrules->item(0)->csstext);
+
+  //FIXME
+  //TestEq(".wh-rtd-HASH .widget-docblock ul li { padding-left: .7em; text-indent: -.7em;}", cssom->cssrules->item(14)->csstext);
+
+  CloseTest("TestCSSRTDRewrite");
+}
+
+
+STRING FUNCTION RewriteURL(STRING url)
+{
+  STRING ARRAY split := Tokenize(url, "//");
+  IF(Length(split) = 1)// No schema
+  {
+    INSERT split[0] INTO split AT END;
+    split[0] := "";
+  }
+  STRING ARRAY parts := Tokenize(split[1], "/");
+  IF(Substring(split[0], 0, 4) = "http")
+  {
+    split[0] := "https:";
+    split[1] := Detokenize(parts, "/");
+    RETURN Detokenize(split, "//");
+  }
+  ELSE
+  {
+    RETURN "//" || Detokenize(parts, "/");
+  }
+}
+
+MACRO TestCSSURLRewriter()
+{
+  OpenTest("TestCSSURLRewriter");
+
+  OBJECT cssom := MakeCSSStyleSheet(basertdcss);
+  cssom->RewriteURLs(PTR RewriteURL, [ baseurl := "http://test1.b-lex.com" ]);
+  cssom->RewriteToScope(".test", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
+
+  TestEq(".test .someElement { background-image: url(\"https://test1.b-lex.com/some/path/to/image2.png\"); }", cssom->cssrules->item(7)->csstext);
+  TestEq(".test .someOtherElement { background-image: url(\"https://test1.b-lex.com/some/path/to/image3.png\"); }", cssom->cssrules->item(8)->csstext);
+  TestEq("@media screen and (device-width > 400px), braille { .test .wh-rtd-editor-htmlnode p { font-size: 10pt; background-image: url(\"https://test1.b-lex.com/some/path/to/image1.png\"); } }", cssom->cssrules->item(6)->csstext);
+
+  cssom := MakeCSSStyleSheet(basertdcss);
+  cssom->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode", "http://test2.b-lex.nl");
+  TestEq(".wh-rtd-HASH .whatever { background-image: url(\"http://test2.b-lex.nl/path/to/image5.png\"); }", cssom->cssrules->item(12)->csstext);
+  TestEq(".wh-rtd-HASH .whatever { background: transparent url(\"http://test2.b-lex.nl/path/to/image6(\\\"yeey'\\\").png\"); }", cssom->cssrules->item(13)->csstext);
+  TestEq("@media screen and (device-width > 400px), braille { .wh-rtd-HASH .wh-rtd-editor-htmlnode p { font-size: 10pt; background-image: url(\"http://test2.b-lex.nl/some/path/to/image1.png\"); } }", cssom->cssrules->item(6)->csstext);
+
+  CloseTest("TestCSSURLRewriter");
+}
+
+MACRO TestCSSURLExtractor()
+{
+  OpenTest("TestCSSURLExtractor");
+
+  OBJECT cssom := MakeCSSStylesheet(basertdcss);
+  TestEq("some/path/to/image1.png", cssom->ExtractURLs(TRUE)[0]);
+  TestEq(12, Length(cssom->ExtractURLs(FALSE)));
+
+  cssom->RewriteURLs(PTR RewriteURL, [ baseurl := "http://test1.b-lex.com/a/b/c" ]);
+
+  TestEq("https://test1.b-lex.com/a/b/some/path/to/image1.png", cssom->ExtractURLs(TRUE)[0]);
+  TestEq("https://test1.b-lex.com/a/fontpath3", cssom->ExtractURLs(TRUE)[11]);
+
+  TestEq(12, Length(cssom->ExtractURLs(FALSE)));
+
+  CloseTest("TestCSSURLExtractor");
+}
+
+MACRO TestLabMictaCSS()
+{
+  OpenTest("TestLabMictaCSS");
+
+  BLOB css := OpenTestFile("labmicta.css");
+  OBJECT cssom;
+  cssom := MakeCSSStyleSheet(css);
+
+  TestEq(299, cssom->cssrules->length);
+  cssom->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
+  TestEq("@import url(\"//fast.fonts.net/cssapi/9b81d2a5-9c93-4c62-886f-6f5dd24d1fb1.css\");", cssom->cssrules->item(0)->csstext);
+
+  css := cssom->GetDocumentBlob(TRUE);
+
+  CloseTest("TestLabMictaCSS");
+}
+
+MACRO TestMediaQueryHandling()
+{
+  OpenTest("TestMediaQueryHandling");
+
+  OBJECT cssom := MakeCSSStyleSheet(OpenTestFile("mediaquerytest.css"));
+  TestEq(4, cssom->cssrules->Length);
+  TestEq("screen and (max-width: 600px)", cssom->cssrules->item(0)->media->mediatext);
+  TestEq("screen and (max-width: 500px)", cssom->cssrules->item(2)->media->mediatext);
+
+  CloseTest("TestMediaQueryHandling");
+}
+
+BLOB FUNCTION RewriteCSS(BLOB input)
+{
+  //INTEGER stream := CreateStream();
+  OBJECT cssom := MakeCSSStyleSheet(input);
+  RETURN cssom->GetDocumentBlob(TRUE);
+//  cssom->PrintTo(stream, [ newlines := TRUE, indent := TRUE]);
+  //BLOB pretty := MakeBlobFromStream(stream);
+  //RETURN pretty;
+}
+
+MACRO TestCSSPrettyPrint()
+{
+  OpenTest("TestCSSPrettyPrint");
+
+  TestEqTextBlob(OpenTestFile("touchformattedout.css"), RewriteCSS(OpenTestFile("touch.css")));
+/* FOR OLFERT
+  TestEqTextBlob(StringToBlob("FIXME")
+                ,RewriteCSS(StringToBlob("@media (max-width: 628px) { #ut_cookie_warning_bar { padding : 0 0 70px 0}\n"
+                                         || ".wh-rtd-hash-lb9e33av4sk-8mu_l8v8jw .wh-rtd-editor-htmlnode.scheme1 .bg-cta-c70 { background-color: #91c8ed !important;}\n"))
+                );
+*/
+  CloseTest("TestCSSPrettyPrint");
+}
+
+MACRO TestHashes()
+{
+  OpenTest("TestHashes");
+
+  BLOB css := StringToBlob(".whatever { background-color: #0B0B0B; } .somethingelse { background-color: #EAB055; } .another { background-color: #000000; } .yetanother { background-color: #0A0000; } .more { background-color: #00A000; } .evenmore { background-color: #000A00; } .almostthere { background-color: #0000A0; } .lastone { background-color: #00000A; } #someid { background-color: #0A0000; }");
+
+  OBJECT tokenizer;
+  tokenizer := NEW CSSTokenizer(BlobToString(css));
+  RECORD ARRAY alltokens;
+
+  WHILE (tokenizer->type!= "eof")
+  {
+    tokenizer->ConsumeToken();
+    INSERT tokenizer->GetToken() INTO alltokens AT END;
+  }
+
+  TestEq("#", alltokens[8].type);
+  TestEq("hex-digits", alltokens[8].valuetype);
+
+  OBJECT cssom := MakeCSSStyleSheet(css);
+  cssom->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
+  TestEq(".wh-rtd-HASH .whatever { background-color: #0B0B0B; }", cssom->cssrules->item(0)->csstext);
+  TestEq(".wh-rtd-HASH .somethingelse { background-color: #EAB055; }", cssom->cssrules->item(1)->csstext);
+  TestEq(".wh-rtd-HASH .another { background-color: #000000; }", cssom->cssrules->item(2)->csstext);
+  TestEq(".wh-rtd-HASH .yetanother { background-color: #0A0000; }", cssom->cssrules->item(3)->csstext);
+  TestEq(".wh-rtd-HASH .more { background-color: #00A000; }", cssom->cssrules->item(4)->csstext);
+  TestEq(".wh-rtd-HASH .evenmore { background-color: #000A00; }", cssom->cssrules->item(5)->csstext);
+  TestEq(".wh-rtd-HASH .almostthere { background-color: #0000A0; }", cssom->cssrules->item(6)->csstext);
+  TestEq(".wh-rtd-HASH .lastone { background-color: #00000A; }", cssom->cssrules->item(7)->csstext);
+  TestEq(".wh-rtd-HASH #someid { background-color: #0A0000; }", cssom->cssrules->item(8)->csstext);
+
+  CloseTest("TestHashes");
+}
+
+MACRO TestMultiProps()
+{
+  OpenTest("TestMultiProps");
+
+  /* FIXME  !important breaks the parsing
+
+  BLOB css := StringToBlob(".whatever { background-color: #0B0B0B; background-color: #ffffff; } .whatever2 { background-color: #0B0B0B !important; background-color: #ffffff; } ");
+  OBJECT cssom := MakeCSSStyleSheet(css);
+  TestEq([[ value := "#0B0B0B", important := FALSE ], [ value := "#ffffff", important := FALSE ]], cssom->cssrules->item(0)->style->GetAllProperties("background-color"));
+  TestEq([[ value := "#0B0B0B", important := TRUE ], [ value := "#ffffff", important := FALSE ]], cssom->cssrules->item(1)->style->GetAllProperties("background-color"));
+
+  TestEq("#ffffff", cssom->cssrules->item(0)->style->GetPropertyValue("background-color"));
+  TestEq("#0B0B0B", cssom->cssrules->item(1)->style->GetPropertyValue("background-color"));
+*/
+  CloseTest("TestMultiProps");
+}
+
+
+MACRO TestImportRules()
+{
+  OpenTest("TestImportRules");
+
+  STRING csstext := "/*A comment*/\n\n/*Another comment*/\n\n"
+  || "@import url(\"http://something.wherever.com/whatever?param=value\");\n"
+  || ".something { color: none; }\n";
+
+
+  OBJECT cssom := MakeCSSStyleSheet(StringToBlob(csstext));
+  TestEq(2, cssom->cssrules->Length);
+
+  BLOB css := OpenTestFile("starsproject.css");
+  cssom := MakeCSSStyleSheet(css);
+
+  cssom->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode", "http://localhost");
+
+  TestEq(293, cssom->cssrules->Length);
+  //TestEq("__IMPORT__", cssom->cssrules->item(1)->selectortext);
+  TestEq("@import url(\"http://fonts.googleapis.com/css?family=Open+Sans:400,600,700,800,400italic\");", cssom->cssrules->item(0)->csstext);
+
+  STRING failcss := "/*comment*/\n@import url(\"path/to/file.css\");\n/*yeey*/.yeey {display:'none';}\n.emptyselector {}\n";
+  cssom := MakeCSSStyleSheet(StringToBlob(failcss));
+  TestEq(3, cssom->cssrules->Length);
+  TestEq(".yeey", cssom->cssrules->item(1)->selectortext);
+  TestEq(".emptyselector", cssom->cssrules->item(2)->selectortext);
+
+  CloseTest("TestImportRules");
+}
+
+MACRO TestCommentHandling()
+{
+  OpenTest("TestCommentHandling");
+
+  STRING csstext := "@import url(http://fonts.googleapis.com/css?family=Dosis:600,400);\n\n"
+                    || "/* Global page, HTML5 setup, style reset */\n\n"
+                    || "html, body, p, h1, h2, h3, h4, h5, h6, form { padding:0; margin:0; }\n"
+                    || "img { border:none; }\n"
+                    || "article, aside, details, figcaption, figure, footer, header, hgroup, main, nav, section, summary { display: block; }\n"
+                    || "audio, canvas, video { display: inline-block; }\n"
+                    || "datalist, template { display:none; }\n\n"
+                    || "/*\n"
+                    || "Three layout modes:*/\n";
+
+  OBJECT cssom := MakeCSSStyleSheet(StringToBlob(csstext));
+
+  cssom->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
+
+  TestEq("@import url(\"http://fonts.googleapis.com/css?family=Dosis:600,400\");", cssom->cssrules->Item(0)->csstext);
+  TestEq(".wh-rtd-HASH .wh-rtd-editor-htmlnode, .wh-rtd-HASH .wh-rtd-editor-bodynode, .wh-rtd-HASH p, .wh-rtd-HASH h1, .wh-rtd-HASH h2, .wh-rtd-HASH h3, .wh-rtd-HASH h4, .wh-rtd-HASH h5, .wh-rtd-HASH h6, .wh-rtd-HASH form", cssom->cssrules->Item(1)->selectortext);
+  TestEq("/* Global page, HTML5 setup, style reset */ .wh-rtd-HASH .wh-rtd-editor-htmlnode, .wh-rtd-HASH .wh-rtd-editor-bodynode, .wh-rtd-HASH p, .wh-rtd-HASH h1, .wh-rtd-HASH h2, .wh-rtd-HASH h3, .wh-rtd-HASH h4, .wh-rtd-HASH h5, .wh-rtd-HASH h6, .wh-rtd-HASH form", cssom->cssrules->Item(1)->selectortextwithcomments);
+
+  CloseTest("TestCommentHandling");
+}
+
+MACRO TestIncompleteAtRule()
+{
+  OpenTest("TestIncompleteAtRule");
+
+  STRING csstext := "@media (max-width: 628px)\n"
+                     || "{\n"
+                     || " #ut_cookie_warning_bar\n"
+                     || " {\n"
+                     || "   padding: 0 0 70px 0;\n"
+                     || "   margin: 0;\n"
+                     || "   z-index: 110; /* don't show the chat-thingy, we don't have enough room */\n"
+                     || " }\n"
+                     || " #ut_cookie_warning_bar div\n"
+                     || " {\n"
+                     || "   background: url(\"../img/navsidebar/bg.png\") repeat scroll left top transparent;\n"
+                     || "   padding:10px;\n"
+                     || "   max-width: 590px;\n"
+                     || "   margin: 0 auto;\n"
+                     || " }\n"
+                     || " #ut_cookie_warning_bar .closelink\n"
+                     || " {\n"
+                     || "   display: none;\n"
+                     || " }\n"
+                     || " #ut_cookie_warning_bar .button\n"
+                     || " {\n"
+                     || "   border-radius: 6px;\n"
+                     || "   box-shadow: 0 4px 2px -2px black;\n"
+                     || "   box-sizing: border-box;\n"
+                     || "   display: inline-block;\n"
+                     || "   height: 50px;\n"
+                     || "   overflow: hidden;\n"
+                     || "   position: absolute;\n"
+                     || "   bottom: 10px;\n"
+                     || "   margin-left: -140px;\n"
+                     || "   left: 50%;\n"
+                     || " }\n";
+
+  OBJECT cssom := MakeCSSStyleSheet(StringToBlob(csstext));
+
+  cssom->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
+  STRING out := BlobToString(cssom->GetDocumentBlob(TRUE));
+  TestEq(1, cssom->cssrules->length);// Should be one rule, if there are more some really important behaviour fell over bigtime...
+  TestEq("}\n}\n", Substring(out, Length(out) - 4, 4), "The parser failed to fix an incomplete at-rule block\n" || out);
+
+  CloseTest("TestIncompleteAtRule");
+}
+
+MACRO TestInlineCSSComments()
+{
+  OpenTest("TestInlineCSSComments");
+
+  STRING css := ".myclass {/*test*/ -webkit-column-break-inside: avoid; }\n"
+             || ".myclass { -webkit-column-break-inside: avoid; }\n"
+             || ".myclass/*test*/ { -webkit-column-break-inside: avoid; }";
+
+  OBJECT cssom := MakeCSSStyleSheet(StringToBlob(css));
+  // The parser should ignore the comment but not touch anything else, making the above two declarations exactly equal:
+  TestEq(cssom->cssrules->Item(0)->csstext, cssom->cssrules->Item(1)->csstext, "The parser misinterpreted an inline comment");
+  TestEq(cssom->cssrules->Item(1)->csstext, cssom->cssrules->Item(2)->csstext, "The parser misinterpreted an inline comment");
+
+  CloseTest("TestInlineCSSComments");
+}
+
+MACRO TestCSSUnicodeHandling()
+{
+  OpenTest("TestCSSUnicodeHandling");
+
+  STRING css := ".fa-download:before { content: \"\\f019\"; }";
+
+  OBJECT cssom := MakeCSSStyleSheet(StringToBlob(css));
+  TestEq('.fa-download:before { content: "\\F019"; }', cssom->cssrules->Item(0)->csstext, "The string encoder failed to recognize an escaped Unicode sequence codepoint");
+
+  css := ".css { content:\"\\0\\1\\2\\3\\4\\5\\6\\7\\8\\9\\a\\b\\c\\d\\e\\f\\a0\\b0\\c0\\d0\\e0\\f0\\a000\\a001\\a010\\a100\\b000\\b001\\b010\\b100\\c000\\c001\\c010\\c100\\d000\\d001\\d010\\d100\\e000\\e001\\e010\\e100\\f000\\f001\\f010\\f100\\10FFFF\\10FFFFa\\10FFFF b\\f a\"; }\\n";
+  cssom := MakeCSSStyleSheet(StringToBlob(css));
+  TestEq("\"\\FFFD\\0001\\0002\\0003\\0004\\0005\\0006\\0007\\0008\\0009" ||
+           "\\000A\\000B\\000C\\000D\\000E\\000F\\00A0\\00B0\\00C0\\00D0\\00E0\\00F0" ||
+           "\\A000\\A001\\A010\\A100\\B000\\B001\\B010\\B100\\C000\\C001\\C010\\C100" ||
+           "\\D000\\D001\\D010\\D100\\E000\\E001\\E010\\E100\\F000\\F001\\F010\\F100" ||
+           "\\10FFFF\\10FFFFa\\10FFFFb\\000F a\"", cssom->cssrules->item(0)->style->GetPropertyValue("content"));
+
+  CloseTest("TestCSSUnicodeHandling");
+}
+
+MACRO TestParserErrorHandling()
+{
+  // Extra '}' between parser rules, completely messed up parsing of second at-rule
+  TestEQ(
+    "@media (max-width: 700px) { } @media handheld { .test2 { top: 0; } }",
+    BlobToString(MakeCSSStyleSheet(StringToBlob(
+      "@media (max-width: 700px) { }\n}\n@media handheld { .test2 { top: 0; }}"))->GetDocumentBlob(FALSE)));
+}
+
+MACRO TestAttributeSelectors()
+{
+  // Extra '}' between parser rules, completely messed up parsing of second at-rule
+  STRING teststr := '[attr], [attr="value"], [attr~="value"], [attr|="value"], [attr^="value"], [attr$="value"], [attr*="value"], [attr="value" i], [attr~="value" i], [attr|="value" i], [attr^="value" i], [attr$="value" i], [attr*="value" i] { display: none; }';
+  TestEQ(
+    teststr,
+    BlobToString(MakeCSSStyleSheet(StringToBlob(teststr))->GetDocumentBlob(FALSE)));
+}
+
+
+PRINT("\n === Running TestCSS\n");
+
+TestIncompleteAtRule();
+TestCommentHandling();
+TestCSSTokenizer();
+TestCSSParser();
+TestCSSRTDRewrite();
+TestMultiProps();
+TestHashes();
+TestCSSURLRewriter();
+TestCSSURLExtractor();
+TestUTCSS();
+TestLabMictaCSS();
+TestMediaQueryHandling();
+TestCSSPrettyPrint();
+TestImportRules();
+TestCommentHandling();
+TestInlineCSSComments();
+TestCSSUnicodeHandling();
+TestParserErrorHandling();
+TestAttributeSelectors();

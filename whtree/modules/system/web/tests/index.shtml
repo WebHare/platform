@@ -1,0 +1,36 @@
+﻿<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::system/lib/testfw/runtest.whlib";
+
+
+OBJECT trans := OpenPrimary();
+OBJECT testrunner := NEW RunTests;
+RECORD ARRAY tests := testrunner->GatherAllTests(DEFAULT STRING ARRAY, DEFAULT STRING ARRAY);
+
+RECORD ARRAY testsbysite;
+
+FOREVERY(RECORD testgroup FROM SELECT sitename, baseurl := ANY(baseurl), tests := GroupedValues(tests) FROM tests WHERE sitename != "" AND type = "jstest" GROUP BY sitename)
+{
+  STRING testurl := testgroup.baseurl != "" ? ResolveToAbsoluteURL(testgroup.baseurl, "/.system/jstests/?site=" || EncodeURL(testgroup.sitename) || "&mask=*") : "";
+  INSERT [ link := testurl
+         , title := "Site " || testgroup.sitename
+         ] INTO testsbysite AT END;
+}
+
+testsbysite := SELECT * FROM testsbysite ORDER BY ToUppercase(title);
+
+Print('<meta name="viewport" content="width=device-width, initial-scale=1.0">');
+Print("<ul>");
+FOREVERY(RECORD testgroup FROM testsbysite)
+{
+  Print('<li>');
+  Print('<a href="' || EncodeValue(testgroup.link) || '">');
+  Print(EncodeHTML(testgroup.title));
+  Print('</a>');
+  Print('</li>');
+}
+Print("</ul>");

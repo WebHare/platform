@@ -1,0 +1,170 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/actions.whlib";
+
+
+RECORD info := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "dryrun", type := "switch" ]
+                              , [ name := "debug", type := "switch" ]
+                              , [ name := "perfile", type := "switch" ] //commit per file
+                              , [ name := "maxrecycledays", type := "stringopt" ]
+                              , [ name := "maxrecyclesize", type := "stringopt" ]
+                              ]);
+IF(NOT RecordExists(info))
+{
+  PRINT("Syntax: wh run mod::system/scripts/tasks/cleanversions.whscr [ --dryrun ] [ --debug ] [ --perfile ] [ --maxrecycledays <int> ] [ --maxrecyclesize <int> ]\n");
+  RETURN;
+}
+
+BOOLEAN debug := info.debug;
+BOOLEAN dryrun := info.dryrun;
+BOOLEAN perfile := info.perfile;
+OBJECT trans := OpenPrimary();
+
+IF(NOT perfile)
+  trans->BeginWork();
+
+INTEGER64 FUNCTION GetSize(INTEGER startfolder) //FIXME share size calcuaation with publisher's reporting functions
+{
+  //Summarize all 'data' length
+  INTEGER64 localsize := SELECT AS INTEGER64 SUM(Length(data))
+                           FROM system.fs_objects
+                          WHERE parent=startfolder;
+
+  //Now grab any blobs in contenttypes
+  INTEGER64 ctypedatasize := SELECT AS INTEGER64 SUM(Length(fs_settings.blobdata))
+                              FROM system.fs_settings, system.fs_instances, system.fs_objects
+                             WHERE fs_objects.parent = startfolder
+                                   AND fs_instances.fs_object = fs_objects.id
+                                   AND fs_settings.fs_instance = fs_instances.id;
+
+  INTEGER64 childrensize := SELECT AS INTEGER64 SUM(GetSize(id))
+                              FROM system.fs_objects
+                             WHERE parent=startfolder
+                                   AND isfolder;
+
+  IF(debug)
+    Print(startfolder || " size " || localsize || " ctype " || ctypedatasize || " children " || childrensize ||"\n");
+  RETURN localsize + ctypedatasize + childrensize;
+}
+
+/* Get recycle bin contents. If an object exists twice, just pick one - our
+   biggest problem would be trying to delete a file twice */
+INTEGER kept_files;
+RECORD ARRAY recyclebinitems := SELECT when := ANY(when)
+                                     , fs_object
+                                     , historyid := ANY(id)
+                                     , currentname := ANY(currentname)
+                                  FROM system.fs_history
+                                 WHERE type = 0
+                              GROUP BY fs_object
+                              ORDER BY ANY(when) DESC;
+
+/* Low hanging fruit first: delete all fs_versions of type=1 and too old */
+INTEGER max_recycle_days := ReadRegistryKey("publisher.trashcan.trashcanexpire");
+IF(info.maxrecycledays != "")
+{
+  max_recycle_days := ToInteger(info.maxrecycledays,0);
+  IF(max_recycle_days = 0)
+    Print("Invalid value for --maxrecycledays\n");
+}
+
+IF(max_recycle_days != 0)
+{
+  DATETIME delete_start_at := AddDaysToDate(-max_recycle_days, GetCurrentDatetime());
+  RECORD ARRAY to_delete := SELECT *
+                              FROM recyclebinitems
+                             WHERE when < delete_start_at;
+
+  IF (Length(to_delete)>0)
+  {
+    IF(debug OR dryrun)
+      PRINT("Deleting " || Length(to_delete) || " items from the recycle bin because of age\n");
+
+    Clean(to_delete);
+  }
+  ELSE IF(debug OR dryrun)
+    Print("No items to delete because of age\n");
+}
+
+INTEGER64 max_recycle_size := INTEGER64(ReadRegistryKey("publisher.trashcan.trashcanmaxsize")) * 1024 * 1024;
+IF(info.maxrecyclesize != "")
+{
+  max_recycle_size := ToInteger(info.maxrecyclesize ,0) * 1024 * 1024;
+  IF(max_recycle_size = 0)
+    Print("Invalid value for --maxrecyclesize \n");
+}
+
+IF(max_recycle_size > 0) //a recyclebin limit size has been set too
+{
+  //Go from newest to oldest, start to panic when sizeinfo >= max_recycle_size MB
+  RECORD ARRAY todestroy;
+  INTEGER64 totalsize_sofar, totalsize_destructable;
+
+  FOREVERY(RECORD item FROM recyclebinitems)
+  {
+    INTEGER64 thissize := GetSize(item.fs_object);
+    totalsize_sofar := totalsize_sofar + thissize;
+
+    IF(totalsize_sofar > max_recycle_size)
+    {
+      INSERT item INTO todestroy AT END;
+      totalsize_destructable := totalsize_destructable  + thissize;
+    }
+  }
+
+  IF(Length(todestroy)>0)
+  {
+    IF(debug OR dryrun)
+      Print("Deleting " || Length(todestroy) || " items from the recycle bin because of size, freeing " || (totalsize_destructable/1024/1024) || "MB\n");
+    Clean(todestroy);
+  }
+  ELSE IF(debug OR dryrun)
+    Print("No item to delete because of maximum size (bin = " || (totalsize_sofar/1024/1024) || " MB)\n");
+}
+
+MACRO Clean(RECORD ARRAY tokill)
+{
+  tokill := SELECT * FROM tokill ORDER BY when;
+
+  FOREVERY (RECORD kill FROM tokill)
+  {
+    IF (perfile OR debug)
+      PRINT(`Delete file #${kill.fs_object} (history item ${kill.historyid}, deleted at ${FormatISO8601DateTime(kill.when)}, name: '${kill.currentname}')... `);
+
+    IF (perfile)
+      trans->BeginWork();
+
+    RECORD res := ExpireRecycleBinItem(kill.fs_object, kill.historyid);
+    IF (debug)
+    {
+      IF (res.success)
+        PRINT(`success, deleted ${res.deleted} items${res.kept!=0?`, kept ${res.kept}`:``}\n`);
+      ELSE
+        PRINT(`failed, code ${res.code}\n`);
+      IF (res.kept != 0)
+        PRINT(" !\n");
+    }
+    kept_files := kept_files + (res.success ? res.kept : 1);
+
+    IF (perfile)
+    {
+      IF (NOT dryrun)
+        trans->CommitWork();
+      ELSE
+        trans->RollbackWork();
+    }
+
+    DELETE FROM recyclebinitems WHERE fs_object = kill.fs_object;
+  }
+}
+
+IF(debug OR dryrun)
+  Print(Length(recyclebinitems) + kept_files || " items left in recycle bin\n");
+
+IF(NOT perfile AND NOT dryrun)
+  trans->CommitWork();

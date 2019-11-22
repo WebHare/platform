@@ -1,0 +1,13 @@
+<?wh
+LOADLIB "mod::publisher/lib/template-v2.whlib";
+
+OpenFile(1);
+Print("<title>main</title><p>this is the main page</p>");
+CloseFile();
+
+FOREVERY(STRING filename FROM ["sub1","sub2","sub3","sub4","sub5","sub6","sub7","sub8","sub9"])
+{
+  CreateFile(filename || '.html');
+  Print(`<title>${filename}</title><p>This is ${filename}</p>`);
+  CloseFile();
+}

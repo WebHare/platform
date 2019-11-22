@@ -1,0 +1,245 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         library="langedit.whlib"
+         gid="tolliumapps.langedit.langedit">
+
+  <messageboxes>
+    <messagebox name="deleteconfirmation" icon="question" buttons="yes no" />
+    <messagebox name="removehighlighted" icon="question" buttons="yes no" />
+    <messagebox name="askreload" icon="question" buttons="yes no" />
+    <messagebox name="notfound" icon="information" buttons="ok" />
+    <messagebox name="possiblecvsconflict" icon="warning" buttons="ok" />
+    <messagebox name="notalanguagefile" icon="warning" buttons="ok" />
+    <messagebox name="cannotparselanguagefile" icon="warning" buttons="ok" />
+    <messagebox name="verifyfirstlanguagefile" buttons="yes no" />
+    <messagebox name="cannoteditmodule" buttons="ok" />
+    <messagebox name="allsaved" buttons="ok" />
+  </messageboxes>
+
+  <screen name="main" allowresize="1" menubar="menubar" flags="anyhighlights hasanylanguage" onmessage="onmessage" icon="tollium:actions/translate">
+    <actions>
+      <action name="exit" onexecute="doexit" />
+
+      <action name="unreferenced" onexecute="toggleunreferenced"/>
+      <action name="untranslated" onexecute="toggleuntranslated" />
+      <action name="contextview" onexecute="togglecontextview" icon="tollium:database/view" />
+      <action name="reload" onexecute="doreload" shortcut="ctrl+r" />
+      <action name="previous" onexecute="selectprevious" icon="tollium:actions/left" />
+      <action name="next" onexecute="selectnext" icon="tollium:actions/right" />
+      <action name="search" onexecute="dosearch" />
+      <action name="selectunreferenced" onexecute="doselectunreferenced">
+        <enableon source="texts" checkflags="isgroup" min="1" max="1" />
+      </action>
+      <uploadaction name="import" onupload="doimport" />
+      <action name="movemissingfrom" onexecute="domovemissingfrom" ellipsis="true">
+        <enableon source="texts" checkflags="isgroup" min="1" max="1" />
+      </action>
+      <action name="export" onexecute="doexport" ellipsis="true">
+        <enableon source="texts" checkflags="isgroup" min="1" max="1" />
+      </action>
+      <action name="removenodes" onexecute="dodeletenodes" shortcut="del">
+        <enableon source="texts" checkflags="!isroot" min="1" />
+      </action>
+
+      <action name="removehighlighted" onexecute="dodeletehighlighted" />
+
+      <action name="openineditor" onexecute="DoOpenInEditor" tid="~openineditor">
+        <enableon source="references" min="1" />
+      </action>
+
+      <!-- Nodes -->
+      <action name="edittext">
+        <enableon source="texts" checkflags="isgroup !isroot" min="1" max="1" onexecute="doeditgroup" />
+        <enableon source="texts" checkflags="!isgroup" min="1" max="1" onexecute="doedittext" />
+      </action>
+
+      <action name="open" shortcut="ctrl+o" />
+      <action name="saveall" onexecute="dosaveall" />
+
+      <!-- Groups -->
+
+      <action name="addtext" onexecute="doaddtext" frameflags="hasanylanguage">
+        <enableon source="texts" min="1" max="1" checkflags="isgroup" />
+      </action>
+      <action name="addgroup" onexecute="doaddgroup" frameflags="hasanylanguage">
+        <enableon source="texts" min="1" max="1" checkflags="isgroup" />
+      </action>
+      <action name="addlanguagefile" onexecute="doaddlanguagefile" />
+      <action name="find" onexecute="dofind" shortcut="ctrl+f" />
+
+      <action name="collapserecursive" onexecute="docollapserecursive" />
+      <action name="expandrecursive" onexecute="doexpandrecursive" />
+    </actions>
+
+    <menus>
+      <menu name="menubar">
+        <item action="reload" />
+        <divider/>
+        <item tid="~add">
+          <item action="addtext"/>
+          <item action="addgroup"/>
+          <divider />
+          <item action="addlanguagefile"/>
+        </item>
+        <divider/>
+        <item action="import" />
+        <item action="export" />
+        <divider />
+        <item action="edittext"/>
+        <item action="removenodes"/>
+        <item action="removehighlighted"/>
+        <divider/>
+        <item name="mi_untranslated" action="untranslated" />
+        <item name="mi_unreferenced" action="unreferenced" />
+        <divider/>
+        <item action="find"/>
+        <item action="contextview"/>
+        <divider/>
+        <item action="saveall"/>
+        <divider/>
+        <item action="exit" />
+      </menu>
+      <menu name="contextmenu">
+        <item action="edittext" disablemode="hidden" />
+        <divider />
+        <item action="addtext" disablemode="hidden" />
+        <item action="addgroup" disablemode="hidden" />
+        <divider />
+        <item action="selectunreferenced" disablemode="hidden" />
+        <item action="collapserecursive" />
+        <item action="expandrecursive" />
+        <divider />
+        <item action="movemissingfrom" />
+        <divider />
+        <item action="export" />
+        <item action="removenodes" disablemode="hidden" />
+      </menu>
+      <menu name="referencecontextmenu">
+        <item action="openineditor" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener name="langfilelistener" onevents="onlangfilechanged" />
+    </compositions>
+
+    <toolbar>
+      <button action="reload" icon="tollium:actions/reload" />
+      <divider type="line" />
+      <button name="untranslated_button" action="untranslated" icon="tollium:messageboxes/question" />
+      <!--button name="unreferenced_button" action="unreferenced" /-->
+      <divider type="line" />
+      <button action="previous" />
+      <button action="next" />
+      <button icon="tollium:actions/properties" action="edittext" tid="tollium:common.actions.properties"  />
+      <divider type="line" />
+      <button name="contextview_button" action="contextview" tid=".contextview" icon="tollium:actions/view"/>
+    </toolbar>
+
+    <body>
+      <panel name="reloadwarning" backgroundcolor="#ff0000" visible="false" spacers="all">
+        <text valuetid=".reloadwarning" />
+      </panel>
+      <panel name="searchbar">
+        <line layout="left">
+          <textedit name="searchfor" width="1pr" defaultbutton="searchbtn" trimwhitespace="false" /> <!-- no trimming for regexes -->
+          <checkbox name="searchintexts" title="" labeltid=".searchintexts" value="true" />
+          <checkbox name="regex" title="" labeltid=".regex" />
+          <button action="search" name="searchbtn" />
+        </line>
+      </panel>
+      <split type="vertical" splitter="transparent">
+        <part height="3pr" >
+          <list name="texts"
+                flags="isgroup isroot"
+                selectmode="multiple"
+                icons="tollium:folders/normal tollium:files/text_plain tollium:actions/untranslated tollium:actions/unreferenced tollium:actions/trash"
+                selectcontextmenu="contextmenu"
+                oncelledit="oncelledit"
+                openaction="edittext"
+                onselect="ontextsselect">
+            <column name="title" type="text" tree="true" iconname="icon" width="40x" />
+            <column name="issues" type="icons" hintname="issueshint" width="48px"/>
+            <column name="occurrences" type="text" width="5x" align="right" />
+            <style name="highlight" textcolor="#FF0000" bold="true" />
+          </list>
+        </part>
+        <part height="1pr" name="contextviewpanel">
+          <split type="horizontal">
+            <part width="1pr">
+              <textedit name="currenttid" width="1pr" enabled="false" />
+              <list name="references"
+                    selectmode="single"
+                    selectcontextmenu="referencecontextmenu"
+                    onselect="GotReferenceSelect"
+                    columnheaders="false"
+                    borders="top left bottom"
+                    rowkeytype="string">
+                <column name="title" type="text" />
+              </list>
+            </part>
+            <part width="3pr">
+              <codeedit name="code" height="1pr" width="1pr" enabled="false" />
+            </part>
+          </split>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="langtext" savestate="position size" allowresize="true">
+    <actions>
+      <action name="act_submit" onexecute="submit" shortcut="ctrl+enter" tid="tollium:common.actions.ok" />
+      <action name="act_cancel" onexecute="cancel" tid="tollium:common.actions.cancel" />
+      <action name="next" onexecute="donext" shortcut="alt+n" />
+      <action name="previous" onexecute="doprevious" shortcut="alt+p" />
+    </actions>
+
+    <body name="body">
+      <line>
+        <text name="gid" selectable="true" />
+        <textedit name="tid" width="1pr" required="true" title=""/>
+      </line>
+    </body>
+    <footer>
+      <line layout="right">
+        <button action="previous"/>
+        <button action="next"/>
+        <button action="act_submit" isdefault="true" />
+        <button action="act_cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="textgroup">
+    <body width="1pr" height="1pr">
+      <textedit name="elementname" required="true" />
+      <heading name="keepifempty" checkbox="true" enablecomponents="keepemptyreason" />
+      <textarea name="keepemptyreason" required="true"/>
+      <select name="limitlanguages" type="checkbox" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="languagefile">
+    <body>
+      <textedit name="langcode" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="movemissingfrom">
+    <body>
+      <text name="targetgroup" />
+      <textedit name="movefrom" required="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

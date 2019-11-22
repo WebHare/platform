@@ -1,0 +1,9 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+PUBLIC RECORD FUNCTION RPC_ReportJavascriptError(RECORD details)
+{
+  LogError("designfiles", "javascript-error", details);
+  RETURN [ success := TRUE ];
+}

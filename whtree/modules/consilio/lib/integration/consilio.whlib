@@ -1,0 +1,34 @@
+<?wh
+/** @short Consilio integration
+    @long The consilio integration library allows you to easily integrate a Consilio search page into your website
+    @private New code shouldn't use this - we should offer a Searchpage file type */
+
+LOADLIB "mod::consilio/lib/searchpage.whlib";
+LOADLIB "wh::witty.whlib";
+
+/**
+@short Integrates the Consilio search page in the website
+@long  This macro allows you to simly integrate the consilio search page into your website.
+@param catalog The name of the catalog that should be searched
+@param buttonpath The path to the picture buttons that you want to use in the search page. Default is an empty string and
+       text buttons will be used.
+@param language The language of the search page. There are standard text labels available for English (en), Dutch (nl),
+       and German (de).
+@param wittypath The path to the WITTY file that contains the layout of the search page. Default is an empty string and will
+       result in the standard Consilio WITTY file being used.
+@param tag An optional tag to group search queries by in the searched words report. Defaults to "".
+*/
+PUBLIC MACRO ConsilioSearchPage(STRING catalog, STRING catalogpwd/*deprecated*/, STRING buttonpath, STRING language, STRING wittypath, STRING tag DEFAULTSTO "")
+{
+  OBJECT ourwitty := LoadWittyLibrary(wittypath, "HTML");
+
+  RECORD consilio := __OpenConsilio(catalog, catalogpwd, language);
+  consilio.tag := tag;
+  RECORD consiliostate := __GetConsilioState(consilio);
+  INSERT CELL buttonpath := buttonpath INTO consiliostate;
+
+  IF (consiliostate.errormessage!="")
+    Print(EncodeHTML(consiliostate.lang.unavailable) || "<br />\n<!-- Consilio error '" || EncodeHTML(consiliostate.errormessage) || "' -->\n");
+  ELSE
+    ourwitty->Run(consiliostate);
+}

@@ -1,0 +1,11 @@
+NAME;EMAIL;DESCRIPTION;GENDER;C1
+Arnold;a.hendriks@example.net;"De eerste subscriber";"M";"C1";"A1"
+"Jaapje";j.tests@example.net;"Deze subscriber is
+moeilijk op een regel
+tekst te beschrijven";"mannetje";"C2 ";"A2"
+"Pietje";"p.precies@example.net";"De derde subscriber";"F";"";"A2"
+"Pukje";"p.precies@example.net";"De dubbele subscriber";"F";"";"A1"
+"CeeTwee";"c2@example.net";"Deze heeft ook C2";"";"C2";"A1"
+"Geenmail";"";Ik heb geen mail adres
+"Mindervalide";"a+b.net";"Ik heb een fout email adres"
+"Geenmail2";"";Ik heb ook geen mail adres

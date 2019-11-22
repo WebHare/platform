@@ -1,0 +1,1733 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+
+BOOLEAN FUNCTION SameSelection(OBJECT ARRAY lhs, OBJECT ARRAY rhs)
+{
+  IF(Length(lhs)!=Length(rhs))
+    RETURN FALSE;
+  FOREVERY(OBJECT lh FROM lhs)
+    IF(lh NOT IN rhs)
+      RETURN FALSE;
+  RETURN TRUE;
+}
+
+
+/////////////////////////////////////////////////////////////////////
+// The table
+
+PUBLIC OBJECTTYPE TolliumTable EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  // Row information and the actual cells
+  RECORD ARRAY tablerows;
+  RECORD ARRAY hor_borders;
+
+  RECORD ARRAY vert_borders;
+
+  // <div> overlays over the table (e.g. calendar events)
+  // STRING id                                // Overlay identifier
+  // [ INTEGER row, INTEGER col ] startcell   // First cell (top left corner, inclusive)
+  // [ INTEGER row, INTEGER col ] endcell     // Last cell (bottom right corner, inclusive)
+  // STRING contents                          // HTML contents of the overlay
+  // BOOLEAN movable                          // Overlay can be moved
+  // BOOLEAN resizable                        // Overlay can be resized
+  // RECORD flags                             // Flags
+  // INTEGER sharednum                        // (Internal) Number of overlays sharing the column/row
+  // INTEGER sharedpos                        // (Internal) Position of the overlay within the column/row
+  OBJECT ARRAY overlays;
+
+  /// restrict overlays to columns (1), rows (2) or don't restrict (0). (FIXME: only columns (1) is supported at the moment?)
+  INTEGER restrict_overlays;
+  /// position overlays in the same cell next to each other ("horizontal") or below each other ("vertical") (FIXME: only horizontal is fully supported at the moment)
+  STRING orientation_overlays;
+  BOOLEAN overlap_overlays;
+
+  /// Accept drops spec
+  RECORD pvt_acceptdrops;
+
+  STRING ARRAY pvt_flags;
+
+  BOOLEAN linear_horizontal;
+
+  // Column information STRING width, STRING minwidth */
+  RECORD ARRAY tablecols;
+
+  /* STRING height, STRING minheight, RECORD ARRAY cells { BOOLEAN overlapped, INTEGER colspan, INTEGER rowspan, OBJECT panel, STRING contents, STRING background, RECORD flags, BOOLEAN selectable, INTEGER row, INTEGER col } */
+  RECORD ARRAY rowgroups;
+
+  /// Selectmode ('none', 'single', 'multiple')
+  STRING pvt_selectmode;
+
+  /// Current selection
+  OBJECT ARRAY pvt_selection;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC PROPERTY overlay_restriction(restrict_overlays, SetOverlayRestriction);
+  PUBLIC PROPERTY overlay_orientation(orientation_overlays, SetOverlayOrientation);
+  PUBLIC PROPERTY overlay_overlap(overlap_overlays, SetOverlayOverlap);
+
+  PUBLIC PROPERTY rowgroupsizes(GetRowCounts, -);
+
+  PUBLIC BOOLEAN defaultborder;
+
+  /// Current selection mode ('none', 'single', 'multiple')
+  PUBLIC PROPERTY selectmode(pvt_selectmode, SetSelectMode);
+
+  /// Current selected cells/overlays
+  PUBLIC PROPERTY selection(GetSelection, SetSelection);
+
+  PUBLIC FUNCTION PTR onselect;
+  PUBLIC FUNCTION PTR onoverlayresize;
+  PUBLIC OBJECT action;
+  PUBLIC OBJECT openaction;
+  PUBLIC OBJECT contextclickaction;
+  PUBLIC PROPERTY acceptdrops(pvt_acceptdrops, SetAcceptDrops);
+
+  PUBLIC PROPERTY flags(pvt_flags, SetFlags);
+  PUBLIC OBJECT cellcontextmenu;
+  PUBLIC OBJECT overlaycontextmenu;
+
+  PUBLIC PROPERTY colgroupsizes(GetColCounts, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumFileDropAccepter;
+
+    this->pvt_blockelement := TRUE;
+    this->componenttype := "table";
+    this->formfieldtype := "string";
+
+    this->selectmode := "none";
+
+    this->orientation_overlays := 'vertical';
+    this->overlap_overlays := TRUE;
+
+    //Ensure that we at least have simple borders... (otherwise we fail if a dynamic table is transmited too soon)
+    this->SetupTable(DEFAULT INTEGER ARRAY,[0]);
+
+//    this->dirtyflags.overlayorientation := FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium stuff
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    //ADDME: Verify/force specified layout. don't want implementation layers to have to deal with inconsistent information
+    TolliumComponentBase::StaticInit(def);
+    this->defaultborder := def.defaultborder;
+    this->pvt_flags := def.flags;
+    this->selectmode := def.selectmode;
+    this->cellcontextmenu := def.cellcontextmenu;
+    this->overlaycontextmenu := def.overlaycontextmenu;
+
+    this->action := def.action;
+    this->openaction := def.openaction;
+    this->contextclickaction := def.contextclickaction;
+    this->onselect := def.onselect;
+    this->onoverlayresize := def.onoverlayresize;
+    this->pvt_acceptdrops := def.acceptdrops;
+
+    INTEGER ARRAY cols;
+    FOREVERY (STRING c FROM Tokenize(def.cols, " "))
+      INSERT ToInteger(c, 0) INTO cols AT END;
+
+    INTEGER ARRAY rows := DEFAULT INTEGER ARRAY;
+    FOREVERY (STRING c FROM Tokenize(def.rows, " "))
+      INSERT ToInteger(c, 0) INTO rows AT END;
+
+    this->SetupTable(rows, cols);
+
+    FOR (INTEGER i := 0; i < Length(this->tablecols); i := i + 1)
+    {
+      this->SetColWidth(i, def.colwidth);
+      this->SetColMinWidth(i, def.colminwidth);
+    }
+    FOR (INTEGER i := 0; i < Length(this->tablerows); i := i + 1)
+    {
+      this->SetRowHeight(i, def.rowheight);
+      this->SetRowMinHeight(i, def.rowminheight);
+    }
+    this->InitializeBorders();
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    RECORD ARRAY cells_flags;
+    FOREVERY (OBJECT tablecell FROM this->pvt_selection)
+      INSERT tablecell->flags INTO cells_flags AT END;
+
+    IF (CheckEnabledFlags(cells_flags, this->pvt_flags, flags, min, max, selectionmatch))
+      RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    OBJECT ARRAY children;
+
+    FOREVERY(RECORD row FROM this->tablerows)
+      FOREVERY(OBJECT cellrec FROM row.cells)
+        children := children CONCAT cellrec->GetChildComponents();
+
+    FOREVERY(OBJECT overlay FROM this->overlays)
+      children := children CONCAT overlay->GetChildComponents();
+
+    IF(ObjectExists(this->cellcontextmenu) AND this->cellcontextmenu->visible)
+      INSERT this->cellcontextmenu INTO children AT END;
+    IF(ObjectExists(this->overlaycontextmenu) AND this->overlaycontextmenu->visible)
+      INSERT this->overlaycontextmenu INTO children AT END;
+
+    RETURN children;
+  }
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
+  {
+    FOREVERY(RECORD row FROM this->tablerows)
+      FOREVERY(OBJECT cellrec FROM row.cells)
+        IF(cellrec->pvt_panel = oldcomponent)
+          cellrec->pvt_panel := DEFAULT OBJECT;
+  }
+
+  UPDATE PUBLIC MACRO DeleteComponent()
+  {
+    //we must also destroy the table cell subpanels (who else would?)
+    FOREVERY(RECORD row FROM this->tablerows)
+      FOREVERY(OBJECT cellobj FROM row.cells)
+       cellobj->DeleteComponent();
+
+    TolliumComponentBase::DeleteComponent();
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ cells := DEFAULT RECORD ARRAY // [ row := ..., col := ... ]
+        , overlays := DEFAULT STRING ARRAY // overlay ids
+        , scrollrowgroups := FALSE // There are rowgroups to scroll
+        , overlayorientation := FALSE
+        , overlayoverlap     := FALSE
+        , selection := FALSE
+        , layout := FALSE // Row size, column size, visible border
+        ];
+  }
+
+  RECORD ARRAY FUNCTION GetRenderOverlays(OBJECT ARRAY overlays)
+  {
+    // Select overlays to add (ADDME extend the overlay/tablecells to get access o their private members?)
+    RECORD ARRAY render_overlays;
+    FOREVERY(OBJECT overlay FROM overlays)
+    {
+      INSERT overlay->GetTolliumData() INTO render_overlays AT END;
+    }
+
+    STRING ARRAY overlayids;
+    FOREVERY(OBJECT overlay FROM this->overlays)
+      INSERT overlay->id INTO overlayids AT END;
+
+
+//if(length(render_overlays)>0)abort(anytostring(render_overlays,'tree'));
+//if(length(render_overlays)>0)print("GetRenderOverlays: "||render_overlays[0].startrow||":"||render_overlays[0].startcol||" - "||render_overlays[0].endrow||":"||render_overlays[0].endcol||"\n");
+
+    // Add overlays to delete
+    FOREVERY (STRING todelete FROM this->dirtyflags.overlays)
+      IF (todelete NOT IN overlayids)
+        INSERT [ id := todelete
+               , action := "delete"
+               ] INTO render_overlays AT END;
+
+    RETURN render_overlays;
+  }
+
+  RECORD ARRAY FUNCTION GetRenderCells(OBJECT ARRAY cells)
+  {
+    RECORD ARRAY render_cells;
+    FOREVERY(OBJECT cellobj FROM cells)
+      INSERT cellobj->GetTolliumData() INTO render_cells AT END;
+
+    RETURN render_cells;
+  }
+
+  RECORD ARRAY FUNCTION GetSelectionColRows()
+  {
+    RECORD ARRAY res;
+    FOREVERY (OBJECT obj FROM this->pvt_selection)
+    {
+      IF (obj EXTENDSFROM TableCell)
+        INSERT [ type := 'cell', col := obj->col, row := obj->row ] INTO res AT END;
+      ELSE IF (obj EXTENDSFROM TableOverlay)
+        INSERT [ type := 'overlay', id := obj->id ] INTO res AT END;
+      ELSE
+        THROW NEW TolliumException(this, "Can only select tablecells or tableoverlays");
+    }
+    RETURN res;
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD compinfo := [ unmasked_events := GetUnmask(this,["select"])
+                         , cellcontextmenu    := GetComponentName(this->cellcontextmenu)
+                         , overlaycontextmenu := GetComponentName(this->overlaycontextmenu)
+                         , cols := (SELECT width
+                                         , minwidth
+                                         , bottomborder := this->hor_borders[Length(this->tablerows)].borders[#tablecols]
+                                      FROM this->tablecols)
+                         , rowgroups := DEFAULT RECORD ARRAY
+                         , overlays := this->GetRenderOverlays(this->overlays)
+                         , acceptdrops := this->Web_PrintAcceptDrops(this->pvt_acceptdrops)
+                         , selectmode := this->pvt_selectmode
+                         , openaction := GetComponentName(this->openaction)
+                         , selection := this->GetSelectionColRows()
+                         , overlayrestriction := this->restrict_overlays
+                         , overlayorientation := this->orientation_overlays
+                         , overlayoverlap     := this->overlap_overlays
+                         ];
+
+      INTEGER firstrow;
+      FOREVERY (INTEGER numrows FROM this->GetRowCounts())
+      {
+        //FIXME Doesn't cells already come in the output structure (eg, overlapped info can be sent, no incells/cells conversion necessary in toddJS) ?
+
+        INTEGER nextfirstrow := firstrow + numrows;
+        INSERT [ scrollable := this->GetRowGroupScrollable(#numrows)
+               , scrollrow := this->rowgroups[#numrows].scrollrow
+               , minheight := this->GetRowGroupMinHeight(#numrows)
+               , height := this->GetRowGroupHeight(#numrows)
+               , rows := (SELECT minheight
+                               , height
+                               , cells := this->GetRenderCells(cells)
+                               , rightborder := this->vert_borders[#tablerows].borders[Length(cells)]
+                            FROM this->tablerows
+                           WHERE #tablerows >= firstrow
+                                 AND #tablerows < nextfirstrow)
+               ] INTO compinfo.rowgroups AT END;
+        firstrow := nextfirstrow;
+      }
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.selection)
+      {
+        this->ToddUpdate([ type := "selection", selectmode := this->pvt_selectmode, selection := this->GetSelectionColRows() ]);
+      }
+
+      IF (Length(this->dirtyflags.overlays) > 0)
+      {
+        OBJECT ARRAY updateoverlays;
+        FOREVERY(OBJECT overlay FROM this->overlays)
+          IF(overlay->id IN this->dirtyflags.overlays)
+            INSERT overlay INTO updateoverlays AT END;
+
+        this->ToddUpdate([ type := "overlays", overlays := this->GetRenderOverlays(updateoverlays) ]);
+      }
+
+      IF (this->dirtyflags.overlayorientation)
+      {
+        this->ToddUpdate([ type := "overlayorientation", orientation := this->overlayorientation ]);
+      }
+
+      IF (this->dirtyflags.overlayoverlap)
+      {
+        this->ToddUpdate([ type := "overlayoverlap",     overlap := this->overlayoverlap ]);
+      }
+
+      /*IF (Length(this->dirtyflags.cells) > 0)
+        this->ToddUpdate([ type := "cells", ... ]);
+      */
+
+      IF (this->dirtyflags.scrollrowgroups)
+      {
+        this->ToddUpdate([ type := "scrollrowgroups", scrollrowgroups := (SELECT rowgroup := #rowgroups
+                                                                               , row := scrollrow
+                                                                            FROM this->rowgroups
+                                                                           WHERE scrollable) ]);
+      }
+
+      IF (this->dirtyflags.layout)
+      {
+        RECORD compupdate := [ type := "layout"
+                             , cols := (SELECT width
+                                             , minwidth
+                                             , bottomborder := this->hor_borders[Length(this->tablerows)].borders[#tablecols]
+                                          FROM this->tablecols)
+                             , rowgroups := DEFAULT RECORD ARRAY
+                             ];
+        INTEGER firstrow;
+        FOREVERY (INTEGER numrows FROM this->GetRowCounts())
+        {
+          INTEGER nextfirstrow := firstrow + numrows;
+          INSERT [ minheight := this->GetRowGroupMinHeight(#numrows)
+                 , height := this->GetRowGroupHeight(#numrows)
+                 , rows := (SELECT minheight
+                                 , height
+                                 , rightborder := this->vert_borders[#tablerows].borders[Length(cells)]
+                              FROM this->tablerows
+                             WHERE #tablerows >= firstrow
+                                   AND #tablerows < nextfirstrow)
+                 ] INTO compupdate.rowgroups AT END;
+          firstrow := nextfirstrow;
+        }
+
+        this->ToddUpdate(compupdate);
+      }
+    }
+
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(STRING inp)
+  {
+    OBJECT ARRAY newselection;
+    IF (inp != '')
+    {
+      STRING ARRAY positions := Tokenize(inp, ' ');
+      FOREVERY (STRING position FROM positions)
+      {
+        IF (position = "-")
+          CONTINUE;
+
+        INTEGER pos := SearchSubstring(position, ':');
+        IF (pos < 0)
+          CONTINUE;
+
+        STRING type := Substring(position, 0, pos);
+        position := Substring(position, pos+1);
+        SWITCH (type)
+        {
+          CASE 'cell'
+          {
+            STRING ARRAY coordinates := Tokenize(position, ':');
+            IF (LENGTH(coordinates) != 2)
+            {
+              Print("BAD RESPONSE! cell '" || position || "'\n");
+              CONTINUE;
+            }
+            INTEGER row := ToInteger(coordinates[0], 0)
+                  , col := ToInteger(coordinates[1], 0);
+            IF (row >= Length(this->tablerows) OR col >= Length(this->tablerows[row].cells))
+            {
+              Print("BAD RESPONSE! Non-existing cell '" || position || "'\n");
+              CONTINUE;
+            }
+
+            INSERT this->tablerows[row].cells[col] INTO newselection AT END;
+          }
+          CASE 'overlay'
+          {
+            OBJECT overlay;
+            FOREVERY(OBJECT ovr FROM this->overlays)
+              IF(ovr->id = position)
+                overlay:=ovr;
+
+            IF (NOT ObjectExists(overlay))
+            {
+              Print("BAD RESPONSE! Non-existing overlay '" || position || "'\n");
+              CONTINUE;
+            }
+
+            INSERT overlay INTO newselection AT END;
+          }
+          DEFAULT
+          {
+            THROW NEW TolliumException(this, 'Unknown type ' ||type);
+          }
+        }
+      }
+    }
+
+    IF(NOT SameSelection(this->pvt_selection,newselection))
+    {
+      this->pvt_selection := newselection;
+      this->owner->tolliumscreenmanager->QueueEvent(this, "select", DEFAULT RECORD);
+    }
+  }
+
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetDraggedItems(RECORD ARRAY rawitems)
+  {
+    RECORD ARRAY result;
+    FOREVERY (RECORD rawitem FROM rawitems)
+    {
+      OBJECT overlay := this->GetOverlay(rawitem.id);
+      IF (CellExists(overlay->draginfo, "TYPE") AND overlay->draginfo.type != "")
+      {
+        INSERT
+            [ id := overlay->id //??
+            , rowkey := overlay->id //??
+            , pvt_rowkey := overlay->id //??
+
+            , type := overlay->draginfo.type
+            , data := overlay->draginfo.data
+            ] INTO result AT END;
+      }
+    }
+    RETURN result;
+  }
+
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH(type)
+    {
+      CASE "acceptdrop"
+      {
+        // msgdata:
+        // STRING source ("local", "external")
+        // STRING sourcecomp (name)
+        // RECORD ARRAY items
+        //   STRING type (item draginfo)
+        //   STRING data (item draginfo)
+        // STRING droplocation ("oncell")
+        // STRING dropeffect ("move", "copy", "link")
+        // STRING target (only when droplocation = "oncell": "<row>:<col>")
+
+        msgdata := this->ProcessUpload(msgdata);
+        RECORD droptarget;
+        IF (CellExists(msgdata, "target"))
+        {
+          IF (msgdata.droplocation = "oncell")
+          {
+            STRING ARRAY parts := Tokenize(msgdata.target, ":");
+            OBJECT dropcell := this->GetCell(ToInteger(parts[0], -1), ToInteger(parts[1], -1));
+            IF (ObjectExists(dropcell))
+            {
+              droptarget := [ row :=      dropcell->row
+                            , col :=      dropcell->col
+                            , dropcell := dropcell
+                            ];
+              droptarget := MakeMergedRecord(droptarget, dropcell->flags);
+            }
+          }
+        }
+
+        RECORD dropdata := this->VerifyDrop(this->pvt_acceptdrops, msgdata, droptarget, this->pvt_flags);
+        IF (RecordExists(dropdata) AND this->pvt_acceptdrops.ondrop != DEFAULT FUNCTION PTR)
+          this->pvt_acceptdrops.ondrop([ items := dropdata.items ], droptarget, msgdata.droplocation, msgdata.dropeffect);
+      }
+      CASE "resizeoverlay"
+      {
+        // msgdata:
+        // STRING overlay (id)
+        // STRING target ("<row>:<col>")
+        // STRING direction ("[n][e][s][w]")
+        OBJECT overlay := this->GetOverlay(msgdata.overlay);
+        STRING ARRAY parts := Tokenize(msgdata.target, ":");
+        OBJECT dropcell := this->GetCell(ToInteger(parts[0], -1), ToInteger(parts[1], -1));
+        IF (this->onoverlayresize != DEFAULT FUNCTION PTR AND ObjectExists(overlay) AND ObjectExists(dropcell))
+        {
+          this->onoverlayresize(overlay, [ row := dropcell->row, col := dropcell->col ], msgdata.direction);
+        }
+      }
+      CASE "magicaction"
+      {
+        IF (NOT this->contexts->user->hasRight("system:sysop") AND GetDTAPStage() != "development")
+          RETURN;
+
+        SWITCH (msgdata.type)
+        {
+          CASE "inspectoverlay"
+          {
+            OBJECT overlayobj := this->GetOverlay(msgdata.id);
+            Reflect(CELL[ overlayobj->backgroundcolor
+                        , overlayobj->flags
+                        , overlayobj->selectable
+                        , overlayobj->enabled
+                        , overlayobj->userdata
+                        , overlayobj->idx
+                        , overlayobj->rowgroup
+                        , overlayobj->startcell
+                        , overlayobj->endcell
+                        , overlayobj->hint
+                        , overlayobj->movable
+                        , overlayobj->resizable
+                        , overlayobj->id
+                        , overlayobj->draginfo
+                        ]);
+          }
+          CASE "inspectcell"
+          {
+            OBJECT cellobj := this->GetCell(msgdata.row, msgdata.col);
+            Reflect(CELL[ cellobj->backgroundcolor
+                        , cellobj->flags
+                        , cellobj->selectable
+                        , cellobj->enabled
+                        , cellobj->userdata
+                        , cellobj->colspan
+                        , cellobj->rowspan
+                        , cellobj->row
+                        , cellobj->col
+                        , cellobj->interactionenabled
+                        , cellobj->overlapped
+                        , cellobj->valign
+                        , cellobj->draginfo
+                        ]);
+          }
+          DEFAULT
+          {
+            THROW NEW Exception(`No such table magicaction ${msgdata.type}`);
+          }
+        }
+      }
+
+      DEFAULT
+      {
+        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetSelectMode(STRING newselectmode)
+  {
+    this->pvt_selectmode := newselectmode;
+    IF (newselectmode != "multiple")
+      this->pvt_selection := ArraySlice(this->pvt_selection, 0, newselectmode = "single" ? 1 : 0);
+    this->ExtUpdatedSelection();
+  }
+
+  MACRO SetAcceptDrops(RECORD newacceptdrops)
+  {
+    this->pvt_acceptdrops := FixAcceptDrops(newacceptdrops);
+    this->ExtDropTargetUpdate();
+  }
+
+  INTEGER ARRAY FUNCTION GetColCounts()
+  {
+    RETURN [ Length(this->tablecols) ];
+  }
+
+  INTEGER ARRAY FUNCTION GetRowCounts()
+  {
+    RETURN SELECT AS INTEGER ARRAY rows FROM this->rowgroups;
+  }
+
+  MACRO SetOverlayRestriction(INTEGER restriction)
+  {
+    IF (restriction IN [0,1,2])
+    {
+      this->restrict_overlays := restriction;
+      this->CalculateSharedOverlays();
+    }
+  }
+
+  MACRO SetOverlayOrientation(STRING orientation)
+  {
+    IF (orientation IN ['horizontal','vertical'] AND orientation != this->orientation_overlays)
+    {
+      this->orientation_overlays := orientation;
+      this->ExtUpdatedOrientation();
+    }
+  }
+
+  MACRO SetOverlayOverlap(BOOLEAN overlap)
+  {
+    this->overlap_overlays := overlap;
+    this->ExtUpdatedOverlap();
+  }
+
+  VARIANT FUNCTION GetSelection()
+  {
+    IF(this->selectmode="single")
+      RETURN Length(this->pvt_selection)>0?this->pvt_selection[0]:DEFAULT OBJECT;
+    ELSE IF(this->selectmode="multiple")
+      RETURN this->pvt_selection;
+    ELSE
+      THROW NEW TolliumException(this, "Cannot get the selection of a table if selectmode is 'none'");
+  }
+
+  MACRO SetFlags(STRING ARRAY newflags)
+  {
+    //If it's the same flag list, ignore
+    IF(Length(newflags)=Length(this->pvt_flags))
+    {
+      BOOLEAN anychange := FALSE;
+      FOREVERY(STRING flag FROM newflags)
+        IF(flag != this->pvt_flags[#flag])
+        {
+          anychange := TRUE;
+          BREAK;
+       }
+      IF(NOT anychange)
+        RETURN;
+    }
+
+    //The flags changed
+    IF(Length(this->rowgroupsizes)!=0 AND this->rowgroupsizes[0]!=0)
+      THROW NEW TolliumException(this, "Cannot change the valid set of flags if rows are still active");
+    this->pvt_flags := newflags;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // Calculate sharednum and sharedpos for each overlay
+  MACRO CalculateSharedOverlays()
+  {
+    /* This algorithm works as follows:
+       The overlays in a column or are sorted by starting cell, then by size
+       (reverse ending cell order). We walk through the overlays from top to
+       bottom or left to right. At the start of each overlay we examine which
+       overlays are still 'active', so we can determine the number of active
+       overlays, i.e. the number of overlays sharing the column or row at that
+       point. The position of the overlay is assigned from left to right or top
+       to bottom, taking the first free position.
+    */
+    SWITCH (this->restrict_overlays)
+    {
+      CASE 1 // Columns (e.g. calendar events)
+      {
+        RECORD ARRAY old;
+        FOREVERY(OBJECT ovr FROM this->overlays)
+          INSERT [ id := ovr->id, sharednum := ovr->sharednum, sharedpos := ovr->sharedpos ] INTO old AT END;
+
+        FOR (INTEGER col := 0; col < Length(this->tablecols); col := col + 1)
+        {
+          // Get all overlays in this column
+          RECORD ARRAY overlays;
+          FOREVERY(OBJECT ovr FROM this->overlays)
+            IF(ovr->startcell.col = col)
+              INSERT [ id := ovr->id, idx := #ovr, startcell := ovr->startcell, endcell := ovr->endcell ] INTO overlays AT END;
+
+          overlays := SELECT * FROM overlays
+                                 ORDER BY startcell.row
+                                        , endcell.row DESC
+                                        , id;
+
+          INTEGER ARRAY curidxs; // The active overlays, sorted by position
+          FOREVERY (RECORD overlay FROM overlays)
+          {
+            INTEGER i := 0;
+            WHILE (i < Length(curidxs))
+            {
+              // If the overlay is no longer active, remove it from the list
+              IF (this->overlays[curidxs[i]]->endcell.row < this->overlays[overlay.idx]->startcell.row)
+                DELETE FROM curidxs AT i;
+              ELSE
+                i := i + 1;
+            }
+
+            // Walk through the list of active overlays
+            INTEGER len := Length(curidxs);
+            i := -1; // The position of the new overlay (-1 means no position found yet)
+            FOREVERY (INTEGER curidx FROM curidxs)
+            {
+              // Update the shared count for the overlay (take len+1 because the
+              // new overlay should be taken into account while it is not yet
+              // inserted in the list)
+              INTEGER s := this->overlays[curidx]->sharednum;
+              this->overlays[curidx]->sharednum := len+1 > s ? len+1 : s;
+
+              // If the position of this overlay is greater than its index in the
+              // list, we found a free position
+              IF (i < 0 AND this->overlays[curidx]->sharedpos > #curidx)
+                i := #curidx;
+            }
+            // If no position is found, the position is the end of the list
+            IF (i < 0)
+              i := len;
+
+            // Set the position and shared count
+            this->overlays[overlay.idx]->sharedpos := i;
+            this->overlays[overlay.idx]->sharednum := len+1;
+
+            // Insert the overlay into the list of active overlays
+            INSERT overlay.idx INTO curidxs AT i;
+          }
+        }
+
+        FOREVERY(OBJECT overlay FROM this->overlays)
+          IF(old[#overlay].sharednum != overlay->sharednum
+             OR old[#overlay].sharedpos != overlay->sharedpos)
+          {
+            this->ExtUpdatedOverlay(overlay->id);
+          }
+      }
+      CASE 2 // Rows (e.g. project planning)
+      {
+      }
+    }
+  }
+
+  MACRO InitializeBorders()
+  {
+    DELETE FROM this->hor_borders;
+    DELETE FROM this->vert_borders;
+
+    // Initialize horizontal borders
+    FOR (INTEGER i := 0; i <= Length(this->tablerows); i := i + 1)
+    {
+      BOOLEAN ARRAY borders;
+      FOR (INTEGER j := 0; j < Length(this->tablecols); j := j + 1)
+        INSERT this->defaultborder INTO borders AT END;
+      INSERT [ borders := borders ] INTO this->hor_borders AT END;
+    }
+
+    // Initialize vertical borders
+    FOR (INTEGER i := 0; i < Length(this->tablerows); i := i + 1)
+    {
+      BOOLEAN ARRAY borders;
+      FOR (INTEGER j := 0; j <= Length(this->tablecols); j := j + 1)
+        INSERT this->defaultborder INTO borders AT END;
+      INSERT [ borders := borders ] INTO this->vert_borders AT END;
+    }
+  }
+
+  RECORD FUNCTION MakeFlagsRecord()
+  {
+    RECORD flags;
+    FOREVERY (STRING flag FROM this->pvt_flags)
+      flags := CellInsert(flags, flag, FALSE);
+    RETURN flags;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedCell(INTEGER row, INTEGER col)
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    INSERT [ row := row, col := col ] INTO this->dirtyflags.cells AT END;
+    */
+  }
+
+  MACRO ExtUpdatedOverlay(STRING id)
+  {
+    this->ExtUpdatedComponent();/*disabled
+    // The overlay with the given id should be updated. If no overlay with this
+    // id exists, it will be deleted
+    this->EnsureFilledDirtyFlags();
+    INSERT id INTO this->dirtyflags.overlays AT END;
+    */
+  }
+
+  MACRO ExtUpdatedOrientation()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.overlayorientation := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedOverlap()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.overlayoverlap := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedScrollRowgroup()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.scrollrowgroups := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedSelection()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.selection := TRUE;
+    */
+  }
+
+  /** Called when the droptarget has been changes */
+  // FIXME: implement updating without marking the component fully dirty
+  MACRO ExtDropTargetUpdate()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.fully := TRUE;
+    */
+  }
+
+  // Called after row size, column size, visible border change
+  MACRO ExtLayoutUpdate()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.layout := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Configure a table
+    @long Sets up a table with the specified rowgroups and colgroups. Initially, all rows/columns will have "1pr" as height/width.
+          If only one rowgroup/column group is created, that one too will have a "1pr" width/height. */
+  PUBLIC MACRO SetupTable(INTEGER ARRAY rowgroups, INTEGER ARRAY colgroups)
+  {
+    //ADDME: Deassociate/destroy existing panels and cels?
+    DELETE FROM this->tablecols;
+    DELETE FROM this->tablerows;
+    DELETE FROM this->rowgroups;
+
+    INTEGER newcount := Length(colgroups) > 0 ? colgroups[0] : 0;//ADDME: Support for multiple column groups?
+    FOR (INTEGER col := 0; col < newcount; col := col + 1)
+    {
+      // Add column
+      INSERT [ width := Length(colgroups)=1 ? "1pr" : ""
+             , minwidth := ""
+             ] INTO this->tablecols AT END;
+    }
+    INTEGER row := 0;
+    FOREVERY (INTEGER count FROM rowgroups)
+    {
+      INSERT [ rows := count
+             , height := Length(rowgroups)=1 ? "1pr" : ""
+             , minheight := ""
+             , scrollable := FALSE
+             , scrollrow := 0
+             ] INTO this->rowgroups AT END;
+
+      count := row+count;
+      FOR (; row < count; row := row + 1)
+      {
+        // Add row
+        INSERT [ height := "1pr"
+               , minheight := ""
+               , cells := DEFAULT OBJECT ARRAY
+               ] INTO this->tablerows AT END;
+
+        // Add existing columns to row
+        FOR (INTEGER col := 0; col < Length(this->tablecols); col := col + 1)
+        {
+          OBJECT tcell := NEW TableCell(PRIVATE this, row, col);
+          //FIXME - WHY DID WE NEED TO DO THIS ?!   this->owner->tolliumscreenmanager->ExtendObject(tcell);
+          INSERT tcell INTO this->tablerows[row].cells AT END;
+        }
+      }
+    }
+    this->InitializeBorders();
+    this->ExtUpdatedComponent();
+    this->pvt_selection := DEFAULT OBJECT ARRAY;
+  }
+
+  /** Configures a linear table.
+    @long A single rowgroup/column group is set up, vertically scrollable
+    @param numcells Number of cells to create
+    @param breakafter Break after how many?
+    @param horizontal Horizontal orientation
+*/
+  PUBLIC MACRO SetupLinearTable(INTEGER numcells, INTEGER breakafter, BOOLEAN horizontal, STRING colwidth, STRING rowheight)
+  {
+    IF (breakafter = 0)
+      THROW NEW TolliumException(this, 'Value for breakafter in SetupLinearTable must be greater than 0.');
+
+    INTEGER numbreaks := (numcells + breakafter-1) / breakafter;
+    this->linear_horizontal := horizontal;
+    this->SetupTable([horizontal ? numbreaks : breakafter], [horizontal ? breakafter : numbreaks]);
+    IF(horizontal)
+    {
+      this->SetRowGroupScrollable(0, TRUE);
+      this->SetRowGroupHeight(0, "1pr");
+    }
+    ELSE
+    {
+      //FIXME!this->SetColGroupScrollable(0, TRUE);
+      //FIXME!this->SetColGroupWidth(0, "1pr");
+    }
+
+    IF(rowheight!="")
+      FOR(INTEGER i:=0; i<Length(this->tablerows); i:=i+1)
+        this->SetRowHeight(i,rowheight);
+
+    IF(colwidth!="")
+      FOR(INTEGER i:=0; i<Length(this->tablecols); i:=i+1)
+        this->SetColWidth(i,colwidth);
+
+    IF(numcells % breakafter > 0) //There were remaining cels?
+      FOR (INTEGER remainingcell := numcells % breakafter; remainingcell < breakafter; remainingcell := remainingcell + 1)
+        this->GetCell(horizontal ? numbreaks - 1 : remainingcell, horizontal ? remainingcell : numbreaks-1)->selectable := FALSE;
+  }
+
+  PUBLIC MACRO ScrollTo(INTEGER rowgroup, INTEGER row)
+  {
+    IF (rowgroup < Length(this->rowgroups) AND this->rowgroups[rowgroup].scrollable
+        AND row < this->rowgroups[rowgroup].rows)
+    {
+      this->rowgroups[rowgroup].scrollrow := row;
+      this->ExtUpdatedScrollRowgroup();
+    }
+  }
+
+  PUBLIC MACRO DeleteOverlays(STRING ARRAY ids)
+  {
+    IF(Length(ids)=0)
+      RETURN;
+
+    OBJECT ARRAY newoverlays;
+    FOREVERY(OBJECT overlay FROM this->overlays)
+      IF(overlay->id IN ids)
+        this->ExtUpdatedOverlay(overlay->id);
+      ELSE
+        INSERT overlay INTO newoverlays AT END;
+    this->overlays := newoverlays;
+    this->CalculateSharedOverlays();
+  }
+
+  PUBLIC MACRO SetSelection(VARIANT newsel)
+  {
+    IF(this->selectmode="single")
+      this->pvt_selection:=ObjectExists(newsel) ? [OBJECT(newsel)] : DEFAULT OBJECT ARRAY;
+    ELSE IF(this->selectmode="multiple")
+      this->pvt_selection := newsel;
+    ELSE
+      THROW NEW TolliumException(this, "Cannot set the selection of a table if selectmode is 'none'");
+
+    this->ExtUpdatedSelection();
+  }
+
+  PUBLIC OBJECT FUNCTION CreateOverlay(STRING overlayid)
+  {
+    OBJECT overlay :=  NEW TableOverlay(PRIVATE this, Length(this->overlays), overlayid);
+//    this->owner->tolliumscreenmanager->ExtendObject(overlay);
+    INSERT overlay INTO this->overlays AT END;
+    RETURN overlay;
+  }
+
+  PUBLIC OBJECT FUNCTION GetOverlay(STRING overlayid)
+  {
+    FOREVERY(OBJECT ovr FROM this->overlays)
+      IF(ovr->id=overlayid)
+        RETURN ovr;
+
+    THROW NEW TolliumException(this, "Trying to access non-existing overlay "||overlayid);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsCellOverlapped(INTEGER row, INTEGER col)
+  {
+    RETURN this->tablerows[row].cells[col]->overlapped;
+  }
+
+  PUBLIC OBJECT FUNCTION GetLinearCell(INTEGER num)
+  {
+    IF(this->linear_horizontal)
+      RETURN this->GetCell(num / Length(this->tablecols), num % Length(this->tablecols));
+    ELSE
+      RETURN this->GetCell(num % Length(this->tablerows), num / Length(this->tablerows));
+  }
+
+  PUBLIC OBJECT FUNCTION GetCell(INTEGER row, INTEGER col)
+  {
+    IF (row >= 0 AND row < Length(this->tablerows))
+      IF(col >= 0 AND col < Length(this->tablerows[row].cells) AND NOT this->tablerows[row].cells[col]->overlapped)
+        RETURN this->tablerows[row].cells[col];
+
+    THROW NEW TolliumException(this, `Trying to access non-existing cell at row ${row} col ${col}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API - width, height & border setting
+  //
+
+  PUBLIC STRING FUNCTION GetColWidth(INTEGER col)
+  {
+    IF (col >= 0 AND col < Length(this->tablecols))
+      RETURN this->tablecols[col].width;
+    THROW NEW TolliumException(this, "Trying to access non-existing column "||col);
+  }
+
+  PUBLIC MACRO SetColWidth(INTEGER col, STRING newwidth)
+  {
+    IF (col >= 0 AND col < Length(this->tablecols))
+    {
+      this->tablecols[col].width := newwidth;
+      this->ExtLayoutUpdate();
+      RETURN;
+    }
+    THROW NEW TolliumException(this, "Trying to access non-existing column "||col);
+  }
+
+  PUBLIC STRING FUNCTION GetColMinWidth(INTEGER col)
+  {
+    IF (col >= 0 AND col < Length(this->tablecols))
+      RETURN this->tablecols[col].minwidth;
+    THROW NEW TolliumException(this, "Trying to access non-existing column "||col);
+  }
+
+  PUBLIC MACRO SetColMinWidth(INTEGER col, STRING newwidth)
+  {
+    IF (col >= 0 AND col < Length(this->tablecols))
+    {
+      this->tablecols[col].minwidth := newwidth;
+      this->ExtLayoutUpdate();
+      RETURN;
+    }
+    THROW NEW TolliumException(this, "Trying to access non-existing column "||col);
+  }
+
+// Rowgroup information
+
+  PUBLIC STRING FUNCTION GetRowGroupHeight(INTEGER rowgroup)
+  {
+    IF (rowgroup >= 0 AND rowgroup < Length(this->rowgroups))
+      RETURN this->rowgroups[rowgroup].height;
+    THROW NEW TolliumException(this, "Trying to access non-existing row group "||rowgroup);
+  }
+
+  PUBLIC MACRO SetRowGroupHeight(INTEGER rowgroup, STRING newheight)
+  {
+    IF (rowgroup >= 0 AND rowgroup < Length(this->rowgroups))
+    {
+      this->rowgroups[rowgroup].height := newheight;
+      this->ExtLayoutUpdate();
+      RETURN;
+    }
+    THROW NEW TolliumException(this, "Trying to access non-existing row group "||rowgroup);
+  }
+
+  PUBLIC STRING FUNCTION GetRowGroupMinHeight(INTEGER rowgroup)
+  {
+    IF (rowgroup >= 0 AND rowgroup < Length(this->rowgroups))
+      RETURN this->rowgroups[rowgroup].height;
+    THROW NEW TolliumException(this, "Trying to access non-existing row group "||rowgroup);
+  }
+
+  PUBLIC MACRO SetRowGroupMinHeight(INTEGER rowgroup, STRING newheight)
+  {
+    IF (rowgroup >= 0 AND rowgroup < Length(this->rowgroups))
+    {
+      this->rowgroups[rowgroup].minheight := newheight;
+      this->ExtLayoutUpdate();
+      RETURN;
+    }
+    THROW NEW TolliumException(this, "Trying to access non-existing row group "||rowgroup);
+  }
+
+  PUBLIC BOOLEAN FUNCTION GetRowGroupScrollable(INTEGER rowgroup)
+  {
+    IF (rowgroup >= 0 AND rowgroup < Length(this->rowgroups))
+      RETURN this->rowgroups[rowgroup].scrollable;
+    THROW NEW TolliumException(this, "Trying to access non-existing row group "||rowgroup);
+  }
+
+  PUBLIC MACRO SetRowGroupScrollable(INTEGER rowgroup, BOOLEAN scrollable)
+  {
+    IF (rowgroup >= 0 AND rowgroup < Length(this->rowgroups))
+    {
+      this->rowgroups[rowgroup].scrollable := scrollable;
+  //    this->TolliumHandleUpdate();
+      RETURN;
+    }
+    THROW NEW TolliumException(this, "Trying to access non-existing row group "||rowgroup);
+  }
+
+  PUBLIC STRING FUNCTION GetRowHeight(INTEGER row)
+  {
+    IF (row >= 0 AND row < Length(this->tablerows))
+      RETURN this->tablerows[row].height;
+    THROW NEW TolliumException(this, "Trying to access non-existing row "||row);
+  }
+
+  PUBLIC MACRO SetRowHeight(INTEGER row, STRING newheight)
+  {
+    IF (row >= 0 AND row < Length(this->tablerows))
+    {
+      this->tablerows[row].height := newheight;
+      this->ExtLayoutUpdate();
+      RETURN;
+    }
+    THROW NEW TolliumException(this, "Trying to access non-existing row "||this->row);
+  }
+
+  PUBLIC STRING FUNCTION GetRowMinHeight(INTEGER row)
+  {
+    IF (row >= 0 AND row < Length(this->tablerows))
+      RETURN this->tablerows[row].height;
+    THROW NEW TolliumException(this, "Trying to access non-existing row "||row);
+  }
+
+  PUBLIC MACRO SetRowMinHeight(INTEGER row, STRING newheight)
+  {
+    IF (row >= 0 AND row < Length(this->tablerows))
+    {
+      this->tablerows[row].minheight := newheight;
+      this->ExtLayoutUpdate();
+      RETURN;
+    }
+    THROW NEW TolliumException(this, "Trying to access non-existing row "||row);
+  }
+
+  /* BOOLEAN ARRAY borders */
+  PUBLIC BOOLEAN FUNCTION GetHorizontalBorder(INTEGER row, INTEGER col)
+  {
+    IF (row >= 0 AND row < Length(this->hor_borders) AND col >= 0 AND col < Length(this->hor_borders[row].borders))
+      RETURN this->hor_borders[row].borders[col];
+    THROW NEW TolliumException(this, "Trying to access non-existing horizontal border "||row||":"||col);
+  }
+
+  PUBLIC MACRO SetHorizontalBorder(INTEGER row, INTEGER col, BOOLEAN visible)
+  {
+    IF (row >= 0 AND row < Length(this->hor_borders) AND col >= 0 AND col < Length(this->hor_borders[row].borders))
+    {
+      this->hor_borders[row].borders[col] := visible;
+      this->ExtLayoutUpdate();
+      RETURN;
+    }
+    THROW NEW TolliumException(this, "Trying to access non-existing horizontal border "||row||":"||col);
+  }
+
+  /* BOOLEAN ARRAY borders */
+  PUBLIC BOOLEAN FUNCTION GetVerticalBorder(INTEGER row, INTEGER col)
+  {
+    IF (row >= 0 AND row < Length(this->vert_borders) AND col >= 0 AND col < Length(this->vert_borders[row].borders))
+      RETURN this->vert_borders[row].borders[col];
+    THROW NEW TolliumException(this, "Trying to access non-existing vertical border "||row||":"||col);
+  }
+
+  PUBLIC MACRO SetVerticalBorder(INTEGER row, INTEGER col, BOOLEAN visible)
+  {
+    IF (row >= 0 AND row < Length(this->vert_borders) AND col >= 0 AND col < Length(this->vert_borders[row].borders))
+    {
+      this->vert_borders[row].borders[col] := visible;
+      this->ExtLayoutUpdate();
+      RETURN;
+    }
+    THROW NEW TolliumException(this, "Trying to access non-existing vertical border "||row||":"||col);
+  }
+>;
+
+// Base class for cells and overlays, containing shared code
+OBJECTTYPE BaseCellOverlay
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT tableptr;
+
+  BOOLEAN pvt_selectable;
+  BOOLEAN pvt_enabled;
+  STRING pvt_background;
+  RECORD pvt_flags;
+
+  OBJECT textnode;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC PROPERTY backgroundcolor(pvt_background, SetBackground);
+
+  PUBLIC PROPERTY flags(pvt_flags, SetFlags);
+  PUBLIC PROPERTY selectable(pvt_selectable, SetSelectable);
+  PUBLIC PROPERTY enabled(pvt_enabled, SetEnabled);
+
+  PUBLIC PROPERTY value(-, SetValue);
+  PUBLIC PROPERTY htmlvalue(-, SetHTMLValue);
+  PUBLIC PROPERTY panel(GetPanel, -);
+
+  PUBLIC OBJECT pvt_panel; //FIXME or give table private refs to cells
+
+  /// Record free editable by the user
+  PUBLIC RECORD userdata;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT tableptr)
+  {
+    this->tableptr := tableptr;
+    this->pvt_flags := tableptr->MakeFlagsRecord();
+    this->pvt_selectable := TRUE;
+    this->pvt_enabled := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetBackground(STRING newbackground)
+  {
+    this->pvt_background := newbackground;
+    this->TolliumUpdate();
+  }
+
+  MACRO SetFlags(RECORD flags)
+  {
+    this->pvt_flags := flags;
+  }
+
+  MACRO SetSelectable(BOOLEAN newselectable)
+  {
+    this->pvt_selectable := newselectable;
+  }
+
+  MACRO SetEnabled(BOOLEAN newenabled)
+  {
+    this->pvt_enabled := newenabled;
+    IF(NOT newenabled)
+      this->SetSelectable(newenabled);
+  }
+
+  OBJECT FUNCTION GetPanel()
+  {
+    IF(NOT ObjectExists(this->pvt_panel))
+    {
+      this->pvt_panel := this->tableptr->owner->CreateTolliumComponent("panel");
+      this->pvt_panel->pvt_parent := this->tableptr;
+      this->pvt_panel->RecursiveUpdateIsNowVisible();
+
+      this->TolliumUpdate();
+    }
+    ELSE IF(ObjectExists(this->textnode))
+    {
+      //Kill that text node!
+      this->textnode->DeleteComponent();
+      this->textnode := DEFAULT OBJECT;
+    }
+    RETURN this->pvt_panel;
+  }
+
+  MACRO SetValue(STRING contents)
+  {
+    this->CreateTextPanel();
+    this->textnode->value := contents;
+  }
+
+  MACRO SetHtmlValue(STRING newtext)
+  {
+    this->CreateTextPanel();
+    this->textnode->htmlvalue := newtext;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions & tollium stuff
+  //
+
+  // Create a panel with a text, return the panel and text
+  MACRO CreateTextPanel()
+  {
+    IF(ObjectExists(this->textnode))
+      RETURN;
+
+    //getpanel will create a panel for us (will destroy existing textnodes, though)
+    OBJECT panel := this->GetPanel();
+    this->textnode := this->tableptr->owner->CreateTolliumComponent("text");
+//    this->textnode->wordwrap := TRUE;
+    panel->InsertComponentAfter(this->textnode, DEFAULT OBJECT, FALSE);
+  }
+
+  MACRO TolliumUpdate()
+  {
+    THROW NEW TolliumException(this->tableptr, "Override in subclass");
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(STRING);
+  }
+
+  PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    IF(ObjectExists(this->pvt_panel))
+      RETURN [this->pvt_panel];
+    ELSE
+      RETURN DEFAULT OBJECT ARRAY;
+  }
+
+  PUBLIC MACRO DeleteComponent()
+  {
+    IF(ObjectExists(this->pvt_panel))
+      this->pvt_panel->DeleteComponent();
+
+    IF(ObjectExists(this->textnode))
+    {
+      this->textnode->DeleteComponent();
+      this->textnode := DEFAULT OBJECT;
+    }
+  }
+>;
+
+// Proxy object for table cells
+PUBLIC OBJECTTYPE TableCell EXTEND BaseCellOverlay
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  INTEGER pvt_num;
+
+  INTEGER pvt_row;
+
+  INTEGER pvt_col;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC PROPERTY colspan(pvt_colspan, SetColSpan);
+  PUBLIC PROPERTY rowspan(pvt_rowspan, SetRowSpan);
+
+  PUBLIC PROPERTY row(pvt_row, -);
+
+  PUBLIC PROPERTY col(pvt_col, -);
+
+  PUBLIC BOOLEAN interactionenabled;
+
+  PUBLIC BOOLEAN overlapped;
+
+  // For overlapped cells: the n-th column overlapped by the overlapping cell, or, count n columns back to get to the overlapping cell (used for hover calculations)
+  /* FIXME */PUBLIC INTEGER pvt_colspan;
+  // For overlapped cells: the n-th row overlapped by the overlapping cell, or, count n rows back to get to the overlapping cell
+  /* FIXME */PUBLIC INTEGER pvt_rowspan;
+
+  PUBLIC PROPERTY num(pvt_num, -);
+
+  PUBLIC STRING valign;
+
+  PUBLIC RECORD draginfo;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT tableptr, INTEGER row, INTEGER col)
+  : BaseCellOverlay(tableptr)
+  {
+    this->pvt_row := row;
+    this->pvt_col := col;
+    this->pvt_colspan := 1;
+    this->pvt_rowspan := 1;
+    this->pvt_background := "";
+    this->pvt_num := this->tableptr->linear_horizontal ? (row*Length(this->tableptr->tablecols) + col) : (col*Length(this->tableptr->tablerows) + row);
+    this->valign := "none";
+    this->interactionenabled := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetColSpan(INTEGER newcolspan)
+  {
+    IF(newcolspan < 1)
+      THROW NEW TolliumException(this->tableptr, "Illegal colspan " || newcolspan || " for cell "||this->pvt_row||":"||this->pvt_col);
+    IF (this->pvt_col + newcolspan > Length(this->tableptr->tablecols))
+      THROW NEW TolliumException(this->tableptr, "Colspan exceeds number of columns for cell "||this->pvt_row||":"||this->pvt_col);
+
+    //ADDME: Reset overlapped for cells which are no longer overlapped
+    FOR (INTEGER col := this->pvt_col + 1; col < this->pvt_col + newcolspan; col := col + 1)
+    {
+      FOR (INTEGER row := this->pvt_row; row < this->pvt_row + this->pvt_rowspan; row := row + 1)
+      {
+        IF (this->tableptr->tablerows[row].cells[col]->overlapped
+            OR this->tableptr->tablerows[row].cells[col]->pvt_colspan > 1
+            OR this->tableptr->tablerows[row].cells[col]->pvt_rowspan > 1)
+          THROW NEW TolliumException(this->tableptr, "Cell "||this->pvt_row||":"||this->pvt_col||" spans over active cell "||row||":"||col);
+        this->tableptr->tablerows[row].cells[col]->overlapped := TRUE;
+        this->tableptr->tablerows[row].cells[col]->pvt_colspan := col - this->pvt_col;
+        this->tableptr->tablerows[row].cells[col]->pvt_rowspan := row - this->pvt_row;
+      }
+    }
+
+    this->pvt_colspan := newcolspan;
+    this->TolliumUpdate();
+  }
+
+  MACRO SetRowSpan(INTEGER newrowspan)
+  {
+    IF(newrowspan < 1)
+      THROW NEW TolliumException(this->tableptr, "Illegal rowspan " || newrowspan || " for cell "||this->pvt_row||":"||this->pvt_col);
+    IF (this->pvt_row + newrowspan > Length(this->tableptr->tablerows))
+      THROW NEW TolliumException(this->tableptr, "Rowspan exceeds number of rows for cell "||this->pvt_row||":"||this->pvt_col);
+
+    //ADDME: Reset overlapped for cells which are no longer overlapped
+    FOR (INTEGER row := this->pvt_row + 1; row < this->pvt_row + newrowspan; row := row + 1)
+    {
+      FOR (INTEGER col := this->pvt_col; col < this->pvt_col + this->pvt_colspan; col := col + 1)
+      {
+        IF (this->tableptr->tablerows[row].cells[col]->overlapped
+            OR this->tableptr->tablerows[row].cells[col]->pvt_colspan > 1
+            OR this->tableptr->tablerows[row].cells[col]->pvt_rowspan > 1)
+          THROW NEW TolliumException(this->tableptr, "Cell "||this->pvt_row||":"||this->pvt_col||" spans over active cell "||row||":"||col);
+        this->tableptr->tablerows[row].cells[col]->overlapped := TRUE;
+        this->tableptr->tablerows[row].cells[col]->pvt_colspan := col - this->pvt_col;
+        this->tableptr->tablerows[row].cells[col]->pvt_rowspan := row - this->pvt_row;
+      }
+    }
+
+    this->pvt_rowspan := newrowspan;
+    this->TolliumUpdate();
+  //  this->TolliumUpdateCell();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions & tollium stuff
+  //
+
+  UPDATE MACRO TolliumUpdate()
+  {
+    this->tableptr->ExtUpdatedCell(this->pvt_row, this->pvt_col);
+  }
+
+  PUBLIC RECORD FUNCTION GetTolliumData()
+  {
+    RECORD draginfo;
+    IF (RecordExists(this->draginfo) AND this->draginfo.type != "")
+    {
+      RECORD rec := this->tableptr->owner->GetDragType(this->draginfo.type);
+      draginfo :=
+          [ type := this->draginfo.type
+          , data := this->draginfo.data
+          , candownload := rec.candownloadflags != "" AND GetCell(this->draginfo.data, rec.candownloadflags)
+          ];
+    }
+
+    RETURN [ name       := GetVisibleComponentName(this->pvt_panel)
+           , flags      := StoredAttrsJSON(this->pvt_flags, this->tableptr->flags)
+           , colspan    := this->colspan
+           , rowspan    := this->rowspan
+           , overlapped := this->overlapped
+           , colnum     := this->col
+           , rownum     := this->row
+           , selectable := this->selectable AND this->tableptr->selectmode!="none"
+           , interact   := this->interactionenabled
+           , enabled    := this->enabled
+           , width      := "" //ADDME?
+           , height     := ""
+           , minwidth   := ""
+           , minheight  := ""
+           , topborder  := this->tableptr->hor_borders[this->row].borders[this->col]
+           , leftborder := this->tableptr->vert_borders[this->row].borders[this->col]
+           , background := this->backgroundcolor
+           , valign     := this->valign
+           , draginfo   := draginfo
+           ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO ResetCell()
+  {
+    INTEGER rowspan := this->rowspan;
+    INTEGER colspan := this->colspan;
+    FOR (INTEGER row := this->pvt_row; row <= this->pvt_row + rowspan; row := row + 1)
+      FOR (INTEGER col := this->pvt_col; col <= this->pvt_col + colspan; col := col + 1)
+      {
+        this->tableptr->tablerows[row].cells[col].overlapped := FALSE;
+        this->tableptr->tablerows[row].cells[col].pvt_colspan := 1;
+        this->tableptr->tablerows[row].cells[col].pvt_rowspan := 1;
+      }
+
+    this->colspan := 1;
+    this->rowspan := 1;
+    this->pvt_background := "";
+  }
+
+  PUBLIC MACRO PVT_Grid_SetPanel(OBJECT panel)
+  {
+    panel->RemoveFromParent(); //just a fluke, they were never really inserted anyway
+    this->pvt_panel := panel;
+    this->pvt_panel->pvt_parent := this->tableptr;
+    this->pvt_panel->RecursiveUpdateIsNowVisible();
+  }
+//  , MACRO SetPanel(OBJECT newpanel)
+>;
+
+PUBLIC OBJECTTYPE TableOverlay EXTEND BaseCellOverlay
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  INTEGER pvt_idx;
+
+  STRING pvt_hint;
+  RECORD pvt_startcell;
+  RECORD pvt_endcell;
+  INTEGER pvt_rowgroup;
+  BOOLEAN pvt_movable;
+  BOOLEAN pvt_resizable;
+  STRING color;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC PROPERTY idx(pvt_idx, -);
+
+  PUBLIC PROPERTY rowgroup(pvt_rowgroup, SetRowgroup);
+  PUBLIC PROPERTY startcell(pvt_startcell, SetStartCell);
+  PUBLIC PROPERTY endcell(pvt_endcell, SetEndCell);
+  PUBLIC PROPERTY hint(pvt_hint, SetHint);
+  PUBLIC PROPERTY movable(pvt_movable, SetMovable);
+  PUBLIC PROPERTY resizable(pvt_resizable, SetResizable);
+
+  PUBLIC STRING id;
+
+  PUBLIC RECORD draginfo;
+
+  /*FIXME: PRIVATE*/PUBLIC INTEGER sharednum;
+  /*FIXME: PRIVATE*/PUBLIC INTEGER sharedpos;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT tableptr, INTEGER idx, STRING overlayid)
+  : BaseCellOverlay(tableptr)
+  {
+    this->pvt_idx := idx;
+
+    this->id := overlayid;
+    this->startcell := [ row := 0, col := 0];
+    this->endcell := [ row := 0, col := 0];
+    this->sharednum := 1;
+    this->movable := TRUE;
+    this->resizable := TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetRowgroup(INTEGER rowgroup)
+  {
+    IF (rowgroup != this->pvt_rowgroup)
+    {
+      this->pvt_rowgroup := rowgroup;
+      this->TolliumUpdate();
+    }
+  }
+
+  MACRO SetStartCell(RECORD startcell)
+  {
+    IF (NOT RecordExists(this->pvt_startcell) OR startcell.row != this->pvt_startcell.row OR startcell.col != this->pvt_startcell.col)
+    {
+      this->pvt_startcell := startcell;
+      this->TolliumUpdate();
+      this->tableptr->CalculateSharedOverlays();
+    }
+  }
+
+  MACRO SetEndCell(RECORD endcell)
+  {
+    IF (NOT RecordExists(this->pvt_endcell) OR endcell.row != this->pvt_endcell.row OR endcell.col != this->pvt_endcell.col)
+    {
+      this->pvt_endcell := endcell;
+      this->TolliumUpdate();
+      this->tableptr->CalculateSharedOverlays();
+    }
+  }
+
+  MACRO SetHint(STRING hint)
+  {
+    this->pvt_hint := hint;
+  }
+
+  MACRO SetMovable(BOOLEAN movable)
+  {
+    this->pvt_movable := movable;
+  }
+
+  MACRO SetResizable(BOOLEAN resizable)
+  {
+    this->pvt_resizable := resizable;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions & tollium stuff
+  //
+
+  UPDATE MACRO TolliumUpdate()
+  {
+    this->tableptr->ExtUpdatedOverlay(this->id);
+  }
+
+  PUBLIC RECORD FUNCTION GetTolliumData()
+  {
+    RECORD draginfo;
+    IF (RecordExists(this->draginfo) AND this->draginfo.type != "")
+    {
+      RECORD rec := this->tableptr->owner->GetDragType(this->draginfo.type);
+      draginfo :=
+          [ type := this->draginfo.type
+          , data := this->draginfo.data
+          , candownload := rec.candownloadflags != "" AND GetCell(this->draginfo.data, rec.candownloadflags)
+          ];
+    }
+
+    RETURN
+        [ name          := GetVisibleComponentName(this->pvt_panel)
+        , flags         := StoredAttrsJSON(this->pvt_flags, this->tableptr->flags)
+        , id            := this->id
+        , action        := "add"
+        , type          := "this"
+        , hint          := this->hint
+        , rowgroupidx   := this->rowgroup
+        , startrow      := this->startcell.row
+        , startcol      := this->startcell.col
+        , endrow        := this->endcell.row
+        , endcol        := this->endcell.col
+        , movable       := this->movable
+        , resizable     := this->resizable
+        , sharednum     := this->sharednum
+        , sharedpos     := this->sharedpos
+        , background    := this->backgroundcolor
+        , draginfo      := draginfo
+        ];
+  }
+>;

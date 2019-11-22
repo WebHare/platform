@@ -1,0 +1,236 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+
+
+PUBLIC OBJECTTYPE FormDate EXTEND FormComponentExtensionBase
+<
+  MACRO OnMinNowSelect()
+  {
+    this->minvalue->enabled := NOT this->minnow->value;
+    this->minrel->enabled := this->minnow->value;
+  }
+
+  MACRO OnMaxNowSelect()
+  {
+    this->maxvalue->enabled := NOT this->maxnow->value;
+    this->maxrel->enabled := this->maxnow->value;
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    STRING minval := this->node->GetAttribute("min");
+    IF (minval LIKE "now*")
+    {
+      this->minnow->value := TRUE;
+      this->OnMinNowSelect();
+      IF (minval LIKE "now+*d" OR minval LIKE "now-*d")
+        this->minrel->value := ToInteger(SubString(minval, 3, Length(minval) - 4), 0);
+    }
+    ELSE
+    {
+      this->minnow->visible := FALSE;
+      this->minrel->visible := FALSE;
+      this->minrel_days->visible := FALSE;
+      this->minvalue->value := MakeDateFromText(this->node->GetAttribute("min"));
+    }
+
+    STRING maxval := this->node->GetAttribute("max");
+    IF (maxval LIKE "now*")
+    {
+      this->maxnow->value := TRUE;
+      this->OnMaxNowSelect();
+      IF (maxval LIKE "now+*d" OR maxval LIKE "now-*d")
+        this->maxrel->value := ToInteger(SubString(maxval, 3, Length(maxval) - 4), 0);
+    }
+    ELSE
+    {
+      this->maxnow->visible := FALSE;
+      this->maxrel->visible := FALSE;
+      this->maxrel_days->visible := FALSE;
+      this->maxvalue->value := MakeDateFromText(this->node->GetAttribute("max"));
+    }
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+    {
+      IF (this->minnow->value)
+        this->node->SetAttribute("min", "now" || (this->minrel->value != 0 ? `${this->minrel->value > 0 ? "+" : ""}${this->minrel->value}d` : ""));
+      ELSE IF (this->minvalue->value != DEFAULT DATETIME)
+        this->node->SetAttribute("min", FormatISO8601DateTime(this->minvalue->value, "day", "empty"));
+      ELSE
+        this->node->RemoveAttribute("min");
+
+      IF (this->maxnow->value)
+        this->node->SetAttribute("max", "now" || (this->maxrel->value != 0 ? `${this->maxrel->value > 0 ? "+" : ""}${this->maxrel->value}d` : ""));
+      ELSE IF (this->maxvalue->value != DEFAULT DATETIME)
+        this->node->SetAttribute("max", FormatISO8601DateTime(this->maxvalue->value, "day", "empty"));
+      ELSE
+        this->node->RemoveAttribute("max");
+    }
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormDate(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  //FIXME make presentation (input type=date or 3 pulldowns) a flag, not a separate type
+
+//  INSERT CELL withfields := withfields INTO fielddef;
+  INSERT CELL placeholder := parsecontext.parsexmltidptr(node, "placeholder")
+            , value := node->GetAttribute("value")
+            , min  := node->GetAttribute("min")
+            , max := node->GetAttribute("max")
+         INTO fielddef;
+  RETURN fielddef;
+}
+
+DATETIME FUNCTION CalcRealDate(STRING abstractdate, DATETIME ifempty)
+{
+  IF(abstractdate="")
+    RETURN ifempty;
+  IF(abstractdate = "now" OR abstractdate LIKE "now+*" OR abstractdate LIKE "now-*")
+  {
+    DATETIME today := GetRoundedDatetime(GetCurrentDatetime(), 86400*1000);
+    IF(abstractdate LIKE "now+*d" OR abstractdate LIKE "now-*d")
+    {
+      INTEGER adddays := ToInteger(Substring(abstractdate,3, Length(abstractdate)-4), 0);
+      IF(adddays = 0 AND ToInteger(Substring(abstractdate,3, Length(abstractdate)-4), -1) < 0)
+        THROW NEW Exception("Unrecognized abstract date '" || abstractdate || "'");
+      today := AddDaysToDate(adddays, today);
+    }
+    RETURN today;
+  }
+  IF(abstractdate LIKE "????-??-??")
+    RETURN MakeDateFromText(abstractdate);
+  THROW NEW Exception("Unrecognized abstract date '" || abstractdate || "'");
+}
+
+STRING FUNCTION MakeSettableAbstractDate(STRING newdate)
+{
+  IF(newdate="")
+    RETURN "";
+  CalcRealDate(newdate,DEFAULT DATETIME); //use it just as a format check
+  RETURN newdate;
+}
+
+STRING FUNCTION MakeSettableRealDate(DATETIME newdate, BOOLEAN empty_is_min)
+{
+  IF(newdate = (empty_is_min ? MAX_DATETIME : DEFAULT DATETIME))
+    THROW NEW Exception("Date is out of range");
+  IF(newdate = (empty_is_min ? DEFAULT DATETIME : MAX_DATETIME))
+    RETURN "";
+  RETURN FormatDatetime("%Y-%m-%d", GetRoundedDatetime(newdate, 86400*1000));
+}
+
+PUBLIC OBJECTTYPE DateField EXTEND FormFieldBase
+<
+  STRING pvt_abstractmin;
+  STRING pvt_abstractmax;
+  STRING pvt_abstractvalue;
+
+  PUBLIC PROPERTY min(GetMin,SetMin);
+  PUBLIC PROPERTY max(GetMax,SetMax);
+  PUBLIC PROPERTY value(GetValue,SetValue);
+
+  PUBLIC PROPERTY abstractmin(pvt_abstractmin,SetAbstractMin);
+  PUBLIC PROPERTY abstractmax(pvt_abstractmax,SetAbstractMax);
+  PUBLIC PROPERTY abstractvalue(pvt_abstractvalue,SetAbstractValue);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getter & setters
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+    IF(field.isstatic)
+    {
+      this->pvt_abstractmin := field.min;
+      this->pvt_abstractmax := field.max;
+      this->pvt_abstractvalue := field.value;
+    }
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetRenderData()
+  {
+    RECORD rec := this->GetBaseRenderData();
+    DELETE CELL value FROM rec;
+    INSERT CELL value := FormatISO8601DateTime(this->value) INTO rec;
+    RETURN rec;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RECORD base := CELL[ ...this->GetBaseRenderData()
+                       , type := "date"
+                       , min := this->abstractmin
+                       , max := this->abstractmax
+                       , value := this->abstractvalue
+                       ];
+
+    RETURN base;
+  }
+
+  DATETIME FUNCTION GetMin()
+  {
+    RETURN CalcRealDate(this->pvt_abstractmin, DEFAULT DATETIME);
+  }
+  DATETIME FUNCTION GetValue()
+  {
+    RETURN CalcRealDate(this->pvt_abstractvalue, DEFAULT DATETIME);
+  }
+  DATETIME FUNCTION GetMax()
+  {
+    RETURN CalcRealDate(this->pvt_abstractmax, MAX_DATETIME);
+  }
+  MACRO SetAbstractMin(STRING newvalue)
+  {
+    this->pvt_abstractmin := MakeSettableAbstractDate(newvalue);
+  }
+  MACRO SetAbstractValue(STRING newvalue)
+  {
+    this->pvt_abstractvalue := MakeSettableAbstractDate(newvalue);
+  }
+  MACRO SetAbstractMax(STRING newvalue)
+  {
+    this->pvt_abstractmax := MakeSettableAbstractDate(newvalue);
+  }
+  MACRO SetMin(DATETIME newvalue)
+  {
+    this->pvt_abstractmin := MakeSettableRealDate(newvalue, TRUE);
+  }
+  MACRO SetValue(DATETIME newvalue)
+  {
+    this->pvt_abstractvalue := MakeSettableRealDate(newvalue, TRUE);
+    this->form->__SendFormMessage(this->field.name, 'value', this->abstractvalue);
+  }
+  MACRO SetMax(DATETIME newvalue)
+  {
+    this->pvt_abstractmax := MakeSettableRealDate(newvalue, FALSE);
+  }
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    this->pvt_abstractvalue := jsdata;
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN this->value != DEFAULT DATETIME;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    RETURN [[ title := this->title
+            , name := "value"
+            , type := "date"
+           ]];
+  }
+>;

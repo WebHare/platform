@@ -1,0 +1,337 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+
+PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
+{
+  IF (NOT RecordExists(condition))
+    RETURN condition;
+  IF (NOT CellExists(condition, "matchtype"))
+    THROW NEW Exception("Form condition without matchtype");
+
+  SWITCH (condition.matchtype)
+  {
+    CASE "IN", "HAS", "IS"
+    {
+      IF (NOT CellExists(condition, "field") OR NOT CellExists(condition, "value"))
+        THROW NEW Exception(`Form '${condition.matchtype}' condition without field or value`);
+      IF (NOT IsTypeIDArray(TypeID(condition.value)))
+        THROW NEW Exception(`Form '${condition.matchtype}' condition requires an array value`);
+      IF (CellExists(condition, "options"))
+        ValidateOptions([ matchcase := TRUE ], condition.options);
+    }
+    CASE "HASVALUE"
+    {
+      IF (NOT CellExists(condition, "field") OR NOT CellExists(condition, "value"))
+        THROW NEW Exception("Form 'HASVALUE' condition without field or value");
+      IF(TYPEID(condition.value) != TYPEID(BOOLEAN))
+        THROW NEW Exception("Form 'HASVALUE' requires a boolean value");
+    }
+    CASE "AND", "OR"
+    {
+      IF (NOT CellExists(condition, "conditions"))
+        THROW NEW Exception(`Form '${condition.matchtype}' condition without conditions`);
+      FOREVERY (RECORD subcondition FROM condition.conditions)
+      {
+        IF (NOT RecordExists(subcondition))
+          THROW NEW Exception(`Form '${condition.matchtype}' condition with empty subcondition`);
+        condition.conditions[#subcondition] := ValidateFormCondition(subcondition);
+      }
+    }
+    CASE "NOT"
+    {
+      IF (NOT CellExists(condition, "condition"))
+        THROW NEW Exception(`Form 'NOT' condition without condition`);
+      IF (NOT RecordExists(condition.condition))
+        THROW NEW Exception(`Form 'NOT' condition with empty subcondition`);
+      condition.condition := ValidateFormCondition(condition.condition);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unsupported form condition matchtype '${condition.matchtype}'`);
+    }
+  }
+
+  RETURN condition;
+}
+
+PUBLIC RECORD FUNCTION MatchFormCondition(RECORD condition, RECORD value, RECORD ARRAY formfields)
+{
+  IF (NOT RecordExists(condition))
+    RETURN [ success := TRUE
+           , field := ""
+           , reason := "No condition specified"
+           ];
+
+  SWITCH (condition.matchtype)
+  {
+    CASE "AND"
+    {
+      FOREVERY (RECORD subcondition FROM condition.conditions)
+      {
+        RECORD result := MatchFormCondition(subcondition, value, formfields);
+        IF (NOT result.success)
+          RETURN [ success := FALSE
+                 , field := ""
+                 , reason := `Not all subconditions matched`
+                 ];
+      }
+      RETURN [ success := TRUE ];
+    }
+    CASE "OR"
+    {
+      FOREVERY (RECORD subcondition FROM condition.conditions)
+      {
+        RECORD result := MatchFormCondition(subcondition, value, formfields);
+        IF (result.success)
+          RETURN [ success := TRUE ];
+      }
+      RETURN [ success := FALSE
+             , field := ""
+             , reason := `No subcondition matched`
+             ];
+    }
+    CASE "NOT"
+    {
+      RECORD result := MatchFormCondition(condition.condition, value, formfields);
+      IF (NOT result.success)
+        RETURN [ success := TRUE ];
+      RETURN [ success := FALSE
+             , field := ""
+             , reason := `Subcondition matched`
+             ];
+
+    }
+  }
+
+  STRING fieldname := Tokenize(condition.field, "$")[0];
+  VARIANT checkvalue;
+
+  IF(fieldname = "formsubmittype")
+  {
+    checkvalue := value.submittype;
+  }
+  ELSE
+  {
+    IF(CellExists(value,'form'))
+    {
+      //Get it from the live form
+      OBJECT fld := value.form->GetFormField(fieldname);
+      IF (NOT ObjectExists(fld))
+      {
+        fieldname := SELECT AS STRING name FROM formfields WHERE formfields.guid = fieldname;
+        fld := value.form->GetFormField(fieldname);
+      }
+
+      IF (NOT ObjectExists(fld))
+      {
+        RETURN [ success := FALSE
+               , field := condition.field
+               , reason := `No such field '${condition.field}' in the live form`
+               ];
+      }
+      checkvalue := fld->value;
+    }
+    ELSE
+    {
+      IF(NOT CellExists(value.response, fieldname))
+        fieldname := SELECT AS STRING name FROM formfields WHERE formfields.guid = fieldname;
+
+      IF (NOT CellExists(value.response, fieldname))
+        RETURN [ success := FALSE
+               , field := condition.field
+               , reason := `No such field '${condition.field}' in response`
+               ];
+      checkvalue := GetCell(value.response, fieldname);
+    }
+
+    // Was an extra field referenced in the condition?
+    IF (condition.field LIKE "*$*")
+    {
+      // Find the matching field
+      RECORD matchfield := SELECT * FROM formfields WHERE ToUppercase(name) = ToUppercase(fieldname);
+      IF (NOT RecordExists(matchfield))
+        RETURN [ success := FALSE
+               , field := condition.field
+               , reason := `No such field '${condition.field}' in response`
+               ];
+      STRING extrafield := Tokenize(condition.field, "$")[1];
+      IF ("options" IN matchfield.supportedvalues)
+      {
+        IF (IsTypeIDArray(TypeID(checkvalue)))
+        {
+          // Get the extra field's values for all selected options
+          RECORD ARRAY matchvalues :=
+              SELECT extravalue := GetCell(extrafields, extrafield)
+                FROM matchfield.obj->options
+               WHERE rowkey IN checkvalue
+                     AND CellExists(extrafields, extrafield);
+          IF (RecordExists(matchvalues))
+          {
+            checkvalue := GetTypeDefaultArray(TypeID(matchvalues[0].extravalue));
+            FOREVERY (RECORD val FROM matchvalues)
+              INSERT val.extravalue INTO checkvalue AT END;
+          }
+          ELSE
+            RETURN [ success := FALSE
+                   , field := condition.field
+                   , reason := `No such selected values found for field '${condition.field}' in response`
+                   ];
+        }
+        ELSE
+        {
+          // Get the extra field's value for the selected option
+          RECORD matchvalue :=
+              SELECT extravalue := GetCell(extrafields, extrafield)
+                FROM matchfield.obj->options
+               WHERE rowkey = checkvalue
+                     AND CellExists(extrafields, extrafield);
+          IF (RecordExists(matchvalue))
+            checkvalue := matchvalue.extravalue;
+          ELSE
+            RETURN [ success := FALSE
+                   , field := condition.field
+                   , reason := `No such selected values found for field '${condition.field}' in response`
+                   ];
+        }
+      }
+      ELSE
+      {
+        //TODO: Support extra fields for field types other than select
+        RETURN [ success := FALSE
+               , field := condition.field
+               , reason := "Subfield matching not supported for non-select fields"
+               ];
+      }
+    }
+  }
+
+
+  SWITCH (condition.matchtype)
+  {
+    CASE "IN", "HAS", "IS"
+    {
+      IF (Length(condition.value) = 0)
+      {
+        RETURN [ success := FALSE
+               , field := condition.field
+               , reason := `No values were set in the condition, ${condition.matchtype} will never match`
+               ];
+      }
+
+      VARIANT conditionvalue;
+      IF (TypeID(condition.value) = TypeID(VARIANT ARRAY))
+      {
+        conditionvalue := GetTypeDefaultArray(TypeID(condition.value[0]));
+        FOREVERY (VARIANT el FROM condition.value)
+          INSERT el INTO conditionvalue AT END;
+      }
+      ELSE
+        conditionvalue := condition.value;
+
+      BOOLEAN matchcase := NOT CellExists(condition, "options") OR NOT CellExists(condition.options, "matchcase") OR condition.options.matchcase; // Match case by default
+      STRING sensitivity := TypeID(conditionvalue) = TypeID(STRING ARRAY) ? (matchcase ? " (case sensitive)" : " (case insensitive)") : "";
+
+      IF (IsTypeIDArray(TypeID(checkvalue)))
+      {
+        IF (Length(checkvalue) = 0)
+        {
+          RETURN [ success := FALSE
+                 , field := condition.field
+                 , reason := `No values were set in the response, ${condition.matchtype} will never match`
+                 ];
+        }
+        IF (NOT CanCastTypeTo(TypeID(checkvalue[0]), TypeID(conditionvalue[0])))
+        {
+          RETURN [ success := FALSE
+                 , field := condition.field
+                 , reason := `Unable to cast value from ${GetTypeName(TypeID(checkvalue[0]))} to ${GetTypeName(TypeID(conditionvalue[0]))}`
+                 ];
+        }
+        // For case insensitive matches, convert both selected and allowed values to uppercase
+        IF (TypeID(conditionvalue) = TypeID(STRING ARRAY) AND NOT matchcase)
+        {
+          conditionvalue := SELECT AS STRING ARRAY ToUppercase(val) FROM ToRecordArray(conditionvalue, "val");
+          checkvalue := SELECT AS STRING ARRAY ToUppercase(val) FROM ToRecordArray(checkvalue, "val");
+        }
+
+        // The selected and allowed values should (at least) overlap
+        IF (NOT ArraysIntersect(checkvalue, conditionvalue))
+        {
+          RETURN [ success := FALSE
+                 , field := condition.field
+                 , reason := `None of the ${Length(checkvalue)} selected values in the list of ${Length(conditionvalue)} allowed values` || sensitivity
+                 ];
+        }
+        // For "HAS" and "IS" conditions, all of the required values should be selected (there shouldn't be required values
+        // that are not selected)
+        IF (condition.matchtype IN [ "HAS", "IS" ] AND Length(ArrayDelete(conditionvalue, checkvalue)) > 0)
+        {
+          RETURN [ success := FALSE
+                 , field := condition.field
+                 , reason := `Not all ${Length(conditionvalue)} required values are selected` || sensitivity
+                 ];
+        }
+        // For an "IS" condition, all of the selected values should be required (there shouldn't be selected values that are
+        // not required)
+        IF (condition.matchtype = "IS" AND Length(ArrayDelete(checkvalue, conditionvalue)) > 0)
+        {
+          RETURN [ success := FALSE
+                 , field := condition.field
+                 , reason := `Not all ${Length(conditionvalue)} selected values are required` || sensitivity
+                 ];
+        }
+        RETURN [ success := TRUE ];
+      }
+
+      IF (NOT CanCastTypeTo(TypeID(checkvalue), TypeID(conditionvalue[0])))
+      {
+        RETURN [ success := FALSE
+               , field := condition.field
+               , reason := `Unable to cast value from ${GetTypeName(TypeID(checkvalue))} to ${GetTypeName(TypeID(conditionvalue[0]))}`
+               ];
+      }
+      // For case insensitive matches, convert both selected and allowed values to uppercase
+      IF (TypeID(conditionvalue) = TypeID(STRING ARRAY) AND NOT matchcase)
+      {
+        conditionvalue := SELECT AS STRING ARRAY ToUppercase(val) FROM ToRecordArray(conditionvalue, "val");
+        checkvalue := ToUppercase(checkvalue);
+      }
+      // The selected value should be an allowed value
+      IF (checkvalue NOT IN conditionvalue)
+      {
+        RETURN [ success := FALSE
+               , field := condition.field
+               , reason := `The selected value did not appear in the list of ${Length(conditionvalue)} allowed values` || sensitivity
+               ];
+      }
+      // For "HAS" and "IS" conditions, all required values should be selected, so if there is more than one required value,
+      // that's not the case (if we got here, there is only one selected value)
+      IF (condition.matchtype IN [ "HAS", "IS" ] AND Length(conditionvalue) > 1)
+      {
+        IF (condition.matchtype = "HAS")
+          RETURN [ success := FALSE
+                 , field := condition.field
+                 , reason := `Not all ${Length(conditionvalue)} required values are selected` || sensitivity
+                 ];
+      }
+      RETURN [ success := TRUE ];
+    }
+    CASE "HASVALUE"
+    {
+      BOOLEAN isset := NOT IsDefaultValue(checkvalue);
+      IF(condition.value != isset)
+        RETURN [ success := FALSE
+               , field := condition.field
+               , reason := condition.value ? `The value was not set` : `The value was set`
+               ];
+
+      RETURN [ success := TRUE ];
+    }
+  }
+  RETURN [ success := FALSE
+         , field := condition.field
+         , reason := `The matchtype '${condition.matchtype}' is not supported`
+         ];
+}

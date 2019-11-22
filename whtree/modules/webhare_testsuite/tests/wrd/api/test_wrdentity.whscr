@@ -1,0 +1,45 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+MACRO TestDuplicateEntity()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  OBJECT wrdperson := schemaobj->^wrd_person;
+  OBJECT newperson  := wrdperson->CreateEntity([ wrd_firstname := "New", wrd_lastname := "Test", wrd_contact_email := "newtest@example.com" ]);
+  OBJECT deepperson := wrdperson->CreateEntity([ wrd_firstname := "Deep", wrd_lastname := "Test", wrd_contact_email := "deepperson@example.com" ]);
+
+  schemaobj->CreateType("PERSONLINK", [ title := "Test person link", linkfrom := schemaobj->^wrd_person->id, linkto := schemaobj->^wrd_person->id ]);
+  OBJECT attachment := schemaobj->^personattachment->CreateEntity([ wrd_leftentity := deepperson->id ]);
+  OBJECT rightlink := schemaobj->^personlink->CreateEntity([ wrd_leftentity := newperson->id, wrd_rightentity := deepperson->id ]);
+
+  TestEq(4, Length(wrdperson->RunQuery(CELL[])));
+  TestEq(1, Length(schemaobj->^personattachment->RunQuery(CELL[])));
+  TestEq(1, Length(schemaobj->^personlink->RunQuery(CELL[])));
+
+  TestThrowsLike("*conflict*EMAIL*", PTR newperson->DuplicateEntity([ recursetypes := ["*"]]));
+  TestEq(4, Length(wrdperson->RunQuery(CELL[])));
+
+  OBJECT person2 := newperson->DuplicateEntity( [ updates := [ wrd_contact_email := "person2@example.com" ], recursetypes := ["*"] ]);
+  TestEq(2, Length(schemaobj->^personlink->RunQuery(CELL[])));
+  TestEq(1, Length(schemaobj->^personlink->RunQuery(CELL[ filters := [[ field := "WRD_LEFTENTITY", value := person2->id ], [ field := "WRD_RIGHTENTITY", value := deepperson->id ]]])));
+
+  TestEq(5, Length(wrdperson->RunQuery(CELL[])));
+
+  OBJECT deeper2 := deepperson->DuplicateEntity( [ updates := [ wrd_contact_email := "deeper2@example.com" ], recursetypes := ["*"] ]);
+  TestEq(6, Length(wrdperson->RunQuery(CELL[])));
+  TestEq(2, Length(schemaobj->^personattachment->RunQuery(CELL[])));
+  TestEq(1, Length(schemaobj->^personattachment->RunQuery(CELL[ filters := [[ field := "WRD_LEFTENTITY", value := deeper2->id ]]])));
+  TestEq(4, Length(schemaobj->^personlink->RunQuery(CELL[])));
+  TestEq(1, Length(schemaobj->^personlink->RunQuery(CELL[ filters := [[ field := "WRD_LEFTENTITY", value := newperson->id ], [ field := "WRD_RIGHTENTITY", value := deeper2->id ]]])));
+  TestEq(1, Length(schemaobj->^personlink->RunQuery(CELL[ filters := [[ field := "WRD_LEFTENTITY", value := person2->id ], [ field := "WRD_RIGHTENTITY", value := deeper2->id ]]])));
+
+  testfw->RollbackWork();
+}
+
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR TestDuplicateEntity
+                 ], [ wrdauth := FALSE ]);

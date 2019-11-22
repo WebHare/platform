@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <linearGradient id="file-paper-gradient" gradientUnits="userSpaceOnUse" x1="5.9205" y1="6.643" x2="29.3585" y2="30.081">
+      <stop offset="0" style="stop-color:#ffffff"/>
+      <stop offset="1" style="stop-color:#f2f2f2"/>
+    </linearGradient>
+    <g id="file-fill" style="fill:url(&quot;#file-paper-gradient&quot;);">
+      <path d="M30,12l0,17c0,1-1,1-1,1H11c-1,0-1-1-1-1V3c0,0,0-1,1-1h9"/>
+    </g>
+    <path id="file-corner" d="M32,1c0-1-1-1-1-1h-6.2c-0.3,0-0.6,0-0.7,0.3c-0.1,0.3-0.1,0.6,0.2,0.8l6.5,6.1c0.2,0.2,0.6,0.3,0.8,0.2C31.8,7.2,32,6.9,32,6.6"/>
+    <path id="file-outline" d="M21,0H10C8,0,8,2,8,2v28c0,0,0,2,2,2h20c2,0,2-2,2-2V11L21,0zM30,29c0,0,0,1-1,1H11c-1,0-1-0.6-1-0.9V3c0,0,0-1,1-1h9l10,10L30,29z"/>
+    <rect id="maskcanvas" width="32px" height="32px" fill="#ffffff"/>
+    <mask id="cssmask">
+      <use xlink:href="#maskcanvas"/>
+      <text font-family="&quot;roboto&quot;" font-variant="&quot;black&quot;" transform="translate(2 18)" fill="#000000" font-size="24" stroke="#000000" stroke-width="3">a</text>
+    </mask>
+  </defs>
+  <g>
+    <use xlink:href="#file-fill" fill="#ffffff"/>
+    <use xlink:href="#file-outline" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" style="mask:url(&quot;#cssmask&quot;);"/>
+    <use xlink:href="#file-corner" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
+    <path d="M23,16c-1,0-9,0-10,0s-1,2,0,2s9,0,10,0S24,16,23,16z" fill="#FFB639" style="mask:url(&quot;#cssmask&quot;);"/>
+    <path d="M25,13c-1,0-11,0-12,0s-1-2,0-2s11,0,12,0S26,13,25,13z" fill="#369E35" style="mask:url(&quot;#cssmask&quot;);"/>
+    <path d="M25,28c-1,0-11,0-12,0s-1-2,0-2s11,0,12,0S26,28,25,28z" fill="#E57A34" style="mask:url(&quot;#cssmask&quot;);"/>
+    <path d="M19,8c-1,0-5,0-6,0s-1-2,0-2s5,0,6,0S20,8,19,8z" fill="#FC0000" style="mask:url(&quot;#cssmask&quot;);"/>
+    <path d="M27,23c-1,0-13,0-14,0s-1-2,0-2s13,0,14,0S28,23,27,23z" fill="#4A4A4A" style="mask:url(&quot;#cssmask&quot;);"/>
+    <text font-family="&quot;roboto&quot;" font-variant="&quot;black&quot;" transform="translate(2 18)" fill="#1A9528" font-size="24">a</text>
+  </g>
+</svg>

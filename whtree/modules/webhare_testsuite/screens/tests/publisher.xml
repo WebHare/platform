@@ -1,0 +1,15 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/publisher.whlib">
+
+  <screen name="filterpanel" title="">
+    <body>
+      <checkbox name="filterit" title="filterit" />
+      <select name="pulldown" type="pulldown">
+        <option rowkey="A" title="opt-A" />
+      </select>
+    </body>
+  </screen>
+
+
+</screens>

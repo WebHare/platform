@@ -1,0 +1,49 @@
+/* reconfigure header for small devices */
+@media screen and (max-width: 600px)
+{
+  #headerfrutsel
+  {
+    display:none;
+  }
+  #navpath
+  {
+    display:none;
+  }
+  div#searchbox
+  {
+    left:37px;
+    right:auto;
+  }
+}
+
+body.singlecolumnmode #introtext, body.singlecolumnmode #socialheader
+{
+  display:none;
+}
+
+@media screen and (max-width: 500px)
+{
+  div#touchheader #utbacklink
+  {
+    display:none;
+  }
+  div#touchheader #toplinks
+  {
+    top:5px;
+    right:5px;
+  }
+}
+
+/* even smaller.... reduce the +- 40 gutter on the left side */
+@media screen and (max-width: 320px)
+{
+  div#touchheader #utlogoarea, div#searchbox
+  {
+    left:17px;
+  }
+  div#touches
+  {
+    padding-left:0;
+    padding-right:0;
+  }
+}

@@ -1,0 +1,1452 @@
+﻿<?wh (* ISSYSTEMLIBRARY *)
+/** @topic harescript-core/builtins
+*/
+
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib" EXPORT OperationCancelledException;
+LOADLIB "wh::system.whlib";
+LOADLIB "wh::internal/callbacks.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+
+/// Scheduled next GC, MAX_DATETIME means schedule next gc on first WaitUntil call
+DATETIME next_gc;
+
+/// Run a GC this number of ms after entering wait/executing a callback
+INTEGER gc_waitperiod := 60000;
+
+PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncCallbackWaitHelperBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN resolved;
+  INTEGER64 cancel_cb;
+  INTEGER timeout_cb;
+  INTEGER ARRAY other_cbs;
+  RECORD defer;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY promise(this->defer.promise, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->defer := CreateDeferredPromise();
+    this->defer.promise->canceltoken->AddCallback(PTR this->GotCancel);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotCancel(OBJECT cancelexception)
+  {
+    IF (NOT this->resolved)
+    {
+      this->HandleCancel(cancelexception);
+      this->UnregisterCallbacks();
+    }
+  }
+
+  MACRO GotTimeout(RECORD context)
+  {
+    this->timeout_cb := 0;
+    IF (NOT this->resolved AND this->HandleCallback(-1, context))
+      this->UnregisterCallbacks();
+  }
+
+  MACRO GotHandle(INTEGER handle, RECORD context)
+  {
+    IF (NOT this->resolved AND this->HandleCallback(handle, context))
+      this->UnregisterCallbacks();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO UnregisterCallbacks()
+  {
+    this->resolved := TRUE;
+    IF (this->timeout_cb != 0)
+      UnregisterCallback(this->timeout_cb);
+    this->timeout_cb := 0;
+    FOREVERY (INTEGER cb FROM this->other_cbs)
+      UnregisterCallback(cb);
+    this->other_cbs := INTEGER[];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // To override
+  //
+
+  /** Override this function for your own resolve handling
+      @param context
+      @return Whether the promise is resolved (and the wait is over)
+  */
+  BOOLEAN FUNCTION HandleCallback(INTEGER handle, RECORD context)
+  {
+    this->defer.resolve(context);
+    RETURN TRUE;
+  }
+
+  /** Override this function for your cancel handling
+      @param cancelexception
+  */
+  MACRO HandleCancel(OBJECT cancelexception)
+  {
+    this->defer.reject(cancelexception);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Set the timeout on this wait
+      @param wait_until Timeout time
+      @param context Value to pass to @a HandleCallback
+  */
+  PUBLIC MACRO SetTimeout(DATETIME wait_until, RECORD context DEFAULTSTO DEFAULT RECORD)
+  {
+    IF (this->timeout_cb != 0)
+      THROW NEW Exception("Timeout can only be set once");
+
+    IF (wait_until != MAX_DATETIME)
+      this->timeout_cb := RegisterTimedCallback(wait_until, PTR this->GotTimeout(context));
+  }
+
+  /** Add a handle, when signalled HandleCallback will be called
+      @param handle Handle to wait to become signalled
+      @param context Value to pass to @a HandleCallback
+  */
+  PUBLIC MACRO AddHandleRead(INTEGER handle, RECORD context DEFAULTSTO DEFAULT RECORD)
+  {
+    INSERT RegisterHandleReadCallback(handle, PTR this->GotHandle(handle, context)) INTO this->other_cbs AT END;
+  }
+>;
+
+/* Base class for an output object. For system use only, don't try to wrap handles in it.
+*/
+PUBLIC OBJECTTYPE __HS_INTERNAL_OutputObject
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Handle of this output object
+  INTEGER pvt_handle;
+
+
+  /// Whether this object supports write signalling
+  BOOLEAN pvt_supports_write_signalling;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Data for the user of this object
+  PUBLIC RECORD userdata;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Handle
+  PUBLIC PROPERTY handle(pvt_handle, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER handle, BOOLEAN supports_write_signalling)
+  {
+    this->pvt_handle := handle;
+    this->pvt_supports_write_signalling := supports_write_signalling;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Returns whether this object is read-signalled
+      @return TRUE if the object is read-signalled
+  */
+  PUBLIC BOOLEAN FUNCTION IsReadSignalled()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot check signalled status on an already closed object");
+
+    RETURN WaitForMultiple([ INTEGER(this->pvt_handle) ], DEFAULT INTEGER ARRAY, 0) = this->pvt_handle;
+  }
+
+
+  /** Returns whether this object is write-signalled
+      @return TRUE if the object is write-signalled
+  */
+  PUBLIC BOOLEAN FUNCTION IsWriteSignalled()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot check signalled status on an already closed object");
+
+    IF (NOT this->pvt_supports_write_signalling)
+      RETURN TRUE;
+
+    RETURN WaitForMultiple(DEFAULT INTEGER ARRAY, [ INTEGER(this->pvt_handle) ], 0) = this->pvt_handle;
+  }
+
+
+  /** Returns whether this object is signalled (read or write).
+      @return TRUE if the object is read- or write-signalled
+  */
+  PUBLIC BOOLEAN FUNCTION IsSignalled()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot check signalled status on an already closed object");
+
+    RETURN this->Wait(DEFAULT DATETIME);
+  }
+
+
+  /** Waits until this output has become signalled (read or write)
+      @param until Timeout
+      @return Returns whether this object has been signalled (return FALSE when a timeout has occurred)
+  */
+  PUBLIC BOOLEAN FUNCTION Wait(DATETIME until)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot wait on an already closed object");
+
+    RETURN WaitForMultipleUntil(
+        [ INTEGER(this->pvt_handle) ],
+        this->pvt_supports_write_signalling ? [ INTEGER(this->pvt_handle) ] : DEFAULT INTEGER ARRAY,
+        until) = this->pvt_handle;
+  }
+
+
+  /** Returns a promise that will be resolved when this output object becomes read signalled
+      @param until Timeout
+      @return promise
+  */
+  PUBLIC OBJECT FUNCTION AsyncWaitRead(DATETIME until)
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot wait on an already closed object");
+
+    OBJECT helper := NEW __HS_INTERNAL_AsyncCallbackWaitHelperBase();
+    helper->promise->rejectoncancel := TRUE;
+    helper->SetTimeout(until);
+    helper->AddHandleRead(this->pvt_handle);
+    RETURN helper->promise;
+  }
+
+
+  /** Closes this object. Must be overridden, because every type of handle currently has its own close functions.
+  */
+  PUBLIC MACRO Close()
+  {
+    // ADDME: make the base unregister all the callbacks on this handle
+    ABORT("The 'Close' member of an output object MUST be overridden.");
+  }
+>;
+
+/** Object to control suspendable functions (generators, async functions, async generators)
+
+    The YIELD instruction takes a controller object as first parameter, and stores the function
+    stack and return value into this object
+*/
+STATIC OBJECTTYPE __HS_INTERNAL_SuspendableFunctionController
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Saved stack
+  VARIANT ARRAY stack;
+
+  /** Final return value
+      @cell(boolean) done
+      @cell(variant) value
+  */
+  RECORD value;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(BOOLEAN initial_suspended)
+  {
+    this->InitState(initial_suspended);
+  }
+
+  /** Initialize this object as suspendable function controller
+      @param initial_suspended Whether this function starts suspended (generators do so)
+  */
+  MACRO InitState(BOOLEAN initial_suspended) __ATTRIBUTES__(EXTERNAL);
+
+  /** Restarts the suspended function
+      @param type 0: Send normal value, 1: Send exception, 2: send return
+      @param value Value to send
+  */
+  RECORD FUNCTION HandleResume(INTEGER type, VARIANT value) __ATTRIBUTES__(EXTERNAL);
+
+  /** Updates the internal state when the resumed function returns (for return or for yield)
+      @param retval Return value. DEFAULT RECORD signals for completion with exception
+      @cell retval.done Whether the function has completed
+      @cell retval.value Returned value
+      @return Returns retval one-on-one.
+  */
+  RECORD FUNCTION ProcessResult(RECORD retval) __ATTRIBUTES__(EXTERNAL);
+>;
+
+
+/** Object to control a function generator. Created within the generator, returned
+    in the first yield (which is placed right at the start of the function)
+*/
+PUBLIC OBJECTTYPE __HS_INTERNAL_FunctionGenerator EXTEND __HS_INTERNAL_SuspendableFunctionController __ATTRIBUTES__(INTERNALPROTECTED)
+< MACRO NEW()
+  : __HS_INTERNAL_SuspendableFunctionController(TRUE)
+  {
+  }
+
+  /** Sends a value to a yielded generator, returns the next yielded (or returned)
+      value. Throws when the generator throws.
+      @return
+      @cell(boolean) done Whether the generator has returned
+      @cell value Yielded value (or returned value, when the generator has returned)
+  */
+  PUBLIC RECORD FUNCTION Next(VARIANT pass DEFAULTSTO DEFAULT RECORD) //__ATTRIBUTES__(SKIPTRACE)
+  {
+    RECORD result;
+    TRY
+    {
+      result := this->HandleResume(0, pass);
+    }
+    CATCH (OBJECT e)
+    {
+      this->ProcessResult(DEFAULT RECORD);
+      THROW;
+    }
+    RETURN this->ProcessResult(result);
+  }
+
+  /** Sends a exception to throw to a yielded generator, returns the next yielded (or
+      returned) value. Throws when the generator throws.
+      @return
+      @cell(boolean) done Whether the generator has returned
+      @cell value Yielded value (or returned value, when the generator has returned)
+  */
+  PUBLIC RECORD FUNCTION SendThrow(OBJECT e) //__ATTRIBUTES__(SKIPTRACE)
+  {
+    RECORD result;
+    TRY
+    {
+      result := this->HandleResume(1, e);
+    }
+    CATCH
+    {
+      this->ProcessResult(DEFAULT RECORD);
+      THROW;
+    }
+    RETURN this->ProcessResult(result);
+  }
+
+  /** Sends a value to return to a yielded generator, returns the next yielded (or
+      returned) value. Throws when the generator throws.
+      @return
+      @cell(boolean) done Whether the generator has returned
+      @cell value Yielded value (or retu erned value, when the generator has returned)
+  */
+  PUBLIC RECORD FUNCTION SendReturn(VARIANT retval DEFAULTSTO DEFAULT RECORD) // __ATTRIBUTES__(SKIPTRACE)
+  {
+    RECORD result;
+    TRY
+    {
+      result := this->HandleResume(2, retval);
+    }
+    CATCH (OBJECT e)
+    {
+      this->ProcessResult(DEFAULT RECORD);
+      THROW;
+    }
+    RETURN this->ProcessResult(result);
+  }
+>;
+
+OBJECT FUNCTION *__HS_INTERNAL_IterateArray(VARIANT arr)
+{
+  FOREVERY (VARIANT v FROM arr)
+    YIELD v;
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC OBJECT FUNCTION __HS_CONVERTTOITERATOR(VARIANT v)
+{
+  IF ((TypeID(v) BITAND 0x80) != 0) // Array?
+    RETURN __HS_INTERNAL_IterateArray(v);
+  IF (TypeID(v) != TypeID(OBJECT) OR v NOT EXTENDSFROM __HS_INTERNAL_FunctionGenerator)
+    THROW NEW Exception("Cannot convert expression to an iterator");
+  RETURN v;
+}
+
+OBJECTTYPE GetAsyncControlAction __ATTRIBUTES__(INTERNALPROTECTED) < >;
+
+PUBLIC OBJECT FUNCTION GetAsyncControl() { RETURN NEW GetAsyncControlAction; }
+
+OBJECTTYPE AsyncControl __ATTRIBUTES__(INTERNALPROTECTED)
+<
+  OBJECT generator;
+  OBJECT pvt_canceltoken;
+
+  PUBLIC PROPERTY canceltoken(pvt_canceltoken, -);
+  PUBLIC PROPERTY autolinkcancel(this->generator->pvt_autolinkcancel, this->generator->pvt_autolinkcancel);
+
+  MACRO NEW(OBJECT generator, OBJECT pvt_canceltoken)
+  {
+    this->generator := generator;
+    this->pvt_canceltoken := pvt_canceltoken;
+  }
+>;
+
+RECORD afg_iteratorretval := [ yieldvalue := TRUE, value := [ done := FALSE, value := DEFAULT RECORD ] ];
+
+/* Asynchronous functions are built using a generator function.
+
+    The compiler translates an async function as follows:
+      OBJECT ASYNC FUNCTION Test()
+      {
+        VARIANT x := AWAIT 1;
+        RETURN 2;
+      }
+    to
+      OBJECT ASYNC FUNCTION Test()
+      {
+        OBJECT generator := NEW __HS_INTERNAL_AsyncFunctionGenerator
+        TRY
+        {
+          RECORD awaitval := generator->SendAwait(1);
+          VARIANT x := (awaitval.yieldvalue ? :YIELD awaitval.value : awaitval.value);
+          RETURN generator->SendReturn(2);
+        }
+        CATCH (OBJECT e)
+          RETURN generator->SendThrow(e);
+      }
+
+    The first returned value is the generator function, after that the rest of the function is run with the suspendable
+    functions resumes. These function expect a [ done := ..., value := ... ] record returned.
+*/
+
+PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncFunctionGenerator EXTEND __HS_INTERNAL_SuspendableFunctionController __ATTRIBUTES__(INTERNALPROTECTED)
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Whether to autolink the generator cancel token to awaited promises.
+  BOOLEAN pvt_autolinkcancel;
+
+  /// Deferred promise, returned to caller
+  RECORD defer;
+
+  /// If we've been run as iterator (true after first yield)
+  BOOLEAN runfromiterator;
+
+  /// Needed to pose as a promise
+  INTEGER waitgen;
+
+  /// Async stack trace of start of function
+  OBJECT asynccontext;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW() __ATTRIBUTES__(SKIPTRACE)
+  : __HS_INTERNAL_SuspendableFunctionController(FALSE)
+  {
+    this->defer := CreateDeferredPromise();
+    this->asynccontext := NEW __HS_INTERNAL_ASYNCCONTEXT(2);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Internal calls
+  //
+
+  MACRO ResolveInternal(INTEGER waitgen, STRING resolvetype, VARIANT value, OBJECT originpromise)
+  {
+    RECORD result;
+    TRY
+    {
+      __WITHASYNCCONTEXT(this->asynccontext)
+        result := this->HandleResume(resolvetype = "resolved" ? 0 : 1, value);
+    }
+    CATCH (OBJECT e)
+    {
+      this->ProcessResult(DEFAULT RECORD);
+      THROW;
+    }
+    this->ProcessResult(result);
+  }
+
+  /// Constructs the return value for the this->ReturnXXX calls.
+  VARIANT FUNCTION GetFinalReturnValue()
+  {
+    // Return value - first yield returns the promise, else an iterator value
+    // Always clear defer, we won't need it anymore, and less object cycles are better for GC
+    IF (this->runfromiterator)
+    {
+      this->defer := DEFAULT RECORD;
+      RETURN [ done := TRUE, value := DEFAULT RECORD ];
+    }
+
+    OBJECT retval := this->defer.promise;
+    this->defer := DEFAULT RECORD;
+    RETURN retval;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions called from controlled function (injected by compiler)
+  //
+
+  /// Calculate the iterator return value for an AWAIT call, setup iterator continuation when the value converted to a promise resolves.
+  VARIANT FUNCTION SendAwait(VARIANT value)
+  {
+    IF (TypeID(value) = TypeID(OBJECT))
+    {
+      // Return async control action immediately (no yield!)
+      IF (value EXTENDSFROM GetAsyncControlAction)
+        RETURN [ yieldvalue := FALSE, value := NEW AsyncControl(PRIVATE this, this->defer.promise->canceltoken) ];
+
+      // Link the canceltoken to returned promises
+      IF (this->pvt_autolinkcancel AND value EXTENDSFROM PromiseBase)
+        value->LinkToken(this->defer.promise->canceltoken);
+    }
+
+    // Schedule continuation of the async function after the value has resolved
+    // Use __Chain as to pose as a promise - so no new promise is created
+    CreateResolvedPromise(value)->__Chain(PRIVATE this);
+
+    // Return value - first yield the promise, else an iterator value
+    IF (this->runfromiterator)
+      RETURN afg_iteratorretval;
+
+    // First yield instruction returns the promise to the caller
+    this->runfromiterator := TRUE;
+    RETURN [ yieldvalue := TRUE, value := this->defer.promise ];
+  }
+
+  /// Reject the generator promise, return iterator return value
+  VARIANT FUNCTION ReturnThrow(OBJECT value) __ATTRIBUTES__(SKIPTRACE)
+  {
+    this->defer.reject(value);
+    RETURN this->GetFinalReturnValue();
+  }
+
+  /// Resolve the generator promise, return iterator return value
+  VARIANT FUNCTION ReturnValue(VARIANT value)
+  {
+    // Link the canceltoken to returned promises
+    IF (TypeID(value) = TypeID(OBJECT) AND this->pvt_autolinkcancel AND value EXTENDSFROM PromiseBase)
+      value->LinkToken(this->defer.promise->canceltoken);
+
+    this->defer.resolve(value);
+    RETURN this->GetFinalReturnValue();
+  }
+>;
+
+/** This objecttype controls a async generator function.
+
+    ADDME: For generators, we don't need the ->SendXXX injected by the compiler, could handle it by setting
+       up control values in the translated AWAITs/YIELDs and handling those in ResumeWithXXX/HandleYieldInstruction.
+       Can't do that for async normal functions, because the function has no initial yield.
+*/
+PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTERNAL_SuspendableFunctionController __ATTRIBUTES__(INTERNALPROTECTED)
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // Asynchronous context
+  OBJECT asynccontext;
+
+  /// Are we at the implicit first yield?
+//  BOOLEAN atfirstinstruction;
+
+  /** Queued calls to the iterator from the user
+      @cell type
+      @cell value
+  */
+  RECORD ARRAY queued;
+
+  /// Deferred promise for when the suspended function is waiting for the next call from the user
+  //RECORD waitval;
+
+  /// Whether to autolink cancel
+  BOOLEAN pvt_autolinkcancel;
+
+  /// Cancel token source (initialized on-demand)
+  OBJECT pvt_canceltokensource;
+
+  /// Indiciates whether a YIELD has been encountered yet (one the first, this object is returned)
+  BOOLEAN sent_yield;
+
+  /// Whether the generator is currently running or waiting for an await to finish
+  BOOLEAN running;
+
+  /// Needed to pose as a promise
+  INTEGER waitgen;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// Cancel token (will be cancelled when @a Cancel is called)
+  PUBLIC PROPERTY canceltoken(GetCancelToken, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  : __HS_INTERNAL_SuspendableFunctionController(TRUE)
+  {
+    this->asynccontext := NEW __HS_INTERNAL_ASYNCCONTEXT(2);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  OBJECT FUNCTION GetCancelToken()
+  {
+    RETURN this->GetCancelTokenSource()->canceltoken;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION GetCancelTokenSource()
+  {
+    IF (NOT ObjectExists(this->pvt_canceltokensource))
+      this->pvt_canceltokensource := NEW CancellationTokenSource;
+    RETURN this->pvt_canceltokensource;
+  }
+
+  MACRO ResolveInternal(INTEGER waitgen, STRING resolvetype, VARIANT value, OBJECT originpromise)
+  {
+    this->RunGenerator(CELL[ type := resolvetype = "resolved" ? 0 : 1, value ]);
+  }
+
+  /* Run the generator
+     @param instr If set, use this instruction instead of the queued first instruction to send to the generator
+  */
+  MACRO RunGenerator(RECORD instr)
+  {
+    // Keep running while values are present in queue
+    WHILE (NOT IsDefaultValue(this->queued))
+    {
+      // Already thrown/returned
+      IF (RecordExists(this->value))
+      {
+        IF (this->value.type = 1)
+          this->queued[0].reject(this->value.value);
+        ELSE
+          this->queued[0].resolve([ done := TRUE, value := this->value.value ]);
+        DELETE FROM this->queued AT 0;
+        CONTINUE;
+      }
+
+      // run the current instruction
+      instr := instr ?? this->queued[0];
+      RECORD res;
+      __WITHASYNCCONTEXT(this->asynccontext)
+        res := this->ResumeGenerator(instr.type, instr.value);
+      instr := DEFAULT RECORD;
+
+      // Process the return value
+      SWITCH (res.type)
+      {
+        CASE 0 // yield (assert: done=false)
+        {
+          this->queued[0].resolve(CELL[ done := FALSE, res.value ]);
+          DELETE FROM this->queued AT 0;
+        }
+        CASE 1 // throw (done is true, so value was already copied to in ->value by ProcessResult)
+        {
+          // (assert: done=true)
+          CONTINUE;
+        }
+        CASE 2 // return (done is true, so value was already copied to in ->value by ProcessResult)
+        {
+          // (assert: done=true)
+          CONTINUE;
+        }
+        CASE 3 // await
+        {
+          // (assert: done=false)
+          CreateResolvedPromise(res.value)->__Chain(PRIVATE this);
+          RETURN;
+        }
+        CASE 4 // continue with yieled value
+        {
+          // (assert: done=false)
+          INSERT [ type := 0, value := res.value ] INTO this->queued AT 0;
+        }
+      }
+    }
+
+    this->running := FALSE;
+  }
+
+  OBJECT FUNCTION Schedule(RECORD rec)
+  {
+    RECORD defer := CreateDeferredPromise();
+    INSERT CELL[ ...defer, ...rec ] INTO this->queued AT END;
+
+    IF (NOT this->running)
+    {
+      // Do the same as javascript spec, is generator is runnable, run it
+      this->running := TRUE;
+      this->RunGenerator(DEFAULT RECORD);
+    }
+
+    RETURN defer.promise;
+  }
+
+  RECORD FUNCTION ResumeGenerator(INTEGER type, VARIANT value)
+  {
+    RECORD result;
+    TRY
+    {
+      result := this->HandleResume(type, value);
+    }
+    CATCH (OBJECT e)
+    {
+      this->ProcessResult(DEFAULT RECORD);
+      RETURN [ type := 1, value := e ];
+    }
+
+    RETURN this->ProcessResult(result);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions called from controlled function (injected by compiler)
+  //
+
+  /// Return value for the first YIELD (injected at start). Returned value is return value for function (so it must be an AsyncIterator)
+  OBJECT FUNCTION InitGenerator()
+  {
+    RETURN this;
+  }
+
+  /// Calculate the iterator return value for an AWAIT call, setup iterator continuation when the value converted to a promise resolves.
+  VARIANT FUNCTION SendAwait(VARIANT value)
+  {
+    IF (TypeID(value) = TypeID(OBJECT))
+    {
+      // Return async control action immediately (no yield!)
+      IF (value EXTENDSFROM GetAsyncControlAction)
+        RETURN [ yieldvalue := TRUE, value := [ done := FALSE, type := 4, value := NEW AsyncControl(PRIVATE this, this->GetCancelToken()) ] ]; // return immediately
+
+      // Link the canceltoken to returned promises
+      IF (this->pvt_autolinkcancel AND value EXTENDSFROM PromiseBase)
+        value->LinkToken(this->GetCancelToken());
+    }
+
+    // FIXME: rip out yieldvalue, is extra overhead
+    RETURN [ yieldvalue := TRUE, value := [ done := FALSE, type := 3, value := value ] ]; // await
+  }
+
+  /// Called to calculated the return value for a YIELD in code
+  VARIANT FUNCTION SendYield(VARIANT value)
+  {
+    // First yield is controller, must be sent immediately
+    IF (NOT this->sent_yield)
+    {
+      this->sent_yield := TRUE;
+      RETURN value;
+    }
+
+    // type = 0: yield
+    RETURN [ done := FALSE, type := 0, value := value ]; // yield
+  }
+
+  /// Process thrown value
+  RECORD FUNCTION ReturnThrow(OBJECT value)
+  {
+    RETURN [ done := TRUE, type := 1, value := value ]; // throw
+  }
+
+  RECORD FUNCTION ReturnValue(VARIANT value)
+  {
+    RETURN [ done := TRUE, type := 2, value := value ]; // return
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Sends a value to a yielded generator, returns a promise for the the next yielded (or returned)
+      value. Rejects when the generator throws.
+      @return
+      @cell(boolean) done Whether the generator has returned
+      @cell value Yielded value (or returned value, when the generator has returned)
+  */
+  PUBLIC OBJECT FUNCTION Next(VARIANT pass DEFAULTSTO DEFAULT RECORD) //__ATTRIBUTES__(SKIPTRACE)
+  {
+    RETURN this->Schedule([ type := 0, value := pass ]);
+  }
+
+  /** Sends a exception to throw to a yielded generator, returns a promise for the the next yielded (or
+      returned) value. Rejects when the generator throws.
+      @return
+      @cell(boolean) done Whether the generator has returned
+      @cell value Yielded value (or returned value, when the generator has returned)
+  */
+  PUBLIC OBJECT FUNCTION SendThrow(OBJECT e) //__ATTRIBUTES__(SKIPTRACE)
+  {
+    RETURN this->Schedule([ type := 1, value := e ]);
+  }
+
+  /** Sends a value to return to a yielded generator, returns a promise for the next yielded (or
+      returned) value. Rejects when the generator throws.
+      @return
+      @cell(boolean) done Whether the generator has returned
+      @cell value Yielded value (or retu erned value, when the generator has returned)
+  */
+  PUBLIC OBJECT FUNCTION SendReturn(VARIANT retval DEFAULTSTO DEFAULT RECORD) // __ATTRIBUTES__(SKIPTRACE)
+  {
+    RETURN this->Schedule([ type := 2, value := retval ]);
+  }
+>;
+
+OBJECTTYPE PromisesResultKeeper
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Stored value (default record if not fulfilled yet)
+  */
+  RECORD result;
+
+  BOOLEAN nothrow;
+
+  WEAKOBJECT ARRAY promises;
+
+  INTEGER waitgen;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(BOOLEAN nothrow)
+  {
+    this->nothrow := nothrow;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ResolveInternal(INTEGER waitgen, STRING resolution, VARIANT value, OBJECT originpromise)
+  {
+    IF (NOT RecordExists(this->result) OR waitgen >= LENGTH(this->promises))
+    {
+      this->result := [ promise := originpromise, type := resolution, value := value ];
+      this->Unsubscribe();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO AddPromises(OBJECT ARRAY promises)
+  {
+    IF (RecordExists(this->result) OR this->waitgen < 0)
+      RETURN;
+
+    FOREVERY (OBJECT promise FROM promises)
+    {
+      INSERT WEAKOBJECT(promise) INTO this->promises AT END;
+      promise->__Chain(PRIVATE this);
+      this->waitgen := this->waitgen + 1;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION GetResult() __ATTRIBUTES__(SKIPTRACE)
+  {
+    IF (NOT RecordExists(this->result))
+      RETURN DEFAULT RECORD;
+
+    IF (this->result.type = "rejected")
+    {
+      IF (NOT this->nothrow)
+        THROW this->result.value;
+
+      RETURN
+          [ type :=             "promise"
+          , fulfillmenttype :=  "rejected"
+          , promise :=          this->result.promise
+          , value :=            this->result.value
+          , handle :=           -1
+          ];
+    }
+
+    RETURN
+        [ type :=             "promise"
+        , fulfillmenttype :=  "resolved"
+        , promise :=          this->result.promise
+        , value :=            this->result.value
+        , handle :=           -1
+        ];
+  }
+
+  PUBLIC MACRO Unsubscribe()
+  {
+    FOREVERY (WEAKOBJECT promise FROM this->promises)
+    {
+      OBJECT strongref := OBJECT(promise);
+      IF (ObjectExists(strongref))
+        strongref->__Unchain(PRIVATE this);
+    }
+    this->promises := DEFAULT WEAKOBJECT ARRAY;
+    this->waitgen := -1;
+  }
+>;
+
+VARIANT FUNCTION ToArray(VARIANT value, BOOLEAN ignoredefault DEFAULTSTO TRUE)
+{
+  INTEGER valuetype := TypeID(value);
+  IF (IsTypeIDArray(valuetype))
+    RETURN value;
+
+  VARIANT valuearray := GetTypeDefaultArray(valuetype);
+  IF (NOT IsDefaultValue(value) OR NOT ignoredefault)
+    INSERT value INTO valuearray AT END;
+  RETURN valuearray;
+}
+
+/** Wait until a handle is signalled, a promise is fulfilled or a timeout is reached
+    @param waitfor
+    @cell(integer array) waitfor.read Return when any of these handles is read-signalled (optional)
+    @cell(integer array) waitfor.write Return when any of these handles is write-signalled (optional)
+    @cell(object array) waitfor.promise Return when any of these promises are fulfilled. Throws when a promise is rejected, returns
+                    the fulfilled promise and the value it resolved to otherwise. (optional)
+    @cell(boolean) waitfor.nothrow If TRUE, rejected promises are returned in the return value, instead of throwing
+                    the exception.
+    @cell(boolean) waitfor.multiple if TRUE, allow returning multiple results
+    @cell(boolean) waitfor.callbacks if TRUE, return when a callback has been executed
+    @param until Wait until this time
+    @return
+    @cell return.type Reason of exit: 'handle-read', 'handle-write', 'promise', 'timeout', 'callback')
+    @cell return.handle Signalled handle
+    @cell return.promise Fulfilled promise (promises only)
+    @cell return.fulfillmenttype Indicates whether the promise was resolved or rejected. Values: "resolved" / "rejected" (promise only)
+    @cell return.value Value the promise resolved to (promises only)
+*/
+PUBLIC RECORD ARRAY FUNCTION WaitUntil(RECORD waitfor, DATETIME until)
+{
+  INSERT CELL multiple := FALSE INTO waitfor;
+  RETURN WaitUntilMultiple(waitfor, until);
+}
+
+/** Wait until a handle is signalled, a promise is fulfilled or a timeout is reached
+    @param waitfor
+    @cell(integer array) waitfor.read Return when any of these handles is read-signalled (optional)
+    @cell(integer array) waitfor.write Return when any of these handles is write-signalled (optional)
+    @cell(object array) waitfor.promise Return when any of these promises are fulfilled. Throws when a promise is rejected, returns
+                    the fulfilled promise and the value it resolved to otherwise. (optional)
+    @cell(function ptr array) waitfor.func Return when any of this functions returns TRUE
+    @cell(boolean) waitfor.nothrow If TRUE, rejected promises are returned in the return value, instead of throwing
+                    the exception.
+    @cell(boolean) waitfor.multiple if TRUE, allow returning multiple results
+    @param until Wait until this time
+    @return List of signalled stuff
+    @cell return.type Reason of exit: 'handle-read', 'handle-write', 'promise', 'timeout', 'func')
+    @cell return.handle Signalled handle
+    @cell return.promise Fulfilled promise (promises only)
+    @cell return.fulfillmenttype Indicates whether the promise was resolved or rejected. Values: "resolved" / "rejected" (promise only)
+    @cell return.value Value the promise resolved to (promises only)
+    @cell return.nr Nr of function that returned TRUE (functions only)
+*/
+PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until)
+{
+  OBJECT promisekeeper;
+
+  FOREVERY (RECORD rec FROM UnpackRecord(waitfor))
+    IF (rec.name NOT IN [ "READ", "WRITE", "TIMEOUT", "PROMISE", "NOTHROW", "MULTIPLE", "CALLBACKS" ])
+      THROW NEW Exception("Illegal option '" || rec.name || "'");
+
+  BOOLEAN multiple_return := NOT CellExists(waitfor, "MULTIPLE") OR waitfor.multiple;
+  BOOLEAN callbacks := CellExists(waitfor, "CALLBACKS") AND waitfor.callbacks;
+  INTEGER ARRAY readhandles := CellExists(waitfor, "READ") ? ToArray(waitfor.read, FALSE) : DEFAULT INTEGER ARRAY;
+  INTEGER ARRAY writehandles := CellExists(waitfor, "WRITE") ? ToArray(waitfor.write, FALSE) : DEFAULT INTEGER ARRAY;
+  OBJECT ARRAY promises := CellExists(waitfor, "PROMISE") ? ToArray(waitfor.promise) : DEFAULT OBJECT ARRAY;
+  //FUNCTION PTR ARRAY funcs := CellExists(waitfor, "FUNC") ? ToArray(waitfor.func) : DEFAULT FUNCTION PTR ARRAY;
+  IF (LENGTH(promises) != 0)
+  {
+    promisekeeper := NEW PromisesResultKeeper(CellExists(waitfor, "NOTHROW") AND waitfor.nothrow);
+    promisekeeper->AddPromises(promises);
+  }
+
+  IF (next_gc = MAX_DATETIME)
+    next_gc := AddTimeToDate(gc_waitperiod, GetCurrentDateTime());
+
+  TRY
+  {
+    RECORD ARRAY retval;
+    WHILE (TRUE)
+    {
+      DATETIME event_timeout := __INTERNAL_GetEventCallBackTimeout();
+
+      DATETIME timeout := until < event_timeout ? until : event_timeout;
+      IF (next_gc < timeout)
+        timeout := next_gc;
+
+      INTEGER ARRAY waithandles := __INTERNAL_GetEventCallBackHandles();
+      INTEGER ARRAY waitwritehandles := __INTERNAL_GetEventCallBackWriteHandles();
+      RECORD rec := __HS_WAITFORMULTIPLEUNTIL(readhandles CONCAT waithandles, writehandles CONCAT waitwritehandles, timeout);
+
+      BOOLEAN have_callback;
+
+      IF (LENGTH(rec.read) != 0)
+      {
+        FOREVERY (INTEGER handle FROM rec.read)
+        {
+          IF (handle IN waithandles)
+            have_callback := have_callback OR __INTERNAL_HandleEventCallbackEvents(handle, "handle-read");
+          IF (handle IN readhandles AND (multiple_return OR NOT RecordExists(retval)))
+            INSERT [ type := "handle-read", handle := handle ] INTO retval AT END;
+        }
+      }
+
+      IF (LENGTH(rec.write) != 0)
+      {
+        FOREVERY (INTEGER handle FROM rec.write)
+        {
+          IF (handle IN waitwritehandles)
+            have_callback := have_callback OR __INTERNAL_HandleEventCallbackEvents(handle, "handle-write");
+          IF (handle IN writehandles AND (multiple_return OR NOT RecordExists(retval)))
+            INSERT [ type := "handle-write", handle := handle ] INTO retval AT END;
+        }
+      }
+
+      DATETIME now := GetCurrentDateTime();
+
+      IF (now >= next_gc)
+      {
+        CollectGarbage();
+        next_gc := MAX_DATETIME;
+      }
+
+      IF (now >= event_timeout)
+        have_callback := __INTERNAL_HandleEventCallbackEvents(-1) OR have_callback;
+
+      IF (RecordExists(retval) AND NOT multiple_return)
+        RETURN retval;
+
+      IF (ObjectExists(promisekeeper))
+      {
+        // Throws if an exception was caught in normal ('nothrow' not specified) mode
+        RECORD result := promisekeeper->GetResult();
+        IF (RecordExists(result))
+        {
+          INSERT result INTO retval AT END;
+          IF (NOT multiple_return)
+            RETURN retval;
+        }
+      }
+
+      IF (callbacks AND have_callback)
+      {
+        INSERT [ type := "callback", handle := -1 ] INTO retval AT END;
+        IF (NOT multiple_return)
+          RETURN retval;
+      }
+
+      IF (now >= until)
+        INSERT [ type := "timeout", handle := -1 ] INTO retval AT END;
+
+      IF (RecordExists(retval))
+        RETURN retval;
+
+      IF (have_callback AND next_gc = MAX_DATETIME)
+        next_gc := AddTimeToDate(gc_waitperiod, GetCurrentDateTime());
+    }
+  }
+  FINALLY
+  {
+    IF (ObjectExists(promisekeeper))
+      promisekeeper->Unsubscribe();
+  }
+}
+
+PUBLIC VARIANT FUNCTION WaitForPromise(OBJECT promise, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(NOT ObjectExists(promise))
+    THROW NEW Exception("Did not specify a promise to wait for");
+
+  FOREVERY (RECORD rec FROM UnpackRecord(options))
+    IF (rec.name NOT IN [ "TIMEOUT", "TIMEOUTVALUE" ])
+      THROW NEW Exception("Illegal option '" || rec.name || "'");
+
+  RECORD res := WaitUntil([ promise := promise ], CellExists(options, "timeout") ? options.timeout : MAX_DATETIME);
+  IF (res.type = "promise")
+    RETURN res.value;
+
+  IF (CellExists(options, "TIMEOUTVALUE"))
+    RETURN options.timeoutvalue;
+
+  THROW NEW Exception("timeout");
+}
+
+/** Returns whether a handle is read signalled in within a specific period. If immediately signalled, returns TRUE, else
+    a promise. That promise that resolves to TRUE when the handle becomes signalled before waituntil, and to FALSE on timeout
+    @param handle handle to wait become read signalled
+    @param waituntil Timeout time
+    @return TRUE on immediately signalled, promise otherwise
+*/
+PUBLIC VARIANT FUNCTION __INTERNAL_AsyncWaitHandleReadSignalled(INTEGER handle, DATETIME waituntil)
+{
+  // Immediately signalled?
+  IF (WaitForMultipleUntil([ handle ], DEFAULT INTEGER ARRAY, DEFAULT DATETIME) = handle)
+    RETURN handle;
+
+  RECORD defer := CreateDeferredPromise();
+  INSERT CELL handle := handle INTO defer;
+  defer.promise->userdata :=
+      [ signal_cb :=  RegisterHandleReadCallback(handle, PTR GotAsyncHandleSignalled(defer, handle))
+      , timeout_cb := waituntil = MAX_DATETIME ? 0 : RegisterTimedCallback(waituntil, PTR GotAsyncHandleTimeout(defer))
+      ];
+
+  defer.promise->canceltoken->AddCallback(PTR GotAsyncHandleCancel(defer));
+  RETURN defer.promise;
+}
+
+/** Returns whether a handle is read signalled in within a specific period. If immediately signalled, returns TRUE, else
+    a promise. That promise that resolves to TRUE when the handle becomes signalled before waituntil, and to FALSE on timeout
+    @param handle handle to wait become read signalled
+    @param waituntil Timeout time
+    @return TRUE on immediately signalled, promise otherwise
+*/
+PUBLIC VARIANT FUNCTION __INTERNAL_AsyncWaitHandleWriteSignalled(INTEGER handle, DATETIME waituntil)
+{
+  // Immediately signalled?
+  IF (WaitForMultipleUntil(DEFAULT INTEGER ARRAY, [ handle ], DEFAULT DATETIME) = handle)
+    RETURN handle;
+
+  RECORD defer := CreateDeferredPromise();
+  INSERT CELL handle := handle INTO defer;
+  defer.promise->userdata :=
+      [ signal_cb :=  RegisterHandleWriteCallback(handle, PTR GotAsyncHandleSignalled(defer, handle))
+      , timeout_cb := waituntil = MAX_DATETIME ? 0 : RegisterTimedCallback(waituntil, PTR GotAsyncHandleTimeout(defer))
+      ];
+
+  defer.promise->canceltoken->AddCallback(PTR GotAsyncHandleCancel(defer));
+  RETURN defer.promise;
+}
+
+MACRO GotAsyncHandleTimeout(RECORD defer)
+{
+  IF (defer.promise->userdata.signal_cb != 0)
+    UnregisterCallback(defer.promise->userdata.signal_cb);
+  defer.promise->userdata.signal_cb := 0;
+  defer.promise->userdata.timeout_cb := 0;
+
+  defer.resolve(-1);
+}
+
+MACRO GotAsyncHandleSignalled(RECORD defer, INTEGER handle)
+{
+  IF (defer.promise->userdata.signal_cb != 0)
+    UnregisterCallback(defer.promise->userdata.signal_cb);
+  defer.promise->userdata.signal_cb := 0;
+  IF (handle != -1 AND defer.promise->userdata.timeout_cb != 0)
+    UnregisterCallback(defer.promise->userdata.timeout_cb);
+  defer.promise->userdata.timeout_cb := 0;
+
+  defer.resolve(handle);
+}
+
+MACRO GotAsyncHandleCancel(RECORD defer)
+{
+  IF (defer.promise->userdata.signal_cb != 0)
+    UnregisterCallback(defer.promise->userdata.signal_cb);
+  defer.promise->userdata.signal_cb := 0;
+  IF (defer.promise->userdata.timeout_cb != 0)
+    UnregisterCallback(defer.promise->userdata.timeout_cb);
+  defer.promise->userdata.timeout_cb := 0;
+
+  defer.reject(defer.promise->canceltoken->cancelexception);
+}
+
+/** This function asynchronously drives a generator function that yields promises. It returns a promise for the
+    final return value.
+*/
+PUBLIC OBJECT FUNCTION GeneratorSpawn(OBJECT generator)
+{
+  RETURN NEW SpawnHelper(generator)->Start(FALSE);
+}
+
+/** This function asynchronously drives a generator function that yields promises. If the async generator
+    doesn't yield or return a promise, the value is returned directly. Otherwise, a promise for the return
+    value is returned.
+*/
+PUBLIC VARIANT FUNCTION GeneratorSpawnTrySync(OBJECT generator)
+{
+  RETURN NEW SpawnHelper(generator)->Start(TRUE);
+}
+
+STATIC OBJECTTYPE SpawnHelper
+< PUBLIC RECORD defer;
+  OBJECT generator;
+  INTEGER waitgen;
+  OBJECT asynccontext;
+
+  MACRO NEW(OBJECT generator)
+  {
+    this->generator := generator;
+    this->asynccontext := NEW __HS_INTERNAL_ASYNCCONTEXT(2);
+  }
+
+  MACRO ResolveInternal(INTEGER waitgen, STRING resolution, VARIANT value, OBJECT originpromise)
+  {
+    TRY
+    {
+      RECORD rec;
+      __WITHASYNCCONTEXT(this->asynccontext, 1)
+        rec := resolution = "resolved" ? this->generator->Next(value) : this->generator->SendThrow(value);
+
+      IF (rec.done)
+        this->defer.resolve(rec.value);
+      ELSE
+        CreateResolvedPromise(rec.value)->__Chain(PRIVATE this);
+    }
+    CATCH (OBJECT e)
+    {
+      this->defer.reject(e);
+    }
+
+  }
+
+  PUBLIC VARIANT FUNCTION Start(BOOLEAN trysyncreturn)
+  {
+    VARIANT nextvalue := DEFAULT RECORD;
+    WHILE (TRUE)
+    {
+      TRY
+      {
+        RECORD rec := this->generator->Next(nextvalue);
+        BOOLEAN is_promise := TypeID(rec.value) = TypeID(OBJECT) AND rec.value EXTENDSFROM PromiseBase;
+
+        // If the returned value isn't a promise and we're trying to be synchronous, return the value directly
+        IF (trysyncreturn AND NOT is_promise)
+        {
+          IF (rec.done)
+            RETURN rec.value;
+
+          nextvalue := rec.value;
+          CONTINUE;
+        }
+
+        IF (rec.done)
+          RETURN CreateResolvedPromise(rec.value);
+
+        // Yielded value is a promise, switch over to full async operation.
+        this->defer := CreateDeferredPromise();
+
+        CreateResolvedPromise(rec.value)->__Chain(PRIVATE this);
+        RETURN this->defer.promise;
+      }
+      CATCH (OBJECT e)
+      {
+        IF (trysyncreturn)
+          THROW;
+        RETURN CreateRejectedPromise(e);
+      }
+    }
+  }
+>;
+
+/** Drives a generator until it is exhausted, returns the final returned value
+*/
+PUBLIC VARIANT FUNCTION RunGeneratorUntilReturn(OBJECT generator)
+{
+  RECORD res := [ value := DEFAULT RECORD ];
+  WHILE (TRUE)
+  {
+    res := generator->Next(res.value);
+    IF (res.done)
+      RETURN res.value;
+  }
+}
+
+OBJECT ASYNC FUNCTION AsyncInternalReadFrom(INTEGER inputid, INTEGER maxnumbytes, BOOLEAN readline, BOOLEAN striplf)
+{
+  INTEGER minread := maxnumbytes < 1 ? 1 : maxnumbytes;
+
+  RECORD res := __HS_INTERNAL_ReceiveFrom(inputid, maxnumbytes, readline, striplf, FALSE);
+  // PRINTTO(1, "AIRF __HS_INTERNAL_ReceiveFrom#1: " || res.status || " '" || res.data || "'\n");
+
+  STRING cache := res.data;
+
+  // Get the timeout in case this was a socket, -1 is no timeout. WFM honors timeouts up to 1 hour.
+  INTEGER timeout := __HS_TCPIP_GetSocketTimeout(inputid);
+  BOOLEAN got_timeout;
+  WHILE (LENGTH(cache) < minread)
+  {
+    // PRINTTO(1, "AIRF loop " || res.status || "\n");
+    SWITCH (res.status)
+    {
+    CASE 0  // noerror
+      {
+        IF (res.data = "" OR readline)
+        {
+          //PRINTTO(1, "AIRF break, got data\n");
+          BREAK;
+        }
+      }
+    CASE -13 //  wouldblock
+      {
+        BOOLEAN signalled := (AWAIT __INTERNAL_AsyncWaitHandleReadSignalled(inputid, timeout > 0 ? AddTimeToDate(timeout, GetCurrentDateTime()) : MAX_DATETIME)) != -1;
+        IF (NOT signalled)
+        {
+          // PRINTTO(1, "AIRF timeout, cancel read\n");
+          got_timeout := TRUE;
+
+          // We must go through the final receivefrom to get the data from the stream and to reset the
+          // ignoring of the internal buffer for signalledness determination
+        }
+
+      }
+    DEFAULT // error, return what's in cache
+      {
+        // PRINTTO(1, "AIRF got error\n");
+        BREAK;
+      }
+    }
+
+    INTEGER toread := maxnumbytes > 0 ? maxnumbytes - LENGTH(cache) : maxnumbytes + LENGTH(cache);
+
+    // Get data. If this returns -13 (WOULDBLOCK) (only when got_timeout is false) the outputobject will now ignore
+    // its internal buffer when determining if it is signalled. If got_timeout is true, the ignoring is lifted.
+    res := __HS_INTERNAL_ReceiveFrom(inputid, toread, readline, striplf, got_timeout);
+    // PRINTTO(1, "AIRF __HS_INTERNAL_ReceiveFrom#2: " || res.status || " '" || res.data || "'\n");
+    IF (res.status = 0)
+      cache := cache || res.data;
+
+    IF (got_timeout)
+    {
+      __HS_TCPIP_SETLASTERROR(inputid, -9); // Timeout
+      BREAK;
+    }
+  }
+
+  RETURN cache;
+}
+
+/** @short Asynchronously read a string from any input device
+    @long This function reads from any input device, eg. a diskfile or a socket
+    @param inputid Input device id
+    @param maxnumbytes (Maximum) number of bytes to read. This function never reads more than 32768 (32kB) in one call
+    @return The data read */
+PUBLIC OBJECT FUNCTION AsyncReadFrom(INTEGER inputid, INTEGER maxnumbytes)
+{
+  RETURN AsyncInternalReadFrom(inputid, maxnumbytes, FALSE, FALSE);
+}
+
+/** @short Asynchronously read a line from any input device
+    @long This function reads from any input device, eg. a diskfile or a socket. This function reads the specified number of bytes or until the end of line is encountered.
+    @param inputid Input device id
+    @param maxnumbytes (Maximum) number of bytes to read - the function will read until this limit or EOL is reached. This function never reads more than 32768 (32kB) in one call
+    @param striplf Strip the carriage returns or linefeed characters from the input
+    @return A promise that resolves to the read data
+*/
+PUBLIC OBJECT FUNCTION AsyncReadLineFrom(INTEGER inputid, INTEGER maxnumbytes, BOOLEAN striplf)
+{
+  RETURN AsyncInternalReadFrom(inputid, maxnumbytes, TRUE, striplf);
+}
+
+
+/** @short Write a blob to any output device
+    @long This function writes the content of a blob to any output device, eg. another open blob-stream, a file or a network connection.
+    @param outputid Output device to write the data to. The value 0 writes it to the standard output (the same output as @italic Print)
+    @param data The blob to write
+    @return True if the data was written succesfully, false if an I/O error occured.
+    @see PrintTo, CreateStream, GetDiskResource, MakeBlobFromStream
+    @example
+//Creates a combined BLOB from file1.txt and file2.txt
+BLOB file1 := GetDiskResource("/tmp/file1.txt");
+BLOB file2 := GetDiskResource("/tmp/file2.txt");
+
+INTEGER mergestream := CreateStream();
+SendBlobTo(mergestream, file1);
+PrintTo(mergestream,"-- Above was file1, file2 follows now --");
+SendBlobTo(mergestream, file2);
+BLOB file1_and_2_together := MakeBlobFromStream(mergestream);
+*/
+PUBLIC OBJECT ASYNC FUNCTION AsyncSendBlobTo(INTEGER outputid, BLOB data)
+{
+  INTEGER timeout := __HS_TCPIP_GetSocketTimeout(outputid);
+  INTEGER blobfile := OpenBlobAsFile(data);
+  TRY
+  {
+    STRING buffer;
+    WHILE (TRUE)
+    {
+      IF(Length(buffer) < 16384)
+        buffer := buffer || ReadFrom(blobfile, 16384);
+      IF(buffer="") //ADDME stop reading from blob if we already hit EOF once
+        RETURN TRUE;
+
+      INTEGER bytessent := WriteTo(outputid, buffer);
+      IF(bytessent>0)
+        buffer := Substring(buffer, bytessent);
+      IF (bytessent < 0)
+      {
+        IF (bytessent != -13)
+          RETURN FALSE;
+        IF ((AWAIT __INTERNAL_AsyncWaitHandleWriteSignalled(outputid, timeout > 0 ? AddTimeToDate(__HS_TCPIP_GetSocketTimeout(outputid), GetCurrentDateTime()) : MAX_DATETIME)) = -1)
+          RETURN FALSE;
+      }
+    }
+  }
+  FINALLY
+  {
+    __HS_CloseFile(blobfile);
+  }
+}

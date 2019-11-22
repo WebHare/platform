@@ -1,0 +1,1619 @@
+<?wh
+
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
+
+PUBLIC RECORD richstructure_constants :=
+  [ alltextstyles := ["b","i","u","a-href","strike","sub","sup","img"]
+  , builtinstyles :=
+    [ [ mswordid := 0,  containertag := "p",  tag :="NORMAL" ]
+    , [ mswordid := 1,  containertag := "h1", tag :="HEADING1" ]
+    , [ mswordid := 2,  containertag := "h2", tag :="HEADING2" ]
+    , [ mswordid := 3,  containertag := "h3", tag :="HEADING3" ]
+    , [ mswordid := 4,  containertag := "h4", tag :="HEADING4" ]
+    , [ mswordid := 5,  containertag := "h5", tag :="HEADING5" ]
+    , [ mswordid := 6,  containertag := "h6", tag :="HEADING6" ]
+    , [ mswordid := 7,  containertag := "p",  tag :="HEADING7" ]
+    , [ mswordid := 8,  containertag := "p",  tag :="HEADING8" ]
+    , [ mswordid := 9,  containertag := "p",  tag :="HEADING9" ]
+    , [ mswordid := 10, containertag := "p",  tag :="INDEX1" ]
+    , [ mswordid := 11, containertag := "p",  tag :="INDEX2" ]
+    , [ mswordid := 12, containertag := "p",  tag :="INDEX3" ]
+    , [ mswordid := 13, containertag := "p",  tag :="INDEX4" ]
+    , [ mswordid := 14, containertag := "p",  tag :="INDEX5" ]
+    , [ mswordid := 15, containertag := "p",  tag :="INDEX6" ]
+    , [ mswordid := 16, containertag := "p",  tag :="INDEX7" ]
+    , [ mswordid := 17, containertag := "p",  tag :="INDEX8" ]
+    , [ mswordid := 18, containertag := "p",  tag :="INDEX9" ]
+    , [ mswordid := 19, containertag := "p",  tag :="TOC1" ]
+    , [ mswordid := 20, containertag := "p",  tag :="TOC2" ]
+    , [ mswordid := 21, containertag := "p",  tag :="TOC3" ]
+    , [ mswordid := 22, containertag := "p",  tag :="TOC4" ]
+    , [ mswordid := 23, containertag := "p",  tag :="TOC5" ]
+    , [ mswordid := 24, containertag := "p",  tag :="TOC6" ]
+    , [ mswordid := 25, containertag := "p",  tag :="TOC7" ]
+    , [ mswordid := 26, containertag := "p",  tag :="TOC8" ]
+    , [ mswordid := 27, containertag := "p",  tag :="TOC9" ]
+    , [ mswordid := 28, containertag := "p",  tag :="NORMALINDENT" ]
+    , [ mswordid := 29, containertag := "p",  tag :="FOOTNOTETEXT" ]
+    , [ mswordid := 30, containertag := "p",  tag :="COMMENTTEXT" ]
+    , [ mswordid := 31, containertag := "p",  tag :="HEADER" ]
+    , [ mswordid := 32, containertag := "p",  tag :="FOOTER" ]
+    , [ mswordid := 33, containertag := "p",  tag :="INDEXHEADING" ]
+    , [ mswordid := 34, containertag := "p",  tag :="CAPTION" ]
+    , [ mswordid := 35, containertag := "p",  tag :="TABLEOFFIGURES" ]
+    , [ mswordid := 36, containertag := "p",  tag :="ENVELOPEADDRESS" ]
+    , [ mswordid := 37, containertag := "p",  tag :="ENVELOPERETURN" ]
+    , [ mswordid := 38, containertag := "p",  tag :="FOOTNOTEREFERENCE" ]
+    , [ mswordid := 39, containertag := "p",  tag :="COMMENTREFERENCE" ]
+    , [ mswordid := 40, containertag := "p",  tag :="LINENUMBER" ]
+    , [ mswordid := 41, containertag := "p",  tag :="PAGENUMBER" ]
+    , [ mswordid := 42, containertag := "p",  tag :="ENDNOTEREFERENCE" ]
+    , [ mswordid := 43, containertag := "p",  tag :="ENDNOTETEXT" ]
+    , [ mswordid := 44, containertag := "p",  tag :="TABLEOFAUTHORITIES" ]
+    , [ mswordid := 45, containertag := "p",  tag :="MACROTEXT" ]
+    , [ mswordid := 46, containertag := "p",  tag :="TOAHEADING" ]
+    , [ mswordid := 47, containertag := "p",  tag :="LIST" ]
+    , [ mswordid := 48, containertag := "p",  tag :="LISTBULLET" ]
+    , [ mswordid := 49, containertag := "p",  tag :="LISTNUMBER" ]
+    , [ mswordid := 50, containertag := "p",  tag :="LIST2" ]
+    , [ mswordid := 51, containertag := "p",  tag :="LIST3" ]
+    , [ mswordid := 52, containertag := "p",  tag :="LIST4" ]
+    , [ mswordid := 53, containertag := "p",  tag :="LIST5" ]
+    , [ mswordid := 54, containertag := "p",  tag :="LISTBULLET2" ]
+    , [ mswordid := 55, containertag := "p",  tag :="LISTBULLET3" ]
+    , [ mswordid := 56, containertag := "p",  tag :="LISTBULLET4" ]
+    , [ mswordid := 57, containertag := "p",  tag :="LISTBULLET5" ]
+    , [ mswordid := 58, containertag := "p",  tag :="LISTNUMBER2" ]
+    , [ mswordid := 59, containertag := "p",  tag :="LISTNUMBER3" ]
+    , [ mswordid := 60, containertag := "p",  tag :="LISTNUMBER4" ]
+    , [ mswordid := 61, containertag := "p",  tag :="LISTNUMBER5" ]
+    , [ mswordid := 62, containertag := "p",  tag :="TITLE" ]
+    , [ mswordid := 63, containertag := "p",  tag :="CLOSING" ]
+    , [ mswordid := 64, containertag := "p",  tag :="SIGNATURE" ]
+    , [ mswordid := 65, containertag := "p",  tag :="DEFAULTPARAGRAPHFONT" ]
+    , [ mswordid := 66, containertag := "p",  tag :="BODYTEXT" ]
+    , [ mswordid := 67, containertag := "p",  tag :="BODYTEXTINDENT" ]
+    , [ mswordid := 68, containertag := "p",  tag :="LISTCONTINUE" ]
+    , [ mswordid := 69, containertag := "p",  tag :="LISTCONTINUE2" ]
+    , [ mswordid := 70, containertag := "p",  tag :="LISTCONTINUE3" ]
+    , [ mswordid := 71, containertag := "p",  tag :="LISTCONTINUE4" ]
+    , [ mswordid := 72, containertag := "p",  tag :="LISTCONTINUE5" ]
+    , [ mswordid := 73, containertag := "p",  tag :="MESSAGEHEADER" ]
+    , [ mswordid := 74, containertag := "p",  tag :="SUBTITLE" ]
+    , [ mswordid := 75, containertag := "p",  tag :="SALUTATION" ]
+    , [ mswordid := 76, containertag := "p",  tag :="DATE" ]
+    , [ mswordid := 77, containertag := "p",  tag :="BODYTEXTFIRSTINDENT" ]
+    , [ mswordid := 78, containertag := "p",  tag :="BODYTEXTFIRSTINDENT2" ]
+    , [ mswordid := 79, containertag := "p",  tag :="NOTEHEADING" ]
+    , [ mswordid := 80, containertag := "p",  tag :="BODYTEXT2" ]
+    , [ mswordid := 81, containertag := "p",  tag :="BODYTEXT3" ]
+    , [ mswordid := 82, containertag := "p",  tag :="BODYTEXTINDENT2" ]
+    , [ mswordid := 83, containertag := "p",  tag :="BODYTEXTINDENT3" ]
+    , [ mswordid := 84, containertag := "p",  tag :="BLOCKTEXT" ]
+    , [ mswordid := 85, containertag := "p",  tag :="HYPERLINK" ]
+    , [ mswordid := 86, containertag := "p",  tag :="FOLLOWEDHYPERLINK" ]
+    , [ mswordid := 87, containertag := "p",  tag :="STRONG" ]
+    , [ mswordid := 88, containertag := "p",  tag :="EMPHASIS" ]
+    , [ mswordid := 89, containertag := "p",  tag :="DOCUMENTMAP" ]
+    , [ mswordid := 90, containertag := "p",  tag :="PLAINTEXT" ]
+    , [ mswordid := -1, containertag := "ul", tag :="UNORDERED" ]
+    , [ mswordid := -2, containertag := "ol", tag :="ORDERED" ]
+    ]
+  ];
+
+RECORD textstylewhitelistedattributes :=
+  [ "a-href" := [ "href" ]
+  ];
+
+STRING ARRAY inlinenodes :=
+    [ "abbr", "acronym", "b", "big", "cite", "code", "dfn", "em", "font"
+    , "i", "kbd", "samp", "small", "strong", "sub", "sup"
+    , "tt", "var", "a", "bdo", "label", "q", "span"
+    ];
+
+STRING ARRAY blocknodes :=
+    [ 'address', 'blockquote', 'center', 'div', 'dl', 'fieldset', 'form', 'h1'
+    , 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'isindex', 'menu', 'ol', 'p', 'pre', 'table', 'ul'
+      //FIXME: the following tags must be treated as block elements too, make another func for that instead of misusing this one
+    , 'dd', 'dt', 'frameset', 'li', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr'
+    ];
+
+
+STRING ARRAY textstyletags := [ 'a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup', 'img' ];
+
+/// Parsed block
+OBJECTTYPE ParsedBlock
+<
+  PUBLIC STRING type; // normalblock, listitem, etc
+  PUBLIC RECORD ARRAY nodes;
+  PUBLIC RECORD style; // blockstyle record
+  PUBLIC OBJECT list; // for list and listitem: relevant list
+  PUBLIC BOOLEAN gotlist;
+  PUBLIC RECORD defaultstyle; // default style in tables
+  PUBLIC BOOLEAN surrogate;
+  PUBLIC RECORD ARRAY deferredbr; // deferred empty texts and br (ignored at end of block)
+  PUBLIC BOOLEAN forcevisible; // make sure this block is visible, even without content
+  PUBLIC RECORD firstdatacell; // cell row, col: first data cell (ignoring header cells)
+  PUBLIC INTEGER colspan;
+  PUBLIC INTEGER rowspan;
+  PUBLIC INTEGER width;
+  PUBLIC INTEGER ARRAY colwidths;
+
+  MACRO NEW(RECORD options)
+  {
+    options := ValidateOptions(
+        [ type :=       ""
+        , list :=       DEFAULT OBJECT
+        , surrogate :=  FALSE
+        , style :=      DEFAULT RECORD
+        , firstdatacell := DEFAULT RECORD
+         , defaultstyle := DEFAULT RECORD
+        , colspan :=    0
+        , rowspan :=    1
+        ],
+        options,
+        [ required := [ "type", "style" ]]);
+
+    this->type := options.type;
+    this->list := options.list;
+    this->surrogate := options.surrogate;
+    this->style := options.style;
+    this->firstdatacell := options.firstdatacell;
+    this->defaultstyle := options.defaultstyle;
+    this->colspan := options.colspan;
+    this->rowspan := options.rowspan;
+  }
+>;
+
+
+
+
+PUBLIC STATIC OBJECTTYPE RichDocumentStructure
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Structure
+      @cell blockstyles Block styles
+      @cell(string) blockstyles.type Type of style, 'text'/'table'
+      @cell(string) blockstyles.tag Tag for this style
+      @cell(string) blockstyles.nextblockstyle Tag of style that follows this block style (eg in a faq 'questiion' is followed by 'answer')
+      @cell(string) blockstyles.containertag Tag of html container (eg 'ol' for a list)
+      @cell(string) blockstyles.title Name of this style
+      @cell(string array) blockstyles.textstyles Allowed text styles, subset of [ "b", "i", "u", "a-href", "strike", "sub", "sup", "img" ]
+      @cell(string) blockstyles.tabledefaultblockstyle Default blockstyle in table cells (for table styles)
+      @cell(string array) blockstyles.tableresizing Allowed table resizing operations, [ "all", "rows", "columns", "table" ]
+      @cell(string) blockstyles.toolbarcss Toolbar CSS
+      @cell(boolean) blockstyles.isbuiltin Whether this is a builtin style
+      @cell(boolean) blockstyles.split
+      @cell(integer) blockstyles.toclevel Level in toc
+      @cell(boolean) blockstyles.hidden
+      @cell(string array) blockstyles.importfrom Single-node selectors, used to determine which style to match when importing non-structured html
+      @cell blocktypes Blobk types (unused)
+      @cell defaultblockstyle Name of default block type
+      @cell(string) contentareawidth Content area width
+  */
+  PUBLIC RECORD structure; //FIXME PRIVATE
+
+  /// Default block style
+  PUBLIC RECORD defaultblockstyle;
+
+  /// Default style for ordered lists
+  RECORD defaultorderedliststyle;
+
+  /// Default style for unordered lists
+  RECORD defaultunorderedliststyle;
+
+  /// Default style for tables
+  RECORD defaulttablestyle;
+
+  /** @cell type
+      @cell inherit
+  */
+  RECORD ARRAY allowedobjects;
+
+  /// Whether to allow setting a target '_blank' on links
+  PUBLIC BOOLEAN allownewwindowlinks;
+
+  /// Whether to ignore siteprofile <allowwidgettypes>s
+  PUBLIC BOOLEAN ignoresiteprofilewidgets;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+
+  /** Lookup the default styles for different types of blocks
+  */
+  MACRO PostLoadWork()
+  {
+    this->defaultblockstyle := SELECT * FROM this->structure.blockstyles WHERE tag = this->structure.defaultblockstyle;
+    IF(NOT RecordExists(this->defaultblockstyle))
+    {
+      ABORT(this->structure);
+      THROW NEW Exception("Default block style is not setup");
+    }
+
+    this->defaultorderedliststyle := SELECT * FROM this->structure.blockstyles WHERE containertag = "ol";
+    this->defaultunorderedliststyle := SELECT * FROM this->structure.blockstyles WHERE containertag = "ul";
+    this->defaulttablestyle := SELECT * FROM this->structure.blockstyles WHERE type="table";
+  }
+
+  /** Parses a sty;e block from an XML node
+  */
+  RECORD FUNCTION ReadStyleBlock(OBJECT styleblock, STRING structuredefns)
+  {
+    RECORD style := [ type :=              ""
+                    , tag :=               ToUppercase(styleblock->GetAttribute("tag"))
+                    , nextblockstyle :=    ToUppercase(styleblock->GetAttribute("nextstyle"))
+                    , containertag :=      ""
+                    , title :=             styleblock->GetAttribute("title")
+                    , textstyles :=        DEFAULT STRING ARRAY
+                    , tabledefaultblockstyle := ""
+                    , tableresizing :=     DEFAULT STRING ARRAY
+                    , toolbarcss :=        ""
+                    , isbuiltin :=         FALSE
+                    , split :=             FALSE
+                    , toclevel :=          0
+                    , hidden :=            FALSE
+                    , importfrom :=        DEFAULT STRING ARRAY //ADDME importfrom is purely clientside. should be serverside too (ie when publishing a RTD document through a new structure)
+                    ];
+    BOOLEAN islegacy := structuredefns = "http://www.webhare.net/xmlns/tollium/richstructure";
+    SWITCH (styleblock->nodename)
+    {
+      CASE "textstyle"
+      {
+        style.type := "text";
+        style.containertag := styleblock->GetAttribute("containertag");
+        style.split := ParseXSBoolean(styleblock->GetAttribute("split"));
+
+        FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements())
+        {
+          INSERT importnode->GetAttribute("selector") INTO style.importfrom AT END;
+        }
+
+        IF(islegacy)
+        {
+          OBJECT formattingnode := styleblock->GetChildElementsByTagNameNS(structuredefns, "formatting")->Item(0);
+          IF(ObjectExists(formattingnode))
+          {
+            OBJECT allownode := formattingnode->GetChildElementsByTagNameNS(structuredefns, "allow")->Item(0);
+            IF(ObjectExists(allownode))
+              style.textstyles := ParseXSList(allownode->GetAttribute("textstyles"));
+          }
+          ELSE
+          {
+            style.textstyles := richstructure_constants.alltextstyles;
+          }
+        }
+        ELSE //modern style requires naming all formatting.
+        {
+          style.textstyles := ParseXSList(styleblock->GetAttribute("textstyles"));
+        }
+
+        RECORD matchbuiltin := SELECT * FROM richstructure_constants.builtinstyles WHERE tag = style.tag;
+        IF(RecordExists(matchbuiltin))
+          style.isbuiltin := TRUE;
+
+        IF(style.containertag="")
+        {
+          IF(RecordExists(matchbuiltin))
+            style.containertag := matchbuiltin.containertag;
+          ELSE
+            style.containertag := "p";
+        }
+
+        IF(styleblock->HasAttribute("toclevel"))
+          style.toclevel := ParseXSInt(styleblock->HasAttribute("toclevel"));
+        ELSE
+          style.toclevel := SearchElement( ["h1","h2","h3","h4","h5","h6"], style.containertag) + 1; //maps not-found to 0, the rest to 1-6
+      }
+      CASE "tablestyle"
+      {
+        style.type := "table";
+        style.containertag := "table";
+        style.tabledefaultblockstyle := styleblock->GetAttribute("defaultstyle");
+
+        STRING ARRAY resizing := Tokenize(styleblock->GetAttribute("resizing"), " ");
+        IF ("all" IN resizing OR NOT styleblock->HasAttribute("resizing"))
+          style.tableresizing := [ "all" ];
+        ELSE
+          style.tableresizing := SELECT AS STRING ARRAY DISTINCT val
+                                   FROM ToRecordArray(resizing, "val")
+                                  WHERE val IN [ "rows", "columns", "table" ];
+
+        FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements())
+        {
+          INSERT importnode->GetAttribute("selector") INTO style.importfrom AT END;
+        }
+      }
+      DEFAULT
+      {
+        THROW NEW Exception("Unknown blockstyle type '" || styleblock->nodename || "'");
+      }
+    }
+
+    RETURN style;
+  }
+
+  /// Compares two text styles (and their attributes)
+  BOOLEAN FUNCTION IsSameTextStyle(RECORD reca, RECORD recb)
+  {
+    RETURN reca.nodename = recb.nodename AND EncodeHSON(reca.attrs) = EncodeHSON(recb.attrs);
+  }
+
+  /** Returns a selected list of attributes of a node
+      @param node
+      @param attrs List of attributes to return
+      @return All values of attributes that are actually set on the node
+      @cell return.name Name of the attribute
+      @cell return.value Value of the attribute
+  */
+  RECORD ARRAY FUNCTION GetAttributes(OBJECT node, STRING ARRAY attrs)
+  {
+    RECORD ARRAY outattrs;
+    FOREVERY(STRING attr FROM attrs)
+    {
+      IF(NOT node->HasAttribute(attr))
+        CONTINUE;
+      INSERT [ name := attr, value := node->GetAttribute(attr) ] INTO outattrs AT END;
+    }
+    RETURN outattrs;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Restructuring helper functions - parsing
+  //
+
+  /** Parses the text style from a node
+      @return
+      @cell return.nodename
+      @cell return.attrs
+  */
+  RECORD FUNCTION GetTextStyleRecordFromNode(OBJECT node)
+  {
+    //structurededitor.js: getTextStyleRecordFromNode
+    STRING nodename := ToLowercase(node->nodename);
+    IF(nodename="span")
+      RETURN DEFAULT RECORD;
+
+    //whrtebase.js: getTextStyleRecordFromNode
+    IF(nodename="strong")
+      nodename := "b";
+    IF(nodename="em")
+      nodename := "i";
+    IF(nodename="a" AND node->HasAttribute("href"))
+      nodename := "a-href";
+
+    IF (nodename NOT IN [ 'a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup' ])
+      RETURN DEFAULT RECORD;
+
+    RECORD retval := [ nodename := nodename
+                     , attrs := DEFAULT RECORD ARRAY
+                     ];
+
+    //structurededitor.js: getTextStyleRecordFromNode
+    STRING ARRAY list;
+    IF(CellExists(textstylewhitelistedattributes, nodename))
+    {
+      list := GetCell(textstylewhitelistedattributes, nodename);
+      retval.attrs := this->GetAttributes(node, list);
+
+    }
+    RETURN retval;
+  }
+
+  RECORD FUNCTION GetImageStyleRecordFromNode(OBJECT curnode)
+  {
+    //figure out the alignment. we prefer wh-rtd__img--floatleft/right, but accept legacy classes and float:left/right
+    RECORD retval :=
+        [ nodeName := "img"
+        , attrs :=    this->GetAttributes(curnode, ['width','height','alt','src'])
+        ];
+
+    STRING align := ToLowercase(curnode->GetAttribute("align"));
+    STRING ARRAY classes := Tokenize(NormalizeWhitespace(curnode->GetAttribute("class")), " ");
+    STRING style := ";" || Substitute(Substitute(NormalizeWhitespace(curnode->GetAttribute("style")), ": ", ":"), "; ", ";");
+
+    STRING final_class := "wh-rtd__img";
+
+    BOOLEAN floatleft := ("wh-rtd__img--floatleft" IN classes) OR ("-wh-rtd-floatleft" IN classes) OR ("wh-rtd-floatleft" IN classes) OR align = "left" OR style LIKE "*;float:left;*";
+    BOOLEAN floatright := ("wh-rtd__img--floatright" IN classes) OR ("-wh-rtd-floatright" IN classes) OR ("wh-rtd-floatright" IN classes) OR align = "right" OR style LIKE "*;float:right;*";
+
+    IF (floatleft)
+      final_class := final_class || " wh-rtd__img--floatleft";
+    ELSE IF (floatright)
+      final_class := final_class || " wh-rtd__img--floatright";
+
+    INSERT [ name := "class", value := final_class ] INTO retval.attrs AT END;
+    RETURN retval;
+  }
+
+  /** Parses a single node
+      @param node
+      @return
+      @cell return.type 'ignore', 'unknown', 'blockstyle', 'textstyle', 'cellitem', 'text'
+  */
+  RECORD FUNCTION ParseNode(OBJECT node)
+  {
+    IF(node->nodetype IN [3,4]) // text, cdata
+      RETURN node->nodevalue = "" ? [ type := "ignore" ] : [ type := "text", data := node->nodevalue ];
+    IF (node->nodetype = 8) // comment
+      RETURN [ type := "ignore" ];
+
+    // Not an element or fragment?
+    IF(node->nodetype NOT IN [1,11])
+      RETURN DEFAULT RECORD;
+
+    STRING lnodename := ToLowercase(node->nodename);
+    IF (lnodename = "div" AND 'wh-rtd-embeddedobject' IN Tokenize(NormalizeWhitespace(node->GetAttribute("class")), " "))
+    {
+      RETURN
+          [ type :=         "embeddedobject"
+          , instanceid :=   node->GetAttribute("data-instanceid")
+          ];
+    }
+
+    RECORD bestblockstyle := this->LookupStyleByNode(node);
+//    DumpValue(CELL[ _ := "lookup", node->nodename, bestblockstyle ]);
+
+    IF(RecordExists(bestblockstyle))
+    {
+      IF (bestblockstyle.containertag = "table")
+        RETURN [ type := "tablestyle", style := bestblockstyle ];
+      RETURN [ type := "blockstyle", style := bestblockstyle ];
+    }
+
+    // If the structure doesn't support tables, and we're parsing a td or th, make it a default style block
+    IF (RecordExists(this->defaulttablestyle) AND lnodename IN [ 'td', 'th' ])
+      RETURN [ type := "cellitem" ];
+
+    RECORD style := this->GetTextStyleRecordFromNode(node);
+    IF(RecordExists(style) AND style.nodename IN textstyletags)
+      RETURN [ type := "textstyle", style := style ];
+
+    // Recognized text style?
+    IF (lnodename IN [ "br" ])
+      RETURN [ type := "br" ];
+    IF (lnodename IN [ "img" ])
+      RETURN [ type := "img", value := this->GetImageStyleRecordFromNode(node) ];
+
+    IF (lnodename IN [ "style", "script", "meta" ])
+      RETURN [ type := "ignore" ];
+
+    //do fallbacks
+    IF (lnodename = "ol" AND RecordExists(this->defaultorderedliststyle ?? this->defaultunorderedliststyle))
+      RETURN [ type := "blockstyle", style := this->defaultorderedliststyle ?? this->defaultunorderedliststyle ];
+    IF (lnodename = "ul" AND RecordExists(this->defaultunorderedliststyle ?? this->defaultorderedliststyle))
+      RETURN [ type := "blockstyle", style := this->defaultunorderedliststyle ?? this->defaultorderedliststyle ];
+    IF (lnodename = "table" AND RecordExists(this->defaulttablestyle))
+      RETURN [ type := "blockstyle", style := this->defaulttablestyle ];
+
+    // Return all unrecognized inline nodes as 'unknown', which triggers a recursive parse while ignoring the nodes themselves
+    IF (lnodename IN inlinenodes)
+      RETURN [ type := "unknown" ]; // triggers recursive parse
+
+    // All other (block) nodes: return as default block style
+    RETURN [ type := 'blockstyle', style := this->defaultblockstyle ];
+  }
+
+  MACRO AddItemToBlockNodes(OBJECT block, RECORD item)
+  {
+    IF (RecordExists(block->deferredbr))
+    {
+      IF (item.type = "text" AND TrimWhitespace(item.value) = "")
+      {
+        INSERT item INTO block->deferredbr AT END;
+        RETURN;
+      }
+      block->nodes := block->nodes CONCAT block->deferredbr;
+    }
+    IF (item.type = "br")
+    {
+      block->deferredbr := [ item ];
+      block->forcevisible := TRUE;
+    }
+    ELSE
+    {
+      block->deferredbr := RECORD[];
+      INSERT item INTO block->nodes AT END;
+    }
+  }
+
+  OBJECT FUNCTION *IterateTablecells(OBJECT tablenode, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ cols := 0 ], options);
+
+    // Enumerate rows, make sure to first handle thead, then tbody and finally tfoot
+    OBJECT ARRAY rows;
+    FOREVERY (OBJECT node FROM tablenode->childnodes->GetCurrentElements())
+    {
+      STRING lnodename := ToLowercase(node->nodename);
+      IF (lnodename IN [ "thead", "tbody", "tfoot"])
+      {
+        FOREVERY (OBJECT subnode FROM node->childnodes->GetCurrentElements())
+          IF (ToLowercase(subnode->nodename) = "tr")
+            INSERT subnode INTO rows AT END;
+      }
+      ELSE IF (lnodename = "tr")
+        INSERT node INTO rows AT END;
+    }
+
+    INTEGER ARRAY rowspans := RepeatElement(0, options.cols);
+    FOREVERY (OBJECT row FROM rows)
+    {
+      YIELD CELL[ type := "rowstart", row := #row, node := row ];
+
+      INTEGER col := 0; // logical column
+      FOREVERY (OBJECT node FROM row->childnodes->GetCurrentElements())
+        IF (ToLowercase(node->nodename) IN [ "th", "td" ])
+        {
+          WHILE (LENGTH(rowspans) > col AND rowspans[col] > #row)
+            col := col + 1;
+
+          INTEGER colspan := ToInteger(node->GetAttribute("colspan"), 0) ?? 1;
+          INTEGER rowspan := ToInteger(node->GetAttribute("rowspan"), 0) ?? 1;
+
+          YIELD CELL[ type := "cell", node, colspan, rowspan, col, row := #row ];
+
+          FOR (INTEGER i := 0; i < colspan; i := i + 1)
+          {
+            IF (LENGTH(rowspans) = col)
+              INSERT #row + rowspan INTO rowspans AT END;
+            ELSE
+              rowspans[col] := #row + rowspan;
+            col := col + 1;
+          }
+        }
+
+      BOOLEAN ARRAY missingcells;
+      FOREVERY (INTEGER rowspan FROM rowspans)
+        INSERT rowspan <= #row INTO missingcells AT END;
+
+      YIELD CELL[ type := "rowend", row := #row, node := row, missingcells ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION GetTableDimensions(OBJECT tablenode)
+  {
+    INTEGER rows, cols;
+
+    OBJECT itr := this->IterateTablecells(tablenode);
+    WHILE (TRUE)
+    {
+      RECORD rec := itr->Next();
+      IF (rec.done)
+        BREAK;
+
+      IF (rec.value.type = "cell")
+      {
+        INTEGER limitrow := rec.value.row + rec.value.rowspan;
+        INTEGER limitcol := rec.value.col + rec.value.colspan;
+
+        if (limitrow > rows)
+          rows := limitrow;
+        if (limitcol > cols)
+          cols := limitcol;
+      }
+    }
+
+    RETURN CELL[ rows, cols ];
+  }
+
+  RECORD FUNCTION LocateFirstDataCell(OBJECT tablenode)
+  {
+    INTEGER bottomcols, rightrows;
+
+    RECORD dims := this->GetTableDimensions(tablenode);
+
+    OBJECT itr := this->IterateTablecells(tablenode);
+    WHILE (TRUE)
+    {
+      RECORD rec := itr->Next();
+      IF (rec.done)
+        BREAK;
+
+      // cells in thead are always headers
+      IF (rec.value.type = "rowend" AND ToLowercase(rec.value.node->nodename) = "thead")
+        bottomcols := rec.value.row + 1;
+
+      IF (rec.value.type = "cell")
+      {
+        INTEGER limitrow := rec.value.row + rec.value.rowspan;
+        INTEGER limitcol := rec.value.col + rec.value.colspan;
+
+        IF (ToLowercase(rec.value.node->nodename) = "th")
+        {
+          IF (limitrow = dims.rows AND bottomcols < limitrow)
+            bottomcols := limitcol;
+          IF (limitcol = dims.cols AND rightrows < limitrow)
+            rightrows := limitrow;
+        }
+      }
+    }
+
+    IF (bottomcols = dims.cols AND rightrows = dims.cols)
+    {
+      IF (dims.cols = 1)
+        rightrows := 0;
+      ELSE
+        bottomcols := 0;
+    }
+
+    RETURN [ row := rightrows, col := bottomcols ];
+  }
+
+  /** Parses the contents of a node recursively
+      @param node Node whose children to parse
+      @param block Current block node
+      @param context Top block node (either body or table cell)
+      @param textstyles Currently active text styles
+      @param initialblockstyle Initial block style override
+      @param options Options (not used yet)
+      @return Currently open block
+  */
+  OBJECT FUNCTION ParseContainerContentsRecursive(OBJECT node, OBJECT block, OBJECT context, RECORD ARRAY textstyles, RECORD initialblockstyle, RECORD options)
+  {
+    OBJECT ARRAY children := node->childnodes->GetCurrentNodes();
+
+    FOREVERY (OBJECT child FROM children)
+    {
+      RECORD type := this->ParseNode(child);
+      IF (type.type = "ignore")
+        CONTINUE;
+
+      IF ((NOT ObjectExists(block) OR block->type = "cellitem") AND type.type IN [ "text", "textstyle", "br", "img" ])
+      {
+        // Ignore text nodes with only whitespace in block-less nodes or cellitems
+        IF (type.type = 'text' AND TrimWhitespace(type.data) = "")
+          CONTINUE;
+
+        RECORD style := ObjectExists(block) AND block->type = "cellitem" AND RecordExists(block->defaultstyle)
+            ? block->defaultstyle
+            : initialblockstyle ?? this->defaultblockstyle;
+
+        initialblockstyle := DEFAULT RECORD;
+        block := NEW ParsedBlock(CELL[ type := "normalblock", style, surrogate := TRUE ]);
+        INSERT [ type := "block", block := block ] INTO context->nodes AT END;
+      }
+
+      IF (ObjectExists(block) AND block->gotlist)
+      {
+        OBJECT oldblock := block;
+        block := NEW ParsedBlock(CELL[ type := "listitem", list := oldblock, oldblock->style ]);
+        INSERT block INTO oldblock->listitems AT END;
+      }
+
+      SWITCH (type.type)
+      {
+        CASE "unknown"
+        {
+          // no handling for 'displayblock', no CSS applies here
+          block := this->parseContainerContentsRecursive(child, block, context, textstyles, DEFAULT RECORD, options);
+        }
+        CASE "textstyle"
+        {
+          RECORD ARRAY subtextstyles := textstyles;
+          DELETE FROM subtextstyles WHERE nodename = type.style.nodename;
+          IF (type.style.nodename IN block->style.textstyles)
+            INSERT type.style INTO subtextstyles AT END;
+
+          // no handling for 'displayblock', no CSS applies here
+          block := this->parseContainerContentsRecursive(child, block, context, subtextstyles, DEFAULT RECORD, options);
+        }
+        CASE "text"
+        {
+          STRING text := Substitute(type.data, '\u200b', '');
+          IF (text != type.data)
+            block->forcevisible := TRUE;
+          IF (text != "")
+            this->AddItemToBlockNodes(block, CELL[ type := "text", value := text, textstyles ]);
+        }
+        CASE "img"
+        {
+          IF ("img" NOT IN block->style.textstyles)
+          {
+            // nope, see if the defaultblockstyle supports images, use that block style if it does
+            // also, can't handle images in lists (should the list be broken up?)
+            IF ("img" IN this->defaultblockstyle.textstyles OR block->style.containertag IN [ "ul", "ol" ])
+              CONTINUE;
+
+            block := NEW ParsedBlock(CELL[ type := "normalblock", style := this->defaultblockstyle, surrogate := TRUE ]);
+            INSERT [ type := "block", block := block ] INTO context->nodes AT END;
+          }
+
+          this->AddItemToBlockNodes(block, CELL[ type := "img", type.value, textstyles ]);
+        }
+        CASE "br"
+        {
+          this->AddItemToBlockNodes(block, CELL[ type := "br", textstyles := RECORD[] ]);
+
+          // Treats BR's at top-level as paragraph breaks - force new block at next content
+          IF (block->surrogate)
+            block := DEFAULT OBJECT;
+        }
+        CASE "blockstyle"
+        {
+          IF (ObjectExists(block) AND block->surrogate)
+            block := DEFAULT OBJECT;
+
+          IF (RecordExists(initialblockstyle))
+          {
+            IF (type.style.containertag NOT IN [ "ol", "ul" ])
+              type.style := initialblockstyle;
+            initialblockstyle := DEFAULT RECORD;
+          }
+
+          IF (ObjectExists(block) AND block->type = "listitem" AND block->style.containertag NOT IN [ "ol", "ul" ])
+          {
+            // Non-list in list block. Just parse the contents
+            this->parseContainerContentsRecursive(child, block, context, textstyles, DEFAULT RECORD, options);
+          }
+          ELSE IF (type.style.containertag IN [ "ol", "ul" ])
+          {
+            OBJECT subblock := NEW ParsedBlock(CELL[ type := "list", type.style ]);
+            subblock->list := subblock;
+            IF (ObjectExists(block) AND block->type = "listitem")
+            {
+              this->AddItemToBlockNodes(block, [ type := "block", block := subblock ]);
+              block->gotlist := TRUE;
+            }
+            ELSE
+            {
+              INSERT [ type := "block", block := subblock ] INTO context->nodes AT END;
+              block := DEFAULT OBJECT;
+            }
+
+            FOREVERY (OBJECT subchild FROM child->childnodes->GetCurrentElements())
+              IF (ToLowercase(subchild->nodename) IN [ "li", "ul", "ol" ])
+              {
+                OBJECT listitem := NEW ParsedBlock(CELL[ type := "listitem", list := subblock, type.style ]);
+                INSERT [ type := "block", block := listitem ] INTO subblock->nodes AT END;
+
+                this->ParseContainerContentsRecursive(subchild, listitem, context, textstyles, DEFAULT RECORD, options);
+                block := DEFAULT OBJECT;
+              }
+          }
+          else
+          {
+            OBJECT newblock := NEW ParsedBlock(CELL[ type := "normalblock", type.style ]);
+            INSERT CELL[ type := "block", block := newblock] INTO context->nodes AT END;
+            this->ParseContainerContentsRecursive(child, newblock, context, textstyles, DEFAULT RECORD, options);
+          }
+
+        }
+        CASE "tablestyle"
+        {
+          IF (ObjectExists(block) AND block->surrogate)
+            block := DEFAULT OBJECT;
+
+          IF (ObjectExists(block) AND block->type = "listitem")
+          {
+            // Don't parse tables in other tables
+            this->ParseContainerContentsRecursive(child, block, context, textstyles, DEFAULT RECORD, options);
+          }
+          ELSE
+          {
+//            // Make head rows as non-data
+//            RECORD firstdatacell = tableeditor.locateFirstDataCell(child);
+//            var head_rows = child.tHead ? Array.from(child.tHead.rows) : [];
+//            firstdatacell.row += head_rows.length;
+            RECORD firstdatacell := this->locateFirstDataCell(child);
+            RECORD dims := this->GetTableDimensions(child);
+
+            IF (dims.rows = 0 OR dims.cols = 0)
+              CONTINUE;
+
+            OBJECT newblock := NEW ParsedBlock(CELL[ type := "table", style := type.style, firstdatacell ]);
+            INSERT [ type := "table", block := newblock ] INTO context->nodes AT END;
+
+            IF (child->HasAttribute("style"))
+            {
+              OBJECT style := ParseInlineStyleAttribute(child->GetAttribute("style"));
+              STRING width := style->GetPropertyValue("width");
+              IF (width LIKE "*px")
+                newblock->width := ToInteger(Left(width, LENGTH(width) - 2), 0);
+            }
+
+            FOREVERY (OBJECT subnode FROM child->childnodes->GetCurrentElements())
+              IF (ToLowercase(subnode->nodename) = "colgroup")
+              {
+                INTEGER ARRAY colwidths;
+                FOREVERY (OBJECT subsubnode FROM subnode->childnodes->GetCurrentElements())
+                {
+                  IF (ToLowercase(subsubnode->nodename) = "col")
+                  {
+                    INTEGER colwidth;
+                    IF (subsubnode->HasAttribute("style"))
+                    {
+                      OBJECT style := ParseInlineStyleAttribute(subsubnode->GetAttribute("style"));
+                      STRING width := style->GetPropertyValue("width");
+                      IF (width LIKE "*px")
+                        colwidth := ToInteger(Left(width, LENGTH(width) - 2), 0);
+                    }
+                    INSERT colwidth INTO colwidths AT END;
+                  }
+                }
+
+                // If a colgroup is present, enumerate all columns
+                newblock->colwidths := ArraySlice(colwidths CONCAT RepeatElement(0, dims.cols), 0, dims.cols);
+              }
+
+            RECORD defaultcontentstyle := SELECT * FROM this->structure.blockstyles WHERE tag = ToUppercase(type.style.tabledefaultblockstyle);
+
+            RECORD rowitem;
+            OBJECT itr := this->IterateTablecells(child, [ cols := dims.cols ]);
+            WHILE (TRUE)
+            {
+              RECORD rec := itr->Next();
+              IF (rec.done)
+                BREAK;
+
+              SWITCH (rec.value.type)
+              {
+                CASE "rowstart"
+                {
+                  rowitem := [ type := "rowitem", nodes :=  OBJECT[], height := 0 ];
+                  IF (rec.value.node->HasAttribute("style"))
+                  {
+                    OBJECT style := ParseInlineStyleAttribute(rec.value.node->GetAttribute("style"));
+                    STRING height := style->GetPropertyValue("height");
+                    IF (height LIKE "*px")
+                      rowitem.height := ToInteger(Left(height, LENGTH(height) - 2), 0);
+                  }
+                }
+                CASE "cell"
+                {
+                  OBJECT cellitem := NEW ParsedBlock(
+                        [ type :=         "cellitem"
+                        , style :=        DEFAULT RECORD
+                        , defaultstyle := defaultcontentstyle
+                        , colspan :=      ToInteger(rec.value.node->GetAttribute("colspan"), 1)
+                        , rowspan :=      ToInteger(rec.value.node->GetAttribute("rowspan"), 1)
+                        ]);
+
+                  INSERT cellitem INTO rowitem.nodes AT END;
+                  this->ParseContainerContentsRecursive(rec.value.node, cellitem, cellitem, textstyles, DEFAULT RECORD, options);
+                }
+                CASE "rowend"
+                {
+                  FOREVERY (BOOLEAN missing FROM rec.value.missingcells)
+                  IF (missing)
+                  {
+                    OBJECT cellitem := NEW ParsedBlock(
+                          [ type :=         "cellitem"
+                          , style :=        DEFAULT RECORD
+                          , defaultstyle := defaultcontentstyle
+                          , colspan :=      1
+                          , rowspan :=      1
+                          ]);
+
+                    INSERT cellitem INTO rowitem.nodes AT END;
+                  }
+
+                  INSERT rowitem INTO newblock->nodes AT END;
+                }
+              }
+            }
+
+            block := DEFAULT OBJECT;
+          }
+        }
+        CASE "cellitem"
+        {
+          block := NEW ParsedBlock([ type := "normalblock", style := this->defaultblockstyle ]);
+          INSERT [ type := "block", block := block ] INTO context->nodes AT END;
+
+          this->ParseContainerContentsRecursive(child, block, context, textstyles, DEFAULT RECORD, options);
+          block := DEFAULT OBJECT;
+        }
+        CASE "embeddedobject"
+        {
+          block := DEFAULT OBJECT;
+          INSERT type INTO context->nodes AT END;
+        }
+
+      }
+    }
+    RETURN block;
+  }
+
+  RECORD ARRAY FUNCTION ParseContainerContents(OBJECT node)
+  {
+    OBJECT context := NEW ParsedBlock([ type := "topblock", style := DEFAULT RECORD ]);
+    this->ParseContainerContentsRecursive(node, DEFAULT OBJECT, context, RECORD[], DEFAULT RECORD, DEFAULT RECORD);
+    RETURN context->nodes;
+  }
+
+  // Show a parsed tree, for debugging
+  PUBLIC MACRO ShowParsed(RECORD ARRAY parsed, INTEGER indent)
+  {
+    STRING istr := RepeatText(" ", indent);
+    IF (LENGTh(parsed) = 0)
+      PRINT(`${istr}<none>\n`);
+    FOREVERY (RECORD p FROM parsed)
+    {
+      RECORD data := CELL[ deferred := FALSE, value := "", ...p ];
+      IF (p.type = "block" OR p.type = "table")
+      {
+        OBJECT b := p.block;
+        PRINT(`${istr}b ${#p} ${b->type} ${b->style.containertag}.${b->style.tag} ${b->forcevisible?" (forcevisible)":""} ${b->surrogate?" (surrogate)":""} ${data.deferred?" (deferred)":""}\n`);
+        RECORD ARRAY nodes := b->nodes;
+        FOREVERY (RECORD r FROM b->deferredbr)
+          INSERT CELL[ deferred := TRUE, ...r ] INTO nodes AT END;
+        this->ShowParsed(nodes, indent + 1);
+      }
+      ELSE
+      {
+        PRINT(`${istr}s ${#p} ${data.type}${data.deferred?" (deferred)":""}`);
+        IF (data.type IN [ "text", "br", "img" ])
+          FOREVERY (RECORD s FROM data.textstyles)
+            PRINT(`${#s=0?" [":","} ${s.nodename}${#s=LENGTH(data.textstyles)-1?" ]":""}`);
+        PRINT(`\n`);
+      }
+      IF (p.type = "rowitem")
+      {
+        FOREVERY (OBJECT b FROM p.nodes)
+        {
+          PRINT(`${istr} c ${#p} ${b->type} ${b->forcevisible?" (forcevisible)":""} ${b->surrogate?" (surrogate)":""} ${data.deferred?" (deferred)":""}\n`);
+          RECORD ARRAY nodes := b->nodes;
+          FOREVERY (RECORD r FROM b->deferredbr)
+            INSERT CELL[ deferred := TRUE, ...r ] INTO nodes AT END;
+          this->ShowParsed(nodes, indent + 2);
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Restructuring helper functions - building new tree
+  //
+
+  OBJECT FUNCTION InsertTextStyleNode(OBJECT appendto, RECORD textstyle)
+  {
+    STRING createnodename := textstyle.nodename IN ["a-href"] ? "a" : textstyle.nodename;
+    OBJECT node := appendto->ownerdocument->CreateElement(createnodename);
+
+    FOREVERY(RECORD attr FROM SELECT * FROM textstyle.attrs ORDER BY name)
+      node->SetAttribute(attr.name, attr.value);
+
+    appendto->AppendChild(node);
+    RETURN node;
+  }
+
+  RECORD FUNCTION UpdateTextStyleState(OBJECT blocknode, RECORD ARRAY currentstate, RECORD ARRAY textstyles)
+  {
+    OBJECT node := blocknode;
+
+    // Ensure the textstyles are in de canonical order
+    textstyles := SELECT * FROM textstyles ORDER BY SearchElement(textstyletags, nodename);
+
+    INTEGER pos := 0;
+    FOREVERY (RECORD style FROM textstyles)
+    {
+      IF (LENGTH(currentstate) > #style)
+      {
+        IF (this->IsSameTextStyle(currentstate[#style].style, style))
+        {
+          node := currentstate[#style].node;
+          CONTINUE;
+        }
+
+        currentstate := ArraySlice(currentstate, 0, #style);
+      }
+
+      node := this->InsertTextStyleNode(node, style);
+      INSERT CELL[ node, style ] INTO currentstate AT END;
+    }
+    currentstate := ArraySlice(currentstate, 0, LENGTH(textstyles));
+
+    RETURN CELL[ node, currentstate ];
+  }
+
+  MACRO EnsureBlockVisible(OBJECT blocknode)
+  {
+    OBJECT child := blocknode->lastchild;
+
+    // skip empty textnodes
+    WHILE (ObjectExists(child))
+    {
+      // non-empty text is visible
+      IF (child->nodetype = 3 AND TrimWhitespace(child->nodevalue) != "")
+        BREAK;
+      IF (child->nodetype = 1)
+      {
+        // br is always visible
+        IF (ToLowercase(child->nodename) = "br")
+          BREAK;
+        // non-inline nodes are always visible
+        IF (ToLowercase(child->nodename) NOT IN inlinenodes)
+          BREAK;
+
+        // inline node, enter it
+        IF (ObjectExists(child->lastchild))
+        {
+          child := child->lastchild;
+          CONTINUE;
+        }
+      }
+
+      // move to previous sibling, or to parent (but stop at the blocknode)
+      IF (ObjectExists(child->previoussibling))
+        child := child->previoussibling;
+      ELSE
+      {
+        IF (NOT child->parentnode->IsSameNode(blocknode))
+          child := DEFAULT OBJECT;
+        ELSE
+          child := child->parentnode;
+      }
+    }
+
+    IF (NOT ObjectExists(child) OR (child->nodetype = 1 AND ToLowercase(child->nodename) = "br"))
+    {
+      OBJECT br := blocknode->ownerdocument->CreateElement("br");
+      br->SetAttribute("data-wh-rte", "bogus");
+      blocknode->AppendChild(br);
+    }
+  }
+
+  RECORD FUNCTION BuildFromParsedRecursive(OBJECT node, RECORD ARRAY parsed, BOOLEAN intable, BOOLEAN inblock, BOOLEAN inlist)
+  {
+    RECORD retval := [ isvisible := FALSE ];
+
+    RECORD ARRAY textstylestate;
+
+    FOREVERY (RECORD rec FROM parsed)
+    {
+      IF (rec.type = "block")
+      {
+        OBJECT block := rec.block;
+
+        STRING tag := block->style.containertag;
+        IF (block->type = "listitem")
+          tag := "li";
+
+        OBJECT blocknode := node->ownerdocument->CreateElement(tag);
+        IF (block->type != "listitem")
+          blocknode->SetAttribute("class", ToLowercase(block->style.tag));
+
+        RECORD bretval := this->BuildFromParsedRecursive(blocknode, block->nodes, intable, TRUE, inlist);
+
+        IF (block->forcevisible)
+        {
+          bretval.isvisible := TRUE;
+          this->EnsureBlockVisible(blocknode);
+        }
+
+        IF (bretval.isvisible)
+        {
+          node->AppendChild(blocknode);
+          retval.isvisible := TRUE;
+        }
+        CONTINUE;
+      }
+      ELSE IF (rec.type = "table")
+      {
+        IF(intable OR inblock OR inlist)
+        {
+          //squash the unexpected table
+          FOREVERY (RECORD rowitem FROM rec.block->nodes)
+            FOREVERY (OBJECT cellitem FROM rowitem.nodes)
+            {
+              RECORD bretval := this->BuildFromParsedRecursive(node, cellitem->nodes, intable, TRUE, inlist);
+              IF(bretval.isvisible)
+                retval.isvisible := TRUE;
+            }
+          CONTINUE;
+        }
+        OBJECT newtable := this->CreateTableNode(node, rec);
+        node->AppendChild(newtable);
+        retval.isvisible := TRUE;
+        CONTINUE;
+      }
+      ELSE IF (rec.type = "embeddedobject")
+      {
+        OBJECT newobj := this->CreateEmbeddedObject(node, rec);
+        node->AppendChild(newobj);
+        retval.isvisible := TRUE;
+        CONTINUE;
+      }
+
+      RECORD res := this->UpdateTextStyleState(node, textstylestate, rec.textstyles);
+      textstylestate := res.currentstate;
+
+      IF (rec.type != "text" OR TrimWhitespace(rec.value) != "")
+        retval.isvisible := TRUE;
+
+      SWITCH (rec.type)
+      {
+        CASE "text"
+        {
+          res.node->AppendChild(node->ownerdocument->CreateTextNode(rec.value));
+          IF (TrimWhitespace(rec.value) != "")
+            retval.isvisible := TRUE;
+        }
+        CASE "br"
+        {
+          res.node->AppendChild(node->ownerdocument->CreateElement("br"));
+          retval.isvisible := TRUE;
+        }
+        CASE "img"
+        {
+          this->InsertTextStyleNode(res.node, rec.value);
+//          res.node->AppendChild(node->ownerdocument->CreateElement("img"));
+
+          retval.isvisible := TRUE;
+        }
+        DEFAULT
+        {
+          THROW NEW Exception(`Unhandled: ${rec.type}`);
+        }
+      }
+    }
+
+    RETURN retval;
+  }
+
+  OBJECT FUNCTION CreateTableNode(OBJECT parentnode, RECORD parsed)
+  {
+    OBJECT node := parentnode->ownerdocument->CreateElement("table");
+    node->SetAttribute("class", "table wh-rtd-table wh-rtd__table");
+    IF (parsed.block->width != 0)
+      node->SetAttribute("style", `width: ${parsed.block->width}px;`);
+
+    IF (NOT IsDefaultValue(parsed.block->colwidths))
+    {
+      OBJECT colgroup := parentnode->ownerdocument->CreateElement("colgroup");
+      colgroup->SetAttribute("class", "wh-tableeditor-colgroup");
+      node->AppendChild(colgroup);
+
+      FOREVERY (INTEGER colwidth FROM parsed.block->colwidths)
+      {
+        OBJECT colnode := parentnode->ownerdocument->CreateElement("col");
+        colgroup->AppendChild(colnode);
+        IF (colwidth != 0)
+          colnode->SetAttribute("style", `width: ${colwidth}px;`);
+      }
+    }
+
+    OBJECT tbody := parentnode->ownerdocument->CreateElement("tbody");
+
+    INTEGER ARRAY rowspans;
+    FOREVERY (RECORD rowitem FROM parsed.block->nodes)
+    {
+      OBJECT tr := parentnode->ownerdocument->CreateElement("tr");
+      IF (rowitem.height != 0)
+        tr->SetAttribute("style", `height: ${rowitem.height}px;`);
+
+      INTEGER col;
+      FOREVERY (OBJECT cellitem FROM rowitem.nodes)
+      {
+        WHILE (LENGTH(rowspans) > col AND rowspans[col] > #rowitem)
+          col := col + 1;
+
+        // fixme
+        OBJECT cellnode;
+        IF ((col >= parsed.block->firstdatacell.col) = (#rowitem >= parsed.block->firstdatacell.row))
+          cellnode := parentnode->ownerdocument->CreateElement("td");
+        ELSE
+        {
+          cellnode := parentnode->ownerdocument->CreateElement("th");
+          cellnode->SetAttribute("scope", col >= parsed.block->firstdatacell.col ? "col" : "row");
+        }
+
+        IF(cellitem->colspan > 1)
+          cellnode->SetAttribute("colspan", ToString(cellitem->colspan));
+        IF(cellitem->rowspan > 1)
+          cellnode->SetAttribute("rowspan", ToString(cellitem->rowspan));
+        cellnode->SetAttribute("class", "wh-rtd__tablecell");
+
+        tr->AppendChild(cellnode);
+        FOR (INTEGER colitr := 0; colitr < cellitem->colspan; colitr := colitr + 1)
+        {
+          IF (LENGTH(rowspans) = col)
+            INSERT #rowitem + cellitem->rowspan INTO rowspans AT END;
+          ELSE
+            rowspans[col] := #rowitem + cellitem->rowspan;
+          col := col + 1;
+        }
+
+        RECORD bretval := this->BuildFromParsedRecursive(cellnode, cellitem->nodes, true, false, false);
+        IF (NOT bretval.isvisible)
+        {
+          // bogus br!
+        }
+      }
+
+      tbody->AppendChild(tr);
+    }
+    node->AppendChild(tbody);
+    RETURN node;
+  }
+
+  OBJECT FUNCTION CreateEmbeddedObject(OBJECT parentnode, RECORD rec)
+  {
+    OBJECT node := parentnode->ownerdocument->CreateElement("div");
+    node->SetAttribute("class", "wh-rtd-embeddedobject");
+    node->SetAttribute("data-instanceid", rec.instanceid);
+    RETURN node;
+  }
+
+  /** Remove comments from the root of a document (siblings of 'html' and 'body' nodes)
+  */
+  MACRO ClearCommentsFromDocumentRoot(OBJECT node)
+  {
+    FOREVERY (OBJECT child FROM node->ownerdocument->childnodes->GetCurrentNodes())
+      IF (child->nodetype = 8)
+        child->parentNode->RemoveChild(child);
+      ELSE IF (child->nodetype = 1)
+      {
+        FOREVERY (OBJECT subchild FROM child->childnodes->GetCurrentNodes())
+          IF (subchild->nodetype = 8)
+            subchild->parentNode->RemoveChild(subchild);
+      }
+  }
+
+  MACRO BuildFromParsed(OBJECT node, RECORD ARRAY parsed)
+  {
+    node->Empty();
+    this->ClearCommentsFromDocumentRoot(node);
+    this->BuildFromParsedRecursive(node, parsed, false, false, false);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO LoadFromRTDType(RECORD rtdtypeinfo)
+  {
+    this->structure := rtdtypeinfo.structure;
+    this->allowedobjects := rtdtypeinfo.allowedobjects;
+    this->allownewwindowlinks := rtdtypeinfo.allownewwindowlinks;
+    this->ignoresiteprofilewidgets := rtdtypeinfo.ignoresiteprofilewidgets;
+    this->PostLoadWork();
+  }
+
+  PUBLIC MACRO LoadFromXML(OBJECT xmlnode, STRING structuredefns)
+  {
+    OBJECT blockstylenode := xmlnode->GetChildElementsByTagNameNS(structuredefns, "blockstyles")->Item(0);
+    OBJECT embeddedobjects := xmlnode->GetChildElementsByTagNameNS(structuredefns, "embeddedobjects")->Item(0) ?? xmlnode->GetChildElementsByTagNameNS(structuredefns, "widgets")->Item(0);
+
+    RECORD structure := [ blockstyles := DEFAULT RECORD ARRAY
+                        , blocktypes := DEFAULT RECORD ARRAY
+                        , defaultblockstyle := ToUppercase(blockstylenode->GetAttribute("defaultstyle"))
+                        , contentareawidth := xmlnode->GetAttribute("contentareawidth")
+                        ];
+    this->allowedobjects := DEFAULT RECORD ARRAY;
+
+    FOREVERY(OBJECT styleblock FROM blockstylenode->childnodes->GetCurrentElements())
+    {
+      RECORD style := this->ReadStyleBlock(styleblock, structuredefns);
+      INSERT style INTO structure.blockstyles AT END;
+    }
+
+    IF(ObjectExists(embeddedobjects))
+      FOREVERY(OBJECT typenode FROM embeddedobjects->childnodes->GetCurrentElements())
+        INSERT ParseAllowWidgetType(typenode) INTO this->allowedobjects AT END;
+
+    this->structure := structure;
+    this->PostLoadWork();
+  }
+
+  /** Returns the list of allowed objects
+      @return
+      @cell return.type
+      @cell return.inherit
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAllowedObjects()
+  {
+    RETURN this->allowedobjects;
+  }
+
+  /** Lookup the style given a node and its classname(s)
+      @param containertag
+      @param classname
+      @param fallback Whether to fall back on container tag matches
+      @return Matching blockstyle
+  */
+  PUBLIC RECORD FUNCTION LookupStyle(STRING containertag, STRING classname, BOOLEAN fallback)
+  {
+    //NOTE:  this function must stay in sync with the matching algorithms in structurededitor.js
+    RECORD tagmatch, classmatch, importfrommatch;
+    containertag := ToLowercase(containertag);
+
+    BOOLEAN islist := containertag IN ['ul','ol'];
+    BOOLEAN istable := containertag = "table";
+    STRING ARRAY classnames := ParseXSList(ToLowercase(classname));
+
+    FOREVERY(RECORD blockstyle FROM this->structure.blockstyles)
+    {
+      IF (NOT RecordExists(importfrommatch))
+      {
+        // importfrom has highest priority. Also overrides list vs nonlist stuff
+        // Match selectors of the form tag.name.name.name (don't have enough info to run)
+        FOREVERY (STRING selector FROM blockstyle.importfrom)
+        {
+          STRING ARRAY parts := Tokenize(ToLowercase(selector), ".");
+          IF (containertag = parts[0])
+          {
+            BOOLEAN isclassmatch := TRUE;
+            FOREVERY (STRING selectorclassname FROM ArraySlice(parts, 1))
+              IF (selectorclassname NOT IN classnames)
+                isclassmatch := FALSE;
+            IF (isclassmatch)
+              importfrommatch := blockstyle;
+          }
+        }
+      }
+
+      // Match on classname (but don't change list to non-list or table to non-table & vv).
+      IF((ToLowercase(blockstyle.containertag) IN ['ul','ol']) = islist
+         AND (ToLowercase(blockstyle.containertag) = "table") = istable
+         AND ToLowercase(blockstyle.tag) IN classnames
+         AND NOT RecordExists(classmatch))
+        classmatch := blockstyle;
+
+      // Match h1-h6 & lists on tag name too
+      IF(fallback AND containertag IN ['h1','h2','h3','h4','h5','h6','ul','ol'] AND containertag = blockstyle.containertag AND NOT RecordExists(tagmatch))
+        tagmatch := blockstyle;
+    }
+
+    RECORD match := importfrommatch ?? classmatch ?? tagmatch;
+    IF(NOT RecordExists(match) AND fallback)
+    {
+      IF(istable AND RecordExists(this->defaulttablestyle))
+        RETURN this->defaulttablestyle;
+
+      IF (containertag IN blocknodes)
+        RETURN this->defaultblockstyle;
+    }
+
+    RETURN match;
+  }
+
+  /** Looks up the blockstyle for a node given its node
+      @param node
+      @param options
+      @cell options.fallback Also match on node name (defaults to TRUE)
+      @return Blockstyle (if matched)
+  */
+  PUBLIC RECORD FUNCTION LookupStyleByNode(OBJECT node, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ fallback := TRUE ], options);
+
+    RETURN this->LookupStyle(node->nodename, node->GetAttribute("class"), options.fallback);
+  }
+
+  /** Returns the default block style
+  */
+  PUBLIC RECORD FUNCTION GetDefaultStyle()
+  {
+    RETURN this->defaultblockstyle;
+  }
+
+  /** @short Enforce a richdocument structure on a document
+      @param bodynode Top level node, under which the block elements should conform to the structure. Usually the <body> element */
+  PUBLIC MACRO RestructureRichDocument(OBJECT bodynode)
+  {
+    RECORD ARRAY parsed := this->ParseContainerContents(bodynode);
+    //this->ShowParsed(parsed, 0); // enable for debugging
+    this->BuildFromParsed(bodynode, parsed);
+  }
+
+  /** Returns tag and title of all tablestyles
+      @return
+      @cell return.tag
+      @cell return.title
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetTableStyles()
+  {
+    RETURN SELECT tag, title
+             FROM this->structure.blockstyles
+            WHERE type="table";
+  }
+>;
+
+//ADDME mostly dupe of tollium/components/rte.whlib
+PUBLIC OBJECT FUNCTION LoadClassicStructureDef(BLOB structuredeffile)
+{
+  OBJECT structuredoc := MakeXMLDocument(structuredeffile);
+  OBJECT schemadef := __RetrieveCachedXMLSchema("mod::tollium/data/richstructuredef.xsd").doc;
+
+  RECORD ARRAY errors := schemadef->ValidateDocument(structuredoc);
+  IF(Length(errors)>0)
+    THROW NEW Exception("Errors validating rich structure document\n" || anytostring(errors,'boxed'));
+
+  OBJECT structuredef := NEW RichDocumentStructure;
+  structuredef->LoadFromXML(structuredoc->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
+  RETURN structuredef;
+}
+
+PUBLIC RECORD FUNCTION GetRTDTypeFromClassicStructureDef(OBJECT structuredef)
+{
+  RECORD base := MakeBaseSiteprofileXMLStructure();
+  base.structure := structuredef->structure;
+  base.allowedobjects := structuredef->GetAllowedObjects();
+  base.allownewwindowlinks := structuredef->allownewwindowlinks;
+  RETURN base;
+}
+
+PUBLIC RECORD FUNCTION ParseSiteprofXMLStructure(OBJECT siteprofcontext, OBJECT startnode)
+{
+  OBJECT widgetsnode := startnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "widgets")->Item(0);
+  OBJECT structuredef := NEW RichDocumentStructure;
+  structuredef->LoadFromXML(startnode, namespace_sp);
+
+  RECORD retval := MakeBaseSiteprofileXMLStructure();
+  retval.structure := structuredef->structure;
+  retval.htmlclass := startnode->GetAttribute("htmlclass");
+  retval.bodyclass := startnode->GetAttribute("bodyclass");
+  retval.allowedobjects := structuredef->GetAllowedObjects();
+  retval.allownewwindowlinks := ParseXSBoolean(startnode->GetAttribute("allownewwindowlinks"));
+  retval.ignoresiteprofilewidgets := ObjectExists(widgetsnode) AND ParseXSBoolean(widgetsnode->GetAttribute("ignoresiteprofilewidgets"));
+
+  OBJECT ARRAY cssnodes := startnode->GetChildElementsByTagnameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "css")->GetCurrentElements();
+  IF (LENGTH(cssnodes) != 0)
+  {
+    FOREVERY (OBJECT cssnode FROM cssnodes)
+    {
+      STRING path := siteprofcontext->siteprofile->ParseFSPath(cssnode,"path");
+      INSERT [ path := path
+             ] INTO retval.cssfiles AT END;
+
+      TRY GetWebhareResource(path);
+      CATCH (OBJECT e) siteprofcontext->AddError(cssnode, "Unable to open '" || path || "': " || e->what);
+    }
+  }
+
+  OBJECT linkhandlers := startnode->GetChildElementsByTagnameNS("http://www.webhare.net/xmlns/tollium/screens", "linkhandlers")->Item(0);
+  IF(ObjectExists(linkhandlers)) //prefix with "fragment!" so we can introduce them into a unique scope
+    retval.linkhandlers := ParseXMLPageNode(siteprofcontext->siteprofile->name, "fragment", linkhandlers);
+
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION GetRTDTypeSettings(OBJECT applytester)
+{
+  RETURN applytester->GetRTDTypeSettings();
+}
+
+PUBLIC RECORD FUNCTION GetRTDSettingsFromType(STRING type)
+{
+  RECORD rtd := MakeBaseSiteprofileXMLStructure();
+  RECORD typeinfo := GetRTDType(type);
+  IF(NOT RecordExists(typeinfo))
+    THROW NEW Exception("RTDType '" || type || "' not registered");
+
+  //ADDME limitlinks
+  rtd := CELL[ ...rtd
+             , ...typeinfo
+             , namespace := type
+             , structure := typeinfo.structure
+             ];
+  RETURN rtd;
+}
+PUBLIC RECORD FUNCTION GetRTDSettingsForFile(INTEGER basefileid)
+{
+  INTEGER usefileid := basefileid;
+
+  OBJECT draft := OpenWHFSDraft(basefileid);
+  IF(ObjectExists(draft))
+  {
+    usefileid := draft->source;
+  }
+  ELSE
+  {
+    usefileid := basefileid;
+  }
+
+  RECORD retval := GetRTDSettingsForApplyTester(GetApplyTesterForObject(usefileid));
+  RECORD limitlinks;
+  IF(ObjectExists(retval.limitinternallinksnode))
+  {
+    limitlinks := [ root := retval.limitinternallinksnode->GetAttribute("root")
+                  ];
+  }
+  IF(RecordExists(limitlinks))
+  {
+    OBJECT basefolder;
+    IF(limitlinks.root LIKE "/*") //interpret as absolute form site root
+    {
+      basefolder := OpenWHFSObject(OpenWHFSObject(usefileid)->parentsite)->OpenByPath(substring(limitlinks.root,1));
+    }
+    ELSE
+    {
+      basefolder := OpenWHFSObject(usefileid)->parentobject->OpenByPath(limitlinks.root);
+    }
+    IF(NOT ObjectExists(basefolder))
+      THROW NEW Exception("Unable to find link limit root '" || limitlinks.root || "'");
+
+    retval.limitlinksroots := [ INTEGER(basefolder->id) ];
+  }
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION GetRTDSettingsForApplyTester(OBJECT applytester)
+{
+  RECORD retval := MakeBaseSiteprofileXMLStructure();
+  retval.applytester := applytester;
+
+  RECORD rtdtypesettings := GetRTDTypeSettings(applytester);
+  IF(RecordExists(rtdtypesettings))
+    retval.namespace := rtdtypesettings.rtdtype;
+
+  IF(retval.namespace != "")
+  {
+    RECORD typeinfo := GetRTDType(retval.namespace);
+    IF(NOT RecordExists(typeinfo))
+      THROW NEW Exception("RTDType '" || retval.namespace || "' not registered");
+
+    //ADDME limitlinks
+    retval := MakeUpdatedRecord(retval, typeinfo);
+    retval.structure := typeinfo.structure;
+    retval.linkhandlers := typeinfo.linkhandlers;
+    retval.applytester := applytester;
+
+    IF(rtdtypesettings.has_htmlclass)
+      retval.htmlclass := rtdtypesettings.htmlclass;
+    IF(rtdtypesettings.has_bodyclass)
+      retval.bodyclass := rtdtypesettings.bodyclass;
+  }
+  ELSE
+  {
+    RECORD ARRAY richdocsettings := retval.applytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "richdocumenteditor");
+
+    FOREVERY(RECORD doc FROM richdocsettings)
+    {
+      OBJECT structurenode := doc.node->GetChildElementsByTagnameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "structuredefinition")->Item(0);
+      IF(ObjectExists(structurenode))
+        retval.structuredef := GetWebhareResource(doc.siteprofile->ParseFSPath(structurenode, "fullpath"));
+
+      OBJECT ARRAY cssnodes := doc.node->GetChildElementsByTagnameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "css")->GetCurrentElements();
+      IF (LENGTH(cssnodes) != 0)
+      {
+        // Overwrite previous css settings
+        retval.cssfiles := DEFAULT RECORD ARRAY;
+        FOREVERY (OBJECT cssnode FROM cssnodes)
+        {
+          STRING path := doc.siteprofile->ParseFSPath(cssnode,"fullpath");
+          INSERT [ path := path
+                 ] INTO retval.cssfiles AT END;
+        }
+      }
+
+      retval.limitinternallinksnode := doc.node->GetChildElementsByTagnameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "limitinternallinks")->Item(0);
+
+      IF(doc.node->HasAttribute("css"))
+        retval.css := doc.node->GetAttribute("css");
+      IF(doc.node->HasAttribute("htmlclass"))
+        retval.htmlclass := doc.node->GetAttribute("htmlclass");
+      IF(doc.node->HasAttribute("bodyclass"))
+        retval.bodyclass := doc.node->GetAttribute("bodyclass");
+    }
+  }
+
+  IF(RecordExists(rtdtypesettings) AND rtdtypesettings.margins != "") //we don't copy these from the RTDType
+    retval.margins := rtdtypesettings.margins;
+
+  RETURN retval;
+}
+

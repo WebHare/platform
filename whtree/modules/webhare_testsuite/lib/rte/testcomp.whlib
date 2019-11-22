@@ -1,0 +1,34 @@
+﻿<?wh
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+
+LOADLIB "mod::tollium/lib/rtd/embeddedobject.whlib";
+
+PUBLIC OBJECTTYPE RTDInstanceTestObj EXTEND EmbeddedObjectBase
+<
+  BOOLEAN havewebdesign;
+  MACRO NEW()
+  {
+  }
+
+  UPDATE PUBLIC MACRO  RenderPreview()
+  {
+    IF(RecordExists(this->data))
+      Print("a <b>preview</b> rendering. your string data: <i>" || EncodeHTML(this->data.stringdata) || "</i>");
+    ELSE
+      Print("a <b>preview</b> rendering.");
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    this->havewebdesign := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO RenderObject(OBJECT webdesign)
+  {
+    IF(NOT this->havewebdesign) THROW NEW Exception("PrepareForRendering not invoked");
+
+    EmbedWittyComponent("testsitedesign.witty:blinky", [ text := this->data.stringdata, img := WrapCachedImage(this->data.img, [method := "none"]) ]);
+  }
+>;

@@ -1,0 +1,1214 @@
+/*! LOAD: utwente.fonts.universltstd.cn, utwente.fonts.universltstd.boldcn !*/
+
+html, body, p, h1, h2, h3, h4, h5, h6, form { padding:0; margin:0; }
+img { border:none; }
+article, aside, details, figcaption, figure, footer, header, hgroup, nav, section, summary { display: block; }
+audio, canvas, video { display: inline-block; }
+datalist, template { display: none; }
+
+a[href]
+{
+  display: inline-block;
+}
+
+body.touchcomments
+{
+  background-color: transparent;
+}
+
+/* Main structure: Touch header */
+div#touchheader
+{
+  position:absolute;
+  height:99px;
+  top:0;
+  left:0;
+  right:0;
+  border-left:3px solid #ffffff;
+  border-right:3px solid #ffffff;
+}
+
+div#touchheader #utlogoarea
+{
+  position:absolute;
+  bottom: 21px;
+  left:37px;
+  font: 15px univers_lt_std_57_cnregular,Arial,Helvetica,sans-serif;
+  color: #8f8f8f;
+  font-stretch:condensed;
+}
+div#touchheader #utlogoarea .common_utlogo
+{
+  display:block;
+}
+div#touchheader #utlogoarea .hthtpjs{
+  display:block;
+  height: 20px;
+  overflow: hidden;
+  text-align: justify;
+  width: 191px;
+  font-size: 17px;
+}
+
+div#touchheader #toplinks
+{
+  position:absolute;
+  bottom: 21px;
+  right:20px;
+  font: 13px Arial;
+  color:#969696;
+  text-transform: uppercase;
+}
+div#touchheader #toplinks a
+{
+  text-decoration:none;
+  color:#000000;
+}
+ div#touchheader #toplinks a + a + a + a
+,div#touchheader #toplinks a + a + a + a + a
+{
+  text-decoration:none;
+  color:#989898;
+}
+
+div#touchheader #toplinks a:hover
+{
+  text-decoration:underline;
+}
+
+/* Main structure: header above content area */
+div#contentheader
+{
+  position:absolute;
+  top:99px;
+  left:0;
+  right:0;
+  height:45px;
+  background: url("../img/contenthdrbg.png") repeat-x;
+  z-index:99;
+}
+div#contentheader div#socialheader
+{
+  position:absolute;
+  top:2px;
+  right: 290px;
+}
+
+div#contentheader div#socialheader a:hover
+{
+  background-color: #000000;
+  display: inline-block;
+}
+
+form#searchbox
+{
+  position:absolute;
+  margin:0;
+  top:3px;
+  right:20px;
+}
+form#searchbox input#searchfield
+{
+  position:absolute;
+  left:8px;
+  top:9px;
+  font:15px Arial;
+  width:136px;
+  color:#ffffff;
+
+  background:transparent;
+  padding:none;
+  margin:none;
+  border:none;
+}
+form#searchbox input#searchfield:focus
+{
+  outline:none;
+}
+form#searchbox #searchicon
+{
+  position:absolute;
+  top:11px;
+  right:10px;
+  cursor:pointer;
+}
+
+/* Main structure: Content area */
+div#contentarea
+{
+  position:absolute;
+  top:144px; /* 99 + 45 */
+  left:0;
+  bottom:0;
+  width:100%;
+  background:#000000;
+}
+body.touchhome div#contentarea
+{
+  width:1260px;
+}
+
+/* Homepage map */
+div#maparea
+{
+  position:absolute;
+  overflow:hidden;
+  left:1260px;
+  right:0;
+  top:144px; /* 99 + 45 */
+  bottom:0;
+}
+div#mapareatopseparator
+{
+  display:none;
+  /*
+  position:absolute;
+  top:0;
+  left:-1px;
+  pointer-events: none;
+  */
+}
+div#maploader
+{
+  position:absolute;
+  width:100%;
+  height:100%;
+}
+div#maparrow
+{
+  position:absolute;
+  left:-50px;
+  top:50%;
+  cursor:pointer;
+}
+div#maparrow .indicatorarrow
+{
+  position:absolute;
+  top:8px;
+  right:16px;
+}
+div#maparrow #indicatorarrow_right
+{
+  display:none;
+}
+
+/* shadow size is also affected by height of the container, so we make something
+   big, then throw it into an invisible area, but still let it cast its shadow */
+div#mapdropshadetop
+{
+  position:absolute;
+  top:-30px;
+  left:-30px;
+  right:0;
+  height:30px;
+  box-shadow:10px 10px 40px rgba(0,0,0,1);
+}
+div#mapdropshadeleft
+{
+  position:absolute;
+  top:-30px;
+  left:-30px;
+  width:30px;
+  bottom:0;
+  box-shadow:10px 10px 40px rgba(0,0,0,1);
+}
+div#backtocampus
+{
+  position:absolute;
+  display:inline-block;
+  top:10px;
+  right:10px;
+
+  padding:4px 8px;
+}
+
+/* Touches on the map */
+div.maptouchholder
+{
+  position:absolute;
+  left:-140px;
+  bottom:25px;
+  width:280px;
+  height:230px;
+  background:#33363B;
+  box-shadow: 0 3px 8px 0 #000000;
+  z-index:20; /* between front and back map pins */
+}
+div.maptouchholder div.touchevent
+{
+  position:absolute;
+  height:230px;
+}
+div.maptouchholder div.touchevent .touchimgholder
+{
+  height:230px;
+}
+div.maptouchholder div.touchevent.touch_photoalbum .touchimgholder img
+{
+  /*margin-top:-110px;*/
+}
+
+div.maptouchholder div.touchevent.showdescription .touchtitle
+{
+  bottom:5px;
+}
+div.maptouchholder div.touchevent .touchtitle .touchdescription
+, div.maptouchholder .footer
+{
+  display:none;
+}
+
+/* Iframe touch */
+iframe.touchiframe
+{
+  display:block;
+  border:none;
+  margin:0;
+}
+
+/* Homepage touches */
+div#touches
+{
+  position:relative;
+  margin:0 auto;
+}
+div#touchesscroll
+{
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  overflow:hidden;
+  z-index:2;
+  padding: 20px 20px 40px 20px;
+}
+div#touchesscroll div.touchevent
+{
+  position:absolute;
+  box-shadow: 1px 2px 1px rgba(0,0,0,.3);
+}
+
+#introtextholder
+{
+  position:relative;
+  overflow:hidden;
+}
+#introtext
+{
+  position:relative;
+  z-index:1;
+  background: url("../img/chalk.jpg");
+  padding: 28px 30px 30px 254px;
+  margin: 20px 20px 0 20px;
+  font: 16px "Arial Narrow",Arial,Helvetica,sans-serif;
+  color: #b2b2b2;
+  box-shadow: 0px 2px 0px rgba(0,0,0,0.5);
+}
+#introtext #chalkwelcome
+{
+  display:inline-block;
+  position:absolute;
+  margin-top:-12px;
+  top:50%;
+  left:30px;
+}
+#introtext .common_chalkclose
+{
+  display:inline-block;
+  position:absolute;
+  top:10px;
+  right:10px;
+}
+#chalkclose
+{
+  cursor:pointer;
+}
+
+div#filterheader
+{
+  position:relative;
+  z-index:1;
+  color:#ffffff;
+  margin: 20px 20px 0 20px;
+}
+
+div#searchheader
+{
+  position:relative;
+  z-index:1;
+  color:#ffffff;
+  margin: 20px 20px 0 20px;
+  display:none;
+}
+
+div#universitybg
+{
+  position:absolute;
+  top:10px;
+  left:10px;
+  right:10px;
+  height:50px;
+  background: #e6e6e6;
+}
+html.searchmode div#universitybg
+{
+  display:none;
+}
+
+div.touchevent
+{
+  width:280px;
+  height:320px;
+
+  background-color: #33363b;
+}
+div#contentarea div.touchevent.widetouch
+{
+  width:580px;
+}
+div.touchevent a
+{
+  text-decoration: none;
+}
+div.touchevent .touchimgholder
+{
+  position:relative;
+  display:block;
+  width:280px;
+  height:320px;
+  overflow:hidden;
+}
+div.touchevent.widetouch .touchimgholder
+{
+  width:580px;
+}
+div.touchevent img.touchimg
+{
+  box-shadow: 0 1px 1px rgba(0,0,0,1);
+}
+div.touchevent.widetouch img.touchimg, div.touchevent.touch_photoalbum img.touchimg
+{
+  box-shadow: none;
+}
+
+div.touchevent .touchtitle
+{
+  display:block;
+  position:absolute;
+  left:20px;
+  top:168px;
+
+  font: 16px univers_lt_std_57_cnregular;
+  color:#ffffff;
+  text-transform: uppercase;
+}
+div.touchevent.showdescription .touchtitle
+{
+  padding-right:20px; /* create space for possible scrollbar, but at least prevent us from 'leaking' over the edge */
+  right:0;
+  bottom:39px;
+  overflow:hidden;
+}
+div.touchevent .touchtitle .touchdescription /* embedded into touchtitle to make sure the height of the title is preserved in positioning */
+{
+  text-transform: none;
+  display:block;
+  color: #8c95a3;
+  font:13px Arial;
+  padding: 10px 0 0 0;
+  line-height:150%;
+}
+div.touchevent.widetouch .touchtitle, div.touchevent.touch_photoalbum .touchtitle
+{
+  background-color: #33363b;
+  opacity: 0.85;
+  filter: alpha(opacity=85);
+}
+
+div.touchevent.touch_photoalbum .touchtitle
+{
+  left:0;
+  bottom:0;
+  right:0;
+  overflow:hidden;
+
+  padding:10px 20px 10px 20px;
+}
+div#contentarea div.touchevent.touch_photoalbum .touchtitle
+{
+  top:245px;
+  padding:20px 20px 20px 20px;
+}
+div#contentarea div.touchevent.widetouch .touchtitle
+{
+  top:235px;
+  left:0;
+  right:0;
+  font: 16px univers_lt_std_57_cnregular;
+  padding:12px 60px 12px 20px;
+}
+div.touchevent div.footer
+{
+  position:absolute;
+  top:280px;
+  left:20px;
+  right:20px;
+  bottom:0;
+  font:11px Arial;
+  color:#4e5561;
+  padding-top:10px;
+}
+div.touchevent div.footer.withownerinfo
+{
+  border-top: 1px solid #2c2e33;
+}
+div.touchevent div.footer.withownerinfo .ownername
+{
+  color:#8c95a3;
+}
+div.touchevent div.footer .footerright
+{
+  float:right;
+}
+div.touchevent div.footer .footerright .common_commentsballoon
+{
+  display:inline-block;
+  position:relative;
+  top:-2px;
+}
+div.touchevent div.footer .footerright .commentsnumber
+{
+  position:relative;
+  top:-4px;
+  margin:0 2px 0 3px;
+}
+div.touchevent div.footer .footerright .divider
+{
+  display:inline-block;
+  width:1px;
+  height:14px;
+  background:#8c95a3;
+  margin-right:5px;
+}
+div.touchevent div.footer.withownerinfo .footerright .divider
+{
+  background:#2c2e33;
+}
+div.touchevent div.footer .footerright .pin
+{
+  display:inline-block;
+  cursor:pointer;
+}
+div.touchevent.widetouch .pin
+{
+  display:inline-block;
+  cursor:pointer;
+  position:absolute;
+  right:5px;
+  bottom:5px;
+}
+
+div.touchevent.touch_reminder
+{
+  background-color: #00afcf;
+  background-image: linear-gradient(top, #00afcf 0%, #0087b7 100%);
+  background-image: -moz-linear-gradient(top, #00afcf 0%, #0087b7 100%);
+  background-image: -webkit-linear-gradient(top, #00afcf 0%, #0087b7 100%);
+  background-image: -ms-linear-gradient(top, #00afcf 0%, #0087b7 100%);
+}
+div.touchevent.touch_reminder .remindercontent
+{
+  margin: 16px; 19px;
+}
+div.touchevent.touch_reminder h1
+{
+  font:normal 17px univers_lt_std_57_cnregular;
+  color:#ffffff;
+  text-transform: uppercase;
+  min-height:60px;
+}
+div.touchevent.touch_reminder h2
+{
+  font:normal 37px univers_lt_std_47_cn_ltbold;
+  color:#ffffff;
+  text-transform: uppercase;
+  line-height:95%;
+}
+div.touchevent.touch_reminder div.description
+{
+  font:17px univers_lt_std_57_cnregular;
+  color:#ffffff;
+  text-transform: uppercase;
+}
+
+div#subscribeform
+{
+  padding-top:4px;
+}
+div#subscribeform > *
+{
+  vertical-align: middle;
+}
+div#subscribeform input.textfield
+{
+  font: 12px arial;
+  color:#33363b;
+  margin:0;
+  padding:4px;
+  border-top: 1px solid #7997a0;
+  border-left: 1px solid #7997a0;
+  border-bottom: 1px solid #2cabcf;
+  border-right: 1px solid #2cabcf;
+  border-radius: 3px;
+  background: #b0ddeb;
+  background-image: linear-gradient(top, #b0ddeb 0%, #68bdd7 100%);
+  background-image: -moz-linear-gradient(top, #b0ddeb 0%, #68bdd7 100%);
+  background-image: -webkit-linear-gradient(top, #b0ddeb 0%, #68bdd7 100%);
+  background-image: -ms-linear-gradient(top, #b0ddeb 0%, #68bdd7 100%);
+}
+div#subscribeform input#firstnamefield
+{
+  width:238px;
+  display:block;
+  margin-bottom:10px;
+}
+div#subscribeform input#emailfield
+{
+  width:198px;
+}
+div#subscribeform #subscribebutton
+{
+  cursor:pointer;
+  padding-top:1px;
+  padding-bottom:4px;
+  height:16px;
+
+  position:relative;
+  top:1px;
+  width:17px;
+}
+#subscribedescription
+{
+  font-size:15px;
+  padding-top:10px;
+  padding-bottom:5px;
+}
+#subscribedescription a
+{
+  color:#ffffff;
+}
+#subscribeerror
+{
+  padding:10px 0 0 5px;
+  color:#000000;
+}
+
+.touchbutton
+{
+  display:inline-block;
+  border-top:1px solid #71c7dd;
+  border-left:1px solid #008aae;
+  border-bottom:2px solid #007a9a;
+  border-right:1px solid #008aae;
+  box-shadow: 0 0 2px rgba(0,0,0,0.3);
+
+  background: #00a2c0;
+  background-image: linear-gradient(top, #00afcf 0%, #0087b7 100%);
+  background-image: -moz-linear-gradient(top, #00afcf 0%, #0087b7 100%);
+  background-image: -webkit-linear-gradient(top, #00afcf 0%, #0087b7 100%);
+  background-image: -ms-linear-gradient(top, #00afcf 0%, #0087b7 100%);
+
+  padding:8px 8px;
+
+  font:15px univers_lt_std_57_cnregular;
+  color:#ffffff;
+  text-decoration:none;
+  text-transform: uppercase;
+  cursor:pointer;
+}
+.touchbutton:hover
+{
+  background: #00aece;
+  background-image: linear-gradient(top, #0092be 0%, #00aece 100%);
+  background-image: -moz-linear-gradient(top, #0092be 0%, #00aece 100%);
+  background-image: -webkit-linear-gradient(top, #0092be 0%, #00aece 100%);
+  background-image: -ms-linear-gradient(top, #0092be 0%, #00aece 100%);
+}
+
+div.touchevent.touch_reminder a.button
+{
+  margin:5px 0;
+  padding:8px 8px;
+  min-width:150px;
+
+}
+
+/* Touch pages */
+div#touchpagecontent
+{
+  position:relative;
+  padding: 40px 40px 40px 40px;
+  background:#000000;
+  z-index:2;
+}
+div#touchpagecontent.touch_green .contentitem a
+{
+  color:#769e15;
+}
+div#touchpagecontent.touch_blue .contentitem a
+{
+  color:#009bc3;
+}
+div#touchpagecontent.touch_red .contentitem a
+{
+  color:#e2002e;
+}
+div#touchleftcol
+{
+  width:780px;
+  float:left;
+  margin-bottom:40px;
+}
+
+div#touchcontentbody
+{
+  position:relative;
+  background:#ffffff;
+}
+div#touchcontentbody div#socialheader
+{
+  x-padding-top:8px;
+  height:30px;
+  text-align:right;
+  padding-right:15px;
+  background-color: #000000;
+}
+div#touchcontentbody div#socialheader .fb-like
+{
+  position:relative;
+  top:-3px;
+}
+
+div#touchcontentbody div.firstcontentitem
+{
+  position:relative;
+}
+div#touchcontentbody div.firstcontentitem .singleimage img
+{
+  display:block;
+}
+div#touchcontentbody div.firstcontentitem div.titleblock
+{
+  padding:16px 35px 16px 30px;
+  font: 11px Arial;
+}
+div#touchcontentbody div.firstcontentitem div.titleblock h1
+{
+  font: 25px univers_lt_std_57_cnregular;
+  text-transform: uppercase;
+}
+
+div#touchcontentbody div.firstcontentitem .singleimage div.titleblock
+{
+  position:absolute;
+  left:0;
+  bottom:20px;
+  background:#33363b;
+  opacity: 0.85;
+  filter: alpha(opacity=85);
+  color: #8c95a3;
+}
+div#touchcontentbody div.firstcontentitem .singleimage div.titleblock h1
+{
+  color: #ffffff;
+}
+div#touchcontentbody div.firstcontentitem .singleimage div.titleblock span.ownername
+{
+  color:#ffffff;
+}
+div#touchcontentbody div.firstcontentitem .photoalbum div.titleblock span.ownername
+{
+  color:#41464e;
+}
+div#touchcontentbody div.firstcontentitem .photoalbum div.titleblock span.touchdate
+{
+  color:#8c95a3;
+}
+div#touchcontentbody div.firstcontentitem .videoplayer
+{
+  display:block;
+  width:780px;
+  height:460px;
+}
+
+div#touchcontentbody div.contentblock
+{
+  padding:15px 0 0 0;
+  margin:0 30px 0 30px;
+  font:12px Arial;
+  color:#41464e;
+}
+div#touchcontentbody div.contentblock p
+{
+  min-height: 10px;
+}
+div#touchcontentbody div.contentblock + div.contentblock
+{
+  border-top: 1px solid #d5d5d6;
+}
+div#touchcontentbody div.contentblock h2
+{
+  font: 25px univers_lt_std_57_cnregular;
+  color:#000000;
+  margin-bottom:10px;
+}
+
+div#touchcontentbody div.contentblock .videoplayer
+{
+  float:left;
+  margin: 0 20px 20px 0;
+  width:360px;
+  height:236px;
+}
+
+/* Contentitem: Photoalbum */
+div#touchcontentbody div.photoalbum
+{
+  position:relative;
+}
+div#touchcontentbody div.photoalbum div.photoarea
+{
+  height:520px;
+  line-height:520px;
+  width:100%;
+  text-align:center;
+}
+div#touchcontentbody div.photoalbum div.photoarea img
+{
+  vertical-align:middle;
+}
+div#touchcontentbody div.photoalbum .albumpages.-wh-slideshow-holder
+{
+  margin:0 auto;
+  width:650px;
+  height:195px;
+}
+
+div#touchcontentbody div.photoalbum .albumpages .-wh-slideshow-item
+{
+  width:670px;
+  height:215px;
+  margin:-20px 0 0 -20px;
+}
+div#touchcontentbody div.photoalbum .albumpages .photothumb
+{
+  margin: 20px 0 0 20px;
+  display:inline-block;
+  width:145px;
+  vertical-align:middle;
+  text-align:center;
+}
+div#touchcontentbody div.photoalbum .albumpages .photothumb img
+{
+  box-shadow: 0 1px 1px rgba(0,0,0,1);
+  cursor:pointer;
+}
+div#touchcontentbody div.photoalbum div.prevbutton
+{
+  position:absolute;
+  bottom:126px;
+  left:0;
+}
+div#touchcontentbody .firstcontentitem div.photoalbum div.prevbutton
+{
+  left:30px;
+}
+div#touchcontentbody div.photoalbum div.nextbutton
+{
+  position:absolute;
+  bottom:126px;
+  right:0;
+}
+div#touchcontentbody .firstcontentitem div.photoalbum div.nextbutton
+{
+  right:30px;
+}
+div#touchcontentbody div.photoalbum .common_albumprev_enabled
+, div#touchcontentbody div.photoalbum .common_albumnext_enabled
+{
+  cursor:pointer;
+}
+div#touchcontentbody div.photoalbum div.jumpbuttons
+{
+  min-height:20px;
+  line-height: 20px;
+  text-align:center;
+  margin:20px 0;
+}
+div#touchcontentbody div.photoalbum div.jumpbuttons > *
+{
+  display:inline-block;
+  margin: 0 5px 0 5px;
+  vertical-align:bottom;
+  cursor:pointer;
+}
+
+div#touchcontentbody div.smallphotoalbum
+{
+  position:relative;
+  float:right;
+  width:306px;
+}
+div#touchcontentbody div.smallphotoalbum div.photoarea
+{
+  width:306px;
+  height:173px;
+  line-height:173px;
+  text-align:center;
+}
+div#touchcontentbody div.smallphotoalbum div.photoarea .-wh-slideshow-item
+{
+  width:306px;
+  height:173px;
+  line-height:173px;
+  text-align:center;
+}
+div#touchcontentbody div.smallphotoalbum div.photoarea img
+{
+  border:2px solid #ffffff;
+  box-shadow:0 0 4px #9f9f9f;
+}
+div#touchcontentbody div.smallphotoalbum div.jumpbuttons
+{
+  min-height:20px;
+  line-height: 20px;
+  text-align:center;
+  margin:20px 0;
+}
+div#touchcontentbody div.smallphotoalbum div.jumpbuttons > *
+{
+  display:inline-block;
+  vertical-align:bottom;
+  cursor:pointer;
+}
+
+div#touchcontentbody div.maptouch div.mapholder
+{
+  position:relative;
+  width:720px;
+  height:350px;
+  margin-bottom:10px;
+  overflow:hidden;
+}
+div#touchcontentbody div.maptouch div.map
+{
+  position:absolute;
+  top:0;
+  left:0;
+  bottom:0;
+  right:0;
+}
+div#touchcontentbody div.maptouch div.mapshadow
+{
+  position:absolute;
+  pointer-events: none;
+}
+div#touchcontentbody div.maptouch div.shadowtop
+{
+  top:-30px;
+  left:-30px;
+  right:-30px;
+  height:30px;
+  box-shadow:10px 10px 30px rgba(0,0,0,.5);
+}
+div#touchcontentbody div.maptouch div.shadowleft
+{
+  top:-30px;
+  left:-30px;
+  bottom:-30px;
+  width:30px;
+  box-shadow:10px 10px 30px rgba(0,0,0,.5);
+}
+div#touchcontentbody div.maptouch div.shadowbottom
+{
+  bottom:-30px;
+  left:-30px;
+  right:-30px;
+  height:30px;
+  box-shadow:-10px -10px 30px rgba(0,0,0,.5);
+}
+div#touchcontentbody div.maptouch div.shadowright
+{
+  top:-30px;
+  right:-30px;
+  bottom:-30px;
+  width:30px;
+  box-shadow:-10px -10px 30px rgba(0,0,0,.5);
+}
+
+div#touchcontentbody div.maptouch div.maptouches
+{
+  display:none;
+}
+/* Right column of an individual touch page */
+div#touchrightcol
+{
+  float:left;
+  width:380px;
+  margin-left:20px;
+}
+div#touchrightcol div.touchowner
+{
+  background: #33363b;
+  padding:20px;
+  box-shadow: 0 1px 1px rgba(0,0,0,1);
+}
+div#touchrightcol div.touchowner .theauthor img
+{
+  box-shadow: -1px 3px 1px rgba(0,0,0,0.5);
+  vertical-align:middle;
+  margin-right:20px;
+}
+div#touchrightcol div.touchowner .theauthor .authorblock
+{
+  display:inline-block;
+  vertical-align:middle;
+}
+div#touchrightcol div.touchowner .theauthor .authorname
+{
+  font: 20px univers_lt_std_57_cnregular;
+  color: #ffffff;
+  text-transform: uppercase;
+  display:block;
+}
+div#touchrightcol div.touchowner .theauthor a.authordeplink
+{
+  font:13px Arial;
+  color:#8c95a3;
+}
+div#touchrightcol div.touchowner .profile
+{
+  font:12px Arial;
+  color:#ffffff;
+  margin: 10px 0;
+}
+
+div#touchrightcol div.touchowner .userlinks
+{
+  border-top:1px solid #2c2e33;
+  padding-top:10px;
+}
+div#touchrightcol div.touchowner .userlink
+{
+  float:left;
+  width:120px;
+  padding:5px 20px 5px 25px;
+  font: 11px Arial;
+  color: #8c95a3;
+  position:relative;
+}
+div#touchrightcol div.touchowner .userlink span /* the 'home' etc icons */
+{
+  position:absolute;
+  top:0;
+  left:0;
+}
+
+div#touchrightcol h2
+{
+  font:normal 20px univers_lt_std_57_cnregular;
+  color:#ffffff;
+  text-transform: uppercase;
+}
+div#touchrightcol div.corporatelinks
+{
+  margin: 30px 0;
+}
+div#touchrightcol div.corporatelinks ul
+{
+  list-style: none;
+  margin:0;
+  padding:0;
+  border-bottom: 1px solid #1a1a1a;
+}
+div#touchrightcol div.corporatelinks ul li
+{
+  margin:10px 0;
+  padding:10px;
+  border-top: 1px solid #1a1a1a;
+}
+div#touchrightcol div.corporatelinks ul li a
+{
+  font: 12px Arial;
+  color: #c7d3e6;
+}
+
+div#touchrightcol div.relatedlinks
+{
+  margin:30px 0;
+}
+div#touchrightcol div.relatedtouches
+{
+  margin: 0 0 0 -20px;
+}
+/* Touch page comments */
+iframe#touchcomments
+{
+  width:780px;
+}
+html.touchcomments
+{
+  background: transparent;
+}
+body.touchcomments h2
+{
+  font: 25px univers_lt_std_57_cnregular;
+  color: #ffffff;
+  margin: 15px 0;
+}
+body.touchcomments div.comment
+{
+  position:relative;
+  margin:20px 0 0 30px;
+  min-height:85px;
+  width:720px;
+  background: #ffffff;
+  border-bottom: 1px solid #b2b2b2;
+}
+body.touchcomments #postcomment_name
+{
+  margin:10px 0 0 10px;
+  padding:5px;
+  width:360px;
+  border:1px solid #c7c7c7;
+  font:12px Arial;
+}
+body.touchcomments #postcomment_email
+{
+  margin:10px 0 0 10px;
+  padding:5px;
+  width:360px;
+  border:1px solid #c7c7c7;
+  font:12px Arial;
+}
+body.touchcomments #postcomment_message
+{
+  margin:10px 0 10px 10px;
+  padding:5px;
+  width:360px;
+  height:80px;
+  resize: vertical;
+  border:1px solid #c7c7c7;
+  font:12px Arial;
+  min-height:95px;
+}
+body.touchcomments div.captcha
+{
+  position:absolute;
+  top:5px;
+  right:5px;
+}
+body.touchcomments .submitbutton
+{
+  position:absolute;
+  bottom:10px;
+  right:10px;
+}
+body.touchcomments div.commentcontent
+{
+  padding:14px 20px;
+  font: 12px Arial;
+  color:#41464e;
+}
+body.touchcomments div.commentcontent .author
+{
+  color:#666666;
+  margin-bottom:4px;
+}
+body.touchcomments input.error, body.touchcomments textarea.error
+{
+  border:1px solid #ff0000 !important;
+}
+
+/* scrollbar component */
+div.vscrollbarslider
+{
+  border-top: 2px solid #525459;
+  overflow:hidden;
+  background:#33363b;
+  border-radius:4px;
+}
+
+/* reconfigure header for small devices */
+@media screen and (max-width: 600px)
+{
+  #headerfrutsel
+  {
+    display:none;
+  }
+  #navpath
+  {
+    display:none;
+  }
+  div#searchbox
+  {
+    left:37px;
+    right:auto;
+  }
+}
+/* implement single column mode (driven by JS to make sure JS changes  at the asme time) */
+body.singlecolumnmode div.touchevent.widetouch
+{
+  width:280px;
+  height:154px;
+}
+body.singlecolumnmode div.touchevent.widetouch .touchimgholder
+{
+  width:280px;
+  height:154px;
+}
+body.singlecolumnmode div.touchevent.widetouch .touchtitle
+{
+  font-size:12px;
+  top:60px;
+}
+body.singlecolumnmode #introtext, body.singlecolumnmode #socialheader
+{
+  display:none;
+}
+body.singlecolumnmode div.remindercontent h1
+{
+  min-height: 20px;
+}
+body.singlecolumnmode div.remindercontent h2
+{
+  font-size:25px;
+}
+
+@media screen and (max-width: 500px)
+{
+  div#touchheader #utbacklink
+  {
+    display:none;
+  }
+  div#touchheader #toplinks
+  {
+    top:5px;
+    right:5px;
+  }
+}
+
+/* even smaller.... reduce the +- 40 gutter on the left side */
+@media screen and (max-width: 320px)
+{
+  div#touchheader #utlogoarea, div#searchbox
+  {
+    left:17px;
+  }
+  div#touches
+  {
+    padding-left:0;
+    padding-right:0;
+  }
+}

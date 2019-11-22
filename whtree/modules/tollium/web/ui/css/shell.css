@@ -1,0 +1,406 @@
+/****************************************************************************************************************************
+ * Notes
+
+  Fixed z-indexes:
+  21  screenshot window
+  20  screenshot background
+  12  inspector gadget
+  11  tooltip
+  10  towl event
+   4  header (application tabs)
+   3  start menu
+   2  start submenu (all applications, settings, etc.)
+   1  dashboard
+  -1  desktop (containing application canvases)
+
+  FIXME desktop ligt hierdoor achter body. niet handig. ik heb desktop op 0 gezet, rest moet ook hernummerd worden
+*/
+
+/****************************************************************************************************************************
+ * Reusable mixins
+ */
+/* Chrome bugfix for black boxes. should not be needed at chrome 28/29:
+   https://code.google.com/p/chromium/issues/detail?id=245229
+[style*="visibility: hidden"] { z-index:-999999999999 !important; }
+ */
+
+/* line 13, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less */
+*:focus,
+*:active {
+  outline: none;
+}
+/****************************************************************************************************************************
+ * Basic layout
+ */
+
+/* NOTE: we shouldn't casually override html & body to remain compatible with sites
+/* line 28, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less
+html
+{
+  overflow: hidden;
+}
+/* line 39, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less
+body
+{
+  width: 100%;
+  height: 100%;
+  position: relative;
+  /* enforce minwidth/minheight * /
+
+  cursor: default;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  -webkit-text-size-adjust: none;
+  -webkit-touch-callout: none;
+  -moz-user-select: none;
+}
+*/
+
+html
+{
+  cursor: default;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  -webkit-touch-callout: none;
+  -moz-user-select: none;
+}
+
+  body div.wh-rtd-editor
+, body t-text.selectable
+{
+  -moz-user-select: text;
+}
+
+body div.wh-rtd-editor
+{
+  white-space: normal; /* ensure correct white-space (in case it's used within <inlineblock> because lines get white-space: nowrap;) */
+}
+
+
+/* #tolliumbody is the div we place as content, usually into a main, but we expect
+   our callers to format us ! */
+#tolliumbody
+{
+  position:relative;
+  height:100%;
+  width:100%;
+}
+
+input, textarea, select
+{
+  font: inherit;
+  box-shadow: none; /* kill firefox 'select' higlights */
+}
+/* hide invisible images */
+img:not([src])
+{
+  visibility: hidden;
+}
+
+/****************************************************************************************************************************
+ * Application tabs (header)
+ */
+.t-apptabs
+{
+  z-index:0; /* new z-index scope */
+  height: 36px;
+  overflow: hidden;
+  left: 0;
+  line-height: 31px;
+  position: absolute;
+  right: 8px;
+  top: 0;
+  white-space: nowrap;
+  background-position: right 12px top 50%;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+.t-apptabs__fixed
+{
+  display: inline-block;
+  height:36px;
+}
+.t-apptabs__dynamic
+{
+  display: inline-block;
+  height:36px;
+  position: absolute;
+}
+.t-apptabs__content
+{
+  display: inline-block;
+  height: 36px;
+  overflow: hidden;
+}
+.t-apptabs__optionaltext
+{
+  display: block;
+  position:absolute;
+  height: 36px;
+  line-height: 36px;
+  overflow: hidden;
+  right: 0;
+  top: 0;
+  font-size: 14.5px;
+  padding-right: 12px;
+  font-weight: 500;
+  vertical-align: middle;
+  z-index: -1;
+}
+.t-apptab
+{
+  display: inline-block;
+  padding: 1px 12px 0 12px;
+  cursor: pointer;
+  height:36px;
+  position: relative;
+  min-width: 150px;
+  background-color: rgba(59, 59, 59, 1);
+}
+.t-apptab:not(.t-apptab--first)
+{
+  border-left: 1px solid rgba(0, 0, 0, 0);
+}
+/* show a right border on the last tab, but not if we're scrolling to avoid an odd border */
+.t-apptabs:not(.t-apptabs--canscrollleft) .t-apptab.t-apptab--last
+{
+  border-right: 1px solid rgba(0, 0, 0, 0);
+}
+.t-apptab__icon
+{
+  display:none;
+  vertical-align: bottom;
+  position:relative;
+  top:-8px;
+}
+.t-apptab__icon[height="28"] /*bunny icon*/
+{
+  top:-3px;
+}
+.t-apptab--hasicon .t-apptab__icon
+{
+  display: inline-block;
+}
+.t-apptab__title
+{
+  margin:2px 10px 0 5px;
+  display: inline-block;
+  vertical-align: bottom;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.t-apptab.t-apptab--allowclose .t-apptab__close
+{
+  display:block;
+  position: absolute;
+}
+
+div#openinfo
+{
+  position:absolute;
+  right:0;
+}
+
+  .t-apptabs__navtab
+, .t-apptabs__leftscroll
+, .t-apptabs__rightscroll
+{
+  position: absolute;
+  top: 0px;
+  height: 36px;
+  width: 40px;
+  z-index: 2; /* over active tab */
+}
+
+.t-apptabs__navtab
+{
+  right: 0;
+  cursor:pointer;
+}
+.t-apptabs__leftscroll
+{
+  left: 0px;
+}
+.t-apptabs__rightscroll
+{
+  right: 40px;
+}
+
+  .t-apptabs:not(.t-apptabs--canscrollleft) .t-apptabs__leftscroll
+, .t-apptabs:not(.t-apptabs--canscrollright) .t-apptabs__rightscroll
+, .t-apptabs:not(.t-apptabs--canscrollleft):not(.t-apptabs--canscrollright) .t-apptabs__navtab
+{
+  display: none;
+}
+
+/****************************************************************************************************************************
+ * Interface holder and global structure, and the startmenu opening animation
+*/
+/* line 184, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less */
+#mainarea {
+  position: absolute;
+  top: 36px;
+  bottom: 0;
+  width: 100%;
+}
+/* line 198, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less */
+html.frontendmode #mainarea {
+  top: 0;
+}
+
+/* line 261, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less */
+#desktop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/****************************************************************************************************************************
+ * The desktop
+ */
+/* line 476, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less */
+section#desktop {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  top: 44px;
+  bottom: 0;
+  box-shadow: -10px 0 10px -10px rgba(0, 0, 0, 0.4);
+}
+/****************************************************************************************************************************
+ * Notifications (FIXME: skinning)
+ */
+t-towl
+{
+  display: block;
+  position: fixed;
+  right: 5px;
+  bottom: 5px;
+  width: 250px;
+}
+t-towlnotification
+{
+  background: #fafafa;
+  box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.2);
+  cursor: default;
+  display: block;
+  padding: 8px;
+  position: relative;
+  width: 100%;
+  transition: .25s;
+  overflow:hidden;
+}
+t-towlnotification.hidden
+{
+  margin-left: 260px;
+  opacity: 0;
+}
+t-towlnotification.clickable
+{
+  cursor: pointer;
+}
+t-towlnotification.hasicon
+{
+  padding-left: 38px;
+}
+t-towlnotification .close
+{
+  cursor: pointer;
+  display: block;
+  font-size:11px;
+  line-height:100%;
+  padding: 4px 5px;
+  position: absolute;
+  right: 0px;
+  top:0;
+}
+t-towlnotification .close:hover
+{
+  color: #46b7f6;
+}
+t-towlnotification .icon
+{
+  height: 100%;
+  left: 8px;
+  margin: 0 !important;
+  position: absolute;
+}
+t-towlnotification .datetime
+{
+  float: right;
+  font-size: 90%;
+  margin-right: 10px;
+  padding-left: 4px;
+}
+t-towlnotification .title
+{
+  font-weight: bold;
+}
+t-towlnotification .description
+{
+  overflow:hidden;
+}
+t-towlnotification + t-towlnotification
+{
+  margin-top: 5px;
+}
+
+/****************************************************************************************************************************
+ * Other stuff (FIXME: categorize, skinning)
+ */
+/* line 548, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less */
+t-countbadge {
+  background-color: #dd0000;
+  background-image: -moz-radial-gradient(50% -10px, circle, rgba(255, 255, 255, 0.8) 10px, rgba(255, 255, 255, 0.3) 65%, rgba(255, 255, 255, 0) 65%, rgba(255, 255, 255, 0) 20px);
+  background-image: -webkit-gradient(radial, center -10, 10, center -10, 20, from(rgba(255, 255, 255, 0.8)), color-stop(50%, rgba(255, 255, 255, 0.3)), color-stop(50%, rgba(255, 255, 255, 0)), to(rgba(255, 255, 255, 0)));
+  background-image: -webkit-radial-gradient(50% -10px, circle, rgba(255, 255, 255, 0.8) 10px, rgba(255, 255, 255, 0.3) 65%, rgba(255, 255, 255, 0) 65%, rgba(255, 255, 255, 0) 20px);
+  border: 2px solid #ffffff;
+  -moz-border-radius: 1em;
+  -webkit-border-radius: 1em;
+  border-radius: 1em;
+  -moz-box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+  -webkit-box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+  color: #ffffff;
+  display: block;
+  font-size: .8em;
+  font-weight: bold;
+  height: .8em;
+  left: 1px;
+  letter-spacing: -0.1em;
+  line-height: .8em;
+  min-width: .8em;
+  padding: .2em;
+  position: absolute;
+  text-align: center;
+  top: -2px;
+}
+
+/* No-JS stuff */
+.tollium-unsupported
+{
+  background: #ffffff;
+  color: #444444;
+  font-family: verdana, arial, helvetica, sans-serif;
+  font-weight: normal;
+  line-height: 1.3em;
+  margin: 50px auto;
+  text-align: left;
+  width: 50%;
+}
+.tollium-unsupported b
+{
+  font-size: 1.2em;
+  font-weight: bold;
+}
+.tollium-unsupported a
+{
+  color: #3333cc;
+  text-decoration: none;
+}
+.tollium-unsupported a:hover
+{
+  color: #0000ff;
+  text-decoration: underline;
+}

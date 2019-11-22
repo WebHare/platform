@@ -1,0 +1,226 @@
+<?wh
+LOADLIB "wh::util/langspecific.whlib";
+
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/control.whlib"; // republish functions
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+
+INTEGER max_publishers_at_once := 10;
+INTEGER max_tabs_at_once := 20;
+
+
+PUBLIC OBJECTTYPE Sites EXTEND MonitorPanelBase
+<
+  RECORD ARRAY sites;
+  RECORD ARRAY siteprofiles;
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  {
+    this->RefreshSitesList();
+  }
+
+  MACRO Init()
+  {
+    this->RefreshFilterOptions();
+    this->OnLinkedToTypeChange();
+    this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
+  }
+
+  MACRO OnLinkedToTypeChange()
+  {
+    this->UpdateVisibleFilters();
+    this->RefreshSitesList();
+  }
+
+  MACRO UpdateVisibleFilters()
+  {
+    this->webdesign->visible := this->linkedtotype->value = "webdesign";
+    this->webfeature->visible := this->linkedtotype->value = "webfeature";
+    this->siteprofile->visible := this->linkedtotype->value = "siteprofile";
+  }
+
+  MACRO RefreshFilterOptions()
+  {
+    RECORD ARRAY sites :=
+            SELECT id
+                 , name
+                 , webroot
+                 , outputweb
+                // cdnbaseurl
+                // locked / lockreason
+              FROM system.sites
+          ORDER BY NormalizeText(name, this->tolliumuser->language);
+
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    sites := sitesettingstype->Enrich(sites, "id", ["sitedesign", "siteprofiles", "webfeatures"]);
+
+    this->sites := sites;
+
+
+    INTEGER ARRAY siteprofilewhfsids;
+    FOREVERY(RECORD site FROM sites)
+      siteprofilewhfsids := siteprofilewhfsids CONCAT site.siteprofiles;
+
+    this->siteprofiles :=
+            SELECT id
+                 , whfspath
+              FROM system.fs_objects
+             WHERE id IN siteprofilewhfsids
+          ORDER BY NormalizeText(whfspath, this->tolliumuser->language);
+
+
+    this->siteprofile->options := SELECT rowkey := id, title := whfspath FROM this->siteprofiles;
+
+    STRING ARRAY usedsitedesigns := SELECT AS STRING ARRAY DISTINCT sitedesign FROM sites;
+
+    STRING ARRAY usedwebfeatures;
+    FOREVERY(RECORD site FROM sites)
+      usedwebfeatures := usedwebfeatures CONCAT site.webfeatures;
+    usedwebfeatures := SELECT AS STRING ARRAY DISTINCT(webfeature) FROM ToRecordArray(usedwebfeatures, "webfeature");
+
+
+    RECORD ARRAY webdesigns :=
+          [ [ rowkey := "", title := "" ] ]
+          CONCAT
+          SELECT TEMPORARY _title := (Left(title, 1) = ":" ? Right(title, Length(title)-1) : title) || " (" || Length(SELECT FROM sites WHERE sitedesign = wdesign.rowkey) || ")"
+               , rowkey
+               , title := _title
+            FROM GetAvailableWebDesigns(FALSE) AS wdesign
+        ORDER BY NormalizeText(_title, this->tolliumuser->language);
+
+    this->webdesign->options := webdesigns;
+
+
+    RECORD ARRAY webfeatures :=
+          [ [ rowkey := "", title := "" ] ]
+          CONCAT
+          SELECT TEMPORARY _title := (Left(title, 1) = ":" ? Right(title, Length(title)-1) : title) || " (" || Length(SELECT FROM sites WHERE wfeature.rowkey IN sites.webfeatures) || ")"
+               , rowkey
+               , title := _title
+            FROM GetAvailableWebFeatures() AS wfeature
+        ORDER BY NormalizeText(_title, this->tolliumuser->language);
+
+    this->webfeature->options := webfeatures;
+
+
+    this->weboutput->options :=
+          [ [ rowkey := 0, title := "" ] ]
+          CONCAT
+          SELECT TEMPORARY _title := baseurl || " (" || Length(SELECT FROM sites WHERE outputweb = webservers.id) || ")"
+               , rowkey := id
+               , title  := _title
+            FROM system.webservers
+           WHERE type != 6 // type 6 is a group;
+        ORDER BY NormalizeText(_title, this->tolliumuser->language);
+  }
+
+  MACRO RefreshSitesList()
+  {
+    INTEGER icon_positive := this->siteslist->GetIcon("tollium:status/checked");
+    INTEGER icon_negative := this->siteslist->GetIcon("tollium:status/negative");
+
+    STRING querylike;
+    IF (this->query->value != "")
+      querylike := "*" || ToUpperCase(this->query->value) || "*";
+
+    RECORD ARRAY rows :=
+        SELECT rowkey := id
+             , name
+             , webdesign := sitedesign
+             , hasactivefeatures := Length(webfeatures) > 0  ? icon_positive : icon_negative
+             , activefeatures := DeTokenize(webfeatures, ", ")
+             , haslinkedprofiles := Length(siteprofiles) > 0 ? icon_positive : icon_negative
+             , linkedprofiles := DeTokenize((SELECT AS STRING ARRAY ToString(value) FROM ToRecordArray(siteprofiles, "value")), ", ")
+             , url := webroot
+             , canview := webroot != "" // not locked, has output, ...
+          FROM this->sites
+         WHERE (this->weboutput->value = 0  ? TRUE : outputweb  = this->weboutput->value)
+           AND (this->linkedtotype->value != "webdesign"  OR this->webdesign->value = ""   ? TRUE : this->webdesign->value   =  sitedesign)
+           AND (this->linkedtotype->value != "webfeature" OR this->webfeature->value = ""  ? TRUE : this->webfeature->value  IN webfeatures)
+           AND (this->linkedtotype->value != "siteprofile" OR this->siteprofile->value = 0 ? TRUE : this->siteprofile->value IN siteprofiles)
+           AND (this->query->value = ""     ? TRUE : (ToUpperCase(name) LIKE querylike));
+
+    this->siteslist->rows := rows;
+
+    INTEGER results := Length(rows);
+    IF (results = 0)
+      this->queryresultsinfo->value := this->GetTid(".querymatched-none");
+    ELSE IF (results = 1)
+      this->queryresultsinfo->value := this->GetTid(".querymatched-single");
+    ELSE
+      this->queryresultsinfo->value := this->GetTid(".querymatched", ToString(Length(rows)));
+  }
+
+  MACRO OnViewBrowserList(OBJECT openhandler)
+  {
+    RECORD ARRAY selectedsites := this->siteslist->selection;
+    INTEGER items := Length(selectedsites);
+
+    // FIXME: messageboxes don't work well together with windowopenactions
+
+    IF (items > max_tabs_at_once)
+    {
+      this->RunMessageBox(".toomanytoopen_newtab", ToString(max_tabs_at_once));
+      RETURN;
+    }
+
+    IF (items > 3 AND this->RunMessageBox(".suretoopenmultiple_newtab", ToString(items)) != "yes")
+      RETURN;
+
+    FOREVERY(RECORD site FROM selectedsites)
+    {
+      IF (#site = 0)
+        openhandler->SendURL(site.url);
+      ELSE // the openhandler can only open a single URL
+        this->frame->OpenBrowserWindow(site.url, "_blank");
+    }
+  }
+
+  MACRO DoShowInNewPublishers()
+  {
+    RECORD ARRAY selection := this->siteslist->selection;
+    INTEGER items := Length(selection);
+
+    IF (items > max_publishers_at_once)
+    {
+      this->RunMessageBox(".toomanytoopen_publisher", ToString(max_publishers_at_once));
+      RETURN;
+    }
+
+    IF (items > 3 AND this->RunMessageBox(".suretoopenmultiple_publisher", ToString(items)) != "yes")
+      RETURN;
+
+    FOREVERY(RECORD site FROM selection)
+    {
+      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid := site.rowkey ], DEFAULT RECORD, FALSE);
+    }
+  }
+
+  MACRO DoOpenSiteProperties()
+  {
+    OBJECT dlg := CreateWHFSSitePropsDialog(this, this->siteslist->value[0]);
+    dlg->RunModal();
+  }
+
+  MACRO DoRepublish()
+  {
+    RECORD ARRAY selecteditems := this->siteslist->selection;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    FOREVERY(RECORD sel FROM selecteditems)
+      ScheduleFolderRepublish(sel.rowkey, TRUE, FALSE);
+
+    work->Finish();
+  }
+>;

@@ -1,0 +1,27 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/commondialogs/orderbasedon.whlib"
+         gid="commondialogs">
+
+  <screen name="orderbasedon" gid=".orderbasedon" width="50x" tid=".screentitle">
+    <body spacers="left right bottom">
+      <line layout="left">
+        <text width="1pr" wordwrap="true" title="" valuetid=".baseon_explain"/>
+      </line>
+      <select type="radio" name="base_on">
+        <option rowkey="filename"/>
+        <option rowkey="filetitle"/>
+        <option rowkey="modified"/>
+        <option rowkey="publishdate"/>
+      </select>
+      <select type="radio" name="ordering">
+        <option rowkey="up"/>
+        <option rowkey="down"/>
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

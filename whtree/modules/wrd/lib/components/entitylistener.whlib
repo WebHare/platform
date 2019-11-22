@@ -1,0 +1,47 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+// ---------------------------------------------------------------------------
+//
+// Event listener
+//
+
+/** This component listens to events, and gives callbacks when those events are received.
+    The callback @a onevent is called when an event is broadcasted that matches a mask.
+    If an event matches multiple different masks, @a onevent is called once for every mask!
+    The callback handler will only be invoked after the PostInit phase. Events received before
+    that are buffered.
+*/
+
+PUBLIC STATIC OBJECTTYPE TolliumWRDEntityListener EXTEND TolliumEventListenerBase
+<
+  PUBLIC MACRO PTR onupdate;
+  INTEGER watchforid;
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    TolliumEventListenerBase::StaticInit(definition);
+    this->onupdate := definition.onupdate;
+  }
+  PUBLIC MACRO SetListener(OBJECT wrdentity)
+  {
+    IF(NOT ObjectExists(wrdentity))
+    {
+      this->masks := DEFAULT STRING ARRAY;
+      RETURN;
+    }
+    this->masks := wrdentity->wrdtype->GetEventMasks();
+    this->watchforid := wrdentity->id;
+  }
+  UPDATE MACRO ProcessEvents(RECORD ARRAY events)
+  {
+    BOOLEAN changed;
+    FOREVERY(RECORD evt FROM events)
+      IF(NOT CellExists(evt.data,'updated') //different event type
+         OR this->watchforid IN evt.data.updated OR evt.data.allinvalidated)
+        changed := TRUE;
+
+    IF(changed AND this->onupdate != DEFAULT MACRO PTR)
+      this->onupdate();
+  }
+>;

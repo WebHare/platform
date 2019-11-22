@@ -1,0 +1,906 @@
+﻿<?wh
+/** @short Dynamic queries
+    @long The dynamic queries library contains an object that can be used to construct dynamic queries on
+        a database (with a variable number of selected tables and constraints.
+    @topic database/dynquery
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/transservices.whlib";
+LOADLIB "wh::internal/enrichment.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+
+/// Block size for the dynamic inserter
+CONSTANT INTEGER dynamicinserter_blocksize := 256;
+
+/** @short Dynamic queries object
+    @long This object can be used to construct and execute dynamic queries.
+*/
+PUBLIC OBJECTTYPE DynamicQuery
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// The data that describes the current query is kept in here
+  /* FIXME: (breaks Clone() */ PUBLIC RECORD data;
+
+  BOOLEAN queryactive;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /// Initializes the data (FIXME: a constructor should do that)
+  MACRO TryInit()
+  {
+    IF (NOT RecordExists(this->data))
+      this->data := [ sources := DEFAULT RECORD ARRAY, constraints := DEFAULT RECORD ARRAY, joins := DEFAULT RECORD ARRAY ];
+  }
+
+  /// Checks whether a new source rename already exists
+  MACRO CheckRename(STRING rename)
+  {
+    FOREVERY (RECORD source FROM this->data.sources)
+      IF (source.rename = rename)
+        ABORT("Every source (table or record array) must have a unique name");
+  }
+
+  /// Returns the number of the source based on name of the form table.column
+  INTEGER FUNCTION GetSourceIdFromTableName(STRING name)
+  {
+    name := ToUppercase(name);
+    FOREVERY (RECORD source FROM this->data.sources)
+      IF (source.rename = name)
+        RETURN #source;
+    ABORT("Unknown source name: " || name);
+  }
+
+  /** Returns the number of a column within a source table based on a name
+      of the form table.column. The column is added when not present.
+  */
+  INTEGER FUNCTION GetSourceIdFromColName(STRING col)
+  {
+    INTEGER pos := SearchSubstring(col, ".");
+    IF (pos = -1)
+      ABORT("The name of the column source has to be specified");
+    RETURN this->GetSourceIdFromTableName(Left(col, pos));
+  }
+
+  /** Returns the number of a column within a source table based the id of the
+      source and the name of the column.
+  */
+  INTEGER FUNCTION GetColIdFromColName(INTEGER tableid, STRING colname)
+  {
+    INTEGER pos := SearchSubstring(colname, ".");
+    IF (pos != -1)
+      colname := SubString(colname, pos + 1, LENGTH(colname) - pos - 1);
+
+    FOREVERY (STRING s FROM this->data.sources[tableid].cols)
+      IF (s = colname)
+        RETURN #s;
+
+    INTEGER newpos := LENGTH(this->data.sources[tableid].cols);
+    INSERT colname INTO this->data.sources[tableid].cols AT END;
+  //  PRINT("Added column name " || colname || " to table id " || tableid || ": " || newpos || "\n");
+
+    RETURN newpos;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Add a new selected table source to the query
+      @param rename Name of the table in the query
+      @param transaction Which transaction must this table be gotten from?
+      @param tablename Name of the table (directly passed to the relevant transaction)
+      @param select_column List of columns that must be returned from this source
+  */
+  PUBLIC MACRO AddTable(STRING rename, INTEGER transaction, STRING tablename, STRING ARRAY select_columns)
+  {
+    this->TryInit();
+    rename := ToUppercase(rename);
+    this->CheckRename(rename);
+
+    INSERT [ type := "T", rename := rename, trans := transaction, name := tablename, tblcols := RECORD[], cols := select_columns ]
+      INTO this->data.sources AT END;
+  }
+
+  /** Add a new selected table source to the query, with a declared table
+      @param rename Name of the table in the query
+      @param transaction Which transaction must this table be gotten from?
+      @param tbl Declared table
+      @param select_column List of columns that must be returned from this source
+  */
+  PUBLIC MACRO AddDeclaredTable(STRING rename, TABLE tbl, STRING ARRAY select_columns)
+  {
+    this->TryInit();
+    rename := ToUppercase(rename);
+    this->CheckRename(rename);
+
+    RECORD bindinginfo := GetBindingFromTable(tbl);
+    RECORD typeinfo := __HS_SQL_DescribeTableTypeInfo(tbl);
+    RECORD ARRAY tblcols;
+    IF (RecordExists(typeinfo))
+      tblcols := typeinfo.columns;
+
+    INSERT CELL[ type := "T", rename := rename, trans := bindinginfo.transaction, name := bindinginfo.tablename, tblcols, cols := select_columns ]
+      INTO this->data.sources AT END;
+  }
+
+  /** Add a new selected record array source to the query
+      @param rename Name of the record array in the query
+      @param vals Values of the record array
+      @param select_column List of columns that must be returned for this source
+  */
+  PUBLIC MACRO AddRecordArray(STRING rename, RECORD ARRAY vals, STRING ARRAY select_columns)
+  {
+    this->TryInit();
+    rename := ToUppercase(rename);
+    this->CheckRename(rename);
+
+    FOREVERY (STRING s FROM select_columns)
+      select_columns[#s] := ToUppercase(s);
+
+    INSERT [ type := "R", rename := rename, vals := vals, cols := select_columns ]
+      INTO this->data.sources AT END;
+  }
+
+  /** Adds some columns to the list of columns that must be returned for a source
+      @param rename Name of the source
+      @param select_columns List of column nmaes that also must be selected
+  */
+  PUBLIC MACRO RequestAdditionalColumns(STRING rename, STRING ARRAY select_columns)
+  {
+    INTEGER tid := this->GetSourceIdFromTableName(rename);
+    FOREVERY (STRING name FROM select_columns)
+    {
+      IF (this->data.sources[tid].type = "R")
+        name := ToUppercase(name);
+      IF (name NOT IN this->data.sources[tid].cols)
+        INSERT name INTO this->data.sources[tid].cols AT END;
+    }
+  }
+
+  /** Set the maximum number of rows that must be returned. If not called, all
+      records will be returned
+      @param setlimit Maximum number of returned rows
+  */
+  PUBLIC MACRO SetLimit(INTEGER xlimit)
+  {
+    INSERT CELL mylimit := xlimit INTO this->data;
+  }
+
+  /** Adds a constraint to the query of the form 'table.column OPERATOR value'. Comparisons
+      will be done case-sensitive.
+      @param _column Name of the  column
+      @param type Operator (one of '>', '>=', '=', '!=', '<', '<=', 'LIKE')
+      @param value Value to compare to
+  */
+  PUBLIC MACRO AddConstraint(STRING _column, STRING type, VARIANT value)
+  {
+    IF (TypeId(value) = TypeId(STRING) AND LENGTH(value) >= 4096)
+      ABORT("The database can't handle string fields of longer than 4096 bytes");
+
+    this->TryInit();
+    IF (type = "IN" AND length(value) = 1)
+    {
+      type := "=";
+      value := value[0];
+    }
+
+    INTEGER tid := this->GetSourceIdFromColName(_column);
+    INTEGER col := this->GetColIdFromColName(tid, _column);
+    INSERT [
+          tid := tid,
+          col := col,
+          type := ParseRelation(type),
+          value := value,
+          casesensitive := TRUE ] INTO this->data.constraints AT END;
+  }
+
+  /* Adds a constraint to the query of the form 'table.column OPERATOR value'. Comparisons
+      will be done case-insensitive.
+      @param _column Name of the  column
+      @param type Operator (one of '>', '>=', '=', '!=', '<', '<=', 'LIKE')
+      @param value Value to compare to
+  */
+  PUBLIC MACRO AddUppercaseConstraint(STRING _column, STRING type, STRING value)
+  {
+    IF (TypeId(value) = TypeId(STRING) AND LENGTH(value) >= 4096)
+      ABORT("The database can't handle string fields of longer than 4096 bytes");
+
+    this->TryInit();
+    INTEGER tid := this->GetSourceIdFromColName(_column);
+    INTEGER col := this->GetColIdFromColName(tid, _column);
+    IF (ToUppercase(type) = "IN")
+      ABORT("IN-operator not supported for uppercase constraints joins");
+    INSERT [
+          tid := tid,
+          col := col,
+          type := ParseRelation(type),
+          value := value,
+          casesensitive := FALSE ] INTO this->data.constraints AT END;
+  }
+
+  /** Adds a join to the query of the form 'table.column OPERATOR table.column'. Comparisons
+      will be done case-sensitive.
+      @param left_column Name of the  left column
+      @param type Operator (one of '>', '>=', '=', '!=', '<', '<=', 'LIKE')
+      @param right_column Name of the  right column
+  */
+  PUBLIC MACRO AddJoin(STRING left_column, STRING type, STRING right_column)
+  {
+    this->TryInit();
+    INTEGER ltid := this->GetSourceIdFromColName(left_column);
+    INTEGER lcol := this->GetColIdFromColName(ltid, left_column);
+    INTEGER rtid := this->GetSourceIdFromColName(right_column);
+    INTEGER rcol := this->GetColIdFromColName(rtid, right_column);
+    IF (ToUppercase(type) = "IN")
+      ABORT("IN-operator not supported for joins");
+    INSERT [
+          ltid := ltid,
+          lcol := lcol,
+          type := ParseRelation(type),
+          rtid := rtid,
+          rcol := rcol,
+          casesensitive := TRUE ] INTO this->data.joins AT END;
+  }
+
+  /** Adds a join to the query of the form 'table.column OPERATOR table.column'. Comparisons
+      will be done case-insensitive.
+      @param left_column Name of the  left column
+      @param type Operator (one of '>', '>=', '=', '!=', '<', '<=', 'LIKE')
+      @param right_column Name of the  right column
+  */
+  PUBLIC MACRO AddUppercaseJoin(STRING left_column, STRING type, STRING right_column)
+  {
+    this->TryInit();
+    INTEGER ltid := this->GetSourceIdFromColName(left_column);
+    INTEGER lcol := this->GetColIdFromColName(ltid, left_column);
+    INTEGER rtid := this->GetSourceIdFromColName(right_column);
+    INTEGER rcol := this->GetColIdFromColName(rtid, right_column);
+    IF (ToUppercase(type) = "IN")
+      ABORT("IN-operator not supported for joins");
+    INSERT [
+          ltid := ltid,
+          lcol := lcol,
+          type := ParseRelation(type),
+          rtid := rtid,
+          rcol := rcol,
+          casesensitive := FALSE ] INTO this->data.joins AT END;
+  }
+
+  /** Returns the number of sources that have been added to this query. FIXME: rename to GetSourceCount()
+  */
+  PUBLIC INTEGER FUNCTION GetSourcesLength()
+  {
+    RETURN Length(this->data.sources);
+  }
+
+  /** Converts the current query within this object to a select that can be copy-pasted into
+      a Harescript library. This function may not be executed after Execute or Count.
+  */
+  PUBLIC STRING FUNCTION Dump()
+  {
+    this->TryInit();
+    IF (Length(this->data.sources) = 0)
+      ABORT("You should only call this function with a valid query set");
+
+    STRING query := "SELECT ";
+    FOREVERY (RECORD source FROM this->data.sources)
+    {
+      IF (#source != 0)
+        query := query || "\n     , ";
+      query := query || source.rename || " :=\n";
+      FOREVERY (STRING col FROM source.cols)
+      {
+        IF (#col != 0)
+          query := query || "\n         , ";
+        ELSE
+          query := query || "         [ ";
+        query := query || col || " := " || source.rename || "." || col;
+      }
+      query := query || "\n         ]";
+    }
+    query := query || "\n  FROM ";
+    FOREVERY (RECORD source FROM this->data.sources)
+    {
+      IF (#source != 0)
+        query := query || "\n     , ";
+      query := query || (source.type = "T" ? source.name : ConvertToHSConstant(source.vals)) || " AS " || source.rename;
+    }
+    query := query || "\n WHERE ";
+    BOOLEAN gotcondition := FALSE;
+    FOREVERY (RECORD c FROM this->data.constraints)
+    {
+      IF (gotcondition)
+        query := query || "\n   AND ";
+      IF (NOT c.casesensitive)
+        query := query || "ToUppercase(";
+      query := query || this->data.sources[c.tid].rename || "." || this->data.sources[c.tid].cols[c.col];
+      IF (NOT c.casesensitive)
+        query := query || ")";
+      query := query || " " || GetRelation(c.type) || " " || ConvertToHSConstant(c.value);
+      gotcondition := TRUE;
+    }
+    FOREVERY (RECORD c FROM this->data.joins)
+    {
+      IF (gotcondition)
+        query := query || "\n   AND ";
+      IF (NOT c.casesensitive)
+        query := query || "ToUppercase(";
+      query := query || this->data.sources[c.ltid].rename || "." || this->data.sources[c.ltid].cols[c.lcol];
+      IF (NOT c.casesensitive)
+        query := query || ")";
+      query := query || " " || GetRelation(c.type) || " ";
+      IF (NOT c.casesensitive)
+        query := query || "ToUppercase(";
+      query := query || this->data.sources[c.rtid].rename || "." || this->data.sources[c.rtid].cols[c.rcol];
+      IF (NOT c.casesensitive)
+        query := query || ")";
+      gotcondition := TRUE;
+    }
+    query := query || "\n";
+    RETURN query;
+  }
+
+  /** Executes the the query and returns the result rows. These are in the form
+      [ source1 := [ column1 := value, column2 := value, ... ], source2 := ... ].
+  */
+  PUBLIC RECORD ARRAY FUNCTION Execute() __ATTRIBUTES__(SKIPTRACE)
+  {
+    RETURN this->ExecuteInternal("select", DEFAULT FUNCTION PTR, DEFAULT STRING ARRAY, DEFAULT MACRO PTR);
+  }
+
+  /** Executes the query and send the rows to a specific function. These are in the form
+      [ source1 := [ column1 := value, column2 := value, ... ], source2 := ... ].
+  */
+  PUBLIC MACRO ExecuteTo(MACRO PTR receiver) __ATTRIBUTES__(SKIPTRACE)
+  {
+    this->ExecuteInternal("select", DEFAULT FUNCTION PTR, DEFAULT STRING ARRAY, receiver);
+  }
+
+  /** Executes the the query, calls a callback for every record to update that record. Call StopExecution()
+      to stop processing within the query.
+      @param onupdate Function, RECORD func(RECORD). Called with current contents, return updates. No update
+        is performed when a default record is returned.
+      @param updatecolumns Columns that will be updated.
+  */
+  PUBLIC MACRO ExecuteForUpdate(FUNCTION PTR onupdate, STRING ARRAY updatecolumns) __ATTRIBUTES__(SKIPTRACE)
+  {
+    IF (LENGTH(this->data.sources) != 1 OR this->data.sources[0].type = "R")
+      THROW NEW Exception("Update queries can only be performed on a single table");
+    IF (CellExists(this->data, "MYLIMIT"))
+      THROW NEW Exception("Setting limit is not allowed for deletes");
+    IF (NOT ValidateFunctionPtr(onupdate, TYPEID(RECORD), [ TYPEID(RECORD) ]))
+      THROW NEW Exception("Callback has wrong signature, needs to be RECORD function(RECORD), but is " || ExplainFunctionPtrSignature(onupdate));
+
+    this->ExecuteInternal("update", onupdate, updatecolumns, DEFAULT MACRO PTR);
+  }
+
+  /** Executes the the query, calls a callback for every record to delete that record. Call StopExecution()
+      to stop processing within the query.
+      @param onupdate Function, BOOLENA func(RECORD). Called with current contents, return whether row
+        needs to be deleted.
+  */
+  PUBLIC MACRO ExecuteForDelete(FUNCTION PTR ondelete) __ATTRIBUTES__(SKIPTRACE)
+  {
+    IF (LENGTH(this->data.sources) != 1 OR this->data.sources[0].type = "R")
+      THROW NEW Exception("Delete queries can only be performed on a single table");
+    IF (CellExists(this->data, "MYLIMIT"))
+      THROW NEW Exception("Setting limit is not allowed for deletes");
+    IF (ondelete != DEFAULT FUNCTION PTR AND NOT ValidateFunctionPtr(ondelete, TYPEID(BOOLEAN), [ TYPEID(RECORD) ]))
+      THROW NEW Exception("Callback has wrong signature, needs to be RECORD function(RECORD), but is " || ExplainFunctionPtrSignature(ondelete));
+
+    this->ExecuteInternal("delete", ondelete, DEFAULT STRING ARRAY, DEFAULT MACRO PTR);
+  }
+
+  PUBLIC MACRO StopExecution()
+  {
+    this->queryactive := FALSE;
+  }
+
+  /** Executes the the query and returns the result rows. These are in the form
+      [ source1 := [ column1 := value, column2 := value, ... ], source2 := ... ].
+  */
+  RECORD ARRAY FUNCTION ExecuteInternal(STRING mode, FUNCTION PTR callback, STRING ARRAY updatecolumns, MACRO PTR sendrowsto) __ATTRIBUTES__(SKIPTRACE)
+  {
+    this->TryInit();
+    IF (Length(this->data.sources) = 0)
+      ABORT("You should only call this function with a valid query set");
+
+    IF (this->queryactive)
+      ABORT("Already a query active, can't restart");
+    this->queryactive := TRUE;
+
+    RECORD data := this->data;
+
+    // The DB can't handle IN's with more than 1024 elements. Break em up.
+    RECORD broken_singles := BreakConstraints(data.constraints);
+
+    RECORD ARRAY results;
+
+    STRING firstrename := this->data.sources[0].rename;
+
+    FOREVERY (RECORD rec FROM broken_singles.chunks)
+    {
+      RECORD ARRAY constraints := broken_singles.small CONCAT rec.list;
+
+      FOREVERY (RECORD constraintrec FROM constraints)
+        IF (constraintrec.type = 0x87 AND LENGTH(constraintrec.value) > 1024)
+          ABORT("Internal error, encountered a too long integer array, that should have been broken up");
+
+    //  Print("Executing query, data:\n");
+    //  PrintRecordTo(0, this->data, "tree");
+
+      INTEGER ARRAY typeinfos;
+
+      RECORD ARRAY sources;
+      RECORD opts :=
+          [ conditions :=   DEFAULT RECORD ARRAY
+          , has_hs_code :=  FALSE
+          , querytype :=    mode = "select" ? 0 : mode = "delete" ? 1 : 2
+          ];
+
+      FOREVERY (RECORD source FROM data.sources)
+      {
+        INTEGER ti;
+        IF (source.type = "T")
+        {
+          RECORD ARRAY typeinfocols;
+          IF (LENGTH(source.tblcols) = 0)
+          {
+            typeinfocols :=
+                SELECT *
+                     , fase := name IN updatecolumns ? 1 + 8 : 1 // fase1+update vs fase1
+                  FROM GetTransactionObjectByIdInternal(source.trans)->__GetTableTypeInfoCols(BindTransactionToTable(source.trans, source.name), source.cols);
+          }
+          ELSE
+          {
+            // Declaration found, use the names as in harescript (need to uppercase)
+            FOREVERY (STRING col FROM source.cols)
+            {
+              RECORD colrec := SELECT * FROM source.tblcols WHERE name = ToUppercase(col);
+              IF (NOT RecordExists(colrec))
+                THROW NEW Exception(`Could not find column '${col}' in table ${source.name}`);
+
+              colrec.fase := col IN updatecolumns ? 1 + 8 : 1; // fase1+update vs fase1
+              INSERT colrec INTO typeinfocols AT END;
+            }
+          }
+
+          ti := __HS_SQL_REGISTERTABLETYPEINFO([ istable := TRUE, columns := typeinfocols ]);
+
+          INSERT [ isdb := TRUE, source := BindTransactionToTable(source.trans, source.name), typeinfo := ti ] INTO sources AT END;
+        }
+        ELSE
+        {
+          IF (LENGTH(updatecolumns) = 0)
+            ti := __HS_SQL_REGISTERTYPEINFO(TRUE, source.cols);
+          ELSE
+          {
+            RECORD ARRAY columns :=
+                 SELECT name
+                      , dbase_name :=   name
+                      , flags :=        0
+                      , type :=         TypeID(VARIANT)
+                      , fase :=         name IN updatecolumns ? 1 + 8 : 1 // fase1+update vs fase1
+                   FROM ToRecordArray(source.cols, "NAME");
+
+            ti := __HS_SQL_REGISTERTABLETYPEINFO([ istable := source.type = "T", columns := columns ]);
+          }
+
+          INSERT [ isdb := FALSE, source := source.vals, typeinfo := ti ] INTO sources AT END;
+        }
+
+        INSERT ti INTO typeinfos AT END;
+      }
+
+      IF (CellExists(data, "MYLIMIT"))
+        INSERT CELL "LIMIT" := data.mylimit INTO opts;
+
+      FOREVERY (RECORD c FROM constraints)
+      {
+        INSERT
+            [ single :=         TRUE
+            , tablenr :=        c.tid
+            , typeinfonr :=     c.col
+            , value :=          c.value
+            , casesensitive :=  c.casesensitive
+            , condition :=      c.type
+            ] INTO opts.conditions AT END;
+      }
+      FOREVERY (RECORD c FROM data.joins)
+      {
+        INSERT
+            [ single :=         FALSE
+            , tablenr1 :=       c.ltid
+            , typeinfonr1 :=    c.lcol
+            , tablenr2 :=       c.rtid
+            , typeinfonr2 :=    c.rcol
+            , casesensitive :=  c.casesensitive
+            , condition :=      c.type
+            ] INTO opts.conditions AT END;
+      }
+
+      INTEGER cursor := __HS_SQL_OpenCursor2(sources, opts);
+
+      TRY
+      {
+        WHILE (this->queryactive)
+        {
+          INTEGER action := __HS_SQL_GetAction(cursor);
+          IF (action = 0)
+            __HS_SQL_ReportWhereResult(cursor, TRUE);
+          ELSE IF (action = 1)
+          {
+            RECORD res;
+            FOREVERY (RECORD source FROM data.sources)
+              res := CellInsert(res, source.rename, __HS_SQL_GetRecordFase2(cursor, #source));
+            IF (mode = "select")
+              INSERT res INTO results AT END;
+            ELSE IF (mode = "update")
+            {
+              RECORD upd := callback(GetCell(res, firstrename));
+              IF (RecordExists(upd))
+              {
+                RECORD realupd;
+                FOREVERY (STRING col FROM updatecolumns)
+                  realupd := CellInsert(realupd, col, CellExists(upd, col) ? GetCell(upd, col) : GetCell(res, col));
+                __HS_SQL_UpdateRecord(cursor, realupd);
+              }
+            }
+            ELSE IF (mode = "delete")
+            {
+              IF (callback = DEFAULT MACRO PTR OR callback(GetCell(res, firstrename)))
+                __HS_SQL_DeleteRecord(cursor);
+            }
+            ELSE
+              THROW NEW Exception("Invalid mode '" || mode || "'");
+          }
+          ELSE // action = 2
+            BREAK;
+
+          IF(sendrowsto != DEFAULT MACRO PTR AND Length(results) >= 4096)
+          {
+            IF(NOT sendrowsto(results))
+              BREAK;
+            results := RECORD[];
+          }
+        }
+      }
+      FINALLY
+      {
+        __HS_SQL_CloseQuery(cursor);
+
+        FOREVERY (INTEGER i FROM typeinfos)
+          __HS_SQL_UNREGISTERTYPEINFO(i);
+      }
+
+      IF (NOT this->queryactive)
+        BREAK;
+    }
+
+    this->queryactive := FALSE;
+    this->data := DEFAULT RECORD;
+
+    IF(sendrowsto != DEFAULT MACRO PTR AND Length(results) > 0)
+    {
+      sendrowsto(results);
+      results := RECORD[];
+    }
+
+    RETURN results;
+  }
+
+  /** Executes the the query and returns the number of result rows.
+  */
+  PUBLIC INTEGER FUNCTION Count()
+  {
+    RETURN Length(this->Execute());
+  }
+
+  /** Clone this query (only valid if it has not been executed yet), creating a new query with the same setup so far */
+  PUBLIC OBJECT FUNCTION Clone()
+  {
+    OBJECT newquery := NEW DynamicQuery;
+    newquery->data := this->data;
+    RETURN newquery;
+  }
+>;
+
+/** This object implements the interface to insert bulk records into a table. Create one by calling
+    [GetDynamicInserter](#GetDynamicInserter)
+    @public
+*/
+OBJECTTYPE DynamicInserter
+<
+  OBJECT trans;
+  STRING tablename;
+  RECORD ARRAY typeinfocols;
+
+  MACRO NEW(OBJECT trans, STRING tablename, STRING ARRAY cols)
+  {
+    this->trans := trans;
+    this->tablename := tablename;
+
+    /* To use that standard __HS_SQL_INSERT, we need to register typeinfo for
+       the table. Gather the data before we start inserting
+    */
+    this->typeinfocols := trans->__GetTableTypeInfoCols(BindTransactionToTable(trans->id, this->tablename), cols);
+  }
+
+  MACRO __InsertRecordsInner(TABLE tbl, RECORD ARRAY recs)
+  {
+    // ADDME: keep outside of loop? But make sure they aren't leaked indefinitely (list with weak ptrs to old inserts?)
+    INTEGER ti := __HS_SQL_REGISTERTABLETYPEINFO([ istable := TRUE, columns := this->typeinfocols ]);
+
+    // Use dynamic insert, determine the columns to insert from the passed records
+    FOR (INTEGER i := 0, e := LENGTH(recs); i < e; i := i + dynamicinserter_blocksize)
+      __HS_SQL_InsertMultiple(tbl, ti, ArraySlice(recs, i, dynamicinserter_blocksize), TRUE);
+
+    __HS_SQL_UnregisterTypeInfo(ti);
+  }
+
+  /** Inserts multiple records in the table
+      @param recs Records to insert
+  */
+  PUBLIC MACRO InsertRecords(RECORD ARRAY recs)
+  {
+    this->__InsertRecordsInner(BindTransactionToTable(this->trans->id, this->tablename), recs);
+  }
+>;
+
+/** Creates an object that can insert records into a table that is specified
+    at run-time.
+    @param trans Transaction to use
+    @param tablename Name of the table to insert into
+    @cell(string array) options.cols List of the database names of all the columns that will be inserted
+    @return(object #DynamicInserter) Inserter
+*/
+PUBLIC OBJECT FUNCTION GetDynamicInserter(OBJECT trans, STRING tablename, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ cols :=   STRING[]
+      ], options,
+      [ required := [ "cols" ]
+      ]);
+
+  RETURN NEW DynamicInserter(trans, tablename, options.cols);
+}
+
+
+INTEGER FUNCTION __HS_SQL_RegisterTypeInfo(BOOLEAN recarr, STRING ARRAY columns) __ATTRIBUTES__(EXTERNAL);
+INTEGER FUNCTION __HS_SQL_RegisterTableTypeInfo(RECORD data) __ATTRIBUTES__(EXTERNAL);
+        MACRO    __HS_SQL_UnregisterTypeInfo(INTEGER id) __ATTRIBUTES__(EXTERNAL);
+
+INTEGER FUNCTION ParseRelation(STRING rel) // to DBConditionCode::Type
+{
+  SWITCH (ToUppercase(rel))
+  {
+  CASE "<"    { RETURN 0x80; }
+  CASE "<="   { RETURN 0x81; }
+  CASE "="    { RETURN 0x82; }
+  CASE ">"    { RETURN 0x83; }
+  CASE ">="   { RETURN 0x84; }
+  CASE "!="   { RETURN 0x85; }
+  CASE "LIKE" { RETURN 0x86; }
+  CASE "IN"   { RETURN 0x87; }
+  DEFAULT     { ABORT("Unsupported relation " || rel); }
+  }
+}
+STRING FUNCTION GetRelation(INTEGER rel) // from DBConditionCode::Type
+{
+  SWITCH (rel)
+  {
+  CASE 0x80 { RETURN "<"; }
+  CASE 0x81 { RETURN "<="; }
+  CASE 0x82 { RETURN "="; }
+  CASE 0x83 { RETURN ">"; }
+  CASE 0x84 { RETURN ">="; }
+  CASE 0x85 { RETURN "!="; }
+  CASE 0x86 { RETURN "LIKE"; }
+  CASE 0x87 { RETURN "IN"; }
+  DEFAULT   { ABORT("Unsupported relation " || rel); }
+  }
+}
+
+STRING FUNCTION ConvertToHSConstant(VARIANT val)
+{
+  STRING s;
+  IF (TypeId(val) >= 128)
+  {
+    s := "[";
+    FOREVERY (VARIANT e FROM val)
+    {
+      IF (#e != 0)
+        s := s || ", ";
+      s := s || ConvertToHSConstant(e);
+    }
+    RETURN s || "]";
+  }
+  SWITCH (TypeId(val))
+  {
+    CASE TypeId(BOOLEAN) { RETURN val ? "TRUE" : "FALSE"; }
+    CASE TypeId(INTEGER) { RETURN ToString(val); }
+    CASE TypeId(STRING)  { RETURN "'" || val || "'"; }
+    CASE TypeId(DATETIME)
+      {
+        IF (val = DEFAULT DATETIME)
+          RETURN "DEFAULT DATETIME";
+        ELSE IF (val = MAX_DATETIME)
+          RETURN "MAX_DATETIME";
+        ELSE
+          RETURN "MakeDateFromText('" || FormatDateTime("%Y-%m-%dT%H:%M:%S.%QZ", val) || "')";
+      }
+    DEFAULT { RETURN "???"; }
+  }
+}
+
+RECORD ARRAY FUNCTION BreakUpArray(VARIANT list, INTEGER size)
+{
+  // Sort the list, remove duplicates
+  list := __HS_SQL_SortArray(list, FALSE, TRUE);
+
+  INTEGER len := LENGTH(list);
+  IF (len <= size)
+    RETURN [ [ list := list ] ];
+
+  RECORD ARRAY result;
+  FOR (INTEGER idx := 0; idx < len; idx := idx + size)
+    INSERT [ list := ArraySlice(list, idx, size) ] INTO result AT END;
+
+  RETURN result;
+}
+
+INTEGER ARRAY FUNCTION GetNextOrder(INTEGER ARRAY x, INTEGER ARRAY limits)
+{
+  INTEGER l := LENGTH(x);
+
+  INTEGER a;
+  FOR (a := 0; a < l; a := a + 1)
+  {
+    x[a] := x[a] + 1;
+    IF (x[a] != limits[a])
+      BREAK;
+  }
+
+  IF (a = l)
+    RETURN DEFAULT INTEGER ARRAY;
+
+  a := a - 1;
+  FOR (; a >= 0; a := a - 1)
+    x[a] := 0;
+
+  RETURN x;
+}
+
+RECORD FUNCTION BreakConstraints(RECORD ARRAY single_constraints)
+{
+  // The DB can't handle IN's with more than 1023 elements. Break em up.
+
+  INTEGER limit_size := 1023;
+
+  RECORD ARRAY small_constraints;
+  RECORD ARRAY large_constraints;
+
+  FOREVERY (RECORD rec FROM single_constraints)
+    IF (rec.type = 0x87 AND LENGTH(rec.value) > limit_size)
+      INSERT rec INTO large_constraints AT END;
+    ELSE
+      INSERT rec INTO small_constraints AT END;
+
+  RECORD ARRAY large_list;
+
+  IF (LENGTH(large_constraints) > 0)
+  {
+    INTEGER ARRAY order_now;
+    INTEGER ARRAY order_limit;
+    RECORD ARRAY order_chunks;
+
+    FOREVERY (RECORD rec FROM large_constraints)
+    {
+      RECORD ARRAY chunks := BreakUpArray(rec.value, limit_size);
+
+      INSERT [ list := chunks ] INTO order_chunks AT END;
+      INSERT 0 INTO order_now AT END;
+      INSERT LENGTH(chunks) INTO order_limit AT END;
+    }
+
+    WHILE (TRUE)
+    {
+      RECORD cs;
+
+      FOREVERY (INTEGER i FROM order_now)
+        large_constraints[#i].value := order_chunks[#i].list[i].list;
+
+      INSERT [ list := large_constraints ] INTO large_list AT END;
+
+      order_now := GetNextOrder(order_now, order_limit);
+      IF (LENGTH(order_now) = 0)
+        BREAK;
+    }
+  }
+  ELSE
+    large_list := [ [ list := DEFAULT RECORD ARRAY ] ];
+
+
+  RETURN [ small   := small_constraints
+         , chunks  := large_list
+         ];
+}
+
+RECORD ARRAY FUNCTION GetTableBulkFields(INTEGER ARRAY ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, TABLE tbl, RECORD outputcolumns)
+{
+  OBJECT query := NEW DynamicQuery;
+
+  STRING ARRAY cols := [ "id" ];
+  RECORD ARRAY unpacked := UnpackRecord(outputcolumns);
+  FOREVERY (RECORD rec FROM unpacked)
+    INSERT ToLowercase(rec.value) INTO cols AT END;
+
+  cols := GetSortedSet(cols);
+  query->AddDeclaredTable("tbl", tbl, cols);
+
+  IF (NOT returnall)
+    query->AddConstraint("tbl.id", "IN", ids);
+
+  RECORD ARRAY queryresult := query->Execute();
+
+  RECORD ARRAY retval;
+  FOREVERY (RECORD rec FROM queryresult)
+  {
+    RECORD res;
+    RECORD tblrec := rec.tbl;
+    FOREVERY (RECORD field FROM unpacked)
+      res := CellInsert(res, field.name, GetCell(tblrec, field.value));
+    INSERT res INTO retval AT END;
+  }
+
+  RETURN retval;
+}
+
+RECORD FUNCTION GetEnrichDefaultTableRecord(TABLE tbl, RECORD outputcolumns)
+{
+  RECORD ARRAY collist := UnpackRecord(outputcolumns);
+
+  STRING ARRAY getcols := SELECT AS STRING ARRAY value FROM collist;
+  RECORD ARRAY coldefs;
+
+  RECORD typeinfo := __HS_SQL_DescribeTableTypeInfo(tbl);
+  IF (RecordExists(typeinfo))
+    coldefs := typeinfo.columns;
+  ELSE
+  {
+    RECORD tablebinding := GetBindingFromTable(tbl);
+    coldefs := GetTransactionObjectByIdInternal(tablebinding.transaction)->__GetTableTypeInfoCols(tbl, GetSortedSet(getcols));
+  }
+
+  RECORD defaultrec;
+  FOREVERY (RECORD field FROM collist)
+  {
+    INTEGER typ := SELECT AS INTEGER type FROM coldefs WHERE ToUppercase(coldefs.name) = ToUppercase(field.value);
+    defaultrec := CellInsert(defaultrec, field.name, GetTypeDefaultValue(typ));
+  }
+
+  RETURN defaultrec;
+}
+
+/** @short Enrich an array with fields from a database table
+    @param inrows Rows to enrich
+    @param idcellname Name of the cell containing the id (eg WRD_ID, ID, ROWKEY). Append '[]' if the cell is an array of values.
+    @param addcolumns Output columns to add
+    @cell(boolean) options.rightouterjoin Insert default values for missing matches, instead of deleting them from the result
+    @cell(record) options.leftouterjoin Default values to insert for left side missing matches, instead of deleting them from the result
+    @cell(record) options.wrapfields If not empty, wrap the enriched fields in a cell with this name (when the idcell is an array, insert enriched values into this cell).
+    @return The enriched records, in their original order. Any records which could not be enriched, are removed from the output array */
+PUBLIC RECORD ARRAY FUNCTION EnrichWithTable(RECORD ARRAY inrows, STRING idcellname, TABLE tbl, RECORD addcolumns, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  INSERT CELL __joinid := "id" INTO addcolumns;
+  RETURN ExecuteEnrichment(inrows, idcellname, options, PTR GetTableBulkFields(#1, #2, #3, tbl, addcolumns), PTR GetEnrichDefaultTableRecord(tbl, addcolumns));
+}

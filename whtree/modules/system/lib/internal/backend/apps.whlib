@@ -1,0 +1,77 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+RECORD FUNCTION GetCacheableAllApplications()
+{
+  RECORD ARRAY applications;
+  RECORD ARRAY groups := GetDefaultAppGroups();
+
+  FOREVERY(RECORD mod FROM GetWebHareModules())
+  {
+    OBJECT moddef;
+    TRY
+      moddef := GetModuleDefinitionXML(mod.name);
+    CATCH
+      CONTINUE;
+    IF(NOT ObjectExists(moddef))
+      CONTINUE;
+
+    groups := groups CONCAT GetAppGroups(mod.name, moddef);
+    applications := applications CONCAT
+                    SELECT name
+                         , title
+                         , icon
+                         , appgroup
+                         , openmultipleinstances
+                         , apprec := apps
+                         , shortcut
+                      FROM mod.portal.applications AS apps;
+  }
+
+  STRING ARRAY validgroups := SELECT AS STRING ARRAY DISTINCT name FROM groups;
+  UPDATE applications SET appgroup := appgroup LIKE "*:setup" ? "system:setup" : "system:apps" WHERE appgroup != "" AND appgroup NOT IN validgroups;
+
+  groups := SELECT *
+                 , apps := (SELECT * FROM applications WHERE applications.appgroup = groups.name)
+              FROM groups;
+
+  //ADDME webui4 app integration, but here we can't pass a webhareuser  yet... - maybe it won't be relevant anymore
+
+  groups := OrderIntercepts(groups).intercepts;
+  DELETE FROM groups WHERE Length(apps)=0;
+
+  RETURN [ value := groups
+         , ttl := 60 * 1000 * 1000
+         , eventmasks := [ "system:modulesupdate" ]
+         ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetAllInstalledApplications()
+{
+  RETURN GetAdhocCached([ type := "allapps", mods := GetInstalledModuleNames() ], PTR GetCacheableAllApplications);
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetAllApplications(OBJECT webhareuser)
+{
+  RECORD ARRAY candidates;
+
+  FOREVERY(RECORD mod FROM SELECT * FROM GetWebHareModules() ORDER BY name)
+  {
+    IF(NOT RecordExists(mod.portal))
+      CONTINUE;
+
+    FOREVERY(RECORD app FROM mod.portal.applications)
+    {
+      INSERT INTO candidates(appgroup, name, title, apprec)
+             VALUES(app.appgroup, app.name, GetTid(app.title), app)
+             AT END;
+    }
+  }
+  RETURN candidates;
+}

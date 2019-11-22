@@ -1,0 +1,236 @@
+<?wh
+/// @short Money tests
+
+/*****************************************
+ *
+ * Test correct implementation of the MONEY type and functions
+ *****************************************/
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::money.whlib";
+RECORD ARRAY errors;
+RECORD result;
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// The basic datatypes are assumed to be working correctly
+
+/*** FormatMoney ***/
+MACRO FormatMoneyTest()
+{
+  OpenTest("TestMoney: FormatMoneyTest");
+
+  TestEq('1.234,56789', FormatMoney(1234.56789, -1, ',', '.', TRUE));
+  TestEq('1.235', FormatMoney(1234.56789, 0, ',', '.', TRUE));
+  TestEq('1.234,6', FormatMoney(1234.56789, 1, ',', '.', TRUE));
+  TestEq('1.234,57', FormatMoney(1234.56789, 2, ',', '.', TRUE));
+  TestEq('1.234,568', FormatMoney(1234.56789, 3, ',', '.', TRUE));
+  TestEq('1.234,5679', FormatMoney(1234.56789, 4, ',', '.', TRUE));
+  TestEq('1.234,56789', FormatMoney(1234.56789, 5, ',', '.', TRUE));
+  TestEq('1.234,56789', FormatMoney(1234.56789, 6, ',', '.', TRUE));
+
+  TestEq('1.234,56789', FormatMoney(1234.56789, -1, ',', '.', FALSE));
+  TestEq('1.234,56789', FormatMoney(1234.56789, 0, ',', '.', FALSE));
+  TestEq('1.234,56789', FormatMoney(1234.56789, 1, ',', '.', FALSE));
+  TestEq('1.234,56789', FormatMoney(1234.56789, 2, ',', '.', FALSE));
+  TestEq('1.234,56789', FormatMoney(1234.56789, 3, ',', '.', FALSE));
+  TestEq('1.234,56789', FormatMoney(1234.56789, 4, ',', '.', FALSE));
+  TestEq('1.234,56789', FormatMoney(1234.56789, 5, ',', '.', FALSE));
+  TestEq('1.234,56789', FormatMoney(1234.56789, 6, ',', '.', FALSE));
+
+  TestEq('1.234,5678', FormatMoney(1234.5678, 0, ',', '.', FALSE));
+  TestEq('1.234,567', FormatMoney(1234.567, 0, ',', '.', FALSE));
+  TestEq('1.234,56', FormatMoney(1234.56, 0, ',', '.', FALSE));
+  TestEq('1.234,5', FormatMoney(1234.5, 0, ',', '.', FALSE));
+  TestEq('1.234', FormatMoney(1234, 0, ',', '.', FALSE));
+
+  TestEq('10.000.000.000.000', FormatMoney(10000000000000., 0, ',', '.', FALSE));
+  TestEq('1.000.000.000.000', FormatMoney(1000000000000., 0, ',', '.', FALSE));
+  TestEq('100.000.000.000', FormatMoney(100000000000., 0, ',', '.', FALSE));
+  TestEq('10.000.000.000', FormatMoney(10000000000., 0, ',', '.', FALSE));
+  TestEq('1.000.000.000', FormatMoney(1000000000., 0, ',', '.', FALSE));
+  TestEq('100.000.000', FormatMoney(100000000., 0, ',', '.', FALSE));
+  TestEq('10.000.000', FormatMoney(10000000., 0, ',', '.', FALSE));
+  TestEq('1.000.000', FormatMoney(1000000., 0, ',', '.', FALSE));
+  TestEq('100.000', FormatMoney(100000., 0, ',', '.', FALSE));
+  TestEq('10.000', FormatMoney(10000., 0, ',', '.', FALSE));
+  TestEq('1.000', FormatMoney(1000., 0, ',', '.', FALSE));
+  TestEq('100', FormatMoney(100., 0, ',', '.', FALSE));
+  TestEq('10', FormatMoney(10., 0, ',', '.', FALSE));
+  TestEq('1', FormatMoney(1., 0, ',', '.', FALSE));
+  TestEq('0,1', FormatMoney(.1, 0, ',', '.', FALSE));
+  TestEq('0,01', FormatMoney(.01, 0, ',', '.', FALSE));
+  TestEq('0,001', FormatMoney(.001, 0, ',', '.', FALSE));
+  TestEq('0,0001', FormatMoney(.0001, 0, ',', '.', FALSE));
+  TestEq('0,00001', FormatMoney(.00001, 0, ',', '.', FALSE));
+
+  TestEq('9', FormatMoney(9.1, 0, ',', '.', TRUE));
+  TestEq('9', FormatMoney(9.2, 0, ',', '.', TRUE));
+  TestEq('9', FormatMoney(9.3, 0, ',', '.', TRUE));
+  TestEq('9', FormatMoney(9.4, 0, ',', '.', TRUE));
+  TestEq('9', FormatMoney(9.44, 0, ',', '.', TRUE));
+  TestEq('9', FormatMoney(9.49, 0, ',', '.', TRUE));
+  TestEq('9', FormatMoney(9.4999, 0, ',', '.', TRUE));
+  TestEq('9', FormatMoney(9.49999, 0, ',', '.', TRUE));
+  TestEq('10', FormatMoney(9.5, 0, ',', '.', TRUE));
+  TestEq('10', FormatMoney(9.6, 0, ',', '.', TRUE));
+  TestEq('10', FormatMoney(9.7, 0, ',', '.', TRUE));
+  TestEq('10', FormatMoney(9.8, 0, ',', '.', TRUE));
+  TestEq('10', FormatMoney(9.9, 0, ',', '.', TRUE));
+  TestEq('10', FormatMoney(10.0, 0, ',', '.', TRUE));
+  TestEq('10', FormatMoney(10.1, 0, ',', '.', TRUE));
+  TestEq('10', FormatMoney(10.2, 0, ',', '.', TRUE));
+  TestEq('10', FormatMoney(10.3, 0, ',', '.', TRUE));
+  TestEq('10', FormatMoney(10.4, 0, ',', '.', TRUE));
+  TestEq('11', FormatMoney(10.5, 0, ',', '.', TRUE));
+  TestEq('11', FormatMoney(10.6, 0, ',', '.', TRUE));
+  TestEq('11', FormatMoney(10.7, 0, ',', '.', TRUE));
+  TestEq('11', FormatMoney(10.8, 0, ',', '.', TRUE));
+  TestEq('11', FormatMoney(10.9, 0, ',', '.', TRUE));
+
+  TestEq('9,5', FormatMoney(9.49999, 1, ',', '.', TRUE));
+
+  TestEq('-9', FormatMoney(-9.49999, 0, ',', '.', TRUE));
+  TestEq('-10', FormatMoney(-9.5, 0, ',', '.', TRUE));
+  TestEq('-9,5', FormatMoney(-9.49999, 1, ',', '.', TRUE));
+  TestEq('-9,5', FormatMoney(-9.5, 1, ',', '.', TRUE));
+  TestEq('-9,50', FormatMoney(-9.49999, 2, ',', '.', TRUE));
+  TestEq('-9,50', FormatMoney(-9.5, 2, ',', '.', TRUE));
+
+  TestEq('-9,49999', FormatMoney(-9.49999, 0, ',', '.', FALSE));
+  TestEq('-9,5', FormatMoney(-9.5, 0, ',', '.', FALSE));
+  TestEq('-9,49999', FormatMoney(-9.49999, 1, ',', '.', FALSE));
+  TestEq('-9,5', FormatMoney(-9.5, 1, ',', '.', FALSE));
+  TestEq('-9,49999', FormatMoney(-9.49999, 2, ',', '.', FALSE));
+  TestEq('-9,50', FormatMoney(-9.5, 2, ',', '.', FALSE));
+
+  TestEq('92.233.720.368.547,75807', FormatMoney(92233720368547.75807, 0, ',', '.', FALSE));
+  TestEq('-10,000,000,000,000.00001', FormatMoney(-10000000000000.00001, 0, '.', ',', FALSE));
+
+  errors := TestCompile('<?wh FormatMoney("0", 1.2, 3, TRUE, 4); ?>');
+  MustContainError(62, errors, 62, 'STRING', 'MONEY');
+  MustContainError(63, errors, 62, 'MONEY', 'INTEGER');
+  MustContainError(64, errors, 62, 'INTEGER', 'STRING');
+  MustContainError(65, errors, 62, 'BOOLEAN', 'STRING');
+  MustContainError(66, errors, 62, 'INTEGER', 'BOOLEAN');
+
+  TestEq('-10,000,000,000,000.00001', FormatMoney(-10000000000000.0000100, 0, '.', ',', FALSE));
+  TestEqual(71, TRUE, (100000000000000 / 10000000000000) - 9.99 < 0.02); // Eerste moet float zijn, 2e money, en redelijk in de buurt
+  TestEq('-92.233.720.368.547,75808', FormatMoney(-92233720368547.75808, 0, ',', '.', FALSE));
+  TestEqual(73, TypeID(MONEY), TypeID(92233720368547.75807));
+  TestEqual(74, TypeID(FLOAT), TypeID(92233720368547.75808));
+  TestEqual(75, TypeID(MONEY), TypeID(-92233720368547.75808));
+  TestEqual(76, TypeID(FLOAT), TypeID(-92233720368547.75809));
+
+  CloseTest("TestMoney: FormatMoneyTest");
+}
+
+/*** Tomoney ***/
+MACRO TomoneyTest()
+{
+  OpenTest("TestMoney: TomoneyTest");
+
+  TestEq(1., ToMoney("1",-1));
+  TestEq(1., ToMoney("1.",-1));
+  TestEq(.1, ToMoney(".1",-1));
+  TestEq(1.1, ToMoney("1.1",-1));
+  TestEq(1.1, ToMoney("+1.1",-1));
+  TestEq(-1m, ToMoney("+-1.1",-1));
+  TestEq(-1m, ToMoney("-+1.1",-1));
+  TestEq(1234567.89, ToMoney("1.234.567,89",-1));
+  TestEq(1234.56789, ToMoney("1,234.56789",-1));
+  TestEq(1234567.89, ToMoney("1234567.89",-1));
+  TestEq(1234.56789, ToMoney("1234,56789",-1));
+  TestEq(-1234.56789, ToMoney("-1,234.56789",-1));
+
+  TestEq(-1m, ToMoney("",-1));
+  TestEq(-1m, ToMoney(".",-1));
+  TestEq(-1m, ToMoney(",",-1));
+  TestEq(-1m, ToMoney("a",-1));
+  TestEq(-1m, ToMoney("11.111.11",-1));
+  TestEq(-1m, ToMoney("11,111,11",-1));
+  TestEq(-1m, ToMoney("1.2345,6789",-1));
+  TestEq(-1m, ToMoney("12.34.56,789",-1));
+  TestEq(-1m, ToMoney("1234a5678",-1));
+
+  TestEq(2147483648, ToMoney("2147483648", -1));
+  TestEq(-2147483649, ToMoney("-2,147,483,649.0", -1));
+  TestEq(92233720368547.75807, ToMoney("92233720368547.75807", -1));
+  TestEq(-92233720368547.75808, ToMoney("-92.233.720.368.547,75808", -1));
+  TestEq(-1m, ToMoney("92233720368547.75808", -1));
+  TestEq(-1m, ToMoney("-92.233.720.368.547,75809", -1));
+
+  CloseTest("TestMoney: TomoneyTest");
+}
+
+/*** Conversion tests ***/
+MACRO ConversionTest()
+{
+  OpenTest("TestMoney: ConversionTest");
+
+  TestEqualMoney(1, 0., 0);
+  TestEqualMoney(2, 2147483647., 2147483647);
+  TestEqualMoney(3, -2147483647., -2147483647);
+
+  /* FIXME: Re-enable these tests!
+     On linux, with floating point optimization:
+     -- Test TestMoney: ConversionTest yielded errors:
+     Test 6: Expected: -112233445.56677, got: -112233445.56678
+     .
+     Apparently rounding errors aren't taken into account
+  TestEqualMoney(4, .12345, FloatToMoney(.12345));
+  TestEqualMoney(5, 112233445.56677, FloatToMoney(112233445.56677));
+  TestEqualMoney(6, -112233445.56677, FloatToMoney(-112233445.56677));
+  */
+
+  TestEqualInteger(7, 0, MoneyToInteger(0.));
+  TestEqualInteger(8, 2147483647, MoneyToInteger(2147483647.12345));
+
+  CloseTest("TestMoney: ConversionTest");
+}
+
+/*** Precision tests ***/
+MACRO PrecisionTest()
+{
+  OpenTest("TestMoney: PrecisionTest");
+
+  // Add/subtract
+  TestEqualMoney(1, -92233720368547.75808, 92233720368547.75807+.00001);
+  TestEqualMoney(2, 92233720368547.75807, -92233720368547.75808-.00001);
+
+  // Multiply
+  TestEqualMoney(3, 12193263.11126, 1234.56789*9876.54321);
+
+  TestEqualMoney(4, 0.00001, 0.001*0.01);
+  TestEqualMoney(5, 0.00001, 0.002*0.0025);
+  TestEqualMoney(6, 0, 0.002*0.0024);
+
+  // Basic division
+  TestEqualMoney(7, 1, 1m/1m);
+  TestEqualMoney(8, 8, 9876.54321/1234.56789);
+
+  // Small numbers
+  TestEqualMoney(9, 0.00001, 1m/100000m);
+  TestEqualMoney(10, 100000m, 1m/0.00001);
+
+  // Rounding
+  TestEqualMoney(11, 0.00001, 5m/1000000m);
+  TestEqualMoney(12, 0, 4m/1000000m);
+  TestEqualMoney(13, -0.00001, -5m/1000000m);
+  TestEqualMoney(14, 0, -4m/1000000m);
+
+  // Big numbers
+  TestEqualMoney(15, 1, 92233720368547.75807/92233720368547.75807);
+  TestEqualMoney(16, -1, -92233720368547.75807/92233720368547.75807);
+  TestEqualMoney(17, -1, 92233720368547.75807/-92233720368547.75807);
+  TestEqualMoney(18, 1, -92233720368547.75808/-92233720368547.75808);
+
+  CloseTest("TestMoney: PrecisionTest");
+}
+
+PRINT("\n === Running TestMoney\n");
+FormatMoneyTest();
+TomoneyTest();
+ConversionTest();
+PrecisionTest();

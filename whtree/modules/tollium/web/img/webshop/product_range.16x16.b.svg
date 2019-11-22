@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 21.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 32 32" style="enable-background:new 0 0 32 32;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#396DD0;}
+	.st1{fill:#E5C51F;}
+	.st2{fill:#6B5705;}
+</style>
+<image style="display:none;overflow:visible;" width="16" height="16" xlink:href="../../../../../var/installedmodules/webhare/webshop/web/img/product_range.16x16.png"  transform="matrix(1.5795 0 0 1.4574 1 5)">
+</image>
+<g>
+	<g>
+		<path class="st0" d="M2,2v26h26L2,2z M6,12l12,12H6V12z"/>
+	</g>
+</g>
+<rect x="22" y="4" class="st1" width="8" height="26"/>
+<rect x="22" y="28" class="st2" width="4" height="2"/>
+<rect x="22" y="22" class="st2" width="2" height="2"/>
+<rect x="22" y="16" class="st2" width="4" height="2"/>
+<rect x="22" y="10" class="st2" width="2" height="2"/>
+<rect x="22" y="4" class="st2" width="4" height="2"/>
+</svg>

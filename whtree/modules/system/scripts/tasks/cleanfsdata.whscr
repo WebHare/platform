@@ -1,0 +1,13 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+
+
+/* ADDME: tasks should be run by the queue manager. task start times should be randomized
+          (prevent a thundering herd in a san with multiple installations if everyone claims 02:00)
+*/
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+FlushUnreferredContentData();
+trans->CommitWork(); //ADDME error check

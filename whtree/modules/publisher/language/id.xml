@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="id" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">Mohon centang kotak dibawah</text>
+      <text tid="title">Hampir selesai</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">Lanjut</text>
+      <text tid="previouspage">Sebelumnya</text>
+      <text tid="selectfile">Pilih file</text>
+      <text tid="starsrequired">* menandakan bagian yang harus diisi</text>
+      <text tid="submit">Kirim</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">Alamat tidak ditemukan.</text>
+        <text tid="invalid_nr_detail">Nomor rumah (dengan penambahan) tidak ditemukan.</text>
+        <text tid="invalid_zip">Kode pos tidak ditemukan.</text>
+        <text tid="zip_not_found">Kombinasi nomor rumah dan kodepos tidak ditemukan.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">harus berupa alphanumeric</text>
+        <text tid="check">pilih antar <param p="1"/> dan <param p="2"/> pilihan</text>
+        <text tid="default">Isi tidak valid</text>
+        <text tid="digits">Harus berupa digit</text>
+        <text tid="email">Email tidak valid</text>
+        <text tid="email_baddomain">Karena ada kesulitan dengan provider email <param p="1"/>, kami meminta anda menggunakan provider email alternatif</text>
+        <text tid="email_suggestion">Apakah yang kamu maksud <param p="1"/>?</text>
+        <text tid="equalto">Isi harus sama</text>
+        <text tid="integer">Angka tidak valid</text>
+        <text tid="length">Panjang karakter harus dalam rentang <param p="1"/> dan <param p="2"/></text>
+        <text tid="max">Harus lebih kecil atau sama dengan <param p="1"/>.</text>
+        <text tid="maxcheck">Pilih maksimal <param p="1"/> pilihan</text>
+        <text tid="maxlength">Isian terlalu panjang, maksimal <param p="1"/> karakter atau kurang.</text>
+        <text tid="min">Isi Harus lebih besar atau sama dengan <param p="1"/>.</text>
+        <text tid="mincheck">Pilih minimal <param p="1"/> pilihan</text>
+        <text tid="minlength">Terlalu pendek, minimal <param p="1"/> karakter atau lebih.</text>
+        <text tid="notblank">Tidak boleh kosong</text>
+        <text tid="number">Angka tidak valid</text>
+        <text tid="pattern">Tidak valid</text>
+        <text tid="range">Isi harus dalam rentang <param p="1"/> dan <param p="2"/>.</text>
+        <text tid="required">Isian harus disi</text>
+        <text tid="url">Isi harus berupa URL valid</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

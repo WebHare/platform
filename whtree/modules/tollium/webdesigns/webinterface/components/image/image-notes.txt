@@ -1,0 +1,11 @@
+image overlays update:
+- overlays will appear correctly without needing to trigger an update after image has loaded
+- overlays will resize with the image (for images which use relative sizes such as pr)
+- overlays will overlay the (potentially centred) image instead of the whole panel belonging to the image component
+- overlays overflowing the area of the <image> component will be clipped
+- image “onselect” handler will now actually be called
+- added “onchangeoverlays” handler
+
+
+
+zit er wel een check op <webdesign assetpack=“..“> of de assetpack wel bestaat?

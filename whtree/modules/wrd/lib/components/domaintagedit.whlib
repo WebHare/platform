@@ -1,0 +1,291 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/components/entity.whlib";
+
+
+PUBLIC OBJECTTYPE DomainTagEdit EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_tags_domain;
+
+  STRING pvt_value_tag;
+
+  STRING pvt_title_tag;
+
+  RECORD pvt_extra_fields;
+
+  RECORD ARRAY extra_filters;
+
+  STRING tags_domain_name;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties and public variables
+  //
+
+  UPDATE PUBLIC PROPERTY title(this->tagedit->title, this->tagedit->title);
+
+  UPDATE PUBLIC PROPERTY enabled(this->tagedit->enabled, this->tagedit->enabled);
+
+  UPDATE PUBLIC PROPERTY readonly(this->tagedit->readonly, this->tagedit->readonly);
+
+  PUBLIC PROPERTY placeholder(this->tagedit->placeholder, this->tagedit->placeholder);
+
+  PUBLIC PROPERTY casesensitive(this->tagedit->casesensitive, this->tagedit->casesensitive);
+
+  PUBLIC PROPERTY restrictvalues(GetRestrictValues, SetRestrictValues);
+
+  /// Called when list of tags changes
+  PUBLIC PROPERTY onchange(this->tagedit->onchange, this->tagedit->onchange);
+
+  PUBLIC PROPERTY tags_domain(pvt_tags_domain, SetTagsDomain);
+
+  PUBLIC PROPERTY value_tag(pvt_value_tag, SetValueTag);
+
+  PUBLIC PROPERTY title_tag(pvt_title_tag, SetTitleTag);
+
+  PUBLIC PROPERTY extra_fields(pvt_extra_fields, SetExtraFields);
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->pvt_value_tag := "WRD_ID";
+    this->pvt_title_tag := "WRD_TITLE";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD description)
+  {
+    TolliumFragmentBase::StaticInit(description);
+    this->onchange := description.onchange;
+    this->tagedit->title := description.title;
+    this->tagedit->enabled := description.enabled;
+    this->tagedit->readonly := description.readonly;
+    this->tagedit->dirtylistener := this->dirtylistener;
+    this->tagedit->casesensitive := description.casesensitive;
+    this->tagedit->placeholder := description.placeholder;
+    this->restrictvalues := description.restrictvalues;
+    this->tags_domain_name := description.wrdtype;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    IF (NOT ObjectExists(this->pvt_tags_domain) AND this->tags_domain_name != "")
+    {
+      OBJECT wrdcomp := GetWRDEntityComposition(this->composition);
+      IF (ObjectExists(wrdcomp))
+      {
+        this->pvt_tags_domain := wrdcomp->wrdtype->wrdschema->GetType(this->tags_domain_name);
+        IF (NOT ObjectExists(this->pvt_tags_domain))
+          THROW NEW TolliumException(this, "No such WRD type '" || this->tags_domain_name || "'");
+      }
+    }
+
+    this->SetAutocompleteData();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  BOOLEAN FUNCTION GetRestrictValues()
+  {
+    RETURN this->tagedit->onvalidatetags != DEFAULT MACRO PTR;
+  }
+  MACRO SetRestrictValues(BOOLEAN setit)
+  {
+    this->tagedit->onvalidatetags := setit ? PTR this->ValidateValues : DEFAULT MACRO PTR;
+  }
+
+  MACRO SetTagsDomain(OBJECT type)
+  {
+    this->pvt_tags_domain := type;
+    this->value := DEFAULT INTEGER ARRAY;
+    this->SetAutocompleteData();
+  }
+
+  MACRO SetValueTag(STRING tag)
+  {
+    this->pvt_value_tag := tag;
+    this->SetAutocompleteData();
+  }
+
+  MACRO SetTitleTag(STRING tag)
+  {
+    this->pvt_title_tag := tag;
+    this->SetAutocompleteData();
+  }
+
+  MACRO SetExtraFields(RECORD fields)
+  {
+    this->pvt_extra_fields := fields;
+    this->extra_filters :=
+        SELECT field := name
+             , matchtype := "="
+             , value
+          FROM UnpackRecord(this->pvt_extra_fields);
+    this->SetAutocompleteData();
+  }
+
+  RECORD ARRAY FUNCTION ProcessValue(STRING ARRAY intags, BOOLEAN autocreate)
+  {
+    // Convert all tags to lower case, remove duplicates
+    RECORD ARRAY tags := ToRecordArray(intags, "tag");
+
+    // Get a list of existing tags
+    RECORD ARRAY existingtags := this->tags_domain->RunQuery(
+        [ outputcolumns := [ "WRD_ID", "WRD_TITLE" ]
+        , filters := [ [ field := "WRD_TITLE", matchtype := "IN", value := (SELECT AS STRING ARRAY tag FROM tags), matchcase := this->casesensitive ] ]
+                     CONCAT this->extra_filters
+        ]);
+
+    IF(autocreate)
+      GetPrimary()->PushWork();
+
+    RECORD ARRAY result;
+    FOREVERY (RECORD tag FROM tags)
+    {
+      // Get the existing id
+      INTEGER tagid :=
+          SELECT AS INTEGER wrd_id
+            FROM existingtags
+           WHERE this->casesensitive ? existingtags.wrd_title = tag.tag : ToUppercase(existingtags.wrd_title) = ToUppercase(tag.tag);
+
+      IF (tagid = 0)
+      {
+        IF (NOT autocreate)
+          CONTINUE; // Not allowed to create new tags
+
+        // Create a new tag
+        tagid := this->tags_domain->__DoCreateEntity(
+              [ ...this->pvt_extra_fields
+              , wrd_title := tag.tag
+              ])->id;
+      }
+      INSERT CELL[ id := tagid, tag := tag.tag ] INTO result AT END;
+    }
+    IF (autocreate)
+      GetPrimary()->PopWork();
+
+    RETURN result;
+
+  }
+
+  STRING ARRAY FUNCTION ValidateValues(STRING ARRAY tags)
+  {
+    RECORD ARRAY processed := this->ProcessValue(tags, FALSE);
+    RETURN SELECT AS STRING ARRAY tag FROM processed;
+   }
+
+  INTEGER ARRAY FUNCTION GetValue()
+  {
+    RETURN SELECT AS INTEGER ARRAY id FROM this->ProcessValue(this->tagedit->value, this->restrictvalues = FALSE);
+  }
+
+  MACRO SetValue(INTEGER ARRAY ids)
+  {
+    RECORD ARRAY tags :=
+        SELECT id
+             , title
+          FROM this->tags_domain->RunQuery(
+                   [ outputcolumns := [ id := "WRD_ID"
+                                      , title := this->title_tag
+                                      ]
+                   , filters := [ [ field := this->value_tag, matchtype := "IN", value := ids ] ]
+                                CONCAT this->extra_filters
+                   ]);
+
+    this->tagedit->value := SELECT AS STRING ARRAY title FROM tags;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetAutocompleteData()
+  {
+    this->autosuggest->data :=
+        [ tags_domain_id := ObjectExists(this->tags_domain) ? this->tags_domain->id : 0
+        , value_tag := this->value_tag
+        , title_tag := this->title_tag
+        , extra_filters := this->extra_filters
+        , casesensitive := this->casesensitive
+        ];
+  }
+
+>;
+
+PUBLIC OBJECTTYPE DomainTagsAutoSuggest EXTEND TolliumAutoSuggestBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT tags_domain;
+
+  STRING title_tag;
+
+  RECORD ARRAY extra_filters;
+
+  BOOLEAN casesensitive;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO NEW(RECORD data)
+  {
+    this->tags_domain := OpenWRDType(data.tags_domain_id);
+    this->title_tag := data.title_tag;
+    this->extra_filters := data.extra_filters;
+    this->casesensitive := data.casesensitive;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  PUBLIC UPDATE RECORD ARRAY FUNCTION Lookup(STRING curtext)
+  {
+    IF (NOT this->casesensitive)
+      curtext := ToLowercase(curtext);
+
+    // Return all tags containing the entered text, sort tags starting with the text first
+    RETURN
+        SELECT value := title
+          FROM this->tags_domain->RunQuery(
+                   [ outputcolumns := [ title := this->title_tag ]
+                   , filters := [ [ field := this->title_tag, matchtype := "LIKE", value := "*" || curtext || "*", matchcase := this->casesensitive ] ]
+                                CONCAT this->extra_filters
+                   ])
+         ORDER BY title LIKE curtext || "*" DESC
+                , title;
+  }
+
+>;

@@ -1,0 +1,463 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+
+LOADLIB "mod::wrd/lib/internal/authobjects.whlib";
+
+
+
+PUBLIC OBJECTTYPE ObjectRightsList EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER cbid;
+
+  OBJECT rightsinfo;
+
+  /// Currently selected rights group
+  STRING rightsgroup;
+
+  /// Currently selected object type
+  STRING objecttypename;
+
+  /// Currently selected object
+  INTEGER objectid;
+
+  /// Whether a right can be added to the list (user has manage right for any relevant right on this object)
+  BOOLEAN canaddright;
+
+  /// Whether the login name column has been hidden
+  BOOLEAN logincolumnhidden;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC PROPERTY borders(this->authobjectlistbyobject->borders, this->authobjectlistbyobject->borders);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium registration
+  //
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->rightsinfo := GetRightsInfoObject(this->owner->tolliumuser->authobject);
+    this->cbid := RegisterMultiEventCallback("system:rights.change", PTR this->OnUpdateEvent);
+
+    this->ReloadList();
+  }
+
+  UPDATE PUBLIC MACRO OnUnloadComponent()
+  {
+    IF (this->cbid != 0)
+      UnregisterCallback(this->cbid);
+    this->cbid := 0;
+    TolliumFragmentBase::OnUnloadComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnUpdateEvent(STRING event, RECORD ARRAY data)
+  {
+    this->ReloadList();
+  }
+
+  MACRO OnSelectHandler()
+  {
+    IF (this->onselect != DEFAULT FUNCTION PTR)
+      this->onselect();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION LookupRight(STRING rightname, RECORD ARRAY local_rights)
+  {
+    RECORD data := SELECT * FROM local_rights WHERE name = rightname;
+    IF (RecordExists(data))
+      RETURN data;
+
+    data := this->rightsinfo->GetRightByName(rightname);
+    IF (RecordExists(data))
+      INSERT CELL canmanage := FALSE INTO data;
+
+    RETURN data;
+  }
+
+  RECORD ARRAY FUNCTION GetListOfRights()
+  {
+    // Get list of relevant rights
+    RECORD ARRAY rights;
+    IF (this->rightsgroup != "")
+    {
+      rights :=
+          SELECT *
+            FROM this->rightsinfo->rights
+           WHERE rightsgroup = this->rightsgroup
+             AND isglobal;
+    }
+    ELSE IF (this->objecttypename != "")
+    {
+      rights :=
+          SELECT *
+            FROM this->rightsinfo->rights
+           WHERE objecttypename = this->objecttypename;
+    }
+    ELSE
+    {
+      this->authobjectlistbyobject->empty := GetTid("system:userrights.commondialogs.errors.needselectgrouporobject");
+      this->canaddright := FALSE;
+      this->grantrightonobject->enabled := this->canaddright;
+      RETURN DEFAULT RECORD ARRAY;
+    }
+
+    IF (LENGTH(rights) = 0)
+    {
+      this->authobjectlistbyobject->empty := GetTid("system:userrights.commondialogs.errors.norelevantrights");
+      this->canaddright := FALSE;
+      this->grantrightonobject->enabled := this->canaddright;
+      RETURN DEFAULT RECORD ARRAY;
+    }
+
+    // See for every right if this user can manage it
+    rights :=
+        SELECT *
+             , canmanage := isglobal ? this->owner->tolliumuser->CanManageRight(name) : this->owner->tolliumuser->CanManageRightOn(name, this->objectid)
+          FROM rights;
+
+    this->canaddright := RecordExists(SELECT FROM rights WHERE canmanage);
+    this->grantrightonobject->enabled := this->canaddright;
+
+    this->authobjectlistbyobject->empty := GetTid("system:userrights.commondialogs.errors.norightspresent");
+    RETURN rights;
+  }
+
+  RECORD ARRAY FUNCTION GetUsersAndRoles()
+  {
+    RECORD ARRAY rights := this->GetListOfRights();
+    IF (LENGTH(rights) = 0)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY all_grants;
+    FOREVERY (RECORD rightdata FROM rights)
+    {
+      // Get authobjects that have grants directly them that give them the right (ignore role inheritance)
+      // And that are visible
+      INTEGER ARRAY authobjs := FilterAuthObjectsVisibleFor(GetGrantedAuthObjects(rightdata.name, this->objectid, [ expandroles := FALSE ]), this->owner->tolliumuser);
+
+      FOREVERY (INTEGER authobj FROM authobjs)
+      {
+        OBJECT grantee := this->contexts->userapi->GetObjectByAuthObjectId(authobj);
+        IF (NOT ObjectExists(grantee))
+          CONTINUE;
+
+        IF (ObjectExists(grantee))
+        {
+          all_grants := all_grants CONCAT
+              SELECT *
+                   , grantee_obj :=     grantee
+                   , grantee_wrdid :=   grantee->entityid
+                FROM ExplainRightGrantedToOn(rightdata.name, VAR grantee->authobject, this->objectid, FALSE)
+               WHERE COLUMN grantee = authobj;
+        }
+      }
+    }
+
+    all_grants :=
+        SELECT AS RECORD ARRAY Any(all_grants)
+          FROM all_grants
+      GROUP BY grantedright, grantid;
+
+    // Update the inherited flag; the group by can select the inherited version
+    STRING ARRAY local_right_names :=
+        SELECT AS STRING ARRAY name
+          FROM rights;
+
+    UPDATE all_grants
+       SET inherited := (grantedright NOT IN local_right_names) OR grantedobject != this->objectid;
+
+    // Get rights info records (these don't exist for invisible rights)
+    all_grants :=
+        SELECT *
+             , rightrec := this->LookupRight(all_grants.grantedright, rights)
+          FROM all_grants;
+
+    INTEGER ARRAY grantees := SELECT AS INTEGER ARRAY grantee_wrdid FROM all_grants;
+
+    RECORD ARRAY users := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := grantees ] ], this->owner->tolliumuser);
+    RECORD ARRAY roles := GetRolesByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := grantees ] ], this->owner->tolliumuser);
+
+    RECORD ARRAY userroles := EnrichWithUnitPath((SELECT * FROM users CONCAT roles ORDER BY wrd_id), this->owner->tolliumuser);
+
+    RECORD ARRAY list;
+    FOREVERY (RECORD rec FROM all_grants)
+    {
+      RECORD pos := RecordLowerBound(userroles, [ wrd_id := rec.grantee_wrdid ], [ "WRD_ID" ]);
+      IF (pos.found)
+      {
+        INSERT CELL userrole := userroles[pos.position] INTO rec;
+        INSERT rec INTO list AT END;
+      }
+    }
+
+    RECORD ARRAY rows :=
+        SELECT rowkey :=        "grant_" || grantid || "_" || grantedright
+             , authobjectparentid := userrole.authobjectparentid
+             , icon :=          userrole.icon
+             , name :=          userrole.name
+             , type :=          userrole.type
+             , wrd_id :=        userrole.wrd_id
+             , fullname :=      this->logincolumnhidden AND userrole.type = 3 ? userrole.name : userrole.fullname
+             , unitpath :=      userrole.unitpath
+             , rightname :=     grantedright
+             , righttitle :=    rightrec.title
+             , objectid :=      grantedobject
+             , grantable :=     withgrantoption ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+             , grantid
+             , grantedright
+             , style :=         inherited ? "inheritedstyle" : ""
+             , expandable :=    grantee_obj EXTENDSFROM WRDAuthRole
+             , expanded :=      FALSE
+             , isrole :=        userrole.type = 3
+             , isuser :=        userrole.type = 1
+             , isauthobject :=  TRUE
+             , isright :=       TRUE
+             , inherited
+             , canmanage :=     rightrec.canmanage AND NOT inherited
+          FROM list
+         WHERE RecordExists(rightrec);
+
+    rows := SELECT *
+              FROM rows
+          ORDER BY inherited, type DESC, ToUppercase(name), righttitle;
+
+    RETURN rows;
+  }
+
+  /** GetUsersInRoleForAuthobjectsByObject
+  */
+  RECORD ARRAY FUNCTION GetUsersInRole(RECORD parentrow)
+  {
+    OBJECT roleobj := this->contexts->userapi->GetRole(parentrow.wrd_id);
+    INTEGER ARRAY granted_user_entityids := GetUsersEntityIdsWithRole(this->contexts->userapi, roleobj);
+
+    RECORD ARRAY users := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := granted_user_entityids ] ], this->owner->tolliumuser);
+    users := EnrichWithUnitPath(users, this->owner->tolliumuser);
+
+    RECORD ARRAY tree :=
+        SELECT *
+             , rowkey :=        parentrow.rowkey || "_role_" || parentrow.wrd_id || "_user_" || wrd_id
+             , icon :=          1 // user
+             , objectpath :=    ""
+             , canmanage :=     this->contexts->userapi->GetUser(wrd_id)->HasRightOn("system:manageroles", authobjectid)
+             , isrole :=        FALSE
+             , isuser :=        TRUE
+             , expanded :=      FALSE
+             , expandable :=    FALSE
+
+             , rightname :=     parentrow.rightname
+             , righttitle :=    parentrow.righttitle
+             , objectid :=      parentrow.objectid
+             , grantedright :=  parentrow.grantedright
+             , grantid :=       parentrow.grantid
+             , isauthobject :=  TRUE
+             , isright :=       TRUE
+             , inherited :=     TRUE
+             , grantable :=     parentrow.grantable
+          FROM users
+      ORDER BY ToUppercase(name);
+
+    tree :=
+        SELECT *
+             , withgrantoption := canmanage ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+          FROM tree;
+
+    RETURN tree;
+  }
+
+  PUBLIC MACRO ReloadList()
+  {
+    IF(NOT this->tolliumuser->HasRight("system:sysop"))
+    {
+      this->logincolumnhidden := TRUE;
+
+      IF (this->authobjectlistbyobject->columns[0].name = "name")
+      {
+        RECORD delcol := this->authobjectlistbyobject->columns[0];
+        this->authobjectlistbyobject->columns[1] := CELL
+            [ ...this->authobjectlistbyobject->columns[1]
+            , delcol.tree
+            , delcol.iconname
+            ];
+      }
+
+      DELETE FROM this->authobjectlistbyobject->columns WHERE name = "name";
+    }
+
+    this->authobjectlistbyobject->ReloadList();
+  }
+
+  RECORD ARRAY FUNCTION OnGetChildRows(RECORD parentrow)
+  {
+    IF (NOT ObjectExists(this->contexts->userapi))
+      RETURN DEFAULT RECORD ARRAY;
+
+    IF (NOT RecordExists(parentrow))
+      RETURN this->GetUsersAndRoles();
+
+    // second level is always the users in a role
+    RETURN this->GetUsersInRole(parentrow);//.wrd_id, parentrow.grantid, parentrow.rowkey);
+  }
+
+  STRING ARRAY FUNCTION OnGetPath(STRING rowkey)
+  {
+    // first level rowkeys -> "grant_" || parentrow.grantid || "_" || parentrow.grantedright);
+    // second level -> base_rowkey || "_role_" || role || "_user_" || id
+
+    INTEGER splitpos := SearchSubstring(rowkey, "_role_");
+    IF (splitpos = -1)
+      RETURN [ rowkey ];
+
+    STRING parentrowkey := SubString(rowkey, 0, splitpos);
+    RETURN [ parentrowkey, rowkey ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO OnTypedDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
+  {
+    RETURN;
+    /* apparently drag&drop has been disabled for a while... it now breaks on TolliumGrantRightToOn calls so completely disable this
+    /// FIXME: This needs to run through a custom dialog that is capable of adding multiple entities;
+    Reflect( [ drag := dragdata, drop := droptarget, act := dropaction, type := droptype, grp := this->rightsinfo, otn := this->objecttypename ] );
+    INTEGER ARRAY objectids := [ this->objectid ];
+    OBJECT work := this->owner->BeginWork();
+    FOREVERY(RECORD item FROM dragdata.items)
+    {
+
+      SWITCH(item.type)
+      {
+        CASE "system:user"
+        {
+          OBJECT grantee := this->contexts->userapi->GetUser(item.data.id);
+          TolliumGrantRightTo(work, this->rightsinfo, this->owner->tolliumuser, grantee, this->rightsinfo->GetRightTitle(), objectids, FALSE);
+        }
+        CASE "system:role"
+        {
+          OBJECT grantee := this->contexts->userapi->GetRole(item.data.id);
+          TolliumGrantRightTo(work, this->rightsinfo, this->owner->tolliumuser, grantee, this->rightsinfo->GetRightTitle(), objectids, FALSE);
+        }
+      }
+    }
+    work->Finish();
+    this->ReloadList();
+    */
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoGrantRightOnObject()
+  {
+    IF (this->objecttypename != "")
+      MakeAddGrantOnObjectDialog(this->owner, this->objecttypename, this->objectid)->RunModal();
+    ELSE
+      MakeAddGrantOnRightsGroupDialog(this->owner, this->rightsgroup)->RunModal();
+  }
+
+  MACRO DoRevokeRightOnObject()
+  {
+    /// NOTE: This is an unusual way to get the proper selection, but is required because the selection record of the list will only ever hold one entry.
+    RECORD ARRAY affected := SELECT * FROM this->authobjectlistbyobject->rows WHERE rowkey IN this->authobjectlistbyobject->value;
+    RECORD ARRAY revokeinstructions;
+    FOREVERY(RECORD row FROM affected)
+    {
+      OBJECT grantee := row.type = 1 ? this->contexts->userapi->GetUser(row.wrd_id) : this->contexts->userapi->GetRole(row.wrd_id);
+      INSERT [ grantee := grantee, rightname := row.rightname, objectid := row.objectid ] INTO revokeinstructions AT END;
+    }
+
+    MakeRevokeDialog(this->owner,
+          revokeinstructions
+        , DEFAULT RECORD ARRAY)->RunModal();
+  }
+
+  MACRO DoEditRightOnObject()
+  {
+    RECORD sel := this->authobjectlistbyobject->selection;
+    OBJECT grantee := sel.type = 1 ? this->contexts->userapi->GetUser(sel.wrd_id) : this->contexts->userapi->GetRole(sel.wrd_id);
+
+    MakeEditRightGrantDialog(this->owner, grantee, sel.rightname, sel.objectid)->RunModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Modify menus and actions to make this fragment usable for a common dialog
+  */
+  PUBLIC MACRO InitForCommonDialog()
+  {
+    // Normal actions and menu's don't contain irrelevant stuff for the dialog context.
+  }
+
+  PUBLIC MACRO SelectRightsGroup(STRING rightsgroup)
+  {
+    this->rightsgroup := rightsgroup;
+    this->objecttypename := "";
+
+    this->ReloadList();
+  }
+
+  PUBLIC MACRO SelectObject(STRING objecttypename, INTEGER objectid)
+  {
+    this->rightsgroup := "";
+    this->objecttypename := objecttypename;
+    this->objectid := objectid;
+
+    this->ReloadList();
+  }
+
+  PUBLIC MACRO UnselectObject()
+  {
+    this->rightsgroup := "";
+    this->objecttypename := "";
+    this->objectid := 0;
+
+    this->ReloadList();
+  }
+>;

@@ -1,0 +1,37 @@
+﻿<?wh
+
+PUBLIC STRING FUNCTION BuildURL(RECORD data)
+{
+  STRING uri := data.method || (data.secure ? " https://" : " http://");
+  IF (data.host LIKE "*:*")
+    uri := uri || data.host;
+  ELSE
+  {
+    IF (data.host = "")
+      uri:= uri || data.ip;
+    ELSE
+      uri:= uri || data.host;
+    IF (data.port != (data.secure ? 443 : 80))
+      uri := uri || ":" || data.port;
+  }
+  RETURN uri || data.url;
+}
+
+
+PUBLIC STRING FUNCTION GetScriptShow(RECORD authrec, STRING script)
+{
+  IF (CellExists(authrec, "TOLLIUM") AND RecordExists(authrec.tollium.app))
+    RETURN "Tollium: " || authrec.tollium.app.name || " (" || authrec.tollium.user.login || ")";
+  IF (CellExists(authrec, "WEBSERVERREQUEST"))
+  {
+    IF (authrec.webserverrequest.url LIKE "/wh_services/*")
+    {
+      STRING res := "Remoting: " || SubString(authrec.webserverrequest.url, 13);
+      IF (CellExists(authrec, "REMOTING"))
+        res := res || " (" || authrec.remoting.functionname || ")";
+      RETURN res;
+    }
+    RETURN BuildURL(authrec.webserverrequest);
+  }
+  RETURN script;
+}

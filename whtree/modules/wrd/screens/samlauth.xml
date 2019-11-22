@@ -1,0 +1,375 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         lib="screens/samlauth.whlib"
+         gid="samlauth">
+
+  <messageboxes gid="types.messages">
+    <messagebox name="notconfiguredforsaml" icon="information" buttons="close" />
+    <messagebox name="authnotcorrectlyconfigured" icon="error" buttons="close" />
+    <messagebox name="suredeletesp" icon="question" buttons="yes no" />
+    <messagebox name="suredeleteidp" icon="question" buttons="yes no" />
+    <messagebox name="suredeleteconnectedsp" icon="question" buttons="yes no" />
+    <messagebox name="suredeleteconnectedidp" icon="question" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="main"
+          gid=".main"
+          width="120x"
+          height="30x"
+          allowresize="true"
+          flags="selected_sp selected_idp haveidp haveconnected"
+          savestate="size">
+    <actions>
+      <action name="addidp">
+        <enableon source="samlproviders" onexecute="doaddidp" frameflags="!haveidp" />
+      </action>
+      <action name="addsp">
+        <enableon source="samlproviders" onexecute="doaddsp" />
+      </action>
+      <action name="addconnectedsp" onexecute="doaddconnectedsp">
+        <enableon source="samlproviders" min="1" checkflags="idp" />
+        <enableon source="connectedproviders" frameflags="selected_idp" />
+      </action>
+      <action name="addconnectedidp" onexecute="doaddconnectedidp">
+        <enableon source="samlproviders" min="1" checkflags="sp !haveconnected" />
+        <enableon source="connectedproviders" frameflags="selected_sp !haveconnected" />
+      </action>
+
+      <action name="edit" tid="tollium:common.actions.properties">
+        <enableon source="samlproviders" min="1" checkflags="sp" onexecute="doeditsp" />
+        <enableon source="samlproviders" min="1" checkflags="idp" onexecute="doeditidp" />
+        <enableon source="connectedproviders" min="1" checkflags="sp" onexecute="doeditconnectedsp" />
+        <enableon source="connectedproviders" min="1" checkflags="idp" onexecute="doeditconnectedidp" />
+      </action>
+
+      <action name="delete" tid="tollium:common.actions.delete">
+        <enableon source="samlproviders" min="1" checkflags="sp" onexecute="dodeletesp" />
+        <enableon source="samlproviders" min="1" checkflags="idp" onexecute="dodeleteidp" />
+        <enableon source="connectedproviders" min="1" checkflags="sp" onexecute="dodeleteconnectedsp" />
+        <enableon source="connectedproviders" min="1" checkflags="idp" onexecute="dodeleteconnectedidp" />
+      </action>
+
+    </actions>
+
+    <menus>
+      <menu name="addmenu">
+        <item action="addidp" tid=".idp" />
+        <item action="addsp" tid=".sp" />
+        <item action="addconnectedidp" tid=".connectedidp" />
+        <item action="addconnectedsp" tid=".connectedsp" />
+      </menu>
+      <menu name="contextmenu">
+        <item action="addidp" disablemode="hidden" />
+        <item action="addsp" disablemode="hidden" />
+        <item action="addconnectedidp" disablemode="hidden" />
+        <item action="addconnectedsp" disablemode="hidden" />
+        <item action="edit" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
+      </menu>
+      <menu name="connectedcontextmenu">
+        <item action="addconnectedidp" disablemode="hidden" />
+        <item action="addconnectedsp" disablemode="hidden" />
+        <item action="edit" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
+      </menu>
+
+    </menus>
+
+    <compositions>
+      <eventlistener name="eventlistener" onevents="gotevents" />
+    </compositions>
+
+    <toolbar>
+      <button tid="tollium:common.actions.add" menu="addmenu" icon="tollium:actions/add" />
+      <button action="edit" icon="tollium:actions/properties" />
+      <button action="delete" icon="tollium:actions/delete" />
+    </toolbar>
+
+    <body>
+      <split type="horizontal">
+        <part width="1pr">
+          <wrd:entitylist name="samlproviders"
+                          flags="sp idp haveconnected"
+                          onmaprows="onmapsamlprovidersrows"
+                          onselect="onproviderselect"
+                          requestcolumns="wrd_tag wrd_type samlentityid"
+                          openaction="edit"
+                          selectcontextmenu="contextmenu"
+                          newcontextmenu="contextmenu"
+                          borders="top left bottom"
+                          >
+            <column name="type" type="text" width="10x" />
+            <column name="wrd_tag" type="text" />
+            <column name="samlentityid" type="text" />
+          </wrd:entitylist>
+        </part>
+        <part width="1pr">
+          <wrd:entitylist name="connectedproviders"
+                          flags="sp idp"
+                          onmaprows="onmapconnectedprovidersrows"
+                          selectcontextmenu="connectedcontextmenu"
+                          newcontextmenu="connectedcontextmenu"
+                          openaction="edit"
+                          borders="top right bottom"
+                          requestcolumns="samlentityid"
+                          >
+            <column name="samlentityid" type="text" tid=".connectedsamlentityid" />
+          </wrd:entitylist>
+        </part>
+      </split>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="editprovider" gid=".editprovider" width="120x" height="30x" allowresize="true" savestate="size">
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+    <body>
+      <textedit composition="entity" cellname="samlentityid" required="true" validationchecks="http-url" width="1pr" />
+      <textedit composition="entity" cellname="wrd_tag" required="true" />
+      <select name="keypair" type="pulldown" rowkeytype="integer" />
+      <line layout="left">
+        <checkbox composition="entity" cellname="allow_redirectbinding" title="" labeltid=".allow_redirectbinding" />
+      </line>
+
+      <!-- idp only -->
+      <heading name="nameidformatsheading" tid=".supportednameidformats" />
+      <arrayedit composition="entity" cellname="supportednameidformats" name="supportednameidformats" roweditscreen="#editnameidformat">
+        <column name="nameidformat" type="text" />
+      </arrayedit>
+
+      <!-- sp only -->
+      <combobox composition="entity" cellname="nameidpolicy" name="nameidpolicy" width="1pr">
+        <option title="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified" />
+        <option title="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress" />
+        <option title="urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName" />
+        <option title="urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName" />
+        <option title="urn:oasis:names:tc:SAML:2.0:nameid-format:entity" />
+        <option title="urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos" />
+        <option title="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent" />
+        <option title="urn:oasis:names:tc:SAML:2.0:nameid-format:transient" />
+      </combobox>
+
+      <heading tid=".organizationinfo" />
+      <textedit composition="entity" cellname="organization_name" required="true" />
+      <textedit composition="entity" cellname="organization_displayname" required="true" />
+      <textedit composition="entity" cellname="organization_url" required="true" />
+      <heading tid=".contacts" />
+      <arrayedit composition="entity" cellname="contacts" roweditscreen=".editcontact" height="1pr">
+        <column name="type" type="text" />
+        <column name="company" type="text" />
+        <column name="givenname" type="text" />
+        <column name="surname" type="text" />
+        <column name="email" type="text" tid="~email" />
+        <column name="telephone" type="text" />
+      </arrayedit>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="editcontact" gid=".editcontact" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <select composition="row" cellname="type" required="true" type="pulldown">
+        <option rowkey="technical" />
+        <option rowkey="support" />
+        <option rowkey="administrative" />
+        <option rowkey="billing" />
+        <option rowkey="other" />
+      </select>
+      <textedit composition="row" cellname="company" />
+      <textedit composition="row" cellname="givenname" />
+      <textedit composition="row" cellname="surname" />
+      <textedit composition="row" cellname="email" tid="~email" />
+      <textedit composition="row" cellname="telephone" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="editconnectedprovider" gid=".editconnectedprovider" width="120x" allowresize="true" savestate="size">
+    <actions>
+      <action name="downloadmetadata" onexecute="dodownloadmetadata" />
+      <action name="entermetadata" onexecute="doentermetadata" />
+    </actions>
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+    <body>
+      <line>
+        <textedit name="metadataurl" composition="entity" cellname="metadataurl" validationchecks="http-url" width="1pr" />
+        <button action="downloadmetadata" />
+        <button action="entermetadata" />
+      </line>
+      <textedit composition="entity" cellname="samlentityid" name="samlentityid" required="true" validationchecks="http-url" width="1pr" />
+
+      <heading tid=".serviceendpoints" />
+      <arrayedit composition="entity"
+                 cellname="serviceendpoints"
+                 roweditscreen=".editserviceendpoint"
+                 onmaprows="onmapserviceendpointrows"
+                 height="1pr">
+        <column name="type" type="text" />
+        <column name="binding" type="text" />
+        <column name="location" type="text" />
+        <column name="responselocation" type="text" />
+        <column name="index" type="text" width="10x" />
+        <column name="isdefault" type="text" width="10x" />
+      </arrayedit>
+
+      <!-- connected idp only -->
+      <heading name="nameidformatsheading" tid=".supportednameidformats" />
+      <arrayedit composition="entity" cellname="supportednameidformats" name="supportednameidformats" roweditscreen="#editnameidformat">
+        <column name="nameidformat" type="text" />
+      </arrayedit>
+
+      <heading tid=".certificates" />
+      <arrayedit composition="entity"
+                 cellname="certificates"
+                 height="1pr"
+                 roweditscreen=".editcertificate"
+                 onmaprows="onmapcertificaterows">
+        <column name="commonname" type="text" />
+        <column name="validuntil" type="date" />
+        <column name="acceptuntil" type="date" />
+      </arrayedit>
+
+      <heading tid=".organizationinfo" />
+      <textedit composition="entity" cellname="organization_name" />
+      <textedit composition="entity" cellname="organization_displayname" />
+      <textedit composition="entity" cellname="organization_url" />
+      <heading tid=".contacts" />
+      <arrayedit composition="entity" cellname="contacts" roweditscreen=".editcontact" height="1pr">
+        <column name="type" type="text" />
+        <column name="company" type="text" />
+        <column name="givenname" type="text" />
+        <column name="surname" type="text" />
+        <column name="email" type="text" tid="~email" />
+        <column name="telephone" type="text" />
+      </arrayedit>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="entermetadata" gid=".entermetadata" width="100x" height="30x" allowresize="true" savestate="size">
+    <body>
+      <text valuetid=".metadataexplain" />
+      <codeedit name="metadata" height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="importchangedcertificate" gid=".importchangedcertificate">
+    <body>
+      <line layout="left">
+        <text valuetid=".explain" />
+      </line>
+      <select name="certchoice" type="radio">
+        <option rowkey="replace" />
+        <option rowkey="expireold">
+          <datetime name="certuseuntil" type="date" title="" />
+        </option>
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="editserviceendpoint" gid=".editserviceendpoint" implementation="rowedit" width="100x" allowresize="true" savestate="size">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <select composition="row" cellname="type" type="pulldown">
+        <option rowkey="SingleLogoutService" />
+        <option rowkey="SingleSignonService" />
+        <option rowkey="ArtifactResolutionService" />
+        <option rowkey="AssertionConsumerService" />
+        <option rowkey="AttributeConsumingService" />
+      </select>
+      <select composition="row" cellname="binding" type="pulldown">
+        <option rowkey="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" tid=".http-redirect" />
+        <option rowkey="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" tid=".http-post" />
+      </select>
+      <textedit composition="row" cellname="location" width="1pr" validationchecks="http-url" required="true" />
+      <textedit composition="row" cellname="responselocation" width="1pr" validationchecks="http-url" />
+      <textedit composition="row" cellname="index" width="1pr" valuetype="integer" />
+      <line layout="left">
+        <checkbox composition="row" cellname="isdefault" title="" labeltid=".isdefault" />
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="editcertificate" gid=".editcertificate" implementation="rowedit" allowresize="true" savestate="size">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <fileedit composition="row" cellname="data" />
+      <datetime composition="row" cellname="acceptuntil" type="date" emptyvalue="max_datetime" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="editnameidformat" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <combobox composition="row" cellname="nameidformat">
+        <option title="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified" />
+        <option title="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress" />
+        <option title="urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName" />
+        <option title="urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName" />
+        <option title="urn:oasis:names:tc:SAML:2.0:nameid-format:entity" />
+        <option title="urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos" />
+        <option title="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent" />
+        <option title="urn:oasis:names:tc:SAML:2.0:nameid-format:transient" />
+      </combobox>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="openauthdomain" gid=".openauthdomain" width="80x" height="16x" allowresize="true" savestate="size">
+    <actions>
+      <action name="openaction" onexecute="opensamlsettings" tid="tollium:common.actions.open">
+        <enableon source="domains" min="1" />
+      </action>
+    </actions>
+    <body>
+      <wrd:entitylist name="domains"
+                      openaction="openaction">
+        <column name="wrd_tag" type="text" />
+        <column name="wrd_title" type="text" width="2pr" />
+      </wrd:entitylist>
+    </body>
+    <footer layout="right">
+      <line>
+        <button action="openaction" />
+        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
+      </line>
+    </footer>
+  </screen>
+
+</screens>
+

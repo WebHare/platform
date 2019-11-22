@@ -1,0 +1,83 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+PUBLIC RECORD precalcdefaults :=
+    [ liverefreshtimeout :=     5000
+    , crashretry :=             60000
+    , discardunusedtimeout :=   7 * 24 * 60 * 60 * 1000
+    , lastuseroundfactor :=     60 * 60 * 1000
+    ];
+
+PUBLIC RECORD FUNCTION ParseFuncRef(STRING funcref)
+{
+  STRING ARRAY parts := Tokenize(funcref, "#");
+  RETURN
+      [ library :=  parts[0]
+      , func :=     parts[1]
+      ];
+}
+
+PUBLIC OBJECT FUNCTION Delay(INTEGER msecs, FUNCTION PTR func DEFAULTSTO DEFAULT FUNCTION PTR)
+{
+  RECORD rec := CreateDeferredPromise();
+  RegisterTimedCallback(AddTimeToDate(msecs, GetCurrentDateTime()), PTR rec.resolve(DEFAULT RECORD));
+  OBJECT res := rec.promise;
+  IF (func != DEFAULT FUNCTION PTR)
+    res := rec.promise->Then(func);
+  RETURN res;
+}
+
+PUBLIC MACRO ThrowTimeout()
+{
+  THROW NEW Exception("timeout");
+}
+
+PUBLIC STRING FUNCTION TimeStamp()
+{
+  RETURN FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds");
+}
+
+PUBLIC INTEGER FUNCTION ParseDuration(VARIANT value)
+{
+  IF (TypeID(value) = TypeID(INTEGER))
+    RETURN value;
+  IF (TypeID(value) != TypeID(STRING))
+    THROW NEW Exception(`Duration should be an INTEGER or a STRING, got a ${GetTypeName(TypeID(value))}`);
+
+  OBJECT parser := NEW StringParser(value);
+  BOOLEAN negative := parser->TryParse("-");
+  IF (NOT negative)
+    parser->TryParse("+"); // ignore
+
+  INTEGER retval;
+  INTEGER lastunitpos := -1;
+  WHILE (NOT parser->eof)
+  {
+    STRING nrval := parser->ParseWhileInSet(parser->set_digit);
+    IF (nrval = "")
+      THROW NEW Exception(`Invalid duration '${EncodeJava(value)}' (invalid number)`);
+    STRING unit := parser->ParseWhileInSet(parser->set_alpha);
+    INTEGER unitpos := SearchElement([ "w", "d", "h", "m", "s", "ms" ], unit);
+    IF (unitpos <= lastunitpos)
+      THROW NEW Exception(`Invalid duration '${EncodeJava(value)}' (${unitpos = -1 ? "unknown unit" : "wrong unit order"})`);
+
+    INTEGER nr := ToInteger(nrval, 0);
+    SWITCH (unitpos)
+    {
+      CASE 0    { retval := retval + nr * 7 * 24 * 60 * 60 * 1000; }
+      CASE 1    { retval := retval + nr * 24 * 60 * 60 * 1000; }
+      CASE 2    { retval := retval + nr * 60 * 60 * 1000; }
+      CASE 3    { retval := retval + nr * 60 * 1000; }
+      CASE 4    { retval := retval + nr * 1000; }
+      CASE 5    { retval := retval + nr; }
+    }
+
+    lastunitpos := unitpos;
+  }
+
+  RETURN retval;
+}

@@ -1,0 +1,229 @@
+﻿<?wh
+LOADLIB "wh::devsupport.whlib";
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+OBJECT trans;
+
+//Handle completions. Return any unhandled completions, to allow our caller to merge in newly incoming completions
+PUBLIC RECORD ARRAY FUNCTION HandleCompletions(RECORD ARRAY completions)
+{
+  IF(NOT ObjectExists(trans))
+    trans := OpenPrimary ( [ clientname := "webserver completions" ]);
+
+  OBJECT torepub := CreateRepublishState();
+  INTEGER ARRAY checkscripts;
+
+  trans->BeginWork();
+
+  //Combine
+  completions := SELECT id, actions := GroupedValues(type) FROM completions GROUP BY id;
+
+  //ADDME merge events and allow partial completions
+
+  FOREVERY(RECORD compl FROM completions)
+  {
+    //PRINT("XX^ Handle completion\n" || AnyToString(compl, "tree"));
+
+    IF("addfile" IN compl.actions OR "replacefile" IN compl.actions)
+    {
+        RECORD newfile := __FindFile(compl.id);
+        IF(NOT RecordExists(newfile))
+          CONTINUE;
+
+        RECORD folder := __FindFolder(newfile.parent);
+        RECORD site := __FindSite(folder.parentsite);
+        IF(RecordExists(site))
+        {
+          IF("addfile" IN compl.actions)
+          {
+            torepub->AddDepsOf(newfile.id, 0/*metadata*/);
+          }
+          ELSE
+          {
+            torepub->AddDepsOf(newfile.id, 2/*created*/);
+            torepub->AddDepsOf(folder.id, 2/*created*/);
+          }
+        }
+        IF(newfile.type IN whconstant_whfstypes_scriptsondisk)
+          INSERT newfile.id INTO checkscripts AT END;
+    }
+
+    IF("addfolder" IN compl.actions OR "updatefolder" IN compl.actions)
+    {
+      RECORD target := __FindFolder(compl.id);
+      RECORD parentfolder := RecordExists(target) ? target.parent = 0 ? target : __FindFolder(target.parent) : DEFAULT RECORD;
+      RECORD parentsite := RecordExists(parentfolder) ? __FindSite(parentfolder.parentsite) : DEFAULT RECORD;
+
+      IF (RecordExists(parentsite)) //Folder gone, parent gone or out-of-site folder
+      {
+        IF("addfolder" IN compl.actions)
+        {
+          torepub->AddDepsOf(target.id, 3 /*created*/);
+          torepub->AddDepsOf(parentfolder.id, 2/*created*/);
+        }
+        ELSE
+        {
+          torepub->AddDepsOf(target.id, 0 /*metadata change*/);
+        }
+      }
+    }
+
+    IF("deletechild" IN compl.actions)
+    {
+      RECORD parentfolder := __FindFolder(compl.id);
+      RECORD parentsite := RecordExists(parentfolder) ? __FindSite(parentfolder.parentsite) : DEFAULT RECORD;
+
+      IF(RecordExists(parentsite)) //parent gone or out-of-site folder
+        torepub->AddDepsOf(parentfolder.id, 3/*content deleted*/);
+
+      //FIXME rescan system.dbcode for deletable stuff?
+    }
+  }
+
+  torepub->DoRepublishes();
+  trans->CommitWork();
+
+  IF(Length(checkscripts)>0) //make sure scripts are on disk
+    ScanLimitedCompilables(checkscripts);
+
+  RETURN DEFAULT RECORD ARRAY;
+}
+
+BOOLEAN log_eventcompletion := FALSE;
+
+PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD ARRAY completions;
+
+  OBJECT parentlink;
+  INTEGER parentlinkcb;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT port)
+  : IPCPortHandlerBase(port)
+  {
+    this->flat_responses := TRUE;
+    this->parentlink := GetIPCLinkToParent();
+    this->parentlinkcb := RegisterHandleReadCallback(this->parentlink->handle, PTR this->OnParentMessage);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO LogDebug(STRING message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  {
+    INSERT message INTO args AT 0;
+    INSERT "sys-eventcompletion" INTO args AT 0;
+    CallMacroPTRVA(PTR LogDebug, args);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  UPDATE BOOLEAN FUNCTION HaveIdleWork()
+  {
+    RETURN Length(this->completions) > 0;
+  }
+
+  UPDATE MACRO HandleIdleWork()
+  {
+    this->completions := HandleCompletions(this->completions);
+
+    IF (NOT ObjectExists(this->parentlink))
+    {
+      IF (LENGTH(this->completions) = 0)
+      {
+        IF (log_eventcompletion)
+          this->LogDebug("All completions of released script handled, terminating");
+        TerminateScript();
+      }
+      ELSE IF (log_eventcompletion)
+        this->LogDebug("Released script still has " || LENGTH(this->completions) || " completions to handle");
+    }
+  }
+
+  UPDATE RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    IF(message.type="newcompletions")
+      this->completions := this->completions CONCAT message.data;
+    ELSE IF (message.type="countcompletions")
+      RETURN [ result := "message", msg := [ completions := LENGTH(this->completions) ] ];
+
+    RETURN [ result := "message"
+           , msg := DEFAULT RECORD
+           ];
+  }
+
+  MACRO OnParentMessage()
+  {
+    RECORD res := this->parentlink->ReceiveMessage(DEFAULT DATETIME);
+    IF (log_eventcompletion)
+      this->LogDebug("Got mgmt message", res);
+
+    IF (res.status = "gone")
+    {
+      UnregisterCallback(this->parentlinkcb);
+      this->parentlink->Close();
+      this->parentlink := DEFAULT OBJECT;
+      RETURN;
+    }
+    IF (res.status = "timeout")
+      RETURN;
+
+    IF (res.msg.task = "tryrelease")
+    {
+      IF (IsScriptOutOfDate())
+      {
+        IF (log_eventcompletion)
+          this->LogDebug("Out of date, releasing");
+        IF (ObjectExists(this->pvt_port))
+          this->pvt_port->Close();
+        this->pvt_port := DEFAULT OBJECT;
+
+        this->parentlink->SendMessage([ type := "tryrelease-ok" ]);
+
+        UnregisterCallback(this->parentlinkcb);
+        this->parentlink->Close();
+        this->parentlink := DEFAULT OBJECT;
+
+        this->HandleIdleWork();
+      }
+      ELSE
+      {
+        IF (log_eventcompletion)
+          this->LogDebug("Not out of date, staying alive");
+        this->parentlink->SendMessage([ type := "tryrelease-cancel" ]);
+      }
+    }
+  }
+>;
+
+PUBLIC MACRO RunCompletionService()
+{
+  OBJECT completionport := CreateIPCPort("system:eventcompletion");
+  __INTERNAL_KeepPortGlobal(completionport);
+
+  OBJECT completionhandler := NEW EventCompletionPortHandler(completionport);
+  completionhandler->Run();
+}

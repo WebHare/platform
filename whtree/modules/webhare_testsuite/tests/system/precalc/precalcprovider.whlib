@@ -1,0 +1,84 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+
+
+PUBLIC RECORD FUNCTION TestFunc(RECORD keydata)
+{
+  BroadcastEvent("webhare_testsuite:system.precalc.testfunc", DEFAULT RECORD);
+  RETURN
+      [ value :=      [ result := 10, now := GetCurrentDateTime() ]
+      ];
+}
+
+PUBLIC RECORD FUNCTION TestFunc2(RECORD keydata)
+{
+  BroadcastEvent("webhare_testsuite:system.precalc.testfunc2", DEFAULT RECORD);
+  DATETIME now := GetCurrentDateTime();
+  RECORD retval :=
+      [ value :=      [ result := 11, now := GetCurrentDateTime() ]
+      ];
+
+  IF (now < keydata.stoprefreshat)
+  {
+    IF (CellExists(keydata, "ttl"))
+      INSERT CELL ttl := keydata.ttl INTO retval;
+    IF (CellExists(keydata, "softttl"))
+      INSERT CELL softttl := keydata.softttl INTO retval;
+  }
+
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION TestFunc3(RECORD keydata)
+{
+  BroadcastEvent("webhare_testsuite:system.precalc.testfunc3", DEFAULT RECORD);
+  RETURN
+      [ value :=            [ result := 12, now := GetCurrentDateTime() ]
+      , softeventmasks :=   [ "webhare_testsuite:test.system.precalc.cache.f3.soft" ]
+      , eventmasks :=       [ "webhare_testsuite:test.system.precalc.cache.f3.hard" ]
+      ];
+}
+
+PUBLIC RECORD FUNCTION TestFunc4(RECORD keydata)
+{
+  THROW NEW Exception("Boem");
+}
+
+PUBLIC RECORD FUNCTION TestFunc5(RECORD keydata)
+{
+  RETURN
+      [ value :=                [ result := 14, now := GetCurrentDateTime() ]
+      , lastuseroundfactor :=   "1ms"
+      , discardunusedtimeout := "50ms"
+      ];
+}
+
+PUBLIC RECORD FUNCTION TestFunc6(RECORD keydata)
+{
+  Sleep(keydata.sleep);
+  IF (GetCurrentDateTime() > keydata.crashat)
+    THROW NEW Exception("crashing!");
+  RETURN
+      [ value :=              [ result := 15, now := GetCurrentDateTime() ]
+      , softeventmasks :=     [ "webhare_testsuite:test.system.precalc.cache.f6.soft" ]
+      , eventmasks :=         [ "webhare_testsuite:test.system.precalc.cache.f6.hard" ]
+      , liverefreshtimeout := keydata.liverefreshtimeout
+      ];
+}
+
+PUBLIC RECORD FUNCTION TestFunc7(RECORD keydata)
+{
+  DATETIME now := GetCurrentDateTime();
+  BroadcastEvent("webhare_testsuite:system.precalc.testfunc7", CELL[ now, keydata.cancelat ]);
+  IF (now > keydata.cancelat)
+    THROW NEW PrecalcDiscardQueryException();
+
+  RETURN
+      [ value :=              [ result := 17, now := GetCurrentDateTime() ]
+      , eventmasks :=         [ "webhare_testsuite:test.system.precalc.cache.f7.hard" ]
+      ];
+}

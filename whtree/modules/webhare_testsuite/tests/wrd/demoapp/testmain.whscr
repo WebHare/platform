@@ -1,0 +1,155 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+OBJECT ASYNC FUNCTION TestMainApp()
+{
+  testfw->GetUserObject("sysop")->SetLocale([ language := "nl" ]); //the app has supportedlanguages=en, so make sysop dutch to test that
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:wrddemo"));
+  TestEq("OverwriteMe", TT("selected_email")->value, "onselect shouldn't have fired yet"); //keep behaviour predicatble
+  TestEq(0, TT("autoupdatecount")->value);
+  TestEq("14\u00a0August\u00a02019", topscreen->contexts->user->FormatDate(makedate(2019,8,14),FALSE,FALSE));
+
+
+  // lookup some values to use for testing setting/getting values
+  INTEGER singledomid :=
+      topscreen->contexts->wrdschema->^test_domain_1->Search("WRD_TAG", "TEST_DOMAINVALUE_1_2");
+
+  INTEGER ARRAY alldomids :=
+      SortArray(SELECT AS INTEGER ARRAY wrd_id FROM topscreen->contexts->wrdschema->^test_domain_2->RunQuery(
+                      [ outputcolumns := ["WRD_ID"]
+                      ]));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("addperson"));
+
+  TT("email")->value := "newaccount@example.com";
+
+  TestEq(0, topscreen->contexts->wrdschema->^wrd_person->Search("WRD_CONTACT_EMAIL", "newaccount@example.com"));
+  TestEq(0, topscreen->^entity->entityid);
+
+  {
+    OBJECT editpersonscreen := topscreen; //save a handle
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+    INTEGER newid := topscreen->contexts->wrdschema->^wrd_person->Search("WRD_CONTACT_EMAIL", "newaccount@example.com");
+    TestEq(TRUE, newid != 0);
+
+    //it should -modify- entityid even after NEW, because a second Store should update the existing entity
+    TestEq(newid, editpersonscreen->^entity->entityid);
+    editpersonscreen->^email->value := "newaccount2@example.com";
+
+    editpersonscreen->^dom_single->value  := singledomid;
+    editpersonscreen->^dom_single2->value := singledomid;
+    editpersonscreen->^dom_single3->value := singledomid;
+    editpersonscreen->^dom_multi->value   := alldomids;
+    editpersonscreen->^dom_multi2->value  := alldomids;
+
+    OBJECT tempwork := topscreen->BeginWork();
+    TestEq(newid, editpersonscreen->^entity->Store(tempwork));
+    tempwork->Finish();
+
+    TestEq(newid, topscreen->contexts->wrdschema->^wrd_person->Search("WRD_CONTACT_EMAIL", "newaccount2@example.com"));
+  } //scope 'editpersonscreen' and 'newid'
+
+  // should select the newly added row
+  TestEq(TRUE, RecordExists(TT("persons")->selection));
+  TestEq("newaccount2@example.com", TT("persons")->selection.wrd_contact_email);
+  Testeq("newaccount2@example.com", TT("selected_email")->value); //verify that it followed the value
+  TestEq(2, TT("autoupdatecount")->value); //one for onselect, one for the event
+
+  topscreen->frame->focused := TT("persons")->^entities->list;
+  AWAIT ExpectScreenChange(+1, PTR TT("persons")->^entities->list->openaction->TolliumClick());
+
+  TestEq("newaccount2@example.com", TT("email")->value);
+
+  // Add a attachment row. we need to verify that it won't popup elsewhere (ie wrd_leftentity filtering works)
+  AWAIT ExpectScreenChange(+1, PTR TTClick("attachments->add"));
+  TT("attachfree")->value := "Attachment #1";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq([[ attachfree := "Attachment #1" ]], SELECT attachfree FROM TT("attachments")->rows);
+
+  // Test whether the <wrd:selectentity> components aren't in error mode (displaying an error)
+  // because they keep their set value (so we aren't testing whether they can get the value back correctly from the subcomponents they create)
+  TestEq(FALSE, topscreen->^dom_single->__inerrormode);
+  TestEq(FALSE, topscreen->^dom_single2->__inerrormode);
+  TestEq(FALSE, topscreen->^dom_single3->__inerrormode);
+  TestEq(FALSE, topscreen->^dom_multi->__inerrormode);
+  TestEq(FALSE, topscreen->^dom_multi2->__inerrormode);
+
+  TestEq(singledomid, topscreen->^dom_single->value);
+  TestEq(singledomid, topscreen->^dom_single2->value); // we don't want an INTEGER ARRAY, wrd:selectentity's should match the attribute's type so it's value can be stored in WRD
+  TestEq(singledomid, topscreen->^dom_single3->value); // we don't want an INTEGER ARRAY, wrd:selectentity's should match the attribute's type so it's value can be stored in WRD
+
+  TestEq(alldomids, SortArray(topscreen->^dom_multi->value));
+  TestEq(alldomids, SortArray(topscreen->^dom_multi2->value));
+
+  TestEQ("Domain value 1.1", TT("testdom1_select")->options[0].title);
+  TestEq(TYPEID(INTEGER), TYPEID(TT("testdom1_select")->options[0].rowkey));
+  TestEqLike("wrd:*", TT("testdom1_select_wrdguid")->options[0].rowkey);
+
+  TestEq(3, Length(TT("testdom1_select")->options));
+  testfw->BeginWork();
+  testfw->wrdschema->^test_domain_1->CreateEntity([wrd_title:="Cool New Domainvalue"]);
+  testfw->CommitWork();
+  TestEq(4, Length(TT("testdom1_select")->options));
+
+  //Test tag edit
+  RECORD ARRAY lookupresults := AWAIT TT("dom_multi3")->tagedit->LookupForAutosuggest("Dom");
+  TestEq(3, Length(lookupresults));
+  TestEq("Domain value 2.2", lookupresults[1].value);
+
+  INTEGER domval22 := testfw->GetWRDSchema()->^test_domain_2->Search("WRD_TITLE","Domain value 2.2");
+  TestEq(TRUE, domval22 != 0);
+  TestEq(3, Length(testfw->GetWRDSchema()->^test_domain_2->RunQuery(CELL[])));
+
+  TestEq(TRUE, TT("dom_multi3")->restrictvalues);
+  TT("dom_multi3")->tagedit->value := ["Domain value 2.2"];
+  TestEq(["Domain value 2.2"], TT("dom_multi3")->tagedit->value);
+  Testeq([domval22], TT("dom_multi3")->value);
+
+  TT("dom_multi3")->tagedit->value := ["Domain value 2.2","Aha"];
+  TestEq(["Domain value 2.2"], TT("dom_multi3")->tagedit->value);
+
+  TT("dom_multi3")->restrictvalues := FALSE;
+  TT("dom_multi3")->tagedit->value := ["Domain value 2.2","Aha"];
+  TestEq(["Domain value 2.2","Aha"], TT("dom_multi3")->tagedit->value);
+
+  // finalize edit
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  // Add a new person. We'll now experiment with temporaries!
+  AWAIT ExpectScreenChange(+1, PTR TTClick("addperson"));
+  TT("email")->value := "newaccount3@example.com";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("attachments->add"));
+  TT("attachfree")->value := "Attachment #2";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq([[ attachfree := "Attachment #2" ]], SELECT attachfree FROM TT("attachments")->rows);
+
+  // finalize add person
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  // reopen and check our rows are still there!
+  dumpvalue(TT("persons")->^entities->rows,'boxed');
+  AWAIT ExpectScreenChange(+1, PTR TT("persons")->^entities->list->openaction->TolliumClick());
+  TestEq([[ attachfree := "Attachment #2" ]], SELECT attachfree FROM TT("attachments")->rows);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+
+  // close app
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+
+  RETURN TRUE;
+}
+
+RunTestFramework([ PTR CreateWRDTestSchema
+                 , PTR TestMainApp
+                 ],
+                 [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ] ]
+                 ]);

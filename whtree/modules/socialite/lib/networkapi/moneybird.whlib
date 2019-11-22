@@ -1,0 +1,151 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+
+/*
+   invoice states: all, draft, open, scheduled, pending_payment, late, reminded, paid or uncollectible
+*/
+
+//__webbrowser_debugall := TRUE;
+
+STRING restapiurl := "https://moneybird.com/api/v2/";
+
+RECORD ARRAY moneybird_permissions :=
+    [ [ name := "sales_invoices" ]
+    , [ name := "documents" ]
+    , [ name := "estimates" ]
+    , [ name := "bank" ]
+    , [ name := "settings" ]
+    ];
+
+PUBLIC OBJECTTYPE MoneybirdConnection EXTEND OauthV2NetworkConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+  PUBLIC STRING administrationid; // example: 164243204529456416
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+   MACRO NEW()
+  : OauthV2NetworkConnection(moneybird_permissions)
+  {
+    this->pvt_newpermissionmodel := TRUE;
+    this->SetMode("moneybird");
+    this->pvt_accesstokenurl := "https://moneybird.com/oauth/token";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Returns an URI the client needs to be redirected to. The client can then authorize the
+      app, and will be redirected to the Moneybird redirect page. The redirect url must
+      then be passed to FinishLogin
+      @param callbackurl Custom callback url, will be ignored when the callback host is set in the app settings
+      @param permissions String array of permissions (read_public, write_public, read_relationships, write_relationships)
+      @param state
+      @return Login data
+      @cell(string) sessiontoken Session token (must be given to FinishLogin)
+      @cell(string) authorize_uri URI to show to the user
+  */
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY permissions, STRING state)
+  {
+    STRING url := UpdateURLVariables("https://moneybird.com/oauth/authorize", [ state := state ]);
+    RETURN this->GetV2AuthorizationCodeURI(url, permissions, callbackurl);
+  }
+
+  /** Set a socialite token as returned by the FacebookSDK APIs*/
+  UPDATE PUBLIC MACRO SetSocialiteToken(STRING token)
+  {
+    IF(token NOT LIKE "tradein:*")
+    {
+      OauthNetworkConnection::SetSocialiteToken(token);
+      RETURN;
+    }
+
+    STRING ARRAY parts := Tokenize(token,":");
+    this->accesstoken := EncodeJSON(
+                          [ access_token :=   parts[1]
+                          , expires :=        0 //FIXME it should be in parts[2] and we should start supporting it in socialite
+                          , v :=              1
+                          ]);
+
+  }
+
+  PUBLIC RECORD FUNCTION Request(STRING method, STRING path, RECORD data, VARIANT returntype)
+  {
+    RECORD result := [ //data := RECORD or RECORD ARRAY
+                       success := FALSE
+                     , error := ""
+                     ];
+
+    method := ToUpperCase(method);
+
+    STRING ARRAY allowed_methods := ["GET","POST","PATCH","PUT","DELETE"];
+    IF (method NOT IN allowed_methods)
+      THROW NEW Exception("Invalid method. Options: " || AnyToString(allowed_methods,'tree'));
+
+    IF (this->administrationid = "")
+      THROW NEW Exception("Administration id must be set in the object (->administrationid). Example: 164243204529456416");
+
+    IF (Left(path, 1) != "/")
+      path := "/" || path;
+
+    IF (method = "POST")
+    {
+      this->browser->PostWebPageBlob(restapiurl || this->administrationid || path
+                                   , DEFAULT RECORD ARRAY
+                                   , StringToBlob(EncodeJSON(data)));
+    }
+    ELSE IF (method = "GET")
+    {
+      this->browser->GotoWebPage(restapiurl || this->administrationid || path);
+    }
+    ELSE
+    {
+      //FIXME: How to handle PATCH/PUT/DELETE? webbrowser.whlib does this->GetPage but that's a PRIVATE func
+      Abort("Only GET and POST methods are supported at the moment");
+    }
+
+    VARIANT browser_result := DecodeJSONBlob(this->browser->content);
+
+    IF (TypeId(browser_result) = TypeId(RECORD) AND CellExists(browser_result, "error"))
+      result.error := browser_result.error;
+    ELSE IF (this->browser->GetHTTPStatusCode() = 404)
+      result.error := "HTTP status 404";
+    ELSE IF (Length(this->browser->content) = 0)
+      result.error := "Empty response";
+
+    IF (result.error != "")
+    {
+      IF (TypeID(returntype) = TypeId(RECORD))
+        INSERT CELL data := DEFAULT RECORD INTO result;
+      ELSE
+        INSERT CELL data := DEFAULT RECORD ARRAY INTO result;
+
+      RETURN result;
+    }
+
+    result.success := TRUE;
+
+    IF (TypeId(browser_result) = TypeID(DEFAULT VARIANT ARRAY)) // no error, but also, no data
+    {
+      IF (TypeID(returntype) = TypeId(RECORD))
+        INSERT CELL data := DEFAULT RECORD INTO result;
+      ELSE
+        INSERT CELL data := DEFAULT RECORD ARRAY INTO result;
+
+      RETURN result;
+    }
+
+    INSERT CELL data := browser_result INTO result;
+
+    RETURN result;
+  }
+>;

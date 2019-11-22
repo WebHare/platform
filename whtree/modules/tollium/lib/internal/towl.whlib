@@ -1,0 +1,293 @@
+﻿<?wh
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+
+/// Towl notification priorities
+PUBLIC INTEGER TowlPriorityVeryLow := -2 ///< @short Very Low
+             , TowlPriorityLow := -1     ///< @short Low
+             , TowlPriorityNormal := 0   ///< @short Normal
+             , TowlPriorityHigh := 1     ///< @short High
+             , TowlPriorityVeryHigh := 2 ///< @short Very High
+             ;
+
+// Internal notification priority, always show
+PUBLIC INTEGER priority_internal := 3;
+// Registry key to save towl settings to
+STRING regkeybase := "tollium.towl";
+// Hide notifications after 5 seconds by default
+INTEGER defaulttimeout := 5000;
+
+PUBLIC OBJECTTYPE TowlService
+<
+  OBJECT trans;
+  OBJECT userapi;
+
+  MACRO NEW()
+  {
+    this->trans := OpenPrimary();
+
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION PersonalizeNotification(RECORD notification, OBJECT user)
+  {
+    INTEGER timeout := notification.timeout;
+    IF (ObjectExists(user))
+      timeout := this->GetNotificationTimeout(user, notification);
+
+    IF (timeout < 0)
+      RETURN DEFAULT RECORD;
+
+    STRING language := ObjectExists(user) ? user->language : "en";
+
+    RECORD event := MakeUpdatedRecord(notification, [ timeout := timeout ]);
+    IF (CellExists(event, "DESCRIPTIONTID"))
+    {
+      INSERT CELL description := GetTidForLanguage(language,
+                                                  event.descriptiontid,
+                                                  Length(event.descriptionparams) > 0 ? event.descriptionparams[0] : "",
+                                                  Length(event.descriptionparams) > 1 ? event.descriptionparams[1] : "",
+                                                  Length(event.descriptionparams) > 2 ? event.descriptionparams[2] : "",
+                                                  Length(event.descriptionparams) > 3 ? event.descriptionparams[3] : "") INTO event;
+      DELETE CELL descriptiontid FROM event;
+      DELETE CELL descriptionparams FROM event;
+    }
+    IF (CellExists(event, "TID"))
+    {
+      INSERT CELL title := GetTidForLanguage(language,
+                                            event.tid,
+                                            Length(event.titleparams) > 0 ? event.titleparams[0] : "",
+                                            Length(event.titleparams) > 1 ? event.titleparams[1] : "",
+                                            Length(event.titleparams) > 2 ? event.titleparams[2] : "",
+                                            Length(event.titleparams) > 3 ? event.titleparams[3] : "") INTO event;
+      DELETE CELL tid FROM event;
+      DELETE CELL titleparams FROM event;
+    }
+
+    RETURN event;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO BroadcastNotification(RECORD receivers, RECORD notification)
+  {
+    BOOLEAN have_webhare_users := CellExists(receivers, "WEBHARE_USERS");
+    BOOLEAN have_wrd_users := CellExists(receivers, "WRD_USERS");
+    BOOLEAN have_users_with_rights := CellExists(receivers, "USERS_WITH_RIGHTS");
+    BOOLEAN have___all_users := CellExists(receivers, "__ALL_USERS");
+
+    IF (NOT have_webhare_users AND NOT have_wrd_users AND NOT have_users_with_rights AND
+        (NOT have___all_users OR NOT receivers.__all_users))
+      THROW NEW Exception("Invalid receivers record");
+
+    INTEGER ARRAY webhare_users;
+    INTEGER ARRAY wrd_users;
+
+    IF (have_webhare_users)
+    {
+      IF (TypeID(receivers.webhare_users) != TypeID(INTEGER ARRAY))
+        ABORT(receivers);
+      webhare_users := receivers.webhare_users;
+    }
+    IF (have_wrd_users)
+      wrd_users := receivers.wrd_users;
+    IF (have_users_with_rights)
+    {
+      FOREVERY (RECORD rec FROM receivers.users_with_rights)
+      {
+        // Currently, wrd users can't have rights, only normal users and roles.
+        // ADDME: filter out roles
+        INTEGER ARRAY authobjs := GetGrantedAuthObjects(rec.rightname, CellExists(rec, "OBJ") ? rec.obj : 0);
+
+        webhare_users := webhare_users CONCAT authobjs;
+      }
+    }
+
+    IF (have___all_users AND receivers.__all_users)
+    {
+      // FIXME: this doesn't personalize enough
+      RECORD event := this->PersonalizeNotification(notification, DEFAULT OBJECT);
+      IF (RecordExists(event))
+        BroadcastToAllSessions(event);
+      RETURN;
+    }
+
+    STRING ARRAY guids := (SELECT AS STRING ARRAY guid FROM system.authobjects WHERE id IN webhare_users)
+                          CONCAT
+                          (SELECT AS STRING ARRAY "wrd:" || EncodeBase16(guid) FROM wrd.entities WHERE id IN wrd_users);
+
+    FOREVERY (STRING guid FROM SELECT AS STRING ARRAY DISTINCT COLUMN guid FROM ToRecordArray(guids, "guid"))
+    {
+      OBJECT user := this->GetUserByGUID(guid);
+      IF (NOT ObjectExists(user))
+        CONTINUE;
+
+      RECORD event := this->PersonalizeNotification(notification, user);
+      IF (RecordExists(event))
+        user->BroadcastToClient(event);
+    }
+  }
+
+  /** @short Get the default timeout to show a notification for a user
+      @param user The user object to query
+      @return The timeout in ms (0 means it's not set)
+  */
+  PUBLIC INTEGER FUNCTION GetUserTimeout(OBJECT user)
+  {
+    STRING regkey := regkeybase || ".timeout";
+    RETURN user->GetRegistryKey(regkey, 0);
+  }
+
+  /** @short Set the default timeout to show a notification for a user
+      @param user The user object to update
+      @param timeout The new timeout, in ms
+  */
+  PUBLIC MACRO SetUserTimeout(OBJECT user, INTEGER timeout)
+  {
+    this->trans->BeginWork();
+    STRING regkey := regkeybase || ".timeout";
+    IF (timeout <= 0)
+      user->DeleteRegistryKey(regkey);
+    ELSE
+      user->SetRegistryKey(regkey, timeout);
+    this->trans->CommitWork();
+  }
+
+  /** @short Get the user priority preference for the given notification
+      @long The notification should only be shown if its priority is equal to or higher than the value returned by this
+            function.
+      @param user The user to query
+      @param name The notification we're interested in
+      @return The priority preference
+  */
+  PUBLIC INTEGER FUNCTION GetNotificationPriority(OBJECT user, STRING name)
+  {
+    STRING regkey := name = "" ? regkeybase || ".showpriority" : regkeybase || ".notifications." || name || ".showpriority";
+    RETURN user->GetRegistryKey(regkey, -4);
+  }
+
+  /** @short Set the user priority preference for the given notification
+      @param user The user to update
+      @param name The notification to change the notification priority for
+      @param priority The new priority (-3 to always show, 3 to never show, from -2 to 2 to show with that priority or higher
+            only)
+  */
+  PUBLIC MACRO SetNotificationPriority(OBJECT user, STRING name, INTEGER priority)
+  {
+    this->trans->BeginWork();
+    STRING regkey := name = "" ? regkeybase || ".showpriority" : regkeybase || ".notifications." || name || ".showpriority";
+    IF (priority = -4)
+      user->DeleteRegistryKey(regkey);
+    ELSE
+    {
+      IF (priority < -3)
+        priority := -3;
+      ELSE IF (priority > 3)
+        priority := 3;
+      user->SetRegistryKey(regkey, priority);
+    }
+
+    this->trans->BroadcastOnCommit("tollium:towl.notificationsettings." || user->entityid, DEFAULT RECORD);
+    this->trans->CommitWork();
+  }
+
+  /** @short Get the timeout to show the notification for the given user
+      @long This function returns the timeout to show the given notification. If the user hasn't seen this notification before,
+            it is shown if defaultenabled was set for the notification.
+      @param user The user to query or update
+      @param notification The notification information, as returned by ShowTowlNotification
+      @return The timeout in ms (0 means that the notification should not hide automatically, -1 means that the notification
+            should not be shown)
+  */
+  PUBLIC INTEGER FUNCTION GetNotificationTimeout(OBJECT user, RECORD notification)
+  {
+    // If persistent, timeout = 0, otherwise get timeout setting from user registry, default to default timeout
+    INTEGER timeout := notification.timeout > 0 ? notification.timeout : this->GetUserTimeout(user);
+    IF (notification.persistent)
+      timeout := 0;
+    ELSE IF (timeout = 0)
+      timeout := defaulttimeout;
+
+    // If this is an internal notification, return timeout immediately (it is always shown, and not stored in registry)
+    IF (notification.priority = priority_internal)
+      RETURN timeout;
+
+    // Check if the user has a registry setting for this event
+    //   -4:     not set
+    //   -3:     always show
+    //   [-2,2]: show priority
+    //   3:      never show
+    INTEGER globalpriority := this->GetNotificationPriority(user, "");
+    INTEGER priority := this->GetNotificationPriority(user, notification.tid);
+    IF (globalpriority > priority)
+      priority := globalpriority;
+    IF (priority = -4)
+    {
+      OBJECT mutex := OpenLockManager()->LockMutex("tollium:towl.setpriority");
+      this->trans->BeginWork();
+
+      TRY
+      {
+        // Reget priority within the mutex
+        priority := this->GetNotificationPriority(user, notification.tid);
+        IF (priority = -4)
+        {
+          // No registry setting yet, set default value
+          priority := notification.defaultenabled ? -3 : 3;
+          STRING regkey := regkeybase || ".notifications." || notification.tid || ".showpriority";
+          user->SetRegistryKey(regkey, priority);
+
+          this->trans->BroadcastOnCommit("tollium:towl.notificationsettings." || user->entityid, DEFAULT RECORD);
+        }
+        this->trans->CommitWork();
+      }
+      CATCH (OBJECT e)
+      {
+        LogHarescriptException(e);
+        this->trans->RollbackWork();
+        THROW e;
+      }
+      FINALLY
+      {
+        mutex->Close();
+      }
+    }
+
+    IF (notification.priority < priority)
+      RETURN -1; // Don't show, priority not high enough
+    ELSE
+      RETURN timeout; // Show for specified time
+  }
+
+  // guid = "wrd:XXXX"
+  OBJECT FUNCTION GetUserByGUID(STRING guid)
+  {
+    INTEGER user_type;
+    IF (NOT ObjectExists(this->userapi))
+    {
+      //FIXME get the proper userapi
+      this->userapi := GetPrimaryWebhareUserApi();
+    }
+    user_type := this->userapi->accounttype->id;
+
+    guid := DecodeBase16(Substring(guid, 4));
+    INTEGER entity :=
+        SELECT AS INTEGER id
+          FROM wrd.entities
+         WHERE COLUMN guid = VAR guid
+           AND (user_type != 0 ? type = user_type : TRUE);
+
+    RETURN this->userapi->GetTolliumUserFromEntityId(entity);
+  }
+>;

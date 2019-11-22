@@ -1,0 +1,330 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/debugger/connector.whlib";
+
+
+RECORD args;
+
+MACRO ShowSyntax(STRING error)
+{
+  IF (error != "")
+    PRINT(`Error: ${error}\n\n`);
+
+  PRINT(
+`Syntax: wh debug [command]
+Commands:
+  processlist                         Show the list of processes
+  joblist [-v] [process] [mask]       Show the (optionally filtered) list of jobs in a process
+  terminate [process] [mask]          Terminate jobs in a process
+  getconfig                           Show currently enabled debug features
+  setconfig [-s session] [tags]       Set enabled debug features (eg. 'apr', 'cov')
+Available debugging features:
+  apr                  All new started scripts make a function CPU profile
+  cov                  All new started scripts make a coverage profile
+  system-cov           Make a coverage profile for all running scripts while enabled
+  wrd:forcehistory     Keep WRD history for all types for at least 1 day and record stack traces
+`);
+  SetConsoleExitCode(error = "" ? 0 : 1);
+  TerminateScript();
+}
+
+MACRO ExitWithError(STRING error)
+{
+  PRINT(error || "\n");
+  SetConsoleExitCode(1);
+  TerminateScript();
+}
+
+STRING FUNCTION BuildURL(RECORD data)
+{
+  STRING uri := (data.secure ? "https://" : "http://");
+  IF (data.host LIKE "*:*")
+    uri := uri || data.host;
+  ELSE
+  {
+    IF (data.host = "")
+      uri:= uri || data.ip;
+    ELSE
+      uri:= uri || data.host;
+    IF (data.port != (data.secure ? 443 : 80))
+      uri := uri || ":" || data.port;
+  }
+  RETURN uri || data.url;
+}
+
+STRING FUNCTION GetScriptShow(RECORD authrec, STRING script)
+{
+  IF (CellExists(authrec, "TOLLIUM") AND recordExists(authrec.tollium.app))
+    RETURN "Tollium: " || authrec.tollium.app.name || " (" || authrec.tollium.user.login || ")";
+  IF (CellExists(authrec, "WEBSERVERREQUEST"))
+  {
+    IF (authrec.webserverrequest.url LIKE "/wh_services/*")
+    {
+      STRING res := "Remoting: " || SubString(authrec.webserverrequest.url, 13);
+      IF (CellExists(authrec, "REMOTING"))
+        res := res || " (" || authrec.remoting.functionname || ")";
+      RETURN res;
+    }
+    RETURN BuildURL(authrec.webserverrequest);
+  }
+  RETURN script;
+}
+
+MACRO ShowDebugConfig(RECORD debugconfig)
+{
+  STRING envsettings := BlobToString(GetDiskResource(MergePath(GetWebhareConfiguration().varroot, ".webhare-envsettings.sh"), [ allowmissing := TRUE ]));
+  IF (envsettings LIKE "* WEBHARE_DEBUG=*")
+    PRINT("Debugging settings are set globally by 'wh console' and cannot be changed\n");
+  ELSE IF (GetEnvironmentVariable("WEBHARE_DEBUG") != "")
+    PRINT("Debugging settings are controlled by the environment variable WEBHARE_DEBUG\n");
+
+  IF (NOT RecordExists(debugconfig) OR IsDefaultValue(debugconfig.tags))
+    PRINT(`All debugging features are disabled\n`);
+  ELSE
+  {
+    PRINT(`Enabled debug features: ${Detokenize(debugconfig.tags, ", ")}\n`);
+    IF ("apr" IN debugconfig.tags)
+      PRINT("- [apr] global function profiling\n");
+    ELSE IF ("cov" IN debugconfig.tags)
+      PRINT("- [cov] global coverage profiling\n");
+    IF (NOT IsDefaultValue(debugconfig.tags))
+      PRINT(`Profiling session: ${debugconfig.outputsession}\n`);
+  }
+}
+
+args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch" ]
+    , [ name := "command", type := "param" ]
+    , [ name := "params", type := "paramlist"]
+    ]);
+
+IF (NOT RecordExists(args))
+  ShowSyntax("Invalid command");
+
+RECORD FUNCTION ParseSubArgs(RECORD ARRAY subparams)
+{
+  RECORD subargs;
+  IF (NOT IsDefaultValue(args.params) OR NOT IsDefaultValue(subparams))
+  {
+    subargs := ParseArguments(args.params, subparams);
+    IF (NOT RecordExists(subargs))
+      ShowSyntax("Invalid command arguments");
+  }
+  args := CELL[ ...args, ...subargs ];
+  RETURN args;
+}
+
+OBJECT connection := ConnectToDebugManager();
+
+ASYNC FUNCTION GetProcessByParam(STRING mask)
+{
+  OBJECT processlistener := connection->GetProcessListener();
+  FOR (INTEGER i := 10; i >= 0; i := i - 1)
+  {
+    RECORD ARRAY processes := AWAIT processlistener->RequestUpdate();
+
+    RECORD ARRAY matches :=
+        SELECT *
+          FROM processes
+         WHERE args.process = ToString(processcode)
+            OR args.process = clientname;
+
+    IF (LENGTH(matches) > 1)
+      ExitWithError(`Multiple matches for ${args.process}`);
+    ELSE IF (RecordExists(matches))
+      RETURN matches[0].obj;
+    IF (i != 0)
+      WaitUntil(DEFAULT RECORD, AddTimeToDate(10, GetCurrentDateTime()));
+  }
+  ExitWithError(`Could not find process ${args.process}`);
+  RETURN DEFAULT OBJECT;
+}
+
+ASYNC MACRO RunCommand()
+{
+  SWITCH (args.command)
+  {
+    CASE "processlist"
+    {
+      ParseSubArgs(RECORD[]);
+
+      OBJECT processlistener := connection->GetProcessListener();
+      WaitUntil(DEFAULT RECORD, AddTimeToDate(100, GetCurrentDateTime()));
+      RECORD ARRAY processes := AWAIT processlistener->RequestUpdate();
+      processlistener->Close();
+
+      DumpValue((SELECT processcode, clientname FROM processes WHERE present), [ name := "List of processes", format := "boxed" ]);
+    }
+    CASE "joblist"
+    {
+      ParseSubArgs(
+            [ [ name := "v", type := "switch" ]
+            , [ name := "process", type := "param", required := TRUE ]
+            , [ name := "mask", type := "param"]
+            ]);
+
+      OBJECT process := AWAIT GetProcessByParam(args.process);
+      OBJECT joblistener := process->GetJobListener();
+
+      RECORD ARRAY joblist := AWAIT joblistener->RequestUpdate();
+
+      joblist :=
+          SELECT *
+               , scriptshow :=    GetScriptShow(authenticationrecord, script)
+            FROM joblist
+           WHERE status != "Terminated"
+        ORDER BY creationdate;
+
+      IF (args.mask != "")
+      {
+        joblist :=
+            SELECT *
+              FROM joblist
+             WHERE scriptshow LIKE `${args.mask}`
+                OR groupid LIKE `${args.mask}*`;
+      }
+
+      IF (args.v)
+        DumpValue(joblist, [ name := `Job list for process ${process->processcode}: '${process->clientname}'`, format := "tree" ]);
+      ELSE
+      {
+        DumpValue((SELECT groupid, scriptshow, creationdate, status, total_running := FormatDateTime("%H:%M:%S.%Q", total_running) FROM joblist), [ name := `Job list for process ${process->processcode}: '${process->clientname}'`, format := "boxed" ]);
+      }
+    }
+    CASE "stacktrace"
+    {
+      ParseSubArgs(
+            [ [ name := "v", type := "switch" ]
+            , [ name := "process", type := "param", required := TRUE ]
+            , [ name := "mask", type := "param", required := TRUE ]
+            , [ name := "params", type := "paramlist"]
+            ]);
+
+      OBJECT process := AWAIT GetProcessByParam(args.process);
+      OBJECT joblistener := process->GetJobListener();
+
+      RECORD ARRAY joblist := AWAIT joblistener->RequestUpdate();
+
+      joblist :=
+          SELECT *
+               , scriptshow :=    GetScriptShow(authenticationrecord, script)
+            FROM joblist
+           WHERE status != "Terminated"
+        ORDER BY creationdate;
+
+      joblist :=
+          SELECT *
+            FROM joblist
+           WHERE scriptshow LIKE `${args.mask}`
+              OR groupid LIKE `${args.mask}*`;
+
+      IF (LENGTH(joblist) > 1)
+        ExitWithError(`Multiple matches for job ${args.mask}`);
+      ELSE IF (NOT RecordExists(joblist))
+        ExitWithError(`No matches for job ${args.mask}`);
+
+      OBJECT jobconnector := process->ConnectToJob(joblist[0].groupid);
+      OBJECT job := AWAIT jobconnector->promise;
+
+      SWITCH (args.command)
+      {
+        CASE "stacktrace"
+        {
+          DumpValue((SELECT filename, line, col, func FROM job->laststatus.stacktrace), [ name := `Stack trace for job ${joblist[0].groupid} at '${process->clientname}'`, format := "boxed" ]);
+        }
+        DEFAULT
+        {
+          ShowSyntax(`Invalid job command '${args.jobcmd}`);
+        }
+      }
+    }
+
+    CASE "terminate"
+    {
+      ParseSubArgs(
+            [ [ name := "v", type := "switch" ]
+            , [ name := "process", type := "param", required := TRUE ]
+            , [ name := "mask", type := "param", required := TRUE ]
+            ]);
+
+      OBJECT processlistener := connection->GetProcessListener();
+      RECORD ARRAY processes := AWAIT processlistener->RequestUpdate();
+
+      OBJECT process := AWAIT GetProcessByParam(args.process);
+
+      OBJECT joblistener := process->GetJobListener();
+      RECORD ARRAY joblist := AWAIT joblistener->RequestUpdate();
+
+      joblist :=
+          SELECT *
+               , scriptshow :=    GetScriptShow(authenticationrecord, script)
+            FROM joblist
+           WHERE status != "Terminated"
+        ORDER BY creationdate;
+
+      joblist :=
+          SELECT *
+            FROM joblist
+           WHERE scriptshow LIKE `${args.mask}`
+              OR groupid LIKE `${args.mask}*`;
+
+      IF (NOT RecordExists(joblist))
+        ExitWithError(`Could not find match for mask ${args.mask}`);
+
+      FOREVERY (RECORD rec FROM joblist)
+      {
+        PRINT(`Terminate ${rec.groupid}: ${rec.scriptshow}\n`);
+        process->TerminateJob(rec.groupid);
+      }
+    }
+    CASE "getconfig"
+    {
+      ParseSubArgs(RECORD[]);
+
+      ShowDebugConfig(__debugconfig);
+    }
+    CASE "setconfig"
+    {
+      ParseSubArgs(
+            [ [ name := "s", type := "stringopt" ]
+            , [ name := "tags", type := "paramlist" ]
+            ]);
+
+      STRING envsettings := BlobToString(GetDiskResource(MergePath(GetWebhareConfiguration().varroot, ".webhare-envsettings.sh"), [ allowmissing := TRUE ]));
+      IF (envsettings LIKE "* WEBHARE_DEBUG=*")
+        TerminateScriptWithError("The debugging settings are set globally by 'wh console' and cannot be changed.");
+
+      IF (GetEnvironmentVariable("WEBHARE_DEBUG") != "")
+        Print("Warning: The WEBHARE_DEBUG environment variable is currently set, the debug configuration only have effect on processes that don't have it set.\n");
+
+      STRING session := RecordExists(__debugconfig) ? __debugconfig.outputsession : "";
+      RECORD debugconfig :=
+          [ tags :=             args.tags
+          , outputsession :=    args.s ?? session ?? "default"
+          ];
+
+      IF (Detokenize(args.tags, ",") = "reset")
+        debugconfig := DEFAULT RECORD;
+
+      UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
+      ShowDebugConfig(debugconfig);
+    }
+    CASE "", "help"
+    {
+      ShowSyntax("");
+    }
+    DEFAULT
+    {
+      ShowSyntax(`Unknown command ${args.command}`);
+    }
+  }
+}
+
+WaitForPromise(RunCommand());

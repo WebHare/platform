@@ -1,0 +1,36 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
+
+
+// command: get <param>
+// short: Gets various configuration parameters
+
+MACRO SyntaxFail()
+{
+  Print("Syntax: wh get <parameter>\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "parameter", type := "param", required := TRUE ]
+    ]);
+
+IF(NOT RecordExists(args))
+  SyntaxFail();
+
+OpenPrimary();
+SWITCH(args.parameter)
+{
+  CASE "snsendpoint"
+  {
+    Print(GetSNSEndpoint()||"\n");
+  }
+  DEFAULT
+  {
+    SyntaxFail();
+  }
+}

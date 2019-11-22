@@ -1,0 +1,116 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+
+/* @short Check if an action is allowed for an object
+   @long This hook is called for each object to index or linkcheck to determine if the action to take is allowed for the
+         object. The default implementation implements the Consilio blacklist. The hook updates the 'pattern' cell of the
+         info record if the action is not allowed for the object.
+   @param indexinfo Information about the object to fetch/check
+   @cell indexinfo.indexid The id of the index (Consilio catalog id)
+   @cell indexinfo.contentsourceid The id of the content source
+   @cell indexinfo.url The url of the object to check
+   @cell indexinfo.action The action to check, one of "fetch" (if the object may be retrieved at all), "follow" (if links in
+         the object's content may be followed for indexing or linkchecking), "index" (if the object's contents may be indexed),
+         "linkcheck_from" (if links in this object's content may be linkchecked) or "linkcheck_to" (if this object may be
+         linkchecked)
+   @cell indexinfo.pattern The pattern that has blacklisted the action for the url, update to non-empty string to disallow the
+         action for this object
+*/
+PUBLIC RECORD FUNCTION BlacklistIntercept(RECORD indexinfo)
+{
+  IF (indexinfo.pattern = "")
+  {
+    SWITCH (indexinfo.action)
+    {
+      CASE "fetch"          { indexinfo.pattern := MayFetch(indexinfo.url); }
+      CASE "follow"         { indexinfo.pattern := MayFollow(indexinfo.url); }
+      CASE "index"          { indexinfo.pattern := MayIndex(indexinfo.url); }
+      CASE "linkcheck_from" { indexinfo.pattern := MayLinkCheckFrom(indexinfo.url); }
+      CASE "linkcheck_to"   { indexinfo.pattern := MayLinkCheckTo(indexinfo.url); }
+    }
+  }
+  RETURN indexinfo;
+}
+
+RECORD ARRAY cached_blacklist;
+INTEGER blacklist_event_callback;
+
+/** @short Default blacklist
+    @long The items in this blacklist are always applied
+*/
+RECORD ARRAY defaultblacklist := [ [ pattern := "^([^\/]*:\/\/[^\/]+)?\/robots.txt$", pattern_regex := TRUE
+                                   , noindex := TRUE, nofollow := TRUE, nolinkcheck_from := TRUE, nolinkcheck_to := TRUE
+                                   ]
+                                 ];
+
+RECORD ARRAY FUNCTION GetBlacklist()
+{
+  IF (Length(cached_blacklist) = 0)
+  {
+    RECORD ARRAY blacklist := defaultblacklist CONCAT SELECT * FROM consilio.blacklist;
+    cached_blacklist := SELECT *
+                             , regex := pattern_regex ? NEW RegEx(pattern, "i") : DEFAULT OBJECT
+                          FROM blacklist;
+
+    IF (blacklist_event_callback = 0)
+      blacklist_event_callback := RegisterEventCallback("consilio:blacklistchanged", PTR InvalidateCachedBlacklist);
+  }
+  RETURN cached_blacklist;
+}
+
+MACRO InvalidateCachedBlacklist(STRING event, RECORD data)
+{
+  cached_blacklist := DEFAULT RECORD ARRAY;
+}
+
+// May this URL be fetched? Returns empty string if not blacklisted, or pattern which blacklisted the URL
+STRING FUNCTION MayFetch(STRING url)
+{
+  RETURN SELECT AS STRING pattern
+           FROM GetBlacklist() AS blacklist
+          WHERE noindex AND nolinkcheck_from AND nofollow
+                AND ((pattern_regex AND blacklist.regex->Test(url))
+                    OR ToUppercase(url) LIKE ToUppercase(pattern));
+}
+
+// May links from this URL be followed to be fetched? Returns empty string if not blacklisted, or pattern which blacklisted the URL
+STRING FUNCTION MayFollow(STRING url)
+{
+  RETURN SELECT AS STRING pattern
+           FROM GetBlacklist() AS blacklist
+          WHERE nofollow
+                AND ((pattern_regex AND blacklist.regex->Test(url))
+                    OR ToUppercase(url) LIKE ToUppercase(pattern));
+}
+
+// May this URL be indexed? Returns empty string if not blacklisted, or pattern which blacklisted the URL
+STRING FUNCTION MayIndex(STRING url)
+{
+  RETURN SELECT AS STRING pattern
+           FROM GetBlacklist() AS blacklist
+          WHERE noindex
+                AND ((pattern_regex AND blacklist.regex->Test(url))
+                    OR ToUppercase(url) LIKE ToUppercase(pattern));
+}
+
+// May links from this URL be checked? Returns empty string if not blacklisted, or pattern which blacklisted the URL
+STRING FUNCTION MayLinkCheckFrom(STRING url)
+{
+  RETURN SELECT AS STRING pattern
+           FROM GetBlacklist() AS blacklist
+          WHERE nolinkcheck_from
+                AND ((pattern_regex AND blacklist.regex->Test(url))
+                    OR ToUppercase(url) LIKE ToUppercase(pattern));
+}
+
+// May this link be checked? Returns empty string if not blacklisted, or pattern which blacklisted the URL
+STRING FUNCTION MayLinkCheckTo(STRING url)
+{
+  RETURN SELECT AS STRING pattern
+           FROM GetBlacklist() AS blacklist
+          WHERE nolinkcheck_to
+                AND ((pattern_regex AND blacklist.regex->Test(url))
+                    OR ToUppercase(url) LIKE ToUppercase(pattern));
+}

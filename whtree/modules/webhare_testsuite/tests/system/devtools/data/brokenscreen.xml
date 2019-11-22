@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="testgid">
+  <screen name="createscreen" implementation="none">
+    <body>
+      <never_gonna_give_you_up/>
+    </body>
+  </screen>
+</screens>

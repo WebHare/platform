@@ -1,0 +1,249 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/smtp.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
+LOADLIB "mod::system/lib/internal/mail/routemgr.whlib";
+
+OBJECT smtpmgr; //Cache between tasks... the smtpmgr by default keeps connections open for 30 seconds
+
+PUBLIC RECORD FUNCTION CreateMailFromTask(RECORD mailtask)
+{
+  STRING sender := mailtask.sender;
+  // Get defaults for some header fields
+  RECORD ARRAY mimeheaders := mailtask.mimeheaders;
+  DELETE FROM mimeheaders WHERE ToUppercase(field) IN ["X-WEBHARE-ORIGIN","MESSAGE-ID"];
+
+  STRING fromheader := SELECT AS STRING value FROM mimeheaders WHERE ToUppercase(field)="FROM";
+  IF(fromheader="")
+  {
+    DELETE FROM mimeheaders WHERE ToUppercase(field)="FROM";
+    INSERT INTO mimeheaders(field, value) VALUES("From", sender) AT END;
+  }
+
+  STRING ARRAY u_mimeheaders_fields := SELECT AS STRING ARRAY ToUppercase(field) FROM mimeheaders;
+
+  RECORD ARRAY baseheaders := GetSMTPEmailHeader(sender, "", "");
+
+  INSERT INTO baseheaders(field,value) VALUES("X-WebHare-Origin", mailtask.origin) AT END;
+  IF(CellExists(mailtask,'MESSAGEID'))
+    INSERT [ field := "Message-Id", value := mailtask.messageid ] INTO mimeheaders AT END;
+
+  // Add the missing headers with their default values (when missing)
+  FOREVERY(RECORD hdr FROM baseheaders)
+  {
+    IF (ToUppercase(hdr.field) NOT IN u_mimeheaders_fields)
+      INSERT hdr INTO mimeheaders AT END;
+  }
+  RETURN [ mimeheaders := mimeheaders
+         , toppart := mailtask.toppart
+         , sender := sender
+         , receiver := mailtask.receiver
+         ];
+}
+
+PUBLIC BLOB FUNCTION GetEMLFromMaiLTask(RECORD mailtask)
+{
+  RECORD data := CreateMailFromTask(mailtask);
+  RETURN EncodeMIMEMessage(data.mimeheaders, data.toppart, [ rawheaders := CellExists(mailtask,"rawheaders") AND mailtask.rawheaders ]);
+}
+
+PUBLIC OBJECTTYPE OutgoingMailTask EXTEND ManagedTaskBase
+<
+  MACRO CreateErrorMessage(STRING error_to, STRING receiver, STRING error, RECORD ARRAY errormsg_headers, RECORD errormsg_toppart, BOOLEAN rawheaders)
+  {
+    INTEGER newblobid := CreateStream();
+    PrintTo(newblobid, "The following errors occurred:\r\n\r\n");
+    PrintTo(newblobid, "To: " || receiver || "\r\n" || error ||"\r\n");
+
+    BLOB errortext := MakeBlobFromStream(newblobid);
+
+    //ADDME: Extend DSN and make it standard compliant (RFC1891-4)
+    INTEGER dsnstream := CreateStream();
+    PrintTo(dsnstream, "Reporting-MTA: foreign; WebHare\r\n\r\n");
+
+    PrintTo(dsnstream, "Final-Recipient: rfc822;" || receiver || "\r\n");
+    PrintTo(dsnstream, "Action-Field: failed\r\n");
+    PrintTo(dsnstream, "Status: 5.0.0 (unknown permanent failure)\r\n");
+    PrintTo(dsnstream, "Diagnostic-Code: " || error || "\r\n");
+    PrintTo(dsnstream, "\r\n");
+
+    BLOB dsntext := MakeBlobFromStream(dsnstream);
+    BLOB original := EncodeMIMEMessage(errormsg_headers, errormsg_toppart, [ rawheaders := rawheaders ]);
+
+    RECORD ARRAY headers := GetSMTPEmailHeader("", "Returned mail: see transcript for details", "");
+    INSERT INTO headers(field, value) VALUES("To", error_to) AT END;
+
+    RECORD toppart := [ ID := 0
+                      , mimetype := "multipart/report; report-type=delivery-status"
+                      , description := "Returned mail"
+                      , contentid := ""
+                      , data := DEFAULT BLOB
+                      , subparts := [ [ id := 1, mimetype := "text/plain",     description := "Error message",    contentid := "", data := errortext, subparts := DEFAULT RECORD ARRAY ]
+                                    , [ id := 2, mimetype := "message/delivery-status", description := "",        contentid := "", data := dsntext, subparts := DEFAULT RECORD ARRAY ]
+                                    , [ id := 3, mimetype := "message/rfc822", description := "Original message", contentid := "", data := original, subparts := DEFAULT RECORD ARRAY ]
+                                    ]
+                      ];
+
+    QueueMailInWork("WebHare email queue manager", [ error_to ], "", headers, toppart);
+  }
+
+  UPDATE PUBLIC MACRO RunTask(RECORD taskdata)
+  {
+    RECORD data := CreateMailFromTask(taskdata);
+    BOOLEAN allowbounce := TRUE; //We might want to make this configurable by-route or by-email someday ?
+    IF(taskdata.sender = "" OR GetMIMEHeaderParameter(data.toppart.mimetype, "") = "multipart/report")
+      allowbounce := FALSE;
+
+    IF(NOT ObjectExists(smtpmgr))
+      smtpmgr := NEW WebHareSMTPManager;
+
+    IF(NOT smtpmgr->HasMailroutes())
+    {
+      this->ResolveByTemporaryFailure( [ serverip := ""
+                                       , route := ""
+                                       , response := "No mailroutes configured"
+                                       , success := FALSE
+                                       , sender := taskdata.sender
+                                       , finalreceiver := taskdata.receiver
+                                       ], `No mailroutes configured`);
+      RETURN;
+    }
+
+    IF(NOT IsAllowedEmailSender(taskdata.senderemail) AND ReadRegistryKey("system.services.smtp.usemailfromfornonwhitelisted"))
+    {
+      STRING mailfrom := ReadRegistryKey("system.services.smtp.mailfrom");
+      IF(IsAllowedEmailSender(mailfrom))
+      {
+        RECORD split_mailfrom := SplitEmailName(mailfrom);
+        RECORD split_origsender := SplitEmailName(taskdata.senderemail);
+        STRING use_name := (split_origsender.name != "" ? split_origsender.name || " " : "")
+                           || Substitute(split_origsender.name, '@', " at ");
+        taskdata.senderemail := split_mailfrom.email;
+        data.sender := MakeEmailAddress(use_name, split_mailfrom.email, FALSE);
+
+        UPDATE data.mimeheaders SET value := data.sender WHERE ToUppercase(field) = "FROM";
+        UPDATE data.mimeheaders SET value := "<" || taskdata.senderemail || ">" WHERE ToUppercase(field) IN ["ERRORS-TO","RETURN-PATH"];
+      }
+    }
+
+    IF(NOT IsAllowedEmailSender(taskdata.senderemail))
+    {
+      this->ResolveByTemporaryFailure( [ serverip := ""
+                                       , route := ""
+                                       , response := "Sender is not whitelisted"
+                                       , success := FALSE
+                                       , sender := taskdata.sender
+                                       , finalreceiver := taskdata.receiver
+                                       ], `Sender '${taskdata.senderemail}' is not whitelisted`);
+      RETURN;
+    }
+
+    IF(NOT IsAllowedEmailReceiver(taskdata.receiver))
+    {
+      this->ResolveByTemporaryFailure( [ serverip := ""
+                                       , route := ""
+                                       , response := "Receiver is not whitelisted"
+                                       , success := FALSE
+                                       , sender := taskdata.sender
+                                       , finalreceiver := taskdata.receiver
+                                       ], `Receiver '${taskdata.receiver}' is not whitelisted`);
+      RETURN;
+    }
+
+    RECORD route := smtpmgr->GetMailroute(taskdata.senderemail, taskdata.receiver, taskdata.origin);
+    IF(NOT RecordExists(route))
+    {
+      this->ResolveByCancellation( [ serverip := ""
+                                   , route := ""
+                                   , response := "No mailroute available"
+                                   , success := FALSE
+                                   , sender := taskdata.sender
+                                   , finalreceiver := taskdata.receiver
+                                   ], "No mailroute available");
+      RETURN;
+    }
+
+    RECORD serverurlunpacked := UnpackURL(route.serverurl);
+    IF(serverurlunpacked.password != "")
+      serverurlunpacked.password := "xxxxx";
+    STRING reporturl := RepackURL(serverurlunpacked);
+
+    STRING receiver := smtpmgr->RewriteEmailTo(route, taskdata.receiver);
+    IF(route.serverurl = "infinitedelay") //test destination, simply delay, it will be cancelled at some point
+    {
+      this->ResolveByRestart(AddDaysToDate(1,GetCurrentDatetime()));
+      RETURN;
+    }
+
+    IF(route.serverurl = "null") //explicit blackhole
+    {
+      this->ResolveByCancellation([ serverip := ""
+                                  , route := "This mailroute is blackholed"
+                                  , response := ""
+                                  , success := TRUE
+                                  , sender := taskdata.sender
+                                  , finalreceiver := receiver
+                                  ], "This mailroute is blackholed");
+      RETURN;
+    }
+
+    RECORD smtpconn := smtpmgr->GetSMTPConnection(route.serverurl);
+    IF(NOT ObjectExists(smtpconn.conn))
+      THROW NEW Exception(smtpconn.errors != "" ? smtpconn.errors : "Unable to connect with any mailserver");
+
+    DELETE FROM data.mimeheaders WHERE TOUppercase(field)="MESSAGE-ID";
+    INSERT [ field := "Message-ID", value := `<${EncryptForThisServer("system:messageid", this->GetTaskMetadata().taskid)}@smtp.webhare.net>`
+           ] INTO data.mimeheaders AT END;
+
+    BOOLEAN rawheaders := CellExists(taskdata,"rawheaders") AND taskdata.rawheaders;
+    RECORD sendresult := smtpconn.conn->SendMessage([receiver], data.sender, data.mimeheaders, data.toppart, [ rawheaders := rawheaders ]);
+
+    IF(NOT sendresult.success OR Length(sendresult.failures)>0) //all recipients were successful
+    {
+      RECORD error := Length(sendresult.failures) > 0 ? sendresult.failures[0] : smtpconn.conn->lasterror;
+      STRING errortext := Length(sendresult.failures) > 0 ? sendresult.failures[0].text : smtpconn.conn->lasterror.message;
+
+      BOOLEAN isfatal := (error.code / 100) = 5;
+      STRING message := error.code || " " || errortext;
+      IF(isfatal)
+      {
+        IF(allowbounce)
+          this->CreateErrorMessage(taskdata.sender, taskdata.receiver, message, data.mimeheaders, data.toppart, rawheaders);
+        this->ResolveByFailure( [ serverip := sendresult.smtpserverip
+                                , route := reporturl
+                                , response := message
+                                , success := FALSE
+                                , sender := taskdata.sender
+                                , finalreceiver := receiver
+                                ], message);
+        RETURN;
+      }
+      THROW NEW Exception(message);
+    }
+
+    this->ResolveByCompletion([ serverip := sendresult.smtpserverip
+                              , route := reporturl
+                              , response := sendresult.message
+                              , success := TRUE
+                              , sender := taskdata.sender
+                              , finalreceiver := receiver
+                              ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE MailStatusCallbackTask EXTEND ManagedTaskBase
+<
+  UPDATE PUBLIC MACRO RunTask(RECORD taskdata)
+  {
+    this->ResolveByCompletion([ callbackresult := MakeFunctionPtr(taskdata.func)(taskdata.data, taskdata.type, taskdata.status) ]);
+  }
+>;

@@ -1,0 +1,858 @@
+﻿<?wh
+/** @short URL manipulation
+    @topic internet/url
+*/
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::files.whlib";
+
+PUBLIC BOOLEAN FUNCTION __HasURLInvalidCharacters(STRING url)
+{
+  OBJECT parse := NEW StringParser(url);
+  RETURN parse->ParseWhileNotInSet("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F\x20") != url;
+}
+
+/** Returns the default port for an URL scheme
+    @param scheme URL scheme (eg 'ftp', 'http')
+    @return Default port number for the scheme
+*/
+PUBLIC INTEGER FUNCTION GetSchemeDefaultPort(STRING scheme)
+{
+  SWITCH(scheme) //port numbers from RFC1738
+  {
+    CASE "ftp" { RETURN 21; }
+    CASE "http" { RETURN 80; }
+    CASE "ws" { RETURN 80; }
+    CASE "gopher" { RETURN 70; }
+    CASE "nntp" { RETURN 119; }
+    CASE "telnet" { RETURN 23; }
+    CASE "wais" { RETURN 210; }
+    CASE "prospero" { RETURN 1525; }
+    //well known protocols
+    CASE "https" { RETURN 443; }
+    CASE "wss" { RETURN 443; }
+    CASE "ldap" { RETURN 389; }
+    CASE "ldaps" { RETURN 636; }
+    CASE "smtp" { RETURN 25; }
+    DEFAULT { RETURN 0; }
+  }
+}
+
+/** @short Check if a hostname is valid
+    @long Check if the entered hostname is valid, by comparing every character in the
+          hostname to a list of valid characters
+    @param hostname String with the hostname
+    @return TRUE if the hostname is valid */
+PUBLIC BOOLEAN FUNCTION IsValidHostname(STRING hostname)
+{
+  IF(hostname=".")
+    RETURN TRUE; //the dot is a valid domain name, honestly. try 'host -t ns .'
+  IF(Right(hostname,1)=".")
+    hostname := Left(hostname, Length(hostname)-1);
+  IF(Length(hostname)>254) //Every hostname officially ends in a dot, which we just removed, so 254 bytes are left at most.
+    RETURN FALSE;
+
+  STRING validchars := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890-";
+  FOREVERY(STRING tok FROM Tokenize(hostname,'.'))
+  {
+    IF(tok="" OR Length(tok)>63)
+      RETURN FALSE;
+    IF(Left(tok,1)="-" OR Right(tok,1)="-") //domain names may not start or end with hyphens (RFC1034)
+      RETURN FALSE;
+    FOR(INTEGER i:=0;i<Length(tok);i:=i+1)
+      IF(SearchSubstring(validchars, Substring(tok,i,1))=-1)
+        RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+//we need stricter encoding of URL parts before the first slash
+STRING FUNCTION StrictEncodeURL(STRING indata)
+{
+  indata := EncodeURL(indata);
+  indata := Substitute(indata,'/','%2F');
+  RETURN indata;
+}
+
+STRING FUNCTION PackAuthority(STRING scheme, STRING user, STRING pwd, STRING host, INTEGER port)
+{
+  STRING authority;
+  IF(user != "")
+  {
+    authority := authority || StrictEncodeURL(user);
+    IF(pwd != "")
+      authority := authority || ":" || StrictEncodeURL(pwd);
+    authority := authority|| "@";
+  }
+
+  //ip host names require special work
+  IF(host LIKE "*::*")
+    authority := authority || "[" || host || "]";
+  ELSE
+    authority := authority || StrictEncodeURL(host);
+  IF(port != GetSchemeDefaultPort(scheme))
+    authority := authority || ":" || port;
+
+  RETURN authority;
+}
+
+/** @short Repack a split URL back into a string
+    @param unpackedurl Unpacked URL (from [UnpackURL](%UnpackURL))
+    @cell unpackedurl.scheme URL Scheme
+    @cell unpackedurl.schemespecificpart The data after the colon. Ignored if 'host' is set (should be properly url-encoded)
+    @cell unpackedurl.user Username
+    @cell unpackedurl.password Password
+    @cell unpackedurl.host The host to connect to
+    @cell unpackedurl.port The port to connect to. If the specified port is the default port for the protocol, it will not be a part of the returned url.
+    @cell unpackedurl.urlpathslash Optional, true if the urlpath should start with a slash (note that if urlpath is non-empty, this flag is ignored)
+    @cell unpackedurl.urlpath The path and variables requested (should be properly url-encoded) - for backwards compatibility, this never includes the initial slash.
+    @return The full URL
+    @see #UnpackUrl
+*/
+PUBLIC STRING FUNCTION RepackURL(RECORD unpackedurl)
+{
+  STRING url := EncodeURL(unpackedurl.scheme);
+  url := url || ":";
+
+  IF(unpackedurl.host != "") //we need a host
+  {
+    BOOLEAN urlpathslash := unpackedurl.urlpath != "" OR (CellExists(unpackedurl, "urlpathslash") AND unpackedurl.urlpathslash = TRUE);
+    url := url || "//"
+               || PackAuthority(unpackedurl.scheme, unpackedurl.user, unpackedurl.password, unpackedurl.host, unpackedurl.port)
+               || (urlpathslash ? "/" : "") || unpackedurl.urlpath;
+  }
+  ELSE
+  {
+    url := url || unpackedurl.schemespecificpart;
+  }
+  RETURN url;
+}
+
+/** @short Unpack a URL into its parts
+    @long This function splits and parses as much of a URL as possible. The parts it cannot decode, will require a manual DecodeURL when interpreted!
+    @param inurl URL to decode
+    @return A record explaining this URL
+    @cell(string) return.scheme URL Scheme (in lowercase, url-decoded)
+    @cell(string) return.schemespecificpart The data after the colon (NOT decoded!)
+    @cell(string) return.user Username (url-decoded)
+    @cell(string) return.password Password (url-decoded)
+    @cell(string) return.host The host to connect to (url-decoded)
+    @cell(integer) return.port The port to connect to (if not specified, and the URL scheme does not specify a default, it will be 0)
+    @cell(string) return.urlpathslash True if the URL path started with a slash
+    @cell(string) return.urlpath The path and variables requested (NOT decoded! does not include the slash following the hostname/port number)
+    @cell(boolean) return.secure True if this is a secure (SSL, TLS) protocol
+    @cell(boolean) return.specifiedport True if this URL specified a port number
+    @cell(boolean) return.isdefaultport True if the port number (explicitly specified or not) is the default for this scheme
+    @cell(boolean) return.origin Origin of the url (scheme://hostname(:port) - no slash!)
+    @see #RepackUrl
+*/
+PUBLIC RECORD FUNCTION UnpackURL(STRING inurl)
+{
+  RECORD retval := [ scheme := ""
+                   , schemespecificpart := ""
+                   , user := ""
+                   , password := ""
+                   , host := ""
+                   , port := 0
+                   , urlpathslash := FALSE
+                   , urlpath := ""
+                   , secure := FALSE
+                   , specifiedport := FALSE
+                   , isdefaultport := FALSE
+                   , origin := ""
+                   ];
+
+  BOOLEAN missingslash;
+  INTEGER firstcolon := SearchSubstring(inurl,':');
+  IF(firstcolon=-1)
+  {
+    retval.scheme := inurl;
+    RETURN retval;
+  }
+
+  retval.scheme := ToLowercase(DecodeURL(Left(inurl,firstcolon)));
+  inurl := Substring(inurl, firstcolon+1);
+  retval.schemespecificpart := inurl;
+
+  IF(retval.schemespecificpart NOT LIKE "//*") //not an internet host format
+    RETURN retval;
+
+  inurl := Substring(inurl, 2);
+
+  //Find the first slash, it terminates the user..port part
+  INTEGER firstslash := SearchSubstring(inurl,'/');
+  IF(firstslash=-1)
+    firstslash:=Length(inurl);
+
+  INTEGER firstat := SearchSubstring(inurl,'@');
+  IF(firstat>=0 AND firstat < firstslash)
+  {
+    //Username and possible password are present
+    INTEGER pwdcolon := SearchSubstring(inurl,':');
+    IF(pwdcolon>=0 AND pwdcolon < firstat)
+    {
+      retval.user := DecodeURL(Left(inurl, pwdcolon));
+      retval.password := DecodeURL(Substring(inurl, pwdcolon+1, firstat-pwdcolon-1));
+    }
+    ELSE
+    {
+      retval.user := DecodeURL(Left(inurl, firstat));
+    }
+    inurl := Substring(inurl,firstat+1);
+    firstslash := SearchSubstring(inurl,'/');
+    IF(firstslash=-1)
+      firstslash:=Length(inurl);
+  }
+
+  //Common mistake, at least in http* urls, specifying a ? right after the URL (ADDME perhaps this shoud apply for all URLs? check rfc)
+  IF(retval.scheme = "http" OR retval.scheme = "https")
+  {
+    INTEGER firstquestionmark := SearchSubstring(inurl,'?');
+    IF(firstquestionmark != -1 AND firstquestionmark < firstslash)
+    {
+      firstslash := firstquestionmark;
+      missingslash := TRUE;
+    }
+  }
+
+  INTEGER closing_bracket;
+  IF(inurl LIKE "[*") //RFC3986 IP-literal
+    closing_bracket := SearchSubstring(inurl,']');
+
+  IF(closing_bracket>0) //Indeed an IP-literal
+  {
+    retval.host := DecodeURL(Substring(inurl, 1, closing_bracket-1));
+    IF(Substring(inurl, closing_bracket+1, 1) = ':') //port follows
+      retval.port := ToInteger(DecodeURL(Substring(inurl, closing_bracket+2, firstslash-closing_bracket-2)),0);
+    ELSE
+      retval.port := GetSchemeDefaultPort(retval.scheme);
+  }
+  ELSE
+  {
+    INTEGER portcolon := SearchSubstring(inurl,':');
+    IF(portcolon>=0 AND portcolon < firstslash)
+    {
+      retval.host := DecodeURL(Left(inurl,portcolon));
+      retval.port := ToInteger(DecodeURL(Substring(inurl, portcolon+1, firstslash-portcolon-1)),0);
+      retval.specifiedport := TRUE;
+      retval.isdefaultport := retval.port = GetSchemeDefaultPort(retval.scheme);
+    }
+    ELSE
+    {
+      retval.host := DecodeURL(Left(inurl,firstslash));
+      retval.port := GetSchemeDefaultPort(retval.scheme);
+      retval.isdefaultport := TRUE;
+    }
+  }
+
+  retval.urlpathslash := NOT (missingslash OR firstslash=Length(inurl));
+  retval.urlpath := Substring(inurl, firstslash + (missingslash ? 0 : 1));
+  retval.secure := retval.scheme IN ["aas","ftps","https","imaps","ldaps","shttp","sips","ssh","sftp"];
+  IF(retval.host!="")
+    retval.origin := retval.scheme || "://" || retval.host || (retval.isdefaultport ? "" : ":" || retval.port);
+  RETURN retval;
+}
+
+/** @short Test whether an URL is a valid HTTP url
+    @long This function verifies that a HTTP URL is properly formatted, eg it begins with http:// or
+          https://, the hostname, port and username/password protocol part is followed by a slash,
+          the port number is in the proper range for TCP ports, etc. Note that this function explicitly
+          checks for HTTP urls, eg 'mailto:info@webhare.net' is a valid URL, but not a valid HTTP URL.
+    @param url URL to check
+    @return True if the URL appears to be a valid HTTP URL. */
+PUBLIC BOOLEAN FUNCTION IsValidPlainHTTPURL (STRING url)
+{
+  IF(__HasURLInvalidCharacters(url))
+    RETURN FALSE;
+
+  RECORD unpacked := UnpackURL(url);
+  IF(unpacked.scheme NOT IN ["http","https"])
+    RETURN FALSE;
+  IF(unpacked.port < 1 OR unpacked.port > 65535)
+    RETURN FALSE;
+  IF(unpacked.host = "")
+    RETURN FALSE;
+  RETURN true;
+}
+
+/** @short Test whether an URL is a valid url
+    @long This function verifies that an URL looks like an URL. If the scheme is recognized, more
+          stringent checks are performed (see IsValidPlainHTTPURL)
+    @param url URL to check
+    @return True if the URL appears to be a valid URL. */
+PUBLIC BOOLEAN FUNCTION IsValidURL(STRING url)
+{
+  IF(__HasURLInvalidCharacters(url))
+    RETURN FALSE;
+
+  RECORD unpacked := UnpackURL(url);
+  IF (unpacked.scheme = "" OR unpacked.schemespecificpart = "")
+    RETURN FALSE;
+
+  IF (unpacked.scheme IN [ "http", "https"])
+    RETURN IsValidPlainHTTPURL(url);
+
+  RETURN TRUE;
+}
+
+RECORD FUNCTION SplitURLForVars(STRING url)
+{
+  STRING hash;
+  INTEGER hashstart := SearchSubstring(url,'#');
+  IF(hashstart!=-1)
+  {
+    hash:=Substring(url,hashstart);
+    url:=Left(url,hashstart);
+  }
+
+  INTEGER startvars := SearchSubstring(url, '?');
+  INTEGER nextamp := SearchSubstring(url, '&');
+  INTEGER nextsemi := SearchSubstring(url, ';');
+
+  IF(nextamp != -1 AND (nextamp < startvars OR startvars = -1))
+    startvars  := nextamp;
+  IF(nextsemi != -1 AND (nextsemi < startvars OR startvars = -1))
+    startvars := nextsemi;
+
+  IF(startvars=-1)
+  {
+    RETURN [ baseurl := url
+           , vars := DEFAULT STRING ARRAY
+           , hash := hash
+           ];
+  }
+
+  STRING vars := Substring(url, startvars+1);
+  vars := Substitute(vars,';','&');
+  vars := Substitute(vars,'?','&');
+
+  RETURN [ baseurl := Left(url, startvars)
+         , vars := Tokenize(vars,'&')
+         , hash := hash
+         ];
+}
+
+STRING FUNCTION DecodeURLQueryVar(STRING indata)
+{
+  indata:=Substitute(indata,'+',' ');
+  RETURN DecodeURL(indata);
+}
+
+/** @short Get the value of a variable from a URL
+    @long This function searches for the requested variable in a URL
+          and returns its value, while taking care of proper URL
+          decoding.
+    @param url URL to search
+    @param varname Name of the variable to find
+    @return The requested variable's value, or an empty string if the
+            variable could not be found */
+PUBLIC STRING FUNCTION GetVariableFromUrl(STRING url, STRING varname)
+{
+  RECORD split := SplitURLForVars(url);
+  IF(Length(split.vars)!=0)
+  {
+    varname := ToUppercase(varname);
+    FOREVERY(STRING tok FROM split.vars)
+    {
+      INTEGER equals := SearchSubstring(tok, '=');
+      IF(equals = -1)
+        CONTINUE;
+
+      STRING thisvarname := ToUppercase(DecodeURLQueryVar(Left(tok, equals)));
+      IF(thisvarname = varname)
+        RETURN DecodeURLQueryVar(Substring(tok, equals+1));
+    }
+  }
+  RETURN "";
+}
+
+/** @short Get all variable on a URL
+    @long This function searches for the requested variable in a URL
+          and returns its value, while taking care of proper URL
+          decoding.
+    @param url URL to search
+    @return An array of variables
+    @cell(string) return.name Variable name
+    @cell(string) return.value Variable value */
+PUBLIC RECORD ARRAY FUNCTION GetAllVariablesFromUrl(STRING url)
+{
+  RECORD split := SplitURLForVars(url);
+
+  IF(Length(split.vars)=0)
+    RETURN DEFAULT RECORD ARRAY;
+
+  RECORD ARRAY vars;
+  FOREVERY(STRING tok FROM split.vars)
+  {
+    INTEGER equals := SearchSubstring(tok, '=');
+    STRING varname := DecodeURLQueryVar(equals = -1 ? tok : Left(tok, equals));
+    IF(varname="")
+      CONTINUE;
+
+    STRING varvalue;
+    IF(equals != -1)
+      varvalue := DecodeURLQueryVar(Substring(tok, equals+1));
+
+    INSERT INTO vars(name,value) VALUES(varname, varvalue) AT END;
+  }
+  RETURN vars;
+}
+
+
+STRING FUNCTION ReplaceOrDeleteVariable(STRING url, STRING varname, STRING varvalue, BOOLEAN dodelete)
+{
+  RECORD split := SplitURLForVars(url);
+  STRING outvars;
+
+  IF(Length(split.vars)!=0)
+  {
+    STRING findvarname := ToUppercase(varname);
+    FOREVERY(STRING tok FROM split.vars)
+    {
+      INTEGER equals := SearchSubstring(tok, '=');
+      IF(equals = -1)
+        CONTINUE;
+
+      STRING thisvarname := ToUppercase(DecodeURLQueryVar(Left(tok, equals)));
+      IF(thisvarname = findvarname)
+      {
+        IF(NOT dodelete)
+        {
+          outvars := (outvars=""?"":outvars || "&") || EncodeURL(varname)||"="||EncodeURL(varvalue);
+          dodelete := TRUE;
+        }
+        CONTINUE;
+      }
+      outvars := (outvars=""?"":outvars || "&") || tok;
+    }
+  }
+  IF(NOT dodelete)
+    outvars := (outvars=""?"":outvars || "&") || EncodeURL(varname)||"="||EncodeURL(varvalue);
+
+  RETURN split.baseurl || (outvars=""?"":"?"||outvars) || split.hash;
+}
+
+/** @short Rewrite an URL to remove a variable
+    @long This function removes the requested variable from a URL and takes care of proper
+          adding of variable separators. If the variable with the specified name
+          occurs more than once inside the URL, all occurences will be removed.
+    @param url URL to modify
+    @param varname Name of the variable to remove
+    @return The rewritten URL */
+PUBLIC STRING FUNCTION DeleteVariableFromUrl(STRING url, STRING varname)
+{
+  RETURN ReplaceOrDeleteVariable(url, varname, "", TRUE);
+}
+
+/** @short Rewrite an URL to add a variable
+    @long This function adds the requested variable to a URL, takes care of proper
+          URL encoding and adding the necessary '?' and '&" characters to the URL.
+          It will not try to eliminate duplicate variables on the URL
+    @param url URL to modify
+    @param varname Name of the variable to add
+    @param varvalue Value to set this variable to
+    @return The rewritten URL */
+PUBLIC STRING FUNCTION AddVariableToUrl(STRING url, STRING varname, STRING varvalue)
+{
+  // Remove fragment part from url
+  STRING fragment_part;
+  INTEGER fragment_pos := SearchSubstring(url,'#');
+  IF(fragment_pos!=-1)
+  {
+    fragment_part := Substring(url, fragment_pos, Length(url));
+    url := Left(url,fragment_pos);
+  }
+
+  //Does this URL already have variables
+  IF (SearchSubstring(url,'?') = -1) //nope..
+    url := url || '?';
+  ELSE IF (Right(url,1) != '?' AND Right(url,1) != '&')
+    url := url || '&';
+
+  RETURN url || EncodeURL(varname) || '=' || EncodeURL(varvalue) || fragment_part;
+}
+
+/** @short Rewrite an URL to replace an existing variable
+    @long This function replaces the requested variable to a URL, takes care of proper
+          URL encoding and adding the necessary '?' and '&" characters to the URL.
+          This function will eliminate duplicates if the requested variable occurs more
+          than once. If the requested variable does not exist on the URL, it will be added
+    @param url URL to modify
+    @param overridevar Name of the variable to replace
+    @param overridevalue Value to set this variable to
+    @return The rewritten URL */
+PUBLIC STRING FUNCTION ReplaceVariableInUrl(STRING url, STRING overridevar, STRING overridevalue)
+{
+  RETURN ReplaceOrDeleteVariable(url, overridevar, overridevalue, FALSE);
+}
+
+RECORD FUNCTION SplitURLQueryHash(STRING url)
+{
+  STRING query_part;
+  STRING fragment_part;
+
+  INTEGER fragment_pos := SearchSubstring(url,'#');
+  IF(fragment_pos!=-1)
+  {
+    fragment_part := Substring(url, fragment_pos, Length(url));
+    url := Left(url,fragment_pos);
+  }
+
+  INTEGER query_pos := SearchSubstring(url,'?');
+  IF(query_pos!=-1)
+  {
+    query_part := Substring(url, query_pos, Length(url));
+    url := Left(url, query_pos);
+  }
+  RETURN [ path := url
+         , query := query_part
+         , fragment := fragment_part
+         ];
+}
+
+/** @short Rewrite an URL to make it absolute
+    @long This function takes a base url and a relative or absolute URL,
+          and uses these to construct a proper absolute URL
+    @param baseurl Absolute base URL, to which the new url might be relative. We also accept URLs starting with "//"
+    @param newurl New URL which must be merged into the base URL
+    @loadlib wh::internet/urls.whlib
+    @return The rewritten absolute URL */
+PUBLIC STRING FUNCTION ResolveToAbsoluteURL(STRING baseurl, STRING newurl)
+{
+  IF(IsAbsoluteURL(newurl))
+    RETURN newurl;
+  IF(baseurl="")
+    RETURN "";
+
+  BOOLEAN striptempprotocol;
+  IF(baseurl LIKE "//*") //protocol-absolute
+  {
+    striptempprotocol := TRUE;
+    baseurl := "x-resolvetemp:" || baseurl;
+  }
+
+
+  IF(NOT IsAbsoluteURL(baseurl))
+    THROW NEW Exception('The base URL passed to ResolveToAbsoluteURL must be an absolute URL');
+
+  RECORD unpacked := UnpackURL(baseurl);
+  BOOLEAN is_authority_rewrite := newurl LIKE "//*" AND unpacked.schemespecificpart LIKE "//*";
+
+  IF(is_authority_rewrite)
+    unpacked := UnpackURL(unpacked.scheme || ":" || newurl); //overwrite the URL basics
+
+  //Now we need to rewrite the urlpath in 'unpacked'
+  RECORD split := SplitURLQueryHash(unpacked.urlpath);
+  BOOLEAN must_terminate := split.path LIKE "?*/" OR split.path LIKE "*/.." OR split.path LIKE "*/." OR split.path = '..' OR split.path='.';
+  IF(NOT is_authority_rewrite)
+  {
+    RECORD splitnewurl := SplitURLQueryHash(newurl);
+
+    IF(splitnewurl.path != "")
+    {
+      must_terminate := splitnewurl.path LIKE "?*/" OR splitnewurl.path LIKE "*/.." OR splitnewurl.path LIKE "*/." OR splitnewurl.path = '..' OR splitnewurl.path='.';
+
+      IF(splitnewurl.path LIKE "/*") //absolute path update
+        split.path := splitnewurl.path;
+      ELSE //relative path update
+        split.path := Left(split.path,SearchLastSubstring(split.path,'/')) || "/" || splitnewurl.path;
+
+      split.query := splitnewurl.query;
+    }
+
+    IF(splitnewurl.path != "" OR splitnewurl.query != "")
+      split.query := splitnewurl.query;
+
+    split.fragment := splitnewurl.fragment;
+  }
+
+  //Collapse the path
+  split.path := CollapsePath("/" || split.path);
+  IF (must_terminate AND NOT (split.path LIKE "*/"))
+    split.path := split.path || "/";
+
+  //Rewrite the URL
+  unpacked.urlpath := Substring(split.path,1) || split.query || split.fragment;
+
+  STRING retval := RepackURL(unpacked);
+  IF(striptempprotocol AND retval LIKE "x-resolvetemp:*")
+    retval := Substring(retval, 14);
+
+  RETURN retval;
+}
+
+/** @short Is this URL absolute ?
+    @param url URL to check
+    @signature BOOLEAN FUNCTION IsAbsoluteURL(STRING url)
+    @return True if the specified URL is absolute
+*/
+PUBLIC BOOLEAN FUNCTION IsAbsoluteURL(STRING url, BOOLEAN deprecated DEFAULTSTO FALSE)
+{
+  IF(deprecated = TRUE)
+    THROW NEW Exception("The second parameter to IsAbsoluteURL should never be set to TRUE (and will be removed post WH 4.24");
+  INTEGER first_slash := SearchSubstring(url,'/');
+  //If the URL starts with a slash, it depends on what _you_ considered absolute
+  IF(first_slash=0)
+    RETURN FALSE;
+
+  //valid scheme? parse any non-rfc3986 reserved chars
+  OBJECT parser := NEW StringParser(url);
+  STRING scheme := parser->ParseWhileNotInSet(":/?#[]@!$&'()*+,;=");
+  RETURN scheme != "" AND parser->ParseN(1)=':';
+}
+
+/** @short Convert an absolute URL to a relative one, if at all possible
+    @param current_url Current page URL
+    @param convert_url URL to try to convert to a relatve
+    @param scope Optional: scope within which to make the URL relative ("", "protocol" or "root")
+    @return Relative URL, if it was possible to make it. Otherwise, this function returns the original 'convert_url' */
+PUBLIC STRING FUNCTION MakeRelativeLinkFromURL(STRING current_url, STRING convert_url, STRING scope DEFAULTSTO "")
+{
+  IF(scope NOT IN ["","protocol","root"])
+    THROW NEW Exception("Invalid scope for MakeRelativeLinkFromURL: only '', 'protocol' and 'root' are supported");
+
+  //Print("MakeRelativeLinkFromURL " || current_url || ' * ' || convert_url || '\n');
+
+  BOOLEAN striptempprotocol;
+  IF(current_url LIKE "//*") //protocol-absolute
+  {
+    striptempprotocol := TRUE;
+    current_url := "x-resolvetemp:" || current_url;
+  }
+
+  //Ensure convert_url is absolute and both URLs are collapsed
+  convert_url := ResolveToAbsoluteURL(current_url, convert_url);
+  current_url := ResolveToAbsoluteURL(current_url, current_url);
+
+  RECORD base := UnpackURL(current_url);
+  RECORD convert := UnpackURL(convert_url);
+
+  IF(base.scheme != convert.scheme) //schemes differ
+    RETURN convert_url; //There's no relative way to jump between URLs
+
+  IF(base.schemespecificpart NOT LIKE "//*") //not an internet host format
+    RETURN convert_url; //No definition of relative URLs
+
+  IF(base.host != convert.host OR base.port != convert.port OR scope = "protocol") //Host/port part differs
+    RETURN convert.schemespecificpart; //a //link which rests host but not scheme, should do
+
+  IF(scope="root")
+    RETURN "/" || convert.urlpath;
+
+  RECORD split_current := SplitURLQueryHash(base.urlpath);
+  RECORD split_convert := SplitURLQueryHash(convert.urlpath);
+
+  IF(split_current.path = split_convert.path) //Basically the same resource, but possibly different scripting parameters
+  {
+    IF(split_current.query != split_convert.query AND split_convert.query != "" AND split_convert.fragment != "") //different queries
+      RETURN split_convert.query || split_convert.fragment;
+    IF(split_convert.fragment!="")
+      RETURN split_convert.fragment;
+    IF(split_convert.query!="")
+      RETURN split_convert.query; //repeat query for IE-compat
+  }
+
+  STRING ARRAY curpath := Tokenize(split_current.path,"/");
+  STRING ARRAY destpath := Tokenize(split_convert.path,"/");
+
+  //Figure out equal part
+  INTEGER equalpart;
+  WHILE(equalpart < Length(curpath) AND equalpart < Length(destpath) AND curpath[equalpart] = destpath[equalpart])
+    equalpart := equalpart + 1;
+
+
+  STRING rellink;
+  IF(equalpart < Length(curpath)) //we need to go up a few levels
+  {
+    FOR(INTEGER i:=0;i<Length(curpath)-equalpart-1;i:=i+1)
+      rellink := rellink || "../";
+  }
+  IF(equalpart < Length(destpath)) //we need to go down these levels
+  {
+    rellink := rellink || Detokenize(ArraySlice(destpath, equalpart),"/");
+  }
+
+  IF(rellink = "") //the URls were completely identical
+    rellink := destpath[Length(curpath)-1] != "" ? destpath[Length(curpath)-1] : "./";
+
+  STRING retval := rellink || split_convert.query || split_convert.fragment;
+  IF(striptempprotocol AND retval LIKE "x-resolvetemp:*")
+    retval := Substring(retval, 14);
+  RETURN retval;
+}
+
+
+/** Returns the protocol from an URL
+    @param url URL
+    @return Protocol (eg 'ftp' from 'ftp://host/path')
+*/
+PUBLIC STRING FUNCTION GetProtocolFromURL(STRING url)
+{
+  RETURN Left(url,SearchSubstring(url,':'));
+}
+
+/** @short Derive the hostname from a URL
+    @long Try to derive the hostname from a URL, by stripping 'http://' and everything from '/' or ':'
+          Assumes url is of the form "http://hostname/abc" or "http://hostname:port/def"
+    @param url String with the URL to use
+    @return String with the hostname stripped from the URL
+*/
+PUBLIC STRING FUNCTION GetHostNameFromURL(string url)
+{
+  //Check and eat the protocol part
+  STRING scheme := Tokenize(url, "://")[0];
+  IF (scheme NOT IN [ "http", "https", "ftp", "ws", "wss" ])
+    RETURN "";
+
+  url := SubString(url, LENGTH(scheme) + 3);
+
+  // find out at what point the port number is entered in the url
+  integer strip := SearchSubString (url,":");
+  IF (strip!=-1)   // there is a :, most likely setting the port number
+    url := substring (url,0,strip);
+
+  // find out at what point the port number is entered in the url
+  strip := SearchSubString (url,"/");
+  IF (strip!=-1)   // there is a :, most likely setting the port number
+    url := substring (url,0,strip);
+
+  return url;
+}
+
+
+
+
+/** @short Derive the port number from a url
+    @long Get the port number from a URL. If no port number is specified in the URL, the default
+          port for the protocol is used
+    @param url String with the URL to use
+    @return The port number, or 0 if the protocol or port number was unrecognized */
+PUBLIC INTEGER FUNCTION GetPortFromURL(string url)
+{
+  INTEGER port;
+
+  //Check and eat the protocol part
+  STRING scheme := Tokenize(url, "://")[0];
+  IF (scheme NOT IN [ "http", "https", "ftp", "ws", "wss" ])
+    RETURN 0;
+
+  port := GetSchemeDefaultPort(scheme);
+  url := SubString(url, LENGTH(scheme) + 3);
+
+  // strip everything after the final slash
+  integer strip := SearchSubString (url,"/");
+  IF (strip!=-1)
+    url := substring (url,0,strip);
+
+  // find out at what point the port number is entered in the url
+  strip := SearchSubString (url,":");
+  IF (strip!=-1)   // there is a :, most likely setting the port number
+    port := tointeger(substring (url,strip+1,length(url)),0);
+  IF (port<1 OR port>65535)
+    port := 0;
+
+  return port;
+}
+
+/** @short Get the path from a URL
+    @param url String with the URL to use
+    @return The path in the URL, or an empty string if the protocol was unrecognized
+*/
+PUBLIC STRING FUNCTION GetPathFromURL(string url)
+{
+  //Check and eat the protocol part
+  STRING scheme := Tokenize(url, "://")[0];
+  IF (scheme NOT IN [ "http", "https", "ftp", "file", "ws", "wss" ])
+    RETURN "";
+
+  url := SubString(url, LENGTH(scheme) + 3);
+
+  // Get everything after the slash
+  INTEGER slash := SearchSubString (url,"/");
+  IF (slash != -1)
+    RETURN substring (url,slash,length(url));
+  ELSE
+    RETURN "/";
+}
+
+/** @short Construct a data URL for a given file
+    @long This function creates a base64-encoded data URL for a file. For more information on data URL's, see Wikipedia:
+          http://en.wikipedia.org/wiki/Data_URI or RFC 2397: http://tools.ietf.org/html/rfc2397
+    @param filedata The file contents
+    @param filetype The mime type. If not specified or not valid, it will be assumed to be a filename and used to help autodetect the mimetype
+    @return A data URL representing the given file
+*/
+PUBLIC STRING FUNCTION GetDataUrl(BLOB filedata, STRING filetype)
+{
+  IF(filetype NOT LIKE "*/*")
+  {
+    RECORD typeinfo := ScanBlob(filedata, filetype);
+    filetype := typeinfo.mimetype;
+  }
+
+  // data:[<MIME-type>][;charset="<encoding>"][;base64],<data>
+  RETURN "data:" || EncodeURL(filetype) || ";base64," || EncodeBase64(BlobToString(filedata, -1));
+}
+
+/** Parses a data url (URL that looks like 'data:....')
+    @param inurl Data URL
+    @return Parsed data
+    @cell(string) return.contenttype Contenttype of the data, if available
+    @cell(blob) return.data Decoded data from the URL
+*/
+PUBLIC RECORD FUNCTION ParseDataURL(STRING inurl)
+{
+  IF(inurl NOT LIKE "data:*")
+    RETURN DEFAULT RECORD;
+
+  INTEGER datastart := SearchSubstring(inurl,',');
+  STRING header := datastart = -1 ? Substring(inurl,5) : Substring(inurl, 5, datastart-5);
+  STRING data := datastart = -1 ? "" : Substring(inurl,datastart+1);
+
+  INTEGER paramstart := SearchSubstring(header,';');
+  STRING mimetype := paramstart = -1 ? header : Left(header,paramstart);
+  STRING ARRAY allparams;
+
+  IF(paramstart != -1)
+  {
+    FOREVERY(STRING param FROM Tokenize(Substring(header, paramstart+1),";"))
+      INSERT TrimWhitespace(param) INTO allparams AT END;
+  }
+  data := "base64" IN allparams ? DecodeBase64(data) : DecodeURL(data);
+
+  FOREVERY(STRING param FROM allparams)
+    IF(param LIKE "charset=*")
+    {
+      TRY
+      {
+        STRING converted := DecodeCharset(data, Substring(param,8));
+        IF(converted!="")
+          data := converted;
+      }
+      CATCH
+      {
+        RETURN DEFAULT RECORD; //invalid or unrecognized charset? then just return nothing..
+      }
+    }
+
+  RETURN [ contenttype := mimetype
+         , data := StringToBlob(data)
+         ];
+}
+
+/** @short Update the variables in a URL with the cells in a record
+    @param inurl Original URL
+    @param replacements Replaced variables, record with new variables. The cell names will be lowercased,
+        if the value is an empty string the variable will be removed
+    @return Updated URL
+*/
+PUBLIC STRING FUNCTION UpdateURLVariables(STRING inurl, RECORD replacements)
+{
+  FOREVERY(RECORD repl FROM UnpackRecord(replacements))
+  {
+    IF(repl.value="")
+      inurl := DeleteVariableFromURL(inurl, ToLowercase(repl.name));
+    ELSE
+      inurl := ReplaceVariableInURL(inurl, ToLowercase(repl.name), repl.value);
+  }
+  RETURN inurl;
+}

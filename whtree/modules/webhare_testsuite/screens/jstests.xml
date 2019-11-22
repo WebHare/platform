@@ -1,0 +1,179 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         lib="screens/jstests.whlib"
+         gid="jstests">
+
+  <messageboxes gid="jstests.messageboxes">
+    <messagebox name="webhareurlmustbeglobal" icon="warning" buttons="ok" />
+  </messageboxes>
+
+  <screen name="jstests" allowresize="1" gid=".jstests" menubar="menubar">
+    <actions gid=".actions">
+      <action name="applymasks" onexecute="doapplymasks" />
+      <action name="restarttestmgr" onexecute="dorestarttestmgr" />
+      <action name="close" onexecute="cancel" tid="tollium:common.actions.close" />
+
+      <action name="run_chrome" onexecute="dorunchrome">
+        <enableon source="jstests" min="1" />
+      </action>
+      <action name="run_firefox" onexecute="dorunfirefox">
+        <enableon source="jstests" min="1" />
+      </action>
+      <action name="run_ie11" onexecute="dorunie11">
+        <enableon source="jstests" min="1" />
+      </action>
+      <action name="run_edge" onexecute="dorunedge">
+        <enableon source="jstests" min="1" />
+      </action>
+      <action name="run_safari" onexecute="dorunsafari">
+        <enableon source="jstests" min="1" />
+      </action>
+      <action name="run_all" onexecute="dorunall">
+        <enableon source="jstests" min="1" />
+      </action>
+      <action name="canceltests" onexecute="docanceltests">
+        <enableon source="jstests" min="1" />
+      </action>
+      <windowopenaction name="opentestinbrowser" onwindowopen="doopentestinbrowser">
+        <enableon source="jstests" min="1" checkflags="istest" />
+      </windowopenaction>
+      <windowopenaction name="opentestspage" onwindowopen="doopentestspage" />
+      <windowopenaction name="opengridconsole" onwindowopen="doopengridconsole" />
+      <downloadaction name="export" ondownload="doexport" />
+
+      <action name="openbrowserresult" onexecute="doopenbrowserresult">
+        <enableon source="failures" min="1" checkflags="hasresult" />
+      </action>
+
+    </actions>
+
+    <menus>
+      <menu name="menubar">
+        <item tid=".apptitle">
+          <item action="opengridconsole" />
+          <item action="opentestspage" />
+          <item action="restarttestmgr" />
+          <item action="export" />
+          <item action="close" />
+        </item>
+      </menu>
+      <menu name="testcontextmenu">
+        <item action="run_chrome" />
+        <item action="run_firefox" />
+        <item action="run_ie11" />
+        <item action="run_edge" />
+        <item action="run_safari" />
+        <item action="run_all" />
+        <item action="canceltests" />
+        <divider />
+        <item action="opentestinbrowser" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener masks="system:webhareservice.webhare_testsuite:jstestservice.start" onevents="gotjstestservicestart" />
+      <eventlistener masks="webhare_testsuite:jstestchangeall" onevents="gotjstestchangeallevent" />
+      <eventlistener masks="webhare_testsuite:jstestchange.*" onevents="gotjstestchangeevent" />
+
+      <eventlistener masks="system:webhareservice.publisher:assetpackcontrol.start" onevents="gotassetpackcontrolstart" />
+      <eventlistener masks="publisher:assetpackcontrol.change.*" onevents="gotassetpackchanges" groupinterval="1000" />
+    </compositions>
+    <body>
+      <split type="vertical">
+        <part height="4pr">
+          <line>
+            <textedit name="masks" onchange="gotmaskschange" defaultbutton="btn_applymasks" />
+            <textedit name="skips" onchange="gotmaskschange" defaultbutton="btn_applymasks" />
+            <button name="btn_applymasks" action="applymasks" tid=".applymasks" />
+          </line>
+          <list name="jstests"
+                selectmode="multiple"
+                icons="tollium:status/unknown tollium:status/checked tollium:status/error tollium:status/neutral tollium:status/wait tollium:status/marker"
+                oniconclick="goticonclick"
+                onselect="gotrowselect"
+                oncheck="gotwatchcheck"
+                selectcontextmenu="testcontextmenu"
+                flags="istest"
+                borders="top left right"
+                >
+            <column name="testname" type="text" iconname="bundlestatus" checkboxname="watch" checkboxvisible="canwatch" />
+            <column name="icon_chrome" type="icon" title="" iconlink="true" />
+            <column name="result_chrome" type="text" width="18x" />
+            <column name="icon_firefox" type="icon" title="" iconlink="true" />
+            <column name="result_firefox" type="text" width="18x" />
+    <!--        <column name="icon_ie9" type="icon" title="" iconlink="true" />
+            <column name="result_ie9" type="text" width="18x" />
+            <column name="icon_ie10" type="icon" title="" iconlink="true" />
+            <column name="result_ie10" type="text" width="18x" /> -->
+            <column name="icon_ie11" type="icon" title="" iconlink="true" />
+            <column name="result_ie11" type="text" width="18x" />
+            <column name="icon_edge" type="icon" title="" iconlink="true" />
+            <column name="result_edge" type="text" width="18x" />
+            <column name="icon_safari" type="icon" title="" iconlink="true" />
+            <column name="result_safari" type="text" width="18x" />
+            <column name="allicon" type="icon" title="" iconlink="true" />
+            <style name="watched" backgroundcolor="#ccffcc" />
+          </list>
+        </part>
+        <part height="12x">
+          <split type="horizontal">
+            <part width="4pr">
+              <list name="failures"
+                    selectmode="single"
+                    openaction="openbrowserresult"
+                    flags="hasresult"
+                    borders="bottom left">
+                <column name="browser" type="text" width="20x" />
+                <column name="failures" type="text" width="1pr" />
+              </list>
+            </part>
+            <part width="1pr">
+              <list name="watchbrowsers"
+                    selectmode="single"
+                    oncheck="gotwatchbrowsercheck"
+                    borders="bottom right">
+                <column name="browser" type="text" checkboxname="watch" tid=".autorunbrowsers" />
+              </list>
+            </part>
+          </split>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="testresults" allowresize="1" gid=".jstests.testresults" width="140x" height="50x" flags="canrestart">
+    <actions>
+      <action name="restart" onexecute="dorestart" frameflags="canrestart" />
+      <action name="recompileassetpacks" onexecute="dorecompileassetpacks" />
+    </actions>
+    <compositions>
+      <eventlistener name="listener" onevents="onchangeevents" />
+    </compositions>
+    <body>
+      <text name="teststatus" />
+      <textedit name="testurl" enabled="false" width="1pr" />
+      <line>
+        <textedit name="assetpackstatus" width="1pr" enabled="false" />
+        <button action="recompileassetpacks" />
+      </line>
+      <heading tid=".failedsteps" />
+      <list name="failedsteps">
+        <column name="stepnr" type="integer" width="6x" />
+        <column name="stepname" type="text" />
+        <column name="e" type="text" width="3pr" />
+      </list>
+      <heading tid=".log" />
+      <codeedit name="log" height="1pr" width="1pr" />
+    </body>
+    <footer>
+      <line>
+        <checkbox name="showtraces" title="" labeltid=".showtraces" />
+        <inlineblock width="1pr" />
+        <button action="restart" />
+        <button tolliumresult="cancel" tid="tollium:common.buttons.close" />
+      </line>
+    </footer>
+
+  </screen>
+
+</screens>

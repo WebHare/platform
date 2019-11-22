@@ -1,0 +1,182 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// An inline block
+
+PUBLIC OBJECTTYPE TolliumInlineBlock EXTEND TolliumLinesContainerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD pvt_borders;
+
+  STRING pvt_backgroundcolor;
+
+  RECORD ARRAY pvt_backgroundimages;
+
+  RECORD ARRAY lines;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY borders(pvt_borders, pvt_borders);
+
+  PUBLIC PROPERTY backgroundcolor(pvt_backgroundcolor, SetBackgroundColor);
+
+  PUBLIC PROPERTY backgroundimages(pvt_backgroundimages, SetBackgroundImages);
+
+  PUBLIC STRING layout;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    this->componenttype := "inlineblock";
+    this->layout := "form";
+    this->pvt_borders := tolliumdefaultborderspacer;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->layout := def.layout;
+    this->pvt_borders := def.borders;
+    this->pvt_backgroundcolor := def.backgroundcolor;
+    this->pvt_backgroundimages := def.backgroundimages;
+    this->lines := def.lines;
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    OBJECT ARRAY retval;
+    FOREVERY(RECORD line FROM this->lines)
+      retval := retval CONCAT line.items;
+    RETURN retval;
+  }
+
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
+  {
+    RECORD pos := this->GetComponentPosition(oldcomponent);
+    IF(NOT RecordExists(pos))
+      RETURN;
+
+    DELETE FROM this->lines[pos.line].items AT pos.pos;
+    IF(Length(this->lines[pos.line].items)=0)
+      DELETE FROM this->lines AT pos.line;
+    this->ExtUpdatedComponent();
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ title            := FALSE
+        , backgroundcolor  := FALSE
+        , backgroundimages := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      RECORD ARRAY lines := this->TolliumWebDoLines();
+
+      RECORD panelinfo := [ title := this->title
+                          , borders := this->pvt_borders
+                          , backgroundcolor := this->backgroundcolor
+                          , backgroundimages := this->backgroundimages
+                          , lines := lines
+                          ];
+
+      this->owner->tolliumcontroller->SendComponent(this, panelinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.backgroundcolor)
+      {
+        this->ToddUpdate([type := "backgroundcolor", backgroundcolor := this->backgroundcolor ]);
+      }
+      IF (this->dirtyflags.backgroundimages)
+      {
+        this->ToddUpdate([type := "backgroundimages", backgroundimages := this->backgroundimages ]);
+      }
+    }
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetBackgroundColor(STRING color)
+  {
+    IF (color != this->pvt_backgroundcolor)
+    {
+      this->pvt_backgroundcolor := GetValidColor(color);
+      this->ExtUpdatedBackgroundColor();
+    }
+  }
+
+  MACRO SetBackgroundImages(RECORD ARRAY images)
+  {
+    FOREVERY (RECORD image FROM images)
+    {
+      IF (NOT CellExists(image, "image") AND NOT CellExists(image, "src"))
+        THROW NEW TolliumException(this, "Either image or src attributes must be specified for backgroundimage");
+      ELSE IF (CellExists(image, "image") AND CellExists(image, "src"))
+        THROW NEW TolliumException(this, "Both image and src fields are specified for backgroundimage");
+      IF (CellExists(image, "image") AND (NOT CellExists(image, "width") OR NOT CellExists(image, "height")))
+        THROW NEW TolliumException(this, "Image attribute specified for backgroundimage without width or height");
+      images[#image] := MakeUpdatedRecord([ image := ""
+                                          , src := ""
+                                          , position := [ "center" ]
+                                          , repeat := "repeat"
+                                          , size := "auto"
+                                          , width := ""
+                                          , height := ""
+                                          ], image);
+    }
+    this->pvt_backgroundimages := images;
+    this->ExtUpdatedBackgroundImages();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedBackgroundColor()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.backgroundcolor := TRUE;
+    */
+  }
+
+  MACRO ExtUpdatedBackgroundImages()
+  {
+    this->ExtUpdatedComponent();/*disabled
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.backgroundimages := TRUE;
+    */
+  }
+
+>;

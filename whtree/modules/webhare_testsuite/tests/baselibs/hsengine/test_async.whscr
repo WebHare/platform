@@ -1,0 +1,188 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::async.whlib";
+
+
+BOOLEAN debug := FALSE;
+
+/// Returns when all pending microtasks (eg promise resolves) have been run
+MACRO RunPendingMicrotasks()
+{
+  WHILE (TRUE)
+  {
+    IF (NOT __INTERNAL_HandleEventCallbackEvents(-1))
+      BREAK;
+  }
+}
+
+/// virtual timer
+INTEGER currenttime;
+
+/// waits on virtual timer
+RECORD ARRAY waits;
+
+/// Returns a promise that resolves when the virtual timer has advances `msecs` seconds from the current time
+OBJECT FUNCTION CreateTimedResolve(INTEGER msecs, STRING title DEFAULTSTO "")
+{
+  IF (debug)
+    PRINT(`${Right("    " || currenttime, 5)}: Wait for ${msecs}ms until ${currenttime + msecs}: ${title}\n`);
+
+  RECORD rec := CELL[ when := currenttime + msecs, ...CreateDeferredPromise(), title ];
+  INSERT rec INTO waits AT RecordUpperBound(waits, rec, [ "WHEN" ]);
+  RETURN rec.promise;
+}
+
+/// Advances the virtual timer a nr of microseconds
+MACRO AdvanceTime(INTEGER msecs)
+{
+  INTEGER newtime := currenttime + msecs;
+  IF (debug)
+    PRINT(`${Right("    " || currenttime, 5)}: Advancing time from ${currenttime} to ${newtime}\n`);
+
+  WHILE (LENGTH(waits) > 0 AND waits[0].when <= newtime)
+  {
+    RECORD wait := waits[0];
+    DELETE FROM waits AT 0;
+    currenttime := wait.when;
+    IF (debug)
+      PRINT(`${Right("    " || currenttime, 5)}: Resolve '${wait.title ?? "unnamed"}'\n`);
+    wait.resolve(DEFAULT RECORD);
+    RunPendingMicrotasks();
+  }
+
+  currenttime := newtime;
+  IF (debug)
+    PRINT(`${Right("    " || currenttime, 5)}: Advancing complete\n`);
+}
+
+RECORD resolveval;
+MACRO GotResolve(VARIANT value)
+{
+  resolveval := CELL[ value ];
+}
+
+/// Advances time until the passed promise is resolved
+VARIANT FUNCTION MyWaitForPromise(OBJECT promise)
+{
+  resolveval := DEFAULT RECORD;
+  promise->Then(PTR GotResolve);
+  RunPendingMicrotasks(); // See if the promise has already been resolved
+  WHILE (NOT RecordExists(resolveval))
+  {
+    IF (LENGTH(waits) = 0)
+      THROW NEW Exception(`No pending waits!`); // No code left to run, must be an error
+    AdvanceTime(waits[0].when - currenttime);
+  }
+  RETURN resolveval.value;
+}
+
+STRING ARRAY calls;
+ASYNC FUNCTION SerializedFunc(STRING param DEFAULTSTO "none")
+{
+  INTEGER ms := 50 + 50 * ToInteger(param, 0);
+  INSERT param || "-start" INTO calls AT END;
+
+  AWAIT CreateTimedResolve(ms, `SerializedFunc("${param}"): wait ${ms}ms`);
+
+  INSERT param || "-end" INTO calls AT END;
+  RETURN param;
+}
+
+
+
+ASYNC MACRO TestRunPermission(OBJECT serializer, INTEGER id)
+{
+  AWAIT CreateTimedResolve(id * 10, `TestRunPermission("${id}"): wait 1, ${id * 10}ms`);
+  INSERT `${id}-wait` INTO calls AT END;
+  OBJECT lock := AWAIT serializer->GetRunPermission();
+  INSERT `${id}-start` INTO calls AT END;
+  AWAIT CreateTimedResolve(100, `TestRunPermission("${id}"): wait 2, ${100}ms`);
+  INSERT `${id}-finish` INTO calls AT END;
+  lock->Close();
+  INSERT `${id}-done` INTO calls AT END;
+}
+
+MACRO TestSerializer()
+{
+  OBJECT s := MakeCallSerializer();
+  FUNCTION PTR f := s->Wrap(PTR SerializedFunc);
+
+  OBJECT c1 := f("1");
+  TestEQ(STRING[], calls);
+  RunPendingMicrotasks();
+  TestEQ([ "1-start" ], calls);
+  OBJECT c2 := f("2");
+  OBJECT c3 := f("3");
+  TestEQ([ "1-start" ], calls);
+
+  AdvanceTime(10);
+  TestEQ("1", MyWaitForPromise(c1));
+  TestEQ([ "1-start", "1-end", "2-start" ], calls);
+  TestEQ("3", MyWaitForPromise(c3));
+  TestEQ([ "1-start", "1-end", "2-start", "2-end", "3-start", "3-end" ], calls);
+  TestEQ("2", MyWaitForPromise(c2));
+
+  // ignoreparameters
+  calls := STRING[];
+  FUNCTION PTR f2 := s->Wrap(PTR SerializedFunc, [ ignoreparameters := TRUE ]);
+  MyWaitForPromise(f2("bla", "bla", "bla"));
+  TestEQ([ "none-start", "none-end" ], calls);
+
+  // coalescetag
+  calls := STRING[];
+  FUNCTION PTR f3 := s->Wrap(PTR SerializedFunc("first"), [ coalescetag := "webhare_testsuite:coalescetag" ]);
+  FUNCTION PTR f4 := s->Wrap(PTR SerializedFunc("next"), [ coalescetag := "webhare_testsuite:coalescetag" ]);
+
+  c1 := f3(); // triggers immediately started
+  WaitUntil(DEFAULT RECORD, DEFAULT DATETIME); // Run microtasks
+  c2 := f4(); // these should be coalesed
+  c3 := f3();
+  OBJECT c4 := f4();
+  MyWaitForPromise(CreatePromiseAll([ c1, c2, c3, c4 ]));
+
+  TestEQ([ "first-start", "first-end", "next-start", "next-end" ], calls);
+
+  // multi-concurrent
+  calls := STRING[];
+  OBJECT s2 := MakeCallSerializer([ maxconcurrent := 3 ]);
+  f := s2->Wrap(PTR SerializedFunc);
+
+  // 1 taks 110ms, 2 120ms, 3 130ms, 4 140ms, to when 1 ends 2 will run for 10ms extra
+  c1 := f("1");
+  TestEQ(STRING[], calls);
+  WaitUntil(DEFAULT RECORD, DEFAULT DATETIME); // Run microtasks
+  TestEQ([ "1-start" ], calls);
+  c2 := f("2");
+  TestEQ([ "1-start" ], calls);
+  WaitUntil(DEFAULT RECORD, DEFAULT DATETIME); // Run microtasks
+  TestEQ([ "1-start", "2-start" ], calls);
+  c3 := f("3");
+  TestEQ([ "1-start", "2-start" ], calls);
+  WaitUntil(DEFAULT RECORD, DEFAULT DATETIME); // Run microtasks
+  TestEQ([ "1-start", "2-start", "3-start" ], calls);
+  c4 := f("4");
+  TestEQ([ "1-start", "2-start", "3-start" ], calls);
+  WaitUntil(DEFAULT RECORD, DEFAULT DATETIME); // Run microtasks
+  TestEQ([ "1-start", "2-start", "3-start" ], calls);
+  MyWaitForPromise(c1);
+  TestEQ([ "1-start", "2-start", "3-start", "1-end", "4-start" ], calls);
+  MyWaitForPromise(c4);
+  TestEQ([ "1-start", "2-start", "3-start", "1-end", "4-start", "2-end", "3-end", "4-end" ], calls);
+
+  // runpermission
+  calls := STRING[];
+  c1 := TestRunPermission(s, 0);
+  c2 := TestRunPermission(s, 1);
+  TestEQ(STRING[], calls);
+  AdvanceTime(20);
+  TestEQ(STRING[ "0-wait", "0-start", "1-wait" ], calls);
+  MyWaitForPromise(c2);
+  TestEQ(STRING[ "0-wait", "0-start", "1-wait", "0-finish", "0-done", "1-start", "1-finish", "1-done" ], calls);
+}
+
+PRINT("\n === Running TestAsync\n");
+TestSerializer();

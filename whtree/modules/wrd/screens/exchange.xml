@@ -1,0 +1,232 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" lib="screens/exchange.whlib" gid="exchange">
+
+  <messageboxes gid=".messageboxes">
+    <messagebox name="apparentlynotcsv" buttons="yes no" />
+    <messagebox name="distinctoverflow" buttons="ok" />
+  </messageboxes>
+
+  <screen name="import" gid=".import" allowresize="true" savestate="size" minwidth="600px" minheight="400px" flags="canlinkitem">
+    <actions>
+      <action name="map" onexecute="domap" frameflags="canlinkitem" />
+      <action name="unmap" onexecute="dodeletelink">
+        <enableon source="incolumns" min="1" max="1" checkflags="islinked" />
+      </action>
+      <action name="updatemapping" onexecute="doupdatemapping">
+        <enableon source="incolumns" min="1" max="1" checkflags="ismapped"/>
+      </action>
+      <action name="deletelink" onexecute="dodeletelink">
+        <enableon source="incolumns" min="1" max="1" checkflags="islinked" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="incolumnsmenu">
+        <item action="updatemapping" disablemode="hidden" />
+        <item action="deletelink" disablemode="hidden" />
+      </menu>
+    </menus>
+    <body spacers="none">
+      <wizard name="wizard" height="1pr">
+        <page name="importdatapage" oninit="onimportdatapageinit" onnext="onimportdatapagenext">
+          <panel name="importdescriptionpanel" visible="false" layout="left">
+            <text title="" name="importdescriptiontext" wordwrap="true" width="1pr" />
+          </panel>
+          <box name="fileuploadbox" hr="false">
+            <line layout="left">
+              <text valuetid=".choosefile" />
+            </line>
+            <fileedit name="importfile" onbeforechange="onbeforeimportfilechange" onchange="onimportfilechange" required="true" />
+          </box>
+        </page>
+        <page name="columnspage" oninit="oncolumnspageinit" onnext="oncolumnspagenext" spacers="left top bottom">
+          <box name="mapbox" height="1pr" hr="false">
+            <text title="" width="1pr" wordwrap="true" valuetid=".mapexplain"/>
+            <panel layout="left" spacers="bottom">
+              <select name="headertype" type="radio" onchange="onheadertypechange" title="" >
+                <option rowkey="withheaders" selected="true"/>
+                <option rowkey="noheaders" />
+              </select>
+            </panel>
+            <split type="horizontal">
+              <part width="3pr" >
+                <!-- FIXME: Better use WRD icons(?) -->
+                <list name="incolumns"
+                      width="100x"
+                      height="1pr"
+                      selectmode="single"
+                      borders="left top bottom"
+                      onselect="onincolumnsselect"
+                      flags="ismapped islinked"
+                      selectcontextmenu="incolumnsmenu"
+                      sortcolumn="columnname"
+                      openaction="updatemapping"
+                      icons="webpack:components/id
+                             webpack:components/pulldown
+                             webpack:components/textedit
+                             webpack:components/textedit
+                             webpack:components/email
+                             webpack:components/textedit
+                             webpack:components/textedit
+                             "
+                      >
+                  <acceptdrops ondrop="onincolumndrop">
+                    <accepttype type="local:targetattribute"
+                                dropeffects="move"
+                                requiretarget="true"
+                                sourceflags="islinkable"
+                                />
+                  </acceptdrops>
+
+                  <!--column type="integer" name="rowkey" width="4x" /-->
+                  <column type="text" name="columnname" />
+                  <column type="text" name="exampledata" />
+                  <!-- FIXME: Check FIXME in whlib's BuildImportColumnsList
+                  <column type="text" name="importcolumn" iconname="typeicon"/>
+                  -->
+                  <column type="text" name="importcolumn"/>
+                </list>
+              </part>
+              <part width="2pr" spacers="left">
+                <grid width="1pr" height="1pr">
+                  <col/>
+                  <col width="1pr"/>
+                  <row height="1pr">
+                    <cell>
+                      <panel height="1pr" spacers="all"/>
+                      <button action="map" width="1pr"/>
+                      <button action="unmap" width="1pr"/>
+                      <panel height="1pr"/>
+                    </cell>
+                    <cell>
+                      <list name="wrdcolumns"
+                            width="1pr"
+                            selectmode="single"
+                            onselect="onwrdcolumnsselect"
+                            openaction="map"
+                            flags="islinkable"
+                            icons="tollium:forms/textedit
+                                   tollium:forms/pulldown
+                                   tollium:forms/textedit
+                                   tollium:forms/textedit
+                                   tollium:forms/email
+                                   tollium:forms/textedit
+                                   tollium:forms/textedit
+                                   "
+                            >
+                        <acceptdrops ondrop="onwrdcolumndrop">
+                          <accepttype type="local:importcolumn"
+                                      dropeffects="move"
+                                      requiretarget="false"
+                                      sourceflags="islinked"
+                                      />
+                        </acceptdrops>
+                        <column type="text" tree="true" name="title" iconname="typeicon"/>
+                        <!--column type="text" name="stringicon"/-->
+                        <style name="isrequired" bold="true" />
+                      </list>
+                    </cell>
+                  </row>
+                </grid>
+              </part>
+            </split>
+          </box>
+        </page>
+        <page name="startimport" oninit="onstartimportinit" isfinish="true">
+          <box tid=".previewexplainbox" hr="false">
+            <text valuetid=".clicknexttostart" width="1pr" wordwrap="true"/>
+          </box>
+          <panel height="1pr">
+            <list name="previewrows" height="1pr">
+            </list>
+          </panel>
+        </page>
+      </wizard>
+    </body>
+  </screen>
+
+  <screen name="importresults" gid=".importresults">
+    <actions>
+      <action name="downloadduplicate" onexecute="dodownloadduplicate" />
+      <action name="downloadinvalid" onexecute="dodownloadinvalid" />
+    </actions>
+    <body>
+      <text name="numnew" />
+      <text name="numupdate" />
+      <line>
+        <text name="numinvalid" />
+        <text title="" action="downloadinvalid" name="downloadinvalid_button" valuetid=".downloadinvalid"/>
+      </line>
+      <line>
+        <text name="numduplicate" />
+        <text title="" action="downloadduplicate" name="downloadduplicate_button" valuetid=".downloadduplicate"/>
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+
+  </screen>
+
+  <screen name="mapdomain" gid=".mapdomain" allowresize="true" savestate="size" flags="canmapitem">
+    <actions>
+      <action name="map" onexecute="domap" frameflags="canmapitem" />
+      <action name="unmap" onexecute="dounmap">
+        <enableon source="invals" min="1" max="1" checkflags="ismapped" />
+      </action>
+    </actions>
+    <body>
+      <text name="remapinfo" title="" valuetid=".remapinfo" width="1pr" wordwrap="true" />
+      <split type="horizontal">
+        <part width="2pr" >
+          <list name="invals"
+                selectmode="single"
+                flags="ismapped"
+                onselect="onlistselect"
+                borders="left top bottom"
+                sortcolumn="inval">
+            <acceptdrops ondrop="oninvaldrop">
+              <accepttype type="local:allowedval"
+                          requiretarget="true"
+                          />
+            </acceptdrops>
+            <column type="text" name="inval" />
+            <column type="integer" name="occurences" width="6x" />
+            <column type="text" name="maptoval" />
+          </list>
+        </part>
+        <part width="2pr" spacers="left">
+          <grid width="1pr" height="1pr">
+            <col/>
+            <col width="1pr"/>
+            <row height="1pr">
+              <cell>
+                <panel height="1pr"/>
+                <button action="map" width="1pr"/>
+                <button action="unmap" width="1pr"/>
+                <panel height="1pr"/>
+              </cell>
+              <cell>
+                <list name="allowedvals"
+                      openaction="map"
+                      selectmode="single"
+                      onselect="onlistselect"
+                      minwidth="25x" >
+                  <acceptdrops ondrop="onallowedvaldrop">
+                    <accepttype type="local:inval"
+                                requiretarget="false"
+                                sourceflags="ismapped"
+                                />
+                  </acceptdrops>
+                  <column type="text" name="title" />
+                </list>
+              </cell>
+            </row>
+          </grid>
+        </part>
+      </split>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

@@ -1,0 +1,851 @@
+<?wh
+/// @short Test of HareScript types implementation
+
+LOADLIB "wh::internal/hsselftests.whlib";
+RECORD ARRAY errors;
+RECORD result;
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// When the expected output is other than '', the expected output is specified.
+// When an error should be reported, the outout is undefined.
+
+// PRINT() is assumed to be implemented,
+// i.e. PRINT(t) should output the value of STRING t.
+
+// Assigning DATETIME, RECORD, BLOB and ARRAY values can't be done
+// without using library functions which should be tested first.
+// Outputting MONEY and FLOAT values is done using library functions
+// which aren't tested here.
+
+// Variable naming tests are run by TestSyntax().
+
+// Correct calculation of DATETIME variables should be tested with
+// DATETIME library functions, which are not tested here.
+
+// Most STRING constant tests are run by TestSyntax().
+
+MACRO MultiTest()
+{
+  OpenTest("TestTypes: MultiTest");
+
+  result := TestCompileAndRun('<?wh INTEGER i := 1, j := 2; PRINT(i || j); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "12", result.output);
+
+  CloseTest("TestTypes: MultiTest");
+}
+
+MACRO TypeIdTest()
+{
+  OpenTest("TestTypes: TypeIdTest");
+
+  TestEqualInteger(1, TYPEID(INTEGER), TYPEID(1));
+  TestEqualInteger(2, TYPEID(BOOLEAN), TYPEID(TRUE));
+  TestEqualInteger(3, TYPEID(STRING), TYPEID(""));
+  TestEqualInteger(4, TYPEID(STRING ARRAY), TYPEID([""]));
+  TestEqualInteger(5, TYPEID(RECORD ARRAY), TYPEID([[a:=0]]));
+
+  CloseTest("TestTypes: TypeIdTest");
+}
+
+/*** Integer [16] ***/
+MACRO IntegerTest()
+{
+  OpenTest("TestTypes: IntegerTest");
+
+  result := TestCompileAndRun('<?wh INTEGER i; PRINT(i || ""); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "0", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER i := 1; PRINT(i || ""); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "1", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER i := 1 + 1; PRINT(i || ""); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "2", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER i := 2147483647; PRINT(ToString(i)); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "2147483647", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER i := 2147483647; PRINT(i || ""); ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "2147483647", result.output);
+
+  errors := TestCompile('<?wh INTEGER i := 2147483648; ?>');
+  MustContainError(11, errors, 62, "MONEY", "INTEGER");
+
+  errors := TestCompile('<?wh INTEGER i := 2147483648i; ?>');
+  MustContainError(12, errors, 68);
+
+  TestCleanCompile(13, '<?wh INTEGER i := -2147483648; ?>');
+
+  TestCleanCompile(14, '<?wh INTEGER i := -2147483648i; ?>');
+
+  errors := TestCompile('<?wh INTEGER i := -2147483649; ?>');
+  MustContainError(15, errors, 62, "MONEY", "INTEGER");
+
+  errors := TestCompile('<?wh INTEGER i := -2147483649i; ?>');
+  MustContainError(16, errors, 68);
+
+  errors := TestCompile('<?wh INTEGER i := "x"; ?>');
+  MustContainError(17, errors, 62, 'STRING', 'INTEGER');
+
+  errors := TestCompile('<?wh INTEGER i := TRUE; ?>');
+  MustContainError(18, errors, 62, 'BOOLEAN', 'INTEGER');
+
+  CloseTest("TestTypes: IntegerTest");
+}
+
+/*** Money ***/
+MACRO MoneyTest()
+{
+  OpenTest("TestTypes: MoneyTest");
+
+  TestCleanCompile(1, '<?wh MONEY m := 12345; ?>');
+
+  TestCleanCompile(2, '<?wh MONEY m := .12345; ?>');
+
+  TestCleanCompile(3, '<?wh MONEY m := 12345.; ?>');
+
+  TestCleanCompile(4, '<?wh MONEY m := 12345.12345; ?>');
+
+  errors := TestCompile('<?wh MONEY m := .123456; ?>');
+  MustContainError(5, errors, 62, 'FLOAT', 'MONEY');
+
+  TestCleanCompile(6, '<?wh MONEY m := -12345; ?>');
+
+  TestCleanCompile(7, '<?wh MONEY m := -.12345; ?>');
+
+  TestCleanCompile(8, '<?wh MONEY m := -12345.; ?>');
+
+  TestCleanCompile(9, '<?wh MONEY m := -12345.12345; ?>');
+
+  errors := TestCompile('<?wh MONEY m := -.123456; ?>');
+  MustContainError(10, errors, 62, 'FLOAT', 'MONEY');
+
+  errors := TestCompile('<?wh MONEY m := "x"; ?>');
+  MustContainError(11, errors, 62, 'STRING', 'MONEY');
+
+  errors := TestCompile('<?wh MONEY m := TRUE; ?>');
+  MustContainError(12, errors, 62, 'BOOLEAN', 'MONEY');
+
+  CloseTest("TestTypes: MoneyTest");
+}
+
+/*** Float ***/
+MACRO FloatTest()
+{
+  OpenTest("TestTypes: FloatTest");
+
+  TestCleanCompile(1, '<?wh FLOAT f := 12345; ?>');
+
+  TestCleanCompile(2, '<?wh FLOAT f := .12345; ?>');
+
+  TestCleanCompile(3, '<?wh FLOAT f := 12345.; ?>');
+
+  TestCleanCompile(4, '<?wh FLOAT f := 12345.12345; ?>');
+
+  TestCleanCompile(5, '<?wh FLOAT f := 100000000000000000000000000000000000.; ?>');
+
+  TestCleanCompile(6, '<?wh FLOAT f := .000000000000000000000000000000000001; ?>');
+
+  TestCleanCompile(7, '<?wh FLOAT f := -12345; ?>');
+
+  TestCleanCompile(8, '<?wh FLOAT f := -.12345; ?>');
+
+  TestCleanCompile(9, '<?wh FLOAT f := -12345.; ?>');
+
+  TestCleanCompile(10, '<?wh FLOAT f := -12345.12345; ?>');
+
+  TestCleanCompile(11, '<?wh FLOAT f := -100000000000000000000000000000000000.; ?>');
+
+  TestCleanCompile(12, '<?wh FLOAT f := -.000000000000000000000000000000000001; ?>');
+
+  errors := TestCompile('<?wh FLOAT f := "x"; ?>');
+  MustContainError(13, errors, 62, 'STRING', 'FLOAT');
+
+  errors := TestCompile('<?wh FLOAT f := TRUE; ?>');
+  MustContainError(14, errors, 62, 'BOOLEAN', 'FLOAT');
+
+  TestCleanCompile(15, '<?wh FLOAT f := 1.7976931348623157e+308; ?>');
+
+  TestCleanCompile(15, '<?wh FLOAT f := 1e-308; ?>');
+
+  TestEQ(1e-1, 0.1f);
+  TestEQ(2e-02, 0.02f);
+  TestEQ(3e+03, 3000f);
+
+  CloseTest("TestTypes: FloatTest");
+}
+
+MACRO Integer64Test()
+{
+  OpenTest("TestType: Integer64Test");
+
+  TestEqual(  1, 10i64, INTEGER64(10));
+  TestEqual(  2, -10i64, INTEGER64(-10));
+  TestEqual(  3, "-10a", -10i64 || "a");
+  TestEqual(  4, "9223372036854775807", 9223372036854775807i64 || "");
+  TestEqual(  5, "-9223372036854775808", -9223372036854775808i64 || "");
+  TestEqual(  6, 0, 65536*65536);
+  TestEqual(  7, 4294967296I64, 65536i64*65536);
+
+  CloseTest("TestType: Integer64Test");
+}
+
+/*** String [16] ***/
+MACRO StringTest()
+{
+  OpenTest("TestTypes: StringTest");
+
+  result := TestCompileAndRun('<?wh STRING s; PRINT(s); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "", result.output);
+
+  result := TestCompileAndRun('<?wh STRING s := "x"; PRINT(s); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "x", result.output);
+  result := TestCompileAndRun("<?wh STRING s := 'x'; PRINT(s); ?>");
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "x", result.output);
+
+  result := TestCompileAndRun('<?wh STRING s := "x" || "y"; PRINT(s); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "xy", result.output);
+  result := TestCompileAndRun("<?wh STRING s := 'x' || 'y'; PRINT(s); ?>");
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "xy", result.output);
+
+  errors := TestCompile('<?wh STRING s := "x\ny"; PRINT(s); ?>');
+  MustContainError(11, errors, 10);
+  errors := TestCompile("<?wh STRING s := 'x\ny'; PRINT(s); ?>");
+  MustContainError(12, errors, 10);
+
+  errors := TestCompile('<?wh STRING s := 1; ?>');
+  MustContainError(13, errors, 62, 'INTEGER', 'STRING');
+
+  errors := TestCompile('<?wh STRING s := TRUE; ?>');
+  MustContainError(14, errors, 62, 'BOOLEAN', 'STRING');
+
+  CloseTest("TestTypes: StringTest");
+}
+
+/*** Template strings ***/
+MACRO TemplateTest()
+{
+  OpenTest("TestTypes: TemplateTest");
+
+  // simple tempate strings behave like normal strings
+  result := TestCompileAndRun("<?wh STRING s := `x`; PRINT(s); ?>");
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "x", result.output);
+  result := TestCompileAndRun("<?wh STRING s := `x` || `y`; PRINT(s); ?>");
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "xy", result.output);
+  result := TestCompileAndRun("<?wh STRING s := `x` || 0; PRINT(s); ?>");
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "x0", result.output);
+
+  // newlines are allowed (and normalized) in template strings
+  result := TestCompileAndRun("<?wh STRING s := `x\ny`; PRINT(s); ?>");
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "x\ny", result.output);
+  result := TestCompileAndRun("<?wh STRING s := `x\r\ny`; PRINT(s); ?>");
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "x\ny", result.output);
+  result := TestCompileAndRun("<?wh STRING s := `x\ry`; PRINT(s); ?>");
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "x\ny", result.output);
+  result := TestCompileAndRun("<?wh STRING s := `x\r\n\ry`; PRINT(s); ?>");
+  TestCleanResult(15, result.errors);
+  TestEqualString(16, "x\n\ny", result.output);
+
+  // escape special characters
+  result := TestCompileAndRun("<?wh STRING s := `\\``; PRINT(s); ?>");
+  TestCleanResult(17, result.errors);
+  TestEqualString(18, "`", result.output);
+  result := TestCompileAndRun("<?wh STRING s := `a\\${'a'}a`; PRINT(s); ?>");
+  TestCleanResult(19, result.errors);
+  TestEqualString(20, "a${'a'}a", result.output);
+  result := TestCompileAndRun("<?wh STRING s := `a$\\{'a'}a`; PRINT(s); ?>");
+  TestCleanResult(21, result.errors);
+  TestEqualString(22, "a${'a'}a", result.output);
+  result := TestCompileAndRun("<?wh STRING s := `a\nb${'c'||`d${1}`}e\nf\\`g\\`\\${h}$\\{i}j`; PRINT(s); ?>");
+  TestCleanResult(23, result.errors);
+  TestEqualString(24, "a\nbcd1e\nf`g`${h}${i}j", result.output);
+
+  // simple placeholders
+  result := TestCompileAndRun("<?wh STRING s := `x${'y'}z`; PRINT(s); ?>");
+  TestCleanResult(25, result.errors);
+  TestEqualString(26, "xyz", result.output);
+  result := TestCompileAndRun("<?wh STRING p := 'y'; STRING s := `x${p}z`; PRINT(s); ?>");
+  TestCleanResult(27, result.errors);
+  TestEqualString(28, "xyz", result.output);
+  result := TestCompileAndRun("<?wh STRING s := `${'y'}`; PRINT(s); ?>");
+  TestCleanResult(29, result.errors);
+  TestEqualString(30, "y", result.output);
+  result := TestCompileAndRun("<?wh STRING p := 'y'; STRING s := `${p}`; PRINT(s); ?>");
+  TestCleanResult(31, result.errors);
+  TestEqualString(32, "y", result.output);
+
+  // more advanced placeholders
+  result := TestCompileAndRun("<?wh INTEGER p := 1; STRING s := `x${ ToString(p) }z`; PRINT(s); ?>");
+  TestCleanResult(33, result.errors);
+  TestEqualString(34, "x1z", result.output);
+  result := TestCompileAndRun("<?wh INTEGER p := 1; STRING s := `x${ p }z`; PRINT(s); ?>");
+  TestCleanResult(35, result.errors);
+  TestEqualString(36, "x1z", result.output);
+  result := TestCompileAndRun("<?wh BOOLEAN p := TRUE; STRING s := `x${ p ? '1' : '0' }z`; PRINT(s); ?>");
+  TestCleanResult(37, result.errors);
+  TestEqualString(38, "x1z", result.output);
+  result := TestCompileAndRun("<?wh BOOLEAN p := FALSE; STRING s := `x${ NOT p ? 1 : 0 }z`; PRINT(s); ?>");
+  TestCleanResult(39, result.errors);
+  TestEqualString(40, "x1z", result.output);
+
+  // recursive placeholders
+  result := TestCompileAndRun("<?wh STRING s := `x${ `y` }z`; PRINT(s); ?>");
+  TestCleanResult(41, result.errors);
+  TestEqualString(42, "xyz", result.output);
+  result := TestCompileAndRun("<?wh STRING s := `x${ `${ 'y' }` }z`; PRINT(s); ?>");
+  TestCleanResult(43, result.errors);
+  TestEqualString(44, "xyz", result.output);
+  result := TestCompileAndRun("<?wh STRING p := 'y'; STRING s := `x${ `${ p }` }z`; PRINT(s); ?>");
+  TestCleanResult(45, result.errors);
+  TestEqualString(46, "xyz", result.output);
+
+  // check for errors
+  errors := TestCompile('<?wh STRING s := `${`; ?>');
+  MustContainError(47, errors, 10);
+  MustContainError(48, errors, 71);
+  errors := TestCompile('<?wh STRING s := `${; ?>');
+  MustContainError(49, errors, 71);
+  result := TestCompileAndRun("<?wh STRING s := `${ ?>");
+  MustContainError(50, errors, 71);
+  errors := TestCompile('<?wh STRING s := `${}; ?>');
+  MustContainError(51, errors, 260);
+  errors := TestCompile('<?wh STRING s := ` ?>');
+  MustContainError(52, errors, 10);
+  errors := TestCompile('<?wh STRING s := `${"x"} ${x');
+  MustContainError(53, errors, 10);
+  errors := TestCompile('<?wh STRING s := `${ }`; ?>');
+  MustContainError(54, errors, 260);
+
+  result := TestCompileAndRun("<?wh PRINT(`${1}\\`${2}`); ?>");
+  TestCleanResult(0, result.errors);
+  TestEqualString(0, "1`2", result.output);
+
+  // template strings in selects
+  result := TestCompileAndRun("<?wh STRING s := SELECT AS STRING `x` || e FROM [ [ e := '' ] ]; PRINT(s); ?>");
+  TestCleanResult(0, result.errors);
+  TestEqualString(0, "x", result.output);
+
+  result := TestCompileAndRun("<?wh STRING s := SELECT AS STRING `x${ `${ 'y' }` }z` || e FROM [ [ e := '' ] ]; PRINT(s); ?>");
+  TestCleanResult(0, result.errors);
+  TestEqualString(0, "xyz", result.output);
+
+  result := TestCompileAndRun("<?wh STRING s := SELECT AS STRING `x${ `${ `${'y'}${'a'}` }` }z` || e FROM [ [ e := '' ] ]; PRINT(s); ?>");
+  TestCleanResult(0, result.errors);
+  TestEqualString(0, "xyaz", result.output);
+
+  CloseTest("TestTypes: TemplateTest");
+}
+
+/*** Boolean [17] ***/
+MACRO BooleanTest()
+{
+  OpenTest("TestTypes: BooleanTest");
+
+  result := TestCompileAndRun('<?wh BOOLEAN b; PRINT(b ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "FALSE", result.output);
+
+  result := TestCompileAndRun('<?wh BOOLEAN b := TRUE; PRINT(b ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "TRUE", result.output);
+
+  result := TestCompileAndRun('<?wh BOOLEAN b := TRUE = FALSE; PRINT(b ? "TRUE" : "FALSE"); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "FALSE", result.output);
+
+  errors := TestCompile('<?wh BOOLEAN b := 1; ?>');
+  MustContainError(7, errors, 62, 'INTEGER', 'BOOLEAN');
+
+  errors := TestCompile('<?wh BOOLEAN b := "x"; ?>');
+  MustContainError(8, errors, 62, 'STRING', 'BOOLEAN');
+
+  CloseTest("TestTypes: BooleanTest");
+}
+
+/*** DateTime [17] ***/
+MACRO DateTimeTest()
+{
+  OpenTest("TestTypes: DateTimeTest");
+
+  TestCleanCompile(1, '<?wh DATETIME d; ?>');
+  // d = INVALID
+
+  errors := TestCompile('<?wh DATETIME d := 1; ?>');
+  MustContainError(2, errors, 62, 'INTEGER', 'DATETIME');
+
+  errors := TestCompile('<?wh DATETIME d := "x"; ?>');
+  MustContainError(3, errors, 62, 'STRING', 'DATETIME');
+
+  errors := TestCompile('<?wh DATETIME d := TRUE; ?>');
+  MustContainError(4, errors, 62, 'BOOLEAN', 'DATETIME');
+
+  CloseTest("TestTypes: DateTimeTest");
+}
+
+/*** Record [18] ***/
+MACRO RecordTest()
+{
+  OpenTest("TestTypes: RecordTest");
+
+  TestCleanCompile(1, '<?wh RECORD r; ?>');
+  // Value of r is undefined
+
+  errors := TestCompile('<?wh RECORD r := 1; ?>');
+  MustContainError(2, errors, 62, 'INTEGER', 'RECORD');
+
+  errors := TestCompile('<?wh RECORD r := "x"; ?>');
+  MustContainError(3, errors, 62, 'STRING', 'RECORD');
+
+  errors := TestCompile('<?wh RECORD r := TRUE; ?>');
+  MustContainError(4, errors, 62, 'BOOLEAN', 'RECORD');
+
+  CloseTest("TestTypes: RecordTest");
+}
+
+/*** Blob [18] ***/
+MACRO BlobTest()
+{
+  OpenTest("TestTypes: BlobTest");
+
+  TestCleanCompile(1, '<?wh BLOB b; ?>');
+  // Value of b is undefined
+
+  errors := TestCompile('<?wh BLOB b := 1; ?>');
+  MustContainError(2, errors, 62, 'INTEGER', 'BLOB');
+
+  errors := TestCompile('<?wh BLOB b := "x"; ?>');
+  MustContainError(3, errors, 62, 'STRING', 'BLOB');
+
+  errors := TestCompile('<?wh BLOB b := TRUE; ?>');
+  MustContainError(4, errors, 62, 'BOOLEAN', 'BLOB');
+
+  CloseTest("TestTypes: BlobTest");
+}
+
+/*** Array [19] ***/
+MACRO ArrayTest()
+{
+  OpenTest("TestTypes: ArrayTest");
+
+  TestCleanCompile(1, '<?wh INTEGER ARRAY a; ?>');
+
+  TestCleanCompile(2, '<?wh STRING ARRAY a; ?>');
+
+  TestCleanCompile(3, '<?wh BOOLEAN ARRAY a; ?>');
+
+  TestCleanCompile(4, '<?wh RECORD ARRAY a; ?>');
+
+  TestCleanCompile(5, '<?wh BLOB ARRAY a; ?>');
+
+  errors := TestCompile('<?wh ARRAY a; ?>');
+  MustContainError(6, errors, 134, 'ARRAY');
+
+  errors := TestCompile('<?wh ARRAY ARRAY a; ?>');
+  MustContainError(7, errors, 134, 'ARRAY');
+
+  errors := TestCompile('<?wh INTEGER ARRAY ARRAY a; ?>');
+  MustContainError(8, errors, 194, 'ARRAY');
+
+  errors := TestCompile('<?wh INTEGER ARRAY a := 1; ?>');
+  MustContainError(9, errors, 62, 'INTEGER', 'INTEGER ARRAY');
+
+  errors := TestCompile('<?wh INTEGER ARRAY a := "x"; ?>');
+  MustContainError(10, errors, 62, 'STRING', 'INTEGER ARRAY');
+
+  errors := TestCompile('<?wh INTEGER ARRAY a := TRUE; ?>');
+  MustContainError(11, errors, 62, 'BOOLEAN', 'INTEGER ARRAY');
+
+  errors := TestCompile('<?wh STRING ARRAY a := 1; ?>');
+  MustContainError(12, errors, 62, 'INTEGER', 'STRING ARRAY');
+
+  errors := TestCompile('<?wh STRING ARRAY a := "x"; ?>');
+  MustContainError(13, errors, 62, 'STRING', 'STRING ARRAY');
+
+  errors := TestCompile('<?wh STRING ARRAY a := TRUE; ?>');
+  MustContainError(14, errors, 62, 'BOOLEAN', 'STRING ARRAY');
+
+  errors := TestCompile('<?wh BOOLEAN ARRAY a := 1; ?>');
+  MustContainError(15, errors, 62, 'INTEGER', 'BOOLEAN ARRAY');
+
+  errors := TestCompile('<?wh BOOLEAN ARRAY a := "x"; ?>');
+  MustContainError(16, errors, 62, 'STRING', 'BOOLEAN ARRAY');
+
+  errors := TestCompile('<?wh BOOLEAN ARRAY a := TRUE; ?>');
+  MustContainError(17, errors, 62, 'BOOLEAN', 'BOOLEAN ARRAY');
+
+  errors := TestCompile('<?wh RECORD ARRAY a := 1; ?>');
+  MustContainError(18, errors, 62, 'INTEGER', 'RECORD ARRAY');
+
+  errors := TestCompile('<?wh RECORD ARRAY a := "x"; ?>');
+  MustContainError(19, errors, 62, 'STRING', 'RECORD ARRAY');
+
+  errors := TestCompile('<?wh RECORD ARRAY a := TRUE; ?>');
+  MustContainError(20, errors, 62, 'BOOLEAN', 'RECORD ARRAY');
+
+  errors := TestCompile('<?wh BLOB ARRAY a := 1; ?>');
+  MustContainError(21, errors, 62, 'INTEGER', 'BLOB ARRAY');
+
+  errors := TestCompile('<?wh BLOB ARRAY a := "x"; ?>');
+  MustContainError(22, errors, 62, 'STRING', 'BLOB ARRAY');
+
+  errors := TestCompile('<?wh BLOB ARRAY a := TRUE; ?>');
+  MustContainError(23, errors, 62, 'BOOLEAN', 'BLOB ARRAY');
+
+  errors := TestCompile('<?wh TABLE ARRAY a; ?>');
+  MustContainError(24, errors, 210);
+
+  CloseTest("TestTypes: ArrayTest");
+}
+
+
+/*** CastTest [19] ***/
+MACRO CastTest()
+{
+  OpenTest("TestTypes: CastTest");
+
+  result := TestCompileAndRun('<?wh RECORD a := [ b := 1 ]; PRINT(""||INTEGER(a.b)); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD a := [ b := 1 ]; INTEGER(a.b); PRINT(""||INTEGER(a.b)); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "1", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD a := [ b := 3 ]; IF ((FLOAT(a.b) / 2) > 1) PRINT("OK"); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "OK", result.output);
+
+  result := TestCompileAndRun('<?wh RECORD ARRAY a := [[ a := 1, b := 2 ]]; PRINT(""||LENGTH(UnpackRecord(RECORD(a)))); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "2", result.output);
+
+  result := TestCompileAndRun('<?wh PRINT(""||INTEGER(1)); ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "1", result.output);
+
+  INTEGER t_i := 1;
+  MONEY t_m := 1.25m;
+  INTEGER64 t_6 := 1i64;
+  FLOAT t_f := 1.515625f;
+
+  // Casts between numbers (compiletime vs vm time)
+  TestEQ(1, INTEGER(1));
+  TestEQ(1m, MONEY(1));
+  TestEQ(1i64, INTEGER64(1));
+  TestEQ(1f, FLOAT(1));
+  TestEQ(1, INTEGER(t_i));
+  TestEQ(1m, MONEY(t_i));
+  TestEQ(1i64, INTEGER64(t_i));
+  TestEQ(1f, FLOAT(t_i));
+
+  TestEQ(1, INTEGER(1.25m));
+  TestEQ(1.25m, MONEY(1.25m));
+  TestEQ(1i64, INTEGER64(1.25m));
+  TestEQ(1.25f, FLOAT(1.25m));
+  TestEQ(1, INTEGER(t_m));
+  TestEQ(1.25m, MONEY(t_m));
+  TestEQ(1i64, INTEGER64(t_m));
+  TestEQ(1.25f, FLOAT(t_m));
+
+  TestEQ(1, INTEGER(1i64));
+  TestEQ(1m, MONEY(1i64));
+  TestEQ(1i64, INTEGER64(1i64));
+  TestEQ(1f, FLOAT(1i64));
+  TestEQ(1, INTEGER(t_6));
+  TestEQ(1m, MONEY(t_6));
+  TestEQ(1i64, INTEGER64(t_6));
+  TestEQ(1f, FLOAT(t_6));
+
+  TestEQ(1, INTEGER(1.515625f));
+  TestEQ(1.51562m, MONEY(1.515625f));
+  TestEQ(1i64, INTEGER64(1.515625f));
+  TestEQ(1.515625f, FLOAT(1.515625f));
+  TestEQ(1, INTEGER(t_f));
+  TestEQ(1.51562m, MONEY(t_f));
+  TestEQ(1i64, INTEGER64(t_f));
+  TestEQ(1.515625f, FLOAT(t_f));
+
+  // Casts between arrays
+  VARIANT ARRAY x_int, x_float;
+  INSERT 1 INTO x_int AT END;
+  INSERT 1f INTO x_float AT END;
+  INTEGER ARRAY t_ia := [ 1 ];
+  FLOAT ARRAY t_fa := [ 1f ];
+
+  TestEQ([ 1 ], INTEGER ARRAY(x_int));
+  TestEQ(x_int, VARIANT ARRAY([ 1 ]));
+  TestEQ(x_int, VARIANT ARRAY(t_ia));
+  TestEQ([ 1 ], INTEGER ARRAY(VARIANT ARRAY([ 1f ])));
+  TestEQ([ 1 ], INTEGER ARRAY([ 1f ]));
+  TestEQ([ 1 ], INTEGER ARRAY(x_float));
+  TestEQ([ 1f ], FLOAT ARRAY(x_int));
+  TestEQ([ 1f ], FLOAT ARRAY(t_ia));
+  TestEQ([ 1 ], t_ia);
+  TestEQ([ 1 ], INTEGER ARRAY(t_ia));
+  TestEQ([ 1 ], INTEGER ARRAY(t_fa));
+
+  // Casts of record array->record
+  RECORD ARRAY t_re, t_rf := [ [ a := 1 ], [ a := 2 ] ];
+  TestEQ(DEFAULT RECORD, RECORD(DEFAULT RECORD ARRAY));
+  TestEQ([ a := 1 ], RECORD([ [ a := 1 ], [ a := 2 ] ]));
+  TestEQ(DEFAULT RECORD, RECORD(t_re));
+  TestEQ([ a := 1 ], RECORD(t_rf));
+
+  TestEq(5m, CastTo(5, TYPEID(MONEY)));
+
+  CloseTest("TestTypes: CastTest");
+}
+
+MACRO HeavyCastTest()
+{
+  OpenTest("TestTypes: HeavyCastTest");
+
+  INTEGER ARRAY vtypes :=
+      [ TypeId(BOOLEAN)
+      , TypeId(STRING)
+      , TypeId(INTEGER)
+      , TypeId(INTEGER64)
+      , TypeId(MONEY)
+      , TypeId(FLOAT)
+      , TypeId(DATETIME)
+      , TypeId(RECORD)
+      , TypeId(OBJECT)
+      , TypeId(BLOB)
+      , TypeId(FUNCTION PTR)
+      , TypeId(BOOLEAN ARRAY)
+      , TypeId(STRING ARRAY)
+      , TypeId(INTEGER ARRAY)
+      , TypeId(INTEGER64 ARRAY)
+      , TypeId(MONEY ARRAY)
+      , TypeId(FLOAT ARRAY)
+      , TypeId(DATETIME ARRAY)
+      , TypeId(RECORD ARRAY)
+      , TypeId(OBJECT ARRAY)
+      , TypeId(BLOB ARRAY)
+      , TypeId(FUNCTION PTR ARRAY)
+      , TypeId(VARIANT ARRAY) ];
+
+  RECORD ARRAY combos :=
+      SELECT type_from :=   vfrom.type
+           , type_to :=     vto.type
+           , c_i :=         FALSE
+           , c_e :=         FALSE
+           , via_record :=  vr.via_record
+        FROM ToRecordArray(vtypes, "TYPE") AS vfrom
+           , ToRecordArray(vtypes, "TYPE") AS vto
+           , [ [ via_record := FALSE ], [ via_record := TRUE ] ] AS vr;
+
+  // Cast from array to variant array: always ok
+  UPDATE combos
+     SET c_i := TRUE
+       , c_e := TRUE
+   WHERE type_to = TypeID(VARIANT ARRAY)
+     AND IsTypeidArray(type_from);
+
+  // Cast from record array to record: always ok
+  UPDATE combos
+     SET c_i := TRUE
+       , c_e := TRUE
+   WHERE type_to = TypeID(RECORD)
+     AND type_from = TypeID(RECORD ARRAY);
+
+  // Cast to same type: always ok
+  UPDATE combos
+     SET c_i := TRUE
+       , c_e := TRUE
+   WHERE type_to = type_from;
+
+  // Implicit cast can do specific numeric casts
+  UPDATE combos
+     SET c_i := TRUE
+   WHERE type_from || "-" || type_to IN
+           [ TypeID(INTEGER) || "-" || TypeID(MONEY)
+           , TypeID(INTEGER) || "-" || TypeID(INTEGER64)
+           , TypeID(INTEGER) || "-" || TypeID(FLOAT)
+           , TypeID(MONEY) || "-" || TypeID(FLOAT)
+           , TypeID(INTEGER64) || "-" || TypeID(FLOAT)
+           ];
+
+  // Explicit can convert all numeric types to all other numeric types
+  UPDATE combos
+     SET c_e := TRUE
+   WHERE type_to IN [ TypeID(INTEGER), TypeID(FLOAT), TypeID(MONEY), TypeID(INTEGER64) ]
+     AND type_from IN [ TypeID(INTEGER), TypeID(FLOAT), TypeID(MONEY), TypeID(INTEGER64) ];
+
+  // Explicit can convert all arrays of numeric types to arrays of all other numeric types
+  UPDATE combos
+     SET c_e := TRUE
+   WHERE type_to IN [ TypeID(INTEGER ARRAY), TypeID(FLOAT ARRAY), TypeID(MONEY ARRAY), TypeID(INTEGER64 ARRAY) ]
+     AND type_from IN [ TypeID(INTEGER ARRAY), TypeID(FLOAT ARRAY), TypeID(MONEY ARRAY), TypeID(INTEGER64 ARRAY) ];
+
+  // Explicit can convert variant arrays to arrays of all other types
+  UPDATE combos
+     SET c_e := TRUE
+   WHERE IsTypeidArray(type_to)
+     AND type_from = TypeID(VARIANT ARRAY);
+
+  FOREVERY (RECORD combo FROM combos)
+  {
+   // PRINT(#combo || "/" || LENGTH(combos) || "\r");
+//    PRINT("Testing " || GetTypeName(combo.type_from) || " -> " || GetTypeName(combo.type_to)  || ": implicit: " || (combo.c_i?"ok":"fail") || " explicit: " || (combo.c_e?"ok":"fail") || " via record:" || (combo.via_record?"yes":"no") || "\n");
+
+    STRING implicit_script := combo.via_record
+        ? '<?wh MACRO Test('||GetTypeName(combo.type_to)||' val){PRINT(GetTypeName(TypeID(val))||"");} RECORD r := [ a := DEFAULT '||GetTypeName(combo.type_from) || ' ]; Test(r.a); ?>'
+        : '<?wh MACRO Test('||GetTypeName(combo.type_to)||' val){PRINT(GetTypeName(TypeID(val))||"");} Test(DEFAULT '||GetTypeName(combo.type_from) || '); ?>';
+
+//    PRINT("Implicit script: " || implicit_script || "\n");
+
+    result := TestCompileAndRun(implicit_script);
+    IF (combo.c_i)
+    {
+      TestCleanResult(1, result.errors);
+      TestEqualString(4, GetTypeName(combo.type_to), result.output);
+    }
+    ELSE
+    {
+      MustContainError(18, result.errors, 62, GetTypeName(combo.type_from), GetTypeName(combo.type_to));
+    }
+
+    STRING explicit_script := combo.via_record
+        ? '<?wh RECORD r := [ a := DEFAULT '||GetTypeName(combo.type_from) || ' ]; PRINT(GetTypeName(TypeID(('||GetTypeName(combo.type_to)||'(r.a))))); ?>'
+        : '<?wh PRINT(GetTypeName(TypeID(('||GetTypeName(combo.type_to)||'(DEFAULT ' || GetTypeName(combo.type_from) || '))))); ?>';
+
+//    PRINT("Explicit script: " || explicit_script || "\n");
+
+    result := TestCompileAndRun(explicit_script);
+    IF (combo.c_e)
+    {
+      TestCleanResult(1, result.errors);
+      TestEqualString(4, GetTypeName(combo.type_to), result.output);
+    }
+    ELSE
+    {
+      MustContainError(18, result.errors, 62, GetTypeName(combo.type_from), GetTypeName(combo.type_to));
+    }
+  }
+
+  CloseTest("TestTypes: HeavyCastTest");
+}
+
+MACRO TestIsDefaultValue()
+{
+  OpenTest("TestTypes: TestIsDefaultValue");
+
+  STRING teststr;
+  TestEq(TRUE, IsDefaultValue(teststr));
+  TestEq(TRUE, IsDefaultValue(""));
+  TestEq(FALSE, IsDefaultValue("not empty"));
+
+  MACRO PTR testptr;
+  TestEq(TRUE, IsDefaultValue(testptr));
+  TestEq(TRUE, IsDefaultValue(DEFAULT MACRO PTR));
+  TestEq(FALSE, IsDefaultValue(PTR MultiTest));
+
+  BLOB testblob;
+  TestEq(TRUE, IsDefaultValue(testblob));
+  TestEq(TRUE, IsDefaultValue(DEFAULT BLOB));
+
+  INTEGER testint;
+  INTEGER64 testint64;
+  TestEq(TRUE, IsDefaultValue(testint));
+  TestEq(TRUE, IsDefaultValue(testint64));
+  TestEq(TRUE, IsDefaultValue(0));
+  TestEq(FALSE, IsDefaultValue(1));
+
+  BOOLEAN ARRAY testarr;
+  TestEq(TRUE, IsDefaultValue(testarr));
+  TestEq(TRUE, IsDefaultValue(DEFAULT BOOLEAN ARRAY));
+  TestEq(FALSE, IsDefaultValue([ TRUE, FALSE ]));
+
+  RECORD testrecord;
+  TestEq(TRUE, IsDefaultValue(testrecord));
+  TestEq(FALSE, IsDefaultValue(CELL[]));
+  TestEq(FALSE, IsDefaultValue([ x := "" ]));
+
+  BOOLEAN testbool;
+  TestEq(TRUE, IsDefaultValue(testbool));
+  TestEq(TRUE, IsDefaultValue(FALSE));
+  TestEq(FALSE, IsDefaultValue(TRUE));
+
+  CloseTest("TestTypes: TestIsDefaultValue");
+}
+
+MACRO TestIsValueSet()
+{
+  OpenTest("TestTypes: TestIsDefaultValue");
+
+  STRING teststr;
+  TestEq(FALSE, IsValueSet(teststr));
+  TestEq(FALSE, IsValueSet(""));
+  TestEq(TRUE, IsValueSet("not empty"));
+
+  MACRO PTR testptr;
+  TestEq(FALSE, IsValueSet(testptr));
+  TestEq(FALSE, IsValueSet(DEFAULT MACRO PTR));
+  TestEq(TRUE, IsValueSet(PTR MultiTest));
+
+  BLOB testblob;
+  TestEq(FALSE, IsValueSet(testblob));
+  TestEq(FALSE, IsValueSet(DEFAULT BLOB));
+
+  INTEGER testint;
+  INTEGER64 testint64;
+  TestEq(FALSE, IsValueSet(testint));
+  TestEq(FALSE, IsValueSet(testint64));
+  TestEq(FALSE, IsValueSet(0));
+  TestEq(TRUE, IsValueSet(1));
+
+  BOOLEAN ARRAY testarr;
+  TestEq(FALSE, IsValueSet(testarr));
+  TestEq(FALSE, IsValueSet(DEFAULT BOOLEAN ARRAY));
+  TestEq(TRUE, IsValueSet([ TRUE, FALSE ]));
+
+  RECORD testrecord;
+  TestEq(FALSE, IsValueSet(testrecord));
+  TestEq(TRUE, IsValueSet(CELL[]));
+  TestEq(TRUE, IsValueSet([ x := "" ]));
+
+  BOOLEAN testbool;
+  TestEq(FALSE, IsValueSet(testbool));
+  TestEq(FALSE, IsValueSet(FALSE));
+  TestEq(TRUE, IsValueSet(TRUE));
+
+  CloseTest("TestTypes: TestIsDefaultValue");
+}
+
+PRINT("\n === Running TestTypes\n");
+IntegerTest();
+Integer64Test();
+TypeIdTest();
+MoneyTest();
+FloatTest();
+StringTest();
+TemplateTest();
+BooleanTest();
+DateTimeTest();
+RecordTest();
+BlobTest();
+ArrayTest();
+MultiTesT();
+CastTest();
+TestIsDefaultValue();
+TestIsValueSet();
+HeavyCastTest(); // to heavy to run in standard tests

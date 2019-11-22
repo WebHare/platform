@@ -1,0 +1,156 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
+
+
+MACRO TestRenderWidgets()
+{
+  testfw->BeginWork();
+
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT simpletest := testloc->CreateFile([name := "simpletest", type := richdoctype->id, publish := TRUE]);
+  richdoctype->SetInstanceData(simpletest->id, [ data := GetTestRTD() ]);
+
+  testfw->CommitWork();
+
+  RECORD publishres := RunFilePublish(simpletest->id, FALSE);
+  IF(Length(publishres.hserrors) > 0)
+    dumpvalue(publishres.hserrors,'boxed');
+  TestEq(TRUE, publishres.success);
+
+  OBJECT htmldoc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+  print(htmldoc->outerxml||'\n');
+
+  OBJECT lastpara := htmldoc->GetElements("p")[END-1];
+  TestEq("And an inline object in <u>UNDERLINED</u> HTML of the paragraph", lastpara->innerhtml);
+}
+
+ASYNC MACRO SharedBlocks()
+{
+  testfw->BeginWork();
+
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT lvl1widgettype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1");
+  OBJECT lvl1widgetobj := testloc->CreateFile([ name := "widget", type := lvl1widgettype->id ]);
+
+  lvl1widgettype->SetInstanceData(lvl1widgetobj->id,
+    [ richdoc := [ htmltext := StringToBlob('<div class="wh-rtd-embeddedobject" data-instanceid="__level2widget"></div>')
+                 , instances := [[ instanceid := "__level2widget"
+                                 , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"
+                                           , richdoc := [ htmltext := StringToBlob('<p class="normal">Level 2</p>') ]
+                                           ]
+                                 ]
+                                ]
+                 ]
+    ]);
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT sharedblockstype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest");
+  OBJECT sharedblocksobj := testloc->CreateFile([ name := "sharedblocks", type := richdoctype->id ]);
+  sharedblockstype->SetInstanceData(sharedblocksobj->id,
+     [ blocks := [ whfstype := "http://www.webhare.net/xmlns/publisher/sharedblocks"
+                 , overridetype := 2
+                 , blocks := [[ block := lvl1widgetobj->id ]
+                              ]
+                 ]
+     ]);
+
+  OBJECT widgets1folder := GetTestsuiteTempFolder()->CreateFolder([name:="widgets1"]);
+  OBJECT widgets2folder := GetTestsuiteTempFolder()->CreateFolder([name:="widgets2"]);
+  testfw->CommitWork();
+
+  RECORD ARRAY blocks := sharedblockstype->GetSharedBlocks(sharedblocksobj->id,"BLOCKS");
+  TestEq(1, Length(blocks));
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1", blocks[0].type_ns);
+
+  OBJECT webdesign := GetWebDesign(sharedblocksobj->id);
+  BLOB widgetblob := GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderSharedBlock(blocks[0])));
+  OBJECT widgetdoc := MakeXMLDocumentFromHTML(widgetblob);
+  OBJECT level1widget := widgetdoc->GetElement("div.level1widget");
+  TestEq(TRUE, ObjectExists(level1widget));
+  TestEq(lvl1widgetobj->id, ToInteger(level1widget->GetAttribute("data-whfsfileid"),0));
+
+  //Test widget preview
+  STRING previewlink := CreateWidgetPreviewLink(AddTimeToDate(60 * 60 * 1000, GetCurrentDateTime()), "", lvl1widgetobj->id, lvl1widgetobj->id);
+  TestEq(TRUE, testfw->browser->GotoWebPage(previewlink), previewlink);
+  OBJECT widgetpreviewnode := testfw->browser->document->GetElement("div.level1widget");
+  TestEq(TRUE, ObjectExists(widgetpreviewnode));
+  TestEq(lvl1widgetobj->id, ToInteger(widgetpreviewnode->GetAttribute("data-whfsfileid"),0),previewlink);
+
+  TestEq(DEFAULT RECORD ARRAY, ResolveLocalSharedBlocks(DEFAULT RECORD));
+
+  //Test the alternative renderings
+  RECORD sharedblocks := sharedblockstype->GetInstanceData(sharedblocksobj->id).blocks;
+  BLOB widgetblob2 := GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderSharedBlock( ResolveLocalSharedBlocks(sharedblocks)[0])));
+  TestEq(widgetblob, widgetblob2);
+
+  BLOB widgetblob3 := GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderSharedBlock( ResolveWidgetAsSharedBlock(lvl1widgetobj->id))));
+  TestEq(widgetblob, widgetblob3);
+
+  OBJECT props := CreateWHFSObjectPropsDialog(GetTestController(), sharedblocksobj->id);
+  AWAIT ExpectScreenChange(+1, PTR props->RunModal());
+  OBJECT objectprops := props->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest", "blocks");
+  TestEq(TRUE, ObjectExists(objectprops));
+  AWAIT ExpectScreenChange(+1, PTR objectprops->sharedblocks->addbutton->TolliumClick);
+  TestEq(2,Length(topscreen->roots));
+  TestEq(widgets1folder->id, topscreen->roots[0]);
+  TestEq(widgets2folder->id, topscreen->roots[1]);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+MACRO WidgetTypeAsFile()
+{
+  testfw->BeginWork();
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT widgetfile := testloc->CreateFile([ name := "embedlvl2", typens := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"]);
+  TestEq(FALSE, widgetfile->publish);
+  widgetfile->SetInstancedata("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"
+                             , [ richdoc := [ htmltext := StringToBlob('<p class="normal">Level 2</p>') ]
+                               ]);
+  testfw->CommitWork();
+
+  STRING link := CreateWidgetPreviewLink(AddTimeToDate(60000, GetCurrentDatetime()), "", widgetfile->id, widgetfile->id);
+  IF(testfw->debug)
+    Print(`Preview link: ${link}\n`);
+
+  TestEQ(TRUE, testfw->browser->GotoWebPage(link), `Failed to visit ${link}`);
+
+  //Test missing fields
+  OBJECT webdesign := GetWebDesign(widgetfile->id);
+  OBJECT xml1 := MakeXMLDocumentFromHTML(GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderWidgetInstance( [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"
+                                                                                                                            , testrenderinstance_array := [[ membera := "42"]]
+
+                                                                                                                            ]))));
+  OBJECT level2widgetnode := xml1->GetElement("div.level2widget");
+  TestEq(TRUE, ObjectExists(level2widgetnode));
+  TestEq(0, ToInteger(level2widgetnode->GetAttribute("data-whfsfileid"),-1));
+
+  //both routes should do the same
+  OBJECT xml2 := MakeXMLDocumentFromHTML(GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderWidgetInstance(DEFAULT RECORD, [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" ]))));
+  TestEq(xml1->outerxml, xml2->outerxml);
+}
+
+RunTestframework([ PTR TestRenderWidgets
+                 , PTR SharedBlocks
+                 , PTR WidgetTypeAsFile
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

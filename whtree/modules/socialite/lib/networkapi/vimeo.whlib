@@ -1,0 +1,228 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+
+/*
+
+Support for Vimeo API V3
+
+NOTES:
+- V3 of the API was released in the beginning of 2015
+- We switched to V3 in june 2017
+- The V3 API:
+  - always returns JSON
+  - has the nasty habid to return null when a field is left empty
+    (for example description returns either a string or null. Webhare will return null as a DEFAULT RECORD)
+  - we also have to account for empty arrays being returned as VARIANT ARRAY
+    (for paginated results we automatically fix the "DATA" field to be an DEFAULT RECORD ARRAY if the length is 0 in GetJSONForRequest)
+  - observed that a videoid can be a video behind a paywall.
+    In this case videos/${videoid} will return the trailer video.
+
+Limitations:
+- for now our video components/search don't have any way to show a video is behind a paywall (lock)
+
+Tests:
+- modules/webhare_testsuite/tests/socialite/test_embedvideo.whscr
+  Tests usage through GetVideoEmbedProvider -> .../wh_resources/webhare_services/socialite/ -> socialite API.
+  Warning: this actually tests whether your local Webhare provider is able to use the service specified in the registry.
+  (so it tests the vimeo code from the server specified there and the videoprovider in your local Socialite)
+- Old <videomovie> components aren't tested
+- There is no "low level" test which directly tests the Vimeo socialite API?
+- There is no test for GetVideoEmbedInfo and MakeVideoEmbedInstance?
+
+DOCUMENTATION (for Vimeo's API)
+- https://developer.vimeo.com/api/
+
+*/
+
+
+RECORD ARRAY vimeo_permission_map := DEFAULT RECORD ARRAY;
+
+
+
+PUBLIC STATIC OBJECTTYPE VimeoConnection EXTEND OauthV2NetworkConnection
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Base URL for calls
+  STRING pvt_apiurl;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY apiurl(pvt_apiurl, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW() : OauthV2NetworkConnection(vimeo_permission_map)
+  {
+    IF(IsRPCTrafficLogged("socialite:vimeoconnection"))
+      this->EnableRPCLogging("socialite:vimeoconnection", "");
+
+    this->pvt_apiurl          := "https://api.vimeo.com/";
+    this->pvt_authorizeurl    := "https://api.vimeo.com/oauth/authorize";
+    this->pvt_accesstokenurl  := "https://api.vimeo.com/oauth/access_token";
+
+    this->pvt_newpermissionmodel := TRUE;
+    this->SetMode("vimeo"); // so the main oauth2 code knows to add the authorization header to requests
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  /// Returns the redirect page for web-based logins
+  UPDATE PUBLIC STRING FUNCTION GetCallbackURL(STRING serverurl)
+  {
+    RETURN ResolveToAbsoluteURL(serverurl, "/tollium_todd.res/socialite/callbacks/vimeo.shtml");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY requested_permissions, STRING state)
+  {
+    RETURN this->GetV2AuthorizationCodeURI(this->pvt_authorizeurl, requested_permissions, callbackurl, state);
+  }
+
+
+
+  /** @short get information on a specific video
+  */
+  PUBLIC RECORD FUNCTION Videos_GetInfo(STRING video_id)
+  {
+    STRING path := `videos/${video_id}`;
+
+    RECORD results := this->GetJSONForRequest(path, DEFAULT RECORD ARRAY);
+
+    // STRING ERROR = 'The requested video could not be found'
+    IF (CellExists(results, "error"))
+      RETURN DEFAULT RECORD;
+
+    RETURN this->__ConvertVideoArray([RECORD(results)])[0];
+  }
+
+
+  /** @short get a list of videos matching the given query
+      @param query
+      @param options
+      @cell options.maxresults amount of results to return (can be up till 100) The higher maxresults, the longer the request will take.
+  */
+  PUBLIC RECORD FUNCTION Videos_Search(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ maxresults := 25 ], options);
+    IF(options.maxresults <= 0)
+      RETURN [ movies := DEFAULT RECORD ARRAY ];
+
+    STRING path := `videos`;
+    RECORD ARRAY getvars;
+    IF (query != "")
+      INSERT [ name := "query", value := query ] INTO getvars AT END;
+
+    INSERT [ name := "per_page", value := ToString(options.maxresults) ] INTO getvars AT END;
+
+    RECORD results := this->GetJSONForRequest(path, getvars);
+    RETURN [ movies := ArraySlice(this->__ConvertVideoArray(results.data),0,options.maxresults)
+           ];
+  }
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION GetJSONForRequest(STRING path, RECORD ARRAY getvars)
+  {
+    RECORD result := this->SendRequest(this->pvt_apiurl || path, getvars);
+
+    RECORD data := DecodeJSONBlob(this->browser->content);
+
+    /*
+    LogWithContext([ path := path
+                   , getvars := getvars
+                   , browser_content := this->browser->content
+                   ], [ title := "GetJSONForRequest" ]
+                   );
+    */
+
+    IF (CellExists(data, "error") AND data.error = "You must provide a valid authenticated access token.")
+      THROW NEW Exception("This call to Vimeo requires an authorized session.");
+
+    // Paginated results will be returned in field 'DATA'.
+    // Webhare will return a VARIANT ARRAY if the array is empty, but we always want to return a RECORD ARRAY.
+    IF (CellExists(data, "data") AND Length(data.data) = 0)
+    {
+      DELETE CELL data FROM data;
+      INSERT CELL data := DEFAULT RECORD ARRAY INTO data;
+    }
+
+    RETURN data;
+  }
+
+  /** @short do a GET request with the given variables
+      @param url to use for the GET request
+      @param variables to send with the request
+      @result
+  */
+  RECORD FUNCTION SendRequest(STRING url, RECORD ARRAY variables)
+  {
+    this->browser->timeout := 8 * 1000;
+
+    FOREVERY (RECORD variable FROM variables)
+      url := AddVariableToUrl(url, variable.name, variable.value);
+
+    //this->browser->GotoWebPage(url);
+    this->browser->SendRawRequest("GET", url, [[ field := "Accept", value := "application/vnd.vimeo.*+json;version=3.0" ]], DEFAULT BLOB);
+    RETURN [ content  := this->browser->content ];
+  }
+
+  RECORD ARRAY FUNCTION __ConvertVideoArray(RECORD ARRAY videos)
+  {
+    /*
+    NOTE:
+    - is_hd, is_transcoding, allow_adds aren't returned anymore
+    - 'upload_date' is now returned as 'creationdate' to be in line with YouTube's API
+    - we don't return privacy, owner (now in field 'user') anymore (noone uses it?)
+    - we don't return location anymore (we always returned DEFAULT RECORD anyway)
+    - added: link
+
+    Fields which can be returned as null (DEFAULT RECORD): description, language, license, stats.plays, metadata.interactions, websites.description
+    Fields which may not be returned at all: stats.likes, stats.comments
+    */
+
+    RETURN SELECT
+                // below are fields we keep over time
+                  id := Tokenize(uri, "/")[2]
+                , title := name
+                , description := TypeID(description) = TypeID(STRING) ? description : "" // fix null value to be an empty STRING
+                , link
+                , duration
+                , creationdate := MakeDateFromText(created_time)
+                //, upload_date := MakeDateFromText(created_time) // FIXME: use created_time or release_time
+                , modified_date := MakeDateFromText(modified_time)
+                , thumbnails := (SELECT width, height, url := link FROM pictures)
+
+                , number_of_likes := stats.likes
+                , number_of_plays := stats.plays
+                , number_of_comments := stats.comments
+
+            FROM videos;
+  }
+>;

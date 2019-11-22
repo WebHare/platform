@@ -1,0 +1,116 @@
+<?wh
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "mod::system/lib/remoting/client.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/api.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/support.whlib";
+
+RECORD FUNCTION AuthHandler(RECORD result, STRING realm, STRING url)
+{
+  RETURN result;
+}
+
+PUBLIC OBJECTTYPE ServerList EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->RefreshServerlist();
+  }
+
+  MACRO RefreshServerlist()
+  {
+    RECORD ARRAY servers := GetKnownServers(this->tolliumuser);
+    this->serverlist->rows := SELECT rowkey := registrynode
+                                   , url
+                                   , username
+                                   , password
+                                FROM servers;
+  }
+
+  MACRO DoAddItem()
+  {
+    OBJECT screen := this->LoadScreen(".updateserver", [ registrynode := "" ]);
+    IF(screen->RunModal() = "ok")
+      this->RefreshServerlist();
+  }
+
+  MACRO DoEditItem()
+  {
+    OBJECT screen := this->LoadScreen(".updateserver", [ registrynode := this->serverlist->value ]);
+    IF(screen->RunModal() = "ok")
+      this->RefreshServerlist();
+  }
+
+  MACRO DoDeleteItem()
+  {
+    IF(this->RunMessageBox(".confirmdeleteserver", this->serverlist->selection.url) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    this->tolliumuser->DeleteRegistryNode("publisher.blit.server." || this->serverlist->value);
+    work->Finish();
+    this->RefreshServerlist();
+  }
+>;
+
+PUBLIC OBJECTTYPE UpdateServer EXTEND TolliumScreenBase
+< STRING node;
+  OBJECT browser;
+
+  MACRO Init(RECORD data)
+  {
+    this->node := data.registrynode;
+    this->browser := NEW WebBrowser;
+
+    IF(this->node != "")
+    {
+      this->url->value := UnmapBlitURL(this->node);
+      this->url->enabled := FALSE;
+
+      RECORD credentials :=GetServerCredentials(this->tolliumuser, this->url->value);
+      this->username->value := credentials.username;
+      this->password->value := credentials.password; //FIXME this causes tollium to actually send the password to the user. should fix that!
+    }
+  }
+
+  MACRO OnUnload()
+  {
+    this->browser->Close();
+  }
+
+  BOOLEAN FUNCTION ValidateConnection()
+  {
+    IF(this->node="" AND this->url->value LIKE "http://*" AND this->RunMessageBox(".confirmnonsecureserver", this->url->value) != "yes")
+      RETURN FALSE;
+
+    STRING reposurl := CalculateRepositoryURL(this->url->value, FALSE);
+    this->browser->onauth := PTR AuthHandler([ username := this->username->value, password := this->password->value ], #1, #2);
+
+    TRY
+    {
+      RECORD res :=  InvokeRemoteFunctionWithBrowser(this->browser, reposurl  || "CheckServer");
+    }
+    CATCH(OBJECT e)
+    {
+      IF(this->RunMessageBox(".confirmfailedserver", e->What) != "yes")
+        RETURN FALSE;
+    }
+    RETURN TRUE;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    //verify the connection
+    IF(NOT this->ValidateConnection())
+      RETURN FALSE;
+
+    OBJECT work := this->BeginWork();
+    IF(NOT work->HasFailed())
+    {
+      this->tolliumuser->SetRegistryKey(GetCredentialsRegistryKey(this->url->value), EncodeBase64(this->username->value) || ":" || EncodeBase64(this->password->value));
+    }
+    //ADDME: Update in database
+    RETURN work->Finish();
+  }
+>;
+

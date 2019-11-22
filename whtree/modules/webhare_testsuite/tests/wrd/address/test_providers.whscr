@@ -1,0 +1,34 @@
+<?wh
+// This test is for the stuff that doesn't require an API connection
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+LOADLIB "mod::wrd/lib/address.whlib";
+
+MACRO TestPostcodeAPiNU()
+{
+  testfw->BeginWork();
+  TestThrows(PTR SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "postcodeapi.nu" ]));
+
+  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "postcodeapi.nu"
+                                                      , apikey := "loopback"
+                                                      ]);
+
+  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
+  TestCoreAddressAPI(api, [loopback:=TRUE ]);
+  testfw->RollbackWork();
+}
+
+MACRO TestPDOK()
+{
+  testfw->BeginWork();
+  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "pdok" ]);
+
+  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
+  TestCoreAddressAPI(api, [ loopback := TRUE ]);
+  testfw->RollbackWork();
+}
+
+Runtestframework([ PTR TestPostcodeAPiNU
+                 , PTR TestPDOK
+                 ]);

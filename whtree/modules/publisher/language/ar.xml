@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="ar" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="captcha">   <!-- site.captcha -->
+      <text tid="explain">يرجى جعل علامة ألإختيار على المربع أدنى</text>
+      <text tid="title">قربت الإنتهاء</text>
+    </textgroup>
+    <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="nextpage">التالى</text>
+      <text tid="previouspage">السابق</text>
+      <text tid="selectfile">حدد الملف</text>
+      <text tid="starsrequired">يشير إلى حقل مطلوب *</text>
+      <text tid="submit">قدم</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">لم يتمكن العثور على العنوان.</text>
+        <text tid="invalid_nr_detail">رقم المنزل غير صالح مع الإضافة.</text>
+        <text tid="invalid_zip">الرمز البريدي غير صالح.</text>
+        <text tid="zip_not_found">تركيبة الرمز البريدي ورقم المنزل غير معروفة.</text>
+      </textgroup>
+      <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
+        <text tid="alphanum">تأكد من إدخال حروف وأرقام فقط</text>
+        <text tid="check">يجب اختيار بين <param p="1"/> و <param p="2"/> خيار.</text>
+        <text tid="default">تأكد من صحة القيمة المدخلة</text>
+        <text tid="digits">تأكد من إدخال أرقام</text>
+        <text tid="email">تأكد من إدخال بريد الكتروني صالح</text>
+        <text tid="email_baddomain">نظرًا لصعوبة إرسال البريد إلى <param p="1"/> عناوين البريد الإلكتروني يرجى إستخدام بريد إلكتروني بديل</text>
+        <text tid="email_suggestion">هل تقصد <param p="1"/>؟</text>
+        <text tid="equalto">تأكد من تطابق القيمتين المدخلة.</text>
+        <text tid="integer">تأكد من إدخال عدد صحيح بدون كسور</text>
+        <text tid="length">القيمة المدخلة غير صالحة. تأكد من إدخال قيمة بين <param p="1"/> و<param p="2"/> خانة</text>
+        <text tid="max">القيمة المدخلة يجب أن تساوي أو تكون أقل من <param p="1"/>.</text>
+        <text tid="maxcheck">يجب اختيار <param p="1"/> خيار أو أقل</text>
+        <text tid="maxlength">القيمة المدخلة طويلة بالغاية. تأكد من إدخال <param p="1"/> حروف أو أقل</text>
+        <text tid="min">القيمة المدخلة يجب أن تساوي أو تكون أكبر من <param p="1"/>.</text>
+        <text tid="mincheck">يجب اختيار <param p="1"/> خيار على الأقل.</text>
+        <text tid="minlength">القيمة المدخلة قصيرة بالغاية. تأكد من إدخال <param p="1"/> حرف أو أكثر</text>
+        <text tid="notblank">تأكد من تعبئة الحقل</text>
+        <text tid="number">تأكد من إدخال رقم صالح</text>
+        <text tid="pattern">القيمة المدخلة غير صالحة</text>
+        <text tid="range">القيمة المدخلة يجب أن تكون بين <param p="1"/> و <param p="2"/>.</text>
+        <text tid="required">هذا الحقل مطلوب</text>
+        <text tid="url">تأكد من إدخال رابط صالح</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

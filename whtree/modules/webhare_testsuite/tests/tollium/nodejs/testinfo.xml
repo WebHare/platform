@@ -1,0 +1,4 @@
+﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <mochanodetest file="test_gettid.es" />
+  <mochanodetest file="test_langjson.es" />
+</group>

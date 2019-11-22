@@ -1,0 +1,73 @@
+﻿<?wh
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/map.whlib";
+
+// FIXME: Not very elaborate, extend it
+
+MACRO TestMap()
+{
+  OpenTest("TestMap: TestMap");
+
+  RECORD ARRAY data;
+
+  FOR (INTEGER i := 1; i < 4000; i := i + 1)
+    INSERT
+        [ key1 :=     i % 17
+        , key2 :=     (i * 57) % 4099 // both primes, modulo prime must be > 4000
+        , delround := i % 5
+        ] INTO data AT END;
+
+  OBJECT map := NEW __Experimental_Map([ "KEY1", "KEY2" ], DEFAULT RECORD);
+
+  FOREVERY (RECORD rec FROM data)
+    map->SetVal(rec, rec);
+
+  FOREVERY (RECORD rec FROM data)
+    TestEQ(rec, map->GetVal(rec));
+
+  FOREVERY (RECORD rec FROM data)
+    IF (rec.delround = 3)
+      map->EraseVal(rec);
+
+  FOREVERY (RECORD rec FROM data)
+    TestEQ(rec.delround = 3 ? DEFAULT RECORD : rec, map->GetVal(rec));
+
+  // Restore all
+  FOREVERY (RECORD rec FROM data)
+    map->SetVal(rec, rec);
+
+  RECORD ARRAY sorted := SELECT * FROM data ORDER BY key1, key2;
+  RECORD range := map->GetDangerousIteratorRange();
+  OBJECT itr := range.range_begin;
+
+  FOREVERY (RECORD rec FROM sorted)
+  {
+    TestEQ(rec, itr->mkey);
+    TestEQ(rec, itr->value);
+    TestEQ(FALSE, itr->atend);
+    itr->Next();
+  }
+
+  TestEQ(TRUE, itr->atend);
+
+  CloseTest("TestMap: TestMap");
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PRINT("\n === Running TestMap\n");
+TestMap();

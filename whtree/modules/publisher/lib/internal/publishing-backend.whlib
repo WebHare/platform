@@ -1,0 +1,1247 @@
+﻿<?wh
+LOADLIB "mod::publisher/lib/internal/outputmedia/localfs.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC BOOLEAN publishing_debug;
+
+RECORD FUNCTION OutputsIntercept(RECORD hookinfo)
+{
+  RECORD primaryoutput := SELECT tag := "", outputweb, outputfolder, folder := root
+                            FROM system.sites
+                           WHERE root = hookinfo.foldertreeids[0];
+
+  RECORD ARRAY outputs;
+  IF(RecordExists(primaryoutput))
+  {
+    INSERT primaryoutput INTO outputs AT END;
+  }
+
+  INTEGER ARRAY interesting_webservers := SELECT AS INTEGER ARRAY outputweb FROM outputs;
+  RECORD ARRAY webinfos := SELECT id, diskfolder, outputextension, type
+                             FROM system.webservers
+                            WHERE id IN interesting_webservers;
+  webinfos := EnrichWebserversWithOutputFolder(webinfos);
+
+  FOREVERY(RECORD outp FROM outputs)
+  {
+    IF(outp.outputweb=0) //unpublished?
+      CONTINUE;
+
+    RECORD webinfo := SELECT * FROM webinfos WHERE id = outp.outputweb;
+
+    //how deep the output is hooked (eg, folderdepth == 2 means: cut 2 levels). grab the local part.
+    INTEGER folderdepth := SearchElement(hookinfo.foldertreeids, outp.folder);
+    STRING localfolder := Detokenize( ArraySlice( Tokenize(hookinfo.folderpath,"/"), folderdepth+1 ), "/");
+
+    STRING diskfolder;
+
+    STRING localpart := MergePath(outp.outputfolder, localfolder);
+    localpart := ToLowercase(localpart);
+
+    IF(webinfo.outputfolder != "")
+      diskfolder := MergePath(webinfo.outputfolder, localpart);
+
+    RECORD final := [ tag := outp.tag
+                    , outputextension := webinfo.outputextension
+                    , outputfolder := diskfolder
+                    , defaultpages := whconstant_webserver_indexpages
+                    , type := "publisher:output"
+                    , folder := outp.folder
+                    , extradata := DEFAULT RECORD
+                    ];
+    INSERT final INTO hookinfo.outputs AT END;
+
+  }
+  RETURN hookinfo;
+}
+
+PUBLIC RECORD ARRAY FUNCTION Getoutputs(INTEGER folderid, STRING folderfullpath)
+{
+  INTEGER ARRAY folderpath := GetFolderTreeIds(folderid);
+  RECORD outputinfo := [ folderid := folderid
+                       , foldertreeids := folderpath
+                       , folderpath := folderfullpath
+                       , outputs := DEFAULT RECORD ARRAY
+                       ];
+  outputinfo := OutputsIntercept(outputinfo);
+
+  RETURN outputinfo.outputs;
+}
+
+RECORD FUNCTION GetMainPublishInfo(INTEGER fileid)
+{
+  RECORD publishinfo :=
+        SELECT sourcefiletype     := file.type
+              , filename           := file.name
+              , publish            := file.publish
+              , filetemplate       := file.template
+              , linkid             := file.filelink
+              , folderfullpath     := folder.fullpath
+              , folderindexdoc     := folder.indexdoc
+              , siteoutputfolder   := site.outputfolder
+              , fileid             := file.id
+              , folderid           := file.parent
+              , webserverid        := site.outputweb
+              , lastpublishdate    := file.lastpublishdate
+              , siteid := file.parentsite
+              , filelink := file.filelink
+              , url := file.url
+              , folderurl := folder.url
+           FROM system.fs_objects AS file
+              , system.fs_objects AS folder
+              , system.sites   AS site
+          WHERE file.id = fileid
+            AND site.locked = false
+            AND file.parent = folder.id
+            AND folder.parentsite = site.id;
+
+  IF(NOT RecordExists(publishinfo))
+    RETURN DEFAULT RECORD;
+
+  INSERT CELL placeholder        := GetApplyTesterForObject(fileid)->GetSitePlaceHolder()
+         INTO publishinfo;
+  RETURN publishinfo;
+}
+
+///A publisher running for a single file
+PUBLIC STATIC OBJECTTYPE PublicationProcess
+<
+  PUBLIC RECORD basedata;
+  RECORD ARRAY outputs;
+  INTEGER fileid;
+  PUBLIC BOOLEAN stripextension;
+
+  MACRO NEW(INTEGER fileid)
+  {
+    this->fileid := fileid;
+    this->basedata := GetMainPublishInfo(this->fileid);
+    IF(NOT RecordExists(this->basedata))
+      THROW NEW Exception("Unable to retrieve base publication settings for #" || this->fileid);
+
+    this->outputs := getoutputs(this->basedata.folderid, this->basedata.folderfullpath);
+
+    //FIXME Looking up publish-as-subdir and the contenttype is a bit redundant, but we'll need a lot of refactoring to get each individual output slave to stop looking up that data
+    RECORD config := GetPublisherConfiguration();
+    INTEGER finaltype := this->basedata.sourcefiletype;
+    IF(finaltype=20) //contentlink
+      finaltype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = this->basedata.filelink;
+
+    BOOLEAN assubdir := SELECT AS BOOLEAN ispublishedassubdir FROM system.fs_types WHERE id = finaltype;
+    this->stripextension := assubdir AND ToUppercase(GetExtensionFromPath(this->basedata.filename)) IN config.stripextensions;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetOutputs()
+  {
+    RETURN SELECT tag, outputextension, outputfolder, defaultpages, type, extradata, folder
+             FROM this->outputs;
+  }
+/*  PUBLIC OBJECT FUNCTION CreatePublicationRunBase(RECORD output) //used by blex_alpha trace.shtml
+  {
+    OBJECT run := NEW PublicationRunBase;
+    INSERT CELL stripextension := this->stripextension INTO output;
+    run->Init(this->basedata, output);
+    RETURN run;
+  }*/
+  PUBLIC OBJECT FUNCTION CreatePublicationRun(OBJECT outputdriver, RECORD output, BOOLEAN profile) //a publication run is created for every individual output
+  {
+    OBJECT run := NEW PublicationRun(outputdriver, profile);
+    INSERT CELL stripextension := this->stripextension INTO output;
+    run->Init(this->basedata, output);
+    RETURN run;
+  }
+>;
+
+STATIC OBJECTTYPE PublicationRun
+<
+
+  PUBLIC RECORD ARRAY hs_errors;
+  PUBLIC STRING hs_groupid;
+
+  PUBLIC OBJECT outputmedia;
+  PUBLIC STRING ARRAY warnings;
+  PUBLIC INTEGER totalsize;
+  PUBLIC RECORD ARRAY outstack;
+  PUBLIC INTEGER ARRAY outputfilepipestack;
+  PUBLIC OBJECT templatejob;
+  PUBLIC INTEGER joboutput;
+  PUBLIC BOOLEAN has_webdesign;
+  PUBLIC RECORD ARRAY setonpublish;
+  BOOLEAN profile;
+  PUBLIC RECORD ARRAY checkablelinks;
+
+  OBJECT outputdriver;
+
+  /// Whether the file is published as a subdirectory
+  BOOLEAN publish_as_subdir;
+
+  /// Whether the published file is the index of its parent
+  BOOLEAN publish_as_index;
+
+  PUBLIC RECORD ARRAY dbfiles;
+
+  PUBLIC MACRO NEW(OBJECT outputdriver, BOOLEAN profile)
+  {
+    this->profile := profile;
+    this->outputdriver := outputdriver;
+  }
+
+  PUBLIC RECORD filedata;
+  RECORD outputsettings;
+  PUBLIC OBJECT contentfiletype;
+  PUBLIC INTEGER errorcode;
+  PUBLIC STRING errordata;
+  PUBLIC INTEGER contentfileid;
+
+  PUBLIC MACRO Init(RECORD filedata, RECORD outputsettings)
+  {
+    this->filedata := filedata;
+    this->outputsettings := outputsettings;
+  }
+
+
+  PUBLIC RECORD FUNCTION GetTemplateInfo()
+  {
+    RECORD retval := [ has_webdesign := FALSE
+                     , templateid := 0
+                     , templatescript := ""
+                     , webdesign := DEFAULT RECORD
+                     , usetempl := DEFAULT RECORD
+                     , notfound := ""
+                     ];
+
+    BOOLEAN found_template;
+    IF(ObjectExists(this->contentfiletype) AND this->contentfiletype->id = 22) // StandaloneTemplate
+    {
+      found_template := TRUE;
+      retval.has_webdesign := TRUE; //we assume that any explicit standalone template also has a webdesign dependency
+      retval.templateid := this->contentfileid;
+      RETURN retval;
+    }
+
+    //First verify if there is a design node
+    OBJECT applytester := GetApplyTesterForObject(this->filedata.fileid);
+    RECORD webdesign := applytester->GetWebDesignObjinfo();
+    retval.webdesign := webdesign;
+
+    RECORD site := __FindSite(this->filedata.siteid);
+    RECORD folder := __FindFolder(this->filedata.folderid);
+    RECORD file := __FindFile(this->filedata.fileid);
+    RECORD usetempl := applytester->GetUsePublishTemplate(RecordExists(retval.webdesign));
+
+    IF(ObjectExists(this->contentfiletype)
+      AND (this->contentfiletype->isdynamicexecution
+           OR this->contentfiletype->namespace = "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
+           OR (RecordExists(retval.webdesign) AND this->contentfiletype->namespace = "http://www.webhare.net/xmlns/publisher/shtmlfile")))
+    {
+      found_template := TRUE;
+      retval.has_webdesign := FALSE;
+      retval.templatescript := "mod::publisher/scripts/internal/publishsystemredirect.whscr";
+      RETURN retval;
+    }
+
+    IF(NOT RecordExists(usetempl) OR usetempl.isdefault) //no explicit template, so try the old ways of determining templates
+    {
+      IF(ObjectExists(this->contentfiletype) AND this->contentfiletype->needstemplate)
+      {
+        retval.has_webdesign := TRUE;
+        IF(RecordExists(webdesign))
+        {
+          found_template := TRUE;
+          retval.templatescript := "mod::publisher/scripts/internal/publishwebdesign.whscr";
+        }
+        ELSE IF (this->filedata.filetemplate != 0)
+        {
+          found_template := TRUE;
+          retval.templateid := this->filedata.filetemplate;
+        }
+        RETURN retval;
+      }
+    }
+
+    //fall through, use the 'usetempl' setting
+
+    retval.has_webdesign := NOT usetempl.skipnormalrepublish;
+    retval.usetempl := usetempl;
+
+    IF(usetempl.script LIKE "mod::*" OR usetempl.script LIKE "modulescript::*") //ADDME allow other namespaces? it'll require validation...
+    {
+      found_template := TRUE;
+      retval.templatescript := usetempl.script;
+    }
+    ELSE
+    {
+      OBJECT templ := OpenWHFSObjectByPath(usetempl.script);
+      IF(ObjectExists(templ) AND NOT templ->isfolder)
+      {
+        found_template := TRUE;
+        retval.templateid := templ->id;
+      }
+      ELSE
+      {
+        retval.notfound := usetempl.script;
+      }
+    }
+    RETURN retval;
+  }
+
+
+  RECORD FUNCTION GetPublishInfo()
+  {
+    //ADDME pass more information we already have that the template/index doesn't need to recheck (eg: contentfile info)
+    RECORD outputsettings := this->outputsettings;
+    DELETE CELL outputfolder FROM outputsettings;
+
+    RETURN [ fileid := this->filedata.fileid
+           , outputsettings := outputsettings
+           ];
+  }
+
+  PUBLIC MACRO SetupJobEnvironment(OBJECT job, BOOLEAN istemplate, STRING scriptname, BOOLEAN profile)
+  {
+    job->ipclink->SendMessage([istemplate := istemplate, scriptname := scriptname, publishdata := this->GetPublishInfo(), profile := profile ]);
+  }
+
+  STRING FUNCTION ToFSCase(STRING text)
+  {
+    RETURN ToLowercase(text);
+  }
+
+  PUBLIC INTEGER FUNCTION Run()
+  {
+    IF (NOT this->OpenOutput())
+    {
+      IF (this->errorcode != 0)
+      {
+        RETURN 10;
+      }
+      ELSE
+      {
+        this->errorcode := 112; /*site disabled*/
+        RETURN 0;
+      }
+    }
+
+    RECORD info  := this->GetTemplateInfo();
+    IF(info.notfound != "")
+    {
+      this->errordata := info.notfound;
+      this->errorcode := 107;
+      RETURN 0;
+    }
+    this->has_webdesign := info.has_webdesign;
+    IF(info.templateid != 0)
+      this->templatejob := this->LoadWHFSTemplate(info.templateid);
+    ELSE IF(info.templatescript != "")
+      this->templatejob := this->LoadScriptTemplate(info.templatescript);
+
+    IF (NOT ObjectExists(this->templatejob))
+    {
+      // If a template was found but the job doesn't exist, the errors have already been set.
+      IF (info.templateid = 0 AND info.templatescript = "")
+      {
+        this->errordata := "";
+        this->errorcode := 107;
+      }
+      RETURN 0;
+    }
+
+    this->joboutput := this->templatejob->CaptureOutput();
+    this->templatejob->Start();
+    WHILE (TRUE)
+    {
+      INTEGER ARRAY handles;
+      INTEGER ARRAY linkhandles;
+
+      FOREVERY (INTEGER handle FROM this->outputfilepipestack)
+        IF (handle != 0)
+          INSERT handle INTO handles AT END;
+
+      INSERT this->templatejob->handle INTO handles AT END;
+      IF (this->templatejob->ipclink->handle != 0)
+        INSERT this->templatejob->ipclink->handle INTO handles AT END;
+
+      //DEBUGPRINT("Waiting (1)");
+      INTEGER handle := WaitForMultiple(handles, DEFAULT INTEGER ARRAY, -1);
+      //DEBUGPRINT("Waited (1), got handle: " || handle || "  job: "||this->templatejob->handle||", port: "||this->port->handle||", links: " || AnyToString(linkhandles, "tree"));
+      IF (handle = this->templatejob->handle)
+        BREAK;
+      IF (handle = this->templatejob->ipclink->handle)
+      {
+        RECORD res := this->templatejob->ipclink->ReceiveMessage(DEFAULT DATETIME);
+        SWITCH (res.status)
+        {
+        CASE "timeout"{ }
+        CASE "gone"   {
+                        this->templatejob->ipclink->Close();
+                      }
+        CASE "ok"     {
+                        IF (NOT this->HandleMessage(this->templatejob->ipclink, res))
+                          RETURN 0;
+                      }
+        }
+      }
+      ELSE
+      {
+        INTEGER pos := SearchElement(this->outputfilepipestack, handle);
+        IF (pos >= 0)
+        {
+          DEBUGPRINT("READING DATA (to: "||this->outstack[pos].handle||")");
+          WHILE (WaitForMultiple([ handle ], DEFAULT INTEGER ARRAY, 0) = handle)
+          {
+            STRING data := ReadFrom(handle, -4096); // Don't want to read until end of stream
+            IF (data = "")
+              BREAK;
+
+            DEBUGPRINT("Read "||LENGTH(data)||" bytes");
+            this->totalsize := this->totalsize + LENGTH(data);
+            PrintTo(this->outstack[pos].handle, data);
+          }
+          IF (IsAtEndOfStream(handle))
+          {
+            ClosePipe(handle);
+            this->outputfilepipestack[pos] := 0;
+          }
+
+          DEBUGPRINT("/READING DATA");
+        }
+      }
+    }
+
+    // Flush all data of all unclosed outputs
+    DEBUGPRINT("Template has finished, flushing all remaining outputs");
+    FOREVERY (INTEGER handle FROM this->outputfilepipestack)
+    {
+      IF (handle = 0)
+        CONTINUE;
+
+      DEBUGPRINT("Flushing: "||handle);
+
+      INTEGER pos := #handle;
+
+      DEBUGPRINT("READING DATA (to: "||this->outstack[pos].handle||")");
+      WHILE (WaitForMultiple([ handle ], DEFAULT INTEGER ARRAY, 0) = handle)
+      {
+        STRING data := ReadFrom(handle, 4096); // Wait for output until end of stream
+        IF (data = "")
+          BREAK;
+
+        DEBUGPRINT("Read "||LENGTH(data)||" bytes");
+        this->totalsize := this->totalsize + LENGTH(data);
+        PrintTo(this->outstack[pos].handle, data);
+      }
+      DEBUGPRINT("/READING DATA");
+    }
+
+    this->hs_errors := this->templatejob->GetErrors();
+    this->hs_groupid := this->templatejob->groupid;
+
+    IF (LENGTH(this->hs_errors) > 0)
+    {
+      LogHarescriptErrors(this->hs_errors, [ info := info ]);
+
+      STRING abortmsg;
+      BOOLEAN is_abort;
+      FOREVERY (RECORD error FROM this->hs_errors)
+      {
+        IF (error.code = 182)
+        {
+          is_abort := TRUE;
+          abortmsg := error.param1;
+        }
+      }
+      this->errorcode := 102;
+      this->errordata := abortmsg;
+      RETURN 0;
+    }
+
+  //    warnings := context->warnings;
+  //    totalsize := context->totalsize;
+    this->outputmedia->Finish();
+    IF (this->outputmedia->AnyError())
+    {
+      this->errorcode := this->outputmedia->current_error.code;
+      this->errordata := this->outputmedia->current_error.msg;
+    }
+
+    IF (this->outputdriver EXTENDSFROM LocalFSOutputMedia)
+    {
+      IF (GetURLEventsSettings(this->filedata.fileid).enabled)
+      {
+        //ADDME perhaps we can use CalculateFSObjectFullPathAndURL here
+        STRING ARRAY defaultpages := whconstant_webserver_indexpages;
+        STRING baseurl := this->filedata.folderurl;
+        FOREVERY (RECORD subfile FROM this->outputmedia->generatedfiles)
+        {
+          STRING fullurl := baseurl || subfile.path;
+          IF(ToLowercase(GetNameFromPath(fullurl)) IN defaultpages)
+            fullurl := GetDirectoryFromPath(fullurl);
+
+          DEBUGPRINT("BroadcaseURLEvent '" || fullurl || "' published (if needed)");
+          BroadcastURLEvent(this->filedata.fileid, fullurl, TRUE);
+        }
+      }
+      ELSE
+        DEBUGPRINT("Not pushing published url " || this->filedata.url);
+    }
+
+    this->outputmedia := DEFAULT OBJECT;
+    RETURN 0;
+  }
+
+  PUBLIC BOOLEAN FUNCTION HandleMessage(OBJECT link, RECORD rec)
+  {
+    // Ain't gonna wait, we got the wait loop for that.
+    IF (rec.status != "ok")
+    {
+      this->errordata := "Communication error with template: " || rec.status;
+      this->errorcode := 3003;
+      RETURN FALSE;
+    }
+    IF (TypeId(rec.msg) != TypeId(Record) OR NOT CellExists(rec.msg, "TYPE"))
+    {
+      this->errordata := "Message format error with template";
+      this->errorcode := 3003;
+      RETURN FALSE;
+    }
+    //DEBUGPRINT("@Received message\n" || AnyToString(rec.msg,'tree'));
+
+    RECORD reply := this->HandleRPC(rec.msg);
+    IF (this->errorcode != 0)
+    {
+      RETURN FALSE;
+    }
+
+    rec := link->SendReply(reply, rec.msgid);
+    RETURN TRUE;
+  }
+
+  PUBLIC OBJECT FUNCTION LoadWHFSTemplate(INTEGER fileid)
+  {
+    RECORD templaterec := SELECT parentsite,fullpath FROM system.fs_objects WHERE id = fileid AND isactive;
+    IF (NOT RecordExists(templaterec))
+    {
+      // Template has been removed
+      this->errorcode:=114;
+      this->errordata:="Template has been deleted";
+      RETURN DEFAULT OBJECT;
+    }
+    RETURN this->LoadTemplate(GetDirectResourceName(fileid));
+  }
+  PUBLIC OBJECT FUNCTION LoadScriptTemplate(STRING scriptname)
+  {
+    RETURN this->LoadTemplate(scriptname);
+  }
+
+  OBJECT FUNCTION LoadTemplate(STRING scriptname)
+  {
+    RECORD jobdata := CreateJob("mod::publisher/scripts/internal/publishjob.whscr");
+    OBJECT job := jobdata.job;
+    IF (NOT ObjectExists(job))
+    {
+      this->errorcode:=101;
+      this->errordata:="Could not start template";
+      this->hs_errors := jobdata.errors;
+      RETURN DEFAULT OBJECT;
+    }
+
+    this->SetupJobEnvironment(job, TRUE, scriptname, this->profile);
+    RETURN job;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION OpenOutput()
+  {
+    //ADDME: Bail if folder fullpath contains corrupted elements? (or should database's fullpath internal field take care of that?)
+    if (this->filedata.sourcefiletype = 24/*placeholder*/ AND this->filedata.placeholder != 0)
+    {
+      this->filedata.sourcefiletype := 20; //treat as content link
+      this->filedata.linkid := this->filedata.placeholder;
+    }
+
+    //If we have a content link, chase it!
+    INTEGER contentfiletypeid;
+    IF(this->filedata.sourcefiletype = 20/*content*/)
+    {
+      //yes! get the real file, and replace our 'type' for it!
+      RECORD linkscan := SELECT type, isactive, isfolder
+                           FROM system.fs_objects
+                          WHERE id = this->filedata.linkid;
+      IF (NOT RecordExists(linkscan))
+      {
+        this->errordata := "Cannot find linked file";
+        this->errorcode := 3003;
+        RETURN FALSE;
+      }
+      IF (NOT linkscan.isactive)
+      {
+        this->errordata := "Cannot find linked file - it has been deleted";
+        this->errorcode := 3003;
+        RETURN FALSE;
+      }
+      IF (linkscan.isfolder)
+      {
+        this->errordata := "The contentlink is linked to a folder";
+        this->errorcode := 3003;
+        RETURN FALSE;
+      }
+
+      contentfiletypeid := linkscan.type;
+      this->contentfiletype := OpenWHFSTypeById(linkscan.type);
+
+//FIXME Use information table in publisher.whlib
+      IF (ObjectExists(this->contentfiletype) AND
+          (this->contentfiletype->id = 29/*profile*/
+            OR this->contentfiletype->id = 28/*template*/
+            OR this->contentfiletype->id = 16/*libary*/
+            OR (this->contentfiletype->id >= 18 AND this->contentfiletype->id <= 20)/*link*/))
+      {
+        this->errordata := "Illegal type for linked file";
+        this->errorcode := 3003;
+        RETURN FALSE;
+      }
+
+      this->contentfileid := this->filedata.linkid;
+    }
+    ELSE
+    {
+      contentfiletypeid := this->filedata.sourcefiletype;
+      this->contentfiletype := OpenWHFSTypeById(this->filedata.sourcefiletype);
+      IF (this->filedata.sourcefiletype != 0
+          AND (NOT ObjectExists(this->contentfiletype) OR NOT this->contentfiletype->filetype))
+      {
+        this->errordata := "Object type is not registered as a filetype";
+        this->errorcode := 3003;
+        RETURN false;
+      }
+      this->contentfileid := this->filedata.fileid;
+    }
+
+    //Bail if the filename got corrupted (ADDME: do something similair for folder path components?)
+    if (this->filedata.filename = "" OR NOT IsSafeFilePath(this->filedata.filename, false) OR this->filedata.filename LIKE "^*")
+    {
+      this->errordata := "File to publish has an illegal name";
+      this->errorcode := 3003;
+      RETURN false;
+    }
+
+    IF (NOT this->filedata.publish)
+    {
+      this->errordata := "File not selected for publication";
+      this->errorcode := 3003;
+      RETURN false;
+    }
+
+    IF (this->outputsettings.outputfolder = "")
+    {
+      this->errordata := "Site has no output folder";
+      this->errorcode := 3003;
+      RETURN false;
+    }
+    IF (ObjectExists(this->contentfiletype) AND NOT this->contentfiletype->filetype)
+    {
+      this->errordata := "File type #" || this->contentfiletype->id || " is not a registered file type";
+      this->errorcode := 3003;
+      RETURN false;
+    }
+
+    this->publish_as_subdir := ObjectExists(this->contentfiletype) AND this->contentfiletype->ispublishedassubdir;
+    this->publish_as_index := this->filedata.fileid = this->filedata.folderindexdoc;
+
+    IF(contentfiletypeid NOT IN (whconstant_whfstypes_scriptable CONCAT [ 18, 19, 24, 35 ]) //it's okay for redirects, contentlistings and dynamic contentpages to have a scriptable extension, as you can't control their output
+      AND NOT this->publish_as_subdir)
+    {
+      STRING ext := Substring(GetExtensionFromPath(this->filedata.filename),1);
+      RECORD mimetypeinfo := SELECT * FROM system.mimetypes WHERE ToUppercase(extension) = ToUppercase(ext) AND parsetype NOT IN [0,2,3];
+      IF(RecordExists(mimetypeinfo))
+      {
+        this->errordata := "File type #" || contentfiletypeid || " is not a scriptable content type, but extension '" || ext || "' is scriptable.";
+        this->errorcode := 3004;
+        RETURN FALSE;
+      }
+    }
+
+    BOOLEAN capturesubpaths := ObjectExists(this->contentfiletype) AND this->contentfiletype->capturesubpaths;
+    IF (NOT this->CheckCaptureSubUrls(capturesubpaths))
+      RETURN FALSE;
+
+    this->outputmedia := this->outputdriver->CreatePublicationOutput(
+            this->ToFSCase(this->filedata.filename),
+            this->publish_as_subdir,
+            this->publish_as_index,
+            capturesubpaths,
+            this->outputsettings.defaultpages,
+            this->outputsettings.outputfolder,
+            this->outputsettings.stripextension);
+
+    IF(MemberExists(this->outputmedia,"current_error") AND RecordExists(this->outputmedia->current_error))
+    {
+      this->errorcode := this->outputmedia->current_error.code;
+      this->errordata := this->outputmedia->current_error.msg;
+      RETURN FALSE;
+    }
+
+    RETURN TRUE;
+  }
+
+  BOOLEAN FUNCTION CheckCaptureSubUrls(BOOLEAN capturesubpaths)
+  {
+    IF (capturesubpaths AND NOT this->publish_as_subdir)
+    {
+      this->errordata := "Cannot capture subpaths for a filetype that is not published into a subdirectory";
+      this->errorcode := 3003;
+      RETURN FALSE;
+    }
+
+    RETURN TRUE;
+  }
+
+  PUBLIC MACRO Finish()
+  {
+    IF (ObjectExists(this->outputmedia))
+      this->outputmedia->Cancel();
+
+    IF (ObjectExists(this->templatejob))
+    {
+      this->templatejob->Close();
+      this->templatejob := DEFAULT OBJECT;
+    }
+
+    IF (this->joboutput != 0)
+    {
+      ClosePipe(this->joboutput);
+      this->joboutput := 0;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION HandleRPC(RECORD msg)
+  {
+    SWITCH (msg.type)
+    {
+      CASE "ADDWARNING"
+      {
+        INSERT msg.text INTO this->warnings AT END;
+        RETURN DEFAULT RECORD;
+      }
+
+      CASE "OPENOUTPUT"
+      {
+        DEBUGPRINT("OpenOutput: file=" || msg.filename || ", dbfile=" || (msg.dbfile?'true':'false'));
+        INTEGER handle := msg.dbfile ? CreateStream() : this->outputmedia->OpenOutput(this->ToFSCase(msg.filename));
+        INTEGER filehandle := handle;
+
+        IF (NOT msg.dbfile AND (msg.sanitize_output OR msg.isshtml))
+          handle := CreateStream();
+
+        IF (this->outputmedia->AnyError())
+        {
+          this->errorcode := this->outputmedia->current_error.code;
+          this->errordata := this->outputmedia->current_error.msg;
+          RETURN DEFAULT RECORD;
+        }
+
+        INSERT [ handle := handle
+               , filehandle := filehandle
+               , dbfile := msg.dbfile
+               , filename := msg.filename
+               , sanitize_output := msg.sanitize_output
+               , isshtml := msg.isshtml
+               ] INTO this->outstack AT 0;
+
+        RECORD pipeset := CreatePipeSet();
+        SetPipeReadSignalThreshold(pipeset.read, 65536); // Signal when more than 64kb is in buffer
+        SetPipeYieldThreshold(pipeset.write, 256*1024); // 256*1024 (yield at writes when more than 256 kb is in buffer)
+        INSERT pipeset.read INTO this->outputfilepipestack AT 0; //ADDME merge outputfilepipestack into outstack
+
+        RETURN  [ id := handle
+                , pipe := CreatePipeMarshaller(pipeset.write)
+                ];
+      }
+
+      CASE "CLOSEOUTPUT"
+      {
+        DEBUGPRINT("CloseOutput: id=" || msg.id);
+        // Flush all outstanding pipe data
+        INTEGER pos := (SELECT AS INTEGER #outstack + 1 FROM this->outstack AS outstack WHERE handle = msg.id) - 1;
+        IF (pos = -1)
+        {
+          this->errordata := "Message format error with template";
+          this->errorcode := 3003;
+          RETURN DEFAULT RECORD;
+        }
+
+        RECORD closedfile := this->outstack[pos];
+
+        IF (this->outputfilepipestack[pos] != 0)
+        {
+          INTEGER handle := this->outputfilepipestack[pos];
+          WHILE (WaitForMultiple([ handle ], DEFAULT INTEGER ARRAY, 0) = handle)
+          {
+            STRING data := ReadFrom(this->outputfilepipestack[pos], 32768); // Wait for all output until end of file
+            IF (data = "")
+              BREAK;
+
+            DEBUGPRINT("Read "||LENGTH(data)||" bytes");
+            this->totalsize := this->totalsize + LENGTH(data);
+            IF (NOT PrintTo(msg.id, data))
+            {
+              this->errorcode := 1001; //io error achtig iets?
+              this->errordata := "Could not write all data to disk";
+              RETURN DEFAULT RECORD;
+            }
+          }
+        }
+
+        BLOB filedata;
+        IF (closedfile.dbfile OR closedfile.sanitize_output OR closedfile.isshtml)
+        {
+          filedata := MakeBlobFromStream(closedfile.handle);
+
+          IF (closedfile.sanitize_output)
+          {
+            RECORD res := SanitizeOutput(filedata, msg.substitutions);
+            filedata := res.data;
+            IF (res.found_code)
+            {
+              this->errorcode := 3005; //io error achtig iets?
+              this->errordata := "Found untrusted HareScript code in the output code: '" || UCTruncate(res.first_script, 80) || "'";
+              RETURN DEFAULT RECORD;
+            }
+          }
+
+          IF(closedfile.isshtml)
+          {
+
+            //Fix currentsite::
+            //if there were substitutions, we'll also need to fix invocations of LOADLIB "currentsite::
+            STRING filesite := SELECT AS STRING sites.name FROM system.sites, system.fs_objects WHERE fs_objects.id=msg.fileid AND fs_objects.parentsite = sites.id;
+            //FIXME DIRTY need tokenizer help
+            filedata := RewriteCurrentSite(filedata, filesite);
+          }
+
+          // Send the final sanitized data to the disk outputfile
+          IF (NOT closedfile.dbfile)
+            SendBlobTo(closedfile.filehandle, filedata);
+        }
+
+
+        IF(closedfile.dbfile)
+        {
+          INSERT [ filename := closedfile.filename
+                 , data := WrapBlob(filedata, closedfile.filename)
+                 ] INTO this->dbfiles AT END;
+        }
+        ELSE
+        {
+          this->outputmedia->CloseOutput(closedfile.filehandle);
+          IF (this->outputmedia->AnyError())
+          {
+            this->errorcode := this->outputmedia->current_error.code;
+            this->errordata := this->outputmedia->current_error.msg;
+            RETURN DEFAULT RECORD;
+          }
+        }
+
+        DELETE FROM this->outstack AT pos;
+
+        IF (this->outputfilepipestack[pos] != 0)
+          ClosePipe(this->outputfilepipestack[pos]);
+        DELETE FROM this->outputfilepipestack AT pos;
+
+        RETURN DEFAULT RECORD;
+      }
+
+      CASE "EXCEPTION"
+      {
+        this->errorcode := msg.errorcode;
+        this->errordata := msg.errordata;
+        RETURN DEFAULT RECORD;
+      }
+
+      CASE "OPENHARESCRIPTFILE"
+      {
+        IF (ObjectExists(this->contentfiletype) AND (this->contentfiletype->id = 7 /*HareScript*/ OR this->contentfiletype->id = 24/*placeholder filetype*/))
+        {
+          INTEGER scriptid := 0;
+          STRING scriptname;
+
+          IF (ObjectExists(this->contentfiletype) AND this->contentfiletype->id = 7)
+            scriptid := this->contentfileid;
+          ELSE //dus 24: placeholder filetype
+            scriptname := ReadRegistryKey("publisher.publication.defaultcontentlisting");
+
+          OBJECT ifr := NEW IndexFileRun(this->outputsettings, this->profile);
+          ifr->publicationrun := this;
+          BOOLEAN result := ifr->Run(scriptid, scriptname);
+
+          IF (NOT result)
+          {
+            this->errorcode := ifr->errorcode;
+            this->errordata := ifr->errordata;
+            this->hs_errors := ifr->hs_errors;
+            this->hs_groupid := ifr->hs_groupid;
+            RETURN DEFAULT RECORD;
+          }
+          RETURN [ parts := ifr->parts ];
+        }
+        ELSE
+        {
+          // FIXME: set error code!
+          RETURN DEFAULT RECORD;
+        }
+      }
+
+      CASE "SETONPUBLISH"
+      {
+        this->setonpublish := this->setonpublish CONCAT msg.preppedonpublish;
+        this->checkablelinks := this->checkablelinks CONCAT msg.checkablelinks;
+        RETURN DEFAULT RECORD;
+      }
+
+      CASE "SETCAPTURESUBPATHS"
+      {
+        IF (NOT this->CheckCaptureSubUrls(msg.capturesubpaths))
+          RETURN CELL[ success := FALSE, this->errorcode, this->errordata ];
+
+        this->outputmedia->SetCaptureSubPaths(msg.capturesubpaths);
+        RETURN [ success := TRUE ];
+      }
+
+      DEFAULT
+      {
+        ABORT("Unknown message type " || msg.type);
+      }
+
+    }
+  }
+>;
+
+/** Removes all harescript tags, and performs substitutions on the code
+    (to reintroduce trusted harescript code)
+    @param file
+    @param substitutions
+    @cell substitutions.toreplace
+    @cell substitutions.replacewith
+*/
+RECORD FUNCTION SanitizeOutput(BLOB file, RECORD ARRAY substitutions)
+{
+  STRING data := BlobToString(file);
+
+  INTEGER first_script_tag_pos := SearchSubString(data, "<?wh");
+  STRING first_script;
+  IF (first_script_tag_pos != 1)
+  {
+    first_script := SubString(data, first_script_tag_pos);
+    first_script := Left(first_script, SearchSubString(first_script, "?>"));
+  }
+
+  BOOLEAN found_code := first_script_tag_pos != -1;
+
+  // Early out
+  IF (LENGTH(substitutions) = 0 AND NOT found_code)
+    RETURN [ found_code := FALSE, data := file, first_script := "" ];
+
+  data := SubStitute(data, "<?wh", "&lt;?wh");
+
+  FOREVERY (RECORD rec FROM substitutions)
+    data := SubStitute(data, rec.toreplace, rec.replacewith);
+
+  RETURN [ found_code := found_code, data := StringToBlob(data), first_script := first_script ];
+}
+
+STATIC OBJECTTYPE IndexFileRun
+<
+  PUBLIC INTEGER errorcode;
+  PUBLIC STRING errordata;
+  PUBLIC RECORD ARRAY hs_errors;
+  PUBLIC STRING hs_groupid;
+
+  PUBLIC BOOLEAN is_part_open;
+  PUBLIC RECORD ARRAY parts;
+
+  PUBLIC OBJECT indexfilejob;
+  PUBLIC INTEGER joboutput;
+  PUBLIC OBJECT port;
+
+  PUBLIC OBJECT publicationrun;
+  RECORD outputsettings;
+  BOOLEAN profile;
+
+  MACRO NEW(RECORD outputsettings, BOOLEAN profile)
+  {
+    this->outputsettings := outputsettings;
+    this->profile := profile;
+  }
+
+  PUBLIC BOOLEAN FUNCTION HandleMessage(OBJECT link, RECORD rec)
+  {
+    // Ain't gonna wait, we got the wait loop for that.
+    IF (rec.status != "ok")
+    {
+      this->errordata := "Communication error with index file: " || rec.status;
+      this->errorcode := 3003;
+      RETURN FALSE;
+    }
+    IF (TypeId(rec.msg) != TypeId(Record) OR NOT CellExists(rec.msg, "TYPE"))
+    {
+      this->errordata := "Message format error with template";
+      this->errorcode := 3003;
+      RETURN FALSE;
+    }
+    DEBUGPRINT("@Received index message " || rec.msg.type);
+    RECORD reply;
+    SWITCH (rec.msg.type)
+    {
+    CASE "OPENPART"
+        {
+          IF (this->is_part_open)
+          {
+            this->errordata := "Index file opened two parts at a time";
+            this->errorcode := 3003;
+            RETURN FALSE;
+          }
+          this->is_part_open := TRUE;
+          INSERT [ subs := DEFAULT RECORD ARRAY
+                 , anchor := STRING(rec.msg.pagename)
+                 , newpage := BOOLEAN(rec.msg.wantnewpage)
+                 ] INTO this->parts AT END;
+        }
+
+    CASE "CLOSEPART"
+        {
+          IF (NOT this->is_part_open)
+          {
+            this->errordata := "Index file tried to close a part while none was open";
+            this->errorcode := 3003;
+            RETURN FALSE;
+          }
+          this->is_part_open := FALSE;
+        }
+
+    CASE "INSERTPARTLINK"
+        {
+          IF (NOT this->is_part_open)
+          {
+            this->errordata := "Index file tried to insert a link while no part was open";
+            this->errorcode := 3003;
+            RETURN FALSE;
+          }
+          DEBUGPRINT("IFR:Writing link");
+          INTEGER part_pos := LENGTH(this->parts) - 1;
+          INSERT [ type := "LINK"
+                 , partname := STRING(rec.msg.partname)
+                 ] INTO this->parts[part_pos].subs AT END;
+        }
+
+    CASE "INSERTIMAGE"
+        {
+          IF (NOT this->is_part_open)
+          {
+            this->errordata := "Index file tried to insert an image while no part was open";
+            this->errorcode := 3003;
+            RETURN FALSE;
+          }
+          DEBUGPRINT("IFR:Writing image");
+          INTEGER part_pos := LENGTH(this->parts) - 1;
+          INSERT [ type := "IMAGE"
+                 , name := rec.msg.name
+                 , is_photo := rec.msg.is_photo
+                 , alttag := rec.msg.alttag
+                 , canvas := rec.msg.canvas
+                 ] INTO this->parts[part_pos].subs AT END;
+        }
+
+    CASE "OPENHARESCRIPTFILE"
+        {
+          this->errordata := "Index file tried to open another index file";
+          this->errorcode := 3003;
+          RETURN FALSE;
+        }
+
+    DEFAULT
+        {
+          ABORT("Illegal command given (" || rec.msg.type || ") while communicating with an index file");
+        }
+    }
+    rec := link->SendReply(reply, rec.msgid);
+/*      // The question is, do we mind? If the script crashed, we catch that via other, better ways.
+    IF (rec.status != "ok")
+    {
+      this->errordata := "Communication error with index file: " || rec.status;
+      this->errorcode := 3003;
+      RETURN FALSE;
+    }
+*/
+    RETURN TRUE;
+  }
+
+  // ----------------------------------------------------------------------------
+  //
+  // Index file
+  //
+  PUBLIC BOOLEAN FUNCTION LoadIndexFile(INTEGER scriptid, STRING scriptname)
+  {
+    IF (scriptid != 0)
+    {
+      scriptname := OpenWHFSObject(scriptid)->GetResourceName();
+    }
+
+    RECORD jobdata := CreateJob("mod::publisher/scripts/internal/publishjob.whscr");
+    OBJECT job := jobdata.job;
+    IF (NOT ObjectExists(job))
+    {
+      this->errorcode:=101;
+      this->errordata:="Could not start semi-dynamic harescript file";
+      this->hs_errors := jobdata.errors;
+      RETURN FALSE;
+    }
+
+    this->publicationrun->SetupJobEnvironment(job, FALSE, scriptname, this->profile);
+    this->indexfilejob := job;
+    this->joboutput := job->CaptureOutput();
+
+    RETURN TRUE;
+
+  }
+
+  PUBLIC BOOLEAN FUNCTION Run(INTEGER scriptid, STRING scriptname)
+  {
+    IF (NOT this->LoadIndexFile(scriptid, scriptname))
+      RETURN FALSE;
+
+    BOOLEAN retval;
+
+    this->indexfilejob->Start();
+    BOOLEAN have_joboutput_eof := FALSE;
+    WHILE (TRUE)
+    {
+      INTEGER ARRAY handles;
+      IF(NOT have_joboutput_eof)
+        handles := [ this->joboutput ];
+
+      handles := handles CONCAT [ INTEGER(this->indexfilejob->handle), this->indexfilejob->ipclink->handle ];
+
+      //DEBUGPRINT("IFR:Waiting (1)");
+      INTEGER handle := WaitForMultiple(handles, DEFAULT INTEGER ARRAY, -1);
+      //DEBUGPRINT("IFR:Waited (1), got handle: " || handle || "  job: "||this->indexfilejob->handle||", port: "||this->port->handle||", links:"||AnyToString(linkhandles, "tree"));
+
+      BOOLEAN have_error := FALSE;
+
+      WHILE (NOT have_joboutput_eof AND WaitForMultiple([ this->joboutput ], DEFAULT INTEGER ARRAY, 0) = this->joboutput)
+      {
+        STRING data := ReadFrom(this->joboutput, -16384); // Just read available output
+        IF (data = "")
+        {
+          have_joboutput_eof := TRUE;
+          BREAK;
+        }
+        IF (NOT this->HandleOutput(data))
+        {
+          retval := FALSE;
+          have_error := TRUE;
+          BREAK;
+        }
+      }
+      IF (have_error)
+        BREAK;
+
+      IF (handle = this->indexfilejob->handle)
+      {
+        this->hs_errors := this->indexfilejob->GetErrors();
+        this->hs_groupid := this->indexfilejob->groupid;
+        this->indexfilejob->Close();
+        IF (LENGTH(this->hs_errors) > 0)
+        {
+          STRING abortmsg;
+          BOOLEAN is_abort;
+          FOREVERY (RECORD error FROM this->hs_errors)
+          {
+            IF (error.code = 182)
+            {
+              is_abort := TRUE;
+              abortmsg := error.param1;
+            }
+          }
+          this->errorcode := is_abort ? 102 /*abort*/ : 101 /*harescript errors*/;
+          this->errordata := abortmsg;
+          //DEBUGPRINT(AnyToString(this->hs_errors, "boxed"));
+          retval := FALSE;
+          BREAK;
+        }
+        retval := TRUE;
+        BREAK;
+      }
+      ELSE IF (handle = this->indexfilejob->ipclink->handle)
+      {
+        RECORD res := this->indexfilejob->ipclink->ReceiveMessage(DEFAULT DATETIME);
+        SWITCH (res.status)
+        {
+        CASE "timeout"{ }
+        CASE "gone"   {
+                      }
+        CASE "ok"     {
+                        IF (NOT this->HandleMessage(this->indexfilejob->ipclink, res))
+                        {
+                          retval := FALSE;
+                          BREAK;
+                        }
+                      }
+        }
+      }
+    }
+
+    IF (this->joboutput != 0)
+    {
+      ClosePipe(this->joboutput);
+      this->joboutput := 0;
+    }
+
+    RETURN retval;
+  }
+
+  PUBLIC BOOLEAN FUNCTION HandleOutput(STRING data)
+  {
+    DEBUGPRINT("IFR:Writing text of length "||LENGTH(data));
+    IF (NOT this->is_part_open)
+      RETURN TRUE;
+
+    INTEGER part_pos := LENGTH(this->parts) - 1;
+    INTEGER sub_pos := LENGTH(this->parts[part_pos].subs) - 1;
+    IF (sub_pos < 0 OR this->parts[part_pos].subs[sub_pos].type != "TEXT")
+      INSERT [ type := "TEXT"
+             , data := data ] INTO this->parts[part_pos].subs AT END;
+    ELSE
+      this->parts[part_pos].subs[sub_pos].data := this->parts[part_pos].subs[sub_pos].data || data;
+    RETURN TRUE;
+  }
+>;
+
+
+
+
+// ----------------------------------------------------------------------------
+//
+// Misc stuff
+//
+
+
+PUBLIC MACRO DEBUGPRINT(STRING x)
+{
+  IF (publishing_debug)
+    PrintTo(2,x||"\n");
+}

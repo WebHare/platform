@@ -1,0 +1,1196 @@
+﻿<?wh
+/** @topic tollium/appdev */
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib" EXPORT TolliumComponentBase, TolliumAutoSuggestBase;
+LOADLIB "mod::tollium/lib/gettid.whlib" EXPORT GetTid;
+LOADLIB "mod::tollium/lib/internal/contexts.whlib";
+LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/exclusivity.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib" EXPORT TolliumException;
+
+
+/// Counter for screen ids
+INTEGER screencounter;
+
+//ADDME MOve to separate file
+MACRO Builtin_NotImplemented(OBJECT screen)
+{
+  screen->RunMessageBox("tollium:commondialogs.notimplemented");
+}
+
+STRING FUNCTION FixupLocalTid(STRING localtid)
+{
+  IF(Left(localtid,1) != '.') //older WebHares allowed this, even though we've been warning for some time. we now reject this duringtests..
+  {
+    IF(NOT IsDtapLive())
+      THROW NEW Exception(`Tids passed to ->GetTid must start with a dot`);
+
+    localtid := '.' || localtid;
+  }
+  RETURN localtid;
+}
+
+STRING FUNCTION GetSelector(STRING fragmentname)
+{
+  IF(fragmentname LIKE "__selector:*")
+    RETURN Substring(fragmentname, 11);
+  ELSE
+    RETURN '//*[local-name()="fragment" and namespace-uri() = "http://www.webhare.net/xmlns/tollium/screens"][@name="' || EncodeJava(fragmentname) || '"]';
+}
+
+/** @short A tollium scope, which can contain static tollium objects and callback handlers */
+PUBLIC OBJECTTYPE TolliumScope EXTEND TolliumAppContextSystem
+<
+  BOOLEAN gavepublic;
+  PUBLIC OBJECT parentscope;
+  BOOLEAN __tolliumscope_isstatic;
+
+  PUBLIC MACRO __tolliumscope_builtin_notimplemented()
+  {
+    //ADDME cleaner?
+    IF(this EXTENDSFROM TolliumScreenBase)
+      this->RunMessageBox("tollium:commondialogs.notimplemented");
+    ELSE
+      this->owner->RunMessageBox("tollium:commondialogs.notimplemented");
+  }
+
+  PUBLIC RECORD FUNCTION __tolliumscope_lookuphandler(STRING handlername)
+  {
+    IF(ToUppercase(handlername)="@NOTIMPLEMENTED")
+    {
+      RETURN [ success := TRUE
+             , handler := PTR this->__tolliumscope_builtin_notimplemented
+             ];
+    }
+
+    IF(NOT MemberExists(this, handlername))
+      RETURN [ success := FALSE, errorcode := "nomember" ];
+
+    IF(GetMemberType(PRIVATE this, handlername) != "FUNCTION")
+      RETURN [ success := FALSE, errorcode := "nofunction" ];
+
+    RETURN [ success := TRUE
+           , handler := GetObjectMethodPtr(this, handlername)
+           ];
+  }
+
+  PUBLIC MACRO __tolliumscope_registercomponents(OBJECT screenbuilder, RECORD ARRAY comps)
+  {
+    BOOLEAN hatted := __INTERNAL_DescribeObjectStructure(this).isstatic;
+    this->__tolliumscope_isstatic := hatted;
+
+    FOREVERY(RECORD comp FROM comps)
+    {
+      // Frame is set when the frame component has just been created, no need to insert
+      IF (comp.localname = "" OR ToUppercase(comp.localname) = "FRAME")
+        CONTINUE;
+
+      MemberInsert(this, (hatted ? "^" : "") || comp.localname, comp.ispublic=FALSE, comp.component);
+    }
+  }
+
+  PUBLIC OBJECT FUNCTION Tollium_GetPrivatePtr()
+  {
+    //Prevent duplicate calls to this function, to avoid users depending on it
+    IF(this->gavepublic)
+      ABORT("Illegal Tollium_GetPrivatePtr call");
+    this->gavepublic := TRUE;
+    RETURN PRIVATE THIS;
+  }
+
+>;
+
+/** @short The object for Tollium <fragment> nodes */
+PUBLIC OBJECTTYPE TolliumFragmentBase EXTEND TolliumComponentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY tolliumcontroller(this->pvt_owner->tolliumcontroller, -);
+
+  PUBLIC PROPERTY tolliumuser(this->pvt_owner->tolliumuser, -);
+
+  /// Access all components through ^
+  PUBLIC PROPERTY ^(TolliumGetMemberByProperty, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumScope;
+    this->pvt_invisibletitle := TRUE;
+    this->__pvt_tacs_parent := this->owner;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD description)
+  {
+    TolliumComponentBase::StaticInit(description);
+    IF (description.tolliumscope.scope = "")
+      this->parentscope := this->owner;
+    ELSE
+      this->parentscope := this->owner->tolliumscreenmanager->GetToddComponentNoFail(description.tolliumscope.scope);
+
+    this->__pvt_tacs_parent := this->parentscope;
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    FOREVERY(OBJECT sub FROM this->subcomponents)
+      sub->ValidateValue(work);
+  }
+
+  OBJECT FUNCTION TolliumGetMemberByProperty(STRING propname) __ATTRIBUTES__(SKIPTRACE)
+  {
+    //we only get here if the member did not exist yet
+    STRING membername := Substring(propname,1);
+    IF(MemberExists(this,membername))
+    {
+      OBJECT comp := GetMember(this, membername);
+      IF(comp EXTENDSFROM TolliumComponentBase)
+      {
+        MemberInsert(this, propname, FALSE, comp);
+        RETURN comp;
+      }
+    }
+    THROW NEW Exception(`No such component '${membername}'`);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC STRING FUNCTION GetTid(STRING localtid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    RETURN GetTid(this->pvt_fragmentgid || FixupLocalTid(localtid), p1, p2, p3, p4);
+  }
+
+  PUBLIC STRING FUNCTION GetHTMLTid(STRING localtid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    RETURN GetHTMLTid(this->pvt_fragmentgid || FixupLocalTid(localtid), p1, p2, p3, p4);
+  }
+>;
+
+/** Base object for a tabs extension.
+*/
+PUBLIC OBJECTTYPE TolliumTabsExtensionBase EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Options passed to LoadTabsExtension
+  RECORD extensionoptions;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->extensionoptions := __tabsextension_options;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // To override
+  //
+
+  /** Called just after the tab extension is loaded. Compositions won't have their value set.
+      @param extendablelinescontainer Container that loads this extension. Use its members 'extendcomponents' and
+          'extendhandlers' to get needed references to other components and handlers.
+  */
+  PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+  }
+
+  /** Called after all compositions have been initialized by the parent. The parent code must call
+      RunExtensionsPostInit on the tabs component manually to execute this function!
+  */
+  PUBLIC MACRO PostInitExtension()
+  {
+  }
+
+  /** Called when the screen with the extension validates its values.
+      @long Allows you to validate the values submitted into the extension. If you UPDATE this function you probably
+            want to invoke the parent version first using `TolliumTabsExtensionBase::ValidateValue(feedback)` to ensure
+            all contained components run their own validation
+      @param feedback The feedback object to report errors to
+  */
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT feedback)
+  {
+    TolliumFragmentBase::ValidateValue(feedback);
+  }
+
+  /** Called when the screen with the extension submits.
+      @long SubmitExtension is the last chance to report any errors. It will not be invoked if validation has already failed.
+      @param feedback The feedback object to report errors to
+  */
+  PUBLIC MACRO SubmitExtension(OBJECT feedback)
+  {
+  }
+>;
+
+
+/** @short The object for Tollium <screen> nodes
+    @long The TolliumScreenBase is the base object for every screen in tollium and gives you access to the Tollium framework
+*/
+PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Screen ID - different for each screen, never changes after allocation
+  STRING pvt_tolliumscreenid;
+
+  OBJECT pvt_tolliumparent;
+  OBJECT pvt_tolliumcontroller;
+  OBJECT pvt_contexts;
+
+  RECORD __tolliumsubmitresult;
+  RECORD __tolliumtrackwork;
+
+   /// @short The controller that constructed this screen
+  PUBLIC PROPERTY tolliumcontroller(this->pvt_contexts->controller, -);
+  /// @short The user accessing this screen
+  PUBLIC PROPERTY tolliumuser(this->pvt_contexts->user, -);
+  /// @short The screen that created this screen (default object if we're a top level window)
+  PUBLIC PROPERTY tolliumparent(pvt_tolliumparent, -);
+  /// @short The return value for this dialog. Setting this member closes the dialog
+  PUBLIC STRING tolliumresult;
+
+  /// Frame object
+  PUBLIC OBJECT frame;
+
+  /// @type(object %TolliumContexts) Context object
+  PUBLIC PROPERTY contexts(pvt_contexts, -);
+
+  /** List of components that are both now visible (isnowvisible is true) and are dirty
+      @cell(string) name Name of the component
+      @cell(object) comp Component
+  */
+  PUBLIC RECORD ARRAY tolliumdirtyvisiblecomponents;
+
+  /** List of subscreens that have visible dirty components
+      @cell(string) name Name of the component
+      @cell(object) comp Component
+  */
+  PUBLIC RECORD ARRAY tolliumdirtysubscreens;
+
+  /// If TRUE, we're in a suspected endless dirty marking loop (components marking each other dirty on render)
+  PUBLIC BOOLEAN __tollium_inendlessdirtymarkingloop;
+
+  INTEGER fragcount;//Counter for loaded fragment (to create anonymized fragment component names)
+
+  /** @cell name
+      @cell flags
+  */
+  RECORD ARRAY tolliumlocaldragtypes;
+
+  /*FIXME: PRIVATE?*/PUBLIC OBJECT tolliumscreenmanager;
+  /*FIXME: Shouldn't keep this one around after screen construction ?*/ /* FIXME PRIVATE*/ PUBLIC OBJECT tolliumscreenbuilder;
+
+  PUBLIC BOOLEAN pvt_tolliumframepreinits;
+  PUBLIC BOOLEAN pvt_tolliumframeinitrun;
+
+  PUBLIC PROPERTY tolliummodule(GetFrameModule,-);
+  PUBLIC PROPERTY tolliumpagefile(GetFramePageFile,-);
+
+  /// Screen ID - different for each screen, never changes after allocation
+  PUBLIC PROPERTY tolliumscreenid(pvt_tolliumscreenid, -);
+
+  /// The opened handler for exclusivity
+  OBJECT tollium_exclusivity_handler;
+
+  /// The opened handler for exclusivity
+  OBJECT tollium_action_exclusivity_handler;
+
+  /// Access all components through ^
+  PUBLIC PROPERTY ^(TolliumGetMemberByProperty, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    IF(NOT RecordExists(__screenbuildinfo))
+      THROW NEW Exception("Screens should not be directly instantiated");
+
+    IF(MemberExists(this,'SUBMIT') AND __INTERNAL_DEBUGFUNCTIONPTRTORECORD(GetObjectMethodPtr(this,'SUBMIT')).returntype IN [0,2])
+      THROW NEW Exception("A MACRO Submit() is no longer supported in screens. Change it to a BOOLEAN FUNCTION and have it return TRUE");
+
+    screencounter := screencounter + 1;
+
+    // Somewhere groups are newly submitted screens are lexicographally sorted in z-order. Make sure order stays right.
+    this->pvt_tolliumscreenid := "todd" || Right("000000000" || screencounter, 10);
+    this->pvt_tolliumparent := __screenbuildinfo.parent;
+    this->pvt_tolliumcontroller := __screenbuildinfo.controller;
+    this->__pvt_tacs_parent := __screenbuildinfo.parent ?? __screenbuildinfo.controller; //FIXME also link up fragments to their screen
+    IF(ObjectExists(this->__pvt_tacs_parent))
+      this->pvt_contexts := NEW TolliumContexts((__screenbuildinfo.contextparent ?? this->__pvt_tacs_parent)->contexts, this);
+
+    FOREVERY(RECORD appcontext FROM __screenbuildinfo.options.appcontexts)
+      this->RegisterAppContext(appcontext.name, appcontext.context);
+    FOREVERY(RECORD context FROM UnpackRecord(__screenbuildinfo.options.contexts))
+      MemberUpdate(this->contexts, context.name, context.value);
+
+    __screenbuildinfo.privateptr := PRIVATE this;
+  }
+
+  OBJECT FUNCTION TolliumGetMemberByProperty(STRING propname) __ATTRIBUTES__(SKIPTRACE)
+  {
+    //we only get here if the member did not exist yet
+    STRING membername := Substring(propname,1);
+    IF(MemberExists(this,membername))
+    {
+      OBJECT comp := GetMember(this, membername);
+      IF(comp EXTENDSFROM TolliumComponentBase)
+      {
+        MemberInsert(this, propname, FALSE, comp);
+        RETURN comp;
+      }
+    }
+    THROW NEW Exception(`No such component '${membername}'`);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Other
+  //
+
+  PUBLIC MACRO TolliumCloseScreen()
+  {
+    IF (ObjectExists(this->tollium_exclusivity_handler))
+      this->tollium_exclusivity_handler->Close();
+    this->tollium_exclusivity_handler := DEFAULT OBJECT;
+  }
+
+  PUBLIC MACRO TolliumSetComponentVisibleDirtyness(OBJECT component, BOOLEAN visibly_dirty)
+  {
+    IF(NOT component->isnowvisible AND visibly_dirty)
+      THROW NEW TolliumException(this, "Cannot mark an invisible component as dirty");
+
+    RECORD rec := [ name := GetComponentName(component), comp := component ];
+    RECORD pos := RecordLowerBound(this->tolliumdirtyvisiblecomponents, rec, [ "NAME" ]);
+    BOOLEAN now_dirty := pos.found = visibly_dirty;
+
+    IF (now_dirty)
+      RETURN;
+
+    IF (NOT visibly_dirty)
+      DELETE FROM this->tolliumdirtyvisiblecomponents AT pos.position;
+    ELSE
+    {
+      IF (this->__tollium_inendlessdirtymarkingloop)
+        THROW NEW TolliumException(component, "Couldn't get component " || component->name || " (" || component->componenttype || ") to be undirty, might be a race condition");
+
+      INSERT rec INTO this->tolliumdirtyvisiblecomponents AT pos.position;
+    }
+
+    BOOLEAN anydirtychanged := LENGTH(this->tolliumdirtyvisiblecomponents) = (visibly_dirty ? 1 : 0);
+    IF (anydirtychanged
+        AND ObjectExists(this->tolliumscreenmanager->frame)
+        AND ObjectExists(this->tolliumscreenmanager->frame->containingpanel))
+      this->tolliumscreenmanager->frame->containingpanel->owner->TolliumSetSubScreenDirtyness(this, visibly_dirty, component);
+  }
+
+  PUBLIC MACRO TolliumSetSubScreenDirtyness(OBJECT screen, BOOLEAN dirty, OBJECT component)
+  {
+    RECORD rec := [ name := screen->tolliumscreenid, screen := screen ];
+    RECORD pos := RecordLowerBound(this->tolliumdirtysubscreens, rec, [ "NAME" ]);
+    //PRINT("In parent " || this->tolliumscreenid || ", subscreen " || screen->tolliumscreenid || " is visible dirtyness changed from " || (pos.found?"yes":"no") || " to " || (dirty?"yes":"no") || "\n");
+
+    IF (pos.found = dirty)
+      RETURN;
+
+    IF (dirty AND this->__tollium_inendlessdirtymarkingloop)
+      THROW NEW TolliumException(component, "Couldn't get component " || component->name || " (" || component->componenttype || ") to be undirty, might be a race condition");
+
+    IF (NOT dirty)
+      DELETE FROM this->tolliumdirtysubscreens AT pos.position;
+    ELSE
+      INSERT rec INTO this->tolliumdirtysubscreens AT pos.position;
+
+    IF (ObjectExists(this->tolliumscreenmanager->frame)
+        AND ObjectExists(this->tolliumscreenmanager->frame->containingpanel))
+      this->tolliumscreenmanager->frame->containingpanel->owner->TolliumSetSubScreenDirtyness(screen, dirty, component);
+  }
+
+  PUBLIC MACRO TolliumIsSubScreenChange(BOOLEAN add)
+  {
+    OBJECT parentscreen := this->tolliumscreenmanager->frame->containingpanel->owner;
+    BOOLEAN newthisdirty := add AND LENGTH(this->tolliumdirtyvisiblecomponents) != 0;
+
+    // (un)register our dirty subscreens at the parent too
+    FOREVERY (RECORD rec FROM this->tolliumdirtysubscreens)
+      parentscreen->TolliumSetSubScreenDirtyness(rec.screen, add, this->tolliumscreenmanager->frame);
+
+    parentscreen->TolliumSetSubScreenDirtyness(this, newthisdirty, this->tolliumscreenmanager->frame);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __tolliumscope_lookuphandler(STRING handlername)
+  {
+    IF(ToUppercase(handlername)="SUBMIT")
+    {
+      RETURN [ success := TRUE
+             , handler := PTR this->TolliumExecuteSubmit()
+             ];
+    }
+    IF(ToUppercase(handlername)="CANCEL")
+    {
+      RETURN [ success := TRUE
+             , handler := PTR this->TolliumExecuteCancel()
+             ];
+    }
+    RETURN TolliumScope::__tolliumscope_lookuphandler(handlername);
+  }
+
+  PUBLIC BOOLEAN FUNCTION TolliumExecuteSubmit()
+  {
+    IF(NOT MemberExists(this,"SUBMIT"))
+    {
+      this->tolliumresult := "ok";
+      RETURN TRUE;
+    }
+
+    VARIANT submitresult;
+    TRY
+    {
+      this->__tolliumtrackwork := [ obj := DEFAULT OBJECT ]; //this causes BeginWork to track its invocations
+
+      submitresult := this->Submit();
+      IF(IsDefaultValue(submitresult))
+      {
+        IF(ObjectExists(this->__tolliumtrackwork.obj)
+           AND this->__tolliumtrackwork.obj->HasFailed()
+           AND NOT this->__tolliumtrackwork.obj->terminated) //report any errors (users will now have to explicitly cancel work)
+        {
+          this->__tolliumtrackwork.obj->Finish();
+        }
+        RETURN FALSE;
+      }
+      this->__tolliumtrackwork := DEFAULT RECORD;
+    }
+    //FINALLY can't be used here. See https://gitlab.webhare.com/webhare/webhare/issues/738
+    CATCH(OBJECT e)
+    {
+      this->__tolliumtrackwork := DEFAULT RECORD;
+      THROW;
+    }
+
+    IF (TypeID(submitresult) != TypeID(BOOLEAN))
+      this->__tolliumsubmitresult := [ result := submitresult ];
+    this->tolliumresult := TypeID(submitresult) = TypeID(STRING) ? submitresult : "ok";
+    RETURN TRUE;
+  }
+
+  PUBLIC BOOLEAN FUNCTION TolliumExecuteCancel()
+  {
+    IF(MemberExists(this,"CANCEL") AND NOT this->Cancel())
+      RETURN FALSE;
+
+    this->tolliumresult := "cancel";
+    RETURN TRUE;
+  }
+
+  PUBLIC STRING FUNCTION GetTid(STRING localtid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    RETURN GetTid(this->frame->gid || FixupLocalTid(localtid), p1, p2, p3, p4);
+  }
+
+  PUBLIC STRING FUNCTION GetHTMLTid(STRING localtid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    RETURN GetHTMLTid(this->frame->gid || FixupLocalTid(localtid), p1, p2, p3, p4);
+  }
+
+  BOOLEAN FUNCTION TolliumGetVisible()
+  {
+    RETURN this->frame->visible;
+  }
+  MACRO TolliumSetVisible(BOOLEAN newstate)
+  {
+    this->frame->visible := newstate;
+  }
+
+  /** @short Display a simple screen with a yes/no or ok/cancel dialog
+      @param type Dialog base type: error/warning/info for "Ok" boxes, verify/confirm/question for Yes/No boxes which default to No, Yes and nothing respectively
+      @param message Message
+      @cell(string array) options.buttons Set explicit buttons list
+      @cell(string) options.defaultbutton Default button to select
+      @cell(string) options.dontshowkey If set, name of registry key to save 'don't show again' settings
+      @cell(string array) options.dontshowbuttons Names of buttons that are valid choices for 'don't show again'
+      @cell(string) options.icon Icon (default: "tollium:messageboxes/information"). Examples: "tollium:messageboxes/error", "tollium:messageboxes/warning", "tollium:messageboxes/question"
+      @cell(string) options.title Override title (parent screen title is used as default, and falls back to application titel if unset)
+  */
+  PUBLIC STRING FUNCTION RunSimpleScreen(STRING type, STRING message, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->LoadScreen("tollium:commondialogs.showmessagebox", [ message := message, options := CELL[ ...options, type ] ])->RunModal();
+  }
+
+  PUBLIC STRING FUNCTION ShowMessageBox(STRING message, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->LoadScreen("tollium:commondialogs.showmessagebox", [ message := message, options := options ])->RunModal();
+  }
+
+  /** @short Request a predefined message box (avoid - use ShowMessageBox in new applications)
+ */
+  PUBLIC STRING FUNCTION RunMessageBox(STRING name, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    OBJECT screenowner := GetTopLevelScreen(this);
+
+    name := MakeAbsoluteScreenReference(this->tolliumscreenmanager->resourcename, name);
+    OBJECT msgbox := CreateMessageBox(screenowner, name, p1, p2, p3, p4);
+    msgbox->title := screenowner->tolliumscreenmanager->frame->title;
+    RETURN msgbox->RunModal();
+  }
+
+  /** @short Load a screen and run it
+      @param screen The name of the screen to open (relative resource path)
+      @param initdata Record to pass to the Init() of the screen
+      @param options Options
+      @cell(record array) options.appcontexts Application contexts (old)
+      @cell(string) options.appcontexts.name Name of the context
+      @cell(object) options.appcontexts.context Context object
+      @cell(record) options.contexts Record with contexts to set (use [ "^name" := ... ] for hatted contexts)
+      @return The data returned by Submit
+  */
+  PUBLIC VARIANT FUNCTION RunScreen(STRING screen, RECORD initdata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(IsOldStyleScreenReference(screen))
+      THROW NEW Exception("Old-style screenpaths are not supported by RunScreen. Use '#<local screenname>'");
+
+    screen := MakeAbsoluteScreenReference(this->tolliumscreenmanager->resourcename, screen);
+
+    OBJECT screenobject := this->LoadScreen(screen, initdata, options);
+    IF(NOT ObjectExists(screenobject))
+      THROW NEW Exception(`The screen '${screen}' could not be loaded`);
+
+    RETURN screenobject->__TolliumRunScreen();
+  }
+
+  /** @short Open an application-defined screen
+      @param name The name of the screen to opoen
+      @param params Parameters
+      @param options Options
+      @cell(record array) options.appcontexts Application contexts (old)
+      @cell(record) options.contexts Record with contexts to set (use [ "^name" := ... ] for hatted contexts)
+      @return The screen object, which can be configured before invoking RunModal */
+  PUBLIC OBJECT FUNCTION LoadScreen(STRING name, RECORD params DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    name := MakeAbsoluteScreenReference(this->tolliumscreenmanager->resourcename, name);
+    //RECORD parts := ParseScreenRef(name);
+
+    RECORD screendata := [ parent := this
+                         , screen := name
+                         , params := params
+                         , run_init := TRUE
+                         , options := options
+                         , contextparent := this
+                         ];
+
+    OBJECT screen := this->tolliumcontroller->PVT_LoadScreen(screendata);
+    RETURN screen;
+  }
+
+  /** @short Create a tollium component
+    @long Create a new standard tollium component, such as list or textedit
+    @param type Type of the component to create
+    @return The new object, or a default object if the type was not recognized */
+  PUBLIC OBJECT FUNCTION CreateTolliumComponent(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    //FIXME Do we really want to keep this workaround?
+    IF(type = "menuitem")
+      type := "item";
+
+    RETURN this->CreateCustomComponent("http://www.webhare.net/xmlns/tollium/screens", type, options);
+  }
+
+  OBJECT FUNCTION CreateFragment(RECORD compinfo)
+  {
+    OBJECT fragcomp := this->InnerCreateFragment(GetResourceNameFromScreenPath(compinfo.fragment)
+                                                ,GetScreenNameFromScreenPath(compinfo.fragment)
+                                                , [ objtype := compinfo.objtype
+                                                  ]
+                                                );
+    RETURN fragcomp;
+  }
+
+
+  RECORD FUNCTION DoLoadFragment(RECORD ARRAY localrefs, RECORD ARRAY localhandlers, STRING resourcename, STRING fragmentname, BOOLEAN istabsextension, RECORD options)
+  {
+    options := ValidateOptions([ objtype := ""], options);
+
+    STRING selector := GetSelector(fragmentname);
+    RECORD fragment := this->tolliumcontroller->GetParsedPage(resourcename, selector, "fragment");
+    RECORD result := [ success := FALSE
+                     , errors := fragment.errors
+                     , rootnode := DEFAULT RECORD
+                     , components := DEFAULT OBJECT ARRAY
+                     , fragment := DEFAULT OBJECT
+                     ];
+
+    IF(Length(result.errors)>0)
+      RETURN result;
+
+    //Setup objtype on the component. They need to point to the objtype on the original fragment
+    STRING objtype := options.objtype ?? fragment.objtype;
+
+    this->fragcount := this->fragcount + 1;
+    STRING fragprefix := 'fragment' || this->fragcount;
+
+    OBJECT fragobj := this->tolliumscreenmanager->CreateComponent(objtype, fragprefix, -1, DEFAULT OBJECT, "", fragment.rootnode.gid, fragment.rootnode.elementtype);
+    result.fragment := fragobj;
+    INSERT fragobj INTO result.components AT END;
+
+    IF (istabsextension AND fragobj NOT EXTENDSFROM TolliumTabsExtensionBase)
+      THROW NEW Exception(`The implementation objecttype '${objtype}' for tab extension '${fragmentname}' should extend from TolliumTabsExtensionBase`);
+
+    /* We do not prefix the element names at parse time, as we'd do with static
+       fragments, as a dynamic fragment might be included in different locations
+       and caching the fragment would be impossible if the names changed depending
+       on load order */
+
+    //make them visible in our true scope
+    UPDATE localrefs SET name := "FRAGMENT!" || name;
+
+    this->tolliumscreenbuilder->SetLocalRefs(localrefs, localhandlers);
+    STRING savefragprefix := this->tolliumscreenmanager->current_fragment_prefix;
+    this->tolliumscreenmanager->current_fragment_prefix := fragprefix;
+
+    //All components will still have names like 'FRAGMENT!' something. Rename them to their unique scoeps
+    //FIXME dupe between screenbase.whlib and rte.whlib
+    FOREVERY(RECORD obj FROM fragment.formobjects)
+    {
+      obj.data.name := fragprefix || Substring(obj.fullname,8);
+      obj.fullname := fragprefix || Substring(obj.fullname,8);
+      obj.data.tolliumscope.scope := fragobj->toddname || SubString(obj.data.tolliumscope.scope, SearchSubString(obj.data.tolliumscope.scope || "!", "!"));
+
+      IF(CellExists(obj.data,'composition') AND CellExists(obj.data,'cellname') AND obj.data.composition != "" AND obj.data.cellname != "")
+      {
+        //If the composition is referring to something that's NOT a local ref (ie must be internal) then prepare a renumbered composition name, because a lookup for just FRAGMENT!COMPOSITION.CELL will fail
+        IF(NOT RecordExists(SELECT FROM localrefs WHERE name = ToUppercase("FRAGMENT!" || obj.data.composition)))
+        {
+          INSERT CELL composedname := ToUppercase(fragprefix || Substring(obj.data.composition,8) || '.' || obj.data.cellname) INTO obj;
+        }
+      }
+      fragment.formobjects[#obj] := obj;
+    }
+
+    RECORD ARRAY components := this->DoLoadComponents(fragment.formobjects, this->tolliumscreenbuilder);
+    //components := this->tolliumscreenmanager->ScopeFormObjects(components);
+    result.components := result.components CONCAT (SELECT AS OBJECT ARRAY component FROM components);
+
+    BOOLEAN save_preinit := this->pvt_tolliumframepreinits;
+    BOOLEAN save_postinit := this->pvt_tolliumframeinitrun;
+    this->pvt_tolliumframepreinits := FALSE;
+    this->pvt_tolliumframeinitrun := FALSE;
+
+    IF(NOT this->tolliumscreenbuilder->HasFailed())
+      this->tolliumscreenmanager->DoInitComponents(components, this->tolliumscreenbuilder);
+    IF(NOT this->tolliumscreenbuilder->HasFailed())
+    {
+      result.rootnode := this->tolliumscreenbuilder->ReprocessData(DEFAULT OBJECT, fragment.rootnode, fragment.rootnode.__xml_fields);
+      this->tolliumscreenbuilder->SetLocalRefs(DEFAULT RECORD ARRAY, DEFAULT RECORD ARRAY);
+      this->tolliumscreenmanager->current_fragment_prefix := savefragprefix;
+    }
+    IF(this->tolliumscreenbuilder->HasFailed())
+    {
+      this->tolliumscreenbuilder->SetLocalRefs(DEFAULT RECORD ARRAY, DEFAULT RECORD ARRAY);
+      this->tolliumscreenmanager->current_fragment_prefix := savefragprefix;
+      result.errors := result.errors CONCAT this->tolliumscreenbuilder->GetErrors();
+      //ADDME: Shouldn't we have our own screenbuilder instead of reusing our loadscreen's one? Parent/child relationships?
+      this->tolliumscreenbuilder->ClearErrors();
+      RETURN result;
+    }
+
+    this->pvt_tolliumframepreinits := save_preinit;
+    this->pvt_tolliumframeinitrun := save_postinit;
+
+    // Subcomponent marking for static components is done in DoInitComponents, but for dynamically
+    // loaded fragments it must be done here.
+    OBJECT lastitem := result.fragment;
+    BOOLEAN atendofline := FALSE;
+
+    // When loading a fragment (ADDME handle tabextension too) mark all components as subcomponents (fixes preinit/postinit, etc).
+    IF (CellExists(result.rootnode, "CONTENTS"))
+    {
+      // Mark content lines and set their positions
+      FOREVERY (RECORD line FROM result.rootnode.contents.lines)
+      {
+        FOREVERY (OBJECT item FROM line.items)
+        {
+          IF (NOT ObjectExists(item->supercomponent))
+          {
+            result.fragment->MarkAsSubcomponent(item);
+            result.fragment->SetSubcomponentPosition(item, lastitem, TRUE, atendofline);
+          }
+          atendofline := FALSE;
+          lastitem := item;
+        }
+        atendofline := TRUE;
+      }
+
+      // Also mark all components not in rootnode.contents as subcomponents (eg. compositions)
+      FOREVERY (OBJECT comp FROM result.components)
+        IF (NOT ObjectExists(comp->supercomponent) AND comp != result.fragment AND NOT ObjectExists(comp->pvt_parent))
+          result.fragment->MarkAsSubcomponent(comp);
+    }
+
+    //translate and return the root node
+    result.success := TRUE;
+    RETURN result;
+  }
+
+  /** Load a XML document fragment as a collection of tollium lines (experimental function, will be removed in the future)
+      @param fragmentname Name of the file containing the fragment, used in error messages
+  */
+  PUBLIC RECORD FUNCTION LoadTolliumBodyFragment(RECORD ARRAY localrefs, RECORD ARRAY localhandlers, STRING resourcename, STRING fragmentname, BOOLEAN istabsextension)
+  {
+    resourcename := MakeAbsoluteResourcePath("", resourcename);
+    RECORD result := this->DoLoadFragment(localrefs, localhandlers, resourcename, fragmentname, istabsextension, DEFAULT RECORD);
+    IF(Length(result.errors)>0)
+      RETURN result;
+
+    RETURN result;
+  }
+
+  OBJECT FUNCTION InnerCreateFragment(STRING resourcename, STRING fragmentname, RECORD options)
+  {
+    RECORD result := this->DoLoadFragment(RECORD[], RECORD[], resourcename, fragmentname, FALSE, options);
+    RETURN result.fragment; //FIXME: Return error info properly
+  }
+
+  /** @short Create a custom component
+      @long Create a new component, which has been supplied by a different module
+      @param namespace Namespace containing the custom component
+      @param type Type of the component to create
+      @return The new object, or a default object if the requested component type was not known */
+  PUBLIC OBJECT FUNCTION CreateCustomComponent(STRING namespace, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ namebase := "tollium_d" ], options);
+    RECORD compinfo := GetComponentDefinition(namespace, type);
+    IF(NOT RecordExists(compinfo))
+      RETURN DEFAULT OBJECT;
+
+    IF (compinfo.fragment != "")
+      RETURN this->CreateFragment(compinfo);
+
+    STRING elementtype := (namespace != ns_screens ? namespace || "#" : "") || type;
+    OBJECT comp := this->tolliumscreenmanager->CreateComponent(compinfo.objtype, this->tolliumscreenmanager->CreateAnonymousName(options.namebase),  -1, DEFAULT OBJECT, "", "", elementtype);
+    RETURN comp;
+  }
+
+  ////////////////////////////////////////////////////////////////////////
+  //
+  // TolliumScreenBase
+  //
+
+  /** @short Begin a feedback session without automatic validation
+      @long This function returns a feedback object, but skips validation for any objects on the current screen
+      @return A transactional work object */
+  PUBLIC OBJECT FUNCTION BeginUnvalidatedFeedback()
+  {
+    RETURN this->BeginWork([database := FALSE, validate := OBJECT[] ]);
+  }
+
+  /** @short Begin transactional work
+      @long This function returns a transactional work object, and request any objects on the current screen to perform validation of their filled-in values
+      @return A transactional work object */
+  PUBLIC OBJECT FUNCTION BeginFeedback()
+  {
+    RETURN this->BeginWork([database := FALSE]);
+  }
+
+  /** @short Begin transactional work without automatic validation
+      @long This function returns a transactional work object, but skips validation for any objects on the current screen
+      @return A transactional work object */
+  PUBLIC OBJECT FUNCTION BeginUnvalidatedWork()
+  {
+    RETURN this->BeginWork([validate := OBJECT[] ]);
+  }
+
+  /** @short Begin transactional work
+      @long This function returns a transactional work object, and request any objects on the current screen to perform validation of their filled-in values
+      @param options Options
+      @cell(string) options.mutex Name of mutex to lock (optional)
+      @cell(object array) options.validate List of components to validate (recursively)
+      @cell(boolean) options.database Whether to open a database transaction
+      @return A transactional work object */
+  PUBLIC OBJECT FUNCTION BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(CellExists(options,'validate') AND TypeID(options.validate)=TypeID(BOOLEAN) AND options.validate = FALSE) //temp workaround for webcrawler
+      options := CELL[...options, validate := DEFAULT OBJECT ARRAY ];
+
+    options := ValidateOptions([ mutex := "", validate := OBJECT[this->frame], database := TRUE], options);
+    OBJECT workobj := NEW TolliumFeedbackObject(this->tolliumscreenmanager, options.database ? GetPrimary() : DEFAULT OBJECT, options.mutex);
+    IF(RecordExists(this->__tolliumtrackwork))
+      this->__tolliumtrackwork.obj := workobj;
+
+    //First check the specified form (ADDME: support toolbars etc too)
+    FOREVERY(OBJECT tovalidate FROM options.validate)
+      workobj->Validate(tovalidate);
+    RETURN workobj;
+  }
+
+  /** @short Begin transactional work without automatic validation, while keeping a mutex locked
+      @long This function returns a transactional work object, that keeps a mutex locked while running, but skips validation for any objects on the current screen
+      @return A transactional work object */
+  PUBLIC OBJECT FUNCTION BeginLockedUnvalidatedWork(STRING mutex)
+  {
+    RETURN this->BeginWork([mutex:=mutex, validate := FALSE]);
+  }
+
+  /** @short Begin transactional work with automatic validation, while keeping a mutex locked
+      @long This function returns a transactional work object, that keeps a mutex locked while running.
+      @return A transactional work object */
+  PUBLIC OBJECT FUNCTION BeginLockedWork(STRING mutex)
+  {
+    RETURN this->BeginWork([mutex:=mutex]);
+  }
+
+  /** @short Run this window in modal mode
+      @long Displays the dialog and does not return until the dialog closes (usually by setting a tolliumresult). The parent windows is disabled while this dialog is in modal mode
+      @return The tolliumresult returned by the dialog */
+  PUBLIC STRING FUNCTION RunModal()
+  {
+    // If tolliumresult is already set, for example by Init, return it directly without running
+    IF (this->tolliumresult = "")
+    {
+      this->tolliumcontroller->EnsureVisibleScreen(this);
+      this->tolliumcontroller->RunModalScreen(this);
+    }
+    RETURN this->tolliumresult;
+  }
+
+  PUBLIC VARIANT FUNCTION __TolliumRunScreen()
+  {
+    IF(this->tolliumresult = "" AND NOT RecordExists(this->__tolliumsubmitresult))
+    {
+      this->tolliumcontroller->EnsureVisibleScreen(this);
+      this->tolliumcontroller->RunModalScreen(this);
+    }
+
+    IF (RecordExists(this->__tolliumsubmitresult))
+      RETURN this->__tolliumsubmitresult.result;
+
+    IF (MemberExists(this, "SUBMIT"))
+    {
+      INTEGER submittype := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(GetObjectMethodPtr(this, "SUBMIT")).returntype;
+      IF (submittype != TypeID(BOOLEAN))
+        RETURN GetTypeDefaultValue(submittype);
+    }
+
+    RETURN this->tolliumresult;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION DoLoadComponents(RECORD ARRAY formobjects, OBJECT screenbuilder)
+  {
+    RECORD ARRAY allcomponents;
+    STRING ARRAY usednames;
+
+    FOREVERY(RECORD objinfo FROM formobjects)
+    {
+      STRING fullobjname := objinfo.data.name;
+      STRING objname_upcase := ToUppercase(fullobjname);
+
+      // FIXME: should __tolliumscope_registercomponents do a check for component name collisions again or should that one be removed?
+      STRING addtoscope;
+      IF(objinfo.localname!="") //object is not auto-named?
+      {
+        addtoscope := objinfo.data.tolliumscope.scope;
+      }
+
+      RECORD usednamepos := LowerBound(usednames, objname_upcase);
+      IF (usednamepos.found)
+      {
+        // ? this might happen in case of dynamically creating objects? (can these have names?)
+        // for loaded screens the screenparser.whlib should already have catched these name collisions
+        // in StartXMLNode()
+        screenbuilder->AddError(objinfo.data.tolliumscope, "Object \"" || fullobjname || "\" conflicts with an existing component in the XML code");
+        CONTINUE;
+      }
+      ELSE IF (addtoscope = "" AND objname_upcase = "FRAME")
+      {
+        IF (ObjectExists(this->frame))
+          screenbuilder->AddError(objinfo.data.tolliumscope, "Object \"" || fullobjname || "\" conflicts with an another frame for the screen");
+      }
+      ELSE IF ( MemberExists(this, objname_upcase) AND NOT __INTERNAL_DescribeObjectStructure(this).isstatic)
+      {
+        // the name of a member (function, variable or property)
+        // within the objecttype of the screen is the same as the component's name
+        screenbuilder->AddError(objinfo.data.tolliumscope, "Object \"" || fullobjname || "\" conflicts with an existing member in the objecttype for the screen");
+        CONTINUE;
+      }
+
+      OBJECT parent;
+      IF(objinfo.data.tolliumscope.parent != "" AND NOT screenbuilder->isvalidating) //if we're validating, we're not constructing so we won't find a parent
+      {
+        STRING parentname := ToUppercase(objinfo.data.tolliumscope.parent); //FIXME might as well move parent outside data..
+        //parent := SELECT AS OBJECT component FROM allcomponents WHERE name = parentname;
+        parent := screenbuilder->GetCheckComponent(parentname);
+      }
+
+      STRING composedname;
+      IF(CellExists(objinfo,'composedname'))
+        composedname := objinfo.composedname;
+      ELSE IF(CellExists(objinfo.data,'composition') AND CellExists(objinfo.data,'cellname') AND objinfo.data.composition != "" AND objinfo.data.cellname != "")
+        composedname := ToUppercase(objinfo.data.composition || "." || objinfo.data.cellname);
+
+      BOOLEAN isframe := addtoscope = "" AND objname_upcase = "FRAME";
+      STRING createtype := screenbuilder->isvalidating AND NOT isframe ? "mod::tollium/lib/componentbase.whlib#TolliumComponentBase" : objinfo.objtype;
+
+      OBJECT obj := this->tolliumscreenmanager->CreateComponent(createtype
+                                                               ,fullobjname, objinfo.data.tolliumscope.line, parent, composedname, objinfo.fragmentgid, objinfo.elementtype);
+
+      IF (isframe)
+        this->frame := obj;
+
+      INSERT objname_upcase INTO usednames AT usednamepos.position;
+      IF(screenbuilder->allpublic)
+        objinfo.ispublic := TRUE;
+
+      INSERT CELL name := objname_upcase
+                , component := obj
+                , addtoscope := addtoscope
+             INTO objinfo;
+      INSERT objinfo INTO allcomponents AT END;
+    }
+    RETURN allcomponents;
+  }
+
+  STRING FUNCTION GetFrameModule()
+  {
+    RETURN ObjectExists(this->frame) ? this->frame->module : "";
+  }
+  STRING FUNCTION GetFramePageFile()
+  {
+    RETURN ObjectExists(this->frame) ? this->frame->pagefile : "";
+  }
+
+  PUBLIC MACRO TolliumInitializeScreen(RECORD params)
+  {
+    this->pvt_tolliumframepreinits := TRUE;
+    this->tolliumscreenmanager->PreInit();
+
+    IF(MemberExists(this,"INIT"))
+    {
+      IF (ValidateFunctionPtr(GetObjectMethodPtr(this, "INIT"), 0, [TYPEID(RECORD)]) )
+        this->Init(params);
+      ELSE
+        this->Init();
+    }
+
+    this->pvt_tolliumframeinitrun := TRUE;
+    IF (this->tolliumresult = "")// Skip post-init if init-function set a tolliumresult: it could have skipped needed initialization.
+      this->tolliumscreenmanager->PostInit();
+  }
+
+  PUBLIC MACRO RegisterLocalDragType(STRING name, STRING ARRAY flags)
+  {
+    IF (name NOT LIKE "local:*")
+      THROW NEW Exception("Name must be start with 'local:'");
+
+    RECORD pos := RecordLowerBound(this->tolliumlocaldragtypes, [ name := name ], [ "NAME" ]);
+    IF (pos.found)
+      THROW NEW Exception("Drag type '" || name|| "' already registered in this screen");
+
+    INSERT
+        [ name :=     name
+        , flags :=    flags
+        , candownloadflags := ""
+        ] INTO this->tolliumlocaldragtypes AT pos.position;
+  }
+
+  PUBLIC RECORD FUNCTION GetDragType(STRING wanttype)
+  {
+    IF (wanttype LIKE "local:*")
+    {
+      RECORD pos := RecordLowerBound(this->tolliumlocaldragtypes, [ name := wanttype ], [ "NAME" ]);
+      IF (NOT pos.found)
+      {
+        STRING ARRAY available := SELECT AS STRING ARRAY name FROM this->tolliumlocaldragtypes;
+        THROW NEW Exception("Drag type '" || wanttype || "' not registered in this screen. Available: " ||
+          (Detokenize(available, ", ") ?? "none"));
+      }
+      RETURN this->tolliumlocaldragtypes[pos.position];
+    }
+    RETURN this->tolliumcontroller->GetGlobalDragType(wanttype);
+  }
+
+  /** Request exclusive access to a resource
+      @param tag Record whose contents identifies the resource (will be HSON encoded)
+      @param options
+      @cell options.onbeforesteal Called just before the dialog will be stolen
+      @cell options.onstolen Called after the dialog has been stolen
+  */
+  PUBLIC BOOLEAN FUNCTION GetExclusiveAccess(RECORD tag, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF (ObjectExists(this->tollium_exclusivity_handler))
+      THROW NEW Exception("This screen has already been opened with exclusive access");
+
+    options := ValidateOptions(
+        [ onstolen :=         DEFAULT FUNCTION PTR
+        , onbeforesteal :=    DEFAULT FUNCTION PTR
+        ], options);
+
+    STRING identifier := EncodeUFS(GetSHA1Hash(EncodeHSON(tag)));
+
+    this->tollium_exclusivity_handler := NEW ExclusivityHandler(this, identifier, options);
+
+    IF (NOT this->tollium_exclusivity_handler->Start())
+    {
+      this->tolliumcontroller->MarkScreenAsStolen(this);
+      RETURN FALSE;
+    }
+
+    RETURN TRUE;
+  }
+
+  /** Request exclusive access for running an action. Upon steal, exclusive access is released
+      immediately and dialogs are cancelled with tolliumresult="".
+      @param options
+      @cell options.onbeforesteal Called just before the exclusive access will be stolen
+      @cell options.onstolen Called after the exclusive access has been stolen
+  */
+  PUBLIC BOOLEAN FUNCTION GetExclusiveAccessForAction(RECORD tag, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF (ObjectExists(this->tollium_exclusivity_handler))
+      THROW NEW Exception("This screen has already been opened with exclusive access");
+
+    options := ValidateOptions(
+        [ onstolen :=         DEFAULT FUNCTION PTR
+        , onbeforesteal :=    DEFAULT FUNCTION PTR
+        ], options);
+
+    STRING identifier := EncodeUFS(GetSHA1Hash(EncodeHSON(tag)));
+
+    OBJECT handler := NEW ExclusivityHandler(this, identifier, CELL[ subscreensonly := TRUE, ...options ]);
+    IF (NOT handler->Start())
+      RETURN FALSE;
+
+    this->tollium_exclusivity_handler := handler;
+    this->tollium_action_exclusivity_handler := handler;
+    RETURN TRUE;
+  }
+
+  /** Sets the result value of the screen, closing it after the current handler returns
+      @param returnvalue Value to return. If a Submit handler is present, the type must agree with the return type of that handler
+  */
+  PUBLIC MACRO __SetScreenResult(VARIANT returnvalue)
+  {
+    RECORD submitresult;
+    IF (MemberExists(this, "SUBMIT"))
+    {
+      FUNCTION PTR submit := PTR this->Submit;
+      IF (NOT ValidateFunctionPtr(submit, TypeID(returnvalue), INTEGER[]))
+        THROW NEW Exception(`Tried to return a ${GetTypeName(TypeID(returnvalue))}, which is incompatible with the return type of the Submit function (${ExplainFunctionPtrSignature(submit)})`);
+
+      // First initialize with default, then overwrite to assure right type
+      INTEGER submittype := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(submit).returntype;
+      submitresult := [ result := GetTypeDefaultValue(submittype) ];
+      submitresult.result := returnvalue;
+    }
+    ELSE
+      submitresult := [ result := returnvalue ];
+
+    IF (TypeId(submitresult.result) != TypeID(BOOLEAN))
+      this->__tolliumsubmitresult := submitresult;
+
+    this->tolliumresult := IsDefaultValue(returnvalue) ? "cancel" : "ok";
+  }
+
+  /** Runs component callbacks, handles closing exclusive access for actions
+  */
+  PUBLIC VARIANT FUNCTION __ExecuteCallback(FUNCTION PTR handler, VARIANT ARRAY ...args)
+  {
+    OBJECT org_handler := this->tollium_action_exclusivity_handler;
+    TRY
+    {
+      RETURN CallAnyPtrVA(handler, args);
+    }
+    FINALLY
+    {
+
+      // Opened a new exclusivity handler for actions? Close it
+      IF (org_handler != this->tollium_action_exclusivity_handler)
+      {
+        // Close per-action exclusivity handler, show closing messages
+        this->tollium_action_exclusivity_handler->Close();
+
+        this->tollium_action_exclusivity_handler := DEFAULT OBJECT;
+        this->tollium_exclusivity_handler := DEFAULT OBJECT;
+      }
+    }
+  }
+>;
+
+/** @short Base class for rowedit screens passed to <arrayedit>
+*/
+PUBLIC STATIC OBJECTTYPE TolliumRowEditScreenBase EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    //FIXME Should've caught this while parsing
+    IF(NOT MemberExists(this, this->__tolliumscope_isstatic ? "^row" : "row"))
+      THROW NEW TolliumException(this->frame,"Screen with implementation 'rowedit' require a composition named 'row'");
+
+    // when changing a roweditscreen to use it through an oneditrow, it can happen a implementation="rowedit" is left on the screen
+    IF (NOT RecordExists(data) OR NOT CellExists(data, "contextrequestfallback"))
+      THROW NEW TolliumException(this->frame,"Screen with implementation 'rowedit' should not be used through LoadScreen (unless implementing a row editting component)");
+
+    // Set forward first!
+    ^row->composition := data.contextrequestfallback;
+    IF(RecordExists(data.row))
+      this->SetEditRow(data.row);
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    RETURN work->Finish();
+  }
+
+  /** @short Apply the row value to the composition.
+      @long Override SetRowValue intercept the incoming value. The function is only invoked when editing or duplicating an existing row
+      @param row Row to load */
+  PUBLIC MACRO SetEditRow(RECORD row)
+  {
+    ^row->value := row;
+  }
+
+  /** @short Get the current row value
+      @long Returns the current value of the row composition, including unsaved changes. Override this function
+            to update the row as its returned
+      @return Current row value
+  */
+  PUBLIC RECORD FUNCTION GetUpdatedRow()
+  {
+    RETURN ^row->value;
+  }
+>;

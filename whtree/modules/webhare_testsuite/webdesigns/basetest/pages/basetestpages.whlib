@@ -1,0 +1,30 @@
+<?wh
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib";
+
+PUBLIC OBJECTTYPE PrebuiltSHTML EXTEND WebPage
+<
+>;
+PUBLIC OBJECTTYPE WebStaticPage EXTEND StaticPageBase
+<
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    Print('<div id="webstaticpage">WebStaticPage</div>');
+  }
+>;
+
+PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase
+<
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    OBJECT gtmplugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/socialite","gtm");
+    gtmplugin->DatalayerPush([ val := "HiThere", filename := this->webdesign->targetobject->name ]);
+    gtmplugin->integration := GetWebVariable("gtmplugin_integration") ?? gtmplugin->integration;
+    gtmplugin->launch := GetWebVariable("gtmplugin_launch") ?? gtmplugin->launch;
+
+    RETURN PTR Print(`<div id="dynamicpage"></div>`);
+  }
+>;

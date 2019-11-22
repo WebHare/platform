@@ -1,0 +1,172 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+PUBLIC RECORD ARRAY FUNCTION GetAllWHFSRegisterSlots()
+{
+  RECORD ARRAY allslots;
+  FOREVERY(STRING mod FROM GetInstalledModuleNames())
+  {
+    allslots := allslots CONCAT SELECT *, isorphan := FALSE FROM GetWHFSRegisterSlots(mod, GetModuleDefinitionXML(mod));
+  }
+
+  RECORD ARRAY ondiskslots;
+  ondiskslots := SELECT name := ToLowercase(Substitute(links.name,'--',':'))
+                      , currentvalue := links.filelink
+                      , currentpath := targets.whfspath
+                   FROM system.fs_objects AS links, system.fs_objects AS targets
+                  WHERE links.parent = whconstant_whfsid_registerslots
+                        AND targets.id = links.filelink;
+
+  allslots := JoinArrays(allslots, "NAME", ondiskslots, [ currentvalue := 0, currentpath := "" ]
+                          , [ rightouterjoin := TRUE
+                            , leftouterjoin := [ title := "", description := "", initialvalue := "", isorphan := TRUE]
+                            ]);
+
+  RETURN allslots;
+}
+
+RECORD FUNCTION SimpleEnsure(INTEGER parent, RECORD settings)
+{
+  RECORD item := SELECT id, filelink FROM system.fs_objects WHERE fs_objects.parent = VAR parent AND ToUppercase(name) = ToUppercase(settings.name);
+  IF(RecordExists(item))
+    RETURN [ existing := TRUE, filelink := item.filelink, id := item.id ];
+
+  item := [ id := MakeAutonumber(system.fs_objects,"id")
+          , parent := parent
+          , creationdate := GetCurrentDatetime()
+          , modificationdate := GetCurrentDatetime()
+          , ...settings
+          ];
+  INSERT item INTO system.fs_objects;
+  RETURN [ existing := FALSE, filelink := 0, id := item.id ];
+}
+
+OBJECT FUNCTION EnsureSlotFile(RECORD slot)
+{
+  RETURN OpenWHFSObject(whconstant_whfsid_registerslots)->EnsureFile([ name := slot.filename, type := 19, publish := FALSE ]);
+}
+
+RECORD FUNCTION LookupSlotInfo(RECORD slot)
+{
+  //Have the module describe it
+  RECORD modinfo := SELECT * FROM GetWHFSRegisterSlots(slot.module, GetModuleDefinitionXML(slot.module)) WHERE ToUppercase(name)=ToUppercase(slot.module || ":" || slot.name);
+  IF(NOT RecordExists(modinfo))
+    THROW NEW Exception(`No such slot '${slot.name}' in module '${slot.module}'`);
+
+  RETURN modinfo;
+}
+
+PUBLIC RECORD FUNCTION DescribeWHFSRegisterSlot(STRING slotname)
+{
+  RETURN LookupSlotInfo(SplitSlotName(slotname));
+}
+
+INTEGER FUNCTION TryAddWHFSRegister(RECORD slot, INTEGER for_deleted_file)
+{
+  IF(slot.module NOT IN GetInstalledModuleNames())
+    THROW NEW Exception(`No such module '${slot.module}' for slot '${slot.name}'`);
+
+  RECORD modinfo := LookupSlotInfo(slot);
+
+  GetPrimary()->BeginWork([ mutex := "system:registerslot" ]);
+  OBJECT slotfile := EnsureSlotFile(slot);
+  IF(slotfile->filelink != 0 AND slotfile->filelink != for_deleted_file) //it appeared in parallel! (not worrying about the race where someone created and IMMEDIATELY recycled it, that's doing it on purpose)
+  {
+    GetPrimary()->RollbackWork();
+    RETURN slotfile->filelink;
+  }
+
+  STRING aboutslot := `WHFS register slot '${slot.module}:${slot.name}' ${for_deleted_file != 0 ? ` refers to deleted object #${for_deleted_file}` : `has not been set`}`;
+  IF(modinfo.initialvalue = "")
+  {
+    GetPrimary()->CommitWork(); //don't waste the work so far
+    THROW NEW Exception(`${aboutslot} and has no initial value`);
+  }
+
+  //Look it up
+  INTEGER target := LookupWHFSObject(0, modinfo.initialvalue);
+  IF(target <= 0)//-1 is not found, 0 is root, both are unacceptable destinations
+  {
+    GetPrimary()->CommitWork(); //don't waste the work so far
+    THROW NEW Exception(`${aboutslot} and its initial value '${modinfo.initialvalue}' could not be located`);
+  }
+
+  //Store it
+  slotfile->UpdateMetadata([ filelink := target ]);
+  GetPrimary()->CommitWork();
+  RETURN target;
+}
+
+RECORD FUNCTION SplitSlotName(STRING slot)
+{
+  IF(slot NOT LIKE "?*:?*" OR slot LIKE "*:*:*")
+    THROW NEW Exception(`Slot names '${slot}' is not of the form <module>:<slot>`);
+
+  STRING ARRAY slottoks := Tokenize(slot,':');
+  RETURN [ module := slottoks[0]
+         , name := slottoks[1]
+         , filename := ToLowercase(slottoks[0] || '--' || slottoks[1])
+         ];
+}
+
+/** @short Look up a WHFS register entry
+    @param slotfullname Name of the slot
+    @return Id of the file/folder in the slot
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
+*/
+PUBLIC INTEGER FUNCTION LookupInWHFSRegister(STRING slotfullname)
+{
+  RECORD slot := SplitSlotName(slotfullname);
+
+  RECORD lookup := SELECT target.isactive
+                        , linkedobject.filelink
+                     FROM system.fs_objects AS target
+                        , system.fs_objects AS linkedobject
+                    WHERE linkedobject.filelink = target.id
+                          AND linkedobject.parent = whconstant_whfsid_registerslots
+                          AND ToUppercase(linkedobject.name) = ToUppercase(slot.filename);
+
+  IF(RecordExists(lookup))
+  {
+    IF(NOT lookup.isactive)
+      RETURN RunInSeparatePrimary(PTR TryAddWHFSRegister(slot, lookup.filelink));
+
+    RETURN lookup.filelink;
+  }
+  RETURN RunInSeparatePrimary(PTR TryAddWHFSRegister(slot, 0));
+}
+
+PUBLIC MACRO SetWHFSRegisterSlot(STRING slotfullname, INTEGER targetid)
+{
+  RECORD slot := SplitSlotName(slotfullname);
+  IF(targetid != 0)
+  {
+    RECORD targetinfo := SELECT isfolder, whfspath,isactive FROM system.fs_objects WHERE id = targetid;
+    IF(NOT RecordExists(targetinfo))
+      THROW NEW Exception(`No such fsobject #${targetid}`);
+    IF(NOT targetinfo.isactive)
+      THROW NEW Exception(`The slot '${slot.module}:${slot.name}' requires an active object, but '${targetinfo.whfspath}' (fsobject #${targetid}) is not active`);
+
+    RECORD modinfo := LookupSlotInfo(slot);
+    IF(modinfo.type = "site" AND NOT RecordExists(SELECT FROM system.sites WHERE id=targetid))
+      THROW NEW Exception(`The slot '${slot.module}:${slot.name}' requires a site, but '${targetinfo.whfspath}' (fsobject #${targetid}) is not a site`);
+    IF(modinfo.type = "folder" AND targetinfo.isfolder = FALSE)
+      THROW NEW Exception(`The slot '${slot.module}:${slot.name}' requires a folder, but '${targetinfo.whfspath}' (fsobject #${targetid}) is a file`);
+    IF(modinfo.type = "file" AND targetinfo.isfolder)
+      THROW NEW Exception(`The slot '${slot.module}:${slot.name}' requires a file, but '${targetinfo.whfspath}' (fsobject #${targetid}) is a folder`);
+  }
+
+  OBJECT slotfile := EnsureSlotFile(slot);
+  slotfile->UpdateMetadata([ filelink := targetid ]);
+
+  GetPrimary()->BroadcastOnCommit("system:internal.whfsregisterchange", DEFAULT RECORD);
+}

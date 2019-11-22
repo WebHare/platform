@@ -1,0 +1,657 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/commondialogs.whlib";
+LOADLIB "mod::wrd/lib/dialogs.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+
+
+BOOLEAN FUNCTION IsInLike(STRING val, STRING ARRAY masks)
+{
+  FOREVERY(STRING mask FROM masks)
+    IF(ToUppercase(val) LIKE ToUppercase(mask))
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+PUBLIC OBJECTTYPE ManageTypes EXTEND TolliumScreenBase
+<
+  RECORD settings;
+
+  MACRO Init(RECORD data)
+  {
+    this->settings := ValidateOptions( [ domainsonly := FALSE
+                                       , hidetypes := DEFAULT STRING ARRAY
+                                       ], data);
+
+    this->types->eventmasks := this->contexts->wrdschema->GetEventMasks();
+
+    IF(this->settings.domainsonly)
+    {
+      //Update some buttons..
+      this->addtype->title :=  GetTid("wrd:schema.managetypes.adddomain");
+      this->edittype->title := GetTid("wrd:schema.managetypes.editdomain");
+      this->deltype->title :=  GetTid("wrd:schema.managetypes.deldomain");
+    }
+  }
+
+  RECORD ARRAY FUNCTION OnGetTypes()
+  {
+    RETURN SELECT rowkey := id
+                , title
+                , tag
+                , isdomain
+                , metatype := ToString(metatype)
+            FROM this->contexts->wrdschema->ListTypes()
+           WHERE (this->settings.domainsonly ? isdomain = TRUE : TRUE)
+                 AND NOT IsInLike(tag, this->settings.hidetypes);
+  }
+
+  MACRO DoAddType()
+  {
+    INTEGER newtype := this->RunSCreen("#addtype");
+    IF(newtype != 0)
+      this->types->value := newtype;
+  }
+
+  MACRO DoManageAttrs()
+  {
+    RunWRDAttributesDialog(this, this->contexts->wrdschema->GetTypeById(this->types->value));
+  }
+
+  MACRO DoImport()
+  {
+    OBJECT dialog := MakeWRDImportWizardDialog(this, this->contexts->wrdschema->GetTypeById(this->types->value));
+    dialog->RunModal();
+  }
+
+  MACRO DoEditType()
+  {
+    OBJECT dialog := this->LoadScreen(".edittype");
+    dialog->Setup(this->contexts->wrdschema, this->types->value);
+    dialog->RunModal() ;
+  }
+
+  MACRO DoEditValues()
+  {
+    IF(NOT RecordExists(this->types->selection))
+      RETURN;
+
+    OBJECT type := this->contexts->wrdschema->GetTypeById(this->types->value);
+    OBJECT valueviewer := MakeWRDEntityBrowseDialog(this, type);
+    valueviewer->RunDialog();
+  }
+
+  MACRO DoDelType()
+  {
+    OBJECT type := this->contexts->wrdschema->GetTypeById(this->types->value);
+    this->RunScreen("#deletetype", [ type := type ]);
+  }
+
+>;
+
+PUBLIC OBJECTTYPE AddType EXTEND TolliumScreenBase
+<
+  PUBLIC MACRO Init()
+  {
+    this->frame->title := GetTid("wrd:types.update.title_add", this->contexts->wrdschema->tag);
+    this->requiretype_left->options := SELECT title, rowkey := id, tag
+                                         FROM this->contexts->wrdschema->ListTypes()
+                                     ORDER BY NormalizeText(title, GetTidLanguage());
+    this->requiretype_right->options := this->requiretype_left->options;
+
+    this->requiretype_left->selection := SELECT *
+                                           FROM this->requiretype_left->options
+                                          WHERE tag = "WRD_PERSON";
+
+    this->requiretype_right->selection := SELECT *
+                                            FROM this->requiretype_right->options
+                                           WHERE tag = "WRD_PERSON";
+    this->doupdateform();
+  }
+  MACRO doupdateform()
+  {
+    INTEGER current_metatype := SearchElement([ "object", "link", "atachment", "domain" ], this->metatype->value) + 1;
+
+    RECORD ARRAY allowedparents :=
+        SELECT rowkey := id
+             , title := title || (tag!=""? " (" || tag || ")" : "")
+             , linkfrom
+             , linkto
+          FROM this->contexts->wrdschema->ListTypes()
+         WHERE metatype = current_metatype
+      ORDER BY NormalizeText(title, GetTidLanguage());
+
+    this->parenttype->options :=
+        [ [ rowkey := 0
+          , title := this->GetTid(".noparent")
+          , linkfrom := 0
+          , linkto := 0
+          ]
+        ] CONCAT allowedparents;
+
+    this->parenttype->enabled := Length(allowedparents) > 0;
+    IF (Length(allowedparents) = 0)
+      this->parenttype->value := 0;
+
+    SWITCH (this->metatype->value)
+    {
+      CASE "object", "domain"
+      {
+        this->requiretype_left->visible := FALSE;
+        this->requiretype_right->visible := FALSE;
+      }
+      CASE "link"
+      {
+        this->requiretype_left->visible := TRUE;
+        this->requiretype_right->visible := TRUE;
+
+        this->requiretype_left->title := GetTid("wrd:types.update.linkfrom");
+        this->requiretype_right->title := GetTid("wrd:types.update.linkto");
+      }
+      CASE "attachment"
+      {
+        this->requiretype_left->visible := TRUE;
+        this->requiretype_right->visible := FALSE;
+
+        this->requiretype_left->title := GetTid("wrd:types.update.linkto");
+      }
+    }
+
+    RECORD sel := this->parenttype->selection;
+    this->requiretype_left->enabled := sel.linkfrom = 0;
+    this->requiretype_right->enabled := sel.linkto = 0;
+    IF (sel.linkfrom != 0)
+      this->requiretype_left->value := sel.linkfrom;
+    IF (sel.linkto != 0)
+      this->requiretype_right->enabled := sel.linkto = 0;
+  }
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    RECORD data := this->type->value;
+
+    // let Tollium validate the fields before attempting to create stuff
+    IF (RecordExists(SELECT FROM this->contexts->wrdschema->ListTypes() WHERE ToUpperCase(tag) = ToUpperCase(data.tag)))
+      work->AddError(this->GetTid(".typetagnotunique"));
+
+    IF (work->HasFailed())
+      RETURN 0;
+
+    OBJECT newtype;
+    IF(this->metatype->value="domain")
+      newtype := this->contexts->wrdschema->CreateDomain(data.tag);
+    ELSE
+      newtype := this->contexts->wrdschema->CreateType(data.tag, [ linkfrom := this->metatype->value IN ["link","attachment"] ? this->requiretype_left->value : 0
+                                                                 , linkto :=   this->metatype->value = "link" ? this->requiretype_right->value : 0
+                                                                 ]);
+
+    newtype->UpdateMetadata([ description := data.description
+                            , title := data.title
+                            , parenttype := this->parenttype->value
+                            ]);
+    RETURN work->Finish() ? newtype->id : 0;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE EditType EXTEND TolliumScreenBase
+< OBJECT wrdtype;
+  INTEGER type_left;
+  INTEGER type_right;
+
+  PUBLIC MACRO Setup(OBJECT wrdschema, INTEGER type_id)
+  {
+    this->wrdtype := wrdschema->GetTypeById(type_id);
+    this->dbid->value := ToString(type_id);
+    this->frame->title := GetTid("wrd:types.update.title_edit", this->wrdtype->title);
+
+    this->parenttype->options :=
+         SELECT rowkey := id, title := title || (tag!=""? " (" || tag || ")" : "")
+           FROM [ [ id := 0, title := this->GetTid(".noparent"), tag := "" ] ] CONCAT wrdschema->ListTypes()
+          WHERE id IN this->wrdtype->__GetAcceptableParentTypes()
+       ORDER BY id != 0, NormalizeText(title, GetTidLanguage());
+
+    SWITCH (this->wrdtype->metatype)
+    {
+      CASE 1 { this->metatype->value := GetTid("wrd:types.metatypes.object"); }
+      CASE 2 { this->metatype->value := GetTid("wrd:types.metatypes.link"); }
+      CASE 3 { this->metatype->value := GetTid("wrd:types.metatypes.classification"); }
+      CASE 4 { this->metatype->value := GetTid("wrd:types.metatypes.domain"); }
+    }
+
+    // If link, show the link from and link to
+    IF(this->wrdtype->metatype IN [2,3])
+    {
+      this->linkfrom->visible := TRUE;
+      OBJECT lefttype := wrdschema->GetTypeById(this->wrdtype->linkfrom);
+      IF(ObjectExists(lefttype))
+      {
+        this->linkfrom->value := lefttype->title;
+        this->type_left  := this->wrdtype->linkfrom;
+      }
+    }
+
+    IF(this->wrdtype->metatype = 2)
+    {
+      this->linkto->visible := TRUE;
+      OBJECT righttype := wrdschema->GetTypeById(this->wrdtype->linkto);
+      IF(ObjectExists(righttype))
+      {
+        this->linkto->value := righttype->title;
+        this->type_right  := this->wrdtype->linkto;
+      }
+    }
+
+    this->type->value := SELECT * FROM wrd.types WHERE id = type_id;
+  }
+
+  MACRO UpdateListColumns()
+  {
+
+  }
+
+  MACRO DoAddListColumn()
+  {
+    //OBJECT
+  }
+
+  MACRO DoEditListColumn()
+  {
+
+  }
+
+  MACRO DoDeleteListColumn()
+  {
+
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    IF (RecordExists(SELECT FROM this->wrdtype->wrdschema->ListTypes() WHERE ToUpperCase(tag) = ToUpperCase(this->type->value.tag) AND id != this->wrdtype->id))
+      work->AddError(this->GetTid(".typetagnotunique"));
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    this->wrdtype->UpdateMetadata(this->type->value);
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE ManageAttrs EXTEND TolliumScreenBase
+<
+  OBJECT wrdtype;
+
+  /// Attribute tag masks which should not be offered in the list
+  PUBLIC STRING ARRAY hideattributes;
+  /// Attribute type names which should be shown or offered for creation
+  PUBLIC STRING ARRAY allowattributetypes;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->wrdtype := data.wrdtype;
+    this->contexts->wrdschema := this->wrdtype->wrdschema;
+    this->attrs->eventmasks := this->contexts->wrdschema->GetEventMasks();
+
+    this->allowattributetypes := data.options.allowattributetypes;
+    this->hideattributes := data.options.hideattributes;
+    this->frame->title := GetTid("wrd:types.attributes.manageattrs", this->wrdtype->title);
+
+    this->addchildattr->enabled := "ARRAY" IN this->allowattributetypes;
+    this->addchildattrbutton->visible := "ARRAY" IN this->allowattributetypes;
+  }
+
+  RECORD ARRAY FUNCTION GetAttrsByParent(INTEGER parentid)
+  {
+    RETURN SELECT rowkey := tag
+                , tag
+                , title
+                , base
+                , reqicon        := isrequired ? 1 : 0
+                , uniqueicon     := isunique   ? 1 : 0
+                , canaddchildren := attributetypename = "ARRAY"
+                , subnodes       := attributetypename = "ARRAY" ? this->GetAttrsByParent(id) : DEFAULT RECORD ARRAY
+                , type           := GetTid("wrd:types.attributes.types." || ToLowercase(attributetypename))
+                , attributetypename
+             FROM this->wrdtype->ListAttributes(parentid) AS attrs
+            WHERE attributetypename IN this->allowattributetypes
+                  AND NOT IsInLike(tag, this->hideattributes)
+         ORDER BY ToUppercase(tag);
+  }
+
+  RECORD ARRAY FUNCTION OnGetAttrs()
+  {
+    RETURN this->GetAttrsByParent(0);
+  }
+
+  PUBLIC MACRO DoAddAttr()
+  {
+    this->AddAttribute("");
+  }
+  PUBLIC MACRO DoAddChildAttr()
+  {
+    this->AddAttribute(this->attrs->selection.tag);
+  }
+  PUBLIC MACRO AddAttribute(STRING parenttag)
+  {
+    RECORD newattr := this->RunScreen("#editattr", [ parenttag := parenttag
+                                                   , attributetypes := this->allowattributetypes
+                                                   , wrdtype := this->wrdtype
+                                                   ]);
+    IF(RecordExists(newattr))
+      this->attrs->value := newattr.tag;
+  }
+
+  PUBLIC MACRO DoEditAttr()
+  {
+    RECORD newattr := this->RunScreen("#editattr",
+        [ attributetypes := this->allowattributetypes
+        , wrdtype := this->wrdtype
+        , tag := this->attrs->selection.tag
+        ]);
+    IF(RecordExists(newattr))
+      this->attrs->value := newattr.tag;
+  }
+
+  PUBLIC MACRO DoDeleteAttr()
+  {
+    IF(this->RunMessageBox(".deleteattr", this->attrs->selection.tag) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    STRING parenttag := Left(this->attrs->selection.tag, SearchLastSubstring(this->attrs->selection.tag, '.'));
+    this->wrdtype->DeleteAttribute(this->attrs->selection.tag);
+    IF(work->Finish())
+      this->attrs->SetValueIfValid(parenttag);
+  }
+>;
+PUBLIC OBJECTTYPE EditAttr EXTEND TolliumScreenBase
+<
+  RECORD editattr;
+  OBJECT wrdtype;
+  STRING parenttag;
+
+  PUBLIC INTEGER parentid;
+  PUBLIC STRING fulltag;
+  PUBLIC RECORD curattr;
+  PUBLIC INTEGER attrtype;
+
+  MACRO Init(RECORD data)
+  {
+    data := ValidateOptions([ attributetypes := DEFAULT STRING ARRAY
+                            , parenttag := ""
+                            , tag := ""
+                            , wrdtype := DEFAULT OBJECT
+                            ], data, [ required := ["wrdtype"] ]);
+
+    this->wrdtype := data.wrdtype;
+    this->parenttag := data.tag != "" ? Left(data.tag,SearchLastSubstring(data.tag, '.')) : data.parenttag;
+    IF(data.tag != "")
+      this->editattr := this->wrdtype->GetAttribute(data.tag);
+
+    this->type->options := SELECT TEMPORARY title := GetTid(tid)
+                                , title :=    title
+                                , rowkey :=   typename
+                             FROM GetAttributeTypes()
+                            WHERE typename IN data.attributetypes OR (RecordExists(this->editattr) AND typename = this->editattr.attributetypename)
+                         ORDER BY NormalizeText(title, GetTidLanguage());
+
+    IF(RecordExists(this->editattr))
+    {
+      this->type->value := this->editattr.attributetypename;
+      this->tag->value := this->editattr.localtag;
+      this->title->value := this->editattr.title;
+
+      IF(this->editattr.base)
+      {
+        this->title->enabled := FALSE;
+        this->tag->enabled := FALSE;
+        this->description->visible := FALSE;
+        this->id->visible := FALSE;
+      }
+      ELSE
+      {
+        this->id->value := ToString(this->editattr.id);
+      }
+
+      this->isunique->value := this->editattr.isunique;
+      this->isrequired->value := this->editattr.isrequired;
+      this->isordered->value := this->editattr.isordered;
+      this->checklinks->value := this->editattr.checklinks;
+      this->multiline->value := this->editattr.multiline;
+      this->domain->value := this->editattr.domain;
+      this->domain->enabled := FALSE;
+    }
+    ELSE
+    {
+      this->type->SetValueIfValid("FREE"); //default
+    }
+  }
+
+  MACRO OnTypeChange()
+  {
+    RECORD descr := DescribeAttributeType(this->type->value);
+    IF("domain" IN descr.options)
+    {
+      this->domain->visible := TRUE;
+
+      RECORD ARRAY options :=
+          SELECT rowkey := id
+               , title
+            FROM this->wrdtype->wrdschema->ListTypes()
+        ORDER BY NormalizeText(title, GetTidLanguage());
+
+      this->domain->options := options;
+      this->domain->required := TRUE;
+    }
+    ELSE
+    {
+      this->domain->visible := FALSE;
+      this->domain->required := FALSE;
+    }
+
+    this->isordered->visible := "ordered" IN descr.options;
+    this->isunique->visible := "isunique" IN descr.options;
+
+    this->checklinks->visible := "checklinks" IN descr.options;
+    this->multiline->visible  := "multiline" IN descr.options;
+  }
+
+  STRING FUNCTION GetFinalTag()
+  {
+    RETURN ToUppercase((this->parenttag = "" ? "" : this->parenttag || ".") || this->tag->value);
+  }
+
+  PUBLIC RECORD FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    STRING finaltag := this->GetFinalTag();
+    IF(RecordExists(this->wrdtype->GetAttribute(finaltag)) AND (NOT RecordExists(this->editattr) OR finaltag != this->editattr.tag))
+      work->AddError(this->GetTid(".tagnotunique"));
+
+    RECORD descr := DescribeAttributeType(this->type->value);
+    RECORD finalsettings :=
+      [ isunique      := "isunique" IN descr.options AND this->isunique->value
+      , isordered     := "isordered" IN descr.options AND this->isordered->value
+      , isrequired    := this->isrequired->value
+      , checklinks    := "checklinks" IN descr.options AND this->checklinks->value
+      , multiline     := "multiline" IN descr.options AND this->multiline->value
+      , title := this->title->value
+      ];
+
+    IF(work->HasFailed())
+      RETURN DEFAULT RECORD;
+
+    IF(RecordExists(this->editattr))
+    {
+      INSERT CELL tag := this->tag->value INTO finalsettings;
+      this->wrdtype->UpdateAttribute(this->editattr.tag, finalsettings);
+    }
+    ELSE
+    {
+      IF("domain" IN descr.options)
+        INSERT CELL domain := this->domain->value INTO finalsettings;
+      this->wrdtype->CreateAttribute(finaltag, this->type->value, finalsettings);
+    }
+
+    RETURN work->Finish() ? this->wrdtype->GetAttribute(finaltag) : DEFAULT RECORD;
+  }
+
+>;
+
+// Updates (inserts or deletes) the isrequired / isunique column value
+STRING FUNCTION UpdateSchemaColumn (STRING curfields, BOOLEAN newvalue, STRING http_tag)
+{
+  STRING returntext;
+
+  // Find out required / unique fields
+  STRING ARRAY cur_fields;
+  IF (curfields != "")
+    cur_fields := Tokenize(ToUpperCase(curfields),",");
+
+  // Convert to RECORD ARRAY
+  RECORD ARRAY values_array;
+  FOREVERY (STRING str FROM cur_fields)
+    INSERT INTO values_array (value) VALUES (str) AT END;
+
+  // If not required / unique, delete from record array
+  IF (NOT newvalue)
+    DELETE FROM values_array WHERE value = http_tag;
+
+  // If required / unique, and not in existing array  add it!
+  ELSE IF (newvalue AND http_tag NOT IN cur_fields)
+    INSERT INTO values_array (value) VALUES (http_tag) AT END;
+
+  // We're done: re-create the required fields field
+  FOREVERY (RECORD val FROM values_array)
+  {
+    IF (#val = 0)
+      returntext := val.value;
+    ELSE
+      returntext := returntext || "," || val.value;
+  }
+
+  RETURN returntext;
+}
+
+
+PUBLIC OBJECTTYPE DeleteType EXTEND TolliumScreenBase
+<
+  OBJECT wrdtype;
+
+  MACRO Init(RECORD data)
+  {
+    this->wrdtype := data.type;
+    this->verifydeletion->value := GetTid("wrd:types.deletetype.verifydeletion", this->wrdtype->tag);
+
+    IF(this->wrdtype->tag IN ["WRD_PERSON","WRD_ORGANIZATION","WRD_RELATION"])
+      DELETE FROM this->deletehow->options WHERE rowkey="deltype";
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    IF(this->deletehow->value="closeentities")
+    {
+      OBJECT work := this->BeginWork();
+      DATETIME when := GetCurrentDatetime();
+      UPDATE wrd.entities SET limitdate := when
+                          WHERE type = this->wrdtype->id
+                                AND limitdate > when;
+      GetWRDCommitHandler()->EntityInvalidateAll(this->wrdtype->wrdschema->id, this->wrdtype->id);
+      RETURN work->Finish();
+    }
+
+    IF(this->deletehow->value="delentities")
+    {
+      WHILE(TRUE)
+      {
+        OBJECT work := this->BeginWork();
+        //commit parts of the way
+        this->wrdtype->DeleteAllEntities();
+        IF(NOT work->Finish())
+          RETURN FALSE;
+        RETURN TRUE;
+      }
+    }
+
+    //Offer a simpler delete, which fails (or should offer deactivation) if someone already uses any domain value
+    OBJECT work := this->BeginWork();
+
+    RECORD ARRAY types :=
+        (SELECT id, tag, title FROM wrd.types WHERE parenttype = this->wrdtype->id) CONCAT
+        (SELECT id, tag, title FROM wrd.types WHERE requiretype_left = this->wrdtype->id) CONCAT
+        (SELECT id, tag, title FROM wrd.types WHERE requiretype_right = this->wrdtype->id);
+    types := SELECT AS RECORD ARRAY ANY(types) FROM types WHERE id != this->wrdtype->id GROUP BY id ORDER BY Any(title);
+
+    IF (RecordExists(types))
+    {
+      work->AddError(this->wrdtype->metatype = 4
+          ? GetTid("wrd:types.errors.domaininusebytype", types[0].title)
+          : GetTid("wrd:types.errors.typeinusebytype", types[0].title));
+    }
+    ELSE
+    {
+      RECORD ARRAY attrs := SELECT id, parent, tag, title:=title??tag, COLUMN type
+                              FROM wrd.attrs
+                              WHERE domain = this->wrdtype->id
+                                    AND COLUMN type != this->wrdtype->id;
+      IF (RecordExists(attrs))
+      {
+        STRING ARRAY path := [ SELECT AS STRING title??tag FROM wrd.types WHERE id = attrs[0].type ];
+        WHILE (RecordExists(attrs))
+        {
+          INSERT attrs[0].title INTO path AT 1;
+          IF (attrs[0].parent = 0)
+            BREAK;
+          attrs := SELECT id, parent, tag, title :=title??tag FROM wrd.attrs WHERE id = VAR attrs[0].parent;
+        }
+
+        STRING attr := Detokenize(path, ".");
+
+        work->AddError(this->wrdtype->metatype = 4
+            ? GetTid("wrd:types.errors.domaininusebyattr", attr)
+            : GetTid("wrd:types.errors.typeinusebyattr", attr));
+      }
+    }
+
+    IF(NOT work->HasFailed())
+      this->wrdtype->DeleteSelf();
+
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ManagePaymentProviders EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD ARRAY providerattrs;
+    FOREVERY(RECORD type FROM this->contexts->wrdschema->ListTypes())
+      FOREVERY(RECORD attr FROM this->contexts->wrdschema->GetTypeById(type.id)->ListAttributes(0))
+        IF(attr.attributetypename = "PAYMENTPROVIDER")
+          INSERT CELL[type,attr] INTO providerattrs AT END;
+
+    ^possiblefields->rows := SELECT rowkey := providerattrs.attr.id
+                                  , providerfield := providerattrs.type.tag || "." || providerattrs.attr.tag
+                               FROM providerattrs;
+  }
+  MACRO DoManageProviders()
+  {
+    //this constructs an incomplete paymentprovider (we can't guess all the settings) but it'll be enough to debug provider issues
+    RECORD sel := ^possiblefields->selection;
+    OBJECT paymentapi := GetPaymentAPI(this->contexts->wrdschema, CELL[ sel.providerfield ]);
+    paymentapi->RunManagePaymentProvidersDialog(this);
+  }
+>;

@@ -1,0 +1,64 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="types.whlib"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         gid="filemanager.types"
+         >
+
+  <screen name="selecttype" defaultbutton="submitscreenbutton" allowresize="true" width="850px" height="500px">
+    <actions>
+      <action name="submitscreen" onexecute="submit" title="">
+        <enableon source="types" min="1" max="1" />
+      </action>
+      <action name="cancelscreen" onexecute="cancel" title="" />
+    </actions>
+    <body spacers="none">
+      <grid height="1pr" minheight="250px">
+        <cell width="250px">
+          <list name="typesgroup"
+                class="verticaltabs"
+                selectmode="single"
+                columnheaders="false"
+                width="1pr"
+                height="1pr"
+                rowkeytype="string"
+                ongetrows="ongetgroups"
+                sortable="false"
+                onselect="ongroupselect"
+                borders="none">
+            <column name="title" iconname="icon" type="text" />
+          </list>
+        </cell>
+        <cell minwidth="350px" width="1pr" spacers="all">
+          <list name="types"
+                selectmode="single"
+                openaction="submitscreen"
+                emptytid=".notypes"
+                columnheaders="false"
+                width="1pr"
+                height="1pr"
+                rowkeytype="string"
+                ongetrows="ongettypes">
+            <column name="title" iconname="icon" type="text" />
+<!--             <column name="template" type="integer" width="13x" align="right" emptyvalue="0" />
+            <column name="contenttype" type="text" />
+            <column name="type" type="integer" width="13x" align="right" />
+ -->          </list>
+        </cell>
+      </grid>
+    </body>
+    <footer>
+      <grid>
+        <cell width="1pr">
+          <button tid="~upload" />
+            <!-- <checkbox name="showalltypes" title="" labeltid=".showalltypes" onchange="onalltypeschange" /> -->
+        </cell>
+        <cell>
+          <line>
+            <button action="submitscreen" name="submitscreenbutton" tid="tollium:common.actions.ok" />
+            <button action="cancelscreen" tid="tollium:common.actions.cancel" />
+          </line>
+        </cell>
+      </grid>
+    </footer>
+  </screen>
+</screens>

@@ -1,0 +1,145 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+//LOADLIB "mod::wrd/lib/internal/addressverification.whlib";
+
+//https://webview.webservices.nl/documentation/files/interfaces/more/services-txt.html
+//  __webbrowser_debugall := TRUE;
+
+STRING user, password;
+
+MACRO TestWebservicesLowlevel()
+{
+  testfw->BeginWork();
+  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl"
+                                                     , user := user
+                                                     , password := password
+                                                     ]);
+  testfw->CommitWork();
+
+  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
+//  dumpvalue(api->AddressReeksPostcodeSearch("7551AC",73));
+//  dumpvalue(api->AddressReeksPostcodeSearch("9999AC",1273));
+  RECORD res := api->AddressReeksParameterSearch("enschede","drienerlolaan",5,"",0);
+  /*
+  RECORD
+ +EXTRA: RECORD
+  +GEMEENTE: ''
+  +HUISNR: 5
+  +LETTERCOMBINATIE: ''
+  +PLAATS: 'enschede'
+  +PROVINCIE: ''
+  +REEKSINDICATIE: '0'
+  +STRAAT: 'drienerlolaan'
+  +TOEVOEGING: ''
+  +WIJKCODE: ''
+ +PAGING: RECORD
+  +CURPAGE: 1
+  +MAXRESULTS: 500
+  +NUMPAGES: 1
+  +NUMRESULTS: 1
+  +PERPAGE: 10
+ +RESULTS: RECORD ARRAY
+  +RECORD
+   +CEBUCOCODE: 100
+   +GEMEENTECODE: 153
+   +GEMEENTEID: 329
+   +GEMEENTENAAM: 'ENSCHEDE'
+   +HUISNR_TM: 5
+   +HUISNR_VAN: 5
+   +LETTERCOMBINATIE: 'NB'
+   +PLAATSID: 1460
+   +PLAATSNAAM: 'ENSCHEDE'
+   +PLAATSNAAM_EXTRACT: 'ENSC'
+   +PLAATSNAAM_PTT: 'ENSCHEDE'
+   +PROVINCIECODE: 'E'
+   +PROVINCIENAAM: 'Overijssel'
+   +REEKSID: 477719
+   +REEKSINDICATIE: '0'
+   +STRAATID: 179484
+   +STRAATNAAM: 'Drienerlolaan'
+   +STRAATNAAM_EXTRACT: 'DRIEN'
+   +STRAATNAAM_NEN: 'Drienerlolaan'
+   +STRAATNAAM_PTT: 'DRIENERLOLN'
+   +WIJKCODE: '7522'
+  */
+  testEq('ENSCHEDE', res.results[0].plaatsnaam);
+}
+
+MACRO TestWebservicesAPI()
+{
+  testfw->BeginWork();
+  TestThrows(PTR SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl" ]));
+
+  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl"
+                                                      , user := "loopback"
+                                                      , password := "loopback"
+                                                      ]);
+  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
+  TestCoreAddressAPI(api, [loopback:=TRUE, uppercasenlcity := TRUE]);
+  testfw->CommitWork();
+}
+
+MACRO TestLegacyAPI()
+{
+  OBJECT legacywrdschema := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  TestEQ(TRUE, legacywrdschema->HasAddressVerification());
+
+  RECORD res := legacywrdschema->CheckAddress([ street := "Hengelosestraat", nr_detail := "296", city := "Enschede", country := "NL" ]);
+  TestEq('incomplete',res.status);
+  TestEq('7521 AM',res.data.zip);
+}
+
+MACRO TestWebservicesAPI_External()
+{
+  testfw->BeginWork();
+  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl"
+                                                      , user := user
+                                                      , password := password
+                                                      ]);
+
+  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
+  TestCoreAddressAPI(api, [uppercasenlcity := TRUE]);
+
+  RECORD res := api->CheckAddress([ street := "Drienerlolaan", nr_detail := "5", city := "Enschede", country := "NL" ]);
+  TestEq('incomplete',res.status);
+  TestEq('7522 NB',res.data.zip);
+
+  //ADDME want API to set this stuff
+  //testfw->GetWRDSchema()->SetSchem
+}
+
+/* APIKEY
+   - our CI key is stored in 1password, serverbeheer, GitLab CI secrets
+   - sublime: set up a buildenv. Prefs, user settings, eg:
+         "build_env":
+            {
+              "TESTFW_WEBSERVICESNL_USER": "YUxxxxxxxxxx",
+            },
+
+een testuser direct aanmaken: https://testclient.webservices.nl/register
+*/
+
+user := GetEnvironmentVariable("TESTFW_WEBSERVICESNL_USER");
+password := GetEnvironmentVariable("TESTFW_WEBSERVICESNL_PASSWORD");
+
+MACRO PTR ARRAY tests := [ PTR TestWebservicesAPI
+                         , PTR TestLegacyAPI
+                         ];
+
+IF(user = "" OR password = "")
+{
+  Print("TESTFW_WEBSERVICESNL_USER and TESTFW_WEBSERVICESNL_PASSWORD not (both) set, skipping some tests\n");
+}
+ELSE
+{
+  tests := [ ...tests
+           , PTR TestWebservicesLowlevel
+           , PTR TestWebservicesAPI_External
+           ];
+}
+
+Runtestframework(tests);

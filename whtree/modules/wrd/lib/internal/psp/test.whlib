@@ -1,0 +1,161 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  DATETIME expires;
+  STRING lastname;
+  STRING email;
+  STRING rejectreason;
+
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:test", "redirect", settings)
+  {
+    IF(settings.requirekeypair AND this->settings.keypair = 0)
+      THROW NEW Exception("Where's my keypair ?");
+    this->needspaymentref := TRUE;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetPSPStatus()
+  {
+    //test method cannot fail
+    RETURN [ unknown := FALSE, success := TRUE, message := "" ];
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RECORD ARRAY opts;
+
+    IF(NOT this->settings.disablenoissuer)
+      opts := [[ paymentoptiontag := "NOISSUER", title := "TestNoIssuer", issuers := DEFAULT RECORD ARRAY, islive := FALSE ]
+              ];
+
+    IF(NOT this->settings.disablewithissuer)
+    {
+      INSERT [ paymentoptiontag := "WITHISSUER"
+             , title := "TestWithIssuer"
+             , islive := FALSE
+             , issuers := options.getissuers ?
+                 [[ rowkey := "BLB", title := "BoerenLeenBank" ]
+                 ,[ rowkey := "DPB", title := "DurePakkenBank" ]
+                 ] : RECORD[]
+             ]
+             INTO opts AT END;
+    }
+    RETURN opts;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RunPaymentRequest(STRING paymenttok)
+  {
+    RECORD result := [ submitinstruction := DEFAULT RECORD
+                     , errors := RECORD[]
+                     ];
+
+    IF(this->paymentoptiontag != "NOISSUER" AND this->issuer = "")
+      THROW NEW Exception("Missing issuer in payment data");
+
+    IF(ToUppercase(this->email) LIKE "*FRAUD*")
+      INSERT [ field := "WRD_CONTACT_EMAIL"
+             , error := GetTidLanguage()="nl" ? "Geblokkeerd mailadres" : "This emailaddres has been blocked"
+             , description := "User with this email is not trusted"
+             ] INTO result.errors AT END;
+
+    IF(ToUppercase(this->email) LIKE "*THROW*")
+      THROW NEW Exception(`The address '${this->email}' triggers a throw!`);
+
+    result.submitinstruction := [ type := "redirect" , url := "/.wrd/endpoints/psp/test.shtml?pi=" || EncodeURL(paymenttok) || "&sleep=" || this->settings.sleep ];
+    RETURN result;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION CheckPaymentRequest(MONEY amount_payable, RECORD baseoptions)
+  {
+    RECORD result := [ errors := RECORD[] ];
+    RECORD personfields := this->GetCustomerInfo(baseoptions);
+    IF(ToUppercase(personfields.wrd_contact_email) LIKE "*PRECHECKFAIL*")
+    {
+      INSERT [ field := "WRD_CONTACT_EMAIL"
+             , error := GetTidLanguage()="nl" ? "Geblokkeerd mailadres" : "This emailaddres has been blocked"
+             , description := "User with this email will fail in precheck"
+             ] INTO result.errors AT END;
+    }
+    RETURN result;
+  }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    paymentmethod := ValidateOptions(CELL[ expires := DEFAULT DATETIME ], paymentmethod, [ passthroughin := "baseoptions"]);
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod.baseoptions);
+
+    RECORD baseoptions := paymentmethod.baseoptions;
+    this->expires := paymentmethod.expires ?? AddTimeToDate(5 * 60 * 1000, GetCurrentDatetime());
+
+    RECORD personfields := this->GetCustomerInfo(baseoptions);
+    this->lastname := personfields.wrd_lastname;
+    this->email := personfields.wrd_contact_email;
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    RECORD opts := EnforceStructure([ expires := DEFAULT DATETIME, lastname := "", email := "", rejectreason := "" ], payment.__paymentdata.m);
+    this->expires := opts.expires;
+    this->lastname := opts.lastname;
+    this->email := opts.email;
+    this->rejectreason := opts.rejectreason;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    IF(this->status NOT IN [ "pending", "failed" ])
+      RETURN FALSE;
+
+    STRING approve := GetVariableFromUrl(returnurl, "test_approve");
+    IF(approve="")
+      RETURN FALSE; //nothing interesting in the URL
+
+    IF(ToUppercase(approve) IN [ "YES", "APPROVED" ])
+    {
+      IF(ToUppercase(this->lastname) LIKE "*FRAUD*")
+      {
+        this->rejectreason := "Not trusting users with '<b>fraud</b>' in their last name";
+        this->pvt_status := "failed";
+      }
+      ELSE
+      {
+        this->pvt_status := "approved";
+      }
+    }
+    ELSE
+    {
+      this->pvt_status := ToUppercase(approve)!="PENDING" ? "failed" : "pending";
+    }
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN [ expires := this->expires
+           , lastname := this->lastname
+           , email := this->email
+           , rejectreason := this->rejectreason
+           ];
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    IF(GetCurrentDatetime() < this->expires OR this->pvt_status != "pending")
+      RETURN; //not yet expired
+    this->pvt_status := "failed";
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetHTMLStatusForUser()
+  {
+    RETURN this->rejectreason;
+  }
+>;

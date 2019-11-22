@@ -1,0 +1,1138 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="authobjects">   <!-- authobjects -->
+    <text tid="deleteduser">verwijderde gebruiker #<param p="1"/></text>
+    <text tid="nametoolong">De gekozen naam is te lang.</text>
+    <text tid="rolesamenamealreadyexists">De gekozen naam is al in gebruik voor een andere rol.</text>
+    <text tid="unitmoveintoitself">U kunt de eenheid niet plaatsen in (een onderliggende eenheid van) dezelfde eenheid.</text>
+    <text tid="unitsamenamealreadyexists">De gekozen naam is al in gebruik voor een andere eenheid.</text>
+    <text tid="unknowndeleteduser">een verwijderde gebruiker</text>
+    <text tid="usersamenamealreadyexists">De gekozen naam is al in gebruik voor een andere gebruiker.</text>
+  </textgroup>
+  <textgroup gid="browser">   <!-- browser -->
+    <textgroup gid="anonymize">   <!-- browser.anonymize -->
+      <text tid="attr">Attribuut</text>
+      <text tid="atype">Attribuuttype</text>
+      <text tid="title">Anonimiseer schema '<param p="1"/>'</text>
+      <text tid="type">Type</text>
+      <textgroup gid="actions">   <!-- browser.anonymize.actions -->
+        <text tid="anonymize">Anonimiseer</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- browser.anonymize.messages -->
+        <text tid="schema_anonymized">Het schema is geanonimiseerd.</text>
+        <text tid="schema_protected">Dit schema mag niet worden geanonimiseerd, het is beschermd.</text>
+        <text tid="sure_anonymize">Weet u zeker dat u schema '<param p="1"/>' wilt anonimiseren? Deze operatie kan niet ongedaan worden gemaakt.</text>
+      </textgroup>
+      <textgroup gid="status">   <!-- browser.anonymize.status -->
+        <text tid="converting">Anonimiseren entiteiten van type '<param p="1"/>' - <param p="2"/>%</text>
+        <text tid="getentities">Ophalen entiteiten voor type '<param p="1"/>'</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="main">   <!-- browser.main -->
+      <text tid="creationdate">Aanmaakdatum</text>
+      <text tid="currententity">Huidige entiteit</text>
+      <text tid="description">Omschrijving</text>
+      <text tid="entity_description">Entiteitsomschrijving</text>
+      <text tid="entity_type">Entiteitstype</text>
+      <text tid="entityid">Entiteit id</text>
+      <text tid="entitypath">Entiteit</text>
+      <text tid="firstname">Voornaam</text>
+      <text tid="freeattr">Attribuut</text>
+      <text tid="freetype">Zoek in type</text>
+      <text tid="freevalue">Waarde</text>
+      <text tid="lastname">Achternaam</text>
+      <text tid="linkcount">Koppelingen</text>
+      <text tid="linkfrom">Koppeling vanaf</text>
+      <text tid="links">Koppelingen</text>
+      <text tid="linkto">Koppeling naar</text>
+      <text tid="orgname">Organisatienaam</text>
+      <text tid="preview">Samenvatting</text>
+      <text tid="quickfilter">Filter</text>
+      <text tid="resultcount">Resultaten</text>
+      <text tid="search">Zoeken</text>
+      <text tid="searchresults">Resultaten</text>
+      <text tid="tab_history">Geschiedenis</text>
+      <text tid="tab_searchfree">Vrij zoeken</text>
+      <text tid="tab_searchorg">Organisaties zoeken</text>
+      <text tid="tab_searchperson">Personen zoeken</text>
+      <text tid="title">WRD Browser</text>
+      <text tid="type">Type</text>
+      <textgroup gid="actions">   <!-- browser.main.actions -->
+        <text tid="about">Over Relatie Database</text>
+        <text tid="addlink">Voeg link toe</text>
+        <text tid="anonymize">Schema anonimiseren</text>
+        <text tid="auditlog">Inlog-events</text>
+        <text tid="deleteentity">Verwijderen</text>
+        <text tid="deletelink">Koppeling verwijderen</text>
+        <text tid="editentity">Bewerken</text>
+        <text tid="editlink">Koppeling bewerken</text>
+        <text tid="editlog">Log bewerken</text>
+        <text tid="editregistry">Bewerk entiteitregister</text>
+        <text tid="exitapplication">Sluit applicatie</text>
+        <text tid="exportdotstructure">Exporteer schemastructuur als DOT</text>
+        <text tid="exportschema">Exporteer huidige schema</text>
+        <text tid="exportxmlmetadata">Exporteer XML schemastructuur</text>
+        <text tid="extendwrdauth">WRD Authenticatie</text>
+        <text tid="followlink">Volg link</text>
+        <text tid="forward">Volgende</text>
+        <text tid="gotoid">Snelzoeken</text>
+        <text tid="importschema">Importeer nieuw schema</text>
+        <text tid="managepaymentproviders">Beheer betaalmethodes</text>
+        <text tid="managependingpayments">Beheer lopende betalingen</text>
+        <text tid="manageschemas">Schemas beheren</text>
+        <text tid="managetypes">Types beheren</text>
+        <text tid="mergeentity">Samenvoegen in</text>
+        <text tid="newfree">Nieuwe entiteit</text>
+        <text tid="neworg">Nieuwe organisatie</text>
+        <text tid="newperson">Nieuw persoon</text>
+        <text tid="newschema">Nieuw schema</text>
+        <text tid="openlink">Open koppeling</text>
+        <text tid="openschema">Schema openen</text>
+        <text tid="querybuilder">Query constructie</text>
+        <text tid="samlauth">SAML configuratie</text>
+        <text tid="schemaprops">Schemaeigenschappen</text>
+        <text tid="searchfree">Zoeken</text>
+        <text tid="searchorg">Zoeken</text>
+        <text tid="searchperson">Zoeken</text>
+        <text tid="showhistory">Toon geschiedenis</text>
+        <text tid="toggledataviewer">Dataviewer tonen</text>
+        <text tid="togglelinks">Koppelingen tonen</text>
+      </textgroup>
+      <textgroup gid="menu">   <!-- browser.main.menu -->
+        <text tid="addapplication">WRD Browser</text>
+        <text tid="addschema">Dit schema</text>
+        <text tid="organization">Organisation</text>
+        <text tid="person">Persoon</text>
+        <text tid="schema">Schema</text>
+        <text tid="schemaextensions">Schema uitbreiden</text>
+        <text tid="searchresults">Results</text>
+        <text tid="wrd">WRD Relatie Database</text>
+        <textgroup gid="portlets">   <!-- browser.main.menu.portlets -->
+          <text tid="quicksearch">Snel zoeken</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="messages">   <!-- browser.messages -->
+      <text tid="cannotdeletetype">De basistypes WRD_PERSON, WRD_ORGANIZATION en WRD_RELATION mogen niet worden verwijderd.</text>
+      <text tid="confirmextendwrdauth">Weet u zeker dat u de types die nodig zijn voor WRD authenticatie wil toevoegen?</text>
+      <text tid="confirmmergeentity">Weet u zeker dat u de oorspronkelijke geselecteerde entiteit wil samenvoegen in de zojuist geselecteerde entiteit?</text>
+      <text tid="confirmupdatewrdauth">Weet u zeker dat u de types die nodig zijn voor WRD authenticatie wil updaten?</text>
+      <text tid="deleteentities">Weet u zeker dat u de geselecteerde entiteiten wil verwijderen?</text>
+      <text tid="deleteentity">Weet u zeker dat u de geselecteerde entiteit wil verwijderen?</text>
+      <text tid="deletelinks">Weet u zeker dat u <ifparam p="1" value="1">de geselecteerde link<else/>de <param p="1"/> geselecteerde links</ifparam> wilt verwijderen?</text>
+      <text tid="deleteorg">Weet je zeker dat je organisatie '<param p="1"/>' wil verwijderen?</text>
+      <text tid="deleteorgs">Weet je zeker dat je de geselecteerde organisaties wil verwijderen?</text>
+      <text tid="deleteperson">Weet je zeker dat je persoon '<param p="1"/>' wil verwijderen?</text>
+      <text tid="deletepersons">Weet je zeker dat je de geselecteerde personen wil verwijderen?</text>
+      <text tid="deletetype">Weet je zeker dat je het type '<param p="1"/>' wil verwijderen?</text>
+      <text tid="import_schema_replaced">Het schema is geïmporteerd. Een schema met dezelfde naam bestond al en is hernoemd naar '<param p="2"/>'.</text>
+      <text tid="schema_protected_delete">Kon schema '<param p="1"/>' niet verwijderen, dit schema is beschermd.</text>
+      <text tid="schema_protected_import">Kon schema '<param p="1"/>' niet vervangen, dit schema is beschermd.</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="chooselinktype">   <!-- chooselinktype -->
+    <text tid="chooselinktype">Kies type koppeling</text>
+    <text tid="linkselection">Koppelingseigenschappen</text>
+    <text tid="linktypes">Type</text>
+  </textgroup>
+  <textgroup gid="common">   <!-- common -->
+    <textgroup gid="gender">   <!-- common.gender -->
+      <text tid="female">Vrouw</text>
+      <text tid="label">Geslacht</text>
+      <text tid="male">Man</text>
+    </textgroup>
+    <textgroup gid="generic">   <!-- common.generic -->
+      <text tid="rows"><param p="1"/> rijen</text>
+    </textgroup>
+    <textgroup gid="metatypes">   <!-- common.metatypes -->
+      <text tid="1">Object</text>
+      <text tid="2">Link</text>
+      <text tid="3">Attachment</text>
+      <text tid="4">Domain</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="actions">   <!-- commondialogs.actions -->
+      <text tid="email_results">E-mail</text>
+      <text tid="export_results">Exporteer</text>
+      <text tid="exportdirect">Exporteren</text>
+      <text tid="run">Uitvoeren</text>
+    </textgroup>
+    <textgroup gid="auditlog">   <!-- commondialogs.auditlog -->
+      <text tid="fromdate">Toon events tussen</text>
+      <text tid="refresh">Vernieuwen</text>
+      <text tid="show_failure">Toon fouten</text>
+      <text tid="show_other">Toon andere events</text>
+      <text tid="show_success">Toon successen</text>
+      <text tid="show_warning">Toon waarschuwingen</text>
+      <text tid="status">Status</text>
+      <text tid="title">Inlog-events<ifparam p="1" value=""><else/> voor <param p="1"/></ifparam></text>
+      <text tid="todate">en</text>
+      <text tid="wrd_creationdate">Wanneer</text>
+      <text tid="wrdaudit_account">Account</text>
+      <text tid="wrdaudit_login">Inlogname</text>
+      <text tid="wrdaudit_type">Event</text>
+      <textgroup gid="wrdauth">   <!-- commondialogs.auditlog.wrdauth -->
+        <text tid="forgotpassword">Wachtwoord vergeten</text>
+        <text tid="getresetlink">Wachtwoordherstellink opgevraagd</text>
+        <text tid="incorrectpassword">Ongeldig wachtwoord</text>
+        <text tid="login">Ingelogd</text>
+        <text tid="logincookie">Ingelogd met cookie</text>
+        <text tid="logindenied">Inlog was geweigerd</text>
+        <text tid="loginid">Ingelogd op basis van id</text>
+        <text tid="logout">Uitgelogd</text>
+        <text tid="resetpassword">Wachtwoord was hersteld</text>
+        <text tid="resetpasswordfailed">Wachtwoordherstel mislukt</text>
+        <text tid="unknownlogin">Onbekende inlognaam</text>
+        <text tid="unknownlookuplogin">Inlognaam niet gevonden</text>
+        <text tid="updatepassword">Wachtwoord gewijzigd</text>
+        <text tid="verificationfailed">Verificatie mislukt</text>
+        <text tid="verificationlink">Verificatie aangevraagd</text>
+        <text tid="verificationok">Verificatie geslaagd</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="editaddress">   <!-- commondialogs.editaddress -->
+      <text tid="btn_verify">Verifieer adres</text>
+      <text tid="country">Land</text>
+      <text tid="pagetitle">Wijzig adres</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- commondialogs.messages -->
+      <text tid="addressverify_address_not_found">Adres niet gevonden</text>
+      <text tid="addressverify_incomplete">Het ingevoerde adres is incompleet.</text>
+      <text tid="addressverify_invalid_nr_detail">Onbekend huisnummer-formaat</text>
+      <text tid="addressverify_invalid_settings">Adresverificatie is niet correct geconfigureerd</text>
+      <text tid="addressverify_invalid_zip">Onbekend postcode-formaat</text>
+      <text tid="addressverify_lookup_failed">Kon geen verbinding maken met adresverificatie-service</text>
+      <text tid="addressverify_not_enough_data">Niet genoeg gegevens om dit adres te verifiëren</text>
+      <text tid="addressverify_ok">Adres is geverifieerd, en bevat geen fouten</text>
+      <text tid="addressverify_zip_not_found">De postcode/huisnummer combinatie is niet gevonden</text>
+      <text tid="delete_entity">Weet u zeker dat u deze waarde wilt verwijderen?</text>
+      <text tid="entity_in_use">Deze waarde is op dit moment in gebruik en kan daarom niet verwijderd worden.</text>
+      <text tid="no_email_column">De huidige selectie bevat geen e-mailkolom</text>
+    </textgroup>
+    <textgroup gid="resultexport">   <!-- commondialogs.resultexport -->
+      <text tid="charset">Karakterset</text>
+      <text tid="comma">Komma</text>
+      <text tid="resultexport">Exporteer resultaten</text>
+      <text tid="semicolon">Puntkomma</text>
+      <text tid="separator">Scheidingsteken</text>
+      <text tid="tab">Tabs</text>
+    </textgroup>
+    <textgroup gid="resultgrid">   <!-- commondialogs.resultgrid -->
+      <text tid="emailbutton">Emailen</text>
+      <text tid="execute">Voer uit</text>
+      <text tid="exportdirect">Exporteer direct</text>
+      <text tid="resultgrid">Resultaten van de query</text>
+    </textgroup>
+    <textgroup gid="simplequerybuilder">   <!-- commondialogs.simplequerybuilder -->
+      <text tid="addeditcolumn">Kolom toevoegen/bewerken</text>
+      <text tid="addeditfilter">Filter toevoegen/bewerken</text>
+      <text tid="apptitle">WRD simpele query bewerking</text>
+      <text tid="casesensitive">Hoofdlettergevoelig</text>
+      <text tid="condition">Conditie</text>
+      <text tid="field">Veld</text>
+      <text tid="leaveemptyfortagname">Laat leeg om als kolomnaam te gebruiken</text>
+      <text tid="rename">Kolomnaam</text>
+      <text tid="value">Waarde</text>
+      <textgroup gid="addeditcolumn">   <!-- commondialogs.simplequerybuilder.addeditcolumn -->
+        <text tid="renamealreadyexists">Een kolom met deze naam bestaat reeds</text>
+        <text tid="title_addcolumn">Kolom toevoegen</text>
+        <text tid="title_editcolumn">Kolom bewerken</text>
+      </textgroup>
+      <textgroup gid="conditions">   <!-- commondialogs.simplequerybuilder.conditions -->
+        <text tid="contains">bevat</text>
+        <text tid="equal">is gelijk aan ( = )</text>
+        <text tid="larger">groter dan ( &gt; )</text>
+        <text tid="largerequal">groter dan of gelijk aan ( &gt;= )</text>
+        <text tid="like">vergelijk met jokertekens (* and ?)</text>
+        <text tid="mentionsany">bevat een van</text>
+        <text tid="notcontains">bevat niet</text>
+        <text tid="notlike">ongelijk aan (gebruik jokertekens * en ?)</text>
+        <text tid="smaller">kleiner dan ( &lt; )</text>
+        <text tid="smallerequal">kleiner dan of gelijk aan ( &lt;= )</text>
+        <text tid="unequal">ongelijk aan ( != )</text>
+      </textgroup>
+      <textgroup gid="filters">   <!-- commondialogs.simplequerybuilder.filters -->
+        <text tid="casesensitive">(hoofdlettergevoelig)</text>
+        <text tid="contains"><param p="1"/> bevat <param p="2"/></text>
+        <text tid="equal"><param p="1"/> is gelijk aan <param p="2"/></text>
+        <text tid="larger"><param p="1"/> is groter dan <param p="2"/></text>
+        <text tid="largerequal"><param p="1"/> is groter dan of gelijk aan <param p="2"/></text>
+        <text tid="like"><param p="1"/> is like <param p="2"/></text>
+        <text tid="mentionsany"><param p="1"/> bevat een van <param p="2"/></text>
+        <text tid="notcontains"><param p="1"/> bevat <param p="2"/> niet</text>
+        <text tid="notlike"><param p="1"/> is niet like <param p="2"/></text>
+        <text tid="smaller"><param p="1"/> is kleiner dan <param p="2"/></text>
+        <text tid="smallerrequal"><param p="1"/> is kleiner dan of gelijk aan <param p="2"/></text>
+        <text tid="unequal"><param p="1"/> is ongelijk aan <param p="2"/></text>
+      </textgroup>
+      <textgroup gid="main">   <!-- commondialogs.simplequerybuilder.main -->
+        <text tid="about">Over ...</text>
+        <text tid="addalternative">Alternatief toevoegen</text>
+        <text tid="addcolumn">Kolom toevoegen</text>
+        <text tid="addfilter">Filter toevoegen</text>
+        <text tid="apptitle">WRD simpele query bewerking</text>
+        <text tid="columnsbox">Kolommen</text>
+        <text tid="deletecolumn">Kolom verwijderen</text>
+        <text tid="deletefilter">Filter verwijderen</text>
+        <text tid="editcolumn">Kolom bewerken</text>
+        <text tid="editfilter">Filter bewerken</text>
+        <text tid="filtersbox">Filters</text>
+        <text tid="rename">Kolomnaam</text>
+        <text tid="source">Bron</text>
+        <text tid="sourcebox">Bronnen</text>
+        <text tid="sourcename">Bronnaam</text>
+        <text tid="specifics">Formeel</text>
+        <text tid="tag">Tag</text>
+        <text tid="title">Title</text>
+        <text tid="types">WRD type</text>
+      </textgroup>
+      <textgroup gid="nodes">   <!-- commondialogs.simplequerybuilder.nodes -->
+        <text tid="and">Alle volgende:</text>
+        <text tid="and-specifics">AND</text>
+        <text tid="or">Een of meer van de volgende:</text>
+        <text tid="or-specifics">OR</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="verificationresult">   <!-- commondialogs.verificationresult -->
+      <text tid="correct">Accepteer correctie</text>
+      <text tid="no_city_match">Stad komt niet overeen.</text>
+      <text tid="no_street_match">Straat komt niet overeen.</text>
+      <text tid="original">Ingevoerde gegevens</text>
+      <text tid="pagetitle">Resultaten adresverificatie</text>
+      <text tid="problems">Problemen</text>
+      <text tid="returned">Gecorrigeerde gegevens</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="components">   <!-- components -->
+    <text tid="addressfield">Adres</text>
+    <text tid="addressfield_incomplete">Veld '<param p="1"/>' bevat een incompleet adres</text>
+    <text tid="cannotdeletereferredentity">Kan dit element niet verwijderen, er zijn nog andere elementen die een referentie naar dit element hebben.</text>
+    <text tid="confirmdeleteentity">Weet u zeker dat u dit element wilt verwijderen?</text>
+    <text tid="gender">Geslacht</text>
+    <textgroup gid="addressvalidation">   <!-- components.addressvalidation -->
+      <text tid="invalidsettings">De adresvalidatie-instellingen zijn ongeldig<ifparam p="1" value=""><else/><br/><br/>Foutmelding:<br/><param p="1"/></ifparam></text>
+      <text tid="moreinfo">Meer informatie</text>
+      <text tid="validationtype">Validatieservice</text>
+      <text tid="validationtype-default">Standaard adresvalidatie</text>
+      <text tid="validationtype-none">Geen adresvalidatie</text>
+      <textgroup gid="fallback">   <!-- components.addressvalidation.fallback -->
+        <text tid="description">Ingebouwde offline validatie</text>
+        <text tid="title">Interne afhandeling</text>
+      </textgroup>
+      <textgroup gid="pdok">   <!-- components.addressvalidation.pdok -->
+        <text tid="description">PDOK biedt een ruime keus aan digitale geo-informatie van de Nederlandse overheid. Het gebruik van PDOK is gratis op basis van een fair-use beleid.</text>
+        <text tid="title">PDOK Locatieserver</text>
+      </textgroup>
+      <textgroup gid="postcodeapi">   <!-- components.addressvalidation.postcodeapi -->
+        <text tid="apikey">API-sleutel</text>
+        <text tid="description">Nederlandse adresgegevens uit de BAG postcode-database.</text>
+        <text tid="title">postcodeapi.nu</text>
+      </textgroup>
+      <textgroup gid="postcodenl">   <!-- components.addressvalidation.postcodenl -->
+        <text tid="apikey">Sleutel</text>
+        <text tid="description">Adresvalidatie en verrijking via postcode.nl.</text>
+        <text tid="fullsubscription">Uitgebreid abonnement (uitzetten voor 'Postcodecheck Web')</text>
+        <text tid="secret">Geheim</text>
+        <text tid="title">postcode.nl</text>
+      </textgroup>
+      <textgroup gid="webservices">   <!-- components.addressvalidation.webservices -->
+        <text tid="description">Met Company.info Webservices worden adresgegevens automatisch gevalideerd en verrijkt.</text>
+        <text tid="login">Login</text>
+        <text tid="password">Wachtwoord</text>
+        <text tid="title">companyinfo.nl (voorheen webservices.nl)</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="quickfilter">   <!-- components.quickfilter -->
+      <text tid="btn_searchfree">Zoeken</text>
+      <text tid="freeattr">in veld</text>
+      <text tid="freevalue">naar</text>
+      <text tid="searchfree">Zoeken</text>
+      <text tid="searchhint">Zoeken</text>
+    </textgroup>
+    <textgroup gid="wrdfield">   <!-- components.wrdfield -->
+      <text tid="date">Datum</text>
+      <text tid="enum-noneselected">(geen waarde selecteerd)</text>
+      <text tid="illegalhson">Foutieve HSON data</text>
+      <text tid="max_datetime">Maximale datum (oneindig lang)</text>
+      <text tid="viewnotsupported">Kan niet worden weergegeven</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="editentity">   <!-- editentity -->
+    <text tid="ends_at">eindigt op</text>
+    <text tid="lifetime">Beschikbaarheid</text>
+    <text tid="limit">Gelimiteerd,</text>
+    <text tid="limittype">Beschikbaar tot</text>
+    <text tid="nolimit">Geen einddatum</text>
+    <text tid="title">Waarde bewerken</text>
+    <text tid="wrd_creationdate">Beschikbaar vanaf</text>
+    <text tid="wrd_limitdate">Beschikbaar tot</text>
+  </textgroup>
+  <textgroup gid="entities">   <!-- entities -->
+    <text tid="browsetitle">Beheer waarden</text>
+    <text tid="selecttitle">Kies een waarde</text>
+    <textgroup gid="actions">   <!-- entities.actions -->
+      <text tid="add">Toevoegen</text>
+      <text tid="del">Verwijderen</text>
+      <text tid="edit">Bewerken</text>
+      <text tid="searchfree">Zoeken</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="entitychanges">   <!-- entitychanges -->
+    <text tid="changetype">Type wijziging</text>
+    <text tid="creation">nieuwe waarde</text>
+    <text tid="entitychanges">Wijzigingen</text>
+    <text tid="keepinghistory">De wijzigsgeschiedenis wordt <param p="1"/> dag(en) bijgehouden</text>
+    <text tid="newvalue">Nieuw</text>
+    <text tid="notkeepinghistory">De wijzigingsgeschiedenis wordt momenteel niet bijgehouden</text>
+    <text tid="oldvalue">Oud</text>
+    <text tid="prop">Eigenschap</text>
+    <text tid="title">Titel</text>
+    <text tid="type">Type</text>
+    <text tid="update">wijziging</text>
+    <text tid="user">Gebruiker</text>
+    <text tid="when">Datum</text>
+  </textgroup>
+  <textgroup gid="errors">   <!-- errors -->
+    <text tid="dateofdeath_before_birth">De overlijdensdatum kan niet vóór de geboortedatum liggen</text>
+    <text tid="dateofdeath_in_future">De overlijdensdatum kan niet in de toekomst liggen</text>
+    <text tid="field_invalidvalue">De waarde voor veld '<param p="1"/>' is niet toegestaan</text>
+    <text tid="field_unique">De ingevulde waarde in het veld '<param p="1"/>' is niet uniek</text>
+    <text tid="limitdate_before_creationdate">De einddatum van deze relatie kan niet voor de begindatum liggen</text>
+  </textgroup>
+  <textgroup gid="exchange">   <!-- exchange -->
+    <textgroup gid="import">   <!-- exchange.import -->
+      <text tid="analyzing">Analyseren</text>
+      <text tid="choosefile">Upload het bestand dat moet worden geïmporteerd</text>
+      <text tid="clicknexttostart">Hieronder staat een voorbeeld van de te importeren gegevens (de eerste regels van het bestand). <br/>Klik op "Voltooien" om deze wizard te beëindigen en het importeren van het volledige bestand te starten. Afhankelijk van de grootte van het bestand kan dit enige tijd in beslag nemen.</text>
+      <text tid="columnname">Kolomnaam</text>
+      <text tid="country">Land</text>
+      <text tid="deletelink">Verwijderen</text>
+      <text tid="exampledata">Voorbeeldgegevens</text>
+      <text tid="fileuploadbox">Bestand uploaden</text>
+      <text tid="headerbox">Kolomkoppen</text>
+      <text tid="headertype">Kolomkoppen</text>
+      <text tid="headertype-noheaders">De eerste regel van het bestand bevat te importeren gegevens</text>
+      <text tid="headertype-withheaders">De eerste regel van het bestand bevat de kolomnaam</text>
+      <text tid="import">Importeren</text>
+      <text tid="importcolumn">Gekoppelde velden</text>
+      <text tid="importfile">Bestand</text>
+      <text tid="importing">Importeren</text>
+      <text tid="importresults">Resultaten</text>
+      <text tid="map">&lt;&lt;</text>
+      <text tid="mapbox">Velden koppelen</text>
+      <text tid="mapexplain">Koppel de beschikbare velden uit de rechterlijst aan de kolommen van het geïmporteerde bestand met behulp van de knoppen of door ze te verslepen van rechts naar links.</text>
+      <text tid="previewexplainbox">Voorbeeldresultaten</text>
+      <text tid="previewing">Voorbeeld</text>
+      <text tid="processingline">Verwerken regel <param p="1"/></text>
+      <text tid="rowkey">Kolom</text>
+      <text tid="title">Beschikbare velden</text>
+      <text tid="unmap">&gt;&gt;</text>
+      <text tid="updatemapping">Bewerken</text>
+      <textgroup gid="errors">   <!-- exchange.import.errors -->
+        <text tid="nocolumnslinked">Er zijn geen velden aan kolommen gekoppeld</text>
+        <text tid="requiredaddressfields">Niet alle verplichte adresvelden van het veld '<param p="1"/>' zijn gekoppeld aan kolommen. De niet-gekoppelde adresvelden:<br/><param p="2"/></text>
+        <text tid="requiredcolumnunlinked">Niet alle verplichte velden zijn gekoppeld aan kolommen in het geïmporteerde bestand</text>
+      </textgroup>
+      <textgroup gid="warnings">   <!-- exchange.import.warnings -->
+        <text tid="shouldlinkrequired">Het veld '<param p="1"/>' is verplicht maar niet gekoppeld. Alleen bestaande data kan worden geupdate.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="importresults">   <!-- exchange.importresults -->
+      <text tid="downloadduplicate">(Downloaden als CSV bestand)</text>
+      <text tid="downloadinvalid">(Downloaden als CSV bestand)</text>
+      <text tid="importresults">Importresultaat</text>
+      <text tid="numduplicate">Dubbele waarden</text>
+      <text tid="numinvalid">Ongeldige waarden</text>
+      <text tid="numnew">Nieuwe waarden</text>
+      <text tid="numoverwritten">Overschreven waarden</text>
+      <text tid="numupdate">Aangepaste waarden</text>
+    </textgroup>
+    <textgroup gid="mapdomain">   <!-- exchange.mapdomain -->
+      <text tid="inval">In bestand</text>
+      <text tid="map">&lt;&lt;</text>
+      <text tid="mapdomain">Waarden koppelen</text>
+      <text tid="mapinfobox">Waarden koppelen</text>
+      <text tid="maptoval">Gekoppelde waarden</text>
+      <text tid="notallassigned">Niet alle waarden uit het geïmporteerde bestanden zijn gekoppeld</text>
+      <text tid="novalue">(geen)</text>
+      <text tid="occurences">Aantal keer aanwezig</text>
+      <text tid="remapinfo">Koppel de waarden aan de waarden in het geïmporteerde bestand door deze uit de rechterlijst naar de linkerlijst te verslepen (of door gebruik te maken van de bijbehorende knoppen).</text>
+      <text tid="title">Beschikbare waarden</text>
+      <text tid="unmap">&gt;&gt;</text>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- exchange.messageboxes -->
+      <text tid="apparentlynotcsv">Weet u zeker dat dit een kommagescheiden tekstbestand (CSV) is?</text>
+      <text tid="distinctoverflow">De gekoppelde kolom bevat teveel uniek waarden om te worden gekoppeld.</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="filetypes">   <!-- filetypes -->
+    <text tid="samlidpendpoint">SAML IDP eindpunt</text>
+    <text tid="samlspendpoint">SAML SP eindpunt</text>
+  </textgroup>
+  <textgroup gid="forms">   <!-- forms -->
+    <textgroup gid="paymentmethod">   <!-- forms.paymentmethod -->
+      <text tid="name">Betaalmethode</text>
+    </textgroup>
+    <textgroup gid="wrdauthprefill">   <!-- forms.wrdauthprefill -->
+      <text tid="description">Vul het formulier in met de WRD-gegevens van de ingelogde gebruiker</text>
+      <text tid="name">Vul ingelogde gebruiker in</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="gotoid">   <!-- gotoid -->
+    <text tid="entityid">Id</text>
+    <text tid="gotoid">Snelzoeken</text>
+  </textgroup>
+  <textgroup gid="links">   <!-- links -->
+    <textgroup gid="update">   <!-- links.update -->
+      <text tid="extraproperties">Extra eigenschappen</text>
+      <text tid="leftentity">Koppeling van</text>
+      <text tid="linkproperties">Koppelingseigenschappen</text>
+      <text tid="linkselection">Koppelingseigenschappen</text>
+      <text tid="linktypes">Koppelingstype</text>
+      <text tid="pagetitle_add">Voeg een koppeling naar entiteit '<param p="1"/>' toe</text>
+      <text tid="rightentity">Koppeling naar</text>
+      <text tid="updatelink">Koppeling bewerken</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="main">   <!-- main -->
+    <text tid="chooseattribute">Kies</text>
+    <textgroup gid="actions">   <!-- main.actions -->
+      <text tid="openschema">Open schema</text>
+    </textgroup>
+    <textgroup gid="entityeditor">   <!-- main.entityeditor -->
+      <text tid="availabilitybox">Beschikbaarheid</text>
+      <text tid="available_since">Vanaf</text>
+      <text tid="basedata">Basisdata</text>
+      <text tid="developers">Achtergrond</text>
+      <text tid="edit">Bewerk entiteit</text>
+      <text tid="entity">Entiteit</text>
+      <text tid="fields">Velden</text>
+      <text tid="history">Geschiedenis</text>
+      <text tid="limitdate">Eindtijd</text>
+      <text tid="limitdatesetting">Tot</text>
+      <text tid="linkcheck">Linkcontrole</text>
+      <text tid="nolimitdate">Altijd beschikbaar</text>
+      <text tid="tagfield">Tag</text>
+      <text tid="wrd_guid">Globaal uniek ID (guid)</text>
+      <text tid="wrd_id">Uniek ID</text>
+      <text tid="wrd_modificationdate">Wijzigingsdatum</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="messages">   <!-- messages -->
+    <text tid="cannotopenschema">Het schema '<param p="1"/>' kon niet geopend worden. Mogelijk is het verplaatst</text>
+    <text tid="norightsforschema">U heeft geen rechten op het schema '<param p="1"/>'</text>
+    <text tid="nosuchentity">Die entiteit bestaat niet in dit schema.</text>
+  </textgroup>
+  <textgroup gid="querybuilder">   <!-- querybuilder -->
+    <text tid="allhistory">Alle historische gegevens</text>
+    <text tid="and">en</text>
+    <text tid="columnselect">Selecteer kolommen</text>
+    <text tid="cross">Cross join</text>
+    <text tid="default">Normale join (default)</text>
+    <text tid="editfilter">Bewerk filter</text>
+    <text tid="edithistorymode">Geschiedenismodus</text>
+    <text tid="editjointype">Bewerk join type</text>
+    <text tid="exportquery">Exporteer query</text>
+    <text tid="fieldname">Veldnaam</text>
+    <text tid="left-optional">Left-optionele join</text>
+    <text tid="name">Naam</text>
+    <text tid="query">Query</text>
+    <text tid="right-optional">Rechts-optionele join</text>
+    <text tid="rightnow">Huidige informatie</text>
+    <text tid="routechooser">Kies verbindingsroute</text>
+    <text tid="screentitle">Querybuilder</text>
+    <text tid="specificmoment">Een specifiek moment:</text>
+    <text tid="tag">Tag</text>
+    <text tid="validbetween">Geldig tussen</text>
+    <textgroup gid="messages">   <!-- querybuilder.messages -->
+      <text tid="cannotfilteronattr">Kan niet filteren op attribuut '<param p="1"/>'</text>
+      <text tid="debugmessage">Debug message: '<param p="1"/>'</text>
+      <text tid="exception">Een exceptie is opgetreden: <param p="1"/></text>
+      <text tid="limitresults">Resultaten beperken</text>
+      <text tid="only100">Alleen de eerste 100 resultaten</text>
+      <text tid="toomanyresults">Deze opdracht zal veel resultaten opleveren (<param p="1"/> in totaal), en kan uw browser behoorlijk vertragen. Weet u zeker dat u door wilt gaan?</text>
+    </textgroup>
+    <textgroup gid="querybuilder">   <!-- querybuilder.querybuilder -->
+      <text tid="available">Beschikbare velden en types</text>
+      <text tid="close">Afsluiten</text>
+      <text tid="criteria">Criteria</text>
+      <text tid="delete">Verwijderen</text>
+      <text tid="descr">Beschrijving</text>
+      <text tid="editfilter">Filter bewerken</text>
+      <text tid="edithistorymode">Geschiedenis instellen</text>
+      <text tid="editjointype">Join type instellen</text>
+      <text tid="editselectnode">Velden kiezen</text>
+      <text tid="exportquery">Exporteer</text>
+      <text tid="exportresults">Exporteer resultaten</text>
+      <text tid="exportresultsasschemaxml">Exporteer voor schema XML</text>
+      <text tid="fields">Velden</text>
+      <text tid="importquery">Importeer</text>
+      <text tid="query">Sleep-en-plaats query</text>
+      <text tid="querybuilder">Query builder</text>
+      <text tid="results">Resultaten</text>
+      <text tid="runquery">Voer uit</text>
+      <text tid="stuff">Selectie</text>
+      <text tid="title">Titel</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="rights">   <!-- rights -->
+    <text tid="createschema">WRD schemas aanmaken</text>
+    <text tid="createschema_descr">Mag nieuwe WRD schemas aanmaken</text>
+    <text tid="entities">WRD Entiteiten</text>
+    <text tid="metadata">Schema metadata wijzigen</text>
+    <text tid="metadata_descr">Mag de metadata (types en attributen) van dit schema wijzigen</text>
+    <text tid="read">Lezen</text>
+    <text tid="read_descr">Mag data lezen uit dit schema</text>
+    <text tid="readwrite">Lezen en schrijven</text>
+    <text tid="readwrite_descr">Mag data uit dit schema lezen en wijzigen</text>
+    <text tid="schemas">WRD Schemas</text>
+    <text tid="superuser">WRD Superuser</text>
+    <text tid="superuser_descr">Mag WRD volledig beheren</text>
+  </textgroup>
+  <textgroup gid="samlauth">   <!-- samlauth -->
+    <text tid="editnameidformat">Naam-identifier formaat bewerken</text>
+    <text tid="nameidformat">Naam-identifier formaat</text>
+    <textgroup gid="editcertificate">   <!-- samlauth.editcertificate -->
+      <text tid="acceptuntil">Accepteren tot</text>
+      <text tid="data">Bestand</text>
+      <text tid="editcertificate">Certificaat bewerken</text>
+    </textgroup>
+    <textgroup gid="editconnectedprovider">   <!-- samlauth.editconnectedprovider -->
+      <text tid="acceptuntil">Accepteren tot</text>
+      <text tid="binding">Binding</text>
+      <text tid="bothidpandspfoundindescriptor">De SAML descriptor heeft beide een IDP en een SP rol in zich - dat wordt niet ondersteund door deze implementatie.</text>
+      <text tid="cannotretrievemetadata">Kon de metadata niet van de opgegeven URL ophalen.</text>
+      <text tid="certificates">Certificaten</text>
+      <text tid="commonname">Algemene naam</text>
+      <text tid="company">Bedrijf</text>
+      <text tid="contacts">Contactpersonen</text>
+      <text tid="default">Standaard</text>
+      <text tid="downloadmetadata">Download metadata</text>
+      <text tid="editconnectedprovider">Bewerk verbonden provider</text>
+      <text tid="entermetadata">Metadata invoeren</text>
+      <text tid="fieldmetadataurlisrequired">Het veld 'Metadata URL' is verplicht bij het downloadeden van metadata.</text>
+      <text tid="givenname">Voornaam</text>
+      <text tid="index">Index</text>
+      <text tid="isdefault">Standaard</text>
+      <text tid="location">Locatie</text>
+      <text tid="metadatadocumentdoesnotvalidate">Het metadatabestand is niet geldig.</text>
+      <text tid="metadataurl">Metadata URL</text>
+      <text tid="multipledescriptorsbutnotfound">Er zijn meerdere descriptors gevonden in het metadatabestand, maar geen daarvan hadden het opgegeven entity ID.</text>
+      <text tid="multipledescriptorsnofilter">Er zijn meerdere descriptors gevonden in het metadatabestand, geef a.u.b. een entity ID op.</text>
+      <text tid="na">N/A</text>
+      <text tid="nameidformat">Naam-identifier formaat</text>
+      <text tid="noentitydescriptors">Geen entity descripts zijn gevonden in het metadata document.</text>
+      <text tid="norelevantservicesfound">Er zijn geen relevante services gevonden in het metadatabestand.</text>
+      <text tid="organization_displayname">Organisatie weergavenaam</text>
+      <text tid="organization_name">Organisatienaam</text>
+      <text tid="organization_url">Organisatie URL</text>
+      <text tid="organizationinfo">Organisatiegegevens</text>
+      <text tid="responselocation">Antwoordlocatie URL</text>
+      <text tid="samlentityid">SAML Entiteit ID</text>
+      <text tid="samlentityiddiffers">De in de metadata beschreven SAML entititeit heeft een andere ID dan verwacht (verwachtte '<param p="1"/>', maar vond '<param p="2"/>').</text>
+      <text tid="serviceendpoints">Service eindpunten</text>
+      <text tid="supportednameidformats">Ondersteunde naam-identifier formaten</text>
+      <text tid="surname">Achternaam</text>
+      <text tid="telephone">Telefoon</text>
+      <text tid="type">Type</text>
+      <text tid="validuntil">Geldig tot</text>
+    </textgroup>
+    <textgroup gid="editcontact">   <!-- samlauth.editcontact -->
+      <text tid="company">Bedrijf</text>
+      <text tid="editcontact">Contact bewerken</text>
+      <text tid="givenname">Voornaam</text>
+      <text tid="surname">Achternaam</text>
+      <text tid="telephone">Telefoon</text>
+      <text tid="type">Type</text>
+      <text tid="type-administrative">Administratief</text>
+      <text tid="type-billing">Facturatie</text>
+      <text tid="type-other">Anders</text>
+      <text tid="type-support">Support</text>
+      <text tid="type-technical">Technisch</text>
+    </textgroup>
+    <textgroup gid="editprovider">   <!-- samlauth.editprovider -->
+      <text tid="allow_redirectbinding">Sta HTTP-Redirect binding toe</text>
+      <text tid="chooseakeypair">Kies een sleutelpaar</text>
+      <text tid="company">Bedrijf</text>
+      <text tid="contactinfo">Contactgegevens</text>
+      <text tid="contacts">Contactpersonen</text>
+      <text tid="editprovider">Provider bewerken</text>
+      <text tid="givenname">Voornaam</text>
+      <text tid="keypair">Sleutelpaar</text>
+      <text tid="nameidformat">Naam-identifier formaat</text>
+      <text tid="nameidpolicy">Naam-identifier beleid</text>
+      <text tid="organization_displayname">Organisatie weergavenaam</text>
+      <text tid="organization_name">Organisatienaam</text>
+      <text tid="organization_url">Organisatie URL</text>
+      <text tid="organizationinfo">Organisatiegegevens</text>
+      <text tid="samlentityid">SAML Entiteit ID</text>
+      <text tid="supportednameidformats">Ondersteunde naam-identifier formaten</text>
+      <text tid="surname">Achternaam</text>
+      <text tid="telephone">Telefoon</text>
+      <text tid="type">Type</text>
+      <text tid="wrd_tag">Tag</text>
+    </textgroup>
+    <textgroup gid="editserviceendpoint">   <!-- samlauth.editserviceendpoint -->
+      <text tid="binding">Binding</text>
+      <text tid="editserviceendpoint">Serviceëindpunt bewerken</text>
+      <text tid="http-post">HTTP POST</text>
+      <text tid="http-redirect">HTTP Redirect</text>
+      <text tid="index">Index</text>
+      <text tid="isdefault">Standaard</text>
+      <text tid="location">Locatie URL</text>
+      <text tid="responselocation">Antwoordlocatie URL</text>
+      <text tid="type">Type</text>
+      <text tid="type-artifactresolutionservice">ArtifactResolutionService</text>
+      <text tid="type-assertionconsumerservice">AssertionConsumerService</text>
+      <text tid="type-attributeconsumingservice">AttributeConsumingService</text>
+      <text tid="type-singlelogoutservice">SingleLogoutService</text>
+      <text tid="type-singlesignonservice">SingleSignOnService</text>
+    </textgroup>
+    <textgroup gid="entermetadata">   <!-- samlauth.entermetadata -->
+      <text tid="entermetadata">Handmatige metadata XML invoer</text>
+      <text tid="metadataexplain">Plaats a.u.b. de inhoud van het metadata XML-bestand hier.</text>
+      <text tid="notvalidxmldocument">De ingevoerde metadata is geen gelding XML document.</text>
+    </textgroup>
+    <textgroup gid="importchangedcertificate">   <!-- samlauth.importchangedcertificate -->
+      <text tid="certchoice">Vervangen</text>
+      <text tid="certchoice-expireold">Gebruik de oude certificaten tot</text>
+      <text tid="certchoice-replace">Verwijder alle voorgaande certificaten</text>
+      <text tid="explain">De metadata bevat een certificaat dat nog in de huidige lijst van certificaten zit. Wat moet er gedaan worden met de oude certificaten?</text>
+      <text tid="importchangedcertificate">Nieuw certificaat importeren</text>
+    </textgroup>
+    <textgroup gid="main">   <!-- samlauth.main -->
+      <text tid="addconnectedidp">Verbonden IDP toevoegen</text>
+      <text tid="addconnectedsp">Verbonden SP toevoegen</text>
+      <text tid="addidp">IDP toevoegen</text>
+      <text tid="addsp">SP toevoegen</text>
+      <text tid="connectedidp">Verbonden IDP</text>
+      <text tid="connectedsamlentityid">Verbonden SAML Entiteit ID</text>
+      <text tid="connectedsp">Verbonden SP</text>
+      <text tid="idp">IDP</text>
+      <text tid="main">SAML entiteiten</text>
+      <text tid="samlentityid">SAML Entiteit ID</text>
+      <text tid="sp">SP</text>
+      <text tid="type">Type</text>
+      <text tid="wrd_tag">Tag</text>
+    </textgroup>
+    <textgroup gid="openauthdomain">   <!-- samlauth.openauthdomain -->
+      <text tid="openauthdomain">Open authenticatiedomein</text>
+      <text tid="wrd_tag">Tag</text>
+      <text tid="wrd_title">Titel</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="schema">   <!-- schema -->
+    <textgroup gid="managetypes">   <!-- schema.managetypes -->
+      <text tid="adddomain">Voeg domein toe</text>
+      <text tid="deldomain">Verwijder domein</text>
+      <text tid="editdomain">Bewerk domein</text>
+    </textgroup>
+    <textgroup gid="open">   <!-- schema.open -->
+      <text tid="name">Schema</text>
+      <text tid="title">Open WRD schema</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="schemamanager">   <!-- schemamanager -->
+    <text tid="editschemasyncpoint">Synchroniseerbron beheren</text>
+    <text tid="nosyncpoints">Er zijn geen synchronisatiebronnen</text>
+    <text tid="peer">Externe server</text>
+    <text tid="pleaseselectapeer">Selecteer a.u.b. een externe server</text>
+    <text tid="remotewrdschema">Externe WRD bronschema</text>
+    <text tid="synccompleted">Synchronisatie is voltooid</text>
+    <text tid="synchronize">Synchroniseren</text>
+    <text tid="synchronizeschema">WRD schema synchroniseren</text>
+    <text tid="verifydisconnectsyncedschema">Weet u zekerdat u deze synchronisatiebron wilt verwijderen?</text>
+    <textgroup gid="errors">   <!-- schemamanager.errors -->
+      <text tid="duplicateschema">De naam van het schema is niet uniek</text>
+      <text tid="needsysoptoenableusermgmt">Alleen sysops kunnen gebruikersbeheer activeren op een schema.</text>
+    </textgroup>
+    <textgroup gid="importschema">   <!-- schemamanager.importschema -->
+      <text tid="ignoremissingreferences">Negeer missende WHFS referenties</text>
+      <text tid="importschema">Importeer schema</text>
+    </textgroup>
+    <textgroup gid="main">   <!-- schemamanager.main -->
+      <text tid="main">Beheer WRD schema's</text>
+      <text tid="protected">Beschermd</text>
+      <text tid="usermgmt">Rechten</text>
+      <textgroup gid="actions">   <!-- schemamanager.main.actions -->
+        <text tid="close">Sluiten</text>
+        <text tid="delschema">Verwijderen</text>
+        <text tid="dotschema">DOT exporteren</text>
+        <text tid="editschema">Bewerken</text>
+        <text tid="exportschema">Exporteren</text>
+        <text tid="exportschemametadata">Metadata exporteren</text>
+        <text tid="importschema">Importeren</text>
+        <text tid="newschema">Toevoegen</text>
+        <text tid="open">Open geselecteer schema</text>
+        <text tid="synchronize">Synchroniseren</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- schemamanager.messageboxes -->
+      <text tid="deleteschema">Weet u zeker dat u schema '<param p="1"/>' wil verwijderen? Deze actie kan niet ongedaan worden gemaakt.</text>
+      <text tid="deleteschemas">Weet u zeker dat u de geselecteerde schemas wil verwijderen? Deze actie kan niet ongedaan worden gemaakt.</text>
+      <text tid="import_schema_errors">De volgende fouten zijn opgetreden bij het importeren van het schema:<br/><param p="1"/></text>
+      <text tid="import_schema_norights">U heeft onvoldoende rechten om het schema '<param p="1"/>' te mogen vervangen.</text>
+      <text tid="import_schema_protected">Het schema '<param p="1"/>' is beschermd en kan niet vervangen worden.</text>
+      <text tid="import_schema_replaced">De import verving het schema '<param p="1"/>'. Het bestaande schema is hernoemd naar '<param p="2"/>'</text>
+    </textgroup>
+    <textgroup gid="newschema">   <!-- schemamanager.newschema -->
+      <text tid="newschema">Nieuw schema</text>
+    </textgroup>
+    <textgroup gid="schemaprops">   <!-- schemamanager.schemaprops -->
+      <text tid="accountemail">Emailveld</text>
+      <text tid="accountlogin">Loginveld</text>
+      <text tid="accountpassword">Wachtwoordveld</text>
+      <text tid="accounttype">Type voor logins</text>
+      <text tid="addressvalidation">Adresvalidatie</text>
+      <text tid="creationsource">Bron</text>
+      <text tid="nextordernr">Volgend ordernummer</text>
+      <text tid="ordernrformat">Ordernummer formaat</text>
+      <text tid="payments">Betalingen</text>
+      <text tid="protect">Bescherm dit schema tegen imports en verwijdering</text>
+      <text tid="schema">Schema</text>
+      <text tid="schemaprops">Bewerk schemaeigenschappen</text>
+      <text tid="usermgmt">WebHare rechtentoekenningen mogelijk maken</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="search">   <!-- search -->
+    <text tid="title">Zoek naar waarden</text>
+    <textgroup gid="preview">   <!-- search.preview -->
+      <text tid="title">Gegevens van geselecteerde waarde</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="forms">   <!-- site.forms -->
+      <textgroup gid="authpages">   <!-- site.forms.authpages -->
+        <text tid="currentpassword">Huidig wachtwoord</text>
+        <text tid="email">E-mailadres</text>
+        <text tid="emailchange-button">Wijzig e-mailadres</text>
+        <text tid="emailchange-intro">Voer het nieuwe email adres in</text>
+        <text tid="emailchange-isyourmail">Dit adres wordt al gebruikt</text>
+        <text tid="emailchange-processed">We hebben een bevestiging naar het nieuwe e-mailadres '<param p="1"/>' verzonden. Klik op de link in deze email om uw wijziging te bevestigen.</text>
+        <text tid="emailchange-title">Wijzig e-mailadres</text>
+        <text tid="emailchanged">Het e-mailadres is gewijzigd</text>
+        <text tid="forgotpassword">Wachtwoord vergeten ?</text>
+        <text tid="forgotpassword-button">Verstuur email</text>
+        <text tid="forgotpassword-intro">Voer het bij dit account behorende e-mailadres in om een herstellink te ontvangen</text>
+        <text tid="forgotpassword-processed">Het verzoek is verwerkt. Een emailbericht met een herstellink wordt verzonden als we het account kunnen vinden.</text>
+        <text tid="forgotpassword-title">Wachtwoord herstellink aanvragen</text>
+        <text tid="incorrectlogin-email">De combinatie van emailadres en gebruikersnaam is niet geldig</text>
+        <text tid="incorrectlogin-username">De combinatie van gebruikersnaam en wachtwoord is niet geldig</text>
+        <text tid="incorrectpassword">Het opgegeven wachtwoord is niet correct</text>
+        <text tid="linkexpired">De gevolgde link is verlopen</text>
+        <text tid="login-button">Inloggen</text>
+        <text tid="login-email-intro">Voer het e-mailadres en wachtwoord in om in te loggen</text>
+        <text tid="login-title">Inloggen</text>
+        <text tid="login-username-intro">Voer de gebruikersnaam en het wachtwoord in om in te loggen</text>
+        <text tid="password">Wachtwoord</text>
+        <text tid="passwordchange-button">Wijzig wachtwoord</text>
+        <text tid="passwordchange-intro">Wachtwoord wijzigen voor '<param p="1"/>'</text>
+        <text tid="passwordchange-processed">Het wachtwoord is gewijzigd</text>
+        <text tid="passwordchange-title">Wijzig wachtwoord</text>
+        <text tid="passwordnew">Nieuw wachtwoord</text>
+        <text tid="passwordrepeat">Herhaal wachtwoord</text>
+        <text tid="passwordsmismatch">De ingevoerde wachtwoorden komen niet overeen</text>
+        <text tid="resetpassword-button">Nieuw wachtwoord instellen</text>
+        <text tid="resetpassword-continue">Verder gaan</text>
+        <text tid="resetpassword-intro">Voer een nieuw wachtwoord voor het account in</text>
+        <text tid="resetpassword-processed">Het nieuwe wachtwoord is ingesteld</text>
+        <text tid="resetpassword-title">Herstel wachtwoord</text>
+        <text tid="setpassword-button">Wachtwoord instellen</text>
+        <text tid="setpassword-continue">Verder gaan</text>
+        <text tid="setpassword-intro">Voer een wachtwoord in om het account in te schakelen</text>
+        <text tid="setpassword-processed">Het account is ingeschakeld</text>
+        <text tid="setpassword-title">Wachtwoord instellen</text>
+        <text tid="username">Gebruikersnaam</text>
+        <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
+          <text tid="emailinuse">We kunnen uw verzoek niet uitvoeren, omdat dit e-mail adres al in gebruik is door een ander account.</text>
+          <text tid="followlink">Klik op <html:a data-href-param="1">deze link</html:a> om uw e-mail adres te bevestigen.</text>
+          <text tid="receivedfor">We hebben een verzoek ontvangen om het e-mail adres van uw account te wijzigen van '<param p="1"/>' naar '<param p="2"/>'</text>
+          <text tid="subject">Over uw e-mailadres wijzigingsverzoek</text>
+        </textgroup>
+        <textgroup gid="forgotpasswordmail">   <!-- site.forms.authpages.forgotpasswordmail -->
+          <text tid="emailunknown">Helaas hebben wij geen account kunnen vinden dat bij dit e-mailadres ('<param p="1"/>') behoort.</text>
+          <text tid="followlink">Klik op <html:a data-href-param="1">deze link</html:a> om een nieuw wachtwoord te kiezen.</text>
+          <text tid="receivedfor">We hebben een verzoek ontvangen om het wachtwoord opnieuw in te stellen voor: <param p="1"/></text>
+          <text tid="subject">Uw wachtwoord herstellen voor <param p="1"/></text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="payments">   <!-- site.forms.payments -->
+        <text tid="afterpay-only-be">Afterpay BE is alleen beschikbaar voor Belgische adressen</text>
+        <text tid="afterpay-only-nl">Afterpay NL is alleen beschikbaar voor Nederlandse adressen</text>
+        <text tid="selectbank">Selecteer bank</text>
+        <textgroup gid="afterpay">   <!-- site.forms.payments.afterpay -->
+          <text tid="agreeterms">Ik ga akkoord met de <html:a data-href-param="1">AfterPay betalingsvoorwaarden</html:a></text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="siteprofiles">   <!-- siteprofiles -->
+    <text tid="loginpage">Standaard inlogpagina</text>
+  </textgroup>
+  <textgroup gid="terminology">   <!-- terminology -->
+    <text tid="attrtype">Attribuuttype</text>
+    <text tid="domain">Domein</text>
+    <text tid="metatype">Metatype</text>
+    <text tid="schema">Schema</text>
+    <text tid="tag">Tag</text>
+    <text tid="type">Type</text>
+  </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="payments">   <!-- tolliumapps.payments -->
+      <text tid="selectcertificate">Kies certificaat</text>
+      <textgroup gid="afterpay">   <!-- tolliumapps.payments.afterpay -->
+        <text tid="afterpaytype">Type</text>
+        <text tid="merchantid">Merchant ID</text>
+        <text tid="portefeuilleid">PortefeuilleID</text>
+      </textgroup>
+      <textgroup gid="builtins">   <!-- tolliumapps.payments.builtins -->
+        <text tid="disablenoissuer">Bied de "no issuer" optie niet aan</text>
+        <text tid="disablewithissuer">Bied de "with issuer" optie niet aan</text>
+        <text tid="interactiontype">Interactie type</text>
+        <text tid="interactiontype-form">Form-based</text>
+        <text tid="interactiontype-redirect">Redirect-based</text>
+        <text tid="sleep">Betaalpaginas slaaptijd</text>
+      </textgroup>
+      <textgroup gid="common">   <!-- tolliumapps.payments.common -->
+        <text tid="approved">Goedgekeurd</text>
+        <text tid="connectionsucceeded">Verbinding gelukt</text>
+        <text tid="failed">Mislukt</text>
+        <text tid="incorrectcredentials">Verbinding niet gelukt - kloppen de inloggegevens?</text>
+        <text tid="methods">Betaalmethodes</text>
+        <text tid="pending">In afwachting</text>
+        <text tid="testmode">Test mode</text>
+      </textgroup>
+      <textgroup gid="commondialogs">   <!-- tolliumapps.payments.commondialogs -->
+        <text tid="amountpayable">Te betalen</text>
+        <text tid="cancelpayment">Annuleer betaling</text>
+        <text tid="deletepaymentprovider">Weet u zeker dat u deze betaalprovider wil verwijderen ?</text>
+        <text tid="generic">Algemene opties</text>
+        <text tid="methods">Betaalmethode</text>
+        <text tid="openpaymententity">Open entiteit</text>
+        <text tid="paymentdate">Betaaldatum</text>
+        <text tid="paymentdetails">Betalingsdetails</text>
+        <text tid="paymententity">Entiteit</text>
+        <text tid="paymentinfo">Betaalinformatie</text>
+        <text tid="paymentoptiontag">Betaaloptie</text>
+        <text tid="paymentprovider">Betaalprovider</text>
+        <text tid="paymentproviders">Betaalproviders</text>
+        <text tid="paymentreference">Referentie</text>
+        <text tid="paymentstatus">Status</text>
+        <text tid="pendingpayments">Lopende betalingen</text>
+        <text tid="recheckedpayment">De betaling is opnieuw gecontroleerd bij de betaalprovider</text>
+        <text tid="recheckpayment">Controleer betaling</text>
+        <text tid="selectpaymentprovider">Selecteer betaal provider</text>
+        <text tid="status">Status</text>
+        <text tid="surecancelpayment">Weet u zeker dat u deze betaling wil annuleren?</text>
+        <text tid="tag">Tag</text>
+        <text tid="type">Type</text>
+      </textgroup>
+      <textgroup gid="ideal">   <!-- tolliumapps.payments.ideal -->
+        <text tid="acquirer">Verwerker</text>
+        <text tid="keypair">Sleutelpaar</text>
+        <text tid="merchantid">Merchant id</text>
+        <text tid="merchantsubid">Merchant sub id</text>
+        <text tid="privatekeypassword">Wachtwoord private key</text>
+        <text tid="transactionid">Transactie id</text>
+      </textgroup>
+      <textgroup gid="ingenico">   <!-- tolliumapps.payments.ingenico -->
+        <text tid="apipassword">API Wachtwoord</text>
+        <text tid="apiuser">API User</text>
+        <text tid="brand">Merk</text>
+        <text tid="directhttpurl">Directe HTTP url</text>
+        <text tid="methods">Betaalmethode</text>
+        <text tid="mode">Modus</text>
+        <text tid="mode-prod">Productie (betaling worden afgehandeld)</text>
+        <text tid="mode-test">Testen</text>
+        <text tid="ncerror">Foutcode</text>
+        <text tid="norebranding">Geen (direct bij Ingenico aangesloten)</text>
+        <text tid="noregisteredstatus">Er is geen status geregistreerd</text>
+        <text tid="orderid">Onze referentie</text>
+        <text tid="payinfo">Betalingsgegevens Ingenico</text>
+        <text tid="paymentid">Ingenico's referentie</text>
+        <text tid="paymentmethod">Betaalmethode</text>
+        <text tid="pspid">PSP ID</text>
+        <text tid="rebranded">Rebranding</text>
+        <text tid="result">Resultaat</text>
+        <text tid="sha1_in">SHA-1-IN signature</text>
+        <text tid="sha1_in_directlink">SHA-1-IN directlink</text>
+        <text tid="sha1_out">SHA-1-OUT signature</text>
+        <text tid="status">Status</text>
+      </textgroup>
+      <textgroup gid="mollie">   <!-- tolliumapps.payments.mollie -->
+        <text tid="apikey">API Key</text>
+        <text tid="connect">Test</text>
+        <text tid="paymentid">Betalings ID</text>
+        <text tid="status">Status</text>
+        <text tid="webhooks">Schakel webhooks in</text>
+      </textgroup>
+      <textgroup gid="multisafepay">   <!-- tolliumapps.payments.multisafepay -->
+        <text tid="apikey">API Key</text>
+        <text tid="connect">Betaalmethodes ophalen</text>
+        <text tid="rawstatus">Ruwe MSP status</text>
+        <text tid="testmode">Testmode</text>
+        <text tid="testmode-live">Live</text>
+        <text tid="testmode-test">Test</text>
+      </textgroup>
+      <textgroup gid="sisow">   <!-- tolliumapps.payments.sisow -->
+        <text tid="connect">Test</text>
+        <text tid="merchantid">Merchant ID</text>
+        <text tid="merchantsecret">Merchant secret</text>
+        <text tid="transactionid">Transactie id</text>
+      </textgroup>
+      <textgroup gid="spraypay">   <!-- tolliumapps.payments.spraypay -->
+        <text tid="webshopid">Webshop ID</text>
+      </textgroup>
+      <textgroup gid="stripe">   <!-- tolliumapps.payments.stripe -->
+        <text tid="connect">Test</text>
+        <text tid="publickey">Publieke sleutel</text>
+        <text tid="secretkey">Geheime sleutel</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="types">   <!-- types -->
+    <text tid="noparent">Niet afgeleid</text>
+    <text tid="tagnotunique">Er bestaat al een attribuut met dezelfde tag</text>
+    <text tid="typetagnotunique">Er bestaat al een type met dezelfde tag</text>
+    <textgroup gid="attributes">   <!-- types.attributes -->
+      <text tid="addattr">Add attribute</text>
+      <text tid="addchildattr">Onderliggend attribuut toevoegen</text>
+      <text tid="deleteattr">Delete attribute</text>
+      <text tid="editattr">Edit attribute</text>
+      <text tid="manageattrs">Attributen van type '<param p="1"/>' beheren.</text>
+      <text tid="reqicon">Verplicht</text>
+      <text tid="required">Verplicht</text>
+      <text tid="uniqueicon">Uniek</text>
+      <textgroup gid="types">   <!-- types.attributes.types -->
+        <text tid="address">Adres</text>
+        <text tid="array">Array (Lijst)</text>
+        <text tid="boolean">Boolean</text>
+        <text tid="date">Datum</text>
+        <text tid="datetime">Datum en tijd</text>
+        <text tid="domain">Domein - enkele selectie</text>
+        <text tid="domainarray">Domein - meervoudige selectie</text>
+        <text tid="email">E-mailadres</text>
+        <text tid="enum">Enumeratie</text>
+        <text tid="enumarray">Enumeratie array</text>
+        <text tid="file">Bestand</text>
+        <text tid="free">Vrije tekst</text>
+        <text tid="image">Afbeelding</text>
+        <text tid="integer">Integer (Geheel getal)</text>
+        <text tid="integer64">Integer (Lang)</text>
+        <text tid="money">Money (Getal met 5 decimalen)</text>
+        <text tid="password">Wachtwoord</text>
+        <text tid="payment">Betaling</text>
+        <text tid="paymentprovider">Betalingsprovider</text>
+        <text tid="record">Record (HSON)</text>
+        <text tid="richdocument">Document met opmaak</text>
+        <text tid="statusrecord">Statusrecord</text>
+        <text tid="telephone">Telefoonnummer</text>
+        <text tid="time">Tijd</text>
+        <text tid="url">URL</text>
+        <text tid="whfsinstance">WHFS instance</text>
+        <text tid="whfsintextlink">WHFS interne/externe link</text>
+      </textgroup>
+      <textgroup gid="update">   <!-- types.attributes.update -->
+        <text tid="addform">Attribuuttype</text>
+        <text tid="attrtype">Type</text>
+        <text tid="checklinks">Controleer links binnen dit attribuut</text>
+        <text tid="description">Omschrijving</text>
+        <text tid="domain">Domein</text>
+        <text tid="editattr">Attribuut</text>
+        <text tid="editform">Attribuutinformatie</text>
+        <text tid="id">Id</text>
+        <text tid="isconfidentialdesc">Veldinhoud is vertrouwelijk</text>
+        <text tid="isordered">De volgorde van elementen is instelbaar</text>
+        <text tid="isrequired">Verplicht</text>
+        <text tid="isrequireddesc">De ingevulde waarde van dit attribuut mag niet leeg zijn</text>
+        <text tid="isunique">Uniek</text>
+        <text tid="isuniquedesc">De ingevulde waarde van dit attribuut moet uniek zijn</text>
+        <text tid="maxwidth">Maximum breedte</text>
+        <text tid="multiline">Meerdere regels (textarea)</text>
+        <text tid="requiretype_left">Linker koppeling</text>
+        <text tid="requiretype_right">Rechter koppeling</text>
+        <text tid="tag">Tag</text>
+        <text tid="tagnotunique">Deze tag is al in gebruik</text>
+        <text tid="title">Naam</text>
+        <text tid="title_add">Voeg nieuw attribuut toe aan type '<param p="1"/>'</text>
+        <text tid="title_edit">Bewerk attribuut '<param p="1"/>'</text>
+        <text tid="type">Type</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="deletetype">   <!-- types.deletetype -->
+      <text tid="deletehow">Verwijder</text>
+      <text tid="deletehow-closeentities">alle entiteiten (door ze af te sluiten)</text>
+      <text tid="deletehow-delentities">alle entities (volledig verwijderen)</text>
+      <text tid="deletehow-deltype">alle entities en het type</text>
+      <text tid="deletetype">Verwijder type</text>
+      <text tid="verifydeletion">Weet u zeker dat u het type '<param p="1"/>' wilt verwijderen?</text>
+    </textgroup>
+    <textgroup gid="errors">   <!-- types.errors -->
+      <text tid="domaininuse">Dit domein kan niet verwijderd worden, omdat er nog attributen aan refereren.</text>
+      <text tid="domaininusebyattr">Dit domein kan niet verwijderd worden, omdat er nog attributen (zoals '<param p="1"/>') aan refereren.</text>
+      <text tid="domaininusebytype">Dit domein kan niet verwijderd worden, omdat er nog types (zoals '<param p="1"/>') aan refereren.</text>
+      <text tid="typeinuse">Dit type kan niet verwijderd worden, omdat er nog attributen aan refereren.</text>
+      <text tid="typeinusebyattr">Dit type kan niet verwijderd worden, omdat er nog attributen (zoals '<param p="1"/>') aan refereren.</text>
+      <text tid="typeinusebytype">Dit type kan niet verwijderd worden, omdat er nog types (zoals '<param p="1"/>') aan refereren.</text>
+    </textgroup>
+    <textgroup gid="managepaymentproviders">   <!-- types.managepaymentproviders -->
+      <text tid="managepaymentproviders">Beheer betaalproviders</text>
+      <text tid="manageproviders">Providers</text>
+      <text tid="nosuitablefields">Er zijn geen betalings of betaalprovider attributen in het schema</text>
+      <text tid="paymentfield">Betalingsveld</text>
+      <text tid="providerfield">Betaalprovider veld</text>
+    </textgroup>
+    <textgroup gid="managetypes">   <!-- types.managetypes -->
+      <text tid="addtype">Toevoegen</text>
+      <text tid="deltype">Verwijderen</text>
+      <text tid="edittype">Bewerken</text>
+      <text tid="editvalues">Waarden</text>
+      <text tid="import">Importeren</text>
+      <text tid="manageattrs">Attributen</text>
+      <text tid="managetypes">Types beheren</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- types.messages -->
+      <text tid="authnotcorrectlyconfigured">Het authenticatiedomein is niet correct geconfigureerd.</text>
+      <text tid="cannotdeleteattr">Kan attribuut '<param p="1"/>' niet verwijderen omdat het een intern attribuut is.</text>
+      <text tid="deleteattr">Weet u zeker dat u attribuut '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="notconfiguredforsaml">Dit WRD schema is niet geconfigureerd voor SAML.</text>
+      <text tid="suredeleteconnectedidp">Weet u zeker dat u deze verbonden IDP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
+      <text tid="suredeleteconnectedsp">Weet u zeker dat u deze verbonden SP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
+      <text tid="suredeleteidp">Weet u zeker dat u deze IDP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
+      <text tid="suredeletesp">Weet u zeker dat u deze SP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
+    </textgroup>
+    <textgroup gid="metatypes">   <!-- types.metatypes -->
+      <text tid="attachment">Bijlage</text>
+      <text tid="classification">Classificatie</text>
+      <text tid="domain">Domein</text>
+      <text tid="link">Link</text>
+      <text tid="object">Object</text>
+    </textgroup>
+    <textgroup gid="update">   <!-- types.update -->
+      <text tid="classification_of">Classificatie van</text>
+      <text tid="dbid">Database ID</text>
+      <text tid="description">Omschrijving</text>
+      <text tid="edittype">Type bewerken</text>
+      <text tid="form">Type-informatie</text>
+      <text tid="linkfrom">Koppeling van</text>
+      <text tid="linkto">Koppeling naar</text>
+      <text tid="metatype">Metatype</text>
+      <text tid="metatype_form">Metatype-informatie</text>
+      <text tid="name">Attribuutnaam</text>
+      <text tid="noparent">Niet afgeleid</text>
+      <text tid="orderingdown">Omlaag</text>
+      <text tid="orderingup">Omhoog</text>
+      <text tid="parenttype">Afgeleid van type</text>
+      <text tid="requiretype_left">Koppeling van</text>
+      <text tid="requiretype_right">Koppeling naar</text>
+      <text tid="tag">Tag</text>
+      <text tid="title">Titel</text>
+      <text tid="title_add">Voeg type toe aan schema '<param p="1"/>'</text>
+      <text tid="title_edit">Bewerk type '<param p="1"/>'</text>
+      <text tid="title_props">Eigenschappen van type '<param p="1"/>'</text>
+      <text tid="typepropertiestab">Type</text>
+      <text tid="typetagnotunique">Een ander type heeft deze tag al in gebruik.</text>
+    </textgroup>
+  </textgroup>
+</language>

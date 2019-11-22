@@ -1,0 +1,78 @@
+﻿<?wh
+// Language texts
+PUBLIC RECORD FUNCTION GetConsilioLanguageTexts(STRING langcode)
+{
+  SWITCH (ToUppercase(langcode))
+  {
+    CASE "NL"
+    {
+      RETURN [ unavailable := "De zoekmachine is momenteel niet beschikbaar. Onze excuses voor het ongemak."
+             , label_results_multipage := "Resultaten %1 - %2 van de %3 resultaten gevonden voor '%0'"
+             , label_results_singlepage := "%3 resultaten gevonden voor '%0'"
+             , label_results_justone := "1 resultaat gevonden voor '%0'"
+             , label_results_none := "Geen resultaten gevonden voor '%0'"
+             , label_notitle := "(Geen titel)"
+             , label_size := "Grootte"
+             , label_modified := "Gewijzigd"
+             , label_type := "Type"
+             , label_pages := "Pagina:"
+             , field_searchfor := "Zoek naar"
+             , button_search := "Zoek"
+             , types := [ doc := "Word-document"
+                        , html := "HTML-pagina"
+                        , pdf := "PDF-bestand"
+                        , txt := "Tekstbestand"
+                        , xls := "Excel-document"
+                        , unknown := "Onbekend"
+                        ]
+             ];
+    }
+    CASE "DE"
+    {
+      RETURN [ unavailable := "Die Suchmaschine ist zur Zeit nicht verfügbar wegen eines Systemfehlers. Wir entschuldigen für die Unannehmlichkeiten."
+             , label_results_multipage := "Ergebnisse %1 - %2 von %3 Ergebnisse für '%0'"
+             , label_results_singlepage := "%3 Ergebnisse für '%0'"
+             , label_results_justone := "1 Ergebnis für '%0'"
+             , label_results_none := "Keine Ergebnisse für '%0'"
+             , label_notitle := "(Ohne Titel)"
+             , label_size := "Grösse"
+             , label_modified := "Modifiziert"
+             , label_type := "Typ"
+             , label_pages := "Seite:"
+             , field_searchfor := "Suchen nach"
+             , button_search := "Suchen"
+             , types := [ doc := "Word-Dokument"
+                        , html := "HTML-Seite"
+                        , pdf := "PDF-Datei"
+                        , txt := "Tekstdatei"
+                        , xls := "Excel-Dokument"
+                        , unknown := "Unbekannt"
+                        ]
+             ];
+    }
+    DEFAULT
+    {
+      RETURN [ unavailable := "The search engine is currently unavailable. We apologize for the inconvenience."
+             , label_results_multipage := "Results %1 - %2 of the %3 results found for '%0'"
+             , label_results_singlepage := "%3 results found for '%0'"
+             , label_results_justone := "1 result found for '%0'"
+             , label_results_none := "No results found for '%0'"
+             , label_notitle := "(No title)"
+             , label_size := "Size"
+             , label_pages := "Page:"
+             , label_modified := "Modified"
+             , label_type := "Type"
+             , field_searchfor := "Search for"
+             , button_search := "Search"
+             , types := [ doc := "Word Document"
+                        , html := "HTML Page"
+                        , pdf := "PDF File"
+                        , txt := "Text File"
+                        , xls := "Excel Document"
+                        , unknown := "Unknown"
+                        ]
+             ];
+    }
+  }
+}
+

@@ -1,0 +1,9 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="WRDAuth"
+       shortdescription="WRD authentication"
+       docorder="setup siteintegration authpages tolliumbackend background">
+  <section name="api" title="WRD authentication APIs" />
+  <section name="frontendpages" title="Frontend pages" />
+  <section name="prefiller" title="WRD prefiller for forms" />
+  <section name="saml" title="SAML integration" />
+</topic>

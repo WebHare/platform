@@ -1,0 +1,2371 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/versioning.whlib";
+LOADLIB "mod::publisher/tolliumapps/filemanager/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/internal/virtualfs-publisher.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+// Initial maximum number of trash search results
+INTEGER searchlimit := 100;
+
+STRING FUNCTION EncodeDateTime(DATETIME dt)
+{
+  RETURN FormatDateTime("%Y%m%d%H%M%S%Q", dt);
+}
+STRING FUNCTION GetPathForAppURL(INTEGER objid)
+{
+  STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = objid;
+  IF(path LIKE "*,*" OR path LIKE "*)*") //unsafe to encode, they look like params separators
+    RETURN ToString(objid);
+  RETURN path;
+}
+
+RECORD FUNCTION CopyMoveFilesAndFolders(OBJECT work, RECORD ARRAY objects, OBJECT destfolder, STRING type, OBJECT newowner)
+{
+  //printrecordarrayto(0,objects,'tree');
+  TRY
+  {
+    OBJECT mover := NEW ObjectCopyMover(type, destfolder->id);
+    mover->SetupAuditing("publisher:app");
+    FOREVERY (RECORD cmobj FROM objects)
+      mover->AddSourceById(cmobj.id);
+    mover->Go(newowner);
+
+    RETURN [ draftids := mover->drafts ];
+  }
+  CATCH(OBJECT<CopyMoveException> e)
+  {
+    AddCopyMoveExceptionToWork(work, e, destfolder);
+  }
+  RETURN [ draftids := DEFAULT INTEGER ARRAY ];
+}
+
+PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING original_title;
+  RECORD ARRAY original_menubar;
+  STRING current_ordering;
+  BOOLEAN webdav_failed;
+  INTEGER lastmovedestination;
+  STRING lastsortsettings;
+  INTEGER lastpreviewed;
+  BOOLEAN propsafterupload;
+  BOOLEAN showtemplatedev;
+  BOOLEAN foldertreevisible;
+  INTEGER filelistmode; // 0: default (multirow), 1: list (single row)
+  BOOLEAN autoselectindex;
+  BOOLEAN updatingafternavigation;
+
+  RECORD extensions;
+  RECORD sitepolicies;
+  RECORD filelistacceptdrops;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->autoselectindex := TRUE;
+    this->original_title := this->frame->title;
+    this->original_menubar := ^menubar->items;
+    this->lastmovedestination := -1;
+    this->filelistacceptdrops := ^filelist->acceptdrops;
+
+    // Initialize trash search: search for current user and deleted in the last 7 days
+
+    this->frame->flags.issysop := this->tolliumuser->HasRight("system:sysop");
+    this->frame->flags.issupervisor := this->frame->flags.issysop OR this->tolliumuser->HasRight("system:sysop");
+    this->showtemplatedev := this->frame->flags.issupervisor;
+
+    this->frame->flags.fullpublisheraccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", 0);
+    this->frame->flags.secureconnection := this->tolliumcontroller->secure;
+    this->frame->flags.showpinning := this->showtemplatedev OR this->tolliumuser->HasRight("publisher:pinning");
+    this->frame->flags.havewhconnect := this->tolliumcontroller->IsConnectEnabled();
+
+    // Generate a unique preview browser frame name (so a publisher opened in the preview browser of another publisher will
+    // not replace itself)
+    ^viewbrowser->target := "WebHarePublisherPreview" || GenerateUFS128BitId();
+
+    this->SetupFilemgrExtensions();
+
+    this->foldertreevisible := this->tolliumuser->GetRegistryKey("publisher.prefs.foldertree", TRUE);
+    this->UpdateFolderTreeVisibility();
+
+    this->filelistmode := this->tolliumuser->GetRegistryKey("publisher.prefs.filelistmode", 0);
+
+    this->ApplyUserPrefs(FALSE);
+    ^foldertree->EnsurePostInit();
+
+    if(data.calltype="direct" AND RecordExists(data.target))
+    {
+      IF (CellExists(data.target, "folderid"))
+      {
+        OBJECT obj := OpenWHFSObject(data.target.folderid);
+        IF (data.target.folderid IN [ 0, -1 ]                                                     // Publisher root, trash
+            OR (ObjectExists(obj)                                                                 // Object still exists
+                AND obj->isactive                                                                 // and is not deleted
+                AND (NOT CellExists(data.target, "foldercreationdate")                            // and has the correct creationdate
+                     OR data.target.foldercreationdate = EncodeDateTime(obj->creationdate))))
+        {
+          ^foldertree->value := data.target.folderid;
+        }
+        ELSE
+        {
+          // The folder id does not point to an existing folder or it points to an object with a different creationdate
+          //ADDME: Offer to delete the start menu shortcut?
+          ^foldertree->value := 0;
+          this->RunMessageBox(".shortcutoutdated");
+        }
+      }
+      ELSE IF (CellExists(data.target, "fileid"))
+      {
+        this->SelectObject(data.target.fileid);
+      }
+    }
+    ELSE IF(data.calltype="direct" AND Length(data.params)>=1) // Published started from the URL and a possible id or whfspath specified as parameter?
+    {
+      IF(Length(data.params) >= 1)
+      {
+        this->TrySelectObject(data.params[0]);
+      }
+    }
+  }
+
+  MACRO OnShow()
+  {
+    IF(NOT RecordExists(^foldertree->selection)) //still nothing set...
+      ^foldertree->value := 0; //select the root
+
+    STRING lastsortvalue := this->tolliumuser->GetRegistryKey("publisher.prefs.filelistsort", "");
+    IF(lastsortvalue != ^sortorderselect->value AND ^sortorderselect->IsValidValue(lastsortvalue))
+      ^sortorderselect->value := lastsortvalue;
+    ELSE
+      this->OnSortOrderSelectChange(); //this must run after restoring component state...
+
+    this->UpdateActions();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Goto things
+  //
+  MACRO DoGoToAnything()
+  {
+    this->RunGoto("");
+  }
+
+  MACRO TrySelectObject(STRING path)
+  {
+    STRING remainder := ^foldertree->GotoPath(path);
+    IF(remainder="")//Handled!
+      RETURN;
+    IF(remainder != "" AND remainder NOT LIKE "*/*" AND ^foldertree->value != 0) //we entered a folder..
+    {
+      ^filelist->selection := SELECT * FROM ^filelist->rows WHERE ToUppercase(name) = ToUppercase(remainder);
+      IF(RecordExists(^filelist->selection))
+        this->frame->focused := ^filelist;
+      RETURN;
+    }
+    this->RunGoto(path);
+  }
+
+  MACRO RunGoto(STRING suggestwhere)
+  {
+    OBJECT gotoobject := this->LoadScreen("/screens/filemgrdialogs.xml#gotoobject", CELL[ suggestwhere ]);
+    IF (gotoobject->RunModal() = "ok")
+    {
+      //Make sure publisher is fully updated BEFORE we show any feedback
+      this->SelectObject(gotoobject->id);
+      IF(gotoobject->remarks != "")
+        this->RunSimpleScreen("info", gotoobject->remarks);
+    }
+  }
+
+  // used in initialization (data.params[0]) and by the 'Go to URL / id / site' dialogs
+  // In initialization when an objectid is specified through the URL or SendApplicationMessage
+  // the existence of the specified objid is not tested.
+  BOOLEAN FUNCTION SelectObject(INTEGER objid)
+  {
+    OBJECT obj := OpenWHFSObject(objid);
+    IF(NOT ObjectExists(obj))
+      RETURN FALSE;
+
+    IF(NOT obj->isactive)
+    {
+      //Try to locate it in the reyclebin
+      RECORD objinfo := SELECT id,parent FROM system.fs_objects WHERE id = objid AND IsRecycleBinWHFSPath(whfspath);
+      IF(RecordExists(objinfo)) //FIXME verify whether we can see this recyclebin
+      {
+        ^foldertree->value := 0; //force it to fill
+        ^foldertree->selection := RECORD(SELECT * FROM ^foldertree->rows WHERE contentmode = "recyclebin");
+        ^filelist->SetFilterResult([[ id := objid, parent := objinfo.parent]]);
+        ^filelist->SetValueIfValid([objid]);
+        this->frame->focused := ^filelist;
+        RETURN TRUE;
+      }
+    }
+
+    IF(NOT ObjectExists(obj) OR (obj->isfolder AND obj->type != 1)) //treat foreign folders as files (we need to select their parent)
+    {
+      ^foldertree->SetValueIfValid(objid);
+      this->frame->focused := ^foldertree;
+      RETURN ^foldertree->value = objid;
+    }
+    ELSE
+    {
+      ^foldertree->value := obj->parent;
+      this->frame->focused := ^filelist;
+      ^filelist->value := [INTEGER(objid)];
+      RETURN objid IN ^filelist->value;
+    }
+  }
+
+  MACRO WrapExecuteFromFolderTree(MACRO PTR handler, BOOLEAN multiple)
+  {
+    IF(multiple)
+      handler([INTEGER(^foldertree->value)]);
+    ELSE
+      handler(^foldertree->value);
+
+    ^foldertree->ReloadOverview();
+    ^filelist->ReloadOverview();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+
+  MACRO WrapExecuteFromFileList(MACRO PTR handler, BOOLEAN multiple)
+  {
+    IF(multiple)
+      handler(^filelist->value);
+    ELSE
+      handler((^filelist->value CONCAT [0])[0]); // Default to 0 when no selection
+
+    ^foldertree->ReloadOverview();
+    ^filelist->ReloadOverview();
+  }
+
+  MACRO WrapWindowOpenFromFolderTree(MACRO PTR handler, BOOLEAN multiple, OBJECT openhandler)
+  {
+    IF(multiple)
+      handler(openhandler, [INTEGER(^foldertree->value)]);
+    ELSE
+      handler(openhandler, ^foldertree->value);
+  }
+
+  MACRO WrapWindowOpenFromFileList(MACRO PTR handler, BOOLEAN multiple, OBJECT openhandler)
+  {
+    IF(multiple)
+      handler(openhandler, ^filelist->value);
+    ELSE
+      handler(openhandler, ^filelist->value[0]);
+  }
+
+  RECORD ARRAY FUNCTION ConstructMenuItems(RECORD ARRAY items, OBJECT receivingmenu)
+  {
+    FOREVERY(RECORD newmenuitem FROM items)
+    {
+      STRING ARRAY requireflags;
+      IF(newmenuitem.onlyinsidesite)
+        requireflags := requireflags CONCAT ["iswithinsite"];
+      IF(newmenuitem.onlyoutsidesite)
+        requireflags := requireflags CONCAT ["!iswithinsite"];
+      IF(newmenuitem.onlyfiles)
+        requireflags := requireflags CONCAT ["!isfolder"];
+      IF(newmenuitem.onlyfolders)
+        requireflags := requireflags CONCAT ["isfolder"];
+      IF(newmenuitem.onlywritable)
+        requireflags := requireflags CONCAT ["canwrite"];
+
+      STRING actioncell;
+      MACRO PTR folderactionptr;
+      MACRO PTR fileactionptr;
+
+      IF (newmenuitem.requiresselection)
+      {
+        IF(newmenuitem.onwindowopen != DEFAULT MACRO PTR)
+        {
+          actioncell := "onwindowopen";
+          folderactionptr := PTR this->WrapWindowOpenFromFolderTree(newmenuitem.onwindowopen, newmenuitem.allowmultiple, #1);
+          fileactionptr := PTR this->WrapWindowOpenFromFileList(newmenuitem.onwindowopen, newmenuitem.allowmultiple, #1);
+        }
+        ELSE
+        {
+          actioncell := "onexecute";
+          folderactionptr := PTR this->WrapExecuteFromFolderTree(newmenuitem.onexecute, newmenuitem.allowmultiple);
+          fileactionptr := PTR this->WrapExecuteFromFileList(newmenuitem.onexecute, newmenuitem.allowmultiple);
+        }
+
+        RECORD ARRAY enableons;
+
+        IF(NOT newmenuitem.onlyfiles)
+          INSERT CellInsert([ source := ^foldertree
+                            , checkflags := requireflags
+                            , min := newmenuitem.requiresselection ? 1 : 0
+                            , max := 1
+                            ], actioncell, folderactionptr)
+                 INTO enableons AT END;
+
+        INSERT CellInsert([ source := ^filelist
+                          , checkflags := requireflags
+                          , min := newmenuitem.requiresselection ? 1 : 0
+                          , max := newmenuitem.allowmultiple ? 2147483647 : 1
+                          ], actioncell, fileactionptr)
+               INTO enableons AT END;
+
+        newmenuitem.__action->enableon := enableons;
+      }
+      ELSE
+      {
+        newmenuitem.__action->onexecute := newmenuitem.onexecute;
+      }
+      items[#newmenuitem] := newmenuitem;
+
+      INSERT [ menuitem := newmenuitem.__menuitem
+             , isdivider := FALSE
+             ] INTO receivingmenu->items AT END;
+    }
+
+    RETURN items;
+  }
+
+  MACRO UpdateActions()
+  {
+    RECORD treefolder := ^foldertree->selection; //the folder selected in the tree
+    IF(RecordExists(treefolder))
+      this->tolliumcontroller->applicationtarget := [ folderid := treefolder.id, foldercreationdate := EncodeDateTime(treefolder.creationdate) ];
+    ELSE
+      this->tolliumcontroller->applicationtarget := DEFAULT RECORD;
+
+    IF(RecordExists(treefolder))
+    {
+      this->frame->title := treefolder.id = 0 ? this->original_title : treefolder.name;
+      ^restore_menu->visible := treefolder.id = -1 /*trash*/ OR (treefolder.id > 0 AND NOT treefolder.isactive);
+    }
+    ELSE
+    {
+      this->frame->title := this->original_title;
+    }
+
+    // Get root folders
+    RECORD ARRAY folderpath := SELECT rowkey
+                                    , title := name
+                                    , indent := 0
+                                 FROM ^foldertree->rows
+                                WHERE level = 0;
+
+    RECORD ARRAY path;
+    RECORD highestfolder;
+    RECORD folderpathfolder := ^foldertree->selection;
+
+    // Discover the path to the highest parent
+    WHILE (RecordExists(folderpathfolder))
+    {
+      highestfolder := folderpathfolder;
+      INSERT [ rowkey := folderpathfolder.id, title := folderpathfolder.name ] INTO path AT 0;
+      folderpathfolder := ^foldertree->GetParentRow(folderpathfolder.id);
+    }
+
+    // Do we have the highest folder? If so, where in the current folderpath is it located?
+    INTEGER pos := RecordExists(highestfolder)
+        ? (SELECT AS INTEGER #folderpath + 1 FROM folderpath WHERE rowkey = highestfolder.id) - 1
+        : -1;
+
+    // If we already have it, delete it (will be readded by the path). If not, append the path at
+    // the end (shouldn't happen, but be safe anyway)
+    IF (pos != -1)
+      DELETE FROM folderpath AT pos;
+    ELSE
+      pos := LENGTH(folderpath);
+
+    // Insert the whole path, correctly indented
+    FOREVERY (RECORD pathitem FROM path)
+      INSERT CellInsert(pathitem, "indent", #pathitem) INTO folderpath AT pos + #pathitem;
+
+    //create the folder path menu, to be filled - ADDME recycle menu items! ADDME the current implementation which updates menuitem titles, constantly updates the full frame
+    OBJECT folderpathmenu := this->CreateTolliumComponent("menuitem");
+    FOREVERY(RECORD pathitem FROM folderpath)
+    {
+      OBJECT menuitem := this->CreateTolliumComponent("menuitem");
+      menuitem->title := pathitem.title;
+      menuitem->checked := pathitem.rowkey = ^foldertree->value;
+
+      menuitem->indent := pathitem.indent;
+
+      OBJECT menuaction := this->CreateTolliumComponent("action");
+      menuaction->onexecute := PTR this->DoPathChange(pathitem.rowkey);
+      menuitem->action := menuaction;
+
+      folderpathmenu->InsertMenuItemAfter(menuitem,DEFAULT OBJECT, FALSE);
+    }
+
+    // if we already have a folderpath menu, kill it
+    IF (ObjectExists(^folderpath->menu))
+      ^folderpath->menu->DeleteComponent();
+
+    // assign the new menu. Folderpath is the button above the tree, folderpath2 is the button above the list, if the tree is hidden
+    ^folderpath->menu := folderpathmenu;
+    ^folderpath2->menu := folderpathmenu;
+
+    BOOLEAN orderingenabled := ^foldertree->GetFolderSettings().ordering = "orderable";
+    BOOLEAN canorder := RecordExists(treefolder) AND treefolder.canwrite AND treefolder.isactive AND NOT treefolder.islockedsite AND orderingenabled AND ^sortorderselect->value = "ordering";
+    ^movetotop->enabled := canorder;
+    ^moveup->enabled := canorder;
+    ^movedown->enabled := canorder;
+    ^movetobottom->enabled := canorder;
+    ^resetordering->enabled := canorder;
+    ^setorderingby->enabled := canorder;
+    this->frame->flags.cancreate := RecordExists(treefolder) AND treefolder.canwrite;
+
+    ^foldertreeproxy->rows := RecordExists(treefolder) ? [ treefolder ] : DEFAULT RECORD ARRAY;
+    ^foldertreeproxy->flags := ^foldertree->flags;
+    ^filelist->acceptdrops.accepttypes := SELECT * FROM this->filelistacceptdrops.accepttypes WHERE canorder OR 'position' NOT IN locations;
+  }
+
+  MACRO SetupFilemgrExtensions() //Setup the module-based extensions
+  {
+    this->extensions := [ newmenuitems := DEFAULT RECORD ARRAY
+                        , actionsmenuitems := DEFAULT RECORD ARRAY
+                        ];
+
+    INTEGER insertpos := SELECT AS INTEGER #items FROM ^gotomenu->items WHERE isdivider;
+
+    FOREVERY(RECORD ext FROM GetApplicableExtensions(this->tolliumuser, 'filemgrextensions'))
+    {
+      FOREVERY(RECORD action FROM GetExtensionActions(this, ext, "actions"))
+      {
+        IF(action.windowopenmacro != "")
+        {
+          action.onwindowopen := action.requiresselection ? PTR this->ExecuteFilemgrWOExtension(action, #1, #2)
+                                                          : PTR this->ExecuteFilemgrWOExtension(action, #1, 0);
+        }
+        ELSE
+        {
+          action.onexecute := action.requiresselection ? PTR this->ExecuteFilemgrExtension(action, #1)
+                                                       : PTR this->ExecuteFilemgrExtension(action, 0);
+        }
+        this->extensions.actionsmenuitems := this->extensions.actionsmenuitems
+                                             CONCAT
+                                             this->ConstructMenuItems([action], ^utilitiesmenu);
+      }
+      FOREVERY(RECORD addroot FROM ext.addrootitems)
+      {
+        IF(addroot.gotoitem = "")
+          CONTINUE;
+
+        OBJECT action := this->CreateTolliumComponent("action");
+        action->onexecute := PTR this->DoGoToObject(addroot.modulekey);
+        IF (addroot.gotoshortcut != "")
+          action->shortcut := addroot.gotoshortcut;
+
+        OBJECT menuitem := this->CreateTolliumComponent("menuitem");
+        menuitem->title := GetTid(addroot.gotoitem);
+        menuitem->action := action;
+
+        INSERT [ menuitem := menuitem
+               , isdivider := FALSE
+               ] INTO ^gotomenu->items AT insertpos;
+        insertpos := insertpos + 1;
+      }
+    }
+  }
+
+  MACRO ExecuteFilemgrWOExtension(RECORD action, OBJECT openhandler, VARIANT selection)
+  {
+    RECORD data;
+    IF(action.requiresselection)
+      IF(action.allowmultiple)
+        data := [ objectids := selection ];
+      ELSE
+        data := [ objectid := selection ];
+
+    MakeFunctionPtr(action.windowopenmacro)(this, openhandler, data);
+  }
+  MACRO ExecuteFilemgrExtension(RECORD action, VARIANT selection)
+  {
+    RECORD data;
+    IF(action.requiresselection)
+      IF(action.allowmultiple)
+        data := [ objectids := selection ];
+      ELSE
+        data := [ objectid := selection ];
+
+    IF(action.screen != "")
+      this->RunScreen(action.screen, data);
+    ELSE IF(action.startmacro != "")
+      MakeFunctionPtr(action.startmacro)(this, data);
+  }
+
+  BOOLEAN FUNCTION UpdateExtensionVisibility(RECORD ARRAY items)
+  {
+    BOOLEAN anyvisibleaction := FALSE;
+    FOREVERY(RECORD menuitem FROM items)
+    {
+      BOOLEAN setvisible := (this->showtemplatedev = TRUE OR menuitem.onlydevelopers = FALSE)
+                             AND (this->frame->flags.fullpublisheraccess OR menuitem.onlyfullaccess = FALSE);
+
+      IF (ObjectExists(menuitem.__menuitem))
+        menuitem.__menuitem->visible := setvisible;
+
+      IF(setvisible)
+        anyvisibleaction := TRUE;
+    }
+    RETURN anyvisibleaction;
+  }
+
+  MACRO ApplyUserPrefs(BOOLEAN reload)
+  {
+    this->propsafterupload := this->tolliumuser->GetRegistryKey("publisher.prefs.propsafterupload", FALSE);
+    ^filelist->groupfolders := this->tolliumuser->GetRegistryKey("publisher.prefs.groupfolders", TRUE);
+    ^filelist->hideexternal := NOT this->tolliumuser->GetRegistryKey("publisher.prefs.showforeignfolders", FALSE);
+    ^togglepreviewitem->checked := NOT this->tolliumuser->GetRegistryKey("publisher.prefs.hidepreview", FALSE);
+    ^converttositemenuitem->visible := this->frame->flags.issysop;
+
+    IF(reload)
+    {
+      ^foldertree->ReloadOverview();
+      ^filelist->ReloadOverview();
+    }
+
+    this->UpdateExtensionVisibility(this->extensions.newmenuitems);
+    ^previewbrowserpart->visible := ^togglepreviewitem->checked;
+    ^utilitiesmenu->visible := this->UpdateExtensionVisibility(this->extensions.actionsmenuitems) OR this->frame->flags.issupervisor;
+
+    this->frame->forcemenubar := this->tolliumuser->GetRegistryKey("publisher.prefs.showmenubar", FALSE);
+    RECORD ARRAY menubar := this->original_menubar;
+    IF(this->frame->forcemenubar)
+      DELETE FROM menubar WHERE ObjectExists(menuitem) AND menuitem->action IN OBJECT[ ^prefs, ^addtostartmenu, ^help, ^exit ];
+    ELSE
+      DELETE FROM menubar AT 0;
+
+    ^menubar->items := menubar;
+  }
+
+  MACRO DoTogglePreview()
+  {
+    this->tolliumuser->SetRegistryKey("publisher.prefs.hidepreview", NOT this->tolliumuser->GetRegistryKey("publisher.prefs.hidepreview", FALSE));
+    this->ApplyUserPrefs(TRUE);
+  }
+
+  STRING FUNCTION GetWebdavPathForObject(INTEGER obj)
+  {
+    // Calculate the user visible webdav relative path.
+    STRING destpath;
+    INTEGER current := obj;
+    WHILE (current != 0)
+    {
+      RECORD info :=
+          SELECT id
+               , name
+               , parent
+            FROM system.fs_objects
+           WHERE id = current;
+
+      // File removed?
+      IF (NOT RecordExists(info))
+        RETURN "";
+
+      IF (NOT this->tolliumuser->HasRightOn("system:fs_browse", info.parent))
+      {
+        /* The root folder can have renamed items (when the user has root rights on multiple folders with
+           the same name. Use GetInnerObjectListing to get the names.
+        */
+        RECORD ARRAY rootitems := GetWHFSInfo().roots;
+
+        STRING rootitemname :=
+            SELECT AS STRING name
+              FROM rootitems
+             WHERE id = current;
+
+        IF (rootitemname = "")
+          RETURN "";
+
+        destpath := "/" || rootitemname || destpath;
+        BREAK;
+      }
+
+      destpath := "/" || info.name || destpath;
+      current := info.parent;
+    }
+    RETURN destpath;
+  }
+
+  MACRO FolderTreePropsTail(RECORD obj)
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    RunEditFolderHooks(DEFAULT RECORD, obj.id);
+    work->Finish();
+    ^foldertree->ReloadOverview();
+    this->UpdateCurrentlyPreviewed();; // Update file list and preview
+  }
+
+  /*
+   * Private functions
+   */
+
+  MACRO AddFolderToStartMenu(RECORD folder)
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    STRING title := folder.name;
+    IF (this->tolliumcontroller->FavoriteExists(title))
+    {
+      RECORD site := SELECT name FROM system.sites WHERE id = folder.parentsite;
+      IF (RecordExists(site))
+        title := title || " (" || site.name || ")";
+      INTEGER num := 1;
+      STRING basetitle := title;
+      WHILE (this->tolliumcontroller->FavoriteExists(title))
+      {
+        num := num + 1;
+        title := basetitle || " (" || num || ")";
+      }
+    }
+    IF (NOT this->tolliumcontroller->AddFavorite("publisher:app",
+                                                 [ folderid := folder.id, foldercreationdate := EncodeDateTime(folder.creationdate) ],
+                                                 DEFAULT RECORD,
+                                                 title,
+                                                 folder.pvt_iconname))
+    {
+      this->RunMessageBox("tollium:commondialogs.alreadyaddedtostartmenu");
+      work->Cancel();
+      RETURN;
+    }
+    work->Finish();
+    this->RunMessageBox(".addedtostartmenu");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List setup & callbacks
+  //
+
+  MACRO OnTreeSelect()
+  {
+    RECORD selfolder := ^foldertree->selection;
+    this->UpdateFileListMode();
+    this->UpdateActions();
+
+    IF (RecordExists(selfolder) AND selfolder.parentsite != 0)
+      ^versioninglistener->masks := [ "system:versionevent." || selfolder.parentsite || ".*" ];
+    ELSE
+      ^versioninglistener->masks := DEFAULT STRING ARRAY;
+
+    INTEGER selvalue := RecordExists(selfolder) ? selfolder.id : -2;
+    ^filelist->contentmode := RecordExists(selfolder) ? selfolder.contentmode : "";
+    this->frame->flags.outsiderecyclebin := ^filelist->contentmode != "recyclebin";
+    this->frame->flags.searchresults := ^filelist->contentmode = "searchresults";
+
+    IF (this->autoselectindex)
+    {
+      RECORD indexdoc := SELECT * FROM ^filelist->rows WHERE isindexdoc;
+      IF (RecordExists(indexdoc))
+        ^filelist->value := [ INTEGER(indexdoc.id) ];
+    }
+
+    this->UpdateCurrentlyPreviewed();
+  }
+
+  MACRO OnListSelect()
+  {
+    this->UpdateCurrentlyPreviewed();
+  }
+
+  MACRO OnListStatusClick(RECORD file)
+  {
+    IF (file.isfolder)
+      RETURN;
+
+    IF ((SELECT AS INTEGER outputweb FROM system.sites WHERE id = file.parentsite) = 0)
+    {
+      this->RunSimpleScreen("info", GetTid("publisher:publicationstatus.notpublished"));
+      RETURN;
+    }
+
+    INTEGER estimated_time := -1;
+    OBJECT work := this->BeginUnvalidatedWork();
+    // Get an up-to-date file record
+    RECORD statusfile := SELECT id, published, lastpublishtime, lastpublishdate FROM system.fs_objects WHERE id = file.id;
+    INTEGER status:= GetErrorFromPublished(statusfile.published);
+    IF (status >= 1 AND status <= 100)
+    {
+      // This code is copied from the getRemainingTime function in web/files/props.shtml
+      RECORD measure := __PUBLISHER_GETFILEPUBLISHTIME_INTERNAL(system.fs_objects, statusfile.id);
+      IF (RecordExists(measure)) // Status info available
+      {
+        IF (measure.total != 0                                                  // The file is in the queue
+            AND NOT(measure.measured = 0 OR measure.measured < measure.total/2) // Enough measurements to give a sensible estimation
+            AND measure.workers > 1)                                            // Enough workers to estimate reminaing time
+        {
+          // Divide the total number of msecs by workers-1. This is an estimation!
+          INTEGER totaltime := measure.totaltime / (measure.workers);
+
+          // Add the time it will take to publish the current document
+          totaltime := totaltime + statusfile.lastpublishtime;
+
+          INTEGER percentage_measured := (measure.total * 100) / measure.measured;
+          estimated_time := (( (totaltime+500) / 1000) * percentage_measured) / 100;
+          IF (estimated_time < 1)
+            estimated_time := 1;
+        }
+      }
+    }
+    work->Cancel();
+
+    //ADDME: Make a dedicated status screen, which could also display last publication time, remaining publication time, etc.
+    //       Maybe this screen could display live, updating data?
+    STRING publishedat := this->tolliumuser->FormatDateTime(statusfile.lastpublishdate, "minutes", TRUE, TRUE);
+    STRING statustext := GetFileStatusFromPublished(statusfile.published, TRUE, publishedat, DEFAULT RECORD).text;
+    IF (estimated_time >= 0)
+      statustext := statustext || "\n" || this->GetTid(".messageboxes.remainingpublishtime", this->tolliumuser->FormatTimespan(0, estimated_time*1000));
+    this->RunSimpleScreen("info", statustext);
+  }
+
+  RECORD FUNCTION GetCacheableSiteHighlights()
+  {
+    INTEGER ARRAY consilio_folders := SELECT AS INTEGER ARRAY DecodeHSON(data).folder FROM consilio.contentsources WHERE publishercontent AND tag NOT LIKE "$consilio$deleted$*";
+    INTEGER ARRAY indexed_sites;
+    FOREVERY (RECORD site FROM SELECT id FROM system.sites)
+    {
+      INTEGER id := site.id;
+      WHILE (id > 0)
+      {
+        IF (id IN consilio_folders)
+        {
+          INSERT site.id INTO indexed_sites AT END;
+          BREAK;
+        }
+        id := SELECT AS INTEGER parent FROM system.fs_objects WHERE COLUMN id = VAR id;
+      }
+    }
+    INTEGER ARRAY published_sites := SELECT AS INTEGER ARRAY id FROM system.sites WHERE outputweb != 0;
+
+    RETURN
+        [ ttl :=  5 * 60 * 1000
+        , eventmasks := [ "consilio:contentsourceschanged"
+                        , "system:whfs.sitemeta.*"
+                        ]
+        , value :=
+              [ indexed_sites :=    indexed_sites
+              , published_sites :=  published_sites
+              ]
+        ];
+  }
+
+  BOOLEAN FUNCTION IsVersionedObject(RECORD item)
+  {
+    IF (item.parentsite = 0)
+      RETURN FALSE;
+
+    STRING policyid := ToString(item.parentsite);
+    IF (NOT CellExists(this->sitepolicies, policyid))
+      this->sitepolicies := CellInsert(this->sitepolicies, policyid, GetVersioningPolicyForSite(item.parentsite));
+    OBJECT policy := GetCell(this->sitepolicies, policyid);
+    IF (NOT ObjectExists(policy))
+      RETURN FALSE;
+    RETURN item.id IN policy->GetVersionedObjects([ INTEGER(item.id) ]);
+  }
+
+  RECORD ARRAY FUNCTION FilterListItems(RECORD ARRAY items, OBJECT list DEFAULTSTO DEFAULT OBJECT)
+  {
+    items := SELECT *
+                  , isfilelistitem := TRUE
+                  , draginfo := RecordExists(draginfo) ? [ type := draginfo.type
+                                                         , data := CellInsert(draginfo.data, "isfilelistitem", TRUE)
+                                                         ]
+                                                       : DEFAULT RECORD
+               FROM this->FilterTreeItems(items, list);
+    RETURN items;
+  }
+
+  RECORD ARRAY FUNCTION FilterTreeItems(RECORD ARRAY items, OBJECT list DEFAULTSTO DEFAULT OBJECT)
+  {
+    // Cache indexdoc of current folder
+    RECORD ftsel := ^foldertree->selection;
+    INTEGER sel_indexdoc := RecordExists(ftsel) ? (SELECT AS INTEGER indexdoc FROM system.fs_objects WHERE id = ftsel.id): 0;
+
+    RECORD highlights := GetAdhocCached([ type := "sitehighlights" ], PTR this->GetCacheableSiteHighlights);
+
+    INTEGER ARRAY indexed_sites := highlights.indexed_sites;//SELECT AS INTEGER ARRAY sites.id FROM system.sites WHERE sites.root IN consilio_folders;
+    INTEGER ARRAY published_sites := highlights.published_sites;//SELECT AS INTEGER ARRAY id FROM system.sites WHERE outputweb != 0;
+
+    BOOLEAN issysop := this->frame->flags.issysop;
+    items := SELECT TEMPORARY canedit := issysop OR type NOT IN VAR whconstant_whfstypes_scriptable // Only sysops can edit scriptable types
+                  , *
+                  , canedit :=              canedit
+                  , ispublished :=          parentsite IN published_sites AND GetOncePublishedFromPublished(published)
+                  , ispublish :=            parentsite IN published_sites AND IsPublish(published)
+                  , isindexed :=            parentsite IN indexed_sites
+                  , isindexdoc :=           id = sel_indexdoc
+                  , isversioned :=          this->IsVersionedObject(items) OR isversionarchive
+                  , canpublish :=           isactive AND ((isfolder AND parentsite IN published_sites) OR IsPublish(published))
+                  , canpublishrecursive :=  isactive AND isfolder AND (parentsite != 0 OR issysop)
+                  , canchangetype :=        canwrite AND type != 1 AND NOT ispinned
+                  , canmoveto :=            canadd OR contentmode = "recyclebin"
+                  , isoffice :=             type=4
+                  , canopen :=              contentmode != "recyclebin" AND (canedit OR isfolder)
+               FROM items;
+
+    RETURN items;
+  }
+
+  MACRO UpdateFolderTreeVisibility()
+  {
+    ^folderpart->visible := this->foldertreevisible;
+    ^foldertreeproxy->passthrough := this->foldertreevisible ? ^foldertree : DEFAULT OBJECT;
+    ^folderup->visible := NOT this->foldertreevisible;
+    ^showpart->visible := NOT this->foldertreevisible;
+    ^folderpath2->visible := NOT this->foldertreevisible;
+    ^folderbuttonsfilespacegroup->borders.right := NOT this->foldertreevisible;
+    IF (NOT IsDatabaseReadOnly())
+      this->tolliumuser->DelayedSetRegistryKey("publisher.prefs.foldertree", this->foldertreevisible);
+  }
+
+  MACRO UpdateFileListMode()
+  {
+    SWITCH (this->filelistmode)
+    {
+      CASE 1 // Single row list view
+      {
+        ^filelist->rowlayout := "onerow";
+      }
+      DEFAULT // Multi-row list view
+      {
+        ^filelist->rowlayout := "tworows";
+        this->filelistmode := 0; // Reset from unknown value
+      }
+    }
+
+    //this->enablesortingbutton->pressed := ^filelist->sortcolumn = "ordering";
+    ^sortbuttonsgroup->visible := ^filelist->sortcolumn = "ordering";
+
+    //^filelist->columnheaders := ^filelist->sortcolumn != "ordering";
+    ^filelistmulti->pressed := this->filelistmode = 0;
+    ^filelistsingle->pressed := this->filelistmode = 1;
+
+    RECORD sortsettings := CELL[ sortoptions := ^filelist->GetSortOptions(), ordering := ^foldertree->GetFolderSettings().ordering ];
+    IF(EncodeHSON(sortsettings) != this->lastsortsettings)
+    {
+      this->lastsortsettings := EncodeHSON(sortsettings);
+
+      RECORD settings := ^foldertree->GetFolderSettings();
+      IF (settings.ordering = "none")
+        DELETE FROM sortsettings.sortoptions WHERE ordered;
+      ELSE IF (sortsettings.sortoptions[0].ordered) // The first option is the ordered option
+        INSERT [ rowkey := "--divider--", isdivider := TRUE ] INTO sortsettings.sortoptions AT 1;
+
+
+      STRING newsortoption := ^sortorderselect->value;
+      IF (settings.ordering = "searchresults")
+        newsortoption := sortsettings.sortoptions[0].rowkey; // Order search results by relevance initially
+      ELSE
+        newsortoption := SELECT AS STRING rowkey
+                            FROM sortsettings.sortoptions
+                        ORDER BY rowkey = newsortoption DESC //prefer the previously selected option
+                               , rowkey IN ["name","name_noicon"] DESC //then prefer the name field
+                               , rowkey = "title" DESC; //and then title
+
+      ^sortorderselect->options := sortsettings.sortoptions;
+      ^sortorderselect->value := newsortoption;
+    }
+
+    IF (NOT IsDatabaseReadOnly())
+    {
+      this->tolliumuser->DelayedSetRegistryKey("publisher.prefs.filelistmode", this->filelistmode);
+      this->tolliumuser->DelayedSetRegistryKey("publisher.prefs.filelistsort", ^sortorderselect->value);
+    }
+  }
+
+  MACRO UpdateCurrentlyPreviewed()
+  {
+    RECORD ARRAY fileselection := ^filelist->selection;
+    //Print("Updating preview: " || Detokenize((SELECT AS STRING ARRAY ToString(id) FROM fileselection), ",") || "\n");
+    IF(Length(fileselection) > 1)
+      ^previewbrowser->SetPreview(0, this->updatingafternavigation);
+    ELSE IF(Length(fileselection) = 1)
+      ^previewbrowser->SetPreview(^filelist->selection[0].id, this->updatingafternavigation);
+    ELSE
+      ^previewbrowser->SetPreview(^foldertree->value, this->updatingafternavigation);
+  }
+
+   // ---------------------------------------------------------------------------
+  //
+  // Helper functions - misc action helpers
+  //
+
+  INTEGER FUNCTION GetCurrentlySelectedFSobject()
+  {
+    IF(^filelist->IsFocused())
+      RETURN Length(^filelist->selection)=1 ? ^filelist->value[0] : 0;
+    RETURN ^foldertree->value;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Misc. callbacks
+  //
+
+  MACRO OnPreviewUrlChange(STRING url)
+  {
+    BOOLEAN updatingafternavigation := this->updatingafternavigation;
+    TRY
+    {
+      this->updatingafternavigation := TRUE;
+
+      //Print("Incoming previewmessage:" || data.type || " " || data.uri || "\n");
+      RECORD findit := LookupPublisherURL(url);
+      IF (findit.folder = 0 OR NOT this->tolliumuser->HasRightOn("system:fs_browse", findit.folder))
+      {
+      }
+      ELSE IF (SELECT AS BOOLEAN locked FROM system.sites WHERE id = findit.site)
+      {
+        // The URL points to a locked site
+        // Message: 'object in locked site'?
+        //ADDME: Is this even possible? Objects in locked sites don't have url's, do they?
+      }
+      ELSE IF (findit.__directfile != 0)
+      {
+        //Print("OnPreviewMessage, preview moved to file: " || findit.__directfile || ", folder: " || findit.folder || "\n");
+
+        // If the file we're about to select is the target of the currently selected internal link, assume the navigation
+        // occurred because the internal link's target was being previewed. In that case, don't select the target and treat
+        // the currently selected file as the last previewed.
+        // We don't have to check for external links, because they are not previewed directly within the previewbrowser.
+        // If the file we're about to select is within a different site than the one that is currently selected, don't
+        // select the new file (disable cross-site auto-navigation).
+        IF (Length(^filelist->value) = 1
+            AND (RecordExists(SELECT FROM system.fs_objects WHERE id = ^filelist->value[0] AND type = 19 AND filelink = findit.__directfile)
+                OR RecordExists(SELECT FROM system.fs_objects WHERE parent = ^filelist->value[0] AND type = 19 AND filelink = findit.__directfile)
+                OR NOT RecordExists(SELECT FROM system.fs_objects WHERE id = ^filelist->value[0] AND parentsite = findit.site)))
+        {
+          this->lastpreviewed := ^filelist->value[0];
+          RETURN;
+        }
+        this->lastpreviewed := findit.__directfile;
+
+        INTEGER currentfolder := ^foldertree->value;
+        INTEGER selectobject := findit.__directfile;
+        IF(currentfolder != findit.folder) //need a new folder?
+        {
+          RECORD folderinfo := SELECT indexdoc FROM system.fs_objects WHERE id=findit.folder AND parent=currentfolder;
+          IF(RecordExists(folderinfo) AND findit.__directfile IN [0,folderinfo.indexdoc]) //indexdoc selection - no real need to switch folders
+          {
+            selectobject := findit.folder;
+          }
+          ELSE
+          {
+            ^foldertree->SetValueIfValid(findit.folder);
+          }
+        }
+        IF (RecordExists(SELECT FROM ^filelist->rows WHERE rowkey = selectobject))
+          ^filelist->value := [ selectobject ];
+        //this->frame->focused := ^filelist;
+
+        //If OnSelect events get cached, we'll need to flush those or be able to add metadata to onselect requests
+      }
+    }
+    FINALLY
+    {
+      this->updatingafternavigation := updatingafternavigation;
+    }
+  }
+
+  MACRO OnVersioningEvent(RECORD ARRAY events)
+  {
+    INTEGER ARRAY versionedids :=
+        SELECT AS INTEGER ARRAY data.live_file
+          FROM events
+         WHERE event LIKE "system:versionevent.*";
+
+    // If the versioning state of any of the currently listed files or folders is changed, reload the file list
+    IF (RecordExists(SELECT * FROM ^filelist->rows WHERE id IN versionedids))
+    {
+      ^filelist->ReloadOverview();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions - meta & global settings
+  //
+
+  MACRO DoAddToStartMenuFolderTree()
+  {
+    this->AddFolderToStartMenu(^foldertree->selection);
+  }
+
+  MACRO DoAddToStartMenuFileList()
+  {
+    this->AddFolderToStartMenu(^filelist->selection[0]);
+  }
+
+  MACRO DoExit()
+  {
+    this->tolliumresult:="cancel";
+  }
+
+  MACRO DoLinkCheckTree()
+  {
+    IF (^foldertree->selection.parentsite != 0)
+    {
+      OBJECT checklinkscreen := this->LoadScreen("consilio:report.linkcheck", [ siteid := ^foldertree->selection.parentsite ]);
+      checklinkscreen->RunModal();
+    }
+  }
+
+  MACRO DoLinkCheckList()
+  {
+    IF (^filelist->selection.parentsite != 0)
+    {
+      OBJECT checklinkscreen := this->LoadScreen("consilio:report.linkcheck", [ siteid := ^filelist->selection.parentsite ]);
+      checklinkscreen->RunModal();
+    }
+  }
+
+  MACRO DoManageWHFSRegister()
+  {
+    this->RunScreen("mod::publisher/tolliumapps/config/whfsregister.xml#whfsregister");
+  }
+  MACRO DoManageContentTypes()
+  {
+    this->RunScreen("siteprofiles.xml#managectypes");
+  }
+
+  MACRO DoRecompileContentTypes()
+  {
+    DoRecompileSiteProfiles(this);
+  }
+
+  MACRO DoManageURLHistory()
+  {
+    this->LoadScreen("commondialogs/urlhistory.urlhistory", [ id := ^filelist->selection[0].id ])->RunModal();
+  }
+
+  MACRO OnReportURLHistory_foldertree(OBJECT downloadhandler)
+  {
+    STRING filename := SELECT AS STRING name FROM system.fs_objects WHERE id = ^foldertree->value;
+    filename := "URL History report for " || filename || " " || FormatDateTime("%Y-%m-%d", GetCurrentDateTime()) || ".xlsx";
+    RECORD report := WrapBlob(CreateURLHistoryReportForFolder(^foldertree->value), filename);
+    downloadhandler->SendFile(report.data, report.mimetype, filename);
+  }
+
+  MACRO OnReportURLHistory_filelist(OBJECT downloadhandler)
+  {
+    STRING filename := "URL History report for " || ^filelist->selection[0].name || " " || FormatDateTime("%Y-%m-%d", GetCurrentDateTime()) || ".xlsx";
+    RECORD report := WrapBlob(CreateURLHistoryReportForFolder(^filelist->selection[0].id), filename);
+    downloadhandler->SendFile(report.data, report.mimetype, filename);
+  }
+
+  MACRO DoNewInstance()
+  {
+    // We won't open virtual folders, they can't be transfered securely (no stable ids)
+    RECORD target;
+    IF (RecordExists(^foldertree->selection) AND NOT ^foldertree->selection.isvirtual)
+      target := [ folderid:= ^foldertree->value ];
+
+    this->tolliumcontroller->SendApplicationMessage("publisher:app", target, DEFAULT RECORD, FALSE);
+  }
+
+  MACRO DoPrefs()
+  {
+    IF(this->LoadScreen("config.prefs")->RunModal() = "ok")
+      this->ApplyUserPrefs(TRUE);
+  }
+
+  MACRO DoQueriesTree()
+  {
+    IF (^foldertree->selection.parentsite != 0)
+    {
+      OBJECT queriesscreen := this->LoadScreen("consilio:report.queries", [ siteid := ^foldertree->selection.parentsite ]);
+      queriesscreen->RunModal();
+    }
+  }
+
+  MACRO DoQueriesList()
+  {
+    IF (^filelist->selection.parentsite != 0)
+    {
+      OBJECT queriesscreen := this->LoadScreen("consilio:report.queries", [ siteid := ^filelist->selection.parentsite ]);
+      queriesscreen->RunModal();
+    }
+  }
+
+  MACRO DoReportSiteSummary()
+  {
+    this->LoadScreen("sitessummary.xml#sitessummary")->RunModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions - interface configuration action helpers
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions - interface configuration
+  //
+
+  MACRO DoToggleFolderTree()
+  {
+    // Toggle the folder part visibility
+    this->foldertreevisible := NOT this->foldertreevisible;
+    this->UpdateFolderTreeVisibility();
+  }
+
+  MACRO DoShowFolderTree()
+  {
+    this->foldertreevisible := TRUE;
+    this->UpdateFolderTreeVisibility();
+  }
+
+  MACRO DoHideFolderTree()
+  {
+    this->foldertreevisible := FALSE;
+    this->UpdateFolderTreeVisibility();
+  }
+
+  MACRO DoSetFileListMulti()
+  {
+    this->filelistmode := 0;
+    this->UpdateFileListMode();
+  }
+
+  MACRO DoSetFileListSingle()
+  {
+    this->filelistmode := 1;
+    this->UpdateFileListMode();
+  }
+
+  MACRO OnSortOrderChange()
+  {
+    ^sortorderselect->value := ^filelist->sortcolumn;
+    this->UpdateFileListMode();
+  }
+
+  MACRO OnSortOrderSelectChange()
+  {
+    ^filelist->sortcolumn := ^sortorderselect->value;
+    ^filelist->sortascending := TRUE;
+    this->UpdateFileListMode();
+    this->UpdateActions();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions - navigation
+  //
+
+  MACRO DoGoUp()
+  {
+    RECORD setselection := ^foldertree->GetParentRow(^foldertree->value);
+    IF(RecordExists(setselection))
+    {
+      INTEGER curfolder := ^foldertree->value;
+      this->autoselectindex := FALSE;
+      ^foldertree->selection := setselection;
+      this->autoselectindex := TRUE;
+      ^filelist->value := [ curfolder ];
+    }
+  }
+
+  MACRO DoGoToObject(STRING findmodulekey)
+  {
+    ^foldertree->selection := SELECT * FROM ^foldertree->rows WHERE modulekey = findmodulekey;
+  }
+
+  MACRO DoGoToResult()
+  {
+    RECORD target := [ fileid := ^filelist->selection.id ];
+    this->tolliumcontroller->SendApplicationMessage("publisher:app", target, DEFAULT RECORD, FALSE);
+  }
+
+  /// Changes the current selected folder, used to implement path menu actions
+  MACRO DoPathChange(INTEGER newfolder)
+  {
+    IF (^foldertree->value != newfolder)
+      ^foldertree->value := newfolder;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper function - files and folder action helpers
+  //
+
+  MACRO CreateTheArchive(RECORD selection)
+  {
+    INTEGER savelocation;
+    OBJECT screen := this->LoadScreen("filemgrdialogs.createarchivefile",
+          [ /*fs_objects   := ^filelist->selection
+          , */folder       := selection
+          , savelocation := (SELECT AS INTEGER parent FROM system.fs_objects WHERE id = selection.id) // If 0
+          , defaulttodownload := selection.issite
+          ]);
+
+    IF (screen->RunModal() = "ok")
+    {
+      ^filelist->ReloadOverview();
+
+      IF (screen->archiveid != 0)
+        ^filelist->value := [ INTEGER(screen->archiveid) ];
+    }
+  }
+
+  /** Copy/moves/create links a selection to a destination, selected within this function
+      @param selection
+      @param type Copy/move type: 'copy', 'move', 'internallink', 'contentlink'
+      @return Whether operaction succeeded
+  */
+  BOOLEAN FUNCTION CopyMoveObjects(RECORD ARRAY selection, STRING type)
+  {
+    IF (Length(selection) = 0)
+      RETURN FALSE;
+
+    // Initial check that we're not mixing versioned and non-versioned files
+    OBJECT feedback := this->BeginUnvalidatedFeedback();
+    RECORD rec := TestSelectionForVersioningUpdates(feedback, selection, [ "parent" ]);
+    IF (NOT feedback->Finish())
+      RETURN FALSE;
+
+    OBJECT bffd := CreateBrowseForWHFSObjectDialog(this);
+    bffd->acceptforeignfolders := FALSE;
+    bffd->acceptfiles := FALSE;
+    bffd->showreadonly := TRUE;
+    bffd->virtualfilter := type = "move" ? "movetargets" : "copytargets";
+
+    IF (type ="move" AND ObjectExists(rec.policy))
+    {
+      // Only show visible destinations within the current policy site(s)
+      INTEGER ARRAY roots;
+      INTEGER ARRAY user_roots :=
+          SELECT AS INTEGER ARRAY id
+            FROM this->tolliumuser->GetObjectsChildren("system:fs_objects", 0, FALSE);
+
+      FOREVERY (INTEGER siteid FROM rec.siteids)
+        IF (this->tolliumuser->HasRightOn("system:fs_browse", siteid))
+          INSERT siteid INTO roots AT END;
+        ELSE
+        {
+          INTEGER ARRAY allchildren := OpenWHFSObject(siteid)->GetDescendantObjectIds();
+          roots := roots CONCAT ArrayIntersection(allchildren, user_roots);
+        }
+
+      bffd->roots := roots;
+    }
+
+    bffd->value := this->lastmovedestination >= 0 ? this->lastmovedestination : (SELECT AS INTEGER parent FROM system.fs_objects WHERE id = selection[0].id AND isactive);
+
+    SWITCH(type)
+    {
+      CASE "copy"
+      {
+        bffd->title := this->GetTid(".copymove.copytitle");
+        bffd->description := this->GetTid(".copymove.copydescr");
+      }
+      CASE "move"
+      {
+        bffd->title := this->GetTid(".copymove.movetitle");
+        bffd->description := this->GetTid(".copymove.movedescr");
+      }
+      CASE "internallink"
+      {
+        bffd->title := this->GetTid(".copymove.internallinktitle");
+        bffd->description := this->GetTid(".copymove.internallinkdescr");
+      }
+      CASE "contentlink"
+      {
+        bffd->title := this->GetTid(".copymove.contentlinktitle");
+        bffd->description := this->GetTid(".copymove.contentlinkdescr");
+      }
+    }
+
+    IF (bffd->RunModal() != "ok")
+      RETURN FALSE;
+
+    RECORD destination := bffd->selection;
+    IF(type="move" AND destination.contentmode = "recyclebin")
+    {
+      IF(NOT RunDeleteFSObjectsDialog(this, (SELECT AS INTEGER ARRAY id FROM selection), [ confirm := FALSE]))
+        RETURN FALSE;
+    }
+    ELSE
+    {
+      this->lastmovedestination := destination.id;
+
+      OBJECT work := this->BeginUnvalidatedWork();
+
+      OBJECT targetobj := destination.id = 0 ? OpenWHFSRootObject() : OpenWHFSObject(destination.id);
+      RECORD opres := CopyMoveFilesAndFolders(work, selection, targetobj, type, this->tolliumuser);
+      IF (NOT work->Finish())
+        RETURN FALSE;
+    }
+    ^foldertree->ReloadOverview();
+    ^filelist->ReloadOverview();
+    RETURN TRUE;
+  }
+
+  MACRO DoNewItem()
+  {
+    this->DoNewFSObject(FALSE, FALSE, TRUE);
+  }
+
+  MACRO EditObjectTypes(RECORD ARRAY selection)
+  {
+    // Check if everything is allowed with versioning and such
+    OBJECT work := this->BeginUnvalidatedWork();
+    RECORD res := TestSelectionForVersioningUpdates(work, selection, [ "type" ]);
+    IF (NOT work->Finish())
+      RETURN;
+
+    OBJECT typesdialog := this->LoadScreen("filemgrdialogs.selecttype",
+          [ fsobjects := (SELECT AS INTEGER ARRAY id FROM selection)
+          ]);
+
+    IF (typesdialog->RunModal() = "ok")
+    {
+      // Republish changed files/folders
+      work := this->BeginUnvalidatedWork();
+      FOREVERY (RECORD obj FROM selection)
+      {
+        IF (obj.isfolder)
+        {
+          RunEditFolderHooks(obj, obj.id);
+          ScheduleFolderRepublish(obj.id, FALSE);
+        }
+        ELSE
+        {
+          RunEditFileHooks(obj, obj.id);
+          ScheduleFileRepublish(obj.id);
+        }
+      }
+      work->Finish();
+
+      ^foldertree->ReloadOverview();
+      ^filelist->ReloadOverview();
+    }
+  }
+
+  /// Converts a normal folder to a site
+  MACRO HandleConvertToSite(RECORD obj)
+  {
+    IF(Length(GetContainedSites([ INTEGER(obj.id) ])) > 0)
+    {
+      this->RunSimpleScreen("error", GetTid("publisher:commondialogs.messageboxes.containssite"));
+      RETURN;
+    }
+    IF(ObjectExists(OpenSiteByName(obj.name)))
+    {
+      this->RunMessageBox(".sitealreadyexists", obj.name);
+      RETURN;
+    }
+    OBJECT confirm := this->LoadScreen(".converttositedialog", [ site := obj.name ]);
+    //IF(this->RunMessageBox(".confirmconverttosite", obj.name)!="yes")
+    IF(confirm->RunModal() != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    CreateSiteFromFolder(obj.id);
+    IF(NOT work->Finish())
+      RETURN;
+
+    this->FolderTreePropsTail(obj);
+    IF(confirm->^showprops->value)
+      this->DoSiteProperties();
+  }
+
+  /// Converts a site to a normal folder
+  MACRO HandleConvertToFolder(RECORD obj)
+  {
+    IF(this->IsVersionedObject(obj))
+    {
+      this->RunMessageBox(".cannotrevertversioned", obj.name);
+      RETURN;
+    }
+    IF(Length(GetContainedSites([ INTEGER(obj.id) ])) > 1)
+    {
+      this->RunMessageBox("commondialogs/siteprops.containssite");
+      RETURN;
+    }
+    IF(NOT ObjectExists(OpenSiteByName(obj.name)))
+    {
+      this->RunMessageBox(".sitedoesnotexist", obj.name);
+      RETURN;
+    }
+    IF(this->RunMessageBox(".confirmconverttofolder", obj.name)!="yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    RemoveSiteFromFolder(obj.id);
+    IF(NOT work->Finish())
+      RETURN;
+
+    this->FolderTreePropsTail(obj);
+    ^foldertree->Invalidate();
+    ^filelist->ReloadOverview();
+  }
+
+  MACRO HandleSelectionDrop(RECORD ARRAY selection, RECORD droptarget, STRING droptype)
+  {
+    IF(NOT RecordExists(droptarget))
+      RETURN;
+
+    IF (Length(selection) = 0 OR (NOT selection[0].isactive AND selection[0].parent = droptarget.id) /* check whether the parent is the same, not for dragging trashed items */)
+      RETURN; // Nothing to move
+
+    // Check for impossible moves
+    IF (droptarget.id < 0 AND droptarget.contentmode != "recyclebin") // virtual folder
+    {
+      this->RunMessageBox(".cannotmoveorcopytovirtualfolder", selection[0].name, droptarget.name);
+      RETURN;
+    }
+
+    IF (droptype = "move" AND RecordExists(SELECT FROM selection WHERE ispinned))
+    {
+      this->RunMessageBox(Length(selection)= 1 ? ".cannotmovepinned" : ".cannotmovesomepinned");
+      RETURN;
+    }
+
+    // If a trashed item is dropped on the trash, show a message box
+    IF (NOT selection[0].isactive AND droptarget.id = -1)
+      RETURN;
+
+    IF (droptarget.contentmode = "recyclebin")
+    {
+      RunDeleteFSObjectsDialog(this, SELECT AS INTEGER ARRAY id FROM selection);
+    }
+    ELSE
+    {
+      IF(droptype = "move")
+      {
+        IF(RecordExists(SELECT FROM selection WHERE id = droptarget.id)) //move over self?
+          RETURN;
+
+        IF(Length(selection)=1)
+        {
+          IF(this->RunMessageBox(".confirmmove", selection[0].name, droptarget.name)!="yes")
+            RETURN;
+        }
+        ELSE
+        {
+          IF(this->RunMessageBox(".confirmmovemultiple", ToString(Length(selection)), droptarget.name)!="yes")
+            RETURN;
+        }
+      }
+
+      //PRINT("Dropped target on folder with id #" || droptarget.id || "\n");
+
+      OBJECT targetobj := droptarget.id = 0 ? OpenWHFSRootObject() : OpenWHFSObject(droptarget.id);
+
+      OBJECT work := this->BeginUnvalidatedWork();
+      RECORD opres := CopyMoveFilesAndFolders(work, selection, targetobj, droptype, this->tolliumuser);
+
+      IF (work->Finish())
+      {
+        ^foldertree->ReloadOverview();
+        ^filelist->ReloadOverview();
+      }
+    }
+  }
+
+  MACRO HandleSelectionOrderingDrop(RECORD ARRAY selection, RECORD droptarget, STRING dropaction)
+  {
+    IF (Length(selection) = 0)
+      RETURN; // Nothing to move
+
+    IF (dropaction = "appendchild" AND NOT RecordExists(droptarget))
+    {
+      // Move to bottom
+      this->ExecuteReordering("bottom", SELECT AS INTEGER ARRAY id FROM selection);
+    }
+    ELSE IF (dropaction = "insertbefore" AND RecordExists(droptarget))
+    {
+      // Insert before droptarget
+      this->ExecuteReordering("insert", (SELECT AS INTEGER ARRAY id FROM selection), droptarget.id);
+    }
+  }
+
+  MACRO RestoreObjects(RECORD ARRAY items)
+  {
+    //FIXME prevent&test restoring back to sites with name conflicts, to which you have no rights, etc
+    OBJECT work := this->BeginUnvalidatedWork();
+    RECORD result := RestoreWHFSObjects(SELECT AS INTEGER ARRAY id FROM items);
+
+    //TODO This approach just ignores in a mixed situation... unless nothing was done. Can do this nicely but the amount of issue combinations in a multiple select explodes fast!
+    IF(Length(result.restored) = 0 AND Length(result.restoringtodeletedfolder) > 0)
+      work->AddWarning(this->GetTid(".errors.restoringtodeletedfolder"));
+
+    work->Finish();
+  }
+
+  MACRO TogglePinnedItems(BOOLEAN setpinned)
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    INTEGER ARRAY modify_ids :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE id IN ^filelist->value
+           AND ispinned != setpinned;
+
+    UPDATE system.fs_objects SET ispinned := setpinned WHERE id IN modify_ids;
+    IF (work->Finish())
+    {
+      ^foldertree->ReloadOverview();
+      ^filelist->ReloadOverview();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions - files and folders
+  //
+
+  MACRO DoContentLinkToTree()
+  {
+    this->CopyMoveObjects([ RECORD(^foldertree->selection) ], "contentlink");
+  }
+
+  MACRO DoContentLinkToList()
+  {
+    this->CopyMoveObjects(^filelist->selection, "contentlink");
+  }
+
+  MACRO DoConvertToSiteFolderTree()
+  {
+    this->HandleConvertToSite(^foldertree->selection);
+  }
+
+  MACRO DoConvertToSiteFileList()
+  {
+    this->HandleConvertToSite(^filelist->selection[0]);
+  }
+
+  MACRO DoConvertToFolderFolderTree()
+  {
+    this->HandleConvertToFolder(^foldertree->selection);
+  }
+
+  MACRO DoConvertToFolderFileList()
+  {
+    this->HandleConvertToFolder(^filelist->selection[0]);
+  }
+
+  MACRO DoCopyToTree()
+  {
+    this->CopyMoveObjects([ RECORD(^foldertree->selection) ], "copy");
+  }
+
+  MACRO DoCopyToList()
+  {
+    this->CopyMoveObjects(^filelist->selection, "copy");
+  }
+
+  //FIXME: This function works for folders, but needs to work for a selection of files/folders
+  MACRO DoCreateArchiveFromFileList()
+  {
+    this->CreateTheArchive(^filelist->selection);
+  }
+
+  MACRO DoCreateArchiveFromFolderTree()
+  {
+    this->CreateTheArchive(^foldertree->selection);
+  }
+
+  MACRO DoDeleteTree()
+  {
+    RECORD newselection := ^foldertree->GetParentRow(^foldertree->value);
+    IF (RunDeleteFSObjectsDialog(this, INTEGER[ ^foldertree->value ]))
+      ^foldertree->selection := newselection;
+  }
+
+  MACRO DoDeleteList()
+  {
+    RunDeleteFSObjectsDialog(this, SELECT AS INTEGER ARRAY id FROM ^filelist->selection);
+  }
+
+  /// Download the currently selected file
+  MACRO OnDownload(OBJECT downloadhandler)
+  {
+    OBJECT todownload := OpenWHFSObject(^filelist->selection.id);
+    IF(ObjectExists(todownload))
+      DoFSDownload(this->frame, todownload, downloadhandler);
+    ELSE
+      ^filelist->ReloadOverview();
+  }
+
+  // Duplicate the currently selected object, for file list. You can't access this action for folders, but we might allow eg sysops to do that in the future?
+  MACRO DoDuplicate()
+  {
+    INTEGER newobject := RunNewFSObjectDialog(this, ^foldertree->selection.id, [ template := ^filelist->value[0], isfolder := ^filelist->selection[0].isfolder ]);
+    IF(newobject != 0)
+    {
+      ^filelist->ReloadOverview();
+      ^filelist->value := [ INTEGER(newobject) ];
+    }
+  }
+
+  // Edit file type, for file list
+  MACRO DoEditFileOrFolderType()
+  {
+    this->EditObjectTypes(^filelist->selection);
+  }
+
+  // Edit type, for folder type
+  MACRO DoEditFolderType()
+  {
+    this->EditObjectTypes([ RECORD(^foldertree->selection) ]);
+  }
+
+  MACRO DoInspect()
+  {
+    OBJECT dialog := CreateWHFSObjectInspectDialog(this, this->GetCurrentlySelectedFSobject());
+    IF (dialog->RunModal() = "jump")
+      this->SelectObject(dialog->jumpto);
+  }
+
+  MACRO DoInternalLinkToTree()
+  {
+    this->CopyMoveObjects([ RECORD(^foldertree->selection) ], "internallink");
+  }
+
+  MACRO DoInternalLinkToList()
+  {
+    this->CopyMoveObjects(^filelist->selection, "internallink");
+  }
+
+  MACRO DoMoveToTree()
+  {
+    INTEGER newselection := ^foldertree->selection.parent;
+    IF (this->CopyMoveObjects([ RECORD(^foldertree->selection) ], "move"))
+      ^foldertree->value := newselection;
+  }
+
+  MACRO DoMoveToList()
+  {
+    this->CopyMoveObjects(^filelist->selection, "move");
+  }
+
+  MACRO DoNewFSObject(BOOLEAN isfolder, BOOLEAN issite, BOOLEAN isv2)
+  {
+    RECORD sel := ^foldertree->selection;
+    IF(NOT RecordExists(sel))
+      RETURN;
+
+    INTEGER parentid := sel.id;
+    IF(issite AND RecordExists(SELECT FROM system.fs_objects WHERE id = sel.id AND parentsite != 0))
+      RETURN; //no need to prepare an error - the context menu normally blocks this anyway, so just a race
+
+    INTEGER newobjid := RunNewFSObjectDialog(this, parentid, CELL[isfolder, issite, __v2 := isv2 ]);
+    IF(newobjid = 0)
+      RETURN;
+
+    ^filelist->ResetAnyFilter();
+    IF(isfolder)
+      ^foldertree->ReloadOverview();
+
+    ^filelist->ReloadOverview();
+    ^filelist->SetValueIfValid([newobjid]);
+  }
+
+  /// Create a new file
+  MACRO DoNewFile()
+  {
+    this->DoNewFSObject(FALSE, FALSE, FALSE);
+  }
+
+  /// Create a new folder
+  MACRO DoNewFolder()
+  {
+    this->DoNewFSObject(TRUE, FALSE, FALSE);
+  }
+
+  /// Create a new site
+  MACRO DoNewSite()
+  {
+    this->DoNewFSObject(TRUE, TRUE, FALSE);
+  }
+
+  MACRO DoOpen()
+  {
+    RECORD sel := ^filelist->selection;
+    IF(sel.isfolder)
+    {
+      //Move the folder selection to the file
+      INSERT ^foldertree->value INTO ^foldertree->expanded AT END;
+      RECORD matchchild := SELECT * FROM ^foldertree->GetChildRows(^foldertree->value) WHERE rowkey = sel.rowkey;
+      IF (NOT RecordExists(matchchild))
+      {
+        ^foldertree->ReloadOverview();
+        matchchild := SELECT * FROM ^foldertree->GetChildRows(^foldertree->value) WHERE rowkey = sel.rowkey;
+      }
+
+      ^foldertree->selection := matchchild;
+      RETURN;
+    }
+
+    RunFSObjectEditApplication(this, ^filelist->selection.id);
+
+    //TODO shouldbn't need these, clean up if we indeed don't
+    //^foldertree->ReloadOverview();
+    //this->UpdateCurrentlyPreviewed(); // Update file list and preview
+  }
+
+  MACRO DoPinItems()
+  {
+    this->TogglePinnedItems(TRUE);
+  }
+
+  MACRO DoUnPinItems()
+  {
+    this->TogglePinnedItems(FALSE);
+  }
+
+  MACRO DoPropsTree()
+  {
+    RunFSObjectPropertiesDialog(this, ^foldertree->value);
+    // TODO these should be triggered by events (whfs and 'published' events), if it works we can remove this:
+    //this->FolderTreePropsTail(obj);
+  }
+
+  MACRO DoPropsList()
+  {
+    RunFSObjectPropertiesDialog(this, ^filelist->value[0]);
+
+    // TODO these should be triggered by events (whfs and 'published' events), if it works we can remove this:
+    //^foldertree->ReloadOverview();
+    //this->UpdateCurrentlyPreviewed(); // Update file list and preview
+  }
+
+  /// Replace the selected file
+  MACRO OnReplace(RECORD file)
+  {
+    INTEGER fileid := ^filelist->value[0];
+    IF(NOT DoFileManagerReplace(this, fileid, file))
+      RETURN;
+
+    ^filelist->ReloadOverview();
+    this->frame->focused := ^filelist;
+  }
+
+  MACRO DoSiteProperties()
+  {
+    OBJECT fsobject := OpenWHFSObject(this->GetCurrentlySelectedFSobject());
+    IF(fsobject->parentsite = 0)
+    {
+      this->RunMessageBox(".nositecontext");
+      RETURN;
+    }
+
+    OBJECT dialog := CreateWHFSSitePropsDialog(this, fsobject->parentsite);
+    dialog->RunModal();
+    ^foldertree->ReloadOverview();
+    ^filelist->ReloadOverview();
+  }
+
+  MACRO OnTypedDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
+  {
+    // Only whfsfiles & whfsfolders accepted for now
+    INTEGER ARRAY selected_files :=
+        SELECT AS INTEGER ARRAY data.id
+          FROM dragdata.items
+         WHERE type != "file";
+
+    IF (LENGTH(selected_files) != 0)
+    {
+      RECORD ARRAY selection :=
+          SELECT id
+               , name
+               , ispinned
+               , isactive
+               , parent
+            FROM system.fs_objects
+           WHERE id IN selected_files;
+
+      IF (LENGTH(selection) != 0)
+      {
+        IF (dropaction = "ontarget")
+          this->HandleSelectionDrop(selection, droptarget, droptype);
+        ELSE
+          this->HandleSelectionOrderingDrop(selection, droptarget, dropaction);
+      }
+    }
+
+    RECORD ARRAY files := SELECT * FROM dragdata.items WHERE type = "file";
+    IF (LENGTH(files) != 0)
+    {
+      INTEGER target := RecordExists(droptarget) ? droptarget.id : ^foldertree->value;
+      this->OnUpload(files, target);
+    }
+  }
+
+  /// Upload new files
+  MACRO OnUpload(RECORD ARRAY files, INTEGER targetfolder DEFAULTSTO 0)
+  {
+    targetfolder := targetfolder ?? ^foldertree->value;
+
+    INTEGER ARRAY uploadedfiles := DoFilemanagerUpload(this, targetfolder, files);
+    IF(Length(uploadedfiles)=0)
+      RETURN;
+
+    ^foldertree->value := targetfolder;
+
+    ^filelist->ResetAnyFilter();
+    ^filelist->ReloadOverview();
+    ^filelist->selection := SELECT * FROM ^filelist->rows WHERE id IN uploadedfiles;
+    this->frame->focused := ^filelist;
+
+    IF(Length(uploadedfiles)=1 AND this->propsafterupload)
+      ^props->TolliumClick();
+  }
+
+  /// Restore deleted objects
+  MACRO DoRestoreList()
+  {
+    this->RestoreObjects(^filelist->selection);
+  }
+
+  MACRO DoVersionedRestoreList()
+  {
+    RunVersionedFileRestore(this, ^filelist->selection.id);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper function - filelist ordering action helpers
+  //
+
+  MACRO ExecuteReordering(STRING movetype, INTEGER ARRAY selected, INTEGER refid DEFAULTSTO 0)
+  {
+    RECORD ARRAY elements :=
+        SELECT rowkey :=      rowkey
+             , id
+             , isfolder
+             , name
+             , parentsite
+             , ordering :=    0
+             , oldordering := 0
+             , orgordering := ordering
+             , published
+          FROM ^filelist->rows
+      ORDER BY ordering, ToUppercase(name);
+
+    IF (movetype = "reset")
+    {
+      elements :=
+          SELECT *
+               , ordering := 0
+            FROM elements
+           WHERE orgordering != 0
+        ORDER BY rowkey;
+    }
+    ELSE IF (movetype = "insert")
+    {
+      RECORD refelement := SELECT * FROM elements WHERE rowkey = refid;
+      IF (NOT RecordExists(refelement))
+        RETURN; // reference element not found
+
+      // Make room for the moving elements before the reference element
+      UPDATE elements
+         SET ordering := orgordering + Length(selected)
+       WHERE orgordering >= refelement.orgordering;
+      // Move the selected elements before the reference element
+      UPDATE elements
+         SET ordering := refelement.orgordering // give them the same new ordering; they will be ordered internally by orgordering
+       WHERE rowkey IN selected;
+
+      elements :=
+          SELECT *
+            FROM elements
+        ORDER BY ordering, orgordering, ToUppercase(name);
+
+      elements :=
+          SELECT *
+               , ordering :=  #elements + 1
+            FROM elements
+           WHERE orgordering != #elements + 1
+        ORDER BY rowkey;
+    }
+    ELSE
+    {
+      // Create an ordering with step 2 (create space to place stuff in between). Handle adjacent
+      // elements as if they had the same ordering
+      BOOLEAN lastselected;
+      INTEGER lastordering := 0;
+      FOREVERY (RECORD elt FROM elements)
+      {
+        BOOLEAN eltselected := elt.rowkey IN selected;
+        IF (NOT eltselected OR NOT lastselected)
+          lastordering := lastordering + 2;
+        lastselected := eltselected;
+        elements[#elt].ordering := lastordering;
+      }
+
+      INTEGER diff;
+      SWITCH (movetype)
+      {
+      CASE "top"      { diff := -2 * LENGTH(elements) - 2; }
+      CASE "bottom"   { diff := 2 * LENGTH(elements); }
+      CASE "up"       { diff := -3; }
+      CASE "down"     { diff := 3; }
+      }
+
+      UPDATE elements
+         SET ordering :=    ordering + diff
+           , oldordering := ordering
+       WHERE rowkey IN selected;
+
+      elements :=
+          SELECT *
+            FROM elements
+        ORDER BY ordering, oldordering, ToUppercase(name);
+
+      elements :=
+          SELECT *
+               , ordering :=  #elements + 1
+            FROM elements
+           WHERE orgordering != #elements + 1
+        ORDER BY rowkey;
+    }
+
+    INTEGER ARRAY toupdate := SELECT AS INTEGER ARRAY rowkey FROM elements;
+
+    IF (LENGTH(elements) = 0)
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    RECORD res := TestSelectionForVersioningUpdates(work, elements, [ "ordering" ]);
+    IF (NOT RecordExists(res))
+    {
+      work->Finish();
+      RETURN;
+    }
+
+    IF (res.mode != "normal")
+      THROW NEW Exception("Changing ordering via the versioning policy is not implemented");
+
+    OBJECT whfs_commithandler := GetWHFSCommitHandler();
+    UPDATE system.fs_objects
+       SET ordering :=  elements[RecordLowerBound(elements, [ rowkey := id ], [ "ROWKEY" ]).position].ordering
+     WHERE id in toupdate;
+
+    RECORD ARRAY updated :=
+        SELECT id
+             , parent
+             , isfolder
+             , parentsite
+          FROM system.fs_objects
+         WHERE id IN toupdate;
+
+    FOREVERY (RECORD rec FROM updated)
+      whfs_commithandler->ObjectReordered(rec.parentsite, rec.parent, rec.id);
+
+    OBJECT torepub := CreateRepublishState();
+
+    // Get all parents, but ignore parent 0
+    INTEGER ARRAY parentids := SELECT AS INTEGER ARRAY DISTINCT parent FROM updated WHERE parent != 0 AND parentsite != 0;
+    FOREVERY (INTEGER parentid FROM parentids)
+    {
+      ScheduleFolderRepublish(parentid, TRUE, FALSE);
+      RECORD ARRAY torepublist := SELECT * FROM system.fs_objects WHERE parent = parentid;
+      FOREVERY(RECORD pub FROM torepublist)
+        torepub->AddDepsOf(pub.id, 0/*metadata*/);
+    }
+
+    torepub->DoRepublishes();
+
+    work->Finish();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions - filelist ordering
+  //
+
+  MACRO DoMoveToTop()
+  {
+    this->ExecuteReordering("top", SELECT AS INTEGER ARRAY rowkey FROM ^filelist->selection);
+  }
+
+  MACRO DoMoveUp()
+  {
+    this->ExecuteReordering("up", SELECT AS INTEGER ARRAY rowkey FROM ^filelist->selection);
+  }
+
+  MACRO DoMoveDown()
+  {
+    this->ExecuteReordering("down", SELECT AS INTEGER ARRAY rowkey FROM ^filelist->selection);
+  }
+
+  MACRO DoMoveToBottom()
+  {
+    this->ExecuteReordering("bottom", SELECT AS INTEGER ARRAY rowkey FROM ^filelist->selection);
+  }
+
+  MACRO DoResetOrdering()
+  {
+    IF (this->RunMessageBox(".resetordering") = "yes")
+      this->ExecuteReordering("reset", SELECT AS INTEGER ARRAY rowkey FROM ^filelist->selection);
+  }
+
+  MACRO DoSetOrderingBy()
+  {
+    OBJECT screen := this->LoadScreen("publisher:commondialogs/orderbasedon.orderbasedon", [ parent := ^foldertree->selection.id ]);
+    screen->RunModal();
+    ^filelist->ReloadOverview();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions - selection & stuff
+  //
+
+  MACRO DoSelectAll()
+  {
+    ^filelist->selection := ^filelist->rows;
+    this->frame->focused := ^filelist;
+  }
+
+  MACRO DoInvertSelection()
+  {
+    INTEGER ARRAY cur := ^filelist->value;
+    ^filelist->selection := SELECT * FROM ^filelist->rows WHERE rowkey NOT IN cur;
+    this->frame->focused := ^filelist;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions - republish action helpers
+  //
+
+  MACRO ExecuteRepublish(RECORD ARRAY selection, BOOLEAN recurse)
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    RECORD ARRAY parentsites :=
+        SELECT parentsite :=    id
+             , name
+          FROM system.sites
+         WHERE id IN (SELECT AS INTEGER ARRAY parentsite FROM selection)
+      ORDER BY id;
+
+    RECORD ARRAY whfspaths :=
+        SELECT id
+             , whfspath
+          FROM system.fs_objects
+         WHERE id IN (SELECT AS INTEGER ARRAY id FROM selection)
+      ORDER BY id;
+
+    FOREVERY (RECORD rec FROM selection)
+    {
+      RECORD site_pos := RecordLowerBound(parentsites, rec, [ "PARENTSITE"]);
+      STRING sitename := site_pos.found ? parentsites[site_pos.position].name : "";
+
+      RECORD whfs_pos := RecordLowerBound(whfspaths, rec, [ "ID"]);
+      STRING whfspath := whfs_pos.found ? whfspaths[whfs_pos.position].whfspath : "";
+
+      LogAuditEvent(
+          "publisher:main",
+          [ action :=     "republish"
+          , isfolder :=   rec.isfolder
+          , whfspath :=   whfspath
+          , id :=         rec.id
+          , name :=       rec.name
+          , path :=       rec.selection_path
+          , recursive :=  recurse
+          , parentsite := rec.parentsite
+          , sitename :=   sitename
+          ]);
+
+      IF (rec.id > 0)
+      {
+        IF (rec.isfolder)
+          ScheduleFolderRepublish(rec.id, recurse);
+        ELSE
+          ScheduleFileRepublish(rec.id);
+      }
+    }
+
+    work->Finish();
+  }
+
+  MACRO ExecuteRepublishFolder(RECORD torepublish, BOOLEAN recurse)
+  {
+    INSERT CELL selection_path := ^foldertree->GetSelectionPath() INTO torepublish;
+    this->ExecuteRepublish([ torepublish ], recurse);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions - republish
+  //
+
+  /// Republish the currently selected files (from the filelist)
+  MACRO DoRepubFile()
+  {
+    RECORD ARRAY selection :=
+        SELECT *
+             , selection_path :=    ^foldertree->GetSelectionPath() || "/" || name
+          FROM ^filelist->selection;
+
+    this->ExecuteRepublish(selection, TRUE);
+  }
+
+  MACRO DoRepubFolder()
+  {
+    this->ExecuteRepublishFolder(^foldertree->selection, FALSE);
+  }
+
+  MACRO DoRepubFolderRecurse()
+  {
+    IF (^foldertree->selection.parentsite = 0)
+    {
+      // ADDME: can virtual folders contain sites?
+      RECORD ARRAY sites := GetContainedSites([ INTEGER(^foldertree->value) ]);
+      STRING ARRAY names := SELECT AS STRING ARRAY "- " || name FROM sites ORDER BY ToUppercase(name) LIMIT 4;
+      IF (LENGTH(sites) = 0)
+      {
+        this->RunMessageBox(".foldercontainsnosites");
+        RETURN;
+      }
+
+      IF (this->RunMessageBox(".surerepublishfolderoutsidesite", Detokenize(names, "\n"), LENGTH(sites) > LENGTH(names) ? ToString(LENGTH(sites) - LENGTH(names)) : "0") != "yes")
+        RETURN;
+    }
+    this->ExecuteRepublishFolder(^foldertree->selection, TRUE);
+  }
+
+  MACRO DoRepubMask()
+  {
+    this->LoadScreen("filemgrdialogs.repubmask")->RunModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions - files and folders, other settings & dialogs
+  //
+
+  MACRO DoManageRightsfromfoldertree()
+  {
+    this->DoManageRights(^foldertree->selection.id);
+  }
+
+  MACRO DoManageRightsfromfilelist()
+  {
+    this->DoManageRights(^filelist->selection.id);
+  }
+
+  MACRO DoManageRights(INTEGER id)
+  {
+    // Shouldn't happen!
+    IF (id < 0)
+      RETURN;
+
+    this->tolliumcontroller->SendApplicationMessage(
+        "system:userrights",
+        DEFAULT RECORD,
+        [ type := "gotoobject"
+        , objecttypename := "system:fs_objects"
+        , objectid := id
+        ],
+        FALSE);
+  }
+
+  MACRO DoOpenInOffice(OBJECT openhandler)
+  {
+    IF (NOT this->tolliumcontroller->secure)
+    {
+      this->RunMessageBox(".openinmssofficeonlysecure");
+      RETURN;
+    }
+
+    STRING destpath := this->GetWebdavPathForObject(^filelist->selection.id);
+    IF(destpath="")
+    {
+      openhandler->Cancel();
+      RETURN;
+    }
+    STRING whurl := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/");
+    // https://msdn.microsoft.com/en-us/library/office/dn906146.aspx
+    //FIXME ofv instead of ofe if we have only read access
+    openhandler->SendURL("ms-word:" || EncodeURL("ofe|u|") || whurl || "webdav/publisher" || EncodeURL(destpath));
+  }
+
+  MACRO DoReportIssues()
+  {
+    RECORD obj := ^foldertree->selection;
+    this->tolliumcontroller->SendApplicationMessage("publisher:reportissues", DEFAULT RECORD, DEFAULT RECORD, TRUE);
+  }
+
+  MACRO DoObjectHistory()
+  {
+    OBJECT liveobject := OpenWHFSObject(this->GetCurrentlySelectedFSobject());
+    OBJECT screen := this->LoadScreen("moduleroot::publisher/tolliumapps/versioning/versioning.xml#history", [ liveobject := liveobject ]);
+    screen->RunModal();
+  }
+
+  MACRO DoReveal()
+  {
+    STRING destpath := this->GetWebdavPathForObject(this->GetCurrentlySelectedFSobject());
+    IF(destpath="")
+      RETURN;
+    this->tolliumcontroller->ExecuteClientCall("ShellReveal", "/publisher" || destpath);
+  }
+
+  MACRO DoManageFoldersync()
+  {
+    this->RunScreen("syncedfolders.xml#manage", [ objectid := this->GetCurrentlySelectedFSobject() ]);
+  }
+  MACRO DoSyncFolder()
+  {
+    this->RunScreen("syncedfolders.xml#syncfolder", [ parent := ^foldertree->value, objects := INTEGER[] ]);
+  }
+  MACRO DoSyncFolderSubs()
+  {
+    this->RunScreen("syncedfolders.xml#syncfolder", [ parent := ^foldertree->value, objects := ^filelist->value ]);
+  }
+  MACRO DoOpenInSeparateTab(OBJECT openhandler)
+  {
+    openhandler->SendURL(`/?app=publisher(${EncodeURL(GetPathForAppURL(this->GetCurrentlySelectedFSobject()))})`);
+  }
+
+  MACRO DoOpenEditInSeparateTab(OBJECT openhandler)
+  {
+    openhandler->SendURL(`/?app=publisher:edit(${EncodeURL(GetPathForAppURL(this->GetCurrentlySelectedFSobject()))})`);
+  }
+
+  MACRO DoOpenInEditor()
+  {
+    STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = this->GetCurrentlySelectedFSobject();
+    BroadcastEvent("editorsupport:openfile", [ path := "whfs::" || path ]);
+  }
+
+  MACRO DoSearch()
+  {
+    INTEGER result := this->RunScreen("search.xml#searchpublisher");
+    IF (result != 0)
+      this->SelectObject(result);
+  }
+
+  MACRO DoShowModificationsList()
+  {
+    RECORD obj := ^filelist->selection;
+    this->LoadScreen("filemgrdialogs.showmodifications", [ folderid := obj.id ])->RunModal();
+  }
+
+  MACRO DoShowModificationsTree()
+  {
+    RECORD obj := ^foldertree->selection;
+    this->LoadScreen("filemgrdialogs.showmodifications", [ folderid := obj.id ])->RunModal();
+  }
+
+  MACRO OnViewBrowserList(OBJECT openhandler)
+  {
+    STRING desturl := SELECT AS STRING link FROM system.fs_objects WHERE id = ^filelist->selection.id;
+    openhandler->SendURL(desturl);
+  }
+
+  MACRO OnViewBrowserLive(OBJECT openhandler)
+  {
+    //FIXME link preview to current publisher session, not to a time
+    STRING desturl := CreatePreviewLink(AddDaysToDate(1,GetCurrentDatetime()), "", ^filelist->selection.id, ^filelist->selection.id);
+    openhandler->SendURL(desturl);
+  }
+
+  MACRO OnSetDebugSettings(OBJECT openhandler)
+  {
+    STRING desturl := SELECT AS STRING link FROM system.fs_objects WHERE id = ^filelist->selection.id;
+    //wrap in debug link
+    desturl := ResolveToAbsoluteUrl(desturl, "/.publisher/common/debug/?back=" || EncodeURL(desturl));
+    openhandler->SendURL(desturl);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ConvertToSiteDialog EXTEND TolliumScreenBase
+<
+  PUBLIC MACRO Init(RECORD data)
+  {
+    ^message->value := this->GetTid(".main.messageboxes.confirmconverttosite", data.site);
+    ^showprops->value := this->contexts->user->GetRegistryKey("publisher.converttosite.showprops", FALSE);
+  }
+  MACRO OnUnload()
+  {
+    this->contexts->user->SetRegistryKey("publisher.converttosite.showprops", ^showprops->value);
+  }
+>;
+
+//A direct jump to the editor. Basically a direct wrapper to invoking RunEditDocumentApplication.
+PUBLIC MACRO RunDirectEdit(OBJECT controller, RECORD data)
+{
+  TRY
+  {
+    IF(data.calltype != "direct")
+      THROW NEW Exception("Invalid parameters");
+
+    INTEGER fileid;
+    IF(RecordExists(data.target))
+    {
+      fileid := data.target.id;
+    }
+    ELSE IF(data.params[0] LIKE "/*")
+    {
+      OBJECT target := OpenWHFSObjectByPath(data.params[0]);
+      IF(NOT ObjectExists(target) OR target->isfolder)
+        THROW NEW Exception("Invalid path " || data.params[0]);
+      fileid := target->id;
+    }
+    ELSE
+    {
+      fileid := ToInteger(data.params[0],0);
+    }
+
+    RunFSObjectEditApplication(controller, fileid, [ forceintegrated := TRUE ]);
+  }
+  CATCH(OBJECT err)
+  {
+    LogHarescriptException(err);
+    RunExceptionReportDialog(controller, err);
+  }
+}
+

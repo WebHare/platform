@@ -1,0 +1,455 @@
+<?wh
+
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/soap.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+
+/* https://mip.afterpay.nl/en/direct-api-integration/
+   https://mip.afterpay.nl/en/api-documentation/
+*/
+
+CONSTANT STRING ARRAY afterpay_requirements := [ "ipaddress", "billingaddress"
+                                               , "wrd_gender", "wrd_firstname", "wrd_lastname", "wrd_contact_phone", "wrd_contact_email", "wrd_dateofbirth"
+                                               ];
+
+RECORD FUNCTION GenerateFakeResult(MONEY foramount)
+{
+  RETURN [ body :=
+           [ parameters :=
+             [ "return" :=
+               [ afterPayOrderReference := "8c25e3fcd2d72d70f 4921ee234fc5b"
+               , checksum := "7c0ec4f90d5aca7310a788692e43c8ff"
+               , resultid := 0
+               , statusCode := foramount >= 230 AND foramount < 231 ? "W" : "A"
+               , timestampIn := 1552851267022
+               , timestampOut := 1552851267405
+               , transactionId := 2594523
+               ]
+             ]
+           ]
+         ];
+}
+
+RECORD FUNCTION EnforceResultStructure(RECORD result)
+{
+  RETURN EnforceStructure([ resultid := 0
+                          , statuscode := ""
+                          , rejectcode := ""
+                          , rejectDescription := ""
+                          //, failures := [[ fieldname := "", failure := "", suggestedvalue := "" ]]
+                          ], result);
+}
+
+STRING FUNCTION MapField(STRING inname)
+{
+  STRING testname := inname;
+  testname := Substitute(testname, "referencePerson", "person"); //afterpay BE uses referencePerson, NL uses person
+
+  SWITCH(testname)
+  {
+    CASE "billto.person.lastname"    { RETURN "WRD_LASTNAME"; }
+    CASE "billto.person.dateofbirth" { RETURN "WRD_DATEOFBIRTH"; }
+    CASE "billto.phonenumber1"       { RETURN "WRD_CONTACT_PHONE"; }
+    CASE "billto.phonenumber2"       { RETURN "WRD_CONTACT_PHONE2"; }
+    DEFAULT
+    {
+      LogError("wrd:payments.afterpay", "Unable to find mapping for Afterpay field '" || inname || "'", [ unmappedfield := inname ]);
+      RETURN "";
+    }
+  }
+}
+
+RECORD ARRAY FUNCTION MapFailures(RECORD ARRAY failures)
+{
+  RETURN SELECT field := MapField(fieldname)
+              , error := suggestedvalue
+              , description := failure
+           FROM failures;
+}
+
+PUBLIC STATIC OBJECTTYPE AfterpayPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  RECORD webclients;
+  RECORD orderdata;
+  RECORD result;
+
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:afterpay", "execute", settings)
+  {
+    this->needspaymentref := TRUE;
+  }
+
+  OBJECT FUNCTION GetSoapClient(STRING service, STRING type)
+  {
+    IF(this->settings.merchantid = "dummy-id" AND this->settings.password = "password")
+      RETURN DEFAULT OBJECT;
+
+    IF(service NOT IN ["AfterPaycheck","OrderManagement"])
+      THROW NEW Exception(`Unsupported service '${service}'`);
+
+    STRING url;
+    SWITCH(type)
+    {
+      CASE "" //NL B2C
+      {
+        IF(this->settings.testmode)
+          url := "https://test.acceptgirodienst.nl/soapservices/";
+        ELSE
+          url := "https://www.acceptgirodienst.nl/soapservices/";
+      }
+      CASE "BE"
+      {
+        IF(this->settings.testmode)
+          url := "https://test.afterpay.be/soapservices/";
+        ELSE
+          url := "https://mijn.afterpay.be/soapservices/";
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unsupported type '${type}'`);
+      }
+    }
+
+    STRING clientcellname := service||"-"||(type ?? "nl");
+    IF(CellExists(this->webclients, clientcellname))
+      RETURN GetCell(this->webclients, clientcellname);
+
+
+    IF(service="AfterPaycheck")
+      url := url || "rm/";
+    ELSE
+      url := url || "om/";
+
+    url := `${url}${service}?wsdl`;
+
+    OBJECT newclient := NEW SoapClient;
+    LogRPCForSoapClient("wrd:afterpay:" || ToLowercase(clientcellname), "", newclient);
+    //newclient->webbrowser->debug := TRUE;
+    newclient->LoadWSDLFromURL(url);
+
+    OBJECT interface := newclient->GetInterface();
+    this->webclients := CellInsert(this->webclients, clientcellname, interface);
+
+    RETURN interface;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RunPaymentRequest(STRING paymenttok)
+  {
+    RECORD result := [ submitinstruction := DEFAULT RECORD
+                     , errors := RECORD[]
+                     , processnow := FALSE
+                     ];
+
+    RECORD orderinfo := CELL[ ...this->orderdata
+                            , currency := "EUR"
+                            , ordernumber := Left(this->orderid,36)
+                            , parentTransactionreference := this->paymentref
+                            , totalorderamount := INTEGER(this->amountpayable*100)
+                            ];
+
+    IF(orderinfo.b2cbilltoAddress.referencePerson.emailaddress = "rejection@beta.webhare.net")
+      orderinfo.b2cbilltoAddress.referencePerson.emailaddress := "rejection@afterpay.nl";
+    IF(orderinfo.b2cshiptoAddress.referencePerson.emailaddress = "rejection@beta.webhare.net")
+      orderinfo.b2cshiptoAddress.referencePerson.emailaddress := "rejection@afterpay.nl";
+
+    OBJECT service := this->GetSoapClient("AfterPaycheck", this->settings.afterpaytype);
+    RECORD callresult;
+    IF(ObjectExists(service))
+    {
+      callresult := service->VALIDATEANDCHECKB2CORDER(
+         CELL[ body :=
+               [ parameters :=
+                 [ authorization := [ merchantId := ToInteger(this->settings.merchantId,0)
+                                    , password := this->settings.password
+                                    , portfolioid := this->settings.portfolioid
+                                    ]
+                 , b2corder := orderinfo
+                 ]
+               ]
+             ]);
+    }
+    ELSE
+    {
+      IF(orderinfo.b2cbilltoAddress.referencePerson.emailaddress = "rejection@afterpay.nl")
+      {
+/*      <?xml version='1.0' encoding='UTF-8'?><S:Envelope xmlns:S="http://schemas.xmlsoap.org/soap/envelope/"><S:Body><ns2:validateAndCheckB2COrderResponse xmlns:ns2="http://www.afterpay.nl/ad3/"><return><
+afterPayOrderReference>c457e6764ddcfb045914e81083db61</afterPayOrderReference><checksum>7dec7f109d9579fa0438fdd75f833811</checksum>
+<rejectCode>36</rejectCode><rejectDescription>Het emailadres is ongeldig of onvolledig</rejectDescription><resultId>3</resultId><statusCode>W</statusCode><timestampIn>1552901390438</timestampIn><timestampOut>1552901390768</timestampOut><transactionId>2595119</transactionId></return></ns2:validateAndCheckB2COrderResponse></S:Body></S:Envelope>
+*/
+        callresult := [ body :=
+                        [ parameters :=
+                          [ "return" :=
+                            [ afterPayOrderReference := "c457e6764ddcfb045914e81083db61"
+                            , checksum := "7dec7f109d9579fa0438fdd75f833811"
+                            , rejectcode := 36
+                            , rejectDescription := "Het emailadres is ongeldig of onvolledig"
+                            , resultid := 3
+                            , statusCode := ""
+                            , timestampIn := 1552851267022
+                            , timestampOut := 1552851267405
+                            , transactionId := 2594523
+                            ]
+                          ]
+                        ]
+                      ];
+
+
+      }
+      ELSE IF(orderinfo.b2cbilltoAddress.referencePerson.lastname LIKE "*123*")
+      {
+        /*
+        <?xml version='1.0' encoding='UTF-8'?><S:Envelope xmlns:S="http://schemas.xmlsoap.org/soap/envelope/"><S:Body><ns2:validateAndCheckB2COrderResponse xmlns:ns2="http://www.afterpay.nl/ad3/"><return><failures><failure>field.billto.person.lastname.invalid</failure><fieldname>billto.person.lastname</fieldname><suggestedvalue>De achternaam is onjuist bij de betaalgegevens</suggestedvalue></failures><resultId>2</resultId><timestampIn>1557660155677</timestampIn><timestampOut>1557660155834</timestampOut></return></ns2:validateAndCheckB2COrderResponse></S:Body></S:Envelope>
+*/
+        callresult := [ body :=
+                        [ parameters :=
+                          [ "return" :=
+                            [ failures := [[ failure := "field.invalid", fieldname := "billto.referencePerson.lastname", suggestedvalue := "De achternaam is onjuist bij de betaalgegevens" ]]
+                            , resultid := 2
+                            , statusCode := ""
+                            , timestampIn := 1552851267022
+                            , timestampOut := 1552851267405
+                            , transactionId := 2594523
+                            ]
+                          ]
+                        ]
+                      ];
+      }
+      ELSE
+      {
+          /* TODO would be nice to be able to throw an almost raw result like this
+    <?xml version='1.0' encoding='UTF-8'?><S:Envelope xmlns:S="http://schemas.xmlsoap.org/soap/envelope/"><S:Body><ns2:validateAndCheckB2COrderResponse xmlns:ns2="http://www.afterpay.nl/ad3/"><return><afterPayOrderReference>8c25e3fcd2d72d70f
+    4921ee234fc5b</afterPayOrderReference><checksum>7c0ec4f90d5aca7310a788692e43c8ff</checksum><resultId>0</resultId><statusCode>A</statusCode><timestampIn>1552851267022</timestampIn><timestampOut>1552851267405</timestampOut><transactionId>2
+    594523</transactionId></return></ns2:validateAndCheckB2COrderResponse></S:Body></S:Envelope>
+          through our response decoder */
+
+        callresult := GenerateFakeResult(this->amountpayable);
+      }
+    }
+
+    this->result := callresult.body.parameters."return";
+    IF(Cellexists(this->result,'failures') AND Length(this->result.failures) > 0)
+    {
+      result.errors := MapFailures(this->result.failures);
+      RETURN result;
+    }
+
+    IF(this->result.resultid IN [1,2])  //technical level error
+      THROW NEW Exception("Error communicating with Afterpay: " || this->result.rejectdescription);
+
+    this->pvt_status := this->GetStatusFromResult(this->result);
+    result.processnow := TRUE;
+    RETURN result;
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    STRING link;
+    SWITCH(this->settings.afterpaytype)
+    {
+      CASE ""
+      {
+        link := "https://www.afterpay.nl/nl/algemeen/betalen-met-afterpay/betalingsvoorwaarden";
+      }
+      CASE "BE"
+      {
+        link := "https://www.afterpay.be/be/footer/betalen-met-afterpay/betalingsvoorwaarden";
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unsupported type '${this->settings.afterpaytype}'`);
+      }
+    }
+
+    RETURN [[ paymentoptiontag := ""
+            , title := this->settings.methodtitle ?? "Afterpay"
+            , issuers := RECORD[]
+            , requirements := afterpay_requirements
+            , htmlagreeterms := GetHTMLTidForLanguage(options.language, "wrd:site.forms.payments.afterpay.agreeterms", link)
+            , islive := NOT this->settings.testmode
+            ]];
+  }
+
+  RECORD FUNCTION MapAfterpayAddress(RECORD inaddress, RECORD mappedperson)
+  {
+    inaddress := EnforceStructure( [ city := ""
+                                   , country := ""
+                                   , street := ""
+                                   , zip := ""
+                                   , nr_detail := ""
+                                   ], inaddress);
+
+    RECORD addy := [ city := inaddress.city
+                   , housenumber := inaddress.nr_detail
+                   , isoCountryCode := inaddress.country
+                   , postalcode := Substitute(inaddress.zip,' ','')
+                   , streetname := inaddress.street
+                   , referencePerson := mappedperson
+                   ];
+    RETURN addy;
+  }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
+    paymentmethod := ValidateOptions(paymentbaseoptions, paymentmethod);
+
+    RECORD personfields := this->GetCustomerInfo(paymentmethod, [ requirements := afterpay_requirements ]);
+
+    IF(Length(paymentmethod.orderlines) < 1)
+      THROW NEW Exception("Order lines are required");
+    IF(this->orderid = "")
+      THROW NEW Exception("Orderid is required");
+    ELSE IF(Length(this->orderid) < 2 OR Length(this->orderid) > 36)
+      THROW NEW Exception(`Orderid must be between 2 and 36 bytes, your order id '${this->orderid}' is ${Length(this->orderid)} byte(s) long`);
+    ELSE IF(NOT (NEW RegEx("^[-_A-Za-z0-9]+$")->Test(this->orderid)))
+      THROW NEW Exception(`Orderid '${this->orderid}': Only A-Z,a-z 0-9 and _- are allowed`);
+
+    RECORD mappedperson := [ dateofbirth := personfields.wrd_dateofbirth
+                           , emailaddress := personfields.wrd_contact_email
+                           , gender := personfields.wrd_gender = 1 ? "M" : "V"
+                           , initials := personfields.wrd_initials ?? Left(personfields.wrd_firstname,1)
+                           , isolanguage := "NL" //FIXME adapt
+                           , lastname := TrimWhitespace(personfields.wrd_infix || " " || personfields.wrd_lastname)
+                           , phonenumber1 := personfields.wrd_contact_phone
+                           ];
+    IF(personfields.wrd_contact_phone2 != "")
+      INSERT CELL phonenumber2 := personfields.wrd_contact_phone2 INTO mappedperson;
+
+    this->pvt_status := "pending";
+
+    //Note: afterpay CANNOT deal with rounding errors, it requires an integer unitprice and quantity and for those to add up to the final amount
+    //      so we'll just pass ONE unit
+
+    UPDATE paymentmethod.orderlines SET amount := 1, title := amount || "x " || title WHERE amount != 1 AND ((linetotal / (amount ?? 1) * 100) != INTEGER(linetotal / (amount ?? 1) * 100));
+
+    this->orderdata := [ ipaddress := personfields.ipaddress
+                       , orderlines := (SELECT articleDescription := Left(title,45)
+                                             , articleId := Left(sku,25) ?? "orderline-" || (#orderlines+1)
+                                             , quantity := amount ?? 1
+                                             , unitprice := INTEGER(linetotal / (amount ?? 1) * 100)
+                                             , vatcategory := vatpercentage >= 15m ? 1 : vatpercentage >= 1 ? 2 : 4
+                                          FROM paymentmethod.orderlines)
+                       , b2cbilltoAddress := this->MapAfterpayAddress(personfields.billingaddress, mappedperson)
+                       , b2cshiptoAddress := this->MapAfterpayAddress(personfields.shippingaddress ?? personfields.billingaddress, mappedperson)
+                       ];
+  }
+
+  STRING FUNCTION GetStatusFromResult(RECORD result)
+  {
+    IF(result.resultid = 0 AND result.statuscode = "A")
+      RETURN "approved";
+    IF(result.resultid = 0 AND result.statuscode = "W")
+      RETURN "failed";
+    IF(result.resultid IN [2,3]) //2 = validation error, 3 = rejection, but neither will ever pass
+      RETURN "failed";
+    RETURN "pending";
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN CELL[ this->orderdata, this->result ];
+  }
+
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    RECORD m := EnforceStructure([ orderdata := DEFAULT RECORD
+                                 , result := DEFAULT RECORD
+                                 ], payment.__paymentdata.m);
+    m.result := EnforceResultStructure(m.result);
+    this->orderdata := m.orderdata;
+    this->result := m.result;
+    IF(RecordExists(this->result))
+      this->pvt_status := this->GetStatusFromResult(this->result);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    this->PollStatus();
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    this->PollStatus();
+  }
+
+  MACRO PollStatus()
+  {
+    OBJECT service := this->GetSoapClient("OrderManagement", this->settings.afterpaytype);
+    RECORD callresult;
+    IF(ObjectExists(service))
+    {
+      callresult := service->requestOrderStatus(
+      [ body :=
+        [ parameters :=
+          [ authorization := [ merchantId := ToInteger(this->settings.merchantId,0)
+                             , password := this->settings.password
+                             , portfolioid := this->settings.portfolioid
+                             ]
+          , ordermanagementobject :=
+            [ transactionkey := [ parentTransactionreference := this->paymentref
+                                , ordernumber := this->orderid
+                                ]
+            ]
+          ]]]);
+    }
+    ELSE
+    {
+      callresult := GenerateFakeResult(this->amountpayable);
+    }
+
+    RECORD savedresult := this->result;
+    this->result := EnforceResultStructure(callresult.body.parameters."return");
+    this->pvt_status := this->GetStatusFromResult(this->result);
+
+    IF(this->pvt_status = "failed") //Afterpay, at least NL, seems to lose the reject* fields when rechecking. so restore them from the previous saved value if so
+    {
+      IF(this->result.rejectcode = "")
+        this->result.rejectcode := savedresult.rejectcode;
+      IF(this->result.rejectdescription = "")
+        this->result.rejectdescription := savedresult.rejectdescription;
+    }
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetHTMLStatusForUser()
+  {
+    IF(this->pvt_status != "failed" OR this->result.rejectdescription = "")
+      RETURN "";
+
+    //Texts from https://mip.afterpay.nl/en/direct-api-integration/
+    STRING link := this->settings.afterpaytype = "BE" ? "https://www.afterpay.be/be/consumenten/vraag-en-antwoord/"
+                                                      : "https://www.afterpay.nl/nl/consumenten/vraag-en-antwoord/";
+    RETURN `Het spijt ons u te moeten mededelen dat uw aanvraag om uw bestelling achteraf te betalen op dit moment niet door AfterPay wordt geaccepteerd. De reden hiervoor is: ${EncodeHTML(this->result.rejectdescription)}. Voor vragen over uw afwijzing kunt u contact opnemen met de <a href="${EncodeValue(link)}" target="_blank">Klantenservice van AfterPay</a>. Wij adviseren u voor een andere betaalmethode te kiezen om alsnog de betaling van uw bestelling af te ronden.`;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION CheckPaymentRequest(MONEY amount_payable, RECORD baseoptions)
+  {
+    RECORD result := [ errors := RECORD[] ];
+    RECORD personfields := this->GetCustomerInfo(baseoptions);
+    STRING country := RecordExists(personfields) ? ToUppercase(personfields.billingaddress.country) : "";
+    IF(this->settings.afterpaytype = "BE" AND country != "BE")
+    {
+      INSERT [ field := "BILLINGADDRESS.COUNTRY"
+             , error := GetTid("wrd:site.forms.payments.afterpay-only-be")
+             , description := `Afterpay BE is only available for Belgian addresses, not: ${country}`
+             ] INTO result.errors AT END;
+    }
+    ELSE IF(this->settings.afterpaytype = "" AND country != "NL")
+    {
+      INSERT [ field := "BILLINGADDRESS.COUNTRY"
+             , error := GetTid("wrd:site.forms.payments.afterpay-only-nl")
+             , description := `Afterpay NL is only available for Dutch addresses, not: ${country}`
+             ] INTO result.errors AT END;
+    }
+    RETURN result;
+  }
+>;
+

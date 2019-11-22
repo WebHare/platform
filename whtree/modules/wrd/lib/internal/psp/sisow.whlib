@@ -1,0 +1,233 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+
+/* Sisow api docs: https://www.sisow.nl/implementatie-api
+*/
+
+CONSTANT STRING apiroot := "https://www.sisow.nl/Sisow/iDeal/RestHandler.ashx/";
+
+PUBLIC RECORD ARRAY paymentsubmethods :=
+    [ [ rowkey := "ideal"       , title := "iDEAL" ]
+    , [ rowkey := "idealqr"     , title := "iDEAL QR" ]
+    , [ rowkey := "overboeking" , title := "Bankoverboeking" ]
+    , [ rowkey := "ebill"       , title := "Ebill" ]
+    , [ rowkey := "bunq"        , title := "bunq" ]
+    , [ rowkey := "creditcard"  , title := "Creditcard" ]
+    , [ rowkey := "maestro"     , title := "Maestro" ]
+    , [ rowkey := "vpay"        , title := "V PAY" ]
+    , [ rowkey := "sofort"      , title := "SOFORT Banking" ]
+    , [ rowkey := "giropay"     , title := "Giropay" ]
+    , [ rowkey := "eps"         , title := "EPS" ]
+    , [ rowkey := "mistercash"  , title := "Bancontact" ]
+    , [ rowkey := "belfius"     , title := "Belfius Pay Button" ]
+    , [ rowkey := "homepay"     , title := "ING Home’Pay" ]
+    , [ rowkey := "kbc"         , title := "KBC" ]
+    , [ rowkey := "cbc"         , title := "CBC" ]
+    , [ rowkey := "paypalec"    , title := "PayPal Express Checkout" ]
+    , [ rowkey := "afterpay"    , title := "Afterpay" ]
+    , [ rowkey := "billink"     , title := "Billink achteraf betalen" ]
+    , [ rowkey := "capayable"   , title := "Capayable gespreid betalen" ]
+    , [ rowkey := "focum"       , title := "Focum AchterafBetalen" ]
+    , [ rowkey := "klarna"      , title := "Klarna Factuur" ]
+    , [ rowkey := "vvv"         , title := "VVV Giftcard" ]
+    , [ rowkey := "webshop"     , title := "Webshop Giftcard" ]
+    ];
+
+OBJECT sisowbrowser;
+
+OBJECT FUNCTION GetBrowser()
+{
+  IF(ObjectExists(sisowbrowser))
+    RETURN sisowbrowser;
+
+  sisowbrowser := NEW WebBrowser;
+  IF(IsRPCTrafficLogged("wrd:payments.sisow"))
+    LogRPCForWebbrowser("wrd:payments.sisow", "", sisowbrowser);
+
+  RETURN sisowbrowser;
+}
+
+PUBLIC RECORD FUNCTION GetCacheableIssuers(RECORD cachekey)
+{
+  OBJECT browser := GetBrowser();
+  IF(NOT browser->GotoWebPage(UpdateURLVariables(apiroot || "DirectoryRequest", [ test := cachekey.testmode ? "true" : "" ])))
+    THROW NEW Exception("Unable to retrieve issuers");
+
+  RECORD ARRAY issuers;
+  FOREVERY(OBJECT issuernode FROM browser->document->GetElements("issuer"))
+  {
+    INSERT [ rowkey := issuernode->GetElement("issuerid")->textcontent
+           , title := issuernode->GetElement("issuername")->textcontent
+           ] INTO issuers AT END;
+  }
+
+  RETURN [ value := CELL[ issuers ]
+         ];
+}
+
+PUBLIC STATIC OBJECTTYPE SisowPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  STRING transactionid;
+
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:sisow", "redirect", settings)
+  {
+    this->needspaymentref := TRUE;
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RECORD ARRAY methods;
+    FOREVERY(RECORD method FROM paymentsubmethods)
+    {
+      IF(method.rowkey NOT IN this->settings.methods)
+        CONTINUE;
+
+      INSERT [[ paymentoptiontag := method.rowkey
+              , title := method.title //FIXME lookup proper name
+              , issuers := method.rowkey = "ideal" AND options.getissuers ? this->GetIdealIssuers() : RECORD[]
+             ]] INTO methods AT END;
+    }
+    RETURN methods;
+  }
+
+  RECORD ARRAY FUNCTION GetIdealIssuers()
+  {
+    TRY
+    {
+      RETURN WaitForPromise(GetPrecalculatedData([ testmode := this->settings.testmode ], Resolve("#GetCacheableIssuers"))).issuers;
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      RETURN RECORD[];
+    }
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    RECORD meta := EnforceStructure([ transactionid := "" ], payment.__paymentdata.m);
+    this->transactionid := meta.transactionid;
+  }
+
+  PUBLIC UPDATE STRING FUNCTION GetPayRedirectUrl(STRING paymenttok)
+  {
+    STRING returnurl := GetInternalReturnURL(paymenttok);
+    RECORD vars := [ shopid := "0"
+                   , merchantid := this->settings.merchantid
+                   , payment := this->paymentoptiontag = "ideal" ? "" : this->paymentoptiontag
+                   , purchaseid := this->paymentref
+                   , amount := ToString(INTEGER(this->amountpayable*100))
+                   , issuerid := this->issuer
+                   , testmode := this->settings.testmode ? "true" : ""
+                   , description := Left(this->orderid ?? this->paymentref,32)
+                   , returnurl := returnurl
+                   //, notifyurl := returnurl // Setting notifyurl causes the gateway to SYNCHRONOUSLY connect back to us during the transaction! Breaks if we're not reachable from the outside.
+                   ];
+
+    STRING hashbase := `${vars.purchaseid}${vars.purchaseid}${vars.amount}${vars.shopid}${vars.merchantid}${this->settings.merchantsecret}`;
+    INSERT CELL sha1 := ToLowercase(EncodeBase16(GetSHA1Hash(hashbase))) INTO vars;
+    STRING transreq := UpdateURLVariables(apiroot || "TransactionRequest", vars);
+
+    OBJECT browser := GetBrowser();
+    IF(NOT browser->GotoWebPage(transreq))
+      THROW NEW Exception("Unable to start transaction");
+
+    //TODO verify TransactionRequest signature? but don't really see the point, we've already connected over https to a known endpoint
+    STRING issuerurl := DecodeURL(browser->document->GetElement("issuerurl")->textcontent); //yes, really, decodeurl..
+    this->transactionid := browser->document->GetElement("trxid")->textcontent;
+
+    GetPrimary()->BeginWork();
+    UpdatePaymentMetadata(paymenttok, [ transactionid := this->transactionid
+                                      , issuer := this->issuer
+                                      ]);
+    GetPrimary()->CommitWork();
+
+    RETURN DecodeURL(issuerurl);
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    this->PollStatus();
+  }
+
+  MACRO PollStatus()
+  {
+    RECORD vars := [ trxid := this->transactionid
+                   , shopid := "0"
+                   , merchantid := this->settings.merchantid
+                   ];
+
+    // Can't ever check transaction without a transaction id again
+    IF (this->transactionid = "")
+    {
+      this->pvt_status := "failed";
+      RETURN;
+    }
+
+    STRING hashbase := `${vars.trxid}${vars.shopid}${vars.merchantid}${this->settings.merchantsecret}`;
+    INSERT CELL sha1 := ToLowercase(EncodeBase16(GetSHA1Hash(hashbase))) INTO vars;
+    STRING statusreq := UpdateURLVariables(apiroot || "StatusRequest", vars);
+
+    OBJECT browser := GetBrowser();
+    IF(NOT browser->GotoWebPage(statusreq))
+      THROW NEW Exception("Unable to request status");
+
+    // We might not get a status node due to an internal error/wrong keys, etc, so don't fail the transaction
+    OBJECT statusnode := browser->document->GetElement("status");
+    STRING status := ObjectExists(statusnode)
+        ? browser->document->GetElement("status")->textcontent
+        : "Pending";
+
+    this->pvt_status := status = "Pending" OR status = "Open" ? "pending" : status = "Success" ? "approved" : "failed";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    IF(this->transactionid != GetVariableFromUrl(returnurl, "trxid"))
+      RETURN FALSE;
+
+    //TODO we could avoid this PollStatus if we hash and verify the status on the url
+    this->PollStatus();
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN CELL[ this->transactionid ];
+  }
+
+>;
+
+PUBLIC RECORD FUNCTION CheckSisowMerchant(STRING merchantid, STRING merchantsecret)
+{
+  IF(merchantid = "" OR merchantsecret = "")
+    RETURN DEFAULT RECORD;
+
+  RECORD vars := [ merchantid := merchantid
+                 ];
+
+  STRING hashbase := `${vars.merchantid}${merchantsecret}`;
+  INSERT CELL sha1 := ToLowercase(EncodeBase16(GetSHA1Hash(hashbase))) INTO vars;
+  STRING checkreq := UpdateURLVariables(apiroot || "CheckMerchantRequest", vars);
+
+  OBJECT browser := GetBrowser();
+  IF(NOT browser->GotoWebPage(checkreq))
+    RETURN DEFAULT RECORD;
+
+  STRING ARRAY methods;
+  FOREVERY(OBJECT method FROM browser->document->GetElements("payment"))
+    INSERT method->textcontent INTO methods AT END;
+  RETURN CELL[ methods ];
+}

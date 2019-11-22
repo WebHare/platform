@@ -1,0 +1,41 @@
+﻿<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/virtualfs/base.whlib";
+LOADLIB "mod::system/lib/virtualfs/modular.whlib";
+LOADLIB "mod::system/lib/virtualfs/diskfolder.whlib";
+
+PUBLIC OBJECTTYPE DataFS EXTEND VirtualModularFSBase
+<
+  UPDATE OBJECT FUNCTION GetSubfolder(STRING subfolder)
+  {
+    RECORD folderinfo := SELECT * FROM system.webdav_datafolders WHERE ToUppercase(foldername) = ToUppercase(subfolder);
+    IF(NOT RecordExists(folderinfo) OR NOT GetEffectiveUser()->HasRightOn("system:webdav_readaccess", folderinfo.id))
+      THROW NEW VirtualFSException("BADPATH", "No such data path");
+
+    BOOLEAN fullaccess := GetEffectiveUser()->HasRightOn("system:webdav_fullaccess", folderinfo.id);
+    RETURN NEW DiskFolderFS(folderinfo.diskfolder, fullaccess, folderinfo.forcelowercase);
+  }
+
+  UPDATE RECORD ARRAY FUNCTION GetSubfolderListing()
+  {
+    //Return all roots
+    INTEGER ARRAY readfolders := GetEffectiveUser()->GetRootObjectsForRights(["system:webdav_readaccess"]);
+    IF(Length(readfolders)=0)
+      THROW NEW VirtualFSException("BADPATH","No data paths");
+
+    INTEGER ARRAY writefolders := GetEffectiveUser()->GetRootObjectsForRights(["system:webdav_fullaccess"]);
+    BOOLEAN read_all_folders:= 0 IN readfolders;
+    BOOLEAN write_all_folders := 0 IN writefolders;
+
+    RETURN SELECT name := foldername
+                , type := 1
+                , size := 0
+                , read := TRUE
+                , write := write_all_folders OR webdav_datafolders.id IN writefolders
+                , modificationdate := DEFAULT DATETIME
+                , creationdate := DEFAULT DATETIME
+             FROM system.webdav_datafolders
+            WHERE (read_all_folders ? TRUE : webdav_datafolders.id IN readfolders);
+  }
+
+>;

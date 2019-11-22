@@ -1,0 +1,262 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
+         xmlns:webapis="http://www.webhare.net/xmlns/system/webapis"
+         lib="screens/userrights/dialogs/userpreferences.whlib"
+         gid="userrights">
+
+  <messageboxes gid=".dialogues">
+    <messagebox name="passwordchange" buttons="ok" icon="information" />
+    <messagebox name="confirmdeletenotification" dontshowagain="yes" buttons="yes no" icon="warning" />
+    <messagebox name="confirmdeletemenuitem" buttons="yes no" icon="warning" />
+    <messagebox name="confirmresetwarnings" buttons="yes no" />
+    <messagebox name="noprefsforoverride" buttons="ok" icon="error" />
+    <messagebox name="confirmpdfpreview" buttons="ok" icon="information" />
+  </messageboxes>
+
+  <screen name="userpreferences" gid=".edituser" interval="2000" oninterval="gotinterval" icon="tollium:users/user">
+    <actions>
+      <action name="resetwarnings" onexecute="doresetwarnings" />
+      <action name="autodetect" onexecute="@notimplemented" />
+      <action name="openapppasswords" onexecute="doopenapppasswords" title="" />
+    </actions>
+    <compositions>
+      <wrd:entity name="userobj" />
+    </compositions>
+    <body spacers="none">
+      <panel name="userinfopage">
+        <tabs name="usertabs" type="regular">
+          <tab name="account">
+            <!--<text  composition="userobj" cellname="wrd_fullname"/>-->
+            <textedit name="fullname" cellname="wrd_title" composition="userobj" readonly="true" tid=".fullname" />
+            <textedit name="username" tid=".username" />
+            <passwordfield name="password" composition="userobj" cellname="whuser_password" />
+            <textedit name="unitname" enabled="false" required="true"/>
+            <line>
+              <text valuetid=".appaccountstab" action="openapppasswords" title="" />
+            </line>
+          </tab>
+          <tab name="preferences" spacers="none">
+            <!--panel height="1gr" layout="left"  spacers="left right"> <!- - backgroundcolor="#FEFFDE" - ->
+              <line>
+                <text title="" valuetid=".autodetectpre"/>
+                <text action="autodetect" title="" valuetid=".autodetect"/>
+                <text title="" valuetid=".autodetectexplain"/>
+              </line>
+            </panel-->
+            <panel spacers="all" height="1pr">
+              <select name="language" type="pulldown" tid=".prefslang" />
+              <select name="decimalsep" type="pulldown" />
+              <select name="thousandsep" type="pulldown" />
+              <webapis:timezoneedit name="timezone" />
+              <textedit name="browsertitleprefix" visible="true"/>
+              <lines layout="left">
+                <checkbox name="showpdfpreview" title="" labeltid=".showpdfpreview" />
+                <checkbox name="showdeveloperapps" title="" labeltid=".showdeveloperapps" />
+              </lines>
+            </panel>
+          </tab>
+          <tab name="notificationsandwarnings" spacers="none">
+            <panel spacers="left right">
+              <box tid=".warnings" hr="false">
+                <line>
+                  <!-- The text will provide for the button title label. The value is empty and margins between text and button are
+                       set to 0. -->
+                  <text title="" valuetid=".resetwarnings" action="resetwarnings" />
+                  <text title="" valuetid=".resetwarnings-labelend" />
+                </line>
+              </box>
+            </panel>
+            <panel name="notificationstab" spacers="none" height="1pr"/>
+            <!-- Loaded from the 'notificationsettings' screen -->
+          </tab>
+          <tab name="startmenu" tid=".favorites">
+            <grid height="1pr" >
+              <col width="1pr" />
+              <row height="1pr">
+                <cell height="1pr">
+                  <arrayedit name="shortcuts"
+                             height="1pr"
+                             width="1pr"
+                             buttons="edit delete"
+                             roweditscreen="#shortcuteditor"
+                             icons="tollium:status/positive tollium:status/serious_error"
+                             sortable="false"
+                             orderable="true"
+                           >
+                    <column name="app" type="text" />
+                    <column name="title" type="text" />
+                  </arrayedit>
+                </cell>
+              </row>
+            </grid>
+          </tab>
+        </tabs>
+      </panel>
+    </body>
+    <footer name="okcancel">
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+
+  <screen name="shortcuteditor" tid=".windowtitle" gid="userrights.shortcuteditor" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body name="fields">
+      <textedit composition="row" cellname="title" required="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="appaccounts"
+          gid=".appaccounts"
+          tid=".windowtitle"
+          minwidth="80x"
+          minheight="18x"
+          allowresize="true"
+          savestate="size">
+    <body>
+      <panel name="appaccountspanel" height="1pr">
+        <heading name="appaccountstab" />
+        <wrd:entitiesedit name="appaccounts" height="1pr" deletemode="close" entityeditscreen=".appaccount" buttons="add delete">
+          <column name="scope" type="text" />
+          <column name="device" type="text" />
+          <column name="lastuse" type="date" storeutc="true" width="12x" tid=".lastlogin" />
+        </wrd:entitiesedit>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="appaccount" gid=".appaccount" tid=".windowtitle" minwidth="80x">
+    <body spacers="none">
+      <wizard name="wizard">
+        <page onnext="ondevicepagenext" name="devicepage">
+          <select type="pulldown" name="scope">
+            <!--FIXME centralized transalted scope registry -->
+            <option rowkey="system:webdav" title="system:webdav" />
+          </select>
+          <textedit name="device" width="1pr" required="true" placeholdertid=".device-placeholder"/>
+        </page>
+        <page oninit="onpasswordpageinit" isfinish="true" name="passwordpage">
+          <line layout="left">
+            <text valuetid=".lookverycarefullyiwillshowthisonlyonce" wordwrap="true" />
+          </line>
+          <textedit name="login" width="1pr" enabled="false" />
+          <textedit name="password" width="1pr" enabled="false" />
+        </page>
+      </wizard>
+    </body>
+  </screen>
+
+  <screen name="notificationsettings" tid=".windowtitle" gid=".notificationsettings">
+    <actions>
+      <action name="requestpermission" onexecute="dorequestpermission" />
+      <action name="testnotification" onexecute="dotestnotification" />
+      <action name="editnotification" tid="tollium:common.actions.edit" onexecute="doeditnotification">
+        <enableon source="notifications" min="1" max="1" />
+      </action>
+      <action name="deletenotification" tid="tollium:common.actions.delete" onexecute="dodeletenotification">
+        <enableon source="notifications" min="1" max="1" />
+      </action>
+    </actions>
+    <compositions>
+      <eventlistener name="listener" onevents="gotnewnotificationevents" />
+    </compositions>
+    <body height="1pr" spacers="none">
+      <panel height="1pr" spacers="left right bottom">
+        <heading tid=".notificationballoons" />
+        <text action="testnotification" valuetid=".testnotification" title=""/>
+        <grid height="1pr">
+          <col width="1pr" />
+          <col />
+          <row height="1pr">
+            <cell height="1pr">
+              <list name="notifications"
+                    selectmode="single" openaction="editnotification"
+                    emptytid=".nonotifications"
+                    minheight="8x">
+                <column name="module" type="text" width="1pr" />
+                <column name="title" type="text" width="2pr" />
+                <column name="status" iconname="statusicon" type="text" width="1pr" />
+              </list>
+            </cell>
+            <cell>
+              <button action="editnotification" width="1pr" />
+              <button action="deletenotification" width="1pr" />
+            </cell>
+          </row>
+        </grid>
+        <panel visible="false">
+          <line layout="left">
+            <checkbox name="onlypriority" title="" labeltid=".onlypriority" enablecomponents="showpriority" visible="false"/>
+            <select name="showpriority" tid=".onlypriority" type="pulldown" rowkeytype="integer" gid=".priorities">
+              <option rowkey="-2" tid=".verylow" />
+              <option rowkey="-1" tid=".low" />
+              <option rowkey="0" tid=".normal" />
+              <option rowkey="1" tid=".high" />
+              <option rowkey="2" tid=".veryhigh" />
+            </select>
+          </line>
+        </panel>
+        <line layout="left">
+          <select name="showon" type="pulldown" onchange="onshowonchange">
+            <option rowkey="browser" />
+            <option rowkey="desktop" />
+          </select>
+          <text title="" valuetid=".timeoutlabel"/>
+          <textedit title="" errorlabeltid=".timeout" name="timeout" valuetype="integer" emptyvalue="0" width="5x" placeholder="5"/>
+          <text title="" valuetid=".timeout-desc" />
+        </line>
+      </panel>
+      <tabs name="permissiontabs" type="server" height="1gr" >
+        <tab height="1gr" backgroundcolor="#FEFFDE" spacers="left right" name="requestpermissiontab" title="">
+          <line layout="left">
+            <text title="" valuetid=".requestexplain"/>
+            <text action="requestpermission" valuetid=".requestpermission"/>
+          </line>
+        </tab>
+        <tab height="1gr" backgroundcolor="#FEFFDE" spacers="left right" name="permissiondeniedtab" title="">
+          <line layout="left">
+            <text title="" valuetid=".deniedexplain" width="1pr" />
+          </line>
+        </tab>
+        <tab height="1gr" spacers="left right" name="permissiongrantedtab" title="">
+          <line layout="left">
+            <text title="" valuetid=".grantedexplain" width="1pr" />
+          </line>
+        </tab>
+        <tab height="1gr" spacers="left right" name="notsupportedtab" title="">
+          <line layout="left">
+            <text title="" valuetid=".notsupportedtabexplain" width="1pr" />
+          </line>
+        </tab>
+      </tabs>
+    </body>
+    <footer name="buttons">
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+
+  <screen name="editnotification" tid=".title" gid=".editnotification">
+    <body>
+      <panel height="1pr">
+        <select name="shownotification" type="radio">
+          <option rowkey="never" />
+          <option rowkey="always" />
+        </select>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

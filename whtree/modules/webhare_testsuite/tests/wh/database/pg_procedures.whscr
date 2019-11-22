@@ -1,0 +1,55 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+
+MACRO TestProcedures()
+{
+  TestEQ([ [ val := "blabla" ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_urlencode($1) AS val`, [ args := VARIANT[ "blabla" ] ]));
+  TestEQ([ [ val := "%0Ad%09" ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_urlencode($1) AS val`, [ args := VARIANT[ "\nd\t" ] ]));
+  TestEQ([ [ val := "%04hey%05" ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_urlencode($1) AS val`, [ args := VARIANT[ "\004hey\005" ] ]));
+  TestEQ([ [ val := "" ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_urlencode($1) AS val`, [ args := VARIANT[ "" ] ]));
+  TestEQ([ [ val := "hey%08laat" ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_urlencode($1) AS val`, [ args := VARIANT[ "hey\blaat" ] ]));
+  TestEQ([ [ val := "%C3%AB" ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_urlencode($1) AS val`, [ args := VARIANT[ "\u00eb" ] ]));
+  TestEQ([ [ val := "%7B%7D%7C%5C%5E%7E%5B%5D%60" ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_urlencode($1) AS val`, [ args := VARIANT[ "{}|\\^~[]`" ] ]));
+  TestEQ([ [ val := "%3B/%3F%3A%40%3D%26" ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_urlencode($1) AS val`, [ args := VARIANT[ ";/?:@=&" ] ]));
+
+  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "good" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "\a" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "!" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "^" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ " a" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "a " ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "a." ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "a*a" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "a/a" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "a\na" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isvalidwhfsname($1) AS val`, [ args := VARIANT[ "a\aa" ] ]));
+
+
+  testfw->BeginWork();
+  OBJECT site := testfw->GetTestSite();
+  OBJECT parentfolder := site->rootobject->CreateFolder([ name := "parent" ]);
+  OBJECT foreignfolder := parentfolder->CreateFolder([ name := "foreignfolder", type := 1 ]);
+  testfw->CommitWork();
+
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "/" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "foreignfolder" ] ]));
+  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "parent/foreignfolder" ] ]));
+  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "///parent///foreignfolder///" ] ]));
+  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "parent/foreignfolder/sub" ] ]));
+  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "parent/foreignfolder/sub//" ] ]));
+}
+
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE ])
+                 , PTR TestProcedures
+                 ]);

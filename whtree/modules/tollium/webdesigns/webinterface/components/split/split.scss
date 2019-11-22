@@ -1,0 +1,101 @@
+/****************************************************************************************************************************
+ * Split
+ */
+t-split
+{
+  display: block;
+  position: relative;
+}
+t-split__movingsplitter
+{
+  position: absolute;
+  z-index: 1;
+  display:block;
+}
+.split--horizontal
+{
+  white-space:nowrap;
+}
+t-split__splitter
+{
+  display:block;
+}
+.split--horizontal > t-split__splitter
+{
+  vertical-align: top;
+  width: 1px;
+}
+.split--horizontal > t-split__splitter
+{
+  position:relative;
+  height:100%;
+  width:0px;
+}
+.split--horizontal > t-split__splitter:not(.split--transparent)
+{
+  border-left-width:1px;
+  border-left-style:solid;
+}
+
+.split--horizontal > t-split__splitter:before
+{
+  content:"";
+  position: absolute;
+  left:-4px;
+  top:0;
+  bottom:0;
+  right:-4px;
+  z-index:1;
+}
+.split--horizontal > *
+{
+  // Just making all content blocks "inline-block" gives problems with the vertical alignment in WebKit, so we'll just float
+  // all content blocks to the left.
+  // However, float:left can cause wrapping (see #143) so we'll need a testcase for the inline-block issue
+  display:inline-block;
+  vertical-align:top;
+  white-space:normal;
+}
+.split--horizontal > t-split__splitter
+{
+  cursor: col-resize;
+}
+
+.split--vertical > t-split__splitter
+{
+  cursor: row-resize;
+}
+.split--vertical > t-split__splitter
+{
+  position:relative;
+  width:100%;
+  height:0px;
+}
+.split--vertical > t-split__splitter:not(.split--transparent)
+{
+  border-top-width:1px;
+  border-top-style:solid;
+}
+
+.split--vertical > t-split__splitter:before
+{
+  content:"";
+  position: absolute;
+  top:-4px;
+  left:0;
+  right:0;
+  bottom:-4px;
+  z-index:1;
+}
+
+
+t-split__splitter
+{
+//  border-color: #595959; it's still ugly, let's try without for a while...- Arnold
+}
+t-split__movingsplitter
+{
+  background: rgba(0,0,0,.5);
+  box-shadow: 0 0 2px rgba(0,0,0,.5);
+  //background: rgba(0, 0, 0, 0.3);
+}

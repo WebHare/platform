@@ -1,0 +1,75 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+MACRO TestAppServer()
+{
+  RECORD config := GetWebHareConfiguration();
+
+  OBJECT process := CreateProcess(
+        config.installationroot || "bin/appserver",
+        [ "--listenport", "2133", "module::webhare_testsuite/system/appservertest.whscr" ],
+        FALSE,
+        TRUE,
+        TRUE,
+        TRUE);
+
+  process->Start();
+  Sleep(500);
+
+  PRINT(ReadLineFrom(process->handle, -16384, TRUE));
+
+
+  OBJECT socket := CreateSocket("TCP");
+
+  BOOLEAN res;
+  FOR (INTEGER i := 0; i < 100; i := i + 1)
+  {
+    res := socket->Connect("127.0.0.1", 2133);
+    IF (res)
+      BREAK;
+    Sleep(100);
+  }
+  IF (NOT res)
+    THROW NEW Exception("Could not start appserver");
+
+  TestEQ("Welcome", ReadLineFrom(socket->handle, 2048, TRUE));
+
+  Sleep(200);
+  BroadcastEvent("webhare_testsuite:appserver_event", [ id := "777" ]);
+
+  TestEQ("Event: 777", ReadLineFrom(socket->handle, 2048, TRUE));
+
+  PrintTo(socket->handle, "command\r\n");
+  TestEQ("Thanks", ReadLineFrom(socket->handle, 2048, TRUE));
+  PrintTo(socket->handle, "command\r\n");
+  TestEQ("Thanks", ReadLineFrom(socket->handle, 2048, TRUE));
+  PrintTo(socket->handle, "0123456789012345678901234567890123456789\r\n");
+  TestEQ("UnknownCommand:0123456789012345678901234567890123456789", ReadLineFrom(socket->handle, 2048, TRUE));
+  PrintTo(socket->handle, "0123456789012345678901234567890123456789A\r\n");
+  TestEQ("LineTooLong", ReadLineFrom(socket->handle, 2048, TRUE));
+  TestEQ("UnknownCommand:A", ReadLineFrom(socket->handle, 2048, TRUE));
+  PrintTo(socket->handle, "0123456789012345678901234567890123456789A");
+  TestEQ("LineTooLong", ReadLineFrom(socket->handle, 2048, TRUE));
+  PrintTo(socket->handle, "\r\n");
+  TestEQ("UnknownCommand:A", ReadLineFrom(socket->handle, 2048, TRUE));
+  PrintTo(socket->handle, "bin\r\n01234567890123456789command\r\n");
+  TestEQ("SendBin", ReadLineFrom(socket->handle, 2048, TRUE));
+  TestEQ("GotBin:01234567890123456789", ReadLineFrom(socket->handle, 2048, TRUE));
+  TestEQ("Thanks", ReadLineFrom(socket->handle, 2048, TRUE));
+  PrintTo(socket->handle, "bye\r\n");
+  TestEQ("", ReadLineFrom(socket->handle, 2048, TRUE));
+  TestEQ(TRUE, IsAtEndOfStream(socket->handle));
+
+  process->Terminate();
+  process->Close();
+}
+
+RunTestFramework([ PTR TestAppServer
+                 ]);

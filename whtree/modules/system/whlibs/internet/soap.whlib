@@ -1,0 +1,1977 @@
+﻿<?wh
+/** @short SOAP
+    @topic internet/soap
+*/
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/validation.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "wh::xml/internal/flatxsd.whlib";
+LOADLIB "wh::internal/soap/wsdlparser.whlib";
+LOADLIB "wh::internal/soap/wsdlsoapbinding.whlib";
+LOADLIB "wh::internal/soap/soapencoding.whlib";
+LOADLIB "wh::internal/soap/domwalker.whlib";
+LOADLIB "wh::internal/soap/support.whlib" EXPORT WSDLModifications;
+
+
+STRING ns_xsd2001 := "http://www.w3.org/2001/XMLSchema";
+STRING ns_xsd2001_instance := "http://www.w3.org/2001/XMLSchema-instance";
+STRING ns_xmlns := "http://www.w3.org/2000/xmlns/";
+STRING ns_soap11 := "http://schemas.xmlsoap.org/wsdl/soap/";
+STRING ns_soap11httptransport := "http://schemas.xmlsoap.org/soap/http";
+
+STRING trans_http := "http://schemas.xmlsoap.org/soap/http";
+
+BOOLEAN registered_soap_binding_interpreter;
+
+OBJECTTYPE SoapRawError EXTEND Exception
+< PUBLIC STRING code;
+
+  MACRO NEW(STRING code, STRING what)
+  : Exception(what)
+  {
+    this->code := what;
+  }
+>;
+
+PUBLIC OBJECTTYPE SoapWSDLFault EXTEND Exception
+< /** @cell(string) detailstr
+      @cell(string) faultcode
+      @cell(string) faultstring
+      @cell(record) detail Decoded fault messages
+      @cell(string) firstfaultname Name of first fault in @a detail
+  */
+  PUBLIC RECORD data;
+
+  MACRO NEW(STRING what, RECORD data)
+  : Exception(what)
+  {
+    this->data := data;
+  }
+>;
+
+MACRO EnsureSoapBindingInterpreterRegistered()
+{
+  IF (NOT registered_soap_binding_interpreter)
+  {
+    RegisterWSDLBindingInterpreter(NEW WSDLSOAPBindingInterpreter);
+    registered_soap_binding_interpreter := TRUE;
+  }
+}
+
+
+//public only for testsoap.whlib
+PUBLIC STATIC OBJECTTYPE __Soap11ServicePortImplementation
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC FUNCTION PTR responsefilter;
+
+
+  OBJECT pvt_flatxsd;
+
+
+  STRING pvt_uri;
+
+
+  OBJECT ARRAY pvt_operations;
+
+
+  STRING pvt_soapversion;
+
+
+  RECORD pvt_overrides;
+
+  STRING pvt_wsa10_address;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC OBJECT soapclient;
+
+
+  /// Remove the first layer of wrapping on call responses
+  PUBLIC BOOLEAN removewrapper;
+
+
+  /// Remove support for header/body separation on calls, assume everything is the body
+  PUBLIC BOOLEAN assumebody;
+
+  /// Remove support for header/body separation on calls, assume everything is the body
+  PUBLIC BOOLEAN autodecode_wildcards;
+
+  /// Remove support for header/body separation on calls, assume everything is the body
+  PUBLIC STRING formattingtimezone;
+
+  /// Called just before XML is processed in decode
+  PUBLIC FUNCTION PTR preprocessxmlfunc;
+
+  /// Called just after XML is generate in encode. Returned document is used.
+  PUBLIC FUNCTION PTR postprocessxmlfunc;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY operations(pvt_operations, -);
+
+
+  PUBLIC PROPERTY soapversion(pvt_soapversion, -);
+
+
+  PUBLIC PROPERTY flatxsd(pvt_flatxsd, -);
+
+
+  PUBLIC PROPERTY uri(pvt_uri, pvt_uri);
+
+
+  PUBLIC PROPERTY overrides(pvt_overrides, -);
+
+  PUBLIC PROPERTY wsa10_address(pvt_wsa10_address,-);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT flatxsd, STRING uri, RECORD ARRAY encoded_ops, RECORD overrides, OBJECT soapclient, STRING soapversion, STRING wsa10_address)
+  {
+    this->pvt_flatxsd := flatxsd;
+    this->pvt_uri := uri;
+    this->pvt_soapversion := soapversion;
+    this->pvt_wsa10_address := wsa10_address;
+
+    this->soapclient := soapclient;
+    this->pvt_overrides :=
+        [ codecoverrides :=     CellExists(overrides, "CODECOVERRIDES") ? overrides.codecoverrides : DEFAULT RECORD ARRAY
+        ];
+
+    FOREVERY (RECORD encoded_op FROM encoded_ops)
+    {
+      INSERT NEW Soap11Operation(this, encoded_op) INTO this->pvt_operations AT END;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC OBJECT FUNCTION GetOperationByName(STRING name) // FIXME: Ignores namespace!
+  {
+    FOREVERY (OBJECT op FROM this->pvt_operations)
+      IF (op->name = name)
+        RETURN op;
+
+    THROW NEW Exception("Could not locate operation '" || name || "'");
+  }
+
+
+  PUBLIC STRING FUNCTION IdentifyOperation(STRING soapaction, OBJECT xmldoc)
+  {
+    OBJECT ARRAY matches;
+
+    // First: match on soapaction
+    FOREVERY (OBJECT op FROM this->pvt_operations)
+    {
+      IF (op->action = soapaction)
+        INSERT op INTO matches AT END;
+    }
+
+    IF (LENGTH(matches) = 1)
+      RETURN matches[0]->name;
+
+    IF (soapaction != "") // Could not find operation
+      RETURN "";
+
+    RECORD msg := UnwrapSOAPMessage(xmldoc->documentelement);
+    IF (NOT ObjectExists(msg.body))
+      RETURN "";
+
+    matches := DEFAULT OBJECT ARRAY;
+
+    FOREVERY (OBJECT op FROM this->pvt_operations)
+    {
+      IF (op->TestBodyWithRequest(msg.body))
+        INSERT op INTO matches AT END;
+    }
+
+    IF (LENGTH(matches) = 1)
+      RETURN matches[0]->name;
+
+    RETURN "x";
+  }
+>;
+
+
+STATIC OBJECTTYPE Soap11Operation
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_service;
+
+
+  STRING pvt_target_namespace;
+
+
+  STRING pvt_name;
+
+
+  STRING pvt_style;
+
+
+  STRING pvt_action;
+
+
+  BOOLEAN pvt_actionrequired;
+
+
+  /** @cell(string) name
+      @cell message FIXME: format?
+      @cell(record) body
+      @cell(string array) body.parts
+      @cell body.use FIXME: format?
+      @cell(string) body.encodingstyle
+      @cell(string) body.namespace
+      @cell(record array) headers
+      @cell headers.message FIXME: format?
+      @cell headers.use
+      @cell(string) headers.encodingstyle
+      @cell(string) headers.namespace
+      @cell(record array) headers.headerfaults
+      @cell headers.headerfaults.message FIXME: format?
+      @cell(string) headers.headerfaults.part
+      @cell headers.headerfaults.use
+      @cell(string) headers.headerfaults.encodingstyle
+      @cell(string) headers.headerfaults.namespace
+  */
+  /* FIXME PRIVATE*/PUBLIC RECORD pvt_input;
+
+
+  RECORD pvt_output;
+
+
+  RECORD ARRAY pvt_faults;
+
+
+  OBJECT pvt_soap_codec;
+
+  STRING pvt_wsaw_action;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY action(pvt_action, -);
+
+  PUBLIC PROPERTY actionrequired(pvt_actionrequired, -);
+
+  PUBLIC PROPERTY target_namespace(pvt_target_namespace, -);
+
+
+  PUBLIC PROPERTY name(pvt_name, -);
+
+  PUBLIC PROPERTY spi(pvt_service, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT service, RECORD data)
+  {
+    this->pvt_service := service;
+    this->pvt_target_namespace := data.target_namespace;
+    this->pvt_name := data.name;
+    this->pvt_style := data.style;
+    this->pvt_action := data.action;
+    this->pvt_actionrequired := data.actionrequired;
+    this->pvt_input := data.input;
+    this->pvt_output := data.output;
+    this->pvt_faults := data.faults;
+    this->pvt_wsaw_action := data.wsaw_action;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION GetSOAPCodec(OBJECT doc)
+  {
+    IF (NOT ObjectExists(this->pvt_soap_codec))
+    {
+      this->pvt_soap_codec := MakeSOAPCodec(this->pvt_service->soapversion, doc, this->pvt_service->flatxsd);
+      this->pvt_soap_codec->autodecode_wildcards := this->pvt_service->autodecode_wildcards;
+      this->pvt_soap_codec->formattingtimezone := this->pvt_service->formattingtimezone;
+      this->pvt_soap_codec->SetOverrides(
+          SELECT *
+            FROM this->pvt_service->overrides.codecoverrides
+           WHERE this->pvt_name LIKE operation);
+
+    FOREVERY(RECORD tzencoder FROM this->pvt_service->soapclient->timezoneencoders)
+      this->pvt_soap_codec->RegisterTimezoneEncoder(tzencoder.identifier, tzencoder.call);
+    }
+    ELSE
+      this->pvt_soap_codec->xmldoc := doc;
+
+
+    RETURN this->pvt_soap_codec;
+  }
+
+
+  RECORD FUNCTION GetPartRootData(RECORD message, STRING partname, BOOLEAN rpcstyle)
+  {
+    RECORD part :=
+        SELECT *
+          FROM message.parts
+         WHERE name = partname;
+
+    IF (NOT RecordExists(part))
+      THROW NEW Exception("Cannot locate part '" || partname || "' in message " || message.fullqname);
+
+    RECORD type := this->pvt_service->flatxsd->ResolveReference(part.xsdref);
+    RECORD element;
+    STRING elt_namespaceuri;
+    STRING elt_name := partname;
+    IF (part.type = "element")
+    {
+      element := type;
+      IF (RecordExists(element))
+      {
+        type := this->pvt_service->flatxsd->ResolveReference(element.type_definition);
+
+        IF (NOT rpcstyle)
+        {
+          elt_namespaceuri := element.target_namespace;
+          elt_name := element.name;
+        }
+      }
+    }
+
+//    IF (NOT rpcstyle AND part.type != "element")
+//      THROW NEW Exception("Style='document' requires an element for every part");
+
+    RETURN
+        [ part :=       part
+        , type :=       type
+        , element :=    element
+        , namespaceuri :=  elt_namespaceuri
+        , name :=       elt_name
+        ];
+  }
+
+
+  OBJECT ARRAY FUNCTION EncodePart(OBJECT codec, VARIANT celldata, STRING partname, RECORD message, /*STRING namespace, */BOOLEAN rpcstyle, BOOLEAN encoded, STRING datapath)
+  {
+    RECORD eltdata := this->GetPartRootData(message, partname, encoded);
+
+    RETURN codec->EncodeVariable(
+        celldata,
+        eltdata.namespaceuri,
+        eltdata.name,
+        eltdata.type,
+        encoded,
+        datapath);
+  }
+
+  RECORD FUNCTION EncodeSOAPMessage(RECORD data, RECORD messagerec, RECORD faultrec)
+  {
+//    OBJECT op := this->bound_operation;
+//    OBJECT bi := this->port->binding;
+
+//    IF (bi->transport != ns_soap11httptransport)
+//      THROW NEW Exception("Don't support non-HTTP SOAP transports");
+
+    OBJECT domimpl := NEW XmlDOMImplementation;
+
+    STRING operation_ns := this->pvt_target_namespace;
+
+    // http://www.w3.org/TR/2007/REC-soap12-part1-20070427/#soapenv
+    STRING envelopens := this->pvt_service->soapversion = "1.1" ? ns_soap11env : ns_soap12env;
+    OBJECT doc := domimpl->CreateDocument(envelopens, "soapenv:Envelope", DEFAULT OBJECT);
+    doc->documentelement->SetAttributeNS(ns_xmlns, "xmlns:soapenv", envelopens);
+
+    doc->documentelement->SetAttributeNS(ns_xmlns, "xmlns:m", operation_ns);
+    doc->documentelement->SetAttributeNS(ns_xmlns, "xmlns:xsd", ns_xsd2001);
+    doc->documentelement->SetAttributeNS(ns_xmlns, "xmlns:xsi", ns_xsd2001_instance);
+
+    OBJECT envelope := doc->documentelement;
+
+    OBJECT codec := this->GetSOAPCodec(doc);
+
+    BOOLEAN any_encoded := FALSE;
+
+    IF (CellExists(data, "__SOAPFAULT"))
+      faultrec := data.__soapfault;
+
+    IF ( (CellExists(data,'HEADERS') AND LENGTH(messagerec.headers) != 0)
+         OR this->pvt_service->wsa10_address != ""
+         OR this->pvt_wsaw_action != "")
+    {
+      OBJECT header := doc->CreateElementNS(envelopens, "soapenv:Header");
+      envelope->AppendChild(header);
+
+      IF(this->pvt_service->wsa10_address != "")
+      {
+        OBJECT tonode := doc->CreateElementNS("http://www.w3.org/2005/08/addressing", "To");
+        tonode->AppendText(this->pvt_service->wsa10_address);
+        header->AppendChild(tonode);
+      }
+
+      IF(this->pvt_wsaw_action != "")
+      {
+        OBJECT tonode := doc->CreateElementNS("http://www.w3.org/2005/08/addressing", "Action");
+        tonode->AppendText(this->pvt_wsaw_action);
+        header->AppendChild(tonode);
+      }
+
+      IF(CellExists(data,'HEADERS'))
+      {
+        STRING ARRAY usedcells;
+        FOREVERY (RECORD headerrec FROM messagerec.headers)
+        {
+          STRING name := headerrec.part;
+
+          IF(NOT CellExists(data.headers, name))
+            CONTINUE;
+
+          INSERT ToUppercase(name) INTO usedcells AT END;
+
+          OBJECT ARRAY nodes := this->EncodePart(
+              codec,
+              GetCell(data.headers, name),
+              headerrec.part,
+              headerrec.message,
+              FALSE, /*this->pvt_style = "rpc",*/ // Style is assumed to be 'document'
+              FALSE, //headerrec.use = "encoded", document/encoded is not allowed
+              name);
+
+          any_encoded := any_encoded OR headerrec.use = "encoded";
+
+          FOREVERY (OBJECT node FROM nodes)
+            header->AppendChild(node);
+        }
+
+        // Check if every headers cell was actually used
+        FOREVERY (RECORD field FROM UnpackRecord(data.headers))
+          IF (field.name NOT IN usedcells)
+            ThrowUnusedCellException(
+                (SELECT AS STRING ARRAY ToUppercase(part)
+                   FROM messagerec.headers),
+                "HEADERS",
+                "",
+                data.headers,
+                field.name);
+      }
+    }
+
+    OBJECT body := doc->CreateElementNS(envelopens, "soapenv:Body");
+    envelope->AppendChild(body);
+
+    IF (RecordExists(faultrec))
+    {
+      ABORT("Encoding faults not implemented yet"); // FIXME: DO SO!
+
+      OBJECT fault := doc->CreateElementNS(envelopens, "soapenv:Fault");
+      body->AppendChild(fault);
+
+      OBJECT faultcode := doc->CreateElement("faultcode");
+      faultcode->nodevalue := "soapenv:" || faultrec.faultcode;
+      fault->AppendChild(faultcode);
+
+      OBJECT faultstring := doc->CreateElement("faultstring");
+      faultstring->nodevalue := faultrec.faultstring;
+      fault->AppendChild(faultstring);
+
+      OBJECT detail := doc->CreateElement("detail");
+      fault->AppendChild(detail);
+
+      STRING ARRAY usedcells;
+      FOREVERY (RECORD rec FROM this->pvt_faults)
+      {
+        IF (CellExists(faultrec, rec.part))
+        {
+          INSERT ToUppercase(rec.part) INTO usedcells AT END;
+
+          OBJECT ARRAY nodes := this->EncodePart(
+              codec,
+              GetCell(faultrec, rec.part),
+              rec.part,
+              rec.message,
+              this->pvt_style = "rpc",
+              rec.use = "encoded",
+              rec.part);
+
+          FOREVERY (OBJECT node FROM nodes)
+            detail->AppendChild(node);
+        }
+      }
+
+      // Check if every fault cell was actually used
+      FOREVERY (RECORD field FROM UnpackRecord(faultrec))
+        IF (field.name NOT IN usedcells)
+          ThrowUnusedCellException(
+              (SELECT AS STRING ARRAY ToUppercase(part)
+                 FROM this->pvt_faults),
+              "",
+              "in the FAULTREC record",
+              data.headers,
+              field.name);
+    }
+    ELSE
+    {
+      OBJECT msgroot := body;
+
+      IF (this->pvt_style = "rpc")
+      {
+        OBJECT msg := doc->CreateElementNS(operation_ns, "m:" || this->pvt_name);
+        body->AppendChild(msg);
+
+        msgroot := msg;
+      }
+
+      STRING bodypath;
+      STRING ARRAY usedcells;
+      IF (this->pvt_service->removewrapper)
+      {
+        IF (LENGTH(messagerec.body.parts) != 1)
+          THROW NEW Exception("Dewrapping is not allowed when not having multiple parts in a body");
+
+        IF (CellExists(data, "HEADERS"))
+          INSERT "HEADERS" INTO usedcells AT END;
+
+        data := CellInsert(DEFAULT RECORD, messagerec.body.parts[0], data);
+      }
+      IF (this->pvt_service->assumebody)
+      {
+        IF (CellExists(data, "HEADERS"))
+          INSERT "HEADERS" INTO usedcells AT END;
+
+        data := [ body := data ];
+      }
+
+      FOREVERY (STRING partname FROM messagerec.body.parts)
+      {
+        IF (NOT CellExists(data.body, partname))
+          THROW NEW Exception("Could not find cell '" || partname || "' in data");
+
+        INSERT ToUppercase(partname) INTO usedcells AT END;
+
+        OBJECT ARRAY nodes := this->EncodePart(
+            codec,
+            GetCell(data.body, partname),
+            partname,
+            messagerec.message,
+            this->pvt_style = "rpc",
+            messagerec.body.use = "encoded",
+            partname);
+
+        any_encoded := any_encoded OR messagerec.body.use = "encoded";
+
+        FOREVERY (OBJECT node FROM nodes)
+          msgroot->AppendChild(node);
+      }
+
+      IF (CellExists(data.body, "__ATTRIBUTES"))
+      {
+        FOREVERY (RECORD rec FROM data.body.__attributes)
+          IF (rec.namespaceuri = "")
+            msgroot->SetAttribute(rec.name, rec.value);
+          ELSE
+            msgroot->SetAttributeNS(rec.namespaceuri, rec.name, rec.value);
+
+        INSERT "__ATTRIBUTES" INTO usedcells AT END;
+      }
+
+      // Check if every parameter cell was actually used
+      FOREVERY (RECORD field FROM UnpackRecord(data.body))
+        IF (field.name NOT IN usedcells)
+          ThrowUnusedCellException(
+              messagerec.body.parts,
+              (this->pvt_service->assumebody ? "" : "BODY"),
+              "",
+              data.body,
+              field.name);
+    }
+
+    IF (any_encoded)
+    {
+      doc->documentelement->SetAttributeNS(ns_xmlns, "xmlns:soapenc", codec->encodingstyleuri);
+      envelope->SetAttributeNS(envelopens, "soapenv:encodingStyle", codec->encodingstyleuri);
+    }
+
+    doc->NormalizeDocument();
+    IF (this->pvt_service->postprocessxmlfunc != DEFAULT FUNCTION PTR)
+    {
+      doc := this->pvt_service->postprocessxmlfunc(doc);
+      doc->NormalizeDocument();
+    }
+
+    RECORD ARRAY headers :=
+      [ [ field := "Accept"
+        , value := "*/*"
+        ]
+      ];
+
+    IF (this->pvt_actionrequired)
+    {
+      INSERT [ field := "SOAPAction"
+             , value := '"' || this->pvt_action || '"'
+             ] INTO headers AT END;
+    }
+
+    IF(this->pvt_service->soapversion = "1.1")
+    {
+      INSERT [ field := "Content-Type"
+             , value := 'text/xml; charset=\"utf-8\"'
+             ] INTO headers AT END;
+    }
+    ELSE
+    {
+      INSERT [ field := "Content-Type"
+             , value := "application/soap+xml; charset=utf-8"
+             ] INTO headers AT END;
+    }
+
+    RETURN
+        [ action :=     this->pvt_action
+        , uri :=        this->pvt_service->uri
+        , body :=       doc->GetDocumentBlob(TRUE)
+        , headers :=    headers
+        ];
+  }
+
+
+  RECORD FUNCTION GetPartData(RECORD message, STRING partname)
+  {
+    RECORD part := SELECT * FROM message.parts WHERE name = partname;
+    IF (NOT RecordExists(part))
+      THROW NEW Exception("Could not locate part '" || partname || "' in message " || message.fullqname);
+
+    RECORD type;
+    RECORD xsdelt := this->pvt_service->flatxsd->ResolveReference(part.xsdref);
+    IF (part.type = "element")
+      type := this->pvt_service->flatxsd->ResolveReference(xsdelt.type_definition);
+    ELSE
+      type := xsdelt;
+
+    RETURN
+        [ part :=       part
+        , elt :=        part.type = "element" ? xsdelt : DEFAULT RECORD
+        , type :=       type
+        ];
+  }
+
+
+  RECORD FUNCTION DecodeSOAPMessage(OBJECT doc, RECORD messagerec)
+  {
+//    IF (bi->transport != ns_soap11httptransport)
+//      THROW NEW Exception("Don't support non-HTTP SOAP transports");
+
+    IF (this->pvt_service->preprocessxmlfunc != DEFAULT FUNCTION PTR)
+      doc := this->pvt_service->preprocessxmlfunc(doc);
+
+    STRING operation_ns := this->pvt_target_namespace;
+
+    RECORD msg := UnwrapSOAPMessage(doc->documentelement);
+
+    RECORD result := [ headers := DEFAULT RECORD
+                     , body := DEFAULT RECORD
+                     ];
+
+    IF (NOT RecordExists(messagerec))
+      RETURN DEFAULT RECORD;
+
+    OBJECT codec := this->GetSOAPCodec(doc);
+
+    FOREVERY (OBJECT header FROM msg.headers)
+    {
+//      PRINT("Looking at header node: " || GetXMLNodePrettyName(header) || "\n");
+
+      STRING nodename := GetDOMNodeLocalName(header);
+
+      FOREVERY (RECORD headerrec FROM messagerec.headers)
+      {
+//        PRINT("Eval header type: {" || headerrec.message.target_namespace || "}" || headerrec.part || "\n");
+
+        RECORD rootdata := this->GetPartRootData(headerrec.message, headerrec.part, FALSE);
+        IF (header->namespaceuri = rootdata.namespaceuri AND nodename = rootdata.name)
+        {
+          RECORD partdata := this->GetPartData(headerrec.message, headerrec.part);
+
+          VARIANT decoded := codec->DecodeVariable(header, rootdata.type, headerrec.part);
+
+          result.headers := CellInsert(result.headers, headerrec.part, decoded);
+        }
+      }
+    }
+
+    IF (ObjectExists(msg.body))
+    {
+      OBJECT ARRAY bnodes := msg.body->childnodes->GetCurrentElements();
+      IF (LENGTH(bnodes) != 1)
+        THROW NEW Exception("Expected a node within the soapenv:body node");
+
+      BOOLEAN dewrap := this->pvt_service->removewrapper;
+      IF (dewrap AND LENGTH(messagerec.body.parts) != 1)
+        THROW NEW Exception("Dewrapping is not allowed when not having multiple parts in a body");
+
+      IF (this->pvt_style = "rpc")
+      {
+//        PRINT("Got  {" || bnodes[0]->namespaceuri || "}" || bnodes[0]->localname || "\n");
+//        PRINT("Want {" || operation_ns || "}" || this->pvt_name || "\n");
+
+        /* http://www.ibm.com/developerworks/webservices/library/ws-whichwsdl/#N10068
+
+           But what is the child of the soap:body for the RPC style responses? The WSDL 1.1
+           specification is not clear. But WS-I comes to the rescue. WS-I's Basic Profile dictates
+           that in the RPC/literal response message, the name of the child of soap:body is "... the
+           corresponding wsdl:operation name suffixed with the string 'Response'."
+        */
+        // clang (email provider) uses ns_soap11env as namespace. Sigh.
+        IF (bnodes[0]->namespaceuri NOT IN [ operation_ns, ns_soap11env ] OR
+            (bnodes[0]->localname NOT IN [ this->pvt_name, this->pvt_name || "Response" ]))
+          THROW NEW Exception("Calling DecodeSOAPRequest/Response for the wrong operation " ||
+              "(got: {" || bnodes[0]->namespaceuri || "}" || bnodes[0]->localname ||
+              ", wanted {" || operation_ns || "}" || this->pvt_name ||
+              " or {" || operation_ns || "}" || this->pvt_name || "Response)");
+
+        OBJECT ARRAY partnodes := bnodes[0]->childnodes->GetCurrentElements();
+
+        FOREVERY (STRING partname FROM messagerec.body.parts)
+        {
+          OBJECT partnode;
+          FOREVERY (OBJECT node FROM partnodes)
+            IF (node->nodename = partname)
+              partnode := node;
+
+          IF (NOT ObjectExists(partnode))
+            THROW NEW SoapRawError("Client", "Missing part node '"||partname||"' in body");
+
+          RECORD partdata := this->GetPartData(messagerec.message, partname);
+
+          VARIANT decoded := codec->DecodeVariable(partnode, partdata.type, partname);
+          result.body := CellInsert(result.body, partname, decoded);
+        }
+      }
+      ELSE IF (this->pvt_style = "document")
+      {
+        OBJECT ARRAY partnodes := bnodes;
+
+        IF (LENGTH(partnodes) != LENGTH(messagerec.body.parts))
+          THROW NEW Exception("Number of body parts doesn't match number of elements in the body root");
+
+        FOREVERY (STRING partname FROM messagerec.body.parts)
+        {
+          RECORD part := SELECT * FROM messagerec.message.parts WHERE name = partname;
+          IF (NOT RecordExists(part))
+            THROW NEW SoapRawError("Client", "Could not locate part '" || partname || "' in message " || messagerec.message.fullqname);
+
+          OBJECT partnode := partnodes[#partname];
+
+          RECORD partdata := this->GetPartData(messagerec.message, partname);
+          IF (partdata.part.type != "element")
+            THROW NEW SoapRawError("Client", "Can only decode document style when parts refer to elements only (so not to types)");
+
+          VARIANT decoded := codec->DecodeVariable(partnode, partdata.type, partname);
+          result.body := CellInsert(result.body, partname, decoded);
+        }
+      }
+      ELSE
+        THROW NEW Exception("Unsupported SOAP style '" || this->pvt_style || "'");
+
+      IF(dewrap) //remove the first and only wrapper
+        result.body := GetCell(result.body, messagerec.body.parts[0]);
+
+      IF(this->pvt_service->assumebody)
+        result := result.body;
+    }
+    ELSE IF (ObjectExists(msg.fault))
+    {
+      RECORD faultrec :=
+          [ faultcode :=      ""
+          , faultstring :=    ""
+          , detail :=         DEFAULT RECORD
+          , detailstr :=      ""
+          , firstfaultname := ""
+          ];
+
+      FOREVERY (OBJECT faultnode FROM msg.fault->childnodes->GetCurrentElements())
+      {
+        STRING name := GetDOMNodeLocalName(faultnode);
+        IF (name IN [ "faultcode", "faultstring" ])
+          faultrec := CellUpdate(faultrec, name, faultnode->textcontent);
+        ELSE IF (name = "detail")
+        {
+          faultrec.detailstr := faultnode->childrentext;
+
+          RECORD ARRAY possible_faults := this->pvt_faults;
+
+          FOREVERY (RECORD fault FROM possible_faults)
+          {
+            RECORD rootdata := this->GetPartRootData(fault.message, fault.part, this->pvt_style = "rpc");
+            INSERT CELL rootdata := rootdata INTO possible_faults[#fault];
+          }
+
+          FOREVERY (OBJECT detailnode FROM faultnode->childnodes->GetCurrentElements())
+          {
+            STRING nodename := GetDOMNodeLocalName(detailnode);
+
+            FOREVERY (RECORD fault FROM possible_faults)
+            {
+              IF (detailnode->namespaceuri = fault.rootdata.namespaceuri AND
+                  nodename = fault.rootdata.name)
+              {
+                VARIANT decoded := codec->DecodeVariable(detailnode, fault.rootdata.type, fault.rootdata.part.name);
+                faultrec.detail := CellInsert(faultrec.detail, nodename, decoded);
+                IF (faultrec.firstfaultname = "")
+                  faultrec.firstfaultname := nodename;
+                BREAK;
+              }
+            }
+          }
+        }
+/*
+        IF (CellExists(fault, name))
+          fault := CellUpdate(fault, name, faultnode->textcontent);
+*/
+      }
+
+      INSERT CELL __soapfault := faultrec INTO result;
+    }
+
+    RETURN result;
+  }
+
+
+  BOOLEAN FUNCTION PVT_MatchesSoapRequest(OBJECT bodynode)
+  {
+    RECORD messagerec := this->pvt_input;
+    OBJECT ARRAY childnodes := bodynode->childnodes->GetCurrentElements();
+
+    IF (LENGTH(messagerec.body.parts) != 1 OR LENGTH(childnodes) != 1)
+    {
+      RETURN FALSE;
+    }
+
+
+    STRING partname := messagerec.body.parts[0];
+    RECORD rootdata := this->GetPartRootData(messagerec.message, partname, messagerec.body.use = "encoded");
+
+//    soaplog("xx^ searching for " || GetXMLNodePrettyName(childnodes[0]));
+//    soaplog("xx^ data\n" || AnyToString(rootdata, "boxed"));
+
+    BOOLEAN is_equal := childnodes[0]->namespaceuri = rootdata.namespaceuri AND
+        GetDOMNodeLocalName(childnodes[0]) = rootdata.name;
+
+//    soaplog("xx^ result: " || (is_equal ? "yes" : "no"));
+
+    RETURN is_equal;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC BOOLEAN FUNCTION TestBodyWithRequest(OBJECT bodynode)
+  {
+    RETURN this->PVT_MatchesSoapRequest(bodynode);
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeSOAPRequest(RECORD data)
+  {
+    RETURN this->EncodeSOAPMessage(data, this->pvt_input, DEFAULT RECORD);
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeSOAPResponse(RECORD data, RECORD faultdata)
+  {
+    RETURN this->EncodeSOAPMessage(data, this->pvt_output, faultdata);
+  }
+
+
+  PUBLIC RECORD FUNCTION DecodeSOAPRequest(OBJECT xmldoc)
+  {
+    RETURN this->DecodeSOAPMessage(xmldoc, this->pvt_input);
+  }
+
+
+  PUBLIC RECORD FUNCTION DecodeSOAPResponse(OBJECT xmldoc)
+  {
+    RETURN this->DecodeSOAPMessage(xmldoc, this->pvt_output);
+  }
+
+
+  PUBLIC RECORD FUNCTION EncodeSOAPFault(RECORD data)
+  {
+    THROW NEW Exception("FIXME: Not really good implemented");
+
+    RECORD ARRAY headers;
+
+    OBJECT domimpl := NEW XmlDOMImplementation;
+
+    STRING operation_ns := this->pvt_target_namespace;
+
+    // http://www.w3.org/TR/2007/REC-soap12-part1-20070427/#soapenv
+    OBJECT doc := domimpl->CreateDocument(ns_soap11env, "soapenv:Envelope", DEFAULT OBJECT);
+    doc->documentelement->SetAttributeNS(ns_xmlns, "xmlns:soapenv", ns_soap11env);
+    doc->documentelement->SetAttributeNS(ns_xmlns, "xmlns:m", operation_ns);
+    doc->documentelement->SetAttributeNS(ns_xmlns, "xmlns:xsd", ns_xsd2001);
+    doc->documentelement->SetAttributeNS(ns_xmlns, "xmlns:xsi", ns_xsd2001_instance);
+
+    OBJECT envelope := doc->documentelement;
+
+    OBJECT body := doc->CreateElementNS(ns_soap11env, "soapenv:Body");
+    envelope->AppendChild(body);
+
+    OBJECT fault := doc->CreateElementNS(ns_soap11env, "soapenv:Body");
+    body->AppendChild(fault);
+
+    OBJECT faultcode := doc->CreateElement("faultcode");
+    faultcode->nodevalue := "soapenv:" || data.faultcode;
+    fault->AppendChild(faultcode);
+
+    OBJECT faultstring := doc->CreateElement("faultstring");
+    faultstring->nodevalue := data.faultstring;
+    fault->AppendChild(faultstring);
+
+    IF (CellExists(data, "DETAIL"))
+    {
+//      FOREVERY (RECORD fault FROM
+
+
+
+      OBJECT detail := doc->CreateElement("detail");
+      detail->nodevalue := data.detail;
+      fault->AppendChild(detail);
+    }
+
+    doc->NormalizeDocument();
+
+    RETURN
+        [ action :=     this->pvt_action
+        , body :=       doc->GetDocumentBlob(TRUE)
+        , headers :=    headers
+        ];
+  }
+
+
+  PUBLIC RECORD FUNCTION Execute(RECORD data)
+  {
+    RECORD cachetag;
+    IF(this->pvt_service->soapclient->cacheresponsestime != 0) //it might be in the cache
+    {
+      //ADDME also include service/port info into cachetag
+      cachetag := [ url := this->pvt_service->uri, data := data, target_ns := this->target_namespace, name := this->name ];
+      RECORD cachedvalue := LookupAdhocCached(cachetag);
+      IF(RecordExists(cachedvalue))
+        RETURN cachedvalue.value;
+    }
+
+    IF(this->pvt_service->soapclient->loglevel >= 7)
+      this->pvt_service->soapclient->logfunction('Sending SOAP message:\n'||AnyToString(data, "tree"));
+    ELSE IF(this->pvt_service->soapclient->loglevel >= 6)
+      this->pvt_service->soapclient->logfunction('Preparing SOAP Request for ' || this->pvt_service->uri || '#' || this->name);
+
+    RECORD request := this->EncodeSoapRequest(data);
+
+    IF(this->pvt_service->soapclient->loglevel >= 7)
+      this->pvt_service->soapclient->logfunction('Encoded: (action: "'||request.action||'")\n' || BlobToString(request.body, -1));
+
+    OBJECT browser := this->pvt_service->soapclient->__GetBrowser();
+
+    browser->PostWebPageBlob(request.uri, request.headers, request.body);
+
+    TRY
+    {
+      RECORD httpstatus := browser->GetHTTPStatus();
+      IF (NOT RecordExists(httpstatus) OR httpstatus.code = 0 OR (httpstatus.code != 200 AND NOT ObjectExists(browser->document))) //FIXME: fix parsing of
+      {
+        IF(this->pvt_service->soapclient->loglevel >= 7)
+          this->pvt_service->soapclient->logfunction('Request failed, code: ' || (RecordExists(httpstatus) ? ToString(httpstatus.code) : "no response") || ", document:\n" || BlobToString(browser->content, -1));
+
+        THROW NEW Exception("HTTP SOAP Request failed, status code: " || browser->GetHTTPStatusText());
+      }
+
+      IF(this->pvt_service->soapclient->loglevel >= 7)
+        this->pvt_service->soapclient->logfunction('Returned SOAP message:\n' || BlobToString(browser->content, -1));
+
+      RECORD decoded_response := this->DecodeSOAPResponse(browser->document);
+
+      IF(this->pvt_service->soapclient->loglevel >= 7)
+        this->pvt_service->soapclient->logfunction('Decoded:\n' || AnyToString(decoded_response, "tree"));
+
+      IF(this->pvt_service->responsefilter != DEFAULT MACRO PTR)
+        decoded_response := this->pvt_service->responsefilter(decoded_response);
+
+      IF(this->pvt_service->soapclient->cacheresponsestime != 0) //it might be in the cache
+      {
+        //ADDME maximize overflown TTLs
+        StoreAdhocCached( cachetag, [ value := decoded_response, ttl := this->pvt_service->soapclient->cacheresponsestime*1000 ] );
+      }
+
+      IF (this->pvt_service->soapclient->pvt_throwfaults AND CellExists(decoded_response, "__SOAPFAULT"))
+        THROW NEW SoapWSDLFault(decoded_response.__soapfault.faultstring, decoded_response.__soapfault);
+
+      RETURN decoded_response;
+    }
+    CATCH(OBJECT e)
+    {
+      //browser->Close();
+      THROW e;
+    }
+  }
+
+  PUBLIC OBJECT FUNCTION MakeCodecForXML(OBJECT node)
+  {
+    OBJECT doc := node->ownerdocument;
+    OBJECT codec := MakeSOAPCodec(this->pvt_service->soapversion, doc, this->pvt_service->flatxsd);
+    codec->SetOverrides(
+        SELECT *
+          FROM this->pvt_service->overrides.codecoverrides
+         WHERE this->pvt_name LIKE operation);
+
+    RETURN codec;
+  }
+>;
+
+
+RECORD FUNCTION UnwrapSOAPMessage(OBJECT envelope)
+{
+  IF (GetDOMNodeLocalName(envelope) != "Envelope")
+  {
+    STRING prettyname := GetXMLNodePrettyName(envelope);
+    IF (prettyname = "{}html")
+      THROW NEW SoapRawError("Client", "Expected an 'Envelope' root element, got HTML document");
+    ELSE
+      THROW NEW SoapRawError("Client", "Expected an 'Envelope' root element, got: " || prettyname);
+  }
+
+  STRING envelopens := envelope->namespaceuri;
+  IF (envelopens NOT IN [ns_soap11env,ns_soap12env] OR envelope->localname != "Envelope")
+    THROW NEW SoapRawError("VersionMismatch", "Document is not a decodable SOAP 1.1 or 1.2 message");
+
+  RECORD result :=
+      [ headers :=      DEFAULT OBJECT ARRAY
+      , body :=         DEFAULT OBJECT
+      , fault :=        DEFAULT OBJECT
+      ];
+
+  FOREVERY (OBJECT topnode FROM envelope->childnodes->GetCurrentElements())
+  {
+    IF (topnode->namespaceuri != envelopens)
+      CONTINUE;
+
+    SWITCH (topnode->localname)
+    {
+    CASE "Header"       { result.headers := result.headers CONCAT topnode->childnodes->GetCurrentElements(); }
+    CASE "Body"         { result.body := topnode; } // FIXME: overwrite detection
+    }
+  }
+  IF (ObjectExists(result.body))
+  {
+    FOREVERY (OBJECT bodynode FROM result.body->childnodes->GetCurrentElements())
+    {
+      IF (bodynode->namespaceuri != ns_soap11env)
+        CONTINUE;
+
+      IF (bodynode->localname = "Fault")
+      {
+        result.fault := bodynode; // FIXME: overwrite detection
+        result.body := DEFAULT OBJECT;
+      }
+    }
+  }
+
+  RETURN result;
+}
+
+
+
+OBJECTTYPE ObjectInterfaceBase
+<
+  OBJECT __pvt_transport;
+
+  PUBLIC PROPERTY soaptransport(__pvt_transport,-);
+
+  MACRO NEW(OBJECT port)
+  {
+    this->__pvt_transport := port;
+
+    RECORD ARRAY ops := port->GetOperations();
+    FOREVERY(RECORD op FROM ops)
+      MemberInsert(this, op.name, FALSE, PTR this->__pvt_transport->InvokeOperation(op.name, #1));
+  }
+>;
+
+/** Describes a SOAP port
+*/
+OBJECTTYPE SoapPort
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// SOAP service object
+  OBJECT soapservice;
+
+
+  STRING namespace;
+
+
+  STRING name;
+
+
+  /// Service port implementation
+  OBJECT spi;
+
+
+  /** List of operations
+      @cell name
+  */
+  RECORD ARRAY operations;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** @short Assume a body contains only a single element, and assume that element can be removed (on both requests and responses) */
+  PUBLIC PROPERTY removewrapper(GetRemoveWrapper, SetRemoveWrapper);
+
+
+  /** @short Assume only bodies matter, so remove headers on responses, and don't accept headers on requests */
+  PUBLIC PROPERTY assumebody(GetAssumeBody, SetAssumeBody);
+
+
+  /** @short Autodecode nodes described with a wildcard, but with a xsi:type attribute */
+  PUBLIC PROPERTY autodecode_wildcards(GetAutoDecodeWildcards, SetAutoDecodeWildcards);
+
+
+  /** @short Timezone in which datetimes are formatted */
+  PUBLIC PROPERTY formattingtimezone(this->spi->formattingtimezone, this->spi->formattingtimezone);
+
+
+  PUBLIC PROPERTY responsefilter(GetResponseFilter, SetResponseFilter);
+
+
+  /** @short The URI to which requests are made */
+  PUBLIC PROPERTY uri(GetUri, SetUri);
+
+
+  /** Function used to pre-process received XML (like for checking xml signatures) */
+  PUBLIC PROPERTY preprocessxmlfunc(GetPreProcessXMLFunc, SetPreProcessXMLFunc);
+
+
+  /** Function used to post-process generated XML (like for xml signing) */
+  PUBLIC PROPERTY postprocessxmlfunc(GetPostProcessXMLFunc, SetPostProcessXMLFunc);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT soapservice, OBJECT flatxsd, STRING port_namespace, STRING port_name, RECORD overrides)
+  {
+    this->namespace := port_namespace;
+    this->name := port_name;
+    this->soapservice := soapservice;
+
+    RECORD data := soapservice->soapclient->GetPortInstantiationData(soapservice, port_namespace, port_name);
+    this->operations := data.operations;
+
+    this->spi := NEW __Soap11ServicePortImplementation(flatxsd, data.soapuri, data.encoded_ops, overrides, this->soapservice->soapclient, data.soapversion, data.wsa10_address);
+  }
+
+  PUBLIC MACRO RegisterTimezoneEncoder(STRING identifier, FUNCTION PTR encoder)
+  {
+    this->soapservice->RegisterTimezoneEncoder(identifier, encoder);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  BOOLEAN FUNCTION GetRemoveWrapper()
+  {
+    RETURN this->spi->removewrapper;
+  }
+
+
+  MACRO SetRemoveWrapper(BOOLEAN newval)
+  {
+    this->spi->removewrapper := newval;
+  }
+
+
+  BOOLEAN FUNCTION GetAssumeBody()
+  {
+    RETURN this->spi->assumebody;
+  }
+
+
+  MACRO SetAssumeBody(BOOLEAN newval)
+  {
+    this->spi->assumebody := newval;
+  }
+
+
+  BOOLEAN FUNCTION GetAutoDecodeWildcards()
+  {
+    RETURN this->spi->autodecode_wildcards;
+  }
+
+
+  MACRO SetAutoDecodeWildcards(BOOLEAN newval)
+  {
+    this->spi->autodecode_wildcards := newval;
+  }
+
+
+  FUNCTION PTR FUNCTION GetResponseFilter()
+  {
+    RETURN this->spi->responsefilter;
+  }
+
+
+  MACRO SetResponseFilter(FUNCTION PTR newval)
+  {
+    this->spi->responsefilter := newval;
+  }
+
+
+  STRING FUNCTION GetURI()
+  {
+    RETURN this->spi->uri;
+  }
+
+
+  MACRO SetUri(STRING newuri)
+  {
+    this->spi->uri := newuri;
+  }
+
+  FUNCTION PTR FUNCTION GetPreProcessXMLFunc()
+  {
+    RETURN this->spi->preprocessxmlfunc;
+  }
+
+  MACRO SetPreProcessXMLFunc(FUNCTION PTR func)
+  {
+    this->spi->preprocessxmlfunc := func;
+  }
+
+  FUNCTION PTR FUNCTION GetPostProcessXMLFunc()
+  {
+    RETURN this->spi->postprocessxmlfunc;
+  }
+
+  MACRO SetPostProcessXMLFunc(FUNCTION PTR func)
+  {
+    this->spi->postprocessxmlfunc := func;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Return list of all operations
+      @return
+      @cell return.name
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetOperations()
+  {
+    RETURN this->operations;
+  }
+
+
+  /** Get an object with every operation as callable member
+      @return Object, with every operation as a member, callable with obj->operation(params)
+  */
+  PUBLIC OBJECT FUNCTION GetObjectInterface()
+  {
+    RETURN NEW ObjectInterfaceBase(this);
+  }
+
+
+  /** Returns a (soap-type) specific operation object, by operation name
+      @param operationname
+      @return Operation object
+  */
+  PUBLIC OBJECT FUNCTION GetOperationByName(STRING operationname)
+  {
+    RETURN this->spi->GetOperationByName(operationname);
+  }
+
+
+  /** Invoke an operation
+      @param operationname Name of the operation
+      @param funcdata Parameters to the function
+      @return Return values of the invoked function
+  */
+  PUBLIC RECORD FUNCTION InvokeOperation(STRING operationname, RECORD funcdata)
+  {
+    RECORD result := this->spi->GetOperationByName(operationname)->Execute(funcdata);
+    IF(CellExists(result,"__SOAPFAULT"))
+      THROW NEW SoapWSDLFault(result.__soapfault.faultstring, result.__soapfault);
+    RETURN result;
+  }
+>;
+
+
+/** Describes a SOAP service of a wsdl
+*/
+OBJECTTYPE SoapService
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Owner client
+  OBJECT soapclient;
+
+
+  /// Service namespace
+  STRING namespace;
+
+
+  /// Service name
+  STRING name;
+
+
+  /** List of ports
+      @cell namespace
+      @cell name
+  */
+  RECORD ARRAY ports;
+
+  RECORD overrides;
+
+  RECORD ARRAY customtzencoders;
+  PUBLIC PROPERTY timezoneencoders(customtzencoders, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT soapclient, RECORD data, RECORD overrides)
+  {
+    this->soapclient := soapclient;
+    this->namespace := data.namespace;
+    this->name := data.name;
+    this->ports := data.ports;
+    this->overrides := overrides;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns list of ports
+      @cell namespace
+      @cell name
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetPorts()
+  {
+    RETURN this->ports;
+  }
+
+  /** Registers a custom encoder function for the given timezone identifier.
+      @param(STRING) tzidentifier The identifier string for the timezone.
+      @param(FUNCTION PTR) encoder The actual encoding function; must accept one DATATIME parameter and return a STRING.
+  */
+  PUBLIC MACRO RegisterTimezoneEncoder(STRING tzidentifier, FUNCTION PTR encoder)
+  {
+    IF(tzidentifier NOT IN (SELECT AS STRING ARRAY identifier FROM this->customtzencoders))
+    {
+      IF(ValidateFunctionPTR(encoder, TypeID(STRING), [ TypeID(DATETIME) ]))
+      {
+        INSERT [ identifier := tzidentifier, call := encoder ] INTO this->customtzencoders AT END;
+        this->soapclient->RegisterTimezoneEncoder(tzidentifier, encoder);
+      }
+      ELSE
+        THROW NEW Exception("Invalid signature for timezone encoder; expected STRING FUNCTION encoder(DATETIME param1)");
+    }
+    // If one attempts to re-register a custom timezone processor at a deeper level (the SOAPEncoder object), an exception
+    // will be thrown, but that is a bit too severe here.
+  }
+
+  /** Returns a soap port
+      @param uri Namespace of the port
+      @param name
+      @return SoapPort object (DEFAULT OBJECT if the port didn't exists)
+  */
+  PUBLIC OBJECT FUNCTION GetPortNS(STRING uri, STRING name)
+  {
+    RECORD port :=
+        SELECT *
+          FROM this->ports
+         WHERE namespace = uri
+           AND COLUMN name = VAR name;
+
+    IF (NOT RecordExists(port))
+      RETURN DEFAULT OBJECT;
+
+    OBJECT newport := NEW SoapPort(PRIVATE this, this->soapclient->flatxsd, port.namespace, port.name, this->overrides);
+    FOREVERY(RECORD encoder FROM this->customtzencoders)
+      newport->RegisterTimezoneEncoder(encoder.identifier, encoder.call);
+
+    RETURN newport;
+  }
+>;
+
+/** Soap client, discovery-based API to access services described by http-accessible WSDLs.
+*/
+PUBLIC STATIC OBJECTTYPE SoapClient
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC OBJECT webbrowser;
+
+
+  /// Whether the WSDL has been loaded (setting transport is not allowed after that)
+  BOOLEAN wsdlloaded;
+
+
+  BLOB wsdl;
+
+
+  STRING wsdlurl;
+
+
+  OBJECT wsdlspec;
+
+
+  /// Parsed XSD part of wsdl spec
+  OBJECT flatxsd;
+
+
+
+  /** List of services
+      @cell(string) namespace
+      @cell(string) name
+      @cell(record array) ports
+      @cell(string) ports.namespace
+      @cell(string) ports.name
+  */
+  RECORD ARRAY services;
+
+
+  FUNCTION PTR pvt_logfunction;
+
+  PUBLIC INTEGER loglevel; /* Set log level (numbers may change in the future0
+                              4: time server time on soap calls
+                              7: log everything
+                            */
+
+  ///If set to TRUE, a downloaded external WSDL is saved in the WebHare temp directory
+  PUBLIC BOOLEAN storewsdl;
+
+  ///Time in minutes to cache responses. Defaults to 0 (no caching at all)
+  PUBLIC INTEGER cacheresponsestime;
+
+
+  // Whether SOAP faults should be thrown
+  BOOLEAN pvt_throwfaults;
+
+  /// Used DOM implementation
+  OBJECT pvt_xmldomimpl;
+
+  RECORD ARRAY preloadxsds;
+
+  /** Overrides applied to services created with GetServiceNS
+      @cell(record array) codecoverrides Overrides applied to SOAP codecs
+      @cell(string) codecoverrides.operation Mask for operation names
+      @cell(string) codecoverrides.type Override type: "hstype": Force a HareScript type for the selected elements
+      @cell(string) codecoverrides.namespaceuri hstype: Namespace of simple data type to match (LIKE mask)
+      @cell(string) codecoverrides.path hstype: Data cell path (LIKE mask)
+      @cell(string) codecoverrides.name hstype: Data type name (LIKE mask)
+      @cell(integer) codecoverrides.hstype hstype: HareScript type to decode the variable in
+      @cell(function ptr) codecoverrides.decodefunction hstype: Optional function ptr to decode the variable
+      @cell(function ptr) codecoverrides.encodefunction hstype: Optional function ptr to encode the variable
+  */
+  PUBLIC RECORD overrides;
+
+  /// WSDL modifications (type: WSDLModifications)
+  OBJECT pvt_wsdlmodifications;
+
+  /// @cell(string) prefix
+  /// @cell(string) replace
+  PUBLIC RECORD ARRAY urlrewrites;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** Log function */
+  PUBLIC PROPERTY logfunction(pvt_logfunction, pvt_logfunction);
+
+
+  /** Throw SoapWSDLFault when a fault is returned */
+  PUBLIC PROPERTY throwfaults(pvt_throwfaults, pvt_throwfaults);
+
+  PUBLIC PROPERTY persistentconnections(GetPersistentconnections, SetPersistentConnections);
+
+  /// Used DOM implementation (can be used when for overriding entity loading for WSDLs)
+  PUBLIC PROPERTY xmldomimpl(GetXMLDomImpl, pvt_xmldomimpl);
+
+  /// Modifications to apply to the WSDL (type: WSDLModifications)
+  PUBLIC PROPERTY wsdlmodifications(pvt_wsdlmodifications, SetWSDLModifications);
+
+  RECORD ARRAY customtzencoders;
+  PUBLIC PROPERTY timezoneencoders(customtzencoders, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->pvt_logfunction := PTR this->DefaultLogger;
+  }
+
+  MACRO DefaultLogger(STRING text)
+  {
+    PrintTo(2, text || "\n");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO SetWSDLModifications(OBJECT newmods)
+  {
+    IF (this->wsdlloaded)
+      THROW NEW Exception("WSDL modifications must be set before loading the WSDL");
+
+    this->pvt_wsdlmodifications := newmods;
+  }
+
+  OBJECT FUNCTION GetXMLDomImpl()
+  {
+    IF (NOT ObjectExists(this->pvt_xmldomimpl))
+    {
+      this->pvt_xmldomimpl := NEW XMLDomImplementation;
+      this->pvt_xmldomimpl->RegisterEntityLoader(PTR this->DefaultEntityLoader);
+    }
+    RETURN this->pvt_xmldomimpl;
+  }
+
+  BOOLEAN FUNCTION GetPersistentConnections()
+  {
+    RETURN this->__GetBrowser()->persistentconnections;
+  }
+
+  MACRO SetPersistentConnections(BOOLEAN newvalue)
+  {
+    this->__GetBrowser()->persistentconnections := newvalue;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  PUBLIC RECORD FUNCTION DefaultEntityLoader(STRING schemalocation, STRING id, STRING parent_filename DEFAULTSTO "(none)")
+  {
+    IF (schemalocation LIKE "http://*" OR schemalocation LIKE "https://*")
+    {
+      schemalocation := this->RewriteURLs(schemalocation);
+      BLOB data := this->GetXMLDataFromURL(schemalocation, "XSD");
+
+      RETURN
+          [ success :=    TRUE
+          , data :=       data
+          , filename :=   schemalocation
+          ];
+    }
+
+    IF (schemalocation LIKE "whres::*")
+      RETURN [ success := TRUE, data := GetHarescriptResource(schemalocation), filename := schemalocation ];
+
+    THROW NEW Exception(`Could not locate XSD schema at ${schemalocation}`);
+  }
+
+  PUBLIC OBJECT FUNCTION __GetBrowser()
+  {
+    IF(NOT ObjectExists(this->webbrowser))
+      this->webbrowser := NEW WebBrowser;
+
+    RETURN this->webbrowser;
+  }
+
+  /** Registers a custom encoder function for the given timezone identifier.
+      @param(STRING) tzidentifier The identifier string for the timezone.
+      @param(FUNCTION PTR) encoder The actual encoding function; must accept one DATETIME parameter and return a STRING.
+  */
+  PUBLIC MACRO RegisterTimezoneEncoder(STRING tzidentifier, FUNCTION PTR encoder)
+  {
+    IF(tzidentifier NOT IN (SELECT AS STRING ARRAY identifier FROM this->customtzencoders))
+    {
+      IF(ValidateFunctionPTR(encoder, TypeID(STRING), [ TypeID(DATETIME) ]))
+      {
+        INSERT [ identifier := tzidentifier, call := encoder ] INTO this->customtzencoders AT END;
+      }
+      ELSE
+        THROW NEW Exception("Invalid signature for timezone encoder; expected STRING FUNCTION encoder(DATETIME param1)");
+    }
+    // If one attempts to re-register a custom timezone processor at a deeper level (the SOAPEncoder object), an exception
+    // will be thrown, but that is a bit too severe here.
+  }
+
+  STRING FUNCTION RewriteURLs(STRING url)
+  {
+    FOREVERY (RECORD rec FROM this->urlrewrites)
+    {
+      INTEGER prefixlen := LENGTH(rec.prefix);
+      IF (rec.prefix = Left(url, prefixlen))
+        RETURN rec.replace || SubString(url, prefixlen);
+    }
+    RETURN url;
+  }
+
+  RECORD FUNCTION GetXMLDocFromURLInternal(STRING url, STRING type)
+  {
+    OBJECT browser := this->__GetBrowser();
+
+    IF (NOT browser->GotoWebPage(url))
+    {
+      //PRINT("Content\n" || BlobToString(browser->content, -1));
+      THROW NEW Exception(`Cannot load ${type} from ${url}: ${browser->lasterror}`);
+    }
+
+    IF (NOT ObjectExists(browser->document))
+      THROW NEW Exception(`Did not receive a ${type} document from ${url}`);
+
+    IF (this->storewsdl)
+      StoreDiskFile(GenerateTemporaryPathnameFromBasepath(GetTempDir() || "soapclient-" || GetHostNameFromURL(url) || "-") || ".wsdl", browser->content);
+
+    RETURN
+        [ doc :=      browser->document
+        , data :=     browser->content
+        ];
+  }
+
+  OBJECT FUNCTION GetXMLDocFromURL(STRING url, STRING type)
+  {
+    RETURN this->GetXMLDocFromURLInternal(url, type).doc;
+  }
+
+  BLOB FUNCTION GetXMLDataFromURL(STRING url, STRING type)
+  {
+    RETURN this->GetXMLDocFromURLInternal(url, type).data;
+  }
+
+
+  /** Makes sure that the WSDL is parsed and present in the wsdlspec variable, and that the flatxsd
+      variable contains an XSD which can do node lookups.
+  */
+  MACRO RequireParsedWSDL()
+  {
+    // Already parsed once in this session? Try not to parse 2 times for the two caches
+    IF (ObjectExists(this->wsdlspec))
+      RETURN;
+
+    OBJECT xsdparser := CreateXSD2001Parser(this->xmldomimpl);
+    xsdparser->permissive_mode := TRUE;
+
+    FOREVERY (RECORD rec FROM this->preloadxsds)
+    {
+      STRING schemalocation := CellExists(rec, "SCHEMALOCATION") ? rec.schemalocation : "";
+      STRING id := CellExists(rec, "ID") ? rec.id : "";
+
+      IF (CellExists(rec, "NAMESPACE") AND schemalocation = "")
+        schemalocation := xsdparser->xmldomimpl->LookupSchemaForNamespace(rec.namespace);
+
+      RECORD schemainfo := xsdparser->xmldomimpl->LoadExternalEntity(schemalocation, id);
+      IF(NOT schemainfo.success)
+        THROW NEW Exception("Cannot locate import for xsd for schema location " || schemalocation);
+
+      OBJECT import_xsd := this->xmldomimpl->MakeXMLSchema(schemainfo.data);
+      __ParseXSDSchemaNoBuildProps(xsdparser, import_xsd->documentelement, schemainfo.filename);
+    }
+
+    EnsureSoapBindingInterpreterRegistered();
+
+    IF (LENGTH(this->wsdl) = 0)
+    {
+      IF(this->loglevel >= 5)
+        this->logfunction('SOAP WSDL for ' || this->wsdlurl || ' starting');
+
+      OBJECT rootnode := this->GetXMLDocFromURL(this->wsdlurl, "WSDL")->documentelement;
+
+      this->wsdlspec := ParseWSDL(xsdparser, rootnode, this->wsdlurl, this->pvt_wsdlmodifications,
+          [ urlrewrite :=     PTR this->RewriteURLs
+          , importresolver := PTR this->GetXMLDocFromURL(#1, "WSDL")
+          ]);
+    }
+    ELSE
+    {
+      OBJECT document := MakeXMLDocument(this->wsdl);
+      IF (LENGTH(document->GetParseErrors()) != 0)
+        THROW NEW Exception("Could not parse wsdl, it contains errors");
+
+      //FIXME needed on every soap service?
+
+      this->wsdlspec := ParseWSDL(xsdparser, document->documentelement, this->wsdlurl, this->pvt_wsdlmodifications);
+    }
+
+    // Always make sure that the flatxsd has object references
+    this->flatxsd := NEW FlatXSD;
+    this->flatxsd->user_component_parse_functions :=
+        [ [ name := "wsdl"
+          , func := PTR GetWSDLArrayData(this->wsdlspec->xsdparser, this->flatxsd, #1)
+          ]
+        ];
+    this->flatxsd->ReadFromXSDParser(this->wsdlspec->xsdparser);
+  }
+
+  RECORD FUNCTION GeneratePortInstantiationData(OBJECT soapservice, STRING port_namespace, STRING port_name)
+  {
+    this->RequireParsedWSDL();
+
+    OBJECT svc := this->wsdlspec->GetServiceNS(soapservice->namespace, soapservice->name);
+    OBJECT port := svc->GetPortNS(port_namespace, port_name);
+
+    RECORD ARRAY encoded_ops;
+    FOREVERY (OBJECT ab_operation FROM port->pvt_operations)
+    {
+      RECORD encoded_op := EncodeBoundOperationData(this->flatxsd, ab_operation->bound_operation);
+      INSERT encoded_op INTO encoded_ops AT END;
+    }
+
+    RETURN
+        [ value :=
+              [ encoded_ops :=        encoded_ops
+              , operations :=         port->GetOperations()
+              , soapuri :=            port->uri
+              , soapversion :=        port->pvt_binding->soapversion
+              , wsa10_address :=      port->wsa10_address
+              ]
+        , ttl :=        120000 // 2 minutes
+        ];
+  }
+
+
+  RECORD FUNCTION GetPortInstantiationData(OBJECT soapservice, STRING port_namespace, STRING port_name)
+  {
+    RETURN GetAdhocCached(
+        [ type :=         "wsdl_port"
+        , preloadxsds :=  this->preloadxsds
+        , wsdlurl :=      this->wsdlurl
+        , soapservice_ns := soapservice->namespace
+        , soapservice :=  soapservice->name
+        , port_ns :=      port_namespace
+        , port :=         port_name
+        ], PTR this->GeneratePortInstantiationData(soapservice, port_namespace, port_name));
+  }
+
+
+  RECORD FUNCTION GetTopLevelCacheData()
+  {
+    this->RequireParsedWSDL();
+
+    RECORD ARRAY services;
+
+    FOREVERY (RECORD service FROM this->wsdlspec->GetServices())
+    {
+      OBJECT wsdlservice := this->wsdlspec->GetServiceNS(service.namespace, service.name);
+
+      INSERT
+          [ namespace :=        service.namespace
+          , name :=             service.name
+          , ports :=            wsdlservice->GetPorts()
+          ] INTO services AT END;
+    }
+
+    RECORD data :=
+        [ value :=
+              [ url :=            this->wsdlurl
+              , services :=       services
+              , flatxsd_data :=   this->flatxsd->ExportData()
+              ]
+        , ttl :=        120000 // 2 minutes
+        ];
+
+    RETURN data;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Preload SOAP encoding XSD (for stuff like soapenc:array)
+  */
+  PUBLIC MACRO PreloadSOAPEncodingXSD()
+  {
+    this->PreloadXSD("http://schemas.xmlsoap.org/soap/encoding/", "", "");
+  }
+
+  /** Preload an XSD (for missing imports in XSD)
+      @param namespace Namespace (for known namespaces)
+      @param schemalocation Schemalocation that is sent to entity loader
+      @param id ID that is sent to entity loader
+  */
+  PUBLIC MACRO PreloadXSD(STRING namespace, STRING schemalocation, STRING id)
+  {
+    IF (this->wsdlloaded)
+      THROW NEW Exception("Preloading XSDs is not allowed after loading the WSDL");
+
+    INSERT
+        [ namespace :=        namespace
+        , schemalocation :=   schemalocation
+        , id :=               id
+        ] INTO this->preloadxsds AT END;
+  }
+
+  /** Loads a WSDL from an URL
+  */
+  PUBLIC MACRO LoadWSDLFromURL(STRING url)
+  {
+    IF (this->wsdlloaded)
+      THROW NEW Exception("Only one WSDL may be loaded into a SoapClient object");
+    IF (url = "")
+      THROW NEW Exception("Invalid URL passed");
+
+    this->wsdlurl := url;
+    this->wsdlloaded := TRUE;
+
+    /* When GetTopLevelCacheData is called, it leaves this->wsdlspec filled
+       This is then used by GeneratePortInstantiationData when it instantiates
+       a port. This saves parsing time when multiple ports are present in
+       a wsdl
+    */
+    RECORD data := GetAdhocCached(
+        [ type :=           "wsdl"
+        , wsdlurl :=        url
+        , urlrewrites :=    this->urlrewrites
+        ], PTR this->GetTopLevelCacheData());
+
+    // Elide a reimport of flatxsd
+    IF (NOT ObjectExists(this->flatxsd))
+      this->flatxsd := MakeFlatXSDDataFromExport(data.flatxsd_data);
+
+    this->services := data.services;
+  }
+
+
+  /** Loads a WSDL from a blob
+      @param wsdl WSDL blob
+  */
+  PUBLIC MACRO LoadWSDLFromBlob(BLOB wsdl, STRING schemalocation DEFAULTSTO "")
+  {
+    IF (this->wsdlloaded)
+      THROW NEW Exception("Only one WSDL may be loaded into a SoapClient object");
+
+    this->wsdl := wsdl;
+    this->wsdlurl := schemalocation;
+    this->wsdlloaded := TRUE;
+
+    STRING hash := GetSHA1Hash(BlobToString(wsdl, -1));
+
+    /* When GetTopLevelCacheData is called, it leaves this->wsdlspec filled
+       This is then used by GeneratePortInstantiationData when it instantiates
+       a port. This saves parsing time when multiple ports are present in
+       a wsdl
+    */
+    RECORD data := GetAdhocCached(
+        [ type :=           "wsdl"
+        , hash :=           hash
+        , urlrewrites :=    this->urlrewrites
+        ], PTR this->GetTopLevelCacheData());
+
+    // Elide a reimport of flatxsd
+    IF (NOT ObjectExists(this->flatxsd))
+      this->flatxsd := MakeFlatXSDDataFromExport(data.flatxsd_data);
+
+    this->services := data.services;
+  }
+
+  /** Get the first usable service as a directly callable interface */
+  PUBLIC OBJECT FUNCTION GetInterface()
+  {
+    RECORD ARRAY services := this->GetServices();
+    IF(length(services)=0)
+      THROW NEW Exception("SOAP endpoint no services available");
+
+    OBJECT service := this->GetServiceNS(services[0].namespace, services[0].name);
+    RECORD ARRAY ports := service->GetPorts();
+    IF(length(ports)=0)
+      THROW NEW Exception("SOAP service has no ports available");
+
+    OBJECT port := service->GetPortNS(ports[0].namespace, ports[0].name);
+    RETURN port->GetObjectInterface();
+  }
+
+  /** Get the list of available services
+      @return
+      @cell namespace Namespace of the service
+      @cell name Name of the service
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetServices()
+  {
+    RETURN
+        SELECT namespace
+             , name
+          FROM this->services;
+  }
+
+
+  /** Get service object, lookup by name
+      @param uri Namespace uri of the service
+      @param name Name of the service
+      @return SoapService object, for the serice, DEFAULT OBJECT if it doesn't exist
+  */
+  PUBLIC OBJECT FUNCTION GetServiceNS(STRING uri, STRING name)
+  {
+    RECORD svc :=
+        SELECT *
+          FROM this->services
+         WHERE namespace = uri
+           AND COLUMN name = VAR name;
+
+    IF (NOT RecordExists(svc))
+      RETURN DEFAULT OBJECT;
+
+    RETURN NEW SoapService(PRIVATE this, svc, this->overrides);
+  }
+
+  PUBLIC MACRO Close()
+  {
+    IF (ObjectExists(this->webbrowser))
+    {
+      this->webbrowser->Close();
+      this->webbrowser := DEFAULT OBJECT;
+    }
+  }
+>;
+

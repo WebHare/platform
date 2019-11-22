@@ -1,0 +1,65 @@
+<?wh
+/** @topic testframework/publisher */
+LOADLIB "wh::internet/urls.whlib";
+
+/** @public
+    @short Publisher forms (CI) tester returned by %OpenFormsapiFormTester */
+STATIC OBJECTTYPE FormsapiFormTester
+<
+  STRING baseurl;
+  OBJECT node;
+  STRING formid;
+  STRING formref;
+  RECORD formdata;
+  OBJECT browser;
+
+  MACRO NEW(OBJECT browser, STRING baseurl, OBJECT node)
+  {
+    this->browser := browser;
+    this->baseurl := baseurl;
+    this->node := node;
+
+    this->formid := node->GetAttribute("data-wh-form-id");
+    this->formref := node->GetAttribute("data-wh-form-ref");
+  }
+
+  /** Submit the form
+      @param fields Name/value pairs of submitted fields
+      @cell(record) options.extrasubmit Optional 'extra data' that would be submitted to the form by JavaScirpt
+      @return Submission result*/
+  PUBLIC RECORD FUNCTION SubmitForm(RECORD fields, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ extrasubmit := DEFAULT RECORD
+                               ], options);
+
+    STRING formservice := this->formid="-" ? this->baseurl : ResolveToAbsoluteURL(this->baseurl, "/wh_services/publisher/forms");
+    RECORD formdata := [ fields := fields
+                       , formid := this->formid
+                       , formref := this->formref
+                       , url := UnpackURL(this->baseurl).urlpath
+                       ];
+
+    IF(RecordExists(options.extrasubmit))
+      INSERT CELL extrasubmit := options.extrasubmit INTO formdata;
+    RECORD result := this->browser->CallJSONRPC(formservice,"CallFormService","Submit",formdata);
+    RETURN result;
+  }
+>;
+
+/** @loadlib mod::publisher/lib/testfw/forms.whlib
+    @param(object %WebBrowser) Browser to use (eg `testfw->browser`)
+    @cell(string) options.selector CSS selector to find the form (defaults to first formsapi form on the page)
+    @return(object #FormsapiFormTester) Forms tester. Throws if the form wasn't found
+*/
+PUBLIC OBJECT FUNCTION OpenFormsapiFormTester(OBJECT browser, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ selector := "form[data-wh-form-id]" ], options);
+
+  OBJECT ARRAY candidates := browser->document->GetElements(options.selector);
+  IF(Length(candidates)=0)
+    THROW NEW Exception(`No matches for selector '${options.selector}' on ${browser->href}`);
+  IF(Length(candidates)>1)
+    THROW NEW Exception(`Multiple matches (${Length(candidates)}) for selector '${options.selector}' on ${browser->href}`);
+
+  RETURN NEW FormsapiFormTester(browser, browser->href, candidates[0]);
+}

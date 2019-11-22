@@ -1,0 +1,105 @@
+[!
+
+Layout:
+
+- flex + to keep the poll at the same height when switch between 'options', 'results', 'thanksforvoting'
+
+- Use .wh-styledinput to indicate we use the guidelines also used by our default form template
+  (which include having a label in the DOM after each input type=checkbox/radio)
+
+!]
+
+[component renderpoll]
+  [!
+  .wh-styledinput signals this component uses the default setup (so we know how to style it)
+  !]
+  <div class="wh-poll
+              [if ismultiplechoice]wh-poll--multiplechoice[else]wh-poll--singlechoice[/if]
+              "
+       data-poll="[pollembedinfo]" [! config so a custom poll witty isn't dependant on having all correct CSS classes !]
+       data-toolid="[toolid]"
+       >
+
+    <div class="wh-poll__title">[title]</div>
+
+    <form class="wh-poll__page
+                 wh-poll__page--poll
+                 wh-poll__page--visible
+                ">
+
+      [if question]
+        <div class="wh-poll__question">
+          [question]
+        </div>
+      [/if]
+
+      <div class="wh-poll__poll__options wh-styledinput">
+        [embed renderpoll_options]
+      </div>
+
+      <div class="wh-poll__poll__buttons">
+        <button class="wh-poll__votebutton wh-form__button"
+                type="submit">[gettid webtools.pollwidget.submit]</button>
+
+        <span class="wh-poll__showresultsbutton">[gettid webtools.pollwidget.showresults]</span>
+      </div>
+    </form>
+
+    [if messageaftervoting]
+      <div class="wh-poll__page wh-poll__page--aftervoting">
+        [messageaftervoting]
+      </div>
+    [/if]
+
+    <div class="wh-poll__page wh-poll__page--results">
+      [embed renderpoll_results]
+    </div>
+  </div>
+[/component]
+
+
+[component renderpoll_options]
+  [forevery options]
+    <div class="wh-poll__option">[! or wh-poll__fieldline ? !]
+      [if ismultiplechoice]
+        <input type="checkbox" name="vote" value="[guid]" id="[guid]" />
+      [else]
+        <input type="radio" name="vote" value="[guid]" id="[guid]" />
+      [/if]
+      <label for="[guid]"></label>[! placeholder for custom input styling (according to .wh-styleinput guidelines) !]
+      <span class="wh-poll__optiondata">
+        <label for="[guid]" class="wh-poll__optionlabel">[title]</label>
+      </span>
+    </div>
+  [/forevery]
+[/component]
+
+[component renderpoll_results]
+  [if question]
+    <div class="wh-poll__question">
+      [question]
+    </div>
+  [/if]
+
+  <div class="wh-poll__poll__results">
+    [forevery options]
+      <div class="wh-poll__option" data-polloption="[guid]">[! or wh-poll__fieldline ? !]
+
+        <div class="wh-poll__option__votes"
+             data-votes="[votes]"
+             data-percentage="[votepercentage]"></div>
+        <span class="wh-poll__optiondata">
+          <span class="wh-poll__optionlabel">[title]</span>
+        </span>
+
+      </div>
+    [/forevery]
+
+    <div class="wh-poll__poll__buttons">
+      [! The tid's are split into two parts because (even in a HTML tid) we cannot use a <span> inside a tid !]
+      <div class="wh-poll__votecount">[gettid webtools.pollwidget.votecount_before] <span class="wh-poll__votecount__amount"></span> [gettid webtools.pollwidget.votecount_after]</div>
+
+      <div class="wh-poll__hideresultsbutton">[gettid webtools.pollwidget.hideresults]</div>
+     </div>
+  </div>
+[/component]

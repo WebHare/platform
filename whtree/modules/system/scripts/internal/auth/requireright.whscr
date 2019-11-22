@@ -1,0 +1,45 @@
+﻿<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+OpenPrimary();
+
+OBJECT authplugin := GetWRDAuthPlugin(GetRequestURL());
+IF(NOT ObjectExists(authplugin))
+  THROW NEW Exception("No wrdauth plugin registered for this URL."); //wrdauth is handling the actual authentication with cookies etc
+
+OBJECT currentuser;
+BOOLEAN seenrule;
+
+RECORD applicablerule := GetCurrentWebhareAccessRule();
+
+IF(NOT ObjectExists(currentuser))
+  currentuser := authplugin->GetCurrentWebhareUser();
+
+BOOLEAN success := DoAccessCheckFor(applicablerule.data.checkandvm.accesscheck, currentuser);
+IF(NOT success AND NOT ObjectExists(currentuser))
+  authplugin->__RedirectToLogin(); //terminates
+
+authplugin->__RemoveAuthReturnedIfNeeded(); //redirects if it needed to clean the URL
+IF(NOT success)
+{
+  AddHTTPHeader("Status", "403", FALSE);
+  RETURN;
+}
+ELSE
+{
+  seenrule := TRUE;
+}
+
+IF(NOT seenrule)
+  THROW NEW Exception("requireright.whscr invoked but no applicable rules");
+
+STRING webharelogin := authplugin->wrdauth->cookiename;
+IF(webharelogin = "")
+  THROW NEW Exception("Expected a webharelogin cookie"); //ADDME base on configurable cookie name
+
+STRING displayname := GetWRDAuthUserAPI(authplugin->wrdschema)->GetUserDisplayName(currentuser->authobjectid);
+AuthenticateWebSession(webharelogin, "", displayname, FALSE, currentuser->authobjectid, currentuser->entityid,TRUE);

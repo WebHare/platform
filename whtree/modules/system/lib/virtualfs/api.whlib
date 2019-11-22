@@ -1,0 +1,70 @@
+﻿<?wh
+LOADLIB "mod::system/lib/virtualfs/base.whlib" EXPORT VirtualFSException;
+LOADLIB "mod::system/lib/virtualfs/modular.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+OBJECTTYPE VirtualFSRoot EXTEND VirtualModularFSBase
+<
+  BOOLEAN have_cached_subfolders;
+  RECORD ARRAY virtualfs;
+
+  UPDATE OBJECT FUNCTION GetSubfolder(STRING subfolder)
+  {
+    IF(NOT this->have_cached_subfolders)
+      this->CacheSubfolders();
+
+    RECORD module := SELECT * FROM this->virtualfs WHERE ToUppercase(name)=ToUppercase(subfolder);
+    IF(NOT RecordExists(module))
+      RETURN DEFAULT OBJECT;
+
+    RETURN MakeObject(module.library, module.objectname);
+  }
+
+  RECORD FUNCTION CreateModuleDirectoryEntry(STRING inname)
+  {
+    RETURN [ name := inname
+           , type := 1 /*directory*/
+           , modificationdate := DEFAULT DATETIME
+           , creationdate := DEFAULT DATETIME
+           , read := TRUE
+           , write := FALSE
+           , size := 0
+           ];
+  }
+
+  UPDATE RECORD ARRAY FUNCTION GetSubfolderListing()
+  {
+    IF(NOT this->have_cached_subfolders)
+      this->CacheSubfolders();
+
+    RETURN SELECT AS RECORD ARRAY this->CreateModuleDirectoryEntry(name)
+             FROM this->virtualfs;
+  }
+
+  MACRO CacheSubfolders()
+  {
+    FOREVERY(RECORD module FROM GetWebHareModules())
+      FOREVERY(RECORD vfs FROM module.virtualfs)
+      {
+        IF(NOT DoAccessCheckFor(vfs.accesscheck, GetEffectiveUser()))
+          CONTINUE;
+
+        INSERT vfs INTO this->virtualfs AT END;
+      }
+
+    this->have_cached_subfolders := TRUE;
+  }
+
+  PUBLIC UPDATE RECORD FUNCTION GetPathInfo(STRING path)
+  {
+    IF(path="/") //FS root requires special handling
+      RETURN this->CreateModuleDirectoryEntry("/");
+    RETURN VirtualModularFSBase::GetPathInfo(path);
+  }
+>;
+
+PUBLIC OBJECT FUNCTION OpenVirtualFS()
+{
+  RETURN NEW VirtualFSRoot;
+}

@@ -1,0 +1,512 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::formatter/html.whlib";
+LOADLIB "wh::parser/msword.whlib";
+LOADLIB "wh::parser/objects.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+PUBLIC STRING FUNCTION GetMailRecipients(STRING ARRAY inaddresses)
+{
+  RETURN Detokenize(PrettyFormatEmailAddresses(RetokenizeEmailAddresses(inaddresses)), ", ");
+}
+
+/** @short make changes to the DOM to increase compatibility with email clients such as Outlook
+    @topic witty/api
+    @public
+    @loadlib mod::system/lib/mailer.whlib
+    @param dom DOM node to start restructuring
+*/
+PUBLIC MACRO RestructureEmailForCompatibility(OBJECT dom)
+{
+  // ADDME? : make sure inline anchor's use both id and name? (this requires us to first scan which internal anchors are used and then give those anchor's a non-colliding id/name if they don't have one yet)
+  // Important fixes:
+
+  //cellspace/cellpadd/border to 0
+  FOREVERY(OBJECT tab FROM dom->QuerySelectorAll("table")->GetCurrentElements())
+  {
+    IF(tab->GetAttribute('cellspacing')='')
+      tab->SetAttribute('cellspacing','0');
+    IF(tab->GetAttribute('cellpadding')='')
+      tab->SetAttribute('cellpadding','0');
+    IF(tab->GetAttribute('border')='')
+      tab->SetAttribute('border','0');
+
+    OBJECT direct_trs := tab->GetChildElementsByTagName('tr');
+    IF(direct_trs->length > 0)
+    {
+      //ADDME could make this a lot more robust (FIXME: how? and why?)
+      OBJECT tbody := tab->GetChildElementsByTagName('tbody');
+      IF(tbody->length = 0)
+      {
+        tbody := dom->CreateElement('tbody');
+        FOREVERY(OBJECT tr FROM direct_trs->GetCurrentElements())
+          tbody->AppendChild(tr);
+        tab->AppendChild(tbody);
+      }
+    }
+  }
+
+  // apply all styles inline
+  // (some email client such as GMail ignore stylesheets)
+  FOREVERY(OBJECT stylenode FROM dom->GetElementsByTagName('style')->GetCurrentElements())
+  {
+    STRING style := stylenode->ChildrenText;
+    OBJECT cssom := MakeCSSStyleSheet(StringToBlob(style));
+    dom := cssom->RewriteDomStyles(dom);
+    //dom->GetElementsByTagName('style')->item(i)->NodeValue := BlobToString(cssom->GetDocumentBlob(TRUE));
+  }
+
+  FOREVERY(OBJECT tab FROM dom->QuerySelectorAll("table")->GetCurrentElements())
+  {
+    STRING style := tab->GetAttribute("style");
+    IF(NOT tab->HasAttribute("align"))
+    {
+      //FIXME proper style parser - we should read the final margin-left/margin-right
+      IF(style LIKE "*margin: 0 auto;*" OR style lIKE "*margin: 0 auto 0;*")
+        tab->SetAttribute("align","center");
+    }
+  }
+
+  OBJECT getcolor_regex := NEW RegEx("[^-A-Za-z]*color: *([^;]*)");
+  OBJECT gettextdecoration_regex := NEW RegEx("[^-A-Za-z]*text-decoration: *([^;]*)");
+
+  FOREVERY(OBJECT link FROM dom->QuerySelectorAll("a")->GetCurrentElements())
+  {
+    // apply target="_blank" to all As, unless it links to an anchor within the email
+    IF(link->HasAttribute("href") AND Left(link->GetAttribute("href"), 1) != "#" AND link->GetAttribute("target") = "")
+      link->SetAttribute("target", "_blank");
+
+    //copy color & text-decoration from A to SPAN. fixes outlook 2007 ignoring color/decoration
+    //FIXME true css parser
+
+    RECORD ARRAY colormatch := getcolor_regex->Exec(link->GetAttribute("style"));
+    RECORD ARRAY textdecorationmatch := gettextdecoration_regex->Exec(link->GetAttribute("style"));
+
+    IF(Length(colormatch)=2 OR Length(textdecorationmatch)=2)
+    {
+      OBJECT spanwrapper := link->ownerdocument->CreateElement("span");
+      STRING addstyles;
+      IF(Length(colormatch)=2)
+        addstyles:=addstyles||"color:" || colormatch[1].value || ";";
+      IF(LengtH(textdecorationmatch)=2)
+        addstyles:=addstyles||"text-decoration:" || textdecorationmatch[1].value || ";";
+
+      spanwrapper->SetAttribute("style",addstyles);
+
+      WHILE(ObjectExists(link->firstchild))
+        spanwrapper->AppendChild(link->firstchild);
+      link->AppendChild(spanwrapper);
+    }
+  }
+
+}
+
+//FIXME: Allow code to handle their own parse/run errors
+PUBLIC BLOB FUNCTION ApplyWittyToBlob(BLOB data, RECORD wittydata, STRING encoding, STRING contents_originalpath)
+{
+  OBJECT witty := NEW WittyTemplate(encoding);
+  witty->LoadBlob(data, contents_originalpath);
+
+  INTEGER datastream := CreateStream();
+  BLOB finaldata;
+  TRY
+  {
+    witty->RunTo(datastream, wittydata);
+    finaldata := MakeBlobFromStream(datastream);
+  }
+  CATCH(OBJECT e)
+  {
+    MakeBlobFromStream(datastream); //finalize it
+    THROW e;
+  }
+  RETURN finaldata;
+}
+
+PUBLIC STRING FUNCTION GenerateMIMEContentId()
+{
+  RETURN ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId()) || DecodeUFS(GenerateUFS128BitId())));
+}
+
+
+
+PUBLIC OBJECTTYPE ComposeException EXTEND Exception
+<
+  MACRO NEW(STRING what)
+  : Exception(what)
+  {
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE ComposerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BLOB contents_original;
+  INTEGER contents_type;
+
+  RECORD ARRAY embedded_files;
+  RECORD ARRAY embedmap;
+  RECORD decodedeml;
+
+  BLOB contents_text;
+  STRING contents_base;
+  STRING contents_originalpath;
+  OBJECT resmgr;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /** Additional merge record for templates - this will be updated with mergerecord before running the witty
+  */
+  PUBLIC RECORD ARRAY templaterecords;
+
+  /** Values that are used to merge values into the loaded content
+  */
+  PUBLIC RECORD mergerecord;
+
+  //Our witty encoding for when processing the mergerecord. Defaults to HTML
+  PUBLIC STRING wittyencoding;
+
+  /** A list of fields in mergerecord which we should witty-merge just before sending the message */
+  PUBLIC STRING ARRAY remergefields;
+
+  /** Function pointer to retrieve embedded content. Should return a record [ data := BLOB ] or default record if not found */
+  PUBLIC FUNCTION PTR lookupresource;
+
+  /** Base URL for relative links */
+  PUBLIC STRING baseurl;
+
+  //Restructure the HTML DOM for better email compatibility
+  PUBLIC BOOLEAN restructureforemail;
+
+  MACRO NEW()
+  {
+    this->wittyencoding := "HTML";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  STRING FUNCTION RewriteHTMLImage(STRING href)
+  {
+    STRING saved_inhref := href;
+
+    //Do not try to rewrite: empty hrefs, relative hrefs, schemes (but filter resources), cid:*s (RTD) or // urls
+    IF(href="" OR Left(href,1) IN ['#','?','!'] OR (href LIKE "*:*" AND href NOT LIKE "cid:*" AND href NOT LIKE "*::*") OR (href LIKE "//*" AND this->baseurl=""))
+      RETURN href; //let these be.
+    IF(this->baseurl != "")
+    {
+      href := ResolveToAbsoluteURL(this->baseurl, href);
+      IF(IsAbsoluteURL(href,FALSE))
+        RETURN href;
+    }
+
+    RECORD already_embedded := SELECT * FROM this->embedded_files WHERE ToUppercase(embedded_files.filename) = ToUppercase(href);
+    IF(RecordExists(already_embedded))
+      RETURN already_embedded.href;
+
+    BLOB embedded_obj := this->OpenRelativePath(href);
+    IF(Length(embedded_obj)=0) //ADDME support embedding 0 byte files? but if they're always images, no real usecase
+      RETURN saved_inhref;
+
+    RECORD filetype := ScanBlob(embedded_obj, href);
+    STRING newhref := this->DoAddEmbeddedObject(embedded_obj, filetype.mimetype, href, FALSE);
+    RETURN newhref;
+  }
+
+  STRING FUNCTION DoAddEmbeddedObject(BLOB data, STRING mimetype, STRING filename, BOOLEAN external)
+  {
+    THROW NEW Exception("DoAddEmbeddedObject not overridden");
+  }
+
+  BLOB FUNCTION OpenRelativePath(STRING inpath)
+  {
+    IF(inpath="")
+      RETURN DEFAULT BLOB;
+
+    IF(this->lookupresource != DEFAULT MACRO PTR)
+    {
+      RECORD res := this->lookupresource(inpath);
+      IF(RecordExists(res))
+        RETURN res.data;
+    }
+
+    /* if lookupresource failed with the cid:, just pass it through - (the original cid: behaviour)
+        there's no way any of the remaining handlers would ever solve a cid: URL anyway */
+    IF(inpath LIKE "cid:*")
+      RETURN DEFAULT BLOB;
+
+    IF (inpath LIKE "*/.uc/*") // image cache
+    {
+      RECORD data := GetCachedDataFromURL(inpath);
+      IF (NOT RecordExists(data))
+        THROW NEW ComposeException("Cannot find embedded resource '" || inpath || "'");
+
+      RETURN data.data;
+    }
+
+    IF(IsAbsoluteResourcePath(inpath))
+      RETURN GetWebHareResource(inpath);
+    IF(this->contents_base = "")
+      THROW NEW ComposeException("Don't know where to look for embedded resource " || inpath);
+
+    RETURN GetWebhareResource(MakeAbsoluteResourcePath(this->contents_base,inpath));
+  }
+
+  RECORD FUNCTION GetMergableData()
+  {
+    RECORD mergedata;
+    FOREVERY(RECORD templ FROM this->templaterecords)
+      mergedata := MakeOverwrittenRecord(mergedata, templ);
+
+    mergedata := MakeOverwrittenRecord(mergedata, this->mergerecord);
+    FOREVERY(STRING remerge FROM this->remergefields)
+    {
+      OBJECT mergefieldwitty := NEW WittyTemplate("TEXT");
+      mergefieldwitty->LoadCodeDirect(GetCell(this->mergerecord, remerge));
+
+      INTEGER capture_stream := CreateStream();
+      mergefieldwitty->RunTo(capture_stream, this->mergerecord);
+      mergedata := CellUpdate(mergedata, remerge, BlobToString( MakeBlobFromStream(capture_stream), -1));
+    }
+    RETURN mergedata;
+  }
+
+  MACRO ExtractMetadata(OBJECT htmldoc)
+  {
+
+  }
+
+  RECORD FUNCTION GenerateHTML()
+  {
+    BLOB htmlversion;
+    //delete any embedded files from a previous CreateMailing
+    DELETE FROM this->embedded_files WHERE external=FALSE;
+    this->embedmap := DEFAULT RECORD ARRAY;
+
+
+    IF(this->contents_type=0)
+    {
+      THROW NEW Exception("No email body was loaded (use SetRichBody or LoadRichBody)");
+    }
+    ELSE IF(this->contents_type=1)
+    {
+      htmlversion := this->contents_original;
+    }
+    ELSE IF(this->contents_type=2)
+    {
+      htmlversion := this->WordToHtml(this->contents_original);
+    }
+    ELSE IF(this->contents_type=3)
+    {
+      htmlversion := this->LoadEML(this->contents_original);
+    }
+    ELSE
+    {
+      THROW NEW Exception("Confused about type #" || this->contents_type);
+    }
+
+    IF (RecordExists(this->mergerecord))
+    {
+      RECORD mergedata := this->GetMergableData();
+      htmlversion := ApplyWittyToBlob(htmlversion, mergedata, this->wittyencoding, this->contents_originalpath);
+    }
+
+    OBJECT htmldoc := MakeXMLDocumentFromHTML(htmlversion, "UTF-8");
+    OBJECT rewriter := NEW HtmlRewriterContext;
+
+    //rewriter->RewriteAllLinks(htmldoc, PTR this->RewriteHTMLImage);
+    rewriter->RewriteEmbeddedLinks(htmldoc, PTR this->RewriteHTMLImage);//FUNCTION PTR rewriter, RECORD options DEFAULTSTO DEFAULT RECORD)
+
+    IF(this->restructureforemail)
+      RestructureEmailForCompatibility(htmldoc);
+
+    this->ExtractMetadata(htmldoc);
+    htmlversion := rewriter->GenerateHTML(htmldoc);
+/*
+    INTEGER htmldoc := CreateStream();
+    INTEGER oldredirect := RedirectOutputTo(htmldoc);
+
+    RewriteHTMLDocumentTo(0, htmlversion, [ imageurlrewrite := PTR this->RewriteHTMLImage(#1) ], "UTF-8");
+    RedirectOutputTo(oldredirect);
+
+    htmlversion := MakeBlobFromStream(htmldoc);*/
+    RETURN [ htmlversion := htmlversion
+           , embedded := this->embedded_files
+           ];
+  }
+
+  BLOB FUNCTION WordToHtml(BLOB worddoc)
+  {
+    INTEGER docid := OpenMSWordDocument(worddoc);
+    IF (docid <= 0)
+      THROW NEW ComposeException("Cannot open Word document");
+
+    RECORD parser := ScanMSWordDocument(docid, TRUE, DEFAULT RECORD ARRAY);
+
+    INTEGER output := CreateStream();
+    INTEGER htmldoc := CreateHTMLDoc("XHTML1.0", TRUE /* strict */, FALSE /* stylesheets */);
+
+    SetHTMLDocEmbeddingCallback(htmldoc, PTR this->EmbedCallback);
+    SetHTMLDocHyperlinkCallback(htmldoc, PTR this->HyperlinkCallback(#1, GetHTMLDocHyperlinkCallback(htmldoc)));
+
+    INTEGER pageid := CreateHTMLPage(htmldoc, output);
+
+    FOREVERY (RECORD obj FROM parser.parserobjects)
+      PrintParserObject(htmldoc, obj.id);
+
+    CloseHTMLPage(pageid);
+    CloseHTMLDoc(htmldoc);
+    CloseMSWordDocument(docid);
+
+    RETURN MakeBlobFromStream(output);
+  }
+
+  BLOB FUNCTION LoadEML(BLOB inputdoc)
+  {
+    this->embedmap := DEFAULT RECORD ARRAY;
+
+    this->decodedeml := DecodeMIMEMessage(inputdoc);
+
+    //Find the HTML body (ADDME support text/plain)
+    RECORD htmlpart := GetEmailPrimaryMIMEPart(this->decodedeml.data, "text/html");
+
+    IF(RecordExists(htmlpart))
+    {
+      OBJECT htmldoc := MakeXMLDocumentFromHTML(htmlpart.data, "UTF-8");
+
+      OBJECT rewriter := NEW HtmlRewriterContext;
+      rewriter->RewriteEmbeddedLinks(htmldoc, PTR this->OnImage(this->decodedeml.data,#1));
+      RETURN htmlpart.data;
+    }
+
+    RETURN DEFAULT BLOB;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions to overload
+  //
+
+  STRING FUNCTION EmbedCallback(STRING filename, STRING mimetype, BOOLEAN storedata, BLOB data)
+  {
+    THROW NEW Exception("This function needs to be overloaded for WordToHtml functionality");
+  }
+
+  MACRO HyperlinkCallback(RECORD hlink, FUNCTION PTR oldcallback)
+  {
+    THROW NEW Exception("This function needs to be overloaded for WordToHtml functionality");
+  }
+
+  STRING FUNCTION OnImage(RECORD rootpart, STRING url)
+  {
+    THROW NEW Exception("This function needs to be overloaded for WordToHtml functionality");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Load the contents from the specified file or folder. Try
+      to resolve embedded content. Does NOT automatically add
+      unembedded content as attachment (generatehtmlmail _did_ use
+      to do that!)
+      @param path Resource path to the data
+      @param type Data contenttype (leave empty to auto-detect). Supported: 'text/html', 'text/plain' and 'message/rfc822'.
+  */
+  PUBLIC MACRO LoadRichBody(STRING path, STRING type)
+  {
+    BLOB data := GetWebHareResource(path);
+    this->SetRichBody(data, type);
+    this->contents_originalpath := path;
+    this->SetContentBase(path);
+  }
+
+  /** Set the content basepath
+      @param path Content basepath
+  */
+  PUBLIC MACRO SetContentBase(STRING path)
+  {
+    this->contents_base := path;
+  }
+
+  /** Set the rich body from raw data
+      @param data Data
+      @param type Contenttype (leave empty to auto-detect). Supported: 'text/html', 'text/plain' and 'message/rfc822'.
+  */
+  PUBLIC MACRO SetRichBody(BLOB data, STRING type)
+  {
+    this->contents_original := data;
+
+    IF (type = "")
+      type := ScanBlob(data, "").contenttype;
+
+    IF(type = "text/html")
+    {
+      this->contents_type := 1;
+    }
+    ELSE IF(type = "text/plain")
+    {
+      this->contents_type := 4;
+    }
+    ELSE IF(type IN ["application/msword"
+                    ,"application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    ,"application/vnd.ms-word.document.macroenabled.12"
+                    ])
+    {
+      this->contents_type := 2;
+    }
+    ELSE IF(type = "message/rfc822")
+    {
+      this->contents_type := 3;
+    }
+    ELSE
+    {
+      THROW NEW ComposeException("Do not know how to handle mailings of type " || type);
+    }
+  }
+
+  /** Export as an RTD record. The resulting record can be used to store rich document data into contenttypes and WRD.
+      @return RTD record
+  */
+  PUBLIC RECORD FUNCTION ExportASRTDRecord()
+  {
+    RECORD res := this->GenerateHTML();
+    RETURN [ htmltext := res.htmlversion
+           , embedded := (SELECT contentid
+                               , data
+                               , mimetype
+                               , width
+                               , height
+                               , filename
+                               , extension
+                               , rotation
+                               , mirrored
+                               , refpoint
+                               , __blobsource
+                               , dominantcolor
+                            FROM res.embedded
+                        ORDER BY contentid)
+           , links := DEFAULT RECORD ARRAY
+           , instances := DEFAULT RECORD ARRAY
+           ];
+  }
+
+>;

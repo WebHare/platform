@@ -1,0 +1,39 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/sysmgmt/needsysop.whlib"
+         gid="screens.sysmgmt.needsysop">
+
+  <screen name="main" gid=".main" tid=".title">
+    <actions>
+    </actions>
+    <body spacers="none">
+      <wizard>
+        <page>
+          <heading tid=".welcome" />
+          <line layout="left">
+            <text valuetid=".explainneedsysop" wordwrap="true" minwidth="60x" width="1pr" />
+          </line>
+        </page>
+        <page onnext="oncredentialsnext" name="credentialspage">
+          <heading tid=".serversettings" />
+          <lines gid="sysmgmt.tolliumbackend">
+            <textedit name="servername" required="true" />
+            <select name="servertype" type="pulldown">
+              <option rowkey="production" />
+              <option rowkey="acceptance" />
+              <option rowkey="test" />
+              <option rowkey="development" />
+            </select>
+          </lines>
+          <heading tid=".sysopcredentials" />
+          <textedit name="email" required="true" tid="~email" validationchecks="email" />
+          <textedit name="password" password="true" required="true" tid="~password" />
+          <textedit name="passwordrepeat" password="true" required="true" tid="~passwordrepeat" />
+        </page>
+        <page isfinish="true">
+          <heading tid=".finished" />
+        </page>
+      </wizard>
+    </body>
+  </screen>
+
+</screens>

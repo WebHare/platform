@@ -1,0 +1,332 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/remoting/remotable.whlib";
+LOADLIB "mod::system/lib/internal/codegrep.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+
+
+LOADLIB "mod::publisher/lib/internal/blit/support.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/whfsintegration.whlib";
+
+
+PUBLIC RECORD FUNCTION RPC_Connect()
+{
+  RECORD versioninfo := GetWebhareVersionInfo();
+  RETURN [ version :=     versioninfo.versionnum
+         , build :=       versioninfo.revision
+         , issysop :=     GetEffectiveUser()->HasRight("system:sysop")
+         , licenseid :=   ""
+         , time :=        GetCurrentDateTime()
+         , applicability := GetMyApplicabilityInfo()
+         , name :=        GetServerName()
+         , installationid := ReadRegistryKey("system.global.installationid")
+         ];
+}
+
+/** @return
+    @cell(string) return.name
+    @cell(string) return.version
+    @cell(string) return.source_repository_url
+    @cell(string) return.source_repository_uuid
+    @cell(string) return.source_revision
+    @cell(string) return.source_uncommittedchanges TRUE if the installed module had some changes as compared to the source revision
+    @cell(string) return.description
+    @cell(boolean) return.packagingupgrade
+*/
+PUBLIC RECORD ARRAY FUNCTION RPC_ListInstalledModules()
+{
+  IF(NOT GetEffectiveUser()->HasRight("system:sysop"))
+    THROW NEW Exception("Only sysops may list modules");
+
+  RECORD ARRAY installed := SELECT * FROM GetInstalledModulesOverview(FALSE) WHERE isinstalled;
+
+  RETURN
+      SELECT name
+           , version
+           , source_repository_url
+           , source_repository_uuid
+           , source_revision
+           , source_uncommittedchanges
+           , description
+           , packagingupgrade
+        FROM EnrichInstalledModulesWithManifests(installed);
+}
+
+/** Add/replace a module
+    @param modulename Name of the module
+    @param moduledata Archive with the contents of the new module
+    @return
+    @cell(boolean) return.success
+    @cell(string) return.code 'CANNOTREPLACE', 'ERRORS', 'WARNINGS', ''
+    @cell(string array) return.errors
+    @cell(string array) return.warnings
+*/
+PUBLIC RECORD FUNCTION RPC_UploadModule(STRING modulename, BLOB moduledata)
+{
+  IF(NOT GetEffectiveUser()->HasRight("system:sysop"))
+    THROW NEW Exception("Only sysops may upload modules");
+
+  RECORD moduleinfo := SELECT * FROM GetInstalledModulesOverview(FALSE) WHERE ToUppercase(name)=ToUppercase(modulename);
+  IF(RecordExists(moduleinfo) AND NOT moduleinfo.isinstalled)
+  {
+    RETURN
+        [ success :=  FALSE
+        , code :=     "CANNOTREPLACE"
+        , errors :=   [ "Module '" || modulename || "' is not an installed module, and cannot be replaced" ]
+        , warnings := DEFAULT STRING ARRAY
+        ];
+  }
+
+  OBJECT trans := GetPrimaryWebhareTransactionObject();
+//  trans->BeginWork();
+  RECORD result := ImportModule(moduledata);
+
+  //IF (LENGTH(result.errors) != 0)
+  //  trans->RollbackWork();
+  //ELSE
+  //  trans->CommitWork();
+
+  LogAuditEvent(
+      "system:modules", CELL
+      [ action :=       "install"
+      , module :=       result.name
+      , version :=      result.fullversion
+      , result.path
+      , result.manifestdata
+      , result.orgmanifestdata
+      ]);
+
+  RETURN
+      [ success :=      LENGTH(result.errors) = 0
+      , code :=         LENGTH(result.errors) = 0
+                            ? LENGTH(result.warnings) = 0
+                                  ? ""
+                                  : "WARNINGS"
+                            : "ERRORS"
+      , errors :=       result.errors
+      , warnings :=     result.warnings
+      ];
+}
+
+RECORD ARRAY FUNCTION ScanModuleDirectory(STRING path, STRING localpath)
+{
+  RECORD ARRAY entries := ReadDiskDirectory(path, "*");
+
+  entries :=
+      SELECT *
+           , path :=        localpath
+           , fullpath :=    MergePath(localpath, name)
+        FROM entries
+       WHERE name NOT IN [ ".", ".." ];
+
+  FOREVERY (RECORD entry FROM entries)
+    IF (entry.type = 1)
+      entries := entries CONCAT ScanModuleDirectory(MergePath(path, entry.name), entry.fullpath);
+
+  RETURN entries;
+}
+
+BOOLEAN FUNCTION HaveDateChangedFromZip(DATETIME zipdate, DATETIME currentdate)
+{
+  IF (GetDayCount(zipdate) != GetDayCount(currentdate))
+    RETURN TRUE;
+
+  // Zip file has 2sec granularity
+  RETURN (GetMsecondCount(zipdate) / 2000) != (GetMsecondCount(currentdate) / 2000);
+}
+
+
+/** Get the list of changed module files. If any files have changed, the original data can be retrieved
+    from source.zip in the history folder of the module.
+    @param modulename
+    @return
+    @cell(boolean) return.success
+    @cell(string) return.code Error code when success is FALSE ('NOSUCHMODULE', 'NOSOURCE')
+    @cell(record array) return.changedfiles List of files with modifications
+    @cell(string) return.changedfiles.path Path of the file within the module
+    @cell(string) return.changedfiles.status Type of modification 'added', 'removed', 'modified'
+    @cell(record array) return.sourcefiles List of source files
+    @cell(string) return.sourcefiles.path Path of the file within the module
+    @cell(string) return.sourcefiles.sha1hash SHA-1 hash of the source file
+*/
+PUBLIC RECORD FUNCTION RPC_GetModuleChangedFiles(STRING modulename)
+{
+  IF(NOT GetEffectiveUser()->HasRight("system:sysop"))
+    THROW NEW Exception("Only sysops may view module differences");
+
+  RECORD moduleinfo := SELECT * FROM GetInstalledModulesOverview(FALSE) WHERE ToUppercase(name)=ToUppercase(modulename);
+  IF (NOT RecordExists(moduleinfo) OR NOT moduleinfo.isinstalled)
+  {
+    RETURN
+        [ success :=  FALSE
+        , code :=     "NOSUCHMODULE"
+        , errors :=   [ "Module '" || modulename || "' does not exist, or is not an installed module" ]
+        ];
+  }
+  moduleinfo := EnrichInstalledModulesWithManifests([moduleinfo])[0];
+
+  STRING moduleroot := GetModuleInstallationRoot(modulename);
+  RECORD data := GetModuleModifiedFiles(moduleroot, FALSE);
+
+  RETURN
+      [ success :=      data.success
+      , code :=         data.code
+      , changedfiles :=
+           (SELECT path
+                 , status
+              FROM data.files)
+      , sourcefiles :=
+           (SELECT path
+                 , sha1hash
+              FROM moduleinfo.manifest.sourcefiles)
+      ];
+}
+
+/** Execute a codegrep
+    @param regex
+    @param options
+    @cell(string array) options.scanpathmasks Like-masks for paths to scan. Optional, omit or empty to scan all.
+    @cell(string array) options.skippathmasks Like-masks for paths to skip. Optional, omit or empty to skip nothing.
+    @cell(string array) options.types Types of files to scan. Options: [ 'js', 'css', 'harescript', 'html', 'witty', 'xml' ]. Optional, omit or empty to scan all types.
+    @cell(boolean) options.casesensitive Whether to search case sensitive. Optional, defaults to case insensitive.
+    @cell(boolean) options.maxresults Max nr of results (defaults to 500)
+    @return
+    @cell(record array) return.results
+    @cell return.results.type 'error'/'result'
+    @cell return.results.source 'db'/'module'
+    @cell return.results.module Module name (only when source == 'module')
+    @cell return.results.localpath Local path within module (only when source == 'module')
+    @cell return.results.fullpath Full disk path (only when source == 'module')
+    @cell return.results.whfspath WHFS path (only when source == 'db')
+    @cell return.results.what Error message (only when type == 'error')
+    @cell return.results.linedata Data of line containing match (only when type == 'result')
+    @cell return.results.line Number of line containing match (only when type == 'result')
+    @cell return.results.col Column where match starts (only when type == 'result')
+    @cell return.results.colend Column where match ends (only when type == 'result')
+*/
+PUBLIC RECORD FUNCTION RPC_SearchTexts(STRING regex, RECORD options)
+{
+  IF(NOT GetEffectiveUser()->HasRight("system:sysop"))
+    THROW NEW Exception("Only sysops may search texts");
+
+  OBJECT searcher := NEW GlobalTextSearcher(regex, options);
+  INTEGER maxresultscount := CellExists(options, "MAXRESULTS") ? options.maxresults : 500;
+  RETURN
+      [ result :=   searcher->GetNextResults(maxresultscount)
+      ];
+}
+
+PUBLIC RECORD FUNCTION RPC_OpenSyncFolder(STRING path, RECORD options)
+{
+  IF (NOT GetEffectiveUser()->HasRight("system:sysop"))
+    THROW NEW Exception("Only sysops may download folders");
+
+  OBJECT root := OpenWHFSObjectByPath(path);
+  IF (NOT ObjectExists(root) OR NOT root->isfolder)
+    THROW NEW Exception("Path '" || path || "' does not point to a folder");
+
+  RETURN
+      [ folderdata := NEW FolderRepo(root)
+      ];
+}
+
+STATIC OBJECTTYPE FolderRepo EXTEND RemotableObject
+<
+
+  RECORD filteredtree;
+  RECORD ARRAY objects;
+
+  MACRO NEW(OBJECT folder)
+  {
+    OBJECT dtree_local := CreateWHFSDescriptionTree(folder, [ fulltree := TRUE ]);
+    OBJECT rtree_local := dtree_local->BuildRepositoryTree();
+    UpdateFSCache(rtree_local);
+
+    this->filteredtree := this->FilterToRawTreeRecursive(rtree_local->root);
+    this->objects := this->GetAllDataObjects(rtree_local->root);
+  }
+
+  RECORD FUNCTION FilterToRawTreeRecursive(RECORD rtree)
+  {
+    RECORD res :=
+        [ isfolder :=   rtree.isfolder
+        , hash :=       rtree.hash
+        , name :=       rtree.name
+        ];
+
+    IF (rtree.isfolder)
+      INSERT CELL children := SELECT AS RECORD ARRAY this->FilterToRawTreeRecursive(children) FROM rtree.children INTO res;
+    ELSE
+      INSERT CELL size := LENGTH64(rtree.data) INTO res;
+
+    RETURN res;
+  }
+
+  RECORD ARRAY FUNCTION GetAllDataObjects(RECORD rtree)
+  {
+    RECORD ARRAY items := this->GetAllObjectsRecursive(rtree);
+    RETURN
+        SELECT AS RECORD ARRAY Any(items)
+          FROM items
+      GROUP BY hash, isfolder;
+  }
+
+  RECORD ARRAY FUNCTION GetAllObjectsRecursive(RECORD rtree)
+  {
+    RECORD ARRAY res;
+    IF (rtree.isfolder)
+    {
+      INSERT
+          [ hash := rtree.hash
+          , isfolder := rtree.isfolder
+          , children := SELECT hash, isfolder FROM rtree.children
+          ] INTO res AT END;
+
+      FOREVERY (RECORD child FROM rtree.children)
+        res := res CONCAT this->GetAllObjectsRecursive(child);
+    }
+    ELSE
+      res := [ [ hash := rtree.hash, isfolder := rtree.isfolder, data := rtree.data ] ];
+    RETURN res;
+  }
+
+  PUBLIC RECORD FUNCTION GetObjectTreeCompressed()
+  {
+    RETURN
+        [ treedata := MakeZlibCompressedFile(EncodeHSONBlob(this->filteredtree), "GZIP", 1)
+        ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetObjects(RECORD ARRAY objects)
+  {
+    RECORD ARRAY res;
+    FOREVERY (RECORD obj FROM objects)
+    {
+      RECORD r;
+      RECORD pos := RecordLowerBound(this->objects, obj, [ "HASH", "ISFOLDER" ]);
+      IF (pos.found)
+      {
+        r := this->objects[pos.position];
+        INSERT CELL status := "found" INTO r;
+        INSERT r INTO res AT END;
+      }
+      ELSE
+      {
+        INSERT CELL status := "missing" INTO obj;
+        INSERT obj INTO res AT END;
+      }
+    }
+    RETURN res;
+  }
+>;

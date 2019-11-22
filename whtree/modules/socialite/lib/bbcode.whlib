@@ -1,0 +1,652 @@
+<?wh
+LOADLIB "wh::util/stringparser.whlib";
+
+// Supported BBCode tags
+RECORD ARRAY known_tags := [ [ bbtag := "b"
+                             , has_content := TRUE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<b>'
+                             , html_close := '</b>'
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "i"
+                             , has_content := TRUE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<i>'
+                             , html_close := '</i>'
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "u"
+                             , has_content := TRUE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<u>'
+                             , html_close := '</u>'
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "s"
+                             , has_content := TRUE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<strike>'
+                             , html_close := '</strike>'
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "br"
+                             , has_content := FALSE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<br>'
+                             , html_close := ''
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "media"
+                             , has_content := FALSE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := ''
+                             , html_close := ''
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "hr"
+                             , has_content := FALSE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<hr>'
+                             , html_close := ''
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "color"
+                             , has_content := TRUE
+                             , has_attr := TRUE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<span style="color: {text};">'
+                             , html_close := '</span>'
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "size"
+                             , has_content := TRUE
+                             , has_attr := TRUE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<span style="font-size: {text};">'
+                             , html_close := '</span>'
+                             , parse_attr := PTR ParseFontSize
+                             ]
+                           , [ bbtag := "align"
+                             , has_content := TRUE
+                             , has_attr := TRUE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<div style="text-align: {text};">'
+                             , html_close := '</div>'
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "left"
+                             , has_content := TRUE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<div style="text-align: left;">'
+                             , html_close := '</div>'
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "right"
+                             , has_content := TRUE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<div style="text-align: right;">'
+                             , html_close := '</div>'
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "center"
+                             , has_content := TRUE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<div style="text-align: center;">'
+                             , html_close := '</div>'
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "url"
+                             , has_content := TRUE
+                             , has_attr := TRUE
+                             , has_content_attr := FALSE
+                             , content_is_attr := TRUE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<a href="{text}">'
+                             , html_close := '</a>'
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "img"
+                             , has_content := TRUE
+                             , has_attr := FALSE
+                             , has_content_attr := TRUE
+                             , content_is_attr := TRUE
+                             , content_is_html := FALSE
+                             , content_is_plain := FALSE
+                             , html_open := '<img src="{text}" />'
+                             , html_close := ''
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           , [ bbtag := "notag"
+                             , has_content := TRUE
+                             , has_attr := FALSE
+                             , has_content_attr := FALSE
+                             , content_is_attr := FALSE
+                             , content_is_html := FALSE
+                             , content_is_plain := TRUE
+                             , html_open := ''
+                             , html_close := ''
+                             , parse_attr := DEFAULT FUNCTION PTR
+                             ]
+                           ];
+
+/** @short A filter for text with BBCode tags
+    @long Use the BBCodeParser to convert BBCode text to HTML. All tags (including non recognized tags) which are not
+          allowed, removed or prohibited will be returned as-is (including "[" and "]"). By default, all known tags are
+          allowed.
+*/
+PUBLIC OBJECTTYPE BBCodeParser
+<
+  PUBLIC BOOLEAN debug;
+  OBJECT parser;
+  STRING ARRAY filtered_text;
+  RECORD ARRAY tag_stack;
+  STRING unknown_action;
+  STRING set_idchars;
+  BOOLEAN ashtml;
+
+  /** @short The list of tags which are converted to HTML and returned in the filtered text
+  */
+  PUBLIC STRING ARRAY allowed_tags;
+
+  /** @short The list of tags which are removed from the text, but whose contents is shown
+  */
+  PUBLIC STRING ARRAY removed_tags;
+
+  /** @short The list of tags which are removed from the text, along with their contents
+  */
+  PUBLIC STRING ARRAY prohibited_tags;
+
+  /** @short Replace newlines in input with this text (defaults to '<br />')
+  */
+  PUBLIC STRING newline;
+
+  /** @short How to treat unknown BBCode tags
+      @long "allow" to show as-is, "remove" to remove the tags, but not their contents or "prohibit" to remove both the tags
+            and their contents. The default value is "allow".
+  */
+  PUBLIC PROPERTY unknown_tag_action(unknown_action, SetUnknownTag);
+
+  MACRO NEW()
+  {
+    this->parser := NEW StringParser();
+    this->set_idchars := this->parser->set_alpha || "_";
+    this->allowed_tags := SELECT AS STRING ARRAY bbtag FROM known_tags;
+    this->unknown_action := "allow";
+    this->newline := '<br />';
+  }
+
+  /** @short Register a custom BBCode tag
+      @long If a tag with the given tagname already exists, it is replaced with the new tag
+      @param tagname The tag name (e.g. "b" for the "[b]" tag)
+      @param has_content The tag has content (i.e. it has a closing tag)
+      @param has_attr The tag has an attribute (e.g. "left" is the attribute for "[align=left]")
+      @param has_content_attr The tag's content should only be used as an attribute, not as actual content (e.g. The url
+                              should not be shown for "[img]http://example.org/image.png[/img]", but used as the image's src)
+      @param content_is_attr The tag's content can be used as attribute, if has_attr = TRUE and an attribute is not specified
+                             (e.g. For "[url]http://example.org/[/url]" the url should be used for both the hyperlink's href
+                             and the hyperlink text)
+      @param content_is_html The tag's content should not be HTML encoded
+      @param content_is_plain The tag's content should not be parsed (i.e. BBCode tags in the content will not be interpreted)
+      @param html_open The HTML open tag (e.g. "<b>"), or the single HTML tag (e.g. "<img>")
+      @param html_close The HTML close tag (e.g. "</b>")
+      @param parse_attr A function which translates the found attribute value to the desired HTML attribute value
+  */
+  PUBLIC MACRO RegisterBBTag(STRING tagname,
+                             BOOLEAN has_content,
+                             BOOLEAN has_attr,
+                             BOOLEAN has_content_attr,
+                             BOOLEAN content_is_attr,
+                             BOOLEAN content_is_html,
+                             BOOLEAN content_is_plain,
+                             STRING html_open,
+                             STRING html_close,
+                             FUNCTION PTR parse_attr)
+  {
+    IF (tagname = "")
+      RETURN;
+    tagname := ToLowercase(tagname);
+    IF (RecordExists(SELECT FROM known_tags WHERE bbtag = tagname))
+      DELETE FROM known_tags WHERE bbtag = tagname;
+
+    INSERT [ bbtag := tagname
+           , has_content := has_content
+           , has_attr := has_attr
+           , has_content_attr := has_content_attr
+           , content_is_attr := content_is_attr
+           , content_is_html := content_is_html
+           , content_is_plain := content_is_plain
+           , html_open := html_open
+           , html_close := html_close
+           , parse_attr := parse_attr
+           ] INTO known_tags AT END;
+  }
+
+  /** @short Get the list of registered BBCode tags
+      @see RegisterBBTag
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetRegisteredBBTags()
+  {
+    RETURN known_tags;
+  }
+
+  /** @short Parse the given text to HTML
+  */
+  PUBLIC STRING FUNCTION ParseText(STRING input, BOOLEAN ashtml DEFAULTSTO TRUE)
+  {
+    this->parser->Reset(input);
+    this->filtered_text := DEFAULT STRING ARRAY;
+    // Push default state onto stack
+    this->tag_stack := [ [ tag := ""
+                         , pos := -1
+                         , adding_text := TRUE
+                         , content_is_attr := FALSE
+                         , content_is_html := FALSE
+                         , content_is_plain := FALSE
+                         , contents := ""
+                         ]
+                       ];
+    this->ashtml := ashtml;
+
+    WHILE (TRUE)
+    {
+      IF (this->parser->eof)
+        BREAK;
+
+      // Look for the next tag
+      STRING parsed := this->parser->ParseWhileNotInSet("[");
+      this->PrintDebug("  parsed = '" || EncodeJava(parsed) || "'");
+      IF (parsed != "")
+        this->TextNode(parsed);
+      IF (this->parser->eof)
+        CONTINUE; // Will break main loop
+      this->parser->SkipN(1); // Skip "["
+
+      IF (this->tag_stack[0].content_is_plain AND this->parser->current != "/")
+      {
+        // Not a closing tag, wait for next "["
+        this->PrintDebug("  <parsing plain text>");
+        this->TextNode("[");
+        CONTINUE;
+      }
+
+      // Looking for attribute or tag end
+      STRING tagname := this->parser->ParseWhileInSet(this->set_idchars);
+      this->PrintDebug("  tagname = '" || EncodeJava(tagname) || "'");
+      IF (this->parser->eof)
+      {
+        // Tag start without tag end, return all remaining text
+        this->TextNode("[" || tagname);
+        CONTINUE; // Will break main loop
+      }
+      this->PrintDebug("  <current> = '" || EncodeJava(this->parser->current) || "'");
+
+      RECORD ARRAY attrs;
+      IF (this->parser->current = "=")
+      {
+        // This tag has an unnamed attribute
+        this->PrintDebug("  <parsing unnamed attribute>");
+        this->parser->SkipN(1); // Skip "="
+        STRING attr := this->parser->ParseWhileNotInSet("]");
+        this->PrintDebug("  attr = '" || EncodeJava(attr) || "'");
+        IF (this->parser->eof)
+        {
+          // Tag start without tag end, return all remaining text
+          this->TextNode("[" || tagname || "=" || attr);
+          CONTINUE; // Will break main loop
+        }
+        INSERT [ name := "", value := attr ] INTO attrs AT END;
+      }
+      ELSE IF (this->parser->current = " ")
+      {
+        // This tag may have named attributes
+        this->PrintDebug("  <parsing named attributes>");
+
+        parsed := "[" || tagname;
+        BOOLEAN dobreak;
+        WHILE (TRUE)
+        {
+          IF (dobreak)
+            BREAK;
+          this->parser->SkipN(1); // Skip " "
+          parsed := parsed || " ";
+
+          // Parse tag name
+          STRING name := this->parser->ParseWhileInSet(this->set_idchars);
+          parsed := parsed || name;
+          this->PrintDebug("  name = '" || EncodeJava(name) || "'");
+          IF (this->parser->eof)
+          {
+            // Tag start without tag end, return all remaining text
+            this->TextNode(parsed);
+            dobreak := TRUE; // Will continue main loop
+            CONTINUE;
+          }
+          IF (this->parser->current IN [ " ", "]" ])
+          {
+            // No tag value
+            IF (name != "")
+              INSERT [ name := "", value := name ] INTO attrs AT END;
+            dobreak := this->parser->current = "]";
+            CONTINUE;
+          }
+          IF (this->parser->current != "=")
+          {
+            // Expected attribute value, treat parsed text as text node
+            this->TextNode(parsed);
+            dobreak := TRUE; // Will continue main loop
+            CONTINUE;
+          }
+          this->parser->SkipN(1); // Skip "="
+          parsed := parsed || "=";
+
+          STRING value := this->parser->ParseWhileNotInSet(" []");
+          parsed := parsed || value;
+          IF (this->parser->current = "[")
+          {
+            // Expected tag close, treat parsed text as text node
+            this->TextNode(parsed);
+            dobreak := TRUE; // Will continue main loop
+            CONTINUE;
+          }
+          INSERT [ name := name, value := value ] INTO attrs AT END;
+          IF (this->parser->current = "]")
+            BREAK; // Process element
+          // Parse next attribute
+        }
+        IF (dobreak)
+          CONTINUE;
+      }
+      ELSE IF (this->parser->current = "/")
+      {
+        // This is a closing tag
+        this->PrintDebug("  <parsing closing tag>");
+        this->parser->SkipN(1); // Skip "/"
+        tagname := this->parser->ParseWhileNotInSet("]");
+        this->PrintDebug("  tagname = '" || EncodeJava(tagname) || "'");
+        IF (this->parser->eof)
+        {
+          // Tag start without tag end, return all remaining text
+          this->TextNode("[/" || tagname);
+          CONTINUE; // Will break main loop
+        }
+        this->parser->SkipN(1); // Skip "]"
+        this->EndElement(tagname);
+        CONTINUE;
+      }
+
+      IF (this->parser->current = "]")
+      {
+        this->parser->SkipN(1); // Skip "]"
+        this->StartElement(tagname, attrs);
+
+        CONTINUE;
+      }
+
+      this->TextNode("[" || tagname);
+    }
+
+    // Close any open HTML tags
+    WHILE (Length(this->tag_stack) > 1)
+    {
+      RECORD tag := SELECT * FROM known_tags WHERE bbtag = this->tag_stack[0].tag;
+      IF (RecordExists(tag))
+        INSERT tag.html_close INTO this->filtered_text AT END;
+      DELETE FROM this->tag_stack AT 0;
+    }
+
+    RETURN Detokenize(this->filtered_text, "");
+  }
+
+  MACRO StartElement(STRING tagname, RECORD ARRAY attrs)
+  {
+    this->PrintDebug("StartElement(tagname = '" || EncodeJava(tagname) || "', attrs = \"" || this->ParseAttrs(attrs) || "\")");
+
+    // If this tag is a descendant of a prohobited tag, do nothing
+    IF (NOT this->tag_stack[0].adding_text)
+      RETURN;
+
+    STRING tagtext := tagname;
+    tagname := ToLowercase(tagname);
+    // Create a new tag state
+    RECORD tagrec := [ tag := tagname
+                     , pos := Length(this->filtered_text)
+                     , adding_text := TRUE
+                     , content_is_attr := FALSE
+                     , content_is_html := FALSE
+                     , content_is_plain := FALSE
+                     , contents := ""
+                     ];
+
+    RECORD tag := SELECT * FROM known_tags WHERE bbtag = tagname;
+    this->PrintDebug("  '" || tagname || "' is " || (RecordExists(tag) ? "" : "not ") || "a known tag");
+    IF (tagname IN this->prohibited_tags)
+    {
+      // This is a prohibited tag, do nothing and prevent descendants from doing anything
+      tagrec.adding_text := FALSE;
+    }
+    ELSE IF (tagname NOT IN this->removed_tags)
+    {
+      IF (tagname IN this->allowed_tags AND RecordExists(tag))
+      {
+        // This is an allowed, known tag
+        STRING text := tag.html_open;
+        // Fill in the attribute
+        IF (tag.has_attr AND Length(attrs) > 0)
+          text := Substitute(text, "{text}", this->ParseAttrs(attrs, tag));
+        // Add opening HTML to text
+        IF(this->ashtml)
+          INSERT text INTO this->filtered_text AT END;
+
+        // Check if the found content is only used as attribute, not as actual content
+        tagrec.content_is_attr := tag.has_content_attr;
+        tagrec.content_is_html := tag.content_is_html;
+        tagrec.content_is_plain := tag.content_is_plain;
+      }
+      ELSE
+      {
+        // Add the unknown tag if unknown tags are allowed, or prohibit descendants if they're prohibited
+        IF (this->unknown_action = "allow")
+        {
+          STRING attrtext := this->ParseAttrs(attrs);
+          IF (attrtext != "")
+          {
+            IF (Length(attrs) = 1 AND attrs[0].name = "")
+              attrtext := "=" || attrtext;
+            ELSE
+              attrtext := " " || attrtext;
+          }
+          this->TextNode("[" || tagtext || attrtext || "]");
+        }
+        ELSE IF (this->unknown_action = "prohibit")
+          tagrec.adding_text := FALSE;
+      }
+    }
+    // Push state record onto stack, but not if we know this tag has no contents
+    IF (NOT RecordExists(tag) OR tag.has_content)
+      INSERT tagrec INTO this->tag_stack AT 0;
+    this->PrintDebug("  adding text = " || (this->tag_stack[0].adding_text ? "TRUE" : "FALSE"));
+  }
+
+  MACRO EndElement(STRING tagname)
+  {
+    this->PrintDebug("EndElement(tagname = '" || EncodeJava(tagname) || "')");
+
+    STRING tagtext := tagname;
+    tagname := ToLowercase(tagname);
+    IF (tagname = this->tag_stack.tag)
+    {
+      // Closing the currently opened tag, check if we have to close the tag
+      IF (tagname NOT IN this->prohibited_tags AND tagname NOT IN this->removed_tags)
+      {
+        RECORD tag := SELECT * FROM known_tags WHERE bbtag = tagname;
+        IF (tagname IN this->allowed_tags AND RecordExists(tag))
+        {
+          IF(this->ashtml)
+          {
+            // This is an allowed, known tag
+            STRING text := this->filtered_text[this->tag_stack[0].pos];
+            IF (tag.content_is_attr)
+            {
+              // Use the tag's content as the attribute
+              text := Substitute(text, "{text}", this->ParseAttrs([ [ name := "", value := this->tag_stack[0].contents ] ], tag));
+              this->filtered_text[this->tag_stack[0].pos] := text;
+            }
+            // Add closing HTML to text
+            INSERT tag.html_close INTO this->filtered_text AT END;
+          }
+        }
+        ELSE
+        {
+          // Unknown tag, print closing tag if allowed
+          IF (this->unknown_action = "allow")
+            this->TextNode("[/" || tagtext || "]");
+        }
+      }
+      // Pop current state from stack
+      DELETE FROM this->tag_stack AT 0;
+      this->PrintDebug("  adding text = " || (this->tag_stack[0].adding_text ? "TRUE" : "FALSE"));
+    }
+    ELSE
+    {
+      // This tag is not closing current state, just add it to the text
+      IF (this->tag_stack[0].adding_text)
+        this->TextNode("[/" || tagtext || "]");
+    }
+  }
+
+  MACRO TextNode(STRING text)
+  {
+    this->PrintDebug("TextNode(text = '" || EncodeJava(text) || "')");
+
+    // If this tag is a descendant of a prohobited tag, do nothing
+    IF (NOT this->tag_stack[0].adding_text)
+    {
+      this->PrintDebug("TextNode prohibited");
+      RETURN;
+    }
+
+    this->tag_stack[0].contents := this->tag_stack[0].contents || text;
+
+    // Output should be HTML safe
+    IF(this->ashtml)
+    {
+      IF (NOT this->tag_stack[0].content_is_html)
+        text := EncodeHTML(text);
+
+      // If the tag's content is not just used as attribute, add it to the text
+      IF (NOT this->tag_stack[0].content_is_attr)
+        INSERT Substitute(text, "<br />", this->newline) INTO this->filtered_text AT END;
+    }
+    ELSE
+    {
+      INSERT text INTO this->filtered_text AT END;
+    }
+  }
+
+  STRING FUNCTION ParseAttrs(RECORD ARRAY attrs, RECORD tag DEFAULTSTO DEFAULT RECORD)
+  {
+    // If a custom attribute parser is defined, call it, otherwise just return the attribute value
+    IF (RecordExists(tag) AND tag.parse_attr != DEFAULT FUNCTION PTR)
+      RETURN tag.parse_attr(attrs, PTR this->ParseAttrs);
+
+    STRING attrtext;
+    IF (Length(attrs) = 1 AND attrs[0].name = "")
+      attrtext := attrs[0].value;
+    ELSE IF (Length(attrs) > 0)
+    {
+      FOREVERY (RECORD attr FROM attrs)
+        attrtext := attrtext || (attrtext != "" ? " " : "") || attr.name || "=" || attr.value;
+    }
+    RETURN attrtext;
+  }
+
+  MACRO SetUnknownTag(STRING action)
+  {
+    action := ToLowercase(action);
+    IF (action IN [ "allow", "remove", "prohibit" ])
+      this->unknown_action := action;
+  }
+
+  MACRO PrintDebug(STRING msg)
+  {
+    IF (this->debug)
+      Print("BB: " || msg || "\n");
+  }
+>;
+
+// Convert a size attribute to a valid CSS font-size value
+STRING FUNCTION ParseFontSize(RECORD ARRAY attrs, FUNCTION PTR parseunknownvalue)
+{
+  // We want an unnamed attribute
+  IF (Length(attrs) != 1 OR attrs[0].name != "")
+    RETURN parseunknownvalue(attrs);
+
+  STRING attr;
+  INTEGER size := ToInteger(attrs[0].value, 0);
+  IF (size > 0)
+  {
+    IF (size <= 7)
+    {
+      // Size is a <font size> value
+      STRING ARRAY absolute_sizes := [ "xx-small", "x-small", "small", "medium", "large", "x-large", "xx-large" ];
+      RETURN absolute_sizes[size - 1];
+    }
+    ELSE IF (size >= 20 AND size <= 200)
+    {
+      // Size is a percentage
+      RETURN size || "%";
+    }
+  }
+  RETURN parseunknownvalue(attrs);
+}

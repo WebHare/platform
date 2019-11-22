@@ -1,0 +1,134 @@
+<?wh
+/** @topic publisher-apps/tollium */
+
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE WHFSFilterScreenBase EXTEND TolliumScreenBase
+<
+  INTEGER folder;
+
+  /// Set to the title to use for the filter button, leave empty for default
+  PUBLIC STRING filterbuttontitle;
+
+  PUBLIC BOOLEAN allowsallresults;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->folder := CellExists(data,'folder') ? data.folder : 0; //legacy loadfilterscreens do not pass the folder
+  }
+
+  /** Invoked on first selection or reselection of the folder. Should clear
+      all values where needed, and set some reasonable default (eg, a filter
+      returning yesterday's result). ExecuteFilter will be invoked immediately
+      after a Reset */
+  PUBLIC MACRO ResetFilter()
+  {
+
+  }
+
+  //deprecated, legacy version
+  PUBLIC RECORD FUNCTION ExecuteFilter()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Return objects matching the filter.
+      Should return a record of the form
+      @return A default record if no matches are found
+      @cell(integer) return.numresults Number of total results (not necessarily number returned)
+      @cell(boolean) reutrn.moreresults  Set to true if we have 'more than' numresults (to indicate we've given up on the search)
+      @cell(record array) return.showresults Object to show now, a list of id & parent */
+  PUBLIC RECORD FUNCTION RunFilter(RECORD options)
+  {
+    RETURN this->ExecuteFilter();
+    /*
+    RETURN [ numresults := 0
+           , moreresults := FALSE
+           , showresults := DEFAULT RECORD ARRAY
+           ];*/
+  }
+
+  PUBLIC RECORD FUNCTION GetFilterData()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO SetFilterData(RECORD filterdata)
+  {
+  }
+
+  // Register app contexts with the parent screen, as this screen is loaded as panel contents
+  UPDATE PUBLIC MACRO RegisterAppcontext(STRING name, OBJECT contextobj)
+  {
+    this->tolliumparent->RegisterAppContext(name, contextobj);
+  }
+>;
+
+PUBLIC OBJECTTYPE WidgetEditScreenBase EXTEND TolliumScreenBase
+<
+  STRING whfstype;
+  PUBLIC PROPERTY value(this->contentdata->value, this->contentdata->value);
+
+  MACRO Init(RECORD data)
+  {
+    IF(NOT MemberExists(this,"contentdata"))
+      THROW NEW TolliumException(this->frame,"Screen with implementation 'publisher:widgetedit' require a composition named 'contentdata'");
+    this->contentdata->value := data.value;
+    this->whfstype := data.whfstype;
+
+    IF(this->frame->title = "")
+      this->frame->title := GetTid(data.__typedef.title);
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN this->BeginFeedback()->Finish();
+  }
+>;
+
+/** @private deprecated, use TolliumTabsExtensionBase from 4.23+
+*/
+PUBLIC STATIC OBJECTTYPE WidgetEditExtensionBase EXTEND TolliumTabsExtensionBase
+<
+>;
+
+
+PUBLIC OBJECTTYPE FSObjectEditScreenBase EXTEND TolliumScreenBase
+<
+  INTEGER fsobjectid;
+
+  MACRO Init(RECORD data)
+  {
+    IF(NOT MemberExists(this,"fsobject"))
+      THROW NEW TolliumException(this->frame,"Screen with implementation 'publisher:fsobjectedit' require a composition named 'fsobject'");
+    IF(NOT CellExists(data,'calltype') OR data.calltype != "objecteditor")
+      THROW NEW Exception("This screen expects to be called by an object editor");
+
+    this->fsobjectid := data.id;
+    IF(NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fsobjectid))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    this->fsobject->basefsobject := OpenWHFSObject(this->fsobjectid);
+    this->fsobject->ReadInstanceFromFSObject();
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fsobjectid)) //give feedback that file is gone ?
+      work->AddError(GetTid("publisher:commondialogs.messageboxes.privilegeslost"));
+
+    IF(NOT work->HasFailed())
+    {
+      this->fsobject->WriteInstanceToFSObject();
+      this->fsobject->basefsobject->UpdateMetadata(DEFAULT RECORD);
+      RunEditFileHooks(__FindFile(this->fsobjectid), this->fsobjectid);
+    }
+    RETURN work->Finish();
+  }
+>;

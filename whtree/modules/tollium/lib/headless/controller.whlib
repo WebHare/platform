@@ -1,0 +1,164 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/backend/users.whlib";
+LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+PUBLIC STRING FUNCTION GetTestTolliumPortalURL()
+{
+  RETURN GetPrimaryWebhareInterfaceURL() || "testportal/";
+}
+
+PUBLIC OBJECTTYPE TolliumHeadlessAsyncDownloadBase EXTEND TolliumAsyncDownloadBase
+<
+  OBJECT headlesscontroller;
+  MACRO NEW(OBJECT ctrl, OBJECT target, STRING id) : TolliumAsyncDownloadBase(target, id)
+  {
+    this->headlesscontroller := ctrl;
+  }
+
+  UPDATE PUBLIC MACRO SendFile(BLOB data, STRING mimetype, STRING filename)
+  {
+    TolliumAsyncDownloadBase::SendFile(data, mimetype, filename);
+    this->headlesscontroller->__onsendwebfile(DEFAULT OBJECT,
+        [ data :=             data
+        , mimetype :=         mimetype
+        , filename  :=        filename
+        , last_modified :=    DEFAULT DATETIME
+        , as_download :=      TRUE
+        , callbackobj :=      this
+        ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE TolliumHeadlessController EXTEND TolliumControllerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC MACRO PTR __onsendwebfile;
+  PUBLIC BOOLEAN __inapplication;
+
+  BOOLEAN pvt_secure;
+  STRING overrideurl;
+  UPDATE PUBLIC PROPERTY secure(pvt_secure, pvt_secure);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT userapi, OBJECT wrdauthplugin, BOOLEAN isvalidation)
+  : TolliumControllerBase(userapi, wrdauthplugin, TRUE)
+  {
+    this->pvt_isvalidation := isvalidation;
+    this->forceallpublic := TRUE;
+    this->intolerant := TRUE;
+    this->pvt_baseurl := (isvalidation ? "" : GetPrimaryWebhareInterfaceURL()) ?? "https://webhare.example.com/";
+    //create new override url only if current is close to expiry
+    this->overrideurl := isvalidation ? "" : RunInSeparatePrimary(PTR GetOrExtendOverrideURL(24*60*60*1000, AddTimeToDate(60*60*1000, GetCurrentdatetime())));
+  }
+
+  UPDATE PUBLIC MACRO LaunchApplication(STRING appname, RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    data := FixupLaunchAppOptions(data);
+
+    STRING app := appname;
+    IF(Length(data.params) > 0)
+      app := app || "(" || Detokenize(data.params,',') || ")";
+
+    IF (this->user->login = "")
+      THROW NEW Exception(`The current user has no login name`);
+
+    Print("\n"); //linefeed eases scanning where we open an app
+    IF(RecordExists(data.target))
+    {
+      Print(`\nOpening APP ${appname} (with target: ${EncodeJSON(data.target)})\n`); //no need to give a URL, we can't open it directly anyway
+    }
+    ELSE
+    {
+      STRING appurl := GetTestTolliumPortalURL();
+      IF(appurl LIKE "*/" AND this->overrideurl LIKE "/*") //prevent double slash
+        appurl := Left(appurl, Length(appurl) - 1);
+
+      appurl := UpdateURLVariables(appurl || this->overrideurl, [ app := app, openas := this->user->login ]);
+      Print(`Opening APP (with target): ${appurl}\n`);
+    }
+    TolliumControllerBase::LaunchApplication(appname, data);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  MACRO ExitForLackOfProgress(DATETIME event_timeout)
+  {
+    Print("ABORTING because no forward progress possible, next event is at " || (event_timeout = MAX_DATETIME ? "MAX_DATETIME" : FormatISO8601Datetime(event_timeout)) || "\n");
+    SetconsoleExitCode(14);
+    TerminateScript();
+  }
+
+  UPDATE PUBLIC MACRO RunModalScreen(OBJECT screen)
+  {
+    IF (this->debugging)
+      Print("entering loop\n");
+
+    TolliumControllerBase::RunModalScreen(screen);
+  }
+
+  UPDATE PUBLIC STRING FUNCTION RunMessageBox(STRING name, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
+  {
+    RETURN TolliumControllerBase::RunMessageBox(name, p1, p2, p3, p4);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GrabInstructions()
+  {
+    this->TransmitDirtyComponents();
+
+    RECORD ARRAY retval := this->instructions;
+    this->instructions := DEFAULT RECORD ARRAY;
+    RETURN retval;
+  }
+
+  PUBLIC RECORD FUNCTION GetWebserverRequestData()
+  {
+    RETURN [ remoteip := "127.0.0.1", remoteport := "1234", localip := "127.0.0.1", localport := 80, webserver := 0 ];
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION GetAsyncObject(OBJECT component, STRING type, STRING ftid, BOOLEAN create)
+  {
+    FOREVERY (OBJECT obj FROM this->asyncobjects)
+      IF (obj->id = ftid)
+        RETURN obj;
+
+    OBJECT req;
+    IF (create)
+    {
+      SWITCH (type)
+      {
+        CASE "asyncdownload"
+        {
+          req := NEW TolliumHeadlessAsyncDownloadBase(this, component, ftid);
+        }
+        CASE "asyncwindowopen"
+        {
+          req := NEW TolliumAsyncWindowOpenBase(component, ftid);
+        }
+        DEFAULT
+        {
+          THROW NEW Exception("Unhandled async object type '" || type || "'");
+        }
+      }
+      INSERT req INTO this->asyncobjects AT END;
+    }
+
+    RETURN req;
+  }
+>;

@@ -1,0 +1,126 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
+
+
+/* For the JSON format for the generic SNS subscribe/unsubscribe messagess:
+   http://docs.aws.amazon.com/sns/latest/dg/json-formats.html
+
+   SES specific example message:
+   https://docs.aws.amazon.com/ses/latest/DeveloperGuide/event-publishing-retrieving-sns-examples.html
+*/
+
+IF(NOT IsRequestPost())
+  AbortWithHTTPError(400, "This endpoint only accepts POST");
+IF(IsRPCTrafficLogged("system:mail-sns-endpoint"))
+  LogCurrentRequestToRPCLog("system:mail-sns-endpoint");
+IF(NOT VerifySNSVerificationKey(GetWebVariable("key")))
+  AbortWithHTTPError(403, "Invalid verification key");
+
+//FIXME signature validation. we need to avoid turning into a portscanner or reflector by using SubscriptionConfirmation requests - http://docs.aws.amazon.com/sns/latest/dg/SendMessageToHttp.verify.signature.html
+//FIXME but validate the URLs hosting the certificate somehow. we don't want that URL to be a portscan opportunity itself
+
+RECORD data := DecodeJSONBlob(GetRequestBody());
+
+IF(data.type = "SubscriptionConfirmation")
+{
+  OBJECT browser := NEW WebBrowser;
+  IF(UnpackURL(data.SubscribeURL).host NOT LIKE "*.amazonaws.com")
+    Abort(`Untrusted subscription host '${UnpackURL(data.SubscribeURL).host}'`);
+
+  IF(IsRPCTrafficLogged("system:mail-sns-endpoint"))
+    LogRPCForWebbrowser("system:mail-sns-endpoint", "confirmation", browser);
+  browser->GotoWebPage(data.SubscribeURL);
+  RETURN;
+}
+IF(data.type!="Notification")
+  RETURN; //this is 'other' AWS traffic
+
+//Notification is actual SNS content.
+RECORD snsmessage := DecodeJSON(data.message);
+IF(snsmessage.notificationtype = "AmazonSnsSubscriptionSucceeded")
+  RETURN;
+
+STRING ourmessageid := snsmessage.mail.commonheaders.messageid;
+
+RECORD typedmessage := GetCell(snsmessage, snsmessage.notificationtype);
+RECORD basicobject := [ timestamp    := MakeDateFromText(typedmessage.timestamp)
+                      , remotemtaip  := CellExists(typedmessage,'remotemtaip') ? typedmessage.remotemtaip : ''
+                      , reportingmta := CellExists(typedmessage,'reportingmta') ? typedmessage.reportingmta : ''
+                      , feedbackid   := CellExists(typedmessage,'feedbackid') ? typedmessage.feedbackid : ''
+                      ];
+STRING basictype;
+
+IF(snsmessage.notificationtype = "Bounce")
+{
+  basicobject := CELL[ ...basicobject
+                     , ispermanent := typedmessage.bouncetype="Permanent"
+                     , bouncetype := typedmessage.bouncetype
+                     , bouncesubtype := typedmessage.bouncesubtype
+                     , bouncestatus := CellExists(typedmessage.bouncedrecipients[0], "status") ? typedmessage.bouncedrecipients[0].status : ""
+                     , bounceaction := CellExists(typedmessage.bouncedrecipients[0], "action") ? typedmessage.bouncedrecipients[0].action : ""
+                     , bouncediagnosticcode := CellExists(typedmessage.bouncedrecipients[0], "diagnosticcode") ? typedmessage.bouncedrecipients[0].diagnosticcode : ""
+                     , bounceemailaddress := CellExists(typedmessage.bouncedrecipients[0], "emailaddress") ? typedmessage.bouncedrecipients[0].emailaddress : ""
+                     ];
+  basictype := "bounce";
+}
+ELSE IF (snsmessage.notificationtype = "Complaint")
+{
+  basicobject := CELL[ ...basicobject
+                     , complaintfeedbacktype :=  CellExists(snsmessage.complaint,'complaintFeedbackType') ? snsmessage.complaint.complaintFeedbackType : ""
+                     , complainedemailaddress := CellExists(snsmessage.complaint.complainedrecipients[0], "emailaddress") ? snsmessage.complaint.complainedrecipients[0].emailaddress : ""
+                     , useragent := CellExists(snsmessage.complaint,'useragent') ? snsmessage.complaint.useragent : ""
+                     ];
+  basictype := "complaint";
+}
+ELSE IF(snsmessage.notificationtype = "Delivery")
+{
+  basicobject := CELL[ ...basicobject
+                     , smtpresponse := typedmessage.smtpresponse
+                     ];
+  basictype := "delivery";
+}
+ELSE
+{
+  ABORT(snsmessage);
+}
+
+STRING recipient := snsmessage.mail.destination[0];
+IF(ourmessageid LIKE "<*@smtp.webhare.net>") //this path handles QueueMail(InWork) emails
+{
+  OBJECT trans := OpenPrimary();
+  INTEGER ourtaskid := DecryptForThisServer("system:messageid", Tokenize(Substring(ourmessageid, 1), '@')[0], [fallback := 0]);
+
+  IF(ourtaskid=0)
+    RETURN;
+
+  RECORD task := DescribeManagedTask(ourtaskid);
+  IF(NOT RecordExists(task) OR task.tasktype != "system:outgoingmail" OR task.data.receiver != recipient)
+    RETURN;// ABORT(CELL[task,recipient]);
+  IF(CellExists(task.metadata,basictype)) //already have delivery info
+    RETURN;
+
+  trans->BeginWork();
+  SetManagedTaskMetadata(ourtaskid, basictype, basicobject);
+  IF(CellExists(task.data,'callback'))
+    ScheduleManagedTask("system:mailstatuscallback", [ ...task.data.callback, type := basictype, status := basicobject ]);
+
+  trans->CommitWork();
+}
+ELSE IF(ourmessageid LIKE "<*@news.webhare.net>")//ADDME support a future registration api?
+{
+  MakeFunctionPtr("mod::newsletter/lib/incoming.whlib#ProcessIncomingBounce")(ourmessageid, basictype, basicobject);
+}
+ELSE
+{
+  THROW NEW Exception(`Unrecognized message id: ${ourmessageid}`);
+}

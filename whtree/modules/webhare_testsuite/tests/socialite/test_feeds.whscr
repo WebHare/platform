@@ -1,0 +1,61 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/rss.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::socialite/lib/rss.whlib";
+
+STRING pubdates :=
+`<?xml version="1.0" encoding="utf-8" ?>
+<rss version="2.0" xml:base="https://www.iaea.org/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>IAEA Top News</title>
+    <description>Top stories from the International Atomic Energy Agency</description>
+    <link>https://www.iaea.org/</link>
+    <atom:link rel="self" href="https://www.iaea.org/feeds/topnews" />
+    <language>en</language>
+    <copyright>International Atomic Energy Agency</copyright>
+    <managingEditor>webeditor@iaea.org</managingEditor>
+    <webMaster>IAEA.Web-Team@iaea.org</webMaster>
+    <pubDate>Fri, 11 May 2018 14:30:00 +0200</pubDate>
+    <lastBuildDate>Sun, 13 May 2018 14:46:29 +0200</lastBuildDate>
+    <item>
+      <title>Charting the International Roadmap to a Demonstration Fusion Power Plant</title>
+      <link>https://www.iaea.org/newscenter/news/charting-the-international-roadmap-to-a-demonstration-fusion-power-plant</link>
+      <description>More than 60 top fusion scientists and engineers from around the world gathered at the 5th IAEA DEMO Programme Workshop in Daejeon, South Korea, from 7 to 10 May, to discuss critical issues and next steps on the road to the realization of fusion energy.</description>
+      <category>News Story</category>
+      <enclosure url="https://www.iaea.org/sites/default/files/styles/width_555px_6_units_16_9/public/kstar-1140x640.jpg?itok=RtJaOPKw" length="193284" type="image/jpeg" />
+      <guid isPermaLink="false">node/47823</guid>
+      <pubDate>2018-05-11 14:30</pubDate>
+      <source url="https://www.iaea.org/feeds/topnews">IAEA Top News</source>
+    </item>
+  </channel>
+</rss>`;
+
+MACRO TestRSS()
+{
+  //we also test proper transaction management
+  testfw->BeginWork();
+  RECORD feed := GetRSSFeed("http://www.nu.nl/rss", 10);
+  TestEq(TRUE, Length(feed.entries) > 0);
+  testfw->CommitWork();
+
+  feed := GetRSSFeed("http://www.webhare.com/not-a-valid-feed", 10);
+  TestEq(0, Length(feed.entries));
+
+  feed := ParseRSSFeedFromDocument("https://www.iaea.org/feeds/topnews", MakeXMLDocument(StringToBlob(pubdates)));
+  TestEQMembers(
+      [ items :=
+            [ [ date :=         MakeDateTime(2018, 5, 11, 14, 30, 0)
+              , description :=  '<html><body><p>More than 60 top fusion scientists and engineers from around the world gathered at the 5th IAEA DEMO Programme Workshop in Daejeon, South Korea, from 7 to 10 May, to discuss critical issues and next steps on the road to the realization of fusion energy.<\/p><\/body><\/html>'
+              , title :=        'Charting the International Roadmap to a Demonstration Fusion Power Plant'
+              , url :=          'https://www.iaea.org/newscenter/news/charting-the-international-roadmap-to-a-demonstration-fusion-power-plant'
+              ]
+            ]
+      ], feed, "*");
+}
+
+RunTestframework ([ PTR TestRSS ]);

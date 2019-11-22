@@ -1,0 +1,712 @@
+<?wh
+/** @topic harescript-utils/comparisons
+*/
+
+LOADLIB "wh::util/stringparser.whlib";
+
+/** Semantic Versioning, see: http://semver.org */
+
+PUBLIC RECORD FUNCTION DecodeVersion(STRING version)
+{
+  // Ignore leading v* (npm range parser ignores it)
+  IF (version LIKE "v*")
+    version := SubString(version, 1);
+
+  STRING ARRAY parts := Tokenize(version, "+");
+  IF (Length(parts) > 2)
+    RETURN DEFAULT RECORD;
+  STRING build := Length(parts) > 1 ? Detokenize(ArraySlice(parts, 1), "+") : "";
+
+  BOOLEAN hasprerelease := parts[0] LIKE "*-*";
+  STRING prerelease := hasprerelease ? Substring(parts[0], SearchSubstring(parts[0], "-") + 1) : "";
+  IF (hasprerelease)
+    parts[0] := Left(parts[0], Length(parts[0]) - Length(prerelease) - 1);
+
+  parts := Tokenize(parts[0], ".");
+  IF (Length(parts) != 3
+      OR ToInteger(parts[0], -1) < 0
+      OR ToInteger(parts[1], -1) < 0
+      OR ToInteger(parts[2], -1) < 0)
+    RETURN DEFAULT RECORD;
+
+  RETURN [ major := ToInteger(parts[0], 0)
+         , minor := ToInteger(parts[1], 0)
+         , patch := ToInteger(parts[2], 0)
+         , prerelease := prerelease
+         , build := build
+         ];
+}
+
+BOOLEAN FUNCTION IsOnlyDigits(STRING digits)
+{
+  OBJECT s := NEW StringParser(digits);
+  s->ParseWhileInSet(s->set_digit);
+  RETURN digits != "" AND s->eof;
+}
+
+PUBLIC STRING FUNCTION EncodeVersion(RECORD version)
+{
+  IF (NOT CellExists(version, "major") OR version.major < 0
+      OR NOT CellExists(version, "minor") OR version.minor < 0
+      OR NOT CellExists(version, "patch") OR version.patch < 0)
+    RETURN "";
+
+  RETURN version.major || "." || version.minor || "." || version.patch
+      || (CellExists(version, "prerelease") AND version.prerelease != "" ? "-" || version.prerelease : "")
+      || (CellExists(version, "build") AND version.build != "" ? "+" || version.build : "");
+}
+
+PUBLIC STRING FUNCTION IncrementVersionMajor(STRING version)
+{
+  RECORD decoded := DecodeVersion(version);
+  IF (NOT RecordExists(decoded))
+    RETURN "";
+  RETURN EncodeVersion(MakeUpdatedRecord(decoded, [ major := decoded.major + 1
+                                                  , minor := 0
+                                                  , patch := 0
+                                                  ]));
+}
+
+PUBLIC STRING FUNCTION IncrementVersionMinor(STRING version)
+{
+  RECORD decoded := DecodeVersion(version);
+  IF (NOT RecordExists(decoded))
+    RETURN "";
+  RETURN EncodeVersion(MakeUpdatedRecord(decoded, [ minor := decoded.minor + 1
+                                                  , patch := 0
+                                                  ]));
+}
+
+PUBLIC STRING FUNCTION IncrementVersionPatch(STRING version)
+{
+  RECORD decoded := DecodeVersion(version);
+  IF (NOT RecordExists(decoded))
+    RETURN "";
+  RETURN EncodeVersion(MakeUpdatedRecord(decoded, [ patch := decoded.patch + 1 ]));
+}
+
+PUBLIC BOOLEAN FUNCTION IsValidVersion(STRING version)
+{
+  RETURN RecordExists(DecodeVersion(version));
+}
+
+PUBLIC BOOLEAN FUNCTION IsVersionNewer(STRING fromversion, STRING toversion)
+{
+  RECORD fromdecoded := DecodeVersion(fromversion);
+  RECORD todecoded := DecodeVersion(toversion);
+
+  IF (NOT RecordExists(fromdecoded))
+    RETURN RecordExists(todecoded); // If fromversion is invalid, toversion is newer if valid
+  ELSE IF (NOT RecordExists(todecoded))
+    RETURN FALSE; // If toversion is invalid, it is not newer than fromversion
+
+  // Major is greater, or major is equal and minor is greater, or minor is equal and patch is greater
+  RETURN todecoded.major > fromdecoded.major OR
+      (todecoded.major = fromdecoded.major AND (todecoded.minor > fromdecoded.minor OR
+        (todecoded.minor = fromdecoded.minor AND (todecoded.patch > fromdecoded.patch OR
+          (todecoded.patch = fromdecoded.patch AND IsPrereleaseNewer(fromdecoded.prerelease, todecoded.prerelease))))));
+}
+
+BOOLEAN FUNCTION IsPrereleaseNewer(STRING fromprerelease, STRING toprerelease)
+{
+  // Prelease version has lower precendence (so, no prerelease is newer)
+  IF ((fromprerelease = "") != (toprerelease = ""))
+    RETURN toprerelease = "";
+
+  // Early out if they're the same
+  IF (fromprerelease = toprerelease)
+    RETURN FALSE;
+
+  // Compare every dot separated identifier from left to right until a difference is found
+  STRING ARRAY fromparts := Tokenize(fromprerelease, ".");
+  STRING ARRAY toparts := Tokenize(toprerelease, ".");
+
+  INTEGER maxlen := Min[]([LENGTH(fromparts), LENGTH(toparts)]);
+  FOR (INTEGER i := 0; i < maxlen; i := i + 1)
+  {
+    BOOLEAN fromisdigit := IsOnlyDigits(fromparts[i]);
+    BOOLEAN toisdigit := IsOnlyDigits(toparts[i]);
+
+    // digit vs non-digit: non-digit has precedence (the one with digits is the smaller one)
+    IF (fromisdigit != toisdigit)
+      RETURN fromisdigit; // So if from is only digits, to must be newer.
+
+    IF (fromisdigit)
+    {
+      // Only digits: compare numerically
+      INTEGER64 from_int := ToInteger64(fromparts[i], 0);
+      INTEGER64 to_int := ToInteger64(toparts[i], 0);
+      IF (from_int != to_int)
+        RETURN from_int < to_int;
+    }
+    ELSE
+    {
+      // Non-digits: compare ASCII (UTF-8 will do)
+      IF (fromparts[i] != toparts[i])
+        RETURN fromparts[i] < toparts[i];
+    }
+  }
+
+  // More parts: higher precedence
+  RETURN LENGTH(toparts) > LENGTH(fromparts);
+}
+
+/** Parser for semver range expressions. See https://docs.npmjs.com/misc/semver.
+*/
+STATIC OBJECTTYPE SemverRangeParser
+< // ---------------------------------------------------------------------------
+  //
+  // Internal variables
+  //
+
+  /// Stringparser
+  OBJECT p;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Returns a semver range that matches everything
+  */
+  RECORD FUNCTION EncodeMatchAny()
+  {
+    RECORD partial := this->EncodeValue(0, 0, 0, "");
+    partial.parts := 0;
+    RETURN [ type := "=", value := partial ];
+  }
+
+  /** Returns an exact version
+  */
+  RECORD FUNCTION EncodeValue(INTEGER major, INTEGER minor, INTEGER patch, STRING prerelease)
+  {
+    STRING encoded := EncodeVersion(CELL[ major, minor, patch, prerelease ]);
+    RETURN CELL
+        [ decoded :=    DecodeVersion(encoded)
+        , parts :=      3
+        ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Parsing functions
+  //
+
+  /** Parses a range set
+  */
+  RECORD FUNCTION ParseRangeSet()
+  {
+    // Parses: range ( || range )*. Range can be ''.
+    this->p->ParseWhileInSet(" ");
+    RECORD e := this->ParseRange();
+
+    WHILE (this->p->TryParse("||"))
+    {
+      e := e ?? this->EncodeMatchAny();
+      this->p->ParseWhileInSet(" ");
+      IF (this->p->eof)
+        RETURN e;
+
+      RECORD e2 := this->ParseRange();
+      IF (NOT RecordExists(e2))
+        BREAK;
+
+      IF (e.type != "or")
+        e := [ type := "or", vals := [ e ] ];
+      INSERT e2 INTO e.vals AT END;
+    }
+    RETURN e;
+  }
+
+  RECORD FUNCTION ParseRange()
+  {
+    this->p->ParseWhileInSet(" ");
+    IF (this->p->eof)
+      RETURN this->EncodeMatchAny();
+
+    RECORD e := this->ParseSimple();
+    IF (NOT RecordExists(e))
+      RETURN DEFAULT RECORD;
+
+    IF (this->p->TryParse(" - "))
+    {
+      this->p->ParseWhileInSet(" ");
+      RECORD e2 := this->ParseSimple();
+      IF (NOT RecordExists(e2))
+        THROW NEW Exception("Expected a second version in the range");
+
+      RETURN [ type := "and", vals := [ [ type := ">=", value := e.value ], [ type := "<=", value := e2.value ] ] ];
+    }
+
+    WHILE (this->p->TryParse(" "))
+    {
+      this->p->ParseWhileInSet(" ");
+      RECORD e2 := this->ParseRange();
+      IF (NOT RecordExists(e2))
+        BREAK;
+      IF (e.type != "and")
+        e := [ type := "and", vals := [ e ] ];
+      INSERT e2 INTO e.vals AT END;
+    }
+    RETURN e;
+  }
+
+  RECORD FUNCTION ParseSimple()
+  {
+    this->p->ParseWhileInSet(" ");
+    STRING prefix := this->p->ParseWhileInSet("<>=~^");
+    IF (prefix = "~>")
+      prefix := "~";
+    IF (prefix NOT IN [ "<", ">", "<=", ">=", "=", "~", "^", "" ])
+      THROW NEW Exception(`Illegal prefix '${prefix}'`);
+
+    this->p->ParseWhileInSet(" ");
+    RECORD partial := this->ParsePartial();
+
+    IF (prefix = "" AND NOT RecordExists(partial))
+      RETURN DEFAULT RECORD;
+
+    /// Rewrite '~'
+    IF (prefix = "~")
+    {
+      IF (partial.parts = 0)
+        RETURN CELL[ type := "=", value := partial ];
+      IF (partial.parts = 1)
+      {
+        RETURN
+            [ type :=   "and"
+            , vals :=   [ [ type :=     ">="
+                          , value :=    partial
+                          ]
+                        , [ type :=     "<"
+                          , value :=    this->EncodeValue(partial.decoded.major + 1, 0, 0, "")
+                          ]
+                        ]
+            ];
+      }
+      RETURN
+          [ type :=   "and"
+          , vals :=   [ [ type :=     ">="
+                        , value :=    partial
+                        ]
+                      , [ type :=     "<"
+                        , value :=    this->EncodeValue(partial.decoded.major, partial.decoded.minor + 1, 0, "")
+                        ]
+                      ]
+          ];
+    }
+
+    /// Rewrite '~'
+    IF (prefix = "^")
+    {
+      IF (partial.parts = 0)
+        RETURN CELL[ type := "=", value := partial ];
+      IF (partial.parts = 1 OR partial.decoded.major != 0)
+      {
+        RETURN
+            [ type :=   "and"
+            , vals :=   [ [ type :=     ">="
+                          , value :=    partial
+                          ]
+                        , [ type :=     "<"
+                          , value :=    this->EncodeValue(partial.decoded.major + 1, 0, 0, "")
+                          ]
+                        ]
+            ];
+      }
+      IF (partial.parts = 2 OR partial.decoded.minor != 0)
+      {
+        RETURN
+            [ type :=   "and"
+            , vals :=   [ [ type :=     ">="
+                          , value :=    partial
+                          ]
+                        , [ type :=     "<"
+                        , value :=    this->EncodeValue(partial.decoded.major, partial.decoded.minor + 1, 0, "")
+                          ]
+                        ]
+            ];
+      }
+      RETURN
+          [ type :=   "and"
+          , vals :=   [ [ type :=     ">="
+                        , value :=    partial
+                        ]
+                      , [ type :=     "<"
+                        , value :=    this->EncodeValue(partial.decoded.major, partial.decoded.minor, partial.decoded.patch + 1, "")
+                        ]
+                      ]
+          ];
+    }
+
+    RETURN CELL
+        [ type :=   prefix ?? "="
+        , value :=  partial
+        ];
+  }
+
+  /** Parses a (partial) version number
+      @return
+      @cell return.decoded Decoded version number, x'ed parts are defaulted to 0
+      @cell return.parts Number of non-x'ed parts
+  */
+  RECORD FUNCTION ParsePartial()
+  {
+    INTEGER parts;
+
+    INTEGER minor;
+    INTEGER major;
+    INTEGER patch;
+    STRING prerelease;
+    STRING build;
+
+    this->p->TryParse("v");
+    STRING p1 := this->ParseXR();
+    IF (p1 = "")
+      RETURN DEFAULT RECORD;
+
+    major := ToInteger(p1, 0);
+    IF (p1 NOT IN [ "x", "X", "*" ])
+      parts := 1;
+    STRING s := p1;
+
+    IF (this->p->TryParse("."))
+    {
+      STRING p2 := this->ParseXR();
+      minor := ToInteger(p2, 0);
+      IF (parts = 1 AND p2 NOT IN [ "x", "X", "*" ])
+        parts := 2;
+      s := s || "." || p2;
+
+      IF (this->p->TryParse("."))
+      {
+        STRING p3 := this->ParseXR();
+        patch := ToInteger(p3, 0);
+        IF (parts = 2 AND p3 NOT IN [ "x", "X", "*" ])
+          parts := 3;
+        s := s || "." || p3;
+        IF (this->p->TryParse("-"))
+        {
+          prerelease := this->ParseParts();
+          s := s || "-" || prerelease;
+        }
+        IF (this->p->TryParse("+"))
+        {
+          build := this->ParseParts();
+          s := s || "+" || build;
+        }
+      }
+    }
+
+    STRING encoded := EncodeVersion(CELL[ major, minor, patch, prerelease ]);
+    RETURN CELL
+        [ decoded :=    DecodeVersion(encoded)
+        , parts
+        ];
+  }
+
+  /** Parses a version number or 'x', 'X', '*'
+  */
+  STRING FUNCTION ParseXR()
+  {
+    RETURN this->p->ParseWhileInSet("0123456789xX*");
+  }
+
+  /** Parses a prerelease or build tag
+  */
+  STRING FUNCTION ParseParts()
+  {
+    STRING s := this->ParsePart();
+    WHILE (this->p->TryParse("."))
+      s := s || "." || this->ParsePart();
+    RETURN s;
+  }
+
+  /** Parses part of a prerelease/build part
+  */
+  STRING FUNCTION ParsePart()
+  {
+    RETURN this->p->ParseWhileInSet(this->p->set_alpha || this->p->set_digit || "-");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Parses a semver range
+      @return Record with semver range expression
+      @cell return.type 'and', 'or', '=', '>=', '<', '<='
+      @cell return.vals For types 'and' and 'or', list of sub-ranges
+      @cell return.value Version
+      @cell return.value.parts Number of initial parts of version (eg 1.2.x has 2 numeric parts, * has 3, 1.2.3-beta2 has 3)
+      @cell return.value.decoded Decoded version, with the non-numeric parts defaulted to 0.
+  */
+  PUBLIC RECORD FUNCTION Parse(STRING s)
+  {
+    this->p := NEW StringParser(NormalizeWhitespace(s));
+    RECORD e := this->ParseRangeSet();
+    this->p->ParseWhileInSet(" ");
+    IF (NOT this->p->eof)
+      THROW NEW Exception(`Could not parse semver range '${s}', error at '${this->p->remaining_data}'`);
+    RETURN e;
+  }
+
+>;
+
+STRING FUNCTION EncodeRange(RECORD p)
+{
+  SWITCH (p.type)
+  {
+    CASE "and"
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY EncodeRange(vals) FROM p.vals), " ");
+    }
+    CASE "or"
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY EncodeRange(vals) FROM p.vals), " || ");
+    }
+  }
+  STRING s := p.type = "=" ? "" : p.type;
+  IF (p.value.parts = 0)
+    RETURN s || "*";
+  IF (p.value.parts = 1)
+    RETURN `${p.value.decoded.major}.x.x`;
+  IF (p.value.parts = 2)
+    RETURN `${p.value.decoded.major}.${p.value.decoded.minor}.x`;
+  RETURN EncodeVersion(p.value.decoded);
+}
+
+/** Returns whether a parsedrange (type is not 'and' or 'or') matches the numeric part of a decoded version
+*/
+BOOLEAN FUNCTION MatchNumeric(RECORD parsedrange, RECORD decodedversion)
+{
+  RETURN parsedrange.value.decoded.major = decodedversion.major AND
+           parsedrange.value.decoded.minor = decodedversion.minor AND
+           parsedrange.value.decoded.patch = decodedversion.patch;
+}
+
+BOOLEAN FUNCTION IsVersionGreater(RECORD partial, RECORD decoded, BOOLEAN inclusive)
+{
+  IF (partial.parts = 0)
+    RETURN inclusive;
+
+  // inv parts >= 1
+  IF (decoded.major != partial.decoded.major)
+    RETURN decoded.major > partial.decoded.major;
+
+  IF (partial.parts = 1)
+    RETURN inclusive;
+
+  // inv parts >= 2
+  IF (decoded.minor != partial.decoded.minor)
+    RETURN decoded.minor > partial.decoded.minor;
+
+  IF (partial.parts = 2)
+    RETURN inclusive;
+
+  IF (decoded.patch != partial.decoded.patch)
+    RETURN decoded.patch > partial.decoded.patch;
+
+  STRING version := EncodeVersion(decoded);
+  STRING partialversion := EncodeVersion(partial.decoded);
+  IF (inclusive AND version = partialversion)
+    RETURN TRUE;
+
+  RETURN IsVersionNewer(partialversion, version);
+}
+
+BOOLEAN FUNCTION IsVersionSmaller(RECORD partial, RECORD decoded, BOOLEAN inclusive)
+{
+  //Dumpvalue([ IsVersionSmaller := CELL[ partial, decoded, inclusive ]], "tree");
+
+  IF (partial.parts = 0)
+    RETURN inclusive;
+
+  // inv parts >= 1
+  IF (decoded.major != partial.decoded.major)
+    RETURN decoded.major < partial.decoded.major;
+
+  IF (partial.parts = 1)
+    RETURN inclusive OR (decoded.minor = 0 AND decoded.patch = 0 AND decoded.prerelease != "");
+
+  // inv parts >= 2
+  IF (decoded.minor != partial.decoded.minor)
+    RETURN decoded.minor < partial.decoded.minor;
+
+  IF (partial.parts = 2)
+    RETURN inclusive OR (decoded.patch = 0 AND decoded.prerelease != "");
+
+  IF (decoded.patch != partial.decoded.patch)
+    RETURN decoded.patch < partial.decoded.patch;
+
+  STRING version := EncodeVersion(decoded);
+  STRING partialversion := EncodeVersion(partial.decoded);
+  IF (inclusive AND version = partialversion)
+    RETURN TRUE;
+
+  RETURN IsVersionNewer(version, partialversion);
+}
+
+RECORD FUNCTION CompareSemverRangeWithVersionRecursive(RECORD parsedrange, RECORD decodedversion)
+{
+  RECORD retval :=
+      [ smaller :=            FALSE
+      , larger :=             FALSE
+      , satisfies :=          FALSE
+      , allowprerelease :=    FALSE
+      ];
+
+  SWITCH (parsedrange.type)
+  {
+    CASE "or"
+    {
+      FOREVERY (RECORD rec FROM parsedrange.vals)
+      {
+        RECORD res := CompareSemverRangeWithVersionRecursive(rec, decodedversion);
+        IF (#rec = 0)
+          retval := res;
+        ELSE
+        {
+          retval.smaller := retval.smaller AND res.smaller;
+          retval.larger := retval.larger AND res.larger;
+          retval.satisfies := retval.satisfies OR res.satisfies;
+          retval.allowprerelease := retval.allowprerelease OR res.allowprerelease;
+        }
+      }
+    }
+    CASE "and"
+    {
+      BOOLEAN anysmaller, anylarger;
+      FOREVERY (RECORD rec FROM parsedrange.vals)
+      {
+        RECORD res := CompareSemverRangeWithVersionRecursive(rec, decodedversion);
+        IF (#rec = 0)
+        {
+          retval := res;
+          retval.smaller := retval.smaller OR retval.satisfies;
+          retval.larger := retval.larger OR retval.satisfies;
+          anysmaller := res.smaller;
+          anylarger := res.larger;
+        }
+        ELSE
+        {
+          retval.smaller := retval.smaller AND (res.smaller OR res.satisfies);
+          retval.larger := retval.larger AND (res.larger OR res.satisfies);
+          retval.satisfies := retval.satisfies AND res.satisfies;
+          retval.allowprerelease := retval.allowprerelease OR res.allowprerelease;
+          anysmaller := anysmaller OR res.smaller;
+          anylarger := anylarger OR res.larger;
+        }
+      }
+      retval.smaller := retval.smaller AND anysmaller;
+      retval.larger := retval.larger AND anylarger;
+      IF (decodedversion.prerelease != "" AND NOT retval.allowprerelease)
+        retval.satisfies := FALSE;
+    }
+    CASE "="
+    {
+      retval.smaller := IsVersionSmaller(parsedrange.value, decodedversion, FALSE);
+      retval.larger := IsVersionGreater(parsedrange.value, decodedversion, FALSE);
+      retval.satisfies := NOT retval.smaller AND NOT retval.larger;
+      IF (retval.satisfies AND decodedversion.prerelease != "" AND parsedrange.value.decoded.prerelease != "")
+        retval.allowprerelease := MatchNumeric(parsedrange, decodedversion);
+      RETURN retval;
+    }
+    CASE ">=", ">"
+    {
+      retval.smaller := IsVersionSmaller(parsedrange.value, decodedversion, parsedrange.type = ">");
+      retval.larger := FALSE;
+      retval.satisfies := NOT retval.smaller;
+      IF (retval.satisfies AND decodedversion.prerelease != "" AND parsedrange.value.decoded.prerelease != "")
+        retval.allowprerelease := MatchNumeric(parsedrange, decodedversion);
+    }
+    CASE "<=", "<"
+    {
+      retval.larger := IsVersionGreater(parsedrange.value, decodedversion, parsedrange.type = "<");
+      retval.smaller := FALSE;
+      retval.satisfies := NOT retval.larger;
+      IF (retval.satisfies AND decodedversion.prerelease != "" AND parsedrange.value.decoded.prerelease != "")
+        retval.allowprerelease := MatchNumeric(parsedrange, decodedversion);
+    }
+    DEFAULT
+    {
+      ABORT(`Not implemented type ${parsedrange.type}`);
+    }
+  }
+  //DumpValue([ comapare := CELL[parsedrange, decodedversion, retval ]], "tree");
+  RETURN retval;
+}
+
+BOOLEAN FUNCTION HasGITCommitHash(STRING range)
+{
+  STRING hash := Tokenize(range || "#", "#")[1];
+  RETURN LENGTH(hash) = 40;
+}
+
+/** Public for testing purposes
+    @return
+    @cell return.smaller Whether the version is smaller than all allowed versions
+    @cell return.larger Whether the version is larger than all allowed versions
+    @cell return.satifies Whether the version satisfies the range
+*/
+PUBLIC RECORD FUNCTION __CompareSemverRangeWithVersion(STRING semverrange, STRING version)
+{
+  OBJECT p := NEW SemverRangeParser;
+
+
+  RECORD parsed;
+  TRY
+    parsed := p->Parse(semverrange);
+  CATCH
+  {
+    STRING rangebase := Tokenize(semverrange, "#")[0];
+    STRING versionbase := Tokenize(version, "#")[0];
+
+    BOOLEAN satisfies := semverrange = version;
+    IF (version LIKE "git+*" OR version LIKE "git:*" OR version LIKE "github:*")
+    {
+      IF (HasGITCommitHash(semverrange))
+      {
+        // When a commit hash is present, require an exact match (with 'git+' and '.git' additions allowed)
+        satisfies := satisfies OR (version IN [ semverrange, `git+${semverrange}`, `git+${Substitute(semverrange, "#", ".git#")}`, `git+${semverrange}.git` ]);
+      }
+      ELSE
+      {
+        // without a commit hash, ignore all hashes
+        satisfies := satisfies OR (versionbase IN [ rangebase, `git+${rangebase}`, `git+${rangebase}.git` ]);
+      }
+    }
+
+    RETURN
+        [ smaller :=    FALSE
+        , larger :=     FALSE
+        , satisfies :=  satisfies
+        ];
+  }
+
+  RECORD decodedversion := DecodeVersion(version);
+  IF (NOT RecordExists(decodedversion))
+  {
+    // If the version could not be decoded, expect an exact match
+    RETURN
+        [ smaller :=    FALSE
+        , larger :=     FALSE
+        , satisfies :=  semverrange = version
+        ];
+  }
+
+  RECORD cmp := CompareSemverRangeWithVersionRecursive(parsed, decodedversion);
+
+  IF (decodedversion.prerelease != "")
+    cmp.satisfies := cmp.satisfies AND cmp.allowprerelease;
+  DELETE CELL allowprerelease FROM cmp;
+
+  RETURN cmp;
+}
+
+PUBLIC BOOLEAN FUNCTION VersionSatisfiesRange(STRING version, STRING semverrange)
+{
+  RECORD cmp := __CompareSemverRangeWithVersion(semverrange, version);
+  RETURN cmp.satisfies;
+}

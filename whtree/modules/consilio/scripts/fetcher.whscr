@@ -1,0 +1,428 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_commands.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+/*
+fetcher examples
+
+wh run mod::consilio/scripts/fetcher.whscr --checkgroupbytag SOURCECODEINDEX --groupid mod::system/data/moduledefinition.xsd
+
+wh run mod::consilio/scripts/fetcher.whscr --checkgroupbytag "#61" --groupid mod::system/data/moduledefinition.xsd
+
+
+*/
+
+RECORD ARRAY cmdqueue;         // Command queue for "exec" call
+OBJECT ipclink;                // Link to the QueueManager
+STRING workerid;               // Our worker id, supplied by QueueManager
+BOOLEAN noqueuemgr;
+BOOLEAN nocleaning;            // Set to TRUE to prevent the Fetcher from sending any delete requests
+BOOLEAN noindexmodify;         // Set to TRUE to prevent the Fetcher from modifying the index
+INTEGER forceddebuglevel := -1;
+INTEGER execlimit := -1;
+
+// We can send just short of 128 groups at once, but we'll send much less, so the QueueManager won't lock up on processing
+// the groups we're sending
+INTEGER groups_blocksize := 40;
+
+/* The packet with links to check contains:
+   [ STRING action   // 15 bytes (max)
+   , STRING groupid  // 1024 bytes (max)
+   , STRING objectid // 1024 bytes (max)
+   , RECORD ARRAY links [ STRING url   // 1024 bytes (max)
+                        , STRING link  // 1024 bytes (max)
+                        , STRING text  // 30 bytes (max)
+                        , INTEGER type // 4 bytes
+                        ]
+
+   The maximum packet size is 128K. One link takes 2082 bytes, so we can send at most 128K - 2063B = 126K / 2082B = 61.9 links
+   (not counting overhead), so we'll send a safe amount of 50 links at once.
+*/
+INTEGER links_blocksize := 50;
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Initialization
+//
+
+running_in_fetcher := TRUE;
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "exec", type := "stringopt" ]
+                              , [ name := "workerid", type := "stringopt" ]
+                              , [ name := "nocleaning", type := "switch" ]
+                              , [ name := "debuglevel", type := "stringopt" ]
+                              , [ name := "execlimit", type := "stringopt" ]
+                              , [ name := "dryrun", type := "switch" ]
+                              , [ name := "checkgroupbytag", type := "stringopt" ]
+                              , [ name := "updategroupbytag", type := "stringopt" ]
+                              , [ name := "groupid", type := "stringopt" ]
+                              ]);
+
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: fetcher [--exec <command>] [--checkgroupbytag/--updategroupbytag <contentsourcetag> --groupid <groupid>]\n");
+  SetConsoleExitCode(10);
+  RETURN;
+}
+
+DATETIME start := GetCurrentDateTime();
+
+// Open an transaction
+OpenPrimary( [ waituntil := AddTimeToDate(60*1000, GetCurrentDatetime()) ]);
+
+IF(args.checkgroupbytag != "")
+{
+  FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(args.checkgroupbytag))
+    args.exec := "FASTCHECKGROUP " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(args.groupid) || "\"";
+  IF(args.exec="")
+    THROW NEW Exception("Didn't find contentsource");
+}
+IF(args.updategroupbytag != "")
+{
+  FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(args.updategroupbytag))
+    args.exec := "UPDATEGROUP " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(args.groupid) || "\"";
+  IF(args.exec="")
+    THROW NEW Exception("Didn't find contentsource");
+}
+
+workerid := args.workerid;
+nocleaning := nocleaning OR args.nocleaning;
+forceddebuglevel := ToInteger(args.debuglevel,-1);
+execlimit := ToInteger(args.execlimit,-1);
+noindexmodify := args.dryrun;
+
+
+// Establish an IPC link to the QueueManager
+FOR (INTEGER i := 0; i < 4; i := i + 1)
+{
+  ipclink := GetCommandLink(workerid);
+  IF (ObjectExists(ipclink))
+    BREAK;
+  Sleep(1000);
+}
+IF (NOT ObjectExists(ipclink))
+{
+  Print("Could not connect to queue manager\n");
+  SetConsoleExitCode(12);
+  RETURN;
+}
+
+
+// Set the default maximum number of objects within a group
+defaultmaxgroupobjects := ReadRegistryKey("consilio.queuemanager.maxgroupobjects");
+fetcherdebuglevel := forceddebuglevel >= 0 ? forceddebuglevel : ReadRegistryKey("consilio.queuemanager.loglevel");
+
+SetOutputBuffering(FALSE);
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Direct execution support
+//
+
+/* FIXME: is de ombouw van AddToCommandQueue wel goed gegaan? want nu gaan sommige commando's richting queuemgr en blijven andere lokaal hangen?
+*/
+MACRO AddToCommandQueue(STRING cmd)
+{
+  Print("Command:" || cmd || "\n"); //this print sends it to our listener (queuemanager)
+  IF(args.exec != "") //immediate execution mode
+    INSERT GetQueueDataFromCommand(cmd) INTO cmdqueue AT END;
+}
+
+IF(args.exec != "")
+{
+  //ADDME profiling support
+
+  //Explicit command
+  noqueuemgr := TRUE;
+  AddToCommandQueue(args.exec);
+  INTEGER cmdpointer := 0;
+
+  WHILE(cmdpointer < Length(cmdqueue) AND (execlimit<0 OR cmdpointer<execlimit))
+  {
+    ExecuteDecodedCommand( cmdqueue[cmdpointer] );
+    cmdpointer := cmdpointer + 1;
+  }
+}
+ELSE
+{
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // Dispatch incoming command
+  //
+
+  RegisterEventCallback("consilio:fetchers.config", PTR ClearCaches);
+
+  WHILE (TRUE)
+  {
+    WaitUntil([ read := 0 ], MAX_DATETIME);
+
+    STRING command := ReadConsoleInput();
+    IF (command = "")
+      BREAK;
+
+    ExecuteCommand(command);
+  }
+}
+
+// We're done
+FetcherDebug(ConsilioDebugInfo, "Exiting");
+
+RETURN;
+
+MACRO ExecuteCommand(STRING cmd)
+{
+  // Got a command, decode and dispatch it
+  RECORD data := GetQueueDataFromCommand(cmd);
+  IF(data.success)
+    ExecuteDecodedCommand(data);
+  ELSE
+    SendError(data.error, 0);
+  Print("Done\n");
+}
+
+MACRO ExecuteDecodedCommand(RECORD data)
+{
+  IF (NOT CellExists(data, "ACTION"))
+    ABORT("Malformed command\n" || AnyToString(data, "tree"));
+
+  // Set context for errors in the notice log
+  SetErrorContextInfo([ source := "consilio:fetcher", command := data ]);
+
+  SWITCH (data.action)
+  {
+    CASE "CHECKINDEXSTATE"
+    {
+      RECORD result := CheckIndexState(data.indexmanager);
+      IF(result.success)
+      {
+        FOREVERY (RECORD indexrec FROM result.tocheck)
+        {
+          STRING command := (indexrec.status = 2 ? "CHECKINDEX " : "UPDATEINDEX ") || indexrec.indexid || " " || indexrec.id || " " || (indexrec.last_indexed != DEFAULT DATETIME ? " " || DateTimeToString(indexrec.last_indexed) : "");
+          //LogDebug("consilio", "ContentSourceStatus", "ExecuteDecodedCommand", data, command);
+          SendToQueueManager(GetQueueDataFromCommand(command));
+        }
+      }
+    }
+    CASE "CHECKINDEX", "UPDATEINDEX"
+    {
+      BOOLEAN rebuild := data.action = "CHECKINDEX";
+      RECORD result := CheckIndex(data,
+          [ rebuild := rebuild
+          , noindexmodify := noindexmodify
+          ]);
+
+      IF (RecordExists(result.error))
+        SendError(result.error.message, result.error.level);
+
+      FOREVERY (RECORD source FROM result.tocheck_sources) //this is triggered if we got contentsourceid 0, and we're expanding ourselves to all sources
+      {
+        STRING command := (rebuild ? "CHECKINDEX " : "UPDATEINDEX ") || source.indexid || " " || source.id || "  " || DateTimeToString(data.commanddate);
+        //LogDebug("consilio", "ContentSourceStatus", "ExecuteDecodedCommand", data, command);
+        AddToCommandQueue(command);
+      }
+
+      IF (RecordExists(result.tocleanup))
+      {
+        STRING command := "CLEANUPINDEX " || result.tocleanup.indexid || " " || result.tocleanup.contentsourceid || " " || (result.tocleanup.active ? "active" : "") || " " || (result.tocleanup.dontdelete ? "dontdelete" : "") || " " || DateTimeToString(data.commanddate);
+        AddToCommandQueue(command);
+      }
+
+      FOREVERY (RECORD grouprec FROM ShuffleArray(result.todelete))
+      {
+        STRING command := "DELETEGROUP " || result.source.indexid || " " || result.source.id || " \"" || EncodeJava(grouprec.id) || "\" " || DateTimeToString(data.commanddate);
+        AddToCommandQueue(command);
+      }
+
+      IF (noqueuemgr)
+      {
+        // Queue internally
+        FOREVERY (RECORD grouprec FROM ShuffleArray(result.tocheck_groups))
+          AddToCommandQueue((rebuild ? "CHECKGROUP " : "UPDATEGROUP ") || result.source.indexid || " " || result.source.id || " \"" || EncodeJava(grouprec.id) || "\" " || DateTimeToString(data.commanddate));
+      }
+      ELSE
+      {
+        // Send to QueueManager
+        IF (Length(result.tocheck_groups) > groups_blocksize)
+          FetcherDebug(ConsilioDebugAll, "Sending " || Length(result.tocheck_groups) || " total groups to QueueManager", result.source.loglevel);
+        FOREVERY (RECORD part FROM (SELECT groupids := GroupedValues(id) FROM result.tocheck_groups AS groups GROUP BY #groups / groups_blocksize))
+        {
+          FetcherDebug(ConsilioDebugAll, "Sending " || Length(part.groupids) || " groups to QueueManager", result.source.loglevel);
+          STRING ARRAY groupids;
+          FOREVERY (STRING groupid FROM part.groupids)
+            INSERT Left(groupid, 1024) INTO groupids AT END;
+          RECORD res := SendToQueueManager([ action := (rebuild ? "CHECKGROUPS" : "UPDATEGROUPS")
+                                           , indexid := result.source.indexid
+                                           , contentsourceid := result.source.id
+                                           , groupids := groupids
+                                           , commanddate := data.commanddate
+                                           ]);
+          IF (NOT RecordExists(res))
+          {
+            FetcherDebug(ConsilioDebugInfo, "Could not send groups", result.source.loglevel);
+            BREAK;
+          }
+          //Sleep(100);
+        }
+      }
+    }
+    CASE "FASTCHECKGROUP", "CHECKGROUP", "UPDATEGROUP"
+    {
+      RECORD result := CheckGroup(data,
+          [ rebuild := data.action != "UPDATEGROUP"
+          , printprogress := TRUE
+          , debugobjects := fetcherdebuglevel >= 9
+          , noindexmodify := noindexmodify
+          , nocleaning := nocleaning
+          ]);
+
+      FOREVERY (RECORD error FROM result.errors)
+        SendError(error.message, error.level);
+    }
+    CASE "DEACTIVATEGROUP"
+    {
+      RECORD result := CheckGroup(data,
+          [ deactivate := TRUE
+          , rebuild := TRUE
+          , printprogress := TRUE
+          , debugobjects := fetcherdebuglevel >= 9
+          , noindexmodify := noindexmodify
+          , nocleaning := nocleaning
+          ]);
+
+      FOREVERY (RECORD error FROM result.errors)
+        SendError(error.message, error.level);
+    }
+    CASE "DELETEGROUP"
+    {
+      RECORD result := DeleteGroup(data,
+          [ noindexmodify := noindexmodify
+          ]);
+
+      IF (RecordExists(result.error))
+        SendError(result.error.message, result.error.level);
+    }
+    CASE "CHECKOBJECT"
+    {
+      RECORD result := CheckObject(data,
+          [ noindexmodify := noindexmodify
+          ]);
+
+      IF (RecordExists(result.error))
+        SendError(result.error.message, result.error.level);
+
+      // The fetcher command queue ignores CHECKOBJECTs it has already executed.
+      FOREVERY (RECORD newobjectrec FROM result.tocheck)
+        AddToCommandQueue("CHECKOBJECT " || data.indexid || " " || data.contentsourceid || " \"" || EncodeJava(data.groupid) || "\" \"" || EncodeJava(newobjectrec.id) || "\" " || DateTimeToString(data.commanddate));
+    }
+    CASE "DELETEOBJECT"
+    {
+      RECORD result := DeleteObject(data,
+          [ noindexmodify := noindexmodify
+          ]);
+
+      IF (RecordExists(result.error))
+        SendError(result.error.message, result.error.level);
+    }
+    CASE "CLEANUPINDEX"
+    {
+      RECORD result := CleanupIndex(data,
+          [ noindexmodify := noindexmodify
+          , nocleaning := nocleaning
+          ]);
+
+      IF (RecordExists(result.error))
+        SendError(result.error.message, result.error.level);
+    }
+    CASE "CONFIGURE"
+    {
+      IF (CellExists(data, "configuration"))
+      {
+        IF (CellExists(data.configuration, "debuglevel") AND forceddebuglevel < 0)
+        {
+          fetcherdebuglevel := data.configuration.debuglevel;
+        }
+        IF (CellExists(data.configuration, "indexmanager"))
+        {
+          ConfigureIndexManager(data.configuration.indexmanager);
+        }
+        IF (CellExists(data.configuration, "maxgroupobjects") AND data.configuration.maxgroupobjects != defaultmaxgroupobjects)
+        {
+          defaultmaxgroupobjects := data.configuration.maxgroupobjects;
+          FetcherDebug(ConsilioDebugInfo, "Received new maxgroupobjects: " || defaultmaxgroupobjects);
+          /*
+          FOREVERY (RECORD prov FROM cached_providers)
+          {
+            FetcherDebug(ConsilioDebugInfo, "Setting cached provider '" || prov.library || "' maxgroupobjects");
+            prov.obj->maxgroupobjects := defaultmaxgroupobjects;//ADDME: Only if no specific number was specified by the content source!
+          }
+          */
+        }
+      }
+      ELSE
+      {
+        SendError("Invalid configuration action", 0);
+      }
+    }
+    DEFAULT
+    {
+      SendError("Unrecognized command: " || data.action, 0);
+    }
+  }
+
+  CollectGarbage();
+}
+
+// Directly send a command to the QueueManager
+RECORD FUNCTION SendToQueueManager(RECORD data)
+{
+  IF(noqueuemgr)
+  {
+    INSERT data INTO cmdqueue AT END;
+    RETURN [ success := TRUE ];
+  }
+
+  IF (NOT ObjectExists(ipclink))
+    ipclink := GetCommandLink(workerid);
+  IF (NOT ObjectExists(ipclink))
+    RETURN DEFAULT RECORD;
+
+  IF (NOT CellExists(data, "success"))
+    INSERT CELL success := TRUE INTO data;
+
+  RECORD res := ipclink->DoRequest(data);
+  IF (res.status = "gone")
+  {
+    // The link was broken, try to reconnect
+    ipclink := GetCommandLink(workerid);
+    IF (NOT ObjectExists(ipclink))
+      RETURN DEFAULT RECORD;
+
+    res := ipclink->DoRequest(data);
+    IF (res.status = "gone")
+      RETURN DEFAULT RECORD;
+  }
+  RETURN res.msg;
+}
+
+// 0: no further action necessary
+// 1: indexing error, cleanup index permitted
+// 2: indexing error, don't cleanup index
+MACRO SendError(STRING message, INTEGER level)
+{
+  STRING prefix := "Error:" || level || ":";
+  Print(prefix || Detokenize(Tokenize(TrimWhitespace(message), "\n"), "\n" || prefix) || "\n");
+}

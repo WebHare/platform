@@ -1,0 +1,48 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+OBJECT richdocumentfile_type;
+
+
+/** @short An object that provides search information for publisher search
+*/
+PUBLIC STATIC OBJECTTYPE SearchProviderBase
+<
+  /** @short Get the file contents of an object as indexable content
+      @long If the filetype contains an array index field, this function can return a wrapped blob record for each of the
+          array elements.
+      @param The id of the object
+      @return The contents of the file as a list of wrapped blobs
+  */
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSearchContents(INTEGER objid)
+  {
+    RECORD obj := SELECT name, data FROM system.fs_objects WHERE id = objid;
+    IF(RecordExists(obj))
+      RETURN [ WrapBlob(obj.data, obj.name) ];
+    ELSE
+      RETURN DEFAULT RECORD ARRAY;
+  }
+>;
+
+/** @private we deprecated BaseSearchProvider because it's not named xxxxBase (for consistency) - still need 2 modules to switch to SearchProviderBase */
+PUBLIC STATIC OBJECTTYPE BaseSearchProvider EXTEND SearchProviderBase
+<
+>;
+
+PUBLIC OBJECTTYPE RichDocumentSearchProvider EXTEND SearchProviderBase
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSearchContents(INTEGER objid)
+  {
+    IF (NOT ObjectExists(richdocumentfile_type))
+      richdocumentfile_type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+    RECORD data := richdocumentfile_type->GetInstanceData(objid);
+    IF (NOT RecordExists(data) OR NOT RecordExists(data.data))
+      RETURN DEFAULT RECORD ARRAY;
+    RETURN [ WrapBlob(data.data.htmltext, "richdocumentfile.html") ];
+  }
+>;

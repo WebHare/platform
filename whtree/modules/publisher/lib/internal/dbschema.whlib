@@ -1,0 +1,204 @@
+<?wh
+/** @private This library offers the internal table definitions implementing the publisher
+*/
+
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC SCHEMA
+  < TABLE
+    < INTEGER "id"
+    , INTEGER "file"
+    , DATETIME "when"
+    , INTEGER "event"
+    , INTEGER "folder" NULL := 0
+    , INTEGER "modifiedby" NULL := 0
+    ; KEY id
+    > schedule
+
+  , TABLE
+    < INTEGER id
+    , INTEGER fsobject
+    , DATETIME creationdate
+    , STRING url
+    , STRING urlhash __ATTRIBUTES__(BINARY)
+    ; KEY id
+    > urlhistory
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "hash"
+    , DATETIME "created"
+    , DATETIME "lastuse"
+    , INTEGER "designfolder"
+    , STRING datahash
+    ; KEY id
+    > compileddesigns
+
+
+    ///////////////////////////////////////////////////////////////
+    //
+    //  BLIT
+
+  , TABLE
+    < INTEGER "id"
+    , DATETIME "modificationdate"
+    , STRING "hash"
+    , STRING "contenttype"
+    ; KEY id
+    > blithashcache
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "hash"
+    , INTEGER "hashhash"
+    , BLOB "data"
+    , DATETIME "expires"
+    ; KEY id
+    > blitrepocache
+
+
+    ///////////////////////////////////////////////////////////////
+    //
+    //  Webtools / Polls
+
+  , TABLE
+    < INTEGER  "id"
+    , INTEGER  "poll_fsobject"
+    , STRING   "guid"
+    , INTEGER  "votes"
+    , BOOLEAN  "hide"  // not meant to publish and not available to cast votes on
+    , STRING   "title"
+    ; KEY id
+    > polloptions
+
+  , TABLE
+    < INTEGER  "id"
+    , INTEGER  "poll_fsobject"
+    , STRING   "ipaddress"
+    , STRING   "useragent"
+  //, STRING   "userguid"
+    , DATETIME "when"
+    ; KEY id
+    > pollvoters
+
+  , TABLE
+    < INTEGER  "id"
+    , INTEGER  "voter"
+    , INTEGER  "option"
+    ; KEY id
+    > pollvotes
+
+
+    ///////////////////////////////////////////////////////////////
+    //
+    //  Webtools / Forms
+
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "status"
+    , INTEGER "form_fsobject"
+    , STRING "form_name"
+    , STRING "guid"
+    , INTEGER "replacedby" NULL := 0
+    , STRING "url"
+    , STRING "languagecode"
+    , DATETIME "when"
+    , DATETIME "modified"
+    , DATETIME "expiration"
+    , DATETIME "deletion"
+    , STRING "ipaddress"
+    , STRING "useragent"
+    , STRING "ipcountrycode"
+    , STRING "results"
+    , BLOB "blobresults"
+    , STRING "idfield"
+    , STRING "wrdguid" __ATTRIBUTES__(BINARY)
+    ; KEY id
+    > formresults
+
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "formresult"
+    , STRING "question"
+    , STRING "metadata"
+    , BLOB "file"
+    ; KEY id
+    > formattachments
+
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "postertype" NULL := 0
+    , STRING "uuid"
+    ; KEY id
+    > forums
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "forum"
+    , INTEGER "parent" NULL := 0
+    , STRING "title"
+    , STRING "description"
+    , INTEGER "numtopics"
+    , STRING "tag"
+    , DATETIME "creationdate"
+    , INTEGER "ordering"
+    , BOOLEAN "newtopics"
+    ; KEY id
+    > subforums
+  , TABLE
+    < INTEGER "id"
+    , DATETIME "creationdate"
+    , INTEGER "subforum"
+    , STRING "topic"
+    , INTEGER "firstposting" NULL := 0
+    , INTEGER "lastposting" NULL := 0
+    , INTEGER "ordering"
+    , INTEGER "numentries"
+    , BOOLEAN "sticky"
+    , STRING "tag"
+    , BOOLEAN "locked"
+    , INTEGER "linkedfileid" NULL := 0
+    , DATETIME "closedate"
+    ; KEY id
+    > forumtopics
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "topic"
+    , INTEGER "inreplyto" NULL := 0
+    , DATETIME "creationdate"
+    , DATETIME "modificationdate"
+    , INTEGER "postingtype"
+    , STRING "content"
+    , STRING subject
+    , BOOLEAN "attachments"
+    , STRING "postersource"
+    , STRING "postername"
+    , STRING "posteremail"
+    , STRING "posteruid"
+    , BOOLEAN "deleted"
+    ; KEY id
+    > forumpostings
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "posting"
+    , BLOB "data"
+    , BLOB "displayversion"
+    , STRING "mimetype"
+    , STRING "displaymimetype"
+    , STRING "filename"
+    , STRING "description"
+    , INTEGER "ordering"
+    , INTEGER "type"
+    ; KEY id
+    > forumattachments
+  > publisher;
+
+/** @short Bind the publisher and system module tables
+    @long This function binsd both publisher and system tables to the specified transaction, to ensure backwards compatibility with other WebHares which expect binding the publisher to bind the system tables
+    @param transaction ID of the transaction to which the tables should be bound
+*/
+MACRO BindPublisherTables(INTEGER transaction)
+{
+  publisher := BindTransactionToSchema(transaction, "publisher");
+}
+
+SetupPrimaryTransactionBinder(PTR BindPublisherTables);

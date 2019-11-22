@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- WARNING! modifications to this file may require you to update testvalidate.whscr -->
+
+<xs:schema
+  xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents"
+  xmlns:forms="http://www.webhare.net/xmlns/publisher/forms"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/publisher/forms" schemaLocation="mod::publisher/data/forms/formdef.xsd" />
+
+  <xs:element name="testsuitehandler">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <forms:formhandler
+            title="TestSuiteHandler"
+            descriptiontid="webtools.testsuitehandlerdesc"
+            handlerobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#testsuitehandler"
+            parserfunc="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#parsetestsuitehandler"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="forms:HandlerAttributes" />
+      <xs:attribute name="x" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="tslinecomp">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <forms:formcomponent
+            linecomponent="true"
+            tolliumicon="tollium:forms/password"
+            title="TS Line Comp"
+            fieldobject="../lib/testformcomponents.whlib#TSLineCompField"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="forms:BaseAttributes" />
+      <xs:attributeGroup ref="forms:PlaceholderAttributes" />
+      <xs:attributeGroup ref="forms:PrefixSuffixAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="tscustomcomp">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <forms:formcomponent
+            linecomponent="true"
+            tolliumicon="tollium:forms/password"
+            title="TS Custom Comp"
+            fieldobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#TSCustomCompField"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="forms:BaseAttributes" />
+      <xs:attributeGroup ref="forms:PlaceholderAttributes" />
+      <xs:attributeGroup ref="forms:PrefixSuffixAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="customselect">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <forms:formcomponent
+            linecomponent="true"
+            title="SelectWrapper"
+            fieldobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#customselectfield"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="forms:BaseAttributes" />
+      <xs:attributeGroup ref="forms:PlaceholderAttributes" />
+      <xs:attributeGroup ref="forms:PrefixSuffixAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="twolevel">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <forms:formcomponent
+            linecomponent="true"
+            title="TwoLevel Comp"
+            fieldobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#TwoLevelField"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="forms:BaseAttributes" />
+      <xs:attributeGroup ref="forms:PlaceholderAttributes" />
+      <xs:attributeGroup ref="forms:PrefixSuffixAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="matchattributes">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <forms:formcomponent
+            matchattribute="hson:{'attr1':'type1'}"
+            linecomponent="true"
+            title="MatchAttributes Type1"
+            fieldobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#matchattributes_type1"
+            />
+          <forms:formcomponent
+            matchattribute="hson:{'attr1':'type2','attr2':'true'}"
+            linecomponent="true"
+            title="MatchAttributes Type2 true"
+            fieldobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#matchattributes_type2_true"
+            />
+          <forms:formcomponent
+            matchattribute="hson:{'attr1':'type2','attr2':'false'}"
+            linecomponent="true"
+            title="MatchAttributes Type2 false"
+            fieldobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#matchattributes_type2_false"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="forms:BaseAttributes" />
+      <xs:attributeGroup ref="forms:PlaceholderAttributes" />
+      <xs:attributeGroup ref="forms:PrefixSuffixAttributes" />
+
+      <xs:attribute name="attr1" type="xs:string" />
+      <xs:attribute name="attr2" type="xs:boolean" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="extradatafield">
+    <xs:complexType>
+        <xs:annotation>
+        <xs:appinfo>
+          <forms:formcomponent
+            tolliumicon="tollium:forms/pulldown"
+            title="Pulldown Field With Extra Data"
+            editdefaults="name title hidetitle required groupclasses"
+            fieldobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#ExtraDataField"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="forms:BaseAttributes" />
+      <xs:attributeGroup ref="forms:PlaceholderAttributes" />
+      <xs:attributeGroup ref="forms:PrefixSuffixAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="multimergefield">
+    <xs:complexType>
+        <xs:annotation>
+        <xs:appinfo>
+          <forms:formcomponent
+            tolliumicon="tollium:forms/textedit"
+            title="Custom Form Field"
+            editdefaults="name title hidetitle required groupclasses"
+            fieldobject="mod::webhare_testsuite/webdesigns/basetest/pages/customform/customform.whlib#multimergefield"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="forms:BaseAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

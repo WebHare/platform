@@ -1,0 +1,220 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT ConvertToWillPublish, ConvertToWontPublish, PubPrio_Scheduled, PubPrio_DirectEdit, PubPrio_FolderRepub,PubPrio_SubfolderRepub;
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+PUBLIC RECORD publisher_settings :=
+  [ widget_preview_expiry := 8*60*60*1000 //8 hours
+  ];
+
+
+/* List of filetypes which must be compressed when publishing
+   Keep this list in sync with the types list from the Webhare Proxy project (nginx-config.js).
+*/
+PUBLIC STRING ARRAY compressible_filetypes :=
+            [ "application/javascript"
+            , "application/json"
+            , "application/x-javascript" // given back by WrapBlob
+            , "application/xml"
+            , "image/svg+xml"
+            , "image/vnd.microsoft.icon"
+            , "image/x-bmp"
+            , "message/rfc822"
+            , "text/calendar"
+            , "text/csv"
+            , "text/css"
+            , "text/html"
+            , "text/plain"
+            , "text/x-vcard"
+            , "text/xml" // given back by WrapBlob
+            ];
+
+PUBLIC RECORD FUNCTION ParseIntExtLinkString(STRING value)
+{
+  IF(value LIKE "externallink::*")
+    RETURN [ externallink := Substring(value,14), internallink := 0, append := "" ];
+
+  STRING append;
+  IF (value LIKE "*|*")
+  {
+    append := Substring(value, SearchSubstring(value, "|") + 1);
+    value := Left(value, SearchSubstring(value, "|"));
+    abort([value:=value,append:=append]);
+  }
+  INTEGER intlinkdest := LookupWHFSObject(0, value);
+  IF(intlinkdest != -1)
+    RETURN [ externallink := "", internallink := intlinkdest, append := append ];
+
+  RETURN DEFAULT RECORD;
+}
+PUBLIC STRING FUNCTION GetConflictingOutputFile(INTEGER fileid)
+{
+  RECORD config := GetPublisherConfiguration();
+  RECORD fileinfo := SELECT name, parent FROM system.fs_objects WHERE id=fileid;
+  STRING basename := GetBasenameFromPath(fileinfo.name);
+  RECORD ARRAY conflicts := SELECT name
+                                 , extension := GetExtensionFromPath(name)
+                              FROM system.fs_objects
+                             WHERE parent = fileinfo.parent
+                                   AND ToUppercase(name) LIKE ToUppercase(basename || "*")
+                                   AND GetBasenameFromPath(ToUppercase(name)) = ToUppercase(basename)
+                                   AND (isfolder ? ToUppercase(name)=ToUppercase(basename) //exact match only
+                                                 : publish = TRUE AND (type = 20 OR type IN config.subdirfiletypes));
+  conflicts := SELECT *
+                 FROM conflicts
+                WHERE extension = "" OR (ToUppercase(extension) IN config.stripextensions)
+             ORDER BY SearchElement(config.stripextensions, ToUppercase(extension)); //sort by precedence. a name without any extension will sort as -1
+
+  IF(Length(conflicts)>=1 AND conflicts[0].name != fileinfo.name) //it's a conflict, and it's not us
+    RETURN conflicts[0].name;
+  ELSE
+    RETURN "";
+}
+PUBLIC STRING FUNCTION GetIntExtLinkAsString(RECORD value)
+{
+  IF(NOT RecordExists(value))
+     RETURN "";
+  IF(value.externallink != "")
+    RETURN "externallink::" || value.externallink;
+  RETURN value.internallink = 0
+      ? ""
+      : (GetDirectResourceName(value.internallink) || (value.append = "" ? "" : "|" || value.append));
+}
+
+PUBLIC RECORD FUNCTION GetFileStatusCommonTexts()
+{
+  RETURN
+      [ status_warnings := GetTid("publisher:publicationstatus.warnings")
+      , status_published := GetTid("publisher:publicationstatus.published")
+      , status_notpublished := GetTid("publisher:publicationstatus.notpublished")
+      , status_scheduled := GetTid("publisher:publicationstatus.scheduled")
+      , status_error := GetTid("publisher:publicationstatus.error")
+      ];
+}
+
+PUBLIC RECORD FUNCTION GetFileStatusFromPublished(INTEGER published, BOOLEAN canpublish, STRING publishdatetext, RECORD commontexts)
+{
+  STRING icon;
+  STRING text;
+  BOOLEAN scheduled;
+
+  IF (NOT canpublish)
+  {
+    icon := "tollium:status/unknown";
+    text := RecordExists(commontexts) ? commontexts.status_notpublished : GetTid("publisher:publicationstatus.notpublished");
+  }
+  ELSE
+  {
+    IF (GetErrorFromPublished(published) = 0 AND GetOncePublishedFromPublished(published))
+    {
+      scheduled := GetScheduledFromPublished(published);
+      BOOLEAN warnings := TestFlagFromPublished(published, 400000);
+      IF (warnings)
+      {
+        icon := "tollium:status/warning";
+        text := RecordExists(commontexts) ? commontexts.status_warnings : GetTid("publisher:publicationstatus.warnings");
+      }
+      ELSE
+      {
+        icon := "tollium:status/checked";
+        IF (publishdatetext != "")
+          text := GetTid("publisher:publicationstatus.publishedat", publishdatetext);
+        ELSE
+          text := RecordExists(commontexts) ? commontexts.status_published : GetTid("publisher:publicationstatus.published");
+      }
+    }
+    ELSE IF (GetErrorFromPublished(published) = 0 AND NOT GetOncePublishedFromPublished(published)) //Not published
+    {
+      icon := "tollium:status/negative";
+      text := RecordExists(commontexts) ? commontexts.status_notpublished : GetTid("publisher:publicationstatus.notpublished");
+    }
+    ELSE
+    {
+      INTEGER status := GetErrorFromPublished(published);
+
+      IF (status >= 1 AND status <= 100) //Will publish
+      {
+        icon := "tollium:status/neutral";
+        text := RecordExists(commontexts) ? commontexts.status_scheduled : GetTid("publisher:publicationstatus.scheduled");
+      }
+      ELSE // We only use one icon for all types of errors
+      {
+        icon := "tollium:status/serious_error";
+        text := RecordExists(commontexts) ? commontexts.status_error : GetTid("publisher:publicationstatus.error");
+      }
+    }
+
+    scheduled := GetScheduledFromPublished(published);
+  }
+
+  RETURN
+      [ icon :=         icon
+      , text :=         text
+      , scheduled :=    scheduled
+      ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetPublisherAppRunnerConfig()
+{
+  RECORD ARRAY apps :=
+    [ [ name :=       "publisher:assetpackcontrol"
+      , cmdline :=    "runscript mod::publisher/scripts/internal/assetpackcontrol.whscr"
+      ]
+    , [ name :=       "publisher:consiliohandler"
+      , cmdline :=    "runscript mod::publisher/scripts/internal/consiliohandler.whscr"
+      ]
+    ];
+
+  IF(UseNewPublisher())
+  {
+    INSERT [ name :=       "publisher:publication"
+           , cmdline :=    "runscript mod::publisher/scripts/internal/publication-persistent.whscr  --keepstorage --debuglevel 2"
+           , databasemodes := [ "online" ]
+           ] INTO apps AT END;
+    INSERT [ name :=       "publisher:outputanalyzer"
+           , cmdline :=    "runscript mod::publisher/scripts/internal/outputanalyzer-persistent.whscr --keepstorage --debuglevel 2"
+           , databasemodes := [ "online" ]
+           ] INTO apps AT END;
+  }
+  ELSE
+  {
+    INSERT [ name :=       "publisher:publisher"
+           , cmdline :=    "publisher"
+           , databasemodes := [ "online" ]
+           ] INTO apps AT END;
+  }
+
+  RETURN apps;
+}
+
+PUBLIC RECORD FUNCTION __FindFile(INTEGER fileid)
+{
+  RETURN SELECT *
+              , DELETE objecturl
+              , DELETE link
+           FROM system.fs_objects WHERE id=fileid AND NOT isfolder;
+}
+PUBLIC RECORD FUNCTION __FindFolder(INTEGER folderid)
+{
+  RETURN SELECT *
+              , DELETE objecturl
+              , DELETE link
+              , parent := (id = highestparent ? 0 : parent)
+           FROM system.fs_objects
+          WHERE id=folderid AND isfolder;
+}
+PUBLIC RECORD FUNCTION __FindSite(INTEGER siteid)
+{
+  RETURN SELECT * FROM system.sites WHERE id = siteid;
+}

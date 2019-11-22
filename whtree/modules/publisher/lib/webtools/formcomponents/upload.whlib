@@ -1,0 +1,256 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+/*
+https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/file#Unique_file_type_specifiers
+
+- A valid case-insensitive filename extension, starting with a period (".") character. For example: .jpg, .pdf, or .doc.
+  (we don't support extensions yet)
+- A valid MIME type string, with no extensions.
+- The string audio/* meaning "any audio file".
+- The string video/* meaning "any video file".
+- The string image/* meaning "any image file".
+*/
+
+BOOLEAN FUNCTION IsAcceptableType(STRING filetype, STRING ARRAY masks)
+{
+  IF(filetype IN masks)
+    RETURN TRUE;
+
+  STRING basetype := Tokenize(filetype,'/')[0];
+  IF(basetype IN ["image","video","audio"] AND basetype || "/*" IN masks)
+    RETURN TRUE;
+
+  RETURN FALSE;
+}
+
+STRING FUNCTION GetFileInfo(RECORD filerec)
+{
+  IF (NOT RecordExists(filerec))
+    RETURN "";
+  RETURN `${filerec.filename} (${(filerec.length + 1023) / 1024} KB, ${filerec.mimetype})`;
+}
+
+///@private
+PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
+<
+  RECORD pvt_value;
+  STRING pvt_url;
+
+  ///Acceptable mimetype masks
+  PUBLIC STRING ARRAY accept; //TODO: suport extensions too?
+  ///Custom error message to show when not accepting
+  PUBLIC STRING accepterror;
+
+  PUBLIC PROPERTY value(this->pvt_value, SetValue);
+
+  MACRO SetValue(RECORD val)
+  {
+    this->pvt_value := val;
+    this->pvt_url := "";
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetComposableData()
+  {
+    RECORD val := this->value;
+    STRING link;
+    IF(RecordExists(val) AND CellExists(val,'__BLOBSOURCE') AND val.__blobsource != "")
+      link := GetCachedFileLink(val, [ baseurl := GetPrimaryWebhareInterfaceURL()
+                                     , filename := val.filename
+                                     ]);
+
+    RETURN CELL[ title := this->title
+               , raw   := val
+               , text  := RecordExists(val) ? GetFileInfo(CELL[ ...val, length := Length(val.data) ] ) : ""
+               , files := RecordExists(val) ? [ val ] : DEFAULT RECORD ARRAY
+               , link
+               ];
+  }
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RECORD base := this->GetBaseRenderData();
+    RECORD dataset := base.dataset;
+
+    IF(Length(this->accept) > 0)
+    {
+      dataset := CELL[ ...dataset
+                     , "wh-accept" := Detokenize(this->accept,',')
+                     ];
+    }
+
+    IF(this->accepterror != "")
+    {
+      dataset := CELL[ ...dataset
+                     , "wh-accepterror" := this->accepterror
+                     ];
+
+    }
+
+    RETURN CELL[ ...base
+               , value := RecordExists(this->pvt_value) ? CELL[...this->pvt_value, DELETE data, link := this->pvt_url ] : DEFAULT RECORD
+               , type := "upload"
+               , dataset
+               ];
+  }
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    FormFieldBase::ValidateValue(work);
+    IF(RecordExists(this->pvt_value) AND Length(this->accept) > 0) //mimetype filter is active
+    {
+      //TODO Specialize error if all masks are of type image/* and what you uploaded is not an image at all!
+      IF(NOT IsAcceptableType(this->pvt_value.mimetype, this->accept))
+        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.badfiletype"));
+    }
+  }
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    STRING givenurl := RecordExists(jsdata) ? jsdata.link : "";
+    IF(givenurl LIKE "data:*") //this is an upload, not a replaced uploadfield talking to us
+    {
+      this->pvt_value := WrapBlob(ParseDataURL(givenurl).data, jsdata.filename);
+      this->pvt_url := "";
+      RETURN;
+    }
+    IF(givenurl = this->pvt_url) //no change
+      RETURN;
+
+    this->pvt_url := givenurl;
+    IF(givenurl != "")
+    {
+      this->pvt_value := GetWrappedSourceFromURL(givenurl);
+      IF(RecordExists(this->pvt_value))
+        this->pvt_value.filename := jsdata.filename;
+    }
+    ELSE
+    {
+      this->pvt_value := DEFAULT RECORD;
+    }
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN RecordExists(this->pvt_value);
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetStorageValue()
+  {
+    IF(NOT RecordExists(this->value))
+      RETURN DEFAULT RECORD;
+
+    //Now generate hash and dominantcolors...
+    RECORD storevalue := WrapBlob(this->value.data, this->value.filename, [ generatehash := TRUE, extractdominantcolor := TRUE ]);
+    RECORD metadata := CELL[...storevalue, DELETE data, length := Length64(storevalue.data)];
+    RETURN [ result      := metadata
+           , attachments := RECORD[this->value]
+           ];
+  }
+  UPDATE PUBLIC MACRO SetFromStorage(VARIANT invalue, RECORD ARRAY attachments)
+  {
+    IF(NOT RecordExists(invalue) OR Length(attachments)=0)
+    {
+      this->value := DEFAULT RECORD;
+      RETURN;
+    }
+    this->value := attachments[0];
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    RECORD ARRAY cols := [[ title := this->title
+                          , name := "file"
+                          , type := exportoptions.inlineattachments ? "file" : "text"
+                         ]];
+
+    IF(exportoptions.isfullexport AND NOT exportoptions.inlineattachments)
+    {
+      IF (exportoptions.withattachments)
+      {
+        INSERT [ title := this->title || " - path"
+               , name := "filedata"
+               , type := "attachment"
+               ] INTO cols AT END;
+      }
+      ELSE
+      {
+        INSERT [ title := this->title || " - link"
+               , name := "filelink"
+               , type := "link"
+               ] INTO cols AT END;
+      }
+    }
+
+    RETURN cols;
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    IF (NOT exportoptions.isfullexport)
+    {
+      RETURN
+          SELECT file := GetFileInfo(value)
+            FROM inputvalues;
+    }
+
+    IF (exportoptions.inlineattachments)
+    {
+      RETURN SELECT file := [ title := GetFileInfo(value), file := value ] FROM inputvalues;
+    }
+    ELSE IF (exportoptions.withattachments)
+    {
+      INTEGER ARRAY formresultids :=
+          SELECT AS INTEGER ARRAY formresult
+            FROM inputvalues
+           WHERE RecordExists(value);
+
+      RECORD ARRAY attachments :=
+          SELECT *
+            FROM publisher.formattachments
+           WHERE formattachments.formresult IN formresultids
+                 AND formattachments.question = exportoptions.storename
+        ORDER BY formattachments.formresult;
+
+      RETURN
+          SELECT TEMPORARY attachmentpos := RecordLowerBound(attachments, inputvalues, [ "FORMRESULT" ])
+               , file := GetFileInfo(value)
+               , filedata := RecordExists(value) AND attachmentpos.found
+                      ? CELL[ ...value
+                            , data :=             attachments[attachmentpos.position].file
+                            ]
+                      : DEFAULT RECORD
+            FROM inputvalues;
+    }
+    ELSE
+    {
+      STRING linkbase;
+      IF(exportoptions.isfullexport)
+        linkbase := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),"/.publisher/backend/webtools/dl.shtml");
+
+      RETURN SELECT file := GetFileInfo(value)
+                  , filelink := RecordExists(value) AND linkbase != "" ? linkbase || "?f=" || EncryptForThisServer("publisher:formupload", CELL[formresult, exportoptions.storename, value.hash]) : ""
+                  , filedata := DEFAULT RECORD
+               FROM inputvalues;
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE UploadField EXTEND FileEditFieldBase
+<
+  UPDATE MACRO SetValue(RECORD val)
+  {
+    FileEditFieldBase::SetValue(val);
+    IF(RecordExists(val) AND CellExists(this->pvt_value,'__BLOBSOURCE') AND this->pvt_value.__blobsource != "")
+    {
+      this->pvt_url := GetCachedFileLink(this->pvt_value, [ filename := val.filename ]);
+    }
+  }
+>;
+

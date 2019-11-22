@@ -1,0 +1,174 @@
+﻿<?wh
+/** @short File manipulation
+    @long This library offers the functions to manipulate, copy and move files in the WebHare Publisher
+*/
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT MimetypeToFiletype;
+LOADLIB "mod::system/lib/cluster.whlib";
+
+PUBLIC MACRO RunAddFileHooks(INTEGER fileid)
+{
+  OBJECT torepub := CreateRepublishState();
+  torepub->AddDepsOf(fileid, 2/*created*/);
+  torepub->AddDepsOf(SELECT AS INTEGER parent FROM system.fs_objects WHERE id = fileid, 2/*created*/);
+  torepub->DoRepublishes();
+}
+
+PUBLIC MACRO RunAddFolderHooks(INTEGER newfolderid)
+{
+  RECORD newfolder := __FindFolder(newfolderid);
+  IF(NOT RecordExists(newfolder))
+    RETURN;
+
+  RECORD parentfolder := __FindFolder(newfolder.parent);
+  IF(NOT RecordExists(parentfolder)) //Out-of-site folder
+    RETURN;
+
+  RECORD parentsite := __FindSite(parentfolder.parentsite);
+  IF(NOT RecordExists(parentsite)) //Out-of-site folder
+    RETURN;
+
+  OBJECT torepub := CreateRepublishState();
+  torepub->AddDepsOf(newfolder.id, 3 /*created*/);
+  torepub->AddDepsOf(parentfolder.id, 2/*created*/);
+  torepub->DoRepublishes();
+}
+
+PUBLIC MACRO RunEditFileHooks(RECORD oldfile, INTEGER newfileid)
+{
+  RECORD newfile := __FindFile(newfileid);
+  IF(NOT RecordExists(newfile))
+    RETURN;
+
+  RECORD folder := __FindFolder(newfile.parent);
+  IF(NOT RecordExists(folder))
+    RETURN;
+  RECORD site := __FindSite(folder.parentsite);
+
+  IF(NOT RecordExists(site)) //Out-of-site folder
+    RETURN;
+
+  OBJECT torepub := CreateRepublishState();
+  torepub->AddDepsOf(newfile.id, 0/*metadata*/);
+  torepub->DoRepublishes();
+}
+
+PUBLIC MACRO RunEditFolderHooks(RECORD oldfolder, INTEGER newfolderid)
+{
+  RECORD target := __FindFolder(newfolderid);
+  IF (NOT RecordExists(target)) // inactive?
+    RETURN;
+
+  RECORD parent := target.parent=0 ? target : __FindFolder(target.parent);
+  IF(NOT RecordExists(parent)) //Out-of-site folder
+    RETURN;
+
+  RECORD parentsite := __FindSite(parent.parentsite);
+
+  IF(NOT RecordExists(parentsite)) //Out-of-site folder
+    RETURN;
+
+  OBJECT torepub := CreateRepublishState();
+  torepub->AddDepsOf(target.id, 0 /*metadata change*/);
+  torepub->DoRepublishes();
+}
+
+//generic deleter for fs_objects/tollium use
+PUBLIC MACRO RunAnyDelete(INTEGER ARRAY objids, STRING deletionsource)
+{
+  // see which objects have version data
+  INTEGER ARRAY with_history :=
+      SELECT AS INTEGER ARRAY DISTINCT live_object
+        FROM system.fs_versionevents
+       WHERE live_object IN objids;
+
+  //ADDME optimize, or better yet, get enough data to move the repub work to the completions handler
+  OBJECT torepub := CreateRepublishState();
+  FOREVERY(INTEGER objid FROM objids)
+  {
+    OBJECT todelete := OpenWHFSObject(objid);
+    IF(NOT ObjectExists(todelete))
+      CONTINUE;
+
+    //ADDME group stuff to reduce database queries, but the republish analyzer should probably do that itself..
+    IF(todelete->parentsite != 0)
+    {
+      RECORD deleterec := todelete->isfolder ? __FindFolder(objid) : __FindFile(objid);
+      RECORD parentfolder := __FindFolder(deleterec.parent);
+      IF(RecordExists(parentfolder))
+      {
+        torepub->AddDepsOf(deleterec.id, 3/*content deleted*/);
+        torepub->AddDepsOf(parentfolder.id, 3/*content deleted*/);
+      }
+    }
+
+    //FIXME postpone to on-succesful-commit
+    LogAuditEvent(deletionsource, [ objectid := objid
+                                  , type := "DELETE"
+                                  , whfspath := todelete->whfspath
+                                  ]);
+
+    IF (objid IN with_history)
+      todelete->MoveTo(OpenWHFSObject(18), ToString(objid));
+    ELSE
+      todelete->RecycleSelf();
+  }
+  torepub->DoRepublishes();
+}
+
+PUBLIC MACRO RunFolderDelete(INTEGER folderid, INTEGER deleterid)
+{
+  RECORD deletefolderrec := __FindFolder(folderid);
+  IF(NOT RecordExists(deletefolderrec))
+    RETURN;
+
+  RECORD parentfolder := __FindFolder(deletefolderrec.parent);
+  RECORD parentsite;
+  IF(RecordExists(parentfolder))
+     parentsite := __FindSite(parentfolder.parentsite);
+
+  IF(RecordExists(parentsite)) //Out-of-site folder
+  {
+    OBJECT torepub := CreateRepublishState();
+    //Add the folder and its parent
+    torepub->AddDepsOf(deletefolderrec.id, 3/*content deleted*/);
+    torepub->AddDepsOf(parentfolder.id, 3/*content deleted*/);
+    torepub->DoRepublishes();
+  }
+
+  OpenWHFSObject(deletefolderrec.id)->RecycleSelf();
+  // IF(RecordExists(parentsite)) //Out-of-site folder
+  //   CallRepublishHook("delfolder", deletefolderrec, DEFAULT RECORD, parentfolder, parentsite);
+}
+PUBLIC MACRO RunFileDelete(INTEGER fileid, INTEGER deleterid)
+{
+  RECORD deletefilerec := __FindFile(fileid);
+  IF(NOT RecordExists(deletefilerec))
+    RETURN;
+
+  RECORD parentfolder := __FindFolder(deletefilerec.parent);
+  RECORD parentsite := __FindSite(parentfolder.parentsite);
+
+  IF(RecordExists(parentsite)) //Out-of-site folder
+  {
+    OBJECT torepub := CreateRepublishState();
+    torepub->AddDepsOf(deletefilerec.id, 3/*deleted*/);
+    torepub->AddDepsOf(parentfolder.id, 3/*deleted*/);
+    torepub->DoRepublishes();
+  }
+
+  OpenWHFSObject(fileid)->RecycleSelf();
+
+  // IF(RecordExists(parentsite)) //Out-of-site folder
+  //   CallRepublishHook("delfile", deletefilerec, DEFAULT RECORD, parentfolder, parentsite);
+}
+
+PUBLIC STRING FUNCTION CreateFileName(RECORD folder,STRING firstname)
+{
+  OBJECT folderobj := folder.id = 0 ? OpenWHFSRootObject() : OpenWHFSObject(folder.id);
+  RETURN folderobj->GenerateUniqueName(firstname, 0);
+}

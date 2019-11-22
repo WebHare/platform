@@ -1,0 +1,42 @@
+<?wh
+LOADLIB "wh::promise.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+PUBLIC OBJECTTYPE ClusterTestLink
+<
+  MACRO NEW(STRING testdata)
+  {
+    IF(testdata="abort")
+      THROW NEW Exception("abort");
+  }
+  PUBLIC INTEGER FUNCTION GetLUE()
+  {
+    RETURN 42;
+  }
+  PUBLIC OBJECT ASYNC FUNCTION GetAsyncLUE()
+  {
+    RETURN CreateResolvedPromise(42);
+  }
+  PUBLIC MACRO Crash()
+  {
+    THROW NEW Exception("Crash()");
+  }
+  PUBLIC OBJECT FUNCTION GetAsyncCrash()
+  {
+    TRY
+    {
+      THROW NEW Exception("Async crash()");
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN CreateRejectedPromise(e);
+    }
+  }
+>;
+
+OBJECT FUNCTION Constructor(STRING testdata)
+{
+  RETURN NEW ClusterTestLink(testdata);
+}
+
+RunWebHareService("webhare_testsuite:webhareservicetest", PTR Constructor);

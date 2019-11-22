@@ -1,0 +1,111 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         lib="screens/tests/anycomponent.whlib">
+
+
+  <screen name="anycomponent" allowresize="true" flags="readvalue readselection readoverlays">
+    <actions>
+      <action name="updateoptions" onexecute="doupdateoptions" title="Update options" />
+      <action name="updatetitle" onexecute="doupdatetitle" title="Update title" />
+      <action name="updatelabel" onexecute="doupdatelabel" title="Update label" />
+      <action name="readvalue" onexecute="doreadvalue" title="Read" frameflags="readvalue" />
+      <action name="writevalue" onexecute="dowritevalue" title="Write" />
+      <action name="readselection" onexecute="doreadselection" title="Read" frameflags="readselection" />
+      <action name="writeselection" onexecute="dowriteselection" title="Write" />
+      <action name="validatevalue" onexecute="dovalidatevalue" title="Validate" />
+      <action name="readoverlays" onexecute="doreadoverlays" title="Read" frameflags="readoverlays" />
+      <action name="writeoverlays" onexecute="dowriteoverlays" title="Write" />
+    </actions>
+
+    <compositions>
+      <radiogroup name="radiogroup" />
+    </compositions>
+    <body name="body">
+      <split type="vertical" name="splitv">
+        <part>
+          <split type="horizontal" name="splith">
+            <part name="componentpanel" />
+            <part width="1pr" />
+          </split>
+        </part>
+        <part/>
+      </split>
+      <grid name="controlpanel">
+        <col width="1pr" />
+        <col />
+        <row>
+          <cell>
+            <line>
+              <checkbox name="visible" label="Visible" value="true" onchange="onvisiblechange" title="Options"/>
+              <checkbox name="enable" label="Enabled" value="true" onchange="onenablechange"/>
+              <checkbox name="required" label="Required" value="false" onchange="onrequiredchange"/>
+              <checkbox name="readonly" label="Readonly" value="false" onchange="onreadonlychange"/>
+            </line>
+            <line>
+              <textedit name="title" title="Title" />
+              <button action="updatetitle" name="updatetitlebutton"/>
+            </line>
+            <line>
+              <textedit name="value" title="Value" />
+              <textedit name="onchangecount" title="" valuetype="integer" readonly="true"/>
+              <text value="onchanges" />
+              <button name="readvaluebutton" title="Read" action="readvalue" />
+              <button name="writevaluebutton" title="Write" action="writevalue" />
+              <button action="validatevalue" />
+            </line>
+            <line>
+              <textedit name="selection" title="Selection" width="1pr"/>
+              <textedit name="onselectcount" title="" valuetype="integer" readonly="true"/>
+              <text value="onselects" />
+              <button action="readselection" /><button action="writeselection" />
+            </line>
+            <panel name="overlaypanel">
+              <line>
+                <textedit name="overlays" title="Overlays" width="1pr"/>
+                <button action="readoverlays" name="buttonreadoverlays" /><button action="writeoverlays" name="buttonwriteoverlays" />
+                <textedit name="onchangeoverlayscount" valuetype="integer" readonly="true" />
+                <text value="onchangeoverlays" />
+              </line>
+            </panel>
+            <line>
+              <textedit name="label" />
+              <button action="updatelabel" name="updatelabelbutton"/>
+            </line>
+            <button action="updateoptions" />
+            <line>
+              <textedit name="onchangecounter" enabled="false" />
+              <checkbox name="listenonchange" title="" label="listen onchange/onset" onchange="DoListenOnchange" />
+            </line>
+            <panel name="mainprops" />
+          </cell>
+          <cell>
+            <line>
+              <textedit name="enableontarget1" title="EnableOnTarget1" width="5x" />
+              <checkbox name="enableontarget1_include" title="" label="included1" onchange="onupdateenablecomponents" />
+            </line>
+            <line>
+              <textedit name="enableontarget2" title="EnableOnTarget2" width="5x" />
+              <checkbox name="enableontarget2_include" title="" label="included2" onchange="onupdateenablecomponents" />
+            </line>
+            <radiobutton name="radiobutton2" group="radiogroup" title="RadioButton" />
+            <button name="alternatedefault" title="Alternate default" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="roweditor" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <checkbox composition="row" cellname="checkbox" visible="false" />
+      <textedit composition="row" cellname="text" name="text" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+</screens>

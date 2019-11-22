@@ -1,0 +1,209 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::consilio/lib/pagelists.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
+
+
+PUBLIC OBJECTTYPE BetaWebDesign EXTEND BetaSharedDesign
+<
+  MACRO NEW()
+  {
+    IF(this->targetobject->name IN ["loadlib.html","loadlib.shtml"])
+      this->AddLoadlibToOutput("module::webhare_testsuite/publisher/testsitedesign-loadlib.whlib");
+
+    IF(this->targetobject->whfspath LIKE "*withdesignfolder*")
+    {
+      IF(this->designfolder != "site::webhare_testsuite.site/design/")
+        ABORT("Unexpected design folder: " || this->designfolder);
+    }
+    ELSE
+    {
+      IF(this->designfolder != "")
+        ABORT("Unexpected design folder: " || this->designfolder);
+    }
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetPageConfig()
+  {
+    RECORD pageconfig := BetaSharedDesign::GetPageConfig();
+
+    this->jsobjconfig := CELL[ ...this->jsobjconfig, siteconfig := this->siteconfig ];
+    this->contentbody := PTR EmbedWittyComponent("testsitedesign.witty:wrapbody", [ origbody := this->contentbody ]);
+
+    RETURN pageconfig;
+  }
+
+/*
+FIXME
+      wordpublisher->SetToclevelAsRawHTML(99);
+      wordpublisher->maxoutputwidth := 580; //constrain both tables and images to this width
+      wordpublisher->deletetextstyles := ["font-size:*"];
+*/
+  UPDATE RECORD FUNCTION GetCacheableSiteConfig()
+  {
+    RECORD ARRAY files :=
+        SELECT id, name, title
+          FROM system.fs_objects
+         WHERE parent = this->targetsite->id AND title != ""
+      ORDER BY name;
+    RETURN CELL[ files, uuid := GenerateUFS128BitId() ];
+  }
+>;
+
+PUBLIC OBJECTTYPE MyPrivilegedWebDesign EXTEND BetaWebDesign
+<
+  MACRO NEW()
+  {
+    IF(NOT RecordExists(SELECT FROM wrd.schemas))
+      THROW NEW Exception("Should have been able to see WRD");
+  }
+
+>;
+
+PUBLIC OBJECTTYPE WebPage EXTEND DynamicPageBase
+<
+  BOOLEAN didprepare;
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    this->didprepare := TRUE;
+
+    IF (RecordExists(webdesign->pageconfig))
+      INSERT CELL dynamicpageparameters := webdesign->pageconfig.dynamicpageparameters INTO webdesign->jsobjconfig;
+  }
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    //Loop back to self, and request the meaning of life
+    OBJECT browser := NEW WebBrowser;
+    INTEGER meaningoflife;
+    VARIANT ARRAY args;
+    STRING boemmessage;
+    STRING throwmessage;
+    RECORD wcsresult, wdsresult;
+
+    meaningoflife := browser->CallJSONRPC(GetRequestURL(), "GetMeaningOfLife", "Dent");
+
+    TRY
+    {
+      browser->CallJSONRPC(GetRequestURL(), "AbortBOEM");
+      boemmessage := "none";
+    }
+    CATCH (OBJECT e)
+    {
+      boemmessage := e->what;
+    }
+
+    TRY
+    {
+      browser->CallJSONRPC(GetRequestURL(), "AbortTHROW");
+      throwmessage := "none";
+    }
+    CATCH (OBJECT e)
+    {
+      throwmessage := e->what;
+    }
+
+    wcsresult := browser->CallJSONRPC(GetRequestURL(), "VerifyWebDesignContext");
+    wdsresult := browser->CallJSONRPC(GetRequestURL(), "VerifyWebDesign");
+
+    EmbedWittyComponent("mod::webhare_testsuite/tests/publisher-webdesign/testdata/dynamicpage.witty:testdyn",
+                       [ p1 := "Arg1"
+                       , baseurl := this->absolutebaseurl
+                       , suburl := this->subpath
+                       , meaningoflife := meaningoflife
+                       , boemmessage := boemmessage
+                       , throwmessage := throwmessage
+                       , wcsresult := wcsresult
+                       , wdsresult := wdsresult
+                       , assets := webdesign->IsUsingModuleDesign() ? webdesign->GetAllDependedAssets() : DEFAULT RECORD ARRAY
+                       , subpath := __pageinfo.subpath
+                       ]);
+  }
+
+  PUBLIC INTEGER FUNCTION WCS_GetMeaningOfLife(OBJECT webdesigncontext, STRING lastname)
+  {
+    IF(this->didprepare)
+      THROW NEW Exception("WebPage was prepared, but this is a WCS_ handler which should skip preparation");
+    IF(webdesigncontext EXTENDSFROM WebDesignBase)
+      THROW NEW Exception("webdesigncontext is a complete WebDesignBase, but this is a WCS_ handler which should only get a context");
+
+    RETURN lastname = "Dent" ? 42 : -1;
+  }
+
+  PUBLIC INTEGER FUNCTION WCS_AbortBOEM(OBJECT webdesigncontext)
+  {
+    ABORT("boem");
+  }
+
+  PUBLIC INTEGER FUNCTION WCS_AbortTHROW(OBJECT webdesigncontext)
+  {
+    THROW NEW Exception("thrown");
+  }
+
+  PUBLIC RECORD FUNCTION WDS_VerifyWebDesign(OBJECT webdesign)
+  {
+    IF (webdesign NOT EXTENDSFROM WebDesignBase)
+      THROW NEW Exception("Did not get a webdesign object");
+    IF(NOT this->didprepare)
+      THROW NEW Exception("WebPage was not prepared");
+
+    RETURN
+        [ siteroot :=     GetWittyVariable("siteroot") // test if we have the final pageconfig in the witty context
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION WCS_VerifyWebDesignContext(OBJECT webdesigncontext)
+  {
+    IF (webdesigncontext EXTENDSFROM WebDesignBase)
+      THROW NEW Exception("Did get a webdesign object instead of a context object");
+
+    RETURN
+        [ targetobjectid :=  webdesigncontext->targetobject->id
+        ];
+  }
+>;
+
+PUBLIC OBJECTTYPE PrivilegedWebPage EXTEND WebPage
+<
+>;
+
+PUBLIC OBJECTTYPE TestPageListProvider EXTEND PagelistProviderBase
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSitemapLinks(RECORD fileinfo)
+  {
+    //verify parameters
+    fileinfo := ValidateOptions([id:=0, type:=0, link:="", title:="", subpagebaseurl:="", modificationdate:=DEFAULT DATETIME]
+                               ,fileinfo
+                               ,[ required := ["id","type","link","title","subpagebaseurl","modificationdate"], title := "fileinfo"]);
+
+    RECORD ARRAY pages := [[ link := fileinfo.link
+                           , title := (fileinfo.title ?? "pagelistfile")
+                           , modificationdate := fileinfo.modificationdate
+                           , priority := 1.0
+                           , changefreq := "daily"
+                          ]]
+                          CONCAT
+                          SELECT link := fileinfo.subpagebaseurl || filename || '.html'
+                               , title := (fileinfo.title ?? "pagelistfile") || " - " || filename
+                               , modificationdate := MakeDate(2018,1,#subs + 1)
+                               , priority := #subs=0 ? 0.8 : 0.6
+                               , changefreq := #subs=0 ? "monthly" : "yearly"
+                            FROM TORecordArray(["sub1","sub2","sub3","sub4","sub5","sub6","sub7","sub8","sub9"],"filename") AS subs;
+
+    INSERT CELL consiliofields := [ myfield1 := "Seven"
+                                  ] INTO pages[7];
+    RETURN pages;
+  }
+>;

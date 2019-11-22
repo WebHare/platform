@@ -1,0 +1,1368 @@
+﻿<?wh
+/// @short Internet functions test
+
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/testdata.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/smtp.whlib"; //not testing it yet, but just check its compilable
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::ipc.whlib";
+
+RECORD ARRAY errors;
+RECORD result;
+
+MACRO TestUnRePack(STRING url)
+{
+  RECORD unpacked := UnpackURL(url);
+  STRING repacked := RepackURL(unpacked);
+  TestEq(url, repacked);
+}
+
+MACRO UrlTest()
+{
+  OpenTest("TestInternet: URLs");
+
+  TestEq("http://testurl/", DeleteVariableFromUrl("http://testurl/","myvar"));
+  TestEq("/testurl/",       DeleteVariableFromUrl("/testurl/","myvar"));
+
+  TestEq("",      GetVariableFromUrl("http://testurl/?","myvar"));
+  TestEq("test",  GetVariableFromUrl("http://testurl/?myvar=test","myvar"));
+  TestEq("test",  GetVariableFromUrl("http://testurl/?%4Dyvar=test","myvar"));
+  TestEq("test",  GetVariableFromUrl("http://testurl/?mmyvar=blaat&myvar=test","myvar"));
+  TestEq("test",  GetVariableFromUrl("http://testurl/?mmyvar=blaat&myvar=test&testvar=test","myvar"));
+  TestEq("blaat", GetVariableFromUrl("http://testurl/?myvar=blaat","myvar"));
+  TestEq("blaat", GetVariableFromUrl("http://testurl/?myvar=blaat&mmyvar=test","myvar"));
+  TestEq("test",  GetVariableFromUrl("http://testurl/?&&mmyvar=blaat&myvar=test&testvar=test","myvar"));
+  TestEq("test",  GetVariableFromUrl("http://testurl/?&&mmyvar=blaat&&&myvar=test&testvar=test","myvar"));
+  TestEq("test",  GetVariableFromUrl("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=test&testvar=test","myvar"));
+  TestEq("",      GetVariableFromUrl("http://testurl/?&&mmyvar=blaat&asd&gd&myvar&testvar=test","myvar"));
+  TestEq("",      GetVariableFromUrl("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=&testvar=test","myvar"));
+
+  TestEq("test",  GetVariableFromUrl("http://testurl/?myvar=test#fragment","myvar"));
+  TestEq("test",  GetVariableFromUrl("http://testurl/?mmyvar=blaat&myvar=test#fragment","myvar"));
+  TestEq("test",  GetVariableFromUrl("http://testurl/?mmyvar=blaat&myvar=test&testvar=test#fragment","myvar"));
+  TestEq("blaat", GetVariableFromUrl("http://testurl/?myvar=blaat&mmyvar=test#fragment","myvar"));
+  //unable to find a spec for the behaviour of '+'. this is how our webserver implements it:
+  TestEq("bob de beagle", GetVariableFromUrl("http://testurl/?myvar=bob+de+beagle&mmyvar=test#fragment","myvar"));
+  TestEq("", GetVariableFromUrl("http://testurl/?my+var=bob+de+beagle&mmyvar=test#fragment","my+var"));
+  TestEq("bob de beagle", GetVariableFromUrl("http://testurl/?my+var=bob+de+beagle&mmyvar=test#fragment","my var"));
+  TestEq("", GetVariableFromUrl("http://testurl/?myvar=bob+de+beagle&mmyvar=test#fragment","my+var"));
+
+  TestEq([[name := "myvar", value := "blaat"],[name := "mmyvar", value:="test"]], GetAllVariablesFromUrl("http://testurl/?myvar=blaat&mmyvar=test#fragment"));
+  TestEq([[name := "a", value := "1"],[name := "a", value:="2"]], GetAllVariablesFromUrl("http://testurl/?a=1&a=2#fragment"));
+  TestEq([[name := "a", value := "1"],[name := "a", value:="2"]], GetAllVariablesFromUrl("http://testurl/&a=1&a=2#fragment"));
+  TestEq([[name := "a", value := "1"],[name := "a", value:=""]], GetAllVariablesFromUrl("http://testurl/&a=1&a=#fragment"));
+  TestEq([[name := "myvar", value := "bob de beagle"]], GetAllVariablesFromUrl("http://testurl/?myvar=bob+de+beagle#fragment"));
+  TestEq([[name := "my var", value := "bob de beagle"]], GetAllVariablesFromUrl("http://testurl/?my+var=bob+de+beagle#fragment"));
+  TestEq(DEFAULT RECORD ARRAY, GetAllVariablesFromUrl("http://testurl/?=1&=2#fragment"));
+
+  TestEq("http://testurl/",                           DeleteVariableFromUrl("http://testurl/?","myvar"));
+  TestEq("http://testurl/",                           DeleteVariableFromUrl("http://testurl/?myvar=test","myvar"));
+  TestEq("http://testurl/",                           DeleteVariableFromUrl("http://testurl/?%4dyvar=test","myvar"));
+  TestEq("http://testurl/?mmyvar=blaat",              DeleteVariableFromUrl("http://testurl/?mmyvar=blaat","myvar"));
+  TestEq("http://testurl/?mmyvar=blaat",              DeleteVariableFromUrl("http://testurl/?mmyvar=blaat&myvar=test","myvar"));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", DeleteVariableFromUrl("http://testurl/?mmyvar=blaat&myvar=test&testvar=test","myvar"));
+  TestEq("http://testurl/",                           DeleteVariableFromUrl("http://testurl/?myvar=blaat","myvar"));
+  TestEq("http://testurl/?mmyvar=test",               DeleteVariableFromUrl("http://testurl/?myvar=blaat&mmyvar=test","myvar"));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", DeleteVariableFromUrl("http://testurl/?&&mmyvar=blaat&myvar=test&testvar=test","myvar"));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", DeleteVariableFromUrl("http://testurl/?&&mmyvar=blaat&&&myvar=test&testvar=test","myvar"));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", DeleteVariableFromUrl("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=test&testvar=test","myvar"));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", DeleteVariableFromUrl("http://testurl/?&&mmyvar=blaat&asd&gd&myvar&testvar=test","myvar"));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", DeleteVariableFromUrl("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=&testvar=test","myvar"));
+
+  TestEq("http://testurl/?my+var=blaat",              DeleteVariableFromUrl("http://testurl/?my+var=blaat","myvar"));
+  TestEq("http://testurl/",                           DeleteVariableFromUrl("http://testurl/?my+var=blaat","my var"));
+  TestEq("http://testurl/?my+var=blaat",              DeleteVariableFromUrl("http://testurl/?my+var=blaat","my+var"));
+
+  TestEq("http://testurl/",                           UpdateURLVariables("http://testurl/?", [myvar:=""]));
+  TestEq("http://testurl/",                           UpdateURLVariables("http://testurl/?myvar=test", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=blaat",              UpdateURLVariables("http://testurl/?mmyvar=blaat&myvar=test", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=blaat",              UpdateURLVariables("http://testurl/?mmyvar=blaat&%4Dyvar=test", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", UpdateURLVariables("http://testurl/?mmyvar=blaat&myvar=test&testvar=test", [myvar:=""]));
+  TestEq("http://testurl/",                           UpdateURLVariables("http://testurl/?myvar=blaat", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=test",               UpdateURLVariables("http://testurl/?myvar=blaat&mmyvar=test", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", UpdateURLVariables("http://testurl/?&&mmyvar=blaat&myvar=test&testvar=test", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", UpdateURLVariables("http://testurl/?&&mmyvar=blaat&&&myvar=test&testvar=test", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", UpdateURLVariables("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=test&testvar=test", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", UpdateURLVariables("http://testurl/?&&mmyvar=blaat&asd&gd&myvar&testvar=test", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", UpdateURLVariables("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=&testvar=test", [myvar:=""]));
+
+  TestEq("http://testurl/?my+var=test",               UpdateURLVariables("http://testurl/?my+var=test", [myvar:=""]));
+  TestEq("http://testurl/",                           UpdateURLVariables("http://testurl/?my+var=test", ["my var":=""]));
+  TestEq("http://testurl/?my+var=test",               UpdateURLVariables("http://testurl/?my+var=test", ["my+var":=""]));
+  TestEq("http://testurl/?my%20var=abc",              UpdateURLVariables("http://testurl/?my+var=test", ["my var":="abc"]));
+
+  TestEq("http://testurl/#fragment",                           DeleteVariableFromUrl("http://testurl/?myvar=test#fragment","myvar"));
+  TestEq("http://testurl/?mmyvar=blaat#fragment",              DeleteVariableFromUrl("http://testurl/?mmyvar=blaat&myvar=test#fragment","myvar"));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test#fragment", DeleteVariableFromUrl("http://testurl/?mmyvar=blaat&myvar=test&testvar=test#fragment","myvar"));
+  TestEq("http://testurl/?mmyvar=test#fragment",               DeleteVariableFromUrl("http://testurl/?myvar=blaat&mmyvar=test#fragment","myvar"));
+
+  TestEq("http://testurl/#fragment",                           UpdateURLVariables("http://testurl/?myvar=test#fragment", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=blaat#fragment",              UpdateURLVariables("http://testurl/?mmyvar=blaat&myvar=test#fragment", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test#fragment", UpdateURLVariables("http://testurl/?mmyvar=blaat&myvar=test&testvar=test#fragment", [myvar:=""]));
+  TestEq("http://testurl/?mmyvar=test#fragment",               UpdateURLVariables("http://testurl/?myvar=blaat&mmyvar=test#fragment", [myvar:=""]));
+
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", AddVariableToUrl("http://testurl/?mmyvar=blaat", "testvar", "test"));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", AddVariableToUrl("http://testurl/?mmyvar=blaat&", "testvar", "test"));
+  TestEq("http://testurl/?testvar=test",              AddVariableToUrl("http://testurl/?", "testvar", "test"));
+  TestEq("http://testurl/?testvar=test",              AddVariableToUrl("http://testurl/", "testvar", "test"));
+
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", UpdateURLVariables("http://testurl/?mmyvar=blaat", [ testvar:= "test"]));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test", UpdateURLVariables("http://testurl/?mmyvar=blaat&", [ testvar:= "test"]));
+  TestEq("http://testurl/?testvar=test",              UpdateURLVariables("http://testurl/?", [ testvar:= "test"]));
+  TestEq("http://testurl/?testvar=test",              UpdateURLVariables("http://testurl/", [ testvar:= "test"]));
+
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test#fragment", AddVariableToUrl("http://testurl/?mmyvar=blaat#fragment", "testvar", "test"));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test#fragment", AddVariableToUrl("http://testurl/?mmyvar=blaat&#fragment", "testvar", "test"));
+  TestEq("http://testurl/?testvar=test#fragment",              AddVariableToUrl("http://testurl/?#fragment", "testvar", "test"));
+  TestEq("http://testurl/?testvar=test#fragment",              AddVariableToUrl("http://testurl/#fragment", "testvar", "test"));
+
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test#fragment", UpdateURLVariables("http://testurl/?mmyvar=blaat#fragment", [ testvar:= "test"]));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test#fragment", UpdateURLVariables("http://testurl/?mmyvar=blaat&#fragment", [ testvar:= "test"]));
+  TestEq("http://testurl/?testvar=test#fragment",              UpdateURLVariables("http://testurl/?#fragment", [ testvar:= "test"]));
+  TestEq("http://testurl/?testvar=test#fragment",              UpdateURLVariables("http://testurl/#fragment", [ testvar:= "test"]));
+
+  TestEq("http://testurl/?myvar=new",                           ReplaceVariableInUrl("http://testurl/","myvar", "new"));
+  TestEq("http://testurl/?myvar=new",                           ReplaceVariableInUrl("http://testurl/?","myvar", "new"));
+  TestEq("http://testurl/?myvar=new",                           ReplaceVariableInUrl("http://testurl/?myvar=test","myvar", "new"));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new",              ReplaceVariableInUrl("http://testurl/?mmyvar=blaat&myvar=test","myvar", "new"));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test", ReplaceVariableInUrl("http://testurl/?mmyvar=blaat&myvar=test&testvar=test","myvar", "new"));
+  TestEq("http://testurl/?myvar=new",                           ReplaceVariableInUrl("http://testurl/?myvar=blaat","myvar", "new"));
+  TestEq("http://testurl/?myvar=new&mmyvar=test",               ReplaceVariableInUrl("http://testurl/?myvar=blaat&mmyvar=test","myvar", "new"));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test", ReplaceVariableInUrl("http://testurl/?&&mmyvar=blaat&myvar=test&testvar=test","myvar", "new"));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test", ReplaceVariableInUrl("http://testurl/?&&mmyvar=blaat&&&myvar=test&testvar=test","myvar", "new"));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test", ReplaceVariableInUrl("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=test&testvar=test","myvar", "new"));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test&myvar=new", ReplaceVariableInUrl("http://testurl/?&&mmyvar=blaat&asd&gd&myvar&testvar=test","myvar", "new"));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test", ReplaceVariableInUrl("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=&testvar=test","myvar", "new"));
+
+  TestEq("http://testurl/?myvar=new",                           UpdateURLVariables("http://testurl/",[ myvar := "new"]));
+  TestEq("http://testurl/?myvar=new",                           UpdateURLVariables("http://testurl/?",[ myvar := "new"]));
+  TestEq("http://testurl/?myvar=new",                           UpdateURLVariables("http://testurl/?myvar=test",[ myvar := "new"]));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new",              UpdateURLVariables("http://testurl/?mmyvar=blaat&myvar=test",[ myvar := "new"]));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test", UpdateURLVariables("http://testurl/?mmyvar=blaat&myvar=test&testvar=test",[ myvar := "new"]));
+  TestEq("http://testurl/?myvar=new",                           UpdateURLVariables("http://testurl/?myvar=blaat",[ myvar := "new"]));
+  TestEq("http://testurl/?myvar=new&mmyvar=test",               UpdateURLVariables("http://testurl/?myvar=blaat&mmyvar=test",[ myvar := "new"]));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test", UpdateURLVariables("http://testurl/?&&mmyvar=blaat&myvar=test&testvar=test",[ myvar := "new"]));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test", UpdateURLVariables("http://testurl/?&&mmyvar=blaat&&&myvar=test&testvar=test",[ myvar := "new"]));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test", UpdateURLVariables("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=test&testvar=test",[ myvar := "new"]));
+  TestEq("http://testurl/?mmyvar=blaat&testvar=test&myvar=new", UpdateURLVariables("http://testurl/?&&mmyvar=blaat&asd&gd&myvar&testvar=test",[ myvar := "new"]));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test", UpdateURLVariables("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=&testvar=test",[ myvar := "new"]));
+
+  TestEq("http://testurl/?myvar=new#fragment",                           ReplaceVariableInUrl("http://testurl/#fragment","myvar", "new"));
+  TestEq("http://testurl/?myvar=new#fragment",                           ReplaceVariableInUrl("http://testurl/?myvar=test#fragment","myvar", "new"));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new#fragment",              ReplaceVariableInUrl("http://testurl/?mmyvar=blaat&myvar=test#fragment","myvar", "new"));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test#fragment", ReplaceVariableInUrl("http://testurl/?mmyvar=blaat&myvar=test&testvar=test#fragment","myvar", "new"));
+  TestEq("http://testurl/?myvar=new&mmyvar=test#fragment",               ReplaceVariableInUrl("http://testurl/?myvar=blaat&mmyvar=test#fragment","myvar", "new"));
+
+  TestEq("http://testurl/?myvar=new#fragment",                           UpdateURLVariables("http://testurl/#fragment", [ myvar := "new"]));
+  TestEq("http://testurl/?myvar=new#fragment",                           UpdateURLVariables("http://testurl/?myvar=test#fragment", [ myvar := "new"]));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new#fragment",              UpdateURLVariables("http://testurl/?mmyvar=blaat&myvar=test#fragment", [ myvar := "new"]));
+  TestEq("http://testurl/?mmyvar=blaat&myvar=new&testvar=test#fragment", UpdateURLVariables("http://testurl/?mmyvar=blaat&myvar=test&testvar=test#fragment",[ myvar := "new"]));
+  TestEq("http://testurl/?myvar=new&mmyvar=test#fragment",               UpdateURLVariables("http://testurl/?myvar=blaat&mmyvar=test#fragment",[ myvar := "new"]));
+
+  TestEq("http", GetProtocolFromURL("http://www.b-lex.nl/"));
+  TestEq("https", GetProtocolFromURL("https://www.b-lex.nl/"));
+  TestEq("mailto", GetProtocolFromURL("mailto:arnold@example.nl"));
+  TestEq("ftp", GetProtocolFromURL("ftp://"));
+
+  FOREVERY (RECORD rec FROM testdata.internet.testlinks.unpackurl)
+    TestEq(rec.expect, GetCell(UnpackURL(rec.url), rec.part));
+
+  FOREVERY (RECORD rec FROM testdata.internet.testlinks.unpackrepack)
+    TestUnRePack(rec.url);
+
+  TestEq("http://testurl/?myvar=blaat", UpdateURLVariables("http://testurl/&testvar=test&myvar=blaat", [testvar:=""]));
+  TestEq("http://testurl/?myvar=blaat", UpdateURLVariables("http://testurl/;testvar=test;myvar=blaat", [testvar:=""]));
+  TestEq("http://testurl/?myvar=blaat", UpdateURLVariables("http://testurl/?testvar=test?myvar=blaat", [testvar:=""]));
+
+  //Survive very odd usernames
+  RECORD torepack := [ scheme := "http"
+                     , host := "webhare.moe.btc.b-lex.com"
+                     , user := "http://webhare.moe.btc.b-lex.com/"
+                     , password := "http://webhare.moe.btc.b-lex.com/"
+                     , port := 80
+                     , urlpath := "wh_services/system/admin"
+                     ];
+
+  STRING repacked := RepackURL(torepack);
+  RECORD unpacked := UnpackURL(repacked);
+
+  TestEq("http://http%3A%2F%2Fwebhare.moe.btc.b-lex.com%2F:http%3A%2F%2Fwebhare.moe.btc.b-lex.com%2F@webhare.moe.btc.b-lex.com/wh_services/system/admin", repacked);
+  TestEq(torepack.scheme, unpacked.scheme);
+  TestEq(torepack.host, unpacked.host);
+  TestEq(torepack.user, unpacked.user);
+  TestEq(torepack.password, unpacked.password);
+  TestEq(torepack.urlpath, unpacked.urlpath);
+
+  TestEq(FALSE, UnpackURL("http://webhare.moe.sf.b-lex.com/").specifiedport);
+  TestEq(TRUE,  UnpackURL("http://webhare.moe.sf.b-lex.com:80/").specifiedport);
+
+  TestEq("http://webhare.moe.sf.b-lex.com",  UnpackURL("http://webhare.moe.sf.b-lex.com").origin);
+  //drop the port if equal to default. https://tools.ietf.org/id/draft-abarth-origin-03.html 4.1.5: 'If the port part of the origin tuple gives a port that is different from the default port ....'
+  TestEq("http://webhare.moe.sf.b-lex.com",  UnpackURL("http://webhare.moe.sf.b-lex.com:80/").origin);
+  TestEq("http://webhare.moe.sf.b-lex.com:443",  UnpackURL("http://webhare.moe.sf.b-lex.com:443/abc/def").origin);
+  TestEq("https://webhare.moe.sf.b-lex.com:8888",  UnpackURL("https://webhare.moe.sf.b-lex.com:8888/abc/def").origin);
+  TestEq("https://webhare.moe.sf.b-lex.com:8888",  UnpackURL("https://sysop:secret@webhare.moe.sf.b-lex.com:8888/abc/def").origin);
+  TestEq("ftp://webhare.moe.sf.b-lex.com",  UnpackURL("ftp://webhare.moe.sf.b-lex.com").origin);
+  TestEq("",  UnpackURL("mailto:example@example.org").origin);
+
+
+  TestEQ(TRUE, IsAbsoluteURL("ftp://webhare.moe.sf.b-lex.com", FALSE));
+  TestEQ(TRUE, IsAbsoluteURL("%40:%41", FALSE));
+  TestEQ(FALSE, IsAbsoluteURL("?app=webshop:", FALSE));
+  TestEQ(FALSE, IsAbsoluteURL("?app=webshop:order(slaapkamerweb,007799)", FALSE));
+  TestEQ(FALSE, IsAbsoluteURL("", FALSE));
+
+  CloseTest("TestInternet: URLs");
+}
+
+MACRO TestDataURL()
+{
+  OpenTest("TestInternet: TestDataURL");
+
+  TestEq("data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=", GetDataUrl(StringToBLob(DecodeBase64("R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=")), "dummy.gif"));
+
+  Testeq(DEFAULT RECORD, ParseDataURL("http://nu.nl/"));
+  TestEq([contenttype := "image/gif", data := StringToBlob(DecodeBase64("R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs="))], ParseDataURL("data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs="));
+  TestEq([contenttype := "", data := StringToBlob("A brief note")], ParseDataURL("data:,A%20brief%20note"));
+  //ADDME add if we support all charsets Testeq([contenttype := "text/plain", data := StringToBlob("abc")], ParseDataURL("data:text/plain;charset=iso-8859-7,%be%fg%be"));
+  Testeq([contenttype := "text/plain", data := StringToBlob("nbsp=\u00A0")], ParseDataURL("data:text/plain;charset=iso-8859-1,nbsp=%A0"));
+  Testeq([contenttype := "text/plain", data := StringToBlob("")], ParseDataURL("data:text/plain"));
+  Testeq(DEFAULT RECORD, ParseDataURL("data:text/plain;charset=iso-8859-7"));
+
+  CloseTest("TestInternet: TestDataURL");
+}
+
+/** @param best_rel_url If specified, the proper relative URL (in case rel_url is an alias) */
+MACRO DoAbsRel(STRING abs_url, STRING base_url, STRING rel_url, STRING best_rel_url DEFAULTSTO "-:-")
+{
+  IF (best_rel_url != "-:-" AND best_rel_url=rel_url)
+    Abort("Test logic error: best_rel_url must differ from rel_url if specified");
+
+  IF(best_rel_url="-:-")
+    best_rel_url := rel_url;
+
+  STRING relurlresolved := ResolveToAbsoluteURL(base_url, rel_url);
+  IF(relurlresolved != abs_url)
+  {
+    Print("ResolveToAbsoluteURL('" || EncodEJava(base_url) || "', '" || EncodeJava(rel_url) || "') = '" || EncodeJava(relurlresolved) || "'\n");
+    TestEq( abs_url, relurlresolved);
+  }
+
+  STRING relurlresolved2 := ResolveToAbsoluteURL(base_url, best_rel_url);
+  IF(relurlresolved2 != abs_url)
+  {
+    Print("ResolveToAbsoluteURL('" || EncodEJava(base_url) || "', '" || EncodeJava(best_rel_url) || "') = '" || EncodeJava(relurlresolved2) || "'\n");
+    TestEq( abs_url, relurlresolved2);
+  }
+
+
+
+  /* Test whether the reverse gives us the specified URL */
+  STRING reversed_relurl := MakeRelativeLinkFromURL(base_url, abs_url);
+  IF(reversed_relurl != best_rel_url)
+  {
+    Print("MakeRelativeLinkFromURL('" || EncodeJava(base_url) || "', '" || EncodeJava(abs_url) || "') = '" || EncodeJava(reversed_relurl) || "'\n");
+    TestEq( best_rel_url, reversed_relurl);
+  }
+
+  /* Now test that this URL is indeed accepted as the best one possible */
+  TestEq( best_rel_url, MakeRelativeLinkFromURL(base_url, best_rel_url));
+}
+
+MACRO InvalidBase_AbsTest()
+{
+  OpenTest("TestInternet: InvalidBase_AbsTest"); //tests with invalid base urls (making reversing impossible)
+  TestEq("http://testurl", ResolveToAbsoluteURL("http://testurl", ""));
+  TestEq("http://testurl", ResolveToAbsoluteURL("http://testurl", "./"));
+  TestEq("./", MakeRelativeLinkFromURL("http://testurl", "http://testurl/"));
+
+  //regression test
+  TestEq("http://testurl/", ResolvetoAbsoluteURL("", "http://testurl/"));
+  TestEq("", ResolvetoAbsoluteURL("", "/abc/test.html"));
+
+  CloseTest("TestInternet: InvalidBase_AbsTest");
+}
+
+MACRO AbsRelTest()
+{
+  OpenTest("TestInternet: AbsRelTest");
+
+  // Tests records are present in wh::internal/testdata.whlib
+
+  FOREVERY (RECORD rec FROM testdata.internet.testlinks.absrel)
+    IF (NOT CellExists(rec, "BESTREL"))
+      DoAbsRel(rec.abs, rec.base, rec.rel);
+    ELSE
+      DoAbsRel(rec.abs, rec.base, rec.rel, rec.bestrel);
+
+  FOREVERY (RECORD rec FROM testdata.internet.testlinks.resolvetoabsolute)
+    TestEq(rec.expect, ResolveToAbsoluteURL(rec.base, rec.url));
+
+  FOREVERY (RECORD rec FROM testdata.internet.testlinks.makerelativelink)
+    IF (NOT CellExists(rec, "MODE"))
+      TestEq(rec.expect, MakeRelativeLinkFromURL(rec.base, rec.url));
+    ELSE
+      TestEq(rec.expect, MakeRelativeLinkFromURL(rec.base, rec.url, rec.mode));
+
+  CloseTest("TestInternet: AbsRelTest");
+}
+
+MACRO InternetTest()
+{
+  OpenTest("TestInternet: Hostnames");
+
+  //--- INTERNET functions ---
+  TestEq("aaaa", GetHostnameFromUrl("http://aaaa/"));
+
+  TestEq("aaab", GetHostnameFromUrl("http://aaab:aa/"));
+
+  TestEq("aaac", GetHostnameFromUrl("http://aaac/def/"));
+
+  TestEq(TRUE, IsValidHostname("www.b-lex.com"));
+  TestEq(TRUE, IsValidHostname("www.b-lex.com."));
+
+  TestEq(TRUE, IsValidHostname("gibson"));
+
+  TestEq(FALSE, IsValidHostname("-gibson"));
+
+  TestEq(FALSE, IsValidHostname("__host name__"));
+
+  TestEq(FALSE, IsValidHostname(""));
+
+  TestEq(FALSE, IsValidHostname(".b-lex.com"));
+
+  TestEq(TRUE, IsValidPlainHTTPURL("http://www.b-lex.com/"));
+
+  TestEq(TRUE, IsValidPlainHTTPURL("http://www.b-lex.com/test/test"));
+
+  TestEq(FALSE, IsValidPlainHTTPURL("http://aaa:aa:aa/"));
+
+  TestEq(FALSE, IsValidPlainHTTPURL("aaa:aa:aa"));
+
+  TestEq(TRUE, IsValidPlainHTTPURL("https://www.b-lex.com/"));
+
+  TestEq(TRUE, IsValidPlainHTTPURL("http://www.b-lex.com"));
+
+  TestEq(TRUE,  IsValidPlainHTTPURL("http://aa:aa@www.b-lex.com/"));
+
+  TestEq(TRUE, IsValidPlainHTTPURL("http://aa:aa:@www.b-lex.com/"));
+  TestEq(TRUE, IsValidPlainHTTPURL("http://:aa@www.b-lex.com/"));
+  TestEq(TRUE, IsValidPlainHTTPURL("http://aa:@www.b-lex.com/"));
+
+  TestEq(TRUE,  IsValidPlainHTTPURL("http://aa@www.b-lex.com:8000/"));
+  TestEq(FALSE, IsValidPlainHTTPURL("http://aa@www.b-lex.com:xx/"));
+  TestEq(FALSE, IsValidPlainHTTPURL("http://aa@www.b-lex.com:/"));
+
+  TestEq(FALSE, IsValidPlainHTTPURL("http://"));
+
+  TestEq(80,    GetPortFromUrl("http://aaac/def/"));
+  TestEq(443,   GetPortFromUrl("https://aaac/def/"));
+  TestEq(8001,  GetPortFromUrl("http://aaac:8001/def/"));
+  TestEq(21,    GetPortFromUrl("ftp://aaac/def/"));
+  TestEq(80,    GetPortFromUrl("ftp://aaac:80/def/"));
+  TestEq(12345, GetPortFromUrl("https://aaac:12345/def/"));
+  TestEq(0,     GetPortFromUrl("htptps://aaac:12345/def/"));
+  TestEq(80,     GetPortFromUrl("http://aaac"));
+  TestEq(90,     GetPortFromUrl("http://aaac:90"));
+
+  TestEq("/", GetPathFromURL("http://aaaa/"));
+  TestEq("/", GetPathFromURL("http://aaab:aa"));
+  TestEq("/", GetPathFromURL("http://aaab:25"));
+  TestEq("/", GetPathFromURL("http://aaab"));
+  TestEq("/test1/", GetPathFromURL("http://aaaa/test1/"));
+  TestEq("//test2/", GetPathFromURL("http://aaab:aa//test2/"));
+
+  CloseTest("TestInternet: Hostnames");
+}
+
+
+PUBLIC MACRO IPtesT()
+{
+  OpenTest("TestInternet: IP addresses");
+
+  Testeq("1.2.3.4/32", CanonicalizeIPAddress("ipv4:001.002.003.004/32",TRUE)); //support the old prefixes
+  Testeq("1.2.3.4/32", CanonicalizeIPAddress("001.002.003.004/32",TRUE));
+  Testeq("1.2.3.255/32", CanonicalizeIPAddress("001.002.003.255/32",TRUE));
+  Testeq("1.2.3.0/32", CanonicalizeIPAddress("001.002.003.000/32",TRUE));
+  Testeq("1.2.3.0/24", CanonicalizeIPAddress("001.002.003.000/24",TRUE));
+  Testeq("1.2.3.0/24", CanonicalizeIPAddress("1.2.3.*",TRUE));
+  Testeq("1.2.0.0/16", CanonicalizeIPAddress("1.2.*.*",TRUE));
+  Testeq("1.0.0.0/8", CanonicalizeIPAddress("1.*.*.*",TRUE));
+  Testeq("0.0.0.0/0", CanonicalizeIPAddress("*.*.*.*",TRUE));
+  Testeq("", CanonicalizeIPAddress("001.002.003.256/24",TRUE));
+
+  Testeq("252.253.254.255/32", CanonicalizeIPAddress("252.253.254.255/32",TRUE));
+  Testeq("252.253.254.254/31", CanonicalizeIPAddress("252.253.254.255/31",TRUE));
+  Testeq("252.253.254.240/28", CanonicalizeIPAddress("252.253.254.255/28",TRUE));
+  Testeq("252.253.254.0/24", CanonicalizeIPAddress("252.253.254.255/24",TRUE));
+  Testeq("252.253.254.0/23", CanonicalizeIPAddress("252.253.254.255/23",TRUE));
+  Testeq("252.128.0.0/9", CanonicalizeIPAddress("252.253.254.255/09",TRUE));
+  Testeq("252.0.0.0/6", CanonicalizeIPAddress("252.253.254.255/6",TRUE));
+  Testeq("128.0.0.0/1", CanonicalizeIPAddress("252.253.254.255/01",TRUE));
+  Testeq("0.0.0.0/0", CanonicalizeIPAddress("252.253.254.255/0",TRUE));
+  Testeq("", CanonicalizeIPAddress("256.253.254.255/0",TRUE));
+
+  Testeq("::/128", CanonicalizeIPAddress("0::0",TRUE));
+  Testeq("::", CanonicalizeIPAddress("0::0",FALSE));
+  Testeq("::1/128", CanonicalizeIPAddress("::1",TRUE));
+  Testeq("1::/128", CanonicalizeIPAddress("1::",TRUE));
+  Testeq("fe80::2aa:ff:fe9a:4ca2", CanonicalizeIPAddress("FE80:0:0:0:2AA:FF:FE9A:4CA2",FALSE));
+  Testeq("ff02::2", CanonicalizeIPAddress("FF02:0:0:0:0:0:0:0002",FALSE));
+  Testeq("1:2:3::6:7:8", CanonicalizeIPAddress("1:2:3:0:0:6:7:8",FALSE));
+  Testeq("1:2:3::", CanonicalizeIPAddress("1:2:3:0:0:0:0:0",FALSE));
+  Testeq("::4:5:6", CanonicalizeIPAddress("0:0:0:0:0:4:5:6",FALSE));
+  Testeq("0:1:0:0:1::", CanonicalizeIPAddress("0:1:0:0:1:0:0:0",FALSE));
+  Testeq("fe80::2aa:ff:fe9a:4ca2/128", CanonicalizeIPAddress("FE80:0:0:0:2AA:FF:FE9A:4CA2",TRUE));
+  Testeq("fe80::2aa:ff:fe9a:4ca2/128", CanonicalizeIPAddress("FE80:0:0:0:2AA:FF:FE9A:4CA2/128",TRUE));
+  Testeq("fe80::2aa:ff:fe9a:4ca2/127", CanonicalizeIPAddress("FE80:0:0:0:2AA:FF:FE9A:4CA2/127",TRUE));
+  Testeq("fe80::2aa:ff:fe9a:4ca0/126", CanonicalizeIPAddress("FE80:0:0:0:2AA:FF:FE9A:4CA2/126",TRUE));
+  Testeq("fe80:0:2aa:ff::/64", CanonicalizeIPAddress("FE80:0:2AA:FF::FE9A:4CA2/64",TRUE));
+  Testeq("fe80:0:2aa:fe::/63", CanonicalizeIPAddress("FE80:0:2AA:FF::FE9A:4CA2/63",TRUE));
+  Testeq("fe80::/16", CanonicalizeIPAddress("FE80:0:0:0:2AA:FF:FE9A:4CA2/16",TRUE));
+  Testeq("c000::/2", CanonicalizeIPAddress("FE80:0:0:0:2AA:FF:FE9A:4CA2/2",TRUE));
+  Testeq("::/0", CanonicalizeIPAddress("FE80:0:0:0:2AA:FF:FE9A:4CA2/0",TRUE));
+
+
+  //ipv4
+  TestEq(TRUE, IsValidIPAddress("127.0.0.1"));
+  TestEq(FALSE, IsValidIPAddress("127.0.0."));
+  TestEq(FALSE, IsValidIPAddress(".0.0.1"));
+  TestEq(FALSE, IsValidIPAddress("255.255.255.256"));
+  TestEq(TRUE, IsValidIPAddress("255.255.255.255"));
+  TestEq(TRUE, IsValidIPAddress("0.0.0.0"));
+  TestEq(FALSE, IsValidIPAddress("0A.0.0.0"));
+  TestEq(FALSE, IsValidIPAddress("-1.0.0.0"));
+
+  //ipv6
+  TestEq(TRUE, IsValidIPAddress("2001:1690:22:102:1569:2005:b84a:9812"));
+  TestEq(FALSE, IsValidIPAddress("20011:1690:22:102:1569:2005:b84a:9812"));
+  TestEq(FALSE, IsValidIPAddress("2001:1690:22:102:1569:2005:g84a:9812"));
+  TestEq(TRUE, IsValidIPAddress("fe80::223:54ff:fe79:43a7"));
+  TestEq(TRUE, IsValidIPAddress("fe80::223:54ff:FE79:43A7"));
+  TestEq(TRUE, IsValidIPAddress("::"));
+  TestEq(TRUE, IsValidIPAddress("::0"));
+  TestEq(TRUE, IsValidIPAddress("0::"));
+  TestEq(TRUE, IsValidIPAddress("1::"));
+  TestEq(TRUE, IsValidIPAddress("::1"));
+  TestEq(TRUE, IsValidIPAddress("1::1"));
+  TestEq(TRUE, IsValidIPAddress("ffff::"));
+  TestEq(TRUE, IsValidIPAddress("::ffff"));
+  TestEq(TRUE, IsValidIPAddress("fe80::1"));
+  TestEq(TRUE, IsValidIPAddress("fe80::5efe:a08:318"));
+  TestEq(FALSE, IsValidIPAddress("fe80:::5efe:a08:318"));
+  TestEq(FALSE, IsValidIPAddress("fe80::5efe::a08:318"));
+  TestEq(FALSE, IsValidIPAddress(":2001:1690:22:102:1569:2005:b84a:9812"));
+  TestEq(FALSE, IsValidIPAddress("::2001:1690:22:102:1569:2005:b84a:9812"));
+  TestEq(FALSE, IsValidIPAddress("2001:1690:22:102:1569:2005:b84a:9812:"));
+  TestEq(FALSE, IsValidIPAddress("2001:1690:22:102:1569:2005:b84a:9812::"));
+  TestEq(FALSE, IsValidIPAddress("2001:1690:22:102:1569:2005::b84a:9812"));
+  TestEq(FALSE, IsValidIPAddress("2001:1690:22:102:1569:2005:b84a:9812:9812"));
+  TestEq(FALSE, IsValidIPAddress("::1::"));
+  TestEq(FALSE, IsValidIPAddress("1::2::"));
+  TestEq(FALSE, IsValidIPAddress("::1::2"));
+
+  TestEq(FALSE, IsPrivateIPAddress("126.255.255.255"));
+  TestEq(TRUE, IsPrivateIPAddress("127.0.0.0"));
+  TestEq(TRUE, IsPrivateIPAddress("127.0.0.1"));
+  TestEq(TRUE, IsPrivateIPAddress("127.255.255.255"));
+  TestEq(FALSE, IsPrivateIPAddress("192.167.255.255"));
+  TestEq(TRUE, IsPrivateIPAddress("192.168.0.0"));
+  TestEq(TRUE, IsPrivateIPAddress("192.168.255.255"));
+  TestEq(TRUE, IsPrivateIPAddress("192.168.10.1"));
+  TestEq(FALSE, IsPrivateIPAddress("172.15.255.255"));
+  TestEq(TRUE, IsPrivateIPAddress("172.16.0.0"));
+  TestEq(TRUE, IsPrivateIPAddress("172.31.255.255"));
+  TestEq(FALSE, IsPrivateIPAddress("172.131.255.255"));
+  TestEq(FALSE, IsPrivateIPAddress("169.253.255.255"));
+  TestEq(TRUE, IsPrivateIPAddress("169.254.0.0"));
+  TestEq(TRUE, IsPrivateIPAddress("169.254.255.255"));
+  TestEq(FALSE, IsPrivateIPAddress("169.255.0.0"));
+  TestEq(FALSE, IsPrivateIPAddress("9.255.255.255"));
+  TestEq(TRUE, IsPrivateIPAddress("10.0.0.0"));
+  TestEq(TRUE, IsPrivateIPAddress("10.255.255.255"));
+  TestEq(FALSE, IsPrivateIPAddress("11.0.0.0"));
+  TestEq(FALSE, IsPrivateIPAddress("172.132.0.0"));
+  TestEq(FALSE, IsPrivateIPAddress("255.255.255.255"));
+  TestEq(FALSE, IsPrivateIPAddress("0.0.0.0"));
+  TestEq(FALSE, IsPrivateIPAddress("::"));
+  TestEq(FALSE, IsPrivateIPAddress("::0"));
+  TestEq(FALSE, IsPrivateIPAddress("0::"));
+  TestEq(FALSE, IsPrivateIPAddress("1::"));
+  TestEq(TRUE, IsPrivateIPAddress("::1"));
+  TestEq(FALSE, IsPrivateIPAddress("1::1"));
+  TestEq(FALSE, IsPrivateIPAddress("ffff::"));
+  TestEq(FALSE, IsPrivateIPAddress("::ffff"));
+  TestEq(FALSE, IsPrivateIPAddress("2001:1690:22:102:1569:2005:b84a:9812"));
+  TestEq(FALSE, IsPrivateIPAddress("2001:1690:22:102:1569:2005:g84a:9812"));
+  TestEq(FALSE, IsPrivateIPAddress(".0.0.1"));
+  TestEq(TRUE, IsPrivateIPAddress("fc00::1"));
+  TestEq(TRUE, IsPrivateIPAddress("fcff::fff"));
+  TestEq(TRUE, IsPrivateIPAddress("fd12:3456:789a:1::1"));
+  TestEq(TRUE, IsPrivateIPAddress("FD12:3456:789a:1::1"));
+  TestEq(TRUE, IsPrivateIPAddress("fe80::1"));
+  TestEq(TRUE, IsPrivateIPAddress("fe8f::ffff"));
+  TestEq(TRUE, IsPrivateIPAddress("febf::ffff"));
+  TestEq(FALSE, IsPrivateIPAddress("fec0::0"));
+
+  CloseTest("TestInternet: IP addresses");
+}
+
+RECORD FUNCTION CreateSocketPair(BOOLEAN ipv6)
+{
+  //let's first get a socket on which we'll accept a connection
+  INTEGER accepting_socket := CreateTCPSocket();
+  IF (accepting_socket<=0)
+    ABORT("CreateTCPSocket accepter failure: returned " || accepting_socket);
+
+  //and get a socket on which we'll create a connection
+  INTEGER connecting_socket := CreateTCPSocket();
+  IF (connecting_socket<=0)
+    ABORT("CreateTCPSocket connecter failure: returned " || connecting_socket);
+
+  //bind the socket to a local port (we don't care which)
+  TestEq(TRUE, BindSocket(accepting_socket, ipv6 ? "::0" : "", 0));
+  //get the port on which we're listing
+  INTEGER accepting_port := GetLocalSocketPort(accepting_socket);
+  IF (accepting_port<1024 OR accepting_port>65535)
+    ABORT("Illegal port returned by GetLocalPort: " || accepting_port);
+
+  //put the accept socket in listening mode
+  TestEq(TRUE, ListenOnTCPSocket(accepting_socket));
+
+  //try to connect our connecting socket to the local port (should succeed now)
+  IF (NOT ConnectSocket(connecting_socket, ipv6 ? "::1" : "127.0.0.1", accepting_port))
+  {
+    INTEGER i:=0;
+    FOR(; i<10; i:=i+1)
+    {
+      Sleep(100);
+      IF(ConnectSocket(connecting_socket, ipv6 ? "::1" : "127.0.0.1", accepting_port))
+        BREAK;
+    }
+    TestEq(TRUE,i<10);
+  }
+
+  //accept our incoming connection
+  INTEGER incoming_socket := AcceptOnTCPSocket(accepting_socket);
+  IF (incoming_socket <=0 )
+    ABORT("Error on accepting incoming socket: " || incoming_socket);
+
+
+  //ensure the connection was properly established
+  TestEq(GetLocalSocketIp(incoming_socket), GetRemoteSocketIp(connecting_socket));
+  TestEq(GetRemoteSocketIp(incoming_socket), GetLocalSocketIp(connecting_socket));
+  TestEq(GetLocalSocketPort(incoming_socket), GetRemoteSocketPort(connecting_socket));
+  TestEq(GetRemoteSocketPort(incoming_socket), GetLocalSocketPort(connecting_socket));
+  TestEq(accepting_port, GetRemoteSocketPort(connecting_socket));
+
+  CloseSocket(accepting_socket);
+
+  RETURN
+      [ connecting_socket :=    connecting_socket
+      , incoming_socket :=      incoming_socket
+      ];
+}
+
+MACRO SocketTCPTest()
+{
+  OpenTest("TestInternet: Socket TCP test");
+
+  INTEGER testsocket := CreateTCPSocket();
+  TestEq(FALSE, ConnectSocket(testsocket, "", 0));
+  TestEq(-16, GetLastSocketError(testsocket)); //unable to resolve
+
+  CloseSocket(testsocket);
+
+  RECORD pair := CreateSocketPair(FALSE);
+
+  //test timing out
+  SetSocketTimeout(pair.connecting_socket,1);
+  TestEq("", ReadFromSocket(pair.connecting_socket));
+  TestEq(-9, GetLastSocketError(pair.connecting_socket));
+
+  //timeouts shouldn't kill sockets
+  SetSocketTimeout(pair.connecting_socket,15);
+  PrintTo(pair.connecting_socket,"test\r\n");
+  TestEq("test\r\n", ReadFromSocket(pair.incoming_socket));
+
+  ShutdownSocket(pair.connecting_socket, FALSE, TRUE);
+  TestEq("", ReadFromSocket(pair.incoming_socket));
+  TestEq(0, GetLastSocketError(pair.connecting_socket));
+
+  CloseSocket(pair.connecting_socket);
+  CloseSocket(pair.incoming_socket);
+
+  //test connect to 0
+  INTEGER acceptsocket := CreateTCpSocket();
+  INTEGER connectingsocket := CreateTCPSocket();
+  TestEq(TRUE, BindSocket(acceptsocket, "", 0));
+  TestEQ(TRUE, ListenOnTCPSocket(acceptsocket));
+  TestEq(TRUE, ConnectSocket(connectingsocket, "0.0.0.0", GetLocalSocketPort(acceptsocket)));
+  CloseSocket(connectingsocket);
+  CloseSocket(acceptsocket);
+
+  OBJECT acceptsocket2 := CreateSocket("TCP");
+  OBJECT connectingsocket2 := CreateSocket("TCP");
+  TestEQ(TRUE, acceptsocket2->Bind("", 0));
+  TestEQ(TRUE, acceptsocket2->Listen());
+  OBJECT promise := connectingsocket2->AsyncConnect("0.0.0.0", acceptsocket2->localport);
+  TestEQ(TRUE, WaitForPromise(promise));
+  OBJECT incomingsocket := acceptsocket2->Accept();
+  TestEQ(TRUE, ObjectExists(incomingsocket));
+
+  acceptsocket2->Close();
+  incomingsocket->Close();
+  connectingsocket2->Close();
+
+  CloseTest("TestInternet: Socket TCP test");
+}
+
+MACRO SocketUDPTest()
+{
+  OpenTest("TestInternet: Socket UDP test");
+
+  INTEGER left_udp_socket := CreateUDPSocket();
+  INTEGER right_udp_socket := CreateUDPSocket();
+
+  IF (NOT BindSocket(left_udp_socket, "", 0)) //bind anywhere
+    ABORT("UDP BindSocket failure: returned " || GetSocketErrorText(GetLastSocketError(left_udp_socket)));
+  IF (NOT BindSocket(right_udp_socket, "", 0)) //bind anywhere
+    ABORT("UDP BindSocket failure: returned " || GetSocketErrorText(GetLastSocketError(right_udp_socket)));
+
+  IF (GetLocalSocketPort(left_udp_socket) = 0)
+    ABORT("UDP BindSocket did not bind to a port");
+
+  IF (NOT ConnectSocket(right_udp_socket, "127.0.0.1", GetLocalSocketPort(left_udp_socket)))
+    ABORT("UDP ConnectSocket failure: returned " || GetSocketErrorText(GetLastSocketError(right_udp_socket)));
+  IF (NOT ConnectSocket(left_udp_socket, "127.0.0.1", GetLocalSocketPort(right_udp_socket)))
+    ABORT("UDP ConnectSocket failure: returned " || GetSocketErrorText(GetLastSocketError(left_udp_socket)));
+
+  INTEGER tries ;
+  FOR (tries := 0 ; tries < 5; tries := tries + 1)
+  {
+    PrintTo(right_udp_socket, "test 1 2 3");
+
+    INTEGER waiter := WaitForMultiple( [left_udp_socket], DEFAULT INTEGER ARRAY, 100);
+    IF (waiter = left_udp_socket)
+    {
+      TestEq("test 1 2 3", ReadFromSocket(left_udp_socket));
+      BREAK;
+    }
+  }
+  IF (tries >= 5)
+    ABORT("UDP: Did not receive any response");
+
+  INTEGER waiter := WaitForMultiple( [left_udp_socket], DEFAULT INTEGER ARRAY, 100);
+  TestEq(-1, waiter); //expect timeout
+
+  /* Now try the reverse direction */
+  FOR (tries := 0 ; tries < 5; tries := tries + 1)
+  {
+    PrintTo(left_udp_socket, "test 4 5 6");
+
+    INTEGER waiter := WaitForMultiple( [right_udp_socket], DEFAULT INTEGER ARRAY, 100);
+    IF (waiter = right_udp_socket)
+    {
+      TestEq("test 4 5 6", ReadFromSocket(right_udp_socket));
+      BREAK;
+    }
+  }
+  IF (tries >= 5)
+    ABORT("UDP: Did not receive any response in reverse direction");
+
+  waiter := WaitForMultiple( [right_udp_socket], DEFAULT INTEGER ARRAY, 100);
+  TestEq(-1, waiter); //expect timeout
+
+  CloseSocket(left_udp_socket);
+
+  //If we send to the left socket now, we should receive a disconnect error
+  FOR (tries := 0 ; tries < 5; tries := tries + 1)
+  {
+    PrintTo(right_udp_socket, "test 7 8 9");
+    IF(GetLastSocketError(right_udp_socket)!=0)
+    { //ADDME: Darwin requires this codepath, but shouldn't we just mark the socket readable for compatibility?
+      TestEq(-8, GetLastSocketError(right_udp_socket));
+      BREAK;
+    }
+
+    INTEGER waiter := WaitForMultiple( [right_udp_socket], DEFAULT INTEGER ARRAY, 100);
+    IF (waiter = right_udp_socket)
+    {
+      TestEq("", ReadFromSocket(right_udp_socket));
+      TestEq(-8, GetLastSocketError(right_udp_socket));
+      BREAK;
+    }
+  }
+  IF (tries >= 5)
+    ABORT("UDP: Did not receive any response");
+
+  //Test that the socket is still usable, even though it errored
+  left_udp_socket := CreateUDPSocket();
+  IF (NOT BindSocket(left_udp_socket, "", GetRemoteSocketPort(right_udp_socket))) //bind anywhere
+    ABORT("UDP re-BindSocket failure: returned " || GetSocketErrorText(GetLastSocketError(left_udp_socket)));
+
+  FOR (tries := 0 ; tries < 5; tries := tries + 1)
+  {
+    PrintTo(right_udp_socket, "test 1 2 3");
+
+    INTEGER waiter := WaitForMultiple( [left_udp_socket], DEFAULT INTEGER ARRAY, 100);
+    IF (waiter = left_udp_socket)
+    {
+      TestEq("test 1 2 3", ReadFromSocket(left_udp_socket));
+      BREAK;
+    }
+  }
+  IF (tries >= 5)
+    ABORT("UDP: Did not receive any response");
+
+  CloseSocket(right_udp_socket);
+  CloseTest("TestInternet: Socket UDP test");
+}
+
+MACRO SocketChunksTest()
+{
+  OpenTest("TestInternet: SocketChunksTest");
+
+  RECORD pair := CreateSocketPair(FALSE);
+
+  PrintTo(pair.connecting_socket, "5\nbytes0\n");
+  TestEq("5", ReadLineFrom(pair.incoming_socket,10,TRUE));
+  TestEq("bytes", ReadFrom(pair.incoming_socket,5));
+  TestEq("0", ReadLineFrom(pair.incoming_socket,10,TRUE));
+
+  CloseSocket(pair.connecting_socket);
+  CloseSocket(pair.incoming_socket);
+
+  CloseTest("TestInternet: SocketChunksTest");
+}
+
+MACRO TestEmailAddresses()
+{
+  OpenTest("TestInternet: Email addresses");
+  FOREVERY(RECORD test FROM testdata.internet.testemail)
+    TestEq(test.valid, IsValidEmailAddress(test.email));
+
+  TestEqualInteger(7,1,Length(TokenizeEmailAddresses('"Example, M." <marge@example.nl>')));
+  TestEqualString(8,'"Example, M." <marge@example.nl>',TokenizeEmailAddresses('"Example, M." <marge@example.nl>')[0]);
+
+  TestEqualInteger(10,2,Length(TokenizeEmailAddresses('marge@example.com, Example M. <marge@example.nl>')));
+  TestEqualString(11,'marge@example.com',TokenizeEmailAddresses('marge@example.com, Example M. <marge@example.nl>')[0]);
+  TestEqualString(12,'Example M. <marge@example.nl>',TokenizeEmailAddresses('marge@example.com, Example M. <marge@example.nl>')[1]);
+  TestEqualString(13,'marge@example.nl',SplitEmailName('"Example, M." <marge@example.nl>').email);
+  CloseTest("TestInternet: Email addresses");
+}
+
+MACRO TestJSONEnDeCode(STRING encoded, VARIANT toencode, RECORD translations)
+{
+  STRING encval := EncodeJSON(toencode, translations);
+  TestEq(encoded, encval);
+  TestEq(toencode, DecodeJSON(encval, translations));
+}
+
+OBJECTTYPE tx < >;
+
+MACRO TestJSON()
+{
+  OpenTest("TestInternet: JSON");
+
+  TestJSONEnDeCode('{"a":0,"b":1,"c":2}', [ c := 2, b := 1, a := 0 ], DEFAULT RECORD); // test ordering
+
+  TestJSONEnDeCode('{"Line":0}', [line:=0], [line:="Line"]);
+  TestJSONEnDeCode('{"Line":0}', [line:=0], [line:="Line"]);
+  TestJSONEnDeCode('{"Line":12,"line":15}', [line:=12,aaa:=15], [line:="Line",aaa:="line"]);
+
+  TestJSONEnDeCode('5', 5, DEFAULT RECORD);
+  TestJSONEnDeCode('"Ab\\"cd\'efgh"', "Ab\"cd\'efgh", DEFAULT RECORD);
+  TestJSONEnDeCode('[1,2,3]', [1,2,3], DEFAULT RECORD);
+  TestJSONEnDeCode('{"feed":5,"feedtag":"test"}', [FEED:=5,feedtag:="test"], DEFAULT RECORD);
+
+  // Test for canonical form
+  RECORD x := [ feedtag := "test" ];
+  INSERT CELL feed := 5 INTO x;
+  TestJSONEnDeCode('{"feed":5,"feedtag":"test"}', [FEED:=5,feedtag:="test"], DEFAULT RECORD);
+  //TestJSONEnDeCode('{"feed":5,"feedtag":"test"}', [FEED:=5,feedtag:="test"], DEFAULT RECORD);
+
+  TestJSONEnDeCode('{}', CELL[], DEFAULT RECORD);
+  TestJSONEnDeCode('null', DEFAULT RECORD, DEFAULT RECORD);
+
+  TestEq([action:="$activate", param := DEFAULT RECORD, forms := DEFAULT VARIANT ARRAY, pushsession := "", taskbar := FALSE ],
+                DecodeJSON('{"action":"$activate","param":null,"forms":[],"pushsession":"","taskbar":false}'));
+
+  TestJSONEnDeCode('0.582346', FLOAT(0.5823461), DEFAULT RECORD);
+
+  TestEq([line:=0], DecodeJSON('{"line":0}'));
+
+  // Member names without string encoding (outside JSON spec)
+  TestEq([line:=0], DecodeJSON('{line:0}'));
+  // UTF-16 encoding of code points outside BMP
+  TestJSONEnDeCode('{"str":"\\uD834\\uDD1E"}', [str:=UCToString(0x1D11E)], DEFAULT RECORD);
+
+  //Google adds superfluous spaces - outofspec, but we have to cope
+  TestEq([code:="nl",cities:=[[name:="Almere",lat:=52299999,lon:=4769999]]], DecodeJSON('{code: "nl",cities: [{name: "Almere",lat: 52299999,lon: 4769999}]} '));
+
+  TestJSONEnDeCode('"\\"\\\\\\b\\f\\n\\r\\t\\u1234"', '\"\\\b\f\n\r\t\u1234', DEFAULT RECORD);
+  TestEq("a/b", DecodeJSON('"a\\/b"'));
+
+// No confusion over properly charset embedded chars
+  TestEq('Ch\u00E2tel', DecodeJSON('"Ch\u00E2tel"'));
+  TestEq([ 'Ch\u00E2tel' := "yeey" ], DecodeJSON('{ "Ch\u00E2tel" : "yeey" }'));
+
+  TestEq("-1.5", EncodeJSON(-1.5));
+  TestEq("-1.500000", EncodeJSON(-1.5f));
+  TestEq('"2012-11-10T09:08:07.654Z"', EncodeJSON(AddTimeToDate(654,MakeDateTime(2012,11,10,9,8,7))));
+  TestEq('"2012-11-10T09:08:07.000Z"', EncodeJSON(MakeDateTime(2012,11,10,9,8,7)));
+  TestEq('"2012-11-10T00:00:00.000Z"', EncodeJSON(MakeDate(2012,11,10)));
+  TestEq('"<\\/script>"', EncodeJSON("</script>"));
+  TestEq('"<\\/"', EncodeJSON("</"));
+  TestEq('"a/b/c"', EncodeJSON("a/b/c"));
+  TestEq('"a\\"b"', EncodeJSON("a\"b"));
+  TestEq('"a\'b"', EncodeJSON("a\'b")); //single quote should NOT be escaped
+
+  TestThrowsLike("*encode*", PTR EncodeJSON(DEFAULT OBJECT));
+  TestEQ("[]", EncodeJSON(DEFAULT OBJECT ARRAY));
+  TestThrowsLike("*encode*", PTR EncodeJSON(DEFAULT WEAKOBJECT));
+  TestEQ("[]", EncodeJSON(DEFAULT WEAKOBJECT ARRAY));
+  TestThrowsLike("*encode*", PTR EncodeJSON(DEFAULT FUNCTION PTR));
+  TestEQ("[]", EncodeJSON(DEFAULT FUNCTION PTR ARRAY));
+
+  OBJECT y := NEW tx;
+  TestThrowsLike("*encode*", PTR EncodeJSON(WEAKOBJECT(y))); // Test WEAKOBJECT first, so y still exists
+  TestThrowsLike("*encode*", PTR EncodeJSON([ WEAKOBJECT(y) ]));
+  TestThrowsLike("*encode*", PTR EncodeJSON(y));
+  TestThrowsLike("*encode*", PTR EncodeJSON([ y ]));
+  TestThrowsLike("*encode*", PTR EncodeJSON(PTR PRINT));
+  TestThrowsLike("*encode*", PTR EncodeJSON([ PTR PRINT ]));
+
+  TestEQ(0, DecodeJSON('0'));
+  TestEQ(2147483647, DecodeJSON('2147483647'));
+  TestEQ(-2147483648, DecodeJSON('-2147483648'));
+  TestEQ(2147483648f, DecodeJSON('2147483648'));
+  TestEQ(-2147483649f, DecodeJSON('-2147483649'));
+  TestEQ(1.7976931348623157e+308, DecodeJSON('1.7976931348623157e+308'));
+  TestEQ(-1.7976931348623157e+308, DecodeJSON('-1.7976931348623157e+308'));
+
+  TestEQ('""', EncodeJSON(DEFAULT BLOB));
+  TestEQ('"SGVsbG8sAFdvcmxkIQ=="', EncodeJSON(StringToBlob("Hello,\0World!")));
+
+  CloseTest("TestInternet: JSON");
+}
+
+
+MACRO TestReadLine(BOOLEAN ipv6)
+{
+  IF(ipv6 AND "::1" NOT IN GetLocalIPs())
+  {
+    Print("No IPv6 support, skipping IPv6 test\n");
+    RETURN;
+  }
+
+  OpenTest("TestInternet: TestReadLine " || (ipv6?"ipv6":"ipv4"));
+
+  STRING testsrcdata := "Dit is een test\r\nDit is er nog een\nEn dit is de laatste";
+
+  RECORD sockets;
+
+  sockets := CreateSocketPair(ipv6);
+  PrintTo(sockets.connecting_socket, testsrcdata);
+  ShutdownSocket(sockets.connecting_socket, TRUE, TRUE);
+  TestEq("Dit is een test", ReadLineFrom(sockets.incoming_socket,1024,TRUE));
+  TestEq("Dit is er nog een", ReadLineFrom(sockets.incoming_socket,1024,TRUE));
+  TestEq("En dit is de laatste", ReadLineFrom(sockets.incoming_socket,1024,TRUE));
+  TestEq("", ReadLineFrom(sockets.incoming_socket,1024,TRUE));
+  CloseSocket(sockets.connecting_socket);
+  CloseSocket(sockets.incoming_socket);
+
+  sockets := CreateSocketPair(ipv6);
+  PrintTo(sockets.connecting_socket, testsrcdata);
+  ShutdownSocket(sockets.connecting_socket, TRUE, TRUE);
+  TestEq("Dit is een test\r\n", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
+  TestEq("Dit is er nog een\n", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
+  TestEq("En dit is de laatste", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
+  TestEq("", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
+  CloseSocket(sockets.connecting_socket);
+  CloseSocket(sockets.incoming_socket);
+
+  sockets := CreateSocketPair(ipv6);
+  PrintTo(sockets.connecting_socket, testsrcdata);
+  ShutdownSocket(sockets.connecting_socket, TRUE, TRUE);
+  TestEq("Dit is", ReadLineFrom(sockets.incoming_socket,6,FALSE));
+  TestEq(" een test\r", ReadLineFrom(sockets.incoming_socket,10,FALSE));
+  TestEq("\n", ReadLineFrom(sockets.incoming_socket,11,FALSE));
+  TestEq("Dit is er n", ReadLineFrom(sockets.incoming_socket,11,FALSE));
+  CloseSocket(sockets.connecting_socket);
+  CloseSocket(sockets.incoming_socket);
+
+  sockets := CreateSocketPair(ipv6);
+  PrintTo(sockets.connecting_socket, testsrcdata);
+  ShutdownSocket(sockets.connecting_socket, TRUE, TRUE);
+  TestEq("Dit is", ReadLineFrom(sockets.incoming_socket,6,TRUE));
+  TestEq(" een test", ReadLineFrom(sockets.incoming_socket,10,TRUE));
+  TestEq("", ReadLineFrom(sockets.incoming_socket,11,TRUE));
+  TestEq("Dit is er n", ReadLineFrom(sockets.incoming_socket,11,TRUE));
+  CloseSocket(sockets.connecting_socket);
+  CloseSocket(sockets.incoming_socket);
+
+  sockets := CreateSocketPair(ipv6);
+  PrintTo(sockets.connecting_socket, testsrcdata);
+  SetSocketTimeout(sockets.incoming_socket, 1000);
+  TestEq("Dit is een test\r\n", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
+  TestEq("Dit is er nog een\n", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
+  TestEq("En dit is de laatste", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
+  DATETIME start := GetCurrentDateTime();
+  TestEq("", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
+  TestEq(TRUE, GetDateTimeDifference(start, GetCurrentDateTime()).msecs > 800);
+  CloseSocket(sockets.connecting_socket);
+  CloseSocket(sockets.incoming_socket);
+
+  sockets := CreateSocketPair(ipv6);
+  PrintTo(sockets.connecting_socket, testsrcdata);
+  TestEq("Dit", ReadLineFrom(sockets.incoming_socket,-3,FALSE));
+  TestEq(" is een test\r\n", ReadLineFrom(sockets.incoming_socket,-16,FALSE));
+  TestEq("Dit is er nog een\n", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
+  TestEq("En dit is de laatste", ReadLineFrom(sockets.incoming_socket,-1024,FALSE));
+  CloseSocket(sockets.connecting_socket);
+  CloseSocket(sockets.incoming_socket);
+
+  sockets := CreateSocketPair(ipv6);
+  PrintTo(sockets.connecting_socket, "\r");
+//  TestThrows(130, PTR ReadLineFrom(sockets.incoming_socket,-3,TRUE)); // FIXME: not implemented yet
+  TestEq("\r", ReadLineFrom(sockets.incoming_socket,-3,FALSE));
+  PrintTo(sockets.connecting_socket, "\na\r\n");
+  TestEq("\n", ReadLineFrom(sockets.incoming_socket,-3,FALSE));
+//  TestEq("a\r\n", ReadLineFrom(sockets.incoming_socket,-3,FALSE)); // FIXME: sockets are nonblocking, at least TRY to see if socket data is available
+  CloseSocket(sockets.connecting_socket);
+  CloseSocket(sockets.incoming_socket);
+
+
+  {
+    RECORD res := CreateJob("test::testdata_jobs_a.whlib", "");
+    OBJECT job := res.job;
+
+    TestEq(DEFAULT RECORD ARRAY, res.errors);
+    TestEq(TRUE, ObjectExists(job));
+
+    INTEGER accepting_socket := CreateTCPSocket();
+    TestEq(TRUE, BindSocket(accepting_socket, ipv6 ? "::" : "", 0));
+    ListenOnTCPSocket(accepting_socket);
+
+    job->ipclink->autothrow := TRUE;
+    job->Start();
+
+    //get the port on which we're listing
+    INTEGER accepting_port := GetLocalSocketPort(accepting_socket);
+
+    res := job->ipclink->SendMessage(
+        [ type :=             "socket-read"
+        , host :=             ipv6 ? "::1" : "127.0.0.1"
+        , accepting_port :=   accepting_port
+        , maxnumbytes :=      10000
+        , striplf :=          FALSE
+        , readline :=         TRUE
+        ]);
+    res := job->ipclink->SendMessage(
+        [ type :=             "socket-read"
+        , host :=             ipv6 ? "::1" : "127.0.0.1"
+        , accepting_port :=   accepting_port
+        , maxnumbytes :=      45000
+        , readline :=         FALSE
+        ]);
+    res := job->ipclink->SendMessage(
+        [ type :=             "socket-eatall"
+        , host :=             ipv6 ? "::1" : "127.0.0.1"
+        , accepting_port :=   accepting_port
+        , maxnumbytes :=      45000
+        , readline :=         FALSE
+        ]);
+
+    Sleep(100);
+    WHILE (job->ipclink->ReceiveMessage(DEFAULT DATETIME).status != "timeout") {}
+
+    INTEGER newsocket := AcceptOnTCPSocket(accepting_socket);
+    FOR (INTEGER i := 0; i < 30; i := i + 1)
+    {
+      PrintTo(newsocket, RepeatText(">>" || Right("       " || i, 6) || "<<", 800)); // send 8000 bytes at a time
+      Sleep(25);
+    }
+
+    PrintTo(newsocket, "\r\n");
+
+    // Receive result
+    res := job->ipclink->ReceiveMessage(AddTimeToDate(1000, GetCurrentDateTime()));
+    TestEQ(10000, LENGTH(res.msg.result));
+    res := job->ipclink->ReceiveMessage(AddTimeToDate(1000, GetCurrentDateTime()));
+    TestEQ(45000, LENGTH(res.msg.result));
+
+    CloseSocket(newsocket);
+    CloseSocket(accepting_socket);
+    job->Close();
+  }
+
+  CloseTest("TestInternet: TestReadLine " || (ipv6?"ipv6":"ipv4"));
+}
+
+MACRO TestWebBrowser()
+{
+  RECORD res := CreateJob("test::testdata_jobs_a.whlib", "");
+  OBJECT job := res.job;
+  job->ipclink->autothrow := TRUE;
+  job->Start();
+
+  OBJECT browser := NEW WebBrowser;
+
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n0123456789" ]);
+  TestEQ(TRUE, browser->GotoWebPage("http://localhost:" || res.msg.accepting_port));
+  TestEQ("0123456789", BlobToString(browser->content));
+
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n012345678" ]);
+  TestEQ(FALSE, browser->GotoWebPage("http://localhost:" || res.msg.accepting_port));
+  TestEQ(-200, browser->GetHTTPStatusCode());
+  TestEQ("012345678", BlobToString(browser->content));
+
+  job->Close();
+}
+
+MACRO WriteData(OBJECT socket, STRING data)
+{
+  WaitForPromise(AsyncSendBlobTo(socket->handle, StringToBlob(data)));
+}
+
+INTEGER ARRAY FUNCTION GetRange(INTEGER startval, INTEGER lastval)
+{
+  INTEGER ARRAY result;
+  FOR (INTEGER i := startval; i <= lastval; i := i + 1)
+    INSERT i INTO result AT END;
+  RETURN result;
+}
+
+MACRO TestAsyncWebBrowser()
+{
+  OBJECT acceptsocket := CreateSocket("TCP");
+  TestEq(TRUE, acceptsocket->Bind("", 0));
+  TestEq(TRUE, acceptsocket->Listen());
+
+  STRING url := "http://0.0.0.0:" || acceptsocket->localport;
+
+  OBJECT browser := NEW WebBrowser;
+  browser->__socketsendbuffersize := 12345;
+
+  STRING headerdata := RepeatText("0123456789", 100);
+
+  // 1 MB of headers
+  RECORD ARRAY headers;
+  FOR (INTEGER i := 0; i < 1024; i := i + 1)
+    INSERT [ field := "X-HEADER-" || i, value := headerdata ] INTO headers AT END;
+
+  STRING requestbody := RepeatText("0123456789", 100000);
+  OBJECT requestpromise := browser->AsyncPostWebPageBlob(url, headers, StringToBlob(requestbody));
+
+  // Wait 100 ms for the connection to come in
+  TestEq("handle-read", WaitUntil([ read := acceptsocket->handle ], AddTimeToDate(100, GetCurrentDateTime())).type);
+  OBJECT link := acceptsocket->Accept();
+  TestEQ(TRUE, ObjectExists(link), "Could not accept link");
+
+  link->sendbuffersize := 14321;
+
+  INTEGER nextxheader := 0;
+
+  WHILE (TRUE)
+  {
+    TestEQ("handle-read", WaitUntil([ read := link->handle ], AddTimeToDate(200, GetCurrentDatetime())).type);
+    IF (IsAtEndOfStream(link->handle))
+      BREAK;
+
+    STRING s := WaitForPromise(AsyncReadLineFrom(link->handle, 4096, FALSE));
+    IF (s = "")
+      CONTINUE;
+
+    IF (s LIKE "X-HEADER*")
+    {
+      TestEQ("X-HEADER-" || nextxheader || ": " || headerdata || "\r\n", s);
+      nextxheader := nextxheader + 1;
+    }
+    ELSE IF (s LIKE "Content-L*")
+      TestEQ("Content-Length: "||LENGTH(requestbody)||"\r\n", s);
+    ELSE IF (s = "\r\n")
+      BREAK;
+  }
+  TestEq(1024, nextxheader, "Not all headers have been received");
+
+  INTEGER bodylen := LENGTH(requestbody);
+  STRING receivedbody;
+  WHILE (bodylen > 0)
+  {
+    TestEQ("handle-read", WaitUntil([ read := link->handle ], AddTimeToDate(200, GetCurrentDatetime())).type);
+    IF (IsAtEndOfStream(link->handle))
+      BREAK;
+    STRING s := WaitForPromise(AsyncReadFrom(link->handle, Min[]([ 32768, bodylen ])));
+    receivedbody := receivedbody || s;
+    bodylen := bodylen - LENGTH(s);
+  }
+  TestEq(requestbody, receivedbody, "Request body not completely sent");
+
+  WriteData(link, "200 Fun! HTTP/1.1\r\n");
+
+  // Spoon-feed the first headers
+  FOR (INTEGER i := 0; i < 32; i := i + 1)
+  {
+    WaitForPromise(CreateResolvedPromise(AsyncWaitHandleWriteSignalled(link->handle, AddTimeToDate(200, GetCurrentDatetime()))));
+    WriteData(link, "X-RETURNHEADER-" || i || ": " || headerdata || "\r\n");
+  }
+
+  // Bulk-send the next
+  FOR (INTEGER i := 32; i < 1024; i := i + 1)
+  {
+    WriteData(link, "X-RETURNHEADER-" || i || ": " || headerdata || "\r\n");
+  }
+
+  WaitForPromise(CreateResolvedPromise(AsyncWaitHandleWriteSignalled(link->handle, AddTimeToDate(200, GetCurrentDatetime()))));
+  WriteData(link, "Content-Length: " || LENGTH(requestbody) || "\r\n");
+
+  WaitForPromise(CreateResolvedPromise(AsyncWaitHandleWriteSignalled(link->handle, AddTimeToDate(200, GetCurrentDatetime()))));
+  WriteData(link, "\r\n");
+
+  INTEGER pos := 0;
+  WHILE (pos < LENGTH(requestbody))
+  {
+    STRING data := SubString(requestbody, pos, 32768);
+    pos := pos + LENGTH(data);
+    WaitForPromise(CreateResolvedPromise(AsyncWaitHandleWriteSignalled(link->handle, AddTimeToDate(200, GetCurrentDatetime()))));
+    WriteData(link, data);
+  }
+
+  RECORD rec := WaitUntil([ promise := requestpromise ], AddTimeToDate(200, GetCurrentDatetime()));
+  TestEQ("promise", rec.type);
+
+  TestEQ(
+     (SELECT field := "X-RETURNHEADER-" || i
+           , value := headerdata
+        FROM ToRecordArray(GetRange(0, 1023), "I")) CONCAT
+     [ [ field := "Content-Length"
+       , value := ToString(LENGTH(requestbody))
+       ]
+     ],
+     browser->responseheaders);
+
+  TestEQ(requestbody, BlobToString(browser->content));
+}
+
+MACRO TestAsyncReadFromPartialReads()
+{
+  // Create socket link
+  OBJECT acceptsocket := CreateSocket("TCP");
+  TestEq(TRUE, acceptsocket->Bind("", 0));
+  TestEq(TRUE, acceptsocket->Listen());
+  OBJECT send := CreateSocket("TCP");
+  TestEQ(TRUE, send->Connect("0.0.0.0", acceptsocket->localport));
+  OBJECT receive := acceptsocket->Accept();
+  TestEQ(TRUE, ObjectExists(receive));
+  receive->timeout := 5000;
+
+  // Sending first chunk and async read it
+  PrintTo(send->handle, "123");
+  OBJECT p := AsyncReadFrom(receive->handle, 10);
+
+  // Wait a little - here the regression will cause a neverending loop
+  WaitUntil(DEFAULT RECORD, AddTimeToDate(100, GetCurrentDatetime()));
+
+  // Sending rest
+  PrintTo(send->handle, "4567890");
+
+  STRING finalresult := WaitForPromise(p);
+  TestEQ("1234567890", finalresult);
+
+  acceptsocket->Close();
+  send->Close();
+  receive->Close();
+}
+
+BOOLEAN did_run_ssl_client, did_run_ssl_server;
+OBJECT ASYNC FUNCTION OnServerSignalled(OBJECT server)
+{
+  OBJECT promise := RunServerConnection(server);
+  INSERT promise INTO server->userdata.conns AT END;
+  AWAIT promise;
+  DELETE FROM server->userdata.conns AT SearchElement(server->userdata.conns, promise);
+  RETURN DEFAULT OBJECT;
+}
+
+OBJECT ASYNC FUNCTION RunServerConnection(OBJECT server)
+{
+  OBJECT conn := server->Accept();
+  IF (NOT Objectexists(conn))
+    RETURN DEFAULT RECORD;
+
+  // Switch to SSL (non-initiating, we're a server)
+  TestEQ(TRUE, conn->SetCertificateAndKey(StringToBlob(server->userdata.certandkey)));
+  TestEQ(TRUE, conn->StartSSL(FALSE));
+
+  // Send a message
+  AWAIT AsyncSendBlobTo(conn->handle, StringToBlob("hello\n"));
+  STRING response := AWAIT AsyncReadLineFrom(conn->handle, 4096, TRUE);
+  TestEQ("hello to you too", response);
+  conn->Close();
+  did_run_ssl_server := TRUE;
+  RETURN DEFAULT RECORD;
+}
+
+OBJECT ASYNC FUNCTION RunClientConnection(OBJECT server)
+{
+  OBJECT client := CreateSocket("TCP");
+  TestEQ(TRUE, ObjectExists(client));
+  TestEQ(TRUE, AWAIT client->AsyncConnectSSL("127.0.0.1", server->localport));
+
+  STRING greeting := AWAIT AsyncReadLineFrom(client->handle, 4096, TRUE);
+  TestEQ("hello", greeting);
+  AWAIT AsyncSendBlobTo(client->handle, StringToBlob("hello to you too\n"));
+
+  INTEGER pos := SearchSubString(server->userdata.certandkey, "-----BEGIN CERTIFICATE-----");
+  STRING expectcert := SubString(server->userdata.certandkey, pos);
+
+  // Get the peer certificate AFTER first read/write (SSL connection might nog be setup before that)
+  TestEQ(expectcert, client->GetPeerCertificateChain());
+
+  client->Close();
+  did_run_ssl_client := TRUE;
+  RETURN DEFAULT RECORD;
+}
+
+MACRO TestSSLConnections()
+{
+  // Test creating SSL server with key and cert, connecting to local SSL ports, retrieving peer certificates
+
+  // Just a key and self-signed certificate
+  STRING certandkey :=
+      "-----BEGIN PRIVATE KEY-----\n" ||
+      "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDDtGNH4VivmvVL\n" ||
+      "OU93g8IyO7EHO6nbbl6O/agBtXxQrwaOHKRa/IGqmkLniDCIUurcgl+eDoAaxlMu\n" ||
+      "azD4lVJZcjI3+OOheKbJzrVmKseCrBcDgmkPuajk43e8GwpmGCamBom7Adj6ot68\n" ||
+      "4KT/WJvuVueIJF4jZHh156MWU5V1W+HENvhgoGWdnbQ2Czw8ecxM4w9FdOJrbisl\n" ||
+      "C6tQREppSa6KvcAuHACosCZzn1I2D2uvVWgqfqc7lj3YZf1PcNihFg2FDcI46AaR\n" ||
+      "HyVhPKzTvQynSxCc4nUUUn5jxqOPq1BKip4BTtpA8nYvLLtlyKM9NX0Nv27GSUZ9\n" ||
+      "CkcJ3j13AgMBAAECggEBALNeyzwfg2x4B2jp3zb4UW4/HZM2kQkokIxYWrsuPwGo\n" ||
+      "Wca4477s/l+CQd36Chl4fgCbkc3JForzyVubLWg5XB/VNcftW50sexouVj6M6Q2Q\n" ||
+      "cwtpZKfgD7ex8JU853wJmKrFBUmceOXHj4ToFPJgoZKCnnU+d/XSaUIPi3+0HiFP\n" ||
+      "+W7lUOd/2mtH/HpzTYe4f2oXjADTQezNetvU6ySEpNvRnbQtclv9kZY5ywAOhJIk\n" ||
+      "UhiSRVe6b7Zt8BZ6MmO701Rprnvwj5DR7mCCyT473BMcirN2upqoYHaa9eRIxSp3\n" ||
+      "zRCdhqG7ewLV+OSsFIOZMF7qO2qGOSg/F6+o79Yzb4kCgYEA7mlKchPvl9Ls9GIv\n" ||
+      "+NhCyB7FNCrKmk7xFbPeg9IrPqZQLsRjiWinGdGDVdgMP9xGTKKViRKsIF4+6GkR\n" ||
+      "59RyBaKpQj5a/VWRAkNxG5aXd0rFYtXbnvhxrSjcv44C+HrkcDL6s6XnF02my2ca\n" ||
+      "uzYRhHlVHzzGrEYbI2OustwufJMCgYEA0iSGqEfSAA5eJ5LFAwyh8Vghc9hXGmS/\n" ||
+      "XcuQWauf22QphSMdzsHx9Nd+OqhLSSOVSXXjoixg5NpgWHAQhlPZT4RqQAhhaVCo\n" ||
+      "9JVpS3NQbPlbBrkxF4f73z2yJs/NqRkt9uDxfIxDasUpFk+bjHoamgyEoKPIxI2N\n" ||
+      "kwSOlU2Srg0CgYBGXb9CQk4SAog7bQt5p+K2DBbqWcLonmobnLYNNCfdWtsJop86\n" ||
+      "PDAtt5/K43RiGNKK5eW6yk8RUp/AmtpVEWgB78uDKMJUST/+agdlPCJCbEgr7rDe\n" ||
+      "j7eFgyz8QJ7x1du8nd9OzKWTRDD5kdna7Y9oCSOtj5OX3y09WbuDQOdbjwKBgQCz\n" ||
+      "9p3vbZpVe/h8UYAxDVd+tWfoqsRlkRQlwlg7wvPi0hOQtjMnxwZsFUQ//bKDz1ph\n" ||
+      "D/nC/9h3BOFvu4EbWKGJLLBFaCfsJiybUX1cJUQiHyYqStzU9xrn4xE3lczd3Pd1\n" ||
+      "Ls0ASarOvExklAZ1NnijpsbKP5mHYmZ1Gnj1Ofq83QKBgBwQD2J9n7PbGQYEEdW0\n" ||
+      "JvNujDYN3mm5u1mSIkcH0e3IRRgBwiC6Li8GWY10TM2cNoC7YzvPcBxGCq45tE7D\n" ||
+      "gMTNzihETMA9lJqNJ85HjBlSfZucteRXWQoeDK9K6qGOdG6gND0j8DNHPDmW/yGj\n" ||
+      "RbuuEf5LZEji+lEb94sHQ1Va\n" ||
+      "-----END PRIVATE KEY-----\n" ||
+      "-----BEGIN CERTIFICATE-----\n" ||
+      "MIID0jCCArqgAwIBAgIRAKS21HUitLZinOv4QHNOOswwDQYJKoZIhvcNAQELBQAw\n" ||
+      "ajELMAkGA1UEBhMCTkwxEzARBgNVBAgMCk92ZXJpanNzZWwxETAPBgNVBAcMCEVu\n" ||
+      "c2NoZWRlMRQwEgYDVQQKDAtCLUxleCBJVCBCQzEdMBsGA1UEAwwUc2tpbm5lci5z\n" ||
+      "Zi5iLWxleC5jb20wHhcNMTYxMDIwMDg1NjI5WhcNMTcxMDIwMDg1NjI5WjBqMQsw\n" ||
+      "CQYDVQQGEwJOTDETMBEGA1UECAwKT3Zlcmlqc3NlbDERMA8GA1UEBwwIRW5zY2hl\n" ||
+      "ZGUxFDASBgNVBAoMC0ItTGV4IElUIEJDMR0wGwYDVQQDDBRza2lubmVyLnNmLmIt\n" ||
+      "bGV4LmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMO0Y0fhWK+a\n" ||
+      "9Us5T3eDwjI7sQc7qdtuXo79qAG1fFCvBo4cpFr8gaqaQueIMIhS6tyCX54OgBrG\n" ||
+      "Uy5rMPiVUllyMjf446F4psnOtWYqx4KsFwOCaQ+5qOTjd7wbCmYYJqYGibsB2Pqi\n" ||
+      "3rzgpP9Ym+5W54gkXiNkeHXnoxZTlXVb4cQ2+GCgZZ2dtDYLPDx5zEzjD0V04mtu\n" ||
+      "KyULq1BESmlJroq9wC4cAKiwJnOfUjYPa69VaCp+pzuWPdhl/U9w2KEWDYUNwjjo\n" ||
+      "BpEfJWE8rNO9DKdLEJzidRRSfmPGo4+rUEqKngFO2kDydi8su2XIoz01fQ2/bsZJ\n" ||
+      "Rn0KRwnePXcCAwEAAaNzMHEwLwYDVR0RBCgwJoIRYWx0LTEuZXhhbXBsZS5jb22C\n" ||
+      "EWFsdC0yLmV4YW1wbGUuY29tMB0GA1UdDgQWBBQs/o34eIgfp2feMYgoV1aXRTPp\n" ||
+      "hzAfBgNVHSMEGDAWgBQs/o34eIgfp2feMYgoV1aXRTPphzANBgkqhkiG9w0BAQsF\n" ||
+      "AAOCAQEAhyVuFPdsP0dke9Ngfq8/aQM13L+yw5e5GGfezgAQfBAe3Xzi9qBQw2e6\n" ||
+      "+XD1TVDBv+9mevtf1OhMnrXNtJ0W+TPP39t/5WBsJLZZ6ZSaghtaCsiJ08zNB03U\n" ||
+      "qIUeTXg1uIj8xrpbMZAqkhT6jphW90NTJOwSX2H5eWodlgXt7AHIN75Rfgj2QO1W\n" ||
+      "HqiM8dtGaXosyRmap/BJf/UhA1YMROy2qZlmhKWkEB/luOhhOcxOfRtceDQm70j8\n" ||
+      "9hxd8xV2AwkIMenXLIutLx0WdQ+9BedgQ/i2oI28PY5qmh165N/xe0tHAA/lXEMM\n" ||
+      "HFRojib1hpXMA27UG9LeMXKEvlrk2A==\n" ||
+      "-----END CERTIFICATE-----\n";
+
+  // Create server socket
+  OBJECT server := CreateSocket("TCP");
+  server->userdata := [ conns := DEFAULT OBJECT ARRAY, certandkey := certandkey ];
+  TestEQ(TRUE, server->Bind("", 0));
+  TestEQ(TRUE, server->Listen());
+
+  INTEGER cb := RegisterHandleReadCallback(server->handle, PTR OnServerSignalled(server));
+
+  // Run the client test
+  WaitForPromise(RunClientConnection(server));
+
+  // Unregister the server accept callback, wait for all running server connections to end
+  UnregisterCallback(cb);
+  WaitForPromise(CreatePromiseAll(server->userdata.conns));
+
+  TestEQ(TRUE, did_run_ssl_client);
+  TestEQ(TRUE, did_run_ssl_server);
+
+  server->Close();
+}
+
+MACRO SocketMarshallingTest()
+{
+  OBJECT socket := CreateSocket("TCP");
+  socket->Bind("127.0.0.1", 0);
+  socket->Listen();
+  INTEGER accepting_port := GetLocalSocketPort(socket->handle);
+
+  OBJECT port := CreateIPCPort("test");
+  OBJECT linka := ConnectToIPCPort("test");
+  OBJECT linkb := port->Accept(DEFAULT DATETIME);
+
+  linka->SendMessage([ socket := socket ]);
+  RECORD rec := linkb->ReceiveMessage(DEFAULT DATETIME);
+  socket := rec.msg.socket;
+
+  OBJECT socket2 := CreateSocket("TCP");
+  TestEQ(TRUE, socket2->Connect("127.0.0.1", accepting_port));
+
+  OBJECT socket3 := rec.msg.socket->Accept();
+  TestEQ(TRUE, Objectexists(socket3));
+
+  linka->SendMessage([ socket2 := socket2 ]);
+  socket2 := linkb->ReceiveMessage(DEFAULT DATETIME).msg.socket2;
+
+  linka->SendMessage([ socket3 := socket3 ]);
+  socket3 := linkb->ReceiveMessage(DEFAULT DATETIME).msg.socket3;
+
+  PrintTo(socket2->handle, "test\n");
+  TestEQ("test", ReadLineFrom(socket3->handle, 4096, TRUE));
+
+  socket->Close();
+  socket2->Close();
+  socket3->Close();
+}
+
+
+PRINT("\n === Running TestInternet\n");
+UrlTest();
+TestJSon();
+AbsRelTest();
+InvalidBase_AbsTest();
+UrlTest();
+TestDataURL();
+InternetTest();
+IPTest();
+SocketTCPTest();
+SocketUDPTest();
+SocketChunksTest();
+TestEmailAddresses();
+//run for both ipv4 and ipv6
+TestReadLine(FALSE);
+TestReadLine(TRUE);
+TestWebBrowser();
+TestAsyncWebBrowser();
+TestAsyncReadFromPartialReads();
+TestSSLConnections();
+SocketMarshallingTest();

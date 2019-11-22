@@ -1,0 +1,27 @@
+﻿<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+OpenPrimary();
+
+IF (IsFullAccessIP())
+  RETURN;
+
+INTEGER accessrule := GetWebHareAccessRuleId();
+
+RECORD ruleprops := SELECT * FROM system.access WHERE id=accessrule;
+IF(NOT RecordExists(ruleprops) OR NOT ruleprops.authlist) //ADDME: Some sort of RETRY or 503 status would be better, as we obviously raced. Should simply reexecute all request handling with updated config
+{
+  THROW NEW Exception("Invalid or missing access rule #" || accessrule);
+}
+
+RECORD FUNCTION GetPassword(STRING findusername)
+{
+  RETURN SELECT username, password := userpassword
+           FROM system.access_externalusers
+          WHERE accessid = VAR accessrule
+                AND ToUppercase(username) = ToUppercase(TrimWhitespace(findusername));
+}
+
+TryHTTPLogin(ruleprops.path, PTR GetPassword);
+

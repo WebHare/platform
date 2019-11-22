@@ -1,0 +1,378 @@
+﻿<?wh
+/** Regular expressions
+    @topic harescript-core/regex
+*/
+
+LOADLIB "wh::util/stringparser.whlib";
+
+
+/** Determines whether a regular expression matches a whole string from a specific starting point.
+    @param data Data to match
+    @param startpos Starting position within data
+    @param regex Regular expression
+    @param syntax Syntax options (first option must be the type of the regex, defaults to 'normal') See http://en.cppreference.com/w/cpp/regex/syntax_option_type.
+    @param matchflags Flags that control matching. See http://en.cppreference.com/w/cpp/regex/match_flag_type.
+    @return Default record if no match was found.
+    @cell(record array) return.matches Match results
+    @cell(integer) return.len The first record: length of the sequence that matched the regex, subsequent records: length of the sequence
+        that matched the subexpression (or 0 if the subexpression did not participate in the match)
+    @cell(integer) return.start The first record: start of the sequence that matched the regex, subsequent records: start of the sequence
+        that matched the subexpression (or -1 if the subexpression did not participate in the match)
+    @cell(boolean) return.matched True if this match is a full match, false if this was a partial match.
+    @cell(string) return.value The first record: part of the sequence that matched the regex, subsequent records: part of the sequence
+        that matched the subexpression (or "" if the subexpression did not participate in the match)
+*/
+RECORD FUNCTION __HS_INTERNAL_REGEX_MATCH(STRING data, INTEGER startpos, STRING regex, STRING ARRAY syntax, STRING ARRAY matchflags) __ATTRIBUTES__(EXTERNAL);
+
+/** Determines whether a regular expression matches a whole string from a specific starting point.
+    @param data Data to match
+    @param startpos Starting position within data
+    @param regex Regular expression
+    @param syntax Syntax options (first option must be the type of the regex, defaults to 'normal') See http://en.cppreference.com/w/cpp/regex/syntax_option_type.
+    @param matchflags Flags that control matching. See http://en.cppreference.com/w/cpp/regex/match_flag_type.
+    @return Default record if no match was found.
+    @cell(record array) return.matches Match results
+    @cell(integer) return.len The first record: length of the sequence that matched the regex, subsequent records: length of the sequence
+        that matched the subexpression (or 0 if the subexpression did not participate in the match)
+    @cell(integer) return.start The first record: start of the sequence that matched the regex, subsequent records: start of the sequence
+        that matched the subexpression (or -1 if the subexpression did not participate in the match)
+    @cell(boolean) return.matched True if this match is a full match, false if this was a partial match.
+    @cell(string) return.value The first record: part of the sequence that matched the regex, subsequent records: part of the sequence
+        that matched the subexpression (or "" if the subexpression did not participate in the match)
+*/
+RECORD FUNCTION __HS_INTERNAL_REGEX_SEARCH(STRING data, INTEGER startpos, STRING regex, STRING ARRAY syntax, STRING ARRAY matchflags) __ATTRIBUTES__(EXTERNAL);
+
+/** Replaces occurrences of a regular expression in a string from a specific starting point, using the format string
+    @param data Data to replace in
+    @param startpos Starting position within data to where replacing must be started
+    @param regex Regular expression
+    @param formatstr Formatting string
+    @param syntax Syntax options (first option must be the type of the regex, defaults to 'normal') See http://en.cppreference.com/w/cpp/regex/syntax_option_type.
+    @param matchflags Flags that control matching. See http://en.cppreference.com/w/cpp/regex/match_flag_type.
+    @return String with replaces (part up to startpos is returned as-is if format_no_copy is not specified)
+*/
+STRING FUNCTION __HS_INTERNAL_REGEX_REPLACE(STRING data, INTEGER startpos, STRING regex, STRING formatstr, STRING ARRAY syntax, STRING ARRAY matchflags) __ATTRIBUTES__(EXTERNAL);
+
+/** Replaces occurrences of a regular expression in a string from a specific starting point, using the result of a callback function
+    @param data Data to replace in
+    @param startpos Starting position within data to where replacing must be started
+    @param regex Regular expression
+    @param formatptr Callback function
+    @param syntax Syntax options (first option must be the type of the regex, defaults to 'normal') See http://en.cppreference.com/w/cpp/regex/syntax_option_type.
+    @param matchflags Flags that control matching. See http://en.cppreference.com/w/cpp/regex/match_flag_type.
+    @return String with replaces (part up to startpos is returned as-is if format_no_copy is not specified)
+*/
+STRING FUNCTION __HS_INTERNAL_REGEX_REPLACE_CALLBACK(STRING data, INTEGER startpos, STRING regex, FUNCTION PTR formatptr, STRING ARRAY syntax, STRING ARRAY matchflags) __ATTRIBUTES__(EXTERNAL);
+
+/* The base regular expression objecttype
+
+  The regular expression services are provided by the C++ Regex library.
+*/
+OBJECTTYPE RegExBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** Type of the regular expression (allowed: 'normal', 'ECMAScript', 'JavaScript', 'JScript',
+      'perl', 'basic', 'sed', 'extended', 'awk', 'grep', 'egrep')
+  */
+  STRING type;
+
+  /// Regular expression pattern
+  STRING pattern;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// If set to TRUE, do a case insensitive match
+  PUBLIC BOOLEAN ignorecase;
+
+  /// If set to TRUE, search from lastindex, and set it after the match
+  PUBLIC BOOLEAN global;
+
+  /// The position at which the next search will start, automatically updated after exec or test
+  PUBLIC INTEGER lastindex;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// The source pattern
+  PUBLIC PROPERTY source(pattern, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(STRING type, STRING pattern)
+  {
+    this->type := type;
+    this->pattern := pattern;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Functions to override
+  //
+
+  STRING ARRAY FUNCTION GetSyntax()
+  {
+    STRING ARRAY syntax := [ STRING(this->type) ];
+
+    IF (this->ignorecase)
+      INSERT "icase" INTO syntax AT END;
+
+    RETURN syntax;
+  }
+
+  STRING ARRAY FUNCTION GetMatchFlags()
+  {
+    STRING ARRAY flags := [ "match_not_dot_newline" ];
+    IF (NOT this->global)
+      INSERT "format_first_only" INTO flags AT END;
+    RETURN flags;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Search the next match of the regular expression within an input string
+      @param input Input to search a match in
+      @return Details about the match. First record describes the entire match (if found), further records describe
+         the subexpression matches for every subexpression in the regular expression.
+      @cell(boolean) return.matched For the first record, if the match was a full match (instead of a partial match),
+          For the nth (n>=1) record whether subexpression n participated in the match.
+      @cell(integer) return.start Start of the match (-1 if not matched)
+      @cell(integer) return.len Length of the match
+      @cell(string) return.value Matched part of the string
+  */
+  PUBLIC RECORD ARRAY FUNCTION Exec(STRING input)
+  {
+    RECORD result := __HS_INTERNAL_REGEX_SEARCH(input, this->lastindex, this->pattern, this->GetSyntax(), this->GetMatchFlags());
+    IF (NOT RecordExists(result))
+    {
+      IF (this->global)
+        this->lastindex := 0;
+      RETURN DEFAULT RECORD ARRAY;
+    }
+    IF (this->global)
+      this->lastindex := result.matches[0].start + result.matches[0].len;
+    RETURN result.matches;
+  }
+
+  /** @short Replace every occurrence of a regular expression
+      @long This function can be used to find every occurence of a regular expression within a string, and replace it with
+            another string. If the global flag was set on the regular expression, the callback is only called for the first
+            match.
+      @param input Input to do the replace in
+      @param replacewith Format string to replace every occurance with
+      @return Input with every occurance of the regular expression replaced
+  */
+  PUBLIC STRING FUNCTION Replace(STRING input, STRING replacewith)
+  {
+    RETURN __HS_INTERNAL_REGEX_REPLACE(input, this->lastindex, this->pattern, replacewith, this->GetSyntax(), this->GetMatchFlags());
+  }
+
+  /** @short Replace every occurrence of a regular expression by the result of a callback function
+      @long This function can be used to find every occurence of a regular expression within a string, and call a function
+            for each match. If the function returns a string, the matching occurence is replaced by the function result. If
+            the callback function is a macro, the text is not replaced. The callback function must take four arguments: a
+            string which contains the matching text from the input; a string array containing a string for each subexpression
+            (empty if the subexpression was not matched); an integer with the position of the matched text within the input
+            (before replacement); and a string containing the original input text. If the global flag was set on the regular
+            expression, the callback is only called for the first match.
+      @param input Input to do the replace in
+      @param replacefunc String function that takes a match and returns a replacement
+      @return Input with every occurance of the regular expression replaced
+  */
+  PUBLIC STRING FUNCTION ReplaceCallback(STRING input, FUNCTION PTR replacefunc)
+  {
+    RETURN __HS_INTERNAL_REGEX_REPLACE_CALLBACK(input, this->lastindex, this->pattern, replacefunc, this->GetSyntax(), this->GetMatchFlags());
+  }
+
+  /** @short Test if a match of the regular expression is present within an input string
+      @param input Input to search a match in
+      @return Whether a match can be found in the input string
+  */
+  PUBLIC BOOLEAN FUNCTION Test(STRING input)
+  {
+    STRING ARRAY syntax := this->GetSyntax();
+    INSERT "nosubs" INTO syntax AT END;
+    RECORD result := __HS_INTERNAL_REGEX_SEARCH(input, this->lastindex, this->pattern, syntax, this->GetMatchFlags());
+    IF (this->global)
+    {
+      IF (RecordExists(result))
+        this->lastindex := result.matches[0].start + result.matches[0].len;
+      ELSE
+        this->lastindex := 0;
+    }
+    RETURN RecordExists(result);
+  }
+>;
+
+/** @short Regular expression base with multiline support
+*/
+OBJECTTYPE MultilineRegExBase EXTEND RegExBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// If searches may span multiple lines (i.e. if "^" may occur after a "\n" and "$" before a "\n")
+  PUBLIC BOOLEAN multiline;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @short Create a Perl-compatible regular expression object
+      @param pattern The regular expression (not enclosed by slashes)
+      @param flags Flags ('g', 'i', 'm')
+  */
+  MACRO NEW(STRING type, STRING pattern, STRING flags)
+  : RegExBase(type, pattern)
+  {
+    FOR (INTEGER i := 0, e := LENGTH(flags); i != e; i := i + 1)
+    {
+      STRING flagchar := SubString(flags, i, 1);
+      SWITCH (flagchar)
+      {
+      CASE "g"  { this->global := TRUE; }
+      CASE "m"  { this->multiline := TRUE; }
+      CASE "i"  { this->ignorecase := TRUE; }
+      DEFAULT   { THROW NEW Exception("Flag '" || flagchar || "' is not allowed"); }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  UPDATE STRING ARRAY FUNCTION GetSyntax()
+  {
+    STRING ARRAY syntax := RegExBase::GetSyntax();
+
+    IF (NOT this->multiline)
+      INSERT "no_mod_m" INTO syntax AT END;
+
+    RETURN syntax;
+  }
+>;
+
+/** @short Perl-compatible regular expression
+*/
+PUBLIC OBJECTTYPE RegEx EXTEND MultilineRegExBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @short Create a Perl-compatible regular expression object
+      @param pattern The regular expression (not enclosed by slashes)
+      @param flags Flags ('g', 'i', 'm')
+  */
+  MACRO NEW(STRING pattern, STRING flags DEFAULTSTO "")
+  : MultilineRegExBase("normal", pattern, flags)
+  {}
+>;
+
+/** @short JavaScript-like regular expression
+*/
+PUBLIC OBJECTTYPE JSRegEx EXTEND MultilineRegExBase
+< // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @short Create a JavaScript-like regular expression object
+      @param pattern The regular expression (not enclosed by slashes)
+      @param flags Flags ('g', 'i', 'm')
+  */
+  MACRO NEW(STRING pattern, STRING flags DEFAULTSTO "")
+  : MultilineRegExBase("JavaScript", pattern, flags)
+  {}
+>;
+
+OBJECT parser;
+
+/** @short Create a regular expression pattern to match a LIKE mask
+    @long This function can be used to create a regular expression to perform a LIKE match. This function allows for "*" and
+          "?" to be escaped as "\*" and "\?", so the literal characters "*" and "?" can be matched (which is not possible
+          using LIKE). The resulting pattern can also be used to capture the matched wildcard values.
+    @param likemask The LIKE mask to match
+    @return The regular expression pattern
+    @example
+STRING string1 := "Is this a test?";
+STRING string2 := "Is this a test!";
+
+// Returns TRUE
+BOOLEAN like1 := string1 LIKE "Is * a test?";
+// Also returns TRUE (The "?" matches a single character)
+BOOLEAN like2 := string2 LIKE "Is * a test?";
+
+// Using "\\?" to escape the "?", so we can match the "?" character itself
+STRING pattern := CreateLikeRegexPattern("Is * a test\\?");
+OBJECT expression := NEW RegEx(pattern);
+
+// Returns TRUE
+BOOLEAN test1 := expression->Test(string1);
+// Returns FALSE
+BOOLEAN test2 := expression->Test(string2);
+
+// exec1 contains two records, the first containing the complete string, the second containing "this" (matched by the "*")
+RECORD ARRAY exec1 := expression->Exec(string1);
+// exec2 is a default record array, because it doesn't match
+RECORD ARRAY exec2 := expression->Exec(string2);
+*/
+PUBLIC STRING FUNCTION CreateLikeRegexPattern(STRING likemask)
+{
+  IF (NOT ObjectExists(parser))
+    parser := NEW StringParser();
+
+  parser->Reset(likemask);
+  STRING pattern;
+
+  WHILE (NOT parser->eof)
+  {
+    // Parse non-special characters
+    pattern := pattern || parser->ParseWhileNotInSet(".^$*+?()[{\\|");
+    IF (parser->eof)
+      BREAK;
+
+    // Handle some special cases
+    IF (parser->current = "\\" AND SearchSubstring("*?", parser->PeekN(1)) >= 0)
+    {
+      // If this "\" escapes an "*" or "?", leave it escaped as-is (it will match the literal "*" or "?" character)
+      pattern := pattern || parser->ParseN(2); // Parse the "\*" or "\?"
+    }
+    ELSE IF (parser->current = "*")
+    {
+      // Convert "*" to "(.*)" (match and capture zero or more characters)
+      pattern := pattern || "(.*)";
+      parser->SkipN(1); // Skip the "*"
+    }
+    ELSE IF (parser->current = "?")
+    {
+      // Convert "?" to "(.)" (match and capture a single character)
+      pattern := pattern || "(.)";
+      parser->SkipN(1); // Skip the "?"
+    }
+    ELSE
+    {
+      // Escape the current special character
+      pattern := pattern || "\\" || parser->ParseN(1);
+    }
+  }
+
+  RETURN pattern;
+}

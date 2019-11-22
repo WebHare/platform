@@ -1,0 +1,671 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+
+PUBLIC RECORD ARRAY FUNCTION GetCurrentFSTypes()
+{
+  RETURN SELECT * FROM system.fs_types;
+}
+
+
+INTEGER ARRAY FUNCTION GetMatchesBySiteFilter(RECORD sitefilter, INTEGER ARRAY limitids)
+{
+  IF(NOT RecordExists(sitefilter))
+    RETURN limitids;
+
+  OBJECT compiledpattern;
+  IF(sitefilter.hasregex)
+    compiledpattern := NEW RegEx(sitefilter.siteregex, "i"); //case insensitive
+
+  RETURN SELECT AS INTEGER ARRAY id
+           FROM system.sites
+          WHERE id IN limitids
+                AND (sitefilter.hasname ? ToUppercase(name) = ToUppercase(sitefilter.matchname) : TRUE)
+                AND (sitefilter.hasmask ? ToUppercase(name) LIKE ToUppercase(sitefilter.matchmask) : TRUE)
+                AND (sitefilter.hasregex ? compiledpattern->Test(name) : TRUE);
+}
+
+INTEGER ARRAY FUNCTION GetMatchingSiteids(OBJECT matchnode, INTEGER ARRAY limitids)
+{
+  RECORD sitefilter := ReadSiteFilter(matchnode);
+  RETURN GetMatchesBySiteFilter(sitefilter, limitids);
+}
+
+BOOLEAN FUNCTION TestWebhareResource(STRING path)
+{
+  TRY { GetWebhareResource(path); RETURN TRUE; }
+  CATCH RETURN FALSE;
+}
+
+PUBLIC STATIC OBJECTTYPE RecompileContext
+<
+  RECORD ARRAY current_fs_types;
+  RECORD ARRAY current_fs_members;
+
+  INTEGER ARRAY seen_members;
+
+  OBJECT parameters;
+  PUBLIC BOOLEAN debug;
+  PUBLIC BOOLEAN reportmissing;
+  RECORD result;
+  RECORD ARRAY grouptypes;
+
+  MACRO NEW()
+  {
+    this->current_fs_types := SELECT *
+                                FROM system.fs_types
+                            ORDER BY namespace;
+    this->current_fs_members := SELECT *
+                                  FROM system.fs_members
+                              ORDER BY fs_type;
+
+    this->result := [ errors               := RECORD[]
+                    , warnings             := RECORD[]
+                    , contenttypes         := RECORD[]
+                    , grouptypes           := RECORD[]
+                    , siteprofiles         := RECORD[]
+                    , success              := FALSE
+                    , applies              := RECORD[]
+                    , globalsettings       := RECORD[]
+                    , webrules             := RECORD[]
+                    , addtoindices         := RECORD[]
+                    , prebuilttag_typeid   := 0
+                    , prebuilttag_memberid := 0
+                    , hiddenfoldertypes    := INTEGER[]
+                    ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetErrors()
+  {
+    RETURN this->result.errors;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetWarnings()
+  {
+    RETURN this->result.warnings;
+  }
+
+  MACRO LogSPError(STRING filename, STRING error, INTEGER line)
+  {
+    INSERT INTO this->result.errors(resourcename, message, line, col) VALUES(filename, error, line, 0) AT END;
+  }
+
+  PUBLIC RECORD FUNCTION LookupType(STRING ns)
+  {
+    INTEGER pos := RecordBinaryFind(this->current_fs_types, [ namespace := ns ], ["namespace"]);
+    IF(pos=-1)
+      RETURN DEFAULT RECORD;
+    ELSE
+      RETURN this->current_fs_types[pos];
+  }
+
+  PUBLIC INTEGER FUNCTION SetType(STRING ns, RECORD updates)
+  {
+    RECORD loc := RecordLowerBound(this->current_fs_types, [ namespace := ns ], ["namespace"]);
+    IF(NOT loc.found)
+    {
+      INTEGER newid := MakeAutonumber(system.fs_types, "ID");
+      INSERT INTO system.fs_types(id, namespace)
+             VALUES(newid, ns);
+
+      INSERT RECORD(SELECT * FROM system.fs_types WHERE id = newid) INTO this->current_fs_types AT loc.position;
+    }
+    this->current_fs_types[loc.position] := MakeUpdatedRecord(this->current_fs_types[loc.position], updates);
+    UPDATE system.fs_types SET RECORD updates WHERE id = this->current_fs_types[loc.position].id;
+    RETURN this->current_fs_types[loc.position].id;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetMembersFor(INTEGER gettype)
+  {
+    RETURN RecordRange(this->current_fs_members, [ fs_type := gettype ], [ "FS_TYPE" ]);
+  }
+
+  MACRO ProcessGroupMemberships()
+  {
+    this->grouptypes := SELECT * FROM this->grouptypes ORDER BY namespace;
+    STRING ARRAY grouptypenamespaces := SELECT AS STRING ARRAY namespace FROM this->grouptypes;
+
+    FOREVERY (RECORD fs_type FROM this->result.contenttypes)
+    {
+      RECORD ARRAY valid_memberships;
+      RECORD ARRAY addtogroups;
+
+      // First filter on valid groups, then add to groups as members. Keeps groupmembership lists valid everywhere.
+      FOREVERY (RECORD rec FROM fs_type.groupmemberships)
+      {
+        RECORD pos := RecordLowerBound(this->grouptypes, [ namespace := rec.grouptype ], [ "NAMESPACE" ]);
+        IF (NOT pos.found)
+        {
+          this->LogSPError(fs_type.siteprofile, "Contenttype '" || fs_type.namespace || "' is member of non-existing group '" || rec.grouptype || "'", rec.line);
+        }
+        ELSE
+        {
+          INSERT rec INTO valid_memberships AT END;
+          INSERT pos INTO addtogroups AT END;
+        }
+      }
+
+      fs_type.groupmemberships := valid_memberships;
+      this->result.contenttypes[#fs_type] := fs_type;
+
+      FOREVERY (RECORD pos FROM addtogroups)
+      {
+        RECORD pos2 := RecordLowerBound(this->grouptypes[pos.position].members, fs_type, [ "NAMESPACE" ]);
+        IF (NOT pos2.found)
+          INSERT fs_type INTO this->grouptypes[pos.position].members AT pos2.position;
+      }
+    }
+  }
+
+  RECORD ARRAY loadedsiteprofiles;
+  RECORD ARRAY loadsiteprofiles;
+
+  BOOLEAN FUNCTION EnsureLoadSiteprofile(STRING siteprofilename, STRING scope)
+  {
+    RECORD loadedpos := RecordLowerBound(this->loadedsiteprofiles, [ name := siteprofilename, scope := scope ], ["NAME","SCOPE"]);
+    IF(loadedpos.found)
+      RETURN TRUE; //we have it loaded, process it
+
+    RECORD loadpos := RecordLowerBound(this->loadsiteprofiles, [ name := siteprofilename, scope := scope ], ["NAME","SCOPE"]);
+    IF(NOT loadpos.found)
+      INSERT [ name := siteprofilename, scope := scope ] INTO this->loadsiteprofiles AT loadpos.position;
+
+    RETURN FALSE; //reloop, still need it
+  }
+
+  RECORD ARRAY siteprofiles;
+  RECORD ARRAY contenttypes;
+
+  MACRO LoadSiteProfileRecursively(STRING name, STRING scopenamespace, INTEGER ARRAY siteids, BOOLEAN allsites, STRING ARRAY loadpath)
+  {
+    IF(this->debug)
+      Print("Load " || name || " from " || Detokenize(loadpath," >") || "\n");
+
+    IF(name IN loadpath)
+    {
+      this->LogSPError(name,"Recursive loadlib detected, path: " || Detokenize(loadpath," >"),0);
+      RETURN;
+    }
+    INSERT name INTO loadpath AT END;
+
+    //Do we have the siteprofile already
+    INTEGER existingpos := (SELECT AS INTEGER #siteprofiles + 1 FROM this->siteprofiles WHERE resourcename=name AND scope=scopenamespace)-1;
+    RECORD loaded;
+    IF(existingpos=-1)
+    {
+      existingpos := Length(this->siteprofiles);
+
+      loaded := GetParsedSiteProfile(name, scopenamespace);
+      IF(loaded.isscoped AND scopenamespace = "")
+      {
+        this->LogSPError(name,"Trying to load a scoped siteprofile using <applysiteprofile>, path: " || Detokenize(loadpath," >"),0);
+        RETURN;
+      }
+
+      this->result.errors := this->result.errors CONCAT loaded.errors;
+      this->result.warnings := this->result.warnings CONCAT loaded.warnings;
+      this->contenttypes := this->contenttypes CONCAT loaded.contenttypes;
+      this->grouptypes := this->grouptypes CONCAT loaded.grouptypes;
+
+      INSERT [ resourcename := name
+             , scope := scopenamespace
+             , siteids := INTEGER[]
+             , allsites := FALSE
+             , siteprofile := loaded
+             ] INTO this->siteprofiles AT END;
+    }
+    ELSE
+    {
+      loaded := this->siteprofiles[existingpos].siteprofile;
+    }
+
+    IF(allsites)
+      this->siteprofiles[existingpos].allsites := TRUE;
+    ELSE IF(Length(siteids)>0 AND NOT this->siteprofiles[existingpos].allsites)
+      this->siteprofiles[existingpos].siteids := ArrayUnion(this->siteprofiles[existingpos].siteids, siteids);
+
+    FOREVERY(STRING apply FROM loaded.applysiteprofiles)
+    {
+      IF(scopenamespace!="")
+        THROW NEW Exception("scopenamespace recursion not yet? supported");
+      this->LoadSiteProfileRecursively(apply, "", siteids, allsites, loadpath);
+    }
+    FOREVERY(RECORD load FROM loaded.loadpackages)
+    {
+      IF(scopenamespace!="")
+        THROW NEW Exception("scopenamespace recursion not yet? supported");
+      this->LoadSiteProfileRecursively(load.toload, load.scope, siteids, allsites, loadpath);
+    }
+
+    IF(this->debug)
+      Print("Done " || name || "\n");
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetSiteActivatedProfiles()
+  {
+    RECORD ARRAY allsites := SELECT id, name FROM system.sites;
+    RECORD ARRAY profileloadlist;
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings", [ openorphans := TRUE ]);
+
+    RECORD ARRAY allsitedesigns := GetAvailableWebDesigns(FALSE);
+    RECORD ARRAY allwebfeatures := GetAvailableWebFeatures();
+    RECORD ARRAY sitedesignprofiles;
+    STRING ARRAY getcells := ["siteprofiles", "sitedesign"];
+    BOOLEAN havewebfeatures := RecordExists(SELECT FROM sitesettingstype->members WHERE ToUppercase(name)="WEBFEATURES");
+    IF(havewebfeatures)
+      INSERT "webfeatures" INTO getcells AT END;
+
+    FOREVERY(RECORD setting FROM sitesettingstype->Enrich(allsites, "ID", getcells, [ orphans := TRUE ]))
+    {
+      profileloadlist := profileloadlist CONCAT SELECT siteid := allsites[#setting].id
+                                                     , fileid := siteprofiles.fileid
+                                                  FROM ToRecordArray(setting.siteprofiles, "fileid") AS siteprofiles
+                                                 WHERE siteprofiles.fileid != 0;
+
+      IF(setting.sitedesign != "")
+      {
+        RECORD match := SELECT * FROM allsitedesigns WHERE rowkey = setting.sitedesign;
+        IF(RecordExists(match))
+        {
+          FOREVERY(STRING siteprof FROM match.siteprofiles)
+            INSERT [ siteid := allsites[#setting].id
+                   , name := siteprof
+                   ] INTO sitedesignprofiles AT END;
+        }
+        ELSE
+        {
+          INSERT
+              [ resourcename :=   ""
+              , line :=           0
+              , col :=            0
+              , message :=        `Sitedesign '${setting.sitedesign}' used by site '${setting.name}' does not exist.`
+              ] INTO this->result.warnings AT END;
+        }
+      }
+      IF(havewebfeatures AND Length(setting.webfeatures)>0)
+        FOREVERY(STRING feature FROM setting.webfeatures)
+        {
+          RECORD match := SELECT * FROM allwebfeatures WHERE rowkey = feature;
+          IF(RecordExists(match) AND match.siteprofile != "")
+          {
+            INSERT [ siteid := allsites[#setting].id
+                   , name := match.siteprofile
+                   ] INTO sitedesignprofiles AT END;
+          }
+          ELSE
+          {
+            INSERT
+                [ resourcename :=   ""
+                , line :=           0
+                , col :=            0
+                , message :=        `Webfeature '${feature}' used by site '${setting.name}' does not exist.`
+                ] INTO this->result.warnings AT END;
+          }
+        }
+    }
+
+    INTEGER ARRAY validsiteprofiles := SELECT AS INTEGER ARRAY entry.fileid
+                                         FROM system.fs_objects, profileloadlist AS entry
+                                        WHERE fs_objects.id IN (SELECT AS INTEGER ARRAY fileid FROM profileloadlist)
+                                              AND fs_objects.id = entry.fileid
+                                              AND fs_objects.type = 27//siteprofile
+                                              AND fs_objects.isactive;
+
+    DELETE FROM profileloadlist WHERE fileid NOT IN validsiteprofiles;
+
+    RECORD ARRAY filenames := SELECT fileid, name := ToLowercase(GetDirectResourceName(fileid))
+                                FROM profileloadlist
+                            GROUP BY fileid;
+
+    profileloadlist := SELECT name := (SELECT AS STRING name FROM filenames WHERE filenames.fileid = profileloadlist.fileid)
+                            , siteid
+                         FROM profileloadlist;
+    profileloadlist := SELECT * FROM (profileloadlist CONCAT sitedesignprofiles)
+                       ORDER BY ToUppercase(name) LIKE "SITE::REPOSITORY/*" DESC; //Repository goes first!
+
+    RETURN profileloadlist;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION PreprocessContentTypes(RECORD ARRAY suppliedcontenttypes, RECORD ARRAY currentcontenttypes)
+  {
+    RECORD defaultrec := [ ...GetFSTypeBase(), id := 0, orphan := FALSE ];
+    currentcontenttypes := currentcontenttypes
+                           CONCAT
+                           [[ ...defaultrec, namespace := "http://www.webhare.net/xmlns/publisher/unknownfile",  isfiletype := TRUE ]
+                           ,[ ...defaultrec, namespace := "http://www.webhare.net/xmlns/publisher/normalfolder", isfoldertype := TRUE ]
+                           ];
+
+    currentcontenttypes := SELECT * FROM currentcontenttypes ORDER BY namespace;
+    suppliedcontenttypes := SELECT * FROM suppliedcontenttypes ORDER BY namespace;
+
+    RECORD ARRAY finalcontenttypes;
+    FOREVERY(RECORD ctype FROM suppliedcontenttypes)
+    {
+      // Second time we see this type? If so, ignore this definition and say something
+      IF(#ctype > 0)
+      {
+        RECORD prevctype := suppliedcontenttypes[#ctype-1];
+        IF(prevctype.namespace = ctype.namespace)
+        {
+          this->LogSPError(prevctype.siteprofile, "Location of other definition of '" || ctype.namespace || "'", prevctype.line);
+          this->LogSPError(ctype.siteprofile, "Second definition for type '" || ctype.namespace || "' found", ctype.line);
+          CONTINUE;
+        }
+      }
+
+      RECORD existing := RecordLowerBound(currentcontenttypes, ctype, ["NAMESPACE"]);
+      RECORD toupdate;
+
+      IF(existing.found)
+      {
+        RECORD match := currentcontenttypes[existing.position];
+        IF( (match.isfoldertype AND RecordExists(ctype.filetype)) OR (match.isfiletype AND RecordExists(ctype.foldertype)))
+        {
+          this->LogSPError(ctype.siteprofile, "Attempting to redefine file/foldertype", ctype.line);
+          CONTINUE;
+        }
+
+        //FIXME PREVENT loss of isfoldertype if folders still exist
+
+        ctype.id := match.id;
+        FOREVERY(RECORD fld FROM UnpackRecord(ctype.fstype))
+          IF(fld.value != GetCell(match, fld.name))
+            toupdate := CellInsert(toupdate, fld.name, fld.value);
+      }
+      ELSE
+      {
+        ctype.id := -1;
+      }
+      INSERT CELL toupdate := toupdate INTO ctype;
+      INSERT ctype INTO finalcontenttypes AT END;
+    }
+    RETURN finalcontenttypes;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ApplyContentTypes(RECORD ARRAY contenttypes)
+  {
+    RECORD ARRAY outtypes;
+    FOREVERY(RECORD ctype FROM contenttypes)
+    {
+      IF(ctype.id != 0) //this type lives in the database
+      {
+        IF(ctype.id=-1)
+        {
+          ctype.id := MakeAutonumber(system.fs_types,'id');
+          INSERT CELL[... ctype.fstype
+                     , id := ctype.id
+                     , namespace := ctype.namespace
+                     ] INTO system.fs_types;
+        }
+        ELSE IF(RecordExists(ctype.toupdate))
+        {
+          IF(ctype.id=0)
+            THROW NEW Exception("Trying to update ctype id #0 with " || EncodEHSON(ctype.toupdate));
+          ELSE
+            UPDATE system.fs_types SET RECORD ctype.toupdate WHERE id = ctype.id;
+        }
+        RECORD updres := ApplyCTMembersRecurse(ctype.members, ctype.id, 0, FALSE, this->GetMembersFor(ctype.id));
+        this->seen_members := this->seen_members CONCAT updres.seenmembers;
+      }
+      INSERT ctype INTO outtypes AT END;
+    }
+    RETURN outtypes;
+  }
+
+  PUBLIC RECORD FUNCTION Run(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD compileresult := this->Compile(options);
+    compileresult := this->ApplyStandardPostProcessing(compileresult);
+
+    this->result.siteprofiles := SELECT name := resourcename
+                                      , applysiteprofiles := siteprofile.applysiteprofiles
+                                      , langinfo := siteprofile.langinfo
+                                      , sites := siteids
+                                   FROM this->siteprofiles;
+    this->result.contenttypes := this->ApplyContentTypes(compileresult.allcontenttypes);
+    this->result.grouptypes := this->grouptypes;
+    this->result.hiddenfoldertypes := compileresult.hiddenfoldertypes;
+
+    SaveCompiledSiteProfiles(this->result);
+    INSERT CELL fullcspdata := this->result INTO compileresult;
+
+    INSERT CELL errors := this->GetErrors() INTO compileresult;
+    INSERT CELL warnings := this->GetWarnings() INTO compileresult;
+
+    // Just assume we'll make changes
+    GetWHFSCommitHandler()->FSTypesChanged();
+
+    this->UpdateOrphanStatus();
+
+    GetPrimary()->BroadcastOnCommit("publisher:internal.siteprofiles.recompiled", DEFAULT RECORD);
+    GetPrimary()->BroadcastOnCommit("publisher:internal.siteprofiles.memberschanged", DEFAULT RECORD);
+
+    CollectGarbage();
+
+    RETURN compileresult;
+  }
+
+  MACRO UpdateOrphanStatus()
+  {
+    // Only hit the DB for records we need to change
+    INTEGER ARRAY seen_content_type_ids := SELECT AS INTEGER ARRAY id FROM this->result.contenttypes ORDER BY id;
+    INTEGER ARRAY change_orphan_types :=
+        SELECT AS INTEGER ARRAY id
+          FROM this->current_fs_types
+         WHERE NOT orphan AND NOT LowerBound(seen_content_type_ids, id).found;
+
+    INTEGER ARRAY seen_member_ids := GetSortedSet(this->seen_members);
+    INTEGER ARRAY change_orphan_members :=
+        SELECT AS INTEGER ARRAY id
+          FROM this->current_fs_members
+         WHERE orphan = LowerBound(seen_member_ids, id).found;
+
+    UPDATE system.fs_types
+       SET orphan := NOT orphan
+     WHERE id IN change_orphan_types;
+
+    UPDATE system.fs_members
+       SET orphan := NOT orphan
+     WHERE id IN change_orphan_members;
+  }
+
+  PUBLIC RECORD FUNCTION ApplyStandardPostProcessing(RECORD compileresult)
+  {
+    compileresult.allcontenttypes := this->PreprocessContentTypes(compileresult.allcontenttypes, GetCurrentFSTypes());
+    INSERT CELL hiddenfoldertypes := (SELECT AS INTEGER ARRAY id
+                                           FROM compileresult.allcontenttypes
+                                          WHERE RecordExists(foldertype) AND foldertype.ishidden) INTO compileresult;
+    RETURN compileresult;
+  }
+
+  PUBLIC RECORD FUNCTION Compile(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ baseprofiles := DEFAULT STRING ARRAY
+                                , siteactivatedprofiles := DEFAULT RECORD ARRAY
+                                ], options, [ optional := ["baseprofiles","siteactivatedprofiles"]]);
+
+    IF(NOT CellExists(options, 'baseprofiles'))
+      INSERT CELL baseprofiles := PrepareCompile()->basesiteprofiles INTO options;
+    IF(NOT CellExists(options, 'siteactivatedprofiles'))
+      INSERT CELL siteactivatedprofiles := this->GetSiteActivatedProfiles() INTO options;
+
+    RECORD ARRAY errors;
+
+    DATETIME now := GetCurrentDateTime();
+    this->result.errors := errors;
+
+    RECORD ARRAY compiledsiteprofiles;
+
+    // Get all base profiles
+    FOREVERY(STRING siteprof FROM options.baseprofiles)
+      this->LoadSiteProfileRecursively(siteprof, "", DEFAULT INTEGER ARRAY, TRUE, STRING[]);
+
+    FOREVERY(RECORD activated FROM (SELECT name, siteids := GroupedValues(siteid) FROM options.siteactivatedprofiles GROUP BY name))
+    {
+      this->LoadSiteProfileRecursively(activated.name, "", activated.siteids, FALSE, STRING[]);
+    }
+
+    this->ProcessGroupMemberships();
+
+    FOREVERY(RECORD siteprof FROM this->siteprofiles)
+    {
+      FOREVERY(RECORD rule FROM siteprof.siteprofile.rules)
+      {
+        IF(rule.ruletype = "apply")
+        {
+          RECORD addrule := CELL[...rule, DELETE ruletype, siteids := siteprof.siteids, allsites := siteprof.allsites ];
+          INSERT addrule INTO this->result.applies AT END;
+        }
+        ELSE IF(rule.ruletype = "globalsetting")
+        {
+          RECORD addrule := CELL[...rule, DELETE ruletype, siteids := siteprof.siteids, allsites := siteprof.allsites ];
+          INSERT addrule INTO this->result.globalsettings AT END;
+        }
+        ELSE IF(rule.ruletype = "sitesetting")
+        {
+          IF(siteprof.allsites)
+          {
+            this->LogSPError(siteprof.resourcename, "Sitesettings may not be defined in siteprofiles that affect all sites", rule.line);
+            CONTINUE;
+          }
+
+          INTEGER ARRAY siteids := GetMatchesBySiteFilter(rule.sitefilter, siteprof.siteids);
+          IF(Length(siteids) = 0)
+            CONTINUE; //No matches!
+
+          this->result.webrules     := this->result.webrules     CONCAT SELECT *, siteids := VAR siteids FROM rule.webrules;
+          this->result.addtoindices := this->result.addtoindices CONCAT SELECT *, siteids := VAR siteids FROM rule.addtoindices;
+        }
+      }
+    }
+    //Sort apply rules. Note that sorts on record arrays are stable.
+    this->result.applies := SELECT * FROM this->result.applies ORDER BY priority;
+
+
+    //Global stuff
+    this->result.prebuilttag_typeid := SELECT AS INTEGER id
+                                   FROM system.fs_types
+                                  WHERE fs_types.namespace = "http://www.webhare.net/xmlns/publisher/prebuiltpage";
+
+    this->result.prebuilttag_memberid := SELECT AS INTEGER id
+                                     FROM system.fs_members
+                                    WHERE fs_members.name = "prebuilttag"
+                                          AND fs_members.fs_type = this->result.prebuilttag_typeid;
+
+
+    RETURN [ result := this->result  //FIXME state leak
+           , compiledsiteprofiles := compiledsiteprofiles
+           , allcontenttypes := this->contenttypes
+           ];
+  }
+>;
+
+INTEGER nextruleid := -1000000;
+RECORD FUNCTION GetBaseRule(STRING path, INTEGER priority, STRING source)
+{
+  nextruleid := nextruleid - 1;
+  RETURN GetBaseWebRule(nextruleid, path, 0, source);
+}
+MACRO SaveCompiledSiteProfiles(RECORD result)
+{
+  OBJECT cspparent :=OpenWHFSPrivateFolder("publisher");
+  OBJECT cspfile := cspparent->OpenByName("COMPILED-SITEPROFILES.BIN");
+  IF(NOT ObjectExists(cspfile))
+  {
+    OBJECT oldfile := cspparent->OpenByName("compiled-siteprofiles.hson");
+    IF(ObjectExists(oldfile))
+      oldfile->DeleteSelf();
+
+    cspfile := cspparent->CreateFile( [ name := "compiled-siteprofiles.bin"
+                                      , title := "Precompiled site profiles"
+                                      , description := "This file stores the results of the last successful site profile compilation"
+                                      , type := 0
+                                      ], [ runhooks := FALSE ]);
+  }
+
+  INTEGER str := CreateStream();
+  __HS_MarshalWriteTo(str, result);
+  BLOB blobdata := MakeBlobFromStream(str);
+  cspfile->UpdateMetaData([ data := blobdata ], [ runhooks := FALSE ]);
+}
+
+MACRO FlushSiteProfilecaches()
+{
+  tidcachepersite := DEFAULT RECORD ARRAY;
+}
+
+PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, BOOLEAN reportmissing)
+{
+  IF(NOT HavePrimaryTransaction()) //--twice already gives us one
+    OpenPrimary();
+  IF(locked)
+    GetPrimary()->BeginLockedWork("publisher:compilesiteprofiles");
+  ELSE
+    GetPrimary()->BeginWork();
+
+  RECORD response;
+  TRY
+  {
+    OBJECT recompiler := NEW RecompileContext;
+    recompiler->debug := debug;
+    recompiler->reportmissing := reportmissing;
+    response := recompiler->Run();
+  }
+  CATCH(OBJECT e)
+  {
+    GetPrimary()->RollbackWork();
+    THROW e;
+  }
+  GetPrimary()->CommitWork();
+
+  __SetCSPCacheFromSourceData(response.fullcspdata);
+
+  IF(Length(response.errors)>0)
+    LogError("publisher:siteprofiles", "siteprofilecompilation-error", [ errors := response.errors ]);
+
+  // ADDME use recompilation result directly, UpdateConsilioIndices goes through GetCSP but the data should be in 'response'
+  UpdateConsilioIndices([ reportmissing := reportmissing ]);
+  UpdateModuleIndices([ reportmissing := reportmissing ]); //FIXME currently there doesn't really seem to be anything reporting to reportmissing
+
+  RETURN [ errors := response.errors
+         , warnings := response.warnings
+         ];
+}
+PUBLIC RECORD FUNCTION RecompileSiteProfiles()
+{
+  //RECORD response := CallFunctionFromJob("mod::publisher/lib/internal/siteprofiles/compiler.whlib", "__DoRecompileSiteprofiles", TRUE, FALSE, FALSE);
+  OBJECT service  := WaitForPromise(OpenWebHareService("system:spcompiler"));
+  TRY
+  {
+    RECORD response := WaitForPromise(service->RequestRecompile());
+    FlushSiteProfilecaches();
+    RETURN response;
+  }
+  FINALLY
+  {
+    service->CloseService();
+  }
+}

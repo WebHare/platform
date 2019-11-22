@@ -1,0 +1,2642 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="backend">   <!-- backend -->
+    <textgroup gid="login">   <!-- backend.login -->
+      <text tid="loginbackground">Inloggen</text>
+      <textgroup gid="dialogs">   <!-- backend.login.dialogs -->
+        <text tid="loginconfigerror">Inloggen is niet mogelijk door een configuratiefout. Neemt u aub contact op met uw systeembeheerder.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="personal">   <!-- backend.personal -->
+      <text tid="personalsettings">Persoonlijke instellingen</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="common">   <!-- common -->
+    <text tid="deleted">(verwijderd)</text>
+    <text tid="filter">Filter</text>
+    <text tid="modificationdate">Laatst aangepast</text>
+    <text tid="object">Object</text>
+  </textgroup>
+  <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
+      <text tid="mailviewer">Bekijk e-mail</text>
+      <text tid="screentitle">E-mailwachtrij</text>
+      <text tid="viewsource">Bekijk broncode</text>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
+      <text tid="notenoughrights">U heeft niet genoeg rechten om deze applicatie te starten.</text>
+      <text tid="notenoughrights_spec">U heeft niet genoeg rechten om deze applicatie te starten.<br/><br/>De volgende recht(en) zijn nodig: <param p="1"/>.</text>
+    </textgroup>
+    <textgroup gid="rightsproblem">   <!-- commondialogs.rightsproblem -->
+      <text tid="title">Rechtenprobleem</text>
+    </textgroup>
+    <textgroup gid="runscriptdialog">   <!-- commondialogs.runscriptdialog -->
+      <text tid="script_terminated">Script is gestopt, exit code: <param p="1"/></text>
+      <text tid="title_notstarted">Niet gestart: <param p="1"/></text>
+      <text tid="title_running">Draait: <param p="1"/></text>
+      <text tid="title_terminated">Afgesloten: <param p="1"/></text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="debugger">   <!-- debugger -->
+    <textgroup gid="messages">   <!-- debugger.messages -->
+    </textgroup>
+    <textgroup gid="profiles">   <!-- debugger.profiles -->
+    </textgroup>
+    <textgroup gid="profilestatus">   <!-- debugger.profilestatus -->
+    </textgroup>
+    <textgroup gid="ruleconnector">   <!-- debugger.ruleconnector -->
+    </textgroup>
+    <textgroup gid="selectjob">   <!-- debugger.selectjob -->
+    </textgroup>
+    <textgroup gid="status">   <!-- debugger.status -->
+    </textgroup>
+    <textgroup gid="symbolsearch">   <!-- debugger.symbolsearch -->
+    </textgroup>
+    <textgroup gid="variableinspector">   <!-- debugger.variableinspector -->
+    </textgroup>
+  </textgroup>
+  <textgroup gid="installedfonts">   <!-- installedfonts -->
+    <text tid="installedfonts">Geïnstalleerde lettertypes</text>
+  </textgroup>
+  <textgroup gid="mailer">   <!-- mailer -->
+    <text tid="attachments">Bijlages</text>
+    <text tid="mailerbcc">Bcc</text>
+    <text tid="mailercc">Cc</text>
+    <text tid="mailerfrom">Van</text>
+    <text tid="mailersubject">Onderwerp</text>
+    <text tid="mailerto">Aan</text>
+    <text tid="preview">Voorbeeld</text>
+    <text tid="title">Verzend e-mail</text>
+    <textgroup gid="actions">   <!-- mailer.actions -->
+      <text tid="attach">Bijlage toevoegen</text>
+      <text tid="deleteattachment">Bijlage verwijderen</text>
+      <text tid="openattachment">Bijlage downloaden</text>
+      <text tid="send">Verzenden</text>
+    </textgroup>
+    <textgroup gid="columns">   <!-- mailer.columns -->
+      <text tid="filename">Bijlage</text>
+      <text tid="filesize">Bestandsgrootte</text>
+      <text tid="filetype">Bestandstype</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- mailer.messages -->
+      <text tid="confirm_cancel">Het bericht is nog niet verzonden. Weet u zeker dat u deze e-mail af wilt sluiten?</text>
+      <text tid="confirm_delete_attachment">Weet u zeker dat u bijlage '<param p="1"/>' wilt verwijderen?</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="mailqueue">   <!-- mailqueue -->
+    <textgroup gid="messages">   <!-- mailqueue.messages -->
+      <text tid="confirm_delete">Weet u zeker dat u dit bericht wilt verwijderen?</text>
+      <text tid="confirm_delete_multiple">Weet u zeker dat u de geselecteerde berichten wilt verwijderen?</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="main">   <!-- main -->
+    <textgroup gid="messages">   <!-- main.messages -->
+      <text tid="deletestartmenuitem">Weet u zeker dat u hoofdmenu item '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="insafemode">U bent nu in de veilige modus. Toegevoegde modules zullen niet beschikbaar zijn.</text>
+      <text tid="mustactivatelicense">Deze WebHare installatie lijkt niet over een valide licentiesleutel te beschikken. Sommige functionaliteiten en logins door niet-systeembeheerders zullen uitgeschakeld zijn tot dit probleem is opgelost.<br/><br/>Wilt u nu een licentiesleutel installeren?</text>
+      <text tid="safemoderequiressysop">U dient als sysop ingelogd te zijn om de veilige modus te kunnen gebruiken.</text>
+      <text tid="webhareclosedforinvalidlicense">WebHare is op moment niet beschikbaar. Neem a.u.b. contact op met de systeembeheerder.<br/><br/>Onze verontschuldigingen voor het ongemak.</text>
+      <text tid="webhareclosedformaintaince">WebHare is gesloten voor onderhoud. Probeer het later a.u.b. nogmaals.  <br/><br/>Onze verontschuldigingen voor het ongemak.</text>
+    </textgroup>
+    <textgroup gid="userstartmenu">   <!-- main.userstartmenu -->
+      <text tid="edittitle">Nieuwe titel</text>
+      <text tid="title">Titel</text>
+      <text tid="windowtitle">Wijzig mijn hoofdmenu</text>
+      <text tid="windowtitle_edit">Wijzig titel</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="module">   <!-- module -->
+    <text tid="webruleset-noindex">Niet indexeren (robots.txt)</text>
+    <textgroup gid="appgroups">   <!-- module.appgroups -->
+      <text tid="apps">Applicaties</text>
+      <text tid="cms">Content Management</text>
+      <text tid="development">Ontwikkeling</text>
+      <text tid="documentation">Documentatie</text>
+      <text tid="setup">Systeem</text>
+    </textgroup>
+    <textgroup gid="apps">   <!-- module.apps -->
+      <text tid="dashboard">Dashboard</text>
+      <text tid="dba">Databasebeheer</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="monitor">   <!-- monitor -->
+    <text tid="surecancelscheduleddowntime">Weet u zeker dat u de ingeplande downtime wilt annuleren?</text>
+    <text tid="sureclosewebharelogin">Weet u zeker dat u de login voor niet-sysops wilt afsluiten?</text>
+    <text tid="surekillallsessions">Weet u zeker dat u alle applicaties van deze gebruiker wilt afsluiten?</text>
+    <text tid="surekillsession">Weet u zeker dat u deze applicatie wilt afsluiten?</text>
+    <textgroup gid="apprunner">   <!-- monitor.apprunner -->
+      <text tid="title">Service beheer</text>
+    </textgroup>
+    <textgroup gid="apps">   <!-- monitor.apps -->
+      <text tid="box_appusers">Gebruikers van applicatie <param p="1"/></text>
+      <text tid="box_runningapps">Applicaties die in gebruik zijn</text>
+      <text tid="sendmessagetoappusers">Stuur een bericht naar gebruikers van deze applicatie</text>
+      <text tid="sendmessagetomoduleusers">Stuur een bericht naar gebruikers van deze module</text>
+      <text tid="sendmessagetoselectedusers">Stuur een bericht naar de selecteerde gebruikers</text>
+      <text tid="title">Applicaties</text>
+      <textgroup gid="appusers">   <!-- monitor.apps.appusers -->
+        <text tid="appusers">Gebruikersnaam</text>
+        <text tid="browser">Browser/platform</text>
+        <text tid="lastaccess">Laatste toegang</text>
+        <text tid="lastactive">Laatst actief</text>
+        <text tid="lastpoll">Laatste poll</text>
+        <text tid="memusage">Geheugengebruik</text>
+        <text tid="noappselected">Er is nog geen applicatie geselecteerd</text>
+        <text tid="noappusersanymore">Er zijn momenteel geen gebruikers van applicatie <param p="1"/></text>
+        <text tid="realname">Naam</text>
+        <text tid="timestarted">Starttijd</text>
+        <text tid="typename">Types</text>
+        <text tid="username">Gebruikersnaam</text>
+      </textgroup>
+      <textgroup gid="runningapps">   <!-- monitor.apps.runningapps -->
+        <text tid="appmemory">Geheugen verbruik</text>
+        <text tid="appname">Applicatienaam</text>
+        <text tid="name">Naam</text>
+        <text tid="noappsrunning">Er staan momenteel geen applicaties open</text>
+        <text tid="nocontact">Er is nog geen contact met de applicatiebeheerscripts</text>
+        <text tid="runcount">Instances</text>
+        <text tid="runcount_desc">Totaal aantal keer dat deze applicatie openstaat</text>
+        <text tid="title">Titel</text>
+        <text tid="usercount">Gebruikers</text>
+        <text tid="usercount_desc">Aantal gebruikers die de applicatie een of meerdere keren heeft openstaan</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="checks">   <!-- monitor.checks -->
+      <text tid="title">Systeemmeldingen</text>
+    </textgroup>
+    <textgroup gid="columns">   <!-- monitor.columns -->
+      <text tid="family">Familie</text>
+      <text tid="filename">Bestandsnaam</text>
+      <text tid="isboldicon">Vetgedrukt</text>
+      <text tid="isitalicicon">Cursief</text>
+      <text tid="istruetypeicon">Truetype</text>
+      <text tid="style">Stijl</text>
+    </textgroup>
+    <textgroup gid="events">   <!-- monitor.events -->
+      <text tid="applyfilter">Filter</text>
+      <text tid="clearlist">leegmaken</text>
+      <text tid="decodeknownmessages">Interpreteer bekende berichten</text>
+      <text tid="description">Beschrijving</text>
+      <text tid="enableintercept">Log events</text>
+      <text tid="event">Event</text>
+      <text tid="eventdata">Meegestuurde gegevens</text>
+      <text tid="eventdatatab">Event gegevens</text>
+      <text tid="eventname">Event naam</text>
+      <text tid="eventwhen">Tijdstip</text>
+      <text tid="id">ID</text>
+      <text tid="interpreteddatatab">Uitleg</text>
+      <text tid="openinpublisher">Open in Publisher</text>
+      <text tid="openinwrd">Open in WRD</text>
+      <text tid="openwrdentity">Open WRD entiteit</text>
+      <text tid="openwrdschema">Open WRD schema</text>
+      <text tid="title">Events</text>
+      <text tid="when">Tijd</text>
+      <textgroup gid="events">   <!-- monitor.events.events -->
+        <text tid="clear">Leegmaken</text>
+        <text tid="datastr">Gegevens</text>
+        <text tid="enableintercept">Aanzetten</text>
+        <text tid="event">Event</text>
+        <text tid="events">Events</text>
+        <text tid="when">Datum</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="groups">   <!-- monitor.groups -->
+      <text tid="ap">WebHare Platform</text>
+      <text tid="dev">Ontwikkeling</text>
+      <text tid="other">Overig</text>
+      <text tid="tasks">Taken en wachtrijen</text>
+    </textgroup>
+    <textgroup gid="installedfonts">   <!-- monitor.installedfonts -->
+      <text tid="title">Geïnstalleerde lettertypes</text>
+    </textgroup>
+    <textgroup gid="locks">   <!-- monitor.locks -->
+      <text tid="clientname">Clientnaam</text>
+      <text tid="col">Kolom</text>
+      <text tid="filename">Bestandsnaam</text>
+      <text tid="func">Functie</text>
+      <text tid="groupid">VM ID</text>
+      <text tid="line">Regel</text>
+      <text tid="locked">Gelockt</text>
+      <text tid="name">Naam</text>
+      <text tid="nostacktrace">Geen stacktrace vastgelegd</text>
+      <text tid="opentracerow">Bestand openen</text>
+      <text tid="position">Positie</text>
+      <text tid="stacktrace">Stack traces vastleggen</text>
+      <text tid="title">Globale locks</text>
+      <text tid="waiting">Wachtenden</text>
+    </textgroup>
+    <textgroup gid="login">   <!-- monitor.login -->
+      <text tid="password">Wachtwoord</text>
+      <text tid="savelogin">Onthoud mijn inloggegevens</text>
+      <text tid="username">Gebruikersnaam</text>
+    </textgroup>
+    <textgroup gid="logs">   <!-- monitor.logs -->
+      <text tid="title">Logs</text>
+      <textgroup gid="overview">   <!-- monitor.logs.overview -->
+        <text tid="applysettings">Verwerk</text>
+        <text tid="date">Datum</text>
+        <text tid="dateoption">Datum</text>
+        <text tid="download">Download</text>
+        <text tid="filter">Filter</text>
+        <text tid="logtype">Logtype</text>
+        <text tid="logtype-access">access</text>
+        <text tid="logtype-debug">debug</text>
+        <text tid="logtype-errors">errors</text>
+        <text tid="logtype-notice">notice</text>
+        <text tid="logtype-rpc">rpc</text>
+        <text tid="logtype-servicemanager">servicemanager</text>
+        <text tid="message_part">Melding</text>
+        <text tid="nr_kb">Aantal KB</text>
+        <text tid="openstacktrace">Stacktrace openen</text>
+        <text tid="settings">Instellingen</text>
+        <text tid="tab_htmltree">Harescript waarde</text>
+        <text tid="tab_raw">RAW</text>
+        <text tid="tab_stacktrace">Stacktrace</text>
+        <text tid="title">Systeemlogbestanden</text>
+        <textgroup gid="stacktrace">   <!-- monitor.logs.overview.stacktrace -->
+          <text tid="filename">Bestandsnaaam</text>
+          <text tid="position">Positie</text>
+          <text tid="stacktrace-function">Stacktrace functie</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="panel">   <!-- monitor.logs.panel -->
+        <text tid="date">Datum</text>
+        <text tid="errorlogbox">Errorlog</text>
+        <text tid="logs">Logs</text>
+        <text tid="message">Logbericht</text>
+        <text tid="runlogsscreen">Open logs scherm</text>
+        <text tid="servicemanagerlogbox">Servicebeheer</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="mailqueue">   <!-- monitor.mailqueue -->
+      <text tid="title">Uitgaande e-mail</text>
+    </textgroup>
+    <textgroup gid="managedtasks">   <!-- monitor.managedtasks -->
+      <text tid="title">Beheerde taken</text>
+    </textgroup>
+    <textgroup gid="nodemodules">   <!-- monitor.nodemodules -->
+      <text tid="title">Node modules</text>
+      <textgroup gid="actions">   <!-- monitor.nodemodules.actions -->
+        <text tid="fetchnewcopy">Haal nieuwe kopie op</text>
+        <text tid="fixmodules">Fixmodules uitvoeren</text>
+        <text tid="link">Link</text>
+        <text tid="prune">Prune</text>
+        <text tid="revealinfinder">Toon in Finder</text>
+        <text tid="unlink">Unlink</text>
+      </textgroup>
+      <textgroup gid="columns">   <!-- monitor.nodemodules.columns -->
+        <text tid="linksto">Linkt naar</text>
+        <text tid="name">Module / node module</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="processlist">   <!-- monitor.processlist -->
+      <text tid="abort">Afbreken</text>
+      <text tid="abortprocess">Afbreken</text>
+      <text tid="appname">Applicatienaam</text>
+      <text tid="appstats">Applicatiestatistieken</text>
+      <text tid="appstatus">Status</text>
+      <text tid="avgrunning">Gem. CPU usage</text>
+      <text tid="avgtime">Gem. tijd</text>
+      <text tid="backingstore">Backingstoregrootte</text>
+      <text tid="blobstore">Blobstoregrootte</text>
+      <text tid="cannotfindsource">Kan bronbestand niet vinden</text>
+      <text tid="cannotfindsourcetab">Kan bronbestand niet vinden</text>
+      <text tid="codeview">Bronbestand</text>
+      <text tid="col">Kolom</text>
+      <text tid="count">Aantal</text>
+      <text tid="cpu">CPU</text>
+      <text tid="creationdate">Aanmaakdatum</text>
+      <text tid="databaseuser">Databasegebruiker</text>
+      <text tid="debugprocess">Openen in debugger</text>
+      <text tid="errors">Foutmeldingen</text>
+      <text tid="filename">Bestandsnaam</text>
+      <text tid="finishdate">Beëindigingsdatum</text>
+      <text tid="func">Functie</text>
+      <text tid="groupcount"><ifparam p="1" value="1">1 script<else/><param p="1"/> scripts</ifparam></text>
+      <text tid="groupid">Group id</text>
+      <text tid="heap">Heapgrootte</text>
+      <text tid="hidetolliuminternals">Verberg communicatiescripts van WebHare</text>
+      <text tid="history">Geschiedenis</text>
+      <text tid="history_secs">Lengte vande geschiedenis (secondes)</text>
+      <text tid="ignoreparameters">Negeer parameters</text>
+      <text tid="instructions">Uitgevoerde instructies</text>
+      <text tid="line">Regel</text>
+      <text tid="locked">Gelockt</text>
+      <text tid="lockorder">Volgorde</text>
+      <text tid="locks">Locks</text>
+      <text tid="lockstatus">Max. lock: <param p="1"/>, max. wacht: <param p="2"/>, <param p="3"/> wachtenden</text>
+      <text tid="locktime">Locktijd</text>
+      <text tid="mainscript">Hoofdscript</text>
+      <text tid="maxconcurrent">Max. tegelijk</text>
+      <text tid="maxlocktime">Max. locktijd</text>
+      <text tid="maxwaittime">Max. wachttijd</text>
+      <text tid="message">Bericht</text>
+      <text tid="name">Naam</text>
+      <text tid="noerrors">Het process is normaal geëindigd zonder foutmeldingen.</text>
+      <text tid="noerrorsreported">Geen fouten gerapporteerd in deze periode.</text>
+      <text tid="nostacktrace">Geen stacktrace beschikbaar</text>
+      <text tid="objectcount">Aantal objecten</text>
+      <text tid="opentracerow">Toon bron</text>
+      <text tid="position">Positie</text>
+      <text tid="processgone">Kan de procesgegevens niet meer vinden, het is te lang geleden geëindigd.</text>
+      <text tid="processview">Procesgegevens</text>
+      <text tid="refresh">Verversen</text>
+      <text tid="running">Draaiend</text>
+      <text tid="runningcount"><param p="1"/> draaiend</text>
+      <text tid="script">Script</text>
+      <text tid="size_txt">Grootte</text>
+      <text tid="stack">Stackgrootte</text>
+      <text tid="stacktrace">Stacktrace</text>
+      <text tid="status">Status</text>
+      <text tid="title">Webserver processen</text>
+      <text tid="total_running">Totaal CPU</text>
+      <text tid="total_running_txt">CPU totaal</text>
+      <text tid="totaltime">Totale tijd</text>
+      <text tid="userdata">Gebruikersgegevens</text>
+      <text tid="useremail">Emailadres</text>
+      <text tid="username">Inlognaam</text>
+      <text tid="viewprocess">Procesgegevens bekijken</text>
+      <text tid="viewtab">View tab</text>
+      <text tid="waiting">Wachtend</text>
+      <text tid="waittime">Wachttijd</text>
+    </textgroup>
+    <textgroup gid="queuemessages">   <!-- monitor.queuemessages -->
+      <text tid="taskscheduled">De taak is ingepland</text>
+      <text tid="verifyruntask">Weet u zeker dat u het script '<param p="1"/>' nu wilt starten?</text>
+      <text tid="verifyruntaskbadinstalltype">Voor het geselecteerde script ''<param p="1"/>'' is expliciet aangegeven dat het niet op deze installatie mag draaien. Het zou alleen op installaties van type '<param p="2"/>' mogen draain, maar deze installatie is configureerd als type '<param p="3"/>'. Deze markering dient meestal om dubbele acties te voorkomen (bv het sturen van email of het verwerken van betalingen).<br/><br/>Wilt u dit script ondanks deze markering toch starten?</text>
+    </textgroup>
+    <textgroup gid="queues">   <!-- monitor.queues -->
+      <text tid="analyzerqueuelength">Uitvoeranalyse wachtrij lengte</text>
+      <text tid="consilioqueue">Consilio wachtrij</text>
+      <text tid="contentsources">Contentbronnen</text>
+      <text tid="contentsources-desc"><param p="2"/>/<param p="1"/> (<param p="3"/> uitgeschakeld)</text>
+      <text tid="currenttask">Huidige taak</text>
+      <text tid="deadline">Deadline</text>
+      <text tid="description">Omschrijving</text>
+      <text tid="estimate_unavailable">geen schatting beschikbaar</text>
+      <text tid="estimatedcompletion">Verwachte voltooing</text>
+      <text tid="indexmanagers">Indexmanagers</text>
+      <text tid="indexstatus">Status</text>
+      <text tid="janitor_nexttask">Volgende onderhoudstaak</text>
+      <text tid="name">Naam</text>
+      <text tid="nexttime">Volgende keer</text>
+      <text tid="publisherqueue">Publisher wachtrij</text>
+      <text tid="queuelength">Lengte wachtrij</text>
+      <text tid="running">Draait</text>
+      <text tid="runtaskinforeground">Voer taak in voorgrond uit</text>
+      <text tid="scheduletasknow">Plan taak nu in</text>
+      <text tid="script">Script</text>
+      <text tid="starttime">Starttijd</text>
+      <text tid="tasks">Taken</text>
+      <text tid="time">Tijd</text>
+      <text tid="title">Wachtrijen</text>
+      <text tid="workers">Werkers</text>
+      <textgroup gid="indexmanagerstatus">   <!-- monitor.queues.indexmanagerstatus -->
+        <text tid="available">Beschikbaar</text>
+        <text tid="checking">Moet nagelopen worden</text>
+        <text tid="flood_watermark">Alleen-lezen-modus (<ifparam p="2" value="more">&gt; <param p="1"/> in gebruik<else/>&lt; <param p="1"/> beschikbaar</ifparam>)</text>
+        <text tid="high_watermark">Erg weinig schijfruimte (<ifparam p="2" value="more">&gt; <param p="1"/> in gebruik<else/>&lt; <param p="1"/> beschikbaar</ifparam>)</text>
+        <text tid="low_watermark">Weinig schijfruimte (<ifparam p="2" value="more">&gt; <param p="1"/> in gebruik<else/>&lt; <param p="1"/> beschikbaar</ifparam>)</text>
+        <text tid="offline">Offline</text>
+        <text tid="optimizing">Wordt geoptimaliseerd</text>
+        <text tid="unauthorized">Niet geautoriseerd</text>
+        <text tid="unknown">Onbekend</text>
+      </textgroup>
+      <textgroup gid="workerstatus">   <!-- monitor.queues.workerstatus -->
+        <text tid="checkgroup">Herindexeren '<param p="1"/>'<ifparam p="2" value=""><else/> in catalogus '<param p="2"/>'</ifparam></text>
+        <text tid="checkindex">Nalopen catalogus '<param p="1"/>'</text>
+        <text tid="checkindexsource">Nalopen catalogus '<param p="1"/>': '<param p="2"/>'</text>
+        <text tid="checkindexstate">Controleren indexstatus</text>
+        <text tid="checkobject">Indexeren '<param p="1"/>'<ifparam p="2" value=""><else/> in catalogus '<param p="2"/>'</ifparam></text>
+        <text tid="cleanupindex">Opschonen catalogus '<param p="1"/>'</text>
+        <text tid="deactivategroup">Verwijderen '<param p="1"/>'<ifparam p="2" value=""><else/> uit catalogus '<param p="2"/>'</ifparam></text>
+        <text tid="deletegroup">Verwijderen '<param p="1"/>'<ifparam p="2" value=""><else/> uit catalogus '<param p="2"/>'</ifparam></text>
+        <text tid="deleteobject">Verwijderen '<param p="1"/>'<ifparam p="2" value=""><else/> uit catalogus '<param p="2"/>'</ifparam></text>
+        <text tid="fastcheckgroup">Indexeren '<param p="1"/>'<ifparam p="2" value=""><else/> in catalogus '<param p="2"/>'</ifparam></text>
+        <text tid="idle">&lt;geen taak&gt;</text>
+        <text tid="unavailable">&lt;niet beschikbaar&gt;</text>
+        <text tid="unknown">&lt;onbekend&gt;</text>
+        <text tid="updategroup">Nalopen '<param p="1"/>'<ifparam p="2" value=""><else/> in catalogus '<param p="2"/>'</ifparam></text>
+        <text tid="updateindex">Nalopen catalogus '<param p="1"/>'</text>
+        <text tid="updateindexsource">Nalopen catalogus '<param p="1"/>': '<param p="2"/>'</text>
+        <text tid="workerpages"><param p="1"/> <ifparam p="1" value="1">onderdeel<else/>onderdelen</ifparam></text>
+        <text tid="workertask"><param p="1"/><ifparam p="2" value=""><else/> (<param p="2"/>)</ifparam></text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="rpclog">   <!-- monitor.rpclog -->
+      <text tid="title">RPC logs</text>
+      <textgroup gid="panel">   <!-- monitor.rpclog.panel -->
+        <text tid="loggedforever">Altijd loggen</text>
+        <text tid="loggeduntil">Loggen tot <param p="1"/></text>
+        <text tid="loggeduntilexpires">Loggen tot <param p="1"/> (verloopt over <ifparam p="2" value="1">1 dag<else/><param p="2"/> dagen</ifparam>)</text>
+        <text tid="notlogged">Niet gelogd</text>
+        <text tid="rpclog">RPC logs</text>
+        <text tid="title">Lognaam</text>
+        <text tid="until">Tot</text>
+      </textgroup>
+      <textgroup gid="settings">   <!-- monitor.rpclog.settings -->
+        <text tid="dateinpast">De 'loggen tot' datum mag niet in het verleden liggen.</text>
+        <text tid="loguntil">Loggen tot</text>
+        <text tid="loguntil-forever">Altijd loggen</text>
+        <text tid="loguntil-not">Niet loggen</text>
+        <text tid="loguntil-until">Loggen tot</text>
+        <text tid="loguntildate">Loggen tot</text>
+        <text tid="profile">Profile (schakelt automatisch na 4 uur uit)</text>
+        <text tid="title">Loginstellingen bewerken</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="scheduledowntime">   <!-- monitor.scheduledowntime -->
+      <text tid="estimateddowntime">Geschatte duur</text>
+      <text tid="locklogin">Login sluiten</text>
+      <text tid="scheduledowntime">Downtime inplannen</text>
+      <text tid="scheduletime">Begin</text>
+    </textgroup>
+    <textgroup gid="sendmessage">   <!-- monitor.sendmessage -->
+      <text tid="applytemplate">Sjabloon-instellingen</text>
+      <text tid="applytemplatetotext">Verwerken</text>
+      <text tid="defaultmessage">Geachte heer/mevrouw,<br/><br/>deze server zal (over XX minuten / vandaag om XX:XX / op XX-XX-XXX om XX:XX) worden geüpdatet. Hiervoor wordt u automatisch uitgelogd.<br/><br/>Sluit a.u.b. uw openstaande applicaties. Niet-opgeslagen gegevens kunnen verloren gaan.<br/><br/>Het onderhoud zal ongeveer XX minuten in beslag nemen. Na deze periode kunt u weer inloggen. <br/><br/>Onze excuses voor het ongemak.<br/><br/>--<br/><br/>Dear sir / madam,<br/><br/>This server will be updated (in XX minutes / today at XX:XX AM/PM / XX-XX-XXXX at XX-XX AM-PM). You will be automatically logged out.<br/><br/>Please close any running applications. Unsaved data could be lost.<br/><br/>The maintenance will take approximately XX minutes. After this period you can log in again.<br/><br/>We apologize for any inconvenience.</text>
+      <text tid="global_msgtitle">Global announcement</text>
+      <text tid="message">Bericht</text>
+      <text tid="messagetype">Verstuur als</text>
+      <text tid="messagetype-broadcast">Broadcast (dialoog)</text>
+      <text tid="messagetype-towl">Notificatie (Towl)</text>
+      <text tid="minutes">minuten</text>
+      <text tid="msg">Bericht</text>
+      <text tid="sendmessage">Verstuur</text>
+      <text tid="serverupdate">Server update</text>
+      <text tid="template">Sjabloon</text>
+      <text tid="template-none">Geen</text>
+      <text tid="template-serverupdate">Server update</text>
+      <text tid="title">Titel</text>
+      <text tid="title_toall">Verstuur een bericht naar iedereen</text>
+      <text tid="title_toallusersofapp">Verstuur een bericht naar gebruikers van applicatie '<param p="1"/>'</text>
+      <text tid="title_toallusersofmodule">Verstuur een bericht naar gebruikers van module '<param p="1"/>'</text>
+      <text tid="title_touser">Verstuur een bericht naar gebruiker '<param p="1"/>'</text>
+      <text tid="title_tousers">Verstuur een bericht naar de geselecteerde gebruikers</text>
+      <text tid="updatelanguage">Taal</text>
+      <text tid="updatelanguage-dutch">Nederlands</text>
+      <text tid="updatelanguage-dutch_and_english">Nederlands en Engels</text>
+      <text tid="updatelanguage-english">Engels</text>
+      <text tid="updatetime">Duur v/d update</text>
+      <text tid="updatewhen">Tijdstip</text>
+    </textgroup>
+    <textgroup gid="taskproperties">   <!-- monitor.taskproperties -->
+      <text tid="defaulttimeout">Standaard timeout (<param p="1"/>)</text>
+      <text tid="enabled">Ingeschakeld</text>
+      <text tid="inapplicable">Niet van toepassing</text>
+      <text tid="lastmessages">Laatste berichten</text>
+      <text tid="nexttime">Volgende tijdstip</text>
+      <text tid="parameters">Argumenten</text>
+      <text tid="properties">Eigenschappen</text>
+      <text tid="scriptname">Scriptnaam</text>
+      <text tid="tag">Tag</text>
+      <text tid="taskproperties">Taakeigenschappen</text>
+      <text tid="timeout">Script timeout</text>
+    </textgroup>
+    <textgroup gid="users">   <!-- monitor.users -->
+      <text tid="appcount">Applicaties</text>
+      <text tid="application">Applicatie</text>
+      <text tid="applicationtitle">Applicatienaam</text>
+      <text tid="appmemory">Totaal geheugen</text>
+      <text tid="apps">Applicaties</text>
+      <text tid="appstats">Applicatiegegevens</text>
+      <text tid="backingstore">Backing store</text>
+      <text tid="blobstore">Blobs</text>
+      <text tid="browser">Browser</text>
+      <text tid="cancelscheduleddowntime">Downtime annuleren</text>
+      <text tid="closewebharelogin">Login afsluiten</text>
+      <text tid="heap">Heap</text>
+      <text tid="instructions">Instructies</text>
+      <text tid="ipaddress">IP-adres</text>
+      <text tid="lastaccess">Laatste toegang</text>
+      <text tid="lastactive">Laatst actief</text>
+      <text tid="lastpoll">Laatste poll</text>
+      <text tid="library">Library</text>
+      <text tid="loginstatus">WebHare login status</text>
+      <text tid="loginstatus_closed">Login is GESLOTEN</text>
+      <text tid="loginstatus_licenseexpired">Login is GESLOTEN, licentie verlopen</text>
+      <text tid="loginstatus_nolicense">Login is GESLOTEN, geen licentie</text>
+      <text tid="loginstatus_open">Login is open</text>
+      <text tid="logintime">Logintijd</text>
+      <text tid="memoryusage">Geheugengebruik</text>
+      <text tid="messaging">Berichten</text>
+      <text tid="objectcount">Aantal objecten</text>
+      <text tid="openwebharelogin">Login openen</text>
+      <text tid="realname">Naam</text>
+      <text tid="running">Actief?</text>
+      <text tid="scheduledowntime">Downtime inplannen</text>
+      <text tid="sendglobalmessage">Globaal bericht versturen</text>
+      <text tid="sendmessagetouser">Bericht naar gebruiker versturen</text>
+      <text tid="sessionid">Sessie-id</text>
+      <text tid="stack">Stack</text>
+      <text tid="starturl">Start URL</text>
+      <text tid="stats">Statistieken</text>
+      <text tid="timestarted">Starttijd</text>
+      <text tid="title">Gebruikers</text>
+      <text tid="total_appcount">Aantal applicaties</text>
+      <text tid="total_appmemory">Geheugengebruik</text>
+      <text tid="total_onlineusers">Online gebruikers</text>
+      <text tid="typename">Types</text>
+      <text tid="username">Gebruikernaam</text>
+      <textgroup gid="menus">   <!-- monitor.users.menus -->
+        <text tid="killallsessions">Alle applicaties afsluiten</text>
+        <text tid="killsession">Applicatie afsluiten</text>
+      </textgroup>
+      <textgroup gid="types">   <!-- monitor.users.types -->
+        <text tid="basic">Basic</text>
+        <text tid="cookie">Cookie</text>
+        <text tid="digest">Digest</text>
+        <text tid="tollium">WebHare backend</text>
+        <text tid="unknown">Onbekend</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="webserverscripts">   <!-- monitor.webserverscripts -->
+      <text tid="title">Cluster services</text>
+      <textgroup gid="dialogs">   <!-- monitor.webserverscripts.dialogs -->
+        <text tid="resourcemanagererror">Er is een fout opgetreden in de communicatie met de resource manager</text>
+      </textgroup>
+      <textgroup gid="manager">   <!-- monitor.webserverscripts.manager -->
+        <text tid="couldnotcontact">Kon het webserver beheerscript niet bereiken</text>
+        <text tid="date">Op</text>
+        <text tid="details">Details</text>
+        <text tid="error">De volgende fout is opgetreden: <param p="1"/></text>
+        <text tid="lasterror">Laatste fout</text>
+        <text tid="message">Foutmelding</text>
+        <text tid="name">Naam</text>
+        <text tid="runhistory">Geschiedenis</text>
+        <text tid="since">Vanaf</text>
+        <text tid="status">Status</text>
+        <text tid="status-crashed">Vastgelopen</text>
+        <text tid="status-none">Niet gestart</text>
+        <text tid="status-released">Losgelaten</text>
+        <text tid="status-running">Draait</text>
+        <text tid="status-shutdown">Afgesloten</text>
+        <text tid="status-starting">Aan het starten</text>
+        <text tid="status-terminated">Afgesloten</text>
+        <text tid="title">Webserver scripts</text>
+        <textgroup gid="actions">   <!-- monitor.webserverscripts.manager.actions -->
+          <text tid="details">Details</text>
+          <text tid="history">Geschiedenis</text>
+          <text tid="refresh">Verversen</text>
+          <text tid="terminate">Afbreken</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="resourcemanager">   <!-- monitor.webserverscripts.resourcemanager -->
+        <text tid="cache">Cache</text>
+        <text tid="clearcache">Cache legen</text>
+        <text tid="file_requests">Bestandsaanvragen</text>
+        <text tid="icon_requests">Icon aanvragen</text>
+        <text tid="icon_requests_from_cache">Icon aanvragen uit cache geleverd</text>
+        <text tid="iconlist_requests">Iconlijst aanvragen</text>
+        <text tid="notrunning">Het resourcemanager script draait momenteel niet</text>
+        <text tid="title">Resource manager</text>
+        <text tid="xml_from_cache">XML aanvragen uit cache geleverd</text>
+        <text tid="xml_requests">XML aanvragen</text>
+        <text tid="xmlcache_size">XML documenten in cache</text>
+      </textgroup>
+      <textgroup gid="runhistory">   <!-- monitor.webserverscripts.runhistory -->
+        <text tid="date">Op</text>
+        <text tid="details">Details</text>
+        <text tid="message">Foutmelding</text>
+        <text tid="title">Geschiedenis</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="whdb">   <!-- monitor.whdb -->
+      <text tid="client">Client</text>
+      <text tid="col">Kolom</text>
+      <text tid="count">Aantal</text>
+      <text tid="currentrpc">Hudige aanroep</text>
+      <text tid="enablegrouping">Groepeer op plan en bron</text>
+      <text tid="filename">Stacktrace</text>
+      <text tid="func">Functie</text>
+      <text tid="id">Query ID</text>
+      <text tid="janitor">Onderhoud</text>
+      <text tid="line">Regel</text>
+      <text tid="nexttask">Volgende taak</text>
+      <text tid="norpcinfo">RPC info is niet beschikbaar</text>
+      <text tid="nostacktrace">Geen stacktrace beschikbaar</text>
+      <text tid="numhints">Schoonmaakhints</text>
+      <text tid="opentracerow">Toon bron</text>
+      <text tid="origin">Bron</text>
+      <text tid="plan">Plan</text>
+      <text tid="querylogtab">Query log</text>
+      <text tid="refcount">Refs</text>
+      <text tid="resetlog">Leegmaken</text>
+      <text tid="rpcinfo">Aanroepdetails</text>
+      <text tid="sentrows">Verstuurde rijen</text>
+      <text tid="settings">Debug instellingen</text>
+      <text tid="showrpcinfo">Sla aanroepdetails op (globale instelling, alleen gebruiken voor probleemoplossing)</text>
+      <text tid="source">Bron</text>
+      <text tid="stacktrace">Stack trace</text>
+      <text tid="starttime">Starttijd</text>
+      <text tid="time">Procestijd</text>
+      <text tid="title">WebHare Database</text>
+      <text tid="transactionstab">Transacties</text>
+      <text tid="transid">Trans ID</text>
+      <text tid="transstage">Fase</text>
+      <text tid="username">Gebruikersnaam</text>
+      <text tid="waitsfor">Wacht op</text>
+      <text tid="waituntil">Wacht tot</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="newportal">   <!-- newportal -->
+    <textgroup gid="main">   <!-- newportal.main -->
+      <text tid="main">WebHare Portal</text>
+      <text tid="moreinfo">Meer informatie.</text>
+      <text tid="news">Systeemnieuws</text>
+      <text tid="personalsettings">Persoonlijke instellingen</text>
+      <text tid="socialite_auth">Socialite autorisaties</text>
+      <textgroup gid="actions">   <!-- newportal.main.actions -->
+        <text tid="about">Over 'WebHare'</text>
+        <text tid="enablecols_1">1 kolom</text>
+        <text tid="enablecols_2">2 kolommen</text>
+        <text tid="enablecols_3">3 kolommen</text>
+      </textgroup>
+      <textgroup gid="menubar">   <!-- newportal.main.menubar -->
+        <text tid="choosecols">Kies aantal kolommen</text>
+        <text tid="enablecolsaction_1">1 kolom</text>
+        <text tid="enablecolsaction_2">2 kolommen</text>
+        <text tid="enablecolsaction_3">3 kolommen</text>
+        <text tid="mainmenu">Portal</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="notifications">   <!-- notifications -->
+    <text tid="broadcast"><param p="1"/></text>
+    <text tid="broadcast-desc"><param p="1"/></text>
+    <textgroup gid="maintenance">   <!-- notifications.maintenance -->
+      <text tid="otherday">Deze server zal op <param p="1"/> om <param p="2"/> worden geüpdatet. U wordt automatisch uitgelogd. Sluit A.U.B. alle applicaties zodat uw wijzigingen niet verloren gaan. Het onderhoud zal circa <param p="3"/> minuten duren.</text>
+      <text tid="today">Deze server zal vandaag om <param p="1"/> worden geüpdatet. U wordt automatisch uitgelogd. Sluit A.U.B. alle applicaties zodat uw wijzigingen niet verloren gaan. Het onderhoud zal circa <param p="2"/> minuten duren.</text>
+    </textgroup>
+    <textgroup gid="webdav">   <!-- notifications.webdav -->
+      <text tid="putexception">Fout bij wegschrijven bestand</text>
+      <text tid="putexception-desc">Het bestand '<param p="1"/>' kon niet worden opgeslagen</text>
+    </textgroup>
+    <textgroup gid="whfs">   <!-- notifications.whfs -->
+      <text tid="siteprofcompiled">Siteprofielen gecompileerd</text>
+      <text tid="siteprofcompiled-desc">De siteprofielen zijn gehercompileerd</text>
+      <text tid="siteproferrors">Fouten in siteprofiel</text>
+      <text tid="siteproferrors-desc">Er zijn fouten opgetreden bij het hercompileren van de volgende siteprofielen:<br/><param p="1"/></text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="portal">   <!-- portal -->
+    <text tid="about">Over WebHare</text>
+    <text tid="asloginsnotsupported">Om in te loggen als een andere gebruiker, dient u uw eigen account te gebruiken en '?openas=&lt;gebruikersnaam&gt;' aan de URL toe te voegen.</text>
+    <text tid="editusersettings">Persoonlijke instellingen</text>
+    <text tid="iedownloadsettinghint">Indien uw browser ingesteld is om downloads van WebHare servers gewoon toe te staan, kunt u deze waarschuwing uitzetten bij uw Persoonlijke Instellingen</text>
+    <text tid="login">Inloggen</text>
+    <text tid="loginconfigerror">Inlogfout - neemt u  a.u.b. contact op met de systeembeheerder.</text>
+    <text tid="loginfailed">Inloggen niet gelukt</text>
+    <text tid="mysettings">Mijn instellingen</text>
+    <text tid="portal">WebHare portal</text>
+    <text tid="portletcolumns">Kies aantal kolommen</text>
+    <text tid="usermenu">Mijn startmenu</text>
+    <textgroup gid="apps">   <!-- portal.apps -->
+      <text tid="config">Modules en configuratie</text>
+      <text tid="databaseeditor">Databasebeheer</text>
+      <text tid="documentation">Ontwikkelaarsdocumentatie</text>
+      <text tid="monitor">Monitoring</text>
+      <text tid="profilingmonitor">Profiler monitoring</text>
+      <text tid="sysmgmt">Systeembeheer</text>
+      <text tid="userrights">Gebruikersbeheer</text>
+      <text tid="webservers">Webservers</text>
+    </textgroup>
+    <textgroup gid="login">   <!-- portal.login -->
+      <text tid="login">Inloggen</text>
+      <text tid="password">Wachtwoord</text>
+      <text tid="savelogin">Onthoud mijn inloggegevens</text>
+      <text tid="username">Gebruikersnaam</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- portal.messages -->
+      <text tid="confirmexittollium">Hiermee worden alle WebHare-applicaties afgesloten.</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="rights">   <!-- rights -->
+    <text tid="accessrules">Toegangsregels</text>
+    <text tid="authobjects">Gebruikersbeheer</text>
+    <text tid="authobjects-descr">All rechten voor eenheid-, gebruiker- en rolbeheer</text>
+    <text tid="browseunits">Bekijken</text>
+    <text tid="browseunits-descr">Het bekijken van een eenheid, en de onderliggende eenheden, gebruikers en rollen</text>
+    <text tid="default">Overige rechten</text>
+    <text tid="default-descr">Alle rechten die niet in een andere rechtengroep zijn ingedeeld</text>
+    <text tid="fs">Bestandssysteem</text>
+    <text tid="fs-descr">Rechten gerelateerd aan het bestandssysteem</text>
+    <text tid="fs_browse">Bekijken</text>
+    <text tid="fs_browse-descr">Rechten om te bekijken op dit bestandssysteem object en alle onderliggende objecten</text>
+    <text tid="fs_fullaccess">Volledige toegang</text>
+    <text tid="fs_fullaccess-descr">Volledige rechten op dit bestandssysteem object en alle onderliggende objecten</text>
+    <text tid="fs_objects">Mappen en bestanden</text>
+    <text tid="manageroles">Beheren van rollen</text>
+    <text tid="manageroles-descr">Het beheren van rollen, evenals het toekennen van die rollen aan andere gebruikers</text>
+    <text tid="manageunit">Volledig beheer</text>
+    <text tid="manageunit-descr">Beheren van eenheden en de onderliggende eenheden, gebruikers en rollen</text>
+    <text tid="openas">Openen als gebruiker</text>
+    <text tid="openas-descr">Mag WebHare openen als een (niet-sysop) gebruiker in deze eenheid</text>
+    <text tid="supervisor">Opzichter</text>
+    <text tid="supervisor-descr">Beheer het dashboard, monitor de server</text>
+    <text tid="sysop">Systeembeheerder</text>
+    <text tid="sysop-descr">Volledige managementrechten voor deze installatie</text>
+    <text tid="units">Eenheden</text>
+    <text tid="unreferenced">Vervallen rechten</text>
+    <text tid="unreferenced-descr">Rechten en objecttypes die niet (meer) door een module aangeboden worden</text>
+    <text tid="urlaccess">URL toegang</text>
+    <text tid="urlaccess-descr">Laat inloggen op deze URL toe</text>
+    <text tid="webdav_datafolders">WebDav gegevensmappen</text>
+    <text tid="webdav_fullaccess">Volledige toegang</text>
+    <text tid="webdav_fullaccess-descr">Volledige toegang (lezen en schrijven) op de inhoud van deze map</text>
+    <text tid="webdav_readaccess">Alleen-lezen toegang</text>
+    <text tid="webdav_readaccess-descr">Alleen-lezen toegang tot de inhoud van deze map</text>
+    <text tid="webservermgmt">Webserverbeheer</text>
+    <text tid="webservermgmt-descr">Beheer webservers en toegangsregels</text>
+    <text tid="webservers">Webservers</text>
+    <textgroup gid="access">   <!-- rights.access -->
+      <text tid="allwebservers">(globaal)</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="scheduler">   <!-- scheduler -->
+    <textgroup gid="main">   <!-- scheduler.main -->
+      <text tid="description">Omschrijving</text>
+      <text tid="main">Geplande taken</text>
+      <text tid="nexttime">Volgende keer</text>
+      <text tid="parameters">Argumenten</text>
+      <text tid="scriptname">Scriptnaam</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- scheduler.messages -->
+      <text tid="confirm_delete">Weet u zeker dat u de geselecteerde taak wilt verwijderen?</text>
+    </textgroup>
+    <textgroup gid="taskscreen">   <!-- scheduler.taskscreen -->
+      <text tid="enabled">Schakel deze taak in</text>
+      <text tid="nexttime">Volgende tijdstip uitvoering</text>
+      <text tid="parameters">Parameters</text>
+      <text tid="repeatevery">herhaal elke</text>
+      <text tid="runatstartup">Voer deze taak elke keer dat WebHare wordt gestart uit</text>
+      <text tid="scriptname">Scriptnaam</text>
+      <text tid="taskprops">Taakeigenschappen</text>
+      <text tid="taskscreen">Taak</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="screens">   <!-- screens -->
+    <textgroup gid="monitor">   <!-- screens.monitor -->
+      <textgroup gid="mailqueue">   <!-- screens.monitor.mailqueue -->
+        <text tid="confirmdeletemail">Weet u zeker dat u de geselecteerde mail(s) wilt verwijderen ?</text>
+        <text tid="confirmrequeuemail">Weet u zeker dat u de geselecteerde mail(s) opnieuw wil verzenden ?</text>
+        <textgroup gid="panel">   <!-- screens.monitor.mailqueue.panel -->
+          <text tid="creationdate">Aangemaakt op</text>
+          <text tid="filter">Filter</text>
+          <text tid="flush">Alles opnieuw proberen</text>
+          <text tid="forward">Doorsturen</text>
+          <text tid="nextattempt">Volgende poging</text>
+          <text tid="receiver">Ontvanger</text>
+          <text tid="requeue">Mail opnieuw versturen</text>
+          <text tid="result">Verzendresultaat</text>
+          <text tid="sender">Afzender</text>
+          <text tid="showsentmail">Toon verzonden mail</text>
+          <text tid="subject">Onderwerp</text>
+          <text tid="testmailsubject">Test mail van '<param p="1"/>'</text>
+        </textgroup>
+        <textgroup gid="result">   <!-- screens.monitor.mailqueue.result -->
+          <text tid="finalreceiver">Uiteindelijke ontvanger</text>
+          <text tid="lasterror">Laatste fout</text>
+          <text tid="response">SMTP antwoord</text>
+          <text tid="result">Verzendresultaat</text>
+          <text tid="route">Route</text>
+          <text tid="sender">Verstuurder</text>
+          <text tid="serverip">SMTP server ip</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
+        <text tid="confirmdeletetasks">Weet u zeker dat u de taken wil verwijderen?</text>
+        <text tid="confirmrescheduletasks">Weet u zeker dat u de taken opnieuw wil inplannen?</text>
+        <textgroup gid="managedtask">   <!-- screens.monitor.managedtasks.managedtask -->
+          <text tid="creationdate">Ingepland op</text>
+          <text tid="datatab">Taak data</text>
+          <text tid="finished">Afgerond op</text>
+          <text tid="id">Database id</text>
+          <text tid="lasterrors">Laatste fouten</text>
+          <text tid="managedtask">Eigenschappen beheerde taak</text>
+          <text tid="manualcall">Handmatige aanroep</text>
+          <text tid="metadatatab">Metadata</text>
+          <text tid="nextattempt">Volgende poging op</text>
+          <text tid="returnvaluetab">Teruggeven waarde</text>
+        </textgroup>
+        <textgroup gid="panel">   <!-- screens.monitor.managedtasks.panel -->
+          <text tid="creationdate">Ingepland op</text>
+          <text tid="flush">Alles nu opnieuw proberen</text>
+          <text tid="nextattempt">Volgende poging</text>
+          <text tid="reschedule">Taak opnieuw inplannen</text>
+          <text tid="showcompletedtasks">Toon voltooide taken</text>
+          <text tid="status">Status</text>
+          <text tid="tasktype">Taaktype</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="sysmgmt">   <!-- screens.sysmgmt -->
+      <textgroup gid="needsysop">   <!-- screens.sysmgmt.needsysop -->
+        <textgroup gid="main">   <!-- screens.sysmgmt.needsysop.main -->
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="setsearchablefields">   <!-- setsearchablefields -->
+    <text tid="fields">Velden</text>
+    <text tid="fieldsperson">Velden voor type 'persoon'</text>
+    <text tid="fieldsrole">Velden voor het type 'rol'</text>
+    <text tid="fieldsunit">Velden voor het type 'eenheid'</text>
+    <text tid="setfields">Doorzoekbare velden instellen</text>
+    <text tid="setfieldsperson">Doorzoekbare velden instellen voor personen</text>
+    <text tid="setfieldsrole">Doorzoekbare velden instellen voor rollen</text>
+    <text tid="setfieldsunit">Doorzoekbare velden instellen voor eenheden</text>
+    <text tid="title">Configureer doorzoekbare velden</text>
+  </textgroup>
+  <textgroup gid="setuserdefaults">   <!-- setuserdefaults -->
+    <text tid="settings">Standaardinstellingen</text>
+    <text tid="title">Stel standaardinstellingen in voor nieuwe gebruikers</text>
+  </textgroup>
+  <textgroup gid="sysmgmt">   <!-- sysmgmt -->
+    <text tid="decimalsepandthousandsepmustdiffer">U mag niet hezelfde symbool kiezen voor het decimaalteken en het cijfergroeperingssymbool.</text>
+    <text tid="userconfirmpassword">De nieuwe wachtwoorden komen niet overeen.</text>
+    <text tid="userinvalidcurpassword">Het ingevulde wachtwoord in 'Huidige wachtwoord' is niet correct.</text>
+    <textgroup gid="adhoccache">   <!-- sysmgmt.adhoccache -->
+      <text tid="cachesize">Cache grootte</text>
+      <text tid="flushcache">Leeggooien</text>
+      <text tid="hits">Hits</text>
+      <text tid="maxentries">Maximaal aantal items</text>
+      <text tid="minperlibrary">Minumum per library</text>
+      <text tid="misses">Gemist</text>
+      <text tid="oldestitem">Oudste item</text>
+      <text tid="refresh">Verversen</text>
+      <text tid="requests">Aanvragen</text>
+      <text tid="settings">Instellingen</text>
+      <text tid="settingstitle">Ad-hoccache globale instellingen</text>
+      <text tid="status">Webserver adhoc cache status</text>
+      <text tid="title">Ad-hoccache</text>
+      <text tid="webservercurrent">(Webserver cache: <param p="1"/> / <param p="2"/>)</text>
+    </textgroup>
+    <textgroup gid="apprunner">   <!-- sysmgmt.apprunner -->
+      <text tid="addappdata">Voeg een service toe</text>
+      <text tid="appmenu">Services</text>
+      <text tid="duplicatename">Er bestaat al een service met deze naam.<br/><br/>Kies a.u.b. een andere naam voor de service.</text>
+      <text tid="editappdata">Bewerk service-eigenschappen</text>
+      <text tid="illegalname">De naam van de service bevat ongeldige karakters. <br/><br/>Gebruik a.u.b. alleen letters, cijfers, liggende streepjes (onderstrepingstekens) en afbreekstreepjes.</text>
+      <text tid="inactive">Inactief</text>
+      <text tid="lasterror">Laatste bericht</text>
+      <text tid="name">Naam</text>
+      <text tid="notrunning">Draait niet</text>
+      <text tid="ondemand">Op aanvraag</text>
+      <text tid="persistent">Permanent</text>
+      <text tid="running">Draait</text>
+      <text tid="since">Sinds</text>
+      <text tid="title">Servicebeheer</text>
+      <text tid="type">Type</text>
+      <text tid="unknown">Onbekend</text>
+      <textgroup gid="actions">   <!-- sysmgmt.apprunner.actions -->
+        <text tid="refresh">Verversen</text>
+        <text tid="reload">Herladen</text>
+        <text tid="restart">Herstarten</text>
+      </textgroup>
+      <textgroup gid="editappdata">   <!-- sysmgmt.apprunner.editappdata -->
+        <text tid="cmdline">Opdrachtregel</text>
+        <text tid="editappdata">Bewerk service '<param p="1"/>'</text>
+        <text tid="name">Naam</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- sysmgmt.apprunner.messages -->
+        <text tid="apprunnergone">Het servicebeheerproces kan niet worden bereikt.</text>
+        <text tid="deleteapp">Weet u zeker dat u service '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="restartfailed">Herstart van de service is mislukt. <br/><br/>Controleer a.u.b. of de opdrachtregel correct is.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="editreg">   <!-- sysmgmt.editreg -->
+      <text tid="appmenu">Register</text>
+      <text tid="name">Naam</text>
+      <text tid="title">Register</text>
+      <text tid="value">Waarde</text>
+      <textgroup gid="actions">   <!-- sysmgmt.editreg.actions -->
+        <text tid="editkey">Wijzig registerwaarde</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="editregkey">   <!-- sysmgmt.editregkey -->
+      <text tid="blob">Blob</text>
+      <text tid="boolean">Boolean</text>
+      <text tid="datetime">Datetime</text>
+      <text tid="description">Omschrijving</text>
+      <text tid="editregkey">Wijzig registersleutel</text>
+      <text tid="false">Onwaar</text>
+      <text tid="initialvalue">Initiële waarde</text>
+      <text tid="integer">Integer</text>
+      <text tid="invalidrecordvalue">Ongeldige HSON-gecodeerde record-waarde</text>
+      <text tid="name">Naam sleutel</text>
+      <text tid="record">Record</text>
+      <text tid="string">String</text>
+      <text tid="true">Waar</text>
+      <text tid="type">Type</text>
+      <text tid="value">Waarde</text>
+    </textgroup>
+    <textgroup gid="errors">   <!-- sysmgmt.errors -->
+      <text tid="cannotreplacemodule">Het is niet mogelijk om de bestaande module '<param p="1"/>' te vervangen</text>
+      <text tid="cannotrestorebackup">Het is niet mogelijk om de backup versie van module '<param p="1"/>' terug te zetten - de module is nu niet beschikbaar.</text>
+      <text tid="containingmodule">U probeert de module '<param p="1"/>' te vervangen door een bestand dat module '<param p="2"/>' bevat</text>
+      <text tid="ioerror">Er is een lokale I/O-fout opgetreden bij het aanmaken van '<param p="1"/>'</text>
+      <text tid="missingmodules">Het is niet mogelijk deze module te installeren, de volgende benodigde modules zijn niet genstalleerd: <param p="1"/>.</text>
+      <text tid="modulealreadyexists">De module '<param p="1"/>' bestaat al - er kan slechts een versie van de module tegelijk worden geinstalleerd.</text>
+      <text tid="notvalidmodulefile">Het verzonden bestand is geen geldig WebHare module archiefbestand</text>
+      <text tid="notvalidmodulefileforthisversion">Het verzonden bestand kan niet worden geïnstalleerd in deze versie van WebHare. Deze installatie is <param p="2"/>, maar <param p="1"/> is vereist voor deze module.</text>
+    </textgroup>
+    <textgroup gid="geoip">   <!-- sysmgmt.geoip -->
+      <text tid="title">GeoIP beheer</text>
+    </textgroup>
+    <textgroup gid="keystore">   <!-- sysmgmt.keystore -->
+      <text tid="invalidhostname">De webserver lijkt geen geldige hostname te zijn. Weet u zeker dat u deze waarde als Common Name wilt gebruiken?</text>
+      <text tid="invalidkeyfile">Het bestand '<param p="1"/>' lijkt geen valide private key te zijn</text>
+      <text tid="overwritewithselfsigned">Weet u zeker dat u het certificaat van deze sleutel wilt vervangen door een zelf-ondertekend certificaat?</text>
+      <text tid="rsa">RSA</text>
+      <text tid="suredeletekey">Weet u zeker dat u sleutel '<param p="1"/>' wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt!</text>
+      <text tid="title">Sleutels en certificaten</text>
+      <textgroup gid="createkey">   <!-- sysmgmt.keystore.createkey -->
+        <text tid="bits">Bits</text>
+        <text tid="createkey">Sleutel aanmaken</text>
+        <text tid="duplicatekeyfile">Deze sleutel bestaat al</text>
+        <text tid="invalidname">De naam van de sleutel is ongeldig</text>
+        <text tid="ioerror">Er is een fout opgestreden bij het opslaan van het bestand.</text>
+        <text tid="keyfile">Sleutelbestand</text>
+        <text tid="name">Naam</text>
+        <text tid="title">Titel</text>
+      </textgroup>
+      <textgroup gid="createselfsignedcert">   <!-- sysmgmt.keystore.createselfsignedcert -->
+        <text tid="altnames">Alternatieve DNS-namen</text>
+        <text tid="c">Land</text>
+        <text tid="cn">Algemene naam (host)</text>
+        <text tid="createselfsignedcert">Zelf-ondertekend certificaat aanmaken</text>
+        <text tid="l">Gemeente</text>
+        <text tid="o">Organisatie</text>
+        <text tid="ou">Organisatieeenheid</text>
+        <text tid="st">Staat / provincie</text>
+        <text tid="validuntil">Geldig tot</text>
+        <text tid="valituntilmustbeinfuture">De 'geldig tot' datum moet in de toekomst liggen.</text>
+      </textgroup>
+      <textgroup gid="generatecsr">   <!-- sysmgmt.keystore.generatecsr -->
+        <text tid="altnames">Alternatieve namen</text>
+        <text tid="country">Land</text>
+        <text tid="csr">CSR</text>
+        <text tid="generate">Genereren</text>
+        <text tid="generatecsr">Certificate Signing Request genereren</text>
+        <text tid="invalidhostname">Ongeldige hostnaam</text>
+        <text tid="locality">Stad</text>
+        <text tid="organization">Organisatie</text>
+        <text tid="organizationunit">Organisatieeenheid</text>
+        <text tid="readfromcert">Vullen met certificaat</text>
+        <text tid="readfromlastcsr">Vullen met laatste CSR</text>
+        <text tid="state">Provincie</text>
+        <text tid="webserver">Webserver</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- sysmgmt.keystore.main -->
+        <text tid="addkey">Sleutel toevoegen</text>
+        <text tid="certificate">Certificaat</text>
+        <text tid="certificatealreadyinstalled">Dit certificaat is al geïnstalleerd.</text>
+        <text tid="certificatedoesnotmatchissuer">De issuer van het vertificaat komt niet overeen met de subject van het ondertekenende certificaat.</text>
+        <text tid="certificatenotforthiskey">Dit certificaat behoort niet bij de geselecteerde sleutel.</text>
+        <text tid="createselfsignedcert">Zelf-ondertekend certificaat aanmaken</text>
+        <text tid="deletekey">Sleutel verwijderen</text>
+        <text tid="downloadcertificate">Certificaat downloaden</text>
+        <text tid="downloadkey">Key downloaden</text>
+        <text tid="generatecsr">CSR Genereren</text>
+        <text tid="keyfile">Sleutelbestand</text>
+        <text tid="keylength">Sleutellengte</text>
+        <text tid="keystillreferencedbyentity">Deze sleutel wordt nog gerefereerd door een WRD entiteit van schema '<param p="1"/>', type '<param p="2"/>', entiteittag '<param p="3"/>'.</text>
+        <text tid="keystillreferencedbyport">Deze sleutel wordt nog gebruikt door de binding van poort <param p="2"/>, IP <param p="1"/>.</text>
+        <text tid="main">Sleutels and certificaten</text>
+        <text tid="missingcertificate">Het certificaat voor uitgever '<param p="1"/>' bevindt zich niet in het certificaatbestand en is ook niet bekend bij de centrale certificaatopslag.</text>
+        <text tid="missingcertificatechain">Dit certificaatbestand bevat geen certificaatketting.</text>
+        <text tid="noncertificateinchain">Dit bestand bevat een incorrect certificaat.</text>
+        <text tid="signatureverificationfailed">De validatie van de certificaatketting is mislukt.</text>
+        <text tid="unsupportedsignaturealgorithm">Het ondertekeningsalgoritme "<param p="1"/>" wordt niet ondersteund.</text>
+        <text tid="uploadcertificate">Certificaat installeren</text>
+        <text tid="uploadkey">Sleutel uploaden</text>
+        <text tid="validuntil">Geldig tot</text>
+        <text tid="viewcertificatechain">Certificaten bekijken</text>
+      </textgroup>
+      <textgroup gid="viewcertificatechain">   <!-- sysmgmt.keystore.viewcertificatechain -->
+        <text tid="altnames">Alternatieve namen</text>
+        <text tid="certificatechain">Certifcaatketen</text>
+        <text tid="certificatedata">Certificaatgegevens</text>
+        <text tid="commonname">Common name</text>
+        <text tid="country">Land</text>
+        <text tid="dns_altnames">DNS alternatieve namen</text>
+        <text tid="expired"><html:b>Verlopen!</html:b></text>
+        <text tid="expires_in_days">Verloopt over <param p="1"/> dagen</text>
+        <text tid="expires_soon_in_days"><html:b>Verloopt over <param p="1"/> dagen</html:b></text>
+        <text tid="locality">Plaats</text>
+        <text tid="notsignedbynextcert">Niet getekend door volgende certificaat!</text>
+        <text tid="organization">Organisatie</text>
+        <text tid="selfsigned">Zelf-ondertekend</text>
+        <text tid="signature">Ondertekening</text>
+        <text tid="signaturenotchecked">Ondertekening kan niet worden geverifieerd</text>
+        <text tid="signaturestatus">Status</text>
+        <text tid="signedbynextcert">Ondertekend door volgende certificaat</text>
+        <text tid="state">Staat/provincie</text>
+        <text tid="subject">Onderwerp</text>
+        <text tid="validfrom">Geldig vanaf</text>
+        <text tid="validuntil">Geldig tot</text>
+        <text tid="viewcertificatechain">Certificaatketting</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="main">   <!-- sysmgmt.main -->
+      <text tid="app">Systeembeheer</text>
+      <text tid="main">Systeembeheer</text>
+      <textgroup gid="actions">   <!-- sysmgmt.main.actions -->
+        <text tid="about">Over Systeembeheer</text>
+        <text tid="addtostartmenu">Toevoegen aan startmenu</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="messages">   <!-- sysmgmt.messages -->
+      <text tid="deletekey">Weet u zeker dat u de registersleutel '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="deletenode">Weet u zeker dat u registersleutel '<param p="1"/>' en eventuele onderliggende registersleutels wilt verwijderen?</text>
+    </textgroup>
+    <textgroup gid="modules">   <!-- sysmgmt.modules -->
+      <text tid="author">Auteur</text>
+      <text tid="config">Configureren</text>
+      <text tid="copyright">Copyright</text>
+      <text tid="languages">Beschikbare vertalingen</text>
+      <text tid="library">Library</text>
+      <text tid="modifications">Wijzigingen</text>
+      <text tid="reloadmodules">Herlaad modules</text>
+      <text tid="requireright">Benodigde rechten</text>
+      <text tid="runapplication">Start applicatie</text>
+      <text tid="screen">Scherm</text>
+      <text tid="scriptsandrpcstab">Scripts &amp; RPC's</text>
+      <text tid="servicestab">Services</text>
+      <text tid="showmoduleinfo">Informatie</text>
+      <text tid="startmacro">Startmacro</text>
+      <text tid="type_builtin">Standaard</text>
+      <text tid="type_deleted">Verwijderd</text>
+      <text tid="type_installed">Geïnstalleerd</text>
+      <text tid="type_local">Lokaal beheerd</text>
+      <text tid="uncommitted">Niet gecommitte wijzigingen</text>
+      <text tid="versionstitle">Versies van module '<param p="1"/>'</text>
+      <text tid="vmpermissions">VM permissies</text>
+      <textgroup gid="columns">   <!-- sysmgmt.modules.columns -->
+        <text tid="basename">Modulenaam</text>
+        <text tid="type">Type</text>
+      </textgroup>
+      <textgroup gid="columns_applications">   <!-- sysmgmt.modules.columns_applications -->
+        <text tid="name">Applicatie naam</text>
+        <text tid="title">Titel</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="receiverproperties">   <!-- sysmgmt.receiverproperties -->
+      <text tid="receiverproperties">Eigenschappen van ontvanger</text>
+    </textgroup>
+    <textgroup gid="registry">   <!-- sysmgmt.registry -->
+      <text tid="title">WebHare register</text>
+    </textgroup>
+    <textgroup gid="remoting">   <!-- sysmgmt.remoting -->
+      <text tid="title">Webhare remoting</text>
+      <textgroup gid="editservice">   <!-- sysmgmt.remoting.editservice -->
+        <text tid="debugsettings">Debug instellingen</text>
+        <text tid="log_decoded_requests">Log aanvragen</text>
+        <text tid="log_decoded_responses">Log antwoorden</text>
+        <text tid="log_raw_requests">Log ruwe aanvragen (xml)</text>
+        <text tid="log_raw_responses">Log ruwe antwoorden (xml)</text>
+        <text tid="profile">Profielen opstellen</text>
+        <text tid="rpcloglevel">Logniveau</text>
+        <text tid="title">Beheer service instelligen</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- sysmgmt.remoting.main -->
+        <text tid="log_decoded_requests_icon">Log aanvragen</text>
+        <text tid="log_decoded_responses_icon">Log antwoorden</text>
+        <text tid="log_raw_requests_icon">Log ruwe aanvragen (xml)</text>
+        <text tid="log_raw_responses_icon">Log ruwe antwoorden (xml)</text>
+        <text tid="module">Module</text>
+        <text tid="profile_icon">Profielen opstellen</text>
+        <text tid="rpcloglevel">Logniveau</text>
+        <text tid="service">Service</text>
+        <text tid="title">Beheer remoting instellingen</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="scheduler">   <!-- sysmgmt.scheduler -->
+      <text tid="title">Ingeplande taken</text>
+    </textgroup>
+    <textgroup gid="sessionlist">   <!-- sysmgmt.sessionlist -->
+      <text tid="title">Sessielijst</text>
+      <textgroup gid="sessionlist">   <!-- sysmgmt.sessionlist.sessionlist -->
+        <text tid="active">Actief</text>
+        <text tid="application">Applicatie</text>
+        <text tid="globalmessage">Globaal bericht</text>
+        <text tid="ipaddress">IP-adres</text>
+        <text tid="killsession">Sessie beëindigen</text>
+        <text tid="lastactive">Laatst actief</text>
+        <text tid="memoryusage">Geheugengebruik</text>
+        <text tid="objectcount">Objecten</text>
+        <text tid="refresh">Verversen</text>
+        <text tid="sessionid">ID</text>
+        <text tid="sessionlist">Sessies</text>
+        <text tid="timestarted">Starttijd</text>
+        <text tid="url">URL</text>
+        <text tid="user">Gebruiker</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="systemnews">   <!-- sysmgmt.systemnews -->
+      <text tid="title">Systeemnieuws</text>
+      <text tid="unknown">Onbekend</text>
+      <textgroup gid="overview">   <!-- sysmgmt.systemnews.overview -->
+        <text tid="appmenu">Systeemnieuws</text>
+        <text tid="title">Systeemnieuws</text>
+        <textgroup gid="columns">   <!-- sysmgmt.systemnews.overview.columns -->
+          <text tid="creationdate">Aanmaakdatum</text>
+          <text tid="title">Titel</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="update">   <!-- sysmgmt.systemnews.update -->
+        <text tid="en">Engels</text>
+        <text tid="from_later_than_now">Het tijdstip om de publicatie te beëindigen moet verder in de toekomst liggen dan het tijdstip om de publicatie te starten.</text>
+        <text tid="general">Eigenschappen</text>
+        <text tid="lang">Taal</text>
+        <text tid="message">Bericht</text>
+        <text tid="nl">Nederlands</text>
+        <text tid="title_en">Titel</text>
+        <text tid="window_add">Nieuwsbericht toevoegen</text>
+        <text tid="window_edit">Nieuwsbericht '<param p="1"/>' wijzigen</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="tolliumbackend">   <!-- sysmgmt.tolliumbackend -->
+      <text tid="applettitle">Authenticatie</text>
+      <text tid="authentication">Authenticatie</text>
+      <text tid="basic_auth">Basic</text>
+      <text tid="cleartext_password">Sla wachtwoorden in leesbare tekst op in de WebHare database (vereist voor Windows XP SP2 WebDav)</text>
+      <text tid="cookie">Cookie/sessie gebaseerde authenticatie</text>
+      <text tid="cookie_domain">Domein voor cookie</text>
+      <text tid="dashboard">Dashboard-personalisatie</text>
+      <text tid="digest_auth">Digest</text>
+      <text tid="exclude_accounts">Uitgezonderde accounts</text>
+      <text tid="http">HTTP authenticatie (browser venster)</text>
+      <text tid="http_authentication">HTTP authenticatie</text>
+      <text tid="imap">IMAP server</text>
+      <text tid="initialredirect">Stuur gebruikers na inloggen naar</text>
+      <text tid="keytype_development">Ontwikkelingsserver sleutel</text>
+      <text tid="keytype_notpresent">Geen licentiesleutel geinstalleerd</text>
+      <text tid="keytype_oldstyle">Oud formaat sleutel (nooit geupdate)</text>
+      <text tid="keytype_production">Productieserver sleutel</text>
+      <text tid="layouttitle">Applicatieportaal titel</text>
+      <text tid="legacyappfilter">Klassieke applicatie filter</text>
+      <text tid="legacyui">Schakel klassieke webinterface in</text>
+      <text tid="login_method">Inlogmethode</text>
+      <text tid="servername">Server name</text>
+      <text tid="servertype">Server type (OTAP)</text>
+      <text tid="servertype-acceptance">Acceptatie</text>
+      <text tid="servertype-development">Ontwikkeling</text>
+      <text tid="servertype-production">Productie</text>
+      <text tid="servertype-test">Test</text>
+      <text tid="session_authentication">Sessie authenticatie</text>
+      <text tid="timeout">Time-out bij inactiviteit</text>
+      <text tid="title">WebHare backend interface</text>
+      <text tid="toddfallbackurl">Alternatieve URL</text>
+      <text tid="unlimited">Onbeperkt</text>
+      <text tid="updatelicense">Update licentiesleutel</text>
+      <text tid="verbose_log">Uitgebreide authenticatielog (let op: wachtwoorden worden hierdoor mogelijk ook gelogd)</text>
+      <text tid="webhare_interface">WebHare authenticatie-opties</text>
+      <text tid="webserver">Webserver</text>
+      <text tid="windowtitle">Authenticatie</text>
+    </textgroup>
+    <textgroup gid="webdav">   <!-- sysmgmt.webdav -->
+      <textgroup gid="data">   <!-- sysmgmt.webdav.data -->
+        <text tid="appmenu">Mappen</text>
+        <text tid="diskfolder">Gedeelde map</text>
+        <text tid="foldername">Mapnaam</text>
+        <text tid="rightsfolder">Rechten</text>
+        <text tid="title">WebDav-gegevensmappen</text>
+      </textgroup>
+      <textgroup gid="folder">   <!-- sysmgmt.webdav.folder -->
+        <text tid="badname">De ingevoerde mapnaam is niet valide</text>
+        <text tid="diskfolder">Gedeelde map</text>
+        <text tid="foldername">WebDav-mapnaam</text>
+        <text tid="forcelowercase">Gebruik kleine letters op disk</text>
+        <text tid="webdav_folder">WebDav-gegevensmap beheren</text>
+        <text tid="webdavdata">WebDAV-map eigenschappen</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- sysmgmt.webdav.messages -->
+        <text tid="deletefolder">Weet u zeker dat u map '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deleteuser">Weet u zeker dat u de geselecteerde gebruiker '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deleteusers">Weet u zeker dat u de geselecteerde gebruikers wilt verwijderen?</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="webservers">   <!-- sysmgmt.webservers -->
+      <text tid="title">Webservers</text>
+      <textgroup gid="accessrules">   <!-- sysmgmt.webservers.accessrules -->
+        <text tid="externalusers">Externe gebruikers</text>
+        <text tid="ipfilters">IP-filters</text>
+        <text tid="title">Toegangsregels</text>
+        <text tid="view">Bekijk URL</text>
+        <text tid="webhareusers">WebHare gebruikers</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.accessrules.columns -->
+          <text tid="description">Omschrijving</text>
+          <text tid="path">Pad</text>
+          <text tid="protected">Beschermd</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="bindings">   <!-- sysmgmt.webservers.bindings -->
+        <text tid="allip6s">Alle lokale IPv6 adressen</text>
+        <text tid="allips">Alle lokale IPv4 adressen</text>
+        <text tid="confirmdeleteusedinding">U lijkt momenteel via deze poort verbonden te zijn. Weet u ECHT ZEKER dat u deze poort wil verwijderen?</text>
+        <text tid="title">Poorten en inkomende verbindingen</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.bindings.columns -->
+          <text tid="ip">IP adres</text>
+          <text tid="port">Poort</text>
+          <text tid="secure">Beveiligd</text>
+          <text tid="virtualhost">Naam-gebaseerd</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="externalusers">   <!-- sysmgmt.webservers.externalusers -->
+        <text tid="externalusers">Externe gebruikers</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.externalusers.columns -->
+          <text tid="description">Omschrijving</text>
+          <text tid="username">Gebruikersnaam</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="ipfilters">   <!-- sysmgmt.webservers.ipfilters -->
+        <text tid="allowed">Toegestaan</text>
+        <text tid="allowwithoutdeny">IP filters zijn niet effectief als er niet tenminste één regel is die toegang verbiedt.</text>
+        <text tid="denied">Niet toegestaan</text>
+        <text tid="title">IP Filters</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.ipfilters.columns -->
+          <text tid="mask">IP masker</text>
+          <text tid="status">Toegang</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="messages">   <!-- sysmgmt.webservers.messages -->
+        <text tid="cannotdeletebindinginuse">De webserver '<param p="1"/>' dient van deze binding afgehaald te worden alvorens deze teverwijderen.</text>
+        <text tid="cannotdeletefilledgroup">Deze groep kan niet worden verwijderd omdat er nog webserver in zitten.</text>
+        <text tid="cannotdeleteprimaryinterface">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat deze de primaire WebHare-interface host.</text>
+        <text tid="cannotdeleteyourserver">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat u deze webserver nu gebruikt om dit configuratiescherm te benaderen.</text>
+        <text tid="checkingwebservers">Er is een webserver controle ingepland, bij voltooing wordt de lijst bijgewerkt</text>
+        <text tid="couldnotconnect">Kon geen verbinding maken met de proxy.</text>
+        <text tid="deleteaccessrule">Weet u zeker dat u deze toegangsregel wilt verwijderen?</text>
+        <text tid="deletealias">Weet u zeker dat u de alias "<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deletebinding">Weet u zeker dat u deze binding wilt verwijderen?</text>
+        <text tid="deletegroup">Weet u zeker dat u deze group wil verwijderen?</text>
+        <text tid="deleteipfilter">Weet u zeker dat u dit IP filter wilt verwijderen?</text>
+        <text tid="deletemimetype">Weet u zeker dat u het bestandtype met de extensie '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deleteproxy">Weet u zeker dat u deze server wilt deregistreren bij proxy '<param p="1"/>'?</text>
+        <text tid="deleteselection">Weet u zeker dat u de selectie wil verwijderen ?</text>
+        <text tid="deleteuser">Weet u zeker dat u deze gebruikers wilt verwijderen?</text>
+        <text tid="deletewebserver">Weet u zeker dat u webserver '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="interfaceurlnothosted">De proxy heeft gedetecteerd dat het lokale verbindingsadres niet naar deze server wijst, omdat de URL van de WebHare interface niet werd gevonden op de bereikte server. Is deze installatie een backup van de originele server?</text>
+        <text tid="proxycouldnotconnect">De proxy kon geen verbinding maken met het lokale verbindingsadres.</text>
+        <text tid="testok">De connectie-test met de proxy is gelukt.</text>
+        <text tid="unknownproxyerror">De proxy kon de verbinding met deze server niet verifiëren, en gaf de volgende code als foutmelding: '<param p="1"/>'</text>
+        <text tid="unregisterfailedsuredelete">Kon deze server niet deregistreren bij de proxy. Weet u zeker dat u deze de registratie lokaal wel wilt verwijderen?</text>
+        <text tid="useipfiltersiwithoutdeny">De toegang van gebruikers zal niet worden geweigerd omdat er geen regel is die ze die toegang verbiedt. Weet u zeker dat u de IP filters zo wilt configureren?</text>
+        <text tid="verifydeletefilledgroup">Het verwijderen van deze groep zal de zich hierin bevindende webservers, aliassen en toegangsregels permantent verwijderen en kan niet ongedaan worden.<br/><br/>Weet u zeker dat u deze groep wil verwijderen?</text>
+        <text tid="wrongpassword">Kon niet verbinden met de proxy: het wachtwoord is niet correct.</text>
+        <text tid="wrongverificationcode">De proxy heeft gedetecteerd dat het lokale verbindingsadres niet naar deze server wijst, omdat de gebruikte verificatiecode niet bekend was op de bereikte server. Is deze installatie een backup van de originele server?</text>
+      </textgroup>
+      <textgroup gid="mimetype">   <!-- sysmgmt.webservers.mimetype -->
+        <text tid="extension">Extensie</text>
+        <text tid="mimetype">Mime-type</text>
+        <text tid="parsetype">Behandeling</text>
+        <text tid="parsetype-0">Ongewijzigd opsturen</text>
+        <text tid="parsetype-1">HareScript</text>
+        <text tid="parsetype-2">CGI</text>
+        <text tid="parsetype-3">Script</text>
+        <text tid="parsetype-4">HareScript (websocket)</text>
+        <text tid="windowtitle_add">Voeg bestandstype toe</text>
+        <text tid="windowtitle_edit">Wijzig bestandstype met extensie '<param p="1"/>'</text>
+        <textgroup gid="errors">   <!-- sysmgmt.webservers.mimetype.errors -->
+          <text tid="duplicate_extension">De extensie '<param p="1"/>' is al in gebruik door een ander mime-type, kiest u a.u.b. een andere extensie</text>
+          <text tid="extension_starting_dot">De extensie mag niet met een punt (.) beginnen.</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="mimetypes">   <!-- sysmgmt.webservers.mimetypes -->
+        <text tid="title">Bestandstypes</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.mimetypes.columns -->
+          <text tid="extension">Extensie</text>
+          <text tid="handling">Bahandeling</text>
+          <text tid="mimetype">Mime-type</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="overview">   <!-- sysmgmt.webservers.overview -->
+        <text tid="accessrules">Toegangsregels</text>
+        <text tid="addalias">Alias</text>
+        <text tid="addalias_contextmenu">Voeg alias toe</text>
+        <text tid="addgroup">Groep</text>
+        <text tid="addwebserver">Webserver</text>
+        <text tid="addwebservergroup">Groep</text>
+        <text tid="bindings">Poorten</text>
+        <text tid="certbotrequest">LetsEncrypt certificaat aanvragen</text>
+        <text tid="exportusagestats">Exporteer gebruiksstatistieken</text>
+        <text tid="filetypes">File types</text>
+        <text tid="filter">Filter</text>
+        <text tid="filterchange">Aanpassen</text>
+        <text tid="keystore">Sleutels</text>
+        <text tid="nofiltermatch">Er zijn geen webservers of aliassen die de tekst '<param p="1"/>' bevatten</text>
+        <text tid="permissions">Rechten</text>
+        <text tid="preview">Bekijk site</text>
+        <text tid="proxies">Proxies</text>
+        <text tid="schedulecheck">Plan webservercontrole in</text>
+        <text tid="title">Webserversbeheer</text>
+        <text tid="webroot">Alle webservers</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.overview.columns -->
+          <text tid="path">Locatie</text>
+          <text tid="rules">Regels</text>
+          <text tid="sites">Sites</text>
+          <text tid="webserver">Webserver</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="proxies">   <!-- sysmgmt.webservers.proxies -->
+        <text tid="reregister">Herregistreren</text>
+        <text tid="title">Proxies</text>
+        <textgroup gid="columns">   <!-- sysmgmt.webservers.proxies.columns -->
+          <text tid="lastregistration">Laatste registratie</text>
+          <text tid="url">URL</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="scripts">   <!-- sysmgmt.webservers.scripts -->
+        <text tid="eventcompletion">WHFS event voltooing</text>
+        <text tid="getconfig">Webserver dynamische herconfiguratie</text>
+        <text tid="mutexmgr">Mutexmanager</text>
+        <text tid="resourcemgr">Modulecache</text>
+      </textgroup>
+      <textgroup gid="types">   <!-- sysmgmt.webservers.types -->
+        <text tid="external_webhare">Externe (alleen publiceren, geen hosting)</text>
+        <text tid="webhare_interface">WebHare backend (webinterface)</text>
+        <text tid="webhare_output">WebHare output webserver</text>
+        <text tid="webhare_rulesonly">Alleen toegangsregels hosten, geen gepubliceerde content</text>
+      </textgroup>
+      <textgroup gid="updateaccessrule">   <!-- sysmgmt.webservers.updateaccessrule -->
+        <text tid="allservers">Alle door deze installatie gehoste webservers</text>
+        <text tid="appliesto">Geldt voor</text>
+        <text tid="applysource">Toepassingsbron</text>
+        <text tid="authlist">Externe gebruikersaccounts gebruiken om in te loggen</text>
+        <text tid="authrequirement">IP toegangsregels</text>
+        <text tid="authrequirement-and">Gebruikers moeten én aan de IP-toegangsregels voldoen én moeten inloggen indien vereist</text>
+        <text tid="authrequirement-or">Gebruikers dienen in te loggen wanneer ze niet aan de IP-toegangsregels voldoen</text>
+        <text tid="authtype">Inlogwijze</text>
+        <text tid="authtype-allwebhareaccounts">Alle gebruikers dienen in te loggen met hun WebHare account</text>
+        <text tid="authtype-nologinrequired">Geen inlogmogelijkheid voor WebHare accounts</text>
+        <text tid="authtype-somewebhareaccounts">Alleen specifieke WebHare gebruikers kunnen inloggen</text>
+        <text tid="dbroles">Database rollen</text>
+        <text tid="dbroles-explanation">(komma-gescheiden)</text>
+        <text tid="dbroles-hint">Lijst van rollen, door komma gescheiden</text>
+        <text tid="description">Omschrijving</text>
+        <text tid="disablecaching">Schakel browser caching uit</text>
+        <text tid="enabled">Schakel deze toegangsregel in</text>
+        <text tid="errorhandling">Foutafhandeling</text>
+        <text tid="errorpath">Locatie van de foutmeldingbestanden</text>
+        <text tid="externaldb">Verbind met externe database (LDAP, ODBC, Oracle, etc)</text>
+        <text tid="externalscript">Specifiek autorisatiescript:</text>
+        <text tid="externalscript_error">Specifiek autorisatiescript</text>
+        <text tid="fixcase">Probeer alternatieve combinaties van kleine/hoofdletters, indien een bestand niet gevonden werd</text>
+        <text tid="forcehttps">Stuur HTTP gebruikers door naar HTTPS</text>
+        <text tid="fulldb">Maak verbinding als de WebHare database operator</text>
+        <text tid="general">Algemeen</text>
+        <text tid="hostingsource">Bron voor hosting</text>
+        <text tid="hostingsrc-alternate">Alternatieve contentmap</text>
+        <text tid="hostingsrc-cgi">CGI script map</text>
+        <text tid="hostingsrc-module">WebHare module website</text>
+        <text tid="hostingsrc-redirect">Doorsturen naar URL</text>
+        <text tid="hostingsrc-singlefile">Afgehandeld door één enkel scriptbestand</text>
+        <text tid="hostingsrc-standard">Normale hosting (geen uitzonderingen)</text>
+        <text tid="hsrights">HareScript rechten</text>
+        <text tid="keepsubpath">Behoud submap van de URL</text>
+        <text tid="localdb">Lokale WebHare database</text>
+        <text tid="localdb-localdb">Maak verbinding met de lokale WebHare database</text>
+        <text tid="localdb-none">Mag geen (extra) verbindingen maken</text>
+        <text tid="login">Inloggen</text>
+        <text tid="matchtype">Pad vergelijking</text>
+        <text tid="matchtype-exact">Het opgevraagde pad dient exact gelijk te zijn</text>
+        <text tid="matchtype-initial">Het opgevraagde pad dient initieel gelijk te zijn</text>
+        <text tid="matchtype-wildcard">Wildcard vergelijking</text>
+        <text tid="maxage">Maximum cachetijd</text>
+        <text tid="othermethods">Andere inlogwijzen</text>
+        <text tid="path">Voor het opgevraagde pad</text>
+        <text tid="redirectcode">Redirect code</text>
+        <text tid="redirectcode-301">301 - Permanent verplaatst</text>
+        <text tid="redirectcode-302">302 - Op andere locatie gevonden</text>
+        <text tid="redirectcode-303">303 - Zie elders</text>
+        <text tid="redirectcode-307">307 - Tijdelijke redirect</text>
+        <text tid="seconds">seconden</text>
+        <text tid="super">Volledige toegang tot het systeem (bestanden en processen)</text>
+        <text tid="tcpip">Sta netwerk (TCP/IP) verbindingen toe</text>
+        <text tid="title">Toegangsregel</text>
+        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateaccessrule.errors -->
+          <text tid="cannot_redirect_to_initial_matchtype">Als u doorstuurt naar een bepaalde URL, dient het veld '<param p="1"/>' ingesteld te worden op '<param p="2"/>'</text>
+          <text tid="duplicate_path">Er is al een toegangsregel gedefinieerd voor het gespecificeerde pad</text>
+          <text tid="invalid_role">Kon rol '<param p="1"/>' niet vinden</text>
+          <text tid="login_required">U dient een inlogwijze te kiezen indien inloggen een alternatief is voor het voldoen aan de IP toegangsregels</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="updatealias">   <!-- sysmgmt.webservers.updatealias -->
+        <text tid="explicit">Alias type</text>
+        <text tid="explicit-false">Redirecten naar hoofd URL</text>
+        <text tid="explicit-true">Dit is een alternatieve hostnaam</text>
+        <text tid="hostname">Hostnaam</text>
+        <text tid="title">Aliasgegevens</text>
+      </textgroup>
+      <textgroup gid="updatebinding">   <!-- sysmgmt.webservers.updatebinding -->
+        <text tid="address">Specifiek adres</text>
+        <text tid="allip6s">Alle lokale IPv6 adressen</text>
+        <text tid="allips">Alle lokale IPv4 adressen</text>
+        <text tid="hostingtype">Hosting type</text>
+        <text tid="ip">IP adres</text>
+        <text tid="localip">Beschikbaar op</text>
+        <text tid="namebinding">Name based (gebaseerd op naam)</text>
+        <text tid="port">Poort</text>
+        <text tid="portbinding">IP- en poortgebaseerd</text>
+        <text tid="portgroup">Poort en IP</text>
+        <text tid="privatekeys">Sleutel</text>
+        <text tid="readonlywarning">Deze waardes kunnen niet worden aangepast omdat deze binding in gebruik is.</text>
+        <text tid="securehosting">Beveiligde (SSL) hosting, met sleutel:</text>
+        <text tid="selectacertificate">Kies een sleutel...</text>
+        <text tid="updatebinding">Binding</text>
+        <text tid="virtualhosting">Type binding</text>
+        <textgroup gid="errors">   <!-- sysmgmt.webservers.updatebinding.errors -->
+          <text tid="invalid_ip">Dit is geen geldig IP-adres</text>
+          <text tid="invalid_port">Het veld 'Poort' dient een geldig getal te bevatten</text>
+          <text tid="port_used">Deze poort is al in gebruik, kiest u a.u.b. een ander poortnummer</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="updateexternaluser">   <!-- sysmgmt.webservers.updateexternaluser -->
+        <text tid="description">Omschrijving</text>
+        <text tid="password">Wachtwoord</text>
+        <text tid="password_again">Wachtwoord (nogmaals)</text>
+        <text tid="updateexternaluser">Externe gebruiker</text>
+        <text tid="username">Gebruikersnaam</text>
+        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateexternaluser.errors -->
+          <text tid="duplicate_username">De gebruikersnaam '<param p="1"/>' wordt al gebruikt binnen deze webserver</text>
+          <text tid="passwords_dont_match">De ingevulde wachtwoorden komen niet overeen</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="updateipfilter">   <!-- sysmgmt.webservers.updateipfilter -->
+        <text tid="allow_access">Toegang toestaan</text>
+        <text tid="deny_access">Toegang niet toestaan</text>
+        <text tid="mask">IP masker</text>
+        <text tid="title">IP filter</text>
+        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateipfilter.errors -->
+          <text tid="duplicate_mask">Het IP masker is al gedefinieerd</text>
+          <text tid="invalid_mask">Het ingevoerde IP masker is niet correct</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="updatewebserver">   <!-- sysmgmt.webservers.updatewebserver -->
+        <text tid="aliasswap">De hostnaam '<param p="1"/>' was al een alias voor deze webserver. De nieuwe hostnaam zal als voorkeurshostnaam worden ingesteld op deze webserver, en de oude hostnaam '<param p="2"/>' zal op de aliaslijst geplaatst worden.</text>
+        <text tid="bound-allips">Alle lokale IP-adressen</text>
+        <text tid="boundto">Gebonden aan</text>
+        <text tid="extension">Uitvoerextensie</text>
+        <text tid="folder">Uitvoermap</text>
+        <text tid="servertype">Type webserver</text>
+        <text tid="stricttransportsecurity">Strict Transport Security (HSTS)</text>
+        <text tid="stricttransportsecurity-0">Niet ingesteld</text>
+        <text tid="stricttransportsecurity-2592000">1 maand</text>
+        <text tid="stricttransportsecurity-31536000">1 jaar (aangeraden)</text>
+        <text tid="stricttransportsecurity-63072000">3 jaren</text>
+        <text tid="stricttransportsecurity-7776000">3 maanden</text>
+        <text tid="stricttransportsecurity-86400">1 dag</text>
+        <text tid="stricttransportsecurity-900">15 minuten (om te testen)</text>
+        <text tid="updatewebserver">Pas webserver aan</text>
+        <text tid="url">URL</text>
+        <text tid="urllockedforversioning">De URL mag niet worden aangepast omdat deze webserver een of meer websites met versiebeheer host.</text>
+        <text tid="virtualhosted">Naam-gebaseerde hosting</text>
+      </textgroup>
+      <textgroup gid="webhareusers">   <!-- sysmgmt.webservers.webhareusers -->
+        <text tid="webhareusers">WebHare gebruikers</text>
+      </textgroup>
+      <textgroup gid="webservergroup">   <!-- sysmgmt.webservers.webservergroup -->
+        <text tid="title">Naam</text>
+        <text tid="webservergroup">Pas webservergroep aan</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="system">   <!-- system -->
+    <textgroup gid="apprunner">   <!-- system.apprunner -->
+      <text tid="apprunnerdown">De servicebeheerder is niet beschikbaar</text>
+    </textgroup>
+    <textgroup gid="webservers">   <!-- system.webservers -->
+      <textgroup gid="updatewebserver">   <!-- system.webservers.updatewebserver -->
+        <text tid="bindingrequireshttp">Op de geselecteerde poort heeft is geen encryptie ingesteld, dus de URL moet met 'http://' beginnen.</text>
+        <text tid="bindingrequireshttps">Op de geselecteerde poort is encryptie ingesteld, dus de URL moet met 'https://' beginnen.</text>
+        <text tid="hostnameinuse">De hostnaam '<param p="1"/>' is al in gebruik door een andere virtueel gehoste webserver.</text>
+        <text tid="hostnameinuseasalias">De hostnaam '<param p="1"/>' is al in gebruik door een alias van de virtueel gehoste webserver '<param p="2"/>'.</text>
+        <text tid="urlnosubpath">De URL van een gehoste webserver mag geen subpad bevatten maar moet de vorm 'http(s)://hostname/' hebben.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="webservertweaks">   <!-- system.webservertweaks -->
+      <text tid="accesslogcheckpoint">Huidig access.log checkpoint</text>
+      <text tid="basefolderforoutput">Basismap voor uitvoer webservers</text>
+      <text tid="days">dagen</text>
+      <text tid="diversion">Omleiding</text>
+      <text tid="divertcachedays">Omleidingscache</text>
+      <text tid="divertdsstore">Apple 'DS Store folders' omleiden</text>
+      <text tid="divertmacfileforks">Apple 'file forks'  omleiden</text>
+      <text tid="divertthumbsdb">Windows Thumbs.db mappen omleiden</text>
+      <text tid="general">Algemeen</text>
+      <text tid="loggingtab">Logs</text>
+      <text tid="measure">Meten</text>
+      <text tid="nginx">NGinx</text>
+      <text tid="nginxfrontend">NGINX verstrekt de frontend webserver</text>
+      <text tid="proxy">Proxy</text>
+      <text tid="seconds">seconden</text>
+      <text tid="security">Beveiliging</text>
+      <text tid="simulatesharepoint">Probeer Sharepoint headers na te bootsen</text>
+      <text tid="webdav">WebDav</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="commondialogs">   <!-- tolliumapps.commondialogs -->
+      <textgroup gid="runscript">   <!-- tolliumapps.commondialogs.runscript -->
+        <text tid="runscriptdialog">Niet gestart</text>
+        <text tid="saveoutput">Uitvoer opslaan</text>
+        <text tid="sendline">Verstuur regel</text>
+        <text tid="terminate">Afbreken</text>
+      </textgroup>
+      <textgroup gid="webharepeers">   <!-- tolliumapps.commondialogs.webharepeers -->
+        <text tid="addlegacyserver">Voeg oude server toe</text>
+        <text tid="addpeer">Voeg server toe</text>
+        <text tid="connect">Verbind</text>
+        <text tid="editpeer">Wijzig server</text>
+        <text tid="lastuse">Laastste gebruik</text>
+        <text tid="mustreauthserver">Uw authenticatie op de externe server is (bijna) verlopen.<br/><br/>Kies voor 'verbinding' om uzelf opnieuw aan te melden op de server.</text>
+        <text tid="peerservers">WebHare servers</text>
+        <text tid="reauthserver">Authenticatie is verlopen</text>
+        <text tid="serverurl">Server URL</text>
+      </textgroup>
+      <textgroup gid="wittytest">   <!-- tolliumapps.commondialogs.wittytest -->
+        <text tid="data">Data</text>
+        <text tid="emailtab">E-mail</text>
+        <text tid="emailtest">E-mail test</text>
+        <text tid="html">HTML</text>
+        <text tid="htmlapproximation">Dit is een benadering van de HTML code in de email</text>
+        <text tid="htmlsourcetab">HTML Bron</text>
+        <text tid="pdf">PDF</text>
+        <text tid="pdflog">Log</text>
+        <text tid="wittypath">Witty pad</text>
+        <text tid="wittytest">Witty test</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="config">   <!-- tolliumapps.config -->
+      <textgroup gid="config">   <!-- tolliumapps.config.config -->
+        <text tid="config">Configuratie</text>
+      </textgroup>
+      <textgroup gid="deploy">   <!-- tolliumapps.config.deploy -->
+        <textgroup gid="deploymodule">   <!-- tolliumapps.config.deploy.deploymodule -->
+          <text tid="branchnotonorigin">De huidige branch is niet beschikbaar op de repository server. Dit gebeurt bv. als er op een feature branch wordt gewerkt.<br/><br/>Commit en push aub alle wijzigingen eerst. Weet u zeker dat u de module wilt uitrollen?</text>
+          <text tid="cannotreplacemodule">Het is niet gelukt module '<param p="1"/>' te vervangen</text>
+          <text tid="differentbranch">De module op de server bevindt zich op een andere branch (lokaal: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Weet u zeker dat u de module wilt vervangen?</text>
+          <text tid="differentrepository">De module op de server is uit een andere repository afkomsting (lokaal: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Weet u zeker dat u de module wilt vervangen?</text>
+          <text tid="invalidversion">De module '<param p="1"/>' op de server heeft versie '<param p="2"/>' wat niet overeenkomt met de gevraagde versie '<param p="3"/>'</text>
+          <text tid="missingrequiredmoduleonpeer">De vereiste module '<param p="1"/>' is niet aanwezig op de server.</text>
+          <text tid="modulehaspeerchanges">De module op de server is gewijzigd na installatie.<br/><br/>Weet u zeker dat u de module wilt vervangen?</text>
+          <text tid="notatbranchhead">The HEAD van je werkkopie is nog niet op de 'head' van de branch - je hebt lokale wijzigingen die je nog niet naar de repository server hebt gepushed, of de repository server heeft wijzigingen die je nog niet lokaal binnengehaald hebt.<br/><br/>Merge of rebase aub, en push dan de wijzigingen naar de repository server. Weet je zeker dat je door wil gaan?</text>
+          <text tid="notgituptodate">Er is een nieuwe versie beschikbaar op de centrale repository server. Update de lokale module aub eerst.<br/><br/>Weet u zeker dat u de (verouderde) module wilt uitrollen ?</text>
+          <text tid="peerchangeswarning">De module is gewijzigd na installatie</text>
+          <text tid="reviewchanges">Bekijk wijzigingen</text>
+          <text tid="uncommittedchanges">De module heeft openstaande wijzigingen. Weet u zeker dat u de module wil uitrollen ?</text>
+          <text tid="unpushedchanges">De lokale git repository bevat commits die nog niet naar de centrale repository zijn gepushed. Push deze wijzigingen aub eerst.<br/><br/>Weet u zeker dat u de module wilt uitrollen?</text>
+          <text tid="uploadnewmodule">De module bestaat nog niet op de server. Weet u zeker dat u de module wilt uitrollen?</text>
+        </textgroup>
+        <textgroup gid="modulefilediff">   <!-- tolliumapps.config.deploy.modulefilediff -->
+          <text tid="ignorewhitespace">Negeer lege ruimte aan het begin en einde van regels</text>
+          <text tid="title">Diff van bestand '<param p="2"/>' in module '<param p="1"/>'</text>
+          <text tid="titlemultiple">Diff van meerdere bestanden in module '<param p="1"/>'</text>
+        </textgroup>
+        <textgroup gid="reviewdiffs">   <!-- tolliumapps.config.deploy.reviewdiffs -->
+          <text tid="moduledoesnothavesourcezip">De remote server beschikt niet over de sourcecode van de module</text>
+          <text tid="nodifferences">Geen verschillen gevonden</text>
+          <text tid="path">Pad</text>
+          <text tid="remotemodulehasnofilelist">De module op de externe server heeft geen bestandslijst</text>
+          <text tid="reviewmodulepeerchanges">Bestanden die zijn aangepast na de module installatie</text>
+          <text tid="reviewremotetolocaldiff">Beoordeel verschillen tussen externe en lokale module '<param p="1"/>'</text>
+          <text tid="showdiff">Toon diff</text>
+          <text tid="showfulldiff">Toon volledige diff</text>
+          <text tid="status">Status</text>
+        </textgroup>
+        <textgroup gid="reviewincomingcommits">   <!-- tolliumapps.config.deploy.reviewincomingcommits -->
+          <text tid="author">Auteur</text>
+          <text tid="date">Datum</text>
+          <text tid="id">Commit ID</text>
+          <text tid="message">Bericht</text>
+          <text tid="reviewincomingcommits">Binnenkomende commits</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->
+        <text tid="altserver">SMTP server</text>
+        <text tid="blocked">Geblokkeerd</text>
+        <text tid="confirm_delete_mailroute">Weet u zeker dat u deze mailroute wilt verwijderen?</text>
+        <text tid="confirmdeletecorrection">Weet u zeker dat u de geselecteerde correctie wil verwijderen?</text>
+        <text tid="confirmdeletereceiver">Weet u zeker dat u ontvanger '<param p="1"/>' van de whitelist wil verwijderen?</text>
+        <text tid="confirmdeletesender">Weet u zeker dat u afzender  '<param p="1"/>' van de whitelist wil verwijderen?</text>
+        <text tid="correctionsempty">Er zijn nog geen correcties gespecificeerd</text>
+        <text tid="correctiontype">Correctietype</text>
+        <text tid="correctiontype-block">Blokkeren</text>
+        <text tid="correctiontype-rewrite">Corrigeer domeinnaam</text>
+        <text tid="defaultport">(standaard 25)</text>
+        <text tid="defaultsendsettings">Uitgaande mailserver</text>
+        <text tid="defaultsmtp">Standaard</text>
+        <text tid="editcorrection">Adrescorrectie</text>
+        <text tid="editmailroute">Mailroute</text>
+        <text tid="editmailrouterule">Mailroute regel</text>
+        <text tid="editmask">Wijzig masker</text>
+        <text tid="editmaskrow">Masker</text>
+        <text tid="editsmtpserver">SMTP server bewerken</text>
+        <text tid="emailcorrectionstab">Adrescorrecties</text>
+        <text tid="fallbackvalues">Terugval waarden</text>
+        <text tid="hostname">Servernaam</text>
+        <text tid="ignore">Zwart gat (blokkeer mail)</text>
+        <text tid="invalidredirectto">De herschrijving moet van de vorm '*@domeinnaam' zijn</text>
+        <text tid="mailconfig">Instellen</text>
+        <text tid="mailfrom">Standaard afzenderadres</text>
+        <text tid="mailroutes">E-mailinstellingen</text>
+        <text tid="mask">Masker</text>
+        <text tid="masks">Voorwaarden</text>
+        <text tid="masks_from">De verzender (Van:) voldoet aan één van:</text>
+        <text tid="masks_to">De geadresseerde (Aan:) voldoet aan één van:</text>
+        <text tid="originmask">Origin masker</text>
+        <text tid="outgoing">Uitgaande mailserver (SMTP)</text>
+        <text tid="outgoingaddressrewrite">Originele bestemming in ontvangstadres opnemen (tussen '+' en '@')</text>
+        <text tid="outgoingmailaddress">Stuur de email alleen naar</text>
+        <text tid="outgoingredirect-false">Stuur naar de geadresseerde (To:)</text>
+        <text tid="outgoingredirect-true">Stuur de e-mail naar</text>
+        <text tid="port">Poort</text>
+        <text tid="receiversempty">Alle ontvangers zijn toegestaan</text>
+        <text tid="receiverstab">Ontvangers</text>
+        <text tid="redirect">E-mails versturen</text>
+        <text tid="rewriteto">Herschrijf naar</text>
+        <text tid="routesempty">Let op: tenminste één mailroute dient te worden toegevoegd om e-mail te verzenden vanaf deze server.</text>
+        <text tid="routestab">Routes</text>
+        <text tid="sendermask">Afzender (Van:)</text>
+        <text tid="sendersempty">Alle afzenders zijn toegestaan</text>
+        <text tid="senderstab">Afzenders</text>
+        <text tid="serverurl">SMTP Server</text>
+        <text tid="smtp_test_error">Bij het testen van de mailserver is de volgende fout opgetreden:<br/><param p="1"/></text>
+        <text tid="smtp_test_success">Het is gelukt om te verbinden met de SMTP server</text>
+        <text tid="smtpconfig">Standaard mailserver</text>
+        <text tid="smtpserver">Server</text>
+        <text tid="snsendpoint">SNS Endpoint</text>
+        <text tid="suggestionfuzz">Suggestie fuzz factor</text>
+        <text tid="suredontsendemail">Weet u zeker dat u alle e-mails die deze mailroute volgen wilt blokkeren?</text>
+        <text tid="target">Doel</text>
+        <text tid="usealternativesmtpserver-alternative">Alternatieve server</text>
+        <text tid="usealternativesmtpserver-default">Gebruik de standaard SMTP-server</text>
+        <text tid="usealternativesmtpserver-dontsend">Zwart gat (blokkeert de uitgaande mail)</text>
+        <text tid="usefornonwhitelisted">Gebruik indien afzender niet toegestaan</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- tolliumapps.config.main -->
+        <text tid="checkhotfixes">Check wijzigingen</text>
+        <text tid="configuremodule">Configureren</text>
+        <text tid="connectremote">Verbinden</text>
+        <text tid="deletemodule">Weet u zeker dat u module '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deletemodulefailed">Het verwijderen van module '<param p="1"/>' is mislukt.</text>
+        <text tid="deploymodule">Uitrollen</text>
+        <text tid="differentbranch">De module op de server staat in een andere branch</text>
+        <text tid="dontshowdeleted">Toon alleen huidige modules</text>
+        <text tid="langedit">Taaleditor</text>
+        <text tid="lastmodified">Laatste update</text>
+        <text tid="modulepushed">Module '<param p="1"/>' is gedeployed naar de server</text>
+        <text tid="name">Naam</text>
+        <text tid="openwebsite">Open website</text>
+        <text tid="outofdate">De module op de server is verouderd</text>
+        <text tid="peerhasnomodules">Geen installeerbare modules gevonden</text>
+        <text tid="reviewincomingcommits">Toon missende commits</text>
+        <text tid="reviewmodulepeerchanges">Toon wijzigingen op server</text>
+        <text tid="reviewremotetolocaldiff">Toon verschillen (remote to local)</text>
+        <text tid="revision">Bronrevisie</text>
+        <text tid="showdeleted">Toon huidige en verwijderde modules</text>
+        <text tid="uncommittedchanges">(+ wijzigingen)</text>
+        <text tid="version">Versie</text>
+        <text tid="versions">Versies</text>
+      </textgroup>
+      <textgroup gid="moduleinfo">   <!-- tolliumapps.config.moduleinfo -->
+        <text tid="appgroup">Groep</text>
+        <text tid="applicationstab">Applicaties</text>
+        <text tid="date">Datum</text>
+        <text tid="dependencies">Afhankelijk van</text>
+        <text tid="history">Geschiedenis</text>
+        <text tid="hotfixes">Lokale wijzigingen</text>
+        <text tid="metabox">Module informatie</text>
+        <text tid="misctab">Overig</text>
+        <text tid="modifiedfiles">Gewijzigde bestanden</text>
+        <text tid="moduleinfo">Module informatie</text>
+        <text tid="name">Naam</text>
+        <text tid="path">Pad</text>
+        <text tid="server">Server</text>
+        <text tid="source">Bron</text>
+        <text tid="sourcerepositoryurl">Repository URL</text>
+        <text tid="sourcerepositoryuuid">Repository UUID</text>
+        <text tid="sourcerevision">Bronrevisie</text>
+        <text tid="status">Status</text>
+        <text tid="userfullname">Gebruiker</text>
+        <text tid="version">Versie</text>
+      </textgroup>
+      <textgroup gid="moduleversions">   <!-- tolliumapps.config.moduleversions -->
+        <text tid="archived">Gearchiveerd</text>
+        <text tid="downloadmodule">Downloaden</text>
+        <text tid="hotfixes">Toon hotfixes</text>
+        <text tid="modified">(gewijzigd)</text>
+        <text tid="obsoletiondate">Overbodig vanaf</text>
+        <text tid="revision">Bronrevisie</text>
+        <text tid="uploaddate">Geïnstalleerd</text>
+        <text tid="version">Versie</text>
+      </textgroup>
+      <textgroup gid="settings">   <!-- tolliumapps.config.settings -->
+        <text tid="accesslog">Bewaar toegangslog</text>
+        <text tid="accountname">Accountname</text>
+        <text tid="allowpasswordreset">Sta wachtwoord reset toe</text>
+        <text tid="archivedays">Archiveer moduleversies</text>
+        <text tid="archiving">Archivering</text>
+        <text tid="autodenyipv6">Weiger IPv6 toegang voor URL's als er een globaal IPv4 weigering bestaat</text>
+        <text tid="branding">Huisstijl</text>
+        <text tid="cachesecret">Afbeeldingscache sleutel</text>
+        <text tid="checkipallowmask">IPs voor /webhare/check</text>
+        <text tid="commaexplain">(kommagescheiden)</text>
+        <text tid="cookiesecret">Cookie encryptie sleutel</text>
+        <text tid="dashboardbackground">Achtergrond</text>
+        <text tid="displayimage">Logo:</text>
+        <text tid="displayname">Titel rechtsboven:</text>
+        <text tid="elasticsecret">Elasticsearch sleutel</text>
+        <text tid="errorlog">Bewaar errorlog</text>
+        <text tid="fullaccessips">IPs die loginchecks overslaan</text>
+        <text tid="geonames">GeoNames</text>
+        <text tid="geonamesinfo">De GeoNames-webservice wordt gebruikt om de tijdzone te bepalen op basis van de locatie van de gebruiker of door te zoeken naar een locatie. Hiervoor is een (gratis) GeoNames-account vereist.</text>
+        <text tid="harescript">HareScript</text>
+        <text tid="identity">Identiteit</text>
+        <text tid="infotext">Inloginformatie tekst</text>
+        <text tid="infotitle">Inloginformatie titel</text>
+        <text tid="logfiles">Logbestanden</text>
+        <text tid="login">Loginscherm</text>
+        <text tid="logindialog">Inlogscherm</text>
+        <text tid="mailretention">Bewaar verzonden e-mails</text>
+        <text tid="overrideopenssl">Stel OpenSSL Ciphersuite in</text>
+        <text tid="processhistory">Bewaar procesgeschiedenis</text>
+        <text tid="registergeonames">Klik hier om een GeoNames-account te registreren</text>
+        <text tid="scripttimeout">Script time-out</text>
+        <text tid="security">Beveiliging</text>
+        <text tid="securitykeys">Beveiligingssleutels</text>
+        <text tid="server">Server</text>
+        <text tid="servername">Server name</text>
+        <text tid="servertype">Server type (OTAP)</text>
+        <text tid="servertype-acceptance">Acceptatie</text>
+        <text tid="servertype-development">Ontwikkeling</text>
+        <text tid="servertype-production">Productie</text>
+        <text tid="servertype-test">Test</text>
+        <text tid="settings">Globale instellingen</text>
+        <text tid="tasks">Taken</text>
+        <text tid="tasksfinishedretention">Bewaar voltooide taken</text>
+        <text tid="trustxforwarded">IPs die 'X-Forwarded-For' mogen instellen</text>
+        <text tid="usagelog">Bewaar gebruikslog</text>
+        <text tid="webhareurl">WebHare URL</text>
+        <text tid="wrdauditlogdays">Bewaar WRD audit events</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="caches">   <!-- tolliumapps.dashboard.caches -->
+        <text tid="confirmdeleteentries">Weet u zeker dat u de geselecteerde cache entries wil verwijderen?</text>
+        <text tid="func">Functie</text>
+        <text tid="hash">Hash</text>
+        <text tid="id">ID</text>
+        <text tid="lastuse">Laatste gebruik</text>
+        <text tid="precalculatedcache">Voorberekende cache</text>
+        <text tid="state">Status</text>
+      </textgroup>
+      <textgroup gid="dashboard">   <!-- tolliumapps.dashboard.dashboard -->
+        <text tid="buildinfo">Build</text>
+        <text tid="cachescleared">De interne caches van WebHare zijn geleegd.</text>
+        <text tid="clearcaches">Leeg caches</text>
+        <text tid="comment">Commentaar</text>
+        <text tid="confirmsoftreset">Weet u zeker dat u een soft reset wilt uitvoeren?</text>
+        <text tid="created">Aangemaakt</text>
+        <text tid="datetime">Datum &amp; tijd</text>
+        <text tid="displayname">Gebruiker</text>
+        <text tid="editsnooze">Snooze bewerken</text>
+        <text tid="errors">Foutmeldingen</text>
+        <text tid="general">Algemeen</text>
+        <text tid="gototask">Ga naar</text>
+        <text tid="infile">in bestand '<param p="1"/>'</text>
+        <text tid="lastupdate">Laatst bijgewerkt</text>
+        <text tid="main">Dashboard</text>
+        <text tid="message">Foutmelding</text>
+        <text tid="messagetidatsnooze">Foutmelding</text>
+        <text tid="multiplemessages">(meerdere foutmeldingen)</text>
+        <text tid="noerrors">Er zijn geen problemen bekend</text>
+        <text tid="openinseparatetab">Open paneel in aparte tab</text>
+        <text tid="platform">Platform</text>
+        <text tid="refreshbutton">Nu verversen</text>
+        <text tid="remove">Verwijderen</text>
+        <text tid="server">Serverversie</text>
+        <text tid="snoozed_until">gesnoozed tot <param p="1"/></text>
+        <text tid="snoozer">Snoozer</text>
+        <text tid="snoozes">Snoozes</text>
+        <text tid="softreset">Soft reset</text>
+        <text tid="togglerefreshbutton">Automatisch verversen</text>
+        <text tid="until">Tot</text>
+        <text tid="untilinpast">De 'tot' datum moet in de toekomst liggen.</text>
+        <text tid="uptime">Uptime</text>
+        <text tid="uptimedata"><param p="1"/> (gestart op <param p="2"/>), webserver uptime: <param p="3"/> (gestart op <param p="4"/>)</text>
+      </textgroup>
+      <textgroup gid="fonts">   <!-- tolliumapps.dashboard.fonts -->
+        <text tid="css">CSS</text>
+        <text tid="family">Familie</text>
+        <text tid="filename">Bestandsnaam</text>
+        <text tid="fontinfo">Fontinformatie</text>
+        <text tid="installedfonts">Lettertypes</text>
+        <text tid="isboldicon">Vetgedrukt</text>
+        <text tid="isitalicicon">Cursief</text>
+        <text tid="istruetypeicon">Truetype</text>
+        <text tid="style">Stijl</text>
+      </textgroup>
+      <textgroup gid="systemnews">   <!-- tolliumapps.dashboard.systemnews -->
+        <text tid="allunits">Dit bericht wordt standaard aan alle gebruikers getoond.<br/> Voeg eenheden toe om de weergave tot die eenheden te beperken.</text>
+        <text tid="audience">Doelgroep (eenheden)</text>
+        <text tid="createdby_string">Aangemaakt door</text>
+        <text tid="deletenews_multiple">Weet u zeker dat u de geselecteerde nieuwsberichten wilt verwijderen?</text>
+        <text tid="deletenews_single">Weet u zeker dat u nieuwsbericht '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="message">Bericht</text>
+        <text tid="newsitem">Nieuwsbericht</text>
+        <text tid="publish_date_from">Vanaf</text>
+        <text tid="publish_date_until">tot en met</text>
+        <text tid="publishdate">Publiceer dit nieuwsitem</text>
+        <text tid="systemnews">Systeemnieuws</text>
+        <text tid="target">Publicatie</text>
+        <text tid="targetlang">Toon aan</text>
+        <text tid="targetlang-en">alleen Engelstalige gebruikers</text>
+        <text tid="targetlang-nl">alleen Nederlandstalige gebruikers</text>
+        <text tid="targetlang-nlen">Nederlands- en Engelstalige gebruikers</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dba">   <!-- tolliumapps.dba -->
+      <textgroup gid="importwizard">   <!-- tolliumapps.dba.importwizard -->
+        <text tid="importwizard">Schemaimport wizard</text>
+        <text tid="schemaname">Schema naam</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- tolliumapps.dba.main -->
+        <text tid="addcolumn">Kolom toevoegen</text>
+        <text tid="autonumber">Automatische nummering (vanaf <param p="1"/>)</text>
+        <text tid="columnname">Kolomnaam</text>
+        <text tid="columns">Kolommen</text>
+        <text tid="columntype">Kolomtype</text>
+        <text tid="constraints">Extra beperkingen</text>
+        <text tid="databasewhlib">dbschema.whlib</text>
+        <text tid="dba">Databasebeheer</text>
+        <text tid="defs">Schema definition</text>
+        <text tid="exportschema">Export schema</text>
+        <text tid="importschema">Import schema</text>
+        <text tid="indices">Indices</text>
+        <text tid="is_unique">Uniek</text>
+        <text tid="is_uppercase">Hoofdletters</text>
+        <text tid="name">Naam</text>
+        <text tid="noschemadef">Er is geen module die een beschrijving van dit schema geeft</text>
+        <text tid="not_null">Niet 'null'</text>
+        <text tid="on_delete_cascade">On delete cascade</text>
+        <text tid="on_delete_set_default">On delete set default</text>
+        <text tid="primarykey">Primaire sleutel</text>
+        <text tid="references">Referenties</text>
+        <text tid="roleid">Rol id</text>
+        <text tid="roles">Rollen</text>
+        <text tid="runsqlclient">SQLClient</text>
+        <text tid="unique">Uniek</text>
+        <text tid="updateschemas">Update alle schemas</text>
+        <text tid="verifydeletecolumn">Weet u zeker dat u kolom '<param p="1"/>' wil laten vervallen/verwijderen?</text>
+        <text tid="verifydeleteschema">Weet u zeker dat u het schema '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="verifydeletetable">Weet u zeker dat u tabel '<param p="1"/>' wil laten vervallen/verwijderen?</text>
+      </textgroup>
+      <textgroup gid="webharedb">   <!-- tolliumapps.dba.webharedb -->
+        <text tid="database">WebHare database</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="login">   <!-- tolliumapps.login -->
+      <textgroup gid="forgotpassword">   <!-- tolliumapps.login.forgotpassword -->
+        <text tid="finished">U ontvangt een mailbericht met verdere instructies</text>
+        <text tid="forgotpassword">Wachtwoord vergeten</text>
+        <text tid="linkisexpired">De link die u volgt is verlopen</text>
+        <text tid="passwordupdated">Uw wachtwoord is bijgewerkt</text>
+        <text tid="resetpassword">Wachtwoord instellen</text>
+        <text tid="verificationcode">Verificatiecode</text>
+        <text tid="verificationcodeexplain">Deze is apart verzonden</text>
+        <text tid="verifiermismatch">Uw verificatiecode komt niet overeen met de code die we u verstrekt hebben</text>
+        <text tid="welcome">Om uw wachtwoord te herstellen voert u het emailadres dat aan uw account is gekoppeld in</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
+    <textgroup gid="webapis">   <!-- tolliumcomponents.webapis -->
+      <text tid="authorization">Authorisatie</text>
+      <text tid="authorize">Authoriseer</text>
+      <text tid="callbackurl">Callback/redirect URL</text>
+      <text tid="clientid">Client id</text>
+      <text tid="clientsecret">Client secret</text>
+      <text tid="configureclient">Configureren</text>
+      <text tid="oauth2wait">Oauth2 authorisatie</text>
+      <text tid="waiting">Wacht op bevestiging</text>
+      <textgroup gid="timezoneedit">   <!-- tolliumcomponents.webapis.timezoneedit -->
+        <text tid="auto">Automatisch</text>
+        <text tid="country">Land</text>
+        <text tid="manual">Handmatig</text>
+        <text tid="none">Algemene tijdzones</text>
+        <text tid="noresults">Geen resultaten gevonden</text>
+        <text tid="noselection">Geen tijdzone geselecteerd</text>
+        <text tid="query">Zoek een plaats</text>
+        <text tid="results">Kies een resultaat</text>
+        <text tid="retrievelocation">Haal de tijdzone op voor de huidige locatie</text>
+        <text tid="search">Plaats</text>
+        <text tid="selected">Geselecteerde tijdzone</text>
+        <text tid="timezone">Tijdzone</text>
+        <text tid="timezoneeditscreen">Tijdzone bewerken</text>
+        <textgroup gid="messages">   <!-- tolliumcomponents.webapis.timezoneedit.messages -->
+          <text tid="geolocation_error">Er is een fout opgetreden bij het bepalen van de huidige locatie</text>
+          <text tid="geolocation_nopermission">Geen toestemming om de huidige locatie te bepalen</text>
+          <text tid="geolocation_timeout">Er is een time-out opgetreden bij het bepalen van de huidige locatie</text>
+          <text tid="geolocation_unavailable">De huidige locatie kan op het moment niet worden bepaald</text>
+          <text tid="geolocation_unsupported">Het bepalen van de huidige locatie is in deze browser niet mogelijk</text>
+          <text tid="retrievinglocation">Huidige locatie bepalen...</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="userrights">   <!-- userrights -->
+    <text tid="closesearchbar">Zoeken sluiten</text>
+    <text tid="error">Er is een fout opgetreden bij het bepalen van het objectpad. Neem A.U.B. contact op met een beheerder.</text>
+    <text tid="new">Toevoegen</text>
+    <text tid="norightstodeleteall">U heeft niet voldoende rechten om alle toekenningen te verwijderen.</text>
+    <text tid="nosearchresult">Geen resultaten voor '<param p="1"/>'</text>
+    <text tid="searchbox">Zoeken</text>
+    <text tid="selectusertocopyallpermissionsto">Kies de gebruiker of rol waarnaar u de rol-/rechtentoekenningen wilt kopiëren.</text>
+    <text tid="syncedauthobjects">De gebruikersdatabase is gesynchroniseerd.</text>
+    <text tid="togglesearchbarbutton">Zoeken</text>
+    <text tid="unitroot">Eenheden</text>
+    <textgroup gid="actions">   <!-- userrights.actions -->
+      <text tid="about">Over Gebruikersbeheer</text>
+      <text tid="addrighttousers">Recht toekennen</text>
+      <text tid="addrighttousers-hint">Ken een recht toe aan de geselecteerde gebruiker of rol</text>
+      <text tid="addrighttousers-list">Recht toekennen</text>
+      <text tid="addroletousers">Rol toekennen</text>
+      <text tid="addroletousers-hint">Ken een rol toe aan de geselecteerde gebruiker</text>
+      <text tid="addroletousers-list">Rol toekennen</text>
+      <text tid="adduserstorole">Toekennen aan</text>
+      <text tid="adduserstorole-hint">Ken deze rol toe aan andere gebruikers</text>
+      <text tid="adduserstorolecontext">Toekennen aan</text>
+      <text tid="copypermissions">Kopieer alle rechten naar ...</text>
+      <text tid="delete">Verwijderen</text>
+      <text tid="delete-hint">Verwijder de geselecteerde element(en)</text>
+      <text tid="edit">Eigenschappen</text>
+      <text tid="edit-hint">Bewerk de eigenschappen van het geselecteerde item</text>
+      <text tid="edit-list">Eigenschappen</text>
+      <text tid="editgrant">Eigenschappen</text>
+      <text tid="editgrant-hint">Bewerk de eigenschappen van de geselecteerde rechtentoewijzing</text>
+      <text tid="editgrant-list">Eigenschappen</text>
+      <text tid="editobject">Bewerken</text>
+      <text tid="exportallgrants">Exporteer alle (rol) toekenningen</text>
+      <text tid="exportallusers">Exporteer alle gebruikers</text>
+      <text tid="exportobjectrights">Exporteer rechten op objecten</text>
+      <text tid="exportusersinunit">Exporteer gebruikers in deze eenheid</text>
+      <text tid="getresetlink">Wachtwoord-link genereren</text>
+      <text tid="grant">Recht toekennen</text>
+      <text tid="grant-hint">Ken een recht toe op het gekozen object of aan de gekozen gebruiker.</text>
+      <text tid="grantrightonobject">Recht toekennen</text>
+      <text tid="integration">Integratie</text>
+      <text tid="makerolefromrights">Maak rol</text>
+      <text tid="makerolefromrights-hint">Maak een rol aan met de geselecteerde rechten.</text>
+      <text tid="managelegacyapps">Beheer rechten voor oudere modules</text>
+      <text tid="move">Verplaatsen</text>
+      <text tid="move-hint">Verplaats de geselecteerde elementen</text>
+      <text tid="newrole">Nieuwe rol</text>
+      <text tid="newrole-hint">Maak een nieuwe rol aan</text>
+      <text tid="newunit">Nieuwe eenheid</text>
+      <text tid="newunit-hint">Maak een nieuwe eenheid aan</text>
+      <text tid="newuser">Nieuwe gebruiker</text>
+      <text tid="newuser-hint">Maak een nieuwe gebruiker aan</text>
+      <text tid="objectrights">Objectrechten exporteren</text>
+      <text tid="openas">Inloggen als</text>
+      <text tid="openas-hint">Open de interface als deze gebruiker</text>
+      <text tid="properties">Eigenschappen</text>
+      <text tid="properties-hint">Bekijken en aanpassen van eigenschappen van de gekozen element(en)</text>
+      <text tid="reload">Opnieuw laden</text>
+      <text tid="removeusersfromrole">Verwijderen</text>
+      <text tid="removeusersfromrole-hint">Trek de toekenning van deze rol aan de geselecteerde gebruiker(s) in</text>
+      <text tid="report">Objectrechten tonen</text>
+      <text tid="revokefromusers">Verwijderen</text>
+      <text tid="revokefromusers-hint">Trek de geselecteerde rechten-/rollentoekenningen in.</text>
+      <text tid="revokefromusers-list">Verwijderen</text>
+      <text tid="revokerightfromlist-hint">Trek het geselecteerde recht in</text>
+      <text tid="revokerightonobject">Verwijderen</text>
+      <text tid="search">Gebruikers en rollen zoeken</text>
+      <text tid="searchsimple">Zoeken</text>
+      <text tid="selectall">Alles selecteren</text>
+      <text tid="selectall-hint">Selecteer alle elementen</text>
+      <text tid="setupsearchfields">Configureer zoekvelden</text>
+      <text tid="setuserdefaults">Standaard gebruikersinstellingen</text>
+      <text tid="showobject">Spring naar</text>
+      <text tid="syncauthobjects">Database synchroniseren</text>
+      <text tid="togglesearchbar">Zoeken...</text>
+    </textgroup>
+    <textgroup gid="appaccount">   <!-- userrights.appaccount -->
+      <text tid="device">Apparaat</text>
+      <text tid="device-placeholder">Bv. werk-pc, mijn Mac</text>
+      <text tid="login">Login</text>
+      <text tid="lookverycarefullyiwillshowthisonlyonce">Deze logingegevens worden slechts eenmaal getoond. Leg ze nu ergens vast of voer ze in bij de applicatie die de logingegevens wil hebben en laat die het wachtwoord onthouden.<br/><br/>Als u dit wachtwoord verliest, kunt u het applicatiewachtwoord verwijderen en WebHare een nieuwe laten aanmaken</text>
+      <text tid="password">Wachtwoord</text>
+      <text tid="scope">Scope</text>
+      <text tid="windowtitle">Nieuw applicatieaccount aanmaken</text>
+    </textgroup>
+    <textgroup gid="appaccounts">   <!-- userrights.appaccounts -->
+      <text tid="appaccountstab">Wachtwoorden voor apps en apparaten</text>
+      <text tid="device">Apparaat</text>
+      <text tid="lastlogin">Laatste aanmelding</text>
+      <text tid="scope">Scope</text>
+      <text tid="windowtitle">Apparaat- en appwachtwoorden</text>
+    </textgroup>
+    <textgroup gid="columns">   <!-- userrights.columns -->
+      <text tid="description">Beschrijving</text>
+      <text tid="email">E-mail</text>
+      <text tid="fullname">Naam</text>
+      <text tid="lastlogin">Laatst ingelogd</text>
+      <text tid="name">Gebruikersnaam</text>
+      <text tid="objectpath">Object</text>
+      <text tid="objects">Objecten</text>
+      <text tid="permission">Recht</text>
+      <text tid="unit">Eenheid</text>
+      <text tid="unitpath">Eenheid</text>
+      <text tid="units">Eenheden</text>
+      <text tid="withgrantoption">Mag toekennen</text>
+    </textgroup>
+    <textgroup gid="common">   <!-- userrights.common -->
+      <text tid="allobjectsoftype">Alle objecten van type '<param p="1"/>'.</text>
+      <text tid="invisible">Onzichtbaar</text>
+      <text tid="module">module</text>
+      <text tid="rootunit">(Basiseenheid)</text>
+      <text tid="searchresults">Zoekresultaten</text>
+    </textgroup>
+    <textgroup gid="commondialogs">   <!-- userrights.commondialogs -->
+      <textgroup gid="actions">   <!-- userrights.commondialogs.actions -->
+        <text tid="editrightinlist">Eigenschappen</text>
+        <text tid="editrightinlist-hint">Bewerk de eigenschappen van de geselecteerde toekenning</text>
+        <text tid="grantrightinlist">Recht toekennen</text>
+        <text tid="grantrightinlist-hint">Wijs rechten op dit object toe aan rol of gebruiker</text>
+        <text tid="revokerightfromlist">Verwijderen</text>
+        <text tid="revokerightfromlist-hint">Verwijder de geselecteerde toekenning</text>
+      </textgroup>
+      <textgroup gid="columns">   <!-- userrights.commondialogs.columns -->
+        <text tid="description">Beschrijving</text>
+        <text tid="fullname">Volledige naam</text>
+        <text tid="grantable">Toekenbaar</text>
+        <text tid="name">Naam</text>
+        <text tid="right">Recht</text>
+        <text tid="unit">Eenheid</text>
+      </textgroup>
+      <textgroup gid="edittitles">   <!-- userrights.commondialogs.edittitles -->
+        <text tid="titleallobjects">Beheer rechten op alle objecten van type '<param p="1"/>'.</text>
+        <text tid="titleobject">Beheer rechten van object '<param p="1"/>'</text>
+        <text tid="titlerole">Bewerk toekenning aan rol '<param p="1"/>'</text>
+        <text tid="titleroletouser">Bewerk roltoekenning aan gebruiker '<param p="1"/>'</text>
+        <text tid="titleuser">Bewerk toekenning aan gebruiker '<param p="1"/>'</text>
+      </textgroup>
+      <textgroup gid="errors">   <!-- userrights.commondialogs.errors -->
+        <text tid="founddeleteduserorrole">Kon de toekenningen van een of meer gebruikers of rollen niet intrekken, omdat deze gebruikers of rollen niet meer bestonden.</text>
+        <text tid="grantdoesnotexistanymore">De geselecteerde toekenning bestaat niet meer.</text>
+        <text tid="needselectgrouporobject">Selecteer een rechtengroep, een objecttype of een object om de aanwezige rechten te tonen.</text>
+        <text tid="needselectonetypepofobject">U kunt alleen rechten toekennen aan meerdere objecten als deze hetzelfde type hebben.</text>
+        <text tid="needselectrole">Kies a.u.b. een rol.</text>
+        <text tid="needselectunit">Kies a.u.b. een eenheid.</text>
+        <text tid="needselectuser">Selecteer a.u.b. een gebruiker.</text>
+        <text tid="needselectuserorrole">Kies a.u.b. een eenheid of een rol.</text>
+        <text tid="norelevantrights">Deze rechtengroep of dit object heeft geen relevante rechten.</text>
+        <text tid="noresultsinunit">Deze eenheid bevat geen <ifparam p="1" value="0">gebruikers of rollen<else/><ifparam p="1" value="1">gebruikers<else/>rollen</ifparam></ifparam>.</text>
+        <text tid="norightspresent">Er is geen gebruiker of een rol die een recht heeft uit deze rechtengroep of op dit object.</text>
+        <text tid="norighttomanagerole">U mag rol '<param p="1"/>' niet beheren.</text>
+        <text tid="norighttorevokerole">U heeft niet genoeg rechten om de toekenning van rol '<param p="1"/>' in te trekken.</text>
+        <text tid="notenoughrightsonunit">U heeft niet genoeg rechten op deze eenheid om deze operatie uit te voeren (het recht '<param p="1"/>' is benodigd).</text>
+        <text tid="rolehasbeendeleted">Rol '<param p="1"/>' bestaat niet meer.</text>
+        <text tid="useralreadyhasrole">Rol '<param p="2"/>' is al toegekend aan gebruiker '<param p="1"/>'.</text>
+        <text tid="usercannotviewunitofgrantablerole">Gebruiker '<param p="1"/>' zal rol '<param p="2"/>' niet aan anderen kunnen toekennen, want deze gebruiker heeft niet het recht om de eenheid van die rol te bekijken.</text>
+        <text tid="usercannotviewunitofrole">Gebruiker '<param p="1"/>' zal zelf niet kunnen zien dat hij of zij rol '<param p="2"/>' heeft, want deze gebruiker heeft niet het recht om de eenheid van die rol te bekijken. De gebruiker heeft wel alle rechten die bij de rol horen.</text>
+        <text tid="userhasbeendeleted">Gebruiker '<param p="1"/>' bestaat niet meer.</text>
+      </textgroup>
+      <textgroup gid="grantpropertytitles">   <!-- userrights.commondialogs.grantpropertytitles -->
+        <text tid="titlerole">Eigenschappen van rechtentoekenning aan rol '<param p="1"/>'</text>
+        <text tid="titleroletouser">Eigenschappen van roltoekenning aan gebruiker '<param p="1"/>'</text>
+        <text tid="titleuser">Eigenschappen van rechtentoekenning aan gebruiker '<param p="1"/>'</text>
+      </textgroup>
+      <textgroup gid="granttitles">   <!-- userrights.commondialogs.granttitles -->
+        <text tid="titleallobjects">Ken een recht toe op alle objecten van type '<param p="1"/>'.</text>
+        <text tid="titlegroup">Ken een recht toe uit rechtengroep '<param p="1"/>'</text>
+        <text tid="titleobject">Ken een recht toe op object '<param p="1"/>'</text>
+        <text tid="titleright">Ken recht '<param p="1"/>' toe</text>
+        <text tid="titleroletospecificuser">Ken een rol toe aan gebruiker '<param p="1"/>'</text>
+        <text tid="titleroletospecificusers">Ken een rol toe aan meerdere gebruikers</text>
+        <text tid="titlespecificroletousers">Ken rol '<param p="1"/>' toe aan meerdere gebruikers</text>
+        <text tid="titletomultiple">Ken een recht toe aan meerdere gebruikers/rollen</text>
+        <text tid="titletorole">Ken een recht toe aan rol '<param p="1"/>'</text>
+        <text tid="titletouser">Ken een recht toe aan gebruiker '<param p="1"/>'</text>
+      </textgroup>
+      <textgroup gid="objecttreerightsview">   <!-- userrights.commondialogs.objecttreerightsview -->
+        <text tid="export">Exporteren</text>
+        <text tid="exportrights">Exporteer rechten</text>
+        <text tid="fullname">Volledige naam</text>
+        <text tid="goto">Tonen</text>
+        <text tid="objecttreerightsview">Objectrechten</text>
+        <text tid="path">Pad</text>
+        <text tid="properties">Eigenschappen</text>
+        <text tid="remove_duplicates">Verwijder dubbelen</text>
+        <text tid="right">Recht</text>
+        <text tid="username">Gebruikersnaam</text>
+        <text tid="viarole">Via rol</text>
+      </textgroup>
+      <textgroup gid="rights">   <!-- userrights.commondialogs.rights -->
+        <text tid="additionaloptions">Opties</text>
+        <text tid="addroletousers">Rol toekennen aan gebruikers</text>
+        <text tid="authobjectfullid"><ifparam p="1" value="1">Gebruiker<else/>Rol</ifparam> '<param p="2"/>' (eenheid: '<param p="3"/>')</text>
+        <text tid="canbegranted">Toekenbaar</text>
+        <text tid="comment">Toelichting</text>
+        <text tid="editrightgrant">Rechtentoekenning</text>
+        <text tid="grant">Toekenning</text>
+        <text tid="grantdatetime">Toekendatum</text>
+        <text tid="grantor">Toekenner</text>
+        <text tid="objectpath">Object</text>
+        <text tid="rightsgroup">Rechtengroep</text>
+        <text tid="rightslist">Recht</text>
+        <text tid="rolegrant">Roltoekenning</text>
+        <text tid="rolename">Rol</text>
+        <text tid="search">Zoeken</text>
+        <text tid="selectuserrole">Kies een gebruiker of een rol</text>
+        <text tid="singleright">Recht</text>
+        <text tid="withadminoption">De gebruiker mag deze rol aan anderen toekennen.</text>
+        <text tid="withgrantoption">De gebruiker of rol mag dit recht aan anderen toekennen.</text>
+      </textgroup>
+      <textgroup gid="search">   <!-- userrights.commondialogs.search -->
+        <text tid="goto">Tonen</text>
+      </textgroup>
+      <textgroup gid="select">   <!-- userrights.commondialogs.select -->
+        <text tid="selectrole">Selecteer een rol</text>
+        <text tid="selectroles">Selecteer één of meerdere rollen</text>
+        <text tid="selectunit">Selecteer een eenheid</text>
+        <text tid="selectuser">Selecteer een gebruiker</text>
+        <text tid="selectuserorrole">Selecteer een gebruiker of een rol</text>
+        <text tid="selectusers">Selecteer één of meerdere gebruikers</text>
+        <text tid="selectusersorroles">Selecteer één of meerdere gebruikers en/of rollen</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dialog">   <!-- userrights.dialog -->
+      <textgroup gid="messages">   <!-- userrights.dialog.messages -->
+        <text tid="suredelete">Weet u zeker dat u <ifparam p="1" value="1">dit item<else/>deze items</ifparam> wilt verwijderen?</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dialogues">   <!-- userrights.dialogues -->
+      <text tid="actionfailed">De actie is mislukt: <br/><param p="1"/></text>
+      <text tid="cannotgetobjecttreeforobjecttype">Het is niet gelukt om een lijst van objecten voor <ifparam p="1" value="1">objecttype<else/>objecttypes</ifparam> <param p="2"/> te krijgen.</text>
+      <text tid="cannotmoveunittochild">Een eenheid kan niet in een van zijn eigen subeenheden geplaatst worden.</text>
+      <text tid="cannotresetunmanageduser">Kan geen wachtwoord reset link sturen voor dit account, WebHare beheert het wachtwoord niet</text>
+      <text tid="cantdeletetoplevelunit">Eenheden van het hoogste niveau kunnen niet worden verwijderd. Alleen een systeembeheerder of beheerder van een bovenliggende eenheid kan dit doen.</text>
+      <text tid="confirmdeletemenuitem">Weet u zeker dat u de snelkoppeling '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="confirmdeletenotification">Weet u zeker dat u de melding '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="confirmpdfpreview">De beschikbaarheid van PDF-voorvertoningen is afhankelijk van uw browser(instellingen) en of u een PDF-lezer op uw systeem heeft geïnstalleerd.<br/><br/>Indien PDF-voorvertoningen niet beschikbaar zijn raden we aan om contact opnemen met uw systeembeheerder of browserleverancier voor verdere ondersteuning.</text>
+      <text tid="confirmresetwarnings">Weet u zeker dat u alle waarschuwingsdialogen wilt herstellen? Alle waarschuwingen met "Toon deze waarschuwing niet meer" optie zullen dan weer worden getoond.</text>
+      <text tid="copyonlyrightstorole">Toegekende rollen kunnen niet naar een andere rol worden gekopieerd. Wilt u alleen de rechtentoekenningen kopiëren naar de geselecteerde rol?</text>
+      <text tid="dangerousrightsrevoke">Als u deze <ifparam p="1" value="1">rechtentoekenning<else/> rechtentoekenningen</ifparam> intrekt zul u rechten verliezen die niet op een andere manier aan u zijn toegekend. Wilt u hier mee doorgaan?</text>
+      <text tid="deletefailedbecause"><param p="1"/> <param p="2"/> kon niet worden verwijderd: <param p="3"/></text>
+      <text tid="deletemultipleitemswarning">Weet u zeker dat u de geselecteerde elementen wilt verwijderen?</text>
+      <text tid="deletenonemptyunit">Deze eenheid kan niet verwijderd worden, omdat deze nog gebruikers of rollen bevat.</text>
+      <text tid="deleterolewarning">Weet u zeker dat u rol '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="deleteunitwarning">Weet u zeker dat u eenheid '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="deleteuserwarning">Weet u zeker dat u gebruiker '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="dragdroperror">Er is een fout opgetreden bij het verplaatsen van dit object: '<param p="1"/>'</text>
+      <text tid="emptysearchvalue">Geef alstublieft een zoekterm op.</text>
+      <text tid="guidalreadyused">Deze GUID wordt al gebruikt.</text>
+      <text tid="invalidguid">Invalide GUID.</text>
+      <text tid="languagechanged">Uw interfacetaal is ingesteld op Nederlands. Applicaties die vanaf dit moment worden gestart, worden in deze taal weergegeven. Applicaties die al gestart zijn gebruiken de oude taal totdat zij opnieuw worden gestart.</text>
+      <text tid="loginnametoolong">De gebruikersnaam is te lang; deze mag maximaal 256 karakters bevatten.</text>
+      <text tid="moveunittorootwarning">Weet u zeker dat u eenheid '<param p="1"/>' een hoofdeenheid wilt maken?</text>
+      <text tid="moveunitwarning">Weet u zeker dat u eenheid '<param p="1"/>' naar eenheid '<param p="2"/>' wilt verplaatsen?</text>
+      <text tid="movewarning">Weet u zeker dat u <ifparam p="1" value="1">gebruiker '<param p="2"/>'<else/><ifparam p="1" value="3">rol '<param p="2"/>'<else/>de geselecteerde elementen naar</ifparam></ifparam> naar eenheid '<param p="3"/>' wilt verplaatsen?</text>
+      <text tid="mustselectunit">Er moet een eenheid geselecteerd zijn.</text>
+      <text tid="needselectright">Selecteert u a.u.b. een recht om toe te kennen voor dit object</text>
+      <text tid="nodroponroot">Het toewijzen van gebruikers of rollen aan de hoofdeenheid wordt niet ondersteund.</text>
+      <text tid="noprefsforoverride">Het is niet mogelijk de voorkeuren voor de override gebruiker in recovery modus te bewerken.</text>
+      <text tid="norightspresent"><ifparam p="1" value="1">Rechtengroup<else/>Objecttype</ifparam> '<param p="2"/>' heeft geen toegankelijke rechten.</text>
+      <text tid="notunitmanager">Alleen een beheerder van deze eenheid kan deze actie uitvoeren</text>
+      <text tid="notunitmanagerforrole">U heeft geen beheersrechten voor de eenheid waartoe rol '<param p="1"/>' behoort</text>
+      <text tid="notunitmanagerforuser">U heeft geen beheersrechten voor gebruiker '<param p="1"/>'.</text>
+      <text tid="notunitmanageronparent">U moet beheersrechten op de bovenliggende eenheid hebben om deze actie te kunnen utivoeren.</text>
+      <text tid="nounit">Gebruiker '<param p="1"/>' is niet gekoppeld aan een bekende eenheid. Wilt u nu een eenheid koppelen?</text>
+      <text tid="objecthasnorights">Het geselecteerde object heeft geen rechten die gegeven kunnen worden.</text>
+      <text tid="objectnolongerexists">Dit object bestaat niet meer.</text>
+      <text tid="passwordchange">U heeft uw wachtwoord gewijzigd. De volgende keer dat u inlogt wordt om dit nieuwe wachtwoord gevraagd.</text>
+      <text tid="passwordtoolong">Het wachtwoord is te lang; deze mag maximaal 256 karakters bevatten.</text>
+      <text tid="protectedunit">Deze eenheid kan niet worden verwijderd</text>
+      <text tid="protecteduser">Deze gebruiker is beschermd en kan niet worden verwijderd</text>
+      <text tid="removeuserfromrole">Weet u zeker dat u gebruiker '<param p="1"/>' van rol '<param p="2"/>' wilt verwijderen?</text>
+      <text tid="removeusersfromrole">Weet u zeker dat u de geselecteerde gebruikers van rol '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="revokegrantfromrole">Weet u zeker dat u de toekenning van recht '<param p="1"/>' aan rol '<param p="2"/>' wilt intrekken?</text>
+      <text tid="revokegrantfromuser">Weet u zeker dat u de toekenning van recht '<param p="1"/>' aan gebruiker '<param p="2"/>' wilt intrekken?</text>
+      <text tid="revokegrants">Weet u zeker dat u deze rechtentoekenningen wilt intrekken?</text>
+      <text tid="revokegrantsfromrole">Weet u zeker dat u deze rechtentoekenningen aan rol '<param p="1"/>' wilt intrekken?</text>
+      <text tid="revokegrantsfromuser">Weet u zeker dat u deze rechtentoekenningen aan gebruiker '<param p="1"/>' wilt intrekken?</text>
+      <text tid="revokerolefromuser">Weet u zeker dat u de toekenning van rol '<param p="1"/>' aan gebruiker '<param p="2"/>' wilt intrekken?</text>
+      <text tid="revokerolesfromuser">Weet u zeker dat u de toekenning van deze rollen aan gebruiker '<param p="2"/>' wilt intrekken?</text>
+      <text tid="rolenametoolong">De naam van de rol is te lang; deze mag maximaal 256 karakters bevatten.</text>
+      <text tid="selectusertoassignfiles">De gebruiker die u verwijdert is eigenaar van één of meer bestanden. Selecteer een andere gebruiker om deze taak over te nemen.</text>
+      <text tid="toomanyusers">U kunt geen nieuwe gebruikers aanmaken, omdat het maximum aantal gebruikers is bereikt.</text>
+      <text tid="unitnametoolong">De naam van de eenheid is te lang; deze mag maximaal 256 karakters bevatten.</text>
+      <text tid="userapinotset">Door configuratieproblemen kan de gebruikers API niet worden ingeladen. Neem a.u.b contact op met de systembeheerder.</text>
+    </textgroup>
+    <textgroup gid="editnotification">   <!-- userrights.editnotification -->
+      <text tid="high">Hoog</text>
+      <text tid="low">Laag</text>
+      <text tid="normal">Normaal</text>
+      <text tid="shownotification">Toon melding</text>
+      <text tid="shownotification-always">Altijd</text>
+      <text tid="shownotification-never">Nooit</text>
+      <text tid="shownotification-priority">Alleen met prioriteit minimaal</text>
+      <text tid="title">Notificatie '<param p="1"/>' bewerken</text>
+      <text tid="veryhigh">Zeer hoog</text>
+      <text tid="verylow">Zeer laag</text>
+    </textgroup>
+    <textgroup gid="editpassword">   <!-- userrights.editpassword -->
+      <text tid="accountconfirm">Bevestig wachtwoord</text>
+      <text tid="accountpassword">Nieuw wachtwoord</text>
+      <text tid="curpassword">Huidige wachtwoord</text>
+      <text tid="windowtitle">Wijzig wachtwoord</text>
+    </textgroup>
+    <textgroup gid="editrole">   <!-- userrights.editrole -->
+      <text tid="editrole">Rol aanpassen</text>
+      <text tid="name">Naam</text>
+      <text tid="parentunit">Eenheid</text>
+      <text tid="selectunit">Wijzig</text>
+      <text tid="whuser_comment">Opmerking</text>
+      <text tid="wrd_title">Naam</text>
+    </textgroup>
+    <textgroup gid="editunit">   <!-- userrights.editunit -->
+      <text tid="change">Aanpassen</text>
+      <text tid="editunit">Eenheid aanpassen</text>
+      <text tid="parentunitname">In eenheid</text>
+      <text tid="unitname">Naam</text>
+      <text tid="whuser_comment">Opmerking</text>
+      <text tid="wrd_title">Naam</text>
+    </textgroup>
+    <textgroup gid="edituser">   <!-- userrights.edituser -->
+      <text tid="account">Account</text>
+      <text tid="advanced">Geavanceerd</text>
+      <text tid="alwaysdisabled">Altijd uitgeschakeld</text>
+      <text tid="ampm">12-uurs weergave (AM/PM)</text>
+      <text tid="apostrophe">Apostrof (')</text>
+      <text tid="app">Applicatie</text>
+      <text tid="appaccountstab">Wachtwoorden voor apps en apparaten</text>
+      <text tid="autodetect">automatisch in te vullen</text>
+      <text tid="autodetectexplain">op basis van uw locatie en browsertaal</text>
+      <text tid="autodetectpre">Probeer</text>
+      <text tid="background">Achtergrond</text>
+      <text tid="browsertitleprefix">Toon tekst in browser</text>
+      <text tid="changeownsettings">Persoonlijke instellingen</text>
+      <text tid="colon">Dubbele punt (:)</text>
+      <text tid="comma">Komma (,)</text>
+      <text tid="confirm">Bevestig wachtwoord</text>
+      <text tid="creationdate">Aanmaakdatum</text>
+      <text tid="decimalsep">Decimaalteken</text>
+      <text tid="device">Apparaat</text>
+      <text tid="dot">Punt (.)</text>
+      <text tid="editmapping">Bewerken</text>
+      <text tid="edituser">Bewerk gebruiker</text>
+      <text tid="enableguidedit">Sta het wijzigen van de GUID toe</text>
+      <text tid="entities">Identiteit</text>
+      <text tid="explainguid">De GUID is een unieke identificatie van deze gebruiker tussen verschillende WebHare installaties en gebruikersschema's. U kunt meestal de standaardwaarde laten staan.</text>
+      <text tid="favorites">Favorieten</text>
+      <text tid="fillout">Gebruikersgegevens invullen</text>
+      <text tid="fullname">Volledige naam</text>
+      <text tid="invalid">Vul A.U.B. een gebruikersnaam in.</text>
+      <text tid="invalidemail">De ingevulde gebruikersnaam is geen geldig e-mailadres.</text>
+      <text tid="lastip">Laatste IP-adres</text>
+      <text tid="lastlogin">Laatste aanmelddatum</text>
+      <text tid="logoff">Afsluiten</text>
+      <text tid="messagebox">Verstuur het volgende bevestigingsbericht</text>
+      <text tid="messageboxinvite">Het volgende bericht zal worden verstuurd</text>
+      <text tid="militarytime">24-uurs weergave gebruiken</text>
+      <text tid="none">Geen</text>
+      <text tid="notificationsandwarnings">Meldingen</text>
+      <text tid="notificationstab">Meldingen</text>
+      <text tid="passconfirmerror">De wachtwoord bevestiging is niet gelijk aan het wachtwoord.</text>
+      <text tid="password">Wachtwoord</text>
+      <text tid="passwordlink">Wachtwoord</text>
+      <text tid="passwordlinktext">Klik hier om uw wachtwoord te wijzigen</text>
+      <text tid="preferences">Voorkeuren</text>
+      <text tid="prefs">Voorkeuren</text>
+      <text tid="prefsdate">Datumformaat</text>
+      <text tid="prefsdate_100">dd-mm-jjjj (<param p="1"/>)</text>
+      <text tid="prefsdate_200">dd/mm/jjjj (<param p="1"/>)</text>
+      <text tid="prefsdate_300">mm-dd-jjjj (<param p="1"/>)</text>
+      <text tid="prefsdate_400">mm/dd/jjjj (<param p="1"/>)</text>
+      <text tid="prefsdate_500">jjjj-mm-dd (<param p="1"/>)</text>
+      <text tid="prefsdate_600">jjjj/mm/dd (<param p="1"/>)</text>
+      <text tid="prefslang">Taal</text>
+      <text tid="prefslang_de">Deutsch (Duits)</text>
+      <text tid="prefslang_en">Engels (English)</text>
+      <text tid="prefslang_jp">??? (Japans)</text>
+      <text tid="prefslang_nl">Nederlands</text>
+      <text tid="prefslongdateformat">Lange datumweergave</text>
+      <text tid="prefsshortdateformat">Korte datumweergave</text>
+      <text tid="prefstime">Tijdsformaat</text>
+      <text tid="prefstime_100">24-uurs formaat (<param p="1"/>)</text>
+      <text tid="prefstime_200">12-uurs formaat (<param p="1"/>)</text>
+      <text tid="resetwarnings">Alle waarschuwingen opnieuw instellen</text>
+      <text tid="resetwarnings-label">Waarschuwingen</text>
+      <text tid="resetwarnings-labelend">(Zoals "Laat deze melding niet meer zien")</text>
+      <text tid="schemaname">Schema</text>
+      <text tid="scope">Scope</text>
+      <text tid="selectmethod">Geef aan hoe u de gebruiker wilt toevoegen</text>
+      <text tid="selectunit">Wijzig</text>
+      <text tid="showdeveloperapps">Toon ontwikkelingsapplicaties</text>
+      <text tid="showiedownloadwarning">Omzeil IE's download blokkering via download dialoog</text>
+      <text tid="showpdfpreview">Toon PDF voorvertoningen</text>
+      <text tid="space">Spatie ( )</text>
+      <text tid="startmenu">Startmenu</text>
+      <text tid="status">Status</text>
+      <text tid="thousandsep">Cijfergroeperingssymbool</text>
+      <text tid="timeformat">Tijdsweergave</text>
+      <text tid="timemilitary">24-uurs weergave</text>
+      <text tid="timezone">Tijdzone</text>
+      <text tid="timezone-africa">Afrika</text>
+      <text tid="timezone-america">Amerika</text>
+      <text tid="timezone-antarctica">Antarctica</text>
+      <text tid="timezone-arctic">Arctisch gebied</text>
+      <text tid="timezone-asia">Azië</text>
+      <text tid="timezone-atlantic">Atlantische Oceaan</text>
+      <text tid="timezone-australia">Australië</text>
+      <text tid="timezone-europe">Europa</text>
+      <text tid="timezone-general">Algemeen</text>
+      <text tid="timezone-indian">Indische Oceaan</text>
+      <text tid="timezone-pacific">Grote Oceaan</text>
+      <text tid="timezone-unknown">Onbekend</text>
+      <text tid="title">Titel</text>
+      <text tid="unitname">Eenheid</text>
+      <text tid="unitnamenew">Eenheid</text>
+      <text tid="userinfo">Gebruikersinformatie</text>
+      <text tid="username">Gebruikersnaam</text>
+      <text tid="usernamenew">Inlognaam</text>
+      <text tid="userpreferences">Persoonlijke voorkeuren</text>
+      <text tid="utc">UTC</text>
+      <text tid="warnings">Waarschuwingen</text>
+      <text tid="whuser_disabled">Blokkeer dit account</text>
+      <text tid="whuser_disablereason">Blokkeerreden</text>
+      <text tid="whuser_password">Wachtwoord</text>
+      <text tid="windowtitle">Wijzig persoonlijke voorkeuren</text>
+      <text tid="wizardfinishmessage">De wizard is voltooid</text>
+      <text tid="wizardwelcome">Gebruiker toevoegen</text>
+      <text tid="wrd_creationdate">Aanmaakdatum</text>
+      <text tid="wrd_firstname">Voornaam</text>
+      <text tid="wrd_fullname">Volledige naam</text>
+      <text tid="wrd_gender">Geslacht</text>
+      <text tid="wrd_guid">GUID</text>
+      <text tid="wrd_infix">Tussenvoegsels</text>
+      <text tid="wrd_lastname">Achternaam</text>
+    </textgroup>
+    <textgroup gid="empty">   <!-- userrights.empty -->
+      <text tid="nousersinrole">Er zijn geen gebruikers met deze rol.</text>
+      <text tid="permissionsfromrole-none">De rol '<param p="1"/>' heeft geen permissies</text>
+      <text tid="permissionsfromuser">Selecteer één gebruiker of rol om zijn rechten- en rollentoekenningen te zien</text>
+      <text tid="permissionsfromuser-none">De gebruiker '<param p="1"/>' heeft geen permissies</text>
+      <text tid="searchresults">Er zijn geen gebruikers of rollen gevonden</text>
+      <text tid="usersinunits">Selecteer een eenheid om zijn gebruikers en rollen te zien</text>
+      <text tid="usersinunits-none">Er zijn geen gebruikers of rollen in deze eenheid</text>
+    </textgroup>
+    <textgroup gid="errors">   <!-- userrights.errors -->
+      <text tid="allitemsaredeleted">Geen van de elementen die u aan het verplaatsen bent bestaat nog.</text>
+      <text tid="alreadygranted">Deze permissie is al aan deze gebruiker toegewezen</text>
+      <text tid="cannotbeownparent">een object kan niet het bovenliggende object van zichzelf zijn</text>
+      <text tid="cannotdeletefilledunit">U mag deze eenheid niet verwijderen, omdat zij niet leeg is.</text>
+      <text tid="cannotdeletenonemptyunit">U mag deze eenheid niet verwijderen omdat er nog steeds gebruikers en/of rollen in zitten.</text>
+      <text tid="cannotmoveunitinitself">Een eenheid kan niet naar zichzelf of naar een van haar subeenheden worden verplaatst.</text>
+      <text tid="deleterolefailed">Kon rol '<param p="1"/>' niet verwijderen, door de volgende fout: <param p="2"/>.</text>
+      <text tid="deleterolewithoutrolemanagerright">U mag deze rol niet verwijderen, omdat u het recht om rollen te beheren in zijn eenheid niet aan u is toegekend.</text>
+      <text tid="deleteuserfailed">Kon gebruiker '<param p="1"/>' niet verwijderen, door de volgende fout: <param p="2"/>.</text>
+      <text tid="deleteuserwithoutunitmanagerright">U mag deze gebruiker niet verwijderen, omdat u het recht om rollen te beheren in zijn eenheid niet aan u is toegekend.</text>
+      <text tid="expectedonlyusers">alleen gebruikers zijn mogelijk</text>
+      <text tid="missingusers">één of meer gebruikers bestaan niet meer</text>
+      <text tid="namealreadyinuse">Er bestaat al een eenheid, gebruiker of rol in deze eenheid met dezelfde naam.</text>
+      <text tid="nameinuse">deze naam is al in gebruik</text>
+      <text tid="nonexistant_parentid">het opgegeven bovenliggende object of eenheid bestaat niet</text>
+      <text tid="nonexistantrole">deze rol bestaat niet</text>
+      <text tid="nonexistantunit">deze eenheid bestaat niet</text>
+      <text tid="notallowedtocreateunit">U mag hier geen eenheid aanmaken, omdat u de bovenliggende eenheid niet mag beheren.</text>
+      <text tid="notallowedtoeditrole">U mag deze rol niet bewerken omdat u daar het recht daarvoor niet aan u is toegekend.</text>
+      <text tid="notallowedtoeditunit">U mag deze eenheid niet bewerken.</text>
+      <text tid="notallowedtograntrightfor">U kunt recht <param p="1"/>' niet aan gebruiker of rol '<param p="2"/>' toekennen, omdat dat recht al aan deze gebruiker of rol is toegekend.</text>
+      <text tid="notallowedtograntrightto">U mag het recht '<param p="1"/>' niet toekennen aan '<param p="2"/>'</text>
+      <text tid="notallowedtograntroleto">U mag rol '<param p="1"/>' niet aan '<param p="2"/>' toekennen</text>
+      <text tid="notallowedtomanageright">U mag het recht om recht '<param p="1"/>' niet beheren.</text>
+      <text tid="notallowedtomanagerole">U heeft niet het recht om rol '<param p="1"/>' te beheren.</text>
+      <text tid="notallowedtomoverole">U mag deze rol niet verplaatsen omdat u geen rollen mag beheren in óf de bron-eenheid óf de doel-eenheid.</text>
+      <text tid="notallowedtorevokerightfrom">U mag het recht '<param p="1"/>' niet van '<param p="2"/>' afnemen</text>
+      <text tid="notallowedtorevokerolefrom">U mag rol '<param p="1"/>' niet verwijderen van '<param p="2"/>'</text>
+      <text tid="notanunit">dit is geen eenheid</text>
+      <text tid="notarole">dit is geen rol</text>
+      <text tid="notrolemanageronparentforrolemove">U mag deze rol niet verplaatsen, omdat u niet het recht heeft om rollen te beheren in haar eenheid.</text>
+      <text tid="notunitmanagerondestinationforunitmove">U mag deze eenheid niet hiernaartoe verplaatsen, omdat u niet het recht heeft om de doeleenheid te beheren.</text>
+      <text tid="notunitmanageronparentforunitdelete">U mag deze eenheid niet verwijderen, omdat u niet het recht heeft om de bovenliggende eenheid te beheren.</text>
+      <text tid="notunitmanageronparentforunitmove">U mag deze eenheid niet verplaatsen, omdat u niet het recht heeft de bovenliggende eenheid te beheren.</text>
+      <text tid="notunitmanageronparentforusermove">U mag deze gebruiker niet verplaatsen, omdat u niet het recht heeft om zijn eenheid te beheren.</text>
+      <text tid="parentcannotbechild">een onderliggend object kan geen bovenliggend object zijn</text>
+      <text tid="parentnotarole">het bovenliggende object is geen rol</text>
+      <text tid="parentnotaunit">het bovenliggende object is geen eenheid</text>
+      <text tid="rolealreadyhasgrantforright">Recht '<param p="2"/>' is al aan rol '<param p="1"/>' toegekend.</text>
+      <text tid="rolehasbeendeleted">De rol die u aanpast is verwijderd.</text>
+      <text tid="rolescannotbeinroot">een rol kan niet in de hoofdmap worden geplaatst, maar moet in een eenheid worden geplaatst.</text>
+      <text tid="selectedrolehasbeendeleted">De geselecteerde rol bestaat niet meer.</text>
+      <text tid="selectedunithasbeendeleted">De geselecteerde eenheid bestaat niet meer.</text>
+      <text tid="selecteduserhasbeendeleted">De geselecteerde gebruiker bestaat niet meer.</text>
+      <text tid="unitnotempty">de eenheid is niet leeg</text>
+      <text tid="useralreadyhasgrantforright">Het recht '<param p="2"/>' is al aan gebruiker '<param p="1"/>' toegekend.</text>
+      <text tid="userhasbeendeleted">De gebruiker die u aanpast is verwijderd.</text>
+      <text tid="userisprotected">U mag de beschermde gebruiker '<param p="1"/>' niet verwijderen.</text>
+      <text tid="usernamealreadyinuse">Er bestaat al een gebruiker met dezelfde loginnaam.</text>
+      <text tid="userscannotbeinroot">een gebruiker kan niet in de hoofdmap worden geplaatst, maar moet in een eenheid worden geplaatst.</text>
+    </textgroup>
+    <textgroup gid="export">   <!-- userrights.export -->
+      <text tid="allgrants">Alle toekenningen</text>
+      <text tid="comment">Toelichting</text>
+      <text tid="grantdate">Toegekend op</text>
+      <text tid="grantor">Toegekend door</text>
+      <text tid="objectpath">Objectpad</text>
+      <text tid="objecttypename">Objecttype</text>
+      <text tid="rightname">Recht</text>
+      <text tid="type">Type</text>
+      <text tid="unitname">Eenheid</text>
+      <text tid="withgrantoption">Mag recht verder toekennen</text>
+    </textgroup>
+    <textgroup gid="exports">   <!-- userrights.exports -->
+      <text tid="exportobjectrights">Rechten op objecten</text>
+      <text tid="exportusers">Alle gebruikers</text>
+      <text tid="exportusersinunit">Gebruikers in '<param p="1"/>'</text>
+      <textgroup gid="csvcolumns">   <!-- userrights.exports.csvcolumns -->
+        <text tid="created">Aangemaakt</text>
+        <text tid="fullname">Gebruikersnaam</text>
+        <text tid="lastlogin">Laatst ingelogd</text>
+        <text tid="path">Pad</text>
+        <text tid="right">Recht</text>
+        <text tid="username">Gebruikersnaam</text>
+        <text tid="viarole">Via rol</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="getresetlink">   <!-- userrights.getresetlink -->
+      <text tid="getresetlink">Wachtwoord reset link</text>
+      <text tid="resetcode">Verificatiecode</text>
+      <text tid="resetlink">Reset link</text>
+    </textgroup>
+    <textgroup gid="menus">   <!-- userrights.menus -->
+      <text tid="app">Gebruikersbeheer</text>
+      <text tid="edit">Bewerken</text>
+      <text tid="exports">Exports</text>
+      <text tid="file">Bestand</text>
+      <text tid="grants">Toekenningen</text>
+      <text tid="move">Verplaatsen</text>
+      <text tid="new">Toevoegen</text>
+      <text tid="newunitcontext">Nieuwe eenheid</text>
+      <text tid="viewsearchbar">Zoeken</text>
+    </textgroup>
+    <textgroup gid="notificationsettings">   <!-- userrights.notificationsettings -->
+      <text tid="deniedexplain">U heeft bureaubladmeldingen in uw browser geblokkeerd.</text>
+      <text tid="displaybrowserexplain">Berichten worden in uw browser getoond</text>
+      <text tid="displaydesktopexplain">Berichten worden weergegeven op het bureaublad</text>
+      <text tid="grantedexplain">U heeft deze applicatie het recht gegeven om bureaubladmeldingen te tonen.</text>
+      <text tid="module">Module</text>
+      <text tid="nonotifications">Nog geen berichten weergegeven.</text>
+      <text tid="notificationballoons">Popup-berichten</text>
+      <text tid="notifications">Berichten</text>
+      <text tid="notsupportedtabexplain">Uw huidige browser ondersteunt geen bureaubladmeldingen.</text>
+      <text tid="onlypriority">Toon alleen met prioriteit minstens</text>
+      <text tid="requestexplain">Uw browser moet toestemming hebben voor bureaubladmeldingen -</text>
+      <text tid="requestpermission">toestemming vragen</text>
+      <text tid="showon">Toon berichten</text>
+      <text tid="showon-browser">in de browser</text>
+      <text tid="showon-desktop">op het bureaublad</text>
+      <text tid="status">Tonen</text>
+      <text tid="testnotification">Testmelding</text>
+      <text tid="timeout">Toon bericht gedurende</text>
+      <text tid="timeout-desc">second(en)</text>
+      <text tid="timeoutlabel">gedurende</text>
+      <text tid="title">Bericht</text>
+      <text tid="windowtitle">Berichten</text>
+      <textgroup gid="priorities">   <!-- userrights.notificationsettings.priorities -->
+        <text tid="high">Hoog</text>
+        <text tid="low">Laag</text>
+        <text tid="normal">Normaal</text>
+        <text tid="onlypriority">Toon berichten met prioriteit vanaf</text>
+        <text tid="veryhigh">Erg hoog</text>
+        <text tid="verylow">Erg laag</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="prepareresetlink">   <!-- userrights.prepareresetlink -->
+      <text tid="prepareresetlink">Genereer wachtwoord reset link</text>
+      <text tid="resettype-codedresetlink">Genereer een link en een aparte code die via een ander kanaal verstuurd zal worden</text>
+      <text tid="resettype-directresetlink">Genereer een link waarmee het wachtwoord direct ingesteld kan worden</text>
+    </textgroup>
+    <textgroup gid="report">   <!-- userrights.report -->
+      <text tid="export">Exporteren</text>
+      <text tid="fullname">Volledige naam</text>
+      <text tid="goto">Tonen</text>
+      <text tid="path">Pad</text>
+      <text tid="properties">Eigenschappen</text>
+      <text tid="remove_duplicates">Ontdubbelen</text>
+      <text tid="report">Alle gebruikers met rechten onder dit object weergeven</text>
+      <text tid="right">Recht</text>
+      <text tid="username">Gebruikersnaam</text>
+    </textgroup>
+    <textgroup gid="rights">   <!-- userrights.rights -->
+      <text tid="additionaloptions">Opties</text>
+      <text tid="withadminoption">De gebruiker of rol mag dit recht aan anderen toekennen.</text>
+      <text tid="withgrantoption">De gebruiker of rol mag dit recht aan anderen toekennen.</text>
+    </textgroup>
+    <textgroup gid="screentitles">   <!-- userrights.screentitles -->
+      <text tid="addrole">Nieuwe rol</text>
+      <text tid="addunit">Nieuwe eenheid</text>
+      <text tid="adduser">Nieuwe gebruiker</text>
+      <text tid="editrole">Eigenschappen van rol '<param p="1"/>'</text>
+      <text tid="editunit">Eigenschappen van eenheid '<param p="1"/>'</text>
+      <text tid="edituser">Eigenschappen van gebruiker '<param p="1"/>'</text>
+      <text tid="main">Gebruikersbeheer</text>
+    </textgroup>
+    <textgroup gid="search">   <!-- userrights.search -->
+      <text tid="goto">Tonen</text>
+      <text tid="searchbutton">Zoeken</text>
+    </textgroup>
+    <textgroup gid="selectunit">   <!-- userrights.selectunit -->
+      <text tid="moveitems-descr">Kies de eenheid waar u de geselecteerde elementen naartoe wilt verplaatsen.</text>
+      <text tid="moveitems-title">Kies de bestemming</text>
+      <text tid="moverole-descr">Kies de eenheid waar u de rol '<param p="1"/>' naartoe wilt verplaatsen.</text>
+      <text tid="moverole-title">Kies de bestemming</text>
+      <text tid="moveunit-descr">Kies de eenheid waar u eenheid '<param p="1"/>' naartoe wilt verplaatsen.</text>
+      <text tid="moveunit-title">Kies de bestemming</text>
+      <text tid="moveuser-descr">Kies de eenheid waar u gebruiker '<param p="1"/>' naartoe wilt verplaatsen.</text>
+      <text tid="moveuser-title">Kies de bestemming</text>
+      <text tid="newrole-descr">Kies de eenheid waar u de nieuwe rol in wilt plaatsen.</text>
+      <text tid="newrole-title">Kies de bestemming</text>
+      <text tid="newunit-descr">Kies de eenheid waar u de nieuwe eenheid in wilt plaatsen.</text>
+      <text tid="newunit-title">Kies de bestemming</text>
+      <text tid="newuser-descr">Kies de eenheid waar u de nieuwe gebruiker in wilt plaatsen.</text>
+      <text tid="newuser-title">Kies de bestemming</text>
+    </textgroup>
+    <textgroup gid="shortcuteditor">   <!-- userrights.shortcuteditor -->
+      <text tid="folderdeleted">Deze map bestaat niet meer</text>
+      <text tid="icon">Pictogram</text>
+      <text tid="ordering">Sorteervolgorde</text>
+      <text tid="path">Pad</text>
+      <text tid="title">Titel</text>
+      <text tid="windowtitle">Favoriet bewerken</text>
+    </textgroup>
+    <textgroup gid="showrightsusage">   <!-- userrights.showrightsusage -->
+      <text tid="directgrantcount">directe grants</text>
+      <text tid="showrightsusage">Toon gebruiker van rechten</text>
+      <text tid="title">rechtnaam</text>
+    </textgroup>
+    <textgroup gid="tabs">   <!-- userrights.tabs -->
+      <text tid="objectstab">Objecten en rechten</text>
+      <text tid="rights">Rechten</text>
+      <text tid="unitstab">Gebruikers en rollen</text>
+      <text tid="users">Gebruikers</text>
+    </textgroup>
+    <textgroup gid="unittree">   <!-- userrights.unittree -->
+      <text tid="searchfor">Zoeken</text>
+      <text tid="searchresults">Zoekresultaten</text>
+      <text tid="units">Eenheden</text>
+    </textgroup>
+    <textgroup gid="userrolerightslist">   <!-- userrights.userrolerightslist -->
+      <textgroup gid="tabs">   <!-- userrights.userrolerightslist.tabs -->
+        <text tid="rights">Rechten</text>
+        <text tid="users">Gebruikers</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webserver">   <!-- webserver -->
+    <textgroup gid="webservers">   <!-- webserver.webservers -->
+      <textgroup gid="main">   <!-- webserver.webservers.main -->
+        <text tid="certificates">Certificaten</text>
+        <text tid="main">Certificaten</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webservers">   <!-- webservers -->
+    <textgroup gid="proxies">   <!-- webservers.proxies -->
+      <textgroup gid="update">   <!-- webservers.proxies.update -->
+        <text tid="hostswhitelist">Hosts whitelist</text>
+        <text tid="lasterror">Laatste fout</text>
+        <text tid="password">Wachtwoord</text>
+        <text tid="portswhitelist">Ports whitelist</text>
+        <text tid="reverseaddress">Lokale verbindingsadres</text>
+        <text tid="test">Testen</text>
+        <text tid="updateproxy">Proxy bewerken</text>
+        <text tid="url">URL</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="webservers">   <!-- webservers.webservers -->
+      <textgroup gid="certbotrequest">   <!-- webservers.webservers.certbotrequest -->
+        <text tid="certbotrequest">LetsEncrypt (Certbot) certificaat aanvraag</text>
+        <text tid="domainnames">Domeinnamen</text>
+        <text tid="domainnames-placeholder">De namen om aan te vragen, bv www.example.net example.net</text>
+        <text tid="nothostedhere">De hostnaam '<param p="1"/>' wordt niet door deze server gehost</text>
+        <text tid="request">Certificaat aanvragen</text>
+        <text tid="result">Resultaat aanvraag</text>
+      </textgroup>
+      <textgroup gid="exportusagestats">   <!-- webservers.webservers.exportusagestats -->
+        <text tid="enddate">Einddatum</text>
+        <text tid="exportusagestats">Exporteer gebruiksstatistieken</text>
+        <text tid="startdate">Startdatum</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="wrdentitiescolumns">   <!-- wrdentitiescolumns -->
+    <text tid="action">Bewerking</text>
+    <text tid="id">ID</text>
+    <text tid="title">Titel</text>
+  </textgroup>
+</language>

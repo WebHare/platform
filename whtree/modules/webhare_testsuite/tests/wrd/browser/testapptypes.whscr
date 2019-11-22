@@ -1,0 +1,189 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+ASYNC MACRO TestMetadata()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
+  AWAIT ExpectScreenChange(+1, PTR topscreen->schemaprops->TolliumClick());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+}
+
+ASYNC MACRO TestTypesAttrs()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
+  AWAIT ExpectScreenChange(+1, PTR topscreen->managetypes->TolliumClick());
+  TestEq(TRUE, RecordExists(SELECT FROM topscreen->types->rows WHERE tag = "WRD_PERSON")); //should be filled with -some- content..
+
+  //Add a type
+  AWAIT ExpectScreenChange(+1, PTR topscreen->addtype->TolliumClick());
+  topscreen->metatype->value := "domain";
+  topscreen->tag->value := "MYNEWTYPE";
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq(TRUE, RecordExists(SELECT FROM topscreen->types->rows WHERE tag = "MYNEWTYPE"));
+  TestEq(testfw->GetWRDSchema()->^mynewtype->id, topscreen->types->value);
+
+  //Edit the type
+  AWAIT ExpectScreenChange(+1, PTR topscreen->edittype->TolliumClick());
+  TestEq("MYNEWTYPE", topscreen->tag->value);
+  //FIXME test modification
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  //should still be selected
+  TestEq(testfw->GetWRDSchema()->^mynewtype->id, topscreen->types->value);
+
+  //enter attributes window
+  AWAIT ExpectScreenChange(+1, PTR topscreen->manageattrs->TolliumClick());
+
+
+  topscreen->attrs->selection := SELECT * FROM topscreen->attrs->rows WHERE rows.tag = "WRD_TYPE";
+
+  TestEq("WRD_TYPE", topscreen->attrs->value);
+  AWAIT ExpectNoScreenChange( PTR TTClick("deleteattr", [ allowfailure := TRUE ])); //should not be allowed to even try
+
+//FIXME geen domein wijziging na aanmaken!
+  //Add an attribute
+  AWAIT ExpectScreenChange(+1, PTR topscreen->addattr->TolliumClick());
+
+  topscreen->type->value := "DOMAIN";
+  TT("title")->value := "domeinattribuutje";
+  //conflict with existing
+  topscreen->tag->value := "WRD_TITLE";
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT AnswerMessageBox("ok", [ messagemask := "*already in use*"]);
+
+  topscreen->tag->value := "NEWDOMAINFIELD";
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  RECORD newdomainfieldrow := SELECT * FROM topscreen->attrs->rows WHERE rows.tag = "NEWDOMAINFIELD";
+  TestEq(TRUE, RecordExists(newdomainfieldrow)); //row must have appeared
+  TestEq(newdomainfieldrow.rowkey, topscreen->attrs->value); //and selected
+  TestEq("domeinattribuutje", newdomainfieldrow.title);
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->editattr->TolliumClick());
+  TestEq(FALSE, topscreen->domain->enabled);
+  TestEq("domeinattribuutje", TT("title")->value);
+  TT("title")->value := "domeinattribuutje #2";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  newdomainfieldrow := SELECT * FROM topscreen->attrs->rows WHERE rows.tag = "NEWDOMAINFIELD";
+  TestEq("domeinattribuutje #2", newdomainfieldrow.title);
+
+  //Let's add an array
+  AWAIT ExpectScreenChange(+1, PTR topscreen->addattr->TolliumClick());
+  topscreen->type->value := "ARRAY";
+  topscreen->tag->value := "MYARRAY";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->addchildattr->TolliumClick());
+  topscreen->tag->value := "SUBBIE";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TestEq("MYARRAY.SUBBIE", topscreen->attrs->selection.tag);
+
+  //Rename the array node
+  AWAIT ExpectScreenChange(+1, PTR topscreen->editattr->TolliumClick());
+  TestEQ("SUBBIE", topscreen->tag->value);
+  topscreen->tag->value := "JUSTASUB";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TestEq("MYARRAY.JUSTASUB", topscreen->attrs->selection.tag);
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->deleteattr->TolliumClick(), [ messagemask := "*delete*MYARRAY.JUSTASUB*", awaitcall := TRUE]);
+  TestEq(FALSE, RecordExists(SELECT FROM topscreen->attrs->rows WHERE tag="MYARRAY.JUSTASUB"));
+  TestEq("MYARRAY", topscreen->attrs->selection.tag);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  //Edit values
+  AWAIT ExpectScreenChange(+1, PTR topscreen->editvalues->TolliumClick());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  //Delete the type
+  AWAIT ExpectScreenChange(+1, PTR topscreen->deltype->TolliumClick());
+  topscreen->deletehow->value := "deltype";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq(FALSE, RecordExists(SELECT FROM topscreen->types->rows WHERE tag = "MYNEWTYPE"));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+ASYNC MACRO TestTypeImport()
+{
+  // make WRD_CONTACT_EMAIL forced unique to see duplicate values
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("WRD_CONTACT_EMAIL", [ isunique := TRUE ]);
+  testfw->CommitWork();
+
+  RECORD start := AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
+  AWAIT ExpectScreenChange(+1, PTR topscreen->managetypes->TolliumClick());
+
+  topscreen->types->selection := SELECT * FROM topscreen->types->rows WHERE tag = "WRD_PERSON";
+  AWAIT ExpectScreenChange(+1, PTR topscreen->import->TolliumClick());
+
+  AWAIT ExpectOptionalProgressWindow(PTR topscreen->importfile->SetFile(GetWebhareResource("mod::webhare_testsuite/tests/wrd/browser/import-persons.xlsx"), "import.xlsx"));
+  topscreen->incolumns->value := 0; //first column
+  topscreen->wrdcolumns->value := "WRD_CONTACT_EMAIL";
+  topscreen->map->TolliumClick();
+
+  topscreen->incolumns->value := 1; //second column, boolean
+  topscreen->wrdcolumns->value := "TEST_BOOLEAN";
+  AWAIT ExpectScreenChange(+1, PTR topscreen->map->TolliumClick());
+
+  //configure the mapping
+  topscreen->invals->selection := SELECT * FROM topscreen->invals->rows WHERE inval="ja"; //'ja'
+  topscreen->allowedvals->selection := SELECT * FROM topscreen->allowedvals->rows WHERE title = "Yes";
+  topscreen->map->TolliumClick();
+
+  topscreen->invals->selection := SELECT * FROM topscreen->invals->rows WHERE inval="nee"; //'nee'
+  topscreen->allowedvals->selection := SELECT * FROM topscreen->allowedvals->rows WHERE title = "No";
+  topscreen->map->TolliumClick();
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  // click next after mapping, see preview
+  AWAIT ExpectOptionalProgressWindow(PTR topscreen->wizard->nextbutton->TolliumClick());
+  // finish, start import
+  AWAIT ExpectOptionalProgressWindow(PTR topscreen->wizard->nextbutton->TolliumClick());
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR); //finish. shows 'import results' screen
+
+  TestEQ(0, testfw->GetWRDSchema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "foutiefmailadres"));
+  INTEGER arnold := testfw->GetWRDSchema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "arnold@example.net");
+  TestEQ(TRUE, testfw->GetWRDSchema()->^wrd_person->GetEntityField(arnold, "TEST_BOOLEAN"));
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->downloadinvalid->TolliumClick()); //finish. shows 'import results' screen
+  RECORD rec_invalid := AWAIT ExpectSentWebFile(PTR TTCLick("download")); //download CSV
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //senduserfile dialog goes away
+  TestEQLike("*WRD_CONTACT_EMAIL*INVALIDVALUE*foutiefmailadres*nee*", BlobToString(rec_invalid.file.data));
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->downloadduplicate->TolliumClick()); //finish. shows 'import results' screen
+  RECORD rec_double := AWAIT ExpectSentWebFile(PTR TTCLick("download")); //download CSV
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //senduserfile dialog goes away
+
+  TestEQLike("*e-mail*double@example.net*", BlobToString(rec_double.file.data));
+
+  AWAIT ExpectScreenChange(-2, PTR topscreen->TolliumExecuteCancel()); // close result and import
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel()); // close manage types
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel()); // close app
+
+  AWAIT start.expectcallreturn();
+}
+
+
+
+RunTestFramework([ PTR CreateWRDTestSchema
+                 , PTR TestMetadata
+                 , PTR TestTypesAttrs
+                 , PTR TestTypeImport
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);

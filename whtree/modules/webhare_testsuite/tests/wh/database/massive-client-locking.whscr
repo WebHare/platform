@@ -1,0 +1,89 @@
+<?wh // Testscript
+
+LOADLIB "mod::webhare_testsuite/lib/db/test_client.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+//DebugMsg("Client " || clientid || " started");
+
+INTEGER totalclients := 30;
+
+ClientStart(totalclients);
+
+TABLE <INTEGER intdata, STRING strdata, BOOLEAN booldata> beta_modifytests;
+INTEGER test_fp_trans;
+INTEGER cursorid;
+
+RECORD ARRAY update_recs;
+BOOLEAN FUNCTION TestRecord(RECORD testr)
+{
+  INSERT testr INTO update_recs AT END;
+  RETURN TRUE;
+}
+
+//--------------------------------------------------------------------------------
+// Test 1; massive number of clients (100!)
+
+IF (clientid = 0)
+{
+  // Put standard record into beta_modifytests, commit and open new trans
+  SectionStart(1);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+
+  __BindWHDBMetaTables(test_fp_trans);
+  IF (NOT WHDBColumnExists("beta_modifytests","intdata"))
+    SendWHDBCommand(test_fp_trans, "CREATE TABLE beta_modifytests(intdata INTEGER, strdata VARCHAR(1024), booldata BOOLEAN) ");
+
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  DELETE FROM beta_modifytests;
+  INSERT INTO beta_modifytests(intdata, strdata, booldata) VALUES (1, "a", TRUE);
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors test 1");
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  UPDATE beta_modifytests SET strdata := "b" WHERE intdata = 1;
+//  PRINT("Update by client 0 performed\n");
+
+  SectionEnd(1);
+}
+IF (clientid > 0)
+{
+  // Update record, will hang
+  SectionStart(clientid + 1);
+
+  test_fp_trans := OpenTransaction("~webhare", "", "hang"||clientid);
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+//  PRINT("Trying updating for client " || clientid || "\n");
+  UpcomingHang("hang"||clientid);
+  UPDATE beta_modifytests SET strdata := "c" WHERE intdata = 1;
+//  PRINT("Updating succeeded client " || clientid || "\n");
+
+  SectionEnd(clientid + 1);
+}
+
+IF (clientid = 0)
+{
+  // Wait until all clients are hanging before committing client 0
+  SectionStart(totalclients + 1);
+//  PRINT("Committing transaction 0\n");
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors test 1");
+//  PRINT("Committed transaction 0\n");
+  SectionEnd(totalclients + 1);
+}
+
+// Order of signalling is not defined; so commit other clients when ready
+IF (clientid > 0)
+{
+//  PRINT("Committing transaction "||clientid||"\n");
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors test 1");
+//  PRINT("Committed transaction "||clientid||"\n");
+}
+
+TestEnd(totalclients + 2);

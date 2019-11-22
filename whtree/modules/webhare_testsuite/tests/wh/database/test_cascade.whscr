@@ -1,0 +1,75 @@
+<?wh
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+SCHEMA
+< TABLE < INTEGER id, INTEGER filelink NULL := 0, INTEGER parent NULL := 0; KEY id > fs_objects
+, TABLE < INTEGER id, INTEGER fs_object NULL := 0; KEY id > fs_history
+> beta_dbtests;
+
+MACRO Cleanup()
+{
+  GetPrimary()->allowerrordelay := FALSE;
+  beta_dbtests := BindTransactionToSchema(GetPrimary()->id, "beta_dbtests");
+  testfw->BeginWork();
+  IF(GetPrimary()->SchemaExists("beta_dbtests"))
+    GetPrimary()->DropSchema("beta_dbtests", [ cascade := TRUE ]);
+  testfw->CommitWork();
+}
+
+MACRO Setup()
+{
+  testfw->BeginWork();
+
+  GetPrimary()->CreateSchema("beta_dbtests", "", "_system");
+  __LegacyCreateTable(GetPrimary(), "beta_dbtests", "fs_objects",
+      [ primarykey :=   "id"
+      , cols :=         [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 1 ]
+                        , [ column_name := "filelink", data_type := "INTEGER", referenced_table_schema := "beta_dbtests", referenced_table_name := "fs_objects", on_delete := "set default" ]
+                        , [ column_name := "parent", data_type := "INTEGER", referenced_table_schema := "beta_dbtests", referenced_table_name := "fs_objects", on_delete := "cascade" ]
+                        ]
+      ]);
+  __LegacyCreateTable(GetPrimary(), "beta_dbtests", "fs_history",
+      [ primarykey :=   "id"
+      , cols :=         [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 1 ]
+                        , [ column_name := "fs_object", data_type := "INTEGER", referenced_table_schema := "beta_dbtests", referenced_table_name := "fs_objects", on_delete := "no action" ]
+                        ]
+      ]);
+
+  INSERT INTO beta_dbtests.fs_objects(id) VALUES(3662);
+  INSERT INTO beta_dbtests.fs_history(id, fs_object) VALUES(278,3662);
+  INSERT INTO beta_dbtests.fs_objects(id,filelink) VALUES(3832,3662);
+  INSERT INTO beta_dbtests.fs_history(id, fs_object) VALUES(774,3832);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  DELETE FROM beta_dbtests.fs_history WHERE id=278;
+  DELETE FROM beta_dbtests.fs_objects WHERE id=3662;
+  testfw->CommitWork();
+
+  TestEq(1, Length(SELECT * FROM beta_dbtests.fs_objects),'boxed');
+
+  testfw->BeginWork();
+  DELETE FROM beta_dbtests.fs_history;
+  DELETE FROM beta_dbtests.fs_objects;
+
+  INSERT INTO beta_dbtests.fs_objects(id, parent) VALUES(1,0);
+  INSERT INTO beta_dbtests.fs_objects(id, parent) VALUES(2,1);
+  INSERT INTO beta_dbtests.fs_history(id, fs_object) VALUES(3,1);
+  INSERT INTO beta_dbtests.fs_history(id, fs_object) VALUES(4,2);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  //delete in reverse order
+  DELETE FROM beta_dbtests.fs_history WHERE id=4;
+  DELETE FROM beta_dbtests.fs_objects WHERE id=2;
+  DELETE FROM beta_dbtests.fs_history WHERE id=3;
+  DELETE FROM beta_dbtests.fs_objects WHERE id=1;
+  testfw->CommitWork();
+}
+
+RunTestFramework([ PTR Cleanup
+                 , PTR Setup
+                 ]);

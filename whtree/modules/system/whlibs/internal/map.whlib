@@ -1,0 +1,424 @@
+﻿<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+
+/// Iterator that
+OBJECTTYPE __Experimental_Map_DangerousIterator
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Public reference to map
+  OBJECT pvt_map;
+
+
+  /// Position within this->pvt_map->data
+  INTEGER toppos;
+
+
+  /// Second level position within this->pvt_map->data[toppos].__recs
+  INTEGER level2pos;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY mkey(GetKey, -);
+
+
+  PUBLIC PROPERTY value(GetValue, -);
+
+
+  PUBLIC PROPERTY atend(GetAtEnd, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT map, INTEGER toppos, INTEGER level2pos)
+  {
+    this->pvt_map := map;
+    this->toppos := toppos;
+    this->level2pos := level2pos;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  PUBLIC RECORD FUNCTION GetKey()
+  {
+    IF (this->toppos = LENGTH(this->pvt_map->data))
+      THROW NEW Exception("Can't get the key of an iterator that is at end");
+
+    RECORD f := this->pvt_map->data[this->toppos].__recs[this->level2pos];
+    DELETE CELL __value FROM f;
+
+    RETURN f;
+  }
+
+
+  PUBLIC VARIANT FUNCTION GetValue()
+  {
+    IF (this->toppos = LENGTH(this->pvt_map->data))
+      THROW NEW Exception("Can't get the value of an iterator that is at end");
+
+    RETURN this->pvt_map->data[this->toppos].__recs[this->level2pos].__value;
+  }
+
+
+  PUBLIC BOOLEAN FUNCTION GetAtEnd()
+  {
+    RETURN this->toppos = LENGTH(this->pvt_map->data);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  PUBLIC INTEGER FUNCTION __ReverseCompare(OBJECT other)
+  {
+    IF (this->toppos != other->toppos)
+      RETURN other->toppos < this->toppos ? -1 : 1;
+    IF (other->level2pos = this->level2pos)
+      RETURN 0;
+    RETURN other->level2pos < this->level2pos ? -1 : 1;
+  }
+
+
+  PUBLIC BOOLEAN FUNCTION __ReverseEquals(OBJECT other)
+  {
+    RETURN this->toppos = other->toppos AND other->level2pos = this->level2pos;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC BOOLEAN FUNCTION Next()
+  {
+    this->level2pos := this->level2pos + 1;
+    IF (this->level2pos = LENGTH(this->pvt_map->data[this->toppos].__recs))
+    {
+      this->toppos := this->toppos + 1;
+      this->level2pos := 0;
+      IF (this->toppos = LENGTH(this->pvt_map->data))
+        RETURN FALSE;
+    }
+    RETURN TRUE;
+  }
+
+
+  PUBLIC INTEGER FUNCTION CompareTo(OBJECT rhs)
+  {
+    RETURN rhs->__ReverseCompare(PRIVATE this);
+  }
+
+
+  PUBLIC BOOLEAN FUNCTION Equals(OBJECT rhs)
+  {
+    RETURN rhs->__ReverseEquals(PRIVATE this);
+  }
+
+
+  PUBLIC OBJECT FUNCTION Clone()
+  {
+    RETURN NEW __Experimental_Map_DangerousIterator(this->pvt_map, this->toppos, this->level2pos);
+  }
+>;
+
+
+/** Experimental maptype
+*/
+PUBLIC OBJECTTYPE __Experimental_Map
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Data is kept sorted according to this cells (no cells starting with __!)
+  STRING ARRAY cells;
+
+
+  /** 2-level data, uses mkey data structure
+      @cell __recs Records
+      @cell __recs.__value Value
+  */
+  PUBLIC RECORD ARRAY data;
+
+
+  /** Default value
+      @cell value Cell with default value (can't use VARIANT as member type)
+  */
+  RECORD defval;
+
+
+  INTEGER pvt_length;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY length(pvt_length, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(STRING ARRAY cells, VARIANT defaultvalue)
+  {
+    FOREVERY (STRING c FROM cells)
+      IF (c LIKE "__*")
+        THROW NEW Exception("Cellnames starting with '__' are not allowed");
+
+    this->cells := cells;
+    this->defval := [ value := defaultvalue ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION ExtractKey(RECORD data)
+  {
+    RECORD f;
+    FOREVERY (STRING c FROM this->cells)
+      f := CellInsert(f, c, GetCell(data, c));
+    RETURN f;
+  }
+
+  INTEGER FUNCTION GetTopLevelPosition(RECORD mkey, BOOLEAN create)
+  {
+    RECORD pos := RecordLowerBound(this->data, mkey, this->cells);
+    IF (NOT pos.found)
+    {
+      IF (pos.position != 0)
+        RETURN pos.position - 1;
+      ELSE IF (create)
+      {
+        IF (LENGTH(this->data) = 0)
+        {
+          INSERT CELL __recs := DEFAULT RECORD ARRAY INTO mkey;
+          INSERT mkey INTO this->data AT END;
+        }
+        ELSE
+        {
+          INSERT CELL __recs := this->data[0].__recs INTO mkey;
+          this->data[0] := mkey;
+        }
+      }
+      ELSE
+        RETURN -1;
+    }
+    RETURN pos.position;
+  }
+
+  RECORD ARRAY FUNCTION MergeTopLevel(RECORD ARRAY toplevelcopy, INTEGER pos)
+  {
+    RECORD ARRAY allrecs := toplevelcopy[pos].__recs CONCAT toplevelcopy[pos+1].__recs;
+
+    IF (LENGTH(allrecs) >= 384)
+    {
+      INTEGER halflen := LENGTH(allrecs) / 2;
+      toplevelcopy[pos].__recs := ArraySlice(allrecs, 0, halflen);
+
+      RECORD im := allrecs[halflen];
+      DELETE CELL __value FROM im;
+      INSERT CELL __recs := ArraySlice(allrecs, halflen) INTO im;
+      toplevelcopy[pos + 1] := im;
+    }
+    ELSE
+    {
+      toplevelcopy[pos].__recs := allrecs;
+      DELETE FROM toplevelcopy AT pos + 1;
+    }
+
+    RETURN toplevelcopy;
+  }
+
+/*
+  RECORD FUNCTION FindFirstRecordAtOrAfter(RECORD mkey)
+  {
+    INTEGER toppos := GetTopLevelPosition(mkey, FALSE);
+    IF (toppos - 1)
+    {
+      IF (LENGTH(this->data) = 0)
+        RETURN DEFAULT RECORD;
+
+      mkey := this->data[0].__recs[0];
+      VARIANT value := mkey.__value;
+      DELETE CELL __value FROM mkey;
+
+      RETURN
+          [ mkey :=     mkey
+          , value :=    value
+          ];
+    }
+    ELSE
+    {
+
+
+
+
+
+
+
+
+    }
+  }
+*/
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO Clear()
+  {
+    this->data := DEFAULT RECORD ARRAY;
+    this->pvt_length := 0;
+  }
+
+  /** Assigns a record array with keys and a value member into the map.
+  * /
+  PUBLIC MACRO Assign(RECORD ARRAY ldata, STRING valuecell)
+  {
+    ABORT("No ease way to sort them first!");
+    FOR (INTEGER i := 0, e := LENGTH(ldata); i < e; i := i + 256)
+    {
+      RECORD f := this->ExtractKey(ldata[i]);
+
+      RECORD ARRAY vals := ArraySlice(ldata, i, 256);
+      FOREVERY (RECORD v FROM vals)
+      {
+        RECORD lf := this->ExtractKey(v);
+        INSERT CELL __value := GetCell(v, valuecell) INTO lf;
+        vals[#v] := lf;
+      }
+
+      INSERT CELL __recs := vals INTO f;
+      INSERT f INTO this->data AT END;
+    }
+    this->pvt_length := ABORT
+  }
+  */
+
+
+  /** Get a previously set value
+      @param mkey Key
+      @return Value (or default value when not found)
+  */
+  PUBLIC VARIANT FUNCTION GetVal(RECORD mkey)
+  {
+    mkey := this->ExtractKey(mkey);
+    INTEGER toppos := this->GetTopLevelPosition(mkey, FALSE);
+    IF (toppos = -1)
+      RETURN this->defval.value;
+
+    RECORD ARRAY recs := this->data[toppos].__recs;
+
+    RECORD pos := RecordLowerBound(recs, mkey, this->cells);
+    IF (pos.found)
+      RETURN recs[pos.position].__value;
+    ELSE
+      RETURN this->defval.value;
+  }
+
+
+  /** Set a new value
+      @param mkey Key
+      @param Value to set
+  */
+  PUBLIC MACRO SetVal(RECORD mkey, VARIANT value)
+  {
+    INTEGER toppos := this->GetTopLevelPosition(mkey, TRUE);
+
+    RECORD ARRAY local := this->data;
+    this->data := DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY recs := local[toppos].__recs;
+
+    RECORD pos := RecordLowerBound(recs, mkey, this->cells);
+    IF (pos.found)
+    {
+      recs := DEFAULT RECORD ARRAY;
+      local[toppos].__recs[pos.position].__value := value;
+    }
+    ELSE
+    {
+      local[toppos].__recs := DEFAULT RECORD ARRAY;
+
+      INSERT CELL __value := value INTO mkey;
+      INSERT mkey INTO recs AT pos.position;
+
+      IF (LENGTH(recs) >= 512)
+      {
+        local[toppos].__recs := ArraySlice(recs, 0, 256);
+
+        RECORD im := recs[256];
+        DELETE CELL __value FROM im;
+        INSERT CELL __recs := ArraySlice(recs, 256) INTO im;
+        INSERT im INTO local AT toppos + 1;
+      }
+      ELSE
+        local[toppos].__recs := recs;
+      this->pvt_length := this->pvt_length + 1;
+    }
+    this->data := local;
+  }
+
+
+  /** Erases a value
+      @param mkey Key
+  */
+  PUBLIC MACRO EraseVal(RECORD mkey)
+  {
+    INTEGER toppos := this->GetTopLevelPosition(mkey, FALSE);
+    IF (toppos = -1)
+      RETURN;
+
+    RECORD ARRAY local := this->data;
+    this->data := DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY recs := local[toppos].__recs;
+
+    RECORD pos := RecordLowerBound(recs, mkey, this->cells);
+    IF (pos.found)
+    {
+      DELETE FROM local[toppos].__recs AT pos.position;
+      this->pvt_length := this->pvt_length - 1;
+
+      IF (LENGTH(local[toppos].__recs) < 128)
+      {
+        IF (toppos > 0)
+        {
+          local := this->MergeTopLevel(local, toppos - 1);
+        }
+        ELSE IF (LENGTH(local) >= 2)
+          local := this->MergeTopLevel(local, toppos);
+        ELSE IF (LENGTH(local[0].__recs) = 0)
+          local := DEFAULT RECORD ARRAY;
+      }
+    }
+    this->data := local;
+  }
+
+
+  PUBLIC RECORD FUNCTION GetDangerousIteratorRange()
+  {
+    RETURN
+        [ range_begin :=    NEW __Experimental_Map_DangerousIterator(PRIVATE this, 0, 0)
+        , range_end :=      NEW __Experimental_Map_DangerousIterator(PRIVATE this, LENGTH(this->data), 0)
+        ];
+  }
+>;

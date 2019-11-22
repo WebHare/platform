@@ -1,0 +1,36 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+
+PUBLIC OBJECTTYPE Screen EXTEND TolliumScreenBase
+<
+  PUBLIC OBJECT dynfrag;
+
+  MACRO Init()
+  {
+    this->dynfrag := this->body->LoadFragment("mod::webhare_testsuite/screens/tests/tolliumtids.xml", "fragment").components[0];
+  }
+
+  PUBLIC STRING FUNCTION Test()
+  {
+    RETURN this->GetTid(".screen");
+  }
+>;
+
+PUBLIC OBJECTTYPE Fragment EXTEND TolliumFragmentBase
+<
+  PUBLIC STRING FUNCTION Test()
+  {
+    RETURN this->GetTid(".fragment");
+  }
+>;
+
+PUBLIC OBJECTTYPE TabsExtension EXTEND TolliumTabsExtensionBase
+<
+  PUBLIC STRING FUNCTION Test()
+  {
+    RETURN this->GetTid(".tabsextension");
+  }
+>;

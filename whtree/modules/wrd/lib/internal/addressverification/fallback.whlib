@@ -1,0 +1,29 @@
+<?wh
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/components/addressvalidation.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE FallbackAddressAPI EXTEND WRDAddressVerificationBase
+<
+  MACRO NEW(RECORD settings)
+  {
+  }
+
+  // Override this function in extended address verification objecttypes to do the actual checking of addresses
+  UPDATE RECORD FUNCTION CheckAddressInternal(RECORD data, RECORD options)
+  {
+    IF(data.input.country="BE")
+    {
+      IF(Length(data.input.zip) != 4 OR ToInteger(data.input.zip,0) < 1000)
+        RETURN [ status := "invalid_zip", data := data.output, looked_up := DEFAULT RECORD ];
+    }
+    RETURN WRDAddressVerificationBase::CheckAddressInternal(data, options);
+  }
+
+>;
+
+
+PUBLIC STATIC OBJECTTYPE FallbackSettings EXTEND WRDAddressVerificationExtensionBase
+<
+>;

@@ -1,0 +1,161 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/harescript.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+PUBLIC BOOLEAN __disable_compilable_lockmgr;
+PUBLIC BOOLEAN __debug_compilables := FALSE;
+
+RECORD ARRAY FUNCTION GetCurrentFiles(STRING currentdir, STRING basepath)
+{
+  RECORD ARRAY retval;
+  RECORD ARRAY entries := ReadDiskDirectory(currentdir,"*");
+  IF(Length(entries)>0)
+  {
+    retval := retval CONCAT SELECT modificationdate := GetRoundedDatetime(modified, 1000), path := basepath||name, shouldexist := FALSE FROM entries WHERE type=0;
+    FOREVERY(RECORD subdir FROM SELECT * FROM entries WHERE type=1)
+      retval := retval CONCAT GetCurrentFiles(currentdir || subdir.name || "/", basepath || subdir.name || "/");
+  }
+  RETURN retval;
+}
+
+
+PUBLIC MACRO ScanLimitedCompilables(INTEGER ARRAY tocheck)
+{
+  IF(Length(tocheck)=0)
+    RETURN;
+
+  DoScan(FALSE, tocheck);
+}
+
+PUBLIC MACRO ScanAllCompilables(BOOLEAN output)
+{
+  DoScan(output, DEFAULT INTEGER ARRAY);
+}
+
+MACRO DoScan(BOOLEAN output, INTEGER ARRAY tocheck)
+{
+  IF(__debug_compilables)
+    output := TRUE;
+
+  OBJECT lock;
+  IF(NOT __disable_compilable_lockmgr)
+    lock := OpenLockManager()->LockMutex("system:compileablestodisk");
+  TRY
+  {
+    BOOLEAN fullscan := Length(tocheck) = 0;
+    RECORD ARRAY shouldbeondisk := SELECT fs_objects.id, fs_objects.data, fs_objects.fullpath, sitename := sites.name, path := ToLowercase(sites.name || fullpath), modificationdate := GetRoundedDatetime(fs_objects.modificationdate,1000)
+                                     FROM system.fs_objects, system.sites
+                                    WHERE fs_objects.type IN VAR whconstant_whfstypes_scriptsondisk
+                                          AND (fullscan ? TRUE : fs_objects.id IN tocheck)
+                                          AND fs_objects.parentsite = sites.id
+                                          AND fs_objects.parentsite != 0;
+
+    IF(Length(shouldbeondisk) = 0 AND NOT fullscan)
+      RETURN; //nothing to do
+
+    STRING cachebase := GetWebhareConfiguration().ephemeralroot || "system.dbcode/";
+
+    RECORD ARRAY ondiskfiles;
+    IF(fullscan)
+      ondiskfiles := GetcurrentFiles(cachebase,'');
+
+    shouldbeondisk := SELECT * FROM shouldbeondisk ORDER BY path;
+
+    FOREVERY(RECORD file FROM shouldbeondisk)
+    {
+      STRING diskpath := cachebase || file.path;
+      RECORD match;
+      INTEGER matchpos := (SELECT AS INTEGER #ondiskfiles+1 FROM ondiskfiles WHERE ondiskfiles.path = file.path)-1;
+      IF(matchpos >= 0)
+      {
+        match := ondiskfiles[matchpos];
+        ondiskfiles[matchpos].shouldexist := TRUE;
+      }
+
+      IF(NOT RecordExists(match) OR match.modificationdate != file.modificationdate)
+      {
+        IF(output)
+          Print((RecordExists(match) ? "Updating" : "Creating") || " " || diskpath || "\n");
+
+        BLOB data := RewriteCurrentSite(file.data, file.sitename);
+
+        IF(NOT RecordExists(match))
+          CreateDiskDirectoryRecursive(GetDirectoryFromPath(diskpath), TRUE);
+
+        TRY
+        {
+          StoreDiskFile(diskpath, data, [ overwrite := TRUE ]);
+          SetFileModificationDate(diskpath, file.modificationdate);
+        }
+        CATCH
+        {
+          DeleteDiskDirectoryRecursive(diskpath); //directoury in our way?
+          TRY
+          {
+            StoreDiskFile(diskpath, data, [ overwrite := TRUE ]);
+            SetFileModificationDate(diskpath, file.modificationdate);
+          }
+          CATCH(OBJECT e)
+          {
+            IF(output)
+              Print(`I/O error on ${diskpath}: ${e->what}\n`);
+          }
+        }
+      }
+    }
+
+    IF(fullscan)
+      FOREVERY(RECORD diskfile FROM ondiskfiles)
+        IF(NOT diskfile.shouldexist)
+        {
+          STRING diskpath := cachebase || diskfile.path;
+          IF(output)
+            Print("Cleaning up " || diskpath || "\n");
+
+            DeleteDiskFile(diskpath);
+        }
+  }
+  FINALLY
+  {
+    IF(ObjectExists(lock))
+      lock->Close();
+  }
+}
+
+PUBLIC BLOB FUNCTION RewriteCurrentSite(BLOB data, STRING sitename)
+{
+  IF(BlobToSTring(data) NOT LIKE "*currentsite::*")
+    RETURN data;
+
+  INTEGER hsfile := OpenHareScriptFile(data);
+
+  STRING code;
+  BOOLEAN fixnexttoken;
+  WHILE (TRUE)
+  {
+    RECORD token := GetHareScriptFileToken(hsfile);
+    IF (NOT RecordExists(token))
+      BREAK;
+
+    IF(fixnexttoken AND Left(token.token,1) IN ["'",'"'])
+    {
+      STRING lib := DecodeJava(Substring(token.token,1,Length(token.token)-2));
+      lib := Substitute(lib, 'currentsite::', 'site::' || sitename || '/');
+      lib := Substitute(lib, '<site>', sitename);
+      code := code || '"' || EncodeJava(lib) || '"';
+      fixnexttoken := FALSE;
+      CONTINUE;
+    }
+
+    IF(ToUppercase(token.token) = 'LOADLIB')
+      fixnexttoken := TRUE;
+    code := code || token.token;
+  }
+  CloseHarescriptFile(hsfile);
+  RETURN StringToBlob(code);
+}

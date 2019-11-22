@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema
+    targetNamespace="urn:webhare:saml:xsdroot"
+    xmlns="http://www.w3.org/2001/XMLSchema"
+    xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+    xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+    xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+    elementFormDefault="unqualified"
+    attributeFormDefault="unqualified"
+    blockDefault="substitution"
+    version="2.0">
+
+    <!-- this schema references the metadata xsd and supported extensions -->
+
+    <import namespace="urn:oasis:names:tc:SAML:2.0:metadata"
+            schemaLocation="saml-schema-metadata-2.0.xsd"/>
+    <import namespace="urn:oasis:names:tc:SAML:metadata:ext:query"
+            schemaLocation="saml-ext-query.xsd"/>
+</schema>

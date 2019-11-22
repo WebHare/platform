@@ -1,0 +1,4468 @@
+﻿<?wh (* ISSYSTEMLIBRARY *)
+/** @topic harescript-core/builtins
+    @short Base functions
+    @long The system functions library contains all generic functions that are necessary in
+          almost any HareScript file you'll write. You do not need to load the library to get
+          access to these functions, as they are always available */
+
+LOADLIB "wh::internal/formatter.whlib";
+LOADLIB "wh::internal/transservices.whlib";
+LOADLIB "wh::internal/interface.whlib" EXPORT Tokenize, __HS_INTERNAL_AddAsyncContext, __HS_INTERNAL_RemoveAsyncContext, __HS_INTERNAL_AsyncContext, GetAsyncStackTrace, PrintTo, __HS_GETRESETTHROWVAR, __HS_THROWEXCEPTION;
+
+RECORD abort_errordata;
+PUBLIC MACRO PTR __system_reflecthook;
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// General functions
+//
+
+/** @short Test whether a string is a proper UTF8 string
+    @param text String to test
+    @param xmlchar Accept only valid XML chars, defaults to false. If true, no control characters except tab, cr and lf are accepted
+    @return True if the string is a correct UTF8 formatted string, false otherwise */
+PUBLIC BOOLEAN FUNCTION IsValidUTF8(STRING text, BOOLEAN xmlchar DEFAULTSTO FALSE) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short Test whether a string consists of only printable ASCII text
+    @param text String to test
+    @return True if the string is a correct UTF8 string, false otherwise */
+PUBLIC BOOLEAN FUNCTION IsPrintableASCII(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short Get the smallest character set in which a string would fit
+    @long This function determines the smallest character set in which the string fits. This is usefull if you want to
+    communicate with other programs that do not support UNICODE.
+    @param text Text for which a small character set is requested
+    @return A character set, eg US-ASCII if the whole text is 7bit, ISO-8859-1 for european texts and UNICODE for mixed text and extended characters
+    @example
+//Returns "Unicode"
+GetBestCharacterset("€uro");
+
+// Returns "ISO-8859-1"
+GetBestCharacterset("Ümlauts");
+
+//Returns "US-ASCII"
+GetBestCharacterSet("hello");
+*/
+PUBLIC STRING FUNCTION GetBestCharacterSet(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short Convert a string to a specific character set
+    @long Converts a string to a character set. Characters that do not exist in the new character set are omitted.
+    @param text Text to convert
+    @param charset Destination character set (US-ASCII, CP1252, ISO-8859-1 or UNICODE(UTF-8))
+    @return The text as a sequence of bytes in the requested character set. An empty string if the character set is unknown
+    @see DecodeCharSet
+    @example
+//Returns "mlauts and uro's don't mix"
+EncodeCharSet("Ümlauts and €uro's don't mix", "US-ASCII")
+*/
+PUBLIC STRING FUNCTION EncodeCharSet(STRING text, STRING charset) __ATTRIBUTES__(EXTERNAL, CONSTANT, EXECUTESHARESCRIPT);
+
+
+
+/** @short Convert a string from a specific character set to UNICODE(UTF-8)
+    @long Converts a string of the US-ASCII, CP1252 or ISO-8859-1 character set to a string of the UNICODE(UTF-8) character set
+    @param text String to convert
+    @param charset Character set of the original string
+    @return The string converted to UNICODE(UTF-8), the proper encoding for HareScript, or an empty string if the character set is unknown
+    @see EncodeCharSet
+    @example
+//Returns "Ümlauts all over the place"
+DecodeCharSet("\xDCmlauts all over the place", "ISO-8859-1")
+*/
+PUBLIC STRING FUNCTION DecodeCharSet(STRING text, STRING charset) __ATTRIBUTES__(EXTERNAL, CONSTANT, EXECUTESHARESCRIPT);
+
+
+
+/** @short Encode a binary packet
+    @param format Formatting string: `field1:<type> [ repeatcounter | ? | * ],field2:<type> [ repeatcounter | ? | * ]`
+
+           The following types are accepted:
+
+           | Type | Description |
+           | :--- | :---- |
+           | `x` | Add 'count' NUL bytes, count defaults to 1. If `'?'`, add as much NUL bytes as specified in the cell |
+           | `b` | Signed 64bit long (little endian order, 64-bit) |
+           | `B` | Unsigned 64bit long (little endian order, 64-bit) |
+           | `c` | Signed character (8 bit) |
+           | `C` | Unsigned character (8 bit) |
+           | `d` | Signed long long (big endian order, 64-bit) |
+           | `D` | Unsigned long long (big endian order, 64-bit) |
+           | `s` | Signed short (little endian order, 16-bit) |
+           | `S` | Unsigned short (little endian order, 16-bit) |
+           | `l` | Signed long (little endian order, 32-bit) |
+           | `L` | Unsigned long (little endian order, 32-bit) |
+           | `b` | Signed long long (little endian order, 64-bit) |
+           | `B` | Unsigned long long (little endian order, 64-bit) |
+           | `n` | Signed short (big endian order/network byte order, 16-bit) |
+           | `N` | Unsigned short (big endian order/network byte order, 16-bit) |
+           | `p` | Signed long (big endian order/network byte order, 32-bit) |
+           | `P` | Unsigned long (big endian order/network byte order, 32-bit) |
+           | `d` | Signed 64bit long (big endian order, 64-bit) |
+           | `D` | Unsigned 64bit long (big endian order, 64-bit) |
+           | `a` | NUL-padded string (padded up to specified counter). If `'*'`, simply print string and NUL-terminate |
+           | `A` | ASCII-padded string (paddedup to specified counter). If `'*'`, simply print string and space-terminate |
+           | `r` | Raw data - inserts a string. If a counter is specified, adds at most that many bytes of the string, if `'*'`, add all data. |
+           | `f` | Float (little endian order, 32-bit) |
+           | `F` | Double (little endian order, 64-bit) |
+           | `g` | Float (big endian order, 32-bit) |
+           | `G` | Double (big endian order, 64-bit) |
+           | `h` | Datetime (little endian order, 2x32-bit). First day, then mseconds |
+           | `i` | Datetime (big endian order, 2x32-bit). First day, then mseconds |
+           | `j` | Boolean (8-bit) |
+           | `@@` | Jump to absolute position in packet encoder. Truncate or pad with zeroes if necessary. } |
+    @param data Data to encode
+    @return The encoded packet, or an empty string if encoding failed.
+    @see DecodePacket
+*/
+PUBLIC STRING FUNCTION EncodePacket(STRING format, RECORD data) __ATTRIBUTES__(EXTERNAL, CONSTANT, EXECUTESHARESCRIPT);
+
+
+
+
+/** @short Decode a binary packet
+    @param format Formatting string: `field1:<type> [ repeatcounter | ? | * ],field2:<type> [ repeatcounter | ? | * ]`
+
+           The following types are accepted:
+
+           | Type | Description |
+           | :--- | :---- |
+           | `x` | Skip a NUL byte. If a count is specified, skip that many NULs. If `'?'`, return number of bytes skipped. If `'*'`, skip until non-NUL |
+           | `b` | Signed 64bit long (little endian order, 64-bit) |
+           | `B` | Unsigned 64bit long (little endian order, 64-bit) |
+           | `c` | Signed character (8 bit) |
+           | `C` | Unsigned character (8 bit) |
+           | `d` | Signed 64bit long (big endian order, 64-bit) |
+           | `D` | Unsigned 64bit long (big endian order, 64-bit) |
+           | `s` | Signed short (little endian order, 16-bit) |
+           | `S` | Unsigned short (little endian order, 16-bit) |
+           | `l` | Signed long (little endian order, 32-bit) |
+           | `L` | Unsigned long (little endian order, 32-bit) |
+           | `n` | Signed short (big endian order/network byte order, 16-bit) |
+           | `N` | Unsigned short (big endian order/network byte order, 16-bit) |
+           | `p` | Signed long (big endian order/network byte order, 32-bit) |
+           | `P` | Unsigned long (big endian order/network byte order, 32-bit) |
+           | `a` | NUL-padded string (padded up to specified counter). If `'*'`, simply read until NUL termination |
+           | `A` | ASCII-padded string (paddedup to specified counter). If `'*'`, simply read until space termination |
+           | `r` | Raw data - take a string. If a counter is specified, that many bytes is taken. If `'*'`, all remaining bytes are taken. |
+           | `f` | Float (little endian order, 32-bit) |
+           | `F` | Double (little endian order, 64-bit) |
+           | `g` | Float (big endian order, 32-bit) |
+           | `G` | Double (big endian order, 64-bit) |
+           | `h` | Datetime (little endian order, 2x32-bit). First day, then mseconds |
+           | `i` | Datetime (big endian order, 2x32-bit). First day, then mseconds |
+           | `j` | Boolean (8-bit) |
+           | `@@` | Jump to absolute position in packet decoder. } |
+    @param data Data to decode
+    @return A record containing the decoded data, or a non-existing record if the decoding failed
+    @see EncodePacket
+*/
+PUBLIC RECORD FUNCTION DecodePacket(STRING format, STRING data) __ATTRIBUTES__(EXTERNAL, CONSTANT, EXECUTESHARESCRIPT);
+
+
+
+/** @short Prints a string
+    @long This function prints a string. Use '\n' (linefeed) in the string to print multiple lines.
+          It is possible to print more than one string by using the merge operator '||'.
+    @param data The string to print
+    @see PrintTo
+    @example
+// Prints '<HTML>'
+Print("<HTML>");
+
+// Prints 'My website'
+STRING site_title := "My website";
+Print(site_title);
+
+//Prints '<a href="http://www.b-lex.com">Home</a>'
+STRING home_link := "http://www.b-lex.com/";
+PRINT('<a href="' || home_link || '">Home</a>');
+*/
+PUBLIC MACRO Print(STRING data) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Write (part of) a string to any output device, non-blocking.
+    @long This function writes a string to any output device, eg. an open blob-stream, a file or a network connection.
+          If the device supports non-blocking mode, this function will return immediately. In that case, not all
+          of the data may have been written to the device.
+    @param outputid Output device to write the data to. The value 0 writes it to the standard output (the same output as @italic Print)
+    @param data The string to write
+    @return The number of characters that was successfully written.
+*/
+PUBLIC INTEGER FUNCTION WriteTo(INTEGER outputid, STRING data) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Waits for reads and/or writes until a specified time
+    @long  WaitForMultiple waits for readability or writabity of a list of handles.
+    @param reads Handles to wait for (reads, only processes and sockets are supported) You can not directly wait for the termination of a process.
+    @param writes Handles to wait for (writes, only processes are supported)
+    @param until Time to wait until (UTC). Use DEFAULT DATETIME to only check signalled status, and to avoid waiting.
+    @return A handle that is signalled, or -1 when a time-out has occurred */
+PUBLIC INTEGER FUNCTION WaitForMultipleUntil(INTEGER ARRAY reads, INTEGER ARRAY writes, DATETIME until)
+{
+  RECORD rec := __HS_WAITFORMULTIPLEUNTIL(reads, writes, until);
+  INTEGER ARRAY handles := rec.read CONCAT rec.write;
+  RETURN LENGTH(handles) != 0 ? handles[0] : -1;
+}
+
+/** @short Waits for reads and/or writes, for a maximum of one hour.
+    @long  WaitForMultiple waits for readability or writabity of a list of handles.
+    @param reads Handles to wait for (reads, only processes and sockets are supported) You can not directly wait for the termination of a process.
+    @param writes Handles to wait for (writes, only processes are supported)
+    @param maxwait Time to wait, in milliseconds (-1 = one hour)
+    @return A handle that is signalled, or -1 when a time-out has occurred */
+PUBLIC INTEGER FUNCTION WaitForMultiple(INTEGER ARRAY reads, INTEGER ARRAY writes, INTEGER maxwait)
+{
+  DATETIME until;
+  IF(maxwait< 0)
+    until := MAX_DATETIME;
+  ELSE IF(maxwait>0)
+  {
+    IF(maxwait>60*60*1000)
+      maxwait:=60*60*1000;
+    until := __AddPositiveTimeToDate(maxwait, GetCurrentDatetime());
+  }
+  RETURN WaitForMultipleUntil(reads, writes, until);
+}
+
+/** @short Sleep (do nothing) for a given number of milliseconds
+    @param msecs Time to sleep, in milliseconds */
+PUBLIC MACRO Sleep(INTEGER msecs)
+{
+  WaitForMultiple(DEFAULT INTEGER ARRAY, DEFAULT INTEGER ARRAY, msecs);
+}
+
+/** @short Read a string from any input device
+    @long This function reads from any input device, eg. a diskfile or a socket
+    @param inputid Input device id
+    @param maxnumbytes (Maximum) number of bytes to read. This function never reads more than 32768 (32kB) in one call
+    @return The data read */
+PUBLIC STRING FUNCTION ReadFrom(INTEGER inputid, INTEGER maxnumbytes)
+{
+  RETURN InternalReadFrom(inputid, maxnumbytes, FALSE, FALSE);
+}
+
+
+STRING FUNCTION InternalReadFrom(INTEGER inputid, INTEGER maxnumbytes, BOOLEAN readline, BOOLEAN striplf)
+{
+  INTEGER minread := maxnumbytes < 1 ? 1 : maxnumbytes;
+
+  RECORD res := __HS_INTERNAL_ReceiveFrom(inputid, maxnumbytes, readline, striplf, FALSE);
+  //PRINTTO(1, "__HS_INTERNAL_ReceiveFrom#1: " || res.status || " '" || res.data || "'\n");
+
+  STRING cache := res.data;
+
+  // Get the timeout in case this was a socket, -1 is no timeout. WFM honors timeouts up to 1 hour.
+  INTEGER timeout := __HS_TCPIP_GetSocketTimeout(inputid);
+  BOOLEAN got_timeout;
+  WHILE (LENGTH(cache) < minread)
+  {
+    //PRINTTO(1, "loop irf " || res.status || "\n");
+    SWITCH (res.status)
+    {
+    CASE 0  // noerror
+      {
+        IF (res.data = "" OR readline)
+        {
+          //PRINTTO(1, "break, got data\n");
+          BREAK;
+        }
+      }
+    CASE -13 //  wouldblock
+      {
+        INTEGER handle := WaitForMultiple([ inputid ], DEFAULT INTEGER ARRAY, timeout);
+        IF (handle = -1)
+        {
+          //PRINTTO(1, "timeout, cancel read\n");
+          got_timeout := TRUE;
+
+          // We must go through the final receivefrom to get the data from the stream and to reset the
+          // ignoring of the internal buffer for signalledness determination
+        }
+      }
+    DEFAULT // error, return what's in cache
+      {
+        //PRINTTO(1, "got error\n");
+        BREAK;
+      }
+    }
+
+    INTEGER toread := maxnumbytes > 0 ? maxnumbytes - LENGTH(cache) : maxnumbytes + LENGTH(cache);
+
+    // Get data. If this returns -13 (WOULDBLOCK) (only when got_timeout is false) the outputobject will now ignore
+    // its internal buffer when determining if it is signalled. If got_timeout is true, the ignoring is lifted.
+    res := __HS_INTERNAL_ReceiveFrom(inputid, toread, readline, striplf, got_timeout);
+    //PRINTTO(1, "__HS_INTERNAL_ReceiveFrom#2: " || res.status || " '" || res.data || "'\n");
+    IF (res.status = 0)
+      cache := cache || res.data;
+
+    IF (got_timeout)
+    {
+      __HS_TCPIP_SETLASTERROR(inputid, -9); // Timeout
+      BREAK;
+    }
+  }
+
+  RETURN cache;
+}
+
+
+/** @short Read a line from any input device
+    @long This function reads from any input device, eg. a diskfile or a socket. This function reads the specified number of bytes or until the end of line is encountered.
+    @param inputid Input device id
+    @param maxnumbytes (Maximum) number of bytes to read - the function will read until this limit or EOL is reached. This function never reads more than 32768 (32kB) in one call
+    @param striplf Strip the carriage returns or linefeed characters from the input
+    @return The data read */
+PUBLIC STRING FUNCTION ReadLineFrom(INTEGER inputid, INTEGER maxnumbytes, BOOLEAN striplf)
+{
+  RETURN InternalReadFrom(inputid, maxnumbytes, TRUE, striplf);
+}
+
+
+/** @short Test if we are at the end of a stream (eg a file)
+    @long This function returns TRUE if the last read on the stream hit the end of the file. Note that
+          you should first try to read from the stream, and only if that failed, test for EOF.
+          Modifying the file pointer resets the end of stream indicator
+    @param filehandle ID of file, as returned by OpenBlobAsFile, OpenDiskFile or CreateDiskFile
+    @return TRUE if the end of file was reached */
+PUBLIC BOOLEAN FUNCTION IsAtEndOfStream(INTEGER filehandle) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Write a blob to any output device
+    @long This function writes the content of a blob to any output device, eg. another open blob-stream, a file or a network connection.
+    @param outputid Output device to write the data to. The value 0 writes it to the standard output (the same output as @italic Print)
+    @param data The blob to write
+    @return True if the data was written succesfully, false if an I/O error occured.
+    @see PrintTo, files.whlib#CreateStream, files.whlib#GetDiskResource, files.whlib#MakeBlobFromStream
+    @example
+//Creates a combined BLOB from file1.txt and file2.txt
+BLOB file1 := GetDiskResource("/tmp/file1.txt");
+BLOB file2 := GetDiskResource("/tmp/file2.txt");
+
+INTEGER mergestream := CreateStream();
+SendBlobTo(mergestream, file1);
+PrintTo(mergestream,"-- Above was file1, file2 follows now --");
+SendBlobTo(mergestream, file2);
+BLOB file1_and_2_together := MakeBlobFromStream(mergestream);
+*/
+PUBLIC BOOLEAN FUNCTION SendBlobTo(INTEGER outputid, BLOB data)
+{
+  INTEGER blobfile := OpenBlobAsFile(data);
+  STRING buffer;
+  WHILE (TRUE)
+  {
+    IF(Length(buffer) < 16384)
+      buffer := buffer || ReadFrom(blobfile, 16384);
+    IF(buffer="") //ADDME stop reading from blob if we already hit EOF once
+      BREAK;
+
+    INTEGER bytessent := WriteTo(outputid, buffer);
+    IF(bytessent>0)
+      buffer := Substring(buffer, bytessent);
+    IF (bytessent < 0)
+    {
+      IF (bytessent != -13 OR WaitForMultiple(DEFAULT INTEGER ARRAY, [ outputid ], __HS_TCPIP_GetSocketTimeout(outputid)) = -1)
+      {
+        __HS_CloseFile(blobfile);
+        RETURN FALSE;
+      }
+    }
+  }
+  __HS_CloseFile(blobfile);
+  RETURN TRUE;
+}
+
+
+/** @short Returns the length of an variable.
+    @long This function returns the length of an variable. The variable can be of a STRING, BLOB or any ARRAY type.
+          Its unit of measurement depends on the type of the variable.
+    @param obj The variable whose length should be measured.
+    @return The function returns the number of bytes in the STRING, number of elements in the
+            ARRAY or the length of a BLOB in bytes.
+    @see UCLength
+    @example
+// returns 6
+INTEGER example1 := Length("abcdef");
+
+// returns 8 (the euro character consists of three bytes)
+INTEGER example2 := Length("€ 2,50");
+
+// returns 5 (the euro character is one character in UNICODE(UTF-8))
+INTEGER example2 := UCLength("€ 2,50");
+
+// returns 4
+INTEGER ARRAY intarray := [1, 2, 3, 4];
+INTEGER example3 := Length(intarray);
+*/
+PUBLIC INTEGER Function Length(VARIANT obj) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short Returns the length of an variable as an integer64.
+    @long This function returns the length of an variable. It supports all the types the Length function does, but is mostly useful for Blobs larger than 2GB
+    @param obj The variable whose length should be measured.
+    @return The function returns the number of bytes in the STRING, number of elements in the ARRAY or the length of a BLOB in bytes.
+    @see UCLength
+    @example
+INTEGER64 dvdlength := Length64(GetDiskResource("/tmp/centos-6.iso"));
+*/
+PUBLIC INTEGER64 Function Length64(VARIANT obj) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short Returns the absolute value of a number
+    @long This function returns the absolute value of a number. A number can be of the type INTEGER, MONEY or FLOAT.
+          A runtime-error is generated if a non-number is passed to this function.
+    @param value The value for which the absolute value should be returned
+    @return Absolute value of the value. The type of the returned number is the same as the type of the parameter.
+    @example
+// returns 6
+INTEGER example1 := Abs(-6);
+
+// returns 4.4m
+MONEY example1 := Abs(-4.4m);
+
+// returns 5.36 (as a Float)
+FLOAT example1 := Abs(5.36f);
+*/
+PUBLIC VARIANT Function Abs(VARIANT value) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short Returns the index of an element in an ARRAY
+    @long This function returns index of a specific value in an array. When the value is not found, -1 is returned.
+          Value must be of a comparable type.
+    @param list ARRAY to look in
+    @param element Value to look for
+    @param start The position in the ARRAY to start searching, default is zero
+    @return Index of the value in the ARRAY. When not found, -1 is returned. Note that the first element in an ARRAY
+            has index 0
+    @see SearchLastElement
+    @example
+// returns 1
+INTEGER example1 := SearchElement([0, 5, 10, 5, 0], 5);
+
+// returns -1
+INTEGER example2 := SearchElement(["yes", "no"], "maybe");
+
+// returns 3
+INTEGER example3 := SearchElement([0, 5, 10, 5, 0], 5, 2);
+*/
+PUBLIC INTEGER Function SearchElement(VARIANT list, VARIANT element, INTEGER start DEFAULTSTO 0)  __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short Returns the index of an element in an ARRAY, searching from the back
+    @long This function returns index of a specific value in an ARRAY, starting the search from the back.
+          When the value is not found, -1 is returned. Value must be of a comparable type.
+    @param element Value to look for
+    @param list ARRAY to look in
+    @param start The position from which the backward search starts, default is 2147483647
+    @return Index of the value in the ARRAY. When not found, -1 is returned.
+    @see SearchElement
+    @example
+// returns 3
+INTEGER example1 := SearchLastElement([0, 5, 10, 5, 0], 5);
+
+// returns -1
+INTEGER example2 := SearchLastElement(["yes", "no"], "maybe");
+
+// returns 1
+INTEGER example3 := SearchLastElement([0, 5, 10, 5, 0], 5, 2);
+*/
+PUBLIC INTEGER Function SearchLastElement(VARIANT list, VARIANT element, INTEGER start DEFAULTSTO 2147483647)  __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short Return an array with a specific number copies of a value.
+    @param element Element value to place in the array
+    @param count How many copies of element to place in the array
+    @return Array with the specified number of elements.
+*/
+PUBLIC VARIANT FUNCTION RepeatElement(VARIANT element, INTEGER count)
+{
+  VARIANT retval;
+  IF (IsTypeidArray(TypeID(element)))
+    retval := VARIANT[];
+  ELSE
+    retval := GetTypeDefaultArray(TypeID(element));
+  IF (count > 0)
+  {
+    VARIANT toconcat := retval;
+    INSERT element INTO toconcat AT END;
+
+    WHILE (TRUE)
+    {
+      IF ((count BITAND 1) = 1)
+        retval := retval CONCAT toconcat;
+      count := count BITRSHIFT 1;
+      IF (count = 0)
+        BREAK;
+      toconcat := toconcat CONCAT toconcat;
+    }
+  }
+  RETURN retval;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// String manipulation
+//
+
+/** @short Convert a byte code to a string
+    @long Convert a byte value to a single-byte string
+    @param bytecode INTEGER containing bytecode to convert (range 0 to 255)
+    @return A one-byte STRING containing the requested byte code as a character
+    @see GetByteValue, GetUCValue, UCToString, EncodePacket
+    @example
+//Returns "A"
+STRING str_a := ByteToString(65);
+*/
+PUBLIC STRING FUNCTION ByteToString(INTEGER bytecode) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short Get the byte value of a character
+    @long Converts the first byte in a STRING to an INTEGER value
+    @param str STRING from which the first byte should be converted
+    @see ByteToString GetUCValue
+    @return The byte value of the first byte in the string
+    @example
+//Returns 65, the ASCII value of 'A'
+INTEGER int_a := GetByteValue("Abc");
+
+//Returns 226, the first byte of the UTF8-sequence for the euro sign
+INTEGER int_euro := GetByteValue("€"); */
+PUBLIC INTEGER FUNCTION GetByteValue(STRING str) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short Get the UNICODE character value of a character
+    @long Converts the first ASCII character or UTF8-sequence in a STRING to an INTEGER value
+    @param str STRING from which the first character should be converted
+    @see ByteToString GetByteValue UCToString
+    @return The character value of the first character in the STRING
+    @example
+//Returns 65, the UNICODE(UTF-8) value of 'A'
+INTEGER int_a := GetUCValue("Abc");
+
+//Returns 8364, the UNICODE(UTF-8) value of '€'
+INTEGER int_euro := GetUCValue("€"); */
+PUBLIC INTEGER FUNCTION GetUCValue(STRING str) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Returns the left part of a string.
+    @long    Left returns the first 'n' bytes from a string.
+             If a string contains less than the requested number of bytes, the entire string is returned.
+             When manipulating UTF-8 strings it is recommended that you use the function UCLeft because UTF-8
+             characters can be made up from more bytes and the result is therefore unpredictable.
+    @param   text String to return a part from
+    @param   numbytes Number of bytes to return
+    @return  The requested part of the string
+    @see     UCLeft Substring Right UCRight
+    @example
+// returns 'ab'
+STRING example1 := Left("abcdef", 2);
+
+// returns '€u'
+STRING example2 := Left("€uro", 4);
+
+// returns '€uro'
+STRING example3 := UCLeft("€uro", 4)
+
+// returns the entire string, e.g 'abcdef'
+STRING example4 := Left("abcdef", 100);
+
+// returns an empty string
+STRING example5 := Left("abcdef", -10);
+*/
+PUBLIC STRING FUNCTION Left(STRING text, INTEGER numbytes) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Returns the right part of a string.
+    @long    Right returns the last 'n' bytes from a string.
+             If a string contains less than the requested number of bytes, the entire string is returned.
+             When manipulating UTF-8 strings it is recommended that you use the function UCRight because UTF-8
+             characters can be made up from more bytes and the result is therefore unpredictable.
+    @param   text String to return a part from
+    @param   numbytes Number of bytes to return
+    @return  The requested part of the string
+    @see     UCRight Substring Left UCLeft
+    @example
+// returns 'ef'
+STRING example1 := Right("abcdef", 2);
+
+// returns 'ro€'
+STRING example2 := Right("euro€", 5);
+
+// returns 'euro€'
+STRING example3 := UCRight("euro€", 5);
+
+// returns the entire string, e.g 'abcdef'
+STRING example4 := Right("abcdef", 100);
+
+// returns an empty string
+STRING example5 := Right("abcdef", -10);
+*/
+PUBLIC STRING FUNCTION Right(STRING text, INTEGER numbytes) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Returns part of a string.
+    @long    Substring returns the part of string specified by the start and length parameters.
+             If the string after the start position contains less than the requested number of bytes, the whole
+             string after the start position is returned.
+             If the length parameter is omitted, the portion of string beginning at start and ending at the
+             end of the string is returned
+             When manipulating UTF-8 strings it is recommended that you use the function UCSubstring because
+             UTF-8 characters can be made up from more bytes and the result is therefore unpredictable.
+    @param   text String to return a part from
+    @param   start Starting byte position
+    @param   numbytes Number of bytes to return. When omitted, the portion from start until the end of the string is returned.
+    @return  The requested part of the string
+    @see     UCSubstring Left Right UCLeft UCRight
+    @example
+// returns 'bcde'
+STRING example1 := Substring("abcdef", 1, 4);
+
+// returns '€u'
+STRING example2 := Substring("euro€uro", 4, 4);
+
+// returns '€uro'
+STRING example3 := UCSubstring("euro€uro", 4, 4);
+
+// returns an empty string
+STRING example4 := Substring("abcdef", 100, 100);
+
+// returns an empty string
+STRING example5 := Substring("abcdef", -10, -20);
+*/
+PUBLIC STRING FUNCTION Substring(STRING text, INTEGER start, INTEGER numbytes DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Find the last occurrence of a substring
+    @long    Searchsubstring does a case-sensitive search in a string for the last occurence of a substring.
+    @param   text String to search in
+    @param   search String to search for
+    @param   start The byte position to start searching. Note that characters in UNICODE(UTF-8) are sometimes
+             made up from more bytes.
+    @return  Starting byte position of the last occurence, or -1 if the string was not found
+    @see     SearchSubstring UCSearchSubstring UCSearchLastSubString
+    @example
+// returns 3
+INTEGER example1 := SearchLastSubstring("aaaa", "a");
+
+// returns 4
+INTEGER example2 := SearchLastSubstring("ababab", "ab");
+
+// returns -1
+INTEGER example3 := SearchLastSubstring("abcdef", "g");
+
+// returns -1
+INTEGER example4 := SearchLastSubstring("abcdef", "A");
+
+// returns 2
+INTEGER example5 := SearchLastSubstring("ababab", "ab", 4);
+
+// returns -1
+INTEGER example6 := SearchLastSubstring("ababab", "ab", 0);
+*/
+PUBLIC INTEGER FUNCTION SearchLastSubstring(STRING text, STRING search, INTEGER start DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Find the first occurrence of a substring
+    @long    Searchsubstring does a case-sensitive search in a string for the first occurence of a substring.
+    @param   text String to search in
+    @param   search String to search for
+    @param   start The byte position to start searching. Note that characters in UNICODE(UTF-8) are sometimes
+             made up from more bytes.
+    @return  Starting byte position of the first occurence, or -1 if the string was not found
+    @see     SearchLastSubstring UCSearchSubstring UCSearchLastSubstring
+    @example
+// returns 2
+INTEGER example1 := SearchSubstring("abcdef", "c");
+
+// returns 0
+INTEGER example2 := SearchSubstring("ababab", "ab");
+
+// returns -1
+INTEGER example3 := SearchSubstring("abcdef", "g");
+
+// returns -1
+INTEGER example4 := SearchSubstring("abcdef", "A");
+
+// returns 2
+INTEGER example5 := SearchSubstring("ababab", "ab", 1);
+
+// returns -1
+INTEGER example6 := SearchSubstring("ababab", "ab", 5);
+*/
+PUBLIC INTEGER FUNCTION SearchSubstring(STRING text, STRING search, INTEGER start DEFAULTSTO 0) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Search and replace parts of a string
+    @long    Substitute does a case-sensitive search through the specified string, and replaces every occurrence of the
+             searched-for text with specified replacement text. If the searched-for string is not found, the original
+             string is returned unmodified.
+    @param   text String to perform the search & replace in
+    @param   search Text to substitute
+    @param   replace Text to subsitute 'search' with
+    @return  The updated string
+    @example
+// returns 'a+b+c+d+e+f'
+STRING example1 := substitute("a-b-c-d-e-f", "-","+");
+
+// returns 'a b c d e f'
+STRING example2 := substitute("a-b-c-d-e-f", "-"," ");
+
+// returns 'a-b-c-d-e-f', because search string 'g' is not found
+STRING example3 := substitute("a-b-c-d-e-f", "g","h");
+
+// returns 'a-b-c-d-e-f', because search string is empty
+STRING example4 := substitute("a-b-c-d-e-f", "", "g");
+
+// returns 'a-b-c-d-e-f', because search string 'A' is not found
+STRING example5 := substitute("a-b-c-d-e-f", "A", "+");
+
+// returns 'xyz-bcdef'
+STRING example6 := substitute("abcdef", "a", "xyz-");
+*/
+PUBLIC STRING FUNCTION Substitute(STRING text, STRING search, STRING replace) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Remove whitespace from both ends of a string
+    @long    This function removes all whitespaces (tab, cr, lf, space) from the beginning and the end of a string
+    @param   src The string to trim
+    @return  The trimmed string
+    @see     NormalizeWhitespace
+    @example
+// returns 'abc  def'
+STRING example1 := TrimWhitespace("  abc  def  ");
+
+// returns 'Hello, World'
+STRING example1 := TrimWhitespace("\r\n Hello, World\t\t \r \n ");
+*/
+PUBLIC STRING FUNCTION TrimWhitespace(STRING src) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Remove extra internal whitespace from a string
+    @long    This function reduces all sequences of whitespaces (tab, cr, lf, space) to a single space within a string.
+             Whitespace at the beginning and the end of the string is normalized, but not trimmed.
+    @param   text The string to normalize
+    @return  The normalized string
+    @see     TrimWhitespace
+    @example
+// returns ' abc def '
+STRING example1 := NormalizeWhitespace("  abc  def  ");
+
+// returns ' Hello, World'
+STRING example1 := NormalizeWhitespace("\r\n Hello, \t\t \r \n World");
+*/
+PUBLIC STRING FUNCTION NormalizeWhitespace(STRING text)
+{
+  // Change newlines/tabs to spaces
+  text := Substitute(text, "\r", " ");
+  text := Substitute(text, "\n", " ");
+  text := Substitute(text, "\t", " ");
+
+  // Remove all extra spaces
+  WHILE (SearchSubString(text, "  ") >= 0)
+    text := Substitute(text, "  ", " ");
+  RETURN text;
+}
+
+
+
+
+/** @short   Converts a string to lowercase.
+    @long    Converts all ASCII characters in 'src' to lowercase. This function will not convert any uppercase
+             UTF-8 characters to lowercase.
+    @param   src The string to convert
+    @return  The string, converted to lowercase
+    @see     ToUppercase
+    @example
+// returns 'abcdef'
+STRING example1 := ToLowercase("ABCDEF");
+
+// returns 'a-b-c-d-e-f'
+STRING example2 := ToLowercase("A-B-C-D-E-F");
+*/
+PUBLIC STRING FUNCTION ToLowercase(STRING src) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Converts a string to uppercase.
+    @long    Converts all ASCII characters in 'src' to uppercase. This function will not convert any lowercase UTF-8 characters to uppercase.
+    @param   src The string to convert
+    @return  The string, converted to uppercase
+    @see     ToLowercase
+    @example
+// returns 'ABCDEF'
+STRING example1 := ToUppercase("abcdef");
+
+// returns 'A-B-C-D-E-F'
+STRING example2 := ToUppercase("a-b-c-d-e-f");
+*/
+PUBLIC STRING FUNCTION ToUppercase(STRING src) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Returns a string representation of an integer
+    @long    ToString creates a string representation of the specified integer in the specified base (radix)
+
+             A base of 10 indicates that the string should use decimal numbers, 8 octal, 16 hexadecimal, and so on.
+             Note: you don't need to use the ToString function to merge integers to strings.
+
+    @param   val Value to convert
+    @param   radix Number system used in the string, ranging from 2 to 36. This parameter is optional and defaults to 10 (decimal system)
+    @return  The number converted to a string value in the requested number system
+    @see     ToInteger, ToInteger64
+    @example
+// returns "9"
+STRING example1 := ToString(9, 10);
+
+// returns "11"
+STRING example2 := ToString(11);
+
+// returns "12"
+STRING example3 := ToString(10, 8);
+
+// returns "ff00"
+STRING example4 := ToString(65280, 16);
+*/
+PUBLIC STRING FUNCTION ToString(INTEGER64 val, INTEGER radix DEFAULTSTO 10) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Returns an integer representation of a string
+    @long    ToInteger parses the string, and attempts to return an integer of the specified base (radix).
+             If the function failed to parse the specified string, it will return @italic defaultvalue
+
+             A base of 10 indicates that a decimal number should be converted, 8 octal, 16 hexadecimal, and so on.
+    @param   str String to convert
+    @param   defaultvalue Value to return if 'str' is not a valid number in the specified number system
+    @param   radix Number system used in the string, ranging from 2 to 36. If the base is out of range,
+             defaultvalue is returned. This parameter is optional and defaults to 10 (decimal system)
+    @return  The number in the passed string as an integer, or defaultvalue if the conversion failed.
+    @see     ToString, ToInteger64
+    @example
+// The following examples all return 15
+INTEGER example1 := ToInteger("15", -1);
+INTEGER example2 := ToInteger("15", -1, 10);
+INTEGER example3 := ToInteger("F", -1, 16);
+INTEGER example4 := ToInteger("1111", -1, 2);
+
+// The following faulty strings all return -1
+INTEGER example5 := ToInteger("15,99", -1);
+INTEGER example6 := ToInteger("5*3", -1, 10);
+INTEGER example7 := ToInteger("FFFFFFFFFF", -1, 16);
+INTEGER example8 := ToInteger("22", -1, 2);
+*/
+PUBLIC INTEGER FUNCTION ToInteger(STRING str, INTEGER defaultvalue, INTEGER radix DEFAULTSTO 10) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Returns an integer64 representation of a string
+    @long    ToInteger64 parses the string, and attempts to return an integer of the specified base (radix).
+             If the function failed to parse the specified string, it will return @italic defaultvalue
+
+             A base of 10 indicates that a decimal number should be converted, 8 octal, 16 hexadecimal, and so on.
+    @param   str String to convert
+    @param   defaultvalue Value to return if 'str' is not a valid number in the specified number system
+    @param   radix Number system used in the string, ranging from 2 to 36. If the base is out of range,
+             defaultvalue is returned. This parameter is optional and defaults to 10 (decimal system)
+    @return  The number in the passed string as an integer64, or defaultvalue if the conversion failed.
+    @see     ToString, ToInteger
+    @example
+// The following examples all return 15
+INTEGER64 example1 := ToInteger64("15", -1);
+INTEGER64 example2 := ToInteger64("15", -1, 10);
+INTEGER64 example3 := ToInteger64("F", -1, 16);
+INTEGER64 example4 := ToInteger64("1111", -1, 2);
+
+// The following faulty strings all return -1
+INTEGER64 example5 := ToInteger64("15,99", -1);
+INTEGER64 example6 := ToInteger64("5*3", -1, 10);
+INTEGER64 example7 := ToInteger64("FFFFFFFFFFFFFFFFF", -1, 16);
+INTEGER64 example8 := ToInteger64("22", -1, 2);
+*/
+PUBLIC INTEGER64 FUNCTION ToInteger64(STRING str, INTEGER64 defaultvalue, INTEGER radix DEFAULTSTO 10) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+
+/** @short   Concatenates an array of strings, while adding a seperator between all pairs
+    @long    Detokenize concatenates a list of strings, and adds a seperator between all pairs of strings.
+    @param   elements Strings to concatenate together
+    @param   separator String to separate the concatenated strings with
+    @return  String array with the concatenated tokens
+    @example
+// returns "a-b-c-d-e"
+STRING example1 := Detokenize(["a","b","c","d","e"], "-");
+
+// returns "A&&B&&C&&D&&E"
+STRING example2 := Detokenize(["A","B","C","D","E"], "&&");
+
+// returns ""
+STRING example3 := Detokenize(DEFAULT STRING ARRAY, "+");
+*/
+PUBLIC STRING FUNCTION Detokenize(STRING ARRAY elements, STRING separator)
+{
+  STRING str;
+  FOREVERY (STRING elt FROM elements)
+  {
+    IF (#elt != 0)
+      str := str || separator;
+    str := str || elt;
+  }
+  RETURN str;
+}
+
+/** @short Returns number of characters in a UNICODE(UTF-8) string
+    @long This function returns the length of a possibly UTF-8 encoded string in characters, as opposed to the
+          Length function which returns the number of bytes
+    @param text The string which length should be measured
+    @return Returns the number of characters in a UNICODE(UTF-8) string
+    @see Length
+    @example
+// returns 6 (the euro consists of one UTF-8 character)
+INTEGER len_chars := UCLength("€ 2,50");
+
+// returns 8 (the euro consists of three bytes)
+INTEGER len_bytes := Length("€ 2,50");
+*/
+PUBLIC INTEGER FUNCTION UCLength(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Returns the left part of a UTF-8 string.
+    @long    Left returns the first @italic numchars characters from a string.
+             If a string contains less than the requested number of characters, the entire string is returned.
+    @param   text String to return a part from
+    @param   numchars Number of characters (not bytes!) to return
+    @return  The requested part of the string
+    @see     UCRight UCSubstring Left Right
+    @example
+// returns 'ab'
+STRING example1 := UCLeft("abcdef", 2);
+
+// returns '€uro'
+STRING example2 := UCLeft("€uro", 4);
+
+// returns '€u'
+STRING example3 := Left("€uro", 4)
+
+// returns the entire string, e.g 'abcdef'
+STRING example4 := UCLeft("abcdef", 100);
+
+// returns an empty string
+STRING example5 := UCLeft("abcdef", -10);
+*/
+PUBLIC STRING FUNCTION UCLeft(STRING text, INTEGER numchars) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Returns the right part of a UTF-8 string.
+    @long    Right returns the last 'n' characters from a string.
+             If a string contains less than the requested number of characters, the entire string is returned.
+    @param   text String to return a part from
+    @param   numchars Number of characters (not bytes!) to return
+    @return  The requested part of the string
+    @see     UCLeft UCSubstring Right Left
+    @example
+// returns 'ef'
+STRING example1 := UCRight("abcdef", 2);
+
+// returns 'euro€'
+STRING example2 := UCRight("euro€", 5);
+
+// returns 'ro€'
+STRING example3 := Right("euro€", 5);
+
+// returns the entire string, e.g 'abcdef'
+STRING example4 := UCRight("abcdef", 100);
+
+// returns an empty string
+STRING example5 := UCRight("abcdef", -10);
+*/
+PUBLIC STRING FUNCTION UCRight(STRING text, INTEGER numchars) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Returns part of a UTF-8 string.
+    @long    Substring returns the part of string specified by the start and length parameters.
+    @param   text String to return a part from
+    @param   start Starting character (not byte!) position
+    @param   numchars Number of characters (not bytes!) to return
+    @return  The requested part of the string
+    @see     Substring UCLeft UCRight Left Right
+    @example
+// returns 'bcde'
+STRING example1 := UCSubstring("abcdef", 1, 4);
+
+// returns '€uro'
+STRING example2 := UCSubstring("euro€uro", 4, 4);
+
+// returns '€u'
+STRING example3 := Substring("euro€uro", 4, 4);
+
+// returns an empty string
+STRING example4 := UCSubstring("abcdef", 100, 100);
+
+// returns an empty string
+STRING example5 := UCSubstring("abcdef", -10, -20);
+*/
+PUBLIC STRING FUNCTION UCSubstring(STRING text, INTEGER start, INTEGER numchars DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short Convert a character code to a UNICODE(UTF-8) sequence
+    @long Convert an character to a single-byte ASCII string or UTF-8 character sequence
+    @see GetUCValue ByteToString
+    @param charactercode Integer containing character code to convert
+    @return A string containing the requested character code as a single character
+    @example
+//Returns "A"
+STRING str_a := UCToString(65);
+
+//Encodes the euro-sign into a three-character UTF-8 sequence
+STRING str_euro := UCToString(8364);
+*/
+PUBLIC STRING FUNCTION UCToString(INTEGER charactercode) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Find the first occurrence of a UTF-8 substring
+    @long    UCSearchSubstring does a case-sensitive search in a string for the first occurence of a substring.
+    @param   text String to search in
+    @param   search String to search for
+    @param   start The character position to start searching
+    @return  Starting character position of the first occurence, or -1 if the string was not found
+    @see     UCSearchLastSubstring SearchSubstring SearchLastSubstring
+    @example
+// returns 2
+INTEGER example1 := UCSearchSubstring("abcdef", "c");
+
+// returns 0
+INTEGER example2 := UCSearchSubstring("ababab", "ab");
+
+// returns -1
+INTEGER example3 := UCSearchSubstring("abcdef", "g");
+
+// returns -1
+INTEGER example4 := UCSearchSubstring("abcdef", "A");
+
+// returns 2
+INTEGER example5 := UCSearchSubstring("ababab", "ab", 1);
+
+// returns -1
+INTEGER example6 := UCSearchSubstring("ababab", "ab", 5);
+*/
+PUBLIC INTEGER FUNCTION UCSearchSubstring(STRING text, STRING search, INTEGER start DEFAULTSTO 0) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Find the last occurrence of a UTF-8 substring
+    @long    UCSearchLastSubstring does a case-sensitive search in a string for the last occurence of a substring.
+    @param   text String to search in
+    @param   search String to search for
+    @param   start The character position to start searching
+    @return  Starting character position of the last occurence, or -1 if the string was not found
+    @see     UCSearchSubstring SearchLastSubstring
+    @example
+// returns 3
+INTEGER example1 := UCSearchLastSubstring("aaaa", "a");
+
+// returns 4
+INTEGER example2 := UCSearchLastSubstring("ababab", "ab");
+
+// returns -1
+INTEGER example3 := UCSearchLastSubstring("abcdef", "g");
+
+// returns -1
+INTEGER example4 := UCSearchLastSubstring("abcdef", "A");
+
+// returns 2
+INTEGER example5 := UCSearchLastSubstring("ababab", "ab", 4);
+
+// returns -1
+INTEGER example6 := UCSearchLastSubstring("ababab", "ab", 0);
+*/
+PUBLIC INTEGER FUNCTION UCSearchLastSubstring(STRING text, STRING search, INTEGER start DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short Truncate a text if it's too long, adding an ellipsis ('…') if truncated. Whitespace between the text and ellipsis will be removed.
+    @param text Text to check and truncate if needed
+    @param maxlen Maximum text length (in codepoints)
+    @return The text, truncated if needed, never longer than 'maxlen' in codepoints. If only whitespace remains after truncating, an empty string will be returned */
+PUBLIC STRING FUNCTION UCTruncate(STRING text, INTEGER maxlen)
+{
+  IF (UCLength(text) <= maxlen)
+    RETURN text;
+
+  text := UCLeft(text, maxlen - 1);
+
+  INTEGER takelength := maxlen - 1;
+  WHILE(takelength > 0 AND Substring(text, takelength - 1, 1) IN [" ","\r","\n","\t"])
+    takelength := takelength - 1;
+
+  RETURN takelength > 0 ? UCLeft(text, takelength) || "…" : "";
+}
+
+
+/** @short Limit a UTF-8 encoded string to a maximum byte length
+    @param text Text to limit
+    @param numbytes Maximum length in bytes
+    @return Text with a maximum length of _numbytes_ bytes.
+*/
+PUBLIC STRING FUNCTION LimitUTF8Bytes(STRING text, INTEGER numbytes)
+{
+  text := Left(text, numbytes);
+  WHILE (NOT (IsValidUTF8(text)))
+    text := Left(text, Length(text) - 1);
+  RETURN text;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Array manipulation
+//
+
+
+/** @short   Returns part of a array.
+    @long    ArraySlice returns the part of the array specified by the start and numelements parameters.
+             If the array has less than the requested number of elements from the given start,
+             the whole array starting from the specified start position is returned.
+             If the numelements parameter is omitted, the portion of the array beginning at start and ending at the
+             end of the array is returned
+    @param   arr Array to return a part from
+    @param   start Starting element position
+    @param   numelements Number of elements to return. When omitted, the portion from start until the end of the array is returned.
+    @return  The requested part of the array
+    @see     Substring
+    @example
+// returns [ 'd', 'e', 'f' ]
+STRING example1 := ArraySlice([ 'a', 'b', 'c', 'd', 'e', 'f' ], 3);
+
+// returns [ 'b', 'c', 'd', 'e' ]
+STRING example1 := ArraySlice([ 'a', 'b', 'c', 'd', 'e', 'f' ], 1, 4);
+*/
+PUBLIC VARIANT FUNCTION ArraySlice(VARIANT arr, INTEGER start, INTEGER64 numelements DEFAULTSTO 999999999999i64) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Record and cell manipulation
+//
+
+/** @short   Checks if a record exists
+    @long    This function is useful to verify the existence of records, before any action is undertaken on these
+             records.
+             Many statements and functions (such as SELECT and FindFile) will return a non-existing record to
+             indicate an error condition.
+
+    @param   rec Record to check
+    @return  Returns TRUE if the record exists
+    @see     CellExists
+    @example
+// prints 'Yes, it exists' or 'no, it does not exist', depending on
+// whether a file width ID=1 exists
+RECORD example1 := SELECT FROM files WHERE id=1;
+IF ( RecordExists(example1) )
+  Print ('Yes, it exists' );
+ELSE
+  Print ("No, it does not exist");
+*/
+PUBLIC BOOLEAN FUNCTION RecordExists(RECORD rec) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Check if a cell exists in a record
+    @long    This function checks if the record contains a cell with the specified name. Cell names are case-insensitive
+    @param   rec Record to read
+    @param   cellname Name of the cell to look for
+    @return  True if a cell with name @italic cellname exists in record @italic rec, false if it does not exist
+             or if the record does not exist.
+    @see     GetCell RecordExists
+    @example
+// Ensure that the cell 'title' exists in the record
+RECORD myfile := FindFile(15);
+IF (NOT CellExists(myfile,"title"))
+  Print ("The files table is broken or file 15 does not exist!");
+*/
+PUBLIC BOOLEAN FUNCTION CellExists(RECORD rec, STRING cellname) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Retrieve a cell from a record by name
+    @long    GetCell retrieves a cell from record @italic rec with the name @italic cellname. Cell names are
+             case-insensitive. If the record does not contain a cell with the requested name, a HareScript error
+             is generated.
+             GetCell can be used to retrieve cells with a dynamically generated name.
+    @param   rec Record to read
+    @param   cellname Name of the cell to look for
+    @return  The data in the requested cell
+    @see     CellExists CellDelete CellUpdate
+    @example
+// Retrieve ‘file.title’
+STRING title := GetCell(file,"title");
+
+// Dynamic generation of a cellname example
+STRING cellname := "ti" || "tle";
+STRING title := GetCell(file, cellname);
+*/
+PUBLIC VARIANT FUNCTION GetCell(RECORD rec, STRING cellname) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Create an empty, existing record
+    @long    MakeEmptyRecord returns an empty existing record. It is equivalent to CELL[].
+             The length of this record will be 0 (zero), and the function RecordExists will return true.
+    @return  A record without any cells
+    @see Length RecordExists
+    @example
+// Create a new empty record
+RECORD newrec := MakeEmptyRecord();
+
+// Pass a record with no cells to a calling function
+RETURN MakeEmptyRecord();
+*/
+PUBLIC RECORD FUNCTION MakeEmptyRecord() __ATTRIBUTES__(DEPRECATED "You can just use CELL[] instead of MakeEmptyRecord()")
+{
+  RETURN CELL[];
+}
+
+
+
+/** @short   Update a cell in a record
+    @long    CellUpdate updates the specified cell in the record. Cell names are case-insensitive. UpdateCell can be used to
+             update cells with a dynamically generated name.
+
+             If the cell does not exist in @italic rec, or @italic newvalue is of an incompatible type, an error is generated.
+    @param   rec Record to modify
+    @param   cellname The name of the cell to update
+    @param   newvalue The new value for the cell
+    @return  The record with the requested cell updated. Unlike the UPDATE statement, this function does not modify the original record passed in 'cellname'
+    @see     GetCell CellInsert CellDelete
+    @example
+// Retrieve a file record, and add exclamation points to its title
+RECORD myfile := FindFile(15);
+myfile := CellUpdate(myfile, "title", myfile.title || "!!!");
+*/
+PUBLIC RECORD FUNCTION CellUpdate(RECORD rec, STRING cellname, VARIANT newvalue) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Insert a cell in a record
+    @long    CellInsert inserts the specified cell in the record. Cell names are case-insensitive. CellInsert can be
+             used to insert cells with a dynamically generated name.
+             If the cell already exists in @italic rec, an error is generated.
+    @param   rec Record to modify
+    @param   cellname Name of the cell to insert
+    @param   value Value for the cell
+    @return  The record with the new cell inserted. Unlike the INSERT CELL statement, this function does not
+             modify the original record passed in 'cellname'
+    @see     GetCell CellUpdate CellDelete
+    @example
+// Insert a mydata cell into a file record
+RECORD myfile := FindFile(15);
+myfile := CellInsert(myfile, "mydata", "Hello, World!");
+*/
+PUBLIC RECORD FUNCTION CellInsert(RECORD rec, STRING cellname, VARIANT value) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Remove a cell from a record
+    @long    CellDelete removes the specified cell from the record. Cell names are case-insensitive. CellDelete can be
+             used to delete cells with a dynamically generated name.
+             If the cell does not exist in @italic rec, nothing happens and no error is generated.
+    @param   rec Record to modify
+    @param   cellname Cell to remove
+    @return  The record with the requested cell removed. Unlike the DELETE CELL statement, this function does not
+             modify the original record passed in 'cellname'
+    @see     GetCell CellUpdate CellInsert
+    @example
+// Retrieve a file record, and remove the 'title' column
+RECORD myfile := FindFile(15);
+myfile := CellDelete(myfile,"title");
+
+// Rename the cell 'name' to 'title'
+INSERT CELL title := myfile.name INTO myfile;  //copy
+title := CellDelete(myfile,"name");            //and remove
+*/
+PUBLIC RECORD FUNCTION CellDelete(RECORD rec, STRING cellname) __ATTRIBUTES__(EXTERNAL,CONSTANT);
+
+
+
+/** @short    Combines the cells of two records into one record
+    @long     MakeMergedRecord merges two records together. The resulting record contains all the cells
+              that are present in the two records given as parameters. If both records contain a
+              cell with the same name, an error is generated
+    @param    rec1 First record
+    @param    rec2 Second record
+    @return   The combined record
+    @see      CellUpdate MakeUpdatedRecord
+    @example
+// Combine two records
+RECORD rec := MakeMergedRecord([ a := 1 ], [ b := 1 ]);
+
+// Rec now contains [ a := 1, b := 1 ]
+*/
+PUBLIC RECORD FUNCTION MakeMergedRecord(RECORD rec1, RECORD rec2) __ATTRIBUTES__(SKIPTRACE)
+{
+  RETURN __HS_SQL_MergeRecords(rec1, rec2);
+}
+
+/** @short    Updates the cells in a record with an extra record
+    @long     MakeUpdatedRecord merges a new record into an existing record.. The resulting record contains all
+              the cells in the original record, but any values found in the new record will be updated into the
+              original record. If the type of two cells differ, it will not be updated. The function will recurse
+              through record cells
+    @param    original Original record
+    @param    updatedata Record to update data in the original record with
+    @return   The updated record
+    @see      CellUpdate MakeMergedRecord MakeReplacedRecord
+    @example
+MakeUpdatedRecord( [ a := 1, subrec := [ b := 1, c := 1] ]
+                 , [ b := 2, subrec := [ c := 2 ] ] );
+
+// Will return [ a := 1, subrec := [ b := 1, c := 2 ] ];
+*/
+PUBLIC RECORD FUNCTION MakeUpdatedRecord(RECORD original, RECORD updatedata)
+{
+  FOREVERY(RECORD cellrec FROM UnpackRecord(original))
+  {
+    IF(CellExists(updatedata, cellrec.name))
+    {
+      VARIANT newdata := GetCell(updatedata, cellrec.name);
+      INTEGER newtype := TypeID(newdata);
+      INTEGER srctype := TypeID(cellrec.value);
+      // We'll allow implicit casts, but not from RECORD ARRAY to RECORD
+      IF(CanCastTypeTo(newtype, srctype)
+          AND NOT (newtype = TypeID(RECORD ARRAY) AND srctype = TypeId(RECORD)))
+      {
+        IF(srctype = TypeID(RECORD))
+          newdata := MakeUpdatedRecord(cellrec.value, newdata);
+        original := CellUpdate(original, cellrec.name, newdata);
+      }
+    }
+  }
+  RETURN original;
+}
+
+/** @short    Replaces the cells in a record
+    @long     MakeReplacedRecord replaces cells in an existing record.. The resulting record contains all
+              the cells in the original record, but any values found in the new record will be replaced with the
+              original record. If the type of two cells differ, they will not be updated. The function will not
+              recurse, but simply replace any cells of type record completely
+    @param    original Original record
+    @param    updatedata Record to update data in the original record with
+    @return   The updated record
+    @see      MakeUpdatedRecord
+    @example
+MakeReplacedRecord( [ a := 1, subrec := [ b := 1, c := 1] ]
+                  , [ b := 2, subrec := [ c := 2 ] ] );
+
+// Will return [ a := 1, subrec := [ c := 2 ] ];
+*/
+PUBLIC RECORD FUNCTION MakeReplacedRecord(RECORD original, RECORD updatedata)
+{
+  FOREVERY(RECORD cellrec FROM UnpackRecord(original))
+  {
+    IF(CellExists(updatedata, cellrec.name))
+    {
+      VARIANT newdata := GetCell(updatedata, cellrec.name);
+      INTEGER newtype := TypeID(newdata);
+      INTEGER srctype := TypeID(cellrec.value);
+      // We'll allow implicit casts, but not from RECORD ARRAY to RECORD
+      IF(CanCastTypeTo(newtype, srctype)
+          AND NOT (newtype = TypeID(RECORD ARRAY) AND srctype = TypeId(RECORD)))
+      {
+        original := CellUpdate(original, cellrec.name, newdata);
+      }
+    }
+  }
+  RETURN original;
+}
+
+
+/** @short    Supplements or replaces the cells in a record
+    @long     MakeOverwrittenRecord is a combination of MakeMergedRecord and MakeReplacedRecord, i.e. all cells that are in
+              the original record, but not in the update record are kept as they are, cells that are in the update record but
+              not in the original record will be added, and cells in the original record that are also in the update record
+              will be replaced.
+
+              MakeOverwrittenRecord(original,updatedata) is nearly equivalent to [...original,...updatedata] and should
+              be replaced by the later where possible (ie, when no type upcasting/retention is needed)
+    @param    original Original record
+    @param    updatedata Record to add or update data in the original record with
+    @return   The updated record
+    @see      MakeReplacedRecord, MakeMergedRecord
+    @example
+MakeOverwrittenRecord( [ a := 1, subrec := [ b := 1, c := 1] ]
+                     , [ b := 2, subrec := [ c := 2 ] ] );
+
+// Will return [ a := 1, b := 2, subrec := [ c := 2 ] ];
+*/
+PUBLIC RECORD FUNCTION MakeOverwrittenRecord(RECORD original, RECORD updatedata)
+{
+  FOREVERY(RECORD cellrec FROM UnpackRecord(updatedata))
+  {
+    IF(CellExists(original, cellrec.name))
+    {
+      INTEGER srctype := TypeID(GetCell(original, cellrec.name));
+      INTEGER newtype := TypeID(cellrec.value);
+      // We'll allow implicit casts, but not from RECORD ARRAY to RECORD
+      IF(CanCastTypeTo(newtype, srctype)
+          AND NOT (newtype = TypeID(RECORD ARRAY) AND srctype = TypeId(RECORD)))
+      {
+        original := CellUpdate(original, cellrec.name, cellrec.value);
+      }
+    }
+    ELSE
+      original := CellInsert(original, cellrec.name, cellrec.value);
+  }
+  RETURN original;
+}
+
+
+/** @short    Converts a list of values to a record array with in every record a cell with one of
+              the values.
+    @long     ToRecordArray takes a list of values (eg. string array). For every value in that list,
+              a record is created, with one cell per record containing that value. The list of
+              that records is then return.
+    @param    elements List of values
+    @param    cellname Name of cell to put the values in
+    @return   The list of records
+    @example
+// Get record array ith one record per value
+RECORD recarr := ToRecordArray([ 1, 2, 3 ], "val");
+
+// Recarr now contains [ [ val := 1 ], [ val := 2 ], [ val := 3 ] ]
+*/
+PUBLIC RECORD ARRAY FUNCTION ToRecordArray(VARIANT elements, STRING cellname)
+{
+  RECORD ARRAY result;
+  FOREVERY (VARIANT elt FROM elements)
+    INSERT CellInsert(DEFAULT RECORD, cellname, elt) INTO result AT END;
+  RETURN result;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Object manipulation
+//
+
+/** @short   Checks if an object exists
+    @long    This function is useful to verify the existence of objects, before any action is undertaken on these
+             objects. It returns TRUE for the default value of objects.
+
+    @param   obj Object to check
+    @return  Returns TRUE if the object exists
+    @see     MemberExists
+    @example
+// prints 'No, it does not exist'
+OBJECT example1 := DEFAULT OBJECT;
+IF ( ObjectExists(example1) )
+  Print ('Yes, it exists' );
+ELSE
+  Print ("No, it does not exist");
+*/
+PUBLIC BOOLEAN FUNCTION ObjectExists(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short   Check if a specific member exists in a object
+    @long    This function checks if the object contains a member with the specified name. Member
+             names are case-insensitive. If a hatted property is requested, eg `^mymember`, MemberExists may
+             return FALSE if the property hasn't been initialized yet, even if %GetMember would return
+             the property.
+    @param   obj Object to read
+    @param   membername Name of the member to look for
+    @return  True if a member with name @italic membername exists in record @italic obj, false if it does not exist
+             or if the object does not exist.
+    @see     GetMember ObjectExists
+    @example
+// Ensure that the member 'mymember' exists in the object
+OBJECT obj := DEFAULT OBJECT;
+IF (NOT MemberExists(obj,"mymember"))
+  Print ("This object does not contain a member named 'mymember'");
+*/
+PUBLIC BOOLEAN FUNCTION MemberExists(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short   Retrieve a member from an object by name
+    @long    GetMember retrieves the value of a member from object @italic rec with the name @italic cellname. Member names are
+             case-insensitive. If the object does not contain a member with the requested name, a HareScript error
+             is generated. GetMember cannot be used to retrieve function pointers to object methods, use @italic GetObjectMethodPtr
+             instead.
+
+             GetMember can be used to retrieve members with a dynamically generated name.
+    @param   obj Object to read
+    @param   membername Name of the member to look for
+    @return  The data in the requested member
+    @see     MemberExists MemberInsert MemberUpdate GetObjectMethodPtr
+    @example
+// Retrieve ‘file->title’
+STRING title := GetMember(file,"title");
+
+// Dynamic generation of a cellname example
+STRING membername := "ti" || "tle";
+STRING title := GetMember(file, membername);
+*/
+PUBLIC VARIANT FUNCTION GetMember(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, SPECIAL);
+
+
+
+
+/** @short   Update a member in an object
+    @long    SetMember updates the specified member in the object. Member names are case-insensitive. SetMember can be used to
+             update members with a dynamically generated name.
+
+             If the member does not exist in @italic obj, or @italic newvalue is of an incompatible type, an error is generated.
+    @param   obj Object to modify
+    @param   membername The name of the member to update
+    @param   value The new value for the member
+    @see     GetMember MemberInsert MemberDelete
+    @example
+// Retrieve a file object, and add exclamation points to its title
+OBJECT myfile := FindFile(15);
+myfile := MemberUpdate(myfile, "title", myfile.title || "!!!");
+*/
+PUBLIC MACRO MemberUpdate(OBJECT obj, STRING membername, VARIANT value) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, SPECIAL);
+
+
+
+
+/** @short   Insert a member in an object
+    @long    MemberInsert inserts the specified member in the object. Member names are case-insensitive. MemberInsert can be
+             used to insert members with a dynamically generated name.
+
+             If the member already exists in @italic obj, an error is generated.
+    @param   obj Object to modify
+    @param   membername Name of the member to insert
+    @param   make_private Whether the member must only be accessible using the @a this-> construct.
+    @param   value Value for the member
+    @return  The object with the new member inserted.
+    @see     GetMember MemberUpdate MemberDelete
+    @example
+// Insert a mydata member into a file object
+OBJECT myfile := FindFile(15);
+myfile := MemberInsert(myfile, "mydata", "Hello, World!");
+*/
+PUBLIC OBJECT FUNCTION MemberInsert(OBJECT obj, STRING membername, BOOLEAN make_private, VARIANT value) __ATTRIBUTES__(EXTERNAL, SPECIAL);
+
+
+
+
+/** @short   Delete a member from an object
+    @long    MemberDelete deletes the specified member in the object. This member must be inserted with
+             MemberInsert first, members from an object type declaration cannot be deleted. Member names are case-insensitive. MemberInsert can be
+
+             If the member already exists in @italic obj, an error is generated.
+    @param   obj Object to modify
+    @param   membername Name of the member to insert
+    @return  The object with the new member inserted.
+    @see     GetMember MemberInsert MemberUpdate
+    @example
+// Delete a mydata member into a file object
+OBJECT myfile := FindFile(15);
+myfile := MemberInsert(myfile, "mydata", "Hello, World!");
+myfile := MemberDelete(myfile, "mydata");
+*/
+PUBLIC OBJECT FUNCTION MemberDelete(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL, SPECIAL);
+
+
+
+/** @short   Create an empty, existing object with no members
+    @long    MakeEmptyRecord returns an empty existing object
+             The function ObjectExists will return true when called with this object.
+    @return  A object without any members
+    @see Length ObjectExists
+    @example
+// Create a new empty object
+OBJECT newrec := MakeEmptyObject();
+*/
+OBJECT FUNCTION MakeEmptyObject() __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short   Returns the type of a member of an object
+    @long    GetMemberType returns the type of a member of an object. Possible returns values are:
+             VARIABLE - for variable members
+             FUNCTION - for function members
+             PROPERTY - for properties
+             NONE - if the member does not exist or the object does not exist
+             PRIVATE - if the member does exist, but is not accessible through this object variable. Note,
+                 this function treats @a this just as any other object variable.
+    @param   obj Object to check
+    @param   membername Name of the member to get the type of
+    @return  A string describing the type of the member
+    @example
+// Get the type of an object member
+OBJECTTYPE MyObjectType
+  < INTEGER avar
+  >;
+PRINT(GetMemberType(NEW MyObjectType, "AVAR"));
+*/
+PUBLIC STRING FUNCTION GetMemberType(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short   Creates a function pointer to an object method
+    @long    GetObjectMethodPtr takes an object function-member, and returns a function pointer that
+             when called executes that method on the passed object (this is also known as a closure).
+             Member names are case insensitive.
+    @param   obj Object to bind
+    @param   membername Member name of the method to create the function pointer
+    @return  A function pointer which, when called, executes the specified method on the speified object.
+    @example
+OBJECTTYPE <
+  INTEGER FUNCTION CallMe() > otype;
+OBJECT o := NEW otype;
+
+// Create a function pointer for o->callme
+FUNCTION PTR myptr := GetObjectMethodPtr(o, "CALLME");
+*/
+PUBLIC FUNCTION PTR FUNCTION GetObjectMethodPtr(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, SPECIAL);
+
+
+MACRO ConstructObj(OBJECT obj, STRING libname, STRING objname, VARIANT ARRAY arguments) __ATTRIBUTES__(SKIPTRACE)
+{
+  INTEGER ARRAY argtypes := SELECT AS INTEGER ARRAY TypeID(value) FROM ToRecordArray(arguments, "VALUE");
+  FUNCTION PTR fptr := GetObjectConstructor(libname, objname, argtypes);
+
+  CallMacroPtrVA(fptr, VARIANT ARRAY([ obj ]) CONCAT arguments);
+}
+
+
+/** @short   Creates a new object using a dynamically specified object
+    @long    This function either creates a new object, or extends an existing one. This is done
+             using the definition of an object type in a specified library.
+    @param   objname Name of the object type to use (using the "lib#object" syntax.)
+    @param   constructorarguments Arguments for the constructor
+    @return  Returns the freshly created object.
+    @see     GetMember ObjectExists ExtendObject
+*/
+PUBLIC OBJECT FUNCTION MakeObject(STRING objname, VARIANT ARRAY ...constructorarguments) __ATTRIBUTES__(SKIPTRACE)
+{
+  STRING libname;
+
+  IF(objname LIKE "*#*")
+  {
+    INTEGER splitpos := SearchSubstring(objname, '#');
+    libname := Left(objname, splitpos);
+    objname := Substring(objname, splitpos + 1);
+  }
+  ELSE IF(Length(constructorarguments)=0)
+  {
+    THROW NEW Exception(`Illegal object name ${objname}`);
+  }
+  ELSE
+  {
+    libname := objname;
+    objname := constructorarguments[0];
+    DELETE FROM constructorarguments AT 0;
+  }
+
+  OBJECT new_object := MakeEmptyObject();
+  ConstructObj(new_object, libname, objname, constructorarguments);
+  RETURN new_object;
+}
+/** @short   Extends an existing object with a dynamically specified object
+    @long    This function extends an existing object. This is done using the definition of an object type in a specified library.
+    @param   base Object to extend
+    @param   objname Name of the object type to use (using the "lib#object" syntax.)
+    @param   constructorarguments Arguments for the constructor
+    @see     GetMember ObjectExists MakeObject
+*/
+
+PUBLIC MACRO ExtendObject(OBJECT base, STRING objname, VARIANT ARRAY ...constructorarguments) __ATTRIBUTES__(SKIPTRACE)
+{
+  STRING libname;
+
+  IF(objname LIKE "*#*")
+  {
+    INTEGER splitpos := SearchSubstring(objname, '#');
+    libname := Left(objname, splitpos);
+    objname := Substring(objname, splitpos + 1);
+  }
+  ELSE IF(Length(constructorarguments)=0)
+  {
+    THROW NEW Exception(`Illegal object name ${objname}`);
+  }
+  ELSE
+  {
+    libname := objname;
+    objname := constructorarguments[0];
+    DELETE FROM constructorarguments AT 0;
+  }
+
+  IF(base = DEFAULT OBJECT)
+    DoFatalError(91,"","");
+
+  ConstructObj(base, libname, objname, constructorarguments);
+}
+
+OBJECT FUNCTION MakeObjectPublic(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
+BOOLEAN FUNCTION IsObjectPublic(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Makes a private object reference public again
+    @long  This function converts an object reference that was made using the PRIVATE THIS
+           syntax in a normal, unprivileged object reference.
+    @param obj Object to remove the privileges from
+    @return Returns an object reference without any privileges.
+*/
+PUBLIC OBJECT FUNCTION MakePublicObjectReference(OBJECT obj)
+{
+  RETURN MakeObjectPublic(obj);
+}
+
+/** @short Returns whether a object reference is public
+    @long  This function returns whether an object reference is public. If not (it made using the PRIVATE THIS)
+           it returns FALSE.
+    @param obj Object to check if public
+    @return Returns whether the object reference is public.
+*/
+PUBLIC BOOLEAN FUNCTION IsObjectReferencePublic(OBJECT obj)
+{
+  RETURN IsObjectPublic(obj);
+}
+
+/** @short   Checks if a weak object reference exists
+    @long    This function is useful to check if the weak reference still
+             references an existing object. However, the reference can disappear
+             at any time, so a positive result is no proof that the object
+             still appears immediately after the test. Use this function only
+             to see if the object instance has disappeared.
+    @param   obj Weak object reference to check
+    @return  Returns TRUE if the weak object reference exists
+    @see     MemberExists
+    @example
+OBJECT o := NEW Exception;
+WEAKOBJECT w := WEAKOBJECT(o);
+
+IF (WeakObjectExists(w))
+{
+  Print('Yes, it exists' );
+
+  // This might fail, even if WeakObjectExists(w) returned TRUE before
+  OBJECT strongref := OBJECT(w);
+}
+
+// Safer way to use the reference from a WEAKOBJECT
+OBJECT strongref2 := OBJECT(w);
+IF (ObjectExists(strongref2))
+  Print('Yes, it exists' );
+*/
+PUBLIC BOOLEAN FUNCTION WeakObjectExists(WEAKOBJECT obj) __ATTRIBUTES__(EXTERNAL);
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// En/decoding functions
+//
+
+/** @short   Converts special characters to HTML entities.
+    @long    Certain characters have special significance in HTML, and should be represented by HTML entities if they are to
+             preserve their meanings. EncodeHTML returns string with these conversions made.
+
+             The function is useful to prevent user-supplied text from containing HTML markup. It will translate
+             any character outside the printable ASCII character set, and all dangerous characters (<, >, &),
+             into a HTML entitity.
+
+             The function resembles EncodeValue, with the exception that it translates linebreaks
+             into <br> tags, as opposed to &#10; entities
+
+    @param   text String to encode
+    @return  The encoded string
+    @see     DecodeHTML EncodeJava EncodeBase16 EncodeBase64 EncodeURL EncodeValue
+    @example
+// returns "&#60;HTML&#62;"
+STRING example1 := EncodeHTML("<HTML>");
+
+// returns "Johnny <br /> Jane"
+STRING example2 := EncodeHTML("Johnny \n Jane");
+
+// returns a link with the proper encoded url and text for the file
+// with ID=1.
+RECORD file := FindFile(1);
+PRINT('<a href="' || EncodeValue(file.url) || '">'
+                  || EncodeHTML(file.title) || '</a>');
+*/
+PUBLIC STRING FUNCTION EncodeHTML(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Escapes special characters for use in java strings.
+    @long    Certain characters have special significance in strings, and should be escaped to preserve their meaning.
+             Encodejava returns string with these conversions made.
+
+             EncodeJava escapes " (double quote), ' (single quote) and \ (backslash) characters.
+    @param   text String to encode
+    @return  The encoded string
+    @see     DecodeJava EncodeBase16 EncodeBase64 EncodeHTML EncodeURL EncodeValue
+    @example
+// returns "alert(\'Johnny and Jane\')"
+STRING example1 := EncodeJava("alert('Johnny and Jane')");
+
+// returns "alert(\'A\\n\\b\')"
+STRING example2 := EncodeJava("alert('A\n\b')");
+*/
+PUBLIC STRING FUNCTION EncodeJava(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short   Converts special characters to hexadecimal encodings.
+    @long    Certain characters have special significance in URLs, and should be represented by hexadecimal entities if
+             they are to preserve their meanings. EncodeURL returns string with these conversions made.
+
+             The function is useful to prevent users from creating invalid URLs, for example in automatically generated
+             TOCs.
+    @param   text String to encode
+    @return  The encoded string
+    @see     DecodeURL EncodeBase16 EncodeBase64 EncodeHTML EncodeJava EncodeValue
+    @example
+// returns "this%20url%20will%20be%20encoded"
+STRING example1 := EncodeURL("this url will be encoded");
+
+// returns "The_rain.%20In%20Spain%2C%20Ma%92am"
+STRING example2 := EncodeURL("The_rain. In Spain, Ma'am");
+*/
+PUBLIC STRING FUNCTION EncodeURL(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short   Converts special characters to HTML entities.
+    @long    Certain characters have special significance in HTML, and should be represented by HTML entities if they are to
+             preserve their meanings. EncodeValue returns string with these conversions made.
+
+             The function is useful to prevent user-supplied text from accidentally closing an attribute in an
+             HTML attribute, like "href" and "src".
+             It will translate any character outside the printable ASCII character set, and all dangerous characters
+             (<, >, &, ', "), into a HTML entitity.
+
+             The function resembles EncodeHTML, with the exception that it translates linebreaks into &#10; entities, as opposed
+             to <br> tags
+
+    @param   text String to encode
+    @return  The encoded string
+    @see     DecodeValue EncodeBase16 EncodeBase64 EncodeHTML EncodeURL EncodeJava
+    @example
+// returns "<HTML>"
+STRING example1 := EncodeValue ("<HTML>");
+
+// returns "Johnny &#38; Jane"
+STRING example2 := EncodeValue ("Johnny & Jane");
+
+// returns a link with the proper encoded url and text for the file
+// with ID=1.
+RECORD file := FindFile(1);
+PRINT('<a href="' || EncodeValue(file.url) || '">'
+                  || EncodeHTML(file.title) || '</a>');
+*/
+PUBLIC STRING FUNCTION EncodeValue(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short Encode an attributenode
+    @long Similar to %EncodeValue, but only encodes '"', "'" and '&'. This suffices for attribute values in UTF-8 XML documents
+    @param text Text to encode
+    @return Encoded value
+*/
+PUBLIC STRING FUNCTION EncodeAttributeValue(STRING text)
+{
+  RETURN Substitute(Substitute(Substitute(text,'&','&amp;'),'"','&quot;'),"'",'&apos;');
+}
+/** @short Encode a textnode
+    @long Similar to %EncodeValue, but only encodes '<', '>' and '&'. This suffices for text nodes UTF-8 XML documents
+    @param text Text to encode
+    @return Encoded value
+*/
+PUBLIC STRING FUNCTION EncodeTextNode(STRING text)
+{
+  RETURN Substitute(Substitute(Substitute(text,'&','&amp;'),'<','&lt;'),'>','&gt;');
+}
+
+/** @short   Encodes a string into a hexadecimal string.
+    @long    Certain characters have special significance or can cause dangerous side-effects when used in certain situations, and
+             may need to be avoided. Examples of such situations are (back)slashes when creating filenames, or linefeeds when
+             creating JavaScript variable names.
+
+             If no other encoding function will suffice or is safe enough, you can convert a string to hexadecimal codes.
+             Base 16 encoding only uses the characters 0-9 and A-F, which will be safe for almost any application. Another
+             advantage of base 16 encoding is the predictable size of the output string. EncodeBase16 guarantees that the length
+             of its result will be exactly twice the length of the original string. For other encoding functions, the length of
+             their results varies depending on both the input string contents, and the input string length.
+    @param   text String to encode
+    @return  The encoded string
+    @see     DecodeBase16 EncodeBase64 EncodeHTML EncodeJava EncodeURL EncodeValue
+    @example
+// returns "48656C6C6F2C20576F726C64"
+STRING example1 := EncodeBase16("Hello, World");
+
+// returns "313233"
+STRING example2 := EncodeBase16("123");
+*/
+PUBLIC STRING FUNCTION EncodeBase16(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+STRING base32alphabet := "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+STRING base32hexalphabet := "0123456789ABCDEFGHIJKLMNOPQRSTUV";
+
+/** @short   Encodes a string into an RFC 4648 base-32 encoded string
+    @long    This function encodes a string to base-32 encoding. This way non-printable ASCII characters can be safely
+             encoded, and the result can easily be entered by a person. The resulting string contains no ambiguous characters
+             (i.e. 1, 8 and 0 are not used as they can be confused with I, B and 0, respectively) and letters can be either
+             uppercase or lowercase. The alphabet used is the one from RFC 4648 (table 3, chapter 6). The resulting string is
+             padded using '=' characters until the length is a multiple of 8 characters.
+    @param   value String to encode
+    @param   dontpad If set to TRUE, the resulting string is not padded
+    @return  The encoded string
+    @see     DecodeBase32 EncodeBase16 EncodeBase32Hex EncodeBase64
+    @example
+// returns "JBSWY3DPFQQFO33SNRSA===="
+STRING example1 := EncodeBase32("Hello, World");
+
+// returns "GEZDG==="
+STRING example2 := EncodeBase32("123");
+*/
+PUBLIC STRING FUNCTION EncodeBase32(STRING value, BOOLEAN dontpad DEFAULTSTO FALSE)
+{
+  RETURN EncodeBase32Internal(base32alphabet, value, dontpad);
+}
+
+/** @short   Encodes a string into an RFC 4648 base-32 hex encoded string
+    @long    This function encodes a string to base-32 hex encoding. This way non-printable ASCII characters can be safely
+             encoded. The alphabet used is the one from RFC 4648 (table 4, chapter 7). The resulting string is padded using
+             '=' characters until the length is a multiple of 8 characters.
+    @param   value String to encode
+    @param   dontpad If set to TRUE, the resulting string is not padded
+    @return  The encoded string
+    @see     DecodeBase32Hex EncodeBase16 EncodeBase32 EncodeBase64
+    @example
+// returns "91IMOR3F5GG5ERRIDHI0===="
+STRING example1 := EncodeBase32Hex("Hello, World");
+
+// returns "64P36==="
+STRING example2 := EncodeBase32Hex("123");
+*/
+PUBLIC STRING FUNCTION EncodeBase32Hex(STRING value, BOOLEAN dontpad DEFAULTSTO FALSE)
+{
+  RETURN EncodeBase32Internal(base32hexalphabet, value, dontpad);
+}
+
+STRING FUNCTION EncodeBase32Internal(STRING alphabet, STRING value, BOOLEAN dontpad)
+{
+  INTEGER i, idx, digit;
+  INTEGER curbyte, nextbyte;
+  STRING encoded;
+
+  WHILE (i < Length(value))
+  {
+    curbyte := GetByteValue(Substring(value, i, 1));
+    IF (idx > 3)
+    {
+      IF (i + 1 < Length(value))
+        nextbyte := GetByteValue(Substring(value, i + 1, 1));
+      ELSE
+        nextbyte := 0;
+
+      digit := curbyte BITAND (0xFF BITRSHIFT idx);
+      idx := (idx + 5) % 8;
+      digit := (digit BITLSHIFT idx) BITOR (nextbyte BITRSHIFT (8 - idx));
+      i := i + 1;
+    }
+    ELSE
+    {
+      digit := (curbyte BITRSHIFT (8 - (idx + 5))) BITAND 0x1F;
+      idx := (idx + 5) % 8;
+      IF (idx = 0)
+        i := i + 1;
+    }
+    encoded := encoded || Substring(alphabet, digit, 1);
+  }
+  IF (NOT dontpad)
+  {
+    // Pad with '=' until the length is a multiple of 8 characters
+    WHILE (idx != 0)
+    {
+      encoded := encoded || "=";
+      idx := (idx + 5) % 8;
+    }
+  }
+  RETURN encoded;
+}
+
+
+
+/** @short   Encodes a string into a base-64 encoded string
+    @long    This function encodes a string to base-64 encoding. This encoding is often used in MIME-transported messages
+    @param   text String to encode
+    @return  The encoded string
+    @see     DecodeBase64 EncodeBase16 EncodeHTML EncodeJava EncodeURL EncodeValue
+    @example
+// returns "SGVsbG8sIFdvcmxk"
+STRING example1 := EncodeBase64("Hello, World");
+
+// returns "MTIz"
+STRING example2 := EncodeBase64("123");
+*/
+PUBLIC STRING FUNCTION EncodeBase64(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Encodes a string into a url and filename safe base-64 encoding
+    @long    This function encodes a string to using RFC 3548 section 4 encoding. This encoding is safe to use as a URL variable or in filenames, as it does not use '+', '=' and '/", and never longer than a standard base64 encoding
+    @param   text String to encode
+    @return  The encoded string
+    @see     DecodeUFS EncodeBase64
+*/
+PUBLIC STRING FUNCTION EncodeUFS(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Encodes a string into a quoted-printable encoded string
+    @long    This function encodes a string to quoted-printable encoding. This encoding is often used in MIME-transported messages
+    @param   text String to encode
+    @return  The encoded string
+    @see     DecodeQP EncodeBase64 EncodeBase16 EncodeHTML EncodeJava EncodeURL EncodeValue
+    @example
+// returns "K=F8benhavn"
+STRING example1 := EncodeQP("København");
+*/
+PUBLIC STRING FUNCTION EncodeQP(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Converts HTML back to special characters.
+    @long    DecodeHTML converts an HTML encoded string to UNICODE(UTF-8). It decodes entities like %DecodeValue does,
+             strips out HTML tags and translates <br> tags into linebreaks.
+    @param   text String to decode
+    @return  The decoded string
+    @see     EncodeHTML DecodeBase16 DecodeBase64 DecodeJava DecodeURL DecodeValue
+    @example
+// returns '<HTML>'
+STRING example1 := DecodeHTML("&#60;HTML&#62;");
+
+// returns "Johnny /n Jane"
+STRING example2 := DecodeHTML("Johnny <br /> Jane");
+*/
+PUBLIC STRING FUNCTION DecodeHTML(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Converts special characters as used in javascripts.
+    @long    DecodeJava converts Java encoded strings back to strings without Java encoded ' (single quotes),
+             " (double quotes) and \ (backslashes).
+    @param   text String to decode
+    @return  The decoded string
+    @see     EncodeJava DecodeBase16 DecodeBase64 DecodeHTML DecodeURL DecodeValue
+    @example
+// returns "alert('Johnny and Jane')"
+STRING example1 := DecodeJava("alert(\'Johnny and Jane\')");
+
+// returns "alert('A\n\b')"
+STRING example2 := DecodeJava("alert(\'A\\n\\b\')");
+*/
+PUBLIC STRING FUNCTION DecodeJava(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short   Converts hexadecimal encodings to special characters.
+    @long    DecodeURL converts URL encoded strings back to stings with special characters.
+    @param   text String to decode
+    @return  The decoded string
+    @see     EncodeURL DecodeBase16 DecodeBase64 DecodeHTML DecodeJava DecodeValue
+    @example
+// returns "this url will be decoded"
+STRING example1 := DecodeURL("this%20url%20will%20be%20decoded");
+
+// returns "The_rain. In Spain, Ma'am"
+STRING example2 := DecodeURL("The_rain.%20In%20Spain%2C%20Ma%92am");
+*/
+PUBLIC STRING FUNCTION DecodeURL(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Converts HTML entities back to their characters
+    @long    DecodeValue converts value encoded strings to UNICODE(UTF-8).
+    @param   text String to decode
+    @return  The decoded string
+    @see     EncodeValue DecodeBase16 DecodeBase64 DecodeHTML DecodeJava DecodeURL
+    @example
+// returns "<HTML>"
+STRING example1 := DecodeValue ("<HTML>");
+
+// returns "Johnny & Jane"
+STRING example2 := DecodeValue ("Johnny &#38; Jane");
+
+// returns "Johnny says: \n Hello world!"
+STRING example3 := DecodeValue ("Johnny says: &#10; Hello world!");
+*/
+PUBLIC STRING FUNCTION DecodeValue(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short   Decodes a hexadecimal string.
+    @long    DecodeBase16 will decode a Base-16 encoded string string to its original value
+    @param   text String to decode
+    @return  The decoded string
+    @see     EncodeBase16 DecodeBase64 DecodeHTML DecodeJava DecodeURL DecodeValue
+    @example
+// returns 'Hello, World'
+STRING example1 := DecodeBase16("48656C6C6F2C20576F726C64");
+
+// returns "123"
+STRING example2 := DecodeBase16("313233");
+     */
+PUBLIC STRING FUNCTION DecodeBase16(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Decodes an RFC 4648 base-32 encoded string.
+    @long    DecodeBase32 will decode a base-32 encoded string to its original value. Letters can be either uppercase or
+             lowercase. The alphabet used is the one from RFC 4648 (table 3, chapter 6). The input value doesn't have to be
+             fully padded (the trailing '=' characters are not required).
+    @param   value String to decode
+    @return  The decoded string, or an empty string when decoding failed because of an invalid character
+    @see     EncodeBase32 DecodeBase16 DecodeBase32Hex DecodeBase64
+    @example
+// returns "Hello, World"
+STRING example1 := DecodeBase32("jbswy3dpfqqfo33snrsa");
+
+// returns "123"
+STRING example2 := DecodeBase32("GEZDG===");
+
+// returns "", this base32hex-encoded string cannot be base32-decoded
+STRING example3 := DecodeBase32("91imor3f5gg5erridhi0");
+*/
+PUBLIC STRING FUNCTION DecodeBase32(STRING value)
+{
+  RETURN DecodeBase32Internal(base32alphabet, value);
+}
+
+/** @short   Decodes an RFC 4648 base-32 hex encoded string.
+    @long    DecodeBase32Hex will decode a base-32 hex encoded string to its original value. Letters can be either uppercase or
+             lowercase. The alphabet used is the one from RFC 4648 (table 4, chapter 7). The input value doesn't have to be
+             fully padded (the trailing '=' characters are not required).
+    @param   value String to decode
+    @return  The decoded string, or an empty string when decoding failed because of an invalid character
+    @see     EncodeBase32Hex DecodeBase16 DecodeBase32 DecodeBase64
+    @example
+// returns "Hello, World"
+STRING example1 := DecodeBase32Hex("91imor3f5gg5erridhi0");
+
+// returns "123"
+STRING example2 := DecodeBase32Hex("64P36===");
+
+// returns "", this base32-encoded string cannot be base32hex-decoded
+STRING example3 := DecodeBase32Hex("jbswy3dpfqqfo33snrsa");
+*/
+PUBLIC STRING FUNCTION DecodeBase32Hex(STRING value)
+{
+  RETURN DecodeBase32Internal(base32hexalphabet, value);
+}
+
+STRING FUNCTION DecodeBase32Internal(STRING alphabet, STRING value)
+{
+  value := ToUppercase(value);
+  INTEGER i, idx, digit;
+  INTEGER curbyte;
+  STRING decoded;
+
+  WHILE (i < Length(value))
+  {
+    curbyte := curbyte BITLSHIFT 5;
+    digit := SearchSubstring(alphabet, Substring(value, i, 1));
+    IF (digit < 0) // Invalid character, or padding '='
+      BREAK;
+    curbyte := curbyte + digit;
+    idx := idx + 5;
+
+    IF (idx >= 8)
+    {
+      idx := idx - 8;
+      decoded := decoded || ByteToString((curbyte BITAND (0xFF BITLSHIFT idx)) BITRSHIFT idx);
+    }
+    i := i + 1;
+  }
+  IF (Substring(value, i, 1) NOT IN [ "=", "" ])
+    RETURN ""; // Invalid character
+  RETURN decoded;
+}
+
+
+
+/** @short   Decodes a base-64 encoded string.
+    @long    DecodeBase64 will decode a Base-64 encoded string to its original value. This encoding is often used in
+             MIME-transported messages
+    @param   text String to decode
+    @return  The decoded string
+    @see     EncodeBase64 DecodeBase16 DecodeHTML DecodeJava DecodeURL DecodeValue
+    @example
+// returns "Hello, World"
+STRING example1 := DecodeBase64("SGVsbG8sIFdvcmxk");
+
+// returns "123"
+STRING example2 := DecodeBase64("MTIz");
+*/
+PUBLIC STRING FUNCTION DecodeBase64(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Decode a string encoding using url and filename safe base-64 encoding
+    @long    This function decodes a string that usiedg RFC 3548 section 4 encoding
+    @param   text String to decode
+    @return  The decoded string
+    @see     EncodeUFS DecodeBase64
+*/
+PUBLIC STRING FUNCTION DecodeUFS(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short   Decodes a quoted-printable encoded string.
+    @long    DecodeQP will decode a Quoted-Printable encoded string to its original value. This encoding is often used in
+             MIME-transported messages
+    @param   text String to decode
+    @return  The decoded string
+    @see     EncodeQP DecodeBase64 DecodeBase16 DecodeHTML DecodeJava DecodeURL DecodeValue
+    @example
+// returns "København"
+STRING example1 := DecodeQP("K=F8benhavn");
+*/
+PUBLIC STRING FUNCTION DecodeQP(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Randomizer functions
+//
+INTEGER randomizer_seed := -1;
+INTEGER FUNCTION GetDayCount(DATETIME date) __ATTRIBUTES__(EXTERNAL);
+INTEGER FUNCTION GetMsecondCount(DATETIME endTime) __ATTRIBUTES__(EXTERNAL);
+FLOAT FUNCTION Sqrt(FLOAT value) __ATTRIBUTES__(EXTERNAL);
+DATETIME FUNCTION GetCurrentDateTime() __ATTRIBUTES__(EXTERNAL);
+
+// Generates a nr in the range [0, rlimit>. rlimit in [0..65000]
+INTEGER FUNCTION RandomInternal(INTEGER rlimit)
+{
+  //this should be from Knuth, Seminumerical Algorithms
+  IF (randomizer_seed = -1)
+  {
+    DATETIME now := GetCurrentDatetime();
+    randomizer_seed := GetDaycount(now) BITXOR GetMsecondCount(now);
+  }
+  randomizer_seed := (0xBB40E62D * randomizer_seed + 0xA205B44D);
+  /* HareScript doesn't allow us to do unsigned 32-bit math, and switching
+     to Money might be a bit overkill here, so we'll just emulate the %0xFFFFFFFB step */
+  IF (randomizer_seed >= 0xFFFFFFFB)
+    randomizer_seed := randomizer_seed - 0xFFFFFFFB;
+  RETURN ((randomizer_seed BITRSHIFT 13) BITAND 0x0FFFFFFF) % rlimit;
+}
+
+
+/** @short Get a random number
+    @long This value returns a random number within the specified range. The size of
+          the range (max-min) may not be larger than 65000. If the randomizer has not
+          been seeded yet, it will automatically be seeded using the current clock value.
+          This is a simple pseudo-random number generator, which is useful for getting simple
+          random numbers but should not be used for cryptographic or security purposes.
+    @param min Minimum returned value
+    @param max Maximum returned value
+    @return A random value in the specified range
+    @see SeedRandomizer
+    @example
+//Returns a simulation of a throw with two dices
+INTEGER dice1 := Random(1,6);
+INTEGER dice2 := Random(1,6);
+INTEGER twodice := dice1 + dice2;
+*/
+PUBLIC INTEGER FUNCTION Random(INTEGER min, INTEGER max)
+{
+  INTEGER diff := max - min + 1;
+  IF (diff < 65000)
+    RETURN min + RandomInternal(max - min + 1);
+  ELSE
+  {
+    INTEGER rootceil := __HS_ToInteger(Sqrt(diff-1)) + 1;
+
+    // Chance of looping twice is small (max 1.5% per loop at 65535, max 0.004% at 2^31)
+    WHILE (TRUE)
+    {
+      INTEGER val := RandomInternal(rootceil) * rootceil + RandomInternal(rootceil);
+      IF (val < diff)
+        RETURN min + val;
+    }
+  }
+}
+
+
+
+/** @short Seed the randomizer
+    @long Set the randomizer seed - by forcing the randomizer seed to a known
+          value you can repeat random number sequences. If you call @link Random
+          before seeding the randomizer, it is automatically seeded with the
+          current time of day.
+    @param newseed The new seed value
+    @return The old current seed value: -1 if it hasn't been seeded yet
+    @see Random
+    @example
+//Prints an (almost) unpredictable value
+Print("Random: " || random(0,8) || "\n");
+//Force the randomizer to generate a known sequence
+SeedRandomizer(15);
+//Always prints 7, which happens to be the first value after seed 15
+Print("Random: " || random(0,8) || "\n");
+*/
+PUBLIC INTEGER FUNCTION SeedRandomizer(INTEGER newseed)
+{
+  INTEGER saveseed := randomizer_seed;
+  randomizer_seed := newseed;
+  RETURN saveseed;
+}
+
+/** @short Shuffle the elements in the array into a random order
+    @param indata Array to shuffle
+    @return Array with the elements in random order */
+PUBLIC VARIANT FUNCTION ShuffleArray(VARIANT indata)
+{
+  IF(NOT IsTypeidArray(TYPEID(indata)))
+    THROW NEW Exception("Argument to ShuffleArray must be an array");
+
+  IF(TYPEID(indata)=TYPEID(RECORD ARRAY))
+    RETURN SELECT * FROM indata ORDER BY Random(1,65535);
+
+  VARIANT outarray := GetTypeDefaultValue(TYPEID(indata));
+  FOREVERY(RECORD x FROM SELECT val FROM ToRecordArray(indata,"val") ORDER BY Random(1,65535))
+    INSERT x.val INTO outarray AT END;
+  RETURN outarray;
+}
+
+/** @short Reverse the order of an array
+    @param input The array to reverse
+    @return The reversed array
+    @example
+// Given a simple INTEGER ARRAY like so:
+INTEGER ARRAY test := [ 5, 3, 9, 11, 0, 4 ];
+test := ReverseArray(test);
+// The result would be:
+INTEGER ARRAY [ 4, 0, 11, 9, 3, 5 ];
+*/
+PUBLIC VARIANT FUNCTION ReverseArray(VARIANT input)
+{
+  VARIANT output := GetTypeDefaultValue(TypeID(input));
+  FOR (INTEGER i := LENGTH(input) - 1; i >= 0; i := i - 1)
+    INSERT input[i] INTO output AT END;
+
+  RETURN output;
+}
+
+/** Sorts an array of comparable values
+    @param input Input array
+    @return The sorted array
+// Given a simple INTEGER ARRAY like so:
+INTEGER ARRAY test := [ 5, 3, 9, 11, 0, 4 ];
+test := SortArray(test);
+// The result would be:
+INTEGER ARRAY [ 0, 3, 4, 5, 9, 11 ];
+*/
+PUBLIC VARIANT FUNCTION SortArray(VARIANT input)
+{
+  //FIXME move some of these checks/actions to the internal version
+  IF(NOT IsTypeIDArray(TypeID(input)))
+    THROW NEW Exception("Argument to SortArray must be an array");
+  IF(Length(input)=0)
+  {
+    IF(TypeID(input) = TypeID(VARIANT ARRAY)) //we don't want to be a source of variant arrays
+      THROW NEW Exception("SortArray does not know type to return if an empty variant array is passed");
+    RETURN input;
+  }
+  IF(TYPEID(input) = TYPEID(VARIANT ARRAY))
+  {
+    VARIANT fixedarray := GetTypeDefaultArray(TypeID(input[0]));
+    FOREVERY(VARIANT x FROM input)
+    {
+      IF(TypeID(x) != TypeID(input[0]))
+        THROW NEW Exception("All array elements must be of the same type");
+      INSERT x INTO fixedarray AT END;
+    }
+    input := fixedarray;
+  }
+  RETURN __HS_SQL_SortArray(input, FALSE, FALSE);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Output redirection
+//
+
+/** @short Redirect output 0 to a different output
+    @param newoutputid New output ID (0 to map output to the original Print output)
+    @return Old output ID*/
+PUBLIC INTEGER FUNCTION RedirectOutputTo(INTEGER newoutputid) __ATTRIBUTES__(EXTERNAL);
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Debugging/implementation functions
+//
+
+/** @short Signal a fatal error
+    @long Abort the currently run script, and generate an error message describing the problem
+    @param errordata Error to display to the user of the script, or data to format
+    @param format Data format to use, as passed to AnyToSTring. If ommitted or empty, print string values as string, other values as whatever seems reasonable */
+PUBLIC MACRO Abort(VARIANT errordata DEFAULTSTO "__no_error_value_set__", STRING format DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE, TERMINATES)
+{
+  //ADDME perhaps we should switch to fulll varargs to avoid the __no_error_value_set__ hack, but it'll reduce the amount of static checking we do...
+
+  // Save errordata into global variable for debugger
+  abort_errordata := [ value := errordata, format := format ];
+
+  FlushOutputBuffer();
+  IF(format="" AND TypeId(errordata)!=TypeId(STRING))
+    format := "tree:3";
+  IF(format!="")
+    errordata := TrimWhitespace(AnyToString(errordata,format));
+
+  DoFatalError(errordata != "__no_error_value_set__" ? 182 : 211, errordata, "");
+}
+
+/** @short Try to pause execution while reflecting on the contents of the value
+    @param value Value to reflect on
+    @param options Reflection options
+    @cell options.format Reflection format (allowed values: "tree",
+      "tree:<depth>", "boxed")
+    @cell options.showprivate Whether to show private members
+    @cell options.expandlevel How many levels to expand
+    @cell options.hidestacktrace Set to TRUE to hide the stack trace in the
+      reflect dialog
+    @cell options.hidedebugbutton Set to TRUE to hide the 'debug' button in the
+      reflect dialog
+    @return The value passed into reflect.
+*/
+PUBLIC VARIANT FUNCTION Reflect(VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(SKIPTRACE)
+{
+  options := ValidateOptions([ format := "tree:3"
+                             , showprivate := TRUE
+                             , expandlevel := 1
+                             , hidestacktrace := FALSE
+                             , hidedebugbutton := FALSE
+                             ], options);
+
+  IF(__system_reflecthook != DEFAULT MACRO PTR)
+  {
+    __system_reflecthook(value, options);
+    RETURN value;
+  }
+
+  DumpValue(value, [ callerlevel := 1, name := "Reflect", format := options.format ]);
+  IF(IsConsoleSupportAvailable() AND IsConsoleATerminal())
+  {
+    Print("REFLECT: Press enter to continue...");
+    ReadLineFrom(0,65536,TRUE);
+    Print("\n");
+  }
+  RETURN value;
+}
+
+/** @short Terminate immediately without error message
+    @long TerminateScript aborts the currently run script, but doesn't generate any error messages.
+        Deinit macros won't be run.
+*/
+PUBLIC MACRO TerminateScript() __ATTRIBUTES__(SKIPTRACE, TERMINATES)
+{
+  TRY
+  {
+    IF(__OnBeforeTerminateScript != DEFAULT FUNCTION PTR)
+      __OnBeforeTerminateScript();
+
+    FlushOutputBuffer();
+  }
+  FINALLY
+  {
+    __HS_SILENTTERMINATE();
+  }
+}
+
+
+/** @short Link a table variable to an external table
+    @long Establish a link between a table variable, a transaction and a table which holds the actual data
+    @param transaction ID of the transaction to which this table should link
+    @param tablename Name of the external table to which this table should link
+    @return A linked table variable */
+PUBLIC TABLE FUNCTION BindTransactionToTable(INTEGER transaction, STRING tablename) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Link a schema variable to a transaction
+    @long Establish a link between a table variable and a transaction
+    @param transaction ID of the transaction to which this schema should link
+    @param schemaname Name of the external schema to which this schema should link. If not empty, all database table names are prefixed with 'schemaname.'.
+    @return A linked schema variable */
+PUBLIC SCHEMA FUNCTION BindTransactionToSchema(INTEGER transaction, STRING schemaname) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Link a schema variable to an external table
+    @long Establish a link between a schema variable and a table which hold the actual data
+    @param bind_schema Schema that has the transaction to which this table should link bound.
+    @param tablename Name of the external table to which this table should link
+    @return A linked table variable */
+PUBLIC TABLE FUNCTION BindSchemaToTable(SCHEMA bind_schema, STRING tablename) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Get the transaction id and table name that have been bound to a table variable
+    @param bound_table Table to get the binding info of
+    @return Binding information
+    @cell return.transaction Transaction id
+    @cell return.tablename Table name */
+PUBLIC RECORD FUNCTION GetBindingFromTable(TABLE bound_table) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short Get the transaction id and table name that have been bound to a schema variable
+    @param bound_schema Table to get the binding info of
+    @return Binding information
+    @cell return.transaction Transaction id
+    @cell return.schemaname Schema name */
+PUBLIC RECORD FUNCTION GetBindingFromSchema(SCHEMA bound_schema) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Get the next autonumber ID for a table
+    @long Reserves an autonumber ID in a table, and returns that ID. In WebHare tables,
+          all IDs are specfic for that column and table - autonumber ids are not guaranteed to be
+          unique across all tables.
+    @param gettable Table for which an autonumber value should be generated
+    @param columnname Name of the autonumber column for a value is requested
+    @return The next available autonumber value
+*/
+PUBLIC INTEGER FUNCTION MakeAutoNumber(TABLE gettable, STRING columnname)
+{
+  RECORD binding := GetBindingFromTable(gettable);
+
+  OBJECT trans := GetTransactionObjectByIdInternal(binding.transaction);
+  STRING ARRAY toks:=Tokenize(binding.tablename,'.');
+  IF(Length(toks)=1)
+    RETURN trans->MakeAutoNumber("", binding.tablename, columnname);
+  ELSE
+    RETURN trans->MakeAutoNumber(toks[0], toks[1], columnname);
+}
+
+
+
+/** @short Keeps all transactions alive
+    @long Gives all transactions in the current group (weblets too) the opportunity to communicate with
+          their database, to avoid timeouts due to inactivity
+    @return Whether all transactions are still alive
+*/
+PUBLIC BOOLEAN FUNCTION KeepTransactionsAlive() __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Unpacks a record into a record array
+    @long Creates a record array with info about a record (all the cell names, types of the values in the cells)
+    @param rec Record to unpack
+    @return Record array with info about the record, with one record per cell in the parameter
+    @cell return.name Name of the  cell
+    @cell return.value Value contained in the cell */
+PUBLIC RECORD ARRAY FUNCTION UnpackRecord(RECORD rec) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short Repacks a record array into a record
+    @param fields Fields to repack
+    @cell fields.name Name of the cell
+    @cell fields.value Value contained in the cell
+    @return Repacked record. Default record if the list of fields is empty
+    */
+PUBLIC RECORD FUNCTION RepackRecord(RECORD ARRAY fields)
+{
+  RECORD res;
+  FOREVERY(RECORD fld FROM fields)
+  {
+    IF(CellExists(res,fld.name))
+      THROW NEW Exception(`Duplicate cell '${fld.name}'`);
+    res := CellInsert(res, fld.name, fld.value);
+  }
+  RETURN res;
+}
+
+
+STRING FUNCTION ReadFromFile(INTEGER filehandle, INTEGER numbytes)
+{
+  IF(numbytes<=32768) RETURN ReadFrom(filehandle, numbytes);
+  STRING data;
+  WHILE(numbytes>0) { STRING readbuf; readbuf := ReadFrom(filehandle, numbytes>32768?32768:numbytes); IF(Length(readbuf)=0) BREAK; data:=data||readbuf; numbytes:=numbytes-Length(readbuf);  }
+  RETURN data;
+}
+
+MACRO __PrintAnyTo(INTEGER output, VARIANT data, STRING format)
+{
+  INTEGER firstcolon := SearchSubstring(format,':');
+  STRING baseformat := firstcolon = -1 ? format : Left(format,firstcolon);
+  IF (baseformat = "tree" OR baseformat = "htmltree")
+  {
+    ShowTree2(output, data, baseformat = "htmltree", firstcolon=-1 ? 999 : ToInteger(Substring(format,firstcolon+1),0));
+  }
+  ELSE IF(baseformat = "json")
+  {
+    PrintTo(output, EncodeJSON(data) || "\n");
+  }
+  ELSE IF(baseformat = "hson")
+  {
+    PrintTo(output, EncodeHSON(data) || "\n");
+  }
+  ELSE IF(TypeId(data)=TypeId(RECORD ARRAY))
+  {
+    printrecordarrayto(output, data, format);
+  }
+  ELSE IF(TypeId(data)=TypeId(RECORD))
+  {
+    __printanyto(output, [Record(data)], format);
+  }
+  ELSE
+  {
+    __printanyto(output, [data:=data], format);
+  }
+}
+
+/** @short Print any type to an output for debugging
+    @param data Variable to show (record, object, etc)
+    @param options Output form (currently "boxed", "html", "csv", "tree", "tree:<depth>", "htmltree", "htmltree:<depth>"), or record with options
+    @cell(string) options.name Function name to use in header. Set to empty string for no header
+    @cell(string) options.format Formatting to use ("boxed", "html", "csv", "tree", "tree:<depth>", "htmltree", "htmltree:<depth>")
+    @cell(integer) options.callerlevel How far to look back in the stacktrace to get linenumber information
+*/
+PUBLIC MACRO DumpValue(VARIANT data, VARIANT options DEFAULTSTO DEFAULT RECORD)
+{
+  IF (TypeID(options) = TypeID(STRING))
+    options := [ format := options ];
+  options := ValidateOptions( [ callerlevel := 1, name := "DumpValue", format := "tree:3" ], options);
+
+  RECORD caller := GetStackTrace()[options.callerlevel];
+  IF(options.name != "")
+    Print(`${options.name} from ${caller.filename}:${caller.line}:${caller.col} (${caller.func})\n`);
+  __PrintAnyTo(0,data,options.format);
+  IF(options.name != "")
+    Print("\n");
+}
+
+/** @short Convert any type to a string for debugging
+    @param data Variable to show (record, object, etc)
+    @param format Output form (currently "boxed", "html", "csv", "tree", "htmltree" )
+    @return Formatted data
+*/
+PUBLIC STRING FUNCTION AnyToString(VARIANT data, STRING format) __ATTRIBUTES__(SKIPTRACE)
+{
+  //FIXME: Clean implementation, don't abuse streams
+  INTEGER s := __HS_CreateStream();
+  __PrintAnyTo(s, data, format);
+  BLOB b := MakeBlobFromStream(s);
+  INTEGER openblob := OpenBlobAsFile(b);
+  STRING retval := ReadFromFile(openblob, Length(b));
+  __HS_CloseFile(openblob);
+  RETURN retval;
+}
+
+/** @short Show the records of a record array
+    @long PrintRecordArrayTo prints all cells of all records in a record array.
+          The printout can be formatted in either boxed (ASCII) or HTML format.
+    @param outputdevice Output to send the record array to (0 = default)
+    @param recarr Record array to show
+    @param format Output form (currently "boxed", "html", "csv", "tree", "htmltree" )
+    @see PrintRecordTo PrintTo
+    @example
+// Show the cells of all records in a record array
+RECORD ARRAY ra := SELECT * FROM files WHERE parent = 1;
+PrintRecordArrayTo(0, ra,"boxed");
+
+*/
+PUBLIC MACRO PrintRecordArrayTo(INTEGER outputdevice, RECORD ARRAY recarr, STRING format)
+{
+  /* ADDME: Readd maxwidth support (eg: format "boxed-50")
+  IF (DEBUG_MAX_COLUMN_WIDTH > 0)
+  {
+    FOR (INTEGER i := 0; i < LENGTH(allcontents); i := i + 1)
+      allcontents[i].width := MIN(allcontents[i].width, DEBUG_MAX_COLUMN_WIDTH);
+  }
+  */
+
+  IF (tolowercase(format) = "html")
+  {
+    RECORD data := BoxedStringConvert(recarr, 0);
+    ShowHTML(outputdevice,data.list, data.contents);
+  }
+  ELSE IF (tolowercase(format)="boxed")
+  {
+    RECORD data := BoxedStringConvert(recarr, 0);
+    ShowBoxed(outputdevice,data.list, data.contents, FALSE);
+  }
+  ELSE IF (tolowercase(format)="starred")
+  {
+    RECORD data := BoxedStringConvert(recarr, 0);
+    ShowBoxed(outputdevice,data.list, data.contents, TRUE);
+  }
+  ELSE IF (tolowercase(format)="csv")
+  {
+    RECORD data := BoxedStringConvert(recarr, 0);
+    ShowCSV(outputdevice,data.list, data.contents,",");
+  }
+  ELSE IF (tolowercase(format)="ssv")
+  {
+    RECORD data := BoxedStringConvert(recarr, 0);
+    ShowCSV(outputdevice,data.list, data.contents,";");
+  }
+  ELSE IF (tolowercase(format)="tsv")
+  {
+    RECORD data := BoxedStringConvert(recarr, 0);
+    ShowCSV(outputdevice,data.list, data.contents,"\t");
+  }
+  ELSE IF (tolowercase(format)="tree")
+  {
+    ShowTree2(outputdevice,recarr,FALSE, 999);
+  }
+  ELSE IF (tolowercase(format)="htmltree")
+  {
+    ShowTree2(outputdevice, recarr, format = "htmltree", 999);
+  }
+  ELSE IF(tolowercase(format) = "json")
+  {
+    PrintTo(outputdevice, EncodeJSON(recarr) || "\n");
+  }
+  ELSE IF(tolowercase(format) = "hson")
+  {
+    PrintTo(outputdevice, EncodeHSON(recarr)  || "\n");
+  }
+  ELSE
+    ABORT("Unknown format type: " || format);
+}
+
+/** @short Show the contents of a single record
+    @long PrintRecordTo prints all cells of a record to an output device.
+          The printout can be formatted in either boxed (ASCII) or HTML format
+    @param outputdevice Output to send the record to (0 = default)
+    @param rec Record to show
+    @param format Output format (currently "boxed" or "html")
+    @see PrintRecordArrayTo PrintTo
+    @example
+// Show the cells of a file-record in the Publisher module
+PrintRecordTo(0, ourfile,"boxed");
+*/
+PUBLIC MACRO PrintRecordTo(INTEGER outputdevice, RECORD rec, STRING format)
+{
+  PrintRecordArrayTo(outputdevice, [ rec ], format);
+}
+
+/** @short Aggregate function which returns the number of records
+    @long Count is an aggregate function which can be used in SELECT statements, and
+          which counts the number of records in a group. At the moment, only the form
+          count(*) is allowed. Count can only be used within a SELECT statement, and specifically
+          only in the HAVING, ORDER BY clauses and in the list of selected cells.
+    @param data Array of records
+    @return Returns the number of records passed.
+    @see Min Max Sum Avg
+*/
+PUBLIC INTEGER AGGREGATE FUNCTION Count(VARIANT data) __ATTRIBUTES__(ISCOUNT)
+{
+  RETURN LENGTH(data);
+}
+
+/** @short Aggregate function which returns the highest value.
+    @long Max is an aggregate function which can be used in SELECT statements, and
+          which returns the expression with the highest value in a group. Max can
+          only be used within a SELECT statement, and specifically only in the HAVING,
+          ORDER BY clauses and in the list of selected cells.
+    @param data Array of expressions
+    @return Returns the expression with the highest value
+    @see Count Min Sum Avg
+    @example
+// Show per car maker which model is the most expensive
+  SELECT maker, Max(price)
+    FROM car_types
+GROUP BY maker
+*/
+PUBLIC VARIANT AGGREGATE FUNCTION Max(VARIANT data)
+{
+  VARIANT current := data[0];
+  FOREVERY (VARIANT v FROM data)
+    IF (v > current)
+      current := v;
+  RETURN current;
+}
+
+
+/** @short Aggregate function which returns the lowest value.
+    @long Min is an aggregate function which can be used in SELECT statements, and
+          which returns the expression with the lowest value in a group. Min can
+          only be used within a SELECT statement, and specifically only in the HAVING,
+          ORDER BY clauses and in the list of selected cells.
+    @param data Array of expressions
+    @return Returns the expression with the lowest value
+    @see Count Max Sum Avg
+    @example
+// Show per car maker which model is the cheapest
+  SELECT maker, Min(price)
+    FROM car_types
+GROUP BY maker
+*/
+PUBLIC VARIANT AGGREGATE FUNCTION Min(VARIANT data)
+{
+  VARIANT current := data[0];
+  FOREVERY (VARIANT v FROM data)
+    IF (v < current)
+      current := v;
+  RETURN current;
+}
+
+/** @short Aggregate function which returns the sum of values
+    @long Sum is an aggregate function which can be used in SELECT statements, and
+          which returns the sum of expressions. Sum can only be used within a SELECT
+          statement, and specifically only in the HAVING, ORDER BY clauses and in
+          the list of selected cells.
+    @param data Array of expressions
+    @return Returns the sum of expressions
+    @see Count Min Max Avg
+    @example
+// Show per car maker the total cost of all their models
+  SELECT maker, Sum(price)
+    FROM car_types
+GROUP BY maker
+*/
+PUBLIC VARIANT AGGREGATE FUNCTION Sum(VARIANT data)
+{
+  VARIANT current := data[0];
+  FOREVERY (VARIANT v FROM data)
+    IF (#v != 0)
+      current := current + v;
+  RETURN current;
+}
+
+/** @short Aggregate function which returns the average of values
+    @long Avg is an aggregate function which can be used in SELECT statements, and
+          which returns the average of expressions. Avg can only be used within a SELECT
+          statement, and specifically only in the HAVING, ORDER BY clauses and in
+          the list of selected cells.
+    @param data Array of expressions
+    @return Returns the average of expressions
+    @see Count Min Max Sum
+    @example
+// Show per car maker the average cost of their models
+  SELECT maker, Avg(price)
+    FROM car_types
+GROUP BY maker
+*/
+PUBLIC VARIANT AGGREGATE FUNCTION Avg(VARIANT data)
+{
+  VARIANT current := data[0];
+  FOREVERY (VARIANT v FROM data)
+    IF (#v != 0)
+      current := current + v;
+  RETURN current / LENGTH(data);
+}
+
+/** @short Get 'a' value from a group
+    @long Any selects a value from a group of values. It is not specified which item. This function is useful if you need a value from a group but cannot use that value as a GROUP BY expression.
+    @param data Array of values
+    @return Returns any of the values in the array
+    @see Count Min Max Sum
+*/
+PUBLIC VARIANT AGGREGATE FUNCTION Any(VARIANT data)
+{
+  RETURN data[0];
+}
+
+/** @short Return grouped values as an array
+    @param data Data to gather
+    @return The gathered values as an array
+    @example
+// Show folder names along with a list of files in that folder
+  SELECT folders.name, filenames := GroupedValues(files.name)
+    FROM files, folders
+   WHERE folders.parent = somefolder
+         AND files.parent = folders.id
+GROUP BY folders.name
+*/
+PUBLIC VARIANT AGGREGATE FUNCTION GroupedValues(VARIANT data)
+{
+  RETURN data;
+}
+
+/** @short Is the specified type id comparable ? (it can be used in inequality comparisons)
+    @param type The id of the type
+    @return True if the type can be used in inequality comparisons */
+PUBLIC BOOLEAN FUNCTION IsTypeidComparable(INTEGER type)
+{
+  RETURN type IN [TypeId(BOOLEAN),TypeId(STRING),TypeId(INTEGER),TypeId(INTEGER64),TypeId(MONEY),TypeId(FLOAT),TypeId(DATETIME)];
+}
+
+/** @short Cast a value to a specific type
+    @param invalue Value to cast
+    @param desttype Destination typeid
+    @return The casted value*/
+PUBLIC VARIANT FUNCTION CastTo(VARIANT invalue, INTEGER desttype)
+{
+  SWITCH(desttype)
+  {
+    CASE TypeId(BOOLEAN)           { RETURN BOOLEAN(invalue); }
+    CASE TypeId(STRING)            { RETURN STRING(invalue); }
+    CASE TypeId(INTEGER)           { RETURN INTEGER(invalue); }
+    CASE TypeId(INTEGER64)         { RETURN INTEGER64(invalue); }
+    CASE TypeId(MONEY)             { RETURN MONEY(invalue); }
+    CASE TypeId(FLOAT)             { RETURN FLOAT(invalue); }
+    CASE TypeId(DATETIME)          { RETURN DATETIME(invalue); }
+    CASE TypeId(RECORD)            { RETURN RECORD(invalue); }
+    CASE TypeId(OBJECT)            { RETURN OBJECT(invalue); }
+    CASE TypeId(BLOB)              { RETURN BLOB(invalue); }
+    CASE TypeId(FUNCTION PTR)      { RETURN FUNCTION PTR(invalue); }
+    CASE TypeId(WEAKOBJECT)        { RETURN WEAKOBJECT(invalue); }
+
+    CASE TypeId(BOOLEAN ARRAY)      { RETURN BOOLEAN ARRAY(invalue); }
+    CASE TypeId(STRING ARRAY)       { RETURN STRING ARRAY(invalue); }
+    CASE TypeId(INTEGER ARRAY)      { RETURN INTEGER ARRAY(invalue); }
+    CASE TypeId(INTEGER64 ARRAY)    { RETURN INTEGER64 ARRAY(invalue); }
+    CASE TypeId(MONEY ARRAY)        { RETURN MONEY ARRAY(invalue); }
+    CASE TypeId(FLOAT ARRAY)        { RETURN FLOAT ARRAY(invalue); }
+    CASE TypeId(DATETIME ARRAY)     { RETURN DATETIME ARRAY(invalue); }
+    CASE TypeId(RECORD ARRAY)       { RETURN RECORD ARRAY(invalue); }
+    CASE TypeId(OBJECT ARRAY)       { RETURN OBJECT ARRAY(invalue); }
+    CASE TypeId(BLOB ARRAY)         { RETURN BLOB ARRAY(invalue); }
+    CASE TypeId(FUNCTION PTR ARRAY) { RETURN FUNCTION PTR ARRAY(invalue); }
+    CASE TypeId(VARIANT ARRAY)      { RETURN VARIANT ARRAY(invalue); }
+    CASE TypeId(WEAKOBJECT ARRAY)   { RETURN WEAKOBJECT ARRAY(invalue); }
+
+    DEFAULT                   { THROW NEW Exception(`Unrecognized type id #${desttype}`); }
+  }
+}
+
+/** Returns whether a type is implicitly casted to another type if a value of that other type is required
+    @param totype The desired type
+    @param fromtype The type that has to be casted
+    @return Returns whether the type is implicitly casted to the other type when required
+*/
+PUBLIC BOOLEAN FUNCTION CanCastTypeTo(INTEGER fromtype, INTEGER totype)
+{
+  IF (totype = fromtype OR fromtype = TypeID(VARIANT) OR totype = 0)
+    RETURN TRUE;
+  IF (fromtype = 2) // macro noreturn
+    RETURN FALSE;
+  // Inv: totype != fromtype
+  SWITCH (totype)
+  {
+  CASE TypeID(VARIANT)          { RETURN TRUE; }
+  CASE TypeID(RECORD)           { RETURN fromtype = TypeID(RECORD ARRAY); }
+  CASE TypeID(INTEGER64)        { RETURN fromtype = TypeID(INTEGER); }
+  CASE TypeID(MONEY)            { RETURN fromtype = TypeID(INTEGER); }
+  CASE TypeID(FLOAT)            { RETURN fromtype = TypeID(INTEGER) OR fromtype = TypeID(MONEY) OR fromtype = TypeID(INTEGER64); }
+  CASE TypeID(VARIANT ARRAY)    { RETURN IsTypeidArray(fromtype); }
+  }
+  RETURN FALSE;
+}
+
+
+/** @short Is the specified type id an array ?
+    @param type The id of the type
+    @return True if the type can be used in inequality comparisons */
+PUBLIC BOOLEAN FUNCTION IsTypeidArray(INTEGER type)
+{
+  RETURN type>=0x80;
+}
+
+/** Returns the default value for a type
+    @param type Type
+    @return Default value for the type.
+*/
+PUBLIC VARIANT FUNCTION GetTypeDefaultValue(INTEGER type)
+{
+  //Return the default value for a type;
+  SWITCH(type)
+  {
+    CASE TypeId(BOOLEAN)      { RETURN DEFAULT BOOLEAN; }
+    CASE TypeId(STRING)       { RETURN DEFAULT STRING; }
+    CASE TypeId(INTEGER)      { RETURN DEFAULT INTEGER; }
+    CASE TypeId(INTEGER64)    { RETURN DEFAULT INTEGER64; }
+    CASE TypeId(MONEY)        { RETURN DEFAULT MONEY; }
+    CASE TypeId(FLOAT)        { RETURN DEFAULT FLOAT; }
+    CASE TypeId(DATETIME)     { RETURN DEFAULT DATETIME; }
+    CASE TypeId(RECORD)       { RETURN DEFAULT RECORD; }
+    CASE TypeId(OBJECT)       { RETURN DEFAULT OBJECT; }
+    CASE TypeId(BLOB)         { RETURN DEFAULT BLOB; }
+    CASE TypeId(FUNCTION PTR) { RETURN DEFAULT FUNCTION PTR; }
+    CASE TypeId(WEAKOBJECT)        { RETURN DEFAULT WEAKOBJECT; }
+
+    CASE TypeId(BOOLEAN ARRAY)      { RETURN DEFAULT BOOLEAN ARRAY; }
+    CASE TypeId(STRING ARRAY)       { RETURN DEFAULT STRING ARRAY; }
+    CASE TypeId(INTEGER ARRAY)      { RETURN DEFAULT INTEGER ARRAY; }
+    CASE TypeId(INTEGER64 ARRAY)    { RETURN DEFAULT INTEGER64 ARRAY; }
+    CASE TypeId(MONEY ARRAY)        { RETURN DEFAULT MONEY ARRAY; }
+    CASE TypeId(FLOAT ARRAY)        { RETURN DEFAULT FLOAT ARRAY; }
+    CASE TypeId(DATETIME ARRAY)     { RETURN DEFAULT DATETIME ARRAY; }
+    CASE TypeId(RECORD ARRAY)       { RETURN DEFAULT RECORD ARRAY; }
+    CASE TypeId(OBJECT ARRAY)       { RETURN DEFAULT OBJECT ARRAY; }
+    CASE TypeId(BLOB ARRAY)         { RETURN DEFAULT BLOB ARRAY; }
+    CASE TypeId(FUNCTION PTR ARRAY) { RETURN DEFAULT FUNCTION PTR ARRAY; }
+    CASE TypeId(VARIANT ARRAY)      { RETURN DEFAULT VARIANT ARRAY; }
+    CASE TypeId(WEAKOBJECT ARRAY)   { RETURN DEFAULT WEAKOBJECT ARRAY; }
+
+    DEFAULT                   { ABORT("Unrecognized type id #" || type); }
+  }
+}
+
+/** Returns an empty array of a specific type of elements
+    @param type Type of element of the array
+    @return Empty array */
+PUBLIC VARIANT FUNCTION GetTypeDefaultArray(INTEGER type)
+{
+  //Return the default value for a type;
+  SWITCH(type)
+  {
+    CASE TypeId(VARIANT)      { RETURN DEFAULT VARIANT ARRAY; }
+    CASE TypeId(BOOLEAN)      { RETURN DEFAULT BOOLEAN ARRAY; }
+    CASE TypeId(STRING)       { RETURN DEFAULT STRING ARRAY; }
+    CASE TypeId(INTEGER)      { RETURN DEFAULT INTEGER ARRAY; }
+    CASE TypeId(INTEGER64)    { RETURN DEFAULT INTEGER64 ARRAY; }
+    CASE TypeId(MONEY)        { RETURN DEFAULT MONEY ARRAY; }
+    CASE TypeId(FLOAT)        { RETURN DEFAULT FLOAT ARRAY; }
+    CASE TypeId(DATETIME)     { RETURN DEFAULT DATETIME ARRAY; }
+    CASE TypeId(RECORD)       { RETURN DEFAULT RECORD ARRAY; }
+    CASE TypeId(OBJECT)       { RETURN DEFAULT OBJECT ARRAY; }
+    CASE TypeId(BLOB)         { RETURN DEFAULT BLOB ARRAY; }
+    CASE TypeId(FUNCTION PTR) { RETURN DEFAULT FUNCTION PTR ARRAY; }
+    CASE TypeID(WEAKOBJECT)   { RETURN DEFAULT WEAKOBJECT ARRAY; }
+
+    DEFAULT
+    {
+      IF(IsTypeIdArray(type))
+        ABORT("Cannot create arrays of arrays");
+      ELSE
+        ABORT("Unrecognized type id #" || type || "(" || GetTypeName(type) || ")");
+    }
+  }
+}
+
+/** Returns the default value for elements of a array based on its type
+    @param type Array type
+    @return Default value for elements of the array type */
+PUBLIC VARIANT FUNCTION GetArrayTypeDefaultElement(INTEGER type)
+{
+  //Return the default value for a type;
+  SWITCH(type)
+  {
+    CASE TypeId(BOOLEAN ARRAY)      { RETURN DEFAULT BOOLEAN; }
+    CASE TypeId(STRING ARRAY)       { RETURN DEFAULT STRING; }
+    CASE TypeId(INTEGER ARRAY)      { RETURN DEFAULT INTEGER; }
+    CASE TypeId(INTEGER64 ARRAY)    { RETURN DEFAULT INTEGER64; }
+    CASE TypeId(MONEY ARRAY)        { RETURN DEFAULT MONEY; }
+    CASE TypeId(FLOAT ARRAY)        { RETURN DEFAULT FLOAT; }
+    CASE TypeId(DATETIME ARRAY)     { RETURN DEFAULT DATETIME; }
+    CASE TypeId(RECORD ARRAY)       { RETURN DEFAULT RECORD; }
+    CASE TypeId(OBJECT ARRAY)       { RETURN DEFAULT OBJECT; }
+    CASE TypeId(BLOB ARRAY)         { RETURN DEFAULT BLOB; }
+    CASE TypeId(FUNCTION PTR ARRAY) { RETURN DEFAULT FUNCTION PTR; }
+    CASE TypeID(WEAKOBJECT ARRAY)   { RETURN DEFAULT WEAKOBJECT; }
+    CASE TypeID(VARIANT ARRAY)      { THROW NEW Exception("Cannot return a default element for a VARIANT ARRAY"); }
+
+    DEFAULT
+    {
+      IF(NOT IsTypeIdArray(type))
+        THROW NEW Exception(`Cannot get default element of non-array type ${GetTypeName(type)}`);
+      ELSE
+        THROW NEW Exception(`Unrecognized type ${GetTypeName(type)}`);
+    }
+  }
+}
+
+/** @short Returns the name of a type
+    @long This function returns the name of the type, identified by the type id.
+    @param type TypeID of the type to return the name for
+    @return The name of the type
+    @example
+//Prints "STRING ARRAY"
+PRINT(GetTypeName(TypeID(DEFAULT STRING ARRAY)));
+*/
+PUBLIC STRING FUNCTION GetTypeName(INTEGER type) __ATTRIBUTES__(EXTERNAL);
+
+/** Returns the type number from a type name
+    @param name Name of the type (case insensitive)
+    @return Type number of the type */
+PUBLIC INTEGER FUNCTION GetHarescriptTypeIdByName(STRING name)
+{
+  SWITCH (ToUppercase(name))
+  {
+    CASE "BOOLEAN"            { RETURN TypeID(BOOLEAN); }
+    CASE "STRING"             { RETURN TypeID(STRING); }
+    CASE "INTEGER"            { RETURN TypeID(INTEGER); }
+    CASE "INTEGER64"          { RETURN TypeID(INTEGER64); }
+    CASE "MONEY"              { RETURN TypeID(MONEY); }
+    CASE "FLOAT"              { RETURN TypeID(FLOAT); }
+    CASE "DATETIME"           { RETURN TypeID(DATETIME); }
+    CASE "RECORD"             { RETURN TypeID(RECORD); }
+    CASE "OBJECT"             { RETURN TypeID(OBJECT); }
+    CASE "BLOB"               { RETURN TypeID(BLOB); }
+    CASE "FUNCTION PTR"       { RETURN TypeID(FUNCTION PTR); }
+    CASE "WEAKOBJECT"         { RETURN TypeID(WEAKOBJECT); }
+    CASE "TABLE"              { RETURN TypeID(TABLE); }
+    CASE "SCHEMA"             { RETURN TypeID(SCHEMA); }
+
+    CASE "BOOLEAN ARRAY"      { RETURN TypeID(BOOLEAN ARRAY); }
+    CASE "STRING ARRAY"       { RETURN TypeID(STRING ARRAY); }
+    CASE "INTEGER ARRAY"      { RETURN TypeID(INTEGER ARRAY); }
+    CASE "INTEGER64 ARRAY"    { RETURN TypeID(INTEGER64 ARRAY); }
+    CASE "MONEY ARRAY"        { RETURN TypeID(MONEY ARRAY); }
+    CASE "FLOAT ARRAY"        { RETURN TypeID(FLOAT ARRAY); }
+    CASE "DATETIME ARRAY"     { RETURN TypeID(DATETIME ARRAY); }
+    CASE "RECORD ARRAY"       { RETURN TypeID(RECORD ARRAY); }
+    CASE "OBJECT ARRAY"       { RETURN TypeID(OBJECT ARRAY); }
+    CASE "BLOB ARRAY"         { RETURN TypeID(BLOB ARRAY); }
+    CASE "FUNCTION PTR ARRAY" { RETURN TypeID(FUNCTION PTR ARRAY); }
+    CASE "VARIANT ARRAY"      { RETURN TypeID(VARIANT ARRAY); }
+    CASE "WEAKOBJECT ARRAY"   { RETURN TypeID(WEAKOBJECT ARRAY); }
+    DEFAULT                   { THROW NEW Exception(`Unknown type name ${name}`); }
+  }
+}
+
+/** @short Checks if the given variable is equal to the default value of its type.
+    @long This function checks if the given variable can be matched as equal to the default value of its type.
+    @param input The variable to check
+    @return Boolean TRUE if the given variable is equal to its type default, FALSE otherwise.
+    @example
+//Prints "TRUE"
+PRINT(AnyToString(IsDefaultValue(""), 'tree'));
+*/
+PUBLIC BOOLEAN FUNCTION IsDefaultValue(VARIANT input) __ATTRIBUTES__(SPECIAL)
+{
+  // Implementation is ignored, is translated to OpCode
+  INTEGER type := TypeId(input);
+  IF(TypeId(RECORD) = type)
+    RETURN NOT RecordExists(input);
+  ELSE IF(IsTypeIdArray(type) OR TypeId(BLOB) = type)
+    RETURN (Length(input) = 0);
+  ELSE
+    RETURN (input = GetTypeDefaultValue(type));
+}
+
+/** @short Checks if the given variable is not equal to the default value of its type. Opposite of %IsDefaultValue
+    @param input The variable to check
+    @return Boolean TRUE if the given variable is has been changed from its type default, FALSE if equal to the default value
+    @example
+//Prints "FALSE"
+DumpValue(IsValueSet(""));
+
+//Prints "TRUE"
+DumpValue(IsValueSet(PTR Print));
+
+*/
+PUBLIC BOOLEAN FUNCTION IsValueSet(VARIANT input) __ATTRIBUTES__(SPECIAL)
+{
+  // Implementation is ignored, is translated to OpCode
+  INTEGER type := TypeId(input);
+  IF(TypeId(RECORD) = type)
+    RETURN RecordExists(input);
+  ELSE IF(IsTypeIdArray(type) OR TypeId(BLOB) = type)
+    RETURN (Length(input) != 0);
+  ELSE
+    RETURN (input != GetTypeDefaultValue(type));
+}
+
+
+/** @short Repeat the specified text the specified number of times
+    @param text Text to repeat
+    @param count How often to repeat the text
+    @return Repeated text */
+PUBLIC STRING FUNCTION RepeatText(STRING text, INTEGER count) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Dynamically create a function/macro pointer
+    @long This function dynamically loads a function or macro pointer from an external
+          library. If the library was not loaded yet, it will be initialized.
+    @signature FUNCTION PTR FUNCTION MakeFunctionPtr(STRING functionname)
+    @param functionname Name of the function (unmangled, must be public, using the "lib#function" syntax)
+    @return A pointer to the function in question, or a default function pointer if the function was not found */
+PUBLIC FUNCTION PTR FUNCTION MakeFunctionPtr(STRING functionname, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  STRING libname;
+  INTEGER returntypeid := -1;
+  INTEGER ARRAY parametertypeids;
+
+  IF(functionname LIKE "*#*")
+  {
+    INTEGER splitpos := SearchSubstring(functionname, '#');
+    libname := Left(functionname, splitpos);
+    functionname := Substring(functionname, splitpos + 1);
+  }
+  ELSE IF(Length(args)=0)
+  {
+    THROW NEW Exception("Invalid call to MakeFunctionPtr - first argument was not a full library#function path, but did not receive function name either");
+  }
+  ELSE
+  {
+    libname := functionname;
+    functionname := args[0];
+    DELETE FROM args AT 0;
+  }
+
+  IF(Length(args)>0)
+  {
+    returntypeid := args[0];
+    IF(Length(args)>1)
+      parametertypeids := args[1];
+  }
+
+  RECORD rec := __HS_INTERNAL_ENSURELIBRARYLOADED(libname);
+  IF (rec.status = "ok")
+    rec := __HS_INTERNAL_MAKEFUNCTIONPTR(libname, functionname, returntypeid, parametertypeids);
+  SWITCH (rec.status)
+  {
+    CASE "ok"             { RETURN rec.pointer; }
+    CASE "errors"
+    {
+      IF (rec.errors[0].code = 170)
+        THROW NEW LibraryVersionConflictException(rec.errors);
+      THROW NEW HarescriptErrorException(rec.errors);
+    }
+    CASE "notfound"
+    {
+      IF (rec.pointer != "")
+        THROW NEW Exception("Function '" || ToUppercase(functionname) || "' was not found in library '"||libname||"', did you mean '" || Tokenize(rec.pointer, ":")[0] || "'?");
+      THROW NEW Exception("Function '" || ToUppercase(functionname) || "' was not found in library '"||libname||"'");
+    }
+    CASE "wrongsignature"
+    {
+      STRING expect := ExplainFunctionSignature(returntypeid, parametertypeids, ToUppercase(functionname));
+      RECORD unmangled := __HS_INTERNAL_UNMANGLEFUNCTIONNAME(rec.pointer);
+      STRING got := ExplainFunctionSignature(unmangled.returntype, unmangled.parameters, ToUppercase(functionname));
+
+      THROW NEW Exception("Function '" || ToUppercase(functionname) || "' has the wrong signature. Wanted " || expect || ", but found " || got);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("MakeFunctionPtr encountered an unknown result code: " || rec.status);
+    }
+  }
+}
+
+
+/** @short Validates a macro/function pointer
+    @long This function tests whether a function pointer can accept certain types of parameters, and if the type of its
+          return value meets the expectations.
+    @param funcptr Function pointer to tests
+    @param returntypeid Required return type, set to VARIANT to ignore. The return type of a MACRO is 0
+    @param parametertypeids Types of parameters that is given to the function pointer.
+    @return Returns whether the parameters can all be casted to their wanted types, and the return value can
+            be casted to the desired type.
+*/
+PUBLIC BOOLEAN FUNCTION ValidateFunctionPtr(MACRO PTR funcptr, INTEGER returntypeid, INTEGER ARRAY parametertypeids)
+{
+  IF(funcptr = DEFAULT FUNCTION PTR)
+    RETURN FALSE;
+  RECORD x := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(funcptr);
+
+  // Check return value
+  IF (returntypeid!=0 AND NOT CanCastTypeTo(x.returntype, returntypeid))
+    RETURN FALSE;
+
+  INTEGER first_unused_source;
+  FOREVERY (RECORD param FROM x.parameters)
+  {
+    IF (param.source != 0) // Passthrough
+    {
+      INTEGER abssource;
+      IF (param.source < 0)
+        abssource := -param.source + 1;
+      ELSE
+        abssource := param.source - 1;
+
+      IF (abssource >= first_unused_source)
+        first_unused_source := abssource + 1;
+
+      IF (abssource >= LENGTH(parametertypeids))
+      {
+        IF (param.source > 0)
+          RETURN FALSE;
+
+        CONTINUE;
+      }
+
+      // Check the parameter type
+      INTEGER gottype := parametertypeids[abssource];
+      INTEGER wanttype := param.type;
+
+      IF (NOT CanCastTypeTo(gottype, wanttype))
+        RETURN FALSE;
+    }
+  }
+
+  IF (LENGTH(parametertypeids) > first_unused_source)
+  {
+    INTEGER wanttype := x.excessargstype;
+    IF (wanttype = 0)
+      RETURN FALSE;
+
+    FOR (INTEGER idx := first_unused_source, iend := LENGTH(parametertypeids); idx < iend; idx := idx + 1)
+      IF (NOT CanCastTypeTo(parametertypeids[idx], wanttype))
+        RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+/** @short Generate a string which describes the given return and parameter types
+    @param returntypeid Type number of the return type
+    @param parametertypeids List of the type numbers of the parameters
+    @param name Name of the function/macro
+    @return Signature
+*/
+PUBLIC STRING FUNCTION ExplainFunctionSignature(INTEGER returntypeid, INTEGER ARRAY parametertypeids, STRING name DEFAULTSTO "")
+{
+  STRING sig;
+  IF (returntypeid = 0 OR returntypeid = 2)
+    sig := "MACRO ";
+  ELSE
+    sig := GetTypeName(returntypeid) || " FUNCTION ";
+  sig := sig || name || "(";
+  FOREVERY (INTEGER parametertypeid FROM parametertypeids)
+    sig := sig || (#parametertypeid > 0 ? ", " : "") || GetTypeName(parametertypeid) || " param" || (#parametertypeid + 1);
+  sig := sig || ")";
+  RETURN sig;
+}
+
+/** @short Generate a string which describes the given function ptr
+    @param funcptr Function ptr to generate a signature for
+    @return Signature for the function ptr
+*/
+PUBLIC STRING FUNCTION ExplainFunctionPtrSignature(FUNCTION PTR funcptr)
+{
+  IF(funcptr = DEFAULT FUNCTION PTR)
+    RETURN "";
+  RECORD x := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(funcptr);
+
+  STRING functionname := Left(x."function", SearchSubString(x."function", ":"));
+
+  INTEGER ARRAY parametertypeids;
+
+  FOREVERY (RECORD param FROM x.parameters)
+  {
+    IF (param.source = 0)
+      CONTINUE;
+
+    INTEGER abssource;
+    IF (param.source < 0)
+      abssource := -param.source + 1;
+    ELSE
+      abssource := param.source - 1;
+
+    // Enough parameters?
+    WHILE (abssource >= LENGTH(parametertypeids))
+      INSERT 1 INTO parametertypeids AT END;
+
+    IF (param.type != 1)
+      parametertypeids[abssource] := param.type;
+  }
+
+  INTEGER varargparam := -1;
+  IF (x.excessargstype != 0)
+  {
+    varargparam := x.firstunusedsource -1;
+    WHILE (varargparam >= LENGTH(parametertypeids))
+      INSERT 1 INTO parametertypeids AT END;
+    parametertypeids[varargparam] := x.excessargstype;
+  }
+
+  STRING sig;
+  IF (x.returntype = 0 OR x.returntype = 2)
+    sig := "MACRO ";
+  ELSE
+    sig := GetTypeName(x.returntype) || " FUNCTION ";
+  sig := sig || functionname || "(";
+  FOREVERY (INTEGER parametertypeid FROM parametertypeids)
+  {
+    sig := sig || (#parametertypeid > 0 ? ", " : "") || GetTypeName(parametertypeid) || " param" || (#parametertypeid + 1);
+    IF (x.excessargstype != 0 AND #parametertypeid = varargparam)
+      sig := sig || "...";
+  }
+  sig := sig || ")";
+  RETURN sig;
+}
+
+/** Calls a function pointer with an argument list, without expecting a return value
+    @param fptr Function pointer to call
+    @param arguments Arguments to call the function pointer with
+*/
+PUBLIC MACRO CallMacroPtrVA(FUNCTION PTR fptr, VARIANT ARRAY arguments) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, SPECIAL);
+
+/** Calls a function pointer with an argument list, returning the return value. Aborts when the function pointer points to a macro.
+    @param fptr Function pointer to call
+    @param arguments Arguments to call the function pointer with
+    @return Return value from the call
+*/
+PUBLIC VARIANT FUNCTION CallFunctionPtrVA(FUNCTION PTR fptr, VARIANT ARRAY arguments) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, SPECIAL);
+
+/** Calls any function pointer with an argument list, returning the return value. If a macro is invoked, returns TRUE
+    @param v Function pointer to call
+    @param args Arguments to call the function pointer with
+    @return Return value from the call
+*/
+PUBLIC VARIANT FUNCTION CallAnyPtrVA(FUNCTION PTR v, VARIANT ARRAY args) __ATTRIBUTES__(SKIPTRACE)
+{
+  IF(__INTERNAL_DEBUGGETFUNCTIONPTRRETURNTYPE(v) NOT IN [0,2])
+    RETURN CallFunctionPtrVA(v, args);
+
+  CallMacroPtrVA(v, args);
+  RETURN TRUE;
+}
+
+
+/** @short Collects and removes all unreferenced objects
+    @long This function analyses which objects are not referenced anymore, and removes
+          them from memory. Use this function when a lot of objects have been discarded,
+          to reclaim the memory they use
+*/
+PUBLIC MACRO CollectGarbage() __ATTRIBUTES__(EXTERNAL);
+
+/** Returns the value of a stored script property for the top-level script
+    @param propertyname Name of the property ("fileid" or "filecreationdate")
+    @return Value of the stored script property
+*/
+PUBLIC VARIANT FUNCTION GetStoredScriptProperty(STRING propertyname) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+RECORD ARRAY spothitcounts;
+
+/** Return the number of times this functions was called from, fro the caller's location
+    @return Hit count
+    @example
+// prints '1-1\n2-2\n'
+FOR (INTEGER i := 0; i < 2; i := i + 1)
+  PRINT(`${GetSpotHitCount()}-${GetSpotHitCount()}\n`);
+*/
+PUBLIC INTEGER FUNCTION GetSpotHitCount()
+{
+  RECORD loc := GetStackTrace()[1];
+  RECORD pos := RecordLowerBound(spothitcounts, loc, [ "FILENAME", "LINE", "COL" ]);
+  IF (NOT pos.found)
+  {
+    INSERT CELL[ ...loc, count := 1 ] INTO spothitcounts AT pos.position;
+    RETURN 1;
+  }
+
+  INTEGER cnt := spothitcounts[pos.position].count + 1;
+  spothitcounts[pos.position].count := cnt;
+  RETURN cnt;
+}
+
+/** Base object type for exceptions. It is recommended this type is used to
+    derive exceptions from; it provides handy stuff like an exception trace and
+    error traces of uncaught exceptions.
+*/
+PUBLIC OBJECTTYPE Exception
+< /// Contains the unwind trace for this exception. Matched by name by the unwinder.
+  RECORD ARRAY pvt_trace;
+
+  /** Contains the unwind trace for this exception
+      @cell filename File
+      @cell line Line
+      @cell col Column
+      @cell func Function
+  */
+  PUBLIC PROPERTY trace(pvt_trace, __SetTrace);
+
+  /// Message for this exception
+  PUBLIC STRING what;
+
+  /** Constructor for an exception
+      @param what Exception message
+      @param options Options
+      @cell options.trace Stack trace to initialize with
+      @cell options.trace.filename Filename
+      @cell options.trace.line Line number
+      @cell options.trace.col Column number
+      @cell options.trace.func Function name
+  */
+  MACRO NEW(STRING what, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ trace := RECORD[] ], options);
+    this->what := what;
+    IF(Length(options.trace) > 0)
+      this->trace := options.trace;
+  }
+
+  MACRO __SetTrace(RECORD ARRAY newtrace)
+  {
+    this->pvt_trace := SELECT filename := STRING(filename)
+                            , line :=     INTEGER(line)
+                            , col :=      INTEGER(col)
+                            , func :=     STRING(func)
+                         FROM newtrace;
+  }
+
+  /** Encode into a record for transfer over IPC. Use RegisterReceivedExceptionType to register decoders for other types
+      of exception.
+      @return Encoded exception
+      @cell(string) return.type Type, required, must be unique for every exception type.
+      @cell(string) return.trace Exception trace. Required.
+      @cell(string) return.trace.filename Filename
+      @cell(integer) return.trace.line Line
+      @cell(integer) return.trace.col Column
+      @cell(string) return.trace.func Function
+  */
+  PUBLIC RECORD FUNCTION EncodeForIPC()
+  {
+    RETURN
+        [ type :=   "exception"
+        , what :=   this->what
+        , trace :=  this->trace
+        ];
+  }
+
+  PUBLIC MACRO __AnnotateCurrentFunction(STRING append)
+  {
+    this->pvt_trace[END-1].func := this->pvt_trace[END-1].func || append;
+  }
+>;
+
+STRING FUNCTION GetMessageForFirstError(RECORD ARRAY msgs)
+{
+  RECORD ARRAY err := SELECT * FROM msgs WHERE code >= 0 AND iserror;
+  IF (LENGTH(err) >= 2 AND err[0].code = 146) // When calling...
+    DELETE FROM err AT 0;
+  IF (RecordExists(err))
+    RETURN GetHareScriptMessageText(TRUE, err[0].code, err[0].param1, err[0].param2) || ". At " || err[0].filename || "(" || err[0].line || "," || err[0].col || ")";
+  RETURN "";
+}
+
+/** Base object type for harescript errors exceptions. This type is used to
+    describe Harescript errors.
+*/
+PUBLIC OBJECTTYPE HarescriptErrorException EXTEND Exception
+<
+  /// List of errors
+  RECORD ARRAY pvt_errors;
+
+  MACRO DecodeList(RECORD ARRAY list)
+  {
+    list := __HS_EnsureTraceItemForFirstError(list);
+    this->pvt_errors := SELECT * FROM list WHERE code >= 0 AND iserror;
+    this->pvt_trace :=
+        SELECT filename
+             , line
+             , col
+             , func
+          FROM list
+         WHERE code < 0
+      ORDER BY code DESC;
+  }
+
+  /** List of errors
+      @type(record)
+      @cell iserror Whether this is an error
+      @cell iswarning Whether this is an warning
+      @cell filename File that triggered this error/warning
+      @cell line Relevant line number
+      @cell col Relevant column number
+      @cell code Harescript error code
+      @cell message Harescript error message
+      @cell param1 First parameter for error message
+      @cell param2 Second parameter for error message
+  */
+  PUBLIC PROPERTY errors(pvt_errors, -);
+
+  /** Construct a new exception from an error list
+      @param list List of errors @includecelldef #errors
+  */
+  MACRO NEW(RECORD ARRAY list)
+  : Exception(GetMessageForFirstError(list))
+  {
+    this->DecodeList(list);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION EncodeForIPC()
+  {
+    RETURN
+        [ type := "harescripterrorexception"
+        , what := this->what
+        , list := this->pvt_errors CONCAT
+                      SELECT *
+                           , code :=    -#pvt_trace-1
+                        FROM this->pvt_trace
+        ];
+  }
+>;
+
+/** This error is thrown when a new library is loaded, which depends on another library that
+    was loaded, but has been changed since. Harescript cannot load two different compiled
+    versions of the same library at the same time.
+*/
+PUBLIC STATIC OBJECTTYPE LibraryVersionConflictException EXTEND HarescriptErrorException
+<
+>;
+
+/** This error is thrown when an invalid option is passed to ValidateOptions (webhare 4.20+)
+*/
+PUBLIC STATIC OBJECTTYPE InvalidOptionException EXTEND Exception
+<
+  STRING __option;
+
+  /// Name of the option that generated an error
+  PUBLIC PROPERTY option(__option, -);
+
+  /** Constructs a new object
+      @param option Name of the option
+      @param what Error description
+  */
+  PUBLIC MACRO NEW(STRING option, STRING what) : Exception(what)
+  {
+    this->__option := option;
+  }
+>;
+
+/** Get the current value of the authentication record
+    @return Authentication record
+*/
+PUBLIC RECORD FUNCTION GetAuthenticationRecord()
+{
+  RETURN __HS_INTERNAL_GETAUTHENTICATIONRECORD();
+}
+
+/** Set the value of the authentication record
+    @param rec New authentication record value
+*/
+PUBLIC MACRO SetAuthenticationRecord(RECORD rec)
+{
+  __HS_INTERNAL_SETAUTHENTICATIONRECORD(rec);
+}
+
+/** Sets error context info (for the notice log)
+    @param contextinfo New context info
+*/
+PUBLIC MACRO SetErrorContextInfo(RECORD contextinfo)
+{
+  RECORD rec := GetAuthenticationRecord();
+  DELETE CELL contextinfo FROM rec;
+  INSERT CELL contextinfo := EncodeHSON(contextinfo) INTO rec;
+  SetAuthenticationRecord(rec);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// The functions below are used by the compiler to implement the SQL syntax
+// You should not modify these declarations, and not ever call these functions
+// directly.
+
+// The following 3 functions are replaced with inline code in the compiler
+PUBLIC RECORD ARRAY FUNCTION __HS_SQL_GetSourcesBaseList() __ATTRIBUTES__(SPECIAL, CONSTANT)
+{
+  RETURN DEFAULT RECORD ARRAY;
+}
+PUBLIC RECORD ARRAY FUNCTION __HS_SQL_AddTableSource(RECORD ARRAY sources, TABLE tbl, INTEGER typeinfo) __ATTRIBUTES__(SPECIAL, CONSTANT)
+{
+  INSERT [ isdb := TRUE, source := tbl, typeinfo := typeinfo ] INTO sources AT END;
+  RETURN sources;
+}
+PUBLIC RECORD ARRAY FUNCTION __HS_SQL_AddRecordArraySource(RECORD ARRAY sources, RECORD ARRAY expr, INTEGER typeinfo) __ATTRIBUTES__(SPECIAL, CONSTANT)
+{
+  INSERT [ isdb := FALSE, source := expr, typeinfo := typeinfo ] INTO sources AT END;
+  RETURN sources;
+}
+PUBLIC INTEGER FUNCTION __HS_SQL_OpenCursor2(RECORD ARRAY sources, RECORD opts) __ATTRIBUTES__(EXTERNAL);
+PUBLIC         MACRO    __HS_SQL_Insert(TABLE tableid, INTEGER typeinfo, RECORD rec, BOOLEAN dynamic) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC         MACRO    __HS_SQL_InsertMultiple(TABLE tableid, INTEGER typeinfo, RECORD ARRAY rec, BOOLEAN dynamic) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC         MACRO    __HS_SQL_CloseQuery(INTEGER quid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC         MACRO    __HS_SQL_DeleteRecord(INTEGER quid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC         MACRO    __HS_SQL_UpdateRecord(INTEGER quid, VARIANT newfields) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD  FUNCTION __HS_SQL_GetRecordFase1(INTEGER quid, INTEGER tableid) __ATTRIBUTES__(EXTERNAL, NOSTATEMODIFY);
+PUBLIC RECORD  FUNCTION __HS_SQL_GetRecordFase2(INTEGER quid, INTEGER tableid) __ATTRIBUTES__(EXTERNAL, NOSTATEMODIFY);
+PUBLIC INTEGER FUNCTION __HS_SQL_GetRecordArrayPosition(INTEGER quid, INTEGER tableid) __ATTRIBUTES__(EXTERNAL, NOSTATEMODIFY);
+PUBLIC INTEGER FUNCTION __HS_SQL_GetGroupPosition(RECORD ARRAY groups, RECORD groupdata) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+PUBLIC MACRO            __HS_SQL_ReportWhereResult(INTEGER quid, BOOLEAN matches) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER FUNCTION __HS_SQL_GetAction(INTEGER quid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC INTEGER FUNCTION __HS_SQL_GetRecAction(INTEGER quid) __ATTRIBUTES__(EXTERNAL);
+PUBLIC VARIANT FUNCTION __HS_SQL_MakeArrayOfValue(VARIANT value) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+PUBLIC INTEGER FUNCTION __HS_TYPEID(VARIANT a) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+PUBLIC RECORD  FUNCTION __HS_SQL_OverwriteRecord(Record A, Record B) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+PUBLIC RECORD  FUNCTION __HS_SQL_MergeRecords(Record A, Record B) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+PUBLIC RECORD ARRAY FUNCTION __HS_SQL_Reorder_Results(RECORD ARRAY inputdata, STRING ordering) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+PUBLIC RECORD ARRAY FUNCTION __HS_SQL_MakeDistinct(RECORD ARRAY data) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+PUBLIC VARIANT FUNCTION __HS_SQL_SortArray(VARIANT list, BOOLEAN reverse, BOOLEAN makedistinct) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+PUBLIC RECORD ARRAY FUNCTION __HS_SQL_GETARRAYRESULTS(INTEGER quid) __ATTRIBUTES__(EXTERNAL, NOSTATEMODIFY);
+PUBLIC VARIANT FUNCTION __HS_GetPrivateMember(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC            MACRO __HS_SetPrivateMember(OBJECT obj, STRING membername, VARIANT value) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC OBJECT  FUNCTION __HS_INTERNAL_MakeObjectReferencePrivileged(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
+//PUBLIC FUNCTION PTR FUNCTION __HS_CreateGetter(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL);
+//PUBLIC FUNCTION PTR FUNCTION __HS_CreateSetter(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL);
+PUBLIC FUNCTION PTR FUNCTION __HS_REBINDFUNCTIONPTR(FUNCTION PTR fptr, INTEGER ARRAY passthroughs, VARIANT ARRAY args) __ATTRIBUTES__(EXTERNAL);
+PUBLIC FUNCTION PTR FUNCTION __HS_REBINDFUNCTIONPTR2(FUNCTION PTR fptr, RECORD ARRAY arguments, INTEGER firstunusedsource, BOOLEAN keepvararg) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN FUNCTION __HS_OBJECTMATCHESOUID(OBJECT obj, STRING ouid) __ATTRIBUTES__(EXTERNAL);
+PUBLIC VARIANT FUNCTION __HS_SQL_DEBUG_GetVarAsOptimized(VARIANT v) { RETURN v; }
+PUBLIC SCHEMA FUNCTION __HS_SQL_RebindSchemaWithTypeInfo(SCHEMA bound_schema, INTEGER typeinfo) __ATTRIBUTES__(EXTERNAL);
+PUBLIC TABLE FUNCTION __HS_SQL_RebindTableWithTypeInfo(TABLE bound_schema, INTEGER typeinfo) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __HS_SQL_DescribeTableTypeInfo(TABLE tbl) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC VARIANT ARRAY FUNCTION __CAST_TO_VARIANT_ARRAY(VARIANT indata) //FIXME: Harescript cast should be able to do it
+{
+  VARIANT ARRAY retval;
+  FOREVERY(VARIANT data FROM indata)
+    INSERT data INTO retval AT END;
+  RETURN retval;
+}
+
+//ADDME: Move these functions & friends to devsupport
+/*PUBLIC INTEGER FUNCTION __INTERNAL_DEBUGGETFUNCTIONPTRPARAMCOUNT(FUNCTION PTR fptr)
+{
+  RECORD x := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(fptr);
+  RECORD vars := x.":vars";
+  INTEGER i, m;
+  FOR (i := 1; CellExists(x, ":TYPE"||i); i := i + 1)
+  {
+    INTEGER mp := GetCell(vars, ToString(i));
+    IF (mp > m)
+      m := mp;
+  }
+  RETURN m;
+}
+*/
+PUBLIC INTEGER FUNCTION __INTERNAL_DEBUGGETFUNCTIONPTRRETURNTYPE(FUNCTION PTR fptr)
+{
+  RECORD x := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(fptr);
+  RETURN x.returntype;
+}
+
+PUBLIC MACRO __HS_INTERNAL_THROWEXCEPTION(STRING what) __ATTRIBUTES__(SKIPTRACE)
+{
+  THROW NEW Exception(what);
+}
+
+PUBLIC RECORD ARRAY FUNCTION __HS_EnsureTraceItemForFirstError(RECORD ARRAY msglist)
+{
+  // Find the first item, convert into traceitem
+  RECORD traceitem :=
+      SELECT iserror := FALSE
+           , iswarning := FALSE
+           , code := -1
+           , col
+           , line
+           , func
+           , filename
+           , param1 := func
+           , param2 := ""
+           , message := ""
+        FROM msglist
+       WHERE code > 0 AND iserror;
+
+  IF (RecordExists(traceitem))
+  {
+    // If the top trace position isn't for that error, add a trace position
+    IF (NOT RecordExists(
+          SELECT FROM msglist
+           WHERE code = -1
+             AND col = traceitem.col
+             AND line = traceitem.line
+             AND filename = traceitem.filename))
+    {
+      // Insert into msglist
+      UPDATE msglist SET code := code - 1 WHERE code < 0;
+      INSERT traceitem INTO msglist AT END;
+    }
+  }
+  RETURN msglist;
+}
+
+RECORD FUNCTION __HS_INTERNAL_GETAUTHENTICATIONRECORD() __ATTRIBUTES__(EXTERNAL);
+MACRO __HS_INTERNAL_SETAUTHENTICATIONRECORD(RECORD data) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING FUNCTION __HS_INTERNAL_OVERRIDEEXECUTELIBRARY(STRING url) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD FUNCTION __HS_INTERNAL_UNMANGLEFUNCTIONNAME(STRING mangledname) __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION __HS_INTERNAL_ENSURELIBRARYLOADED(STRING libname) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+RECORD FUNCTION __HS_INTERNAL_MAKEFUNCTIONPTR(STRING libname, STRING functionname, INTEGER returntypeid, INTEGER ARRAY parametertypeids) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+STRING FUNCTION GetHareScriptMessageText(BOOLEAN iserror, INTEGER code, STRING param1, STRING param2) __ATTRIBUTES__(EXTERNAL);
+//PUBLIC STRING FUNCTION __HS_INTERNAL_ReadLineFrom(INTEGER inputid, INTEGER maxnumbytes, BOOLEAN striplf) __ATTRIBUTES__(EXTERNAL);
+//PUBLIC STRING FUNCTION __HS_INTERNAL_ReadFrom(INTEGER inputid, INTEGER maxnumbytes) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __HS_INTERNAL_ReceiveFrom(INTEGER inputid, INTEGER maxnumbytes, BOOLEAN lineread, BOOLEAN striplf, BOOLEAN only_buffer) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __HS_INTERNAL_CancelReceiveLine(INTEGER inputid) __ATTRIBUTES__(EXTERNAL);
+
+FUNCTION PTR FUNCTION GetObjectConstructor(STRING libname, STRING objname, INTEGER ARRAY argtypes) __ATTRIBUTES__(SKIPTRACE)
+{
+  RECORD rec := __HS_INTERNAL_ENSURELIBRARYLOADED(libname);
+  IF (rec.status = "ok")
+    rec := __HS_INTERNAL_MAKEFUNCTIONPTR(libname, ToUppercase(objname) || "#NEW", 0, [ TypeID(OBJECT) ] CONCAT argtypes);
+  SWITCH (rec.status)
+  {
+    CASE "ok"             { RETURN rec.pointer; }
+    CASE "errors"
+    {
+      IF (rec.errors[0].code = 170)
+        THROW NEW LibraryVersionConflictException(rec.errors);
+      THROW NEW HarescriptErrorException(rec.errors);
+    }
+    CASE "notfound"
+    {
+      IF (rec.pointer != "" AND rec.pointer LIKE "*#NEW(*")
+      {
+        STRING suggestion := Left(rec.pointer, SearchSubString(rec.pointer, "#"));
+        THROW NEW Exception("There was no public objecttype '" || ToUppercase(objname) || "' found in library '" || libname || "', did you mean '" || suggestion || "'");
+      }
+      THROW NEW Exception("There was no public objecttype '" || ToUppercase(objname) || "' found in library '" || libname || "'");
+    }
+    CASE "wrongsignature"
+    {
+      STRING expect := ExplainFunctionSignature(0, argtypes, "$");
+      RECORD unmangled := __HS_INTERNAL_UNMANGLEFUNCTIONNAME(rec.pointer);
+      STRING got := ExplainFunctionSignature(unmangled.returntype, ArraySlice(unmangled.parameters, 1), "$"); // Remove first OBJECT param
+
+      expect := Substitute(expect, "MACRO $", "NEW " || ToUppercase(objname));
+      got := Substitute(got, "MACRO $", "NEW " || ToUppercase(objname));
+
+      THROW NEW Exception("The constructor of '" || ToUppercase(objname) || "' doesn't have the expected signature. Wanted " || expect || ", but found " || got);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("GetObjectConstructor encountered an unknown result code: " || rec.status);
+    }
+  }
+}
+
+DATETIME FUNCTION __AddPositiveTimeToDate(INTEGER add_msecs, DATETIME date)
+{
+  INTEGER days := GetDayCount(date);
+  INTEGER msecs:= GetMsecondCount(date);
+  msecs := msecs + add_msecs;
+  //do the final addition, also compensating for a msecs 'larger' than days
+  days := days + ((msecs)/(24*60*60*1000));
+  msecs:= msecs % (24*60*60*1000);
+  RETURN __HS_CREATEDATETIMEFROMDM(days,msecs);
+}
+
+/** Get the current external session data
+    @return External session id
+*/
+PUBLIC STRING FUNCTION GetExternalSessionData() __ATTRIBUTES__(EXTERNAL);
+
+/** Replaces the current external session data for this VM group (shared with weblets, inherited by jobs)
+    @param newid New external session data id
+*/
+PUBLIC MACRO SetExternalSessionData(STRING newid) __ATTRIBUTES__(EXTERNAL);
+
+/** Decodes a HSON blob
+    @param indata HSON-encoded value
+    @return Decoded HSON value
+*/
+PUBLIC VARIANT FUNCTION DecodeHSONBlob(BLOB indata)
+{
+  INTEGER id := JSONDECODERALLOCATE(TRUE, DEFAULT RECORD);
+  INTEGER fileid := OpenBlobAsFile(indata);
+  WHILE (TRUE)
+  {
+    STRING data := ReadFrom(fileid, 16384);
+    IF (data = "" OR NOT JSONDECODERPROCESS(id, data))
+      BREAK;
+  }
+  __HS_CloseFile(fileid);
+  RECORD res := JSONDECODERFINISH(id);
+  IF (NOT res.success)
+    THROW NEW Exception("HSON decoding error: " || res.msg);
+  RETURN res.value;
+}
+
+/** Decodes a HSON string
+    @param indata HSON-encoded value
+    @return Decoded HSON value
+*/
+PUBLIC VARIANT FUNCTION DecodeHSON(STRING indata)
+{
+  RECORD res := JSONDECODERQUICK(indata, TRUE, DEFAULT RECORD);
+  IF (NOT res.success)
+    THROW NEW Exception("HSON decoding error: " || res.msg);
+  RETURN res.value;
+}
+
+/** @short Encode data as a HSON blob
+    @param arg Data to encode
+    @return The encoded string. Aborts if any type could not be converted */
+PUBLIC BLOB FUNCTION EncodeHSONBlob(VARIANT arg)
+{
+  RETURN JSONENCODETOBLOB(arg, TRUE, DEFAULT RECORD);
+}
+
+/** @short Encode data as a HSON string
+    @param arg Data to encode
+    @return The encoded string. Aborts if any type could not be converted */
+PUBLIC STRING FUNCTION EncodeHSON(VARIANT arg)
+{
+  RETURN JSONENCODETOSTRING(arg, TRUE, DEFAULT RECORD);
+}
+
+/** Decodes a JSON blob
+    @param indata JSON-encoded value
+    @param translations Mapping record (of the format `[ cellname := "<jsonkey>", ... ]`),
+      to remap JSON keys that aren't valid cell names in HareScript.
+    @return Decoded JSON value
+*/
+PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTSTO DEFAULT RECORD)
+{
+  INTEGER id := JSONDECODERALLOCATE(FALSE, translations);
+  INTEGER fileid := OpenBlobAsFile(indata);
+  WHILE (TRUE)
+  {
+    STRING data := ReadFrom(fileid, 16384);
+    IF (data = "" OR NOT JSONDECODERPROCESS(id, data))
+      BREAK;
+  }
+  __HS_CloseFile(fileid);
+  RECORD res := JSONDECODERFINISH(id);
+  IF (res.success)
+    RETURN res.value;
+  RETURN DEFAULT RECORD;
+}
+
+/** Decodes a JSON string
+    @param indata JSON-encoded value
+    @param translations @includecelldef #DecodeJSONBlob.translations
+    @return Decoded JSON value
+*/
+PUBLIC VARIANT FUNCTION DecodeJSON(STRING indata, RECORD translations DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN JSONDECODERQUICK(indata, FALSE, translations).value;
+}
+
+/** @short Encode data as a JSON string
+    @long Arrays, Integers, strings and booleans are directly converted to their Javascript counterparts. Records are converted to objects, with all cellnames converted to lowercase.
+    @param arg Data to encode
+    @param translations Translations to specify literal cellnames, eg [ somecamelcaps : = "someCamelCaps" ] if you want to literally spell the cells that way
+    @return The encoded string. Throws if any type could not be converted */
+PUBLIC STRING FUNCTION EncodeJSON(VARIANT arg, RECORD translations DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN JSONENCODETOSTRING(arg, FALSE,translations);
+}
+
+/** @short Encode data as a JSON blob
+    @long Arrays, Integers, strings and booleans are directly converted to their Javascript counterparts. Records are converted to objects, with all cellnames converted to lowercase.
+    @param arg Data to encode
+    @param translations Translations to specify literal cellnames, eg [ somecamelcaps : = "someCamelCaps" ] if you want to literally spell the cells that way
+    @return The encoded blob. Throws if any type could not be converted */
+PUBLIC BLOB FUNCTION EncodeJSONBlob(VARIANT arg, RECORD translations DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN JSONENCODETOBLOB(arg, FALSE, translations);
+}
+
+/** Pauses the debugger if attached, or can be used for rule-based connect
+    @signature MACRO Debugger()
+*/
+PUBLIC MACRO Debugger(VARIANT ARRAY ...args) __ATTRIBUTES__(EXTERNAL);
+/* ADDME: args is meant as a list of variables to ensure to be inspectable, but that
+   doesn't work that well yet */
+
+/** Function to ensure the parameters passed are kept alive until the call
+    to this function to make sure the debugger can inspect them
+    @param keepalives Variables that must be kept alive until this function call
+*/
+PUBLIC MACRO DebuggerKeepalive(VARIANT ARRAY ...keepalives) __ATTRIBUTES__(EXECUTESHARESCRIPT) {}
+
+/** @short Get the current stack trace
+    @return The stack entries, starting with the function which invoked GetStackTrace()
+    @cell(string) return.filename Filename
+    @cell(string) return.func Function name (:INITFUNCTION for code outside a function)
+    @cell(integer) return.line Line number (1-based)
+    @cell(integer) return.linecol Column number (1-based)
+    */
+PUBLIC RECORD ARRAY FUNCTION GetStackTrace() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Pick the first element of an array
+    @param arr Array to grab an alement of, may not be a VARIANT ARRAY
+    @return The first element of the array, or the default value of the array's type if the array is empty */
+PUBLIC VARIANT FUNCTION PickFirst(VARIANT arr)
+{
+  INTEGER type := TYPEID(arr);
+  IF(NOT IsTypeIdArray(type))
+    THROW NEW Exception("Argument to PickFirst must be an array, not " || GetTypeName(type));
+  IF(type=TYPEID(VARIANT ARRAY))
+    THROW NEW Exception("Argument to PickFirst must be an array with a determined type, not VARIANT ARRAY");
+  RETURN Length(arr) > 0 ? arr[0] : GetArrayTypeDefaultElement(type);
+}
+/** @short Pick the last element of an array
+    @param arr Array to grab an alement of, may not be a VARIANT ARRAY
+    @return The last element of the array, or the default value of the array's type if the array is empty */
+PUBLIC VARIANT FUNCTION PickLast(VARIANT arr)
+{
+  INTEGER type := TYPEID(arr);
+  IF(NOT IsTypeIdArray(type))
+    THROW NEW Exception("Argument to PickLast must be an array, not " || GetTypeName(type));
+  IF(type=TYPEID(VARIANT ARRAY))
+    THROW NEW Exception("Argument to PickLast must be an array with a determined type, not VARIANT ARRAY");
+  RETURN Length(arr) > 0 ? arr[END-1] : GetArrayTypeDefaultElement(type);
+}
+
+STRING FUNCTION TryGetBestMatch(STRING name, STRING ARRAY alternatives, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  // Can't loadlib GetBestMatch directly, but since it's only helping info we don't mind the function not loading at all.
+  TRY
+    RETURN MakeFunctionPtr("wh::util/comparisons.whlib#GetBestMatch")(name, alternatives, options);
+  CATCH
+    RETURN "";
+}
+
+RECORD metadefaultoptions := [ required := DEFAULT STRING ARRAY
+                             , optional := DEFAULT STRING ARRAY
+                             , notypecheck := DEFAULT STRING ARRAY
+                             , discard := DEFAULT STRING ARRAY
+                             , title := "options"
+                             , passthrough := FALSE
+                             , passthroughin := ""
+                             , enums := DEFAULT RECORD
+                             ];
+/** @short Validate the options passed to a function
+    @param defaultoptions Defaults, and structure which the options should follow
+    @param options Passed in options
+    @param metaoptions Meta options describing the otpions
+    @cell metaoptions.title Name for the options record used in exceptions after the word 'in'. Defaults to 'options'
+    @cell metaoptions.required List of cells which must exist in the options record
+    @cell metaoptions.optional List of cells which will only exist in the output if they're explicitly set
+    @cell metaoptions.notypecheck List of cells whose type does not have to be checked
+    @cell metaoptions.passthrough Pass through any unrecognized options in the output record, instead of failing on them
+    @cell metaoptions.passthroughin Store any unrecognized options in the specified cell, instead of failing on them
+    @cell metaoptions.discard List of cells to discard if passed
+    @cell metaoptions.enums Record with list of allowed string values for options
+    @return Validated options, with missing values added
+    @example
+// Throws if options doesn't contain a cell 'A'.
+options := ValidateOptions([ a := 1 ], options, [ required := [ "a" ] ]);
+
+// Returns a record without cell 'A' if options doesn't contain that cell
+options := ValidateOptions([ a := 1 ], options, [ optional := [ "a" ] ]);
+
+// Removes cell 'A' from the options
+options := ValidateOptions([ a := 1, b := 1 ], options, [ discard := [ "a" ] ]);
+
+// Allow all types for cell 'A' (eg. 0m, "test", DEFAULT OBJECT)
+options := ValidateOptions([ a := 1 ], options, [ notypecheck := [ "a" ] ]);
+
+// Restricts cell 'ELEMENT' to the values 'earth', 'water', 'fire' and 'wind'
+options := ValidateOptions(
+    [ element := "wind"
+    ], options,
+    [ enums :=    [ element := [ "earth", "water", "fire", "wind" ] ]
+    ]);
+*/
+PUBLIC RECORD FUNCTION ValidateOptions(RECORD defaultoptions, RECORD options, RECORD metaoptions DEFAULTSTO DEFAULT RECORD)
+{
+  IF(NOT RecordExists(metaoptions))
+    metaoptions := metadefaultoptions;
+  ELSE IF(NOT CellExists(metaoptions, "__META")) //this isn't validateoptions invoing ValidateOptions
+  {
+    metaoptions := ValidateOptions(metadefaultoptions, metaoptions, [ title := "meta options"
+                                                                    , __meta := TRUE
+                                                                    , required := DEFAULT STRING ARRAY
+                                                                    , optional := DEFAULT STRING ARRAY
+                                                                    , notypecheck := DEFAULT STRING ARRAY
+                                                                    , discard := DEFAULT STRING ARRAY
+                                                                    , passthrough := FALSE
+                                                                    , passthroughin := ""
+                                                                    , enums := DEFAULT RECORD
+                                                                    ]);
+
+    // make sure all referenced columns exist
+    FOREVERY (STRING col FROM metaoptions.required CONCAT metaoptions.optional CONCAT metaoptions.notypecheck)
+      IF (col != "*" AND NOT CellExists(defaultoptions, col))
+        THROW NEW Exception(`Cell '${col}' does not exist in the default options`);
+    FOREVERY (RECORD enum FROM UnpackRecord(metaoptions.enums))
+      IF (NOT CellExists(defaultoptions, enum.name))
+        THROW NEW Exception(`Cell '${enum.name}' does not exist in the default options`);
+      ELSE IF (TypeID(GetCell(defaultoptions, enum.name)) != TypeID(STRING))
+        THROW NEW Exception(`Cell '${enum.name}' must be a STRING in default options`);
+      ELSE IF (TypeID(enum.value) != TypeID(STRING ARRAY))
+        THROW NEW Exception(`The list of allowed values for cell '${enum.name}' must be a STRING ARRAY`);
+      ELSE IF (GetCell(defaultoptions, enum.name) NOT IN [ "", ...enum.value ])
+        THROW NEW Exception(`The default value for cell '${enum.name}' is not a valid value for that cell`);
+  }
+
+  IF(metaoptions.passthrough AND metaoptions.passthroughin != "")
+    THROW NEW Exception("Cannot set both passthrough AND passthroughin in a ValidateOptions call");
+
+  STRING ARRAY notypecheck;
+  RECORD result := CELL[];
+  RECORD passthrough;
+
+  FOREVERY(STRING todiscard FROM metaoptions.discard)
+    IF(CellExists(options,todiscard))
+      options := CellDelete(options,todiscard);
+
+  FOREVERY(RECORD cellrec FROM UnpackRecord(options))
+  {
+    IF(NOT CellExists(defaultoptions, cellrec.name))
+    {
+      IF(metaoptions.passthrough)
+        result := CellInsert(result, cellrec.name, cellrec.value);
+      ELSE IF(metaoptions.passthroughin != "")
+        passthrough := CellInsert(passthrough, cellrec.name, cellrec.value);
+      ELSE
+      {
+        STRING bestmatch := TryGetBestMatch(cellrec.name, SELECT AS STRING ARRAY name FROM UnpackRecord(defaultoptions) WHERE NOT CellExists(cellrec, name));
+        THROW NEW InvalidOptionException(cellrec.name, `Unexpected cell '${cellrec.name}' in ${metaoptions.title}${bestmatch = "" ? "" : `, did you mean '${bestmatch}'?`}`);
+      }
+
+      CONTINUE;
+    }
+
+    INTEGER wanttype := TypeID(GetCell(defaultoptions, cellrec.name));
+    INTEGER gottype := TypeID(cellrec.value);
+
+    // We'll allow implicit casts, but not from RECORD ARRAY to RECORD
+    IF (NOT CanCastTypeTo(gottype, wanttype)
+        OR (gottype = TypeID(RECORD ARRAY) AND wanttype = TypeId(RECORD)))
+    {
+      // variant mismatches will probably be seldom
+      IF (IsDefaultValue(notypecheck) AND NOT IsDefaultValue(metaoptions.notypecheck))
+      {
+        FOREVERY (STRING col FROM metaoptions.notypecheck)
+          INSERT ToUppercase(col) INTO notypecheck AT END;
+        notypecheck := __HS_SQL_SortArray(notypecheck, FALSE, FALSE);
+      }
+
+      IF (NOT __HS_SQL_LOWERBOUND(notypecheck, cellrec.name).found)
+        THROW NEW InvalidOptionException(cellrec.name, `Incorrect type for cell '${cellrec.name}' in ${metaoptions.title}, expected ${GetTypeName(wanttype)} got ${GetTypeName(gottype)}`);
+
+      // Adjust defaultoptions so makereplacedrecord works (it skips noncastable type changes)
+      defaultoptions := CellDelete(defaultoptions, cellrec.name);
+      //CONTINUE;
+    }
+    result := CellInsert(result, cellrec.name, cellrec.value);
+  }
+
+  FOREVERY(STRING req FROM metaoptions.required)
+    IF(NOT CellExists(options,req))
+    {
+      STRING bestmatch := TryGetBestMatch(req, SELECT AS STRING ARRAY name FROM UnpackRecord(options) WHERE NOT CellExists(defaultoptions, name));
+      THROW NEW InvalidOptionException(ToUppercase(req), `Missing required cell '${ToUppercase(req)}' in ${metaoptions.title}${bestmatch = "" ? "" : `, did you use '${bestmatch}' instead?`}`);
+    }
+
+  IF(NOT (Length(metaoptions.optional) = 1 AND metaoptions.optional[0] = '*'))
+  {
+    result := MakeOverwrittenRecord(defaultoptions, result);
+    FOREVERY(STRING opt FROM metaoptions.optional)
+      IF(NOT CellExists(options,opt) AND CellExists(defaultoptions,opt))
+        result := CellDelete(result, opt);
+  }
+
+  FOREVERY(RECORD enum FROM UnpackRecord(metaoptions.enums))
+    IF(CellExists(result, enum.name) AND GetCell(result, enum.name) NOT IN enum.value)
+      THROW NEW InvalidOptionException(enum.name, `The value for cell '${ToUppercase(enum.name)}' is not allowed (got '${GetCell(result, enum.name)}', allowed are: '${Detokenize(enum.value, `', '`)}')`);
+
+  IF(metaoptions.passthroughin != "")
+  {
+    result := CellDelete(result, metaoptions.passthroughin);
+    result := CellInsert(result, metaoptions.passthroughin, passthrough);
+  }
+
+  RETURN result;
+}
+
+/** @short Enforce a structure on a data
+    @long Structure enforcing is useful to normalize incoming JSON data.
+    @param expected Expected structure - only types of cells are used. Records should have a template structure
+    @param received Data to normalize
+    @param options Options
+    @cell options.outofboundsvalue Numeric value to use for numbers that are out of bounds for their expected type. Will be casted to the expected type, without bounds check.
+    @cell(boolean) options.removeunexpected If TRUE, remove all cells that aren't mentioned in the 'expected' parameter.
+    @return Normalized data
+*/
+PUBLIC VARIANT FUNCTION EnforceStructure(VARIANT expected, VARIANT received, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  // Validate options once, then go into recursive check
+  options := ValidateOptions(
+      [ outofboundsvalue :=   0
+      , removeunexpected :=   FALSE
+      ], options,
+      [ optional := [ "outofboundsvalue" ]
+      , notypecheck := [ "outofboundsvalue" ]
+      ]);
+
+  IF (CellExists(options, "outofboundsvalue") AND TypeID(options.outofboundsvalue) NOT IN [ TypeID(INTEGER), TypeID(INTEGER64), TypeID(MONEY), TypeID(FLOAT) ])
+    THROW NEW Exception(`Option 'outofboundsvalue' must be a number, got a ${GetTypeName(TypeID(options.outofboundsvalue))}.`);
+
+  RETURN EnforceStructureInternal(expected, received, options);
+}
+
+VARIANT FUNCTION EnforceStructureInternal(VARIANT expected, VARIANT received, RECORD options)
+{
+  IF(TYPEID(expected) = TYPEID(RECORD))
+  {
+    IF(TYPEID(received) = TYPEID(RECORD ARRAY))
+      received := RECORD(received);
+    ELSE IF(TYPEID(received) != TYPEID(RECORD))
+      received := DEFAULT RECORD;
+
+    RECORD retval := options.removeunexpected ? DEFAULT RECORD : received;
+    FOREVERY(RECORD cellrec FROM UnpackRecord(expected))
+    {
+      VARIANT newvalue;
+      IF(CellExists(received,cellrec.name))
+        newvalue := EnforceStructureInternal(cellrec.value, GetCell(received,cellrec.name), options);
+      ELSE
+        newvalue := EnforceStructureInternal(cellrec.value, DEFAULT RECORD, options);
+
+      retval := CellDelete(retval, cellrec.name);
+      retval := CellInsert(retval, cellrec.name, newvalue);
+    }
+    RETURN retval;
+  }
+
+  //The JSON null
+  IF(TYPEID(received) = TYPEID(RECORD) AND NOT RecordExists(received))
+    RETURN GetTypeDefaultValue(TYPEID(expected));
+
+  IF(IsTypeIDArray(TYPEID(expected)))
+  {
+    IF(NOT IsTypeIDArray(TYPEID(received)))
+      RETURN GetTypeDefaultValue(TYPEID(expected));
+
+    IF(TYPEID(expected) = TYPEID(received) AND TypeID(received) IN [ TypeID(INTEGER ARRAY), TypeID(STRING ARRAY) ])
+      RETURN received;
+
+    //arrays need to be rebuilt
+    VARIANT retval := GetTypeDefaultValue(TYPEID(expected));
+    INTEGER len := Length(received);
+    VARIANT expectedelements;
+    IF(Length(expected) > 0)
+      expectedelements := expected[0];
+    ELSE
+      expectedelements := GetArrayTypeDefaultElement(TYPEID(expected));
+
+    FOR(INTEGER x := 0; x < len; x := x + 1)
+    {
+      INSERT EnforceStructureInternal(expectedelements, received[x], options) INTO retval AT END; //ALWAYS use only first element as a template
+    }
+
+    RETURN retval;
+  }
+
+  IF(TYPEID(expected) = TYPEID(received))
+    RETURN received;
+
+  // Try to convert received -> expected
+  SWITCH (256*TypeID(received) + TypeID(expected))
+  {
+    CASE 256*TypeID(STRING) + TypeID(INTEGER)       { RETURN ToInteger(received,0); }
+    CASE 256*TypeID(INTEGER) + TypeID(STRING)       { RETURN ToString(received); }
+    CASE 256*TypeID(STRING) + TypeID(DATETIME)      { RETURN MakeDateFromText(received); }
+
+    CASE 256*TypeID(INTEGER64) + TypeID(INTEGER)    {
+                                                      IF(received > 2147483647 OR received < -2147483648)
+                                                      {
+                                                        IF (CellExists(options, "OUTOFBOUNDSVALUE"))
+                                                          RETURN INTEGER(options.outofboundsvalue);
+                                                        THROW NEW Exception(`Cannot convert ${GetTypeName(TYPEID(received))} to ${GetTypeName(TYPEID(expected))} because ${EncodeJSON(received)} is out of range`);
+                                                      }
+                                                      RETURN INTEGER(received);
+                                                    }
+    CASE 256*TypeID(MONEY) + TypeID(INTEGER)
+       , 256*TypeID(FLOAT) + TypeID(INTEGER)        { // money/float to integer is rounded normally
+                                                      IF(received > 2147483647 OR received < -2147483648)
+                                                      {
+                                                        IF (CellExists(options, "OUTOFBOUNDSVALUE"))
+                                                          RETURN INTEGER(options.outofboundsvalue);
+                                                        THROW NEW Exception(`Cannot convert ${GetTypeName(TYPEID(received))} to ${GetTypeName(TYPEID(expected))} because ${EncodeJSON(received)} is out of range`);
+                                                      }
+                                                      INTEGER rmreceived := INTEGER(received + 0.5);
+                                                      RETURN rmreceived;
+                                                    }
+
+    CASE 256*TypeID(INTEGER) + TypeID(INTEGER64)    { RETURN INTEGER64(received); }
+    CASE 256*TypeID(MONEY) + TypeID(INTEGER64)      { RETURN INTEGER64(received + 0.5); }
+    CASE 256*TypeID(FLOAT) + TypeID(INTEGER64)      {
+                                                      IF(received > 9223372036854775807 OR received < -9223372036854775808)
+                                                      {
+                                                        IF (CellExists(options, "OUTOFBOUNDSVALUE"))
+                                                          RETURN INTEGER64(options.outofboundsvalue);
+                                                        THROW NEW Exception(`Cannot convert ${GetTypeName(TYPEID(received))} to ${GetTypeName(TYPEID(expected))} because ${EncodeJSON(received)} is out of range`);
+                                                      }
+                                                      RETURN INTEGER64(received + 0.5);
+                                                    }
+
+    CASE 256*TypeID(INTEGER) + TypeID(MONEY)        { RETURN MONEY(received); }
+    CASE 256*TypeID(INTEGER64) + TypeID(MONEY)      {
+                                                      IF(received > 92233720368547i64 OR received < -92233720368547i64)
+                                                      {
+                                                        IF (CellExists(options, "OUTOFBOUNDSVALUE"))
+                                                          RETURN MONEY(options.outofboundsvalue);
+                                                        THROW NEW Exception(`Cannot convert ${GetTypeName(TYPEID(received))} to ${GetTypeName(TYPEID(expected))} because ${EncodeJSON(received)} is out of range`);
+                                                      }
+                                                      RETURN MONEY(received);
+                                                    }
+    CASE 256*TypeID(FLOAT) + TypeID(MONEY)          {
+                                                      IF(received > 92233720368547.75807 OR received < -92233720368547.75808)
+                                                      {
+                                                        IF (CellExists(options, "OUTOFBOUNDSVALUE"))
+                                                          RETURN MONEY(options.outofboundsvalue);
+                                                        THROW NEW Exception(`Cannot convert ${GetTypeName(TYPEID(received))} to ${GetTypeName(TYPEID(expected))} because ${EncodeJSON(received)} is out of range`);
+                                                      }
+                                                      RETURN MONEY(received + 0.000005);
+                                                    }
+    CASE 256*TypeID(INTEGER) + TypeID(FLOAT)
+       , 256*TypeID(INTEGER64) + TypeID(FLOAT)
+       , 256*TypeID(MONEY) + TypeID(FLOAT)          { RETURN FLOAT(received); }
+  }
+
+  RETURN GetTypeDefaultValue(TYPEID(expected));
+}
+
+/** @short Resolve a path against the current library
+    @param inpath (relative) path to resolve
+    @return An absolute resource path
+*/
+PUBLIC STRING FUNCTION Resolve(STRING inpath)
+{
+  STRING addhash;
+  INTEGER hashpos := SearchSubstring(inpath,'#');
+  IF(hashpos >= 0)
+  {
+    addhash := Substring(inpath,hashpos);
+    inpath := Left(inpath, hashpos);
+  }
+
+  IF(inpath="")
+  { //Get our filename
+    STRING caller := GetCallingLibrary(TRUE); //may return a direct:: path!
+    INTEGER lastslash := SearchLastSubstring(caller,'/');
+    RETURN __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(GetCallingLibrary(TRUE),"relative::" || Substring(caller,lastslash+1)) || addhash;
+  }
+
+  //(ab)use __HS_INTERNAL_RESOLVEABSOLUTELIBRARY to get the short mod:: name to our current file
+  BOOLEAN addslash := inpath = "." OR inpath LIKE "?*/";
+  IF(inpath = ".")
+    inpath := "./";
+
+
+  STRING retval := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(GetCallingLibrary(TRUE), inpath LIKE "*::*" ? inpath : "relative::" || inpath);
+  IF(addslash AND retval NOT LIKE "*/")
+    retval := retval || "/";
+
+  RETURN retval || addhash;
+}
+
+INTEGER64 FUNCTION RoundInteger64ToMultiple(INTEGER64 value, INTEGER64 roundunit, STRING mode)
+{
+  INTEGER64 orgvalue := value;
+  SWITCH (mode)
+  {
+    CASE "none"
+    {
+      // no rounding
+    }
+    CASE "toward-zero"
+    {
+      value := (value / roundunit) * roundunit;
+    }
+    CASE "toward-infinity"
+    {
+      IF (value > 0)
+        value := ((value + roundunit - 1) / roundunit) * roundunit;
+      ELSE
+        value := ((value - roundunit + 1) / roundunit) * roundunit;
+    }
+    CASE "down"
+    {
+      IF (value > 0)
+        value := (value / roundunit) * roundunit;
+      ELSE
+        value := ((value - roundunit + 1) / roundunit) * roundunit;
+    }
+    CASE "up"
+    {
+      IF (value > 0)
+        value := ((value + roundunit - 1) / roundunit) * roundunit;
+      ELSE
+        value := (value / roundunit) * roundunit;
+    }
+    CASE "half-toward-zero"
+    {
+      IF (value > 0)
+        value := ((value + (roundunit - 1) / 2) / roundunit) * roundunit;
+      ELSE
+        value := ((value - (roundunit - 1) / 2) / roundunit) * roundunit;
+    }
+    CASE "half-toward-infinity"
+    {
+      IF (value > 0)
+        value := ((value + roundunit / 2) / roundunit) * roundunit;
+      ELSE
+        value := ((value - roundunit / 2) / roundunit) * roundunit;
+    }
+    CASE "half-down"
+    {
+      IF (value > 0)
+        value := ((value + (roundunit - 1) / 2) / roundunit) * roundunit;
+      ELSE
+        value := ((value - roundunit / 2) / roundunit) * roundunit;
+    }
+    CASE "half-up"
+    {
+      IF (value > 0)
+        value := ((value + roundunit / 2) / roundunit) * roundunit;
+      ELSE
+        value := ((value - (roundunit - 1) / 2) / roundunit) * roundunit;
+    }
+    DEFAULT
+    {
+      ABORT(`Unknown rounding mode ${mode}`);
+    }
+  }
+  RETURN value;
+}
+
+
+/** Round a value to a multiple of a unit value
+    @param value Value to round
+    @param roundunit Multiple to round to. Must be the same type as the value to round
+    @param mode Rounding mode: 'none','toward-zero", 'toward-infinity', 'down', 'up', 'half-toward-zero', 'half-toward-infinity', 'half-down', 'half-up'
+    @return The rounded value
+*/
+PUBLIC VARIANT FUNCTION RoundToMultiple(VARIANT value, VARIANT roundunit, STRING mode)
+{
+  IF (TypeID(value) != TypeID(roundunit))
+    THROW NEW Exception(`The value and the rounding unit should be the same, got ${GetTypeName(TypeID(value))} and ${GetTypeName(TypeID(roundunit))}`);
+
+  SWITCH (TypeID(value))
+  {
+    CASE TypeID(INTEGER)
+    {
+      RETURN INTEGER(RoundInteger64ToMultiple(value, roundunit, mode));
+    }
+    CASE TypeID(INTEGER64)
+    {
+      RETURN RoundInteger64ToMultiple(value, roundunit, mode);
+    }
+    CASE TYPEID(MONEY)
+    {
+      RETURN __HS_SETRAWMONEY(RoundInteger64ToMultiple(__HS_GETRAWMONEY(value), __HS_GETRAWMONEY(roundunit), mode));
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`The value should be an INTEGER, INTEGER64 or MONEY, got ${GetTypeName(TypeID(value))}`);
+    }
+  }
+}
+
+/** Returns whether a tag is currently enabled in the current debugging configuration
+    @param tag Tag to test for
+    @return Whether the debug tag has been enabled
+*/
+PUBLIC BOOLEAN FUNCTION IsDebugTagEnabled(STRING tag)
+{
+  RETURN RecordExists(__debugconfig) AND tag IN __debugconfig.tags;
+}

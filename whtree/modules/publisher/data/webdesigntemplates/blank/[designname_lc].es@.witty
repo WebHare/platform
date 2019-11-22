@@ -1,0 +1,29 @@
+[! Careful here, any subscript operators that should still be present in the
+   final javascript file must be double escaped: [[ (but not ]])
+
+   To create a new module, wh module create subdir/modulename
+
+   To add a design to such a module, wh module createwebdesign modulename:webdesign www.mydomain.com
+
+   To test the design construction: wh runtest publisher-webdesign.testwebdesign-template
+
+!]import * as dompack from 'dompack';
+import 'dompack/browserfix/baseline';
+import 'dompack/browserfix/reset.css';
+
+import * as whintegration from '@mod-system/js/wh/integration';
+import '@mod-system/js/wh/errorreporting'; //log JS errors to notice log
+
+import './shared/forms/forms';
+import './shared/rtd/rtd';
+import './[designname_lc].scss';
+
+import './widgets/video';
+
+/* Commonly used:
+
+// open external links in new window - see https://code.webhare.com/publisher/utilities/linkhandler/
+import { openLinksInNewWindow } from '@mod-publisher/js/linkhandler';
+openLinksInNewWindow();
+
+*/

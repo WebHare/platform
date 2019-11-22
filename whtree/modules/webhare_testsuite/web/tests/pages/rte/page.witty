@@ -1,0 +1,178 @@
+<html>
+  <head>
+    <link href="editor.css" rel="stylesheet" />
+    [if csstext]<style>[csstext:none]</style>[/if]
+  </head>
+  <body>
+    <div id="toolbar"></div>
+
+    <div id="rtepart"
+          data-editor="[editor]"
+          data-allowtags="[allowtags]"
+          [!data-rte-css="[forevery rte_css][if not first] [/if][url][/forevery]"  !]
+          [if isself]class="wh-rtd wh-rtd-editor"[/if]
+          data-allowedobjects="[forevery allowedobjects][namespace] [/forevery]">
+
+      <span class="editors">
+      Editor: <a href="index.shtml" [if isfree]class=selected[/if]>Free</a>
+              <a href="index.shtml?editor=structured" [if isstructurednotoken]class=selected[/if]>Structured</a>
+              <a href="index.shtml?editor=structured-contentarea" [if isstructurednotokencontentarea]class=selected[/if]>Structured (contentarea)</a>
+              <a href="index.shtml?editor=page" [if ispage]class=selected[/if]>Page</a>
+              <a href="index.shtml?editor=self" [if isself]class=selected[/if]>Self</a>
+              <br/>
+      </span>
+
+      <a href="#" onclick="document.getElementById('holder').style.display='';return false;">show</a>
+      <a href="#" onclick="document.getElementById('holder').style.display='none';return false;">hide now</a>
+      <a href="#" onclick="delayedhide(); return false;" id="delayedhidespan">hide delay</a>
+      <a href="#" onclick="delayedhideandshow(); return false;" id="delayedhideandshowspan">hide&amp;show delay</a>
+      <a href="#" onclick="reparent_rte();return false;">reparent</a>
+      <a href="#" onclick="saveRTDValue();return false;">save</a>
+      <a href="#" onclick="destroy_rte();return false;">destroy</a>
+      <br/>
+      Enable/focus: <a href="#" onclick="givefocus(); return false;">send focus to rte</a>
+      <a href="#" onclick="removefocus(); return false;">remove focus from rte</a>
+      <a href="#" onclick="rte.setEnabled(true); return false;">Enable</a>
+      <a href="#" onclick="rte.setEnabled(false); return false;">Disable</a>
+      <a href="#" onclick="rte.setReadonly(true); return false;">Readonly</a>
+      <a href="#" onclick="rte.setReadonly(false); return false;">Writable</a>
+      (be sure to try focusing a text area, and ensure it is untouched by focus changes)<br/>
+
+      <table>
+        <tr>
+          <td width="33%" valign="top" align="left">
+            <div id="holder" style="width:400px;height:400px">[if not nofill][! no extra whitespace
+            !][if emptylines]
+                <p class="normal">next empty p</p><p class="normal"></p>
+                <p class="normal">next 1br</p><p class="normal"><br></p>
+                <p class="normal">next 2br</p><p class="normal"><br><br></p>
+                <p class="normal">end</p>
+              [elseif tables]
+                <br/>
+                <table border="1" cellpadding="0" cellspacing="0">
+                  <colgroup>
+                    <col style="width:75px" />
+                    <col style="width:75px" />
+                    <col style="width:75px" />
+                    <col style="width:75px" />
+                  </colgroup>
+                  <tbody>
+                    <tr style="height:25px">
+                      <th><div style="width: 40px; height: 20px; background-color: #eeffee;">aap</div></th>
+                      <th><div style="width: 40px; height: 20px; background-color: #eeffee;">noot</div></th>
+                      <th><div style="width: 40px; height: 20px; background-color: #eeffee;">mies</div></th>
+                      <th><div style="width: 40px; height: 20px; background-color: #eeffee;">wim</div></th>
+                    </tr>
+                    <tr style="height:35px">
+                      <td><div style="width: 35px; height: 25px; background-color: #eeffee;">zus</div></td>
+                      <td><div style="width: 50px; height: 20px; background-color: #eeffee;">
+                        [if tables2]
+                          [embed object_with_table]
+                        [else]
+                          jet
+                        [/if]
+                        </div></td>
+                      <td><div style="width: 35px; height: 20px; background-color: #eeffee;">teun</div></td>
+                      <td><div style="width: 35px; height: 20px; background-color: #eeffee;">vuur</div></td>
+                    </tr>
+                    <tr style="height:35px">
+                      <td><div style="width: 35px; height: 20px; background-color: #eeffee;">gijs</div></td>
+                      <td><div style="width: 35px; height: 20px; background-color: #eeffee;">lam</div></td>
+                      <td><div style="width: 35px; height: 30px; background-color: #eeffee;">kees</div></td>
+                      <td><div style="width: 65px; height: 20px; background-color: #eeffee;">bok</div></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <br/>
+              [elseif twoembeds]
+                <div class="wh-rtd-embeddedobject" data-instanceid="test123">Ik ben niet editbaar:test123</div>
+                <p class="normal" ><br></p>
+                <div class="wh-rtd-embeddedobject" data-instanceid="test456">Ik ben niet editbaar:test456</div>
+              [elseif isparteditable]
+                <h1 class="heading1" data-wh-rtd-editable>Kop</h1>
+                <div>
+                  Het is <span id="belangrijk">belangrijk</span> dat je niet alles kan editten, maar wel een deel.
+                  <div data-wh-rtd-editable>
+                    <p class="normal" >paragraaf<br>met softenter</p><p class="normal"><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png"></p>
+                  </div>
+                  Dit kun je ook weer es niet editten.
+                </div>
+              [elseif isstructured]
+                <h1 class="heading1">Kop</h1><p class="normal" >paragraaf<br>met softenter</p><p class="normal"><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png"></p>
+                <div class="wh-rtd-embeddedobject" data-instanceid="test123">Ik ben niet editbaar:test123</div>
+                <div class="wh-rtd-embeddedobject" data-instanceid="test456">Ik ben niet editbaar:test456</div>
+                <p class="normal">Ik ben wel weer editbaar</p>
+                <table><tr><td colspan="2">Default table style</td></tr><tr><td><p class="normal">Normal style</p></td><td><p class="normal">Normal</p><p class="normal">style</p></td></tr></table>
+              [else][! no extra whitespace
+              !]<p>hmmm hmm</p><img src='/tollium_todd.res/webhare_testsuite/tollium/logo.png' />test<b>Bo ld!</b>en nog een <a href='http://example.org/'>hyperlink</a>![! no extra whitespace
+              !]<p>regel 2</p>[! no extra whitespace
+              !]<p>image met <a href='#link'>een hyperlink: <img src='/tollium_todd.res/webhare_testsuite/tollium/logo.png' /></a></p>[! no extra whitespace
+            !][/if][! no extra whitespace
+          !][/if]</div>
+          </td>
+          <td valign="top" align="left" width="33%">
+            <textarea id="store"></textarea><br/>
+            <button type="button" id="copybutton">Copy</button>
+            <button type="button" id="pastebutton">Paste</button>
+            <button onclick="loadstore()">Load source</button>
+            <button onclick="savestore()">Save source</button>
+            <button onclick="showrendered()">Render above source</button><br/>
+            <button onclick="refreshdebug()">Refresh</button><br/>
+            <textarea id="sourcesync" style="width:100%; height:280px"></textarea><br/>
+            <input id="rangebox" style="width:100%" disabled>
+          </td>
+          <td valign="top" align="left" width="33%">
+            <iframe style="width:100%;height:100%" id="result"></iframe>
+            Native contenteditable:<br>
+            <div style="border: 1px solid black; height: 150px" contenteditable="true">
+              Edit me
+            </div>
+          </td>
+        </tr>
+      </table>
+      <div style="display: none"><!-- popups -->
+        <div id="object_type_popup">
+          Popup
+        </div>
+        <div id="vimeo_popup">
+          Vimeo: <input id="vimeo_select_value" name="vimeo"><br>
+          <a id="vimeo_select" href="#">select</a>
+        </div>
+        <div id="youtube_popup">
+          Youtube: <input id="youtube_select_value" name="youtube"><br>
+          <a id="youtube_select" href="#">select</a>
+        </div>
+      </div>
+
+      <div id="parkingspot" style="display:none"></div>
+  [!
+      <div id="insertvideopopup" class="wh-popup">
+        Insert code here:<br/>
+
+        <textarea id="videocode" style="width:200px;height:150px"></textarea><br/>
+        <button type="button" id="submitvideobutton">Submit video</button>
+      </div>
+  !]
+    </div>
+  </body>
+</html>
+
+[component object_with_table]
+  <div class="wh-rtd-embeddedobject" data-instanceid="object_with_table">
+    <p class="normal">Another table</p>
+    <table border="1" cellpadding="0" cellspacing="0">
+      <colgroup>
+        <col style="width:25px" />
+        <col style="width:25px" />
+        <col style="width:25px" />
+      </colgroup>
+      <tbody>
+        <tr style="height:20px">
+          <td class="wh-rtd__tablecell"><p class="normal">1</p></td>
+          <td class="wh-rtd__tablecell"><p class="normal">2</p></td>
+          <td class="wh-rtd__tablecell"><p class="normal">3</p></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+[/component]

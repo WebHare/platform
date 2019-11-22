@@ -1,0 +1,778 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queries.whlib";
+LOADLIB "mod::consilio/lib/queries.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+
+PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
+<
+  PUBLIC RECORD error;
+
+  MACRO NEW(STRING what, OBJECT browser)
+  : Exception(what)
+  {
+    IF(Objectexists(browser) AND browser->GetHTTPStatusCode() = 400)
+    {
+      RECORD decoded := DecodeJSONBLOB(browser->content);
+      IF(RecordExists(decoded) AND CellExists(decoded,'error'))
+      {
+        this->error := EnforceStructure([ "index" := ""
+                                        , "index_uuid" := ""
+                                        , "reason" := ""
+                                        , "type" := ""
+                                        ], decoded.error);
+
+        IF(this->error.reason != "")
+          this->what := this->what || " (" || this->error.reason || ")";
+        RETURN;
+      }
+    }
+
+    IF(Objectexists(browser) AND browser->GetHTTPStatusCode() != 0)
+      this->what := this->what || " (" || browser->GetHTTPStatusText() || ")";
+  }
+>;
+
+
+PUBLIC ASYNC FUNCTION WaitForElasticsearch(INTEGER indexmgrid, DATETIME waituntil)
+{
+  RETURN AWAIT CreatePromise(PTR ConnectElasticsearch(indexmgrid, #1, #2, waituntil));
+}
+
+ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCTION PTR reject, DATETIME waituntil)
+{
+  WHILE (GetCurrentDateTime() < waituntil)
+  {
+    RECORD indexmanager;
+    IF (indexmanagerconnections->Has(indexmgrid))
+    {
+      indexmanager := indexmanagerconnections->Lookup(indexmgrid);
+    }
+    ELSE
+    {
+      RECORD indexmgr := SELECT * FROM consilio.indexmanagers WHERE id = indexmgrid;
+      IF (NOT RecordExists(indexmgr) OR (NOT IsValidPlainHTTPUrl(indexmgr.address) AND indexmgr.address != "builtin-elasticsearch"))
+      {
+        reject(NEW Exception(SearchInvalidArgument));
+        RETURN;
+      }
+
+      indexmanager := [ address := indexmgr.address
+                      , browser := DEFAULT OBJECT
+                      , clusterstatus := ""
+                      ];
+
+      IF (indexmanager.address = "builtin-elasticsearch")
+        indexmanager.address := "http://127.0.0.1:" || GetWebhareConfiguration().baseport + 6;
+
+      // Make sure the address doesn't end with a slash
+      IF (indexmanager.address LIKE "*/")
+        indexmanager.address := Left(indexmanager.address, Length(indexmanager.address) - 1);
+    }
+    IF (NOT ObjectExists(indexmanager.browser))
+    {
+      indexmanager.browser := NEW WebBrowser();
+      indexmanager.browser->timeout := elastic_timeout * 1000;
+    }
+    IF (indexmanager.clusterstatus NOT IN [ "yellow", "green" ])
+    {
+      FetcherDebug(ConsilioDebugInfo, "Connecting to Elasticsearch");
+      // Wait for the cluster to reach 'yellow' status
+      IF (NOT indexmanager.browser->SendRawRequest("GET", `${indexmanager.address}/_cluster/health?wait_for_status=yellow&timeout=${elastic_timeout}ms`, [ [ field := "Content-Type", value := "application/json" ] ], DEFAULT BLOB))
+      {
+        INTEGER statuscode := indexmanager.browser->GetHTTPStatusCode();
+        IF (statuscode = 401)
+        {
+          FetcherDebug(ConsilioDebugInfo, `Authentication error while connecting to Elasticsearch ${indexmgrid} on ${indexmanager.address}`);
+          reject(NEW Exception(SearchNoAccess));
+          RETURN;
+        }
+
+        FetcherDebug(ConsilioDebugInfo, `Could not connect to Elasticsearch ${indexmgrid} on ${indexmanager.address}`);
+      }
+      ELSE
+      {
+        RECORD status := DecodeJSONBlob(indexmanager.browser->content);
+        indexmanager.clusterstatus := status.status;
+        indexmanagerconnections->Add(indexmgrid, indexmanager);
+        FetcherDebug(ConsilioDebugInfo, `Elasticsearch ${indexmgrid} cluster status: ${indexmanager.clusterstatus}`);
+      }
+    }
+    IF (indexmanager.clusterstatus IN [ "yellow", "green" ])
+    {
+      resolve(SearchOk);
+      RETURN;
+    }
+
+    // Wait before trying again
+    AWAIT CreateSleepPromise(1000);
+  }
+  reject(NEW Exception(SearchTimeOutError));
+}
+
+
+PUBLIC RECORD FUNCTION SendToElasticsearch(INTEGER indexmgrid, STRING indexname, STRING command, RECORD request, STRING method, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ throwonfailure := FALSE ], options);
+
+  STRING url := (indexname != "" ? "/" || indexname : "") || command;
+  RECORD body := request;
+  BOOLEAN ndjson := CellExists(request, "_bulkrequests");
+  IF (ndjson)
+  {
+    // For _bulk requests, convert the request records to NDJSON
+    body := [ bulkrequests := request._bulkrequests ];
+  }
+
+  RETURN SendRawJSONToElasticsearch(indexmgrid, method, url, body, CELL[ ndjson, options.throwonfailure ]);
+}
+
+PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING method, STRING suburl, RECORD requestbody, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ ndjson := FALSE
+                              , throwonfailure := TRUE //if you use the RAW api, you're a new caller and should be expecting THROWs instead of adding new error paths
+                              ], options);
+
+  WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(elastic_timeout * 1000, GetCurrentDateTime())));
+
+  INTEGER statuscode;
+  RECORD indexmanager;
+  WHILE (TRUE) // Repeat until succesfully sent
+  {
+    // If WaitForElasticsearch returned SearchOk, the indexmanager is present in indexmanagerconnections
+    indexmanager := indexmanagerconnections->Lookup(indexmgrid);
+    IF (NOT ObjectExists(indexmanager.browser))
+    {
+      IF (running_in_fetcher AND print_defer_connection)
+        Print("Defer:connection\n");
+      IF(options.throwonfailure)
+        THROW NEW ElasticsearchException("Connection failed", DEFAULT OBJECT);
+      RETURN [ status := SearchConnectError ];
+    }
+
+    STRING url := indexmanager.address || (suburl LIKE "/*" ? "" : "/") || suburl;
+    BLOB body;
+    IF (options.ndjson)
+    {
+      // For _bulk requests, convert the request records to NDJSON
+      body := StringToBlob(Detokenize((SELECT AS STRING ARRAY EncodeJSON(bulkrequests) FROM requestbody.bulkrequests), "\n") || "\n");
+    }
+    ELSE IF (RecordExists(requestbody))
+    {
+      // Other requests are just JSON-encoded
+      body := EncodeJSONBlob(requestbody);
+    }
+    RECORD ARRAY headers;
+    IF (Length(body) > 0)
+      INSERT [ field := "Content-Type", value := options.ndjson ? "application/x-ndjson" : "application/json" ] INTO headers AT END;
+    IF (__indexmanager_debugall)
+      LogDebug("IndexManager", "Elasticsearch curl", `curl -X${method} "${url}"${Length(body) > 0 ? ` ${Detokenize((SELECT AS STRING ARRAY ` -H '${field}: ${value}'` FROM headers), " ")} -d'${BlobToString(body)}'` : ""}`);
+    BOOLEAN success := indexmanager.browser->SendRawRequest(method, url, headers, body);
+
+    statuscode := indexmanager.browser->GetHTTPStatusCode();
+    IF (NOT success)
+    {
+      IF (indexmanager.browser->GetSocketError() = -9) // timeout
+      {
+        FetcherDebug(ConsilioDebugAll, "Connection probably timed out, trying to reconnect...");
+        WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(elastic_timeout * 1000, GetCurrentDateTime())));
+        FetcherDebug(ConsilioDebugAll, "Reconnected, trying request again");
+        // Don't break, try to send request again with new connection
+      }
+      ELSE
+      {
+        // Got an unexpected code, but we'll let it slide
+        IF(options.throwonfailure)
+          THROW NEW ElasticsearchException("Unexpected response code " || statuscode || ":" || indexmanager.browser->GetHTTPStatusText(), indexmanager.browser);
+        FetcherDebug(ConsilioDebugInfo, "Unexpected response code " || statuscode || ":" || indexmanager.browser->GetHTTPStatusText());
+        BREAK;
+      }
+    }
+    ELSE
+    {
+      // Got 2xx response code, everything is alright
+      BREAK;
+    }
+  }
+
+  RETURN
+      [ status  := statuscode = 404 ? SearchIndexNotFound
+                 : statuscode = 401 ? SearchNoAccess
+                 : statuscode < 200 OR statuscode > 299 ? SearchHTTPError
+                 : SearchOk
+      , code    := indexmanager.browser->GetSocketError() ?? statuscode
+      , content := indexmanager.browser->content
+      , headers := indexmanager.browser->responseheaders
+      , result  := DecodeJSONBlob(indexmanager.browser->content)
+      ];
+}
+
+PUBLIC RECORD FUNCTION GetElasticsearchStatus(INTEGER indexmgrid)
+{
+  RECORD result :=
+      [ status := SearchOk
+      , msg := DEFAULT STRING ARRAY
+      ];
+
+  // Get file system status (containing total and available disk space)
+  RECORD fs_stats := SendToElasticsearch(indexmgrid, "", "/_nodes/stats/fs", DEFAULT RECORD, "GET");
+  IF (fs_stats.status != "ok")
+    RETURN CELL[ ...result, status := fs_stats.status ];
+
+  // Get cluster settings (containing disk thresholds)
+  RECORD settings := SendToElasticsearch(indexmgrid, "", "/_cluster/settings?flat_settings=true&include_defaults=true", DEFAULT RECORD, "GET");
+  IF (settings.status != "ok")
+    RETURN CELL[ ...result, status := settings.status ];
+
+  // The nodes are named; we'll just use the first (and, at least for now, only) node
+  RECORD node := UnpackRecord(fs_stats.result.nodes)[0].value;
+  // Disk sizes are returned as floats, presumably to support disk sizes > 2^63 bytes. We'll cross that bridge when we get
+  // there...
+  INTEGER64 available_bytes := INTEGER64(node.fs.total.available_in_bytes);
+  INTEGER64 total_bytes := INTEGER64(node.fs.total.total_in_bytes);
+
+  INSERT `disk.available=${available_bytes}` INTO result.msg AT END;
+  INSERT `disk.total=${total_bytes}` INTO result.msg AT END;
+
+  // Read cluster disk settings
+  /*
+    https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-update-settings.html#_order_of_precedence
+
+    The order of precedence for cluster settings is:
+
+    1. transient cluster settings
+    2. persistent cluster settings
+    3. settings in the elasticsearch.yml configuration file.
+  */
+  RECORD active_settings := CELL
+      [ ...settings.result.defaults
+      , ...settings.result.persistent
+      , ...settings.result.transient
+      ];
+  IF (active_settings."cluster.routing.allocation.disk.threshold_enabled" != "false")
+  {
+    INTEGER64 low_bytes := ReadWatermark(active_settings."cluster.routing.allocation.disk.watermark.low", total_bytes);
+    INTEGER64 high_bytes := ReadWatermark(active_settings."cluster.routing.allocation.disk.watermark.high", total_bytes);
+    INTEGER64 flood_bytes := ReadWatermark(active_settings."cluster.routing.allocation.disk.watermark.flood_stage", total_bytes);
+    IF (available_bytes < flood_bytes AND CellExists(active_settings,"cluster.routing.allocation.disk.watermark.flood"))
+    {
+      INSERT `indexstatus=0` INTO result.msg AT END;
+      INSERT `disk.watermark=flood=${active_settings."cluster.routing.allocation.disk.watermark.flood"}` INTO result.msg AT END;
+    }
+    ELSE IF (available_bytes < high_bytes)
+    {
+      INSERT `indexstatus=0` INTO result.msg AT END;
+      INSERT `disk.watermark=high=${active_settings."cluster.routing.allocation.disk.watermark.high"}` INTO result.msg AT END;
+    }
+    ELSE IF (available_bytes < low_bytes)
+    {
+      INSERT `indexstatus=0` INTO result.msg AT END;
+      INSERT `disk.watermark=low=${active_settings."cluster.routing.allocation.disk.watermark.low"}` INTO result.msg AT END;
+    }
+    ELSE
+    {
+      INSERT `indexstatus=1` INTO result.msg AT END;
+      INSERT "disk.watermark=ok" INTO result.msg AT END;
+    }
+  }
+  ELSE
+  {
+    INSERT `indexstatus=1` INTO result.msg AT END;
+    INSERT "disk.watermark=false" INTO result.msg AT END;
+  }
+
+  RETURN result;
+}
+
+PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN include_defaults)
+{
+  STRING command := "/_cluster/settings?flat_settings=true";
+  IF (include_defaults)
+    command := command || "&include_defaults=true";
+
+  RECORD settings := SendToElasticsearch(indexmgrid, "", command, DEFAULT RECORD, "GET");
+  IF (settings.status != SearchOk)
+    RETURN DEFAULT RECORD;
+
+  IF (include_defaults)
+    RETURN CELL
+      [ ...settings.result.defaults
+      , ...settings.result.persistent
+      , ...settings.result.transient
+      ];
+  RETURN CELL
+    [ ...settings.result.persistent
+    , ...settings.result.transient
+    ];
+}
+
+// To set low watermark threshold
+// [ "cluster.routing.allocation.disk.watermark.low" := "85%" ]
+// To clear low watermark threshold
+// [ "cluster.routing.allocation.disk.watermark.low" := DEFAULT RECORD ] (encoded as "null")
+PUBLIC RECORD FUNCTION SetElasticsearchSettings(INTEGER indexmgrid, RECORD settings, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ transient := FALSE ], options);
+  RECORD request;
+  IF (options.transient)
+    request := [ transient := settings ];
+  ELSE
+    request := [ persistent := settings ];
+  RETURN SendToElasticsearch(indexmgrid, "", "/_cluster/settings", request, "PUT");
+}
+
+INTEGER64 FUNCTION ReadWatermark(STRING input, INTEGER64 total_bytes)
+{
+  IF (input LIKE "*%")
+  {
+    // The percentage of the disk that is used
+    INTEGER percentage := ToInteger(Left(input, Length(input) - 1), 0);
+    IF (percentage <= 0)
+      RETURN -1;
+    // Note: this will only work with disk sizes < 2^63 / 100
+    RETURN total_bytes - (total_bytes * percentage / 100);
+  }
+  ELSE
+  {
+    // The absolute number of free bytes
+    INTEGER64 bytes := ParseElasticsearchBytes(input);
+    IF (bytes < 0)
+      RETURN -1;
+    RETURN bytes;
+  }
+}
+
+PUBLIC INTEGER64 FUNCTION ParseElasticsearchBytes(STRING readable_bytes)
+{
+  readable_bytes := ToLowercase(readable_bytes);
+  INTEGER factor := 1;
+  IF (readable_bytes LIKE "*kb")
+    factor := 1024;
+  ELSE IF (readable_bytes LIKE "*mb")
+    factor := 1024 * 1024;
+  ELSE IF (readable_bytes LIKE "*gb")
+    factor := 1024 * 1024 * 1024;
+  ELSE IF (readable_bytes LIKE "*tb")
+    factor := 1024 * 1024 * 1024 * 1024;
+  ELSE IF (readable_bytes LIKE "*pb")
+    factor := 1024 * 1024 * 1024 * 1024 * 1024;
+  IF (readable_bytes LIKE "*b")
+  {
+    INTEGER64 value := ToInteger64(Left(readable_bytes, Length(readable_bytes) - (factor > 1 ? 2 : 1)), -1);
+    IF (value >= 0)
+      RETURN value * factor;
+  }
+  RETURN -1;
+}
+
+PUBLIC BOOLEAN FUNCTION ElasticsearchMappingExists(INTEGER indexmgrid, INTEGER indexid, STRING type)
+{
+  RETURN GetAdhocCached([ type := type ], PTR ElasticsearchMappingExists_Uncached(indexmgrid, indexid, type));
+}
+
+RECORD FUNCTION ElasticsearchMappingExists_Uncached(INTEGER indexmgrid, INTEGER indexid, STRING type)
+{
+  RECORD response := SendToElasticsearch(indexmgrid, ToString(indexid), "/_mapping/" || type, DEFAULT RECORD, "GET");
+  RETURN [ value := response.status = SearchOk
+         , eventmasks := [ "consilio:contentsourcestatus" ]
+         ];
+}
+
+PUBLIC STRING FUNCTION GetElasticsearchDocumentId(INTEGER indexid, STRING objectid, STRING suffix DEFAULTSTO "")
+{
+  RETURN EncodeUFS(GetMD5Hash(indexid || (suffix != "" ? "-" || suffix : "") || "/" || objectid));
+}
+
+// input is either a single query, or a record containing a query and filters or an aggregation and possibly a query
+PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, STRING language)
+{
+  IF (CellExists(input, "aggregation"))
+  {
+    RECORD result :=
+        [ aggs := CreateElasticsearchAggregationRecursive(input.aggregation, language)
+        ];
+    // The 'count' aggregation isn't sent to Elasticsearch as an actual aggregation
+    IF (NOT RecordExists(result.aggs))
+      DELETE CELL aggs FROM result;
+
+    IF (CellExists(input, "query"))
+      INSERT CELL query := CreateElasticsearchQueryRecursive(input.query, language) INTO result;
+
+    RETURN result;
+  }
+
+  RECORD result :=
+      [ query := DEFAULT RECORD
+      ];
+
+  RECORD query := input;
+  IF (CellExists(query, "query"))
+    query := query.query;
+
+  result.query := CreateElasticsearchQueryRecursive(query, language);
+
+  IF (CellExists(input, "filters"))
+  {
+    RECORD ARRAY filters;
+    FOREVERY (RECORD filter FROM input.filters)
+    {
+      BOOLEAN isdatefilter := filter.field LIKE "date_*" OR filter.field LIKE "*.date_*";
+      RECORD range := DEFAULT RECORD;
+      IF (NOT IsDefaultValue(filter.lowerterm))
+      {
+        IF (filter.includelower)
+          INSERT CELL gte := isdatefilter ? FormatISO8601DateTime(filter.lowerterm, "day", "milliseconds") : filter.lowerterm INTO range;
+        ELSE
+          INSERT CELL gt := isdatefilter ? FormatISO8601DateTime(filter.lowerterm, "day", "milliseconds") : filter.lowerterm INTO range;
+      }
+      IF (NOT IsDefaultValue(filter.upperterm))
+      {
+        IF (filter.includeupper)
+          INSERT CELL lte := isdatefilter ? FormatISO8601DateTime(filter.upperterm, "day", "milliseconds") : filter.upperterm INTO range;
+        ELSE
+          INSERT CELL lt := isdatefilter ? FormatISO8601DateTime(filter.upperterm, "day", "milliseconds") : filter.upperterm INTO range;
+      }
+      INSERT [ range := CellInsert(DEFAULT RECORD, filter.field, range) ] INTO filters AT END;
+    }
+    IF (Length(filters) > 0)
+      result.query := AddElasticsearchQueryFilters(result.query, filters, FALSE);
+  }
+  RETURN result;
+}
+
+PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY filters, BOOLEAN not_filter)
+{
+  IF (NOT RecordExists(query))
+    query := [ bool := DEFAULT RECORD ];
+  ELSE IF (NOT CellExists(query, "bool"))
+    query := [ bool := [ must := [ RECORD(query) ] ] ];
+
+  IF (not_filter)
+  {
+    IF (NOT CellExists(query.bool, "must_not"))
+      INSERT CELL must_not := DEFAULT RECORD ARRAY INTO query.bool;
+    query.bool.must_not := query.bool.must_not CONCAT filters;
+  }
+  ELSE
+  {
+    IF (NOT CellExists(query.bool, "filter"))
+      INSERT CELL filter := DEFAULT RECORD ARRAY INTO query.bool;
+    query.bool.filter := query.bool.filter CONCAT filters;
+  }
+
+  RETURN query;
+}
+
+RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
+{
+  IF (NOT CellExists(query, "_type"))
+    THROW NEW Exception(`Invalid query record: ${AnyToString(query, "tree")}`);
+
+  IF (query._type = "user")
+    query := NEW QueryParser()->ParseUserQuery(query, language).query;
+
+  RECORD result;
+  SWITCH (query._type)
+  {
+    CASE "all"
+    {
+      result := [ match_all := CELL[] ];
+    }
+    CASE "nothing"
+    {
+      RETURN DEFAULT RECORD;
+    }
+    CASE "boolean"
+    {
+      RECORD booleanquery;
+      RECORD ARRAY queries :=
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, language)
+            FROM query.subqueries
+           WHERE required;
+      IF (Length(queries) > 0)
+        INSERT CELL must := queries INTO booleanquery;
+      queries :=
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, language)
+            FROM query.subqueries
+           WHERE prohibited;
+      IF (Length(queries) > 0)
+        INSERT CELL must_not := queries INTO booleanquery;
+      queries :=
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, language)
+            FROM query.subqueries
+           WHERE NOT required AND NOT prohibited;
+      IF (Length(queries) > 0)
+        INSERT CELL should := queries INTO booleanquery;
+
+      IF (RecordExists(booleanquery))
+        result := [ bool := booleanquery ];
+    }
+    CASE "term"
+    {
+      result :=
+          [ match := CellInsert(DEFAULT RECORD, query.field, query.term) ];
+    }
+    CASE "match"
+    {
+      IF (Length(query.fields) = 1)
+        result :=
+            [ match := CellInsert(DEFAULT RECORD, query.fields[0], query.text) ];
+      ELSE IF (Length(query.fields) > 1)
+      {
+        STRING ARRAY boosts :=
+            SELECT AS STRING ARRAY __FormatBoost(boost)
+              FROM ToRecordArray(query.boosts ?? [ 1f ], "boost");
+        result :=
+            [ multi_match :=
+                [ query := query.text
+                , type := "best_fields"
+                , fields :=
+                    (SELECT AS STRING ARRAY field || boosts[#fields % Length(boosts)]
+                       FROM ToRecordArray(query.fields, "field") AS fields)
+                ]
+            ];
+      }
+    }
+    CASE "literal"
+    {
+      result :=
+          [ constant_score :=
+              [ filter :=
+                  [ term := CellInsert(DEFAULT RECORD, query.field, query.term) ]
+              ]
+          ];
+    }
+    CASE "phrase"
+    {
+      result :=
+          [ match_phrase := CellInsert(DEFAULT RECORD, query.field, Detokenize(query.words, " ")) ];
+      IF (query.slop != 0)
+      {
+        // Convert [ match_phrase := [ my_field := "my_value" ] ] into
+        // [ match_phrase := [ my_field := [ query := "my_value", slop := my_slop ] ] ]
+        RECORD slop_query :=
+            [ query := GetCell(result.match_phrase, query.field)
+            , slop := query.slop
+            ];
+        result.match_phrase := CellInsert(CellDelete(result.match_phrase, query.field), query.field, slop_query);
+      }
+    }
+    CASE "date", "range"
+    {
+      RECORD rangequery;
+      SWITCH (query.matchtype)
+      {
+        CASE "<"  { rangequery := [ lt := query.term ]; }
+        CASE "<=" { rangequery := [ lte := query.term ]; }
+        CASE ">=" { rangequery := [ gte := query.term ]; }
+        CASE ">"  { rangequery := [ gt := query.term ]; }
+        CASE "[]" { rangequery := [ gte := query.lowerterm, lte := query.upperterm ]; }
+        CASE "{]" { rangequery := [ gt := query.lowerterm, lte := query.upperterm ]; }
+        CASE "[}" { rangequery := [ gte := query.lowerterm, lt := query.upperterm ]; }
+        CASE "{}" { rangequery := [ gt := query.lowerterm, lt := query.upperterm ]; }
+      }
+      IF (query.boost != 1)
+        INSERT CELL boost := query.boost INTO rangequery;
+
+      // Return result directly, as we've already applied boost factor
+      RETURN
+          [ range := CellInsert(DEFAULT RECORD, query.field, rangequery) ];
+    }
+    CASE "exists"
+    {
+      RETURN [ exists := [ field := query.field ] ];
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unknown query type '" || query._type || "'");
+    }
+  }
+  IF (query.boost != 1)
+  {
+    result :=
+        [ function_score :=
+            [ boost := query.boost
+            , query := result
+            ]
+        ];
+  }
+  RETURN result;
+}
+
+RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation, STRING language)
+{
+  IF (NOT CellExists(aggregation, "_type"))
+    THROW NEW Exception(`Invalid aggregation record: ${AnyToString(aggregation, "tree")}`);
+
+  RECORD result;
+  SWITCH (aggregation._type)
+  {
+    CASE "count"
+    {
+      RETURN DEFAULT RECORD;
+    }
+    CASE "min", "max"
+    {
+      result := CellInsert(DEFAULT RECORD, aggregation._type, CELL[ aggregation.field ]);
+    }
+    CASE "terms"
+    {
+      result :=
+          [ terms :=
+              CELL[ aggregation.field
+                  , aggregation.size
+                  ]
+          ];
+      IF (aggregation.orderby != "")
+        INSERT CELL "order" := CellInsert(DEFAULT RECORD, aggregation.orderby, aggregation.orderdesc ? "desc" : "asc") INTO result.terms;
+    }
+    CASE "top_hits"
+    {
+      result :=
+          [ top_hits :=
+              CELL[ docvalue_fields := STRING[ aggregation.field ]
+                  , _source := aggregation.field
+                  , aggregation.size
+                  ]
+          ];
+      IF (aggregation.orderby != "")
+      {
+        INSERT CELL sort := CellInsert(DEFAULT RECORD, aggregation.orderby, [ "order" := aggregation.orderdesc ? "desc" : "asc" ]) INTO result.top_hits;
+        INSERT aggregation.orderby INTO result.top_hits.docvalue_fields AT END;
+      }
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unknown aggregation type '" || aggregation._type || "'");
+    }
+  }
+
+  IF (CellExists(aggregation, "aggregations") AND RecordExists(aggregation.aggregations))
+  {
+    INSERT CELL aggs := DEFAULT RECORD INTO result;
+    FOREVERY (RECORD agg FROM aggregation.aggregations)
+      result.aggs := CELL[ ...result.aggs, ...CreateElasticsearchAggregationRecursive(agg.aggregation, language) ];
+  }
+
+  RETURN CellInsert(DEFAULT RECORD, aggregation.name, result);
+}
+
+PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregation, STRING aggregation_name, RECORD result)
+{
+  // The 'count' is handled separately, as it's not really an aggregation
+  IF (query_aggregation._type = "count")
+  {
+    IF (CellExists(result, "doc_count"))
+      RETURN CellInsert(DEFAULT RECORD, query_aggregation.name, result.doc_count);
+    THROW NEW Exception(`Unhandled 'count' aggregation: ${AnyToString(CELL[ query_aggregation, result ], "tree")}`);
+  }
+
+  RECORD result_aggregation := GetCell(result, aggregation_name);
+  SWITCH (query_aggregation._type)
+  {
+    CASE "min", "max"
+    {
+      IF (query_aggregation.name LIKE "date_*" OR query_aggregation.name LIKE "*.date_*")
+        RETURN CellInsert(DEFAULT RECORD, query_aggregation.name, MakeDateFromText(result_aggregation.value_as_string));
+      ELSE
+        RETURN CellInsert(DEFAULT RECORD, query_aggregation.name, result_aggregation.value);
+    }
+    CASE "terms"
+    {
+      RECORD ARRAY lineresults;
+      IF (Length(result_aggregation.buckets) > 0)
+      {
+        FOREVERY (RECORD bucket FROM result_aggregation.buckets)
+        {
+          RECORD lineresult := CellInsert(DEFAULT RECORD, query_aggregation.name, bucket."key");
+
+          IF (CellExists(query_aggregation, "aggregations"))
+          {
+            FOREVERY (RECORD agg FROM query_aggregation.aggregations)
+            {
+              VARIANT aggresult := ReadElasticsearchAggregationResult(agg.aggregation, agg.aggregation.name, bucket);
+              IF (IsTypeIDArray(TypeID(aggresult)))
+                lineresult := CellInsert(lineresult, agg.aggregation.name, aggresult);
+              ELSE
+                lineresult := CellInsert(lineresult, agg.aggregation.name, GetCell(aggresult, agg.aggregation.name));
+            }
+          }
+
+          INSERT lineresult INTO lineresults AT END;
+        }
+      }
+      RETURN lineresults;
+    }
+    CASE "top_hits"
+    {
+      RECORD ARRAY lineresults;
+      FOREVERY (RECORD hit FROM result_aggregation.hits.hits)
+      {
+        RECORD lineresult := CellInsert(DEFAULT RECORD, query_aggregation.name, GetCell(hit.fields, query_aggregation.field)[0]);
+        IF (query_aggregation.orderby != "")
+        {
+          IF (query_aggregation.orderby LIKE "date_*" OR query_aggregation.orderby LIKE "*.date_*")
+            lineresult := CellInsert(lineresult, query_aggregation.orderby, MakeDateFromText(GetCell(hit.fields, query_aggregation.orderby)[0]));
+          ELSE
+            lineresult := CellInsert(lineresult, query_aggregation.orderby, GetCell(hit.fields, query_aggregation.orderby)[0]);
+        }
+        INSERT lineresult INTO lineresults AT END;
+      }
+      RETURN lineresults;
+    }
+  }
+  THROW NEW Exception("Unknown aggregation type '" || query_aggregation._type || "'");
+}
+
+PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD mapping)
+{
+  RECORD singleresult;
+  FOREVERY (RECORD field FROM UnpackRecord(mapping))
+  {
+    IF (CellExists(singleresult, field.name))
+      CONTINUE;
+
+    // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
+    IF (CellExists(lineresult, field.name))
+    {
+      VARIANT value := GetCell(lineresult, field.name);
+      IF (TypeID(value) = TypeID(field.value)) // Either STRING or DATETIME
+      {
+        singleresult := CellInsert(singleresult, field.name, value);
+        CONTINUE;
+      }
+      ELSE IF (TypeID(value) = TypeID(STRING)) // Convert STRING to desired type
+      {
+        // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
+        value := Substitute(value, "\x1D", "");
+        value := Substitute(value, "\x1C", "");
+
+        // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
+        VARIANT decoded := DecodeJSON(value);
+        IF (CanCastTypeTo(TypeID(decoded), TypeID(field.value)))
+        {
+          field.value := decoded;
+          singleresult := CellInsert(singleresult, field.name, field.value);
+          CONTINUE;
+        }
+      }
+    }
+    // If we got here, we have to insert the default field value
+    singleresult := CellInsert(singleresult, field.name, field.value);
+  }
+  RETURN singleresult;
+}

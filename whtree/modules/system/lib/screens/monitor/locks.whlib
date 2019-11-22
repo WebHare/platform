@@ -1,0 +1,101 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE Locks EXTEND MonitorPanelBase
+<
+  OBJECT lockmgr;
+
+  RECORD laststatus;
+
+  MACRO Init()
+  {
+    this->lockmgr := OpenLockManager();
+    this->RefreshMonitorPanel();
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    this->laststatus := this->lockmgr->GetStatus();
+    this->stacktrace->value := this->laststatus.logtraces;
+
+    this->locks->rows :=
+        SELECT rowkey :=    mutexname
+             , name :=      mutexname
+             , locked :=    taken ? 1 : 0
+             , waiting :=   waiters
+             , takenby
+             , takentrace
+          FROM this->laststatus.mutexes
+         WHERE taken OR waiters != 0;
+
+    this->OnLockSelect();
+  }
+
+  MACRO OnLockSelect()
+  {
+    RECORD ARRAY takers;
+    RECORD rec := this->locks->selection;
+    IF (RecordExists(rec))
+    {
+      RECORD pos := RecordLowerBound(this->laststatus.links, [ id := rec.takenby ], [ "ID" ]);
+      IF (pos.found)
+      {
+        RECORD owner := this->laststatus.links[pos.position];
+        owner.waittrace := rec.takentrace;
+        INSERT owner INTO takers AT END;
+      }
+
+      takers := takers CONCAT
+          SELECT *
+            FROM this->laststatus.links
+           WHERE waitfor = rec.rowkey;
+
+      takers :=
+          SELECT rowkey :=  id
+               , clientname
+               , groupid
+               , waittrace
+               , COLUMN waituntil
+               , waiting :=   waitfor = rec.rowkey
+               , position :=  #takers + 1
+               , locked :=    waitfor != rec.rowkey ? GetTid("tollium:common.actions.yes") : GetTid("tollium:common.actions.no")
+            FROM takers;
+    }
+
+    this->lockslist->rows := takers;
+
+    this->OnLinkSelect();
+  }
+
+  MACRO OnLinkSelect()
+  {
+    RECORD sel := this->lockslist->selection;
+    this->trace->rows := RecordExists(sel)
+        ? sel.waittrace
+        : DEFAULT RECORD ARRAY;
+  }
+
+  MACRO OnStackTraceChange()
+  {
+    this->lockmgr->SetDebugging(
+        [ logtraces :=  this->stacktrace->value
+        ]);
+  }
+
+  MACRO DoOpenTraceRow()
+  {
+    OBJECT screen := this->LoadScreen("system:monitor/processlist.codeview",
+        [ rows :=   this->trace->rows
+        , value :=  this->trace->value
+        ]);
+
+    screen->RunModal();
+  }
+>;

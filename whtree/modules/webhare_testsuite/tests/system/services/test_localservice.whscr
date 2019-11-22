@@ -1,0 +1,185 @@
+﻿<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+STRING ARRAY vals;
+
+MACRO InsertValue(STRING val, BOOLEAN commit)
+{
+  INSERT val || (commit?"_COMMIT":"_ROLLBACK") INTO vals AT END;
+}
+
+MACRO TestLocalService()
+{
+  TestThrows(PTR OpenLocalService("webhare_testsuite:servicetest"));
+
+  //testfw->StartTrans("",TRUE);
+
+  TestThrows(PTR OpenLocalService("webhare_testsuite:nonexistent"));
+
+  OBJECT testservice := OpenLocalService("webhare_testsuite:test","abc");
+  TestEq(TRUE, ObjectExists(testservice));
+
+  PRINT("\n\nOpened service webhare_testsuite:test with trans\n");
+  testservice->HasDB();
+  testservice->HasDB();
+
+  PRINT("\n");
+
+  STRING uid := testservice->GetGuid();
+  TestThrows(PTR testservice->ThrowMeABone);
+  TestEq(uid, testservice->GetGuid());
+  testservice->TestRecurse();
+
+  OBJECT ls := OpenLocalService("webhare_testsuite:test","abc");
+  TestEq(TRUE, ls->GetGuid() != uid);
+
+  // Open & close transaction (error if that overwrites the primary from first service)
+  OBJECT service2 := OpenLocalService("webhare_testsuite:testnodbservice");
+  PRINT("Open service 2 trans\n");
+  service2->OpenDB();
+  service2->HasDB();
+  service2->CloseDB();
+
+  testservice->GetGuid();
+
+  testfw->SetTestUser("user1");
+  Testeq(testfw->GetUserAuthobjectId("user1"), GetEffectiveUserId());
+  Testeq(testfw->GetUserAuthobjectId("user1"), ls->GetEffectiveUserId());
+  testfw->SetTestUser("user2");
+  Testeq(testfw->GetUserAuthobjectId("user2"), GetEffectiveUserId());
+  Testeq(testfw->GetUserAuthobjectId("user2"), ls->GetEffectiveUserId());
+  __SetEffectiveUser(DEFAULT OBJECT);
+  Testeq(0, GetEffectiveUserId());
+  Testeq(0, ls->GetEffectiveUserId());
+}
+
+MACRO TestNoDBService()
+{
+  GetPrimary()->Close();
+
+  OBJECT service := OpenLocalService("webhare_testsuite:testnodbservice");
+  TestEq(FALSE, service->HasDB());
+  service->OpenDB();
+  service->CloseDB();
+
+  TestEQ("1", service->GetId("1"));
+
+  OpenPrimary();
+  service := OpenLocalService("webhare_testsuite:testnodbservice");
+  TestEq(FALSE, service->HasDB());
+
+  service->OpenDB();
+  GetPrimary()->Close();
+  TestEq(TRUE, service->HasDB());
+  service->CloseDB();
+  TestEq(FALSE, service->HasDB());
+
+  TestEQ("2", service->GetId("2"));
+
+  OpenPrimary();
+}
+
+MACRO TestPersistentService()
+{
+  OBJECT oldservice := OpenLocalService("webhare_testsuite:testpersistent","abc");
+  STRING persistentuid := oldservice->GetGuid();
+  TestEq(persistentuid, OpenLocalService("webhare_testsuite:testpersistent","abc")->GetGuid());
+
+  GetPrimary()->Close();
+
+  //But it should not persist over transaction boundaries
+  OpenPrimary();
+  TestEq(TRUE, persistentuid != OpenLocalService("webhare_testsuite:testpersistent","abc")->GetGuid(), "Persisted over transaction boundaries");
+
+  //And accessing the old service should throw
+  TestThrows(PTR oldservice->GetGuid());
+}
+
+MACRO TestPersistentNoDBService()
+{
+  OBJECT service := OpenLocalService("webhare_testsuite:testnodbservicepersistent");
+  TestEQ("1", service->GetId("1"));
+
+  OBJECT service2 := OpenLocalService("webhare_testsuite:testnodbservicepersistent");
+  TestEQ("1", service2->GetId("1-2"));
+
+  TestEQ(FALSE, service->HasDB());
+  TestEQ(FALSE, service2->HasDB());
+  service->OpenDB();
+  TestEQ(TRUE, service->HasDB());
+  TestEQ(TRUE, service2->HasDB());
+  service->CloseDB();
+  TestEQ(FALSE, service->HasDB());
+  TestEQ(FALSE, service2->HasDB());
+}
+
+MACRO TestTransactionIsolation()
+{
+  GetPrimary()->Close();
+
+  OBJECT service := OpenLocalService("webhare_testsuite:testnodbservicepersistent");
+  TestEQ("1", service->GetId("1"));
+
+  OBJECT service2 := OpenLocalService("webhare_testsuite:testnodbservicepersistent2");
+
+  TestEQ(FALSE, service2->HasDB());
+  service2->OpenDB();
+
+  TestEQ("2", service2->GetId("2"));
+
+  TestEQ(FALSE, service->HasDB());
+  TestEQ(TRUE, service2->HasDB());
+
+  service->OpenDB();
+
+  TestEQ(TRUE, service->HasDB());
+  TestEQ(TRUE, service2->HasDB());
+
+  service2->CloseDB();
+
+  TestEQ(TRUE, service->HasDB());
+  TestEQ(FALSE, service2->HasDB());
+
+  OpenPrimary();
+
+  OBJECT service3 := OpenLocalService("webhare_testsuite:test","abc");
+  TestEq(TRUE, ObjectExists(service3));
+
+  TestEQ(TRUE, service->HasDB());
+  TestEQ(FALSE, service2->HasDB());
+  TestEQ(TRUE, service3->HasDB());
+
+  service->CloseDB();
+
+  TestEQ(FALSE, service->HasDB());
+  TestEQ(FALSE, service2->HasDB());
+  TestEQ(TRUE, service3->HasDB());
+
+  PRINT("Reopen service db\n");
+  service->OpenDB();
+
+  TestEQ(TRUE, service->HasDB());
+  TestEQ(FALSE, service2->HasDB());
+  TestEQ(TRUE, service3->HasDB());
+
+  service->CloseDB();
+
+  GetPrimary()->Close();
+
+  TestEQ(FALSE, service->HasDB());
+  TestEQ(FALSE, service2->HasDB());
+
+  OpenPrimary();
+}
+
+RunTestframework([ PTR TestLocalService
+                 , PTR TestNoDBService
+                 , PTR TestPersistentService
+                 , PTR TestPersistentNoDBService
+                 , PTR TestTransactionIsolation
+                 ]
+                ,[ testusers := [[ login := "user1", grantrights := DEFAULT STRING ARRAY ]
+                                ,[ login := "user2", grantrights := DEFAULT STRING ARRAY ]
+                                ]
+                 ]);

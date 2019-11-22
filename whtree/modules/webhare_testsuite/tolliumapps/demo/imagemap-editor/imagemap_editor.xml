@@ -1,0 +1,173 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="imagemap_editor.whlib"
+         gid="tolliumapps.demo.imagemap"
+         >
+
+  <messageboxes>
+    <messagebox name="fileisnotanimage"  icon="error"       buttons="ok" />
+    <!--
+    <messagebox name="thisisinformative" icon="information" buttons="ok" title="Title" />
+    <messagebox name="thisisawarning"    icon="warning"     buttons="ok" title="Title" />
+    <messagebox name="thisisanerror"     icon="error"       buttons="ok" title="Title" />
+    <messagebox name="custombuttons">
+      <button title="Button A" tolliumresult="ok" />
+      <button title="Button B" tolliumresult="cancel" />
+      <button title="Button C" tolliumresult="somerandomname" />
+    </messagebox>
+    -->
+  </messageboxes>
+
+  <screen name="main" title="Imagemap editor"
+          minwidth="170x" width="80x" height="40x" allowresize="true"
+          menubar="menubar"
+          >
+    <actions>
+      <action name="openimage" onexecute="doopenpublisherfile" />
+      <action name="any" onexecute="doany">
+        <enableon source="icon" min="1" />
+      </action>
+      <action name="anywithfocus" onexecute="doany">
+        <enableon source="icon" min="1" requirefocus="true" />
+      </action>
+      <action name="odd" onexecute="doany">
+        <enableon source="icon" checkflags="odd" min="1" />
+      </action>
+
+      <uploadaction name="uploadimage"
+                    shortcut="ctrl+u"
+                    onupload="onuploadimage"
+                    multiple="true">
+      </uploadaction>
+
+      <downloadaction name="downloadimagemap"
+                      ondownload="dodownloadimagemap"
+                      tid="tollium:common.actions.download"
+                      />
+
+      <downloadaction name="downloadimagemaparchive"
+                      ondownload="dodownloadimagemaparchive"
+                      tid="tollium:common.actions.download"
+                      />
+
+      <downloadaction name="downloadjson"
+                      ondownload="dodownloadjson"
+                      tid="tollium:common.actions.download"
+                      />
+
+      <windowopenaction name="previewurl" onwindowopen="dopreviewurl" title="Preview link">
+        <enableon source="icon" min="1" max="1" checkflags="hasurl" />
+      </windowopenaction>
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item title="Files">
+          <item action="openimage"   title="Open file" />
+          <item action="uploadimage" title="Upload" />
+          <divider />
+          <item action="downloadimagemap" title="Download image map" />
+          <item action="downloadimagemaparchive" title="Download image map archive" />
+          <item action="downloadjson"     title="Download as JSON" />
+        </item>
+      </menu>
+
+      <menu name="menu_open">
+        <item action="openimage"   title="Open file" />
+        <item action="uploadimage" title="Upload" />
+      </menu>
+
+      <menu name="menu_download">
+        <item action="downloadimagemap"        title="image map" />
+        <item action="downloadimagemaparchive" title="archive with image and HTML" />
+        <item action="downloadjson"            title="JSON" />
+      </menu>
+    </menus>
+
+    <toolbar>
+      <button menu="menu_open"     icon="tollium:actions/open" title="Load image" />
+      <button menu="menu_download" icon="tollium:actions/download" title="Download" />
+      <divider />
+      <button action="previewurl"  icon="tollium:filemgr/previewsite" />
+      <button action="any" name="toolbarany" />
+      <button action="odd" name="toolbarodd" />
+    </toolbar>
+
+    <body height="1pr"><!-- height for usage as panel->content, not needed outside this components -->
+
+      <split type="vertical">
+        <part name="iconpanel" height="30x" spacers="bottom">
+          <grid height="1pr">
+            <cell width="1pr">
+              <image name="icon" title=""
+                     width="1pr" height="1pr"
+                     value="tollium:tollium/tollium"
+                     flags="hasurl odd"
+                     onselect="onselectoverlay"
+                     oncreateoverlay="oncreateoverlay"
+                     onchangeoverlays="onchangeoverlays"
+                     />
+                     <!-- onclick="doupdateclickposition" -->
+            </cell>
+            <cell>
+              <button action="any" name="anybutton" />
+              <button action="anywithfocus" name="anywithfocusbutton" />
+              <button action="odd" name="oddbutton" />
+            </cell>
+          </grid>
+        </part>
+        <part spacers="top">
+
+          <arrayedit name="overlays"
+                     buttons="add delete"
+                     onrowedit="oneditoverlayrow"
+                     onrowdelete="ondeleteoverlayrow"
+                     onmaprows="onmapoverlayrows"
+                     onselect="onselectoverlayrow"
+                     oncelledit="doeditcell"
+                     orderable="true"
+                     minheight="15x"
+                     height="1pr"
+                     >
+            <column name="overlayrowkey" type="integer" align="right" width="8x" title="Rowkey" />
+            <column name="title"  type="text"    width="1pr" edittype="textedit" title="Title" />
+            <column name="left"   type="integer" width="8x"  align="right" title="Left" />
+            <column name="top"    type="integer" width="8x" align="right" title="Top" />
+            <column name="width"  type="integer" width="8x" align="right" title="Width" />
+            <column name="height" type="integer" width="8x" align="right" title="Height" />
+            <column name="url"    type="url"     width="1pr" edittype="textedit" title="URL" />
+          </arrayedit>
+
+        </part>
+      </split>
+
+      <text name="selectedoverlay" title="Selected overlay" value="" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+
+
+  <screen name="editoverlay" title="Overlay"
+          allowresize="true"
+          menubar="menubar"
+          >
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textarea cellname="title"  composition="row" width="1pr" />
+      <textedit cellname="url"    composition="row" width="1pr" validationchecks="http-url" />
+
+      <heading title="Size and position" />
+      <textedit cellname="left"   composition="row" valuetype="integer" minvalue="0"/>
+      <textedit cellname="top"    composition="row" valuetype="integer" minvalue="0"/>
+      <textedit cellname="width"  composition="row" valuetype="integer" minvalue="0"/>
+      <textedit cellname="height" composition="row" valuetype="integer" minvalue="0"/>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+</screens>

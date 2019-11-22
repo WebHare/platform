@@ -1,0 +1,117 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::consilio/lib/pagelists.whlib";
+LOADLIB "mod::consilio/lib/screens/catalog.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
+
+PUBLIC RECORD ARRAY FUNCTION GetPagelist(INTEGER objid)
+{
+  OpenPrimary();
+
+  RECORD objinfo := SELECT parent FROM system.fs_objects WHERE id = objid;
+  IF(NOT RecordExists(objinfo))
+    RETURN RECORD[];
+
+  RETURN SELECT link, modificationdate, title FROM GenerateSitemapLinks(objinfo.parent, [ limitobjects := [objid]]);
+}
+
+
+PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
+<
+  INTEGER objid;
+  OBJECT fsobj;
+  RECORD searchinfo;
+  OBJECT pagelistpromise;
+
+  PUBLIC MACRO Setup(INTEGER objid)
+  {
+    this->objid := objid;
+  }
+  PUBLIC MACRO Refresh(OBJECT fsobj)
+  {
+    this->Fsobj := fsobj;
+    this->searchinfo := OpenWHFSType("http://www.webhare.net/xmlns/publisher/searchinfo")->GetInstanceData(this->objid);
+
+    IF(Length(this->searchinfo.subfiles) > 0)
+    {
+      ^subfile->options := SELECT rowkey := #subfiles
+                                , title := (RecordExists(body) ? body.filename : "") || " (#" || #subfiles || ")"
+                                , groupid := "fsobj_" || this->objid || (#subfiles > 0 ? "_" || #subfiles: "")
+                             FROM this->searchinfo.subfiles;
+    }
+    ELSE
+    {
+      ^subfile->options := [[ rowkey := 0, title := this->GetTid(".nosearchinfo"), groupid := "fsobj_" || this->objid ]];
+    }
+    ^subfile->readonly := Length(^subfile->options) = 1;
+    this->RefreshConsilioPagelist(FALSE);
+  }
+
+  MACRO DoReindex()
+  {
+    ReindexWHFSChanges([[ id := this->objid
+                        , isfolder := this->fsobj->isfolder
+                        , isdelete := NOT this->fsobj->isactive
+                        ]], [ debug := TRUE, force := TRUE ]);
+    this->Refresh(this->fsobj);
+  }
+  MACRO DoInspectConsilio()
+  {
+    IF(NOT RunConsilioInspectDialog(this, whconstant_consilio_catalog_whfs, "", ^subfile->selection.groupid))
+      this->owner->RunSimpleScreen("error", this->GetTid(".cannotinspectconsilio"));
+  }
+
+  MACRO OnSubfileChange()
+  {
+    RECORD matchfile := ^subfile->value < Length(this->searchinfo.subfiles) ? this->searchinfo.subfiles[^subfile->value] : DEFAULT RECORD;
+    IF(RecordExists(matchfile) AND RecordExists(matchfile.body))
+      ^subfilecontent->blobvalue := matchfile.body.data;
+    ELSE
+      ^subfilecontent->blobvalue := DEFAULT BLOB;
+  }
+
+  MACRO DoRefreshPageList()
+  {
+    this->RefreshConsilioPagelist(TRUE);
+  }
+
+  ASYNC MACRO RefreshConsilioPagelist(BOOLEAN interactive)
+  {
+    IF(ObjectExists(this->pagelistpromise)) //already running
+      RETURN; //ignore (or cancel running promise?)
+
+    ^pagelist->rows := RECORD[];
+    ^pagelist->empty := this->GetTid(".refreshingpagelist");
+    this->pagelistpromise := AsyncCallFunctionFromJob(Resolve("#GetPagelist"), this->objid);
+    TRY
+    {
+      RECORD ARRAY pages := AWAIT this->pagelistpromise;
+      ^pagelist->empty := "";
+      ^pagelist->rows := SELECT rowkey := link, url := link, modificationdate, title FROM pages;
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      ^pagelist->empty := this->GetTid(".refreshingpagelisterror");
+      IF(interactive)
+        RunExceptionReportDialog(this, e);
+    }
+    FINALLY
+    {
+      this->pagelistpromise := DEFAULT OBJECT;
+    }
+  }
+
+
+>;

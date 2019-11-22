@@ -1,0 +1,8 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="testeditorsupport.whscr" />
+  <test script="testsourcemanipulation.whscr" />
+  <test script="testcheckmodule.whscr" />
+  <test script="testprettify.whscr" />
+  <test script="testvalidate.whscr" />
+  <test script="test_module_imexport.whscr" />
+</group>

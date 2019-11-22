@@ -1,0 +1,400 @@
+﻿<?wh
+/** @short WH remoting encoding
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::datetime.whlib";
+
+STATIC OBJECTTYPE RemotingXMLCodec
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_remoter;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY remoter(pvt_remoter, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  MACRO NEW(OBJECT remoter)
+  {
+    this->pvt_remoter := remoter;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO PrintVar(INTEGER str, VARIANT p, STRING cellname)
+  {
+    STRING nodename := EncodeTypeToString(TypeID(p));
+    PrintTo(str, '<' || nodename || (cellname='' ? '' : ' cell="' || cellname || '"'));
+
+    IF(IsTypeIDArray(TypeId(p)))
+    {
+      PrintTo(str,'>');
+      FOR(INTEGER i := 0, e := Length(p); i < e; i := i + 1)
+        this->PrintVar(str, p[i], "");
+    }
+    ELSE
+    {
+      SWITCH (TypeID(p))
+      {
+      CASE TypeID(STRING)
+        {
+          PrintTo(str, ">" || EncodeValue(p));
+        }
+      CASE TypeID(BOOLEAN)
+        {
+          PrintTo(str, ">" || (p ? '1' : '0'));
+        }
+      CASE TypeID(INTEGER)
+        {
+          PrintTo(str, ">" || ToString(p));
+        }
+      CASE TypeID(INTEGER64)
+        {
+          PrintTo(str, ">" || ToString(p));
+        }
+      CASE TypeID(DATETIME)
+        {
+          INTEGER days := GetDayCount(p);
+          INTEGER msecs := GetMsecondCount(p);
+          PrintTo(str, ">" || days || "," || msecs);
+        }
+      CASE TypeID(BLOB)
+        {
+          //ADDME: Blob-level encoder, or at least encode in chunks
+          PrintTo(str, ">");
+          INTEGER chunksize := 900000; // MUST be dividable by 3!
+          FOR (INTEGER64 i := 0, e := LENGTH64(p); i < e; i := i + chunksize)
+          {
+            IF (i != 0)
+              PrintTo(str, "<part>");
+            INTEGER64 thischunk := e - i;
+            IF (thischunk > chunksize)
+              thischunk := chunksize;
+            BLOB part := MakeSlicedBlob(p, i, thischunk);
+            PrintTo(str, EncodeBase64(BlobToString(part, -1)));
+            IF (i != 0)
+              PrintTo(str, "</part>");
+          }
+        }
+      CASE TypeID(RECORD)
+        {
+          IF (NOT RecordExists(p))
+          {
+            PrintTo(str, '/>');
+            RETURN;
+          }
+          ELSE
+          {
+            RECORD ARRAY fields := UnpackRecord(p);
+            IF (LENGTH(fields) = 0)
+            {
+              PrintTo(str,' empty="1" />');
+              RETURN;
+            }
+            ELSE
+            {
+              PrintTo(str,'>');
+              FOREVERY (RECORD rec FROM UnpackRecord(p))
+                this->PrintVar(str, rec.value, rec.name);
+            }
+          }
+        }
+      CASE TypeID(MONEY)
+        {
+          PrintTo(str,'>' || FormatMoney(p,0,".","",FALSE));
+        }
+      CASE TypeID(OBJECT)
+        {
+          this->EncodeObject(str, p, cellname);
+          RETURN;
+        }
+      DEFAULT
+        {
+          THROW NEW Exception("Cannot encode variables of type " || GetTypeName(TypeID(p)));
+        }
+      }
+    }
+    PrintTo(str,'</' || nodename || '>');
+  }
+
+
+  MACRO EncodeObject(INTEGER str, OBJECT p, STRING cellname)
+  {
+    IF (NOT ObjectExists(p))
+    {
+      PrintTo(str,' />');
+      RETURN;
+    }
+
+    RECORD data := this->pvt_remoter->GetObjectId(p);
+    PrintTo(str,' id="' || data.id || '"');
+    IF (data.seen)
+    {
+      PrintTo(str,' />');
+      RETURN;
+    }
+    PrintTo(str,' type="'||EncodeValue(data.type)||'"');
+    IF (data.seentype)
+    {
+      PrintTo(str,' />');
+      RETURN;
+    }
+    PrintTo(str, ' withdecl="1">');
+    PrintTo(str, '<methods>');
+    FOREVERY (RECORD method FROM data.methods)
+    {
+      PrintTo(str, '<method name="'||EncodeValue(method.name));
+      IF(method.returntype != 0)
+        PrintTo(str,'" returntype="'||EncodeTypeToString(method.returntype));
+      IF (method.excessargstype != 0)
+        PrintTo(str, '" excessargstype="'||EncodeTypeToString(method.excessargstype) ||'">');
+      ELSE
+        PrintTo(str, '">');
+      FOREVERY (RECORD param FROM method.parameters)
+        PrintTo(str, '<parameter type="'||EncodeTypeToString(param.type)||'" hasdefault="'||(param.has_default?"1":"0")||'" />');
+      PrintTo(str, '</method>');
+    }
+    PrintTo(str, '</methods></obj>');
+  }
+
+
+  OBJECT FUNCTION DecodeObject(OBJECT node)
+  {
+    INTEGER id := ToInteger(node->GetAttribute("id"), -1);
+    IF (id = -1)
+      RETURN DEFAULT OBJECT;
+
+    STRING type := node->GetAttribute("type");
+    IF (type = "")
+      RETURN this->pvt_remoter->GetRemoteObject(id);
+
+    IF (node->GetAttribute("withdecl") IN [ "1", "true" ])
+    {
+      FOREVERY (OBJECT methodrootnode FROM node->childnodes->GetCurrentElements())
+      {
+        RECORD ARRAY methods;
+
+        FOREVERY (OBJECT methodnode FROM methodrootnode->childnodes->GetCurrentElements())
+        {
+          STRING excessargstype := methodnode->GetAttribute("excessargstype");
+
+          RECORD data :=
+              [ name :=           methodnode->GetAttribute("name")
+              , returntype :=     methodnode->HasAttribute("returntype") ? GetDecodeTypeID(methodnode->GetAttribute("returntype")) : 0
+              , excessargstype := excessargstype = "" ? 0 : GetDecodeTypeID(excessargstype)
+              , parameters :=     DEFAULT RECORD ARRAY
+              ];
+
+          FOREVERY (OBJECT parameternode FROM methodnode->childnodes->GetCurrentElements())
+          {
+            INSERT
+                [ type :=           GetDecodeTypeID(parameternode->GetAttribute("type"))
+                , has_default :=    parameternode->GetAttribute("hasdefault") IN [ "1", "true" ]
+                ] INTO data.parameters AT END;
+          }
+
+          INSERT data INTO methods AT END;
+        }
+        this->pvt_remoter->RegisterType(type, methods);
+        BREAK;
+      }
+    }
+
+    RETURN this->pvt_remoter->InstantiateRemoteObject(id, type);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC BLOB FUNCTION EncodeVariable(VARIANT v)
+  {
+    INTEGER stream := CreateStream();
+    this->EncodeVariableTo(stream, v);
+    RETURN MakeBlobFromStream(stream);
+  }
+
+
+  PUBLIC MACRO EncodeVariableTo(INTEGER stream, VARIANT v)
+  {
+    this->PrintVar(stream, v, "");
+  }
+
+
+  PUBLIC VARIANT FUNCTION DecodeVariable(OBJECT node)
+  {
+    SWITCH (node->nodename)
+    {
+    CASE "str"  { RETURN node->textcontent; }
+    CASE "int"  { RETURN ToInteger(node->textcontent, 0); }
+    CASE "i64"  { return ToInteger64(node->textcontent, 0); }
+    CASE "bool" { RETURN node->textcontent IN [ "1", "true" ]; }
+    CASE "dt"
+      {
+        STRING ARRAY parts := Tokenize(node->textcontent, ",");
+        DATETIME result;
+        IF (LENGTH(parts) = 2)
+          result := MakeDateFromParts(ToInteger(parts[0],0),ToInteger(parts[1],0));
+        RETURN result;
+      }
+    CASE "blob"
+      {
+        INTEGER stream := CreateStream();
+        FOREVERY (OBJECT subnode FROM [ OBJECT(node) ] CONCAT node->childnodes->GetCurrentElements())
+          PrintTo(stream, DecodeBase64(subnode->childrentext));
+        RETURN MakeBlobFromStream(stream);
+      }
+    CASE "money"{ RETURN ToMoney(node->textcontent, 0); }
+    CASE "rec"
+      {
+        RECORD res;
+        FOREVERY (OBJECT child FROM node->childnodes->GetCurrentElements())
+        {
+          STRING name := child->GetAttribute("cell");
+          VARIANT val := this->DecodeVariable(child);
+          res := CellInsert(res, name, val);
+        }
+        IF (NOT RecordExists(res) AND node->GetAttribute("empty") IN [ "1", "true" ])
+          RETURN CELL[];
+        RETURN res;
+      }
+    CASE "obj"
+      {
+        RETURN this->DecodeObject(node);
+      }
+    CASE "strarr", "boolarr", "intarr", //"i64arr",
+         "dtarr", "vararr", "objarr", "blobarr",
+         "recarr", "moneyarr"
+      {
+        VARIANT val := GetDecodeTypeDefault(node->nodename);
+        FOREVERY (OBJECT child FROM node->childnodes->GetCurrentElements())
+          INSERT this->DecodeVariable(child) INTO val AT END;
+        RETURN val;
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Cannot decode nodes with name '" || node->nodename || "'");
+      }
+    }
+  }
+>;
+
+STRING FUNCTION EncodeTypeToString(INTEGER typeidnr)
+{
+  SWITCH (typeidnr)
+  {
+  CASE TypeID(STRING)           { RETURN "str"; }
+  CASE TypeID(BOOLEAN)          { RETURN "bool"; }
+  CASE TypeID(INTEGER)          { RETURN "int"; }
+  CASE TypeID(INTEGER64)        { RETURN "i64"; }
+  CASE TypeID(DATETIME)         { RETURN "dt"; }
+  CASE TypeID(OBJECT)           { RETURN "obj"; }
+  CASE TypeID(BLOB)             { RETURN "blob"; }
+  CASE TypeID(RECORD)           { RETURN "rec"; }
+  CASE TypeID(MONEY)            { RETURN "money"; }
+  CASE TypeID(VARIANT)          { RETURN "variant"; }
+
+  CASE TypeID(STRING ARRAY)     { RETURN "strarr"; }
+  CASE TypeID(BOOLEAN ARRAY)    { RETURN "boolarr"; }
+  CASE TypeID(INTEGER ARRAY)    { RETURN "intarr"; }
+  CASE TypeID(INTEGER64 ARRAY)  { RETURN "i64arr"; }
+  CASE TypeID(DATETIME ARRAY)   { RETURN "dtarr"; }
+  CASE TypeID(VARIANT ARRAY)    { RETURN "vararr"; }
+  CASE TypeID(OBJECT ARRAY)     { RETURN "objarr"; }
+  CASE TypeID(BLOB ARRAY)       { RETURN "blobarr"; }
+  CASE TypeID(RECORD ARRAY)     { RETURN "recarr"; }
+  CASE TypeID(MONEY ARRAY)      { RETURN "moneyarr"; }
+  DEFAULT
+    {
+      THROW NEW Exception("Cannot encode variables of type " || GetTypeName(typeidnr));
+    }
+  }
+}
+
+
+VARIANT FUNCTION GetDecodeTypeID(STRING typename)
+{
+  SWITCH (typename)
+  {
+  CASE "str"          { RETURN TypeID(STRING); }
+  CASE "bool"         { RETURN TypeID(BOOLEAN); }
+  CASE "int"          { RETURN TypeID(INTEGER); }
+  CASE "int64"        { RETURN TypeID(INTEGER64); }
+  CASE "dt"           { RETURN TypeID(DATETIME); }
+  CASE "obj"          { RETURN TypeID(OBJECT); }
+  CASE "blob"         { RETURN TypeID(BLOB); }
+  CASE "rec"          { RETURN TypeID(RECORD); }
+  CASE "money"        { RETURN TypeID(MONEY); }
+  CASE "variant"      { RETURN TypeID(VARIANT); }
+
+  CASE "strarr"       { RETURN TypeID(STRING ARRAY); }
+  CASE "boolarr"      { RETURN TypeID(BOOLEAN ARRAY); }
+  CASE "intarr"       { RETURN TypeID(INTEGER ARRAY); }
+  CASE "i64arr"       { RETURN TypeID(INTEGER64 ARRAY); }
+  CASE "dtarr"        { RETURN TypeID(DATETIME ARRAY); }
+  CASE "vararr"       { RETURN TypeID(VARIANT ARRAY); }
+  CASE "objarr"       { RETURN TypeID(OBJECT ARRAY); }
+  CASE "blobarr"      { RETURN TypeID(BLOB ARRAY); }
+  CASE "recarr"       { RETURN TypeID(RECORD ARRAY); }
+  CASE "moneyarr"     { RETURN TypeID(MONEY ARRAY); }
+  DEFAULT
+    {
+      THROW NEW Exception("Don't know variable code '" || typename || "'");
+    }
+  }
+}
+
+
+
+VARIANT FUNCTION GetDecodeTypeDefault(STRING typename)
+{
+  SWITCH (typename)
+  {
+  CASE "str"          { RETURN DEFAULT STRING; }
+  CASE "bool"         { RETURN DEFAULT BOOLEAN; }
+  CASE "int"          { RETURN DEFAULT INTEGER; }
+  CASE "int64"        { RETURN DEFAULT INTEGER64; }
+  CASE "dt"           { RETURN DEFAULT DATETIME; }
+  CASE "obj"          { RETURN DEFAULT OBJECT; }
+  CASE "blob"         { RETURN DEFAULT BLOB; }
+  CASE "rec"          { RETURN DEFAULT RECORD; }
+  CASE "money"        { RETURN DEFAULT MONEY; }
+
+  CASE "strarr"       { RETURN DEFAULT STRING ARRAY; }
+  CASE "boolarr"      { RETURN DEFAULT BOOLEAN ARRAY; }
+  CASE "intarr"       { RETURN DEFAULT INTEGER ARRAY; }
+  CASE "i64arr"       { RETURN DEFAULT INTEGER64 ARRAY; }
+  CASE "dtarr"        { RETURN DEFAULT DATETIME ARRAY; }
+  CASE "vararr"       { RETURN DEFAULT VARIANT ARRAY; }
+  CASE "objarr"       { RETURN DEFAULT OBJECT ARRAY; }
+  CASE "blobarr"      { RETURN DEFAULT BLOB ARRAY; }
+  CASE "recarr"       { RETURN DEFAULT RECORD ARRAY; }
+  CASE "moneyarr"     { RETURN DEFAULT MONEY ARRAY; }
+  DEFAULT
+    {
+      THROW NEW Exception("Cannot decode variables with element type '" || typename || "'");
+    }
+  }
+}
+
+
+PUBLIC OBJECT FUNCTION CreateRemotingXMLCodec(OBJECT remoter)
+{
+  RETURN NEW RemotingXMLCodec(remoter);
+}

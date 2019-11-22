@@ -1,0 +1,116 @@
+<?wh // Testscript
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/db/test_client.whlib";
+
+ClientStart(2);
+
+TABLE <INTEGER id, BLOB data> beta_blobtests;
+OBJECT test_fp_trans;
+
+STRING testblob;
+FOR(INTEGER i := 0; i < 5000; i := i + 1)
+  testblob := testblob || "Dit is de beroemde testblob!";
+
+STRING FUNCTION GetBlobId(BLOB storedblob)
+{
+  IF (GetDatabaseType() = "whdb")
+  {
+    INTEGER id := GetWHDBBlobInternalId(storedblob);
+    RETURN id = 0 ? "" : ToString(id);
+  }
+  ELSE
+    RETURN __GetPostgreSQLBlobRegistrationId(test_fp_trans->id, storedblob);
+}
+
+//--------------------------------------------------------------------------------
+// Test 1; normal record-update chase
+
+IF (clientid = 0)
+{
+  SectionStart(1);
+
+  test_fp_trans := OpenPrimary();
+  test_fp_trans->BeginWork();
+
+  IF (test_fp_trans->SchemaExists("webhare_testsuite_testschema"))
+    test_fp_trans->DropSchema("webhare_testsuite_testschema", [ cascade := TRUE ]);
+  test_fp_trans->CreateSchema("webhare_testsuite_testschema", "", "");
+
+  __LegacyCreateTable(test_fp_trans, "webhare_testsuite_testschema", "beta_blobtests",
+      [ primarykey := "id"
+      , cols :=       [ [ column_name := "id", data_type := "INTEGER" ]
+                      , [ column_name := "data", data_type := "BLOB" ]
+                      ]
+      ]);
+
+  beta_blobtests := BindTransactionToTable(test_fp_trans->id, "webhare_testsuite_testschema.beta_blobtests");
+  DELETE FROM beta_blobtests;
+  BLOB tostore := StringToBlob(testblob);
+
+  IF(GetBlobId(tostore) != "")
+    ABORT("Blob id function doesn't return empty string for unregistered blobs");
+
+  INSERT INTO beta_blobtests(id, data) VALUES(1,tostore);
+  INSERT INTO beta_blobtests(id, data) VALUES(3,DEFAULT BLOB);
+
+  test_fp_trans->CommitWork();
+
+  IF(GetBlobId(tostore) = "")
+    ABORT("Blob was not registered as database stored blob");
+
+  SectionEnd(1);
+}
+
+IF(clientid = 1)
+{
+  SectionStart(2);
+
+  test_fp_trans := OpenPrimary(); // Open primary AFTER the tables are created!
+  test_fp_trans->BeginWork();
+
+  beta_blobtests := BindTransactionToTable (test_fp_trans->id, "webhare_testsuite_testschema.beta_blobtests");
+  BLOB onlyblob := SELECT AS BLOB data FROM beta_blobtests WHERE id=1;
+  INSERT INTO beta_blobtests(id, data) VALUES(2, onlyblob);
+
+  test_fp_trans->CommitWork();
+
+  BLOB thirdblob := SELECT AS BLOB data FROM beta_blobtests WHERE id=3;
+  IF(GetBlobId(thirdblob) != "")
+    ABORT("Default blob was improperly stored as an allocated blob");
+
+  SectionEnd(2);
+}
+
+
+IF (clientid = 0)
+{
+  SectionStart(3);
+
+  test_fp_trans->BeginWork();
+
+  beta_blobtests := BindTransactionToTable (test_fp_trans->id, "webhare_testsuite_testschema.beta_blobtests");
+
+  BLOB firstblob := SELECT AS BLOB data FROM beta_blobtests WHERE id=1;
+  BLOB secondblob := SELECT AS BLOB data FROM beta_blobtests WHERE id=2;
+
+  test_fp_trans->CommitWork();
+
+  IF(GetBlobId(firstblob) != GetBlobId(secondblob))
+    ABORT("Blob wasn't properly reused");
+  IF(BlobToString(firstblob,200000) != testblob)
+    ABORT("Blob corrupted");
+
+  test_fp_trans->BeginWork();
+  test_fp_trans->DropSchema("webhare_testsuite_testschema", [ cascade := TRUE ]);
+  test_fp_trans->CommitWork();
+
+  SectionEnd(3);
+}
+TestEnd(4);

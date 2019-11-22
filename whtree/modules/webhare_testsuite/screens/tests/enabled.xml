@@ -1,0 +1,119 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/enabled.whlib">
+
+  <messageboxes>
+    <messagebox name="subwindow" title="Close this dialog" buttons="close" />
+  </messageboxes>
+
+  <screen name="enablecomponentstest" title="Test enablecomponents" implementation="none">
+    <body>
+      <line layout="left">
+        <checkbox name="boxcontrol" title="" label="Control box" enablecomponents="boxcheck" />
+      </line>
+      <box name="boxcheck" title="Enable Box" checkbox="true" enablecomponents="boxedit simpleselect">
+        <textedit name="boxedit" title="Text Edit" />
+        <select name="simpleselect" type="pulldown" title="Simple select"> <!-- we regressed on managing 'enabled' for this field -->
+          <option rowkey="" title="Test"/>
+        </select>
+      </box>
+
+      <select name="selectpulldown" type="pulldown" title="Select Pulldown">
+        <option rowkey="initial" title="Disabled" />
+        <option rowkey="enabled" title="Enabled" enablecomponents="selectedit" />
+      </select>
+      <textedit name="selectedit" title="Text Edit" />
+    </body>
+  </screen>
+
+  <screen name="enableontest" title="Test enableon list">
+    <actions>
+      <action name="subwindow" title="Enabled" onexecute="dosubwindow">
+        <enableon source="subwindowlist" requirefocus="true" min="1" max="1" />
+      </action>
+    </actions>
+    <body>
+      <button name="subwindowbutton" action="subwindow" />
+      <list name="subwindowlist"
+            selectmode="single" >
+        <column name="title" title="List" type="text" />
+        <row>
+          <element name="title" data="Enabled" />
+        </row>
+      </list>
+    </body>
+  </screen>
+
+  <screen name="enableontest_subwindow">
+    <actions>
+      <action name="reload" title="Reload" onexecute="doreload" />
+      <action name="close" title="Close" onexecute="doclose" />
+    </actions>
+    <body>
+      <list name="reloadlist">
+        <column name="title" title="List" type="text" />
+      </list>
+      <line>
+        <button name="reloadbutton" action="reload" />
+        <button name="closebutton" action="close" />
+      </line>
+    </body>
+  </screen>
+
+  <screen name="enablecomponentstest_subwindow" title="Test enablecomponents">
+    <body>
+
+      <box name="boxcheck" title="Enable Box" checkbox="true" enablecomponents="boxedit">
+        <textedit name="boxedit" title="Text Edit" />
+      </box>
+
+    </body>
+  </screen>
+
+  <screen name="enablecomponentstest_radio" title="Test enablecomponents" implementation="none">
+    <compositions>
+      <radiogroup name="radiogroup" />
+    </compositions>
+    <body>
+
+      <select name="selectpulldown" type="radio" title="Select Radio">
+        <option rowkey="initial" title="Disabled" />
+        <option rowkey="enabled1" title="Enabled" enablecomponents="selectedit" />
+        <option rowkey="enabled2" title="Also enabled" enablecomponents="selectedit" />
+      </select>
+      <textedit name="selectedit" title="Text Edit" />
+
+      <radiobutton group="radiogroup" name="initial" title="" label="Disabled" />
+      <radiobutton group="radiogroup" name="enabled1" title="" label="Enabled" enablecomponents="groupedit" />
+      <radiobutton group="radiogroup" name="enabled2" title="" label="Also enabled" enablecomponents="groupedit" />
+      <textedit name="groupedit" title="Text Edit" />
+
+    </body>
+  </screen>
+
+  <screen name="enablecomponentstest_arrayedit" title="Test enablecomponents">
+    <body>
+      <select name="selectpulldown" type="radio" title="Select Radio">
+        <option rowkey="initial" title="Disabled" />
+        <option rowkey="enabled1" title="Enabled" enablecomponents="arrayedit" />
+      </select>
+      <arrayedit name="arrayedit" roweditscreen=".arrayedittest_rowedit">
+        <column name="title" type="text" />
+      </arrayedit>
+    </body>
+  </screen>
+
+  <screen name="arrayedittest_rowedit" title="editscreen" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit composition="row" cellname="title" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+
+</screens>

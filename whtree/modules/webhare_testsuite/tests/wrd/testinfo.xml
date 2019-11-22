@@ -1,0 +1,29 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="*.shtml test_wrdcomponents.whlib">
+  <test script="test_wrdconsistency.whscr" />
+  <test script="test_tests.whscr" />
+  <test script="testlegacyapi.whscr" />
+  <test script="testapi.whscr" />
+  <test script="testunique.whscr" />
+  <test script="test_optimizations.whscr" />
+  <test script="test_wrdcomponents.whscr" />
+  <test script="import.whscr" />
+  <test script="testmetadata.whscr" />
+  <test script="parenttype.whscr" />
+  <test script="testwrdauthplugin.whscr" />
+  <test script="testwrdauthplugin-domainless.whscr" />
+  <test script="test_names.whscr" />
+  <test script="consilio.whscr" />
+  <test script="testtollium.whscr" />
+  <test script="test_exchange.whscr" />
+  <test script="test_sync.whscr" />
+  <test script="testkeephistory.whscr" />
+  <jstest file="testwrdauth-frontend.es" tags="wrdauth" />
+  <jstest file="testwrdauth-authpages.es" tags="wrdauth" />
+  <jstest file="testwrdauth-framelogin.es" tags="wrdauth" />
+  <test name="api" path="api/" />
+  <test name="payments" path="payments/" />
+  <test name="address" path="address/" />
+  <test name="browser" path="browser/" />
+  <test name="demoapp" path="demoapp/" />
+  <test name="saml" path="saml/" />
+</group>

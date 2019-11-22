@@ -1,0 +1,236 @@
+<?wh
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/headless/controller.whlib";
+
+STATIC OBJECTTYPE Validating
+<
+  RECORD ARRAY loadedwitties;
+  RECORD ARRAY errors;
+  OBJECT controller;
+
+  PUBLIC BOOLEAN debug;
+  PUBLIC BOOLEAN reportmissing;
+
+  MACRO NEW()
+  {
+    OBJECT userapi := GetPrimaryWebhareUserApi();
+    this->controller := NEW TolliumHeadlessController(userapi, DEFAULT OBJECT, TRUE);
+    IF(NOT ObjectExists(GetEffectiveUser()))
+      __SetEffectiveUser(userapi->GetAnonymousUser());
+  }
+
+  MACRO AddError(RECORD context, STRING error)
+  {
+    INSERT [ filename := context.filename, line := context.line, col := context.col, error := error ] INTO this->errors AT END;
+  }
+
+  RECORD FUNCTION GetApplyErrorContext(RECORD apply)
+  {
+    RETURN [ filename := apply.siteprofile
+           , line := apply.line
+           , col := apply.col
+           ];
+  }
+  RECORD FUNCTION GetCtypeErrorContext(RECORD ctype)
+  {
+    RETURN [ filename := ctype.siteprofile
+           , line := ctype.line
+           , col := ctype.col
+           ];
+  }
+
+  MACRO ValidateWittyComponent(RECORD context, STRING wittycomp)
+  {
+    INTEGER namespacestart := SearchSubstring(wittycomp,'::');
+    INTEGER startcomponentname := SearchSubstring(wittycomp, ':', namespacestart=-1 ? 0 : namespacestart + 2);
+    IF(startcomponentname=-1)
+    {
+      this->AddError(context, "Missing component name in wittycomponent path '" || wittycomp || "'");
+      RETURN;
+    }
+
+    STRING componentname := Substring(wittycomp, startcomponentname+1);
+    STRING filepath := Left(wittycomp,Length(wittycomp) - Length(componentname) - 1);
+    IF(filepath="" OR componentname="")
+    {
+      this->AddError(context, "Invalid witty path or component '" || wittycomp || "'");
+      RETURN;
+    }
+
+    RECORD wittyinfo := SELECT * FROM this->loadedwitties WHERE wittyfile = VAR filepath;
+    IF(NOT RecordExists(wittyinfo))
+    {
+      OBJECT witty;
+      TRY
+        witty := LoadWittyLibrary(filepath,"HTML");
+      CATCH (OBJECT e)
+        this->AddError(context, "Witty library '" || filepath || "' does not compile: " || e->what);
+
+      wittyinfo := [ wittyfile := filepath, witty := witty ];
+      INSERT wittyinfo INTO this->loadedwitties AT END;
+    }
+    //note: we do not repeatedly report uncompilable witties
+    IF(ObjectExists(wittyinfo.witty) AND NOT wittyinfo.witty->HasComponent(componentname))
+      this->AddError(context, "Witty library '" || filepath || "' has no component '" || componentname || "'");
+  }
+  MACRO ValidateApplyToType(RECORD applyrule, STRING type, BOOLEAN expectfoldertype)
+  {
+    INTEGER typenumber := ToInteger(type,-1);
+    OBJECT typeinfo;
+
+    IF(type = "0" OR SearchSubstring(type,'*') >= 0 OR SearchSubstring(type,'?') >= 0)
+      RETURN; //can't match this
+
+    IF(typenumber = -1) //not a string!
+      typeinfo := OpenWHFSType(type);
+    ELSE
+      typeinfo := OpenWHFSTypeById(typenumber);
+
+    IF(NOT ObjectExists(typeinfo)) //don't report this, the siteprofile might be conditional
+      RETURN;
+
+    IF(expectfoldertype AND NOT typeinfo->foldertype)
+      this->AddError(this->GetApplyErrorContext(applyrule), "Applyrule tries to match foldertype '" || type || "' but that type is not registered as a folder type");
+    IF(NOT expectfoldertype AND NOT typeinfo->filetype)
+      this->AddError(this->GetApplyErrorContext(applyrule), "Applyrule tries to match filetype '" || type || "' but that type is not registered as a file type");
+  }
+  MACRO ValidateApplyRecursive(RECORD applyrule, RECORD criterium)
+  {
+    IF(criterium.type IN ['and','or','not','xor'])
+    {
+      FOREVERY(RECORD crit FROM criterium.criteria)
+        this->ValidateApplyRecursive(applyrule, crit);
+    }
+    ELSE IF(criterium.type = "to")
+    {
+      IF(criterium.filetype != "")
+        this->ValidateApplyToType(applyrule, criterium.filetype, FALSE);
+      IF(criterium.foldertype != "")
+        this->ValidateApplyToType(applyrule, criterium.foldertype, TRUE);
+      IF(criterium.parenttype != "")
+        this->ValidateApplyToType(applyrule, criterium.parenttype, TRUE);
+    }
+  }
+  PUBLIC RECORD FUNCTION Validate()
+  {
+    RECORD csp := GetCachedSiteProfiles();
+
+    FOREVERY(RECORD ctype FROM csp.contenttypes)
+    {
+      IF(ctype.isembeddedobjecttype)
+      {
+        BOOLEAN expectwidgetbase := ctype.type="widgettype";
+
+        IF(ctype.wittycomponent != "")
+        {
+          this->ValidateWittyComponent(this->GetCtypeErrorContext(ctype), ctype.wittycomponent);
+        }
+        IF(ctype.previewcomponent != "")
+        {
+          this->ValidateWittyComponent(this->GetCtypeErrorContext(ctype), ctype.previewcomponent);
+        }
+      }
+    }
+
+    FOREVERY(RECORD apply FROM csp.applies)
+    {
+      IF(RecordExists(apply.webdesign))
+      {
+        IF(apply.webdesign.assetpack != "")
+        {
+          RECORD moduleinfo := GetWebhareModuleInfo(Tokenize(apply.webdesign.assetpack,':')[0]);
+          IF(NOT RecordExists(moduleinfo) OR NOT RecordExists(SELECT FROM moduleinfo.assetpacks WHERE ToUppercase(name) = ToUppercase(apply.webdesign.assetpack)))
+          {
+            this->AddError(this->GetApplyErrorContext(apply), "No such assetpack '" || apply.webdesign.assetpack || "'");
+          }
+        }
+      }
+
+      FOREVERY(RECORD torec FROM apply.tos)
+        this->ValidateApplyRecursive(apply,torec);
+
+      FOREVERY(RECORD setlibrary FROM apply.setlibrary)
+      {
+        FOREVERY(RECORD source FROM setlibrary.sources)
+        {
+          IF(source.relativeto = "targetobject")
+            CONTINUE;
+
+          IF(this->reportmissing)
+          {
+            OBJECT dest := OpenWHFSObjectByPath(source.path);
+            IF(NOT ObjectExists(dest) OR NOT dest->isfolder)
+              this->AddError(this->GetApplyErrorContext(apply), `Could not find folder '${source.path}'`);
+          }
+        }
+      }
+
+      FOREVERY(RECORD setwidget FROM apply.setwidget)
+      {
+        RECORD matchingctype := SELECT * FROM csp.contenttypes WHERE namespace = setwidget.contenttype;
+        IF(NOT RecordExists(matchingctype))
+        {
+          IF(this->reportmissing)
+            this->AddError(this->GetApplyErrorContext(apply), `SetWidget is trying to override a nonexisting widget type '${setwidget.contenttype}'`);
+          CONTINUE;
+        }
+        IF(NOT matchingctype.isembeddedobjecttype)
+        {
+          this->AddError(this->GetApplyErrorContext(apply), `SetWidget is trying to override a type '${setwidget.contenttype}' but that is not an embeddedobjecttype`);
+          CONTINUE;
+        }
+
+        IF(setwidget.has_wittycomponent)
+        {
+          this->ValidateWittyComponent(this->GetApplyErrorContext(apply), setwidget.wittycomponent);
+        }
+        IF(setwidget.has_previewcomponent)
+        {
+          this->ValidateWittyComponent(this->GetApplyErrorContext(apply), setwidget.previewcomponent);
+        }
+      }
+
+      IF(RecordExists(apply.setobjecteditor))
+      {
+        IF(apply.setobjecteditor.screen != "") //ADDME should we also debug 'name', or not care anymore?
+        {
+          TRY
+          {
+            OBJECT testscreen := this->controller->PVT_LoadScreen(
+                                   [ parent     := DEFAULT OBJECT
+                                   , screen     := apply.setobjecteditor.screen
+                                   , params     := DEFAULT RECORD
+                                   , run_init   := FALSE
+                                   , options    := DEFAULT RECORD
+                                   ]);
+          }
+          CATCH(OBJECT e)
+          {
+            this->AddError(this->GetApplyErrorContext(apply), "Loading screen " || apply.setobjecteditor.screen || ": " || e->what);
+            CONTINUE;
+          }
+        }
+      }
+    }
+    RETURN [ errors := this->errors ];
+  }
+>;
+
+PUBLIC RECORD FUNCTION ValidateSiteProfiles(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ debug := TRUE
+                             , reportmissing := FALSE
+                             ], options);
+
+  OBJECT validator := NEW Validating;
+  validator->debug := options.debug;
+  validator->reportmissing := options.reportmissing;
+  RETURN validator->Validate();
+}
+

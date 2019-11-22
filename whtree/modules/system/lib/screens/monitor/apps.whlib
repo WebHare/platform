@@ -1,0 +1,245 @@
+﻿<?wh
+
+
+LOADLIB "mod::system/lib/internal/monitoring/apps.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/towl.whlib";
+
+
+// FIXME: sending a Towl message can be blocked?
+INTEGER64 FUNCTION GetMemUsage(RECORD info)
+{
+  IF(NOT RecordExists(info))
+    RETURN 0;
+
+  RETURN info.stack+info.heap+info.backingstore+info.blobstore;
+}
+
+
+PUBLIC OBJECTTYPE Apps EXTEND TolliumAppListBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  UPDATE MACRO Init()
+  {
+    TolliumAppListBase::Init();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel() // called by the main screen of the monitor
+  {
+    this->RefreshAppList();
+  }
+
+  MACRO RefreshAppList()
+  {
+    RECORD ARRAY apps := this->GetCurrentApps();
+
+    apps :=
+        SELECT *
+             , use :=
+                    [ authobjectid :=     jobdata.authenticationrecord.tollium.user.authobjectid
+                    , wrdentityid :=      jobdata.authenticationrecord.tollium.user.wrdentityid
+                    , sessionid :=        appid
+                    , username :=         jobdata.authenticationrecord.tollium.user.login
+                    , realname :=         jobdata.authenticationrecord.tollium.user.realname
+                    , stats :=            CellExists(jobdata, "STATISTICS") ? jobdata.statistics : DEFAULT RECORD
+                    , started :=          jobdata.creationdate
+                    , lastactive :=       lastactivity
+                    , lastpoll :=         DEFAULT DATETIME
+                    , active :=           TRUE
+                    , browser :=          use.browser
+                    ]
+          FROM apps;
+
+    apps :=
+        SELECT rowkey :=    app
+             , name :=      app
+             , uses :=      GroupedValues(use)
+             , title :=     Any(title)
+          FROM apps
+      GROUP BY app;
+
+    apps := SELECT *
+                 , usercount := Length(SELECT AS STRING ARRAY DISTINCT authobjectid || "-" || wrdentityid FROM uses)
+                 , runcount := Length(uses)
+                 , appmemory := ToString(SELECT AS INTEGER64 SUM(GetMemUsage(stats)) FROM uses)||" KB"
+                 , inuse := TRUE // FIXME: use in case we also show non-running apps
+              FROM apps;
+
+    this->runningapps->rows := apps;
+    this->runningapps->empty := this->HaveContact()
+        ? this->GetTid(".runningapps.noappsrunning")
+        : this->GetTid(".runningapps.nocontact");
+
+    this->RefreshAppUsersList();
+  }
+
+  MACRO RefreshAppUsersList()
+  {
+    RECORD sel := this->runningapps->selection;
+
+    IF (NOT RecordExists(sel))
+    {
+      this->appusers->empty := GetTid("system:monitor.apps.appusers.noappselected");
+      this->appusers->rows := DEFAULT RECORD ARRAY;
+      RETURN;
+    }
+
+    //this->box_appusers->title := GetTid("system:monitor.apps.box_appusers", sel.name);
+
+    RECORD ARRAY appuses := sel.uses;
+
+    IF (Length(appuses) = 0)
+      this->appusers->empty := GetTid("system:monitor.apps.appusers.noappusersanymore", sel.name);
+
+    this->appusers->rows := SELECT rowkey     := sessionid // to keep selection, sessionid seems unique at the moment for applications (session per app)
+                                 , username
+                                 , realname//   := SELECT AS STRING fullname FROM userrecs WHERE userrecs.id = appuses.wh_userid
+                               //, typename
+                                 , authobjectid
+                                 , wrdentityid
+                                 , started          //started != DEFAULT DATETIME ? this->tolliumuser->FormatTime(started, 'seconds', TRUE) : ""
+                                 , lastactive :=    lastactive != DEFAULT DATETIME ? this->tolliumuser->FormatTime(lastactive, 'seconds', TRUE) : ""
+                                 , lastpoll :=      lastpoll != DEFAULT DATETIME ? this->tolliumuser->FormatTime(lastpoll, 'seconds', TRUE) : ""
+                                 , memusage :=      active ? "" : GetMemUsage(stats) || " KB"
+                                 , browser
+                              FROM appuses;
+  }
+
+  MACRO SendMessage(RECORD ARRAY receivers, STRING frametitle)
+  {
+    receivers := SELECT DISTINCT rowkey AS sessionid
+                      , authobjectid
+                      , wrdentityid
+                      , username
+                      , realname FROM receivers;
+
+    OBJECT screen := this->LoadScreen(".sendmessage",
+        [ receivers := receivers
+        , title := frametitle
+        ]);
+    IF (ObjectExists(screen))
+      screen->RunModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoSendMessageToModuleUsers()
+  {
+    RECORD sel := this->runningapps->selection;
+
+    INTEGER split := SearchSubString(sel.name, ":");
+    STRING modulename;
+    IF (split > 0)
+      modulename := SubString(sel.name, 0, split);
+    ELSE
+      RETURN;
+
+    STRING frametitle := GetTid("system:monitor.sendmessage.title_toallusersofmodule", modulename, sel.title);
+
+    RECORD ARRAY apps :=
+        SELECT *
+          FROM this->runningapps->rows
+         WHERE name LIKE modulename||":*";
+
+    RECORD ARRAY users;
+    FOREVERY (RECORD app FROM apps)
+      users := users CONCAT app.uses;
+
+    OBJECT screen := this->LoadScreen(".sendmessage",
+        [ receivers := users
+        , title := frametitle
+        ]);
+
+    IF (ObjectExists(screen))
+      screen->RunModal();
+  }
+
+  MACRO DoSendMessageToAppUsers()
+  {
+    RECORD sel := this->runningapps->selection;
+    STRING title := GetTid("system:monitor.sendmessage.title_toallusersofapp", sel.name, sel.title);
+    this->SendMessage(this->appusers->rows, title);
+  }
+
+  MACRO DoSendMessageToSelectedUsers()
+  {
+    RECORD ARRAY sel := this->appusers->selection;
+    STRING title := GetTid("system:monitor.sendmessage.title_tousers");
+    this->SendMessage(sel, title);
+  }
+>;
+
+
+/*
+ADDME: offer a choice between announcement (popup dialog) or Towl message
+*/
+PUBLIC OBJECTTYPE SendMessage EXTEND TolliumScreenBase
+< RECORD ARRAY receivers;
+
+  MACRO Init(RECORD data)
+  {
+    this->frame->title := data.title;
+    this->receivers := data.receivers;
+
+    //FIXME: Would be nicer to be able to show both a Dutch as an English message,
+    //       e.g. x messages per server (where x is the number of installed languages).
+    //       Messages templates would be even nicer!
+    this->msg->value := GetTid("system:monitor.sendmessage.defaultmessage");
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    RECORD receivers :=
+        [ webhare_users :=    SELECT AS INTEGER ARRAY DISTINCT authobjectid FROM this->receivers WHERE authobjectid != 0 AND wrdentityid = 0
+        , wrd_users :=        SELECT AS INTEGER ARRAY DISTINCT wrdentityid FROM this->receivers WHERE wrdentityid != 0
+        ];
+
+    ShowTowlNotification( "system:notifications.broadcast"
+                        , receivers
+                        , [ persistent        := TRUE
+                          , priority          := 2
+                          , titleparams       := [STRING(this->title->value)]
+                          , descriptionparams := [STRING(this->msg->value)]
+                          ]
+                        );
+
+    RETURN work->Finish();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE Announcement EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->frame->title := data.title;
+    this->msg->value := data.message;
+  }
+>;

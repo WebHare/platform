@@ -1,0 +1,454 @@
+﻿<?wh
+/** @short Export archives
+    @long This library offers the necessary functions to create and export the WebHare Publisher ".tar.gz" site archive format
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//
+// Archive Export global variables
+//
+
+OBJECT archive_export_archive;
+INTEGER64 archive_export_length;
+INTEGER64 archive_export_totalsize;
+INTEGER64 archive_export_totaldone;
+INTEGER64 archive_export_breakup_limit;
+
+BOOLEAN archive_export_breakup;
+BLOB ARRAY archive_export_archives;
+RECORD parentsiterec;
+BOOLEAN showhidden;
+OBJECT fpe;
+
+//ADDME: Speed up by using a cache!
+STRING FUNCTION MyGetFileStoreName(INTEGER fileid, STRING foritem)
+{
+  IF(fileid=0)
+    RETURN "";
+
+  RETURN fpe->MapWHFSRef(fileid);
+}
+
+RECORD ARRAY FUNCTION GetExportableInstances(INTEGER sourceid)
+{
+  RECORD ARRAY source_instantiations := SELECT *
+                                          FROM system.fs_instances
+                                         WHERE fs_object = sourceid; //FIXME mind cloneoncopy
+  IF(Length(source_instantiations) = 0)
+    RETURN DEFAULT RECORD ARRAY;
+
+  RECORD ARRAY results;
+  FOREVERY(RECORD src FROM source_instantiations)
+  {
+    OBJECT type := OpenWHFSTypeById(src.fs_type);
+    IF(NOT type->cloneoncopy)
+      CONTINUE;
+    INSERT [ namespace := type->namespace
+           , instance := type->ExportInstanceData(sourceid, fpe, /*orhpans=*/TRUE)
+           , type := type
+           , instancetypes :=
+               (SELECT AS INTEGER ARRAY DISTINCT instancetype
+                  FROM system.fs_settings
+                 WHERE fs_instance = src.id
+                   AND instancetype != 0)
+           ] INTO results aT END;
+  }
+  //printrecordarrayto(0,results,'tree');
+  RETURN results;
+}
+
+RECORD ARRAY FUNCTION DescribeMembersRecurse(RECORD ARRAY allmembers, INTEGER curparent)
+{
+  RETURN SELECT name
+              , type
+              , children := DescribeMembersRecurse(allmembers, id)
+           FROM allmembers AS curmember
+          WHERE parent=curparent;
+}
+
+RECORD FUNCTION DescribeType(OBJECT intype)
+{
+  // Describe all members, including orphaned ones
+  RETURN [ namespace := intype->namespace
+         , members := DescribeMembersRecurse(intype->allmembers, 0)
+         , foldertype := intype->foldertype
+         , filetype := intype->filetype
+         , cloneoncopy := intype->cloneoncopy
+         , isdynamicexecution := intype->isdynamicexecution
+         ];
+}
+
+/** @short Create a metadata file for a folder and its files */
+RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files, OBJECT encoder)
+{
+  STRING ARRAY errors;
+  RECORD folderdata := SELECT requireprofile,
+                              requiretemplate,
+                              requireprofileinsubfolders,
+                              requiretemplateinsubfolders,
+                              title,
+                              description,
+                              keywords,
+                              type,
+                              ordering,
+                              defaulttemplate := template,
+                              defaultprofile := profile,
+                              fullpath,
+                              indexdoc,
+                              ispinned
+                         FROM system.fs_objects
+                        WHERE id = VAR folderid
+                              AND isfolder = TRUE;
+
+
+  //Convert ID fields to plain fields
+  STRING foldertemplate, folderprofile, folderindex;
+  IF (folderdata.defaulttemplate!=0)
+    foldertemplate := MyGetFileStoreName(folderdata.defaulttemplate, folderdata.fullpath);
+  IF (folderdata.defaultprofile!=0)
+    folderprofile := MyGetFileStoreName(folderdata.defaultprofile, folderdata.fullpath);
+  IF (folderdata.indexdoc != 0)
+    folderindex := MyGetFileStoreName(folderdata.indexdoc, folderdata.fullpath);
+
+  //Write the XML metadata
+  INTEGER xmldatastream := CreateStream();
+  PrintTo(xmldatastream,'<archive xmlns="http://www.webhare.net/xmlns/publisher/archive" version="1" source="' || EncodeValue(GetWebhareVersion()) || '">');
+
+  //Build the XML data. Remove obsoleted fields
+  STRING typenamespace := GetNamespaceForType(folderdata.type, TRUE);
+
+  store_files := SELECT *
+                      , contentinstances := GetExportableInstances(id)
+                   FROM store_files;
+
+  RECORD ARRAY expinstances := GetExportableInstances(folderid);
+
+  //Extract the contenttypes we see
+  INTEGER ARRAY seentypeids;
+  OBJECT ARRAY describetypes;
+
+  //Collect all ids. All filetypes and foldertypes should be exported no matter what, contenttypedata only if cloneoncopy == true (getexportable already filtered that)
+  FOREVERY(RECORD file FROM store_files)
+  {
+    FOREVERY(RECORD instance FROM file.contentinstances)
+    {
+      IF(instance.type->id NOT IN seentypeids)
+        INSERT instance.type->id INTO seentypeids AT END;
+      FOREVERY (INTEGER instancetype FROM instance.instancetypes)
+        IF (instancetype NOT IN seentypeids)
+          INSERT instancetype INTO seentypeids AT END;
+    }
+
+    IF(file.type != 0 AND file.type NOT IN seentypeids)
+      INSERT file.type INTO seentypeids AT END;
+  }
+
+  FOREVERY(RECORD expinst FROM expinstances)
+  {
+    IF(expinst.type->id NOT IN seentypeids)
+      INSERT expinst.type->id INTO seentypeids AT END;
+    FOREVERY (INTEGER instancetype FROM expinst.instancetypes)
+      IF (instancetype NOT IN seentypeids)
+        INSERT instancetype INTO seentypeids AT END;
+  }
+  IF(folderdata.type != 0 AND folderdata.type NOT IN seentypeids)
+    INSERT folderdata.type INTO seentypeids AT END;
+
+  FOREVERY(INTEGER id FROM seentypeids)
+    INSERT OpenWHFSTypeById(id) INTO describetypes AT END;
+
+  RECORD meta := [ describetypes := SELECT AS RECORD ARRAY DescribeType(type)
+                                      FROM ToRecordArray(describetypes, 'type')
+                 ];
+//  PrintTo(xmldatastream, EncodeRecordAsXML(meta,"meta"));
+  encoder->EncodeRecordTo(xmldatastream, "meta", meta);
+
+  folderdata := [ requireprofile              := folderdata.requireprofile
+                , requiretemplate             := folderdata.requiretemplate
+                , requireprofileinsubfolders  := folderdata.requireprofileinsubfolders
+                , requiretemplateinsubfolders := folderdata.requiretemplateinsubfolders
+                , title                       := folderdata.title
+                , description                 := folderdata.description
+                , keywords                    := folderdata.keywords
+                , ordering                    := folderdata.ordering
+                , ispinned                    := folderdata.ispinned
+                ];
+
+  RECORD xml_metadata := [ subversion := 1
+                         , data := folderdata
+                         , type := typenamespace
+                         , templatepath := foldertemplate
+                         , profilepath := folderprofile
+                         , indexpath := folderindex
+                         , contentinstances := (SELECT namespace, instance FROM expinstances)
+                         ];
+  //PrintTo(xmldatastream,EncodeRecordAsXML(xml_metadata,"folder"));
+  encoder->EncodeRecordTo(xmldatastream, "folder", xml_metadata);
+
+  //Write out the individual files
+  FOREVERY (RECORD file FROM store_files)
+  {
+    RECORD xmldata := [ subversion := 1
+                      , name := file.name
+                      , data := [ ordering         := file.ordering
+                                , published        := file.published
+                                , type             := file.type
+                                , title            := file.title
+                                , description      := file.description
+                                , keywords         := file.keywords
+                                , ispinned         := file.ispinned
+                                , externallink     := file.externallink
+                                ]
+                      , templatepath := MyGetFileStoreName(file.template, file.fullpath)
+                      , profilepath := MyGetFileStoreName(file.profile, file.fullpath)
+                      , linkpath := MyGetFileStoreName(file.filelink, file.fullpath)
+                      , contentinstances := (SELECT namespace, instance FROM file.contentinstances)
+                      , type := GetNamespaceForType(file.type, FALSE)
+                      , wrapped := DecodeScanData(file.scandata)
+                      ];
+
+    encoder->EncodeRecordTo(xmldatastream, "file", xmldata);
+  }
+
+  PrintTo(xmldatastream,'</archive>');
+
+  RECORD datarec := [ xml_data :=       MakeBlobFromStream(xmldatastream)
+                    , blobs :=          encoder->blobs
+                    ];
+
+  RETURN datarec;
+}
+
+MACRO ArchiveProgressCallback(FUNCTION PTR statuscallback, RECORD data, FLOAT start, FLOAT fraction)
+{
+  statuscallback(100 * start + data.progress * fraction, data.file);
+}
+
+MACRO FinishCurrentArchive(FUNCTION PTR statuscallback)
+{
+  IF (statuscallback != DEFAULT FUNCTION PTR)
+  {
+    archive_export_archive->onarchivingprogress := PTR ArchiveProgressCallback(
+        statuscallback,
+        #1,
+        archive_export_totalsize > 0 ? FLOAT(archive_export_totaldone) / FLOAT(archive_export_totalsize) : 0f,
+        archive_export_totalsize > 0 ? FLOAT(archive_export_length) / FLOAT(archive_export_totalsize) : 0f);
+  }
+  archive_export_totaldone := archive_export_totaldone + archive_export_length;
+
+  INSERT archive_export_archive->MakeBlob() INTO archive_export_archives AT END;
+  archive_export_archive->Close();
+
+  archive_export_archive := DEFAULT OBJECT;
+}
+
+MACRO AddFileToExportArchive(STRING path, BLOB data, DATETIME time, FUNCTION PTR statuscallback)
+{
+  archive_export_archive->AddFile(path, data, time);
+  archive_export_length := archive_export_length + LENGTH(data);
+
+  IF (archive_export_breakup AND archive_export_length > archive_export_breakup_limit)
+  {
+    FinishCurrentArchive(statuscallback);
+
+    archive_export_archive := CreateNewArchive("zip");
+    archive_export_length := 0;
+  }
+}
+
+
+MACRO ExecuteExportPlan(RECORD ARRAY files, FUNCTION PTR statuscallback)
+{
+  archive_export_totalsize := 0;
+  archive_export_totaldone := 0;
+
+  FOREVERY (RECORD file FROM files)
+    archive_export_totalsize := archive_export_totalsize + LENGTH(file.data);
+
+  FOREVERY (RECORD file FROM files)
+    AddFileToExportArchive(file.path, file.data, file.modtime, statuscallback);
+}
+
+
+/** @short Export a folder as a zip
+    @param folderid Folder to export
+    @param recursive Export subfolders as well
+    @param initialname The initial path name to export the files with (export as a subdirectory)
+    @param breakup_size If non-0, split into multiple archives for every @a breakup_size MB of input data.
+    @return Exported folder data
+    @cell return.data Blob containing archive file (only present when @a breakup_size = 0)
+    @cell return.archives List of all created archives, in order.
+    @cell return.error String containing errors while creating the archive */
+
+PUBLIC OBJECTTYPE WHFSExporter
+<
+  OBJECT startfolder;
+  RECORD result;
+
+  PUBLIC INTEGER breakup_size;
+  PUBLIC BOOLEAN skip_hidden;
+  PUBLIC MACRO PTR onprogress;
+  PUBLIC STRING initialname;
+  PUBLIC BOOLEAN recursive;
+  PUBLIC MACRO PTR onupdateplan;
+  PUBLIC INTEGER ARRAY limitobjects;
+  PUBLIC BOOLEAN withmetadata;
+  PUBLIC INTEGER ARRAY nocontenttypes;
+  PUBLIC PROPERTY errors(GetErrors,-);
+
+  MACRO NEW(OBJECT startfolder)
+  {
+    this->startfolder := startfolder;
+    this->recursive := TRUE;
+    this->withmetadata := TRUE;
+  }
+
+  MACRO Run()
+  {
+    this->nocontenttypes := SELECT AS INTEGER ARRAY id FROM GetCachedSiteProfiles().contenttypes WHERE RecordExists(filetype) AND NOT filetype.blobiscontent;
+
+    IF(RecordExists(this->result))
+      THROW NEW Exception("Duplicate run invocation");
+
+    RECORD folderinfo := SELECT * FROM system.fs_objects WHERE id=this->startfolder->id;
+    parentsiterec := SELECT * FROM system.sites WHERE id = folderinfo.parentsite;
+    showhidden := this->skip_hidden=FALSE;
+
+    fpe := NEW WHFSBulkSender(this->startfolder->id, this->initialname);
+
+    archive_export_archive := CreateNewArchive("zip");
+    archive_export_archives := DEFAULT BLOB ARRAY;
+    archive_export_length := 0;
+    archive_export_breakup := this->breakup_size != 0;
+    archive_export_breakup_limit := this->breakup_size;
+
+    OBJECT encoder := NEW __INTERNAL_XMLDataEncoder;
+    encoder->allowseparateblobs := TRUE;
+    encoder->blobnameprefix := "^^webhare_folder_metadata_blob_";
+
+    RECORD ARRAY plan := this->CreateExportPlan(folderinfo, this->initialname, this->recursive, encoder);
+    ExecuteExportPlan(plan, this->onprogress);
+
+    RECORD datarec;
+    IF (archive_export_breakup)
+    {
+      IF (LENGTH(archive_export_archives) = 0 OR archive_export_length != 0)
+        FinishCurrentArchive(this->onprogress);
+      ELSE IF (ObjectExists(archive_export_archive))
+      {
+        archive_export_archive->Close();
+        archive_export_archive := DEFAULT OBJECT;
+      }
+
+      datarec := [ archives := archive_export_archives
+                 ];
+    }
+    ELSE
+    {
+      FinishCurrentArchive(this->onprogress);
+      BLOB data := archive_export_archives[0];
+
+      datarec := [ archives := [ data ]
+                 ];
+    }
+    IF (this->onprogress != DEFAULT FUNCTION PTR)
+      this->onprogress(100m, "");
+
+    this->result := datarec;
+  }
+
+  STRING ARRAY FUNCTION GetErrors()
+  {
+    RETURN this->result.errors;
+  }
+
+  PUBLIC BLOB ARRAY FUNCTION CreateArchives()
+  {
+    IF(NOT RecordExists(this->result))
+      this->Run();
+    RETURN this->result.archives;
+  }
+
+  RECORD ARRAY FUNCTION CreateExportPlan(RECORD folderrec, STRING path_sofar, BOOLEAN recursive, OBJECT encoder)
+  {
+    RECORD ARRAY store_files  := SELECT *
+                                   FROM system.fs_objects
+                                  WHERE parent = VAR folderrec.id
+                                        AND (Length(this->limitobjects) > 0 ? id IN this->limitobjects : TRUE)
+                                        AND NOT isfolder;
+
+    //Create the metadata file
+    encoder->dirid := "folder-" || folderrec.id;
+
+    RECORD ARRAY addedfiles;
+    IF(this->withmetadata)
+    {
+      RECORD addedinfo := CreateFolderMetadata(folderrec.id, store_files, encoder);
+      DATETIME now := GetCurrentDateTime();
+
+      addedfiles := addedfiles CONCAT
+          [ [ path :=       path_sofar || "/^^webhare_folder_metadata.xml"
+            , data :=       addedinfo.xml_data
+            , modtime :=    now
+            , name :=       folderrec.name
+            ]
+          ];
+
+      addedfiles := addedfiles CONCAT
+          SELECT path :=    path_sofar || "/" || name
+               , data :=    data
+               , modtime := now
+               , name :=    name
+            FROM addedinfo.blobs
+           WHERE dirid = "folder-" || folderrec.id;
+    }
+    ELSE
+    {
+      DELETE FROM store_files WHERE type IN this->nocontenttypes;
+    }
+
+    //Add the files themselves
+    FOREVERY (RECORD file FROM store_files)
+    {
+      BLOB tostore;
+      IF (file.type != 18 AND Length(file.data)!=0) //18: external link
+        tostore := file.data;
+
+      INSERT
+          [ path :=       path_sofar || "/" || file.name
+          , data :=       tostore
+          , modtime :=    file.modificationdate
+          , name :=       file.name
+          ] INTO addedfiles AT END;
+    }
+
+    IF (recursive)
+    {
+      RECORD ARRAY subfolders := SELECT id
+                                      , name
+                                   FROM system.fs_objects
+                                  WHERE parent = folderrec.id
+                                        AND (Length(this->limitobjects) > 0 ? id IN this->limitobjects : TRUE)
+                                    AND isfolder;
+
+      FOREVERY (RECORD subfolder FROM subfolders)
+      {
+        addedfiles := addedfiles CONCAT this->CreateExportPlan(subfolder, path_sofar || "/" || subfolder.name, TRUE, encoder);
+      }
+    }
+    RETURN addedfiles;
+  }
+>;

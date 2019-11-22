@@ -1,0 +1,35 @@
+<?wh
+LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "mod::system/lib/webserver/unifiedcachehost.whlib";
+
+MACRO PostProcess(OBJECT canvas, RECORD hostdata)
+{
+  canvas->SetImageSize(canvas->width/2, canvas->height/2);
+
+  OBJECT overwrite := CreateEmptyCanvas(canvas->width, canvas->height, hostdata.overlay);
+  canvas->blendmode := "BLEND255";
+  canvas->DrawCanvas(overwrite, 0, 0);
+}
+
+PUBLIC OBJECTTYPE MyCacheHost EXTEND UnifiedCacheHostBase
+<
+  MACRO NEW()
+  {
+    this->hosthash := "bladiebla";
+  }
+  UPDATE PUBLIC STRING FUNCTION GetTokenFromURL(STRING inurl)
+  {
+    INTEGER start := SearchSubstring(inurl,'/!/');
+    RETURN start > 0 ? Substring(inurl,start + 3) : "";
+  }
+  UPDATE PUBLIC MACRO PTR FUNCTION GetImagePostProcessor(RECORD hostdata)
+  {
+    IF(RecordExists(hostdata))
+      RETURN PTR PostProcess(#1, hostdata);
+    ELSE
+      RETURN DEFAULT MACRO PTR;
+  }
+>;
+
+OBJECT host := NEW MyCacheHost;
+host->HandleRequest();

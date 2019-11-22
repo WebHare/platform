@@ -1,0 +1,39 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+// https://webhare.moe.sf.webhare.nl/?app=publisher(webhare%20testsuite%20site/tmp)/newitem
+ASYNC MACRO TestNewItem()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "WebHare testsuite site/tmp"] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newitem"));
+
+  //newitem currently assumes you're creating a file, so that should be preselected
+  TestEq("files", TT("typesgroup")->value);
+  //the list should only contain file types, no templates
+  TestEq(RECORD[], SELECT title FROM TT("types")->rows WHERE ToUppercase(title) LIKE "*FOLDER*");
+
+  //FIXME when editing a folder, do not offer Foreign Folder as an option, only when creating!
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Rich text document";
+  TestEq(TRUE, RecordExists(TT("types")->selection));
+
+  TT("typesgroup")->value := "folders";
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Normal folder";
+  TestEq(TRUE, RecordExists(TT("types")->selection));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR); //objectprops opens
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //cancel objectprops
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+
+RunTestframework([ PTR TestNewItem
+                 ], [ testusers :=
+                            [ [ login := "sysop", grantrights := ["system:sysop"] ]
+                            , [ login := "limited" ]
+                            ]
+                    ]);

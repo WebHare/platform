@@ -1,0 +1,39 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/keystore.whlib";
+
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/ideal.whlib";
+
+PUBLIC STATIC OBJECTTYPE ConfigIdeal EXTEND PSPSettingsExtensionBase
+<
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    //ADDME move ^keypair to a global/shared option ?
+    ^acquirer->options := SELECT rowkey := tag, title FROM acquirers;
+    ^keypair->options := [ [ rowkey := 0, title := GetTid("wrd:tolliumapps.payments.selectcertificate"), invalidselection := TRUE ] ] CONCAT
+                           SELECT rowkey :=             id
+                                , title :=              name
+                             FROM ListKeyPairs()
+                            WHERE has_certificate
+                         ORDER BY ToUppercase(name);
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetPaymentProviderValue()
+  {
+    RETURN ^methodsettings->value;
+  }
+  UPDATE PUBLIC MACRO SetPaymentProviderValue(RECORD settings)
+  {
+    ^methodsettings->value := settings;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PayInfo EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD meta := data.payment->__GetPaymentData();
+    ^transactionid->value := meta.transactionid;
+  }
+>;

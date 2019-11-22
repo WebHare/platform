@@ -1,0 +1,110 @@
+<?wh
+/// @short OCI currency interface test
+
+LOADLIB "wh::dbase/oci.whlib";
+LOADLIB "wh::os.whlib";
+
+PUBLIC INTEGER transid;
+RECORD settings := ParseArguments(GetConsoleArguments(), [ [ name := "database", type := "param" ]
+                                                         , [ name := "username", type := "param" ]
+                                                         , [ name := "password", type := "param" ]
+                                                         ]);
+IF (NOT RecordExists(settings))
+{
+  Abort("Missing arguments\n");
+}
+
+PUBLIC INTEGER FUNCTION Connect()
+{
+  INTEGER thistrans := OpenOCITransaction(settings.database ,settings.username, settings.password);
+
+  IF (thistrans = -1)
+  {
+    PRINT ("Could not open database\n");
+    ABORT("Test failed");
+  }
+  return thistrans;
+}
+
+
+// Clean up old tables
+MACRO CleanUpTables()
+{
+  STRING ARRAY reserved_views := ["testviewint" ];
+  FOREVERY (STRING reserved_table FROM reserved_views)
+  {
+    RECORD thistable := SendOCICommand(transid, "SELECT TNAME FROM tab WHERE TNAME = '"||ToUppercase(reserved_table)||"'");
+    IF (RecordExists(thistable))
+    {
+      SendOCICommand(transid, "DROP VIEW "||reserved_table);
+    }
+  }
+
+  STRING ARRAY reserved_tables := ["TypeTable", "testint", "testnullblob", "testjoin2", "testlongraw" ];
+  FOREVERY (STRING reserved_table FROM reserved_tables)
+  {
+    RECORD thistable := SendOCICommand(transid, "SELECT TNAME FROM tab WHERE TNAME = '"||ToUppercase(reserved_table)||"'");
+    IF (RecordExists(thistable))
+    {
+      SendOCICommand(transid, "DROP TABLE "||reserved_table);
+    }
+  }
+}
+
+PUBLIC TABLE < INTEGER id, BLOB c_longraw > LongRawTable;
+PUBLIC TABLE < INTEGER id, STRING c_longraw > LongRawStringTable;
+
+PUBLIC TABLE <
+  INTEGER id,
+  INTEGER c_integer,
+  MONEY c_money,
+  FLOAT c_float,
+  BOOLEAN c_boolean,
+  STRING c_string,
+  STRING c_varstr,
+  BLOB c_blob,
+  DATETIME c_datetime
+    > TypeTable;
+
+PUBLIC TABLE <
+  INTEGER id,
+  INTEGER val
+    > testint;
+
+PUBLIC TABLE <
+  INTEGER id2,
+  INTEGER val2
+    > testviewint;
+
+PUBLIC MACRO BindTestTables(INTEGER transid)
+{
+  testint := BindTransactionToTable(transid, "TESTINT");
+  testviewint := BindTransactionToTable(transid, "testviewint");
+  TypeTable := BindTransactionToTable(transid, "TypeTable");
+}
+
+// Create and define tables
+MACRO SetupTables()
+{
+  SendOCICommand(transid, "CREATE TABLE TypeTable (ID INTEGER, " ||
+        "C_INTEGER INTEGER, C_MONEY NUMBER(19,5), C_FLOAT FLOAT, " ||
+        "C_BOOLEAN NUMBER(1), C_STRING LONG VARCHAR, C_BLOB BLOB, " ||
+        "C_DATETIME DATE, C_VARSTR VARCHAR(4000))");
+
+  SendOCICommand(transid, "CREATE TABLE testint (id INTEGER, val INTEGER)");
+  SendOCICommand(transid, "CREATE VIEW testviewint AS SELECT id id2, val val2 FROM testint");
+
+  SendOCICommand(transid, "CREATE TABLE testnullblob (id INTEGER, c_blob BLOB)");
+
+  SendOCICommand(transid, "CREATE TABLE testjoin2 (id INTEGER, val INTEGER)");
+
+  SendOCICommand(transid, "CREATE TABLE testlongraw (id INTEGER, c_longraw LONG RAW)");
+
+  BindTestTables(transid);
+
+  DELETE FROM TypeTable;
+}
+
+transid := Connect();
+CleanUpTables();
+SetupTables();

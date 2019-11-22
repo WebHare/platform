@@ -1,0 +1,472 @@
+<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+
+STRING ARRAY all_permissions := ["SELECT","INSERT","UPDATE","DELETE","REFERENCES"];
+
+
+BOOLEAN FUNCTION IsValidWHDBName(STRING indata)
+{
+  RETURN indata!="" AND indata NOT LIKE "* *" AND Length(indata)<=64 AND indata=ToLowercase(indata);
+}
+
+RECORD FUNCTION DecodeIndexColumn(STRING col)
+{
+  INTEGER bpos := SearchSubString(col, "(");
+  IF (bpos = -1)
+    RETURN [ msg := DEFAULT RECORD, col := [ name := col ] ];
+
+  INTEGER len := ToInteger(SubString(col, bpos + 1, LENGTH(col) - bpos - 2), -1);
+  IF (len < 1)
+    RETURN [ msg := [ iserror := TRUE, code := 0, msg := "Illegal index column format: " || col ] ];
+
+  RETURN [ msg := DEFAULT RECORD, col := [ name := LEFT(col, bpos), length := len ] ];
+}
+
+RECORD FUNCTION DecodeIndexColumns(STRING cols)
+{
+  RECORD ARRAY rcols;
+  FOREVERY (STRING col FROM Tokenize(cols,' '))
+  {
+    RECORD decoded := DecodeIndexColumn(col);
+    IF (RecordExists(decoded.msg))
+      RETURN CELL[ decoded.msg ];
+    INSERT decoded.col INTO rcols AT END;
+  }
+  RETURN [ msg := DEFAULT RECORD, cols := rcols ];
+}
+
+RECORD FUNCTION SplitGrantee(STRING schemaname, STRING grantee)
+{
+  IF(grantee="public")
+    return [ s := "definition_schema", r := "public" ];
+  IF(grantee="_system")
+    return [ s := "definition_schema", r := "_system" ];
+
+  INTEGER dot := SearchSubstring(grantee,'.');
+  STRING s := dot=0 ? schemaname : Left(grantee,dot);
+  STRING r := Substring(grantee,dot+1,80);
+  RETURN IsValidWHDBName(s) AND IsValidWHDBName(r) ? [ s := s, r := r ] : DEFAULT RECORD;
+}
+
+RECORD FUNCTION ParseGrant(STRING schemaname, OBJECT node)
+{
+  RECORD grant := [ permissions := Tokenize(ToUppercase(node->GetAttribute("permissions")),' ')
+                  , to_schema := node->GetAttribute("schema") //if empty, default schema!
+                  , to_table := node->GetAttribute("table")
+                  , to_columns := node->GetAttribute("columns") != "" ? Tokenize(node->GetAttribute("columns")," ") : DEFAULT STRING ARRAY
+                  , withgrantoption := node->GetAttribute("withgrantoption") IN ["true","1"]
+                  , grantee := SplitGrantee(schemaname, ToLowercase(node->GetAttribute("grantee")))
+                  , to_obsolete := node->localname="obsoletegrant"
+                  , granted_by := node->localname="obsoletegrant" AND node->HasAttribute('grantedby')
+                                                                  ? SplitGrantee(schemaname, ToLowercase(node->GetAttribute("grantedby")))
+                                                                  : [ s:="system", r:="modulemanager" ]
+                  ];
+  IF(grant.to_schema="")
+    grant.to_schema:=schemaname;
+
+  IF(grant.to_schema="publisher" and grant.to_table in ["files","folders"]) //ADDME: Reject or warn about these in the future
+  {
+    grant.to_schema:="system";
+    grant.to_table:="fs_objects";
+  }
+  RETURN grant;
+}
+
+PUBLIC RECORD FUNCTION ParseWHDBSchemaSpec(STRING modulename, OBJECT schemanode)
+{
+  STRING schemaname := schemanode->HasAttribute("name") ? schemanode->GetAttribute("name") : modulename;
+  RECORD retval := [ msgs := DEFAULT RECORD ARRAY
+                   , location := [ line := schemanode->linenum ]
+                   , success := FALSE
+                   , roles := DEFAULT RECORD ARRAY
+                   , grants := DEFAULT RECORD ARRAY
+                   , tables := DEFAULT RECORD ARRAY
+                   , obsoletetables := DEFAULT RECORD ARRAY
+                   , obsoleteroles := DEFAULT RECORD ARRAY
+                   , name := schemaname
+                   , documentation := DEFAULT RECORD
+                   , authorization := schemanode->HasAttribute("authorization") ? SplitGrantee(schemaname, ToLowercase(schemanode->GetAttribute("authorization")))
+                                                                                : [ s := schemaname, r := "moduleowner" ]
+                   ];
+  IF(NOT RecordExists(retval.authorization))
+  {
+    INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Authorization unrecognized", schemanode->linenum, 0) AT END;
+  }
+
+  IF(schemanode->namespaceuri != "http://www.webhare.net/xmlns/system/moduledefinition" OR schemanode->localname!="databaseschema")
+  {
+    INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Did not receive a databaseschema node", schemanode->linenum, 0) AT END;
+    RETURN retval;
+  }
+
+  FOREVERY(OBJECT node FROM schemanode->childnodes->GetCurrentElements())
+  {
+    IF(node->namespaceuri != "http://www.webhare.net/xmlns/whdb/databaseschema")
+    {
+      INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Node in unrecognized namespace", node->linenum, 0) AT END;
+      CONTINUE;
+    }
+
+    SWITCH(node->localname)
+    {
+      CASE "documentation"
+      {
+        retval.documentation := [ line := node->linenum, text := node->textcontent ];
+      }
+      CASE "role"
+      {
+        RECORD role := [ name := ToLowercase(node->GetAttribute("name"))
+                       ];
+        IF(NOT IsValidWHDBName(role.name))
+        {
+          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Role has an invalid name", node->linenum, 0) AT END;
+          CONTINUE;
+        }
+        INSERT role INTO retval.roles AT END;
+      }
+      CASE "obsoleterole"
+      {
+        RECORD role := [ name := ToLowercase(node->GetAttribute("name"))
+                       ];
+        IF(NOT IsValidWHDBName(role.name))
+        {
+          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Role has an invalid name", node->linenum, 0) AT END;
+          CONTINUE;
+        }
+        INSERT role INTO retval.obsoleteroles AT END;
+      }
+      CASE "obsoletetable"
+      {
+        RECORD obsoletetable := [ name := node->GetAttribute("name")
+                                , drop := node->HasAttribute("drop") ? node->GetAttribute("drop") : "restrict"
+                                ];
+        IF(NOT IsValidWHDBName(obsoletetable.name))
+        {
+          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Obsoleted table has an invalid name", node->linenum, 0) AT END;
+          CONTINUE;
+        }
+        IF(obsoletetable.drop NOT IN ["restrict","cascade"])
+        {
+          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Drop mode must be 'restrict' or 'cascade'", node->linenum, 0) AT END;
+          CONTINUE;
+        }
+        INSERT obsoletetable INTO retval.obsoletetables AT END;
+      }
+      CASE "grant", "obsoletegrant"
+      {
+        RECORD grant := ParseGrant(schemaname, node);
+        IF(NOT RecordExists(grant.grantee))
+        {
+          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid grantee name", node->linenum, 0) AT END;
+          CONTINUE;
+        }
+        IF(NOT RecordExists(grant.granted_by))
+        {
+          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid granted by name", node->linenum, 0) AT END;
+          CONTINUE;
+        }
+        IF(grant.to_table="" AND Length(grant.to_columns)>0)
+        {
+          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Table required when granting for columns", node->linenum, 0) AT END;
+          CONTINUE;
+        }
+
+        // Check grants
+        BOOLEAN need_all := Length(grant.permissions)=1 AND grant.permissions[0]="ALL";
+        IF (need_all)
+        {
+          grant.permissions := all_permissions;
+        }
+        ELSE
+        {
+          IF(Length(grant.permissions)=0)
+          {
+            INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid permission mask for grant", node->linenum, 0) AT END;
+            CONTINUE;
+          }
+          STRING ARRAY want_permissions;
+          FOREVERY(STRING perm FROM grant.permissions)
+          {
+            IF(perm IN want_permissions)
+              INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Duplicate permission '" || perm || "' for grant", node->linenum, 0) AT END;
+            ELSE IF(perm NOT IN all_permissions)
+              INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Unrecognized permission '" || perm || "' for grant", node->linenum, 0) AT END;
+            ELSE
+              INSERT perm INTO want_permissions AT END;
+          }
+        }
+
+        INSERT grant INTO retval.grants AT END;
+      }
+      CASE "table"
+      {
+        RECORD tablerec := [ name := node->GetAttribute("name")
+                           , location := [ line := node->linenum ]
+                           , documentation := DEFAULT RECORD
+                           , primarykey := node->GetAttribute("primarykey")
+                           , cols := DEFAULT RECORD ARRAY
+                           , indices := DEFAULT RECORD ARRAY
+                           , obsoletecols := DEFAULT RECORD ARRAY
+                           , obsoleteindices := DEFAULT RECORD ARRAY
+                           , legacy_readaccessmgr := node->GetAttribute("legacy_readaccessmgr")
+                           , legacy_writeaccessmgr := node->GetAttribute("legacy_writeaccessmgr")
+                           , parentlinkcolumn := node->GetAttribute("parentlinkcolumn")
+                           ];
+
+        IF(NOT IsValidWHDBName(tablerec.name))
+        {
+          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid table name '" || tablerec.name || "'", node->linenum, 0) AT END;
+          CONTINUE;
+        }
+
+        FOREVERY(OBJECT col FROM node->childnodes->GetCurrentElements())
+        {
+          IF(col->namespaceuri != "http://www.webhare.net/xmlns/whdb/databaseschema")
+          {
+            INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Node in unrecognized namespace", col->linenum, 0) AT END;
+            CONTINUE;
+          }
+          IF(col->localname="documentation")
+          {
+            tablerec.documentation := [ line := col->linenum, text := col->textcontent ];
+            CONTINUE;
+          }
+
+          IF(col->localname="index")
+          {
+            RECORD decodedcolumns := DecodeIndexColumns(col->GetAttribute("columns"));
+            IF (RecordExists(decodedcolumns.msg))
+            {
+              INSERT CELL[ ...decodedcolumns.msg, line := col->linenum, col := 0 ] INTO retval.msgs AT END;
+              CONTINUE;
+            }
+
+            INSERT [ name      := col->GetAttribute("name")
+                   , columns   := decodedcolumns.cols
+                   , is_unique  := col->GetAttribute("unique") IN ["1","true"]
+                   , is_uppercase := col->GetAttribute("uppercase") IN ["1","true"]
+                   , nonullstores := col->GetAttribute("nonullstores") IN ["1","true"]
+                   ] INTO tablerec.indices AT END;
+            CONTINUE;
+          }
+          IF(col->localname="obsoletecolumn")
+          {
+            INSERT [ name      := col->GetAttribute("name")
+                   ] INTO tablerec.obsoletecols AT END;
+            CONTINUE;
+          }
+          IF(col->localname="obsoleteindex")
+          {
+            INSERT [ name      := col->GetAttribute("name")
+                   ] INTO tablerec.obsoleteindices AT END;
+            CONTINUE;
+          }
+
+          /* Parse column definition. We store 'defval' not in the column's
+             native format, but in the way column_default would present it */
+          RECORD basecol;
+          SWITCH(col->localname)
+          {
+            CASE "integer"
+            {
+              INTEGER defvalin := ToInteger(col->GetAttribute("default"),0);
+              basecol := [ dbtype := "INTEGER"
+                         , autonumberstart := ToInteger(col->GetAttribute("autonumberstart"),0)
+                         , defval := defvalin != 0 ? ToString(defvalin) : ""
+                         ];
+
+              IF(basecol.autonumberstart<0)
+              {
+                INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid auto number starting value", col->linenum, 0) AT END;
+                CONTINUE;
+              }
+            }
+            CASE "integer64"
+            {
+              basecol := [ dbtype := "INTEGER64"
+                         , defval := ""
+                         ];
+            }
+            CASE "varchar"
+            {
+              STRING defvalin := col->GetAttribute("default");
+              basecol := [ dbtype := "VARCHAR"
+                         , maxlength := ToInteger(col->GetAttribute("maxlength"),0)
+                         , defval := defvalin != "" ? "'" || EncodeJava(defvalin) || "'" : ""
+                         ];
+
+              IF(basecol.maxlength<=0 OR basecol.maxlength>4096)
+              {
+                INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid maximum length ", col->linenum, 0) AT END;
+                CONTINUE;
+              }
+            }
+            CASE "boolean"
+            {
+              basecol := [ dbtype := "BOOLEAN"
+                         , defval := ParseXSBoolean(col->GetAttribute("default")) ? "TRUE" : ""
+                         ];
+            }
+            CASE "datetime"
+            {
+              basecol := [ dbtype := "DATETIME"
+                         , defval := ""
+                         ];
+            }
+            CASE "money"
+            {
+              basecol := [ dbtype := "MONEY"
+                         , defval := ""
+                         ];
+            }
+            CASE "float"
+            {
+              basecol := [ dbtype := "FLOAT"
+                         , defval := ""
+                         ];
+            }
+            CASE "blob"
+            {
+              basecol := [ dbtype := "BLOB"
+                         , defval := ""
+                         ];
+            }
+            CASE "bytea"
+            {
+              STRING defvalin := col->GetAttribute("default");
+              basecol := [ dbtype := "BYTEA"
+                         , maxlength := col->HasAttribute("maxlength") ? ToInteger(col->GetAttribute("maxlength"),0) : 4096
+                         , defval := defvalin != "" ? "'" || EncodeJava(defvalin) || "'" : ""
+                         ];
+
+              IF(basecol.maxlength<=0 OR basecol.maxlength>4096)
+              {
+                INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid maximum length ", col->linenum, 0) AT END;
+                CONTINUE;
+              }
+            }
+            DEFAULT
+            {
+              INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Unrecognized column type '" || col->localname || "'", col->linenum, 0) AT END;
+              CONTINUE;
+            }
+          }
+
+          INSERT CELL name := col->GetAttribute("name") INTO basecol;
+          INSERT CELL location := [ line := col->linenum ] INTO basecol;
+          INSERT CELL documentation := DEFAULT RECORD INTO basecol;
+          INSERT CELL internalcolumnname := ToUppercase(col->GetAttribute("internalcolumnname")) INTO basecol;
+          INSERT CELL nullable := col->GetAttribute("nullable") NOT IN ["false","0"] INTO basecol;
+          INSERT CELL noupdate := col->GetAttribute("noupdate") IN ["true","1"] INTO basecol;
+          INSERT CELL isunique := col->GetAttribute("unique") IN ["true","1"] INTO basecol;
+          INSERT CELL ondelete := col->GetAttribute("ondelete") INTO basecol;
+
+          IF(NOT IsValidWHDBName(basecol.name))
+          {
+            INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid column name '" || basecol.name || "'", col->linenum, 0) AT END;
+            CONTINUE;
+          }
+          IF(basecol.ondelete NOT IN ["","cascade","set default"])
+          {
+            IF(basecol.dbtype = "ROLE")
+            {
+              INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "A role column may not specify a reference", col->linenum, 0) AT END;
+              CONTINUE;
+            }
+          }
+
+          STRING references := col->GetAttribute("references");
+          STRING referschema, refertable;
+          IF(references!="")
+          {
+            STRING ARRAY reftoks := Tokenize(references,'.');
+            IF(Length(reftoks)!=2 OR (reftoks[0]!="" AND NOT IsValidWHDBName(reftoks[0])) OR NOT IsValidWHDBName(reftoks[1]))
+            {
+              INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid references name", col->linenum, 0) AT END;
+              CONTINUE;
+            }
+            referschema := reftoks[0]="" ? schemaname : reftoks[0];
+            refertable := reftoks[1];
+          }
+          ELSE IF(basecol.ondelete!="")
+          {
+            INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Specifying an 'ondelete' requires specifying a 'references'", col->linenum, 0) AT END;
+            CONTINUE;
+          }
+
+          IF(referschema="publisher" AND refertable IN ["files","folders"]) //ADDME: Reject or warn about these in the future
+          {
+            referschema:="system";
+            refertable:="fs_objects";
+          }
+
+          INSERT CELL references_schema := referschema INTO basecol;
+          INSERT CELL references_table := refertable INTO basecol;
+
+          FOREVERY(OBJECT colsubnode FROM col->childnodes->GetCurrentElements())
+          {
+            IF(colsubnode->namespaceuri = "http://www.webhare.net/xmlns/whdb/databaseschema" AND colsubnode->localname = "documentation")
+              basecol.documentation := [ line := colsubnode->linenum, text := colsubnode->textcontent ];
+          }
+
+          IF (basecol.isunique AND basecol.nullable)
+          {
+            INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(FALSE, 0, "Columns that are both unique and nullable are not supported, disabled nullability", col->linenum, 0) AT END;
+            basecol.nullable := FALSE;
+          }
+
+          INSERT basecol INTO tablerec.cols AT END;
+        }
+
+        IF(tablerec.parentlinkcolumn != "")
+        {
+          RECORD linkcol := SELECT * FROM tablerec.cols WHERE name = tablerec.parentlinkcolumn;
+          IF(NOT RecordExists(linkcol))
+          {
+            INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Table has no column '" || tablerec.parentlinkcolumn || "' but it is declared as its parent link", node->linenum, 0) AT END;
+            CONTINUE;
+          }
+          IF(linkcol.references_table = "")
+          {
+            INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Table has declared column '" || tablerec.parentlinkcolumn || "' as its parent link, but it does not reference another table", node->linenum, 0) AT END;
+            CONTINUE;
+          }
+          IF(linkcol.nullable)
+          {
+            INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Table has declared column '" || tablerec.parentlinkcolumn || "' as its parent link, but the column 0is not marked as NOT NULL", node->linenum, 0) AT END;
+            CONTINUE;
+          }
+          //ADDME circular dependency checks?
+        }
+        IF(tablerec.primarykey != "")
+        {
+          RECORD linkcol := SELECT * FROM tablerec.cols WHERE name = tablerec.primarykey;
+          IF(NOT RecordExists(linkcol))
+          {
+            INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Table has no column '" || tablerec.primarykey || "' but it is declared as its primary key", node->linenum, 0) AT END;
+            CONTINUE;
+          }
+
+          UPDATE tablerec.cols SET nullable := FALSE WHERE name=tablerec.primarykey;
+          UPDATE tablerec.cols SET noupdate := TRUE WHERE name=tablerec.primarykey;
+          UPDATE tablerec.cols SET isunique := TRUE WHERE name=tablerec.primarykey;
+        }
+        IF(Length(tablerec.cols)=0)
+        {
+          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Table has no columns", node->linenum, 0) AT END;
+          CONTINUE;
+        }
+        INSERT tablerec INTO retval.tables AT END;
+      }
+      DEFAULT
+      {
+        INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Unrecognized node '" || node->localname || "'", node->linenum, 0) AT END;
+      }
+    }
+  }
+
+  //PrintRecordTo(0,retval,'tree');
+  RETURN retval;
+}

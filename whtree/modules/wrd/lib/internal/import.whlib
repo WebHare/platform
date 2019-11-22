@@ -1,0 +1,736 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+INTEGER ARRAY supportedattrtypes := [ 1/*domain single*/
+                                    , 2/*free*/
+                                    , 3/*address*/
+                                    , 4/*email*/
+                                    , 5//telephome
+                                    , 6//date
+                                    , 7//password
+                                    ,12//datetime
+                                    ,15/*integer*/
+                                    ,16/*boolean*/
+                                    ,18/*integer64*/
+                                    ,21/*url*/
+                                    ];
+
+PUBLIC STRING FUNCTION GenerateColumnName(INTEGER i)
+{
+  STRING outtext;
+  WHILE(TRUE)
+  {
+    outtext := ByteToString(65 + i%26) || outtext;
+    IF(i<26)
+      RETURN outtext;
+    i := i / 26 - 1;
+  }
+}
+
+PUBLIC OBJECTTYPE WRDImporter
+<
+  ///Set to true if the CSV has header rows
+  PUBLIC BOOLEAN datahasheaders;
+  ///Maximum number of distinct values to read per column (defaults to 0, disabling the distinct value cache)
+  PUBLIC INTEGER distinctcachesize;
+  ///Trim whitespace of tokens (defaults to TRUE)
+  PUBLIC BOOLEAN trimwhitespace;
+  ///Filters to apply to entities before updating
+  PUBLIC RECORD ARRAY updateprecheckfilters;
+  ///Filters to apply to the end result row before applying
+  PUBLIC RECORD ARRAY postfilters;
+  /** Fields to set initially on new/updated records. This record will be used as the base record for imported entities */
+  PUBLIC RECORD importsetfields;
+  ///Force country to a specific value on imports
+  PUBLIC STRING forcecountry;
+
+  ///Callback for CSV loading progress
+  PUBLIC FUNCTION PTR onloadprogress;
+  ///Callback for import progress
+  PUBLIC FUNCTION PTR onimportprogress;
+  ///Callback to inspect and manipulate rows before insertion (this is invoked right after CSV parsing and adding importsetfields, but before any update/insert decision making)
+  PUBLIC FUNCTION PTR onhandlingrow;
+  ///Callback for rejected rows (trying to update a value that did not meet the precheck filters). MACRO OnRejectedRow(STRING ARRAY tokens, RECORD parsedrow, INTEGET entityid)
+  PUBLIC MACRO PTR onrejectedrow;
+  ///Callback for postfilter rejected rows. MACRO OnPostRejectRow(STRING ARRAY tokens, RECORD finalrow, INTEGER failedfilteridx)
+  PUBLIC MACRO PTR onpostrejectrow;
+  ///Callback for invalid import rows (did not meet schema constrains). MACRO OnInvalidRow(STRING ARRAY tokens, RECORD parsedrow, RECORD ARRAY entity_errors)
+  PUBLIC MACRO PTR oninvalidrow;
+  ///Callback for rows which had duplicate values in their unique field. MACRO OnDuplicateRow(STRING ARRAY tokens, RECORD parsedrow, INTEGER earlier_entityid)
+  PUBLIC MACRO PTR onduplicaterow;
+  ///Callback for rows which are succesfully imported. MACRO OnImportRow(STRING ARRAY tokens, RECORD parsedrow, INTEGER entityid, BOOLEAN isnew)
+  PUBLIC MACRO PTR onimportrow;
+
+  //ADDME it might be wiser to not cache everything but just count and reread later (ie scan file twice)
+
+  RECORD ARRAY rowerrors;
+
+  RECORD ARRAY previewlines;
+  //distinct buckets, and column counters
+  RECORD ARRAY columnbuckets;
+  //are all buckets overflown?
+  BOOLEAN alloverflown;
+  //template record for gathered cells (eg address fields)
+  RECORD templatetemp;
+  //gathered cells information
+  RECORD ARRAY gatheredcells;
+  //number of rows processed
+  INTEGER numrows;
+  INTEGER ARRAY imported_entities;
+  DATETIME importdate;
+
+  OBJECT wrdtype;
+  BLOB indata;
+  STRING indatatype;
+
+  MACRO NEW(OBJECT wrdtype)
+  {
+    this->wrdtype := wrdtype;
+    this->trimwhitespace := TRUE;
+  }
+
+  /* *************************************
+
+       Import analysis
+
+  */
+
+  STRING ARRAY FUNCTION StringifyTokens(VARIANT ARRAY intoks)
+  {
+    STRING ARRAY outtoks;
+    FOREVERY(VARIANT indata FROM intoks)
+    {
+      SWITCH(TypeID(indata))
+      {
+        CASE TYPEID(STRING)
+        {
+          INSERT indata INTO outtoks AT END;
+        }
+        CASE TYPEID(INTEGER)
+        {
+          INSERT ToString(indata) INTO outtoks AT END;
+        }
+        CASE TYPEID(MONEY)
+        {
+          INSERT FormatMoney(indata,0,".","",FALSE) INTO outtoks AT END;
+        }
+        CASE TYPEID(FLOAT)
+        {
+          INSERT FormatFloat(indata, 10) INTO outtoks AT END;
+        }
+        CASE TYPEID(BOOLEAN)
+        {
+          INSERT indata ? "1" : "0" INTO outtoks AT END;
+        }
+        CASE TYPEID(DATETIME)
+        {
+          //ADDME perhaps create date-only formats when msecs == 0?
+          INSERT FormatISO8601Datetime(indata) INTO outtoks AT END;
+        }
+        DEFAULT
+        {
+          THROW NEW Exception("Unexpected type " || GetTypeName(TypeID(indata)) || " from xlsx input");
+        }
+      }
+    }
+    RETURN outtoks;
+  }
+
+  BOOLEAN FUNCTION GotAnalyzeLine_XLSX(OBJECT xlsxparser, VARIANT ARRAY intoks)
+  {
+    RETURN this->GotAnalyzeLine(xlsxparser, this->StringifyTokens(intoks)); //the only callback is GetParseProgress, so passing xlsxparser is safe
+  }
+
+  BOOLEAN FUNCTION GotAnalyzeLine(OBJECT parser, STRING ARRAY intoks)
+  {
+    IF(this->trimwhitespace)
+     FOREVERY(STRING tok FROM intoks)
+       intoks[#tok] := TrimWhitespace(tok);
+
+    IF(Length(this->previewlines) < 25)
+    {
+      INSERT [ tokens := intoks ] INTO this->previewlines AT END;
+    }
+
+    WHILE(Length(intoks) > Length(this->columnbuckets))
+    {
+      INSERT [ distinctvalues := DEFAULT STRING ARRAY
+             , distinctcounters := DEFAULT INTEGER ARRAY
+             , overflow := FALSE
+
+             , usemapping := FALSE
+             , destaddressfield := ""
+             , desttag := ""
+             , destunique := FALSE
+             , desttype := 0
+             , mapping  := DEFAULT RECORD ARRAY
+             ] INTO this->columnbuckets AT END;
+      this->alloverflown := FALSE; //recheck overflown status
+    }
+
+    IF(NOT this->alloverflown)
+    {
+      this->alloverflown := TRUE;
+      FOREVERY(RECORD bucket FROM this->columnbuckets)
+      {
+        STRING data := #bucket < Length(intoks) ? intoks[#bucket] : "";
+        IF(NOT bucket.overflow)
+        {
+          INTEGER existingpos := SearchElement(bucket.distinctvalues, data);
+          IF(existingpos = -1) //not seen yet
+          {
+            IF(Length(bucket.distinctvalues) >= this->distinctcachesize)
+            {
+              bucket.overflow := TRUE;
+            }
+            ELSE
+            {
+              INSERT data INTO bucket.distinctvalues AT END;
+              INSERT 1 INTO bucket.distinctcounters AT END;
+            }
+          }
+          ELSE
+          {
+            bucket.distinctcounters[existingpos] := bucket.distinctcounters[existingpos] + 1;
+          }
+        }
+
+        IF(NOT bucket.overflow)
+          this->alloverflown := FALSE;
+        this->columnbuckets[#bucket] := bucket;
+      }
+    }
+
+    this->numrows := this->numrows + 1;
+
+    IF(this->onloadprogress != DEFAULT FUNCTION PTR)
+      RETURN this->onloadprogress(parser->GetParseProgress());
+    ELSE
+      RETURN TRUE;
+  }
+
+  MACRO GoParse(BOOLEAN actual_import)
+  {
+    IF(this->indatatype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    {
+      OBJECT xlsxin := OpenOOXMLSpreadSheetFile(this->indata);
+      OBJECT xlssheet := xlsxin->OpenSheet(0);
+      IF(actual_import)
+        xlssheet->ExportRowsToCallback(PTR this->GotImportLine_XLSX(xlssheet, #1));
+      ELSE
+        xlssheet->ExportRowsToCallback(PTR this->GotAnalyzeLine_XLSX(xlssheet, #1));
+    }
+    ELSE
+    {
+      OBJECT csvparser := NEW CSVFileParser;
+      IF(actual_import)
+        csvparser->onrecord := PTR this->GotImportLine(csvparser, #1);
+      ELSE
+        csvparser->onrecord := PTR this->GotAnalyzeLine(csvparser, #1);
+      csvparser->ParseBlob(this->indata);
+    }
+  }
+
+  /** @short Load new data to import
+      @long This function sets up a new file for import, clearing any earlier offered data
+  */
+  PUBLIC MACRO LoadImportData(BLOB indata, STRING mimetype)
+  {
+    IF(mimetype="")
+      mimetype := ScanBlob(indata).mimetype;
+
+    this->indata := indata;
+    this->indatatype := mimetype;
+    this->numrows := 0;
+    this->columnbuckets := DEFAULT RECORD ARRAY;
+
+    this->GoParse(FALSE);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsAcceptableImportType() //Can we even import on this type
+  {
+    RETURN TRUE;/*
+    RETURN NOT RecordExists(SELECT FROM this->wrdtype->GetAttributes()
+                                   WHERE isrequired
+                                         AND attributetype NOT IN supportedattrtypes);*/
+  }
+
+  /** @short Get the number of input rows processed */
+  PUBLIC INTEGER FUNCTION GetNumImportRows()
+  {
+    INTEGER rows := this->numrows;
+    IF(rows>0 AND this->datahasheaders)
+      rows := rows - 1;
+    RETURN rows;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetImportColumnsIfHeaders(BOOLEAN think_headers)
+  {
+    RECORD ARRAY output;
+    INTEGER numexplicitcolumns;
+    IF(think_headers AND Length(this->previewlines)>0)
+      numexplicitcolumns := Length(this->previewlines[0].tokens);
+
+    INTEGER firstrownum := think_headers ? 1 : 0;
+    STRING ARRAY firstrow := firstrownum < Length(this->previewlines) ? this->previewlines[firstrownum].tokens : DEFAULT STRING ARRAY;
+
+    FOREVERY(RECORD bucket FROM this->columnbuckets)
+    {
+      RECORD ARRAY distinctvalues := SELECT value
+                                          , num := bucket.distinctcounters[#distinctvalues]
+                                       FROM ToRecordArray(bucket.distinctvalues,"value") AS distinctvalues;
+
+      //compensate for headers
+      IF(think_headers //a header row is active
+         AND Length(distinctvalues) > 0 //we have at least 1 different distinct value
+         AND #bucket < Length(this->previewlines[0].tokens)) //the first row contained enough values
+      {
+        //then the first row will have been improperly counted as a distinct value
+        IF(distinctvalues[0].num > 1)
+          distinctvalues[0].num := distinctvalues[0].num - 1;
+        ELSE
+          DELETE FROM distinctvalues AT 0;
+      }
+
+      INSERT [ name := #bucket < numexplicitcolumns ? this->previewlines[0].tokens[#bucket] : GenerateColumnName(#bucket)
+             , firstvalue := #bucket < Length(firstrow) ? firstrow[#bucket] : ""
+             , distinctvalues := distinctvalues
+             , distinctoverflow := bucket.overflow
+             ]
+             INTO output AT END;
+    }
+    RETURN output;
+  }
+
+  /** @short Get the columns available in the input */
+  PUBLIC RECORD ARRAY FUNCTION GetImportColumns()
+  {
+    RETURN this->GetImportColumnsIfHeaders(this->datahasheaders);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetPreviewLines()
+  {
+    RECORD ARRAY retval := this->previewlines;
+    IF(Length(retval)>=1 AND this->datahasheaders)
+      DELETE FROM retval AT 0;
+    RETURN retval;
+  }
+
+  /* *************************************
+
+       Import setup
+
+  */
+
+  PUBLIC RECORD ARRAY FUNCTION GetImportableWRDAttributes()
+  {
+    RETURN SELECT *
+                , requiresimportmap := attributetype IN [1,16]
+             FROM this->wrdtype->ListAttributes(0)
+            WHERE tag="WRD_GUID"
+                  OR (NOT isreadonly AND attributetype IN supportedattrtypes);
+  }
+
+  RECORD FUNCTION BaseMap(INTEGER updcolnum, STRING wrdtag)
+  {
+    RECORD attrinfo := this->wrdtype->GetAttribute(wrdtag);
+    IF(NOT RecordExists(attrinfo))
+      THROW NEW Exception("No such attribute '" || wrdtag || "'");
+    IF(updcolnum >= Length(this->columnbuckets))
+      THROW NEW Exception("Invalid column number " || updcolnum);
+
+    this->columnbuckets[updcolnum].desttag := wrdtag;
+    this->columnbuckets[updcolnum].destunique := attrinfo.isunique;
+    this->columnbuckets[updcolnum].desttype := attrinfo.attributetype;
+    RETURN attrinfo;
+  }
+
+  PUBLIC MACRO MapDirectImport(INTEGER updcolnum, STRING wrdtag, STRING subfield)
+  {
+    RECORD attrinfo := this->BaseMap(updcolnum, wrdtag);
+
+    IF(subfield="")
+    {
+      IF(attrinfo.tag != "WRD_GUID" AND attrinfo.attributetype NOT IN [2,4,5,6,7,12,15,18,21])
+        THROW NEW Exception("Direct import not supported for attribute '" || wrdtag || "'");
+    }
+    ELSE
+    {
+      IF(attrinfo.attributetype !=3)
+        THROW NEW Exception("Attribute '" || wrdtag || "' is not an address attribute");
+    }
+
+    this->columnbuckets[updcolnum].usemapping := FALSE;
+    this->columnbuckets[updcolnum].destaddressfield := subfield;
+  }
+
+  PUBLIC MACRO MapDomainImport(INTEGER updcolnum, STRING wrdtag, STRING subfield, RECORD ARRAY mapping)
+  {
+    RECORD attrinfo := this->BaseMap(updcolnum, wrdtag);
+    IF(subfield="")
+    {
+      IF(attrinfo.attributetype NOT IN [1,16])
+        THROW NEW Exception("Domain import not supported for attribute '" || wrdtag || "'");
+    }
+    ELSE
+    {
+      IF(attrinfo.attributetype !=3 )
+        THROW NEW Exception("Attribute '" || wrdtag || "' is not an address attribute");
+      IF(ToUppercase(subfield) != "COUNTRY")
+        THROW NEW Exception("Domain imports not supported for non-countryfields in an address attribute");
+    }
+
+    this->columnbuckets[updcolnum].usemapping := TRUE;
+    this->columnbuckets[updcolnum].destaddressfield := subfield;
+
+    IF(Length(mapping)>0)
+    {
+      INTEGER ARRAY mapstotypes := SELECT AS INTEGER ARRAY DISTINCT TypeID(mapsto) FROM mapping;
+
+      INTEGER reqtype := attrinfo.attributetype = 16 ? TypeID(BOOLEAN) : attrinfo.attributetype=3 ? TypeID(STRING) : TypeID(INTEGER);
+      IF(Length(mapstotypes) != 1 OR mapstotypes[0] != reqtype)
+        THROW NEW Exception("Invalid mapping 'mapsto' type");
+    }
+    this->columnbuckets[updcolnum].mapping := mapping;
+  }
+
+  /* *************************************
+
+       Import execution
+
+  */
+
+  MACRO ResetImportState()
+  {
+    this->numrows := 0;
+    this->imported_entities := DEFAULT INTEGER ARRAY;
+    this->importdate := GetCurrentDatetime();
+  }
+
+  PUBLIC MACRO RunImport()
+  {
+    this->VerifyImportSetup();
+
+    //A new CSV session, but now for the final data
+    this->ResetImportState();
+    this->GoParse(TRUE);
+  }
+
+  MACRO VerifyImportSetup()
+  {
+    RECORD ARRAY desttags := SELECT tag := desttag
+                                  , num := Count(*)
+                               FROM this->columnbuckets
+                              WHERE desttag!=""
+                           GROUP BY desttag, destaddressfield;
+
+    RECORD dupetag := SELECT * FROM desttags WHERE num>1;
+    IF(RecordExists(dupetag))
+      THROW NEW Exception("WRD field '" || dupetag.tag || "' has been linked multiple times");
+
+    //Create holders for address fields
+    this->templatetemp := CELL[];
+    this->gatheredcells := DEFAULT RECORD ARRAY;
+    FOREVERY(RECORD bucket FROM this->columnbuckets)
+    {
+      IF(bucket.destaddressfield != "" AND NOT CellExists(this->templatetemp, bucket.desttag))
+      {
+        INSERT [ type := 1
+               , tag := bucket.desttag
+               ] INTO this->gatheredcells AT END;
+
+        this->templatetemp := CellInsert(this->templatetemp, bucket.desttag, DEFAULT RECORD);
+      }
+   }
+
+
+/*  ADDME? Even uitgezet... in principe hoeft dit niet fout te zijn immers als je alleen maar gaat updaten, niet inserten...
+
+    STRING ARRAY alltags := SELECT AS STRING ARRAY tag FROM desttags;
+    RECORD unlinkedtag := SELECT *
+                            FROM this->wrdtype->GetAttributes(0)
+                           WHERE isrequired
+                                 AND tag NOT IN alltags;
+    IF(RecordExists(unlinkedtag))
+      THROW NEW Exception("Required WRD field '" || unlinkedtag.tag || "' has no specified value");
+*/
+  }
+
+  BOOLEAN FUNCTION GotImportLine_XLSX(OBJECT xlsxparser, VARIANT ARRAY tokens)
+  {
+    RETURN this->GotImportLine(xlsxparser, this->StringifyTokens(tokens)); //the only callback is GetParseProgress, so passing xlsxparser is safe
+  }
+
+  BOOLEAN FUNCTION GotImportLine(OBJECT parser, STRING ARRAY tokens)
+  {
+    IF(this->trimwhitespace)
+     FOREVERY(STRING tok FROM tokens)
+       tokens[#tok] := TrimWhitespace(tok);
+
+    this->numrows := this->numrows + 1;
+    IF(this->numrows > 1 OR NOT this->datahasheaders)
+      this->HandleImportRow(tokens);
+
+    IF(this->onimportprogress != DEFAULT FUNCTION PTR)
+      RETURN this->onimportprogress(parser->GetParseProgress());
+    ELSE
+      RETURN TRUE;
+  }
+
+
+  VARIANT FUNCTION ParseValue(INTEGER datatype, STRING data)
+  {
+    SWITCH(datatype)
+    {
+      CASE 0,2,3,4,5,7,21
+      {
+        RETURN data;
+      }
+      CASE 6,12
+      {
+        RETURN MakeDateFromText(data);
+      }
+      CASE 1,15,18
+      {
+        INTEGER firstdot := SearchSubstring(data,'.');
+        INTEGER firstcomma := SearchSubstring(data,',');
+        IF( (firstdot != -1 AND firstcomma = -1) OR (firstdot != -1 AND firstcomma = -1)) //coerce money/float into integer
+        {
+          IF (datatype = 18)
+            RETURN INTEGER64(ToFloat(data,0)+0.5);
+          RETURN INTEGER(ToFloat(data,0)+0.5);
+        }
+        RETURN ToInteger(data,0);
+      }
+      CASE 16
+      {
+        RETURN ToUppercase(data) NOT IN ["1","TRUE"];
+      }
+      DEFAULT
+      {
+        THROW NEW Exception("Unrecognized attributetype " || datatype);
+      }
+    }
+  }
+
+  RECORD FUNCTION ParseRow(STRING ARRAY tokens)
+  {
+    RECORD outrow := this->templatetemp;
+
+    FOREVERY(RECORD col FROM this->columnbuckets)
+    {
+      IF(col.desttag="")
+        CONTINUE;
+
+      STRING data := #col < Length(tokens) ? tokens[#col] : "";
+      VARIANT storevalue;
+      IF(col.usemapping)
+      {
+        RECORD valuematch := SELECT * FROM col.mapping WHERE value=data;
+        IF(RecordExists(valuematch))
+          storevalue := valuematch.mapsto;
+        ELSE
+          storevalue := this->ParseValue(col.desttype, "");
+      }
+      ELSE
+      {
+        storevalue := this->ParseValue(col.desttype, data);
+      }
+
+      IF(col.destaddressfield != "")
+      {
+        IF(ToUppercase(col.destaddressfield)="NR_DETAIL" AND storevalue LIKE "*.0000000*") //work around "76.0000000000" house numbers
+          storevalue := Tokenize(storevalue,'.')[0];
+
+        RECORD updatedfield := CellInsert(GetCell(outrow, col.desttag), col.destaddressfield, storevalue);
+        outrow := CellUpdate(outrow , col.desttag, updatedfield);
+      }
+      ELSE
+      {
+        outrow := CellInsert(outrow, col.desttag, storevalue);
+      }
+    }
+
+    FOREVERY(RECORD gathered FROM this->gatheredcells)
+    {
+      IF(gathered.type=1/*address*/)
+      {
+        //any filled cells?
+        RECORD currentaddress := GetCell(outrow, gathered.tag);
+        IF( (NOT CellExists(currentaddress,"STREET") OR currentaddress.street="")
+            AND (NOT CellExists(currentaddress,"ZIP") OR currentaddress.zip="")
+            AND (NOT CellExists(currentaddress,"CITY") OR currentaddress.city="")
+            AND (NOT CellExists(currentaddress,"COUNTRY") OR currentaddress.country=""))
+        {
+          currentaddress := DEFAULT RECORD;
+        }
+
+        IF(this->forcecountry != "" AND RecordExists(currentaddress))
+          INSERT CELL country := this->forcecountry INTO currentaddress;
+
+        outrow := CellUpdate(outrow, gathered.tag, currentaddress);
+      }
+    }
+
+    RETURN outrow;
+  }
+
+  INTEGER FUNCTION FindUpdateEntity(RECORD inrow)
+  {
+    FOREVERY(RECORD col FROM this->columnbuckets)
+      IF(col.destunique)
+      {
+        //FIXME type-independent empty match
+        VARIANT curval := GetCell(inrow, col.desttag);
+        IF(curval = GetTypeDefaultValue(TypeID(Curval)))
+          CONTINUE;
+
+        RECORD result := this->wrdtype->RunQuery([ outputcolumns := [ id := "WRD_ID" ]
+                                                 , filters := [[ field := col.desttag
+                                                               , match_type := "="
+                                                               , value := curval
+                                                               , match_case := FALSE
+                                                              ]]
+                                                 ]);
+        IF(RecordExists(result))
+          RETURN result.id;
+      }
+
+    RETURN 0;
+  }
+
+  //FIXME merge with WRD Query API
+  INTEGER FUNCTION MatchAgainstFilters(RECORD indata, RECORD ARRAY filters)
+  {
+    BOOLEAN passfilter := TRUE;
+    FOREVERY(RECORD filter FROM filters)
+    {
+      IF (CellExists(filter, "MATCH_TYPE"))
+        THROW NEW Exception("Using cell 'match_type' is not allowed, use 'matchtype' instead");
+
+      IF(filter.matchtype NOT IN ["=","!="])
+        THROW NEW Exception("Matchtype '" || filter.matchtype || "' not supported yet by WRD Import");
+
+      VARIANT compareagainst;
+      IF(CellExists(filter, "value")) // match against simple value
+      {
+        compareagainst := filter.value;
+      }
+      ELSE IF(CellExists(filter,"domainvaluetag"))
+      {
+        compareagainst := this->wrdtype->GetDomVal(filter.field, filter.domainvaluetag);
+      }
+      ELSE
+      {
+        THROW NEW Exception("Filter without value or domainvaluetag");
+      }
+
+      IF(filter.matchtype="=")
+        passfilter := GetCell(indata, filter.field) = compareagainst;
+      ELSE IF(filter.matchtype="!=")
+        passfilter := GetCell(indata, filter.field) != compareagainst;
+
+      IF(NOT passfilter)
+        RETURN #filter;
+    }
+    RETURN -1;
+  }
+
+  MACRO AddRowError(RECORD error)
+  {
+    INSERT error INTO this->rowerrors AT END;
+  }
+
+  MACRO HandleImportRow(STRING ARRAY tokens)
+  {
+    RECORD rowdata := this->ParseRow(tokens);
+
+    IF(RecordExists(this->importsetfields))
+      rowdata := MakeMergedRecord(rowdata, this->importsetfields);
+
+    //FIXME explicit insert/update handling
+
+    IF(this->onhandlingrow != DEFAULT FUNCTION PTR)
+    {
+      rowdata := this->onhandlingrow(tokens, rowdata);
+      IF(NOT RecordExists(rowdata))
+        RETURN;
+    }
+
+    //Figure out if we need to update an existing entity
+    INTEGER entityid := this->FindUpdateEntity(rowdata);
+    RECORD entitypos := LowerBound(this->imported_entities, entityid);
+    IF(entitypos.found)
+    {
+      IF(this->onduplicaterow != DEFAULT FUNCTION PTR)
+        this->onduplicaterow(tokens, rowdata, entityid);
+
+      RETURN;
+    }
+
+    IF(entityid != 0 AND Length(this->updateprecheckfilters) > 0) //check entity against the precheck
+    {
+      IF(NOT RecordExists(this->wrdtype->RunQuery([ filters := [[ field := "WRD_ID", value := entityid ]] CONCAT this->updateprecheckfilters])))
+      {
+        //OnRejectedRow(STRING ARRAY tokens, RECORD parsedrow, INTEGER entityid)
+        IF(this->onrejectedrow != DEFAULT MACRO PTR)
+          this->onrejectedrow(tokens, rowdata, entityid);
+
+        RETURN;
+      }
+    }
+
+    // Set timestamps
+    IF(NOT CellExists(rowdata,"WRD_CREATIONDATE") AND entityid = 0)
+      INSERT CELL wrd_creationdate := this->importdate INTO rowdata;
+    IF(NOT CellExists(rowdata,"WRD_MODIFICATIONDATE"))
+      INSERT CELL wrd_modificationdate := this->importdate INTO rowdata;
+
+    // Verify the final version
+    IF(Length(this->postfilters) > 0)
+    {
+      INTEGER filterresult := this->MatchAgainstFilters(rowdata, this->postfilters);
+      IF(filterresult != -1) //failed a filter
+      {
+        IF(this->onpostrejectrow != DEFAULT FUNCTION PTR)
+          this->onpostrejectrow(tokens, rowdata, filterresult);
+        RETURN;
+      }
+    }
+
+    this->rowerrors := DEFAULT RECORD ARRAY;
+    BOOLEAN isnew := entityid = 0;
+    IF(isnew)
+    {
+      OBJECT newentity := this->wrdtype->__DoCreateEntity(rowdata, [ errorcallback := PTR this->AddRowError ]);
+      IF(ObjectExists(newentity))
+      {
+        entityid := newentity->id;
+        entitypos := LowerBound(this->imported_entities, entityid);
+      }
+    }
+    ELSE
+    {
+      this->wrdtype->UpdateEntity(entityid, rowdata);
+    }
+
+    IF(Length(this->rowerrors) > 0)
+    {
+      IF(this->oninvalidrow != DEFAULT FUNCTION PTR)
+        this->oninvalidrow(tokens, rowdata, this->rowerrors);
+    }
+    ELSE
+    {
+      INSERT entityid INTO this->imported_entities AT entitypos.position;
+      IF(this->onimportrow != DEFAULT FUNCTION PTR)
+        this->onimportrow(tokens, rowdata, entityid, isnew);
+    }
+  }
+>;

@@ -1,0 +1,415 @@
+﻿<?wh (* ISSYSTEMLIBRARY *)
+
+PUBLIC STRING FUNCTION GetCallingLibrary(BOOLEAN skip_system) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING FUNCTION __DoEvpCrypt(STRING algo, BOOLEAN encrypt, STRING keydata, STRING data, STRING iv) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, CONSTANT);
+PUBLIC OBJECT  FUNCTION __HS_GETRESETTHROWVAR() __ATTRIBUTES__(EXTERNAL);
+PUBLIC         MACRO    __HS_THROWEXCEPTION(OBJECT obj, BOOLEAN isrethrow) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, TERMINATES);
+
+//BLIC NCTION PTR ARRAY FUNCTION
+PUBLIC                  MACRO    CLOSEZIPFILE(INTEGER fileid)  __ATTRIBUTES__(EXTERNAL);
+PUBLIC DATETIME         FUNCTION GETBLOBMODTIME(BLOB file) __ATTRIBUTES__(EXTERNAL); //internal api, not guaranteed to return a modtime (eg dbase blob)
+PUBLIC STRING           FUNCTION GETBLOBDESCRIPTION(BLOB file) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION GETZIPFILECOMMENT(INTEGER fileid) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD ARRAY     FUNCTION GETZIPFILEDIRECTORY(INTEGER fileid)  __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER          FUNCTION JSONDECODERALLOCATE(BOOLEAN hson, RECORD translations) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD           FUNCTION JSONDECODERFINISH(INTEGER id) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN          FUNCTION JSONDECODERPROCESS(INTEGER id, STRING data) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD           FUNCTION JSONDECODERQUICK(STRING s, BOOLEAN hson, RECORD translations) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BLOB             FUNCTION JSONENCODETOBLOB(VARIANT v, BOOLEAN hson, RECORD translations) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING           FUNCTION JSONENCODETOSTRING(VARIANT v, BOOLEAN hson, RECORD translations) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC INTEGER          FUNCTION OPENZIPFILE(BLOB data)  __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC INTEGER          FUNCTION __HS_EVENT_CREATESTREAM() __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    __HS_EVENT_CLOSESTREAM(INTEGER id) __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(INTEGER id, STRING ARRAY add, STRING ARRAY remove, BOOLEAN reset) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD           FUNCTION __HS_EVENT_STREAMREAD(INTEGER id) __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    __HS_EVENT_BROADCAST(STRING event, RECORD data, BOOLEAN local) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Get the path to the current directory
+    @topic harescript-core/os
+    @public
+    @loadlib wh::os.whlib
+    @return The current path */
+PUBLIC STRING FUNCTION GetCurrentPath() __ATTRIBUTES__(EXTERNAL);
+
+/** Determines if the console is a terminal.
+    @return TRUE if the console is a terminal. Throws if console support is not available
+    @topic harescript-core/os
+    @public
+    @loadlib wh::os.whlib
+    @see #IsConsoleSupportAvailable
+*/
+PUBLIC BOOLEAN FUNCTION IsConsoleATerminal() __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** Returns TRUE if console support is available (only using `wh run`)
+    @return TRUE if console support is available
+    @topic harescript-core/os
+    @public
+    @loadlib wh::os.whlib
+*/
+PUBLIC BOOLEAN FUNCTION IsConsoleSupportAvailable() __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** Returns the console size
+    @return The size of the console. Throws if console support is not available
+    @cell(integer) return.rows Number of rows
+    @cell(integer) return.cols Number of columns
+    @topic harescript-core/os
+    @public
+    @loadlib wh::os.whlib
+    @see #IsConsoleSupportAvailable
+*/
+PUBLIC RECORD FUNCTION GetConsoleSize() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Open a blob as file
+    @topic harescript-core/os
+    @public
+    @loadlib wh::files.whlib
+    @param blobfile Blob to open
+    @return ID of open blob file
+    @see %GetDiskResource,%OpenDiskFile,%CloseBlobFile
+*/
+PUBLIC INTEGER          FUNCTION OpenBlobAsFile(BLOB blobfile) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Does a (case sensitive) binary search within a sorted record array
+    @long This function searches for an record with specific values within a record array that is sorted
+          on specific cells. If the element is found, its position is returned, otherwise the insert
+          position is returned (the place the element should be inserted to preserve the ordering of the
+          record array)
+    @topic harescript-utils/algorithms
+    @public
+    @loadlib wh::util/algorithms.whlib
+    @param list Record array to search in
+    @param element Record with values to search for
+    @param cellnames Names of cells to search for (the list must be ordered on these cellnames, in the
+               same order they are passed to this function)
+    @return Whether the element was found, and the position of the element/positionm is should be inserted
+                to preserve the ordering of list
+    @cell return.found Whether the element was found
+    @cell return.position Position of the element (when found, otherwise the insert position)
+    @see RecordUpperBound, %LowerBound, %UpperBound
+    @example
+
+// List (sorted on 'a', then 'b')
+RECORD ARRAY list :=
+    [ [ a := 1, b := 10, text := "value 1" ]
+    , [ a := 3, b := 1,  text := "second value" ]
+    , [ a := 3, b := 3,  text := "value 3" ]
+    , [ a := 5, b := 7,  text := "last value" ]
+    ];
+
+// Returns [ found := TRUE, position := 1 ]
+RECORD res := RecordLowerBound(list, [ a := 3, b := 1 ], [ "A", "B" ]);
+
+// Returns [ found := FALSE, position := 4 ] (one past the end)
+RECORD res := RecordLowerBound(list, [ a := 5, b := 8 ], [ "A", "B" ]);
+
+// Returns [ found := FALSE, position := 0 ]
+RECORD res := RecordLowerBound(list, [ a := 1, b := 8 ], [ "A", "B" ]);
+*/
+PUBLIC RECORD FUNCTION RecordLowerBound(RECORD ARRAY list, RECORD element, STRING ARRAY cellnames) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+
+/** @short Does a (case sensitive) binary search within a sorted record array, returns the position of the first element that is greater than the searched-for element
+    @long This function searches for an record with specific values within a record array that is sorted
+          on specific cells. The position of the first element that is greater than the searched-for element
+          is returned, or one past the last element if no such element exists.
+    @topic harescript-utils/algorithms
+    @public
+    @loadlib wh::util/algorithms.whlib
+    @param list Record array to search in
+    @param element Record with values to search for
+    @param cellnames Names of cells to search for (the list must be ordered on these cellnames, in the
+               same order they are passed to this function)
+    @return Position of the first element that is greater than the searched-for element.
+    @see RecordLowerBound, %LowerBound, %UpperBound
+    @example
+
+// List (sorted on 'a', then 'b')
+RECORD ARRAY list :=
+    [ [ a := 1, b := 10, text := "value 1" ]
+    , [ a := 3, b := 1,  text := "second value" ]
+    , [ a := 3, b := 1,  text := "second value again" ]
+    , [ a := 3, b := 3,  text := "value 3" ]
+    , [ a := 5, b := 7,  text := "last value" ]
+    ];
+
+// Returns [ found := TRUE, position := 3 ]
+INTEGER res := RecordUpperBound(list, [ a := 3, b := 1 ], [ "A", "B" ]);
+
+// Returns [ found := FALSE, position := 5 ] (one past the end)
+INTEGER res := RecordUpperBound(list, [ a := 5, b := 8 ], [ "A", "B" ]);
+
+// Returns [ found := FALSE, position := 0 ]
+INTEGER res := RecordUpperBound(list, [ a := 1, b := 8 ], [ "A", "B" ]);
+*/
+PUBLIC INTEGER FUNCTION RecordUpperBound(RECORD ARRAY list, RECORD element, STRING ARRAY cellnames) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Set the current file pointer
+    @long Set the location (in the range 0 to the length of file) where the next read or write will take place.
+          If the location is moved or beyond the end of the file, any newly written data will be appended
+    @topic harescript-core/os
+    @public
+    @loadlib wh::files.whlib
+    @param filehandle ID of file, as returned by OpenBlobAsFile, OpenDiskFile or CreateDiskFile
+    @param newpos New position for the file pointer, in bytes
+    @see OpenBlobAsFile,%OpenDiskFile,%CreateDiskFile*/
+PUBLIC                  MACRO    SetFilePointer(INTEGER filehandle, INTEGER64 newpos) __ATTRIBUTES__(EXTERNAL);
+
+/** @short   Returns an array of strings by splitting a string into sub strings.
+    @long    Tokenize splits a string into substrings, divided on the place of the seperator.
+             When found, the separator is removed from the string and the substrings
+             are returned in an array.
+
+             If the seperator is not found, the original string in split into its UTF-8 characters.
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @param   text String to split into tokens
+    @param   separator Case-sensitive separator between the tokens
+    @return  A string array with the separated tokens
+    @example
+// returns {"a","b","c","d","e"}
+STRING ARRAY example1 := Tokenize("a-b-c-d-e", "-");
+
+// returns {"A","B","C","D","E"}
+STRING ARRAY example2 := Tokenize("A&&B&&C&&D&&E", "&&");
+
+// returns the entire string, because seperator "+" is not found
+STRING ARRAY example3 := Tokenize("a-b-c-d-e", "+");
+
+// returns an empty array because string and seperator are the same
+STRING ARRAY example4 := Tokenize("a/b/c/d/e", "a/b/c/d/e");
+
+// returns the entire string, because seperator "a" is not found
+STRING ARRAY example5 := Tokenize("A-B-C-D-E-F", "a");
+
+// Splits the string into its UTF-8 characters
+STRING ARRAY example5 := Tokenize("reëel", "");
+// Results in [ "r", "e", "ë", "e", "l" ]
+*/
+PUBLIC STRING ARRAY FUNCTION Tokenize(STRING text, STRING separator) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+PUBLIC BLOB             FUNCTION UnpackFileFromZipFile(INTEGER fileid, STRING path)  __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC INTEGER          FUNCTION __EVP_GENERATEKEY(STRING type, INTEGER bits, STRING curve) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER          FUNCTION __EVP_LOADPRVKEY(STRING data) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER          FUNCTION __EVP_LOADPUBKEY(STRING data) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __EVP_GENERATECSR(INTEGER keyhandle, RECORD ARRAY nameparts, STRING altnames) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __EVP_ENCRYPT(INTEGER handle, STRING data) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __EVP_DECRYPT(INTEGER handle, STRING data) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __EVP_SIGN(INTEGER handle, STRING data, STRING alg) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN          FUNCTION __EVP_VERIFY(INTEGER handle, STRING data, STRING signature, STRING alg) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __EVP_GETKEYTYPE(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER          FUNCTION __EVP_GETKEYLENGTH(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN          FUNCTION __EVP_ISKEYPUBLICONLY(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __EVP_GETPRIVATEKEY(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __EVP_GETPUBLICKEY(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD           FUNCTION __GETHSRESOURCE(STRING path) __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    __HS_ADDFILETOARCHIVE(INTEGER archiveid, STRING filename, BLOB filedata, DATETIME lastmod) __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    __HS_ADDFOLDERTOARCHIVE(INTEGER archiveid, STRING foldername, DATETIME lastmod) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BLOB             FUNCTION __HS_MakeBlobFromArchive(INTEGER archiveid) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN          FUNCTION __HS_CloseFile(INTEGER filehandle) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD           FUNCTION __HS_GETJOBMANAGERSTATUS(BOOLEAN with_history) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC INTEGER          FUNCTION __HS_GetSignalIntPipe() __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    __HS_MARSHALWRITETO(INTEGER stream, VARIANT data) __ATTRIBUTES__(EXTERNAL);
+PUBLIC VARIANT          FUNCTION __HS_MarshalReadFromBlob(BLOB blobdata) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __HS_MoneyToString(MONEY val) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER          FUNCTION __HS_OpenDiskFile(STRING path, BOOLEAN writeaccess, BOOLEAN create, BOOLEAN failifexists, BOOLEAN publicfile) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD           FUNCTION __HS_UnpackOleProps(BLOB indata) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+PUBLIC RECORD           FUNCTION __HS_SQL_LOWERBOUND(VARIANT list, VARIANT element) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC INTEGER          FUNCTION __HS_SQL_UPPERBOUND(VARIANT list, VARIANT element) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD           FUNCTION __HS_TCPIP_GETLASTERROR(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER          FUNCTION __HS_TOINTEGER(VARIANT val) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MONEY            FUNCTION __HS_TOMONEY(VARIANT val) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD ARRAY     FUNCTION __HS_UNPACK_ZIP(BLOB filedata) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD           FUNCTION __HS_WAITFORMULTIPLEUNTIL(INTEGER ARRAY reads, INTEGER ARRAY writes, DATETIME until) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER64        FUNCTION __HS_GETRAWMONEY(MONEY val) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MONEY            FUNCTION __HS_SETRAWMONEY(INTEGER64 val) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN          FUNCTION __HS_VERIFYWEBHAREPASSWORDHASH(STRING pwd, STRING hash) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+PUBLIC DATETIME         FUNCTION __HS_CREATEDATETIMEFROMDM(INTEGER days, INTEGER msecs) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+PUBLIC RECORD           FUNCTION __HS_OPENLOCALLOCK(STRING name, INTEGER maxconcurrent, BOOLEAN fail_if_queued) __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    __HS_CLOSELOCALLOCK(INTEGER lockid) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __HS_GetCurrentGroupID()  __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC RECORD           FUNCTION __INTERNAL_DEBUGFUNCTIONPTRTORECORD(FUNCTION PTR fptr) __ATTRIBUTES__(EXTERNAL);
+
+// TCP/IP
+PUBLIC INTEGER          FUNCTION __HS_TCPIP_CONNECT(INTEGER connid, STRING ip, INTEGER port, STRING hostname) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER          FUNCTION __HS_TCPIP_FinishConnect(INTEGER connid, BOOLEAN cancel) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN          FUNCTION __HS_TCPIP_BIND(INTEGER connid, STRING ip, INTEGER port) __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    __HS_TCPIP_SETLASTERROR(INTEGER connid, INTEGER errorcode) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN          FUNCTION __HS_TCPIP_SETCERT(INTEGER connid, BLOB cert) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __HS_TCPIP_CanonicalizeIP(STRING address, INTEGER networkprefix) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN          FUNCTION __HS_TCPIP_SetSecureConnection(INTEGER connectionid, BOOLEAN initiate, STRING ciphersuites, STRING hostname) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER          FUNCTION __HS_TCPIP_GetSocketTimeout(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING           FUNCTION __HS_TCPIP_GetPeerCertificateChain(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC                  MACRO    __HS_INTERNAL_AddAsyncContext(OBJECT ctx, INTEGER skipframes) __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    __HS_INTERNAL_RemoveAsyncContext() __ATTRIBUTES__(EXTERNAL);
+
+/** Returns the call stack for asynchronous functions
+    @topic harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @return Stack frames, with asynchronous calls marked by adding ' (async)' after the function name
+    @cell(string) return.filename Source file name
+    @cell(string) return.func Function name
+    @cell(integer) return.line Line number
+    @cell(integer) return.col Column number
+*/
+PUBLIC RECORD ARRAY     FUNCTION GetAsyncStackTrace() __ATTRIBUTES__(EXTERNAL, SKIPTRACE);
+
+PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncContext
+<
+  MACRO NEW(INTEGER skipelts) __ATTRIBUTES__(SKIPTRACE)
+  {
+    this->InitState(skipelts);
+  }
+
+  MACRO InitState(INTEGER skipelts) __ATTRIBUTES__(EXTERNAL);
+>;
+
+/** @short Start coverage profile counting */
+PUBLIC MACRO EnableCoverageProfile() __ATTRIBUTES__(EXTERNAL);
+
+/** @short End coverage profile counting */
+PUBLIC MACRO DisableCoverageProfile() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Resets coverage profile */
+PUBLIC MACRO ResetCoverageProfile() __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC RECORD FUNCTION __INTERNAL_GETCOVERAGEPROFILEDATA() __ATTRIBUTES__(EXTERNAL);
+
+//Callbacks and hooks
+PUBLIC FUNCTION PTR __GetHSResourceCall;
+PUBLIC FUNCTION PTR __LibraryLoadRemapper;
+PUBLIC FUNCTION PTR __UnhandledRejection;
+PUBLIC FUNCTION PTR __RejectionHandled;
+PUBLIC FUNCTION PTR __TooManyUnhandledRejections;
+PUBLIC FUNCTION PTR __OnBeforeTerminateScript;
+PUBLIC RECORD __debugconfig;
+
+/** @topic harescript-core/datetime
+    @public
+    @loadlib wh::datetime.whlib
+    @short The maximum possible DATETIME value. There is no DATETIME value bigger than this value. */
+PUBLIC __CONSTREF DATETIME MAX_DATETIME := __HS_CREATEDATETIMEFROMDM(0x7FFFFFFF, 24*60*60*1000 - 1);
+
+/** @short Generate a random 128bit UFS-encoded ID
+    @return A random UFS-encoded 128bit number. Always 22 characters/bytes in length
+    @topic harescript-core/crypto
+    @public
+    @loadlib wh::crypto.whlib
+*/
+PUBLIC STRING FUNCTION GenerateUFS128BitId() __ATTRIBUTES__(EXTERNAL);
+
+/** Returns the content of an environment variable
+    @param varname Name of the variable
+    @return Contents of the environment variable
+    @topic harescript-core/os
+    @public
+    @loadlib wh::os.whlib
+*/
+PUBLIC STRING FUNCTION GetEnvironmentVariable(STRING varname) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Write a string to any output device
+    @long This function writes a string to any output device, eg. an open blob-stream, a file or a network connection.
+    @topic harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @param outputid Output device to write the data to. The value 0 writes it to the standard output (the same output as @italic Print)
+    @param data The string to write
+    @return True if the data was written succesfully, false if an I/O error occured.
+    @see %Print, %CreateStream, MakeBlobFromStream
+    @example
+// Create a blob containing the text 'Hello, World'.
+INTEGER newblobid := CreateStream();
+PrintTo(newblobid, "Hello, World");
+BLOB newblob := MakeBlobFromStream(newblobid);
+
+// Equivalent to Print("<HTML>");
+PrintTo(0, "<HTML>");
+*/
+PUBLIC BOOLEAN FUNCTION PrintTo(INTEGER outputid, STRING data) __ATTRIBUTES__(EXTERNAL);
+PUBLIC INTEGER FUNCTION __HS_CreateStream() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Finish writing to a stream and return a blob
+    @long End writing of a stream, finalize it, and return it as a blob variable
+    @topic harescript-core/os
+    @public
+    @loadlib wh::files.whlib
+    @param streamid File ID, as returned by CreateStream
+    @return Blob variable
+    @see %CreateStream */
+PUBLIC BLOB FUNCTION MakeBlobFromStream(INTEGER streamid) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC MACRO __HS_SILENTTERMINATE() __ATTRIBUTES__(EXTERNAL, TERMINATES);
+
+/** @short Flush the standard output buffer
+    @long If standard output buffering is enabled, flush the buffer, writing
+          the buffered data to the standard output.
+    @topic harescript-core/os
+    @public
+    @loadlib wh::os.whlib
+    @see %SetOutputBuffering */
+PUBLIC MACRO FlushOutputBuffer() __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __HS_FATALERROR(INTEGER line, STRING msg1, STRING msg2) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING FUNCTION __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(STRING base, STRING url) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING FUNCTION __HS_INTERNAL_TRANSLATELIBRARYPATH(STRING path) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD FUNCTION __HS_INTERNAL_GetLibrariesInfo(BOOLEAN only_direct_loaded) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __INTERNAL_DescribeObjectStructure(OBJECT x, BOOLEAN also_internals DEFAULTSTO FALSE) __ATTRIBUTES__(EXTERNAL, SPECIAL);
+
+PUBLIC INTEGER FUNCTION CreateHasher(STRING alg) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING FUNCTION FinalizeHasher(INTEGER alg) __ATTRIBUTES__(EXTERNAL);
+PUBLIC STRING FUNCTION __HS_INTERNAL_CalculateVariableHash(VARIANT variable) __ATTRIBUTES__(EXTERNAL);
+
+
+PUBLIC STRING FUNCTION Encrypt_Xor(STRING xor_key, STRING data) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short Encrypt using the blowfish-ecb algorithm
+    @long This function would be equivalent to the PHP function: base64_decode(openssl_encrypt(data,"bf-ecb",bf_key))
+    @param bf_key Encryption key
+    @param data Data to encrypt
+    @return Encryped value */
+PUBLIC STRING FUNCTION __HS_Encrypt_Blowfish(STRING bf_key, STRING data) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+PUBLIC STRING FUNCTION __HS_Decrypt_Blowfish(STRING bf_key, STRING data) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+PUBLIC MACRO DoFatalError(INTEGER line, STRING msg1, STRING msg2) __ATTRIBUTES__(SKIPTRACE, TERMINATES)
+{
+  TRY
+  {
+    IF(__OnBeforeTerminateScript != DEFAULT FUNCTION PTR)
+      __OnBeforeTerminateScript(); //coverage analysis hook
+
+    FlushOutputBuffer();
+    __HS_FATALERROR(line, msg1, msg2);
+  }
+  FINALLY
+  {
+    __HS_SILENTTERMINATE();
+  }
+}
+
+/** @topic harescript-core/datetime
+    @public
+    @loadlib wh::datetime.whlib
+    @short Create a datetime from a date string
+    @long This function decodes various internet date formats (RFC822, RFC850, RFC1123, ISO8601)
+    @param datestring Date string to decode
+    @return The decoded datetime, in GMT, or a default datetime if the date could not be decoded */
+PUBLIC DATETIME FUNCTION MakeDateFromText(STRING datestring) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short Check if a file path is safe (for use in portable WebHare scripts)
+    @long This function rejects invalid UTF-8, spaces at the start of a filename, filenames
+          ending in any combination of spaces/dots, and filenames containing any of the characters
+          \, :, *, ?, ", <, >, |
+    @param path Path to check
+    @param accept_slashes Whether to accept forward slashes
+    @return True if the filename was accepted */
+PUBLIC BOOLEAN FUNCTION IsSafeFilePath(STRING path, BOOLEAN accept_slashes) __ATTRIBUTES__ (CONSTANT, EXTERNAL);

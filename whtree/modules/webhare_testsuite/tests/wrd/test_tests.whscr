@@ -1,0 +1,69 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+//Test APIs we have prepared for testers
+MACRO TestCleanupAndBulk()
+{
+  testfw->BeginWork();
+
+  RECORD ARRAY commands :=
+      [ [ create := "WRD_PERSON"
+        , defaults := [ wrd_lastname := "Testperson"]
+        , entities := [[ _name := "firstperson", wrd_tag := "TESTFW_FIRSTPERSON", wrd_firstname := "first", whuser_unit := ":mainunit", wrd_contact_email := "temp1@beta.webhare.net" ]
+                      ]
+        ]
+      , [ create := "WHUSER_UNIT"
+        , entities := [[ _name := "mainunit", wrd_tag := "TESTFW_UNIT", wrd_title := "A test unit" ]
+                      ]
+        ]
+      ];
+
+  RECORD bulkresult := testfw->GetWRDSchema()->SetupEntities(commands);
+  TestEq("Testperson", bulkresult.firstperson->GetField("WRD_LASTNAME"));
+  TestEq(bulkresult.mainunit->id, bulkresult.firstperson->GetField("WHUSER_UNIT"));
+
+  RECORD ARRAY commands2 :=
+      [ [ create := "WRD_PERSON"
+        , defaults := [ wrd_lastname := "Testperson"]
+        , entities := [[ _name := "secondperson", wrd_firstname := "Second", whuser_unit := ":mainunit", wrd_contact_email := "temp2@beta.webhare.net"  ]
+                      ,[ _name := "thirdperson", wrd_firstname := "Third", wrd_lastname := "Tester", whuser_unit := ":mainunit", wrd_contact_email := "temp3@beta.webhare.net"  ]
+                      ]
+        ]
+      , [ modify := "WRD_PERSON"
+        , entities := [[ _name := "firstperson", wrd_contact_email := "first@beta.webhare.net" ]
+                      ,[ _name := "secondperson", wrd_contact_email := "second@beta.webhare.net" ]
+                      ]
+        ]
+      ];
+
+  bulkresult := testfw->GetWRDSchema()->SetupEntities(commands2, [ continuesetup := bulkresult ]);
+  TestEq("first@beta.webhare.net", bulkresult.firstperson->GetField("WRD_CONTACT_EMAIL"));
+  TestEq("second@beta.webhare.net", bulkresult.secondperson->GetField("WRD_CONTACT_EMAIL"));
+  TestEq(bulkresult.mainunit->id, bulkresult.secondperson->GetField("WHUSER_UNIT"));
+  TestEq("Tester", bulkresult.thirdperson->GetField("WRD_LASTNAME"));
+
+  TestEq(bulkresult.firstperson->id, testfw->GetWRDSchema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "first@beta.webhare.net"));
+  TestEq(bulkresult.secondperson->id, testfw->GetWRDSchema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "second@beta.webhare.net"));
+
+  testfw->CleanupWRDSchema(testfw->GetWRDSchema(),
+    [ [ type := "WRD_PERSON", tagmasks := [ "TESTFW_*" ] ]
+    ]);
+
+  TestEq(0, testfw->GetWRDSchema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "first@beta.webhare.net"));
+  TestEq(bulkresult.secondperson->id, testfw->GetWRDSchema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "second@beta.webhare.net"));
+
+  testfw->CleanupWRDSchema(testfw->GetWRDSchema(),
+    [ [ type := "WRD_PERSON", tagmasks := [ "NOMATCH*" ], filters := [[ field := "WRD_CONTACT_EMAIL", matchtype := "LIKE", value := "second@*" ]] ]
+    ]);
+
+  TestEq(0, testfw->GetWRDSchema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "second@beta.webhare.net"));
+  TestEq(bulkresult.thirdperson->id, testfw->GetWRDSchema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "temp3@beta.webhare.net"));
+
+  testfw->CommitWork();
+}
+
+RunTestframework([ PTR TestCleanupAndBulk
+                 ]);

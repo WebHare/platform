@@ -1,0 +1,1618 @@
+﻿<?wh
+
+/** This library contains code for a helper object to do the
+    storage for list, select and pulldown components.
+
+    Trees are stored flattened in a linear array, in the
+    left-to-right depth-first traversal order. The depth
+    of a node is stored in the 'level' cell.
+*/
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/internal/support.whlib"; // For TolliumException
+
+BOOLEAN debuglth := FALSE;
+
+PUBLIC OBJECTTYPE ListTreeCallback
+< // ---------------------------------------------------------------------------
+  //
+  // Callback functions
+  //
+
+  /** Called when all rows have been invalidated
+  */
+  PUBLIC MACRO LTH_UpdatedAllRows()
+  {
+  }
+
+
+  /** Called when a single row has been updated
+      @param row Row that has been updated
+      @cell rowkey Rowkey of the row
+  */
+  PUBLIC MACRO LTH_UpdatedRow(RECORD row)
+  {
+  }
+
+
+  /** Called when the selection changes
+      @param frontend_change Whether the change has been caused by frontend action
+      @param auto_change Whether the selection has stayed the same (minus deleted rows)
+  */
+  PUBLIC MACRO LTH_UpdatedSelection(BOOLEAN frontend_change, BOOLEAN auto_change)
+  {
+  }
+
+
+  /** Called when the list of child nodes of a row has been replaced.
+      @param parent Parent row
+      @param children Children rows
+  */
+  PUBLIC MACRO LTH_UpdatedChildnodes(RECORD parentrow, RECORD ARRAY children)
+  {
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ListTreeHelper
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /** All rows
+      @cell rowkey
+      @cell level
+      @cell expanded
+      @cell tolliumselected
+  */
+  RECORD ARRAY pvt_rows;
+
+
+  /** Type of the rowkey, 0 when none has been seen yet.
+  */
+  INTEGER pvt_rowkey_type;
+
+
+  /** Next autonumber rowkey (0 when not autonumbering)
+  */
+  INTEGER pvt_rowkey_autonumber;
+
+
+  /** Type of selections this list/tree will handle
+      'none': No selection allowed
+      'single': A single row can be selected
+      'multiple': Multiple rows can be selected
+  */
+  STRING pvt_selectmode;
+
+
+  /** Whether this is a tree
+  */
+  BOOLEAN pvt_istree;
+
+
+  /** Indicates whether this is a dynamic tree.
+  */
+  BOOLEAN pvt_dynamic;
+
+
+
+  /** Function to get the path to a specic row
+      @param rowkey Rowkey of row to locate
+      @return Path to the rowkey (first the root row, then a child of the root row, etc.)
+          ???The requested row (may be/must be/may not be) included????
+  */
+  FUNCTION PTR pvt_getpath;/*VARIANT ...(VARIANT rowkey)*/
+
+  FUNCTION PTR pvt_getitems;
+  FUNCTION PTR pvt_getallitems;
+
+
+  /** This record array keeps a sorted mapping from rowkeys to row numbers,
+      for very quick finding of rows by rowkey
+      @cell "0" Rowkey
+      @cell pos Position of row within @a pvt_rows
+  */
+  RECORD ARRAY pvt_rowkeymapping;
+
+
+  /** List of required cells (and their type)
+      @cell name Name of the cell
+      @cell type TypeID of the cell
+  */
+  RECORD ARRAY pvt_required_cells;
+
+
+  /** Object on which the events will be fired
+  */
+  OBJECT pvt_callback;
+
+
+  /** If this is a dynamic tree, whether the tree has been loaded once already
+  */
+  BOOLEAN initial_load_done;
+
+  // If true, the list has been invalidated, and should reload itself
+  BOOLEAN invalidated;
+
+
+  /** List of names of writeable (boolean) cells (uppercase)
+  */
+  STRING ARRAY pvt_updateable_cells;
+
+  /// Did we receive an explicit value set yet?
+  PUBLIC BOOLEAN receivedexplicitvalue;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** The rows property returns all rows. It isn't writable,
+      use one of the specialized setters for that
+      @cell rowkey
+      @cell level
+      @cell expanded
+      @cell tolliumselected
+  */
+  PUBLIC PROPERTY rows(GetRows, -);
+
+
+  /** Contains the rowkey(s) of currently selected rows
+
+      It is an error to query the value when no rows are
+      present.
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+
+  /** List of rows that have currently been selected
+      No setter, use the value property or specialized function for that
+  */
+  PUBLIC PROPERTY selection(GetSelection, -);
+
+
+  /** Indicates whether only single or multiple selections are allowed
+  */
+  PUBLIC PROPERTY selectmode(pvt_selectmode, SetSelectionMode);
+
+
+  /** Contains the list of rowkeys of all expanded nodes (only rows with children)
+  */
+  PUBLIC PROPERTY expanded(GetExpanded, SetExpanded);
+
+
+  /** Function that retrieves the children of a row for dynamic trees
+      @param row Parent row
+      @return List of children rows
+  */
+  PUBLIC PROPERTY getitems(pvt_getitems,-);
+
+
+  /** Function that retrieves all rows. takes priority over getitems
+      @param row Parent row
+      @return List of children rows
+  */
+  PUBLIC PROPERTY getallitems(pvt_getallitems, -);
+
+
+  /** Function that returns the path to a specific row within a dynamic tree
+      @param rowkey Key of row to find the path for.
+      @return Rowkeys of the rows that are in the path to the row. Root row first,
+          then the child of the root row, etc., and finally the key of the row itself.
+          Empty when row doesn't exist anymore.
+  */
+  PUBLIC PROPERTY getpath(pvt_getpath, -);
+
+
+  /** Callback object that receives all the callback calls. Also used as object for
+      TolliumException.
+      Make sure it either extends ListTreeCallback or at least implements all its members
+  */
+  PUBLIC PROPERTY callback(pvt_callback, SetCallback);
+
+
+  /** STRING ARRAY with the cellnames that are required. Exceptions will be thrown when
+      rows without the cells are offered.
+  */
+  PUBLIC PROPERTY required_cells(pvt_required_cells, pvt_required_cells);
+
+
+  /** Whether this object contains a tree
+  */
+  PUBLIC PROPERTY istree(pvt_istree, -);
+
+
+  /** Whether this is a dynamic tree
+  */
+  PUBLIC PROPERTY isdynamic(pvt_dynamic, -);
+
+
+  /** STRING ARRAY with the names of (BOOLEAN) cells that may be updated through the
+      UpdateRowCells function. If any other cells are updated, the updates are igored.
+  */
+  PUBLIC PROPERTY updateable_cells(pvt_updateable_cells, pvt_updateable_cells);
+
+
+  /** The typeid of rowkeys in this objects. Can be set to INTEGER or STRING when no rowkeys have
+      been seen yet (the type is 0 in that case). Cannot been changed when set to a
+      non-0 value.
+  */
+  PUBLIC PROPERTY rowkeytype(pvt_rowkey_type, SetRowkeyType);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+  MACRO NEW()
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Returns an empty array of rowkey type
+  */
+  VARIANT FUNCTION GetDefaultRowkeyArray()
+  {
+    IF (this->pvt_rowkey_type = 0)
+      THROW NEW TolliumException(this->pvt_callback, "This operation cannot be executed when there have never been rows in " || this->callback->GetComponentIdentification() || " (a rowkeytype= may be needed)");
+
+    RETURN GetTypeDefaultArray(this->pvt_rowkey_type);
+  }
+
+
+  /** Returns a default rowkey
+  */
+  VARIANT FUNCTION GetDefaultRowkey()
+  {
+    IF (this->pvt_rowkey_type = 0)
+      THROW NEW TolliumException(this->pvt_callback, "This operation cannot be executed when there have never been rows in " || this->callback->GetComponentIdentification() || " (a rowkeytype= may be needed)");
+
+    RETURN GetTypeDefaultValue(this->pvt_rowkey_type);
+  }
+
+
+  /** Sets/checks the rowkey type from a single rowkey
+      @param rowkey Rowkey to check
+  */
+  MACRO CheckSingleRowkey(VARIANT rowkey)
+  {
+    IF (this->pvt_rowkey_type = 0)
+      this->pvt_rowkey_type := TYPEID(rowkey);
+    ELSE IF (TYPEID(rowkey) != this->pvt_rowkey_type)
+      THROW NEW TolliumException(this->pvt_callback, "The value for " || this->callback->GetComponentIdentification() || " does not match the type of the rowkeys");
+  }
+
+
+  /** Validates a (list of) rowkey(s) given by the user. If no rowkeys have been found yet,
+      the type will be auto-initialized.
+      @param rowkey or list of rowkeys.
+      @param require_array If true, require an array, also when in single select mode.
+      @return An array of rowkeys (with max 1 member in single select mode and force_array off)
+  */
+  VARIANT FUNCTION ValidateRowKeys(VARIANT newkeys, BOOLEAN require_array)
+  {
+    IF(this->pvt_selectmode = "multiple" OR require_array)
+    {
+      IF (NOT IsTypeidArray(TYPEID(newkeys)))
+        THROW NEW TolliumException(this->pvt_callback, "Setting the value of " || this->callback->GetComponentIdentification() || " requires an array of values");
+
+      // ADDME: this won't fail on VARIANT ARRAYS [0, "yeey" ]
+      IF (this->pvt_rowkey_type = 0)
+      {
+        IF (Length(newkeys) > 0)
+          this->pvt_rowkey_type := TYPEID(newkeys[0]);
+      }
+      ELSE
+      {
+        VARIANT defarr := GetTypeDefaultArray(this->pvt_rowkey_type);
+        IF (TypeID(newkeys) = TypeID(VARIANT ARRAY))
+        {
+          // Check all elements of a variant array individually
+          FOREVERY (VARIANT elt FROM newkeys)
+            IF (this->pvt_rowkey_type != TYPEID(elt))
+              THROW NEW TolliumException(this->pvt_callback, "The value for " || this->callback->GetComponentIdentification() || " does not match the type of the rowkeys");
+        }
+        ELSE IF (TYPEID(defarr) != TYPEID(newkeys))
+          THROW NEW TolliumException(this->pvt_callback, "The value for " || this->callback->GetComponentIdentification() || " does not match the type of the rowkeys");
+      }
+      RETURN newkeys;
+    }
+
+    // Require single value
+
+    IF (IsTypeidArray(TYPEID(newkeys)))
+      THROW NEW TolliumException(this->pvt_callback, "An array of values cannot be set as the value of a singleselect " || this->callback->GetComponentIdentification());
+
+    IF (this->pvt_rowkey_type = 0)
+      this->pvt_rowkey_type := TYPEID(newkeys);
+    ELSE IF (this->pvt_rowkey_type != TYPEID(newkeys))
+      //THROW NEW TolliumException(this->pvt_callback, "The value for " || this->callback->GetComponentIdentification() || " does not match the type of the rowkeys");
+      THROW NEW TolliumException(this->pvt_callback, `Expected given rowkeys to be of type ${GetTypeName(this->pvt_rowkey_type)} but got ${GetTypeName(TypeID(newkeys))}`);
+
+    VARIANT newarr := GetTypeDefaultArray(this->pvt_rowkey_type);
+    INSERT newkeys INTO newarr AT END;
+    RETURN newarr;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Rowkey lookup
+  //
+
+
+  /** Rebuilds the mapping of rowkeys to row numbers. Call this function every time
+      after records are inserted/deleted from pvt_rows
+      @return Whether the rowkeys passed the unique check. If not, all duplicate records
+          were eliminated.
+  */
+  BOOLEAN FUNCTION BuildRowkeyMapping()
+  {
+    // Sort is probably quickest
+    RECORD ARRAY newmapping :=
+        SELECT rowkey
+             , pos :=     #pvt_rows
+          FROM this->pvt_rows
+      ORDER BY rowkey;
+
+    // Check for duplicates (needs to be very quick) ADDME: (would SELECT DISTINCT & LENGTH compare be quicker?)
+    INTEGER len := LENGTH(newmapping);
+    BOOLEAN have_duplicates;
+    IF (LENGTH(newmapping) != 0)
+    {
+      VARIANT current_rowkey := newmapping[0].rowkey;
+      FOR (INTEGER i := 1; i < len; i := i + 1)
+      {
+        VARIANT rowkey := newmapping[i].rowkey;
+        IF (rowkey != current_rowkey)
+          current_rowkey := rowkey;
+        ELSE
+        {
+          // We have a duplicate!
+          have_duplicates := TRUE;
+          BREAK;
+        }
+      }
+    }
+
+    IF (have_duplicates)
+    {
+      // Filter out the duplicates. Might be quicker to use the newmapping we created earlier, though not
+      // probable this path is critical enough to afford the rewrite.
+      RECORD ARRAY newrows;
+      RECORD ARRAY duplicates;
+      BOOLEAN first := TRUE;
+      FOREVERY (RECORD row FROM this->pvt_rows)
+      {
+        // Find first occurence of this rowkey. If the position not the same, this is a second+ occurence
+        RECORD pos := RecordLowerBound(newmapping, row, [ "ROWKEY" ]);
+        IF (#row != newmapping[pos.position].pos)
+        {
+          IF (first)
+          {
+            Print("Detected duplicate rowkey ("||row.rowkey||") in list " || this->pvt_callback->name || ": filtering for duplicates\n");
+            first := FALSE;
+          }
+          ELSE
+            Print("Another duplicate rowkey ("||row.rowkey||")\n");
+
+          INSERT row INTO duplicates AT END;
+        }
+        ELSE
+          INSERT row INTO newrows AT END;
+      }
+
+      PRINT("All items:\n" ||
+          AnyToString((SELECT rowkey
+                           , title :=   CellExists(duplicates, "TITLE") ? title : "n/a"
+                        FROM this->pvt_rows), "boxed"));
+
+      IF(Length(duplicates) > 0)
+      {
+        PRINT("Duplicates:\n" ||
+            AnyToString((SELECT rowkey
+                             , title :=   CellExists(duplicates, "TITLE") ? title : "n/a"
+                          FROM duplicates), "boxed"));
+        IF(this->pvt_callback->owner->tolliumcontroller->intolerant)
+          ABORT("Duplicates in list");
+      }
+      newmapping :=
+          SELECT rowkey
+               , pos :=     #newrows
+            FROM newrows
+        ORDER BY rowkey;
+
+      this->pvt_rows := newrows;
+      this->pvt_rowkeymapping := newmapping;
+      this->pvt_callback->LTH_UpdatedAllRows();
+      RETURN FALSE;
+    }
+
+    this->pvt_rowkeymapping := newmapping;
+    RETURN TRUE;
+  }
+
+
+  /** Converts a single rowkey into an array with that rowkey
+      @param rowkey Rowkey to put into an array
+      @return Array with one element, the passed rowkey
+  */
+  VARIANT FUNCTION GetArrayWithSingleRowkey(VARIANT rowkey)
+  {
+    VARIANT result := this->GetDefaultRowkeyArray();
+    INSERT rowkey INTO result AT END;
+    RETURN result;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Main work functions
+  //
+
+
+  /** Converts a tree (from the subnodes rows) to a flat list
+      @param newrows Rows to flatten
+      @param level Level the rows are on
+      @param honor_expanded If true, keeps the value of the expanded cell, otherwise
+             it sets it to false
+      @return Record array with flattened tree.
+  */
+  RECORD ARRAY FUNCTION FlattenTree(RECORD ARRAY newrows, INTEGER level, BOOLEAN honor_expanded)
+  {
+    IF (NOT this->pvt_istree)  // Standard list; just remove the tree cells
+      RETURN SELECT *, DELETE subnodes, DELETE expanded, DELETE expandable, DELETE level FROM newrows;
+
+    RECORD ARRAY outrows;
+    FOREVERY(RECORD inrow FROM newrows)
+    {
+      RECORD ARRAY subs;
+
+      // Make sure the level cell is present and correct
+      IF(NOT CellExists(inrow,'level'))
+        INSERT CELL level := level INTO inrow;
+      ELSE IF(inrow.level < level)
+        inrow.level := level;
+
+      // Is the next row 'deeper' than us?
+      BOOLEAN nextisdeeper := #inrow < Length(newrows)-1
+                              AND CellExists(newrows[#inrow+1],'level')
+                              AND newrows[#inrow+1].level > inrow.level;
+
+      // Require the expanded cell.
+      IF (NOT CellExists(inrow,'expanded'))
+        INSERT CELL expanded := FALSE INTO inrow;
+
+      //partial or full loading ?
+      BOOLEAN loadsparts := this->pvt_dynamic AND this->getallitems = DEFAULT FUNCTION PTR;
+      BOOLEAN loadsfull  := this->pvt_dynamic AND this->getallitems != DEFAULT FUNCTION PTR;
+
+      IF(CellExists(inrow,'subnodes'))
+      {
+        IF(loadsparts) //shouldn't be there, we'll pick it up
+          THROW NEW TolliumException(this->pvt_callback, this->callback->GetComponentIdentification() || " uses 'ongetchildren', so none of the rows may contain a 'subnodes' cell");
+
+        subs := inrow.subnodes;
+        DELETE CELL subnodes FROM inrow;
+      }
+
+      //expandable:
+      IF(loadsparts) //we load children on demand, so subnodes doesn't matter, but expandable does!
+      {
+        IF(NOT CellExists(inrow,'expandable'))
+          INSERT CELL expandable := FALSE INTO inrow;
+      }
+      ELSE //then we don't care about the value, it follows from 'subs' (FIXME can we already be flat here ?)
+      {
+        DELETE CELL expandable FROM inrow;
+        INSERT CELL expandable := Length(subs) > 0 OR nextisdeeper INTO inrow;
+      }
+
+      IF (inrow.expanded AND (honor_expanded = FALSE OR inrow.expandable = FALSE))
+        inrow.expanded := FALSE;
+      INSERT inrow INTO outrows AT END;
+
+      // Were there subnodes? If so, flatten them too.
+      IF (Length(subs) > 0)
+        outrows := outrows CONCAT this->FlattenTree(subs, level + 1, honor_expanded);
+    }
+
+    RETURN outrows;
+  }
+
+
+  /** Check rowkeys presence and type in a list of new rows, inserts them if needed.
+      @param rows Rows to check
+      @return Rows with valid rowkeys present.
+  */
+  PUBLIC RECORD ARRAY FUNCTION CheckNewRows(RECORD ARRAY rows, BOOLEAN isfooterrow)
+  {
+    FOREVERY(RECORD row FROM rows)
+    {
+      IF(NOT CellExists(row,"LISTROWCLASSES"))
+        INSERT CELL listrowclasses := DEFAULT STRING ARRAY INTO rows[#row];
+      ELSE IF(TypeID(row.listrowclasses) != TypeID(STRING ARRAY))
+        THROW NEW TolliumException(this->pvt_callback, `Row #${#row} listrowclasses must be of type STRING ARRAY, not ${GetTypeName(TypeID(row.listrowclasses))}`);
+
+      IF(NOT isfooterrow)
+      {
+        // Validate the rowkey
+        IF (NOT CellExists(row, "ROWKEY"))
+        {
+          // No rowkey present. See if we may insert
+          IF (this->pvt_rowkey_autonumber = 0) // No missing rowkey seen yet. The first rowkey may be missing
+          {
+            // Dynamic trees MUST have rowkeys.
+            IF (this->pvt_dynamic OR (LENGTH(this->pvt_rows) != 0 OR #row>=1))
+              THROW NEW TolliumException(this->pvt_callback, "Detected an item with missing rowkey in " || this->callback->GetComponentIdentification() || ". Please add a cell named 'rowkey', containing an unique value.");
+
+            this->pvt_rowkey_type := TYPEID(INTEGER);
+          }
+
+          this->pvt_rowkey_autonumber := this->pvt_rowkey_autonumber + 1;
+          INSERT CELL rowkey := this->pvt_rowkey_autonumber INTO rows[#row];
+        }
+        ELSE
+        {
+          IF (this->pvt_rowkey_type = 0)
+            this->pvt_rowkey_type := TYPEID(row.rowkey);
+          ELSE
+            IF (this->pvt_rowkey_type != TYPEID(row.rowkey))
+              THROW NEW TolliumException(this->pvt_callback, "Detected mixing of rowkey types in "||this->callback->GetComponentIdentification()||"! The rows contain rowkeys of type " || GetTypeName(this->pvt_rowkey_type) || ", while trying to insert a rowkey of type " || GetTypeName(TypeId(row.rowkey)) || ".");
+        }
+
+        // Want a tolliumselected cell
+        IF (NOT CellExists(row, "TOLLIUMSELECTED"))
+          INSERT CELL tolliumselected := (CellExists(row, "TOLLIUMINITIAL") AND row.tolliuminitial) INTO rows[#row];
+
+        // Want an enabled cell
+        IF (NOT CellExists(row, "ENABLED"))
+          INSERT CELL enabled := TRUE INTO rows[#row];
+      }
+      ELSE
+      {
+        IF (NOT CellExists(row, "TOLLIUMSELECTED"))
+          INSERT CELL tolliumselected := FALSE INTO rows[#row];
+      }
+
+      // Validate the other columns
+      IF(NOT isfooterrow)
+        FOREVERY (RECORD req FROM this->pvt_required_cells)
+        {
+          // divider's don't have any flags
+          IF(CellExists(row, "isdivider") AND row.isdivider)
+            CONTINUE;
+
+          IF(NOT CellExists(row, req.name))
+            THROW NEW TolliumException(this->pvt_callback, "Component " || this->callback->GetComponentIdentification() || " received a row update, but row #" || #row || " has no cell named '" || req.name || "'");
+
+          // test if the input value is correct (if onmapvalue is used this might be different than the type of the listcolumn)
+          IF(req.type != 0 AND NOT CanCastTypeTo(TypeId(GetCell(row, req.name)), req.type))
+            THROW NEW TolliumException(this->pvt_callback, "Component " || this->callback->GetComponentIdentification() || " received a row update, but row #" || #row || " has an incorrect type for cell '" || req.name || "' "||
+                "(got "||GetTypeName(TypeId(GetCell(row, req.name)))||", but wanted "||GetTypeName(req.type)||")");
+        }
+    }
+    RETURN rows;
+  }
+
+
+  /** Replaces the current rows with a new set of rows, keeps the current selection (if the rows
+      still exist though)
+      @param newrows New list of rows
+  */
+  MACRO UpdateRowsKeepSelection(RECORD ARRAY newrows)
+  {
+    IF (LENGTH(this->pvt_rows) = 0)
+    {
+      // No rows just yet, don't bother with keeping selection.
+
+      this->pvt_rows := newrows;
+      this->BuildRowkeyMapping(); // will eliminate duplicates.
+
+      this->pvt_callback->LTH_UpdatedAllRows();
+    }
+    ELSE
+    {
+      // Keep the current selection and expanded
+      VARIANT selected := GetTypeDefaultArray(this->pvt_rowkey_type);
+
+      FOREVERY (RECORD row FROM this->pvt_rows)
+        IF (row.tolliumselected)
+          INSERT row.rowkey INTO selected AT END;
+
+      VARIANT expanded := this->GetExpanded();
+
+      this->pvt_rows := newrows;
+      this->BuildRowkeyMapping(); // will eliminate duplicates.
+
+      /* Put expanded and the selection back before calling LTH_UpdatedAllRows.
+         No callbacks for selection change, we assume that is handled by the LTH_UpdatedAllRows
+         callback.
+      */
+      this->SetExpanded(expanded);
+      BOOLEAN selection_changed := this->SelectRows(selected, /*unselect_other=*/TRUE, /*is_new_selection=*/FALSE, /*frontend_change=*/TRUE, /*no_callback=*/TRUE);
+
+      this->pvt_callback->LTH_UpdatedAllRows();
+
+      IF (selection_changed)
+        this->pvt_callback->LTH_UpdatedSelection(/*frontend_change=*/TRUE, /*auto_change=*/TRUE);
+    }
+  }
+
+
+  /** Load root again for dynamic trees
+  */
+  MACRO LoadRootItems(BOOLEAN honor_expand)
+  {
+    IF(NOT this->pvt_dynamic)
+      RETURN;
+
+    IF (this->getallitems != DEFAULT FUNCTION PTR)
+    {
+      RECORD ARRAY rootrows := this->getallitems();
+      this->pvt_rows := this->CheckNewRows(this->FlattenTree(rootrows, 0, honor_expand), FALSE);
+      this->BuildRowkeyMapping(); // will eliminate duplicates.
+
+      this->pvt_callback->LTH_UpdatedAllRows();
+    }
+    ELSE IF (this->getitems != DEFAULT FUNCTION PTR)
+    {
+      // No rows just yet, load top level
+      RECORD ARRAY rootrows := this->getitems(DEFAULT RECORD);
+      this->pvt_rows := this->CheckNewRows(this->FlattenTree(rootrows, 0, honor_expand), FALSE);
+      this->BuildRowkeyMapping(); // will eliminate duplicates.
+
+      this->pvt_callback->LTH_UpdatedAllRows();
+    }
+  }
+
+
+  /** Work-horse of the list/tree code. Loads items and expands/closes them. Needs a correct rowkeymapping!
+      @param rowkeys List of rowkeys of rows to load
+      @param expand_rows If TRUE, expand the rows in rowkeys
+      @param expand_parents_recursive If TRUE, expand parents of the rows (and their
+          parents, etc.) so that the rows in rowkeys will become visible
+      @param close_other Close any other items that aren't opened by expand_rows and expand_parents_recursive
+      @param frontend_change Parameter to LTH_UpdateSelection when selection changes
+  */
+  PUBLIC MACRO LoadAndExpandRows(
+                VARIANT rowkeys,
+                BOOLEAN expand_rows,
+                BOOLEAN expand_parents_recursive,
+                BOOLEAN close_other,
+                BOOLEAN frontend_change)
+  {
+    IF(debuglth)
+      DumpValue([ rowkeys := rowkeys
+                , comp := this->callback->GetComponentIdentification()
+                , expand_rows := expand_rows
+                , expand_parents_recursive := expand_parents_recursive
+                , close_other := close_other
+                , frontend_change := frontend_change
+                ]);
+
+    this->EnsureData();
+    IF (this->pvt_dynamic AND this->getitems != DEFAULT FUNCTION PTR )
+    {
+      IF (LENGTH(this->pvt_rows) != 0)
+      {
+        IF(debuglth)
+          Print( " " || length(rowkeys) || " rows to process\n");
+        FOREVERY (VARIANT rowkey FROM rowkeys)
+        {
+          IF(debuglth)PRINT(" Processing rowkey: "|| rowkey ||"\n");
+
+          // Try to find the item.
+          BOOLEAN already_present := this->GetPositionByRowkey(rowkey) != -1;
+
+          /* Get the path to the node
+             If the row is already present use only that rowkey,
+             otherwise retrieve the full path to the row
+          */
+          VARIANT ARRAY path;
+          IF(already_present)
+            path := this->GetArrayWithSingleRowkey(rowkey);
+          ELSE IF(this->pvt_getpath != DEFAULT FUNCTION PTR)
+            path := this->pvt_getpath(rowkey);
+          ELSE
+            INSERT rowkey INTO path AT END;
+
+          IF(debuglth)PRINT("  Path: "||AnyToString(path, "tree"));
+
+          // Is the item found at all? If not, ignore it.
+          IF (LENGTH(path) = 0)
+            CONTINUE;
+
+          // Is the searched row in the path?
+          IF (rowkey NOT IN path)
+          {
+            Print("Component " || this->callback->GetComponentIdentification() || " tried to get the path for the row with rowkey '"||rowkey||"', but that rowkey wasn\'t in the returned path\n");
+            CONTINUE;
+          }
+
+          FOREVERY (VARIANT parentkey FROM path)
+          {
+            IF(debuglth)PRINT("   Processing parent: "||parentkey||"\n");
+
+            // Find the parent
+            INTEGER pos := this->GetPositionByRowkey(parentkey);
+            IF (pos = -1)
+            {
+              // Not found, while it should have been there; quit doing this rowkey
+              BREAK;
+            }
+
+            RECORD row := this->pvt_rows[pos];
+
+            IF (expand_rows AND NOT row.expanded AND NOT (row.rowkey IN rowkeys))
+            {
+              // Ignore expands of rows that reside in a row that isn't expanded
+              BREAK;
+            }
+
+            // Calc the new expanded status of this row
+            BOOLEAN need_expand := parentkey != rowkey ?
+                expand_parents_recursive :
+                expand_rows;
+
+            IF(debuglth)PRINT("   Need expand: "||(need_expand?"yes":"no")||"\n");
+
+            IF (need_expand)
+            {
+              IF (NOT row.expanded)
+              {
+                // Need to expand
+                this->pvt_rows[pos].expanded := TRUE;
+                this->pvt_callback->LTH_UpdatedRow(this->pvt_rows[pos]);
+              }
+            }
+            ELSE
+            {
+              /* If the leaf node doesn't need to be expanded, don't load its children. */
+              IF (parentkey = rowkey)
+              {
+                IF(debuglth) Print("leaf node doesn't need to be expanded\n");
+                BREAK;
+              }
+            }
+
+            // See if the parent already has children, or is expandable
+            INTEGER next := pos + 1;
+            IF (next = LENGTH(this->pvt_rows) OR this->pvt_rows[next].level <= row.level)
+            {
+              // No children
+              IF (NOT row.expandable AND parentkey != rowkey)
+              {
+                BREAK;
+              }
+            }
+            ELSE
+            {
+              // Parent already has children, go on with next parent.
+              IF(debuglth)Print("  this parent has children, go with next\n");
+              CONTINUE;
+            }
+            IF(NOT row.expandable)
+              CONTINUE;
+
+            IF(debuglth)PRINT("   Retrieving children\n");
+
+            // Retrieve the new children
+            RECORD ARRAY children;
+            children := this->getitems(row);
+            children := this->CheckNewRows(this->FlattenTree(children, row.level + 1, FALSE), FALSE);
+
+            // Filter out children that exist somewhere else in the tree (should we???)
+            {
+              RECORD ARRAY unique_children;
+              FOREVERY (RECORD crow FROM children)
+                IF (this->GetPositionByRowkey(crow.rowkey) = -1)
+                  INSERT crow INTO unique_children AT END;
+              children := unique_children;
+            }
+
+            // Insert the new children in the list of rows
+            FOREVERY (RECORD crow FROM children)
+            {
+              INSERT crow INTO this->pvt_rows AT next;
+              next := next + 1;
+            }
+
+            // Rebuild the rowkey->position mapping
+            IF (NOT this->BuildRowkeyMapping())
+            {
+              // Eliminate duplicate rowkeys, keep first row
+              children :=
+                  SELECT AS RECORD ARRAY GroupedValues(children)[0]
+                    FROM children
+                GROUP BY COLUMN rowkey
+                ORDER BY GroupedValues(#children)[0];
+            }
+
+//            PRINT("Children after filter:\n"||AnyToString(children, "boxed"));
+//            PRINT("Rows after filter:\n"||AnyToString(this->pvt_rows, "boxed"));
+
+            // ADDME: also send partial expand update for row??
+            this->pvt_callback->LTH_UpdatedChildnodes(this->pvt_rows[pos], children);
+          }
+        }
+      }
+
+      // If expanding parents or closing other nodes, we need to postprocess
+      IF (NOT expand_parents_recursive AND NOT close_other)
+      {
+        IF(debuglth)
+        {
+          PRINT("Rows after LoadAndExpandRows:\n");
+          DumpValue(this->pvt_rows,'boxed');
+        }
+        RETURN;
+      }
+    }
+
+    IF(NOT this->pvt_istree)
+      RETURN;
+    IF(debuglth)
+      PRINT("Now do the expand action.\n");
+
+
+//      PRINT("Complicated expand path\n");
+
+    // Get the sorted row numbers of all rows that need to be expanded.
+    RECORD ARRAY positionrecs :=
+        SELECT pos := this->GetPositionByRowkey(rowkey)
+          FROM ToRecordArray(rowkeys, "ROWKEY");
+
+    // The list of row #s that must be expanded; without duplicates (GROUP BY is quicker than DISTINCT)
+    INTEGER ARRAY positions :=
+        SELECT AS INTEGER ARRAY pos
+          FROM positionrecs
+         WHERE pos != -1
+      GROUP BY pos
+      ORDER BY pos;
+
+    IF(debuglth)
+      DumpValue([open_positions := positions ]);
+
+    // Any node with a level below the expand_level must be expanded (when expand_parents_recursive is true)
+    INTEGER expand_level := -1;
+    BOOLEAN any_closed := FALSE;
+
+    // Walk backwards to the rows, see if they need to be expanded.
+    // Backwards walk allows us to open the parents very cheaply.
+    INTEGER posi := LENGTH(positions) - 1;
+    FOR (INTEGER i := LENGTH(this->pvt_rows) - 1; i >= 0; i := i - 1)
+    {
+      // See if this row must be expanded
+      BOOLEAN is_row := posi >= 0 AND positions[posi] = i;
+      IF (is_row)
+      {
+        // it is, setup the posi iterator for the next row (positions has no duplicates, so we can do this).
+        posi := posi - 1;
+      }
+
+      RECORD row := this->pvt_rows[i];
+
+      IF(debuglth)
+        PRINT(" Looking at row "||i||" ("||row.rowkey||"), level: " || row.level||", el: "||expand_level||"\n");
+
+      IF ((expand_parents_recursive AND row.level < expand_level) OR (expand_rows AND is_row))
+      {
+        // Node must be expanded.
+        expand_level := row.level;
+        IF (NOT row.expanded)
+        {
+          // Node wasn't expanded, mark it as such.
+          this->pvt_rows[i].expanded := TRUE;
+          this->pvt_callback->LTH_UpdatedRow(this->pvt_rows[i]);
+        }
+      }
+      ELSE IF (is_row AND expand_parents_recursive)
+      {
+        // Parents must be expanded.
+        expand_level := row.level;
+      }
+      ELSE IF (close_other AND row.expanded)
+      {
+        // Row must be closed, but was expanded.
+        this->pvt_rows[i].expanded := FALSE;
+        any_closed := TRUE;
+        this->pvt_callback->LTH_UpdatedRow(this->pvt_rows[i]);
+      }
+    }
+
+    IF (close_other AND any_closed)
+    {
+      // We need to do another (forward) scan to eliminate selected items that aren't visible no'mo.
+
+      /* This algo does a forward walk through the rows, and keeps the level at or below which
+         all nodes are currently visible.
+         last_visible contains the row number of the last visible node
+      */
+      INTEGER visible_level := 0; // Level 0 is always visible
+      INTEGER last_visible := -1; // #row of last visible parent
+      BOOLEAN any_change := FALSE;
+
+      FOREVERY (RECORD row FROM this->pvt_rows)
+      {
+        IF (row.level > visible_level)
+        {
+          // Row is invisible
+          IF (row.tolliumselected)
+          {
+            this->pvt_rows[#row].tolliumselected := FALSE;
+            this->pvt_rows[last_visible].tolliumselected := TRUE;
+            any_change := TRUE;
+          }
+        }
+        ELSE
+        {
+          // Row is visible
+          IF (row.expanded)
+          {
+            // Row is expanded, so all nodes at one level deeper are now visible
+            visible_level := row.level + 1;
+          }
+          ELSE
+          {
+            // Row isn't expanded, so the following childnodes aren't visible.
+            visible_level := row.level;
+          }
+
+          last_visible := #row;
+        }
+      }
+
+      IF (any_change)
+        this->pvt_callback->LTH_UpdatedSelection(frontend_change, FALSE);
+    }
+//    PRINT("Rows after LAER:\n" || AnyToString(this->pvt_rows, "boxed"));
+  }
+
+
+  /** Selects a number of items
+      @param rowkeys List of rowkeys to select (type doesn't matter for selectmode none)
+      @param unselect_other If TRUE, unselect all other items
+      @param is_new_selection If TRUE, this is a new selection (instead of a reselect of a reloaded list)
+      @param frontend_change Call LTH_UpdatedSelection with this parameter.
+      @param no_callback If TRUE, don't call LTH_UpdatedSelection
+      @return Whether selection changed
+  */
+  BOOLEAN FUNCTION SelectRows(VARIANT rowkeys, BOOLEAN unselect_other, BOOLEAN is_new_selection, BOOLEAN frontend_change, BOOLEAN no_callback)
+  {
+    this->receivedexplicitvalue := TRUE;
+//    PRINT("SelectRows"||this->callback->GetComponentIdentification()||" UO:"||(unselect_other?"y":"n")||" Rows:"||AnyToString(rowkeys, "tree")||AnyToString(GetStackTrace(), "boxed"));
+
+    SWITCH (this->pvt_selectmode)
+    {
+    CASE "single"
+      {
+        rowkeys := ArraySlice(rowkeys, 0, 1);
+
+        unselect_other := TRUE;
+      }
+    CASE "none"
+      {
+        rowkeys := this->GetDefaultRowkeyArray();
+      }
+    }
+
+    BOOLEAN selection_changed;
+
+    // Load the items and expand them if needed.
+    this->LoadAndExpandRows(
+        rowkeys,
+        /*expand_rows=*/FALSE,
+        /*expand_parents_recursive=*/TRUE,
+        /*close_other=*/FALSE,
+        /*frontend_change=*/frontend_change
+        );
+
+    IF (unselect_other)
+    {
+      // Get the sorted row numbers of all rows that need to be selected afterwards.
+      RECORD ARRAY positionrecs :=
+          SELECT pos := this->GetPositionByRowkey(rowkey)
+            FROM ToRecordArray(rowkeys, "ROWKEY");
+
+      // Get the list of positions of rows to select, eliminate duplicates
+      INTEGER ARRAY positions :=
+          SELECT AS INTEGER ARRAY pos
+            FROM positionrecs
+        GROUP BY pos
+        ORDER BY pos;
+
+      // If any row wasn't found (position = -1), skip that position
+      INTEGER posi := 0, pose := LENGTH(positions);
+      IF (pose != 0 AND positions[0] = -1)
+      {
+        posi := posi + 1;
+
+        // Some rows weren't found. If this is a reapply, that means the selection changed.
+        IF (NOT is_new_selection)
+          selection_changed := TRUE;
+      }
+
+      // Walk through all rows, set selected status if their rownum is in the sorted array.
+      FOREVERY (RECORD row FROM this->pvt_rows)
+      {
+        BOOLEAN selected := posi < pose AND positions[posi] = #row;
+        IF (selected)
+          posi := posi + 1;
+
+        IF (row.tolliumselected != selected)
+        {
+          // A reapply of a selection doesn't need to cause an event when changing from unselected to selected.
+          IF (is_new_selection OR NOT selected)
+            selection_changed := TRUE;
+          this->pvt_rows[#row].tolliumselected := selected;
+        }
+      }
+    }
+    ELSE
+    {
+      FOREVERY (VARIANT rowkey FROM rowkeys)
+      {
+        INTEGER pos := this->GetPositionByRowkey(rowkey);
+        IF (pos = -1)
+        {
+          IF (NOT is_new_selection)
+          {
+            // If this is a reapply of a previous selection, it is a problem
+            selection_changed := TRUE;
+          }
+        }
+        ELSE
+        {
+          IF (this->pvt_rows[pos].tolliumselected)
+            CONTINUE;
+
+          this->pvt_rows[pos].tolliumselected := TRUE;
+          IF (is_new_selection)
+            selection_changed := TRUE;
+        }
+      }
+    }
+
+    IF (selection_changed AND NOT no_callback)
+      this->pvt_callback->LTH_UpdatedSelection(frontend_change, FALSE);
+
+    RETURN selection_changed;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  // @param (usually a) component which uses this ListTreeHelper as storage.
+  //        It requires a 'GetComponentIdentification' member so it can specify which component did something wrong in generated exceptions.
+  MACRO SetCallback(OBJECT callback)
+  {
+    IF (NOT MemberExists(callback, "GetComponentIdentification"))
+      THROW NEW TolliumException(this, "The callback set for a ListTreeHelper required a GetComponentIdentification method");
+
+    this->pvt_callback := callback;
+
+    IF (NOT MemberExists(this->pvt_callback, "GetComponentIdentification"))
+      ABORT(this->pvt_callback);
+  }
+
+  /** Returns the rowkey(s) of the currently selected items
+      In singleselect mode, this is the rowkey, or the default value if no row is
+      selected.
+      In multiselect mode, this is an array with the rowkeys of the selected rows
+  */
+  VARIANT FUNCTION GetValue()
+  {
+    IF (this->pvt_selectmode = "multiple")
+    {
+      VARIANT retval := this->GetDefaultRowkeyArray();
+
+      FOREVERY (RECORD row FROM this->pvt_rows)
+        IF (row.tolliumselected)
+          INSERT row.rowkey INTO retval AT END;
+
+      RETURN retval;
+    }
+
+    FOREVERY (RECORD row FROM this->pvt_rows)
+      IF (row.tolliumselected)
+        RETURN row.rowkey;
+
+    RETURN this->GetDefaultRowkey();
+  }
+
+
+  /** Sets the current selection.
+  */
+  MACRO SetValue(VARIANT newkeys)
+  {
+//    PRINT("LTH: SetValue\nNew keys:\n" || AnyToString(newkeys, "tree")||"Current contents:" ||AnyToString(this->pvt_rows, "boxed"));
+
+    // Validate the rowkeys, convert to an array.
+    VARIANT rowkeys := this->ValidateRowKeys(newkeys, FALSE);
+
+    this->SelectRows(rowkeys, /*unselect_other=*/TRUE, /*is_new_selection=*/TRUE, /*frontend_change=*/TRUE, /*no_callback=*/FALSE);
+  }
+
+
+  // Check for single/array type, check type of rowkeys
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    VARIANT validatedvalue;
+    TRY
+    {
+      validatedvalue := this->ValidateRowKeys(value, FALSE);
+    }
+    CATCH (OBJECT e)
+    {
+      // ValidateRowKeys throws an exception in case of an invalid value
+      RETURN FALSE;
+    }
+
+    // The storage does not have a problem with setting this value, storage users may have more strict definitions of 'valid',
+    // e.g. for radiobuttons or pulldowns the given value should exist, otherwise nothing would be selected.
+    RETURN TRUE;
+  }
+
+
+  /** Returns the row(s) that are selected
+      In singleselect mode, this is the currently selected row, or a default record
+      if no row is selected.
+      In multiselect mode, this is a record array with all selected rows.
+  */
+  VARIANT FUNCTION GetSelection()
+  {
+    IF (this->selectmode = "multiple")
+      RETURN
+          SELECT *
+            FROM this->pvt_rows
+           WHERE tolliumselected;
+    ELSE
+      RETURN
+          SELECT AS RECORD row
+            FROM this->pvt_rows AS row
+           WHERE tolliumselected;
+  }
+
+
+  /** Sets the single/multiple selection mode
+      @param multipleselection Whether multiple selection is required.
+  */
+  MACRO SetSelectionMode(STRING newselectmode)
+  {
+    IF (newselectmode = this->pvt_selectmode)
+      RETURN;
+
+    this->pvt_selectmode := newselectmode;
+
+    IF (this->pvt_rowkey_type != 0 AND this->initial_load_done)
+    {
+      // Clear the selection
+      this->SelectRows(this->GetDefaultRowkeyArray(), /*unselect_other=*/TRUE, /*is_new_selection=*/TRUE, /*frontend_change=*/TRUE, /*no_callback=*/FALSE);
+    }
+  }
+
+
+  /** Returns the list of all expanded nodes in a tree (those who have expanded
+      cell on TRUE and have children
+  */
+  VARIANT FUNCTION GetExpanded()
+  {
+    VARIANT retval := this->GetDefaultRowkeyArray();
+
+    IF (NOT this->pvt_istree)
+      RETURN retval;
+
+    INTEGER lastrow := LENGTH(this->pvt_rows) - 1;
+
+    FOREVERY (RECORD row FROM this->pvt_rows)
+      IF (row.expanded AND #row != lastrow AND this->pvt_rows[#row + 1].level > row.level)
+        INSERT row.rowkey INTO retval AT END;
+
+    RETURN retval;
+  }
+
+
+  /** Sets the list of expanded nodes (closes all others)
+      @param newkeys Array of keys to expand
+  */
+  MACRO SetExpanded(VARIANT newkeys)
+  {
+    IF(NOT this->pvt_istree)
+      RETURN;
+    // Validate the rowkeys, convert to an array.
+    VARIANT rowkeys := this->ValidateRowKeys(newkeys, /*require_array=*/TRUE);
+    this->LoadAndExpandRows(rowkeys, /*expand_rows*/TRUE, /*expand_parents_recursive=*/FALSE, /*close_other=*/TRUE, /*frontend_change=*/TRUE);
+  }
+
+  PUBLIC MACRO SetupHelper(BOOLEAN istree, FUNCTION PTR getpath, FUNCTION PTR getitems, FUNCTION PTR getallitems)
+  {
+    this->pvt_istree := istree;
+    this->pvt_getpath := getpath;
+    this->pvt_getitems := getitems;
+    this->pvt_getallitems := getallitems;
+    this->pvt_dynamic := getitems != DEFAULT FUNCTION PTR OR getallitems != DEFAULT FUNCTION PTR;
+
+    this->pvt_rows := DEFAULT RECORD ARRAY;
+    this->invalidated := TRUE;
+  }
+
+  MACRO SetRowkeyType(INTEGER new_type)
+  {
+    IF (new_type = 0)
+      RETURN;//Cannot 'unset'
+    IF (this->pvt_rowkey_type = 0)
+    {
+      IF (new_type NOT IN [ TypeID(INTEGER), TypeID(STRING) ])
+        THROW NEW TolliumException(this->pvt_callback, "Only rowkeys of type INTEGER and STRING are allowed in " || this->callback->GetComponentIdentification());
+
+      this->pvt_rowkey_type := new_type;
+    }
+    ELSE IF (this->pvt_rowkey_type != new_type)
+      THROW NEW TolliumException(this->pvt_callback, "Cannot change the type of rowkeys from "||GetTypeName(this->pvt_rowkey_type)||" to "||GetTypeName(new_type)||" in " || this->callback->GetComponentIdentification());
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Get the position of a row with a specific rowkey
+      @param rowkey Rowkey to look for
+      @return Row's position within the rows array, or -1 if not found
+  */
+  PUBLIC INTEGER FUNCTION GetPositionByRowkey(VARIANT rowkey)
+  {
+    INTEGER len := LENGTH(this->pvt_rows);
+
+    IF (NOT RecordExists(this->pvt_rowkeymapping) AND len != 0)
+      this->BuildRowkeyMapping();
+
+    RECORD pos := RecordLowerBound(this->pvt_rowkeymapping, [ rowkey := rowkey ], [ "ROWKEY" ]);
+    RETURN pos.found ? this->pvt_rowkeymapping[pos.position].pos : -1;
+  }
+
+
+  /** Sets the list of rows. May not be used for dynamic trees. Keep the current selection
+      (if the selected rows still exist in the new rowlist).
+      @param newrows New rows.
+  */
+  PUBLIC MACRO SetStaticRows(RECORD ARRAY newrows)
+  {
+//    PRINT("SetStaticRows "||this->callback->GetComponentIdentification()||"\n"||AnyToString(newrows, "boxed"));
+
+    IF (this->pvt_dynamic)
+    {
+      IF(Length(newrows) > 0)
+        THROW NEW TolliumException(this->pvt_callback, "Cannot set static rows for dynamic " || this->callback->GetComponentIdentification());
+      RETURN;
+    }
+
+    // Flatten the tree
+    RECORD ARRAY rows := this->FlattenTree(newrows, 0, /*honor_expanded=*/TRUE);
+
+    // Check the new rows for rowkeys and required cells.
+    rows := this->CheckNewRows(rows, FALSE);
+
+    // Update the rows.
+    this->UpdateRowsKeepSelection(rows);
+  }
+
+
+  /** Returns whether a certain row is present in the list
+      @param rowkey Rowkey
+  */
+  PUBLIC BOOLEAN FUNCTION IsRowKeyPresent(VARIANT rowkey)
+  {
+    IF (this->pvt_rowkey_type = 0)
+      this->pvt_rowkey_type := TYPEID(rowkey);
+    ELSE IF (this->pvt_rowkey_type != TYPEID(rowkey))
+      THROW NEW TolliumException(this->pvt_callback, "The value for " || this->callback->GetComponentIdentification() || " does not match the type of the rowkeys");
+
+    RETURN this->GetPositionByRowkey(rowkey) != -1;
+  }
+
+
+  /** Updates a single row (identified by rowkey in the row)
+      @param row Data of row to replace
+      @cell row.rowkey Rowkey of row to replace
+      @return Returns whether the row was successfully found and updated
+  */
+  PUBLIC BOOLEAN FUNCTION UpdateSingleRow(RECORD row)
+  {
+    IF (NOT CellExists(row, "ROWKEY"))
+      THROW NEW TolliumException(this->pvt_callback, "Cannot update a single row in " || this->callback->GetComponentIdentification() || ", because no rowkey was present");
+
+    // Validate the new row
+    row := this->CheckNewRows([ row ], FALSE);
+
+    // Try and locate the original
+    INTEGER pos := this->GetPositionByRowkey(row.rowkey);
+    IF (pos = -1)
+      RETURN FALSE;
+
+    // We ignore updates on selection and expand status
+    RECORD oldrow := this->pvt_rows[pos];
+
+    IF (this->pvt_istree)
+    {
+      // Put the old level cell back
+      IF (NOT CellExists(row, "LEVEL"))
+        INSERT CELL level := oldrow.level INTO row;
+      ELSE
+        row.level := oldrow.level;
+
+      // Put the old expanded cell back
+      IF (NOT CellExists(row, "EXPANDED"))
+        INSERT CELL expanded := oldrow.expanded INTO row;
+      ELSE
+        row.expanded := oldrow.expanded;
+
+      // For dynamic trees, require expandable cell
+      IF (this->pvt_dynamic AND NOT CellExists(row, "EXPANDABLE"))
+        THROW NEW TolliumException(this->pvt_callback, this->callback->GetComponentIdentification() || " is dynamic, so each row must contain an 'expandable' cell");
+    }
+
+    // Put the old tolliumselected back
+    IF (NOT CellExists(row, "TOLLIUMSELECTED"))
+      INSERT CELL tolliumselected := oldrow.tolliumselected INTO row;
+    ELSE
+      row.tolliumselected := oldrow.tolliumselected;
+
+    // Do the update, and give a callback
+    this->pvt_rows[pos] := row;
+    this->pvt_callback->LTH_UpdatedRow(row);
+
+    RETURN TRUE;
+  }
+
+
+  PUBLIC MACRO Invalidate()
+  {
+    IF(this->invalidated OR NOT this->pvt_dynamic)
+      RETURN; //nothing to undo
+
+    this->invalidated := TRUE;
+
+    IF(Length(this->pvt_rows)=0)
+    {
+      this->pvt_callback->LTH_UpdatedAllRows();
+      RETURN; //already empty, other functions wil try to load rows as soon as requested
+    }
+
+    VARIANT expanded := this->expanded;
+    VARIANT selected := this->GetDefaultRowkeyArray();
+
+    FOREVERY (RECORD row FROM this->pvt_rows)
+      IF (row.tolliumselected)
+        INSERT row.rowkey INTO selected AT END;
+
+    this->pvt_rows := DEFAULT RECORD ARRAY;
+
+    this->LoadRootItems(FALSE);
+    this->invalidated := FALSE;
+    this->initial_load_done := TRUE;
+    this->LoadAndExpandRows(expanded, /*expand_rows*/TRUE, /*expand_parents_recursive=*/FALSE, /*close_other=*/FALSE, /*frontend_change=*/TRUE);
+    this->SelectRows(selected, /*unselect_other=*/TRUE, /*is_new_selection=*/FALSE, /*frontend_change=*/TRUE, /*no_callback=*/FALSE);
+  }
+
+  PUBLIC MACRO SetSelectionByAPI(VARIANT rows)
+  {
+    IF (NOT MemberExists(this->pvt_callback, "GetComponentIdentification"))
+      ABORT(this->pvt_callback);
+
+    IF (NOT MemberExists(this->callback, "GetComponentIdentification"))
+      ABORT(this->callback);
+
+
+    IF (LENGTH(this->rows) != 0)
+    {
+      IF (TYPEID(rows) = TYPEID(RECORD ARRAY))
+      {
+        IF (LENGTH(rows) > 1 AND this->selectmode != "multiple")
+          THROW NEW TolliumException(this->pvt_callback, `Can only select maximum one row in single-select ${this->callback->GetComponentIdentification()}`);
+      }
+      ELSE IF (TYPEID(rows) = TYPEID(RECORD))
+      {
+        rows := RecordExists(rows) ? [ RECORD(rows) ] : DEFAULT RECORD ARRAY;
+      }
+      ELSE
+        THROW NEW TolliumException(this->callback, `The new selection for ${this->callback->GetComponentIdentification()} must be either RECORD or a RECORD ARRAY`);
+
+      this->SetSelectionByRecords(rows, TRUE);
+    }
+    ELSE
+      this->SetSelectionByRecords(DEFAULT RECORD ARRAY, TRUE);
+
+  }
+
+  /** Sets the current selection from the rowkey cell in a record array. Rows with rowkeys
+      that are not in this array will be unselected.
+      @param rows Rows to select
+      @cell rows.rowkey Rowkey of row to select
+  */
+  PUBLIC MACRO SetSelectionByRecords(RECORD ARRAY rows, BOOLEAN frontend_change)
+  {
+    IF(debuglth)
+      PRINT("SetSelectionByRecords "||this->callback->GetComponentIdentification()||"\n"||AnyToString(rows, "boxed"));
+
+    IF (LENGTH(this->pvt_rows) = 0)
+      RETURN;
+
+    // Just check a single rowkey (and steal the type when necessary)
+    IF (LENGTH(rows) != 0)
+      this->CheckSingleRowkey(rows[0].rowkey);
+
+    VARIANT rowkeys := this->GetDefaultRowkeyArray();
+    FOREVERY (RECORD row FROM rows)
+      INSERT row.rowkey INTO rowkeys AT END;
+
+    this->ValidateRowKeys(rowkeys, TRUE);
+    this->SelectRows(rowkeys, /*unselect_other=*/TRUE, /*is_new_selection=*/TRUE, /*frontend_change=*/frontend_change, /*no_callback=*/FALSE);
+  }
+
+  /** Expands rows
+      @param rows Rows to expand
+      @cell rows.rowkey Rowkey of row to expand
+  */
+  PUBLIC MACRO ExpandRowsByRecords(RECORD ARRAY rows, BOOLEAN close_other, BOOLEAN frontend_change)
+  {
+    //PRINT("ExpandRowsByRecords "||this->callback->GetComponentIdentification()||"\n"||AnyToString(rows, "boxed"));
+
+    IF (LENGTH(this->pvt_rows) = 0)
+      RETURN;
+
+    // Just check a single rowkey (and steal the type when necessary)
+    IF (LENGTH(rows) != 0)
+      this->CheckSingleRowkey(rows[0].rowkey);
+
+    VARIANT rowkeys := this->GetDefaultRowkeyArray();
+    FOREVERY (RECORD row FROM rows)
+      INSERT row.rowkey INTO rowkeys AT END;
+
+    this->LoadAndExpandRows(rowkeys, /*expand_rows*/TRUE, /*expand_parents_recursive=*/FALSE, /*close_other=*/close_other, /*frontend_change=*/frontend_change);
+  }
+
+  MACRO EnsureData()
+  {
+    IF(NOT this->pvt_dynamic OR NOT this->invalidated)
+      RETURN;
+
+    this->LoadRootItems(NOT this->initial_load_done);
+    this->invalidated := FALSE;
+    this->initial_load_done := TRUE;
+
+    IF (LENGTH(this->pvt_rows) != 0)
+    {
+      VARIANT expanded := this->GetDefaultRowkeyArray();
+
+      FOREVERY (RECORD row FROM this->pvt_rows)
+      {
+        IF (this->pvt_istree AND row.expanded)
+          INSERT row.rowkey INTO expanded AT END;
+      }
+
+      // No callback to ExecuteInitialDynamicLoad via LoadAndExpandRows, because pvt_rows isn't empty
+      this->LoadAndExpandRows(
+          /*rowkeys=*/expanded,
+          /*expand_rows=*/TRUE,
+          /*expand_parents_recursive=*/FALSE,
+          /*close_other=*/FALSE,
+          /*frontend_change=*/TRUE
+          );
+    }
+  }
+
+
+  /** Updates cells in the rowlist. The name of cells MUST be in the updateable_cells array, otherwise
+      the update is ignored.
+      @param rows List of rows to update
+      @cell rows.rowkey Rowkey of row
+      @cell rows.updates List of updates
+      @cell rows.updates.name Name of cell to update
+      @cell rows.updates.value New value for the cell
+      @param generate_events Whether to generate update row events
+  */
+  PUBLIC MACRO UpdateRowCells(RECORD ARRAY rows, BOOLEAN generate_events)
+  {
+//    PRINT("UpdateRowCells " || this->callback->GetComponentIdentification() || "\n"||AnyToString(rows, "tree"));
+
+    IF (LENGTH(rows) = 0)
+      RETURN;
+
+    this->CheckSingleRowkey(rows[0].rowkey);
+    FOREVERY (RECORD row FROM rows)
+    {
+      INTEGER pos := this->GetPositionByRowkey(row.rowkey);
+      IF (pos = -1)
+        CONTINUE;
+
+      BOOLEAN any_change := FALSE;
+      FOREVERY (RECORD upd FROM row.updates)
+      {
+        STRING name := ToUppercase(upd.name);
+
+        IF (name NOT IN this->pvt_updateable_cells)
+          CONTINUE;
+
+        IF (GetCell(this->pvt_rows[pos], name) != upd.value)
+        {
+          this->pvt_rows[pos] := CellUpdate(this->pvt_rows[pos], name, upd.value);
+          any_change := TRUE;
+        }
+      }
+      IF (any_change AND generate_events)
+        this->pvt_callback->LTH_UpdatedRow(this->pvt_rows[pos]);
+    }
+  }
+
+
+  RECORD ARRAY FUNCTION GetRows()
+  {
+    this->EnsureData();
+    RETURN this->pvt_rows;
+  }
+
+  /** Returns the root rows of a tree
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetRootRows()
+  {
+    this->EnsureData();
+    IF (this->pvt_istree)
+      RETURN
+          SELECT *
+            FROM this->pvt_rows
+           WHERE level = 0;
+    ELSE
+      RETURN this->pvt_rows;
+  }
+
+
+  /** Get the direct children of a specific row
+      @param rowkey Key of parent
+      @return Children of the parent
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetChildRows(VARIANT rowkey)
+  {
+    IF (NOT this->pvt_istree)
+      RETURN DEFAULT RECORD ARRAY;
+
+    IF (this->pvt_dynamic)
+    {
+      this->LoadAndExpandRows(
+                /*rowkeys=*/this->GetArrayWithSingleRowkey(rowkey),
+                /*expand_rows=*/FALSE,
+                /*expand_parents_recursive=*/FALSE,
+                /*close_other=*/FALSE,
+                /*frontend_change=*/TRUE);
+    }
+
+    INTEGER pos := this->GetPositionByRowkey(rowkey);
+    IF (pos < 0)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY directchildren;
+    INTEGER childlevel := this->pvt_rows[pos].level + 1;
+
+    FOR (pos := pos + 1; pos < Length(this->pvt_rows); pos := pos + 1)
+    {
+      RECORD row := this->pvt_rows[pos];
+
+      IF (row.level = childlevel)
+        INSERT row INTO directchildren AT END;
+      ELSE IF (row.level < childlevel)
+        BREAK;
+    }
+
+    RETURN directchildren;
+  }
+>;

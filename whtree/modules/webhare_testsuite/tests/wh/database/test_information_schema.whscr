@@ -1,0 +1,505 @@
+<?wh
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "mod::webhare_testsuite/lib/db/test_funcs.whlib";
+LOADLIB "wh::os.whlib";
+
+INTEGER testsequencenumber := 0;
+INTEGER runonly := 0;
+
+INTEGER FUNCTION GetWHDBRoleId(INTEGER transid, STRING rolename)
+{
+  RETURN GetWHDBTransaction(transid)->GetRoleId(rolename);
+}
+
+
+BOOLEAN FUNCTION RunTest(STRING testname)
+{
+  testsequencenumber := testsequencenumber + 1;
+  IF (runonly != 0 AND testsequencenumber != runonly)
+    RETURN false;
+
+  PRINT("Running test " || testsequencenumber || ": " || testname || "\n");
+  RETURN true;
+}
+
+MACRO WaitForIndex(INTEGER transid)
+{
+  SendWHDBCommand(transid,"WAIT INDEX");
+}
+
+//TABLE <
+//        INTEGER objectid,
+//        STRING name,
+//        INTEGER parent > definition_schema_objects;
+
+INTEGER FUNCTION FindObject(INTEGER _parent, STRING _name)
+{
+  RECORD r;
+  IF (_parent = 0)
+    r := SELECT object_id FROM information_schema.schemata WHERE schema_name = _name;
+  IF (NOT RecordExists(r))
+    r := SELECT object_id FROM information_schema.tables WHERE table_name = _name AND table_schema_id = _parent;
+  IF (NOT RecordExists(r))
+    r := SELECT object_id FROM information_schema.columns WHERE column_name = _name AND table_id = _parent;
+  IF (RecordExists(r))
+    RETURN r.object_id;
+  ELSE
+    RETURN 0;
+}
+
+MACRO TestCommitSuccess(INTEGER transid)
+{
+  RECORD ARRAY errors := CommitWHDBTransaction(transid);
+  IF(Length(errors)>0)
+  {
+    FOREVERY(RECORD err FROM errors)
+    {
+      PRINT(err.message||"\n");
+    }
+    ABORT("Unexpected commit errors");
+  }
+}
+
+MACRO TestCommitFailure(INTEGER transid)
+{
+  IF(Length(CommitWHDBTransaction(transid))=0)
+    ABORT("Unexpected commit success");
+}
+
+STRING ARRAY args := GetConsoleArguments();
+IF (Length(args)=1)
+  runonly := ToInteger(args[0],-1);
+
+INTEGER test_fp_trans;
+
+// Needed cleanup
+{
+  test_fp_trans := OpenTestTrans();
+  RECORD ARRAY existing := SELECT schema_name FROM information_schema.schemata WHERE SCHEMA_NAME LIKE "DBTEST_*";
+  FOREVERY (RECORD t FROM existing)
+    SendWHDBCommand(test_fp_trans,"DROP SCHEMA " || t.schema_name);
+
+  RECORD ARRAY roles := SELECT user_name FROM information_schema.users WHERE user_name LIKE "TESTS_*";
+  FOREVERY (RECORD t FROM roles)
+    SendWHDBCommand(test_fp_trans,"DROP USER " || t.user_name);
+
+  TestCommitSuccess(test_fp_trans);
+}
+
+RECORD ARRAY expect;
+RECORD ARRAY got;
+
+IF (RunTest("schemata, all_schemata, tables and columns"))
+{
+  INTEGER schema_id := 0;
+  INTEGER table_id := 0;
+  INTEGER columnid_id := 0;
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE TABLE dbtest_1.test_1 (id integer primary key)");
+
+  schema_id := FindObject(0,"DBTEST_1");
+  table_id := FindObject(schema_id,"TEST_1");
+  columnid_id := FindObject(table_id,"ID");
+
+//  PRINT("Schema: " || schema_id);
+//  PrintRecordArrayTo(0, (SELECT * FROM definition_schema_objects), "boxed");
+
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+
+  // information_schema.schemata
+  got :=  SELECT *
+            FROM information_schema.schemata
+           WHERE ToUppercase(schema_name) = "DBTEST_1" OR ToUppercase(schema_name) = "INFORMATION_SCHEMA"
+           ORDER BY ToUppercase(schema_name);
+
+  expect := [[
+      object_id := schema_id,
+      catalog_name := "WEBHARE",
+      schema_name := "DBTEST_1",
+      schema_owner := "_SYSTEM",
+      schema_owner_id := -1,
+      schema_owner_schema := "DEFINITION_SCHEMA",
+      schema_owner_schema_id := -4,
+      default_character_set_catalog := "",
+      default_character_set_schema := "",
+      default_character_set_name := "",
+      sql_path := "" ]];
+
+  IF (NOT RecordArraysEqual(got, expect))
+  {
+    PRINT("Expect:\n");
+    PrintRecordArrayTo(0, expect, "tree");
+    PRINT("Got:\n");
+    PrintRecordArrayTo(0, got, "tree");
+    ABORT("Information_schema.schemata is malfunctioning");
+  }
+
+  // information_schema.all_schemata
+  got :=  SELECT *
+            FROM information_schema.all_schemata
+           WHERE ToUppercase(schema_name) = "DBTEST_1" OR ToUppercase(schema_name) = "INFORMATION_SCHEMA"
+           ORDER BY ToUppercase(schema_name);
+
+  expect := [[
+      object_id := schema_id,
+      catalog_name := "WEBHARE",
+      schema_name := "DBTEST_1",
+      schema_owner := "_SYSTEM",
+      schema_owner_id := -1,
+      schema_owner_schema := "DEFINITION_SCHEMA",
+      schema_owner_schema_id := -4,
+      default_character_set_catalog := "",
+      default_character_set_schema := "",
+      default_character_set_name := "",
+      sql_path := ""
+      ], [
+      object_id := -3,
+      catalog_name := "WEBHARE",
+      schema_name := "INFORMATION_SCHEMA",
+      schema_owner := "_DATABASE_SELF",
+      schema_owner_id := -3,
+      schema_owner_schema := "DEFINITION_SCHEMA",
+      schema_owner_schema_id := -4,
+      default_character_set_catalog := "",
+      default_character_set_schema := "",
+      default_character_set_name := "",
+      sql_path := "" ]
+      ];
+
+  IF (NOT RecordArraysEqual(got, expect))
+  {
+    PRINT("Expect:\n");
+    PrintRecordArrayTo(0, expect, "tree");
+    PRINT("Got:\n");
+    PrintRecordArrayTo(0, got, "tree");
+    ABORT("Information_schema.all_schemata is malfunctioning");
+  }
+
+  // information_schema.tables
+  got :=  SELECT *
+            FROM information_schema.tables
+           WHERE ToUppercase(table_schema) = "DBTEST_1" AND ToUppercase(table_name) = "TEST_1";
+
+  expect := [[
+        table_catalog := "WEBHARE",
+        table_schema := "DBTEST_1",
+        table_schema_id := schema_id,
+        table_name := "TEST_1",
+        object_id := table_id,
+        table_type := "BASE TABLE",
+        self_referencing_column_name := "",
+        reference_generation := "",
+        user_defined_type_catalog := "",
+        user_defined_type_schema := "",
+        user_defined_type_name := "",
+        primary_key_name := "ID",
+        primary_key_id := columnid_id,
+        read_access_manager := "",
+        write_access_manager := "",
+        maximum_row_size := 10 ]];
+
+  IF (NOT RecordArraysEqual(got, expect))
+  {
+    PrintRecordArrayTo(0, expect, "tree");
+    PrintRecordArrayTo(0, got, "tree");
+    ABORT("Information_schema.tables is malfunctioning");
+  }
+
+  // information_schema.columns
+  got :=  SELECT *
+            FROM information_schema.columns
+           WHERE object_id = columnid_id;
+
+  expect := [[
+      object_id := columnid_id,
+      table_catalog := "WEBHARE",
+      table_schema := "DBTEST_1",
+      table_schema_id := schema_id,
+      table_name := "TEST_1",
+      table_id := table_id,
+      column_name := "ID",
+      ordinal_position := 1,
+      column_default := "", // Column default is string in definition, but variable types are sent by the db. "" is equivalent to 0.
+      is_nullable := "NO",
+      data_type := "INTEGER",
+      character_maximum_length := 0,
+      character_octet_length := 0,
+      numeric_precision := 32,
+      numeric_precision_radix := 2,
+      numeric_precision_scale := 0,
+      datetime_precision := 0,
+      interval_type := "",
+      interval_precision := "",
+      character_set_catalog := "",
+      character_set_schema := "",
+      character_set_name := "",
+      collation_set_catalog := "",
+      collation_set_schema := "",
+      collation_set_name := "",
+      domain_catalog := "",
+      domain_schema := "",
+      domain_name := "",
+      udt_catalog := "",
+      udt_schema := "",
+      udt_name := "",
+      scope_catalog := "",
+      scope_schema := "",
+      scope_name := "",
+      maximum_cardinality := 0,
+      dtd_identifier := "",
+      is_self_referencing := "",
+      is_primary := true,
+      autonumber_start := 0,
+      internal_column_name := "",
+      referenced_table_catalog := "",
+      referenced_table_schema := "",
+      referenced_table_schema_id := 0,
+      referenced_table_name := "",
+      referenced_table_id := 0,
+      on_delete := "",
+      "unique" := true,
+      noupdate := true,
+      not_null := false,
+      on_disk_column_id := 100,
+      reference_by_column_name := '',
+      reference_by_column_id := 0]];
+
+  IF (NOT RecordArraysEqual(got, expect))
+  {
+    PrintRecordArrayTo(0, expect, "tree");
+    PrintRecordArrayTo(0, got, "tree");
+    ABORT("Information_schema.columns is malfunctioning");
+  }
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("enabled roles, applicable roles, all roles, users"))
+{
+  INTEGER schema_id := 0;
+//  INTEGER user_a_id;
+  STRING user_a_role;
+  INTEGER user_a_role_id;
+
+  test_fp_trans := OpenTestTrans();
+  user_a_role := CreateUser(test_fp_trans, "MT_USER_A");
+  user_a_role_id := GetWHDBRoleId(test_fp_trans, "DEFINITION_SCHEMA." || user_a_role);
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION DEFINITION_SCHEMA." || user_a_role);
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.test_a");
+  schema_id := FindObject(0,"DBTEST_1");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTransUser("MT_USER_A");
+
+  // Enabled roles (user a and test)
+  got :=  SELECT *
+            FROM information_schema.enabled_roles
+        ORDER BY role_name;
+
+  expect := SELECT *
+              FROM information_schema.all_roles
+             WHERE role_id >= -1 // Exclude _DATABASSE_SELF and _BACKUP
+          ORDER BY role_name;
+
+/*
+  expect := [[
+        role_name := user_a_role,
+        role_id := GetWHDBRoleId(test_fp_trans, "DEFINITION_SCHEMA." || user_a_role),
+        role_schema := "DEFINITION_SCHEMA",
+        role_schema_id := -4
+            ],
+            [
+        role_name := "TEST_A",
+        role_id := GetWHDBRoleId(test_fp_trans, "DBTEST_1.TEST_A"),
+        role_schema := "DBTEST_1",
+        role_schema_id := schema_id
+            ]
+            ];
+*/
+//dumpvalue(got,'boxed'); dumpvalue(expect,'boxed');
+  TestEq(expect,got,"Information_schema.enabled_roles is malfunctioning");
+
+/* Applicable rules isn't usable anymore when _SYSTEM is an enabled role
+
+  // Applicable roles (test, granted by _system with admin option)
+  got :=  SELECT *
+            FROM information_schema.applicable_roles;
+
+  expect := [[
+        grantee := user_a_role,
+        grantee_id := GetWHDBRoleId(test_fp_trans, "DEFINITION_SCHEMA." || user_a_role),
+        grantee_schema := "DEFINITION_SCHEMA",
+        grantee_schema_id := -4,
+        role_name := "TEST_A",
+        role_id := GetWHDBRoleId(test_fp_trans, "DBTEST_1.TEST_A"),
+        role_schema := "DBTEST_1",
+        role_schema_id := schema_id,
+        is_grantable := "YES"
+            ]];
+
+  IF (NOT RecordArraysEqual(got, expect))
+  {
+    PrintRecordArrayTo(0, expect, "tree");
+    PrintRecordArrayTo(0, got, "tree");
+    ABORT("Information_schema.applicable_roles is malfunctioning");
+  }
+*/
+  // all roles (user a, test, public)
+  got :=  SELECT *
+            FROM information_schema.all_roles
+           WHERE ToUppercase(role_name) IN [user_a_role, "TEST_A", "PUBLIC"]
+        ORDER BY ToUppercase(role_name);
+
+  expect := [[
+        role_name := "PUBLIC",
+        role_id := -2,
+        role_schema := "DEFINITION_SCHEMA",
+        role_schema_id := -4
+            ],[
+        role_name := user_a_role,
+        role_id := GetWHDBRoleId(test_fp_trans, "DEFINITION_SCHEMA." || user_a_role),
+        role_schema := "DEFINITION_SCHEMA",
+        role_schema_id := -4
+            ],[
+        role_name := "TEST_A",
+        role_id := GetWHDBRoleId(test_fp_trans, "DBTEST_1.TEST_A"),
+        role_schema := "DBTEST_1",
+        role_schema_id := schema_id
+            ]];
+
+//dumpvalue(got,'boxed'); dumpvalue(expect,'boxed');
+  TestEq(got,expect,"Information_schema.enabled_roles is malfunctioning");
+
+  // users (empty under mt_user_a login)
+  got :=  SELECT *
+            FROM information_schema.users
+        ORDER BY ToUppercase(user_name);
+
+  expect := DEFAULT RECORD ARRAY;
+
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  // users (mt_user_a, sysop)
+  got :=  SELECT *
+            FROM information_schema.users
+           WHERE ToUppercase(user_name) IN [user_a_role]
+        ORDER BY ToUppercase(user_name);
+
+  expect := [[
+        user_name := user_a_role,
+        user_id := user_a_role_id
+            ]];
+
+  IF (NOT RecordArraysEqual(got, expect))
+  {
+    PrintRecordArrayTo(0, expect, "tree");
+    PrintRecordArrayTo(0, got, "tree");
+    ABORT("Information_schema.users is malfunctioning");
+  }
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  DropUser(test_fp_trans, "MT_USER_A");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("explicit role grants"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.test_a");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.test_b");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.test_c");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.test_d");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.test_e");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.test_f");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.test_g");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.test_h");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.test_a TO dbtest_1.test_b GRANTED BY dbtest_1.test_a");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.test_c TO dbtest_1.test_d WITH ADMIN OPTION GRANTED BY dbtest_1.test_c");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.test_e TO dbtest_1.test_f GRANTED BY dbtest_1.test_e");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.test_e TO dbtest_1.test_f WITH ADMIN OPTION GRANTED BY dbtest_1.test_e");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.test_g TO dbtest_1.test_h GRANTED BY dbtest_1.test_g");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.test_g TO dbtest_1.test_h WITH ADMIN OPTION GRANTED BY dbtest_1.test_g");
+
+  got :=  SELECT grantor, grantor_schema, grantee, grantee_schema, explicit_role_grants."role", role_schema, with_admin
+            FROM information_schema.explicit_role_grants
+           WHERE grantor_schema = "DBTEST_1"
+        ORDER BY grantor;
+
+  expect := [[
+        grantor := "TEST_A",
+        grantor_schema := "DBTEST_1",
+        grantee := "TEST_B",
+        grantee_schema := "DBTEST_1",
+        "role" := "TEST_A",
+        role_schema := "DBTEST_1",
+        with_admin := FALSE
+            ],
+            [
+        grantor := "TEST_C",
+        grantor_schema := "DBTEST_1",
+        grantee := "TEST_D",
+        grantee_schema := "DBTEST_1",
+        "role" := "TEST_C",
+        role_schema := "DBTEST_1",
+        with_admin := TRUE
+            ],
+            [
+        grantor := "TEST_E",
+        grantor_schema := "DBTEST_1",
+        grantee := "TEST_F",
+        grantee_schema := "DBTEST_1",
+        "role" := "TEST_E",
+        role_schema := "DBTEST_1",
+        with_admin := TRUE
+            ],
+            [
+        grantor := "TEST_G",
+        grantor_schema := "DBTEST_1",
+        grantee := "TEST_H",
+        grantee_schema := "DBTEST_1",
+        "role" := "TEST_G",
+        role_schema := "DBTEST_1",
+        with_admin := TRUE
+            ]];
+
+  IF (NOT RecordArraysEqual(got, expect))
+  {
+    PrintRecordArrayTo(0, expect, "tree");
+    PrintRecordArrayTo(0, got, "tree");
+    ABORT("Information_schema.explicit_role_grants is malfunctioning");
+  }
+
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+
+// Still missing: (*=[schema, table, column])
+//INDICES
+//*_PRIVILEGS
+//ROLE_*_GRANTS
+//EXPLICIT_*_GRANTS
+//EXPLICIT_ROLE_GRANTS
+//ALL_ROLE_GRANTS

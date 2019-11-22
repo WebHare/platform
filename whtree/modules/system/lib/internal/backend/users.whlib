@@ -1,0 +1,113 @@
+﻿<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/authsupport.whlib";
+
+RECORD FUNCTION GetOverrideTokenSettings()
+{
+  STRING readonlyoverridefile := MergePath(GetWebhareConfiguration().basedataroot, "readonly-overridetoken.json");
+  IF (IsDatabaseReadonly())
+  {
+    // Use disk file with override token when in readonly mode
+    RETURN EnforceStructure(
+        [ validuntil :=     DEFAULT DATETIME
+        , token :=          ""
+        ], DecodeJSONBlob(GetDiskResource(readonlyoverridefile, [ allowmissing := TRUE ])));
+  }
+  RETURN
+      [ validuntil :=   ReadRegistryKey("system.backend.security.override.validuntil")
+      , token :=        ReadRegistryKey("system.backend.security.override.token")
+      ];
+}
+
+PUBLIC BOOLEAN FUNCTION VerifyOverrideToken(STRING overridetoken)
+{
+  RECORD settings := GetOverrideTokenSettings();
+  RETURN overridetoken != ""
+         AND settings.token = overridetoken
+         AND GetCurrentDatetime() < settings.validuntil;
+}
+
+TABLE
+  < INTEGER id
+  , INTEGER grantee
+  , INTEGER grantor
+  , INTEGER "object"
+  , INTEGER "right"
+  , DATETIME creationdate
+  , BOOLEAN withgrantoption
+  > rights_table;
+
+PUBLIC OBJECT FUNCTION GetMagicSysopObject(STRING name)
+{
+  INTEGER userid := LookupMagicSysop(name);
+  IF(userid = 0)
+    THROW NEW Exception("No overrideuser defined");
+  RETURN NEW TolliumMagicSysopUserObject(userid);
+}
+
+PUBLIC OBJECT FUNCTION EnsureCreatedMagicSysop(STRING name)
+{
+  INTEGER userid := LookupMagicSysop(name);
+  IF(userid != 0)
+    RETURN NEW TolliumMagicSysopUserObject(userid);
+
+  //We need an authobject to associate the overrideuser with, but the less he can do, the better...
+  INTEGER overrideuser := MakeAutonumber(system.authobjects, "id");
+  INSERT INTO system.authobjects(id,name,creationdate,guid,type)
+         VALUES(overrideuser, name, GetCurrentDatetime(), name, 1);
+
+  // Grant sysop rights to the override user, less special casing needed in rightsmgmt
+  INTEGER module_system := SELECT AS INTEGER id FROM system.modules WHERE modules.name = "system";
+  INTEGER right_system_sysop := SELECT AS INTEGER id FROM system.module_rights WHERE module = module_system AND module_rights.name = "sysop";
+  IF (right_system_sysop != 0)
+  {
+    rights_table := BindTransactionToTable(GetPrimary()->id, "system_rights.global_rights");
+    INSERT INTO rights_table(grantee, grantor, "right", withgrantoption)
+         VALUES (overrideuser, overrideuser, right_system_sysop, TRUE);
+  }
+  RETURN NEW TolliumMagicSysopUserObject(overrideuser);
+}
+
+PUBLIC STRING FUNCTION GetOrExtendOverrideURL(INTEGER setduration, DATETIME minvalidity)
+{
+  RECORD cursettings := GetOverrideTokenSettings();
+  IF(minvalidity != DEFAULT DATETIME AND minvalidity < cursettings.validuntil)
+    RETURN "/?overridetoken=" || cursettings.token;
+
+  STRING overridetoken := GenerateUFS128BitId();
+
+  STRING readonlyoverridefile := MergePath(GetWebhareConfiguration().basedataroot, "readonly-overridetoken.json");
+  IF (IsDatabaseReadonly())
+  {
+    StoreDiskFile(readonlyoverridefile, EncodeJSONBlob(
+        [ validuntil :=       AddTimetoDate(setduration, GetCurrentDatetime())
+        , token :=            overridetoken
+        ]), [ overwrite := TRUE ]);
+  }
+  ELSE
+  {
+    GetPrimary()->BeginWork();
+    EnsureCreatedMagicSysop("<overrideuser>");
+    WriteRegistryKey("system.backend.security.override.validuntil", AddTimetoDate(setduration, GetCurrentDatetime()));
+    WriteRegistryKey("system.backend.security.override.token", overridetoken);
+    GetPrimary()->CommitWork();
+    DeleteDiskFile(readonlyoverridefile);
+  }
+  RETURN "/?overridetoken=" || overridetoken;
+}
+
+PUBLIC STRING FUNCTION GetOverrideTokenURL(INTEGER duration)
+{
+  LogAuditEvent("system:recover", [ type := "GETOVERRIDE" ]);
+
+  IF(duration = 0)
+    duration := ReadRegistryKey("system.backend.security.override.duration");
+
+  RETURN GetOrExtendOverrideURL(duration, DEFAULT DATETIME);
+}

@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <meta>
+    <description>Alpha and beta testing of WebHare, Tollium and add-on modules</description>
+    <validation>
+      <exclude mask="tests/tollium/language/gettid.whscr" why="gettid.whscr tries to test invalid GetTid, don't blame the file for that" />
+      <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" />
+      <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />
+      <eslint mask="nosuch.js" />
+    </validation>
+  </meta>
+
+  <servicemanager>
+    <runonce       tag="setuptestsite" script="scripts/whcommands/reset.whscr" when="poststart" />
+    <task          tag="singleshottest" script="scripts/tasks/singleshottest.whscr" description="Test singleshot tasks"/>
+    <managedtask   type="aftercompile" library="lib/internal/tasks.whlib" objectname="aftercompiletask"/> <!-- used by assetmgr-brokentest -->
+    <managedtask   type="ping" objectname="lib/internal/tasks.whlib#pingtask"/>
+    <managedtask   type="pingretry2" objectname="lib/internal/tasks.whlib#pingtask" maxfailures="1"/>
+    <managedtask   type="cancellable" objectname="lib/internal/tasks.whlib#cancellabletask"/>
+    <managedtask   type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask"/>
+    <ephemeraltask type="ping" objectname="lib/internal/tasks.whlib#ephpingtask"/>
+    <ephemeraltask type="nodetask" library="js/task.es" />
+  </servicemanager>
+
+  <portal>
+    <application name="jstests" tid="jstests.apptitle" screen="jstests.jstests" group="system:development" isdeveloperapp="true">
+      <accesscheck>
+        <requireright right="system:sysop"/>
+      </accesscheck>
+    </application>
+    <linkapp name="localtests" group="system:development" link="/tests/" tid="localtests.apptitle" isdeveloperapp="true">
+      <accesscheck>
+        <requireright right="system:sysop"/>
+      </accesscheck>
+    </linkapp>
+
+
+    <application name="runscreen" library="tollium.whlib" startmacro="RunScreen">
+      <accesscheck/>
+    </application>
+    <application name="anycomponent" library="screens/tests/anycomponent.whlib" startmacro="RunAnyComponent">
+      <accesscheck/>
+    </application>
+    <application name="appstarttest" screen="tests/comm.appstart">
+      <accesscheck/>
+    </application>
+    <application name="human" screen="tests/human.main">
+      <accesscheck/>
+    </application>
+
+    <application name="testsiteversioning" library="module::webhare_testsuite/publisher/versioningapp.whlib" startmacro="StartVersioningApp" icon="tollium:applications/versioning">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+
+
+
+    <application name="demo"
+                 screen="tolliumapps/demo/main.xml#main"
+                 title="Demo &amp; dev">
+      <accesscheck />
+    </application>
+
+    <!-- temp, have to add a main.xml / tollium.xml which opens this? -->
+    <application name="imagemap"
+                 screen="tolliumapps/demo/imagemap-editor/imagemap_editor.xml#main"
+                 title="Imagemap editor">
+      <accesscheck />
+    </application>
+
+    <application name="dymodemo" screen="tolliumapps/demo/dymo/dymo.xml#main">
+      <accesscheck/>
+    </application>
+    <application name="wrddemo" screen="tolliumapps/demo/wrd/wrddemo.xml#main" supportedlanguages="en">
+      <accesscheck/>
+    </application>
+    <application name="mapdemo" screen="tolliumapps/demo/socialite/mapdemo.xml#maps">
+      <accesscheck/>
+    </application>
+
+    <application name="iconviewer" screen="tolliumapps/iconviewer/iconviewer.xml#iconviewer" supportedlanguages="en">
+      <accesscheck/>
+    </application>
+
+    <notification name="eventservertest" tid="module.eventservertest" descriptiontid="module.eventservertest-desc" defaultenabled="true" />
+  </portal>
+
+  <tollium>
+    <components namespace="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" xmlschema="testcomponents.xsd"/>
+  </tollium>
+
+  <services>
+    <webservice name="test" transports="jsonrpc whremoting" library="webservicetest.whlib" requirewhaccount="true" primarytrans="auto">
+      <accesscheck>
+        <requireright right="system:sysop"/>
+      </accesscheck>
+      <addheader header=" X-Test-Header :  * "/>
+    </webservice>
+    <webservice name="testnoauth" transports="jsonrpc whremoting" library="webservicetest.whlib">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+    <webservice name="formservice" transports="jsonrpc whremoting" library="publisher/formservice.whlib">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+
+    <webservice name="sharedtests" transports="jsonrpc" library="sharedtests.whlib">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+
+    <localservice name="test" library="system/localservice.whlib" objectname="TestLocalService"/>
+    <localservice name="testpersistent" library="system/localservice.whlib" objectname="TestLocalService" reuse="true"/>
+    <localservice name="testnodbservice" library="system/localservice.whlib" objectname="TestNoDBservice" reuse="false" withtransaction="false"/>
+    <localservice name="testnodbservicepersistent" library="system/localservice.whlib" objectname="TestNoDBservice" reuse="true" withtransaction="false"/>
+    <localservice name="testnodbservicepersistent2" library="system/localservice.whlib" objectname="TestNoDBservice" reuse="true" withtransaction="false"/>
+
+    <apprunnerconfig configfunction="lib/internal/support.whlib#getapprunnerconfig" />
+  </services>
+
+
+  <rights>
+    <!-- Rights for tests -->
+    <objecttype name="testobjecttype" table=".rights_tree" title="Test rights objecttype for table beta.rights_tree" parentfield="parent">
+      <describer library="internal/rights.whlib" objectname="betatreeobjecttypedescriber" />
+    </objecttype>
+
+    <objecttype name="testflatobjecttype" table=".rights_tree" title="Test rights objecttype for table beta.rights_tree, without parent field">
+      <describer library="internal/rights.whlib" objectname="betatreeflatobjecttypedescriber" />
+    </objecttype>
+
+    <right name="globalright" title="webhare_testsuite globalright">
+      <impliedby right="system:sysop"/>
+    </right>
+
+    <right name="objectright" objecttype="testobjecttype">
+      <impliedby right="system:sysop"/>
+    </right>
+
+    <right name="objectright2" objecttype="testobjecttype">
+      <impliedby right="globalright"/>
+    </right>
+
+    <right name="objectright2_impl" objecttype="testobjecttype">
+      <impliedby right="objectright2"/>
+    </right>
+
+    <right name="objectflatright" objecttype="testflatobjecttype">
+      <impliedby right="globalright"/>
+    </right>
+
+    <right name="betatesting" title="Allow acces to beta test apps">
+      <impliedby right="system:sysop"/>
+    </right>
+  </rights>
+
+  <backend>
+    <webrule path="root:/.webhare_testsuite/tests/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:/tests/" />
+
+    <webruleset name="testset" tid="module.webruleset">
+      <webrule match="initial" path="/xyz/" redirecttoscript="urls/xyz.whscr"/>
+    </webruleset>
+    <webruleset name="testframework" title="WebHare test framework: B-Lex testsuite testsite">
+      <webrule path="/" match="initial" wrdschema="wrd:testschema"/>
+    </webruleset>
+    <webrule match="initial" path="root:/betatesting/testset/" applyruleset="webhare_testsuite:testset"/>
+    <webruleset name="securityheaders" title="Testsuite: security headers">
+      <webrule path="/" match="initial">
+        <addheader header="X-Frame-Options" value="SAMEORIGIN"/>
+        <addheader header="Strict-Transport-Security" value="max-age=15552000"/>
+        <addheader header="X-XSS-Protection" value="1; mode=block"/>
+        <addheader header="Content-security-policy" value="script-src 'self'"/>
+      </webrule>
+    </webruleset>
+    <restapi path="root:/.webhare_testsuite/restapi/" apispec="tests/wh/webserver/remoting/restapi/restapi.xml" />
+
+    <webrule path="root:/.webhare_testsuite/datastorage/" match="initial">
+      <tryfolder path="whdata::tmp/webhare_testsuite.datastorage/folderdirect/" />
+      <tryfolder resolver="sha256b16" path="whdata::tmp/webhare_testsuite.datastorage/foldersha/" />
+      <tryfolder resolver="sha256b16_directory" path="whdata::tmp/webhare_testsuite.datastorage/foldersha_dir/" />
+      <tryfile path="whdata::tmp/webhare_testsuite.datastorage/file.shtml" />
+      <tryfile path="mod::[modulename]/web/resources/tests/static.html" />
+    </webrule>
+  </backend>
+
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:role name="role_a"/>
+    <d:role name="role_b"/>
+
+    <!-- no grants, see if rights calculation works when only sysop has access -->
+    <d:table name="rights_tree" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="name" maxlength="256" nullable="0"/>
+      <d:integer name="parent" references=".rights_tree" ondelete="cascade"/>
+    </d:table>
+
+    <d:table name="consilio_index" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="groupid" maxlength="1024"/>
+      <d:varchar name="objectid" maxlength="1024"/>
+      <d:varchar name="text" maxlength="1024"/>
+      <d:datetime name="adate"/>
+      <d:datetime name="grouprequiredindexdate"/> <!-- ignored when default -->
+      <d:datetime name="objectrequiredindexdate"/> <!-- ignored when default -->
+      <d:datetime name="indexdate"/>
+      <d:integer name="spiderfrom" references=".consilio_index" ondelete="cascade"/>
+    </d:table>
+
+    <d:obsoletetable name="hosted_blobs" />
+
+    <d:table name="exporttest" primarykey="id">
+      <d:integer name="id"/>
+      <d:varchar name="text" maxlength="4096"/>
+    </d:table>
+
+  </databaseschema>
+
+
+  <logging>
+    <log name="test" filename="betatest" rotates="4" mseconds="true"/>
+  </logging>
+
+  <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+    <schema tag="renametest" title="WebHare testsuite renametest schema" autocreate="true" definitionfile="mod::system/data/wrdschemas/default.wrdschema.xml" originalname="webhare_testsuite"/>
+  </wrdschemas>
+
+  <appcontexts>
+    <wrdschema xmlns="http://www.webhare.net/xmlns/wrd/appcontext" name="testwrdschema" schema="wrd:testschema"/>
+  </appcontexts>
+
+  <moduleregistry>
+    <node name="tests">
+      <string name="ingenicomode" />
+      <string name="response" />
+      <string name="alttestsitehost" />
+      <string name="hashedpassword" />
+      <record name="addressverification" />
+      <datetime name="lastaftercompile" />
+      <datetime name="tempfailretryat" />
+    </node>
+    <node name="apis">
+      <obsoletekey name="google_oauth_clientid" />
+      <obsoletekey name="google_oauth_clientsecret" />
+    </node>
+  </moduleregistry>
+
+  <publisher>
+    <siteprofile path="data/webhare_testsuite.siteprl.xml"/>
+    <virtualfs name="beta_tests" library="myvirtualfs.whlib" objectname="BetaFS">
+      <accesscheck>
+        <requireright right="system:sysop"/>
+      </accesscheck>
+    </virtualfs>
+    <virtualfs name="beta_tests2" library="myvirtualfs.whlib" objectname="BetaModularFS">
+      <accesscheck>
+        <requireright right="system:sysop"/>
+      </accesscheck>
+    </virtualfs>
+    <webdesign name="basetest" title="selftest 'basetest'" siteprofile="webdesigns/basetest/basetest.siteprl">
+      <assetpack entrypoint="webdesigns/basetest/js/basetest" supportedlanguages="en nl" />
+    </webdesign>
+    <addtoassetpack assetpack="webhare_testsuite:basetest" entrypoint="webdesigns/basetest/js/addtopack" />
+    <addtowebdesign webdesign="webhare_testsuite:basetest" siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml" />
+    <webfeature name="testfeature" title="Test feature" siteprofile="webfeatures/testfeature.siteprl"/>
+    <webfeature name="testpackage" title="Test package" siteprofile="tests/publisher/siteprofile/data/packageloader.siteprl.xml"/>
+    <customnode name="test" namespace="urn:xyz" />
+    <customnode name="blub" namespace="http://www.webhare.net/xmlns/webhare_testsuite/blub" />
+    <webdesignplugin name="test" namespace="http://www.webhare.net/xmlns/webhare_testsuite" objectname="mod::webhare_testsuite/lib/internal/testplugin.whlib#TestPlugin" hooksfeatures="preparemail" />
+
+    <filemgrextension>
+      <accesscheck>
+        <requireright right="system:sysop"/>
+      </accesscheck>
+      <addaction tid="module.testaction" screen="feedback.frompublisher" addtomenu="actions" />
+    </filemgrextension>
+
+    <indexfield name="contenttypefield" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testfield" />
+    <indexfield name="libraryfield" library="publisher/publishersearch.whlib" functionname="gettestfield" />
+    <indexfield name="arrayfield" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testarray">
+      <arrayfield member="arrayfield" />
+      <arrayfield name="date_otherfield" member="otherfield" />
+      <arrayfield name="libraryfield" library="publisher/publishersearch.whlib" functionname="getarrayfield" />
+    </indexfield>
+
+    <formcomponents namespace="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents" xmlschema="tests/publisher/forms/data/testformcomponents.xsd"/>
+
+    <registerslot name="testsite" tid="module.testsite.title" descriptiontid="module.testsite.description" initialvalue="site::webhare testsuite site" type="site" />
+    <registerslot name="testslot" title="Test Slot" description="Test Description" initialvalue="whfs::/webhare_testsuite.testfolder/testslot" type="folder" />
+  </publisher>
+
+  <consilio>
+    <index tag="testindex">
+      <datetime name="@timestamp" />
+      <text name="title" />
+      <keyword name="keyword" />
+      <text name="body" analyzer="dutch">
+        <keyword name="body_keyword" ignore_above="256" />
+      </text>
+      <integer name="int_field" />
+      <integer64 name="int64_field" />
+      <float name="float_field" />
+      <datetime name="date_field" />
+      <boolean name="bool_field" />
+      <record name="unspecified_record" />
+      <record name="record_field" strict="false">
+        <text name="record_text_field" />
+        <integer name="dn_*" />
+      </record>
+      <ipaddress name="ip_field" />
+      <latlng name="latlng_field" />
+      <addfieldgroup ref="testgroup" />
+    </index>
+    <fieldgroup tag="testgroup">
+      <integer name="group_int_field" />
+      <record name="group_record_field" strict="false">
+        <text name="group_record_text_field" />
+        <keyword name="ds_*" />
+        <addfieldgroup ref="webhare_testsuite:testsubgroup" />
+      </record>
+    </fieldgroup>
+    <fieldgroup tag="testsubgroup">
+      <datetime name="when" />
+      <latlng name="where" />
+      <boolean name="db_*" />
+    </fieldgroup>
+
+    <index tag="module_reference">
+      <addfieldgroup ref="consilio:test_reference_group" />
+    </index>
+    <fieldgroup tag="test_reference_group">
+      <text name="testsuite" />
+    </fieldgroup>
+
+    <index tag="circular_module_reference">
+      <addfieldgroup ref="consilio:circular_test_reference_group" />
+    </index>
+    <fieldgroup tag="circular_test_reference_group">
+      <addfieldgroup ref="consilio:circular_test_reference_group" />
+    </fieldgroup>
+
+    <index tag="duplicate_fieldnames">
+      <addfieldgroup ref="fields_1" />
+      <addfieldgroup ref="fields_2" />
+    </index>
+    <fieldgroup tag="fields_1">
+      <text name="textfield" />
+    </fieldgroup>
+    <fieldgroup tag="fields_2">
+      <text name="textfield" />
+    </fieldgroup>
+
+    <index tag="circular_index_direct">
+      <addfieldgroup ref="circular" />
+    </index>
+    <fieldgroup tag="circular">
+      <addfieldgroup ref="circular" />
+    </fieldgroup>
+
+    <index tag="circular_index_indirect">
+      <addfieldgroup ref="circular_1" />
+    </index>
+    <fieldgroup tag="circular_1">
+      <record name="record_1">
+        <addfieldgroup ref="circular_2" />
+      </record>
+    </fieldgroup>
+    <fieldgroup tag="circular_2">
+      <record name="record_2">
+        <addfieldgroup ref="circular_1" />
+      </record>
+    </fieldgroup>
+
+    <fieldgroup tag="nosuchfieldyet">
+      <record name="no">
+        <record name="such">
+          <record name="field">
+            <integer name="yet"/>
+          </record>
+        </record>
+      </record>
+    </fieldgroup>
+
+    <fieldgroup tag="unspecifiedwildcards">
+      <record name="unspecified_record" strict="false" />
+    </fieldgroup>
+
+  </consilio>
+</module>

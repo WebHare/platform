@@ -1,0 +1,290 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/webserver/proxymgmt.whlib";
+
+
+MACRO AddPort(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "virtual", type := "switch"  ]
+      , [ name := "ssl", type := "stringopt"  ]
+      , [ name := "port", type := "param", required := TRUE ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh webserver addport [--virtual] [--ssl rawcertname] <port number>\n");
+    TerminateScriptWithError("");
+  }
+
+  INTEGER portnumber := ToInteger(subargs.port,0);
+  IF(portnumber < 1 OR portnumber > 65535)
+    TerminateScriptWithError(`Invalid port number '${subargs.port}`); //TODO support for ipv6, IP addresses etc
+  IF(portnumber = 80 AND subargs.ssl != "")
+    TerminateScriptWithError(`Creating port 80 is incompatible with the --ssl argument`);
+  IF(portnumber = 443 AND subargs.ssl = "")
+    TerminateScriptWithError(`Creating port 443 requires the --ssl argument`);
+
+  GetPrimary()->BeginWork();
+
+  INTEGER keypairid;
+  IF(subargs.ssl != "")
+  {
+    OBJECT keypair := OpenKeyPairByName(subargs.ssl);
+    keypairid := keypair->id;
+  }
+
+  IF(RecordExists(SELECT FROM system.ports WHERE port = VAR portnumber))
+    TerminateScriptWithError(`That port number is already in use`); //TODO better conflict detection, check webhare app?
+
+  INSERT INTO system.ports(port, virtualhost, keypair, description)
+         VALUES(portnumber, subargs.virtual, keypairid, "Created using 'wh webserver addport'");
+
+  GetPrimary()->CommitWork();
+  ReloadWebhareConfig(TRUE, FALSE);
+}
+
+MACRO AddBackend(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "url", type := "param", required := TRUE ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh webserver addbackend <url>\n");
+    SetConsoleExitCode(1);
+    TerminateScript();
+  }
+
+  RECORD unpacked := UnpackURL(subargs.url);
+  IF(unpacked.scheme NOT IN ["http","https"] OR unpacked.urlpath != "")
+    TerminateScriptWithError(`Invalid URL '${subargs.url}'`);
+
+  GetPrimary()->BeginWork();
+
+  INTEGER webserver_port_id;
+  IF(unpacked.port NOT IN [80, 443]) //80 and 443 are auto-offered by nginx, but anything else requires a port;
+  {
+    RECORD ARRAY matchport := SELECT * FROM system.ports WHERE port = unpacked.port;
+    IF(Length(matchport) = 0)
+      THROW NEW Exception(`Port ${unpacked.port} isn't opened`);
+    IF(Length(matchport) > 1) //should probably allow users to specify exact port number
+      THROW NEW Exception(`Multiple matches for port ${unpacked.port}`);
+
+    webserver_port_id := matchport[0].id;
+  }
+
+  INTEGER webserverid := MakeAutoNumber(system.webservers,"id");
+  INSERT INTO system.webservers(id, port, type, baseurl, outputextension)
+         VALUES (webserverid, webserver_port_id, 1, subargs.url, '.html');
+
+  BOOLEAN have_interface := RecordExists(SELECT FROM system.webservers WHERE type = 1);
+  IF (NOT have_interface OR (SELECT AS INTEGER outputweb FROM system.sites WHERE id = whconstant_whfsid_webharebackend) = 0)
+  {
+    OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
+    backendsite->SetPrimaryOutput(webserverid, "/");
+  }
+
+  GetPrimary()->CommitWork();
+  ReloadWebhareConfig(TRUE, FALSE);
+
+  //TODO warn if the new interface would be inaccessible (missing port + missing proxies)
+}
+
+MACRO Reset(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "force", type := "switch"  ]
+      , [ name := "dryrun", type := "switch"  ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh webserver reset [--dryrun] [--force]\n");
+    TerminateScriptWithError("");
+  }
+
+  IF(NOT IsRestoredWebHare() AND NOT subargs.force AND NOT subargs.dryrun)
+    TerminateScriptWithError("Resetting a non-restored WebHare requires the use of --force");
+
+  GetPrimary()->BeginWork();
+  IF(RecordExists(SELECT FROM system.proxies))
+  {
+    Print("Deleted the following proxy configuration (without deregistration):\n");
+    Print(EncodeJSON(GetWebhareProxies()) || "\n");
+  }
+  DELETE FROM system.proxies;
+
+  IF(RecordExists(SELECT FROM system.ports))
+  {
+    RECORD ARRAY cascaded_webservers := SELECT * FROM system.webservers WHERE port != 0 ORDER BY baseurl, port;
+    DELETE FROM system.webservers WHERE port != 0;
+
+    Print("Deleted the following webserver ports:\n");
+    DumpValue((SELECT * FROM system.ports ORDER BY port, ip), [ format := "boxed", name := ""]);
+    DELETE FROM system.ports;
+
+    IF(Length(cascaded_webservers) > 0)
+    {
+      Print("This also removed the following webservers:\n");
+      DumpValue(cascaded_webservers, [ format := "boxed", name := ""]);
+    }
+  }
+
+  IF(subargs.dryrun)
+  {
+    GetPrimary()->RollbackWork();
+    Print("Changes have NOT been applied\n");
+  }
+  ELSE
+  {
+    GetPrimary()->CommitWork();
+    ReloadWebhareConfig(TRUE, FALSE);
+    Print("Reloaded webserver configuration\n");
+  }
+}
+
+STRING FUNCTION HostnameToLabel(STRING fullhostname)
+{
+  fullhostname := Substitute(fullhostname, '.', '-');
+  fullhostname := Left(fullhostname,63);
+  RETURN ToLowercase(fullhostname);
+}
+
+STRING FUNCTION RewriteBaseURL(STRING baseurl, STRING newhostname)
+{
+  RECORD up := UnpackURL(baseurl);
+  up.host := HostnameToLabel(up.host) || newhostname;
+  RETURN RepackURL(up);
+}
+
+STRING FUNCTION RewriteAlias(STRING hostname, STRING newhostname)
+{
+  RETURN HostnameToLabel(hostname) || newhostname;
+}
+
+MACRO RewriteHosts(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "force", type := "switch"  ]
+      , [ name := "dryrun", type := "switch"  ]
+      , [ name := "keepcdns", type := "switch"  ]
+      , [ name := "newhost", type := "param", required := TRUE ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh webserver rewritehosts [--dryrun] [--force] [--keepcdns] .newhostname\n");
+    Print("  --dryrun:   Do not actually make any changes, just report what we would do\n");
+    Print("  --force:    Allow changes to non-restored WebHares\n");
+    Print("  --keepcdns: Do not reset CDN settings\n");
+    TerminateScriptWithError("");
+  }
+  IF(subargs.newhost NOT LIKE ".*")
+    TerminateScriptWithError("The new hostname must start with a dot (.)");
+  IF(NOT IsRestoredWebHare() AND NOT subargs.force AND NOT subargs.dryrun)
+    TerminateScriptWithError("Rewriting a non-restored WebHare requires the use of --force");
+
+  GetPrimary()->BeginWork();
+
+  RECORD ARRAY newwebservers := SELECT id
+                                     , oldurl := baseurl
+                                     , newurl := RewriteBaseURL(baseurl, subargs.newhost)
+                                  FROM system.webservers
+                                 WHERE type IN [ 0, 1 ] //only output and interface, not groups
+                                       AND ToUppercase(UnpackURL(baseurl).host) NOT LIKE ToUppercase("*." || subargs.newhost)
+                              ORDER BY ToUppercase(UnpackURL(baseurl).host), id;
+
+  RECORD ARRAY newaliases := SELECT id
+                                  , oldhost := hostname
+                                  , newhost := RewriteAlias(hostname, subargs.newhost)
+                               FROM system.webservers_aliases
+                              WHERE ToUppercase(hostname) NOT LIKE ToUppercase("*." || subargs.newhost)
+                           ORDER BY ToUppercase(hostname), id;
+
+  FOREVERY(RECORD webserver FROM newwebservers)
+  {
+    Print(`Webserver ${webserver.id}: ${webserver.oldurl} => ${webserver.newurl}\n`);
+    UPDATE system.webservers SET baseurl := webserver.newurl WHERE id = webserver.id;
+  }
+  FOREVERY(RECORD alias FROM newaliases)
+  {
+    Print(`Alias ${alias.id}: ${alias.oldhost} => ${alias.newhost}\n`);
+    UPDATE system.webservers_aliases SET hostname := alias.newhost WHERE id = alias.id;
+  }
+  IF(NOT subargs.keepcdns)
+  {
+    RECORD ARRAY clearcdns := SELECT name, cdnbaseurl FROM system.sites WHERE cdnbaseurl != "" ORDER BY ToUppercase(name);
+    FOREVERY(RECORD toclear FROM clearcdns)
+      Print(`Resetting CDN for site '${toclear.name}' - was: ${toclear.cdnbaseurl}\n`);
+    UPDATE system.sites SET cdnbaseurl := "";
+  }
+
+  IF(subargs.dryrun)
+  {
+    GetPrimary()->RollbackWork();
+    Print("Changes have NOT been applied\n");
+  }
+  ELSE
+  {
+    GetPrimary()->CommitWork();
+    Print("Reloading...\n");
+    ReloadWebhareConfig(TRUE, FALSE);
+    Print("Reloaded webserver configuration\n");
+    GetPrimary()->ScheduleTask("system:checkwebservers", DEFAULT DATETIME);
+  }
+
+}
+
+MACRO Main()
+{
+  RECORD ARRAY options := [ [ name := "command", type := "param", required := TRUE ]
+                          , [ name := "params", type := "paramlist" ]
+                          ];
+
+  RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+
+
+  SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
+  {
+    CASE "addport"
+    {
+      AddPort(cmdargs.params);
+    }
+    CASE "addbackend"
+    {
+      AddBackend(cmdargs.params);
+    }
+    CASE "reset"
+    {
+      Reset(cmdargs.params);
+    }
+    CASE "rewritehosts"
+    {
+      RewriteHosts(cmdargs.params);
+    }
+    DEFAULT
+    {
+      Print("Syntax: wh webserver <command>\n");
+      Print("  addport [--virtual] <port>: Create the specified port (binding)\n");
+      Print("  addbackend <webserver>:     Add a backend webserver\n");
+      Print("  reset [--dryrun] [--force]: Reset proxies and listening ports\n");
+      Print("  rewritehosts <newhost>:     Rewrite all webserver URL hostnames under a new host\n");
+      TerminateScriptWithError("");
+    }
+  }
+}
+
+OpenPrimary();
+Main();

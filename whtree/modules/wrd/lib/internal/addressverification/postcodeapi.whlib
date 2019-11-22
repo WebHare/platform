@@ -1,0 +1,100 @@
+<?wh
+
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/components/addressvalidation.whlib";
+
+// Documentation: https://app.swaggerhub.com/api/apiwise/postcode-api/
+// Request API key: https://www.postcodeapi.nu/#pakketten
+
+STRING apiurl := "https://postcode-api.apiwise.nl/v2/";
+
+PUBLIC STATIC OBJECTTYPE PostcodeAPI EXTEND WRDNLAddressVerificationBase
+<
+  STRING apikey;
+  OBJECT webbrowser;
+
+  MACRO NEW(RECORD settings)
+  {
+    settings := ValidateOptions( [ apikey := "" ], settings, [ required := [ "apikey" ]]);
+    IF (settings.apikey = "")
+      THROW NEW Exception("Empty API key");
+
+    this->apikey := settings.apikey;
+    this->webbrowser := NEW WebBrowser();
+  }
+
+  UPDATE RECORD FUNCTION __LookupNLAddressByZip(STRING zip, INTEGER houseno)
+  {
+    // B-Lex is built-in so we can test that without having to sign up for address valiadtion
+    IF (ToUppercase(zip) = "7521 AM" AND houseno < 1000 AND (houseno % 2) = 0)
+      RETURN [ status := "ok"
+             , street := "Hengelosestraat"
+             , zip    := "7521 AM"
+             , city   := "Enschede"
+             , iscached := TRUE
+             ];
+
+    RECORD result := this->GetAddresses(zip, houseno);
+
+    IF (NOT result.success)
+      RETURN [ status := "lookup_failed" ];
+    IF (Length(result.addresses) = 0)
+      RETURN [ status := "zip_not_found" ];
+
+    RETURN [ status       := "ok"
+           , street       := result.addresses[0].street
+           , zip          := result.addresses[0].nen5825.postcode
+           , city         := result.addresses[0].city.label
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION GetAddresses(STRING postcode, INTEGER number)
+  {
+    STRING url := UpdateURLVariables(apiurl || "addresses", [ postcode := Substitute(postcode,' ',''), number := ToString(number) ]);
+    RECORD ARRAY headers := [ [ field := "X-Api-Key", value := this->apikey ] ];
+
+    //Logging just country + first 4 ZIP characters shouldn't be PII but still gives us a general idea if calls are being dupplicated
+    STRING zip4 := "NL-" || Left(postcode, 4);
+    STRING account := Left(this->apikey, 12) || RepeatText("*", Length(this->apikey) - 10);
+    LogAccountingHit("wrd:checkaddress." || this->type,
+                       CELL[ account
+                           , source := this->accountingsource
+                           , extra := CELL[ method := "addresses", zip4 ]
+                           , cached := FALSE
+                           ]);
+
+    IF (NOT this->webbrowser->SendRawRequest("GET", url, headers, DEFAULT BLOB))
+      RETURN [ success := FALSE, status := this->webbrowser->GetHTTPStatusCode() ];
+
+    RECORD result := DecodeJSONBlob(this->webbrowser->content);
+    RETURN
+        [ success := TRUE
+        , addresses := result._embedded.addresses
+        , remaining := ToInteger(GetMIMEHeader(this->webbrowser->responseheaders, "X-RateLimit-Remaining"), -1)
+        ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PostcodeAPISettings EXTEND WRDAddressVerificationExtensionBase
+<
+  UPDATE RECORD FUNCTION GetValue()
+  {
+    RETURN [ apikey := ^apikey->value ];
+  }
+
+  UPDATE MACRO SetValue(RECORD value)
+  {
+    ^apikey->value := value.apikey;
+  }
+
+  MACRO DoShowMoreInfo(OBJECT openhandler)
+  {
+    openhandler->SendUrl("https://www.postcodeapi.nu");
+  }
+>;

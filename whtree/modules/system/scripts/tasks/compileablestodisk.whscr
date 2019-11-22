@@ -1,0 +1,13 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
+
+DeleteDiskDirectoryRecursive(GetWebhareConfiguration().varroot || "system.dbcode/"); //previous incarnation, only in develop 5-12 aug.
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+ScanAllCompilables(FALSE);
+
+//FIXME clean empty dirs (no more files)

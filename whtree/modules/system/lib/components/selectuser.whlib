@@ -1,0 +1,237 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/internal/authobjects.whlib";
+
+PUBLIC OBJECTTYPE SelectUser EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_user;
+
+  STRING pvt_inputkind;
+
+  STRING field;
+
+  OBJECT person_type;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties and variables
+  //
+
+  PUBLIC PROPERTY value(GetValue, SetValueIfValid);
+
+  PUBLIC PROPERTY displayvalue(GetDisplayValue, -);
+
+  PUBLIC PROPERTY inputkind(pvt_inputkind, SetInputKind);
+
+  UPDATE PUBLIC PROPERTY required(pvt_required, SetRequired);
+
+  UPDATE PUBLIC PROPERTY enabled(pvt_enabled, SetEnabled);
+
+  UPDATE PUBLIC PROPERTY readonly(pvt_readonly, SetReadonly);
+
+  PUBLIC FUNCTION PTR onchange;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->pvt_invisibletitle := TRUE;
+    this->pvt_inputkind := "WRD_ID";
+    this->person_type := this->contexts->userapi->wrdschema->^wrd_person;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+
+    this->inputkind := def.inputkind;
+    this->onchange := def.onchange;
+    this->field := def.displayfield;
+    this->required := def.required;
+    this->enabled := def.enabled;
+    this->readonly := def.readonly;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->username->title := this->title;
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newstate)
+  {
+    TolliumFragmentBase::SetEnabled(newstate);
+    this->pvt_enabled := newstate;
+    this->editbtn->enabled := newstate;
+    this->clearbtn->enabled := newstate;
+  }
+
+  UPDATE MACRO SetReadOnly(BOOLEAN newstate)
+  {
+    TolliumFragmentBase::SetReadOnly(newstate);
+    this->pvt_readonly := newstate;
+    this->editbtn->visible := NOT newstate;
+    this->clearbtn->visible := NOT newstate;
+    this->username->readonly := newstate;
+  }
+
+  UPDATE MACRO SetRequired(BOOLEAN newstate)
+  {
+    TolliumFragmentBase::SetRequired(newstate);
+    this->pvt_required := newstate;
+    this->username->required := newstate;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    SWITCH(TypeID(value))
+    {
+      CASE TypeID(OBJECT)
+      {
+        RETURN value EXTENDSFROM WRDAuthUser AND value->entity->id > 0;
+      }
+      CASE TypeID(INTEGER)
+      {
+        RETURN value > 0
+           AND (ObjectExists(this->contexts->userapi->GetObjectByAuthObjectId(value))
+                OR ObjectExists(this->contexts->userapi->GetUser(value)));
+      }
+      CASE TypeID(STRING)
+      {
+        RETURN this->person_type->Search("WRD_GUID", value) > 0;
+      }
+    }
+    RETURN FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  VARIANT FUNCTION GetValue()
+  {
+    SWITCH (this->inputkind)
+    {
+      CASE "WRD_ID"
+      {
+        RETURN ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0;
+      }
+      CASE "AUTHOBJECT_ID"
+      {
+        RETURN ObjectExists(this->pvt_user) ? this->pvt_user->authobjectid : 0;
+      }
+    }
+    /* WRD_GUID */
+    RETURN ObjectExists(this->pvt_user) AND ObjectExists(this->pvt_user->entity) ? this->pvt_user->entity->guid : "";
+  }
+
+  STRING FUNCTION GetDisplayValue()
+  {
+    IF (NOT ObjectExists(this->pvt_user))
+      RETURN "";
+
+    IF(this->field = "")
+      RETURN this->contexts->userapi->GetUserDisplayName(this->pvt_user->authobjectid);
+
+    RETURN this->pvt_user->entity->GetField(this->field) ?? this->pvt_user->entity->GetField("WRD_TITLE");
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION SetValueIfValid(VARIANT value)
+  {
+    IF(NOT this->IsValidValue(value))
+      RETURN FALSE;
+
+    this->SetValue(value);
+    RETURN TRUE;
+  }
+
+  MACRO SetValue(VARIANT newvalue)
+  {
+    OBJECT curvalue := this->pvt_user;
+    OBJECT value;
+    IF(TypeID(newvalue) = TypeID(OBJECT))
+    {
+      IF(NOT ObjectExists(newvalue))
+        RETURN;/// Ignore: Invalid value, we should not accept that.
+
+      value := newvalue;
+    }
+    ELSE IF(TypeID(newvalue) = TypeID(INTEGER))/// WRD_ID or AUTHOBJECT_ID
+    {
+      IF(newvalue <= 0)
+        RETURN;/// Ignore: Invalid value, we should not accept that.
+
+      value := this->contexts->userapi->GetObjectByAuthObjectId(newvalue);
+      IF(NOT ObjectExists(value))
+        value := this->contexts->userapi->GetUser(newvalue);
+      IF(NOT ObjectExists(value))
+        RETURN;/// Ignore: Invalid value, we should not accept that.
+    }
+    ELSE IF(TypeID(newvalue) = TypeID(STRING))/// WRD_GUID
+    {
+      IF(newvalue = "")
+        RETURN;/// Ignore: Invalid value, we should not accept that.
+
+      INTEGER wrd_id := this->person_type->Search("WRD_GUID", newvalue);
+      value := this->contexts->userapi->GetUser(wrd_id);
+    }
+
+    this->pvt_user := value;
+    this->username->value := this->GetDisplayValue();
+
+    IF(ObjectExists(value) AND (NOT ObjectExists(curvalue) OR value->entityid != curvalue->entityid) AND this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
+  }
+
+  MACRO SetInputKind(STRING inputkind)
+  {
+    inputkind := ToUppercase(inputkind);
+    IF (inputkind NOT IN [ "WRD_ID", "WRD_GUID", "AUTHOBJECT_ID" ])
+      THROW NEW TolliumException(this, "Invalid input kind '" || inputkind || "'");
+
+    this->pvt_inputkind := inputkind;
+  }
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+    // Can't do anything about a readonly or disabled field
+    IF (this->readonly OR NOT this->enabled)
+      RETURN;
+
+    IF(NOT ObjectExists(this->pvt_user) AND this->pvt_required)
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", this->title));
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO DoEdit()
+  {
+    RECORD params;
+
+    OBJECT screen := this->owner->LoadScreen("system:userrights/dialogs.selectuserrole");
+    screen->filterontype := 1;
+    screen->selectmode := "single";
+    IF(screen->RunModal() = "ok" AND screen->value != DEFAULT OBJECT)
+      this->value := screen->value;
+  }
+
+  MACRO DoClear()
+  {
+    this->pvt_user := DEFAULT OBJECT;
+    this->username->value := "";
+  }
+>;

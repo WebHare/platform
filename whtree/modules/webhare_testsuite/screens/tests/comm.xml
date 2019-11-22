@@ -1,0 +1,62 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/comm.whlib"
+         gid="appstart">
+
+  <messageboxes>
+    <messagebox name="confirmclose" title="Close?!" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="appstart" allowresize="1" menubar="menu" onmessage="onmessage">
+    <actions>
+      <action name="startapp" onexecute="dostartapp" title="start app X03"/>
+      <action name="abortapp" onexecute="doabortapp" title="abort app X04"/>
+      <action name="opennoclose" onexecute="doopennoclose" title="open noclose X05"/>
+      <action name="opencloseable" onexecute="doopencloseable" title="open closeable X06"/>
+      <action name="toggleallowclose" onexecute="dotoggleallowclose" title="toggle allowclose X07"/>
+    </actions>
+    <menus>
+      <menu name="menu">
+        <item action="startapp" />
+        <item action="abortapp" />
+        <item action="opennoclose" />
+        <item action="opencloseable" />
+        <item action="toggleallowclose" />
+      </menu>
+    </menus>
+    <body>
+      <textedit name="targetval" valuetype="integer" />
+      <textarea name="messages" height="1pr" />
+    </body>
+  </screen>
+
+  <screen name="closeable" implementation="none">
+    <body>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="noclose" allowclose="false" implementation="none">
+    <body>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="eventserver" title="Event server" menubar="menu" allowresize="true">
+    <actions>
+      <action name="sendmessage" title="A01 Send Message" onexecute="dosendmessage" />
+    </actions>
+    <menus>
+      <menu name="menu">
+        <item action="sendmessage" />
+      </menu>
+    </menus>
+    <body>
+    </body>
+  </screen>
+
+</screens>

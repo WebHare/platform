@@ -1,0 +1,330 @@
+﻿<?wh
+
+/* This file contains a lowlevel database transaction driver that connects back to another
+   transaction.
+*/
+
+LOADLIB "wh::dbase/transaction.whlib";
+
+INTEGER FUNCTION __HS_SQL_RegisterTypeInfo(BOOLEAN recarr, STRING ARRAY columns) __ATTRIBUTES__(EXTERNAL);
+INTEGER FUNCTION __HS_SQL_RegisterTableTypeInfo(RECORD tabledata) __ATTRIBUTES__(EXTERNAL);
+        MACRO    __HS_SQL_UnregisterTypeInfo(INTEGER id) __ATTRIBUTES__(EXTERNAL);
+        MACRO    __HS_SQL_LimitBlockSize() __ATTRIBUTES__(EXTERNAL);
+
+INTEGER FUNCTION RegisterTableTypeInfo(RECORD tabledata, RECORD config)
+{
+  INSERT CELL istable := TRUE INTO tabledata;
+
+  IF (config.full_null_translation)
+  {
+    FOREVERY (RECORD col FROM tabledata.columns)
+    {
+      IF (NOT CellExists(col, "NULLDEFAULT_VALID") OR NOT col.nulldefault_valid)
+      {
+        IF (CellExists(col, "NULLDEFAULT"))
+          DELETE CELL nulldefault FROM tabledata.columns[#col];
+
+        IF (col.type = 1) // VARIANT!! (occurs with dynamicquery)
+        {
+          // FIXME: psql needs type info when executing dynquery stuff...
+          col.type := TypeID(INTEGER);
+          tabledata.columns[#col].type := TypeID(INTEGER);
+        }
+
+        INSERT CELL nulldefault := GetTypeDefaultValue(col.type) INTO tabledata.columns[#col];
+      }
+    }
+  }
+
+  RETURN __HS_SQL_RegisterTableTypeInfo(tabledata);
+}
+
+
+INTEGER FUNCTION GetConditionType(STRING typestr) //FIXME shouldn't be needed!
+{
+  SWITCH (typestr)
+  {
+  CASE "<"        { RETURN 0x80; }
+  CASE "<="       { RETURN 0x81; }
+  CASE "="        { RETURN 0x82; }
+  CASE ">"        { RETURN 0x83; }
+  CASE ">="       { RETURN 0x84; }
+  CASE "!="       { RETURN 0x85; }
+  CASE "LIKE"     { RETURN 0x86; }
+  CASE "IN"       { RETURN 0x87; }
+  }
+  THROW NEW Exception("Unknown condition type '"||typestr||"'");
+}
+
+OBJECTTYPE RetransLowLevelCursor EXTEND TransactionCursorBase
+< INTEGER cursor;
+  INTEGER tablecount;
+  INTEGER rowcount;
+  STRING state;
+  INTEGER ARRAY typeinfos;
+  RECORD config;
+
+  MACRO NEW(INTEGER trans, RECORD dbquery, STRING type, RECORD config)
+  {
+    this->config := config;
+
+//    PRINT("RetransLowLevelCursor: Executing query:\n" || AnyToString(dbquery, "tree"));
+
+    INTEGER ctype;
+    SWITCH (type)
+    {
+    CASE "SELECT"       { ctype := 0; }
+    CASE "DELETE"       { ctype := 1; }
+    CASE "UPDATE"       { ctype := 2; }
+    DEFAULT             { THROW NEW Exception("Unknown cursor type '"||type||"'"); }
+    }
+
+
+    RECORD ARRAY sources := __HS_SQL_GetSourcesBaseList();
+    FOREVERY (RECORD tabledata FROM dbquery.tablesources)
+    {
+      INTEGER ti := RegisterTableTypeInfo(tabledata, config);
+      INSERT ti INTO this->typeinfos AT END;
+      sources := __HS_SQL_AddTableSource(sources, BindTransactionToTable(trans, tabledata.name), ti);
+    }
+
+    RECORD opts :=
+        [ conditions :=           dbquery.singleconditions CONCAT dbquery.joinconditions
+        , querytype :=            ctype
+        , has_hs_code :=          TRUE
+        , limitblocksize :=       TRUE
+        ];
+
+    IF (dbquery.query_limit != -1)
+      INSERT CELL "limit" := dbquery.query_limit INTO opts;
+
+    this->cursor := __HS_SQL_OpenCursor2(sources, opts);
+/*
+
+    __HS_SQL_ClearQueryData();
+    FOREVERY (RECORD tabledata FROM dbquery.tablesources)
+    {
+      INTEGER ti := RegisterTableTypeInfo(tabledata, config);
+      INSERT ti INTO this->typeinfos AT END;
+
+      __HS_SQL_AddSourceTable(BindTransactionToTable(trans, tabledata.name), ti);
+    }
+
+    IF (dbquery.query_limit != -1)
+      __HS_SQL_SetLimit(dbquery.query_limit, FALSE);
+
+//    PRINT(AnyToString(dbquery.singleconditions, "boxed"));
+
+    FOREVERY (RECORD c FROM dbquery.singleconditions)
+      __HS_SQL_AddConditionSingle(c.tableid, c.columnid, c.value, c.casesensitive, GetConditionType(c.condition));
+    FOREVERY (RECORD c FROM dbquery.joinconditions)
+      __HS_SQL_AddConditionRelation(c.table1_id, c.t1_columnid, c.table2_id, c.t2_columnid, c.casesensitive, GetConditionType(c.condition));
+
+    __HS_SQL_LimitBlockSize();
+
+
+    this->cursor := __HS_SQL_OpenCursor(ctype);
+*/
+    this->tablecount := LENGTH(dbquery.tablesources);
+    this->state := "INIT";
+  }
+
+  UPDATE PUBLIC MACRO RetrieveNextBlock()
+  {
+//    PRINT("retrans: RetrieveNextBlock\n");
+    IF (this->state != "FASE1")
+    {
+      IF (this->state = "FASE1_R")
+        __HS_SQL_ReportWhereResult(this->cursor, FALSE); // state = "INIT"
+
+      INTEGER action := __HS_SQL_GetAction(this->cursor);
+      SWITCH (action)
+      {
+      CASE 0
+        {
+        }
+      CASE 1
+        {
+          THROW NEW Exception("Got unexpected return value from GetAction (wanted fase1 or end, got fase2)");
+        }
+      CASE 2
+        {
+          this->state := "DONE";
+          this->pvt_currentblock := DEFAULT RECORD ARRAY;
+          this->rowcount := 0;
+          RETURN;
+        }
+      DEFAULT
+        {
+          THROW NEW Exception("Got unexpected return value from GetAction (wanted fase1 or end, got unknown type "||action||")");
+        }
+      }
+    }
+
+    // Return max one row
+    RECORD ARRAY rs;
+    FOR (INTEGER i := 0; i < this->tablecount; i := i + 1)
+      INSERT __HS_SQL_GetRecordFase1(this->cursor, i) INTO rs AT END;
+    this->rowcount := 1;
+
+    this->pvt_currentblock := rs;
+    this->state := "FASE1_R";
+  }
+
+  UPDATE PUBLIC STRING FUNCTION LockRow(INTEGER row)
+  {
+//    PRINT("retrans: LockRow\n");
+    IF (row < 0 OR row >= this->rowcount)
+      THROW NEW Exception("Illegal row nr specified in LockRow");
+
+    IF (this->state != "FASE1_R")
+      THROW NEW Exception("LockRecord called in wrong state ("||this->state||")");
+
+    __HS_SQL_ReportWhereResult(this->cursor, TRUE);
+    INTEGER action := __HS_SQL_GetAction(this->cursor);
+    SWITCH (action)
+    {
+    CASE 0
+      {
+        // fase 1 again. We don't know if this was the current record that is locked now, or
+        // another record that isn't. But, we could just ignore that and report the lock as failed.
+        this->state := "FASE1";
+        RETURN "REMOVED";
+      }
+    CASE 1
+      {
+        // fase 2, record unchanged
+        this->state := "FASE2";
+        RETURN "UNCHANGED";
+      }
+    CASE 2
+      {
+        // record gone / not matching no mo'. and no next record
+        this->state := "DONE";
+        RETURN "REMOVED";
+      }
+    DEFAULT
+      {
+          THROW NEW Exception("Got unexpected return value from GetAction (got unknown type "||action||")");
+      }
+    }
+  }
+
+  UPDATE PUBLIC MACRO UnlockRow(INTEGER row)
+  {
+//    PRINT("retrans: UnlockRow\n");
+    IF (row < 0 OR row >= this->rowcount)
+      THROW NEW Exception("Illegal row nr specified in LockRow");
+
+    // Don't care.
+  }
+
+  UPDATE PUBLIC MACRO GetFase2Data(INTEGER ARRAY rows)
+  {
+//    PRINT("retrans: GetFase2Data\n");
+    FOREVERY (INTEGER row FROM rows)
+      IF (row < 0 OR row >= this->rowcount)
+        THROW NEW Exception("Illegal row nr specified in LockRow");
+
+    IF (this->state = "FASE1_R")
+      __HS_SQL_ReportWhereResult(this->cursor, TRUE); // state = expect fase 2
+
+    IF (this->state != "FASE2")
+    {
+      INTEGER action := __HS_SQL_GetAction(this->cursor);
+      // action != fase 2: there is no fase 2 data, all fase 1. pvt_currentblock is still valid.
+      SWITCH (action)
+      {
+      CASE 0
+        {
+          this->state := "FASE1";
+          RETURN;
+        }
+      CASE 2
+        {
+          this->state := "DONE";
+          RETURN;
+        }
+      }
+    }
+
+    RECORD ARRAY rs;
+    FOR (INTEGER i := 0; i < this->tablecount; i := i + 1)
+      INSERT __HS_SQL_GetRecordFase1(this->cursor, i) INTO rs AT END;
+
+    this->pvt_currentblock := rs;
+    this->state := "FASE2_R";
+  }
+
+  UPDATE PUBLIC MACRO DeleteRecord(INTEGER row)
+  {
+//    PRINT("retrans: DeleteRecord\n");
+    IF (row < 0 OR row >= this->rowcount)
+      THROW NEW Exception("Illegal row nr specified in LockRow");
+
+    IF (this->state != "FASE2_R")
+      THROW NEW Exception("DeleteRecord can only occur in state FASE2_R, current state: "||this->state);
+    __HS_SQL_DELETERECORD(this->cursor);
+
+    this->state := "INIT";
+  }
+
+  UPDATE PUBLIC MACRO UpdateRecord(INTEGER row, RECORD newfields)
+  {
+//    PRINT("retrans: UpdateRecord\n");
+    IF (row < 0 OR row >= this->rowcount)
+      THROW NEW Exception("Illegal row nr specified in LockRow");
+
+    IF (this->state != "FASE2_R")
+      THROW NEW Exception("UpdateRecord can only occur in state FASE2_R, current state: "||this->state);
+    __HS_SQL_UPDATERECORD(this->cursor, newfields);
+
+    this->state := "INIT";
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+//    PRINT("retrans: Close\n");
+    FOREVERY (INTEGER i FROM this->typeinfos)
+      __HS_SQL_UnregisterTypeInfo(i);
+    this->typeinfos := DEFAULT INTEGER ARRAY;
+
+    __HS_SQL_CloseQuery(this->cursor);
+  }
+>;
+
+PUBLIC OBJECTTYPE RetransLowLevelTransaction EXTEND TransactionBase
+< RECORD config;
+  INTEGER retrans;
+
+  MACRO NEW(INTEGER retrans, RECORD config)
+  {
+    this->retrans := retrans;
+    this->config :=
+        [ full_null_translation         := config.full_null_translation
+        ];
+  }
+
+  UPDATE PUBLIC OBJECT/*< LowLevelCursor >*/ FUNCTION OpenCursor(RECORD query, STRING type)
+  {
+    RETURN NEW RetransLowLevelCursor(this->retrans, query, type, this->config);
+  }
+
+  UPDATE PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
+  {
+    //THROW NEW Exception("RetransLowLevelTransaction::InsertRecord not implemented");
+
+    // Something like this: (test if it works!)
+    INTEGER ti := RegisterTableTypeInfo(query.tablesources[0], this->config);
+    __HS_SQL_Insert(
+        BindTransactionToTable(this->retrans, query.tablesources[0].name),
+        ti,
+        newfields,
+        TRUE);
+    __HS_SQL_UnregisterTypeInfo(ti);
+    //*/
+  }
+>;
+
+
+

@@ -1,0 +1,43 @@
+[component htmlhead]
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+[/component]
+
+[component htmlbody]
+  <div id="basetitle">[gettid basetest.title]</div>
+  <div id="whfspath">[whfspath]</div>
+
+  <div id="content" data-dynamiclink="[dynamiclink]"
+                    data-anchors="[anchors]"
+                    data-webdesign-prepareforrendering="[webdesign_prepareforrendering]"
+                    data-dynamicpageparameters="[dynamicpageparameters_hson]">
+    [contents]
+  </div>
+  [if widget]
+    <div id="widget">[widget]</div>
+  [/if]
+  [if have_widgetimg]<img id="imgtest" src="[imgroot]img.jpg" alt="Not all webdesign tests actually publish this image" />[/if]
+  [if bobimagelink]<div id="bobimagelink">[bobimagelink.link]</div>[/if]
+  [if wrdauthplugin]
+    <div id="wrdauthplugin"><a id="logoutlink" href="[logoutlink]">Logoutlink</a></div>
+  [/if]
+  [if comments]<div id="comments">[comments]</div>[/if]
+  [if sharedblocks]<div id="sharedblocks">[forevery sharedblocks]<div class="basetest__sharedblock">[sharedblocks]</div>[/forevery]</div>[/if]
+[/component]
+
+[component wrapbody][embed basetest.witty:wrapbody2][/component]
+[component wrapbody2][origbody][/component]
+[component blinky]<blink>[text]</blink>[/component]
+
+[component level2widget]
+<div class="level2widget" data-lang="[languagecode]" data-mytype="[mytype]" data-rtdtype="[rtdtype]" data-targetsite="[targetsite]" data-targetfolder="[targetfolder]" data-whfssettingid="[whfssettingid]" data-whfsfileid="[whfsfileid]">
+  [rtd]
+</div>
+[/component]
+
+[component formunavailable]
+<div id="formunavailable">[why]</div>
+[/component]
+
+[component emptywidget]
+<div id="emptywidget"></div>
+[/component]

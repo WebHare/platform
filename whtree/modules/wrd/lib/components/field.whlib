@@ -1,0 +1,680 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
+<
+  PUBLIC STRING imagewidth;
+  PUBLIC STRING imageheight;
+  PUBLIC BOOLEAN hr;
+  PUBLIC BOOLEAN columnheaders;
+  INTEGER maxlength;
+  OBJECT pvt_currentdefaultbutton;
+  RECORD ARRAY pvt_domainfilters;
+
+  OBJECT wrdtype;
+  PUBLIC STRING select_style;
+  PUBLIC STRING datetimetype;
+  PUBLIC STRING precision; // for datetimes
+  PUBLIC BOOLEAN verification;
+  PUBLIC BOOLEAN force_verification;
+  PUBLIC UPDATE PROPERTY defaultbutton(pvt_currentdefaultbutton, SetDefaultButton);
+  PUBLIC BOOLEAN password_set;
+  PUBLIC STRING emptyvalue;
+  PUBLIC STRING ARRAY mimetypes;
+  PUBLIC STRING edittype;
+  PUBLIC STRING selectmethod;
+  PUBLIC RECORD attrinfo;
+  PUBLIC BOOLEAN entercurrentpassword;
+  PUBLIC STRING policy;
+  PUBLIC BOOLEAN password;
+  PUBLIC FUNCTION PTR onpolicycheck;
+  PUBLIC STRING defaultcountry;
+  PUBLIC PROPERTY domainfilters(pvt_domainfilters, SetDomainFilters); // Filters for (single/multi) domains
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  PUBLIC BOOLEAN autotitle;
+
+  PRIVATE BOOLEAN fieldreadonly;
+  PRIVATE OBJECT ARRAY currentobjects;
+//  PRIVATE RECORD ARRAY arrayvalue;
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsUpdateValue()
+  {
+    FOREVERY(OBJECT comp FROM this->currentobjects)
+      IF(comp->IsUpdateValue())
+        RETURN TRUE;
+    RETURN TolliumComponentBase::IsUpdateValue();
+  }
+
+  PRIVATE VARIANT FUNCTION GetValue()
+  {
+    SWITCH (this->attrinfo.attributetype)
+    {
+      CASE 0
+      {
+        ABORT("GetValue was invoked for read-only field " || this->attrinfo.tag);
+      }
+      CASE 11 /* Time */
+      {
+        RETURN GetMsecondCount(this->currentobjects[0]->value);
+      }
+      CASE 6, 12 /* Date, Datetime */
+      {
+        RETURN this->currentobjects[3]->value ? MAX_DATETIME : this->currentobjects[2]->value;
+      }
+//      CASE 13 /* Array */
+//      {
+//        RETURN this->arrayvalue;
+//      }
+      CASE 19,17,22,25,26,27 /* Instance, richdoc, HSON, paymentprovider, payment */
+      {
+        RETURN this->currentobjects[0]->value = "" ? DEFAULT RECORD : DecodeHSON(this->currentobjects[0]->value);
+      }
+
+    }
+    IF (this->attrinfo.tag = "WRD_LIMITDATE" AND this->currentobjects[0]->value = DEFAULT DATETIME)
+      RETURN MAX_DATETIME;
+
+    IF (LENGTH(this->currentobjects) = 0)
+      ABORT("Failure for wrd attr tag: " || this->attrinfo.tag || ", type: " ||this->attrinfo.attributetype);
+
+    RETURN this->currentobjects[0]->value;
+  }
+
+  UPDATE MACRO SetReadonly(BOOLEAN newreadonly)
+  {
+    this->pvt_readonly := newreadonly;
+    IF (ObjectExists(this->wrdtype))
+    {
+      VARIANT value := this->value;
+      this->WRD_Setup(this->wrdtype);
+      this->value := value;
+    }
+  }
+
+  PRIVATE MACRO SetValue(VARIANT val)
+  {
+    INTEGER attrtype := this->attrinfo.attributetype;
+    IF (attrtype = 2 AND this->password)
+      attrtype := 7; /* password */
+
+    SWITCH (attrtype)
+    {
+      CASE 7 /*Password*/
+      {
+        this->currentobjects[0]->value := val;
+      }
+//      CASE 13 /* Array */
+//      {
+//        this->arrayvalue := RECORD ARRAY(val);
+//      }
+      CASE 11 /* Time */
+      {
+        this->currentobjects[0]->value := MakeDateFromParts(0,val);
+      }
+      CASE 6, 12 /* Date, Datetime */
+      {
+        this->currentobjects[0]->value := val != MAX_DATETIME;
+        this->currentobjects[2]->value := val = MAX_DATETIME ? DEFAULT DATETIME : val;
+        this->currentobjects[3]->value := val = MAX_DATETIME;
+
+        IF (this->pvt_readonly)
+        {
+          this->currentobjects[2]->visible := this->visible AND val != MAX_DATETIME;
+          this->currentobjects[4]->visible := this->visible AND val = MAX_DATETIME;
+        }
+      }
+      CASE 19,17,22,25,26,27 /* Instance, richdoc, HSON, paymentprovider, payment */
+      {
+        //show hson-encoded data
+        this->currentobjects[0]->value := EncodeHSON(val);
+      }
+      DEFAULT
+      {
+        IF (this->attrinfo.tag = "WRD_LIMITDATE" AND val = MAX_DATETIME)
+          this->currentobjects[0]->value := DEFAULT DATETIME;
+        ELSE
+        {
+          IF(TypeID(this->currentobjects[0]->value) != TypeID(val))
+            THROW NEW Exception("Type mismatch on attribute '" || this->attrinfo.tag || "'");
+          this->currentobjects[0]->value := val;
+        }
+      }
+    }
+  }
+
+  PRIVATE UPDATE MACRO SetDefaultButton(OBJECT newdefaultbutton)
+  {
+    this->pvt_currentdefaultbutton := newdefaultbutton;
+    FOREVERY(OBJECT comp FROM this->currentobjects)
+      IF(MemberExists(comp,"defaultbutton")) //FIXME: not nice to need this check: cleaner or generalize the 'defaultbutton'  concept?
+        comp->defaultbutton := newdefaultbutton;
+  }
+
+  PRIVATE MACRO SetDomainFilters(RECORD ARRAY domainfilters)
+  {
+    this->pvt_domainfilters := domainfilters;
+
+    // may be set before init with type
+    IF (RecordExists(this->attrinfo) AND this->attrinfo.attributetype IN [ 1, 8 ])
+      this->currentobjects[0]->domainfilters := domainfilters;
+  }
+
+  PRIVATE MACRO CreateComponents(OBJECT wrdtype)
+  {
+    this->wrdtype := wrdtype;
+    INTEGER attrtype := this->attrinfo.attributetype;
+    IF (attrtype = 2 AND this->password)
+      attrtype := 7; /* password */
+
+    BOOLEAN manual_enable;
+
+    SWITCH (attrtype)
+    {
+      CASE 0
+      {
+        OBJECT comp := this->CreateSubComponent("text");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        this->currentobjects := [comp];
+      }
+      CASE 1 /*Single*/
+         , 8 /*Multiple*/
+      {
+        IF(this->attrinfo.tag="WRD_GENDER")
+        {
+          OBJECT comp := this->CreateSubComponent("select");
+          comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+          comp->readonly := this->fieldreadonly;
+          comp->required := this->attrinfo.isrequired OR this->required;
+
+          RECORD ARRAY opts := (SELECT rowkey:=id,title FROM GetGenderOptions(DEFAULT RECORD, GetLangTexts(GetTidLanguage()), "WRD_GENDER"));
+          INSERT CELL invalidselection := TRUE INTO opts[0];
+
+          comp->options := opts;
+          comp->type := this->select_style="" ? "pulldown" : this->select_style;
+          comp->selection := comp->options[0];
+          this->currentobjects := [ comp ];
+        }
+        ELSE
+        {
+          OBJECT comp := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/wrd/components", "selectentity");
+          comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+          comp->type := this->selectmethod ?? (this->attrinfo.attributetype = 8 ? "inlinecheckboxlist" : "pulldown"); //if not set, take the most scalable presentations
+          comp->readonly := this->fieldreadonly;
+          comp->selectmultiple := this->attrinfo.attributetype = 8;
+          comp->domainfilters := this->pvt_domainfilters;
+          OBJECT domaintype := wrdtype->wrdschema->GetTypeById(this->attrinfo.domain);
+          IF(NOT ObjectExists(domaintype))
+            THROW NEW Exception("Field '" || this->attrinfo.tag || "' refers to non existing domain #" || this->attrinfo.domain);
+          comp->domaintag := domaintype->tag;
+          comp->width := "1pr";
+          comp->height := this->height;
+          this->currentobjects := [ comp ];
+        }
+      }
+      CASE 2 /* Free form */, 4 /* E-mail address */, 5 /* Telephone */, 21 /* URL */
+      {
+        OBJECT comp;
+
+        BOOLEAN textarea := (this->edittype="textarea" AND attrtype = 2) OR this->attrinfo.multiline;
+        comp := this->CreateSubComponent(textarea ? "textarea" : "textedit");
+        comp->required := this->required OR this->attrinfo.isrequired;
+        comp->readonly := this->fieldreadonly;
+        IF (this->attrinfo.maxlength != 0)
+          comp->maxlength := this->attrinfo.maxlength;
+        IF (this->maxlength != 0 AND (comp->maxlength = 0 OR comp->maxlength > this->maxlength))
+          comp->maxlength := this->maxlength;
+
+        IF(attrtype = 4) //email
+          comp->validationchecks := ["email"];
+        ELSE IF(attrtype = 21) //url
+          comp->validationchecks := ["url"];
+
+        IF(this->width!="")
+          comp->width := this->width;
+
+        comp->height := this->height;
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+
+        this->currentobjects := [comp];
+      }
+      CASE 3 /* Postal address */
+      {
+        OBJECT comp := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/wrd/components", "addressfield");
+        comp->required := this->required OR this->attrinfo.isrequired;
+        comp->readonly := this->fieldreadonly;
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->height := this->height;
+        comp->verification := this->verification;
+        comp->force_verification := this->force_verification;
+        comp->defaultcountry := this->defaultcountry;
+
+        this->currentobjects := [comp];
+      }
+      CASE 11 /* time */
+      {
+        OBJECT comp := this->CreateSubComponent("datetime");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->storeutc := this->attrinfo.attributetype = 12; //ADDME: wanneer precies ? misschien 2 WRD types toevoegen, een voor UTC Tijd en een voor Unconverted tijd ?
+        IF(this->datetimetype!="")
+          comp->type := this->datetimetype;
+        ELSE
+          comp->type := this->attrinfo.attributetype = 6 ? "date" : this->attrinfo.attributetype = 11 ? "time" : "datetime";
+
+        IF (this->precision != "")
+          comp->precision := this->precision;
+        ELSE IF (comp->type = "time")
+          comp->precision := "minutes";
+
+        comp->readonly := this->fieldreadonly;
+        comp->required := this->required;
+        comp->visible := this->visible;
+
+        this->currentobjects := [comp];
+      }
+      CASE 6 /* date */, 12 /* datetime */
+      {
+        OBJECT comp_radiogroup := this->CreateSubComponent("radiogroup");
+        OBJECT comp_radio_date := this->CreateSubComponent("radiobutton");
+        OBJECT comp_text_date := this->CreateSubComponent("text");
+        OBJECT comp_datevalue := this->CreateSubComponent("datetime");
+        OBJECT comp_radio_max_datetime := this->CreateSubComponent("radiobutton");
+        OBJECT comp_text_max_datetime := this->CreateSubComponent("text");
+
+        comp_datevalue->storeutc := this->attrinfo.attributetype = 12; //ADDME: wanneer precies ? misschien 2 WRD types toevoegen, een voor UTC Tijd en een voor Unconverted tijd ?
+        IF(this->datetimetype!="")
+          comp_datevalue->type := this->datetimetype;
+        ELSE
+          comp_datevalue->type := this->attrinfo.attributetype = 6 ? "date" : this->attrinfo.attributetype = 11 ? "time" : "datetime";
+
+        IF (this->precision != "")
+          comp_datevalue->precision := this->precision;
+        ELSE IF (comp_datevalue->type = "time")
+          comp_datevalue->precision := "minutes";
+
+        comp_radio_date->enablecomponents := [ comp_datevalue ];
+        comp_radio_date->rowkey := "date";
+        comp_radio_date->radiogroup := comp_radiogroup;
+
+        comp_radio_max_datetime->rowkey := "max_datetime";
+        comp_radio_max_datetime->radiogroup := comp_radiogroup;
+
+        STRING title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+
+        IF (this->readonly)
+        {
+          comp_datevalue->title := title;
+          comp_text_max_datetime->title := title;
+        }
+        ELSE
+          comp_radio_date->title := title;
+
+        comp_text_date->title := GetTid("wrd:components.wrdfield.date");
+        comp_text_date->labelfor := comp_radio_date;
+        comp_text_max_datetime->value := GetTid("wrd:components.wrdfield.max_datetime");
+        comp_text_max_datetime->labelfor := comp_radio_max_datetime;
+
+        manual_enable := TRUE;
+
+        comp_radio_date->enabled := this->enabled OR this->readonly;
+        comp_radio_max_datetime->enabled := this->enabled OR this->readonly;
+
+        comp_radio_date->required := this->required;
+
+        comp_radio_date->visible := this->visible AND NOT this->readonly;
+        comp_radio_max_datetime->visible := this->visible AND NOT this->readonly;
+        comp_datevalue->visible := this->visible;
+        comp_text_date->visible := this->visible AND NOT this->readonly;
+        comp_text_max_datetime->visible := this->visible AND NOT this->readonly;
+
+        comp_datevalue->readonly := this->readonly;
+
+        this->currentobjects := [ comp_radio_date, comp_text_date, comp_datevalue, comp_radio_max_datetime, comp_text_max_datetime ];
+      }
+      CASE 7 /* Password */
+      {
+        OBJECT passwordfield := this->CreateSubComponent("passwordfield");
+        passwordfield->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        passwordfield->required := this->required OR this->attrinfo.isrequired;
+        passwordfield->ishashed := this->attrinfo.attributetype = 7;
+        passwordfield->entercurrentpassword := this->entercurrentpassword;
+        this->currentobjects := [passwordfield];
+      }
+      CASE 9 /* Image */
+      {
+        OBJECT comp := this->CreateSubComponent("imageedit");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->imagewidth := this->imagewidth;
+        //comp->imagewidth := "200px";
+        comp->imageheight := this->imageheight;
+        comp->readonly := this->fieldreadonly;
+        comp->required := this->attrinfo.isrequired OR this->required;
+        this->currentobjects := [comp];
+      }
+      CASE 10 /* File */
+      {
+        OBJECT comp := this->CreateSubComponent("fileedit");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->readonly := this->fieldreadonly;
+        comp->mimetypes := this->mimetypes;
+        this->currentobjects := [comp];
+      }
+      CASE 13 /* Array */
+      {
+        OBJECT comp := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/wrd/components", "arraybox");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->readonly := this->fieldreadonly;
+        comp->attrinfo := this->attrinfo;
+        comp->hr := this->hr;
+        comp->columnheaders := this->columnheaders;
+        //comp->EnsurePreInit();
+        comp->WRD_Setup(wrdtype);
+
+        this->currentobjects := [ comp ];
+      }
+      CASE 14 /* Money */
+      {
+        OBJECT comp := this->CreateSubComponent("textedit");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->valuetype := "money";
+        comp->readonly := this->fieldreadonly;
+        comp->required := this->required;
+        IF (this->emptyvalue != "")
+        {
+          RECORD parsed := comp->ParseTextValue(this->emptyvalue);
+          comp->emptyvalue := parsed.value;
+          comp->emptyvalueisset := parsed.valid; // ADDME: feedback on invalid value
+        }
+        this->currentobjects := [comp];
+      }
+      CASE 15 /* Integer */, 18 /* Integer64 */
+      {
+        OBJECT comp := this->CreateSubComponent("textedit");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->valuetype := attrtype = 18 ? "integer64" : "integer";
+        comp->readonly := this->fieldreadonly;
+        comp->required := this->required;
+        IF (this->emptyvalue != "")
+        {
+          RECORD parsed := comp->ParseTextValue(this->emptyvalue);
+          comp->emptyvalue := parsed.value;
+          comp->emptyisset := parsed.valid; // ADDME: feedback on invalid value
+        }
+        this->currentobjects := [comp];
+      }
+      CASE 16 /* Boolean */
+      {
+        OBJECT comp := this->CreateSubComponent("checkbox");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->readonly := this->fieldreadonly;
+        this->currentobjects := [comp];
+      }
+      //ADDME RTD component, but it's just too easy to corrupt data if we let you edit it like this (we don't even know if its structured!)
+      /*
+      CASE 17 //Rich
+      {
+        OBJECT comp := this->CreateSubComponent("rte");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->readonly := this->fieldreadonly;
+        this->currentobjects := [comp];
+      }
+      */
+      CASE 20 //Intextlink
+      {
+        OBJECT comp := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/publisher/components", "intextlink");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->readonly := this->fieldreadonly;
+        this->currentobjects := [comp];
+      }
+      CASE 23, 24 // ENUM, ENUMARRAY
+      {
+        OBJECT comp := this->CreateSubComponent("select");
+        comp->type := (attrtype = 23 ? "pulldown" : "checkboxlist");
+        comp->rowkeytype := TYPEID("string");
+        comp->options :=
+            (attrtype = 23 ? [ [ rowkey := "", title := GetTid("wrd:components.wrdfield.enum-noneselected"), validselection := this->attrinfo.isrequired ] ] : RECORD[]) CONCAT
+            SELECT rowkey :=    value
+                 , title :=     value
+              FROM ToRecordArray(this->attrinfo.allowedvalues, "VALUE");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->readonly := this->fieldreadonly;
+        this->currentobjects := [comp];
+      }
+      CASE 17, 19, 22, 25, 26, 27 // richdoc, instance, hson, paymentprovider, payment (readonly)
+      {
+        OBJECT comp := this->CreateSubComponent("textedit");
+        comp->width := "1pr";
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->enabled := FALSE;
+        this->currentobjects := [comp];
+      }
+      DEFAULT
+      {
+        OBJECT comp := this->CreateSubComponent("text");
+        comp->value := "(type " || this->attrinfo.attributetype || " not yet supported)";
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        this->currentobjects := [comp];
+      }
+    }
+    /*IF(Length(this->currentobjects)>=1)
+    {
+      this->currentobjects[0]->title := this->title !="" ? this->title : this->attrinfo.title;
+    }*/
+
+    FOREVERY(OBJECT comp FROM this->currentobjects)
+    {
+      IF (NOT manual_enable)
+        comp->enabled := this->enabled AND comp->enabled;
+      comp->defaultbutton := this->pvt_currentdefaultbutton;
+    }
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newstate)
+  {
+    TolliumComponentBase::SetEnabled(newstate);
+
+    INTEGER attrtype := RecordExists(this->attrinfo) ? this->attrinfo.attributetype : 0;
+    IF ((attrtype = 2 AND this->password) OR attrtype = 7)
+    {
+      // This is a password field, disable the textedit
+      this->currentobjects[0]->enabled := FALSE;
+    }
+    ELSE IF (attrtype = 12)
+    {
+      this->currentobjects[1]->enabled := newstate AND this->currentobjects[0]->value;
+    }
+  }
+
+  //ADDME: Remove when we're able to pass parameters to function pointers
+  /////////////////////////////////////////////////////////////////////
+  //
+  // TolliumWRDField
+  //
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+
+    this->invisibletitle := TRUE;
+    this->autotitle := TRUE;
+    this->hr := TRUE;
+    this->columnheaders := TRUE;
+  }
+
+  PUBLIC MACRO DynamicInit(STRING tag, OBJECT composition) //Deprecated!
+  {
+    this->cellname := tag;
+    this->composition := composition;
+    this->ContinueInit();
+  }
+
+  UPDATE PUBLIC MACRO CompositionMetadataIsUpdated()
+  {
+    this->ContinueInit();
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->ContinueInit();
+  }
+
+  PUBLIC MACRO ContinueInit()
+  {
+    IF(ObjectExists(this->composition) AND NOT MemberExists(this->composition,"UpdateEntityAt"))
+      ABORT("The composition is not an wrd:entity");
+    IF(ObjectExists(this->composition))
+    {
+      IF(ObjectExists(this->composition->wrdtype))
+      {
+        this->EnsurePreInit();
+        this->attrinfo := this->composition->GetLocalAttributeInfoByTag(this->cellname);
+        this->WRD_Setup(this->composition->wrdtype);
+        IF(ObjectExists(this->composition->wrdentity))
+        {
+          this->value := this->composition->wrdentity->GetField(this->cellname);
+        }
+      }
+    }
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD description)
+  {
+    TolliumComponentBase::StaticInit(description);
+
+    this->readonly := description.readonly;
+    this->required := description.required;
+    IF(description.type!="")
+      this->select_style := description.type;
+
+    this->hr           := description.hr;
+    this->columnheaders := description.columnheaders;
+    this->imagewidth   := description.imagewidth;
+    this->verification := description.verification;
+    this->force_verification := description.forceverification;
+    this->imageheight  := description.imageheight;
+    this->datetimetype := description.datetimetype;
+    this->precision    := description.precision;
+    this->mimetypes    := description.mimetypes;
+    this->edittype     := description.edittype;
+    this->selectmethod := description.selectmethod;
+    this->entercurrentpassword := description.entercurrentpassword;
+    this->policy := description.policy;
+    this->emptyvalue := description.emptyvalue;
+    this->onpolicycheck := description.onpolicycheck;
+    this->password     := description.password;
+    this->defaultcountry := description.defaultcountry;
+    this->maxlength := description.maxlength;
+
+    IF(ObjectExists(this->composition))
+    {
+    }
+    ELSE
+    {
+      IF(NOT ObjectExists(description.entity)  AND NOT ObjectExists(description.composition))
+        THROW NEW TolliumException(this,"A wrd:field requires an entity or composition");
+
+      this->composition := description.entity;
+      this->cellname := description.field;
+    }
+    this->ContinueInit();
+  }
+
+  PUBLIC MACRO WRD_Setup(OBJECT wrdtype)
+  {
+    this->wrdtype := wrdtype;
+
+//    IF (NOT ObjectExists(this->parent)) //not inserted yet
+//      RETURN;
+
+    //Destroy current fields
+    FOREVERY(OBJECT obj FROM this->currentobjects)
+    {
+      obj->DeleteComponent();
+    }
+
+    this->currentobjects := DEFAULT OBJECT ARRAY;
+    IF(RecordExists(this->attrinfo))
+    {
+      this->fieldreadonly := this->readonly OR this->attrinfo.isreadonly;
+      this->CreateComponents(wrdtype);
+
+      IF (ObjectExists(this->parent))
+      {
+        OBJECT pos := this;
+        FOREVERY (OBJECT obj FROM this->currentobjects)
+        {
+          this->parent->InsertComponentAfter(obj, pos, FALSE);
+          pos := obj;
+        }
+      }
+
+      IF (this->attrinfo.attributetype = 3)
+        this->currentobjects[0]->wrdschema := wrdtype->wrdschema;
+    }
+  }
+
+  PUBLIC UPDATE MACRO ValidateValue(OBJECT work)
+  {
+    // Can't do anything about a readonly field or a invalid field
+    IF (this->readonly OR NOT RecordExists(this->attrinfo))
+      RETURN;
+
+   this->currentobjects[0]->ValidateValue(work);
+
+    SWITCH (this->attrinfo.attributetype)
+    {
+      CASE 19,17,22,25,26,27 /* Instance, richdoc, HSON, paymentprovider, payment */
+      {
+        IF(this->currentobjects[0]->value="")
+          RETURN;
+        TRY
+        {
+          VARIANT value := DecodeHSON(this->currentobjects[0]->value);
+          IF (TypeID(value) != TypeID(RECORD))
+            work->AddErrorFor(this->currentobjects[0], GetTid("wrd:components.wrdfield.illegalhson"));
+        }
+        CATCH
+          work->AddErrorFor(this->currentobjects[0], GetTid("wrd:components.wrdfield.illegalhson"));
+      }
+    }
+
+   /*
+
+    SWITCH (this->attrinfo.attributetype)
+    {
+      CASE 1 //Single
+      {
+        IF (((this->enabled AND this->required) OR this->attrinfo.isrequired) AND this->GetValue() = 0)
+        {
+          work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title));
+        }
+      }
+      CASE 2 // Free form * /
+         , 3 // Postal address * /
+         , 4 // E-mail address * /
+         , 5 // Telephone * /
+         , 6 // date * /, 11 // time * /, 12 // datetime * /
+         , 7 // Password * /
+         , 10 // File * /
+         , 15 // Integer * /, 18 // Integer64 * /
+         , 16 // Boolean * /
+         , 17 // Richdoc * /
+         , 9//imageedit* /
+         , 21 // URL * /
+      {
+        //IF (this->required)
+          this->currentobjects[0]->ValidateValue(work);
+      }
+      //FIXME implement 8 (multiple) and the rest! Not sure why even _have_ custom implementaitions here..
+    }*/
+  }
+  PRIVATE UPDATE MACRO SetVisibility(BOOLEAN visible)
+  {
+    TolliumComponentBase::SetVisible(visible);
+    FOREVERY(OBJECT comp FROM this->currentobjects)
+      comp->visible := visible;
+  }
+>;

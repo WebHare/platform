@@ -1,0 +1,148 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+LOADLIB "mod::wrd/lib/internal/whfs-service.whlib";
+LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/internal/csvexport.whlib";
+LOADLIB "mod::wrd/lib/internal/exchange.whlib";
+
+STRING FUNCTION StringifyMultiDomain(OBJECT wrdtype, STRING field, INTEGER ARRAY vals)
+{
+  RECORD ARRAY invals := SELECT x := wrdtype->GetDomValTag(field, val) FROM ToRecordArray(vals, "val");
+  RETURN Detokenize((SELECT AS STRING ARRAY x FROM invals ORDER BY x), ",");
+}
+
+RECORD ARRAY FUNCTION GetAllPersons(OBJECT schemaobj)
+{
+  //FIXME add some wrd_leftentity linked stuff, export and test that too
+
+  //Export all data
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  RECORD ARRAY allpersons := schemaobj->RunQuery(
+    [ sources := [[ name := "persons"
+                  , type := persontype
+                  , outputcolumns := [ fullname := "WRD_FULLNAME"
+                                     , email := "WRD_CONTACT_EMAIL"
+                                     , test_single_domain := "TEST_SINGLE_DOMAIN"
+                                     , test_multiple_domain := "TEST_MULTIPLE_DOMAIN"
+                                     ]
+                 ]]
+    ]);
+
+  //stabilize. remove ids and sort
+  allpersons := SELECT *
+                     , test_single_domain := persontype->GetDomValTag("TEST_SINGLE_DOMAIN", test_single_domain)
+                     , test_multiple_domain := StringifyMultiDomain(persontype, "TEST_MULTIPLE_DOMAIN", test_multiple_domain)
+                  FROM allpersons;
+  allpersons := SELECT * FROM allpersons ORDER BY fullname, email;
+  RETURN allpersons;
+}
+
+
+MACRO ExportImportWRD()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  RECORD ARRAY persons := GetAllPersons(schemaobj);
+
+  OBJECT exporter := MakeWRDSchemaExporter(schemaobj);
+  BLOB result := exporter->RunExport();
+  schemaobj->DeleteSelf();
+
+  //recycle it and recreate it, to ensure the link was to the path and not the id
+  IF(ObjectExists(OpenTestsuiteSite()->OpenByPath("tmp/destlink")))
+    OpenTestsuiteSite()->OpenByPath("tmp/destlink")->RecycleSelf();
+
+  OBJECT destlink := OpenTestsuiteSite()->OpenByPath("tmp")->CreateFile([name := "destlink"]);
+
+  DATETIME beforeimport := GetCurrentDatetime();
+  OBJECT importedschema := CreateWRDSchemaFromImport(result);
+  TestEq(TRUE, importedschema->creationdate >= beforeimport); //ensure we got a fresh creationdate
+  TestEqLike(`Exported from * at *Z (*)`, importedschema->creationsource);
+  TestEq(TRUE, importedschema->id != schemaobj->id);
+  TestEq(42, importedschema->GetSchemaSetting("wrd:debug.answer"));
+
+  RECORD ARRAY newpersons := GetAllPersons(importedschema);
+  TEstEq(persons, newpersons);
+
+  OBJECT wrdperson := importedschema->GetType("WRD_PERSON");
+  INTEGER richdocembedded_personid := wrdperson->Search("WRD_CONTACT_EMAIL", "richdocembedded@example.com");
+  TestEq(TRUE, richdocembedded_personid != 0);
+  RECORD testrec1 := wrdperson->GetEntityFields(richdocembedded_personid, ["RICHIE","TESTINSTANCE","TESTINTEXTLINK"]);
+  TestRichieEmbedded(testrec1.richie);
+  TestTestInstance(testrec1.testinstance);
+  TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, testrec1.testintextlink.internallink);
+  TestEq("#jantje", testrec1.testintextlink.append);
+
+  RECORD ARRAY query_testrecs := wrdperson->RunQuery(
+    [ outputcolumns := [ "RICHIE", "TESTINSTANCE"]
+    , filters := [[ field := "WRD_CONTACT_EMAIL", value := "richdocembedded@example.com" ]
+                 ]
+    ]);
+  TestEq(1, Length(query_testrecs));
+  TestRichieEmbedded(query_testrecs[0].richie);
+  TestTestInstance(query_testrecs[0].testinstance);
+
+  // Reload cached schema in testframework
+  testfw->GetWRDSchema(TRUE);
+
+  // Ensure data in WHFS is consistent
+  TestEq(0, FixupWRDWHFSNames());
+
+  testfw->CommitWork();
+}
+
+MACRO ExportImportWRDSkip()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  RECORD ARRAY persons := GetAllPersons(schemaobj);
+
+  OBJECT exporter := MakeWRDSchemaExporter(schemaobj);
+  TestEq(["WRD_PERSON.RICHIE"], exporter->SkipAttributesByMask("WRD_PERSON.RICHIE"));
+  TestEq(["WRD_PERSON.TESTINSTANCE", "WRD_PERSON.TESTINTEXTLINK","WRD_PERSON.TESTINTEXTLINK_NOCHECK"], SortArray(exporter->SkipAttributesByMask("*PERSON.TESTIN*")));
+  BLOB result := exporter->RunExport();
+
+  OBJECT importedschema := CreateWRDSchemaFromImport(result);
+
+  OBJECT wrdperson := importedschema->GetType("WRD_PERSON");
+  INTEGER richdocembedded_personid := wrdperson->Search("WRD_CONTACT_EMAIL", "richdocembedded@example.com");
+  TestEq(TRUE, richdocembedded_personid != 0);
+  RECORD testrec1 := wrdperson->GetEntityFields(richdocembedded_personid, ["RICHIE","TESTINSTANCE","TESTINTEXTLINK"]);
+
+  TestEq(DEFAULT RECORD, testrec1.richie);
+  TestEq(DEFAULT RECORD, testrec1.testinstance);
+  TestEq(DEFAULT RECORD, testrec1.testintextlink);
+
+  // Reload cached schema in testframework
+  testfw->GetWRDSchema(TRUE);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  schemaobj->DeleteSelf();
+  testfw->GetWRDSchema(TRUE);
+  testfw->CommitWork();
+}
+
+MACRO ExportFlat()
+{
+  OBJECT schemaobj := testfw->GetWRDSchema();
+
+  //TODO deeper tests, but let's just cover them first
+  OBJECT csvexporter := NEW WRDSchemaCSVExporter;
+  TestEq(TRUE, Length(csvexporter->ExportSchema(schemaobj, "tar.gz"))>0, "CSV export failed");
+
+  OBJECT humanexporter := MakeWRDSchemaHumanReadableExporter(schemaobj);
+  TestEq(TRUE, Length(humanexporter->CreateExport())>0, "Humanreadable export failed");
+
+}
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR ExportImportWRD
+                 , PTR ExportImportWRDSkip
+                 , PTR ExportFlat
+                 ], [ wrdauth := FALSE ]);

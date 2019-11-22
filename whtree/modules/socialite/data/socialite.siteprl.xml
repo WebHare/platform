@@ -1,0 +1,17 @@
+<siteprofile
+  xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+  xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+  xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+  xmlns:socialite="http://www.webhare.net/xmlns/socialite/components">
+
+  <contenttype namespace="http://www.webhare.net/xmlns/socialite/seotab">
+    <member name="noindex" type="boolean" />
+    <member name="nofollow" type="boolean" />
+    <member name="noodp" type="boolean" />
+    <member name="noydir" type="boolean" />
+    <member name="noarchive" type="boolean" />
+    <member name="canonical" type="intextlink" />
+  </contenttype>
+
+</siteprofile>

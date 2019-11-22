@@ -1,0 +1,207 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+STRING testsiteprofile :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+  || '<apply>'
+    || '<to type="all" />'
+    || '<urlevents enabled="1" />'
+  || '</apply>'
+  || '<apply>'
+    || '<to type="all" pathmask="*noevents*" />'
+    || '<urlevents enabled="false" />'
+  || '</apply>'
+|| '</siteprofile>';
+
+
+STRING ARRAY active_urls;
+
+MACRO OnPublisherUrl(STRING event, RECORD msg)
+{
+  IF (event = "publisher:url")
+  {
+    IF (msg.event = "pub")
+    {
+      IF (msg.url NOT IN active_urls)
+      {
+        IF(testfw->debug)
+          Print("##### Adding active url '" || msg.url || "'\n");
+        INSERT msg.url INTO active_urls AT END;
+      }
+    }
+    ELSE IF (msg.event = "del")
+    {
+      INTEGER pos := SearchElement(active_urls, msg.url);
+      IF (pos >= 0)
+      {
+        IF(testfw->debug)
+          Print("##### Removing inactive url '" || msg.url || "'\n");
+        DELETE FROM active_urls AT pos;
+      }
+    }
+  }
+}
+
+RegisterEventCallback("publisher:url", PTR OnPublisherUrl);
+
+
+BOOLEAN FUNCTION CheckActiveUrls(STRING ARRAY expected)
+{
+  IF(testfw->debug)
+  {
+    Print("Checking active urls...\n");
+    Print("  Expected: " || Detokenize(SortArray(expected), ", "));
+    Print("  Active urls: " || Detokenize(SortArray(active_urls), ", "));
+  }
+  FOREVERY (STRING url FROM expected)
+    IF (url NOT IN active_urls)
+    {
+      IF(testfw->debug)
+        Print("Expected url '" || url || "' not active\n");
+      RETURN FALSE;
+    }
+  FOREVERY (STRING url FROM active_urls)
+    IF (url NOT IN expected)
+    {
+      IF(testfw->debug)
+        Print("Active url '" || url || "' not expected\n");
+      RETURN FALSE;
+    }
+  RETURN TRUE;
+}
+
+
+STRING baseurl;
+
+MACRO FirstPublication()
+{
+  //testfw->debug := TRUE;
+
+  testfw->BeginWork();
+
+  OBJECT newsite := testfw->SetupTestWebdesignWebsite(testsiteprofile);
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+
+  OBJECT indexdoc := siteroot->CreateFile([name:="index.html", data := DEFAULT BLOB, publish := TRUE, type := 5 ]);
+  OBJECT otherdoc := siteroot->CreateFile([name:="other.html", data := DEFAULT BLOB, publish := TRUE, type := 5 ]);
+
+  OBJECT subfolder := siteroot->CreateFolder([name := "withevents"]);
+  OBJECT subindexdoc := subfolder->CreateFile([name:="index.html", data := DEFAULT BLOB, publish := TRUE, type := 5 ]);
+
+  OBJECT noeventfolder := siteroot->CreateFolder([name := "noevents"]);
+  OBJECT noeventindexdoc := noeventfolder->CreateFile([name:="index.html", data := DEFAULT BLOB, publish := TRUE, type := 5 ]);
+
+  OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT subrtdfolder := siteroot->CreateFolder([name := "withevents.rtd"]);
+  OBJECT subrtdindex := subrtdfolder->CreateFile([name:="test.rtd", data := DEFAULT BLOB, publish := TRUE, type := rtdtype->id ]);
+  OBJECT subrtdother := subrtdfolder->CreateFile([name:="other.rtd", data := DEFAULT BLOB, publish := TRUE, type := rtdtype->id ]);
+
+  siteroot->UpdateMetadata([indexdoc := indexdoc->id ]);
+  subfolder->UpdateMetadata([indexdoc := subindexdoc->id ]);
+  noeventfolder->UpdateMetadata([indexdoc := noeventindexdoc->id ]);
+  subrtdfolder->UpdateMetadata([indexdoc := subrtdindex->id ]);
+
+  testfw->CommitWork();
+
+  baseurl := siteroot->indexurl;
+
+  // Refreh index documents to get most current url
+  indexdoc := OpenWHFSObject(indexdoc->id);
+  subindexdoc := OpenWHFSObject(subindexdoc->id);
+
+  IF(testfw->debug)
+    Print("Starting wait for active urls... [1]\n");
+  // The urls of indexdoc, otherdoc and subindexdoc should be active, noeventindexdoc should not be
+  // The test webdesign adds a static subfile to each published file named "test.txt"
+  STRING ARRAY urls := [ baseurl
+                       , baseurl || "^index.html/test.txt"
+                       , baseurl || "other.html"
+                       , baseurl || "^other.html/test.txt"
+                       , baseurl || "withevents/"
+                       , baseurl || "withevents/^index.html/test.txt"
+                       , baseurl || "withevents.rtd/test/"
+                       , baseurl || "withevents.rtd/test/test.txt"
+                       , baseurl || "withevents.rtd/other/"
+                       , baseurl || "withevents.rtd/other/test.txt"
+                       ];
+  IF (NOT WaitForPromise(testfw->AsyncWaitOnWithEvent(PTR CheckActiveUrls(urls), "publisher:url")))
+    ABORT("Active URLs check failed");
+  IF(testfw->debug)
+    Print("Completed wait for active urls...\n");
+}
+
+
+MACRO UnpublishFile()
+{
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT indexdoc := siteroot->OpenByPath("index.html");
+  OBJECT otherdoc := siteroot->OpenByPath("other.html");
+  OBJECT subindexdoc := siteroot->OpenByPath("withevents/index.html");
+  OBJECT subrtdother := siteroot->OpenByPath("withevents.rtd/other.rtd");
+
+  testfw->BeginWork();
+
+  otherdoc->UpdateMetadata([publish := FALSE]);
+  subrtdother->UpdateMetadata([publish := FALSE]);
+
+  ScanSingleFolder(siteroot->id); //make sure the old version is cleaned (outputanalyzer does that usually, but on a delay)
+  ScanSingleFolder(siteroot->OpenByName("withevents")->id);
+  ScanSingleFolder(siteroot->OpenByName("withevents.rtd")->id);
+
+  testfw->CommitWork();
+
+  IF(testfw->debug)
+    Print("Starting wait for active urls... [2]\n");
+  // The urls of otherdoc should no longer be active
+  STRING ARRAY urls := [ baseurl
+                       , baseurl || "^index.html/test.txt"
+                       , baseurl || "withevents/"
+                       , baseurl || "withevents/^index.html/test.txt"
+                       , baseurl || "withevents.rtd/test/"
+                       , baseurl || "withevents.rtd/test/test.txt"
+                       ];
+  IF (NOT WaitForPromise(testfw->AsyncWaitOnWithEvent(PTR CheckActiveUrls(urls), "publisher:url")))
+    ABORT("Active URLs check failed");
+  IF(testfw->debug)
+    Print("Completed wait for active urls...\n");
+}
+
+
+MACRO RecycleFolder()
+{
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT indexdoc := siteroot->OpenByPath("index.html");
+  OBJECT otherdoc := siteroot->OpenByPath("other.html");
+  OBJECT subfolder := siteroot->OpenByPath("withevents");
+
+  testfw->BeginWork();
+
+  subfolder->RecycleSelf();
+
+  ScanSingleFolder(siteroot->id); //make sure the old version is cleaned (outputanalyzer does that usually, but on a delay)
+  ScanSingleFolder(subfolder->id);
+
+  testfw->CommitWork();
+
+  IF(testfw->debug)
+    Print("Starting wait for active urls... [3]\n");
+  // The urls of subindexdoc should no longer be active
+  STRING ARRAY urls := [ baseurl
+                       , baseurl || "^index.html/test.txt"
+                       , baseurl || "withevents.rtd/test/"
+                       , baseurl || "withevents.rtd/test/test.txt"
+                       ];
+  IF (NOT WaitForPromise(testfw->AsyncWaitOnWithEvent(PTR CheckActiveUrls(urls), "publisher:url")))
+    ABORT("Active URLs check failed");
+  IF(testfw->debug)
+    Print("Completed wait for active urls...\n");
+}
+
+
+RunTestframework([ PTR FirstPublication
+                 , PTR UnpublishFile
+                 , PTR RecycleFolder
+                 ], [ debug := TRUE ]);

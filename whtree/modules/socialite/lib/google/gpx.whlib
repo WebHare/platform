@@ -1,0 +1,305 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+
+/*
+Notes:
+- GPX1.1 implementation
+- <metadata>  metadata  -> fully supported
+- <wpt>       waypoints -> fully supported
+- <rte>       routes    -> NOT supported
+
+- <trk>      supported
+  - tracksegments implemented
+  - only latitude, longitude, elevation and time are parsed
+
+- <extensions> NOT supported
+
+
+For reference see:
+http://www.topografix.com/GPX/1/1/gpx.xsd
+
+
+ADDME: implement routes
+*/
+
+
+PUBLIC OBJECTTYPE GPX_Parser
+< OBJECT xmldocobj;
+  RECORD ARRAY errors;
+
+  PUBLIC BOOLEAN tracks_detailed; // whether to read all fields in a track point instead of only time, latitude, longitude and elevation
+
+  /** @cell name
+      @cell desc
+      @cell author
+      @cell copyright
+      @cell link
+      @cell time The creation date of the file
+      @cell keywords(string array)
+      @cell bounds(record array)
+      @cell bounds.minlatitude
+      @cell bounds.maxlatitude
+      @cell bounds.minlongitude
+      @cell bounds.maxlongitude
+  */
+  RECORD metadata;
+
+  /** @cell gpx_version version of the XSD
+      @cell creator software which generated the document
+  */
+  RECORD generator;
+
+  RECORD ARRAY routes; // <rte> -> a sequence of waypoints
+  RECORD ARRAY tracks; // <trk> -> a record of automatically gathered data (like position)
+  RECORD ARRAY waypoints; // <wpt>
+
+
+  /** @short
+      @param document the GPX file
+  */
+  PUBLIC MACRO NEW(BLOB gpx_document)
+  {
+    IF(Length(gpx_document) > 0)
+      this->readfile(gpx_document);
+  }
+
+  /** @short return all data that has been parsed from the GPX file
+  */
+  PUBLIC RECORD FUNCTION GetData()
+  {
+    RETURN [ metadata  := this->metadata
+           , routes    := this->routes
+           , tracks    := this->tracks
+           , waypoints := this->waypoints
+           ];
+  }
+
+  MACRO ReadFile(BLOB gpx_document)
+  {
+    this->metadata :=
+        [ name        := ""
+        , description := ""
+        , author      := ""
+        , copyright   := ""
+        , links       := DEFAULT RECORD ARRAY
+        , time        := DEFAULT DATETIME
+        , keywords    := ""
+        , bounds      := DEFAULT RECORD
+        ];
+
+    this->routes := DEFAULT RECORD ARRAY;
+    this->tracks := DEFAULT RECORD ARRAY;
+    this->waypoints := DEFAULT RECORD ARRAY;
+
+    this->xmldocobj  := MakeXMLDocument(gpx_document,"UTF-8");
+    //IF (NOT ObjectExists(this->xmldocobj))
+    //  ADDME: error and cancel
+
+    OBJECT docelement := this->xmldocobj->documentelement;
+
+    this->generator :=
+        [ gpx_version := docelement->GetAttribute("version") // GPX xsd version
+        , creator     := docelement->GetAttribute("creator") // generator software
+        ];
+
+    OBJECT metadatanode := this->__GetChild(docelement, "metadata");
+    IF(ObjectExists(metadatanode))
+    {
+      OBJECT boundsnode := this->__GetChild(metadatanode, "bounds");
+      RECORD bounds;
+      IF (ObjectExists(boundsnode))
+      {
+        bounds := [ minlatitude  := ToFloat(TrimWhiteSpace(boundsnode->GetAttribute("minlat")), -1000)
+                  , maxlatitude  := ToFloat(TrimWhiteSpace(boundsnode->GetAttribute("maxlat")), -1000)
+                  , minlongitude := ToFloat(TrimWhiteSpace(boundsnode->GetAttribute("minlon")), -1000)
+                  , maxlongitude := ToFloat(TrimWhiteSpace(boundsnode->GetAttribute("maxlon")), -1000)
+                  ];
+      }
+
+      this->metadata := MakeUpdatedRecord(this->metadata
+                              , [ name        := this->__GetChildValue(metadatanode, "name")
+                                , description := this->__GetChildValue(metadatanode, "desc")
+                                , author      := this->__GetChildValue(metadatanode, "author")
+                                , copyright   := this->__GetChildValue(metadatanode, "copyright")
+                                , links       := this->ParseLinkTypes(metadatanode, "link")
+                                , time        := MakeDateFromText(this->__GetChildValue(metadatanode, "time"))
+                                , keywords    := Tokenize( this->__GetChildValue(metadatanode, "keywords") , ",")
+                                , bounds      := bounds
+                                ]);
+    }
+
+    this->tracks := this->GetTracks();
+    this->waypoints := this->GetWaypoints();
+    this->routes := this->GetRoutes();
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetParseErrors()
+  {
+    RETURN this->errors;
+  }
+
+  // FIXME: handle <trkseg> (track segments)
+  PUBLIC RECORD ARRAY FUNCTION GetTracks()
+  {
+    OBJECT docelem := this->xmldocobj->documentelement;
+
+    OBJECT ARRAY tracknodes := docelem->GetElementsByTagName("trk")->GetCurrentElements();
+    RECORD ARRAY tracks;
+
+    FOREVERY(OBJECT tracknode FROM tracknodes)
+    {
+      OBJECT ARRAY tracksegmentnodes := docelem->GetElementsByTagName("trkseg")->GetCurrentElements();
+      RECORD ARRAY tracksegments;
+      FOREVERY(OBJECT tracksegmentnode FROM tracksegmentnodes)
+      {
+        INSERT [ points := this->parse_wptType(tracksegmentnode, "trkpt", this->tracks_detailed) ] INTO tracksegments AT END;
+      }
+
+      INSERT [ name       := this->__GetChildValue(tracknode, "name")
+             , comment    := this->__GetChildValue(tracknode, "cmt")
+             , descripton := this->__GetChildValue(tracknode, "desc")
+             , source     := this->__GetChildValue(tracknode, "src")
+             , link       := this->ParseLinkTypes(tracknode, "link")
+             , number     := ToInteger(this->__GetChildValue(tracknode, "number"), 0) // nonNegativeInteger
+             , type       := this->__GetChildValue(tracknode, "type")
+             , segments   := tracksegments
+             ] INTO tracks AT END;
+    }
+
+    RETURN tracks;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetWaypoints()
+  {
+    RETURN this->parse_wptType(this->xmldocobj->documentelement, "wpt", TRUE);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetRoutes()
+  {
+    OBJECT docelem := this->xmldocobj->documentelement;
+
+    OBJECT ARRAY routenodes := docelem->GetElementsByTagName("rte")->GetCurrentElements();
+    RECORD ARRAY routes;
+
+    // routes are very similair to tracks, however they consist of a few waypoints
+    FOREVERY(OBJECT routenode FROM routenodes)
+    {
+      INSERT [ name       := this->__GetChildValue(routenode, "name")
+             , comment    := this->__GetChildValue(routenode, "cmt")
+             , descripton := this->__GetChildValue(routenode, "desc")
+             , source     := this->__GetChildValue(routenode, "src")
+             , link       := this->ParseLinkTypes(routenode, "link")
+             , number     := ToInteger(this->__GetChildValue(routenode, "number"), 0) // nonNegativeInteger
+             , type       := this->__GetChildValue(routenode, "type")
+             , points     := this->parse_wptType(routenode, "rtept", TRUE)
+             ] INTO routes AT END;
+    }
+
+    RETURN routes;
+  }
+
+
+  //////////////////////////////////////////////
+  //
+  //  Helper functions
+  //
+
+  OBJECT FUNCTION __GetChild(OBJECT parentnode, STRING tagname)
+  {
+    OBJECT elements := parentnode->GetChildElementsByTagName(tagname);
+
+    IF (elements->length > 0)
+      RETURN elements->item(0);
+      //RETURN elements->GetCurrentElements()[0];
+    ELSE
+      RETURN DEFAULT OBJECT;
+  }
+
+  STRING FUNCTION __GetChildValue(OBJECT parentnode, STRING tagname)
+  {
+    OBJECT elements := parentnode->GetChildElementsByTagName(tagname);
+
+    IF (elements->length > 0)
+      RETURN elements->item(0)->childrentext;
+    ELSE
+      RETURN DEFAULT STRING;
+  }
+
+  RECORD ARRAY FUNCTION ParseLinkTypes(OBJECT parentnode, STRING tagname)
+  {
+    OBJECT ARRAY linknodes := parentnode->GetChildElementsByTagName("link")->GetCurrentElements();
+    RECORD ARRAY links;
+    FOREVERY(OBJECT linknode FROM linknodes)
+    {
+      INSERT [ href     := linknode->GetAttribute("href")
+             , text     := this->__GetChildValue(linknode, "text")
+             , mimetype := this->__GetChildValue(linknode, "type")
+             ] INTO links AT END;
+    }
+    RETURN links;
+  }
+
+  // used for parsing track points <trkpt>, waypoints <wpt> and routepoints <rtept>
+  RECORD ARRAY FUNCTION Parse_wptType(OBJECT containernode, STRING tagname, BOOLEAN fullyparse)
+  {
+    OBJECT ARRAY trackpointnodes := containernode->GetElementsByTagName(tagname)->GetCurrentElements();
+    RECORD ARRAY trackpoints;
+
+    FOREVERY(OBJECT point FROM trackpointnodes)
+    {
+      FLOAT latitude  := ToFloat(TrimWhiteSpace(point->GetAttribute("lat")), -1000);
+      FLOAT longitude := ToFloat(TrimWhiteSpace(point->GetAttribute("lon")), -1000);
+
+      FLOAT elevation;
+      OBJECT ele_node := this->__GetChild(point, "ele");
+      IF (ObjectExists(ele_node))//nodevalue
+        elevation := ToFloat(TrimWhitespace(ele_node->childrentext), -1000);
+
+      DATETIME time := MakeDateFromText(this->__GetChildValue(point, "time"));
+
+      IF (NOT fullyparse)
+      {
+        INSERT [ time      := time
+               , latitude  := latitude
+               , longitude := longitude
+               , elevation := elevation
+               ] INTO trackpoints AT END;
+      }
+      ELSE
+      {
+        INSERT [ time      := time
+               , latitude  := latitude
+               , longitude := longitude
+               , elevation := elevation
+               , magvar    :=  ToFloat(TrimWhiteSpace( this->__GetChildValue(point, "magvar") ), -1000)
+               , geoidheight := ToFloat(TrimWhiteSpace( this->__GetChildValue(point, "geoidheight") ), -1000)
+
+               // description info
+               , name        := this->__GetChildValue(point, "name")
+               , comment     := this->__GetChildValue(point, "cmt")
+               , description := this->__GetChildValue(point, "desc")
+               , source      := this->__GetChildValue(point, "src")
+               , links       := this->ParseLinkTypes(point,  "link")
+               , symbol      := this->__GetChildValue(point, "sym")
+               , type        := this->__GetChildValue(point, "type")
+
+               // accuracy info
+               , fix := this->__GetChildValue(point, "fix")
+               , satellitescount := ToInteger(this->__GetChildValue(point, "sat"), -1) // FIXME: could be 0 for guessed position?? what number would be 'unknown' ?
+               , dilution_h := ToFloat(TrimWhiteSpace( this->__GetChildValue(point, "hdop") ), -1000)
+               , dilution_v := ToFloat(TrimWhiteSpace( this->__GetChildValue(point, "vdop") ), -1000)
+               , dilution_p := ToFloat(TrimWhiteSpace( this->__GetChildValue(point, "pdop") ), -1000)
+               , ageofdgpsdata := ToFloat(TrimWhiteSpace( this->__GetChildValue(point, "ageofdgpsdata") ), -1)
+               , dgpsid := ToInteger(this->__GetChildValue(point, "dgpsid"), -1) // 0-1023 is valid
+               ] INTO trackpoints AT END;
+      }
+
+    }
+
+    RETURN trackpoints;
+  }
+>;
+

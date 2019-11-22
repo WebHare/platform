@@ -1,0 +1,33 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="forms" ignoremasks="lib data">
+  <test script="testformrpc.whscr"/>
+  <test script="testformfile.whscr"/>
+  <test script="testformfile_lowlevel.whscr"/>
+  <test script="testformfile_conditions.whscr"/>
+  <test script="testformfile-aswidget.whscr" />
+  <test script="testformfile-pagetitles-infotexts.whscr"/>
+  <test script="testformapi.whscr" />
+  <test script="testformcustomfile.whscr"/>
+  <test script="testformfile-formeditapp.whscr"/>
+  <jstest name="testcore" file="testcore.es" />
+  <jstest file="testvalidation.es" />
+  <jstest file="testconditionalfields.es" />
+  <jstest file="testmultipage.es" />
+  <jstest file="testdynamic.es" />
+  <jstest file="testprops.es" />
+  <jstest file="testemailfield.es" />
+  <jstest file="testdatetimefield.es" />
+  <jstest file="testimgedit.es" />
+  <jstest file="testuploadfield.es" />
+  <jstest file="testaddressfield-online.es" tags="forms address" />
+  <test script="testaddressfield.whscr" tags="forms address" />
+  <jstest file="testrte.es" tags="forms rte" />
+  <jstest file="testformfile-online.es" />
+  <jstest file="testformfile-custom-online.es" />
+  <jstest file="testformfile-conditions.es" />
+  <jstest file="testformfile-captcha.es" />
+  <jstest file="testredirect.es" />
+  <jstest file="testarrays.es" />
+  <test script="testmailconfirmation.whscr"/>
+  <jstest file="testmailconfirmation-online.es" />
+  <test script="testformfile-editconditions.whscr"/>
+</group>

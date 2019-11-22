@@ -1,0 +1,228 @@
+<?wh
+/** @short Setup WHFS
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+MACRO InitializeFileTypes()
+{
+  //TODO can't we ship with a basic, completely compiled siteprofile and simply execute that one for initial registration ?
+  RECORD ARRAY ftypedata := [ [ id := 1, namespace := "http://www.webhare.net/xmlns/publisher/foreignfolder", isfoldertype := TRUE, isfiletype := FALSE ]
+                            , [ id := 2, namespace := "http://www.webhare.net/xmlns/publisher/systemfolder",  isfoldertype := TRUE, isfiletype := FALSE ]
+                            , [ id := 3, namespace := "http://www.webhare.net/xmlns/publisher/photoalbum",    isfoldertype := TRUE, isfiletype := FALSE ]
+                            , [ id := 4, namespace := "http://www.webhare.net/xmlns/publisher/mswordfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 5, namespace := "http://www.webhare.net/xmlns/publisher/htmlfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 6, namespace := "http://www.webhare.net/xmlns/publisher/javascriptfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 7, namespace := "http://www.webhare.net/xmlns/publisher/semidynamicfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 9, namespace := "http://www.webhare.net/xmlns/publisher/cssfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 10, namespace := "http://www.webhare.net/xmlns/publisher/targzfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 11, namespace := "http://www.webhare.net/xmlns/publisher/pdffile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 12, namespace := "http://www.webhare.net/xmlns/publisher/imagefile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 13, namespace := "http://www.webhare.net/xmlns/publisher/multimediafile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 14, namespace := "http://www.webhare.net/xmlns/publisher/zipfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 15, namespace := "http://www.webhare.net/xmlns/publisher/archivefile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 16, namespace := "http://www.webhare.net/xmlns/publisher/libraryfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 17, namespace := "http://www.webhare.net/xmlns/publisher/flashfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 18, namespace := "http://www.webhare.net/xmlns/publisher/externallink",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 19, namespace := "http://www.webhare.net/xmlns/publisher/internallink",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 20, namespace := "http://www.webhare.net/xmlns/publisher/contentlink",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 21, namespace := "http://www.webhare.net/xmlns/publisher/plaintextfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 22, namespace := "http://www.webhare.net/xmlns/publisher/standalonetemplatefile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 23, namespace := "http://www.webhare.net/xmlns/publisher/xmlfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 24, namespace := "http://www.webhare.net/xmlns/publisher/contentlisting",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 25, namespace := "http://www.webhare.net/xmlns/publisher/shtmlfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 26, namespace := "http://www.webhare.net/xmlns/publisher/wittyfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 27, namespace := "http://www.webhare.net/xmlns/publisher/siteprofilefile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 28, namespace := "http://www.webhare.net/xmlns/publisher/templatefile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 29, namespace := "http://www.webhare.net/xmlns/publisher/profilefile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 30, namespace := "http://www.webhare.net/xmlns/publisher/dynamiccwifile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 31, namespace := "http://www.webhare.net/xmlns/publisher/staticcwifile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 32, namespace := "http://www.webhare.net/xmlns/publisher/forumfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 33, namespace := "http://www.webhare.net/xmlns/publisher/smarttagsfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 34, namespace := "http://www.webhare.net/xmlns/publisher/webfieldsfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 35, namespace := "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 36, namespace := "http://www.webhare.net/xmlns/tollium/applicationportal",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            //, [ id := 37, namespace := "http://www.webhare.net/xmlns/tollium/frontendapplication",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 38, namespace := "http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            , [ id := 39, namespace := "http://www.webhare.net/xmlns/publisher/prebuiltpage",  isfoldertype := FALSE, isfiletype := TRUE, members :=
+                                [[ name := "prebuilttag", type := "string"
+                                ]]
+                              ]
+                            , [ id := 40, namespace := "http://www.webhare.net/xmlns/publisher/draftmetadata",  isfoldertype := FALSE, isfiletype := FALSE ]
+                            , [ id := 0, namespace := "http://www.webhare.net/xmlns/publisher/sitesettings",  isfoldertype := FALSE, isfiletype := FALSE, members :=
+                                [//set up properties needed for siteprofile compiler and backend site
+                                 [ name := "sitedesign", type := "string" ]
+                                ,[ name := "webfeatures", type := "stringarray" ]
+                                ,[ name := "siteprofiles", type := "whfsrefarray" ]
+                                ]
+                              ]
+                            ];
+
+  RECORD ARRAY existing_types := SELECT id, namespace FROM system.fs_types;
+  INTEGER ARRAY existing_ids  := SELECT AS INTEGER ARRAY id FROM existing_types;
+
+  FOREVERY(RECORD ftype FROM ftypedata)
+  {
+    INTEGER currentid := SELECT AS INTEGER id FROM existing_types WHERE namespace = ftype.namespace;
+    IF(ftype.id != 0 AND currentid != 0 AND currentid != ftype.id) //the type already exists, but with the wrong id.
+    {
+      STRING newname := ftype.namespace||"-"||GenerateUFS128BitId();
+      PrintTo(2,`Renaming conflicting namespace #${currentid} ${ftype.namespace} to ${newname}\n`);
+      UPDATE system.fs_types SET namespace := newname WHERE id = currentid;
+
+      currentid := 0; //moved the old one out of the way, no we can recreate it
+    }
+
+    IF(currentid = 0) //create it
+    {
+      INTEGER newid := ftype.id ?? MakeAutonumber(system.fs_types, "ID");
+      INSERT INTO system.fs_types(id, namespace, isfoldertype, isfiletype, cloneoncopy) VALUES(newid, ftype.namespace, ftype.isfoldertype, ftype.isfiletype, TRUE);
+      IF(CellExists(ftype,'members'))
+      {
+        FOREVERY(RECORD memberrec FROM ftype.members)
+          INSERT [ name := memberrec.name, fs_type := newid, type := GetFSMemberTypeID(memberrec.type)] INTO system.fs_members;
+      }
+      GetWHFSCommitHandler()->FSTypesChanged();
+    }
+  }
+}
+
+RECORD ARRAY folderchecklist:= [ [ id := 1,  parent := 0, name := "Repository",      type := 0 ]
+                               , [ id := 6,  parent := 1, name := "lost & found",    type := 2 ]
+                               //, [ id := 9,  parent := 1, name := "examples",        type := 0 ]
+                               , [ id := whconstant_whfsid_private
+                                 , parent := 0
+                                 , name := "webhare-private"
+                                 , type := 2
+                                 ]
+                               , [ id := 11, parent := whconstant_whfsid_private, name := "whfs-versions",  type := 0 ]
+                               //, [ id := 12, parent := 0, name := "webhare-moduledata", type := 2 ] //stopped autocreating sep 2019. TODO at some point start cleaning up existing ID 12 folders, once we're sure newsletter is gone everywhere
+                               , [ id := 13, parent := whconstant_whfsid_private, name := "wrd",            type := 0 ]
+                               , [ id := 14, parent := whconstant_whfsid_private, name := "whfs-autosaves",  type := 0 ]
+                               , [ id := 15, parent := whconstant_whfsid_private, name := "whfs-drafts",  type := 0 ]
+                               , [ id := 16, parent := 0, name := "WebHare backend",  type := 0 ]
+                               , [ id := 17, parent := whconstant_whfsid_private, name := "whfs-versionhistory",  type := 0 ]
+                               , [ id := 18, parent := whconstant_whfsid_private, name := "whfs-versionarchive",  type := 0 ]
+                               , [ id := whconstant_whfsid_private_system
+                                 , parent := whconstant_whfsid_private
+                                 , name := "system"
+                                 , type := 0
+                                 ]
+                               , [ id := whconstant_whfsid_registerslots
+                                 , parent := whconstant_whfsid_private_system
+                                 , name := "whfs-register-slots"
+                                 , type := 0
+                                 ]
+                               , [ id := whconstant_whfsid_private_rootsettings
+                                 , parent := whconstant_whfsid_private_system
+                                 , name := "webhare-publisher-rootsettings"
+                                 , type := 0
+                                 ]
+                               ];
+
+DATETIME initnow := GetCurrentDatetime();
+OBJECT trans := OpenPrimary();
+
+/*
+   Initialize/repair the repository and basic filetypes
+*/
+trans->BeginWork();
+
+InitializeFileTypes();
+
+INTEGER ARRAY createdfolders;
+
+INTEGER rescue_system_folder := SELECT AS INTEGER id FROM system.fs_objects WHERE parent = whconstant_whfsid_private AND name="system" AND id != whconstant_whfsid_private_system;
+IF(rescue_system_folder != 0) //we have one to rescue!
+  UPDATE system.fs_objects SET name := "system$$$torescue" WHERE id = rescue_system_folder;
+
+FOREVERY(RECORD tocheck FROM folderchecklist)
+{
+  OBJECT folder := OpenWHFSObject(tocheck.id);
+  IF(NOT ObjectExists(folder))
+  {
+    IF(tocheck.parent!=0 AND NOT ObjectExists(OpenWHFSObject(tocheck.parent)))
+      ABORT("Parent #" || tocheck.parent || " for required folder " || tocheck.name || " is unexpectedly missing");
+
+    INSERT INTO system.fs_objects(id,name,creationdate,modificationdate,parent,isfolder,type, ispinned)
+           VALUES(tocheck.id,tocheck.name,initnow,initnow,tocheck.parent,TRUE,2, TRUE);
+
+    INSERT tocheck.id INTO createdfolders AT END;
+  }
+  ELSE IF(tocheck.parent != folder->parent OR tocheck.type != folder->type OR NOT folder->ispinned)
+  {
+    UPDATE system.fs_objects SET parent := tocheck.parent
+                               , type := tocheck.type
+                               , ispinned := TRUE
+                           WHERE id = tocheck.id;
+  }
+}
+
+IF(rescue_system_folder != 0) //clear out the old folder
+{
+  UPDATE system.fs_objects SET parent := whconstant_whfsid_private_system WHERE parent = rescue_system_folder;
+  DELETE FROM system.fs_objects WHERE id = rescue_system_folder;
+}
+
+// Delete the siteprofile XML version if it still exists
+OBJECT oldsiteprofile := OpenWHFSObjectByPath("/webhare-private/publisher/compiled-siteprofiles.xml");
+IF(ObjectExists(oldsiteprofile))
+  oldsiteprofile->RecycleSelf();
+
+// Ensure we have a repository site too
+BOOLEAN isfreshwebhare;
+IF(NOT RecordExists(SELECT FROM system.sites WHERE id=1))
+{
+  isfreshwebhare := TRUE;
+  // Initializing the Repository...
+  INSERT INTO system.sites(id,name)
+              VALUES(1,"Repository");
+}
+
+// Ensure submodule folders exist
+EnsureModulePrivateFolders();
+
+STRING hostname := ReadRegistryKey("system.global.servername");
+IF(hostname = "")
+{
+  hostname := GetSystemHostName(TRUE);
+  WriteRegistryKey("system.global.servername", hostname);
+}
+IF(ReadRegistryKey("system.global.installationid") = "")
+  WriteRegistryKey("system.global.installationid", GenerateUFS128BitId());
+
+IF(isfreshwebhare)
+{
+  WriteRegistryKey("system.backend.security.needsysop", TRUE);
+  WriteRegistryKey("system.backend.security.allowpasswordreset", TRUE); //new servers will enable this
+}
+
+IF(ReadRegistryKey("system.webserver.security.cachesecret")="")
+  WriteRegistryKey("system.webserver.security.cachesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
+IF(ReadRegistryKey("system.webserver.security.cookiesecret")="")
+  WriteRegistryKey("system.webserver.security.cookiesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
+
+IF(ReadRegistryKey("system.webserver.security.elasticsecret")="")
+{
+  //create a key, but may not contain a dash..
+  STRING suggestedkey := "-";
+  WHILE(suggestedkey LIKE "*-*")
+    suggestedkey := GenerateUFS128BitId()||GenerateUFS128BitId();;
+
+  WriteRegistryKey("system.webserver.security.elasticsecret", suggestedkey);
+}
+
+UpdateSystemBackendSite(); //this will also trigger a site profile (re)compilation!
+
+trans->CommitWork();

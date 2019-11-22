@@ -1,0 +1,113 @@
+<?wh
+
+/** @topic modules/migrations */
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+/** Convert prebuilt files to normal filetypes
+    @param inputtag Prebuilt tag to convert
+    @param desttype Destination type
+    @cell(function ptr) options.filter Optional filter that will receive the candidate list and can clean it up
+    @return Conversion information
+    @cell(integer array) return.converted List of object IDs that have been converted
+    */
+PUBLIC RECORD FUNCTION ConvertPrebuiltFiles(STRING inputtag, STRING desttype, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[ filter := DEFAULT FUNCTION PTR
+                                 ], options);
+
+  RECORD retval := [ converted := INTEGER[] ];
+
+  OBJECT destwhfstype := OpenWHFSType(desttype);
+  IF(NOT ObjectExists(destwhfstype))
+    THROW NEW Exception(`No such type '${desttype}'`);
+  IF(NOT destwhfstype->filetype)
+    THROW NEW Exception(`Destination type '${desttype}' is not a filetype`);
+
+  OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
+  RECORD ARRAY candidates := SELECT id, whfspath, parentsite
+                               FROM system.fs_objects
+                              WHERE fs_objects.type = prebuilttype->id
+                           ORDER BY whfspath;
+  candidates := prebuilttype->Enrich(candidates, "ID", ["prebuilttag"]);
+  candidates := SELECT * FROM candidates WHERE prebuilttag = inputtag;
+  IF(IsValueSet(options.filter))
+    candidates := options.filter(candidates);
+
+  FOREVERY(RECORD candidate FROM candidates)
+  {
+    OBJECT toconvert := OpenWHFSObject(candidate.id);
+    toconvert->UpdateMetadata([type := destwhfstype->id]);
+  }
+
+  retval.converted := SELECT AS INTEGER ARRAY id FROM candidates;
+  RETURN retval;
+}
+
+INTEGER ARRAY FUNCTION GetInstanceTreeIds(INTEGER settingid)
+{
+  // recursively build a list to our parent.
+  RETURN settingid != 0 ? GetInstanceTreeIds(SELECT AS INTEGER parent FROM system.fs_settings WHERE id = settingid) CONCAT [settingid] : INTEGER[];
+}
+RECORD ARRAY FUNCTION SortByDepth(RECORD ARRAY todolist)
+{
+  RETURN SELECT * FROM todolist ORDER BY Length(GetInstanceTreeIds(settingid)) DESC;
+}
+
+/** Convert contenttypes
+    @long Rewrite content types (and widgets) to the specified type. Instances (eg widgets in RTDs) of the source type will be changed to the destination type
+    @param srctype Source instance type
+    @cell(function ptr) options.mapcallback Callback to invoke on instance records for conversion
+    @cell(string) options.desttype Destination type. If empty, assumed to equal the source type
+    @return Conversion information (suitable for passing into %RepublishWHFSObjectReferences)
+    @cell(integer array) return.fsobject fsobject ID containing the instance
+    */
+PUBLIC RECORD ARRAY FUNCTION ConvertContentType(STRING srctype, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ mapcallback := DEFAULT FUNCTION PTR
+                              , desttype := srctype
+                              ], options);
+
+  OBJECT type := OpenWHFSType(srctype);
+  IF(NOT ObjectExists(type) OR type->id = 0)
+    THROW NEW Exception(`No such source whfs type '${srctype}'`);
+
+  OBJECT desttype := options.desttype != srctype ? OpenWHFSType(options.desttype) : type;
+  IF(NOT ObjectExists(type) OR desttype->id = 0)
+    THROW NEW Exception(`No such destination whfs type '${options.desttype}'`);
+
+  RECORD ARRAY refs;
+  RECORD ARRAY todolist := type->ListAllInstances();
+  //doing bottom-up prevents us from prematurely invalidating rows from ListInstances (Because setting a parent rewrote the IDs)
+  todolist := SortByDepth(todolist);
+
+  FOREVERY(RECORD instance FROM todolist)
+  {
+    RECORD data := type->GetInstanceDataByDirectRef(instance.directref);
+    IF(NOT RecordExists(data))
+      THROW NEW Exception("Instance disappeared during conversion!"); //is our bottom-up approach broken?
+
+    INSERT [ fsobject := instance.fsobject ] INTO refs AT END;
+
+    DELETE CELL whfsfileid, whfssetingid, whfstype FROM instance;
+
+    IF(options.mapcallback != DEFAULT FUNCTION PTR)
+    {
+      data := options.mapcallback(data, CELL[ fsobject := instance.fsobject
+                                            ]);
+    }
+
+    IF(CellExists(data, 'whfstype'))
+      data.whfstype := desttype->namespace;
+
+    desttype->SetInstanceDataByDirectRef(instance.directref, data, [ isvisibleedit := FALSE ]);
+
+    IF(desttype->namespace != type->namespace AND instance.settingid = 0) //top level, so we should explicitly delete..
+      type->SetInstanceData(instance.fsobject, type->defaultinstance);
+  }
+
+  RETURN refs;
+}

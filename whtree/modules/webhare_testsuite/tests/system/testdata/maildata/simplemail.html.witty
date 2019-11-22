@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Mail subjéct</title>
+    <style>
+      #test { font-weight: bold; }
+    </style>
+    <meta name="wh-mailcomposer-from" value="mailfrom@beta.webhare.net" />
+    <meta name="wh-mailcomposer-cc" value="mail-cc@beta.webhare.net" />
+  </head>
+  <body>
+    <div id="test">Hi [firstname]!</div>
+    <img id="goudvis" src="goudvis.png" />
+    <img id="externalimage" src="https://www.webhare.com/media/globalassets/logo-bluecircle-120x120.png" />
+    <span id="textwithlink">[gethtmltid system.mailtest.textwithlink thelink]</span>
+    <div id="extra">[extra]</div>
+    Just-some-unwrapped-text
+    <img src="cid:test_corrupted_cid_dont_crash" width="1" height="1">
+  </body>
+</html>
+
+[component mailcomponent]
+<html>
+  <head>
+    <title>Mailcomponent</title>
+  </head>
+  <body>
+    <div id="test">Hey [firstname]</div>
+  </body>
+</html>
+[/component]

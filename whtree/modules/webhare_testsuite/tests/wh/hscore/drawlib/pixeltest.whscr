@@ -1,0 +1,25 @@
+<?wh
+/** @short Array manipulation tests */
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "wh::graphics/core.whlib";
+
+MACRO PixelTest()
+{
+  INTEGER firstcolor := GfxCreateColor(255,0,0,255);
+  INTEGER secondcolor := GfxCreateColor(0,0,255,0);
+  INTEGER thirdcolor := GfxCreateColor(0,0,255,255);
+
+  INTEGER CanvasID := GfxCreateCanvas(10, 10, firstcolor);
+
+  GfxDrawPixel(CanvasID, 2,2,secondcolor);
+  GfxDrawPixel(CanvasID, 3,3,thirdcolor);
+
+  BLOB mypngblob := GfxCreatePNGBlobFromCanvas(canvasID, false, false);
+  CanvasID := GfxCreateCanvasFromImageBlob(mypngblob);
+
+  TestEq(firstcolor, GfxGetPixel(CanvasID, 1, 1));
+  TestEq(firstcolor, GfxGetPixel(CanvasID, 2, 2));
+  TestEq(thirdcolor, GfxGetPixel(CanvasID, 3, 3));
+}
+
+RunTestFramework([ PTR PixelTest ]);

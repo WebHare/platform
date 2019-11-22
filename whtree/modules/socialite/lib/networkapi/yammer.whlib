@@ -1,0 +1,490 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+LOADLIB "mod::socialite/lib/internal/support.whlib";
+
+RECORD ARRAY yammer_permission_map := DEFAULT RECORD ARRAY;
+
+STRING yammer_oauth_dialog_uri := "https://www.yammer.com/dialog/oauth";
+STRING yammer_access_token_uri := "https://www.yammer.com/oauth2/access_token.json";
+STRING yammer_api_uri := "https://www.yammer.com/api/v1/"; // Version 1 of the Yammer API
+
+PUBLIC OBJECTTYPE YammerConnection EXTEND OauthNetworkConnection
+< MACRO NEW()
+  : OauthNetworkConnection("2.0", yammer_permission_map)
+  {
+    this->SetMode("yammer");
+  }
+
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY requested_permissions, STRING state)
+  {
+    RETURN this->GetV2AuthorizationCodeURI(yammer_oauth_dialog_uri, requested_permissions, callbackurl);
+  }
+
+  PUBLIC MACRO FinishLogin(STRING sessiontoken, STRING returned_uri)
+  {
+    STRING code := GetVariableFromURL(returned_uri, "code");
+
+    RECORD finish := this->DoV2AccessTokenRequest(yammer_access_token_uri, sessiontoken, code);
+  }
+
+/*
+  PUBLIC STRING FUNCTION GetUserId()
+  {
+    IF (CellExists(this->accesstok, "userid"))
+      RETURN this->accesstok.userid;
+
+    RETURN "";
+  }
+*/
+
+  /// Returns the redirect page for oauth apps
+  UPDATE PUBLIC STRING FUNCTION GetCallbackURL(STRING serverurl)
+  {
+    RETURN ResolveToAbsoluteURL(serverurl, "/tollium_todd.res/socialite/callbacks/yammer.shtml");
+  }
+
+
+
+  PUBLIC RECORD FUNCTION GetMessages(INTEGER downloadmax, INTEGER64 older_than DEFAULTSTO 0, INTEGER64 newer_than DEFAULTSTO 0)
+  {
+    STRING url := yammer_api_uri || "messages.xml";
+    IF (older_than != 0)
+      url := ReplaceVariableInUrl(url, "older_than", ToString(older_than));
+    IF (newer_than != 0)
+      url := ReplaceVariableInUrl(url, "newer_than", ToString(newer_than));
+
+    OBJECT query := this->DoYammerGetRequest(url, "messages");
+
+    RETURN this->ParseYammerMessages(query, downloadmax);
+  }
+
+  // Deprecated, use topics instead
+  PUBLIC RECORD FUNCTION GetMessagesWithTag(INTEGER64 tag_id, INTEGER downloadmax, INTEGER64 older_than DEFAULTSTO 0, INTEGER64 newer_than DEFAULTSTO 0)
+  {
+    STRING url := yammer_api_uri || "messages/tagged_with/" || tag_id || ".xml";
+    IF (older_than != 0)
+      url := ReplaceVariableInUrl(url, "older_than", ToString(older_than));
+    IF (newer_than != 0)
+      url := ReplaceVariableInUrl(url, "newer_than", ToString(newer_than));
+
+    OBJECT query := this->DoYammerGetRequest(url, "messages");
+
+    RETURN this->ParseYammerMessages(query, downloadmax);
+  }
+
+  PUBLIC RECORD FUNCTION GetMessagesWithTopic(INTEGER64 topic_id, INTEGER downloadmax, INTEGER64 older_than DEFAULTSTO 0, INTEGER64 newer_than DEFAULTSTO 0)
+  {
+    STRING url := yammer_api_uri || "messages/about_topic/" || topic_id || ".xml";
+    IF (older_than != 0)
+      url := ReplaceVariableInUrl(url, "older_than", ToString(older_than));
+    IF (newer_than != 0)
+      url := ReplaceVariableInUrl(url, "newer_than", ToString(newer_than));
+
+    OBJECT query := this->DoYammerGetRequest(url, "messages");
+
+    RETURN this->ParseYammerMessages(query, downloadmax);
+  }
+
+  PUBLIC RECORD FUNCTION PostMessage(STRING body, INTEGER64 replied_to_id DEFAULTSTO 0)
+  {
+    STRING url := yammer_api_uri || "messages.xml";
+
+    RECORD ARRAY vars := [ [ name := "body", value := body ]
+                         ];
+    IF (replied_to_id > 0)
+      INSERT [ name := "replied_to_id", value := ToString(replied_to_id) ] INTO vars AT END;
+
+    OBJECT query := this->DoYammerPostRequest(url, vars, "message");
+
+    RECORD result := this->ParseYammerMessages(query, 1);
+    RETURN
+        [ message := RECORD(result.messages)
+        , users := result.users
+        , groups := result.groups
+        , tags := result.tags
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION PostMessageFavorite(INTEGER64 message_id, BOOLEAN remove, INTEGER64 user_id DEFAULTSTO 0)
+  {
+    STRING url := yammer_api_uri || "messages/liked_by/" || (user_id > 0 ? ToString(user_id) : "current");
+
+    RECORD ARRAY vars := [ [ name := "message_id", value := ToString(message_id) ]
+                         ];
+
+    IF (remove)
+    {
+      FOREVERY (RECORD v FROM vars)
+        url := ReplaceVariableInUrl(url, v.name, v.value);
+      this->DoYammerRawRequest(url, "DELETE", "message");
+    }
+    ELSE
+    {
+      this->DoYammerPostRequest(url, vars, "message");
+    }
+    // DoYammer[Raw|Post]Request throws on error; if we got here, all went well
+
+    RETURN
+        [ success := TRUE
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION GetCurrentUser()
+  {
+    RETURN this->GetUsers(-1);
+  }
+
+  PUBLIC RECORD FUNCTION GetUsers(INTEGER64 id DEFAULTSTO 0)
+  {
+    STRING url := yammer_api_uri || "users" || (id = -1 ? "/current" : id > 0 ? "/" || id : "") || ".xml";
+    OBJECT query := this->DoYammerGetRequest(url, "users");
+
+    RECORD ARRAY users;
+    FOREVERY (OBJECT response FROM GetNodes(query, "response[./type/text()='user']"))
+      INSERT this->ParseYammerUser(query, response) INTO users AT END;
+
+    IF (id != 0)
+      RETURN
+          [ user := RECORD(users)
+          ];
+    ELSE
+      RETURN
+          [ users := users
+          ];
+  }
+
+  // Deprecated, use topics instead
+  PUBLIC RECORD FUNCTION GetTags(INTEGER64 id DEFAULTSTO 0)
+  {
+    STRING url := yammer_api_uri || "tags" || (id > 0 ? "/" || id : "") || ".xml";
+    OBJECT query := this->DoYammerGetRequest(url, "tags");
+
+    RECORD ARRAY tags;
+    FOREVERY (OBJECT response FROM GetNodes(query, "response[./type/text()='tag']"))
+      INSERT this->ParseYammerTag(query, response) INTO tags AT END;
+
+    IF (id > 0)
+      RETURN
+          [ tag := RECORD(tags)
+          ];
+    ELSE
+      RETURN
+          [ tags := tags
+          ];
+  }
+
+  PUBLIC RECORD FUNCTION GetTopic(INTEGER64 id)
+  {
+    STRING url := yammer_api_uri || "topics/" || id || ".xml";
+    OBJECT query := this->DoYammerGetRequest(url, "tags");
+
+    RECORD topic;
+    OBJECT ARRAY results := GetNodes(query, "response[./type/text()='topic']");
+    IF (Length(results) > 0)
+      topic := this->ParseYammerTag(query, results[0]);
+
+    RETURN
+        [ topic := topic
+        ];
+  }
+
+  PUBLIC RECORD FUNCTION SearchTopics(STRING name)
+  {
+    IF (name = "")
+      RETURN [ topics := DEFAULT RECORD ARRAY ];
+
+    STRING url := yammer_api_uri || "search.xml?search=" || EncodeUrl(name);
+    OBJECT query := this->DoYammerGetRequest(url, "tags");
+
+    RECORD ARRAY topics;
+    FOREVERY (OBJECT response FROM GetNodes(query, "response/topics/topic"))
+      INSERT this->ParseYammerTag(query, response) INTO topics AT END;
+
+    RETURN
+        [ topics := topics
+        ];
+  }
+
+  OBJECT FUNCTION GetYammerXPathQuery()
+  {
+    // Fix the invalid tag '<fake-ogo-ymodule?>'
+    BLOB fixed := StringToBlob(Substitute(BlobToString(this->browser->content, -1), "fake-ogo-ymodule?", "fake-ogo-ymodule"));
+    RETURN MakeXMLDocument(fixed, "UTF-8")->CreateXPathQuery();
+  }
+
+  OBJECT FUNCTION DoYammerGetRequest(STRING url, STRING type)
+  {
+    this->browser->timeout := 15*1000;
+    IF (NOT this->browser->GotoWebPage(url))
+      THROW NEW Exception("Error while retrieving " || type || ": " || this->browser->GetHTTPStatusCode());
+    RETURN this->GetYammerXPathQuery();
+    //RETURN this->browser->document->CreateXPathQuery();
+  }
+
+  OBJECT FUNCTION DoYammerPostRequest(STRING url, RECORD ARRAY vars, STRING type)
+  {
+    this->browser->timeout := 10*1000;
+    IF (NOT this->browser->PostWebPage(url, vars, "multipart/form-data"))
+      THROW NEW Exception("Error while posting " || type || ": " || this->browser->GetHTTPStatusCode());
+    RETURN this->GetYammerXPathQuery();
+    //RETURN this->browser->document->CreateXPathQuery();
+  }
+
+  OBJECT FUNCTION DoYammerRawRequest(STRING url, STRING method, STRING type)
+  {
+    this->browser->timeout := 10*1000;
+    IF (NOT this->browser->SendRawRequest(method, url, DEFAULT RECORD ARRAY, DEFAULT BLOB))
+      THROW NEW Exception("Error while requesting " || type || ": " || this->browser->GetHTTPStatusCode());
+    RETURN this->GetYammerXPathQuery();
+    //RETURN this->browser->document->CreateXPathQuery();
+  }
+
+
+  RECORD FUNCTION ParseYammerMessages(OBJECT query, INTEGER maxmessages DEFAULTSTO 0)
+  {
+    RECORD ARRAY users;
+    RECORD ARRAY groups;
+    RECORD ARRAY tags;
+    RECORD ARRAY referenced_messages;
+    FOREVERY (OBJECT reference FROM GetNodes(query, "reference"))
+    {
+      SWITCH (GetNodeText(query, "type", reference, FALSE))
+      {
+        CASE "user"
+        {
+          INSERT this->ParseYammerUser(query, reference) INTO users AT END;
+        }
+        CASE "group"
+        {
+          INSERT this->ParseYammerGroup(query, reference) INTO groups AT END;
+        }
+        CASE "tag"
+        {
+          INSERT this->ParseYammerTag(query, reference) INTO tags AT END;
+        }
+        CASE "message"
+        {
+          INSERT this->ParseYammerMessageRef(query, reference) INTO referenced_messages AT END;
+        }
+      }
+    }
+    INTEGER64 ARRAY favorite_message_ids;
+    FOREVERY (OBJECT favorite_message_id FROM GetNodes(query, "liked-message-id"))
+    {
+      INTEGER64 id := ToInteger64(favorite_message_id->childrentext, 0);
+      IF (id > 0)
+        INSERT id INTO favorite_message_ids AT END;
+    }
+
+    FOREVERY (RECORD message FROM referenced_messages)
+      INSERT CELL sender := RECORD(SELECT * FROM users WHERE id = message.sender_id) INTO referenced_messages[#message];
+
+    RECORD ARRAY messages;
+    FOREVERY (OBJECT message FROM GetNodes(query, "message"))
+    {
+      RECORD parsed := this->ParseYammerMessage(query, message);
+      INSERT CELL sender := RECORD(SELECT * FROM users WHERE id = parsed.sender_id) INTO parsed;
+      INSERT CELL favorite := parsed.id IN favorite_message_ids INTO parsed;
+      INSERT parsed INTO messages AT END;
+    }
+
+    RECORD ARRAY allmessages := messages CONCAT referenced_messages;
+    FOREVERY (RECORD message FROM messages)
+    {
+      IF (message.replied_to_id = 0)
+      {
+        INSERT CELL replied_to := DEFAULT RECORD INTO messages[#message];
+        CONTINUE;
+      }
+      RECORD replied_to := SELECT id
+                                , messages.url
+                                , direct_to_id
+                                , replied_to_id
+                                , sender
+                                , sender_id
+                                , sender_type
+                                , created_at
+                             FROM messages
+                            WHERE id = message.replied_to_id;
+      IF (NOT RecordExists(replied_to))
+        replied_to := SELECT id
+                           , referenced_messages.url
+                           , direct_to_id
+                           , replied_to_id
+                           , sender
+                           , sender_id
+                           , sender_type
+                           , created_at
+                        FROM referenced_messages
+                       WHERE id = message.replied_to_id;
+
+      INSERT CELL replied_to := replied_to INTO messages[#message];
+    }
+
+    IF (maxmessages > 0)
+      messages := (SELECT * FROM messages LIMIT maxmessages);
+
+    RETURN
+        [ messages := messages
+        , users := users
+        , groups := groups
+        , tags := tags
+        ];
+  }
+
+  RECORD FUNCTION ParseYammerMessage(OBJECT query, OBJECT node)
+  {
+    INTEGER64 id := ToInteger64(GetNodeText(query, "id", node, FALSE), 0);
+    STRING message_type := GetNodeText(query, "message-type", node, FALSE);
+    STRING web_url := GetNodeText(query, "web-url", node, FALSE);
+    INTEGER64 direct_to_id := ToInteger64(GetNodeText(query, "direct-to-id", node, FALSE), 0);
+    INTEGER64 replied_to_id := ToInteger64(GetNodeText(query, "replied-to-id", node, FALSE), 0);
+
+    INTEGER64 sender_id := ToInteger64(GetNodeText(query, "sender-id", node, FALSE), 0);
+    STRING sender_type := GetNodeText(query, "sender-type", node, FALSE);
+
+    OBJECT ARRAY body := GetNodes(query, "body", node, FALSE);
+    STRING body_plain;
+    STRING body_rich;
+    IF (Length(body) > 0)
+    {
+      body_plain := GetNodeText(query, "plain", body[0], FALSE);
+      body_rich := GetNodeText(query, "rich", body[0], FALSE);
+    }
+
+    DATETIME created_at := MakeDateFromText(GetNodeText(query, "created-at", node, FALSE));
+
+    OBJECT ARRAY likes := GetNodes(query, "liked-by", node, FALSE);
+    INTEGER like_count;
+    RECORD ARRAY liked_by;
+    IF (Length(likes) > 0)
+    {
+      like_count := ToInteger(GetNodeText(query, "count", likes[0], FALSE), 0);
+      FOREVERY (OBJECT name FROM GetNodes(query, "names/name", likes[0], FALSE))
+      {
+        RECORD user := [ name := GetNodeText(query, "permalink", name, FALSE)
+                       , full_name := GetNodeText(query, "full-name", name, FALSE)
+                       ];
+        INSERT user INTO liked_by AT END;
+      }
+    }
+
+    RECORD ARRAY attachments;
+    FOREVERY (OBJECT attached FROM GetNodes(query, "attachments/attachment", node, FALSE))
+    {
+      RECORD attachment :=
+          [ id := ToInteger64(GetNodeText(query, "y-id", attached, FALSE), 0)
+          , url := GetNodeText(query, "web-url", attached, FALSE)
+          , download_url := GetNodeText(query, "download-url", attached, FALSE)
+          , preview_url := GetNodeText(query, "preview-url", attached, FALSE)
+          , thumbnail_url := GetNodeText(query, "thumbnail-url", attached, FALSE)
+          , created_at := MakeDateFromText(GetNodeText(query, "created-at", attached, FALSE))
+          , name := GetNodeText(query, "name", attached, FALSE)
+          , full_name := GetNodeText(query, "full-name", attached, FALSE)
+          ];
+      INSERT attachment INTO attachments AT END;
+    }
+
+    RETURN
+        [ id := id
+        , message_type := message_type
+        , url := web_url
+        , direct_to_id := direct_to_id
+        , replied_to_id := replied_to_id
+        , sender_id := sender_id
+        , sender_type := sender_type
+        , body_plain := body_plain
+        , body_rich := body_rich
+        , created_at := created_at
+        , like_count := like_count
+        , liked_by := liked_by
+        , attachments := attachments
+        ];
+  }
+
+  RECORD FUNCTION ParseYammerMessageRef(OBJECT query, OBJECT node)
+  {
+    INTEGER64 id := ToInteger64(GetNodeText(query, "id", node, FALSE), 0);
+    STRING web_url := GetNodeText(query, "web-url", node, FALSE);
+    INTEGER64 direct_to_id := ToInteger64(GetNodeText(query, "direct-to-id", node, FALSE), 0);
+    INTEGER64 replied_to_id := ToInteger64(GetNodeText(query, "replied-to-id", node, FALSE), 0);
+
+    INTEGER64 sender_id := ToInteger64(GetNodeText(query, "sender-id", node, FALSE), 0);
+    STRING sender_type := GetNodeText(query, "sender-type", node, FALSE);
+
+    DATETIME created_at := MakeDateFromText(GetNodeText(query, "created-at", node, FALSE));
+
+    RETURN
+        [ id := id
+        , url := web_url
+        , direct_to_id := direct_to_id
+        , replied_to_id := replied_to_id
+        , sender_id := sender_id
+        , sender_type := sender_type
+        , created_at := created_at
+        ];
+  }
+
+  RECORD FUNCTION ParseYammerUser(OBJECT query, OBJECT node)
+  {
+    INTEGER64 id := ToInteger64(GetNodeText(query, "id", node, FALSE), 0);
+    STRING web_url := GetNodeText(query, "web-url", node, FALSE);
+
+    STRING name := GetNodeText(query, "name", node, FALSE);
+    STRING full_name := GetNodeText(query, "full-name", node, FALSE);
+    STRING mugshot_url := GetNodeText(query, "mugshot-url", node, FALSE);
+
+    RECORD user :=
+        [ id := id
+        , url := web_url
+        , name := name
+        , full_name := full_name
+        , mugshot_url := mugshot_url
+        ];
+
+    OBJECT ARRAY web_preferences := GetNodes(query, "web-preferences", node, FALSE);
+    IF (Length(web_preferences) > 0)
+    {
+      INSERT CELL show_full_names := ToUppercase(GetNodeText(query, "show-full-names", web_preferences[0], FALSE)) = "TRUE" INTO user;
+      INSERT CELL hide_avatars := ToUppercase(GetNodeText(query, "hide-avatars", web_preferences[0], FALSE)) = "TRUE" INTO user;
+      INSERT CELL enter_does_not_submit := ToUppercase(GetNodeText(query, "enter-does-not-submit", web_preferences[0], FALSE)) = "TRUE" INTO user;
+      INSERT CELL absolute_timestamps := ToUppercase(GetNodeText(query, "absolute-timestamps", web_preferences[0], FALSE)) = "TRUE" INTO user;
+    }
+
+    RETURN user;
+  }
+
+  RECORD FUNCTION ParseYammerGroup(OBJECT query, OBJECT node)
+  {
+    INTEGER64 id := ToInteger64(GetNodeText(query, "id", node, FALSE), 0);
+    STRING web_url := GetNodeText(query, "web-url", node, FALSE);
+
+    STRING name := GetNodeText(query, "name", node, FALSE);
+    STRING full_name := GetNodeText(query, "full-name", node, FALSE);
+
+    RETURN
+        [ id := id
+        , url := web_url
+        , name := name
+        , full_name := full_name
+        ];
+  }
+
+  RECORD FUNCTION ParseYammerTag(OBJECT query, OBJECT node)
+  {
+    INTEGER64 id := ToInteger64(GetNodeText(query, "id", node, FALSE), 0);
+    STRING web_url := GetNodeText(query, "web-url", node, FALSE);
+
+    STRING name := GetNodeText(query, "name", node, FALSE);
+
+    RETURN
+        [ id := id
+        , url := web_url
+        , name := name
+        ];
+  }
+>;

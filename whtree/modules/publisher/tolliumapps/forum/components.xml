@@ -1,0 +1,82 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="components.whlib"
+         gid="tolliumapps.forum.components">
+
+  <fragment name="postings">
+    <actions>
+      <action name="addposting" onexecute="doaddposting" tid="tollium:common.actions.add" />
+      <action name="editposting" onexecute="doeditposting" tid="tollium:common.actions.edit" >
+        <enableon source="postinglist" min="1" max="1" />
+      </action>
+      <action name="replyposting" onexecute="doreplyposting">
+        <enableon source="postinglist" min="1" max="1" checkflags="canreply" />
+      </action>
+      <action name="deleteposting" onexecute="dodeleteposting" tid="tollium:common.actions.delete">
+        <enableon source="postinglist" min="1" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="selection">
+        <item action="editposting" disablemode="hidden" />
+        <!-- <item action="replyposting" disablemode="hidden" /> -->
+        <item action="deleteposting" disablemode="hidden" />
+      </menu>
+
+      <menu name="noselection">
+        <item action="addposting" />
+      </menu>
+    </menus>
+
+    <contents>
+      <split type="vertical" height="1pr" splitter="transparent">
+        <part height="1pr">
+          <grid height="1pr">
+            <col width="1pr" />
+            <col />
+            <row height="1pr">
+              <cell>
+                <list name="postinglist" width="1pr" height="1pr"
+                      selectmode="single"
+                      rowselect="true"
+                      flags="canreply"
+                      selectcontextmenu="selection"
+                      newcontextmenu="noselection"
+                      onselect="onpostinglistselect"
+                      openaction="editposting">
+                <!-- ongetchildren="getpostingschildren" ongetpath="getpostingspath"
+
+                          > -->
+                  <column name="posttime"   type="datetime" />
+                  <column name="postername" type="text"/>
+                  <column name="subject" type="text"/>
+                </list>
+              </cell>
+              <cell>
+                <button action="addposting" width="1pr" />
+                <button action="editposting" width="1pr" />
+                <!-- <button action="replyposting" width="1pr" /> -->
+                <button action="deleteposting" width="1pr" />
+              </cell>
+            </row>
+          </grid>
+        </part>
+        <part height="5x">
+          <textarea height="1pr" width="1pr" name="message" enabled="false" />
+        </part>
+      </split>
+    </contents>
+  </fragment>
+
+  <screen name="posting" width="70x" height="17x" allowresize="true">
+    <body>
+      <textedit name="postername" required="true" />
+      <textedit name="posteremail" required="true" />
+      <textarea name="message" height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

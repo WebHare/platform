@@ -1,0 +1,43 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/stripe.whlib";
+
+PUBLIC STATIC OBJECTTYPE ConfigStripe EXTEND PSPSettingsExtensionBase
+<
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    //^methods->options := paymentsubmethods;
+    PSPSettingsExtensionBase::InitExtension(extendablelinescontainer);
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetPaymentProviderValue()
+  {
+    RETURN ^methodsettings->value;
+  }
+  UPDATE PUBLIC MACRO SetPaymentProviderValue(RECORD settings)
+  {
+    ^methodsettings->value := settings;
+  }
+  MACRO DoConnect()
+  {
+    RECORD merchantinfo := CheckStripeMerchant(^publickey->value, ^secretkey->value);
+    IF(NOT RecordExists(merchantinfo))
+    {
+      this->owner->RunSimpleScreen("error", GetTid("wrd:tolliumapps.payments.common.incorrectcredentials"));
+      RETURN;
+    }
+    this->owner->RunSimpleScreen("info", GetTid("wrd:tolliumapps.payments.common.connectionsucceeded"));
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PayInfo EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD meta := data.payment->__GetPaymentData();
+    //^transactionid->value := meta.transactionid;
+  }
+>;

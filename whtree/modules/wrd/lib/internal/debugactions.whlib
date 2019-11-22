@@ -1,0 +1,7 @@
+<?wh
+
+PUBLIC MACRO DebugWRDEntity(OBJECT screen, VARIANT entityid)
+{
+  //ADDME this should become a popup window
+  screen->tolliumcontroller->SendApplicationMessage("wrd:browser", [ entityid := entityid], DEFAULT RECORD, FALSE);
+}

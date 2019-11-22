@@ -1,0 +1,31 @@
+<?wh
+// command: publisher:checkpublicationqueue
+// short: Ensures all files marked to be published are on the persistent publication Queue
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
+LOADLIB "mod::system/lib/internal/tasks/queueapi.whlib";
+
+OpenPrimary();
+GetPrimary()->BeginWork();
+
+RECORD ARRAY shouldbequeued :=
+    SELECT id
+         , whfspath
+      FROM system.fs_objects
+     WHERE isfolder = FALSE
+           AND isactive
+           AND published > 0
+           AND publish = TRUE /*server side filters*/
+           AND (published%100000) >= 1
+           AND (published%100000) < 100
+  ORDER BY id; //TODO ordering by whfspath or fullpath would be better ... do top level content first!   (persistent queue beats ALL though)
+
+IF(Length(shouldbequeued) > 0)
+{
+  //TODO can we detect which weren't on the queue? those are worth logging
+  Print(`Adding ${Length(shouldbequeued)} files to the queue\n`);
+  //dumpvalue(shouldbequeued,'boxed');
+}
+
+SchedulePersistentTask("publisher:publication", "SCHEDULEMULTIPLE", [ tasks := SELECT id FROM shouldbequeued ]);

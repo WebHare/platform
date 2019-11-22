@@ -1,0 +1,101 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/webtools/forum.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+
+OBJECT FUNCTION OpenForumByToken(STRING forumtoken)
+{
+  RECORD forumdata := DecryptForThisServer("publisher:commentsplugin", forumtoken);
+  OBJECT forumobj := OpenForum(forumdata.id, [ verifycreationdate := forumdata.cd ]);
+  RETURN forumobj;
+}
+
+PUBLIC RECORD FUNCTION RPC_GetCommentsState(STRING forumtoken, STRING urlpath)
+{
+  OpenPrimary();
+  OBJECT forumobj := OpenForumByToken(forumtoken);
+  RECORD selectedforum := forumobj->SelectOnlySubforum();
+  RECORD selectedtopic := forumobj->SelectOnlyTopic(forumobj->id);
+  STRING languagecode := GetSiteLanguage(forumobj->id);
+
+  INTEGER numentries := 0;
+  RECORD ARRAY entries;
+  DATETIME closedate;
+
+  IF(RecordExists(selectedtopic))
+  {
+    numentries := selectedtopic.numentries;
+    IF(TRUE) //getentries
+    {
+      //FIXME configurable datetime format, timezone
+      //and immediate get the requested entries
+      entries := forumobj->GetMessagesByPage(0, "");
+      entries := SELECT name := postername
+                      , postdate := FormatDatetime("%d %B %Y %H:%M", UTCToLocal(creationdate, "CET"), languagecode)
+                      , postisodate := FormatISO8601Datetime(creationdate)
+                      , message := EncodeHTML(content) //FIXME should probably follow contenttype
+                   FROM entries;
+    }
+    closedate := selectedtopic.closedate;
+  }
+  ELSE
+  {
+    //We don't even have a topic yet. figure out if this topic is even open (Some topics never form because of autoclose)
+    closedate := forumobj->GetInitialTopicCloseDate(forumobj->id);
+  }
+
+  BOOLEAN isopen := closedate = DEFAULT DATETIME OR GetCurrentDatetime() < closedate;
+  STRING recaptchakey;
+
+  RETURN [ success := TRUE
+         , numentries := numentries
+         , entries := entries
+         , closed := NOT isopen
+         , captchakey := recaptchakey
+         ];
+}
+
+PUBLIC RECORD FUNCTION RPC_PostComment(STRING forumtoken, STRING urlpath, RECORD comment)
+{
+  IF(comment.name = "" OR comment.email = "" OR comment.message = "")
+    THROW NEW Exception("Invalid data");
+
+  OpenPrimary();
+  STRING requesturl := GetWebOriginURL(urlpath);
+  OBJECT forumobj := OpenForumByToken(forumtoken);
+  IF(forumobj->config.usecaptcha)
+  {
+    OBJECT context := GetWebContext(forumobj->id);
+    //FIXME this is a hack to make sure the RPC tests work under the testframework. once we can 'hook' into the RPC webcontext specifically for the testframework, do it there
+    IF(GetWebVariable("wh-debug") LIKE "*nsc*" AND OpenWHFSObject(forumobj->id)->whfspath = "/WebHare testsuite site/webtools/forumcomments-recaptcha")
+      ProcessWHDebugVariablesUnchecked();
+
+    IF(NOT context->AllowToSkipCaptchaCheck())
+    {
+      IF(NOT context->VerifyCaptchaResponse(comment.captcharesponse))
+        RETURN [ success := FALSE, error := "CAPTCHA", apikey := context->GetCaptchaAPiKey() ];
+    }
+  }
+
+  RECORD selectedforum := forumobj->SelectOnlySubforum();
+  RECORD selectedtopic := forumobj->SelectOnlyTopic(forumobj->id);
+
+  forumobj->AddPost([ name := comment.name
+                    , email := comment.email
+                    , subject := ""
+                    , message := comment.message
+                    , messagetype := "text/plain"
+                    , source := GetClientRemoteIp() || ":" || GetClientRemotePort()
+                    , sourceurl := requesturl
+                    , posteruid := ""
+                    ]);
+  RETURN [ success := TRUE ];
+}

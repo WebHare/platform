@@ -1,0 +1,81 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="components/colorpicker.whlib"
+         gid="components.colorpicker">
+
+  <fragment name="coloredit" gid=".edit">
+    <actions>
+      <action name="selectaction" tid="tollium:common.actions.select" hinttid="tollium:components.colorpicker.hints.select_color" onexecute="selectcolor" />
+      <action name="clearaction" tid="tollium:common.actions.clear" hinttid="tollium:components.colorpicker.hints.clear_color" onexecute="clearcolor" />
+    </actions>
+    <contents>
+      <line>
+        <image name="preview" title="" width="16px" height="16px" />
+        <button action="selectaction" type="icon" icon="tollium:actions/dropper" />
+        <button action="clearaction" type="icon" icon="tollium:actions/delete" />
+      </line>
+    </contents>
+  </fragment>
+
+  <screen name="colorpicker" gid=".picker">
+    <actions>
+      <action name="submitcolor" title="notused" onexecute="colorsubmitted" />
+    </actions>
+    <body>
+
+      <!-- RGB Sliders -->
+      <panel name="sliders_rgb">
+        <grid>
+          <col />
+          <col />
+          <row>
+            <cell layout="center" valign="middle">
+              <panel>
+                <image name="preview" title="" width="24px" height="36px" minwidth="24px" minheight="36px" />
+              </panel>
+            </cell>
+            <cell>
+              <line>
+                <slider name="rslider" min="0" max="255" step="1" updatecomponent="rvalue" width="300px" fill="true" fillcolor="#ff0000" onchange="rgbcompchanged" />
+                <text name="rvalue" title="" width="5x" />
+              </line>
+              <line>
+                <slider name="gslider" min="0" max="255" step="1" updatecomponent="gvalue" width="300px" fill="true" fillcolor="#00ff00" onchange="rgbcompchanged" />
+                <text name="gvalue" title="" width="5x" />
+              </line>
+              <line>
+                <slider name="bslider" min="0" max="255" step="1" updatecomponent="bvalue" width="300px" fill="true" fillcolor="#0000ff" onchange="rgbcompchanged" />
+                <text name="bvalue" title="" width="5x" />
+              </line>
+            </cell>
+          </row>
+        </grid>
+      </panel>
+
+      <!-- Table with 16 colors -->
+      <panel name="colors_16">
+        <spacer />
+        <panel>
+          <table name="colors_16_table" openaction="submitcolor" onselect="colorselected" selectmode="single" />
+        </panel>
+        <spacer />
+      </panel>
+
+      <!-- Table with 375 colors -->
+      <panel name="colors_375">
+        <spacer />
+        <panel>
+          <table name="colors_375_table" openaction="submitcolor" onselect="colorselected" selectmode="single" />
+        </panel>
+        <spacer />
+      </panel>
+
+      <line layout="left">
+        <textedit name="color" tid=".colorvalue" required="true" width="10x" onchange="valuechanged" />
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

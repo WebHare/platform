@@ -1,0 +1,1823 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/validation/support.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/shortcuts.whlib";
+
+PUBLIC STRING xmlns_moduledef := "http://www.webhare.net/xmlns/system/moduledefinition";
+PUBLIC STRING xmlns_module_manifest := "http://www.webhare.net/module-manifest/";
+
+PUBLIC CONSTANT INTEGER webrulepriority_before := -1000;
+PUBLIC CONSTANT INTEGER webrulepriority_default := 0;
+PUBLIC CONSTANT INTEGER webrulepriority_after := 1000;
+
+PUBLIC RECORD ARRAY FUNCTION ListModuleWebruleSets(STRING modulename, OBJECT xmldoc)
+{
+  RECORD ARRAY retval;
+  OBJECT backend := xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backend")->Item(0);
+  IF(NOT ObjectExists(backend))
+    RETURN retval;
+
+  OBJECT ARRAY webrulesets := backend->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webruleset")->GetCurrentElements();
+  FOREVERY(OBJECT webruleset FROM webrulesets)
+  {
+    IF(webruleset->GetAttribute("name")="")
+      CONTINUE;
+
+    RECORD ruleset := [ rowkey := modulename || ":" || webruleset->GetAttribute("name")
+                      , title := ParseXMLTidPtr(modulename, "", webruleset, "title")
+                      ];
+
+    INSERT ruleset INTO retval AT END;
+  }
+  RETURN retval;
+}
+
+PUBLIC OBJECT ARRAY FUNCTION GetWebRuleNodes(OBJECT parent)
+{
+  IF(NOT ObjectExists(parent))
+    RETURN OBJECT[];
+
+  RETURN parent->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webrule")->GetCurrentElements()
+         CONCAT
+         parent->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "restapi")->GetCurrentElements();
+}
+
+/** Parses the contents of the 'priority' attribute of a webrule/webruleset
+    @param priority Priority string
+    @return Priority integer
+*/
+PUBLIC INTEGER FUNCTION ParseWebRulePriority(STRING priority)
+{
+  SWITCH (priority)
+  {
+    CASE ""         { RETURN 0; }
+    CASE "before"   { RETURN webrulepriority_before; }
+    CASE "after"    { RETURN webrulepriority_after; }
+    DEFAULT
+    {
+      RETURN ToInteger(priority, 0);
+    }
+  }
+}
+
+PUBLIC RECORD FUNCTION GetBaseWebRule(INTEGER ruleid, STRING path, INTEGER priority, STRING source)
+{
+  RECORD rule := __whs_baserulerecord;
+  rule.id := ruleid;
+  rule.path := path;
+  rule.priority := priority;
+  rule.source := source;
+  RETURN rule;
+}
+
+RECORD FUNCTION AddMessage(RECORD retval, STRING type, STRING filename, OBJECT node, STRING message)
+{
+  RECORD msg := CELL[ message, resourcename := filename, line := node->linenum, col := 0 ];
+  SWITCH (type)
+  {
+    CASE "error"    { INSERT msg INTO retval.errors AT END; }
+    CASE "warning"  { INSERT msg INTO retval.warnings AT END; }
+    DEFAULT         { THROW NEW Exception(`Illegal type '${type}'`); }
+  }
+  RETURN retval;
+}
+
+RECORD FUNCTION ParseRestApi(RECORD retval, OBJECT rulenode, STRING baseresource)
+{
+  retval.rule.errorpath := "mod::system/web/errors-restapi";
+  retval.rule.matchtype := 1; //iniital
+  retval.rule.datastorage :=
+    [ [ isfolder :=     FALSE
+      , resource :=     "mod::system/scripts/internal/restapi.shtml"
+      , method :=       "direct"
+      ]
+    ];
+  retval.rule.allowallmethods := TRUE;
+  retval.rule.apispec := MakeAbsoluteResourcePath(baseresource, rulenode->GetAttribute("apispec"));
+  //rule.
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT rulenode, STRING baseresource, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ forvalidation :=    FALSE
+      ], options);
+
+  RECORD retval :=
+      [ errors :=   RECORD[]
+      , warnings := RECORD[]
+      , rule :=     DEFAULT RECORD
+      ];
+
+  IF(NOT options.forvalidation AND NOT IsNodeApplicableToThisWebHare(rulenode))
+    RETURN retval;
+
+  rule.vars := CELL[ ...rule.vars, modulename ];
+  rule.priority := rule.priority + ParseWebRulePriority(rulenode->GetAttribute("priority"));
+  IF(rulenode->localname = "restapi")
+  {
+    retval.rule := rule;
+    RETURN ParseRestApi(retval, rulenode, baseresource);
+  }
+
+  rule.matchmethods := rulenode->HasAttribute("method") ? ParseXSList(ToUppercase(rulenode->GetAttribute("method"))) : DEFAULT STRING ARRAY; //ADDME validate methods. xsd?
+  rule.matchtype := SearchElement(["exact","initial","wildcards","cookie"], rulenode->GetAttribute("match"));
+  IF (rule.matchtype < 0)
+    RETURN AddMessage(retval, "error", baseresource, rulenode, `Illegal matchtype '${rulenode->GetAttribute("match")}'`);
+
+  rule.ignorepaths := rulenode->HasAttribute("ignorepaths") ? ParseXSList(rulenode->GetAttribute("ignorepaths")) : DEFAULT STRING ARRAY;
+  rule.errorpath := rulenode->GetAttribute("errorpath");
+  rule.finalerrorpath := ParseXSBoolean(rulenode->GetAttribute("finalerrorpath"));
+  //Do we have an 'all methods' activator? ADDME: Support explicit methods
+  rule.allowallmethods := ParseXSBoolean(rulenode->GetAttribute("allowallmethods"));
+  rule.wrdschema := rulenode->GetAttribute("wrdschema");
+  rule.checkandvm := ParseChecks("", rulenode, FALSE);
+  IF(ParseXSBoolean(rulenode->GetAttribute("requirehttpauth")))
+    rule.extauthscript := "mod::system/scripts/internal/auth/requirehttpauth.whscr";
+  IF(rulenode->GetAttribute("authmode") = "iporaccess")
+    rule.authrequired := FALSE;
+
+  IF(rulenode->HasAttribute("allowips"))
+  {
+    INSERT [ mask := "0.0.0.0/0", is_allow := FALSE ] INTO rule.iplist AT END;
+    INSERT [ mask := "::/0", is_allow := FALSE ] INTO rule.iplist AT END;
+    FOREVERY(STRING ip FROM ParseXSList(rulenode->GetAttribute("allowips")))
+    {
+      STRING canonical := CanonicalizeIPAddress(ip = "consilio:fetcher" ? whconstant_consilio_fetcher_trusted_ip : ip, TRUE);
+      IF(canonical != "")
+        INSERT [ mask := canonical, is_allow := TRUE ] INTO rule.iplist AT END;
+      ELSE
+        INSERT CELL[ message := `Invalid IP address '${ip}'`, resourcename := baseresource, line := rulenode->linenum, col := 0 ] INTO retval.errors AT END;
+    }
+  }
+
+  //Redirect to script?
+  STRING scriptredirect := rulenode->GetAttribute("redirecttoscript");
+  IF(scriptredirect!="")
+  {
+    IF (scriptredirect NOT LIKE "*:*")
+      scriptredirect := MakeAbsoluteResourcePath(`mod::${modulename}/scripts/`, scriptredirect);
+    ELSE
+      scriptredirect := "__legacyredirect::" || scriptredirect;
+
+    rule.datastorage :=
+      [ [ isfolder :=     FALSE
+        , resource :=     scriptredirect
+        , method :=       "direct"
+        ]
+      ];
+  }
+
+  STRING handlebyscript := rulenode->GetAttribute("handlebyscript");
+  STRING handlebydir := rulenode->GetAttribute("handlebydir");
+
+  IF(handlebyscript != "" OR handlebydir != "")
+  {
+    IF (RecordExists(rule.datastorage))
+      RETURN AddMessage(retval, "error", baseresource, rulenode, `Multiple file lookup rules`);
+
+    rule.datastorage :=
+      [ [ isfolder :=     handlebydir != ""
+        , resource :=     MakeAbsoluteResourcePath(baseresource, handlebydir ?? handlebyscript)
+        , method :=       "direct"
+        ]
+      ];
+  }
+
+  //Redirect to folder?
+  STRING folderredirect := rulenode->GetAttribute("redirecttodir");
+  IF(folderredirect != "")
+  {
+    IF (RecordExists(rule.datastorage))
+      RETURN AddMessage(retval, "error", baseresource, rulenode, `Multiple file lookup rules`);
+
+    IF (folderredirect NOT LIKE "*:*")
+      folderredirect := MakeAbsoluteResourcePath(`mod::${modulename}/scripts/`, folderredirect);
+    ELSE
+      folderredirect := "__legacyredirect::" || folderredirect;
+
+    rule.datastorage :=
+      [ [ isfolder :=     TRUE
+        , resource :=     folderredirect
+        , method :=       "direct"
+        ]
+      ];
+  }
+
+  IF(rulenode->HasAttribute("matchassubdir"))
+    rule.matchassubdir := ParseXSBoolean(rulenode->GetAttribute("matchassubdir"));
+
+  IF(rulenode->HasAttribute("permissions"))
+    retval := AddMessage(retval, "warning", baseresource, rulenode, "permissions= no longer has any effect and should be removed");
+  IF(rulenode->HasAttribute("errorpermissions"))
+    retval := AddMessage(retval, "warning", baseresource, rulenode, "errorpermissions= no longer has any effect and should be removed");
+  IF(rulenode->HasAttribute("roles"))
+    retval := AddMessage(retval, "warning", baseresource, rulenode, "roles= no longer has any effect and should be removed");
+
+  BOOLEAN requirevarycookie;
+
+  //Require authentication?
+  IF(RecordExists(rule.checkandvm) AND RecordExists(rule.checkandvm.accesscheck))
+  {
+    rule.extauthscript := "mod::system/scripts/internal/auth/requireright.whscr";
+    requirevarycookie := TRUE;
+  }
+  ELSE IF(ParseXSBoolean(rulenode->GetAttribute("requirewhaccount")))
+  {
+    rule.extauthscript := "mod::system/scripts/internal/webhare-auth.whscr";
+    requirevarycookie := TRUE;
+  }
+
+  STRING authscript := rulenode->GetAttribute("authscript");
+  IF(authscript != "")
+  {
+    rule.extauthscript := MakeAbsoluteResourcePath(baseresource, authscript);
+
+    IF(authscript NOT LIKE "*::*") //test if old style script was meant - ADDME warn and then deprecate
+    {
+      STRING trypath := `mod::${modulename}/scripts/${authscript}`;
+      IF(RecordExists(RetrieveWebHareResource(trypath, [ allowmissing := TRUE ])))
+        rule.extauthscript := trypath;
+    }
+  }
+
+  rule.realm := rulenode->GetAttribute("realm");
+
+  FOREVERY(OBJECT node FROM rulenode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "addheader")->GetCurrentElements())
+  {
+    STRING name :=  TrimWhitespace(node->GetAttribute("header"));
+    IF(name="")
+      CONTINUE;
+
+    INSERT [ name := name
+           , value := TrimWhitespace(node->GetAttribute("value"))
+           ] INTO rule.addheaders AT END;
+  }
+
+  IF(requirevarycookie)//ADDME don't add if already manually added above
+  {
+    INSERT [ name := "Vary", value := "Cookie" ] INTO rule.addheaders AT END;
+  }
+
+  FOREVERY(OBJECT node FROM rulenode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "account")->GetCurrentElements())
+    INSERT [ username := node->GetAttribute("username") ,password := node->GetAttribute("password") ] INTO rule.accounts AT END;
+
+  rule.cachecontrol := rulenode->GetAttribute("cachecontrol");
+  IF(rulenode->HasAttribute("redirectcode"))
+    rule.redirectcode := ParseXSInt(rulenode->GetAttribute("redirectcode"));
+
+  IF(rule.matchtype = 1)
+  {
+    rule.applyruleset := rulenode->GetAttribute("applyruleset");
+  }
+
+  BOOLEAN have_try_node;
+  FOREVERY(OBJECT node FROM rulenode->childnodes->GetCurrentElements())
+  {
+    IF (node->namespaceuri != "http://www.webhare.net/xmlns/system/moduledefinition" OR node->localname NOT IN [ "tryfolder", "tryfile" ])
+      CONTINUE;
+
+    IF (NOT have_try_node AND RecordExists(rule.datastorage))
+      RETURN AddMessage(retval, "error", baseresource, node, `Multiple file lookup rules`);
+    have_try_node := TRUE;
+
+    IF (node->localname = "tryfile" AND node->GetAttribute("path") LIKE "*/")
+      RETURN AddMessage(retval, "error", baseresource, node, `The path of a <tryfile> node must be a file`);
+
+    // overwrite previous handleby stuff
+    IF (#node = 0 AND RecordExists(rule.datastorage))
+      rule.datastorage := RECORD[];
+
+    STRING path := node->GetAttribute("path");
+    STRING resolver := node->GetAttribute("resolver");
+
+    INSERT
+        [ isfolder :=     node->localname = "tryfolder"
+        , method :=       (node->localname = "tryfolder" ? resolver : "") ?? "direct"
+        , resource :=     node->GetAttribute("path")
+        ] INTO rule.datastorage AT END;
+  }
+
+  retval.rule := rule;
+  RETURN retval;
+}
+
+PUBLIC STRING ARRAY FUNCTION ParseAndQualifyXMLList(STRING xmllist, STRING qualification)
+{
+  STRING ARRAY retval := ParseXSList(xmllist);
+  FOREVERY (STRING str FROM retval)
+    retval[#str] := QualifyName(qualification, str);
+
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION ParseChecks(STRING modulename, OBJECT node, BOOLEAN alwaysreturnrecord)
+{
+  RECORD app := [ accesscheck :=    DEFAULT RECORD
+                , errors :=         DEFAULT STRING ARRAY
+                ];
+  BOOLEAN seenany;
+
+  FOREVERY(OBJECT subsubchild FROM node->childnodes->GetCurrentElements())
+    SWITCH(subsubchild->localname)
+    {
+      CASE "accesscheck", "requireright", "requireanygrantableright"
+      {
+        app.accesscheck := ParseAccessCheck(modulename, subsubchild);
+        IF (app.accesscheck.type = "err")
+          INSERT app.accesscheck.msg INTO app.errors AT END;
+
+        // Translate accesscheck to DEFAULT RECORD
+        IF (app.accesscheck.type = "combine" AND LENGTH(app.accesscheck.checks) = 0)
+        {
+          app.accesscheck := DEFAULT RECORD;
+          CONTINUE;
+        }
+
+        seenany := TRUE;
+      }
+    }
+
+  RETURN alwaysreturnrecord OR seenany ? app : DEFAULT RECORD;
+}
+
+STRING ARRAY FUNCTION CheckAccessChecks(STRING modulename, RECORD accesscheck, STRING ARRAY rightnames, BOOLEAN is_root)
+{
+  STRING ARRAY retval;
+
+  IF (RecordExists(accesscheck))
+  {
+    SWITCH (accesscheck.type)
+    {
+    CASE "combine"
+      {
+        IF (accesscheck.combine NOT IN [ "and", "or" ])
+        {
+          IF (accesscheck.combine != "")
+            INSERT "Unknown combine type '" || accesscheck.combine || "'" INTO retval AT END;
+          ELSE IF (LENGTH(accesscheck.checks) > 1)
+            INSERT "Attribute combine is mandatory when there are multiple sub-checks present" INTO retval AT END;
+        }
+        FOREVERY (RECORD check FROM accesscheck.checks)
+          retval := retval CONCAT CheckAccessChecks(modulename, check, rightnames, FALSE);
+        IF (LENGTH(accesscheck.checks) = 0 AND NOT is_root)
+          INSERT "Accesscheck elements within an other accesscheck element may not be empty" INTO retval AT END;
+      }
+    CASE "right"
+      {
+        IF (accesscheck.value LIKE modulename || ":*" AND accesscheck.value NOT IN rightnames)
+          INSERT "Right '" || accesscheck.value || "' does not exist" INTO retval AT END;
+      }
+    }
+  }
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION ParseAccessCheck(STRING module_name, OBJECT node)
+{
+  SWITCH (node->localname)
+  {
+  CASE "accesscheck"
+    {
+      STRING combine := node->GetAttribute("combine");
+
+      RECORD ARRAY checks;
+      FOREVERY(OBJECT child FROM node->childnodes->GetCurrentElements())
+      {
+        RECORD check := ParseAccessCheck(module_name, child);
+        IF (check.type = "err")
+          RETURN check;
+
+        INSERT check INTO checks AT END;
+      }
+
+      IF (LENGTH(checks) <= 1 AND combine = "")
+        combine := "and";
+
+      RETURN
+        [ type    := "combine"
+        , combine := combine
+        , checks  := checks
+        ];
+    }
+  CASE "requireright"
+    {
+      STRING rightname := node->GetAttribute("right");
+      IF (SearchSubString(rightname, ":") = -1)
+        rightname := module_name || ":" || rightname;
+
+      RETURN
+          [ type  := "right"
+          , value := rightname
+          ];
+    }
+  CASE "requireanygrantableright"
+    {
+      RETURN
+          [ type  := "anygrantableright"
+          ];
+    }
+
+  }
+  RETURN
+    [ type := "err"
+    , msg  := "Encountered unknown node '"||node->localname||"' within access checks"
+    ];
+}
+
+
+PUBLIC STRING FUNCTION ParseGid(STRING module, STRING gid, OBJECT element)
+{
+  IF(element->HasAttribute("gid"))
+  {
+    STRING value := element->GetAttribute("gid");
+    IF (value LIKE ".*")
+    {
+      value := SubString(value, 1);
+      IF (gid = "")
+        gid := module || ":" || value;
+      ELSE IF (gid LIKE "*:")
+        gid := gid || value;
+      ELSE
+        gid := gid || "." || value;
+    }
+    ELSE
+      gid := module || ":" || value;
+  }
+
+  RETURN gid;
+}
+
+STRING FUNCTION ParseXMLModuleNamed(STRING module, OBJECT element, STRING attrname)
+{
+  STRING name := element->GetAttribute(attrname);
+  IF(name="")
+    RETURN "";
+
+  RETURN name LIKE "*:*" ? name : module || ":" || name;
+}
+
+STRING FUNCTION QualifyName(STRING qualification, STRING name)
+{
+  IF (name != "" AND SearchSubstring(name, "*") = -1 AND name NOT LIKE "*:*")
+    name := qualification || ":" || name;
+
+  RETURN name;
+}
+
+STRING FUNCTION GetTIDPtrFromTid(STRING module, STRING tid)
+{
+  IF(tid NOT LIKE "*:*")
+    tid := module || ":" || tid;
+  RETURN tid;
+}
+
+PUBLIC STRING FUNCTION GetModdefTidptr(STRING modulename, OBJECT node, STRING type)
+{
+  STRING tidname := type="" ? "tid" : type||"tid";
+  IF(node->HasAttribute(tidname))
+    RETURN ParseXMLTidDirectly(node, GetTIDPtrFromTid(modulename, node->GetAttribute(tidname)), tidname);
+
+  STRING tid := node->GetAttribute(type=""?"title":type);
+  RETURN tid!=""?":"||tid:"";
+}
+
+PUBLIC RECORD FUNCTION GetModuleDashboardInfo(STRING modulename, OBJECT moddef)
+{
+  RECORD ARRAY groups, panels;
+
+  OBJECT portalnode := moddef->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "portal")->Item(0);
+  IF(NOT ObjectExists(portalnode))
+    RETURN CELL[ groups, panels ];
+
+  STRING topgid := moddef->documentelement->GetAttribute("gid");
+  OBJECT ARRAY groupnodes := portalnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "monitorgroup")->GetCurrentElements() //FIXME only pronuntio does this, so remove soon
+                             CONCAT
+                             portalnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "dashboardgroup")->GetCurrentElements();
+  FOREVERY(OBJECT grp FROM groupnodes)
+  {
+    INSERT [ name :=          QualifyName(modulename, grp->GetAttribute("name"))
+           , title :=         ParseXMLTidPtr(modulename, topgid, grp, "title")
+           , orderbefore :=   ParseAndQualifyXMLList(ToLowercase(grp->GetAttribute("orderbefore")), modulename)
+           , orderafter  :=   ParseAndQualifyXMLList(ToLowercase(grp->GetAttribute("orderafter")), modulename)
+           ] INTO groups aT END;
+  }
+
+  OBJECT ARRAY panelnodes := portalnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "dashboardpanel")->GetCurrentElements()
+                             CONCAT
+                             portalnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "monitorpanel")->GetCurrentElements();
+  FOREVERY(OBJECT panel FROM panelnodes)
+  {
+    INSERT [ grp :=             QualifyName(modulename, panel->GetAttribute("group"))
+           , title :=           ParseXMLTidPtr(modulename, topgid, panel, "title")
+           , screen :=          panel->localname = "dashboardpanel" ? MakeAbsoluteScreenReference(`mod::${modulename}/`, panel->GetAttribute("screen"))
+                                                                     : QualifyName(modulename, panel->GetAttribute("screen"))
+           , name :=            QualifyName(modulename, panel->GetAttribute("name"))
+           ] INTO panels aT END;
+  }
+
+  RETURN CELL[ groups, panels ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetDefaultAppGroups()
+{
+  RETURN
+      [ [ name := ""
+        , tid := ""
+        , orderbefore := DEFAULT STRING ARRAY
+        , orderafter := DEFAULT STRING ARRAY
+        , line := 0
+        , col := 0
+        ]
+      ];
+
+}
+PUBLIC RECORD ARRAY FUNCTION GetAppGroups(STRING modulename, OBJECT moddef)
+{
+  //one anonymous group to hold ungrouped applications
+  RECORD ARRAY groups;
+  OBJECT ARRAY groupnodes := moddef->GetElementsByTagNameNS(xmlns_moduledef, "applicationgroup")->GetCurrentElements();
+  FOREVERY(OBJECT grp FROM groupnodes)
+  {
+    INSERT [ name :=         modulename || ":" || grp->GetAttribute("name")
+           , tid :=          ParseXMLTidPtr(modulename, "", grp, "title")
+           , orderbefore :=  ParseAndQualifyXMLList(ToLowercase(grp->GetAttribute("orderbefore")), modulename)
+           , orderafter :=   ParseAndQualifyXMLList(ToLowercase(grp->GetAttribute("orderafter")), modulename)
+           ] INTO groups AT END;
+  }
+  RETURN groups;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetWHFSRegisterSlots(STRING modulename, OBJECT moddef)
+{
+  OBJECT publishernode := moddef->documentelement->GetChildElementsByTagNameNS(xmlns_moduledef, "publisher")->Item(0);
+  IF(NOT ObjectExists(publishernode))
+    RETURN RECORD[];
+
+  RECORD ARRAY slots;
+  OBJECT ARRAY slotnodes := publishernode->GetChildElementsByTagNameNS(xmlns_moduledef, "registerslot")->GetCurrentElements();
+  FOREVERY(OBJECT slot FROM slotnodes)
+    IF(IsNodeApplicableToThisWebHare(slot))
+    {
+      INSERT [ name :=         ToLowercase(modulename || ":" || slot->GetAttribute("name"))
+             , title :=        ParseXMLTidPtr(modulename, "", slot, "title")
+             , description :=  ParseXMLTidPtr(modulename, "", slot, "description")
+             , initialvalue := slot->GetAttribute("initialvalue")
+             , type :=         slot->GetAttribute("type")
+             ] INTO slots AT END;
+    }
+  RETURN slots;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetDashboardPanels(STRING modulename, OBJECT moddef)
+{
+  OBJECT portalnode := moddef->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "portal")->Item(0);
+  IF(NOT ObjectExists(portalnode))
+    RETURN DEFAULT RECORD ARRAY;
+
+  RECORD ARRAY results;
+
+  STRING topgid := moddef->documentelement->GetAttribute("gid");
+  RETURN results;
+}
+
+//FIXME get rid of appcontexts, but for now, we'll support just WRD
+PUBLIC RECORD ARRAY FUNCTION ParseAppContexts(STRING modulename, OBJECT node)
+{
+  RECORD ARRAY contexts;
+
+  FOREVERY(OBJECT child FROM node->childnodes->GetCurrentElements())
+  {
+    IF(child->namespaceuri != "http://www.webhare.net/xmlns/wrd/appcontext" OR child->localname != "wrdschema")
+      THROW NEW Exception("Unknown appcontext " || child->namespaceuri || ":" || child->localname);
+
+    INSERT [ name := child->GetAttribute("name")
+           , lib := "mod::wrd/lib/internal/tolliumfuncs.whlib"
+           , objtype := "WRDAppContextSupport"
+           , data := [ wrdschema := child->GetAttribute("schema")
+                     , api2017 := ParseXSBoolean(child->GetAttribute("api2017"))
+                     ]
+           ] INTO contexts AT END;
+  }
+  RETURN contexts;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ParseWebFeatures(STRING moduledefpath, STRING modulename, OBJECT node, STRING childgid)
+{
+  RECORD ARRAY designs;
+
+  FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(xmlns_moduledef, "webfeature")->GetCurrentElements())
+  {
+    IF(NOT IsNodeApplicableToThisWebHare(child))
+      CONTINUE;
+
+    STRING featurename := child->GetAttribute("name");
+
+    INSERT [ name := featurename
+           , title := ParseXMLTidPtr(modulename, childgid, child, "title")
+           , siteprofile := MakeAbsoluteResourcePath(moduledefpath,child->GetAttribute("siteprofile"))
+           , line := child->linenum
+           , col := 0
+           , istemplate := ParseXSBoolean(child->GetAttribute("istemplate"))
+           , webdesignmasks := ParseXSList(child->GetAttribute("webdesignmasks"))
+           ] INTO designs AT END;
+  }
+  RETURN designs;
+}
+
+PUBLIC STATIC OBJECTTYPE ModuleDefParser
+<
+  RECORD moduledef;
+  STRING modulepath;
+  OBJECT verifier;
+
+  MACRO NEW(STRING modulename)
+  {
+    this->moduledef :=
+      [ moduledefinitionfile := ""
+      , requiredmodules      := DEFAULT RECORD ARRAY // name, requirerevision
+      , dependencies := DEFAULT STRING ARRAY //FIXME shouldn't be in this record, this is only filled by startup code
+      , missingmodules := DEFAULT STRING ARRAY //FIXME shouldn't be in this record, this is only filled by startup code
+      , startupscripts := DEFAULT RECORD ARRAY
+      , tasks := DEFAULT RECORD ARRAY
+      , isbuiltinmodule :=      FALSE
+      , name                 := ""
+      , circulairdependency  := FALSE
+      , description          := ""
+      , configscreen         := ""
+      , version              := ""
+      , basesiteprofiles     := DEFAULT STRING ARRAY
+      //, tolliumcomponents    := DEFAULT RECORD ARRAY
+      , packagingdownload    := FALSE
+      , packagingapplicability := DEFAULT RECORD
+      , packagingupgrade     := TRUE
+      , packagingnopackmask  := DEFAULT STRING ARRAY
+      , packagingnopackpathmask  := DEFAULT STRING ARRAY
+      , packagingpermissions := DEFAULT RECORD ARRAY
+      , modulerightsgroups    := DEFAULT RECORD ARRAY
+      , moduleobjects        := DEFAULT RECORD ARRAY
+      , modulerights         := DEFAULT RECORD ARRAY
+      , moduleobsoleteobjects := DEFAULT RECORD ARRAY
+      , moduleobsoleterights := DEFAULT STRING ARRAY
+      , hooktargets          := DEFAULT RECORD ARRAY
+      , hookintercepts       := DEFAULT RECORD ARRAY
+
+      , contentproviders     := DEFAULT RECORD ARRAY // Consilio: content providers
+
+      , portal               := [ applications := DEFAULT RECORD ARRAY
+                                , notifications := DEFAULT RECORD ARRAY
+                                ]
+      , fs_objecteditors    := DEFAULT RECORD ARRAY
+
+      , virtualfs            := DEFAULT RECORD ARRAY
+      , logfiles             := DEFAULT RECORD ARRAY
+      , webdesignplugins     := DEFAULT RECORD ARRAY
+      , customnodes          := DEFAULT RECORD ARRAY
+
+      , globalappcontexts    := DEFAULT RECORD ARRAY
+      , webdesigns           := DEFAULT RECORD ARRAY
+      , addtowebdesigns      := RECORD[]
+      , webfeatures          := DEFAULT RECORD ARRAY
+      , filemgrextensions    := DEFAULT RECORD ARRAY
+      , usermgrextensions    := DEFAULT RECORD ARRAY
+      , versioningpolicies   := DEFAULT RECORD ARRAY
+      , indexfields          := DEFAULT RECORD ARRAY
+      , searchfilters        := DEFAULT RECORD ARRAY
+      , assetpacks           := DEFAULT RECORD ARRAY
+      , addtoassetpacks      := RECORD[]
+      , formcomponents       := DEFAULT RECORD ARRAY
+      ];
+
+    this->moduledef.name := modulename;
+    this->moduledef.isbuiltinmodule := modulename IN whconstant_builtinmodules;
+  }
+
+  RECORD FUNCTION ParseApp(OBJECT node)
+  {
+    RECORD app := [ name :=           node->GetAttribute("name")
+                  , screen :=         node->GetAttribute("screen")
+                  , appfunction :=    ""
+                  , appcontexts :=    RECORD[]
+                  ];
+
+    IF(app.screen LIKE "*#*") //it's a new style path
+    {
+      app.screen := MakeAbsoluteScreenReference(this->modulepath, app.screen);
+    }
+    ELSE IF(node->HasAttribute("startmacro"))
+    {
+      IF(node->HasAttribute("library")) //classic synta, separate path
+      {
+        STRING applib := node->GetAttribute("library");
+        IF(applib != "" AND applib NOT LIKE "*::*")
+           applib := "module::" || this->moduledef.name || "/" || applib;
+         app.appfunction := applib || "#" || node->GetAttribute("startmacro");
+      }
+      ELSE
+      {
+        app.appfunction := MakeAbsoluteResourcePath(this->modulepath, node->GetAttribute("startmacro"));
+      }
+    }
+    ELSE
+    {
+      IF(app.screen != "")
+        app.screen := this->moduledef.name || ":" || app.screen;
+    }
+
+    app.name := this->moduledef.name || ":" || app.name;
+
+    OBJECT appcontexts := node->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "appcontexts")->Item(0);
+    IF(ObjectExists(appcontexts))
+      app.appcontexts := ParseAppContexts(this->moduledef.name, appcontexts);
+
+    IF(node->HasAttribute("permissions"))
+      this->AddWarning(node, "permissions= no longer has any effect and should be removed");
+    IF(node->HasAttribute("whdbroles"))
+      this->AddWarning(node, "whdbroles= no longer has any effect and should be removed");
+    IF(node->HasAttribute("grantablerights"))
+      this->AddWarning(node, "grantablerights= no longer has any effect and should be removed");
+
+    RETURN MakeMergedRecord(app, ParseChecks(this->moduledef.name, node, TRUE));
+  }
+
+  STRING FUNCTION ParseXMLTidTitle(OBJECT element, STRING attrname, STRING gid)
+  {
+    RETURN ParseXMLTidPtr(this->moduledef.name, gid, element, attrname);
+  }
+
+  MACRO AddWarning(OBJECT node, STRING error)
+  {
+    this->verifier->AddWarning(node, error);
+  }
+  MACRO AddError(OBJECT node, STRING error)
+  {
+    this->verifier->AddError(node, error);
+  }
+  MACRO AddErrorForLine(INTEGER linenum, STRING error)
+  {
+    this->verifier->AddErrorForLine(linenum, error);
+  }
+
+  ///Backwards compatible XML def parser
+  PUBLIC RECORD FUNCTION Parse(OBJECT xml)
+  {
+    STRING modulename := this->moduledef.name;
+    STRING modulepath := "mod::" || modulename || "/moduledefinition.xml";
+
+    RECORD result := this->ParseAndValidate(NEW ValidatingXMLDocument(xml, modulepath));
+    RETURN CELL [ ...result
+                , errors := this->verifier->errors
+                , warnings := this->verifier->warnings
+                ];
+  }
+
+  ///The actual parser, allowing external verifiers to be supplied for validation
+  PUBLIC RECORD FUNCTION ParseAndValidate(OBJECT validatingdoc)
+  {
+    this->verifier := validatingdoc;
+
+    OBJECT xml := this->verifier->xml;
+    OBJECT root := xml->documentelement;
+    STRING modulename := this->verifier->GetModuleName();
+    this->modulepath := this->verifier->respath;
+
+    IF(NOT ObjectExists(root) OR root->namespaceuri != "http://www.webhare.net/xmlns/system/moduledefinition" OR root->localname!="module")
+    {
+      this->AddError(DEFAULT OBJECT, "Not a recognized module definition file");
+      RETURN this->moduledef;
+    }
+
+    RECORD ARRAY seennodes;
+    this->moduledef.moduledefinitionfile := this->modulepath;
+
+    STRING rootgid := ParseGid(modulename, "", root);
+
+    RECORD myapplyinfo := GetMyApplicabilityInfo();
+    FOREVERY(OBJECT child FROM root->childnodes->GetCurrentElements())
+    {
+      RECORD nodekey := [ namespace := child->namespaceuri, name := child->localname ];
+      RECORD pos := RecordLowerBound(seennodes, nodekey, [ "NAMESPACE", "NAME" ]);
+      IF (pos.found)
+        this->AddError(child, "Node {" || nodekey.namespace || "}" || nodekey.name || " exists multiple times");
+
+      IF(child->namespaceuri != "http://www.webhare.net/xmlns/system/moduledefinition" OR child->localname NOT IN ["registry","databaseschema"]) //allow multiple registry nodes
+        INSERT nodekey INTO seennodes AT pos.position;
+
+      STRING childgid := ParseGid(modulename, rootgid, child);
+      SWITCH(child->localname)
+      {
+        CASE"appcontexts"
+        {
+          this->moduledef.globalappcontexts := ParseAppContexts(modulename, child);
+        }
+        CASE"servicemanager"
+        {
+          FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
+          {
+            SWITCH(subchild->localname)
+            {
+              CASE "runatstartup"
+              {
+                IF(NOT IsNodeApplicableToThisWebHare(subchild))
+                  CONTINUE;
+
+                STRING when := subchild->GetAttribute("when");
+                IF(when="")
+                  when := "afterlaunch";
+
+                INSERT
+                  [ when := when
+                  , script := this->verifier->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->modulepath,"scripts/"), [ warnversion := 42600 ])
+                  ] INTO this->moduledef.startupscripts AT END;
+              }
+              CASE "task"
+              {
+                STRING inapplicable := GetApplicabilityError(myapplyinfo, ReadApplicableToWebHareNode(subchild));
+                IF(subchild->HasAttribute("runtime") OR subchild->HasAttribute("runinterval"))
+                  this->AddWarning(subchild,"runtime= and runinterval= have been deprecated. you should switch to a runat= cronmask. See also https://www.webhare.dev/reference/modules/services-tasks#scheduled-tasks");
+
+                RECORD task := [ tag := modulename || "." || subchild->GetAttribute("tag")
+                               , script := this->verifier->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->modulepath,"scripts/"), [ warnversion := 42600 ])
+                               , runatstartup := subchild->GetAttribute("runatstartup") IN ["true","1"]
+                               , runtime := subchild->GetAttribute("runtime")
+                               , runinterval := subchild->GetAttribute("runinterval")
+                               , timeout := ToInteger(subchild->GetAttribute("timeout"),0)
+                               , description := subchild->GetAttribute("description")
+                               , workerthreads := ToInteger(subchild->GetAttribute("workerthreads"),0)
+                               , runat := subchild->GetAttribute("runat")
+                               , runtz := subchild->GetAttribute("runtz")
+                               , line := subchild->linenum
+                               , inapplicable := inapplicable
+                               ];
+
+                INSERT task INTO this->moduledef.tasks AT END;
+              }
+            }
+          }
+        }
+        CASE "backend"
+        {
+          this->ParseBackend(childgid, child);
+        }
+        CASE "publisher"
+        {
+          this->ParsePublisher(childgid, child);
+        }
+        CASE "meta"
+        {
+          this->moduledef.configscreen := MakeAbsoluteScreenReference(this->modulepath, child->GetAttribute("configscreen"));
+
+          FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
+            SWITCH(subchild->localname)
+            {
+              CASE "description"
+              {
+                this->moduledef.description := subchild->textcontent;
+              }
+              CASE "version"
+              {
+                this->moduledef.version := subchild->textcontent;
+              }
+              CASE "packaging"
+              {
+                this->moduledef.packagingdownload := subchild->GetAttribute("download") IN ["true","1"];
+                this->moduledef.packagingapplicability := ReadApplicableToWebHareNode(subchild);
+
+                FOREVERY(OBJECT subsubchild FROM subchild->childnodes->GetCurrentElements())
+                  SWITCH(subsubchild->localname)
+                  {
+                    CASE "dependency"
+                    {
+                      STRING name := subsubchild->GetAttribute("module");
+                      INSERT
+                          [ name :=            ToLowercase(TrimWhitespace(name))
+                          , requireversion :=  subsubchild->GetAttribute("requireversion")
+                          ] INTO this->moduledef.requiredmodules AT END;
+                    }
+                    CASE "exclude"
+                    {
+                      INSERT subsubchild->GetAttribute("mask") INTO this->moduledef.packagingnopackmask AT END;
+                    }
+                    CASE "excludepath"
+                    {
+                      INSERT subsubchild->GetAttribute("mask") INTO this->moduledef.packagingnopackpathmask AT END;
+                    }
+                    CASE "unixpermissions"
+                    {
+                      INSERT [ file := subsubchild->GetAttribute("path")
+                             , permissions := ToInteger(subsubchild->GetAttribute("permissions"),0,8)
+                             ] INTO this->moduledef.packagingpermissions AT END;
+                    }
+                  }
+              }
+            }
+        }
+
+        CASE "portal"
+        {
+          FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
+          {
+            IF(NOT IsNodeApplicableToThisWebHare(subchild))
+              CONTINUE;
+
+            STRING subchildgid := ParseGid(modulename, childgid, subchild);
+            SWITCH(subchild->localname)
+            {
+              CASE "application", "linkapp", "manualapp"
+              {
+                RECORD app :=  [ title :=          this->ParseXMLTidTitle(subchild, "title", subchildgid)
+                               , description :=    this->ParseXMLTidTitle(subchild, "description", subchildgid)
+                               , appgroup :=       ParseXMLModuleNamed(modulename, subchild, "group")
+                               , icon :=           ParseXMLModuleNamed(modulename, subchild, "icon")
+                               , openmultipleinstances := ParseXSBoolean(subchild->GetAttribute("openmultipleinstances"))
+                               , iswindowopen :=   subchild->localname = "linkapp"
+                               , ismanual :=       subchild->localname = "manualapp"
+                               , isdeveloperapp := ParseXSBoolean(subchild->GetAttribute("isdeveloperapp"))
+                               , allowuntrustedparams := ParseXSBoolean(subchild->GetAttribute("allowuntrustedparams"))
+                               , link :=           subchild->GetAttribute("link")
+                               , manual :=         subchild->GetAttribute("manual")
+                               , accesstoken :=    subchild->GetAttribute("accesstoken")
+                               , supportedlanguages := ParseXSList(subchild->GetAttribute("supportedlanguages"))
+                               , shortcut :=       ParseShortcut(subchild->GetAttribute("shortcut"))
+                               ];
+
+                app := MakeMergedRecord(app, this->ParseApp(subchild));
+
+                INSERT app INTO this->moduledef.portal.applications AT END;
+                FOREVERY(STRING err FROM app.errors)
+                  this->AddError(subchild, err);
+              }
+              CASE "notification"
+              {
+                RECORD notification :=
+                  [ name           := subchild->GetAttribute("name")
+                  , title          := this->ParseXMLTidTitle(subchild, "title", subchildgid)
+                  , description    := this->ParseXMLTidTitle(subchild, "description", subchildgid)
+                  , defaultenabled := ParseXSBoolean(subchild->GetAttribute("defaultenabled"))
+                  ];
+                INSERT notification INTO this->moduledef.portal.notifications AT END;
+              }
+            }
+          }
+        }
+        CASE "rights"
+        {
+          RECORD ARRAY all_objtypes;
+          RECORD ARRAY all_rights;
+          RECORD ARRAY all_rightsgroups;
+
+          FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
+          {
+            STRING subchildgid := ParseGid(modulename, childgid, subchild);
+            SWITCH(subchild->localname)
+            {
+              CASE "rightsgroup"
+              {
+                RECORD rightsgrouprec :=
+                    [ name        := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
+                    , title       := this->ParseXMLTidTitle(subchild, "title", subchildgid)
+                    , description := this->ParseXMLTidTitle(subchild, "description", subchildgid)
+                    , icon        := ParseXMLModuleNamed(modulename, subchild, "icon")
+                    ];
+
+                IF (RecordExists(SELECT FROM all_rightsgroups WHERE name = rightsgrouprec.name))
+                  this->AddError(subchild, "A rightsgroups with name '" || rightsgrouprec.name || "' is declared twice");
+                ELSE
+                  INSERT rightsgrouprec INTO all_rightsgroups AT END;
+              }
+              CASE "objecttype"
+              {
+                STRING tablename := ToLowercase(subchild->GetAttribute("table"));
+                IF (LEFT(tablename, 1) = ".")
+                  tablename := modulename || tablename;
+
+                STRING parentfield := ToLowercase(subchild->GetAttribute("parentfield"));
+
+                RECORD objectrec :=
+                    [ name        := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
+                    , tablename   := tablename
+                    , rightsgroup := ParseXMLModuleNamed(modulename, subchild, "rightsgroup")
+                    , title       := this->ParseXMLTidTitle(subchild, "title", subchildgid)
+                    , description := this->ParseXMLTidTitle(subchild, "description", subchildgid)
+                    , describer   := ""
+                    , icon        := ParseXMLModuleNamed(modulename, subchild, "icon")
+                    , parentfield := parentfield
+                    , line        := subchild->linenum
+                    ];
+
+                IF (objectrec.rightsgroup = "")
+                  objectrec.rightsgroup := "system:default";
+
+                FOREVERY(OBJECT subsubchild FROM subchild->childnodes->GetCurrentElements())
+                  SWITCH(subsubchild->localname)
+                  {
+                    CASE "describer"
+                    {
+                      objectrec.describer := "module::" || modulename || "/" || ToLowercase(subsubchild->GetAttribute("library")) || "#" || ToLowercase(subsubchild->GetAttribute("objectname"));
+                    }
+                  }
+
+                IF(objectrec.describer = "" AND subchild->HasAttribute("describer"))
+                  objectrec.describer := MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("describer"));
+
+                IF (RecordExists(SELECT FROM all_objtypes WHERE name = objectrec.name))
+                  this->AddError(subchild, "An objecttype with name '" || objectrec.name || "' is declared twice");
+                ELSE
+                  INSERT objectrec INTO all_objtypes AT END;
+              }
+              CASE "right"
+              {
+                RECORD rightrec :=
+                    [ name                := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
+                    , objtype             := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "objecttype"))
+                    , rightsgroup         := ParseXMLModuleNamed(modulename, subchild, "rightsgroup")
+                    , impliedbys          := DEFAULT RECORD ARRAY
+                    , isglobal            := subchild->GetAttribute("objecttype") = ""
+                    , title               := this->ParseXMLTidTitle(subchild, "title", subchildgid)
+                    , description         := this->ParseXMLTidTitle(subchild, "description", subchildgid)
+                    , showbefore          := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("showbefore")), modulename)
+                    , showafter           := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("showafter")), modulename)
+                    , line                := subchild->linenum
+                    ];
+                IF (rightrec.objtype = "" AND rightrec.rightsgroup = "")
+                  rightrec.rightsgroup := "system:default";
+
+                FOREVERY(OBJECT subsubchild FROM subchild->childnodes->GetCurrentElements())
+                  SWITCH(subsubchild->localname)
+                  {
+                    CASE "impliedby"
+                    {
+                      STRING rightname := ToLowercase(ParseXMLModuleNamed(modulename, subsubchild, "right"));
+
+                      INSERT
+                          [ right     := rightname
+                          , fieldname := "" // not supported yet
+                          ] INTO rightrec.impliedbys AT END;
+                    }
+                  }
+                INSERT rightrec INTO all_rights AT END;
+              }
+              CASE "obsoleteobjecttype"
+              {
+                STRING tablename := ToLowercase(subchild->GetAttribute("table"));
+                IF (LEFT(tablename, 1) = ".")
+                  tablename := modulename || tablename;
+
+                INSERT [ name := ParseXMLModuleNamed(modulename, subchild, "name")
+                       , tablename := tablename
+                       ] INTO this->moduledef.moduleobsoleteobjects AT END;
+              }
+              CASE "obsoleteright"
+              {
+                INSERT ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name")) INTO this->moduledef.moduleobsoleterights AT END;
+              }
+            }
+          }
+
+          this->moduledef.modulerightsgroups := all_rightsgroups;
+
+          // ADDME: check objecttypes globally
+          FOREVERY (RECORD objrec FROM all_objtypes)
+          {
+            BOOLEAN error := FALSE;
+
+            IF (objrec.rightsgroup LIKE modulename || ":*")
+              IF (NOT RecordExists(SELECT FROM all_rightsgroups WHERE name = objrec.rightsgroup))
+              {
+                this->AddErrorForLine(objrec.line, `No rightsgroup with name '${objrec.rightsgroup}' exists`);
+                error := TRUE;
+              }
+
+            IF (NOT error)
+              INSERT objrec INTO this->moduledef.moduleobjects AT END;
+          }
+
+          FOREVERY (RECORD rightrec FROM all_rights)
+          {
+            BOOLEAN error := FALSE;
+            IF (rightrec.objtype != "")
+            {
+              IF (rightrec.objtype LIKE modulename || ":*" AND NOT RecordExists(SELECT FROM this->moduledef.moduleobjects WHERE name = rightrec.objtype))
+              {
+                this->AddErrorForLine(rightrec.line, `No objecttype with name '${rightrec.objtype}' exists`);
+                error := TRUE;
+              }
+              ELSE IF (rightrec.rightsgroup != "")
+              { //note: we don't need to prevent insertion in the list just for this reason, just gives us a potential dupe "does not exist" error
+                this->AddErrorForLine(rightrec.line, `Cannot set rightsgroup on rights associated with an objecttype`);
+              }
+            }
+            ELSE
+            {
+              IF (rightrec.rightsgroup LIKE modulename || ":*")
+                IF (NOT RecordExists(SELECT FROM all_rightsgroups WHERE name = rightrec.rightsgroup))
+                {
+                  this->AddErrorForLine(rightrec.line, `No rightsgroup with name '"${rightrec.rightsgroup}' exists`);
+                  error := TRUE;
+                }
+            }
+            IF (NOT error)
+              INSERT rightrec INTO this->moduledef.modulerights AT END;
+          }
+        }
+
+        CASE "hooking"
+        {
+          FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
+          {
+            STRING subchildgid := ParseGid(modulename, childgid, subchild);
+            SWITCH(subchild->localname)
+            {
+            CASE "target"
+              {
+                RECORD target :=
+                    [ name           := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
+                    , line           := subchild->linenum
+                    ];
+
+                INSERT target INTO this->moduledef.hooktargets AT END;
+              }
+            CASE "intercept"
+              {
+                IF(NOT IsNodeApplicableToThisWebHare(subchild))
+                  CONTINUE;
+
+                STRING interceptfunction;
+                IF(subchild->HasAttribute("library"))
+                {
+                  this->AddWarning(subchild,"library= has been deprecated, we recommend adding the relative path to interceptfunction (supported in 4.17 and up)");
+                  interceptfunction := "module::" || modulename || "/" || ToLowercase(subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("interceptfunction");
+                }
+                ELSE
+                {
+                  interceptfunction := MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("interceptfunction"));
+                }
+
+                RECORD intercept :=
+                    [ module        := modulename
+                    , name          := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
+                    , target        := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "target"))
+                    , orderbefore   := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("runbefore")), modulename)
+                    , orderafter    := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("runafter")), modulename)
+                    , interceptfunction := interceptfunction
+                    , line          := subchild->linenum
+                    ];
+
+                INSERT intercept INTO this->moduledef.hookintercepts AT END;
+              }
+            }
+          }
+        }
+        CASE "consilio"
+        {
+          FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
+          {
+            STRING subchildgid := ParseGid(modulename, childgid, subchild);
+            SWITCH(subchild->localname)
+            {
+              CASE "contentprovider"
+              {
+                RECORD contentprovider :=
+                  [ name                  := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
+                  , library               := "module::" || modulename || "/" || ToLowercase(subchild->GetAttribute("library"))
+                  , contentproviderobject := subchild->GetAttribute("contentproviderobject")
+                  , settingsscreen        := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "settingsscreen"))
+                  , title                 := this->ParseXMLTidTitle(subchild, "title", subchildgid)
+                  , icon                  := ParseXMLModuleNamed(modulename, subchild, "icon")
+                  , publishercontent      := subchild->GetAttribute("publishercontent") IN [ "true", "1" ]
+                  ];
+
+                INSERT contentprovider INTO this->moduledef.contentproviders AT END;
+              }
+            }
+          }
+        }
+
+        //ADDME: Parse other nodes, warn (but don't fail) about unrecognized nodes
+        CASE "services"
+        {
+          FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
+          {
+            STRING subchildgid := ParseGid(modulename, childgid, subchild);
+            SWITCH(subchild->localname)
+            {
+              CASE "internalservice"
+              {
+                ParseXMLTidPtr(modulename, subchildgid, subchild, "title");
+//                INSERT MakeTidCaptureRecordForNode(modulename, subchild, "title", subchildgid) INTO this->moduledef.captured_tids AT END;
+              }
+            }
+          }
+        }
+        CASE "logging"
+        {
+          FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
+          {
+            STRING subchildgid := ParseGid(modulename, childgid, subchild);
+            SWITCH(subchild->localname)
+            {
+              CASE "log"
+              {
+                RECORD logrec :=
+                    [ name :=             ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
+                    , filename :=         subchild->GetAttribute("filename")
+                    , rotates :=          ToInteger(subchild->GetAttribute("rotates"), 99)
+                    , with_mseconds :=    subchild->GetAttribute("mseconds") IN [ "true", "1" ]
+                    ];
+
+                INSERT logrec INTO this->moduledef.logfiles AT END;
+              }
+            }
+          }
+        }
+      }
+    }
+    IF (RecordExists(this->moduledef.portal))
+    {
+      STRING ARRAY rightnames :=
+          SELECT AS STRING ARRAY name
+            FROM this->moduledef.modulerights;
+
+      FOREVERY (RECORD app FROM this->moduledef.portal.applications)
+        FOREVERY(STRING err FROM CheckAccessChecks(modulename, app.accesscheck, rightnames, TRUE))
+          this->AddError(DEFAULT OBJECT, err);
+    }
+//    DELETE FROM this->moduledef.captured_tids WHERE NOT RecordExists(captured_tids);
+    RETURN this->moduledef;
+  }
+
+  RECORD FUNCTION ParseWebdesigns(OBJECT node, STRING childgid)
+  {
+    STRING modulename := this->moduledef.name;
+    RECORD ARRAY designs;
+    RECORD ARRAY assetpacks;
+
+    FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(xmlns_moduledef, "webdesign")->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(child))
+        CONTINUE;
+
+      STRING designname := child->GetAttribute("name");
+      STRING designroot;
+      IF(child->HasAttribute("path"))
+        designroot := MakeAbsoluteResourcePath(this->modulepath, child->GetAttribute("path"));
+      ELSE
+        designroot := "mod::" || modulename || "/webdesigns/" || designname || "/";
+      IF(designroot NOT LIKE "*/")
+        designroot := designroot || "/";
+
+      BOOLEAN istemplate := ParseXSBoolean(child->GetAttribute("istemplate"));
+      IF(NOT istemplate)
+      {
+        FOREVERY (OBJECT assetpacknode FROM child->GetChildElementsByTagNameNS(xmlns_moduledef,"assetpack")->GetCurrentElements())
+        {
+          STRING assetpackname := modulename || ":" || (assetpacknode->GetAttribute("name") ?? designname);
+          IF(RecordExists(SELECT FROM assetpacks WHERE ToUppercase(name) = ToUppercase(assetpackname)))
+          {
+            this->AddError(assetpacknode, "Duplicate asset pack");
+            CONTINUE;
+          }
+
+          STRING ARRAY babeltranspile;
+          FOREVERY (OBJECT babeltranspilenode FROM assetpacknode->GetChildElementsByTagNameNS(xmlns_moduledef, "babeltranspile")->GetCurrentElements())
+          {
+            STRING regex := babeltranspilenode->GetAttribute("regex");
+            IF(regex != "")
+              INSERT regex INTO babeltranspile AT END;
+          }
+
+          STRING entrypoint := assetpacknode->GetAttribute("entrypoint");
+          IF (entrypoint != "_polyfills")
+            entrypoint := MakeAbsoluteResourcePath(this->modulepath, assetpacknode->GetAttribute("entrypoint"));
+
+          INSERT [ name := assetpackname
+                 , entrypoint := entrypoint
+                 , supportedlanguages := (SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(ParseXSList(assetpacknode->GetAttribute("supportedlanguages")), "lang"))
+                 , designroot := designroot
+                 , alwaysincludepolyfill := ParseXSBoolean(assetpacknode->GetAttribute("alwaysincludepolyfill"))
+                 , webharepolyfills := assetpacknode->HasAttribute("webharepolyfills") ? ParseXSBoolean(assetpacknode->GetAttribute("webharepolyfills")) : TRUE
+                 , environment := assetpacknode->GetAttribute("environment") ?? "window"
+                 , babeltranspile := babeltranspile
+                 , aftercompiletask := ParseXMLModuleNamed(modulename, assetpacknode, "aftercompiletask")
+                 ] INTO assetpacks AT END;
+        }
+      }
+
+      //In a template, the siteprofile is simply a witty expression, so don't expand it
+      STRING siteprofile;
+      IF(istemplate)
+        siteprofile := child->GetAttribute("siteprofile"); //no legacy support for templates
+      ELSE //We used to resolve based on designroot, but that's inconsistent with how our paths normally work
+        siteprofile := this->verifier->GetVerifyPath(child, "siteprofile", designroot);
+
+      INSERT [ name := designname
+             , title := ParseXMLTidPtr(modulename, childgid, child, "title")
+             , siteprofile := siteprofile
+             , line := child->linenum
+             , col := 0
+             , designroot := designroot
+             , istemplate := istemplate
+             ] INTO designs AT END;
+    }
+
+    RETURN [ webdesigns := designs
+           , assetpacks := assetpacks
+           ];
+  }
+
+  RECORD ARRAY FUNCTION ParseAddToWebdesigns(OBJECT node, STRING childgid)
+  {
+    STRING modulename := this->moduledef.name;
+    RECORD ARRAY addtowebdesigns;
+    FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(xmlns_moduledef, "addtowebdesign")->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(child))
+        CONTINUE;
+
+      INSERT [ webdesign := QualifyName(modulename, child->GetAttribute("webdesign"))
+             , siteprofile := MakeAbsoluteResourcePath(this->modulepath, child->GetAttribute("siteprofile"))
+             ] INTO addtowebdesigns AT END;
+    }
+    RETURN addtowebdesigns;
+  }
+
+  RECORD FUNCTION ParseAddAction(STRING childgid, OBJECT node)
+  {
+    RETURN CELL[ title             := ParseXMLTidPtr(this->moduledef.name, childgid, node, "title")
+               , screen            := MakeAbsoluteScreenReference(this->modulepath, node->GetAttribute("screen"))
+               , startmacro        := MakeAbsoluteResourcePath(this->modulepath, node->GetAttribute("startmacro"))
+               , windowopenmacro   := MakeAbsoluteResourcePath(this->modulepath, node->GetAttribute("windowopenmacro"))
+               , addtomenu         := node->GetAttribute("addtomenu")
+               ];
+  }
+
+  MACRO ParseBackend(STRING childgid, OBJECT child)
+  {
+    FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(subchild))
+        CONTINUE;
+
+      SWITCH(subchild->localname)
+      {
+        CASE "usermgrextension"
+        {
+          RECORD extension := [ accesscheck := this->ParseCheck(subchild)
+                              , addactions := DEFAULT RECORD ARRAY
+                              ];
+
+          FOREVERY(OBJECT addaction FROM subchild->GetChildElementsByTagNameNS(xmlns_moduledef, "addaction")->GetCurrentElements())
+          {
+            INSERT CELL[ ...this->ParseAddAction(childgid, addaction)
+                       ] INTO extension.addactions AT END;
+          }
+          INSERT extension INTO this->moduledef.usermgrextensions AT END;
+        }
+      }
+    }
+  }
+
+  MACRO ParsePublisher(STRING childgid, OBJECT child)
+  {
+    RECORD designandpacks := this->ParseWebdesigns(child, childgid);
+    this->moduledef.webdesigns := designandpacks.webdesigns;
+    this->moduledef.assetpacks := designandpacks.assetpacks;
+    this->moduledef.addtowebdesigns := this->ParseAddToWebdesigns(child, childgid);
+    this->moduledef.webfeatures := ParseWebFeatures(this->modulepath, this->moduledef.name, child, childgid);
+
+    FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(subchild))
+        CONTINUE;
+
+      SWITCH(subchild->localname)
+      {
+        CASE "virtualfs"
+        {
+          RECORD virtualfs := [ name := subchild->GetAttribute("name")
+                              , library := "module::" || this->moduledef.name || "/" || ToLowercase(subchild->GetAttribute("library"))
+                              , objectname := subchild->HasAttribute("objecttype") ? subchild->GetAttribute("objecttype") : subchild->GetAttribute("objectname")
+                              ];
+          virtualfs := MakeMergedRecord(virtualfs, ParseChecks(this->moduledef.name, subchild, TRUE));
+          INSERT virtualfs INTO this->moduledef.virtualfs AT END;
+        }
+        CASE "siteprofile"
+        {
+          IF(subchild->HasAttribute("datafile"))
+          {
+            this->AddWarning(subchild,"<siteprofile datafile= has been deprecated. Please use path= and specify an absolute or relative path");
+            INSERT "mod::" || this->moduledef.name || "/data/" || subchild->GetAttribute("datafile") INTO this->moduledef.basesiteprofiles AT END;
+          }
+          ELSE IF(subchild->HasAttribute("path"))
+            INSERT MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("path")) INTO this->moduledef.basesiteprofiles AT END;
+          ELSE
+            this->AddError(subchild, "Specify either datafile= or path= for a <siteprofile/>");
+        }
+        CASE "objecteditor"
+        {
+          RECORD app := CELL[ ...this->ParseApp(subchild)
+                            , documenteditor := MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("documenteditor"))
+                            , supportsreadonly := ParseXSBoolean(subchild->GetAttribute("supportsreadonly"))
+                            ];
+
+          IF(app.documenteditor != "")
+          {
+            app.appfunction := "";
+            app.screen := "mod::publisher/tolliumapps/editdocument/editdocument.xml#editdocumentapp";
+          }
+
+          INSERT app INTO this->moduledef.fs_objecteditors AT END;
+          FOREVERY(STRING error FROM app.errors)
+            this->AddError(subchild, error);
+        }
+        CASE "versioningpolicy"
+        {
+          RECORD policy := [ name := subchild->GetAttribute("name")
+                           , library := MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("library"))
+                           , objectname := subchild->GetAttribute("objectname")
+                           ];
+          INSERT policy INTO this->moduledef.versioningpolicies AT END;
+        }
+        CASE "indexfield"
+        {
+          RECORD indexfield := this->ParseIndexField(subchild, TRUE);
+          IF (RecordExists(indexfield))
+            INSERT indexfield INTO this->moduledef.indexfields AT END;
+        }
+        CASE "searchfilter"
+        {
+          RECORD searchfilter := this->ParseSearchFilter(subchild, childgid);
+          IF (RecordExists(searchfilter))
+            INSERT searchfilter INTO this->moduledef.searchfilters AT END;
+        }
+        CASE "webdesignplugin"
+        {
+          RECORD plugin;
+          IF(subchild->HasAttribute("library"))
+            plugin := MakePluginRecord("module::" || this->moduledef.name || "/" || ToLowercase(subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("objectname"));
+          ELSE
+            plugin := MakePluginRecord(MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("objectname")));
+
+          plugin.name := subchild->GetAttribute("name");
+          plugin.namespace := subchild->GetAttribute("namespace");
+          plugin.hooksfeatures := ParseXSList(subchild->GetAttribute("hooksfeatures"));
+
+          FOREVERY(STRING hookplugin FROM ParseXSList(subchild->GetAttribute("hooksplugins")))
+            INSERT subchild->LookupQualifiedName(hookplugin) INTO plugin.hooksplugins AT END;
+
+          INSERT plugin INTO this->moduledef.webdesignplugins AT END;
+        }
+        CASE "addtoassetpack"
+        {
+          INSERT [ assetpack := subchild->GetAttribute("assetpack")
+                 , entrypoint := MakeAbsoluteResourcePath(this->modulepath,subchild->GetAttribute("entrypoint"))
+                 ] INTO this->moduledef.addtoassetpacks AT END;
+        }
+        CASE "customnode"
+        {
+          RECORD plugin := [ name := subchild->GetAttribute("name")
+                           , namespace := subchild->GetAttribute("namespace")
+                           ];
+          INSERT plugin INTO this->moduledef.customnodes AT END;
+        }
+        CASE "filemgrextension"
+        {
+          RECORD extension := [ accesscheck := this->ParseCheck(subchild)
+                              , addactions := DEFAULT RECORD ARRAY
+                              , addrootitems := DEFAULT RECORD ARRAY
+                              ];
+
+          FOREVERY(OBJECT addaction FROM subchild->GetChildElementsByTagNameNS(xmlns_moduledef, "addaction")->GetCurrentElements())
+          {
+            INSERT CELL[ ...this->ParseAddAction(childgid, addaction)
+                       , allowmultiple     := ParseXSBoolean(addaction->GetAttribute("allowmultiple"))
+                       , onlydevelopers    := ParseXSBoolean(addaction->GetAttribute("onlydevelopers"))
+                       , requiresselection := addaction->HasAttribute("requiresselection") = FALSE OR ParseXSBoolean(addaction->GetAttribute("requiresselection"))
+
+                       , onlyinsidesite    := addaction->GetAttribute("site") = "inside"
+                       , onlyoutsidesite   := addaction->GetAttribute("site") = "outside"
+                       , onlyfullaccess    := addaction->GetAttribute("permissions") = "fullaccess"
+                       , onlywritable      := addaction->GetAttribute("permissions") IN ["fullaccess","writeaccess"]
+                       , onlyfolders       := addaction->GetAttribute("objecttype") = "folders"
+                       , onlyfiles         := addaction->GetAttribute("objecttype") = "files"
+                       ] INTO extension.addactions AT END;
+          }
+          FOREVERY(OBJECT addrootitem FROM subchild->GetChildElementsByTagNameNS(xmlns_moduledef, "addrootitem")->GetCurrentElements())
+          {
+            INSERT [ title             := ParseXMLTidPtr(this->moduledef.name, childgid, addrootitem, "title")
+                   , gotoitem          := ParseXMLTidPtr(this->moduledef.name, childgid, addrootitem, "gotoitem")
+                   , gotoshortcut      := addrootitem->GetAttribute("gotoshortcut")
+                   , contentmode       := addrootitem->GetAttribute("contentmode")
+                   , icon              := addrootitem->GetAttribute("icon")
+                   , forvirtualfilters := ParseXSList(addrootitem->GetAttribute("forvirtualfilters"))
+                   , filterscreen      := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("filterscreen"))
+                   , modulekey         := this->moduledef.name || ":" || Length(this->moduledef.filemgrextensions) || "." || Length(extension.addrootitems) //to find this in the shortcut menu
+
+                   //, library           := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("library"))
+                   //, objectname        := addrootitem->GetAttribute("objectname")
+                   ] INTO extension.addrootitems AT END;
+
+          }
+          INSERT extension INTO this->moduledef.filemgrextensions AT END;
+        }
+        CASE "formcomponents"
+        {
+          STRING xsd := MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("xmlschema"));
+
+          RECORD rec :=
+              [ uri :=              subchild->GetAttribute("namespace")
+              , xsd :=              xsd
+              ];
+          INSERT rec INTO this->moduledef.formcomponents AT END;
+        }
+      }
+    }
+  }
+
+  RECORD FUNCTION ParseIndexField(OBJECT node, BOOLEAN recurse)
+  {
+    STRING fieldname := node->GetAttribute("name");
+    STRING namespace := node->GetAttribute("namespace");
+    STRING membername := node->GetAttribute("member");
+    STRING library := node->GetAttribute("library");
+    IF (library != "" AND library NOT LIKE "*::*")
+      library := "module::" || this->moduledef.name || "/" || library;
+    STRING functionname := node->GetAttribute("functionname");
+    STRING fieldfunc := node->GetAttribute("fieldfunc");
+
+    // Either both 'namespace' and 'member' or both 'library' and 'functionname' or just 'fieldfunc' are required. If
+    // 'library' and 'functionname' or 'fieldfunc' are given, 'name' is required, otherwise the value of 'member' is used
+    // as the name if the name is not given.
+
+    IF (((namespace != "" OR membername != "") AND (library != "" OR functionname != ""))
+        OR ((namespace != "" OR membername != "") AND fieldfunc != "")
+        OR ((library != "" OR functionname != "") AND fieldfunc != "")
+        OR (namespace = "" AND membername = "" AND library = "" AND functionname = "" AND fieldfunc = ""))
+      this->AddError(node, "Either 'namespace' and 'member' or 'library' and 'functionname' should be set");
+    ELSE IF (recurse AND ((namespace != "" AND membername = "") OR (namespace = "" AND membername != "")))
+      this->AddError(node, "'namespace' and 'member' are both required");
+    ELSE IF ((library != "" AND functionname = "") OR (library = "" AND functionname != ""))
+      this->AddError(node, "'library' and 'functionname' are both required");
+    IF ((library != "" OR fieldfunc != "") AND fieldname = "")
+    {
+      this->AddError(node, "'name' is required if 'library' and 'functionname' are used");
+      RETURN DEFAULT RECORD;
+    }
+    ELSE IF (membername != "" AND fieldname = "")
+      fieldname := membername;
+
+    IF (fieldfunc != "")
+    {
+      library := Tokenize(fieldfunc, "#")[0];
+      functionname := Substring(fieldfunc, Length(library) + 1);
+      library := MakeAbsoluteResourcePath(this->modulepath, library);
+      IF (library = "" OR functionname = "")
+      {
+        this->AddError(node, `Invalid 'fieldfunc' value ${fieldfunc}`);
+        RETURN DEFAULT RECORD;
+      }
+    }
+
+    RECORD ARRAY arraymembers;
+    IF (recurse)
+    {
+      FOREVERY (OBJECT fieldnode FROM node->childnodes->GetCurrentElements())
+      {
+        IF (membername = "")
+        {
+          this->AddError(fieldnode, "Array member only allowed when 'membername' is supplied");
+          BREAK;
+        }
+        RECORD arraymember := this->ParseIndexField(fieldnode, FALSE);
+        IF (RecordExists(arraymember))
+        {
+          DELETE CELL namespace FROM arraymember;
+          INSERT arraymember INTO arraymembers AT END;
+        }
+      }
+    }
+
+    RECORD indexfield :=
+        [ fieldname := fieldname
+        , namespace := namespace
+        , membername := membername
+        , library := library
+        , functionname := functionname
+        , tokenized := ParseXSBoolean(node->GetAttribute("tokenized"))
+        , suggested := ParseXSBoolean(node->GetAttribute("suggested"))
+        ];
+    IF (recurse)
+      INSERT CELL arraymembers := arraymembers INTO indexfield;
+    RETURN indexfield;
+  }
+
+  RECORD FUNCTION ParseSearchFilter(OBJECT node, STRING gid)
+  {
+    STRING name := node->GetAttribute("name");
+    STRING filterobjname := MakeAbsoluteResourcePath(this->modulepath, node->GetAttribute("filterobject"));
+    RECORD searchfilter :=
+        CELL[ name
+            , title := ParseXMLTidPtr(this->moduledef.name, gid, node, "title")
+            , description := ParseXMLTidPtr(this->moduledef.name, gid, node, "description")
+            , filterobjname
+            , accesscheck := DEFAULT RECORD
+            , linenum := node->linenum
+            ];
+
+    FOREVERY (OBJECT child FROM node->childnodes->GetCurrentElements())
+    {
+      IF (child->localname = "accesscheck")
+        searchfilter.accesscheck := ParseAccessCheck(this->moduledef.name, child);
+    }
+
+    RETURN searchfilter;
+  }
+
+  RECORD FUNCTION ParseCheck(OBJECT node)
+  {
+    RECORD accesscheck;
+    FOREVERY(OBJECT subchild FROM node->childnodes->GetCurrentElements())
+      SWITCH(subchild->localname)
+      {
+        CASE "accesscheck", "requireright", "requireanygrantableright"
+        {
+          accesscheck := ParseAccessCheck(this->moduledef.name, subchild);
+          IF (accesscheck.type = "err")
+            this->AddError(subchild,accesscheck.msg);
+
+          // Translate accesscheck to DEFAULT RECORD
+          IF (accesscheck.type = "combine" AND LENGTH(accesscheck.checks) = 0)
+          {
+            accesscheck := DEFAULT RECORD;
+            CONTINUE;
+          }
+        }
+      }
+    RETURN accesscheck;
+  }
+>;
+
+/** @return Moduledefinition
+    @cell return.moduleobjects List of rights objecttypes in this module
+    @cell return.moduleobjects.name Name of the object type (qualified with module name)
+    @cell return.moduleobjects.tablename Name of the table this objecttype refers to (qualified with module name)
+    @cell return.moduleobjects.tid Tid for the title of this objecttype
+    @cell return.moduleobjects.title Title of this objecttype
+    @cell return.moduleobjects.library Library in which the enumerator function for this objecttype can be found
+    @cell return.moduleobjects.objectname Name of the enumerator function for this objecttype
+    @cell return.moduleobjects.parentfield Parent field for this objecttype
+    @cell return.modulerights List of rights in this module
+    @cell return.modulerights.name Name of the right (qualified with module name)
+    @cell return.modulerights.objtype Name of the objecttype (qualified with module name, empty for non-objecttype rights such as system:sysop)
+    @cell return.modulerights.impliedbys List of rights that imply this right
+    @cell return.modulerights.impliedbys.right Fully qualified name of right that implies this right
+*/
+PUBLIC RECORD FUNCTION ParseModuleDefinition(STRING modulename, OBJECT xml)
+{
+  OBJECT parser := NEW ModuleDefParser(modulename);
+  RETURN parser->Parse(xml);
+}
+
+/** Parses module manifest
+    @param xml
+    @return
+    @cell(string) return.original_source
+    @cell(string) return.source_revision
+    @cell(string) return.source_repository_uuid
+    @cell(string) return.source_repository_url
+    @cell(record array) return.changesets
+    @cell(datetime) return.changesets.date
+    @cell(string) return.changesets.server
+    @cell(string) return.changesets.userlogin
+    @cell(string) return.changesets.userfullname
+    @cell(string) return.changesets.source
+    @cell(string) return.changesets.source_repository_url
+    @cell(string) return.changesets.source_repository_uuid
+    @cell(string) return.changesets.source_revision
+    @cell(string) return.changesets.modifications_originals_archive_path
+    @cell(record array) return.changesets.modifications
+    @cell(string) return.changesets.modifications.path
+    @cell(string) return.changesets.modifications.status
+    @cell(boolean) return.has_modifications
+    @cell(record array) return.files List of files
+    @cell(record array) return.files.fullpath Path of the file
+    @cell(record array) return.files.sha1hash Base16 encoded sha1hash of the file
+*/
+PUBLIC RECORD FUNCTION ParseModuleManifest(OBJECT xml)
+{
+  RECORD result :=
+      [ original_source :=          "local"
+      , source_revision :=          ""
+      , source_localremoterevision := ""
+      , source_remoterevision :=    ""
+      , source_repository_uuid :=   ""
+      , source_repository_url :=    ""
+      , source_haslocalremoterevision := FALSE
+      , changesets :=               DEFAULT RECORD ARRAY
+      , has_modifications :=        FALSE
+      , sourcefiles :=              DEFAULT RECORD ARRAY
+      , commits :=                  DEFAULT RECORD ARRAY
+      ];
+
+  IF (NOT ObjectExists(xml))
+    RETURN result;
+
+  OBJECT query := xml->CreateXPathQuery();
+  query->RegisterNamespace("mnf", xmlns_module_manifest);
+
+  OBJECT ARRAY xml_changesets := query->ExecuteQuery("//mnf:manifest/mnf:history/mnf:changeset")->GetCurrentElements();
+  FOREVERY (OBJECT xml_changeset FROM xml_changesets)
+  {
+    RECORD changeset :=
+        [ date :=                                   MakeDateFromText(xml_changeset->GetAttribute("date"))
+        , server :=                                 xml_changeset->GetAttribute("server")
+        , userlogin :=                              xml_changeset->GetAttribute("userlogin")
+        , userfullname :=                           xml_changeset->GetAttribute("userfullname")
+        , source :=                                 xml_changeset->GetAttribute("source")
+        , source_repository_url :=                  xml_changeset->GetAttribute("sourcerepositoryurl")
+        , source_repository_uuid :=                 xml_changeset->GetAttribute("sourcerepositoryuuid")
+        , source_revision :=                        xml_changeset->GetAttribute("sourcerevision")
+        , source_haslocalremoterevision :=          xml_changeset->HasAttribute("sourcelocalremoterevision")
+        , source_localremoterevision :=             xml_changeset->GetAttribute("sourcelocalremoterevision")
+        , source_remoterevision :=                  xml_changeset->GetAttribute("sourceremoterevision")
+        , modifications_originals_archive_path :=   ""
+        , modifications :=                          DEFAULT RECORD ARRAY
+        , commits :=                                DEFAULT RECORD ARRAY
+        ];
+
+    OBJECT ARRAY xml_modifications := query->ExecuteQuery("./mnf:modifications", xml_changeset)->GetCurrentElements();
+    FOREVERY (OBJECT xml_modification FROM xml_modifications)
+    {
+      changeset.modifications_originals_archive_path := xml_modification->GetAttribute("originalsarchivepath");
+      OBJECT ARRAY xml_files := query->ExecuteQuery("./mnf:file", xml_modification)->GetCurrentElements();
+      FOREVERY (OBJECT xml_file FROM xml_files)
+      {
+        INSERT
+            [ path :=       xml_file->GetAttribute("path")
+            , status :=     xml_file->GetAttribute("status")
+            ] INTO changeset.modifications AT END;
+        result.has_modifications := TRUE;
+      }
+
+      OBJECT ARRAY xml_commits :=query->ExecuteQuery("./mnf:commits/mnf:commit", xml_changeset)->GetCurrentElements();
+      FOREVERY (OBJECT xml_commit FROM xml_commits)
+      {
+        INSERT
+            [ id :=         xml_commit->GetAttribute("id")
+            , date :=       MakeDateFromText(xml_commit->GetAttribute("date"))
+            ] INTO changeset.commits AT END;
+      }
+    }
+
+    IF (#xml_changeset = 0)
+    {
+      result.original_source := changeset.source;
+      result.source_repository_url := changeset.source_repository_url;
+      result.source_repository_uuid := changeset.source_repository_uuid;
+      result.source_revision := changeset.source_revision;
+      result.source_haslocalremoterevision := changeset.source_haslocalremoterevision;
+      result.source_localremoterevision := changeset.source_localremoterevision;
+      result.source_remoterevision := changeset.source_remoterevision;
+      result.commits := changeset.commits;
+    }
+
+    INSERT changeset INTO result.changesets AT END;
+  }
+
+
+  OBJECT ARRAY xml_files := query->ExecuteQuery("//mnf:manifest/mnf:sourcefiles/mnf:file")->GetCurrentElements();
+  FOREVERY (OBJECT xml_file FROM xml_files)
+  {
+    INSERT
+        [ path :=       xml_file->GetAttribute("path")
+        , sha1hash :=   xml_file->GetAttribute("sha1hash")
+        ] INTO result.sourcefiles AT END;
+  }
+
+  RETURN result;
+}
+
+PUBLIC STRING FUNCTION GetFullModuleVersion(RECORD moduleinfo, RECORD manifest)
+{
+  STRING fullversion := moduleinfo.version;
+
+  IF (manifest.source_revision != "")
+    fullversion := fullversion || " rev. " || manifest.source_revision;
+  IF (manifest.has_modifications)
+    fullversion := fullversion || " (modified)";
+
+  RETURN fullversion;
+}
+

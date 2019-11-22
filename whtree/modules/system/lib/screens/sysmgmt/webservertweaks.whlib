@@ -1,0 +1,15 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE WebserverTweaks EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    RETURN work->Finish();
+  }
+>;

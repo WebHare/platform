@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="gettid.whscr" />
+  <test script="TestLangEdit.whscr" /> <!-- mixed case to allow us to test tid scanner on mixedcase files -->
+</group>

@@ -1,0 +1,52 @@
+﻿<siteprofile
+   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+   xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+
+  <!--
+
+      This is the consilio base site profile. It always applies and
+      is parsed before any global or site local profile
+
+  -->
+
+  <!-- Gathered links for checks -->
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/gatheredlinks" cloneoncopy="false">
+    <member name="links" type="array">
+      <member name="link" type="url" />
+      <member name="text" type="string" />
+    </member>
+  </contenttype>
+
+  <!-- Content type for link check reports -->
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/linkcheck" cloneoncopy="true">
+    <member name="sorting" type="string" />
+    <member name="type_link" type="boolean" />
+    <member name="grouping" type="string" />
+    <member name="scope" type="string" />
+    <member name="show_auth" type="boolean" />
+    <member name="show_valid" type="boolean" />
+    <member name="show_notfound" type="boolean" />
+    <member name="show_server" type="boolean" />
+    <member name="show_http" type="boolean" />
+    <member name="show_other" type="boolean" />
+    <member name="type_hyperlink" type="boolean" />
+    <member name="type_image" type="boolean" />
+    <member name="type_script" type="boolean" />
+    <member name="type_stylesheet" type="boolean" />
+  </contenttype>
+
+  <!-- Content type for searches reports -->
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/queries" cloneoncopy="true">
+    <member name="sorting" type="string" />
+    <member name="sortdesc" type="boolean" />
+    <member name="grouping" type="boolean" />
+    <member name="limit" type="string" />
+  </contenttype>
+
+  <!-- Content type for extra indexing keywords -->
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/boostwords" cloneoncopy="true">
+    <member name="words" type="stringarray" />
+  </contenttype>
+
+</siteprofile>

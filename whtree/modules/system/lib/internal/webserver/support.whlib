@@ -1,0 +1,124 @@
+﻿<?wh
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+/// current http headers
+PUBLIC RECORD ARRAY sendhttpheaders;
+/// did we send a response yet?
+PUBLIC BOOLEAN sentresponse;
+PUBLIC RECORD ARRAY webvarcache;
+PUBLIC BOOLEAN downloaded_webvarcache;
+
+PUBLIC RECORD ARRAY FUNCTION GetWebserverSessionList(INTEGER webserverid)
+{
+  RETURN DEFAULT RECORD ARRAY; //FIXME __SYSTEM_WHS_SESSIONLIST(webserverid);
+}
+
+PUBLIC MACRO ClearWebvars()
+{
+  downloaded_webvarcache := FALSE;
+  webvarcache := DEFAULT RECORD ARRAY;
+}
+PUBLIC MACRO GetWebvars()
+{
+  webvarcache := __system_whs_webvars();
+  downloaded_webvarcache:=TRUE;
+}
+
+PUBLIC MACRO PrepareHTTPResponse()
+{
+  FOREVERY(RECORD httpheader FROM sendhttpheaders)
+  {
+    //ADDME learn to send all at once
+    __WHS_AddHTTPHeader(httpheader.header, httpheader.data, httpheader.always_add);
+  }
+  __DestroyProfiling();
+  sendhttpheaders := DEFAULT RECORD ARRAY;
+}
+
+/** @short Exception if a function is invoked which is only available when handling a dynamic page
+    @topic sitedev/dynamic
+    @public
+    @loadlib mod::system/lib/webserver.whlib
+*/
+PUBLIC OBJECTTYPE NotAShtmlContextException EXTEND Exception
+<
+  MACRO NEW()
+  : Exception("The current script is not running in the context of a dynamic page request (SHTML file)")
+  {
+  }
+>;
+
+/** @short Entrypoint for HareScript C++ code to throw a NotAShtmlContextException */
+PUBLIC MACRO ThrowNoShtmlException() __ATTRIBUTES__(SKIPTRACE)
+{
+  THROW NEW NotAShtmlContextException;
+}
+
+// Only get the ID's of online users
+PUBLIC INTEGER ARRAY FUNCTION GetOnlineUsersIDs()
+{
+  TRY
+  {
+    RETURN
+        SELECT AS INTEGER ARRAY userentityid
+          FROM __SYSTEM_WHS_SESSIONLIST(0)
+      GROUP BY userentityid;
+  }
+  CATCH(OBJECT<NotAShtmlContextException> e) //ignore errors when we're not running inside the webserver
+  {
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+}
+
+
+MACRO OnWebserverDestroy() __ATTRIBUTES__(DEINITMACRO)
+{
+  TRY
+  {
+    PrepareHTTPResponse();
+  }
+  CATCH(OBJECT <NotAShtmlContextException> e)
+  {
+    //absorb this one
+  }
+}
+
+/** @short Convert standardized mask to a pretty IP mask
+    @param standardmask String with standardized mask
+    @param use_cidr_notation If true, always use the CIDR notation for the mask (1.2.3.4/5).
+           If false, try to use wildcard notation if possible
+    @return The pretty IP mask
+    @see StandardizeIPMask */
+PUBLIC STRING FUNCTION PrettyIPMask(STRING standardmask, BOOLEAN use_cidr_notation)
+{
+  IF (LEFT(standardmask,5)!="ipv4:")
+    RETURN "";
+
+  STRING ARRAY quads := Tokenize(SubString(standardmask,5,15),".");
+  INTEGER cidr_count := ToInteger(SubString(standardmask,21,2),-1);
+  IF (LENGTH(quads)!=4 OR cidr_count<0 OR cidr_count>32)
+    RETURN "";
+
+  INTEGER quad1 := ToInteger(quads[0],0);
+  INTEGER quad2 := ToInteger(quads[1],0);
+  INTEGER quad3 := ToInteger(quads[2],0);
+  INTEGER quad4 := ToInteger(quads[3],0);
+
+  IF (cidr_count=32)
+    RETURN quad1 || "." || quad2 || "." || quad3 || "." || quad4;
+
+  IF (NOT use_cidr_notation) //try to make a 'conventional' display o fthe IP
+  {
+    IF (cidr_count=24)
+      RETURN quad1 || "." || quad2 || "." || quad3 || ".*";
+    IF (cidr_count=16)
+      RETURN quad1 || "." || quad2 || ".*.*";
+    IF (cidr_count=8)
+      RETURN quad1 || ".*.*.*";
+    IF (cidr_count=0)
+      RETURN "*.*.*.*";
+  }
+  RETURN quad1 || "." || quad2 || "." || quad3 || "." || quad4 || "/" || cidr_count;
+}

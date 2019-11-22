@@ -1,0 +1,256 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+
+PUBLIC INTEGER MaxLinkLength := 1024;
+PUBLIC INTEGER MaxTextLength := 90;
+
+
+/** Set the current list of links for wrd entity settings/whfs settings
+    @param objects
+    @cell(integer) objects.wrd_entity_setting
+    @cell(integer) objects.system_fs_setting
+    @cell(recordarray) objects.links List of linkts for this setting (limited to 100 links)
+    @cell(recordarray) objects.links.url
+    @cell(recordarray) objects.links.text
+    @param delete_obsolete Delete old settings
+*/
+PUBLIC INTEGER ARRAY FUNCTION SetObjectsCheckedLinks(RECORD ARRAY objects, BOOLEAN delete_obsolete)
+{
+  RECORD ARRAY all_links;
+  INTEGER ARRAY system_fs_settings;
+  INTEGER ARRAY wrd_entity_settings;
+
+  // Get the wrd settings and the whfs wettings from the list of objects
+  // And group them together per URL
+  FOREVERY (RECORD obj FROM objects)
+  {
+    IF (obj.system_fs_setting != 0)
+      INSERT obj.system_fs_setting INTO system_fs_settings AT END;
+    IF (obj.wrd_entity_setting != 0)
+      INSERT obj.wrd_entity_setting INTO wrd_entity_settings AT END;
+
+    FOREVERY (RECORD link FROM ArraySlice(obj.links, 0, 100))
+    {
+      INSERT CELL system_fs_setting := obj.system_fs_setting INTO link;
+      INSERT CELL wrd_entity_setting := obj.wrd_entity_setting INTO link;
+
+      STRING linkurl := Length(link.url) > MaxLinkLength
+          ? LimitUTF8Bytes(link.url, MaxLinkLength)
+          : link.url;
+
+      RECORD pos := RecordLowerBound(all_links, [ url := linkurl ], [ "URL" ]);
+      IF (NOT pos.found)
+      {
+        INSERT
+            [ url :=    linkurl
+            , objs :=   [ link ]
+            ] INTO all_links AT pos.position;
+      }
+      ELSE
+        INSERT link INTO all_links[pos.position].objs AT END;
+    }
+  }
+
+  // Gather existing checked objectlinks
+  RECORD ARRAY existing_objectlinks;
+
+  IF (LENGTH(wrd_entity_settings) != 0)
+  {
+    existing_objectlinks :=
+        SELECT id
+             , wrd_entity_setting
+             , system_fs_setting
+             , link
+             , text
+             , url
+             , used :=      FALSE
+          FROM consilio.checked_objectlinks
+        WHERE wrd_entity_setting IN wrd_entity_settings
+     ORDER BY wrd_entity_setting, system_fs_setting, link;
+  }
+  IF (LENGTH(system_fs_settings) != 0)
+  {
+    existing_objectlinks := existing_objectlinks CONCAT
+        SELECT id
+             , wrd_entity_setting
+             , system_fs_setting
+             , link
+             , text
+             , url
+             , used :=      FALSE
+          FROM consilio.checked_objectlinks
+         WHERE system_fs_setting IN system_fs_settings
+      ORDER BY wrd_entity_setting, system_fs_setting, link;
+
+    IF (LENGTH(wrd_entity_settings) != 0)
+    {
+      existing_objectlinks :=
+          SELECT AS RECORD ARRAY Any(existing_objectlinks)
+            FROM existing_objectlinks
+        GROUP BY id;
+
+      existing_objectlinks :=
+          SELECT *
+            FROM existing_objectlinks
+        ORDER BY wrd_entity_setting, system_fs_setting, link;
+    }
+  }
+
+  DATETIME now := GetCurrentDateTime();
+  DATETIME nexttask := MAX_DATETIME;
+
+  all_links :=
+      SELECT *
+           , hashed_url_int := GetConsilioURLHash(url)
+        FROM all_links;
+
+  INTEGER ARRAY hash_ints := SELECT AS INTEGER ARRAY hashed_url_int FROM all_links;
+
+  RECORD ARRAY existing_links :=
+      SELECT *
+           , referred :=    FALSE
+        FROM consilio.checked_links
+       WHERE hashed_url_int IN hash_ints
+    ORDER BY url;
+
+  STRING ARRAY existing_links_ordercells := [ "URL" ];
+
+  // Add links to check and pagelinks
+  FOREVERY (RECORD link FROM all_links)
+  {
+    DATETIME nextcheck;
+
+    INTEGER linkid;
+    RECORD pos := RecordLowerBound(existing_links, link, existing_links_ordercells);
+    IF (pos.found)
+    {
+      linkid := existing_links[pos.position].id;
+      existing_links[pos.position].referred := TRUE;
+
+      IF (existing_links[pos.position].nextcheck < nexttask)
+        nexttask := existing_links[pos.position].nextcheck;
+    }
+    ELSE
+    {
+      // We haven't checked this URL before, so add it
+      linkid := MakeAutonumber(consilio.checked_links, "id");
+      INSERT INTO consilio.checked_links(id, url, hashed_url_int, nextcheck, last_referred)
+             VALUES(linkid, link.url, link.hashed_url_int, now, now);
+
+      // Immediately schedule the linkchecker, and register the link as now existing
+      nexttask := now;
+      INSERT
+          [ id :=         linkid
+          , url :=        link.url
+          , nextcheck :=  now
+          , referred :=   TRUE
+          ] INTO existing_links AT pos.position;
+    }
+
+    STRING ARRAY existing_ordercells := [ "WRD_ENTITY_SETTING", "SYSTEM_FS_SETTING", "LINK" ];
+    FOREVERY (RECORD obj FROM link.objs)
+    {
+      STRING linktext := obj.text;
+      IF (Length(linktext) > MaxTextLength)
+        linktext := LimitUTF8Bytes(CleanWhitespace(linktext), MaxTextLength);
+
+      STRING linkoriginal := obj.link;
+      IF (Length(linkoriginal) > MaxLinkLength)
+        linkoriginal := LimitUTF8Bytes(linkoriginal, MaxLinkLength);
+
+      RECORD searchrec :=
+          [ wrd_entity_setting :=   obj.wrd_entity_setting
+          , system_fs_setting :=    obj.system_fs_setting
+          , link :=                 linkid
+          ];
+
+      RECORD linkpos := RecordLowerBound(existing_objectlinks, searchrec, existing_ordercells);
+      IF (NOT linkpos.found)
+      {
+        //PRINT("INSERT\n");dumpvalue(obj,'tree');
+        INTEGER objectlinkid := MakeAutonumber(consilio.checked_objectlinks, "id");
+        INSERT INTO consilio.checked_objectlinks(id, wrd_entity_setting, system_fs_setting, link, text, url)
+              VALUES(objectlinkid, obj.wrd_entity_setting, obj.system_fs_setting, linkid, linktext, linkoriginal);
+
+        RECORD insertrec := MakeMergedRecord(searchrec,
+            [ id :=                   objectlinkid
+            , used :=                 TRUE
+            , text :=                 linktext
+            , url :=                  linkoriginal
+            ]);
+
+        INSERT CELL id := objectlinkid INTO searchrec;
+        INSERT insertrec INTO existing_objectlinks AT linkpos.position;
+      }
+      ELSE
+      {
+        existing_objectlinks[linkpos.position].used := TRUE;
+        IF (existing_objectlinks[linkpos.position].text != linktext OR existing_objectlinks[linkpos.position].url != linkoriginal)
+        {
+          UPDATE consilio.checked_objectlinks
+             SET text :=    linktext
+               , url :=     linkoriginal
+           WHERE id = existing_objectlinks[linkpos.position].id;
+
+          existing_objectlinks[linkpos.position].text := linktext;
+          existing_objectlinks[linkpos.position].url := linkoriginal;
+        }
+      }
+    }
+  }
+
+  // Mark referred links as now referred
+  INTEGER ARRAY referred_links :=
+      SELECT AS INTEGER ARRAY id
+        FROM existing_links
+       WHERE referred;
+
+  IF (LENGTH(referred_links) != 0)
+  {
+    UPDATE consilio.checked_links
+       SET last_referred := now
+     WHERE id IN referred_links;
+  }
+
+  IF (delete_obsolete)
+  {
+    INTEGER ARRAY todelete :=
+        SELECT AS INTEGER ARRAY id
+          FROM existing_objectlinks
+        WHERE NOT used;
+
+    IF (LENGTH(todelete) != 0)
+      DELETE FROM consilio.checked_objectlinks WHERE id IN todelete;
+  }
+
+
+  IF (nexttask != MAX_DATETIME)
+  {
+    // Schedule the link checker to check the links, but wait a minute to prevent the linkchecker task from being started
+    // after each indexed object
+    IF (nexttask < now)
+      nexttask := now;
+    nexttask := AddTimeToDate(1000 * 60, nexttask);
+    GetPrimary()->ScheduleTask("consilio:linkchecker", nexttask);
+  }
+
+  RETURN
+      SELECT AS INTEGER ARRAY id
+        FROM existing_objectlinks
+       WHERE used;
+}
+
+PUBLIC MACRO DeleteCheckedObjectLinks(INTEGER ARRAY wrd_entity_settings, INTEGER ARRAY system_fs_settings, FUNCTION PTR debuglog DEFAULTSTO DEFAULT FUNCTION PTR)
+{
+  DELETE FROM consilio.checked_objectlinks
+   WHERE wrd_entity_setting IN wrd_entity_settings;
+  DELETE FROM consilio.checked_objectlinks
+   WHERE system_fs_setting IN system_fs_settings;
+}

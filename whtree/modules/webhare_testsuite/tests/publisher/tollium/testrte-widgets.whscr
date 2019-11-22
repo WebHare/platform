@@ -1,0 +1,83 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+OBJECT testrtd;
+
+OBJECT FUNCTION Rte()
+{
+  RETURN TT("doceditor")->contents->rte;
+}
+
+ASYNC MACRO TestEmptyWidget()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  testfw->BeginWork();
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  testrtd := testloc->CreateFile( [ name := "widgets.rtd", type := richdoctype->id ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd->id) ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget";
+  TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  //Perform insertion
+  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
+  TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream #1");
+  RECORD insertdata := insertedobjectinstr.messages[0].data;
+  TestEq(FALSE, insertdata.canedit);
+  RTE()->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.instanceref) || '"></div></body></html>');
+  RTE()->__debug_simulatedirty();
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  //Verify the widget is still marked as uneditable
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd->id) ], target := DEFAULT RECORD ]));
+  OBJECT rtedom := MakeXMLDocumentFromHTML(StringToBlob(RTE()->GetRenderValue()));
+  OBJECT embobj := rtedom->Getelement("div.wh-rtd-embeddedobject");
+  TestEq(FALSE, embobj->GetAttribute("class") LIKE "*wh-rtd-embeddedobject--editable*");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  RECORD publishres := RunFilePublish(testrtd->id, FALSE);
+  TestEq(TRUE, publishres.success);
+
+  OBJECT dom := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+  TestEQ(TRUE, ObjectExists(dom->GetElementById("emptywidget")), "Missing emptywidget in output");
+}
+
+ASYNC MACRO TestAnchorWidget()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd->id) ], target := DEFAULT RECORD ]));
+
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/widgets/anchor";
+  TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR);
+  TT(":Anchor name")->value:="Mijn anchor";
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*Invalid*'Mijn anchor'*"]);
+  TT(":Anchor name")->value:="mijn-anchor";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  //exit rtd:
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR TestEmptyWidget
+                 , PTR TestAnchorWidget
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

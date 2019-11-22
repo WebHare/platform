@@ -1,0 +1,114 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/todd/internal/service.whlib";
+
+MACRO TestIconRewrites()
+{
+  /*
+    b(lack), testicon_1 & testicon_2:
+      <style type="text/css">
+        .st0{fill:#4A4A4A;}
+        .st1{fill:#F3F3F3;}
+      </style>
+
+    c(olor), only testicon_1:
+      <style type="text/css">
+        .st0{fill:#3091DD;}
+        .st1{fill:#F3F3F3;}
+      </style>
+
+    w(hite), testicon_1 & testicon_2:
+      <style type="text/css">
+        .st0{fill:#F3F3F3;}
+        .st1{fill:#4A4A4A;}
+      </style>
+  */
+
+  // Test the black image
+  RECORD imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  TestEq(1,Length(imgs.images));
+  TestEq(1,Length(imgs.images[0].images));
+  STRING svgdata := DecodeBase64(imgs.images[0].images[0].data);
+  OBJECT xmldom := MakeXMLDocument(StringToBlob(svgdata));
+  OBJECT style := xmldom->QuerySelector("style");
+  TestEq(TRUE, ObjectExists(style));
+  TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
+
+  // Test the color image
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "c", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  TestEq(1,Length(imgs.images));
+  TestEq(1,Length(imgs.images[0].images));
+  svgdata := DecodeBase64(imgs.images[0].images[0].data);
+  xmldom := MakeXMLDocument(StringToBlob(svgdata));
+  style := xmldom->QuerySelector("style");
+  TestEq(TRUE, ObjectExists(style));
+  TestEqLike("*.ST0{FILL:#3091DD;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
+
+  // Test the white image
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "w", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  TestEq(1,Length(imgs.images));
+  TestEq(1,Length(imgs.images[0].images));
+  svgdata := DecodeBase64(imgs.images[0].images[0].data);
+  xmldom := MakeXMLDocument(StringToBlob(svgdata));
+  style := xmldom->QuerySelector("style");
+  TestEq(TRUE, ObjectExists(style));
+  TestEqLike("*.ST0{FILL:#F3F3F3;}*.ST1{FILL:#4A4A4A;}*", ToUppercase(style->textContent));
+
+  // Test if the black image is returned if multiple colors requested
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b,c", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  TestEq(1,Length(imgs.images));
+  TestEq(1,Length(imgs.images[0].images));
+  svgdata := DecodeBase64(imgs.images[0].images[0].data);
+  xmldom := MakeXMLDocument(StringToBlob(svgdata));
+  style := xmldom->QuerySelector("style");
+  TestEq(TRUE, ObjectExists(style));
+  TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
+
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b,w", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  TestEq(1,Length(imgs.images));
+  TestEq(1,Length(imgs.images[0].images));
+  svgdata := DecodeBase64(imgs.images[0].images[0].data);
+  xmldom := MakeXMLDocument(StringToBlob(svgdata));
+  style := xmldom->QuerySelector("style");
+  TestEq(TRUE, ObjectExists(style));
+  TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
+
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b,c,w", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  TestEq(1,Length(imgs.images));
+  TestEq(1,Length(imgs.images[0].images));
+  svgdata := DecodeBase64(imgs.images[0].images[0].data);
+  xmldom := MakeXMLDocument(StringToBlob(svgdata));
+  style := xmldom->QuerySelector("style");
+  TestEq(TRUE, ObjectExists(style));
+  TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
+
+  // Test if the black image is returned if (non-existing) color is requested with black fallback
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_2"], color := "c,b", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  TestEq(1,Length(imgs.images));
+  TestEq(1,Length(imgs.images[0].images));
+  svgdata := DecodeBase64(imgs.images[0].images[0].data);
+  xmldom := MakeXMLDocument(StringToBlob(svgdata));
+  style := xmldom->QuerySelector("style");
+  TestEq(TRUE, ObjectExists(style));
+  TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
+
+  // Test if the black image is returned if (non-existing) color is requested and only a non color-coded black image is available
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_3"], color := "c", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  TestEq(1,Length(imgs.images));
+  TestEq(1,Length(imgs.images[0].images));
+  svgdata := DecodeBase64(imgs.images[0].images[0].data);
+  xmldom := MakeXMLDocument(StringToBlob(svgdata));
+  style := xmldom->QuerySelector("style");
+  TestEq(TRUE, ObjectExists(style));
+  TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
+
+  // Test non-svg image
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_4"], color := "w", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  TestEq(1,Length(imgs.images));
+  TestEq(1,Length(imgs.images[0].images));
+  TestEq("image/png", imgs.images[0].images[0].type); //should be unprocessed
+}
+
+RunTestframework( [ PTR TestIconRewrites ]);

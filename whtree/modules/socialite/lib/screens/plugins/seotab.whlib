@@ -1,0 +1,26 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE SeoTab EXTEND TolliumTabsExtensionBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    RECORD settings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/socialite","seotab");
+    IF(NOT RecordExists(settings) OR "robots" NOT IN settings.features)
+    {
+      this->noindex->visible := FALSE;
+      this->nofollow->visible := FALSE;
+      this->noarchive->visible := FALSE;
+    }
+    IF(NOT RecordExists(settings) OR "canonicalurl" NOT IN settings.features)
+    {
+      this->canonicalheading->visible := FALSE;
+      this->canonical->visible := FALSE;
+    }
+    IF(NOT RecordExists(settings) OR "dinosaur" NOT IN settings.features)
+    {
+      this->noodp->visible := FALSE;
+      this->noydir->visible := FALSE;
+    }
+  }
+>;

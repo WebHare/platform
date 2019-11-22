@@ -1,0 +1,537 @@
+﻿<?wh
+/// @short Cryptography tests
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/ntlm.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::filetypes/pkcs.whlib";
+
+STRING FUNCTION MakePasswordUTF8Safe(STRING inpassword)
+{
+  IF(Length(inpassword) != 34 OR inpassword NOT LIKE "SSHA1:*")
+    RETURN inpassword;
+  RETURN "XSHA1:" || EncodeBase64(Substring(inpassword,6));
+}
+
+RECORD ARRAY errors;
+
+MACRO HashTest()
+{
+  TestEq("31D6CFE0D16AE931B73C59D7E0C089C0", EncodeBase16(GetHashForString("", "MD4")));
+  TestEq("1BEE69A46BA811185C194762ABAEAE90", EncodeBase16(GetHashForString("The quick brown fox jumps over the lazy dog", "MD4")));
+
+  TestEq("D41D8CD98F00B204E9800998ECF8427E", EncodeBase16(GetMD5Hash("")));
+  TestEq("EF654C40AB4F1747FC699915D4F70902", EncodeBase16(GetMD5Hash("testdata")));
+  TestEq("8AD9F1B219A7285AC52DB689139498A1", EncodeBase16(GetMD5Hash("Dit is een test")));
+  TestEq("7D00967BCAE2BF4562D63907314305E9", EncodeBase16(GetMD5Hash("MD5 HASH")));
+
+  TestEq("A9993E364706816ABA3E25717850C26C9CD0D89D", EncodeBase16(GetHashForString("abc", "SHA-1")));
+  TestEq("DA39A3EE5E6B4B0D3255BFEF95601890AFD80709", EncodeBase16(GetHashForString("", "SHA-1")));
+  TestEq("84983E441C3BD26EBAAE4AA1F95129E5E54670F1", EncodeBase16(GetHashForString("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "SHA-1")));
+
+  TestEq("A9993E364706816ABA3E25717850C26C9CD0D89D", EncodeBase16(GetSHA1Hash("abc")));
+  TestEq("DA39A3EE5E6B4B0D3255BFEF95601890AFD80709", EncodeBase16(GetSHA1Hash("")));
+  TestEq("84983E441C3BD26EBAAE4AA1F95129E5E54670F1", EncodeBase16(GetSHA1Hash("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")));
+
+  TestEq("BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD", EncodeBase16(GetHashForString("abc", "SHA-256")));
+  TestEq("E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855", EncodeBase16(GetHashForString("", "SHA-256")));
+  TestEq("248D6A61D20638B8E5C026930C3E6039A33CE45964FF2167F6ECEDD419DB06C1", EncodeBase16(GetHashForString("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "SHA-256")));
+
+  TestEQ("23097D223405D8228642A477BDA255B32AADBCE4BDA0B3F7E36C9DA7", EncodeBase16(GetHashForString("abc", "SHA-224")));
+  TestEQ("CB00753F45A35E8BB5A03D699AC65007272C32AB0EDED1631A8B605A43FF5BED8086072BA1E7CC2358BAECA134C825A7", EncodeBase16(GetHashForString("abc", "SHA-384")));
+  TestEQ("DDAF35A193617ABACC417349AE20413112E6FA4E89A97EA20A9EEEE64B55D39A2192992A274FC1A836BA3C23A3FEEBBD454D4423643CE80E2A9AC94FA54CA49F", EncodeBase16(GetHashForString("abc", "SHA-512")));
+
+  TestEq(TRUE,  VerifyWebharePasswordHash("secret", DecodeBase16("53534841313A40F41602A4340B000365CCCB4170826627F8EFC289A2D03580EC7D31")));
+  TestEq(TRUE,  VerifyWebharePasswordHash("secret", MakePasswordUTF8Safe(DecodeBase16("53534841313A40F41602A4340B000365CCCB4170826627F8EFC289A2D03580EC7D31"))));
+  TestEq(TRUE,  VerifyWebharePasswordHash("betatestVFTQZbsFQLyG6DqzMAEJJMG5MwrTF5Yt", "PLAIN:betatestVFTQZbsFQLyG6DqzMAEJJMG5MwrTF5Yt"));
+  TestEq(FALSE, VerifyWebharePasswordHash("test", DecodeBase16("53534841313A40F41602A4340B000365CCCB4170826627F8EFC289A2D03580EC7D31")));
+  TestEq(FALSE, VerifyWebharePasswordHash("test", MakePasswordUTF8Safe(DecodeBase16("53534841313A40F41602A4340B000365CCCB4170826627F8EFC289A2D03580EC7D31"))));
+  TestEq(FALSE, IsWebHarePasswordHashStillSecure(DecodeBase16("53534841313A40F41602A4340B000365CCCB4170826627F8EFC289A2D03580EC7D31")));
+  TestEq(FALSE, IsWebHarePasswordHashStillSecure(MakePasswordUTF8Safe(DecodeBase16("53534841313A40F41602A4340B000365CCCB4170826627F8EFC289A2D03580EC7D31"))));
+
+  STRING newhash := CreateWebharePasswordHash("secret");
+  TestEq(TRUE, VerifyWebharePasswordHash("secret", newhash));
+  TestEq(FALSE, VerifyWebharePasswordHash("test", newhash));
+  TestEq(TRUE, IsWebHarePasswordHashStillSecure(newhash));
+
+  //Legacy password hashes
+
+  // SSHA1
+  TestEq(TRUE,  VerifyWebHarePasswordHash("D2C85623B036B2AFA0FF6884D36DFF090A6765EB", DecodeBase16("53534841313AD15669045D2F0B00F2F4BD09DA30F6C54A01F25E49001EF9D1F57E97")));
+  TestEq(FALSE, VerifyWebHarePasswordHash("D2C85623B036B2AFA0FF6884D36DFF090A6765EB", DecodeBase16("53534841313AD15669045D2F0B00F2F4BD09DA30F6C54A01F25E49001EF9D1F57E98")));
+  TestEq(TRUE,  VerifyWebHarePasswordHash("D2C85623B036B2AFA0FF6884D36DFF090A6765EB", MakePasswordUTF8Safe(DecodeBase16("53534841313AD15669045D2F0B00F2F4BD09DA30F6C54A01F25E49001EF9D1F57E97"))));
+  TestEq(FALSE, VerifyWebHarePasswordHash("D2C85623B036B2AFA0FF6884D36DFF090A6765EB", MakePasswordUTF8Safe(DecodeBase16("53534841313AD15669045D2F0B00F2F4BD09DA30F6C54A01F25E49001EF9D1F57E98"))));
+
+
+  // No test for broken MD5...
+
+  // MD5 crypt
+  TestEq(TRUE, VerifyWebHarePasswordHash("hiningo", "LCR:$1$ny$k/OtiLM5erXWmOr.phmGm0"));
+  TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:$1$ny$k/OtiLM5erXWmOr.phmGm1"));
+  TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:ny$k/OtiLM5erXWmOr.phmGm0"));
+
+  // DES crypt
+  TestEq(TRUE, VerifyWebHarePasswordHash("hiningo", "LCR:nyfVcZo/9Cj1U"));
+  TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:nyfVcZo/9Cj1V"));
+
+  TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", ""));
+
+}
+
+MACRO PasswordTest()
+{
+  INTEGER oldseed := SeedRandomizer(42);
+
+  TestEq("basevVXrg5Wd", GeneratePassword("base", 8));
+
+  SeedRandomizer(42);
+  TestEq("basevVXrg5WdVQGqrxRz922U", GeneratePassword("base", 20));
+
+  SeedRandomizer(42);
+  TestEq("4afC5d4E36DcFCdffE56", GenerateRandomText(20, "0123456ABCDEFabcdef"));
+
+  SeedRandomizer(41);
+  TestEq("360b45d24201b5b0ea03", GenerateRandomText(20, "0123456ABCDEFabcdef"));
+
+  SeedRandomizer(41);
+  TestEq("", GenerateRandomText(20, ""));
+
+  TestEq("11111111111111111111", GenerateRandomText(20, "1"));
+
+  SeedRandomizer(oldseed);
+}
+
+MACRO SignTest()
+{
+  OpenTest("TestCrypto: SignTest");
+
+  STRING privatekey := `-----BEGIN RSA PRIVATE KEY-----
+MIICXQIBAAKBgQCfDciBDx2gTq4k5RlXG4Z+DDoardiseAc3/K42Zx5TKhdzw3fG
+rM/4ySVqJwHmuw1i2aLWC7I8T8FuryWT4fkETYvp44dZvi4YXg5BjOeODSYdMohD
+nL+rkIzbty8mdG5j/LpWZJDF7Be9cdyQsq/9Dd3RO1t8+FbRGplZNW0qXQIDAQAB
+AoGBAI5mdbPuh5TFvK31m1lcoG3rnn3SVaIcGEJs7MByVDka/0I6p9rtT4mq9N90
+KwSbRaHRvjMq55mNwl3JW7hp4VoqHLoUw30UrbbwhBUZcf3akKe9ClzJ30JJhLLB
+u98xRJpNgIvmBhZG+nJIGavNclRiad08OOlAgA8/qhsYpdv1AkEA0/gDq/rbKk96
+2QIv/yOBpj4zH9U1RsNIP25rDB5KxVmFObxTqDgC2zVtFYMq96TNP3mH91FTKxv9
+ZtA8MuO8AwJBAMAX4TOlUhiO/NDS7GedfbzVU5pHnPQBYySwvDdh0HG1NoBh+XCk
+4vaz6X7xmyNHqujsEtLcxvFRvhxlZuhLIh8CQCLcFO6BsO2CaLerrm0NT9MhQ5Mm
+oz5h+03DQQObL7zI/ioCmNd/bqjSXoA9NCHKDp8zw3KfA0iBr+jqshvEbDUCQFee
+TM1m2gRzrCOAIe69Km4oi+KySYgO3e8NYjyMtCw5cOusRL+5pgDLXXTWtWGpPe7S
+R1/A7kmCdIm1QvQv2RcCQQDQ/2UYRWYOmgAGglDfhZ+i1HjLJ9aZrsQpUNbbsEHl
+JCvHLhuworQbbfK4wqJK/QxSFKz4u2dc2g0DGHD3U3HS
+-----END RSA PRIVATE KEY-----`;
+
+  STRING publickey := `-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCfDciBDx2gTq4k5RlXG4Z+DDoa
+rdiseAc3/K42Zx5TKhdzw3fGrM/4ySVqJwHmuw1i2aLWC7I8T8FuryWT4fkETYvp
+44dZvi4YXg5BjOeODSYdMohDnL+rkIzbty8mdG5j/LpWZJDF7Be9cdyQsq/9Dd3R
+O1t8+FbRGplZNW0qXQIDAQAB
+-----END PUBLIC KEY-----`;
+
+  STRING testdata := 'Testdata\n';
+  STRING testdata_md5digest := GetHashForString(testdata, "MD5");
+  STRING testdata_sha1digest_1 := GetSHA1Hash(testdata);
+  STRING testdata_sha1digest_2 := GetHashForString(testdata, "SHA-1");
+  STRING testdata_sha256digest := GetHashForString(testdata, "SHA-256");
+  STRING testdata_sha384digest := GetHashForString(testdata, "SHA-384");
+  STRING testdata_sha512digest := GetHashForString(testdata, "SHA-512");
+
+  STRING signature_md5 := Create_RSA_Hash(testdata_md5digest, "MD5", privatekey, "");
+  STRING signature_sha1_1 := Create_RSA_SHA1(testdata_sha1digest_1, privatekey, "");
+  STRING signature_sha1_2 := Create_RSA_Hash(testdata_sha1digest_2, "SHA-1", privatekey, "");
+  STRING signature_sha256 := Create_RSA_Hash(testdata_sha256digest, "SHA-256", privatekey, "");
+  STRING signature_sha384 := Create_RSA_Hash(testdata_sha384digest, "SHA-384", privatekey, "");
+  STRING signature_sha512 := Create_RSA_Hash(testdata_sha512digest, "SHA-512", privatekey, "");
+
+  // Signature created by 'openssl dgst -sha1 -sign privatekey.pem -out testsign.sgn testdata.txt'
+  // (dumping: hexdump -C testsign.sgn)
+  STRING expect_signature_sha1 := DecodeBase16(
+       "9e993f65e248ece02689fa14fc6ea962"
+    || "888783e78f4e6e6e149cbd7626c001ff"
+    || "bc8750fd3e8f51b1ee1426dab52d5abf"
+    || "74a359359e624f463f22ecc973b874fa"
+    || "236013aea63896c1818bc07cc7c3fa0a"
+    || "f8dff4bc05a336229215cdd2de1811ac"
+    || "82d43e070766d698895924cde41724f7"
+    || "9048a3d7889884a9ec1852a7218387d4");
+
+  STRING expect_signature_md5 := DecodeBase16(
+      "2ac9d7c3e9e6ce9661ef9f06fcf37385"
+    || "fe213638e994c3b1111ef03ab7f3e6a0"
+    || "c9dd4feb2284fe0932f70c6ea7fd0de6"
+    || "bdcec13dadc5eae07c7c911d6aef6658"
+    || "b129cfe5c75e5c349b906e4d9b963cb4"
+    || "d7a5648a5d12b4748b560d1c978536a4"
+    || "e5ec573aa2e2b5d5af9945a22fe7402e"
+    || "197c1e01f08ddc130dae3eb30b9dc56f");
+
+  STRING expect_signature_sha256 := DecodeBase16(
+      "1c737829224d4c419496255a54796faf"
+    || "f0949263ec1b8c4023583144159167af"
+    || "e024375f917deca67d191e468d34a22b"
+    || "06820f1296e79b5a9fb55566743197b5"
+    || "b285b5ced4e22b9f0ba040670979d1ff"
+    || "064cae246ba46d747801d096989c355c"
+    || "5de5204c9195f39fcf9026e9cf635f9d"
+    || "bb8d00ed8e3c122b9271217be848bb38");
+
+  STRING expect_signature_sha384 := DecodeBase16(
+      "4bea054a2d1539204c34ff119dac7f1d"
+    || "a85bc27ec165746e5733523f16237dcb"
+    || "e91997b478a58b9fbbdec69bebfed2e9"
+    || "5a2d91bc943d4999b53badfd0220641a"
+    || "7f5c30214377217b43b9eefe9e0c8251"
+    || "19bace0f0b39cd1a57728951ddc623ff"
+    || "05c84202d6b5dab0e217607eaea1476d"
+    || "b5b20c16b1ddb6b61d4f8ea44754d8c8");
+
+  STRING expect_signature_sha512 := DecodeBase16(
+      "9c005b3086d2124b9ab82df4a47782c4"
+    || "e611b49441d61fc5fef173d10f021d03"
+    || "dae43f0eccdd0915b5831cb2e3a2f791"
+    || "bc85289367505deb90150ba6e2d8f89e"
+    || "cc317cdc7f205d0090dcdb270e63e5e2"
+    || "dcf765ef4df8159d8a5e9aa8017dc9b5"
+    || "4a02436dd135f3b700420cf03ba95a3b"
+    || "192a0529832e7d0dab30b07e1eb9f26b");
+
+  TestEq(expect_signature_md5, signature_md5);
+  TestEq(expect_signature_sha1, signature_sha1_1);
+  TestEq(expect_signature_sha1, signature_sha1_2);
+  TestEq(expect_signature_sha256, signature_sha256);
+  TestEq(expect_signature_sha384, signature_sha384);
+  TestEq(expect_signature_sha512, signature_sha512);
+
+  TestEq(TRUE, Verify_RSA_Hash(testdata_md5digest, "MD5", signature_md5, publickey));
+  TestEq(TRUE, Verify_RSA_SHA1(testdata_sha1digest_1, signature_sha1_1, publickey));
+  TestEq(TRUE, Verify_RSA_Hash(testdata_sha1digest_2, "SHA-1", signature_sha1_2, publickey));
+  TestEq(TRUE, Verify_RSA_Hash(testdata_sha256digest, "SHA-256", signature_sha256, publickey));
+  TestEq(TRUE, Verify_RSA_Hash(testdata_sha384digest, "SHA-384", signature_sha384, publickey));
+  TestEq(TRUE, Verify_RSA_Hash(testdata_sha512digest, "SHA-512", signature_sha512, publickey));
+
+  STRING encryptedbeagle := EncryptAndSignData("Beagle", "SHA-1,BLOWFISH+ECB,8", "secret");
+  TestEq(64, length(encryptedbeagle));
+
+  TestEq("Beagle", DecryptSignedData(encryptedbeagle, "SHA-1,BLOWFISH+ECB,8", "secret"));
+  TestEq("", DecryptSignedData(encryptedbeagle, "SHA-1,BLOWFISH+ECB,8", "secret2"));
+  TestEq(TRUE, encryptedbeagle != EncryptAndSignData("Beagle", "SHA-1,BLOWFISH+ECB,8", "secret")); //check random salt
+  TestEq("Beagle",DecryptSignedData("vU1UajS3C6sUi4-BbQZLPP1cc_qxF4wFrEG0Ve0I4njhPFjXnuSL3D-l9ZPcALvU", "SHA-1,BLOWFISH+ECB,8", "secret")); //note - the signeddata here is corrupt encrypt_blowfish
+
+  STRING encryptedbeagle2 := EncryptAndSignData("Beagle", "SHA-256,BLOWFISH+ECB,8", "secret");
+  TestEq(75, length(encryptedbeagle2));
+  TestEq("Beagle", DecryptSignedData(encryptedbeagle2, "SHA-256,BLOWFISH+ECB,8", "secret"));
+  TestEq("", DecryptSignedData(encryptedbeagle2, "SHA-256,BLOWFISH+ECB,8", "secret2"));
+  TestEq(TRUE, encryptedbeagle2 != EncryptAndSignData("Beagle", "SHA-256,BLOWFISH+ECB,8", "secret")); //check random salt
+  TestEq("Beagle",DecryptSignedData("ANIO3l21WbpBBIqs9l5AJajptqzpK_lkgW3Zfmf90cS3MurZUQsWHsjtDG8WhTPwxl2zdGMlxsc", "SHA-256,BLOWFISH+ECB,8", "secret"));
+
+  STRING encryptedbeagle3 := EncryptAndSignData("Beagle", "SHA-256,BLOWFISH+ECB,1", "secret");
+  TestEq(64, length(encryptedbeagle3));
+  TestEq("Beagle", DecryptSignedData(encryptedbeagle3, "SHA-256,BLOWFISH+ECB,1", "secret"));
+
+  STRING encryptedbeagle4 := EncryptAndSignData("Beagle", "SHA-256,BLOWFISH+ECB,0", "secret");
+  TestEq(54, length(encryptedbeagle4));
+  TestEq("Beagle", DecryptSignedData(encryptedbeagle4, "SHA-256,BLOWFISH+ECB,0", "secret"));
+
+  STRING encryptedbeagle5 := EncryptAndSignData(RepeatText("Beagle",100), "MD5,BLOWFISH+ECB,0", "secret");
+  TestEq(832, length(encryptedbeagle5));
+  TestEq(RepeatText("Beagle",100), DecryptSignedData(encryptedbeagle5, "MD5,BLOWFISH+ECB,0", "secret"));
+
+  STRING encryptedbeagle6 := EncryptAndSignData(RepeatText("Beagle",100), "MD5,BLOWFISH+ECB,0,ZLIB", "secret");
+  TestEq(43, length(encryptedbeagle6));
+  TestEq(RepeatText("Beagle",100), DecryptSignedData(encryptedbeagle6, "MD5,BLOWFISH+ECB,0,ZLIB", "secret"));
+
+  TestEq("", Decrypt_Blowfish("KEY", "")); //Will only fail on valgrind, if ever.
+
+  STRING cbcbeagle1 := EncryptAndSignData(RepeatText("Beagle",100), "MD5,BLOWFISH+CBC,8", "secret");
+  STRING cbcbeagle2 := EncryptAndSignData(RepeatText("Beagle",100), "MD5,BLOWFISH+CBC,8", "secret");
+  TestEq(TRUE, cbcbeagle1 != cbcbeagle2);
+  TestEq(RepeatText("Beagle",100), DecryptSignedData(cbcbeagle1, "MD5,BLOWFISH+CBC,8", "secret"));
+  TestEq(RepeatText("Beagle",100), DecryptSignedData(cbcbeagle2, "MD5,BLOWFISH+CBC,8", "secret"));
+
+
+  CloseTest("TestCrypto: SignTest");
+}
+
+MACRO BlowfishTest()
+{
+  STRING bf_key := DecodeBase16("0131D9619DC1376E");
+  STRING bf_data := DecodeBase16("5CD54CA83DEF57DA");
+  STRING bf_cipher := DecodeBase16("B1B8CC0B250F09A0");
+
+  STRING out1 := Encrypt_Blowfish(bf_key, bf_data);
+  STRING out2 := Decrypt_Blowfish(bf_key, out1);
+
+  TestEq(Left(out1, 8), bf_cipher);
+  TestEq(out2, bf_data);
+
+  STRING out3 := EncodeBase16(Encrypt_Blowfish(bf_key, bf_data));
+  STRING out4 := Decrypt_Blowfish(bf_key, DecodeBase16(out3)) ;
+
+  TestEq(Left(DecodeBase16(out3), 8), bf_cipher);
+  TestEq(out4, bf_data);
+
+  //crash regression
+  TestEq("", EncodeBase16(Encrypt_Blowfish("","")));
+  TestEq("", EncodeBase16(Decrypt_Blowfish("","")));
+  TestEq("", EncodeBase16(Encrypt_Blowfish("","ABC")));
+  TestEq("", EncodeBase16(Decrypt_Blowfish("","ABC")));
+
+  /* reference values
+   php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","bf-ecb","0131D9619DC1376E") . "\n";'
+   XZ/CsNCsR8uvGTvFUSOEoTWf8TB8ykrpZvCbJkSNhFBbmQw8MX4aKa6qX7rkTtVjx4+CZ/DdGp9pGSYOLuj4jQ==
+   php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","bf-ecb","0131D9619DC1376EF") . "\n";'
+   oTMdMBaimLJImjEEost0EYu41aqvwGrsUqbfqPgfvWdwZJrNc/DiEYRtHDWoKksMuQjHyNUxUhka2TiMDE3v5g==
+   php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","bf-ecb","0131D9619DC1376") . "\n";'
+   ypc3F51alWCpQvojE5H3UFa1LZAy8JF7jpX7tJvQQzPXm5yn/B+QnHo8ITJRsp+HTiv73ny9lsw9RwZIirSRfw==
+  */
+
+  TestEq("XZ/CsNCsR8uvGTvFUSOEoTWf8TB8ykrpZvCbJkSNhFBbmQw8MX4aKa6qX7rkTtVjx4+CZ/DdGp9pGSYOLuj4jQ==", EncodeBase64(Encrypt_Blowfish("0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+  TestEq("XZ/CsNCsR8uvGTvFUSOEoTWf8TB8ykrpZvCbJkSNhFBbmQw8MX4aKa6qX7rkTtVjx4+CZ/DdGp9pGSYOLuj4jQ==", EncodeBase64(Encrypt("bf-ecb","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+  TestEq("oTMdMBaimLJImjEEost0EYu41aqvwGrsUqbfqPgfvWdwZJrNc/DiEYRtHDWoKksMuQjHyNUxUhka2TiMDE3v5g==", EncodeBase64(Encrypt_Blowfish("0131D9619DC1376EF","abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+  TestEq("oTMdMBaimLJImjEEost0EYu41aqvwGrsUqbfqPgfvWdwZJrNc/DiEYRtHDWoKksMuQjHyNUxUhka2TiMDE3v5g==", EncodeBase64(Encrypt("bf-ecb","0131D9619DC1376EF","abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+  //our key derivation doesn't match PHP for shorter keys, bug!
+  //TestEq("ypc3F51alWCpQvojE5H3UFa1LZAy8JF7jpX7tJvQQzPXm5yn/B+QnHo8ITJRsp+HTiv73ny9lsw9RwZIirSRfw==", EncodeBase64(Encrypt_Blowfish("0131D9619DC1376", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+  TestEq("ypc3F51alWCpQvojE5H3UFa1LZAy8JF7jpX7tJvQQzPXm5yn/B+QnHo8ITJRsp+HTiv73ny9lsw9RwZIirSRfw==", EncodeBase64(Encrypt("bf-ecb","0131D9619DC1376",  "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+
+  TestEq("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", Decrypt_Blowfish("0131D9619DC1376E",  Decodebase64("XZ/CsNCsR8uvGTvFUSOEoTWf8TB8ykrpZvCbJkSNhFBbmQw8MX4aKa6qX7rkTtVjx4+CZ/DdGp9pGSYOLuj4jQ==")));
+  TestEq("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", Decrypt("bf-ecb","0131D9619DC1376E",  Decodebase64("XZ/CsNCsR8uvGTvFUSOEoTWf8TB8ykrpZvCbJkSNhFBbmQw8MX4aKa6qX7rkTtVjx4+CZ/DdGp9pGSYOLuj4jQ==")));
+  TestEq("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", Decrypt_Blowfish("0131D9619DC1376EF", Decodebase64("oTMdMBaimLJImjEEost0EYu41aqvwGrsUqbfqPgfvWdwZJrNc/DiEYRtHDWoKksMuQjHyNUxUhka2TiMDE3v5g==")));
+  TestEq("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", Decrypt("bf-ecb","0131D9619DC1376EF", Decodebase64("oTMdMBaimLJImjEEost0EYu41aqvwGrsUqbfqPgfvWdwZJrNc/DiEYRtHDWoKksMuQjHyNUxUhka2TiMDE3v5g==")));
+  TestEq("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", Decrypt("bf-ecb","0131D9619DC1376",   Decodebase64("ypc3F51alWCpQvojE5H3UFa1LZAy8JF7jpX7tJvQQzPXm5yn/B+QnHo8ITJRsp+HTiv73ny9lsw9RwZIirSRfw==")));
+
+  /* reference values for CBC
+php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","bf-cbc","0131D9619DC1376E",0,"ABCDEFG") . "\n";'
+NRWZ4akrOQRMcgXunoNKCrBkduDSMygcxX6dIbbZ9EWhXwpOBbA7vhGW50pIPremj9L51H1F+RlFUobjV7am3g==
+php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","bf-cbc","0131D9619DC1376E",0,"ABCDEFGH") . "\n";'
+CP31msR8uNuQ7QOhlvxbx9Moh8x4Bg4yBGuyIK8+RnujLFt8Hd4bH/zLT6nddbv2VrO0lrfFJNTZKTtfOfyWAQ==
+php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","bf-cbc","0131D9619DC1376E",0,"ABCDEFGHI") . "\n";'
+CP31msR8uNuQ7QOhlvxbx9Moh8x4Bg4yBGuyIK8+RnujLFt8Hd4bH/zLT6nddbv2VrO0lrfFJNTZKTtfOfyWAQ==
+*/
+
+  TestEq("CP31msR8uNuQ7QOhlvxbx9Moh8x4Bg4yBGuyIK8+RnujLFt8Hd4bH/zLT6nddbv2VrO0lrfFJNTZKTtfOfyWAQ==", EncodeBase64(Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFGH" ])));
+  TestEq("NRWZ4akrOQRMcgXunoNKCrBkduDSMygcxX6dIbbZ9EWhXwpOBbA7vhGW50pIPremj9L51H1F+RlFUobjV7am3g==", EncodeBase64(Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFG\x00" ])));
+  TestThrows(PTR Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFG" ]));
+  TestThrows(PTR Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFGHI" ]));
+
+  /* reference values for DES-ECB
+php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","des-ecb","0131D96",0) . "\n";'
+mD36t8a0pMRGed39CeLFTXrGEwIaFroE2aWdYOEJ8dTa5W41v+2qJ8Fq5fjd8JDEzNuph3pxE2l/NJeAFB6TIw==
+
+php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","des-ecb","0131D960",0) . "\n";'
+qIpzDBARpTOJIK+3EaJ8PPeoU2cJJMBkK++iFZ6xk0RVIl9ujzrKtI5NaoOP/5IXo15M0kq+z5qW5mPq/2jXUw==
+
+php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","des-ecb","0131D968",0) . "\n";'
+jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlFNq/4rg==
+
+php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","des-ecb","0131D969",0) . "\n";'
+jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlFNq/4rg==
+*/
+
+  TestEq("mD36t8a0pMRGed39CeLFTXrGEwIaFroE2aWdYOEJ8dTa5W41v+2qJ8Fq5fjd8JDEzNuph3pxE2l/NJeAFB6TIw==", EncodeBase64(Encrypt("des-ecb","0131D96", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+  TestEq("qIpzDBARpTOJIK+3EaJ8PPeoU2cJJMBkK++iFZ6xk0RVIl9ujzrKtI5NaoOP/5IXo15M0kq+z5qW5mPq/2jXUw==", EncodeBase64(Encrypt("des-ecb","0131D960", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+  TestEq("jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlFNq/4rg==", EncodeBase64(Encrypt("des-ecb","0131D968", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+  TestEq("jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlFNq/4rg==", EncodeBase64(Encrypt("des-ecb","0131D969", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+  TestThrows(PTR Encrypt("des-ecb","0131D969", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [iv := "x"]));
+
+  //not expecting this to throw
+  TestEq("", EncodeBase16(Decrypt("bf-cbc","0131D9619DC1376E","xxx")));
+}
+
+MACRO XorTest()
+{
+  TestEq("5B", EncodeBase16(Encrypt_Xor("", DecodeBase16("5B"))));
+  TestEq("16", EncodeBase16(Encrypt_Xor(DecodeBase16("4D"), DecodeBase16("5B"))));
+  TestEq("16", EncodeBase16(Encrypt_Xor(DecodeBase16("4D36"), DecodeBase16("5B"))));
+  TestEq("1674", EncodeBase16(Encrypt_Xor(DecodeBase16("4D"), DecodeBase16("5B39"))));
+  TestEq("160828", EncodeBase16(Encrypt_Xor(DecodeBase16("4D31"), DecodeBase16("5B3965"))));
+  TestEq("16082877E9", EncodeBase16(Encrypt_Xor(DecodeBase16("4D31"), DecodeBase16("5B396546A4"))));
+
+  // test for shared data
+  STRING data := DecodeBase16("5B396546A4");
+  TestEq("16082877E9", EncodeBase16(Encrypt_Xor(DecodeBase16("4D31"), data)));
+  TestEQ(DecodeBase16("5B396546A4"), data);
+}
+
+MACRO EvpTest()
+{
+  OBJECT evpkey := GenerateCryptoKey("RSA", [ numbits := 1024 ]);
+  TestEq(1024, evpkey->keylength);
+  STRING pvkey := evpkey->privatekey;
+  TestEqLike("-----BEGIN PRIVATE KEY-----\n*\n-----END PRIVATE KEY-----\n",pvkey);
+  STRING pubkey := evpkey->publickey;
+  TestEqLike("-----BEGIN PUBLIC KEY-----\n*\n-----END PUBLIC KEY-----\n",pubkey);
+
+  OBJECT evpkey2 := MakeCryptoKey(pvkey);
+  TestEq(evpkey2->privatekey, pvkey);
+
+  //Create a CSR
+  STRING csr := evpkey2->GenerateCSR([[ field := "C", value := "NL" ]
+                                     ,[ field := "ST", value := "Overijssel" ]
+                                     ,[ field := "L", value := "Enschede" ]
+                                     ,[ field := "O", value := "B-Lex" ]
+                                     ,[ field := "CN", value := "www.example.com" ]
+                                     ,[ field := "OU", value := "" ]
+                                       ], "DNS:www.example.com, DNS:www.example.net, DNS:www.example.org");
+  TestEQLike("-----BEGIN CERTIFICATE REQUEST-----\n*\n-----END CERTIFICATE REQUEST-----\n",csr);
+
+  RECORD result := DecodePEMFile(csr);
+  TestEq("C=NL, ST=Overijssel, L=Enschede, O=B-Lex, CN=www.example.com", result.subject);
+  TestEq(3, Length(result.servernames));
+
+
+  STRING privatekey := `-----BEGIN RSA PRIVATE KEY-----
+MIICXQIBAAKBgQCfDciBDx2gTq4k5RlXG4Z+DDoardiseAc3/K42Zx5TKhdzw3fG
+rM/4ySVqJwHmuw1i2aLWC7I8T8FuryWT4fkETYvp44dZvi4YXg5BjOeODSYdMohD
+nL+rkIzbty8mdG5j/LpWZJDF7Be9cdyQsq/9Dd3RO1t8+FbRGplZNW0qXQIDAQAB
+AoGBAI5mdbPuh5TFvK31m1lcoG3rnn3SVaIcGEJs7MByVDka/0I6p9rtT4mq9N90
+KwSbRaHRvjMq55mNwl3JW7hp4VoqHLoUw30UrbbwhBUZcf3akKe9ClzJ30JJhLLB
+u98xRJpNgIvmBhZG+nJIGavNclRiad08OOlAgA8/qhsYpdv1AkEA0/gDq/rbKk96
+2QIv/yOBpj4zH9U1RsNIP25rDB5KxVmFObxTqDgC2zVtFYMq96TNP3mH91FTKxv9
+ZtA8MuO8AwJBAMAX4TOlUhiO/NDS7GedfbzVU5pHnPQBYySwvDdh0HG1NoBh+XCk
+4vaz6X7xmyNHqujsEtLcxvFRvhxlZuhLIh8CQCLcFO6BsO2CaLerrm0NT9MhQ5Mm
+oz5h+03DQQObL7zI/ioCmNd/bqjSXoA9NCHKDp8zw3KfA0iBr+jqshvEbDUCQFee
+TM1m2gRzrCOAIe69Km4oi+KySYgO3e8NYjyMtCw5cOusRL+5pgDLXXTWtWGpPe7S
+R1/A7kmCdIm1QvQv2RcCQQDQ/2UYRWYOmgAGglDfhZ+i1HjLJ9aZrsQpUNbbsEHl
+JCvHLhuworQbbfK4wqJK/QxSFKz4u2dc2g0DGHD3U3HS
+-----END RSA PRIVATE KEY-----
+`;
+
+  STRING publickey := `-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCfDciBDx2gTq4k5RlXG4Z+DDoa
+rdiseAc3/K42Zx5TKhdzw3fGrM/4ySVqJwHmuw1i2aLWC7I8T8FuryWT4fkETYvp
+44dZvi4YXg5BjOeODSYdMohDnL+rkIzbty8mdG5j/LpWZJDF7Be9cdyQsq/9Dd3R
+O1t8+FbRGplZNW0qXQIDAQAB
+-----END PUBLIC KEY-----
+`;
+
+  // Test public key extraction from private key
+  OBJECT signkey := MakeCryptoKey(privatekey);
+  TestEq(publickey, signkey->publickey);
+
+  // Round-trip testing of assymetric encryption and decryption
+  //TestEq("Testdata", signkey->Decrypt(signkey->Encrypt("Testdata")));
+
+
+  evpkey := GenerateCryptoKey("EC", [ curve := "secp521r1" ]);
+  TestEq(521, evpkey->keylength);
+  pvkey := evpkey->privatekey;
+  TestEqLike("-----BEGIN PRIVATE KEY-----\n*\n-----END PRIVATE KEY-----\n",pvkey);
+  pubkey := evpkey->publickey;
+  TestEqLike("-----BEGIN PUBLIC KEY-----\n*\n-----END PUBLIC KEY-----\n",pubkey);
+
+  evpkey2 := MakeCryptoKey(pvkey);
+  TestEq(evpkey2->privatekey, pvkey);
+}
+
+MACRO PKCSTest()
+{
+  TestThrows(PTR DecodePEMFile(""));
+  TestThrows(PTR DecodePEMFile("-----BEGIN CERTIFICATE-----"));
+
+  // certificate without newlines
+  STRING democert :=
+       "-----BEGIN CERTIFICATE-----"
+    || "MIICyzCCAjQCAQAwDQYJKoZIhvcNAQEFBQAwga0xCzAJBgNVBAYTAk5MMRMwEQYD"
+    || "VQQIEwpPdmVyaWpzc2VsMREwDwYDVQQHEwhFbnNjaGVkZTEnMCUGA1UEChMeQi1M"
+    || "ZXggSW5mb3JtYXRpb24gVGVjaG5vbG9naWVzMREwDwYDVQQLEwhEZW1vIEtleTEZ"
+    || "MBcGA1UEAxMQZGVtby5leGFtcGxlLm9yZzEfMB0GCSqGSIb3DQEJARYQZGVtb0Bl"
+    || "eGFtcGxlLm9yZzAeFw0wNTExMTMyMDQyMzhaFw0xNTExMTEyMDQyMzhaMIGtMQsw"
+    || "CQYDVQQGEwJOTDETMBEGA1UECBMKT3Zlcmlqc3NlbDERMA8GA1UEBxMIRW5zY2hl"
+    || "ZGUxJzAlBgNVBAoTHkItTGV4IEluZm9ybWF0aW9uIFRlY2hub2xvZ2llczERMA8G"
+    || "A1UECxMIRGVtbyBLZXkxGTAXBgNVBAMTEGRlbW8uZXhhbXBsZS5vcmcxHzAdBgkq"
+    || "hkiG9w0BCQEWEGRlbW9AZXhhbXBsZS5vcmcwgZ8wDQYJKoZIhvcNAQEBBQADgY0A"
+    || "MIGJAoGBANnT4rEVnHptI18pk4CbiTdOLFlUMcwVTlhgj423IZZZ0ER97TnvFNQg"
+    || "Qppm3vtpYGoKepLYzup+DAl4YlERoAzuXu14IH9kNNygDj4AkzryILZenquNKt1l"
+    || "AYpN7idHIuqUWt8aCnNdTwfRu0W6dlksySWJ7CDl460bLTUZXcpFAgMBAAEwDQYJ"
+    || "KoZIhvcNAQEFBQADgYEAjpRyO7UjPsEGfEqcjuzyn8rkRZzNp9kTofzPIA0C7Hjh"
+    || "PSFmGGVDHYLjYtlhUnFedktv/KBPZ+GDBs3DyiJnepJRnG+7Eg/8mP+aJGc4TICY"
+    || "RY8UMVbM9JW6NbVwsTK2yLesyLPQXvfIcpanIu7CSf09uL2JGeniDWCw1NsPmXI="
+    || "-----END CERTIFICATE-----";
+
+  TestThrows(PTR DecodePEMFile(democert));
+
+  STRING doubleoucert := `"-----BEGIN CERTIFICATE-----
+MIIFVzCCBD+gAwIBAgIQdYBZ8ztM853ggCpfYBGgJjANBgkqhkiG9w0BAQsFADCB
+kDELMAkGA1UEBhMCR0IxGzAZBgNVBAgTEkdyZWF0ZXIgTWFuY2hlc3RlcjEQMA4G
+A1UEBxMHU2FsZm9yZDEaMBgGA1UEChMRQ09NT0RPIENBIExpbWl0ZWQxNjA0BgNV
+BAMTLUNPTU9ETyBSU0EgRG9tYWluIFZhbGlkYXRpb24gU2VjdXJlIFNlcnZlciBD
+QTAeFw0xNjAzMjMwMDAwMDBaFw0xNzA0MTkyMzU5NTlaMFUxITAfBgNVBAsTGERv
+bWFpbiBDb250cm9sIFZhbGlkYXRlZDEUMBIGA1UECxMLUG9zaXRpdmVTU0wxGjAY
+BgNVBAMTEW1vb2lhYW5kZW11dXIuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
+MIIBCgKCAQEAxstSuTXn0Ob0Jr9S3lep9NH0OEyeFrDtl+sOLK0JtD3PZJnoMBig
+V5KKVybDF9cmcQt8pI2W/r9k69ctq5A3KCbiGKyrkiuuRlMrZF7fgzJjtdsIHTWk
+lPyGTtiNEBqror0BM1841gpJ8R0MTRkMJES4i3I+qrVR6BgoToqUS/PTh5PPk39d
+7jf2oes3b4FFJSzPGRog0hPJTfcox7Rs4hpKgjxSpaUvCwoYojDpvM2y3IrlmPqV
+qOW8GTau4W5R6V8xE6JZXsK6kCbVPJB0Ta72JTNGVnAOOS4bN4m56HamhXSaidGo
+lkxsMdFSHmB93mkNvuuWlzCz6ORybyzTpQIDAQABo4IB5TCCAeEwHwYDVR0jBBgw
+FoAUkK9qOpRaC9iQ6hJWc99DtDoo2ucwHQYDVR0OBBYEFP3yY0Q2Xs3IS+Sa8wEx
+4tzwBsUVMA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMB0GA1UdJQQWMBQG
+CCsGAQUFBwMBBggrBgEFBQcDAjBPBgNVHSAESDBGMDoGCysGAQQBsjEBAgIHMCsw
+KQYIKwYBBQUHAgEWHWh0dHBzOi8vc2VjdXJlLmNvbW9kby5jb20vQ1BTMAgGBmeB
+DAECATBUBgNVHR8ETTBLMEmgR6BFhkNodHRwOi8vY3JsLmNvbW9kb2NhLmNvbS9D
+T01PRE9SU0FEb21haW5WYWxpZGF0aW9uU2VjdXJlU2VydmVyQ0EuY3JsMIGFBggr
+BgEFBQcBAQR5MHcwTwYIKwYBBQUHMAKGQ2h0dHA6Ly9jcnQuY29tb2RvY2EuY29t
+L0NPTU9ET1JTQURvbWFpblZhbGlkYXRpb25TZWN1cmVTZXJ2ZXJDQS5jcnQwJAYI
+KwYBBQUHMAGGGGh0dHA6Ly9vY3NwLmNvbW9kb2NhLmNvbTAzBgNVHREELDAqghFt
+b29pYWFuZGVtdXVyLmNvbYIVd3d3Lm1vb2lhYW5kZW11dXIuY29tMA0GCSqGSIb3
+DQEBCwUAA4IBAQAA/lUnOaNrWghoOeJApkBLoMX3fDp+N5A7TqL01Zm6BkDSy5ij
+QC5na7OdDBm8pwdTuSIlBxUzlouyjzNsGoFMCXAX+BnZ8zVgLqrMd0vbmELtmCEJ
+djq5kN1uyOpYZdNch097/1zIETabNqxHq6oVDGUTnIZEAsx82GpYVRG8QMphFL5m
+A2ixCiD01/w7exkFzK/Oxk6dEbHwoWeTPTaahJwW4IfRWIuNSAPp5fv4RbqEe6/T
+VFZuEg83CmndaWl2/wEqFQ/CbauBAMNmJBIz+L9wrEFA2C9WxJi8jXBwZN1tNMYg
+H2h8jdsZh7NNS721SRqwqyI8n1LeVEKhtQDO
+-----END CERTIFICATE-----`;
+
+  RECORD result := DecodePEMFile(doubleoucert);
+  TestEq("OU=Domain Control Validated, OU=PositiveSSL, CN=mooiaandemuur.com", result.subject);
+  Testeq("mooiaandemuur.com", (SELECT AS STRING value FROM result.subjectfields WHERE fieldname="CN"));
+  TestEq("C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO RSA Domain Validation Secure Server CA", result.issuer);
+}
+
+MACRO NTLMTests()
+{
+  TestEq("5FBC3D5FEC8206A30F4B6C473D68AE76", EncodeBase16(GetNTHash("pass123")));
+  TestEq("CD06CA7C7E10C99B1D33B7485A2ED808", EncodeBase16(GetNTHash("SecREt01")));
+  TestEq("E3C2D68648C27222CB4520BD7783FB87", EncodeBase16(GetNTHash("longerthanfourteen")));
+  TestEq("8C1B59E32E666DADF175745FAD62C133", EncodeBase16(GetNTHash("Beeblebrox")));
+
+  TestEq("4FB7D301186E0EB3AAD3B435B51404EE", EncodeBase16(GetLMHash("pass123")));
+  TestEq("FF3750BCC2B22412C2265B23734E0DAC", EncodeBase16(GetLMHash("SecREt01")));
+  TestEq("D9D77D9926DDEB881942ED25097AC704", EncodeBase16(GetLMHash("longerthanfourteen")));
+  TestEq("919016F64EC7B00BA235028CA50C7A03", EncodeBase16(GetLMHash("Beeblebrox")));
+
+  TestEq("TlRMTVNTUAABAAAAA7IAAAoACgApAAAACQAJACAAAABMSUdIVENJVFlVUlNBLU1JTk9S", EncodeBase64(EncodeNTLMType1("LightCity","Ursa-Minor")));
+  TestEq( [ header := "NTLMSSP", type := 0, nonce := "SrvNonce" ], DecodeNTLMTYpe2(DecodeBase64("TlRMTVNTUAACAAAAAAAAACgAAAABggAAU3J2Tm9uY2UAAAAAAAAAAA==")));
+
+  TestEq("4E544C4D53535000030000001800180072000000180018008A00000014001400400000000C000C0054000000120012006000000000000000A20000000182000055005200530041002D004D0049004E004F0052005A006100700068006F0064004C0049004700480054004300490054005900AD87CA6DEFE34685B9C43C477A8C42D600667D6892E7E897E0E00DE3104A1BF2053F07C7DDA82D3C489AE989E1B000D3"
+        ,EncodeBase16(EncodeNTLMType3("Zaphod","LightCity","Ursa-Minor","SrvNonce","Beeblebrox")));
+}
+
+MACRO HMACTest()
+{
+  STRING testdata := 'Testdata\n';
+  STRING testkey := 'secretkey';
+  // echo "Testdata" | openssl md5 -hmac "secretkey"
+  TestEq(DecodeBase16("0d70d916269664dcdbf01cfa929d01b3"), GetHashForString(testdata, "HMAC:MD5", testkey));
+  TestEq(DecodeBase16("c70d0e3c965cfaf1a737fa677f600dd6a64f318c"), GetHashForString(testdata, "HMAC:SHA-1", testkey));
+  TestEq(DecodeBase16("bee30857da74243402da2d2cf9829bb7ee11ee1938bea39e8a31e5fe8fc403b8"), GetHashForString(testdata, "HMAC:SHA-256", testkey));
+  TestEq(DecodeBase16("0e9e7c51b93c5c27ae46677fbe517c5487373c079771805c6bccdef27753366396734d90101629c960b02061f4961cd9"), GetHashForString(testdata, "HMAC:SHA-384", testkey));
+  TestEq(DecodeBase16("f9f0b5243e07f0730e02bfdb4f04f835f8e1d2357ccc015c7643930580dc6d0d863ecc04361dffd1ca49acf6bd64f27661afcddf14c82086a50dc637571d1a00"), GetHashForString(testdata, "HMAC:SHA-512", testkey));
+}
+
+//unsigned char key[8] = {0x01, 0x31, 0xD9, 0x61, 0x9D, 0xC1, 0x37, 0x6E};
+//unsigned char data[8] = {0x5C, 0xD5, 0x4C, 0xA8, 0x3D, 0xEF, 0x57, 0xDA};
+//unsigned char cipher[8] = {0xB1, 0xB8, 0xCC, 0x0B, 0x25, 0x0F, 0x09, 0xA0};
+
+
+PRINT("\n === Running TestCrypto\n");
+HashTest();
+BlowfishTest();
+SignTest();
+PasswordTest();
+XorTest();
+EvpTest();
+PKCSTest();
+NTLMTests();
+HMACTest();

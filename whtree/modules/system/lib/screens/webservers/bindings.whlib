@@ -1,0 +1,200 @@
+<?wh
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+
+
+PUBLIC BOOLEAN FUNCTION IsPortUsed(INTEGER portnum, STRING ipbind, INTEGER skipbinding)
+{
+  RETURN RecordExists(SELECT FROM system.ports
+                            WHERE port=portnum
+                                  AND id!=skipbinding
+                                  AND (ip = ipbind
+                                        OR (ip IN ["","0.0.0.0"] AND ipbind IN ["","0.0.0.0"])));
+}
+
+PUBLIC OBJECTTYPE Bindings EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD params)
+  {
+  //  this->Refresh();
+  }
+
+  MACRO OnRowEdit(RECORD row)
+  {
+    OBJECT screen := this->LoadScreen(".updatebinding", [ id := RecordExists(row) ? row.rowkey : 0 ] );
+    screen->RunModal();
+  }
+
+  RECORD ARRAY FUNCTION OnGetBindings(RECORD parentrow)
+  {
+    IF(RecordExists(parentrow))
+      RETURN DEFAULT RECORD ARRAY; //we're not a tree
+
+    RECORD requestdata := this->tolliumcontroller->GetWebserverRequestData();
+
+    BOOLEAN user_on_ipv6 := requestdata.localip LIKE "*:*";
+    RECORD ARRAY ports := SELECT *
+                               , yourbinding := requestdata.localport = port AND ((user_on_ipv6 AND ip="::") OR (NOT user_on_ipv6 AND ip IN ["","0.0.0.0"]) OR ip=requestdata.localip)
+                            FROM system.ports;
+
+    RETURN SELECT rowkey := id
+                , port := this->PrettyIP(ip) || ":" || port
+                , sortport := (ip IN ["","0.0.0.0"] ? "A" : ip="::" ? "B" : "C" || ip) || " " || Right("0000"||port,5)
+                , virtualhost := virtualhost ? 1 : 2
+                , porticon := COLUMN keypair != 0 ? 3 : 0
+                , yourbinding
+                , description
+             FROM ports;
+  }
+
+  STRING FUNCTION PrettyIP(STRING ip)
+  {
+    IF (ip IN ["","0.0.0.0"])
+      RETURN "IPv4";
+    IF (ip = "::")
+      RETURN "IPv6";
+
+    RETURN ip;
+  }
+
+  MACRO OnRowDelete(RECORD row)
+  {
+    RECORD existingwebserver := SELECT * FROM system.webservers WHERE port = row.rowkey;
+    IF(RecordExists(existingwebserver))
+    {
+      this->RunMessageBox(".cannotdeletebindinginuse", existingwebserver.baseurl);
+      RETURN;
+    }
+    IF (this->RunMessageBox(".deletebinding") != "yes")
+      RETURN;
+    if(row.yourbinding AND this->RunSimpleScreen("verify", this->GetTid(".confirmdeleteusedinding"))!="yes")
+      RETURN;
+
+    OBJECT work := this->beginwork();
+    DELETE FROM system.ports WHERE id = row.rowkey;
+
+    IF (NOT work->Finish())
+      RETURN;
+
+    ReloadWebhareConfig(TRUE, FALSE);
+  }
+>;
+
+PUBLIC OBJECTTYPE UpdateBinding EXTEND TolliumScreenBase
+<
+  INTEGER bindingid;
+
+  MACRO Init(RECORD params)
+  {
+    this->privatekeys->options := [ [ rowkey := 0, title := this->GetTid(".selectacertificate"), invalidselection := TRUE ] ] CONCAT
+       SELECT rowkey :=             id
+            , title :=              name
+         FROM ListKeyPairs()
+        WHERE has_certificate
+     ORDER BY ToUppercase(name);
+
+    this->bindingid := params.id;
+
+    this->port->options := [[ title := "80" ]
+                           ,[ title := "443" ]
+                           ,[ title := "8000" ]
+                           ];
+    this->ip->options := SELECT title := ip
+                           FROM ToRecordArray(GetLocalIPs(), "ip")
+                          WHERE ToUppercase(ip) NOT LIKE "FE80:*"
+                       ORDER BY ip NOT LIKE "*:*" DESC
+                              , ip;
+
+    IF (this->bindingid != 0)
+    {
+      RECORD thisipport := SELECT * FROM system.ports WHERE id = this->bindingid;
+
+      this->port->value := thisipport.port;
+      this->description->value := thisipport.description;
+
+      IF (thisipport.ip IN ["","0.0.0.0"])
+      {
+        this->localip->value := "allips";
+      }
+      ELSE IF (thisipport.ip = "::")
+      {
+        this->localip->value := "allip6s";
+      }
+      ELSE IF (thisipport.ip != "")
+      {
+        this->localip->value := "address";
+        this->ip->value := thisipport.ip;
+      }
+
+
+      this->virtualhosting->enabled := FALSE;
+      this->virtualhosting->value := thisipport.virtualhost;
+      this->securehosting->value := thisipport.keypair != 0;
+      this->privatekeys->SetValueIfValid(thisipport.keypair);
+
+      RECORD requestdata := this->tolliumcontroller->GetWebserverRequestData();
+
+      // if this binding is being used by us, make everything read-only
+      IF (requestdata.localport = thisipport.port AND (thisipport.ip="" OR thisipport.ip = requestdata.localip))
+      {
+        this->readonlywarningpanel->visible := TRUE;
+        this->localip->enabled := FALSE;
+        this->port->enabled := FALSE;
+        this->ip->enabled := FALSE;
+        this->securehosting->enabled := FALSE;
+        this->privatekeys->enabled := FALSE;
+      }
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->beginwork();
+
+    STRING http_ip;
+
+    IF (this->localip->value = "address")
+      http_ip := this->ip->value;
+    ELSE IF (this->localip->value = "allip6s")
+      http_ip := "::";
+    ELSE
+      http_ip := "0.0.0.0";
+
+    IF (IsPortUsed(this->port->value, http_ip, this->bindingid))
+      work->AddError(GetTID("system:sysmgmt.webservers.updatebinding.errors.port_used"));
+
+    IF (this->port->value < 1)
+      work->AddError(GetTID("system:sysmgmt.webservers.updatebinding.errors.invalid_port"));
+
+    IF (NOT IsValidIPAddress(http_ip))
+      work->AddError(GetTID("system:sysmgmt.webservers.updatebinding.errors.invalid_ip"));
+
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    INTEGER updatebinding := this->bindingid;
+    IF (updatebinding=0)
+    {
+      updatebinding := MakeAutonumber(system.ports, "id");
+      INSERT INTO system.ports(id,port) VALUES(updatebinding,this->port->value);
+    }
+
+    UPDATE system.ports
+       SET ip := http_ip
+         , port := this->port->value
+         , virtualhost := this->virtualhosting->value
+         , keypair := this->securehosting->value ? this->privatekeys->value : 0
+         , description := this->description->value
+     WHERE id = updatebinding;
+
+    IF (NOT work->Finish())
+      RETURN FALSE;
+
+    ReloadWebhareConfig(TRUE, FALSE);
+    RETURN TRUE;
+  }
+>;
+

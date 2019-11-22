@@ -1,0 +1,495 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/publisher/versioning.whlib";
+
+
+/* Test the versioning review app (for betatest policy)
+*/
+
+STRING testsiteprofile_versioned :=
+    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"'
+             || ' xmlns:t="http://www.webhare.net/xmlns/tollium/screens"'
+             || ' xmlns:p="http://www.webhare.net/xmlns/publisher/components">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/versionedctype">'
+      || '<member name="str" type="string" />'
+    || '</contenttype>'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/unversionedctype">'
+      || '<member name="str" type="string" />'
+    || '</contenttype>'
+    || '<propertyeditor name="versionedctype">'
+      || '<compositions>'
+        || '<p:whfsinstance name="versionedinstance" typedef="http://www.webhare.net/xmlns/beta/versionedctype"/>'
+        || '<p:whfsinstance name="unversionedinstance" typedef="http://www.webhare.net/xmlns/beta/unversionedctype"/>'
+      || '</compositions>'
+      || '<insert position="settings" where="atend">'
+        || '<t:textedit composition="versionedinstance" cellname="str"/>'
+        || '<t:textedit composition="unversionedinstance" cellname="str"/>'
+      || '</insert>'
+    || '</propertyeditor>'
+    || '<apply>'
+      || '<to type="file" filetype="http://www.webhare.net/xmlns/publisher/htmlfile"/>'
+      || '<extendproperties name="versionedctype"/>'
+    || '</apply>'
+
+       // index files
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-contentlisting/*" />'
+      || '<folderindex indexfile="contentlisting" />'
+    || '</apply>'
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-newfile/*" />'
+      || '<folderindex indexfile="newfile" newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />'
+    || '</apply>'
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-copy/*" />'
+      || '<folderindex indexfile="copy_of_file" fullpath="/index.html" />'
+    || '</apply>'
+    || '<apply>'
+      || '<to type="folder" pathmask="*/indextests/index-contentlink/*" />'
+      || '<folderindex indexfile="contentlink" fullpath="/index.html" />'
+    || '</apply>'
+
+  || '</siteprofile>';
+
+
+MACRO Create()
+{
+  testfw->BeginWork();
+
+  EnableSiteVersionHistory(testfw->GetTestSite(), testfw->GetUserObject("sysop"), "publisher:default");
+
+  OBJECT siteprof := testfw->GetTestSite()->rootobject->CreateFile([name:="test_versioned.siteprl", data := StringToBlob(testsiteprofile_versioned)]);
+  TestEq(TRUE, testfw->GetTestSite()->AssignSiteProfile(siteprof->id));
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+
+  OBJECT root := testfw->GetTestSite()->rootobject;
+
+  testfw->CommitWork();
+}
+
+OBJECT ASYNC FUNCTION BaseReview()
+{
+
+  OBJECT testfolder;
+  OBJECT testfile, testfiledraft;
+  OBJECT testfile2, testfiledraft2;
+  STRING answer;
+  FUNCTION PTR executemsg;
+
+  SetTidLanguage("debug");
+  testfw->SetTestUser("sysop");
+
+  // Test denial
+  testfw->BeginWork();
+
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  testfile := root->CreateFile(
+      [ name :=   "test.rtd"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      , title :=  "first title"
+      ]);
+
+  testfiledraft := UpdateDraftPublish(testfile, TRUE);
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval" ]); // req (1)
+  testfw->CommitWork();
+
+  // Verify the file isn't visible for sysop in list of requests
+  testfw->SetTestUser("sysop");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testsiteversioning", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  topscreen->whichlist->value := "otherrequests";
+  TestEQ(DEFAULT RECORD ARRAY, topscreen->actionlist->rows);
+  topscreen->whichlist->value := "myrequests";
+  TestEQMembers(
+      [ [ id :=       testfile->id
+        , name :=     testfile->name
+        , comment :=  "request approval"
+        ]
+      ], topscreen->actionlist->rows, "ID,NAME,COMMENT");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  // Should be visible for other sysops, though
+  testfw->SetTestUser("sysop2");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testsiteversioning", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  topscreen->whichlist->value := "otherrequests";
+
+  TestEQMembers(
+      [ [ id :=       testfile->id
+        , name :=     testfile->name
+        , comment :=  "request approval"
+        ]
+      ],
+      topscreen->actionlist->rows,
+      "ID,NAME,COMMENT");
+
+  topscreen->actionlist->selection := topscreen->actionlist->rows[0];
+
+  // Deny the request
+  AWAIT ExpectScreenChange(+1, PTR topscreen->deny->TolliumClick);
+  TT("description")->value := "denied";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  // Request should be gone
+  TestEQ(DEFAULT RECORD ARRAY, topscreen->actionlist->rows);
+
+  // Update title, submit again
+  testfw->BeginWork();
+  testfile->UpdateMetadata([ title := "second title" ]);
+  testfiledraft := GetPublicDraft(testfile->id);
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval again" ]); // req (2)
+  testfw->CommitWork();
+
+  // Visible again
+  TestEQMembers(
+      [ [ id := testfile->id, name :=testfile->name, comment := "request approval again" ] ],
+      topscreen->actionlist->rows,
+      "ID,NAME,COMMENT");
+
+  topscreen->actionlist->selection := topscreen->actionlist->rows[0];
+
+  // Accept the request
+  AWAIT ExpectScreenChange(+1, PTR topscreen->accept->TolliumClick);
+  TT("description")->value := "accepted";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  // Request should be gone
+  TestEQ(DEFAULT RECORD ARRAY, topscreen->actionlist->rows);
+
+  topscreen->whichlist->value := "recentlypublishedapproved";
+
+  // Visible again
+  TestEQMembers(
+      [ [ id :=       testfile->id, name :=     testfile->name, comment :=  "accepted" ]
+      ],
+      (SELECT * FROM topscreen->actionlist->rows ORDER BY when),
+      "ID,NAME,COMMENT");
+
+  topscreen->whichlist->value := "recentlydenied";
+
+  // Visible again
+  TestEQMembers(
+      [ [ id :=       testfile->id, name :=     testfile->name, comment :=  "denied" ]
+      ],
+      (SELECT * FROM topscreen->actionlist->rows ORDER BY when),
+      "ID,NAME,COMMENT");
+
+  topscreen->actionlist->selection := topscreen->actionlist->rows[0];
+
+  // Open history screen
+  AWAIT ExpectScreenChange(+1, PTR topscreen->history->TolliumClick);
+
+  RECORD ARRAY revs := SELECT * FROM topscreen->versionevents->rows ORDER BY when;
+  TestEQMembers(
+      [ [ filename := testfile->name, comment := "request approval" ]
+      , [ filename := testfile->name, comment := "denied" ]
+      , [ filename := testfile->name, comment := "request approval again" ]
+      , [ filename := testfile->name, comment := "accepted" ]
+      ], revs, "ID,NAME,COMMENT");
+
+  // Select first request, want only 'published' change
+  topscreen->versionevents->selection := revs[0];
+  TestEQMembers(
+    [ [ changecontent :=  "{publisher:tolliumapps.versioning.prop-published-false} -> {publisher:tolliumapps.versioning.prop-published-true}"
+      , changetype :=     "{publisher:tolliumapps.versioning.type-publication}"
+      ]
+    ], topscreen->modifications->rows, "CHANGECONTENT,CHANGETYPE");
+
+  // Restore a copy of the first submitted draft
+  AWAIT ExpectScreenChange(+1, PTR topscreen->createcopy->TolliumClick);
+  TT("folders")->value := root->id;
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(1, DEFAULT FUNCTION PTR, [ namemask := "*#objectcopied" ]);
+  TestEQ("{publisher:tolliumapps.versioning.objectcopiedto|test-1.rtd}", topscreen->objectcopiedto->value);
+  testfile2 := root->OpenByName(Tokenize(Tokenize(topscreen->objectcopiedto->value, "|")[1], "}")[0]);
+  TestEQ("first title", testfile2->title);
+  TestEQ(FALSE, testfile2->publish);
+  DeleteFSObjects([ testfile2 ]);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  // Now a copy of second draft
+  topscreen->versionevents->selection := revs[2];
+  AWAIT ExpectScreenChange(+1, PTR topscreen->createcopy->TolliumClick);
+  TT("folders")->value := root->id;
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(1, DEFAULT FUNCTION PTR, [ namemask := "*#objectcopied" ]);
+  TestEQ("{publisher:tolliumapps.versioning.objectcopiedto|test-1.rtd}", topscreen->objectcopiedto->value);
+  testfile2 := root->OpenByName(Tokenize(Tokenize(topscreen->objectcopiedto->value, "|")[1], "}")[0]);
+  TestEQ("second title", testfile2->title);
+  TestEQ(FALSE, testfile2->publish);
+  DeleteFSObjects([ testfile2 ]);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  // Select the original denied version, request to restore
+  topscreen->versionevents->selection := revs[1];
+  AWAIT ExpectApprovalRequest(TRUE, PTR topscreen->restorecontent->TolliumClick);
+
+  // Should be a draft, and it has 'first title' as new title
+  TestEQ("first title", GetPublicDraft(testfile->id)->fsobject->title);
+
+  // Close history screen
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  // Schedule depublication too, and accept it
+  testfw->BeginWork();
+  UpdateDraftPublish(testfile, FALSE);
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "approve restore and depublication" ]);
+  testfw->CommitWork();
+
+  testfile->Refresh();
+  TestEQ("first title", testfile->title);
+
+  // Open history screen again, select the accept of the second draft. Restore that, should happen immediately
+  AWAIT ExpectScreenChange(+1, PTR topscreen->history->TolliumClick);
+  topscreen->versionevents->selection := revs[3];
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->restorecontent->TolliumClick);
+
+  // Close history screen
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  // Close review app
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  // Verify the list of requests done by sysop
+  testfw->SetTestUser("sysop");
+
+  testfw->BeginWork();
+  testfiledraft := CreateDraft(testfile, TRUE);
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "pending request" ]); // req (3)
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testsiteversioning", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  topscreen->whichlist->value := "myrequests";
+  TestEQMembers(
+      [ [ id :=         testfile->id // (1)
+        , name :=       testfile->name
+        , comment :=    "denied" // request was denied
+        , eventtype :=  VersionEventType_FinalDenial
+        ]
+      , [ id :=         testfile->id // (2)
+        , name :=       testfile->name
+        , comment :=    "accepted"
+        , eventtype :=  VersionEventType_AcceptApply
+        ]
+      , [ id :=         testfile->id // (2)
+        , name :=       testfile->name
+        , comment :=    "pending request"
+        , eventtype :=  VersionEventType_Request
+        ]
+      ], (SELECT * FROM topscreen->actionlist->rows ORDER BY when), "ID,NAME,COMMENT,EVENTTYPE");
+
+  // Close review app
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  DeleteFSObjects([ testfile ]);
+
+  RETURN DEFAULT RECORD;
+}
+
+RECORD ARRAY FUNCTION ParseExport(RECORD file)
+{
+  OBJECT spreadsheetfile := OpenOOXMLSpreadSheetFile(file.data);
+  OBJECT sheet := spreadsheetfile->OpenSheet(0);
+  VARIANT ARRAY rows := sheet->GetAllRows();
+  STRING ARRAY cellnames := SELECT AS STRING ARRAY Substitute(Substitute(name, "{publisher:versioning.export.", ""), "}", "") FROM ToRecordArray(rows[0], "NAME");
+  RETURN TokenArrayParser(cellnames, TorecordArray(ArraySlice(rows, 1), "TOKENS"));
+}
+
+OBJECT ASYNC FUNCTION GetVersioningAppExport()
+{
+  // Get export
+  AWAIT ExpectScreenChange(+1, PTR TTClick("export"));
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->TolliumExecuteSubmit());
+  RECORD webfileres := (AWAIT ExpectSentWebFile(PTR TTClick("download")));
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //senduserfile dialog goes away
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //senduserfile dialog goes away
+
+  RETURN ParseExport(webfileres.file);
+}
+
+
+DATETIME excel_default_dt := MakeDate(1899, 12, 30);
+
+OBJECT ASYNC FUNCTION TestExport()
+{
+  RECORD rec, webfileres;
+  OBJECT testfile, testfiledraft, testfolder;
+
+  testfw->SetTestUser("sysop");
+  OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testsiteversioning", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+
+  testfw->BeginWork();
+  OBJECT root := testfw->GetTestSite()->rootobject;
+  testfile := root->CreateFile(
+      [ name :=   "test.rtd"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      , title :=  "first title"
+      ]);
+  testfolder := root->CreateFolder([ name := "movedest" ]);
+
+  testfiledraft := UpdateDraftPublish(testfile, TRUE);
+  SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval" ]);
+  testfw->CommitWork();
+
+  RECORD ARRAY exportdata := AWAIT GetVersioningAppExport();
+  TestEQMembers(
+      [ [ location :=             "/test.rtd"
+        , publishstatus :=        "{publisher:versioning.export.nonpublished} -> {publisher:versioning.export.published}"
+        , request_expirydate :=   excel_default_dt
+        , request_comment :=      "request approval"
+        , request_user :=         "Sysop McTestsuite"
+        , responsestatus :=       "{publisher:versioning.export.pending}"
+        , response_when :=        excel_default_dt
+        ]
+      ], exportdata, "*");
+
+  testfw->BeginWork();
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop2"), message := "approve publication" ]);
+  testfw->CommitWork();
+
+  exportdata := AWAIT GetVersioningAppExport();
+  TestEQMembers(
+      [ [ location :=             "/test.rtd"
+        , publishstatus :=        "{publisher:versioning.export.nonpublished} -> {publisher:versioning.export.published}"
+        , request_expirydate :=   excel_default_dt
+        , request_comment :=      "request approval"
+        , request_user :=         "Sysop McTestsuite"
+        , responsestatus :=       "{publisher:versioning.export.accepted}"
+        , response_user :=        "Sysop2 McTestsuite"
+        , response_comment :=     "approve publication"
+        ]
+      ], exportdata, "*");
+
+  testfw->BeginWork();
+  UpdateMetadataForPolicy(policy, testfile, [ parent := testfolder->id, name := "newname.rtd" ]);
+  SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "request move", expirydate := MakeDate(2020, 6, 10) ]);
+  DenyApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop2"), message := "deny move" ]);
+  testfw->CommitWork();
+
+  exportdata := AWAIT GetVersioningAppExport();
+  TestEQMembers(
+      [ [ location :=             "/test.rtd"
+        , publishstatus :=        "{publisher:versioning.export.nonpublished} -> {publisher:versioning.export.published}"
+        , request_expirydate :=   excel_default_dt
+        , request_comment :=      "request approval"
+        , request_user :=         "Sysop McTestsuite"
+        , responsestatus :=       "{publisher:versioning.export.accepted}"
+        , response_user :=        "Sysop2 McTestsuite"
+        , response_comment :=     "approve publication"
+        ]
+      , [ location :=             "/test.rtd"
+        , locationstatus :=       "-> /movedest/newname.rtd"
+        , publishstatus :=        "{publisher:versioning.export.published}"
+        , request_expirydate :=   MakeDate(2020, 6, 10)
+        , request_comment :=      "request move"
+        , request_user :=         "Sysop McTestsuite"
+        , responsestatus :=       "{publisher:versioning.export.denied}"
+        , response_user :=        "Sysop2 McTestsuite"
+        , response_comment :=     "deny move"
+        ]
+      ], exportdata, "*");
+
+  // Delete
+  testfw->BeginWork();
+  UpdateMetadataForPolicy(policy, testfile, [ parent := 0 ]);
+  testfiledraft := UpdateDraftPublish(testfile, FALSE);
+  SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "request delete", expirydate := MAX_DATETIME ]);
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop2"), message := "approve delete" ]);
+
+  UpdateMetadataForPolicy(policy, testfile, [ parent := testfolder->id, name := "restored.rtd" ]);
+  SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "request restore", expirydate := MakeDate(2021, 1, 1) ]);
+  AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop2"), message := "approve restore" ]);
+
+  testfw->CommitWork();
+
+  exportdata := AWAIT GetVersioningAppExport();
+  TestEQMembers(
+      [ [ request_fileid :=       FLOAT(testfile->id)
+        , location :=             "/test.rtd"
+        , publishstatus :=        "{publisher:versioning.export.nonpublished} -> {publisher:versioning.export.published}"
+        , request_expirydate :=   excel_default_dt
+        , request_comment :=      "request approval"
+        , request_user :=         "Sysop McTestsuite"
+        , responsestatus :=       "{publisher:versioning.export.accepted}"
+        , response_user :=        "Sysop2 McTestsuite"
+        , response_comment :=     "approve publication"
+        ]
+      , [ location :=             "/test.rtd"
+        , locationstatus :=       "-> /movedest/newname.rtd"
+        , publishstatus :=        "{publisher:versioning.export.published}"
+        , request_expirydate :=   MakeDate(2020, 6, 10)
+        , request_comment :=      "request move"
+        , request_user :=         "Sysop McTestsuite"
+        , responsestatus :=       "{publisher:versioning.export.denied}"
+        , response_user :=        "Sysop2 McTestsuite"
+        , response_comment :=     "deny move"
+        ]
+      , [ location :=             "/test.rtd"
+        , locationstatus :=       "{publisher:versioning.export.deleted}"
+        , publishstatus :=        "{publisher:versioning.export.published} -> {publisher:versioning.export.nonpublished}"
+        , request_expirydate :=   excel_default_dt
+        , request_comment :=      "request delete"
+        , request_user :=         "Sysop McTestsuite"
+        , responsestatus :=       "{publisher:versioning.export.accepted}"
+        , response_user :=        "Sysop2 McTestsuite"
+        , response_comment :=     "approve delete"
+        ]
+      , [ request_fileid :=       FLOAT(testfile->id)
+        , location :=             "/movedest/restored.rtd"
+        , locationstatus :=       "{publisher:versioning.export.restored}"
+        , publishstatus :=        "{publisher:versioning.export.nonpublished}"
+        , request_expirydate :=   MakeDate(2021, 1, 1)
+        , request_comment :=      "request restore"
+        , request_user :=         "Sysop McTestsuite"
+        , responsestatus :=       "{publisher:versioning.export.accepted}"
+        , response_user :=        "Sysop2 McTestsuite"
+        , response_comment :=     "approve restore"
+        ]
+      ], exportdata, "*");
+
+
+
+
+  // Close review app
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  RETURN DEFAULT RECORD;
+}
+
+
+RunTestFramework(
+    [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := TRUE, withcontent := FALSE ])
+    , PTR Create
+    , PTR BaseReview
+    , PTR TestExport
+    ],
+    [ testusers :=
+            [ [ login := "sysop", grantrights := ["system:sysop"] ]
+            , [ login := "sysop2", grantrights := ["system:sysop"] ]
+            ]
+    ]);

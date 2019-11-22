@@ -1,0 +1,122 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/engines/chromepdf.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+OpenPrimary();
+
+PUBLIC OBJECTTYPE PreviewPage EXTEND DynamicPageBase
+<
+  PUBLIC RECORD data;
+
+  MACRO NEW()
+  {
+    this->data := [ incorrectpassword := FALSE
+                  , password := GetWebVariable("password")
+                  , feedbackurl := GetRequestURL()
+                  , component := ""
+                  ];
+  }
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    EmbedWittyComponent("mod::publisher/lib/internal/builtinpages/preview.witty:" || this->data.component, this->data);
+  }
+>;
+
+IF(GetWebVariable("__preview_pdf")="1" AND GetDtapStage()="development") //experimental option, so masking it behind 'dep' just to be save
+{
+  OBJECT pdfgen := NEW ChromePDFAPI();
+  STRING realurl := UpdateURLVariables(GetRequestURL(), [ __preview_pdf := "" ]);
+  RECORD ARRAY cookies;
+  IF(GetWebHeader("X-WHPub-IsPreview") = "1") //if you're using outputcontrols on the current page, forward that to the PDF too
+    cookies := [[ name := "__whpub_preview", value := "devpackage"]];
+
+  BLOB pdfdata := WaitForPromise( pdfgen->GeneratePDFFromURL(realurl, [ media := "print"
+                                                                      , cookies := cookies
+                                                                      ]) );
+  AddHTTPHeader("Content-Type", "application/pdf", FALSE);
+  SendWebFile(pdfdata);
+}
+
+
+STRING baseurl := Tokenize(Tokenize(GetRequestURL(), '/')[5],'?')[0];
+OBJECT draftobj;
+OBJECT openobj;
+INTEGER source;
+BOOLEAN renderwidgetpreview;
+RECORD options;
+
+IF(DecodeURL(baseurl) LIKE "@*")
+{
+  //It's an embedded URL
+  OBJECT currentauth := GetWRDAuthPlugin(GetRequestURL());
+  IF(NOT ObjectExists(currentauth))
+    THROW NEW Exception("No authentication system activated on the current URL");
+
+  STRING url := Substring(DecodeURL(baseurl),1);
+  RECORD lookup := LookupPublisherURL(url);
+  IF(lookup.site=0)
+    THROW NEW Exception("Requested URL '" || url || "' is not hosted on this server");
+
+  openobj := OpenWHFSObject(lookup.file ?? lookup.folder);
+  source := lookup.file ?? lookup.folder;
+}
+ELSE
+{
+  RECORD data := DecryptForthisServer("publisher:preview",baseurl);
+  draftobj := OpenWHFSDraft(data.id);
+  openobj := ObjectExists(draftobj) ? draftobj->fsobject : OpenWHFSObject(data.id);
+
+  INTEGER designid;
+  IF(Objectexists(draftobj))
+    designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=draftobj->source;
+  ELSE IF(Objectexists(openobj))
+    designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = VAR data.id;
+  ELSE
+    designid := 16; //builtin clean design - should we use this or just revert to a standard 404 if we're not sure about the object you're accessing ?
+
+  source := ObjectExists(draftobj) ? draftobj->source : data.id;
+
+  IF(NOT ObjectExists(openobj) OR data.v < GetCurrentDatetime() OR data.c != openobj->creationdate)
+  {
+    OBJECT page := NEW PreviewPage();
+    page->data.component := "previewexpired";
+    //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
+    page->RunPageForWHFSId(designid);
+    RETURN;
+  }
+
+  STRING pwd := TrimWhitespace(GetWebVariable("password"));
+  IF(data.p != "" AND pwd != data.p)
+  {
+    OBJECT page := NEW PreviewPage();
+    page->data.component := "previewpassword";
+    page->data.incorrectpassword := pwd != "";
+    //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
+    page->RunPageForWHFSId(designid);
+    RETURN;
+  }
+
+  renderwidgetpreview := CellExists(data, "T") AND data.t = "w";
+  IF (renderwidgetpreview AND CellExists(data, "I") AND data.i != 0)
+    options := [ instanceid := data.i ];
+}
+
+IF (NOT ObjectExists(draftobj) AND NOT ObjectExists(openobj))
+  THROW NEW Exception("Document to preview doesn't exist. It might have been deleted or there's a new draft available.");
+
+RunPublisherPreview(openobj, source, renderwidgetpreview, options);

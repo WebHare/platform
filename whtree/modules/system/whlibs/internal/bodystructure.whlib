@@ -1,0 +1,287 @@
+<?wh
+
+INTEGER parsepos;
+INTEGER partnr;
+STRING bodystruct;
+INTEGER bodylength;
+
+STRING FUNCTION AddSubSection(STRING basesection, STRING subsection)
+{
+  IF (basesection = "")
+    RETURN subsection || '';
+  ELSE
+    RETURN basesection || "." || subsection;
+}
+
+MACRO AbortHere(INTEGER minpos)
+{
+  IF (parsepos >= minpos)
+    abort(parsepos || ':' || substring(bodystruct, parsepos, length(bodystruct)));
+}
+
+INTEGER FUNCTION NextID()
+{
+  INTEGER thisid := partnr;
+  partnr := partnr + 1;
+  RETURN thisid;
+}
+
+MACRO SkipC()
+{
+  parsepos := parsepos + 1;
+
+  IF (parsepos > bodylength)
+    abort(bodystruct);
+}
+
+STRING FUNCTION NextC()
+{
+  SkipC();
+  RETURN ThisC();
+}
+
+STRING FUNCTION ThisC()
+{
+  RETURN substring(bodystruct, parsepos, 1);
+}
+
+MACRO SkipSpace()
+{
+  IF (ThisC() = ' ')
+    SkipC();
+}
+
+MACRO SkipItem()
+{
+  IF (ThisC() = "(") //Group
+  {
+    SkipC();
+    WHILE(TRUE)
+    {
+      SkipItem();
+      IF (ThisC() = ')')
+        BREAK;
+    }
+
+    SkipC();
+  }
+  ELSE IF (ThisC() = '"') //String with quoting
+  {
+    // skip until '"'
+    WHILE (NextC() != '"')
+      /*do nothing*/;
+
+    SkipC();
+  }
+  ELSE //String without quoting
+  {
+    // skip until ' ' or ')'
+    WHILE (NextC() != ')' AND ThisC() != ' ')
+      /*do nothing*/;
+  }
+
+  SkipSpace();
+}
+
+STRING FUNCTION ParseString()
+{
+  INTEGER startpos;
+  STRING finalstring;
+
+  IF (ThisC() = '"')
+  {
+    startpos := parsepos + 1;
+
+    // skip until '"'
+    WHILE (NextC() != '"')
+      /*do nothing*/;
+
+    finalstring := SubString(bodystruct, startpos, parsepos - startpos);
+    SkipC();
+  }
+  ELSE
+  {
+    startpos := parsepos;
+
+    // skip until ' ' or ')'
+    WHILE (NextC() != '"' AND ThisC() != ' ' AND ThisC() != ')')
+      /*do nothing*/;
+
+    finalstring := SubString(bodystruct, startpos, parsepos - startpos);
+
+    IF (finalstring = "NIL")
+      finalstring := "";
+  }
+
+  SkipSpace();
+  RETURN finalstring;
+}
+
+INTEGER FUNCTION ParseInteger()
+{
+  RETURN ToInteger(ParseString(), -1);
+}
+
+RECORD ARRAY FUNCTION ParseParameters()
+{
+  RECORD ARRAY parameters;
+
+  IF (ThisC() != '(')
+  {
+    SkipItem();
+    RETURN DEFAULT RECORD ARRAY;
+  }
+  ELSE
+    SkipC();
+
+
+  WHILE (TRUE)
+  {
+    INSERT [ field := ParseString(), value := ParseString()] INTO parameters AT END;
+
+    IF (ThisC() = ")")
+        BREAK;
+  }
+
+  SkipC();
+
+  SkipSpace();
+  RETURN parameters;
+}
+
+RECORD FUNCTION ParseMultipart(STRING sectionbase)
+{
+  RECORD ARRAY children;
+  INTEGER subsection := 0;
+
+  // Get all the subparts
+  WHILE (TRUE)
+  {
+    subsection := subsection + 1;
+
+    INSERT GetSubPart(AddSubSection(sectionbase, ToString(subsection))) INTO Children AT END;
+
+    IF (ThisC() != "(")
+      BREAK;
+  }
+  SkipSpace();
+
+  STRING subtype;
+
+  // The rest of the parameters aren't always sent...
+  IF (thisC() != ")")
+    subtype := ParseString();
+  ELSE
+    subtype := "mixed";
+
+  RECORD ARRAY parameters;
+
+  IF (thisC() != ")")
+    parameters:= ParseParameters();
+
+  IF (thisC() != ")")
+    WHILE (TRUE)
+    {
+      SkipItem();
+
+      IF (ThisC() = ")")
+        BREAK;
+    }
+
+  SkipC();
+
+  RETURN [ id := NextID()
+         , mimetype := "multipart/" || subtype
+         , subparts := children
+         , section := AddSubSection(sectionbase, "TEXT")
+         , parameters := parameters];
+
+}
+
+
+RECORD FUNCTION ParsePart(STRING section)
+{
+
+  RECORD submessage;
+
+  STRING type := ParseString();
+  STRING subtype := ParseString();
+
+
+  RECORD ARRAY parameters := ParseParameters();
+
+  STRING cid := ParseString();
+  SkipItem();
+  STRING encoding := ParseString();
+
+
+  INTEGER size := ParseInteger();
+
+
+  IF (ToUpperCase(type) = "MESSAGE" AND ToUpperCase(subtype) = "RFC822")
+  {
+    // Skip header for now..
+    SkipItem();
+    //SkipItem();
+
+    submessage := GetMessage(AddSubSection(section, "1"));
+    SkipSpace();
+
+  }
+
+  WHILE (ThisC() != ")")
+  {
+    SkipItem();
+  }
+
+  SkipC();
+
+  RETURN [id := NextID()
+        , mimetype := type || "/" || subtype
+        , subparts := DEFAULT RECORD ARRAY
+        , parameters := parameters
+        , contentid := cid
+        , encoding := encoding
+        , size := size
+        , submessage := submessage
+        , section := section
+        ];
+}
+
+RECORD FUNCTION GetSubPart(STRING section)
+{
+  IF (NextC() = '(')
+  {
+    RETURN ParseMultipart(section);
+  }
+  ELSE
+  {
+    RETURN ParsePart(section);
+  }
+}
+
+RECORD FUNCTION GetMessage(STRING section)
+{
+  IF (NextC() = '(')
+  {
+    RETURN ParseMultipart(section);
+  }
+  ELSE
+  {
+    RETURN ParsePart(section);
+  }
+}
+
+PUBLIC RECORD FUNCTION ParseBodyStructure(STRING input, STRING root_mimetype)
+{
+  bodystruct := input;
+  bodylength := Length(bodystruct);
+  partnr := 0;
+  parsepos := 0;
+
+  RECORD structure := GetMessage("");
+  IF (root_mimetype != "")
+    structure.mimetype := root_mimetype;
+
+  RETURN structure;
+}

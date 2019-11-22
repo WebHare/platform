@@ -1,0 +1,569 @@
+<?wh
+/** @short Addresses and countries
+    @topic wrd/addresses
+*/
+
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
+LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
+LOADLIB "mod::wrd/lib/internal/addressverification/support.whlib";
+
+//ADDME: Move this into XML at some point for extendability, so we have a way to define custom validation services for
+//       customers. How to make sure which services are available in which contexts? I.e. a custom validation service for one
+//       specific customer should not be used by other customers.
+//NOTE: Default validation services should be able to be initialized with a default settings record!
+RECORD ARRAY addressvalidationservices :=
+    [ [ name := "pdok"
+      , title := /*tid*/"wrd:components.addressvalidation.pdok.title"
+      , validator := "mod::wrd/lib/internal/addressverification/pdok.whlib#PDOKLocationServerAPI"
+      , editextension := "mod::wrd/screens/components.xml#pdoksettings"
+      , countries := [ "NL" ]
+      , completionfields := [ "STREET", "CITY" ]
+      , isdefault := TRUE
+      ]
+    , [ name := "postcodeapi.nu"
+      , title := /*tid*/"wrd:components.addressvalidation.postcodeapi.title"
+      , validator := "mod::wrd/lib/internal/addressverification/postcodeapi.whlib#PostcodeAPI"
+      , editextension := "mod::wrd/screens/components.xml#postcodeapisettings"
+      , countries := [ "NL" ]
+      , completionfields := [ "STREET", "CITY" ]
+      , isdefault := FALSE
+      ]
+    , [ name := "webservices.nl"
+      , title := /*tid*/"wrd:components.addressvalidation.webservices.title"
+      , validator := "mod::wrd/lib/internal/addressverification/webservices_nl.whlib#WebservicesAPI"
+      , editextension := "mod::wrd/screens/components.xml#webservicessettings"
+      , countries := [ "NL" ]
+      , completionfields := [ "STREET", "CITY" ]
+      , isdefault := FALSE
+      ]
+    , [ name := "postcode.nl"
+      , title := /*tid*/"wrd:components.addressvalidation.postcodenl.title"
+      , validator := "mod::wrd/lib/internal/addressverification/postcode_nl.whlib#PostcodeNLAPI"
+      , editextension := "mod::wrd/screens/components.xml#postcodenlsettings"
+      , countries := [ "NL" ]
+      , completionfields := [ "STREET", "CITY" ]
+      , isdefault := FALSE
+      ]
+    , [ name := "fallback" //Note MUST be the last service!
+      , title := /*tid*/"wrd:components.addressvalidation.fallback.title"
+      , validator := "mod::wrd/lib/internal/addressverification/fallback.whlib#FallbackAddressAPI"
+      , editextension := "mod::wrd/screens/components.xml#fallbacksettings"
+      , countries := STRING[]
+      , completionfields := STRING[]
+      , isdefault := FALSE
+      ]
+    ];
+
+
+/** @short Get a list of supported validation services
+    @return List of validation services
+    @cell(string) return.name Validation service name, should be unique
+    @cell(string) return.title Validation service title as unresolved tid ptr (use GetTid to display)
+    @cell(string) return.validator Validator object as full object resource path, implementation should extend WRDAddressVerificationBase
+    @cell(string) return.editextension Editor extension, implementation object should extend WRDAddressVerificationExtensionBase
+    @cell(string array) return.countries List of (uppercase) country codes of the countries for which this service validates addresses
+    @cell(string array) return.completionfields List of WRD address field tags of fields that can be completed using other fields (e.g. for Dutch
+        addresses this will be [ "STREET", "CITY" ] as these fields can be filled using "ZIP" and "NR_DETAIL"). For a list of
+        available field tags, see worldinfo.xml
+*/
+PUBLIC RECORD ARRAY FUNCTION GetAddressValidationServices()
+{
+  RETURN addressvalidationservices;
+}
+
+
+RECORD __service;
+
+///Base for addres verification providers
+PUBLIC STATIC OBJECTTYPE WRDAddressVerificationBase
+<
+  RECORD pvt_service;
+
+  /// Set to TRUE to disable caching
+  PUBLIC BOOLEAN nocache;
+
+  /// @type(string) Type of this address provider
+  PUBLIC PROPERTY type(this->pvt_service.name, -);
+
+  /// @includecelldef #GetAddressValidationServices.return.countries
+  PUBLIC PROPERTY countries(this->pvt_service.countries, -);
+
+  /// @includecelldef #GetAddressValidationServices.return.completionfields
+  PUBLIC PROPERTY completionfields(this->pvt_service.completionfields, -);
+
+  /// @type(string) Accounting source
+  PUBLIC PROPERTY accountingsource(this->pvt_service.accountingsource, -);
+
+  /// Base constructor
+  MACRO NEW()
+  {
+    IF (NOT RecordExists(__service))
+      THROW NEW Exception("This class can not be instantiated directy");
+    this->pvt_service := __service;
+  }
+
+  RECORD FUNCTION ParseAddress(RECORD addressdata)
+  {
+    RECORD input :=
+        [ country   := ToUppercase(TrimWhitespace(SafeGetCell(addressdata, "COUNTRY", "")))
+        , street    := TrimWhitespace(SafeGetCell(addressdata, "STREET", ""))
+        , nr_detail := TrimWhitespace(SafeGetCell(addressdata, "NR_DETAIL", ""))
+        , zip       := TrimWhitespace(SafeGetCell(addressdata, "ZIP", ""))
+        , city      := TrimWhitespace(SafeGetCell(addressdata, "CITY", ""))
+        ];
+
+    addressdata := SafeCellUpdate(addressdata, "COUNTRY", input.country);
+    RETURN CELL[ input, output := FixupAddress(addressdata) ];
+  }
+
+  /** Get the address provider's name for use in the frontend
+      @return Frontend provider name - should not contain any sensitive information! */
+  PUBLIC STRING FUNCTION GetFrontendName()
+  {
+    RETURN this->type;
+  }
+
+  /** @short Check the validity of an address
+      @param addressdata The address to check
+      @cell(string) addressdata.country Two-letter country code
+      @cell(string) addressdata.street Street name
+      @cell(string) addressdata.nr_detail House number and addition
+      @cell(string) addressdata.zip ZIP or postal code
+      @cell(string) addressdata.city City
+      @cell(boolean) options.alwaysverify Always verify the address, even if it appears complete (potentially costs extra API calls)
+      @return The validation result
+      @cell(string) return.status Lookup Status
+          - "ok" (the address is valid or addresses for this country cannot be checked)
+          - "not_enough_data" (NL: not enough data to do an address lookup)
+          - "invalid_zip" (NL: the supplied zip is invalid)
+          - "invalid_nr_detail" (NL: the nr_detail is invalid)
+          - "different_citystreet" (NL: given city and street are different from the city and street that are found for the given zip and nr_detail)
+          - "incomplete" (NL: the input data was incomplete - the looked_up field contains the missing fields)
+          - "zip_not_found" (NL: there is no address with the given zip and nr_detail)
+          - "address_not_found" (NL: there is no address with the given street nr_detail and city),
+          - "lookup_failed" (there was an error looking up data - maybe the service is not configured correctly or was unavailable)
+          - "not_supported" (the operation is not supported for this service)
+      @cell(record) return.data The (normalized) input data
+      @cell(record) return.looked_up The result of the address lookup, contains the complete address if the status is "incomplete"
+  */
+  PUBLIC RECORD FUNCTION CheckAddress(RECORD addressdata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ alwaysverify := FALSE ], options);
+    addressdata := FixupAddress(addressdata);
+
+    RECORD data := this->ParseAddress(addressdata);
+    RECORD orginput := data.input;
+
+    IF (data.input.zip = "" AND orginput.zip != "") // invalid NL zip code?
+      RETURN CELL[ status := "invalid_zip", data, looked_up := [ status := "invalid_zip" ] ];
+
+    IF(data.input.country = "NL" AND ToUppercase(Substitute(data.input.zip, " ", "")) = "7500OO")
+    {
+      SWITCH (data.input.nr_detail)
+      {
+        CASE "0"      { RETURN CELL[ status := "lookup_failed", data, looked_up := [ status := "lookup_failed" ] ]; }
+        CASE "1"      { RETURN CELL[ status := "not_supported", data, looked_up := [ status := "not_supported" ] ]; }
+        CASE "2"      { RETURN CELL[ status := "zip_not_found", data, looked_up := [ status := "zip_not_found" ] ]; }
+        CASE "3"      { RETURN CELL[ status := "address_not_found", data, looked_up := [ status := "address_not_found" ] ]; }
+        CASE "4"      { RETURN CELL[ status := "not_enough_data", data, looked_up := [ status := "not_enough_data" ] ]; }
+        CASE "5"      { RETURN CELL[ status := "invalid_zip", data, looked_up := [ status := "invalid_zip" ] ]; }
+        CASE "296"     //our easter egg/verification that the proper provider is installend (and not PDOK)
+        {
+          RETURN [ status := "incomplete"
+                 , data := data.output
+                 , looked_up := CELL[ ...data.input
+                                    , city := "DO NOT SHIP - NIET VERZENDEN" //it's NL, so dutch should be acceptable, otherwise we just hope you understand NL
+                                    , street := this->GetFrontendName()
+                                    ]
+                 ];
+        }
+      }
+    }
+
+    data.input :=
+        [ country   := ToUppercase(TrimWhitespace(SafeGetCell(addressdata, "COUNTRY", "")))
+        , street    := TrimWhitespace(SafeGetCell(addressdata, "STREET", ""))
+        , nr_detail := TrimWhitespace(SafeGetCell(addressdata, "NR_DETAIL", ""))
+        , zip       := TrimWhitespace(SafeGetCell(addressdata, "ZIP", ""))
+        , city      := TrimWhitespace(SafeGetCell(addressdata, "CITY", ""))
+        ];
+
+    IF (this->nocache)
+      RETURN this->CheckAddressInternal(data, options);
+
+    RECORD result := GetAdHocCached(CELL[ this->pvt_service.name, data, options.alwaysverify ], PTR this->CachedCheckAddress(data, options));
+    RETURN result;
+  }
+
+  RECORD FUNCTION CachedCheckAddress(RECORD data, RECORD options)
+  {
+    RETURN
+        [ value := this->CheckAddressInternal(data, options)
+        , ttl := 24*60*60*1000
+        , eventmasks := [ "wrd:addressvalidation." || data.input.country ]
+        ];
+  }
+
+  // Override this function in extended address verification objecttypes to do the actual checking of addresses
+  RECORD FUNCTION CheckAddressInternal(RECORD data, RECORD options)
+  {
+    RETURN [ status := "ok", data := data.output, looked_up := DEFAULT RECORD ];
+  }
+>;
+
+///Base for dutch addres verification providers
+PUBLIC STATIC OBJECTTYPE WRDNLAddressVerificationBase EXTEND WRDAddressVerificationBase
+<
+  UPDATE RECORD FUNCTION CheckAddressInternal(RECORD data, RECORD options)
+  {
+    // We can only check for NL
+    IF (data.input.country != "NL")
+      RETURN [ status := "ok", data := data.output, looked_up := DEFAULT RECORD ];
+
+    // Is the zip + house nr known?
+    IF (data.input.zip != "" AND data.input.nr_detail != "")
+    {
+      IF(data.input.street != "" AND data.input.city != "" AND NOT options.alwaysverify)
+        RETURN [ status := "ok", data := data.output, looked_up := DEFAULT RECORD ];
+
+      STRING zip := FixupZipCodeNL(data.input.zip);
+      IF (zip = "") // Must be in the form '1234 AB'
+        RETURN [ status := "invalid_zip", data := data.output, looked_up := DEFAULT RECORD ];
+
+      RECORD housenorec := SplitHousenumber(data.input.nr_detail);
+      INTEGER houseno := ToInteger(housenorec.nr, 0);
+      IF (houseno <= 0)
+        RETURN [ status := "invalid_nr_detail", data := data.output, looked_up := DEFAULT RECORD ];
+
+      RECORD result := this->__LookupNLAddressByZip(zip, houseno);
+      IF (result.status != "ok")
+        RETURN [ status := result.status, data := data.output, looked_up := result ];
+
+      BOOLEAN street_equal := ToUppercase(data.input.street) = ToUppercase(result.street);
+      BOOLEAN city_equal := ToUppercase(data.input.city) = ToUppercase(result.city);
+
+      STRING status := street_equal AND city_equal ? "ok" : "incomplete";
+
+      // Compare case insensitive, less errors that way.
+      IF (data.input.street != "" AND NOT street_equal)
+        status := "different_citystreet";
+      IF (data.input.city != "" AND NOT city_equal)
+        status := "different_citystreet";
+
+      data.output := SafeCellUpdate(data.output, "CITY", result.city);
+      data.output := SafeCellUpdate(data.output, "STREET", result.street);
+      data.output := SafeCellUpdate(data.output, "ZIP", result.zip);
+
+      RETURN [ status := status, data := FixupAddress(data.output), looked_up := result ];
+    }
+    ELSE
+    {
+      IF (data.input.street = "" OR data.input.nr_detail = "" OR data.input.city = "")
+        RETURN [ status := "not_enough_data", data := data.output, looked_up := DEFAULT RECORD ];
+
+      RECORD housenorec := SplitHousenumber(data.input.nr_detail);
+      INTEGER houseno := ToInteger(housenorec.nr, 0);
+      IF (houseno <= 0)
+        RETURN [ status := "invalid_nr_detail" ];
+      STRING housenoaddition := housenorec.detail;
+
+      RECORD result := this->__LookupNLAddressByAddress(data.input.city, data.input.street, houseno, housenoaddition);
+      IF (result.status != "ok")
+        RETURN [ status := result.status, data := data.output, looked_up := result ];
+
+      data.output := SafeCellUpdate(data.output, "CITY", result.city);
+      data.output := SafeCellUpdate(data.output, "STREET", result.street);
+      data.output := SafeCellUpdate(data.output, "ZIP", result.zip);
+
+      RETURN [ status := "incomplete", data := FixupAddress(data.output), looked_up := result ];
+    }
+  }
+
+  RECORD FUNCTION __LookupNLAddressByZip(STRING zip, INTEGER houseno)
+  {
+    RETURN [ status := "not_supported" ];
+  }
+
+  RECORD FUNCTION __LookupNLAddressByAddress(STRING city, STRING street, INTEGER houseno, STRING housenoaddition)
+  {
+    RETURN [ status := "not_supported" ];
+  }
+>;
+
+STATIC OBJECTTYPE FallbackAddressValidation EXTEND WRDAddressVerificationBase
+<
+>;
+
+PUBLIC RECORD FUNCTION __OpenWRDAddressLookupAPI(RECORD settings, STRING country, STRING accountingsource) // Public for AddressValidation::ValidateValue
+{
+  STRING type := settings.type;
+  IF (type = "-none-")
+    RETURN [ success := TRUE, api := DEFAULT OBJECT ];
+  DELETE CELL type FROM settings;
+  country := ToUppercase(country);
+
+  RECORD def :=
+      SELECT *
+        FROM addressvalidationservices
+       WHERE name = type
+             AND (country = "" OR Length(countries)=0 OR country IN countries);
+
+  IF (NOT RecordExists(def))
+    RETURN [ success := FALSE, api := DEFAULT OBJECT ];
+
+  __service := CELL[...def,accountingsource ];
+  OBJECT validator := MakeObject(def.validator, settings);
+  __service := DEFAULT RECORD;
+  RETURN [ success := TRUE, api := validator ];
+}
+
+OBJECT FUNCTION GetValidationForCountry(RECORD settings, STRING country, STRING accountingsource)
+{
+  // Try requested settings first
+  IF (RecordExists(settings))
+  {
+    RECORD res := __OpenWRDAddressLookupAPI(settings, country, accountingsource);
+    IF(res.success)
+      RETURN res.api;
+  }
+
+  // Find the default validation service for the request country
+  country := ToUppercase(country);
+  settings :=
+      SELECT type := name
+        FROM addressvalidationservices
+       WHERE isdefault
+             AND country IN countries;
+
+  IF (NOT RecordExists(settings))
+    settings := [ type := "fallback" ];
+
+  RECORD res := __OpenWRDAddressLookupAPI(settings, country, accountingsource);
+  RETURN res.api;
+}
+
+VARIANT FUNCTION SafeGetCell(RECORD rec, STRING cellname, VARIANT defaultcell)
+{
+  IF (NOT CellExists(rec, cellname))
+    RETURN defaultcell;
+
+  RETURN GetCell(rec, cellname);
+}
+
+RECORD FUNCTION SafeCellUpdate(RECORD rec, STRING cellname, VARIANT value)
+{
+  IF (CellExists(rec, cellname))
+    RETURN CellUpdate(rec, cellname, value);
+  ELSE
+    RETURN CellInsert(rec, cellname, value);
+}
+
+/** @short Format a WRD address
+    @param addressdata The address to format
+    @cell options.language The presentation language to use (falls back to the current tid language)
+    @cell options.showcountry Show the country in the address (defaults to TRUE)
+    @return Formatted address
+*/
+PUBLIC STRING FUNCTION FormatAddress(RECORD addressdata, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ language := ""
+                              , showcountry := TRUE
+                              ], options);
+  STRING language := options.language ?? GetTidLanguage();
+  RETURN GetDisplayValueForParsedAddress(FixupAddress(addressdata), language, options.showcountry);
+}
+
+/** @short Normalize a WRD address record
+    @long Make well known fixes to an address, currently only NL ZIP
+    @param inaddress Address record
+    @return Fixed address record
+*/
+PUBLIC RECORD FUNCTION FixupAddress(RECORD inaddress)
+{
+  IF(NOT RecordExists(inaddress))
+    RETURN DEFAULT RECORD;
+
+  STRING country;
+
+  inaddress := EnforceStructure([ country := ""
+                                , city := ""
+                                , nr_detail := ""
+                                , street := ""
+                                , zip := ""
+                                ], inaddress);
+
+  FOREVERY(RECORD field FROM UnpackRecord(inaddress))
+    IF(TYPEID(field.value) = TYPEID(STRING))
+      inaddress := CellUpdate(inaddress, field.name, TrimWhitespace(field.value));
+
+  IF(CellExists(inaddress,'country'))
+  {
+    inaddress.country := ToUppercase(inaddress.country);
+    country := inaddress.country;
+  }
+  IF(country="NL" AND CellExists(inaddress,'zip'))
+  {
+    STRING fixedzip := FixupZipCodeNL(inaddress.zip);
+    IF(fixedzip != "")
+      inaddress.zip := fixedzip;
+  }
+
+  RETURN inaddress;
+}
+
+/** @short Split the 'detail' or 'suffix' from a housenumber
+    @param indata String with housenumber and addition
+    @return Splot housenumber and addition
+    @cell(string) return.nr House number (digits part)
+    @cell(string) return.detail Detail part (eg 'A', '-6')
+*/
+PUBLIC RECORD FUNCTION SplitHousenumber(STRING indata)
+{
+  indata := TrimWhitespace(indata);
+  FOR(INTEGER i := 1 ; i <= length(indata); i:=i+1)
+  {
+    IF(ToInteger(Left(indata,i),-1) = -1) //found something non-alpha
+    {
+      RETURN [ nr := Left(indata,i-1)
+             , detail := TrimWhitespace(Substring(indata,i-1))
+             ];
+    }
+  }
+  RETURN [ nr := indata
+         , detail := ""
+         ];
+}
+
+/** @short Recombines nr and detail into a single housenumber
+    @param nr House number (digits)
+    @param detail Detail part (eg 'A', '-6', '3')
+    @return Combined house number, inserting a space between the parts when needed because of ambiguity
+*/
+PUBLIC STRING FUNCTION JoinHousenumber(STRING nr, STRING detail)
+{
+  detail := TrimWhitespace(detail);
+  RETURN TrimWhitespace(nr) || (ToInteger(Left(detail,1),-1) != -1 ? " " : "") || detail;
+}
+
+
+/** @short Describe the address format for a country
+    @param countrycode Requested country
+    @cell(string) options.language Language code to use (default: current tid language)
+    @return Address fields in ordering, excluding country field
+    @cell(string) return.autocomplete Recommended HTML5 autcomplete attribute
+    @cell(string) return.tag Field name (eg 'street', 'nr_detail')
+    @cell(string) return.title Label in requested language
+    @cell(boolean) return.required If true, this this field is required for this country
+    @cell(boolean) return.break_after If true, a linebreak should generally occur after thi sfield
+*/
+PUBLIC RECORD FUNCTION GetAddressFormat(STRING countrycode, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ language := "" ], options);
+  STRING language := options.language ?? GetTidLanguage();
+  RECORD retval := [ fields := SELECT *, DELETE ordering FROM GetWRDAddressInfo(countrycode, language)
+                   ];
+
+  RETURN retval;
+}
+
+/** @short Describe an address field, generalized for any country
+    @param tag Requested field
+    @cell(string) options.language Language code to use (default: current tid language)
+    @return A description of the requested field (throws if field is unknown)
+    @cell(string) return.autocomplete Recommended HTML5 autcomplete attribute
+    @cell(string) return.title Label in requested language
+    @cell(boolean) return.required If true, this this field is required for this country
+*/
+PUBLIC RECORD FUNCTION GetAddressField(STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ language := "" ], options);
+  RECORD field := GetWRDAddressField(tag, options.language ?? GetTidLanguage());
+  RETURN RecordExists(field) ? CELL[...field, DELETE ordering, DELETE break_after, DELETE tag ] : field;
+}
+
+/** @short Get an address validator as configured for a WRD schema
+    @param wrdschema WRD Schema
+    @param country Code of country being validated
+    @cell options.accountingsource Accounting tag (defaults to `wrd:<schematag>`)
+    @return(object #WRDAddressVerificationBase) Address validator
+*/
+PUBLIC OBJECT FUNCTION GetWRDAddressLookupAPI(OBJECT wrdschema, STRING country, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ accountingsource :=   "wrd:" || wrdschema->tag
+      ], options);
+
+  RECORD settings := wrdschema->GetSchemaSetting("wrd:addressverification", [ fallback := DEFAULT RECORD ]);
+  RETURN GetValidationForCountry(settings, country, options.accountingsource);
+}
+
+/** @short Configure address validation for a WRD schema
+    @param wrdschema Schema to configure
+    @param settings Verification settings
+    @cell(string) settings.type Provider type */
+PUBLIC MACRO SetupWRDAddressVerification(OBJECT wrdschema, RECORD settings)
+{
+  IF(RecordExists(settings))
+  {
+    __OpenWRDAddressLookupAPI(settings, "", ""); //verify it's valid
+    wrdschema->SetSchemaSetting("wrd:addressverification", settings);
+  }
+  ELSE
+  {
+    wrdschema->RemoveSchemaSetting("wrd:addressverification");
+  }
+}
+
+/** @short Get an address validator based on siteprofile configuration
+    @param applytester Applytester to use as basis for the API lookup
+    @param country Code of country being validated
+    @return(object #WRDAddressVerificationBase) Address validator
+*/
+PUBLIC OBJECT FUNCTION GetAddressLookupAPI(OBJECT applytester, STRING country)
+{
+  IF (NOT ObjectExists(applytester))
+    RETURN DEFAULT OBJECT;
+
+  STRING regkey, wrdschema;
+  BOOLEAN seenregkey;
+
+  //FIXME this approach has already been deprecated!
+  RECORD ARRAY sitesettings := applytester->GetCustomSettings("http://www.webhare.net/xmlns/wrd/siteprofile", "addressvalidation");
+  FOREVERY(RECORD setting FROM sitesettings)
+  {
+    IF(setting.node->HasAttribute("registrykey"))
+    {
+      seenregkey := TRUE;
+      regkey := setting.node->GetAttribute("registrykey");
+    }
+    IF(setting.node->HasAttribute("wrdschema"))
+      wrdschema := setting.node->GetAttribute("wrdschema");
+  }
+
+  RECORD config := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+  IF(RecordExists(config))
+  {
+    regkey := config.addressvalidationkey ?? regkey;
+    wrdschema := config.addressvalidationschema ?? wrdschema;
+  }
+
+  IF(regkey != "") //regkey takes priority so you can override locally
+  {
+    RECORD settings := ReadRegistryKey(regkey, [ fallback := DEFAULT RECORD ]);
+    IF(RecordExists(settings))
+      RETURN GetValidationForCountry(settings, country, applytester->GetAccountingSource());
+  }
+  IF(wrdschema != "")
+  {
+    OBJECT targetschema := OpenWRDSchema(wrdschema);
+    IF(ObjectExists(targetschema))
+      RETURN GetWRDAddressLookupAPI(targetschema, country);
+  }
+
+  RETURN GetValidationForCountry(DEFAULT RECORD, country, applytester->GetAccountingSource());
+}

@@ -1,0 +1,45 @@
+﻿<?wh
+// A simple script to force recheck on all broken links and surpass server status cache
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "h", type := "switch", defaultvalue := FALSE ]
+                                                     , [ name := "all", type := "switch", defaultvalue := FALSE ]
+                                                     , [ name := "servers", type := "switch", defaultvalue := FALSE ]
+                                                     ]);
+IF (NOT RecordExists(args) OR args.h)
+{
+  Print("Usage resetlinks.whscr [-h] [--all] [--servers]\n");
+  Print("\n");
+  Print("      -h         Print this help screen\n");
+  Print("      --all      Reset all links, not just broken links\n");
+  Print("      --servers  Reset server cache as well\n");
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary( [ clientname := "consilio reset links"]);
+trans->BeginWork();
+
+DATETIME now := GetCurrentDateTime();
+IF (args."all")
+{
+  UPDATE consilio.checked_links
+     SET nextcheck := now;
+}
+ELSE
+{
+  UPDATE consilio.checked_links
+     SET nextcheck := now
+   WHERE status != 200;
+}
+
+IF (args.servers)
+{
+  DELETE FROM consilio.checked_servers;
+}
+
+trans->ScheduleTask("consilio:linkchecker",now);
+trans->CommitWork();

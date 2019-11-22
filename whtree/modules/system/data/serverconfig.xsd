@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns="http://www.webhare.net/xmlns/system/serverconfig"
+  xmlns:t="http://www.webhare.net/xmlns/system/serverconfig"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  targetNamespace="http://www.webhare.net/xmlns/system/serverconfig"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+
+  <xs:element name="remoteserverconfig">
+    <xs:complexType>
+      <xs:attribute name="url" type="xs:string" use="required" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="serverconfig">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="modules" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="module" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:attribute name="name" type="xs:string" />
+                  <xs:attribute name="url" type="xs:string" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="bindings" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="binding" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:attribute name="name" type="xs:string" />
+                  <xs:attribute name="ip" type="xs:string" />
+                  <xs:attribute name="port" use="required">
+                    <xs:simpleType>
+                      <xs:restriction base="xs:integer">
+                        <xs:minInclusive value="1" />
+                        <xs:maxInclusive value="65535" />
+                      </xs:restriction>
+                    </xs:simpleType>
+                  </xs:attribute>
+                  <xs:attribute name="virtualhost" type="xs:boolean" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="webservers" minOccurs="0">
+          <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+              <xs:element name="interface">
+                <xs:complexType>
+                  <xs:complexContent>
+                    <xs:extension base="WebServer">
+                      <xs:attribute name="isprimary" type="xs:boolean" />
+                    </xs:extension>
+                  </xs:complexContent>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="output" type="WebServer" />
+            </xs:choice>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="identity" type="t:Identity" minOccurs="0" maxOccurs="1" />
+        <xs:element name="addwebserver" type="t:AddWebserver" minOccurs="0" maxOccurs="unbounded" />
+        <xs:element name="setregistrykey" type="t:SetRegistryKey" minOccurs="0" maxOccurs="unbounded" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="Identity">
+    <xs:attribute name="servername" type="xs:string" />
+    <xs:attribute name="dtapstage" type="sc:ServerType" />
+  </xs:complexType>
+
+  <xs:complexType name="AddWebserver">
+    <xs:attribute name="url" type="xs:string" use="required" />
+    <xs:attribute name="bindto" type="xs:string" />
+    <xs:attribute name="type" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="interface"/>
+          <xs:enumeration value="output"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="isprimaryinterface" type="xs:boolean" />
+  </xs:complexType>
+
+  <xs:complexType name="SetRegistryKey">
+    <xs:attribute name="module" type="xs:string" />
+    <xs:attribute name="key" type="xs:string" use="required" />
+    <xs:attribute name="value" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <xs:complexType name="WebServer">
+    <xs:sequence>
+      <xs:element name="ruleset" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="path" type="xs:string" />
+          <xs:attribute name="name" type="xs:string" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" />
+    <xs:attribute name="baseurl" type="xs:string" />
+    <xs:attribute name="virtualhost" type="xs:boolean" />
+    <xs:attribute name="binding" type="xs:string" />
+  </xs:complexType>
+
+
+</xs:schema>

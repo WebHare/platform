@@ -1,0 +1,1152 @@
+<?wh (* ISSYSTEMLIBRARY *)
+
+/** @short Date and time manipulation
+    @long These functions all manipulate dates and times in various ways.
+          The functions can be used to create calendars, set timestamps for publications and so forth.
+          Please note that these functions are not suited for historic calculations, using dates that
+          predate the introduction of the Gregorian Calendar.
+    @topic harescript-core/datetime
+*/
+
+LOADLIB "wh::system.whlib";
+LOADLIB "wh::internal/interface.whlib" EXPORT MAX_DATETIME, MakeDateFromText;
+LOADLIB "wh::util/localization.whlib" EXPORT UTCToLocal, LocalToUTC, IsLocalTimeDST, IsWeekend, GetUTCOffset,
+                                             GetAvailableTimeZones, GetAvailableTimeZoneNames,
+                                             GetSystemTimeZoneID;
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Internal datetime functions
+//
+
+//yr:   the year to start counting from
+//counts days from first year
+//1->365 etc
+//only used internally
+PRIVATE INTEGER FUNCTION ScalarYearsToDays(INTEGER yr)
+{
+  yr:=yr-1;
+  RETURN (yr * 365) + (yr / 4) - (yr / 100) + (yr / 400);
+}
+
+
+//checks if a year is a leap year
+//yr:           the year to check (e.g. 1800, 1900 are no leap, 2000 is, 1904, 1908 etc are.)
+//return:       true, if the year is a leapyear, false otherwise
+BOOLEAN FUNCTION IsLeapYear(INTEGER yr)
+{
+  RETURN (yr % 400 = 0) OR ((yr % 4 = 0) AND (yr % 100 != 0));
+}
+
+
+
+
+/** @short Returns the number of days since 01-01-0001.
+    @long @italic GetDayCount() returns the number of days that have passed since 01-01-0001 until @italic date,
+          starting at 1 for 01-01-0001. The function cannot return a negative value.
+
+          This function is in essence the same as @italic MakeDayCount(), except that @italic GetDayCount() uses a parameter of
+          type @italic DateTime, whereas @italic MakeDayCount() uses three integers for year, month and day.
+    @param date The end date
+    @return The number of days that have passed since 01-01-0001 until @italic date. Value 1 represents 01-01-0001.
+    @see MakeDayCount
+    @example
+// Returns the number of days passed since 01-01-0001 until today
+INTEGER NumberOfDays := GetDayCount(GetCurrentDateTime());
+*/
+PUBLIC INTEGER FUNCTION GetDayCount(DATETIME date) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short Returns the number of mseconds passed since the beginning of the day
+    @param endtime The end time
+    @return The number of milliseconds passed since 00:00:00 hours until @italic endtime of the same day. At 00:00:00 hours the function returns 0 (zero).
+    @see UnpackDateTime
+    @example
+// Get the number of msecs passed since the start of the day
+INTEGER TotalMseconds := GetMsecondCount(GetCurrentDateTime());
+*/
+PUBLIC INTEGER FUNCTION GetMsecondCount(DATETIME endtime) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+
+/** @short Returns the number of days in a specific month in a specific year
+    @param month The month of which the number of days should be returned. Januari = 1, Februari = 2 etc.
+    @param year The year the month belongs to.
+    @return The total number of days in the month, taking leap years into account.
+    @see GetYearLength
+    @example
+// Returns the number of days in Februari 1997
+INTEGER MonthLength := GetMonthLength(2,1997);
+*/
+PUBLIC INTEGER FUNCTION GetMonthLength( INTEGER month, INTEGER year)
+{
+  IF(month=2)
+    RETURN IsLeapYear(year) ? 29 : 28;
+  IF(month=4 OR month=6 OR month=9 OR month=11)
+    RETURN 30;
+  RETURN 31;
+}
+
+
+INTEGER FUNCTION GetMonthOffset(INTEGER month, INTEGER year)
+{
+  IF(IsLeapYear(year))
+    RETURN [ 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 ][month-1];
+  ELSE
+    RETURN [ 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 ][month-1];
+}
+
+/** @short Returns the number of days in a specific year
+    @param year The year for which the number of days should be returned.
+    @return The total number of days in year @italic.
+    @see GetMonthLength
+    @example
+// Returns the number of days in (leap) year 10000
+INTEGER NumDays := GetYearLength(10000);
+*/
+PUBLIC INTEGER FUNCTION GetYearLength(INTEGER year)
+{
+  RETURN IsLeapYear(year) ? 366 : 365;
+}
+
+
+
+
+PRIVATE INTEGER FUNCTION UncheckedMakedaycount (INTEGER year, INTEGER month,INTEGER day)
+{
+  day := ScalarYearsToDays(year)+GetMonthOffset(month,year)+day;
+  IF(day<=0)
+    THROW NEW Exception("Date overflow");
+  RETURN day;
+}
+
+
+/** @short Returns the number of days since 01-01-0001.
+    @long @italic MakeDayCount() returns the number of days that have passed since 01-01-0001 until day @italic day of month @italic month of year @italic year,
+          starting at 1 for 01-01-0001.
+
+          This function is in essence the same as @italic GetDayCount(), except that @italic GetDayCount() uses a parameter of type @italic DateTime,
+          whereas @italic MakeDayCount() uses three integers for year, month and day.
+    @param year The end year
+    @param month The end month
+    @param day The end day
+    @return The number of days that have passed since 01-01-0001 until {@italic day}-{@italic month}-{@italic year}. Value 1 represents 01-01-0001.
+    @see GetDayCount
+    @example
+// get the number of days passed since 1-1-0001 until Aug 31st, 1997
+INTEGER NumberOfDays := MakeDayCount(1997,8,31);
+*/
+PUBLIC INTEGER FUNCTION MakeDayCount (INTEGER year,INTEGER month,INTEGER day)
+{
+  IF ( year<1
+       OR month<1 OR month>12
+       OR day<1 OR day>GetMonthLength(month, year))
+    RETURN 0;
+
+  RETURN UncheckedMakeDayCount(year,month,day);
+}
+
+
+
+
+/** @short Returns a DateTime value from year, month and day values with time 00:00:00
+    @param year An integer, representing the year
+    @param month An integer, representing the month
+    @param day An integer, representing the day
+    @return A DateTime value representing 00:00:00 hours at date {@italic day}-{@italic month}-{@italic year}.
+            The default datetime is returned if the specified values are out of range.
+    @see MakeDateTime
+    @example
+// returns a DateTime representing August 31st 1997
+DATETIME theDate:= MakeDate (1974, 8, 31);
+*/
+PUBLIC DATETIME FUNCTION MakeDate(INTEGER year,
+                           INTEGER month,
+                           INTEGER day)
+{
+  IF ( year<1
+       OR month<1 OR month>12
+       OR day<1 OR day>GetMonthLength(month, year))
+    RETURN DEFAULT DATETIME;
+
+  RETURN __HS_CREATEDATETIMEFROMDM(UncheckedMakeDayCount(year,month,day),0);
+}
+
+/** @short Calculate the number of milliseconds from an hour, minute and second value
+    @param hour An integer, representing the hour
+    @param minute An integer, representing the minute
+    @param second An integer, representing the second
+    @param mseconds Optional, the number of milliseconds
+    @return The number of milliseconds since midnight, or -1 if any of the parameters is out of range
+*/
+PUBLIC INTEGER FUNCTION MakeTime(INTEGER hour, INTEGER minute, INTEGER second, INTEGER mseconds DEFAULTSTO 0)
+{
+  IF(hour<0 OR hour>23
+     OR minute<0 OR minute>59
+     OR second<0 OR second>59
+     OR mseconds<0 OR mseconds>999)
+    RETURN -1;
+
+  RETURN (((hour*60+minute)*60)+second)*1000+mseconds;
+}
+
+
+/** @short Returns a DateTime value from year, month, day, hour, minute and second values
+    @param year An integer, representing the year
+    @param month An integer, representing the month
+    @param day An integer, representing the day
+    @param hour An integer, representing the hour
+    @param minute An integer, representing the minute
+    @param second An integer, representing the second
+    @param mseconds Optional, the number of milliseconds
+    @return A DateTime value representing {@italic hour}-{@italic minute}-{@italic second} hours at date {@italic day}-{@italic month}-{@italic year}
+            The default datetime is returned if the specified values are out of range.
+    @see MakeDate
+    @example
+// returns a DateTime representing 15:24:34 hours at August 31st 1997
+DATETIME theDate:= MakeDate (1974, 8, 31, 15, 24, 34);
+*/
+PUBLIC DATETIME FUNCTION MakeDateTime(  INTEGER year,
+                                        INTEGER month,
+                                        INTEGER day,
+                                        INTEGER hour,
+                                        INTEGER minute,
+                                        INTEGER second,
+                                        INTEGER mseconds DEFAULTSTO 0
+                                   )
+{
+  INTEGER time := MakeTime(hour,minute,second,mseconds);
+
+  IF ( time=-1
+       OR year<1
+       OR month<1 OR month>12
+       OR day<1 OR day>GetMonthLength(month, year))
+    RETURN DEFAULT DATETIME;
+
+  RETURN __HS_CREATEDATETIMEFROMDM(UncheckedMakeDayCount(year,month,day),time);
+}
+
+
+INTEGER FUNCTION CalculateWeek(INTEGER dayofyear, INTEGER dayofweek, INTEGER year)
+{
+  // Calculate place of the thursday in the week (year in which the thursday falls is the year that 'owns' that week)
+  dayofyear := dayofyear + (4-dayofweek);
+
+  // Out of range (bottom)? Calc the day of year for the previous year
+  if (dayofyear < 1)
+    dayofyear := dayofyear + GetYearLength(year-1);
+  ELSE
+  {
+    INTEGER yearlength := GetYearLength(year);
+
+    // Out of range (top)? Calc the day of year for the next year
+    IF (dayofyear > yearlength)
+      dayofyear := dayofyear - yearlength;
+  }
+
+  // Make the day of year 0-based, and then we can divide by 7, yielding the number of thursdays
+  // before the current one, and that's the weeknr - 1.
+  RETURN ((dayofyear - 1) / 7) + 1;
+}
+
+/** @short Returns a DateTime value for a specified week
+    @param year The weekyear
+    @param week The week number
+    @param weekday The day of the week (1=monday, ..., 7=sunday)
+    @param hour An integer, representing the hour
+    @param minute An integer, representing the minute
+    @param second An integer, representing the second
+    @param mseconds Optional, the number of milliseconds
+    @return The requested date, or DEFAULT DATETIME if any of the parameters was incorrect
+    @see MakeDate
+    @example
+// returns a DateTime representing 15:24:34 hours at August 31st 1997
+DATETIME theDate:= MakeDate (1974, 8, 31, 15, 24, 34);
+*/
+PUBLIC DATETIME FUNCTION MakeDateTimeFromWeek(INTEGER year, INTEGER week, INTEGER weekday, INTEGER hour, INTEGER minute, INTEGER second, INTEGER mseconds DEFAULTSTO 0)
+{
+  INTEGER time := MakeTime(hour,minute,second,mseconds);
+  IF ( time=-1 OR year<1)
+    RETURN DEFAULT DATETIME;
+
+  /* Figure out _when_ week 1 is for the given year.
+     If the year starts on a thursday, or earlier, year-1-8 is in week 2
+       Calculate the first monday, add 7 days per week, add (weekday-1) for the right daycount
+     If the year starts on a friday, or later, year-1-8 is in week 1
+  */
+
+  INTEGER year_start_weekday := UnpackDatetime(MakeDate(year,1,1)).dayofweek;
+  INTEGER week_1_8 := year_start_weekday <= 4 ? 2 : 1;
+
+  INTEGER first_monday := UncheckedMakeDayCount(year, 1, 8) - (year_start_weekday - 1);
+  RETURN __HS_CREATEDATETIMEFROMDM(first_monday + (week-week_1_8)*7 + weekday - 1,time);
+}
+
+
+/** @short Returns a record from an unpacked timestamp
+    @long UnpackDateTime takes a DateTime value and returns a record containing the unpacked parts of the DateTime value
+    @param date The DateTime value to unpack
+    @return A record with the unpacked date and time. If an invalid date was used, the function returns a non-existing record.
+      @cell(integer) return.year Representing the year part of timestamp @italic date.
+      @cell(integer) return.month Representing the month part of timestamp @italic date. 1 = Januari, 2 = Februari etc.
+      @cell(integer) return.week Representing the week part of timestamp @italic date. 1 = the first week, 2 = the second week etc.
+                        According to ISO-8601, week 1 of a given year is the week that includes the first thursday of that year.
+      @cell(integer) return.yearofweek Representing the year in which the week in which this timestamp @italic date is situated.
+                        According to ISO-8601, week 1 of a given year is the week that includes the first thursday of that year, so the week can
+                        be in a different year than the date itself actually is.
+      @cell(integer) return.dayofyear Representing the day of the year at timestamp @italic date. 1 = Januari 1st, 2 = Januari 2nd, 32 = Februari 1st etc.
+      @cell(integer) return.dayofmonth Representing the day of the month at timestamp @italic date. 1 = the first day, 2 = the second day etc.
+      @cell(integer) return.dayofweek Representing the day of the week at timestamp @italic date. 1 = monday, 2 = tuesday etc.
+      @cell(integer) return.hour Representing the hour of the day at timestamp @italic date. Ranges from 0 to 23
+      @cell(integer) return.minute Representing the minute of the hour at timestamp @italic date. Ranges from 0 to 59
+      @cell(integer) return.second Representing the second of the minute at timestamp @italic date. Ranges from 0 to 59
+      @cell(integer) return.msecond Representing the millisecond of the second at timestamp @italic date. Ranges from 0 to 999
+    @example
+// Unpack the current DateTime
+RECORD currentDateTime := UnpackDateTime(GetCurrentDateTime());
+
+// Get the current hour
+INTEGER theHour := currentDateTime.hour
+
+// Get the current day of the week
+INTEGER theWeekDay := currentDateTime.dayofweek
+*/
+PUBLIC RECORD FUNCTION UnpackDateTime(DATETIME date) __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short Creates a DateTime value from a total number of days
+    @long This function creates a DateTime value from the number of days that have passed since 01-01-0001. The time of
+          the returned value is 00:00:00.
+    @param daycount The number of days since 01-01-0001 from which to create a DateTime value
+    @return A DateTime value on @italic daycount days since 01-01-0001 with time 00:00:00.
+    @see GetDayCount,MakeDate,MakeDateTime,MakeDayCount
+    @example
+// Creates a DateTime value representing yesterday
+INTEGER today := GetDayCount(GetCurrentDateTime());
+DATETIME yesterday := MakeDateFromDayCount(today - 1);
+*/
+PUBLIC DATETIME FUNCTION MakeDateFromDayCount(INTEGER daycount)
+{
+        RETURN __HS_CREATEDATETIMEFROMDM(daycount,0);
+}
+
+
+
+
+/** @short Creates a DateTime value from a total number of days and msecs
+    @long This function returns the DateTime value from the number of days that have passed since 01-01-0001 and the
+    time in milliseconds since midnight.
+    @param daycount The number of days since 01-01-0001
+    @param msecs The number of milliseconds since 00:00:00 on day @italic daycount
+    @return A DateTime value on @italic daycount days since 01-01-0001 with time @italic msecs.
+    @see GetDayCount,MakeDate,MakeDateTime,MakeDayCount
+*/
+PUBLIC DATETIME FUNCTION MakeDateFromParts(INTEGER daycount, INTEGER msecs)
+{
+        RETURN __HS_CREATEDATETIMEFROMDM(daycount,msecs);
+}
+
+/** @short Adds a time to a date, and returns the new timestamp
+    @long This function can for example be useful to calculate the time in different time zones.
+    @param add_msecs The number of milliseconds to add to the timestamp
+    @param date The timestamp to add the time to
+    @return A DateTime value representing @italic date to which @italic add_msecs has been added
+    @see AddDaysToDate
+    @example
+// returns a timestamp of the current date and time in UTC + 1 hour
+INTEGER extra := 60 * 60 * 1000;
+DATETIME utc_plus_1 := AddTimeToDate(extra, GetCurrentDateTime());
+*/
+PUBLIC DATETIME FUNCTION AddTimeToDate(INTEGER64 add_msecs, DATETIME date)
+{
+  INTEGER days := GetDayCount(date);
+  INTEGER64 msecs:= GetMsecondCount(date);
+
+  msecs := msecs + add_msecs;
+  while (msecs < 0) //reverse day counter until msecs is back into range
+  {
+    msecs := msecs + (24*60*60*1000);
+    days := days - 1;
+  }
+
+  //do the final addition, also compensating for a msecs 'larger' than days
+  days := days + INTEGER((msecs)/(24*60*60*1000));
+  msecs:= msecs % (24*60*60*1000);
+
+  IF(days<0)
+    THROW NEW Exception("Date overflow");
+
+  RETURN __HS_CREATEDATETIMEFROMDM(days,INTEGER(msecs));
+}
+
+
+
+
+/** @short Adds a number of days to a date, and returns the new timestamp
+    @long This function can for example be useful to calculate expiration dates of documents or users.
+    @param add_days The number of days to add to the timestamp. This value can also be negative.
+    @param date The timestamp to add the days to
+    @return A DateTime value representing @italic date to which @italic add_days has been added
+    @see AddTimeToDate
+    @example
+// Add 20 days to the current date
+INTEGER extradays := 20;
+DATETIME newdate := AddDaysToDate(extradays, GetCurrentDateTime());
+*/
+PUBLIC DATETIME FUNCTION AddDaysToDate(INTEGER add_days, DATETIME date)
+{
+  //ADDME we can rewrite this in terms of AddTimeToDate, but we'll first have to fix the WHILE loop there
+  INTEGER days := GetDayCount(date);
+  INTEGER msecs:= GetMsecondCount(date);
+
+  days := days + add_days;
+  IF(days<0)
+    THROW NEW Exception("Date overflow");
+
+  RETURN __HS_CREATEDATETIMEFROMDM(days,msecs);
+}
+
+/** @short Adds a number of years to a date, and returns the new timestamp
+    @long This function can for example be useful to calculate expiration dates of documents or users.
+    @param add_years The number of years to add to the timestamp. This value can also be negative.
+    @param date The timestamp to add the days to
+    @cell(boolean) options.roundforward Round up/forward to next year. Defaults to TRUE
+    @return A DateTime value representing @italic date to which @italic add_years has been added
+    @see AddTimeToDate
+    @example
+// Add 5 years to the current date
+INTEGER extrayears := 5;
+DATETIME newdate := AddYearsToDate(extrayears, GetCurrentDateTime());
+*/
+PUBLIC DATETIME FUNCTION AddYearsToDate(INTEGER add_years, DATETIME date, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN AddMonthsToDate(add_years*12, date, options);
+}
+
+/** @short Calculate the date of the next anniversary of something
+    @long This function returns the date of the next anniversary, given the creation date of something
+    @param creation_date Creation date
+    @param date Compare date  (the date from which to look for the next anniversary)
+    @return A DateTime value representing the next anniversary of something started on creation_date, relative to the given date.
+    @example
+// Look up Bob's next birthday
+DATETIME bobs_birthday := GetNextAnniversary(MakeDate(2008,1,31), GetCurrentDateTime());
+*/
+PUBLIC DATETIME FUNCTION GetNextAnniversary(DATETIME creation_date, DATETIME date)
+{
+  IF(creation_date = DEFAULT DATETIME OR date = DEFAULT DATETIME)
+    RETURN DEFAULT DATETIME;
+
+  RECORD cd := UnpackDatetime(creation_date);
+  RECORD d := UnpackDatetime(date);
+
+  INTEGER newyear := d.year;
+  INTEGER newmonth := cd.month;
+  INTEGER newday := cd.dayofmonth;
+
+  INTEGER creation_dayofyear := cd.dayofyear;
+  INTEGER date_dayofyear := d.dayofyear;
+
+  //Normalize day counts for leapyears
+  IF (NOT IsLeapYear(cd.year) AND creation_dayofyear >= 60)
+    creation_dayofyear := creation_dayofyear + 1;
+  ELSE IF (creation_dayofyear = 60 AND NOT IsLeapYear(d.year)) // If compare creation_date of 29 feb to a non-leapyear, act like the cd is 1 mrt.
+    creation_dayofyear := creation_dayofyear + 1;
+
+  IF (NOT IsLeapYear(d.year) AND date_dayofyear >= 60)
+    date_dayofyear := date_dayofyear + 1;
+
+  //Check the anniversary is in the next year
+  IF (date_dayofyear > creation_dayofyear)
+    newyear := newyear + 1;
+
+  //Correct for leap years
+  IF (newmonth = 2 AND newday = 29 AND NOT IsLeapYear(newyear))
+  {
+    newmonth := 3;
+    newday := 1;
+  }
+
+  RETURN __HS_CREATEDATETIMEFROMDM(UncheckedMakeDayCount(newyear,newmonth,newday), GetMsecondCount(date));
+}
+
+/** @short Return whether today is the anniversary of something
+    @long This function returns the whether today is an anniversary, given the creation date of something
+    @param creation_date Creation date
+    @param date Compare date (the date to check for next anniversaries)
+    @return TRUE when today is an anniversary, FALSE if not
+    @example
+// See if today is Bob's anniversary (with Bob born at 31 jan 2008)
+BOOLEAN val1 := IsAnniversaryAt(MakeDate(2008,1,31), GetCurrentDateTime());
+
+// See if today is Bob's anniversary in the CET timezone (with Bob born at 31 jan 2008)
+BOOLEAN val2 := IsAnniversaryAt(MakeDate(2008,1,31), UTCToLocal(GetCurrentDateTime(), "CET"));
+*/
+PUBLIC BOOLEAN FUNCTION IsAnniversaryAt(DATETIME creation_date, DATETIME date)
+{
+  DATETIME rounded_datetime := GetRoundedDateTime(date, 86400*1000);
+  RETURN GetNextAnniversary(creation_date, rounded_datetime) = rounded_datetime;
+}
+
+/** @short Get difference between two datetimes
+    @long This function returns the difference between two timestamps, split into days and milliseconds
+    @param fromdate Source date
+    @param todate Destination date  (the 'later' date, if you want a positive result)
+    @return A record explaining the difference. The days and msecs will always have the same sign (ie, if days is positive, then msecs is positive). If one of the arguments is DEFAULT DATETIME the function will return DEFAULT RECORD.
+    @cell(integer) return.days The total difference in days
+    @cell(integer) return.msecs The remaining difference in milliseconds
+    @cell(integer) return.years The number of anniversaries between the dates */
+PUBLIC RECORD FUNCTION GetDatetimeDifference(DATETIME fromdate, DATETIME todate)
+{
+  IF (fromdate = DEFAULT DATETIME OR todate = DEFAULT DATETIME)
+    RETURN DEFAULT RECORD;
+
+  INTEGER daycount_from := GetDaycount(fromdate);
+  INTEGER daycount_to := GetDaycount(todate);
+  INTEGER msecond_from := GetMsecondCount(fromdate);
+  INTEGER msecond_to := GetMsecondCount(todate);
+
+  INTEGER daydiff := daycount_to - daycount_from;
+  INTEGER msecond_diff := msecond_to-msecond_from;
+
+  IF (msecond_diff<0 AND daydiff>0)
+  {
+    daydiff := daydiff - 1;
+    msecond_diff := msecond_diff + (24*60*60*1000);
+  }
+  IF (msecond_diff>0 AND daydiff<0)
+  {
+    daydiff := daydiff + 1;
+    msecond_diff := msecond_diff - (24*60*60*1000);
+  }
+
+  // Now calculate the difference in years
+  RECORD fd := UnpackDatetime(fromdate);
+  RECORD td := UnpackDatetime(todate);
+
+  INTEGER yeardiff := td.year - fd.year;
+
+  INTEGER fromtodate_dayofyear := fd.dayofyear;
+  INTEGER todate_dayofyear := td.dayofyear;
+
+  //Normalize day counts for leapyears: march 1 is day 61 in leapyears but day 60 in other years
+
+  IF (NOT IsLeapYear(fd.year) AND fromtodate_dayofyear >= 60)
+    fromtodate_dayofyear := fromtodate_dayofyear + 1;
+
+  IF (NOT IsLeapYear(td.year) AND todate_dayofyear >= 60)
+    todate_dayofyear := todate_dayofyear + 1;
+
+  //Check the anniversary is in the next year
+  IF (td.year > fd.year AND todate_dayofyear < fromtodate_dayofyear)
+    yeardiff := yeardiff - 1;
+
+  RETURN [ days := daydiff, msecs := msecond_diff, years := yeardiff ];
+}
+
+/** @short Get difference between two timestamps in milliseconds
+    @long This function returns the difference between two timestamps in milliseconds.
+    @param fromdate Source date
+    @param todate Destination date  (the 'later' date, if you want a positive result)
+    @return The difference. If the two dates differ by on day or more, this script returns a maximum of 1 days difference */
+PUBLIC INTEGER FUNCTION GetMsecsDifference(DATETIME fromdate, DATETIME todate)
+{
+  IF (fromdate = DEFAULT DATETIME OR todate = DEFAULT DATETIME)
+    RETURN 0;
+
+  RECORD diff := GetDatetimeDifference(fromdate,todate);
+  RETURN diff.days >= 1 ? (24*60*60*1000) : diff.days <= -1 ? -(24*60*60*1000) : diff.msecs;
+}
+
+
+
+/** @short Returns the timestamp of the current date and time on the server
+    @long You can use the @italic AddTimeToDate() function in conjunction with this function to
+          get the time and date in different time zones.
+    @return A DateTime value, representing the current date and time at the WebHare system in UTC.
+    @see AddTimeToDate
+    @example
+// returns a timestamp of the current date and time
+DATETIME serverTime := GetCurrentDateTime();
+
+// returns a timestamp of the current date and time in UTC + 1
+INTEGER ExtraMsecs := 60 * 60 * 1000;
+DATETIME UTC1 := AddTimeToDate( ExtraMSecs, GetCurrentDateTime() );
+*/
+PUBLIC DATETIME FUNCTION GetCurrentDateTime() __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+// Used internally to generate the Formatted Datetimes
+PRIVATE STRING FUNCTION __FormatPart(BOOLEAN strip_zeroes, STRING formatchar, RECORD elements, STRING ARRAY datetexts)
+{
+    //Now process the special character
+    IF (formatchar = 'a') //dayofweek name, abbreviated
+      RETURN datetexts[32+elements.dayofweek];
+
+    IF (formatchar = 'A') //dayofweek name, full
+      RETURN datetexts[13+elements.dayofweek];
+
+    IF (formatchar = 'b') //month name, abbreviated
+      RETURN datetexts[20+elements.month];
+
+    IF (formatchar = 'B') //month name
+      RETURN datetexts[1+elements.month];
+
+    IF (formatchar = 'C') //century number
+      RETURN ''||((elements.year+1)/100);
+
+    IF (formatchar = 'd') //day of month
+      RETURN strip_zeroes OR elements.dayofmonth >= 10 ? ''||(elements.dayofmonth) : "0" || elements.dayofmonth;
+
+    IF (formatchar = 'H') //hour of the day (24 hours format)
+      RETURN strip_zeroes OR elements.hour >= 10 ? ''||(elements.hour) : "0" || elements.hour;
+
+    IF (formatchar = 'I') //hour of the day (12 hours format)
+    {
+      IF (elements.hour%12=0)
+        RETURN "12";
+      RETURN strip_zeroes OR elements.hour%12 >= 10 ? ''||(elements.hour%12) : "0" || elements.hour%12;
+    }
+
+    IF (formatchar = 'j') //day of the year (three-digit)
+      RETURN strip_zeroes ? ''||(elements.dayofyear) : RIGHT('00' || elements.dayofyear,3);
+
+    IF (formatchar = 'M') //two digit minute
+      RETURN strip_zeroes OR elements.minute >= 10 ? ''||(elements.minute) : "0" || elements.minute;
+
+    IF (formatchar = 'm') //two digit month
+      RETURN strip_zeroes OR elements.month >= 10 ? ''||(elements.month) : "0" || elements.month;
+
+    IF (formatchar = 'p') //am/pm
+      RETURN elements.hour>=0 AND elements.hour<=11 ? datetexts[0] : datetexts[1];
+
+    IF (formatchar = 'Q') //millisecond (three-digit)
+      RETURN strip_zeroes ? ''||(elements.msecond) : RIGHT('00' || elements.msecond,3);
+
+    IF (formatchar = 'S') //two digit second
+      RETURN strip_zeroes OR elements.second >= 10 ? ''||(elements.second) : "0" || elements.second;
+
+    IF (formatchar = 'V') //week number
+      RETURN strip_zeroes OR elements.week >= 10 ? ''||(elements.week) : "0" || elements.week;
+
+    IF (formatchar = 'Y') //year, with century
+      RETURN strip_zeroes OR elements.year >= 10000 ? ''||(elements.year) : RIGHT('000' || elements.year,4);
+
+    IF (formatchar = 'y') //year, without century
+      RETURN strip_zeroes ? ''||(elements.year%100) : RIGHT('0' || elements.year%100,2);
+
+    RETURN formatchar;
+}
+
+
+
+
+/** @short Get language-specific datetime strings
+    @long Returns the datetime strings for the requested language. Available languages are: English ('en'), Dutch ('nl'),
+          German ('de'), and Japanese ('jp').
+    @param langcode Language code ('en', 'nl', 'de', 'fr', or 'jp')
+    @return Semicolon separated date&time language strings for the requested language
+*/
+PUBLIC STRING FUNCTION GetLanguageDatetimeStrings(STRING langcode)
+{
+  SWITCH(ToUppercase(langcode))
+  {
+    CASE "NL"
+    {
+      RETURN "am;pm;januari;februari;maart;april;mei;juni;juli;augustus;september;oktober;november;december;maandag;dinsdag;woensdag;donderdag;vrijdag;zaterdag;zondag;jan;feb;mrt;apr;mei;jun;jul;aug;sep;okt;nov;dec;ma;di;wo;do;vr;za;zo";
+    }
+    CASE "DE"
+    {
+      RETURN "am;pm;Januar;Februar;März;April;Mai;Juni;Juli;August;September;Oktober;November;Dezember;Montag;Dienstag;Mittwoch;Donnerstag;Freitag;Samstag;Sonntag;Jan.;Febr.;März;Apr.;Mai;Juni;Juli;Aug.;Sept.;Okt.;Nov.;Dez.;Mo;Di;Mi;Do;Fr;Sa;So";
+    }
+    CASE "JP"
+    {
+      /* Encoded base64 to minimize chance of editor corruption */
+     RETURN DecodeBase64("5Y2I5YmNO+WNiOW+jDvvvJHmnIg777yS5pyIO++8k+aciDvvvJTmnIg777yV5pyIO++8luaciDvvvJfmnIg777yY5pyIO++8meaciDvvvJHvvJDmnIg777yR77yR5pyIO++8ke+8kuaciDvmnIjmm5zml6U754Gr5puc5pelO+awtOabnOaXpTvmnKjmm5zml6U76YeR5puc5pelO+Wcn+abnOaXpTvml6Xmm5zml6U777yR5pyIO++8kuaciDvvvJPmnIg777yU5pyIO++8leaciDvvvJbmnIg777yX5pyIO++8mOaciDvvvJnmnIg777yR77yQ5pyIO++8ke+8keaciDvvvJHvvJLmnIg75pyIO+eBqzvmsLQ75pyoO+mHkTvlnJ875pel");
+    }
+    CASE "FR"
+    {
+      RETURN "am;pm;Janvier;Février;Mars;Avril;Mai;Juin;Juillet;Août;Septembre;Octobre;Novembre;Décembre;Lundi;Mardi;Mercredi;Jeudi;Vendredi;Samedi;Dimanche;Janv;Févr;Mars;Avril;Mai;Juin;Juil;Août;Sept;Oct;Nov;Déc;Lun;Mar;Mer;Jeu;Ven;Sam;Dim";
+    }
+    DEFAULT
+    {
+      RETURN "am;pm;January;February;March;April;May;June;July;August;September;October;November;December;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday;Sunday;Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec;Mon;Tue;Wed;Thu;Fri;Sat;Sun";
+    }
+  }
+}
+
+
+/** @short  Returns a string containing a formatted date and time.
+    @long FormatDateTime() returns a string, containing the given date and time in a
+          user-specified format. Optionally, language-specific strings for month and day names may be
+          specified through the datetexts parameter. By default the English language strings will be used.
+
+          The following formatting can be used:
+
+          | Code | Effect |
+          | :--- | :---- |
+          | `%a`  | Abbreviated weekday name |
+          | `%A`  | Full weekday name |
+          | `%b`  | Abbreviated month name |
+          | `%B`  | Full month name |
+          | `%d`  | Two-digit day of month (01 - 31) |
+          | `%#d` | Two-digit day of month, remove any leading zeros |
+          | `%H`  | Hour of the day, 24 hour day |
+          | `%#H` | Hour of the day, 24 hour day, remove any leading zeros |
+          | `%&H`  | Hours since 1-1-1 |
+          | `%#&H` | Hours since 1-1-1, remove any leading zeros |
+          | `%I`  | Two-digit hour, 12 hour day (01 - 12) |
+          | `%#I` | Two-digit hour, 12 hour day, remove any leading zeros |
+          | `%j`  | Three-digit day of year (001 - 366) |
+          | `%#j` | Three-digit day of year, remove any leading zeros |
+          | `%m`  | Two-digit month number (01 - 12) |
+          | `%#m` | Two-digit month number, remove any leading zeros |
+          | `%M`  | 2-digit minute (00 - 59) |
+          | `%#M` | 2-digit minute, remove leading any zeros |
+          | `%p`  | Either "am" or "pm", depending on hour |
+          | `%Q`  | Three-digit millisecond (000-999) |
+          | `%#Q` | Three-digit millisecond, remove any leading zeros |
+          | `%S`  | Two-digit second (00 - 59) |
+          | `%#S` | Two-digit second, remove any leading zeros |
+          | `%V`  | Two-digit week number (00 - 52) |
+          | `%#V` | One-digit week number (0 - 52) |
+          | `%y`  | Two-digit year without century (00 - 99) |
+          | `%#y` | Two-digit year without century, remove any leading zeros |
+          | `%Y`  | Year with century |
+          | `%#Y` | Year with century, remove any leading zeros |
+   @param formatstring  Specifies the way the DateTime value should be formatted.
+   @param date          The DateTime value to format
+   @param datetexts     Specifies the texts for am, pm, all months and days in their full name and their
+                        2 or 3 character abbreviation format. The default language is English.
+                        "NL" switches the language to Dutch, "DE" switches to German and "JP" to Japanese.
+                        It is also possible to specify your own DateTime language string where you separate
+                        the substrings with semicolons. This string should be in the following format:
+                        "am;pm;January;...;December;Monday;...;Sunday;Jan;...;Dec;Mon;...;Sun;"
+   @return A string with the formatted date and time. If MAX_DATETIME or an invalid date value was entered, the function returns an empty string
+   @example
+// The current date and time in German in the format: 01 Januar 2005
+STRING example1 := FormatDateTime( "%d %B %Y"
+                                  ,GetCurrentDateTime()
+                                  ,"DE");
+
+// The current day of the week in the Dutch language, using the
+// parameter datetexts as language switch.
+// The date format is &lt;abbreviated&gt; - &lt;full&gt;.
+STRING example2 := FormatDateTime( "%a - %B "
+                                  ,GetCurrentDateTime()
+                                  ,"NL");
+
+// The current day of the week in the Dutch language, using the
+// parameter datetexts as a string which specifies the texts of
+// the months and days.
+// The date format is &lt;abbreviated&gt; - &lt;full&gt;.
+// Please note there may not be any spaces, linebreaks etc.
+// between the the timetext strings! The result is the same as in
+// example 3.
+STRING example3 := FormatDateTime("%a - %B ", GetCurrentDateTime(),
+"am;pm;Januari;Februari;Maart;April;Mei;Juni;Juli;Augustus;September;
+Oktober;November;December;Maandag;Dinsdag;Woensdag;Donderdag;Vrijdag;
+Zaterdag;Zondag;Jan;Feb;Mar;Apr;Mei;Jun;Jul;Aug;Sep;Okt;Nov;Dec;Ma;
+Di;Wo;Do;Vr;Za;Zo");
+*/
+PUBLIC STRING FUNCTION FormatDateTime(STRING formatstring,
+                                      DATETIME date,
+                                      STRING datetexts DEFAULTSTO "") __ATTRIBUTES__(EXTERNAL);
+
+
+/** @short  Returns a string containing a formatted time.
+    @long @italic FormatTimeStamp() returns a string, containing the given time in a user-specified format.
+          Optionally, language-specific strings for month and day names may be specified through the datetexts parameter.
+          By default the English language strings will be used. As time stamps are date-independent, it does not make
+          sense to supply date-specific format specifiers.
+   @param formatstring  Specifies the way the time stamp should be formatted.
+   @param timestamp     The time stamp to format (the number of milliseconds since midnight)
+   @param datetexts     Specifies the texts for am, pm, all months and days in their full name and their
+                        2 or 3 character abbreviation format. The default language is English.
+                        "NL" switches the language to Dutch, "DE" switches to German and "JP" to Japanese.
+                        It is also possible to specify your own DateTime language string where you separate
+                        the substrings with semicolons. This string should be in the following format:
+                        "am;pm;January;...;December;Monday;...;Sunday;Jan;...;Dec;Mon;...;Sun;"
+   @return A string with the formatted time. If an invalid @italic time value was entered, the function returns an empty string
+   @example
+// Example timestamp: 21:03:04.555
+INTEGER timestamp := ((21 * 60 + 3) * 60 + 4) * 1000 + 555;
+
+// The time stamp in American English notation.
+// example1 = "9:03:04.555 pm"
+STRING example1 := FormatTimeStamp("%#I:%M:%S.%Q %p", timestamp);
+
+// The time stamp in Dutch notation (note that in this notation the language parameter is not actually used).
+// example2 := "21:03:04,555"
+STRING example2 := FormatTimeStamp("%#H:%M:%S,%Q", timestamp, "nl");
+*/
+PUBLIC STRING FUNCTION FormatTimeStamp(STRING formatstring, INTEGER64 timestamp, STRING datetexts DEFAULTSTO "")
+{
+  RETURN FormatDateTime(formatstring, MakeDateFromParts(1 + INTEGER(timestamp / (86400*1000)), INTEGER(timestamp % (86400*1000))), datetexts);
+}
+
+
+/** Return info about a year
+    @param year Year
+    @return Information about that year
+    @cell(boolean) return.isleapyear Whether the year is a leap year
+    @cell(integer) return.numweeks Number of weeks in the year
+*/
+PUBLIC RECORD FUNCTION GetYearInfo(INTEGER year)
+{
+  INTEGER week_31_dec := UnpackDatetime(MakeDate(year,12,31)).week;
+
+  RETURN [ isleapyear := IsLeapYear(year)
+         , numweeks := week_31_dec > 1 ? week_31_dec : UnpackDatetime(MakeDate(year,12,24)).week
+         ];
+}
+
+/** @short Adds a number of months to a date
+    @long This function returns the specified timestamp, with the specified number of months added. If adding
+          the specified number of months would return an invalid date, the date is rounded as specified to a valid date
+    @param months The number of months to add to the timestamp. This value can also be negative.
+    @param date The timestamp to add the days to
+    @cell(boolean) options.roundforward Round up/forward to next year. Defaults to TRUE
+    @return A DateTime value representing @italic date to which @italic add_months has been added
+    @see AddTimeToDate
+    @example
+// Add 5 months to the current date
+DATETIME newdate := AddMonthsToDate(5, GetCurrentDateTime());
+
+// Add 1 month to the current date, date is rounded forward
+// Returns 2010-03-01
+DATETIME newdate := AddMonthsToDate(1, MakeDate(2010, 1, 31));
+*/
+PUBLIC DATETIME FUNCTION AddMonthsToDate(INTEGER months, DATETIME date, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions ( [ roundforward := TRUE ], options);
+
+  IF(date=DEFAULT DATETIME)
+    RETURN DEFAULT DATETIME;
+
+  RECORD dat := UnpackDatetime(date);
+  INTEGER newmonthyear := dat.year * 12 + (dat.month-1) + months;
+  INTEGER newyear := newmonthyear / 12;
+  INTEGER newmonth := newmonthyear % 12 + 1;
+  INTEGER newday := dat.dayofmonth;
+
+  INTEGER daymax := GetMonthLength(newmonth,newyear);
+  IF(dat.dayofmonth > daymax)
+  {
+    IF(options.roundforward) //adding
+    {
+      newmonth := newmonth + 1;
+      IF(newmonth>12) //past new years eve
+      {
+        newyear := newyear + 1;
+        newmonth := 1;
+      }
+      newday := 1;
+    }
+    ELSE //subtracting
+    {
+      newday := daymax;
+    }
+  }
+  RETURN __HS_CREATEDATETIMEFROMDM(UncheckedMakeDayCount(newyear,newmonth,newday), GetMsecondCount(date));
+}
+
+/** @short Round down a datetime
+    @param dt Datetime to round down
+    @param precision Precision in milliseconds (eg, 1000 to round down to seconds, 86400*1000 to round down to a day)
+    @return Rounded datetime
+*/
+PUBLIC DATETIME FUNCTION GetRoundedDatetime(DATETIME dt, INTEGER precision)
+{
+  IF(dt=MAX_DATETIME)
+    RETURN dt;
+
+  INTEGER dc := GetDayCount(dt);
+  INTEGER msec := GetMsecondCount(dt);
+  RETURN __HS_CREATEDATETIMEFROMDM(dc, msec - (msec%precision));
+}
+
+/** @short Formats a datetime in the ISO 8601 format
+    @long This function will format a datetime according to ISO 8601, as described in
+          http://www.w3.org/TR/NOTE-datetime
+    @param whattime Time to format, in UTC
+    @param dateformat Date precision: "year", "month", "day", "week", "weekday", "yearday", "empty". If unset, defaults to "day"
+    @param timeformat Time precision: "hours", "minutes", "seconds", "milliseconds", "empty". If unset, defaults to "seconds"
+    @param timezone (optional) timezone to present the time in. If unset, defaults to "UTC"
+    @param extended Use extended format, e.g. "2001-01-01T12:34:56+01:00" instead of "20010101T123456+0100", defaults to TRUE
+    @return The formatted time */
+PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, STRING dateformat DEFAULTSTO "", STRING timeformat DEFAULTSTO "", STRING timezone DEFAULTSTO "", BOOLEAN extended DEFAULTSTO TRUE)
+{
+  STRING datestr, timestr;
+
+  // Date separator
+  STRING sep := extended ? "-" : "";
+  SWITCH (dateformat)
+  {
+    CASE "year"
+    {
+      datestr := "yyyy";
+    }
+    CASE "month"
+    {
+      /* For month representation, only the extended format is allowed.
+         According to Wikipedia (http://en.wikipedia.org/wiki/ISO_8601):
+
+         Although the standard allows both the YYYY-MM-DD and YYYYMMDD formats for complete calendar date representations,
+         if the day [DD] is omitted then only the YYYY-MM format is allowed. By disallowing dates of the form YYYYMM, the
+         standard avoids confusion with the truncated representation YYMMDD (still often used).
+      */
+      datestr := "yyyy'-'MM";
+    }
+    CASE "week"
+    {
+      datestr := "YYYY" || sep || "'W'ww";
+    }
+    CASE "weekday"
+    {
+      datestr := "YYYY" || sep || "'W'ww" || sep || "ee";
+    }
+    CASE "yearday"
+    {
+      datestr := "yyyy" || sep || "DDD";
+    }
+    CASE "empty"
+    {
+    }
+    CASE "day", ""
+    {
+      datestr := "yyyy" || sep || "MM" || sep || "dd";
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unknown date precision '"||dateformat||"'");
+    }
+  }
+
+  // Time separator
+  sep := extended ? ":" : "";
+  SWITCH (timeformat)
+  {
+    CASE "hours"
+    {
+      timestr := "HH";
+    }
+    CASE "minutes"
+    {
+      timestr := "HH" || sep || "mm";
+    }
+    CASE "milliseconds"
+    {
+      timestr := "HH" || sep || "mm" || sep || "ss" || "." || "SSS"; //millisecond separator is not optional in non-extended ISO8601 format
+    }
+    CASE "empty"
+    {
+    }
+    CASE "seconds", "" // Also matches default
+    {
+      timestr := "HH" || sep || "mm" || sep || "ss";
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unknown time precision '"||timeformat||"'");
+    }
+  }
+  // Add timezone if time is returned
+  IF (timestr != "")
+  {
+    timestr := timestr || (extended ? "XXX" : "XX");
+  }
+
+  // Both empty? Return nothing
+  IF (datestr = "" AND timestr = "")
+    RETURN "";
+
+  RETURN LocalizeDatetime(datestr || (datestr != "" AND timestr != "" ? "'T'" : "") || timestr, whattime, "en", timezone, TRUE);
+}
+
+/** @short Get the UNIX timestamp
+    @param whattime Timestamp to convert
+    @return A Unix timestamp
+*/
+PUBLIC INTEGER FUNCTION GetUnixTimestamp(DATETIME whattime)
+{
+  IF(whattime = DEFAULT DATETIME)
+    RETURN 0;
+
+  DATETIME base := MakeDate(1970,1, 1);
+
+  RECORD diff := GetDatetimeDifference(base, whattime);
+
+  RETURN diff.days * 86400 + diff.msecs / 1000;
+}
+
+/** @short   Get the UNIX timestamp in msecs
+    @param   whattime Timestamp to convert
+    @return  A Unix timestamp in milliseconds
+*/
+PUBLIC INTEGER64 FUNCTION GetUnixTimestampMsecs(DATETIME whattime)
+{
+  IF(whattime = DEFAULT DATETIME)
+    RETURN 0;
+
+  DATETIME base := MakeDate(1970, 1, 1);
+  RECORD diff := GetDatetimeDifference(base, whattime);
+  RETURN INTEGER64(diff.days) * 86400 * 1000 + INTEGER64(diff.msecs);
+}
+
+/** @short Convert a UNIX timestamp to a datetime
+    @param dt Timestamp to convert
+    @return Datetime corresponding to the UNIX timestamp
+*/
+PUBLIC DATETIME FUNCTION MakeDatetimeFromUnixTimestamp(MONEY dt)
+{
+  RETURN AddTimeToDate(INTEGER64(dt * 1000), MakeDate(1970, 1, 1));
+}
+
+/** @short Convert a Windows NT timestamp to a datetime
+    @param nttime Timestamp to convert
+    @return Datetime corresponding to the Windows NT timestamp
+*/
+PUBLIC DATETIME FUNCTION MakeDatetimeFromNTTime(INTEGER64 nttime)
+{
+  RETURN AddTimeToDate(nttime / 10000, MakeDate(1601, 1, 1));
+}
+
+INTEGER ARRAY FUNCTION GetCronVals(STRING crontokpart, INTEGER min, INTEGER max, STRING title)
+{
+  IF(crontokpart LIKE "*,*")
+  {
+    INTEGER ARRAY res;
+    STRING ARRAY timeslots := Tokenize(crontokpart,',');
+    FOREVERY(STRING timeslot FROM timeslots)
+    {
+      timeslot := TrimWhitespace(timeslot);
+      INTEGER val := ToInteger(timeslot,-1);
+      IF(val < 0 OR val > max)
+        THROW NEW Exception(`Invalid value '${timeslot}' in '${crontokpart}' for ${title}`);
+
+      INSERT val INTO res AT END;
+    }
+    RETURN res;
+  }
+
+  IF(crontokpart LIKE "*/?*")
+  {
+    INTEGER stepsize := ToInteger(Substring(crontokpart,2),0);
+    IF(stepsize<1 OR stepsize > max)
+      THROW NEW Exception(`Invalid step size '${max}' for ${title}`);
+
+    INTEGER ARRAY res;
+    FOR(;min<max;min:=min+stepsize)
+      INSERT min INTO res AT END;
+    RETURN res;
+  }
+
+  INTEGER val := ToInteger(crontokpart,-1);
+  IF(val < 0 OR val > max)
+    THROW NEW Exception(`Invalid value '${crontokpart}' for ${title}`);
+  RETURN [val];
+}
+
+INTEGER FUNCTION GetCronToAdd(STRING crontokpart, INTEGER current, INTEGER min, INTEGER max, STRING title)
+{
+  IF(crontokpart = "*")
+    RETURN 0;
+
+  INTEGER ARRAY vals := GetCronVals(crontokpart, min, max, title);
+  INTEGER pos := __HS_SQL_UPPERBOUND(vals, current); //__HS_SQL_UPPERBOUND is UpperBound without a comparator function
+  INTEGER toset := pos >= Length(vals) ? vals[0] : vals[pos];
+
+  RETURN toset - current + (current > toset ? max + 1: 0);
+}
+
+//NOTE we manage to do a '*/' below without terminating the comment by using zero width spaces
+/** @short Calculate the next timestamp based on a cron-style mask
+    @long Cron masks specify a way to calculate the 'next' time for an event. The 5 slots can be filled with a comma
+          separated list of numbers (will trigger at those times), a wildcard `*` to specify 'every occurence' and a wildcard
+          combined with a slash to specify an interval, eg `*​/5` for every 5 minutes.
+
+          Some examples:
+
+          | Mask            | Effect                                |
+          | :---            | :----                                 |
+          | `25 8 * * *`    | runs daily at 8:25                    |
+          | `*​/4 * * * *`   | runs every 4 minutes                  |
+          | `12 18 5 * *`   | runs the 5th of every month, at 18:12 |
+          | `0 14 * * 1`    | runs every monday at 14:00            |
+          | `17 8,20 * * *` | runs at 08:17 and 20:17               |
+
+          If both day-of-week and day-of-month fields are unrestricted, the mask
+          will match the first date/time that matches either of these fields
+
+    @param now Current time
+    @param cronmask Cron-style mask: `<minute> <hour> <dayofmonth> <month> <dayofweek>`
+    @return Next timestamp
+*/
+PUBLIC DATETIME FUNCTION GetNextCronTime(DATETIME now, STRING cronmask)
+{
+  WHILE(cronmask LIKE "*  *")
+    cronmask := Substitute(cronmask,'  ',' ');
+  cronmask := TrimWhitespace(cronmask);
+
+  STRING ARRAY crontoks := Tokenize(cronmask,' ');
+  IF(Length(crontoks) != 5)
+    THROW NEW Exception("Invalid cron mask - doesn't consist of 5 components");
+
+  //Round up to next second. And we can decide to never return the exact same time, so always add 1 minute
+  now := GetRoundedDatetime(AddTimeToDate(60000,now),60000);
+
+  //Update minutes
+  RECORD unpnow := UnpackDateTime(now);
+  INTEGER cur_minute := unpnow.minute;
+  INTEGER add_minute := GetCronToAdd(crontoks[0], cur_minute, 0, 59, 'minute');
+  now := AddTimeTodate(add_minute * 60 * 1000, now);
+
+  //Update hours
+  unpnow := UnpackDateTime(now);
+  INTEGER cur_hour := unpnow.hour;
+  INTEGER add_hour := GetCronToAdd(crontoks[1], cur_hour, 0, 23, 'hour');
+  now := AddTimeTodate(add_hour * 60 * 60 * 1000, now);
+
+  //If you set any of day-of-month, month, or day-of-week, just pick first one that matches the constraints
+  //Brute forcing it for now, we're lazy :-)
+  INTEGER ARRAY limit_dayofmonth;
+  INTEGER ARRAY limit_month;
+  INTEGER ARRAY limit_dayofweek;
+
+  IF(crontoks[2] != "*")
+    limit_dayofmonth := GetCronVals(crontoks[2], 1, 31, "day of month");
+
+  IF(crontoks[3] != "*")
+    limit_month := GetCronVals(crontoks[3], 1, 12, "month");
+
+  IF(crontoks[4] != "*")
+  {
+    limit_dayofweek := GetCronVals(crontoks[4], 0, 7, "day of week");
+    IF(0 IN limit_dayofweek)
+      INSERT 7 INTO limit_dayofweek AT END;
+  }
+
+  WHILE(TRUE) //brute forcing for now.. time spent should be tolerable
+  {
+    unpnow := UnpackDateTime(now);
+    IF(Length(limit_month) = 0 OR unpnow.month IN limit_month)
+    {
+      //acceptable month
+      IF( (Length(limit_dayofweek) = 0 AND Length(limit_dayofmonth) = 0)
+          OR (Length(limit_dayofweek) != 0 AND unpnow.dayofweek IN limit_dayofweek)
+          OR (Length(limit_dayofmonth) != 0 AND unpnow.dayofmonth IN limit_dayofmonth))
+      {
+        BREAK;
+      }
+    }
+    now := AddDaysTodate(1,now);
+  }
+
+  RETURN now;
+}

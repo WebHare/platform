@@ -1,0 +1,683 @@
+<?wh
+/** @topic webapis/gitlab */
+
+// Wraps the API offered by https://docs.gitlab.com/ce/api
+
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+STRING FUNCTION AddParam(STRING baseurl, STRING param, STRING value)
+{
+  baseurl := baseurl
+             || (SearchSubstring(baseurl,'?') != -1 ? "&" : "?")
+             || EncodeURL(param) || "=" || EncodeURL(value);
+  RETURN baseurl;
+}
+STRING FUNCTION EncodeURLGitlab(STRING project)
+{
+  RETURN Substitute(EncodeURL(project),'/','%2F');
+}
+
+CONSTANT RECORD gitlab_issuestructure :=
+    [ created_at := DEFAULT DATETIME
+    , closed_at  := DEFAULT DATETIME
+    , updated_at  := DEFAULT DATETIME
+    ];
+
+CONSTANT RECORD gitlab_milestonestructure :=
+    [ created_at := DEFAULT DATETIME
+    , updated_at  := DEFAULT DATETIME
+    , state := ""
+    ];
+
+CONSTANT RECORD gitlab_commitstructure :=
+    [ committed_date := DEFAULT DATETIME
+    , created_at  :=    DEFAULT DATETIME
+    , authored_date  := DEFAULT DATETIME
+    ];
+
+CONSTANT RECORD gitlab_mergerequeststructure :=
+    [ created_at :=                   DEFAULT DATETIME
+    , merged_at :=                    DEFAULT DATETIME
+    , updated_at :=                   DEFAULT DATETIME
+    , closed_at :=                    DEFAULT DATETIME
+    , labels :=                       STRING[]
+    , force_remove_source_branch :=   FALSE
+    , should_remove_source_branch :=  FALSE
+    , discussion_locked :=            FALSE
+    ];
+
+CONSTANT RECORD gitlab_projectstructure :=
+    [ default_branch :=               ""
+    ];
+
+
+PUBLIC STATIC OBJECTTYPE GitLabAPI
+<
+  PUBLIC PROPERTY debug(this->browser->debug,this->browser->debug);
+
+  RECORD pvt_lasteresult;
+  OBJECT browser;
+
+  STRING pvt_token;
+  STRING apiroot;
+
+  PUBLIC MACRO NEW(STRING apiroot, STRING token)
+  {
+    this->browser := NEW WebBrowser;
+    IF(IsRPCTrafficLogged("system:webapi.gitlab"))
+      LogRPCForWebBrowser("system:webapi.gitlab", "", this->browser);
+
+    this->pvt_token := token;
+    this->apiroot := apiroot;
+  }
+
+  BOOLEAN FUNCTION SendRequest(STRING call, RECORD params DEFAULTSTO DEFAULT RECORD, STRING method DEFAULTSTO "GET", STRING apiversion DEFAULTSTO "v4")
+  {
+    IF(RecordExists(params))
+      method := method || this->ParseParams(params);
+
+    STRING url := this->apiroot || apiversion || "/" || call;
+    RETURN this->browser->SendRawRequest( method
+                                        , url
+                                        , [ [ field := "PRIVATE-TOKEN", value := this->pvt_token ] ]
+                                        , DEFAULT BLOB
+                                        , DEFAULT RECORD
+                                        );
+  }
+
+  PUBLIC RECORD FUNCTION SendModifyingRequest(STRING method, STRING url, RECORD ARRAY vars, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ maperrorcodes := DEFAULT RECORD
+                               ], options);
+    this->browser->SendRawRequest(method
+                                 , `${this->apiroot}v4/${url}`
+                                 , [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]
+                                   ,[ field := "PRIVATE-TOKEN", value := this->pvt_token ]
+                                   ]
+                                 , CreateHTTPUrlencodedRequest(vars).body
+                                 );
+
+    IF(this->browser->GetHTTPStatusCode() < 200 OR this->browser->GetHTTPStatusCode() > 300)
+    {
+      IF(CellExists(options.maperrorcodes, ToString(this->browser->GetHTTPStatusCode())))
+        RETURN GetCell(options.maperrorcodes, ToString(this->browser->GetHTTPStatusCode()));
+      THROW NEW Exception(`${this->browser->href}: ${this->browser->GetHTTPStatusText()}`);
+    }
+
+    RETURN DecodeJSONBlob(this->browser->content);
+  }
+
+  /*
+  Return values & Descriptions from the API doc:
+  200 OK  The GET, PUT or DELETE request was successful, the resource(s) itself is returned as JSON.
+  201 Created  The POST request was successful and the resource is returned as JSON.
+  304 Not Modified  Indicates that the resource has not been modified since the last request.
+  400 Bad Request  A required attribute of the API request is missing, e.g., the title of an issue is not given.
+  401 Unauthorized  The user is not authenticated, a valid user token is necessary.
+  403 Forbidden  The request is not allowed, e.g., the user is not allowed to delete a project.
+  404 Not Found  A resource could not be accessed, e.g., an ID for a resource could not be found.
+  405 Method Not Allowed  The request is not supported.
+  409 Conflict  A conflicting resource already exists, e.g., creating a project with a name that already exists.
+  422 Unprocessable  The entity could not be processed.
+  500 Server Error  While handling the request something went wrong server-side.
+  */
+  RECORD FUNCTION GetCallResult()
+  {
+    this->pvt_lasteresult :=
+      [ statuscode := this->browser->GetHTTPStatusCode()/// Note that for POST 201 is success.
+      , statustext := this->browser->GetHTTPStatusText()
+      , success := this->browser->GetHTTPStatusCode() IN [ 200, 201, 304 ]
+      , unauthorized := this->browser->GetHTTPStatusCode() = 401
+      , body := this->browser->content
+      , document := this->browser->document
+      , json := DecodeJSONBlob(this->browser->content)
+      , numpages := ToInteger(this->browser->GetResponseHeader("X-Total-Pages"),0)
+      ];
+    RETURN this->pvt_lasteresult;
+  }
+
+  RECORD ARRAY FUNCTION GetOutputJSON()
+  {
+    RECORD output := this->GETCallResult();
+    IF(NOT output.success)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN output.json;
+  }
+
+  STRING FUNCTION ParseParams(RECORD params)
+  {
+    STRING ARRAY output;
+    FOREVERY(RECORD param FROM UnpackRecord(params))
+    {
+      STRING current := EncodeURL(ToLowerCase(param.name)) || "=";
+      IF(TypeID(param.value) NOT IN [ TypeID(STRING), TypeID(STRING ARRAY), TypeID(INTEGER), TypeID(INTEGER ARRAY) ])
+        THROW NEW Exception("Cannot parse variable of type " || GetTypeName(TypeID(param.value)) || " into an URL parameter");
+
+      IF(TypeID(param.value) IN [ TypeID(STRING), TypeID(INTEGER) ])
+      {
+        INSERT current || EncodeURL(ToString(param.value, 0)) INTO output AT END;
+      }
+      ELSE
+      {
+        INSERT current || EncodeURL(Detokenize(param.value, ",")) INTO output AT END;
+      }
+    }
+    RETURN Detokenize(output, "&");
+  }
+
+  RECORD ARRAY FUNCTION ParseSubmitVariables(RECORD params)
+  {
+    RECORD ARRAY vars;
+    FOREVERY (RECORD rec FROM UnpackRecord(params))
+      SWITCH (TypeID(rec.value))
+      {
+        CASE TypeID(BOOLEAN)      { INSERT CELL[ name := ToLowercase(rec.name), value := rec.value ? "true" : "false" ] INTO vars AT END; }
+        CASE TypeID(STRING)       { INSERT CELL[ name := ToLowercase(rec.name), rec.value ] INTO vars AT END; }
+        CASE TypeID(INTEGER)      { INSERT CELL[ name := ToLowercase(rec.name), value := ToString(rec.value) ] INTO vars AT END; }
+        CASE TypeID(STRING ARRAY) { INSERT CELL[ name := ToLowercase(rec.name), value := Detokenize(rec.value, ",") ] INTO vars AT END; }
+        DEFAULT                   { THROW NEW Exception(`Cannot encode a ${GetTypeName(TypeID(rec.value))}`); }
+      }
+    RETURN vars;
+  }
+
+  PUBLIC VARIANT FUNCTION GetResource(STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ perpage := 50
+                               , limitnum := 1000000
+                               , page := 0
+                               , maperrorcodes := DEFAULT RECORD
+                               ], options);
+
+    STRING req := AddParam(path, "per_page", ToString(MIN[](INTEGER[options.limitnum, options.perpage])));
+    IF(options.page > 0 )
+      req := AddParam(req, "page", ToString(options.page));
+
+    this->SendRequest(req);
+    RECORD res := this->GetCallResult();
+    IF(NOT res.success)
+    {
+      IF(CellExists(options.maperrorcodes, ToString(res.statuscode)))
+        RETURN GetCell(options.maperrorcodes, ToString(res.statuscode));
+      THROW NEW Exception(`${path}: ${res.statustext}`);
+    }
+
+    IF(res.numpages > 1 AND options.page = 0) //no explicit page requested
+    {
+      FOR(INTEGER page := 2; page <= res.numpages AND Length(res.json) < options.limitnum; page := page + 1)
+      {
+        this->SendRequest(AddParam(AddParam(path, "per_page", ToString(options.perpage)), "page", ToString(page)));
+        RECORD subres := this->GetCallResult();
+        IF(NOT subres.success)
+          THROW NEW Exception(`${path}: ${subres.statustext}`);
+
+        res.json := res.json CONCAT RECORD ARRAY(subres.json);
+      }
+    }
+
+    RETURN res.json;
+  }
+
+  PUBLIC RECORD FUNCTION GetMyself()
+  {
+    RETURN this->GetResource(`/user`);
+  }
+
+  PUBLIC VARIANT FUNCTION GetProjectResource(STRING project, STRING subpath, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->GetResource(`projects/${EncodeURLGitlab(project)}/${subpath}`, options);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetProjectIssues(STRING project)
+  {
+    RETURN EnforceStructure([gitlab_issuestructure], this->GetProjectresource(project, "issues"));
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetProjectMilestones(STRING project)
+  {
+    RETURN EnforceStructure([gitlab_milestonestructure], this->GetProjectresource(project, "milestones"));
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION SearchIssues(RECORD searchoptions, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    searchoptions := ValidateOptions(
+        [ iids :=     DEFAULT INTEGER ARRAY
+        , search :=   ""
+        , scope :=    "all"
+        , updated_after := DEFAULT DATETIME
+        ], searchoptions);
+
+    STRING url := UpdateURLVariables("issues", CELL[ searchoptions.search, searchoptions.scope ]);
+    IF(searchoptions.updated_after != DEFAULT DATETIME)
+      url := UpdateURLVariables(url, [ updated_after := FormatISO8601Datetime(searchoptions.updated_after) ]);
+
+    FOREVERY (INTEGER iid FROM searchoptions.iids)
+      url := AddVariableToURL(url, "iids[]", ToString(iid));
+
+    RETURN EnforceStructure([gitlab_issuestructure], this->GetResource(url, options));
+  }
+
+  //https://docs.gitlab.com/ee/api/projects.html
+  PUBLIC RECORD ARRAY FUNCTION GetAllProjects(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ archived := FALSE], options
+                               , [ optional := ["archived"] ]);
+
+    STRING baseurl := "projects";
+    IF(CellExists(options,'archived'))
+      baseurl := AddParam(baseurl, "archived", options.archived?"true":"false");
+    RETURN EnforceStructure([ gitlab_projectstructure ], this->GetResource(baseurl));
+  }
+
+  //https://docs.gitlab.com/ee/api/projects.html
+  PUBLIC RECORD FUNCTION GetProject(STRING project, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(DEFAULT RECORD, options);
+
+    RECORD res := this->GetProjectResource(project, "", [ maperrorcodes := [ "404" := DEFAULT RECORD ]]);
+    RETURN RecordExists(res) ? EnforceStructure(gitlab_projectstructure, res) : DEFAULT RECORD;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetBuildResults(STRING projectpath)
+  {
+    INTEGER projectid := SELECT AS INTEGER id
+                           FROM this->GetAllProjects().json
+                          WHERE (ToUpperCase(path_with_namespace) = ToUpperCase(projectpath))
+                             OR (ToUpperCase(name) = ToUpperCase(projectpath));
+    this->SendRequest("projects/" || projectid || "/builds");//, [ scope := [ "pending", "running", "failed", "success" ] ]);
+    RETURN this->GetOutputJSON();
+  }
+
+  //https://docs.gitlab.com/ce/api/issues.html
+  PUBLIC RECORD FUNCTION GetProjectIssue(STRING project, STRING issue)
+  {
+    RETURN EnforceStructure(gitlab_issuestructure, this->GetProjectResource(project, "issues/" || issue));
+  }
+
+  /** @cell(string) options.description Issue description
+      @cell(datetime) options.due_date Due date for issue */
+  PUBLIC RECORD FUNCTION CreateIssue(STRING projectpath, STRING title, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ description := ""
+                               , due_date := DEFAULT DATETIME
+                               ], options);
+
+    RECORD ARRAY vars := [[ name := "title", value := title ]
+                         ,[ name := "description", value := options.description ]
+                         ];
+    IF(options.due_date != DEFAULT DATETIME)
+      INSERT [ name := "due_date", value := FormatISO8601Datetime(options.due_date )] INTO vars AT END;
+
+    RECORD result := this->SendModifyingRequest('POST'
+                               , `projects/${EncodeURLGitlab(projectpath)}/issues`
+                               , vars
+                               );
+
+    RETURN EnforceStructure(gitlab_issuestructure, result);
+  }
+
+  PUBLIC RECORD FUNCTION EditIssue(STRING projectpath, STRING projectissueid, RECORD updates)
+  {
+    updates := ValidateOptions([ milestone_id := "" ], updates, [ title := "updates"
+                                                                , optional := ["milestone_id"]
+                                                                ]);
+
+    RECORD ARRAY toset;
+    IF(CellExists(updates, "milestone_id"))
+      INSERT [ name := "milestone_id", value := updates.milestone_id ] INTO toset AT END;
+    IF(Length(toset)=0)
+      THROW NEW Exception("No fields found to change");
+
+    RECORD result := this->SendModifyingRequest('PUT'
+                               , `projects/${EncodeURLGitlab(projectpath)}/issues/${projectissueid}`
+                               , toset);
+    RETURN EnforceStructure(gitlab_issuestructure, result);
+  }
+
+  PUBLIC MACRO CreateSchedule(STRING projectpath, STRING description, STRING branch, STRING cron, STRING cron_timezone)
+  {
+    this->SendModifyingRequest('POST'
+                                 , `projects/${EncodeURLGitlab(projectpath)}/pipeline_schedules`
+                                 , [[ name := "description", value := description ]
+                                   ,[ name := "ref", value := branch ]
+                                   ,[ name := "cron", value := cron ]
+                                   ,[ name := "cron_timezone", value := cron_timezone ]
+                                   ]
+                                 );
+  }
+
+  PUBLIC MACRO EditProject(STRING projectpath, RECORD newsettings)
+  {
+    newsettings := ValidateOptions([jobs_enabled := FALSE], newsettings, [ optional := ["jobs_enabled"]]);
+    IF(Length(unpackREcord(newsettings))=0)
+      THROW NEW Exception("Nothing to change!");
+
+    RECORD ARRAY vars;
+    IF(CellExists(newsettings, 'jobs_enabled'))
+      INSERT [[ name := "jobs_enabled", value := newsettings.jobs_enabled ? "true" : "false "]] INTO vars AT END;
+
+    this->SendModifyingRequest('PUT'
+                               , `projects/${EncodeURLGitlab(projectpath)}`
+                                 , vars
+                                 );
+  }
+
+  PUBLIC RECORD FUNCTION GetFile(STRING projectpath, STRING branch, STRING filepath)
+  {
+    //this->browser->debug :=TRUE;
+    TRY
+    {
+      RETURN this->GetProjectResource(projectpath,"repository/files/" || filepath || "?ref=" || EncodeURL(branch));
+    }
+    CATCH(OBJECT e)
+    {
+      RETURN DEFAULT RECORD; //assume 404
+    }
+  }
+
+  PUBLIC MACRO CreateFile(STRING projectpath, STRING branch, STRING filepath, BLOB content, STRING commit_message)
+  {
+    RECORD ARRAY vars := [[ name := "branch", value := branch ]
+                         ,[ name := "content", value := EncodeBase64(BlobToString(content)) ]
+                         ,[ name := "commit_message", value := commit_message]
+                         ,[ name := "encoding", value := "base64"]
+                         ];
+    this->SendModifyingRequest('POST'
+                               , `projects/${EncodeURLGitlab(projectpath)}/repository/files/${filepath}`
+                               , vars);
+  }
+
+  PUBLIC MACRO DeleteFile(STRING projectpath, STRING branch, STRING filepath, STRING commit_message)
+  {
+    //this->browser->debug :=TRUE;
+    RECORD ARRAY vars := [[ name := "branch", value := branch ]
+                         ,[ name := "commit_message", value := commit_message]
+                         ];
+    this->SendModifyingRequest('DELETE'
+                               , `projects/${EncodeURLGitlab(projectpath)}/repository/files/${filepath}`
+                               , vars);
+  }
+
+  PUBLIC MACRO RetryPipeline(STRING project, INTEGER id)
+  {
+    //this->browser->Debug:=TRUE;
+    this->SendModifyingRequest('POST'
+                                 , `projects/${EncodeURLGitlab(project)}/pipelines/${id}/retry`
+                                 , RECORD[]
+                                 );
+  }
+
+  PUBLIC MACRO CreateTrigger(STRING project, STRING description)
+  {
+    //this->browser->Debug:=TRUE;
+    RECORD ARRAY vars := [[ name := "description", value := description ]
+                         ];
+    this->SendModifyingRequest('POST'
+                                 , `projects/${EncodeURLGitlab(project)}/triggers`
+                                 , vars
+                                 );
+  }
+
+  PUBLIC MACRO InvokeTrigger(STRING project, STRING branch, STRING triggertoken)
+  {
+    //this->browser->Debug:=TRUE;
+    RECORD ARRAY vars := [[ name := "token", value := triggertoken ]
+                         ,[ name := "ref", value := branch ]
+                         ];
+    this->SendModifyingRequest('POST'
+                                 , `projects/${EncodeURLGitlab(project)}/trigger/pipeline`
+                                 , vars
+                                 );
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetPipelines(STRING project, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ page :=             0
+        , scope :=            ""
+        , status :=           ""
+        , "ref" :=            ""
+        , sha :=              ""
+        , yaml_errors :=      FALSE
+        , name :=             ""
+        , username :=         ""
+        , order_by :=         ""
+        , sort :=             ""
+        ], options,
+        [ optional := [ "scope", "status", "ref", "sha", "yaml_errors", "name", "username", "order_by", "sort" ]
+        , enums :=    [ scope := [ "", "running", "pending", "finished", "branches", "tags" ]
+                      , status := [ "", "running", "pending", "success", "failed", "canceled", "skipped" ]
+                      , order_by := [ "", "id", "status", "ref", "user_id" ]
+                      , sort := [ "", "asc", "desc" ]
+                      ]
+        ]);
+
+    STRING url := UpdateURLVariables("pipelines", RepackRecord(this->ParseSubmitVariables(CELL[ ...options, DELETE page ])));
+
+    RETURN EnforceStructure([[id:= 0, "ref" := "", sha := "", status := "" ]], this->GetProjectresource(project, url, [ page := options.page ]));
+  }
+
+  PUBLIC MACRO DeleteRunner(INTEGER id)
+  {
+    this->SendModifyingRequest('DELETE'
+                                 , `runners/${id}`
+                                 , RECORD[]
+                                 );
+  }
+
+  PUBLIC MACRO DeleteProjectMember(STRING project, INTEGER userid)
+  {
+    this->SendModifyingRequest('DELETE'
+                                 , `projects/${EncodeURLGitlab(project)}/members/${userid}`
+                                 , RECORD[]
+                                 );
+  }
+  PUBLIC MACRO DeleteGroupMember(STRING groupname, INTEGER userid)
+  {
+    this->SendModifyingRequest('DELETE'
+                                 , `groups/${EncodeURLGitlab(groupname)}/members/${userid}`
+                                 , RECORD[]
+                                 );
+  }
+
+  PUBLIC MACRO AddGroupMember(STRING groupname, INTEGER userid, INTEGER accesslevel)
+  {
+    RECORD ARRAY vars := [[ name := "user_id", value := ToString(userid) ]
+                         ,[ name := "access_level", value := ToString(accesslevel) ]
+                         ];
+    this->SendModifyingRequest('POST'
+                                 , `groups/${EncodeURLGitlab(groupname)}/members`
+                                 , vars
+                                 );
+  }
+
+  PUBLIC RECORD FUNCTION GetSingleCommit(STRING project, STRING sha, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ stats :=    FALSE
+        ], options);
+
+    STRING baseurl := "repository/commits/${sha}";
+    IF (options.stats)
+      baseurl := AddParam(baseurl, "stats", "true");
+
+    RETURN EnforceStructure(gitlab_commitstructure, this->GetProjectResource(project, `repository/commits/${sha}`));
+  }
+
+  PUBLIC STRING FUNCTION GetRegistryToken(STRING project, RECORD options)
+  {
+    options := ValidateOptions( [ writeaccess := FALSE ], options);
+
+    STRING requrl := UpdateURLVariables(ResolveToAbsoluteURL(this->apiroot,"/jwt/auth")
+                                       , [ client_id := "docker"
+                                         , offline_token := "true"
+                                         , service := "container_registry"
+                                         , scope := "repository:" || project || ":" || (options.writeaccess?"*":"pull")
+                                         ]);
+    IF(NOT this->browser->GotoWebPage(requrl, [ headers := [[ field := "Authorization", value := "Basic " || EncodeBase64("webharebot:" || this->pvt_token) ]] ]))
+      THROW NEW Exception("Token request failed");
+
+    STRING token := DecodeJSONBlob(this->browser->content).token;
+
+    STRING tokencontent := Substitute(token,'_','/');
+    tokencontent := Substitute(token,'-','+');
+    tokencontent := Tokenize(token,'.')[1];
+    RECORD tokendata := DecodeJSON(DecodeBase64(tokencontent ));
+
+    IF(NOT RecordExists(SELECT FROM tokendata.access WHERE (options.writeaccess ? "*" : "pull") IN actions))
+      THROW NEW Exception("Permission denied");
+
+    RETURN token;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetProjectMergeRequests(STRING project, RECORD searchoptions DEFAULTSTO DEFAULT RECORD)
+  {
+    searchoptions := ValidateOptions(
+        [ state :=          ""
+        , sort :=           ""
+        , scope :=          ""
+        , source_branch :=  ""
+        , target_branch :=  ""
+        , search :=         ""
+        ], searchoptions,
+        [ enums :=  [ state :=    [ "", "opened", "closed", "locked", "merged" ]
+                    , sort :=     [ "", "asc", "desc" ]
+                    , scope :=    [ "", "created_by_me", "assigned_to_me", "all" ]
+                    ]
+        ]);
+
+    STRING url := UpdateURLVariables("merge_requests", CELL
+        [ searchoptions.state
+        , searchoptions.sort
+        , searchoptions.scope
+        , searchoptions.source_branch
+        , searchoptions.target_branch
+        , searchoptions.search
+        ]);
+
+    RETURN EnforceStructure([ gitlab_mergerequeststructure ], this->GetProjectResource(project, url));
+  }
+
+  PUBLIC RECORD FUNCTION CreateProjectMergeRequest(STRING project, RECORD options)
+  {
+    options := ValidateOptions(
+        [ source_branch :=        ""
+        , target_branch :=        ""
+        , title :=                ""
+        , assignee_id :=          0
+        , description :=          ""
+        , target_project_id :=    0
+        , labels :=               STRING[]
+        , milestone_id :=         0
+        , remove_source_branch := FALSE
+        , allow_collaboration :=  FALSE
+        , squash  :=              FALSE
+        ], options,
+        [ required := [ "source_branch", "target_branch", "title" ]
+        , optional := [ "assignee_id", "description", "target_project_id", "labels", "milestone_id", "remove_source_branch", "allow_collaboration", "squash" ]
+        ]);
+
+    RECORD ARRAY vars := this->ParseSubmitVariables(options);
+
+    // FIXME: error handing! content: { error: "error message" }
+    this->browser->SendRawRequest('POST'
+                                 , `${this->apiroot}v4/projects/${EncodeURLGitlab(project)}/merge_requests`
+                                 , [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]
+                                   ,[ field := "PRIVATE-TOKEN", value := this->pvt_token ]
+                                   ]
+                                 , CreateHTTPUrlencodedRequest(vars).body
+                                 );
+
+    RECORD res := this->GetCallResult();
+    IF(NOT res.success)
+      THROW NEW Exception(`${res.statustext}`);
+
+    RETURN EnforceStructure(gitlab_mergerequeststructure, res.json);
+  }
+
+  PUBLIC RECORD FUNCTION UpdateProjectMergeRequest(STRING project, INTEGER iid, RECORD options)
+  {
+    options := ValidateOptions(
+        [ target_branch :=        ""
+        , title :=                ""
+        , assignee_id :=          0
+        , milestone_id :=         0
+        , labels :=               STRING[]
+        , description :=          ""
+        , state_event :=          ""
+        , remove_source_branch := FALSE
+        , squash  :=              FALSE
+        , discussion_locked  :=   FALSE
+        , allow_collaboration :=  FALSE
+        ], options,
+        [ optional := [ "target_branch", "title", "assignee_id", "milestone_id", "labels", "description", "state_event", "state_event", "remove_source_branch", "squash", "discussion_locked", "allow_collaboration" ]
+        , enums :=    [ state_event := [ "close", "reopen" ] ]
+        ]);
+
+    RECORD ARRAY vars := this->ParseSubmitVariables(options);
+
+    STRING url := UpdateURLVariables(`${this->apiroot}v4/projects/${EncodeURLGitlab(project)}/merge_requests/${iid}`, RepackRecord(vars));
+
+    // FIXME: error handing! content: { error: "error message" }
+    this->browser->SendRawRequest('PUT'
+                                 , url
+                                 , [ [ field := "PRIVATE-TOKEN", value := this->pvt_token ] ]
+                                 , DEFAULT BLOB
+                                 );
+
+    RECORD res := this->GetCallResult();
+    IF(NOT res.success)
+      THROW NEW Exception(`${res.statustext}`);
+
+    RETURN EnforceStructure(gitlab_mergerequeststructure, res.json);
+  }
+
+  PUBLIC RECORD FUNCTION AcceptProjectMergeRequest(STRING project, INTEGER iid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ merge_commit_message := ""
+        , should_remove_source_branch := FALSE
+        , merge_when_pipeline_succeeds := FALSE
+        , sha := ""
+        ], options,
+        [ optional :=   [ "merge_commit_message", "should_remove_source_branch", "merge_when_pipeline_succeeds", "sha" ]
+        ]);
+
+    RECORD ARRAY vars := this->ParseSubmitVariables(options);
+
+    STRING url := UpdateURLVariables(`${this->apiroot}v4/projects/${EncodeURLGitlab(project)}/merge_requests/${iid}/merge`, RepackRecord(vars));
+
+    this->browser->SendRawRequest('PUT'
+                                 , url
+                                 , [[ field := "PRIVATE-TOKEN", value := this->pvt_token ]
+                                   ]
+                                 , DEFAULT BLOB
+                                 );
+
+    RECORD res := this->GetCallResult();
+    IF(NOT res.success)
+      THROW NEW Exception(`${res.statustext}`);
+
+    RETURN EnforceStructure(gitlab_mergerequeststructure, res.json);
+  }
+
+  PUBLIC RECORD FUNCTION GetProjectMergeRequest(STRING project, INTEGER iid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ render_html := TRUE
+        , include_diverged_commits_count := FALSE
+        , include_rebase_in_progress := FALSE
+        ], options,
+        [ optional :=   [ "render_html", "include_diverged_commits_count", "include_rebase_in_progress" ]
+        ]);
+
+    RETURN EnforceStructure(gitlab_mergerequeststructure, this->GetProjectResource(project, `merge_requests/${iid}`));
+  }
+>;

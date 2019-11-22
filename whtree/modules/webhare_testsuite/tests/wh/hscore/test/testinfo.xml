@@ -1,0 +1,47 @@
+<!--
+  These tests are meant to test the testscript:
+  * Are parameters correctly parsed?
+  * Does nesting of tests and running different groups work?
+  * Are failing tests recognized properly?
+-->
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <param name="param1" value="top1"/>
+  <param name="param2" value="top2"/>
+
+  <group name="group1">
+    <test script="test1.whlib">
+      <arg param="param1"/>
+    </test>
+
+    <group name="group1a">
+      <test script="test2.whlib">
+        <arg value="value1"/>
+      </test>
+    </group>
+  </group>
+
+  <group name="group2">
+    <param name="param2" value="group2"/>
+
+    <test script="test3.whlib" xfail="true" />
+    <test script="test4.whlib">
+      <arg param="param2"/>
+    </test>
+  </group>
+
+  <group name="fail">
+
+    <test script="test3.whlib"/>
+
+    <group name="nonexisting">
+      <test script="nonexisting.whlib"/>
+    </group>
+
+    <group name="cmdparam">
+      <test script="test1.whlib">
+        <arg param="cmdparam"/>
+      </test>
+    </group>
+
+  </group>
+</group>

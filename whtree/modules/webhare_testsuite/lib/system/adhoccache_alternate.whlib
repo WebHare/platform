@@ -1,0 +1,30 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+
+
+/* alternative library to make sure adhoc cache properly separates libs */
+
+PUBLIC STRING ARRAY alternate_seenvalues;
+PUBLIC STRING verify_vm;
+
+RECORD FUNCTION CalcData(STRING inval)
+{
+  IF(verify_vm!="OK")
+    ABORT("Huh? I'm in a different VM?"); //you never know...
+
+  IF(inval IN alternate_seenvalues)
+    ABORT("GetAlternateData re-invoked for value " || inval || ", cache was ineffective");
+
+  INSERT inval INTO alternate_seenvalues AT END;
+  RETURN [ value := ToUppercase(inval)
+         , ttl := 5000
+         ];
+}
+
+PUBLIC STRING FUNCTION GetAlternateData(INTEGER id)
+{
+  STRING keydata := "alt " || id;
+  STRING val := GetAdhocCached([id:=id], PTR CalcData(keydata));
+  RETURN val;
+}

@@ -1,0 +1,34 @@
+﻿<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::os.whlib";
+
+OpenPrimary();
+INTEGER64 totalnumbytes, totalnumblobs;
+
+RECORD ARRAY relevant_columns := SELECT table_schema,table_name,column_name from information_schema.columns where data_type="BLOB";
+FOREVERY(RECORD col FROM relevant_columns)
+{
+  Print(col.table_schema || "." || col.table_name || "." || col.column_name || ": ");
+  FlushOutputBuffer();
+
+  INTEGER64 numbytes, numblobs;
+
+  OBJECT q := NEW DynamicQuery;
+  q->AddTable("data", GetPrimary()->id, col.table_schema||'.'||col.table_name, [STRING(col.column_name)]);
+  //q->AddConstraint('data.'||col.column_name, "!=", DEFAULT BLOB);
+  RECORD ARRAY res := q->Execute();
+  FOREVERY(RECORD r FROM res)
+  {
+    INTEGER64 len := Length64(GetCell(r.data, col.column_name));
+    IF(Len>0)
+      numblobs := numblobs + 1;
+    numbytes := numbytes + len;
+  }
+  Print((numbytes / 1024 / 1024) || "MB (" || numblobs || " blobs)\n");
+
+  totalnumbytes := totalnumbytes + numbytes;
+  totalnumblobs := totalnumblobs + numblobs;
+}
+Print("Total: " || (totalnumbytes / 1024 / 1024) || "MB (" || totalnumblobs || " blobs)\n");

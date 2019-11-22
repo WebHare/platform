@@ -1,0 +1,89 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+ASYNC MACRO TestRadio()
+{
+  OBJECT browser := GetTestController()->LoadScreen(Resolve("screens/select.xml#testselect"));
+  OBJECT insertpos := browser->comp->GetButtonComponent(0);
+  TestEq(TRUE, ObjectExists(insertpos), "GetButtonComponent must be available early for dynamic expansion of selects");
+
+  RECORD ARRAY opts := browser->comp->options;
+  opts := opts CONCAT [[ rowkey := 2, title := "opt1", tolliumselected := FALSE ]
+                      ];
+  browser->comp->options := opts;
+  browser->comp->value := 2;
+
+  AWAIT ExpectScreenChange(+1, PTR browser->RunModal);
+  TestEq(3, Length(TT("comp")->GetChildComponents())); //should have expanded into 2 <radio>s and <textedit>
+  TestEq(2, TT("comp")->value);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+}
+
+ASYNC MACRO TestSubscreenRegression()
+{
+  //Test a screen that open a subscreen immediately. This broke optionsetting in WRD Brwoser
+  RECORD resp := AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(Resolve("screens/select.xml#testsubscreen")));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  OBJECT browser := AWAIT resp.expectcallreturn();
+  TestEq(1, Length(browser->^pulldown->GetChildComponents())); //should have expanded into 1 <pulldown>
+}
+
+ASYNC MACRO TestSubcomponentsRegression()
+{
+  /* this crashed earlier because the subcomponent tried to insert itself before its parent got a chance to insert
+     resulting in:
+     Cannot insert component 'existinginvoices$37' into panel 'tollium_s$10' at insert position 'existinginvoices': the insert component is not found in the panel lines
+  */
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(Resolve("screens/select.xml#generateinvoice"), [ delete_existing := FALSE ]));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(Resolve("screens/select.xml#generateinvoice"), [ delete_existing := TRUE ]));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestInvisibleSelectRegression()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(Resolve("screens/select.xml#testinvisibleselect")));
+  TestEq(TRUE, TT("enable1")->enabled);
+  TestEq(FALSE, TT("enable2")->enabled);
+
+  TT("tabs")->extendcomponents :=
+      [ [ name := "contentitem_nl", component := TT("contentitem_nl") ]
+      ];
+  RECORD res := TT("tabs")->LoadTabsExtension(Resolve("screens/select.xml#extension"));
+  TT("contentitem_nl")->GetComponent("usestandardtext2")->value := FALSE;
+  TestEq(TRUE, TT("contentitem_nl")->GetComponent("shorttext2")->enabled);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestCheckboxList()
+{
+  OBJECT browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+                                                   [ component := "select"
+                                                   , settings := [ type := "checkboxlist"
+                                                                 , options := [[ rowkey := "A", title := "Option-A" ]]
+                                                                 ]
+                                                   ]);
+  TestEq(STRING[], browser->comp->value);
+}
+
+ASYNC MACRO TestOptionSource()
+{
+  // test loadscreen rejecting these - must see a load error
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(Resolve("screens/select.xml#testoptionsource")));
+  TestEq([[ rowkey := 42, title := "Fortytwo"]
+         ,[ rowkey := 44, title := "Fortyfour" ]
+         ,[ rowkey := 38, title := "Thirtyeight" ]
+         ], SELECT rowkey,title FROM TT("pulldown")->options);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR TestRadio
+                 , PTR TestSubscreenRegression
+                 , PTR TestSubcomponentsRegression
+                 , PTR TestInvisibleSelectRegression
+                 , PTR TestCheckboxList
+                 , PTR TestOptionSource
+                 ]);

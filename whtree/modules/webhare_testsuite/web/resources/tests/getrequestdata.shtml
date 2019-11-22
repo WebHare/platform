@@ -1,0 +1,19 @@
+<?wh
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+
+RECORD data :=
+    [ localport :=        GetClientLocalPort()
+    , localaddress :=     GetClientLocalAddress()
+    , localip :=          GetClientLocalIP()
+    , remoteport :=       GetClientRemotePort()
+    , remoteip :=         GetClientRemoteIP()
+    , clienturl :=        GetClientRequestURL()
+    , clientbinding :=    GetClientBinding()
+    , serverurl :=        GetRequestURL()
+    , ispreview :=        GetWebHeader("X-WHPub-IsPreview") = "1"
+    , headers :=          GetAllWebHeaders()
+    ];
+
+SendBlobTo(0, EncodeHSONBlob(data));

@@ -1,0 +1,81 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+
+
+/** Expires a single recycle bin item. Moves non-deletable items to toplevel
+    @param fsobjectid
+    @param fshistoryid
+    @return
+    @cell(boolean) return.success Whether something was deleted
+    @cell(string) return.code 'deleted', 'hasformresults'
+    @cell(integer) return.deleted Number of deleted files and folders
+    @cell(integer) return.kept Number of items that could not be deleted
+*/
+PUBLIC RECORD FUNCTION ExpireRecycleBinItem(INTEGER fsobjectid, INTEGER fshistoryid)
+{
+  // Get ids for all items that will be deleted (recursive)
+  INTEGER ARRAY alldeleted := [ fsobjectid, ...GetWHFSDescendantIds(fsobjectid, TRUE, TRUE) ];
+  INTEGER itemcount := LENGTH(alldeleted);
+
+  // Check if any of the files/folders we are going to delete has form results
+  INTEGER ARRAY hasformresults :=
+      SELECT AS INTEGER ARRAY form_fsobject
+        FROM publisher.formresults
+       WHERE form_fsobject IN alldeleted
+    GROUP BY form_fsobject;
+
+  IF (fsobjectid IN hasformresults) // Toplevel object has form results?
+  {
+    RETURN
+        [ success :=  FALSE
+        , code :=     "hasformresults"
+        , deleted :=  0
+        , kept :=     itemcount
+        ];
+  }
+
+  INTEGER ARRAY toskip := hasformresults;
+  IF (NOT IsDefaultValue(toskip))
+  {
+    // The skipped files will get toplevel entries of their own. Uses data of the history item that
+    // we're deleting
+    RECORD historyitem := SELECT *, DELETE id FROM system.fs_history WHERE id = fshistoryid;
+
+    // Place the file in the same deletion directory the toplevel item is placed in
+    INTEGER newparentid := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = fsobjectid;
+    OBJECT newparent := OpenWHFSObject(newparentid);
+
+    // Gather the name for the items we're moving, need to store them in the history item
+    RECORD ARRAY items := SELECT id, name FROM system.fs_objects WHERE id IN toskip;
+    FOREVERY (RECORD item FROM items)
+    {
+      RECORD newhistoryitem := CELL
+          [ ...historyitem
+          , fs_object :=    item.id
+          , currentname :=  item.name
+          ];
+
+      // MoveTo deletes history items, so execute that first
+      OpenWHFSObject(item.id)->MoveTo(newparent, ToString(item.id));
+      INSERT newhistoryitem INTO system.fs_history;
+    }
+
+    itemcount := itemcount - LENGTH(items);
+  }
+
+  // Delete the history item, then the object
+  DELETE FROM system.fs_history WHERE id = fshistoryid;
+  OpenWHFSObject(fsobjectid)->DeleteSelf();
+
+  RETURN
+      [ success :=  TRUE
+      , code :=     "deleted"
+      , deleted :=  itemcount
+      , kept :=     LENGTH(toskip)
+      ];
+}

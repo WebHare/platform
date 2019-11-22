@@ -1,0 +1,75 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// Browse for disk file/folder
+//
+PUBLIC OBJECTTYPE DiskObjects EXTEND TolliumOptionSourceBase
+<
+  PUBLIC STRING rowkeyprop;
+  PUBLIC STRING titleprop;
+
+  PUBLIC STRING show;
+  PUBLIC STRING basepath;
+  PUBLIC BOOLEAN showhidden;
+  PUBLIC STRING mask;
+
+  PUBLIC MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposableListener;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumOptionSourceBase::StaticInit(def);
+    this->rowkeyprop := def.rowkeyprop;
+    this->titleprop := def.titleprop;
+    this->show := def.show;
+    this->basepath := def.basepath;
+    this->showhidden := def.showhidden;
+    this->mask := def.mask;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->GenerateContents();
+  }
+
+  MACRO GenerateContents()
+  {
+    STRING diskpath;
+    TRY
+    {
+      diskpath := GetWebHareResourceDiskPath(this->basepath);
+    }
+    CATCH {}
+
+    RECORD ARRAY results;
+    IF (diskpath != "" AND this->show IN ["files", "folders", "all"])
+    {
+      results := SELECT rowkey := (this->rowkeyprop = "resourcepath" ? MakeAbsoluteResourcePath(this->basepath, name)
+                                                                     : name)
+                      , title := (this->titleprop = "basename" ? GetBaseNameFromPath(name)
+                                                               : name)
+                   FROM ReadDiskDirectory(diskpath, "*")
+                  WHERE ToUppercase(name) LIKE ToUppercase(this->mask)
+                        AND (this->show="all" OR isfolder = (this->show="folders"))
+                        AND (this->showhidden ? TRUE : name NOT LIKE ".*")
+                  ORDER BY ToUppercase(name);
+    }
+    this->SetOptions(results);
+  }
+
+  PUBLIC UPDATE MACRO CompositionMetadataIsUpdated()
+  {
+    OBJECT whfsinstance := GetWHFSInstanceComposition(this);
+    IF(NOT ObjectExists(whfsinstance))
+      THROW NEW Exception("sp:fsobjects expect a sp:whfsinstance composition");
+
+    this->GenerateContents();
+  }
+>;

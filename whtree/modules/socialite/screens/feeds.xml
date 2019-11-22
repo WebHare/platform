@@ -1,0 +1,114 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/feeds.whlib"
+         gid="feeds">
+
+  <messageboxes>
+    <messagebox name="confirmdeletefeed" buttons="yes no" />
+  </messageboxes>
+
+  <screen name="feeds" gid=".feeds" tid=".screentitle" allowresize="true" savestate="size" width="90x" height="12x">
+    <actions>
+      <action name="edititem" tid="tollium:common.actions.edit" onexecute="doedititem">
+        <enableon source="feeds" min="1" max="1" />
+      </action>
+      <action name="deleteitem" tid="tollium:common.actions.delete" onexecute="dodeleteitem">
+        <enableon source="feeds" min="1" />
+      </action>
+    </actions>
+    <body>
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="feeds"
+                  selectmode="multiple"
+                  rowselect="true"
+                  height="1pr"
+                  minwidth="400px"
+                  minheight="400px"
+                  openaction="edititem"
+                  icons="tollium:status/warning tollium:status/checked"
+                  rowiconname="statusicon"
+                  >
+              <column name="query" type="text" />
+              <column name="lastupdate" type="datetime" storeutc="true" width="18x"/>
+              <column name="numentries" type="integer" storeutc="true" width="8x" align="right"/>
+            </list>
+          </cell>
+          <cell>
+            <button action="edititem" width="1pr" tid="tollium:common.actions.edit"/>
+            <button action="deleteitem" width="1pr" tid="tollium:common.actions.delete"/>
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="feed" gid=".feed" tid=".screentitle">
+    <actions>
+      <action name="edititem" tid="tollium:common.actions.edit" onexecute="doedititem">
+        <enableon source="feedentries" min="1" max="1" />
+      </action>
+      <action name="hideitem" onexecute="dohideitem">
+        <enableon source="feedentries" min="1" checkflags="publish" selectionmatch="any" />
+      </action>
+      <action name="unhideitem" onexecute="dounhideitem">
+        <enableon source="feedentries" min="1" checkflags="!publish" selectionmatch="any" />
+      </action>
+    </actions>
+    <body>
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="feedentries"
+                  selectmode="multiple"
+                  rowselect="true"
+                  height="1pr"
+                  minwidth="400px"
+                  minheight="400px"
+                  openaction="edititem"
+                  icons="tollium:status/negative tollium:status/checked"
+                  rowiconname="statusicon"
+                  sortcolumn="created"
+                  sortascending="false"
+                  flags="publish"
+                  >
+              <column name="created" type="datetime" storeutc="true" width="18x"/>
+              <column name="messageid" type="text" width="10x" />
+              <column name="message" type="text" />
+            </list>
+          </cell>
+          <cell>
+            <button action="edititem" width="1pr" tid="tollium:common.actions.edit"/>
+            <button action="hideitem" width="1pr" />
+            <button action="unhideitem" width="1pr" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+
+  </screen>
+
+  <screen name="feedentry" gid=".feedentry" tid=".screentitle">
+    <body>
+      <textarea enabled="false" name="rawentry" height="16x" />
+      <line layout="left">
+        <checkbox name="publish" title="" labeltid=".publish" />
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+
+  </screen>
+
+</screens>

@@ -1,0 +1,26 @@
+html.wh-screenshot
+{
+  wh-outputtools
+  {
+    display:none !important;
+  }
+  .t-screen
+  {
+    box-shadow:none !important;
+  }
+  .t-screen:not(.active) > div.modallayer
+  , div#tolliumbody
+  , div#topbar
+  , div#bottombar
+  , body
+  {
+    background:red !important;
+    opacity:1  !important;
+    border: none !important;
+  }
+  div.t-apptabs
+  {
+    visibility:hidden;
+  }
+
+}

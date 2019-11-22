@@ -1,0 +1,541 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/components/panel.whlib";
+
+PUBLIC OBJECTTYPE RightObjectTreeComponent EXTEND TolliumPanel
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// List with the object tree
+  OBJECT thelist;
+
+
+  /// Rightsinfo object
+  OBJECT rightsinfo;
+
+  /// Function ptr called when children have been calculated
+  FUNCTION PTR pvt_onextendchildren;
+
+  /// Function ptr called to filter items
+  FUNCTION PTR pvt_filteritems;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Record/record array with current selection (type depends on selectmode)
+  PUBLIC PROPERTY selection(GetSelection, SetSelection);
+
+
+  /** Record describing current value
+      @cell rightsgroup Selected rightsgroup (empty when an object(type) is selected)
+      @cell objecttypename Selected objecttype/type of selected object, empty when rightsgroup is selected
+      @cell objectid Id of selected object, 0 when an rightsgroup or objecttype is selected. Only present
+                when selectmode="single")
+      @cell objectids List of ids selected objects (objecttype/rightsgroup has type 0). Default record when
+                multiple rightsgroups/object types are selected. Only present when selectmode="multiple".
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// Rows in the list
+  PUBLIC PROPERTY rows(this->thelist->rows, -);
+
+  /// Set of expanded rowkyers
+  PUBLIC PROPERTY expanded(this->thelist->expanded, this->thelist->expanded);
+
+  /// Callback called when selection changes
+  PUBLIC PROPERTY onselect(GetOnSelect, SetOnSelect);
+
+
+  /// Callback called before populating the rows, to filter out any unwanted items for the calling context
+  PUBLIC PROPERTY filteritems(pvt_filteritems, SetFilter);
+
+
+  /// List of rights that are relevant for the currenty selected rightsgroup/object(type)
+  PUBLIC PROPERTY relevantrights(GetRelevantRights, -);
+
+
+  /// Selectmode, one of 'single', 'multiple'
+  PUBLIC PROPERTY selectmode(GetSelectMode, SetSelectMode);
+
+
+  /// Boolean that indicates that multiple rightsgroups/objecttypes have been selected
+  PUBLIC PROPERTY typesmixed(GetTypesMixed, -);
+
+
+  /// List of flags supported by this list
+  PUBLIC PROPERTY flags(GetFlags, SetFlags);
+
+
+
+  /** Function ptr callen when the children rows of a row have been calculated. Use this to
+      add custom flags. Don't remove or add rows.
+      @param rows
+      @cell rows.rowkey String with the rowkey.
+      @cell rows.title Name of the object
+      @cell rows.icon Icon of the object (id)
+      @cell rows.rightsgroup Name of an rightsgroup
+      @cell rows.objecttypename Name of an objecttype
+      @cell rows.objectid Id of an object
+      @cell rows.wrdschemaid Id of the related wrd schema (0 if not related to any wrd schema)
+      @cell rows.expandable Whether the rows has children rows
+      @cell rows.expanded
+      @cell rows.isglobal Whether this row contains a rightsgroup
+  */
+  PUBLIC PROPERTY onextendchildren(pvt_onextendchildren, pvt_onextendchildren);
+
+  /** List borders
+  */
+  UPDATE PUBLIC PROPERTY borders(this->thelist->borders, this->thelist->borders);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    //FIXME should be TolliumComponentBase::StaticInit(def);
+    this->TolliumComponentBase_StaticInit(def);
+
+    this->thelist := this->CreateSubComponent("list");
+    this->thelist->width := "1pr";
+    this->thelist->height := "1pr";
+
+    this->thelist->onselect := def.onselect;
+    this->thelist->selectmode := def.selectmode;
+    this->thelist->borders := [ left := TRUE, top := TRUE, bottom := TRUE, right := TRUE, usedefault := FALSE ];
+    this->thelist->ongetchildren := PTR this->GetChildren;
+    this->thelist->ongetpath := PTR this->GetPath;
+    this->thelist->selectcontextmenu := def.selectcontextmenu;
+    this->thelist->flags := def.flags;
+
+    this->thelist->columns :=
+        [ [ name :=     "title"
+          , title :=    GetTid("system:userrights.columns.objects")
+          , type :=     "text"
+          , tree :=     TRUE
+          , iconname := "icon"
+          , iconoverlayname := "iconoverlay"
+          , hintname := "hint"
+          , sortkeyname := "sortkey"
+          ]
+        ];
+
+    this->pvt_onextendchildren := def.onextendchildren;
+  }
+
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->rightsinfo := GetRightsInfoObject(this->owner->tolliumuser);
+
+    this->InsertComponentAfter(this->thelist, DEFAULT OBJECT, FALSE);
+  }
+
+
+  PUBLIC UPDATE STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+
+
+  PUBLIC UPDATE STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "1pr";
+  }
+
+
+  PUBLIC UPDATE OBJECT FUNCTION GetEnableOnComponent()
+  {
+    RETURN this->thelist->GetEnableOnComponent();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  VARIANT FUNCTION GetSelection()
+  {
+    RETURN this->thelist->selection;
+  }
+
+
+  MACRO SetSelection(VARIANT newselection)
+  {
+    this->thelist->selection := newselection;
+  }
+
+
+  RECORD FUNCTION GetValue()
+  {
+    IF (this->thelist->selectmode = "single")
+    {
+      RECORD sel := this->thelist->selection;
+      IF (NOT RecordExists(sel))
+        RETURN DEFAULT RECORD;
+
+      RETURN
+        [ rightsgroup      := sel.rightsgroup
+        , objecttypename  := sel.objecttypename
+        , objectid        := sel.objectid
+        , wrdschemaid     := sel.wrdschemaid
+        ];
+    }
+    ELSE
+    {
+      RECORD ARRAY retval :=
+          SELECT rightsgroup
+               , objecttypename
+               , objectids := GroupedValues(objectid)
+               , objects := GroupedValues([ objectid := objectid, wrdschemaid := wrdschemaid ])
+            FROM this->thelist->selection
+        GROUP BY rightsgroup
+               , objecttypename;
+
+      IF (LENGTH(retval) > 1)
+        RETURN DEFAULT RECORD;
+
+      RETURN retval;
+    }
+  }
+
+
+  MACRO SetValue(RECORD newvalue)
+  {
+    STRING ARRAY keys;
+    IF (CellExists(newvalue, "RIGHTSGROUP") AND newvalue.rightsgroup != "")
+    {
+      IF (this->thelist->selectmode = "single")
+        this->thelist->value := "group_" || newvalue.rightsgroup;
+      ELSE
+        this->thelist->value := [ "group_" || newvalue.rightsgroup ];
+    }
+    ELSE
+    {
+      IF (this->thelist->selectmode = "single")
+        this->thelist->value := "obj_" || newvalue.objectid || "_" || newvalue.objecttypename;
+      ELSE
+        this->thelist->value :=
+            SELECT AS STRING ARRAY ("obj_" || objectid || "_" || newvalue.objecttypename)
+              FROM ToRecordArray(newvalue.objectids, "OBJECTID");
+    }
+  }
+
+
+  FUNCTION PTR FUNCTION GetOnSelect()
+  {
+    RETURN this->thelist->onselect;
+  }
+
+
+  MACRO SetOnSelect(FUNCTION PTR newvalue)
+  {
+    this->thelist->onselect := newvalue;
+  }
+
+  MACRO SetFilter(FUNCTION PTR newvalue)
+  {
+    this->pvt_filteritems := newvalue;
+  }
+
+
+  RECORD ARRAY FUNCTION GetRelevantRights()
+  {
+    RECORD sel := this->thelist->selection;
+
+    RETURN this->GetRelevantRightsForRow(sel);
+  }
+
+
+  STRING FUNCTION GetSelectMode()
+  {
+    RETURN this->thelist->selectmode;
+  }
+
+
+  MACRO SetSelectMode(STRING newselectmode)
+  {
+    this->thelist->selectmode := newselectmode;
+  }
+
+
+  BOOLEAN FUNCTION GetTypesMixed()
+  {
+    IF (this->thelist->selectmode = "single")
+      RETURN FALSE;
+
+    RETURN LENGTH(
+        SELECT
+          FROM this->thelist->selection
+      GROUP BY rightsgroup, objecttypename) > 1;
+  }
+
+
+  STRING ARRAY FUNCTION GetFlags()
+  {
+    RETURN this->thelist->flags;
+  }
+
+
+  MACRO SetFlags(STRING ARRAY newflags)
+  {
+    this->thelist->flags := newflags;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION GetRightsChildren(STRING objecttypename, INTEGER parentobj)
+  {
+    TRY
+    {
+      RECORD ARRAY a := this->owner->tolliumuser->GetObjectsChildren(objecttypename, parentobj);
+      IF(this->pvt_filteritems != DEFAULT FUNCTION PTR)
+        a := this->pvt_filteritems(objecttypename, a);
+
+      RETURN a;
+    }
+    CATCH (OBJECT e)
+    {
+      LogHarescriptException(e);
+      PRINT("Exception: " || e->what ||  " (objecttypename='" || objecttypename || "', parentobj=" || parentobj || "\n");
+      // FIXME: register error
+      RETURN DEFAULT RECORD ARRAY;
+    }
+  }
+
+
+  BOOLEAN FUNCTION HasTypeAnyChildren(STRING objecttypename)
+  {
+    RECORD ARRAY children := this->GetRightsChildren(objecttypename, 0);
+    RETURN RecordExists(children);
+  }
+
+
+  BOOLEAN FUNCTION IsObjectTypeVisible(STRING objecttypename)
+  {
+    STRING ARRAY rights :=
+        SELECT AS STRING ARRAY name
+          FROM this->rightsinfo->rights
+         WHERE COLUMN objecttypename = VAR objecttypename;
+
+    // No rights: tree is only visible for sysop
+    IF (LENGTH(rights) = 0)
+      RETURN this->owner->tolliumuser->HasRight("system:sysop");
+
+    FOREVERY (STRING right FROM rights)
+      IF (this->owner->tolliumuser->HasRightOnAny(right))
+        RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+
+  BOOLEAN FUNCTION IsRightsGroupVisible(STRING rightsgroup, BOOLEAN has_visible_children)
+  {
+    IF (has_visible_children)
+      RETURN TRUE;
+
+    STRING ARRAY rights :=
+        SELECT AS STRING ARRAY name
+          FROM this->rightsinfo->rights
+         WHERE COLUMN rightsgroup = VAR rightsgroup
+           AND isglobal;
+
+    // No rights: group is only visible for sysop
+    IF (LENGTH(rights) = 0)
+      RETURN this->owner->tolliumuser->HasRight("system:sysop");
+
+    FOREVERY (STRING right FROM rights)
+      IF (this->owner->tolliumuser->HasRight(right))
+        RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+
+  RECORD ARRAY FUNCTION GetChildren(RECORD row)
+  {
+    RECORD ARRAY results;
+
+    IF (NOT RecordExists(row))
+    {
+      results :=
+          SELECT rowkey         := "group_" || name
+               , title
+               , sortkey        := name = "system:default" ? "0" : "1" || ToUppercase(title) //sort our misc group at top always
+               , hint           := description
+               , icon           := this->thelist->GetIcon(icon = "" ? "tollium:tollium/tollium" : icon)
+               , iconoverlay    := 0
+               , isglobal       := TRUE
+               , rightsgroup     := name
+               , objecttypename := ""
+               , objectid       := 0
+               , expandable     := RecordExists(
+                                        SELECT
+                                          FROM this->rightsinfo->objecttypes
+                                         WHERE rightsgroup = groups.name
+                                           AND this->IsObjectTypeVisible(name))
+               , expanded       := FALSE
+               , wrdschemaid    := 0
+            FROM this->rightsinfo->rightsgroups AS groups
+           WHERE RecordExists(SELECT FROM this->rightsinfo->rights WHERE rightsgroup = groups.name)
+              OR RecordExists(SELECT FROM this->rightsinfo->objecttypes WHERE rightsgroup = groups.name);
+
+      results :=
+          SELECT *
+            FROM results
+           WHERE this->IsRightsGroupVisible(rightsgroup, expandable);
+    }
+    ELSE
+    {
+      IF (row.isglobal)
+      {
+        results :=
+            SELECT rowkey         := "obj_0_" || name
+                 , title
+                 , sortkey        := ToUppercase(title)
+                 , hint           := description
+                 , icon           := this->thelist->GetIcon(icon = "" ? "tollium:tollium/tollium" : icon)
+                 , iconoverlay    := 0
+                 , isglobal       := FALSE
+                 , rightsgroup     := ""
+                 , objecttypename := name
+                 , objectid       := 0
+                 , expandable     := this->HasTypeAnyChildren(name)
+                 , expanded       := FALSE
+                 , wrdschemaid    := 0
+              FROM this->rightsinfo->objecttypes
+             WHERE rightsgroup = row.rightsgroup
+               AND this->IsObjectTypeVisible(name);
+      }
+      ELSE
+      {
+        RECORD ARRAY children := this->GetRightsChildren(row.objecttypename, row.objectid);
+
+        // No sort needed, the children are already sorted
+        results :=
+            SELECT rowkey         := "obj_"||id||"_" || row.objecttypename
+                 , title          := name
+                 , sortkey
+                 , hint           := name
+                 , icon           := this->thelist->GetIcon(icon = "" ? "tollium:tollium" : icon)
+                 , iconoverlay    := 0
+                 , isglobal       := FALSE
+                 , rightsgroup     := ""
+                 , objecttypename := row.objecttypename
+                 , objectid       := id
+                 , expandable     := haschildren
+                 , expanded       := FALSE
+                 , wrdschemaid    := wrdschemaid
+              FROM children;
+      }
+    }
+
+    IF (this->pvt_onextendchildren != DEFAULT FUNCTION PTR)
+      results := this->pvt_onextendchildren(results, row);
+
+    RETURN results;
+  }
+
+
+  STRING ARRAY FUNCTION GetPath(STRING rowkey)
+  {
+    IF (rowkey LIKE "group_")
+      RETURN [ rowkey ];
+
+    STRING id_type := SubString(rowkey, SearchSubString(rowkey, "_") + 1);
+    INTEGER upos := SearchSubString(id_type, "_");
+
+    INTEGER objectid := ToInteger(LEFT(id_type, upos), 0);
+    STRING objecttypename := SubString(id_type, upos + 1);
+
+    RECORD typerec := this->rightsinfo->GetObjectTypeByName(objecttypename);
+
+    STRING ARRAY path :=
+        [ "group_" || typerec.rightsgroup
+        , "obj_0_" || objecttypename
+        ];
+
+    RECORD opath := this->owner->tolliumuser->GetObjectPath(objecttypename, objectid);
+    IF (NOT opath.visible)
+      RETURN DEFAULT STRING ARRAY;
+
+    RETURN path CONCAT
+        SELECT AS STRING ARRAY "obj_" || id || "_" || objecttypename
+          FROM opath.path
+         WHERE id != 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC MACRO SelectRightsGroup(STRING rightsgroup)
+  {
+    IF (this->thelist->selectmode = "single")
+      this->thelist->value := "group_" || rightsgroup;
+    ELSE
+      this->thelist->value := [ "group_" || rightsgroup ];
+  }
+
+
+  PUBLIC MACRO SelectObject(STRING objecttypename, INTEGER objectid)
+  {
+    IF (this->thelist->selectmode = "single")
+      this->thelist->value := "obj_" || objectid || "_" || objecttypename;
+    ELSE
+      this->thelist->value := [ "obj_" || objectid || "_" || objecttypename ];
+  }
+
+
+  PUBLIC MACRO ReloadList()
+  {
+    this->thelist->ReloadList();
+  }
+
+
+  PUBLIC RECORD ARRAY FUNCTION GetRelevantRightsForRow(RECORD sel)
+  {
+    IF (NOT RecordExists(sel))
+      RETURN DEFAULT RECORD ARRAY;
+
+    IF (sel.rightsgroup != "")
+    {
+      RETURN
+          SELECT *
+            FROM this->rightsinfo->rights
+           WHERE rightsgroup = sel.rightsgroup
+             AND isglobal
+             AND this->owner->tolliumuser->HasRight(name);
+    }
+    ELSE
+    {
+      RETURN
+          SELECT *
+            FROM this->rightsinfo->rights
+           WHERE objecttypename = sel.objecttypename
+             AND this->owner->tolliumuser->HasRightOnAny(name);
+    }
+  }
+
+
+  PUBLIC INTEGER FUNCTION GetIcon(STRING iconname)
+  {
+    RETURN this->thelist->GetIcon(iconname);
+  }
+
+>;

@@ -1,0 +1,97 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/internal/browsers/chrome/devtoolsconnection.whlib";
+
+
+/* Roughly adapted from chrome-remote-interface
+*/
+
+PUBLIC STATIC OBJECTTYPE ChromeConnector
+<
+  STRING url;
+  RECORD protocol;
+  OBJECT browser;
+  RECORD options;
+
+  MACRO NEW(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->options := ValidateOptions([ debug := FALSE ], options);
+    this->url := url;
+    this->browser := NEW WebBrowser;
+  }
+
+  PUBLIC ASYNC FUNCTION GetVersion()
+  {
+    IF (NOT AWAIT this->browser->AsyncGotoWebPage(ResolveToAbsoluteURL(this->url, "/json/version")))
+      THROW NEW Exception("Could not retrieve browser version");
+
+    RETURN DecodeJSONBLob(this->browser->content);
+  }
+
+  PUBLIC ASYNC FUNCTION GetProtocol()
+  {
+    IF (NOT RecordExists(this->protocol))
+    {
+      IF (NOT AWAIT this->browser->AsyncGotoWebPage(ResolveToAbsoluteURL(this->url, "/json/protocol")))
+        THROW NEW Exception("Could not retrieve protocol");
+
+      this->protocol := DecodeJSONBLob(this->browser->content);
+    }
+    RETURN this->protocol;
+  }
+
+  PUBLIC ASYNC FUNCTION ListSessions()
+  {
+    IF (NOT AWAIT this->browser->AsyncGotoWebPage(ResolveToAbsoluteURL(this->url, "/json/list")))
+      THROW NEW Exception("Could not retrieve protocol");
+
+    RETURN DecodeJSONBLob(this->browser->content);
+  }
+
+  PUBLIC ASYNC FUNCTION NewSession(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ url := "" ], options);
+    STRING url := ResolveToAbsoluteURL(this->url, "/json/new");
+    IF (options.url != "")
+      url := `${url}?${options.url}`;
+
+    IF (NOT AWAIT this->browser->AsyncGotoWebPage(url))
+      THROW NEW Exception("Could not create browser session: " || this->browser->GetHTTPStatusText() || " from " || url);
+
+    RETURN DecodeJSONBLob(this->browser->content);
+  }
+
+  PUBLIC ASYNC FUNCTION ActivateSession(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ id := "" ], options, [ required := [ "id" ]]);
+    STRING url := ResolveToAbsoluteURL(this->url, `/json/activate/${options.id}`);
+
+    IF (NOT AWAIT this->browser->AsyncGotoWebPage(url))
+      THROW NEW Exception("Could not retrieve browser version");
+
+    RETURN DecodeJSONBLob(this->browser->content);
+  }
+
+  PUBLIC ASYNC FUNCTION CloseSession(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ id := "" ], options, [ required := [ "id" ]]);
+    STRING url := ResolveToAbsoluteURL(this->url, `/json/close/${options.id}`);
+
+    IF (NOT AWAIT this->browser->AsyncGotoWebPage(url))
+      THROW NEW Exception("Could not close session");
+
+    RETURN DecodeJSONBLob(this->browser->content);
+  }
+
+  PUBLIC ASYNC FUNCTION ConnectToSession(RECORD session)
+  {
+    RECORD sock := this->browser->OpenWebSocket(session.websocketdebuggerurl, RECORD[]);
+    IF (NOT sock.success)
+      RETURN DEFAULT OBJECT;
+
+    RETURN NEW DevToolsConnection(sock.conn, AWAIT this->GetProtocol(), [ debug := this->options.debug ]);
+  }
+>;

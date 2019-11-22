@@ -1,0 +1,757 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::socialite/lib/database.whlib";
+LOADLIB "mod::socialite/lib/api.whlib";
+LOADLIB "mod::socialite/lib/commondialogs.whlib";
+LOADLIB "mod::socialite/lib/internal/support.whlib";
+
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->Refresh();
+    this->CreateDocumentationMenu();
+    this->SelectApplication();
+
+    IF(Length(data.params)>1 AND data.params[0]="feeds") //ADDME rempve or perm check
+    {
+      OBJECT sessiondialog := this->LoadScreen('feeds.feeds', [ sessionid := ToInteger(data.params[1],0) ]);
+      sessiondialog->RunModal();
+    }
+
+    IF(Length(data.params)=4 AND data.params[0]="authorize")
+    {
+      INTEGER accountid := SELECT AS INTEGER id FROM this->apps->rows WHERE isaccount AND tag = data.params[1];
+      this->apps->value :=
+          SELECT AS STRING rowkey
+            FROM this->apps->rows
+           WHERE isapp
+             AND COLUMN accountid = VAR accountid
+             AND tag = data.params[2];
+
+      this->persistent_list->value := SELECT AS INTEGER rowkey FROM this->persistent_list->rows WHERE tag = data.params[3];
+      IF (this->persistent_list->value != 0)
+        this->DoAuthorizePersistentSession();
+    }
+  }
+
+  MACRO CreateDocumentationMenu()
+  {
+    FOREVERY(RECORD network FROM socialnetworks)
+    {
+      OBJECT networkmenuitem := this->CreateTolliumComponent("menuitem");
+      networkmenuitem->title := network.title;
+
+      IF (Length(network.helplinks) > 0)
+      {
+        INSERT [ menuitem := networkmenuitem, isdivider := FALSE ] INTO this->documentation->items AT END;
+
+        FOREVERY(RECORD link FROM network.helplinks)
+        {
+          OBJECT gotoaction := this->CreateTolliumComponent("action");
+          gotoaction->onexecute := PTR this->frame->OpenBrowserWindow(link.link, "_blank");
+
+          OBJECT linkmenuitem := this->CreateTolliumComponent("menuitem");
+          linkmenuitem->title := link.title;
+          linkmenuitem->action := gotoaction;
+
+          INSERT [ menuitem := linkmenuitem, isdivider := FALSE ] INTO networkmenuitem->items AT END;
+        }
+      }
+    }
+  }
+
+  MACRO Refresh()
+  {
+    this->apps->rows := this->GetAccounts();
+  }
+
+  MACRO RefreshSessions()
+  {
+    RECORD ARRAY app_sessions :=
+      SELECT rowkey := id
+           , title
+           , tag
+           , persistent
+           , authorized := authorized ? 1 : 0
+           , authorizedat
+        FROM socialite.sessions
+       WHERE application = this->apps->selection.id;
+
+    this->persistent_list->rows :=
+      SELECT * FROM app_sessions WHERE persistent;
+
+    RECORD ARRAY normal_sessions :=
+      SELECT * FROM app_sessions WHERE NOT persistent;
+
+    IF (LENGTH(normal_sessions) >= 250)
+    {
+      this->session_list->rows := DEFAULT RECORD ARRAY;
+      this->session_list->empty := GetTid("socialite:config.main.toomanysessions", ToString(LENGTH(normal_sessions)));
+    }
+    ELSE
+    {
+      this->session_list->rows := normal_sessions;
+      this->session_list->empty := "";
+    }
+  }
+
+  RECORD ARRAY FUNCTION GetAccounts()
+  {
+    RECORD ARRAY accounts := SELECT * FROM socialite.accounts;
+
+    RETURN
+      SELECT isaccount := TRUE
+           , isapp := FALSE
+           , title
+           , rowkey := "account_" || id
+           , accountid := id
+           , id
+           , tag
+           , expanded := FALSE
+           , subnodes := this->GetApplications(id)
+        FROM accounts
+    ORDER BY ToUpperCase(title), id;
+  }
+
+  RECORD ARRAY FUNCTION GetApplications(INTEGER accountid)
+  {
+    RECORD ARRAY applications := SELECT * FROM socialite.applications WHERE account = accountid;
+
+    RETURN
+      SELECT isaccount := FALSE
+           , isapp := TRUE
+           , title
+           , rowkey := "application_" || id
+           , accountid := accountid
+           , id
+           , tag
+           , expanded := TRUE
+           , subnodes := DEFAULT RECORD ARRAY
+        FROM applications;
+  }
+
+  MACRO DoImportAccount()
+  {
+    OBJECT accountdialog := this->LoadScreen(".importaccount");
+    accountdialog->RunModal();
+    this->Refresh();
+  }
+
+  MACRO DoExportAccount()
+  {
+    OBJECT accountdialog := this->LoadScreen(".exportaccount", [ account := this->apps->selection.id  ]);
+    accountdialog->RunModal();
+  }
+
+  MACRO DoAddAccount()
+  {
+    OBJECT accountdialog := this->LoadScreen(".account");
+    accountdialog->RunModal();
+    this->Refresh();
+  }
+
+  MACRO DoAddApplication()
+  {
+    OBJECT accountdialog := this->LoadScreen(".application", [ account := this->apps->selection.id, id := 0 ]);
+    accountdialog->RunModal();
+    this->Refresh();
+  }
+
+  MACRO DoEditAccount()
+  {
+    OBJECT accountdialog := this->LoadScreen(".account", [id := this->apps->selection.id]);
+    accountdialog->RunModal();
+    this->Refresh();
+  }
+
+  MACRO DoEditApplication()
+  {
+    OBJECT accountdialog := this->LoadScreen(".application", [ account := 0, id := this->apps->selection.id ]);
+    accountdialog->RunModal();
+    this->Refresh();
+  }
+
+  MACRO DoDeleteAccount()
+  {
+    IF (this->RunMessageBox(".delete_confirmation") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      DELETE FROM socialite.accounts WHERE id = this->apps->selection.id;
+      work->Finish();
+    }
+
+    this->Refresh();
+  }
+
+  MACRO DoDeleteApplication()
+  {
+    IF (this->RunMessageBox(".delete_confirmation") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      DELETE FROM socialite.applications WHERE id = this->apps->selection.id;
+      work->Finish();
+      BroadcastEvent("socialite:applications", DEFAULT RECORD);
+    }
+
+    this->Refresh();
+  }
+
+  MACRO DoAddPersistent()
+  {
+    OBJECT persistentdialog := this->LoadScreen(".persistent", [ id := 0, application := this->apps->selection.id ]);
+    persistentdialog->RunModal();
+    this->RefreshSessions();
+  }
+
+  MACRO DoEditPersistent()
+  {
+    OBJECT persistentdialog := this->LoadScreen(".persistent", [ id := this->persistent_list->value, application := this->apps->selection.id ]);
+    persistentdialog->RunModal();
+    this->RefreshSessions();
+  }
+
+  MACRO DoDeletePersistent()
+  {
+    IF (this->RunMessageBox(".delete_confirmation") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      DELETE FROM socialite.sessions WHERE id = this->persistent_list->value;
+      work->Finish();
+    }
+
+    this->RefreshSessions();
+  }
+
+  MACRO SelectApplication()
+  {
+    BOOLEAN isapplication := (RecordExists(this->apps->selection) ? this->apps->selection.isapp : FALSE);
+    this->sessiontabs->visible := isapplication;
+
+    IF (isapplication)
+    {
+      this->RefreshSessions();
+    }
+  }
+
+  MACRO DoAuthorizeSession()
+  {
+    this->DoAuthorize(this->session_list->value);
+  }
+
+  MACRO DoAuthorizePersistentSession()
+  {
+    this->DoAuthorize(this->persistent_list->value);
+  }
+
+  MACRO DoDeauthorizePersistentSession()
+  {
+    this->DoDeAuthorize(this->persistent_list->value);
+  }
+
+  MACRO DoAuthorize(INTEGER sessionid)
+  {
+    OBJECT dialog := CreateAuthorizationDialog(this, this->persistent_list->value);
+    dialog->RunModal();
+
+    this->RefreshSessions();
+  }
+
+  MACRO DoDeAuthorize(INTEGER sessionid)
+  {
+    IF (this->RunMessageBox(".suredeauthorizesession") = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      UPDATE socialite.sessions
+         SET authorized :=      FALSE
+           , authorizedat :=    DEFAULT DATETIME
+           , accesstoken :=     ""
+       WHERE application = this->apps->selection.id
+         AND id = sessionid;
+
+      work->Finish();
+      this->RefreshSessions();
+    }
+  }
+
+  MACRO DoViewTemporarySession()
+  {
+    this->DoViewSession(this->session_list->value);
+  }
+
+  MACRO DoViewPersistentSession()
+  {
+    this->DoViewSession(this->persistent_list->value);
+  }
+
+  MACRO DoViewSession(INTEGER sessionid)
+  {
+    OBJECT sessiondialog := this->LoadScreen('.viewsession', [ sessionid := sessionid ]);
+    sessiondialog->RunModal();
+  }
+
+  MACRO DoViewFeeds()
+  {
+    OBJECT sessiondialog := this->LoadScreen('feeds.feeds', [ sessionid := this->persistent_list->value ]);
+    sessiondialog->RunModal();
+  }
+
+  MACRO DoViewAnonymousFeeds()
+  {
+    OBJECT sessiondialog := this->LoadScreen('feeds.feeds', [ sessionid := 0 ]);
+    sessiondialog->RunModal();
+  }
+
+  MACRO DoImportSecureToken()
+  {
+    OBJECT screen := this->LoadScreen(".importsecuretoken" , [ appid := this->apps->selection.id ]);
+    screen->RunModal();
+  }
+
+  MACRO DoSetSecureToken()
+  {
+    OBJECT screen := this->LoadScreen(".setsecuretoken" , [ id := this->persistent_list->value ]);
+    screen->RunModal();
+  }
+
+  MACRO DoExit()
+  {
+    this->tolliumresult := "ok";
+  }
+>;
+
+PUBLIC OBJECTTYPE Account EXTEND TolliumScreenBase
+<
+  INTEGER accountid;
+
+  MACRO Init(RECORD data)
+  {
+    IF (RecordExists(data))
+    {
+      this->accountid := data.id;
+
+      RECORD accountrec := SELECT * FROM socialite.accounts WHERE accounts.id = data.id;
+      this->title->value := accountrec.title;
+      this->tag->value := accountrec.tag;
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    IF (this->accountid = 0)
+      INSERT INTO socialite.accounts(title, tag) VALUES (this->title->value, this->tag->value);
+    ELSE
+      UPDATE socialite.accounts SET title := this->title->value, tag := this->tag->value WHERE id = this->accountid;
+
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE Application EXTEND TolliumScreenBase
+<
+  INTEGER accountid;
+  INTEGER applicationid;
+  STRING ARRAY networksetup;
+
+  MACRO Init(RECORD data)
+  {
+    this->accountid := data.account;
+    this->applicationid := data.id;
+    this->applicationtype->options := SELECT rowkey := tag, title FROM socialnetworks ORDER BY ToUpperCase(title), tag;
+
+    RECORD applicationrec;
+    IF (this->applicationid != 0)
+      applicationrec := SELECT * FROM socialite.applications WHERE applications.id = data.id;
+
+    IF(RecordExists(applicationrec))
+    {
+      this->title->value := applicationrec.title;
+      this->tag->value := applicationrec.tag;
+      this->applicationtype->value := applicationrec.type;
+      this->remarks->value := applicationrec.remarks;
+      this->logrpc->value := applicationrec.logrpc;
+    }
+
+    this->ChangeType();
+
+    IF(RecordExists(applicationrec))
+    {
+      IF("PUBKEY" IN this->networksetup)
+        this->publickey->value := this->GetKey("publickey");
+      IF("PVTKEY" IN this->networksetup)
+        this->privatekey->value := this->GetKey("privatekey");
+      IF("CALLBACKHOST" IN this->networksetup)
+        this->authenticationcallbackhost->value := this->GetKey("authcallbackhosturl");
+      IF("EMULATORURL" IN this->networksetup)
+        this->emulationurl->value := this->GetKey("emulationurl");
+      IF("DEVELOPERKEY" IN this->networksetup)
+        this->developerkey->value := this->GetKey("developerkey");
+      this->jsredirecturl->value := this->GetKey("jsredirecturl");
+
+      this->applicationtype->enabled := FALSE;
+    }
+  }
+
+  MACRO ChangeType()
+  {
+    RECORD networkinfo := SELECT * FROM socialnetworks WHERE tag = this->applicationtype->value;
+    IF (NOT RecordExists(networkinfo)) // unknown network, probably one we supported in the past, but which isn't supported anymore
+      RETURN;
+
+    this->networksetup := networkinfo.setup;
+
+    this->publickey->visible := "PUBKEY" IN this->networksetup;
+    this->privatekey->visible := "PVTKEY" IN this->networksetup;
+
+    this->emulationurl->visible := "EMULATORURL" IN this->networksetup;
+    this->emulationurl->required := "EMULATORURL" IN this->networksetup;
+    this->authenticationcallbackhost->visible := "CALLBACKHOST" IN this->networksetup;
+    this->developerkey->visible := "DEVELOPERKEY" IN this->networksetup;
+    this->developerkey->required := "DEVELOPERKEY" IN this->networksetup;
+  }
+
+  STRING FUNCTION GetKey(STRING lookup_tag)
+  {
+    RETURN
+      SELECT AS STRING value FROM socialite.applicationkeys WHERE tag = lookup_tag AND COLUMN application = this->applicationid;
+  }
+
+  MACRO SetKey(STRING lookup_tag, STRING new_value)
+  {
+    RECORD old_entry := SELECT * FROM socialite.applicationkeys WHERE tag = lookup_tag AND COLUMN application = this->applicationid;
+
+    IF (RecordExists(old_entry))
+    {
+      UPDATE socialite.applicationkeys SET value := new_value WHERE id = old_entry.id;
+    }
+    ELSE
+    {
+      INSERT INTO socialite.applicationkeys(application, tag, value) VALUES(this->applicationid, lookup_tag, new_value);
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF(work->HasFailed())
+      RETURN work->Finish();
+
+    IF (this->applicationid = 0)
+    {
+      this->applicationid := MakeAutonumber(socialite.applications, "id");
+      INSERT INTO socialite.applications(id, account, title, tag, type, remarks, logrpc)
+             VALUES (this->applicationid, this->accountid, this->title->value, this->tag->value, this->applicationtype->value, this->remarks->value, this->logrpc->value);
+    }
+    ELSE
+    {
+      UPDATE socialite.applications
+         SET title := this->title->value
+           , tag := this->tag->value
+           , remarks := this->remarks->value
+           , logrpc := this->logrpc->value
+       WHERE id = this->applicationid;
+    }
+
+    IF("PUBKEY" IN this->networksetup)
+      this->SetKey("publickey", this->publickey->value);
+    IF("PVTKEY" IN this->networksetup)
+      this->SetKey("privatekey", this->privatekey->value);
+    IF("CALLBACKHOST" IN this->networksetup)
+      this->SetKey("authcallbackhosturl", this->authenticationcallbackhost->value);
+    IF("EMULATORURL" IN this->networksetup)
+      this->SetKey("emulationurl", this->emulationurl->value);
+    IF("DEVELOPERKEY" IN this->networksetup)
+      this->SetKey("developerkey", this->developerkey->value);
+    this->SetKey("jsredirecturl", this->jsredirecturl->value);
+
+    BOOLEAN result := work->Finish();
+    BroadcastEvent("socialite:applications", DEFAULT RECORD);
+    RETURN result;
+  }
+>;
+
+PUBLIC OBJECTTYPE Persistent EXTEND TolliumScreenBase
+<
+  INTEGER applicationid;
+  INTEGER sessionid;
+  OBJECT socialapp;
+
+  MACRO Init(RECORD data)
+  {
+    this->applicationid := data.application;
+    this->sessionid := data.id;
+
+    RECORD app := SELECT * FROM socialite.applications WHERE id = data.application;
+
+    STRING networkname := app.type;
+
+    this->socialapp := OpenSocialiteConnectionById(app.id);
+
+    IF (this->socialapp->newpermissionmodel)
+    {
+      this->requestpermissions->options :=
+          SELECT rowkey := name
+               , title  := name
+            FROM this->socialapp->permissionmap
+        ORDER BY ToUppercase(name);
+    }
+    ELSE
+    {
+      this->requestpermissions->options :=
+          SELECT rowkey := ToString(id)
+               , title  := userapi // FIXME: or use GetTid()?
+            FROM globalpermissionmap
+           WHERE ToUpperCase(networkname) IN networks
+        ORDER BY ToUppercase(userapi);
+    }
+
+    STRING loginuri;
+
+    IF (this->sessionid != 0)
+    {
+      RECORD sessionrec := SELECT * FROM socialite.sessions WHERE sessions.id = this->sessionid;
+
+      this->title->value := sessionrec.title;
+      this->tag->value := sessionrec.tag;
+      this->authorizationremark->value := sessionrec.authorizationremark;
+      this->expirationwarning->value := sessionrec.expirationwarning;
+
+      TRY
+      {
+        this->socialapp->OpenPersistentSessionByTag(sessionrec.tag);
+        this->securetoken->value := this->socialapp->GetSecureAccessToken();
+      }
+      CATCH(OBJECT e)
+      {
+        //sesssion never logged in, probably. ignore.
+      }
+
+      this->requestpermissions->value := sessionrec.requestpermissions = ""
+          ? DEFAULT STRING ARRAY
+          : Tokenize(sessionrec.requestpermissions, ",");
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    STRING requestpermissions := Detokenize(this->requestpermissions->value, ',');
+
+    IF (this->sessionid = 0)
+    {
+      //this->sessionid := this->socialapp->CreateNewSessionByAppTag(app.tag, this->title->value, this->tag->value, TRUE);
+      this->sessionid := MakeAutonumber(socialite.sessions, "id");
+      INSERT INTO socialite.sessions(id, application, title, tag, authorizationremark, persistent, requestpermissions, expirationwarning)
+           VALUES (this->sessionid, this->applicationid, this->title->value, this->tag->value, this->authorizationremark->value, TRUE, requestpermissions, this->expirationwarning->value);
+    }
+    ELSE
+    {
+      UPDATE socialite.sessions
+         SET title := this->title->value
+           , tag := this->tag->value
+           , authorizationremark := this->authorizationremark->value
+           , requestpermissions := VAR requestpermissions
+           , expirationwarning := this->expirationwarning->value
+       WHERE id = this->sessionid;
+    }
+
+    RETURN work->Finish();
+  }
+>;
+
+
+PUBLIC OBJECTTYPE ViewSession EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD session :=
+        SELECT *
+          FROM socialite.sessions
+         WHERE id = data.sessionid;
+
+    this->sessionkeys->rows :=
+        SELECT tag :=   ToLowercase(name)
+             , value := this->AnyToString(value)
+          FROM UnpackRecord(session);
+       //WHERE value != ""
+//        WHERE ToUppercase(name) IN [ "ACCESSTOKEN", "USERID", "METHODS" ];
+  }
+
+  STRING FUNCTION AnyToString(VARIANT value)
+  {
+    IF (TypeID(value) = TypeID(0))
+      RETURN ToString(value);
+
+    IF (TypeID(value) = TypeID(BOOLEAN))
+      RETURN value ? "TRUE" : "FALSE";
+
+    IF (TypeID(Value) = TypeID(DATETIME))
+      RETURN this->tolliumuser->FormatDate(value, TRUE, TRUE);
+
+    RETURN value;
+  }
+
+>;
+
+PUBLIC OBJECTTYPE importsecuretoken EXTEND TolliumScreenBase
+<
+  INTEGER appid;
+
+  MACRO Init(RECORD data)
+  {
+    this->appid := data.appid;
+  }
+  MACRO DoImport()
+  {
+    this->outputtoken->value := "";
+
+    OBJECT work := this->BeginFeedback();
+    RECORD tok := SplitSecureToken(this->inputtoken->value);
+    IF(NOT RecordExists(tok))
+    {
+      work->AddErrorFor(this->inputtoken, GetTid("socialite:common.errors.invalidtoken"));
+    }
+    ELSE
+    {
+      OBJECT conn := OpenSocialiteConnectionById(this->appid);
+      IF(NOT conn->SetSecureEncryptedHandle(tok.encryptedhandle))
+      {
+        work->AddErrorFor(this->inputtoken, GetTid("socialite:common.errors.incorrectapp"));
+      }
+      ELSE
+      {
+        this->outputtoken->value := conn->GetSecureAccessToken();
+      }
+    }
+    work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE SetSecureToken EXTEND TolliumScreenBase
+<
+  INTEGER sessionid;
+
+  MACRO Init(RECORD data)
+  {
+    this->sessionid := data.id;
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    RECORD sessionrec := SELECT * FROM socialite.sessions WHERE sessions.id = this->sessionid;
+    OBJECT conn := OpenSocialiteConnectionById(sessionrec.application);
+    RECORD tok := SplitSecureToken(this->inputtoken->value);
+
+    IF(NOT RecordExists(tok))
+    {
+      work->AddErrorFor(this->inputtoken, GetTid("socialite:common.errors.invalidtoken"));
+    }
+    ELSE
+    {
+      IF(NOT conn->SetSecureEncryptedHandle(tok.encryptedhandle))
+      {
+        work->AddErrorFor(this->inputtoken, GetTid("socialite:common.errors.incorrectapp"));
+      }
+      ELSE
+      {
+        conn->UpdateStoredAccessToken(this->sessionid);
+      }
+    }
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE ImportAccount EXTEND TolliumScreenBase
+<
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    OBJECT doc := MakeXMLDocument(StringToBlob(this->data->value));
+
+    IF(NOT ObjectExists(doc->documentelement) OR Length(doc->GetParseErrors())>0)
+    {
+      work->AddError(this->GetTid(".invalidxml"));
+    }
+    ELSE IF(doc->documentelement->namespaceuri != "http://www.webhare.net/xmlns/socialite/account" OR doc->documentelement->localname != "account")
+    {
+      work->AddError(this->GetTid(".notaccountxml"));
+    }
+    ELSE
+    {
+      RECORD data := doc->documentelement->__INTERNAL_GetHSValue();
+      IF(RecordExists(SELECT FROM socialite.accounts WHERE ToUppercase(tag) = ToUppercase(data.tag)))
+      {
+        work->AddError(this->GetTid(".accountexists", data.tag));
+      }
+      ELSE
+      {
+        INTEGER accountid := MakeAutonumber(socialite.accounts,"id");
+        INSERT INTO socialite.accounts(id,tag,title)
+               VALUES(accountid,data.tag,data.title);
+        FOREVERY(RECORD app FROM data.apps)
+        {
+          INTEGER appid := MakeAutonumber(socialite.applications,"id");
+          INSERT INTO socialite.applications(account,id,tag,title,type,remarks)
+                 VALUES(accountid,appid,app.tag,app.title,app.type,app.remarks);
+
+          FOREVERY(RECORD keyrec FROM app.keys)
+          {
+            INSERT INTO socialite.applicationkeys(application,tag,value)
+                   VALUES(appid, keyrec.tag, keyrec.value);
+          }
+          FOREVERY(RECORD psession FROM app.persistentsessions)
+          {
+            INSERT INTO socialite.sessions(application,persistent,title,tag,methods,requestpermissions)
+                   VALUES(appid, TRUE, psession.title, psession.tag, psession.methods, psession.requestpermissions);
+          }
+        }
+      }
+    }
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE ExportAccount EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD accountinfo := SELECT accounts.title
+                               , accounts.tag
+                               , apps := (SELECT tag
+                                               , title
+                                               , type
+                                               , remarks
+                                               , keys := (SELECT tag
+                                                               , value
+                                                            FROM socialite.applicationkeys
+                                                           WHERE applicationkeys.application = applications.id
+                                                        ORDER BY tag)
+                                               , persistentsessions := (SELECT title
+                                                                             , tag
+                                                                             , methods
+                                                                             , requestpermissions
+                                                                          FROM socialite.sessions
+                                                                         WHERE sessions.application = applications.id
+                                                                               AND sessions.persistent
+                                                                      ORDER BY tag)
+                                            FROM socialite.applications
+                                           WHERE applications.account = accounts.id
+                                        ORDER BY tag)
+                               FROM socialite.accounts WHERE id=data.account;
+
+    OBJECT accountdoc := NEW XMLDOMImplementation->CreateDocument("http://www.webhare.net/xmlns/socialite/account", "account", DEFAULT OBJECT);
+    accountdoc->documentelement->__Sethsvalue(accountinfo);
+
+    accountdoc->NormalizeDocument();
+    this->data->value := BlobToString(accountdoc->GetDocumentBlob(TRUE),-1);
+  }
+
+>;

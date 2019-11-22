@@ -1,0 +1,722 @@
+<?wh
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::util/geo.whlib" EXPORT ConvertFromLatLng, ConvertToLatLng;
+
+/*
+RD to WGS84 conversion functionality is based on rd2wgs by Ejo Schrama <schrama@geo.tudelft.nl>, more information at
+http://ejos.blogspot.com/2005/11/rd2wgs-and-semi-automatic-code.html, download from ftp://ocean.lr.tudelft.nl/ejo/rd2wgs
+
+Overlay clustering and pixel distance calculation are based on the artice "Introduction to Marker Clustering With Google
+Maps", located at http://www.appelsiini.net/2008/11/introduction-to-marker-clustering-with-google-maps
+
+Base64 encoding/decoding of INTEGER and FLOAT values is based on the algorithm as outlined in "Encoding Polyline Algorithm
+Format", located at http://code.google.com/apis/maps/documentation/polylinealgorithm.html
+*/
+
+
+// Restrict a value to the range [-range,+range]
+FLOAT FUNCTION RestrictTo(FLOAT value, FLOAT range)
+{
+  // Modulate the value by twice the range
+  FLOAT mod := 2 * range;
+  value := FMod(value, mod);
+
+  // If the the new value is outside the requested range, move it into the range
+  IF (value > range)
+    value := value - mod;
+  ELSE IF (value < -range)
+    value := value + mod;
+
+  RETURN value;
+}
+
+// Compare two floats for equality within a certain margin
+BOOLEAN FUNCTION EqualFloat(FLOAT a, FLOAT b)
+{
+  // We assume two floats are the same if they don't differ in the first six decimals (which in terms of degrees latitude
+  // and longitude corresponds to about 11 centimeters)
+  RETURN Abs(a - b) < 0.000001;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Base Google Maps objects used by support functions (and exported again by maps-v3.whlib)
+//
+
+/** The Google GLatLng object in HareScript.
+    See http://code.google.com/apis/maps/documentation/reference.html#GLatLng
+*/
+PUBLIC OBJECTTYPE GLatLng
+< FLOAT pvt_lat;
+  FLOAT pvt_lng;
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLng.lat
+  */
+  PUBLIC PROPERTY lat(pvt_lat, -);
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLng.lng
+  */
+  PUBLIC PROPERTY lng(pvt_lng, -);
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLng.GLatLng
+  */
+  MACRO NEW (FLOAT lat, FLOAT lng, BOOLEAN unbounded DEFAULTSTO FALSE)
+  {
+    IF (NOT unbounded)
+    {
+      // Restrict latitude to [-90,+90]
+      lat := RestrictTo(lat, 90);
+      // Restrict longitude to [-180,+180]
+      lng := RestrictTo(lng, 180);
+    }
+
+    this->pvt_lat := lat;
+    this->pvt_lng := lng;
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLng.latRadians
+  */
+  PUBLIC FLOAT FUNCTION LatRadians()
+  {
+    RETURN DegreesToRadians(this->lat);
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLng.lngRadians
+  */
+  PUBLIC FLOAT FUNCTION LngRadians()
+  {
+    RETURN DegreesToRadians(this->lng);
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLng.equals
+  */
+  PUBLIC BOOLEAN FUNCTION Equals(OBJECT other)
+  {
+    RETURN ObjectExists(other) AND EqualFloat(this->lat, other->lat) AND EqualFloat(this->lng, this->lng);
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLng.distanceFrom
+  */
+  PUBLIC FLOAT FUNCTION DistanceFrom(OBJECT other, FLOAT radius DEFAULTSTO 6378.137)
+  {
+    IF (NOT ObjectExists(other))
+      RETURN 0;
+
+    RETURN GetLatLngDistance([ lat := this->lat, lng := this->lng ], [ lat := other->lat, lng := other->lng ], CELL[radius]);
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLng.toUrlValue
+  */
+  PUBLIC STRING FUNCTION ToUrlValue(INTEGER precision DEFAULTSTO 6)
+  {
+    RETURN FormatFloat(this->lat, precision) || "," || FormatFloat(this->lng, precision);
+  }
+
+  /** HareScript extension: Creates a [ FLOAT lat, FLOAT lng ] record for this GLatLng object.
+  */
+  PUBLIC RECORD FUNCTION ToRecord()
+  {
+    RETURN [ lat := this->pvt_lat
+           , lng := this->pvt_lng
+           ];
+  }
+>;
+
+/** The Google GLatLngBounds object in HareScript.
+    See http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds
+*/
+PUBLIC OBJECTTYPE GLatLngBounds
+< FLOAT sw_lat;
+  FLOAT sw_lng;
+  FLOAT ne_lat;
+  FLOAT ne_lng;
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.GLatLngBounds
+  */
+  MACRO NEW (OBJECT sw, OBJECT ne)
+  {
+    IF (ObjectExists(sw))
+    {
+      this->sw_lat := sw->lat;
+      this->sw_lng := sw->lng;
+    }
+    IF (ObjectExists(ne))
+    {
+      this->ne_lat := ne->lat;
+      this->ne_lng := ne->lng;
+    }
+
+    // Restrict latitudes to [-90,+90]
+    this->sw_lat := RestrictTo(this->sw_lat, 90);
+    this->ne_lat := RestrictTo(this->ne_lat, 90);
+    // Restrict longitudes to [-180,+180]
+    this->sw_lng := RestrictTo(this->sw_lng, 180);
+    this->ne_lng := RestrictTo(this->ne_lng, 180);
+
+    // If the south point is located north of the north point, switch the points vertically
+    IF (this->sw_lat > this->ne_lat)
+    {
+      FLOAT lat := this->sw_lat;
+      this->sw_lat := this->ne_lat;
+      this->ne_lat := lat;
+    }
+
+    // If the west point is located east of the east point, subtract 360 degrees to move it to the west side of the west point
+    // (creating a point from coordinates normalizes the coordinates again)
+    IF (this->sw_lng > this->ne_lng)
+      this->sw_lng := this->sw_lng - 360;
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.equals
+  */
+  PUBLIC BOOLEAN FUNCTION Equals(OBJECT other)
+  {
+    RETURN ObjectExists(other)
+      AND this->GetSouthWest()->Equals(other->GetSouthWest())
+      AND this->GetNorthEast()->Equals(other->GetNorthEast());
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.containsLatLng
+  */
+  PUBLIC BOOLEAN FUNCTION ContainsLatLng(OBJECT latlng)
+  {
+    IF (NOT ObjectExists(latlng))
+      RETURN FALSE;
+
+    // If our west point is located east of the east point, subtract 360 degrees from the point's longitude
+    FLOAT pointlng := latlng->lng;
+    IF (this->sw_lng < -180)
+      pointlng := pointlng - 360;
+
+    RETURN latlng->lat >= this->sw_lat AND latlng->lat <= this->ne_lat
+      AND pointlng >= this->sw_lng AND pointlng <= this->ne_lng;
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.intersects
+  */
+  PUBLIC BOOLEAN FUNCTION Intersects(OBJECT other)
+  {
+    return false;//ADDME: Implement
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.containsBounds
+  */
+  PUBLIC BOOLEAN FUNCTION ContainsBounds(OBJECT other)
+  {
+    IF (NOT ObjectExists(other))
+      RETURN FALSE;
+
+    RETURN this->ContainsLatLng(other->GetSouthWest())
+      AND this->ContainsLatLng(other->GetNorthEast());
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.extend
+  */
+  PUBLIC MACRO Extend_(OBJECT latlng)
+  {
+    // Check if we already contain this point
+    IF (this->ContainsLatLng(latlng))
+      RETURN;
+
+    //ADDME: Implement
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.getSouthWest
+  */
+  PUBLIC OBJECT FUNCTION GetSouthWest()
+  {
+    RETURN NEW GLatLng(this->sw_lat, this->sw_lng);
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.getNorthEast
+  */
+  PUBLIC OBJECT FUNCTION GetNorthEast()
+  {
+    RETURN NEW GLatLng(this->ne_lat, this->ne_lng);
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.toSpan
+  */
+  PUBLIC OBJECT FUNCTION ToSpan()
+  {
+    RETURN NEW GLatLng((this->ne_lat - this->sw_lat), (this->ne_lng - this->sw_lng));
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.isFullLat
+  */
+  PUBLIC BOOLEAN FUNCTION IsFullLat()
+  {
+    RETURN EqualFloat(this->sw_lat, -90) AND EqualFloat(this->ne_lat, 90);
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.isFullLng
+  */
+  PUBLIC BOOLEAN FUNCTION IsFullLng()
+  {
+    RETURN EqualFloat(this->sw_lng, -180) AND EqualFloat(this->ne_lng, 180);
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.isEmpty
+  */
+  PUBLIC BOOLEAN FUNCTION IsEmpty()
+  {
+    RETURN EqualFloat(this->sw_lat, this->ne_lat) AND EqualFloat(this->sw_lng, this->ne_lng);
+  }
+
+  /** http://code.google.com/apis/maps/documentation/reference.html#GLatLngBounds.getCenter
+  */
+  PUBLIC OBJECT FUNCTION GetCenter()
+  {
+    RETURN NEW GLatLng((this->sw_lat + this->ne_lat) / 2, (this->sw_lng + this->ne_lng) / 2);
+  }
+
+  /** HareScript extension: Creates a [ RECORD sw, RECORD ne ] record containing two [ FLOAT lat, FLOAT lng ] records for
+      the south-west and north-east corners of this GLatLngBounds object.
+      @see GLatLng->ToRecord
+  */
+  PUBLIC RECORD FUNCTION ToRecord()
+  {
+    RETURN [ sw := this->GetSouthWest()->ToRecord()
+           , ne := this->GetNorthEast()->ToRecord()
+           ];
+  }
+>;
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Base64 encoding/decoding helper functions
+//
+
+STRING FUNCTION EncodeBase64Money(MONEY value)
+{
+  INTEGER intval := MoneyToInteger(value * 100000) BITLSHIFT 1;
+  IF (intval < 0)
+    intval := BITNEG intval;
+  RETURN EncodeBase64Integer(intval);
+}
+
+// only for positive integers!
+STRING FUNCTION EncodeBase64Integer(INTEGER value)
+{
+  STRING encoded;
+  WHILE (value > 0 OR encoded = "")
+  {
+    INTEGER chunk := value BITAND 0x1F;
+    value := value BITRSHIFT 5;
+    IF (value > 0)
+      chunk := chunk BITOR 0x20;
+    encoded := encoded || ByteToString(chunk + 63);
+  }
+  RETURN encoded;
+}
+
+MONEY ARRAY FUNCTION DecodeBase64Moneys(STRING value)
+{
+  MONEY ARRAY decodeds;
+  INTEGER ARRAY intvals := DecodeBase64Integers(value);
+  FOREVERY (INTEGER intval FROM intvals)
+  {
+    IF (intval BITAND 0x1 > 0)
+      intval := BITNEG intval;
+    INSERT ((intval BITRSHIFT 1) / 100000M) INTO decodeds AT END;
+  }
+  RETURN decodeds;
+}
+
+INTEGER ARRAY FUNCTION DecodeBase64Integers(STRING value)
+{
+  INTEGER ARRAY decodeds;
+  INTEGER decoded;
+  INTEGER bytecount;
+  FOR (INTEGER i := 0; i < Length(value); i := i + 1)
+  {
+    INTEGER v := GetByteValue(Substring(value, i, 1)) - 63;
+    decoded := decoded BITOR ((v BITAND 0x1F) BITLSHIFT (5 * bytecount));
+    bytecount := bytecount + 1;
+    IF (v BITAND 0x20 = 0)
+    {
+      INSERT decoded INTO decodeds AT END;
+      decoded := 0;
+      bytecount := 0;
+    }
+  }
+  RETURN decodeds;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// HareScript type conversion functions
+//
+
+/** @short Convert a coordinates string to a GLatLng object
+    @param coordinates A coordinate string in the format "langitude,latitude"
+    @return A GLatLng object, or a default object if the string could not be parsed
+    @see LatLngToString
+*/
+PUBLIC OBJECT FUNCTION StringToLatLngObject(STRING coordinates)
+{
+  STRING ARRAY parts := Tokenize(coordinates, ',');
+  IF (Length(parts) != 2)
+    RETURN DEFAULT OBJECT;
+
+  STRING part := TrimWhitespace(parts[0]);
+  IF (Left(part, 1) = "+")
+    part := Right(part, Length(part) - 1);
+  FLOAT lat := ToFloat(part, 0);
+  IF (lat = 0 AND ToFloat(part, 1) = 1)
+    RETURN DEFAULT OBJECT;
+
+  part := TrimWhitespace(parts[1]);
+  IF (Left(part, 1) = "+")
+    part := Right(part, Length(part) - 1);
+  FLOAT lng := ToFloat(part, 0);
+  IF (lng = 0 AND ToFloat(part, 1) = 1)
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW GLatLng(lat, lng);
+}
+
+/** @short Convert a GLatLng object to a coordinate string
+    @param latlng A GLatLng object
+    @return A coordinate string in the format "latitude,longitude", or an empty string if a default object was specified
+    @see StringToLatLng
+*/
+PUBLIC STRING FUNCTION LatLngObjectToString(OBJECT latlng)
+{
+  RETURN ObjectExists(latlng) ? latlng->ToUrlValue() : "";
+}
+
+PUBLIC STRING FUNCTION EncodeLatLng(OBJECT latlng)
+{
+  IF (NOT ObjectExists(latlng))
+    RETURN "";
+
+  // Round the lat & lng to 5 decimals
+  RETURN EncodeBase64Money(FloatToMoney(latlng->lat + 0.000005)) ||
+         EncodeBase64Money(FloatToMoney(latlng->lng + 0.000005));
+}
+
+PUBLIC OBJECT FUNCTION DecodeLatLng(STRING encoded)
+{
+  MONEY ARRAY parts := DecodeBase64Moneys(encoded);
+  IF (Length(parts) != 2)
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW GLatLng(parts[0], parts[1]);
+}
+
+PUBLIC STRING FUNCTION EncodeLatLngs(OBJECT ARRAY latlngs)
+{
+  RECORD ARRAY rounded;
+
+  RECORD last;
+  STRING encoded;
+
+  /* Round the coordinates to moneys before calculating differences,
+     to avoid accumulating rounding errors
+  */
+  FOREVERY (OBJECT latlng FROM latlngs)
+  {
+    RECORD curr :=
+        [ lat := FloatToMoney(latlng->lat + 0.000005)
+        , lng := FloatToMoney(latlng->lng + 0.000005)
+        ];
+
+    IF (#latlng = 0)
+      encoded := encoded || EncodeBase64Money(curr.lat) || EncodeBase64Money(curr.lng);
+    ELSE
+      encoded := encoded || EncodeBase64Money(curr.lat - last.lat) || EncodeBase64Money(curr.lng - last.lng);
+
+    last := curr;
+  }
+
+  RETURN encoded;
+}
+
+PUBLIC OBJECT ARRAY FUNCTION DecodeLatLngs(STRING encoded)
+{
+  OBJECT ARRAY latlngs;
+  MONEY ARRAY parts := DecodeBase64Moneys(encoded);
+  MONEY lat, lng;
+  FOR (INTEGER i := 0; i < Length(parts) - 1; i := i + 2)
+  {
+    lat := lat + parts[i];
+    lng := lng + parts[i + 1];
+    INSERT NEW GLatLng(lat, lng) INTO latlngs AT END;
+  }
+  RETURN latlngs;
+}
+
+PUBLIC RECORD ARRAY FUNCTION DecodeLatLngsToRecords(STRING encoded)
+{
+  RECORD ARRAY latlngs;
+  MONEY ARRAY parts := DecodeBase64Moneys(encoded);
+  MONEY lat, lng;
+  FOR (INTEGER i := 0; i < Length(parts) - 1; i := i + 2)
+  {
+    lat := lat + parts[i];
+    lng := lng + parts[i + 1];
+    INSERT [ lat := lat, lng := lng ] INTO latlngs AT END;
+  }
+  RETURN latlngs;
+}
+
+PUBLIC STRING FUNCTION EncodeLevels(INTEGER ARRAY levels)
+{
+  STRING encoded;
+  FOREVERY (INTEGER level FROM levels)
+    encoded := encoded || EncodeBase64Integer(level);
+  RETURN encoded;
+}
+
+PUBLIC INTEGER ARRAY FUNCTION DecodeLevels(STRING encoded)
+{
+  RETURN DecodeBase64Integers(encoded);
+}
+
+/** @short Convert a coordinates record to a GLatLng object
+    @param coordinates A [ FLOAT lat, FLOAT lng ] record
+    @return A GLatLng object, or a default object if an invalid record was specified
+    @see LatLngToRecord
+*/
+PUBLIC OBJECT FUNCTION RecordToLatLng(RECORD coordinates)
+{
+  IF (NOT RecordExists(coordinates)
+    OR NOT CellExists(coordinates, "lat") OR NOT CellExists(coordinates, "lng"))
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW GLatLng(coordinates.lat, coordinates.lng);
+}
+
+/** @short Convert a GLatLng object to a coordinates record
+    @param latlng A GLatLng object
+    @return A [ FLOAT lat, FLOAT lng ] record, or a default record if a default object was specified
+    @see RecordToLatLng
+*/
+PUBLIC RECORD FUNCTION LatLngToRecord(OBJECT latlng)
+{
+  RETURN ObjectExists(latlng) ? latlng->ToRecord() : DEFAULT RECORD;
+}
+
+/** @short Convert a coordinates string to a GLatLngBounds object
+    @param coordinates A coordinates string in the format "langitude,latitude;latitude,longitude"
+    @return A GLatLngBounds object, or a default object if the string could not be parsed
+    @see BoundsToString
+*/
+PUBLIC OBJECT FUNCTION StringToBounds(STRING coordinates)
+{
+  STRING ARRAY parts := Tokenize(coordinates, ';');
+  IF (Length(parts) != 2)
+    RETURN DEFAULT OBJECT;
+
+  OBJECT sw := StringToLatLngObject(parts[0]);
+  IF (NOT ObjectExists(sw))
+    RETURN DEFAULT OBJECT;
+
+  OBJECT ne := StringToLatLngObject(parts[1]);
+  IF (NOT ObjectExists(ne))
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW GLatLngBounds(sw, ne);
+}
+
+/** @short Convert a GLatLngBounds object to a coordinates string
+    @param bounds A GLatLngBounds object
+    @return A coordinates string in the format "latitude,longitude;latitude,longitude", or an empty string if a default
+            object was specified
+    @see StringToBounds
+*/
+PUBLIC STRING FUNCTION BoundsToString(OBJECT bounds)
+{
+  RETURN ObjectExists(bounds) ? bounds->GetSouthWest()->ToUrlValue() || ";" || bounds->GetNorthEast()->ToUrlValue() : "";
+}
+
+/** @short Convert a coordinates record to a GLatLngBounds object
+    @param coordinates A [ RECORD sw, RECORD ne ] record
+    @return A GLatLngBounds object, or a default object if an invalid record was specified
+    @see BoundsToRecord
+*/
+PUBLIC OBJECT FUNCTION RecordToBounds(RECORD coordinates)
+{
+  IF (NOT RecordExists(coordinates)
+    OR NOT CellExists(coordinates, "sw") OR NOT CellExists(coordinates, "ne"))
+    RETURN DEFAULT OBJECT;
+
+  OBJECT sw := RecordToLatLng(coordinates.sw);
+  IF (NOT ObjectExists(sw))
+    RETURN DEFAULT OBJECT;
+
+  OBJECT ne := RecordToLatLng(coordinates.ne);
+  IF (NOT ObjectExists(ne))
+    RETURN DEFAULT OBJECT;
+
+  RETURN NEW GLatLngBounds(sw, ne);
+}
+
+/** @short Convert a GLatLngBounds object to a coordinates record
+    @param bounds A GLatLngBounds object
+    @return A [ RECORD sw, RECORD ne ] record, or a default record if a default object was specified
+    @see RecordToBounds
+*/
+PUBLIC RECORD FUNCTION BoundsToRecord(OBJECT bounds)
+{
+  RETURN ObjectExists(bounds) ? bounds->ToRecord() : DEFAULT RECORD;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Overlay clustering
+//
+
+/** @short Calculate the number of pixels between two coordinates for a given zoom level
+    @param lat1 Latitude of the first point
+    @param lng1 Longitude of the first point
+    @param lat2 Latitude of the second point
+    @param lng2 Longitude of the second point
+    @param zoom The zoom level for which to calculate the pixel distance
+    @result The (approximate) number of pixels between the two points
+*/
+PUBLIC INTEGER FUNCTION PixelDistance(FLOAT lat1, FLOAT lng1, FLOAT lat2, FLOAT lng2, INTEGER zoom)
+{
+  RECORD p1 := ConvertFromLatLng([ lat := lat1, lng := lng1 ], "gm_pixels");
+  RECORD p2 := ConvertFromLatLng([ lat := lat2, lng := lng2 ], "gm_pixels");
+
+  RETURN PixelDistanceInternal(p1, p2, zoom);
+}
+
+INTEGER FUNCTION PixelDistanceInternal(RECORD p1, RECORD p2, INTEGER zoom)
+{
+  RETURN FloatToInteger(Floor(Sqrt(Pow(p1.x - p2.x, 2) + Pow(p1.y - p2.y, 2)) + 0.5)) BITRSHIFT (21 - zoom);
+}
+
+RECORD FUNCTION CombineFlagsRecords(RECORD flags1, RECORD flags2)
+{
+  IF (NOT RecordExists(flags2))
+    RETURN flags1;
+  ELSE IF (NOT RecordExists(flags1))
+    RETURN flags2;
+
+  FOREVERY (RECORD flag FROM UnpackRecord(flags1))
+    flags1 := CellUpdate(flags1, flag.name, flag.value OR GetCell(flags2, flag.name));
+  RETURN flags1;
+}
+
+/** @short Cluster map overlays which are within a given distance to each other
+    @param overlays The list of overlays to analyze (see GoogleMapComponent->overlays documentation)
+    @param zoom The zoom level of the map (needed to calculate pixel distances)
+    @param distance The distance in pixels within which overlays will be clustered
+    @param clusteredicon Optional icon name which will be applied to cluster overlays. If left empty, the icon property of
+                         the cluster overlay will be cleared.
+    @return A list of overlays, which can be used in a GoogleMapComponent
+*/
+PUBLIC RECORD ARRAY FUNCTION ClusterOverlays(RECORD ARRAY overlays, INTEGER zoom, INTEGER distance, STRING clusteredicon DEFAULTSTO "")
+{
+  // Try to avoid different results if the overlay order changes, don't select non-marker (polygon/polyline) overlays
+  RECORD ARRAY tocluster := SELECT * FROM overlays
+                             WHERE ToUppercase(type) = "MARKER"
+                             ORDER BY lat * lng, rowkey;
+  overlays := SELECT * FROM overlays
+               WHERE ToUppercase(type) != "MARKER";
+
+  // Insert internal cell containing pixel coordinates, insert/clear combined 'rowkeys' cell
+  FOREVERY (RECORD overlay FROM tocluster)
+  {
+    IF (NOT CellExists(overlay, "pvt_xy"))
+      INSERT CELL pvt_xy := DEFAULT RECORD INTO tocluster[#overlay];
+    tocluster[#overlay].pvt_xy := ConvertFromLatLng([ lat := overlay.lat, lng := overlay.lng ], "gm_pixels");
+
+    IF (NOT CellExists(overlay, "rowkeys"))
+      INSERT CELL rowkeys := DEFAULT VARIANT ARRAY INTO tocluster[#overlay];
+    ELSE
+      tocluster[#overlay].rowkeys := DEFAULT VARIANT ARRAY;
+    INSERT overlay.rowkey INTO tocluster[#overlay].rowkeys AT END;
+  }
+
+  RECORD ARRAY clustered;
+  WHILE (Length(tocluster) > 0)
+  {
+    // Get next overlay
+    RECORD overlay := tocluster[0];
+    DELETE FROM tocluster AT 0;
+
+    // Compare distance with other tocluster
+    FOREVERY (RECORD target FROM SELECT * FROM tocluster WHERE ToUppercase(type) = "MARKER")
+    {
+      IF (PixelDistanceInternal(overlay.pvt_xy, target.pvt_xy, zoom) < distance)
+      {
+        // Update mean location
+        INTEGER overlaycount := Length(overlay.rowkeys);
+        overlay.lat := (overlaycount * overlay.lat + target.lat) / (overlaycount + 1);
+        overlay.lng := (overlaycount * overlay.lng + target.lng) / (overlaycount + 1);
+
+        // Update rowkeys
+        INSERT target.rowkey INTO overlay.rowkeys AT END;
+
+        // Update flags
+        RECORD overlayflags := CellExists(overlay, "flags") ? overlay.flags : DEFAULT RECORD;
+        RECORD targetflags := CellExists(target, "flags") ? target.flags : DEFAULT RECORD;
+        IF (CellExists(overlay, "flags"))
+          overlay.flags := CombineFlagsRecords(overlayflags, targetflags);
+        ELSE
+          INSERT CELL flags := CombineFlagsRecords(overlayflags, targetflags) INTO overlay;
+        overlay.selectable := overlay.selectable OR target.selectable;
+
+        DELETE FROM tocluster WHERE rowkey = target.rowkey;
+      }
+    }
+
+    // If this is a overlay cluster (number of rowkeys > 1), update its icon
+    IF (Length(overlay.rowkeys) > 1)
+    {
+      IF (NOT CellExists(overlay, "icon"))
+        INSERT CELL icon := clusteredicon INTO overlay;
+      ELSE
+        overlay.icon := clusteredicon;
+      IF (CellExists(overlay, "hint"))
+        overlay.hint := "";
+      IF (CellExists(overlay, "infohtml"))
+        overlay.infohtml := "";
+    }
+
+    INSERT overlay INTO clustered AT END;
+  }
+  RETURN overlays CONCAT clustered;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Search result accuracy to zoom level mapping
+//
+
+/** @short Get an appropriate zoom level for a given geocoding accuracy
+    @long For more information on geocoding accuracy, see
+          http://code.google.com/apis/maps/documentation/geocoding/index.html#GeocodingAccuracy
+*/
+PUBLIC INTEGER FUNCTION GetZoomForAccuracy(INTEGER accuracy)
+{
+  SWITCH (accuracy)
+  {
+    // Country level accuracy
+    CASE 1 { RETURN 3; }
+    // Region (state, province, prefecture, etc.) level accuracy
+    CASE 2 { RETURN 6; }
+    // Sub-region (county, municipality, etc.) level accuracy
+    CASE 3 { RETURN 8; }
+    // Town (city, village) level accuracy
+    CASE 4 { RETURN 10; }
+    // Post code (zip code) level accuracy
+    CASE 5 { RETURN 12; }
+    // Street level accuracy
+    CASE 6 { RETURN 14; }
+    // Intersection level accuracy
+    CASE 7 { RETURN 16; }
+    // Address level accuracy
+    CASE 8 { RETURN 17; }
+    // Premise (building name, property name, shopping center, etc.) level accuracy
+    CASE 9 { RETURN 18; }
+  }
+  RETURN 0; // Unknown accuracy, no zooming
+}

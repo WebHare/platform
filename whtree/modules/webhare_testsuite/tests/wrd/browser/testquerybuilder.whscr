@@ -1,0 +1,48 @@
+<?wh
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+ASYNC FUNCTION TestQueryBuilder()
+{
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->entity->UpdateEntity([ test_record := [ x := 42 ]]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:querybuilder", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE tag="WRD_PERSON";
+  TT("types")->selection[0].expanded := TRUE;
+
+  TT("types")->selection := SELECT * FROM TT("types")->GetChildRows(TT("types")->value[0]) WHERE tag in ["WRD_CONTACT_EMAIL","WHUSER_PASSWORD","TEST_RECORD"];
+
+  TestEq(0,Length(TT("resultselect")->rows));
+  TT("resultselect")->SimulateDrop("move", TT("types")->SimulateDrag());
+  TestEq(1,Length(TT("resultselect")->rows));
+
+  AWAIT ExpectScreenChange(+1, PTR TT("exportresults")->TolliumClick);
+  topscreen->outputformat->value := "xlsx";
+
+  RECORD file := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+
+  RECORD ARRAY exprows := GetOOXMLSpreadsheetRows(file.data);
+  IF(testfw->debug)
+    DumpValue(exprows,'boxed');
+
+  exprows := SELECT * FROM exprows ORDER BY COLUMN "person_1.email address";
+  TestEq(3, Length(exprows));
+  TestEq("sysop@beta.webhare.net", exprows[2]."person_1.email address");
+  TestEqLike("WEBHARE-PASSWORD:*", exprows[2]."person_1.user password hash");
+  TestEq([x:=42], DecodeHSON(exprows[2]."person_1.record attribute"));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //close export
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //close querybuilder
+
+  RETURN TRUE;
+}
+
+RunTestFramework([ PTR CreateWRDTestSchema
+                 , PTR TestQueryBuilder
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);

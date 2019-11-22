@@ -1,0 +1,648 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/internal/xpath.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+LOADLIB "mod::wrd/lib/internal/support2.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
+
+//Save types and attributes
+RECORD FUNCTION ExtractSchemaMetadata(OBJECT wrdschema)
+{
+  RECORD retval := [ types := DEFAULT RECORD ARRAY ];
+
+  retval.types := SELECT * FROM wrdschema->ListTypes() ORDER BY ToUppercase(tag);
+  retval.types := SELECT *, linkfrom := linkfrom != 0 ? wrdschema->GetTypeById(linkfrom)->tag : "" FROM retval.types;
+  retval.types := SELECT *, linkto := linkto != 0 ? wrdschema->GetTypeById(linkto)->tag : "" FROM retval.types;
+  retval.types := SELECT *, parenttype := parenttype != 0 ? wrdschema->GetTypeById(parenttype)->tag : "" FROM retval.types;
+
+  FOREVERY(RECORD type FROM retval.types)
+  {
+    //ADDME get arrays attrs too
+    RECORD ARRAY attrs := SELECT * FROM wrdschema->GetType(type.tag)->ListAttributes(0) ORDER BY ToUppercase(tag);
+
+    attrs := SELECT *, domain := domain != 0 ? wrdschema->GetTypeById(domain)->tag : "" FROM attrs;
+    attrs := SELECT *, DELETE attributeid, DELETE id FROM attrs;
+
+    DELETE CELL id FROM type;
+    INSERT CELL attrs := attrs INTO type;
+
+    retval.types[#type]:=type;
+  }
+  RETURN retval;
+}
+
+MACRO Setup()
+{
+  testfw->StartTrans("~webhare",FALSE);
+
+  OBJECT wrdschema :=  testfw->GetWRDSchema();
+  OBJECT persontype := wrdschema->GetType("WRD_PERSON");
+  OBJECT orgtype := wrdschema->GetType("WRD_ORGANIZATION");
+
+  //Create a unique/required email field
+  persontype->UpdateAttribute("WRD_CONTACT_EMAIL", [ isunique := TRUE, isrequired := TRUE ]);
+  persontype->CreateAttribute("C1", "FREE");
+/*  persontype->CreateAttribute("TEST_ARRAY",                       "ARRAY");
+  persontype->CreateAttribute("TEST_ARRAY.TEST_INT",              "INTEGER");
+  persontype->CreateAttribute("TEST_ARRAY.TEST_ARRAY2",           "ARRAY");
+  persontype->CreateAttribute("TEST_ARRAY.TEST_ARRAY2.TEST_INT2", "INTEGER");
+*/
+  //Add a domain field..
+  OBJECT domtype1 := wrdschema->CreateDomain("DOMAINTYPE1");
+  domtype1->CreateEntity([ wrd_tag := "ONE", wrd_title := "First value"]);
+  domtype1->CreateEntity([ wrd_tag := "TWO", wrd_title := "Second value"]);
+
+
+  persontype->CreateAttribute ("DOMAIN1", "DOMAIN", [ domaintag := "DOMAINTYPE1" ]);
+
+  //add a link and a clasisfication type
+  OBJECT classitype := wrdschema->CreateType("CLASSIFICATION", [ title := "Classificätion", description := "description", linkfrom := persontype->id]);
+  OBJECT linktype := wrdschema->CreateType("LINK", [ linkfrom := persontype->id, linkto := orgtype->id]);
+
+  //create the wrd_relation basetype
+  OBJECT reltype := wrdschema->^wrd_relation;
+  //create a field in the wrd_relationtype. we want to be sure it doesn't appear in subtypes. Oh, and needed an excuse for a MONEY type
+  reltype->CreateAttribute("KARMA","MONEY");
+
+  TestEq(TRUE, RecordExists(persontype->GetAttribute("KARMA")));
+
+  // Maak een stored query aan voor personen
+  RECORD querydata := [ sources := [ [ type := wrdschema->GetType("WRD_PERSON")
+                                     , outputcolumns := [ fullname := "WRD_FULLNAME"
+                                                        , email := "WRD_CONTACT_EMAIL"
+                                                        ]
+                                     ]
+                                   ]
+                      ];
+
+  NEW WRDStoredQuery(wrdschema, [ tag := "QUERY_PERSON", title := "Personenquery", query_rec := querydata], TRUE);
+
+  persontype->CreateAttribute("FREE1", "FREE", [ title := "Free 1" ]);
+  RECORD free1 := persontype->GetAttribute("FREE1");
+  TestEq(FALSE, free1.checklinks);
+  persontype->UpdateAttribute("FREE1", [ checklinks := TRUE ]);
+  free1 := persontype->GetAttribute("FREE1");
+  TestEq(TRUE, free1.checklinks);
+
+  persontype->CreateAttribute("RICHDOC1", "RICHDOCUMENT", [title:="Rich document 1", checklinks := FALSE]);
+  RECORD richdoc1 := persontype->GetAttribute("RICHDOC1");
+  TestEq(FALSE, richdoc1.checklinks);
+
+  TestThrowsLike("*llegal key*", PTR wrdschema->GetSchemaSetting("myteststr"));
+  TestThrowsLike("*llegal key*", PTR wrdschema->SetSchemaSetting("myteststr", "My test string!"));
+  TestThrowsLike("*llegal key*", PTR wrdschema->GetSchemaSetting("wrd:mytest str"));
+  TestThrowsLike("*llegal key*", PTR wrdschema->SetSchemaSetting("wrd:mytest str", "My test string!"));
+  //Make sure we can always represent the keys as a tree if we ever want to
+  TestThrowsLike("*llegal key*", PTR wrdschema->SetSchemaSetting("wrd:mytest.", "My test string!"));
+  TestThrowsLike("*llegal key*", PTR wrdschema->SetSchemaSetting("wrd:.mytest", "My test string!"));
+  TestThrowsLike("*llegal key*", PTR wrdschema->SetSchemaSetting("wrd:my..test", "My test string!"));
+  TestThrowsLike("*llegal key*", PTR wrdschema->SetSchemaSetting("wrd:sub:test", "My test string!"));
+  TestThrowsLike("*llegal key*", PTR wrdschema->SetSchemaSetting("w.rd:sub", "My test string!"));
+
+  wrdschema->SetSchemaSetting("wrd:myteststr", "My test string!");
+  TestEq("My test string!", wrdschema->GetSchemaSetting("wrd:MyTestStr"));
+  wrdschema->RemoveSchemaSetting("wrd:MYTESTSTR");
+  TestThrowsLike('Cannot find*no fallback*',PTR wrdschema->GetSchemaSetting("wrd:MyTestStr"));
+  TestEq(42, wrdschema->GetSchemaSetting("wrd:MyTestStr", [fallback  := 42]));
+
+  wrdschema->SetSchemaSetting("wrd:setting1", "My test string!");
+  wrdschema->SetSchemaSetting("wrd:setting2", 1234567890);
+  wrdschema->SetSchemaSetting("wrd:setting3", TRUE);
+  wrdschema->SetSchemaSetting("wrd:setting4", StringToBlob("My test blob!"));
+
+/* FIXME implement custom parent/child suppport
+   //createa a custom relation type
+  OBJECT customrelation := testfw->GetWRDSchema()->CreateRelationType("Custom relation base", "", "CUSTOMRELATION");
+  OBJECT customrelationchild := testfw->GetWRDSchema()->CreateRelationTypeWithParentType("Custom relation child", "", "CUSTOMRELATIONCHILD", customrelation->id);
+*/
+  testfw->Commit();
+}
+
+MACRO ExportXMLMetadata()
+{
+  testfw->BeginWork();
+
+  //Export current structure
+  OBJECT wrdschema := testfw->GetWRDSchema();
+  BLOB structuredoc := CreateWRDSchemaDefinitionFile(wrdschema);
+
+//  sendblobto(0,structuredoc);
+
+  //Verify some basics
+  OBJECT structurexml := MakeXMLDocument(structuredoc);
+  OBJECT myresolver := NEW IndependentXPathNSResolver();
+  myresolver->AddNS("s", "http://www.webhare.net/xmlns/wrd/schemadefinition");
+  myresolver->AddNS("q", "http://www.webhare.net/xmlns/wrd/query");
+
+  //There should only be one KRMA Field, under WRD_RELATION
+  TestEq(1, Length(structurexml->GetEvaluatedElements(myresolver, '//s:money[@tag="KARMA"]')));
+  TestEq(1, Length(structurexml->GetEvaluatedElements(myresolver, '//s:object[@tag="WRD_RELATION"]//s:money[@tag="KARMA"]')));
+
+  TestEq(0, Length(structurexml->GetEvaluatedElements(myresolver, '/s:schemadefinition/q:queries/q:query[@tag="QUERY_PERSON"]'))); //should no longer be exported
+  //print(structurexml->outerxml);
+
+  //Save types and attributes
+  RECORD saveschema := ExtractSchemaMetadata(wrdschema);
+
+  //Destroy the schema
+  wrdschema->DeleteSelf();
+  testfw->CommitWork();
+
+  //Try to recreate it from the metadata
+  testfw->BeginWork();
+  wrdschema := CreateWRDSchema(wrdschema->tag);
+  //print(structurexml->outerxml);
+  RECORD res := ApplyWRDSchemaDefinitionFile(wrdschema, structuredoc);
+  TestEq(TRUE, res.success);
+  testfw->CommitWork();
+
+  TestEq(TRUE, RecordExists(wrdschema->^wrd_relation->GetAttribute("KARMA")));
+  TestEq(TRUE, RecordExists(wrdschema->GetType("WRD_PERSON")->GetAttribute("KARMA")));
+  TestEq(TRUE, RecordExists(wrdschema->GetType("WRD_ORGANIZATION")->GetAttribute("KARMA")));
+
+  TestEq("My test string!", wrdschema->GetSchemaSetting("wrd:setting1"));
+  TestEq(1234567890, wrdschema->GetSchemaSetting("wrd:setting2"));
+  TestEq(TRUE, wrdschema->GetSchemaSetting("wrd:setting3"));
+  TestEq(StringToBlob("My test blob!"), wrdschema->GetSchemaSetting("wrd:setting4"));
+
+  //The schemas should match
+  RECORD restoredschema := ExtractSchemaMetadata(wrdschema);
+  TestEq(saveschema, restoredschema);
+
+  //Another export should be (pretty much?) the same
+  BLOB structuredoc2 := CreateWRDSchemaDefinitionFile(wrdschema);
+  IF(BlobToString(structuredoc,-1) != BlobToString(structuredoc2,-1))
+  {
+    SendBLobTo(0,structuredoc);
+    SendBLobTo(0,structuredoc2);
+    TestEq(structuredoc, structuredoc2);
+  }
+
+  // Force reload
+  testfw->GetWRDSchema(TRUE);
+}
+
+STRING domwitty := `<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <domain tag="DOMAIN" title="Domain">
+    <attributes>
+      <free tag="TITLE2" title="Titel2">
+        <documentation>dox should be ignored</documentation>
+      </free>
+      <record tag="MYRECORD" />
+    </attributes>
+    <values matchattribute="WRD_TAG" overwriteattributes="WRD_TITLE">
+      [forevery vals][embed value][/forevery]
+    </values>
+  </domain>
+</schemadefinition>
+
+[component value]
+  <value>
+    <field tag="WRD_TAG">[tag]</field>
+    <field tag="WRD_TITLE">[t1]</field>
+    <field tag="TITLE2">[t2]</field>
+    [if subvalues]
+      <subvalues>
+        [forevery subvalues]
+          [embed value]
+        [/forevery]
+      </subvalues>
+    [/if]
+  </value>
+[/component]
+`;
+
+MACRO ApplyDomMetadata(RECORD ARRAY vals)
+{
+  OBJECT witty := NEW WittyTemplate("XML");
+  witty->LoadCodeDirect(domwitty);
+  BLOB data := witty->RunToBlob([ vals := vals ]);
+
+  OBJECT wrdschema := testfw->GetWRDSchema();
+  ApplyWRDSchemaDefinitionFile(wrdschema, data);
+  TestEq("RECORD", wrdschema->^domain->GetAttribute("MYRECORD").attributetypename);
+}
+
+STRING attrwitty :=
+    '<?xml version="1.0" encoding="UTF-8"?>\n' ||
+    '    <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">\n' ||
+    '  <domain tag="DOMAIN" title="Domain">\n' ||
+    '    <attributes>\n' ||
+    '      [if type]<[type] tag="TESTATTR" title="Test attribute"/>[/if]\n' ||
+    '    </attributes>\n' ||
+    '  </domain>\n' ||
+    '</schemadefinition>\n';
+
+BOOLEAN FUNCTION ApplyTestAttrMetadata(OBJECT wrdschema, STRING type)
+{
+  OBJECT witty := NEW WittyTemplate("XML");
+  witty->LoadCodeDirect(attrwitty);
+  BLOB data := witty->RunToBlob([ type := type ]);
+  RETURN ApplyWRDSchemaDefinitionFile(wrdschema, data).success;
+  //OBJECT doc := MakeXMLDocument(data);
+  //RETURN wrdschema->ApplyXMLMetadata(doc).success;
+}
+
+RECORD ARRAY FUNCTION GetDomVals()
+{
+  RECORD ARRAY vals := testfw->GetWRDSchema()->GetType("DOMAIN")->RunQuery(
+      [ outputcolumns := [ "WRD_ID", "WRD_LEFTENTITY", "WRD_TAG", "WRD_TITLE", "TITLE2" ] ]);
+
+  RETURN ConstructDomValuesRecursive(vals, 0);
+}
+
+RECORD ARRAY FUNCTION ConstructDomValuesRecursive(RECORD ARRAY vals, INTEGER parent)
+{
+  RETURN
+      SELECT tag :=         wrd_tag
+           , t1 :=          wrd_title
+           , t2 :=          title2
+           , subvalues :=   ConstructDomValuesRecursive(VAR vals, wrd_id)
+        FROM vals
+       WHERE wrd_leftentity = parent
+    ORDER BY wrd_tag;
+}
+
+
+MACRO DomainValuesSync()
+{
+  testfw->BeginWork();
+
+  //Export current structure
+  OBJECT wrdschema := testfw->GetWRDSchema();
+
+  // Throw on duplicate tag
+  TestThrows(PTR ApplyDomMetadata(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
+      , [ tag := "1", t1 := "1a", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
+      ]));
+
+  // Throw on duplicate tag (recursive)
+  TestThrows(PTR ApplyDomMetadata(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues :=
+            [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
+            ]
+        ]
+      ]));
+
+  // Write new value
+  ApplyDomMetadata(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
+      ]);
+  TestEQ([ [ tag := "1", t1 := "1a", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
+         ], GetDomVals());
+
+  // Only overwriting WRD_TITLE
+  ApplyDomMetadata(
+      [ [ tag := "1", t1 := "1ax", t2 := "1bx", subvalues := DEFAULT RECORD ARRAY ]
+      ]);
+  TestEQ([ [ tag := "1", t1 := "1ax", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
+         ], GetDomVals());
+
+  // Subvalue
+  ApplyDomMetadata(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues :=
+              [ [ tag := "1_1", t1 := "1_1a", t2 := "1_1b", subvalues := DEFAULT RECORD ARRAY ] ]
+        ]
+      ]);
+  TestEQ(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues :=
+              [ [ tag := "1_1", t1 := "1_1a", t2 := "1_1b", subvalues := DEFAULT RECORD ARRAY ] ]
+        ]
+      ], GetDomVals());
+
+  // Move subvalue to newly created other value
+  ApplyDomMetadata(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
+      , [ tag := "2", t1 := "2a", t2 := "2b", subvalues :=
+              [ [ tag := "1_1", t1 := "1_1a", t2 := "1_1b", subvalues := DEFAULT RECORD ARRAY ] ]
+        ]
+      ]);
+  TestEQ(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
+      , [ tag := "2", t1 := "2a", t2 := "2b", subvalues :=
+              [ [ tag := "1_1", t1 := "1_1a", t2 := "1_1b", subvalues := DEFAULT RECORD ARRAY ] ]
+        ]
+      ], GetDomVals());
+
+  // Move subvalue to existing other value, overwriting attrs
+  ApplyDomMetadata(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues :=
+              [ [ tag := "1_1", t1 := "1_1ac", t2 := "1_1b", subvalues := DEFAULT RECORD ARRAY ] ]
+        ]
+      , [ tag := "2", t1 := "2a", t2 := "2b", subvalues := DEFAULT RECORD ARRAY ]
+      ]);
+  TestEQ(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues :=
+              [ [ tag := "1_1", t1 := "1_1ac", t2 := "1_1b", subvalues := DEFAULT RECORD ARRAY ] ]
+        ]
+      , [ tag := "2", t1 := "2a", t2 := "2b", subvalues := DEFAULT RECORD ARRAY ]
+      ], GetDomVals());
+
+  // Create value and subvalue at the same time
+  ApplyDomMetadata(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues :=
+              [ [ tag := "1_1", t1 := "1_1ac", t2 := "1_1b", subvalues := DEFAULT RECORD ARRAY ] ]
+        ]
+      , [ tag := "2", t1 := "2a", t2 := "2b", subvalues := DEFAULT RECORD ARRAY ]
+      , [ tag := "3", t1 := "3a", t2 := "3b", subvalues :=
+              [ [ tag := "3_1", t1 := "3_1ac", t2 := "3_1b", subvalues := DEFAULT RECORD ARRAY ] ]
+        ]
+      ]);
+  TestEQ(
+      [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues :=
+              [ [ tag := "1_1", t1 := "1_1ac", t2 := "1_1b", subvalues := DEFAULT RECORD ARRAY ] ]
+        ]
+      , [ tag := "2", t1 := "2a", t2 := "2b", subvalues := DEFAULT RECORD ARRAY ]
+      , [ tag := "3", t1 := "3a", t2 := "3b", subvalues :=
+              [ [ tag := "3_1", t1 := "3_1ac", t2 := "3_1b", subvalues := DEFAULT RECORD ARRAY ] ]
+        ]
+      ], GetDomVals());
+
+  testfw->CommitWork();
+}
+
+MACRO TestImportExisting()
+{
+  testfw->BeginWork();
+  IF(RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite"))
+    OpenWRDSchema("webhare_testsuite")->DeleteSelf(); //NOTE NOT scoped to webhare_testsuite:* namespace, as testing the rename to a proper tagged namee is the whole point of this test
+
+  CreateWRDSchema("webhare_testsuite");
+  testfw->CommitWork();
+
+  TestEq(TRUE,  RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite"));
+  TestEq("", OpenWRDSchema("webhare_testsuite")->title);
+  TestEq(FALSE, RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite:renametest"));
+
+  //This should trigger a rename
+  TestEq(TRUE,  UpdateAllModuleSchemas());
+
+  TestEq(FALSE, RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite"));
+  TestEq(TRUE,  RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite:renametest"));
+  TestEq("WebHare testsuite renametest schema", OpenWRDSchema("webhare_testsuite:renametest")->title);
+}
+
+
+MACRO TestCreate()
+{
+  testfw->BeginWork();
+
+  STRING savetag := testfw->GetWRDSchema()->tag;
+  testfw->GetWRDSchema()->DeleteSelf();
+
+  OBJECT wrdschema := CreateWRDSchema(savetag);
+  TestEq(FALSE, RecordExists(wrdschema->^wrd_person->GetAttribute("WHUSER_PASSWORD")));
+  wrdschema->DeleteSelf();
+
+  wrdschema := CreateWRDSchema(savetag, [initialize := TRUE]);
+  TestEq(TRUE, RecordExists(wrdschema->^wrd_person->GetAttribute("WHUSER_PASSWORD")));
+  TestEq("WebHare testsuite test schema", wrdschema->title);
+
+  testfw->RollbackWork();
+
+  // Force reload
+  testfw->GetWRDSchema(TRUE);
+}
+
+STRING schema_with_ordering_issues := `<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <domain tag="TARGETINTEREST" title="Doelgroep interesse">
+    <values matchattribute="WRD_TAG">
+      <value>
+        <field tag="wrd_tag">BACHELOR</field>
+        <field tag="wrd_title">Bachelor</field>
+      </value>
+    </values>
+  </domain>
+
+  <domain tag="PROGRAMMETYPE" title="Programmetype">
+    <attributes>
+      <domain tag="TARGETINTEREST" title="Doelgroep interesse" domain="TARGETINTEREST" />
+    </attributes>
+    <values matchattribute="WRD_TAG">
+      <value>
+        <field tag="WRD_TAG">HODEX_BACHELOR</field>
+       <field tag="TARGETINTEREST">BACHELOR</field>
+      </value>
+    </values>
+  </domain>
+</schemadefinition>
+`;
+
+MACRO TestCreateWithMetadata()
+{
+  testfw->BeginWork();
+
+  STRING schematag := testfw->GetWRDSchema()->tag || '.temp';
+  //test applying simple metadata with ordering issues
+  OBJECT wrdschema := CreateWRDSchema(schematag, [ initialize := TRUE,  schemaresource := `inline::${schema_with_ordering_issues}` ]);
+  RECORD ARRAY types := wrdschema->^Programmetype->RunQuery([outputcolumns:=["TARGETINTEREST"]]);
+  TestEq(1, Length(types));
+  TestEq(wrdschema->^Programmetype->GetDomVal("TARGETINTEREST", "BACHELOR"), types[0].targetinterest);
+
+  testfw->RollbackWork();
+}
+
+MACRO TestRename()
+{
+  STRING savetag := testfw->GetWRDSchema()->tag;
+
+  TestEQ(TRUE, disablewrdcache);
+
+  disablewrdcache := FALSE;
+
+  STRING newtag := savetag || ".rename";
+  TestEQ(DEFAULT OBJECT, OpenWRDSchema(newtag));
+
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->UpdateMetadata([ name := newtag ]);
+  testfw->CommitWork();
+
+  disablewrdcache := FALSE;
+  OBJECT wrdschema := OpenWRDSchema(newtag);
+  TestEQ(TRUE, ObjectExists(wrdschema));
+
+  // rename back
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->UpdateMetadata([ name := savetag ]);
+  testfw->CommitWork();
+
+  TestEQ(TRUE, disablewrdcache);
+}
+
+MACRO TestAttributePromotion()
+{
+  testfw->BeginWork();
+
+  //Export current structure
+  OBJECT wrdschema := testfw->GetWRDSchema();
+
+  RECORD ARRAY tests :=
+    [ [ org := "free", to := "url", allowed := TRUE, orgvalue := "http://example.com" ]
+    , [ org := "free", to := "url", allowed := FALSE, orgvalue := "not-a-url" ]
+    , [ org := "url", to := "free", allowed := TRUE, orgvalue := "http://example.com" ]
+    , [ org := "free", to := "telephone", allowed := TRUE, orgvalue := "+31612345678" ]
+    , [ org := "telephone", to := "free", allowed := TRUE, orgvalue := "+31612345678" ]
+    ];
+
+  ApplyTestAttrMetadata(wrdschema, "");
+
+  OBJECT domaintype := wrdschema->GetType("DOMAIN");
+  OBJECT entity := domaintype->CreateEntity(DEFAULT RECORD);
+
+  FOREVERY (RECORD rec FROM tests)
+  {
+    // Create original attr
+    TestEQ(TRUE, ApplyTestAttrMetadata(wrdschema, rec.org));
+
+    // Make sure it contains stuff
+    entity->UpdateEntity([ testattr := rec.orgvalue ]);
+
+    IF(rec.allowed)
+      ApplyTestAttrMetadata(wrdschema, rec.to);
+    ELSE
+      TestThrowsLike("*not all settings*", PTR ApplyTestAttrMetadata(wrdschema, rec.to));
+
+    domaintype := wrdschema->GetType("DOMAIN");
+    domaintype->DeleteAttribute("TESTATTR");
+  }
+
+  testfw->CommitWork();
+}
+
+MACRO TestParent()
+{
+  STRING schemawithparent := `<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <object tag="WEBSHOP_PRODUCTMIXIN" title="Product mixin">
+    <attributes>
+      <free tag="WRD_TITLE" title="Title"/>
+    </attributes>
+  </object>
+
+  <object tag="WEBSHOP_PRODUCT" title="Webshop product" parent="WEBSHOP_PRODUCTMIXIN">
+    <attributes>
+    </attributes>
+  </object>
+</schemadefinition>`;
+
+  testfw->BeginWork();
+
+  OBJECT wrdschema := testfw->GetWRDSchema();
+  ApplyWRDSchemaDefinitionFile(wrdschema, StringToBlob(schemawithparent));
+
+  TestEq(wrdschema->^webshop_productmixin->id, wrdschema->^webshop_product->parent);
+
+  testfw->RollbackWork();
+}
+
+MACRO TestAccountSettings()
+{
+  //apply account settings to a schema which never had it
+  STRING schemawithaccounttype := `
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition" accounttype="wrd_person"   accountemailfield="WRD_CONTACT_EMAIL"
+                  accountloginfield="LOGIN"
+                  accountpasswordfield="PASSWORD">
+  <object tag="WRD_PERSON">
+    <attributes>
+      <free tag="LOGIN" />
+      <email tag="WRD_CONTACT_EMAIL" />
+      <password tag="PASSWORD" />
+    </attributes>
+  </object>
+</schemadefinition>`;
+
+  testfw->BeginWork();
+
+  OBJECT wrdschema := CreateWRDSchema(testfw->GetWRDSchema()->tag || '.temp'); //note: we won't be commiting it
+  ApplyWRDSchemaDefinitionFile(wrdschema, StringToBlob(schemawithaccounttype));
+
+  TestEq(wrdschema->^wrd_person, wrdschema->accounttype);
+
+  testfw->RollbackWork();
+}
+
+MACRO TestMerge()
+{
+  STRING mergeschema := `
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <!-- dupe imports should not be an issue -->
+  <import definitionfile="moduledata::wrd/wrdschemas/authschema.xml" /> <!-- direct, old path -->
+  <import definitionfile="mod::system/data/wrdschemas/usermgmt.wrdschema.xml" /> <!-- indirectly includes authschema through new path -->
+</schemadefinition>`;
+
+  testfw->BeginWork();
+
+  OBJECT wrdschema := CreateWRDSchema(testfw->GetWRDSchema()->tag || '.temp'); //note: we won't be commiting it
+  ApplyWRDSchemaDefinitionFile(wrdschema, StringToBlob(mergeschema));
+  TestEq(TRUE, ObjectExists(wrdschema->GetType("WRD_AUTHDOMAIN")));
+
+  testfw->RollbackWork();
+}
+
+MACRO TestConversion()
+{
+  STRING conversionschema := `
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <object tag="WRD_PERSON">
+    <attributes>
+      <date tag="TEST_DATETIME" />
+    </attributes>
+  </object>
+</schemadefinition>`;
+
+  testfw->BeginWork();
+
+  OBJECT testperson := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+    [ test_datetime := MakeDatetime(2017,5,4,3,2,1)
+    , wrd_contact_email := "testperson@beta.webhare.net"
+    ]);
+
+  DATETIME now := GetCurrentDatetime();
+
+  TestEq("DATETIME", testfw->GetWRDSchema()->^wrd_person->GetAttribute("TEST_DATETIME").attributetypename);
+  TestEq(MakeDatetime(2017,5,4,3,2,1), testperson->GetField("TEST_DATETIME"));
+
+  RECORD res := ApplyWRDSchemaDefinitionFile(testfw->GetWRDSchema(), StringToBlob(conversionschema));
+  IF(NOT res.success)
+    DumpValue(res);
+
+  TestEq(TRUE, res.success);
+
+  TestEq("DATE", testfw->GetWRDSchema()->^wrd_person->GetAttribute("TEST_DATETIME").attributetypename);
+  TestEq(MakeDatetime(2017,5,4,3,2,1), testperson->GetField("TEST_DATETIME")); //does not actually change existing data
+
+  testfw->RollbackWork();
+}
+
+
+RunTestFramework([ PTR CreateWRDTestSchema
+                 , PTR Setup
+                 , PTR ExportXMLMetadata
+                 , PTR DomainValuesSync
+                 , PTR TestImportExisting
+                 , PTR TestCreate
+                 , PTR TestCreateWithMetadata
+                 , PTR TestRename
+                 , PTR TestAttributePromotion
+                 , PTR TestParent
+                 , PTR TestAccountSettings
+                 , PTR TestMerge
+                 , PTR TestConversion
+                 ], [ wrdauth := FALSE]);
+

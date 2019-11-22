@@ -1,0 +1,57 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/testfw/testpage.whlib";
+
+LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
+
+
+
+MACRO RunBody(OBJECT testcontext)
+{
+  STRING editor := GetWebVariable("editor");
+  IF(editor="")
+    editor := "free";
+  IF(editor NOT IN ["free","structured","structured-contentarea","page","self"])
+    THROW NEW Exception("Unrecognized editor type '" || editor || "'");
+
+  RECORD config :=
+      [ structure := DEFAULT OBJECT
+      ];
+  OBJECT structure;
+
+  OBJECT css := MakeCSSStyleSheet(GetDiskResource(GetModuleInstallationRoot("webhare_testsuite") || "web/tests/pages/rte/editor.css"));
+  css->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
+  STRING csstext := BlobToString(css->GetDocumentBlob(FALSE));
+
+  RECORD data :=
+    [ isfree := editor = "free"
+    , isstructured := editor IN [ "structured", "structured-contentarea" ]
+    , isstructurednotoken := editor = "structured"
+    , isstructurednotokencontentarea := editor = "structured-contentarea"
+    , ispage := editor = "page"
+    , isself := editor = "self"
+    , isparteditable := editor IN ["page","self"]
+    , editor := editor
+    , emptylines := GetWebVariable("fill")="emptylines"
+    , tables := GetWebVariable("fill")="tables" OR GetWebVariable("fill")="tables2"
+    , tables2 := GetWebVariable("fill")="tables2"
+    , nofill := GetWebVariable("fill")="none"
+    , twoembeds := GetWebVariable("fill")="twoembeds"
+    , allowtags := GetWebVariable("allowtags")
+    , allowedobjects := ObjectExists(structure) ? GetEmbeddableObjectTypes(structure) : DEFAULT RECORD ARRAY
+    , csstext := csstext
+    ];
+
+  LoadWittyLibrary(testcontext->basefolder || "page.witty","HTML")->Run(data);
+}
+
+OpenPrimary();
+InvokeTestPage(PTR RunBody, [ jsfile := "page.es"
+                            ]);

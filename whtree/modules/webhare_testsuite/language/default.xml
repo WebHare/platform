@@ -1,0 +1,195 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="aaa">   <!-- aaa -->
+    <textgroup gid="limitlanguage_en" limitlanguages="en">   <!-- aaa.limitlanguage_en -->
+      <text tid="one">One</text>
+      <text tid="two">Two</text>
+    </textgroup>
+    <textgroup gid="limitlanguage_nl" limitlanguages="nl">   <!-- aaa.limitlanguage_nl -->
+    </textgroup>
+  </textgroup>
+  <textgroup gid="basetest">   <!-- basetest -->
+    <text tid="title">Basetest title</text>
+  </textgroup>
+  <textgroup gid="editors">   <!-- editors -->
+    <text tid="betatest">Beta test tab</text>
+  </textgroup>
+  <textgroup gid="jstests">   <!-- jstests -->
+    <text tid="apptitle">Javascript tests</text>
+    <textgroup gid="jstests">   <!-- jstests.jstests -->
+      <text tid="all">* All</text>
+      <text tid="allfailed">* All failed</text>
+      <text tid="allicon">Combined</text>
+      <text tid="allnotrun">* All not run</text>
+      <text tid="applymasks">Apply</text>
+      <text tid="apptitle">Javascript tests</text>
+      <text tid="autorunbrowsers">Autorun watches</text>
+      <text tid="browser">Browser</text>
+      <text tid="failures">Failures</text>
+      <text tid="jstests">Javascript tests</text>
+      <text tid="masks">Masks</text>
+      <text tid="noerrors">No errors</text>
+      <text tid="notrun">Not run</text>
+      <text tid="result_chrome">Chrome</text>
+      <text tid="result_edge">Edge</text>
+      <text tid="result_firefox">Firefox</text>
+      <text tid="result_ie10">IE 10</text>
+      <text tid="result_ie11">IE 11</text>
+      <text tid="result_ie8">IE 8</text>
+      <text tid="result_ie9">IE 9</text>
+      <text tid="result_safari">Safari</text>
+      <text tid="running">Running (no report yet)</text>
+      <text tid="runok">Ok</text>
+      <text tid="skips">Skip</text>
+      <text tid="stillrunning">still running</text>
+      <text tid="testname">Test</text>
+      <textgroup gid="actions">   <!-- jstests.jstests.actions -->
+        <text tid="applymasks">Apply</text>
+        <text tid="canceltests">Cancel tests</text>
+        <text tid="export">Export</text>
+        <text tid="openbrowserresult">Open result</text>
+        <text tid="opengridconsole">Open Selenium grid console</text>
+        <text tid="opentestinbrowser">Open test in browser</text>
+        <text tid="opentestspage">Open tests page</text>
+        <text tid="restarttestmgr">Restart testmanager</text>
+        <text tid="run_all">Run on all</text>
+        <text tid="run_chrome">Run on Chrome</text>
+        <text tid="run_edge">Run on Edge</text>
+        <text tid="run_firefox">Run on Firefox</text>
+        <text tid="run_ie10">Run on IE 10</text>
+        <text tid="run_ie11">Run on IE 11</text>
+        <text tid="run_ie9">Run on IE 9</text>
+        <text tid="run_safari">Run on Safari</text>
+      </textgroup>
+      <textgroup gid="testresults">   <!-- jstests.jstests.testresults -->
+        <text tid="assetpackstatus">Assetpacks</text>
+        <text tid="e">Error</text>
+        <text tid="failedsteps">Failed test steps</text>
+        <text tid="log">Log</text>
+        <text tid="recompileassetpacks">Recompile</text>
+        <text tid="restart">Restart</text>
+        <text tid="stepname">Step name</text>
+        <text tid="stepnr">Step</text>
+        <text tid="testresults">Testresults</text>
+        <text tid="teststatus">Test status</text>
+        <text tid="testurl">Test URL</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="messageboxes">   <!-- jstests.messageboxes -->
+      <text tid="webhareurlmustbeglobal">The Webhare interface URL must usable from other servers (no localhost/127.0.0.1)</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="localtests">   <!-- localtests -->
+    <text tid="apptitle">Run local tests</text>
+  </textgroup>
+  <textgroup gid="module" limitlanguages="en">   <!-- module -->
+    <text tid="eventservertest">Eventserver test message</text>
+    <text tid="eventservertest-desc">Message count: <param p="1"/></text>
+    <text tid="testaction">Test action</text>
+    <text tid="webruleset">Test webruleset</text>
+    <textgroup gid="testsite">   <!-- module.testsite -->
+      <text tid="description">The location of the testsuite suite</text>
+      <text tid="title">Testsuite site</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="site">   <!-- site -->
+    <textgroup gid="addressform">   <!-- site.addressform -->
+      <text tid="address">Address</text>
+      <text tid="address-zip">Postal Code</text>
+    </textgroup>
+    <textgroup gid="coretest">   <!-- site.coretest -->
+      <text tid="disabledpulldown"><html:b>Disabled</html:b> pulldown</text>
+      <text tid="radiotest-2">do not translate radiotest-2!</text>
+    </textgroup>
+    <textgroup gid="multipagetest">   <!-- site.multipagetest -->
+      <text tid="lastpage">Last Page</text>
+      <text tid="nextlabeltid">volgende</text>
+      <text tid="nextpage">Next Page</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="system">   <!-- system -->
+    <textgroup gid="mailtest">   <!-- system.mailtest -->
+      <text tid="textwithlink">Text with <html:a data-href-param="1">a link</html:a>.</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="test">   <!-- test -->
+    <text tid="richtext">Dit is <html:b>bold</html:b></text>
+    <text tid="richtext_params">param:<html:i><param p="1"/></html:i></text>
+    <text tid="unicode_2028"> unicode line separator, another separator</text>
+  </textgroup>
+  <textgroup gid="testfallback">   <!-- testfallback -->
+    <text tid="anothertext">Another text</text>
+    <textgroup gid="sub">   <!-- testfallback.sub -->
+      <text tid="text">A text</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="testfallbackdefaultrecursion">   <!-- testfallbackdefaultrecursion -->
+    <text tid="text">Can't find me from NL</text>
+  </textgroup>
+  <textgroup gid="testfallbacklocalrecursion">   <!-- testfallbacklocalrecursion -->
+    <text tid="text">Can't find me</text>
+  </textgroup>
+  <textgroup gid="testfallbackrecursion">   <!-- testfallbackrecursion -->
+    <text tid="text">Can't find me</text>
+  </textgroup>
+  <textgroup gid="testtids">   <!-- testtids -->
+    <textgroup gid="fragment">   <!-- testtids.fragment -->
+      <text tid="fragment">fragment</text>
+    </textgroup>
+    <textgroup gid="screen">   <!-- testtids.screen -->
+      <text tid="screen">screen</text>
+    </textgroup>
+    <textgroup gid="tabsextension">   <!-- testtids.tabsextension -->
+      <text tid="tabsextension">tabsextension</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tolliumapps" limitlanguages="en">   <!-- tolliumapps -->
+    <textgroup gid="demo">   <!-- tolliumapps.demo -->
+      <textgroup gid="wrd">   <!-- tolliumapps.demo.wrd -->
+        <text tid="attachments">Attachments</text>
+        <text tid="autoupdatecount">Auto update count</text>
+        <text tid="editattachment">Edit attachment</text>
+        <text tid="main">WRD Demo app</text>
+        <text tid="otherfields">Other fields</text>
+        <text tid="person">Person</text>
+        <text tid="personfields">Person fields</text>
+        <text tid="personinfo">Person info</text>
+        <text tid="rtd">RTD</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="iconviewer">   <!-- tolliumapps.iconviewer -->
+      <text tid="b16">16x16, b</text>
+      <text tid="b24">24x24, b</text>
+      <text tid="c16">16x16, c</text>
+      <text tid="c24">24x24, c</text>
+      <text tid="counter">Update counter</text>
+      <text tid="displayed">Displayed</text>
+      <text tid="iconname">Icon</text>
+      <text tid="w16">16x16, w</text>
+      <text tid="w24">24x24, w</text>
+    </textgroup>
+    <textgroup gid="mapdemo">   <!-- tolliumapps.mapdemo -->
+      <text tid="frametitle">Map demo</text>
+      <text tid="h">Hybrid</text>
+      <text tid="h-hint">Show imagery with street names</text>
+      <text tid="k">Satellite</text>
+      <text tid="k-hint">Show satellite imagery</text>
+      <text tid="m">Map</text>
+      <text tid="m-hint">Show street map</text>
+      <text tid="p">Terrain</text>
+      <text tid="p-hint">Show street map with terrain</text>
+      <text tid="points">Points</text>
+      <text tid="routes">Routes</text>
+      <text tid="title">Title</text>
+      <text tid="tracks">Tracks</text>
+      <text tid="type">Type</text>
+      <text tid="waypoints">Waypoints</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webtools">   <!-- webtools -->
+    <text tid="testsuitehandlerdesc">TestSuiteHandler description</text>
+  </textgroup>
+  <textgroup gid="youtubecomponent">   <!-- youtubecomponent -->
+    <text tid="youtubecomponent">Youtube component</text>
+  </textgroup>
+</language>

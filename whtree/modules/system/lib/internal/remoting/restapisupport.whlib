@@ -1,0 +1,1202 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/commonxml.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+
+
+PUBLIC RECORD __restapiinfo;
+
+
+/// Keeps parse/validation errors
+OBJECTTYPE ErrorKeeperType
+<
+  PUBLIC RECORD ARRAY errors;
+  PUBLIC RECORD ARRAY warnings;
+  PUBLIC BOOLEAN new_errors;
+
+  PUBLIC MACRO AddError(OBJECT node, STRING message)
+  {
+    this->new_errors := TRUE;
+    INSERT
+        [ code :=       0
+        , message :=    message
+        , line :=       node->linenum
+        , col :=        0
+        ] INTO this->errors AT END;
+  }
+  PUBLIC MACRO AddWarning(OBJECT node, STRING message)
+  {
+    INSERT
+        [ code :=       0
+        , message :=    message
+        , line :=       node->linenum
+        , col :=        0
+        ] INTO this->warnings AT END;
+  }
+>;
+
+
+RECORD ARRAY FUNCTION ParseParams(OBJECT params, STRING listtype, OBJECT errorkeeper)
+{
+  RECORD ARRAY retval;
+  FOREVERY (OBJECT elt FROM params->childnodes->GetCurrentElements())
+  {
+    IF (elt->nodename = "description")
+      CONTINUE;
+
+    RECORD rec := ParseType(elt, listtype, errorkeeper);
+    IF (RecordExists(rec))
+      INSERT rec INTO retval AT END;
+  }
+
+  RETURN retval;
+}
+
+RECORD FUNCTION ParseType(OBJECT elt, STRING listtype, OBJECT errorkeeper)
+{
+  STRING rawname := elt->GetAttribute("name");
+  STRING reference := elt->GetAttribute("ref");
+  STRING name := rawname ?? reference;
+  BOOLEAN isoptional := ParseXSBoolean(elt->GetAttribute("optional"));
+  STRING defaultvalue := elt->GetAttribute("defaultvalue");
+  BOOLEAN have_default := elt->HasAttribute("defaultvalue");
+  STRING description;
+
+  SWITCH (listtype)
+  {
+    CASE "param", "cells"
+                    {
+                      IF (name = "")
+                        errorkeeper->AddError(elt, "One of the attributes 'name' or 'reference' is required for parameters and record cells");
+                    }
+    CASE "type"     {
+                      IF (rawname = "")
+                        errorkeeper->AddError(elt, "Attribute 'name' is required for parameters");
+                    }
+    CASE "arrayelt" {
+                      IF (rawname != "")
+                        errorkeeper->AddError(elt, "Attribute 'name' is not allowed for array elements");
+                    }
+    CASE "return"   {
+                      IF (rawname != "")
+                        errorkeeper->AddError(elt, "Attribute 'name' is not allowed for return values");
+                    }
+    DEFAULT         { ABORT(listtype); }
+  }
+
+  FOREVERY (OBJECT child FROM elt->childnodes->GetCurrentElements())
+    IF (child->nodename = "description")
+      description := ParseDescriptionNode(child);
+
+  IF(elt->HasAttribute("allowempty") AND GetWebhareVersionNumber() >= 42000 AND NOT IsDtapLive()) //start warning once 418 is more than stable
+    errorkeeper->AddError(elt, "Attribute 'allowempty' has been deprecated, please use 'allownull'");
+
+  RECORD retval;
+  SWITCH (elt->nodename)
+  {
+    CASE "boolean"
+    {
+      retval :=
+          [ name :=           name
+          , type :=           TypeID(BOOLEAN)
+          , isoptional :=     isoptional
+          , defaultvalue :=   have_default ? [ value := ParseXSBoolean(defaultvalue) ] : DEFAULT RECORD
+          , description :=    description
+          ];
+    }
+    CASE "record"
+    {
+      retval :=
+          [ name :=           name
+          , type :=           TypeID(RECORD)
+          , isoptional :=     isoptional
+          , defaultvalue :=   defaultvalue = "*" ? [ value := DEFAULT RECORD ] : DEFAULT RECORD
+          , subcells :=       ParseParams(elt, "cells", errorkeeper)
+          , reference :=      reference
+          , description :=    description
+          , allownull :=      ParseXSBoolean(elt->GetAttribute("allownull")) OR ParseXSBoolean(elt->GetAttribute("allowempty"))
+          , passthrough :=    ParseXSList(elt->GetAttribute("passthrough"))
+          ];
+    }
+    CASE "integer"
+    {
+      retval :=
+          [ name :=           name
+          , type :=           TypeID(INTEGER)
+          , isoptional :=     isoptional
+          , defaultvalue :=   have_default ? [ value := ToInteger(defaultvalue, 0) ] : DEFAULT RECORD
+          , description :=    description
+          ];
+    }
+    CASE "integer64"
+    {
+      retval :=
+          [ name :=           name
+          , type :=           TypeID(INTEGER64)
+          , isoptional :=     isoptional
+          , defaultvalue :=   have_default ? [ value := ToInteger64(defaultvalue, 0) ] : DEFAULT RECORD
+          , description :=    description
+          ];
+    }
+    CASE "blob"
+    {
+      retval :=
+          [ name :=           name
+          , type :=           TypeID(BLOB)
+          , isoptional :=     isoptional
+          , defaultvalue :=   have_default ? [ value := StringToBlob(defaultvalue) ] : DEFAULT RECORD
+          , description :=    description
+          ];
+    }
+    CASE "string"
+    {
+      retval :=
+          [ name :=           name
+          , type :=           TypeID(STRING)
+          , isoptional :=     isoptional
+          , defaultvalue :=   have_default ? [ value := defaultvalue ] : DEFAULT RECORD
+          , description :=    description
+          ];
+    }
+    CASE "money"
+    {
+      retval :=
+          [ name :=           name
+          , type :=           TypeID(MONEY)
+          , isoptional :=     isoptional
+          , defaultvalue :=   have_default ? [ value := ToMoney(defaultvalue, 0m) ] : DEFAULT RECORD
+          , description :=    description
+          ];
+    }
+    CASE "float"
+    {
+      retval :=
+          [ name :=           name
+          , type :=           TypeID(FLOAT)
+          , isoptional :=     isoptional
+          , defaultvalue :=   have_default ? [ value := ToFloat(defaultvalue, 0f) ] : DEFAULT RECORD
+          , description :=    description
+          ];
+    }
+    CASE "datetime"
+    {
+      retval :=
+          [ name :=           name
+          , type :=           TypeID(DATETIME)
+          , isoptional :=     isoptional
+          , defaultvalue :=   have_default ? [ value := MakeDateFromText(defaultvalue) ] : DEFAULT RECORD
+          , description :=    description
+          ];
+    }
+    CASE "array"
+    {
+      RECORD ARRAY subtypes := ParseParams(elt, "arrayelt", errorkeeper);
+
+      INTEGER type := TypeID(VARIANT ARRAY);
+      IF (RecordExists(subtypes))
+      {
+        // Fallback to VARIANT ARRAY for multilevel arrays
+        IF (IsTypeidArray(subtypes[0].type))
+          errorkeeper->AddError(elt, "Multilevel arrays are not allowed");
+        ELSE
+          type := subtypes[0].type BITOR 0x80; // FIXME: something in system.whlib to do this
+      }
+
+      retval :=
+          [ name :=           name
+          , type :=           type
+          , isoptional :=     isoptional
+          , defaultvalue :=   have_default ? [ value := GetTypeDefaultValue(type) ] : DEFAULT RECORD
+          , subcells :=       subtypes
+          , description :=    description
+          ];
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unexpected parameter type '${elt->nodename}'`);
+    }
+
+  }
+
+  RETURN retval;
+}
+
+RECORD ARRAY FUNCTION DeleteTypeNodeCells(RECORD ARRAY types)
+{
+  FOREVERY (RECORD rec FROM types)
+  {
+    DELETE CELL node FROM types[#rec];
+    IF (types[#rec].type = TypeID(RECORD))
+      types[#rec].subcells := DeleteTypeNodeCells(types[#rec].subcells);
+  }
+
+  RETURN types;
+}
+
+RECORD ARRAY FUNCTION ProcessParams(RECORD ARRAY params, RECORD ARRAY pathtokens, RECORD functiondef, RECORD context, OBJECT errorkeeper)
+{
+  params :=
+      SELECT *
+           , tokenpos :=      (SELECT AS INTEGER #pathtokens + 1 FROM pathtokens WHERE value = "$" || params.name) - 1
+           , callparampos :=  (SELECT AS INTEGER #pos + 1 FROM ToRecordArray(functiondef.parameters, "VALUE") AS pos WHERE value = params.name) - 1
+        FROM params;
+
+  STRING ARRAY all_params := SELECT AS STRING ARRAY name FROM params;
+
+  FOREVERY (STRING p FROM all_params)
+  {
+    INTEGER lastelt := SearchLastElement(all_params, p);
+    IF (lastelt != #p)
+      errorkeeper->AddError(params[lastelt].node, "Parameter " || p || " specified twice");
+  }
+
+  FOREVERY (RECORD token FROM pathtokens)
+    IF (token.value LIKE "$*")
+    {
+      IF (SubString(token.value, 1) NOT IN all_params)
+        errorkeeper->AddError(context.urlnode, "URL token variable '" || token.value || "' not specified in parameters");
+    }
+
+  FOREVERY (STRING param FROM functiondef.parameters)
+  {
+    IF (param = "$options")
+      CONTINUE;
+    ELSE IF (param NOT IN all_params)
+      errorkeeper->AddError(context.signaturenode, "Function signature variable '" || param || "' not specified in parameters");
+    ELSE
+    {
+      RECORD rec := SELECT * FROM params WHERE name = param;
+      IF (rec.isoptional AND NOT RecordExists(rec.defaultvalue))
+        errorkeeper->AddError(context.signaturenode, "Function signature variable '" || param || "' is optional without a default value");
+    }
+  }
+
+  // Order by callparampos. All must be present due to earlier checks
+  RETURN SELECT * FROM params ORDER BY callparampos;
+}
+
+
+RECORD FUNCTION ParseFunctionSignature(OBJECT node, OBJECT errorkeeper)
+{
+  RECORD retval :=
+      [ functionname :=   ""
+      , parameters :=     DEFAULT STRING ARRAY
+      , optionspos :=     -1
+      ];
+
+  STRING sig := TrimWhitespace(node->GetAttribute("function"));
+  IF (sig NOT LIKE "*(*)")
+  {
+    errorkeeper->AddError(node, "Illegal signature " || sig);
+    RETURN retval;
+  }
+
+  STRING name := Tokenize(sig, "(")[0];
+  STRING params := TrimWhitespace(Tokenize(Tokenize(sig, "(")[1], ")")[0]);
+
+  retval.functionname := name;
+
+  IF (params != "")
+  {
+    FOREVERY (STRING param FROM Tokenize(params, ","))
+    {
+      param := TrimWhitespace(param);
+      IF (param = "")
+        errorkeeper->AddError(node, "Illegal signature " || sig);
+      ELSE
+        INSERT param INTO retval.parameters AT END;
+    }
+  }
+
+  retval.optionspos := SearchElement(retval.parameters, "$options");
+  IF (SearchElement(retval.parameters, "$options", retval.optionspos + 1) != -1)
+    errorkeeper->AddError(node, "Illegal signature " || sig || ", $options may only be used once");
+
+  RETURN retval;
+}
+
+STRING FUNCTION ParseDescriptionNode(OBJECT node)
+{
+  STRING ARRAY references;
+  OBJECT refs := node->QuerySelectorAll("/reference");
+  IF(ObjectExists(refs) AND refs->Length > 0)
+  {
+    STRING doctext;
+    FOREVERY(OBJECT reference FROM node->childnodes->GetCurrentNodes())
+    {
+      IF(reference->nodename = "#text")
+      {
+        doctext := doctext || reference->textcontent;
+        CONTINUE;
+      }
+      IF(reference->HasAttribute("endpoint"))
+        doctext := doctext || '<a href="#' || ToUpperCase(TrimWhitespace(reference->GetAttribute("type"))) || "-" || TrimWhitespace(reference->GetAttribute("endpoint")) || '">' || ToUpperCase(TrimWhitespace(reference->GetAttribute("type"))) || " " || TrimWhitespace(reference->GetAttribute("endpoint")) || "</a>";
+      ELSE
+        doctext := doctext || '<a href="#' || ToLowerCase(TrimWhitespace(reference->GetAttribute("type"))) || "-" || EncodeURL(ToLowerCase(TrimWhitespace(Substitute(reference->GetAttribute("endpoint"), " ", "-")))) || '">' || TrimWhitespace(reference->GetAttribute("value")) || "</a>";
+    }
+    RETURN doctext;
+  }
+  RETURN TrimWhitespace(node->textcontent);
+}
+
+RECORD FUNCTION ParseEndpoint(OBJECT endpointnode, RECORD context, OBJECT errorkeeper)
+{
+  STRING path := endpointnode->GetAttribute("path");
+  errorkeeper->new_errors := FALSE;
+
+  RECORD ARRAY baseparams;
+  OBJECT ARRAY nodes := endpointnode->childnodes->GetCurrentElements();
+
+  IF (LENGTH(nodes) != 0 AND nodes[0]->nodename = "params")
+  {
+    baseparams := ParseParams(nodes[0], "param", errorkeeper);
+    DELETE FROM nodes AT 0;
+  }
+
+  path := Tokenize(path, "?")[0];
+  IF (path LIKE "*" || "/")
+    path := Left(path, LENGTH(path) - 1);
+  IF (path LIKE "/" || "*")
+    path := SubString(path, 1);
+
+  STRING orgpath := path;
+
+  RECORD ARRAY pathtokens :=
+      SELECT value :=     token
+           , position :=  #part
+        FROM ToRecordArray(Tokenize(path, "/"), "TOKEN") AS part;
+
+  RECORD endpoint :=
+      [ mintokens :=        LENGTH(pathtokens)
+      , maxtokens :=        LENGTH(pathtokens)
+      , requiredtokens :=   (SELECT * FROM pathtokens WHERE value NOT LIKE "$*")
+      , methods :=          DEFAULT RECORD ARRAY
+      , node :=             endpointnode
+      , path :=             path
+      , deprecated :=       endpointnode->HasAttribute("deprecated") ? TRUE : FALSE
+      ];
+
+  BOOLEAN have_global_errors := errorkeeper->new_errors;
+
+  STRING endpoint_description;
+
+  FOREVERY (OBJECT node FROM nodes)
+  {
+    IF (NOT have_global_errors)
+      errorkeeper->new_errors := FALSE;
+
+    SWITCH (node->nodename)
+    {
+      CASE "description"
+      {
+        endpoint_description := parseDescriptionNode(node);
+      }
+      CASE "get", "post", "create", "put", "delete"
+      {
+        STRING method_description;
+        RECORD returnspec;
+        RECORD ARRAY references;
+
+        STRING returntype := endpointnode->GetAttribute("returntype") ?? "json";
+
+
+        RECORD ARRAY params := baseparams;
+        FOREVERY (OBJECT elt FROM node->childnodes->GetCurrentElements())
+          SWITCH (elt->nodename)
+          {
+            CASE "description"
+            {
+              method_description := ParseDescriptionNode(elt);
+            }
+            CASE "reference"
+            {
+              STRING type := ToLowerCase(elt->GetAttribute("type"));
+              STRING value := elt->GetAttribute("endpoint");
+              IF(type NOT IN [ "previous", "next", "flow" ])
+              {
+                errorkeeper->AddError(elt, "Only 'previous', 'next' & 'flow' are accepted for reference elements outside of description nodes.");
+              }
+              ELSE IF(Length(SELECT FROM references WHERE COLUMN type = VAR type) > 0)
+              {
+                errorkeeper->AddError(elt, "A reference of type '" || type || "' was already specified.");
+              }
+              ELSE IF(ToLowerCase(Tokenize(value, "-")[0]) NOT IN [ "get", "post", "create", "put", "delete" ] OR Substring(Tokenize(value, "-")[1], 0, 1) != "/")
+              {
+                /// Could still be correct: flow allows boolean ref to flow name, so "flow" or "!flow":
+                IF(type != "flow")
+                {
+                  errorkeeper->AddError(elt, type || ": Illegal reference value for '" || type || "' reference: Format should be 'METHOD-/path/to/endpoint'");
+                }
+                ELSE IF(value = "")/// attribute "value" was specified instead of endpoint
+                {
+                  value := elt->GetAttribute("value");
+                  IF(value = "")
+                  {
+                    errorkeeper->AddError(elt, "Empty reference value for '" || type || "' is not allowed.");
+                  }
+                  ELSE
+                  {
+                    /// Fine, leave actual handling to the recipient lib, but the value checks out:
+                    INSERT [ type :=     type
+                           , endpoint := value
+                           , flow :=     node->HasAttribute("flow") ? node->GetAttribute("flow") : ""
+                           ]
+                      INTO references AT END;
+                  }
+                }
+                ELSE
+                {
+                  errorkeeper->AddError(elt, "Illegal reference value for '" || type || "' reference: The attribute 'endpoint' is not allowed; use 'value' instead.");
+                }
+              }
+              ELSE
+              {
+                INSERT [ type :=     type
+                       , endpoint := value
+                       , flow :=     node->HasAttribute("flow") ? node->GetAttribute("flow") : ""
+                       ]
+                  INTO references AT END;
+              }
+            }
+            CASE "params"
+            {
+              params := params CONCAT ParseParams(elt, "param", errorkeeper);
+            }
+            CASE "returns"
+            {
+              IF (returntype != "json")
+                errorkeeper->AddError(elt, "Returns specification only allowed for JSON returns");
+
+              FOREVERY (OBJECT rettypenode FROM elt->childnodes->GetCurrentElements())
+              {
+                returnspec := ParseType(rettypenode, "return", errorkeeper);
+                BREAK;
+              }
+            }
+          }
+
+        RECORD functiondef := ParseFunctionSignature(node, errorkeeper);
+
+        params := ProcessParams(params, pathtokens, functiondef, [ urlnode := endpointnode, signaturenode := node ], errorkeeper);
+        params := DeleteTypeNodeCells(params);
+
+        IF (errorkeeper->new_errors)
+          CONTINUE;
+
+        INTEGER ARRAY callparamtypes := SELECT AS INTEGER ARRAY type FROM params WHERE callparampos != -1;
+        IF (functiondef.optionspos != -1)
+          INSERT TypeID(RECORD) INTO callparamtypes AT functiondef.optionspos;
+
+        INSERT
+            [ method :=               ToUppercase(node->nodename)
+            , description :=          TrimWhitespace(endpoint_description || "\n\n" || method_description)
+            , urltokens :=            (SELECT AS STRING ARRAY value FROM pathtokens)
+            , parameters :=           params
+            , library :=              context.library
+            , objtype :=              context.objtype
+            , security :=             endpointnode->GetAttribute("security") ?? context.security
+            , functionname :=         functiondef.functionname
+            , optionspos :=           functiondef.optionspos
+            , allowed_webvariables := (SELECT AS STRING ARRAY name FROM params WHERE tokenpos = -1)
+            , returntype :=           returntype
+            , callparamtypes :=       callparamtypes
+            , returnspec :=           returnspec
+            , source :=               [ line := node->linenum, col := 0 ]
+            , flow :=                 node->HasAttribute("flow") ? node->GetAttribute("flow") : ""
+            , ordering :=             node->HasAttribute("ordering") ? ToInteger(node->GetAttribute("ordering"), -1) : -1
+            , previous :=             (SELECT AS STRING COLUMN endpoint FROM references WHERE type = "previous")
+            , next :=                 (SELECT AS STRING COLUMN endpoint FROM references WHERE type = "next")
+            , flowrequired :=         (SELECT AS STRING COLUMN endpoint FROM references WHERE type = "flow")
+            , references :=           references
+            , deprecated :=           endpoint.deprecated ? TRUE : node->HasAttribute("deprecated") ? TRUE : FALSE
+            ] INTO endpoint.methods AT END;
+      }
+    }
+  }
+
+  RETURN endpoint;
+}
+
+MACRO CheckEndpointPaths(RECORD ARRAY endpoints, OBJECT errorkeeper)
+{
+  RECORD ARRAY paths;
+
+  FOREVERY (RECORD rec FROM endpoints)
+  {
+    FOR (INTEGER i := rec.mintokens;i <= rec.maxtokens; i := i + 1)
+    {
+      STRING ARRAY pathelts := RepeatElement("*", i);
+      FOREVERY (RECORD t FROM rec.requiredtokens)
+        pathelts[t.position] := t.value;
+
+      RECORD e := [ path := "/" || Detokenize(pathelts, "/"), node := rec.node ];
+
+      RECORD pos := RecordLowerBound(paths, e, [ "PATH"]);
+      IF (pos.found)
+      {
+        errorkeeper->AddError(rec.node, "Found an endpoint that matches a previous path");
+        errorkeeper->AddError(paths[pos.position].node, "Earlier relevant endpoint (another endpoint matches its path)");
+      }
+      ELSE
+        INSERT e INTO paths AT pos.position;
+    }
+  }
+}
+
+RECORD FUNCTION ParseRestConfig(OBJECT doc)
+{
+  STRING library := doc->documentelement->GetAttribute("library");
+  STRING objtype := doc->documentelement->GetAttribute("objecttype");
+  STRING logsource := doc->documentelement->GetAttribute("logsource");
+  STRING security := doc->documentelement->GetAttribute("security");
+
+  RECORD ARRAY endpoints;
+  RECORD ARRAY types;
+
+  OBJECT errorkeeper := NEW ErrorKeeperType;
+
+  FOREVERY (OBJECT elt FROM doc->documentelement->childnodes->GetCurrentElements())
+    SWITCH (elt->nodename)
+    {
+      CASE "types"
+      {
+        FOREVERY (OBJECT type FROM elt->childnodes->GetCurrentElements())
+        {
+          RECORD rec := ParseType(type, "type", errorkeeper);
+          IF (RecordExists(rec))
+            INSERT rec INTO types AT RecordUpperBound(types, rec, [ "NAME" ]);
+        }
+      }
+      CASE "endpoint"
+      {
+        RECORD endpoint := ParseEndpoint(elt, [ library := library, objtype := objtype, security := security ], errorkeeper);
+        IF (LENGTH(endpoint.methods) != 0)
+          INSERT endpoint INTO endpoints AT END;
+      }
+    }
+
+  CheckEndpointPaths(endpoints, errorkeeper);
+
+  RETURN
+      [ endpoints :=    (SELECT *, DELETE node FROM endpoints)
+      , types :=        DeleteTypeNodeCells(types)
+      , logsource :=    logsource
+      , errors :=       errorkeeper->errors
+      , warnings :=     errorkeeper->warnings
+      ];
+}
+
+// Must be run in separate job!
+PUBLIC STRING FUNCTION CheckSignature(RECORD method)
+{
+  OpenPrimary();
+  __restapiinfo :=
+      [ wrdauthplugin :=    DEFAULT OBJECT
+      ];
+
+  FUNCTION PTR func;
+  IF (method.objtype != "")
+  {
+    OBJECT obj := MakeObject(method.library, method.objtype);
+    IF (NOT MemberExists(obj, method.functionname))
+      RETURN "Member '" || method.functionname || "' does not exist";
+    func := GetObjectMethodPtr(obj, method.functionname);
+  }
+  ELSE
+    func := MakeFunctionPTR(method.library, method.functionname);
+
+  IF (ValidateFunctionPtr(func, TypeID(RECORD), method.callparamtypes))
+    RETURN "";
+
+  RETURN "Got signature " || ExplainFunctionPtrSignature(func) || ", but wanted " || ExplainFunctionSignature(TypeID(RECORD), method.callparamtypes, method.functionname);
+}
+
+PUBLIC OBJECTTYPE RestAPIDefinitionFile EXTEND ResourceValidationBase
+<
+  UPDATE PUBLIC RECORD FUNCTION Validate(OBJECT doc, STRING resourcename, OBJECT xsd)
+  {
+    RECORD result := ResourceValidationBase::Validate(doc, resourcename, xsd);
+    RECORD parsed := ParseRestConfig(doc);
+    result.errors := result.errors CONCAT SELECT *, resourcename := VAR resourcename FROM parsed.errors;
+    result.warnings := result.warnings CONCAT SELECT *, resourcename := VAR resourcename FROM parsed.warnings;
+
+    FOREVERY (RECORD endpoint FROM parsed.endpoints)
+      FOREVERY (RECORD method FROM endpoint.methods)
+      {
+        STRING message := CallFunctionFromJob("module::system/internal/remoting/restapisupport.whlib", "CheckSignature", method);
+        IF (message != "")
+          INSERT CELL[ resourcename, message, code := 0, line := method.source.line, col := 0 ] INTO result.errors AT END;
+      }
+
+    RETURN result;
+  }
+>;
+
+RECORD FUNCTION GetCachableRestConfig(STRING resource)
+{
+  STRING ARRAY masks := GetResourceEventMasks([resource]);
+  BLOB data := GetWebhareResource(resource);
+  RECORD retval := [ eventmasks :=   masks
+                   , value :=        ParseRestConfig(MakeXMLDocument(data))
+                   ];
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION GetRestConfig(STRING resource)
+{
+  RETURN GetAdhocCached([ type := "apiconfig", resource := resource ], PTR GetCachableRestConfig(resource));
+}
+
+PUBLIC RECORD FUNCTION GetEndpointFromRelativeURL(RECORD config, STRING method, STRING relurl)
+{
+  relurl := Tokenize(relurl, "?")[0];
+  IF (relurl LIKE "*/")
+    relurl := Left(relurl, LENGTH(relurl) - 1);
+  IF (relurl LIKE "/*")
+    relurl := SubString(relurl, 1);
+
+  STRING ARRAY tokens := Tokenize(relurl, "/");
+
+  RECORD match;
+  FOREVERY (RECORD endpoint FROM config.endpoints)
+  {
+    IF (LENGTH(tokens) < endpoint.mintokens OR LENGTH(tokens) > endpoint.maxtokens)
+      CONTINUE;
+
+    BOOLEAN ismatch := TRUE;
+    FOREVERY (RECORD requiredtoken FROM endpoint.requiredtokens)
+      IF (tokens[requiredtoken.position] != requiredtoken.value)
+      {
+        ismatch := FALSE;
+        BREAK;
+      }
+
+    IF (NOT ismatch)
+      CONTINUE;
+
+    IF (RecordExists(match))
+      THROW NEW Exception("Multiple matching endpoints");
+
+    match := endpoint;
+  }
+
+  IF (NOT RecordExists(match))
+    THROW NEW RPCBadRequestException("There is no endpoint matching '/" || relurl || "'");
+
+  RECORD endpoint :=
+      SELECT *
+        FROM match.methods
+       WHERE COLUMN method = VAR method;
+
+  IF (NOT RecordExists(endpoint))
+    THROW NEW RPCBadRequestException("Method '" || method || "' is not allowed for endpoint '/" || relurl || "'");
+
+  RETURN
+      [ tokens :=   tokens
+      , endpoint := endpoint
+      ];
+}
+
+
+PUBLIC VARIANT FUNCTION DecodeArgumentJSON(RECORD incomingdata, RECORD paramdescr)
+{
+  IF(TYPEID(incomingdata.value) = TYPEID(STRING) AND paramdescr.type = TYPEID(BLOB))
+    RETURN StringToBlob(DecodeBase64(incomingdata.value));
+
+  RETURN EnforceStructure(GetTypeDefaultvalue(paramdescr.type), incomingdata.value);
+}
+
+/** Cast an incoming webvariable to the requested type
+    @param data webvariable data
+    @cell(string) data.value Data (may be truncated to 2048 bytes if cell 'data' is present)
+    @cell(blob) data.data Blob data (optional, always contains full data)
+    @return Casted data, else exception.
+*/
+PUBLIC VARIANT FUNCTION DecodeArgument(RECORD data, RECORD param)
+{
+  /* the code here appears to be confused about 'value' truncation. what actually happens is:
+     - if 'data' exists, the value is coming from GetAllWebVariables(). value is always a STRING trunctated to 4K (as per GetWebVariable) but data is a BLOB
+     - if 'data' doesn't exist, the value is tokenized from the URL
+     */
+
+  //FIXME reduce coercions if input is already JSON - shouldn't do string->integer then?
+
+  INTEGER valuetype := TypeID(data.value);
+  // As far as I can tell, data.value is ALWAYS a string.
+  //IF (valuetype != TypeID(STRING)) // From JSON-decoded body?
+  //{
+  //  // Early exit
+  //  IF (valuetype = param.type)
+  //    RETURN data.value;
+
+  //  IF (IsTypeIDArray(param.type))
+  //  {
+  //    IF (NOT IsTypeIDArray(valuetype) OR (NOT CanCastTypeTo(valuetype, param.type) AND LENGTH(data.value) != 0))
+  //      THROW NEW RPCInvalidArgsException("Cannot cast parameter '" || param.name || "' to a " || GetTypeName(param.type));
+
+  //    IF (LENGTH(data.value) = 0)
+  //      RETURN GetTypeDefaultValue(param.type);
+  //  }
+  //  ELSE
+  //  {
+  //    INTEGER wanttype := param.type;
+  //    IF (param.type = TypeID(DATETIME) OR param.type = TypeID(BLOB))
+  //      wanttype := TypeID(STRING);
+
+  //    IF (NOT CanCastTypeTo(valuetype, wanttype))
+  //      THROW NEW RPCInvalidArgsException("Cannot cast parameter '" || param.name || "' to a " || GetTypeName(wanttype));
+  //  }
+
+  //  IF (LENGTH(data.value) = 0)
+  //    RETURN GetTypeDefaultValue(param.type);
+
+
+  //  SWITCH (param.type)
+  //  {
+  //    CASE TypeID(INTEGER)    { RETURN INTEGER(data.value); }
+  //    CASE TypeID(BLOB)       { RETURN StringToBlob(DecodeBase64(data.value)); }
+  //    CASE TypeID(MONEY)      { RETURN MONEY(data.value); }
+  //    CASE TypeID(FLOAT)      { RETURN FLOAT(data.value); }
+  //    CASE TypeID(DATETIME)   { RETURN MakeDateFromText(data.value); }
+  //    CASE TypeID(VARIANT ARRAY) { RETURN VARIANT ARRAY(data.value); }
+  //  }
+
+  //  THROW NEW Exception("Error decoding type " || GetTypeName(param.type) || " from passed " || GetTypeName(valuetype));
+  //}
+
+  IF(IsTypeIDArray(param.type))
+  {
+    IF (CellExists(data, "DATA"))
+      RETURN DecodeJSONBlob(data.data);
+    RETURN DecodeJSON(data.value);
+  }
+
+  SWITCH (param.type)
+  {
+    CASE TypeID(INTEGER)
+    {
+      INTEGER value := ToInteger(data.value, -1);
+      IF (value = -1 AND ToInteger(data.value, 0) = 0)
+        THROW NEW RPCInvalidArgsException("Cannot cast parameter '" || param.name || "' to an integer");
+      RETURN value;
+    }
+    CASE TypeID(INTEGER64)
+    {
+      INTEGER64 value := ToInteger64(data.value, -1);
+      IF (value != -1 OR ToInteger64(data.value, 0) != 0)
+        RETURN value;
+
+      value := INTEGER64(ToFloat(data.value, -1));
+      IF(value != -1 OR ToFloat(data.value,0) != 0)
+        RETURN value;
+
+      THROW NEW RPCInvalidArgsException("Cannot cast parameter '" || param.name || "' to an integer64");
+    }
+    CASE TypeID(STRING)
+    {
+      IF (NOT CellExists(data, "DATA") OR LENGTH(data.data) = LENGTH(data.value))
+        RETURN data.value;
+      RETURN BlobToString(data.value);
+    }
+    CASE TypeID(BLOB)
+    {
+      STRING base64data := CellExists(data, "DATA") ? BlobToString(data.data) : data.value;
+      RETURN StringToBlob(DecodeBase64(base64data));
+    }
+    CASE TypeID(RECORD)
+    {
+      IF (CellExists(data, "DATA"))
+        RETURN DecodeJSONBlob(data.data);
+      RETURN DecodeJSON(data.value);
+    }
+    CASE TypeID(MONEY)
+    {
+      MONEY value := ToMoney(data.value, -1);
+      IF (value = -1m AND ToMoney(data.value, 0) = 0m)
+        THROW NEW RPCInvalidArgsException("Cannot cast parameter '" || param.name || "' to a money");
+      RETURN value;
+    }
+    CASE TypeID(FLOAT)
+    {
+      FLOAT value := ToFloat(data.value, -1);
+      IF (value = -1f AND ToFloat(data.value, 0) = 0m)
+        THROW NEW RPCInvalidArgsException("Cannot cast parameter '" || param.name || "' to a float");
+      RETURN value;
+    }
+    CASE TypeID(BOOLEAN)
+    {
+      RETURN ToUppercase(data.value) IN [ "1", "TRUE" ];
+    }
+    CASE TypeID(DATETIME)
+    {
+      IF(data.value="")
+        RETURN DEFAULT DATETIME;
+      DATETIME parsed := MakeDateFromText(data.value);
+      IF(parsed = DEFAULT DATETIME)
+        THROW NEW RPCInvalidArgsException("Cannot cast parameter '" || param.name || "' to a datetime");
+      RETURN parsed;
+    }
+  }
+
+  THROW NEW Exception(`Cannot convert type '${GetTypeName(valuetype)}' to '${GetTypeName(param.type)}'`);
+}
+
+PUBLIC STRING FUNCTION EncodeArgument(VARIANT data, STRING name)
+{
+  IF(IsTypeIDArray(TYPEID(data)))
+    RETURN EncodeJSON(data);
+
+  SWITCH (TypeID(data))
+  {
+    CASE TypeID(INTEGER), TypeID(INTEGER64)
+    {
+      RETURN ToString(data);
+    }
+    CASE TypeID(STRING)
+    {
+      RETURN data;
+    }
+    CASE TypeID(BLOB)
+    {
+      RETURN EncodeBase64(BlobToString(data));
+    }
+    CASE TypeID(RECORD)
+    {
+      RETURN EncodeJSON(data);
+    }
+    CASE TypeID(MONEY)
+    {
+      RETURN FormatMoney(data, 0, ".", "", FALSE);
+    }
+    CASE TypeID(FLOAT)
+    {
+      RETURN FormatFloat(data, 10);
+    }
+    CASE TypeID(BOOLEAN)
+    {
+      RETURN data ? "1" : "0";
+    }
+    CASE TypeID(DATETIME)
+    {
+      IF(GetMsecondCount(data) % 1000 != 0) //date in milliseconds, so maximize precision
+        RETURN FormatISO8601DateTime(data, "", "milliseconds", "", TRUE);
+      ELSE //pass in seconds, what people would 'usually' do
+        RETURN FormatISO8601DateTime(data, "", "", "", TRUE);
+    }
+  }
+
+  THROW NEW Exception("Cannot convert argument '"||name||"' of type " || GetTypeName(TypeID(data)));
+}
+
+RECORD FUNCTION ResolveType(RECORD ARRAY alltypes, RECORD type)
+{
+  IF (type.type = TYPEID(RECORD) AND type.reference != "")
+  {
+    RECORD reftype := SELECT * FROM alltypes WHERE name = type.reference;
+    IF (NOT RecordExists(reftype))
+      THROW NEW Exception(`Type '${type.reference}' could not be resolved in the API definition`);
+
+    // Honor allownull attrs from references
+    IF (NOT reftype.allownull AND type.allownull)
+      reftype.allownull := TRUE;
+
+    //Merge passthroughs and members
+    reftype.passthrough := reftype.passthrough CONCAT type.passthrough;
+    reftype.subcells := reftype.subcells CONCAT type.subcells;
+    type := reftype;
+  }
+  RETURN type;
+}
+
+STRING FUNCTION FormatPath(STRING path, RECORD parenttype)
+{
+  RETURN "'" || path || "'" || (NOT RecordExists(parenttype) OR parenttype.name = "" ? "" : " in type '" || parenttype.name || "'");
+}
+STRING FUNCTION FormatParamPath(STRING path, RECORD param, RECORD type)
+{
+  RETURN "'" || path || "." || param.name || "'" || (type.name = "" ? "" : " in type '" || type.name || "'");
+}
+
+PUBLIC VARIANT FUNCTION ValidateValue(RECORD type, RECORD ARRAY alltypes, VARIANT value, STRING path, RECORD parenttype, BOOLEAN is_incoming)
+{
+  IF (type.type = TypeID(RECORD))
+  {
+    IF (TypeID(value) != TypeID(RECORD))
+      THROW NEW RPCInvalidArgsException("Value " || FormatPath(path, parenttype) || " has the wrong type, got " || GetTypeName(TypeID(value)) || ", wanted " || GetTypeName(type.type));
+
+    type := ResolveType(alltypes, type);
+    IF (NOT RecordExists(value))
+    {
+      IF (NOT type.allownull AND NOT type.isoptional)
+        THROW NEW RPCInvalidArgsException("Record " || FormatPath(path, parenttype) || " is non-existent, but without isoptional or allownull an existing value is required.");
+      RETURN value;
+    }
+
+    RECORD ARRAY unpacked_value := UnpackRecord(value);
+
+    STRING ARRAY used_params;
+    FOREVERY (RECORD param FROM type.subcells)
+    {
+      IF (NOT CellExists(value, param.name))
+      {
+        IF (param.isoptional)
+          CONTINUE;
+
+        STRING bestmatch := GetBestMatch(param.name, (SELECT AS STRING ARRAY name FROM unpacked_value));
+        IF (bestmatch != "")
+          THROW NEW RPCInvalidArgsException("Missing " || FormatParamPath(path, param, type) || ", did you use '" || bestmatch || "' instead?");
+        ELSE
+          THROW NEW RPCInvalidArgsException("Missing " || FormatParamPath(path, param, type));
+      }
+
+      VARIANT val := GetCell(value, param.name);
+      val := ValidateValue(param, alltypes, val, path || "." || param.name, type.name = "" ? parenttype : type, is_incoming);
+      //replace it
+      value := CellInsert(CellDelete(value, param.name), param.name, val);
+
+      INSERT ToUppercase(param.name) INTO used_params AT END;
+    }
+
+    IF (LENGTH(used_params) != LENGTH(unpacked_value))
+    {
+      FOREVERY (RECORD arg FROM unpacked_value)
+      {
+        IF(MatchCommonXMLWildcardMasks(arg.name, type.passthrough))
+          CONTINUE;
+
+        IF (arg.name NOT IN used_params)
+        {
+          STRING bestmatch := GetBestMatch(arg.name, (SELECT AS STRING ARRAY name FROM type.subcells));
+          IF (bestmatch != "")
+            THROW NEW RPCInvalidArgsException("Found undocumented value " || FormatParamPath(path, arg, type) || ", did you mean '" || bestmatch || "' instead?");
+          ELSE
+            THROW NEW RPCInvalidArgsException("Found undocumented value " || FormatParamPath(path, arg, type));
+        }
+      }
+    }
+
+    RETURN value;
+  }
+
+  IF (IsTypeidArray(type.type))
+  {
+    IF (NOT IsTypeidArray(TypeID(value)))
+      THROW NEW RPCInvalidArgsException("Value " || FormatPath(path, parenttype) || " has the wrong type, got " || GetTypeName(TypeID(value)) || ", wanted " || GetTypeName(type.type));
+    ELSE IF (LENGTH(value) = 0 OR LENGTH(type.subcells) = 0)
+      RETURN value;
+
+    RECORD elttype := ResolveType(alltypes, type.subcells[0]);
+    FOREVERY (VARIANT elt FROM value)
+    {
+      value[#elt] := ValidateValue(elttype, alltypes, elt, path || "[" || #elt || "]", parenttype, is_incoming);
+    }
+    RETURN value;
+  }
+
+  INTEGER fromtype := TypeID(value);
+  IF(is_incoming = FALSE AND type.type = TypeID(BLOB) AND fromtype = TYPEID(BLOB)) //encode as DecodeBase64
+    RETURN EncodeBase64(BlobToString(value));
+
+  IF (fromtype = type.type)
+    RETURN value;
+
+  // Allow casts
+  SWITCH (type.type)
+  {
+    CASE TypeID(INTEGER64)
+    {
+      IF (fromtype = TypeID(INTEGER))
+        RETURN value;
+      IF (fromtype = TypeID(FLOAT) AND is_incoming)
+        RETURN INTEGER64(value);
+    }
+    CASE TypeID(MONEY)      { IF (fromtype = TypeID(INTEGER)) RETURN value; }
+    CASE TypeID(FLOAT)      { IF (fromtype = TypeID(INTEGER) OR fromtype = TypeID(MONEY) OR fromtype = TypeID(INTEGER64)) RETURN value; }
+    CASE TypeID(BLOB)
+    {
+      IF (is_incoming AND fromtype = TypeID(STRING))
+        RETURN StringToBlob(DecodeBase64(value));
+    }
+    CASE TypeID(DATETIME)
+    {
+      IF (fromtype = TypeID(STRING))
+        RETURN MakeDateFromText(value);
+    }
+  }
+  THROW NEW RPCInvalidArgsException("Value " || FormatPath(path, parenttype) || " has the wrong type, got " || GetTypeName(TypeID(value)) || ", wanted " || GetTypeName(type.type));
+}
+
+RECORD FUNCTION PrepareRemoteRESTCall(STRING apispecification, STRING baseurl, STRING method, STRING relurl, RECORD data DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD config := GetRestConfig(apispecification);
+
+  method := ToUppercase(method);
+
+  // Determine endpoint
+  RECORD rec := GetEndpointFromRelativeURL(config, method, relurl);
+  STRING urltocall := ResolveToAbsoluteURL(baseurl, "./" || relurl);
+
+  BOOLEAN jsonbody := options.jsonbody AND method != "GET";
+  RECORD ARRAY postvars;
+  RECORD callrec;
+
+  STRING ARRAY tokens := rec.tokens;
+  RECORD ARRAY urlvars := GetAllVariablesFromUrl(relurl);
+  RECORD ARRAY unpacked_data := UnpackRecord(data) CONCAT urlvars;
+
+  STRING ARRAY used_params;
+  FOREVERY (RECORD param FROM rec.endpoint.parameters)
+  {
+    IF(param.tokenpos >= 0) //we don't need to validate parameters that are tokens on the url (eg /endpoint/$id/bladiebla stuff)
+      CONTINUE;
+
+    IF(NOT CellExists(data, param.name)) //parameter is missing
+    {
+      IF(RecordExists(SELECT FROM urlvars WHERE ToUppercase(name) = ToUppercase(param.name)))
+        CONTINUE; //you added it to the URL. it's your problem now
+      IF(param.isoptional)
+        CONTINUE; //it wasn't needed anyway.
+
+      STRING bestmatch := GetBestMatch(param.name, (SELECT AS STRING ARRAY name FROM unpacked_data));
+      IF (bestmatch != "")
+        THROW NEW Exception(`Missing parameter '${param.name}', did you use '${bestmatch}' instead?`);
+      ELSE
+        THROW NEW Exception(`Missing parameter '${param.name}'`);
+    }
+
+    VARIANT value := GetCell(data, param.name);
+    IF(jsonbody)
+    {
+      callrec := CellInsert(callrec, param.name, value);
+    }
+    ELSE
+    {
+      STRING strvalue := EncodeArgument(value, param.name);
+      IF(method = "GET") //we have no choice but to add it to the URL
+        urltocall := AddVariableToURL(urltocall, param.name, strvalue);
+      ELSE
+        INSERT [ name := param.name, value := strvalue ] INTO postvars AT END;
+    }
+    INSERT ToUppercase(param.name) INTO used_params AT END;
+  }
+
+  FOREVERY (RECORD arg FROM UnpackRecord(data))
+    IF (arg.name NOT IN used_params)
+    {
+      STRING bestmatch := GetBestMatch(arg.name, (SELECT AS STRING ARRAY name FROM rec.endpoint.parameters));
+      IF (bestmatch != "")
+        THROW NEW Exception("Unused argument '" || arg.name || "', did you mean '" || bestmatch || "' instead?");
+      ELSE
+        THROW NEW Exception("Unused argument '" || arg.name || "'");
+    }
+
+  BLOB request_body;
+  RECORD ARRAY headers;
+  IF(jsonbody)
+  {
+    headers := [[ field := "Content-Type", value := "application/json" ]];
+    request_body := EncodeJSONBlob(callrec);
+  }
+  ELSE IF(method != "GET")
+  {
+    RECORD requestrec := CreateHTTPUrlencodedRequest(postvars);
+    request_body := requestrec.body;
+    headers := requestrec.headers;
+  }
+
+  RETURN [ url := urltocall || options.appendtourl
+         , headers := headers
+         , body := request_body
+         ];
+}
+
+PUBLIC STATIC OBJECTTYPE RestTester
+<
+  OBJECT testfw;
+  STRING apispecification;
+  STRING baseurl;
+  RECORD options;
+  BOOLEAN jsonbody;
+
+  MACRO NEW(OBJECT testfw, STRING apispecification, STRING baseurl, RECORD options)
+  {
+    this->options := ValidateOptions( [ jsonbody := TRUE
+                                      , debug := FALSE
+                                      ], options);
+    this->testfw := testfw;
+    this->apispecification := apispecification;
+    this->baseurl := baseurl;
+  }
+  PUBLIC RECORD FUNCTION Invoke(STRING method, STRING relurl, RECORD data DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(ToUpperCase(method) NOT IN [ "GET", "POST", "PUT", "DELETE" ])
+      THROW NEW Exception("Invalid method for REST call");
+
+    options := ValidateOptions( [ debug :=        this->options.debug
+                                , appendtourl :=  ""
+                                , jsonbody :=     this->options.jsonbody
+                                , returnrequest := FALSE
+                                ], options);
+
+    RECORD prep := PrepareRemoteRESTCall(this->apispecification, this->baseurl, method, relurl, data, options);
+    IF(options.debug)
+    {
+      DumpValue([ baseurl := this->baseurl, url := prep.url, headers := prep.headers, body := BlobToString(prep.body)/*, json := EncodeJSON(DecodeURL(BlobToString(request_body)))*/ ], "tree");
+      DumpValue(EncodeJSON(data), 'tree');
+    }
+
+    IF (NOT this->testfw->browser->SendRawRequest(method, prep.url, prep.headers, prep.body))
+    {
+      INTEGER code := this->testfw->browser->GetHTTPStatusCode();
+      IF (code = 0)
+        THROW NEW Exception("Could not connect to webserver at " || this->baseurl);
+
+      OBJECT exc := NEW Exception("Failure " || this->testfw->browser->GetHTTPStatusText());
+      TRY
+      {
+        RECORD traceinfo := DecodeJSONBlob(this->testfw->browser->content);
+        IF(RecordExists(traceinfo) AND CellExists(traceinfo,'error'))
+        {
+          exc->what := "Remote client error: " || traceinfo.error.message;
+
+          exc->trace := RECORD ARRAY(traceinfo.error.trace)
+                        CONCAT
+                        //experimental: try to make it more clear we transferred servers
+                        [[ col := 0, filename := "___restclient_to_restserver___", func := prep.url, line := 0]];
+        }
+      }
+      CATCH(OBJECT e)
+      {
+        //double exception, probably broken json, ignore
+      }
+      THROW exc;
+    }
+
+    // FIXME: something with returntype="file"
+    RECORD retval := DecodeJSONBlob(this->testfw->browser->content);
+
+    IF(options.debug)
+      DumpValue(retval, 'tree');
+
+    IF(options.returnrequest)
+      retval := CELL[...retval, __request := prep ];
+
+    RETURN retval;
+  }
+>;

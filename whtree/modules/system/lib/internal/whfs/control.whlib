@@ -1,0 +1,34 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+/** Republish one or more objects
+    @topic sitedev/whfs
+    @loadlib mod::system/lib/whfs.whlib
+    @param fsobjects FS Objects to republish
+    @cell(boolean) options.recursive Republish folders recursively (defaults to TRUE) */
+PUBLIC MACRO ScheduleRepublish(INTEGER ARRAY fsobjects, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ recursive := TRUE ], options);
+
+  //FIXME We can optimize this A LOT! - but lets first ensure that we are the ONLY entrypoint into republish
+  RECORD ARRAY objs := SELECT isfolder, ids := GroupedValues(id)
+                         FROM system.fs_objects
+                        WHERE id IN fsobjects
+                     GROUP BY isfolder;
+
+  FOREVERY(RECORD objgroup FROM objs)
+    IF(objgroup.isfolder)
+    {
+      MACRO PTR ScheduleFolderRepublish := MakeFunctionPtr("mod::publisher/lib/control.whlib#ScheduleFolderRepublish");
+      FOREVERY(INTEGER id FROM objgroup.ids)
+        ScheduleFolderRepublish(id, options.recursive);
+    }
+    ELSE
+    {
+      MACRO PTR ScheduleFileRepublish := MakeFunctionPtr("mod::publisher/lib/control.whlib#ScheduleFileRepublish");
+      FOREVERY(INTEGER id FROM objgroup.ids)
+        ScheduleFileRepublish(id);
+    }
+}

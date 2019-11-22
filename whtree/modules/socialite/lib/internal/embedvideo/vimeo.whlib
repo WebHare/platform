@@ -1,0 +1,46 @@
+﻿<?wh
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/remoting/whservice.whlib";
+
+
+PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase
+<
+  MACRO NEW()
+  {
+    OpenPrimary();
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION Search(STRING searchfor, INTEGER maxresults)
+  {
+    IF(searchfor="")
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN this->EnrichVideos(SELECT *
+                                   , videoid := id
+                                   , creationdate := (CellExists(videos, "creationdate") ? creationdate : upload_date) // TEMPORARY
+                                FROM InvokeHostedWHService("socialite/searchvimeo", searchfor, [ maxresults := maxresults ]) AS videos);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION DescribeVideo(STRING videoid)
+  {
+    RECORD video := InvokeHostedWHService("socialite/describevimeovideo", videoid);
+    IF (NOT Recordexists(video))
+      RETURN DEFAULT RECORD;
+    RETURN RECORD(this->EnrichVideos(SELECT *, videoid := id FROM [ video ]));
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetIFramePlayerURL(STRING videoid)
+  {
+    RETURN "//player.vimeo.com/video/"|| EncodeURL(videoid);
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetTitle()
+  {
+    RETURN "Vimeo";
+  }
+  UPDATE PUBLIC STRING FUNCTION GetIcon()
+  {
+    RETURN "tollium:social_media/vimeo";
+  }
+>;

@@ -1,0 +1,421 @@
+﻿<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/geo.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::socialite/lib/api.whlib";
+LOADLIB "mod::socialite/lib/database.whlib";
+LOADLIB "mod::socialite/lib/google/maps-v3.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+
+PUBLIC OBJECTTYPE Authorize EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  STRING url;
+
+
+  BOOLEAN finished;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// Permissions to ask (ignored for persistent session logins)
+  //PUBLIC STRING ARRAY permissions;
+
+  /// Persistent session to authorize
+  INTEGER sessionid;
+
+  /// Tag of persistent session to authorize
+  //PUBLIC STRING persistentsessiontag;
+
+  INTEGER callback;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium init
+  //
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->sessionid := data.sessionid;
+  }
+
+  MACRO OnShow()
+  {
+    RECORD session := SELECT application
+                           , authorizationremark
+                       FROM socialite.sessions
+                      WHERE id = this->sessionid;
+
+    IF(NOT RecordExists(session))
+      THROW NEW Exception("No such session #" || this->sessionid);
+
+    INTEGER accountid := SELECT AS INTEGER account
+                           FROM socialite.applications
+                          WHERE id = session.application;
+
+    // warn and cancel if the user doesn't have the right to authorize this session
+    IF(NOT this->tolliumuser->HasRightOn("socialite:authorizesessions", accountid))
+    {
+      STRING accountname := SELECT AS STRING title FROM socialite.accounts WHERE id = accountid;
+
+      OBJECT work := this->BeginFeedback();
+      work->AddError(GetTid("socialite:commondialogs.authorize.norighttoauthorize", accountname));
+      work->Finish();
+      this->tolliumresult := "CANCEL";
+      RETURN;
+    }
+
+    IF (session.authorizationremark != "")
+    {
+      this->authorize_remark->value := session.authorizationremark;
+      this->authorize_remark->visible := TRUE;
+    }
+
+    this->callback := RegisterEventCallback("socialite:config.authorize", PTR this->OnFinishAuthorize);
+    this->RestartLogin();
+  }
+
+  MACRO OnUnload()
+  {
+    IF(this->callback != 0)
+      UnregisterCallback(this->callback);
+  }
+
+  MACRO RestartLogin()
+  {
+    RECORD setupres := this->SetupPersistentAuthorization(this->sessionid, this->tolliumcontroller->baseurl, GetCurrentGroupid());
+
+    this->url := setupres.authorize_uri;
+
+    this->clicklink->htmlvalue := '<a target="Authorize" href="' || EncodeValue(this->url) || '">Click to start authorization</a>';
+    IF(setupres.requireverify)
+    {
+      this->verify->visible := TRUE;
+      this->verify->required := TRUE;
+    }
+  }
+
+  BOOLEAN FUNCTION FinishLogin(STRING verifier)
+  {
+    OBJECT work := this->BeginWork();
+
+    RECORD result := this->FinishPersistentAuthorization(verifier);
+    IF(NOT result.success)
+    {
+      work->Finish();
+      this->RestartLogin();
+      this->authorize_text->value := GetTid("socialite:commondialogs.authorize.retrytext");
+      PRINT("Authentication failed:\n" || result.error || "\n");
+      RETURN FALSE;
+    }
+
+    work->Finish();
+    this->finished := TRUE;
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnFinishAuthorize(STRING event, RECORD authresult)
+  {
+    IF (NOT CellExists(authresult, "SRHID"))
+      RETURN;
+    Print("Received callback " || Anytostring(authresult,'tree'));
+    IF (this->FinishLogin(authresult.href))
+      this->tolliumresult := 'ok';
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions & submit
+  //
+
+  BOOLEAN FUNCTION Submit()
+  {
+    IF (this->verify->required AND this->verify->value = "")
+    {
+      this->RunMessageBox(".verifyneeded");
+      RETURN FALSE;
+    }
+
+    IF (NOT this->finished)
+    {
+      STRING href := ReplaceVariableInUrl(this->tolliumcontroller->baseurl, "oauth_verifier", this->verify->value);
+      IF (NOT this->FinishLogin(href))
+        RETURN FALSE;
+    }
+    RETURN TRUE;
+  }
+
+  // Persistent session setup
+
+  OBJECT current_authconn;
+  RECORD authenticationsession;
+
+  MACRO CloseCurrentAuth()
+  {
+    IF(NOT ObjectExists(this->current_authconn))
+      RETURN;
+    this->current_authconn->Close();
+    this->current_authconn := DEFAULT OBJECT;
+  }
+
+  RECORD FUNCTION SetupPersistentAuthorization(INTEGER sessionid, STRING requesturl, STRING srhid)
+  {
+    this->CloseCurrentAuth();
+
+    OBJECT user := GetEffectiveUser();
+
+    RECORD persistinfo := SELECT accountid := applications.account
+                               , appid := applications.id
+                            FROM socialite.sessions, socialite.applications
+                           WHERE sessions.id = sessionid
+                                 AND sessions.persistent
+                                 AND sessions.application = applications.id;
+
+    IF(NOT RecordExists(persistinfo))
+      THROW NEW Exception("No such session #" || sessionid);
+    IF(NOT user->HasRightOn("socialite:authorizesessions", persistinfo.accountid))
+      THROW NEW Exception("The current user does not have the rights to authorize session #" || sessionid);
+
+    this->current_authconn := OpenSocialiteConnectionById(persistinfo.appid);
+
+    STRING callback := this->current_authconn->GetCallbackURL(requesturl);
+    STRING state;
+
+    IF(this->current_authconn->mode IN ["google","pinterest","facebook"])
+      state := "srhid:" || EncryptForThisServer("socialite:authorize",srhid);
+    ELSE
+      callback := AddVariableToURL(callback, "srhid", EncryptForThisServer("socialite:authorize",srhid));
+
+    this->authenticationsession := this->current_authconn->StartPersistentAppLogin(sessionid, callback, state);
+
+    // Reset authentication on this connection
+    this->current_authconn->accesstoken := "";
+    this->sessionid := sessionid;
+
+    RETURN [ authorize_uri := this->authenticationsession.authorize_uri
+           , requireverify := this->current_authconn->persistentlogintype = "code"
+           ];
+  }
+
+  RECORD FUNCTION FinishPersistentAuthorization(STRING verifier)
+  {
+    IF(NOT ObjectExists(this->current_authconn))
+      THROW NEW Exception("No current authorization session");
+
+    RECORD result :=
+        [ success :=  TRUE
+        , error :=    ""
+        ];
+    TRY
+    {
+      this->current_authconn->FinishPersistentAppLogin(this->sessionid, this->authenticationsession.sessiontoken, verifier);
+    }
+    CATCH(OBJECT e)
+    {
+      result :=
+          [ success :=  FALSE
+          , error :=    e->what
+          ];
+    }
+    this->CloseCurrentAuth();
+    RETURN result;
+  }
+
+>;
+
+
+PUBLIC OBJECTTYPE Location EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT geocoder;
+  RECORD pvt_value;
+
+  STRING iconname;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY center(GetCenter, SetCenter);
+  PUBLIC PROPERTY zoom(GetZoom, SetZoom);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC BOOLEAN autozoom;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->geocoder := NEW GGeocoder([ requesturl := this->tolliumcontroller->baseurl ]);
+    this->geocoder->baselanguagecode := this->tolliumuser->language;
+
+    IF (RecordExists(data))
+    {
+      IF (CellExists(data, "icon") AND TypeID(data.icon) = TypeID(RECORD))
+        this->map->icons := [ RECORD(data.icon) ];
+      this->autozoom := CellExists(data, "autozoom") AND TypeID(data.autozoom) = TypeId(BOOLEAN) AND data.autozoom;
+    }
+    this->iconname := Length(this->map->icons) > 0 ? this->map->icons[0].name : "";
+  }
+
+  PUBLIC MACRO SetInitialSearch(STRING initialdata)
+  {
+    //initial searches may not trigger a popup
+    IF(this->TrySearchFor(initialdata, [ silentlyfail := TRUE ]))
+      this->query->value := initialdata;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO UpdateValue(RECORD coordinates, BOOLEAN center, OBJECT viewport DEFAULTSTO DEFAULT OBJECT)
+  {
+    this->pvt_value := coordinates;
+    IF (RecordExists(this->pvt_value))
+    {
+      this->map->overlays := [ [ type := "marker"
+                               , icon := this->iconname
+                               , lat := this->pvt_value.lat
+                               , lng := this->pvt_value.lng
+                               , moveable := TRUE
+                               , selectable := FALSE
+                               ]
+                             ];
+      IF (center)
+      {
+        this->map->center := this->pvt_value;
+        IF (this->autozoom AND ObjectExists(viewport))
+          this->map->SetViewport(viewport->ToRecord());
+      }
+    }
+    ELSE
+    {
+      DELETE FROM this->map->overlays;
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  BOOLEAN FUNCTION TrySearchFor(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ silentlyfail := FALSE ], options);
+
+    // If the user entered a valid latlng coordinate, don't search but use that directly
+    RECORD latlng := StringToLatLng(Substitute(query, " ", ""));
+    IF (RecordExists(latlng))
+    {
+      this->UpdateValue(latlng, TRUE);
+      RETURN TRUE;
+    }
+
+    RECORD reply := this->geocoder->GetLocations(query);
+    IF (NOT RecordExists(reply) OR reply.status != "OK")
+    {
+      IF(NOT options.silentlyfail)
+      {
+        IF(RecordExists(reply) AND reply.status IN ["REQUEST_DENIED","OVER_QUERY_LIMIT","OVER_DAILY_LIMIT"])
+          this->RunSimpleScreen("error", GetTid("socialite:commondialogs.messageboxes.queryfailed", reply.status, reply.error_message));
+        ELSE
+          this->RunSimpleScreen("error", GetTid("socialite:commondialogs.messageboxes.noresults"));
+      }
+      RETURN FALSE;
+    }
+
+    this->results->options := SELECT rowkey := #results + 1
+                                   , title := formatted_address
+                                   , point := geometry.location
+                                   , viewport := geometry.viewport
+                                   , tolliumselected := #results = 0
+                                FROM reply.results;
+    //Print("Results:\n" || AnyToString(this->results->options, "tree"));
+    this->OnResultSelect();
+    RETURN TRUE;
+  }
+
+  MACRO DoSearch()
+  {
+    IF (^query->value != "")
+      this->TrySearchFor(^query->value);
+  }
+
+  MACRO OnResultSelect()
+  {
+    IF (RecordExists(this->results->selection))
+      this->UpdateValue(this->results->selection.point->ToRecord(), TRUE, this->results->selection.viewport);
+    ELSE
+      this->map->overlays := DEFAULT RECORD ARRAY;
+  }
+
+  MACRO OnClick(RECORD pos)
+  {
+    this->UpdateValue(pos, FALSE);
+  }
+
+  MACRO OnMoveOverlay(RECORD overlay, RECORD pos)
+  {
+    this->UpdateValue(pos, FALSE);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  RECORD FUNCTION GetCenter()
+  {
+    RETURN this->map->center;
+  }
+  MACRO SetCenter(RECORD coordinates)
+  {
+    this->map->center := coordinates;
+  }
+
+  RECORD FUNCTION GetZoom()
+  {
+    RETURN this->map->zoom;
+  }
+  MACRO SetZoom(INTEGER zoom)
+  {
+    this->map->zoom := zoom;
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    RETURN this->pvt_value;
+  }
+  MACRO SetValue(RECORD coordinates)
+  {
+    this->UpdateValue(coordinates, TRUE);
+  }
+>;

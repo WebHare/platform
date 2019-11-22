@@ -1,0 +1,20 @@
+<?wh
+LOADLIB "wh::internet/urls.whlib";
+
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO TestWebpack()
+{
+  STRING formtesturl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.publisher/backend/testpage.shtml?fsobject=" || EncryptForThisServer("publisher:testpage", OpentestsuiteSite()->id));
+  TestEQ(TRUE,testfw->browser->GotoWebPage(formtesturl), formtesturl);
+}
+
+RunTestframework([ PTR TestWebpack
+                 ]);
+

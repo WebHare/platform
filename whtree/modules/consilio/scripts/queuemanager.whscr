@@ -1,0 +1,2114 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/map.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+
+// Console arguments are only specified if the QueueManager was manually started from the command line
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch" ]
+    , [ name := "noinitialqueue", type := "switch" ]
+    ]);
+
+BOOLEAN debug := args.debug;
+
+OBJECT trans := OpenPrimary( [ waituntil := AddTimeToDate(60*1000, GetCurrentDatetime()) ]);
+
+INTEGER maxworkerruntime := 60*60*1000;
+INTEGER maxworkertasks := 100;
+
+OBJECTTYPE Worker
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /** @short The worker script file
+      @long A HareScript file path which can be fed to runscript, e.g. "modulescript::modulename/script.whscr".
+  */
+  STRING script;
+
+  /** @short The worker process identifier
+  */
+  INTEGER pvt_pid;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /** @short Output line buffer
+  */
+  PUBLIC STRING outputbuffer;
+
+  /** @short Error line buffer
+  */
+  PUBLIC STRING errorbuffer;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** @short The worker process identifier as returned by StartProcess
+  */
+  PUBLIC PROPERTY pid(pvt_pid, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** @short Create a new worker using the given script
+  */
+  MACRO NEW(STRING script)
+  {
+    this->script := script;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Start the worker
+      @param arguments Arguments to the worker script
+      @return If the worker could be started
+  */
+  PUBLIC BOOLEAN FUNCTION Start(STRING ARRAY arguments DEFAULTSTO DEFAULT STRING ARRAY)
+  {
+    // Nothing to run
+    IF (this->script = "")
+      RETURN FALSE;
+
+    // Create the path to the runscript executable
+    STRING runscriptname := GetInstallationRoot() || "bin/runscript";
+
+    // Construct the runscript arguments
+    RECORD params := GetWebhareConfiguration();
+    STRING ARRAY runscriptargs;
+
+    INSERT this->script INTO runscriptargs AT END;
+
+    // Add the script arguments
+    runscriptargs := runscriptargs CONCAT arguments;
+
+    // Start the process and save the process identifier
+    this->pvt_pid := StartProcess(runscriptname, runscriptargs,
+        [ take_input :=           TRUE
+        , take_output :=          TRUE
+        , take_errors :=          TRUE
+        , merge_output_errors :=  FALSE
+        , virtualmemorylimit :=   "2GB"
+        ]);
+
+    // If we got a valid process identifier, the process is running
+    RETURN this->pvt_pid > 0;
+  }
+
+  /** @short Stop the worker
+      @param maxwait The maximum number of milliseconds to wait until the process is finished, -1 to wait indefinitely
+      @return If the worker did finish within the given waiting time
+  */
+  PUBLIC BOOLEAN FUNCTION Stop(INTEGER maxwait DEFAULTSTO -1)
+  {
+    // Check if we have a running process
+    IF (this->pvt_pid > 0)
+    {
+      INTEGER pid := this->pvt_pid;
+      IF (IsProcessRunning(pid))
+      {
+        // If the process is (still) running, terminate it
+        TerminateProcess(pid);
+      }
+
+      // Wait until the process finishes
+      DATETIME maxtime := maxwait < 0 ? MAX_DATETIME : AddTimeToDate(maxwait, GetCurrentDateTime());
+      WHILE (GetCurrentDateTime() < maxtime AND IsProcessRunning(pid))
+        Sleep(10);
+
+      // See if it is still running before we close it
+      BOOLEAN was_running := IsProcessRunning(pid);
+
+      // And then close it
+      CloseProcess(pid);
+
+      // Reset process identifier
+      this->pvt_pid := 0;
+
+      // Return if it is no longer running
+      RETURN NOT was_running;
+    }
+    // The process is not running
+    RETURN TRUE;
+  }
+
+  /** @short Check if the worker script is running
+      @return If the worker is running
+  */
+  PUBLIC BOOLEAN FUNCTION IsRunning()
+  {
+    RETURN this->pvt_pid > 0 AND IsProcessRunning(this->pvt_pid);
+  }
+
+  /** @short Get the exit code for the worker script if it exited
+      @return The exit code, or -1 if the worker is still running or has not been run
+  */
+  PUBLIC INTEGER FUNCTION GetExitCode()
+  {
+    IF (this->pvt_pid = 0 OR this->IsRunning())
+      RETURN -1;
+    RETURN GetProcessExitCode(this->pvt_pid);
+  }
+
+  /** @short Send a command to the worker script
+      @param command The command to send
+  */
+  PUBLIC MACRO SendCommand(STRING command)
+  {
+    IF (NOT this->IsRunning())
+      RETURN;
+
+    PrintTo(this->pvt_pid, command || "\n");
+  }
+
+  /** @short Get normal output from the worker script
+      @return The output, or an empty string if the process is not running or if there is error output available
+      @see GetErrors
+  */
+  PUBLIC STRING FUNCTION GetOutput()
+  {
+    RETURN ReadProcessOutput(this->pvt_pid);
+  }
+
+  /** @short Get error output from the worker script
+      @return The output, or an empty string if the process is not running or if there is normal output available
+      @see GetOutput
+  */
+  PUBLIC STRING FUNCTION GetErrors()
+  {
+    RETURN ReadProcessErrors(this->pvt_pid);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE QueueManagerBase
+<
+  /** @short The number of workers to run
+  */
+  INTEGER numworkers;
+
+  /** @short The HareScript script the workers should run
+  */
+  STRING workerscript;
+
+  /** @short The maximum time a worker may work on a queue item
+  */
+  INTEGER maxwait;
+
+  /** @short The time after which a worker will be restarted
+  */
+  INTEGER maxworkerruntime;
+
+  /** @short The number of tasks after which a worker will be restarted
+  */
+  INTEGER maxworkertasks;
+
+  /** @short Our workers
+      @cell idx The index of the worker within the workers list
+      @cell handle The worker process identifier
+      @cell process The Worker object
+      @cell starttime The time at which the worker was started
+      @cell curitem The queue item currently being processed by the worker (copied when the worker started)
+      @cell numitems The number of tasks the worker has been working on
+  */
+  RECORD ARRAY workers;
+
+  INTEGER ARRAY availableworkers;
+
+  /** @short Our queue
+      @cell id The queue item identifier
+      @cell worker The handle of the worker processing this queue item
+      @cell queuetime The time at which this queue item was added to the queue
+      @cell starttime The time at which the worker started working on this queue item
+      @cell maxtime The time at which the worker must have finished working on this queue item
+      @cell priority The priority of this queue item (the higher the priority, the sooner it will be processed)
+      @cell data The queue item data record, as queued by AddToQueue
+  */
+//  RECORD ARRAY queue;
+  RECORD ARRAY queuemap;
+
+  /** @short The last issued queue item id
+  */
+  INTEGER64 lastqueueid;
+
+  /** @short Set to TRUE if DeInit is called, to stop the Run loop
+  */
+  BOOLEAN shuttingdown;
+
+
+  DATETIME cached_waittime;
+  DATETIME cached_waittime_valid_until;
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // These functions will have to be updated by extended queue managers
+  //
+
+  /** @short Create a worker command for queue data
+      @long This function is called if a queue item is scheduled for a worker. The data record is a record as returned by
+            GetQueuedDataFromInput. If the result string is non-empty, it is sent to a worker.
+      @param data A data record
+      @return A worker command string
+  */
+  STRING FUNCTION GetCommandFromQueueData(RECORD data)
+  {
+    RETURN "";
+  }
+
+  STRING FUNCTION GetHashForQueueData(RECORD data)
+  {
+    RETURN this->GetCommandFromQueueData(data);
+  }
+
+  /** @short Interpret incoming console data and queue a new queue item
+      @long This function is called after input is received from the console. This function should call AddToQueue to queue
+            a new queue item based on the incoming data. If the queued item is scheduled, GetCommandFromQueueData is called
+            to generate a command string from the data. This command is then sent to a worker.
+      @param input The input as received from the console
+      @return The data record
+  */
+  MACRO ProcessCommandInput(STRING input)
+  {
+  }
+
+  /** @short Process regular output from a worker
+      @long This function is called after regular output is received (i.e. data that is written to standard out by the
+            worker process).
+      @param worker The worker (a record from the workers array) that wrote the data
+      @param output The data that was written by the worker
+  */
+  MACRO ProcessWorkerOutput(RECORD worker, STRING output)
+  {
+  }
+
+  /** @short Process error output from a worker
+      @long This function is called after error output is received (i.e. data that is written to standard error by the
+            worker process).
+      @param worker The worker (a record from the workers array) that wrote the data
+      @param output The data that was written by the worker
+  */
+  MACRO ProcessWorkerErrors(RECORD worker, STRING errors)
+  {
+  }
+
+  /** @short Process a crash of a RunScript worker
+      @long This function is called after a crash of a RunScript process has been detected
+      @param worker The worker (a record from the workers array) that wrote the data
+      @param errormessage The error that crashed the process
+      @param trace Stack trace
+  */
+  MACRO ProcessWorkerCrash(RECORD worker, STRING errormessage, STRING ARRAY trace)
+  {
+  }
+
+
+  /** @short Get a list of handles to wait for, besides the worker handles
+  */
+  INTEGER ARRAY FUNCTION GetAdditionalHandles()
+  {
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+
+  /** @short Process a signalled additional handle
+      @long If one of the handles returned from GetAdditionalHandles is signalled, this function is called with the handle
+            that was signalled
+      @param handle The handle that was signalled
+  */
+  MACRO ProcessAdditionalHandle(INTEGER handle)
+  {
+  }
+
+  /** @short Returns whether the debug log is enabled
+      @long This function is called to determine whether debugging is enabled. In the default implementation
+            it just return TRUE, but it can be updated to do something else.
+  */
+  BOOLEAN FUNCTION DebugLogEnabled()
+  {
+    RETURN TRUE;
+  }
+
+  /** @short Log a debugging message
+      @long This function is called when debugging information is available. In the default implementation it just prints
+            the message, but it can be updated to do something else.
+      @param message The debugging message
+  */
+  MACRO DebugLog(STRING message)
+  {
+    Print(message);
+  }
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // ADVANCED: These functions may be updated by extended queue managers
+  // By updating these functions, the queueing process of the queue manager can be altered and finetuned
+  //
+
+  /** @short Get a new, empty queue item
+      @long This function can be updated if extra fields are needed by an extended queue manager. Be sure to call
+            QueueManangerBase::GetEmptyQueueItem() to get an empty queue item record with all fields required by the base
+            queue manager. Extra fields can be inserted into this record.
+  */
+  RECORD FUNCTION GetEmptyQueueItem()
+  {
+    RETURN [ id := this->GetNewQueueId()
+           , worker := 0
+           , queuetime := DEFAULT DATETIME
+           , starttime := DEFAULT DATETIME
+           , maxtime := DEFAULT DATETIME
+           , priority := 0
+           , data := DEFAULT RECORD
+           , hash := ""
+           , requeueafterfinish := FALSE
+           ];
+  }
+
+  /** @short Get the next queue item to be processed
+      @long This function is called to retrieve the next queue item which can be processed by an available worker. This
+            default implementation returns a queue item which has no associated worker, has the highest priority and has
+            been queued the longest time.
+  */
+  RECORD FUNCTION GetNextQueueItem()
+  {
+    RETURN SELECT * FROM this->queuemap
+            WHERE COLUMN worker = 0
+            ORDER BY priority DESC
+                   , queuetime;
+  }
+
+  /** @short Remove the given item from the queue
+      @long This function removes the item from the queue. The default implementation just deletes the item record from the
+            queue array. If the item has the flag requeueafterfinish set, the flag is cleared and the item is left on queue
+      @return If the item was requeued, the new item
+  */
+  MACRO DequeueItem(RECORD queueitem)
+  {
+    RECORD mapped := this->GetQueueMapPos(queueitem);
+    IF (mapped.found)
+    {
+      // Save the item for possible reque, then remove from the queue
+      RECORD item := this->queuemap[mapped.pos];
+      DELETE FROM this->queuemap AT mapped.pos;
+
+      // Requeue if needed
+      IF (item.requeueafterfinish)
+        this->AddToQueue(item.data);
+    }
+  }
+
+  INTEGER FUNCTION QueueLength()
+  {
+    RETURN Length(this->queuemap);
+  }
+
+  /** @short Get the time after which the first active queue item will time out
+      @return The number of milliseconds to wait, or -1 to wait indefinitely
+  */
+  DATETIME FUNCTION GetWaitTime()
+  {
+    DATETIME firsttimeout := SELECT AS DATETIME maxtime
+                               FROM this->queuemap
+                              WHERE COLUMN worker > 0
+                                    AND maxtime != DEFAULT DATETIME
+                                    AND maxtime != MAX_DATETIME
+                              ORDER BY maxtime;
+    RETURN firsttimeout != DEFAULT DATETIME ? firsttimeout : MAX_DATETIME;
+  }
+
+  RECORD FUNCTION GetTimedOutQueueItem()
+  {
+    RETURN SELECT *
+             FROM this->queuemap
+            WHERE COLUMN worker > 0
+                  AND maxtime != DEFAULT DATETIME
+                  AND maxtime != MAX_DATETIME
+                  AND maxtime <= GetCurrentDateTime()
+            ORDER BY maxtime;
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // Public API
+  //
+
+  /** @short Initialize the queue manager
+      @param numworker The number of workers to run
+      @param workerscript The script workers should run
+  */
+  PUBLIC MACRO Init(INTEGER numworkers, STRING workerscript)
+  {
+    // Initialize the workers (don't run them yet)
+    this->workerscript := workerscript;
+    this->maxwait := 0;
+
+    this->SetNumWorkers(numworkers, FALSE);
+  }
+
+  /** @short Run the queue manager
+      @long This function start the worker processes and waits for input from either the console or one of the worker
+            processes. If a worker process (or queue item) times out (if maxwait > 0), the queue item is removed from the
+            queue and the worker process is restarted. If input is received from the console, AddToQueue is called with
+            the received input. If input is received from one of the workers, ProcessWorkerOutput or ProcessWorkerError
+            is called if output or error data is read from the worker process. If an empty string is received from the
+            worker process, the worker process is restarted if it is no longer running.
+  */
+  PUBLIC MACRO Run()
+  {
+    IF (this->workerscript = "")
+    {
+      this->DebugLog("Not initialized");
+      RETURN;
+    }
+
+    // Start the workers
+    FOREVERY (RECORD worker FROM this->workers)
+    {
+      IF (worker.process->IsRunning())
+        CONTINUE; // Already started, maybe Run was called twice?
+
+      // Start the worker process and store its pid as the worker's handle (identifier within the queue manager)
+      this->StartWorkerProcess(worker);
+    }
+    this->DebugLog("Started " || Length(this->workers) || " workers");
+
+    BOOLEAN console_control := IsConsoleATerminal();
+    INTEGER ARRAY handle_lastseen;
+
+    WHILE (NOT this->shuttingdown)
+    {
+      // Schedule worker items for idle workers
+      WHILE (Length(this->availableworkers) > 0)
+      {
+        // Get the first available worker (workers are added to the end of the list when they are available again, this will
+        // distribute queue items over all workers)
+        RECORD worker := this->workers[this->availableworkers[0]];
+
+        // Check if the worker is still available (just to be sure)
+        IF (NOT RecordExists(worker) OR RecordExists(worker.curitem))
+        {
+          //ADDME: Should we throw for this internal scheduling inconsistency?
+          this->DebugLog("Worker #" || this->availableworkers[0] || " is not available");
+        }
+        ELSE
+        {
+          this->DebugLog("Scheduling next queue item for worker #" || worker.idx);
+          IF (NOT this->ScheduleNextQueueItem(worker))
+          {
+            this->DebugLog("Nothing to schedule");
+            BREAK;
+          }
+        }
+        IF (worker.idx IN this->availableworkers)
+          DELETE FROM this->availableworkers AT 0;
+      }
+
+      // Make a list of handles to wait for
+      INTEGER ARRAY additional_handles := this->GetAdditionalHandles();
+      INTEGER ARRAY handles;
+      IF(console_control)
+        INSERT 0 INTO handles AT END; // Stdin
+
+      handles := handles CONCAT
+                         // Handles of active workers
+                         (SELECT AS INTEGER ARRAY COLUMN handle FROM this->workers WHERE RecordExists(workers))
+                           CONCAT
+                         // Additional handles provided by updated QueueManagers
+                         additional_handles;
+
+      // If a timeout is set for one of the active queue items, wait for it, otherwise, wait indefinitely
+
+      DATETIME now := GetCurrentDatetime();
+      IF (this->cached_waittime_valid_until < now)
+      {
+        this->cached_waittime := this->GetWaitTime();
+        this->cached_waittime_valid_until := AddTimeToDate(10 * 1000, now);
+      }
+
+      DATETIME waittime := this->cached_waittime;
+      INTEGER handle;
+
+      IF(waittime < now) //handle timeouts first!
+      {
+        handle := -1;
+      }
+      ELSE
+      {
+        //Sort handles into 'last seen last' (ADDME except console/shutdown signalling) to prevent starvation of processes
+        handles := SELECT AS INTEGER ARRAY han FROM ToRecordArray(handles,'han') ORDER BY SearchElement(handle_lastseen, han);
+        handle_lastseen := handles; // replace handles_lastseen, so removed handles are removed
+
+        IF (this->DebugLogEnabled())
+          this->DebugLog("Waiting " || (waittime = MAX_DATETIME ? "indefinitely" : "for " || GetMsecsDifference(GetCurrentDatetime(), waittime) || "ms"));
+        handle := WaitForMultipleUntil(handles, DEFAULT INTEGER ARRAY, waittime);
+
+        IF(handle >= 0) //move this handle to the back of the list
+        {
+          INTEGER handlepos := SearchElement(handle_lastseen, handle);
+          IF(handlepos != -1)
+            DELETE FROM handle_lastseen AT handlepos;
+          INSERT handle INTO handle_lastseen AT END;
+        }
+      }
+
+      IF (handle < 0) // Timeout
+      {
+        // One of the tasks timed out, remove the task and restart the worker
+        RECORD queueitem := this->GetTimedOutQueueItem();
+        IF (NOT RecordExists(queueitem))
+        {
+          this->DebugLog("Error while waiting for input");
+          CONTINUE;
+        }
+        this->DebugLog("Queue item " || queueitem.id || " timed out");
+        // Restart the worker working on this item
+        RECORD worker := this->GetWorkerWithHandle(queueitem.worker);
+        IF (RecordExists(worker))
+          worker := this->RestartWorker(worker, TRUE);
+
+        // Calculate the next timeout
+        this->cached_waittime := this->GetWaitTime();
+        this->cached_waittime_valid_until := AddTimeToDate(10 * 1000, now);
+
+        CONTINUE;
+      }
+
+      IF (handle = 0) // 0: console signalled us
+      {
+        STRING input := ReadConsoleInput();
+        IF (input = "")
+          BREAK;
+
+        // Queue data record for the received input
+        this->ProcessCommandInput(input);
+      }
+      ELSE IF (handle IN additional_handles)
+      {
+        //this->DebugLog("Additional handle " || handle || " was signalled");
+        this->ProcessAdditionalHandle(handle);
+      }
+      ELSE // handle holds the worker process identifier which signalled us
+      {
+        // Get the associated worker
+        RECORD worker := this->GetWorkerWithHandle(handle);
+        IF (NOT RecordExists(worker))
+        {
+          // Unknown handle
+          this->DebugLog("Unknown handle #" || handle);
+          CONTINUE;
+        }
+        // See if there is regular output
+        STRING output := worker.process->GetOutput();
+        IF (output != "")
+        {
+          worker.process->outputbuffer := worker.process->outputbuffer || output;
+          WHILE (TRUE)
+          {
+            INTEGER pos :=  SearchSubString(worker.process->outputbuffer, "\n");
+            IF (pos = -1)
+              BREAK;
+
+            STRING line := Left(worker.process->outputbuffer, pos);
+            worker.process->outputbuffer := SubString(worker.process->outputbuffer, pos + 1);
+
+            //this->DebugLog("Got output from worker #" || worker.idx || ": " || EncodeJava(line));
+
+            // We have regular output, process it
+            this->ProcessWorkerOutput(worker, line);
+
+            //Worker 'object' is modified by ProcessWorkerOutput, so reload it
+            worker := this->GetWorkerWithHandle(handle);
+          }
+          CONTINUE;
+        }
+        // See if there is error output
+        output := worker.process->GetErrors();
+        IF (output != "")
+        {
+          PRINTTO(2, output);
+          worker.process->errorbuffer := worker.process->errorbuffer || output;
+          WHILE (TRUE)
+          {
+            worker := this->GetWorkerWithHandle(handle); //just in case, make sure the object is uptodate again
+
+            INTEGER pos :=  SearchSubString(worker.process->errorbuffer, "\n");
+            IF (pos = -1)
+              BREAK;
+
+            STRING line := Left(worker.process->errorbuffer, pos);
+            IF (line LIKE "*\r")
+              line := LEFT(line, LENGTH(line) - 1);
+            worker.process->errorbuffer := SubString(worker.process->errorbuffer, pos + 1);
+
+            // Check for compile/run errors. They will start with "At ..."
+            IF (line LIKE "At *::*#*#*")
+            {
+              // Get all error information
+              output := worker.process->GetErrors();
+              WHILE (output != "")
+              {
+                worker.process->errorbuffer := worker.process->errorbuffer || output;
+                output := worker.process->GetErrors();
+              }
+
+              // Process error msg
+              STRING ARRAY stacktrace;
+              STRING errormsg;
+              STRING ARRAY errorlines := Tokenize(Substitute(worker.process->errorbuffer, "\r\n", "\n"), "\n");
+              FOREVERY (STRING errorline FROM errorlines)
+              {
+                IF (errorline LIKE "At *::*#*#*")
+                  INSERT SubString(errorline, 3) INTO stacktrace AT END;
+                ELSE IF (errorline != "")
+                  errormsg := errorline;
+              }
+              this->ProcessWorkerCrash(worker, errormsg, stacktrace);
+
+              worker.process->errorbuffer := line || "\r\n" || worker.process->errorbuffer;
+
+              this->DebugLog("Got HareScript error for worker #" || worker.idx || ":\n" || worker.process->errorbuffer);
+              worker.process->errorbuffer := "";
+              IF (worker.numitems > 0)
+              {
+                // The worker has received at least one item, remove the item (assuming it caused the error) and restart the worker
+                this->DequeueItem(worker.curitem);
+                worker := this->RestartWorker(worker, TRUE);
+                CONTINUE;
+              }
+              ELSE
+              {
+                // The worker has not worked on any items yet, assume compile/startup error and stop queue manager
+                BREAK;
+              }
+            }
+
+            //this->DebugLog("Got errors from worker #" || worker.idx || ": " || EncodeJava(output));
+
+            // We have error output, process it
+            this->ProcessWorkerErrors(worker, line);
+          }
+          CONTINUE;
+        }
+
+        // This worker process signalled us, but it did not send output; check if it is still running
+        IF (NOT worker.process->IsRunning())
+        {
+          STRING erroroutput := worker.process->GetErrors();
+          WHILE (erroroutput != "")
+          {
+            PRINTTO(2, "X>" || erroroutput || "<");
+            worker.process->errorbuffer := worker.process->errorbuffer || erroroutput;
+            erroroutput := worker.process->GetErrors();
+          }
+
+          IF (Length(worker.process->errorbuffer) > 0)
+            this->DebugLog("Worker #" || worker.idx || " error output: " || worker.process->errorbuffer || "\n");
+          this->DebugLog("Worker #" || worker.idx || ": process exited with exit code " || worker.process->GetExitCode() || ", worker will be restarted");
+
+          IF (worker.process->GetExitCode() != 0)
+            this->ProcessWorkerCrash(worker, "Worker #" || worker.idx || ": process exited with exit code " || worker.process->GetExitCode(), DEFAULT STRING ARRAY);
+
+          worker := this->RestartWorker(worker, TRUE);
+        }
+        ELSE
+        {
+          this->DebugLog("Worker #" || worker.idx || " sent signal without data");
+        }
+      }
+    }
+  }
+
+  /** @short Set the number of workers
+      @long This will set the number of workers to the given value. New workers are initialized and started if necessary.
+            Superfluous workers are shut down immediately if they are idle, or directly after they have finished their
+            current task. If the number of workers is 0, all workers will be shut down.
+      @param numworkers The new number of workers
+  */
+  PUBLIC MACRO SetWorkers(INTEGER numworkers)
+  {
+    this->SetNumWorkers(numworkers, TRUE);
+  }
+
+  /** @short Set the maximum time a worker may work on a single task
+      @long If processing the task takes more than the given number of milliseconds, the worker is killed and restarted and
+            the task the worker had been working on is removed from the queue. If set to 0, the worker may run indefinitely
+            on a task.
+  */
+  PUBLIC MACRO SetMaxTaskTime(INTEGER msecs)
+  {
+    this->maxwait := msecs;
+    //ADDME: Check for currently running tasks?
+  }
+
+  /** @short Set the time after which a worker will be restarted (set to 0 for no limit)
+      @long After a worker finishes a task, it will be restarted if it has been running for more than the given number of
+            milliseconds. If set to 0, the running time of the worker will not be checked.
+  */
+  PUBLIC MACRO SetMaxWorkerRunTime(INTEGER msecs)
+  {
+    IF (msecs >= 0)
+      this->maxworkerruntime := msecs;
+    //ADDME: Check for currently running workers?
+  }
+
+  /** @short Set the number of tasks after which a worker will be restarted (set to 0 for no limit)
+      @long After a worker finishes a task, it will be restarted if it has processed the given number of tasks. If set to 0,
+            the number of tasks processed by the worker will not be checked.
+  */
+  PUBLIC MACRO SetMaxWorkerTasks(INTEGER tasks)
+  {
+    IF (tasks >= 0)
+      this->maxworkertasks := tasks;
+    //ADDME: Check for currently running workers?
+  }
+
+  /** @short Deinitialize the queue manager
+      @long This will stop all running worker processes and wait until they are all finished
+  */
+  PUBLIC MACRO DeInit()
+  {
+    this->shuttingdown := TRUE;
+    FOREVERY (RECORD worker FROM this->workers)
+      IF (RecordExists(worker))
+        worker.process->Stop();
+  }
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // Helper functions, may be used to implement extended queue managers
+  //
+
+  /** @short Generate a new queue item id
+  */
+  INTEGER64 FUNCTION GetNewQueueId()
+  {
+    // Increment the queue item id
+    this->lastqueueid := this->lastqueueid + 1;
+
+    RETURN this->lastqueueid;
+  }
+
+  /** @short Get the worker with the current process handle
+      @return Returns the worker record from the list of workers, or a default record if there is no worker with the given
+              handle
+      @cell return.handle The worker process identifier
+      @cell return.process The Worker object
+      @cell return.curitem The queue item currently being processed by the worker
+      @cell return.idx The index of this worker within the list of workers
+  */
+  RECORD FUNCTION GetWorkerWithHandle(INTEGER handle)
+  {
+    RETURN SELECT *
+             FROM this->workers
+            WHERE RecordExists(workers) ? COLUMN handle = VAR handle : FALSE;
+  }
+
+  /** @short Get the queue item with the given id
+      @return The item from the queue, or a default record if there is no queue item with the given id
+      @cell return.id The queue item identifier
+      @cell return.worker The handle of the worker processing this queue item
+      @cell return.maxtime The time at which the worker must have finished working on this queue item
+      @cell return.data The queue item data record, as queued by AddToQueue
+  */
+  RECORD FUNCTION GetQueueItem(INTEGER64 queueitemid)
+  {
+    RETURN SELECT *
+             FROM this->queuemap
+            WHERE id = queueitemid;
+  }
+
+  /** @short Get the current queue item from an old copy
+      @return The item from the queue, or a default record if this queue item doesn't exist anymore
+      @cell return.id The queue item identifier
+      @cell return.worker The handle of the worker processing this queue item
+      @cell return.maxtime The time at which the worker must have finished working on this queue item
+      @cell return.data The queue item data record, as queued by AddToQueue
+  */
+  RECORD FUNCTION GetCurrentQueueItemFromItem(RECORD oldqueueitem)
+  {
+    RECORD res := this->GetQueueMapPos(oldqueueitem);
+    IF (NOT res.found)
+      RETURN DEFAULT RECORD;
+
+    RECORD rec := this->queuemap[res.pos];
+    IF (rec.id != oldqueueitem.id)
+      RETURN DEFAULT RECORD;
+
+    RETURN rec;
+  }
+
+
+  RECORD FUNCTION GetQueueMapPos(RECORD queueitem)
+  {
+    IF (NOT RecordExists(queueitem))
+      RETURN [ found := FALSE, pos := -1 ];
+
+    RECORD rec := RecordLowerBound(this->queuemap, [ hash := queueitem.hash ], [ "HASH" ]);
+    RETURN [ found := rec.found, pos := rec.position ];
+  }
+
+
+  /** @short Add the given queue data record to the queue
+      @long This function adds the given queue data record to the queue. If there is a worker available, the new queue item
+            is scheduled for the worker.
+      @param data The data record, as queued by AddToQueue and passed to GetCommandFromQueueData
+      @param priority Priority for the queue item; the higher this number, the higher the priority (defaults to 0)
+      @return
+      @cell found Whether the item already existed
+      @cell item The queued item (when not found, the new item, else the item on queue)
+  */
+  RECORD FUNCTION AddToQueue(RECORD data)
+  {
+    INTEGER priority := CalculateQueueItemPriority(data);
+
+    // Add queue item to queue
+    RECORD queueitem := this->GetEmptyQueueItem();
+    queueitem.queuetime := GetCurrentDateTime();
+    queueitem.priority := priority;
+    queueitem.data := data;
+    queueitem.hash := this->GetHashForQueueData(queueitem.data);
+
+    RECORD mapped := this->GetQueueMapPos(queueitem);
+    IF (NOT mapped.found)
+    {
+      // Make local copy, destroy member contents and insert into copy that to avoid deep copy when updating object members directly
+      RECORD ARRAY local := this->queuemap;
+      this->queuemap := DEFAULT RECORD ARRAY;
+      INSERT queueitem INTO local AT mapped.pos;
+      this->queuemap := local;
+
+      IF (this->DebugLogEnabled())
+        this->DebugLog("Added queue item " || queueitem.id || " with priority " || queueitem.priority || " to queue, queue length now " || this->QueueLength());
+
+      RETURN
+          [ found :=  FALSE
+          , item :=   queueitem
+          ];
+    }
+    ELSE
+    {
+      RETURN
+          [ found :=  TRUE
+          , item :=   this->queuemap[mapped.pos]
+          ];
+    }
+  }
+
+  /** @short Sets the reqeueafterfinish flag for a given queue item
+      @param queueitem Items to set the flag for
+  */
+  MACRO SetQueueItemRequeueAfterFinishFlag(RECORD queueitem)
+  {
+    IF (NOT RecordExists(queueitem))
+      RETURN;
+
+    RECORD mapped := this->GetQueueMapPos(queueitem);
+    IF (mapped.found)
+      this->queuemap[mapped.pos].requeueafterfinish := TRUE;
+  }
+
+  /** @short Reset the timeout for the given queue item
+  */
+  MACRO ResetQueueItemTimeout(RECORD queueitem)
+  {
+    // Check if the queue item exists and if it's being worked on
+    IF (NOT RecordExists(queueitem) OR queueitem.worker = 0)
+      RETURN;
+
+    // If we have maximum processing time, set it to the queue item
+    IF (this->maxwait > 0)
+    {
+      DATETIME maxtime := AddTimeToDate(this->maxwait, GetCurrentDateTime());
+      //this->DebugLog("Task " || queueitem.id || " times out at " || FormatDateTime("%H:%M:%S.%Q", maxtime));
+
+      RECORD mapped := this->GetQueueMapPos(queueitem);
+      IF (mapped.found)
+      {
+        RECORD ARRAY local := this->queuemap;
+        this->queuemap := DEFAULT RECORD ARRAY;
+        local[mapped.pos].maxtime := maxtime;
+        this->queuemap := local;
+      }
+
+//      UPDATE this->queuemap SET maxtime := VAR maxtime WHERE id = queueitem.id;
+    }
+  }
+
+  /** @short Update queue item
+  */
+  MACRO UpdateQueueItem(RECORD queueitem)
+  {
+    // Check if the queue item exists
+    IF (NOT RecordExists(queueitem))
+      RETURN;
+
+    RECORD mapped := this->GetQueueMapPos(queueitem);
+    IF (mapped.found)
+    {
+      RECORD ARRAY local := this->queuemap;
+      this->queuemap := DEFAULT RECORD ARRAY;
+      local[mapped.pos] := queueitem;
+      this->queuemap := local;
+    }
+}
+
+  /** @short Remove the given item from the queue
+      @long This function removes the given queue item from the queue. It should only be called when no worker is processing
+            the item, or if the worker finished processing the item.
+      @param queueitem The item to remove from the queue
+  */
+  MACRO RemoveFromQueue(RECORD queueitem)
+  {
+    IF (NOT RecordExists(queueitem))
+      RETURN;
+
+    this->DequeueItem(queueitem);
+    IF (this->DebugLogEnabled())
+    {
+      IF (queueitem.starttime != DEFAULT DATETIME)
+        this->DebugLog("Removed queue item " || queueitem.id || " from queue, queue length now " || this->QueueLength() || " [" || GetMsecsDifference(queueitem.starttime, GetCurrentDateTime()) || "ms]");
+      ELSE
+        this->DebugLog("Removed unscheduled queue item " || queueitem.id || " from queue, queue length now " || this->QueueLength() || " [" || GetMsecsDifference(queueitem.queuetime, GetCurrentDateTime()) || "ms]");
+    }
+
+    INTEGER workeridx := (SELECT AS INTEGER idx + 1
+                            FROM this->workers
+                           WHERE RecordExists(workers) ? handle = queueitem.worker : FALSE) - 1;
+    IF (workeridx >= 0)
+    {
+      this->workers[workeridx].curitem := DEFAULT RECORD;
+      IF (workeridx NOT IN this->availableworkers)
+        INSERT workeridx INTO this->availableworkers AT END;
+    }
+    ELSE
+      this->DebugLog("Could not find worker responsible for queue item " || queueitem.id || "!");
+  }
+
+  /** @short Call this function if a worker finished its queue item
+      @long Remove the worker's current queue item from the queue and schedule the next queue item for the worker, if any.
+      @param worker The worker that finished a queue item
+  */
+  MACRO WorkerFinishedQueueItem(RECORD worker)
+  {
+    IF (NOT RecordExists(worker))
+      RETURN;
+
+    RECORD queueitem := this->GetCurrentQueueItemFromItem(worker.curitem);
+    IF (RecordExists(queueitem))
+      this->RemoveFromQueue(queueitem);
+    ELSE IF (worker.idx NOT IN this->availableworkers)
+      INSERT worker.idx INTO this->availableworkers AT END;
+  }
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // Internal functions, it should not be necessary to call these from within extended queue managers
+  //
+
+  // Make sure there are numworkers available (start the worker's processes if requested)
+  MACRO SetNumWorkers(INTEGER numworkers, BOOLEAN startworkers)
+  {
+    IF (numworkers < 0 OR numworkers = this->numworkers)
+      RETURN;
+
+    this->numworkers := numworkers;
+    INTEGER i;
+
+    // Check if all requested workers are initialized
+    FOR (i := 0; i < numworkers; i := i + 1)
+    {
+      IF (i >= Length(this->workers))
+        INSERT DEFAULT RECORD INTO this->workers AT END;
+      IF (NOT RecordExists(this->workers[i]))
+      {
+        // We need a new worker
+        RECORD worker := [ idx := i
+                         , handle := 0
+                         , process := DEFAULT OBJECT
+                         , starttime := DEFAULT DATETIME
+                         , curitem := DEFAULT RECORD
+                         , numitems := 0
+                         , available := TRUE
+                         , lastcommand := ""
+                         ];
+        worker.process := NEW Worker(this->workerscript);
+        this->workers[i] := worker;
+        IF (startworkers)
+        {
+          this->DebugLog("Starting worker #" || i);
+
+          // Start the worker process and store its pid as the worker's handle (identifier within the queue manager)
+          this->StartWorkerProcess(worker);
+        }
+      }
+    }
+
+    // Check if superfluous workers are idle and can be shut down
+    WHILE (i < Length(this->workers))
+    {
+      RECORD worker := this->workers[i];
+      IF (RecordExists(worker) AND NOT RecordExists(worker.curitem))
+        this->ShutdownWorker(worker);
+      i := i + 1;
+    }
+  }
+
+  // Start the given worker process
+  RECORD FUNCTION StartWorkerProcess(RECORD worker)
+  {
+    IF (NOT worker.process->Start([ "--workerid", ToString(worker.idx) ]))
+    {
+      this->DeInit();
+      THROW NEW Exception("Could not start worker #" || worker.idx);
+    }
+    this->workers[worker.idx].handle := worker.process->pid;
+    this->workers[worker.idx].curitem := DEFAULT RECORD;
+    this->workers[worker.idx].starttime := GetCurrentDateTime();
+    this->workers[worker.idx].numitems := 0;
+
+    IF (worker.idx NOT IN this->availableworkers)
+      INSERT worker.idx INTO this->availableworkers AT END;
+    RETURN this->workers[worker.idx];
+  }
+
+  // Restart the given worker (remove current worker task and schedule a new task if requested)
+  RECORD FUNCTION RestartWorker(RECORD worker, BOOLEAN updateworkeritem)
+  {
+    IF (updateworkeritem AND RecordExists(worker.curitem))
+    {
+      RECORD queueitem := this->GetCurrentQueueItemFromItem(worker.curitem);
+      IF (RecordExists(queueitem))
+        this->RemoveFromQueue(queueitem);
+    }
+
+    IF (worker.idx >= this->numworkers)
+    {
+      this->ShutdownWorker(worker);
+      RETURN DEFAULT RECORD;
+    }
+
+    this->DebugLog("Restarting worker #" || worker.idx);
+    worker.process->Stop();
+
+    RETURN this->StartWorkerProcess(worker);
+  }
+
+  // Shut down the worker's process and remove the worker from the worker list
+  MACRO ShutdownWorker(RECORD worker)
+  {
+    this->DebugLog("Shutting down unwanted worker #" || worker.idx);
+    worker.process->Stop();
+    this->workers[worker.idx] := DEFAULT RECORD;
+
+    // This worker is no longer available
+    FOR (INTEGER i := 0; i < Length(this->availableworkers); i := i + 1)
+      IF (this->availableworkers[i] = worker.idx)
+      {
+        DELETE FROM this->availableworkers AT i;
+        BREAK;
+      }
+  }
+
+  // Get a random available worker
+  RECORD FUNCTION GetAvailableWorker()
+  {
+    RETURN ShuffleArray(SELECT *
+                         FROM this->workers
+                        WHERE RecordExists(workers) ? (available AND NOT RecordExists(curitem)) : FALSE);
+  }
+
+  // Schedule the next queue item for the given worker, return wether an item was scheduled or not
+  BOOLEAN FUNCTION ScheduleNextQueueItem(RECORD worker)
+  {
+    IF (worker.idx >= this->numworkers)
+    {
+      this->ShutdownWorker(worker);
+      RETURN TRUE; // There may still be unscheduled items on the queue
+    }
+    INTEGER runtime := GetMsecsDifference(worker.starttime, GetCurrentDateTime());
+    IF (this->maxworkerruntime > 0 AND runtime >= this->maxworkerruntime)
+    {
+      this->DebugLog("Worker #" || worker.idx || " has been running for " || runtime || "ms and will be restarted");
+      worker := this->RestartWorker(worker, FALSE);
+    }
+    ELSE IF (this->maxworkertasks > 0 AND worker.numitems >= this->maxworkertasks)
+    {
+      this->DebugLog("Worker #" || worker.idx || " has completed " || worker.numitems || " tasks and will be restarted");
+      worker := this->RestartWorker(worker, FALSE);
+    }
+
+    // Get first non-scheduled queue item
+    RECORD queueitem := this->GetNextQueueItem();
+    IF (RecordExists(queueitem))
+    {
+      // There a queue item, schedule it for the worker
+      this->ScheduleTaskForWorker(queueitem, worker);
+      RETURN TRUE;
+    }
+    //this->DebugLog("Nothing to schedule for worker #" || worker.idx);
+    RETURN FALSE;
+  }
+
+  // Schedule the given queue item for the given worker
+  MACRO ScheduleTaskForWorker(RECORD queueitem, RECORD worker)
+  {
+    // Get a command string for the queue item data
+    STRING command := this->GetCommandFromQueueData(queueitem.data);
+    IF (command = "")
+    {
+      // Cannot send empty commands, so remove this item from the queue
+      //this->DebugLog("Cannot send an empty command");
+      this->RemoveFromQueue(queueitem);
+      RETURN;
+    }
+    RECORD mapped := this->GetQueueMapPos(queueitem);
+    IF (NOT mapped.found)
+      RETURN;
+
+    IF(RecordExists(this->workers[worker.idx].curitem))
+      THROW NEW Exception("Queuemgr internal error, trying to schedule item " || queueitem.id || " on worker #" || worker.idx || " but this worker is already working on item " || this->workers[worker.idx].curitem.id);
+
+    IF (this->DebugLogEnabled())
+      this->DebugLog("Scheduling queue item " || queueitem.id || " with priority " || queueitem.priority || " for worker #" || worker.idx || " [" || GetMsecsDifference(queueitem.queuetime, this->queuemap[mapped.pos].starttime) || "ms]: " || command);
+
+    RECORD ARRAY local := this->queuemap;
+    this->queuemap := DEFAULT RECORD ARRAY;
+
+    local[mapped.pos].starttime := GetCurrentDateTime();
+    // Set the queue item's worker property to the worker's handle
+    local[mapped.pos].worker := worker.handle;
+
+    this->queuemap := local;
+
+    // Set the worker's current queue item to this queue item
+    this->workers[worker.idx].curitem := queueitem;
+    this->workers[worker.idx].numitems := worker.numitems + 1;
+    this->workers[worker.idx].lastcommand := command;
+
+    // Send the command to the worker process
+    worker.process->SendCommand(command);
+    this->ResetQueueItemTimeout(this->queuemap[mapped.pos]);
+  }
+>;
+
+OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT ipclink; // whmanager ipc link
+
+
+  OBJECT commandport; // queuemanager command port
+
+
+  RECORD ARRAY commandlinks;
+
+
+  INTEGER debuglevel;
+
+
+  /** Map with current scheduled cleanups
+      Key: (integer) contentsourceid
+      data: RECORD ARRAY with record for every cleanupindex command
+      Data: (integer64) id Queueitem id
+      Data: (integer) localblockers Nr of scheduled/running commands with the same commanddate as the cleanupindex command
+      Data: (integer) totalblockers Nr of scheduled/running commands with a commanddate in the commanddates
+      Data: (datetime) commanddate Commanddate of this cleanupindex command
+      Data: (datetime) commanddates List of commanddates that need to (de)register as blockers
+  */
+  OBJECT cleanups_map;
+
+
+  /** List of all items, ordered by priority
+      Key: (integer) priority (negated!)
+           (datetime) queuetime
+           (integer64) id
+      Data: (string) hash
+  */
+  OBJECT priority_map;
+
+
+  /** List of errors, ordered by contentsourceid,
+      @cell(datetime) when
+      @cell(integer) contentsourceid
+      @cell(string) command
+      @cell(string) error
+      @cell(string) what
+      @cell(string array) trace
+  */
+  RECORD ARRAY errorlist;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER debuglevel)
+  {
+    this->cleanups_map := NEW __Experimental_Map(["CONTENTSOURCEID"], DEFAULT RECORD ARRAY);
+    this->priority_map := NEW __Experimental_Map(["PRIORITY", "QUEUETIME", "ID"], "");
+
+    this->ConnectIPCLink(); // Throws on error
+
+    this->debuglevel := debuglevel;
+
+    IF(NOT args.noinitialqueue)
+    {
+      this->DebugLog("Queueing initial CheckIndexState command");
+      FOREVERY (RECORD indexmgr FROM SELECT id FROM consilio.indexmanagers)
+      {
+        this->AddToQueue(MakeQueueCmdCheckIndexState(indexmgr.id));
+      }
+    }
+  }
+
+  MACRO ConnectIPCLink()
+  {
+    // Open an IPC link to the whmanager
+    this->ipclink := ConnectToIPCPort("system:whmanager");
+    IF (NOT ObjectExists(this->ipclink))
+      THROW NEW Exception("Could not open IPC link to system:whmanager");
+
+    // Register the global Consilio queuemanager command port with the whmanager
+    this->commandport := CreateIPCPort(command_portname);
+    this->ipclink->SendMessage([ type := "register", port := command_portname ]);
+    RECORD res := this->ipclink->ReceiveMessage(MAX_DATETIME);
+    IF (NOT RecordExists(res) OR res.status != "ok" OR NOT res.msg.success)
+      THROW NEW Exception("Could not register queuemanager command port (another queuemanager already running?)");
+  }
+
+  UPDATE MACRO ProcessCommandInput(STRING input)
+  {
+    // Because something is broken in the WaitForMultiple/ReadFrom implementation for console input on Windows, the first
+    // letter of the received input will always be "r". Workaround: send anything as a first character and ignore it.
+    input := TrimWhitespace(Right(input, Length(input) - 1));
+    IF (input = "")
+      RETURN;
+
+    this->ProcessData(GetQueueDataFromCommand(input), DEFAULT OBJECT, 0, -1);
+  }
+
+  MACRO ProcessData(RECORD data, OBJECT ipc_conn, INTEGER64 ipc_msgid, INTEGER workeridx)
+  {
+    IF(NOT data.success)
+      this->DebugLog("success=false" || anytostring(data,'tree'), ConsilioDebugAll);
+
+    IF (data.success)
+    {
+      this->DebugLog(`cmd=${data.action}, params=${EncodeJSON(CELL[...data, DELETE action])}`, Consiliodebugall);
+      SWITCH (data.action)
+      {
+        CASE "SHUTDOWN"
+        {
+          this->DebugLog("Shutdown request received", ConsilioDebugError);
+          IF (ObjectExists(ipc_conn))
+            ipc_conn->SendReply([ status := "ok" ], ipc_msgid);
+          this->DeInit();
+        }
+        CASE "DELETEINDEX"
+        {
+          IF (ObjectExists(ipc_conn))
+          {
+            this->DeleteIndex(data);
+            ipc_conn->SendReply([ status := "ok" ], ipc_msgid);
+          }
+        }
+        CASE "CHECKGROUPS", "UPDATEGROUPS"
+        {
+          IF (ObjectExists(ipc_conn))
+          {
+            RECORD worker := SELECT * FROM this->workers WHERE RecordExists(workers) ? idx = workeridx : FALSE;
+            RECORD queueitem := RecordExists(worker) ? this->GetCurrentQueueItemFromItem(worker.curitem) : DEFAULT RECORD;
+
+            RECORD groupdata := [ success := TRUE
+                                , action := data.action = "CHECKGROUPS" ? "CHECKGROUP" : "UPDATEGROUP"
+                                , indexid := data.indexid
+                                , contentsourceid := data.contentsourceid
+                                , groupid := ""
+                                , commanddate := data.commanddate
+                                ];
+            FOREVERY (STRING groupid FROM data.groupids)
+            {
+              groupdata.groupid := groupid;
+              this->AddToQueue(groupdata);
+            }
+            this->WorkerPageDone(worker, queueitem, Length(data.groupids));
+            ipc_conn->SendReply([ status := "queued" ], ipc_msgid);
+          }
+        }
+        CASE "STATUS"
+        {
+          IF (ObjectExists(ipc_conn))
+          {
+            RECORD status := this->GetStatus(data);
+            ipc_conn->SendReply(status, ipc_msgid);
+          }
+        }
+        CASE "STATUS2"
+        {
+          IF (ObjectExists(ipc_conn))
+          {
+            RECORD status := this->GetStatus2(data);
+            ipc_conn->SendReply(status, ipc_msgid);
+          }
+        }
+        CASE "CONFIGURE"
+        {
+          this->Configure(data);
+          IF (ObjectExists(ipc_conn))
+            ipc_conn->SendReply([ status := "ok" ], ipc_msgid);
+        }
+        CASE "GETERRORS"
+        {
+          IF (ObjectExists(ipc_conn))
+            ipc_conn->SendReply([ status := "ok", errors := this->errorlist ], ipc_msgid);
+        }
+        CASE "CLEARERRORS"
+        {
+          DELETE FROM this->errorlist WHERE contentsourceid = data.contentsourceid;
+          IF (ObjectExists(ipc_conn))
+            ipc_conn->SendReply([ status := "ok" ], ipc_msgid);
+        }
+        DEFAULT
+        {
+          this->AddToQueue(data);
+          IF (ObjectExists(ipc_conn))
+            ipc_conn->SendReply([ status := "queued" ], ipc_msgid);
+        }
+      }
+      RETURN;
+    }
+  }
+
+  UPDATE STRING FUNCTION GetCommandFromQueueData(RECORD data)
+  {
+    RETURN GetCommandFromQueueData(data);
+  }
+
+  UPDATE STRING FUNCTION GetHashForQueueData(RECORD data)
+  {
+    RETURN GetMD5Hash(GetCommandFromQueueData(data, TRUE));
+  }
+
+  MACRO WorkerPageDone(RECORD worker, RECORD queueitem, INTEGER numpages DEFAULTSTO 1)
+  {
+    // The fetcher fetched a page, reset the timeout
+    this->DebugLog("Worker #" || worker.idx || " finished " || (numpages = 1 ? "a page" : numpages || " pages") || " for queue item " || (RecordExists(queueitem) ? ToString(queueitem.id) : "<unknown> (worker curitem is " || (RecordExists(worker.curitem) ? ToString(worker.curitem.id) : "<unknown>") || ")"), ConsilioDebugInfo);
+
+    IF (RecordExists(queueitem))
+    {
+      queueitem.numpages := queueitem.numpages + numpages;
+      this->UpdateQueueItem(queueitem);
+      this->ResetQueueItemTimeout(queueitem);
+    }
+  }
+
+  MACRO WorkerDeferredQueueItem(RECORD worker, STRING reason)
+  {
+    // This function is called when a Fetcher can't finish a queue item, but not because of an error with the queue item
+    // itself, e.g. it could not connect to the IndexManager
+
+    RECORD queueitem := this->GetCurrentQueueItemFromItem(worker.curitem);
+    IF (reason = "connectionreset"
+        AND RecordExists(queueitem)
+        AND RecordExists(queueitem.data)
+        AND queueitem.data.action IN [ "CHECKINDEXSTATE", "CONFIGURE" ])
+    {
+      // The "connectionreset" is sent if the IndexManager sent a Configure or Index-Check status. The CheckIndexState and
+      // Configure actions do not have to be deferred because of this.
+      RETURN;
+    }
+
+    // Unschedule the queue item the worker was working on
+    RECORD mapped := this->GetQueueMapPos(queueitem);
+    IF (mapped.found)
+    {
+      this->queuemap[mapped.pos].starttime := DEFAULT DATETIME;
+      this->queuemap[mapped.pos].maxtime := DEFAULT DATETIME;
+      this->queuemap[mapped.pos].worker := 0;
+      this->queuemap[mapped.pos].numpages := 0;
+    }
+    this->workers[worker.idx].curitem := DEFAULT RECORD;
+
+    // If the worker is put to sleep, make it unavailable until it sends "Done" output
+    IF (reason LIKE "sleep*")
+    {
+      STRING ARRAY parts := Tokenize(reason, " ");
+      this->DebugLog("Worker #" || worker.idx || " was put to sleep" || (Length(parts) > 1 ? " for " || parts[1] || " seconds" : ""), ConsilioDebugInfo);
+      this->workers[worker.idx].available := FALSE;
+    }
+  }
+
+  UPDATE MACRO ProcessWorkerOutput(RECORD worker, STRING output)
+  {
+    output := TrimWhitespace(output);
+    IF (output = "Done")
+    {
+      IF (NOT worker.available)
+      {
+        this->workers[worker.idx].available := TRUE;
+      }
+      ELSE
+      {
+        RECORD queueitem := this->GetCurrentQueueItemFromItem(worker.curitem);
+        this->DebugLog("Worker #" || worker.idx || " finished queue item " || (RecordExists(queueitem) ? ToString(queueitem.id) : "<unknown>"), ConsilioDebugInfo);
+
+        // If the worker successfully finished a CheckIndex task for a content source, activate the CleanupIndex task
+        IF (RecordExists(queueitem) AND queueitem.data.action IN [ "CHECKINDEX", "UPDATEINDEX" ] AND queueitem.data.indexid != 0 AND queueitem.data.contentsourceid != 0)
+        {
+          RECORD cleanupitem := SELECT * FROM this->queuemap
+                                 WHERE data.action = "CLEANUPINDEX"
+                                       AND data.indexid = queueitem.data.indexid
+                                       AND data.contentsourceid = queueitem.data.contentsourceid;
+          IF (RecordExists(cleanupitem))
+          {
+            this->DebugLog("Activating CleanupIndex task for index " || queueitem.data.indexid || " contentsource " || queueitem.data.contentsourceid, ConsilioDebugInfo);
+            cleanupitem.data.active := TRUE;
+            this->UpdateQueueItem(cleanupitem);
+          }
+        }
+
+        IF (RecordExists(queueitem) AND NOT queueitem.haserrors)
+        {
+          RECORD cmd := GetQueueDataFromCommand(worker.lastcommand);
+          INTEGER contentsourceid := CellExists(cmd, "CONTENTSOURCEID") ? cmd.contentsourceid : 0;
+
+          DELETE
+            FROM this->errorlist
+           WHERE hash = queueitem.hash;
+        }
+      }
+
+      this->WorkerFinishedQueueItem(worker);
+    }
+    ELSE IF (output LIKE "Defer:*")
+    {
+      STRING reason := Right(output, Length(output) - 6);
+      RECORD queueitem := this->GetCurrentQueueItemFromItem(worker.curitem);
+      this->DebugLog("Worker #" || worker.idx || " cannot finish queue item " || (RecordExists(queueitem) ? ToString(queueitem.id) : "<unknown>") || " at the moment: " || reason, ConsilioDebugInfo);
+
+      this->WorkerDeferredQueueItem(worker, reason);
+    }
+    ELSE IF (output LIKE "Error:*")
+    {
+      RECORD queueitem := this->GetCurrentQueueItemFromItem(worker.curitem);
+      IF (RecordExists(queueitem))
+      {
+        STRING errors := TrimWhitespace(Right(output, Length(output) - 6));
+        INTEGER levelpos := SearchSubstring(errors, ":");
+        INTEGER level := ToInteger(Substring(errors, 0, levelpos), 0);
+        errors := Right(errors, Length(errors) - levelpos - 1);
+        this->DebugLog("Worker #" || worker.idx || " encountered errors with queue item " || queueitem.id || ": " || EncodeJava(errors), ConsilioDebugInfo);
+
+        INTEGER pos :=
+           (SELECT AS INTEGER #errorlist + 1
+              FROM this->errorlist
+             WHERE id = queueitem.id) - 1;
+
+        IF (pos = -1)
+        {
+          // Don't add new item for traces, or else we'll only have the last trace on heavy error generating installations
+          IF (errors LIKE "Trace:*")
+            RETURN;
+
+          RECORD cmd := GetQueueDataFromCommand(worker.lastcommand);
+          INTEGER contentsourceid := CellExists(cmd, "CONTENTSOURCEID") ? cmd.contentsourceid : 0;
+
+          RECORD rec :=
+              SELECT cnt :=     Count(*)
+                   , first :=   Any(#errorlist)
+                FROM this->errorlist
+               WHERE COLUMN contentsourceid = VAR contentsourceid;
+
+          IF (RecordExists(rec) AND rec.cnt = 5)
+            DELETE FROM this->errorlist AT rec.first;
+
+          INSERT
+              [ id :=             queueitem.id
+              , when :=           GetCurrentDateTime()
+              , contentsourceid :=contentsourceid
+              , command :=        worker.lastcommand
+              , hash :=           queueitem.hash
+              , error :=          ""
+              , what :=           ""
+              , trace :=          DEFAULT STRING ARRAY
+              ] INTO this->errorlist AT END;
+
+          pos := LENGTH(this->errorlist) - 1;
+
+          queueitem.haserrors := TRUE;
+          this->UpdateQueueItem(queueitem);
+
+          // If level = 2, set cleanup command to just reset status for cmd's index/contentsource
+          IF (level = 2)
+          {
+            BOOLEAN deletecontentsource := contentsourceid != 0;
+            INTEGER indexid := cmd.indexid;
+            FOR (INTEGER queuepos; queuepos < Length(this->queuemap); queuepos := queuepos + 1)
+            {
+              RECORD cleanupqueueitem := this->queuemap[queuepos];
+              IF (cleanupqueueitem.data.action = "CLEANUPINDEX"
+                  AND ((deletecontentsource AND cleanupqueueitem.data.contentsourceid = contentsourceid)
+                    OR (cleanupqueueitem.data.indexid = indexid)))
+              {
+                cleanupqueueitem.data.dontdelete := TRUE;
+                this->UpdateQueueItem(cleanupqueueitem);
+              }
+            }
+          }
+        }
+
+        IF (errors LIKE "What:*")
+        {
+          this->errorlist[pos].what := DecodeJava(SubString(errors, 5));
+          this->errorlist[pos].trace := DEFAULT STRING ARRAY;
+        }
+        ELSE IF (errors LIKE "Trace:*")
+          INSERT SubString(errors, 6) INTO this->errorlist[pos].trace AT END;
+        ELSE
+        {
+          this->errorlist[pos].error := errors;
+          this->errorlist[pos].what := "";
+          this->errorlist[pos].trace := DEFAULT STRING ARRAY;
+        }
+      }
+    }
+    ELSE IF (output = "PageDone")
+    {
+      RECORD queueitem := this->GetCurrentQueueItemFromItem(worker.curitem);
+      this->WorkerPageDone(worker, queueitem);
+
+      RECORD cmd := GetQueueDataFromCommand(worker.lastcommand);
+      INTEGER contentsourceid := CellExists(cmd, "CONTENTSOURCEID") ? cmd.contentsourceid : 0;
+    }
+    ELSE IF (output LIKE "Command:*")
+    {
+      RECORD data := GetQueueDataFromCommand(Right(output, Length(output) - 8));
+      IF (data.success)
+      {
+        this->DebugLog("Worker #" || worker.idx || " sent command '" || data.action || "'", ConsilioDebugInfo);
+        this->AddToQueue(data);
+      }
+      ELSE
+      {
+        this->DebugLog("Worker #" || worker.idx || " sent [" || output || "] but failed to interpret", ConsilioDebugError);
+      }
+    }
+    ELSE IF (output LIKE "DebugSkipped:*")
+    {
+      output := Right(output, Length(output) - 13);
+      this->DebugLog("Worker #" || worker.idx || " skipped " || output, ConsilioDebugSkipped);
+    }
+    ELSE IF (output LIKE "DebugInfo:*")
+    {
+      output := Right(output, Length(output) - 10);
+      this->DebugLog("Worker #" || worker.idx || " sent info: " || output, ConsilioDebugInfo);
+    }
+    ELSE IF (output LIKE "DebugAll:*")
+    {
+      output := Right(output, Length(output) - 9);
+      this->DebugLog("Worker #" || worker.idx || " sent debug output: " || output, ConsilioDebugAll);
+    }
+    ELSE IF (output LIKE "DebugAny:*")
+    {
+      output := Right(output, Length(output) - 9);
+      this->DebugLog("Worker #" || worker.idx || ": " || output, -2);
+    }
+  }
+
+  UPDATE MACRO ProcessWorkerCrash(RECORD worker, STRING errormessage, STRING ARRAY trace)
+  {
+    RECORD queueitem := this->GetCurrentQueueItemFromItem(worker.curitem);
+    IF (RecordExists(queueitem))
+    {
+      this->DebugLog("Worker #" || worker.idx || " crashed on queue item " || queueitem.id || ": " || worker.lastcommand, ConsilioDebugError);
+      this->DebugLog(EncodeJava(errormessage) || "\n" || Detokenize(trace, "\n"), ConsilioDebugError);
+
+      INTEGER pos :=
+         (SELECT AS INTEGER #errorlist + 1
+            FROM this->errorlist
+           WHERE id = queueitem.id) - 1;
+
+      IF (pos = -1)
+      {
+        RECORD cmd := GetQueueDataFromCommand(worker.lastcommand);
+        INTEGER contentsourceid := CellExists(cmd, "CONTENTSOURCEID") ? cmd.contentsourceid : 0;
+
+        RECORD rec :=
+            SELECT cnt :=     Count(*)
+                 , first :=   Any(#errorlist)
+              FROM this->errorlist
+             WHERE COLUMN contentsourceid = VAR contentsourceid;
+
+        IF (RecordExists(rec) AND rec.cnt = 5)
+          DELETE FROM this->errorlist AT rec.first;
+
+        INSERT
+            [ id :=             queueitem.id
+            , when :=           GetCurrentDateTime()
+            , contentsourceid :=contentsourceid
+            , command :=        worker.lastcommand
+            , hash :=           queueitem.hash
+            , error :=          ""
+            , what :=           ""
+            , trace :=          DEFAULT STRING ARRAY
+            ] INTO this->errorlist AT END;
+
+        pos := LENGTH(this->errorlist) - 1;
+
+        queueitem.haserrors := TRUE;
+        this->UpdateQueueItem(queueitem);
+      }
+
+      this->errorlist[pos].error := "Worker crashed on command " || worker.lastcommand ;
+      this->errorlist[pos].what := errormessage || " (last command: " || worker.lastcommand || ")";
+      this->errorlist[pos].trace := trace;
+    }
+  }
+
+
+  UPDATE INTEGER ARRAY FUNCTION GetAdditionalHandles()
+  {
+    RETURN [ INTEGER(this->ipclink->handle)
+           , this->commandport->handle
+           ]
+           CONCAT (SELECT AS INTEGER ARRAY handle FROM this->commandlinks);
+  }
+
+  UPDATE MACRO ProcessAdditionalHandle(INTEGER handle)
+  {
+    IF (handle = this->ipclink->handle)
+    {
+      this->DebugLog("IPC link signalled", ConsilioDebugAll);
+      RECORD res := this->ipclink->ReceiveMessage(DEFAULT DATETIME);
+      IF (res.status != "ok")
+        THROW NEW Exception("IPC link to system:whmanager is gone");
+    }
+    ELSE IF (handle = this->commandport->handle)
+    {
+      this->DebugLog("Incoming command port connection", ConsilioDebugAll);
+      // Accept a new link on the command port
+      OBJECT link := this->commandport->Accept(DEFAULT DATETIME);
+      // If we got a link, add it to the list of command links to wait for
+      IF (ObjectExists(link))
+      {
+        RECORD res := link->ReceiveMessage(AddTimeToDate(500, GetCurrentDateTime()));
+        IF (RecordExists(res) AND res.status = "ok" AND res.msg.action = "connect")
+        {
+          INTEGER workeridx := ToInteger(res.msg.id, -1);
+          RECORD worker := SELECT * FROM this->workers WHERE RecordExists(workers) ? idx = workeridx : FALSE;
+          IF (RecordExists(worker))
+            this->DebugLog("Established command port connection <" || link->handle || "> with worker " || worker.idx, ConsilioDebugAll);
+          ELSE
+            this->DebugLog("Established command port connection <" || link->handle || ">", ConsilioDebugAll);
+          INSERT [ link := link
+                 , handle := link->handle
+                 , workeridx := workeridx
+                 ] INTO this->commandlinks AT END;
+          link->SendReply([ status := "connected" ], res.msgid);
+        }
+        ELSE
+        {
+          this->DebugLog("Did not receive connect action", ConsilioDebugAll);
+          link->Close();
+        }
+      }
+    }
+    ELSE
+    {
+      // Maybe we received a message over one of our command links?
+      RECORD link := SELECT *, idx := #commandlinks FROM this->commandlinks WHERE COLUMN handle = VAR handle;
+      IF (RecordExists(link))
+      {
+        this->DebugLog(`Command port connection <${link.handle}> (worker: ${link.workeridx}) incoming command`, ConsilioDebugAll);
+        RECORD res := link.link->ReceiveMessage(DEFAULT DATETIME);
+        IF (res.status != "ok")
+        {
+          // Connection is gone, delete it from our list
+          this->DebugLog("Command port connection <" || link.handle || "> closed: " || res.status, ConsilioDebugInfo);
+          link.link->Close();
+          DELETE FROM this->commandlinks AT link.idx;
+        }
+        ELSE
+        {
+          this->ProcessData(res.msg, link.link, res.msgid, link.workeridx);
+        }
+        RETURN;
+      }
+    }
+  }
+
+  UPDATE BOOLEAN FUNCTION DebugLogEnabled(INTEGER level DEFAULTSTO -1)
+  {
+    IF (level = -1)
+      level := ConsilioDebugInfo;
+    RETURN debug OR level <= this->debuglevel;
+  }
+
+  UPDATE MACRO DebugLog(STRING message, INTEGER level DEFAULTSTO -1)
+  {
+    // Only the base class should call this function without specifying a debug level; we'll show these messages with a
+    // debug level of ConsilioDebugInfo
+    IF (level = -1)
+      level := ConsilioDebugInfo;
+    IF (debug OR level <= this->debuglevel)
+      Print(message || "\n");
+  }
+
+  UPDATE RECORD FUNCTION GetEmptyQueueItem()
+  {
+    // Get a default queue item
+    RECORD item := QueueManagerBase::GetEmptyQueueItem();
+
+    // The number of pages this item yielded (incremented on PageDone)
+    INSERT CELL numpages := 0 INTO item;
+
+    // Did any errors occur while processing this item?
+    INSERT CELL haserrors := FALSE INTO item;
+
+    RETURN item;
+  }
+
+  UPDATE RECORD FUNCTION AddToQueue(RECORD data)
+  {
+    RECORD rec := QueueManagerBase::AddToQueue(data);
+
+    IF(data.action LIKE "*INDEX")
+    {
+      INTEGER contentsourceid := CellExists(data, "contentsourceid") ? data.contentsourceid : 0;
+      IF(NOT IsDTAPLive()) //FIXME stop tests from relying on these events too
+        BroadcastEvent("consilio.queuemgmt." || ToLowercase(data.action),
+            [ contentsourceid := contentsourceid
+            ]);
+    }
+    ELSE IF(data.action LIKE "*GROUP")
+    {
+      INTEGER contentsourceid := CellExists(data, "contentsourceid") ? data.contentsourceid : 0;
+      IF(NOT IsDTAPLive()) //FIXME stop tests from relying on these events too
+        BroadcastEvent("consilio.queuemgmt." || ToLowercase(data.action LIKE "FAST*" ? Substring(data.action, 4) : data.action),
+            [ contentsourceid := contentsourceid
+            , groupid := data.groupid
+            ]);
+    }
+    ELSE IF(data.action LIKE "*OBJECT")
+    {
+      INTEGER contentsourceid := CellExists(data, "contentsourceid") ? data.contentsourceid : 0;
+      STRING groupid := CellExists(data, "groupid") ? data.groupid : "";
+      IF(NOT IsDTAPLive()) //FIXME stop tests from relying on these events too
+        BroadcastEvent("consilio.queuemgmt." || ToLowercase(data.action),
+            [ contentsourceid := contentsourceid
+            , groupid := groupid
+            , objectid := data.objectid
+            ]);
+    }
+
+    IF (RecordExists(rec) AND NOT rec.found)
+    {
+      RECORD newitem := rec.item;
+      IF (data.action = "CLEANUPINDEX")
+      {
+        RECORD ARRAY cleanupslist := this->cleanups_map->GetVal(CELL[ data.contentsourceid ]);
+
+        // Calculate local blockers
+        INTEGER localblockers := data.contentsourceid > 0 AND NOT data.active ? 1 : 0;
+
+        // Gather blockers on the other cleanup commands for this contentsource
+        INTEGER totalblockers := localblockers;
+        DATETIME ARRAY commanddates := DATETIME[ data.commanddate ];
+
+        FOREVERY (RECORD tocleanup FROM cleanupslist)
+        {
+          totalblockers := totalblockers + tocleanup.localblockers;
+          INSERT tocleanup.commanddate INTO commanddates AT END;
+        }
+
+        INSERT CELL
+            [ rec.item.id
+            , data.commanddate
+            , localblockers
+            , totalblockers
+            , commanddates
+            ] INTO cleanupslist AT END;
+
+        this->cleanups_map->SetVal(CELL[ data.contentsourceid ], cleanupslist);
+      }
+      ELSE IF (data.action IN [ "CHECKGROUP", "CHECKOBJECT", "UPDATEGROUP" ])
+      {
+        RECORD ARRAY cleanupslist := this->cleanups_map->GetVal(CELL[ data.contentsourceid ]);
+        IF (RecordExists(cleanupslist))
+        {
+          UPDATE cleanupslist
+             SET localblockers :=   localblockers + (commanddate = data.commanddate ? 1 : 0)
+               , totalblockers :=   totalblockers + 1
+           WHERE data.commanddate IN commanddates;
+
+          this->cleanups_map->SetVal(CELL[ data.contentsourceid ], cleanupslist);
+        }
+      }
+
+      RECORD mkey := newitem;
+      mkey.priority := -mkey.priority;
+
+      this->priority_map->SetVal(mkey, newitem.hash);
+      RETURN newitem;
+    }
+    ELSE
+    {
+      // If the item is already being processed, make sure it is run again
+      IF (rec.item.worker != 0)
+        this->SetQueueItemRequeueAfterFinishFlag(rec.item);
+      RETURN DEFAULT RECORD;
+    }
+  }
+
+  BOOLEAN FUNCTION HaveCleanupIndexBlocker(INTEGER contentsourceid, DATETIME commanddate)
+  {
+    IF (contentsourceid = 0)
+      RETURN FALSE;
+
+    RECORD ARRAY cleanupslist := this->cleanups_map->GetVal(CELL[ contentsourceid ]);
+    RECORD r := SELECT * FROM cleanupslist WHERE COLUMN commanddate = VAR commanddate;
+    IF (NOT RecordExists(r))
+      THROW NEW Exception("Expected cleanupindex entry to exist!");
+    RETURN r.totalblockers > 0;
+  }
+
+  UPDATE RECORD FUNCTION GetNextQueueItem()
+  {
+    RECORD newitem;
+
+    OBJECT itr := this->priority_map->GetDangerousIteratorRange().range_begin;
+    WHILE (NOT itr->atend)
+    {
+      STRING hash := itr->value;
+
+      RECORD mapped := this->GetQueueMapPos([ hash := hash ]);
+      IF (NOT mapped.found)
+        THROW NEW Exception("Priority map desynchronization!");
+
+      RECORD item := this->queuemap[mapped.pos];
+
+      IF (item.worker = 0
+          AND (item.data.action != "CLEANUPINDEX"
+               OR NOT this->HaveCleanupIndexBlocker(item.data.contentsourceid, item.data.commanddate)))
+      {
+        newitem := item;
+        BREAK;
+      }
+
+      IF (NOT itr->Next())
+        BREAK;
+    }
+
+    RETURN newitem;
+  }
+
+  UPDATE MACRO DequeueItem(RECORD queueitem)
+  {
+    IF (queueitem.data.action = "CLEANUPINDEX")
+    {
+      RECORD ARRAY cleanupslist := this->cleanups_map->GetVal(CELL[ queueitem.data.contentsourceid ]);
+      DELETE FROM cleanupslist WHERE id = queueitem.id;
+      IF (RecordExists(cleanupslist))
+        this->cleanups_map->SetVal(CELL[ queueitem.data.contentsourceid ], cleanupslist);
+      ELSE
+        this->cleanups_map->EraseVal(CELL[ queueitem.data.contentsourceid ]);
+    }
+    ELSE IF (queueitem.data.action IN [ "UPDATEINDEX", "UPDATEGROUP", "CHECKINDEX", "CHECKGROUP", "CHECKOBJECT" ] AND queueitem.data.contentsourceid > 0)
+    {
+      RECORD ARRAY cleanupslist := this->cleanups_map->GetVal(CELL[ queueitem.data.contentsourceid ]);
+      IF (RecordExists(cleanupslist))
+      {
+        UPDATE cleanupslist
+           SET localblockers :=   localblockers - (queueitem.data.commanddate = commanddate ? 1 : 0)
+             , totalblockers :=   totalblockers - 1
+         WHERE queueitem.data.commanddate IN commanddates;
+
+        this->cleanups_map->SetVal(CELL[ queueitem.data.contentsourceid ], cleanupslist);
+      }
+    }
+
+    RECORD mkey := queueitem;
+    mkey.priority := -mkey.priority;
+
+    this->priority_map->EraseVal(mkey);
+
+    QueueManagerBase::DequeueItem(queueitem);
+  }
+
+  // Delete an index or contentsource
+  MACRO DeleteIndex(RECORD data)
+  {
+    this->DebugLog("Processing " || GetCommandFromQueueData(data), ConsilioDebugInfo);
+    BOOLEAN deletecontentsource := data.contentsourceid != 0;
+
+    // Delete all queue items for the requested index/contentsource
+    INTEGER ARRAY restartworkers;
+    FOR (INTEGER pos; pos < Length(this->queuemap);)
+    {
+      RECORD queueitem := this->queuemap[pos];
+      IF ((deletecontentsource AND CellExists(queueitem.data, "CONTENTSOURCEID") AND queueitem.data.contentsourceid = data.contentsourceid)
+        OR (NOT deletecontentsource AND CellExists(queueitem.data, "INDEXID") AND queueitem.data.indexid = data.indexid))
+      {
+        IF (queueitem.worker > 0)
+        {
+          this->DebugLog("Worker " || queueitem.worker || " was working on obsolete queue item " || queueitem.id || ", will be restarted", ConsilioDebugInfo);
+          RECORD worker := this->GetWorkerWithHandle(queueitem.worker);
+          IF (RecordExists(worker))
+            INSERT worker.idx INTO restartworkers AT END;
+        }
+        this->DequeueItem(queueitem);
+      }
+      ELSE
+        pos := pos + 1;
+    }
+
+    // Restart all workers working on one of those items
+    FOREVERY (INTEGER worker FROM restartworkers)
+      this->RestartWorker(this->workers[worker], TRUE);
+
+    // Send cleanupindex for index/contentsource
+    // CLEANUPINDEX with commanddate now delete all document indexed before now, i.e. all document in the index
+    RECORD cleanupindex := GetQueueDataFromCommand("CLEANUPINDEX " || data.indexid || " " || data.contentsourceid || " active  " || DateTimeToString(GetCurrentDateTime()) || (CellExists(data, "debuglevel") ? " " || data.debuglevel : ""));
+    this->DebugLog("Sending CLEANUPINDEX command to clear out indexed documents", ConsilioDebugInfo);
+    this->AddToQueue(cleanupindex);
+  }
+
+  RECORD FUNCTION GetStatus(RECORD data)
+  {
+    RECORD status := [ queuelength := this->QueueLength()
+                     , workers := DEFAULT RECORD ARRAY
+                     , availableworkers := this->availableworkers
+                     , commandlinks := Length(this->commandlinks)
+                     ];
+
+    RECORD ARRAY workers := SELECT * FROM this->workers WHERE RecordExists(workers) ORDER BY idx;
+    FOREVERY (RECORD worker FROM workers)
+    {
+      RECORD curitem := this->GetCurrentQueueItemFromItem(worker.curitem);
+      IF (RecordExists(curitem))
+      {
+        RECORD workerstatus := [ id := worker.idx
+                               , runningtime := GetMsecsDifference(worker.starttime, data.commanddate)
+                               , numitems := worker.numitems
+                               , available := worker.available
+                               , curitem := DEFAULT RECORD
+                               ];
+        workerstatus.curitem := [ id := curitem.id
+                                , workingtime := GetMsecsDifference(curitem.starttime, data.commanddate)
+                                , command := this->GetCommandFromQueueData(curitem.data)
+                                , numpages := curitem.numpages
+                                , starttime := curitem.starttime
+                                , maxtime := /*curitem.finishtime != DEFAULT DATETIME ? DEFAULT DATETIME :*/ curitem.maxtime
+                                ];
+        INSERT workerstatus INTO status.workers AT END;
+      }
+    }
+
+    WHILE (Length(data.arguments) > 0)
+    {
+      SWITCH (data.arguments[0])
+      {
+        CASE "queue"
+        {
+          INSERT CELL queue := (SELECT * FROM this->queuemap LIMIT 50) INTO status;
+        }
+        CASE "wholequeue"
+        {
+          INSERT CELL wholequeue := this->queuemap INTO status;
+        }
+        CASE "cleanupmap"
+        {
+          INSERT CELL cleanupmap :=
+              this->cleanups_map->data INTO status;
+        }
+        CASE "contentsources"
+        {
+          INSERT CELL deduped := (SELECT DISTINCT indexid := CellExists(queuemap.data, "INDEXID") ? queuemap.data.indexid : 0
+                                                , contentsourceid := CellExists(queuemap.data, "CONTENTSOURCEID") ? queuemap.data.contentsourceid : 0
+                                            FROM this->queuemap)
+                 INTO status;
+        }
+      }
+      DELETE FROM data.arguments AT 0;
+    }
+
+    RETURN status;
+  }
+
+  MACRO Configure(RECORD data)
+  {
+    IF (NOT RecordExists(data.configuration))
+      RETURN;
+
+    // If the IndexManager should be configured, queue the configure command, so a Fetcher picks it up
+    IF (CellExists(data.configuration, "indexmanager") AND data.configuration.indexmanager != "")
+    {
+      this->AddToQueue(data);
+    }
+    ELSE IF (CellExists(data.configuration, "maxgroupobjects"))
+    {
+      this->DebugLog("Setting maximum group objects to " || data.configuration.maxgroupobjects, ConsilioDebugInfo);
+      this->AddToQueue(data);
+      //FIXME is this actually broadcast to all fetchers ? I'd think it just get sto one
+    }
+
+    IF (CellExists(data.configuration, "debuglevel") AND data.configuration.debuglevel != this->debuglevel)
+    {
+      this->DebugLog("Setting debuglevel to " || data.configuration.debuglevel, ConsilioDebugError);
+      this->debuglevel := data.configuration.debuglevel;
+      //FIXME broadcast like above to all fetchers, but does that work?
+    }
+    IF (CellExists(data.configuration, "maxtasktime") AND data.configuration.maxtasktime * 1000 != this->maxwait)
+    {
+      this->DebugLog("Setting maximum task time to " || data.configuration.maxtasktime || " seconds", ConsilioDebugInfo);
+      this->SetMaxTaskTime(data.configuration.maxtasktime * 1000);
+    }
+    IF (CellExists(data.configuration, "numworkers") AND data.configuration.numworkers != this->numworkers)
+    {
+      this->DebugLog("Setting number of workers to " || data.configuration.numworkers, ConsilioDebugInfo);
+      this->SetWorkers(data.configuration.numworkers);
+    }
+  }
+>;
+
+MACRO RunQueueManager()
+{
+  INTEGER debuglevel := ReadRegistryKey("consilio.queuemanager.loglevel");
+  INTEGER numworkers := ReadRegistryKey("consilio.queuemanager.workers");
+  INTEGER maxtasktime := ReadRegistryKey("consilio.queuemanager.maxfetchtime") * 1000;
+
+  OBJECT queuemgr := NEW ConsilioQueueManager(debuglevel);
+  queuemgr->Init(numworkers, "mod::consilio/scripts/fetcher.whscr");
+  queuemgr->SetMaxTaskTime(maxtasktime);
+  queuemgr->SetMaxWorkerRunTime(maxworkerruntime);
+  queuemgr->SetMaxWorkerTasks(maxworkertasks);
+  queuemgr->Run();
+  queuemgr->DeInit();
+}
+
+RunQueueManager();

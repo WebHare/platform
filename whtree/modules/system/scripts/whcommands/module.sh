@@ -1,0 +1,84 @@
+source $WEBHARE_DIR/lib/wh-functions.sh
+
+if [ "$1" != "get" ]; then
+  #Forward it to the whscript... we only handle 'get'
+  exec_runscript mod::system/scripts/whcommands/module.whscr "$@"
+fi
+
+shift #Remove "get"
+
+while [[ $1 =~ --.* ]]; do
+  case $1 in
+  "--key")
+    shift
+    if [ -n "$1" -a -f "$1" ]; then
+      [ "$VERBOSE" == "1" ] && echo "Using SSH key at $1"
+      export GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $1"
+    else
+      echo "Could not find key '$1'"
+      exit 1
+    fi
+    shift
+  ;;
+
+  *)
+    echo "Illegal option $1"
+    exit 1
+    ;;
+  esac
+done
+
+if [ -z "$1" ]; then
+  echo "Specify a module name"
+  exit 1
+fi
+
+ERROR=0
+
+getwhparameters
+while [ -n "$1" ]; do
+  if [[ $1 =~ ^https?://[^/]*/([^/]*)/([^/]*)\.git$ ]]; then
+    # Remote git URL
+    CLONEURL="$1"
+    MODULENAME="${BASH_REMATCH[2]}"
+    PATHNAME="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+  elif [[ $1 =~ ^https?://[^/]*/([^/]*)/([^/]*)/([^/]*)\.git$ ]]; then   # gitlab subgroup support
+    # Remote git URL
+    CLONEURL="$1"
+    MODULENAME="${BASH_REMATCH[3]}"
+    PATHNAME="${BASH_REMATCH[2]}/${BASH_REMATCH[3]}"
+  elif [[ $1 =~ ^.*:([^/]*)/([^/]*)\.git$ ]]; then
+    # Remote git URL
+    CLONEURL="$1"
+    MODULENAME="${BASH_REMATCH[2]}"
+    PATHNAME="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+  else
+    CLONEURL="git@gitlab.webhare.com:$1.git"
+    MODULENAME="`echo $1|cut -d/ -f2`"
+    PATHNAME="$1"
+  fi
+
+  [ "$VERBOSE" == "1" ] && echo "Cloning module '$MODULENAME' from '$CLONEURL' into '$PATHNAME'"
+
+  if getmoduledir_nofail XXXTEMP $MODULENAME ; then
+    echo "The module '$MODULENAME' already exists"
+  else
+    if [ -z "$WEBHARE_GITMODULES" ]; then
+      TARGETDIR=`echo "$WEBHARE_DATAROOT/installedmodules/$PATHNAME" | tr '[:upper:]' '[:lower:]'`
+    else
+      TARGETDIR=`echo "$WEBHARE_GITMODULES/$PATHNAME" | tr '[:upper:]' '[:lower:]'`
+    fi
+
+    mkdir -p $(dirname $TARGETDIR)
+    git clone "$CLONEURL" "$TARGETDIR" && ANYMODS=1 || ERROR=1
+  fi
+  shift
+done
+
+if [ "$ANYMODS" == "1" ] && is_webhare_running ; then
+  echo -n "Sending soft-reset request... "
+  runscript mod::system/scripts/whcommands/softreset.whscr
+  echo "done"
+fi
+
+exit $ERROR

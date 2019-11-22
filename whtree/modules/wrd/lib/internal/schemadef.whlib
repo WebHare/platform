@@ -1,0 +1,171 @@
+<?wh
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
+
+PUBLIC STRING ns_schemadef := "http://www.webhare.net/xmlns/wrd/schemadefinition";
+
+MACRO AddXMLAttribute(OBJECT type, RECORD attr, OBJECT parentnode)
+{
+  //ADDME base attributes still need to be exported if important metadata (eq uniqueness) has been set. but then we don't need to export title etc
+  IF(attr.base OR attr.isinherited)
+    RETURN;
+
+  STRING typename := ToLowercase(GetAttributeTypeNameByTypeId(attr.attributetype));
+  OBJECT attrnode := parentnode->ownerdocument->CreateElementNS(ns_schemadef, typename);
+  parentnode->AppendChild(attrnode);
+
+  attrnode->SetAttribute("tag", Substring(attr.tag, SearchLastSubstring(attr.tag,'.')+1));
+  attrnode->SetAttribute("title", attr.title);
+
+  RECORD attrinfo := DescribeAttributeType(attr.attributetypename);
+
+  IF(attr.attributetypename = "ARRAY") //array
+  {
+    RECORD ARRAY subattrs := SELECT * FROM type->ListAttributes(attr.id) ORDER BY ToUppercase(tag);
+    FOREVERY(RECORD subattr FROM subattrs)
+      AddXMLAttribute(type, subattr, attrnode);
+  }
+  IF("domain" IN attrinfo.options)
+  {
+    IF(attr.domain=0)
+      THROW NEW Exception(`Missing domain for ${attr.attributetypename} attribute '${attr.tag}'`);
+    attrnode->SetAttribute("domain", type->wrdschema->GetTypeById(attr.domain)->tag);
+  }
+  IF("multiline" IN attrinfo.options AND attr.multiline)
+    attrnode->SetAttribute("multiline", "true");
+  IF("checklinks" IN attrinfo.options AND attr.checklinks != ("checklinks" IN attrinfo.defaults))
+    attrnode->SetAttribute("checklinks",attr.checklinks?"true":"false");
+  IF(attr.isrequired)
+    attrnode->SetAttribute("required", "true");
+  IF("isunique" IN attrinfo.options AND attr.isunique)
+    attrnode->SetAttribute("unique","true");
+  IF("allowedvalues" IN attrinfo.options)
+    attrnode->SetAttribute("allowedvalues", Detokenize(attr.allowedvalues,' '));
+}
+
+
+MACRO AddXMLType(OBJECT wrdschema, RECORD typeinfo, OBJECT parentnode)
+{
+  STRING typename := ["object","link","attachment","domain"][typeinfo.metatype-1];
+  OBJECT basenode := parentnode->ownerdocument->CreateElementNS(ns_schemadef, typename);
+  parentnode->AppendChild(basenode);
+
+  basenode->SetAttribute("tag", typeinfo.tag);
+  basenode->SetAttribute("title", typeinfo.title);
+  IF(typeinfo.description!="")
+    basenode->SetAttribute("description", typeinfo.description);
+  IF(typeinfo.requiretype_left!="")
+    basenode->SetAttribute("linkfrom", typeinfo.requiretype_left);
+  IF(typeinfo.requiretype_right!="")
+    basenode->SetAttribute("linkto", typeinfo.requiretype_right);
+  IF(typeinfo.parenttype!="")
+    basenode->SetAttribute("parent", typeinfo.parenttype);
+
+  OBJECT attributesnode := parentnode->ownerdocument->CreateElementNS(ns_schemadef, "attributes");
+  basenode->AppendChild(attributesnode);
+
+  OBJECT type := wrdschema->GetType(typeinfo.tag);
+  FOREVERY(RECORD attr FROM SELECT * FROM type->ListAttributes(0) ORDER BY ToUppercase(tag))
+    AddXMLAttribute(type, attr, attributesnode);
+}
+
+MACRO AddXMLQuery(OBJECT wrdschema, RECORD queryinfo, OBJECT parentnode)
+{
+  OBJECT basenode := parentnode->ownerdocument->CreateElementNS(query_ns, "query");
+  parentnode->AppendChild(basenode);
+
+  OBJECT storedquery := NEW WRDStoredQuery(wrdschema, queryinfo, FALSE);
+  storedquery->wrd_query->SerializeToXML(basenode);
+
+  basenode->SetAttribute("tag", queryinfo.tag);
+}
+
+PUBLIC MACRO CreateWRDSchemaDefinitionNodes(OBJECT wrdschema, OBJECT root)
+{
+  RECORD ARRAY basetypes := SELECT tag
+                                 , metatype
+                                 , title
+                                 , description
+                                 , parenttype := parenttype != 0 ? (SELECT AS STRING subtypes.tag FROM wrd.types AS subtypes WHERE subtypes.id=types.parenttype) : ""
+                                 , requiretype_left := metatype IN [2,3] ? (SELECT AS STRING subtypes.tag FROM wrd.types AS subtypes WHERE subtypes.id=types.requiretype_left) : ""
+                                 , requiretype_right := metatype = 2 ? (SELECT AS STRING subtypes.tag FROM wrd.types AS subtypes WHERE subtypes.id=types.requiretype_right) : ""
+                              FROM wrd.types
+                             WHERE wrd_schema = wrdschema->id
+                          ORDER BY metatype, ToUppercase(tag);
+
+  FOREVERY(RECORD type FROM basetypes)
+    AddXMLType(wrdschema, type, root);
+
+  RECORD ARRAY keyvalues :=
+      SELECT *
+        FROM wrd.keyvaluestore
+       WHERE wrd_schema = wrdschema->id
+       ORDER BY name;
+  IF(Length(keyvalues) > 0)
+  {
+    OBJECT keyvaluesnode := root->ownerdocument->CreateElementNS(ns_schemadef,"keyvalues");
+    root->AppendChild(keyvaluesnode);
+
+    FOREVERY(RECORD keyvalue FROM keyvalues)
+    {
+      OBJECT keyvaluenode := root->ownerdocument->CreateElementNS(ns_schemadef,"keyvalue");
+      keyvaluesnode->AppendChild(keyvaluenode);
+      keyvaluenode->SetAttribute("name", keyvalue.name);
+      VARIANT value := ReadAnyFromDatabase(keyvalue.data, keyvalue.blobdata);
+      keyvaluenode->__SetHSValue(value);
+    }
+  }
+}
+
+
+PUBLIC OBJECTTYPE WRDSchemaDefinitionFile EXTEND ResourceValidationBase
+<
+  UPDATE PUBLIC RECORD FUNCTION Validate(OBJECT doc, STRING resourcename, OBJECT xsd)
+  {
+    //Validate the entire file first
+    RECORD ARRAY warnings;
+    RECORD ARRAY errs := xsd->ValidateDocument(doc);
+
+    IF(Length(errs)>0)
+    {
+      RETURN
+          [ errors :=
+               (SELECT resourcename := VAR resourcename
+                     , line :=        line
+                     , col :=         0
+                     , message
+                  FROM errs)
+          , warnings := DEFAULT RECORD ARRAY
+          ];
+    }
+
+    //ADDME use more generic gid parsing? have the schemadef parser extract it for us?
+    RECORD ARRAY tids;
+    STRING modulename := GetModuleNameFromResourcePath(resourcename);
+    IF(modulename!="")
+    {
+      FOREVERY(STRING enumlikefield FROM ["enum","enumarray","statusrecord"])
+        FOREVERY(OBJECT enum FROM doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/wrd/schemadefinition",enumlikefield)->GetCurrentElements())
+      {
+        STRING gid := ParseXMLGid(modulename, "", enum, "gid");
+        IF(gid!="")
+          FOREVERY(STRING val FROM ParseXSLIst(enum->GetAttribute("allowedvalues")))
+          {
+            INSERT [ resourcename := VAR resourcename
+                   , attrname := "allowedvalues"
+                   , line := enum->linenum
+                   , col := 0
+                   , tid := ToLowercase(gid || "." || val)
+                   ] INTO tids AT END;
+          }
+      }
+    }
+    RETURN CELL [ errors := RECORD[], warnings := RECORD[], tids];
+  }
+>;
+

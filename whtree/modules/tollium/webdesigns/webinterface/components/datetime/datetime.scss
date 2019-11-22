@@ -1,0 +1,290 @@
+@import "~@mod-tollium/web/ui/css/settings.scss";
+@import "~@mod-publisher/js/forms/fields/datetime.scss";
+@import "~@mod-tollium/web/ui/skins/default/mixins.scss";
+
+///////////////////////////////////
+//
+// Datetime control
+//
+
+.tollium__datetime
+{
+  @include wh-datetime;
+
+  height: $control-height;
+  line-height: $control-height;
+  border: 1px solid $default-border-color;
+  border-radius: $default-border-radius;
+  background: $control-background-color;
+  font-family: 'Roboto Mono';
+
+  &:focus-within
+  {
+    @include tollium-input-focused;
+  }
+
+  &--required
+  {
+    @include tollium-input-required;
+  }
+
+  &--disabled
+  {
+    @include tollium-input-disabled;
+
+      .tollium__datetime__togglepicker
+    , .tollium__datetime__reset
+    {
+      opacity: 0; //hide but keep the space
+      pointer-events:none;
+    }
+  }
+  &__controls
+  {
+    padding-left: 2px;
+  }
+}
+input[type="tel"].tollium__datetime__part
+{
+  //we need to reset quite a few of the standard input[type=tel] settings...
+  border: none;
+  padding: 0;
+  min-height: 0;
+  min-width: 0;
+  height: auto;
+
+  text-align: right;
+  width: calc(2ch + 2px);
+}
+input[type="tel"].tollium__datetime__msec
+{
+  width: calc(3ch + 2px);
+}
+input[type="tel"].tollium__datetime__year
+{
+  width: calc(4ch + 2px);
+}
+input[type="tel"].tollium__datetime__time
+{
+  padding:0 5px 0 3px;
+}
+
+html.browser-ie11
+{
+  //ie11 completely messes up ch calculation so we'll hardcode the widths
+  //it also messes up roboto mono rendering if we make the inputs too small, they numbers move up&down
+  .tollium__datetime__part
+  {
+    width: 24px;
+    line-height: 16px;
+  }
+  .tollium__datetime__msec
+  {
+    width: 32px;
+  }
+  .tollium__datetime__year
+  {
+    width: 40px;
+  }
+  .tollium__datetime__time
+  {
+    padding:0 5px 0 3px;
+  }
+}
+
+.tollium__datetime__togglepicker:after
+{
+  @include tollium-skinicon-datepicker;
+}
+.tollium__datetime__reset:after
+{
+  @include tollium-skinicon-reset;
+}
+
+  t-panel > .panel-area > div.line > t-datetime
+, t-inlineblock > .panel-area > div.line > t-datetime
+{
+  margin-top:2px;
+}
+
+///////////////////////////////////
+//
+// Date picker
+//
+.tollium__datetime__picker
+{
+  border: 1px solid #a7a7a7;
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+  display: inline-block;
+  border-radius: 3px;
+  background: #e5e5e5;
+}
+
+///////////////////////////////////
+//
+// Date picker header
+//
+
+.tollium__datetime__picker__header
+{
+  display: flex;
+  padding: 2px 3px;
+}
+
+  .tollium__datetime__picker__previous
+, .tollium__datetime__picker__next
+{
+  display:inline-block;
+  width:16px;
+  vertical-align:middle;
+  cursor:pointer;
+  flex: 1 0 16px;
+  line-height:22px;
+}
+.tollium__datetime__picker__previous
+{
+  background: url(~@mod-tollium/web/ui/skins/default/arrow-left.b.svg) 0% 50%/16px 16px no-repeat;
+}
+.tollium__datetime__picker__next
+{
+  background: url(~@mod-tollium/web/ui/skins/default/arrow-right.b.svg) 100% 50%/16px 16px no-repeat;
+}
+.tollium__datetime__picker__yearselect
+{
+  //FIXME make a mixin out of this, wh-spinner, wh-tagedit etc
+  background: #fcfbfb;
+  border: 1px solid #b3b3b3;
+  border-radius: 2px;
+  line-height: 22px;
+  height:23px;
+  margin-left:3px;
+  padding: 0 5px;
+  width:70px;
+}
+
+
+///////////////////////////////////
+//
+// Date picker footer
+//
+
+.tollium__datetime__picker__buttonbar
+{
+  display: flex;
+  padding: 8px 7px;
+}
+.tollium__datetime__picker__todaybutton
+{
+  @include tollium-defaultbutton;
+}
+.tollium__datetime__picker__buttonflex
+{
+  flex-grow: 1;
+}
+
+///////////////////////////////////
+//
+// Date picker days
+//
+
+.tollium__datetime__picker__days
+{
+  border-collapse: collapse;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid #a7a7a7;
+  border-bottom: 1px solid #a7a7a7;
+  background: $control-background-color;
+}
+.tollium__datetime__picker__weekday
+{
+  height: 30px;
+  padding: 10px 4px;
+  border-bottom: 1px solid #a7a7a7;
+  color: #0097ec;
+  font-weight: normal;
+}
+.tollium__datetime__picker__weeknr
+{
+  border-right: 1px solid #a7a7a7;
+  padding: 4px 8px 4px;
+  color: #0097ec;
+  line-height: 19px;
+}
+.tollium__datetime__picker__weeknr > span
+{
+  display: inline-block;
+  min-width: 15px;
+  padding-top: 2px;
+}
+.wh-calendar > .wh-calendar-days td.day
+{
+  padding-bottom: 0;
+  padding-top: 0;
+}
+
+  .tollium__datetime__picker__days th
+, .tollium__datetime__picker__days td
+{
+  width: 32px;
+  height: 22px;
+  padding: 5px;
+  min-width: 40px;
+}
+
+.tollium__datetime__picker__days td:focus
+{
+  outline:none; //FIXME reallow outline as soon as keyboard support in datepicker is done
+//  outline: 1px dotted rgba(0,151,236, 0.6);
+}
+
+// All cells (day + week)
+.tollium__datetime__picker__days span
+{
+  display: block;
+  height: 29px;
+  width: 100%;
+  line-height: 19px;
+  text-align: center;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+
+// Headers are blue
+.tollium__datetime__picker__days th span
+{
+  font-weight: normal;
+  color: #0097ec;
+}
+
+// The day cells
+.tollium__datetime__picker__day--today > span
+{
+  background-color: #eee;
+  border-color: #ccc;
+}
+.tollium__datetime__picker__day--selected > span
+{
+  background-color: #0097ec;
+  border-color: #0097ec;
+  color: #fff;
+}
+.tollium__datetime__picker__day:not(.tollium__datetime__picker__day--disabled)
+{
+  cursor:pointer;
+}
+.tollium__datetime__picker__day:not(.tollium__datetime__picker__day--disabled):hover > span
+{
+  background-color: #eee;
+  border-color: #0097ec;
+  color: inherit;
+}
+.tollium__datetime__picker__day--disabled > span
+{
+  opacity:0.5;
+}
+.tollium__datetime__picker__day--othermonth
+{
+  color: #999;
+}

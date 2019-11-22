@@ -1,0 +1,261 @@
+﻿<?wh
+/** @topic modules/services */
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/database.whlib" EXPORT OpenLocalService;
+LOADLIB "mod::system/lib/internal/services.whlib" EXPORT OpenWebHareService, ServiceDisconnectException, ServiceUnavailableException, ScheduleCallbackOnServiceClose;
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib" EXPORT EncryptForThisServer, DecryptForThisServer;
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, LogHarescriptException, ModuleLog;
+LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib" EXPORT OpenLockManager;
+LOADLIB "mod::system/lib/internal/registry.whlib";
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// WebHare service implementation
+//
+STATIC OBJECTTYPE WebHareService EXTEND IPCPortHandlerBase //NOTE Dupe of managedportrunner.whscr
+<
+  BOOLEAN isoutofdate;
+  RECORD ARRAY links;
+  INTEGER promiseseq;
+  FUNCTION PTR constructor;
+  RECORD options;
+
+  MACRO NEW(OBJECT port, STRING servicename, FUNCTION PTR constructor, RECORD options)
+  : IPCPortHandlerBase(port)
+  {
+    this->options := options;
+    this->constructor := constructor;
+    this->flat_responses := TRUE;
+
+    BroadcastEvent(`system:webhareservice.${servicename}.start`, DEFAULT RECORD);
+
+    IF (options.autorestart)
+    {
+      RegisterMultiEventCallback("system:modulesupdate", PTR this->CheckServiceOutOfDate);
+      RegisterMultiEventCallback("system:modulefolder.*", PTR this->CheckServiceOutOfDate);
+    }
+  }
+
+  MACRO CheckServiceOutOfDate(STRING event, RECORD ARRAY data)
+  {
+    IF (NOT this->isoutofdate AND IsScriptOutOfDate())
+    {
+      this->isoutofdate := TRUE;
+      this->HandleScriptOutOfDate();
+    }
+  }
+
+  MACRO HandleScriptOutOfDate()
+  {
+    // Restart when idle
+    IF (LENGTH(this->links) = 0 OR this->options.restartimmediately)
+      TerminateScriptWithError(`Source for service '${this->listenport->name}' has been updated, restarting it`, [ exitcode := 0 ]);
+    ELSE
+      PRINT(`Source for service '${this->listenport->name}' has been updated, waiting for ${LENGTH(this->links)} active users to exit\n`);
+  }
+
+  UPDATE MACRO OnLinkAccepted(OBJECT link)
+  {
+    //Wait for the constructor
+//    ABORT(link->ReceiveMessage(MAX_DATETIME));
+    link->AsyncReceiveMessage(MAX_DATETIME)->Then(PTR this->SetupLink(link, #1))->OnError(PTR this->CloseLink(link));
+  }
+
+  UPDATE MACRO OnLinkClosed(OBJECT link)
+  {
+    INTEGER pos := this->GetLinkPos(link);
+    IF (pos = -1)
+      RETURN;
+
+    OBJECT handler;
+    IF (MemberExists(this->links[pos].handler, "ONCLOSE"))
+      handler := this->links[pos].handler;
+
+    DELETE FROM this->links AT pos;
+    IF (ObjectExists(handler))
+      handler->OnClose();
+
+    IF (this->isoutofdate)
+      this->HandleScriptOutOfDate();
+  }
+
+  MACRO SetupLink(OBJECT link, RECORD msg)
+  {
+    IF (msg.status = "gone")
+    {
+      this->CloseLink(link);
+      RETURN;
+    }
+
+    TRY
+    {
+      IF(this->constructor = DEFAULT MACRO PTR)
+        THROW NEW Exception("This service does not accept incoming connections");
+
+      //FIXME it would be nice if 'Error: Wrong number of parameters in call to OBJECT FUNCTION CONSTRUCTOR(STRING testdata)' was an exception, not a crash
+      IF(NOT ValidateFunctionPtr(this->constructor, 0, SELECT AS INTEGER ARRAY TYPEID(arg) FROM ToRecordArray(msg.msg.__new,"arg")))
+        THROW NEW Exception("Invalid parameters to " || GetFunctionPtrSignatureString(this->constructor,"NEW"));
+
+      OBJECT handler := CallAnyPtrVA(this->constructor, msg.msg.__new);
+      link->SendReply(DescribePublicInterface(handler), msg.msgid);
+      INSERT [ handler := handler, link := link] INTO this->links AT END;
+    }
+    CATCH(OBJECT e)
+    {
+      //FIXME SendExceptionReply doesn't work here ??
+      link->SendExceptionReply(e, msg.msgid);
+      this->CloseLink(link);
+    }
+  }
+
+  INTEGER FUNCTION GetLinkPos(OBJECT link)
+  {
+    FOREVERY(RECORD mylink FROM this->links)
+      IF(mylink.link = link)
+        RETURN #mylink;
+    RETURN -1;
+  }
+
+  UPDATE RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    TRY
+    {
+      INTEGER pos := this->GetLinkPos(link);
+      VARIANT result := CallAnyPtrVA(GetObjectMethodPtr(this->links[pos].handler, message.call), message.args);
+
+      IF (TypeID(result) = TypeID(OBJECT) AND result EXTENDSFROM PromiseBase)
+      {
+        this->promiseseq := this->promiseseq + 1;
+        result->Then(PTR this->ResolvePromise(link, this->promiseseq, #1), PTR this->RejectPromise(link, this->promiseseq, #1));
+        RETURN [ result := "message", msg := [ __promiseseq := this->promiseseq ]];
+      }
+
+      RETURN [ result := "message", msg := [ result := result ] ];
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN [ result := "message", msg := [ __exception := e->EncodeForIPC() ] ];
+    }
+  }
+
+  MACRO ResolvePromise(OBJECT link, INTEGER promiseseq, VARIANT result)
+  {
+    IF (link->handle = 0) // Already closed?
+      RETURN;
+
+    IF (TypeID(result) = TypeID(OBJECT))
+      link->SendMessage([ __promiseseq := promiseseq, type := "resolve-exception", value := result->EncodeForIPC() ]);
+    ELSE
+      link->SendMessage([ __promiseseq := promiseseq, type := "resolve", value := result ]);
+  }
+
+  MACRO RejectPromise(OBJECT link, INTEGER promiseseq, OBJECT e)
+  {
+    IF (link->handle = 0) // Already closed?
+      RETURN;
+
+    link->SendMessage([ __promiseseq := promiseseq, type := "reject", value := e->EncodeForIPC() ]);
+  }
+>;
+
+/** @short Launch a WebHare service
+    @long Starts a WebHare service and pass the constructed objects to every incoming connection. The constructor
+          can also be left empty - the service will then simply run until its shutdown or requires an autorestart.
+          The call to RunWebhareService will never return.
+    @param servicename Name of the service (should follow the 'module:tag' pattern)
+    @param constructor Constructor to invoke for incoming connections. This object will be marshalled through %OpenWebhareService
+    @cell(boolean) options.autostart Automatically restart the service if the source code has changed. Defaults to TRUE
+    @cell(boolean) options.restartimmediately Immediately restart the service even if we stil have open connections */
+PUBLIC MACRO RunWebHareService(STRING servicename, FUNCTION PTR constructor, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(TERMINATES)
+{
+  TRY
+  {
+    options := ValidateOptions(
+        [ autorestart :=    TRUE
+        , restartimmediately :=    FALSE
+        ], options);
+
+    IF(IsRequest())
+      THROW NEW Exception("A webpage request cannot launch a service");
+    IF(servicename NOT LIKE "?*:?*")
+      THROW NEW Exception("A service should have a <module>:<service> name");
+
+    NEW WebHareService(CreateGlobalIPCPort("webhareservice:" || servicename), servicename, constructor, options)->Run();
+    TerminateScript();
+  }
+  CATCH(OBJECT e)
+  {
+    LogHarescriptException(e);
+    TerminateScriptWithError(e->what);
+  }
+}
+
+RECORD logsettings;
+RECORD FUNCTION GetTheAccountingLogSettings()
+{
+  RETURN [ logtraces := ReadRegistryKey("system.services.accounting.logtraces")
+         ];
+}
+RECORD FUNCTION GetCacheableAccountingLogSettings()
+{
+  RETURN [ value := RunInSeparatePrimary(PTR GetTheAccountingLogSettings)
+         , ttl := 60*60*1000
+         , eventmasks := GetRegistryKeyEventMasks(["system.services.accounting.logtraces"])
+         ];
+}
+
+/** @short Log a hit for accounting purposes
+    @param hittype Hit type (module:tag)
+    @param hitdata Data to store with this hit
+    @cell(string) hitdata.account External account, ie public api key or account (don't pass private keys as-is!)
+    @cell(string) hitdata.source Internal account, source - eg wrdschema 'wrd:<module:tag>', 'site:<site>', 'module:<mod>'
+    @cell(string) hitdata.requestid Unique request or end-to-end ID, if available (for log correlation)
+    @cell(record) hitdata.extra Extra hit-specific data
+    @cell(boolean) hitdata.cached Set to true if we retrieved this data from a local cache (we didn't actually hit an API) that may still have cost implications
+    @cell(integer) hitdata.count API usage count or weight of this hit
+    @cell(string) hitdata.error Error, if any.
+*/
+PUBLIC MACRO LogAccountingHit(STRING hittype, RECORD hitdata)
+{
+  IF(NOT RecordExists(logsettings))
+    logsettings := GetAdhocCached([ type := "accountinglogsettings" ], PTR GetCacheableAccountingLogSettings);
+
+  IF(hittype NOT LIKE "?*:?*")
+    THROW NEW Exception(`Invalid hit type '${hittype}'`);
+
+  hitdata := ValidateOptions([ account := ""
+                             , source := ""
+                             , extra := DEFAULT RECORD
+                             , cached := FALSE
+                             , count := 1
+                             , requestid := ""
+                             , error := ""
+                             ], hitdata);
+  IF(hitdata.source != "" AND hitdata.source NOT LIKE "?*:?*")
+    THROW NEW Exception(`Invalid hit source '${hittype}'`);
+  IF(hitdata.count < 1)
+    THROW NEW Exception(`Invalid count '${hittype}'`);
+
+  RECORD logextra;
+  IF(hitdata.error != "")
+    INSERT CELL error := hitdata.error INTO logextra;
+  IF(RecordExists(hitdata.extra))
+    INSERT CELL extra := hitdata.extra INTO logextra;
+  IF(hitdata.cached)
+    INSERT CELL cached := TRUE INTO logextra;
+  IF(logsettings.logtraces)
+    INSERt CELL trace := GetStackTrace() INTO logextra;
+
+  STRING logtail;
+  IF(RecordExists(logextra))
+    logtail := "\t" || EncodeHSON(logextra);
+
+  ModuleLog("system:accounting", hittype || "\t" || hitdata.account || "\t" || hitdata.source || "\t" || hitdata.requestid || "\t" || hitdata.count || logtail);
+}

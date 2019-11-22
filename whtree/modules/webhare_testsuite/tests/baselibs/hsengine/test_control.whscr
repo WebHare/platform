@@ -1,0 +1,555 @@
+<?wh
+/// @short Control statements test
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::devsupport.whlib";
+
+RECORD ARRAY errors;
+RECORD result;
+
+
+// The reference states 'An IF statement can be nested in another IF statement.
+// There is no limit to the number of nested IF statements you can use.'
+//          --------
+// A 'nested IF statements stress test' is included in 'test_nestedif.whlib'.
+
+// The LoadlibTest tests the correct use of the LOADLIB statement, but does not
+// extensively test correct behaviour (i.e. correct importing of the library).
+
+// Numbers between [brackets] refer to the corresponding page in the HareScript
+// Reference.
+
+// When an error should be reported, the output is undefined.
+
+// STRING and PRINT() are assumed to be implemented,
+// i.e. PRINT(t) should output the value of STRING t.
+
+/*** If [33] ***/
+MACRO IfTest()
+{
+  OpenTest("TestControl: IfTest");
+
+  result := TestCompileAndRun('<?wh IF (TRUE) PRINT("a"); PRINT("b"); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "ab", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) PRINT("a"); PRINT("b"); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "b", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) { PRINT("a"); PRINT("b"); } PRINT("c"); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "abc", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) { PRINT("a"); PRINT("B"); } PRINT("c");  ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "c", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) IF (TRUE) PRINT("a"); PRINT("b"); ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "ab", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) IF (FALSE) PRINT("a"); PRINT("b"); ?>');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "b", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) IF (TRUE) PRINT("a"); PRINT("b"); ?>');
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "b", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) IF (FALSE) PRINT("a"); PRINT("b"); ?>');
+  TestCleanResult(15, result.errors);
+  TestEqualString(16, "b", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER t; BOOLEAN b := TRUE; IF (b) { t := t + 1; IF (b) t := t + 1; } PRINT (t || ""); ?>');
+  TestCleanResult(17, result.errors);
+  TestEqualString(18, "2", result.output);
+
+  errors := TestCompile('<?wh IF TRUE PRINT("a"); ?>');
+  MustContainError(19, errors, 17);
+
+  errors := TestCompile('<?wh IF (TRUE) { PRINT("a"); ?>');
+  MustContainError(20, errors, 207);
+
+  CloseTest("TestControl: IfTest");
+}
+
+/*** Else [34] ***/
+MACRO ElseTest ()
+{
+  OpenTest("TestControl: ElseTest");
+
+  result := TestCompileAndRun('<?wh IF (TRUE) PRINT("a"); ELSE PRINT("b"); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "a", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) PRINT("a"); ELSE PRINT("b"); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "b", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) { PRINT("a"); } ELSE PRINT("b"); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "a", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) { PRINT("a"); } ELSE PRINT("b"); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "b", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) PRINT("a"); ELSE { PRINT("b"); } ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "a", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) PRINT("a"); ELSE { PRINT("b"); } ?>');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "b", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) { PRINT("a"); } ELSE { PRINT("b"); } ?>');
+  TestCleanResult(13, result.errors);
+  TestEqualString(14, "a", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) { PRINT("a"); } ELSE { PRINT("b"); } ?>');
+  TestCleanResult(15, result.errors);
+  TestEqualString(16, "b", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) PRINT("a"); ELSE IF(TRUE) PRINT("b"); ELSE PRINT("c"); ?>');
+  TestCleanResult(17, result.errors);
+  TestEqualString(18, "a", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) PRINT("a"); ELSE IF(TRUE) PRINT("b"); ELSE PRINT("c"); ?>');
+  TestCleanResult(19, result.errors);
+  TestEqualString(20, "b", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) PRINT("a"); ELSE IF(FALSE) PRINT("b"); ELSE PRINT("c"); ?>');
+  TestCleanResult(21, result.errors);
+  TestEqualString(22, "c", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) IF(TRUE) PRINT("a"); ELSE PRINT("b"); ELSE PRINT("c"); ?>');
+  TestCleanResult(23, result.errors);
+  TestEqualString(24, "a", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) IF(FALSE) PRINT("a"); ELSE PRINT("b"); ELSE PRINT("c"); ?>');
+  TestCleanResult(25, result.errors);
+  TestEqualString(26, "b", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) IF(TRUE) PRINT("a"); ELSE PRINT("b"); ELSE PRINT("c"); ?>');
+  TestCleanResult(27, result.errors);
+  TestEqualString(28, "c", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) IF(TRUE) PRINT("a"); ELSE PRINT("b"); ?>');
+  TestCleanResult(29, result.errors);
+  TestEqualString(30, "a", result.output);
+
+  result := TestCompileAndRun('<?wh IF (TRUE) IF(FALSE) PRINT("a"); ELSE PRINT("b"); ?>');
+  TestCleanResult(31, result.errors);
+  TestEqualString(32, "b", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) IF(TRUE) PRINT("a"); ELSE PRINT("b"); ?>');
+  TestCleanResult(33, result.errors);
+  TestEqualString(34, "", result.output);
+
+  result := TestCompileAndRun('<?wh IF (FALSE) { IF(TRUE) PRINT("a"); } ELSE PRINT("b"); ?>');
+  TestCleanResult(35, result.errors);
+  TestEqualString(36, "b", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER t; BOOLEAN b := FALSE; IF (b) t := 0; ELSE { t := t + 1; IF (b) t := 0; ELSE t := t + 1; } PRINT (t || ""); ?>');
+  TestCleanResult(37, result.errors);
+  TestEqualString(38, "2", result.output);
+
+  errors := TestCompile('<?wh IF (TRUE) ELSE PRINT("a"); ?>');
+  MustContainError(39, errors, 73, 'ELSE');
+
+  CloseTest("TestControl: ElseTest");
+}
+
+/*** For [35] ***/
+MACRO ForTest()
+{
+  OpenTest("TestControl: ForTest");
+
+  result := TestCompileAndRun('<?wh FOR (INTEGER i; i < 13; i := i + 4) PRINT(i || " "); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "0 4 8 12 ", result.output);
+
+  result := TestCompileAndRun('<?wh FOR (INTEGER i := 2; i < 13; i := i + 4) PRINT(i || " "); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "2 6 10 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER i := 2; FOR (i; i < 13; i := i + 4) PRINT(i || " "); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "2 6 10 ", result.output);
+
+  result := TestCompileAndRun('<?wh FOR (INTEGER i; i < 13; i := i + 4) { PRINT(i || " "); } ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "0 4 8 12 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER t; FOR (INTEGER i; i < 4; i := i + 1) { t := t + 1; FOR (INTEGER j; j < 3; j := j + 1) t := t + 1;} PRINT (t || ""); ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "16", result.output);
+
+  errors := TestCompile('<?wh FOR INTEGER i; i < 13; i := i + 4) PRINT(i || " "); ?>');
+  MustContainError(11, errors, 17);
+
+  errors := TestCompile('<?wh FOR (INTEGER i; i < 13) PRINT(i || " "); ?>');
+  MustContainError(12, errors, 70);
+
+  errors := TestCompile('<?wh FOR (INTEGER i; "TRUE"; i := i + 1) PRINT(i || " "); ?>');
+  MustContainError(13, errors, 62, 'STRING', 'BOOLEAN');
+
+  result := TestCompileAndRun('<?wh FOR (INTEGER i := 0, j := 10; i<j; i := i + 1) { j := j - 1; PRINT(i || " "); } ?>');
+  TestCleanResult(14, result.errors);
+  TestEqualString(15, "0 1 2 3 4 ", result.output);
+
+
+  CloseTest("TestControl: ForTest");
+}
+
+/*** Forevery [35] ***/
+MACRO ForeveryTest()
+{
+  OpenTest("TestControl: ForeveryTest");
+
+  STRING decls;
+  decls := decls || 'INTEGER ARRAY a;';
+  decls := decls || 'INSERT 5 INTO a AT 0;';
+  decls := decls || 'INSERT 4 INTO a AT 0;';
+  decls := decls || 'INSERT 3 INTO a AT 0;';
+  decls := decls || 'INSERT 2 INTO a AT 0;';
+  decls := decls || 'INSERT 1 INTO a AT 0;';
+  // a := [1, 2, 3, 4, 5];
+
+  result := TestCompileAndRun('<?wh ' || decls || 'FOREVERY (INTEGER i FROM a) PRINT(i || " "); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "1 2 3 4 5 ", result.output);
+
+  result := TestCompileAndRun('<?wh ' || decls || 'INTEGER i; FOREVERY (i FROM a) PRINT(i || " "); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "1 2 3 4 5 ", result.output);
+
+  result := TestCompileAndRun('<?wh ' || decls || 'INTEGER i; FOREVERY (i FROM a) PRINT(#i || " "); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "0 1 2 3 4 ", result.output);
+
+  result := TestCompileAndRun('<?wh ' || decls || 'FOREVERY (INTEGER i FROM a) { FOR (INTEGER s := 0; s < Length(a); s := s + 1) IF (i = a[s]) { DELETE FROM a AT s; BREAK; } } PRINT(Length(a) || ""); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "0", result.output);
+
+  result := TestCompileAndRun('<?wh ' || decls || 'FOREVERY (INTEGER i FROM a) { i := i + 1; PRINT(i || " "); } ?>');
+  TestCleanResult(9, result.errors);
+  TestEqualString(10, "2 3 4 5 6 ", result.output);
+
+  result := TestCompileAndRun('<?wh ' || decls || 'INTEGER t; FOREVERY (INTEGER i FROM a) { t := t + 1; FOREVERY (INTEGER j FROM a) t := t + 1; } PRINT (t || ""); ?>');
+  TestCleanResult(11, result.errors);
+  TestEqualString(12, "30", result.output);
+
+  errors := TestCompile('<?wh ' || decls || 'FOREVERY (INTEGER i FROM a) i := i + 1; PRINT(i || " "); ?>');
+  MustContainError(13, errors, 9, 'I');
+
+  errors := TestCompile('<?wh ' || decls || 'FOREVERY (STRING s FROM a) PRINT(s); ?>');
+  MustContainError(14, errors, 62, 'INTEGER ARRAY', 'STRING ARRAY');
+
+  errors := TestCompile('<?wh ' || decls || 'FOREVERY (STRING s) PRINT(s); ?>');
+  MustContainError(15, errors, 8);
+
+  errors := TestCompile('<?wh ' || decls || 'FOREVERY STRING s FROM a PRINT(s); ?>');
+  MustContainError(16, errors, 17);
+
+  // Test loop counter
+  result := TestCompileAndRun('<?wh FOREVERY (INTEGER i FROM [4,4,6]) { PRINT(#i || ", "); } ?>');
+  TestCleanResult(17, result.errors);
+  TestEqualString(18, "0, 1, 2, ", result.output);
+
+  // Test loop counter outside forevery
+  errors := TestCompile('<?wh INTEGER a; PRINT(#a || ""); ?>');
+  MustContainError(19, errors, 181, "A");
+
+  CloseTest("TestControl: ForeveryTest");
+}
+
+/*** While [36] ***/
+MACRO WhileTest()
+{
+  OpenTest("TestControl: WhileTest");
+
+  result := TestCompileAndRun('<?wh INTEGER i := 5; WHILE (i > 0) { i := i - 1; PRINT(i || " "); } ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "4 3 2 1 0 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER i := 5; WHILE (i > 0) i := i - 1; PRINT(i || " "); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "0 ", result.output);
+
+  result := TestCompileAndRun('<?wh WHILE (FALSE) PRINT("HareScript"); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER t; INTEGER i; WHILE (i < 4) { t := t + 1; INTEGER j; WHILE (j < 3) { t := t + 1; j := j + 1; } i := i + 1; } PRINT (t || ""); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "16", result.output);
+
+  errors := TestCompile('<?wh WHILE ("TRUE") PRINT("HareScript"); ?>');
+  MustContainError(9, errors, 62, 'STRING', 'BOOLEAN');
+
+  CloseTest("TestControl: WhileTest");
+}
+
+/*** Break [37] ***/
+MACRO BreakTest()
+{
+  OpenTest("TestControl: BreakTest");
+
+  STRING decls;
+  decls := decls || 'INTEGER ARRAY a;';
+  decls := decls || 'INSERT 5 INTO a AT 0;';
+  decls := decls || 'INSERT 4 INTO a AT 0;';
+  decls := decls || 'INSERT 3 INTO a AT 0;';
+  decls := decls || 'INSERT 2 INTO a AT 0;';
+  decls := decls || 'INSERT 1 INTO a AT 0;';
+  // a := [1, 2, 3, 4, 5];
+
+  result := TestCompileAndRun('<?wh FOR (INTEGER i := 1; i <= 5; i := i + 1) { PRINT(i || " "); IF (i = 3) BREAK; } ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "1 2 3 ", result.output);
+
+  result := TestCompileAndRun('<?wh ' || decls || 'FOREVERY (INTEGER i FROM a) { PRINT(i || " "); IF (i = 3) BREAK; } ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "1 2 3 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER i := 0; WHILE (TRUE) { i := i + 1; PRINT(i || " "); IF (i = 3) BREAK; } ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "1 2 3 ", result.output);
+
+  errors := TestCompile('<?wh FOR (INTEGER i := 1; i <= 5; i := i + 1) PRINT(i || " "); BREAK; ?>');
+  MustContainError(7, errors, 144);
+
+  CloseTest("TestControl: BreakTest");
+}
+
+/*** Continue [37] ***/
+MACRO ContinueTest()
+{
+  OpenTest("TestControl: ContinueTest");
+
+  STRING decls;
+  decls := decls || 'INTEGER ARRAY a;';
+  decls := decls || 'INSERT 5 INTO a AT 0;';
+  decls := decls || 'INSERT 4 INTO a AT 0;';
+  decls := decls || 'INSERT 3 INTO a AT 0;';
+  decls := decls || 'INSERT 2 INTO a AT 0;';
+  decls := decls || 'INSERT 1 INTO a AT 0;';
+  // a := [1, 2, 3, 4, 5];
+
+  result := TestCompileAndRun('<?wh FOR (INTEGER i := 1; i <= 5; i := i + 1) { IF (i = 3) CONTINUE; Print(i || " "); } ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "1 2 4 5 ", result.output);
+
+  result := TestCompileAndRun('<?wh ' || decls || 'FOREVERY (INTEGER i FROM a) { IF (i = 3) CONTINUE; Print(i || " "); } ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "1 2 4 5 ", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER i := 0; WHILE (i < 5) { i := i + 1; IF (i = 3) CONTINUE; Print(i || " "); } ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "1 2 4 5 ", result.output);
+
+  errors := TestCompile('<?wh FOR (INTEGER i := 1; i <= 5; i := i + 1) PRINT(i || " "); CONTINUE; ?>');
+  MustContainError(7, errors, 144);
+
+  CloseTest("TestControl: ContinueTest");
+}
+
+/*** Return [38] ***/
+MACRO ReturnTest()
+{
+  OpenTest("TestControl: ReturnTest");
+
+  result := TestCompileAndRun('<?wh MACRO m (INTEGER i DEFAULTSTO 1) { i := i + 1; RETURN; PRINT(i || ""); } m(); ?>');
+  TestCleanResult(1, result.errors);
+  TestEqualString(2, "", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER FUNCTION f (INTEGER i DEFAULTSTO 1) { RETURN i + 1; } PRINT(f() || ""); ?>');
+  TestCleanResult(3, result.errors);
+  TestEqualString(4, "2", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER FUNCTION f (INTEGER i DEFAULTSTO 1) { RETURN i + 1; } PRINT(f(2) || ""); ?>');
+  TestCleanResult(5, result.errors);
+  TestEqualString(6, "3", result.output);
+
+  result := TestCompileAndRun('<?wh INTEGER i := 1; RETURN; PRINT(i || ""); ?>');
+  TestCleanResult(7, result.errors);
+  TestEqualString(8, "", result.output);
+
+  errors := TestCompile('<?wh MACRO m (INTEGER i DEFAULTSTO 1) { i := i + 1; RETURN i; PRINT(i || ""); } m(); ?>');
+  MustContainError(9, errors, 98);
+
+  errors := TestCompile('<?wh INTEGER FUNCTION f (INTEGER i DEFAULTSTO 1) { RETURN; } PRINT(f() || ""); ?>');
+  MustContainError(10, errors, 99);
+
+  errors := TestCompile('<?wh INTEGER i := 1; RETURN i; PRINT(i || ""); ?>');
+  MustContainError(11, errors, 100);
+
+  result := TestCompileAndRun('<?wh STRING FUNCTION X(INTEGER i) { IF (i=0) RETURN "X"; ELSE RETURN "Y"; } PRINT (X(0)); ?>');
+  TestCleanResult(12, result.errors);
+  TestEqualString(13, "X", result.output);
+
+  CloseTest("TestControl: ReturnTest");
+}
+
+/*** Loadlib [39] ***/
+MACRO LoadlibTest()
+{
+  OpenTest("TestControl: LoadlibTest");
+
+  errors := TestCompilePrimitive('<?wh LOADLIB "wh::os.whlib"; INTEGER i := 1; IsProcessRunning(0); ?>');
+  TestCleanResult(1, errors);
+
+  errors := TestCompilePrimitive('<?wh INTEGER i := 1; LOADLIB "wh::os.whlib"; IsProcessRunning(0); ?>');
+  MustContainError(2, errors, 73, 'LOADLIB');
+
+  errors := TestCompilePrimitive('<?wh LOADLIB; INTEGER i := 1; IsProcessRunning(0); ?>');
+  MustContainError(3, errors, 16);
+
+  errors := TestCompilePrimitive('<?wh LOADLIB 1; INTEGER i := 1; IsProcessRunning(0); ?>');
+  MustContainError(4, errors, 16);
+
+  errors := TestCompilePrimitive('<?wh LOADLIB TRUE; INTEGER i := 1; IsProcessRunning(0); ?>');
+  MustContainError(5, errors, 16);
+
+  errors := TestCompilePrimitive('<?wh INTEGER i := 1; IsProcessRunning(0); ?>');
+  MustContainError(6, errors, 139, 'ISPROCESSRUNNING');
+
+  //ExternalData moet voor LOADLIB mogen
+  result := TestCompileAndRunPrimitive('Hoi!<?wh /**/LOADLIB "wh::os.whlib"/**/; /**/IsProcessRunning(0); ?>');
+  TestCleanResult (7, result.errors);
+  TestEqualString (8, "Hoi!", result.output);
+
+  //ExternalData moet tussen LOADLIBs mogen
+  result := TestCompileAndRunPrimitive('<?wh LOADLIB "wh::float.whlib"; /**/?>Hoi!<?wh /**/LOADLIB "wh::os.whlib"; IsProcessRunning(0); ?>');
+  TestCleanResult (9, result.errors);
+  TestEqualString (10, "Hoi!", result.output);
+
+
+  // Een EXPORT en een global variable met dezelfde naam gaan niet samen
+  errors := TestCompilePrimitive('<?wh LOADLIB "wh::internal/hsselftests.whlib" EXPORT max_float_dev_in_recordarray; PUBLIC FLOAT max_float_dev_in_recordarray;');
+  MustContainError(11, errors, 4, 'MAX_FLOAT_DEV_IN_RECORDARRAY');
+
+  // Een EXPORT en een global function met dezelfde naam gaan niet samen
+  errors := TestCompilePrimitive('<?wh LOADLIB "wh::internal/hsselftests.whlib" EXPORT TestCompilePrimitive; MACRO TestCompilePrimitive() {};');
+  MustContainError(12, errors, 4, 'TESTCOMPILEPRIMITIVE');
+
+  CloseTest("TestControl: LoadlibTest");
+}
+
+/*** FunctionTest ***/
+MACRO FunctionTest()
+{
+  OpenTest("TestControl: FunctionTest");
+
+  // Missing return
+  result := TestCompileAndRun('<?wh STRING FUNCTION f() {} PRINT(f()); ?>');
+  MustContainError(2, result.errors, 99);
+
+  result := TestCompileAndRun('<?wh STRING FUNCTION f(BOOLEAN a) { IF (a) RETURN ""; } PRINT(f(false) || f(true)); ?>');
+  MustContainError(4, result.errors, 99);
+
+    //MACRO is required
+  errors := TestCompile('<?wh PUBLIC T1() {} ');
+  MustContainError(8, errors, 195, 'MACRO');
+
+  CloseTest("TestControl: FunctionTest");
+}
+
+MACRO LoadlibRedefinitionTest()
+{
+  OpenTest("TestControl: LoadlibRedefinitionTest");
+
+  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_export_middlelib.whlib"; PUBLIC INTEGER i := 5; PRINT(""||i); ?>');
+  TestCleanResult(1, result.errors);
+  MustContainWarning(2, result.errors, 21, "I", "test::testdata_export_toplib.whlib");
+  TestEqualString(3, "5", result.output);
+
+  errors := TestCompile('<?wh LOADLIB "test::testdata_export_middlelib.whlib" EXPORT i; PUBLIC INTEGER i := 5; PRINT(""||i); ?>');
+  MustContainError(4, errors, 4, "I");
+
+  CloseTest("TestControl: LoadlibRedefinitionTest");
+}
+
+MACRO SwitchTest()
+{
+  OpenTest("TestControl: SwitchTest");
+
+  INTEGER a := 1;
+  SWITCH (a) { CASE 1 { a := 2; } CASE 2 { a:= 4; } DEFAULT { a := 5; } }
+  TestEqualInteger(1, 2, a);
+
+  a := 3;
+  SWITCH (a) { CASE 1, 4 { a := 2; } CASE 2 { a:= 4; } DEFAULT { a := 5; } }
+  TestEqualInteger(2, 5, a);
+
+  a := 4;
+  SWITCH (a) { CASE 1, 4 { a := 2; } CASE 2 { a:= 4; } DEFAULT { a := 5; } }
+  TestEqualInteger(3, 2, a);
+
+  result := TestCompileAndRun('<?wh SWITCH (1) { CASE 1,1 { PRINT ("OK"); } } ?>');
+  MustContainError(4, result.errors, 45);
+
+  CloseTest("TestControl: SwitchTest");
+}
+
+MACRO ErrorPositioningTest()
+{
+  OpenTest("TestControl: ErrorPositioningTest");
+
+  //Test whether HareScript blames the correct cursor position for errors
+  result := TestCompileAndRun('<?wh\nABORT("test 1");\nABORT("test 2");');
+
+  TestEqualInteger(1, 2, result.errors[0].line);
+  TestEqualInteger(2, 1, result.errors[0].col);
+  MustContainError(3, result.errors, 182, "test 1");
+
+  CloseTest("TestControl: ErrorPositioningTest");
+}
+
+MACRO TestFunc() { PRINT(""); /* Make sure it's not optimized away */}
+MACRO TestFunc2() { PRINT(""); /* Make sure it's not optimized away */}
+
+MACRO ProfilingTest()
+{
+  Opentest("TestControl: ProfilingTest");
+
+  EnableFunctionProfile();
+  TestFunc();
+  TestFunc2();
+  TestFunc();
+  DisableFunctionProfile();
+
+  RECORD ARRAY profiledata := SELECT * FROM GetFunctionProfileData() ORDER BY NAME;
+
+  TestEqualInteger (1, 3, Length(profiledata));
+  TestEqualString  (2, "PRINT:::S", profiledata[0].name);
+  TestEqualString  (3, "TESTFUNC2:::", profiledata[1].name);
+  TestEqualString  (4, "TESTFUNC:::", profiledata[2].name);
+  TestEqualInteger (5, 3, profiledata[0].callcount);
+  TestEqualInteger (6, 2, profiledata[2].callcount);
+  TestEqualInteger (7, 1, profiledata[1].callcount);
+  /* FIXME! These tests FAIL on amd x64_64 (totaltime is actually 0 !? impreciese measurements?)
+  TestEqualBoolean (8, TRUE, profiledata[0].totaltime>0.0);
+  TestEqualBoolean (9, TRUE, profiledata[1].totaltime>0.0);
+  */
+
+  CloseTest("TestControl: ProfilingTest");
+}
+
+PRINT("\n === Running TestControl\n");
+ProfilingTest();
+LoadlibTest();
+LoadlibRedefinitionTest();
+FunctionTest();
+IfTest();
+ElseTest();
+ForTest();
+ForeveryTest();
+WhileTest();
+SwitchTest();
+BreakTest();
+ContinueTest();
+ReturnTest();
+ErrorPositioningTest();
